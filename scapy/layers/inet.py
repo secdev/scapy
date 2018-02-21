@@ -19,7 +19,8 @@ from scapy.data import *
 from scapy.layers.l2 import *
 from scapy.compat import *
 from scapy.config import conf
-from scapy.consts import WINDOWS, plt, MATPLOTLIB, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
+from scapy.arch import WINDOWS
+from scapy.extlib import plt, MATPLOTLIB, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
 from scapy.fields import *
 from scapy.packet import *
 from scapy.volatile import *

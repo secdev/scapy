@@ -359,7 +359,7 @@ class WinProgPath(ConfClass):
 
 conf.prog = WinProgPath()
 if not conf.prog.os_access:
-    warning("Scapy did not detect powershell and cscript ! Routes, interfaces and much more won't work !", onlyOnce=True)
+    warning("Scapy did not detect powershell and cscript ! Routes, interfaces and much more won't work !")
 
 if conf.prog.tcpdump and conf.use_npcap and conf.prog.os_access:
     def test_windump_npcap():
@@ -373,7 +373,7 @@ if conf.prog.tcpdump and conf.use_npcap and conf.prog.os_access:
             return False
     windump_ok = test_windump_npcap()
     if not windump_ok:
-        warning("The installed Windump version does not work with Npcap ! Refer to 'Winpcap/Npcap conflicts' in scapy's doc", onlyOnce=True)
+        warning("The installed Windump version does not work with Npcap ! Refer to 'Winpcap/Npcap conflicts' in scapy's doc")
     del windump_ok
 
 class PcapNameNotFoundError(Scapy_Exception):
@@ -707,7 +707,7 @@ class NetworkInterfaceDict(UserDict):
             warning(_error_msg +
                     "You probably won't be able to send packets. "
                     "Deactivating unneeded interfaces and restarting Scapy might help. "
-                    "Check your winpcap and powershell installation, and access rights.", onlyOnce=True)
+                    "Check your winpcap and powershell installation, and access rights.")
         else:
             # Loading state: remove invalid interfaces
             self.remove_invalid_ifaces()
@@ -872,10 +872,10 @@ def read_routes():
         else:
             routes = _read_routes_7()
     except Exception as e:    
-        warning("Error building scapy IPv4 routing table : %s", e, onlyOnce=True)
+        warning("Error building scapy IPv4 routing table : %s", e)
     else:
         if not routes:
-            warning("No default IPv4 routes found. Your Windows release may no be supported and you have to enter your routes manually", onlyOnce=True)
+            warning("No default IPv4 routes found. Your Windows release may no be supported and you have to enter your routes manually")
     return routes
 
 def _get_metrics(ipv6=False):
@@ -1040,7 +1040,7 @@ def read_routes6():
         else:
             routes6 = _read_routes6_7()
     except Exception as e:    
-        warning("Error building scapy IPv6 routing table : %s", e, onlyOnce=True)
+        warning("Error building scapy IPv6 routing table : %s", e)
     return routes6
 
 def get_working_if():

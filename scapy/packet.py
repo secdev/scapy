@@ -23,7 +23,7 @@ from scapy.volatile import VolatileValue
 from scapy.utils import import_hexcap,tex_escape,colgen,get_temp_file, \
     ContextManagerSubprocess
 from scapy.error import Scapy_Exception, log_runtime
-from scapy.consts import PYX
+from scapy.extlib import PYX
 import scapy.modules.six as six
 
 try:

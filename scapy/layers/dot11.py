@@ -28,7 +28,7 @@ if conf.crypto_valid:
     from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
 else:
     default_backend = Ciphers = algorithms = None
-    log_loading.info("Can't import python-cryptography v1.7+. Disabled WEP decryption/encryption.")
+    log_loading.info("Can't import python-cryptography v1.7+. Disabled WEP decryption/encryption. (Dot11)")
 
 
 ### Layers

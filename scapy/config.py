@@ -422,7 +422,6 @@ debug_tls:When 1, print some TLS session secrets when they are computed.
     debug_dissector = 0
     color_theme = Interceptor("color_theme", NoTheme(), _prompt_changer)
     warning_threshold = 5
-    warning_next_only_once = False
     prog = ProgPath()
     resolve = Resolve()
     noenum = Resolve()
@@ -462,10 +461,6 @@ if not Conf.ipv6_enabled:
     for m in ["inet6","dhcp6"]:
         if m in Conf.load_layers:
             Conf.load_layers.remove(m)
-    
-if not Conf.crypto_valid:
-    log_scapy.warning("Crypto-related methods disabled for IPsec, Dot11 "
-                      "and TLS layers (needs python-cryptography v1.7+).")
 
 conf=Conf()
 conf.logLevel=30 # 30=Warning

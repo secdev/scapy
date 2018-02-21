@@ -15,6 +15,8 @@ from ctypes import c_uint, c_uint32, c_ushort, c_ubyte
 from scapy.config import conf
 import scapy.modules.six as six
 
+## UTILS
+
 def get_if(iff, cmd):
     """Ease SIOCGIF* ioctl calls"""
 
@@ -22,6 +24,8 @@ def get_if(iff, cmd):
     ifreq = ioctl(sck, cmd, struct.pack("16s16x", iff.encode("utf8")))
     sck.close()
     return ifreq
+
+## BPF HANDLERS
 
 class bpf_insn(Structure):
     """"The BPF instruction data structure"""
