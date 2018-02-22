@@ -197,6 +197,10 @@ class Route6:
             dst = socket.getaddrinfo(savedst, None, socket.AF_INET6)[0][-1][0]
             # TODO : Check if name resolution went well
 
+        # Use the default interface while dealing with link-local addresses
+        if dev is None and (in6_islladdr(dst) or in6_ismlladdr(dst)):
+            dev = conf.iface
+
         # Deal with dev-specific request for cache search
         k = dst
         if dev is not None:

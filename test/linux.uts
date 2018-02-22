@@ -172,3 +172,24 @@ assert(got_lo_device)
 
 exit_status = os.system("ip link del dev scapy_lo")
 assert(exit_status == 0)
+
+= IPv6 link-local address selection
+
+from mock import patch
+bck_conf_route6_routes = conf.route6.routes
+conf.route6.routes =  [('fe80::', 64, '::', 'scapy0', ['fe80::e039:91ff:fe79:1910'], 256)]
+bck_conf_iface = conf.iface
+conf.iface = "scapy0"
+with patch("scapy.layers.l2.get_if_hwaddr") as mgih:
+    mgih.return_value = 'e2:39:91:79:19:10'
+    p = Ether()/IPv6(dst="ff02::1")/ICMPv6NIQueryName(data="ff02::1")
+    print(p.sprintf("%Ether.src% > %Ether.dst%\n%IPv6.src% > %IPv6.dst%"))
+    ip6_ll_address = 'fe80::e039:91ff:fe79:1910'
+    print(p[IPv6].src, ip6_ll_address)
+    assert p[IPv6].src == ip6_ll_address
+    mac_address = 'e2:39:91:79:19:10'
+    print(p[Ether].src, mac_address)
+    assert p[Ether].src == mac_address
+
+conf.route6.routes = bck_conf_route6_routes
+conf.iface = bck_conf_iface
