@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 
-## Copyright (C) 2017 Alexis Sultan    <alexis.sultan@sfr.com>
+## Copyright (C) 2017 Leonardo Monteiro <decastromonteiro@gmail.com>
+##               2017 Alexis Sultan    <alexis.sultan@sfr.com>
 ##               2017 Alessio Deiana <adeiana@gmail.com>
 ##               2014 Guillaume Valadon <guillaume.valadon@ssi.gouv.fr>
 ##               2012 ffranz <ffranz@iniqua.com>
@@ -193,7 +194,7 @@ class GTP_PDCP_PDU_ExtensionHeader(GTP_ExtensionHeader):
     fields_desc=[ ByteField("length", 0x01),
                   ShortField("pdcp_pdu", None),
                   ByteEnumField("next_ex", 0, ExtensionHeadersTypes), ]
-    
+
 
 class GTPHeader(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
@@ -240,8 +241,8 @@ class GTPHeader(Packet):
 class GTP_U_Header(GTPHeader):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
     name = "GTP-U Header"
-    # GTP-U protocol is used to transmit T-PDUs between GSN pairs (or between an SGSN and an RNC in UMTS), 
-    # encapsulated in G-PDUs. A G-PDU is a packet including a GTP-U header and a T-PDU. The Path Protocol 
+    # GTP-U protocol is used to transmit T-PDUs between GSN pairs (or between an SGSN and an RNC in UMTS),
+    # encapsulated in G-PDUs. A G-PDU is a packet including a GTP-U header and a T-PDU. The Path Protocol
     # defines the path and the GTP-U header defines the tunnel. Several tunnels may be multiplexed on a single path.
 
 # Some gtp_types have to be associated with a certain type of header
@@ -311,7 +312,7 @@ class IE_SelectionMode(IE_Base):
     # Indicates the origin of the APN in the message
     name = "Selection Mode"
     fields_desc = [ ByteEnumField("ietype", 15, IEType),
-                    BitEnumField("SelectionMode", "MS or APN", 
+                    BitEnumField("SelectionMode", "MS or APN",
                                  8, Selection_Mode) ]
 
 
@@ -342,7 +343,7 @@ class IE_NSAPI(IE_Base):
 
 
 class IE_ChargingCharacteristics(IE_Base):
-    # Way of informing both the SGSN and GGSN of the rules for 
+    # Way of informing both the SGSN and GGSN of the rules for
     name = "Charging Characteristics"
     fields_desc = [ ByteEnumField("ietype", 26, IEType),
                     # producing charging information based on operator configured triggers.
@@ -380,7 +381,7 @@ class IE_ChargingId(IE_Base):
 
 
 class IE_EndUserAddress(IE_Base):
-    # Supply protocol specific information of the external packet 
+    # Supply protocol specific information of the external packet
     name = "End User Addresss"
     fields_desc = [ ByteEnumField("ietype", 128, IEType),
                     #         data network accessed by the GGPRS subscribers.
@@ -388,15 +389,17 @@ class IE_EndUserAddress(IE_Base):
                     #                1    Type (1byte)
                     #                2-3    Length (2bytes) - value 2
                     #                4    Spare + PDP Type Organization
-                    #                5    PDP Type Number    
+                    #                5    PDP Type Number
                     #            - Response
                     #                6-n    PDP Address
                     ShortField("length", 2),
                     BitField("SPARE", 15, 4),
                     BitField("PDPTypeOrganization", 1, 4),
                     XByteField("PDPTypeNumber", None),
-                    ConditionalField(IPField("PDPAddress", RandIP()),
-                                     lambda pkt: pkt.length > 2)]
+                    ConditionalField(IPField("PDPAddress_IPv4", RandIP()),
+                                     lambda pkt: pkt.length == 6 or pkt.length == 22),
+                    ConditionalField(IP6Field("PDPAddress_IPv6", '::1'),
+                                     lambda pkt: pkt.length == 18 or pkt.length == 22)]
 
 
 class APNStrLenField(StrLenField):
@@ -408,7 +411,7 @@ class APNStrLenField(StrLenField):
             tmp_len = orb(tmp_s[0]) + 1
             if tmp_len > len(tmp_s):
                 warning("APN prematured end of character-string (size=%i, remaining bytes=%i)" % (tmp_len, len(tmp_s)))
-            ret_s +=  tmp_s[1:tmp_len] 
+            ret_s +=  tmp_s[1:tmp_len]
             tmp_s = tmp_s[tmp_len:]
             if len(tmp_s) :
                 ret_s += b"."
@@ -437,7 +440,7 @@ class IE_ProtocolConfigurationOptions(IE_Base):
     name = "Protocol Configuration Options"
     fields_desc = [ ByteEnumField("ietype", 132, IEType),
             ShortField("length", 4),
-            StrLenField("Protocol_Configuration", "", 
+            StrLenField("Protocol_Configuration", "",
                         length_from=lambda x: x.length) ]
 
 
@@ -821,6 +824,10 @@ class GTPUpdatePDPContextResponse(Packet):
     def hashret(self):
         return struct.pack("H", self.seq)
 
+    def answers(self, other):
+        return self.seq == other.seq
+
+
 
 class GTPErrorIndication(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
@@ -832,10 +839,19 @@ class GTPDeletePDPContextRequest(Packet):
     name = "GTP Delete PDP Context Request"
     fields_desc = [ PacketListField("IE_list", [], IE_Dispatcher) ]
 
+    def hashret(self):
+        return struct.pack("H", self.seq)
+
 class GTPDeletePDPContextResponse(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
     name = "GTP Delete PDP Context Response"
     fields_desc = [ PacketListField("IE_list", [], IE_Dispatcher) ]
+
+    def hashret(self):
+        return struct.pack("H", self.seq)
+
+    def answers(self, other):
+        return self.seq == other.seq
 
 class GTPPDUNotificationRequest(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
@@ -855,7 +871,7 @@ class GTPSupportedExtensionHeadersNotification(Packet):
 class GTPErrorIndication(Packet):
     name = "GTP Error Indication"
     fields_desc = [ PacketListField("IE_list", [], IE_Dispatcher) ]
-    
+
 class GTPmorethan1500(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
     name = "GTP More than 1500"
