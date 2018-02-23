@@ -380,7 +380,7 @@ assert(tzsp_tag_end.type == 1)
 
 bind_layers(UDP, TZSP, dport=TZSP_PORT_DEFAULT)
 
-SENSOR_ID = '1E:AT:DE:AD:BE:EF'
+SENSOR_ID = b'1E:AT:DE:AD:BE:EF'
 
 frm = Ether(src='00:01:01:01:01:01', dst='00:02:02:02:02:02') / \
       IP(src='1.1.1.1', dst='2.2.2.2') / \
@@ -408,7 +408,7 @@ assert(tzsp_tag_end.type == 1)
 
 bind_layers(UDP, TZSP, dport=TZSP_PORT_DEFAULT)
 
-SENSOR_ID = '1E:AT:DE:AD:BE:EF'
+SENSOR_ID = b'1E:AT:DE:AD:BE:EF'
 
 frm = Ether(src='00:01:01:01:01:01', dst='00:02:02:02:02:02') / \
       IP(src='1.1.1.1', dst='2.2.2.2') / \
