@@ -376,10 +376,11 @@ def remove_empty_testsets(test_campaign):
 
 #### RUN CAMPAIGN #####
 
-def run_campaign(test_campaign, get_interactive_session, verb=3, ignore_globals=None):
-    passed=failed=0
+def run_campaign(test_campaign, get_interactive_session, STOP_ON_FAIL=False,
+                 verb=3, ignore_globals=None):
     if test_campaign.preexec:
         test_campaign.preexec_output = get_interactive_session(test_campaign.preexec.strip(), ignore_globals=ignore_globals)[0]
+    passed = failed = 0
     for testset in test_campaign:
         for t in testset:
             t.output,res = get_interactive_session(t.test.strip(), ignore_globals=ignore_globals)
@@ -402,6 +403,10 @@ def run_campaign(test_campaign, get_interactive_session, verb=3, ignore_globals=
             t.decode()
             if verb > 1:
                 print("%(result)6s %(crc)s %(name)s" % t, file=sys.stderr)
+            if STOP_ON_FAIL and not t.res:
+                break
+        if STOP_ON_FAIL and not t.res:
+            break
     test_campaign.passed = passed
     test_campaign.failed = failed
     if verb:
@@ -599,7 +604,7 @@ def campaign_to_LATEX(test_campaign):
 def usage():
     print("""Usage: UTscapy [-m module] [-f {text|ansi|HTML|LaTeX}] [-o output_file] 
                [-t testfile] [-T testfile] [-k keywords [-k ...]] [-K keywords [-K ...]]
-               [-l] [-d|-D] [-F] [-q[q]] [-P preexecute_python_code]
+               [-l] [-d|-D] [-F] [-q[q]] [-x] [-P preexecute_python_code]
                [-s /path/to/scapy] [-c configfile]
 -t\t\t: provide test files (can be used many times)
 -T\t\t: if -t is used with *, remove a specific file (can be used many times)
@@ -611,6 +616,7 @@ def usage():
 -s\t\t: path to scapy.py
 -c\t\t: load a .utsc config file
 -q\t\t: quiet mode
+-x\t\t: stop on the first failed test
 -qq\t\t: [silent mode]
 -n <testnum>\t: only tests whose numbers are given (eg. 1,3-7,12)
 -m <module>\t: additional module to put in the namespace
@@ -624,7 +630,8 @@ def usage():
 #### MAIN ####
 
 def execute_campaign(TESTFILE, OUTPUTFILE, PREEXEC, NUM, KW_OK, KW_KO, DUMP,
-                     FORMAT, VERB, ONLYFAILED, CRC, autorun_func, pos_begin=0, ignore_globals=None):
+                     FORMAT, VERB, ONLYFAILED, CRC, STOP_ON_FAIL,
+                     autorun_func, pos_begin=0, ignore_globals=None):
     # Parse test file
     test_campaign = parse_campaign_file(TESTFILE)
 
@@ -654,7 +661,8 @@ def execute_campaign(TESTFILE, OUTPUTFILE, PREEXEC, NUM, KW_OK, KW_KO, DUMP,
 
     # Run tests
     test_campaign.output_file = OUTPUTFILE
-    result = run_campaign(test_campaign, autorun_func[FORMAT], verb=VERB, ignore_globals=None)
+    result = run_campaign(test_campaign, autorun_func[FORMAT], STOP_ON_FAIL,
+                          verb=VERB, ignore_globals=None)
 
     # Shrink passed
     if ONLYFAILED:
@@ -700,6 +708,7 @@ def main(argv):
     KW_OK = []
     KW_KO = []
     DUMP = 0
+    STOP_ON_FAIL = False
     CRC = True
     ONLYFAILED = False
     VERB = 3
@@ -709,7 +718,7 @@ def main(argv):
     MODULES = []
     TESTFILES = []
     try:
-        opts = getopt.getopt(argv, "o:t:T:c:f:hln:m:k:K:DdCFqP:s:")
+        opts = getopt.getopt(argv, "o:t:T:c:f:hln:m:k:K:xDdCFqP:s:")
         for opt,optarg in opts[0]:
             if opt == "-h":
                 usage()
@@ -778,6 +787,8 @@ def main(argv):
                 KW_OK.append(optarg.split(","))
             elif opt == "-K":
                 KW_KO.append(optarg.split(","))
+            elif opt == "-x":
+                STOP_ON_FAIL = True
 
         if VERB > 2:
             print("### Booting scapy...", file=sys.stderr)
@@ -834,7 +845,8 @@ def main(argv):
         output, result, campaign = execute_campaign(open(TESTFILE), OUTPUTFILE,
                                           PREEXEC, NUM, KW_OK, KW_KO,
                                           DUMP, FORMAT, VERB, ONLYFAILED,
-                                          CRC, autorun_func, pos_begin, ignore_globals)
+                                          CRC, STOP_ON_FAIL,
+                                          autorun_func, pos_begin, ignore_globals)
         runned_campaigns.append(campaign)
         pos_begin = campaign.end_pos
         if UNIQUE:
