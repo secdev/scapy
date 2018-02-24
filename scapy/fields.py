@@ -25,7 +25,7 @@ from scapy.modules.six.moves import range
 ## Fields ##
 ############
 
-class Field(six.with_metaclass(Field_metaclass, object)):
+class Field(object):
     """For more informations on how this work, please refer to
        http://www.secdev.org/projects/scapy/files/scapydoc.pdf
        chapter ``Adding a New Field''"""
