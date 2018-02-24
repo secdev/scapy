@@ -109,6 +109,31 @@ class Field(six.with_metaclass(Field_metaclass, object)):
             warning("no random class for [%s] (fmt=%s).", self.name, self.fmt)
 
 
+class HiddenField:
+    '''
+    Takes a field fld (like Emph does), and does not display it in pkt.show().
+    If defaultonly==True, it will show the field in pkt.show() only if it differs from the defined default value.
+    Useful for hidding reserved fields in packets, and generally de-cluttering output, without reducing functionality.
+    '''
+    fld = ""
+
+    def __init__(self, fld, defaultonly=False):
+        self.fld = fld
+        self.default_only = defaultonly
+
+    def to_show(self,pkt):
+        if self.default_only and (pkt.getfieldval(self.fld.name) != self.fld.default):
+            return True
+        return False
+
+    def __getattr__(self, attr):
+        return getattr(self.fld,attr)
+
+    def __hash__(self):
+        return hash(self.fld)
+
+    def __eq__(self, other):
+        return self.fld == other
 
 
 class Emph(object):
