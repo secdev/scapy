@@ -498,6 +498,9 @@ class XIntField(IntField):
     def i2repr(self, pkt, x):
         return lhex(self.i2h(pkt, x))
 
+class XLEIntField(LEIntField, XIntField):
+    def i2repr(self, pkt, x):
+        return XIntField.i2repr(self, pkt, x)
 
 class LongField(Field):
     def __init__(self, name, default):
