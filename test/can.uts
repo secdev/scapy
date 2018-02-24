@@ -21,6 +21,12 @@ pkt = CAN(flags="error", identifier=1234, data="test")
 pkt = CAN(raw(pkt))
 pkt.flags == "error" and pkt.identifier == 1234 and pkt.length == 4 and pkt.data == b"test"
 
+= Check flags values
+
+pkt = CAN(flags="remote_transmission_request")
+pkt.flags == 0x2
+pkt = CAN(flags="extended")
+pkt.flags == 0x4
 
 ############
 ############
@@ -53,3 +59,40 @@ set(pkt.flags for pkt in packets) == {0}
 = Data length
 
 set(pkt.length for pkt in packets) == {1, 2, 8}
+
+
+############
+############
+
++ swap-bytes functionality (for PF_CAN socket interactions)
+
+= read PCAP of a CookedLinux/SocketCAN capture (CAN standard and extended)
+
+conf.contribs['CAN']['swap-bytes'] = True
+pcap_fd_can_a = BytesIO(b'\xd4\xc3\xb2\xa1\x02\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x04\x00q\x00\x00\x00\x15f`Zv\xde\n\x00 \x00\x00\x00 \x00\x00\x00\x00\x01\x01\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0c\xdf\x07\x00\x00\x03\x00\x00\x00\x02\x01\r\x00\x00\x00\x00\x00')
+packets_can_a = rdpcap(pcap_fd_can_a)
+pcap_fd_can_b = BytesIO(b'\xd4\xc3\xb2\xa1\x02\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x04\x00q\x00\x00\x00\xf4i`Z\xf3\x99\x07\x00 \x00\x00\x00 \x00\x00\x00\x00\x01\x01\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0c\xf13\xdb\x98\x03\x00\x00\x00\x02\x01\r\x00\x00\x00\x00\x00')
+packets_can_b = rdpcap(pcap_fd_can_b)
+
+= check CAN is detected over CookedLinux (each packet has both layers)
+
+all(CAN in pkt for pkt in packets_can_a)
+all(CAN in pkt for pkt in packets_can_b)
+all(CookedLinux in pkt for pkt in packets_can_a)
+all(CookedLinux in pkt for pkt in packets_can_b)
+
+= Check if parsing worked: no packet has a Raw or Padding layer
+
+not any(Raw in pkt or Padding in pkt for pkt in packets)
+
+= Check byte swap for dissection
+
+packets_can_a[0].identifier == 0x7df
+packets_can_a[0].flags == 0x0
+packets_can_b[0].identifier == 0x18db33f1
+packets_can_b[0].flags == "extended"
+
+= Check byte swap-back for building
+
+raw(packets_can_a[0]) == b'\x00\x01\x01\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0c\xdf\x07\x00\x00\x03\x00\x00\x00\x02\x01\r\x00\x00\x00\x00\x00'
+raw(packets_can_b[0]) == b'\x00\x01\x01\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0c\xf13\xdb\x98\x03\x00\x00\x00\x02\x01\r\x00\x00\x00\x00\x00'
