@@ -422,7 +422,6 @@ debug_tls:When 1, print some TLS session secrets when they are computed.
     debug_dissector = 0
     color_theme = Interceptor("color_theme", NoTheme(), _prompt_changer)
     warning_threshold = 5
-    warning_next_only_once = False
     prog = ProgPath()
     resolve = Resolve()
     noenum = Resolve()
@@ -444,8 +443,7 @@ debug_tls:When 1, print some TLS session secrets when they are computed.
     stats_dot11_protocols = []
     temp_files = []
     netcache = NetCache()
-    geoip_city = '/usr/share/GeoIP/GeoIPCity.dat'
-    geoip_city_ipv6 = '/usr/share/GeoIP/GeoIPCityv6.dat'
+    geoip_city = None
     load_layers = ["l2", "inet", "dhcp", "dns", "dot11", "gprs",
                    "hsrp", "inet6", "ir", "isakmp", "l2tp", "mgcp",
                    "mobileip", "netbios", "netflow", "ntp", "ppp", "pptp",
@@ -456,6 +454,7 @@ debug_tls:When 1, print some TLS session secrets when they are computed.
     crypto_valid = isCryptographyValid()
     crypto_valid_advanced = isCryptographyAdvanced()
     fancy_prompt = True
+    auto_crop_tables = True
 
 
 if not Conf.ipv6_enabled:
@@ -463,10 +462,6 @@ if not Conf.ipv6_enabled:
     for m in ["inet6","dhcp6"]:
         if m in Conf.load_layers:
             Conf.load_layers.remove(m)
-    
-if not Conf.crypto_valid:
-    log_scapy.warning("Crypto-related methods disabled for IPsec, Dot11 "
-                      "and TLS layers (needs python-cryptography v1.7+).")
 
 conf=Conf()
 conf.logLevel=30 # 30=Warning

@@ -193,6 +193,81 @@ InterfaceMetric   :
 
 test_missing_ifacemetric()
 
+= Test _get_metrics with weird netsh length
+
+from scapy.arch.windows import _get_metrics
+
+@mock.patch("scapy.arch.windows.POWERSHELL_PROCESS.query")
+def test_get_metrics(mock_exec_query):
+    exc_query_output = """Interface Loopback Pseudo-Interface 1 Parameters
+-------------------------------
+IfLuid : loopback_0
+IfIndex : 1
+State : connected
+Metric : 75
+Link MTU : 4294967295 byt
+Reachable Time : 40500 ms
+Base Reachable Time : 30000 ms
+Retransmission Interval : 1000 ms
+DAD Transmits : 0
+Site Prefix Length : 64
+Site Id : 1
+Forwarding : disabled
+Advertising : disabled
+Neighbor Discovery : disabled
+Neighbor Unreachability Detection : disabled
+Router Discovery : dhcp
+Managed Address Configuration : enabled
+Other Stateful Configuration : enabled
+Weak Host Sends : disabled
+Weak Host Receives : disabled
+Use Automatic Metric : enabled
+Ignore Default Routes : disabled
+Advertised Router Lifetime : 1800 seconds
+Advertise Default Route : disabled
+Current Hop Limit : 0
+Force ARPND Wake up patterns : disabled
+Directed MAC Wake up patterns : disabled
+ECN capability : application
+
+Interface Wi-Fi Parameters
+-------------------------------
+IfLuid : wireless_32768
+IfIndex : 7
+State : connected
+Metric : 55
+Link MTU : 1500 bytes
+Reachable Time : 43500 ms
+Base Reachable Time : 30000 ms
+Retransmission Interval : 1000 ms
+DAD Transmits : 3
+Site Prefix Length : 64
+Site Id : 1
+Forwarding : disabled
+Advertising : disabled
+Neighbor Discovery : enabled
+Neighbor Unreachability Detection : enabled
+Router Discovery : dhcp
+Managed Address Configuration : enabled
+Other Stateful Configuration : enabled
+Weak Host Sends : disabled
+Weak Host Receives : disabled
+Use Automatic Metric : enabled
+Ignore Default Routes : disabled
+Advertised Router Lifetime : 1800 seconds
+Advertise Default Route : disabled
+Current Hop Limit : 0
+Force ARPND Wake up patterns : disabled
+Directed MAC Wake up patterns : disabled
+ECN capability : application
+"""
+    mock_exec_query.side_effect = lambda *args, **kargs: exc_query_output.split("\n")
+    metrics = _get_metrics()
+    print(metrics)
+    assert metrics == {'1': 75, '7': 55}
+
+test_get_metrics()
+
 ############
 ############
 + Windows arch unit tests
@@ -206,21 +281,23 @@ import mock
 from scapy.config import conf
 
 ps_ip = get_ip_from_name(conf.iface.name)
-ps_ip
 ps_if_list = get_windows_if_list()
-ps_if_list
 ps_read_routes = read_routes()
-ps_read_routes
 
 # Turn on VBS mode
 conf.prog.powershell = None
 
 = Test get_ip_from_name with VBS
+ps_ip
+
 assert get_ip_from_name(conf.iface.name) == ps_ip
 
 = Test get_windows_if_list with VBS
+ps_if_list
 
 def is_in_if_list(i, list):
+    if not i["mac"]:
+        return True
     for j in list:
         if j["guid"] == i["guid"] and j["name"] == i["name"]:
             return True
@@ -229,20 +306,23 @@ def is_in_if_list(i, list):
 vbs_if_list = get_windows_if_list()
 vbs_if_list
 _correct = True
-for i in ps_if_list:
-    if not is_in_if_list(i, vbs_if_list):
+for i in vbs_if_list:
+    if not is_in_if_list(i, ps_if_list):
         _correct = False
         break
 
 assert _correct
 
 = Test read_routes with VBS
+ps_read_routes
 
 def is_in_route_list(i, list):
+    # Ignore all empty IP or macs
+    if i[4] == '':
+        return True
+    if i[3].mac == '' or i[3].guid == '' or i[3].ip == '':
+        return True
     for j in list:
-        #Ignore all empty IP
-        if j[4] == '' or i[4] == '':
-            return True
         if j[2] == i[2] and j[4] == i[4] and j[3].guid == i[3].guid:
             return True
     return False
@@ -250,8 +330,8 @@ def is_in_route_list(i, list):
 vbs_read_routes = read_routes()
 vbs_if_list
 _correct = True
-for i in ps_read_routes:
-    if not is_in_route_list(i, vbs_read_routes):
+for i in vbs_read_routes:
+    if not is_in_route_list(i, ps_read_routes):
         _correct = False
         break
 

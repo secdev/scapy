@@ -1,0 +1,9 @@
++ RIPng Contrib tests
+
+= Basic RIPng build
+
+pkt = Ether()/IP()/UDP()/RIPng()/RIPngEntry(prefix_or_nh='8c07:9bc5:fdf6:996:117e:08c0:dd84:549e', metric=255)/RIPngEntry(prefix_or_nh='afb6:5b1b:c518:a147:312a:0c32:f40c:3771')
+pkt = Ether(raw(pkt))
+assert RIPngEntry in pkt
+assert pkt[RIPngEntry].prefix_or_nh == '8c07:9bc5:fdf6:996:117e:8c0:dd84:549e'
+assert pkt[RIPngEntry].payload.prefix_or_nh == 'afb6:5b1b:c518:a147:312a:c32:f40c:3771'

@@ -15,7 +15,7 @@ import time
 
 
 from scapy.dadict import DADict
-from scapy.consts import DARWIN, FREEBSD, NETBSD, OPENBSD
+from scapy.consts import DARWIN, FREEBSD, NETBSD, OPENBSD, WINDOWS
 from scapy.error import log_loading
 from scapy.compat import *
 
@@ -86,7 +86,10 @@ DLT_PRISM_HEADER = 119
 DLT_AIRONET_HEADER = 120
 DLT_IEEE802_11_RADIO = 127
 DLT_LINUX_IRDA  = 144
+DLT_IEEE802_11_RADIO_AVS = 163
+DLT_BLUETOOTH_HCI_H4 = 187
 DLT_PPI   = 192
+DLT_CAN_SOCKETCAN = 227
 DLT_IPV4 = 228
 DLT_IPV6 = 229
 
@@ -109,8 +112,6 @@ IPV6_ADDR_UNSPECIFIED = 0x10000
 EPOCH = time.mktime((1970, 1, 2, 0, 0, 0, 3, 1, 0))-86400
 
 MTU = 0xffff # a.k.a give me all you have
-
-WINDOWS=sys.platform.startswith("win")
 
  
 # file parsing to get some values :

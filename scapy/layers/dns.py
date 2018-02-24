@@ -224,7 +224,7 @@ class RDataField(StrLenField):
     def i2m(self, pkt, s):
         if pkt.type == 1: # A
             if s:
-                s = inet_aton(s)
+                s = inet_pton(socket.AF_INET, s)
         elif pkt.type in [2, 3, 4, 5, 12]: # NS, MD, MF, CNAME, PTR
             s = b"".join(chb(len(x)) + x for x in s.split(b'.'))
             if orb(s[-1]):

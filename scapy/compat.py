@@ -77,7 +77,7 @@ if six.PY2:
 
     def plain_str(x):
         """Convert basic byte objects to str"""
-        return x
+        return x if isinstance(x, basestring) else str(x)
 
     def chb(x):
         """Same than chr() but encode as bytes.
@@ -101,7 +101,7 @@ else:
         """Convert basic byte objects to str"""
         if isinstance(x, bytes):
             return x.decode('utf8')
-        return x
+        return x if isinstance(x, str) else str(x)
 
     def chb(x):
         """Same than chr() but encode as bytes.

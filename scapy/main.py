@@ -22,7 +22,7 @@ import io
 # before the console handlers gets added in interact()
 from scapy.error import log_interactive, log_loading, log_scapy, warning
 import scapy.modules.six as six
-from scapy.themes import DefaultTheme, apply_ipython_style
+from scapy.themes import DefaultTheme, BlackAndWhite, apply_ipython_style
 
 IGNORED = list(six.moves.builtins.__dict__)
 
@@ -317,7 +317,10 @@ def init_session(session_name, mydict=None):
         if SESSION:
             if "conf" in SESSION:
                 conf.configure(SESSION["conf"])
+                conf.session = session_name
                 SESSION["conf"] = conf
+            else:
+                conf.session = session_name
         else:
             conf.session = session_name
             SESSION = {"conf":conf}
@@ -421,6 +424,26 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
     if PRESTART_FILE:
         _read_config_file(PRESTART_FILE, interactive=True)
 
+    if not conf.interactive_shell or conf.interactive_shell.lower() in [
+            "ipython", "auto"
+    ]:
+        try:
+            import IPython
+            from IPython import start_ipython
+        except ImportError:
+            log_loading.warning(
+                "IPython not available. Using standard Python shell "
+                "instead.\nAutoCompletion, History are disabled."
+            )
+            if WINDOWS:
+                log_loading.warning("IPyton not available. On Windows, colors are disabled")
+                conf.color_theme = BlackAndWhite()
+            IPYTHON = False
+        else:
+            IPYTHON = True
+    else:
+        IPYTHON = False
+
     if conf.fancy_prompt:
 
         the_logo = [
@@ -474,25 +497,6 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
         the_banner += "\n"
         the_banner += mybanner
 
-    if not conf.interactive_shell or conf.interactive_shell.lower() in [
-            "ipython", "auto"
-    ]:
-        try:
-            import IPython
-            from IPython.terminal.embed import InteractiveShellEmbed
-        except ImportError:
-            log_loading.warning(
-                "IPython not available. Using standard Python shell "
-                "instead.\nAutoCompletion, History are disabled."
-            )
-            IPYTHON = False
-        else:
-            IPYTHON = True
-    else:
-        IPYTHON = False
-
-    init_session(session_name, mydict)
-
     if IPYTHON:
         banner = the_banner + " using IPython %s\n" % IPython.__version__
         try:
@@ -503,9 +507,10 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
                 "available."
             )
             try:
-                ipshell = InteractiveShellEmbed(
-                    banner1=banner,
+                start_ipython(
+                    display_banner=False,
                     user_ns=SESSION,
+                    exec_lines=["print(\"\"\"" + banner + "\"\"\")"]
                 )
             except:
                 code.interact(banner = the_banner, local=SESSION)
@@ -519,23 +524,13 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
                 apply_ipython_style(shell=cfg.TerminalInteractiveShell)
                 cfg.TerminalInteractiveShell.confirm_exit = False
                 cfg.TerminalInteractiveShell.separate_in = u''
-            cfg.TerminalInteractiveShell.hist_file = conf.histfile
+            cfg.HistoryAccessor.hist_file = conf.histfile
+            cfg.InteractiveShell.banner1 = banner
             # configuration can thus be specified here.
             try:
-                ipshell = InteractiveShellEmbed(config=cfg,
-                                                banner1=banner,
-                                                hist_file=conf.histfile if conf.histfile else None,
-                                                user_ns=SESSION)
+                start_ipython(config=cfg, user_ns=SESSION)
             except (AttributeError, TypeError):
-                log_loading.warning("IPython too old. Won't support history and color style.")
-                try:
-                    ipshell = InteractiveShellEmbed(
-                        banner1=banner,
-                        user_ns=SESSION,
-                    )
-                except:
-                    code.interact(banner = the_banner, local=SESSION)
-        ipshell(local_ns=SESSION)
+                code.interact(banner = the_banner, local=SESSION)
     else:
         code.interact(banner = the_banner, local=SESSION)
 

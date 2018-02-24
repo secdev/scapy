@@ -17,11 +17,13 @@ import random
 
 from scapy.data import KnowledgeBase
 from scapy.config import conf
+from scapy.compat import raw
 from scapy.layers.inet import IP, TCP, TCPOptions
 from scapy.packet import NoPayload, Packet
 from scapy.error import warning, Scapy_Exception, log_runtime
 from scapy.volatile import RandInt, RandByte, RandChoice, RandNum, RandShort, RandString
 from scapy.sendrecv import sniff
+from scapy.modules import six
 from scapy.modules.six.moves import map, range
 if conf.route is None:
     # unused import, only to initialize conf.route
@@ -82,10 +84,16 @@ class p0fKnowledgeBase(KnowledgeBase):
             self.base = None
         f.close()
 
-p0f_kdb = p0fKnowledgeBase(conf.p0f_base)
-p0fa_kdb = p0fKnowledgeBase(conf.p0fa_base)
-p0fr_kdb = p0fKnowledgeBase(conf.p0fr_base)
-p0fo_kdb = p0fKnowledgeBase(conf.p0fo_base)
+p0f_kdb, p0fa_kdb, p0fr_kdb, p0fo_kdb = None, None, None, None
+
+def p0f_load_knowledgebases():
+    global p0f_kdb, p0fa_kdb, p0fr_kdb, p0fo_kdb
+    p0f_kdb = p0fKnowledgeBase(conf.p0f_base)
+    p0fa_kdb = p0fKnowledgeBase(conf.p0fa_base)
+    p0fr_kdb = p0fKnowledgeBase(conf.p0fr_base)
+    p0fo_kdb = p0fKnowledgeBase(conf.p0fo_base)
+
+p0f_load_knowledgebases()
 
 def p0f_selectdb(flags):
     # tested flags: S, R, A
@@ -106,7 +114,7 @@ def p0f_selectdb(flags):
 
 def packet2p0f(pkt):
     pkt = pkt.copy()
-    pkt = pkt.__class__(str(pkt))
+    pkt = pkt.__class__(raw(pkt))
     while pkt.haslayer(IP) and pkt.haslayer(TCP):
         pkt = pkt.getlayer(IP)
         if isinstance(pkt.payload, TCP):
@@ -126,7 +134,6 @@ def packet2p0f(pkt):
     #ttl=t[t.index(pkt.ttl)+1]
     ttl = pkt.ttl
     
-    df = (pkt.flags & 2) / 2
     ss = len(pkt)
     # from p0f/config.h : PACKET_BIG = 100
     if ss > 100:
@@ -242,7 +249,7 @@ def packet2p0f(pkt):
     if qq == "":
         qq = "."
 
-    return (db, (win, ttl, df, ss, ooo, qq))
+    return (db, (win, ttl, pkt.flags.DF, ss, ooo, qq))
 
 def p0f_correl(x,y):
     d = 0
@@ -296,6 +303,7 @@ p0f(packet) -> accuracy, [list of guesses]
     return r
 
 def prnp0f(pkt):
+    """Calls p0f and returns a user-friendly output"""
     # we should print which DB we use
     try:
         r = p0f(pkt)
@@ -350,7 +358,7 @@ specified (as a tuple), we use the signature.
 For now, only TCP Syn packets are supported.
 Some specifications of the p0f.fp file are not (yet) implemented."""
     pkt = pkt.copy()
-    #pkt = pkt.__class__(str(pkt))
+    #pkt = pkt.__class__(raw(pkt))
     while pkt.haslayer(IP) and pkt.haslayer(TCP):
         pkt = pkt.getlayer(IP)
         if isinstance(pkt.payload, TCP):
@@ -359,10 +367,7 @@ Some specifications of the p0f.fp file are not (yet) implemented."""
     
     if not isinstance(pkt, IP) or not isinstance(pkt.payload, TCP):
         raise TypeError("Not a TCP/IP packet")
-    
-    if uptime is None:
-        uptime = random.randint(120,100*60*60*24*365)
-    
+
     db = p0f_selectdb(pkt.payload.flags)
     if osgenre:
         pb = db.get_base()
@@ -386,7 +391,15 @@ Some specifications of the p0f.fp file are not (yet) implemented."""
     pers = pb[random.randint(0, len(pb) - 1)]
     
     # options (we start with options because of MSS)
-    ## TODO: let the options already set if they are valid
+    # Take the options already set as "hints" to use in the new packet if we
+    # can. MSS, WScale and Timestamp can all be wildcarded in a signature, so
+    # we'll use the already-set values if they're valid integers.
+    orig_opts = dict(pkt.payload.options)
+    int_only = lambda val: val if isinstance(val, six.integer_types) else None
+    mss_hint = int_only(orig_opts.get('MSS'))
+    wscale_hint = int_only(orig_opts.get('WScale'))
+    ts_hint = [int_only(o) for o in orig_opts.get('Timestamp', (None, None))]
+
     options = []
     if pers[4] != '.':
         for opt in pers[4].split(','):
@@ -394,42 +407,73 @@ Some specifications of the p0f.fp file are not (yet) implemented."""
                 # MSS might have a maximum size because of window size
                 # specification
                 if pers[0][0] == 'S':
-                    maxmss = (2**16-1) / int(pers[0][1:])
+                    maxmss = (2**16-1) // int(pers[0][1:])
                 else:
                     maxmss = (2**16-1)
+                # disregard hint if out of range
+                if mss_hint and not 0 <= mss_hint <= maxmss:
+                    mss_hint = None
                 # If we have to randomly pick up a value, we cannot use
                 # scapy RandXXX() functions, because the value has to be
                 # set in case we need it for the window size value. That's
                 # why we use random.randint()
                 if opt[1:] == '*':
-                    options.append(('MSS', random.randint(1,maxmss)))
+                    if mss_hint is not None:
+                        options.append(('MSS', mss_hint))
+                    else:
+                        options.append(('MSS', random.randint(1, maxmss)))
                 elif opt[1] == '%':
                     coef = int(opt[2:])
-                    options.append(('MSS', coef*random.randint(1,maxmss/coef)))
+                    if mss_hint is not None and mss_hint % coef == 0:
+                        options.append(('MSS', mss_hint))
+                    else:
+                        options.append((
+                            'MSS', coef*random.randint(1, maxmss//coef)))
                 else:
                     options.append(('MSS', int(opt[1:])))
             elif opt[0] == 'W':
+                if wscale_hint and not 0 <= wscale_hint < 2**8:
+                    wscale_hint = None
                 if opt[1:] == '*':
-                    options.append(('WScale', RandByte()))
+                    if wscale_hint is not None:
+                        options.append(('WScale', wscale_hint))
+                    else:
+                        options.append(('WScale', RandByte()))
                 elif opt[1] == '%':
                     coef = int(opt[2:])
-                    options.append(('WScale', coef*RandNum(min=1,
-                                                           max=(2**8-1)/coef)))
+                    if wscale_hint is not None and wscale_hint % coef == 0:
+                        options.append(('WScale', wscale_hint))
+                    else:
+                        options.append((
+                            'WScale', coef*RandNum(min=1, max=(2**8-1)//coef)))
                 else:
                     options.append(('WScale', int(opt[1:])))
             elif opt == 'T0':
                 options.append(('Timestamp', (0, 0)))
             elif opt == 'T':
-                if 'T' in pers[5]:
+                # Determine first timestamp.
+                if uptime is not None:
+                    ts_a = uptime
+                elif ts_hint[0] and 0 < ts_hint[0] < 2**32:
+                    # Note: if first ts is 0, p0f registers it as "T0" not "T",
+                    # hence we don't want to use the hint if it was 0.
+                    ts_a = ts_hint[0]
+                else:
+                    ts_a = random.randint(120, 100*60*60*24*365)
+                # Determine second timestamp.
+                if 'T' not in pers[5]:
+                    ts_b = 0
+                elif ts_hint[1] and 0 < ts_hint[1] < 2**32:
+                    ts_b = ts_hint[1]
+                else:
                     # FIXME: RandInt() here does not work (bug (?) in
                     # TCPOptionsField.m2i often raises "OverflowError:
                     # long int too large to convert to int" in:
                     #    oval = struct.pack(ofmt, *oval)"
                     # Actually, this is enough to often raise the error:
                     #    struct.pack('I', RandInt())
-                    options.append(('Timestamp', (uptime, random.randint(1,2**32-1))))
-                else:
-                    options.append(('Timestamp', (uptime, 0)))
+                    ts_b = random.randint(1, 2**32-1)
+                options.append(('Timestamp', (ts_a, ts_b)))
             elif opt == 'S':
                 options.append(('SAckOK', ''))
             elif opt == 'N':
@@ -457,7 +501,7 @@ Some specifications of the p0f.fp file are not (yet) implemented."""
         pkt.payload.window = int(pers[0])
     elif pers[0][0] == '%':
         coef = int(pers[0][1:])
-        pkt.payload.window = coef * RandNum(min=1,max=(2**16-1)/coef)
+        pkt.payload.window = coef * RandNum(min=1, max=(2**16-1)//coef)
     elif pers[0][0] == 'T':
         pkt.payload.window = mtu * int(pers[0][1:])
     elif pers[0][0] == 'S':
@@ -465,7 +509,7 @@ Some specifications of the p0f.fp file are not (yet) implemented."""
         mss = [x for x in options if x[0] == 'MSS']
         if not mss:
             raise Scapy_Exception("TCP window value requires MSS, and MSS option not set")
-        pkt.payload.window = filter(lambda x: x[0] == 'MSS', options)[0][1] * int(pers[0][1:])
+        pkt.payload.window = mss[0][1] * int(pers[0][1:])
     else:
         raise Scapy_Exception('Unhandled window size specification')
     
@@ -487,7 +531,7 @@ Some specifications of the p0f.fp file are not (yet) implemented."""
                 if db == p0fo_kdb:
                     pkt.payload.flags |= 0x20 # U
                 else:
-                    pkt.payload.flags |= RandChoice(8, 32, 40) #P / U / PU
+                    pkt.payload.flags |= random.choice([8, 32, 40])  # P/U/PU
             elif qq == 'D' and db != p0fo_kdb:
                 pkt /= conf.raw_layer(load=RandString(random.randint(1, 10))) # XXX p0fo.fp
             elif qq == 'Q': pkt.payload.seq = pkt.payload.ack

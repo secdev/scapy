@@ -1,3 +1,10 @@
+# Test Python3 Scapy on osx
+if [ "$TRAVIS_OS_NAME" = "osx" ] && [ ! -z "$TOXENV" ]
+then
+  tox -- -K tcpdump
+  exit $?
+fi
+
 # Report installed versions
 echo "### INSTALLED VERSIONS ###"
 python -c 'import sys; print("sys.path:" , sys.path)'
@@ -71,7 +78,7 @@ if [ "$SCAPY_COVERAGE" = "yes" ]
 then
   echo '#!/bin/bash' > test/python
   echo "[ \"\$*\" = \"--version\" ] && echo \"`python --version`\" && exit 0" >> test/python
-  echo "`which coverage` run --concurrency=multiprocessing -a \$*" >> test/python
+  echo "`which coverage` run --rcfile=../.coveragerc --concurrency=multiprocessing -a \$*" >> test/python
   chmod +x test/python
 
   # Copy the fake Python interpreter to bypass /etc/sudoers rules on Ubuntu
@@ -116,6 +123,9 @@ then
   UT_FLAGS+=" -K osx"
 fi
 
+# Dump UT_FLAGS
+echo "UT_FLAGS=$UT_FLAGS"
+
 # Run all normal and contrib tests
 PYTHON="$PYTHON" $SCAPY_SUDO ./run_tests -c ./configs/travis.utsc -T "bpf.uts" -T "mock_windows.uts" $UT_FLAGS || exit $?
 
@@ -129,6 +139,6 @@ else
 fi
 
 if [ "$SCAPY_COVERAGE" = "yes" ]; then
-  coverage combine ./
+  coverage combine --rcfile=../.coveragerc ./
   codecov
 fi

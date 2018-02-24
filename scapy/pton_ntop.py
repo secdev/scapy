@@ -80,10 +80,8 @@ _INET_PTON = {
 def inet_pton(af, addr):
     """Convert an IP address from text representation into binary form."""
     # Will replace Net/Net6 objects
-    if not isinstance(addr, str):
-        addr = str(addr)
-    # Use inet_pton if available
     addr = plain_str(addr)
+    # Use inet_pton if available
     try:
         return socket.inet_pton(af, addr)
     except AttributeError:
@@ -103,7 +101,7 @@ used when socket.inet_pton is not available.
         raise ValueError("invalid length of packed IP address string")
 
     # Decode to hex representation
-    address = ":".join(bytes_hex(addr[idx:idx + 2]).decode().lstrip('0') or '0'
+    address = ":".join(plain_str(bytes_hex(addr[idx:idx + 2])).lstrip('0') or '0'
                        for idx in range(0, 16, 2))
 
     try:

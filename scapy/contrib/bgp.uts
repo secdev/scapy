@@ -516,7 +516,7 @@ a = BGPPAOriginatorID(b'\xc0\x00\x02\x01')
 a.originator_id == "192.0.2.1"
 
 
-############################ BGPPAClusterList ################################
+############################ BGPPAClusterList ################################
 + BGPPAClusterList class tests
 
 = BGPPAClusterList - Basic instantiation
@@ -530,7 +530,7 @@ a = BGPPAClusterList(b'\x00\x02I\xf0\t\xdc\xcdy\x00\x02\x04$')
 a.cluster_list[0] == 150000 and a.cluster_list[1] == 165465465 and a.cluster_list[2] == 132132
 
 
-########################### BGPPAMPReachNLRI  ###############################
+########################### BGPPAMPReachNLRI  ###############################
 + BGPPAMPReachNLRI class tests
 
 = BGPPAMPReachNLRI - Instantiation
@@ -548,7 +548,7 @@ a = BGPPAMPReachNLRI(b'\x00\x02\x01 \xfe\x80\x00\x00\x00\x00\x00\x00\xfa\xc0\x01
 a.afi == 2 and a.safi == 1 and a.nh_addr_len == 32 and a.nh_v6_global == "fe80::fac0:100:15de:1581" and a.nh_v6_link_local == "fe80::fac0:100:15de:1581" and a.reserved == 0 and a.nlri[0].prefix == "400::/6" and a.nlri[1].prefix == "800::/5" and  raw(a.nlri[18]) == b'`\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff' and a.nlri[35].prefix == "200::/7"
 
 
-############################# BGPPAMPUnreachNLRI #############################
+############################# BGPPAMPUnreachNLRI #############################
 + BGPPAMPUnreachNLRI class tests
 
 = BGPPAMPUnreachNLRI - Instantiation
@@ -569,7 +569,7 @@ a = BGPPAMPUnreachNLRI(b'\x00\x02\x01\x03`\x03\x80\x03\xa0\x03\xc0\x04\xe0\x05\x
 a.afi == 2 and a.safi == 1 and a.afi_safi_specific.withdrawn_routes[0].prefix == "6000::/3" and a.afi_safi_specific.withdrawn_routes[11].prefix == "2001::/32" and a.afi_safi_specific.withdrawn_routes[23].prefix == "1000::/4"
 
 
-############################# BGPPAAS4Aggregator #############################
+############################# BGPPAAS4Aggregator #############################
 + BGPPAAS4Aggregator class tests
 
 = BGPPAAS4Aggregator - Instantiation
@@ -583,7 +583,7 @@ a = BGPPAAS4Aggregator(b'&kN%\xc0\x00\x02\x01')
 a.aggregator_asn == 644566565 and a.speaker_address == "192.0.2.1"
 
 
-################################ BGPPathAttr #################################
+################################ BGPPathAttr #################################
 + BGPPathAttr class tests
 
 = BGPPathAttr - Instantiation
@@ -604,7 +604,7 @@ a = BGPPathAttr(b'\x90\x0f\x00X\x00\x02\x01\x03`\x03\x80\x03\xa0\x03\xc0\x04\xe0
 a.type_flags == 0x90 and a.type_code == 15 and a.attr_ext_len == 88 and a.attribute.afi == 2 and a.attribute.safi == 1 and a.attribute.afi_safi_specific.withdrawn_routes[0].prefix == "6000::/3" and a.attribute.afi_safi_specific.withdrawn_routes[1].prefix == "8000::/3" and a.attribute.afi_safi_specific.withdrawn_routes[2].prefix == "a000::/3" and a.attribute.afi_safi_specific.withdrawn_routes[3].prefix == "c000::/3" and a.attribute.afi_safi_specific.withdrawn_routes[4].prefix == "e000::/4" and a.attribute.afi_safi_specific.withdrawn_routes[5].prefix == "f000::/5" and a.attribute.afi_safi_specific.withdrawn_routes[23].prefix == "1000::/4"
 
 
-################################# BGPUpdate ##################################
+################################# BGPUpdate ##################################
 + BGPUpdate class tests
 
 = BGPUpdate - Instantiation
@@ -653,7 +653,7 @@ p = BGP(raw(BGPHeader()/BGPUpdate()))
 assert(BGPHeader in p and BGPUpdate in p)
 
 
-########## BGPNotification Class ###################################
+########## BGPNotification Class ###################################
 + BGPNotification class tests
 
 = BGPNotification - Instantiation
@@ -672,7 +672,7 @@ m = BGP(b'\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x
 m.type == BGP.NOTIFICATION_TYPE and m.error_code == 3 and m.error_subcode == 4
 
 
-########## BGPRouteRefresh Class ###################################
+########## BGPRouteRefresh Class ###################################
 + BGPRouteRefresh class tests
 
 = BGPRouteRefresh - Instantiation

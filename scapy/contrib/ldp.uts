@@ -1,0 +1,36 @@
+% Regression tests for the ldp module
+
++ Basic LDP test
+
+= Default build
+
+load_contrib("ldp")
+base = Ether()/IP()/UDP()/LDP()
+pkt1 = base/LDPNotification()
+pkt2 = base/LDPKeepAlive()
+pkt3 = base/LDPLabelWM()
+pkt4 = base/LDPHello()
+pkt5 = base/LDPAddressWM()
+pkt6 = base/LDPLabelMM()
+
+# Build
+pkt1 = Ether(raw(pkt1))
+pkt2 = Ether(raw(pkt2))
+pkt3 = Ether(raw(pkt3))
+pkt4 = Ether(raw(pkt4))
+pkt5 = Ether(raw(pkt5))
+pkt6 = Ether(raw(pkt6))
+
+assert LDPNotification in pkt1
+assert LDPKeepAlive in pkt2
+assert LDPLabelWM in pkt3
+assert LDPHello in pkt4
+assert LDPAddressWM in pkt5
+assert LDPLabelMM in pkt6
+
+= Basic dissection
+
+pkt = Ether(b'AJH\x18\x07\xfa\xd0P\x99V\xdd\xf9\x08\x00E\x00\x006\x00\x01\x00\x00@\x11:\x96(\x9d\r\xd3\xc1\x1eq\x10\x02\x86\x02\x86\x00"5\xa1\x00\x01\x00\x16\x7f\x00\x00\x01\x00\x00\x01\x00\x00\x0c\x00\x00\x00\x00\x04\x00\x00\x04\x00\xb4\x00\x00')
+assert LDPHello in pkt
+assert pkt[LDP].id == "127.0.0.1"
+assert pkt[LDPHello].params == [180, 0, 0]

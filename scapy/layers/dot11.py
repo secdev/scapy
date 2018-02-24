@@ -28,7 +28,7 @@ if conf.crypto_valid:
     from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
 else:
     default_backend = Ciphers = algorithms = None
-    log_loading.info("Can't import python-cryptography v1.7+. Disabled WEP decryption/encryption.")
+    log_loading.info("Can't import python-cryptography v1.7+. Disabled WEP decryption/encryption. (Dot11)")
 
 
 ### Layers
@@ -222,7 +222,10 @@ class Dot11Elt(Packet):
                     StrLenField("info", "", length_from=lambda x:x.len) ]
     def mysummary(self):
         if self.ID == 0:
-            return "SSID=%s"%repr(plain_str(self.info)),[Dot11]
+            ssid = repr(self.info)
+            if ssid[:2] in ['b"', "b'"]:
+                ssid = ssid[1:]
+            return "SSID=%s" % ssid, [Dot11]
         else:
             return ""
 

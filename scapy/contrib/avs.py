@@ -20,6 +20,7 @@
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.dot11 import *
+from scapy.data import DLT_IEEE802_11_RADIO_AVS
 
 AVSWLANPhyType =  { 0 : "Unknown",
                     1 : "FHSS 802.11 '97",
@@ -64,5 +65,7 @@ class AVSWLANHeader(Packet):
                       IntEnumField("preamble",0, AVSWLANPreambleType),
                       IntEnumField("encoding",0, AVSWLANEncodingType),
                         ]
+
+conf.l2types.register(DLT_IEEE802_11_RADIO_AVS, AVSWLANHeader)
 
 bind_layers(AVSWLANHeader, Dot11)

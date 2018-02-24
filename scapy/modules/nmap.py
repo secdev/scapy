@@ -123,7 +123,7 @@ def nmap_udppacket_sig(snd, rcv):
         res["ULEN"] = "%X" % rcv[UDPerror].len
         res["DAT"] = "E" if (
             isinstance(rcv[UDPerror].payload, NoPayload) or
-            str(rcv[UDPerror].payload) == str(snd[UDP].payload)
+            raw(rcv[UDPerror].payload) == raw(snd[UDP].payload)
         ) else "F"
     return res
 

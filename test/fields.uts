@@ -27,12 +27,15 @@ assert LELongField("test", None).addfield(None, b"", 0x44434241) == b'ABCD\x00\x
 = MACField class
 ~ core field
 m = MACField("foo", None)
-m.i2m(None, None)
-assert( _ == b"\x00\x00\x00\x00\x00\x00" )
-m.getfield(None, b"\xc0\x01\xbe\xef\xba\xbeABCD")
-assert( _ == (b"ABCD","c0:01:be:ef:ba:be") )
-m.addfield(None, b"FOO", "c0:01:be:ef:ba:be")
-assert( _ == b"FOO\xc0\x01\xbe\xef\xba\xbe" )
+r = m.i2m(None, None)
+r
+assert r == b"\x00\x00\x00\x00\x00\x00"
+r = m.getfield(None, b"\xc0\x01\xbe\xef\xba\xbeABCD")
+r
+assert r == (b"ABCD","c0:01:be:ef:ba:be") 
+r = m.addfield(None, b"FOO", "c0:01:be:ef:ba:be")
+r
+assert(r == b"FOO\xc0\x01\xbe\xef\xba\xbe" )
 
 = SourceMACField, ARPSourceMACField
 conf.route.add(net="1.2.3.4/32", dev=conf.iface)
@@ -47,16 +50,21 @@ if WINDOWS:
     route_add_loopback()
 
 i = IPField("foo", None)
-i.i2m(None, "1.2.3.4")
-assert( _ == b"\x01\x02\x03\x04" )
-i.i2m(None, "255.255.255.255")
-assert( _ == b"\xff\xff\xff\xff" )
-i.m2i(None, b"\x01\x02\x03\x04")
-assert( _ == "1.2.3.4" )
-i.getfield(None, b"\x01\x02\x03\x04ABCD")
-assert( _ == (b"ABCD","1.2.3.4") )
-i.addfield(None, b"FOO", "1.2.3.4")
-assert( _ == b"FOO\x01\x02\x03\x04" )
+r = i.i2m(None, "1.2.3.4")
+r
+assert r == b"\x01\x02\x03\x04"
+r = i.i2m(None, "255.255.255.255")
+r
+assert r == b"\xff\xff\xff\xff"
+r = i.m2i(None, b"\x01\x02\x03\x04")
+r
+assert r == "1.2.3.4"
+r = i.getfield(None, b"\x01\x02\x03\x04ABCD")
+r
+assert r == (b"ABCD","1.2.3.4")
+r = i.addfield(None, b"FOO", "1.2.3.4")
+r
+assert r == b"FOO\x01\x02\x03\x04"
 
 = SourceIPField
 ~ core field
@@ -122,21 +130,25 @@ class TestFLenF(Packet):
 
 = Assembly of an empty packet
 ~ field
-TestFLenF()
-raw(_)
-_ == b"\x08default"
+p = TestFLenF()
+p
+r = raw(p)
+r
+r == b"\x08default"
 
 = Assembly of non empty packet
 ~ field
-TestFLenF(str="123")
-raw(_)
-_ == b"\x04123"
+p = TestFLenF(str="123")
+p
+r = raw(p)
+r
+r == b"\x04123"
 
 = Disassembly
 ~ field
-TestFLenF(b"\x04ABCDEFGHIJKL")
-_
-_.len == 4 and _.str == b"ABC" and Raw in _
+p = TestFLenF(b"\x04ABCDEFGHIJKL")
+p
+p.len == 4 and p.str == b"ABC" and Raw in p
 
 
 = BitFieldLenField test
@@ -147,18 +159,22 @@ class TestBFLenF(Packet):
                     StrLenField("str", "default", length_from=lambda pkt:pkt.len-1, ) ]
 
 a=TestBFLenF()
-raw(a)
-assert( _ == b"\x8f\xffdefault" )
+r = raw(a)
+r
+assert r == b"\x8f\xffdefault"
 
 a.str=""
-raw(a)
-assert( _ == b"\x1f\xff" )
+r = raw(a)
+r
+assert r == b"\x1f\xff"
 
-TestBFLenF(b"\x1f\xff@@")
-assert( _.len == 1 and _.str == b"" and Raw in _ and _[Raw].load == b"@@" )
+p = TestBFLenF(b"\x1f\xff@@")
+p
+assert p.len == 1 and p.str == b"" and Raw in p and p[Raw].load == b"@@"
 
-TestBFLenF(b"\x6f\xffabcdeFGH")
-assert( _.len == 6 and _.str == b"abcde" and Raw in _ and _[Raw].load == b"FGH" )
+p = TestBFLenF(b"\x6f\xffabcdeFGH")
+p
+assert p.len == 6 and p.str == b"abcde" and Raw in p and p[Raw].load == b"FGH"
 
 
 
@@ -184,33 +200,38 @@ raw(a)
 a = TestFLF()
 a.lst = [7,65539]
 ls(a)
-raw(a)
+r = raw(a)
+r
 import struct
-_ == struct.pack("!BII", 2,7,65539)
+r == struct.pack("!BII", 2,7,65539)
 
 = Disassemble
 ~ field
 import struct
-TestFLF(b"\x00\x11\x12")
-assert(_.len == 0 and Raw in _ and _[Raw].load == b"\x11\x12")
-TestFLF(struct.pack("!BIII",3,1234,2345,12345678))
-assert(_.len == 3 and _.lst == [1234,2345,12345678])
+p = TestFLF(b"\x00\x11\x12")
+p
+assert p.len == 0 and Raw in p and p[Raw].load == b"\x11\x12"
+p = TestFLF(struct.pack("!BIII",3,1234,2345,12345678))
+p
+assert p.len == 3 and p.lst == [1234,2345,12345678]
 
 = Manipulate
 ~ field
 a = TestFLF(lst=[4])
-raw(a)
-assert(_ == b"\x01\x00\x00\x00\x04")
+r = raw(a)
+r
+assert r == b"\x01\x00\x00\x00\x04"
 a.lst.append(1234)
 TestFLF(raw(a))
 a.show2()
 a.len=7
-raw(a)
-assert(_ == b"\x07\x00\x00\x00\x04\x00\x00\x04\xd2")
+r = raw(a)
+assert r == b"\x07\x00\x00\x00\x04\x00\x00\x04\xd2"
 a.len=2
 a.lst=[1,2,3,4,5]
-TestFLF(raw(a))
-assert(Raw in _ and _[Raw].load == b'\x00\x00\x00\x03\x00\x00\x00\x04\x00\x00\x00\x05') 
+p = TestFLF(raw(a))
+p
+assert Raw in p and p[Raw].load == b'\x00\x00\x00\x03\x00\x00\x00\x04\x00\x00\x00\x05'
 
 
 ############
@@ -227,29 +248,33 @@ class TestPLF(Packet):
 = Test the PacketListField assembly
 ~ field lengthfield
 x=TestPLF()
-raw(x)
-_ == b"\x00\x00"
+r = raw(x)
+r
+r == b"\x00\x00"
 
 = Test the PacketListField assembly 2
 ~ field lengthfield
 x=TestPLF()
 x.plist=[IP()/TCP(), IP()/UDP()]
-raw(x)
-_.startswith(b'\x00\x02E')
+r = raw(x)
+r
+r.startswith(b'\x00\x02E')
 
 = Test disassembly
 ~ field lengthfield
 x=TestPLF(plist=[IP()/TCP(seq=1234567), IP()/UDP()])
-TestPLF(raw(x))
-_.show()
-IP in _ and TCP in _ and UDP in _ and _[TCP].seq == 1234567
+p = TestPLF(raw(x))
+p
+p.show()
+IP in p and TCP in p and UDP in p and p[TCP].seq == 1234567
 
 = Nested PacketListField
 ~ field lengthfield
 y=IP()/TCP(seq=111111)/TestPLF(plist=[IP()/TCP(seq=222222),IP()/UDP()])
-TestPLF(plist=[y,IP()/TCP(seq=333333)])
-_.show()
-IP in _ and TCP in _ and UDP in _ and _[TCP].seq == 111111 and _[TCP:2].seq==222222 and _[TCP:3].seq == 333333
+p = TestPLF(plist=[y,IP()/TCP(seq=333333)])
+p
+p.show()
+IP in p and TCP in p and UDP in p and p[TCP].seq == 111111 and p[TCP:2].seq==222222 and p[TCP:3].seq == 333333
 
 ############
 ############
@@ -265,29 +290,33 @@ class TestPLF(Packet):
 = Test the PacketListField assembly
 ~ field lengthfield
 x=TestPLF()
-raw(x)
-_ == b"\x00\x00"
+r = raw(x)
+r
+r == b"\x00\x00"
 
 = Test the PacketListField assembly 2
 ~ field lengthfield
 x=TestPLF()
 x.plist=[IP()/TCP(), IP()/UDP()]
-raw(x)
-_.startswith(b'\x00\x02E')
+r = raw(x)
+r
+r.startswith(b'\x00\x02E')
 
 = Test disassembly
 ~ field lengthfield
 x=TestPLF(plist=[IP()/TCP(seq=1234567), IP()/UDP()])
-TestPLF(raw(x))
-_.show()
-IP in _ and TCP in _ and UDP in _ and _[TCP].seq == 1234567
+p = TestPLF(raw(x))
+p
+p.show()
+IP in p and TCP in p and UDP in p and p[TCP].seq == 1234567
 
 = Nested PacketListField
 ~ field lengthfield
 y=IP()/TCP(seq=111111)/TestPLF(plist=[IP()/TCP(seq=222222),IP()/UDP()])
-TestPLF(plist=[y,IP()/TCP(seq=333333)])
-_.show()
-IP in _ and TCP in _ and UDP in _ and _[TCP].seq == 111111 and _[TCP:2].seq==222222 and _[TCP:3].seq == 333333
+p = TestPLF(plist=[y,IP()/TCP(seq=333333)])
+p
+p.show()
+IP in p and TCP in p and UDP in p and p[TCP].seq == 111111 and p[TCP:2].seq==222222 and p[TCP:3].seq == 333333
 
 = Complex packet
 ~ field lengthfield ccc
@@ -306,12 +335,14 @@ class TestPLF2(Packet):
                                     length_from=lambda x: (x.len2 * 2) // 3 * 3) ]
 
 a=TestPLF2()
-raw(a)
-assert( _ == b"\x00\x02\x00\x00\x00\x00" )
+r = raw(a)
+r
+assert r == b"\x00\x02\x00\x00\x00\x00"
 
 a.plist=[TestPkt(),TestPkt(f1=100)] 
-raw(a)
-assert(_ == b'\x00\x04\x00\x00\x00\x03ABDdBD')
+r = raw(a)
+r
+assert r == b'\x00\x04\x00\x00\x00\x03ABDdBD'
 
 a /= "123456"
 b = TestPLF2(raw(a))
@@ -356,29 +387,33 @@ class TestPLF(Packet):
 = Test the PacketListField assembly
 ~ field lengthfield
 x=TestPLF()
-raw(x)
-_ == b"\x00\x00"
+r = raw(x)
+r
+r == b"\x00\x00"
 
 = Test the PacketListField assembly 2
 ~ field lengthfield
 x=TestPLF()
 x.plist=[IP()/TCP(), IP()/UDP()]
-raw(x)
-_.startswith(b'\x00\x02E')
+r = raw(x)
+r
+r.startswith(b'\x00\x02E')
 
 = Test disassembly
 ~ field lengthfield
 x=TestPLF(plist=[IP()/TCP(seq=1234567), IP()/UDP()])
-TestPLF(raw(x))
-_.show()
-IP in _ and TCP in _ and UDP in _ and _[TCP].seq == 1234567
+p = TestPLF(raw(x))
+p
+p.show()
+IP in p and TCP in p and UDP in p and p[TCP].seq == 1234567
 
 = Nested PacketListField
 ~ field lengthfield
 y=IP()/TCP(seq=111111)/TestPLF(plist=[IP()/TCP(seq=222222),IP()/UDP()])
-TestPLF(plist=[y,IP()/TCP(seq=333333)])
-_.show()
-IP in _ and TCP in _ and UDP in _ and _[TCP].seq == 111111 and _[TCP:2].seq==222222 and _[TCP:3].seq == 333333
+p = TestPLF(plist=[y,IP()/TCP(seq=333333)])
+p
+p.show()
+IP in p and TCP in p and UDP in p and p[TCP].seq == 111111 and p[TCP:2].seq==222222 and p[TCP:3].seq == 333333
 
 = Complex packet
 ~ field lengthfield ccc
@@ -397,12 +432,14 @@ class TestPLF2(Packet):
                                     length_from=lambda x: (x.len2 * 2) // 3 *3) ]
 
 a=TestPLF2()
-raw(a)
-assert( _ == b"\x00\x02\x00\x00\x00\x00" )
+r = raw(a)
+r
+assert r == b"\x00\x02\x00\x00\x00\x00"
 
 a.plist=[TestPkt(),TestPkt(f1=100)] 
-raw(a)
-assert(_ == b'\x00\x04\x00\x00\x00\x03ABDdBD')
+r = raw(a)
+r
+assert r == b'\x00\x04\x00\x00\x00\x03ABDdBD'
 
 a /= "123456"
 b = TestPLF2(raw(a))
@@ -998,4 +1035,83 @@ try:
     dnsf.getfield("", b"\xff")
     assert(False)
 except (Scapy_Exception, IndexError):
+    pass
+
++ YesNoByteField
+
+= default usage
+
+yn_bf = YesNoByteField('test', 0x00)
+assert(yn_bf.i2repr(None, 0x00) == 'no')
+assert(yn_bf.i2repr(None, 0x01) == 'yes')
+assert(yn_bf.i2repr(None, 0x02) == 'yes')
+assert(yn_bf.i2repr(None, 0xff) == 'yes')
+
+= inverted yes - no (scalar config)
+yn_bf = YesNoByteField('test', 0x00, config={'yes': 0x00, 'no': 0x01})
+assert(yn_bf.i2repr(None, 0x00) == 'yes')
+assert(yn_bf.i2repr(None, 0x01) == 'no')
+assert(yn_bf.i2repr(None, 0x02) == 2)
+assert(yn_bf.i2repr(None, 0xff) == 255)
+
+= inverted yes - no (range config)
+yn_bf = YesNoByteField('test', 0x00, config={'yes': 0x00, 'no': (0x01, 0xff)})
+assert(yn_bf.i2repr(None, 0x00) == 'yes')
+assert(yn_bf.i2repr(None, 0x01) == 'no')
+assert(yn_bf.i2repr(None, 0x02) == 'no')
+assert(yn_bf.i2repr(None, 0xff) == 'no')
+
+= yes - no (using sets)
+yn_bf = YesNoByteField('test', 0x00, config={'yes': [0x00, 0x02], 'no': [0x01, 0x04, 0xff]})
+assert(yn_bf.i2repr(None, 0x00) == 'yes')
+assert(yn_bf.i2repr(None, 0x01) == 'no')
+assert(yn_bf.i2repr(None, 0x02) == 'yes')
+assert(yn_bf.i2repr(None, 0x03) == 3)
+assert(yn_bf.i2repr(None, 0x04) == 'no')
+assert(yn_bf.i2repr(None, 0x05) == 5)
+assert(yn_bf.i2repr(None, 0xff) == 'no')
+
+= yes, no and invalid
+yn_bf = YesNoByteField('test', 0x00, config={'no': 0x00, 'yes': 0x01, 'invalid': (0x02, 0xff)})
+assert(yn_bf.i2repr(None, 0x00) == 'no')
+assert(yn_bf.i2repr(None, 0x01) == 'yes')
+assert(yn_bf.i2repr(None, 0x02) == 'invalid')
+assert(yn_bf.i2repr(None, 0xff) == 'invalid')
+
+= invalid scalar spec
+
+try:
+    YesNoByteField('test', 0x00, config={'no': 0x00, 'yes': 256})
+    assert(False)
+except FieldValueRangeException:
+    pass
+
+= invalid range spec - invalid length
+
+try:
+    YesNoByteField('test', 0x00, config={'no': 0x00, 'yes': (0x00, 0x02, 0x02)})
+    assert(False)
+except FieldAttributeException:
+    pass
+
+= invalid range spec - invalid value
+
+try:
+    YesNoByteField('test', 0x00, config={'no': 0x00, 'yes': (0x100, 0x01)})
+    assert(False)
+except FieldValueRangeException:
+    pass
+
+try:
+    YesNoByteField('test', 0x00, config={'no': 0x00, 'yes': (0x00, 0x100)})
+    assert(False)
+except FieldValueRangeException:
+    pass
+
+= invalid set spec - invalid value
+
+try:
+    YesNoByteField('test', 0x00, config={'no': 0x00, 'yes': [0x01, 0x101]})
+    assert(False)
+except FieldValueRangeException:
     pass

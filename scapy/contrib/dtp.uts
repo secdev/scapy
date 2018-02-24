@@ -1,0 +1,31 @@
++ DTP Contrib tests
+
+= Basic DTP build
+
+pkt = DTP(tlvlist=[DTPNeighbor(neighbor='00:11:22:33:44:55'), DTPDomain(domain=b"\x01\x02\x03")])
+assert raw(pkt) == b'\x01\x00\x04\x00\n\x00\x11"3DU\x00\x01\x00\x07\x01\x02\x03'
+
+= Basic DTP dissection
+
+pkt = Ether(b'\x01\x00\x0c\xcc\xcc\xcc\xd0P\x99V\xdd\xf9\x00"\xaa\xaa\x03\x00\x00\x0c \x04\x01\x00\x03\x00\x05\xa5\x00\x04\x00\n\xaa\xbb\xcc\xdd\xee\xff\x00\x01\x00\x05\x00\x00\x02\x00\x05\x03')
+assert DTP in pkt
+assert pkt[DTP].tlvlist[0].dtptype == b'\xa5'
+assert pkt[DTP].tlvlist[1].neighbor == 'aa:bb:cc:dd:ee:ff'
+assert pkt[DTP].tlvlist[2].domain == b'\x00'
+assert pkt[DTP].tlvlist[3].status == b'\x03'
+
+= Test negotiate_trunk
+
+import mock
+
+def test_pkt(pkt):
+    pkt = Ether(raw(pkt))
+    assert DTP in pkt
+    assert len(pkt[DTP].tlvlist) == 4
+    print("Succeed")
+
+@mock.patch("scapy.contrib.dtp.sendp", side_effect=test_pkt)
+def _test_negotiate_trunk(m):
+    negotiate_trunk()
+
+_test_negotiate_trunk()

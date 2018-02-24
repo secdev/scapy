@@ -19,7 +19,8 @@ from scapy.data import *
 from scapy.layers.l2 import *
 from scapy.compat import *
 from scapy.config import conf
-from scapy.consts import WINDOWS
+from scapy.arch import WINDOWS
+from scapy.extlib import plt, MATPLOTLIB, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
 from scapy.fields import *
 from scapy.packet import *
 from scapy.volatile import *
@@ -31,7 +32,6 @@ from scapy.utils import whois
 
 import scapy.as_resolvers
 
-from scapy.arch import plt, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
 
@@ -44,10 +44,7 @@ class IPTools(object):
     __slots__ = []
     def whois(self):
         """whois the source and print the output"""
-        if WINDOWS:
-            print(whois(self.src))
-        else:
-            os.system("whois %s" % self.src)
+        print(whois(self.src).decode("utf8", "ignore"))
     def _ttl(self):
         """Returns ttl or hlim, depending on the IP version"""
         return self.hlim if isinstance(self, scapy.layers.inet6.IPv6) else self.ttl
@@ -1203,30 +1200,41 @@ class TracerouteResult(SndRcvList):
                 movcenter = visual.scene.mouse.pos
                 
                 
-    def world_trace(self, **kargs):
+    def world_trace(self):
         """Display traceroute results on a world map."""
 
-        # Check that the GeoIP module can be imported
+        # Check that the geoip2 module can be imported
+        # Doc: http://geoip2.readthedocs.io/en/latest/
         try:
-            import GeoIP
+            # GeoIP2 modules need to be imported as below
+            import geoip2.database
+            import geoip2.errors
         except ImportError:
-            message = "Can't import GeoIP. Won't be able to plot the world."
-            scapy.utils.log_loading.info(message)
-            return list()
-
-        # Check if this is an IPv6 traceroute and load the correct file
-        if isinstance(self, scapy.layers.inet6.TracerouteResult6):
-            geoip_city_filename = conf.geoip_city_ipv6
-        else:
-            geoip_city_filename = conf.geoip_city
-
-        # Check that the GeoIP database can be opened
+            warning("Can't import geoip2. Won't be able to plot the world.")
+            return []
+        # Check availability of database
+        if not conf.geoip_city:
+            warning("Cannot import the geolite2 CITY database !\n"
+                    "Download it from http://dev.maxmind.com/geoip/geoip2/geolite2/"
+                    "then set its path to conf.geoip_city")
+            return []
+        # Check availability of plotting devices
         try:
-            db = GeoIP.open(conf.geoip_city, 0)
+            import cartopy.crs as ccrs
+        except ImportError:
+            warning("Cannot import cartopy.\n"
+                    "More infos on http://scitools.org.uk/cartopy/docs/latest/installing.html")
+            return []
+        if not MATPLOTLIB:
+            warning("Matplotlib is not installed. Won't be able to plot the world.")
+            return []
+
+        # Open & read the GeoListIP2 database
+        try:
+            db = geoip2.database.Reader(conf.geoip_city)
         except:
-            message = "Can't open GeoIP database at %s" % conf.geoip_city
-            scapy.utils.log_loading.info(message)
-            return list()
+            warning("Can't open geoip2 database at %s", conf.geoip_city)
+            return []
 
         # Regroup results per trace
         ips = {}
@@ -1257,32 +1265,55 @@ class TracerouteResult(SndRcvList):
                 ip = trace.get(i,None)
                 if ip is None:
                     continue
-                loc = db.record_by_addr(ip)
-                if loc is None:
+                # Fetch database
+                try:
+                    sresult = db.city(ip)
+                except geoip2.errors.AddressNotFoundError:
                     continue
-                loc = loc.get('longitude'), loc.get('latitude')
-                if loc == (None, None):
-                    continue
-                loctrace.append(loc)
+                loctrace.append((sresult.location.longitude, sresult.location.latitude))
             if loctrace:
                 trt[trace_id] = loctrace
 
         # Load the map renderer
-        from mpl_toolkits.basemap import Basemap
-        bmap = Basemap()
+        fig = plt.figure(num='Scapy')
+        ax = plt.axes(projection=ccrs.PlateCarree())
+        # Draw countries
+        ax.coastlines()
+        ax.stock_img()
+        # Set normal size
+        ax.set_global()
+        # Add title
+        plt.title("Scapy traceroute results")
 
-        # Split latitudes and longitudes per traceroute measurement
-        locations = [zip(*tr) for tr in six.itervalues(trt)]
+        from matplotlib.collections import LineCollection
+        from matplotlib import colors as mcolors
+        colors_cycle = iter(mcolors.BASE_COLORS)
+        lines = []
 
-        # Plot the traceroute measurement as lines in the map
-        lines = [bmap.plot(*bmap(lons, lats)) for lons, lats in locations]
+        # Split traceroute measurement
+        for key, trc in six.iteritems(trt):
+            # Get next color
+            color = next(colors_cycle)
+            # Gather mesurments data
+            data_lines = [(trc[i], trc[i+1]) for i in range(len(trc) - 1)]
+            # Create line collection
+            line_col = LineCollection(data_lines, linewidths=2,
+                                      label=key[1],
+                                      color=color)
+            lines.append(line_col)
+            ax.add_collection(line_col)
+            # Create map points
+            lines.extend([ax.plot(*x, marker='.', color=color) for x in trc])
 
-        # Draw countries   
-        bmap.drawcoastlines()
+        # Generate legend
+        ax.legend()
 
         # Call show() if matplotlib is not inlined
         if not MATPLOTLIB_INLINED:
             plt.show()
+
+        # Clean
+        ax.remove()
 
         # Return the drawn lines
         return lines
@@ -1485,7 +1516,18 @@ traceroute(target, [maxttl=30,] [dport=80,] [sport=80,] [verbose=conf.verb]) -> 
         a.show()
     return a,b
 
-
+@conf.commands.register
+def traceroute_map(*args, **kargs):
+    """Util function to call traceroute on multiple targets, then
+    show the different paths on a map.
+    params:
+     - *args: IPs on which traceroute will be called"""
+    res = []
+    if not "verbose" in kargs:
+        kargs["verbose"] = 0
+    for target in args:
+        res += traceroute(target, **kargs)[0].res
+    return TracerouteResult(res).world_trace()
 
 #############################
 ## Simple TCP client stack ##

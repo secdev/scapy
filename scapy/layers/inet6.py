@@ -234,13 +234,15 @@ class IP6Field(Field):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "16s")
     def h2i(self, pkt, x):
+        if isinstance(x, bytes):
+            x = plain_str(x)
         if isinstance(x, str):
             try:
                 x = in6_ptop(x)
             except socket.error:
                 x = Net6(x)
         elif isinstance(x, list):
-            x = [Net6(a) for a in x]
+            x = [self.h2i(pkt, n) for n in x]
         return x
     def i2m(self, pkt, x):
         return inet_pton(socket.AF_INET6, plain_str(x))
@@ -258,7 +260,8 @@ class IP6Field(Field):
             elif in6_isaddr6to4(x):   # print encapsulated address
                 vaddr = in6_6to4ExtractAddr(x)
                 return "%s [6to4 GW: %s]" % (self.i2h(pkt, x), vaddr)
-        return self.i2h(pkt, x)       # No specific information to return
+        r = self.i2h(pkt, x)          # No specific information to return
+        return r if isinstance(r, str) else repr(r)
     def randval(self):
         return RandIP6()
 
@@ -279,7 +282,7 @@ class SourceIP6Field(IP6Field):
                 import scapy.route6
             dst = ("::" if self.dstname is None else getattr(pkt, self.dstname))
             if isinstance(dst, (Gen, list)):
-                r = {conf.route6.route(daddr) for daddr in dst}
+                r = {conf.route6.route(str(daddr)) for daddr in dst}
                 if len(r) > 1:
                     warning("More than one possible route for %r" % (dst,))
                 x = min(r)[1]
@@ -732,7 +735,7 @@ def in6_chksum(nh, u, p):
 
 # Inherited by all extension header classes
 class _IPv6ExtHdr(_IPv6GuessPayload, Packet):
-    name = 'Abstract IPV6 Option Header'
+    name = 'Abstract IPv6 Option Header'
     aliastypes = [IPv6, IPerror6] # TODO ...
 
 

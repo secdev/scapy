@@ -45,8 +45,9 @@ conf.debug_dissector = True
 if WINDOWS:
     route_add_loopback()
 
-IP().src
-assert _ == "127.0.0.1"
+p = IP().src
+p
+assert p == "127.0.0.1"
 
 ############
 ############
@@ -136,7 +137,7 @@ b = six.moves.cPickle.dumps(a)
 c = six.moves.cPickle.loads(b)
 
 assert c[IP].dst == "192.168.0.1"
-assert str(c) == str(a)
+assert raw(c) == raw(a)
 
 = Usage test
 
@@ -307,8 +308,9 @@ test_hexdiff()
 
 = Test mysummary functions - Ether
 
-Ether(dst="ff:ff:ff:ff:ff:ff", src="ff:ff:ff:ff:ff:ff", type=0x9000)
-assert _.mysummary() in ['ff:ff:ff:ff:ff:ff > ff:ff:ff:ff:ff:ff (%s)' % loop
+p = Ether(dst="ff:ff:ff:ff:ff:ff", src="ff:ff:ff:ff:ff:ff", type=0x9000)
+p
+assert p.mysummary() in ['ff:ff:ff:ff:ff:ff > ff:ff:ff:ff:ff:ff (%s)' % loop
                          for loop in ['0x9000', 'LOOP']]
 
 = Test zerofree_randstring function
@@ -448,11 +450,19 @@ bind_layers(IP, ICMP, frag=0, proto=1)
 = fuzz
 ~ not_pypy random_weird_py3
 random.seed(0x2807)
-raw(fuzz(IP()/ICMP()))
-assert _ in [
+r = raw(fuzz(IP()/ICMP()))
+r
+assert r in [
     b'u\x14\x00\x1c\xc2\xf6\x80\x00\xde\x01k\xd3\x7f\x00\x00\x01\x7f\x00\x00\x01y\xc9>\xa6\x84\xd8\xc2\xb7',
     b'E\xa7\x00\x1c\xb0c\xc0\x00\xf6\x01U\xd3\x7f\x00\x00\x01\x7f\x00\x00\x01\xfex\xb3\x92B<\x0b\xb8',
 ]
+
+= fuzz on packets with advanced RandNum
+
+x = IP(dst="8.8.8.8")/fuzz(UDP()/NTP(version=4))
+x.show2()
+x = IP(raw(x))
+assert NTP in x
 
 = Building some packets
 ~ basic IP TCP UDP NTP LLC SNAP Dot11
@@ -480,30 +490,34 @@ a=3
 = Checking overloads
 ~ basic IP TCP Ether
 a=Ether()/IP()/TCP()
-a.proto
-_ == 6
+r = a.proto
+r
+r == 6
 
 
 = sprintf() function
 ~ basic sprintf Ether IP UDP NTP
 a=Ether()/IP()/IP(ttl=4)/UDP()/NTP()
-a.sprintf("%type% %IP.ttl% %#05xr,UDP.sport% %IP:2.ttl%")
-_ in [ '0x800 64 0x07b 4', 'IPv4 64 0x07b 4']
+r = a.sprintf("%type% %IP.ttl% %#05xr,UDP.sport% %IP:2.ttl%")
+r
+r in ['0x800 64 0x07b 4', 'IPv4 64 0x07b 4']
 
 
 = sprintf() function 
 ~ basic sprintf IP TCP SNAP LLC Dot11
 * This test is on the conditionnal substring feature of <tt>sprintf()</tt>
 a=Dot11()/LLC()/SNAP()/IP()/TCP()
-a.sprintf("{IP:{TCP:flags=%TCP.flags%}{UDP:port=%UDP.ports%} %IP.src%}")
-_ == 'flags=S 127.0.0.1'
+r = a.sprintf("{IP:{TCP:flags=%TCP.flags%}{UDP:port=%UDP.ports%} %IP.src%}")
+r
+r == 'flags=S 127.0.0.1'
 
 
 = haslayer function
 ~ basic haslayer IP TCP ICMP ISAKMP
 x=IP(id=1)/ISAKMP_payload_SA(prop=ISAKMP_payload_SA(prop=IP()/ICMP()))/TCP()
-TCP in x, ICMP in x, IP in x, UDP in x
-_ == (True,True,True,False)
+r = (TCP in x, ICMP in x, IP in x, UDP in x)
+r
+r == (True,True,True,False)
 
 = getlayer function
 ~ basic getlayer IP ISAKMP UDP
@@ -526,6 +540,20 @@ except IndexError:
     True
 else:
     False
+
+= getlayer / haslayer with name
+~ basic getlayer IP ICMP IPerror TCPerror
+x = IP() / ICMP() / IPerror()
+assert x.getlayer(ICMP) is not None
+assert x.getlayer(IPerror) is not None
+assert x.getlayer("IP in ICMP") is not None
+assert x.getlayer(TCPerror) is None
+assert x.getlayer("TCP in ICMP") is None
+assert x.haslayer(ICMP)
+assert x.haslayer(IPerror)
+assert x.haslayer("IP in ICMP")
+assert not x.haslayer(TCPerror)
+assert not x.haslayer("TCP in ICMP")
 
 = getlayer with a filter
 ~ getlayer IP
@@ -565,8 +593,7 @@ x=Ether()/IP(version=4)/UDP()
 y=Ether()/IP()/UDP(dport=4)
 z=Ether()/IP()/UDP()/NTP()
 t=Ether()/IP()/TCP()
-x==y, x==z, x==t, y==z, y==t, z==t, w==x
-_ == (False, False, False, False, False, False, True)
+assert x != y and x != z and x != t and y != z and y != t and z != t and w == x
 
 = answers
 ~ basic
@@ -628,22 +655,29 @@ assert not p1.answers(p2)
 + Tests on padding
 
 = Padding assembly
-raw(Padding("abc"))
-assert( _ == b"abc" )
-raw(Padding("abc")/Padding("def"))
-assert( _ == b"abcdef" )
-raw(Raw("ABC")/Padding("abc")/Padding("def"))
-assert( _ == b"ABCabcdef" )
-raw(Raw("ABC")/Padding("abc")/Raw("DEF")/Padding("def"))
-assert( _ == b"ABCDEFabcdef" )
+r = raw(Padding("abc"))
+r
+assert(r == b"abc" )
+r = raw(Padding("abc")/Padding("def"))
+r
+assert(r == b"abcdef" )
+r = raw(Raw("ABC")/Padding("abc")/Padding("def"))
+r
+assert(r == b"ABCabcdef" )
+r = raw(Raw("ABC")/Padding("abc")/Raw("DEF")/Padding("def"))
+r
+assert(r == b"ABCDEFabcdef")
 
 = Padding and length computation
-IP(raw(IP()/Padding("abc")))
-assert( _.len == 20 and len(_) == 23 )
-IP(raw(IP()/Raw("ABC")/Padding("abc")))
-assert( _.len == 23 and len(_) == 26 )
-IP(raw(IP()/Raw("ABC")/Padding("abc")/Padding("def")))
-assert( _.len == 23 and len(_) == 29 )
+p = IP(raw(IP()/Padding("abc")))
+p
+assert(p.len == 20 and len(p) == 23)
+p = IP(raw(IP()/Raw("ABC")/Padding("abc")))
+p
+assert(p.len == 23 and len(p) == 26)
+p = IP(raw(IP()/Raw("ABC")/Padding("abc")/Padding("def")))
+p
+assert(p.len == 23 and len(p) == 29)
 
 = PadField test
 ~ PadField padding
@@ -665,10 +699,12 @@ class IPv3(IP):
 
 = Test of IPv3 class
 a = IPv3()
-a.version, a.ttl
-assert(_ == (3,32))
-raw(a)
-assert(_ == b'5\x00\x00\x14\x00\x01\x00\x00 \x00\xac\xe7\x7f\x00\x00\x01\x7f\x00\x00\x01')
+v,t = a.version, a.ttl
+v,t
+assert((v,t) == (3,32))
+r = raw(a)
+r
+assert(r == b'5\x00\x00\x14\x00\x01\x00\x00 \x00\xac\xe7\x7f\x00\x00\x01\x7f\x00\x00\x01')
 
 
 ############
@@ -684,8 +720,9 @@ p
 
 = ISAKMP manipulation
 ~ ISAKMP
-p[ISAKMP_payload_Transform:2]
-_.res2 == 12345
+r = p[ISAKMP_payload_Transform:2]
+r
+r.res2 == 12345
 
 = ISAKMP assembly
 ~ ISAKMP 
@@ -697,8 +734,9 @@ raw(p) == b"E\x00\x00\x96\x00\x01\x00\x00@\x11\xa7\x9f\xc0\xa8\x08\x0e\n\x00\x00
 ~ ISAKMP
 q=IP(raw(p))
 q.show()
-q[ISAKMP_payload_Transform:2]
-_.res2 == 12345
+r = q[ISAKMP_payload_Transform:2]
+r
+r.res2 == 12345
 
 
 ############
@@ -722,10 +760,12 @@ assert(len(y[TFTP_Options].options) == 2 and y[TFTP_Option].oname == b"blksize")
 = WEP tests
 ~ wifi crypto Dot11 LLC SNAP IP TCP
 conf.wepkey = "Fobar"
-raw(Dot11WEP()/LLC()/SNAP()/IP()/TCP(seq=12345678))
-assert(_ == b'\x00\x00\x00\x00\xe3OjYLw\xc3x_%\xd0\xcf\xdeu-\xc3pH#\x1eK\xae\xf5\xde\xe7\xb8\x1d,\xa1\xfe\xe83\xca\xe1\xfe\xbd\xfe\xec\x00)T`\xde.\x93Td\x95C\x0f\x07\xdd')
-Dot11WEP(_)
-assert(TCP in _ and _[TCP].seq == 12345678)
+r = raw(Dot11WEP()/LLC()/SNAP()/IP()/TCP(seq=12345678))
+r
+assert(r == b'\x00\x00\x00\x00\xe3OjYLw\xc3x_%\xd0\xcf\xdeu-\xc3pH#\x1eK\xae\xf5\xde\xe7\xb8\x1d,\xa1\xfe\xe83\xca\xe1\xfe\xbd\xfe\xec\x00)T`\xde.\x93Td\x95C\x0f\x07\xdd')
+p = Dot11WEP(r)
+p
+assert(TCP in p and p[TCP].seq == 12345678)
 
 = RadioTap Big-Small endian dissection
 data = b'\x00\x00\x1a\x00/H\x00\x00\xe1\xd3\xcb\x05\x00\x00\x00\x00@0x\x14@\x01\xac\x00\x00\x00'
@@ -740,11 +780,14 @@ assert r.present == 18479
 
 = SNMP assembling
 ~ SNMP ASN1
-raw(SNMP())
-assert(_ == b'0\x18\x02\x01\x01\x04\x06public\xa0\x0b\x02\x01\x00\x02\x01\x00\x02\x01\x000\x00')
-SNMP(version="v2c", community="ABC", PDU=SNMPbulk(id=4,varbindlist=[SNMPvarbind(oid="1.2.3.4",value=ASN1_INTEGER(7)),SNMPvarbind(oid="4.3.2.1.2.3",value=ASN1_IA5_STRING("testing123"))]))
-raw(_)
-assert(_ == b'05\x02\x01\x01\x04\x03ABC\xa5+\x02\x01\x04\x02\x01\x00\x02\x01\x000 0\x08\x06\x03*\x03\x04\x02\x01\x070\x14\x06\x06\x81#\x02\x01\x02\x03\x16\ntesting123')
+r = raw(SNMP())
+r
+assert(r == b'0\x18\x02\x01\x01\x04\x06public\xa0\x0b\x02\x01\x00\x02\x01\x00\x02\x01\x000\x00')
+p = SNMP(version="v2c", community="ABC", PDU=SNMPbulk(id=4,varbindlist=[SNMPvarbind(oid="1.2.3.4",value=ASN1_INTEGER(7)),SNMPvarbind(oid="4.3.2.1.2.3",value=ASN1_IA5_STRING("testing123"))]))
+p
+r = raw(p)
+r
+assert(r == b'05\x02\x01\x01\x04\x03ABC\xa5+\x02\x01\x04\x02\x01\x00\x02\x01\x000 0\x08\x06\x03*\x03\x04\x02\x01\x070\x14\x06\x06\x81#\x02\x01\x02\x03\x16\ntesting123')
 
 = SNMP disassembling
 ~ SNMP ASN1
@@ -776,6 +819,10 @@ assert raw(a) in [b'A\x02\x07q', b'C\x02\xfe\x92', b'\x1e\x023V']
 a = ASN1_BIT_STRING("test", "value")
 a
 assert raw(a) == b'test'
+
+a = ASN1_BIT_STRING(b"\xff"*16, "value")
+a
+assert raw(a) == b'\xff'*16
 
 = ASN1 - ASN1_SEQUENCE
 a = ASN1_SEQUENCE([ASN1_Object(1), ASN1_Object(0)])
@@ -1017,13 +1064,21 @@ assert True
 ############
 + More complex tests
 
-= Implicit logic
+= Implicit logic 1
 ~ IP TCP
 a = Ether() / IP(ttl=(5, 10)) / TCP(dport=[80, 443])
 ls(a)
 ls(a, verbose=True)
-[p for p in a]
-len(_) == 12
+l = [p for p in a]
+len(l) == 12
+
+= Implicit logic 2
+~ IP
+a = IP(ttl=[1,2,(5,9)])
+ls(a)
+ls(a, verbose=True)
+l = [p for p in a]
+len(l) == 7
 
 
 ############
@@ -1049,8 +1104,7 @@ len(ans) == 1 and len(unans) == 1
 = Traceroute function
 ~ netaccess
 * Let's test traceroute
-traceroute("www.slashdot.org")
-ans,unans=_
+ans, unans = traceroute("www.slashdot.org")
 
 = Result manipulation
 ~ netaccess
@@ -1075,12 +1129,14 @@ del(dns_ans2[UDP].len)
 del(dns_ans2[UDP].chksum)
 assert(b"\x03www\x06secdev\x03org\x00" in raw(dns_ans2))
 assert(DNS in IP(raw(dns_ans2)))
+assert raw(DNSRR(type='A', rdata='1.2.3.4')) == b'\x00\x00\x01\x00\x01\x00\x00\x00\x00\x00\x04\x01\x02\x03\x04'
 
 = Arping
 ~ netaccess
 * This test assumes the local network is a /24. This is bad.
-conf.route.route("0.0.0.0")[2]
-arping(_+"/24")
+ip_address = conf.route.route("0.0.0.0")[2]
+ip_address
+arping(ip_address+"/24")
 
 = send() and sniff()
 ~ netaccess
@@ -1215,15 +1271,18 @@ class ATMT1(Automaton):
 ~ automaton
 
 a=ATMT1(init="a", ll=lambda: None, recvsock=lambda: None)
-a.run()
-assert( _ == 'aabaaababaaabaaababab' )
-a.result
-assert( _ == 'aabaaababaaabaaababab' )
-a=ATMT1(init="b", ll=lambda: None, recvsock=lambda: None)
-a.run()
-assert( _ == 'babababababababababababababab' )
-a.result
-assert( _ == 'babababababababababababababab' )
+r = a.run()
+r
+assert(r == 'aabaaababaaabaaababab')
+r = a.result
+r
+assert(r == 'aabaaababaaabaaababab')
+a = ATMT1(init="b", ll=lambda: None, recvsock=lambda: None)
+r = a.run()
+r
+assert(r == 'babababababababababababababab')
+r = a.result
+assert(r == 'babababababababababababababab')
 
 = Simple automaton stuck test
 ~ automaton
@@ -1244,17 +1303,21 @@ class ATMT2(ATMT1):
         return "c"+ATMT1.MAIN(self, s).run()
 
 a=ATMT2(init="a", ll=lambda: None, recvsock=lambda: None)
-a.run()
-assert( _ == 'ccccccacabacccacababacccccacabacccacababab' )
+r = a.run()
+r
+assert(r == 'ccccccacabacccacababacccccacabacccacababab')
 
 
-a.result
-assert( _ == 'ccccccacabacccacababacccccacabacccacababab' )
+r = a.result
+r
+assert(r == 'ccccccacabacccacababacccccacabacccacababab')
 a=ATMT2(init="b", ll=lambda: None, recvsock=lambda: None)
-a.run()
-assert( _ == 'cccccbaccbabaccccbaccbabab')
-a.result
-assert( _ == 'cccccbaccbabaccccbaccbabab')
+r = a.run()
+r
+assert(r == 'cccccbaccbabaccccbaccbabab')
+r = a.result
+r
+assert(r == 'cccccbaccbabaccccbaccbabab')
 
 
 = Automaton condition overloading
@@ -1267,16 +1330,20 @@ class ATMT3(ATMT2):
 
 
 a=ATMT3(init="a", debug=2, ll=lambda: None, recvsock=lambda: None)
-a.run()
-assert( _ == 'cccccacabdacccacabdabda')
-a.result
-assert( _ == 'cccccacabdacccacabdabda')
+r = a.run()
+r
+assert(r == 'cccccacabdacccacabdabda')
+r = a.result
+r
+assert(r == 'cccccacabdacccacabdabda')
 a=ATMT3(init="b", ll=lambda: None, recvsock=lambda: None)
-a.run()
-assert( _ == 'cccccbdaccbdabdaccccbdaccbdabdab' )
+r = a.run()
+r
+assert(r == 'cccccbdaccbdabdaccccbdaccbdabdab')
 
-a.result
-assert( _ == 'cccccbdaccbdabdaccccbdaccbdabdab' )
+r = a.result
+r
+assert(r == 'cccccbdaccbdabdaccccbdaccbdabdab')
 
 
 = Automaton action overloading
@@ -1287,15 +1354,19 @@ class ATMT4(ATMT3):
         self.result = "e"+s+"e"
 
 a=ATMT4(init="a", ll=lambda: None, recvsock=lambda: None)
-a.run()
-assert( _ == 'cccccacabdacccacabdabda')
-a.result
-assert( _ == 'ecccccacabdacccacabdabdae')
+r = a.run()
+r
+assert(r == 'cccccacabdacccacabdabda')
+r = a.result
+r
+assert(r == 'ecccccacabdacccacabdabdae')
 a=ATMT4(init="b", ll=lambda: None, recvsock=lambda: None)
-a.run()
-assert( _ == 'cccccbdaccbdabdaccccbdaccbdabdab' )
-a.result
-assert( _ == 'ecccccbdaccbdabdaccccbdaccbdabdabe' )
+r = a.run()
+r
+assert(r == 'cccccbdaccbdabdaccccbdaccbdabdab')
+r = a.result
+r
+assert(r == 'ecccccbdaccbdabdaccccbdaccbdabdabe')
 
 
 = Automaton priorities
@@ -1330,8 +1401,9 @@ class ATMT5(Automaton):
         return self.res
 
 a=ATMT5(ll=lambda: None, recvsock=lambda: None)
-a.run()
-assert( _ == 'Jupiter' )
+r = a.run()
+r
+assert(r == 'Jupiter')
 
 = Automaton test same action for many conditions
 ~ automaton
@@ -1366,12 +1438,13 @@ class ATMT6(Automaton):
         return self.res
 
 a=ATMT6(ll=lambda: None, recvsock=lambda: None)
-a.run()
-assert( _ == 'Mercury' )
+r = a.run()
+assert(r == 'Mercury')
 
 a.restart()
-a.run()
-assert( _ == 'Mercury' )
+r = a.run()
+r
+assert(r == 'Mercury')
 
 = Automaton test io event
 ~ automaton
@@ -1399,18 +1472,22 @@ class ATMT7(Automaton):
 a=ATMT7(ll=lambda: None, recvsock=lambda: None)
 a.run(wait=False)
 a.io.tst.send("at")
-a.io.tst.recv()
-a.io.tst.send(_)
-a.run()
-assert( _ == "Saturn" )
+r = a.io.tst.recv()
+r
+a.io.tst.send(r)
+r = a.run()
+r
+assert(r == "Saturn")
 
 a.restart()
 a.run(wait=False)
 a.io.tst.send("at")
-a.io.tst.recv()
-a.io.tst.send(_)
-a.run()
-assert( _ == "Saturn" )
+r = a.io.tst.recv()
+r
+a.io.tst.send(r)
+r = a.run()
+r
+assert(r == "Saturn")
 
 = Automaton test io event from external fd
 ~ automaton
@@ -1452,15 +1529,17 @@ a.run(wait=False)
 writeOn(w, b"ra")
 writeOn(w, b"nu")
 
-a.run()
-assert( _ == b"Uranus" )
+r = a.run()
+r
+assert(r == b"Uranus")
 
 a.restart()
 a.run(wait=False)
 writeOn(w, b"ra")
 writeOn(w, b"nu")
-a.run()
-assert( _ == b"Uranus" )
+r = a.run()
+r
+assert(r == b"Uranus")
 
 = Automaton test interception_points, and restart
 ~ automaton
@@ -1481,12 +1560,14 @@ class ATMT9(Automaton):
         return self.res
 
 a=ATMT9(debug=5, ll=lambda: None, recvsock=lambda: None)
-a.run()
-assert( _ == "VENUs" )
+r = a.run()
+r
+assert(r == "VENUs")
 
 a.restart()
-a.run()
-assert( _ == "VENUs" )
+r = a.run()
+r
+assert(r == "VENUs")
 
 a.restart()
 a.BEGIN.intercepts()
@@ -1498,8 +1579,9 @@ while True:
     else:
         break
 
-x
-assert( _ == "Venus" )
+r = x
+r
+assert(r == "Venus")
 
 
 ############
@@ -1508,21 +1590,27 @@ assert( _ == "Venus" )
 
 = IP options individual assembly
 ~ IP options
-raw(IPOption())
-assert(_ == b'\x00\x02')
-raw(IPOption_NOP())
-assert(_ == b'\x01')
-raw(IPOption_EOL())
-assert(_ == b'\x00')
-raw(IPOption_LSRR(routers=["1.2.3.4","5.6.7.8"]))
-assert(_ == b'\x83\x0b\x04\x01\x02\x03\x04\x05\x06\x07\x08')
+r = raw(IPOption())
+r
+assert(r == b'\x00\x02')
+r = raw(IPOption_NOP())
+r
+assert(r == b'\x01')
+r = raw(IPOption_EOL())
+r
+assert(r == b'\x00')
+r = raw(IPOption_LSRR(routers=["1.2.3.4","5.6.7.8"]))
+r
+assert(r == b'\x83\x0b\x04\x01\x02\x03\x04\x05\x06\x07\x08')
 
 = IP options individual dissection
 ~ IP options
-IPOption(b"\x00")
-assert(_.option == 0 and isinstance(_, IPOption_EOL))
-IPOption(b"\x01")
-assert(_.option == 1 and isinstance(_, IPOption_NOP))
+io = IPOption(b"\x00")
+io
+assert(io.option == 0 and isinstance(io, IPOption_EOL))
+io = IPOption(b"\x01")
+io
+assert(io.option == 1 and isinstance(io, IPOption_NOP))
 lsrr=b'\x83\x0b\x04\x01\x02\x03\x04\x05\x06\x07\x08'
 p=IPOption_LSRR(lsrr)
 p
@@ -1533,19 +1621,22 @@ assert(p == q)
 = IP assembly and dissection with options
 ~ IP options
 p = IP(src="9.10.11.12",dst="13.14.15.16",options=IPOption_SDBM(addresses=["1.2.3.4","5.6.7.8"]))/TCP()
-raw(p)
-assert(_ == b'H\x00\x004\x00\x01\x00\x00@\x06\xa2q\t\n\x0b\x0c\r\x0e\x0f\x10\x95\n\x01\x02\x03\x04\x05\x06\x07\x08\x00\x00\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00_K\x00\x00')
-q=IP(_)
+r = raw(p)
+r
+assert(r == b'H\x00\x004\x00\x01\x00\x00@\x06\xa2q\t\n\x0b\x0c\r\x0e\x0f\x10\x95\n\x01\x02\x03\x04\x05\x06\x07\x08\x00\x00\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00_K\x00\x00')
+q=IP(r)
 q
 assert( isinstance(q.options[0],IPOption_SDBM) )
 assert( q[IPOption_SDBM].addresses[1] == "5.6.7.8" )
 p.options[0].addresses[0] = '5.6.7.8'
 assert( IP(raw(p)).options[0].addresses[0] == '5.6.7.8' )
-IP(src="9.10.11.12", dst="13.14.15.16", options=[IPOption_NOP(),IPOption_LSRR(routers=["1.2.3.4","5.6.7.8"]),IPOption_Security(transmission_control_code="XYZ")])/TCP()
-raw(_)
-assert(_ == b'K\x00\x00@\x00\x01\x00\x00@\x06\xf3\x83\t\n\x0b\x0c\r\x0e\x0f\x10\x01\x83\x0b\x04\x01\x02\x03\x04\x05\x06\x07\x08\x82\x0b\x00\x00\x00\x00\x00\x00XYZ\x00\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00_K\x00\x00')
-IP(_)
-q=_
+p = IP(src="9.10.11.12", dst="13.14.15.16", options=[IPOption_NOP(),IPOption_LSRR(routers=["1.2.3.4","5.6.7.8"]),IPOption_Security(transmission_control_code="XYZ")])/TCP()
+p
+r = raw(p)
+r
+assert(r == b'K\x00\x00@\x00\x01\x00\x00@\x06\xf3\x83\t\n\x0b\x0c\r\x0e\x0f\x10\x01\x83\x0b\x04\x01\x02\x03\x04\x05\x06\x07\x08\x82\x0b\x00\x00\x00\x00\x00\x00XYZ\x00\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00_K\x00\x00')
+q = IP(r)
+q
 assert(q[IPOption_LSRR].get_current_router() == "1.2.3.4")
 assert(q[IPOption_Security].transmission_control_code == b"XYZ")
 assert(q[TCP].flags == 2)
@@ -1557,41 +1648,44 @@ assert(q[TCP].flags == 2)
 
 = PPP/HDLC
 ~ ppp hdlc
-HDLC()/PPP()/PPP_IPCP()
-raw(_)
-s=_
+p = HDLC()/PPP()/PPP_IPCP()
+p
+s = raw(p)
+s
 assert(s == b'\xff\x03\x80!\x01\x00\x00\x04')
-PPP(s)
-p=_
+p = PPP(s)
+p
 assert(HDLC in p)
 assert(p[HDLC].control==3)
 assert(p[PPP].proto==0x8021)
-PPP(s[2:])
-q=_
+q = PPP(s[2:])
+q
 assert(HDLC not in q)
 assert(q[PPP].proto==0x8021)
 
 
 = PPP IPCP
 ~ ppp ipcp
-PPP(b'\x80!\x01\x01\x00\x10\x03\x06\xc0\xa8\x01\x01\x02\x06\x00-\x0f\x01')
-p=_
+p = PPP(b'\x80!\x01\x01\x00\x10\x03\x06\xc0\xa8\x01\x01\x02\x06\x00-\x0f\x01')
+p
 assert(p[PPP_IPCP].code == 1)
 assert(p[PPP_IPCP_Option_IPAddress].data=="192.168.1.1")
 assert(p[PPP_IPCP_Option].data == b'\x00-\x0f\x01')
 p=PPP()/PPP_IPCP(options=[PPP_IPCP_Option_DNS1(data="1.2.3.4"),PPP_IPCP_Option_DNS2(data="5.6.7.8"),PPP_IPCP_Option_NBNS2(data="9.10.11.12")])
-raw(p)
-assert(_ == b'\x80!\x01\x00\x00\x16\x81\x06\x01\x02\x03\x04\x83\x06\x05\x06\x07\x08\x84\x06\t\n\x0b\x0c')
-PPP(_)
-q=_
+r = raw(p)
+r
+assert(r == b'\x80!\x01\x00\x00\x16\x81\x06\x01\x02\x03\x04\x83\x06\x05\x06\x07\x08\x84\x06\t\n\x0b\x0c')
+q = PPP(r)
+q
 assert(raw(p) == raw(q))
 assert(PPP(raw(q))==q)
-PPP()/PPP_IPCP(options=[PPP_IPCP_Option_DNS1(data="1.2.3.4"),PPP_IPCP_Option_DNS2(data="5.6.7.8"),PPP_IPCP_Option(type=123,data="ABCDEFG"),PPP_IPCP_Option_NBNS2(data="9.10.11.12")])
-p=_
-raw(p)
-assert(_ == b'\x80!\x01\x00\x00\x1f\x81\x06\x01\x02\x03\x04\x83\x06\x05\x06\x07\x08{\tABCDEFG\x84\x06\t\n\x0b\x0c')
-PPP(_)
-q=_
+p = PPP()/PPP_IPCP(options=[PPP_IPCP_Option_DNS1(data="1.2.3.4"),PPP_IPCP_Option_DNS2(data="5.6.7.8"),PPP_IPCP_Option(type=123,data="ABCDEFG"),PPP_IPCP_Option_NBNS2(data="9.10.11.12")])
+p
+r = raw(p)
+r
+assert(r == b'\x80!\x01\x00\x00\x1f\x81\x06\x01\x02\x03\x04\x83\x06\x05\x06\x07\x08{\tABCDEFG\x84\x06\t\n\x0b\x0c')
+q = PPP(r)
+q
 assert( q[PPP_IPCP_Option].type == 123 )
 assert( q[PPP_IPCP_Option].data == b"ABCDEFG" )
 assert( q[PPP_IPCP_Option_NBNS2].data == '9.10.11.12' )
@@ -1600,19 +1694,21 @@ assert( q[PPP_IPCP_Option_NBNS2].data == '9.10.11.12' )
 = PPP ECP
 ~ ppp ecp
 
-PPP()/PPP_ECP(options=[PPP_ECP_Option_OUI(oui="XYZ")])
-p=_
-raw(p)
-assert(_ == b'\x80S\x01\x00\x00\n\x00\x06XYZ\x00')
-PPP(_)
-q=_
-assert( raw(p)==raw(q) )
-PPP()/PPP_ECP(options=[PPP_ECP_Option_OUI(oui="XYZ"),PPP_ECP_Option(type=1,data="ABCDEFG")])
-p=_
-raw(p)
-assert(_ == b'\x80S\x01\x00\x00\x13\x00\x06XYZ\x00\x01\tABCDEFG')
-PPP(_)
-q=_
+p = PPP()/PPP_ECP(options=[PPP_ECP_Option_OUI(oui="XYZ")])
+p
+r = raw(p)
+r
+assert(r == b'\x80S\x01\x00\x00\n\x00\x06XYZ\x00')
+q = PPP(r)
+q
+assert(raw(p) == raw(q))
+p = PPP()/PPP_ECP(options=[PPP_ECP_Option_OUI(oui="XYZ"),PPP_ECP_Option(type=1,data="ABCDEFG")])
+p
+r = raw(p)
+r
+assert(r == b'\x80S\x01\x00\x00\x13\x00\x06XYZ\x00\x01\tABCDEFG')
+q = PPP(r)
+q
 assert( raw(p) == raw(q) )
 assert( q[PPP_ECP_Option].data == b"ABCDEFG" )
 
@@ -3420,14 +3516,14 @@ p.show()
 + TracerouteResult6
 
 = get_trace()
-ip6_hlim = [("2001:db8::%d" % i, i) for i in six.moves.range(1, 10)]
+ip6_hlim = [("2001:db8::%d" % i, i) for i in six.moves.range(1, 12)]
 
 tr6_packets = [ (IPv6(dst="2001:db8::1", src="2001:db8::254", hlim=hlim)/UDP()/"scapy",
                  IPv6(dst="2001:db8::254", src=ip)/ICMPv6TimeExceeded()/IPerror6(dst="2001:db8::1", src="2001:db8::254", hlim=0)/UDPerror()/"scapy")
                    for (ip, hlim) in ip6_hlim ]
 
 tr6 = TracerouteResult6(tr6_packets)
-tr6.get_trace() == {'2001:db8::1': {1: ('2001:db8::1', False), 2: ('2001:db8::2', False), 3: ('2001:db8::3', False), 4: ('2001:db8::4', False), 5: ('2001:db8::5', False), 6: ('2001:db8::6', False), 7: ('2001:db8::7', False), 8: ('2001:db8::8', False), 9: ('2001:db8::9', False)}}
+tr6.get_trace() == {'2001:db8::1': {1: ('2001:db8::1', False), 2: ('2001:db8::2', False), 3: ('2001:db8::3', False), 4: ('2001:db8::4', False), 5: ('2001:db8::5', False), 6: ('2001:db8::6', False), 7: ('2001:db8::7', False), 8: ('2001:db8::8', False), 9: ('2001:db8::9', False), 10: ('2001:db8::10', False), 11: ('2001:db8::11', False)}}
 
 = show()
 def test_show():
@@ -3436,15 +3532,17 @@ def test_show():
         tr6.show()
         result = cmco.get_output()
     expected = "  2001:db8::1                               :udpdomain \n"
-    expected += "1 2001:db8::1                                3         \n"
-    expected += "2 2001:db8::2                                3         \n"
-    expected += "3 2001:db8::3                                3         \n"
-    expected += "4 2001:db8::4                                3         \n"
-    expected += "5 2001:db8::5                                3         \n"
-    expected += "6 2001:db8::6                                3         \n"
-    expected += "7 2001:db8::7                                3         \n"
-    expected += "8 2001:db8::8                                3         \n"
-    expected += "9 2001:db8::9                                3         \n"
+    expected += "1  2001:db8::1                                3         \n"
+    expected += "2  2001:db8::2                                3         \n"
+    expected += "3  2001:db8::3                                3         \n"
+    expected += "4  2001:db8::4                                3         \n"
+    expected += "5  2001:db8::5                                3         \n"
+    expected += "6  2001:db8::6                                3         \n"
+    expected += "7  2001:db8::7                                3         \n"
+    expected += "8  2001:db8::8                                3         \n"
+    expected += "9  2001:db8::9                                3         \n"
+    expected += "10 2001:db8::10                               3         \n"
+    expected += "11 2001:db8::11                               3         \n"
     index_result = result.index("\n1")
     index_expected = expected.index("\n1")
     assert(result[index_result:] == expected[index_expected:])
@@ -4618,8 +4716,13 @@ a=DHCP6_RelayForward(b'\x0c\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\
 a.msgtype == 12 and a.hopcount == 0 and a.linkaddr == "::" and a.peeraddr == "::"
 
 = DHCP6_RelayForward - Dissection with options
-a = DHCP6_RelayForward(b'\x0c\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\t\x00\x04\x00\x01\x00\x00')
-a.msgtype == 12 and DHCP6OptRelayMsg in a and isinstance(a.message, DHCP6)
+a = DHCP6_RelayForward(b'\x0c\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\t\x00\x04\x03\x01\x00\x00')
+a.msgtype == 12 and DHCP6OptRelayMsg in a and isinstance(a.message, DHCP6_Request)
+
+= DHCP6_RelayForward - Advanced dissection
+s = b'`\x00\x00\x00\x002\x11@\xfe\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\xff\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x02\x02#\x02#\x002\xf0\xaf\x0c\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\t\x00\x04\x01\x00\x00\x00'
+p = IPv6(s)
+assert DHCP6OptRelayMsg in p and isinstance(p.message, DHCP6_Solicit)
 
 
 ############
@@ -4634,8 +4737,8 @@ a=DHCP6OptRelayMsg(b'\x00\r\x00\x00')
 assert a.optcode == 13
 
 = DHCP6OptRelayMsg - Embedded DHCP6 packet
-p = DHCP6OptRelayMsg(b'\x00\t\x00\x04\x00\x00\x00\x00')
-isinstance(p.message, DHCP6)
+p = DHCP6OptRelayMsg(b'\x00\t\x00\x04\x01\x00\x00\x00')
+isinstance(p.message, DHCP6_Solicit)
 
 ############
 ############
@@ -5432,6 +5535,7 @@ from io import BytesIO
 pcapfile = BytesIO(b'\xd4\xc3\xb2\xa1\x02\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x00\x00e\x00\x00\x00\xcf\xc5\xacVo*\n\x00(\x00\x00\x00(\x00\x00\x00E\x00\x00(\x00\x01\x00\x00@\x06|\xcd\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x91|\x00\x00\xcf\xc5\xacV_-\n\x00\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x11|\xce\x7f\x00\x00\x01\x7f\x00\x00\x01\x005\x005\x00\x08\x01r\xcf\xc5\xacV\xf90\n\x00\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x01|\xde\x7f\x00\x00\x01\x7f\x00\x00\x01\x08\x00\xf7\xff\x00\x00\x00\x00')
 pcapngfile = BytesIO(b'\n\r\r\n\\\x00\x00\x00M<+\x1a\x01\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\x01\x00,\x00File created by merging: \nFile1: test.pcap \n\x04\x00\x08\x00mergecap\x00\x00\x00\x00\\\x00\x00\x00\x01\x00\x00\x00\\\x00\x00\x00e\x00\x00\x00\xff\xff\x00\x00\x02\x006\x00Unknown/not available in original file format(libpcap)\x00\x00\t\x00\x01\x00\x06\x00\x00\x00\x00\x00\x00\x00\\\x00\x00\x00\x06\x00\x00\x00H\x00\x00\x00\x00\x00\x00\x00\x8d*\x05\x00/\xfc[\xcd(\x00\x00\x00(\x00\x00\x00E\x00\x00(\x00\x01\x00\x00@\x06|\xcd\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x91|\x00\x00H\x00\x00\x00\x06\x00\x00\x00<\x00\x00\x00\x00\x00\x00\x00\x8d*\x05\x00\x1f\xff[\xcd\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x11|\xce\x7f\x00\x00\x01\x7f\x00\x00\x01\x005\x005\x00\x08\x01r<\x00\x00\x00\x06\x00\x00\x00<\x00\x00\x00\x00\x00\x00\x00\x8d*\x05\x00\xb9\x02\\\xcd\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x01|\xde\x7f\x00\x00\x01\x7f\x00\x00\x01\x08\x00\xf7\xff\x00\x00\x00\x00<\x00\x00\x00')
 pcapnanofile = BytesIO(b"M<\xb2\xa1\x02\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x00\x00e\x00\x00\x00\xcf\xc5\xacV\xc9\xc1\xb5'(\x00\x00\x00(\x00\x00\x00E\x00\x00(\x00\x01\x00\x00@\x06|\xcd\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x91|\x00\x00\xcf\xc5\xacV-;\xc1'\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x11|\xce\x7f\x00\x00\x01\x7f\x00\x00\x01\x005\x005\x00\x08\x01r\xcf\xc5\xacV\x9aL\xcf'\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x01|\xde\x7f\x00\x00\x01\x7f\x00\x00\x01\x08\x00\xf7\xff\x00\x00\x00\x00")
+pcapwirelenfile = BytesIO(b'\xd4\xc3\xb2\xa1\x02\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x00\x00\x01\x00\x00\x00}\x87pZ.\xa2\x08\x00\x0f\x00\x00\x00\x10\x00\x00\x00\xff\xff\xff\xff\xff\xff GG\xee\xdd\xa8\x90\x00a')
 
 = Read a pcap file
 pktpcap = rdpcap(pcapfile)
@@ -5442,6 +5546,9 @@ pktpcapng = rdpcap(pcapngfile)
 = Read a pcap file with nanosecond precision
 pktpcapnano = rdpcap(pcapnanofile)
 
+= Read a pcap file with wirelen != captured len
+pktpcapwirelen = rdpcap(pcapwirelenfile)
+
 = Check all packet lists are the same
 assert list(pktpcap) == list(pktpcapng) == list(pktpcapnano)
 assert [p.time for p in pktpcap] == [p.time for p in pktpcapng] == [p.time for p in pktpcapnano]
@@ -5450,8 +5557,24 @@ assert [p.time for p in pktpcap] == [p.time for p in pktpcapng] == [p.time for p
 assert all(IP in pkt for pkt in pktpcap)
 assert all(any(proto in pkt for pkt in pktpcap) for proto in [ICMP, UDP, TCP])
 
-= Check wrpcap()
+= Check wirelen value from pcap file
+assert len(pktpcapwirelen) == 1
+assert pktpcapwirelen[0].wirelen is not None
+assert len(pktpcapwirelen[0]) < pktpcapwirelen[0].wirelen
+
+= Check wrpcap() then rdpcap() with wirelen
 import os, tempfile
+fdesc, filename = tempfile.mkstemp()
+fdesc = os.fdopen(fdesc, "wb")
+wrpcap(fdesc, pktpcapwirelen)
+fdesc.close()
+newpktpcapwirelen = rdpcap(filename)
+assert len(newpktpcapwirelen) == 1
+assert newpktpcapwirelen[0].wirelen is not None
+assert len(newpktpcapwirelen[0]) < newpktpcapwirelen[0].wirelen
+assert newpktpcapwirelen[0].wirelen == pktpcapwirelen[0].wirelen
+
+= Check wrpcap()
 fdesc, filename = tempfile.mkstemp()
 fdesc = os.fdopen(fdesc, "wb")
 wrpcap(fdesc, pktpcap)
@@ -5543,6 +5666,10 @@ assert b'IP 127.0.0.1 > 127.0.0.1:' in data[2]
 pcapfile = BytesIO(b'\xd4\xc3\xb2\xa1\x02\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x00\x00e\x00\x00\x00\xcf\xc5\xacVo*\n\x00(\x00\x00\x00(\x00\x00\x00E\x00\x00(\x00\x01\x00\x00@\x06|\xcd\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x91|\x00\x00\xcf\xc5\xacV_-\n\x00\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x11|\xce\x7f\x00\x00\x01\x7f\x00\x00\x01\x005\x005\x00\x08\x01r\xcf\xc5\xacV\xf90\n\x00\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x01|\xde\x7f\x00\x00\x01\x7f\x00\x00\x01\x08\x00\xf7\xff\x00\x00\x00\x00')
 values = [tuple(int(val) for val in line[:-1].split(b'\t')) for line in tcpdump(pcapfile, prog=conf.prog.tshark, getfd=True, args=['-T', 'fields', '-e', 'ip.ttl', '-e', 'ip.proto'])]
 assert values == [(64, 6), (64, 17), (64, 1)]
+
+= Run scapy's tshark command
+~ netaccess
+tshark(count=1, timeout=3)
 
 = Check Raw IP pcap files
 
@@ -6579,6 +6706,9 @@ raw(EAP_FAST()) == b'\x01\x00\x00\x06+\x00'
 = EAP - EAP_TTLS - Basic Instantiation
 raw(EAP_TTLS()) == b'\x01\x00\x00\x06\x15\x00'
 
+= EAP - EAP_PEAP - Basic Instantiation
+raw(EAP_PEAP()) == b'\x01\x00\x00\x06\x19\x01'
+
 = EAP - EAP_MD5 - Basic Instantiation
 raw(EAP_MD5()) == b'\x01\x00\x00\x06\x04\x00'
 
@@ -6635,6 +6765,29 @@ assert(eap[LEAP].count == 24)
 assert(eap[LEAP].challenge_response == b'\xb3\x82[\x82\x8a\xc8M*\xf3\xe7\xb3\xad,7\x8b\xbfG\x81\xda\xbf\xe6\xc1\x9b\x95')
 assert(eap[LEAP].username == b"supplicant-1")
 
+= EAP - PEAP - Request - Dissection
+s = b'\x01\x03\x00\x06\x19 '
+eap = EAP_PEAP(s)
+assert(eap.code == 1)
+assert(eap.id == 3)
+assert(eap.len == 6)
+assert(eap.type == 25)
+assert(eap.haslayer(EAP_PEAP))
+assert(eap[EAP_PEAP].S == 1)
+assert(eap[EAP_PEAP].version == 0)
+
+= EAP - PEAP - Response - Dissection
+s = b'\x02\x03\x008\x19\x01\x16\x03\x03\x00-\x01\x00\x00)\x03\x03Zt9\xb6\xdem\xb9\xd4\x00\xed\xa5Bp>\x9a9\x8a[\x91\xe1U\xfa\xb6H\xd1\xbd\x9b\xd5\xadl\rV\x00\x00\x02\x00/\x01\x00'
+eap = EAP_PEAP(s)
+assert(eap.code == 2)
+assert(eap.id == 3)
+assert(eap.len == 56)
+assert(eap.type == 25)
+assert(eap.haslayer(EAP_PEAP))
+assert(eap[EAP_PEAP].S == 0)
+assert(eap[EAP_PEAP].version == 1)
+assert(hasattr(eap[EAP_PEAP], "tls_data"))
+
 = EAP - Layers (1)
 eap = EAP_MD5()
 assert(EAP_MD5 in eap)
@@ -6661,6 +6814,9 @@ assert(not EAP_TLS in eap)
 assert(not EAP_FAST in eap)
 assert(not LEAP in eap)
 assert(EAP in eap)
+eap = EAP_PEAP()
+assert(EAP_PEAP in eap)
+assert(EAP in eap)
 eap = LEAP()
 assert(not EAP_MD5 in eap)
 assert(not EAP_TLS in eap)
@@ -6677,6 +6833,8 @@ eap = EAP_FAST()
 assert(type(eap[EAP]) == EAP_FAST)
 eap = EAP_TTLS()
 assert(type(eap[EAP]) == EAP_TTLS)
+eap = EAP_PEAP()
+assert(type(eap[EAP]) == EAP_PEAP)
 eap = LEAP()
 assert(type(eap[EAP]) == LEAP)
 
@@ -8039,11 +8197,11 @@ assert b[VRRP].chksum == 0xc6f4
 
 = L2TP - build
 s = raw(IP()/UDP()/L2TP())
-s == b'E\x00\x00*\x00\x01\x00\x00@\x11|\xc0\x7f\x00\x00\x01\x7f\x00\x00\x01\x06\xa5\x06\xa5\x00\x16\xf4e\x00\x02\x00\x0e\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+s == b'E\x00\x00"\x00\x01\x00\x00@\x11|\xc8\x7f\x00\x00\x01\x7f\x00\x00\x01\x06\xa5\x06\xa5\x00\x0e\xf4\x83\x00\x02\x00\x00\x00\x00'
 
 = L2TP - dissection
 p = IP(s)
-L2TP in p and p[L2TP].len == 14 and p.tunnel_id == 0 and p[UDP].chksum == 0xf465
+L2TP in p and len(p[L2TP]) == 6 and p.tunnel_id == 0 and p.session_id == 0 and p[UDP].chksum == 0xf483
 
 
 ############
@@ -8127,6 +8285,10 @@ assert(radius_packet.attributes[16].type == 5)
 assert(type(radius_packet.attributes[16]) == RadiusAttr_NAS_Port)
 assert(radius_packet.attributes[16].len == 6)
 assert(radius_packet.attributes[16].value == 50118)
+
+= RADIUS - compute_message_authenticator()
+ram = radius_packet[RadiusAttr_Message_Authenticator]
+assert ram.compute_message_authenticator(radius_packet, b"dummy bytes", b"scapy") == b'\x19\xa4\x0e*Y4\xe0l?,\x94\x9f \xb8Jb'
 
 = RADIUS - Access-Challenge - Dissection (2)
 s = b'\x0b\xae\x00[\xc7\xae\xfc6\xa1=\xb5\x99&^\xdf=\xe9\x00\xa6\xe8\x12\rHello, leapO\x16\x01\x02\x00\x14\x11\x01\x00\x08\xb8\xc4\x1a4\x97x\xd3\x82leapP\x12\xd3\x12\x17\xa6\x0c.\x94\x85\x03]t\xd1\xdb\xd0\x13\x8c\x18\x12iQs\xf7iSb@k\x9d,\xa0\x99\x8ehO'
@@ -8229,7 +8391,6 @@ assert(radius_packet.attributes[3].len == 18)
 assert(radius_packet.attributes[3].value == b'iQs\xf7hRb@k\x9d,\xa0\x99\x8ehO')
 
 = RADIUS - Response Authenticator computation
-~ crypto
 s = b'\x01\xae\x01\x17>k\xd4\xc4\x19V\x0b*1\x99\xc8D\xea\xc2\x94Z\x01\x06leap\x06\x06\x00\x00\x00\x02\x1a\x1b\x00\x00\x00\t\x01\x15service-type=Framed\x0c\x06\x00\x00#\xee\x1e\x13AC-7E-8A-4E-E2-92\x1f\x1300-26-73-9E-0F-D3O\x0b\x02\x01\x00\t\x01leapP\x12U\xbc\x12\xcdM\x00\xf8\xdb4\xf1\x18r\xca_\x8c\xf6f\x02\x1a1\x00\x00\x00\t\x01+audit-session-id=0AC8090E0000001A0354CA00\x1a\x14\x00\x00\x00\t\x01\x0emethod=dot1x\x08\x06\xc0\xa8\n\xb9\x04\x06\xc0\xa8\n\x80\x1a\x1d\x00\x00\x00\t\x02\x17GigabitEthernet1/0/18W\x17GigabitEthernet1/0/18=\x06\x00\x00\x00\x0f\x05\x06\x00\x00\xc3\xc6'
 access_request = Radius(s)
 s = b'\x0b\xae\x00[\xc7\xae\xfc6\xa1=\xb5\x99&^\xdf=\xe9\x00\xa6\xe8\x12\rHello, leapO\x16\x01\x02\x00\x14\x11\x01\x00\x08\xb8\xc4\x1a4\x97x\xd3\x82leapP\x12\xd3\x12\x17\xa6\x0c.\x94\x85\x03]t\xd1\xdb\xd0\x13\x8c\x18\x12iQs\xf7iSb@k\x9d,\xa0\x99\x8ehO'
@@ -8272,6 +8433,16 @@ assert isinstance(n1, Net)
 assert n1.ip_regex.match(str(n1))
 ip.show()
 
+= Multiple IP addresses test
+~ netaccess
+
+ip = IP(dst=['192.168.0.1', 'www.google.fr'],ihl=(1,5))
+assert ip.dst[0] == '192.168.0.1'
+assert isinstance(ip.dst[1], Net)
+src = ip.src
+assert src
+assert isinstance(src, str)
+
 = OID
 
 oid = OID("1.2.3.4.5.6-8")
@@ -8290,6 +8461,28 @@ n1 = ip.dst
 assert isinstance(n1, Net6)
 assert n1.ip_regex.match(str(n1))
 ip.show()
+
+= Multiple IPv6 addresses test
+~ netaccess ipv6
+
+ip = IPv6(dst=['2001:db8::1', 'www.google.fr'],hlim=(1,5))
+assert ip.dst[0] == '2001:db8::1'
+assert isinstance(ip.dst[1], Net6)
+src = ip.src
+assert src
+assert isinstance(src, str)
+
+= Test repr on Net
+~ netaccess
+
+conf.color_theme = BlackAndWhite()
+assert "Net('www.google.com')" in repr(IP(src="www.google.com"))
+
+= Test repr on Net
+~ netaccess ipv6
+
+conf.color_theme = BlackAndWhite()
+assert "Net6('www.google.com')" in repr(IPv6(src="www.google.com"))
 
 ############
 ############
@@ -8975,6 +9168,22 @@ p.mysummary() == '802.11 Management 0 00:00:00:00:00:00 > 00:00:00:00:00:00'
 s = raw(Dot11(type=2, subtype=8)/Dot11QoS(TID=4))
 s == b'\x88\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x04\x00'
 
+= Dot11 - binary in SSID
+pkt = Dot11() / Dot11Beacon() / Dot11Elt(ID=0, info=b"".join(chb(i) for i in range(32)))
+pkt.show()
+pkt.summary()
+assert pkt[Dot11Elt::{"ID": 0}].summary() in [
+    "SSID='%s'" % "".join(repr(chr(d))[1:-1] for d in range(32)),
+    'SSID="%s"' % "".join(repr(chr(d))[1:-1] for d in range(32)),
+]
+pkt = Dot11(raw(pkt))
+pkt.show()
+pkt.summary()
+assert pkt[Dot11Elt::{"ID": 0}].summary() in [
+    "SSID='%s'" % "".join(repr(chr(d))[1:-1] for d in range(32)),
+    'SSID="%s"' % "".join(repr(chr(d))[1:-1] for d in range(32)),
+]
+
 = Dot11QoS - dissection
 p = Dot11(s)
 Dot11QoS in p
@@ -9190,10 +9399,12 @@ def test_summary():
         result_summary = cmco.get_output()
     assert(len(result_summary.split('\n')) == 10)
     assert(any(
-        "IP / TCP 192.168.0.254:ftp_data > 192.168.0.1:%s S / Raw ==> "
+        "IP / TCP 192.168.0.254:%s > 192.168.0.1:%s S / Raw ==> "
         "IP / ICMP 192.168.0.9 > 192.168.0.254 time-exceeded "
         "ttl-zero-during-transit / IPerror / TCPerror / "
-        "Raw" % http in result_summary for http in ['http', 'www_http', 'www']
+        "Raw" % (ftp_data, http) in result_summary
+        for ftp_data in ['21', 'ftp_data']
+        for http in ['80', 'http', 'www_http', 'www']
     ))
 
 test_summary()

@@ -21,6 +21,7 @@
 from __future__ import absolute_import
 import struct
 
+from scapy.compat import orb
 from scapy.packet import *
 from scapy.fields import *
 from scapy.ansmachine import *
@@ -29,30 +30,36 @@ from scapy.layers.inet import TCP
 from scapy.base_classes import Net
 from scapy.modules.six.moves import range
 
+class _LDP_Packet(Packet):
+    # Guess payload
+    def guess_payload_class(self, p):
+        LDPTypes = {
+            0x0001: LDPNotification,
+            0x0100: LDPHello,
+            0x0200: LDPInit,
+            0x0201: LDPKeepAlive,
+            0x0300: LDPAddress,
+            0x0301: LDPAddressWM,
+            0x0400: LDPLabelMM,
+            0x0401: LDPLabelReqM,
+            0x0404: LDPLabelARM,
+            0x0402: LDPLabelWM,
+            0x0403: LDPLabelRelM,
+            }
+        type = struct.unpack("!H",p[0:2])[0]
+        type = type & 0x7fff
+        if type == 0x0001 and struct.unpack("!H",p[2:4])[0] > 20:
+            return LDP
+        if type in LDPTypes:
+            return LDPTypes[type]
+        else:
+            return conf.raw_layer
 
-# Guess payload
-def guess_payload(p):
-    LDPTypes = {
-        0x0001: LDPNotification,
-        0x0100: LDPHello,
-        0x0200: LDPInit,
-        0x0201: LDPKeepAlive,
-        0x0300: LDPAddress,
-        0x0301: LDPAddressWM,
-        0x0400: LDPLabelMM,
-        0x0401: LDPLabelReqM,
-        0x0404: LDPLabelARM,
-        0x0402: LDPLabelWM,
-        0x0403: LDPLabelRelM,
-        }
-    type = struct.unpack("!H",p[0:2])[0]
-    type = type & 0x7fff
-    if type == 0x0001 and struct.unpack("!H",p[2:4])[0] > 20:
-        return LDP
-    if type in LDPTypes:
-        return LDPTypes[type]
-    else:
-        return conf.raw_layer
+    def post_build(self, p, pay):
+        if self.len is None:
+            l = len(p) - 4
+            p = p[:2]+struct.pack("!H", l)+p[4:]
+        return p+pay
 
 ## Fields ##
 
@@ -69,10 +76,10 @@ class FecTLVField(StrField):
             #if x[0] == 1:
             #   list.append('Wildcard')
             #else:
-            #mask=ord(x[8*i+3])
+            #mask=orb(x[8*i+3])
             #add=inet_ntoa(x[8*i+4:8*i+8])
-            mask=ord(x[3])
-            nbroctets = mask / 8
+            mask=orb(x[3])
+            nbroctets = mask // 8
             if mask % 8:
                 nbroctets += 1
             add=inet_ntoa(x[4:4+nbroctets]+b"\x00"*(4-nbroctets))
@@ -81,7 +88,9 @@ class FecTLVField(StrField):
             x=x[4+nbroctets:]
         return list
     def i2m(self, pkt, x):
-        if isinstance(x, str):
+        if not x:
+            return b""
+        if isinstance(x, bytes):
             return x
         s = b"\x01\x00"
         l = 0
@@ -111,7 +120,7 @@ class LabelTLVField(StrField):
     def m2i(self, pkt, x):
         return struct.unpack("!I",x[4:8])[0]
     def i2m(self, pkt, x):
-        if isinstance(x, str):
+        if isinstance(x, bytes):
             return x
         s = b"\x02\x00\x00\x04"
         s += struct.pack("!I",x)
@@ -131,7 +140,7 @@ class AddressTLVField(StrField):
     islist=1
     def m2i(self, pkt, x):
         nbr = struct.unpack("!H",x[2:4])[0] - 2
-        nbr /= 4
+        nbr //= 4
         x=x[6:]
         list=[]
         for i in range(0, nbr):
@@ -139,7 +148,9 @@ class AddressTLVField(StrField):
             list.append(inet_ntoa(add))
         return list
     def i2m(self, pkt, x):
-        if isinstance(x, str):
+        if not x:
+            return b""
+        if isinstance(x, bytes):
             return x
         l=2+len(x)*4
         s = b"\x01\x01"+struct.pack("!H",l)+b"\x00\x01"
@@ -169,7 +180,7 @@ class StatusTLVField(StrField):
         l.append( struct.unpack("!H", x[12:14])[0] )
         return l
     def i2m(self, pkt, x):
-        if isinstance(x, str):
+        if isinstance(x, bytes):
             return x
         s = b"\x03\x00" + struct.pack("!H",10)
         statuscode = 0
@@ -200,14 +211,14 @@ class CommonHelloTLVField(StrField):
         list = []
         v = struct.unpack("!H",x[4:6])[0]
         list.append(v)
-        flags = struct.unpack("B",x[6])[0]
+        flags = orb(x[6])
         v = ( flags & 0x80 ) >> 7
         list.append(v)
         v = ( flags & 0x40 ) >> 7
         list.append(v)
         return list
     def i2m(self, pkt, x):
-        if isinstance(x, str):
+        if isinstance(x, bytes):
             return x
         s = b"\x04\x00\x00\x04"
         s += struct.pack("!H",x[0])
@@ -238,7 +249,7 @@ class CommonSessionTLVField(StrField):
         l.append( struct.unpack("!H",x[16:18])[0] )
         return l
     def i2m(self, pkt, x):
-        if isinstance(x, str):
+        if isinstance(x, bytes):
             return x
         s = b"\x05\x00\x00\x0E\x00\x01"
         s += struct.pack("!H",x[0])
@@ -262,111 +273,63 @@ class CommonSessionTLVField(StrField):
 ## Messages ##
 
 # 3.5.1. Notification Message
-class LDPNotification(Packet):
+class LDPNotification(_LDP_Packet):
     name = "LDPNotification"
     fields_desc = [ BitField("u",0,1),
                     BitField("type", 0x0001, 15),
                     ShortField("len", None),
                     IntField("id", 0) ,
                     StatusTLVField("status",(0,0,0,0,0)) ]
-    def post_build(self, p, pay):
-        if self.len is None:
-            l = len(p) - 4
-            p = p[:2]+struct.pack("!H", l)+p[4:]
-        return p+pay  
-    def guess_payload_class(self, p):
-        return guess_payload(p)
-
 
 # 3.5.2. Hello Message
-class LDPHello(Packet):
+class LDPHello(_LDP_Packet):
     name = "LDPHello"
     fields_desc = [ BitField("u",0,1),
                     BitField("type", 0x0100, 15),
                     ShortField("len", None),
                     IntField("id", 0) ,
                     CommonHelloTLVField("params",[180,0,0]) ]
-    def post_build(self, p, pay):
-        if self.len is None:
-            l = len(p) - 4
-            p = p[:2]+struct.pack("!H", l)+p[4:]
-        return p+pay  
-    def guess_payload_class(self, p):
-        return guess_payload(p)
-
 
 # 3.5.3. Initialization Message
-class LDPInit(Packet):
+class LDPInit(_LDP_Packet):
     name = "LDPInit"
     fields_desc = [ BitField("u",0,1),
                     XBitField("type", 0x0200, 15),
                     ShortField("len", None),
                     IntField("id", 0),
                     CommonSessionTLVField("params",None)]
-    def post_build(self, p, pay):
-        if self.len is None:
-            l = len(p) - 4
-            p = p[:2]+struct.pack("!H", l)+p[4:]
-        return p+pay  
-    def guess_payload_class(self, p):
-        return guess_payload(p)
-
 
 # 3.5.4. KeepAlive Message
-class LDPKeepAlive(Packet):
+class LDPKeepAlive(_LDP_Packet):
     name = "LDPKeepAlive"
     fields_desc = [ BitField("u",0,1),
                     XBitField("type", 0x0201, 15),
                     ShortField("len", None),
                     IntField("id", 0)]
-    def post_build(self, p, pay):
-        if self.len is None:
-            l = len(p) - 4
-            p = p[:2]+struct.pack("!H", l)+p[4:]
-        return p+pay  
-    def guess_payload_class(self, p):
-        return guess_payload(p)
-
 
 # 3.5.5. Address Message
 
-class LDPAddress(Packet):
+class LDPAddress(_LDP_Packet):
     name = "LDPAddress"
     fields_desc = [ BitField("u",0,1),
                     XBitField("type", 0x0300, 15),
                     ShortField("len", None),
                     IntField("id", 0),
                     AddressTLVField("address",None) ]
-    def post_build(self, p, pay):
-        if self.len is None:
-            l = len(p) - 4
-            p = p[:2]+struct.pack("!H", l)+p[4:]
-        return p+pay
-    def guess_payload_class(self, p):
-        return guess_payload(p)
-
 
 # 3.5.6. Address Withdraw Message
 
-class LDPAddressWM(Packet):
+class LDPAddressWM(_LDP_Packet):
     name = "LDPAddressWM"
     fields_desc = [ BitField("u",0,1),
                     XBitField("type", 0x0301, 15),
                     ShortField("len", None),
                     IntField("id", 0),
                     AddressTLVField("address",None) ]
-    def post_build(self, p, pay):
-        if self.len is None:
-            l = len(p) - 4
-            p = p[:2]+struct.pack("!H", l)+p[4:]
-        return p+pay
-    def guess_payload_class(self, p):
-        return guess_payload(p)
-
 
 # 3.5.7. Label Mapping Message
 
-class LDPLabelMM(Packet):
+class LDPLabelMM(_LDP_Packet):
     name = "LDPLabelMM"
     fields_desc = [ BitField("u",0,1),
                     XBitField("type", 0x0400, 15),
@@ -374,35 +337,20 @@ class LDPLabelMM(Packet):
                     IntField("id", 0),
                     FecTLVField("fec",None),
                     LabelTLVField("label",0)]
-    def post_build(self, p, pay):
-        if self.len is None:
-            l = len(p) - 4
-            p = p[:2]+struct.pack("!H", l)+p[4:]
-        return p+pay  
-    def guess_payload_class(self, p):
-        return guess_payload(p)
 
 # 3.5.8. Label Request Message
 
-class LDPLabelReqM(Packet):
+class LDPLabelReqM(_LDP_Packet):
     name = "LDPLabelReqM"
     fields_desc = [ BitField("u",0,1),
                     XBitField("type", 0x0401, 15),
                     ShortField("len", None),
                     IntField("id", 0),
                     FecTLVField("fec",None)]
-    def post_build(self, p, pay):
-        if self.len is None:
-            l = len(p) - 4
-            p = p[:2]+struct.pack("!H", l)+p[4:]
-        return p+pay  
-    def guess_payload_class(self, p):
-        return guess_payload(p)
-
 
 # 3.5.9. Label Abort Request Message
 
-class LDPLabelARM(Packet):
+class LDPLabelARM(_LDP_Packet):
     name = "LDPLabelARM"
     fields_desc = [ BitField("u",0,1),
                     XBitField("type", 0x0404, 15),
@@ -410,18 +358,10 @@ class LDPLabelARM(Packet):
                     IntField("id", 0),
                     FecTLVField("fec",None),
                     IntField("labelRMid",0)]
-    def post_build(self, p, pay):
-        if self.len is None:
-            l = len(p) - 4
-            p = p[:2]+struct.pack("!H", l)+p[4:]
-        return p+pay  
-    def guess_payload_class(self, p):
-        return guess_payload(p)
-
 
 # 3.5.10. Label Withdraw Message
 
-class LDPLabelWM(Packet):
+class LDPLabelWM(_LDP_Packet):
     name = "LDPLabelWM"
     fields_desc = [ BitField("u",0,1),
                     XBitField("type", 0x0402, 15),
@@ -429,18 +369,10 @@ class LDPLabelWM(Packet):
                     IntField("id", 0),
                     FecTLVField("fec",None),
                     LabelTLVField("label",0)]
-    def post_build(self, p, pay):
-        if self.len is None:
-            l = len(p) - 4
-            p = p[:2]+struct.pack("!H", l)+p[4:]
-        return p+pay  
-    def guess_payload_class(self, p):
-        return guess_payload(p)
-
 
 # 3.5.11. Label Release Message
 
-class LDPLabelRelM(Packet):
+class LDPLabelRelM(_LDP_Packet):
     name = "LDPLabelRelM"
     fields_desc = [ BitField("u",0,1),
                     XBitField("type", 0x0403, 15),
@@ -448,29 +380,20 @@ class LDPLabelRelM(Packet):
                     IntField("id", 0),
                     FecTLVField("fec",None),
                     LabelTLVField("label",0)]
-    def post_build(self, p, pay):
-        if self.len is None:
-            l = len(p) - 4
-            p = p[:2]+struct.pack("!H", l)+p[4:]
-        return p+pay  
-    def guess_payload_class(self, p):
-        return guess_payload(p)
-
 
 # 3.1. LDP PDUs
-class LDP(Packet):
+class LDP(_LDP_Packet):
     name = "LDP"
     fields_desc = [ ShortField("version",1),
                     ShortField("len", None),
                     IPField("id","127.0.0.1"),
                     ShortField("space",0) ]
     def post_build(self, p, pay):
+        pay = pay or b""
         if self.len is None:
-            l = len(p)+len(pay)-4
+            l = len(p) + len(pay) - 4
             p = p[:2]+struct.pack("!H", l)+p[4:]
-        return p+pay
-    def guess_payload_class(self, p):
-        return guess_payload(p)
+        return p + pay
 
 bind_layers( TCP, LDP, sport=646, dport=646 )
 bind_layers( UDP, LDP, sport=646, dport=646 )

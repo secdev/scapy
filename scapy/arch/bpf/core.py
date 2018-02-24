@@ -173,7 +173,7 @@ def get_working_ifaces():
 
             # Check if the interface can be used
             try:
-                fcntl.ioctl(fd, BIOCSETIF, struct.pack("16s16x", ifname))
+                fcntl.ioctl(fd, BIOCSETIF, struct.pack("16s16x", ifname.encode()))
                 interfaces.append((ifname, int(ifname[-1])))
             except IOError as err:
                 pass
@@ -182,8 +182,8 @@ def get_working_ifaces():
             os.close(fd)
 
     # Sort to mimic pcap_findalldevs() order
-    interfaces.sort(lambda ifname_left_and_ifid_left,
-                        ifname_right_and_ifid_right: ifname_left_and_ifid_left[1]-ifname_right_and_ifid_right[1])
+    interfaces.sort(key=lambda elt: elt[1])
+
     return interfaces
 
 

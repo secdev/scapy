@@ -99,7 +99,7 @@ class _TLSMsgListField(PacketListField):
                 return cls(m, tls_session=pkt.tls_session)
             except:
                 if conf.debug_dissector:
-                    traceback.print_exc()
+                    raise
                 return Raw(m)
 
     def getfield(self, pkt, s):
@@ -288,6 +288,11 @@ class TLS(_GenericTLSSessionInheritance):
                     if s.rcs and not isinstance(s.rcs.cipher, Cipher_NULL):
                         from scapy.layers.tls.record_tls13 import TLS13
                         return TLS13
+        if _pkt and len(_pkt) < 5:
+                # Layer detected as TLS but too small to be a real packet (len<5).
+                # Those packets appear when sessions are interrupted or to flush buffers.
+                # Scapy should not try to decode them
+            return conf.raw_layer
         return TLS
 
     ### Parsing methods
@@ -352,7 +357,7 @@ class TLS(_GenericTLSSessionInheritance):
             if version > 0x300:
                 h = alg.digest(read_seq_num + hdr + msg)
             elif version == 0x300:
-                h = alg.digest_sslv3(read_seq_num + hdr[0] + hdr[3:5] + msg)
+                h = alg.digest_sslv3(read_seq_num + hdr[:1] + hdr[3:5] + msg)
             else:
                 raise Exception("Unrecognized version.")
         except HMACError:

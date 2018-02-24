@@ -25,9 +25,8 @@ from scapy import plist
 from scapy.error import log_runtime, log_interactive
 from scapy.base_classes import SetGen
 from scapy.supersocket import StreamSocket, L3RawSocket, L2ListenTcpdump
-import scapy.modules.six as six
+from scapy.modules import six
 from scapy.modules.six.moves import map
-from scapy.modules.six import iteritems
 if conf.route is None:
     # unused import, only to initialize conf.route
     import scapy.route
@@ -59,7 +58,7 @@ def _sndrcv_snd(pks, timeout, inter, verbose, tobesent, stopevent):
             i += 1
             time.sleep(inter)
         if verbose:
-            print("Finished to send %i packets." % i)
+            print("Finished sending %i packets." % i)
     except SystemExit:
         pass
     except KeyboardInterrupt:
@@ -337,7 +336,7 @@ def sendpfast(x, pps=None, mbps=None, realtime=None, loop=0, file_cache=False, i
         subprocess.check_call(argv)
     except KeyboardInterrupt:
         log_interactive.info("Interrupted by user")
-    except Exception as e:
+    except Exception:
         if conf.interactive:
             log_interactive.error("Cannot execute [%s]", argv[0], exc_info=True)
         else:
@@ -501,8 +500,6 @@ def sndrcvflood(pks, pkt, inter=0, verbose=None, chainCC=False, prn=lambda x: x)
     if not isinstance(pkt, Gen):
         pkt = SetGen(pkt)
     tobesent = [p for p in pkt]
-    received = plist.SndRcvList()
-    seen = {}
 
     stopevent = threading.Event()
     count_packets = six.moves.queue.Queue()
@@ -673,7 +670,7 @@ Examples:
                                  for i, s in enumerate(opened_socket))
         elif isinstance(opened_socket, dict):
             sniff_sockets.update((s, label)
-                                 for s, label in iteritems(opened_socket))
+                                 for s, label in six.iteritems(opened_socket))
         else:
             sniff_sockets[opened_socket] = "socket0"
     if offline is not None:
@@ -687,7 +684,7 @@ Examples:
             sniff_sockets.update((PcapReader(
                 fname if flt is None else
                 tcpdump(fname, args=["-w", "-", flt], getfd=True)
-            ), label) for fname, label in iteritems(offline))
+            ), label) for fname, label in six.iteritems(offline))
         else:
             sniff_sockets[PcapReader(
                 offline if flt is None else
@@ -704,7 +701,7 @@ Examples:
         elif isinstance(iface, dict):
             sniff_sockets.update(
                 (L2socket(type=ETH_P_ALL, iface=ifname, *arg, **karg), iflabel)
-                for ifname, iflabel in iteritems(iface)
+                for ifname, iflabel in six.iteritems(iface)
             )
         else:
             sniff_sockets[L2socket(type=ETH_P_ALL, iface=iface,
@@ -856,7 +853,11 @@ Arguments:
 
 @conf.commands.register
 def tshark(*args,**kargs):
-    """Sniff packets and print them calling pkt.show(), a bit like text wireshark"""
-    sniff(prn=lambda x: x.display(),*args,**kargs)
-
-
+    """Sniff packets and print them calling pkt.summary(), a bit like text wireshark"""
+    print("Capturing on '" + str(kargs.get('iface') if 'iface' in kargs else conf.iface) + "'")
+    i = [0]  # This should be a nonlocal variable, using a mutable object for Python 2 compatibility
+    def _cb(pkt):
+        print("%5d\t%s" % (i[0], pkt.summary()))
+        i[0] += 1
+    sniff(prn=_cb, store=False, *args, **kargs)
+    print("\n%d packet%s captured" % (i[0], 's' if i[0] > 1 else ''))

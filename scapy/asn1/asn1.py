@@ -325,12 +325,14 @@ class ASN1_BIT_STRING(ASN1_Object):
             super(ASN1_Object, self).__setattr__(name, value)
     def __repr__(self):
         if len(self.val) <= 16:
-            return "<%s[%s] (%d unused bit%s)>" % (self.__dict__.get("name", self.__class__.__name__), self.val.decode(), self.unused_bits, "s" if self.unused_bits>1 else "")
+            v = plain_str(self.val)
+            return "<%s[%s] (%d unused bit%s)>" % (self.__dict__.get("name", self.__class__.__name__), v, self.unused_bits, "s" if self.unused_bits>1 else "")
         else:
             s = self.val_readable
             if len(s) > 20:
                 s = s[:10] + b"..." + s[-10:]
-            return "<%s[%s] (%d unused bit%s)>" % (self.__dict__.get("name", self.__class__.__name__), s.decode(), self.unused_bits, "s" if self.unused_bits>1 else "")
+            v = plain_str(self.val)
+            return "<%s[%s] (%d unused bit%s)>" % (self.__dict__.get("name", self.__class__.__name__), v, self.unused_bits, "s" if self.unused_bits>1 else "")
     def __str__(self):
         return self.val_readable
     def __bytes__(self):

@@ -209,8 +209,10 @@ raw(ans1) == b'\x01\x00\x00\x14\x00\x00\x01\x01\x00\x00\x00\x00\x00\x00\x04\xd2\
 = Same answer identified by its code or abbreviation
 ans1b = DiamAns (257, drHbHId=1234, drEtEId=5678)
 ans1c = DiamAns ('CEA', drHbHId=1234, drEtEId=5678)
-raw(ans1b) == raw(ans1), raw(ans1c) == raw(ans1)
-_ == (True, True)
+a = raw(ans1b) == raw(ans1)
+b = raw(ans1c) == raw(ans1)
+a, b
+assert a and b
 
 = Altering the answer default fields
 ans2 =  DiamAns ('CEA', drHbHId=1234, drEtEId=5678, drFlags=115, drAppId=1154, drLen=18)

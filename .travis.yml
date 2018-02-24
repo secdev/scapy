@@ -33,6 +33,11 @@ matrix:
           env:
             - SCAPY_COVERAGE=yes
 
+        - os: linux
+          python: pypy3
+          env:
+            - SCAPY_COVERAGE=yes
+
         - os: osx
           language: generic
           env:
@@ -91,6 +96,11 @@ matrix:
           language: generic
           env:
             - SCAPY_SUDO=sudo SCAPY_USE_PCAPDNET=yes SCAPY_COVERAGE=yes
+
+        - os: osx
+          language: generic
+          env:
+            - TOXENV=py36-osx_non_root,py36-osx_root,codecov
 
 install: bash .travis/install.sh
 

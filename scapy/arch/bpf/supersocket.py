@@ -66,7 +66,7 @@ class _L2bpfSocket(SuperSocket):
 
         # Assign the network interface to the BPF handle
         try:
-            fcntl.ioctl(self.ins, BIOCSETIF, struct.pack("16s16x", self.iface))
+            fcntl.ioctl(self.ins, BIOCSETIF, struct.pack("16s16x", self.iface.encode()))
         except IOError:
             raise Scapy_Exception("BIOCSETIF failed on %s" % self.iface)
         self.assigned_interface = self.iface
@@ -324,7 +324,7 @@ class L3bpfSocket(L2bpfSocket):
         # Assign the network interface to the BPF handle
         if self.assigned_interface != iff:
             try:
-                fcntl.ioctl(self.outs, BIOCSETIF, struct.pack("16s16x", iff))
+                fcntl.ioctl(self.outs, BIOCSETIF, struct.pack("16s16x", iff.encode()))
             except IOError:
                 raise Scapy_Exception("BIOCSETIF failed on %s" % iff)
             self.assigned_interface = iff

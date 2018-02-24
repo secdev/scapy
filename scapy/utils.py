@@ -178,8 +178,8 @@ def repr_hex(s):
 @conf.commands.register
 def hexdiff(x,y):
     """Show differences between 2 binary strings"""
-    x=str(x)[::-1]
-    y=str(y)[::-1]
+    x=raw(x)[::-1]
+    y=raw(y)[::-1]
     SUBST=1
     INSERT=1
     d = {(-1, -1): (0, (-1, -1))}
@@ -429,17 +429,21 @@ class ContextManagerSubprocess(object):
     >>>     subprocess.Popen(["unknown_command"])
 
     """
-    def __init__(self, name):
+    def __init__(self, name, prog):
         self.name = name
+        self.prog = prog
 
     def __enter__(self):
         pass
 
     def __exit__(self, exc_type, exc_value, traceback):
-        if exc_type == OSError:
-            msg = "%s: executing %r failed"
-            log_runtime.error(msg, self.name, conf.prog.wireshark, exc_info=1)
-            return True  # Suppress the exception
+        if isinstance(exc_value, (OSError, TypeError)):
+            msg = "%s: executing %r failed" % (self.name, self.prog) if self.prog else "Could not execute %s, is it installed ?" % self.name
+            if not conf.interactive:
+                raise OSError(msg)
+            else:
+                log_runtime.error(msg, exc_info=True)
+                return True  # Suppress the exception
 
 class ContextManagerCaptureOutput(object):
     """
@@ -500,7 +504,7 @@ def do_graph(graph,prog=None,format=None,target=None,type=None,string=None,optio
             target = get_temp_file(autoext="."+format)
             start_viewer = True
         else:
-            with ContextManagerSubprocess("do_graph()"):
+            with ContextManagerSubprocess("do_graph()", conf.prog.display):
                 target = subprocess.Popen([conf.prog.display],
                                           stdin=subprocess.PIPE).stdin
     if format is not None:
@@ -516,6 +520,7 @@ def do_graph(graph,prog=None,format=None,target=None,type=None,string=None,optio
     proc = subprocess.Popen("\"%s\" %s %s" % (prog, options or "", format or ""),
                             shell=True, stdin=subprocess.PIPE, stdout=target)
     proc.stdin.write(raw(graph))
+    proc.stdin.close()
     try:
         target.close()
     except:
@@ -532,7 +537,7 @@ def do_graph(graph,prog=None,format=None,target=None,type=None,string=None,optio
             if conf.prog.display == conf.prog._default:
                 os.startfile(target.name)
             else:
-                with ContextManagerSubprocess("do_graph()"):
+                with ContextManagerSubprocess("do_graph()", conf.prog.display):
                     subprocess.Popen([conf.prog.display, target.name])
 
 _TEX_TR = {
@@ -822,7 +827,7 @@ class RawPcapReader(six.with_metaclass(PcapReader_metaclass)):
             return None
         sec,usec,caplen,wirelen = struct.unpack(self.endian+"IIII", hdr)
         s = self.f.read(caplen)[:size]
-        return s,(sec,usec,wirelen) # caplen = len(s)
+        return s, (sec, usec, caplen, wirelen)
 
 
     def dispatch(self, callback):
@@ -874,10 +879,10 @@ class PcapReader(RawPcapReader):
             warning("PcapReader: unknown LL type [%i]/[%#x]. Using Raw packets" % (self.linktype,self.linktype))
             self.LLcls = conf.raw_layer
     def read_packet(self, size=MTU):
-        rp = RawPcapReader.read_packet(self, size=size)
+        rp = super(PcapReader, self).read_packet(size=size)
         if rp is None:
             return None
-        s,(sec,usec,wirelen) = rp
+        s, (sec, usec, caplen, wirelen) = rp
         
         try:
             p = self.LLcls(s)
@@ -888,6 +893,7 @@ class PcapReader(RawPcapReader):
                 raise
             p = conf.raw_layer(s)
         p.time = sec + (0.000000001 if self.nano else 0.000001) * usec
+        p.wirelen = wirelen
         return p
     def read_all(self,count=-1):
         res = RawPcapReader.read_all(self, count)
@@ -1024,7 +1030,7 @@ class PcapNgReader(RawPcapNgReader):
         RawPcapNgReader.__init__(self, filename, fdesc, magic)
 
     def read_packet(self, size=MTU):
-        rp = RawPcapNgReader.read_packet(self, size=size)
+        rp = super(PcapNgReader, self).read_packet(size=size)
         if rp is None:
             return None
         s, (linktype, tsresol, tshigh, tslow, wirelen) = rp
@@ -1038,6 +1044,7 @@ class PcapNgReader(RawPcapNgReader):
             p = conf.raw_layer(s)
         if tshigh is not None:
             p.time = float((tshigh << 32) + tslow) / tsresol
+        p.wirelen = wirelen
         return p
     def read_all(self,count=-1):
         res = RawPcapNgReader.read_all(self, count)
@@ -1109,7 +1116,7 @@ nano:       use nanosecond-precision (requires libpcap >= 1.5.0)
         written to the dumpfile
 
         """
-        if isinstance(pkt, str):
+        if isinstance(pkt, bytes):
             if not self.header_present:
                 self._write_header(pkt)
             self._write_packet(pkt)
@@ -1119,7 +1126,6 @@ nano:       use nanosecond-precision (requires libpcap >= 1.5.0)
                 try:
                     p = next(pkt)
                 except StopIteration:
-                    self._write_header(b"")
                     return
                 self._write_header(p)
                 self._write_packet(p)
@@ -1183,9 +1189,10 @@ class PcapWriter(RawPcapWriter):
             return
         sec = int(packet.time)
         usec = int(round((packet.time - sec) * (1000000000 if self.nano else 1000000)))
-        s = raw(packet)
-        caplen = len(s)
-        RawPcapWriter._write_packet(self, s, sec, usec, caplen, caplen)
+        rawpkt = raw(packet)
+        caplen = len(rawpkt)
+        RawPcapWriter._write_packet(self, rawpkt, sec=sec, usec=usec, caplen=caplen,
+                                    wirelen=packet.wirelen or caplen)
 
 
 re_extract_hexcap = re.compile("^((0x)?[0-9a-fA-F]{2,}[ :\t]{,3}|) *(([0-9a-fA-F]{2} {,2}){,16})")
@@ -1214,7 +1221,7 @@ def wireshark(pktlist):
     """Run wireshark on a list of packets"""
     f = get_temp_file()
     wrpcap(f, pktlist)
-    with ContextManagerSubprocess("wireshark()"):
+    with ContextManagerSubprocess("wireshark()", conf.prog.wireshark):
         subprocess.Popen([conf.prog.wireshark, "-r", f])
 
 @conf.commands.register
@@ -1275,15 +1282,16 @@ u'64'
         prog = [conf.prog.tcpdump]
     elif isinstance(prog, six.string_types):
         prog = [prog]
+    _prog_name = "windump()" if WINDOWS else "tcpdump()"
     if pktlist is None:
-        with ContextManagerSubprocess("tcpdump()"):
+        with ContextManagerSubprocess(_prog_name, prog[0]):
             proc = subprocess.Popen(
                 prog + (args if args is not None else []),
                 stdout=subprocess.PIPE if dump or getfd else None,
                 stderr=open(os.devnull) if quiet else None,
             )
     elif isinstance(pktlist, six.string_types):
-        with ContextManagerSubprocess("tcpdump()"):
+        with ContextManagerSubprocess(_prog_name, prog[0]):
             proc = subprocess.Popen(
                 prog + ["-r", pktlist] + (args if args is not None else []),
                 stdout=subprocess.PIPE if dump or getfd else None,
@@ -1299,7 +1307,7 @@ u'64'
             wrpcap(tmpfile, pktlist)
         else:
             tmpfile.close()
-        with ContextManagerSubprocess("tcpdump()"):
+        with ContextManagerSubprocess(_prog_name, prog[0]):
             proc = subprocess.Popen(
                 prog + ["-r", tmpfile.name] + (args if args is not None else []),
                 stdout=subprocess.PIPE if dump or getfd else None,
@@ -1307,7 +1315,7 @@ u'64'
             )
         conf.temp_files.append(tmpfile.name)
     else:
-        with ContextManagerSubprocess("tcpdump()"):
+        with ContextManagerSubprocess(_prog_name, prog[0]):
             proc = subprocess.Popen(
                 prog + ["-r", "-"] + (args if args is not None else []),
                 stdin=subprocess.PIPE,
@@ -1333,7 +1341,7 @@ def hexedit(x):
     x = str(x)
     f = get_temp_file()
     open(f,"wb").write(x)
-    with ContextManagerSubprocess("hexedit()"):
+    with ContextManagerSubprocess("hexedit()", conf.prog.hexedit):
         subprocess.call([conf.prog.hexedit, f])
     x = open(f).read()
     os.unlink(f)
@@ -1377,74 +1385,78 @@ def get_terminal_width():
 
 def pretty_list(rtlst, header, sortBy=0):
     """Pretty list to fit the terminal, and add header"""
-    _l_header = len(header[0])
     _space = "  "
+    # Windows has a fat terminal border
+    _spacelen = len(_space) * (len(header)-1) + (10 if WINDOWS else 0)
+    _croped = False
     # Sort correctly
     rtlst.sort(key=lambda x: x[sortBy])
     # Append tag
     rtlst = header + rtlst
     # Detect column's width
     colwidth = [max([len(y) for y in x]) for x in zip(*rtlst)]
-    # Make text fit in box (if exist)
-    # TODO: find a better and more precise way of doing this. That's currently working but very complicated
+    # Make text fit in box (if required)
     width = get_terminal_width()
-    if width:
-        if sum(colwidth) > width:
+    if conf.auto_crop_tables and width:
+        width = width - _spacelen
+        while sum(colwidth) > width:
+            _croped = True
             # Needs to be cropped
-            _med = (width // _l_header) - (1 if WINDOWS else 0) # Windows has a fat window border
-            # Crop biggest until size is correct
-            for i in range(1, len(colwidth)): # Should use while, but this is safer
-                if (sum(colwidth)+6) <= width:
-                    break
-                _max = max(colwidth)
-                colwidth = [_med if x == _max else x for x in colwidth]
-            def _crop(x, width):
-                _r = x[:width]
-                if _r != x:
-                    _r = x[:width-3]
-                    return _r + "..."
-                return _r
-            rtlst = [tuple([_crop(rtlst[j][i], colwidth[i]) for i in range(0, len(rtlst[j]))]) for j in range(0, len(rtlst))]
-            # Recalculate column's width
-            colwidth = [max([len(y) for y in x]) for x in zip(*rtlst)]
-    fmt = _space.join(["%%-%ds"%x for x in colwidth])
-    rt = "\n".join([fmt % x for x in rtlst])
+            # Get the longest row
+            i = colwidth.index(max(colwidth))
+            # Get all elements of this row
+            row = [len(x[i]) for x in rtlst]
+            # Get biggest element of this row: biggest of the array
+            j = row.index(max(row))
+            # Re-build column tuple with the edited element
+            t = list(rtlst[j])
+            t[i] = t[i][:-2]+"_"
+            rtlst[j] = tuple(t)
+            # Update max size
+            row[j] = len(t[i])
+            colwidth[i] = max(row)
+    if _croped:
+        log_runtime.info("Table cropped to fit the terminal (conf.auto_crop_tables==True)")
+    # Generate padding scheme
+    fmt = _space.join(["%%-%ds" % x for x in colwidth])
+    # Compile
+    rt = "\n".join(((fmt % x).strip() for x in rtlst))
     return rt
 
-def __make_table(yfmtfunc, fmtfunc, endline, list, fxyz, sortx=None, sorty=None, seplinefunc=None):
+def __make_table(yfmtfunc, fmtfunc, endline, data, fxyz, sortx=None, sorty=None, seplinefunc=None):
     vx = {} 
     vy = {} 
     vz = {}
     vxf = {}
     vyf = {}
     l = 0
-    for e in list:
+    for e in data:
         xx, yy, zz = [str(s) for s in fxyz(e)]
         l = max(len(yy),l)
         vx[xx] = max(vx.get(xx,0), len(xx), len(zz))
         vy[yy] = None
         vz[(xx,yy)] = zz
 
-    vxk = sorted(vx.keys())
-    vyk = sorted(vy.keys())
+    vxk = list(vx)
+    vyk = list(vy)
     if sortx:
-        vxk.sort(sortx)
+        vxk.sort(key=sortx)
     else:
         try:
-            vxk.sort(lambda x,y:int(x)-int(y))
+            vxk.sort(key=int)
         except:
             try:
-                vxk.sort(lambda x,y: cmp(atol(x),atol(y)))
+                vxk.sort(key=atol)
             except:
                 vxk.sort()
     if sorty:
-        vyk.sort(sorty)
+        vyk.sort(key=sorty)
     else:
         try:
-            vyk.sort(lambda x,y:int(x)-int(y))
+            vyk.sort(key=int)
         except:
             try:
-                vyk.sort(lambda x,y: cmp(atol(x),atol(y)))
+                vyk.sort(key=atol)
             except:
                 vyk.sort()
 
@@ -1480,9 +1492,9 @@ def make_lined_table(*args, **kargs):
 def make_tex_table(*args, **kargs):
     __make_table(lambda l: "%s", lambda l: "& %s", "\\\\", seplinefunc=lambda a,x:"\\hline", *args, **kargs)
 
-###############################################
-### WHOIS CLIENT (not available on windows) ###
-###############################################
+####################
+### WHOIS CLIENT ###
+####################
 
 def whois(ip_address):
     """Whois client for Python"""

@@ -23,7 +23,7 @@ from scapy.volatile import VolatileValue
 from scapy.utils import import_hexcap,tex_escape,colgen,get_temp_file, \
     ContextManagerSubprocess
 from scapy.error import Scapy_Exception, log_runtime
-from scapy.consts import PYX
+from scapy.extlib import PYX
 import scapy.modules.six as six
 
 try:
@@ -56,7 +56,9 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         # used for sr()
         "_answered",
         # used when sniffing
-        "direction", "sniffed_on"
+        "direction", "sniffed_on",
+        # handle snaplen Vs real length
+        "wirelen",
     ]
     name = None
     fields_desc = []
@@ -123,6 +125,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         self.explicit = 0
         self.raw_packet_cache = None
         self.raw_packet_cache_fields = None
+        self.wirelen = None
         if _pkt:
             self.dissect(_pkt)
             if not _internal:
@@ -202,6 +205,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         clone.raw_packet_cache_fields = self.copy_fields_dict(
             self.raw_packet_cache_fields
         )
+        clone.wirelen = self.wirelen
         clone.post_transforms = self.post_transforms[:]
         clone.payload = self.payload.copy()
         clone.payload.add_underlayer(clone)
@@ -245,6 +249,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             self.explicit = 0
             self.raw_packet_cache = None
             self.raw_packet_cache_fields = None
+            self.wirelen = None
         elif attr == "payload":
             self.remove_payload()
             self.add_payload(val)
@@ -266,6 +271,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             self.explicit = 0 # in case a default value must be explicited
             self.raw_packet_cache = None
             self.raw_packet_cache_fields = None
+            self.wirelen = None
         elif attr in self.default_fields:
             pass
         elif attr == "payload":
@@ -384,6 +390,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
                 if self.getfieldval(fname) != fval:
                     self.raw_packet_cache = None
                     self.raw_packet_cache_fields = None
+                    self.wirelen = None
                     break
             if self.raw_packet_cache is not None:
                 return self.raw_packet_cache
@@ -497,7 +504,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         if filename is None:
             fname = get_temp_file(autoext=".eps")
             canvas.writeEPSfile(fname)
-            with ContextManagerSubprocess("psdump()"):
+            with ContextManagerSubprocess("psdump()", conf.prog.psreader):
                 subprocess.Popen([conf.prog.psreader, fname])
         else:
             canvas.writeEPSfile(filename)
@@ -515,7 +522,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         if filename is None:
             fname = get_temp_file(autoext=".pdf")
             canvas.writePDFfile(fname)
-            with ContextManagerSubprocess("pdfdump()"):
+            with ContextManagerSubprocess("pdfdump()", conf.prog.pdfreader):
                 subprocess.Popen([conf.prog.pdfreader, fname])
         else:
             canvas.writePDFfile(filename)
@@ -792,6 +799,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         pkt.raw_packet_cache_fields = self.copy_fields_dict(
             self.raw_packet_cache_fields
         )
+        pkt.wirelen = self.wirelen
         if payload is not None:
             pkt.add_payload(payload)
         return pkt
@@ -874,8 +882,9 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
 
     def haslayer(self, cls):
         """true if self has a layer that is an instance of cls. Superseded by "cls in self" syntax."""
-        if self.__class__ == cls or self.__class__.__name__ == cls:
-            return 1
+        if self.__class__ == cls or cls in [self.__class__.__name__,
+                                            self._name]:
+            return True
         for f in self.packetfields:
             fvalue_gen = self.getfieldval(f.name)
             if fvalue_gen is None:
@@ -905,7 +914,8 @@ values.
             ccls,fld = cls.split(".",1)
         else:
             ccls,fld = cls,None
-        if cls is None or match(self.__class__, cls) or self.__class__.__name__ == ccls:
+        if cls is None or match(self.__class__, cls) \
+           or ccls in [self.__class__.__name__, self._name]:
             if all(self.getfieldval(fldname) == fldvalue
                    for fldname, fldvalue in six.iteritems(flt)):
                 if nb == 1:

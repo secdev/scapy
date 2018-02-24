@@ -22,7 +22,7 @@ and replies, and much more. It is designed to allow fast packet prototyping by
 using default values that work.
 
 It can easily handle most classical tasks like scanning, tracerouting, probing,
-unit tests, attacks or network discovery (it can replace `hping`, 85% of `nmap̀`,
+unit tests, attacks or network discovery (it can replace `hping`, 85% of `nmap`,
 `arpspoof`, `arp-sk`, `arping`, `tcpdump`, `wireshark`, `p0f`, etc.). It also
 performs very well at a lot of other specific tasks that most other tools can't
 handle, like sending invalid frames, injecting your own 802.11 frames, combining
@@ -66,7 +66,7 @@ conf.verb = 0
 
 p = IP(dst="github.com")/TCP()
 r = sr1(p)
-print r.summary()
+print(r.summary())
 ```
 
 Then, launch the script with:

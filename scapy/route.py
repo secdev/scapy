@@ -11,8 +11,8 @@ Routing and handling of network interfaces.
 from __future__ import absolute_import
 
 
+import scapy.consts
 from scapy.config import conf
-from scapy.consts import WINDOWS, LOOPBACK_INTERFACE
 from scapy.error import Scapy_Exception, warning
 from scapy.modules import six
 from scapy.utils import atol, ltoa, itom, pretty_list
@@ -97,7 +97,7 @@ class Route:
         
         for i, route in enumerate(self.routes):
             net, msk, gw, iface, addr, metric = route
-            if WINDOWS:
+            if scapy.consts.WINDOWS:
                 if iff.guid != iface.guid:
                     continue
             elif iff != iface:
@@ -114,7 +114,7 @@ class Route:
         self.invalidate_cache()
         new_routes=[]
         for rt in self.routes:
-            if WINDOWS:
+            if scapy.consts.WINDOWS:
                 if iff.guid == rt[3].guid:
                     continue
             elif iff == rt[3]:
@@ -132,8 +132,6 @@ class Route:
 
 
     def route(self,dest,verbose=None):
-        if isinstance(dest, list) and dest:
-            dest = dest[0]
         if dest in self.cache:
             return self.cache[dest]
         if verbose is None:
@@ -157,14 +155,14 @@ class Route:
             aa = atol(a)
             if aa == dst:
                 pathes.append(
-                    (0xffffffff, 1, (LOOPBACK_INTERFACE, a, "0.0.0.0"))
+                    (0xffffffff, 1, (scapy.consts.LOOPBACK_INTERFACE, a, "0.0.0.0"))
                 )
             if (dst & m) == (d & m):
                 pathes.append((m, me, (i,a,gw)))
         if not pathes:
             if verbose:
                 warning("No route found (no default route?)")
-            return LOOPBACK_INTERFACE, "0.0.0.0", "0.0.0.0"
+            return scapy.consts.LOOPBACK_INTERFACE, "0.0.0.0", "0.0.0.0"
         # Choose the more specific route
         # Sort by greatest netmask
         pathes.sort(key=lambda x: x[0], reverse=True)
@@ -181,7 +179,7 @@ class Route:
         for net, msk, gw, iface, addr, metric in self.routes:
             if net == 0:
                 continue
-            if WINDOWS:
+            if scapy.consts.WINDOWS:
                 if iff.guid != iface.guid:
                     continue
             elif iff != iface:
@@ -194,7 +192,10 @@ conf.route=Route()
 
 iface = conf.route.route("0.0.0.0", verbose=0)[0]
 
-if (iface.name if hasattr(iface, "name") else iface) == LOOPBACK_INTERFACE:
+# Warning: scapy.consts.LOOPBACK_INTERFACE must always be used statically, because it
+# may be changed by scapy/arch/windows during execution
+
+if (iface.name if hasattr(iface, "name") else iface) == scapy.consts.LOOPBACK_INTERFACE:
     from scapy.arch import get_working_if
     conf.iface = get_working_if()
 else:

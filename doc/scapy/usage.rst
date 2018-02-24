@@ -8,17 +8,15 @@ Starting Scapy
 Scapy's interactive shell is run in a terminal session. Root privileges are needed to
 send the packets, so we're using ``sudo`` here::
   
-    $ sudo scapy
-    Welcome to Scapy (2.0.1-dev)
+    $ sudo ./scapy
+    Welcome to Scapy (2.4.0)
     >>> 
 
 On Windows, please open a command prompt (``cmd.exe``) and make sure that you have 
 administrator privileges::
 
     C:\>scapy
-    INFO: No IPv6 support in kernel
-    WARNING: No route found for IPv6 destination :: (no default route?)
-    Welcome to Scapy (2.0.1-dev)
+    Welcome to Scapy (2.4.0)
     >>>
 
 If you do not have all optional packages installed, Scapy will inform you that 
@@ -511,6 +509,27 @@ Note that the TCP traceroute and some other high-level functions are already cod
     dyndns_del       : Send a DNS delete message to a nameserver for "name"
     [...]
 
+Scapy may also use the GeoIP2 module, in combination with matplotlib and `cartopy <http://scitools.org.uk/cartopy/docs/latest/installing.html>`_ to generate fancy graphics such as below:
+
+.. image:: graphics/traceroute_worldplot.png
+
+In this example, we used the `traceroute_map()` function to print the graphic. This method is a shortcut which uses the `world_trace` of the `TracerouteResult` objects.
+It could have been done differently:
+
+    >>> conf.geoip_city = "path/to/GeoLite2-City.mmdb"
+    >>> a = traceroute("www.google.co.uk", verbose=0)[0]
+    >>> b = traceroute("www.secdev.org", verbose=0)[0]
+    >>> a.res += b.res
+    >>> a.world_trace()
+
+or such as above:
+
+    >>> conf.geoip_city = "path/to/GeoLite2-City.mmdb"
+    >>> traceroute_map("www.google.co.uk", "www.secdev.org")
+
+To use those functions, it is required to have installed the `geoip2 <https://pypi.python.org/pypi/geoip2>`_ module, `its database <https://dev.maxmind.com/geoip/geoip2/geolite2/>`_ (`direct download <https://geolite.maxmind.com/download/geoip/database/GeoLite2-City.tar.gz>`_)
+but also the `cartopy <http://scitools.org.uk/cartopy/docs/latest/installing.html>`_ module.
+
 Configuring super sockets
 -------------------------
 
@@ -969,7 +988,7 @@ Scapy also has a powerful TCP traceroute function. Unlike other traceroute progr
     20 193.45.10.88    SA 216.109.118.79  SA 64.241.242.243  SA 66.94.229.254   SA 
     (<Traceroute: UDP:0 TCP:28 ICMP:52 Other:0>, <Unanswered: UDP:0 TCP:0 ICMP:0 Other:0>)
 
-The last line is in fact a the result of the function : a traceroute result object and a packet list of unanswered packets. The traceroute result is a more specialised version (a subclass, in fact) of a classic result object. We can save it to consult the traceroute result again a bit later, or to deeply inspect one of the answers, for example to check padding.
+The last line is in fact the result of the function : a traceroute result object and a packet list of unanswered packets. The traceroute result is a more specialised version (a subclass, in fact) of a classic result object. We can save it to consult the traceroute result again a bit later, or to deeply inspect one of the answers, for example to check padding.
 
     >>> result, unans = _
     >>> result.show()
@@ -1068,7 +1087,7 @@ Provided that your wireless card and driver are correctly configured for frame i
 On Windows, if using Npcap, the equivalent would be to call
 
     # Of course, conf.iface can be replaced by any interfaces accessed through IFACES
-    >>> conf.iface.setmode(1)
+    >>> conf.iface.setmonitor(True)
 
 you can have a kind of FakeAP::
 
@@ -1358,7 +1377,7 @@ Recipes
 Simplistic ARP Monitor
 ----------------------
 
-This program uses the ``sniff()`` callback (paramter prn). The store parameter is set to 0 so that the ``sniff()`` function will not store anything (as it would do otherwise) and thus can run forever. The filter parameter is used for better performances on high load : the filter is applied inside the kernel and Scapy will only see ARP traffic.
+This program uses the ``sniff()`` callback (parameter prn). The store parameter is set to 0 so that the ``sniff()`` function will not store anything (as it would do otherwise) and thus can run forever. The filter parameter is used for better performances on high load : the filter is applied inside the kernel and Scapy will only see ARP traffic.
 
 ::
 
