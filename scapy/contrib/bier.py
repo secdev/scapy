@@ -37,15 +37,12 @@ BIERnhcls = {1: "MPLS",
 
 class BIFT(Packet):
     name = "BIFT"
-    fields_desc = [BitField("bsl", 0, 4),
+    fields_desc = [BitField("bsl", BIERLength.BIER_LEN_256, 4),
                    BitField("sd", 0, 8),
                    BitField("set", 0, 8),
                    BitField("cos", 0, 3),
                    BitField("s", 1, 1),
                    ByteField("ttl", 0)]
-
-    def guess_payload_class(self, payload):
-        return BIER
 
 
 class BIER(Packet):
@@ -68,3 +65,4 @@ class BIER(Packet):
 bind_layers(BIER, IP,   Proto=4)
 bind_layers(BIER, IPv6, Proto=5)
 bind_layers(UDP,  BIFT, dport=8138)
+bind_layers(BIFT, BIER)

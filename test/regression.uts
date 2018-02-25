@@ -9793,21 +9793,3 @@ assert raw(created) == b'\x80\x11\x124\x00\xbcaN\xab\xcd\xef\x01'
 parsed = RTP(raw(created))
 assert parsed.sourcesync == 0xabcdef01
 assert "RTPExtension" not in parsed
-
-############
-############
-+ BIER tests
-
-= BIER - build/dissection
-from scapy.contrib.bier import BIERLength, BIFT, BIER
-p1 = MPLS()/BIER(length=BIERLength.BIER_LEN_256)/IP()/UDP()
-assert(p1[MPLS].s == 1)
-p2 = BIFT()/BIER(length=BIERLength.BIER_LEN_64)()/IP()/UDP()
-assert(p2[BIFT].s == 1)
-
-p1[MPLS]
-p1[BIER]
-p1[IP]
-p2[BIFT]
-p2[BIER]
-p2[IP]
