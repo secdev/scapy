@@ -24,7 +24,7 @@ from scapy.base_classes import Gen, Net, SetGen
 from scapy.data import MTU, ETHER_BROADCAST, ETH_P_ARP
 
 import scapy.modules.six as six
-from scapy.modules.six.moves import range, zip, input
+from scapy.modules.six.moves import range, zip, input, winreg
 from scapy.compat import plain_str
 
 conf.use_pcap = False
@@ -210,16 +210,38 @@ def _vbs_exec_code(code, split_tag="@"):
             yield l
     os.unlink(tmpfile.name)
 
-def _vbs_get_hardware_iface_guid(devid):
+def _get_hardware_iface_guid(devid):
+    """
+    Get the hardware interface guid for device with 'devid' number
+    or None if such interface does not exist.
+    """
+    devid = int(devid) + 1
+
+    hkey = winreg.HKEY_LOCAL_MACHINE
+    node = r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\NetworkCards\{}".format(devid)
     try:
-        devid = str(int(devid) + 1)
-        guid = next(iter(_vbs_exec_code("""WScript.Echo CreateObject("WScript.Shell").RegRead("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\NetworkCards\\%s\\ServiceName")
-""" % devid)))
-        guid = guid[:-1] if guid.endswith('}\n') else guid
-        if guid.startswith('{') and guid.endswith('}'):
-            return guid
-    except StopIteration:
+        key = winreg.OpenKey(hkey, node)
+        guid, _ = winreg.QueryValueEx(key, "ServiceName")
+        winreg.CloseKey(key)
+    except WindowsError:
         return None
+    guid = guid.strip()
+    return guid if guid.startswith("{") and guid.endswith("}") else None
+
+def _get_npcap_dot11_adapters():
+    """
+    Get the npcap 802.11 adapters from the registry or None if npcap
+    is not 802.11 enabled.
+    """
+    hkey = winreg.HKEY_LOCAL_MACHINE
+    node = r"SYSTEM\CurrentControlSet\Services\npcap\Parameters"
+    try:
+        key = winreg.OpenKey(hkey, node)
+        dot11_adapters, _ = winreg.QueryValueEx(key, "Dot11Adapters")
+        winreg.CloseKey(key)
+    except WindowsError:
+        return None
+    return dot11_adapters
 
 # Some names differ between VBS and PS
 ## None: field will not be returned under VBS
@@ -227,7 +249,7 @@ _VBS_WMI_FIELDS = {
     "Win32_NetworkAdapter": {
         "InterfaceDescription": "Description",
         # Note: when using VBS, the GUID is not the same than with Powershell
-        # So we use get the device ID instead, then use _vbs_get_hardware_iface_guid
+        # So we use get the device ID instead, then use _get_hardware_iface_guid
         # To get its real GUID
         "GUID": "DeviceID"
     },
@@ -244,7 +266,7 @@ _VBS_WMI_REPLACE = {
 
 _VBS_WMI_OUTPUT = {
     "Win32_NetworkAdapter": {
-        "DeviceID": _vbs_get_hardware_iface_guid,
+        "DeviceID": _get_hardware_iface_guid,
     }
 }
 
@@ -506,12 +528,9 @@ class NetworkInterface(object):
         if self.raw80211 is None:
             # This checks if npcap has Dot11 enabled and if the interface is compatible,
             # by looking for the npcap/Parameters/Dot11Adapters key in the registry.
-            try:
-                dot11adapters = next(iter(_vbs_exec_code("""WScript.Echo CreateObject("WScript.Shell").RegRead("HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Services\\npcap\\Parameters\\Dot11Adapters")""")))
-            except StopIteration:
-                self.raw80211 = False
-            else:
-                self.raw80211 = ("\\Device\\" + self.guid).lower() in dot11adapters.lower()
+            dot11adapters = _get_npcap_dot11_adapters()
+            self.raw80211 = (dot11adapters is not None and
+                             (("\\Device\\" + self.guid).lower() in dot11adapters.lower()))
         if not self.raw80211:
             raise Scapy_Exception("This interface does not support raw 802.11")
 
