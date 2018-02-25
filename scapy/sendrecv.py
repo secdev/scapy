@@ -600,7 +600,7 @@ iface:    listen answers only on the given interface"""
 @conf.commands.register
 def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
           L2socket=None, timeout=None, opened_socket=None,
-          stop_filter=None, iface=None, *arg, **karg):
+          stop_filter=None, interpkt_timeout=None, iface=None, *arg, **karg):
     """
 
 Sniff packets and return a list of packets.
@@ -637,6 +637,10 @@ Arguments:
       we have to stop the capture after this packet.
 
       Ex: stop_filter = lambda x: x.haslayer(TCP)
+
+  interpkt_timeout: a timeout in seconds, if the timeout passes since
+      the most recent packet was received and no new packet is received,
+      the sniff stops.
 
   iface: interface or list of interfaces (default: None for sniffing
       on all interfaces).
@@ -709,6 +713,8 @@ Examples:
     lst = []
     if timeout is not None:
         stoptime = time.time()+timeout
+    if interpkt_timeout is not None:
+        interpkt_stoptime = time.time()+interpkt_timeout
     remain = None
     read_allowed_exceptions = ()
     if conf.use_bpf:
@@ -738,6 +744,10 @@ Examples:
                 remain = stoptime-time.time()
                 if remain <= 0:
                     break
+            if interpkt_timeout is not None:
+                remain = interpkt_stoptime-time.time()
+                if remain <= 0:
+                    break
             ins = _select(sniff_sockets)
             for s in ins:
                 try:
@@ -749,6 +759,8 @@ Examples:
                     break
                 if lfilter and not lfilter(p):
                     continue
+                if interpkt_timeout is not None:
+                    interpkt_stoptime = time.time()+interpkt_timeout
                 p.sniffed_on = sniff_sockets[s]
                 if store:
                     lst.append(p)
