@@ -35,16 +35,7 @@ class GENEVE(Packet):
         return self.sprintf("GENEVE (vni=%GENEVE.vni%)")
 
 bind_layers(UDP, GENEVE, dport=6081)  # RFC standard port
-bind_layers(UDP, GENEVE, dport=6081)  # New IANA assigned port for use with NSH
 bind_layers(UDP, GENEVE, dport=8472)  # Linux implementation port
 # By default, set both ports to the RFC standard
 bind_layers(UDP, GENEVE, sport=6081, dport=6081)
-
 bind_layers(GENEVE, Ether)
-bind_layers(GENEVE, IP, NextProtocol=1)
-bind_layers(GENEVE, IPv6, NextProtocol=2)
-bind_layers(GENEVE, Ether, flags=4, NextProtocol=0)
-bind_layers(GENEVE, IP, flags=4, NextProtocol=1)
-bind_layers(GENEVE, IPv6, flags=4, NextProtocol=2)
-bind_layers(GENEVE, Ether, flags=4, NextProtocol=3)
-
