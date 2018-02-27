@@ -577,6 +577,7 @@ class Cert(six.with_metaclass(_CertMaker, object)):
         self.subject = tbsCert.get_subject()
         self.subject_str = tbsCert.get_subject_str()
         self.subject_hash = hash(self.subject_str)
+        self.authorityKeyID = None
 
         self.notBefore_str = tbsCert.validity.not_before.pretty_time
         notBefore = tbsCert.validity.not_before.val
@@ -912,7 +913,7 @@ class Chain(list):
         certificates can be passed (as a file, this time).
         """
         try:
-            f = open(cafile)
+            f = open(cafile, "rb")
             ca_certs = f.read()
             f.close()
         except:
@@ -923,7 +924,7 @@ class Chain(list):
         untrusted = None
         if untrusted_file:
             try:
-                f = open(untrusted_file)
+                f = open(untrusted_file, "rb")
                 untrusted_certs = f.read()
                 f.close()
             except:
@@ -943,14 +944,14 @@ class Chain(list):
         try:
             anchors = []
             for cafile in os.listdir(capath):
-                anchors.append(Cert(open(cafile).read()))
+                anchors.append(Cert(open(os.path.join(capath, cafile), "rb").read()))
         except:
             raise Exception("capath provided is not a valid cert path")
 
         untrusted = None
         if untrusted_file:
             try:
-                f = open(untrusted_file)
+                f = open(untrusted_file, "rb")
                 untrusted_certs = f.read()
                 f.close()
             except:
