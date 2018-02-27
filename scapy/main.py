@@ -524,6 +524,10 @@ def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
                 apply_ipython_style(shell=cfg.TerminalInteractiveShell)
                 cfg.TerminalInteractiveShell.confirm_exit = False
                 cfg.TerminalInteractiveShell.separate_in = u''
+            if int(IPython.__version__[0]) >= 6:
+                cfg.TerminalInteractiveShell.term_title_format = "Scapy v" + conf.version
+            else:
+                cfg.TerminalInteractiveShell.term_title = False
             cfg.HistoryAccessor.hist_file = conf.histfile
             cfg.InteractiveShell.banner1 = banner
             # configuration can thus be specified here.

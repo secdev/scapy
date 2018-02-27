@@ -12,7 +12,7 @@ from __future__ import print_function
 import os, re, sys, socket, time, itertools, platform
 import subprocess as sp
 from glob import glob
-import tempfile
+import ctypes, tempfile
 from threading import Thread, Event
 
 import scapy
@@ -76,6 +76,11 @@ def _encapsulate_admin(cmd):
     # rights, which will execute the command
     return "Start-Process PowerShell -windowstyle hidden -Wait -Verb RunAs -ArgumentList '-command &{%s}'" % cmd
 
+def _windows_title(title=None):
+    if conf.interactive:
+        title = title or "Scapy v" + conf.version
+        ctypes.windll.kernel32.SetConsoleTitleW(title)
+
 def _suppress_file_handles_inheritance(r=100):
     """HACK: python 2.7 file descriptors.
 
@@ -135,6 +140,7 @@ class _PowershellManager(Thread):
             self.query(["echo @off"])  # Remove header
         else:
             self.query(["$FormatEnumerationLimit=-1"])  # Do not crop long IP lists
+        _windows_title()  # Reset terminal title
 
     def run(self):
         while self.running:
@@ -144,7 +150,7 @@ class _PowershellManager(Thread):
             else:
                 self.buffer.append(read_line.decode("utf8", "ignore") if six.PY3 else read_line)
 
-    def query(self, command):
+    def query(self, command, crp=True, rst_t=False):
         self.query_complete.clear()
         if not self.running:
             self.__init__(self)
@@ -155,7 +161,9 @@ class _PowershellManager(Thread):
         self.process.stdin.write(query.encode())
         self.process.stdin.flush()
         self.query_complete.wait()
-        return self.buffer[1:]  # Crops first line: the command
+        if rst_t:
+            _windows_title()
+        return self.buffer[crp:]  # Crops first line: the command
 
     def close(self):
         self.running = False
@@ -209,6 +217,7 @@ def _vbs_exec_code(code, split_tag="@"):
         for l in data:
             yield l
     os.unlink(tmpfile.name)
+    _windows_title()
 
 def _get_hardware_iface_guid(devid):
     """
@@ -389,6 +398,7 @@ if conf.prog.tcpdump and conf.use_npcap and conf.prog.os_access:
         try:
             p_test_windump = sp.Popen([conf.prog.tcpdump, "-help"], stdout=sp.PIPE, stderr=sp.STDOUT)
             stdout, err = p_test_windump.communicate()
+            _windows_title()
             _output = stdout.lower()
             return b"npcap" in _output and not b"winpcap" in _output
         except:
@@ -538,7 +548,7 @@ class NetworkInterface(object):
         """Get the interface operation mode.
         Only available with Npcap."""
         self._check_npcap_requirement()
-        return plain_str(sp.Popen([_WlanHelper, self.guid[1:-1], "mode"], stdout=sp.PIPE).communicate()[0].strip())
+        return POWERSHELL_PROCESS.query([_WlanHelper, self.guid[1:-1], "mode"], crp=False, rst_t=True)[0].strip()
 
     def ismonitor(self):
         """Returns True if the interface is in monitor mode.
@@ -561,7 +571,7 @@ class NetworkInterface(object):
         Only available with Npcap."""
         # According to https://nmap.org/npcap/guide/npcap-devguide.html#npcap-feature-dot11
         self._check_npcap_requirement()
-        return plain_str(sp.Popen([_WlanHelper, self.guid[1:-1], "modes"], stdout=sp.PIPE).communicate()[0].strip()).split(",")
+        return POWERSHELL_PROCESS.query([_WlanHelper, self.guid[1:-1], "modes"], crp=False, rst_t=True)[0].split(",")
 
     def setmode(self, mode):
         """Set the interface mode. It can be:
@@ -583,15 +593,15 @@ class NetworkInterface(object):
             5: "wfd_client"
         }
         m = _modes.get(mode, "unknown") if isinstance(mode, int) else mode
-        return not POWERSHELL_PROCESS.query([_encapsulate_admin(_WlanHelper + " " + self.guid[1:-1] + " mode " + m)])
+        return not POWERSHELL_PROCESS.query([_encapsulate_admin(_WlanHelper + " " + self.guid[1:-1] + " mode " + m)], rst_t=True)
 
     def channel(self):
         """Get the channel of the interface.
         Only available with Npcap."""
         # According to https://nmap.org/npcap/guide/npcap-devguide.html#npcap-feature-dot11
         self._check_npcap_requirement()
-        x = plain_str(sp.Popen([_WlanHelper, self.guid[1:-1], "channel"],
-                        stdout=sp.PIPE).communicate()[0].strip())
+        x = POWERSHELL_PROCESS.query([_WlanHelper, self.guid[1:-1], "channel"],
+                        crp=False)[0].strip()
         return int(x)
 
     def setchannel(self, channel):
@@ -599,35 +609,38 @@ class NetworkInterface(object):
         Only available with Npcap."""
         # According to https://nmap.org/npcap/guide/npcap-devguide.html#npcap-feature-dot11
         self._check_npcap_requirement()
-        return not POWERSHELL_PROCESS.query([_encapsulate_admin(_WlanHelper + " " + self.guid[1:-1] + " channel " + str(channel))])
+        return not POWERSHELL_PROCESS.query([_encapsulate_admin(_WlanHelper + " " + self.guid[1:-1] + " channel " + str(channel))],
+                                            rst_t=True)
 
     def frequence(self):
         """Get the frequence of the interface.
         Only available with Npcap."""
         # According to https://nmap.org/npcap/guide/npcap-devguide.html#npcap-feature-dot11
         self._check_npcap_requirement()
-        return plain_str(sp.Popen([_WlanHelper, self.guid[1:-1], "freq"], stdout=sp.PIPE).communicate()[0].strip())
+        x = POWERSHELL_PROCESS.query([_WlanHelper, self.guid[1:-1], "freq"], crp=False, rst_t=True)[0].strip()
+        return int(x)
 
     def setfrequence(self, freq):
         """Set the channel of the interface (1-14):
         Only available with Npcap."""
         # According to https://nmap.org/npcap/guide/npcap-devguide.html#npcap-feature-dot11
         self._check_npcap_requirement()
-        return not POWERSHELL_PROCESS.query([_encapsulate_admin(_WlanHelper + " " + self.guid[1:-1] + " freq " + str(freq))])
+        return not POWERSHELL_PROCESS.query([_encapsulate_admin(_WlanHelper + " " + self.guid[1:-1] + " freq " + str(freq))],
+                                            rst_t=True)
 
     def availablemodulations(self):
         """Get all available 802.11 interface modulations.
         Only available with Npcap."""
         # According to https://nmap.org/npcap/guide/npcap-devguide.html#npcap-feature-dot11
         self._check_npcap_requirement()
-        return plain_str(sp.Popen([_WlanHelper, self.guid[1:-1], "modus"], stdout=sp.PIPE).communicate()[0].strip()).split(",")
+        return POWERSHELL_PROCESS.query([_WlanHelper, self.guid[1:-1], "modus"], crp=False, rst_t=True)[0].strip().split(",")
 
     def modulation(self):
         """Get the 802.11 modulation of the interface.
         Only available with Npcap."""
         # According to https://nmap.org/npcap/guide/npcap-devguide.html#npcap-feature-dot11
         self._check_npcap_requirement()
-        return plain_str(sp.Popen([_WlanHelper, self.guid[1:-1], "modu"], stdout=sp.PIPE).communicate()[0].strip())
+        return POWERSHELL_PROCESS.query([_WlanHelper, self.guid[1:-1], "modu"], crp=False, rst_t=True)[0].strip()
 
     def setmodulation(self, modu):
         """Set the interface modulation. It can be:
@@ -659,7 +672,8 @@ class NetworkInterface(object):
             10: "mimo-ofdm",
         }
         m = _modus.get(modu, "unknown") if isinstance(modu, int) else modu
-        return not POWERSHELL_PROCESS.query([_encapsulate_admin(_WlanHelper + " " + self.guid[1:-1] + " mode " + m)])
+        return not POWERSHELL_PROCESS.query([_encapsulate_admin(_WlanHelper + " " + self.guid[1:-1] + " mode " + m)],
+                                            rst_t=True)
 
     def __repr__(self):
         return "<%s %s %s>" % (self.__class__.__name__, self.name, self.guid)
