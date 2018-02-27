@@ -5,8 +5,8 @@ import os
 
 from scapy.contrib.opcua.helpers import UaConnectionContext
 from scapy.contrib.opcua.binary.networking import chunkify
+from scapy.automaton import ATMT
 from scapy.contrib.opcua.binary.automaton import _UaAutomaton
-from scapy.automaton import ATMT, Automaton
 from scapy.contrib.opcua.binary.uaTypes import *
 from scapy.supersocket import SuperSocket
 import scapy.contrib.opcua.binary.uaTypes as UA
@@ -99,20 +99,14 @@ class _TcpSuperSocket(SuperSocket):
         return self.socket.fileno()
 
 
-class TcpClientAutomaton(Automaton):
+class TcpClientAutomaton(_UaAutomaton):
     """
     This Automaton implements the ua tcp layer functionality.
     It can be used as part of an automaton that implements the SecureChannel layer.
     """
     
-    def parse_args(self, connectionContext=UaConnectionContext(), target="localhost",
-                   targetPort=4840, debug=0, store=1, **kwargs):
-        super(TcpClientAutomaton, self).parse_args(debug, store, **kwargs)
-        self.target = target
-        self.targetPort = targetPort
-        self.logger = logging.getLogger(__name__)
-        self.logger.setLevel(logging.DEBUG)
-        self.connectionContext = connectionContext
+    def parse_args(self, *args, **kwargs):
+        super(TcpClientAutomaton, self).parse_args(*args, **kwargs)
     
     @ATMT.state(initial=1)
     def START(self):
@@ -241,7 +235,7 @@ class UaTcpSocket(SuperSocket):
         return data
 
     def fileno(self):
-        raise NotImplementedError()
+        return self.atmt.io.uatcp.fileno()
 
     def connect(self):
         if not self.open:
