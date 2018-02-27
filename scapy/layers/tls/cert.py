@@ -37,6 +37,8 @@ if conf.crypto_valid:
     from cryptography.hazmat.backends import default_backend
     from cryptography.hazmat.primitives import serialization
     from cryptography.hazmat.primitives.asymmetric import rsa
+if conf.crypto_valid_advanced:
+    from cryptography.hazmat.backends.openssl.ec import InvalidSignature
 
 from scapy.error import warning
 from scapy.utils import binrepr
@@ -325,9 +327,16 @@ class PubKeyECDSA(PubKey):
     @crypto_validator
     def verify(self, msg, sig, h="sha256", **kwargs):
         # 'sig' should be a DER-encoded signature, as per RFC 3279
-        verifier = self.pubkey.verifier(sig, ec.ECDSA(_get_hash(h)))
-        verifier.update(msg)
-        return verifier.verify()
+        if conf.crypto_valid_advanced:
+            try:
+                self.pubkey.verify(sig, msg, ec.ECDSA(_get_hash(h)))
+                return True
+            except InvalidSignature:
+                return False
+        else:
+            verifier = self.pubkey.verifier(sig, ec.ECDSA(_get_hash(h)))
+            verifier.update(msg)
+            return verifier.verify()
 
 
 ################
@@ -519,15 +528,25 @@ class PrivKeyECDSA(PrivKey):
     @crypto_validator
     def verify(self, msg, sig, h="sha256", **kwargs):
         # 'sig' should be a DER-encoded signature, as per RFC 3279
-        verifier = self.pubkey.verifier(sig, ec.ECDSA(_get_hash(h)))
-        verifier.update(msg)
-        return verifier.verify()
+        if conf.crypto_valid_advanced:
+            try:
+                self.pubkey.verify(sig, msg, ec.ECDSA(_get_hash(h)))
+                return True
+            except InvalidSignature:
+                return False
+        else:
+            verifier = self.pubkey.verifier(sig, ec.ECDSA(_get_hash(h)))
+            verifier.update(msg)
+            return verifier.verify()
 
     @crypto_validator
     def sign(self, data, h="sha256", **kwargs):
-        signer = self.key.signer(ec.ECDSA(_get_hash(h)))
-        signer.update(data)
-        return signer.finalize()
+        if conf.crypto_valid_advanced:
+            return self.key.sign(data, ec.ECDSA(_get_hash(h)))
+        else:
+            signer = self.key.signer(ec.ECDSA(_get_hash(h)))
+            signer.update(data)
+            return signer.finalize()
 
 
 ################
