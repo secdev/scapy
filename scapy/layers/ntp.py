@@ -20,7 +20,7 @@ LEIntField, FixedPointField, IPField, StrField, StrFixedLenField,\
 StrFixedLenEnumField, XStrFixedLenField, PacketField, PacketLenField,\
 PacketListField, FieldListField, ConditionalField, PadField)
 from scapy.layers.inet6 import IP6Field
-from scapy.layers.inet import TCP, UDP
+from scapy.layers.inet import UDP, TCP, Ether
 from scapy.utils import lhex
 from scapy.compat import *
 from scapy.config import conf
@@ -214,7 +214,7 @@ class NTP(Packet):
         if cls == "NTP":
             if isinstance(self, NTP):
                 return True
-        elif issubclass(NTP, globals()[cls]):
+        elif issubclass(globals()[cls], NTP):
             if isinstance(self, cls):
                 return True
         return super(NTP, self).haslayer(cls)

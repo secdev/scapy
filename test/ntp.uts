@@ -1,0 +1,23 @@
+% Scapy NTP module tests.
+
+~ ntp
+
+#############
+#############
++ Simple NTP layer module tests.
+
+= Module loading
+load_module('ntp')
+
+= Session parse test (TCP) 
+
+p = IP()/TCP()/NTP()
+l = PacketList(p)
+s = l.sessions()  # Crashes on commit: e42ecdc54556c4852ca06b1a6da6c1ccbf3f522e
+assert len(s) == 1
+
+=Session parse test (UDP)
+p = IP()/UDP()/NTP()
+l = PacketList(p)
+s = l.sessions()  # Crashes on commit: e42ecdc54556c4852ca06b1a6da6c1ccbf3f522e
+assert len(s) == 1
