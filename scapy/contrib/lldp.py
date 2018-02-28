@@ -50,7 +50,6 @@ from scapy.layers.l2 import Ether, Dot1Q, bind_layers, \
 from scapy.modules.six.moves import range
 from scapy.data import ETHER_TYPES
 from scapy.compat import orb, raw
-from scapy.packet import Raw
 
 LLDP_NEAREST_BRIDGE_MAC = '01:80:c2:00:00:0e'
 LLDP_NEAREST_NON_TPMR_BRIDGE_MAC = '01:80:c2:00:00:03'
@@ -126,9 +125,9 @@ class LLDPDU(Packet):
         # type is a 7-bit bitfield spanning bits 1..7 -> div 2
         try:
             lldpdu_tlv_type = orb(payload[0]) // 2
-            return LLDPDU_CLASS_TYPES.get(lldpdu_tlv_type, Raw)
+            return LLDPDU_CLASS_TYPES.get(lldpdu_tlv_type, conf.raw_layer)
         except IndexError:
-            return Raw
+            return conf.raw_layer
 
     @staticmethod
     def _dot1q_headers_size(layer):
