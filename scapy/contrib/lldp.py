@@ -45,11 +45,11 @@ from scapy.config import conf
 from scapy.layers.dot11 import Packet
 from scapy.layers.l2 import Ether, Dot1Q, bind_layers, \
     BitField, StrLenField, ByteEnumField, BitEnumField, \
-    BitFieldLenField, ShortField, Padding, Scapy_Exception, \
+    BitFieldLenField, ShortField, Scapy_Exception, \
     XStrLenField, ByteField, EnumField, ThreeBytesField
 from scapy.modules.six.moves import range
 from scapy.data import ETHER_TYPES
-from scapy.compat import orb, raw
+from scapy.compat import orb
 
 LLDP_NEAREST_BRIDGE_MAC = '01:80:c2:00:00:0e'
 LLDP_NEAREST_NON_TPMR_BRIDGE_MAC = '01:80:c2:00:00:03'
