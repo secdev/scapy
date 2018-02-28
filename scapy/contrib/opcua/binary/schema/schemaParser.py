@@ -328,7 +328,7 @@ class SchemaParser(object):
     def _create_post_build(self, fields):
         if "SecurityMode" in fields:
             def post_build_security_mode(self, pkt, pay):
-                if self.connectionContext is not None and self.connectionContext.securityPolicy is not None:
+                if self.connectionContext is not None:
                     skip = 0
                     for fld in self.fields_desc:
                         if fld.name == "SecurityMode":
@@ -340,10 +340,15 @@ class SchemaParser(object):
                             skip += fld.sz
                     modeField, mode = self.getfield_and_val("SecurityMode")
                     if mode is None:
-                        mode = self.connectionContext.securityPolicy.Mode
+                        if self.connectionContext.securityPolicy is not None:
+                            mode = self.connectionContext.securityPolicy.Mode
+                        else:
+                            from scapy.contrib.opcua.binary.uaTypes import UaMessageSecurityMode
+                            mode = getattr(UaMessageSecurityMode, "None")
                         return modeField.addfield(self, pkt[:skip], mode) + pkt[skip+modeField.sz:] + pay
                     return pkt + pay
 
+                
                 return pkt + pay
             return post_build_security_mode
         return None
