@@ -9378,6 +9378,7 @@ Dot11(type=0, subtype=1).answers(query) == True
 = Dot11 - misc
 assert Dot11Elt(info="scapy").summary() == "SSID='scapy'"
 assert Dot11Elt(ID=1).mysummary() == ""
+assert Dot11(b'\x84\x00\x00\x00\x00\x11\x22\x33\x44\x55\x00\x11\x22\x33\x44\x55').addr2 == '00:11:22:33:44:55'
 
 = Multiple Dot11Elt layers
 pkt = Dot11() / Dot11Beacon() / Dot11Elt(ID="Rates") / Dot11Elt(ID="SSID", info="Scapy")
