@@ -438,9 +438,37 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
             p = p[:4]+struct.pack("!H", l)+p[6:]
         return p
 
-    def extract_padding(self, s):
-        l = self.plen
-        return s[:l], s[l:]
+    def extract_padding(self, data):
+        """Extract the IPv6 payload"""
+
+        if self.plen == 0 and self.nh == 0 and len(data) >= 8:
+            # Extract Hop-by-Hop extension length
+            hbh_len = orb(data[1])
+            hbh_len = 8 + hbh_len * 8
+
+            # Extract length from the Jumbogram option
+            # Note: the following algorithm take advantage of the Jumbo option
+            #        mandatory alignment (4n + 2, RFC2675 Section 2)
+            jumbo_len = None
+            idx = 0
+            offset = 4*idx+2
+            while offset <= len(data):
+                opt_type = orb(data[offset])
+                if opt_type == 0xc2:  # Jumbo option
+                    jumbo_len = struct.unpack("I", data[offset+2:offset+2+4])[0]
+                    break
+                offset = 4*idx+2
+                idx += 1
+
+            if jumbo_len is None:
+                warning("Scapy did not find a Jumbo option")
+                jumbo_len = 0
+
+            l = hbh_len + jumbo_len
+        else:
+            l = self.plen
+
+        return data[:l], data[l:]
 
     def hashret(self):
         if self.nh == 58 and isinstance(self.payload, _ICMPv6):
