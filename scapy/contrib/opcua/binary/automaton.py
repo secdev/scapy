@@ -16,7 +16,7 @@ from scapy.contrib.opcua.helpers import UaConnectionContext
 class _UaAutomaton(Automaton):
     
     def parse_args(self, connectionContext=UaConnectionContext(), target="localhost",
-                   targetPort=4840, debug=0, store=1, **kwargs):
+                   targetPort=4840, debug=0, store=False, **kwargs):
         super(_UaAutomaton, self).parse_args(debug, store, **kwargs)
         self.target = target
         self.targetPort = targetPort
