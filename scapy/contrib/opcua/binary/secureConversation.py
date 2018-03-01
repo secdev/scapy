@@ -111,7 +111,9 @@ class UaAsymmetricAlgorithmSecurityHeader(UaTypePacket):
         
         if self.connectionContext.securityPolicy is not None:
             result = b''
-            policy = UaByteString(data=self.connectionContext.securityPolicy.URI)
+            if policy.data is None:
+                policyUri = self.connectionContext.securityPolicy.URI
+                policy = UaByteString(data=policyUri)
             result += bytes(policy)
             
             certField, cert = self.getfield_and_val("SenderCertificate")

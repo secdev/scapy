@@ -40,6 +40,7 @@ ep = UaGetEndpointsRequest()
 msg.Payload.Message = ep
 msg.Payload.Message.RequestHeader.AuditEntryId = UaString(data="A" * 4017)
 
+
 def getContext():
     server_cert = load_certificate("./crypto/server_cert.der")
     server_pk = load_private_key("./crypto/server_key.pem")
@@ -55,6 +56,7 @@ def getContext():
     connectionContext.securityPolicy = policy
     
     return connectionContext
+
 
 def testTcpAutomaton():
     connectionContext = getContext()
@@ -87,7 +89,9 @@ def testSecureConvAutomaton():
     s.send(msg)
     resp = s.recv()
     resp.show()
-    input("blob")
+    
+    s.close()
+
 
 if __name__ == '__main__':
     # pc = read_pcap()

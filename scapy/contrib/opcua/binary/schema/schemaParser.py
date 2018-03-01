@@ -10,15 +10,16 @@ import logging
 import csv
 import os
 
-class Field(object):
 
+class Field(object):
+    
     def __init__(self):
         self.name = None
         self.fieldType = None
         self.lengthOf = None
         self.lengthFrom = None
         self.lengthInBytes = False
-
+    
     def __str__(self):
         return "{{{}}}: {}".format(self.fieldType, self.name)
 
@@ -29,7 +30,7 @@ class Enum(object):
         self.lengthInBits = None
         self.values = []
         self.doc = ""
-
+    
     def __str__(self):
         return "{{{}}}: {}".format(self.name, self.doc)
 
@@ -41,18 +42,18 @@ class EnumValue(object):
 
 
 class StructuredType(object):
-
+    
     def __init__(self, name):
         self.name = name
         self.fields = []
         self.documentation = ""
-
+    
     def __str__(self):
         return self.name
 
 
 class Model(object):
-
+    
     def __init__(self):
         self.builtins = {"PacketTypes": {}, "FieldTypes": {}}
         self.structuredTypes = []
@@ -67,7 +68,7 @@ class Model(object):
 class SchemaParser(object):
     class ParseError(Exception):
         pass
-
+    
     def __init__(self, schemaPath=None, nodeIdsPath=None, statusCodesPath=None, builtins=None):
         """
 
@@ -78,19 +79,19 @@ class SchemaParser(object):
                          and the associated class. If nothing is passed, the types are inferred from the
                          builtinTypes.py module.
         """
-
+        
         if schemaPath is None:
             schemaPath = "Opc.Ua.Types.bsd"
             schemaPath = os.path.join(os.path.dirname(__file__), schemaPath)
-
+        
         if nodeIdsPath is None:
             nodeIdsPath = "NodeIds.csv"
             nodeIdsPath = os.path.join(os.path.dirname(__file__), nodeIdsPath)
-            
+        
         if statusCodesPath is None:
             statusCodesPath = "Opc.Ua.StatusCodes.csv"
             statusCodesPath = os.path.join(os.path.dirname(__file__), statusCodesPath)
-
+        
         self.logger = logging.getLogger(__name__)
         self.schemaPath = schemaPath
         self.nodeIdsPath = nodeIdsPath
@@ -103,10 +104,10 @@ class SchemaParser(object):
             self._infer_builtins()
         else:
             self.model.builtins = builtins
-
+    
     def _infer_builtins(self):
         types_dict = sys.modules["scapy.contrib.opcua.binary.builtinTypes"]
-
+        
         for att in dir(types_dict):
             if att.startswith("Ua"):
                 builtin = re.sub(r"^Ua|Field$", "", att)
@@ -115,39 +116,39 @@ class SchemaParser(object):
                         self.model.builtins["FieldTypes"][builtin] = getattr(types_dict, att)
                     else:
                         self.model.builtins["PacketTypes"][builtin] = getattr(types_dict, att)
-
+        
         # Remove packet versions of builtins that have a field version
         for fieldType in self.model.builtins["FieldTypes"]:
             if fieldType in self.model.builtins["PacketTypes"]:
                 self.model.builtins["PacketTypes"].pop(fieldType)
         self.logger.debug("Inferred {} builtin types".format(len(self.model.builtins["FieldTypes"]) +
                                                              len(self.model.builtins["PacketTypes"])))
-
+    
     def _is_type_builtin(self, typeName):
         if typeName in self.model.builtins["FieldTypes"]:
             return True
         if typeName in self.model.builtins["PacketTypes"]:
             return True
-
+        
         return False
-
+    
     @staticmethod
     def _get_tag(element):
         return re.sub(r"{.*}", '', element.tag)
-
+    
     def parse(self):
         self._parse_xml_schema()
         self._create_types()
         self._parse_node_ids()
         self._parse_status_codes()
-
+    
     def _parse_xml_schema(self):
         self.xmlSchema = ElementTree.parse(self.schemaPath).getroot()
-
+        
         for element in self.xmlSchema:
             elementType = self._get_tag(element)
             elementName = element.attrib.get("Name")
-
+            
             if elementName is not None and not self._is_type_builtin(elementName):
                 if elementType == "StructuredType":
                     self._parse_structured_type(element)
@@ -156,11 +157,11 @@ class SchemaParser(object):
             else:
                 if elementName is not None:
                     self.logger.debug("{} is builtinType!".format(elementName))
-
+    
     def _parse_node_ids(self):
         with open(self.nodeIdsPath) as nodeIdsFile:
             reader = csv.reader(nodeIdsFile)
-
+            
             for row in reader:
                 if row[0].endswith("_Encoding_DefaultBinary"):
                     typeName = row[0].split("_")[0]
@@ -171,7 +172,7 @@ class SchemaParser(object):
                     else:
                         self.logger.warning(
                             "Type '{}' not found. Could not map NodeId '{}'".format(typeName, encodingId))
-                        
+    
     def _parse_status_codes(self):
         with open(self.statusCodesPath) as statusCodesFile:
             reader = csv.reader(statusCodesFile)
@@ -182,7 +183,7 @@ class SchemaParser(object):
                 desc = ','.join(row[2:])
                 id = int(row[1], 16)
                 self.model.statusCodes[id] = (name, desc)
-
+    
     def _parse_enum_type(self, element):
         enum = Enum()
         for k, v in element.items():
@@ -208,13 +209,13 @@ class SchemaParser(object):
                 enum.doc = el.text
             else:
                 raise self.ParseError("Unknown enum tag: ", tag)
-
+        
         self.model.enumTypes.append(enum)
-
+    
     def _parse_structured_type(self, element):
         elementName = element.attrib.get("Name")
         newType = StructuredType(elementName)
-
+        
         for el in element:
             tag = self._get_tag(el)
             if tag == "Field":
@@ -235,49 +236,49 @@ class SchemaParser(object):
                         # print("SourceType: ", val)
                     else:
                         raise self.ParseError("{} keys are not supported in the current parser".format(key))
-
+                
                 newType.fields.append(newField)
             elif tag == "Documentation":
                 newType.documentation = el.text
             else:
                 self.logger.warning("Unknown tag: {}".format(tag))
-
+        
         self.model.structuredTypes.append(newType)
-
+    
     def _create_types(self):
         if self.xmlSchema is None:
             self.parse()
-
+        
         self._create_enumerated_types()
         self._create_structured_types()
         pass
-
+    
     def _create_enumerated_types(self):
-
+        
         for eType in self.model.enumTypes:
             try:
                 if eType.lengthInBits == 32:
                     typeString = "Enumeration"
                 else:
                     typeString = "UInt" + str(eType.lengthInBits)
-
+                
                 self.model.enumFields[eType.name] = self.model.builtins["FieldTypes"][typeString]
                 self.model.enums[eType.name] = self._create_enum(eType)
             except KeyError:
                 self.logger.warning("Error adding enumerated type '{}' Could not find "
                                     "builtinType with bit length {}".format(eType.name, eType.lengthInBits))
-
+    
     def _create_enum(self, eType):
         class_dict = dict(map(lambda value: (value.name, int(value.value)), eType.values))
         if eType.doc:
             class_dict["__doc__"] = eType.doc
         return type(eType.name, (Enum,), class_dict)
-
+    
     def _create_structured_types(self):
-
+        
         for sType in self.model.structuredTypes:
             self._create_structured_type(sType)
-
+        
         lastLen = len(self.reparse)
         noProgress = 0
         while len(self.reparse) > 0:
@@ -288,9 +289,9 @@ class SchemaParser(object):
                     self.logger.error("Exceeded maximum passes. Aborting types creation")
                     break
             lastLen = len(self.reparse)
-
+        
         self.logger.debug("Done creating types")
-
+    
     @staticmethod
     def _fill_field_args_dict(field):
         argsDict = {}
@@ -299,32 +300,32 @@ class SchemaParser(object):
                 argsDict["length_of"] = field.lengthOf.name
             else:
                 argsDict["count_of"] = field.lengthOf.name
-
+        
         if field.lengthFrom is not None:
             if field.lengthFrom.lengthInBytes:
                 argsDict["length_from"] = lambda p: getattr(p, field.lengthFrom.name)
             else:
                 argsDict["count_from"] = lambda p: getattr(p, field.lengthFrom.name)
-
+        
         return argsDict
-
+    
     def _create_packet_type_field(self, name, cls, argsDict):
         if "count_from" in argsDict:
             field = PacketListField(name, None, cls, **argsDict)
         else:
             field = UaPacketField(name, cls(), cls)
-
+        
         return field
-
+    
     def _create_field_type_field(self, name, cls, argsDict):
         if "count_from" in argsDict:
-            #field = cls(name, None)
+            # field = cls(name, None)
             field = FieldListField(name, None, cls("", None), **argsDict)
         else:
             field = cls(name, None, **argsDict)
-
+        
         return field
-
+    
     def _create_post_build(self, fields):
         if "SecurityMode" in fields:
             def post_build_security_mode(self, pkt, pay):
@@ -345,21 +346,21 @@ class SchemaParser(object):
                         else:
                             from scapy.contrib.opcua.binary.uaTypes import UaMessageSecurityMode
                             mode = getattr(UaMessageSecurityMode, "None")
-                        return modeField.addfield(self, pkt[:skip], mode) + pkt[skip+modeField.sz:] + pay
+                        return modeField.addfield(self, pkt[:skip], mode) + pkt[skip + modeField.sz:] + pay
                     return pkt + pay
-
                 
                 return pkt + pay
+            
             return post_build_security_mode
         return None
-
+    
     def _create_structured_type(self, sType):
         try:
             fields_desc = []
             classDict = {}
             for field in sType.fields:
                 argsDict = self._fill_field_args_dict(field)
-
+                
                 if field.fieldType in self.model.builtins["PacketTypes"]:
                     cls = self.model.builtins["PacketTypes"][field.fieldType]
                     fields_desc.append(self._create_packet_type_field(field.name, cls, argsDict))
@@ -378,19 +379,19 @@ class SchemaParser(object):
                         self.logger.debug("Error adding type '{}' Could not find "
                                           "dependency. Re-queueing...".format(sType.name))
                         return
-
+            
             classDict["fields_desc"] = fields_desc
             classDict["binaryEncodingId"] = None
-
+            
             postBuildMethod = self._create_post_build([f.name for f in sType.fields])
             if postBuildMethod is not None:
                 classDict["post_build"] = postBuildMethod
             newClass = type(sType.name, (UaTypePacket,), classDict)
-
+            
             self.model.classes[sType.name] = newClass
         except KeyError:
             self.logger.warning("Unexpected error encountered while creating types. Types might be incomplete")
-
+    
     def create_file(self, outputName):
         """
         Creates a file where the generated types are stored.
