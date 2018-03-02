@@ -14,13 +14,15 @@ bashCommand = "/bin/bash -c 'sudo modprobe vcan; sudo ip link add name vcan0 typ
 
 = Load os
 ~ conf command
+~ needs_root
+
 import os
 import threading
 from time import sleep
-from scapy.layers.can import CAN, CANSocket, CAN_INV_FILTER, srcan, srcanloop
 
 = Setup vcan0
 ~ conf command
+~ needs_root
 0 == os.system(bashCommand)
 
 + Basic Packet Tests()
