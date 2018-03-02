@@ -20,7 +20,7 @@ from scapy.compat import orb
 
 ### If prereq_autocomplete is True then match prerequisites will be
 ### automatically handled. See OFPMatch class.
-prereq_autocomplete = False
+conf.contribs['OPENFLOW'] = {'prereq_autocomplete': True}
 
 #####################################################
 ################# Predefined values #################
@@ -188,7 +188,7 @@ class OFPMatch(Packet):
         ### In order to write OFPMatch compliant with the specifications,
         ### if prereq_autocomplete has been set to True
         ### we assume ethertype=IP or nwproto=TCP when appropriate subfields are provided.
-        if prereq_autocomplete:
+        if conf.contribs['OPENFLOW']['prereq_autocomplete']:
             if self.dl_type is None:
                 if self.nw_src is not "0" or self.nw_dst is not "0" or self.nw_proto is not None or self.nw_tos is not None:
                     p = p[:22] + struct.pack("!H", 0x0800) + p[24:]

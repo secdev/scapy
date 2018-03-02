@@ -20,7 +20,7 @@ from scapy.compat import *
 
 ### If prereq_autocomplete is True then match prerequisites will be
 ### automatically handled. See OFPMatch class.
-prereq_autocomplete = False
+conf.contribs['OPENFLOW'] = {'prereq_autocomplete': True}
 
 #####################################################
 ################# Predefined values #################
@@ -160,7 +160,7 @@ class OFPPort(Packet):
                     IntField("max_speed", 0) ]
 
     def extract_padding(self, s):
-        return "", s
+        return b"", s
     # extract_padding is overridden in order for s not to be considered
     # as belonging to the same layer (s usually contains other OFPPorts)
 
@@ -542,7 +542,7 @@ class OXMPacketListField(PacketListField):
 
     __slots__ = ["autocomplete", "index"]
 
-    def __init__(self, name, default, cls, length_from=None, autocomplete=prereq_autocomplete):
+    def __init__(self, name, default, cls, length_from=None, autocomplete=False):
         PacketListField.__init__(self, name, default, cls, length_from=length_from)
         self.autocomplete = autocomplete
         self.index = []
@@ -551,7 +551,7 @@ class OXMPacketListField(PacketListField):
             ### this part makes for a faster writing of specs-compliant matches
             ### expect some unwanted behaviour if you try incoherent associations
             ### you might want to set autocomplete=False in __init__ method
-        if self.autocomplete:
+        if self.autocomplete or conf.contribs['OPENFLOW']['prereq_autocomplete']:
             # val might be modified during the loop so we need a fixed copy
             fix_val = copy.deepcopy(val)
             for oxm in fix_val:
@@ -920,7 +920,7 @@ class OFPATSetField(_ofp_action_header):
         return p + pay
 
     def extract_padding(self, s):
-        return "", s
+        return b"", s
 
     name = "OFPAT_SET_FIELD"
     fields_desc = [ ShortEnumField("type", 25, ofp_action_types),
@@ -1408,7 +1408,7 @@ class InstructionIDPacketListField(PacketListField):
 class OFPBucket(Packet):
 
     def extract_padding(self, s):
-        return "", s
+        return b"", s
 
     def post_build(self, p, pay):
         if self.len is None:
@@ -1501,7 +1501,7 @@ class QueuePropertyPacketListField(PacketListField):
 class OFPPacketQueue(Packet):
 
     def extract_padding(self, s):
-        return "", s
+        return b"", s
 
     def post_build(self, p, pay):
         if self.properties == []:
@@ -2381,7 +2381,7 @@ class OFPMPRequestTable(_ofp_header):
 
 class OFPTableStats(Packet):
     def extract_padding(self, s):
-        return "", s
+        return b"", s
     name = "OFP_TABLE_STATS"
     fields_desc = [ ByteEnumField("table_id", 0, ofp_table),
                     X3BytesField("pad1", 0),
@@ -2417,7 +2417,7 @@ class OFPMPRequestPortStats(_ofp_header):
 
 class OFPPortStats(Packet):
     def extract_padding(self, s):
-        return "", s
+        return b"", s
     name = "OFP_PORT_STATS"
     fields_desc = [ IntEnumField("port_no", 0, ofp_port_no),
                     XIntField("pad", 0),
@@ -2464,7 +2464,7 @@ class OFPMPRequestQueue(_ofp_header):
 
 class OFPQueueStats(Packet):
     def extract_padding(self, s):
-        return "", s
+        return b"", s
     name = "OFP_QUEUE_STATS"
     fields_desc = [ IntEnumField("port_no", 0, ofp_port_no),
                     IntEnumField("queue_id", 0, ofp_queue),
@@ -2502,7 +2502,7 @@ class OFPMPRequestGroup(_ofp_header):
 
 class OFPBucketStats(Packet):
     def extract_padding(self, s):
-        return "", s
+        return b"", s
     name = "OFP_BUCKET_STATS"
     fields_desc = [ LongField("packet_count", 0),
                     LongField("byte_count", 0) ]
@@ -2674,7 +2674,7 @@ class OFPMPRequestMeter(_ofp_header):
 
 class OFPMeterBandStats(Packet):
     def extract_padding(self, s):
-        return "", s
+        return b"", s
     name = "OFP_METER_BAND_STATS"
     fields_desc = [ LongField("packet_band_count", 0),
                     LongField("byte_band_count", 0) ]
@@ -2843,7 +2843,7 @@ class _ofp_table_features_prop_header(Packet):
     def extract_padding(self, s):
         l = self.length
         zero_bytes = (8 - l%8) % 8
-        return "", s
+        return b"", s
 
 
 ofp_table_features_prop_types = {     0: "OFPTFPT_INSTRUCTIONS",
@@ -2879,7 +2879,7 @@ class OFPTFPTInstructionsMiss(_ofp_table_features_prop_header):
 
 class OFPTableID(Packet):
     def extract_padding(self, s):
-        return "", s
+        return b"", s
     name = "OFP_TABLE_ID"
     fields_desc = [ ByteEnumField("table_id", 0, ofp_table) ]
 
