@@ -6,7 +6,9 @@
 ############
 ############
 + Configuration of CAN virtual sockets
+~ needs_root
 load_layer("can")
+load_layer("cansocket")
 
 = Setup string for vcan
 ~ conf command
