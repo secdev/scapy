@@ -310,7 +310,7 @@ class LLDPDUChassisID(LLDPDU):
         BitFieldLenField('_length', None, 9, length_of='id',
                          adjust=lambda pkt, x: len(pkt.id) + 1),
         ByteEnumField('subtype', 0x00, LLDP_CHASSIS_ID_TLV_SUBTYPES),
-        XStrLenField('id', '', length_from=lambda pkt: pkt._length - 1)
+        StrLenField('id', '', length_from=lambda pkt: pkt._length - 1)
     ]
 
     def _check(self):
