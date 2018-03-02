@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 
-## Copyright (C) 2017 Alexis Sultan    <alexis.sultan@sfr.com>
+## Copyright (C) 2018 Leonardo Monteiro <decastromonteiro@gmail.com>
+##               2017 Alexis Sultan    <alexis.sultan@sfr.com>
 ##               2017 Alessio Deiana <adeiana@gmail.com>
 ##               2014 Guillaume Valadon <guillaume.valadon@ssi.gouv.fr>
 ##               2012 ffranz <ffranz@iniqua.com>
@@ -396,7 +397,9 @@ class IE_EndUserAddress(IE_Base):
                     BitField("PDPTypeOrganization", 1, 4),
                     XByteField("PDPTypeNumber", None),
                     ConditionalField(IPField("PDPAddress", RandIP()),
-                                     lambda pkt: pkt.length > 2)]
+                                     lambda pkt: pkt.length == 6 or pkt.length == 22),
+                    ConditionalField(IP6Field("IPv6_PDPAddress", '::1'),
+                                     lambda pkt: pkt.length == 18 or pkt.length == 22)]
 
 
 class APNStrLenField(StrLenField):

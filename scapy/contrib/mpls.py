@@ -16,11 +16,21 @@
 # scapy.contrib.status = loads
 
 from scapy.packet import Packet, bind_layers, Padding
-from scapy.fields import BitField,ByteField
+from scapy.fields import BitField,ByteField,ShortField
 from scapy.layers.inet import IP
 from scapy.layers.inet6 import IPv6
 from scapy.layers.l2 import Ether, GRE
 from scapy.compat import orb
+
+class EoMCW(Packet):
+    name = "EoMCW"
+    fields_desc = [ BitField("zero", 0, 4),
+                    BitField("reserved", 0, 12),
+                    ShortField("seq", 0) ]
+    def guess_payload_class(self, payload):
+        if len(payload) >= 1:
+            return Ether
+        return Padding
 
 class MPLS(Packet):
    name = "MPLS"
@@ -38,8 +48,15 @@ class MPLS(Packet):
                return IP
            elif ip_version == 6:
                return IPv6
+           else:
+               if orb(payload[0]) == 0 and orb(payload[1]) == 0:
+                   return EoMCW
+               else:
+                   return Ether
        return Padding
 
 bind_layers(Ether, MPLS, type=0x8847)
 bind_layers(GRE, MPLS, proto=0x8847)
 bind_layers(MPLS, MPLS, s=0)
+bind_layers(MPLS, EoMCW)
+bind_layers(EoMCW, Ether, zero=0, reserved=0)

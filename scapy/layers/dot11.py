@@ -123,7 +123,7 @@ class Dot11(Packet):
         ConditionalField(
             MACField("addr2", ETHER_ANY),
             lambda pkt: (pkt.type != 1 or
-                         pkt.subtype in [0x9, 0xb, 0xa, 0xe, 0xf]),
+                         pkt.subtype in [0x8, 0x9, 0xa, 0xb, 0xe, 0xf]),
         ),
         ConditionalField(
             MACField("addr3", ETHER_ANY),
