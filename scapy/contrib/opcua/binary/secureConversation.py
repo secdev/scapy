@@ -182,8 +182,13 @@ def _chunked_data_length(pkt):
 
 
 class UaChunkedData(UaTypePacket):
+    __slots__ = ["isCLO"]
     fields_desc = [ByteListField("Message", None, UaByteField("", None, True), count_from=_chunked_data_length)]
-    
+
+    def __init__(self, _pkt=b"", connectionContext=None, post_transform=None, _internal=0, _underlayer=None, **fields):
+        super(UaChunkedData, self).__init__(_pkt, connectionContext, post_transform, _internal, _underlayer, **fields)
+        self.isCLO = False
+
     def post_dissect(self, s):
         requestId = self.underlayer.SequenceHeader.RequestId
         UaMessage._chunks[requestId].append(self.underlayer)
@@ -274,7 +279,9 @@ class UaSecureConversationAsymmetric(UaTcp):
             typeBinary = b'OPN'
         elif isinstance(self.SecurityHeader, UaSymmetricAlgorithmSecurityHeader):
             if isinstance(self.Payload.Message, (UaCloseSecureChannelRequest, UaCloseSecureChannelResponse)):
-                typeBinary = B'CLO'
+                typeBinary = b'CLO'
+            elif isinstance(self.Payload, UaChunkedData) and self.Payload.isCLO:
+                typeBinary = b'CLO'
             else:
                 typeBinary = b'MSG'
         else:

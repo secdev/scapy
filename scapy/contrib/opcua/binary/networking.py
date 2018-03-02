@@ -21,18 +21,25 @@ def chunkify(packet, maxChunkSize=2048):
             and packet.connectionContext.remoteBufferSizes.receiveBufferSize is not None:
         maxChunkSize = packet.connectionContext.remoteBufferSizes.receiveBufferSize
     
-    # Create carrier prototype which will be used for all chunks
-    carrier = copy.deepcopy(packet)
-    carrier.Payload = UaChunkedData()
-    carrier.MessageHeader.IsFinal = b'C'
-    headerSize = len(carrier.MessageHeader) + len(carrier.SecurityHeader)
-    sequenceHeaderSize = len(carrier.SequenceHeader)
+    headerSize = len(packet.MessageHeader) + len(packet.SecurityHeader)
+    sequenceHeaderSize = len(packet.SequenceHeader)
     
     try:
         crypto = packet.connectionContext.securityPolicy.symmetric_cryptography
     except AttributeError:
         crypto = CryptographyNone()
     maxBodySize = max_body_size(crypto, maxChunkSize, headerSize, sequenceHeaderSize)
+
+    if len(packet.Payload) < maxBodySize:
+        yield packet
+        return
+
+    # Create carrier prototype which will be used for all chunks
+    carrier = copy.deepcopy(packet)
+    carrier.Payload = UaChunkedData()
+    carrier.Payload.isCLO = isinstance(packet.Payload.Message, UaCloseSecureChannelRequest) or \
+                            isinstance(packet.Payload.Message, UaCloseSecureChannelResponse)
+    carrier.MessageHeader.IsFinal = b'C'
     
     data = bytes(packet.Payload)
     while len(data) > maxBodySize:

@@ -2,6 +2,7 @@
 
 import logging
 import sys
+import timeit
 
 from scapy.contrib.opcua.binary.secureConversationClient import UaSecureConversationSocket
 from scapy.contrib.opcua.helpers import UaConnectionContext
@@ -32,6 +33,7 @@ def read_pcap():
     return pc
 
 
+hel = UaTcp(Message=UaTcpHelloMessage())
 opn = UaSecureConversationAsymmetric()
 # opn.Payload.Message.SecurityMode = 1
 
@@ -53,7 +55,7 @@ def getContext():
                                          UaMessageSecurityMode.SignAndEncrypt)
     # policy.make_symmetric_key(b'aaa', b'bbb')
     connectionContext = UaConnectionContext()
-    connectionContext.securityPolicy = policy
+    # connectionContext.securityPolicy = policy
     
     return connectionContext
 
@@ -89,6 +91,8 @@ def testSecureConvAutomaton():
     s.send(msg)
     resp = s.recv()
     resp.show()
+    resp = s.recv()
+    resp.show()
     
     s.close()
 
@@ -114,3 +118,4 @@ if __name__ == '__main__':
     
     # input("Press key")
     # interact(globals())
+    pass

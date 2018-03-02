@@ -2,6 +2,8 @@
 import socket
 
 import os
+import threading
+from time import sleep
 
 from scapy.contrib.opcua.crypto.uacrypto import create_nonce
 from scapy.contrib.opcua.binary.tcpClient import UaTcpSocket
@@ -75,8 +77,9 @@ class SecureConversationAutomaton(Automaton):
         self.logger.debug("Sending OPN")
         
         opn = UaSecureConversationAsymmetric()
-        self.connectionContext.localNonce = create_nonce(self.connectionContext.securityPolicy.symmetric_key_size)
-        opn.Payload.Message.ClientNonce = UaByteString(data=self.connectionContext.localNonce)
+        if self.connectionContext.securityPolicy is not None:
+            self.connectionContext.localNonce = create_nonce(self.connectionContext.securityPolicy.symmetric_key_size)
+            opn.Payload.Message.ClientNonce = UaByteString(data=self.connectionContext.localNonce)
         # TODO: Make configurable if nonce is randomly generated or not.
         
         self.send(opn)
@@ -92,8 +95,9 @@ class SecureConversationAutomaton(Automaton):
             
             self.connectionContext.securityToken = pkt.Payload.Message.SecurityToken
             self.connectionContext.remoteNonce = pkt.Payload.Message.ServerNonce.data
-            self.connectionContext.securityPolicy.make_symmetric_key(self.connectionContext.localNonce,
-                                                                     self.connectionContext.remoteNonce)
+            if self.connectionContext.securityPolicy is not None:
+                self.connectionContext.securityPolicy.make_symmetric_key(self.connectionContext.localNonce,
+                                                                         self.connectionContext.remoteNonce)
             
             raise self.SECURECHANNEL_ESTABLISHED()
         if isinstance(pkt, UaSecureConversationAsymmetric) and \
@@ -107,18 +111,18 @@ class SecureConversationAutomaton(Automaton):
             self.logger.debug("Unexpected message received")
             raise self.DISCONNECTING()
     
-    """
-    @ATMT.condition(TCP_DISCONNECTING)
-    def tcp_disconnect(self):
+    @ATMT.condition(DISCONNECTING)
+    def disconnect(self):
+        
+        clo = UaSecureConversationSymmetric(Payload=UaMessage(Message=UaCloseSecureChannelRequest()))
+        self.send(clo)
         self.send_sock.close()
         self.logger.debug("TCP socket disconnected")
-        raise self.TCP_DISCONNECTED()
+        raise self.DISCONNECTED()
     
-    @ATMT.condition(TCP_DISCONNECTED)
+    @ATMT.condition(DISCONNECTED)
     def end(self):
         raise self.END()
-    
-    """
     
     @ATMT.receive_condition(SECURECHANNEL_ESTABLISHED, prio=1)
     def receive_response(self, pkt):
@@ -143,7 +147,7 @@ class SecureConversationAutomaton(Automaton):
     def socket_send(self, fd):
         raise self.SECURECHANNEL_ESTABLISHED().action_parameters(fd.recv())
     
-    @ATMT.ioevent(CONNECTED, "shutdown")
+    @ATMT.ioevent(SECURECHANNEL_ESTABLISHED, "shutdown")
     def shutdown(self, fd):
         raise self.DISCONNECTING()
     
