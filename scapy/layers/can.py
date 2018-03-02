@@ -1,36 +1,131 @@
 # This file is part of Scapy
 # See http://www.secdev.org/projects/scapy for more informations
-# Copyright (C) Philippe Biondi <phil@secdev.org>
+# Copyright (C) Nils Weiss <nils@we155.de>
 # This program is published under a GPLv2 license
 
 
-"""A minimal implementation of the CANopen protocol, based on
-Wireshark dissectors. See https://wiki.wireshark.org/CANopen
-
 """
-
+CANSocket.
+"""
 
 from scapy.config import conf
 from scapy.data import DLT_CAN_SOCKETCAN
-from scapy.fields import BitField, FieldLenField, FlagsField, StrLenField, \
-    ThreeBytesField, XBitField
+from scapy.fields import FieldLenField, FlagsField, StrLenField, XBitField, PadField, ThreeBytesField
 from scapy.packet import Packet
+from scapy.supersocket import SuperSocket
+from scapy.arch.linux import get_last_packet_timestamp
+from scapy.error import Scapy_Exception, warning
+import scapy.sendrecv as sendrecv
+import struct
+import socket
+import time
+
+############
+## Consts ##
+############
+CAN_FRAME_SIZE = 16
+CAN_INV_FILTER = 0x20000000
 
 
 class CAN(Packet):
-    """A minimal implementation of the CANopen protocol, based on
-    Wireshark dissectors. See https://wiki.wireshark.org/CANopen
-
-    """
     fields_desc = [
-        FlagsField("flags", 0, 3, ["extended", "remote_transmission_request",
-                                   "error"]),
-        BitField("unknown", 0, 18),
-        XBitField("identifier", 0, 11),
-        FieldLenField("length", None, length_of="data", fmt="B"),
-        ThreeBytesField("reserved", 0),
-        StrLenField("data", "", length_from=lambda pkt: pkt.length),
+        FlagsField("flags", 0, 3, ["error", "remote_transmission_request",
+                                   "extended"]),
+        XBitField("identifier", 0, 29),
+        PadField(FieldLenField("length", None, length_of="data", fmt="B"), 4),
+        PadField(StrLenField("data", "", length_from=lambda pkt: min(pkt.length, 8)), 8)
     ]
 
+    @property
+    def id(self):
+        return self.identifier
 
+    @property
+    def dlc(self):
+        return self.length
+
+
+class CANSocket(SuperSocket):
+    desc = "read/write packets at a given CAN interface using PF_CAN sockets"
+
+    def __init__(self, iface=None, receive_own_messages=False, filter=None):
+        self.iface = conf.CANiface if iface is None else iface
+        self.ins = socket.socket(socket.PF_CAN, socket.SOCK_RAW, socket.CAN_RAW)
+        try:
+            self.ins.setsockopt(socket.SOL_CAN_RAW, socket.CAN_RAW_RECV_OWN_MSGS,
+                                struct.pack("i", receive_own_messages))
+        except Exception as e:
+            Scapy_Exception("Could not modify receive own messages (%s)", e)
+
+        if filter is None:
+            filter = [{
+                "can_id": 0,
+                "can_mask": 0
+            }]
+
+        can_filter_fmt = "={}I".format(2 * len(filter))
+        filter_data = []
+        for can_filter in filter:
+            filter_data.append(can_filter["can_id"])
+            filter_data.append(can_filter["can_mask"])
+
+        self.ins.setsockopt(socket.SOL_CAN_RAW,
+                            socket.CAN_RAW_FILTER,
+                            struct.pack(can_filter_fmt, *filter_data)
+                            )
+
+        self.ins.bind((iface,))
+        self.outs = self.ins
+
+    def recv(self, x=CAN_FRAME_SIZE):
+        try:
+            pkt, sa_ll = self.ins.recvfrom(x)
+        except BlockingIOError:
+            warning("Captured no data, socket in non-blocking mode.")
+            return None
+        except socket.timeout:
+            warning("Captured no data, socket read timed out.")
+            return None
+        except OSError:
+            # something bad happened (e.g. the interface went down)
+            warning("Captured no data.")
+            return None
+
+        # need to change the byteoder of the first four bytes, required by the underlaying linux CAN frame format
+        pkt = struct.pack("<I12s", *struct.unpack(">I12s", pkt))
+
+        q = CAN(pkt)
+        q.time = get_last_packet_timestamp(self.ins)
+        return q
+
+    def send(self, x):
+        try:
+            if hasattr(x, "sent_time"):
+                x.sent_time = time.time()
+            # need to change the byteoder of the first four bytes, required by the underlaying linux CAN frame format
+            bs = struct.pack("<I12s", *struct.unpack(">I12s", bytes(x)))
+            return SuperSocket.send(self, bs)
+        except socket.error as msg:
+            raise msg
+
+
+@conf.commands.register
+def srcan(pkt, iface=None, receive_own_messages=False, filter=None, *args, **kargs):
+    if not "timeout" in kargs:
+        kargs["timeout"] = -1
+    s = conf.CANSocket(iface, receive_own_messages, filter)
+    a, b = s.sr(pkt, *args, **kargs)
+    s.close()
+    return a, b
+
+
+@conf.commands.register
+def srcanloop(pkts, *args, **kargs):
+    """Send a packet at can layer in loop and print the answer each time
+srloop(pkts, [prn], [inter], [count], ...) --> None"""
+    return sendrecv.__sr_loop(srcan, pkts, *args, **kargs)
+
+
+conf.CANiface = "can0"
+conf.CANSocket = CANSocket
 conf.l2types.register(DLT_CAN_SOCKETCAN, CAN)
