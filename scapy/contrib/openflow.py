@@ -16,7 +16,7 @@ import struct
 from scapy.fields import *
 from scapy.layers.l2 import *
 from scapy.layers.inet import *
-from scapy.compat import orb
+from scapy.compat import orb, raw
 
 ### If prereq_autocomplete is True then match prerequisites will be
 ### automatically handled. See OFPMatch class.
@@ -95,7 +95,7 @@ class OFPPhyPort(Packet):
                     FlagsField("peer", 0, 32, ofp_port_features) ]
 
     def extract_padding(self, s):
-        return "", s
+        return b"", s
 
 class OFPMatch(Packet):
     name = "OFP_MATCH"
@@ -127,7 +127,7 @@ class OFPMatch(Packet):
                    ShortField("tp_dst", None) ]
 
     def extract_padding(self, s):
-        return "", s
+        return b"", s
 
     ### with post_build we create the wildcards field bit by bit
     def post_build(self, p, pay):
@@ -398,7 +398,7 @@ class QueuePropertyPacketListField(PacketListField):
     def getfield(self, pkt, s):
         lst = []
         l = 0
-        ret = ""
+        ret = b""
         remain = s
 
         while remain:
@@ -413,11 +413,11 @@ class QueuePropertyPacketListField(PacketListField):
 class OFPPacketQueue(Packet):
 
     def extract_padding(self, s):
-        return "", s
+        return b"", s
 
     def post_build(self, p, pay):
         if self.properties == []:
-            p += str(OFPQTNone())
+            p += raw(OFPQTNone())
         if self.len is None:
             l = len(p)+len(pay)
             p = p[:4] + struct.pack("!H", l) + p[6:]
@@ -439,7 +439,7 @@ class QueuePacketListField(PacketListField):
     def getfield(self, pkt, s):
         lst = []
         l = 0
-        ret = ""
+        ret = b""
         remain = s
 
         while remain:
@@ -969,7 +969,7 @@ class OFPTStatsRequestTable(_ofp_header):
 class OFPTableStats(Packet):
 
     def extract_padding(self, s):
-        return "", s
+        return b"", s
 
     name = "OFP_TABLE_STATS"
     fields_desc = [ ByteField("table_id", 0),
@@ -1019,7 +1019,7 @@ class OFPTStatsRequestPort(_ofp_header):
 class OFPPortStats(Packet):
 
     def extract_padding(self, s):
-        return "", s
+        return b"", s
 
     name = "OFP_PORT_STATS"
     fields_desc = [ ShortEnumField("port_no", 0, ofp_port_no),

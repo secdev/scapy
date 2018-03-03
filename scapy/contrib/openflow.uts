@@ -14,7 +14,7 @@ raw(ofm) == b'\x01\x02\x00\x08\x00\x00\x00\x00'
 ofm = OFPMatch(in_port=1, nw_tos=8)
 ofm = OFPMatch(raw(ofm))
 assert(ofm.wildcards1 == 0x1)
-ofm.wildcards2 == 0xfe
+ofm.wildcards2 == 0xee
 
 = OpenFlow(), generic method test with OFPTEchoRequest()
 ofm = OFPTEchoRequest()
@@ -37,7 +37,7 @@ act2 = OFPATOutput(port='CONTROLLER')
 act3 = OFPATSetDlSrc(dl_addr='1a:d5:cb:4e:3c:64')
 ofm = OFPTFlowMod(priority=1000, match=mtc, flags='CHECK_OVERLAP', actions=[act1,act2,act3])
 raw(ofm)
-s = b'\x01\x0e\x00h\x00\x00\x00\x00\x00?\xc8\xfd\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\n\x00\x00\x00\x00\x00\x00\x00\x00\xc0\xa8*\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x03\xe8\xff\xff\xff\xff\xff\xff\x00\x02\x00\x06\x00\x08\xc0\xa8*\x01\x00\x00\x00\x08\xff\xfd\xff\xff\x00\x04\x00\x10\x1a\xd5\xcbN<d\x00\x00\x00\x00\x00\x00'
+s = b'\x01\x0e\x00h\x00\x00\x00\x00\x00?\xc8\xed\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\n\x00\x00\x08\x00\x00\x00\x00\x00\xc0\xa8*\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x03\xe8\xff\xff\xff\xff\xff\xff\x00\x02\x00\x06\x00\x08\xc0\xa8*\x01\x00\x00\x00\x08\xff\xfd\xff\xff\x00\x04\x00\x10\x1a\xd5\xcbN<d\x00\x00\x00\x00\x00\x00'
 raw(ofm) == s
 
 = OFPETBadRequest() containing a flow_mod with wrong table_id
@@ -54,6 +54,21 @@ dat = p.data
 assert(isinstance(dat, Ether))
 assert(isinstance(dat.payload, IP))
 isinstance(dat.payload.payload, ICMP)
+
+= OFPTStatsReplyFlow()
+pkt = TCP()/OFPTStatsReplyFlow(flow_stats=[OFPFlowStats(actions=[OFPATSetTpSrc()])])
+pkt = TCP(raw(pkt))
+assert isinstance(pkt.flow_stats[0].actions[0], OFPATSetTpSrc)
+
+= OFPTQueueGetConfigReply()
+pkt = TCP()/OFPTQueueGetConfigReply(queues=[OFPPacketQueue(properties=[OFPQTMinRate(rate=123)])])
+pkt = TCP(raw(pkt))
+assert pkt.queues[0].properties[0].rate == 123
+
+= OFPETHelloFailed()
+pkt = OFPETHelloFailed(data=OFPTEchoRequest())
+pkt = OFPETHelloFailed(raw(pkt))
+assert isinstance(pkt.data, OFPTEchoRequest)
 
 + Layer bindings
 
