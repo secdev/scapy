@@ -46,6 +46,7 @@ if [ ! -z $SCAPY_USE_PCAPDNET ]
 then
   if [ "$TRAVIS_OS_NAME" = "linux" ]
   then
+    $SCAPY_SUDO apt-get -qy install build-essential linux-headers-$(uname -r);
     $SCAPY_SUDO apt-get -qy install libdumbnet-dev libpcap-dev
     # $SCAPY_SUDO $PIP install $PIP_INSTALL_FLAGS -U pypcap  ## sr(timeout) HS
     # $SCAPY_SUDO $PIP install $PIP_INSTALL_FLAGS -U pcapy   ## sniff HS
