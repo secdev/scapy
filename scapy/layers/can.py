@@ -1,43 +1,48 @@
 # This file is part of Scapy
 # See http://www.secdev.org/projects/scapy for more informations
-# Copyright (C) Philippe Biondi <phil@secdev.org>
+# Copyright (C) Philippe Biondi <phil@secdev.org>, Nils Weiss <nils@we155.de>
 # This program is published under a GPLv2 license
 
 
-"""A minimal implementation of the CANopen protocol, based on
-Wireshark dissectors. See https://wiki.wireshark.org/CANopen
-
+"""
+CANSocket.
 """
 
-import struct
-import scapy.modules.six as six
-from scapy.compat import *
 from scapy.config import conf
 from scapy.data import DLT_CAN_SOCKETCAN
-from scapy.fields import BitField, FieldLenField, FlagsField, StrLenField, \
-    ThreeBytesField, XBitField
+from scapy.fields import FieldLenField, FlagsField, StrLenField, XBitField, PadField
 from scapy.packet import Packet, bind_layers, RawVal
+import struct
+import scapy.modules.six as six
 from scapy.layers.l2 import CookedLinux
-
 
 # Mimics the Wireshark CAN dissector parameter 'Byte-swap the CAN ID/flags field'
 #   set to True when working with PF_CAN sockets
 conf.contribs['CAN'] = {'swap-bytes': False}
 
+############
+## Consts ##
+############
+CAN_FRAME_SIZE = 16
+CAN_INV_FILTER = 0x20000000
+
 
 class CAN(Packet):
-    """A minimal implementation of the CANopen protocol, based on
-    Wireshark dissectors. See https://wiki.wireshark.org/CANopen
-
-    """
     fields_desc = [
-        FlagsField('flags', 0, 3, ['error', 'remote_transmission_request', 'extended']),
-        XBitField('identifier', 0, 29),
-        FieldLenField('length', None, length_of='data', fmt='B'),
-        ThreeBytesField('reserved', 0),
-        StrLenField('data', '', length_from=lambda pkt: pkt.length),
-        StrLenField('padding', '', length_from=lambda pkt: 8 - pkt.length),
+        FlagsField("flags", 0, 3, ["error", "remote_transmission_request",
+                                   "extended"]),
+        XBitField("identifier", 0, 29),
+        PadField(FieldLenField("length", None, length_of="data", fmt="B"), 4),
+        PadField(StrLenField("data", "", length_from=lambda pkt: min(pkt.length, 8)), 8)
     ]
+
+    @property
+    def id(self):
+        return self.identifier
+
+    @property
+    def dlc(self):
+        return self.length
 
     def pre_dissect(self, s):
         """ Implements the swap-bytes functionality when dissecting """
@@ -75,7 +80,6 @@ class CAN(Packet):
         if conf.contribs['CAN']['swap-bytes']:
             return struct.pack('<I12s', *struct.unpack('>I12s', p))
         return p
-
 
 conf.l2types.register(DLT_CAN_SOCKETCAN, CAN)
 bind_layers(CookedLinux, CAN, proto=12)

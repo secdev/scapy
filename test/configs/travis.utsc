@@ -3,6 +3,9 @@
     "*.uts",
     "../scapy/contrib/*.uts"
   ],
+  "remove_testfiles": [
+    "cansocket.uts"
+  ],
   "onlyfailed": true,
   "preexec": {
     "../scapy/contrib/*.uts": "load_contrib(\"%name%\")",
