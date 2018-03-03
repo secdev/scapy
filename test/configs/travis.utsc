@@ -4,7 +4,7 @@
     "../scapy/contrib/*.uts"
   ],
   "remove_testfiles": [
-    "test/cansocket.uts"
+    "cansocket.uts"
   ],
   "onlyfailed": true,
   "preexec": {
