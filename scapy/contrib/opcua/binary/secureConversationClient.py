@@ -1,4 +1,5 @@
 # coding=utf-8
+import copy
 import socket
 
 import os
@@ -171,7 +172,7 @@ class UaSecureConversationSocket(SuperSocket):
         if not self.open:
             self.logger.warning("Socket not open. No data sent.")
             return
-        self.atmt.io.uasc.send(data)
+        self.atmt.io.uasc.send(copy.deepcopy(data))
     
     def recv(self, x=0):
         if not self.open:

@@ -1,4 +1,5 @@
 # coding=utf-8
+import copy
 import socket
 
 import os
@@ -7,7 +8,7 @@ from time import sleep
 
 from scapy.contrib.opcua.helpers import UaConnectionContext
 from scapy.contrib.opcua.binary.networking import chunkify
-from scapy.automaton import ATMT
+from scapy.automaton import ATMT, select_objects
 from scapy.contrib.opcua.binary.automaton import _UaAutomaton
 from scapy.contrib.opcua.binary.uaTypes import *
 from scapy.supersocket import SuperSocket
@@ -187,12 +188,12 @@ class TcpClientAutomaton(_UaAutomaton):
     def end(self):
         raise self.END()
     
-    @ATMT.receive_condition(CONNECTED, prio=1)
+    @ATMT.receive_condition(CONNECTED, prio=0)
     def receive_response(self, pkt):
         self.oi.uatcp.send(pkt)
         raise self.CONNECTED()
     
-    @ATMT.receive_condition(CONNECTED, prio=0)
+    @ATMT.receive_condition(CONNECTED, prio=2)
     def error_received(self, pkt):
         if type(pkt) is UaTcp and isinstance(pkt.Message, UaTcpErrorMessage):
             self.logger.warning("ERR received: {} ... Closing connection".format(statusCodes[pkt.Message.Error]))
@@ -203,11 +204,11 @@ class TcpClientAutomaton(_UaAutomaton):
             self.oi.uatcp.send(pkt)
             raise self.TCP_DISCONNECTING()
     
-    @ATMT.ioevent(CONNECTED, "uatcp")
+    @ATMT.ioevent(CONNECTED, "uatcp", prio=1)
     def socket_send(self, fd):
         raise self.CONNECTED().action_parameters(fd.recv())
     
-    @ATMT.ioevent(CONNECTED, "shutdown")
+    @ATMT.ioevent(CONNECTED, "shutdown", prio=0)
     def shutdown(self, fd):
         raise self.TCP_DISCONNECTING()
     
@@ -228,7 +229,7 @@ class UaTcpSocket(SuperSocket):
         if not self.open:
             self.logger.warning("Socket not open. No data sent.")
             return
-        self.atmt.io.uatcp.send(data)
+        self.atmt.io.uatcp.send(copy.deepcopy(data))
 
     def recv(self, x=0):
         if not self.open:
