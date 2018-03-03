@@ -5,6 +5,7 @@ import os
 import threading
 from time import sleep
 
+from scapy.contrib.opcua.binary.automaton import _UaAutomaton
 from scapy.contrib.opcua.crypto.uacrypto import create_nonce
 from scapy.contrib.opcua.binary.tcpClient import UaTcpSocket
 from scapy.contrib.opcua.helpers import UaConnectionContext
@@ -14,7 +15,7 @@ from scapy.supersocket import SuperSocket
 import scapy.contrib.opcua.binary.uaTypes as UA
 
 
-class SecureConversationAutomaton(Automaton):
+class SecureConversationAutomaton(_UaAutomaton):
     """
     This Automaton implements the ua tcp layer functionality.
     It can be used as part of an automaton that implements the SecureChannel layer.
@@ -28,6 +29,7 @@ class SecureConversationAutomaton(Automaton):
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG)
         self.connectionContext = connectionContext
+        self.send_sock = None
     
     @ATMT.state(initial=1)
     def START(self):
@@ -56,10 +58,12 @@ class SecureConversationAutomaton(Automaton):
     @ATMT.state(final=1)
     def END(self):
         # Send None to signal that the socket is closed
-        self.oi.uatcp.send(None)
+        self.oi.uasc.send(None)
     
     @ATMT.condition(START)
     def connect(self):
+        if self.send_sock is not None:
+            self.send_sock.close()
         self.send_sock = UaTcpSocket(connectionContext=self.connectionContext, target=self.target,
                                      targetPort=self.targetPort)
         self.listen_sock = self.send_sock
@@ -86,12 +90,10 @@ class SecureConversationAutomaton(Automaton):
         raise self.ESTABLISHING_SECURECHANNEL()
     
     @ATMT.receive_condition(ESTABLISHING_SECURECHANNEL)
-    def receive_ack(self, pkt):
+    def receive_opn_response(self, pkt):
         if isinstance(pkt, UaSecureConversationAsymmetric) and \
                 isinstance(pkt.Payload.Message, UaOpenSecureChannelResponse):
             self.logger.debug("Received OpenSecureChannelResponse")
-            
-            # pkt.Payload.Message.show()
             
             self.connectionContext.securityToken = pkt.Payload.Message.SecurityToken
             self.connectionContext.remoteNonce = pkt.Payload.Message.ServerNonce.data
@@ -126,7 +128,6 @@ class SecureConversationAutomaton(Automaton):
     
     @ATMT.receive_condition(SECURECHANNEL_ESTABLISHED, prio=1)
     def receive_response(self, pkt):
-        print("Receiving")
         self.oi.uasc.send(pkt)
         raise self.SECURECHANNEL_ESTABLISHED()
     
@@ -164,6 +165,7 @@ class UaSecureConversationSocket(SuperSocket):
         self.atmt.runbg()
         self.open = True
         self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(logging.NOTSET)
     
     def send(self, data):
         if not self.open:
@@ -181,7 +183,7 @@ class UaSecureConversationSocket(SuperSocket):
         return data
     
     def fileno(self):
-        raise NotImplementedError()
+        return self.atmt.io.uasc.fileno()
     
     def connect(self):
         if not self.open:
@@ -190,9 +192,7 @@ class UaSecureConversationSocket(SuperSocket):
             self.open = True
     
     def close(self):
-        # TODO: Stop gracefully
         if self.open:
-            self.atmt.io.shutdown.send(None)
             self.atmt.stop()
             self.open = False
     

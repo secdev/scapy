@@ -4,6 +4,8 @@ import logging
 import sys
 import timeit
 
+import gc
+
 from scapy.contrib.opcua.binary.secureConversationClient import UaSecureConversationSocket
 from scapy.contrib.opcua.helpers import UaConnectionContext
 
@@ -62,39 +64,42 @@ def getContext():
 
 def testTcpAutomaton():
     connectionContext = getContext()
-    for i in range(1, 3):
+    for i in range(0, 1000):
         s = UaTcpSocket(connectionContext)
         connectionContext.localNonce = create_nonce(connectionContext.securityPolicy.symmetric_key_size)
         opn.Payload.Message.ClientNonce = UaByteString(data=connectionContext.localNonce)
         s.connect()
         s.send(opn)
         rec = s.recv()
-        rec.show()
+        # rec.show()
         serverNonce = rec.Payload.Message.ServerNonce.data
         connectionContext.securityToken = rec.Payload.Message.SecurityToken
         connectionContext.securityPolicy.make_symmetric_key(connectionContext.localNonce, serverNonce)
         s.send(msg)
         resp = s.recv()
-        resp.show()
+        # resp.show()
         resp = s.recv()
-        print(repr(resp.reassembled))
+        # print(repr(resp.reassembled))
         
-        print("\n\n\nRECEIVED")
+        # print("\n\n\nRECEIVED")
         
         s.close()
 
 
 def testSecureConvAutomaton():
-    connectionContext = getContext()
-    s = UaSecureConversationSocket(connectionContext)
-    s.connect()
-    s.send(msg)
-    resp = s.recv()
-    resp.show()
-    resp = s.recv()
-    resp.show()
-    
-    s.close()
+    for _ in range(0, 1):
+        connectionContext = getContext()
+        s = UaSecureConversationSocket(connectionContext)
+        s.connect()
+        s.send(msg)
+        resp = s.recv()
+        print(resp.reassembled)
+        # resp.show()
+        resp = s.recv()
+        #resp.show()
+        resp.reassembled.show2()
+        
+        s.close()
 
 
 if __name__ == '__main__':

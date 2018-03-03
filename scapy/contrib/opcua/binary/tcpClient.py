@@ -2,6 +2,8 @@
 import socket
 
 import os
+import traceback
+from time import sleep
 
 from scapy.contrib.opcua.helpers import UaConnectionContext
 from scapy.contrib.opcua.binary.networking import chunkify
@@ -70,9 +72,11 @@ class _TcpSuperSocket(SuperSocket):
         if not body:
             self.logger.warning("Could not receive body. expected {} bytes".format(size))
             return None
-        pkt = UA.UaTcp(header + body, connectionContext=self.connectionContext)
-        # print("Received packet: ")
-        # pkt.show()
+        try:
+            pkt = UA.UaTcp(header + body, connectionContext=self.connectionContext)
+        except:
+            traceback.print_exc()
+            raise
         return pkt
     
     def connect(self, target):
@@ -185,7 +189,6 @@ class TcpClientAutomaton(_UaAutomaton):
     
     @ATMT.receive_condition(CONNECTED, prio=1)
     def receive_response(self, pkt):
-        print("Receiving")
         self.oi.uatcp.send(pkt)
         raise self.CONNECTED()
     
@@ -193,9 +196,11 @@ class TcpClientAutomaton(_UaAutomaton):
     def error_received(self, pkt):
         if type(pkt) is UaTcp and isinstance(pkt.Message, UaTcpErrorMessage):
             self.logger.warning("ERR received: {} ... Closing connection".format(statusCodes[pkt.Message.Error]))
+            self.oi.uatcp.send(pkt)
             raise self.TCP_DISCONNECTING()
         elif not isinstance(pkt, UaTcp):
             self.logger.warning("Unexpected message received... Closing connection")
+            self.oi.uatcp.send(pkt)
             raise self.TCP_DISCONNECTING()
     
     @ATMT.ioevent(CONNECTED, "uatcp")
@@ -244,9 +249,7 @@ class UaTcpSocket(SuperSocket):
             self.open = True
 
     def close(self):
-        # TODO: Stop gracefully
         if self.open:
-            self.atmt.io.shutdown.send(None)
             self.atmt.stop()
             self.open = False
 

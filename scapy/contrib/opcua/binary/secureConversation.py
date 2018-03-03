@@ -189,7 +189,7 @@ class UaChunkedData(UaTypePacket):
         super(UaChunkedData, self).__init__(_pkt, connectionContext, post_transform, _internal, _underlayer, **fields)
         self.isCLO = False
 
-    def post_dissect(self, s):
+    def post_dissection(self, s):
         requestId = self.underlayer.SequenceHeader.RequestId
         UaMessage._chunks[requestId].append(self.underlayer)
         return s
@@ -240,6 +240,15 @@ class UaMessage(UaTypePacket):
         
         return pkt + pay
 
+    def post_dissection(self, pkt):
+        """
+        If the packet is not chunked set it as its own reassembled packet.
+        """
+        try:
+            self.underlayer.reassembled = self.underlayer
+        except AttributeError:
+            pass
+        return pkt
 
 class UaSecureConversationAsymmetric(UaTcp):
     __slots__ = ["original_decrypted", "reassembled"]
@@ -380,7 +389,7 @@ class UaSecureConversationAsymmetric(UaTcp):
         return s
 
     def post_dissection(self, pkt):
-        if self.MessageHeader.IsFinal == b'F':
+        if self.MessageHeader.IsFinal == b'F' and self.reassembled is None:
             from scapy.contrib.opcua.binary.networking import dechunkify
             self.reassembled = dechunkify(UaMessage._chunks[self.SequenceHeader.RequestId])
             del UaMessage._chunks[self.SequenceHeader.RequestId]

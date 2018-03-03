@@ -62,23 +62,20 @@ def chunkify(packet, maxChunkSize=2048):
 def dechunkify(packets):
     """
     Reassembles the packets of one request. All supplied packets have to belong to the same request
-    :param packets:
-    :return:
+    :param packets: List of opc ua packets to reassemble
+    :return: The reassembled UaMessage
     """
     if not packets:
         return None
     
-    carrier = copy.deepcopy(packets[0])
-    carrier.MessageHeader.IsFinal = b'F'
     data = b''
-    requestId = carrier.SequenceHeader.RequestId
+    requestId = packets[0].SequenceHeader.RequestId
     
     for packet in packets:
         assert (requestId == packet.SequenceHeader.RequestId)
         data += packet.Payload.Message
     
-    carrier.Payload = UaMessage(data)
-    return carrier
+    return UaMessage(data)
 
 
 def dechunkify_all(packets):
@@ -88,6 +85,9 @@ def dechunkify_all(packets):
     :param packets:
     :return:
     """
+    
+    raise NotImplementedError()
+    # This isn't ready for use
     
     requests = defaultdict(list)
     
