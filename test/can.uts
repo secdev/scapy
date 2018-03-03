@@ -60,7 +60,6 @@ set(pkt.flags for pkt in packets) == {0}
 
 set(pkt.length for pkt in packets) == {1, 2, 8}
 
-
 ############
 ############
 
