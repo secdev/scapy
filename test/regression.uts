@@ -800,6 +800,15 @@ assert(x.PDU.varbindlist[0].value == b"172.31.19.2")
 assert(x.PDU.varbindlist[2].oid == "1.3.6.1.4.1.253.8.64.4.2.1.5.10.14130400")
 assert(x.PDU.varbindlist[2].value == 1)
 
+= Basic UDP/SNMP bindings
+~ SNMP ASN1
+z = UDP()/x
+z = UDP(raw(z))
+assert SNMP in z
+
+x = UDP()/SNMP()
+assert x.sport == x.dport == 161
+
 = ASN1 - ASN1_Object
 assert ASN1_Object(1) == ASN1_Object(1)
 assert ASN1_Object(1) > ASN1_Object(0)
@@ -3596,10 +3605,10 @@ test_show()
 saved_AS_resolver = conf.AS_resolver
 conf.AS_resolver = None
 tr6.make_graph()
-len(tr6.graphdef) == 492
-tr6.graphdef.startswith("digraph trace {") == True
+assert len(tr6.graphdef) == 530
+assert tr6.graphdef.startswith("digraph trace {")
 '"2001:db8::1 53/udp";' in tr6.graphdef
-conf.AS_resolver = conf.AS_resolver
+conf.AS_resolver = saved_AS_resolver 
 
 ############
 ############

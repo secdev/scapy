@@ -48,17 +48,19 @@ class LLMNRResponse(LLMNRQuery):
                 self.qr == 1 and
                 other.qr == 0)
 
-def _llmnr_dispatcher(x, *args, **kargs):
-    cls = conf.raw_layer
-    if len(x) >= 2:
-        if (orb(x[2]) & 0x80): # Response
-            cls = LLMNRResponse
-        else:                  # Query
-            cls = LLMNRQuery
-    return cls(x, *args, **kargs)
+class _LLMNR(Packet):
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if len(_pkt) >= 2:
+            if (orb(_pkt[2]) & 0x80): # Response
+                return LLMNRResponse
+            else:                  # Query
+                return LLMNRQuery
+        return cls
 
-bind_bottom_up(UDP, _llmnr_dispatcher, { "dport": 5355 })
-bind_bottom_up(UDP, _llmnr_dispatcher, { "sport": 5355 })
+bind_bottom_up(UDP, _LLMNR, dport=5355)
+bind_bottom_up(UDP, _LLMNR, sport=5355)
+bind_layers(UDP, _LLMNR, sport=5355, dport=5355)
 
 # LLMNRQuery(id=RandShort(), qd=DNSQR(qname="vista.")))
 

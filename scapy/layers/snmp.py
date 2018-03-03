@@ -238,10 +238,11 @@ class SNMP(ASN1_Packet):
                    isinstance(other.PDU, SNMPset)    ) and
                  self.PDU.id == other.PDU.id )
 
-bind_layers( UDP,           SNMP,          sport=161)
-bind_layers( UDP,           SNMP,          dport=161)
-bind_layers( UDP,           SNMP,          sport=162) 
-bind_layers( UDP,           SNMP,          dport=162) 
+bind_bottom_up(UDP, SNMP, sport=161)
+bind_bottom_up(UDP, SNMP, dport=161)
+bind_bottom_up(UDP, SNMP, sport=162)
+bind_bottom_up(UDP, SNMP, dport=162)
+bind_layers(UDP, SNMP, sport=161, dport=161)
 
 def snmpwalk(dst, oid="1", community="public"):
     try:
