@@ -1112,6 +1112,22 @@ def test_tls_without_cryptography(get_algs_from_ciphersuite_name_mock):
 test_tls_without_cryptography()
 
 ###############################################################################
+########################### TLS Misc tests ####################################
+###############################################################################
+
+= Test tlsSession
+s = tlsSession(ipsrc="216.58.201.227", ipdst="127.0.0.1", sport=443, dport=443, sid=1)
+assert s.__repr__() == "216.58.201.227:443 > 127.0.0.1:443"
+assert s == s
+assert hash(s) == hash(s)
+assert not s.consider_write_padding()
+
+
+= Test connState
+assert s.wcs.__repr__() == 'Connection end : SERVER\nCipher suite   : TLS_NULL_WITH_NULL_NULL (0x0000)\nCompression    : null (0x00)\n'
+
+
+###############################################################################
 ############################ Automaton behaviour ##############################
 ###############################################################################
 
