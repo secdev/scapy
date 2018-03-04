@@ -19,7 +19,7 @@ pkt = CAN(flags="error", identifier=1234, data="test")
 = Dissect & parse
 
 pkt = CAN(raw(pkt))
-pkt.flags == "error" and pkt.identifier == 1234 and pkt.length == 4 and pkt.data == b"test"
+pkt.flags == "error" and pkt.identifier == 1234 and pkt.length == 4 and pkt.dlc == 4 and pkt.id == 1234 and pkt.data == b"test"
 
 = Check flags values
 
