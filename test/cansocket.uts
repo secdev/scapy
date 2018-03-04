@@ -19,6 +19,7 @@ bashCommand = "/bin/bash -c 'sudo modprobe vcan; sudo ip link add name vcan0 typ
 = Load os
 ~ conf command
 ~ needs_root
+~ ONLY_py3
 
 import os
 import threading
@@ -27,10 +28,14 @@ from time import sleep
 = Setup vcan0
 ~ conf command
 ~ needs_root
+~ ONLY_py3
+
 0 == os.system(bashCommand)
 
 + Basic Packet Tests()
 = CAN Packet init
+~ needs_root
+~ ONLY_py3
 
 canframe = CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
 bytes(canframe) == b'\x00\x00\x07\xff\x08\x00\x00\x00\x01\x02\x03\x04\x05\x06\x07\x08'
@@ -38,11 +43,13 @@ bytes(canframe) == b'\x00\x00\x07\xff\x08\x00\x00\x00\x01\x02\x03\x04\x05\x06\x0
 + Basic Socket Tests()
 = CAN Socket Init
 ~ needs_root
+~ ONLY_py3
 
 sock1 = CANSocket(iface="vcan0")
 
 = CAN Socket send recv
 ~ needs_root
+~ ONLY_py3
 
 def sender():
     sleep(0.1)
@@ -58,11 +65,13 @@ rx == CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
 + Advanced Socket Tests()
 = CAN Socket sr1
 ~ needs_root
+~ ONLY_py3
 
 tx = CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
 
 = CAN Socket sr1 init time
 ~ needs_root
+~ ONLY_py3
 
 tx.sent_time == None
 
@@ -78,16 +87,19 @@ rx = sock1.sr1(tx)
 
 = CAN Socket sr1 time check
 ~ needs_root
+~ ONLY_py3
 
 tx.sent_time < rx.time and tx == rx and rx.time > 0
 
 = srcan
 ~ needs_root
+~ ONLY_py3
 
 tx = CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
 
 = srcan check init time
 ~ needs_root
+~ ONLY_py3
 
 tx.sent_time == None
 
@@ -104,11 +116,13 @@ rx = rx[0][0][1]
 
 = srcan check rx and tx
 ~ needs_root
+~ ONLY_py3
 
 tx == rx and tx.sent_time > 0 and rx.time > 0 and tx.sent_time < rx.time
 
 = sniff with filtermask 0x7ff
 ~ needs_root
+~ ONLY_py3
 
 sock1 = CANSocket(iface='vcan0', filter=[{'can_id': 0x200, 'can_mask': 0x7ff}])
 
@@ -130,6 +144,7 @@ len(packets) == 3
 
 = sniff with filtermask 0x700
 ~ needs_root
+~ ONLY_py3
 
 sock1 = CANSocket(iface='vcan0', filter=[{'can_id': 0x200, 'can_mask': 0x700}])
 
@@ -151,6 +166,7 @@ len(packets) == 4
 
 = sniff with filtermask 0x0ff
 ~ needs_root
+~ ONLY_py3
 
 sock1 = CANSocket(iface='vcan0', filter=[{'can_id': 0x200, 'can_mask': 0x0ff}])
 
@@ -172,6 +188,7 @@ len(packets) == 4
 
 = sniff with multiple filters
 ~ needs_root
+~ ONLY_py3
 
 sock1 = CANSocket(iface='vcan0', filter=[{'can_id': 0x200, 'can_mask': 0x7ff},
                                                      {'can_id': 0x400, 'can_mask': 0x7ff},
@@ -198,6 +215,7 @@ len(packets) == 4
 
 = sniff with filtermask 0x7ff and inverse filter
 ~ needs_root
+~ ONLY_py3
 
 sock1 = CANSocket(iface='vcan0', filter=[{'can_id': 0x200 | CAN_INV_FILTER, 'can_mask': 0x7ff}])
 
@@ -219,6 +237,7 @@ len(packets) == 2
 
 = sniff with filtermask 0x1FFFFFFF
 ~ needs_root
+~ ONLY_py3
 
 sock1 = CANSocket(iface='vcan0', filter=[{'can_id': 0x10000000, 'can_mask': 0x1fffffff}])
 
@@ -240,6 +259,7 @@ len(packets) == 2
 
 = sniff with filtermask 0x1FFFFFFF and inverse filter
 ~ needs_root
+~ ONLY_py3
 
 sock1 = CANSocket(iface='vcan0', filter=[{'can_id': 0x10000000 | CAN_INV_FILTER, 'can_mask': 0x1fffffff}])
 
@@ -261,6 +281,7 @@ len(packets) == 4
 
 = CAN Socket sr1 with receive own messages
 ~ needs_root
+~ ONLY_py3
 
 sock1 = CANSocket(iface="vcan0", receive_own_messages=True)
 tx = CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
