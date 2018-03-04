@@ -3,6 +3,7 @@ import copy
 import socket
 
 import os
+import threading
 import traceback
 from time import sleep
 
@@ -24,6 +25,7 @@ class _TcpSuperSocket(SuperSocket):
         self.logger = logging.getLogger(__name__)
         self.connectionContext = connectionContext
         self.open = False
+        self._openLock = threading.Lock()
     
     def _send(self, chunk):
         chunk = bytes(chunk)
@@ -64,6 +66,7 @@ class _TcpSuperSocket(SuperSocket):
         if not header:
             self.logger.warning("TCP socket got disconnected")
             self.open = False
+            self._openLock.release()
             return None
         
         decodedHeader = UA.UaTcpMessageHeader(header)
@@ -81,6 +84,7 @@ class _TcpSuperSocket(SuperSocket):
         return pkt
     
     def connect(self, target):
+        self._openLock.acquire()
         if not self.open:
             self.socket.connect(target)
             self.open = True
@@ -90,6 +94,7 @@ class _TcpSuperSocket(SuperSocket):
             self.socket.shutdown(socket.SHUT_WR)
             self.socket.close()
             self.open = False
+        self._openLock.release()
     
     def sr(self, *args, **kargs):
         raise NotImplementedError()

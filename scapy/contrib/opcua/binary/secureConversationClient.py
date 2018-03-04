@@ -18,8 +18,8 @@ import scapy.contrib.opcua.binary.uaTypes as UA
 
 class SecureConversationAutomaton(_UaAutomaton):
     """
-    This Automaton implements the ua tcp layer functionality.
-    It can be used as part of an automaton that implements the SecureChannel layer.
+    This Automaton implements the ua secure conversation functionality.
+    It can be used as part of an automaton that implements the Session layer.
     """
     
     def parse_args(self, connectionContext=UaConnectionContext(), target="localhost",
@@ -31,6 +31,7 @@ class SecureConversationAutomaton(_UaAutomaton):
         self.logger.setLevel(logging.DEBUG)
         self.connectionContext = connectionContext
         self.send_sock = None
+        self.listen_sock = None
     
     @ATMT.state(initial=1)
     def START(self):
@@ -65,8 +66,14 @@ class SecureConversationAutomaton(_UaAutomaton):
     def connect(self):
         if self.send_sock is not None:
             self.send_sock.close()
-        self.send_sock = UaTcpSocket(connectionContext=self.connectionContext, target=self.target,
-                                     targetPort=self.targetPort)
+        if self.send_sock is None:
+            self.send_sock = UaTcpSocket(connectionContext=self.connectionContext, target=self.target,
+                                         targetPort=self.targetPort)
+        else:
+            with self.send_sock.atmt.send_sock._openLock:
+                self.send_sock = UaTcpSocket(connectionContext=self.connectionContext, target=self.target,
+                                             targetPort=self.targetPort)
+        
         self.listen_sock = self.send_sock
         
         try:
@@ -103,11 +110,11 @@ class SecureConversationAutomaton(_UaAutomaton):
                                                                          self.connectionContext.remoteNonce)
             
             raise self.SECURECHANNEL_ESTABLISHED()
-        if isinstance(pkt, UaSecureConversationAsymmetric) and \
+        if isinstance(pkt, UaSecureConversationSymmetric) and \
                 isinstance(pkt.Payload.Message, UaServiceFault):
             self.logger.debug("Received ServiceFault: {}".format(pkt.Payload.Message))
             raise self.DISCONNECTING()
-        elif isinstance(pkt, UaTcp) and isinstance(pkt.Message, UaTcpErrorMessage):
+        elif type(pkt) is UaTcp and isinstance(pkt.Message, UaTcpErrorMessage):
             self.logger.debug("Received ERR: {}".format(statusCodes[pkt.Message.Error]))
             raise self.DISCONNECTING()
         else:
