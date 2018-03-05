@@ -1,6 +1,6 @@
 # This file is part of Scapy
 # See http://www.secdev.org/projects/scapy for more informations
-# Copyright (C) Philippe Biondi <phil@secdev.org>
+# Copyright (C) Philippe Biondi <phil@secdev.org>, Nils Weiss <nils@we155.de>
 # This program is published under a GPLv2 license
 
 
@@ -14,8 +14,7 @@ import scapy.modules.six as six
 from scapy.compat import *
 from scapy.config import conf
 from scapy.data import DLT_CAN_SOCKETCAN
-from scapy.fields import BitField, FieldLenField, FlagsField, StrLenField, \
-    ThreeBytesField, XBitField
+from scapy.fields import PadField, FieldLenField, FlagsField, StrLenField, XBitField
 from scapy.packet import Packet, bind_layers, RawVal
 from scapy.layers.l2 import CookedLinux
 
@@ -32,11 +31,9 @@ class CAN(Packet):
     """
     fields_desc = [
         FlagsField('flags', 0, 3, ['error', 'remote_transmission_request', 'extended']),
-        XBitField('identifier', 0, 29),
-        FieldLenField('length', None, length_of='data', fmt='B'),
-        ThreeBytesField('reserved', 0),
-        StrLenField('data', '', length_from=lambda pkt: pkt.length),
-        StrLenField('padding', '', length_from=lambda pkt: 8 - pkt.length),
+        XBitField("identifier", 0, 29),
+        PadField(FieldLenField("length", None, length_of="data", fmt="B"), 4),
+        PadField(StrLenField("data", "", length_from=lambda pkt: min(pkt.length, 8)), 8)
     ]
 
     def pre_dissect(self, s):
