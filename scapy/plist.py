@@ -297,8 +297,11 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         prog: which graphviz program to use"""
         if getsrcdst is None:
             def getsrcdst(pkt):
+                """Extract src and dst addresses"""
                 if 'IP' in pkt:
                     return (pkt['IP'].src, pkt['IP'].dst)
+                if 'IPv6' in pkt:
+                    return (pkt['IPv6'].src, pkt['IPv6'].dst)
                 if 'ARP' in pkt:
                     return (pkt['ARP'].psrc, pkt['ARP'].pdst)
                 raise TypeError()
@@ -482,22 +485,32 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
     def sessions(self, session_extractor=None):
         if session_extractor is None:
             def session_extractor(p):
-                sess = "Other"
+                """Extract sessions from packets"""
                 if 'Ether' in p:
-                    if 'IP' in p:
+                    if 'IP' in p or 'IPv6' in p:
+                        ip_src_fmt = "{IP:%IP.src%}{IPv6:%IPv6.src%}"
+                        ip_dst_fmt = "{IP:%IP.dst%}{IPv6:%IPv6.dst%}"
+                        addr_fmt = (ip_src_fmt, ip_dst_fmt)
                         if 'TCP' in p:
-                            sess = p.sprintf("TCP %IP.src%:%r,TCP.sport% > %IP.dst%:%r,TCP.dport%")
+                            fmt = "TCP {}:%r,TCP.sport% > {}:%r,TCP.dport%"
                         elif 'UDP' in p:
-                            sess = p.sprintf("UDP %IP.src%:%r,UDP.sport% > %IP.dst%:%r,UDP.dport%")
+                            fmt = "UDP {}:%r,UDP.sport% > {}:%r,UDP.dport%"
                         elif 'ICMP' in p:
-                            sess = p.sprintf("ICMP %IP.src% > %IP.dst% type=%r,ICMP.type% code=%r,ICMP.code% id=%ICMP.id%")
+                            fmt = "ICMP {} > {} type=%r,ICMP.type% code=%r," \
+                                  "ICMP.code% id=%ICMP.id%"
+                        elif 'ICMPv6' in p:
+                            fmt = "ICMPv6 {} > {} type=%r,ICMPv6.type% " \
+                                  "code=%r,ICMPv6.code%"
+                        elif 'IPv6' in p:
+                            fmt = "IPv6 {} > {} nh=%IPv6.nh%"
                         else:
-                            sess = p.sprintf("IP %IP.src% > %IP.dst% proto=%IP.proto%")
+                            fmt = "IP {} > {} proto=%IP.proto%"
+                        return p.sprintf(fmt.format(*addr_fmt))
                     elif 'ARP' in p:
-                        sess = p.sprintf("ARP %ARP.psrc% > %ARP.pdst%")
+                        return p.sprintf("ARP %ARP.psrc% > %ARP.pdst%")
                     else:
-                        sess = p.sprintf("Ethernet type=%04xr,Ether.type%")
-                return sess
+                        return p.sprintf("Ethernet type=%04xr,Ether.type%")
+                return "Other"
         sessions = defaultdict(self.__class__)
         for p in self.res:
             sess = session_extractor(self._elt2pkt(p))
