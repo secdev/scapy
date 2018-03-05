@@ -3,8 +3,8 @@ PIP=`which pip || (python --version 2>&1 | grep -q 'Python 2' && which pip2) || 
 # Install Python3 on osx
 if [ "$TRAVIS_OS_NAME" = "osx" ] && [ ! -z "$TOXENV" ]
 then
-  $PIP install --user -U tox
-  brew install python3
+  brew upgrade python
+  pip3 install tox
   exit 0
 fi
 
