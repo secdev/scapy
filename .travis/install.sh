@@ -47,6 +47,7 @@ then
   if [ "$TRAVIS_OS_NAME" = "linux" ]
   then
     $SCAPY_SUDO apt-get -qy install libdumbnet-dev libpcap-dev
+    $SCAPY_SUDO apt-get -qy install can-utils
     # $SCAPY_SUDO $PIP install $PIP_INSTALL_FLAGS -U pypcap  ## sr(timeout) HS
     # $SCAPY_SUDO $PIP install $PIP_INSTALL_FLAGS -U pcapy   ## sniff HS
     # $SCAPY_SUDO $PIP install $PIP_INSTALL_FLAGS -U pylibpcap  ## won't install

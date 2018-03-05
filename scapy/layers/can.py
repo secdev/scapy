@@ -1,6 +1,6 @@
 # This file is part of Scapy
 # See http://www.secdev.org/projects/scapy for more informations
-# Copyright (C) Philippe Biondi <phil@secdev.org>
+# Copyright (C) Philippe Biondi <phil@secdev.org>, Nils Weiss <nils@we155.de>
 # This program is published under a GPLv2 license
 
 
@@ -24,6 +24,8 @@ from scapy.layers.l2 import CookedLinux
 #   set to True when working with PF_CAN sockets
 conf.contribs['CAN'] = {'swap-bytes': False}
 
+CAN_FRAME_SIZE = 16
+CAN_INV_FILTER = 0x20000000
 
 class CAN(Packet):
     """A minimal implementation of the CANopen protocol, based on
@@ -38,6 +40,14 @@ class CAN(Packet):
         StrLenField('data', '', length_from=lambda pkt: pkt.length),
         StrLenField('padding', '', length_from=lambda pkt: 8 - pkt.length),
     ]
+
+    @property
+    def id(self):
+        return self.identifier
+
+    @property
+    def dlc(self):
+        return self.length
 
     def pre_dissect(self, s):
         """ Implements the swap-bytes functionality when dissecting """

@@ -55,6 +55,12 @@ then
   UT_FLAGS+=" -K FIXME_py3"
 fi
 
+if python --version 2>&1 | grep -q '^Python 2\.'
+then
+  # Some Features are not available in Python 2. This tests fail. 
+  UT_FLAGS+=" -K ONLY_py3"
+fi
+
 if python --version 2>&1 | grep -q '^Python 3\.[012345]'
 then
   # Python 3 < 3.6 has weird behavior with random.seed()
