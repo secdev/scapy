@@ -7044,7 +7044,6 @@ assert(not NTPControl in p)
 assert(NTPPrivate in p)
 assert(NTP in p)
 
-
 = NTP - Layers (2)
 p = NTPHeader()
 assert(type(p[NTP]) == NTPHeader)
@@ -7053,6 +7052,17 @@ assert(type(p[NTP]) == NTPControl)
 p = NTPPrivate()
 assert(type(p[NTP]) == NTPPrivate)
 
+= NTP - sessions (1)
+p = IP()/TCP()/NTP()
+l = PacketList(p)
+s = l.sessions()  # Crashed on commit: e42ecdc54556c4852ca06b1a6da6c1ccbf3f522e
+assert len(s) == 1
+
+= NTP - sessions (2)
+p = IP()/UDP()/NTP()
+l = PacketList(p)
+s = l.sessions()  # Crashed on commit: e42ecdc54556c4852ca06b1a6da6c1ccbf3f522e
+assert len(s) == 1
 
 ############
 ############
