@@ -3,6 +3,10 @@
     "*.uts",
     "..\\scapy\\contrib\\*.uts"
   ],
+  "remove_testfiles": [
+    "test\\cansocket_native.uts",
+    "test\\cansocket_python_can.uts"
+  ],
   "onlyfailed": true,
   "preexec": {
     "..\\scapy\\contrib\\*.uts": "load_contrib(\"%name%\")",
