@@ -88,7 +88,9 @@ def _sndrcv_rcv(pks, tobesent, stopevent, nbrecv, notans, verbose, chainCC,
         h = i.hashret()
         hsent.setdefault(i.hashret(), []).append(i)
 
-    if WINDOWS:
+    is_python_can_socket = getattr(pks, "is_python_can_socket", lambda: False)
+
+    if WINDOWS and not is_python_can_socket():
         def _get_pkt():
             return pks.recv(MTU)
     elif conf.use_bpf:
@@ -97,6 +99,9 @@ def _sndrcv_rcv(pks, tobesent, stopevent, nbrecv, notans, verbose, chainCC,
         def _get_pkt():
             if bpf_select([pks]):
                 return pks.recv()
+    elif is_python_can_socket():
+        def _get_pkt():
+            return pks.recv()
     elif (conf.use_pcap and not isinstance(pks, (StreamSocket, L3RawSocket, L2ListenTcpdump))) or \
          (not isinstance(pks, (StreamSocket, L2ListenTcpdump)) and (DARWIN or FREEBSD or OPENBSD)):
         def _get_pkt():
@@ -733,12 +738,13 @@ def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
         stoptime = time.time() + timeout
     remain = None
     read_allowed_exceptions = ()
+    is_python_can_socket = getattr(opened_socket, "is_python_can_socket", lambda: False)
     if conf.use_bpf:
         from scapy.arch.bpf.supersocket import bpf_select
 
         def _select(sockets):
             return bpf_select(sockets, remain)
-    elif WINDOWS:
+    elif WINDOWS and not is_python_can_socket():
         from scapy.arch.pcapdnet import PcapTimeoutElapsed
         read_allowed_exceptions = (PcapTimeoutElapsed,)
 
@@ -747,6 +753,12 @@ def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
                 return sockets
             except PcapTimeoutElapsed:
                 return []
+    elif is_python_can_socket():
+        from scapy.contrib.cansocket_python_can import CANSocketTimeoutElapsed
+        read_allowed_exceptions = (CANSocketTimeoutElapsed,)
+
+        def _select(sockets):
+            return sockets
     else:
         def _select(sockets):
             try:
