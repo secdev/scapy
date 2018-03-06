@@ -544,7 +544,6 @@ class NetworkInterface(object):
         """Returns True if the interface is in monitor mode.
         Only available with Npcap."""
         try:
-            self._check_npcap_requirement()
             return self.mode() == "monitor"
         except Scapy_Exception:
             return False
@@ -853,9 +852,12 @@ def show_interfaces(resolve_mac=True):
 
 _orig_open_pcap = pcapdnet.open_pcap
 def open_pcap(iface, *args, **kargs):
-    if iface.ismonitor():
+    iface_pcap_name = pcapname(iface)
+    if not isinstance(iface, NetworkInterface) and iface_pcap_name is not None:
+        iface = IFACES.dev_from_name(iface)
+    if isinstance(iface, NetworkInterface) and iface.ismonitor():
         kargs["monitor"] = True
-    return _orig_open_pcap(pcapname(iface), *args, **kargs)
+    return _orig_open_pcap(iface_pcap_name, *args, **kargs)
 pcapdnet.open_pcap = open_pcap
 
 get_if_raw_hwaddr = pcapdnet.get_if_raw_hwaddr = lambda iface, *args, **kargs: (
