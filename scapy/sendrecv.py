@@ -88,6 +88,8 @@ def _sndrcv_rcv(pks, tobesent, stopevent, nbrecv, notans, verbose, chainCC,
         h = i.hashret()
         hsent.setdefault(i.hashret(), []).append(i)
 
+    from scapy.contrib.cansocket import is_python_can_socket
+
     if WINDOWS:
         def _get_pkt():
             return pks.recv(MTU)
@@ -97,6 +99,9 @@ def _sndrcv_rcv(pks, tobesent, stopevent, nbrecv, notans, verbose, chainCC,
         def _get_pkt():
             if bpf_select([pks]):
                 return pks.recv()
+    elif is_python_can_socket(pks):
+        def _get_pkt():
+            return pks.recv()
     elif (conf.use_pcap and not isinstance(pks, (StreamSocket, L3RawSocket, L2ListenTcpdump))) or \
          (not isinstance(pks, (StreamSocket, L2ListenTcpdump)) and (DARWIN or FREEBSD or OPENBSD)):
         def _get_pkt():
@@ -751,6 +756,7 @@ Examples:
         stoptime = time.time()+timeout
     remain = None
     read_allowed_exceptions = ()
+    from scapy.contrib.cansocket import is_python_can_socket
     if conf.use_bpf:
         from scapy.arch.bpf.supersocket import bpf_select
 
@@ -765,6 +771,12 @@ Examples:
                 return sockets
             except PcapTimeoutElapsed:
                 return []
+    elif is_python_can_socket(opened_socket):
+        from scapy.contrib.cansocket import CANSocketTimeoutElapsed
+        read_allowed_exceptions = (CANSocketTimeoutElapsed,)
+
+        def _select(sockets):
+            return sockets
     else:
         def _select(sockets):
             try:

@@ -49,6 +49,14 @@ if ! python --version 2>&1 | grep -q PyPy; then
   $SCAPY_SUDO $PIP install $PIP_INSTALL_FLAGS -U cryptography
 fi
 
+# Install CANSocket related components
+$SCAPY_SUDO $PIP install $PIP_INSTALL_FLAGS -U python-can
+if [ "$TRAVIS_OS_NAME" = "linux" ]
+then
+  $SCAPY_SUDO apt-get -qy install can-utils
+fi
+
+
 # Install coverage
 if [ "$SCAPY_COVERAGE" = "yes" ]
 then
