@@ -26,6 +26,7 @@ class _TcpSuperSocket(SuperSocket):
         self.connectionContext = connectionContext
         self.open = False
         self._openLock = threading.Lock()
+        self._workingLock = threading.Lock()
     
     def _send(self, chunk):
         chunk = bytes(chunk)
@@ -42,59 +43,71 @@ class _TcpSuperSocket(SuperSocket):
         self.connectionContext.sendSequenceNumber += 1
     
     def send(self, data):
-        if not self.open:
-            self.logger.warning("Connection not open. No data sent.")
-            return
-        if not isinstance(data, UaTcp):
-            self.logger.warning("Unsupported packet type. No data sent.")
-            return
-        data.connectionContext = self.connectionContext
-        
-        if isinstance(data, UaSecureConversationSymmetric):
-            chunks = chunkify(data)
-        else:
-            chunks = [data]
-        
-        for chunk in chunks:
-            self._send(chunk)
+        with self._workingLock:
+            if not self.open:
+                self.logger.warning("Connection not open. No data sent.")
+                return
+            if not isinstance(data, UaTcp):
+                self.logger.warning("Unsupported packet type. No data sent.")
+                return
+            data.connectionContext = self.connectionContext
+            
+            if isinstance(data, UaSecureConversationSymmetric):
+                chunks = chunkify(data)
+            else:
+                chunks = [data]
+            
+            for chunk in chunks:
+                self._send(chunk)
     
     def recv(self, x=0):
-        if not self.open:
-            raise ConnectionError("Connection not open")
-        headerLen = len(UA.UaTcpMessageHeader())
-        header = self.socket.recv(headerLen)
-        if not header:
-            self.logger.warning("TCP socket got disconnected")
-            self.open = False
-            self._openLock.release()
-            return None
-        
-        decodedHeader = UA.UaTcpMessageHeader(header)
-        size = decodedHeader.MessageSize - headerLen
-        
-        body = self.socket.recv(size)
-        if not body:
-            self.logger.warning("Could not receive body. expected {} bytes".format(size))
-            return None
-        try:
-            pkt = UA.UaTcp(header + body, connectionContext=self.connectionContext)
-        except:
-            traceback.print_exc()
-            raise
-        return pkt
+        with self._workingLock:
+            if not self.open:
+                raise ConnectionError("Connection not open")
+            headerLen = len(UA.UaTcpMessageHeader())
+            header = self.socket.recv(headerLen)
+            if not header:
+                self.logger.warning("TCP socket got disconnected")
+                self.open = False
+                self._openLock.release()
+                return None
+            
+            decodedHeader = UA.UaTcpMessageHeader(header)
+            size = decodedHeader.MessageSize - headerLen
+            
+            body = self.socket.recv(size)
+            remainder = size - len(body)
+            while remainder > 0:
+                body += self.socket.recv(remainder)
+                remainder = size - len(body)
+            if not body:
+                self.logger.warning("Could not receive body. expected {} bytes".format(size))
+                return None
+            try:
+                pkt = UA.UaTcp(header + body, connectionContext=self.connectionContext)
+            except:
+                traceback.print_exc()
+                raise
+            return pkt
     
-    def connect(self, target):
+    def connect(self, target, timeout=None):
         self._openLock.acquire()
         if not self.open:
+            self.socket.settimeout(timeout)
             self.socket.connect(target)
+            self.socket.settimeout(None)
             self.open = True
     
     def close(self):
-        if self.open:
-            self.socket.shutdown(socket.SHUT_WR)
-            self.socket.close()
-            self.open = False
-        self._openLock.release()
+        with self._workingLock:
+            if self.open:
+                try:
+                    self.socket.shutdown(socket.SHUT_WR)
+                    self.socket.close()
+                except OSError:
+                    pass
+                self.open = False
+                self._openLock.release()
     
     def sr(self, *args, **kargs):
         raise NotImplementedError()
@@ -106,7 +119,8 @@ class _TcpSuperSocket(SuperSocket):
         raise NotImplementedError()
     
     def fileno(self):
-        return self.socket.fileno()
+        with self._workingLock:
+            return self.socket.fileno()
 
 
 class TcpClientAutomaton(_UaAutomaton):
@@ -115,8 +129,9 @@ class TcpClientAutomaton(_UaAutomaton):
     It can be used as part of an automaton that implements the SecureChannel layer.
     """
     
-    def parse_args(self, *args, **kwargs):
+    def parse_args(self, timeout=None, *args, **kwargs):
         super(TcpClientAutomaton, self).parse_args(*args, **kwargs)
+        self._timeout = timeout
     
     @ATMT.state(initial=1)
     def START(self):
@@ -146,14 +161,15 @@ class TcpClientAutomaton(_UaAutomaton):
     def END(self):
         # Send None to signal that the socket is closed
         self.oi.uatcp.send(None)
+        self.oi.shutdown.send(None)
     
     @ATMT.condition(START)
     def connectTCP(self):
-        self.send_sock = _TcpSuperSocket(self.connectionContext)
+        self.send_sock = _TcpSuperSocket(self._connectionContext)
         self.listen_sock = self.send_sock
         
         try:
-            self.send_sock.connect((self.target, self.targetPort))
+            self.send_sock.connect((self.target, self.targetPort), timeout=self._timeout)
             self.logger.debug("TCP connected")
         except socket.error as e:
             self.logger.warning("TCP connection refused: {}".format(e))
@@ -163,18 +179,19 @@ class TcpClientAutomaton(_UaAutomaton):
     @ATMT.condition(TCP_CONNECTED)
     def connect(self):
         self.logger.debug("Sending HEL")
-        self.send(UaTcp(Message=UaTcpHelloMessage(), connectionContext=self.connectionContext))
+        self.send(UaTcp(Message=UaTcpHelloMessage(), connectionContext=self._connectionContext))
         raise self.CONNECTING()
     
     @ATMT.receive_condition(CONNECTING)
     def receive_ack(self, pkt):
         if isinstance(pkt, UaTcp) and isinstance(pkt.Message, UaTcpAcknowledgeMessage):
             self.logger.debug("Received ACK")
-            self.connectionContext.remoteBufferSizes.maxChunkCount = pkt.Message.MaxChunkCount
-            self.connectionContext.remoteBufferSizes.maxMessageSize = pkt.Message.MaxMessageSize
-            self.connectionContext.protocolVersion = pkt.Message.ProtocolVersion
-            self.connectionContext.remoteBufferSizes.receiveBufferSize = pkt.Message.ReceiveBufferSize
-            self.connectionContext.remoteBufferSizes.sendBufferSize = pkt.Message.SendBufferSize
+            self._connectionContext.remoteBufferSizes.maxChunkCount = pkt.Message.MaxChunkCount
+            self._connectionContext.remoteBufferSizes.maxMessageSize = pkt.Message.MaxMessageSize
+            self._connectionContext.protocolVersion = pkt.Message.ProtocolVersion
+            self._connectionContext.remoteBufferSizes.receiveBufferSize = pkt.Message.ReceiveBufferSize
+            self._connectionContext.remoteBufferSizes.sendBufferSize = pkt.Message.SendBufferSize
+            self.oi.shutdown.send("started")
             raise self.CONNECTED()
         elif isinstance(pkt, UaTcp) and isinstance(pkt.Message, UaTcpErrorMessage):
             self.logger.debug("Received ERR: {}".format(statusCodes[pkt.Message.Error]))
@@ -224,18 +241,18 @@ class TcpClientAutomaton(_UaAutomaton):
 
 class UaTcpSocket(SuperSocket):
     
-    def __init__(self, connectionContext, target="localhost", targetPort=4840, endpoint="TODO"):
-        self.atmt = TcpClientAutomaton(connectionContext=connectionContext, target=target, targetPort=targetPort)
-        self.atmt.runbg()
-        self.open = True
+    def __init__(self, connectionContext, target="localhost", targetPort=4840, endpoint="TODO", timeout=None):
+        self.atmt = TcpClientAutomaton(connectionContext=connectionContext, target=target, targetPort=targetPort,
+                                       timeout=timeout)
+        self.open = False
         self.logger = logging.getLogger(__name__)
-
+    
     def send(self, data):
         if not self.open:
             self.logger.warning("Socket not open. No data sent.")
             return
         self.atmt.io.uatcp.send(copy.deepcopy(data))
-
+    
     def recv(self, x=0):
         if not self.open:
             self.logger.warning("Socket not open. Cannot receive any data.")
@@ -244,26 +261,29 @@ class UaTcpSocket(SuperSocket):
         if data is None:
             self.close()
         return data
-
+    
     def fileno(self):
         return self.atmt.io.uatcp.fileno()
-
+    
     def connect(self):
         if not self.open:
             self.atmt.start()
             self.atmt.runbg()
+            if self.atmt.io.shutdown.recv() is None:
+                self.atmt.stop()
+                raise TimeoutError()
             self.open = True
-
+    
     def close(self):
         if self.open:
             self.atmt.stop()
             self.open = False
-
+    
     def sr(self, *args, **kargs):
         raise NotImplementedError()
-
+    
     def sr1(self, *args, **kargs):
         raise NotImplementedError()
-
+    
     def sniff(self, *args, **kargs):
         raise NotImplementedError()

@@ -21,7 +21,7 @@ class _UaAutomaton(Automaton):
         self.targetPort = targetPort
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG)
-        self.connectionContext = connectionContext
+        self._connectionContext = connectionContext
         self.send_sock_class = lambda **x: None
         self.recv_sock_class = lambda **x: None
     
@@ -86,3 +86,5 @@ class _UaAutomaton(Automaton):
             os.close(self.cmdout.rd)
         except OSError:
             pass
+        
+        self.send_sock.close()

@@ -89,7 +89,7 @@ def testTcpAutomaton():
 def testSecureConvAutomaton():
     for _ in range(0, 1):
         connectionContext = getContext()
-        s = UaSecureConversationSocket(connectionContext)
+        s = UaSecureConversationSocket(connectionContext=connectionContext, target="172.16.101.41", targetPort=48010)
         s.connect()
         s.send(msg)
         resp = s.recv()

@@ -11,6 +11,7 @@ Some data types are available as UA___Field. Using these is preferred if possibl
 
 If all OPC UA basic data types are needed load the types module
 """
+import logging
 import struct
 from functools import reduce
 
@@ -379,11 +380,20 @@ class UaByteString(UaBuiltin):
         return s
 
 
+def _string_decode(s):
+    try:
+        return s.decode("utf8")
+    except UnicodeDecodeError:
+        logging.getLogger(__name__).error("Error decoding string. Returning as bytes.")
+        pass
+    return s
+
+
 class UaString(UaByteString):
     nodeId = 12
     fields_desc = [UaInt32Field("length", None),
                    ByteListField("data", None, UaByteField("", None), length_from=_ua_str_len_function,
-                                 decode_callback=lambda s: s.decode("utf8"),
+                                 decode_callback=_string_decode,
                                  encode_callback=lambda s: s.encode("utf8"))]
 
 

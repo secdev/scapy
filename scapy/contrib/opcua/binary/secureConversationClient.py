@@ -23,15 +23,17 @@ class SecureConversationAutomaton(_UaAutomaton):
     """
     
     def parse_args(self, connectionContext=UaConnectionContext(), target="localhost",
-                   targetPort=4840, debug=0, store=1, **kwargs):
+                   targetPort=4840, timeout=None, debug=0, store=1, **kwargs):
         super(SecureConversationAutomaton, self).parse_args(debug, store, **kwargs)
         self.target = target
         self.targetPort = targetPort
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG)
-        self.connectionContext = connectionContext
+        self._connectionContextProto = connectionContext
+        self._connectionContext = None
         self.send_sock = None
         self.listen_sock = None
+        self._timeout = timeout
     
     @ATMT.state(initial=1)
     def START(self):
@@ -61,27 +63,30 @@ class SecureConversationAutomaton(_UaAutomaton):
     def END(self):
         # Send None to signal that the socket is closed
         self.oi.uasc.send(None)
+        self.oi.shutdown.send(None)
     
     @ATMT.condition(START)
     def connect(self):
+        self._connectionContext = copy.copy(self._connectionContextProto)
         if self.send_sock is not None:
             self.send_sock.close()
         if self.send_sock is None:
-            self.send_sock = UaTcpSocket(connectionContext=self.connectionContext, target=self.target,
-                                         targetPort=self.targetPort)
+            self.send_sock = UaTcpSocket(connectionContext=self._connectionContext, target=self.target,
+                                         targetPort=self.targetPort, timeout=self._timeout)
         else:
             with self.send_sock.atmt.send_sock._openLock:
-                self.send_sock = UaTcpSocket(connectionContext=self.connectionContext, target=self.target,
-                                             targetPort=self.targetPort)
+                self.send_sock = UaTcpSocket(connectionContext=self._connectionContext, target=self.target,
+                                             targetPort=self.targetPort, timeout=self._timeout)
         
         self.listen_sock = self.send_sock
         
         try:
             self.send_sock.connect()
             self.logger.debug("Connected")
-        except socket.error as e:
+        except socket.error and TimeoutError as e:
             self.logger.warning("TCP connection refused: {}".format(e))
             raise self.END()
+        self.oi.shutdown.send("started")
         raise self.CONNECTED()
     
     @ATMT.condition(CONNECTED)
@@ -89,9 +94,9 @@ class SecureConversationAutomaton(_UaAutomaton):
         self.logger.debug("Sending OPN")
         
         opn = UaSecureConversationAsymmetric()
-        if self.connectionContext.securityPolicy is not None:
-            self.connectionContext.localNonce = create_nonce(self.connectionContext.securityPolicy.symmetric_key_size)
-            opn.Payload.Message.ClientNonce = UaByteString(data=self.connectionContext.localNonce)
+        if self._connectionContext.securityPolicy is not None:
+            self._connectionContext.localNonce = create_nonce(self._connectionContext.securityPolicy.symmetric_key_size)
+            opn.Payload.Message.ClientNonce = UaByteString(data=self._connectionContext.localNonce)
         # TODO: Make configurable if nonce is randomly generated or not.
         
         self.send(opn)
@@ -103,11 +108,11 @@ class SecureConversationAutomaton(_UaAutomaton):
                 isinstance(pkt.Payload.Message, UaOpenSecureChannelResponse):
             self.logger.debug("Received OpenSecureChannelResponse")
             
-            self.connectionContext.securityToken = pkt.Payload.Message.SecurityToken
-            self.connectionContext.remoteNonce = pkt.Payload.Message.ServerNonce.data
-            if self.connectionContext.securityPolicy is not None:
-                self.connectionContext.securityPolicy.make_symmetric_key(self.connectionContext.localNonce,
-                                                                         self.connectionContext.remoteNonce)
+            self._connectionContext.securityToken = pkt.Payload.Message.SecurityToken
+            self._connectionContext.remoteNonce = pkt.Payload.Message.ServerNonce.data
+            if self._connectionContext.securityPolicy is not None:
+                self._connectionContext.securityPolicy.make_symmetric_key(self._connectionContext.localNonce,
+                                                                          self._connectionContext.remoteNonce)
             
             raise self.SECURECHANNEL_ESTABLISHED()
         if isinstance(pkt, UaSecureConversationSymmetric) and \
@@ -167,11 +172,10 @@ class SecureConversationAutomaton(_UaAutomaton):
 
 class UaSecureConversationSocket(SuperSocket):
     
-    def __init__(self, connectionContext, target="localhost", targetPort=4840, endpoint="TODO"):
+    def __init__(self, connectionContext, target="localhost", targetPort=4840, endpoint="TODO", timeout=None):
         self.atmt = SecureConversationAutomaton(connectionContext=connectionContext, target=target,
-                                                targetPort=targetPort)
-        self.atmt.runbg()
-        self.open = True
+                                                targetPort=targetPort, timeout=timeout)
+        self.open = False
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.NOTSET)
     
@@ -197,6 +201,9 @@ class UaSecureConversationSocket(SuperSocket):
         if not self.open:
             self.atmt.start()
             self.atmt.runbg()
+            if self.atmt.io.shutdown.recv() is None:
+                self.atmt.stop()
+                raise TimeoutError()
             self.open = True
     
     def close(self):
