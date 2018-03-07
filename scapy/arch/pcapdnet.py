@@ -143,7 +143,7 @@ if conf.use_winpcapy:
               if pcap_set_rfmon(self.pcap, 1) != 0:
                   warning("Could not set monitor mode")
               if pcap_activate(self.pcap) != 0:
-                  warning("Could not activate the handler")
+                  raise OSError("Could not activate the pcap handler")
           else:
               self.pcap = pcap_open_live(self.iface, snaplen, promisc, to_ms, self.errbuf)
           self.header = POINTER(pcap_pkthdr)()
