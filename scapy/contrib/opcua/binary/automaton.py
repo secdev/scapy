@@ -14,17 +14,18 @@ class _UaAutomaton(Automaton):
         super().__init__(*args, **kwargs)
         self._stopped = False
     
-    def parse_args(self, connectionContext=UaConnectionContext(), target="localhost",
-                   targetPort=4840, debug=0, store=False, **kwargs):
+    def parse_args(self, debug=0, store=False, connectionContext=UaConnectionContext(), target="localhost",
+                   targetPort=4840, timeout=None, **kwargs):
         super().parse_args(debug, store, **kwargs)
         self.target = target
         self.targetPort = targetPort
-        self.logger = logging.getLogger(__name__)
-        self.logger.setLevel(logging.DEBUG)
         self._connectionContextProto = connectionContext
-        self._connectionContext = None
+        self._connectionContext = connectionContext
+        self._timeout = timeout
         self.send_sock_class = lambda **x: None
         self.recv_sock_class = lambda **x: None
+        self.send_sock = None
+        self.listen_sock = None
     
     def __del__(self):
         if not self._stopped:

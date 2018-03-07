@@ -128,11 +128,11 @@ class TcpClientAutomaton(_UaAutomaton):
     This Automaton implements the ua tcp layer functionality.
     It can be used as part of an automaton that implements the SecureChannel layer.
     """
-    
-    def parse_args(self, timeout=None, *args, **kwargs):
-        super(TcpClientAutomaton, self).parse_args(*args, **kwargs)
-        self._timeout = timeout
-    
+
+    def __init__(self, *args, **kwargs):
+        super(TcpClientAutomaton, self).__init__(*args, **kwargs)
+        self.logger = logging.getLogger(__name__)
+
     @ATMT.state(initial=1)
     def START(self):
         pass
@@ -165,7 +165,8 @@ class TcpClientAutomaton(_UaAutomaton):
     
     @ATMT.condition(START)
     def connectTCP(self):
-        self._connectionContext = copy.copy(self._connectionContextProto)
+        self._connectionContext.sendSequenceNumber = 0
+        self._connectionContext.receiveSequenceNumber = 0
         self.send_sock = _TcpSuperSocket(self._connectionContext)
         self.listen_sock = self.send_sock
         

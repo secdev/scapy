@@ -21,18 +21,11 @@ class SecureConversationAutomaton(_UaAutomaton):
     This Automaton implements the ua secure conversation functionality.
     It can be used as part of an automaton that implements the Session layer.
     """
-    
-    def parse_args(self, connectionContext=UaConnectionContext(), target="localhost",
-                   targetPort=4840, timeout=None, debug=0, store=1, **kwargs):
-        super(SecureConversationAutomaton, self).parse_args(debug, store, **kwargs)
-        self.target = target
-        self.targetPort = targetPort
+
+    def __init__(self, *args, **kwargs):
+        super(SecureConversationAutomaton, self).__init__(*args, **kwargs)
         self.logger = logging.getLogger(__name__)
-        self.logger.setLevel(logging.DEBUG)
-        self.send_sock = None
-        self.listen_sock = None
-        self._timeout = timeout
-    
+
     @ATMT.state(initial=1)
     def START(self):
         pass
@@ -65,7 +58,6 @@ class SecureConversationAutomaton(_UaAutomaton):
     
     @ATMT.condition(START)
     def connect(self):
-        self._connectionContext = copy.copy(self._connectionContextProto)
         if self.send_sock is not None:
             self.send_sock.close()
         if self.send_sock is None:
