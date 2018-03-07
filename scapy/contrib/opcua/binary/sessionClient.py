@@ -22,11 +22,11 @@ class SessionAutomaton(_UaAutomaton):
     This Automaton implements the ua secure conversation functionality.
     It can be used as part of an automaton that implements the Session layer.
     """
-
+    
     def __init__(self, *args, **kwargs):
         super(SessionAutomaton, self).__init__(*args, **kwargs)
         self.logger = logging.getLogger(__name__)
-
+    
     @ATMT.state(initial=1)
     def START(self):
         pass
@@ -41,6 +41,14 @@ class SessionAutomaton(_UaAutomaton):
     
     @ATMT.state()
     def SESSION_ESTABLISHED(self):
+        pass
+    
+    @ATMT.state()
+    def ACTIVATING_SESSION(self):
+        pass
+    
+    @ATMT.state()
+    def SESSION_ACTIVATED(self):
         pass
     
     @ATMT.state()
@@ -115,6 +123,38 @@ class SessionAutomaton(_UaAutomaton):
             self.logger.debug("Unexpected message received")
             raise self.DISCONNECTING()
     
+    @ATMT.condition(SESSION_ESTABLISHED)
+    def activate_session(self):
+        self.logger.debug("Sending ActivateSession")
+        
+        activateSession = UaActivateSessionRequest()
+        msg = UaSecureConversationSymmetric(Payload=UaMessage(Message=activateSession))
+        
+        self.send(msg)
+        raise self.ACTIVATING_SESSION()
+    
+    @ATMT.receive_condition(ACTIVATING_SESSION)
+    def receive_activate_session_response(self, pkt):
+        if isinstance(pkt, UaSecureConversationSymmetric) and \
+                pkt.MessageHeader.IsFinal != b'F':
+            # Wait for final chunk
+            raise self.ACTIVATING_SESSION()
+        if isinstance(pkt, UaSecureConversationSymmetric) and \
+                isinstance(pkt.reassembled.Message, UaActivateSessionResponse):
+            self.logger.debug("Received CreateSessionResponse")
+            
+            raise self.SESSION_ACTIVATED()
+        if isinstance(pkt, UaSecureConversationSymmetric) and \
+                isinstance(pkt.Payload.Message, UaServiceFault):
+            self.logger.debug("Received ServiceFault: {}".format(pkt.Payload.Message))
+            raise self.DISCONNECTING()
+        elif type(pkt) is UaTcp and isinstance(pkt.Message, UaTcpErrorMessage):
+            self.logger.debug("Received ERR: {}".format(statusCodes[pkt.Message.Error]))
+            raise self.DISCONNECTING()
+        else:
+            self.logger.debug("Unexpected message received")
+            raise self.DISCONNECTING()
+    
     @ATMT.condition(DISCONNECTING)
     def disconnect(self):
         
@@ -128,12 +168,12 @@ class SessionAutomaton(_UaAutomaton):
     def end(self):
         raise self.END()
     
-    @ATMT.receive_condition(SESSION_ESTABLISHED, prio=1)
+    @ATMT.receive_condition(SESSION_ACTIVATED, prio=1)
     def receive_response(self, pkt):
         self.oi.uasess.send(pkt)
-        raise self.SESSION_ESTABLISHED()
+        raise self.SESSION_ACTIVATED()
     
-    @ATMT.receive_condition(SESSION_ESTABLISHED, prio=0)
+    @ATMT.receive_condition(SESSION_ACTIVATED, prio=0)
     def error_received(self, pkt):
         if type(pkt) is UaTcp and isinstance(pkt.Message, UaTcpErrorMessage):
             self.logger.warning("ERR received: {} ... Closing connection".format(statusCodes[pkt.Message.Error]))
@@ -146,18 +186,18 @@ class SessionAutomaton(_UaAutomaton):
             self.logger.warning("Unexpected message received... Closing connection")
             raise self.DISCONNECTING()
     
-    @ATMT.ioevent(SESSION_ESTABLISHED, "uasess")
+    @ATMT.ioevent(SESSION_ACTIVATED, "uasess")
     def socket_send(self, fd):
-        raise self.SESSION_ESTABLISHED().action_parameters(fd.recv())
+        raise self.SESSION_ACTIVATED().action_parameters(fd.recv())
     
-    @ATMT.ioevent(SESSION_ESTABLISHED, "shutdown")
+    @ATMT.ioevent(SESSION_ACTIVATED, "shutdown")
     def shutdown(self, fd):
         raise self.DISCONNECTING()
     
     @ATMT.action(socket_send)
     def send_data(self, data):
         self.send(data)
-        
+    
     def my_send(self, pkt):
         try:
             pkt.Payload.Message.RequestHeader.AuthenticationToken = self._connectionContext.authenticationToken

@@ -245,7 +245,7 @@ class UaMessage(UaTypePacket):
         If the packet is not chunked set it as its own reassembled packet.
         """
         try:
-            self.underlayer.reassembled = self.underlayer
+            self.underlayer.reassembled = self
         except AttributeError:
             pass
         return pkt

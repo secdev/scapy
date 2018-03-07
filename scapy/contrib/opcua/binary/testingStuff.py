@@ -97,17 +97,27 @@ def testSecureConvAutomaton():
         print(resp.reassembled)
         # resp.show()
         resp = s.recv()
-        #resp.show()
+        # resp.show()
         resp.reassembled.show2()
         
         s.close()
+
 
 def testReadRequest():
     connectionContext = getContext()
     s = UaSessionSocket(connectionContext=connectionContext, target="172.16.101.41", targetPort=48010)
     s.connect()
     
+    idToRead = UaStringNodeId(Namespace=4,
+                              Identifier=UaString(
+                                  data="S7-1200-Station_1.isutest3-mark-sps.Programs.Referenzsignal.Signal"))
+    
+    rvId = UaReadValueId()
+    rvId.NodeId = idToRead
+    rvId.AttributeId = 0xd
+    
     rr = UaReadRequest()
+    rr.NodesToRead = [rvId]
     msg = UaSecureConversationSymmetric(Payload=UaMessage(Message=rr))
     
     s.send(msg)
@@ -116,6 +126,7 @@ def testReadRequest():
     # resp.show()
     
     s.close()
+
 
 if __name__ == '__main__':
     # pc = read_pcap()
