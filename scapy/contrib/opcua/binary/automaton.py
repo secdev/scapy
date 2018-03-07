@@ -21,7 +21,8 @@ class _UaAutomaton(Automaton):
         self.targetPort = targetPort
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG)
-        self._connectionContext = connectionContext
+        self._connectionContextProto = connectionContext
+        self._connectionContext = None
         self.send_sock_class = lambda **x: None
         self.recv_sock_class = lambda **x: None
     

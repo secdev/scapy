@@ -6,6 +6,7 @@ import timeit
 
 import gc
 
+from scapy.contrib.opcua.binary.sessionClient import UaSessionSocket
 from scapy.contrib.opcua.binary.secureConversationClient import UaSecureConversationSocket
 from scapy.contrib.opcua.helpers import UaConnectionContext
 
@@ -101,6 +102,20 @@ def testSecureConvAutomaton():
         
         s.close()
 
+def testReadRequest():
+    connectionContext = getContext()
+    s = UaSessionSocket(connectionContext=connectionContext, target="172.16.101.41", targetPort=48010)
+    s.connect()
+    
+    rr = UaReadRequest()
+    msg = UaSecureConversationSymmetric(Payload=UaMessage(Message=rr))
+    
+    s.send(msg)
+    resp = s.recv()
+    resp.reassembled.show()
+    # resp.show()
+    
+    s.close()
 
 if __name__ == '__main__':
     # pc = read_pcap()
@@ -119,7 +134,8 @@ if __name__ == '__main__':
     # test.show2()
     
     # testTcpAutomaton()
-    testSecureConvAutomaton()
+    # testSecureConvAutomaton()
+    testReadRequest()
     
     # input("Press key")
     # interact(globals())

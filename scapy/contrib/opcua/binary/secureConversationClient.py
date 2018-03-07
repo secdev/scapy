@@ -29,8 +29,6 @@ class SecureConversationAutomaton(_UaAutomaton):
         self.targetPort = targetPort
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG)
-        self._connectionContextProto = connectionContext
-        self._connectionContext = None
         self.send_sock = None
         self.listen_sock = None
         self._timeout = timeout

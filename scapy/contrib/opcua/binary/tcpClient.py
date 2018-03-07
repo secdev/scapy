@@ -165,6 +165,7 @@ class TcpClientAutomaton(_UaAutomaton):
     
     @ATMT.condition(START)
     def connectTCP(self):
+        self._connectionContext = copy.copy(self._connectionContextProto)
         self.send_sock = _TcpSuperSocket(self._connectionContext)
         self.listen_sock = self.send_sock
         

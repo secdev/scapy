@@ -3,7 +3,6 @@
 This module contains helper functions that the implementation of the OPC UA protocol needs.
 """
 import copy
-
 from scapy.compat import raw
 from scapy.fields import Field, PacketField
 from scapy.packet import Packet
@@ -27,9 +26,11 @@ class UaConnectionContext(object):
     """
     
     def __init__(self):
+        from scapy.contrib.opcua.binary.builtinTypes import UaNodeId
         from scapy.contrib.opcua.binary.schemaTypes import UaChannelSecurityToken
         self.securityPolicy = None
         self.securityToken = UaChannelSecurityToken()
+        self.authenticationToken = UaNodeId()
         self.remoteNonce = None
         self.localNonce = None
         self.sendSequenceNumber = 0
