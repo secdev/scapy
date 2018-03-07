@@ -261,7 +261,7 @@ class RadiusAttribute(Packet):
         if cls == "RadiusAttribute":
             if isinstance(self, RadiusAttribute):
                 return True
-        elif issubclass(cls, RadiusAttribute):
+        elif isinstance(cls, type) and issubclass(cls, RadiusAttribute):
             if isinstance(self, cls):
                 return True
         return super(RadiusAttribute, self).haslayer(cls)

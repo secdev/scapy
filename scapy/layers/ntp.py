@@ -214,7 +214,7 @@ class NTP(Packet):
         if cls == "NTP":
             if isinstance(self, NTP):
                 return True
-        elif issubclass(cls, NTP):
+        elif isinstance(cls, type) and issubclass(cls, NTP):
             if isinstance(self, cls):
                 return True
         return super(NTP, self).haslayer(cls)

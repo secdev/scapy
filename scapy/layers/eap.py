@@ -241,7 +241,7 @@ class EAP(Packet):
         if cls == "EAP":
             if isinstance(self, EAP):
                 return True
-        elif issubclass(cls, EAP):
+        elif isinstance(cls, type) and issubclass(cls, EAP):
             if isinstance(self, cls):
                 return True
         return super(EAP, self).haslayer(cls)
