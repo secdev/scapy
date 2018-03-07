@@ -6335,6 +6335,64 @@ default            link#11            UCSI            1        0 bridge1
 test_osx_netstat_truncated()
 
 
+= OpenBSD 6.3
+~ mock_read_routes6_bsd
+
+import mock
+from io import StringIO
+
+@mock.patch("scapy.arch.unix.OPENBSD")
+@mock.patch("scapy.arch.unix.os")
+def test_openbsd_6_3(mock_os, mock_openbsd):
+    """Test read_routes() on OpenBSD 6.3"""
+    # 'netstat -rn -f inet' output
+    netstat_output = u"""
+Routing tables
+
+Internet:
+Destination        Gateway            Flags   Refs      Use   Mtu  Prio Iface
+default            10.0.1.254         UGS        0        0     -     8 bge0 
+224/4              127.0.0.1          URS        0       23 32768     8 lo0  
+10.0.1/24          10.0.1.26          UCn        4      192     -     4 bge0 
+10.0.1.1           00:30:48:57:ed:0b  UHLc       2      338     -     3 bge0 
+10.0.1.2           00:03:ba:0c:0b:52  UHLc       1      186     -     3 bge0 
+10.0.1.26          00:30:48:62:b3:f4  UHLl       0    47877     -     1 bge0 
+10.0.1.135         link#1             UHLch      1      194     -     3 bge0 
+10.0.1.254         link#1             UHLch      1      190     -     3 bge0 
+10.0.1.255         10.0.1.26          UHb        0        0     -     1 bge0 
+10.188.6/24        10.188.6.17        Cn         0        0     -     4 tap3 
+10.188.6.17        fe:e1:ba:d7:ff:32  UHLl       0       25     -     1 tap3 
+10.188.6.255       10.188.6.17        Hb         0        0     -     1 tap3 
+10.188.135/24      10.0.1.135         UGS        0        0  1350 L   8 bge0 
+127/8              127.0.0.1          UGRS       0        0 32768     8 lo0  
+127.0.0.1          127.0.0.1          UHhl       1  3835230 32768     1 lo0  
+"""
+    # Mocked file descriptor
+    strio = StringIO(netstat_output)
+    mock_os.popen = mock.MagicMock(return_value=strio)
+    
+    # Mocked OpenBSD parsing behavior
+    mock_openbsd = True
+    # Test the function
+    from scapy.arch.unix import read_routes
+    routes = read_routes()
+    for r in routes:
+        print(ltoa(r[0]), ltoa(r[1]), r)
+        # check that default route exists in parsed data structure
+        if ltoa(r[0]) == "0.0.0.0":
+            default=r
+        # check that route with locked mtu exists in parsed data structure
+        if ltoa(r[0]) == "10.188.135.0":
+            locked=r
+    assert(len(routes) == 11)
+    assert(default[2] == "10.0.1.254")
+    assert(default[3] == "bge0")
+    assert(locked[2] == "10.0.1.135")
+    assert(locked[3] == "bge0")
+
+test_openbsd_6_3()
+
+
 ############
 ############
 + Mocked read_routes6() calls
