@@ -36,7 +36,7 @@ The documentation can be improved in several ways by:
 
 Adding Docstrings
 -----------------
-The Scapy source code have few explanations of what a function is doing. A docstring, by adding explanation and
+The Scapy source code has few explanations of what a function is doing. A docstring, by adding explanation and
 expected input and output parameters, helps saving time for both the layer developers and the users looking for
 advanced features.
 
@@ -64,9 +64,9 @@ An example of docstring from the ``scapy.fields.FlagsField`` class: ::
      :param names: (list or dict) label for each flag, Least Significant Bit tag's name is written first
      """
 
-It will contain a short oneline description of the class followed by some indications about its usage.
+It will contain a short one-line description of the class followed by some indications about its usage.
 You can add a usage example if it makes sense using the `doctest <https://docs.python.org/2.7/library/doctest.html>`_ format.
-Finally the classic python signature can be added following the `sphinx documentation  <http://www.sphinx-doc.org/en/stable/domains.html#python-signatures>`_.
+Finally, the classic python signature can be added following the `sphinx documentation  <http://www.sphinx-doc.org/en/stable/domains.html#python-signatures>`_.
 
 This task works in pair with writing non regression unit tests.
 
@@ -82,7 +82,7 @@ What is UTScapy?
 
 UTScapy is a small Python program that reads a campaign of tests, runs the campaign with Scapy and generates a report indicating test status. The report may be in one of four formats, text, ansi, HTML or LaTeX.
 
-Three basic test containers exist with UTScapy, a unit test, a test set and a test campaign. A unit test is a list of Scapy commands that will be run by Scapy or a derived work of Scapy. Evaluation of the last command in the unit test will determine the end result of the individual unit test. A test set is a group of unit tests with some association. A test campaign consists of one or more test sets. Test sets and unit tests can be given keywords to form logical groupings. When running a campaign, tests may be selected by keyword. This allows the user to run tests within a desired grouping.
+Three basic test containers exist with UTScapy, a unit test, a test set and a test campaign. A unit test is a list of Scapy commands that will be run by Scapy or a derived work of Scapy. Evaluation of the last command in the unit test will determine the end result of the individual unit test. A test set is a group of unit tests with some association. A test campaign consists of one or more test sets. Test sets and unit tests can be given keywords to form logical groupings. When running a campaign, tests may be selected by keyword. This allows the user to run tests within the desired grouping.
 
 For each unit test, test set and campaign, a CRC32 of the test is calculated and displayed as a signature of that test. This test signature is sufficient to determine that the actual test run was the one expected and not one that has been modified. In case your dealing with evil people that try to modify or corrupt the file without changing the CRC32, a global SHA1 is computed on the whole file.
 
@@ -104,7 +104,7 @@ Syntax Specifier   Definition
 
 Table 1 - UTScapy Syntax Specifiers
 
-Comments placed in the test report have a context. Each comment will be associated to the last defined test container - be it a individual unit test, a test set or a test campaign. Multiple comments associated with a particular container will be concatenated together and will appear in the report directly after the test container announcement. General comments for a test file should appear before announcing a test campaign. For comments to be associated with a test campaign, they must appear after declaration of the test campaign but before any test set or unit test. Comments for a test set should appear before definition of the set’s first unit test.
+Comments placed in the test report have a context. Each comment will be associated with the last defined test container - be it an individual unit test, a test set or a test campaign. Multiple comments associated with a particular container will be concatenated together and will appear in the report directly after the test container announcement. General comments for a test file should appear before announcing a test campaign. For comments to be associated with a test campaign, they must appear after the declaration of the test campaign but before any test set or unit test. Comments for a test set should appear before the definition of the set’s first unit test.
 
 The generic format for a test campaign is shown in the following table::
 
@@ -124,7 +124,7 @@ The generic format for a test campaign is shown in the following table::
     a == 1
 
 
-Python statements are identified by the lack of a defined UTScapy syntax specifier. The Python statements are fed directly to the Python interpreter as if one is operating within the interactive Scapy shell (``interact``). Looping, iteration and conditionals are permissible but must be terminated by a blank line. A test set may be comprised of multiple unit tests and multiple test sets may be defined for each campaign. It is even possible to have multiple test campaigns in a particular test definition file. The use of keywords allows testing of subsets of the entire campaign. For example, during development of a test campaign, the user may wish to mark new tests under development with the keyword “debug”. Once the tests run successfully to their desired conclusion, the keyword “debug” could be removed. Keywords such as “regression” or “limited” could be used as well.
+Python statements are identified by the lack of a defined UTScapy syntax specifier. The Python statements are fed directly to the Python interpreter as if one is operating within the interactive Scapy shell (``interact``). Looping, iteration and conditionals are permissible but must be terminated by a blank line. A test set may be comprised of multiple unit tests and multiple test sets may be defined for each campaign. It is even possible to have multiple test campaigns in a particular test definition file. The use of keywords allows testing of subsets of the entire campaign. For example, during the development of a test campaign, the user may wish to mark new tests under development with the keyword “debug”. Once the tests run successfully to their desired conclusion, the keyword “debug” could be removed. Keywords such as “regression” or “limited” could be used as well.
 
 It is important to note that UTScapy uses the truth value from the last Python statement as the indicator as to whether a test passed or failed. Multiple logical tests may appear on the last line. If the result is 0 or False, the test fails. Otherwise, the test passes. Use of an assert() statement can force evaluation of intermediate values if needed.
 
@@ -176,7 +176,7 @@ Argument    Argument Value  Meaning to UTScapy
 
 Table 4 - UTScapy parameters
 
-Table 5 shows a simple test campaign with multiple test set definitions. Additionally, keywords are specified that allow a limited number of test cases to be executed. Notice the use of the ``assert()`` statement in test 3 and 5 used to check intermediate results. Tests 2 and 5 will fail by design.
+Table 5 shows a simple test campaign with multiple tests set definitions. Additionally, keywords are specified that allow a limited number of test cases to be executed. Notice the use of the ``assert()`` statement in test 3 and 5 used to check intermediate results. Tests 2 and 5 will fail by design.
 
 :: 
 

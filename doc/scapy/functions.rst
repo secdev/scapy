@@ -8,11 +8,11 @@ functions in your own code.
 UDP checksum
 ============
 
-The following example explains howto use the checksum() function to compute and
+The following example explains how to use the checksum() function to compute and
 UDP checksum manually. The following steps must be performed:
 
 1. compute the UDP pseudo header as described in RFC768
-2. build an UDP packet with Scapy with p[UDP].chksum=0
+2. build a UDP packet with Scapy with p[UDP].chksum=0
 3. call checksum() with the pseudo header and the UDP packet
 
 ::
