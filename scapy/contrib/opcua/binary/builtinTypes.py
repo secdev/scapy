@@ -13,6 +13,8 @@ If all OPC UA basic data types are needed load the types module
 """
 import logging
 import struct
+from calendar import timegm
+from datetime import timedelta, datetime
 from functools import reduce
 
 from scapy.contrib.opcua.helpers import ByteListField, UaTypePacket, LengthField, flatten, UaPacketField
@@ -272,6 +274,17 @@ class UaDouble(UaBuiltin):
 class UaDateTimeField(Field):
     def __init__(self, name, default):
         super(UaDateTimeField, self).__init__(name, default, "<q")
+
+    def i2h(self, pkt, x):
+        if x is None:
+            return None
+        return datetime(1601, 1, 1) + timedelta(microseconds=x // 10)
+
+    def h2i(self, pkt, x):
+        if isinstance(x, datetime):
+            ft = datetime(1601, 1, 1) + (timegm(x.timetuple()) * 10000000)
+            return ft + (x.microsecond * 10)
+        return x
 
 
 class UaDateTime(UaBuiltin):
