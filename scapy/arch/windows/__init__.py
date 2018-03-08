@@ -855,7 +855,7 @@ def open_pcap(iface, *args, **kargs):
     iface_pcap_name = pcapname(iface)
     if not isinstance(iface, NetworkInterface) and iface_pcap_name is not None:
         iface = IFACES.dev_from_name(iface)
-    if isinstance(iface, NetworkInterface) and iface.ismonitor():
+    if conf.use_npcap and isinstance(iface, NetworkInterface) and iface.ismonitor():
         kargs["monitor"] = True
     return _orig_open_pcap(iface_pcap_name, *args, **kargs)
 pcapdnet.open_pcap = open_pcap
