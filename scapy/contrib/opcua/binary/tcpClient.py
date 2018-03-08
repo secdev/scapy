@@ -2,6 +2,7 @@
 import copy
 import socket
 
+import scapy.modules.six
 import os
 import threading
 import traceback
@@ -14,6 +15,7 @@ from scapy.contrib.opcua.binary.automaton import _UaAutomaton
 from scapy.contrib.opcua.binary.uaTypes import *
 from scapy.supersocket import SuperSocket
 import scapy.contrib.opcua.binary.uaTypes as UA
+from queue import Queue
 
 
 class _TcpSuperSocket(SuperSocket):
@@ -27,6 +29,11 @@ class _TcpSuperSocket(SuperSocket):
         self.open = False
         self._openLock = threading.Lock()
         self._workingLock = threading.Lock()
+        
+        # hack
+        self._pending_tcp_jobs = Queue()
+        self._pending_sc_jobs = Queue()
+        self._pending_sess_jobs = Queue()
     
     def _send(self, chunk):
         chunk = bytes(chunk)
@@ -60,6 +67,19 @@ class _TcpSuperSocket(SuperSocket):
     
             for chunk in chunks:
                 self._send(chunk)
+                
+            # This is a hack for isutest. Remove later when moving to different atmt framework
+            if self._pending_tcp_jobs.qsize() > 0:
+                self._pending_tcp_jobs.get()
+                self._pending_tcp_jobs.task_done()
+                
+            if self._pending_sc_jobs.qsize() > 0:
+                self._pending_sc_jobs.get()
+                self._pending_sc_jobs.task_done()
+            
+            if self._pending_sess_jobs.qsize() > 0:
+                self._pending_sess_jobs.get()
+                self._pending_sess_jobs.task_done()
     
     def recv(self, x=0):
         with self._workingLock:
@@ -254,7 +274,11 @@ class UaTcpSocket(SuperSocket):
         if not self.open:
             self.logger.warning("Socket not open. No data sent.")
             return
+        
+        # this is a hack for isutest
+        self.atmt.send_sock._pending_tcp_jobs.put(None)
         self.atmt.io.uatcp.send(copy.deepcopy(data))
+        self.atmt.send_sock._pending_tcp_jobs.join()
     
     def recv(self, x=0):
         if not self.open:

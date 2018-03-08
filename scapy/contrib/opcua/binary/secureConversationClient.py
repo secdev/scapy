@@ -174,7 +174,11 @@ class UaSecureConversationSocket(SuperSocket):
         if not self.open:
             self.logger.warning("Socket not open. No data sent.")
             return
+        
+        # hack for isutest to wait for data to be sent
+        self.atmt.send_sock.atmt.send_sock._pending_sc_jobs.put(None)
         self.atmt.io.uasc.send(copy.deepcopy(data))
+        self.atmt.send_sock.atmt.send_sock._pending_sc_jobs.join()
     
     def recv(self, x=0):
         if not self.open:

@@ -219,8 +219,12 @@ class UaSessionSocket(SuperSocket):
         if not self.open:
             self.logger.warning("Socket not open. No data sent.")
             return
+        
+        # HACK :-(
+        self.atmt.send_sock.atmt.send_sock.atmt.send_sock._pending_sess_jobs.put(None)
         self.atmt.io.uasess.send(copy.deepcopy(data))
-    
+        self.atmt.send_sock.atmt.send_sock.atmt.send_sock._pending_sess_jobs.join()
+        
     def recv(self, x=0):
         if not self.open:
             self.logger.warning("Socket not open. Cannot receive any data.")
