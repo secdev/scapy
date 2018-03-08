@@ -50,13 +50,14 @@ class _TcpSuperSocket(SuperSocket):
             if not isinstance(data, UaTcp):
                 self.logger.warning("Unsupported packet type. No data sent.")
                 return
+            print(data)
             data.connectionContext = self.connectionContext
-            
+    
             if isinstance(data, UaSecureConversationSymmetric):
                 chunks = chunkify(data)
             else:
                 chunks = [data]
-            
+    
             for chunk in chunks:
                 self._send(chunk)
     

@@ -58,6 +58,7 @@ class SecureConversationAutomaton(_UaAutomaton):
     
     @ATMT.condition(START)
     def connect(self):
+        self._connectionContext.securityToken = UaChannelSecurityToken()
         if self.send_sock is not None:
             self.send_sock.close()
         if self.send_sock is None:
@@ -67,9 +68,9 @@ class SecureConversationAutomaton(_UaAutomaton):
             with self.send_sock.atmt.send_sock._openLock:
                 self.send_sock = UaTcpSocket(connectionContext=self._connectionContext, target=self.target,
                                              targetPort=self.targetPort, timeout=self._timeout)
-        
+    
         self.listen_sock = self.send_sock
-        
+    
         try:
             self.send_sock.connect()
             self.logger.debug("Connected")
