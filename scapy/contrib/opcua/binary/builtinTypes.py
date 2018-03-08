@@ -53,7 +53,7 @@ class UaBooleanField(Field):
         return True if x == "true" else False
 
     def i2h(self, pkt, x):
-        return "true" if x else "false"
+        return True if x else False
 
     def m2i(self, pkt, x):
         return True if struct.unpack("<B", x)[0] != 0 else False

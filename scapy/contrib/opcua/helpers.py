@@ -3,6 +3,8 @@
 This module contains helper functions that the implementation of the OPC UA protocol needs.
 """
 import copy
+from collections import defaultdict
+
 from scapy.compat import raw
 from scapy.fields import Field, PacketField
 from scapy.packet import Packet
@@ -39,11 +41,13 @@ class UaConnectionContext(object):
         self.protocolVersion = None
         self.localBufferSizes = BufferSizes()
         self.remoteBufferSizes = BufferSizes()
+        self.chunks = defaultdict()
 
     def __copy__(self):
         newContext = UaConnectionContext()
         newContext.securityPolicy = self.securityPolicy
         newContext.securityToken = copy.deepcopy(self.securityToken)
+        newContext.authenticationToken = copy.deepcopy(self.authenticationToken)
         newContext.remoteNonce = copy.deepcopy(self.remoteNonce)
         newContext.localNonce = copy.deepcopy(self.localNonce)
         newContext.sendSequenceNumber = copy.deepcopy(self.sendSequenceNumber)
@@ -52,6 +56,7 @@ class UaConnectionContext(object):
         newContext.protocolVersion = copy.deepcopy(self.protocolVersion)
         newContext.localBufferSizes = copy.deepcopy(self.localBufferSizes)
         newContext.remoteBufferSizes = copy.deepcopy(self.remoteBufferSizes)
+        newContext.chunks = copy.deepcopy(self.chunks)
         
         return newContext
 

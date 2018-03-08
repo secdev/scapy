@@ -8,9 +8,6 @@ from time import sleep
 
 from scapy.contrib.opcua.binary.secureConversationClient import UaSecureConversationSocket
 from scapy.contrib.opcua.binary.automaton import _UaAutomaton
-from scapy.contrib.opcua.crypto.uacrypto import create_nonce
-from scapy.contrib.opcua.binary.tcpClient import UaTcpSocket
-from scapy.contrib.opcua.helpers import UaConnectionContext
 from scapy.automaton import ATMT, Automaton
 from scapy.contrib.opcua.binary.uaTypes import *
 from scapy.supersocket import SuperSocket
@@ -49,6 +46,14 @@ class SessionAutomaton(_UaAutomaton):
     
     @ATMT.state()
     def SESSION_ACTIVATED(self):
+        pass
+    
+    @ATMT.state()
+    def CLOSING_SESSION(self):
+        pass
+    
+    @ATMT.state()
+    def SESSION_CLOSED(self):
         pass
     
     @ATMT.state()
@@ -141,7 +146,7 @@ class SessionAutomaton(_UaAutomaton):
             raise self.ACTIVATING_SESSION()
         if isinstance(pkt, UaSecureConversationSymmetric) and \
                 isinstance(pkt.reassembled.Message, UaActivateSessionResponse):
-            self.logger.debug("Received CreateSessionResponse")
+            self.logger.debug("Received ActivateSessionResponse")
             
             raise self.SESSION_ACTIVATED()
         if isinstance(pkt, UaSecureConversationSymmetric) and \
@@ -157,11 +162,8 @@ class SessionAutomaton(_UaAutomaton):
     
     @ATMT.condition(DISCONNECTING)
     def disconnect(self):
-        
-        clo = UaSecureConversationSymmetric(Payload=UaMessage(Message=UaCloseSecureChannelRequest()))
-        self.send(clo)
         self.send_sock.close()
-        self.logger.debug("TCP socket disconnected")
+        self.logger.debug("SecureConversation socket disconnected")
         raise self.DISCONNECTED()
     
     @ATMT.condition(DISCONNECTED)
@@ -176,15 +178,12 @@ class SessionAutomaton(_UaAutomaton):
     @ATMT.receive_condition(SESSION_ACTIVATED, prio=0)
     def error_received(self, pkt):
         if type(pkt) is UaTcp and isinstance(pkt.Message, UaTcpErrorMessage):
-            self.logger.warning("ERR received: {} ... Closing connection".format(statusCodes[pkt.Message.Error]))
-            raise self.DISCONNECTING()
+            self.logger.warning("ERR received: {}".format(statusCodes[pkt.Message.Error]))
         elif type(pkt) is UaSecureConversationSymmetric and \
                 isinstance(pkt.Payload.Message, UaServiceFault):
             self.logger.warning("Received service fault. Ignoring... {}".format(pkt.Payload.Message))
-        
         elif not isinstance(pkt, UaTcp):
             self.logger.warning("Unexpected message received... Closing connection")
-            raise self.DISCONNECTING()
     
     @ATMT.ioevent(SESSION_ACTIVATED, "uasess")
     def socket_send(self, fd):
@@ -192,6 +191,35 @@ class SessionAutomaton(_UaAutomaton):
     
     @ATMT.ioevent(SESSION_ACTIVATED, "shutdown")
     def shutdown(self, fd):
+        closeSession = UaCloseSessionRequest(DeleteSubscriptions=True)
+        msg = UaSecureConversationSymmetric(Payload=UaMessage(Message=closeSession))
+        self.send(msg)
+        raise self.CLOSING_SESSION()
+    
+    @ATMT.receive_condition(CLOSING_SESSION)
+    def receive_close_response(self, pkt):
+        if isinstance(pkt, UaSecureConversationSymmetric) and \
+                pkt.MessageHeader.IsFinal != b'F':
+            # Wait for final chunk
+            raise self.CLOSING_SESSION()
+        if isinstance(pkt, UaSecureConversationSymmetric) and \
+                isinstance(pkt.reassembled.Message, UaCloseSessionResponse):
+            self.logger.debug("Received CloseSessionResponse")
+        
+            raise self.SESSION_CLOSED()
+        if isinstance(pkt, UaSecureConversationSymmetric) and \
+                isinstance(pkt.Payload.Message, UaServiceFault):
+            self.logger.debug("Received ServiceFault: {}".format(pkt.Payload.Message))
+        elif type(pkt) is UaTcp and isinstance(pkt.Message, UaTcpErrorMessage):
+            self.logger.debug("Received ERR: {}".format(statusCodes[pkt.Message.Error]))
+        else:
+            self.logger.debug("Unexpected message received")
+        
+        raise self.DISCONNECTING()
+    
+    @ATMT.condition(SESSION_CLOSED)
+    def close(self):
+        self.logger.debug("Disconnecting")
         raise self.DISCONNECTING()
     
     @ATMT.action(socket_send)

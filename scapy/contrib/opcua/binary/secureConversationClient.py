@@ -2,10 +2,6 @@
 import copy
 import socket
 
-import os
-import threading
-from time import sleep
-
 from scapy.contrib.opcua.binary.automaton import _UaAutomaton
 from scapy.contrib.opcua.crypto.uacrypto import create_nonce
 from scapy.contrib.opcua.binary.tcpClient import UaTcpSocket
