@@ -191,7 +191,8 @@ class UaChunkedData(UaTypePacket):
 
     def post_dissection(self, s):
         requestId = self.underlayer.SequenceHeader.RequestId
-        UaMessage._chunks[requestId].append(self.underlayer)
+        if self.connectionContext is not None:
+            self.connectionContext.chunks[requestId].append(self.underlayer)
         return s
 
 
@@ -201,7 +202,6 @@ class UaMessage(UaTypePacket):
     
     _cache = {}
     _intermediate = UaChunkedData
-    _chunks = defaultdict(list)
     
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kwargs):
@@ -210,8 +210,9 @@ class UaMessage(UaTypePacket):
                 underlayer = kwargs["_underlayer"]
                 if underlayer.MessageHeader.IsFinal == b'C':
                     return UaMessage._intermediate
-                if underlayer.SequenceHeader.RequestId in UaMessage._chunks:
-                    return UaMessage._intermediate
+                if underlayer.connectionContext is not None:
+                    if underlayer.SequenceHeader.RequestId in underlayer.connectionContext.chunks:
+                        return UaMessage._intermediate
             nodeId = UaExpandedNodeId(_pkt)
             
             if nodeId.Identifier in nodeIdMappings:
@@ -389,10 +390,10 @@ class UaSecureConversationAsymmetric(UaTcp):
         return s
 
     def post_dissection(self, pkt):
-        if self.MessageHeader.IsFinal == b'F' and self.reassembled is None:
+        if self.MessageHeader.IsFinal == b'F' and self.reassembled is None and self.connectionContext is not None:
             from scapy.contrib.opcua.binary.networking import dechunkify
-            self.reassembled = dechunkify(UaMessage._chunks[self.SequenceHeader.RequestId])
-            del UaMessage._chunks[self.SequenceHeader.RequestId]
+            self.reassembled = dechunkify(self.connectionContext.chunks[self.SequenceHeader.RequestId])
+            del self.connectionContext.chunks[self.SequenceHeader.RequestId]
         return pkt
 
     @classmethod
