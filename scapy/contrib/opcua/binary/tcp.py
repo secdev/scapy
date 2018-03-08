@@ -29,28 +29,33 @@ class UaTcpHelloMessage(UaTypePacket):
             # Just build completely new packet, since we replace a lot
             newPkt = UaTcpHelloMessage()
             
-            # TODO: only replace when defaults are used
-            
             protocolVersion = self.connectionContext.protocolVersion
-            if protocolVersion is not None:
+            newPkt.ProtocolVersion = self.ProtocolVersion
+            if protocolVersion is not None and self.ProtocolVersion == 0:
                 newPkt.ProtocolVersion = protocolVersion
             
             receiveBufferSize = self.connectionContext.localBufferSizes.receiveBufferSize
-            if receiveBufferSize is not None:
+            newPkt.ReceiveBufferSize = self.ReceiveBufferSize
+            if receiveBufferSize is not None and self.ReceiveBufferSize == 1 << 12:
                 newPkt.ReceiveBufferSize = receiveBufferSize
             
             sendBufferSize = self.connectionContext.localBufferSizes.sendBufferSize
-            if sendBufferSize is not None:
+            newPkt.SendBufferSize = self.SendBufferSize
+            if sendBufferSize is not None and self.SendBufferSize == 1 << 12:
                 newPkt.SendBufferSize = sendBufferSize
             
             maxMessageSize = self.connectionContext.localBufferSizes.maxMessageSize
-            if maxMessageSize is not None:
+            newPkt.MaxMessageSize = self.MaxMessageSize
+            if maxMessageSize is not None and self.MaxMessageSize == 1 << 14:
                 newPkt.MaxMessageSize = maxMessageSize
             
             maxChunkCount = self.connectionContext.localBufferSizes.maxChunkCount
-            if maxChunkCount is not None:
+            newPkt.MaxChunkCount = self.MaxChunkCount
+            if maxChunkCount is not None and self.MaxChunkCount == 0:
                 newPkt.MaxChunkCount = maxChunkCount
-                
+            
+            newPkt.EndpointUrl = self.EndpointUrl
+            
             return bytes(newPkt)
         
         return pkt + pay
