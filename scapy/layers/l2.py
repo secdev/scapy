@@ -398,7 +398,13 @@ class LoIntEnumField(EnumField):
     def i2m(self, pkt, x):
         return x << 24
 
-LOOPBACK_TYPES = { 0x2: "IPv4", 0x1c: "IPv6" }
+# https://github.com/wireshark/wireshark/blob/fe219637a6748130266a0b0278166046e60a2d68/epan/dissectors/packet-null.c
+# https://www.wireshark.org/docs/wsar_html/epan/aftypes_8h.html
+LOOPBACK_TYPES = { 0x2: "IPv4",
+                   0x7: "OSI",
+                   0x10: "Appletalk",
+                   0x17: "Netware IPX/SPX",
+                   0x18: "IPv6", 0x1c: "IPv6", 0x1e: "IPv6" }
 
 class Loopback(Packet):
     """*BSD loopback layer"""
