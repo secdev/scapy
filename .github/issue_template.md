@@ -12,10 +12,7 @@ The following article explains why you must not ask questions on Github issues: 
 
 < describe the main issue in one sentence >
 
-
-#### Affected components / protocols
-
-< list what is affected by the issue (e.g. wrpcap + IPv6,it is likely this also affects XXX) >
+< if possible, add an indication what components / protocols could be affected by the issue (e.g. wrpcap + IPv6,it is likely this also affects XXX) >
 
 #### Environment
 
