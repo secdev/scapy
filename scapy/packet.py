@@ -554,14 +554,9 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         forecolor=colgen(0.2, 0.5, 0.8, trans=pyx.color.rgb)
 #        backcolor=makecol(0.376, 0.729, 0.525, 1.0)
         
-        
         def hexstr(x):
-            s = []
-            for c in x:
-                s.append("%02x" % orb(c))
-            return " ".join(s)
+            return " ".join("%02x" % orb(c) for c in x)
 
-                
         def make_dump_txt(x,y,txt):
             return pyx.text.text(XDSTART+x*XMUL, (YDUMP-y)*YMUL, r"\tt{%s}"%hexstr(txt), [pyx.text.size.Large])
 
@@ -758,12 +753,8 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         """
         for t in self.aliastypes:
             for fval, cls in t.payload_guess:
-                ok = 1
-                for k, v in six.iteritems(fval):
-                    if not hasattr(self, k) or v != self.getfieldval(k):
-                        ok = 0
-                        break
-                if ok:
+                if all(hasattr(self, k) and v == self.getfieldval(k)
+                       for k, v in six.iteritems(fval)):
                     return cls
         return self.default_payload_class(payload)
     
@@ -1394,12 +1385,7 @@ def split_bottom_up(lower, upper, __fval=None, **fval):
         fval.update(__fval)
     def do_filter(xxx_todo_changeme,upper=upper,fval=fval):
         (f,u) = xxx_todo_changeme
-        if u != upper:
-            return True
-        for k in fval:
-            if k not in f or f[k] != fval[k]:
-                return True
-        return False
+        return u != upper or any(k not in f or f[k] != v for k, v in six.iteritems(fval))
     lower.payload_guess = [x for x in lower.payload_guess if do_filter(x)]
         
 def split_top_down(lower, upper, __fval=None, **fval):
@@ -1407,9 +1393,8 @@ def split_top_down(lower, upper, __fval=None, **fval):
         fval.update(__fval)
     if lower in upper._overload_fields:
         ofval = upper._overload_fields[lower]
-        for k in fval:
-            if k not in ofval or ofval[k] != fval[k]:
-                return
+        if any(k not in ofval or ofval[k] != v for k, v in six.iteritems(fval)):
+            return
         upper._overload_fields = upper._overload_fields.copy()
         del(upper._overload_fields[lower])
 

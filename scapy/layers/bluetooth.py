@@ -927,7 +927,7 @@ conf.BTsocket = BluetoothRFCommSocket
 @conf.commands.register
 def srbt(bt_address, pkts, inter=0.1, *args, **kargs):
     """send and receive using a bluetooth socket"""
-    if "port" in kargs.keys():
+    if "port" in kargs:
         s = conf.BTsocket(bt_address=bt_address, port=kargs.pop("port"))
     else:
         s = conf.BTsocket(bt_address=bt_address)

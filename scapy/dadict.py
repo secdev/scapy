@@ -56,10 +56,7 @@ class DADict:
     def _my_find(self, *args, **kargs):
         if args and self._name not in args:
             return False
-        for k in kargs:
-            if k not in self or self[k] != kargs[k]:
-                return False
-        return True
+        return all(k in self and self[k] == v for k, v in six.iteritems(kargs))
 
     def update(self, *args, **kwargs):
         for k, v in six.iteritems(dict(*args, **kwargs)):

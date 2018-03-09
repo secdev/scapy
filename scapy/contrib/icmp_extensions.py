@@ -66,12 +66,8 @@ class ICMPExtensionHeader(Packet):
             return Packet.guess_payload_class(self, payload)
 
         for fval, cls in self.payload_guess:
-            ok = 1
-            for k, v in six.iteritems(fval):
-                if not hasattr(ieo, k) or v != ieo.getfieldval(k):
-                    ok = 0
-                    break
-            if ok:
+            if all(hasattr(ieo, k) and v == ieo.getfieldval(k)
+                   for k, v in six.iteritems(fval)):
                 return cls
         return ICMPExtensionObject
 
