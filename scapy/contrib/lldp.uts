@@ -31,7 +31,7 @@ frm = Ether(frm)
 conf.contribs['LLDP'].strict_mode_disable()
 frm = Ether(src='01:01:01:01:01:01', dst=LLDP_NEAREST_BRIDGE_MAC) / \
       LLDPDUPortID(subtype=LLDPDUPortID.SUBTYPE_INTERFACE_NAME, id='eth0') / \
-      LLDPDUChassisID(subtype=LLDPDUChassisID.SUBTYPE_MAC_ADDRESS, id=b'\x06\x05\x04\x03\x02\x01') / \
+      LLDPDUChassisID(subtype=LLDPDUChassisID.SUBTYPE_MAC_ADDRESS, id='06:05:04:03:02:01') / \
       LLDPDUTimeToLive() / \
       LLDPDUEndOfLLDPDU()
 assert(len(raw(frm)) == 60)
@@ -39,7 +39,7 @@ assert(len(raw(Ether(raw(frm))[Padding])) == 24)
 
 frm = Ether(src='01:01:01:01:01:01', dst=LLDP_NEAREST_BRIDGE_MAC) / \
       LLDPDUPortID(subtype=LLDPDUPortID.SUBTYPE_INTERFACE_NAME, id='eth012345678901234567890123') / \
-      LLDPDUChassisID(subtype=LLDPDUChassisID.SUBTYPE_MAC_ADDRESS, id=b'\x06\x05\x04\x03\x02\x01') / \
+      LLDPDUChassisID(subtype=LLDPDUChassisID.SUBTYPE_MAC_ADDRESS, id='06:05:04:03:02:01') / \
       LLDPDUTimeToLive() / \
       LLDPDUEndOfLLDPDU()
 assert (len(raw(frm)) == 60)
@@ -47,7 +47,7 @@ assert (len(raw(Ether(raw(frm))[Padding])) == 1)
 
 frm = Ether(src='01:01:01:01:01:01', dst=LLDP_NEAREST_BRIDGE_MAC) / \
       LLDPDUPortID(subtype=LLDPDUPortID.SUBTYPE_INTERFACE_NAME, id='eth0123456789012345678901234') / \
-      LLDPDUChassisID(subtype=LLDPDUChassisID.SUBTYPE_MAC_ADDRESS, id=b'\x06\x05\x04\x03\x02\x01') / \
+      LLDPDUChassisID(subtype=LLDPDUChassisID.SUBTYPE_MAC_ADDRESS, id='06:05:04:03:02:01') / \
       LLDPDUTimeToLive() / \
       LLDPDUEndOfLLDPDU()
 assert (len(raw(frm)) == 60)
@@ -57,6 +57,13 @@ try:
 except IndexError:
       pass
 
+
+= Advanced test: check length of complex IDs
+
+pkt = Ether()/LLDPDUChassisID(id="ff:dd:ee:bb:aa:99", subtype=0x04)/LLDPDUPortID(subtype=0x03, id="aa:bb:cc:dd:ee:ff")/LLDPDUTimeToLive(ttl=120)/LLDPDUEndOfLLDPDU()
+pkt = Ether(raw(pkt))
+assert pkt[LLDPDUChassisID]._length == 7
+assert pkt[LLDPDUPortID]._length == 7
 
 + strict mode handling - build
 = basic frame structure
@@ -168,8 +175,8 @@ frm = Ether(frm.build())
 conf.contribs['LLDP'].strict_mode_enable()
 
 frm = Ether(src='01:01:01:01:01:01', dst=LLDP_NEAREST_BRIDGE_MAC)/ \
-      LLDPDUChassisID(subtype=LLDPDUChassisID.SUBTYPE_MAC_ADDRESS, id=b'\x06\x05\x04\x03\x02\x01') / \
-      LLDPDUPortID(subtype=LLDPDUPortID.SUBTYPE_MAC_ADDRESS, id=b'\x01\x02\x03\x04\x05\x06')/\
+      LLDPDUChassisID(subtype=LLDPDUChassisID.SUBTYPE_MAC_ADDRESS, id='06:05:04:03:02:01') / \
+      LLDPDUPortID(subtype=LLDPDUPortID.SUBTYPE_MAC_ADDRESS, id='01:02:03:04:05:06')/\
       LLDPDUTimeToLive()/\
       LLDPDUSystemName(system_name='things will')/\
       LLDPDUSystemCapabilities(telephone_available=1,
@@ -188,8 +195,8 @@ frm = Ether(src='01:01:01:01:01:01', dst=LLDP_NEAREST_BRIDGE_MAC)/ \
 
 frm = Ether(frm.build())
 
-assert str2mac(frm[LLDPDUChassisID].id) == '06:05:04:03:02:01'
-assert str2mac(frm[LLDPDUPortID].id) == '01:02:03:04:05:06'
+assert frm[LLDPDUChassisID].id == '06:05:04:03:02:01'
+assert frm[LLDPDUPortID].id == '01:02:03:04:05:06'
 sys_capabilities = frm[LLDPDUSystemCapabilities]
 assert sys_capabilities.reserved_5_available == 0
 assert sys_capabilities.reserved_4_available == 0
