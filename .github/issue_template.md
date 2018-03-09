@@ -1,11 +1,12 @@
-#### A note about questions vs. issues
+#### Things to consider
 
-Please understand that **this is not a forum** but an issue tracker.
+1. Please check that you are using the latest scapy version (e.g. installed via pip install https://github.com/secdev/scapy)
+
+2. If you are here to ask a question - please use gitter instead: https://gitter.im/secdev/scapy
+
+3. Please understand that **this is not a forum** but an issue tracker. Invalid issues will be closed without any comment.
 
 The following article explains why you must not ask questions on Github issues: https://medium.com/@methane/why-you-must-not-ask-questions-on-github-issues-51d741d83fde
-
-Invalid issues will be closed without any comment.
-
 
 #### Brief description
 
