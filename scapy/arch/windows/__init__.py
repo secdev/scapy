@@ -77,6 +77,8 @@ def _encapsulate_admin(cmd):
     return "Start-Process PowerShell -windowstyle hidden -Wait -Verb RunAs -ArgumentList '-command &{%s}'" % cmd
 
 def _windows_title(title=None):
+    """Updates the terminal title with the default one or with `title`
+    if provided."""
     if conf.interactive:
         title = title or "Scapy v" + conf.version
         ctypes.windll.kernel32.SetConsoleTitleW(title)
