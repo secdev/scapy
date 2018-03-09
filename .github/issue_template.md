@@ -1,6 +1,8 @@
 #### Things to consider
 
-1. Please check that you are using the latest scapy version (e.g. installed via pip install https://github.com/secdev/scapy)
+1. Please check that you are using the latest scapy version, e.g. installed via:
+
+   `pip install https://github.com/secdev/scapy`
 
 2. If you are here to ask a question - please use gitter instead: https://gitter.im/secdev/scapy
 
