@@ -4,14 +4,14 @@ Build your own tools
 
 You can use Scapy to make your own automated tools. You can also extend Scapy without having to edit its source file.
 
-If you have built some interesting tools, please contribute back to the mailing-list!
+If you have built some interesting tools, please contribute back to the github wiki !
 
     
 Using Scapy in your tools
 =========================
 You can easily use Scapy in your own tools. Just import what you need and do it.
 
-This first example take an IP or a name as first parameter, send an ICMP echo request packet and display the completely dissected return packet::
+This first example takes an IP or a name as first parameter, send an ICMP echo request packet and display the completely dissected return packet::
 
     #! /usr/bin/env python
     
@@ -63,7 +63,7 @@ For a real life example, you can check `Wifitap <http://sid.rstack.org/static/ar
 Extending Scapy with add-ons
 ============================
 
-If you need to add some new protocols, new functions, anything, you can write it directly into Scapy source file. But this is not very convenient. Even if those modifications are to be integrated into Scapy, it can be more convenient to write them in a separate file.
+If you need to add some new protocols, new functions, anything, you can write it directly into Scapy's source file. But this is not very convenient. Even if those modifications are to be integrated into Scapy, it can be more convenient to write them in a separate file.
 
 Once you've done that, you can launch Scapy and import your file, but this is still not very convenient. Another way to do that is to make your file executable and have it call the Scapy function named interact()::
 
