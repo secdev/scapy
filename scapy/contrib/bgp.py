@@ -35,6 +35,7 @@ from scapy.fields import (Field, BitField, BitEnumField, XBitField, ByteField,
                           MultiEnumField)
 from scapy.layers.inet import TCP
 from scapy.layers.inet6 import IP6Field
+from scapy.utils import issubtype
 from scapy.config import conf, ConfClass
 from scapy.compat import *
 from scapy.error import log_runtime
@@ -608,7 +609,7 @@ class BGPCapability(six.with_metaclass(_BGPCapability_metaclass, Packet)):
         if cls == "BGPCapability":
             if isinstance(self, BGPCapability):
                 return True
-        if issubclass(cls, BGPCapability):
+        elif issubtype(cls, BGPCapability):
             if isinstance(self, cls):
                 return True
         return super(BGPCapability, self).haslayer(cls)

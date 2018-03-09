@@ -19,6 +19,7 @@ from scapy.fields import ByteField, ByteEnumField, IntField, StrLenField,\
     PacketListField, IPField, MultiEnumField
 from scapy.layers.inet import UDP
 from scapy.layers.eap import EAP
+from scapy.utils import issubtype
 from scapy.config import conf
 from scapy.error import Scapy_Exception
 
@@ -261,7 +262,7 @@ class RadiusAttribute(Packet):
         if cls == "RadiusAttribute":
             if isinstance(self, RadiusAttribute):
                 return True
-        elif issubclass(cls, RadiusAttribute):
+        elif issubtype(cls, RadiusAttribute):
             if isinstance(self, cls):
                 return True
         return super(RadiusAttribute, self).haslayer(cls)

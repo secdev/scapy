@@ -33,9 +33,18 @@ from scapy.base_classes import BasePacketList
 ## Tools ##
 ###########
 
+def issubtype(x, t):
+    """issubtype(C, B) -> bool
+
+    Return whether C is a class and if it is a subclass of class B.
+    When using a tuple as the second argument issubtype(X, (A, B, ...)),
+    is a shortcut for issubtype(X, A) or issubtype(X, B) or ... (etc.).
+    """
+    return isinstance(x, type) and issubclass(x, t)
+
 def get_temp_file(keep=False, autoext=""):
     """Create a temporary file and return its name. When keep is False,
-the file is deleted when scapy exits.
+    the file is deleted when scapy exits.
 
     """
     fname = tempfile.NamedTemporaryFile(prefix="scapy", suffix=autoext,
