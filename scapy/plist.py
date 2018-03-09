@@ -15,8 +15,8 @@ from collections import defaultdict
 
 from scapy.config import conf
 from scapy.base_classes import BasePacket,BasePacketList
-from scapy.utils import do_graph,hexdump,make_table,make_lined_table,make_tex_table,get_temp_file
-
+from scapy.utils import do_graph,hexdump,make_table,make_lined_table,make_tex_table, \
+    get_temp_file, issubtype
 from scapy.extlib import plt, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
 from functools import reduce
 import scapy.modules.six as six
@@ -79,7 +79,7 @@ class PacketList(BasePacketList):
     def __getattr__(self, attr):
         return getattr(self.res, attr)
     def __getitem__(self, item):
-        if isinstance(item,type) and issubclass(item,BasePacket):
+        if issubtype(item, BasePacket):
             return self.__class__([x for x in self.res if item in self._elt2pkt(x)],
                                   name="%s from %s"%(item.__name__,self.listname))
         if isinstance(item, slice):

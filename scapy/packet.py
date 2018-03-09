@@ -21,7 +21,7 @@ from scapy.compat import *
 from scapy.base_classes import BasePacket, Gen, SetGen, Packet_metaclass
 from scapy.volatile import VolatileValue
 from scapy.utils import import_hexcap,tex_escape,colgen,get_temp_file, \
-    ContextManagerSubprocess
+    issubtype, ContextManagerSubprocess
 from scapy.error import Scapy_Exception, log_runtime
 from scapy.extlib import PYX
 import scapy.modules.six as six
@@ -726,7 +726,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
                 raise
             except:
                 if conf.debug_dissector:
-                    if isinstance(cls,type) and issubclass(cls,Packet):
+                    if issubtype(cls, Packet):
                         log_runtime.error("%s dissector failed" % cls.__name__)
                     else:
                         log_runtime.error("%s.guess_payload_class() returned [%s]" % (self.__class__.__name__,repr(cls)))
@@ -1441,7 +1441,7 @@ def ls(obj=None, case_sensitive=False, verbose=False):
 
     else:
         is_pkt = isinstance(obj, Packet)
-        if (isinstance(obj, type) and issubclass(obj, Packet)) or is_pkt:
+        if issubtype(obj, Packet) or is_pkt:
             for f in obj.fields_desc:
                 cur_fld = f
                 attrs = []

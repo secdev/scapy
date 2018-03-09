@@ -18,6 +18,7 @@ XStrLenField, XStrFixedLenField, LenField, FieldLenField, PacketField,\
 PacketListField, ConditionalField, PadField
 from scapy.packet import Packet, bind_layers
 from scapy.layers.l2 import SourceMACField, Ether, CookedLinux, GRE, SNAP
+from scapy.utils import issubtype
 from scapy.config import conf
 from scapy.compat import orb, chb
 
@@ -241,7 +242,7 @@ class EAP(Packet):
         if cls == "EAP":
             if isinstance(self, EAP):
                 return True
-        elif issubclass(cls, EAP):
+        elif issubtype(cls, EAP):
             if isinstance(self, cls):
                 return True
         return super(EAP, self).haslayer(cls)
