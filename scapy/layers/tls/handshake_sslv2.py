@@ -257,11 +257,7 @@ class SSLv2ClientMasterKey(_SSLv2Handshake):
         post_build to an object different from the original one... unless
         we hackishly always set self.explicit to 1.
         """
-        if "decryptedkey" in kargs:
-            self.decryptedkey = kargs["decryptedkey"]
-            del kargs["decryptedkey"]
-        else:
-            self.decryptedkey = b""
+        self.decryptedkey = kargs.pop("decryptedkey", b"")
         super(SSLv2ClientMasterKey, self).__init__(*args, **kargs)
         self.explicit = 1
 

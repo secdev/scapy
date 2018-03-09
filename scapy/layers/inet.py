@@ -1522,9 +1522,8 @@ def traceroute_map(*args, **kargs):
     show the different paths on a map.
     params:
      - *args: IPs on which traceroute will be called"""
+    kargs.setdefault("verbose", 0)
     res = []
-    if not "verbose" in kargs:
-        kargs["verbose"] = 0
     for target in args:
         res += traceroute(target, **kargs)[0].res
     return TracerouteResult(res).world_trace()

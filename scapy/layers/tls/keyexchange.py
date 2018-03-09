@@ -824,8 +824,7 @@ class _UnEncryptedPreMasterSecret(Raw):
     """
     name = "RSA Encrypted PreMaster Secret (protected)"
     def __init__(self, *args, **kargs):
-        if 'tls_session' in kargs:
-            del(kargs['tls_session'])
+        kargs.pop('tls_session', None)
         return super(_UnEncryptedPreMasterSecret, self).__init__(*args, **kargs)
 
 class EncryptedPreMasterSecret(_GenericTLSSessionInheritance):

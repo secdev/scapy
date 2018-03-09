@@ -90,10 +90,7 @@ class Net(Gen):
         self.parsed,self.netmask = self._parse_net(net)
 
     def __str__(self):
-        try:
-            return next(self.__iter__())
-        except StopIteration:
-            return None
+        return next(self.__iter__(), None)
                                                                                                
     def __iter__(self):
         for d in range(*self.parsed[3]):
@@ -102,10 +99,7 @@ class Net(Gen):
                     for a in range(*self.parsed[0]):
                         yield "%i.%i.%i.%i" % (a,b,c,d)
     def choice(self):
-        ip = []
-        for v in self.parsed:
-            ip.append(str(random.randint(v[0],v[1]-1)))
-        return ".".join(ip) 
+        return ".".join(str(random.randint(v[0], v[1] - 1)) for v in self.parsed)
                           
     def __repr__(self):
         return "Net(%r)" % self.repr
@@ -120,10 +114,7 @@ class Net(Gen):
             p2 = other.parsed
         else:
             p2,nm2 = self._parse_net(other)
-        for (a1,b1),(a2,b2) in zip(self.parsed,p2):
-            if a1 > a2 or b1 < b2:
-                return False
-        return True
+        return all(a1 <= a2 and b1 >= b2 for (a1, b1), (a2, b2) in zip(self.parsed, p2))
     def __rcontains__(self, other):        
         return self in self.__class__(other)
         
@@ -193,8 +184,7 @@ class Packet_metaclass(type):
 
             dct["fields_desc"] = final_fld
 
-        if "__slots__" not in dct:
-            dct["__slots__"] = []
+        dct.setdefault("__slots__", [])
         for attr in ["name", "overload_fields"]:
             try:
                 dct["_%s" % attr] = dct.pop(attr)
@@ -242,8 +232,7 @@ class Packet_metaclass(type):
 
 class Field_metaclass(type):
     def __new__(cls, name, bases, dct):
-        if "__slots__" not in dct:
-            dct["__slots__"] = []
+        dct.setdefault("__slots__", [])
         newcls = super(Field_metaclass, cls).__new__(cls, name, bases, dct)
         return newcls
 
