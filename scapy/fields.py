@@ -1157,7 +1157,6 @@ class XShortEnumField(ShortEnumField):
                     return ret
         return lhex(x)
 
-
 class _MultiEnumField(_EnumField):
     def __init__(self, name, default, enum, depends_on, fmt = "H"):
 

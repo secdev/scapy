@@ -228,3 +228,47 @@ assert frm[LLDPDUSystemName].system_name == b'things will'
 assert frm[LLDPDUManagementAddress].object_id == b'burn'
 assert frm[LLDPDUSystemDescription].description == b'without tests.'
 assert frm[LLDPDUPortDescription].description == b'always!'
+
++ organisation specific layers
+
+= ThreeBytesEnumField tests
+
+three_b_enum_field = ThreeBytesEnumField('test', 0x00,
+                                         {
+                                             0x0e: 'fourteen',
+                                             0x00: 'zero',
+                                             0x5566: 'five-six',
+                                             0x0e0000: 'fourteen-zero-zero',
+                                             0x0e0100: 'fourteen-one-zero',
+                                             0x112233: '1#2#3'
+                                         })
+
+assert(three_b_enum_field.i2repr(None, 0) == 'zero')
+assert(three_b_enum_field.i2repr(None, 0x0e) == 'fourteen')
+assert(three_b_enum_field.i2repr(None, 0x5566) == 'five-six')
+assert(three_b_enum_field.i2repr(None, 0x112233) == '1#2#3')
+assert(three_b_enum_field.i2repr(None, 0x0e0000) == 'fourteen-zero-zero')
+assert(three_b_enum_field.i2repr(None, 0x0e0100) == 'fourteen-one-zero')
+assert(three_b_enum_field.i2repr(None, 0x01) == '1')
+assert(three_b_enum_field.i2repr(None, 0x49763) == '300899')
+
+= LLDPDUGenericOrganisationSpecific tests
+
+frm = Ether(src='01:01:01:01:01:01', dst=LLDP_NEAREST_BRIDGE_MAC)/\
+      LLDPDUChassisID(subtype=LLDPDUChassisID.SUBTYPE_MAC_ADDRESS, id=b'\x06\x05\x04\x03\x02\x01')/\
+      LLDPDUPortID(subtype=LLDPDUPortID.SUBTYPE_MAC_ADDRESS, id=b'\x01\x02\x03\x04\x05\x06')/\
+      LLDPDUTimeToLive()/\
+      LLDPDUGenericOrganisationSpecific(org_code=LLDPDUGenericOrganisationSpecific.ORG_UNIQUE_CODE_PNO,
+                                        subtype=0x42,
+                                        data=b'FooBar'*5
+                                        )/\
+      LLDPDUEndOfLLDPDU()
+
+frm = frm.build()
+frm = Ether(frm)
+org_spec_layer = frm[LLDPDUGenericOrganisationSpecific]
+assert(org_spec_layer)
+assert(org_spec_layer._type == 127)
+assert(org_spec_layer.org_code == LLDPDUGenericOrganisationSpecific.ORG_UNIQUE_CODE_PNO)
+assert(org_spec_layer.subtype == 0x42)
+assert(org_spec_layer._length == 34)
