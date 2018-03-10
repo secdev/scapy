@@ -32,7 +32,7 @@ def _make_check_encoding_mask_function(field, mask):
         if p.EncodingMask is None:
             return False
         return p.getfieldval("EncodingMask") & mask
-
+    
     return has_field
 
 
@@ -45,31 +45,31 @@ class UaBooleanField(Field):
 
      Specified in Spec ver 1.03 Part 6 §5.2.2.1
     """
-
+    
     def __init__(self, name, default):
         Field.__init__(self, name, default, "<B")
-
+    
     def h2i(self, pkt, x):
         return True if x == "true" else False
-
+    
     def i2h(self, pkt, x):
         return True if x else False
-
+    
     def m2i(self, pkt, x):
         return True if struct.unpack("<B", x)[0] != 0 else False
-
+    
     def i2m(self, pkt, x):
         return struct.pack("<B", 1 if x else 0)
-
+    
     def any2i(self, pkt, x):
         if x == "false":
             return False
         else:
             return bool(x)
-
+    
     def addfield(self, pkt, s, val):
         return s + self.i2m(pkt, val)
-
+    
     def getfield(self, pkt, s):
         return s[1:], self.m2i(pkt, s[:1])
 
@@ -83,31 +83,31 @@ class UaByteField(LengthField):
     """
     Represents the Byte data type according to the OPC UA standard
     """
-
+    
     __slots__ = ["displayAsChar"]
-
+    
     def __init__(self, name, default, displayAsChar=False, *args, **kwargs):
         super(UaByteField, self).__init__(name, default, "<B", *args, **kwargs)
         self.displayAsChar = displayAsChar
-
+    
     def h2i(self, pkt, x):
         if isinstance(x, str):
             x = bytearray(x, "ascii")
         return struct.unpack("<B", x)[0]
-
+    
     def i2h(self, pkt, x):
         if x is None:
             return None
         if self.displayAsChar:
             return struct.pack("<B", x)
         return x
-
+    
     def m2i(self, pkt, x):
         return struct.unpack("<B", x)[0]
-
+    
     def i2m(self, pkt, x):
         return struct.pack("<B", super(UaByteField, self).i2m(pkt, x))
-
+    
     def any2i(self, pkt, x):
         if isinstance(x, bytes) and len(x) == 1:
             return struct.unpack("<B", x)[0]
@@ -115,10 +115,10 @@ class UaByteField(LengthField):
             return x
         else:
             raise TypeError("Cannot convert supplied argument")
-
+    
     def addfield(self, pkt, s, val):
         return s + self.i2m(pkt, val)
-
+    
     def getfield(self, pkt, s):
         return s[1:], self.m2i(pkt, s[:1])
 
@@ -133,7 +133,7 @@ class UaSByteField(Field):
 
     Specified in Spec ver 1.03 Part 3 §8.17
     """
-
+    
     def __init__(self, name, default):
         Field.__init__(self, name, default, "<b")
 
@@ -145,9 +145,9 @@ class UaSByte(UaBuiltin):
 
 class UaBytesField(UaByteField):
     __slots__ = ["num_bytes"]
-
+    
     islist = 1
-
+    
     def __init__(self, name, default, num_bytes):
         """
 
@@ -158,35 +158,35 @@ class UaBytesField(UaByteField):
         Field.__init__(self, name, default)
         self.num_bytes = num_bytes
         self.sz = num_bytes
-
+    
     def h2i(self, pkt, x):
         if x is None:
             return None
         return [super(UaBytesField, self).h2i(pkt, x[i:i + 1]) for i in range(len(x))]
         # return list(map(lambda val, self=self: UaByteField.h2i(self, pkt, val), x))
-
+    
     def i2h(self, pkt, x):
         if x is None:
             return x
         return self.i2m(pkt, x)
-
+    
     def m2i(self, pkt, x):
         return [super(UaBytesField, self).m2i(pkt, x[i:i + 1]) for i in range(len(x))]
         # return list(map(lambda val, self=self: UaByteField.m2i(self, pkt, val), x))
-
+    
     def i2m(self, pkt, x):
         if x is None:
             return b'\x00' * self.num_bytes
         elif not isinstance(x, list):
             return self.i2m(pkt, self.any2i(pkt, x))
         return b''.join(map(lambda val, self=self: UaByteField.i2m(self, pkt, val), x))
-
+    
     def any2i(self, pkt, x):
         return self.h2i(pkt, x)
-
+    
     def addfield(self, pkt, s, val):
         return s + self.i2m(pkt, val)
-
+    
     def getfield(self, pkt, s):
         return s[self.num_bytes:], self.m2i(pkt, s[:self.num_bytes])
 
@@ -274,12 +274,12 @@ class UaDouble(UaBuiltin):
 class UaDateTimeField(Field):
     def __init__(self, name, default):
         super(UaDateTimeField, self).__init__(name, default, "<q")
-
+    
     def i2h(self, pkt, x):
         if x is None:
             return None
         return datetime(1601, 1, 1) + timedelta(microseconds=x // 10)
-
+    
     def h2i(self, pkt, x):
         if isinstance(x, datetime):
             ft = datetime(1601, 1, 1) + (timegm(x.timetuple()) * 10000000)
@@ -295,30 +295,30 @@ class UaDateTime(UaBuiltin):
 class UaGuidField(Field):
     def __init__(self, name, default):
         super(UaGuidField, self).__init__(name, default, "<I2H8B")
-
+    
     def i2h(self, pkt, x):
         parts = [binascii.hexlify(struct.pack(">I", x[0]))]
-
+        
         parts += map(lambda val: binascii.hexlify(struct.pack(">H", val)), x[1:3])
         parts.append(binascii.hexlify(x[3]))
-
+        
         parts = map(lambda val: val.decode('ascii'), parts)
-
+        
         return "-".join(parts)
-
+    
     def i2m(self, pkt, x):
         return tuple(x[0:3]) + tuple(x[3])
-
+    
     def m2i(self, pkt, x):
         front = x[:3]
         return front + tuple([bytes(x[3:])])
-
+    
     def any2i(self, pkt, x):
         parts = []
-
+        
         if isinstance(x, str) and x != "":
             parts = x.split('-')
-
+            
             if len(parts) != 5:
                 raise TypeError("Guids have to have 5 parts separated by '-'")
             if len(parts[0]) != 8:
@@ -331,14 +331,14 @@ class UaGuidField(Field):
                 raise TypeError("The fourth part of a Guid has to be 4 characters long")
             if len(parts[4]) != 12:
                 raise TypeError("The fifth part of a Guid has to be 12 characters long")
-
+            
             parts[:3] = map(lambda val: bytes(bytearray.fromhex(val)), parts[:3])
             parts[3:] = [bytes(bytearray.fromhex("".join(parts[3:])))]
-
+            
             parts[0] = struct.unpack(">I", parts[0])[0]
             parts[1:3] = map(lambda val: struct.unpack(">H", val)[0], parts[1:3])
             return tuple(parts)
-
+        
         elif isinstance(x, tuple) and \
                 len(x) == 4 and \
                 isinstance(x[0], int) and \
@@ -346,15 +346,15 @@ class UaGuidField(Field):
                 isinstance(x[2], int) and \
                 isinstance(x[3], bytes):
             return x
-
+        
         elif x is None:
             return 0, 0, 0, b'\x00' * 8
         else:
             raise TypeError("Cannot convert supplied value to Guid")
-
+    
     def addfield(self, pkt, s, val):
         return s + struct.pack(self.fmt, *self.i2m(pkt, val))
-
+    
     def getfield(self, pkt, s):
         """Extract an internal value from a string"""
         return s[self.sz:], self.m2i(pkt, struct.unpack(self.fmt, s[:self.sz]))
@@ -375,7 +375,7 @@ class UaByteString(UaBuiltin):
     nodeId = 15
     fields_desc = [UaInt32Field("length", None),
                    ByteListField("data", None, UaByteField("", None, True), length_from=_ua_str_len_function)]
-
+    
     def post_build(self, pkt, pay):
         lengthField, length = self.getfield_and_val("length")
         if length is None:
@@ -386,7 +386,7 @@ class UaByteString(UaBuiltin):
                 sizePart = lengthField.addfield(self, b'', len(dataPart))
             return sizePart + dataPart + pay
         return pkt + pay
-
+    
     def post_dissect(self, s):
         if self.getfieldval("length") == -1:
             self.setfieldval("data", None)
@@ -405,7 +405,8 @@ def _string_decode(s):
 class UaString(UaByteString):
     nodeId = 12
     fields_desc = [UaInt32Field("length", None),
-                   ByteListField("data", None, UaByteField("", None), length_from=_ua_str_len_function,
+                   ByteListField("data", None, UaByteField("", None, displayAsChar=True),
+                                 length_from=_ua_str_len_function,
                                  decode_callback=_string_decode,
                                  encode_callback=lambda s: s.encode("utf8"))]
 
@@ -427,22 +428,22 @@ class UaLocalizedText(UaBuiltin):
                                     _make_check_encoding_mask_function("Locale", 0x01)),
                    ConditionalField(UaPacketField("Text", None, UaString),
                                     _make_check_encoding_mask_function("Text", 0x02))]
-
+    
     def post_build(self, pkt, pay):
-
+        
         encodingMaskField, encodingMask = self.getfield_and_val("EncodingMask")
-
+        
         if encodingMask is not None:
             return pkt + pay
-
+        
         encodingMask = 0
         rest = pkt[encodingMaskField.sz:]
-
+        
         if self.Locale is not None:
             encodingMask |= 0x1
         if self.Text is not None:
             encodingMask |= 0x2
-
+        
         self.EncodingMask = encodingMask
         maskPart = encodingMaskField.addfield(self, b'', encodingMask)
         return maskPart + rest + pay
@@ -455,7 +456,7 @@ class UaStatusCodeField(UaUInt32Field):
         if x is None:
             return None
         return statusCodes[x][0]
-
+    
     def any2i(self, pkt, x):
         if isinstance(x, str):
             from scapy.contrib.opcua.binary.schemaTypes import UaStatusCodes
@@ -477,21 +478,21 @@ class UaNodeId(UaBuiltin):
     fields_desc = [UaByteField("Encoding", 0x02),
                    UaUInt16Field("Namespace", 0),
                    UaUInt32Field("Identifier", None)]
-
+    
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kwargs):
         if _pkt is not None and len(_pkt) > 0:
             encodingField = UaByteField("Encoding", None)
-
+            
             rest, val = encodingField.getfield(None, _pkt)
-
+            
             # Mask out the ExpandedNodeId bits
             expanded = val & UaExpandedNodeId.encoding
             if expanded and "partOfExpanded" not in kwargs:
                 return UaExpandedNodeId
-
+            
             val &= ~UaExpandedNodeId.encoding
-
+            
             if val == UaTwoByteNodeId.encoding:
                 return UaTwoByteNodeId
             elif val == UaFourByteNodeId.encoding:
@@ -504,16 +505,16 @@ class UaNodeId(UaBuiltin):
                 return UaGuidNodeId
             elif val == UaByteStringNodeId.encoding:
                 return UaByteStringNodeId
-
+        
         return cls
 
 
 class UaTwoByteNodeId(UaNodeId):
     encoding = 0x00
-
+    
     fields_desc = [UaByteField("Encoding", encoding),
                    UaByteField("Identifier", None)]
-
+    
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         return super(UaTwoByteNodeId, cls).dispatch_hook(_pkt, args, kargs)
@@ -521,11 +522,11 @@ class UaTwoByteNodeId(UaNodeId):
 
 class UaFourByteNodeId(UaNodeId):
     encoding = 0x01
-
+    
     fields_desc = [UaByteField("Encoding", encoding),
                    UaByteField("Namespace", 0),
                    UaUInt16Field("Identifier", None)]
-
+    
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         return super(UaFourByteNodeId, cls).dispatch_hook(_pkt, args, kargs)
@@ -533,11 +534,11 @@ class UaFourByteNodeId(UaNodeId):
 
 class UaNumericNodeId(UaNodeId):
     encoding = 0x02
-
+    
     fields_desc = [UaByteField("Encoding", encoding),
                    UaUInt16Field("Namespace", 0),
                    UaUInt32Field("Identifier", None)]
-
+    
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kwargs):
         return super(UaNumericNodeId, cls).dispatch_hook(_pkt, args, kwargs)
@@ -545,11 +546,11 @@ class UaNumericNodeId(UaNodeId):
 
 class UaStringNodeId(UaNodeId):
     encoding = 0x03
-
+    
     fields_desc = [UaByteField("Encoding", encoding),
                    UaUInt16Field("Namespace", 0),
                    UaPacketField("Identifier", UaString(), UaString)]
-
+    
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kwargs):
         return super(UaStringNodeId, cls).dispatch_hook(_pkt, args, kwargs)
@@ -557,11 +558,11 @@ class UaStringNodeId(UaNodeId):
 
 class UaGuidNodeId(UaNodeId):
     encoding = 0x04
-
+    
     fields_desc = [UaByteField("Encoding", encoding),
                    UaUInt16Field("Namespace", 0),
                    UaGuidField("Identifier", None)]
-
+    
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kwargs):
         return super(UaGuidNodeId, cls).dispatch_hook(_pkt, args, kwargs)
@@ -569,11 +570,11 @@ class UaGuidNodeId(UaNodeId):
 
 class UaByteStringNodeId(UaNodeId):
     encoding = 0x05
-
+    
     fields_desc = [UaByteField("Encoding", encoding),
                    UaUInt16Field("Namespace", 0),
                    UaPacketField("Identifier", UaByteString(), UaByteString)]
-
+    
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kwargs):
         return super(UaByteStringNodeId, cls).dispatch_hook(_pkt, args, kwargs)
@@ -595,7 +596,7 @@ def _id_has_index(p):
 
 
 class _NodeIdNoRecurse(UaNodeId):
-
+    
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kwargs):
         return super(_NodeIdNoRecurse, cls).dispatch_hook(_pkt, args, kwargs, partOfExpanded=True)
@@ -606,29 +607,30 @@ class UaExpandedNodeId(UaNodeId):
     fields_desc = [UaPacketField("NodeId", UaNodeId(), _NodeIdNoRecurse),
                    ConditionalField(UaPacketField("NamespaceUri", None, UaString), _id_has_uri),
                    ConditionalField(UaUInt32Field("ServerIndex", 0), _id_has_index)]
-
+    
     encoding = 0x80 | 0x40
-
+    
     def post_build(self, pkt, pay):
         encodingField, encoding = self.NodeId.getfield_and_val("Encoding")
-
+        
         if self.ServerIndex != 0:
             encoding |= 0x40
-
+        
         if self.NamespaceUri is not None:
             uriLen = self.NamespaceUri.length
             if uriLen is None:
                 uriLen = len(self.NamespaceUri.data)
             if uriLen <= 0:
                 # TODO:
-                print("Remove string length if it is 0 or -1")
+                # print("Remove string length if it is 0 or -1")
+                pass
             else:
                 encoding |= 0x80
-
+        
         pkt = encodingField.addfield(self, b'', encoding) + pkt[encodingField.sz:]
-
+        
         return pkt + pay
-
+    
     def __getattr__(self, attr):
         try:
             fld, v = self.getfield_and_val(attr)
@@ -637,7 +639,7 @@ class UaExpandedNodeId(UaNodeId):
         if fld is not None:
             return fld.i2h(self, v)
         return v
-
+    
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kwargs):
         return super(UaExpandedNodeId, cls).dispatch_hook(_pkt, *args, **kwargs)
@@ -658,17 +660,17 @@ class UaDiagnosticInfo(UaBuiltin):
                                     _make_check_encoding_mask_function("AdditionalInfo", 0x10)),
                    ConditionalField(UaStatusCodeField("InnerStatusCode", None),
                                     _make_check_encoding_mask_function("InnerStatusCode", 0x20))]
-
+    
     def post_build(self, pkt, pay):
-
+        
         encodingMaskField, encodingMask = self.getfield_and_val("EncodingMask")
-
+        
         if encodingMask is not None:
             return pkt + pay
-
+        
         encodingMask = 0
         rest = pkt[encodingMaskField.sz:]
-
+        
         if self.SymbolicId is not None:
             encodingMask |= 0x01
         if self.NamespaceUri is not None:
@@ -683,7 +685,7 @@ class UaDiagnosticInfo(UaBuiltin):
             encodingMask |= 0x20
         if self.InnerDiagnosticInfo is not None:
             encodingMask |= 0x40
-
+        
         # self.EncodingMask = encodingMask
         maskPart = encodingMaskField.addfield(self, b'', encodingMask)
         return maskPart + rest + pay
@@ -731,16 +733,16 @@ class UaExtensionObject(UaBuiltin):
                                     _extension_obj_has_object),
                    ConditionalField(UaPacketField("Body", None, ExtensionObjectRawBytes),
                                     _extension_obj_has_object)]
-
+    
     _cache = {}
-
+    
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kwargs):
         from scapy.contrib.opcua.binary.schemaTypes import nodeIdMappings
         if _pkt is not None:
             nodeId = UaExpandedNodeId(_pkt)
             _, encoding = cls.fields_desc[1].getfield(None, nodeId.payload.load)
-
+            
             if encoding == 0x01:
                 if nodeId.Identifier in nodeIdMappings:
                     if nodeId.Identifier not in UaExtensionObject._cache:
@@ -749,32 +751,32 @@ class UaExtensionObject(UaBuiltin):
                             _create_extended_extension_object(cls, dispatchedClass)
                     return UaExtensionObject._cache[nodeId.Identifier]
                 return cls
-
+        
         return cls
-
+    
     def post_build(self, pkt, pay):
         identifierField, identifier = self.TypeId.getfield_and_val("Identifier")
         removeUpToTypeId = len(self.TypeId)
-
+        
         encodingField, encoding = self.getfield_and_val("Encoding")
         removeUpToEncoding = encodingField.sz
-
+        
         if encoding is None:
             # Use Binary as default encoding
             if self.Body is not None:
                 encoding = 0x01
                 pkt = encodingField.addfield(self, pkt[:removeUpToTypeId], encoding) \
                       + pkt[removeUpToTypeId + removeUpToEncoding:]
-
+        
         if identifier is None:
             if self.Body is not None and self.Body.binaryEncodingId is not None:
                 identifier = self.Body.binaryEncodingId
                 typeIdEncoding = self.TypeId.getfieldval("Encoding")
                 namespace = self.TypeId.getfieldval("Namespace")
-
+                
                 pkt = UaNodeId(Encoding=typeIdEncoding, Namespace=namespace, Identifier=identifier).build() \
                       + pkt[removeUpToTypeId:]
-
+        
         return pkt + pay
 
 
@@ -822,7 +824,7 @@ def has_dimensions_length(p):
 class BuiltinListField(Field):
     __slots__ = ["count_from", "type_from", "field"]
     islist = 1
-
+    
     def __init__(self, name, default, type_from, count_from):
         if default is None:
             default = []  # Create a new list for each instance
@@ -830,41 +832,41 @@ class BuiltinListField(Field):
         self.count_from = count_from
         self.type_from = type_from
         self.field = UaPacketField("", None, UaBuiltin)
-
+    
     def i2count(self, pkt, val):
         if isinstance(val, list):
             return len(list(flatten(val)))
         return 1
-
+    
     def i2len(self, pkt, val):
         return int(sum(self.field.i2len(pkt, v) for v in flatten(val)))
-
+    
     def i2m(self, pkt, val):
         if val is None:
             val = []
         val = list(flatten(val))
         return val
-
+    
     def any2i(self, pkt, x):
         if not isinstance(x, list):
             return [self.field.any2i(pkt, x)]
         else:
             return x
-
+    
     def i2repr(self, pkt, x):
         res = []
         for v in x:
             r = self.field.i2repr(pkt, v)
             res.append(r)
         return "[%s]" % ", ".join(res)
-
+    
     def addfield(self, pkt, s, val):
         inner = val
         dimensions = []
         while isinstance(inner, list) and inner != []:
             dimensions.append(len(inner))
             inner = inner[0]
-
+        
         if len(pkt.getfieldval("ArrayDimensions")) == 0 and len(dimensions) > 1:
             pkt.setfieldval("ArrayDimensions", dimensions)
         val = self.i2m(pkt, val)
@@ -873,7 +875,7 @@ class BuiltinListField(Field):
         for v in val:
             s = self.field.addfield(pkt, s, v)
         return s
-
+    
     def getfield(self, pkt, s):
         encoding = pkt.getfieldval(self.type_from)
         encoding &= 0b00111111
@@ -881,10 +883,10 @@ class BuiltinListField(Field):
         c = None
         if self.count_from is not None:
             c = self.count_from(pkt)
-
+        
         val = []
         ret = b""
-
+        
         while s:
             if c is not None:
                 if c <= 0:
@@ -898,12 +900,12 @@ class BuiltinListField(Field):
 
 class BuiltinField(UaPacketField):
     __slots__ = ["type_from"]
-
+    
     def __init__(self, name, default, type_from, remain=0):
         super(BuiltinField, self).__init__(name, default, UaBuiltin, remain=remain)
         self.cls = UaBuiltin
         self.type_from = type_from
-
+    
     def getfield(self, pkt, s):
         encoding = pkt.getfieldval(self.type_from)
         encoding &= 0b00111111
@@ -926,32 +928,32 @@ class UaVariant(UaBuiltin):
                    ConditionalField(FieldListField("ArrayDimensions", None, UaInt32Field("", None),
                                                    count_from=lambda p: p.ArrayDimensionsLength),
                                     has_dimensions)]
-
+    
     def post_build(self, pkt, pay):
         encodingMaskField, encodingMask = self.getfield_and_val("EncodingMask")
-
+        
         if encodingMask is not None:
             return pkt + pay
-
+        
         encodingMask = 0
         rest = pkt[encodingMaskField.sz:]
-
+        
         if has_values(self):
             encodingMask |= 0x80
         if has_dimensions(self):
             encodingMask |= 0x40
-
+        
         valuesField, values = self.getfield_and_val("Values")
         if values is not None and values != []:
             encodingMask |= next(flatten(values)).nodeId
-
+        
         valueField, value = self.getfield_and_val("Value")
         if value is not None and values == []:
             encodingMask |= value.nodeId
-
+        
         maskPart = encodingMaskField.addfield(self, b'', encodingMask)
         return maskPart + rest + pay
-
+    
     def post_dissect(self, s):
         if has_dimensions(self):
             values = self.Values
@@ -960,7 +962,7 @@ class UaVariant(UaBuiltin):
             # Apply array dimensions to the flat list
             for dim in reversed(dimensions):
                 values = [values[j:j + dim] for j in range(0, len(values), dim)]
-
+            
             self.Values = values[0]
         return s
 
@@ -980,17 +982,17 @@ class UaDataValue(UaBuiltin):
                                     _make_check_encoding_mask_function("ServerTimestamp", 0x08)),
                    ConditionalField(UaUInt16Field("ServerPicoSeconds", None),
                                     _make_check_encoding_mask_function("ServerPicoSeconds", 0x20))]
-
+    
     def post_build(self, pkt, pay):
-
+        
         encodingMaskField, encodingMask = self.getfield_and_val("EncodingMask")
-
+        
         if encodingMask is not None:
             return pkt + pay
-
+        
         encodingMask = 0
         rest = pkt[encodingMaskField.sz:]
-
+        
         if self.Value is not None:
             encodingMask |= 0x01
         if self.Status is not None:
@@ -1003,7 +1005,7 @@ class UaDataValue(UaBuiltin):
             encodingMask |= 0x08
         if self.ServerPicoSeconds is not None:
             encodingMask |= 0x20
-
+        
         maskPart = encodingMaskField.addfield(self, b'', encodingMask)
         return maskPart + rest + pay
 

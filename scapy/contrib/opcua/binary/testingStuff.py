@@ -146,7 +146,11 @@ if __name__ == '__main__':
     
     # testTcpAutomaton()
     # testSecureConvAutomaton()
-    testReadRequest()
+    # testReadRequest()
+    
+    test = UaExpandedNodeId()
+    test.NamespaceUri = UaString(data="test")
+    test.show2()
     
     # input("Press key")
     # interact(globals())
