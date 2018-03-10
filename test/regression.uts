@@ -809,6 +809,11 @@ assert SNMP in z
 x = UDP()/SNMP()
 assert x.sport == x.dport == 161
 
+= Test snmpwalk()
+if WINDOWS or os.getenv("SCAPY_SUDO") == "sudo":
+    snmpwalk(dst="0.0.0.0")  # Crashed on commit: c2acc60e985340884b50bcf05764dcb4eabea1dc
+    assert True
+
 = ASN1 - ASN1_Object
 assert ASN1_Object(1) == ASN1_Object(1)
 assert ASN1_Object(1) > ASN1_Object(0)
