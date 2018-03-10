@@ -87,13 +87,11 @@ def _suppress_file_handles_inheritance(r=1000):
     """HACK: python 2.7 file descriptors.
 
     This magic hack fixes https://bugs.python.org/issue19575
+    and https://github.com/secdev/scapy/issues/1136
     by suppressing the HANDLE_FLAG_INHERIT flag to a range of
     already opened file descriptors.
+    Bug was fixed on python 3.4+
     """
-    # Fix https://bugs.python.org/issue19575
-    # and https://github.com/secdev/scapy/issues/1136
-    # Bug was fixed on python 3.4+
-
     if sys.version_info[0:2] >= (3, 4):
         return []
 
@@ -126,12 +124,11 @@ def _restore_file_handles_inheritance(handles):
     """HACK: python 2.7 file descriptors.
 
     This magic hack fixes https://bugs.python.org/issue19575
+    and https://github.com/secdev/scapy/issues/1136
     by suppressing the HANDLE_FLAG_INHERIT flag to a range of
     already opened file descriptors.
+    Bug was fixed on python 3.4+
     """
-    # See https://github.com/secdev/scapy/issues/1136
-    # Bug was fixed on python 3.4+
-
     if sys.version_info[0:2] >= (3, 4):
         return
 
