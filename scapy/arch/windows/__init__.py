@@ -237,17 +237,17 @@ class _PowershellManager(Thread):
     Will be instantiated on loading and automatically stopped.
     """
     def __init__(self):
-        self.cmd = not conf.prog.powershell
         opened_handles = _suppress_handles_inheritance()
         try:
             # Start & redirect input
-            if not self.cmd:
+            if not conf.prog.powershell:
                 cmd = [conf.prog.powershell,
                        "-NoLogo", "-NonInteractive",  # Do not print headers
                        "-Command", "-"]  # Listen commands from stdin
             else:  # Fallback on CMD (powershell-only commands will fail, but scapy use the VBS fallback)
                 cmd = [conf.prog.cmd]
             self.process = sp.Popen(cmd, stdout=sp.PIPE, stdin=sp.PIPE, stderr=sp.STDOUT)
+            self.cmd = not conf.prog.powershell
         finally:
             _restore_handles_inheritance(opened_handles)
         self.buffer = []
