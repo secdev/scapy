@@ -78,7 +78,8 @@ def read_routes():
         else:
             rt = l.split()
             dest,gw,flg = rt[:3]
-            netif = rt[4 + mtu_present + prio_present + refs_present]
+            locked = OPENBSD and rt[6] == "L"
+            netif = rt[4 + mtu_present + prio_present + refs_present + locked]
         if flg.find("Lc") >= 0:
             continue
         if dest == "default":
