@@ -232,61 +232,6 @@ def _set_handle_inheritable(handle, inheritable):
         raise ctypes.WinError()
 
 
-"""
-print(len(get_open_handles()))
-
-with open("XXX", "w") as f:
-    f.write("LALA")
-    print([handle.HandleValue for handle in get_open_handles() if handle.HandleValue == f.fileno()])
-
-print(len(get_open_handles()))
-"""
-
-"""
-with open("AAA.txt", "w") as f:
-    print(get_inheritable(f.fileno()))
-    set_inheritable(f.fileno(), False)
-    print(get_inheritable(f.fileno()))
-
-
-import os
-with os.fdopen(os.open("XXX.txt", os.O_NOINHERIT | os.O_WRONLY | os.O_CREAT), "w") as f:
-    print(get_inheritable(f.fileno()))
-    from scapy import all as scapy  # TROUBLE AHEAD
-os.remove("XXX.txt")
-
-# Displays: False (czyli OK).
-"""
-
-"""
-def test_pass_fds_inheritable(self):
-    script = support.findfile("fd_status.py", subdir="subprocessdata")
-
-    inheritable, non_inheritable = os.pipe()
-    self.addCleanup(os.close, inheritable)
-    self.addCleanup(os.close, non_inheritable)
-    os.set_inheritable(inheritable, True)
-    os.set_inheritable(non_inheritable, False)
-    pass_fds = (inheritable, non_inheritable)
-    args = [sys.executable, script]
-    args += list(map(str, pass_fds))
-
-    p = subprocess.Popen(args,
-                         stdout=subprocess.PIPE, close_fds=True,
-                         pass_fds=pass_fds)
-    output, ignored = p.communicate()
-    fds = set(map(int, output.split(b',')))
-
-    # the inheritable file descriptor must be inherited, so its inheritable
-    # flag must be set in the child process after fork() and before exec()
-    self.assertEqual(fds, set(pass_fds), "output=%a" % output)
-
-    # inheritable flag must not be changed in the parent process
-    self.assertEqual(os.get_inheritable(inheritable), True)
-    self.assertEqual(os.get_inheritable(non_inheritable), False) 
-"""
-
-
 class _PowershellManager(Thread):
     """Instance used to send multiple commands on the same Powershell process.
     Will be instantiated on loading and automatically stopped.
