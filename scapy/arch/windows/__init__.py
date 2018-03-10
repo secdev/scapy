@@ -240,7 +240,7 @@ class _PowershellManager(Thread):
         opened_handles = _suppress_handles_inheritance()
         try:
             # Start & redirect input
-            if not conf.prog.powershell:
+            if conf.prog.powershell:
                 cmd = [conf.prog.powershell,
                        "-NoLogo", "-NonInteractive",  # Do not print headers
                        "-Command", "-"]  # Listen commands from stdin
