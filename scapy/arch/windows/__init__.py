@@ -12,7 +12,9 @@ from __future__ import print_function
 import os, re, sys, socket, time, itertools, platform
 import subprocess as sp
 from glob import glob
-import ctypes, tempfile
+import ctypes
+from ctypes import wintypes
+import tempfile
 from threading import Thread, Event
 
 import scapy
@@ -26,6 +28,14 @@ from scapy.data import MTU, ETHER_BROADCAST, ETH_P_ARP
 import scapy.modules.six as six
 from scapy.modules.six.moves import range, zip, input, winreg
 from scapy.compat import plain_str
+
+_winapi_GetHandleInformation = ctypes.windll.kernel32.GetHandleInformation
+_winapi_GetHandleInformation.restype = wintypes.BOOL
+_winapi_GetHandleInformation.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
+
+_winapi_SetHandleInformation = ctypes.windll.kernel32.SetHandleInformation
+_winapi_SetHandleInformation.restype = wintypes.BOOL
+_winapi_SetHandleInformation.argtypes = [wintypes.HANDLE, wintypes.DWORD, wintypes.DWORD]
 
 conf.use_pcap = False
 conf.use_dnet = False
@@ -96,7 +106,6 @@ def _suppress_file_handles_inheritance(r=1000):
         return []
 
     import stat
-    from ctypes import windll, wintypes
     from msvcrt import get_osfhandle
 
     HANDLE_FLAG_INHERIT = 0x00000001
@@ -109,13 +118,10 @@ def _suppress_file_handles_inheritance(r=1000):
             continue
         if stat.S_ISREG(s.st_mode):
             osf_handle = get_osfhandle(fd)
-            handle = wintypes.HANDLE(osf_handle)
-            flags  = wintypes.DWORD()
-            windll.kernel32.GetHandleInformation(handle, ctypes.byref(flags))
+            flags = wintypes.DWORD()
+            _winapi_GetHandleInformation(osf_handle, flags)
             if flags.value & HANDLE_FLAG_INHERIT:
-                mask = wintypes.DWORD(HANDLE_FLAG_INHERIT)
-                flags = wintypes.DWORD(0)
-                windll.kernel32.SetHandleInformation(handle, mask, flags)
+                _winapi_SetHandleInformation(osf_handle, HANDLE_FLAG_INHERIT, 0)
                 handles.append(osf_handle)
 
     return handles
@@ -132,16 +138,11 @@ def _restore_file_handles_inheritance(handles):
     if sys.version_info[0:2] >= (3, 4):
         return
 
-    from ctypes import windll, wintypes
-
     HANDLE_FLAG_INHERIT = 0x00000001
 
     for osf_handle in handles:
         try:
-            handle = wintypes.HANDLE(osf_handle)
-            mask = wintypes.DWORD(HANDLE_FLAG_INHERIT)
-            flags = wintypes.DWORD(HANDLE_FLAG_INHERIT)
-            windll.kernel32.SetHandleInformation(handle, mask, flags)
+            _winapi_SetHandleInformation(osf_handle, HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT)
         except (ctypes.WinError, WindowsError, OSError):
             pass
 
