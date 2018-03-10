@@ -83,7 +83,46 @@ def _windows_title(title=None):
         title = title or "Scapy v" + conf.version
         ctypes.windll.kernel32.SetConsoleTitleW(title)
 
-def _suppress_file_handles_inheritance(r=100):
+def _suppress_handles_inheritance(r=100):
+    """HACK: python 2.7 file descriptors.
+
+    This magic hack fixes https://bugs.python.org/issue19575
+    by suppressing the HANDLE_FLAG_INHERIT flag to a range of
+    already opened file descriptors.
+    """
+    # Fix https://bugs.python.org/issue19575
+    # and https://github.com/secdev/scapy/issues/1136
+    # Bug was fixed on python 3.4+
+
+    if sys.version_info[0:2] >= (3, 4):
+        return []
+
+    import stat
+    from ctypes import windll, wintypes
+    from msvcrt import get_osfhandle
+
+    HANDLE_FLAG_INHERIT = 0x00000001
+
+    handles = []
+    for fd in range(r):
+        try:
+            s = os.fstat(fd)
+        except OSError:
+            continue
+        if stat.S_ISREG(s.st_mode):
+            osf_handle = get_osfhandle(fd)
+            handle = wintypes.HANDLE(osf_handle)
+            flags  = wintypes.DWORD()
+            windll.kernel32.GetHandleInformation(handle, ctypes.byref(flags))
+            if flags.value & HANDLE_FLAG_INHERIT:
+                mask = wintypes.DWORD(HANDLE_FLAG_INHERIT)
+                flags = wintypes.DWORD(0)
+                windll.kernel32.SetHandleInformation(handle, mask, flags)
+                handles.append(osf_handle)
+
+    return handles
+
+def _restore_handles_inheritance(handles):
     """HACK: python 2.7 file descriptors.
 
     This magic hack fixes https://bugs.python.org/issue19575
@@ -91,47 +130,42 @@ def _suppress_file_handles_inheritance(r=100):
     already opened file descriptors.
     """
     # See https://github.com/secdev/scapy/issues/1136
-    import stat
+    # Bug was fixed on python 3.4+
+
+    if sys.version_info[0:2] >= (3, 4):
+        return
+
     from ctypes import windll, wintypes
-    from msvcrt import get_osfhandle
 
     HANDLE_FLAG_INHERIT = 0x00000001
 
-    for fd in range(r):
+    for osf_handle in handles:
         try:
-            s = os.fstat(fd)
-        except OSError:
-            continue
-        if stat.S_ISREG(s.st_mode):
-            handle = wintypes.HANDLE(get_osfhandle(fd))
+            handle = wintypes.HANDLE(osf_handle)
             mask = wintypes.DWORD(HANDLE_FLAG_INHERIT)
-            flags = wintypes.DWORD(0)
+            flags = wintypes.DWORD(HANDLE_FLAG_INHERIT)
             windll.kernel32.SetHandleInformation(handle, mask, flags)
+        except (ctypes.WinError, WindowsError, OSError):
+            pass
 
 class _PowershellManager(Thread):
     """Instance used to send multiple commands on the same Powershell process.
     Will be instantiated on loading and automatically stopped.
     """
     def __init__(self):
-        if sys.version_info[0:2] < (3, 4): # Bug was fixed on python 3.4+
-            # Fix https://bugs.python.org/issue19575
-            # and https://github.com/secdev/scapy/issues/1136
-            _suppress_file_handles_inheritance()
-        # Start & redirect input
-        if conf.prog.powershell:
-            self.process = sp.Popen([conf.prog.powershell,
-                                     "-NoLogo", "-NonInteractive",  # Do not print headers
-                                     "-Command", "-"],  # Listen commands from stdin
-                             stdout=sp.PIPE,
-                             stdin=sp.PIPE,
-                             stderr=sp.STDOUT)
-            self.cmd = False
-        else:  # Fallback on CMD (powershell-only commands will fail, but scapy use the VBS fallback)
-            self.process = sp.Popen([conf.prog.cmd],
-                             stdout=sp.PIPE,
-                             stdin=sp.PIPE,
-                             stderr=sp.STDOUT)
-            self.cmd = True
+        opened_handles = _suppress_handles_inheritance()
+        try:
+            # Start & redirect input
+            if conf.prog.powershell:
+                cmd = [conf.prog.powershell,
+                       "-NoLogo", "-NonInteractive",  # Do not print headers
+                       "-Command", "-"]  # Listen commands from stdin
+            else:  # Fallback on CMD (powershell-only commands will fail, but scapy use the VBS fallback)
+                cmd = [conf.prog.cmd]
+            self.process = sp.Popen(cmd, stdout=sp.PIPE, stdin=sp.PIPE, stderr=sp.STDOUT)
+            self.cmd = not conf.prog.powershell
+        finally:
+            _restore_handles_inheritance(opened_handles)
         self.buffer = []
         self.running = True
         self.query_complete = Event()
