@@ -12,7 +12,9 @@ from __future__ import print_function
 import os, re, sys, socket, time, itertools, platform
 import subprocess as sp
 from glob import glob
-import ctypes, tempfile
+import ctypes
+from ctypes import wintypes
+import tempfile
 from threading import Thread, Event
 
 import scapy
@@ -26,6 +28,18 @@ from scapy.data import MTU, ETHER_BROADCAST, ETH_P_ARP
 import scapy.modules.six as six
 from scapy.modules.six.moves import range, zip, input, winreg
 from scapy.compat import plain_str
+
+_winapi_SetConsoleTitle = ctypes.windll.kernel32.SetConsoleTitleW
+_winapi_SetConsoleTitle.restype = wintypes.BOOL
+_winapi_SetConsoleTitle.argtypes = [wintypes.LPWSTR]
+
+_winapi_GetHandleInformation = ctypes.windll.kernel32.GetHandleInformation
+_winapi_GetHandleInformation.restype = wintypes.BOOL
+_winapi_GetHandleInformation.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
+
+_winapi_SetHandleInformation = ctypes.windll.kernel32.SetHandleInformation
+_winapi_SetHandleInformation.restype = wintypes.BOOL
+_winapi_SetHandleInformation.argtypes = [wintypes.HANDLE, wintypes.DWORD, wintypes.DWORD]
 
 conf.use_pcap = False
 conf.use_dnet = False
@@ -80,58 +94,79 @@ def _windows_title(title=None):
     """Updates the terminal title with the default one or with `title`
     if provided."""
     if conf.interactive:
-        title = title or "Scapy v" + conf.version
-        ctypes.windll.kernel32.SetConsoleTitleW(title)
+        _winapi_SetConsoleTitle(title or "Scapy v{}".format(conf.version))
 
-def _suppress_file_handles_inheritance(r=100):
+def _suppress_file_handles_inheritance(r=1000):
     """HACK: python 2.7 file descriptors.
 
     This magic hack fixes https://bugs.python.org/issue19575
+    and https://github.com/secdev/scapy/issues/1136
     by suppressing the HANDLE_FLAG_INHERIT flag to a range of
     already opened file descriptors.
+    Bug was fixed on python 3.4+
     """
-    # See https://github.com/secdev/scapy/issues/1136
+    if sys.version_info[0:2] >= (3, 4):
+        return []
+
     import stat
-    from ctypes import windll, wintypes
     from msvcrt import get_osfhandle
 
     HANDLE_FLAG_INHERIT = 0x00000001
 
+    handles = []
     for fd in range(r):
         try:
             s = os.fstat(fd)
         except OSError:
             continue
         if stat.S_ISREG(s.st_mode):
-            handle = wintypes.HANDLE(get_osfhandle(fd))
-            mask = wintypes.DWORD(HANDLE_FLAG_INHERIT)
-            flags = wintypes.DWORD(0)
-            windll.kernel32.SetHandleInformation(handle, mask, flags)
+            osf_handle = get_osfhandle(fd)
+            flags = wintypes.DWORD()
+            _winapi_GetHandleInformation(osf_handle, flags)
+            if flags.value & HANDLE_FLAG_INHERIT:
+                _winapi_SetHandleInformation(osf_handle, HANDLE_FLAG_INHERIT, 0)
+                handles.append(osf_handle)
+
+    return handles
+
+def _restore_file_handles_inheritance(handles):
+    """HACK: python 2.7 file descriptors.
+
+    This magic hack fixes https://bugs.python.org/issue19575
+    and https://github.com/secdev/scapy/issues/1136
+    by suppressing the HANDLE_FLAG_INHERIT flag to a range of
+    already opened file descriptors.
+    Bug was fixed on python 3.4+
+    """
+    if sys.version_info[0:2] >= (3, 4):
+        return
+
+    HANDLE_FLAG_INHERIT = 0x00000001
+
+    for osf_handle in handles:
+        try:
+            _winapi_SetHandleInformation(osf_handle, HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT)
+        except (ctypes.WinError, WindowsError, OSError):
+            pass
 
 class _PowershellManager(Thread):
     """Instance used to send multiple commands on the same Powershell process.
     Will be instantiated on loading and automatically stopped.
     """
     def __init__(self):
-        if sys.version_info[0:2] < (3, 4): # Bug was fixed on python 3.4+
-            # Fix https://bugs.python.org/issue19575
-            # and https://github.com/secdev/scapy/issues/1136
-            _suppress_file_handles_inheritance()
-        # Start & redirect input
-        if conf.prog.powershell:
-            self.process = sp.Popen([conf.prog.powershell,
-                                     "-NoLogo", "-NonInteractive",  # Do not print headers
-                                     "-Command", "-"],  # Listen commands from stdin
-                             stdout=sp.PIPE,
-                             stdin=sp.PIPE,
-                             stderr=sp.STDOUT)
-            self.cmd = False
-        else:  # Fallback on CMD (powershell-only commands will fail, but scapy use the VBS fallback)
-            self.process = sp.Popen([conf.prog.cmd],
-                             stdout=sp.PIPE,
-                             stdin=sp.PIPE,
-                             stderr=sp.STDOUT)
-            self.cmd = True
+        opened_handles = _suppress_file_handles_inheritance()
+        try:
+            # Start & redirect input
+            if conf.prog.powershell:
+                cmd = [conf.prog.powershell,
+                       "-NoLogo", "-NonInteractive",  # Do not print headers
+                       "-Command", "-"]  # Listen commands from stdin
+            else:  # Fallback on CMD (powershell-only commands will fail, but scapy use the VBS fallback)
+                cmd = [conf.prog.cmd]
+            self.process = sp.Popen(cmd, stdout=sp.PIPE, stdin=sp.PIPE, stderr=sp.STDOUT)
+            self.cmd = not conf.prog.powershell
+        finally:
+            _restore_file_handles_inheritance(opened_handles)
         self.buffer = []
         self.running = True
         self.query_complete = Event()
