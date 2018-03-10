@@ -29,6 +29,10 @@ import scapy.modules.six as six
 from scapy.modules.six.moves import range, zip, input, winreg
 from scapy.compat import plain_str
 
+_winapi_SetConsoleTitle = ctypes.windll.kernel32.SetConsoleTitleW
+_winapi_SetConsoleTitle.restype = wintypes.BOOL
+_winapi_SetConsoleTitle.argtypes = [wintypes.LPWSTR]
+
 _winapi_GetHandleInformation = ctypes.windll.kernel32.GetHandleInformation
 _winapi_GetHandleInformation.restype = wintypes.BOOL
 _winapi_GetHandleInformation.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
@@ -90,8 +94,7 @@ def _windows_title(title=None):
     """Updates the terminal title with the default one or with `title`
     if provided."""
     if conf.interactive:
-        title = title or "Scapy v" + conf.version
-        ctypes.windll.kernel32.SetConsoleTitleW(title)
+        _winapi_SetConsoleTitle(title or "Scapy v{}".format(conf.version))
 
 def _suppress_file_handles_inheritance(r=1000):
     """HACK: python 2.7 file descriptors.
