@@ -33,7 +33,7 @@ test_script:
   - if not x%PYTHON:3=%==x%PYTHON% set ARGS=%ARGS% -K FIXME_py3
   
   # Main unit tests
-  - "%PYTHON%\\python -m coverage run --parallel-mode bin\\UTscapy -f text -t test\\regression.uts -F -K mock_read_routes6_bsd -K ipv6 || exit /b 42"
+  - "%PYTHON%\\python -m coverage run --parallel-mode bin\\UTscapy -f text -t test\\regression.uts -F -K appveyor_skip || exit /b 42"
   - 'del test\regression.uts'
 
   # Secondary and contrib unit tests

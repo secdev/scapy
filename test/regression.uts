@@ -942,7 +942,8 @@ t.join(3)
 assert not t.is_alive()
 
 = Sending and receiving an ICMPv6EchoRequest
-~ netaccess ipv6
+~ netaccess ipv6 appveyor_skip
+
 old_debug_dissector = conf.debug_dissector
 conf.debug_dissector = False
 x = sr1(IPv6(dst="www.google.com")/ICMPv6EchoRequest(),timeout=3)
@@ -2165,7 +2166,7 @@ a=IPv6(src="2048::cafe", dst="2047::deca")/ICMPv6EchoRequest(id=0x6666, seq=0x77
 (a > b) == True
 
 = ICMPv6EchoRequest and ICMPv6EchoReply - live answers() use Net6
-~ netaccess ipv6
+~ netaccess ipv6 appveyor_skip
 
 a = IPv6(dst="www.google.com")/ICMPv6EchoRequest()
 b = IPv6(src="www.google.com", dst=a.src)/ICMPv6EchoReply()
@@ -3557,7 +3558,7 @@ assert a.answers(q)
 + Ether tests with IPv6
 
 = Ether IPv6 checking for dst
-~ netaccess ipv6
+~ netaccess ipv6 appveyor_skip
 
 p = Ether()/IPv6(dst="www.google.com")/TCP()
 assert p.dst != p[IPv6].dst
@@ -6280,7 +6281,7 @@ assert isinstance(pkt, DNS) and isinstance(pkt.payload, NoPayload)
 + Mocked read_routes() calls
 
 = Truncated netstat -rn output on OS X
-~ mock_read_routes6_bsd
+~ read_routes appveyor_skip
 
 import mock
 from io import StringIO
@@ -6340,7 +6341,7 @@ test_osx_netstat_truncated()
 + Mocked read_routes6() calls
 
 = Preliminary definitions
-~ mock_read_routes6_bsd
+~ read_routes appveyor_skip
 
 import mock
 from io import StringIO
@@ -6370,7 +6371,7 @@ def check_mandatory_ipv6_routes(routes6):
 
 
 = Mac OS X 10.9.5
-~ mock_read_routes6_bsd
+~ read_routes appveyor_skip
 
 @mock.patch("scapy.arch.unix.in6_getifaddr")
 @mock.patch("scapy.arch.unix.os")
@@ -6411,7 +6412,8 @@ test_osx_10_9_5()
 
 
 = Mac OS X 10.9.5 with global IPv6 connectivity
-~ mock_read_routes6_bsd
+~ read_routes appveyor_skip
+
 @mock.patch("scapy.arch.unix.in6_getifaddr")
 @mock.patch("scapy.arch.unix.os")
 def test_osx_10_9_5_global(mock_os, mock_in6_getifaddr):
@@ -6460,7 +6462,7 @@ test_osx_10_9_5_global()
 
 
 = Mac OS X 10.10.4
-~ mock_read_routes6_bsd
+~ read_routes appveyor_skip
 
 @mock.patch("scapy.arch.unix.in6_getifaddr")
 @mock.patch("scapy.arch.unix.os")
@@ -6500,7 +6502,7 @@ test_osx_10_10_4()
 
 
 = FreeBSD 10.2
-~ mock_read_routes6_bsd
+~ read_routes appveyor_skip
 
 @mock.patch("scapy.arch.unix.in6_getifaddr")
 @mock.patch("scapy.arch.unix.os")
@@ -6539,7 +6541,7 @@ test_freebsd_10_2()
 
 
 = OpenBSD 5.5
-~ mock_read_routes6_bsd
+~ read_routes appveyor_skip
 
 @mock.patch("scapy.arch.unix.OPENBSD")
 @mock.patch("scapy.arch.unix.in6_getifaddr")
@@ -6597,7 +6599,7 @@ test_openbsd_5_5()
 
 
 = NetBSD 7.0
-~ mock_read_routes6_bsd
+~ read_routes appveyor_skip
 
 @mock.patch("scapy.arch.unix.NETBSD")
 @mock.patch("scapy.arch.unix.in6_getifaddr")
@@ -8688,7 +8690,7 @@ n1 = Net6("2001:db8::/127")
 len([ip for ip in n1]) == 2
 
 = Net6 using web address
-~ netaccess ipv6
+~ netaccess ipv6 appveyor_skip
 
 ip = IPv6(dst="www.google.com")
 n1 = ip.dst
@@ -8697,7 +8699,7 @@ assert n1.ip_regex.match(str(n1))
 ip.show()
 
 = Multiple IPv6 addresses test
-~ netaccess ipv6
+~ netaccess ipv6 appveyor_skip
 
 ip = IPv6(dst=['2001:db8::1', 'www.google.fr'],hlim=(1,5))
 assert ip.dst[0] == '2001:db8::1'
@@ -8713,7 +8715,7 @@ conf.color_theme = BlackAndWhite()
 assert "Net('www.google.com')" in repr(IP(src="www.google.com"))
 
 = Test repr on Net
-~ netaccess ipv6
+~ netaccess ipv6 appveyor_skip
 
 conf.color_theme = BlackAndWhite()
 assert "Net6('www.google.com')" in repr(IPv6(src="www.google.com"))
