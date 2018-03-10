@@ -29,6 +29,10 @@ class SessionAutomaton(_UaAutomaton):
         pass
     
     @ATMT.state()
+    def RESET(self):
+        pass
+    
+    @ATMT.state()
     def CONNECTED(self):
         pass
     
@@ -69,6 +73,11 @@ class SessionAutomaton(_UaAutomaton):
         # Send None to signal that the socket is closed
         self.oi.uasess.send(None)
         self.oi.shutdown.send(None)
+
+    @ATMT.condition(RESET)
+    def resetATMT(self):
+        self._flush_buffers()
+        raise self.START()
     
     @ATMT.condition(START)
     def connect(self):

@@ -90,3 +90,16 @@ class _UaAutomaton(Automaton):
             pass
         
         self.send_sock.close()
+
+    def _flush_buffers(self):
+        fds = [self.cmdin, self.cmdout]
+        for name in self.ionames:
+            fds.append(self.ioin[name])
+            fds.append(self.ioout[name])
+        
+        while True:
+            r = select_objects(fds, 0)
+            if not r:
+                break
+            for fd in r:
+                fd.recv()
