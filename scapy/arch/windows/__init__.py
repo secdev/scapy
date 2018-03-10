@@ -9,7 +9,6 @@ Customizations needed to support Microsoft Windows.
 """
 from __future__ import absolute_import
 from __future__ import print_function
-import ctypes
 import os, re, sys, socket, time, itertools, platform
 import subprocess as sp
 from glob import glob
@@ -83,6 +82,7 @@ def _windows_title(title=None):
     if conf.interactive:
         title = title or "Scapy v" + conf.version
         ctypes.windll.kernel32.SetConsoleTitleW(title)
+
 
 def _suppress_handles_inheritance():
     """HACK: python 2.7 file descriptors.
