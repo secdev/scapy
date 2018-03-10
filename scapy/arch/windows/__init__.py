@@ -104,7 +104,7 @@ def _suppress_handles_inheritance():
         try:
             flag = _get_handle_inheritable(handle)
             _set_handle_inheritable(handle, False)
-        except ctypes.WinError:
+        except (ctypes.WinError, WindowsError):
             pass
         else:
             handles.append((handle, flag))
@@ -128,7 +128,7 @@ def _restore_handles_inheritance(handles):
     for handle, flag in handles:
         try:
             _set_handle_inheritable(handle, flag)
-        except ctypes.WinError:
+        except (ctypes.WinError, WindowsError):
             pass
 
 
