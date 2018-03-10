@@ -16,7 +16,7 @@ frm = Ether(frm.do_build())
 
 pause_layer  = frm[MACControlPause]
 assert(pause_layer.pause_time == 0x1234)
-assert(pause_layer.get_pause_time_10_mbit() == 0.238592)
+assert(pause_layer.get_pause_time(ETHER_SPEED_MBIT_10) == 0.238592)
 
 = gate frame
 

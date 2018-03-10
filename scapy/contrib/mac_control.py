@@ -41,12 +41,17 @@
 
 from scapy.compat import orb
 from scapy.data import ETHER_TYPES
+from scapy.error import Scapy_Exception
 from scapy.fields import IntField, ByteField, ByteEnumField, ShortField, BitField
 from scapy.layers.dot11 import Packet
 from scapy.layers.l2 import Ether, Dot1Q, bind_layers
 
 MAC_CONTROL_ETHER_TYPE = 0x8808
 ETHER_TYPES['MAC_CONTROL'] = MAC_CONTROL_ETHER_TYPE
+
+ETHER_SPEED_MBIT_10     = 0x01
+ETHER_SPEED_MBIT_100    = 0x02
+ETHER_SPEED_MBIT_1000   = 0x04
 
 
 class MACControl(Packet):
@@ -134,41 +139,34 @@ class MACControl(Packet):
         return pkt + pay
 
 
+class MACControlInvalidSpeedException(Scapy_Exception):
+    pass
+
+
 class MACControlPause(MACControl):
     fields_desc = [
         ShortField("_op_code", MACControl.OP_CODE_PAUSE),
         ShortField("pause_time", 0),
     ]
 
-    def get_pause_time_10_mbit(self):
+    def get_pause_time(self, speed=ETHER_SPEED_MBIT_1000):
         """
-        get pause time for 10 Mbit/s link in seconds
+        get pause time for given link speed in seconds
 
-        bit time = 100ns = 0.0000001
-
-        :return: pause time
+        :param speed: select link speed to get the pause time for, must be ETHER_SPEED_MBIT_[10,100,1000]
+        :return: pause time in seconds
+        :raises MACControlInvalidSpeedException: on invalid speed selector
         """
-        return self.pause_time * (0.0000001 * 512)
 
-    def get_pause_time_100_mbit(self):
-        """
-        get pause time for 100 Mbit/s link in seconds
-
-        bit time = 10ns = 0.00000001
-
-        :return: pause time
-        """
-        return self.pause_time * (0.00000001 * 512)
-
-    def get_pause_time_1000_mbit(self):
-        """
-        get pause time for 1000 Mbit/s link in seconds
-
-        bit time = 1ns = 0.000000001
-
-        :return: pause time
-        """
-        return self.pause_time * (0.000000001 * 512 * 2)
+        try:
+            return self.pause_time * {
+                ETHER_SPEED_MBIT_10: (0.0000001 * 512),
+                ETHER_SPEED_MBIT_100: (0.00000001 * 512),
+                ETHER_SPEED_MBIT_1000: (0.000000001 * 512 * 2)
+            }[speed]
+        except KeyError:
+            raise MACControlInvalidSpeedException('Invalid speed selector given. '
+                                                  'Must be one of ETHER_SPEED_MBIT_[10,100,1000]')
 
 
 class MACControlGate(MACControl):
