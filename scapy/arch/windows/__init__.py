@@ -83,7 +83,7 @@ def _windows_title(title=None):
         title = title or "Scapy v" + conf.version
         ctypes.windll.kernel32.SetConsoleTitleW(title)
 
-def _suppress_handles_inheritance(r=100):
+def _suppress_handles_inheritance(r=1000):
     """HACK: python 2.7 file descriptors.
 
     This magic hack fixes https://bugs.python.org/issue19575
