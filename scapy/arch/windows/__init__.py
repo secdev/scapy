@@ -83,7 +83,7 @@ def _windows_title(title=None):
         title = title or "Scapy v" + conf.version
         ctypes.windll.kernel32.SetConsoleTitleW(title)
 
-def _suppress_handles_inheritance(r=1000):
+def _suppress_file_handles_inheritance(r=1000):
     """HACK: python 2.7 file descriptors.
 
     This magic hack fixes https://bugs.python.org/issue19575
@@ -122,7 +122,7 @@ def _suppress_handles_inheritance(r=1000):
 
     return handles
 
-def _restore_handles_inheritance(handles):
+def _restore_file_handles_inheritance(handles):
     """HACK: python 2.7 file descriptors.
 
     This magic hack fixes https://bugs.python.org/issue19575
@@ -153,7 +153,7 @@ class _PowershellManager(Thread):
     Will be instantiated on loading and automatically stopped.
     """
     def __init__(self):
-        opened_handles = _suppress_handles_inheritance()
+        opened_handles = _suppress_file_handles_inheritance()
         try:
             # Start & redirect input
             if conf.prog.powershell:
@@ -165,7 +165,7 @@ class _PowershellManager(Thread):
             self.process = sp.Popen(cmd, stdout=sp.PIPE, stdin=sp.PIPE, stderr=sp.STDOUT)
             self.cmd = not conf.prog.powershell
         finally:
-            _restore_handles_inheritance(opened_handles)
+            _restore_file_handles_inheritance(opened_handles)
         self.buffer = []
         self.running = True
         self.query_complete = Event()
