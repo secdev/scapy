@@ -83,55 +83,173 @@ def _windows_title(title=None):
         title = title or "Scapy v" + conf.version
         ctypes.windll.kernel32.SetConsoleTitleW(title)
 
-def _suppress_file_handles_inheritance(r=100):
+
+def _suppress_handles_inheritance():
     """HACK: python 2.7 file descriptors.
 
     This magic hack fixes https://bugs.python.org/issue19575
     by suppressing the HANDLE_FLAG_INHERIT flag to a range of
     already opened file descriptors.
     """
+    # Fix https://bugs.python.org/issue19575
+    # and https://github.com/secdev/scapy/issues/1136
+    # Bug was fixed on python 3.4+
+
+    if sys.version_info[0:2] >= (3, 4):
+        return
+
+    handles = []
+    for hinfo in _get_opened_handles():
+        handle = hinfo.HandleValue
+        try:
+            flag = _get_handle_inheritable(handle)
+            _set_handle_inheritable(handle, False)
+        except (ctypes.WinError, WindowsError):
+            pass
+        else:
+            handles.append((handle, flag))
+
+    return handles
+
+
+def _restore_handles_inheritance(handles):
+    """HACK: python 2.7 file descriptors.
+
+    This magic hack fixes https://bugs.python.org/issue19575
+    by suppressing the HANDLE_FLAG_INHERIT flag to a range of
+    already opened file descriptors.
+    """
+    # Bug was fixed on python 3.4+
+
+    if sys.version_info[0:2] >= (3, 4):
+        return
+
     # See https://github.com/secdev/scapy/issues/1136
-    import stat
-    from ctypes import windll, wintypes
+    for handle, flag in handles:
+        try:
+            _set_handle_inheritable(handle, flag)
+        except (ctypes.WinError, WindowsError):
+            pass
+
+
+def _get_opened_handles():
+
+    from ctypes import windll
+    from ctypes import wintypes
     from msvcrt import get_osfhandle
 
-    HANDLE_FLAG_INHERIT = 0x00000001
+    PVOID = ctypes.c_void_p
+    SYSTEM_INFORMATION_CLASS = ctypes.c_int
+    NTSTATUS = ctypes.c_ulong
 
-    for fd in range(r):
-        try:
-            s = os.fstat(fd)
-        except OSError:
-            continue
-        if stat.S_ISREG(s.st_mode):
-            handle = wintypes.HANDLE(get_osfhandle(fd))
-            mask = wintypes.DWORD(HANDLE_FLAG_INHERIT)
-            flags = wintypes.DWORD(0)
-            windll.kernel32.SetHandleInformation(handle, mask, flags)
+    SystemExtendedHandleInformation = SYSTEM_INFORMATION_CLASS(64)
+
+    STATUS_INFO_LENGTH_MISMATCH = NTSTATUS(0xC0000004)
+
+    class SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX(ctypes.Structure):
+        _fields_ = [
+        ("Object",                PVOID),
+        ("UniqueProcessId",       wintypes.ULONG),
+        ("HandleValue",           wintypes.ULONG),
+        ("GrantedAccess",         wintypes.ULONG),
+        ("CreatorBackTraceIndex", wintypes.USHORT),
+        ("ObjectTypeIndex",       wintypes.USHORT),
+        ("HandleAttributes",      wintypes.ULONG),
+        ("Reserved",              wintypes.ULONG),
+    ]
+
+    handles_count = 0x10000
+    while True:
+
+        class SYSTEM_HANDLE_INFORMATION_EX(ctypes.Structure):
+            _fields_ = [
+            ("NumberOfHandles", wintypes.ULONG),
+            ("Reserved",        wintypes.ULONG),
+            ("Handles", (SYSTEM_HANDLE_TABLE_ENTRY_INFO_EX * handles_count)),
+        ]
+
+        system_handle_info = SYSTEM_HANDLE_INFORMATION_EX(0, 0)
+        handle_info_size = wintypes.DWORD(ctypes.sizeof(system_handle_info))
+        return_info_size = wintypes.DWORD(0)
+        status = NTSTATUS(windll.ntdll.NtQuerySystemInformation(
+                          SystemExtendedHandleInformation,
+                          ctypes.cast(ctypes.pointer(system_handle_info), PVOID),
+                          handle_info_size,
+                          ctypes.byref(return_info_size)))
+        if status.value != STATUS_INFO_LENGTH_MISMATCH.value:
+            break
+
+        # NtQuerySystemInformation won't give us the correct buffer size,
+        # so we guess by doubling the buffer size.
+        handles_count *= 2
+
+    if status.value: # NT_SUCCESS(status.value):
+        raise PyErr_SetFromWindowsErr(HRESULT_FROM_NT(status));
+
+    # Get the current process PID.
+    pid = wintypes.DWORD(windll.kernel32.GetCurrentProcessId()).value
+
+    opened_handles = []
+    for i in range(system_handle_info.NumberOfHandles):
+        hinfo = system_handle_info.Handles[i]
+        # Check if this hinfo belongs to the current process PID.
+        if hinfo.UniqueProcessId == pid:
+            opened_handles.append(hinfo)
+
+    return opened_handles
+
+
+def _get_handle_inheritable(handle):
+
+    # ctypes's backport from PY3's os module.
+
+    from ctypes import windll
+    from ctypes import wintypes
+
+    HANDLE_FLAG_INHERIT = 1
+
+    handle = wintypes.HANDLE(handle)
+    flags  = wintypes.DWORD()
+    if not windll.kernel32.GetHandleInformation(handle, ctypes.byref(flags)):
+        raise ctypes.WinError()
+
+    return bool(flags.value & HANDLE_FLAG_INHERIT)
+
+
+def _set_handle_inheritable(handle, inheritable):
+
+    # ctypes's backport from PY3's os module.
+
+    from ctypes import windll
+    from ctypes import wintypes
+
+    HANDLE_FLAG_INHERIT = 1
+
+    handle = wintypes.HANDLE(handle)
+    mask   = wintypes.DWORD(HANDLE_FLAG_INHERIT)
+    flags  = wintypes.DWORD(HANDLE_FLAG_INHERIT if inheritable else 0)
+    if not windll.kernel32.SetHandleInformation(handle, mask, flags):
+        raise ctypes.WinError()
+
 
 class _PowershellManager(Thread):
     """Instance used to send multiple commands on the same Powershell process.
     Will be instantiated on loading and automatically stopped.
     """
     def __init__(self):
-        if sys.version_info[0:2] < (3, 4): # Bug was fixed on python 3.4+
-            # Fix https://bugs.python.org/issue19575
-            # and https://github.com/secdev/scapy/issues/1136
-            _suppress_file_handles_inheritance()
-        # Start & redirect input
-        if conf.prog.powershell:
-            self.process = sp.Popen([conf.prog.powershell,
-                                     "-NoLogo", "-NonInteractive",  # Do not print headers
-                                     "-Command", "-"],  # Listen commands from stdin
-                             stdout=sp.PIPE,
-                             stdin=sp.PIPE,
-                             stderr=sp.STDOUT)
-            self.cmd = False
-        else:  # Fallback on CMD (powershell-only commands will fail, but scapy use the VBS fallback)
-            self.process = sp.Popen([conf.prog.cmd],
-                             stdout=sp.PIPE,
-                             stdin=sp.PIPE,
-                             stderr=sp.STDOUT)
-            self.cmd = True
+        opened_handles = _suppress_handles_inheritance()
+        try:
+            # Start & redirect input
+            if conf.prog.powershell:
+                cmd = [conf.prog.powershell,
+                       "-NoLogo", "-NonInteractive",  # Do not print headers
+                       "-Command", "-"]  # Listen commands from stdin
+            else:  # Fallback on CMD (powershell-only commands will fail, but scapy use the VBS fallback)
+                cmd = [conf.prog.cmd]
+            self.process = sp.Popen(cmd, stdout=sp.PIPE, stdin=sp.PIPE, stderr=sp.STDOUT)
+            self.cmd = not conf.prog.powershell
+        finally:
+            _restore_handles_inheritance(opened_handles)
         self.buffer = []
         self.running = True
         self.query_complete = Event()
