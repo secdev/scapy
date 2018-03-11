@@ -279,10 +279,7 @@ class ASN1F_SEQUENCE(ASN1F_field):
         default = [field.default for field in seq]
         for kwarg in ["context", "implicit_tag",
                       "explicit_tag", "flexible_tag"]:
-            if kwarg in kwargs:
-                setattr(self, kwarg, kwargs[kwarg])
-            else:
-                setattr(self, kwarg, None)
+            setattr(self, kwarg, kwargs.get(kwarg))
         ASN1F_field.__init__(self, name, default, context=self.context,
                              implicit_tag=self.implicit_tag,
                              explicit_tag=self.explicit_tag,
@@ -292,10 +289,7 @@ class ASN1F_SEQUENCE(ASN1F_field):
     def __repr__(self):
         return "<%s%r>" % (self.__class__.__name__, self.seq)
     def is_empty(self, pkt):
-        for f in self.seq:
-            if not f.is_empty(pkt):
-                return False
-        return True
+        return all(f.is_empty(pkt) for f in self.seq)
     def get_fields_list(self):
         return reduce(lambda x,y: x+y.get_fields_list(), self.seq, [])
     def m2i(self, pkt, s):
@@ -441,10 +435,7 @@ class ASN1F_CHOICE(ASN1F_field):
             raise ASN1_Error(err_msg)
         self.implicit_tag = None
         for kwarg in ["context", "explicit_tag"]:
-            if kwarg in kwargs:
-                setattr(self, kwarg, kwargs[kwarg])
-            else:
-                setattr(self, kwarg, None)
+            setattr(self, kwarg, kwargs.get(kwarg))
         ASN1F_field.__init__(self, name, None, context=self.context,
                              explicit_tag=self.explicit_tag)
         self.default = default
@@ -569,10 +560,7 @@ class ASN1F_BIT_STRING_ENCAPS(ASN1F_BIT_STRING):
             raise BER_Decoding_Error("unexpected remainder", remaining=s)
         return p, remain
     def i2m(self, pkt, x):
-        if x is None:
-            s = b""
-        else:
-            s = raw(x)
+        s = b"" if x is None else raw(x)
         s = b"".join(binrepr(orb(x)).zfill(8).encode("utf8") for x in s)
         return ASN1F_BIT_STRING.i2m(self, pkt, s)
 
@@ -587,11 +575,8 @@ class ASN1F_FLAGS(ASN1F_BIT_STRING):
                                   explicit_tag=explicit_tag)
     def get_flags(self, pkt):
         fbytes = getattr(pkt, self.name).val
-        flags = []
-        for i, positional in enumerate(fbytes):
-            if positional == '1' and i < len(self.mapping):
-                flags.append(self.mapping[i])
-        return flags
+        return [self.mapping[i] for i, positional in enumerate(fbytes)
+                if positional == '1' and i < len(self.mapping)]
     def i2repr(self, pkt, x):
         if x is not None:
             pretty_s = ", ".join(self.get_flags(pkt))

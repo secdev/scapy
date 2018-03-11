@@ -195,7 +195,7 @@ iface = conf.route.route("0.0.0.0", verbose=0)[0]
 # Warning: scapy.consts.LOOPBACK_INTERFACE must always be used statically, because it
 # may be changed by scapy/arch/windows during execution
 
-if (iface.name if hasattr(iface, "name") else iface) == scapy.consts.LOOPBACK_INTERFACE:
+if getattr(iface, "name", iface) == scapy.consts.LOOPBACK_INTERFACE:
     from scapy.arch import get_working_if
     conf.iface = get_working_if()
 else:

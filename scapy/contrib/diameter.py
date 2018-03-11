@@ -353,7 +353,7 @@ def GuessAvpType(p, **kargs):
         vndCode = vnd and struct.unpack("!I", p[8:12])[0] or 0
         # Check if vendor and code defined and fetch the corresponding AVP
         # definition
-        if vndCode in AvpDefDict.keys():
+        if vndCode in AvpDefDict:
             AvpVndDict = AvpDefDict[vndCode]
             if avpCode in AvpVndDict:
                 # Unpack only the first 4 tupple items at this point
@@ -392,8 +392,8 @@ def AVP(avpId, **fields):
     classType = AVP_Unknown
     if isinstance(avpId, str):
         try:
-            for vnd in AvpDefDict.keys():
-                for code in AvpDefDict[vnd].keys():
+            for vnd in AvpDefDict:
+                for code in AvpDefDict[vnd]:
                     val = AvpDefDict[vnd][code]
                     if val[0][:len(
                             avpId)] == avpId:  # A prefix of the full name is considered valid
@@ -421,10 +421,10 @@ def AVP(avpId, **fields):
     # Set/override AVP code
     fields['avpCode'] = code
     # Set vendor if not already defined and relevant
-    if 'avpVnd' not in fields.keys() and vnd:
+    if 'avpVnd' not in fields and vnd:
         fields['avpVnd'] = vnd
     # Set flags if not already defined and possible ...
-    if 'avpFlags' not in fields.keys():
+    if 'avpFlags' not in fields:
         if val:
             fields['avpFlags'] = val[2]
         else:
@@ -4748,7 +4748,7 @@ def getCmdParams(cmd, request, **fields):
     # Fetch the parameters if cmd is found in dict
     if isinstance(cmd, int):
         drCode = cmd    # Enable to craft commands with non standard code
-        if cmd in DR_cmd_def.keys():
+        if cmd in DR_cmd_def:
             params = DR_cmd_def[drCode]
         else:
             params = ('Unknown', 'UK', {0: (128, 0)})
@@ -4775,7 +4775,7 @@ def getCmdParams(cmd, request, **fields):
     # The drCode is set/overriden in any case
     fields['drCode'] = drCode
     # Processing of drAppId
-    if 'drAppId' in fields.keys():
+    if 'drAppId' in fields:
         val = fields['drAppId']
         if isinstance(val, str):   # Translate into application Id code
             found = False
@@ -4799,7 +4799,7 @@ def getCmdParams(cmd, request, **fields):
     # Set the command name
     name = request and params[0] + '-Request' or params[0] + '-Answer'
     # Processing of flags (only if not provided manually)
-    if 'drFlags' not in fields.keys():
+    if 'drFlags' not in fields:
         if drAppId in params[2].keys():
             flags = params[2][drAppId]
             fields['drFlags'] = request and flags[0] or flags[1]

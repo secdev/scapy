@@ -7,7 +7,7 @@
 Generators and packet meta classes.
 """
 
-###############
+################
 ## Generators ##
 ################
 
@@ -24,7 +24,7 @@ class Gen(object):
 
 def _get_values(value):
     """Generate a range object from (start, stop[, step]) tuples, or
-return value.
+    return value.
 
     """
     if (isinstance(value, tuple) and (2 <= len(value) <= 3) and \
@@ -197,10 +197,7 @@ class Packet_metaclass(type):
             for attr in cls.__slots__
         )
 
-        if hasattr(newcls, "aliastypes"):
-            newcls.aliastypes = [newcls] + newcls.aliastypes
-        else:
-            newcls.aliastypes = [newcls]
+        newcls.aliastypes = [newcls] + getattr(newcls, "aliastypes", [])
 
         if hasattr(newcls,"register_variant"):
             newcls.register_variant()

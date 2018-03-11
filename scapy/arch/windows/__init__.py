@@ -336,11 +336,13 @@ def _where(filename, dirs=None, env="PATH"):
     if glob(filename):
         return filename
     paths = [os.curdir] + os.environ[env].split(os.path.pathsep) + dirs
-    for path in paths:
-        for match in glob(os.path.join(path, filename)):
-            if match:
-                return os.path.normpath(match)
-    raise IOError("File not found: %s" % filename)
+    try:
+        return next(os.path.normpath(match)
+                    for path in paths
+                    for match in glob(os.path.join(path, filename))
+                    if match)
+    except StopIteration:
+        raise IOError("File not found: %s" % filename)
 
 def win_find_exe(filename, installsubdir=None, env="ProgramFiles"):
     """Find executable in current dir, system path or given ProgramFiles subdir"""
@@ -775,28 +777,31 @@ class NetworkInterfaceDict(UserDict):
         """Return the first pcap device name for a given Windows
         device name.
         """
-        for iface in six.itervalues(self):
-            if iface.name == name:
-                return iface
-        raise ValueError("Unknown network interface %r" % name)
+        try:
+            return next(iface for iface in six.itervalues(self)
+                        if iface.name == name)
+        except StopIteration:
+            raise ValueError("Unknown network interface %r" % name)
 
     def dev_from_pcapname(self, pcap_name):
         """Return Windows device name for given pcap device name."""
-        for iface in six.itervalues(self):
-            if iface.pcap_name == pcap_name:
-                return iface
-        raise ValueError("Unknown pypcap network interface %r" % pcap_name)
+        try:
+            return next(iface for iface in six.itervalues(self)
+                        if iface.pcap_name == pcap_name)
+        except StopIteration:
+            raise ValueError("Unknown pypcap network interface %r" % pcap_name)
 
     def dev_from_index(self, if_index):
         """Return interface name from interface index"""
-        for devname, iface in six.iteritems(self):
-            if iface.win_index == str(if_index):
-                return iface
-        if str(if_index) == "1":
-            # Test if the loopback interface is set up
-            if isinstance(scapy.consts.LOOPBACK_INTERFACE, NetworkInterface):
-                return scapy.consts.LOOPBACK_INTERFACE
-        raise ValueError("Unknown network interface index %r" % if_index)
+        try:
+            return next(iface for iface in six.itervalues(self)
+                        if iface.win_index == str(if_index))
+        except StopIteration:
+            if str(if_index) == "1":
+                # Test if the loopback interface is set up
+                if isinstance(scapy.consts.LOOPBACK_INTERFACE, NetworkInterface):
+                    return scapy.consts.LOOPBACK_INTERFACE
+            raise ValueError("Unknown network interface index %r" % if_index)
 
     def remove_invalid_ifaces(self):
         """Remove all invalid interfaces"""
@@ -1115,9 +1120,8 @@ def _get_valid_guid():
     if scapy.consts.LOOPBACK_INTERFACE:
         return scapy.consts.LOOPBACK_INTERFACE.guid
     else:
-        for i in six.itervalues(IFACES):
-            if not i.is_invalid():
-                return i.guid
+        return next((i.guid for i in six.itervalues(IFACES)
+                     if not i.is_invalid()), None)
 
 def route_add_loopback(routes=None, ipv6=False, iflist=None):
     """Add a route to 127.0.0.1 and ::1 to simplify unit tests on Windows"""

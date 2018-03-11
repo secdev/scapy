@@ -1411,10 +1411,7 @@ class MultiFlagsField(BitField):
 
     def i2m(self, pkt, x):
         v = self.depends_on(pkt)
-        if v in self.names:
-            these_names = self.names[v]
-        else:
-            these_names = {}
+        these_names = self.names.get(v, {})
 
         r = 0
         for flag_set in x:
@@ -1428,14 +1425,10 @@ class MultiFlagsField(BitField):
 
     def m2i(self, pkt, x):
         v = self.depends_on(pkt)
-        if v in self.names:
-            these_names = self.names[v]
-        else:
-            these_names = {}
+        these_names = self.names.get(v, {})
 
         r = set()
         i = 0
-
         while x:
             if x & 1:
                 if i in these_names:
@@ -1448,10 +1441,7 @@ class MultiFlagsField(BitField):
 
     def i2repr(self, pkt, x):
         v = self.depends_on(pkt)
-        if v in self.names:
-            these_names = self.names[v]
-        else:
-            these_names = {}
+        these_names = self.names.get(v, {})
 
         r = set()
         for flag_set in x:
@@ -1563,10 +1553,7 @@ class UTCTimeField(IntField):
     __slots__ = ["epoch", "delta", "strf", "use_nano"]
     def __init__(self, name, default, epoch=None, use_nano=False, strf="%a, %d %b %Y %H:%M:%S +0000"):
         IntField.__init__(self, name, default)
-        if epoch is None:
-            mk_epoch = EPOCH
-        else:
-            mk_epoch = time.mktime(epoch)
+        mk_epoch = EPOCH if epoch is None else time.mktime(epoch)
         self.epoch = mk_epoch
         self.delta = mk_epoch - EPOCH
         self.strf = strf

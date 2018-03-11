@@ -545,12 +545,8 @@ class ServerECDHNamedCurveParams(_GenericTLSSessionInheritance):
             curve = ec.SECP256R1()
             s.server_kx_privkey = ec.generate_private_key(curve,
                                                           default_backend())
-            curve_id = 0
-            for cid, name in six.iteritems(_tls_named_curves):
-                if name == curve.name:
-                    curve_id = cid
-                    break
-            self.named_curve = curve_id
+            self.named_curve = next((cid for cid, name in six.iteritems(_tls_named_curves)
+                                     if name == curve.name), 0)
         else:
             curve_name = _tls_named_curves.get(self.named_curve)
             if curve_name is None:

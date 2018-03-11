@@ -58,9 +58,9 @@ def sane_color(x):
     for i in x:
         j = orb(i)
         if (j < 32) or (j >= 127):
-            r=r+conf.color_theme.not_printable(".")
+            r += conf.color_theme.not_printable(".")
         else:
-            r=r+chr(j)
+            r += chr(j)
     return r
 
 def sane(x):
@@ -68,9 +68,9 @@ def sane(x):
     for i in x:
         j = orb(i)
         if (j < 32) or (j >= 127):
-            r=r+"."
+            r += "."
         else:
-            r=r+chr(j)
+            r += chr(j)
     return r
 
 @conf.commands.register
@@ -779,9 +779,7 @@ class PcapReader_metaclass(type):
                 magic = fdesc.read(4)
         else:
             fdesc = filename
-            filename = (fdesc.name
-                        if hasattr(fdesc, "name") else
-                        "No name")
+            filename = getattr(fdesc, "name", "No name")
             magic = fdesc.read(4)
         return filename, fdesc, magic
 
@@ -1116,9 +1114,7 @@ nano:       use nanosecond-precision (requires libpcap >= 1.5.0)
             self.f = [open,gzip.open][gz](filename,append and "ab" or "wb", gz and 9 or bufsz)
         else:
             self.f = filename
-            self.filename = (filename.name
-                             if hasattr(filename, "name") else
-                             "No name")
+            self.filename = getattr(filename, "name", "No name")
 
     def fileno(self):
         return self.f.fileno()

@@ -123,10 +123,9 @@ class Num2Layer:
         if isinstance(item, base_classes.Packet_metaclass):
             return item in self.layer2num
         return item in self.num2layer
+
     def get(self, item, default=None):
-        if item in self:
-            return self[item]
-        return default
+        return self[item] if item in self else default
     
     def __repr__(self):
         lst = []
@@ -146,11 +145,10 @@ class Num2Layer:
 
 
 class LayersList(list):
+
     def __repr__(self):
-        s=[]
-        for l in self:
-            s.append("%-20s: %s" % (l.__name__,l.name))
-        return "\n".join(s)
+        return "\n".join("%-20s: %s" % (l.__name__, l.name) for l in self)
+
     def register(self, layer):
         self.append(layer)
 
@@ -158,10 +156,7 @@ class CommandsList(list):
     def __repr__(self):
         s=[]
         for l in sorted(self,key=lambda x:x.__name__):
-            if l.__doc__:
-                doc = l.__doc__.split("\n")[0]
-            else:
-                doc = "--"
+            doc = l.__doc__.split("\n")[0] if l.__doc__ else "--"
             s.append("%-20s: %s" % (l.__name__,doc))
         return "\n".join(s)
     def register(self, cmd):
