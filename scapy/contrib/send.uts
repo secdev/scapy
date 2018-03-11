@@ -1,0 +1,35 @@
++ SEND (IPv6) tests
+
+= ICMPv6NDOptRsaSig build and dissection
+
+pkt = Ether()/IPv6()/ICMPv6ND_NS()/ICMPv6NDOptRsaSig(signature_pad = b"\x01" * 12)
+pkt = Ether(raw(pkt))
+
+assert ICMPv6NDOptRsaSig in pkt
+assert pkt[ICMPv6NDOptRsaSig].signature_pad == b"\x01" * 12
+
+= ICMPv6NDOptCGA build and dissection
+
+pkt = Ether()/IPv6()/ICMPv6ND_NS()/ICMPv6NDOptCGA(CGA_PARAMS=CGA_Params())
+pkt = Ether(raw(pkt))
+
+assert ICMPv6NDOptCGA in pkt
+assert isinstance(pkt[ICMPv6NDOptCGA].CGA_PARAMS.pubkey, X509_SubjectPublicKeyInfo)
+assert len(pkt) == 142
+
+= ICMPv6NDOptTmstp build and dissection
+
+pkt = Ether()/IPv6()/ICMPv6ND_NS()/ICMPv6NDOptTmstp(timestamp=int(time.mktime(time.gmtime())))
+pkt = Ether(raw(pkt))
+pkt.show()
+
+assert ICMPv6NDOptTmstp in pkt
+assert pkt[ICMPv6NDOptTmstp].len == 2
+
+= ICMPv6NDOptNonce build and dissection
+
+pkt = Ether()/IPv6()/ICMPv6ND_NS()/ICMPv6NDOptNonce(nonce=b"\x31\x32\x33\x34\x35\x36")
+pkt = Ether(raw(pkt))
+
+assert ICMPv6NDOptNonce in pkt
+assert raw(ICMPv6NDOptNonce(nonce=b"\x31\x32\x33\x34\x35\x36")) == b'\x0e\x01123456'

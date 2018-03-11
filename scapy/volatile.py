@@ -70,7 +70,7 @@ class RandomEnumeration:
     __next__ = next
 
 
-class VolatileValue:
+class VolatileValue(object):
     def __repr__(self):
         return "<%s>" % self.__class__.__name__
     def __eq__(self, other):
@@ -266,36 +266,33 @@ class RandChoice(RandField):
         return random.choice(self._choice)
     
 class RandString(RandField):
-    def __init__(self, size=None, chars="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"):
+    def __init__(self, size=None, chars=b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"):
         if size is None:
             size = RandNumExpo(0.01)
         self.size = size
         self.chars = chars
     def _fix(self):
-        s = ""
+        s = b""
         for _ in range(self.size):
-            s += random.choice(self.chars)
+            s += chb(random.choice(self.chars))
         return s
+    def __str__(self):
+        return plain_str(self._fix())
+    def __bytes__(self):
+        return raw(self._fix())
     def __mul__(self, n):
         return self._fix()*n
 
 class RandBin(RandString):
     def __init__(self, size=None):
-        RandString.__init__(self, size, "".join(map(chr, range(256))))
+        super(RandBin, self).__init__(size=size, chars=b"".join(chb(c) for c in range(256)))
 
-
-class RandTermString(RandString):
+class RandTermString(RandBin):
     def __init__(self, size, term):
-        RandString.__init__(self, size, "".join(map(chr, range(1,256))))
-        self.term = term
+        self.term = raw(term)
+        super(RandTermString, self).__init__(size=size)
     def _fix(self):
-        return RandString._fix(self)+self.term
-
-    def __str__(self):
-        return str(self._fix())
-
-    def __bytes__(self):
-        return raw(self._fix())
+        return RandBin._fix(self)+self.term
     
 
 class RandIP(RandString):
