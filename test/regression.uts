@@ -9978,11 +9978,23 @@ def test_conversations(mock_do_graph):
     mock_do_graph.side_effect = fake_do_graph
     plist = PacketList([IP(dst="127.0.0.2")/TCP(dport=i) for i in range(2)])
     plist.extend([IP(src="127.0.0.2")/TCP(sport=i) for i in range(2)])
+    plist.extend([IPv6(dst="::2", src="::1")/TCP(sport=i) for i in range(2)])
+    plist.extend([IPv6(src="::2", dst="::1")/TCP(sport=i) for i in range(2)])
+    plist.extend([Ether()/ARP(pdst="127.0.0.1")])
     result_conversations = plist.conversations()
-    assert(len(result_conversations.split('\n')) == 5)
+    assert(len(result_conversations.split('\n')) == 8)
     assert(result_conversations.startswith('digraph "conv" {'))
+    assert("127.0.0.1" in result_conversations)
+    assert("::1" in result_conversations)
 
 test_conversations()
+
+= sessions()
+
+pl = PacketList([Ether()/IPv6()/ICMPv6EchoRequest(), Ether()/IPv6()/IPv6()])
+pl.extend([Ether()/IP()/IP(), Ether()/ARP()])
+pl.extend([Ether()/Ether()/IP()])
+assert(len(pl.sessions().keys()) == 5)
 
 = afterglow()
 
