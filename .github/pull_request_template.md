@@ -16,4 +16,4 @@ This is just a checklist to guide you. You can remove it safely.
 
 < if required - outline impacts on other parts of the library >
 
-fixes #< add issue number here >
+fixes #< add issue number here if appropriate, else remove this line>
