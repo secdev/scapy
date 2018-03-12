@@ -250,7 +250,7 @@ def in6_addrtovendor(addr):
     is returned on error, "UNKNOWN" if the vendor is unknown.
     """
     mac = in6_addrtomac(addr)
-    if mac is None:
+    if mac is None or conf.manufdb is None:
         return None
 
     res = conf.manufdb._get_manuf(mac)
