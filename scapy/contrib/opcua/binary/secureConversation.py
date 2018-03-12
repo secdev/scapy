@@ -184,11 +184,11 @@ def _chunked_data_length(pkt):
 class UaChunkedData(UaTypePacket):
     __slots__ = ["isCLO"]
     fields_desc = [ByteListField("Message", None, UaByteField("", None, True), count_from=_chunked_data_length)]
-
+    
     def __init__(self, _pkt=b"", connectionContext=None, post_transform=None, _internal=0, _underlayer=None, **fields):
         super(UaChunkedData, self).__init__(_pkt, connectionContext, post_transform, _internal, _underlayer, **fields)
         self.isCLO = False
-
+    
     def post_dissection(self, s):
         requestId = self.underlayer.SequenceHeader.RequestId
         if self.connectionContext is not None:
@@ -228,19 +228,23 @@ class UaMessage(UaTypePacket):
         return cls
     
     def post_build(self, pkt, pay):
-        identifierField, identifier = self.DataTypeEncoding.getfield_and_val("Identifier")
+        dataTypeEncoding = self.DataTypeEncoding
+        try:
+            identifier = dataTypeEncoding.getfieldval("Identifier")
+        except AttributeError:
+            identifier = dataTypeEncoding.NodeId.getfieldval("Identifier")
         removeUpTo = len(self.DataTypeEncoding)
         
         if identifier is None:
-            if self.Message is not None and self.Message.binaryEncodingId is not None:
+            if self.Message is not None and self.Message.binaryEncodingId is not None and \
+                    type(dataTypeEncoding) is UaNodeId:
                 identifier = self.Message.binaryEncodingId
-                encoding = self.DataTypeEncoding.getfieldval("Encoding")
-                namespace = self.DataTypeEncoding.getfieldval("Namespace")
-                
+                encoding = dataTypeEncoding.getfieldval("Encoding")
+                namespace = dataTypeEncoding.getfieldval("Namespace")
                 pkt = UaNodeId(Encoding=encoding, Namespace=namespace, Identifier=identifier).build() + pkt[removeUpTo:]
         
         return pkt + pay
-
+    
     def post_dissection(self, pkt):
         """
         If the packet is not chunked set it as its own reassembled packet.
@@ -250,6 +254,7 @@ class UaMessage(UaTypePacket):
         except AttributeError:
             pass
         return pkt
+
 
 class UaSecureConversationAsymmetric(UaTcp):
     __slots__ = ["original_decrypted", "reassembled"]
@@ -271,7 +276,7 @@ class UaSecureConversationAsymmetric(UaTcp):
         self.reassembled = None
         super(UaSecureConversationAsymmetric, self).__init__(_pkt, connectionContext, post_transform, _internal,
                                                              _underlayer, **fields)
-
+    
     def copy(self):
         pkt = super(UaSecureConversationAsymmetric, self).copy()
         pkt.original_decrypted = self.original_decrypted
@@ -283,7 +288,7 @@ class UaSecureConversationAsymmetric(UaTcp):
         pkt.original_decrypted = self.original_decrypted
         pkt.reassembled = self.reassembled
         return pkt
-
+    
     def _get_type_binary(self):
         if isinstance(self.SecurityHeader, UaAsymmetricAlgorithmSecurityHeader):
             typeBinary = b'OPN'
@@ -388,14 +393,14 @@ class UaSecureConversationAsymmetric(UaTcp):
         
         self.original_decrypted = s
         return s
-
+    
     def post_dissection(self, pkt):
         if self.MessageHeader.IsFinal == b'F' and self.reassembled is None and self.connectionContext is not None:
             from scapy.contrib.opcua.binary.networking import dechunkify
             self.reassembled = dechunkify(self.connectionContext.chunks[self.SequenceHeader.RequestId])
             del self.connectionContext.chunks[self.SequenceHeader.RequestId]
         return pkt
-
+    
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kwargs):
         return super(UaSecureConversationAsymmetric, cls).dispatch_hook(_pkt, args, kwargs)
