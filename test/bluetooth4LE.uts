@@ -1,0 +1,25 @@
+% Regression tests for the bluetooth4LE layer
+
+###################################
+#### Bluetooth 4.0 Low Energie ####
+###################################
+
++ BTLE tests
+
+= Default build
+
+a = BTLE()/BTLE_ADV()/BTLE_ADV_IND()
+assert raw(a) == b'\xd6\xbe\x89\x8e\x00\x06\x00\x00\x00\x00\x00\x00Z9`'
+
+= Basic dissection
+
+b = BTLE(raw(a))
+assert b.crc == 0x5a3960
+assert b[BTLE_ADV_IND].AdvA == '00:00:00:00:00:00'
+
+= BTLE_DATA build
+
+a = BTLE(access_addr=0)/BTLE_DATA()/"toto"
+a = BTLE(raw(a))
+assert a[BTLE_DATA].len == 4
+assert a[Raw].load == b"toto"

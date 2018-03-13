@@ -482,12 +482,13 @@ debug_tls:When 1, print some TLS session secrets when they are computed.
     temp_files = []
     netcache = NetCache()
     geoip_city = None
-    load_layers = ["l2", "inet", "dhcp", "dns", "dot11", "gprs",
-                   "hsrp", "inet6", "ir", "isakmp", "l2tp", "mgcp",
-                   "mobileip", "netbios", "netflow", "ntp", "ppp", "pptp",
-                   "radius", "rip", "rtp", "skinny", "smb", "snmp",
-                   "tftp", "x509", "bluetooth", "dhcp6", "llmnr",
-                   "sctp", "vrrp", "ipsec", "lltd", "vxlan", "eap"]
+    load_layers = ['bluetooth', 'bluetooth4LE', 'dhcp', 'dhcp6', 'dns',
+                   'dot11', 'dot15d4', 'eap', 'gprs', 'hsrp', 'inet',
+                   'inet6', 'ipsec', 'ir', 'isakmp', 'l2', 'l2tp',
+                   'llmnr', 'lltd', 'mgcp', 'mobileip', 'netbios',
+                   'netflow', 'ntp', 'ppp', 'pptp', 'radius', 'rip',
+                   'rtp', 'sctp', 'sixlowpan', 'skinny', 'smb', 'snmp',
+                   'tftp', 'vrrp', 'vxlan', 'x509']
     contribs = dict()
     crypto_valid = isCryptographyValid()
     crypto_valid_advanced = isCryptographyAdvanced()
