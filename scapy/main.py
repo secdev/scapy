@@ -10,7 +10,7 @@ Main module for interactive startup.
 from __future__ import absolute_import
 from __future__ import print_function
 
-import sys, os, getopt, re, code
+import sys, os, getopt, code
 import gzip, glob
 import importlib
 import logging
@@ -20,7 +20,9 @@ import io
 
 # Never add any global import, in main.py, that would trigger a warning messsage
 # before the console handlers gets added in interact()
-from scapy.error import log_interactive, log_loading, log_scapy, warning
+from scapy.config import ConfClass, conf
+from scapy.consts import WINDOWS
+from scapy.error import log_interactive, log_loading, log_scapy
 import scapy.modules.six as six
 from scapy.themes import DefaultTheme, BlackAndWhite, apply_ipython_style
 
@@ -53,11 +55,11 @@ def _probe_config_file(cf):
 def _read_config_file(cf, _globals=globals(), _locals=locals(), interactive=True):
     """Read a config file: execute a python file while loading scapy, that may contain
     some pre-configured values.
-    
+
     If _globals or _locals are specified, they will be updated with the loaded vars.
     This allows an external program to use the function. Otherwise, vars are only available
     from inside the scapy console.
-    
+
     params:
     - _globals: the globals() vars
     - _locals: the locals() vars
@@ -82,7 +84,7 @@ def _read_config_file(cf, _globals=globals(), _locals=locals(), interactive=True
         if interactive:
             raise
         log_loading.exception("Error during evaluation of config file [%s]", cf)
-        
+
 def _validate_local(x):
     """Returns whether or not a variable should be imported.
     Will return False for any default modules (sys), or if
@@ -187,10 +189,10 @@ def list_contrib(name=None):
                 desc[key] = value
         print("%(name)-20s: %(description)-40s status=%(status)s" % desc)
 
-                        
 
 
-    
+
+
 
 ##############################
 ## Session saving/restoring ##
@@ -199,8 +201,9 @@ def list_contrib(name=None):
 def update_ipython_session(session):
     """Updates IPython session with a custom one"""
     try:
+        global get_ipython  # defined externally by ipython / jupyter
         get_ipython().user_ns.update(session)
-    except:
+    except Exception:
         pass
 
 def save_session(fname=None, session=None, pickleProto=-1):
@@ -242,7 +245,7 @@ def save_session(fname=None, session=None, pickleProto=-1):
          os.rename(fname, fname+".bak")
     except OSError:
          pass
-    
+
     f=gzip.open(fname,"wb")
     six.moves.cPickle.dump(to_be_saved, f, pickleProto)
     f.close()
@@ -271,7 +274,7 @@ def load_session(fname=None):
     update_ipython_session(scapy_session)
 
     log_loading.info("Loaded session [%s]" % fname)
-    
+
 def update_session(fname=None):
     """Update current Scapy session from the file specified in the fname arg.
 
@@ -290,13 +293,13 @@ def update_session(fname=None):
 def init_session(session_name, mydict=None):
     global SESSION
     global GLOBKEYS
-    
+
     scapy_builtins = {k: v for k, v in six.iteritems(importlib.import_module(".all", "scapy").__dict__) if _validate_local(k)}
     six.moves.builtins.__dict__.update(scapy_builtins)
     GLOBKEYS.extend(scapy_builtins)
     GLOBKEYS.append("scapy_session")
     scapy_builtins=None # XXX replace with "with" statement
-    
+
     if session_name:
         try:
             os.stat(session_name)

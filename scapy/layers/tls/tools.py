@@ -6,7 +6,9 @@
 """
 TLS helpers, provided as out-of-context methods.
 """
+import struct
 
+from scapy.compat import raw
 from scapy.error import warning
 from scapy.fields import (ByteEnumField, ShortEnumField,
                           FieldLenField, StrLenField)
@@ -172,11 +174,11 @@ def _tls_aead_auth_encrypt(alg, p, write_seq_num):
     authenticated data. Note that it is the caller's responsibility to increment
     write_seq_num afterwards.
     """
-    P = str(p)
+    P = raw(p)
     write_seq_num = struct.pack("!Q", write_seq_num)
     A = write_seq_num + P[:5]
 
-    c = TLCCiphertext()
+    c = TLSCiphertext()
     c.type = p.type
     c.version = p.version
     c.fragment = alg.auth_encrypt(P, A)
@@ -208,4 +210,3 @@ def _tls_aead_auth_decrypt(alg, c, read_seq_num):
     if p.fragment is None: # Verification failed.
         return None
     return p
-
