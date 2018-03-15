@@ -4,7 +4,7 @@ PYTHON=${PYTHON:-python}
 PYTHONDONTWRITEBYTECODE="True"
 if [ -z "$*" ]
 then
-    PYTHONPATH=$DIR exec $PYTHON ${DIR}/scapy/tools/UTscapy.py -t regression.uts -f html -K ipv6 -l -o /tmp/scapy_regression_test_$(date +%Y%m%d-%H%M%S).html
+    PYTHONPATH=$DIR exec $PYTHON ${DIR}/scapy/tools/UTscapy/__init__.py -t regression.uts -f html -K ipv6 -o /tmp/scapy_regression_test_$(date +%Y%m%d-%H%M%S).html
 else
-    PYTHONPATH=$DIR exec $PYTHON ${DIR}/scapy/tools/UTscapy.py "$@"
+    PYTHONPATH=$DIR exec $PYTHON ${DIR}/scapy/tools/UTscapy/__init__.py "$@"
 fi

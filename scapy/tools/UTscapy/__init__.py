@@ -10,7 +10,7 @@ Unit testing infrastructure for Scapy
 from __future__ import absolute_import
 from __future__ import print_function
 import sys, getopt, imp, glob, importlib
-import hashlib, copy, bz2, base64, os.path, time, traceback, zlib
+import hashlib, copy, os.path, time, traceback, zlib
 from scapy.consts import WINDOWS
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
@@ -30,7 +30,7 @@ def import_module(name):
     if name.endswith(".py"):
         name = name[:-3]
     f,path,desc = imp.find_module(name,[thepath])
-    
+
     try:
         return imp.load_module(name, f, path, desc)
     finally:
@@ -38,67 +38,24 @@ def import_module(name):
             f.close()
 
 
-#### INTERNAL/EXTERNAL FILE EMBEDDING ####
+#### FILE EMBEDDING ####
+
 
 class File:
-    def __init__(self, name, URL, local):
+    def __init__(self, name, path=os.path.dirname(__file__)):
         self.name = name
-        self.local = local.encode("utf8")
-        self.URL = URL
-    def get_local(self):
-        return bz2.decompress(base64.decodestring(self.local))
-    def get_URL(self):
-        return self.URL
-    def write(self, dir):
-        if dir:
-            dir += "/"
-        open(dir+self.name,"wb").write(self.get_local())
+        self.path = path
+    def copy(self, dest_dir):
+        from shutil import copy2
+        copy2(os.path.join(self.path, self.name),
+              os.path.join(dest_dir, self.name))
+    def __str__(self):
+        return self.name
 
-        
-# Embed a base64 encoded bziped version of js and css files
-# to work if you can't reach Internet.
-class External_Files:
-    UTscapy_js = File("UTscapy.js", "http://www.secdev.org/projects/UTscapy/UTscapy.js",
-"""QlpoOTFBWSZTWWVijKQAAXxfgERUYOvAChIhBAC/79+qQAH8AFA0poANAMjQAAAG
-ABo0NGEZNBo00BhgAaNDRhGTQaNNAYFURJinplGaKbRkJiekzSenqmpA0Gm1LFMp
-RUklVQlK9WUTZYpNFI1IiEWEFT09Sfj5uO+qO6S5DQwKIxM92+Zku94wL6V/1KTK
-an2c66Ug6SmVKy1ZIrgauxMVLF5xLH0lJRQuKlqLF10iatlTzqvw7S9eS3+h4lu3
-GZyMgoOude3NJ1pQy8eo+X96IYZw+ynehsiPj73m0rnvQ3QXZ9BJQiZQYQ5/uNcl
-2WOlC5vyQqV/BWsnr2NZYLYXQLDs/Bffk4ZfR4/SH6GfA5Xlek4xHNHqbSsRbREO
-gueXo3kcYi94K6hSO3ldD2O/qJXOFqJ8o3TE2aQahxtQpCVUKQMvODHwu2YkaORY
-ZC6gihEallcHDIAtRPScBACAJnUggYhLDX6DEko7nC9GvAw5OcEkiyDUbLdiGCzD
-aXWMC2DuQ2Y6sGf6NcRuON7QSbhHsPc4KKmZ/xdyRThQkGVijKQ=""")
-    UTscapy_css = File("UTscapy.css","http://www.secdev.org/projects/UTscapy/UTscapy.css",
-"""QlpoOTFBWSZTWTbBCNEAAE7fgHxwSB//+Cpj2QC//9/6UAR+63dxbNzO3ccmtGEk
-pM0m1I9E/Qp6g9Q09TNQ9QDR6gMgAkiBFG9U9TEGRkGgABoABoBmpJkRAaAxD1AN
-Gh6gNADQBzAATJgATCYJhDAEYAEiQkwIyJk0n6qenpqeoaMUeo9RgIxp6pX78kfx
-Jx4MUhDHKEb2pJAYAelG1cybiZBBDipH8ocxNyHDAqTUxiQmIAEDE3ApIBUUECAT
-7Lvlf4xA/sVK0QHkSlYtT0JmErdOjx1v5NONPYSjrIhQnbl1MbG5m+InMYmVAWJp
-uklD9cNdmQv2YigxbEtgUrsY2pDDV/qMT2SHnHsViu2rrp2LA01YJIHZqjYCGIQN
-sGNobFxAYHLqqMOj9TI2Y4GRpRCUGu82PnMnXUBgDSkTY4EfmygaqvUwbGMbPwyE
-220Q4G+sDvw7+6in3CAOS634pcOEAdREUW+QqMjvWvECrGISo1piv3vqubTGOL1c
-ssrFnnSfU4T6KSCbPs98HJ2yjWN4i8Bk5WrM/JmELLNeZ4vgMkA4JVQInNnWTUTe
-gmMSlJd/b7JuRwiM5RUzXOBTa0e3spO/rsNJiylu0rCxygdRo2koXdSJzmUVjJUm
-BOFIkUKq8LrE+oT9h2qUqqUQ25fGV7e7OFkpmZopqUi0WeIBzlXdYY0Zz+WUJUTC
-RC+CIPFIYh1RkopswMAop6ZjuZKRqR0WNuV+rfuF5aCXPpxAm0F14tPyhf42zFMT
-GJUMxxowJnoauRq4xGQk+2lYFxbQ0FiC43WZSyYLHMuo5NTJ92QLAgs4FgOyZQqQ
-xpsGKMA0cIisNeiootpnlWQvkPzNGUTPg8jqkwTvqQLguZLKJudha1hqfBib1IfO
-LNChcU6OqF+3wyPKg5Y5oSbSJPAMcRDANwmS2i9oZm6vsD1pLkWtFGbAkEjjCuEU
-W1ev1IsF2UVmWYFtJkqLT708ApUBK/ig3rbJWSq7RGQd3sSrOKu3lyKzTBdkXK2a
-BGLV5dS1XURdKxaRkMplLLQxsimBYZEAa8KQkYyI+4EagMqycRR7RgwtZFxJSu0T
-1q5wS2JG82iETHplbNj8DYo9IkmKzNAiw4FxK8bRfIYvwrbshbEagL11AQJFsqeZ
-WeXDoWEx2FMyyZRAB5QyCFnwYtwtWAQmmITY8aIM2SZyRnHH9Wi8+Sr2qyCscFYo
-vzM985aHXOHAxQN2UQZbQkUv3D4Vc+lyvalAffv3Tyg4ks3a22kPXiyeCGweviNX
-0K8TKasyOhGsVamTUAZBXfQVw1zmdS4rHDnbHgtIjX3DcCt6UIr0BHTYjdV0JbPj
-r1APYgXihjQwM2M83AKIhwQQJv/F3JFOFCQNsEI0QA==""")
-    def get_local_dict(cls):
-        return {x: y.name for (x, y) in six.iteritems(cls.__dict__)
-                if isinstance(y, File)}
-    get_local_dict = classmethod(get_local_dict)
-    def get_URL_dict(cls):
-        return {x: y.URL for (x, y) in six.iteritems(cls.__dict__)
-                if isinstance(y, File)}
-    get_URL_dict = classmethod(get_URL_dict)
+HTML_FILES = {
+    "UTscapy_js": File("UTscapy.js"),
+    "UTscapy_css": File("UTscapy.css")
+}
 
 
 #### HELPER CLASSES FOR PARAMETRING OUTPUT FORMAT ####
@@ -107,7 +64,7 @@ class EnumClass:
     def from_string(cls,x):
         return cls.__dict__[x.upper()]
     from_string = classmethod(from_string)
-    
+
 class Format(EnumClass):
     TEXT  = 1
     ANSI  = 2
@@ -145,9 +102,12 @@ class TestCampaign(TestClass):
         self.preexec = None
         self.preexec_output = None
         self.end_pos = 0
+        self.interrupted = False
     def add_testset(self, testset):
         self.campaign.append(testset)
         testset.keywords.update(self.keywords)
+    def trunc(self, index):
+        self.campaign = self.campaign[:index]
     def startNum(self, beginpos):
         for ts in self:
             for t in ts:
@@ -172,6 +132,8 @@ class TestSet(TestClass):
     def add_test(self, test):
         self.tests.append(test)
         test.keywords.update(self.keywords)
+    def trunc(self, index):
+        self.tests = self.tests[:index]
     def __iter__(self):
         return self.tests.__iter__()
 
@@ -180,8 +142,7 @@ class UnitTest(TestClass):
         self.name = name
         self.test = ""
         self.comments = ""
-        self.result = ""
-        self.res = True  # must be True at init to have a different truth value than None
+        self.result = "passed" # make instance True at init to have a different truth value than None
         self.output = ""
         self.num = -1
         self.keywords = set()
@@ -194,7 +155,7 @@ class UnitTest(TestClass):
             self.comments = self.comments.decode("utf8", "ignore")
             self.result = self.result.decode("utf8", "ignore")
     def __nonzero__(self):
-        return self.res
+        return self.result == "passed"
     __bool__ = __nonzero__
 
 
@@ -205,6 +166,7 @@ def parse_config_file(config_path, verb=3):
     Empty default json:
     {
       "testfiles": [],
+      "breakfailed": false,
       "onlyfailed": false,
       "verb": 2,
       "dump": 0,
@@ -213,7 +175,6 @@ def parse_config_file(config_path, verb=3):
       "preexec": {},
       "global_preexec": "",
       "outputfile": null,
-      "local": true,
       "format": "ansi",
       "num": null,
       "modules": [],
@@ -230,6 +191,7 @@ def parse_config_file(config_path, verb=3):
     def get_if_exist(key, default):
         return data[key] if key in data else default
     return Bunch(testfiles=get_if_exist("testfiles", []),
+                 breakfailed=get_if_exist("breakfailed", False),
                  remove_testfiles=get_if_exist("remove_testfiles", []),
                  onlyfailed=get_if_exist("onlyfailed", False),
                  verb=get_if_exist("verb", 3),
@@ -238,7 +200,6 @@ def parse_config_file(config_path, verb=3):
                  preexec=get_if_exist("preexec", {}),
                  global_preexec=get_if_exist("global_preexec", ""),
                  outfile=get_if_exist("outputfile", sys.stdout),
-                 local=get_if_exist("local", 0),
                  num=get_if_exist("num", None),
                  modules=get_if_exist("modules", []),
                  kw_ok=get_if_exist("kw_ok", []),
@@ -308,7 +269,7 @@ def dump_campaign(test_campaign):
             if t.crc:
                 c = "[%(crc)s] " % t
             if c or k:
-                print("    %s%s" % (c,k)) 
+                print("    %s%s" % (c,k))
 
 #### COMPUTE CAMPAIGN DIGESTS ####
 if six.PY2:
@@ -353,7 +314,7 @@ def filter_tests_keep_on_keywords(test_campaign, kw):
             if k in kw:
                 return True
         return False
-    
+
     if kw:
         for ts in test_campaign:
             ts.tests = [t for t in ts.tests if kw_match(t.keywords, kw)]
@@ -364,7 +325,7 @@ def filter_tests_remove_on_keywords(test_campaign, kw):
             if k in lst:
                 return True
         return False
-    
+
     if kw:
         for ts in test_campaign:
             ts.tests = [t for t in ts.tests if not kw_match(t.keywords, kw)]
@@ -374,34 +335,48 @@ def remove_empty_testsets(test_campaign):
     test_campaign.campaign = [ts for ts in test_campaign.campaign if ts.tests]
 
 
+#### RUN TEST #####
+
+def run_test(test, get_interactive_session, verb=3, ignore_globals=None):
+    test.output, res = get_interactive_session(test.test.strip(), ignore_globals=ignore_globals)
+    test.result = "failed"
+    try:
+        if res is None or res:
+            test.result = "passed"
+        if test.output.endswith('KeyboardInterrupt\n'):
+            test.result = "interrupted"
+            raise KeyboardInterrupt
+    except Exception:
+        test.output += "UTscapy: Error during result interpretation:\n"
+        test.output += "".join(traceback.format_exception(sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2],))
+    finally:
+        test.decode()
+        if verb > 1:
+            print("%(result)6s %(crc)s %(name)s" % test, file=sys.stderr)
+
+    return bool(test)
+
 #### RUN CAMPAIGN #####
 
 def run_campaign(test_campaign, get_interactive_session, verb=3, ignore_globals=None):
     passed=failed=0
     if test_campaign.preexec:
         test_campaign.preexec_output = get_interactive_session(test_campaign.preexec.strip(), ignore_globals=ignore_globals)[0]
-    for testset in test_campaign:
-        for t in testset:
-            t.output,res = get_interactive_session(t.test.strip(), ignore_globals=ignore_globals)
-            the_res = False
-            try:
-                if res is None or res:
-                    the_res= True
-            except Exception as msg:
-                t.output+="UTscapy: Error during result interpretation:\n"
-                t.output+="".join(traceback.format_exception(sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2],))
-            if the_res:
-                t.res = True
-                res = "passed"
-                passed += 1
-            else:
-                t.res = False
-                res = "failed"
-                failed += 1
-            t.result = res
-            t.decode()
-            if verb > 1:
-                print("%(result)6s %(crc)s %(name)s" % t, file=sys.stderr)
+    try:
+        for i, testset in enumerate(test_campaign):
+            for j, t in enumerate(testset):
+                if run_test(t, get_interactive_session, verb):
+                    passed += 1
+                else:
+                    failed += 1
+    except KeyboardInterrupt:
+        failed += 1
+        testset.trunc(j+1)
+        test_campaign.trunc(i+1)
+        test_campaign.interrupted = True
+        if verb:
+            print("Campaign interrupted!", file=sys.stderr)
+
     test_campaign.passed = passed
     test_campaign.failed = failed
     if verb:
@@ -433,7 +408,7 @@ def campaign_to_TEXT(test_campaign):
     output="%(title)s\n" % test_campaign
     output += "-- "+info_line(test_campaign)+"\n\n"
     output += "Passed=%(passed)i\nFailed=%(failed)i\n\n%(headcomments)s\n" % test_campaign
-    
+
     for testset in test_campaign:
         if any(t.expand for t in testset):
             output += "######\n## %(name)s\n######\n%(comments)s\n\n" % testset
@@ -442,12 +417,12 @@ def campaign_to_TEXT(test_campaign):
                     output += "###(%(num)03i)=[%(result)s] %(name)s\n%(comments)s\n%(output)s\n\n" % t
 
     return output
- 
+
 def campaign_to_ANSI(test_campaign):
     output="%(title)s\n" % test_campaign
     output += "-- "+info_line(test_campaign)+"\n\n"
     output += "Passed=%(passed)i\nFailed=%(failed)i\n\n%(headcomments)s\n" % test_campaign
-    
+
     for testset in test_campaign:
         if any(t.expand for t in testset):
             output += "######\n## %(name)s\n######\n%(comments)s\n\n" % testset
@@ -464,7 +439,7 @@ def campaign_to_xUNIT(test_campaign):
             output += ' <testcase classname="%s"\n' % testset.name.encode("string_escape").replace('"',' ')
             output += '           name="%s"\n' % t.name.encode("string_escape").replace('"',' ')
             output += '           duration="0">\n' % t
-            if not t.res:
+            if not t:
                 output += '<error><![CDATA[%(output)s]]></error>\n' % t
             output += "</testcase>\n"
     output += '</testsuite>'
@@ -481,7 +456,13 @@ def campaign_to_HTML(test_campaign):
     if test_campaign.crc is not None and test_campaign.sha is not None:
         output += "CRC=<span class=crc>%(crc)s</span> SHA=<span class=crc>%(sha)s</span><br>" % test_campaign
     output += "<small><em>"+html_info_line(test_campaign)+"</em></small>"
-    output += test_campaign.headcomments +  "\n<p>PASSED=%(passed)i FAILED=%(failed)i<p>\n\n" % test_campaign
+    output += "".join([
+        test_campaign.headcomments,
+        "\n<p>",
+        "PASSED=%(passed)i FAILED=%(failed)i" % test_campaign,
+        " <span class=warn_interrupted>INTERRUPTED!</span>" if test_campaign.interrupted else "",
+        "<p>\n\n",
+    ])
 
     for testset in test_campaign:
         output += "<h2>" % testset
@@ -512,17 +493,17 @@ def campaign_to_HTML(test_campaign):
         output += "\n</ul>\n\n"
     return output
 
-def pack_html_campaigns(runned_campaigns, data, local=0, title=None):
+def pack_html_campaigns(runned_campaigns, data, title=None):
     output = """
 <html>
 <head>
 <title>%(title)s</title>
 <h1>UTScapy tests</h1>
 
-<span class=button onClick="hide_all('tst')">Shrink All</span>
-<span class=button onClick="show_all('tst')">Expand All</span>
-<span class=button onClick="show_passed('tst')">Expand Passed</span>
-<span class=button onClick="show_failed('tst')">Expand Failed</span>
+<span class=control_button onClick="hide_all('tst')">Shrink All</span>
+<span class=control_button onClick="show_all('tst')">Expand All</span>
+<span class=control_button onClick="show_passed('tst')">Expand Passed</span>
+<span class=control_button onClick="show_failed('tst')">Expand Failed</span>
 
 <p>
 """
@@ -530,7 +511,7 @@ def pack_html_campaigns(runned_campaigns, data, local=0, title=None):
         for ts in test_campaign:
             for t in ts:
                 output += """<span class=button%(result)s onClick="goto_id('tst%(num)il')">%(num)03i</span>\n""" % t
-        
+
     output += """</p>\n\n
 <link rel="stylesheet" href="%(UTscapy_css)s" type="text/css">
 <script language="JavaScript" src="%(UTscapy_js)s" type="text/javascript"></script>
@@ -540,12 +521,10 @@ def pack_html_campaigns(runned_campaigns, data, local=0, title=None):
 </body></html>
 """
     out_dict = {'data': data, 'title': title if title else "UTScapy tests"}
-    if local:
-        External_Files.UTscapy_js.write(os.path.dirname(test_campaign.output_file.name))
-        External_Files.UTscapy_css.write(os.path.dirname(test_campaign.output_file.name))
-        out_dict.update(External_Files.get_local_dict())
-    else:
-        out_dict.update(External_Files.get_URL_dict())
+    dest_dir = os.path.dirname(test_campaign.output_file)
+    for f in six.itervalues(HTML_FILES):
+        f.copy(dest_dir)
+    out_dict.update(HTML_FILES)
 
     output %= out_dict
     return output
@@ -573,13 +552,13 @@ def campaign_to_LATEX(test_campaign):
 
 """ % test_campaign
     output %= info_line(test_campaign)
-    
+
     for testset in test_campaign:
         output += "\\chapter{%(name)s}\n\n%(comments)s\n\n" % testset
         for t in testset:
             if t.expand:
                 output += r"""\section{%(name)s}
-            
+
 [%(num)03i] [%(result)s]
 
 %(comments)s
@@ -595,16 +574,16 @@ def campaign_to_LATEX(test_campaign):
 
 
 #### USAGE ####
-                      
+
 def usage():
-    print("""Usage: UTscapy [-m module] [-f {text|ansi|HTML|LaTeX}] [-o output_file] 
+    print("""Usage: UTscapy [-m module] [-f {text|ansi|HTML|LaTeX}] [-o output_file]
                [-t testfile] [-T testfile] [-k keywords [-k ...]] [-K keywords [-K ...]]
-               [-l] [-d|-D] [-F] [-q[q]] [-P preexecute_python_code]
+               [-b] [-d|-D] [-F] [-q[q]] [-P preexecute_python_code]
                [-s /path/to/scapy] [-c configfile]
 -t\t\t: provide test files (can be used many times)
 -T\t\t: if -t is used with *, remove a specific file (can be used many times)
--l\t\t: generate local files
 -F\t\t: expand only failed tests
+-b\t\t: stop at first failed campaign
 -d\t\t: dump campaign
 -D\t\t: dump campaign and stop
 -C\t\t: don't calculate CRC and SHA
@@ -631,7 +610,7 @@ def execute_campaign(TESTFILE, OUTPUTFILE, PREEXEC, NUM, KW_OK, KW_KO, DUMP,
     # Report parameters
     if PREEXEC:
         test_campaign.preexec = PREEXEC
-    
+
     # Compute campaign CRC and SHA
     if CRC:
         compute_campaign_digests(test_campaign)
@@ -691,16 +670,15 @@ def main(argv):
     ignore_globals = list(six.moves.builtins.__dict__.keys())
 
     # Parse arguments
-    
+
     FORMAT = Format.ANSI
-    TESTFILE = sys.stdin
     OUTPUTFILE = sys.stdout
-    LOCAL = 0
     NUM = None
     KW_OK = []
     KW_KO = []
     DUMP = 0
     CRC = True
+    BREAKFAILED =  False
     ONLYFAILED = False
     VERB = 3
     GLOB_PREEXEC = ""
@@ -709,10 +687,12 @@ def main(argv):
     MODULES = []
     TESTFILES = []
     try:
-        opts = getopt.getopt(argv, "o:t:T:c:f:hln:m:k:K:DdCFqP:s:")
+        opts = getopt.getopt(argv, "o:t:T:c:f:hbn:m:k:K:DdCFqP:s:")
         for opt,optarg in opts[0]:
             if opt == "-h":
                 usage()
+            elif opt == "-b":
+                BREAKFAILED =  True
             elif opt == "-F":
                 ONLYFAILED = True
             elif opt == "-q":
@@ -739,6 +719,7 @@ def main(argv):
                 TESTFILES.remove(optarg)
             elif opt == "-c":
                 data = parse_config_file(optarg, VERB)
+                BREAKFAILED = data.breakfailed
                 ONLYFAILED = data.onlyfailed
                 VERB = data.verb
                 DUMP = data.dump
@@ -748,7 +729,6 @@ def main(argv):
                 GLOB_PREEXEC = data.global_preexec
                 OUTPUTFILE = data.outfile
                 TESTFILES = data.testfiles
-                LOCAL = 1 if data.local else 0
                 NUM = data.num
                 MODULES = data.modules
                 KW_OK = [data.kw_ok]
@@ -761,9 +741,9 @@ def main(argv):
                 for testfile in resolve_testfiles(data.remove_testfiles):
                     TESTFILES.remove(testfile)
             elif opt == "-o":
-                OUTPUTFILE = open(optarg, "wb")
-            elif opt == "-l":
-                LOCAL = 1
+                OUTPUTFILE = optarg
+                if not os.access(OUTPUTFILE, os.W_OK):
+                    raise getopt.GetoptError("Cannot write to file %s" % OUTPUTFILE)
             elif opt == "-n":
                 NUM = []
                 for v in (x.strip() for x in optarg.split(",")):
@@ -792,7 +772,7 @@ def main(argv):
                 six.moves.builtins.__dict__.update(mod.__dict__)
             except ImportError as e:
                 raise getopt.GetoptError("cannot import [%s]: %s" % (m,e))
-                
+
     except getopt.GetoptError as msg:
         print("ERROR:",msg, file=sys.stderr)
         raise SystemExit
@@ -831,16 +811,18 @@ def main(argv):
         if VERB > 2:
             print("### Loading:", TESTFILE, file=sys.stderr)
         PREEXEC = PREEXEC_DICT[TESTFILE] if TESTFILE in PREEXEC_DICT else GLOB_PREEXEC
-        output, result, campaign = execute_campaign(open(TESTFILE), OUTPUTFILE,
-                                          PREEXEC, NUM, KW_OK, KW_KO,
-                                          DUMP, FORMAT, VERB, ONLYFAILED,
-                                          CRC, autorun_func, pos_begin, ignore_globals)
+        with open(TESTFILE) as testfile:
+            output, result, campaign = execute_campaign(testfile, OUTPUTFILE,
+                                                        PREEXEC, NUM, KW_OK, KW_KO,
+                                                        DUMP, FORMAT, VERB, ONLYFAILED,
+                                                        CRC, autorun_func, pos_begin,
+                                                        ignore_globals)
         runned_campaigns.append(campaign)
         pos_begin = campaign.end_pos
         if UNIQUE:
             glob_title = campaign.title
         glob_output += output
-        if not result:
+        if not result and BREAKFAILED:
             glob_result = 1
             break
 
@@ -848,11 +830,15 @@ def main(argv):
             print("### Writing output...", file=sys.stderr)
     # Concenate outputs
     if FORMAT == Format.HTML:
-        glob_output = pack_html_campaigns(runned_campaigns, glob_output, LOCAL, glob_title)
-    
-    OUTPUTFILE.write(glob_output.encode("utf8", "ignore")
-                     if 'b' in OUTPUTFILE.mode else glob_output)
-    OUTPUTFILE.close()
+        glob_output = pack_html_campaigns(runned_campaigns, glob_output, glob_title)
+
+    if OUTPUTFILE == sys.stdout:
+        OUTPUTFILE.write(glob_output.encode("utf8", "ignore")
+                         if 'b' in OUTPUTFILE.mode else glob_output)
+    else:
+        with open(OUTPUTFILE, "wb") as f:
+            f.write(glob_output.encode("utf8", "ignore")
+                    if 'b' in f.mode else glob_output)
 
     # Return state
     return glob_result
