@@ -364,9 +364,9 @@ class WinProgPath(ConfClass):
         self._reload()
 
     def _reload(self):
+        self.pdfreader = None
+        self.psreader = None
         # We try some magic to find the appropriate executables
-        self.pdfreader = win_find_exe("AcroRd32") 
-        self.psreader = win_find_exe("gsview32")
         self.dot = win_find_exe("dot")
         self.tcpdump = win_find_exe("windump")
         self.tshark = win_find_exe("tshark")

@@ -17,6 +17,7 @@ import subprocess
 from scapy.fields import StrField, ConditionalField, Emph, PacketListField, BitField, \
     MultiEnumField, EnumField, FlagsField
 from scapy.config import conf
+from scapy.consts import WINDOWS
 from scapy.compat import *
 from scapy.base_classes import BasePacket, Gen, SetGen, Packet_metaclass
 from scapy.volatile import VolatileValue
@@ -502,12 +503,16 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         """
         canvas = self.canvas_dump(**kargs)
         if filename is None:
-            fname = get_temp_file(autoext=".eps")
+            fname = WINDOWS and get_temp_file(autoext=".eps")
             canvas.writeEPSfile(fname)
-            with ContextManagerSubprocess("psdump()", conf.prog.psreader):
-                subprocess.Popen([conf.prog.psreader, fname])
+            if conf.prog.psreader is None:
+                os.startfile(fname)
+            else:
+                with ContextManagerSubprocess("psdump()", conf.prog.psreader):
+                    subprocess.Popen([conf.prog.psreader, fname])
         else:
             canvas.writeEPSfile(filename)
+        print()
 
     def pdfdump(self, filename=None, **kargs):
         """
@@ -522,10 +527,14 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         if filename is None:
             fname = get_temp_file(autoext=".pdf")
             canvas.writePDFfile(fname)
-            with ContextManagerSubprocess("pdfdump()", conf.prog.pdfreader):
-                subprocess.Popen([conf.prog.pdfreader, fname])
+            if WINDOWS and conf.prog.pdfreader is None:
+                os.startfile(fname)
+            else:
+                with ContextManagerSubprocess("pdfdump()", conf.prog.pdfreader):
+                    subprocess.Popen([conf.prog.pdfreader, fname])
         else:
             canvas.writePDFfile(filename)
+        print()
 
         
     def canvas_dump(self, layer_shift=0, rebuild=1):
