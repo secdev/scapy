@@ -189,10 +189,10 @@ def list_contrib(name=None):
                 desc[key] = value
         print("%(name)-20s: %(description)-40s status=%(status)s" % desc)
 
+                        
 
 
-
-
+    
 
 ##############################
 ## Session saving/restoring ##
