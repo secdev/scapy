@@ -211,4 +211,3 @@ def _tls_aead_auth_decrypt(alg, c, read_seq_num):
         return None
     return p
 
-

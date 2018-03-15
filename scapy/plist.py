@@ -16,7 +16,7 @@ from collections import defaultdict
 from scapy.config import conf
 from scapy.base_classes import BasePacket,BasePacketList
 from scapy.utils import ContextManagerSubprocess,do_graph,hexdump,make_table, \
-    make_lined_table,make_tex_table,get_temp_file,issubtype
+    make_lined_table,make_tex_table,get_temp_file, issubtype
 from scapy.extlib import plt, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
 from functools import reduce
 import scapy.modules.six as six
@@ -405,7 +405,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
             n,l = el[e]
             for d in l:
                 gr += ' "evt.%s" -> "dst.%s";\n' % (repr(e),repr(d)) 
-             
+            
         gr += "}"
         return do_graph(gr, **kargs)
 
