@@ -63,9 +63,12 @@ class SecureConversationAutomaton(_UaAutomaton):
     
     @ATMT.condition(START)
     def connect(self):
-        self._connectionContext.securityToken = UaChannelSecurityToken()
         if self.send_sock is not None:
             self.send_sock.close()
+
+        self._connectionContext.securityToken = copy.deepcopy(self._connectionContextProto.securityToken)
+        self._connectionContext.chunks = copy.deepcopy(self._connectionContextProto.chunks)
+        self._connectionContext.requestId = copy.deepcopy(self._connectionContextProto.requestId)
         if self.send_sock is None:
             self.send_sock = UaTcpSocket(connectionContext=self._connectionContext, target=self.target,
                                          targetPort=self.targetPort, timeout=self._timeout)
@@ -164,6 +167,10 @@ class SecureConversationAutomaton(_UaAutomaton):
     @ATMT.action(socket_send)
     def send_data(self, data):
         self.send(data)
+
+    def my_send(self, pkt):
+        self._connectionContext.requestId += 1
+        self.send_sock.send(pkt)
 
 
 class UaSecureConversationSocket(SuperSocket):

@@ -42,6 +42,7 @@ class UaConnectionContext(object):
         self.localBufferSizes = BufferSizes()
         self.remoteBufferSizes = BufferSizes()
         self.chunks = defaultdict(list)
+        self.requestId = 0
 
     def __copy__(self):
         newContext = UaConnectionContext()

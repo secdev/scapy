@@ -160,8 +160,12 @@ class UaSequenceHeader(UaTypePacket):
             # are received from a remote.
             pkt = sequenceNumberField.addfield(self, b'', self.connectionContext.sendSequenceNumber) + \
                   pkt[sequenceNumberField.sz:]
+
+        requestIdField, requestId = self.getfield_and_val("RequestId")
         
-        # TODO: use connectionContext to replace request id?
+        if requestId is None and self.connectionContext is not None:
+            pkt = requestIdField.addfield(self, pkt[:requestIdField.sz], self.connectionContext.requestId)
+        
         return pkt + pay
 
 

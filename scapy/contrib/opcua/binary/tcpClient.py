@@ -15,7 +15,10 @@ from scapy.contrib.opcua.binary.automaton import _UaAutomaton
 from scapy.contrib.opcua.binary.uaTypes import *
 from scapy.supersocket import SuperSocket
 import scapy.contrib.opcua.binary.uaTypes as UA
-from queue import Queue
+try:
+    from queue import Queue
+except ImportError:
+    from Queue import Queue
 
 
 class _TcpSuperSocket(SuperSocket):
@@ -49,37 +52,41 @@ class _TcpSuperSocket(SuperSocket):
             raise
         self.connectionContext.sendSequenceNumber += 1
     
+    def _clear_queues(self):
+        # This is a hack for isutest. Remove later when moving to different atmt framework
+        if self._pending_tcp_jobs.qsize() > 0:
+            self._pending_tcp_jobs.get()
+            self._pending_tcp_jobs.task_done()
+    
+        if self._pending_sc_jobs.qsize() > 0:
+            self._pending_sc_jobs.get()
+            self._pending_sc_jobs.task_done()
+    
+        if self._pending_sess_jobs.qsize() > 0:
+            self._pending_sess_jobs.get()
+            self._pending_sess_jobs.task_done()
+    
     def send(self, data):
-        with self._workingLock:
-            if not self.open:
-                self.logger.warning("Connection not open. No data sent.")
-                return
-            if not isinstance(data, UaTcp):
-                self.logger.warning("Unsupported packet type. No data sent.")
-                return
-            
-            data.connectionContext = self.connectionContext
-    
-            if isinstance(data, UaSecureConversationSymmetric):
-                chunks = chunkify(data)
-            else:
-                chunks = [data]
-    
-            for chunk in chunks:
-                self._send(chunk)
+        try:
+            with self._workingLock:
+                if not self.open:
+                    self.logger.warning("Connection not open. No data sent.")
+                    return
+                if not isinstance(data, UaTcp):
+                    self.logger.warning("Unsupported packet type. No data sent.")
+                    return
                 
-            # This is a hack for isutest. Remove later when moving to different atmt framework
-            if self._pending_tcp_jobs.qsize() > 0:
-                self._pending_tcp_jobs.get()
-                self._pending_tcp_jobs.task_done()
-                
-            if self._pending_sc_jobs.qsize() > 0:
-                self._pending_sc_jobs.get()
-                self._pending_sc_jobs.task_done()
-            
-            if self._pending_sess_jobs.qsize() > 0:
-                self._pending_sess_jobs.get()
-                self._pending_sess_jobs.task_done()
+                data.connectionContext = self.connectionContext
+        
+                if isinstance(data, UaSecureConversationSymmetric):
+                    chunks = chunkify(data)
+                else:
+                    chunks = [data]
+        
+                for chunk in chunks:
+                    self._send(chunk)
+        finally:
+            self._clear_queues()
     
     def recv(self, x=0):
         with self._workingLock:

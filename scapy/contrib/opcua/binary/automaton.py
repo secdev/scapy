@@ -2,6 +2,7 @@
 """
 This module contains an automaton prototype with methods that are used by both the client and server automaton.
 """
+import copy
 import logging
 from scapy.automaton import Automaton, Message, _ATMT_Command, select_objects
 from scapy.contrib.opcua.helpers import UaConnectionContext
@@ -11,15 +12,15 @@ import os
 class _UaAutomaton(Automaton):
     
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        super(_UaAutomaton, self).__init__(*args, **kwargs)
         self._stopped = False
     
     def parse_args(self, debug=0, store=False, connectionContext=UaConnectionContext(), target="localhost",
                    targetPort=4840, timeout=None, **kwargs):
-        super().parse_args(debug, store, **kwargs)
+        super(_UaAutomaton, self).parse_args(debug, store, **kwargs)
         self.target = target
         self.targetPort = targetPort
-        self._connectionContextProto = connectionContext
+        self._connectionContextProto = copy.copy(connectionContext)
         self._connectionContext = connectionContext
         self._timeout = timeout
         self.send_sock_class = lambda **x: None
@@ -29,7 +30,7 @@ class _UaAutomaton(Automaton):
     
     def __del__(self):
         if not self._stopped:
-            super().__del__()
+            super(_UaAutomaton, self).__del__()
     
     def stop(self):
         """
@@ -39,6 +40,11 @@ class _UaAutomaton(Automaton):
         perform the necessary steps to correctly close the connection.
         """
         self.io.shutdown.send(None)
+        ended = self.started.acquire(timeout=2)
+        if ended:
+            self.started.release()
+        else:
+            self.cmdin.send(Message(type=_ATMT_Command.STOP))
         with self.started:
             # Flush command pipes
             while True:
