@@ -767,6 +767,11 @@ def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
                 except read_allowed_exceptions:
                     continue
                 if p is None:
+                    try:
+                        if s.promisc:
+                            continue
+                    except AttributeError:
+                        pass
                     del sniff_sockets[s]
                     break
                 if lfilter and not lfilter(p):
