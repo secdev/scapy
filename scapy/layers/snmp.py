@@ -248,11 +248,11 @@ def snmpwalk(dst, oid="1", community="public"):
     try:
         while True:
             r = sr1(IP(dst=dst)/UDP(sport=RandShort())/SNMP(community=community, PDU=SNMPnext(varbindlist=[SNMPvarbind(oid=oid)])),timeout=2, chainCC=1, verbose=0, retry=2)
-            if ICMP in r:
-                print(repr(r))
-                break
             if r is None:
                 print("No answers")
+                break
+            if ICMP in r:
+                print(repr(r))
                 break
             print("%-40s: %r" % (r[SNMPvarbind].oid.val,r[SNMPvarbind].value))
             oid = r[SNMPvarbind].oid

@@ -10098,3 +10098,15 @@ assert raw(created) == b'\x80\x11\x124\x00\xbcaN\xab\xcd\xef\x01'
 parsed = RTP(raw(created))
 assert parsed.sourcesync == 0xabcdef01
 assert "RTPExtension" not in parsed
+
+= Test snmpwalk()
+
+~ netaccess
+def test_snmpwalk(dst):
+    with ContextManagerCaptureOutput() as cmco:
+        snmpwalk(dst=dst)
+        output = cmco.get_output()
+    expected = "No answers\n"
+    assert(output == expected)
+
+test_snmpwalk("secdev.org")
