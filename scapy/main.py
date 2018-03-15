@@ -55,11 +55,11 @@ def _probe_config_file(cf):
 def _read_config_file(cf, _globals=globals(), _locals=locals(), interactive=True):
     """Read a config file: execute a python file while loading scapy, that may contain
     some pre-configured values.
-     
+    
     If _globals or _locals are specified, they will be updated with the loaded vars.
     This allows an external program to use the function. Otherwise, vars are only available
     from inside the scapy console.
-     
+    
     params:
     - _globals: the globals() vars
     - _locals: the locals() vars
@@ -191,8 +191,8 @@ def list_contrib(name=None):
 
 
 
-	
-	
+
+
 
 ##############################
 ## Session saving/restoring ##

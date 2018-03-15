@@ -405,7 +405,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
             n,l = el[e]
             for d in l:
                 gr += ' "evt.%s" -> "dst.%s";\n' % (repr(e),repr(d)) 
-        
+             
         gr += "}"
         return do_graph(gr, **kargs)
 
@@ -424,8 +424,8 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
                                        margin=1*pyx.unit.t_cm,
                                        fittosize=1))
         return d
-                    
-                
+                     
+                 
 
     def psdump(self, filename = None, **kargs):
         """Creates a multi-page postcript file with a psdump of every packet
