@@ -193,3 +193,31 @@ with patch("scapy.layers.l2.get_if_hwaddr") as mgih:
 
 conf.route6.routes = bck_conf_route6_routes
 conf.iface = bck_conf_iface
+
+= virtual Ethernet interface handling (veth)
+~ linux needs_root veth
+
+with VEthPair('veth_scapy_0', 'veth_scapy_1') as veth:
+    if_list = get_if_list()
+    assert ('veth_scapy_0' in if_list)
+    assert ('veth_scapy_1' in if_list)
+    frm_count = 0
+    def _sniffer():
+        sniffed = sniff(iface='veth_scapy_1',
+                        store=True,
+                        count=2,
+                        lfilter=lambda p: Ether in p and p[Ether].type == 0xbeef)
+        global frm_count
+        frm_count = 2
+    t_sniffer = Thread(target=_sniffer)
+    t_sniffer.start()
+    time.sleep(1)
+    sendp(Ether(type=0xbeef)/Raw(b'0123456789'),
+          iface='veth_scapy_0',
+          count=2)
+    t_sniffer.join(1)
+    assert(frm_count == 2)
+
+if_list = get_if_list()
+assert ('veth_scapy_0' not in if_list)
+assert ('veth_scapy_1' not in if_list)
