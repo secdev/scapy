@@ -236,7 +236,7 @@ class CacheInstance(dict, object):
         return [k for k in six.iterkeys(self.__dict__) if t0-self._timetable[k] < self.timeout]
     def values(self):
         if self.timeout is None:
-            return six.values(self)
+            return list(six.itervalues(self))
         t0=time.time()
         return [v for (k,v) in six.iteritems(self.__dict__) if t0-self._timetable[k] < self.timeout]
     def __len__(self):
