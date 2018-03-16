@@ -20,9 +20,10 @@ import struct
 import sys
 import time
 
+import subprocess
 
 from scapy.compat import *
-from scapy.consts import LOOPBACK_NAME, IS_64BITS
+from scapy.consts import LOOPBACK_NAME, IS_64BITS, LINUX
 import scapy.utils
 import scapy.utils6
 from scapy.packet import Packet, Padding
@@ -640,3 +641,78 @@ class L2ListenSocket(SuperSocket):
 conf.L3socket = L3PacketSocket
 conf.L2socket = L2Socket
 conf.L2listen = L2ListenSocket
+
+
+class ScapyInvalidPlatformException(Scapy_Exception):
+    pass
+
+
+class VEthPairManagementException(Scapy_Exception):
+    pass
+
+
+class VEthPair(object):
+    """
+    encapsulates a virtual Ethernet interface pair
+    """
+
+    def __init__(self, iface_name, peer_name):
+
+        if not LINUX:
+            # ToDo: do we need a kernel version check here?
+            raise ScapyInvalidPlatformException('virtual Ethernet interface pair only available on Linux')
+
+        self.ifaces = [iface_name, peer_name]
+
+        self._setup()
+
+    def iface(self):
+        return self.ifaces[0]
+
+    def peer(self):
+        return self.ifaces[1]
+
+    def _setup(self):
+        """
+        create virtual Ethernet Interface pair
+        :raises VEthPairManagementException() if operation failed
+        """
+        ret = subprocess.check_call(['ip', 'link', 'add', self.ifaces[0], 'type', 'veth', 'peer', 'name', self.ifaces[1]])
+        if ret:
+            raise VEthPairManagementException('failed to create veth pair: {}'.format(','.join(self.ifaces)))
+
+    def _destroy(self):
+        """
+        remove virtual interface pair
+        :raises VEthPairManagementException() if operation failed
+        """
+        ret = subprocess.check_call(['ip', 'link', 'del', self.ifaces[0]])
+        if ret:
+            raise VEthPairManagementException('failed to remove veth pair: {}'.format(','.join(self.ifaces)))
+
+    def _up(self):
+        """
+        set both interfaces link up
+        :raises VEthPairManagementException() if operation failed
+        """
+        for idx in [0, 1]:
+            ret = subprocess.check_call(["ip", "link", "set", self.ifaces[idx], "up"])
+            if ret:
+                raise VEthPairManagementException('failed to set veth {} link up'.format(self.ifaces[idx]))
+
+    def _down(self):
+        """
+        set both interfaces link down
+        :raises VEthPairManagementException() if operation failed
+        """
+        for idx in [0, 1]:
+            ret = subprocess.check_call(["ip", "link", "set", self.ifaces[idx], "down"])
+            if ret:
+                raise VEthPairManagementException('failed to set veth {} link down'.format(self.ifaces[idx]))
+
+    def __enter__(self):
+        self._up()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self._destroy()
