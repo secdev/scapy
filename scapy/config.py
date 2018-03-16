@@ -12,6 +12,7 @@ from __future__ import print_function
 import os,time,socket,sys
 
 from scapy import VERSION, base_classes
+from scapy.consts import DARWIN
 from scapy.data import ETHER_TYPES, IP_PROTOS, TCP_SERVICES, UDP_SERVICES, \
     MANUFDB
 from scapy.error import log_scapy
@@ -60,8 +61,8 @@ class Interceptor(object):
 
     
 class ProgPath(ConfClass):
-    pdfreader = "acroread"
-    psreader = "gv"
+    pdfreader = "open" if DARWIN else "xdg-open"
+    psreader = "open" if DARWIN else "xdg-open"
     dot = "dot"
     display = "display"
     tcpdump = "tcpdump"
