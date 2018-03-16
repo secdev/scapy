@@ -11,12 +11,12 @@ from __future__ import absolute_import
 from __future__ import print_function
 import os,time,socket,sys
 
-from scapy import VERSION
-from scapy.data import *
-from scapy import base_classes
-from scapy.themes import NoTheme, apply_ipython_style
+from scapy import VERSION, base_classes
+from scapy.data import ETHER_TYPES, IP_PROTOS, TCP_SERVICES, UDP_SERVICES, \
+    MANUFDB
 from scapy.error import log_scapy
-import scapy.modules.six as six
+from scapy.modules import six
+from scapy.themes import NoTheme, apply_ipython_style
 
 ############
 ## Config ##
