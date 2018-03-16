@@ -10099,14 +10099,14 @@ parsed = RTP(raw(created))
 assert parsed.sourcesync == 0xabcdef01
 assert "RTPExtension" not in parsed
 
-= Test snmpwalk()
-
-~ netaccess
-def test_snmpwalk(dst):
-    with ContextManagerCaptureOutput() as cmco:
-        snmpwalk(dst=dst)
-        output = cmco.get_output()
-    expected = "No answers\n"
-    assert(output == expected)
-
-test_snmpwalk("secdev.org")
+#= Test snmpwalk()
+#
+#~ netaccess
+#def test_snmpwalk(dst):
+#    with ContextManagerCaptureOutput() as cmco:
+#        snmpwalk(dst=dst)
+#        output = cmco.get_output()
+#    expected = "No answers\n"
+#    assert(output == expected)
+#
+#test_snmpwalk("secdev.org")
