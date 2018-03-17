@@ -1612,7 +1612,8 @@ class ICMPv6MLDMultAddrRec(Packet):
     name = "ICMPv6 MLDv2 - Multicast Address Record"
     fields_desc = [ ByteField("rtype", 4), 
                     FieldLenField("auxdata_len", None,
-                                  length_of="auxdata"),
+                                  length_of="auxdata",
+                                  fmt="B"),
                     FieldLenField("sources_number", None,
                                   length_of="sources",
                                   adjust=lambda p,num: num//16),
