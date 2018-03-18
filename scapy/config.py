@@ -11,12 +11,13 @@ from __future__ import absolute_import
 from __future__ import print_function
 import os,time,socket,sys
 
-from scapy import VERSION
-from scapy.data import *
-from scapy import base_classes
-from scapy.themes import NoTheme, apply_ipython_style
+from scapy import VERSION, base_classes
+from scapy.consts import DARWIN
+from scapy.data import ETHER_TYPES, IP_PROTOS, TCP_SERVICES, UDP_SERVICES, \
+    MANUFDB
 from scapy.error import log_scapy
-import scapy.modules.six as six
+from scapy.modules import six
+from scapy.themes import NoTheme, apply_ipython_style
 
 ############
 ## Config ##
@@ -60,8 +61,8 @@ class Interceptor(object):
 
     
 class ProgPath(ConfClass):
-    pdfreader = "acroread"
-    psreader = "gv"
+    pdfreader = "open" if DARWIN else "xdg-open"
+    psreader = "open" if DARWIN else "xdg-open"
     dot = "dot"
     display = "display"
     tcpdump = "tcpdump"
@@ -236,7 +237,7 @@ class CacheInstance(dict, object):
         return [k for k in six.iterkeys(self.__dict__) if t0-self._timetable[k] < self.timeout]
     def values(self):
         if self.timeout is None:
-            return six.values(self)
+            return list(six.itervalues(self))
         t0=time.time()
         return [v for (k,v) in six.iteritems(self.__dict__) if t0-self._timetable[k] < self.timeout]
     def __len__(self):
