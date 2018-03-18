@@ -368,7 +368,7 @@ def fletcher16_checkbytes(binbuf, offset):
 
 
 def mac2str(mac):
-    return b"".join(chb(int(x, 16)) for x in mac.split(':'))
+    return b"".join(chb(int(x, 16)) for x in plain_str(mac).split(':'))
 
 def str2mac(s):
     if isinstance(s, str):
