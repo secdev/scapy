@@ -45,16 +45,8 @@ class ScapyFreqFilter(logging.Filter):
             self.warning_table[caller] = (tm,nb)
         return 1    
 
-try:
-    from logging import NullHandler
-except ImportError:
-    # compat for python 2.6
-    from logging import Handler
-    class NullHandler(Handler):
-        def emit(self, record):
-            pass
 log_scapy = logging.getLogger("scapy")
-log_scapy.addHandler(NullHandler())
+log_scapy.addHandler(logging.NullHandler())
 log_runtime = logging.getLogger("scapy.runtime")          # logs at runtime
 log_runtime.addFilter(ScapyFreqFilter())
 log_interactive = logging.getLogger("scapy.interactive")  # logs in interactive functions
