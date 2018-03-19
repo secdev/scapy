@@ -194,7 +194,19 @@ with patch("scapy.layers.l2.get_if_hwaddr") as mgih:
 conf.route6.routes = bck_conf_route6_routes
 conf.iface = bck_conf_iface
 
-= virtual Ethernet interface handling (veth)
+= veth interface error handling
+~ linux needs_root veth
+
+try:
+    veth = VEthPair('this_IF_name_is_to_long_and_will_cause_an_error', 'veth_scapy_1')
+    veth.setup()
+    assert False
+except subprocess.CalledProcessError:
+    pass
+except Exception:
+    assert False
+
+= veth interface usage
 ~ linux needs_root veth
 
 with VEthPair('veth_scapy_0', 'veth_scapy_1') as veth:
