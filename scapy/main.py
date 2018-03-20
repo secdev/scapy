@@ -10,7 +10,7 @@ Main module for interactive startup.
 from __future__ import absolute_import
 from __future__ import print_function
 
-import sys, os, getopt, re, code
+import sys, os, getopt, code
 import gzip, glob
 import importlib
 import logging
@@ -20,7 +20,9 @@ import io
 
 # Never add any global import, in main.py, that would trigger a warning messsage
 # before the console handlers gets added in interact()
-from scapy.error import log_interactive, log_loading, log_scapy, warning
+from scapy.config import ConfClass, conf
+from scapy.consts import WINDOWS
+from scapy.error import log_interactive, log_loading, log_scapy
 import scapy.modules.six as six
 from scapy.themes import DefaultTheme, BlackAndWhite, apply_ipython_style
 
@@ -199,8 +201,9 @@ def list_contrib(name=None):
 def update_ipython_session(session):
     """Updates IPython session with a custom one"""
     try:
+        global get_ipython  # defined externally by ipython / jupyter
         get_ipython().user_ns.update(session)
-    except:
+    except Exception:
         pass
 
 def save_session(fname=None, session=None, pickleProto=-1):
