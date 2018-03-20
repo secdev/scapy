@@ -19,6 +19,13 @@ class BufferSizes(object):
         self.maxChunkCount = None
 
 
+class SessionData(object):
+    def __init__(self):
+        self.serverNonce = None
+        self.clientNonce = None
+        self.serverCertificate = None
+
+
 class UaConnectionContext(object):
     """
     This class contains all connection related data. If it is passed to packets while assembling or dissecting,
@@ -43,7 +50,8 @@ class UaConnectionContext(object):
         self.remoteBufferSizes = BufferSizes()
         self.chunks = defaultdict(list)
         self.requestId = 0
-
+        self.sessionData = SessionData()
+    
     def __copy__(self):
         newContext = UaConnectionContext()
         newContext.securityPolicy = self.securityPolicy
@@ -60,6 +68,7 @@ class UaConnectionContext(object):
         newContext.chunks = copy.deepcopy(self.chunks)
         
         return newContext
+
 
 class UaTypePacket(Packet):
     __slots__ = ["connectionContext"]

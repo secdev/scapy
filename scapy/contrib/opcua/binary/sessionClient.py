@@ -73,7 +73,7 @@ class SessionAutomaton(_UaAutomaton):
         # Send None to signal that the socket is closed
         self.oi.uasess.send(None)
         self.oi.shutdown.send(None)
-
+    
     @ATMT.condition(RESET)
     def resetATMT(self):
         self._flush_buffers()
@@ -108,6 +108,11 @@ class SessionAutomaton(_UaAutomaton):
         self.logger.debug("Sending CreateSession")
         
         createSession = UaCreateSessionRequest()
+        
+        self._connectionContext.sessionData.clientNonce = b"A" * 32
+        createSession.ClientNonce = UaByteString(data=self._connectionContext.sessionData.clientNonce)
+        createSession.ClientCertificate = UaByteString(data=self._connectionContext.securityPolicy.client_certificate)
+        
         msg = UaSecureConversationSymmetric(Payload=UaMessage(Message=createSession))
         
         self.send(msg)
@@ -124,6 +129,8 @@ class SessionAutomaton(_UaAutomaton):
             self.logger.debug("Received CreateSessionResponse")
             
             self._connectionContext.authenticationToken = pkt.reassembled.Message.AuthenticationToken
+            self._connectionContext.sessionData.serverCertificate = pkt.reassembled.Message.ServerCertificate.data
+            self._connectionContext.sessionData.serverNonce = pkt.reassembled.Message.ServerNonce.data
             
             raise self.SESSION_ESTABLISHED()
         if isinstance(pkt, UaSecureConversationSymmetric) and \
@@ -142,6 +149,12 @@ class SessionAutomaton(_UaAutomaton):
         self.logger.debug("Sending ActivateSession")
         
         activateSession = UaActivateSessionRequest()
+        
+        dataToSign = self._connectionContext.sessionData.serverCertificate + self._connectionContext.sessionData.serverNonce
+        signature = self._connectionContext.securityPolicy.asymmetric_cryptography.Signer.signature(dataToSign)
+        
+        activateSession.ClientSignature.Signature.data = signature
+        
         msg = UaSecureConversationSymmetric(Payload=UaMessage(Message=activateSession))
         
         self.send(msg)
@@ -156,6 +169,7 @@ class SessionAutomaton(_UaAutomaton):
         if isinstance(pkt, UaSecureConversationSymmetric) and \
                 isinstance(pkt.reassembled.Message, UaActivateSessionResponse):
             self.logger.debug("Received ActivateSessionResponse")
+            pkt.show()
             
             raise self.SESSION_ACTIVATED()
         if isinstance(pkt, UaSecureConversationSymmetric) and \
@@ -214,7 +228,7 @@ class SessionAutomaton(_UaAutomaton):
         if isinstance(pkt, UaSecureConversationSymmetric) and \
                 isinstance(pkt.reassembled.Message, UaCloseSessionResponse):
             self.logger.debug("Received CloseSessionResponse")
-        
+            
             raise self.SESSION_CLOSED()
         if isinstance(pkt, UaSecureConversationSymmetric) and \
                 isinstance(pkt.Payload.Message, UaServiceFault):
@@ -261,7 +275,7 @@ class UaSessionSocket(SuperSocket):
         self.atmt.send_sock.atmt.send_sock.atmt.send_sock._pending_sess_jobs.put(None)
         self.atmt.io.uasess.send(copy.deepcopy(data))
         self.atmt.send_sock.atmt.send_sock.atmt.send_sock._pending_sess_jobs.join()
-        
+    
     def recv(self, x=0):
         if not self.open:
             self.logger.warning("Socket not open. Cannot receive any data.")
