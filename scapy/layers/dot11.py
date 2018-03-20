@@ -180,7 +180,7 @@ class Dot11(Packet):
 class Dot11QoS(Packet):
     name = "802.11 QoS"
     fields_desc = [ BitField("Reserved",None,1),
-                    BitField("Ack Policy",None,2),
+                    BitField("Ack_Policy", None, 2),
                     BitField("EOSP",None,1),
                     BitField("TID",None,4),
                     ByteField("TXOP",None) ]
