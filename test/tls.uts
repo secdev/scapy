@@ -1126,6 +1126,96 @@ assert not s.consider_write_padding()
 = Test connState
 assert s.wcs.__repr__() == 'Connection end : SERVER\nCipher suite   : TLS_NULL_WITH_NULL_NULL (0x0000)\nCompression    : null (0x00)\n'
 
+= Test tls.tools
+def test_tls_tools():
+    from scapy.layers.tls.crypto.compression import Comp_Deflate
+    from scapy.layers.tls.crypto.ciphers import CipherError
+    from scapy.layers.tls.crypto.cipher_stream import Cipher_RC4_40
+    from scapy.layers.tls.crypto.cipher_aead import (Cipher_AES_128_GCM,
+                                                     Cipher_AES_128_GCM_TLS13)
+    from scapy.layers.tls.crypto.hash import Hash_SHA256
+    from scapy.layers.tls.crypto.pkcs1 import pkcs_i2osp, pkcs_os2ip
+    from scapy.layers.tls.tools import TLSPlaintext, TLSCompressed, TLSCiphertext
+    from scapy.layers.tls.tools import _tls_compress, _tls_decompress
+    from scapy.layers.tls.tools import _tls_mac_add, _tls_mac_verify
+    from scapy.layers.tls.tools import _tls_add_pad, _tls_del_pad
+    from scapy.layers.tls.tools import _tls_encrypt, _tls_decrypt
+    from scapy.layers.tls.tools import _tls_aead_auth_encrypt, _tls_aead_auth_decrypt
+    plain = TLSPlaintext()
+    plain.type = 'application_data'
+    plain.version = 'TLS 1.2'
+    plain.data = b'X\xe1\xb1T\xaa\xb1\x0b\xa0zlg\xf8\xd14]%\xa9\x91d\x08\xc7t\xcd6\xd4"\x9f\xcf'
+    plain.len = len(plain.data)
+    # Compress/decompress test
+    alg = Comp_Deflate()
+    comp = _tls_compress(alg, plain)
+    assert isinstance(comp, TLSCompressed)
+    assert comp != plain
+    dcomp = _tls_decompress(alg, comp)
+    assert isinstance(dcomp, TLSPlaintext)
+    assert dcomp == plain
+    # Encrypt/decrypt test
+    ch = Cipher_RC4_40(_rc4_40_test.k)
+    encr = _tls_encrypt(ch, plain)
+    assert isinstance(encr, TLSCiphertext)
+    assert encr != plain
+    decr = _tls_decrypt(ch, encr)
+    assert isinstance(decr, TLSPlaintext)
+    assert decr == plain
+    encr = _tls_encrypt(ch, comp)
+    assert isinstance(encr, TLSCiphertext)
+    assert encr != comp
+    decr = _tls_decrypt(ch, encr)
+    assert isinstance(decr, TLSPlaintext)
+    assert (decr.version == comp.version and decr.type == comp.type
+            and decr.len == comp.len and decr.data == comp.data)
+    # MAC add/verify test
+    mac = Hash_SHA256()
+    save_encr = encr.copy()
+    assert save_encr is not encr
+    _tls_mac_add(mac, encr, 1)
+    assert isinstance(encr, TLSCiphertext)
+    had_mac = _tls_mac_verify(mac, encr, 1)
+    assert had_mac
+    assert encr == save_encr
+    # Pad add/delete test
+    save_comp = comp.copy()
+    assert save_comp is not comp
+    block_size = 8
+    _tls_add_pad(comp, block_size)
+    assert isinstance(comp, TLSCompressed)    
+    assert comp.len == save_comp.len + -save_comp.len % block_size + 1
+    had_pad = _tls_del_pad(comp)
+    assert had_pad
+    assert comp == save_comp
+    block_size = save_comp.len // 2
+    _tls_add_pad(comp, block_size)
+    assert isinstance(comp, TLSCompressed)    
+    assert comp.len == save_comp.len + -save_comp.len % block_size + 1
+    had_pad = _tls_del_pad(comp)
+    assert had_pad
+    assert comp == save_comp
+    # AEAD auth encrypt/decrypt test
+    ch_auth = Cipher_AES_128_GCM(key=_aes128gcm_test_1.k,
+                                 fixed_iv=_aes128gcm_test_1.n[:4],
+                                 nonce_explicit=pkcs_os2ip(_aes128gcm_test_1.n[4:]))
+    auth_encr = _tls_aead_auth_encrypt(ch_auth, comp, 1)
+    assert isinstance(auth_encr, TLSCiphertext)
+    assert auth_encr != comp
+    # auth_decr = _tls_aead_auth_decrypt(ch_auth, auth_encr, 1)
+    # assert isinstance(auth_decr, TLSCompressed)
+    # assert auth_decr == comp
+    ch_auth = Cipher_AES_128_GCM_TLS13(key=_aes128gcm_test_1.k,
+                                       fixed_iv=_aes128gcm_test_1.n)
+    auth_encr = _tls_aead_auth_encrypt(ch_auth, comp, 1)
+    assert isinstance(auth_encr, TLSCiphertext)
+    assert auth_encr != comp
+    # auth_decr = _tls_aead_auth_decrypt(ch_auth, auth_encr, 1)
+    # assert isinstance(auth_decr, TLSCompressed)
+    # assert auth_decr == comp
+
+test_tls_tools()
+
 
 ###############################################################################
 ############################ Automaton behaviour ##############################
