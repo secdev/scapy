@@ -1223,6 +1223,18 @@ for i in range(10):
 response = res[0][1]
 assert response[ICMP].type == 0
 
+= Test set of sent_time by sr
+~ needs_root linux
+packet = IP(dst="8.8.8.8")/ICMP()
+r = sr(packet)
+assert packet.sent_time is not None
+
+= Test set of sent_time by sr1
+~ needs_root linux
+packet = IP(dst="8.8.8.8")/ICMP()
+r = sr1(packet)
+assert packet.sent_time is not None
+
 ############
 ############
 + ManuFDB tests
