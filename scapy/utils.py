@@ -786,12 +786,12 @@ class PcapReader_metaclass(type):
         return filename, fdesc, magic
 
 
-RawPcapReader_PacketMetadata = collections.namedtuple("RawPcapReader_PacketMetadata",
-                                                      ["sec", "usec", "wirelen", "caplen"])
-
-
 class RawPcapReader(six.with_metaclass(PcapReader_metaclass)):
     """A stateful pcap reader. Each packet is returned as a string"""
+
+    PacketMetadata = collections.namedtuple("PacketMetadata",
+                                            ["sec", "usec", "wirelen", "caplen"])
+
     def __init__(self, filename, fdesc, magic):
         self.filename = filename
         self.f = fdesc
@@ -841,7 +841,7 @@ class RawPcapReader(six.with_metaclass(PcapReader_metaclass)):
             return None
         sec,usec,caplen,wirelen = struct.unpack(self.endian+"IIII", hdr)
         return (self.f.read(caplen)[:size],
-                RawPcapReader_PacketMetadata(sec=sec, usec=usec,
+                RawPcapReader.PacketMetadata(sec=sec, usec=usec,
                                              wirelen=wirelen, caplen=caplen))
 
 
@@ -918,11 +918,6 @@ class PcapReader(RawPcapReader):
         return self.read_packet(size=size)
 
 
-RawPcapNgReader_PacketMetadata = collections.namedtuple("RawPcapNgReader_PacketMetadata",
-                                                        ["linktype", "tsresol",
-                                                         "tshigh", "tslow", "wirelen"])
-
-
 class RawPcapNgReader(RawPcapReader):
     """A stateful pcapng reader. Each packet is returned as a
     string.
@@ -930,6 +925,10 @@ class RawPcapNgReader(RawPcapReader):
     """
 
     alternative = RawPcapReader
+
+    PacketMetadata = collections.namedtuple("PacketMetadata",
+                                            ["linktype", "tsresol",
+                                             "tshigh", "tslow", "wirelen"])
 
     def __init__(self, filename, fdesc, magic):
         self.filename = filename
@@ -1016,7 +1015,7 @@ class RawPcapNgReader(RawPcapReader):
             block[:20],
         )
         return (block[20:20 + caplen][:size],
-                RawPcapNgReader_PacketMetadata(linktype=self.interfaces[intid][0],
+                RawPcapNgReader.PacketMetadata(linktype=self.interfaces[intid][0],
                                                tsresol=self.interfaces[intid][2],
                                                tshigh=tshigh,
                                                tslow=tslow,
@@ -1031,7 +1030,7 @@ class RawPcapNgReader(RawPcapReader):
         wirelen, = struct.unpack(self.endian + "I", block[:4])
         caplen = min(wirelen, self.interfaces[intid][1])
         return (block[4:4 + caplen][:size],
-                RawPcapNgReader_PacketMetadata(linktype=self.interfaces[intid][0],
+                RawPcapNgReader.PacketMetadata(linktype=self.interfaces[intid][0],
                                                tsresol=self.interfaces[intid][2],
                                                tshigh=None,
                                                tslow=None,
@@ -1044,7 +1043,7 @@ class RawPcapNgReader(RawPcapReader):
             block[:20],
         )
         return (block[20:20 + caplen][:size],
-                RawPcapNgReader_PacketMetadata(linktype=self.interfaces[intid][0],
+                RawPcapNgReader.PacketMetadata(linktype=self.interfaces[intid][0],
                                                tsresol=self.interfaces[intid][2],
                                                tshigh=tshigh,
                                                tslow=tslow,
