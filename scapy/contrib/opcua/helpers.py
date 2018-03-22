@@ -3,6 +3,7 @@
 This module contains helper functions that the implementation of the OPC UA protocol needs.
 """
 import copy
+import logging
 from collections import defaultdict
 
 from scapy.compat import raw
@@ -83,7 +84,10 @@ class UaTypePacket(Packet):
     def __init__(self, _pkt=b"", connectionContext=None,
                  post_transform=None, _internal=0, _underlayer=None, **fields):
         self.connectionContext = connectionContext
-        super(UaTypePacket, self).__init__(_pkt, post_transform, _internal, _underlayer, **fields)
+        try:
+            super(UaTypePacket, self).__init__(_pkt, post_transform, _internal, _underlayer, **fields)
+        except Exception as e:
+            logging.getLogger(__name__).warning("Could not decode packet. Probably encrypted")
     
     def guess_payload_class(self, payload):
         return conf.padding_layer

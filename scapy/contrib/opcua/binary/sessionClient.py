@@ -129,6 +129,7 @@ class SessionAutomaton(_UaAutomaton):
             self.logger.debug("Received CreateSessionResponse")
             
             self._connectionContext.authenticationToken = pkt.reassembled.Message.AuthenticationToken
+            
             self._connectionContext.sessionData.serverCertificate = pkt.reassembled.Message.ServerCertificate.data
             self._connectionContext.sessionData.serverNonce = pkt.reassembled.Message.ServerNonce.data
             
@@ -169,7 +170,6 @@ class SessionAutomaton(_UaAutomaton):
         if isinstance(pkt, UaSecureConversationSymmetric) and \
                 isinstance(pkt.reassembled.Message, UaActivateSessionResponse):
             self.logger.debug("Received ActivateSessionResponse")
-            pkt.show()
             
             raise self.SESSION_ACTIVATED()
         if isinstance(pkt, UaSecureConversationSymmetric) and \

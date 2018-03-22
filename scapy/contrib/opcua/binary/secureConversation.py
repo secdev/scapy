@@ -400,7 +400,7 @@ class UaSecureConversationAsymmetric(UaTcp):
     
     def post_dissection(self, pkt):
         if self.MessageHeader.IsFinal == b'F' and self.reassembled is None and self.connectionContext is not None:
-            from scapy.contrib.opcua.binary.networking import dechunkify
+            from scapy.contrib.opcua.binary.chunking import dechunkify
             self.reassembled = dechunkify(self.connectionContext.chunks[self.SequenceHeader.RequestId])
             del self.connectionContext.chunks[self.SequenceHeader.RequestId]
         return pkt

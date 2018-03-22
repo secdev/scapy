@@ -9,7 +9,7 @@ import traceback
 from time import sleep
 
 from scapy.contrib.opcua.helpers import UaConnectionContext
-from scapy.contrib.opcua.binary.networking import chunkify
+from scapy.contrib.opcua.binary.chunking import chunkify
 from scapy.automaton import ATMT, select_objects
 from scapy.contrib.opcua.binary.automaton import _UaAutomaton
 from scapy.contrib.opcua.binary.uaTypes import *
