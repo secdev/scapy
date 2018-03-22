@@ -183,7 +183,7 @@ def sndrcv(pks, pkt, timeout=None, inter=0, verbose=None, chainCC=False,
     nbrecv = 0
     ans = []
     # do it here to fix random fields, so that parent and child have the same
-    tobesent = [p for p in pkt]
+    tobesent = list(pkt) if hasattr(pkt, "__iter__") else pkt
     notans = len(tobesent)
 
     if retry < 0:
