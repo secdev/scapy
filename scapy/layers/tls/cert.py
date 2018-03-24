@@ -842,10 +842,7 @@ class CRL(six.with_metaclass(_CRLMaker, object)):
 
     def verify(self, anchors):
         # Return True iff the CRL is signed by one of the provided anchors.
-        for a in anchors:
-            if self.isIssuerCert(a):
-                return True
-        return False
+        return any(self.isIssuerCert(a) for a in anchors)
 
     def show(self):
         print("Version: %d" % self.version)
@@ -913,11 +910,7 @@ class Chain(list):
             if len(chain) == 1:             # anchor only
                 continue
             # check that the chain does not exclusively rely on untrusted
-            found = False
-            for c in self:
-                if c in chain[1:]:
-                    found = True
-            if found:
+            if any(c in chain[1:] for c in self):
                 for c in chain:
                     if c.remainingDays() < 0:
                         break
@@ -1013,11 +1006,10 @@ def _create_ca_file(anchor_list, filename):
     that can be used for certificate and CRL check.
     """
     try:
-        f = open(filename, "w")
-        for a in anchor_list:
-            s = a.output(fmt="PEM")
-            f.write(s)
-        f.close()
+        with open(filename, "w") as f:
+            for a in anchor_list:
+                s = a.output(fmt="PEM")
+                f.write(s)
     except IOError:
         return None
     return filename

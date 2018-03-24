@@ -78,11 +78,8 @@ def get_if_addr6(iff):
     interface, in human readable form. If no global address is found,
     None is returned. 
     """
-    for x in in6_getifaddr():
-        if x[2] == iff and x[1] == IPV6_ADDR_GLOBAL:
-            return x[0]
-        
-    return None
+    return next((x[0] for x in in6_getifaddr()
+                 if x[2] == iff and x[1] == IPV6_ADDR_GLOBAL), None)
 
 def get_if_raw_addr6(iff):
     """

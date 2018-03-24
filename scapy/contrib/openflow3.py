@@ -600,7 +600,7 @@ class OXMPacketListField(PacketListField):
             l = OXMPacketListField._get_oxm_length(remain) + 4
             # this could also be done by parsing oxm_fields (fixed lengths)
             if l <= 4 or len(remain) < l:
-            # no incoherent length
+                # no incoherent length
                 break
             current = remain[:l]
             remain = remain[l:]
@@ -997,9 +997,9 @@ class ActionPacketListField(PacketListField):
         while remain and len(remain)>=4:
             l = ActionPacketListField._get_action_length(remain)
             if l < 8 or len(remain) < l:
-              # length should be at least 8 (non-zero, 64-bit aligned),
-              # and no incoherent length
-              break
+                # length should be at least 8 (non-zero, 64-bit aligned),
+                # and no incoherent length
+                break
             current = remain[:l]
             remain = remain[l:]
             p = self.m2i(pkt, current)
@@ -1214,8 +1214,8 @@ class ActionIDPacketListField(PacketListField):
         while remain and len(remain) >= 4:
             l = ActionIDPacketListField._get_action_id_length(remain)
             if l < 4 or len(remain) < l:
-            # length is 4 (may be more for experimenter messages),
-            # and no incoherent length
+                # length is 4 (may be more for experimenter messages),
+                # and no incoherent length
                 break
             current = remain[:l]
             remain = remain[l:]
@@ -1317,8 +1317,8 @@ class InstructionPacketListField(PacketListField):
         while remain and len(remain) > 4:
             l = InstructionPacketListField._get_instruction_length(remain)
             if l < 8 or len(remain) < l:
-            # length should be at least 8 (non-zero, 64-bit aligned),
-            # and no incoherent length
+                # length should be at least 8 (non-zero, 64-bit aligned),
+                # and no incoherent length
                 break
             current = remain[:l]
             remain = remain[l:]
@@ -1392,8 +1392,8 @@ class InstructionIDPacketListField(PacketListField):
         while remain and len(remain) >= 4:
             l = InstructionIDPacketListField._get_instruction_id_length(remain)
             if l < 4 or len(remain) < l:
-            # length is 4 (may be more for experimenter messages),
-            # and no incoherent length
+                # length is 4 (may be more for experimenter messages),
+                # and no incoherent length
                 break
             current = remain[:l]
             remain = remain[l:]
@@ -3019,7 +3019,7 @@ class TableFeaturesPropPacketListField(PacketListField):
             # add padding !
             lpad = l + (8 - l%8)%8
             if l < 4 or len(remain) < lpad:
-            # no zero length nor incoherent length
+                # no zero length nor incoherent length
                 break
             current = remain[:lpad]
             remain = remain[lpad:]
