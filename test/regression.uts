@@ -5917,6 +5917,15 @@ wrpcap(filename, [IP()/UDP(), IPv6()/UDP()], linktype=DLT_RAW)
 packets = rdpcap(filename)
 assert(isinstance(packets[0], IP) and isinstance(packets[1], IPv6))
 
+= Check wrpcap() with no packet
+
+import tempfile
+filename = tempfile.mktemp(suffix=".pcap")
+wrpcap(filename, [])
+fstat = os.stat(filename)
+assert fstat.st_size != 0
+os.remove(filename)
+
 ############
 ############
 + LLMNR protocol

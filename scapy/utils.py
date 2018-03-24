@@ -24,7 +24,7 @@ warnings.filterwarnings("ignore","tempnam",RuntimeWarning, __name__)
 
 from scapy.config import conf
 from scapy.consts import DARWIN, WINDOWS
-from scapy.data import MTU
+from scapy.data import MTU, DLT_EN10MB
 from scapy.compat import *
 from scapy.error import log_runtime, log_loading, log_interactive, Scapy_Exception, warning
 from scapy.base_classes import BasePacketList
@@ -1154,6 +1154,7 @@ nano:       use nanosecond-precision (requires libpcap >= 1.5.0)
                 try:
                     p = next(pkt)
                 except StopIteration:
+                    self._write_header(None)
                     return
                 self._write_header(p)
                 self._write_packet(p)
@@ -1207,7 +1208,7 @@ class PcapWriter(RawPcapWriter):
                 self.linktype = conf.l2types[pkt.__class__]
             except KeyError:
                 warning("PcapWriter: unknown LL type for %s. Using type 1 (Ethernet)", pkt.__class__.__name__)
-                self.linktype = 1
+                self.linktype = DLT_EN10MB
         RawPcapWriter._write_header(self, pkt)
 
     def _write_packet(self, packet):
