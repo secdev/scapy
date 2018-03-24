@@ -173,8 +173,8 @@ def sndrcv(pks, pkt, timeout=None, inter=0, verbose=None, chainCC=False,
     timeout:  how much time to wait after the last packet has been sent
     verbose:  set verbosity level
     multi:    whether to accept multiple answers for the same stimulus"""
-    if not isinstance(pkt, Gen):
-        pkt = SetGen(pkt)
+    is_single = isinstance(pkt, Gen)
+    pkts = [pkt] if is_single else pkt
     if verbose is None:
         verbose = conf.verb
     debug.recv = plist.PacketList([],"Unanswered")
@@ -183,15 +183,16 @@ def sndrcv(pks, pkt, timeout=None, inter=0, verbose=None, chainCC=False,
     nbrecv = 0
     ans = []
     # do it here to fix random fields, so that parent and child have the same
-    tobesent = [p for p in pkt]
+    tobesent = [p for p in (pkt if is_single else SetGen(pkt))]
     notans = len(tobesent)
 
     if retry < 0:
-        retry = -retry
-        autostop = retry
+        autostop = retry = -retry
     else:
         autostop = 0
 
+    for pkt in pkts:
+        pkt.sent_time = None
     while retry >= 0:
         if timeout is not None and timeout < 0:
             timeout = None
@@ -207,18 +208,28 @@ def sndrcv(pks, pkt, timeout=None, inter=0, verbose=None, chainCC=False,
             (rcv_pks or pks), tobesent, stopevent, nbrecv, notans, verbose, chainCC, multi,
         )
         thread.join()
+
         ans.extend(newans)
+        to_set_time = [pkt for pkt in pkts if pkt.sent_time is None]
+        if to_set_time:
+            try:
+                sent_time = min(p.sent_time for p in tobesent if getattr(p, "sent_time", None))
+            except ValueError:
+                pass
+            else:
+                for pkt in to_set_time:
+                    pkt.sent_time = sent_time
 
-        remain = list(itertools.chain(*six.itervalues(hsent)))
-        if multi:
-            remain = [p for p in remain if not hasattr(p, '_answered')]
+        remain = itertools.chain(*six.itervalues(hsent))
+        remain = [p for p in remain if not hasattr(p, '_answered')] if multi else list(remain)
 
-        if autostop and len(remain) > 0 and len(remain) != len(tobesent):
+        if not remain:
+            break
+
+        if autostop and len(remain) != len(tobesent):
             retry = autostop
             
         tobesent = remain
-        if len(tobesent) == 0:
-            break
         retry -= 1
 
     if conf.debug_match:
@@ -497,9 +508,9 @@ srloop(pkts, [prn], [inter], [count], ...) --> None"""
 def sndrcvflood(pks, pkt, inter=0, verbose=None, chainCC=False, prn=lambda x: x):
     if not verbose:
         verbose = conf.verb
-    if not isinstance(pkt, Gen):
-        pkt = SetGen(pkt)
-    tobesent = [p for p in pkt]
+    is_single = isinstance(pkt, Gen)
+    pkts = [pkt] if is_single else pkt
+    tobesent = [p for p in (pkt if is_single else SetGen(pkt))]
 
     stopevent = threading.Event()
     count_packets = six.moves.queue.Queue()
@@ -515,6 +526,8 @@ def sndrcvflood(pks, pkt, inter=0, verbose=None, chainCC=False, prn=lambda x: x)
 
     infinite_gen = send_in_loop(tobesent, stopevent)
 
+    for pkt in pkts:
+        pkt.sent_time = None
     # We don't use _sndrcv_snd verbose (it messes the logs up as in a thread that ends after recieving)
     thread = threading.Thread(
         target=_sndrcv_snd,
@@ -524,9 +537,19 @@ def sndrcvflood(pks, pkt, inter=0, verbose=None, chainCC=False, prn=lambda x: x)
 
     hsent, ans, nbrecv, notans = _sndrcv_rcv(pks, tobesent, stopevent, 0, len(tobesent), verbose, chainCC, False)
     thread.join()
+
+    ans = [(x, prn(y)) for (x, y) in ans]  # Apply prn
+    to_set_time = [pkt for pkt in pkts if pkt.sent_time is None]
+    if to_set_time:
+        try:
+            sent_time = min(p.sent_time for p in tobesent if getattr(p, "sent_time", None))
+        except ValueError:
+            pass
+        else:
+            for pkt in to_set_time:
+                pkt.sent_time = sent_time
+
     remain = list(itertools.chain(*six.itervalues(hsent)))
-    # Apply prn
-    ans = [(x, prn(y)) for (x, y) in ans]
 
     if verbose:
         print("\nReceived %i packets, got %i answers, remaining %i packets. Sent a total of %i packets." % (nbrecv+len(ans), len(ans), notans, count_packets.qsize()))
