@@ -414,6 +414,7 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
                     DestIP6Field("dst", "::1") ]
 
     def route(self):
+        """Used to select the L2 address"""
         dst = self.dst
         if isinstance(dst,Gen):
             dst = next(iter(dst))

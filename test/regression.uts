@@ -3463,6 +3463,8 @@ raw(defragment6(l)) == b'`\x00\x00\x00\x0f\xb4\x06@\x00\x00\x00\x00\x00\x00\x00\
 + Test Route6 class
 
 = Route6 - Route6 flushing
+conf_iface = conf.iface
+conf.iface = "eth0"
 conf.route6.routes=[
 (                               '::1', 128,                       '::',   'lo', ['::1'], 1), 
 (          'fe80::20f:1fff:feca:4650', 128,                       '::',   'lo', ['::1'], 1)]
@@ -3480,6 +3482,7 @@ conf.route6.routes=[
 (                                '::',   0, 'fe80::20f:34ff:fe8a:8aa1', 'eth0', ['2001:db8:0:4444:20f:1fff:feca:4650', '2002:db8:0:4444:20f:1fff:feca:4650'], 1)
 ]
 conf.route6.route("2002::1") == ('eth0', '2002:db8:0:4444:20f:1fff:feca:4650', 'fe80::20f:34ff:fe8a:8aa1') and conf.route6.route("2001::1") == ('eth0', '2001:db8:0:4444:20f:1fff:feca:4650', 'fe80::20f:34ff:fe8a:8aa1') and conf.route6.route("fe80::20f:1fff:feab:4870") == ('eth0', 'fe80::20f:1fff:feca:4650', '::') and conf.route6.route("::1") == ('lo', '::1', '::') and conf.route6.route("::") == ('eth0', '2001:db8:0:4444:20f:1fff:feca:4650', 'fe80::20f:34ff:fe8a:8aa1') and conf.route6.route('ff00::') == ('eth0', '2001:db8:0:4444:20f:1fff:feca:4650', 'fe80::20f:34ff:fe8a:8aa1')
+conf.iface = conf_iface
 conf.route6.resync()
 if not len(conf.route6.routes):
     # IPv6 seems disabled. Force a route to ::1
