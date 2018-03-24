@@ -2981,6 +2981,12 @@ s = raw(IPv6()/ICMPv6NIQueryName(data="n.d.org"))
 p = IPv6(s)
 ICMPv6NIQueryName in p and p[ICMPv6NIQueryName].data == b"n.d.org"
 
+= ICMPv6NIQueryName - dissection
+s = b'\x8b\x00z^\x00\x02\x00\x00\x00\x03g\x90\xc7\xa3\xdd[\xff\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
+p = ICMPv6NIQueryName(s)
+p.show()
+assert ICMPv6NIQueryName in p and p.data == "ff02::1"
+
 
 ############
 ############
@@ -3048,6 +3054,20 @@ type(a) is tuple and len(a) == 2 and a[0] == 2 and a[1] == '169.254.253.252'
 
 = ICMPv6NIQueryIPv4 - IPv4 address
 ICMPv6NIQueryIPv4(data="169.254.253.252").data == '169.254.253.252'
+
+= ICMPv6NIQueryIPv4 - dissection
+s = b'\x8b\x01\x00\x00\x00\x04\x00\x00\xc2\xb9\xc2\x96\xc3\xa1.H\x07freebsd\x00\x00'
+p = ICMPv6NIQueryIPv4(s)
+p.show()
+assert ICMPv6NIQueryIPv4 in p and p.data == b"freebsd"
+
+= ICMPv6NIQueryIPv4 - hashret()
+~ not_pypy random_weird_py3
+random.seed(0x2807)
+p = IPv6()/ICMPv6NIQueryIPv4(data="freebsd")
+h_py2 = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00:\xe10S7\x9d\x91\x84\xc9'
+h_py3 = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00:\xa8\x19uE\x01\xcf\xe3\x04'
+assert p.hashret() in [h_py2, h_py3]
 
 
 ############
@@ -3277,6 +3297,13 @@ type(a) is tuple and len(a) == 2 and a[0] == 2 and type(a[1]) is list and len(a[
 
 = ICMPv6NIReplyName - [ttl, single-label, single-label, fqdn]
 ICMPv6NIReplyName(data=[42, "abricot", "poire", "n.d.tld"]).data == [42, b"abricot", b"poire", b"n.d.tld"]
+
+= ICMPv6NIReplyName - dissection
+
+s = b'\x8c\x00\xd1\x0f\x00\x02\x00\x00\x00\x00\xd9$\x94\x8d\xc6%\x00\x00\x00\x00\x07freebsd\x00\x00'
+p = ICMPv6NIReplyName(s)
+p.show()
+assert ICMPv6NIReplyName in p and p.data == [0, b'freebsd']
 
 
 ############
