@@ -118,9 +118,9 @@ def _sndrcv_rcv(pks, tobesent, stopevent, nbrecv, notans, verbose, chainCC,
         try:
             while True:
                 r = _get_pkt()
+                if stopevent.is_set():
+                    break
                 if r is None:
-                    if stopevent.is_set():
-                        break
                     continue
                 ok = False
                 h = r.hashret()
