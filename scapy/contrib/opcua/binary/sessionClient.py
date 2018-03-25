@@ -111,7 +111,11 @@ class SessionAutomaton(_UaAutomaton):
         
         self._connectionContext.sessionData.clientNonce = b"A" * 32
         createSession.ClientNonce = UaByteString(data=self._connectionContext.sessionData.clientNonce)
-        createSession.ClientCertificate = UaByteString(data=self._connectionContext.securityPolicy.client_certificate)
+        try:
+            createSession.ClientCertificate = UaByteString(data=
+                                                           self._connectionContext.securityPolicy.client_certificate)
+        except AttributeError:
+            pass
         
         msg = UaSecureConversationSymmetric(Payload=UaMessage(Message=createSession))
         
@@ -151,10 +155,13 @@ class SessionAutomaton(_UaAutomaton):
         
         activateSession = UaActivateSessionRequest()
         
-        dataToSign = self._connectionContext.sessionData.serverCertificate + self._connectionContext.sessionData.serverNonce
-        signature = self._connectionContext.securityPolicy.asymmetric_cryptography.Signer.signature(dataToSign)
-        
-        activateSession.ClientSignature.Signature.data = signature
+        try:
+            dataToSign = self._connectionContext.sessionData.serverCertificate + self._connectionContext.sessionData.serverNonce
+            signature = self._connectionContext.securityPolicy.asymmetric_cryptography.Signer.signature(dataToSign)
+            
+            activateSession.ClientSignature.Signature.data = signature
+        except AttributeError:
+            pass
         
         msg = UaSecureConversationSymmetric(Payload=UaMessage(Message=activateSession))
         
