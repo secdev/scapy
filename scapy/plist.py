@@ -14,6 +14,7 @@ import os,subprocess
 from collections import defaultdict
 
 from scapy.config import conf
+from scapy.consts import WINDOWS
 from scapy.base_classes import BasePacket,BasePacketList
 from scapy.utils import do_graph,hexdump,make_table,make_lined_table,make_tex_table, \
     get_temp_file, issubtype
@@ -435,8 +436,11 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         if filename is None:
             filename = get_temp_file(autoext=".ps")
             d.writePSfile(filename)
-            with ContextManagerSubprocess("psdump()"):
-                subprocess.Popen([conf.prog.psreader, filename+".ps"])
+            if WINDOWS and conf.prog.psreader is None:
+                os.startfile(filename)
+            else:
+                with ContextManagerSubprocess("psdump()", conf.prog.psreader):
+                    subprocess.Popen([conf.prog.psreader, filename])
         else:
             d.writePSfile(filename)
         print()
@@ -449,8 +453,11 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         if filename is None:
             filename = get_temp_file(autoext=".pdf")
             d.writePDFfile(filename)
-            with ContextManagerSubprocess("psdump()"):
-                subprocess.Popen([conf.prog.pdfreader, filename+".pdf"])
+            if WINDOWS and conf.prog.pdfreader is None:
+                os.startfile(filename)
+            else:
+                with ContextManagerSubprocess("pdfdump()", conf.prog.pdfreader):
+                    subprocess.Popen([conf.prog.pdfreader, filename])
         else:
             d.writePDFfile(filename)
         print()

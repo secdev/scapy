@@ -435,7 +435,7 @@ class ContextManagerSubprocess(object):
     Context manager that eases checking for unknown command.
 
     Example:
-    >>> with ContextManagerSubprocess("my custom message"):
+    >>> with ContextManagerSubprocess("my custom message", "unknown_command"):
     >>>     subprocess.Popen(["unknown_command"])
 
     """
