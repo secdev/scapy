@@ -503,9 +503,9 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         """
         canvas = self.canvas_dump(**kargs)
         if filename is None:
-            fname = WINDOWS and get_temp_file(autoext=".eps")
+            fname = get_temp_file(autoext=".eps")
             canvas.writeEPSfile(fname)
-            if conf.prog.psreader is None:
+            if WINDOWS and conf.prog.psreader is None:
                 os.startfile(fname)
             else:
                 with ContextManagerSubprocess("psdump()", conf.prog.psreader):
