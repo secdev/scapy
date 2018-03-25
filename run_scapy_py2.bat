@@ -1,5 +1,5 @@
 @echo off
-set PYTHONPATH=%cd%
+set PYTHONPATH=%~dp0
 set PYTHONDONTWRITEBYTECODE=True
 if "%1"=="--nopause" (
   set nopause="True"
