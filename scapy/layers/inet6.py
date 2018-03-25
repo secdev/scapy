@@ -3441,9 +3441,9 @@ class TracerouteResult6(TracerouteResult):
     __slots__ = []
 
     def show(self):
-        return self.make_table(lambda s_r: (s_r[0].sprintf("%-42s,IPv6.dst%:{TCP:tcp%TCP.dport%}{UDP:udp%UDP.dport%}{ICMPv6EchoRequest:IER}"),  # TODO: ICMPv6 !
-                                            s_r[0].hlim,
-                                            s_r[1].sprintf("%-42s,IPv6.src% {TCP:%TCP.flags%}" +
+        return self.make_table(lambda s, r: (s.sprintf("%-42s,IPv6.dst%:{TCP:tcp%TCP.dport%}{UDP:udp%UDP.dport%}{ICMPv6EchoRequest:IER}"),  # TODO: ICMPv6 !
+                                             s.hlim,
+                                             r.sprintf("%-42s,IPv6.src% {TCP:%TCP.flags%}" +
                                                            "{ICMPv6DestUnreach:%ir,type%}{ICMPv6PacketTooBig:%ir,type%}" +
                                                            "{ICMPv6TimeExceeded:%ir,type%}{ICMPv6ParamProblem:%ir,type%}" +
                                                            "{ICMPv6EchoReply:%ir,type%}")))
