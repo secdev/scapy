@@ -58,10 +58,14 @@ except IndexError:
       pass
 
 
-= Advanced test: check length of complex IDs
+= Advanced test: check definitions and length of complex IDs
 
 pkt = Ether()/LLDPDUChassisID(id="ff:dd:ee:bb:aa:99", subtype=0x04)/LLDPDUPortID(subtype=0x03, id="aa:bb:cc:dd:ee:ff")/LLDPDUTimeToLive(ttl=120)/LLDPDUEndOfLLDPDU()
 pkt = Ether(raw(pkt))
+assert pkt[LLDPDUChassisID].fields_desc[2].i2s == LLDPDUChassisID.LLDP_CHASSIS_ID_TLV_SUBTYPES
+assert pkt[LLDPDUChassisID].fields_desc[3].subtypes_dict == LLDPDUChassisID.LLDP_CHASSIS_ID_TLV_SUBTYPES_FIELDS
+assert pkt[LLDPDUPortID].fields_desc[2].i2s == LLDPDUPortID.LLDP_PORT_ID_TLV_SUBTYPES
+assert pkt[LLDPDUPortID].fields_desc[3].subtypes_dict == LLDPDUPortID.LLDP_PORT_ID_TLV_SUBTYPES_FIELDS
 assert pkt[LLDPDUChassisID]._length == 7
 assert pkt[LLDPDUPortID]._length == 7
 
