@@ -7,6 +7,8 @@ from zlib import crc32
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 
+import scapy.modules.six as six
+from scapy.modules.six.moves import range
 from scapy.compat import hex_bytes, orb
 from scapy.packet import Raw
 
@@ -144,7 +146,7 @@ def gen_TKIP_RC4_key(TSC, TA, TK):
     assert len(TSC) == 6
     assert len(TA) == 6
     assert len(TK) == 16
-    assert all(isinstance(x, (int, long)) for x in TSC + TA + TK)
+    assert all(isinstance(x, six.integer_types) for x in TSC + TA + TK)
 
     # Phase 1
     # 802.11i p.54
@@ -158,7 +160,7 @@ def gen_TKIP_RC4_key(TSC, TA, TK):
     TTAK.append(_MK16(TA[5], TA[4]))
 
     # Phase 1 - Step 2
-    for i in xrange(PHASE1_LOOP_CNT):
+    for i in range(PHASE1_LOOP_CNT):
         j = 2 * (i & 1)
         TTAK[0] = _CAST16(TTAK[0] + _SBOX16(TTAK[4] ^ _MK16(TK[1 + j], TK[0 + j])))
         TTAK[1] = _CAST16(TTAK[1] + _SBOX16(TTAK[0] ^ _MK16(TK[5 + j], TK[4 + j])))
@@ -194,7 +196,7 @@ def gen_TKIP_RC4_key(TSC, TA, TK):
     WEPSeed.append((TSC[1] | 0x20) & 0x7f)
     WEPSeed.append(TSC[0])
     WEPSeed.append(((PPK[5] ^ _MK16(TK[1], TK[0])) >> 1) & 0xFF)
-    for i in xrange(6):
+    for i in range(6):
         WEPSeed.append(PPK[i] & 0xFF)
         WEPSeed.append(PPK[i] >> 8)
 
@@ -237,7 +239,7 @@ def michael(key, to_hash):
 
     # Hash
     l, r = unpack('<II', key)
-    for i in xrange(nb_block + 2):
+    for i in range(nb_block + 2):
         # Convert i-th block to int
         block_i = unpack('<I', data[i*4:i*4 + 4])[0]
         l ^= block_i
