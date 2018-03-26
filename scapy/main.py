@@ -39,6 +39,7 @@ QUOTES = [
     ("Craft me if you can.", "IPv6 layer"),
     ("To craft a packet, you have to be a packet, and learn how to swim in the "
      "wires and in the waves.", "Jean-Claude Van Damme"),
+    ("We are in France, we say Skappee. OK? Merci.", "Sebastien Chabal"),
 ]
 
 def _probe_config_file(cf):
