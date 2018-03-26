@@ -44,7 +44,7 @@
 from scapy.config import conf
 from scapy.error import log_runtime, Scapy_Exception
 from scapy.layers.l2 import Ether, Dot1Q
-from scapy.fields import MACField, IPField, BitField, \
+from scapy.fields import MACField, IPField, BitField, ByteField, \
          StrLenField, ByteEnumField, BitEnumField, \
          EnumField, ThreeBytesField, BitFieldLenField, \
          ShortField, XStrLenField
@@ -331,23 +331,6 @@ class LLDPDUChassisID(LLDPDU):
     """
         ieee 802.1ab-2016 - sec. 8.5.2 / p. 26
     """
-    LLDP_CHASSIS_ID_TLV_SUBTYPES = {
-        0x00: 'reserved',
-        0x01: 'chassis component',
-        0x02: 'interface alias',
-        0x03: 'port component',
-        0x04: 'MAC address',
-        0x05: 'network address',
-        0x06: 'interface name',
-        0x07: 'locally assigned',
-        range(0x08, 0xff): 'reserved'
-    }
-
-    LLDP_CHASSIS_ID_TLV_SUBTYPES_FIELDS = {
-        0x04: MACField,
-        0x05: IPField,
-    }
-
     SUBTYPE_RESERVED = 0x00
     SUBTYPE_CHASSIS_COMPONENT = 0x01
     SUBTYPE_INTERFACE_ALIAS = 0x02
@@ -356,6 +339,23 @@ class LLDPDUChassisID(LLDPDU):
     SUBTYPE_NETWORK_ADDRESS = 0x05
     SUBTYPE_INTERFACE_NAME = 0x06
     SUBTYPE_LOCALLY_ASSIGNED = 0x07
+
+    LLDP_CHASSIS_ID_TLV_SUBTYPES = {
+        SUBTYPE_RESERVED: 'reserved',
+        SUBTYPE_CHASSIS_COMPONENT: 'chassis component',
+        SUBTYPE_INTERFACE_ALIAS: 'interface alias',
+        SUBTYPE_PORT_COMPONENT: 'port component',
+        SUBTYPE_MAC_ADDRESS: 'MAC address',
+        SUBTYPE_NETWORK_ADDRESS: 'network address',
+        SUBTYPE_INTERFACE_NAME: 'interface name',
+        SUBTYPE_LOCALLY_ASSIGNED: 'locally assigned',
+        range(SUBTYPE_LOCALLY_ASSIGNED + 1, 0xff): 'reserved'
+    }
+
+    LLDP_CHASSIS_ID_TLV_SUBTYPES_FIELDS = {
+        0x04: MACField,
+        0x05: IPField,
+    }
 
     fields_desc = [
         BitEnumField('_type', 0x01, 7, LLDPDU.TYPES),
@@ -377,23 +377,6 @@ class LLDPDUPortID(LLDPDU):
     """
         ieee 802.1ab-2016 - sec. 8.5.3 / p. 26
     """
-    LLDP_PORT_ID_TLV_SUBTYPES = {
-        0x00: 'reserved',
-        0x01: 'interface alias',
-        0x02: 'port component',
-        0x03: 'MAC address',
-        0x04: 'network address',
-        0x05: 'interface name',
-        0x06: 'agent circuit ID',
-        0x07: 'locally assigned',
-        range(0x08, 0xff): 'reserved'
-    }
-
-    LLDP_PORT_ID_TLV_SUBTYPES = {
-        0x03: MACField,
-        0x04: IPField,
-    }
-
     SUBTYPE_RESERVED = 0x00
     SUBTYPE_INTERFACE_ALIAS = 0x01
     SUBTYPE_PORT_COMPONENT = 0x02
@@ -403,12 +386,29 @@ class LLDPDUPortID(LLDPDU):
     SUBTYPE_AGENT_CIRCUIT_ID = 0x06
     SUBTYPE_LOCALLY_ASSIGNED = 0x07
 
+    LLDP_PORT_ID_TLV_SUBTYPES = {
+        SUBTYPE_RESERVED: 'reserved',
+        SUBTYPE_INTERFACE_ALIAS: 'interface alias',
+        SUBTYPE_PORT_COMPONENT: 'port component',
+        SUBTYPE_MAC_ADDRESS: 'MAC address',
+        SUBTYPE_NETWORK_ADDRESS: 'network address',
+        SUBTYPE_INTERFACE_NAME: 'interface name',
+        SUBTYPE_AGENT_CIRCUIT_ID: 'agent circuit ID',
+        SUBTYPE_LOCALLY_ASSIGNED: 'locally assigned',
+        range(SUBTYPE_LOCALLY_ASSIGNED + 1, 0xff): 'reserved'
+    }
+
+    LLDP_PORT_ID_TLV_SUBTYPES_FIELDS = {
+        0x03: MACField,
+        0x04: IPField,
+    }
+
     fields_desc = [
         BitEnumField('_type', 0x02, 7, LLDPDU.TYPES),
         BitFieldLenField('_length', None, 9, length_of='id',
                          adjust=lambda pkt, x: _ldp_id_adjustlen(pkt, x)),
         ByteEnumField('subtype', 0x00, LLDP_PORT_ID_TLV_SUBTYPES),
-        _LLDPidField('id', '', LLDP_PORT_ID_TLV_SUBTYPES, length_from=lambda pkt: pkt._length - 1)
+        _LLDPidField('id', '', LLDP_PORT_ID_TLV_SUBTYPES_FIELDS, length_from=lambda pkt: pkt._length - 1)
     ]
 
     def _check(self):
@@ -552,40 +552,6 @@ class LLDPDUManagementAddress(LLDPDU):
         see https://www.iana.org/assignments/
         address-family-numbers/address-family-numbers.xhtml
     """
-    IANA_ADDRESS_FAMILY_NUMBERS = {
-        0x00: 'other',
-        0x01: 'IPv4',
-        0x02: 'IPv6',
-        0x03: 'NSAP',
-        0x04: 'HDLC',
-        0x05: 'BBN',
-        0x06: '802',
-        0x07: 'E.163',
-        0x08: 'E.164',
-        0x09: 'F.69',
-        0x0a: 'X.121',
-        0x0b: 'IPX',
-        0x0c: 'Appletalk',
-        0x0d: 'Decnet IV',
-        0x0e: 'Banyan Vines',
-        0x0f: 'E.164 with NSAP',
-        0x10: 'DNS',
-        0x11: 'Distinguished Name',
-        0x12: 'AS Number',
-        0x13: 'XTP over IPv4',
-        0x14: 'XTP over IPv6',
-        0x15: 'XTP native mode XTP',
-        0x16: 'Fiber Channel World-Wide Port Name',
-        0x17: 'Fiber Channel World-Wide Node Name',
-        0x18: 'GWID',
-        0x19: 'AFI for L2VPN',
-        0x1a: 'MPLS-TP Section Endpoint ID',
-        0x1b: 'MPLS-TP LSP Endpoint ID',
-        0x1c: 'MPLS-TP Pseudowire Endpoint ID',
-        0x1d: 'MT IP Multi-Topology IPv4',
-        0x1e: 'MT IP Multi-Topology IPv6'
-    }
-
     SUBTYPE_MANAGEMENT_ADDRESS_OTHER = 0x00
     SUBTYPE_MANAGEMENT_ADDRESS_IPV4 = 0x01
     SUBTYPE_MANAGEMENT_ADDRESS_IPV6 = 0x02
@@ -618,15 +584,49 @@ class LLDPDUManagementAddress(LLDPDU):
     SUBTYPE_MANAGEMENT_ADDRESS_MT_IP_MULTI_TOPOLOGY_IPV4 = 0x1D
     SUBTYPE_MANAGEMENT_ADDRESS_MT_IP_MULTI_TOPOLOGY_IPV6 = 0x1E
 
-    INTERFACE_NUMBERING_SUBTYPES = {
-        0x01: 'unknown',
-        0x02: 'ifIndex',
-        0x03: 'system port number'
+    IANA_ADDRESS_FAMILY_NUMBERS = {
+        SUBTYPE_MANAGEMENT_ADDRESS_OTHER: 'other',
+        SUBTYPE_MANAGEMENT_ADDRESS_IPV4: 'IPv4',
+        SUBTYPE_MANAGEMENT_ADDRESS_IPV6: 'IPv6',
+        SUBTYPE_MANAGEMENT_ADDRESS_NSAP: 'NSAP',
+        SUBTYPE_MANAGEMENT_ADDRESS_HDLC: 'HDLC',
+        SUBTYPE_MANAGEMENT_ADDRESS_BBN: 'BBN',
+        SUBTYPE_MANAGEMENT_ADDRESS_802: '802',
+        SUBTYPE_MANAGEMENT_ADDRESS_E_163: 'E.163',
+        SUBTYPE_MANAGEMENT_ADDRESS_E_164: 'E.164',
+        SUBTYPE_MANAGEMENT_ADDRESS_F_69: 'F.69',
+        SUBTYPE_MANAGEMENT_ADDRESS_X_121: 'X.121',
+        SUBTYPE_MANAGEMENT_ADDRESS_IPX: 'IPX',
+        SUBTYPE_MANAGEMENT_ADDRESS_APPLETALK: 'Appletalk',
+        SUBTYPE_MANAGEMENT_ADDRESS_DECNET_IV: 'Decnet IV',
+        SUBTYPE_MANAGEMENT_ADDRESS_BANYAN_VINES: 'Banyan Vines',
+        SUBTYPE_MANAGEMENT_ADDRESS_E_164_WITH_NSAP: 'E.164 with NSAP',
+        SUBTYPE_MANAGEMENT_ADDRESS_DNS: 'DNS',
+        SUBTYPE_MANAGEMENT_ADDRESS_DISTINGUISHED_NAME: 'Distinguished Name',
+        SUBTYPE_MANAGEMENT_ADDRESS_AS_NUMBER: 'AS Number',
+        SUBTYPE_MANAGEMENT_ADDRESS_XTP_OVER_IPV4: 'XTP over IPv4',
+        SUBTYPE_MANAGEMENT_ADDRESS_XTP_OVER_IPV6: 'XTP over IPv6',
+        SUBTYPE_MANAGEMENT_ADDRESS_XTP_NATIVE_MODE_XTP: 'XTP native mode XTP',
+        SUBTYPE_MANAGEMENT_ADDRESS_FIBER_CHANNEL_WORLD_WIDE_PORT_NAME: 'Fiber Channel World-Wide Port Name',
+        SUBTYPE_MANAGEMENT_ADDRESS_FIBER_CHANNEL_WORLD_WIDE_NODE_NAME: 'Fiber Channel World-Wide Node Name',
+        SUBTYPE_MANAGEMENT_ADDRESS_GWID: 'GWID',
+        SUBTYPE_MANAGEMENT_ADDRESS_AFI_FOR_L2VPN: 'AFI for L2VPN',
+        SUBTYPE_MANAGEMENT_ADDRESS_MPLS_TP_SECTION_ENDPOINT_ID: 'MPLS-TP Section Endpoint ID',
+        SUBTYPE_MANAGEMENT_ADDRESS_MPLS_TP_LSP_ENDPOINT_ID: 'MPLS-TP LSP Endpoint ID',
+        SUBTYPE_MANAGEMENT_ADDRESS_MPLS_TP_PSEUDOWIRE_ENDPOINT_ID: 'MPLS-TP Pseudowire Endpoint ID',
+        SUBTYPE_MANAGEMENT_ADDRESS_MT_IP_MULTI_TOPOLOGY_IPV4: 'MT IP Multi-Topology IPv4',
+        SUBTYPE_MANAGEMENT_ADDRESS_MT_IP_MULTI_TOPOLOGY_IPV6: 'MT IP Multi-Topology IPv6'
     }
 
     SUBTYPE_INTERFACE_NUMBER_UNKNOWN = 0x01
     SUBTYPE_INTERFACE_NUMBER_IF_INDEX = 0x02
     SUBTYPE_INTERFACE_NUMBER_SYSTEM_PORT_NUMBER = 0x03
+
+    INTERFACE_NUMBERING_SUBTYPES = {
+        SUBTYPE_INTERFACE_NUMBER_UNKNOWN: 'unknown',
+        SUBTYPE_INTERFACE_NUMBER_IF_INDEX: 'ifIndex',
+        SUBTYPE_INTERFACE_NUMBER_SYSTEM_PORT_NUMBER: 'system port number'
+    }
 
     '''
         Note - calculation of _length field:
