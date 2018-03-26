@@ -23,13 +23,6 @@ from scapy.consts import WINDOWS
 from scapy.compat import *
 import scapy.modules.six as six
 
-try:
-    import thread
-except ImportError:
-    THREAD_EXCEPTION = RuntimeError
-else:
-    THREAD_EXCEPTION = thread.error
-
 if WINDOWS:
     from scapy.error import Scapy_Exception
     recv_error = Scapy_Exception
@@ -107,7 +100,7 @@ class SelectableObject:
         self.was_ended = arborted
         try:
             self.trigger.release()
-        except (THREAD_EXCEPTION, AttributeError):
+        except (threading.ThreadError, AttributeError):
             pass
 
 class SelectableSelector(object):
