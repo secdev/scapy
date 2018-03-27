@@ -1,6 +1,6 @@
 @echo off
 title UTscapy - All tests - PY2
-set MYDIR=%~dp0\..
+set MYDIR=%~dp0..
 set PYTHONPATH=%MYDIR%
 set PYTHONDONTWRITEBYTECODE=True
 if [%1]==[] (
