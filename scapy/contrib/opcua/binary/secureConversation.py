@@ -5,8 +5,8 @@ For SecureConversation messages refer to secureConversation.py
 
 If all OPC UA basic data types are needed load the uaTypes module
 """
-import six
-
+import hashlib
+import logging
 from cryptography.exceptions import InvalidSignature
 
 from scapy.compat import raw
@@ -17,18 +17,25 @@ from scapy.contrib.opcua.binary.builtinTypes import UaBytesField, UaByteField, U
 from scapy.contrib.opcua.binary.tcp import UaTcp
 from scapy.contrib.opcua.binary.schemaTypes import UaOpenSecureChannelRequest, UaCloseSecureChannelRequest, \
     UaCloseSecureChannelResponse, nodeIdMappings, UaMessageSecurityMode
-import hashlib
-import logging
-from collections import defaultdict
+from scapy.modules import six
 
 
 class UaSecureConversationMessageHeader(UaTypePacket):
+    """
+    This class represents the SecureConversationMessageHeader of SecureConversation messages in the binary encoding
+    according to the specification.
+    See part 6 v1.03 Table 26.
+    """
     fields_desc = [UaBytesField("MessageType", None, 3),
                    UaByteField("IsFinal", b'F', displayAsChar=True),
                    UaUInt32Field("MessageSize", None),
                    UaUInt32Field("SecureChannelId", None)]
     
     def post_build(self, pkt, pay):
+        """
+        Replaces the SecureChannelId with the value in the ConnectionContext
+        if it is supplied and it was not set manually.
+        """
         idField, id = self.getfield_and_val("SecureChannelId")
         
         if id is None and self.connectionContext is not None:
@@ -38,6 +45,12 @@ class UaSecureConversationMessageHeader(UaTypePacket):
 
 
 def _has_padding(pkt):
+    """
+    Determines whether the supplied SecureConversationMessageFooter packet has a padding.
+    
+    :param pkt: the SecureConversationMessageFooter packet to check for padding.
+    :return: True if the packet has padding and False otherwise.
+    """
     if pkt.connectionContext is None:
         return False
     hasPadding = pkt.connectionContext.securityPolicy is not None
@@ -55,12 +68,22 @@ def _has_padding(pkt):
 
 
 def _has_signature(pkt):
+    """
+    Determines whether the supplied SecureConversationMessageFooter packet has a signature.
+    :param pkt: the SecureConversationMessageFooter packet to check for a signature.
+    :return: True if the packet has a signature and False otherwise.
+    """
     return pkt.connectionContext is not None and \
            pkt.connectionContext.securityPolicy is not None and \
            pkt.connectionContext.securityPolicy.Mode > getattr(UaMessageSecurityMode, "None")
 
 
 class UaSecureConversationMessageFooter(UaTypePacket):
+    """
+    This class represents the SecureConversationMessageFooter of SecureConversation messages
+    in the binary encoding according to the specification.
+    See part 6 v1.03 Table 30.
+    """
     fields_desc = [ConditionalField(UaByteField("PaddingSize", None, count_of="Padding"), _has_padding),
                    ConditionalField(FieldListField("Padding", None, UaByteField("", None, False),
                                                    count_from=lambda p: p.PaddingSize), _has_padding),
@@ -69,6 +92,7 @@ class UaSecureConversationMessageFooter(UaTypePacket):
                                     _has_signature)]
     
     # We override this method because we don't want to add anything that is set to none
+    # The function is copied from the parent class and slightly changed.
     def do_build(self, field_pos_list=None):
         if self.raw_packet_cache is not None:
             for fname, fval in six.iteritems(self.raw_packet_cache_fields):
@@ -95,6 +119,11 @@ class UaSecureConversationMessageFooter(UaTypePacket):
 
 
 class UaAsymmetricAlgorithmSecurityHeader(UaTypePacket):
+    """
+    This class represents the AsymmetricAlgorithmSecurityHeader of SecureConversation messages
+    in the binary encoding according to the specification.
+    See part 6 v1.03 Table 27.
+    """
     fields_desc = [UaPacketField("SecurityPolicyUri",
                                  UaByteString(),
                                  UaByteString),
@@ -102,6 +131,11 @@ class UaAsymmetricAlgorithmSecurityHeader(UaTypePacket):
                    UaPacketField("ReceiverCertificateThumbprint", UaByteString(), UaByteString)]
     
     def post_build(self, pkt, pay):
+        """
+        The fields are automatically replaced if a ConnectionContext is set.
+        The Thumbprint will be automatically calculated from the data present in the SecurityPolicy.
+        If any field has been manually set it will remain unchanged.
+        """
         policyField, policy = self.getfield_and_val("SecurityPolicyUri")
         policyLen = len(policy)
         
@@ -138,9 +172,17 @@ class UaAsymmetricAlgorithmSecurityHeader(UaTypePacket):
 
 
 class UaSymmetricAlgorithmSecurityHeader(UaTypePacket):
+    """
+    This class represents the SymmetricAlgorithmSecurityHeader of SecureConversation messages
+    in the binary encoding according to the specification.
+    See part 6 v1.03 Table 28.
+    """
     fields_desc = [UaUInt32Field("TokenId", None)]
     
     def post_build(self, pkt, pay):
+        """
+        Automatically replaces the TokenId if it is present in the ConnectionContext and was not set manually.
+        """
         tokenIdField, tokenId = self.getfield_and_val("TokenId")
         
         if tokenId is None and self.connectionContext is not None:
@@ -149,10 +191,19 @@ class UaSymmetricAlgorithmSecurityHeader(UaTypePacket):
 
 
 class UaSequenceHeader(UaTypePacket):
+    """
+    This class represents the SequenceHeader of SecureConversation messages
+    in the binary encoding according to the specification.
+    See part 6 v1.03 Table 29.
+    """
     fields_desc = [UaUInt32Field("SequenceNumber", None),
                    UaUInt32Field("RequestId", None)]
     
     def post_build(self, pkt, pay):
+        """
+        Automatically replaces SequenceNumber and RequestId if they are present in the ConnectionContext
+        and were not set manually.
+        """
         sequenceNumberField, sequenceNumber = self.getfield_and_val("SequenceNumber")
         
         if sequenceNumber is None and self.connectionContext is not None:
@@ -160,7 +211,7 @@ class UaSequenceHeader(UaTypePacket):
             # are received from a remote.
             pkt = sequenceNumberField.addfield(self, b'', self.connectionContext.sendSequenceNumber) + \
                   pkt[sequenceNumberField.sz:]
-
+        
         requestIdField, requestId = self.getfield_and_val("RequestId")
         
         if requestId is None and self.connectionContext is not None:
@@ -170,6 +221,12 @@ class UaSequenceHeader(UaTypePacket):
 
 
 def _chunked_data_length(pkt):
+    """
+    Determines the length of a :class:`UaChunkedData` Message.
+    
+    :param pkt: the packet that contains the chunked data.
+    :return: the length of the data.
+    """
     reduceBy = 0
     
     if pkt.connectionContext is not None and pkt.connectionContext.securityPolicy is not None:
@@ -186,6 +243,10 @@ def _chunked_data_length(pkt):
 
 
 class UaChunkedData(UaTypePacket):
+    """
+    This helper class is used to decode message chunks that have the intermediate flag 'C' set.
+    The data is interpreted as byte string and as soon as a final chunk 'F' is decoded it will be reassembled.
+    """
     __slots__ = ["isCLO"]
     fields_desc = [ByteListField("Message", None, UaByteField("", None, True), count_from=_chunked_data_length)]
     
@@ -194,6 +255,10 @@ class UaChunkedData(UaTypePacket):
         self.isCLO = False
     
     def post_dissection(self, s):
+        """
+        Appends the decoded intermediate chunk to a list of chunks in the ConnectionContext.
+        They will be automatically reassembled once a final chunk is decoded.
+        """
         requestId = self.underlayer.SequenceHeader.RequestId
         if self.connectionContext is not None:
             self.connectionContext.chunks[requestId].append(self.underlayer)
@@ -201,6 +266,13 @@ class UaChunkedData(UaTypePacket):
 
 
 class UaMessage(UaTypePacket):
+    """
+    This class is used to decode OPC UA messages.
+    It represents a complete message that is not split into chunks.
+    The DataTypeEncoding determines how the Message field is decoded.
+    For each different DataTypeEncoding a new UaMessage class is created which is cached in a dictionary.
+    To a user this is not visible.
+    """
     fields_desc = [UaPacketField("DataTypeEncoding", UaNodeId(), UaNodeId),
                    UaPacketField("Message", None, UaTypePacket)]
     
@@ -209,6 +281,12 @@ class UaMessage(UaTypePacket):
     
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kwargs):
+        """
+        This dispatch_hook method looks up the UaMessage cache for an appropriate class and returns it.
+        If none exists, a new one is created, added to the cache and then returned.
+        
+        If the Data is an intermediate chunk, the :class:`UaChunkedData` class is returned for decoding.
+        """
         if _pkt is not None:
             if "_underlayer" in kwargs:
                 underlayer = kwargs["_underlayer"]
@@ -232,6 +310,9 @@ class UaMessage(UaTypePacket):
         return cls
     
     def post_build(self, pkt, pay):
+        """
+        Automatically replaces the DataTypeEncoding with the appropriate value if it was not manually set.
+        """
         dataTypeEncoding = self.DataTypeEncoding
         try:
             identifier = dataTypeEncoding.getfieldval("Identifier")
@@ -261,6 +342,13 @@ class UaMessage(UaTypePacket):
 
 
 class UaSecureConversationAsymmetric(UaTcp):
+    """
+    This class represents all SecureConversation chunks that may be asymmetrically secured.
+    See specification part 6 v1.03 §6.7.2 for the chunk structure.
+    
+    Intermediate chunks are automatically reassembled if the final chunk is decoded.
+    After decoding and reassembling the complete message is available in the reassembled attribute.
+    """
     __slots__ = ["original_decrypted", "reassembled"]
     fields_desc = [
         UaPacketField("MessageHeader", UaSecureConversationMessageHeader(), UaSecureConversationMessageHeader),
@@ -317,6 +405,17 @@ class UaSecureConversationAsymmetric(UaTcp):
         return (len(body) + len(padding) + sigLen) // blockSize, padding
     
     def post_build(self, pkt, pay, cryptoModule=None):
+        """
+        If not manually set the MessageType and MessageSize are automatically calculated.
+        Afterwards the message is signed and encrypted according to the supplied cryptoModule.
+        If no cryptoModule is supplied and the ConnectionContext is set, the chunk is secured
+        with asymmetric algorithms
+        
+        :param str pkt: the current packet (built by self_build function)
+        :param str pay: the packet payload (built by do_build_payload function)
+        :param cryptoModule: the cryptoModule that is used to secure the chunk
+        :return: a string of the packet with the payload
+        """
         messageTypeField, messageType = self.MessageHeader.getfield_and_val("MessageType")
         messageSizeField, messageSize = self.MessageHeader.getfield_and_val("MessageSize")
         
@@ -364,6 +463,17 @@ class UaSecureConversationAsymmetric(UaTcp):
         return completePkt
     
     def pre_dissect(self, s, cryptoModule=None, securityHeader=UaAsymmetricAlgorithmSecurityHeader):
+        """
+        Decrypts the message before it is decoded.
+        If no cryptoModule is supplied and the ConnectionContext is set, the asymmetric cryptoModule is used.
+        By default the security header is interpreted as the asymmetric header.
+        If called by the symmetric class, the symmetric header needs to be passed.
+        
+        :param s: the raw packet.
+        :param cryptoModule: the cryptoModule to use to decrypt the message.
+        :param securityHeader: the asymmetric header of the message.
+        :return: the decrypted packet.
+        """
         if cryptoModule is None and \
                 self.connectionContext is not None and \
                 self.connectionContext.securityPolicy is not None:
@@ -399,6 +509,10 @@ class UaSecureConversationAsymmetric(UaTcp):
         return s
     
     def post_dissection(self, pkt):
+        """
+        After dissecting the packet and if it was a final chunk, it is reassembled and made available in the
+        reassembled attribute.
+        """
         if self.MessageHeader.IsFinal == b'F' and self.reassembled is None and self.connectionContext is not None:
             from scapy.contrib.opcua.binary.chunking import dechunkify
             self.reassembled = dechunkify(self.connectionContext.chunks[self.SequenceHeader.RequestId])
@@ -411,6 +525,12 @@ class UaSecureConversationAsymmetric(UaTcp):
 
 
 class UaSecureConversationSymmetric(UaSecureConversationAsymmetric):
+    """
+    This class represents all SecureConversation chunks that may be symmetrically secured.
+    See specification part 6 v1.03 §6.7.2 for the chunk structure.
+    Intermediate chunks are automatically reassembled if the final chunk is decoded.
+    After decoding and reassembling the complete message is available in the reassembled attribute.
+    """
     fields_desc = [
         UaPacketField("MessageHeader", UaSecureConversationMessageHeader(), UaSecureConversationMessageHeader),
         UaPacketField("SecurityHeader",
