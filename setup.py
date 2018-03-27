@@ -13,7 +13,7 @@ import os
 
 
 EZIP_HEADER = """#! /bin/sh
-PYTHONPATH=$0/%s exec python -m scapy.__init__
+PYTHONPATH=$0/%s exec python -m scapy
 """
 
 
