@@ -171,13 +171,14 @@ assert get_var("init_value") == 123
  
 = Session test with fname
 
-init_session("scapySession2")
+session_name = tempfile.mktemp()
+init_session(session_name)
 set_var("test_value", IP(dst="192.168.0.1")) # test_value = IP(dst="192.168.0.1")
-save_session(fname="scapySession1.dat")
+save_session(fname="%s.dat" % session_name)
 del_var("test_value")
 
 set_var("z", True) #z = True
-load_session(fname="scapySession1.dat")
+load_session(fname="%s.dat" % session_name)
 try:
     get_var("z")
     assert False
@@ -185,13 +186,13 @@ except:
     pass
 
 set_var("z", False) #z = False
-update_session(fname="scapySession1.dat")
+update_session(fname="%s.dat" % session_name)
 assert get_var("test_value").dst == "192.168.0.1" #test_value.dst == "192.168.0.1"
 assert not get_var("z")
 
 = Clear session files
 
-os.remove("scapySession1.dat")
+os.remove("%s.dat" % session_name)
 
 = Test temporary file creation
 ~ appveyor_only
