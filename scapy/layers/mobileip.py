@@ -9,12 +9,12 @@ Mobile IP.
 
 from scapy.fields import *
 from scapy.packet import *
-from scapy.layers.inet import IP,UDP
+from scapy.layers.inet import IP, UDP
 
 
 class MobileIP(Packet):
     name = "Mobile IP (RFC3344)"
-    fields_desc = [ ByteEnumField("type", 1, {1:"RRQ", 3:"RRP"}) ]
+    fields_desc = [ ByteEnumField("type", 1, {1: "RRQ", 3: "RRP"}) ]
 
 class MobileIPRRQ(Packet):
     name = "Mobile IP Registration Request (RFC3344)"

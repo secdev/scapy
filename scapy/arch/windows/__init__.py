@@ -328,7 +328,7 @@ def _exec_query_vbs(cmd, fields):
     parsed_command = "WScript.Echo " + " & \" @ \" & ".join("line.%s" % fld for fld in fields
                            if fld is not None)
     # The IPAddress is an array: convert it to a string
-    for key,val in _VBS_WMI_REPLACE.get(cmd[1], {}).items():
+    for key, val in _VBS_WMI_REPLACE.get(cmd[1], {}).items():
         parsed_command = parsed_command.replace(key, val)
     if action == "Get-WmiObject":
         values = _vbs_exec_code("""Set wmi = GetObject("winmgmts:")

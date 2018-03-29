@@ -120,7 +120,7 @@ class _TLSRandomBytesField(StrFixedLenField):
     def i2repr(self, pkt, x):
         if x is None:
             return repr(x)
-        return repr_hex(self.i2h(pkt,x))
+        return repr_hex(self.i2h(pkt, x))
 
 
 class _SessionIDField(StrLenField):
@@ -488,13 +488,13 @@ class _ASN1CertLenField(FieldLenField):
     def i2m(self, pkt, x):
         if x is None:
             if self.length_of is not None:
-                fld,fval = pkt.getfield_and_val(self.length_of)
+                fld, fval = pkt.getfield_and_val(self.length_of)
                 f = fld.i2len(pkt, fval)
                 x = self.adjust(pkt, f)
         return x
 
     def addfield(self, pkt, s, val):
-        return s + struct.pack(self.fmt, self.i2m(pkt,val))[1:4]
+        return s + struct.pack(self.fmt, self.i2m(pkt, val))[1:4]
 
     def getfield(self, pkt, s):
         return s[3:], self.m2i(pkt, struct.unpack(self.fmt, b"\x00" + s[:3])[0])
@@ -1062,7 +1062,7 @@ class URLAndOptionalHash(Packet):
                                 length_from=lambda pkt: pkt.urllen),
                     FieldLenField("hash_present", None,
                                   fmt="B", length_of="hash",
-                                  adjust=lambda pkt,x: int(math.ceil(x/20.))),
+                                  adjust=lambda pkt, x: int(math.ceil(x/20.))),
                     StrLenField("hash", "",
                                 length_from=lambda pkt: 20*pkt.hash_present) ]
     def guess_payload_class(self, p):
@@ -1086,15 +1086,15 @@ class TLSCertificateURL(_TLSHandshake):
 ###############################################################################
 
 class ThreeBytesLenField(FieldLenField):
-    def __init__(self, name, default,  length_of=None, adjust=lambda pkt, x:x):
+    def __init__(self, name, default,  length_of=None, adjust=lambda pkt, x: x):
         FieldLenField.__init__(self, name, default, length_of=length_of,
                                fmt='!I', adjust=adjust)
     def i2repr(self, pkt, x):
         if x is None:
             return 0
-        return repr(self.i2h(pkt,x))
+        return repr(self.i2h(pkt, x))
     def addfield(self, pkt, s, val):
-        return s+struct.pack(self.fmt, self.i2m(pkt,val))[1:4]
+        return s+struct.pack(self.fmt, self.i2m(pkt, val))[1:4]
     def getfield(self, pkt, s):
         return  s[3:], self.m2i(pkt, struct.unpack(self.fmt, b"\x00"+s[:3])[0])
 

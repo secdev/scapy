@@ -118,14 +118,14 @@ class ASN1F_field(ASN1F_element):
             if cpad is not None:
                 s = cpad.load
                 del(cpad.underlayer.payload)
-            return c,s
+            return c, s
         else:
-            return None,s
+            return None, s
  
     def build(self, pkt):
         return self.i2m(pkt, getattr(pkt, self.name))
     def dissect(self, pkt, s):
-        v,s = self.m2i(pkt, s)
+        v, s = self.m2i(pkt, s)
         self.set_val(pkt, v)
         return s
 
@@ -291,7 +291,7 @@ class ASN1F_SEQUENCE(ASN1F_field):
     def is_empty(self, pkt):
         return all(f.is_empty(pkt) for f in self.seq)
     def get_fields_list(self):
-        return reduce(lambda x,y: x+y.get_fields_list(), self.seq, [])
+        return reduce(lambda x, y: x+y.get_fields_list(), self.seq, [])
     def m2i(self, pkt, s):
         """
         ASN1F_SEQUENCE behaves transparently, with nested ASN1_objects being
@@ -311,7 +311,7 @@ class ASN1F_SEQUENCE(ASN1F_field):
             elif self.explicit_tag is not None:
                 self.explicit_tag = diff_tag
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
-        i,s,remain = codec.check_type_check_len(s)
+        i, s, remain = codec.check_type_check_len(s)
         if len(s) == 0:
             for obj in self.seq:
                 obj.set_val(pkt, None)
@@ -325,10 +325,10 @@ class ASN1F_SEQUENCE(ASN1F_field):
                 raise BER_Decoding_Error("unexpected remainder", remaining=s)
         return [], remain
     def dissect(self, pkt, s):
-        _,x = self.m2i(pkt, s)
+        _, x = self.m2i(pkt, s)
         return x
     def build(self, pkt):
-        s = reduce(lambda x,y: x+y.build(pkt), self.seq, b"")
+        s = reduce(lambda x, y: x+y.build(pkt), self.seq, b"")
         return self.i2m(pkt, s)
 
 class ASN1F_SET(ASN1F_SEQUENCE):
@@ -357,10 +357,10 @@ class ASN1F_SEQUENCE_OF(ASN1F_field):
             elif self.explicit_tag is not None:
                 self.explicit_tag = diff_tag
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
-        i,s,remain = codec.check_type_check_len(s)
+        i, s, remain = codec.check_type_check_len(s)
         lst = []
         while s:
-            c,s = self.extract_packet(self.cls, s)
+            c, s = self.extract_packet(self.cls, s)
             lst.append(c)
         if len(s) > 0:
             raise BER_Decoding_Error("unexpected remainder", remaining=s)
@@ -445,7 +445,7 @@ class ASN1F_CHOICE(ASN1F_field):
         for p in args:
             if hasattr(p, "ASN1_root"):     # should be ASN1_Packet
                 if hasattr(p.ASN1_root, "choices"):
-                    for k,v in six.iteritems(p.ASN1_root.choices):
+                    for k, v in six.iteritems(p.ASN1_root.choices):
                         self.choices[k] = v         # ASN1F_CHOICE recursion
                 else:
                     self.choices[p.ASN1_root.network_tag] = p
@@ -464,9 +464,9 @@ class ASN1F_CHOICE(ASN1F_field):
         """
         if len(s) == 0:
             raise ASN1_Error("ASN1F_CHOICE: got empty string")
-        _,s = BER_tagging_dec(s, hidden_tag=self.ASN1_tag,
+        _, s = BER_tagging_dec(s, hidden_tag=self.ASN1_tag,
                               explicit_tag=self.explicit_tag)
-        tag,_ = BER_id_dec(s)
+        tag, _ = BER_id_dec(s)
         if tag not in self.choices:
             if self.flexible_tag:
                 choice = ASN1F_field
@@ -526,8 +526,8 @@ class ASN1F_PACKET(ASN1F_field):
                 self.implicit_tag = diff_tag
             elif self.explicit_tag is not None:
                 self.explicit_tag = diff_tag
-        p,s = self.extract_packet(self.cls, s)
-        return p,s
+        p, s = self.extract_packet(self.cls, s)
+        return p, s
     def i2m(self, pkt, x):
         if x is None:
             s = b""
@@ -555,7 +555,7 @@ class ASN1F_BIT_STRING_ENCAPS(ASN1F_BIT_STRING):
         bit_string, remain = ASN1F_BIT_STRING.m2i(self, pkt, s)
         if len(bit_string.val) % 8 != 0:
             raise BER_Decoding_Error("wrong bit string", remaining=s)
-        p,s = self.extract_packet(self.cls, bit_string.val_readable)
+        p, s = self.extract_packet(self.cls, bit_string.val_readable)
         if len(s) > 0:
             raise BER_Decoding_Error("unexpected remainder", remaining=s)
         return p, remain

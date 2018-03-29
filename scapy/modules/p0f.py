@@ -65,7 +65,7 @@ class p0fKnowledgeBase(KnowledgeBase):
         try:
             self.base = []
             for l in f:
-                if l[0] in ["#","\n"]:
+                if l[0] in ["#", "\n"]:
                     continue
                 l = tuple(l.split(":"))
                 if len(l) < 8:
@@ -251,7 +251,7 @@ def packet2p0f(pkt):
 
     return (db, (win, ttl, pkt.flags.DF, ss, ooo, qq))
 
-def p0f_correl(x,y):
+def p0f_correl(x, y):
     d = 0
     # wwww can be "*" or "%nn". "Tnn" and "Snn" should work fine with
     # the x[0] == y[0] test.
@@ -297,7 +297,7 @@ p0f(packet) -> accuracy, [list of guesses]
     r = []
     max = len(sig[4].split(",")) + 5
     for b in pb:
-        d = p0f_correl(sig,b)
+        d = p0f_correl(sig, b)
         if d == max:
             r.append((b[6], b[7], b[1] - pkt[IP].ttl))
     return r
@@ -335,7 +335,7 @@ def pkt2uptime(pkt, HZ=100):
 pkt2uptime(pkt, [HZ=100])"""
     if not isinstance(pkt, Packet):
         raise TypeError("Not a TCP packet")
-    if isinstance(pkt,NoPayload):
+    if isinstance(pkt, NoPayload):
         raise TypeError("Not a TCP packet")
     if not isinstance(pkt, TCP):
         return pkt2uptime(pkt.payload)
@@ -580,7 +580,7 @@ interface and may (are likely to) be different than those generated on
         for pkt in pl:
             for elt in packet2p0f(pkt):
                 addresult(elt)
-        os.waitpid(pid,0)
+        os.waitpid(pid, 0)
     elif pid < 0:
         log_runtime.error("fork error")
     else:

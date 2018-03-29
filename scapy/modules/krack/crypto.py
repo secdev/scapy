@@ -41,7 +41,7 @@ def customPRF512(key, amac, smac, anonce, snonce):
     i    = 0
     R    = ''
     while i<=((blen*8+159)/160):
-        hmacsha1 = hmac.new(key,A+chr(0x00)+B+chr(i), hashlib.sha1)
+        hmacsha1 = hmac.new(key, A+chr(0x00)+B+chr(i), hashlib.sha1)
         i+=1
         R = R+hmacsha1.digest()
     return R[:blen]

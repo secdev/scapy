@@ -29,10 +29,10 @@ def get_if_addr(iff):
     
 def get_if_hwaddr(iff):
     addrfamily, mac = get_if_raw_hwaddr(iff)
-    if addrfamily in [ARPHDR_ETHER,ARPHDR_LOOPBACK]:
+    if addrfamily in [ARPHDR_ETHER, ARPHDR_LOOPBACK]:
         return str2mac(mac)
     else:
-        raise Scapy_Exception("Unsupported address family (%i) for interface [%s]" % (addrfamily,iff))
+        raise Scapy_Exception("Unsupported address family (%i) for interface [%s]" % (addrfamily, iff))
 
 
 # Next step is to import following architecture specific functions:

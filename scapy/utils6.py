@@ -38,7 +38,7 @@ def construct_source_candidate_set(addr, plen, laddr):
     will then be performed to select the best source address associated
     with some specific destination that uses this prefix.
     """
-    def cset_sort(x,y):
+    def cset_sort(x, y):
         x_global = 0
         if in6_isgladdr(x):
             x_global = 1
@@ -205,7 +205,7 @@ def in6_mactoifaceid(mac, ulbit=None):
     if len(m) != 12: return None
     first = int(m[0:2], 16)
     if ulbit is None or not (ulbit == 0 or ulbit == 1):
-        ulbit = [1,'-',0][first & 0x02]
+        ulbit = [1, '-', 0][first & 0x02]
     ulbit *= 2
     first = "%.02x" % ((first & 0xFD) | ulbit)
     eui64 = first + m[2:4] + ":" + m[4:6] + "FF:FE" + m[6:8] + ":" + m[8:12]
@@ -224,7 +224,7 @@ def in6_ifaceidtomac(ifaceid): # TODO: finish commenting function behavior
     if ifaceid[3:5] != b'\xff\xfe':
         return None
     first = struct.unpack("B", ifaceid[:1])[0]
-    ulbit = 2*[1,'-',0][first & 0x02]
+    ulbit = 2*[1, '-', 0][first & 0x02]
     first = struct.pack("B", ((first & 0xFD) | ulbit))
     oui = first + ifaceid[1:3]
     end = ifaceid[5:]
@@ -364,7 +364,7 @@ def in6_getLocalUniquePrefix():
     tod = time.time() # time of day. Will bother with epoch later
     i = int(tod)
     j = int((tod - i)*(2**32))
-    tod = struct.pack("!II", i,j)
+    tod = struct.pack("!II", i, j)
     mac = RandMAC()
     # construct modified EUI-64 ID
     eui64 = inet_pton(socket.AF_INET6, '::' + in6_mactoifaceid(mac))[8:] 
@@ -400,19 +400,19 @@ def in6_getRandomizedIfaceId(ifaceid, previous=None):
     s = inet_pton(socket.AF_INET6, "::"+ifaceid)[8:] + previous
     import hashlib
     s = hashlib.md5(s).digest()
-    s1,s2 = s[:8],s[8:]
+    s1, s2 = s[:8], s[8:]
     s1 = chb(orb(s1[0]) | 0x04) + s1[1:]
     s1 = inet_ntop(socket.AF_INET6, b"\xff"*8 + s1)[20:]
     s2 = inet_ntop(socket.AF_INET6, b"\xff"*8 + s2)[20:]    
     return (s1, s2)
 
 
-_rfc1924map = [ '0','1','2','3','4','5','6','7','8','9','A','B','C','D','E',
-                'F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T',
-                'U','V','W','X','Y','Z','a','b','c','d','e','f','g','h','i',
-                'j','k','l','m','n','o','p','q','r','s','t','u','v','w','x',
-                'y','z','!','#','$','%','&','(',')','*','+','-',';','<','=',
-                '>','?','@','^','_','`','{','|','}','~' ]
+_rfc1924map = [ '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E',
+                'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T',
+                'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i',
+                'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x',
+                'y', 'z', '!', '#', '$', '%', '&', '(', ')', '*', '+', '-', ';', '<', '=',
+                '>', '?', '@', '^', '_', '`', '{', '|', '}', '~' ]
 
 def in6_ctop(addr):
     """
@@ -420,7 +420,7 @@ def in6_ctop(addr):
     (RFC 1924) to printable representation ;-)
     Returns None on error.
     """
-    if len(addr) != 20 or not reduce(lambda x,y: x and y, 
+    if len(addr) != 20 or not reduce(lambda x, y: x and y, 
                                      [x in _rfc1924map for x in addr]):
         return None
     i = 0
@@ -488,9 +488,9 @@ def teredoAddrExtractInfo(x):
     """
     addr = inet_pton(socket.AF_INET6, x)
     server = inet_ntop(socket.AF_INET, addr[4:8])
-    flag = struct.unpack("!H",addr[8:10])[0]
-    mappedport = struct.unpack("!H",strxor(addr[10:12],b'\xff'*2))[0] 
-    mappedaddr = inet_ntop(socket.AF_INET, strxor(addr[12:16],b'\xff'*4))
+    flag = struct.unpack("!H", addr[8:10])[0]
+    mappedport = struct.unpack("!H", strxor(addr[10:12], b'\xff'*2))[0] 
+    mappedaddr = inet_ntop(socket.AF_INET, strxor(addr[12:16], b'\xff'*4))
     return server, flag, mappedaddr, mappedport
 
 def in6_iseui64(x):
@@ -524,9 +524,9 @@ def in6_isanycast(x): # RFC 2526
 def _in6_bitops(a1, a2, operator=0):
     a1 = struct.unpack('4I', a1)
     a2 = struct.unpack('4I', a2)
-    fop = [ lambda x,y: x | y,
-            lambda x,y: x & y,
-            lambda x,y: x ^ y
+    fop = [ lambda x, y: x | y,
+            lambda x, y: x & y,
+            lambda x, y: x ^ y
           ]
     ret = map(fop[operator%len(fop)], a1, a2)
     return b"".join(struct.pack('I', x) for x in ret)

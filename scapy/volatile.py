@@ -8,10 +8,10 @@ Fields that hold random numbers.
 """
 
 from __future__ import absolute_import
-import random,time,math
+import random, time, math
 from scapy.base_classes import Net
 from scapy.compat import *
-from scapy.utils import corrupt_bits,corrupt_bytes
+from scapy.utils import corrupt_bits, corrupt_bytes
 from scapy.modules.six.moves import range
 
 ####################
@@ -38,9 +38,9 @@ class RandomEnumeration:
             n += 1
         self.n =n
 
-        self.fs = min(3,(n+1)//2)
+        self.fs = min(3, (n+1)//2)
         self.fsmask = 2**self.fs-1
-        self.rounds = max(self.n,3)
+        self.rounds = max(self.n, 3)
         self.turns = 0
         self.i = 0
 
@@ -49,7 +49,7 @@ class RandomEnumeration:
     def next(self):
         while True:
             if self.turns == 0 or (self.i == 0 and self.renewkeys):
-                self.cnt_key = self.rnd.randint(0,2**self.n-1)
+                self.cnt_key = self.rnd.randint(0, 2**self.n-1)
                 self.sbox = [self.rnd.randint(0, self.fsmask)
                              for _ in range(self.sbox_size)]
             self.turns += 1
@@ -82,7 +82,7 @@ class VolatileValue(object):
     def __getattr__(self, attr):
         if attr in ["__setstate__", "__getstate__"]:
             raise AttributeError(attr)
-        return getattr(self._fix(),attr)
+        return getattr(self._fix(), attr)
     def __str__(self):
         return str(self._fix())
     def __bytes__(self):
@@ -180,7 +180,7 @@ class RandNumExpo(RandNum):
 class RandEnum(RandNum):
     """Instances evaluate to integer sampling without replacement from the given interval"""
     def __init__(self, min, max, seed=None):
-        self.seq = RandomEnumeration(min,max,seed)
+        self.seq = RandomEnumeration(min, max, seed)
     def _fix(self):
         return next(self.seq)
 
@@ -310,10 +310,10 @@ class RandMAC(RandString):
             if template[i] == "*":
                 v = RandByte()
             elif "-" in template[i]:
-                x,y = template[i].split("-")
-                v = RandNum(int(x,16), int(y,16))
+                x, y = template[i].split("-")
+                v = RandNum(int(x, 16), int(y, 16))
             else:
-                v = int(template[i],16)
+                v = int(template[i], 16)
             self.mac += (v,)
     def _fix(self):
         return "%02x:%02x:%02x:%02x:%02x:%02x" % self.mac
@@ -322,11 +322,11 @@ class RandIP6(RandString):
     def __init__(self, ip6template="**"):
         self.tmpl = ip6template
         self.sp = self.tmpl.split(":")
-        for i,v in enumerate(self.sp):
+        for i, v in enumerate(self.sp):
             if not v or v == "**":
                 continue
             if "-" in v:
-                a,b = v.split("-")
+                a, b = v.split("-")
             elif v == "*":
                 a=b=""
             else:
@@ -337,25 +337,25 @@ class RandIP6(RandString):
             if not b:
                 b = "ffff"
             if a==b:
-                self.sp[i] = int(a,16)
+                self.sp[i] = int(a, 16)
             else:
-                self.sp[i] = RandNum(int(a,16), int(b,16))
+                self.sp[i] = RandNum(int(a, 16), int(b, 16))
         self.variable = "" in self.sp
         self.multi = self.sp.count("**")
     def _fix(self):
         done = 0
         nbm = self.multi
         ip = []
-        for i,n in enumerate(self.sp):
+        for i, n in enumerate(self.sp):
             if n == "**":
                 nbm -= 1
                 remain = 8-(len(self.sp)-i-1)-len(ip)+nbm
                 if "" in self.sp:
                     remain += 1
                 if nbm or self.variable:
-                    remain = random.randint(0,remain)
+                    remain = random.randint(0, remain)
                 for j in range(remain):
-                    ip.append("%04x" % random.randint(0,65535))
+                    ip.append("%04x" % random.randint(0, 65535))
             elif isinstance(n, RandNum):
                 ip.append("%04x" % n)
             elif n == 0:
@@ -443,13 +443,13 @@ class RandRegExp(RandField):
                     r += RandRegExp.stack_fix(e[1:]*mul, index)
                 # only the last iteration should be kept for back reference
                 f = RandRegExp.stack_fix(e[1:], index)
-                for i,idx in enumerate(index):
+                for i, idx in enumerate(index):
                     if e is idx:
                         index[i] = f
                 r += f
                 mul = 1
             elif isinstance(e, tuple):
-                kind,val = e
+                kind, val = e
                 if kind == "cite":
                     r += index[val-1]
                 elif kind == "repeat":
@@ -488,7 +488,7 @@ class RandRegExp(RandField):
                 p = current[0]
                 ch = p[-1]
                 if not isinstance(ch, tuple):
-                    ch = ("choice",[current])
+                    ch = ("choice", [current])
                     p[-1] = ch
                 else:
                     ch[1].append(current)
@@ -516,22 +516,22 @@ class RandRegExp(RandField):
                     n = int(num)
                     current.append([current]+[e]*n)
                 else:
-                    num_min,num_max = num.split(",")
+                    num_min, num_max = num.split(",")
                     if not num_min:
                         num_min = "0"
                     if num_max:
-                        n = RandNum(int(num_min),int(num_max))
+                        n = RandNum(int(num_min), int(num_max))
                     else:
-                        n = RandNumExpo(self._lambda,base=int(num_min))
-                    current.append(("repeat",n))
+                        n = RandNumExpo(self._lambda, base=int(num_min))
+                    current.append(("repeat", n))
                     current.append(e)
                 interp = True
             elif c == '\\':
                 c = self._regexp[i]
                 if c == "s":
-                    c = RandChoice(" ","\t")
+                    c = RandChoice(" ", "\t")
                 elif c in "0123456789":
-                    c = ("cite",ord(c)-0x30)
+                    c = ("cite", ord(c)-0x30)
                 current.append(c)
                 i += 1
             elif not interp:
@@ -543,7 +543,7 @@ class RandRegExp(RandField):
                 e = current.pop()
                 current.append([current]+[e]*int(random.expovariate(self._lambda)))
             elif c == '?':
-                if random.randint(0,1):
+                if random.randint(0, 1):
                     current.pop()
             elif c == '.':
                 current.append(RandChoice(*[chr(x) for x in range(256)]))
@@ -687,7 +687,7 @@ class RandPool(RandField):
         for p in args:
             w = 1
             if isinstance(p, tuple):
-                p,w = p
+                p, w = p
             pool += [p]*w
         self._pool = pool
     def _fix(self):

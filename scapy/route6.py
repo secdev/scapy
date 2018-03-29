@@ -52,7 +52,7 @@ class Route6:
         rtlst = []
 
         for net, msk, gw, iface, cset, metric in self.routes:
-            rtlst.append(('%s/%i'% (net,msk), gw, (iface if isinstance(iface, six.string_types) else iface.name), ", ".join(cset) if len(cset) > 0 else "", str(metric)))
+            rtlst.append(('%s/%i'% (net, msk), gw, (iface if isinstance(iface, six.string_types) else iface.name), ", ".join(cset) if len(cset) > 0 else "", str(metric)))
 
         return pretty_list(rtlst,
                              [('Destination', 'Next Hop', "Iface", "Src candidates", "Metric")],
@@ -121,16 +121,16 @@ class Route6:
 
         naddr = inet_pton(socket.AF_INET6, the_addr)
         nmask = in6_cidr2mask(the_plen)
-        the_net = inet_ntop(socket.AF_INET6, in6_and(nmask,naddr))
+        the_net = inet_ntop(socket.AF_INET6, in6_and(nmask, naddr))
 
         for i, route in enumerate(self.routes):
             net, plen, gw, iface, addr, metric = route
             if iface != iff:
                 continue
             if gw == '::':
-                self.routes[i] = (the_net,the_plen,gw,iface,[the_addr],metric)
+                self.routes[i] = (the_net, the_plen, gw, iface, [the_addr], metric)
             else:
-                self.routes[i] = (net,plen,gw,iface,[the_addr],metric)
+                self.routes[i] = (net, plen, gw, iface, [the_addr], metric)
         self.invalidate_cache()
         conf.netcache.in6_neighbor.flush()
 
@@ -162,9 +162,9 @@ class Route6:
         plen = int(plen)
         naddr = inet_pton(socket.AF_INET6, addr)
         nmask = in6_cidr2mask(plen)
-        prefix = inet_ntop(socket.AF_INET6, in6_and(nmask,naddr))
+        prefix = inet_ntop(socket.AF_INET6, in6_and(nmask, naddr))
         self.invalidate_cache()
-        self.routes.append((prefix,plen,'::',iff,[addr],1))
+        self.routes.append((prefix, plen, '::', iff, [addr], 1))
 
     def route(self, dst, dev=None):
         """
@@ -184,7 +184,7 @@ class Route6:
         # Transform "2001:db8:cafe:*::1-5:0/120" to one IPv6 address of the set
         dst = dst.split("/")[0]
         savedst = dst # In case following inet_pton() fails
-        dst = dst.replace("*","0")
+        dst = dst.replace("*", "0")
         l = dst.find("-")
         while l >= 0:
             m = (dst[l:]+":").find(":")

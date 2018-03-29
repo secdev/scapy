@@ -20,7 +20,7 @@ import tempfile
 import warnings
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
-warnings.filterwarnings("ignore","tempnam",RuntimeWarning, __name__)
+warnings.filterwarnings("ignore", "tempnam", RuntimeWarning, __name__)
 
 from scapy.config import conf
 from scapy.consts import DARWIN, WINDOWS
@@ -186,7 +186,7 @@ def repr_hex(s):
     return "".join("%02x" % orb(x) for x in s)
 
 @conf.commands.register
-def hexdiff(x,y):
+def hexdiff(x, y):
     """Show differences between 2 binary strings"""
     x=raw(x)[::-1]
     y=raw(y)[::-1]
@@ -194,15 +194,15 @@ def hexdiff(x,y):
     INSERT=1
     d = {(-1, -1): (0, (-1, -1))}
     for j in range(len(y)):
-        d[-1,j] = d[-1,j-1][0]+INSERT, (-1,j-1)
+        d[-1, j] = d[-1, j-1][0]+INSERT, (-1, j-1)
     for i in range(len(x)):
-        d[i,-1] = d[i-1,-1][0]+INSERT, (i-1,-1)
+        d[i, -1] = d[i-1, -1][0]+INSERT, (i-1, -1)
 
     for j in range(len(y)):
         for i in range(len(x)):
-            d[i,j] = min( ( d[i-1,j-1][0]+SUBST*(x[i] != y[j]), (i-1,j-1) ),
-                          ( d[i-1,j][0]+INSERT, (i-1,j) ),
-                          ( d[i,j-1][0]+INSERT, (i,j-1) ) )
+            d[i, j] = min( ( d[i-1, j-1][0]+SUBST*(x[i] != y[j]), (i-1, j-1) ),
+                          ( d[i-1, j][0]+INSERT, (i-1, j) ),
+                          ( d[i, j-1][0]+INSERT, (i, j-1) ) )
                           
 
     backtrackx = []
@@ -210,15 +210,15 @@ def hexdiff(x,y):
     i=len(x)-1
     j=len(y)-1
     while not (i == j == -1):
-        i2,j2 = d[i,j][1]
+        i2, j2 = d[i, j][1]
         backtrackx.append(x[i2+1:i+1])
         backtracky.append(y[j2+1:j+1])
-        i,j = i2,j2
+        i, j = i2, j2
 
         
 
     x = y = i = 0
-    colorize = { 0: lambda x:x,
+    colorize = { 0: lambda x: x,
                 -1: conf.color_theme.left,
                  1: conf.color_theme.right }
     
@@ -281,7 +281,7 @@ def hexdiff(x,y):
                 print("", end=' ')
 
 
-        print(" ",cl)
+        print(" ", cl)
 
         if doy or not yy:
             doy=0
@@ -294,7 +294,7 @@ def hexdiff(x,y):
             else:
                 i += 16
 
-if struct.pack("H",1) == b"\x00\x01": # big endian
+if struct.pack("H", 1) == b"\x00\x01": # big endian
     def checksum(pkt):
         if len(pkt) % 2 == 1:
             pkt += b"\0"
@@ -323,7 +323,7 @@ def _fletcher16(charbuf):
 
     c0 %= 255
     c1 %= 255
-    return (c0,c1)
+    return (c0, c1)
 
 @conf.commands.register
 def fletcher16_checksum(binbuf):
@@ -333,7 +333,7 @@ def fletcher16_checksum(binbuf):
         If the buffer contains the two checkbytes derived from the Fletcher-16 checksum
         the result of this function has to be 0. Otherwise the buffer has been corrupted.
     """
-    (c0,c1)= _fletcher16(binbuf)
+    (c0, c1)= _fletcher16(binbuf)
     return (c1 << 8) | c0
 
 
@@ -353,7 +353,7 @@ def fletcher16_checkbytes(binbuf, offset):
         raise Exception("Packet too short for checkbytes %d" % len(binbuf))
 
     binbuf = binbuf[:offset] + b"\x00\x00" + binbuf[offset + 2:]
-    (c0,c1)= _fletcher16(binbuf)
+    (c0, c1)= _fletcher16(binbuf)
 
     x = ((len(binbuf) - offset - 1) * c0 - c1) % 255
 
@@ -392,14 +392,14 @@ def strxor(s1, s2):
     Returns the binary XOR of the 2 provided strings s1 and s2. s1 and s2
     must be of same length.
     """
-    return b"".join(map(lambda x,y:chb(orb(x)^orb(y)), s1, s2))
+    return b"".join(map(lambda x, y: chb(orb(x)^orb(y)), s1, s2))
 
 def strand(s1, s2):
     """
     Returns the binary AND of the 2 provided strings s1 and s2. s1 and s2
     must be of same length.
     """
-    return b"".join(map(lambda x,y:chb(orb(x)&orb(y)), s1, s2))
+    return b"".join(map(lambda x, y: chb(orb(x)&orb(y)), s1, s2))
 
 
 # Workaround bug 643005 : https://sourceforge.net/tracker/?func=detail&atid=105470&aid=643005&group_id=5470
@@ -487,7 +487,7 @@ class ContextManagerCaptureOutput(object):
             return plain_str(eval(self.result_export_object))
         return self.result_export_object
 
-def do_graph(graph,prog=None,format=None,target=None,type=None,string=None,options=None):
+def do_graph(graph, prog=None, format=None, target=None, type=None, string=None, options=None):
     """do_graph(graph, prog=conf.prog.dot, format="svg",
          target="| conf.prog.display", options=None, [string=1]):
     string: if not None, simply return the graph string
@@ -551,40 +551,40 @@ def do_graph(graph,prog=None,format=None,target=None,type=None,string=None,optio
                     subprocess.Popen([conf.prog.display, target.name])
 
 _TEX_TR = {
-    "{":"{\\tt\\char123}",
-    "}":"{\\tt\\char125}",
-    "\\":"{\\tt\\char92}",
-    "^":"\\^{}",
-    "$":"\\$",
-    "#":"\\#",
-    "~":"\\~",
-    "_":"\\_",
-    "&":"\\&",
-    "%":"\\%",
-    "|":"{\\tt\\char124}",
-    "~":"{\\tt\\char126}",
-    "<":"{\\tt\\char60}",
-    ">":"{\\tt\\char62}",
+    "{": "{\\tt\\char123}",
+    "}": "{\\tt\\char125}",
+    "\\": "{\\tt\\char92}",
+    "^": "\\^{}",
+    "$": "\\$",
+    "#": "\\#",
+    "~": "\\~",
+    "_": "\\_",
+    "&": "\\&",
+    "%": "\\%",
+    "|": "{\\tt\\char124}",
+    "~": "{\\tt\\char126}",
+    "<": "{\\tt\\char60}",
+    ">": "{\\tt\\char62}",
     }
     
 def tex_escape(x):
     s = ""
     for c in x:
-        s += _TEX_TR.get(c,c)
+        s += _TEX_TR.get(c, c)
     return s
 
-def colgen(*lstcol,**kargs):
+def colgen(*lstcol, **kargs):
     """Returns a generator that mixes provided quantities forever
     trans: a function to convert the three arguments into a color. lambda x,y,z:(x,y,z) by default"""
     if len(lstcol) < 2:
         lstcol *= 2
-    trans = kargs.get("trans", lambda x,y,z: (x,y,z))
+    trans = kargs.get("trans", lambda x, y, z: (x, y, z))
     while True:
         for i in range(len(lstcol)):
             for j in range(len(lstcol)):
                 for k in range(len(lstcol)):
                     if i != j or j != k or k != i:
-                        yield trans(lstcol[(i+j)%len(lstcol)],lstcol[(j+k)%len(lstcol)],lstcol[(k+i)%len(lstcol)])
+                        yield trans(lstcol[(i+j)%len(lstcol)], lstcol[(j+k)%len(lstcol)], lstcol[(k+i)%len(lstcol)])
 
 def incremental_label(label="tag%05i", start=0):
     while True:
@@ -628,9 +628,9 @@ class Enum_metaclass(type):
     element_class = EnumElement
     def __new__(cls, name, bases, dct):
         rdict={}
-        for k,v in six.iteritems(dct):
+        for k, v in six.iteritems(dct):
             if isinstance(v, int):
-                v = cls.element_class(k,v)
+                v = cls.element_class(k, v)
                 dct[k] = v
                 rdict[v] = k
         dct["__rdict__"] = rdict
@@ -669,26 +669,26 @@ def save_object(fname, obj):
 
 def load_object(fname):
     """unpickle a Python object"""
-    return six.moves.cPickle.load(gzip.open(fname,"rb"))
+    return six.moves.cPickle.load(gzip.open(fname, "rb"))
 
 @conf.commands.register
 def corrupt_bytes(s, p=0.01, n=None):
     """Corrupt a given percentage or number of bytes from a string"""
-    s = array.array("B",raw(s))
+    s = array.array("B", raw(s))
     l = len(s)
     if n is None:
-        n = max(1,int(l*p))
+        n = max(1, int(l*p))
     for i in random.sample(range(l), n):
-        s[i] = (s[i]+random.randint(1,255))%256
+        s[i] = (s[i]+random.randint(1, 255))%256
     return s.tostring()
 
 @conf.commands.register
 def corrupt_bits(s, p=0.01, n=None):
     """Flip a given percentage or number of bits from a string"""
-    s = array.array("B",raw(s))
+    s = array.array("B", raw(s))
     l = len(s)*8
     if n is None:
-        n = max(1,int(l*p))
+        n = max(1, int(l*p))
     for i in random.sample(range(l), n):
         s[i // 8] ^= 1 << (i % 8)
     return s.tostring()
@@ -772,7 +772,7 @@ class PcapReader_metaclass(type):
         """Open (if necessary) filename, and read the magic."""
         if isinstance(filename, six.string_types):
             try:
-                fdesc = gzip.open(filename,"rb")
+                fdesc = gzip.open(filename, "rb")
                 magic = fdesc.read(4)
             except IOError:
                 fdesc = open(filename, "rb")
@@ -837,7 +837,7 @@ class RawPcapReader(six.with_metaclass(PcapReader_metaclass)):
         hdr = self.f.read(16)
         if len(hdr) < 16:
             return None
-        sec,usec,caplen,wirelen = struct.unpack(self.endian+"IIII", hdr)
+        sec, usec, caplen, wirelen = struct.unpack(self.endian+"IIII", hdr)
         return (self.f.read(caplen)[:size],
                 RawPcapReader.PacketMetadata(sec=sec, usec=usec,
                                              wirelen=wirelen, caplen=caplen))
@@ -853,7 +853,7 @@ class RawPcapReader(six.with_metaclass(PcapReader_metaclass)):
         for p in self:
             callback(p)
 
-    def read_all(self,count=-1):
+    def read_all(self, count=-1):
         """return a list of all packets in the pcap file
         """
         res=[]
@@ -889,7 +889,7 @@ class PcapReader(RawPcapReader):
         try:
             self.LLcls = conf.l2types[self.linktype]
         except KeyError:
-            warning("PcapReader: unknown LL type [%i]/[%#x]. Using Raw packets" % (self.linktype,self.linktype))
+            warning("PcapReader: unknown LL type [%i]/[%#x]. Using Raw packets" % (self.linktype, self.linktype))
             self.LLcls = conf.raw_layer
     def read_packet(self, size=MTU):
         rp = super(PcapReader, self).read_packet(size=size)
@@ -908,10 +908,10 @@ class PcapReader(RawPcapReader):
         p.time = pkt_info.sec + (0.000000001 if self.nano else 0.000001) * pkt_info.usec
         p.wirelen = pkt_info.wirelen
         return p
-    def read_all(self,count=-1):
+    def read_all(self, count=-1):
         res = RawPcapReader.read_all(self, count)
         from scapy import plist
-        return plist.PacketList(res,name = os.path.basename(self.filename))
+        return plist.PacketList(res, name = os.path.basename(self.filename))
     def recv(self, size=MTU):
         return self.read_packet(size=size)
 
@@ -1072,7 +1072,7 @@ class PcapNgReader(RawPcapNgReader):
             p.time = float((tshigh << 32) + tslow) / tsresol
         p.wirelen = wirelen
         return p
-    def read_all(self,count=-1):
+    def read_all(self, count=-1):
         res = RawPcapNgReader.read_all(self, count)
         from scapy import plist
         return plist.PacketList(res, name=os.path.basename(self.filename))
@@ -1110,7 +1110,7 @@ nano:       use nanosecond-precision (requires libpcap >= 1.5.0)
 
         if isinstance(filename, six.string_types):
             self.filename = filename
-            self.f = [open,gzip.open][gz](filename,append and "ab" or "wb", gz and 9 or bufsz)
+            self.f = [open, gzip.open][gz](filename, append and "ab" or "wb", gz and 9 or bufsz)
         else:
             self.f = filename
             self.filename = getattr(filename, "name", "No name")
@@ -1126,7 +1126,7 @@ nano:       use nanosecond-precision (requires libpcap >= 1.5.0)
             # safest way to tell whether the header is already present
             # because we have to handle compressed streams that
             # are not as flexible as basic files
-            g = [open,gzip.open][self.gz](self.filename,"rb")
+            g = [open, gzip.open][self.gz](self.filename, "rb")
             if g.read(16):
                 return
             
@@ -1236,7 +1236,7 @@ def import_hexcap():
     except EOFError:
         pass
     
-    p = p.replace(" ","")
+    p = p.replace(" ", "")
     return p.decode("hex")
         
 
@@ -1365,7 +1365,7 @@ u'64'
 def hexedit(x):
     x = str(x)
     f = get_temp_file()
-    open(f,"wb").write(x)
+    open(f, "wb").write(x)
     with ContextManagerSubprocess("hexedit()", conf.prog.hexedit):
         subprocess.call([conf.prog.hexedit, f])
     x = open(f).read()
@@ -1457,10 +1457,10 @@ def __make_table(yfmtfunc, fmtfunc, endline, data, fxyz, sortx=None, sorty=None,
     l = 0
     for e in data:
         xx, yy, zz = [str(s) for s in fxyz(e)]
-        l = max(len(yy),l)
-        vx[xx] = max(vx.get(xx,0), len(xx), len(zz))
+        l = max(len(yy), l)
+        vx[xx] = max(vx.get(xx, 0), len(xx), len(zz))
         vy[yy] = None
-        vz[(xx,yy)] = zz
+        vz[(xx, yy)] = zz
 
     vxk = list(vx)
     vyk = list(vy)
@@ -1501,21 +1501,21 @@ def __make_table(yfmtfunc, fmtfunc, endline, data, fxyz, sortx=None, sorty=None,
     for y in vyk:
         print(fmt % y, end=' ')
         for x in vxk:
-            print(vxf[x] % vz.get((x,y), "-"), end=' ')
+            print(vxf[x] % vz.get((x, y), "-"), end=' ')
         print(endline)
     if seplinefunc:
         print(sepline)
 
 def make_table(*args, **kargs):
-    __make_table(lambda l:"%%-%is" % l, lambda l:"%%-%is" % l, "", *args, **kargs)
+    __make_table(lambda l: "%%-%is" % l, lambda l: "%%-%is" % l, "", *args, **kargs)
     
 def make_lined_table(*args, **kargs):
-    __make_table(lambda l:"%%-%is |" % l, lambda l:"%%-%is |" % l, "",
-                 seplinefunc=lambda a,x:"+".join('-'*(y+2) for y in [a-1]+x+[-2]),
+    __make_table(lambda l: "%%-%is |" % l, lambda l: "%%-%is |" % l, "",
+                 seplinefunc=lambda a, x: "+".join('-'*(y+2) for y in [a-1]+x+[-2]),
                  *args, **kargs)
 
 def make_tex_table(*args, **kargs):
-    __make_table(lambda l: "%s", lambda l: "& %s", "\\\\", seplinefunc=lambda a,x:"\\hline", *args, **kargs)
+    __make_table(lambda l: "%s", lambda l: "& %s", "\\\\", seplinefunc=lambda a, x: "\\hline", *args, **kargs)
 
 ####################
 ### WHOIS CLIENT ###

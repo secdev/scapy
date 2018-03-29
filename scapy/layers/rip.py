@@ -14,9 +14,9 @@ from scapy.layers.inet import UDP
 class RIP(Packet):
     name = "RIP header"
     fields_desc = [
-        ByteEnumField("cmd", 1, {1:"req", 2:"resp", 3:"traceOn", 4:"traceOff",
-                                 5:"sun", 6:"trigReq", 7:"trigResp", 8:"trigAck",
-                                 9:"updateReq", 10:"updateResp", 11:"updateAck"}),
+        ByteEnumField("cmd", 1, {1: "req", 2: "resp", 3: "traceOn", 4: "traceOff",
+                                 5: "sun", 6: "trigReq", 7: "trigResp", 8: "trigAck",
+                                 9: "updateReq", 10: "updateResp", 11: "updateAck"}),
         ByteField("version", 1),
         ShortField("null", 0),
         ]
@@ -30,19 +30,19 @@ class RIP(Packet):
 class RIPEntry(RIP):
     name = "RIP entry"
     fields_desc = [
-        ShortEnumField("AF", 2, {2:"IP"}),
+        ShortEnumField("AF", 2, {2: "IP"}),
         ShortField("RouteTag", 0),
         IPField("addr", "0.0.0.0"),
         IPField("mask", "0.0.0.0"),
         IPField("nextHop", "0.0.0.0"),
-        IntEnumField("metric", 1, {16:"Unreach"}),
+        IntEnumField("metric", 1, {16: "Unreach"}),
         ]
 
 class RIPAuth(Packet):
     name = "RIP authentication"
     fields_desc = [
-        ShortEnumField("AF", 0xffff, {0xffff:"Auth"}),
-        ShortEnumField("authtype", 2, {1:"md5authdata", 2:"simple", 3:"md5"}),
+        ShortEnumField("AF", 0xffff, {0xffff: "Auth"}),
+        ShortEnumField("authtype", 2, {1: "md5authdata", 2: "simple", 3: "md5"}),
         ConditionalField(StrFixedLenField("password", None, 16),
                                         lambda pkt: pkt.authtype == 2),
         ConditionalField(ShortField("digestoffset", 0),

@@ -21,20 +21,20 @@ from scapy.packet import *
 from scapy.fields import *
 
 # Syscalls known by Uberlogger
-uberlogger_sys_calls = {0:"READ_ID",
-             1:"OPEN_ID",
-             2:"WRITE_ID",
-             3:"CHMOD_ID",
-             4:"CHOWN_ID",
-             5:"SETUID_ID",
-             6:"CHROOT_ID",
-             7:"CREATE_MODULE_ID",
-             8:"INIT_MODULE_ID",
-             9:"DELETE_MODULE_ID",
-             10:"CAPSET_ID",
-             11:"CAPGET_ID",
-             12:"FORK_ID",
-             13:"EXECVE_ID"}
+uberlogger_sys_calls = {0: "READ_ID",
+             1: "OPEN_ID",
+             2: "WRITE_ID",
+             3: "CHMOD_ID",
+             4: "CHOWN_ID",
+             5: "SETUID_ID",
+             6: "CHROOT_ID",
+             7: "CREATE_MODULE_ID",
+             8: "INIT_MODULE_ID",
+             9: "DELETE_MODULE_ID",
+             10: "CAPSET_ID",
+             11: "CAPGET_ID",
+             12: "FORK_ID",
+             13: "EXECVE_ID"}
 
 # First part of the header
 class Uberlogger_honeypot_caract(Packet):
@@ -102,13 +102,13 @@ class Uberlogger_execve_data(Packet):
     fields_desc = [IntField("nbarg", 0)]
 
 # Layer bounds for Uberlogger
-bind_layers(Uberlogger_honeypot_caract,Uberlogger_uber_h)
-bind_layers(Uberlogger_uber_h,Uberlogger_capget_data)
-bind_layers(Uberlogger_uber_h,Uberlogger_capset_data)
-bind_layers(Uberlogger_uber_h,Uberlogger_chmod_data)
-bind_layers(Uberlogger_uber_h,Uberlogger_chown_data)
-bind_layers(Uberlogger_uber_h,Uberlogger_open_data)
-bind_layers(Uberlogger_uber_h,Uberlogger_read_data)
-bind_layers(Uberlogger_uber_h,Uberlogger_setuid_data)
-bind_layers(Uberlogger_uber_h,Uberlogger_create_module_data)
-bind_layers(Uberlogger_uber_h,Uberlogger_execve_data)
+bind_layers(Uberlogger_honeypot_caract, Uberlogger_uber_h)
+bind_layers(Uberlogger_uber_h, Uberlogger_capget_data)
+bind_layers(Uberlogger_uber_h, Uberlogger_capset_data)
+bind_layers(Uberlogger_uber_h, Uberlogger_chmod_data)
+bind_layers(Uberlogger_uber_h, Uberlogger_chown_data)
+bind_layers(Uberlogger_uber_h, Uberlogger_open_data)
+bind_layers(Uberlogger_uber_h, Uberlogger_read_data)
+bind_layers(Uberlogger_uber_h, Uberlogger_setuid_data)
+bind_layers(Uberlogger_uber_h, Uberlogger_create_module_data)
+bind_layers(Uberlogger_uber_h, Uberlogger_execve_data)

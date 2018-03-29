@@ -177,8 +177,8 @@ def sndrcv(pks, pkt, timeout=None, inter=0, verbose=None, chainCC=False,
     pkts = [pkt] if is_single else pkt
     if verbose is None:
         verbose = conf.verb
-    debug.recv = plist.PacketList([],"Unanswered")
-    debug.sent = plist.PacketList([],"Sent")
+    debug.recv = plist.PacketList([], "Unanswered")
+    debug.sent = plist.PacketList([], "Sent")
     debug.match = plist.SndRcvList([])
     nbrecv = 0
     ans = []
@@ -278,7 +278,7 @@ def __gen_send(s, x, inter=0, loop=0, count=None, verbose=None, realtime=None, r
                     sent_packets.append(p)
                 n += 1
                 if verbose:
-                    os.write(1,b".")
+                    os.write(1, b".")
                 time.sleep(inter)
             if loop < 0:
                 loop += 1
@@ -298,7 +298,7 @@ send(packets, [inter=0], [loop=0], [count=None], [verbose=conf.verb], [realtime=
      [socket=None]) -> None"""
     if socket is None:
         socket = conf.L3socket(*args, **kargs)
-    return __gen_send(socket, x, inter=inter, loop=loop, count=count,verbose=verbose,
+    return __gen_send(socket, x, inter=inter, loop=loop, count=count, verbose=verbose,
                       realtime=realtime, return_packets=return_packets)
 
 @conf.commands.register
@@ -360,7 +360,7 @@ def sendpfast(x, pps=None, mbps=None, realtime=None, loop=0, file_cache=False, i
         
     
 @conf.commands.register
-def sr(x, promisc=None, filter=None, iface=None, nofilter=0, *args,**kargs):
+def sr(x, promisc=None, filter=None, iface=None, nofilter=0, *args, **kargs):
     """Send and receive packets at layer 3
 nofilter: put 1 to avoid use of BPF filters
 retry:    if positive, how many times to resend unanswered packets
@@ -378,7 +378,7 @@ iface:    listen answers only on the given interface"""
     return result
 
 @conf.commands.register
-def sr1(x, promisc=None, filter=None, iface=None, nofilter=0, *args,**kargs):
+def sr1(x, promisc=None, filter=None, iface=None, nofilter=0, *args, **kargs):
     """Send packets at layer 3 and return only the first answer
 nofilter: put 1 to avoid use of BPF filters
 retry:    if positive, how many times to resend unanswered packets
@@ -399,7 +399,7 @@ iface:    listen answers only on the given interface"""
         return None
 
 @conf.commands.register
-def srp(x, promisc=None, iface=None, iface_hint=None, filter=None, nofilter=0, type=ETH_P_ALL, *args,**kargs):
+def srp(x, promisc=None, iface=None, iface_hint=None, filter=None, nofilter=0, type=ETH_P_ALL, *args, **kargs):
     """Send and receive packets at layer 2
 nofilter: put 1 to avoid use of BPF filters
 retry:    if positive, how many times to resend unanswered packets
@@ -419,7 +419,7 @@ iface:    work only on the given interface"""
     return result
 
 @conf.commands.register
-def srp1(*args,**kargs):
+def srp1(*args, **kargs):
     """Send and receive packets at layer 2 and return only the first answer
 nofilter: put 1 to avoid use of BPF filters
 retry:    if positive, how many times to resend unanswered packets
@@ -439,7 +439,7 @@ iface:    work only on the given interface"""
 
 # SEND/RECV LOOP METHODS
 
-def __sr_loop(srfunc, pkts, prn=lambda x:x[1].summary(), prnfail=lambda x:x.summary(), inter=1, timeout=None, count=None, verbose=None, store=1, *args, **kargs):
+def __sr_loop(srfunc, pkts, prn=lambda x: x[1].summary(), prnfail=lambda x: x.summary(), inter=1, timeout=None, count=None, verbose=None, store=1, *args, **kargs):
     n = 0
     r = 0
     ct = conf.color_theme
@@ -453,7 +453,7 @@ def __sr_loop(srfunc, pkts, prn=lambda x:x[1].summary(), prnfail=lambda x:x.summ
     try:
         while True:
             parity ^= 1
-            col = [ct.even,ct.odd][parity]
+            col = [ct.even, ct.odd][parity]
             if count is not None:
                 if count == 0:
                     break
@@ -488,8 +488,8 @@ def __sr_loop(srfunc, pkts, prn=lambda x:x[1].summary(), prnfail=lambda x:x.summ
         pass
  
     if verbose and n>0:
-        print(ct.normal("\nSent %i packets, received %i packets. %3.1f%% hits." % (n,r,100.0*r/n)))
-    return plist.SndRcvList(ans),plist.PacketList(unans)
+        print(ct.normal("\nSent %i packets, received %i packets. %3.1f%% hits." % (n, r, 100.0*r/n)))
+    return plist.SndRcvList(ans), plist.PacketList(unans)
 
 @conf.commands.register
 def srloop(pkts, *args, **kargs):
@@ -559,7 +559,7 @@ def sndrcvflood(pks, pkt, inter=0, verbose=None, chainCC=False, prn=lambda x: x)
     return plist.SndRcvList(ans), plist.PacketList(remain, "Unanswered")
 
 @conf.commands.register
-def srflood(x, promisc=None, filter=None, iface=None, nofilter=None, *args,**kargs):
+def srflood(x, promisc=None, filter=None, iface=None, nofilter=None, *args, **kargs):
     """Flood and receive packets at layer 3
 prn:      function applied to packets received
 unique:   only consider packets whose print 
@@ -567,12 +567,12 @@ nofilter: put 1 to avoid use of BPF filters
 filter:   provide a BPF filter
 iface:    listen answers only on the given interface"""
     s = conf.L3socket(promisc=promisc, filter=filter, iface=iface, nofilter=nofilter)
-    r=sndrcvflood(s,x,*args,**kargs)
+    r=sndrcvflood(s, x, *args, **kargs)
     s.close()
     return r
 
 @conf.commands.register
-def sr1flood(x, promisc=None, filter=None, iface=None, nofilter=0, *args,**kargs):
+def sr1flood(x, promisc=None, filter=None, iface=None, nofilter=0, *args, **kargs):
     """Flood and receive packets at layer 3 and return only the first answer
 prn:      function applied to packets received
 verbose:  set verbosity level
@@ -588,7 +588,7 @@ iface:    listen answers only on the given interface"""
         return None
 
 @conf.commands.register
-def srpflood(x, promisc=None, filter=None, iface=None, iface_hint=None, nofilter=None, *args,**kargs):
+def srpflood(x, promisc=None, filter=None, iface=None, iface_hint=None, nofilter=None, *args, **kargs):
     """Flood and receive packets at layer 2
 prn:      function applied to packets received
 unique:   only consider packets whose print 
@@ -598,12 +598,12 @@ iface:    listen answers only on the given interface"""
     if iface is None and iface_hint is not None:
         iface = conf.route.route(iface_hint)[0]    
     s = conf.L2socket(promisc=promisc, filter=filter, iface=iface, nofilter=nofilter)
-    r=sndrcvflood(s,x,*args,**kargs)
+    r=sndrcvflood(s, x, *args, **kargs)
     s.close()
     return r
 
 @conf.commands.register
-def srp1flood(x, promisc=None, filter=None, iface=None, nofilter=0, *args,**kargs):
+def srp1flood(x, promisc=None, filter=None, iface=None, nofilter=0, *args, **kargs):
     """Flood and receive packets at layer 2 and return only the first answer
 prn:      function applied to packets received
 verbose:  set verbosity level
@@ -791,7 +791,7 @@ Examples:
     if opened_socket is None:
         for s in sniff_sockets:
             s.close()
-    return plist.PacketList(lst,"Sniffed")
+    return plist.PacketList(lst, "Sniffed")
 
 
 @conf.commands.register
@@ -875,7 +875,7 @@ Arguments:
 
 
 @conf.commands.register
-def tshark(*args,**kargs):
+def tshark(*args, **kargs):
     """Sniff packets and print them calling pkt.summary(), a bit like text wireshark"""
     print("Capturing on '" + str(kargs.get('iface') if 'iface' in kargs else conf.iface) + "'")
     i = [0]  # This should be a nonlocal variable, using a mutable object for Python 2 compatibility

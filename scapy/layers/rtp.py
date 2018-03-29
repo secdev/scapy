@@ -44,6 +44,6 @@ class RTP(Packet):
                     ShortField('sequence', 0),
                     IntField('timestamp', 0),
                     IntField('sourcesync', 0),
-                    FieldListField('sync', [], IntField("id",0), count_from=lambda pkt:pkt.numsync) ]
+                    FieldListField('sync', [], IntField("id", 0), count_from=lambda pkt:pkt.numsync) ]
 
 bind_layers(RTP, RTPExtension, extension=1)

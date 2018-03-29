@@ -26,7 +26,7 @@ from scapy.utils import PcapReader, tcpdump
 class _SuperSocket_metaclass(type):
     def __repr__(self):
         if self.desc is not None:
-            return "<%s: %s>" % (self.__name__,self.desc)
+            return "<%s: %s>" % (self.__name__, self.desc)
         else:
             return "<%s>" % self.__name__
 
@@ -34,7 +34,7 @@ class _SuperSocket_metaclass(type):
 class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
     desc = None
     closed=0
-    def __init__(self, family=socket.AF_INET,type=socket.SOCK_STREAM, proto=0):
+    def __init__(self, family=socket.AF_INET, type=socket.SOCK_STREAM, proto=0):
         self.ins = socket.socket(family, type, proto)
         self.outs = self.ins
         self.promisc=None
@@ -63,7 +63,7 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
         return sendrecv.sndrcv(self, *args, **kargs)
     def sr1(self, *args, **kargs):        
         from scapy import sendrecv
-        a,b = sendrecv.sndrcv(self, *args, **kargs)
+        a, b = sendrecv.sndrcv(self, *args, **kargs)
         if len(a) > 0:
             return a[0][1]
         else:
@@ -114,7 +114,7 @@ class L3RawSocket(SuperSocket):
         try:
             sx = raw(x)
             x.sent_time = time.time()
-            self.outs.sendto(sx,(x.dst,0))
+            self.outs.sendto(sx, (x.dst, 0))
         except socket.error as msg:
             log_runtime.error(msg)
 
@@ -137,7 +137,7 @@ class StreamSocket(SimpleSocket):
         pkt = self.ins.recv(x, socket.MSG_PEEK)
         x = len(pkt)
         if x == 0:
-            raise socket.error((100,"Underlying stream socket tore down"))
+            raise socket.error((100, "Underlying stream socket tore down"))
         pkt = self.basecls(pkt)
         pad = pkt.getlayer(conf.padding_layer)
         if pad is not None and pad.underlayer is not None:
@@ -169,7 +169,7 @@ class SSLStreamSocket(StreamSocket):
         if not pkt:
             buf = self.ins.recv(x)
             if len(buf) == 0:
-                raise socket.error((100,"Underlying stream socket tore down"))
+                raise socket.error((100, "Underlying stream socket tore down"))
             self._buf += buf
 
         x = len(self._buf)

@@ -31,7 +31,7 @@ class RandASN1Object(RandField):
     def _fix(self, n=0):
         o = random.choice(self.objlist)
         if issubclass(o, ASN1_INTEGER):
-            return o(int(random.gauss(0,1000)))
+            return o(int(random.gauss(0, 1000)))
         elif issubclass(o, ASN1_IPADDRESS):
             z = RandIP()._fix()
             return o(z)
@@ -45,7 +45,7 @@ class RandASN1Object(RandField):
             z = int(random.expovariate(0.08)+1)
             return o([self.__class__(objlist=self.objlist)._fix(n + 1)
                       for _ in range(z)])
-        return ASN1_INTEGER(int(random.gauss(0,1000)))
+        return ASN1_INTEGER(int(random.gauss(0, 1000)))
 
 
 ##############
@@ -103,7 +103,7 @@ class ASN1Tag(EnumElement):
     def register_asn1_object(self, asn1obj):
         self._asn1_obj = asn1obj
     def asn1_object(self, val):
-        if hasattr(self,"_asn1_obj"):
+        if hasattr(self, "_asn1_obj"):
             return self._asn1_obj(val)
         raise ASN1_Error("%r does not have any assigned ASN1 object" % self)
     def register(self, codecnum, codec):
@@ -119,14 +119,14 @@ class ASN1_Class_metaclass(Enum_metaclass):
     element_class = ASN1Tag
     def __new__(cls, name, bases, dct): # XXX factorise a bit with Enum_metaclass.__new__()
         for b in bases:
-            for k,v in six.iteritems(b.__dict__):
-                if k not in dct and isinstance(v,ASN1Tag):
+            for k, v in six.iteritems(b.__dict__):
+                if k not in dct and isinstance(v, ASN1Tag):
                     dct[k] = v.clone()
 
         rdict = {}
-        for k,v in six.iteritems(dct):
+        for k, v in six.iteritems(dct):
             if isinstance(v, int):
-                v = ASN1Tag(k,v) 
+                v = ASN1Tag(k, v) 
                 dct[k] = v
                 rdict[v] = v
             elif isinstance(v, ASN1Tag):
@@ -312,7 +312,7 @@ class ASN1_BIT_STRING(ASN1_Object):
                         unused_bits = 8 - (len(value) % 8)
                     padded_value = str_value + ("0" * unused_bits)
                     bytes_arr = zip(*[iter(padded_value)]*8)
-                    val_readable = b"".join(chb(int("".join(x),2)) for x in bytes_arr)
+                    val_readable = b"".join(chb(int("".join(x), 2)) for x in bytes_arr)
             else:
                 val_readable = "<invalid val>"
                 unused_bits = 0

@@ -20,7 +20,7 @@
 """
 CACE PPI types 
 """
-import logging,struct
+import logging, struct
 from scapy.config import conf
 from scapy.packet import *
 from scapy.fields import *
@@ -69,28 +69,28 @@ class PPITSFTField(LELongField):
         tout = int((scale * val) + 0.5)
         return tout
 
-_PPIDot11CommonChFlags = ['','','','','Turbo','CCK','OFDM','2GHz','5GHz',
-                          'PassiveOnly','Dynamic CCK-OFDM','GSFK']
+_PPIDot11CommonChFlags = ['', '', '', '', 'Turbo', 'CCK', 'OFDM', '2GHz', '5GHz',
+                          'PassiveOnly', 'Dynamic CCK-OFDM', 'GSFK']
 
-_PPIDot11CommonPktFlags = ['FCS','TSFT_ms','FCS_Invalid','PHY_Error']
+_PPIDot11CommonPktFlags = ['FCS', 'TSFT_ms', 'FCS_Invalid', 'PHY_Error']
 
 # PPI 802.11 Common Field Header
 class Dot11Common(Packet):
     name = "PPI 802.11-Common"
-    fields_desc = [ LEShortField('pfh_type',PPI_DOT11COMMON),
+    fields_desc = [ LEShortField('pfh_type', PPI_DOT11COMMON),
                     LEShortField('pfh_length', 20),
                     PPITSFTField('TSF_Timer', 0),
-                    FlagsField('Pkt_Flags',0, -16, _PPIDot11CommonPktFlags),
-                    LEShortField('Rate',0),
-                    LEShortField('Ch_Freq',0),
+                    FlagsField('Pkt_Flags', 0, -16, _PPIDot11CommonPktFlags),
+                    LEShortField('Rate', 0),
+                    LEShortField('Ch_Freq', 0),
                     FlagsField('Ch_Flags', 0, -16, _PPIDot11CommonChFlags),
-                    ByteField('FHSS_Hop',0),
-                    ByteField('FHSS_Pat',0),
-                    dBmByteField('Antsignal',-128),
-                    dBmByteField('Antnoise',-128)]
+                    ByteField('FHSS_Hop', 0),
+                    ByteField('FHSS_Pat', 0),
+                    dBmByteField('Antsignal', -128),
+                    dBmByteField('Antnoise', -128)]
 
     def extract_padding(self, p):
-        return b"",p
+        return b"", p
 #Hopefully other CACE defined types will be added here.
 
 #Add the dot11common layer to the PPI array

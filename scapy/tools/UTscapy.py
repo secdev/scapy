@@ -29,7 +29,7 @@ def import_module(name):
     name = os.path.basename(name)
     if name.endswith(".py"):
         name = name[:-3]
-    f,path,desc = imp.find_module(name,[thepath])
+    f, path, desc = imp.find_module(name, [thepath])
     
     try:
         return imp.load_module(name, f, path, desc)
@@ -52,7 +52,7 @@ class File:
     def write(self, dir):
         if dir:
             dir += "/"
-        open(dir+self.name,"wb").write(self.get_local())
+        open(dir+self.name, "wb").write(self.get_local())
 
         
 # Embed a base64 encoded bziped version of js and css files
@@ -68,7 +68,7 @@ GZyMgoOude3NJ1pQy8eo+X96IYZw+ynehsiPj73m0rnvQ3QXZ9BJQiZQYQ5/uNcl
 gueXo3kcYi94K6hSO3ldD2O/qJXOFqJ8o3TE2aQahxtQpCVUKQMvODHwu2YkaORY
 ZC6gihEallcHDIAtRPScBACAJnUggYhLDX6DEko7nC9GvAw5OcEkiyDUbLdiGCzD
 aXWMC2DuQ2Y6sGf6NcRuON7QSbhHsPc4KKmZ/xdyRThQkGVijKQ=""")
-    UTscapy_css = File("UTscapy.css","http://www.secdev.org/projects/UTscapy/UTscapy.css",
+    UTscapy_css = File("UTscapy.css", "http://www.secdev.org/projects/UTscapy/UTscapy.css",
 """QlpoOTFBWSZTWTbBCNEAAE7fgHxwSB//+Cpj2QC//9/6UAR+63dxbNzO3ccmtGEk
 pM0m1I9E/Qp6g9Q09TNQ9QDR6gMgAkiBFG9U9TEGRkGgABoABoBmpJkRAaAxD1AN
 Gh6gNADQBzAATJgATCYJhDAEYAEiQkwIyJk0n6qenpqeoaMUeo9RgIxp6pX78kfx
@@ -104,7 +104,7 @@ r1APYgXihjQwM2M83AKIhwQQJv/F3JFOFCQNsEI0QA==""")
 #### HELPER CLASSES FOR PARAMETRING OUTPUT FORMAT ####
 
 class EnumClass:
-    def from_string(cls,x):
+    def from_string(cls, x):
         return cls.__dict__[x.upper()]
     from_string = classmethod(from_string)
     
@@ -295,9 +295,9 @@ def dump_campaign(test_campaign):
     print()
     for ts in test_campaign:
         if ts.crc:
-            print("+--[%s]%s(%s)--" % (ts.name,"-"*max(2,80-len(ts.name)-18),ts.crc))
+            print("+--[%s]%s(%s)--" % (ts.name, "-"*max(2, 80-len(ts.name)-18), ts.crc))
         else:
-            print("+--[%s]%s" % (ts.name,"-"*max(2,80-len(ts.name)-6)))
+            print("+--[%s]%s" % (ts.name, "-"*max(2, 80-len(ts.name)-6)))
         if ts.keywords:
             print("  kw=%s" % ",".join(ts.keywords))
         for t in ts:
@@ -308,7 +308,7 @@ def dump_campaign(test_campaign):
             if t.crc:
                 c = "[%(crc)s] " % t
             if c or k:
-                print("    %s%s" % (c,k)) 
+                print("    %s%s" % (c, k)) 
 
 #### COMPUTE CAMPAIGN DIGESTS ####
 if six.PY2:
@@ -382,7 +382,7 @@ def run_campaign(test_campaign, get_interactive_session, verb=3, ignore_globals=
         test_campaign.preexec_output = get_interactive_session(test_campaign.preexec.strip(), ignore_globals=ignore_globals)[0]
     for testset in test_campaign:
         for t in testset:
-            t.output,res = get_interactive_session(t.test.strip(), ignore_globals=ignore_globals)
+            t.output, res = get_interactive_session(t.test.strip(), ignore_globals=ignore_globals)
             the_res = False
             try:
                 if res is None or res:
@@ -461,8 +461,8 @@ def campaign_to_xUNIT(test_campaign):
     output='<?xml version="1.0" encoding="UTF-8" ?>\n<testsuite>\n'
     for testset in test_campaign:
         for t in testset:
-            output += ' <testcase classname="%s"\n' % testset.name.encode("string_escape").replace('"',' ')
-            output += '           name="%s"\n' % t.name.encode("string_escape").replace('"',' ')
+            output += ' <testcase classname="%s"\n' % testset.name.encode("string_escape").replace('"', ' ')
+            output += '           name="%s"\n' % t.name.encode("string_escape").replace('"', ' ')
             output += '           duration="0">\n' % t
             if not t.res:
                 output += '<error><![CDATA[%(output)s]]></error>\n' % t
@@ -710,7 +710,7 @@ def main(argv):
     TESTFILES = []
     try:
         opts = getopt.getopt(argv, "o:t:T:c:f:hln:m:k:K:DdCFqP:s:")
-        for opt,optarg in opts[0]:
+        for opt, optarg in opts[0]:
             if opt == "-h":
                 usage()
             elif opt == "-F":
@@ -784,17 +784,17 @@ def main(argv):
         try:
             from scapy import all as scapy
         except ImportError as e:
-            raise getopt.GetoptError("cannot import [%s]: %s" % (SCAPY,e))
+            raise getopt.GetoptError("cannot import [%s]: %s" % (SCAPY, e))
 
         for m in MODULES:
             try:
                 mod = import_module(m)
                 six.moves.builtins.__dict__.update(mod.__dict__)
             except ImportError as e:
-                raise getopt.GetoptError("cannot import [%s]: %s" % (m,e))
+                raise getopt.GetoptError("cannot import [%s]: %s" % (m, e))
                 
     except getopt.GetoptError as msg:
-        print("ERROR:",msg, file=sys.stderr)
+        print("ERROR:", msg, file=sys.stderr)
         raise SystemExit
 
     autorun_func = {

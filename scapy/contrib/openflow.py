@@ -200,7 +200,7 @@ class OFPMatch(Packet):
                     p = p[:25] + struct.pack("!B", 0x06) + p[26:]
                     l = l[:-6] + "0" + l[-5:]
 
-        ins = b"".join(chb(int("".join(x),2)) for x in zip(*[iter(l)]*8))
+        ins = b"".join(chb(int("".join(x), 2)) for x in zip(*[iter(l)]*8))
         p = ins + p[4:]
         return p + pay
 

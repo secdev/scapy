@@ -9,7 +9,7 @@ Implementation of the configuration object.
 
 from __future__ import absolute_import
 from __future__ import print_function
-import os,time,socket,sys
+import os, time, socket, sys
 
 from scapy import VERSION, base_classes
 from scapy.consts import DARWIN
@@ -37,7 +37,7 @@ class ConfClass(object):
             if i[0] != "_":
                 r = repr(getattr(self, i))
                 r = " ".join(r.split())
-                wlen = 76-max(len(i),10)
+                wlen = 76-max(len(i), 10)
                 if len(r) > wlen:
                     r = r[:wlen-3]+"..."
                 s += "%-10s = %s\n" % (i, r)
@@ -93,7 +93,7 @@ class ConfigFieldList:
             return elt in self.layers
         return elt in self.fields
     def __repr__(self):
-        return "<%s [%s]>" %  (self.__class__.__name__," ".join(str(x) for x in self.fields))
+        return "<%s [%s]>" %  (self.__class__.__name__, " ".join(str(x) for x in self.fields))
 
 class Emphasize(ConfigFieldList):
     pass
@@ -130,19 +130,19 @@ class Num2Layer:
     
     def __repr__(self):
         lst = []
-        for num,layer in six.iteritems(self.num2layer):
+        for num, layer in six.iteritems(self.num2layer):
             if layer in self.layer2num and self.layer2num[layer] == num:
                 dir = "<->"
             else:
                 dir = " ->"
-            lst.append((num,"%#6x %s %-20s (%s)" % (num, dir, layer.__name__,
+            lst.append((num, "%#6x %s %-20s (%s)" % (num, dir, layer.__name__,
                                                     layer._name)))
-        for layer,num in six.iteritems(self.layer2num):
+        for layer, num in six.iteritems(self.layer2num):
             if num not in self.num2layer or self.num2layer[num] != layer:
-                lst.append((num,"%#6x <-  %-20s (%s)" % (num, layer.__name__,
+                lst.append((num, "%#6x <-  %-20s (%s)" % (num, layer.__name__,
                                                          layer._name)))
         lst.sort()
-        return "\n".join(y for x,y in lst)
+        return "\n".join(y for x, y in lst)
 
 
 class LayersList(list):
@@ -156,9 +156,9 @@ class LayersList(list):
 class CommandsList(list):
     def __repr__(self):
         s=[]
-        for l in sorted(self,key=lambda x:x.__name__):
+        for l in sorted(self, key=lambda x: x.__name__):
             doc = l.__doc__.split("\n")[0] if l.__doc__ else "--"
-            s.append("%-20s: %s" % (l.__name__,doc))
+            s.append("%-20s: %s" % (l.__name__, doc))
         return "\n".join(s)
     def register(self, cmd):
         self.append(cmd)
@@ -178,7 +178,7 @@ class CacheInstance(dict, object):
     def __getitem__(self, item):
         if item in self.__slots__:
             return object.__getattribute__(self, item)
-        val = dict.__getitem__(self,item)
+        val = dict.__getitem__(self, item)
         if self.timeout is not None:
             t = self._timetable[item]
             if time.time()-t > self.timeout:
@@ -195,7 +195,7 @@ class CacheInstance(dict, object):
         if item in self.__slots__:
             return object.__setattr__(self, item, v)
         self._timetable[item] = time.time()
-        dict.__setitem__(self, item,v)
+        dict.__setitem__(self, item, v)
     def update(self, other):
         for key, value in other.iteritems():
             # We only update an element from `other` either if it does
@@ -207,7 +207,7 @@ class CacheInstance(dict, object):
         if self.timeout is None:
             return six.iteritems(self.__dict__)
         t0=time.time()
-        return ((k,v) for (k,v) in six.iteritems(self.__dict__) if t0-self._timetable[k] < self.timeout)
+        return ((k, v) for (k, v) in six.iteritems(self.__dict__) if t0-self._timetable[k] < self.timeout)
     def iterkeys(self):
         if self.timeout is None:
             return six.iterkeys(self.__dict__)
@@ -219,12 +219,12 @@ class CacheInstance(dict, object):
         if self.timeout is None:
             return six.itervalues(self.__dict__)
         t0=time.time()
-        return (v for (k,v) in six.iteritems(self.__dict__) if t0-self._timetable[k] < self.timeout)
+        return (v for (k, v) in six.iteritems(self.__dict__) if t0-self._timetable[k] < self.timeout)
     def items(self):
         if self.timeout is None:
             return dict.items(self)
         t0=time.time()
-        return [(k,v) for (k,v) in six.iteritems(self.__dict__) if t0-self._timetable[k] < self.timeout]
+        return [(k, v) for (k, v) in six.iteritems(self.__dict__) if t0-self._timetable[k] < self.timeout]
     def keys(self):
         if self.timeout is None:
             return dict.keys(self)
@@ -234,7 +234,7 @@ class CacheInstance(dict, object):
         if self.timeout is None:
             return list(six.itervalues(self))
         t0=time.time()
-        return [v for (k,v) in six.iteritems(self.__dict__) if t0-self._timetable[k] < self.timeout]
+        return [v for (k, v) in six.iteritems(self.__dict__) if t0-self._timetable[k] < self.timeout]
     def __len__(self):
         if self.timeout is None:
             return dict.__len__(self)
@@ -260,7 +260,7 @@ class NetCache:
 
     def add_cache(self, cache):
         self._caches_list.append(cache)
-        setattr(self,cache.name,cache)
+        setattr(self, cache.name, cache)
     def new_cache(self, name, timeout=None):
         c = CacheInstance(name=name, timeout=timeout)
         self.add_cache(c)
@@ -269,7 +269,7 @@ class NetCache:
     def update(self, other):
         for co in other._caches_list:
             if hasattr(self, co.name):
-                getattr(self,co.name).update(co)
+                getattr(self, co.name).update(co)
             else:
                 self.add_cache(co.copy())
     def flush(self):
@@ -282,7 +282,7 @@ class NetCache:
 class LogLevel(object):
     def __get__(self, obj, otype):
         return obj._logLevel
-    def __set__(self,obj,val):
+    def __set__(self, obj, val):
         log_scapy.setLevel(val)
         obj._logLevel = val
         
@@ -455,7 +455,7 @@ debug_tls:When 1, print some TLS session secrets when they are computed.
 
 if not Conf.ipv6_enabled:
     log_scapy.warning("IPv6 support disabled in Python. Cannot load Scapy IPv6 layers.")
-    for m in ["inet6","dhcp6"]:
+    for m in ["inet6", "dhcp6"]:
         if m in Conf.load_layers:
             Conf.load_layers.remove(m)
 
