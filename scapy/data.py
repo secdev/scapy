@@ -188,7 +188,7 @@ def load_services(filename):
         f.close()
     except IOError:
         log_loading.info("Can't open /etc/services file")
-    return tdct,udct
+    return tdct, udct
 
 
 class ManufDA(DADict):
@@ -196,7 +196,7 @@ class ManufDA(DADict):
         return plain_str(val)
     def _get_manuf_couple(self, mac):
         oui = ":".join(mac.split(":")[:3]).upper()
-        return self.__dict__.get(oui,(mac,mac))
+        return self.__dict__.get(oui, (mac, mac))
     def _get_manuf(self, mac):
         return self._get_manuf_couple(mac)[1]
     def _get_short_manuf(self, mac):
@@ -219,7 +219,7 @@ def load_manuf(filename):
                 l = l.strip()
                 if not l or l.startswith(b"#"):
                     continue
-                oui,shrt=l.split()[:2]
+                oui, shrt=l.split()[:2]
                 i = l.find(b"#")
                 if i < 0:
                     lng=shrt
@@ -235,7 +235,7 @@ def load_manuf(filename):
 if WINDOWS:
     ETHER_TYPES=load_ethertypes("ethertypes")
     IP_PROTOS=load_protocols(os.environ["SystemRoot"]+"\system32\drivers\etc\protocol")
-    TCP_SERVICES,UDP_SERVICES=load_services(os.environ["SystemRoot"] + "\system32\drivers\etc\services")
+    TCP_SERVICES, UDP_SERVICES=load_services(os.environ["SystemRoot"] + "\system32\drivers\etc\services")
     # Default value, will be updated by arch.windows
     try:
         MANUFDB = load_manuf(os.environ["ProgramFiles"] + "\\wireshark\\manuf")
@@ -244,7 +244,7 @@ if WINDOWS:
 else:
     IP_PROTOS=load_protocols("/etc/protocols")
     ETHER_TYPES=load_ethertypes("/etc/ethertypes")
-    TCP_SERVICES,UDP_SERVICES=load_services("/etc/services")
+    TCP_SERVICES, UDP_SERVICES=load_services("/etc/services")
     MANUFDB = None
     for prefix in ['/usr', '/usr/local', '/opt', '/opt/wireshark']:
         try:

@@ -289,7 +289,7 @@ def add_ofp_oxm_fields(i, org):
         ofp_oxm_fields[i].append(BitField(org[1]+"_mask", 0, 8*org[2]))
 
 # some HM classes are not supported par OFv1.3 but we will create them anyway
-for i,cls in ofp_oxm_constr.items():
+for i, cls in ofp_oxm_constr.items():
     add_ofp_oxm_fields(2*i, cls)
     add_ofp_oxm_fields(2*i+1, cls)
 
@@ -2584,7 +2584,7 @@ class OFPGroupDesc(Packet):
                     XByteField("pad", 0),
                     IntEnumField("group_id", 0, ofp_group),
                     BucketPacketListField("buckets", None, Packet,
-                                          length_from=lambda pkt:pkt.length-8) ]
+                                          length_from=lambda pkt: pkt.length-8) ]
 
 class GroupDescPacketListField(PacketListField):
 

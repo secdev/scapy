@@ -2,6 +2,12 @@ language: python
 
 matrix:
     include:
+        # PEP 8 checks
+        - os: linux
+          python: 2.7
+          env:
+            - TOXENV=flake8
+       
         # Run as a regular user
         - os: linux
           python: 2.7

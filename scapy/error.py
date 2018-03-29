@@ -26,11 +26,11 @@ class ScapyFreqFilter(logging.Filter):
         if wt > 0:
             stk = traceback.extract_stack()
             caller=None
-            for f,l,n,c in stk:
+            for f, l, n, c in stk:
                 if n == 'warning':
                     break
                 caller = l
-            tm,nb = self.warning_table.get(caller, (0,0))
+            tm, nb = self.warning_table.get(caller, (0, 0))
             ltm = time.time()
             if ltm-tm > wt:
                 tm = ltm
@@ -42,7 +42,7 @@ class ScapyFreqFilter(logging.Filter):
                         record.msg = "more "+record.msg
                 else:
                     return 0
-            self.warning_table[caller] = (tm,nb)
+            self.warning_table[caller] = (tm, nb)
         return 1    
 
 log_scapy = logging.getLogger("scapy")

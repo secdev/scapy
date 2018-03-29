@@ -206,7 +206,7 @@ class SkinnyDateTimeField(StrFixedLenField):
         StrFixedLenField.__init__(self, name, default, 32)
 
     def m2i(self, pkt, s):
-        year,month,dow,day,hour,min,sec,milisecond=struct.unpack('<8I', s)
+        year, month, dow, day, hour, min, sec, milisecond=struct.unpack('<8I', s)
         return (year, month, day, hour, min, sec)
     
     def i2m(self, pkt, val):
@@ -219,7 +219,7 @@ class SkinnyDateTimeField(StrFixedLenField):
         if isinstance(x, str):
             return x
         else:
-            return time.ctime(time.mktime(x+(0,0,0)))
+            return time.ctime(time.mktime(x+(0, 0, 0)))
 
     def i2repr(self, pkt, x):
         return self.i2h(pkt, x)
@@ -231,8 +231,8 @@ class SkinnyDateTimeField(StrFixedLenField):
             t = t[:2] + t[2:-3]
         else:
             if not s:
-                y,m,d,h,min,sec,rest,rest,rest = time.gmtime(time.time())
-                t = (y,m,d,h,min,sec)
+                y, m, d, h, min, sec, rest, rest, rest = time.gmtime(time.time())
+                t = (y, m, d, h, min, sec)
             else:
                 t=s
         return t
@@ -254,7 +254,7 @@ class SkinnyMessageKeepAliveAck(Packet):
 class SkinnyMessageOffHook(Packet):
     name = 'Off Hook'
     fields_desc = [ LEIntField("unknown1", 0),
-                    LEIntField("unknown2", 0),]
+                    LEIntField("unknown2", 0), ]
         
 class SkinnyMessageOnHook(SkinnyMessageOffHook):
     name = 'On Hook'
@@ -359,7 +359,7 @@ _skinny_message_callinfo_restrictions = ['CallerName'
                                          , 'OriginalCalledName'
                                          , 'OriginalCalledNumber'
                                          , 'LastRedirectName'
-                                         , 'LastRedirectNumber'] + ['Bit%d' % i for i in range(8,15)]
+                                         , 'LastRedirectNumber'] + ['Bit%d' % i for i in range(8, 15)]
 class SkinnyMessageCallInfo(Packet):
     name='call information'
     fields_desc = [ StrFixedLenField("callername", "Jean Valjean", 40),
@@ -477,8 +477,8 @@ class SkinnyMessageStopMultiMediaTransmission(Packet):
 class Skinny(Packet):
     name="Skinny"
     fields_desc = [ LEIntField("len", None),
-                    LEIntField("res",0),
-                    LEIntEnumField("msg",0, skinny_messages_cls) ]
+                    LEIntField("res", 0),
+                    LEIntEnumField("msg", 0, skinny_messages_cls) ]
 
     def post_build(self, pkt, p):
         if self.len is None:
@@ -491,7 +491,7 @@ def get_cls(name, fallback_cls):
     return globals().get(name, fallback_cls)
     #return __builtin__.__dict__.get(name, fallback_cls)
 
-for msgid,strcls in skinny_messages_cls.items():
+for msgid, strcls in skinny_messages_cls.items():
     cls=get_cls(strcls, SkinnyMessageGeneric)
     bind_layers(Skinny, cls, {"msg": msgid})
 
@@ -500,5 +500,5 @@ bind_layers(TCP, Skinny, { "sport": 2000 } )
 
 if __name__ == "__main__":
     from scapy.main import interact
-    interact(mydict=globals(),mybanner="Welcome to Skinny add-on")
+    interact(mydict=globals(), mybanner="Welcome to Skinny add-on")
 

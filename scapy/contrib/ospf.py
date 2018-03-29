@@ -74,14 +74,14 @@ class OSPF_Hdr(Packet):
                     IPField("src", "1.1.1.1"),
                     IPField("area", "0.0.0.0"), # default: backbone
                     XShortField("chksum", None),
-                    ShortEnumField("authtype", 0, {0:"Null", 1:"Simple", 2:"Crypto"}),
+                    ShortEnumField("authtype", 0, {0: "Null", 1: "Simple", 2: "Crypto"}),
                     # Null or Simple Authentication
-                    ConditionalField(XLongField("authdata", 0), lambda pkt:pkt.authtype != 2),
+                    ConditionalField(XLongField("authdata", 0), lambda pkt: pkt.authtype != 2),
                     # Crypto Authentication
-                    ConditionalField(XShortField("reserved", 0), lambda pkt:pkt.authtype == 2),
-                    ConditionalField(ByteField("keyid", 1), lambda pkt:pkt.authtype == 2),
-                    ConditionalField(ByteField("authdatalen", 0), lambda pkt:pkt.authtype == 2),
-                    ConditionalField(XIntField("seq", 0), lambda pkt:pkt.authtype == 2),
+                    ConditionalField(XShortField("reserved", 0), lambda pkt: pkt.authtype == 2),
+                    ConditionalField(ByteField("keyid", 1), lambda pkt: pkt.authtype == 2),
+                    ConditionalField(ByteField("authdatalen", 0), lambda pkt: pkt.authtype == 2),
+                    ConditionalField(XIntField("seq", 0), lambda pkt: pkt.authtype == 2),
                     # TODO: Support authdata (which is appended to the packets as if it were padding)
                     ]
 

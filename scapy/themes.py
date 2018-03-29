@@ -305,9 +305,9 @@ def apply_ipython_style(shell):
     else:
         class ClassicPrompt(Prompts):
             def in_prompt_tokens(self, cli=None):
-               return [(Token.Prompt, str(conf.prompt)),]
+               return [(Token.Prompt, str(conf.prompt)), ]
             def out_prompt_tokens(self):
-               return [(Token.OutPrompt, ''),]
+               return [(Token.OutPrompt, ''), ]
         shell.prompts_class=ClassicPrompt # Apply classic prompt style
     shell.highlighting_style_overrides = { # Register and apply scapy color style
         Token.Prompt: Color.ansi_to_pygments(conf.color_theme.style_prompt),

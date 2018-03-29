@@ -51,9 +51,9 @@ class Route:
     def make_route(self, host=None, net=None, gw=None, dev=None, metric=1):
         from scapy.arch import get_if_addr
         if host is not None:
-            thenet,msk = host,32
+            thenet, msk = host, 32
         elif net is not None:
-            thenet,msk = net.split("/")
+            thenet, msk = net.split("/")
             msk = int(msk)
         else:
             raise Scapy_Exception("make_route: Incorrect parameters. You should specify a host or a net")
@@ -74,13 +74,13 @@ class Route:
         add(net="192.168.1.0/24",gw="1.2.3.4")
         """
         self.invalidate_cache()
-        self.routes.append(self.make_route(*args,**kargs))
+        self.routes.append(self.make_route(*args, **kargs))
 
         
     def delt(self,  *args, **kargs):
         """delt(host|net, gw|dev)"""
         self.invalidate_cache()
-        route = self.make_route(*args,**kargs)
+        route = self.make_route(*args, **kargs)
         try:
             i=self.routes.index(route)
             del(self.routes[i])
@@ -89,7 +89,7 @@ class Route:
              
     def ifchange(self, iff, addr):
         self.invalidate_cache()
-        the_addr,the_msk = (addr.split("/")+["32"])[:2]
+        the_addr, the_msk = (addr.split("/")+["32"])[:2]
         the_msk = itom(int(the_msk))
         the_rawaddr = atol(the_addr)
         the_net = the_rawaddr & the_msk
@@ -103,9 +103,9 @@ class Route:
             elif iff != iface:
                 continue
             if gw == '0.0.0.0':
-                self.routes[i] = (the_net,the_msk,gw,iface,the_addr,metric)
+                self.routes[i] = (the_net, the_msk, gw, iface, the_addr, metric)
             else:
-                self.routes[i] = (net,msk,gw,iface,the_addr,metric)
+                self.routes[i] = (net, msk, gw, iface, the_addr, metric)
         conf.netcache.flush()
         
                 
@@ -124,21 +124,21 @@ class Route:
         
     def ifadd(self, iff, addr):
         self.invalidate_cache()
-        the_addr,the_msk = (addr.split("/")+["32"])[:2]
+        the_addr, the_msk = (addr.split("/")+["32"])[:2]
         the_msk = itom(int(the_msk))
         the_rawaddr = atol(the_addr)
         the_net = the_rawaddr & the_msk
-        self.routes.append((the_net,the_msk,'0.0.0.0',iff,the_addr,1))
+        self.routes.append((the_net, the_msk, '0.0.0.0', iff, the_addr, 1))
 
 
-    def route(self,dest,verbose=None):
+    def route(self, dest, verbose=None):
         if dest in self.cache:
             return self.cache[dest]
         if verbose is None:
             verbose=conf.verb
         # Transform "192.168.*.1-5" to one IP of the set
         dst = dest.split("/")[0]
-        dst = dst.replace("*","0") 
+        dst = dst.replace("*", "0") 
         while True:
             l = dst.find("-")
             if l < 0:
@@ -149,7 +149,7 @@ class Route:
             
         dst = atol(dst)
         pathes=[]
-        for d,m,gw,i,a,me in self.routes:
+        for d, m, gw, i, a, me in self.routes:
             if not a: # some interfaces may not currently be connected
                 continue
             aa = atol(a)
@@ -158,7 +158,7 @@ class Route:
                     (0xffffffff, 1, (scapy.consts.LOOPBACK_INTERFACE, a, "0.0.0.0"))
                 )
             if (dst & m) == (d & m):
-                pathes.append((m, me, (i,a,gw)))
+                pathes.append((m, me, (i, a, gw)))
         if not pathes:
             if verbose:
                 warning("No route found (no default route?)")

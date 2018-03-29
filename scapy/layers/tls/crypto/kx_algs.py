@@ -46,17 +46,17 @@ class _GenericKX(six.with_metaclass(_GenericKXMetaclass)):
 
 class KX_NULL(_GenericKX):
     descr = "No key exchange"
-    server_kx_msg_cls = lambda _,m: None
+    server_kx_msg_cls = lambda _, m: None
     client_kx_msg_cls = None
 
 class KX_SSLv2(_GenericKX):
     descr = "SSLv2 dummy key exchange class"
-    server_kx_msg_cls = lambda _,m: None
+    server_kx_msg_cls = lambda _, m: None
     client_kx_msg_cls = None
 
 class KX_TLS13(_GenericKX):
     descr = "TLS 1.3 dummy key exchange class"
-    server_kx_msg_cls = lambda _,m: None
+    server_kx_msg_cls = lambda _, m: None
     client_kx_msg_cls = None
 
 
@@ -64,7 +64,7 @@ class KX_TLS13(_GenericKX):
 
 class KX_RSA(_GenericKX):
     descr = "RSA encryption"
-    server_kx_msg_cls = lambda _,m: None
+    server_kx_msg_cls = lambda _, m: None
     client_kx_msg_cls = EncryptedPreMasterSecret
 
 #class KX_DH_RSA(_GenericKX):
@@ -74,7 +74,7 @@ class KX_RSA(_GenericKX):
 
 class KX_DHE_RSA(_GenericKX):
     descr = "Ephemeral DH with RSA signature"
-    server_kx_msg_cls = lambda _,m: ServerDHParams
+    server_kx_msg_cls = lambda _, m: ServerDHParams
     client_kx_msg_cls = ClientDiffieHellmanPublic
 
 # class KX_ECDH_RSA(_GenericKX):
@@ -84,12 +84,12 @@ class KX_DHE_RSA(_GenericKX):
 
 class KX_ECDHE_RSA(_GenericKX):
     descr = "Ephemeral ECDH with RSA signature"
-    server_kx_msg_cls = lambda _,m: _tls_server_ecdh_cls_guess(m)
+    server_kx_msg_cls = lambda _, m: _tls_server_ecdh_cls_guess(m)
     client_kx_msg_cls = ClientECDiffieHellmanPublic
 
 class KX_RSA_EXPORT(KX_RSA):
     descr = "RSA encryption, export version"
-    server_kx_msg_cls = lambda _,m: ServerRSAParams
+    server_kx_msg_cls = lambda _, m: ServerRSAParams
 
 #class KX_DH_RSA_EXPORT(KX_DH_RSA):
 #    descr = "DH with RSA-based certificates - Export version"
@@ -107,7 +107,7 @@ class KX_DHE_RSA_EXPORT(KX_DHE_RSA):
 
 class KX_ECDHE_ECDSA(_GenericKX):
    descr = "Ephemeral ECDH with ECDSA signature"
-   server_kx_msg_cls = lambda _,m: _tls_server_ecdh_cls_guess(m)
+   server_kx_msg_cls = lambda _, m: _tls_server_ecdh_cls_guess(m)
    client_kx_msg_cls = ClientECDiffieHellmanPublic
 
 
@@ -178,12 +178,12 @@ class KX_ECDHE_ECDSA(_GenericKX):
 
 class KX_DH_anon(_GenericKX):
     descr = "Anonymous DH, no signatures"
-    server_kx_msg_cls = lambda _,m: ServerDHParams
+    server_kx_msg_cls = lambda _, m: ServerDHParams
     client_kx_msg_cls = ClientDiffieHellmanPublic
 
 class KX_ECDH_anon(_GenericKX):
     descr = "ECDH anonymous key exchange"
-    server_kx_msg_cls = lambda _,m: _tls_server_ecdh_cls_guess(m)
+    server_kx_msg_cls = lambda _, m: _tls_server_ecdh_cls_guess(m)
     client_kx_msg_cls = ClientECDiffieHellmanPublic
 
 class KX_DH_anon_EXPORT(KX_DH_anon):

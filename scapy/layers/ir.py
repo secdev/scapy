@@ -18,8 +18,8 @@ from scapy.layers.l2 import CookedLinux
 class IrLAPHead(Packet):
     name = "IrDA Link Access Protocol Header"
     fields_desc = [ XBitField("Address", 0x7f, 7),
-                    BitEnumField("Type", 1, 1, {"Response":0,
-                                                "Command":1})]
+                    BitEnumField("Type", 1, 1, {"Response": 0,
+                                                "Command": 1})]
 
 class IrLAPCommand(Packet):
     name = "IrDA Link Access Protocol Command"
@@ -28,7 +28,7 @@ class IrLAPCommand(Packet):
                     XIntField("Source address", 0),
                     XIntField("Destination address", 0xffffffff),
                     XByteField("Discovery flags", 0x1),
-                    ByteEnumField("Slot number", 255, {"final":255}),
+                    ByteEnumField("Slot number", 255, {"final": 255}),
                     XByteField("Version", 0)]
 
 

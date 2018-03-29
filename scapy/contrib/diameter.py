@@ -473,7 +473,7 @@ class AVP_VL_NV (AVP_Generic):
 class AVP_VL_V (AVP_Generic):
     """ Defines the AVP of Variable Length with Vendor field."""
     fields_desc = [
-        IntField("avpCode",None),
+        IntField("avpCode", None),
         AVPFlags("avpFlags", None, 8, AVP_Flags_List),
         I3FieldLenField("avpLen", None, length_of="val",
             adjust=lambda pkt, x:x + 12),

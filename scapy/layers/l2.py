@@ -41,15 +41,15 @@ class Neighbor:
         self.resolvers = {}
 
     def register_l3(self, l2, l3, resolve_method):
-        self.resolvers[l2,l3]=resolve_method
+        self.resolvers[l2, l3]=resolve_method
 
     def resolve(self, l2inst, l3inst):
-        k = l2inst.__class__,l3inst.__class__
+        k = l2inst.__class__, l3inst.__class__
         if k in self.resolvers:
-            return self.resolvers[k](l2inst,l3inst)
+            return self.resolvers[k](l2inst, l3inst)
 
     def __repr__(self):
-        return "\n".join("%-15s -> %-15s" % (l2.__name__, l3.__name__) for l2,l3 in self.resolvers)
+        return "\n".join("%-15s -> %-15s" % (l2.__name__, l3.__name__) for l2, l3 in self.resolvers)
 
 conf.neighbor = Neighbor()
 
@@ -64,8 +64,8 @@ def getmacbyip(ip, chainCC=0):
     ip = inet_ntoa(inet_aton(ip))
     tmp = [orb(e) for e in inet_aton(ip)]
     if (tmp[0] & 0xf0) == 0xe0: # mcast @
-        return "01:00:5e:%.2x:%.2x:%.2x" % (tmp[1]&0x7f,tmp[2],tmp[3])
-    iff,a,gw = conf.route.route(ip)
+        return "01:00:5e:%.2x:%.2x:%.2x" % (tmp[1]&0x7f, tmp[2], tmp[3])
+    iff, a, gw = conf.route.route(ip)
     if ( (iff == scapy.consts.LOOPBACK_INTERFACE) or (ip == conf.route.get_if_bcast(iff)) ):
         return "ff:ff:ff:ff:ff:ff"
     if gw != "0.0.0.0":
@@ -98,7 +98,7 @@ class DestMACField(MACField):
     def i2h(self, pkt, x):
         if x is None:
             try:
-                x = conf.neighbor.resolve(pkt,pkt.payload)
+                x = conf.neighbor.resolve(pkt, pkt.payload)
             except socket.error:
                 pass
             if x is None:
@@ -152,9 +152,9 @@ class Ether(Packet):
                     XShortEnumField("type", 0x9000, ETHER_TYPES) ]
     __slots__ = ["_defrag_pos"]
     def hashret(self):
-        return struct.pack("H",self.type)+self.payload.hashret()
+        return struct.pack("H", self.type)+self.payload.hashret()
     def answers(self, other):
-        if isinstance(other,Ether):
+        if isinstance(other, Ether):
             if self.type == other.type:
                 return self.payload.answers(other.payload)
         return 0
@@ -173,11 +173,11 @@ class Dot3(Packet):
     fields_desc = [ DestMACField("dst"),
                     MACField("src", ETHER_ANY),
                     LenField("len", None, "H") ]
-    def extract_padding(self,s):
+    def extract_padding(self, s):
         l = self.len
-        return s[:l],s[l:]
+        return s[:l], s[l:]
     def answers(self, other):
-        if isinstance(other,Dot3):
+        if isinstance(other, Dot3):
             return self.payload.answers(other.payload)
         return 0
     def mysummary(self):
@@ -206,21 +206,21 @@ class CookedLinux(Packet):
     # Documentation: http://www.tcpdump.org/linktypes/LINKTYPE_LINUX_SLL.html
     name = "cooked linux"
     # from wireshark's database
-    fields_desc = [ ShortEnumField("pkttype",0, {0: "unicast",
+    fields_desc = [ ShortEnumField("pkttype", 0, {0: "unicast",
                                                  1: "broadcast",
                                                  2: "multicast",
                                                  3: "unicast-to-another-host",
-                                                 4:"sent-by-us"}),
-                    XShortField("lladdrtype",512),
-                    ShortField("lladdrlen",0),
-                    StrFixedLenField("src","",8),
-                    XShortEnumField("proto",0x800,ETHER_TYPES) ]
+                                                 4: "sent-by-us"}),
+                    XShortField("lladdrtype", 512),
+                    ShortField("lladdrlen", 0),
+                    StrFixedLenField("src", "", 8),
+                    XShortEnumField("proto", 0x800, ETHER_TYPES) ]
                     
                                    
 
 class SNAP(Packet):
     name = "SNAP"
-    fields_desc = [ X3BytesField("OUI",0x000000),
+    fields_desc = [ X3BytesField("OUI", 0x000000),
                     XShortEnumField("code", 0x000, ETHER_TYPES) ]
 
 conf.neighbor.register_l3(Dot3, SNAP, l2_register_l3)
@@ -234,7 +234,7 @@ class Dot1Q(Packet):
                      BitField("vlan", 1, 12),
                      XShortEnumField("type", 0x0000, ETHER_TYPES) ]
     def answers(self, other):
-        if isinstance(other,Dot1Q):
+        if isinstance(other, Dot1Q):
             if ( (self.type == other.type) and
                  (self.vlan == other.vlan) ):
                 return self.payload.answers(other.payload)
@@ -245,10 +245,10 @@ class Dot1Q(Packet):
         if self.type <= 1500:
             return LLC
         return conf.raw_layer
-    def extract_padding(self,s):
+    def extract_padding(self, s):
         if self.type <= 1500:
-            return s[:self.type],s[self.type:]
-        return s,None
+            return s[:self.type], s[self.type:]
+        return s, None
     def mysummary(self):
         if isinstance(self.underlayer, Ether):
             return self.underlayer.sprintf("802.1q %Ether.src% > %Ether.dst% (%Dot1Q.type%) vlan %Dot1Q.vlan%")
@@ -282,15 +282,15 @@ class ARP(Packet):
                     XShortEnumField("ptype",  0x0800, ETHER_TYPES),
                     ByteField("hwlen", 6),
                     ByteField("plen", 4),
-                    ShortEnumField("op", 1, {"who-has":1, "is-at":2, "RARP-req":3, "RARP-rep":4, "Dyn-RARP-req":5, "Dyn-RAR-rep":6, "Dyn-RARP-err":7, "InARP-req":8, "InARP-rep":9}),
+                    ShortEnumField("op", 1, {"who-has": 1, "is-at": 2, "RARP-req": 3, "RARP-rep": 4, "Dyn-RARP-req": 5, "Dyn-RAR-rep": 6, "Dyn-RARP-err": 7, "InARP-req": 8, "InARP-rep": 9}),
                     ARPSourceMACField("hwsrc"),
-                    SourceIPField("psrc","pdst"),
+                    SourceIPField("psrc", "pdst"),
                     MACField("hwdst", ETHER_ANY),
                     IPField("pdst", "0.0.0.0") ]
     who_has = 1
     is_at = 2
     def answers(self, other):
-        if isinstance(other,ARP):
+        if isinstance(other, ARP):
             if ( (self.op == self.is_at) and
                  (other.op == self.who_has) and
                  (self.psrc == other.pdst) ):
@@ -298,11 +298,11 @@ class ARP(Packet):
         return 0
     def route(self):
         dst = self.pdst
-        if isinstance(dst,Gen):
+        if isinstance(dst, Gen):
             dst = next(iter(dst))
         return conf.route.route(dst)
     def extract_padding(self, s):
-        return "",s
+        return "", s
     def mysummary(self):
         if self.op == self.is_at:
             return self.sprintf("ARP is at %hwsrc% says %psrc%")
@@ -317,7 +317,7 @@ conf.neighbor.register_l3(Ether, ARP, l2_register_l3_arp)
 
 class GRErouting(Packet):
     name = "GRE routing informations"
-    fields_desc = [ ShortField("address_family",0),
+    fields_desc = [ ShortField("address_family", 0),
                     ByteField("SRE_offset", 0),
                     FieldLenField("SRE_len", None, "routing_info", "B"),
                     StrLenField("routing_info", "", "SRE_len"),
@@ -326,19 +326,19 @@ class GRErouting(Packet):
 
 class GRE(Packet):
     name = "GRE"
-    fields_desc = [ BitField("chksum_present",0,1),
-                    BitField("routing_present",0,1),
-                    BitField("key_present",0,1),
-                    BitField("seqnum_present",0,1),
-                    BitField("strict_route_source",0,1),
-                    BitField("recursion_control",0,3),
-                    BitField("flags",0,5),
-                    BitField("version",0,3),
+    fields_desc = [ BitField("chksum_present", 0, 1),
+                    BitField("routing_present", 0, 1),
+                    BitField("key_present", 0, 1),
+                    BitField("seqnum_present", 0, 1),
+                    BitField("strict_route_source", 0, 1),
+                    BitField("recursion_control", 0, 3),
+                    BitField("flags", 0, 5),
+                    BitField("version", 0, 3),
                     XShortEnumField("proto", 0x0000, ETHER_TYPES),
-                    ConditionalField(XShortField("chksum",None), lambda pkt:pkt.chksum_present==1 or pkt.routing_present==1),
-                    ConditionalField(XShortField("offset",None), lambda pkt:pkt.chksum_present==1 or pkt.routing_present==1),
-                    ConditionalField(XIntField("key",None), lambda pkt:pkt.key_present==1),
-                    ConditionalField(XIntField("seqence_number",None), lambda pkt:pkt.seqnum_present==1),
+                    ConditionalField(XShortField("chksum", None), lambda pkt:pkt.chksum_present==1 or pkt.routing_present==1),
+                    ConditionalField(XShortField("offset", None), lambda pkt:pkt.chksum_present==1 or pkt.routing_present==1),
+                    ConditionalField(XIntField("key", None), lambda pkt:pkt.key_present==1),
+                    ConditionalField(XIntField("seqence_number", None), lambda pkt:pkt.seqnum_present==1),
                     ]
 
     @classmethod
@@ -439,7 +439,7 @@ bind_layers( GRE,           Dot1AD,        type=0x88a8)
 bind_layers( GRE,           Ether,         proto=0x6558)
 bind_layers( GRE,           ARP,           proto=2054)
 bind_layers( GRE,           GRErouting,    { "routing_present" : 1 } )
-bind_layers( GRErouting,    conf.raw_layer,{ "address_family" : 0, "SRE_len" : 0 })
+bind_layers( GRErouting,    conf.raw_layer, { "address_family" : 0, "SRE_len" : 0 })
 bind_layers( GRErouting,    GRErouting,    { } )
 bind_layers( LLC,           STP,           dsap=66, ssap=66, ctrl=3)
 bind_layers( LLC,           SNAP,          dsap=170, ssap=170, ctrl=3)
@@ -489,7 +489,7 @@ class ARPingResult(SndRcvList):
         SndRcvList.__init__(self, res, name, stats)
 
     def show(self):
-        for s,r in self.res:
+        for s, r in self.res:
             print(r.sprintf("%19s,Ether.src% %ARP.psrc%"))
 
 
@@ -501,7 +501,7 @@ arping(net, [cache=0,] [iface=conf.iface,] [verbose=conf.verb]) -> None
 Set cache=True if you want arping to modify internal ARP-Cache"""
     if verbose is None:
         verbose = conf.verb
-    ans,unans = srp(Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst=net), verbose=verbose,
+    ans, unans = srp(Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst=net), verbose=verbose,
                     filter="arp and arp[7] = 2", timeout=timeout, iface_hint=net, **kargs)
     ans = ARPingResult(ans.res)
 
@@ -510,13 +510,13 @@ Set cache=True if you want arping to modify internal ARP-Cache"""
             conf.netcache.arp_cache[pair[1].psrc] = (pair[1].hwsrc, time.time())
     if verbose:
         ans.show()
-    return ans,unans
+    return ans, unans
 
 @conf.commands.register
-def is_promisc(ip, fake_bcast="ff:ff:00:00:00:00",**kargs):
+def is_promisc(ip, fake_bcast="ff:ff:00:00:00:00", **kargs):
     """Try to guess if target is in Promisc mode. The target is provided by its ip."""
 
-    responses = srp1(Ether(dst=fake_bcast) / ARP(op="who-has", pdst=ip),type=ETH_P_ARP, iface_hint=ip, timeout=1, verbose=0,**kargs)
+    responses = srp1(Ether(dst=fake_bcast) / ARP(op="who-has", pdst=ip), type=ETH_P_ARP, iface_hint=ip, timeout=1, verbose=0, **kargs)
 
     return responses is not None
 
@@ -524,12 +524,12 @@ def is_promisc(ip, fake_bcast="ff:ff:00:00:00:00",**kargs):
 def promiscping(net, timeout=2, fake_bcast="ff:ff:ff:ff:ff:fe", **kargs):
     """Send ARP who-has requests to determine which hosts are in promiscuous mode
     promiscping(net, iface=conf.iface)"""
-    ans,unans = srp(Ether(dst=fake_bcast)/ARP(pdst=net),
+    ans, unans = srp(Ether(dst=fake_bcast)/ARP(pdst=net),
                     filter="arp and arp[7] = 2", timeout=timeout, iface_hint=net, **kargs)
     ans = ARPingResult(ans.res, name="PROMISCPing")
 
     ans.display()
-    return ans,unans
+    return ans, unans
 
 
 class ARP_am(AnsweringMachine):
@@ -571,7 +571,7 @@ class ARP_am(AnsweringMachine):
         if 'iface' in self.optsend:
             iff = self.optsend.get('iface')
         else:
-            iff,a,gw = conf.route.route(arp.psrc)
+            iff, a, gw = conf.route.route(arp.psrc)
         self.iff = iff
         if self.ARP_addr is None:
             try:
@@ -596,7 +596,7 @@ class ARP_am(AnsweringMachine):
             self.send_function(reply, iface=self.iff, **self.optsend)
 
     def print_reply(self, req, reply):
-        print("%s ==> %s on %s" % (req.summary(),reply.summary(),self.iff))
+        print("%s ==> %s on %s" % (req.summary(), reply.summary(), self.iff))
 
 
 @conf.commands.register

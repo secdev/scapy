@@ -9,7 +9,7 @@ Clone of queso OS fingerprinting
 
 from scapy.data import KnowledgeBase
 from scapy.config import conf
-from scapy.layers.inet import IP,TCP
+from scapy.layers.inet import IP, TCP
 from scapy.error import warning
 from scapy.volatile import RandInt
 from scapy.sendrecv import sr
@@ -74,12 +74,12 @@ def queso_sig(target, dport=80, timeout=3):
     p = queso_kdb.get_base()
     ret = []
     for flags in ["S", "SA", "F", "FA", "SF", "P", "SEC"]:
-        ans, unans = sr(IP(dst=target)/TCP(dport=dport,flags=flags,seq=RandInt()),
+        ans, unans = sr(IP(dst=target)/TCP(dport=dport, flags=flags, seq=RandInt()),
                         timeout=timeout, verbose=0)
         if len(ans) == 0:
             rs = "- - - -"
         else:
-            s,r = ans[0]
+            s, r = ans[0]
             rs = "%i" % (r.seq != 0)
             if not r.ack:
                 r += " 0"
@@ -108,7 +108,7 @@ def queso_search(sig):
         
 
 @conf.commands.register
-def queso(*args,**kargs):
+def queso(*args, **kargs):
     """Queso OS fingerprinting
 queso(target, dport=80, timeout=3)"""
     return queso_search(queso_sig(*args, **kargs))

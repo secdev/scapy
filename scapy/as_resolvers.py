@@ -25,7 +25,7 @@ class AS_resolver:
         
     def _start(self):
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.s.connect((self.server,self.port))
+        self.s.connect((self.server, self.port))
         if self.options:
             self.s.send(self.options.encode("utf8")+b"\n")
             self.s.recv(8192)
@@ -33,7 +33,7 @@ class AS_resolver:
         self.s.close()
         
     def _parse_whois(self, txt):
-        asn,desc = None,b""
+        asn, desc = None, b""
         for l in txt.splitlines():
             if not asn and l.startswith(b"origin:"):
                 asn = plain_str(l[7:].strip())
@@ -51,14 +51,14 @@ class AS_resolver:
         while not (b"%" in x  or b"source" in x):
             x += self.s.recv(8192)
         asn, desc = self._parse_whois(x)
-        return ip,asn,desc
+        return ip, asn, desc
     def resolve(self, *ips):
         self._start()
         ret = []
         for ip in ips:
-            ip,asn,desc = self._resolve_one(ip)
+            ip, asn, desc = self._resolve_one(ip)
             if asn is not None:
-                ret.append((ip,asn,desc))
+                ret.append((ip, asn, desc))
         self._stop()
         return ret
 
@@ -77,7 +77,7 @@ class AS_resolver_cymru(AS_resolver):
     options = None
     def resolve(self, *ips):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.connect((self.server,self.port))
+        s.connect((self.server, self.port))
         s.send(b"begin\r\n"+b"\r\n".join(ip.encode("utf8") for ip in ips)+b"\r\nend\r\n")
         r = b""
         while True:
@@ -105,7 +105,7 @@ class AS_resolver_cymru(AS_resolver):
         return ASNlist
 
 class AS_resolver_multi(AS_resolver):
-    resolvers_list = ( AS_resolver_riswhois(),AS_resolver_radb(),AS_resolver_cymru() )
+    resolvers_list = ( AS_resolver_riswhois(), AS_resolver_radb(), AS_resolver_cymru() )
     def __init__(self, *reslist):
         if reslist:
             self.resolvers_list = reslist
@@ -118,7 +118,7 @@ class AS_resolver_multi(AS_resolver):
             except socket.error as e:
                 if e[0] in [errno.ECONNREFUSED, errno.ETIMEDOUT, errno.ECONNRESET]:
                     continue
-            resolved = [ ip for ip,asn,desc in res ]
+            resolved = [ ip for ip, asn, desc in res ]
             todo = [ ip for ip in todo if ip not in resolved ]
             ret += res
             if len(todo) == 0:

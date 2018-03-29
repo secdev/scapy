@@ -97,25 +97,25 @@ class TLS_Ext_PrettyPacketList(TLS_Ext_Unknown):
             fvalue = self.getfieldval(f.name)
             begn = "%s  %-10s%s " % (label_lvl+lvl, ncol(f.name),
                                      ct.punct("="),)
-            reprval = f.i2repr(self,fvalue)
+            reprval = f.i2repr(self, fvalue)
             if isinstance(reprval, str):
                 reprval = reprval.replace("\n", "\n"+" "*(len(label_lvl)
                                                           +len(lvl)
                                                           +len(f.name)
                                                           +4))
-            s += "%s%s\n" % (begn,vcol(reprval))
+            s += "%s%s\n" % (begn, vcol(reprval))
         f = self.fields_desc[-1]
         ncol = ct.field_name
         vcol = ct.field_value
         fvalue = self.getfieldval(f.name)
         begn = "%s  %-10s%s " % (label_lvl+lvl, ncol(f.name), ct.punct("="),)
-        reprval = f.i2repr(self,fvalue)
+        reprval = f.i2repr(self, fvalue)
         if isinstance(reprval, str):
             reprval = reprval.replace("\n", "\n"+" "*(len(label_lvl)
                                                       +len(lvl)
                                                       +len(f.name)
                                                       +4))
-        s += "%s%s\n" % (begn,vcol(reprval))
+        s += "%s%s\n" % (begn, vcol(reprval))
         if self.payload:
             s += self.payload._show_or_dump(dump=dump, indent=indent,
                                 lvl=lvl+(" "*indent*self.show_indent),
@@ -157,7 +157,7 @@ class TLS_Ext_ServerName(TLS_Ext_PrettyPacketList):                 # RFC 4366
     name = "TLS Extension - Server Name"
     fields_desc = [ShortEnumField("type", 0, _tls_ext),
                    FieldLenField("len", None, length_of="servernames",
-                                 adjust=lambda pkt,x: x+2),
+                                 adjust=lambda pkt, x: x+2),
                    ServerLenField("servernameslen", None,
                                  length_of="servernames"),
                    ServerListField("servernames", [], ServerName,
@@ -598,7 +598,7 @@ class _ExtensionsLenField(FieldLenField):
         """
         if i is None:
             if self.length_of is not None:
-                fld,fval = pkt.getfield_and_val(self.length_of)
+                fld, fval = pkt.getfield_and_val(self.length_of)
 
                 tmp = pkt.tls_session.frozen
                 pkt.tls_session.frozen = True

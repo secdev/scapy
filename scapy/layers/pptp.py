@@ -58,7 +58,7 @@ class PPTP(Packet):
                    XIntField("magic_cookie", _PPTP_MAGIC_COOKIE),
                    ShortEnumField("ctrl_msg_type", 1, _PPTP_ctrl_msg_type),
                    XShortField("reserved_0", 0x0000),
-                   StrLenField("data", "",length_from=lambda p: p.len - 12)]
+                   StrLenField("data", "", length_from=lambda p: p.len - 12)]
 
     registered_options = {}
 

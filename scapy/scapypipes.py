@@ -6,7 +6,7 @@
 from __future__ import print_function
 import socket
 from scapy.modules.six.moves.queue import Queue, Empty
-from scapy.pipetool import Source,Drain,Sink
+from scapy.pipetool import Source, Drain, Sink
 from scapy.config import conf
 from scapy.compat import *
 from scapy.utils import PcapReader, PcapWriter
@@ -134,7 +134,7 @@ class UDPDrain(Drain):
             self._high_send(raw(payload))
     def high_push(self, msg):
         from scapy.layers.inet import IP, UDP
-        p = IP(dst=self.ip)/UDP(sport=1234,dport=self.port)/msg
+        p = IP(dst=self.ip)/UDP(sport=1234, dport=self.port)/msg
         self._send(p)
         
 
@@ -173,7 +173,7 @@ class TCPConnectPipe(Source):
         self.fd = None
     def start(self):
         self.fd = socket.socket()
-        self.fd.connect((self.addr,self.port))
+        self.fd.connect((self.addr, self.port))
     def stop(self):
         if self.fd:
             self.fd.close()
@@ -207,7 +207,7 @@ class TCPListenPipe(TCPConnectPipe):
         self.connected = False
         self.fd = socket.socket()
         self.fd.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.fd.bind((self.addr,self.port))
+        self.fd.bind((self.addr, self.port))
         self.fd.listen(1)
     def push(self, msg):
         if self.connected:
@@ -224,7 +224,7 @@ class TCPListenPipe(TCPConnectPipe):
             if msg:
                 self._send(msg)
         else:
-            fd,frm = self.fd.accept()
+            fd, frm = self.fd.accept()
             self._high_send(frm)
             self.fd.close()
             self.fd = fd
@@ -314,18 +314,18 @@ class TriggeredQueueingValve(Drain):
         if self.opened:
             self._send(msg)
         else:
-            self.q.put((True,msg))
+            self.q.put((True, msg))
     def high_push(self, msg):
         if self.opened:
             self._send(msg)
         else:
-            self.q.put((False,msg))
+            self.q.put((False, msg))
     def on_trigger(self, msg):
         self.opened ^= True
         self._trigger(msg)
         while True:
             try:
-                low,msg = self.q.get(block=False)
+                low, msg = self.q.get(block=False)
             except Empty:
                 break
             else:

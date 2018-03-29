@@ -46,7 +46,7 @@ def _legacy_bpf_pointer(tcpdump_lines):
     size = int(tcpdump_lines[0])
     bpf = ""
     for l in tcpdump_lines[1:]:
-        bpf += struct.pack("HBBI",*map(long,l.split()))
+        bpf += struct.pack("HBBI", *map(long, l.split()))
 
     # Thanks to http://www.netprojects.de/scapy-with-pypy-solved/ for the pypy trick
     if conf.use_pypy and six.PY2:

@@ -349,12 +349,12 @@ class ISIS_UnreservedBandwidthSubTlv(ISIS_GenericSubTlv):
     name = "Unreserved Bandwidth SubTLV"
     fields_desc = [ByteEnumField("type", 11, _isis_subtlv_names_1),
                    FieldLenField("len", None, length_of="unrsvbw", fmt="B"),
-                   FieldListField("unrsvbw", [1000,1000,1000,1000,1000,1000,1000,1000], IEEEFloatField("", 1000), count_from= lambda pkt: pkt.len / 4 )] # in B/s
+                   FieldListField("unrsvbw", [1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000], IEEEFloatField("", 1000), count_from= lambda pkt: pkt.len / 4 )] # in B/s
 
 class ISIS_TEDefaultMetricSubTlv(ISIS_GenericSubTlv):
     name = "TE Default Metric SubTLV"
     fields_desc = [ByteEnumField("type", 18, _isis_subtlv_names_1),
-                   FieldLenField("len", None, length_of="temetric", adjust=lambda pkt,x:x-1, fmt="B"),
+                   FieldLenField("len", None, length_of="temetric", adjust=lambda pkt, x:x-1, fmt="B"),
                    ThreeBytesField("temetric", 1000)]
 
 
@@ -484,7 +484,7 @@ class ISIS_AreaTlv(ISIS_GenericTlv):
 class ISIS_AuthenticationTlv(ISIS_GenericTlv):
     name = "ISIS Authentication TLV"
     fields_desc = [ByteEnumField("type", 10, _isis_tlv_names),
-                   FieldLenField("len", None, length_of= "password", adjust=lambda pkt,x: x + 1, fmt="B"),
+                   FieldLenField("len", None, length_of= "password", adjust=lambda pkt, x: x + 1, fmt="B"),
                    ByteEnumField("authtype", 1, {1: "Plain", 17: "HMAC-MD5"}),
                    BoundStrLenField("password", "", maxlen= 254, length_from=lambda pkt: pkt.len - 1)]
 
@@ -720,7 +720,7 @@ class ISIS_IsReachabilityTlv(ISIS_GenericTlv):
     name = "ISIS IS Reachability TLV"
     fields_desc = [
         ByteEnumField("type", 2, _isis_tlv_names),
-        FieldLenField("len", None, fmt="B", length_of="neighbours", adjust=lambda pkt,x: x+1),
+        FieldLenField("len", None, fmt="B", length_of="neighbours", adjust=lambda pkt, x: x+1),
         ByteField("virtual", 0),
         PacketListField("neighbours", [], ISIS_IsReachabilityEntry, count_from=lambda x: (x.len - 1) // 11)
     ]
@@ -785,7 +785,7 @@ class _ISIS_PduBase(Packet):
 
 class _ISIS_PduLengthField(FieldLenField):
     def __init__(self):
-        FieldLenField.__init__(self, "pdulength", None, length_of="tlvs", adjust=lambda pkt,x: x + pkt.underlayer.hdrlen)
+        FieldLenField.__init__(self, "pdulength", None, length_of="tlvs", adjust=lambda pkt, x: x + pkt.underlayer.hdrlen)
 
 
 class _ISIS_TlvListField(PacketListField):

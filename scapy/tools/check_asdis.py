@@ -47,7 +47,7 @@ def main(argv):
     
 
     from scapy.config import conf
-    from scapy.utils import RawPcapReader,RawPcapWriter,hexdiff
+    from scapy.utils import RawPcapReader, RawPcapWriter, hexdiff
     from scapy.layers import all
 
 
@@ -66,7 +66,7 @@ def main(argv):
     i=-1
     differ=0
     failed=0
-    for p1,meta in pcap:
+    for p1, meta in pcap:
         i += 1
         try:
             p2d = LLcls(p1)
@@ -87,7 +87,7 @@ def main(argv):
                 if VERBOSE >= 1:
                     print(repr(p2d))
                 if DIFF:
-                    hexdiff(p1,p2)
+                    hexdiff(p1, p2)
         if pcap_out is not None:
             pcap_out.write(p1)
     i+=1

@@ -27,16 +27,16 @@ class PipeEngine(SelectableObject):
     pipes = {}
     @classmethod
     def list_pipes(cls):
-        for pn,pc in sorted(cls.pipes.items()):
+        for pn, pc in sorted(cls.pipes.items()):
             doc = pc.__doc__ or ""
             if doc:
                 doc = doc.splitlines()[0]
             print("%20s: %s" % (pn, doc))
     @classmethod
     def list_pipes_detailed(cls):
-        for pn,pc in sorted(cls.pipes.items()):
+        for pn, pc in sorted(cls.pipes.items()):
             if pc.__doc__:
-                print("###### %s\n %s" % (pn ,pc.__doc__))
+                print("###### %s\n %s" % (pn , pc.__doc__))
             else:
                 print("###### %s" % pn)
     
@@ -49,7 +49,7 @@ class PipeEngine(SelectableObject):
         self.thread_lock = Lock()
         self.command_lock = Lock()
         self.__fd_queue = collections.deque()
-        self.__fdr,self.__fdw = os.pipe()
+        self.__fdr, self.__fdw = os.pipe()
         self.thread = None
     def __getattr__(self, attr):
         if attr.startswith("spawn_"):
@@ -72,7 +72,7 @@ class PipeEngine(SelectableObject):
         return self.__fdr
 
     def _read_cmd(self):
-        os.read(self.__fdr,1)
+        os.read(self.__fdr, 1)
         return self.__fd_queue.popleft()
 
     def _write_cmd(self, _cmd):
@@ -186,8 +186,8 @@ class PipeEngine(SelectableObject):
                     p.start()
                 self._write_cmd("A")
     
-    def graph(self,**kargs):
-        g=['digraph "pipe" {',"\tnode [shape=rectangle];",]
+    def graph(self, **kargs):
+        g=['digraph "pipe" {', "\tnode [shape=rectangle];", ]
         for p in self.active_pipes:
             g.append('\t"%i" [label="%s"];' % (id(p), p.name))
         g.append("")
@@ -366,25 +366,25 @@ class Sink(Pipe):
 class AutoSource(Source, SelectableObject):
     def __init__(self, name=None):
         Source.__init__(self, name=name)
-        self.__fdr,self.__fdw = os.pipe()
+        self.__fdr, self.__fdw = os.pipe()
         self._queue = collections.deque()
     def fileno(self):
         return self.__fdr
     def check_recv(self):
         return len(self._queue) > 0
     def _gen_data(self, msg):
-        self._queue.append((msg,False))
+        self._queue.append((msg, False))
         self._wake_up()
     def _gen_high_data(self, msg):
-        self._queue.append((msg,True))
+        self._queue.append((msg, True))
         self._wake_up()
     def _wake_up(self):
         os.write(self.__fdw, b"X")
         self.call_release()
     def deliver(self):
-        os.read(self.__fdr,1)
+        os.read(self.__fdr, 1)
         try:
-            msg,high = self._queue.popleft()
+            msg, high = self._queue.popleft()
         except IndexError: #empty queue. Exhausted source
             pass
         else:
@@ -475,7 +475,7 @@ class PeriodicSource(ThreadGenSource):
      +-------+
 """
     def __init__(self, msg, period, period2=0, name=None):
-        ThreadGenSource.__init__(self,name=name)
+        ThreadGenSource.__init__(self, name=name)
         if not isinstance(msg, (list, set, tuple)):
             msg=[msg]
         self.msg = msg
@@ -528,7 +528,7 @@ class TermSink(Sink):
             rdesc, self.wdesc = os.pipe()
             cmd = ["xterm"]
             if self.name is not None:
-                cmd.extend(["-title",self.name])
+                cmd.extend(["-title", self.name])
             if self.keepterm:
                 cmd.append("-hold")
             cmd.extend(["-e", "cat <&%d" % rdesc])

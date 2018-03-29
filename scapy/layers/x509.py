@@ -626,15 +626,15 @@ class ASN1F_EXT_SEQUENCE(ASN1F_SEQUENCE):
                    explicit_tag=0x04)]
         ASN1F_SEQUENCE.__init__(self, *seq, **kargs)
     def dissect(self, pkt, s):
-        _,s = BER_tagging_dec(s, implicit_tag=self.implicit_tag,
+        _, s = BER_tagging_dec(s, implicit_tag=self.implicit_tag,
                               explicit_tag=self.explicit_tag,
                               safe=self.flexible_tag)
         codec = self.ASN1_tag.get_codec(pkt.ASN1_codec)
-        i,s,remain = codec.check_type_check_len(s)
+        i, s, remain = codec.check_type_check_len(s)
         extnID = self.seq[0]
         critical = self.seq[1]
         try:
-            oid,s = extnID.m2i(pkt, s)
+            oid, s = extnID.m2i(pkt, s)
             extnID.set_val(pkt, oid)
             s = critical.dissect(pkt, s)
             encapsed = X509_ExtDefault
@@ -701,7 +701,7 @@ class ASN1F_X509_SubjectPublicKeyInfo(ASN1F_SEQUENCE):
                ASN1F_BIT_STRING("subjectPublicKey", None)]
         ASN1F_SEQUENCE.__init__(self, *seq, **kargs)
     def m2i(self, pkt, x):
-        c,s = ASN1F_SEQUENCE.m2i(self, pkt, x)
+        c, s = ASN1F_SEQUENCE.m2i(self, pkt, x)
         keytype = pkt.fields["signatureAlgorithm"].algorithm.oidname
         if "rsa" in keytype.lower():
             return ASN1F_X509_SubjectPublicKeyInfoRSA().m2i(pkt, x)
@@ -710,7 +710,7 @@ class ASN1F_X509_SubjectPublicKeyInfo(ASN1F_SEQUENCE):
         else:
             raise Exception("could not parse subjectPublicKeyInfo")
     def dissect(self, pkt, s):
-        c,x = self.m2i(pkt, s)
+        c, x = self.m2i(pkt, s)
         return x
     def build(self, pkt):
         if "signatureAlgorithm" in pkt.fields:
@@ -767,7 +767,7 @@ class _PacketFieldRaw(PacketField):
             r = i[conf.raw_layer]
             del(r.underlayer.payload)
             remain = r.load
-        return remain,i
+        return remain, i
  
 class ECDSAPrivateKey_OpenSSL(Packet):
     name = "ECDSA Params + Private Key"
@@ -922,16 +922,16 @@ class ASN1F_X509_Cert(ASN1F_SEQUENCE):
                                 "defaultsignature"*2)]
         ASN1F_SEQUENCE.__init__(self, *seq, **kargs)
     def m2i(self, pkt, x):
-        c,s = ASN1F_SEQUENCE.m2i(self, pkt, x)
+        c, s = ASN1F_SEQUENCE.m2i(self, pkt, x)
         sigtype = pkt.fields["signatureAlgorithm"].algorithm.oidname
         if "rsa" in sigtype.lower():
-            return c,s
+            return c, s
         elif "ecdsa" in sigtype.lower():
             return ASN1F_X509_CertECDSA().m2i(pkt, x)
         else:
             raise Exception("could not parse certificate")
     def dissect(self, pkt, s):
-        c,x = self.m2i(pkt, s)
+        c, x = self.m2i(pkt, s)
         return x
     def build(self, pkt):
         if "signatureAlgorithm" in pkt.fields:
@@ -1030,16 +1030,16 @@ class ASN1F_X509_CRL(ASN1F_SEQUENCE):
                                 "defaultsignature"*2)]
         ASN1F_SEQUENCE.__init__(self, *seq, **kargs)
     def m2i(self, pkt, x):
-        c,s = ASN1F_SEQUENCE.m2i(self, pkt, x)
+        c, s = ASN1F_SEQUENCE.m2i(self, pkt, x)
         sigtype = pkt.fields["signatureAlgorithm"].algorithm.oidname
         if "rsa" in sigtype.lower():
-            return c,s
+            return c, s
         elif "ecdsa" in sigtype.lower():
             return ASN1F_X509_CRLECDSA().m2i(pkt, x)
         else:
             raise Exception("could not parse certificate")
     def dissect(self, pkt, s):
-        c,x = self.m2i(pkt, s)
+        c, x = self.m2i(pkt, s)
         return x
     def build(self, pkt):
         if "signatureAlgorithm" in pkt.fields:
@@ -1179,16 +1179,16 @@ class ASN1F_OCSP_BasicResponse(ASN1F_SEQUENCE):
                                      explicit_tag=0xa0))]
         ASN1F_SEQUENCE.__init__(self, *seq, **kargs)
     def m2i(self, pkt, x):
-        c,s = ASN1F_SEQUENCE.m2i(self, pkt, x)
+        c, s = ASN1F_SEQUENCE.m2i(self, pkt, x)
         sigtype = pkt.fields["signatureAlgorithm"].algorithm.oidname
         if "rsa" in sigtype.lower():
-            return c,s
+            return c, s
         elif "ecdsa" in sigtype.lower():
             return ASN1F_OCSP_BasicResponseECDSA().m2i(pkt, x)
         else:
             raise Exception("could not parse OCSP basic response")
     def dissect(self, pkt, s):
-        c,x = self.m2i(pkt, s)
+        c, x = self.m2i(pkt, s)
         return x
     def build(self, pkt):
         if "signatureAlgorithm" in pkt.fields:

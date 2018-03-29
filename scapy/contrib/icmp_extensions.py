@@ -82,7 +82,7 @@ def ICMPExtension_post_dissection(self, pkt):
 
     if IP in pkt:
         if ( ICMP in pkt and
-             pkt[ICMP].type in [3,11,12] and
+             pkt[ICMP].type in [3, 11, 12] and
              pkt.len > 144 ):
             bytes = pkt[ICMP].build()[136:]
         else:

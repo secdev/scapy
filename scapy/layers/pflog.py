@@ -48,7 +48,7 @@ class PFLog(Packet):
                     SignedIntField("ruleuid", 0),
                     IntField("rulepid", 0),
                     ByteEnumField("direction", 255, {0: "inout", 1: "in",
-                                                     2:"out", 255: "unknown"}),
+                                                     2: "out", 255: "unknown"}),
                     StrFixedLenField("pad", b"\x00\x00\x00", 3 ) ]
     def mysummary(self):
         return self.sprintf("%PFLog.addrfamily% %PFLog.action% on %PFLog.iface% by rule %PFLog.rulenumber%")

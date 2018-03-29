@@ -14,7 +14,7 @@ import os
 ###################
 
 from scapy.sendrecv import sniff
-from scapy.layers.inet import IP,UDP
+from scapy.layers.inet import IP, UDP
 from scapy.layers.rtp import RTP
 from scapy.consts import WINDOWS
 from scapy.config import conf
@@ -28,7 +28,7 @@ if WINDOWS:
         raise OSError("Sox must be installed to play VoIP packets")
     sox_base = "\"" + conf.prog.sox + "\" -t .ul %s - -t waveaudio"
 
-def _merge_sound_bytes(x,y,sample_size=2):
+def _merge_sound_bytes(x, y, sample_size=2):
     # TODO: find a better way to merge sound bytes
     # This will only add them one next to each other:
     # \xff + \xff ==> \xff\xff
@@ -98,7 +98,7 @@ def voip_play1(s1, lst=None, **kargs):
     """
     return voip_play(s1, lst, **kargs)
 
-def voip_play2(s1,**kargs):
+def voip_play2(s1, **kargs):
     """
     Same than voip_play, but will play
     both incoming and outcoming packets.
@@ -109,7 +109,7 @@ def voip_play2(s1,**kargs):
     .. seealso:: voip_play
     to play only incoming packets.
     """
-    dsp,rd = os.popen2(sox_base % "-c 2")
+    dsp, rd = os.popen2(sox_base % "-c 2")
     global x1, x2
     x1 = ""
     x2 = ""
@@ -130,7 +130,7 @@ def voip_play2(s1,**kargs):
             
     sniff(store=0, prn=play, **kargs)
 
-def voip_play3(lst=None,**kargs):
+def voip_play3(lst=None, **kargs):
     """Same than voip_play, but made to
     read and play VoIP RTP packets, without
     checking IP.
@@ -138,7 +138,7 @@ def voip_play3(lst=None,**kargs):
     .. seealso:: voip_play
     for basic VoIP packets
     """
-    dsp,rd = os.popen2(sox_base % "")
+    dsp, rd = os.popen2(sox_base % "")
     def play(pkt, dsp=dsp):
         if pkt and pkt.haslayer(UDP) and pkt.haslayer(RTP):
             dsp.write(pkt.getlayer(RTP).load)

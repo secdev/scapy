@@ -11,7 +11,7 @@ Management Information Base (MIB) parsing
 from __future__ import absolute_import
 import re
 from glob import glob
-from scapy.dadict import DADict,fixname
+from scapy.dadict import DADict, fixname
 from scapy.config import conf
 from scapy.utils import do_graph
 import scapy.modules.six as six
@@ -23,7 +23,7 @@ from scapy.compat import *
 
 _mib_re_integer = re.compile("^[0-9]+$")
 _mib_re_both = re.compile("^([a-zA-Z_][a-zA-Z0-9_-]*)\(([0-9]+)\)$")
-_mib_re_oiddecl = re.compile("$\s*([a-zA-Z0-9_-]+)\s+OBJECT([^:\{\}]|\{[^:]+\})+::=\s*\{([^\}]+)\}",re.M)
+_mib_re_oiddecl = re.compile("$\s*([a-zA-Z0-9_-]+)\s+OBJECT([^:\{\}]|\{[^:]+\})+::=\s*\{([^\}]+)\}", re.M)
 _mib_re_strings = re.compile('"[^"]*"')
 _mib_re_comments = re.compile('--.*(\r|\n)')
 
@@ -42,7 +42,7 @@ class MIBDict(DADict):
                     root = k
         return root, x[max:-1]
     def _oidname(self, x):
-        root,remainder = self._findroot(x)
+        root, remainder = self._findroot(x)
         return root+remainder
     def _oid(self, x):
         xl = x.strip(".").split(".")
@@ -60,17 +60,17 @@ class MIBDict(DADict):
         oids = [self[k] for k in six.iterkeys(self)]
         for k in other_keys:
             if k not in oids:
-                nodes.append(self.oidname(k),k)
+                nodes.append(self.oidname(k), k)
         s = 'digraph "mib" {\n\trankdir=LR;\n\n'
-        for k,o in nodes:
-            s += '\t"%s" [ label="%s"  ];\n' % (o,k)
+        for k, o in nodes:
+            s += '\t"%s" [ label="%s"  ];\n' % (o, k)
         s += "\n"
-        for k,o in nodes:
-            parent,remainder = self._findroot(o[:-1])
+        for k, o in nodes:
+            parent, remainder = self._findroot(o[:-1])
             remainder = remainder[1:]+o[-1]
             if parent != ".":
                 parent = self[parent]
-            s += '\t"%s" -> "%s" [label="%s"];\n' % (parent, o,remainder)
+            s += '\t"%s" -> "%s" [label="%s"];\n' % (parent, o, remainder)
         s += "}\n"
         do_graph(s, **kargs)
 
@@ -104,7 +104,7 @@ def mib_register(ident, value, the_mib, unresolved):
         i = 0
         while i < len(keys):
             k = keys[i]
-            if mib_register(k,unresolved[k], the_mib, {}):
+            if mib_register(k, unresolved[k], the_mib, {}):
                 del(unresolved[k])
                 del(keys[i])
                 i = 0
@@ -129,7 +129,7 @@ def load_mib(filenames):
             cleantext = " ".join(_mib_re_strings.split(" ".join(_mib_re_comments.split(text))))
             for m in _mib_re_oiddecl.finditer(cleantext):
                 gr = m.groups()
-                ident,oid = gr[0],gr[-1]
+                ident, oid = gr[0], gr[-1]
                 ident=fixname(ident)
                 oid = oid.split()
                 for i, elt in enumerate(oid):
@@ -139,9 +139,9 @@ def load_mib(filenames):
                 mib_register(ident, oid, the_mib, unresolved)
 
     newmib = MIBDict(_name="MIB")
-    for k,o in six.iteritems(the_mib):
+    for k, o in six.iteritems(the_mib):
         newmib[k]=".".join(o)
-    for k,o in six.iteritems(unresolved):
+    for k, o in six.iteritems(unresolved):
         newmib[k]=".".join(o)
 
     conf.mib=newmib
