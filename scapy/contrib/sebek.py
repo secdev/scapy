@@ -22,8 +22,8 @@ class SebekHead(Packet):
     name = "Sebek header"
     fields_desc = [ XIntField("magic", 0xd0d0d0),
                     ShortField("version", 1),
-                    ShortEnumField("type", 0, {"read":0, "write":1,
-                                             "socket":2, "open":3}),
+                    ShortEnumField("type", 0, {"read": 0, "write": 1,
+                                             "socket": 2, "open": 3}),
                     IntField("counter", 0),
                     IntField("time_sec", 0),
                     IntField("time_usec", 0) ]
@@ -39,7 +39,7 @@ class SebekV1(Packet):
                     IntField("uid", 0),
                     IntField("fd", 0),
                     StrFixedLenField("cmd", "", 12),
-                    FieldLenField("data_length", None, "data",fmt="I"),
+                    FieldLenField("data_length", None, "data", fmt="I"),
                     StrLenField("data", "", length_from=lambda x:x.data_length) ]
     def mysummary(self):
         if isinstance(self.underlayer, SebekHead):
@@ -55,7 +55,7 @@ class SebekV3(Packet):
                     IntField("fd", 0),
                     IntField("inode", 0),
                     StrFixedLenField("cmd", "", 12),
-                    FieldLenField("data_length", None, "data",fmt="I"),
+                    FieldLenField("data_length", None, "data", fmt="I"),
                     StrLenField("data", "", length_from=lambda x:x.data_length) ]
     def mysummary(self):
         if isinstance(self.underlayer, SebekHead):
@@ -83,11 +83,11 @@ class SebekV3Sock(Packet):
                     ShortField("dport", 0),
                     IPField("sip", "127.0.0.1"),
                     ShortField("sport", 0),
-                    ShortEnumField("call", 0, { "bind":2,
-                                                "connect":3, "listen":4,
-                                               "accept":5, "sendmsg":16,
-                                               "recvmsg":17, "sendto":11,
-                                               "recvfrom":12}),
+                    ShortEnumField("call", 0, { "bind": 2,
+                                                "connect": 3, "listen": 4,
+                                               "accept": 5, "sendmsg": 16,
+                                               "recvmsg": 17, "sendto": 11,
+                                               "recvfrom": 12}),
                     ByteEnumField("proto", 0, IP_PROTOS) ]
     def mysummary(self):
         if isinstance(self.underlayer, SebekHead):

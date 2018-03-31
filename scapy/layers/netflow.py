@@ -77,7 +77,7 @@ class NetflowHeaderV5(Packet):
                     IntField("sysUptime", 0),
                     UTCTimeField("unixSecs", 0),
                     UTCTimeField("unixNanoSeconds", 0, use_nano=True),
-                    IntField("flowSequence",0),
+                    IntField("flowSequence", 0),
                     ByteField("engineType", 0),
                     ByteField("engineID", 0),
                     ShortField("samplingInterval", 0) ]
@@ -99,7 +99,7 @@ class NetflowRecordV5(Packet):
                     ByteField("pad1", 0),
                     FlagsField("tcpFlags", 0x2, 8, "FSRPAUEC"),
                     ByteEnumField("prot", IP_PROTOS["tcp"], IP_PROTOS),
-                    ByteField("tos",0),
+                    ByteField("tos", 0),
                     ShortField("src_as", 0),
                     ShortField("dst_as", 0),
                     ByteField("src_mask", 0),
@@ -319,7 +319,7 @@ class NetflowHeaderV9(Packet):
     fields_desc = [ ShortField("count", 0),
                     IntField("sysUptime", 0),
                     UTCTimeField("unixSecs", 0),
-                    IntField("packageSequence",0),
+                    IntField("packageSequence", 0),
                     IntField("SourceID", 0) ]
 
 class NetflowTemplateFieldV9(Packet):
@@ -347,7 +347,7 @@ class NetflowTemplateV9(Packet):
 class NetflowFlowsetV9(Packet):
     name = "Netflow FlowSet V9"
     fields_desc = [ ShortField("flowSetID", 0),
-                    FieldLenField("length", None, length_of="templates", adjust=lambda pkt,x:x+4),
+                    FieldLenField("length", None, length_of="templates", adjust=lambda pkt, x:x+4),
                     PacketListField("templates", [], NetflowTemplateV9,
                                     length_from = lambda pkt: pkt.length-4) ]
 
@@ -357,7 +357,7 @@ class _CustomStrFixedLenField(StrFixedLenField):
 
 def _GenNetflowRecordV9(cls, lengths_list):
     _fields_desc = []
-    for j,k in lengths_list:
+    for j, k in lengths_list:
         _f_data = NetflowV9TemplateFieldDecoders.get(k, None)
         _f_type, _f_args = (_f_data) if isinstance(_f_data, tuple) else (_f_data, [])
         if _f_type:
@@ -378,7 +378,7 @@ class NetflowRecordV9(Packet):
 class NetflowDataflowsetV9(Packet):
     name = "Netflow DataFlowSet V9"
     fields_desc = [ ShortField("templateID", 255),
-                    FieldLenField("length", None, length_of="records", adjust = lambda pkt,x:x+4),
+                    FieldLenField("length", None, length_of="records", adjust = lambda pkt, x:x+4),
                     PadField(PacketListField("records", [], NetflowRecordV9,
                                     length_from = lambda pkt: pkt.length-4),
                              4, padwith=b"\x00") ]
@@ -422,7 +422,7 @@ def netflowv9_defragment(plist):
                         for template in ntv9.template_fields:
                             lengths_list.append((template.fieldLength, template.fieldType))
                         if lengths_list:
-                            tot_len = sum(x for x,y in lengths_list)
+                            tot_len = sum(x for x, y in lengths_list)
                             cls = _GenNetflowRecordV9(NetflowRecordV9, lengths_list)
                             while len(data) >= tot_len:
                                 res.append(cls(data[:tot_len]))
@@ -449,7 +449,7 @@ def netflowv9_defragment(plist):
                     for scope in current.scopes:
                         lengths_list.append((scope.scopeFieldlength, scope.scopeFieldType))
                     if lengths_list:
-                        tot_len = sum(x for x,y in lengths_list)
+                        tot_len = sum(x for x, y in lengths_list)
                         cls = _GenNetflowRecordV9(NetflowOptionsRecordScopeV9, lengths_list)
                         while len(data) >= tot_len:
                             res.append(cls(data[:tot_len]))
@@ -459,7 +459,7 @@ def netflowv9_defragment(plist):
                     for option in current.options:
                         lengths_list.append((option.optionFieldlength, option.optionFieldType))
                     if lengths_list:
-                        tot_len = sum(x for x,y in lengths_list)
+                        tot_len = sum(x for x, y in lengths_list)
                         cls = _GenNetflowRecordV9(NetflowOptionsRecordOptionV9, lengths_list)
                         while len(data) >= tot_len:
                             res.append(cls(data[:tot_len]))

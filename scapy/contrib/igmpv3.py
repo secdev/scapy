@@ -115,7 +115,7 @@ class IGMPv3mq(Packet):
                     BitField("resv", 0, 4),
                     BitField("s", 0, 1),
                     BitField("qrv", 0, 3),
-                    ByteField("qqic",0),
+                    ByteField("qqic", 0),
                     FieldLenField("numsrc", None, count_of="srcaddrs"),
                     FieldListField("srcaddrs", None, IPField("sa", "0.0.0.0"), count_from=lambda x: x.numsrc)]
 
@@ -134,7 +134,7 @@ class IGMPv3gr(Packet):
                       6 : "Block Old Sources"}
 
     fields_desc = [ ByteEnumField("rtype", 1, igmpv3grtypes),
-                    ByteField("auxdlen",0),
+                    ByteField("auxdlen", 0),
                     FieldLenField("numsrc", None, count_of="srcaddrs"),
                     IPField("maddr", "0.0.0.0"),
                     FieldListField("srcaddrs", [], IPField("sa", "0.0.0.0"), count_from=lambda x: x.numsrc) ]

@@ -455,7 +455,7 @@ class IE_MSInternationalNumber(IE_Base):
     name = "MS International Number"
     fields_desc = [ ByteEnumField("ietype", 134, IEType),
                     ShortField("length", None),
-                    FlagsField("flags", 0x91, 8, ["Extension","","","International Number","","","","ISDN numbering"]),
+                    FlagsField("flags", 0x91, 8, ["Extension", "", "", "International Number", "", "", "", "ISDN numbering"]),
                     TBCDByteField("digits", "33607080910", length_from=lambda x: x.length-1) ]
 
 
@@ -702,7 +702,7 @@ class IE_NotImplementedTLV(Packet):
                     ShortField("length",  None),
                     StrLenField("data", "", length_from=lambda x: x.length) ]
     def extract_padding(self, pkt):
-        return "",pkt
+        return "", pkt
 
 
 ietypecls = {1: IE_Cause,
@@ -770,7 +770,7 @@ class GTPCreatePDPContextRequest(Packet):
     name = "GTP Create PDP Context Request"
     fields_desc = [ PacketListField("IE_list", [ IE_TEIDI(), IE_NSAPI(), IE_GSNAddress(),
                                                  IE_GSNAddress(),
-                                                 IE_NotImplementedTLV(ietype=135, length=15,data=RandString(15)) ],
+                                                 IE_NotImplementedTLV(ietype=135, length=15, data=RandString(15)) ],
                                     IE_Dispatcher) ]
     def hashret(self):
         return struct.pack("H", self.seq)
@@ -863,7 +863,7 @@ class GTPmorethan1500(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
     name = "GTP More than 1500"
     fields_desc = [ ByteEnumField("IE_Cause", "Cause", IEType),
-                    BitField("IE", 1, 12000),]
+                    BitField("IE", 1, 12000), ]
 
 # Bind GTP-C
 bind_layers(UDP, GTPHeader, dport = 2123)

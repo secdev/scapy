@@ -8,7 +8,7 @@ TFTP (Trivial File Transfer Protocol).
 """
 
 from __future__ import absolute_import
-import os,random
+import os, random
 from scapy.packet import *
 from scapy.fields import *
 from scapy.automaton import *
@@ -17,7 +17,7 @@ from scapy.modules.six.moves import range
 
 
 
-TFTP_operations = { 1:"RRQ",2:"WRQ",3:"DATA",4:"ACK",5:"ERROR",6:"OACK" }
+TFTP_operations = { 1: "RRQ", 2: "WRQ", 3: "DATA", 4: "ACK", 5: "ERROR", 6: "OACK" }
 
 
 class TFTP(Packet):
@@ -33,7 +33,7 @@ class TFTP_RRQ(Packet):
     def answers(self, other):
         return 0
     def mysummary(self):
-        return self.sprintf("RRQ %filename%"),[UDP]
+        return self.sprintf("RRQ %filename%"), [UDP]
         
 
 class TFTP_WRQ(Packet):
@@ -43,7 +43,7 @@ class TFTP_WRQ(Packet):
     def answers(self, other):
         return 0
     def mysummary(self):
-        return self.sprintf("WRQ %filename%"),[UDP]
+        return self.sprintf("WRQ %filename%"), [UDP]
 
 class TFTP_DATA(Packet):
     name = "TFTP Data"
@@ -51,13 +51,13 @@ class TFTP_DATA(Packet):
     def answers(self, other):
         return  self.block == 1 and isinstance(other, TFTP_RRQ)
     def mysummary(self):
-        return self.sprintf("DATA %block%"),[UDP]
+        return self.sprintf("DATA %block%"), [UDP]
 
 class TFTP_Option(Packet):
-    fields_desc = [ StrNullField("oname",""),
-                    StrNullField("value","") ]
+    fields_desc = [ StrNullField("oname", ""),
+                    StrNullField("value", "") ]
     def extract_padding(self, pkt):
-        return "",pkt
+        return "", pkt
 
 class TFTP_Options(Packet):
     fields_desc = [ PacketListField("options", [], TFTP_Option, length_from=lambda x:None) ]
@@ -73,7 +73,7 @@ class TFTP_ACK(Packet):
             return self.block == 0
         return 0
     def mysummary(self):
-        return self.sprintf("ACK %block%"),[UDP]
+        return self.sprintf("ACK %block%"), [UDP]
 
 TFTP_Error_Codes = {  0: "Not defined",
                       1: "File not found",
@@ -96,7 +96,7 @@ class TFTP_ERROR(Packet):
                 isinstance(other, TFTP_WRQ) or 
                 isinstance(other, TFTP_ACK))
     def mysummary(self):
-        return self.sprintf("ERROR %errorcode%: %errormsg%"),[UDP]
+        return self.sprintf("ERROR %errorcode%: %errormsg%"), [UDP]
 
 
 class TFTP_OACK(Packet):
@@ -197,7 +197,7 @@ class TFTP_read(Automaton):
 
     # ERROR
     @ATMT.state(error=1)
-    def ERROR(self,pkt):
+    def ERROR(self, pkt):
         split_bottom_up(UDP, TFTP, dport=self.my_tid)
         return pkt[TFTP_ERROR].summary()
     
@@ -211,7 +211,7 @@ class TFTP_read(Automaton):
 
 
 class TFTP_write(Automaton):
-    def parse_args(self, filename, data, server, sport=None, port=69,**kargs):
+    def parse_args(self, filename, data, server, sport=None, port=69, **kargs):
         Automaton.parse_args(self, **kargs)
         self.filename = filename
         self.server = server
@@ -249,7 +249,7 @@ class TFTP_write(Automaton):
         pass
 
     @ATMT.receive_condition(WAITING_ACK)    
-    def received_ack(self,pkt):
+    def received_ack(self, pkt):
         if TFTP_ACK in pkt and pkt[TFTP_ACK].block == self.awaiting:
             if self.server_tid is None:
                 self.server_tid = pkt[UDP].sport
@@ -281,7 +281,7 @@ class TFTP_write(Automaton):
 
     # ERROR
     @ATMT.state(error=1)
-    def ERROR(self,pkt):
+    def ERROR(self, pkt):
         split_bottom_up(UDP, TFTP, dport=self.my_tid)
         return pkt[TFTP_ERROR].summary()
 
@@ -306,11 +306,11 @@ class TFTP_WRQ_server(Automaton):
         self.blksize=512
         self.blk=1
         self.filedata=""
-        self.my_tid = self.sport or random.randint(10000,65500)
+        self.my_tid = self.sport or random.randint(10000, 65500)
         bind_bottom_up(UDP, TFTP, dport=self.my_tid)
 
     @ATMT.receive_condition(BEGIN)
-    def receive_WRQ(self,pkt):
+    def receive_WRQ(self, pkt):
         if TFTP_WRQ in pkt:
             raise self.WAIT_DATA().action_parameters(pkt)
         
@@ -329,7 +329,7 @@ class TFTP_WRQ_server(Automaton):
             opt = [x for x in options.options if x.oname.upper() == "BLKSIZE"]
             if opt:
                 self.blksize = int(opt[0].value)
-                self.debug(2,"Negotiated new blksize at %i" % self.blksize)
+                self.debug(2, "Negotiated new blksize at %i" % self.blksize)
             self.last_packet = self.l3/TFTP_OACK()/TFTP_Options(options=opt)
             self.send(self.last_packet)
 
@@ -364,17 +364,17 @@ class TFTP_WRQ_server(Automaton):
 
     @ATMT.state(final=1)
     def END(self):
-        return self.filename,self.filedata
+        return self.filename, self.filedata
         split_bottom_up(UDP, TFTP, dport=self.my_tid)
         
 
 class TFTP_RRQ_server(Automaton):
     def parse_args(self, store=None, joker=None, dir=None, ip=None, sport=None, serve_one=False, **kargs):
-        Automaton.parse_args(self,**kargs)
+        Automaton.parse_args(self, **kargs)
         if store is None:
             store = {}
         if dir is not None:
-            self.dir = os.path.join(os.path.abspath(dir),"")
+            self.dir = os.path.join(os.path.abspath(dir), "")
         else:
             self.dir = None
         self.store = store
@@ -382,7 +382,7 @@ class TFTP_RRQ_server(Automaton):
         self.ip = ip
         self.sport = sport
         self.serve_one = serve_one
-        self.my_tid = self.sport or random.randint(10000,65500)
+        self.my_tid = self.sport or random.randint(10000, 65500)
         bind_bottom_up(UDP, TFTP, dport=self.my_tid)
         
     def master_filter(self, pkt):
@@ -423,7 +423,7 @@ class TFTP_RRQ_server(Automaton):
             opt = [x for x in options.options if x.oname.upper() == "BLKSIZE"]
             if opt:
                 self.blksize = int(opt[0].value)
-                self.debug(2,"Negotiated new blksize at %i" % self.blksize)
+                self.debug(2, "Negotiated new blksize at %i" % self.blksize)
             self.last_packet = self.l3/TFTP_OACK()/TFTP_Options(options=opt)
             self.send(self.last_packet)
                 

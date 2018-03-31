@@ -64,7 +64,7 @@ class EigrpIPField(StrField, IPField):
         StrField.__init__(self, name, default)
         self.length_from  = length_from
         if length is not None:
-            self.length_from = lambda pkt,length=length: length
+            self.length_from = lambda pkt, length=length: length
 
     def h2i(self, pkt, x):
         return IPField.h2i(self, pkt, x)
@@ -132,7 +132,7 @@ class EigrpIP6Field(StrField, IP6Field):
         StrField.__init__(self, name, default)
         self.length_from  = length_from
         if length is not None:
-            self.length_from = lambda pkt,length=length: length
+            self.length_from = lambda pkt, length=length: length
 
     def any2i(self, pkt, x):
         return IP6Field.any2i(self, pkt, x)
@@ -186,7 +186,7 @@ class EigrpIP6Field(StrField, IP6Field):
 class EIGRPGeneric(Packet):
     name = "EIGRP Generic TLV"
     fields_desc = [ XShortField("type", 0x0000),
-            FieldLenField("len", None, "value", "!H", adjust=lambda pkt,x: x + 4),
+            FieldLenField("len", None, "value", "!H", adjust=lambda pkt, x: x + 4),
             StrLenField("value", b"\x00", length_from=lambda pkt: pkt.len - 4)]
 
     def guess_payload_class(self, p):
@@ -213,7 +213,7 @@ class EIGRPParam(EIGRPGeneric):
 class EIGRPAuthData(EIGRPGeneric):
     name = "EIGRP Authentication Data"
     fields_desc = [ XShortField("type", 0x0002),
-            FieldLenField("len", None, "authdata", "!H", adjust=lambda pkt,x: x + 24),
+            FieldLenField("len", None, "authdata", "!H", adjust=lambda pkt, x: x + 24),
             ShortEnumField("authtype", 2, {2 : "MD5"}),
             ShortField("keysize", None),
             IntField("keyid", 1),
@@ -314,7 +314,7 @@ class EIGRPStub(EIGRPGeneric):
 class EIGRPIntRoute(EIGRPGeneric):
     name = "EIGRP Internal Route"
     fields_desc = [ XShortField("type", 0x0102),
-            FieldLenField("len", None, "dst", "!H", adjust=lambda pkt,x: x + 25),
+            FieldLenField("len", None, "dst", "!H", adjust=lambda pkt, x: x + 25),
             IPField("nexthop", "192.168.0.0"),
             IntField("delay", 128000),
             IntField("bandwidth", 256),
@@ -346,7 +346,7 @@ _EIGRP_EXTROUTE_FLAGS = ["external", "candidate-default"]
 class EIGRPExtRoute(EIGRPGeneric):
     name = "EIGRP External Route"
     fields_desc = [ XShortField("type", 0x0103),
-            FieldLenField("len", None, "dst", "!H", adjust=lambda pkt,x: x + 45),
+            FieldLenField("len", None, "dst", "!H", adjust=lambda pkt, x: x + 45),
             IPField("nexthop", "192.168.0.0"),
             IPField("originrouter", "192.168.0.1"),
             IntField("originasn", 0),
@@ -369,7 +369,7 @@ class EIGRPExtRoute(EIGRPGeneric):
 class EIGRPv6IntRoute(EIGRPGeneric):
     name = "EIGRP for IPv6 Internal Route"
     fields_desc = [ XShortField("type", 0x0402),
-            FieldLenField("len", None, "dst", "!H", adjust=lambda pkt,x: x + 37),
+            FieldLenField("len", None, "dst", "!H", adjust=lambda pkt, x: x + 37),
             IP6Field("nexthop", "::"),
             IntField("delay", 128000),
             IntField("bandwidth", 256000),
@@ -385,7 +385,7 @@ class EIGRPv6IntRoute(EIGRPGeneric):
 class EIGRPv6ExtRoute(EIGRPGeneric):
     name = "EIGRP for IPv6 External Route"
     fields_desc = [ XShortField("type", 0x0403),
-            FieldLenField("len", None, "dst", "!H", adjust=lambda pkt,x: x + 57),
+            FieldLenField("len", None, "dst", "!H", adjust=lambda pkt, x: x + 57),
             IP6Field("nexthop", "::"),
             IPField("originrouter", "192.168.0.1"),
             IntField("originasn", 0),
@@ -434,7 +434,7 @@ class RepeatedTlvListField(PacketListField):
             else:
                 remain = b""
             lst.append(p)
-        return remain,lst
+        return remain, lst
 
     def addfield(self, pkt, s, val):
         return s + b"".join(raw(v) for v in val)

@@ -8,7 +8,7 @@ DNS: Domain Name System.
 """
 
 from __future__ import absolute_import
-import socket,struct
+import socket, struct
 
 from scapy.config import conf
 from scapy.packet import *
@@ -78,7 +78,7 @@ class DNSRRCountField(ShortField):
         ShortField.__init__(self, name, default)
         self.rr = rr
     def _countRR(self, pkt):
-        x = getattr(pkt,self.rr)
+        x = getattr(pkt, self.rr)
         i = 0
         while isinstance(x, DNSRR) or isinstance(x, DNSQR) or isdnssecRR(x):
             x = x.payload
@@ -101,7 +101,7 @@ def DNSgetstr(s, p):
     jpath = [p]
     while True:
         if p >= len(s):
-            warning("DNS RR prematured end (ofs=%i, len=%i)"%(p,len(s)))
+            warning("DNS RR prematured end (ofs=%i, len=%i)"%(p, len(s)))
             break
         l = orb(s[p]) # current value of the string at p
         p += 1
@@ -140,11 +140,11 @@ class DNSRRField(StrField):
         return raw(x)
     def decodeRR(self, name, s, p):
         ret = s[p:p+10]
-        type,cls,ttl,rdlen = struct.unpack("!HHIH", ret)
+        type, cls, ttl, rdlen = struct.unpack("!HHIH", ret)
         p += 10
         rr = DNSRR(b"\x00"+ret+s[p:p+rdlen], _orig_s=s, _orig_p=p)
         if type in [2, 3, 4, 5]:
-            rr.rdata = DNSgetstr(s,p)[0]
+            rr.rdata = DNSgetstr(s, p)[0]
             del(rr.rdlen)
         elif type in DNSRR_DISPATCHER:
             rr = DNSRR_DISPATCHER[type](b"\x00"+ret+s[p:p+rdlen], _orig_s=s, _orig_p=p)
@@ -157,26 +157,26 @@ class DNSRRField(StrField):
         return rr, p
     def getfield(self, pkt, s):
         if isinstance(s, tuple) :
-            s,p = s
+            s, p = s
         else:
             p = 0
         ret = None
         c = getattr(pkt, self.countfld)
         if c > len(s):
             warning("wrong value: DNS.%s=%i", self.countfld, c)
-            return s,b""
+            return s, b""
         while c:
             c -= 1
-            name,p = DNSgetstr(s,p)
-            rr,p = self.decodeRR(name, s, p)
+            name, p = DNSgetstr(s, p)
+            rr, p = self.decodeRR(name, s, p)
             if ret is None:
                 ret = rr
             else:
                 ret.add_payload(rr)
         if self.passon:
-            return (s,p),ret
+            return (s, p), ret
         else:
-            return s[p:],ret
+            return s[p:], ret
 
 
 class DNSQRField(DNSRRField):
@@ -298,7 +298,7 @@ class DNS(Packet):
                 and other.qr == 0)
 
     def mysummary(self):
-        type = ["Qry","Ans"][self.qr]
+        type = ["Qry", "Ans"][self.qr]
         name = ""
         if self.qr:
             type = "Ans"
@@ -318,7 +318,7 @@ class DNS(Packet):
 
 # https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-4
 dnstypes = {
-    0:"ANY",
+    0: "ANY",
     1: "A", 2: "NS", 3: "MD", 4: "MF", 5: "CNAME", 6: "SOA", 7: "MB", 8: "MG",
     9: "MR", 10: "NULL", 11: "WKS", 12: "PTR", 13: "HINFO", 14: "MINFO",
     15: "MX", 16: "TXT", 17: "RP", 18: "AFSDB", 19: "X25", 20: "ISDN", 21: "RT",
@@ -362,7 +362,7 @@ class EDNS0TLV(Packet):
 
 class DNSRROPT(InheritOriginDNSStrPacket):
     name = "DNS OPT Resource Record"
-    fields_desc = [ DNSStrField("rrname",""),
+    fields_desc = [ DNSStrField("rrname", ""),
                     ShortEnumField("type", 41, dnstypes),
                     ShortField("rclass", 4096),
                     ByteField("extrcode", 0),
@@ -376,16 +376,16 @@ class DNSRROPT(InheritOriginDNSStrPacket):
 # RFC 4034 - Resource Records for the DNS Security Extensions
 
 # 09/2013 from http://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml
-dnssecalgotypes = { 0:"Reserved", 1:"RSA/MD5", 2:"Diffie-Hellman", 3:"DSA/SHA-1",
-                    4:"Reserved", 5:"RSA/SHA-1", 6:"DSA-NSEC3-SHA1",
-                    7:"RSASHA1-NSEC3-SHA1", 8:"RSA/SHA-256", 9:"Reserved",
-                   10:"RSA/SHA-512", 11:"Reserved", 12:"GOST R 34.10-2001",
-                   13:"ECDSA Curve P-256 with SHA-256", 14: "ECDSA Curve P-384 with SHA-384",
-                  252:"Reserved for Indirect Keys", 253:"Private algorithms - domain name",
-                  254:"Private algorithms - OID", 255:"Reserved" }
+dnssecalgotypes = { 0: "Reserved", 1: "RSA/MD5", 2: "Diffie-Hellman", 3: "DSA/SHA-1",
+                    4: "Reserved", 5: "RSA/SHA-1", 6: "DSA-NSEC3-SHA1",
+                    7: "RSASHA1-NSEC3-SHA1", 8: "RSA/SHA-256", 9: "Reserved",
+                   10: "RSA/SHA-512", 11: "Reserved", 12: "GOST R 34.10-2001",
+                   13: "ECDSA Curve P-256 with SHA-256", 14: "ECDSA Curve P-384 with SHA-384",
+                  252: "Reserved for Indirect Keys", 253: "Private algorithms - domain name",
+                  254: "Private algorithms - OID", 255: "Reserved" }
 
 # 09/2013 from http://www.iana.org/assignments/ds-rr-types/ds-rr-types.xhtml
-dnssecdigesttypes = { 0:"Reserved", 1:"SHA-1", 2:"SHA-256", 3:"GOST R 34.11-94",  4:"SHA-384" }
+dnssecdigesttypes = { 0: "Reserved", 1: "SHA-1", 2: "SHA-256", 3: "GOST R 34.11-94",  4: "SHA-384" }
 
 
 class TimeField(IntField):
@@ -401,7 +401,7 @@ class TimeField(IntField):
         import time
         x = self.i2h(pkt, x)
         t = time.strftime("%Y%m%d%H%M%S", time.gmtime(x))
-        return "%s (%d)" % (t ,x)
+        return "%s (%d)" % (t , x)
 
 
 def bitmap2RRlist(bitmap):
@@ -522,7 +522,7 @@ class _DNSRRdummy(InheritOriginDNSStrPacket):
 
 class DNSRRSOA(_DNSRRdummy):
     name = "DNS SOA Resource Record"
-    fields_desc = [ DNSStrField("rrname",""),
+    fields_desc = [ DNSStrField("rrname", ""),
                     ShortEnumField("type", 6, dnstypes),
                     ShortEnumField("rclass", 1, dnsclasses),
                     IntField("ttl", 0),
@@ -538,7 +538,7 @@ class DNSRRSOA(_DNSRRdummy):
 
 class DNSRRRSIG(_DNSRRdummy):
     name = "DNS RRSIG Resource Record"
-    fields_desc = [ DNSStrField("rrname",""),
+    fields_desc = [ DNSStrField("rrname", ""),
                     ShortEnumField("type", 46, dnstypes),
                     ShortEnumField("rclass", 1, dnsclasses),
                     IntField("ttl", 0),
@@ -557,7 +557,7 @@ class DNSRRRSIG(_DNSRRdummy):
 
 class DNSRRNSEC(_DNSRRdummy):
     name = "DNS NSEC Resource Record"
-    fields_desc = [ DNSStrField("rrname",""),
+    fields_desc = [ DNSStrField("rrname", ""),
                     ShortEnumField("type", 47, dnstypes),
                     ShortEnumField("rclass", 1, dnsclasses),
                     IntField("ttl", 0),
@@ -569,7 +569,7 @@ class DNSRRNSEC(_DNSRRdummy):
 
 class DNSRRDNSKEY(_DNSRRdummy):
     name = "DNS DNSKEY Resource Record"
-    fields_desc = [ DNSStrField("rrname",""),
+    fields_desc = [ DNSStrField("rrname", ""),
                     ShortEnumField("type", 48, dnstypes),
                     ShortEnumField("rclass", 1, dnsclasses),
                     IntField("ttl", 0),
@@ -585,7 +585,7 @@ class DNSRRDNSKEY(_DNSRRdummy):
 
 class DNSRRDS(_DNSRRdummy):
     name = "DNS DS Resource Record"
-    fields_desc = [ DNSStrField("rrname",""),
+    fields_desc = [ DNSStrField("rrname", ""),
                     ShortEnumField("type", 43, dnstypes),
                     ShortEnumField("rclass", 1, dnsclasses),
                     IntField("ttl", 0),
@@ -608,13 +608,13 @@ class DNSRRDLV(DNSRRDS):
 # RFC 5155 - DNS Security (DNSSEC) Hashed Authenticated Denial of Existence
 class DNSRRNSEC3(_DNSRRdummy):
     name = "DNS NSEC3 Resource Record"
-    fields_desc = [ DNSStrField("rrname",""),
+    fields_desc = [ DNSStrField("rrname", ""),
                     ShortEnumField("type", 50, dnstypes),
                     ShortEnumField("rclass", 1, dnsclasses),
                     IntField("ttl", 0),
                     ShortField("rdlen", None),
                     ByteField("hashalg", 0),
-                    BitEnumField("flags", 0, 8, {1:"Opt-Out"}),
+                    BitEnumField("flags", 0, 8, {1: "Opt-Out"}),
                     ShortField("iterations", 0),
                     FieldLenField("saltlength", 0, fmt="!B", length_of="salt"),
                     StrLenField("salt", "", length_from=lambda x: x.saltlength),
@@ -626,7 +626,7 @@ class DNSRRNSEC3(_DNSRRdummy):
 
 class DNSRRNSEC3PARAM(_DNSRRdummy):
     name = "DNS NSEC3PARAM Resource Record"
-    fields_desc = [ DNSStrField("rrname",""),
+    fields_desc = [ DNSStrField("rrname", ""),
                     ShortEnumField("type", 51, dnstypes),
                     ShortEnumField("rclass", 1, dnsclasses),
                     IntField("ttl", 0),
@@ -642,7 +642,7 @@ class DNSRRNSEC3PARAM(_DNSRRdummy):
 
 class DNSRRSRV(InheritOriginDNSStrPacket):
     name = "DNS SRV Resource Record"
-    fields_desc = [ DNSStrField("rrname",""),
+    fields_desc = [ DNSStrField("rrname", ""),
                     ShortEnumField("type", 51, dnstypes),
                     ShortEnumField("rclass", 1, dnsclasses),
                     IntField("ttl", 0),
@@ -650,7 +650,7 @@ class DNSRRSRV(InheritOriginDNSStrPacket):
                     ShortField("priority", 0),
                     ShortField("weight", 0),
                     ShortField("port", 0),
-                    DNSStrField("target",""), ]
+                    DNSStrField("target", ""), ]
 
 # RFC 2845 - Secret Key Transaction Authentication for DNS (TSIG)
 tsig_algo_sizes = { "HMAC-MD5.SIG-ALG.REG.INT": 16,
@@ -733,7 +733,7 @@ def isdnssecRR(obj):
 class DNSRR(InheritOriginDNSStrPacket):
     name = "DNS Resource Record"
     show_indent=0
-    fields_desc = [ DNSStrField("rrname",""),
+    fields_desc = [ DNSStrField("rrname", ""),
                     ShortEnumField("type", 1, dnstypes),
                     ShortEnumField("rclass", 1, dnsclasses),
                     IntField("ttl", 0),
@@ -810,7 +810,7 @@ class DNS_am(AnsweringMachine):
     def make_reply(self, req):
         ip = req.getlayer(IP)
         dns = req.getlayer(DNS)
-        resp = IP(dst=ip.src, src=ip.dst)/UDP(dport=ip.sport,sport=ip.dport)
+        resp = IP(dst=ip.src, src=ip.dst)/UDP(dport=ip.sport, sport=ip.dport)
         rdata = self.match.get(dns.qd.qname, self.joker)
         resp /= DNS(id=dns.id, qr=1, qd=dns.qd,
                     an=DNSRR(rrname=dns.qd.qname, ttl=10, rdata=rdata))

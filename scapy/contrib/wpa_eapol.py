@@ -23,7 +23,7 @@ from scapy.layers.eap import EAPOL
 class WPA_key(Packet):
     name = "WPA_key"
     fields_desc = [ ByteField("descriptor_type", 1),
-                    ShortField("key_info",0),
+                    ShortField("key_info", 0),
                     LenField("len", None, "H"),
                     StrFixedLenField("replay_counter", "", 8),
                     StrFixedLenField("nonce", "", 32),
@@ -35,11 +35,11 @@ class WPA_key(Packet):
                     StrLenField("wpa_key", "", length_from=lambda pkt:pkt.wpa_key_length) ]
     def extract_padding(self, s):
         l = self.len
-        return s[:l],s[l:]
+        return s[:l], s[l:]
     def hashret(self):
         return chr(self.type)+self.payload.hashret()
     def answers(self, other):
-        if isinstance(other,WPA_key):
+        if isinstance(other, WPA_key):
                return 1
         return 0
              

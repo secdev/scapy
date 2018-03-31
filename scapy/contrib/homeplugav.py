@@ -165,7 +165,7 @@ class MACManagementHeader(Packet):
     name = "MACManagementHeader "
     if DefaultVendor == "Qualcomm":
         HPAVTypeList.update(QualcommTypeList) 
-    fields_desc=[ ByteEnumField("version",0, HPAVversionList),
+    fields_desc=[ ByteEnumField("version", 0, HPAVversionList),
                 EnumField("HPtype" , 0xA000, HPAVTypeList, "<H") ]
 
 class VendorMME(Packet):
@@ -175,11 +175,11 @@ class VendorMME(Packet):
 class GetDeviceVersion(Packet):
     name = "GetDeviceVersion"
     fields_desc=[ ByteEnumField("Status", 0x0, StatusCodes),
-                ByteEnumField("DeviceID",0x20, HPAVDeviceIDList),
+                ByteEnumField("DeviceID", 0x20, HPAVDeviceIDList),
                 FieldLenField("VersionLen", None, count_of="DeviceVersion", fmt="B"),
                 StrLenField("DeviceVersion", b"NoVersion\x00", length_from = lambda pkt: pkt.VersionLen),
                 StrLenField("DeviceVersion_pad", b"\xcc\xcc\xcc\xcc\xcc"+b"\x00"*59, length_from = lambda pkt: 64-pkt.VersionLen), 
-                ByteEnumField("Upgradable", 0, {0:"False",1:"True"}) ]
+                ByteEnumField("Upgradable", 0, {0: "False", 1: "True"}) ]
 
 class NetworkInformationRequest(Packet):
     name = "NetworkInformationRequest"
@@ -1096,7 +1096,7 @@ class ModulePIB(Packet):
     def __init__(self, packet="", offset = 0x0, length = 0x400):
         self.__offset = offset
         self.__length = length
-        return super(ModulePIB,self).__init__(packet)
+        return super(ModulePIB, self).__init__(packet)
 
 
 ######################################################################
@@ -1222,7 +1222,7 @@ class HomePlugAV(Packet):
     def answers(self, other):
         return ( isinstance(self, HomePlugAV ) )
 
-bind_layers( Ether, HomePlugAV, { "type":0x88e1 } )
+bind_layers( Ether, HomePlugAV, { "type": 0x88e1 } )
 
 #   +----------+------------+--------------------+
 #   | Ethernet | HomePlugAV | Elements + Payload |

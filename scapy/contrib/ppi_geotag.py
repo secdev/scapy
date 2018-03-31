@@ -25,7 +25,7 @@ from __future__ import absolute_import
 import struct, time
 from scapy.packet import *
 from scapy.fields import *
-from scapy.contrib.ppi import PPIGenericFldHdr,addPPIType
+from scapy.contrib.ppi import PPIGenericFldHdr, addPPIType
 from scapy.error import warning
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
@@ -65,11 +65,11 @@ class Fixed3_6Field(LEIntField):
             x = self.h2i(pkt, 0)
         return x
 
-    def i2repr(self,pkt,x):
+    def i2repr(self, pkt, x):
         if x is None:
             y=0
         else:
-            y=self.i2h(pkt,x)
+            y=self.i2h(pkt, x)
         return "%3.6f"%(y)
 class Fixed3_7Field(LEIntField):
     def i2h(self, pkt, x):
@@ -98,11 +98,11 @@ class Fixed3_7Field(LEIntField):
             #Try to return zero if undefined
             x = self.h2i(pkt, 0)
         return x
-    def i2repr(self,pkt,x):
+    def i2repr(self, pkt, x):
         if x is None:
             y=0
         else:
-            y=self.i2h(pkt,x)
+            y=self.i2h(pkt, x)
         return "%3.7f"%(y)
 
 class Fixed6_4Field(LEIntField):
@@ -132,11 +132,11 @@ class Fixed6_4Field(LEIntField):
             #Try to return zero if undefined
             x = self.h2i(pkt, 0)
         return x
-    def i2repr(self,pkt,x):
+    def i2repr(self, pkt, x):
         if x is None:
             y=0
         else:
-            y=self.i2h(pkt,x)
+            y=self.i2h(pkt, x)
         return "%6.4f"%(y)
 #The GPS timestamps fractional time counter is stored in a 32-bit unsigned ns counter.
 #The ept field is as well,
@@ -161,14 +161,14 @@ class NSCounter_Field(LEIntField):
                 x = (2**32-1) / 1e9
             x = int(round((x * 1e9)))
         return x
-    def i2repr(self,pkt,x):
+    def i2repr(self, pkt, x):
         if x is None:
             y=0
         else:
-            y=self.i2h(pkt,x)
+            y=self.i2h(pkt, x)
         return "%1.9f"%(y)
 
-class LETimeField(UTCTimeField,LEIntField):
+class LETimeField(UTCTimeField, LEIntField):
     __slots__ = ["epoch", "delta", "strf"]
     def __init__(self, name, default, epoch=None, strf="%a, %d %b %Y %H:%M:%S +0000"):
         LEIntField.__init__(self, name, default)
@@ -180,11 +180,11 @@ class SignedByteField(Field):
     def randval(self):
         return RandSByte()
 
-class XLEShortField(LEShortField,XShortField):
+class XLEShortField(LEShortField, XShortField):
     def i2repr(self, pkt, x):
         return XShortField.i2repr(self, pkt, x)
 
-class XLEIntField(LEIntField,XIntField):
+class XLEIntField(LEIntField, XIntField):
     def i2repr(self, pkt, x):
         return XIntField.i2repr(self, pkt, x)
 
@@ -265,22 +265,22 @@ def _FlagsList(myfields):
     return flags
 
 # Define all geolocation-tag flags lists
-_hcsi_gps_flags = _FlagsList({0:"No Fix Available", 1:"GPS", 2:"Differential GPS",
-                              3:"Pulse Per Second", 4:"Real Time Kinematic",
-                              5:"Float Real Time Kinematic", 6:"Estimated (Dead Reckoning)",
-                              7:"Manual Input", 8:"Simulation"})
+_hcsi_gps_flags = _FlagsList({0: "No Fix Available", 1: "GPS", 2: "Differential GPS",
+                              3: "Pulse Per Second", 4: "Real Time Kinematic",
+                              5: "Float Real Time Kinematic", 6: "Estimated (Dead Reckoning)",
+                              7: "Manual Input", 8: "Simulation"})
 
 #_hcsi_vector_flags = _FlagsList({0:"ForwardFrame", 1:"RotationsAbsoluteXYZ", 5:"OffsetFromGPS_XYZ"})
 #This has been replaced with the VectorFlags_Field class, in order to handle the RelativeTo:subfield
 
-_hcsi_vector_char_flags = _FlagsList({0:"Antenna", 1:"Direction of Travel",
-                                      2:"Front of Vehicle", 3:"Angle of Arrival", 4:"Transmitter Position",
-                                      8:"GPS Derived", 9:"INS Derived", 10:"Compass Derived",
-                                     11:"Acclerometer Derived", 12:"Human Derived"})
+_hcsi_vector_char_flags = _FlagsList({0: "Antenna", 1: "Direction of Travel",
+                                      2: "Front of Vehicle", 3: "Angle of Arrival", 4: "Transmitter Position",
+                                      8: "GPS Derived", 9: "INS Derived", 10: "Compass Derived",
+                                     11: "Acclerometer Derived", 12: "Human Derived"})
 
-_hcsi_antenna_flags = _FlagsList({ 1:"Horizontal Polarization",     2:"Vertical Polarization",
-                                   3:"Circular Polarization Left",  4:"Circular Polarization Right",
-                                  16:"Electronically Steerable",   17:"Mechanically Steerable"})
+_hcsi_antenna_flags = _FlagsList({ 1: "Horizontal Polarization",     2: "Vertical Polarization",
+                                   3: "Circular Polarization Left",  4: "Circular Polarization Right",
+                                  16: "Electronically Steerable",   17: "Mechanically Steerable"})
 
 """ HCSI PPI Fields are similar to RadioTap.  A mask field called "present" specifies if each field
 is present.  All other fields are conditional.  When dissecting a packet, each field is present if
@@ -319,11 +319,11 @@ class HCSIPacket(Packet):
     def post_build(self, p, pay):
         if self.pfh_length is None:
             l = len(p) - 4
-            sl = struct.pack('<H',l)
+            sl = struct.pack('<H', l)
             p = p[:2] + sl + p[4:]
         if self.geotag_len is None:
             l_g = len(p) - 4
-            sl_g = struct.pack('<H',l_g)
+            sl_g = struct.pack('<H', l_g)
             p = p[:6] + sl_g + p[8:]
         p += pay
         return p
@@ -433,7 +433,7 @@ class Sensor(HCSIPacket):
 ANT_Fields = [FlagsField("AntennaFlags", None, -32, _hcsi_antenna_flags),
               ByteField("Gain", None),
               Fixed3_6Field("HorizBw", None),              Fixed3_6Field("VertBw", None),
-              Fixed3_6Field("PrecisionGain",None),         XLEShortField("BeamID", None),
+              Fixed3_6Field("PrecisionGain", None),         XLEShortField("BeamID", None),
               HCSINullField("Reserved06", None),           HCSINullField("Reserved07", None),
               HCSINullField("Reserved08", None),           HCSINullField("Reserved09", None),
               HCSINullField("Reserved10", None),           HCSINullField("Reserved11", None),
@@ -459,4 +459,4 @@ class Antenna(HCSIPacket):
 addPPIType(PPI_GPS, GPS)
 addPPIType(PPI_VECTOR, Vector)
 addPPIType(PPI_SENSOR, Sensor)
-addPPIType(PPI_ANTENNA,Antenna)
+addPPIType(PPI_ANTENNA, Antenna)

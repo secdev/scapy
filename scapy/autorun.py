@@ -56,7 +56,7 @@ def autorun_commands(cmds, my_globals=None, ignore_globals=None, verb=0):
             six.moves.builtins.__dict__["_"] = None
             while True:
                 if cmd:
-                    sys.stderr.write(sys.__dict__.get("ps2","... "))
+                    sys.stderr.write(sys.__dict__.get("ps2", "... "))
                 else:
                     sys.stderr.write(str(sys.__dict__.get("ps1", sys.ps1)))
                     
@@ -86,7 +86,7 @@ def autorun_get_interactive_session(cmds, **kargs):
             pass
             
     sw = StringWriter()
-    sstdout,sstderr = sys.stdout,sys.stderr
+    sstdout, sstderr = sys.stdout, sys.stderr
     try:
         try:
             sys.stdout = sys.stderr = sw
@@ -95,54 +95,54 @@ def autorun_get_interactive_session(cmds, **kargs):
             e.code_run = sw.s
             raise
     finally:
-        sys.stdout,sys.stderr = sstdout,sstderr
-    return sw.s,res
+        sys.stdout, sys.stderr = sstdout, sstderr
+    return sw.s, res
 
 def autorun_get_text_interactive_session(cmds, **kargs):
     ct = conf.color_theme
     try:
         conf.color_theme = NoTheme()
-        s,res = autorun_get_interactive_session(cmds, **kargs)
+        s, res = autorun_get_interactive_session(cmds, **kargs)
     finally:
         conf.color_theme = ct
-    return s,res
+    return s, res
 
 def autorun_get_ansi_interactive_session(cmds, **kargs):
     ct = conf.color_theme
     try:
         conf.color_theme = DefaultTheme()
-        s,res = autorun_get_interactive_session(cmds, **kargs)
+        s, res = autorun_get_interactive_session(cmds, **kargs)
     finally:
         conf.color_theme = ct
-    return s,res
+    return s, res
 
 def autorun_get_html_interactive_session(cmds, **kargs):
     ct = conf.color_theme
-    to_html = lambda s: s.replace("<","&lt;").replace(">","&gt;").replace("#[#","<").replace("#]#",">")
+    to_html = lambda s: s.replace("<", "&lt;").replace(">", "&gt;").replace("#[#", "<").replace("#]#", ">")
     try:
         try:
             conf.color_theme = HTMLTheme2()
-            s,res = autorun_get_interactive_session(cmds, **kargs)
+            s, res = autorun_get_interactive_session(cmds, **kargs)
         except StopAutorun as e:
             e.code_run = to_html(e.code_run)
             raise
     finally:
         conf.color_theme = ct
     
-    return to_html(s),res
+    return to_html(s), res
 
 def autorun_get_latex_interactive_session(cmds, **kargs):
     ct = conf.color_theme
-    to_latex = lambda s: tex_escape(s).replace("@[@","{").replace("@]@","}").replace("@`@","\\")
+    to_latex = lambda s: tex_escape(s).replace("@[@", "{").replace("@]@", "}").replace("@`@", "\\")
     try:
         try:
             conf.color_theme = LatexTheme2()
-            s,res = autorun_get_interactive_session(cmds, **kargs)
+            s, res = autorun_get_interactive_session(cmds, **kargs)
         except StopAutorun as e:
             e.code_run = to_latex(e.code_run)
             raise
     finally:
         conf.color_theme = ct
-    return to_latex(s),res
+    return to_latex(s), res
 
 

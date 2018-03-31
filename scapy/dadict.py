@@ -30,7 +30,7 @@ class DADict:
     def __init__(self, _name="DADict", **kargs):
         self._name=_name
         self.update(kargs)
-    def fixname(self,val):
+    def fixname(self, val):
         return fixname(plain_str(val))
     def __contains__(self, val):
         return val in self.__dict__
@@ -44,9 +44,9 @@ class DADict:
     def _show(self):
         for k in self.__dict__:
             if k and k[0] != "_":
-                print("%10s = %r" % (k,getattr(self,k)))
+                print("%10s = %r" % (k, getattr(self, k)))
     def __repr__(self):
-        return "<%s/ %s>" % (self._name," ".join(x for x in self.__dict__ if x and x[0]!="_"))
+        return "<%s/ %s>" % (self._name, " ".join(x for x in self.__dict__ if x and x[0]!="_"))
 
     def _branch(self, br, uniq=0):
         if uniq and br._name in self:

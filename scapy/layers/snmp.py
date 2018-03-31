@@ -150,47 +150,47 @@ SNMP_trap_types = { 0: "cold_start",
 
 class SNMPvarbind(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_SEQUENCE( ASN1F_OID("oid","1.3"),
-                                ASN1F_field("value",ASN1_NULL(0))
+    ASN1_root = ASN1F_SEQUENCE( ASN1F_OID("oid", "1.3"),
+                                ASN1F_field("value", ASN1_NULL(0))
                                 )
 
 
 class SNMPget(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_SNMP_PDU_GET( ASN1F_INTEGER("id",0),
-                                    ASN1F_enum_INTEGER("error",0, SNMP_error),
-                                    ASN1F_INTEGER("error_index",0),
+    ASN1_root = ASN1F_SNMP_PDU_GET( ASN1F_INTEGER("id", 0),
+                                    ASN1F_enum_INTEGER("error", 0, SNMP_error),
+                                    ASN1F_INTEGER("error_index", 0),
                                     ASN1F_SEQUENCE_OF("varbindlist", [], SNMPvarbind)
                                     )
 
 class SNMPnext(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_SNMP_PDU_NEXT( ASN1F_INTEGER("id",0),
-                                     ASN1F_enum_INTEGER("error",0, SNMP_error),
-                                     ASN1F_INTEGER("error_index",0),
+    ASN1_root = ASN1F_SNMP_PDU_NEXT( ASN1F_INTEGER("id", 0),
+                                     ASN1F_enum_INTEGER("error", 0, SNMP_error),
+                                     ASN1F_INTEGER("error_index", 0),
                                      ASN1F_SEQUENCE_OF("varbindlist", [], SNMPvarbind)
                                      )
 
 class SNMPresponse(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_SNMP_PDU_RESPONSE( ASN1F_INTEGER("id",0),
-                                         ASN1F_enum_INTEGER("error",0, SNMP_error),
-                                         ASN1F_INTEGER("error_index",0),
+    ASN1_root = ASN1F_SNMP_PDU_RESPONSE( ASN1F_INTEGER("id", 0),
+                                         ASN1F_enum_INTEGER("error", 0, SNMP_error),
+                                         ASN1F_INTEGER("error_index", 0),
                                          ASN1F_SEQUENCE_OF("varbindlist", [], SNMPvarbind)
                                          )
 
 class SNMPset(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_SNMP_PDU_SET( ASN1F_INTEGER("id",0),
-                                    ASN1F_enum_INTEGER("error",0, SNMP_error),
-                                    ASN1F_INTEGER("error_index",0),
+    ASN1_root = ASN1F_SNMP_PDU_SET( ASN1F_INTEGER("id", 0),
+                                    ASN1F_enum_INTEGER("error", 0, SNMP_error),
+                                    ASN1F_INTEGER("error_index", 0),
                                     ASN1F_SEQUENCE_OF("varbindlist", [], SNMPvarbind)
                                     )
     
 class SNMPtrapv1(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SNMP_PDU_TRAPv1( ASN1F_OID("enterprise", "1.3"),
-                                       ASN1F_IPADDRESS("agent_addr","0.0.0.0"),
+                                       ASN1F_IPADDRESS("agent_addr", "0.0.0.0"),
                                        ASN1F_enum_INTEGER("generic_trap", 0, SNMP_trap_types),
                                        ASN1F_INTEGER("specific_trap", 0),
                                        ASN1F_TIME_TICKS("time_stamp", IntAutoTime()),
@@ -199,25 +199,25 @@ class SNMPtrapv1(ASN1_Packet):
 
 class SNMPbulk(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_SNMP_PDU_BULK( ASN1F_INTEGER("id",0),
-                                     ASN1F_INTEGER("non_repeaters",0),
-                                     ASN1F_INTEGER("max_repetitions",0),
+    ASN1_root = ASN1F_SNMP_PDU_BULK( ASN1F_INTEGER("id", 0),
+                                     ASN1F_INTEGER("non_repeaters", 0),
+                                     ASN1F_INTEGER("max_repetitions", 0),
                                      ASN1F_SEQUENCE_OF("varbindlist", [], SNMPvarbind)
                                      )
     
 class SNMPinform(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_SNMP_PDU_INFORM( ASN1F_INTEGER("id",0),
-                                       ASN1F_enum_INTEGER("error",0, SNMP_error),
-                                       ASN1F_INTEGER("error_index",0),
+    ASN1_root = ASN1F_SNMP_PDU_INFORM( ASN1F_INTEGER("id", 0),
+                                       ASN1F_enum_INTEGER("error", 0, SNMP_error),
+                                       ASN1F_INTEGER("error_index", 0),
                                        ASN1F_SEQUENCE_OF("varbindlist", [], SNMPvarbind)
                                        )
     
 class SNMPtrapv2(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_SNMP_PDU_TRAPv2( ASN1F_INTEGER("id",0),
-                                       ASN1F_enum_INTEGER("error",0, SNMP_error),
-                                       ASN1F_INTEGER("error_index",0),
+    ASN1_root = ASN1F_SNMP_PDU_TRAPv2( ASN1F_INTEGER("id", 0),
+                                       ASN1F_enum_INTEGER("error", 0, SNMP_error),
+                                       ASN1F_INTEGER("error_index", 0),
                                        ASN1F_SEQUENCE_OF("varbindlist", [], SNMPvarbind)
                                        )
     
@@ -225,8 +225,8 @@ class SNMPtrapv2(ASN1_Packet):
 class SNMP(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE(
-        ASN1F_enum_INTEGER("version", 1, {0:"v1", 1:"v2c", 2:"v2", 3:"v3"}),
-        ASN1F_STRING("community","public"),
+        ASN1F_enum_INTEGER("version", 1, {0: "v1", 1: "v2c", 2: "v2", 3: "v3"}),
+        ASN1F_STRING("community", "public"),
         ASN1F_CHOICE("PDU", SNMPget(),
                      SNMPget, SNMPnext, SNMPresponse, SNMPset,
                      SNMPtrapv1, SNMPbulk, SNMPinform, SNMPtrapv2)
@@ -247,14 +247,14 @@ bind_layers(UDP, SNMP, sport=161, dport=161)
 def snmpwalk(dst, oid="1", community="public"):
     try:
         while True:
-            r = sr1(IP(dst=dst)/UDP(sport=RandShort())/SNMP(community=community, PDU=SNMPnext(varbindlist=[SNMPvarbind(oid=oid)])),timeout=2, chainCC=1, verbose=0, retry=2)
+            r = sr1(IP(dst=dst)/UDP(sport=RandShort())/SNMP(community=community, PDU=SNMPnext(varbindlist=[SNMPvarbind(oid=oid)])), timeout=2, chainCC=1, verbose=0, retry=2)
             if r is None:
                 print("No answers")
                 break
             if ICMP in r:
                 print(repr(r))
                 break
-            print("%-40s: %r" % (r[SNMPvarbind].oid.val,r[SNMPvarbind].value))
+            print("%-40s: %r" % (r[SNMPvarbind].oid.val, r[SNMPvarbind].value))
             oid = r[SNMPvarbind].oid
             
     except KeyboardInterrupt:

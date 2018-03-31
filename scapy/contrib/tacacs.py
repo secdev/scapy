@@ -62,58 +62,58 @@ def obfuscate(pay, secret, session_id, version, seq):
 
     return b"".join(chb(orb(pad[i]) ^ orb(pay[i])) for i in range(len(pay)))
 
-TACACSPRIVLEVEL = {15:'Root',
-                   1:'User',
-                   0:'Minimum'}
+TACACSPRIVLEVEL = {15: 'Root',
+                   1: 'User',
+                   0: 'Minimum'}
 
 ##########################
 # Authentication Packets #
 ##########################
 
-TACACSVERSION = {1:'Tacacs',
-                 192:'Tacacs+'}
+TACACSVERSION = {1: 'Tacacs',
+                 192: 'Tacacs+'}
 
-TACACSTYPE = {1:'Authentication',
-              2:'Authorization',
-              3:'Accounting'}
+TACACSTYPE = {1: 'Authentication',
+              2: 'Authorization',
+              3: 'Accounting'}
 
-TACACSFLAGS = {1:'Unencrypted',
-               4:'Single Connection'}
+TACACSFLAGS = {1: 'Unencrypted',
+               4: 'Single Connection'}
 
-TACACSAUTHENACTION = {1:'Login',
-                      2:'Change Pass',
-                      4:'Send Authentication'}
+TACACSAUTHENACTION = {1: 'Login',
+                      2: 'Change Pass',
+                      4: 'Send Authentication'}
 
-TACACSAUTHENTYPE = {1:'ASCII',
-                    2:'PAP',
-                    3:'CHAP',
-                    4:'ARAP', #Deprecated
-                    5:'MSCHAP',
-                    6:'MSCHAPv2'}
+TACACSAUTHENTYPE = {1: 'ASCII',
+                    2: 'PAP',
+                    3: 'CHAP',
+                    4: 'ARAP', #Deprecated
+                    5: 'MSCHAP',
+                    6: 'MSCHAPv2'}
 
-TACACSAUTHENSERVICE = {0:'None',
-                       1:'Login',
-                       2:'Enable',
-                       3:'PPP',
-                       4:'ARAP',
-                       5:'PT',
-                       6:'RCMD',
-                       7:'X25',
-                       8:'NASI',
-                       9:'FwProxy'}
+TACACSAUTHENSERVICE = {0: 'None',
+                       1: 'Login',
+                       2: 'Enable',
+                       3: 'PPP',
+                       4: 'ARAP',
+                       5: 'PT',
+                       6: 'RCMD',
+                       7: 'X25',
+                       8: 'NASI',
+                       9: 'FwProxy'}
 
-TACACSREPLYPASS = {1:'PASS',
-                   2:'FAIL',
-                   3:'GETDATA',
-                   4:'GETUSER',
-                   5:'GETPASS',
-                   6:'RESTART',
-                   7:'ERROR',
-                   21:'FOLLOW'}
+TACACSREPLYPASS = {1: 'PASS',
+                   2: 'FAIL',
+                   3: 'GETDATA',
+                   4: 'GETUSER',
+                   5: 'GETPASS',
+                   6: 'RESTART',
+                   7: 'ERROR',
+                   21: 'FOLLOW'}
 
-TACACSREPLYFLAGS = {1:'NOECHO'}
+TACACSREPLYFLAGS = {1: 'NOECHO'}
 
-TACACSCONTINUEFLAGS = {1:'ABORT'}
+TACACSCONTINUEFLAGS = {1: 'ABORT'}
 
 
 class TacacsAuthenticationStart(Packet):
@@ -177,23 +177,23 @@ class TacacsAuthenticationContinue(Packet):
 # Authorization Packets #
 #########################
 
-TACACSAUTHORTYPE = {0:'Not Set',
-                    1:'None',
-                    2:'Kerberos 5',
-                    3:'Line',
-                    4:'Enable',
-                    5:'Local',
-                    6:'Tacacs+',
-                    8:'Guest',
-                    16:'Radius',
-                    17:'Kerberos 4',
-                    32:'RCMD'}
+TACACSAUTHORTYPE = {0: 'Not Set',
+                    1: 'None',
+                    2: 'Kerberos 5',
+                    3: 'Line',
+                    4: 'Enable',
+                    5: 'Local',
+                    6: 'Tacacs+',
+                    8: 'Guest',
+                    16: 'Radius',
+                    17: 'Kerberos 4',
+                    32: 'RCMD'}
 
-TACACSAUTHORSTATUS = {1:'Pass Add',
-                      2:'Pass repl',
-                      16:'Fail',
-                      17:'Error',
-                      33:'Follow'}
+TACACSAUTHORSTATUS = {1: 'Pass Add',
+                      2: 'Pass repl',
+                      16: 'Fail',
+                      17: 'Error',
+                      33: 'Follow'}
 
 class TacacsAuthorizationRequest(Packet):
 
@@ -253,13 +253,13 @@ class TacacsAuthorizationReply(Packet):
 # Accounting Packets #
 ######################
 
-TACACSACNTFLAGS = {2:'Start',
-                   4:'Stop',
-                   8:'Watchdog'}
+TACACSACNTFLAGS = {2: 'Start',
+                   4: 'Stop',
+                   8: 'Watchdog'}
 
-TACACSACNTSTATUS = {1:'Success',
-                    2:'Error',
-                    33:'Follow'}
+TACACSACNTSTATUS = {1: 'Success',
+                    2: 'Error',
+                    33: 'Follow'}
 
 class TacacsAccountingRequest(Packet):
 

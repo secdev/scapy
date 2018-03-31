@@ -373,7 +373,7 @@ class KrackAP(Automaton):
         # Send to DHCP server
         # LLC / SNAP to Ether
         if SNAP in pkt:
-            ether_pkt = Ether(src=self.client,dst=self.mac) / pkt[SNAP].payload
+            ether_pkt = Ether(src=self.client, dst=self.mac) / pkt[SNAP].payload
             self.dhcp_server.reply(ether_pkt)
 
         # If an ARP request is made, extract client IP and answer
@@ -505,7 +505,7 @@ class KrackAP(Automaton):
     def send_assoc_response(self, pkt):
 
         # Get RSN info
-        temp_pkt = pkt[Dot11Elt::{"ID":48}].copy()
+        temp_pkt = pkt[Dot11Elt::{"ID": 48}].copy()
         temp_pkt.remove_payload()
         self.RSN = raw(temp_pkt)
         # Avoid 802.11w, etc. (deactivate RSN capabilities)

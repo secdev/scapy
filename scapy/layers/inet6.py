@@ -98,7 +98,7 @@ def neighsol(addr, src, iface, timeout=1, chainCC=0):
     p = Ether(dst=dm)/IPv6(dst=d, src=src, hlim=255)
     p /= ICMPv6ND_NS(tgt=addr)
     p /= ICMPv6NDOptSrcLLAddr(lladdr=get_if_hwaddr(iface))
-    res = srp1(p,type=ETH_P_IPV6, iface=iface, timeout=1, verbose=0,
+    res = srp1(p, type=ETH_P_IPV6, iface=iface, timeout=1, verbose=0,
                chainCC=chainCC)
 
     return res
@@ -121,7 +121,7 @@ def getmacbyip6(ip6, chainCC=0):
         mac = in6_getnsmac(inet_pton(socket.AF_INET6, ip6))
         return mac
 
-    iff,a,nh = conf.route6.route(ip6)
+    iff, a, nh = conf.route6.route(ip6)
 
     if iff == scapy.consts.LOOPBACK_INTERFACE:
         return "ff:ff:ff:ff:ff:ff"
@@ -240,14 +240,14 @@ class IP6Field(Field):
     def m2i(self, pkt, x):
         return inet_ntop(socket.AF_INET6, x)
     def any2i(self, pkt, x):
-        return self.h2i(pkt,x)
+        return self.h2i(pkt, x)
     def i2repr(self, pkt, x):
         if x is None:
-            return self.i2h(pkt,x)
+            return self.i2h(pkt, x)
         elif not isinstance(x, Net6) and not isinstance(x, list):
             if in6_isaddrTeredo(x):   # print Teredo info
                 server, _, maddr, mport = teredoAddrExtractInfo(x)
-                return "%s [Teredo srv: %s cli: %s:%s]" % (self.i2h(pkt, x), server, maddr,mport)
+                return "%s [Teredo srv: %s cli: %s:%s]" % (self.i2h(pkt, x), server, maddr, mport)
             elif in6_isaddr6to4(x):   # print encapsulated address
                 vaddr = in6_6to4ExtractAddr(x)
                 return "%s [6to4 GW: %s]" % (self.i2h(pkt, x), vaddr)
@@ -263,8 +263,8 @@ class SourceIP6Field(IP6Field):
         self.dstname = dstname
     def i2m(self, pkt, x):
         if x is None:
-            dst=getattr(pkt,self.dstname)
-            iff,x,nh = conf.route6.route(dst)
+            dst=getattr(pkt, self.dstname)
+            iff, x, nh = conf.route6.route(dst)
         return IP6Field.i2m(self, pkt, x)
     def i2h(self, pkt, x):
         if x is None:
@@ -295,22 +295,22 @@ class DestIP6Field(IP6Field, DestField):
             x = self.dst_from_pkt(pkt)
         return IP6Field.i2h(self, pkt, x)
 
-ipv6nh = { 0:"Hop-by-Hop Option Header",
-           4:"IP",
-           6:"TCP",
-          17:"UDP",
-          41:"IPv6",
-          43:"Routing Header",
-          44:"Fragment Header",
-          47:"GRE",
-          50:"ESP Header",
-          51:"AH Header",
-          58:"ICMPv6",
-          59:"No Next Header",
-          60:"Destination Option Header",
-         112:"VRRP",
-         132:"SCTP",
-         135:"Mobility Header"}
+ipv6nh = { 0: "Hop-by-Hop Option Header",
+           4: "IP",
+           6: "TCP",
+          17: "UDP",
+          41: "IPv6",
+          43: "Routing Header",
+          44: "Fragment Header",
+          47: "GRE",
+          50: "ESP Header",
+          51: "AH Header",
+          58: "ICMPv6",
+          59: "No Next Header",
+          60: "Destination Option Header",
+         112: "VRRP",
+         132: "SCTP",
+         135: "Mobility Header"}
 
 ipv6nhcls = {  0: "IPv6ExtHdrHopByHop",
                4: "IP",
@@ -353,7 +353,7 @@ class IP6ListField(StrField):
         ret = b""
         remain = s
         if l is not None:
-            remain,ret = s[:l],s[l:]
+            remain, ret = s[:l], s[l:]
         while remain:
             if c is not None:
                 if c <= 0:
@@ -362,7 +362,7 @@ class IP6ListField(StrField):
             addr = inet_ntop(socket.AF_INET6, remain[:16])
             lst.append(addr)
             remain = remain[16:]
-        return remain+ret,lst
+        return remain+ret, lst
 
     def i2m(self, pkt, x):
         s = b""
@@ -375,7 +375,7 @@ class IP6ListField(StrField):
             s += y
         return s
 
-    def i2repr(self,pkt,x):
+    def i2repr(self, pkt, x):
         s = []
         if x == None:
             return "[]"
@@ -385,7 +385,7 @@ class IP6ListField(StrField):
 
 class _IPv6GuessPayload:
     name = "Dummy class that implements guess_payload_class() for IPv6"
-    def default_payload_class(self,p):
+    def default_payload_class(self, p):
         if self.nh == 58: # ICMPv6
             t = orb(p[0])
             if len(p) > 2 and (t == 139 or t == 140): # Node Info Query
@@ -394,7 +394,7 @@ class _IPv6GuessPayload:
                 if t == 130 and len(p) >= 28:
                     # RFC 3810 - 8.1. Query Version Distinctions
                     return ICMPv6MLQuery2
-                return icmp6typescls.get(t,Raw)
+                return icmp6typescls.get(t, Raw)
             return Raw
         elif self.nh == 135 and len(p) > 3: # Mobile IPv6
             return _mip6_mhtype2cls.get(orb(p[2]), MIP6MH_Generic)
@@ -416,7 +416,7 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
     def route(self):
         """Used to select the L2 address"""
         dst = self.dst
-        if isinstance(dst,Gen):
+        if isinstance(dst, Gen):
             dst = next(iter(dst))
         return conf.route6.route(dst)
 
@@ -466,7 +466,7 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
         if self.nh == 58 and isinstance(self.payload, _ICMPv6):
             if self.payload.type < 128:
                 return self.payload.payload.hashret()
-            elif (self.payload.type in [133,134,135,136,144,145]):
+            elif (self.payload.type in [133, 134, 135, 136, 144, 145]):
                 return struct.pack("B", self.nh)+self.payload.hashret()
 
         if not conf.checkIPinIP and self.nh in [4, 41]:  # IP, IPv6
@@ -902,7 +902,7 @@ class _HopByHopOptionsField(PacketListField):
         ret = b""
         x = s
         if l is not None:
-            x,ret = s[:l],s[l:]
+            x, ret = s[:l], s[l:]
         while x:
             if c is not None:
                 if c <= 0:
@@ -922,7 +922,7 @@ class _HopByHopOptionsField(PacketListField):
                 del(op.payload)
             else:
                 x = b""
-        return x+ret,opt
+        return x+ret, opt
 
     def i2m(self, pkt, x):
         autopad = None
@@ -980,7 +980,7 @@ class IPv6ExtHdrHopByHop(_IPv6ExtHdr):
     name = "IPv6 Extension Header - Hop-by-Hop Options Header"
     fields_desc = [ ByteEnumField("nh", 59, ipv6nh),
                     FieldLenField("len", None, length_of="options", fmt="B",
-                                  adjust = lambda pkt,x: (x+2+7)//8 - 1),
+                                  adjust = lambda pkt, x: (x+2+7)//8 - 1),
                     _PhantomAutoPadField("autopad", 1), # autopad activated by default
                     _HopByHopOptionsField("options", [], HBHOptUnknown, 2,
                                           length_from = lambda pkt: (8*(pkt.len+1))-2) ]
@@ -993,7 +993,7 @@ class IPv6ExtHdrDestOpt(_IPv6ExtHdr):
     name = "IPv6 Extension Header - Destination Options Header"
     fields_desc = [ ByteEnumField("nh", 59, ipv6nh),
                     FieldLenField("len", None, length_of="options", fmt="B",
-                                  adjust = lambda pkt,x: (x+2+7)//8 - 1),
+                                  adjust = lambda pkt, x: (x+2+7)//8 - 1),
                     _PhantomAutoPadField("autopad", 1), # autopad activated by default
                     _HopByHopOptionsField("options", [], HBHOptUnknown, 2,
                                           length_from = lambda pkt: (8*(pkt.len+1))-2) ]
@@ -1006,7 +1006,7 @@ class IPv6ExtHdrRouting(_IPv6ExtHdr):
     name = "IPv6 Option Header Routing"
     fields_desc = [ ByteEnumField("nh", 59, ipv6nh),
                     FieldLenField("len", None, count_of="addresses", fmt="B",
-                                  adjust = lambda pkt,x:2*x), # in 8 bytes blocks
+                                  adjust = lambda pkt, x:2*x), # in 8 bytes blocks
                     ByteField("type", 0),
                     ByteField("segleft", None),
                     BitField("reserved", 0, 32), # There is meaning in this field ...
@@ -1034,7 +1034,7 @@ class IPv6ExtHdrSegmentRoutingTLV(Packet):
                     StrLenField("value", "", length_from=lambda pkt: pkt.len) ]
 
     def extract_padding(self, p):
-        return b"",p
+        return b"", p
 
     registered_sr_tlv = {}
     @classmethod
@@ -1249,7 +1249,7 @@ def fragment6(pkt, fragSize):
     remain = fragPartStr
     res = []
     fragOffset = 0     # offset, incremeted during creation
-    fragId = random.randint(0,0xffffffff) # random id ...
+    fragId = random.randint(0, 0xffffffff) # random id ...
     if fragHeader.id is not None:  # ... except id provided by user
         fragId = fragHeader.id
     fragHeader.m = 1
@@ -1449,13 +1449,13 @@ class _ICMPv6(Packet):
 
 class _ICMPv6Error(_ICMPv6):
     name = "ICMPv6 errors dummy class"
-    def guess_payload_class(self,p):
+    def guess_payload_class(self, p):
         return IPerror6
 
 class ICMPv6Unknown(_ICMPv6):
     name = "Scapy6 ICMPv6 fallback class"
-    fields_desc = [ ByteEnumField("type",1, icmp6types),
-                    ByteField("code",0),
+    fields_desc = [ ByteEnumField("type", 1, icmp6types),
+                    ByteField("code", 0),
                     XShortField("cksum", None),
                     StrField("msgbody", "")]
 
@@ -1464,55 +1464,55 @@ class ICMPv6Unknown(_ICMPv6):
 
 class ICMPv6DestUnreach(_ICMPv6Error):
     name = "ICMPv6 Destination Unreachable"
-    fields_desc = [ ByteEnumField("type",1, icmp6types),
-                    ByteEnumField("code",0, { 0: "No route to destination",
+    fields_desc = [ ByteEnumField("type", 1, icmp6types),
+                    ByteEnumField("code", 0, { 0: "No route to destination",
                                               1: "Communication with destination administratively prohibited",
                                               2: "Beyond scope of source address",
                                               3: "Address unreachable",
                                               4: "Port unreachable" }),
                     XShortField("cksum", None),
                     ByteField("length", 0),
-                    X3BytesField("unused",0)]
+                    X3BytesField("unused", 0)]
 
 class ICMPv6PacketTooBig(_ICMPv6Error):
     name = "ICMPv6 Packet Too Big"
-    fields_desc = [ ByteEnumField("type",2, icmp6types),
-                    ByteField("code",0),
+    fields_desc = [ ByteEnumField("type", 2, icmp6types),
+                    ByteField("code", 0),
                     XShortField("cksum", None),
-                    IntField("mtu",1280)]
+                    IntField("mtu", 1280)]
 
 class ICMPv6TimeExceeded(_ICMPv6Error):
     name = "ICMPv6 Time Exceeded"
-    fields_desc = [ ByteEnumField("type",3, icmp6types),
-                    ByteEnumField("code",0, { 0: "hop limit exceeded in transit",
+    fields_desc = [ ByteEnumField("type", 3, icmp6types),
+                    ByteEnumField("code", 0, { 0: "hop limit exceeded in transit",
                                               1: "fragment reassembly time exceeded"}),
                     XShortField("cksum", None),
                     ByteField("length", 0),
-                    X3BytesField("unused",0)]
+                    X3BytesField("unused", 0)]
 
 # The default pointer value is set to the next header field of
 # the encapsulated IPv6 packet
 class ICMPv6ParamProblem(_ICMPv6Error):
     name = "ICMPv6 Parameter Problem"
-    fields_desc = [ ByteEnumField("type",4, icmp6types),
-                    ByteEnumField("code",0, {0: "erroneous header field encountered",
+    fields_desc = [ ByteEnumField("type", 4, icmp6types),
+                    ByteEnumField("code", 0, {0: "erroneous header field encountered",
                                              1: "unrecognized Next Header type encountered",
                                              2: "unrecognized IPv6 option encountered"}),
                     XShortField("cksum", None),
-                    IntField("ptr",6)]
+                    IntField("ptr", 6)]
 
 class ICMPv6EchoRequest(_ICMPv6):
     name = "ICMPv6 Echo Request"
     fields_desc = [ ByteEnumField("type", 128, icmp6types),
                     ByteField("code", 0),
                     XShortField("cksum", None),
-                    XShortField("id",0),
-                    XShortField("seq",0),
+                    XShortField("id", 0),
+                    XShortField("seq", 0),
                     StrField("data", "")]
     def mysummary(self):
         return self.sprintf("%name% (id: %id% seq: %seq%)")
     def hashret(self):
-        return struct.pack("HH",self.id,self.seq)+self.payload.hashret()
+        return struct.pack("HH", self.id, self.seq)+self.payload.hashret()
 
 
 class ICMPv6EchoReply(ICMPv6EchoRequest):
@@ -1540,7 +1540,7 @@ class _ICMPv6ML(_ICMPv6):
                     XShortField("cksum", None),
                     ShortField("mrd", 0),
                     ShortField("reserved", 0),
-                    IP6Field("mladdr","::")]
+                    IP6Field("mladdr", "::")]
 
 # general queries are sent to the link-scope all-nodes multicast
 # address ff02::1, with a multicast address field of 0 and a MRD of
@@ -1589,7 +1589,7 @@ class ICMPv6MLQuery2(_ICMPv6): # RFC 3810
                     XShortField("cksum", None),
                     ShortField("mrd", 10000),
                     ShortField("reserved", 0),
-                    IP6Field("mladdr","::"),
+                    IP6Field("mladdr", "::"),
                     BitField("Resv", 0, 4),
                     BitField("S", 0, 1),
                     BitField("QRV", 0, 3),
@@ -1617,7 +1617,7 @@ class ICMPv6MLDMultAddrRec(Packet):
                                   fmt="B"),
                     FieldLenField("sources_number", None,
                                   length_of="sources",
-                                  adjust=lambda p,num: num//16),
+                                  adjust=lambda p, num: num//16),
                     IP6Field("dst", "::"),
                     IP6ListField("sources", [],
                                  length_from=lambda p: 16*p.sources_number),
@@ -1763,7 +1763,7 @@ icmp6ndoptscls = { 1: "ICMPv6NDOptSrcLLAddr",
 
 class _ICMPv6NDGuessPayload:
     name = "Dummy ND class that implements guess_payload_class()"
-    def guess_payload_class(self,p):
+    def guess_payload_class(self, p):
         if len(p) > 1:
             return icmp6ndoptscls.get(orb(p[0]), Raw) # s/Raw/ICMPv6NDOptUnknown/g ?
 
@@ -1772,10 +1772,10 @@ class _ICMPv6NDGuessPayload:
 
 class ICMPv6NDOptUnknown(_ICMPv6NDGuessPayload, Packet):
     name = "ICMPv6 Neighbor Discovery Option - Scapy Unimplemented"
-    fields_desc = [ ByteField("type",None),
-                    FieldLenField("len",None,length_of="data",fmt="B",
-                                  adjust = lambda pkt,x: x+2),
-                    StrLenField("data","",
+    fields_desc = [ ByteField("type", None),
+                    FieldLenField("len", None, length_of="data", fmt="B",
+                                  adjust = lambda pkt, x: x+2),
+                    StrLenField("data", "",
                                 length_from = lambda pkt: pkt.len-2) ]
 
 # NOTE: len includes type and len field. Expressed in unit of 8 bytes
@@ -1794,17 +1794,17 @@ class ICMPv6NDOptDstLLAddr(ICMPv6NDOptSrcLLAddr):
 
 class ICMPv6NDOptPrefixInfo(_ICMPv6NDGuessPayload, Packet):
     name = "ICMPv6 Neighbor Discovery Option - Prefix Information"
-    fields_desc = [ ByteField("type",3),
-                    ByteField("len",4),
-                    ByteField("prefixlen",None),
-                    BitField("L",1,1),
-                    BitField("A",1,1),
-                    BitField("R",0,1),
-                    BitField("res1",0,5),
-                    XIntField("validlifetime",0xffffffff),
-                    XIntField("preferredlifetime",0xffffffff),
-                    XIntField("res2",0x00000000),
-                    IP6Field("prefix","::") ]
+    fields_desc = [ ByteField("type", 3),
+                    ByteField("len", 4),
+                    ByteField("prefixlen", None),
+                    BitField("L", 1, 1),
+                    BitField("A", 1, 1),
+                    BitField("R", 0, 1),
+                    BitField("res1", 0, 5),
+                    XIntField("validlifetime", 0xffffffff),
+                    XIntField("preferredlifetime", 0xffffffff),
+                    XIntField("res2", 0x00000000),
+                    IP6Field("prefix", "::") ]
     def mysummary(self):
         return self.sprintf("%name% %prefix%")
 
@@ -1820,7 +1820,7 @@ class TruncPktLenField(PacketLenField):
     def getfield(self, pkt, s):
         l = self.length_from(pkt)
         i = self.m2i(pkt, s[:l])
-        return s[l:],i
+        return s[l:], i
 
     def m2i(self, pkt, m):
         s = None
@@ -1844,9 +1844,9 @@ class TruncPktLenField(PacketLenField):
 # Faire un post_build pour le recalcul de la taille (en multiple de 8 octets)
 class ICMPv6NDOptRedirectedHdr(_ICMPv6NDGuessPayload, Packet):
     name = "ICMPv6 Neighbor Discovery Option - Redirected Header"
-    fields_desc = [ ByteField("type",4),
+    fields_desc = [ ByteField("type", 4),
                     FieldLenField("len", None, length_of="pkt", fmt="B",
-                                  adjust = lambda pkt,x:(x+8)//8),
+                                  adjust = lambda pkt, x:(x+8)//8),
                     StrFixedLenField("res", b"\x00"*6, 6),
                     TruncPktLenField("pkt", b"", IPv6, 8,
                                      length_from = lambda pkt: 8*pkt.len-8) ]
@@ -1854,10 +1854,10 @@ class ICMPv6NDOptRedirectedHdr(_ICMPv6NDGuessPayload, Packet):
 # See which value should be used for default MTU instead of 1280
 class ICMPv6NDOptMTU(_ICMPv6NDGuessPayload, Packet):
     name = "ICMPv6 Neighbor Discovery Option - MTU"
-    fields_desc = [ ByteField("type",5),
-                    ByteField("len",1),
-                    XShortField("res",0),
-                    IntField("mtu",1280)]
+    fields_desc = [ ByteField("type", 5),
+                    ByteField("len", 1),
+                    XShortField("res", 0),
+                    IntField("mtu", 1280)]
 
 class ICMPv6NDOptShortcutLimit(_ICMPv6NDGuessPayload, Packet): # RFC 2491
     name = "ICMPv6 Neighbor Discovery Option - NBMA Shortcut Limit"
@@ -1869,8 +1869,8 @@ class ICMPv6NDOptShortcutLimit(_ICMPv6NDGuessPayload, Packet): # RFC 2491
 
 class ICMPv6NDOptAdvInterval(_ICMPv6NDGuessPayload, Packet):
     name = "ICMPv6 Neighbor Discovery - Interval Advertisement"
-    fields_desc = [ ByteField("type",7),
-                    ByteField("len",1),
+    fields_desc = [ ByteField("type", 7),
+                    ByteField("len", 1),
                     ShortField("res", 0),
                     IntField("advint", 0) ]
     def mysummary(self):
@@ -1878,8 +1878,8 @@ class ICMPv6NDOptAdvInterval(_ICMPv6NDGuessPayload, Packet):
 
 class ICMPv6NDOptHAInfo(_ICMPv6NDGuessPayload, Packet):
     name = "ICMPv6 Neighbor Discovery - Home Agent Information"
-    fields_desc = [ ByteField("type",8),
-                    ByteField("len",1),
+    fields_desc = [ ByteField("type", 8),
+                    ByteField("len", 1),
                     ShortField("res", 0),
                     ShortField("pref", 0),
                     ShortField("lifetime", 1)]
@@ -1892,7 +1892,7 @@ class ICMPv6NDOptHAInfo(_ICMPv6NDGuessPayload, Packet):
 
 class ICMPv6NDOptIPAddr(_ICMPv6NDGuessPayload, Packet):  # RFC 4068
     name = "ICMPv6 Neighbor Discovery - IP Address Option (FH for MIPv6)"
-    fields_desc = [ ByteField("type",17),
+    fields_desc = [ ByteField("type", 17),
                     ByteField("len", 3),
                     ByteEnumField("optcode", 1, {1: "Old Care-Of Address",
                                                  2: "New Care-Of Address",
@@ -1903,7 +1903,7 @@ class ICMPv6NDOptIPAddr(_ICMPv6NDGuessPayload, Packet):  # RFC 4068
 
 class ICMPv6NDOptNewRtrPrefix(_ICMPv6NDGuessPayload, Packet): # RFC 4068
     name = "ICMPv6 Neighbor Discovery - New Router Prefix Information Option (FH for MIPv6)"
-    fields_desc = [ ByteField("type",18),
+    fields_desc = [ ByteField("type", 18),
                     ByteField("len", 3),
                     ByteField("optcode", 0),
                     ByteField("plen", 64),
@@ -1952,7 +1952,7 @@ class _IP6PrefixField(IP6Field):
         p = s[:l]
         if l < 16:
             p += b'\x00'*(16-l)
-        return s[l:], self.m2i(pkt,p)
+        return s[l:], self.m2i(pkt, p)
 
     def i2len(self, pkt, x):
         return len(self.i2m(pkt, x))
@@ -1977,13 +1977,13 @@ class _IP6PrefixField(IP6Field):
 
 class ICMPv6NDOptRouteInfo(_ICMPv6NDGuessPayload, Packet): # RFC 4191
     name = "ICMPv6 Neighbor Discovery Option - Route Information Option"
-    fields_desc = [ ByteField("type",24),
+    fields_desc = [ ByteField("type", 24),
                     FieldLenField("len", None, length_of="prefix", fmt="B",
-                                  adjust = lambda pkt,x: x//8 + 1),
+                                  adjust = lambda pkt, x: x//8 + 1),
                     ByteField("plen", None),
-                    BitField("res1",0,3),
-                    BitField("prf",0,2),
-                    BitField("res2",0,3),
+                    BitField("res1", 0, 3),
+                    BitField("prf", 0, 2),
+                    BitField("res2", 0, 3),
                     IntField("rtlifetime", 0xffffffff),
                     _IP6PrefixField("prefix", None) ]
 
@@ -1991,7 +1991,7 @@ class ICMPv6NDOptRDNSS(_ICMPv6NDGuessPayload, Packet): # RFC 5006
     name = "ICMPv6 Neighbor Discovery Option - Recursive DNS Server Option"
     fields_desc = [ ByteField("type", 25),
                     FieldLenField("len", None, count_of="dns", fmt="B",
-                                  adjust = lambda pkt,x: 2*x+1),
+                                  adjust = lambda pkt, x: 2*x+1),
                     ShortField("res", None),
                     IntField("lifetime", 0xffffffff),
                     IP6ListField("dns", [],
@@ -2072,29 +2072,29 @@ class ICMPv6NDOptDNSSL(_ICMPv6NDGuessPayload, Packet): # RFC 6106
 class ICMPv6ND_RS(_ICMPv6NDGuessPayload, _ICMPv6):
     name = "ICMPv6 Neighbor Discovery - Router Solicitation"
     fields_desc = [ ByteEnumField("type", 133, icmp6types),
-                    ByteField("code",0),
+                    ByteField("code", 0),
                     XShortField("cksum", None),
-                    IntField("res",0) ]
+                    IntField("res", 0) ]
     overload_fields = {IPv6: { "nh": 58, "dst": "ff02::2", "hlim": 255 }}
 
 class ICMPv6ND_RA(_ICMPv6NDGuessPayload, _ICMPv6):
     name = "ICMPv6 Neighbor Discovery - Router Advertisement"
     fields_desc = [ ByteEnumField("type", 134, icmp6types),
-                    ByteField("code",0),
+                    ByteField("code", 0),
                     XShortField("cksum", None),
-                    ByteField("chlim",0),
-                    BitField("M",0,1),
-                    BitField("O",0,1),
-                    BitField("H",0,1),
-                    BitEnumField("prf",1,2, { 0: "Medium (default)",
+                    ByteField("chlim", 0),
+                    BitField("M", 0, 1),
+                    BitField("O", 0, 1),
+                    BitField("H", 0, 1),
+                    BitEnumField("prf", 1, 2, { 0: "Medium (default)",
                                               1: "High",
                                               2: "Reserved",
                                               3: "Low" } ), # RFC 4191
-                    BitField("P",0,1),
-                    BitField("res",0,2),
-                    ShortField("routerlifetime",1800),
-                    IntField("reachabletime",0),
-                    IntField("retranstimer",0) ]
+                    BitField("P", 0, 1),
+                    BitField("res", 0, 2),
+                    ShortField("routerlifetime", 1800),
+                    IntField("reachabletime", 0),
+                    IntField("retranstimer", 0) ]
     overload_fields = {IPv6: { "nh": 58, "dst": "ff02::1", "hlim": 255 }}
 
     def answers(self, other):
@@ -2102,11 +2102,11 @@ class ICMPv6ND_RA(_ICMPv6NDGuessPayload, _ICMPv6):
 
 class ICMPv6ND_NS(_ICMPv6NDGuessPayload, _ICMPv6, Packet):
     name = "ICMPv6 Neighbor Discovery - Neighbor Solicitation"
-    fields_desc = [ ByteEnumField("type",135, icmp6types),
-                    ByteField("code",0),
+    fields_desc = [ ByteEnumField("type", 135, icmp6types),
+                    ByteField("code", 0),
                     XShortField("cksum", None),
                     IntField("res", 0),
-                    IP6Field("tgt","::") ]
+                    IP6Field("tgt", "::") ]
     overload_fields = {IPv6: { "nh": 58, "dst": "ff02::1", "hlim": 255 }}
 
     def mysummary(self):
@@ -2117,14 +2117,14 @@ class ICMPv6ND_NS(_ICMPv6NDGuessPayload, _ICMPv6, Packet):
 
 class ICMPv6ND_NA(_ICMPv6NDGuessPayload, _ICMPv6, Packet):
     name = "ICMPv6 Neighbor Discovery - Neighbor Advertisement"
-    fields_desc = [ ByteEnumField("type",136, icmp6types),
-                    ByteField("code",0),
+    fields_desc = [ ByteEnumField("type", 136, icmp6types),
+                    ByteField("code", 0),
                     XShortField("cksum", None),
-                    BitField("R",1,1),
-                    BitField("S",0,1),
-                    BitField("O",1,1),
-                    XBitField("res",0,29),
-                    IP6Field("tgt","::") ]
+                    BitField("R", 1, 1),
+                    BitField("S", 0, 1),
+                    BitField("O", 1, 1),
+                    XBitField("res", 0, 29),
+                    IP6Field("tgt", "::") ]
     overload_fields = {IPv6: { "nh": 58, "dst": "ff02::1", "hlim": 255 }}
 
     def mysummary(self):
@@ -2139,12 +2139,12 @@ class ICMPv6ND_NA(_ICMPv6NDGuessPayload, _ICMPv6, Packet):
 # associated possible options : target link-layer option, Redirected header
 class ICMPv6ND_Redirect(_ICMPv6NDGuessPayload, _ICMPv6, Packet):
     name = "ICMPv6 Neighbor Discovery - Redirect"
-    fields_desc = [ ByteEnumField("type",137, icmp6types),
-                    ByteField("code",0),
+    fields_desc = [ ByteEnumField("type", 137, icmp6types),
+                    ByteField("code", 0),
                     XShortField("cksum", None),
-                    XIntField("res",0),
-                    IP6Field("tgt","::"),
-                    IP6Field("dst","::") ]
+                    XIntField("res", 0),
+                    IP6Field("tgt", "::"),
+                    IP6Field("dst", "::") ]
     overload_fields = {IPv6: { "nh": 58, "dst": "ff02::1", "hlim": 255 }}
 
 
@@ -2153,9 +2153,9 @@ class ICMPv6ND_Redirect(_ICMPv6NDGuessPayload, _ICMPv6, Packet):
 
 class ICMPv6NDOptSrcAddrList(_ICMPv6NDGuessPayload, Packet):
     name = "ICMPv6 Inverse Neighbor Discovery Option - Source Address List"
-    fields_desc = [ ByteField("type",9),
+    fields_desc = [ ByteField("type", 9),
                     FieldLenField("len", None, count_of="addrlist", fmt="B",
-                                  adjust = lambda pkt,x: 2*x+1),
+                                  adjust = lambda pkt, x: 2*x+1),
                     StrFixedLenField("res", b"\x00"*6, 6),
                     IP6ListField("addrlist", [],
                                 length_from = lambda pkt: 8*(pkt.len-1)) ]
@@ -2176,20 +2176,20 @@ class ICMPv6NDOptTgtAddrList(ICMPv6NDOptSrcAddrList):
 # Ether() must use the target lladdr as destination
 class ICMPv6ND_INDSol(_ICMPv6NDGuessPayload, _ICMPv6):
     name = "ICMPv6 Inverse Neighbor Discovery Solicitation"
-    fields_desc = [ ByteEnumField("type",141, icmp6types),
-                    ByteField("code",0),
-                    XShortField("cksum",None),
-                    XIntField("reserved",0) ]
+    fields_desc = [ ByteEnumField("type", 141, icmp6types),
+                    ByteField("code", 0),
+                    XShortField("cksum", None),
+                    XIntField("reserved", 0) ]
     overload_fields = {IPv6: { "nh": 58, "dst": "ff02::1", "hlim": 255 }}
 
 # Options requises :  target lladdr, target address list
 # Autres options valides : MTU
 class ICMPv6ND_INDAdv(_ICMPv6NDGuessPayload, _ICMPv6):
     name = "ICMPv6 Inverse Neighbor Discovery Advertisement"
-    fields_desc = [ ByteEnumField("type",142, icmp6types),
-                    ByteField("code",0),
-                    XShortField("cksum",None),
-                    XIntField("reserved",0) ]
+    fields_desc = [ ByteEnumField("type", 142, icmp6types),
+                    ByteField("code", 0),
+                    XShortField("cksum", None),
+                    XIntField("reserved", 0) ]
     overload_fields = {IPv6: { "nh": 58, "dst": "ff02::1", "hlim": 255 }}
 
 
@@ -2329,7 +2329,7 @@ class NIQueryDataField(StrField):
     def i2h(self, pkt, x):
         if x is None:
             return x
-        t,val = x
+        t, val = x
         if t == 1:
             val = dnsrepr2names(val)[0]
         return val
@@ -2357,7 +2357,7 @@ class NIQueryDataField(StrField):
         return (1, x)
 
     def i2repr(self, pkt, x):
-        t,val = x
+        t, val = x
         if t == 1: # DNS Name
             # we don't use dnsrepr2names() to deal with
             # possible weird data extracted info
@@ -2476,7 +2476,7 @@ class NIReplyDataField(StrField):
     def i2h(self, pkt, x):
         if x is None:
             return x
-        t,val = x
+        t, val = x
         if t == 2:
             ttl, dnsnames = val
             val = [ttl] + dnsrepr2names(dnsnames)
@@ -2529,11 +2529,11 @@ class NIReplyDataField(StrField):
 
 
     def addfield(self, pkt, s, val):
-        t,tmp = val
+        t, tmp = val
         if tmp is None:
             tmp = b""
         if t == 2:
-            ttl,dnsstr = tmp
+            ttl, dnsstr = tmp
             return s+ struct.pack("!I", ttl) + dnsstr
         elif t == 3:
             return s + b"".join(map(lambda x_y1: struct.pack("!I", x_y1[0])+inet_pton(socket.AF_INET6, x_y1[1]), tmp))
@@ -2587,7 +2587,7 @@ class NIReplyDataField(StrField):
         if isinstance(x, tuple) and len(x) == 2:
             t, val = x
             if t == 2: # DNS names
-                ttl,l = val
+                ttl, l = val
                 l = dnsrepr2names(l)
                 names_list = (plain_str(name) for name in l)
                 return "ttl:%d %s" % (ttl, ",".join(names_list))
@@ -2671,7 +2671,7 @@ class ICMPv6HAADRequest(_ICMPv6):
                     BitEnumField("R", 1, 1, {1: 'MR'}),
                     XBitField("res", 0, 15) ]
     def hashret(self):
-        return struct.pack("!H",self.id)+self.payload.hashret()
+        return struct.pack("!H", self.id)+self.payload.hashret()
 
 class ICMPv6HAADReply(_ICMPv6):
     name = 'ICMPv6 Home Agent Address Discovery Reply'
@@ -2683,7 +2683,7 @@ class ICMPv6HAADReply(_ICMPv6):
                     XBitField("res", 0, 15),
                     IP6ListField('addresses', None) ]
     def hashret(self):
-        return struct.pack("!H",self.id)+self.payload.hashret()
+        return struct.pack("!H", self.id)+self.payload.hashret()
 
     def answers(self, other):
         if not isinstance(other, ICMPv6HAADRequest):
@@ -2698,7 +2698,7 @@ class ICMPv6MPSol(_ICMPv6):
                     XShortField("id", None),
                     XShortField("res", 0) ]
     def _hashret(self):
-        return struct.pack("!H",self.id)
+        return struct.pack("!H", self.id)
 
 class ICMPv6MPAdv(_ICMPv6NDGuessPayload, _ICMPv6):
     name = 'ICMPv6 Mobile Prefix Advertisement'
@@ -2706,10 +2706,10 @@ class ICMPv6MPAdv(_ICMPv6NDGuessPayload, _ICMPv6):
                     ByteField("code", 0),
                     XShortField("cksum", None),
                     XShortField("id", None),
-                    BitEnumField("flags", 2, 2, {2: 'M', 1:'O'}),
+                    BitEnumField("flags", 2, 2, {2: 'M', 1: 'O'}),
                     XBitField("res", 0, 14) ]
     def hashret(self):
-        return struct.pack("!H",self.id)
+        return struct.pack("!H", self.id)
 
     def answers(self, other):
         return isinstance(other, ICMPv6MPSol)
@@ -2799,7 +2799,7 @@ class MIP6OptMNID(_MIP6OptAlign, Packet): # RFC 4283
     name = "MIPv6 Option - Mobile Node Identifier"
     fields_desc = [ ByteEnumField("otype", 8, _mobopttypes),
                     FieldLenField("olen", None, length_of="id", fmt="B",
-                                  adjust = lambda pkt,x: x+1),
+                                  adjust = lambda pkt, x: x+1),
                     ByteEnumField("subtype", 1, {1: "NAI"}),
                     StrLenField("id", "",
                                 length_from = lambda pkt: pkt.olen-1) ]
@@ -2812,7 +2812,7 @@ class MIP6OptMsgAuth(_MIP6OptAlign, Packet): # RFC 4285 (Sect. 5)
     name = "MIPv6 Option - Mobility Message Authentication"
     fields_desc = [ ByteEnumField("otype", 9, _mobopttypes),
                     FieldLenField("olen", None, length_of="authdata", fmt="B",
-                                  adjust = lambda pkt,x: x+5),
+                                  adjust = lambda pkt, x: x+5),
                     ByteEnumField("subtype", 1, {1: "MN-HA authentication mobility option",
                                                  2: "MN-AAA authentication mobility option"}),
                     IntField("mspi", None),
@@ -3001,7 +3001,7 @@ class _MobilityOptionsField(PacketListField):
 
     def getfield(self, pkt, s):
         l = self.length_from(pkt)
-        return s[l:],self.m2i(pkt, s[:l])
+        return s[l:], self.m2i(pkt, s[:l])
 
     def i2len(self, pkt, i):
         return len(self.i2m(pkt, i))
@@ -3254,7 +3254,7 @@ class  AS_resolver6(AS_resolver_riswhois):
             except ValueError:
                 pass
 
-        return ip,asn,desc        
+        return ip, asn, desc        
 
 class TracerouteResult6(TracerouteResult):
     __slots__ = []
@@ -3269,7 +3269,7 @@ class TracerouteResult6(TracerouteResult):
     def get_trace(self):
         trace = {}
 
-        for s,r in self.res:
+        for s, r in self.res:
             if IPv6 not in s:
                 continue
             d = s[IPv6].dst
@@ -3307,10 +3307,10 @@ def traceroute6(target, dport=80, minttl=1, maxttl=30, sport=RandShort(),
         verbose = conf.verb
 
     if l4 is None:
-        a,b = sr(IPv6(dst=target, hlim=(minttl,maxttl))/TCP(seq=RandInt(),sport=sport, dport=dport),
+        a, b = sr(IPv6(dst=target, hlim=(minttl, maxttl))/TCP(seq=RandInt(), sport=sport, dport=dport),
                  timeout=timeout, filter="icmp6 or tcp", verbose=verbose, **kargs)
     else:
-        a,b = sr(IPv6(dst=target, hlim=(minttl,maxttl))/l4,
+        a, b = sr(IPv6(dst=target, hlim=(minttl, maxttl))/l4,
                  timeout=timeout, verbose=verbose, **kargs)
 
     a = TracerouteResult6(a.res)
@@ -3318,7 +3318,7 @@ def traceroute6(target, dport=80, minttl=1, maxttl=30, sport=RandShort(),
     if verbose:
         a.display()
 
-    return a,b
+    return a, b
 
 #############################################################################
 #############################################################################

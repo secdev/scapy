@@ -178,7 +178,7 @@ def list_contrib(name=None):
             continue
         if mod.endswith(".py"):
             mod = mod[:-3]
-        desc = { "description":"-", "status":"?", "name":mod }
+        desc = { "description": "-", "status": "?", "name": mod }
         for l in io.open(f, errors="replace"):
             p = l.find("scapy.contrib.")
             if p >= 0:
@@ -245,7 +245,7 @@ def save_session(fname=None, session=None, pickleProto=-1):
     except OSError:
          pass
     
-    f=gzip.open(fname,"wb")
+    f=gzip.open(fname, "wb")
     six.moves.cPickle.dump(to_be_saved, f, pickleProto)
     f.close()
     del f
@@ -259,10 +259,10 @@ def load_session(fname=None):
     if fname is None:
         fname = conf.session
     try:
-        s = six.moves.cPickle.load(gzip.open(fname,"rb"))
+        s = six.moves.cPickle.load(gzip.open(fname, "rb"))
     except IOError:
         try:
-            s = six.moves.cPickle.load(open(fname,"rb"))
+            s = six.moves.cPickle.load(open(fname, "rb"))
         except IOError:
             # Raise "No such file exception"
             raise
@@ -282,9 +282,9 @@ def update_session(fname=None):
     if fname is None:
         fname = conf.session
     try:
-        s = six.moves.cPickle.load(gzip.open(fname,"rb"))
+        s = six.moves.cPickle.load(gzip.open(fname, "rb"))
     except IOError:
-        s = six.moves.cPickle.load(open(fname,"rb"))
+        s = six.moves.cPickle.load(open(fname, "rb"))
     scapy_session = six.moves.builtins.__dict__["scapy_session"]
     scapy_session.update(s)
     update_ipython_session(scapy_session)
@@ -307,9 +307,9 @@ def init_session(session_name, mydict=None):
         else:
             try:
                 try:
-                    SESSION = six.moves.cPickle.load(gzip.open(session_name,"rb"))
+                    SESSION = six.moves.cPickle.load(gzip.open(session_name, "rb"))
                 except IOError:
-                    SESSION = six.moves.cPickle.load(open(session_name,"rb"))
+                    SESSION = six.moves.cPickle.load(open(session_name, "rb"))
                 log_loading.info("Using session [%s]" % session_name)
             except EOFError:
                 log_loading.error("Error opening session [%s]" % session_name)
@@ -325,7 +325,7 @@ def init_session(session_name, mydict=None):
                 conf.session = session_name
         else:
             conf.session = session_name
-            SESSION = {"conf":conf}
+            SESSION = {"conf": conf}
     else:
         SESSION = {"conf": conf}
 
@@ -371,7 +371,7 @@ to be used in the fancy prompt.
     lines.append('   | %s-- %s' % (" " * (max_len - len(author) - 5), author))
     return lines
 
-def interact(mydict=None,argv=None,mybanner=None,loglevel=20):
+def interact(mydict=None, argv=None, mybanner=None, loglevel=20):
     global SESSION
     global GLOBKEYS
 

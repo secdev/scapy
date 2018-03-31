@@ -9,7 +9,7 @@ Automata with states, transitions and actions.
 """
 
 from __future__ import absolute_import
-import types,itertools,time,os,sys,socket,traceback
+import types, itertools, time, os, sys, socket, traceback
 from select import select
 from collections import deque
 import threading
@@ -166,7 +166,7 @@ class SelectableSelector(object):
                 self.available_lock.acquire()
             return self.results
         else:
-            r,_,_ = select(self.inputs,[],[],self.remain)
+            r, _, _ = select(self.inputs, [], [], self.remain)
             return r
 
 def select_objects(inputs, remain):
@@ -183,7 +183,7 @@ def select_objects(inputs, remain):
 
 class ObjectPipe(SelectableObject):
     def __init__(self):
-        self.rd,self.wr = os.pipe()
+        self.rd, self.wr = os.pipe()
         self.queue = deque()
     def fileno(self):
         return self.rd
@@ -191,7 +191,7 @@ class ObjectPipe(SelectableObject):
         return len(self.queue) > 0
     def send(self, obj):
         self.queue.append(obj)
-        os.write(self.wr,b"X")
+        os.write(self.wr, b"X")
         self.call_release()
     def write(self, obj):
         self.send(obj)
@@ -205,8 +205,8 @@ class Message:
     def __init__(self, **args):
         self.__dict__.update(args)
     def __repr__(self):
-        return "<Message %s>" % " ".join("%s=%r"%(k,v)
-                                         for (k,v) in six.iteritems(self.__dict__)
+        return "<Message %s>" % " ".join("%s=%r"%(k, v)
+                                         for (k, v) in six.iteritems(self.__dict__)
                                          if not k.startswith("_"))
 
 class _instance_state:
@@ -262,8 +262,8 @@ class ATMT:
             return "NewStateRequested(%s)" % self.state
 
     @staticmethod
-    def state(initial=0,final=0,error=0):
-        def deco(f,initial=initial, final=final):
+    def state(initial=0, final=0, error=0):
+        def deco(f, initial=initial, final=final):
             f.atmt_type = ATMT.STATE
             f.atmt_state = f.__name__
             f.atmt_initial = initial
@@ -283,8 +283,8 @@ class ATMT:
         return deco
     @staticmethod
     def action(cond, prio=0):
-        def deco(f,cond=cond):
-            if not hasattr(f,"atmt_type"):
+        def deco(f, cond=cond):
+            if not hasattr(f, "atmt_type"):
                 f.atmt_cond = {}
             f.atmt_type = ATMT.ACTION
             f.atmt_cond[cond.atmt_condname] = prio
@@ -348,8 +348,8 @@ class _ATMT_supersocket(SuperSocket):
         self.name = name
         self.ioevent = ioevent
         self.proto = proto
-        self.spa,self.spb = socket.socketpair(socket.AF_UNIX, socket.SOCK_DGRAM)
-        kargs["external_fd"] = {ioevent:self.spb}
+        self.spa, self.spb = socket.socketpair(socket.AF_UNIX, socket.SOCK_DGRAM)
+        kargs["external_fd"] = {ioevent: self.spb}
         self.atmt = automaton(*args, **kargs)
         self.atmt.runbg()
     def fileno(self):
@@ -398,7 +398,7 @@ class Automaton_metaclass(type):
         while classes:
             c = classes.pop(0) # order is important to avoid breaking method overloading
             classes += list(c.__bases__)
-            for k,v in six.iteritems(c.__dict__):
+            for k, v in six.iteritems(c.__dict__):
                 if k not in members:
                     members[k] = v
 
@@ -436,14 +436,14 @@ class Automaton_metaclass(type):
             
 
         for v in six.itervalues(cls.timeout):
-            v.sort(key=cmp_to_key(lambda t1_f1,t2_f2: cmp(t1_f1[0],t2_f2[0])))
+            v.sort(key=cmp_to_key(lambda t1_f1, t2_f2: cmp(t1_f1[0], t2_f2[0])))
             v.append((None, None))
         for v in itertools.chain(six.itervalues(cls.conditions),
                                  six.itervalues(cls.recv_conditions),
                                  six.itervalues(cls.ioevents)):
-            v.sort(key=cmp_to_key(lambda c1,c2: cmp(c1.atmt_prio,c2.atmt_prio)))
-        for condname,actlst in six.iteritems(cls.actions):
-            actlst.sort(key=cmp_to_key(lambda c1,c2: cmp(c1.atmt_cond[condname], c2.atmt_cond[condname])))
+            v.sort(key=cmp_to_key(lambda c1, c2: cmp(c1.atmt_prio, c2.atmt_prio)))
+        for condname, actlst in six.iteritems(cls.actions):
+            actlst.sort(key=cmp_to_key(lambda c1, c2: cmp(c1.atmt_cond[condname], c2.atmt_cond[condname])))
 
         for ioev in cls.iosupersockets:
             setattr(cls, ioev.atmt_as_supersocket, _ATMT_to_supersocket(ioev.atmt_as_supersocket, ioev.atmt_ioname, cls))
@@ -466,29 +466,29 @@ class Automaton_metaclass(type):
         for st in six.itervalues(self.states):
             for n in st.atmt_origfunc.__code__.co_names+st.atmt_origfunc.__code__.co_consts:
                 if n in self.states:
-                    s += '\t"%s" -> "%s" [ color=green ];\n' % (st.atmt_state,n)
+                    s += '\t"%s" -> "%s" [ color=green ];\n' % (st.atmt_state, n)
             
 
-        for c,k,v in ([("purple",k,v) for k,v in self.conditions.items()]+
-                      [("red",k,v) for k,v in self.recv_conditions.items()]+
-                      [("orange",k,v) for k,v in self.ioevents.items()]):
+        for c, k, v in ([("purple", k, v) for k, v in self.conditions.items()]+
+                      [("red", k, v) for k, v in self.recv_conditions.items()]+
+                      [("orange", k, v) for k, v in self.ioevents.items()]):
             for f in v:
                 for n in f.__code__.co_names+f.__code__.co_consts:
                     if n in self.states:
                         l = f.atmt_condname
                         for x in self.actions[f.atmt_condname]:
                             l += "\\l>[%s]" % x.__name__
-                        s += '\t"%s" -> "%s" [label="%s", color=%s];\n' % (k,n,l,c)
-        for k,v in six.iteritems(self.timeout):
-            for t,f in v:
+                        s += '\t"%s" -> "%s" [label="%s", color=%s];\n' % (k, n, l, c)
+        for k, v in six.iteritems(self.timeout):
+            for t, f in v:
                 if f is None:
                     continue
                 for n in f.__code__.co_names+f.__code__.co_consts:
                     if n in self.states:
-                        l = "%s/%.1fs" % (f.atmt_condname,t)                        
+                        l = "%s/%.1fs" % (f.atmt_condname, t)                        
                         for x in self.actions[f.atmt_condname]:
                             l += "\\l>[%s]" % x.__name__
-                        s += '\t"%s" -> "%s" [label="%s",color=blue];\n' % (k,n,l)
+                        s += '\t"%s" -> "%s" [label="%s",color=blue];\n' % (k, n, l)
         s += "}\n"
         return do_graph(s, **kargs)
 
@@ -507,7 +507,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
 
     ## Utility classes and exceptions
     class _IO_fdwrapper(SelectableObject):
-        def __init__(self,rd,wr):
+        def __init__(self, rd, wr):
             if WINDOWS:
                 # rd will be used for reading and sending
                 if isinstance(rd, ObjectPipe):
@@ -533,14 +533,14 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
             if WINDOWS:
                 self.rd.send(msg)
                 return self.call_release()
-            return os.write(self.wr,msg)
+            return os.write(self.wr, msg)
         def recv(self, n=65535):
             return self.read(n)        
         def send(self, msg):
             return self.write(msg)
 
     class _IO_mixer(SelectableObject):
-        def __init__(self,rd,wr):
+        def __init__(self, rd, wr):
             self.rd = rd
             self.wr = wr
         def fileno(self):
@@ -595,24 +595,24 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
 
     def send(self, pkt):
         if self.state.state in self.interception_points:
-            self.debug(3,"INTERCEPT: packet intercepted: %s" % pkt.summary())
+            self.debug(3, "INTERCEPT: packet intercepted: %s" % pkt.summary())
             self.intercepted_packet = pkt
             cmd = Message(type = _ATMT_Command.INTERCEPT, state=self.state, pkt=pkt)
             self.cmdout.send(cmd)
             cmd = self.cmdin.recv()
             self.intercepted_packet = None
             if cmd.type == _ATMT_Command.REJECT:
-                self.debug(3,"INTERCEPT: packet rejected")
+                self.debug(3, "INTERCEPT: packet rejected")
                 return
             elif cmd.type == _ATMT_Command.REPLACE:
                 pkt = cmd.pkt
-                self.debug(3,"INTERCEPT: packet replaced by: %s" % pkt.summary())
+                self.debug(3, "INTERCEPT: packet replaced by: %s" % pkt.summary())
             elif cmd.type == _ATMT_Command.ACCEPT:
-                self.debug(3,"INTERCEPT: packet accepted")
+                self.debug(3, "INTERCEPT: packet accepted")
             else:
                 raise self.AutomatonError("INTERCEPT: unkown verdict: %r" % cmd.type)
         self.my_send(pkt)
-        self.debug(3,"SENT : %s" % pkt.summary())
+        self.debug(3, "SENT : %s" % pkt.summary())
         
         if self.store_packets:
             self.packets.append(pkt.copy())
@@ -620,7 +620,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
 
     ## Internals
     def __init__(self, *args, **kargs):
-        external_fd = kargs.pop("external_fd",{})
+        external_fd = kargs.pop("external_fd", {})
         self.send_sock_class = kargs.pop("ll", conf.L3socket)
         self.recv_sock_class = kargs.pop("recvsock", conf.L2listen)
         self.started = threading.Lock()
@@ -632,8 +632,8 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
         self.debug_level=0
         self.init_args=args
         self.init_kargs=kargs
-        self.io = type.__new__(type, "IOnamespace",(),{})
-        self.oi = type.__new__(type, "IOnamespace",(),{})
+        self.io = type.__new__(type, "IOnamespace", (), {})
+        self.oi = type.__new__(type, "IOnamespace", (), {})
         self.cmdin = ObjectPipe()
         self.cmdout = ObjectPipe()
         self.ioin = {}
@@ -641,25 +641,25 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
         for n in self.ionames:
             extfd = external_fd.get(n)
             if not isinstance(extfd, tuple):
-                extfd = (extfd,extfd)
+                extfd = (extfd, extfd)
             elif WINDOWS:
                 raise OSError("Tuples are not allowed as external_fd on windows")
-            ioin,ioout = extfd                
+            ioin, ioout = extfd                
             if ioin is None:
                 ioin = ObjectPipe()
             elif not isinstance(ioin, SelectableObject):
-                ioin = self._IO_fdwrapper(ioin,None)
+                ioin = self._IO_fdwrapper(ioin, None)
             if ioout is None:
                 ioout = ioin if WINDOWS else ObjectPipe()
             elif not isinstance(ioout, SelectableObject):
-                ioout = self._IO_fdwrapper(None,ioout)
+                ioout = self._IO_fdwrapper(None, ioout)
 
             self.ioin[n] = ioin
             self.ioout[n] = ioout 
             ioin.ioname = n
             ioout.ioname = n
-            setattr(self.io, n, self._IO_mixer(ioout,ioin))
-            setattr(self.oi, n, self._IO_mixer(ioin,ioout))
+            setattr(self.io, n, self._IO_mixer(ioout, ioin))
+            setattr(self.oi, n, self._IO_mixer(ioin, ioout))
 
         for stname in self.states:
             setattr(self, stname, 
@@ -676,7 +676,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
     def _run_condition(self, cond, *args, **kargs):
         try:
             self.debug(5, "Trying %s [%s]" % (cond.atmt_type, cond.atmt_condname))
-            cond(self,*args, **kargs)
+            cond(self, *args, **kargs)
         except ATMT.NewStateRequested as state_req:
             self.debug(2, "%s [%s] taken to state [%s]" % (cond.atmt_type, cond.atmt_condname, state_req.state))
             if cond.atmt_type == ATMT.RECV:
@@ -707,7 +707,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
             a = args+self.init_args[len(args):]
             k = self.init_kargs.copy()
             k.update(kargs)
-            self.parse_args(*a,**k)
+            self.parse_args(*a, **k)
     
             # Start the automaton
             self.state=self.initial_states[0](self)
@@ -737,11 +737,11 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                         if isinstance(state, self.CommandMessage):
                             break
                         elif isinstance(state, self.Breakpoint):
-                            c = Message(type=_ATMT_Command.BREAKPOINT,state=state)
+                            c = Message(type=_ATMT_Command.BREAKPOINT, state=state)
                             self.cmdout.send(c)
                             break
                         if singlestep:
-                            c = Message(type=_ATMT_Command.SINGLESTEP,state=state)
+                            c = Message(type=_ATMT_Command.SINGLESTEP, state=state)
                             self.cmdout.send(c)
                             break
             except StopIteration as e:
@@ -791,7 +791,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
     
                 # Finally listen and pay attention to timeouts
                 expirations = iter(self.timeout[self.state.state])
-                next_timeout,timeout_func = next(expirations)
+                next_timeout, timeout_func = next(expirations)
                 t0 = time.time()
                 
                 fds = [self.cmdin]
@@ -804,7 +804,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                     if next_timeout is not None:
                         if next_timeout <= t:
                             self._run_condition(timeout_func, *state_output)
-                            next_timeout,timeout_func = next(expirations)
+                            next_timeout, timeout_func = next(expirations)
                     if next_timeout is None:
                         remain = None
                     else:
@@ -837,32 +837,32 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                                     self._run_condition(ioevt, fd, *state_output)
     
             except ATMT.NewStateRequested as state_req:
-                self.debug(2, "switching from [%s] to [%s]" % (self.state.state,state_req.state))
+                self.debug(2, "switching from [%s] to [%s]" % (self.state.state, state_req.state))
                 self.state = state_req
                 yield state_req
 
     ## Public API
     def add_interception_points(self, *ipts):
         for ipt in ipts:
-            if hasattr(ipt,"atmt_state"):
+            if hasattr(ipt, "atmt_state"):
                 ipt = ipt.atmt_state
             self.interception_points.add(ipt)
         
     def remove_interception_points(self, *ipts):
         for ipt in ipts:
-            if hasattr(ipt,"atmt_state"):
+            if hasattr(ipt, "atmt_state"):
                 ipt = ipt.atmt_state
             self.interception_points.discard(ipt)
 
     def add_breakpoints(self, *bps):
         for bp in bps:
-            if hasattr(bp,"atmt_state"):
+            if hasattr(bp, "atmt_state"):
                 bp = bp.atmt_state
             self.breakpoints.add(bp)
 
     def remove_breakpoints(self, *bps):
         for bp in bps:
-            if hasattr(bp,"atmt_state"):
+            if hasattr(bp, "atmt_state"):
                 bp = bp.atmt_state
             self.breakpoints.discard(bp)
 
