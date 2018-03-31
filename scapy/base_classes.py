@@ -16,8 +16,10 @@ import re, random, socket
 import types
 from scapy.modules.six.moves import range
 
+
 class Gen(object):
     __slots__ = []
+
     def __iter__(self):
         return iter([])
 
@@ -43,8 +45,10 @@ class SetGen(Gen):
             self.values = [_get_values(val) for val in values]
         else:
             self.values = [_get_values(values)]
+
     def transf(self, element):
         return element
+
     def __iter__(self):
         for i in self.values:
             if (isinstance(i, Gen) and
@@ -54,8 +58,10 @@ class SetGen(Gen):
                     yield j
             else:
                 yield i
+
     def __repr__(self):
         return "<SetGen %r>" % self.values
+
 
 class Net(Gen):
     """Generate a list of IPs from a network address or a name"""
@@ -98,29 +104,34 @@ class Net(Gen):
                 for b in range(*self.parsed[1]):
                     for a in range(*self.parsed[0]):
                         yield "%i.%i.%i.%i" % (a, b, c, d)
+
     def choice(self):
         return ".".join(str(random.randint(v[0], v[1] - 1)) for v in self.parsed)
                           
     def __repr__(self):
         return "Net(%r)" % self.repr
+
     def __eq__(self, other):
         if hasattr(other, "parsed"):
             p2 = other.parsed
         else:
             p2, nm2 = self._parse_net(other)
         return self.parsed == p2
+
     def __contains__(self, other):
         if hasattr(other, "parsed"):
             p2 = other.parsed
         else:
             p2, nm2 = self._parse_net(other)
         return all(a1 <= a2 and b1 >= b2 for (a1, b1), (a2, b2) in zip(self.parsed, p2))
+
     def __rcontains__(self, other):        
         return self in self.__class__(other)
         
 
 class OID(Gen):
     name = "OID"
+
     def __init__(self, oid):
         self.oid = oid        
         self.cmpt = []
@@ -132,8 +143,10 @@ class OID(Gen):
             else:
                 fmt.append(i)
         self.fmt = ".".join(fmt)
+
     def __repr__(self):
         return "OID(%r)" % self.oid
+
     def __iter__(self):        
         ii = [k[0] for k in self.cmpt]
         while True:
@@ -150,7 +163,6 @@ class OID(Gen):
                 i += 1
 
 
- 
 ######################################
 ## Packet abstract and base classes ##
 ######################################
@@ -227,11 +239,13 @@ class Packet_metaclass(type):
         i.__init__(*args, **kargs)
         return i
 
+
 class Field_metaclass(type):
     def __new__(cls, name, bases, dct):
         dct.setdefault("__slots__", [])
         newcls = super(Field_metaclass, cls).__new__(cls, name, bases, dct)
         return newcls
+
 
 class NewDefaultValues(Packet_metaclass):
     """NewDefaultValues is deprecated (not needed anymore)
@@ -254,6 +268,7 @@ class NewDefaultValues(Packet_metaclass):
         log_loading.warning("Deprecated (no more needed) use of NewDefaultValues  (%s l. %i).", f, l)
         
         return super(NewDefaultValues, cls).__new__(cls, name, bases, dct)
+
 
 class BasePacket(Gen):
     __slots__ = []

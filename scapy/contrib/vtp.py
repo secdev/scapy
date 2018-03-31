@@ -91,6 +91,7 @@ class VTPVlanInfoTlv(Packet):
     def guess_payload_class(self, p):
         return conf.padding_layer
 
+
 class VTPVlanInfo(Packet):
     name = "VTP VLAN Info"
     fields_desc = [
@@ -126,6 +127,7 @@ class VTPVlanInfo(Packet):
     def guess_payload_class(self, p):
         return conf.padding_layer
 
+
 _VTP_Types = {
             1 : 'Summary Advertisement',
             2 : 'Subset Advertisements',
@@ -133,12 +135,14 @@ _VTP_Types = {
             4 : 'Join'
             }
 
+
 class VTPTimeStampField(StrFixedLenField):
     def __init__(self, name, default):
         StrFixedLenField.__init__(self, name, default, 12)
 
     def i2repr(self, pkt, x):
         return "%s-%s-%s %s:%s:%s" % (x[:2], x[2:4], x[4:6], x[6:8], x[8:10], x[10:12])
+
 
 class VTP(Packet):
     name = "VTP"
@@ -178,6 +182,7 @@ class VTP(Packet):
         p += pay
 
         return p
+
 
 bind_layers(SNAP, VTP, code=0x2003)
 

@@ -11,6 +11,7 @@ Color themes for the interactive console.
 ## Color themes ##
 ##################
 
+
 class ColorTable:
     colors = { # Format: (ansi, pygments)
         "normal": ("\033[0m", "noinherit"),
@@ -41,7 +42,9 @@ class ColorTable:
             x = x.replace(k, " "+v)
         return x.strip()
         
+
 Color = ColorTable()
+
 
 def create_styler(fmt=None, before="", after="", fmt2="%s"):
     def do_style(val, fmt=fmt, before=before, after=after, fmt2=fmt2):
@@ -53,11 +56,14 @@ def create_styler(fmt=None, before="", after="", fmt2="%s"):
         return fmt2 % (before+val+after)
     return do_style
 
+
 class ColorTheme:
     def __repr__(self):
         return "<%s>" % self.__class__.__name__
+
     def __reduce__(self):
         return (self.__class__, (), ())
+
     def __getattr__(self, attr):
         if attr in ["__getstate__", "__setstate__", "__getinitargs__",
                     "__reduce_ex__"]:
@@ -81,7 +87,6 @@ class AnsiColorTheme(ColorTheme):
             before = after = ""
 
         return create_styler(before=before, after=after)
-        
         
     style_normal = ""
     style_prompt = ""
@@ -107,8 +112,10 @@ class AnsiColorTheme(ColorTheme):
     style_right = ""
     style_logo = ""
 
+
 class BlackAndWhite(AnsiColorTheme):
     pass
+
 
 class DefaultTheme(AnsiColorTheme):
     style_normal = Color.normal
@@ -135,6 +142,7 @@ class DefaultTheme(AnsiColorTheme):
     style_right = Color.red+Color.invert
     style_logo = Color.green+Color.bold
     
+
 class BrightTheme(AnsiColorTheme):
     style_normal = Color.normal
     style_punct = Color.normal
@@ -213,6 +221,7 @@ class FormatTheme(ColorTheme):
         colfmt = self.__class__.__dict__.get("style_%s" % attr, "%s")
         return create_styler(fmt2 = colfmt)       
 
+
 class LatexTheme(FormatTheme):
     style_prompt = r"\textcolor{blue}{%s}"
     style_not_printable = r"\textcolor{gray}{%s}"
@@ -231,6 +240,7 @@ class LatexTheme(FormatTheme):
 #    style_even = r"}{\bf "
 #    style_odd = ""
     style_logo = r"\textcolor{green}{\bf %s}"
+
 
 class LatexTheme2(FormatTheme):
     style_prompt = r"@`@textcolor@[@blue@]@@[@%s@]@"
@@ -251,6 +261,7 @@ class LatexTheme2(FormatTheme):
     style_right = r"@`@textcolor@[@red@]@@[@%s@]@"
     style_logo = r"@`@textcolor@[@green@]@@[@@`@bfseries@[@@]@%s@]@"
 
+
 class HTMLTheme(FormatTheme):
     style_prompt = "<span class=prompt>%s</span>"
     style_not_printable = "<span class=not_printable>%s</span>"
@@ -268,6 +279,7 @@ class HTMLTheme(FormatTheme):
     style_odd = "<span class=odd>%s</span>"
     style_left = "<span class=left>%s</span>"
     style_right = "<span class=right>%s</span>"
+
 
 class HTMLTheme2(HTMLTheme):
     style_prompt = "#[#span class=prompt#]#%s#[#/span#]#"
@@ -306,6 +318,7 @@ def apply_ipython_style(shell):
         class ClassicPrompt(Prompts):
             def in_prompt_tokens(self, cli=None):
                return [(Token.Prompt, str(conf.prompt)), ]
+
             def out_prompt_tokens(self):
                return [(Token.OutPrompt, ''), ]
         shell.prompts_class=ClassicPrompt # Apply classic prompt style

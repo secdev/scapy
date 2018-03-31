@@ -49,6 +49,8 @@ class SMBNetlogon_Protocol_Response_Header(Packet):
                    ByteField("unused5", 0)]
 
 # SMB MailSlot Protocol
+
+
 class SMBMailSlot(Packet):
     name = "SMB Mail Slot Protocol"
     fields_desc = [LEShortField("opcode", 1),
@@ -58,6 +60,8 @@ class SMBMailSlot(Packet):
                    StrNullField("name", "\\MAILSLOT\\NET\\GETDC660")]
 
 # SMB NetLogon Protocol Response Tail SAM
+
+
 class SMBNetlogon_Protocol_Response_Tail_SAM(Packet):
     name = "SMB Netlogon Protocol Response Tail SAM"
     fields_desc = [ByteEnumField("Command", 0x17, {0x12: "SAM logon request", 0x17: "SAM Active directory Response"}),
@@ -102,6 +106,8 @@ class SMBNetlogon_Protocol_Response_Tail_SAM(Packet):
                    ShortField("Data41", 0xffff)]                   
 
 # SMB NetLogon Protocol Response Tail LM2.0
+
+
 class SMBNetlogon_Protocol_Response_Tail_LM20(Packet):
     name = "SMB Netlogon Protocol Response Tail LM20"
     fields_desc = [ByteEnumField("Command", 0x06, {0x06: "LM 2.0 Response to logon request"}),
@@ -111,6 +117,8 @@ class SMBNetlogon_Protocol_Response_Tail_LM20(Packet):
                    LEShortField("LM20Token", 0xffff)]
 
 # SMBNegociate Protocol Request Header
+
+
 class SMBNegociate_Protocol_Request_Header(Packet):
     name="SMBNegociate Protocol Request Header"
     fields_desc = [StrFixedLenField("Start", b"\xffSMB", 4),
@@ -131,12 +139,16 @@ class SMBNegociate_Protocol_Request_Header(Packet):
                    LEShortField("ByteCount", 12)]
 
 # SMB Negociate Protocol Request Tail
+
+
 class SMBNegociate_Protocol_Request_Tail(Packet):
     name="SMB Negociate Protocol Request Tail"
     fields_desc=[ByteField("BufferFormat", 0x02),
                  StrNullField("BufferData", "NT LM 0.12")]
 
 # SMBNegociate Protocol Response Advanced Security
+
+
 class SMBNegociate_Protocol_Response_Advanced_Security(Packet):
     name="SMBNegociate Protocol Response Advanced Security"
     fields_desc = [StrFixedLenField("Start", b"\xffSMB", 4),
@@ -178,6 +190,8 @@ class SMBNegociate_Protocol_Response_Advanced_Security(Packet):
 
 # SMBNegociate Protocol Response No Security
 # When using no security, with EncryptionKeyLength=8, you must have an EncryptionKey before the DomainName
+
+
 class SMBNegociate_Protocol_Response_No_Security(Packet):
     name="SMBNegociate Protocol Response No Security"
     fields_desc = [StrFixedLenField("Start", b"\xffSMB", 4),
@@ -219,6 +233,8 @@ class SMBNegociate_Protocol_Response_No_Security(Packet):
                    StrNullField("ServerName", "RMFF1")]
     
 # SMBNegociate Protocol Response No Security No Key
+
+
 class SMBNegociate_Protocol_Response_No_Security_No_Key(Packet):
     namez="SMBNegociate Protocol Response No Security No Key"
     fields_desc = [StrFixedLenField("Start", b"\xffSMB", 4),
@@ -259,6 +275,8 @@ class SMBNegociate_Protocol_Response_No_Security_No_Key(Packet):
                    StrNullField("ServerName", "RMFF1")]
     
 # Session Setup AndX Request
+
+
 class SMBSession_Setup_AndX_Request(Packet):
     name="Session Setup AndX Request"
     fields_desc=[StrFixedLenField("Start", b"\xffSMB", 4),
@@ -310,6 +328,8 @@ class SMBSession_Setup_AndX_Request(Packet):
                  StrNullField("Service", "IPC")]
 
 # Session Setup AndX Response
+
+
 class SMBSession_Setup_AndX_Response(Packet):
     name="Session Setup AndX Response"
     fields_desc=[StrFixedLenField("Start", b"\xffSMB", 4),
@@ -343,6 +363,7 @@ class SMBSession_Setup_AndX_Response(Packet):
                  LEShortField("ByteCount2", 5),
                  StrNullField("Service", "IPC"),
                  StrNullField("NativeFileSystem", "")]
+
 
 bind_layers( NBTSession,                           SMBNegociate_Protocol_Request_Header, )
 bind_layers( NBTSession,    SMBNegociate_Protocol_Response_Advanced_Security,  ExtendedSecurity=1)

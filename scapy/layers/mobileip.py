@@ -16,6 +16,7 @@ class MobileIP(Packet):
     name = "Mobile IP (RFC3344)"
     fields_desc = [ ByteEnumField("type", 1, {1: "RRQ", 3: "RRP"}) ]
 
+
 class MobileIPRRQ(Packet):
     name = "Mobile IP Registration Request (RFC3344)"
     fields_desc = [ XByteField("flags", 0),
@@ -25,6 +26,7 @@ class MobileIPRRQ(Packet):
                     IPField("coaddr", "0.0.0.0"),
                     LongField("id", 0), ]
 
+
 class MobileIPRRP(Packet):
     name = "Mobile IP Registration Reply (RFC3344)"
     fields_desc = [ ByteField("code", 0),
@@ -32,6 +34,7 @@ class MobileIPRRP(Packet):
                     IPField("homeaddr", "0.0.0.0"),
                     IPField("haaddr", "0.0.0.0"),
                     LongField("id", 0), ]
+
 
 class MobileIPTunnelData(Packet):
     name = "Mobile IP Tunnel Data Message (RFC3519)"

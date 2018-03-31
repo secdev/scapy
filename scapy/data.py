@@ -138,6 +138,7 @@ def load_protocols(filename):
         log_loading.info("Can't open %s file", filename)
     return dct
 
+
 def load_ethertypes(filename):
     spaces = re.compile(b"[ \t]+|\n")
     dct = DADict(_name=filename)
@@ -161,6 +162,7 @@ def load_ethertypes(filename):
     except IOError as msg:
         pass
     return dct
+
 
 def load_services(filename):
     spaces = re.compile(b"[ \t]+|\n")
@@ -194,23 +196,27 @@ def load_services(filename):
 class ManufDA(DADict):
     def fixname(self, val):
         return plain_str(val)
+
     def _get_manuf_couple(self, mac):
         oui = ":".join(mac.split(":")[:3]).upper()
         return self.__dict__.get(oui, (mac, mac))
+
     def _get_manuf(self, mac):
         return self._get_manuf_couple(mac)[1]
+
     def _get_short_manuf(self, mac):
         return self._get_manuf_couple(mac)[0]
+
     def _resolve_MAC(self, mac):
         oui = ":".join(mac.split(":")[:3]).upper()
         if oui in self:
             return ":".join([self[oui][0]]+ mac.split(":")[3:])
         return mac
+
     def __repr__(self):
         return "\n".join("<%s %s, %s>" % (i[0], i[1][0], i[1][1]) for i in self.__dict__.items())
         
         
-
 def load_manuf(filename):
     manufdb=ManufDA(_name=filename)
     with open(filename, "rb") as fdesc:

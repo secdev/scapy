@@ -30,6 +30,7 @@ from scapy.layers.inet import TCP
 from scapy.base_classes import Net
 from scapy.modules.six.moves import range
 
+
 class _LDP_Packet(Packet):
     # Guess payload
     def guess_payload_class(self, p):
@@ -65,8 +66,10 @@ class _LDP_Packet(Packet):
 
 # 3.4.1. FEC TLV
 
+
 class FecTLVField(StrField):
     islist=1
+
     def m2i(self, pkt, x):
         nbr = struct.unpack("!H", x[2:4])[0]
         used = 0
@@ -87,6 +90,7 @@ class FecTLVField(StrField):
             used += 4 + nbroctets
             x=x[4+nbroctets:]
         return list
+
     def i2m(self, pkt, x):
         if not x:
             return b""
@@ -105,10 +109,12 @@ class FecTLVField(StrField):
         s += struct.pack("!H", l)
         s += fec
         return s
+
     def size(self, s):
         """Get the size of this field"""
         l = 4 + struct.unpack("!H", s[2:4])[0]
         return l
+
     def getfield(self, pkt, s):
         l = self.size(s)
         return s[l:], self.m2i(pkt, s[:l])
@@ -119,16 +125,19 @@ class FecTLVField(StrField):
 class LabelTLVField(StrField):
     def m2i(self, pkt, x):
         return struct.unpack("!I", x[4:8])[0]
+
     def i2m(self, pkt, x):
         if isinstance(x, bytes):
             return x
         s = b"\x02\x00\x00\x04"
         s += struct.pack("!I", x)
         return s
+
     def size(self, s):
         """Get the size of this field"""
         l = 4 + struct.unpack("!H", s[2:4])[0]
         return l
+
     def getfield(self, pkt, s):
         l = self.size(s)
         return s[l:], self.m2i(pkt, s[:l])
@@ -138,6 +147,7 @@ class LabelTLVField(StrField):
 
 class AddressTLVField(StrField):
     islist=1
+
     def m2i(self, pkt, x):
         nbr = struct.unpack("!H", x[2:4])[0] - 2
         nbr //= 4
@@ -147,6 +157,7 @@ class AddressTLVField(StrField):
             add = x[4*i:4*i+4]
             list.append(inet_ntoa(add))
         return list
+
     def i2m(self, pkt, x):
         if not x:
             return b""
@@ -157,10 +168,12 @@ class AddressTLVField(StrField):
         for o in x:
             s += inet_aton(o)
         return s
+
     def size(self, s):
         """Get the size of this field"""
         l = 4 + struct.unpack("!H", s[2:4])[0]
         return l
+
     def getfield(self, pkt, s):
         l = self.size(s)
         return s[l:], self.m2i(pkt, s[:l])
@@ -170,6 +183,7 @@ class AddressTLVField(StrField):
 
 class StatusTLVField(StrField):
     islist=1
+
     def m2i(self, pkt, x):
         l = []
         statuscode = struct.unpack("!I", x[4:8])[0]
@@ -179,6 +193,7 @@ class StatusTLVField(StrField):
         l.append( struct.unpack("!I", x[8:12])[0] )
         l.append( struct.unpack("!H", x[12:14])[0] )
         return l
+
     def i2m(self, pkt, x):
         if isinstance(x, bytes):
             return x
@@ -199,6 +214,7 @@ class StatusTLVField(StrField):
         else:
             s += b"\x00\x00"
         return s
+
     def getfield(self, pkt, s):
         l = 14
         return s[l:], self.m2i(pkt, s[:l])
@@ -207,6 +223,7 @@ class StatusTLVField(StrField):
 # 3.5.2 Common Hello Parameters TLV
 class CommonHelloTLVField(StrField):
     islist = 1
+
     def m2i(self, pkt, x):
         list = []
         v = struct.unpack("!H", x[4:6])[0]
@@ -217,6 +234,7 @@ class CommonHelloTLVField(StrField):
         v = ( flags & 0x40 ) >> 7
         list.append(v)
         return list
+
     def i2m(self, pkt, x):
         if isinstance(x, bytes):
             return x
@@ -230,6 +248,7 @@ class CommonHelloTLVField(StrField):
         s += struct.pack("!B", byte)
         s += b"\x00"
         return s
+
     def getfield(self, pkt, s):
         l = 8
         return s[l:], self.m2i(pkt, s[:l])
@@ -238,6 +257,7 @@ class CommonHelloTLVField(StrField):
 # 3.5.3 Common Session Parameters TLV
 class CommonSessionTLVField(StrField):
     islist = 1
+
     def m2i(self, pkt, x):
         l = [struct.unpack("!H", x[6:8])[0]]
         octet = struct.unpack("B", x[8:9])[0]
@@ -248,6 +268,7 @@ class CommonSessionTLVField(StrField):
         l.append( inet_ntoa(x[12:16]) )
         l.append( struct.unpack("!H", x[16:18])[0] )
         return l
+
     def i2m(self, pkt, x):
         if isinstance(x, bytes):
             return x
@@ -264,11 +285,11 @@ class CommonSessionTLVField(StrField):
         s += inet_aton(x[5])
         s += struct.pack("!H", x[6])
         return s
+
     def getfield(self, pkt, s):
         l = 18
         return s[l:], self.m2i(pkt, s[:l])
     
-
 
 ## Messages ##
 
@@ -282,6 +303,8 @@ class LDPNotification(_LDP_Packet):
                     StatusTLVField("status", (0, 0, 0, 0, 0)) ]
 
 # 3.5.2. Hello Message
+
+
 class LDPHello(_LDP_Packet):
     name = "LDPHello"
     fields_desc = [ BitField("u", 0, 1),
@@ -291,6 +314,8 @@ class LDPHello(_LDP_Packet):
                     CommonHelloTLVField("params", [180, 0, 0]) ]
 
 # 3.5.3. Initialization Message
+
+
 class LDPInit(_LDP_Packet):
     name = "LDPInit"
     fields_desc = [ BitField("u", 0, 1),
@@ -300,6 +325,8 @@ class LDPInit(_LDP_Packet):
                     CommonSessionTLVField("params", None)]
 
 # 3.5.4. KeepAlive Message
+
+
 class LDPKeepAlive(_LDP_Packet):
     name = "LDPKeepAlive"
     fields_desc = [ BitField("u", 0, 1),
@@ -308,6 +335,7 @@ class LDPKeepAlive(_LDP_Packet):
                     IntField("id", 0)]
 
 # 3.5.5. Address Message
+
 
 class LDPAddress(_LDP_Packet):
     name = "LDPAddress"
@@ -319,6 +347,7 @@ class LDPAddress(_LDP_Packet):
 
 # 3.5.6. Address Withdraw Message
 
+
 class LDPAddressWM(_LDP_Packet):
     name = "LDPAddressWM"
     fields_desc = [ BitField("u", 0, 1),
@@ -328,6 +357,7 @@ class LDPAddressWM(_LDP_Packet):
                     AddressTLVField("address", None) ]
 
 # 3.5.7. Label Mapping Message
+
 
 class LDPLabelMM(_LDP_Packet):
     name = "LDPLabelMM"
@@ -340,6 +370,7 @@ class LDPLabelMM(_LDP_Packet):
 
 # 3.5.8. Label Request Message
 
+
 class LDPLabelReqM(_LDP_Packet):
     name = "LDPLabelReqM"
     fields_desc = [ BitField("u", 0, 1),
@@ -349,6 +380,7 @@ class LDPLabelReqM(_LDP_Packet):
                     FecTLVField("fec", None)]
 
 # 3.5.9. Label Abort Request Message
+
 
 class LDPLabelARM(_LDP_Packet):
     name = "LDPLabelARM"
@@ -361,6 +393,7 @@ class LDPLabelARM(_LDP_Packet):
 
 # 3.5.10. Label Withdraw Message
 
+
 class LDPLabelWM(_LDP_Packet):
     name = "LDPLabelWM"
     fields_desc = [ BitField("u", 0, 1),
@@ -372,6 +405,7 @@ class LDPLabelWM(_LDP_Packet):
 
 # 3.5.11. Label Release Message
 
+
 class LDPLabelRelM(_LDP_Packet):
     name = "LDPLabelRelM"
     fields_desc = [ BitField("u", 0, 1),
@@ -382,18 +416,22 @@ class LDPLabelRelM(_LDP_Packet):
                     LabelTLVField("label", 0)]
 
 # 3.1. LDP PDUs
+
+
 class LDP(_LDP_Packet):
     name = "LDP"
     fields_desc = [ ShortField("version", 1),
                     ShortField("len", None),
                     IPField("id", "127.0.0.1"),
                     ShortField("space", 0) ]
+
     def post_build(self, p, pay):
         pay = pay or b""
         if self.len is None:
             l = len(p) + len(pay) - 4
             p = p[:2]+struct.pack("!H", l)+p[4:]
         return p + pay
+
 
 bind_layers( TCP, LDP, sport=646, dport=646 )
 bind_layers( UDP, LDP, sport=646, dport=646 )

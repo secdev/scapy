@@ -22,6 +22,7 @@ from scapy.fields import *
 from scapy.layers.inet import UDP
 from scapy.layers.inet6 import *
 
+
 class RIPng(Packet):
     name = "RIPng header"
     fields_desc = [
@@ -29,6 +30,7 @@ class RIPng(Packet):
                     ByteField("ver", 1),
                     ShortField("null", 0)
             ]
+
 
 class RIPngEntry(Packet):
     name = "RIPng entry"
@@ -39,6 +41,7 @@ class RIPngEntry(Packet):
                     ByteEnumField("metric", 1, {16 : "Unreach",
                                                 255 : "next-hop entry"})
             ]
+
 
 bind_layers(UDP,        RIPng,          sport=521, dport=521)
 bind_layers(RIPng,      RIPngEntry)

@@ -11,15 +11,19 @@ Logging subsystem and basic exception class.
 ##### Logging subsystem #####
 #############################
 
+
 class Scapy_Exception(Exception):
     pass
 
+
 import logging, traceback, time
+
 
 class ScapyFreqFilter(logging.Filter):
     def __init__(self):
         logging.Filter.__init__(self)
         self.warning_table = {}
+
     def filter(self, record):
         from scapy.config import conf
         wt = conf.warning_threshold
@@ -44,6 +48,7 @@ class ScapyFreqFilter(logging.Filter):
                     return 0
             self.warning_table[caller] = (tm, nb)
         return 1    
+
 
 log_scapy = logging.getLogger("scapy")
 log_scapy.addHandler(logging.NullHandler())

@@ -99,6 +99,7 @@ class PPTPStartControlConnectionRequest(PPTP):
                    StrFixedLenField("host_name", "linux", 64),
                    StrFixedLenField("vendor_string", "", 64)]
 
+
 _PPTP_start_control_connection_result = {1: "OK",
                                          2: "General error",
                                          3: "Command channel already exists",
@@ -147,6 +148,7 @@ class PPTPStopControlConnectionRequest(PPTP):
                    XByteField("reserved_1", 0x00),
                    XShortField("reserved_2", 0x0000)]
 
+
 _PPTP_stop_control_connection_result = {1: "OK",
                                         2: "General error"}
 
@@ -176,6 +178,7 @@ class PPTPEchoRequest(PPTP):
                    XShortField("reserved_0", 0x0000),
                    IntField("identifier", None)]
 
+
 _PPTP_echo_result = {1: "OK",
                      2: "General error"}
 
@@ -194,6 +197,7 @@ class PPTPEchoReply(PPTP):
 
     def answers(self, other):
         return isinstance(other, PPTPEchoRequest) and other.identifier == self.identifier
+
 
 _PPTP_bearer_type = {1: "Analog channel",
                      2: "Digital channel",
@@ -223,6 +227,7 @@ class PPTPOutgoingCallRequest(PPTP):
                    XShortField("reserved_1", 0x0000),
                    StrFixedLenField("phone_number", '', 64),
                    StrFixedLenField("subaddress", '', 64)]
+
 
 _PPTP_result_code = {1: "Connected",
                      2: "General error",
@@ -319,6 +324,7 @@ class PPTPCallClearRequest(PPTP):
                    ShortField("call_id", 1),
                    XShortField("reserved_1", 0x0000)]
 
+
 _PPTP_call_disconnect_result = {1: "Lost Carrier",
                                 2: "General error",
                                 3: "Admin Shutdown",
@@ -369,6 +375,7 @@ class PPTPSetLinkInfo(PPTP):
                    XShortField("reserved_1", 0x0000),
                    XIntField("send_accm", 0x00000000),
                    XIntField("receive_accm", 0x00000000)]
+
 
 bind_layers(TCP, PPTP, sport=1723)
 bind_layers(TCP, PPTP, dport=1723)

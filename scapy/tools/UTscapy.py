@@ -23,6 +23,7 @@ class Bunch:
 
 #### Import tool ####
 
+
 def import_module(name):
     name = os.path.realpath(name)
     thepath = os.path.dirname(name)
@@ -45,10 +46,13 @@ class File:
         self.name = name
         self.local = local.encode("utf8")
         self.URL = URL
+
     def get_local(self):
         return bz2.decompress(base64.decodestring(self.local))
+
     def get_URL(self):
         return self.URL
+
     def write(self, dir):
         if dir:
             dir += "/"
@@ -91,10 +95,12 @@ WeXDoWEx2FMyyZRAB5QyCFnwYtwtWAQmmITY8aIM2SZyRnHH9Wi8+Sr2qyCscFYo
 vzM985aHXOHAxQN2UQZbQkUv3D4Vc+lyvalAffv3Tyg4ks3a22kPXiyeCGweviNX
 0K8TKasyOhGsVamTUAZBXfQVw1zmdS4rHDnbHgtIjX3DcCt6UIr0BHTYjdV0JbPj
 r1APYgXihjQwM2M83AKIhwQQJv/F3JFOFCQNsEI0QA==""")
+
     def get_local_dict(cls):
         return {x: y.name for (x, y) in six.iteritems(cls.__dict__)
                 if isinstance(y, File)}
     get_local_dict = classmethod(get_local_dict)
+
     def get_URL_dict(cls):
         return {x: y.URL for (x, y) in six.iteritems(cls.__dict__)
                 if isinstance(y, File)}
@@ -108,6 +114,7 @@ class EnumClass:
         return cls.__dict__[x.upper()]
     from_string = classmethod(from_string)
     
+
 class Format(EnumClass):
     TEXT  = 1
     ANSI  = 2
@@ -121,6 +128,7 @@ class Format(EnumClass):
 class TestClass:
     def __getitem__(self, item):
         return getattr(self, item)
+
     def add_keywords(self, kws):
         if isinstance(kws, six.string_types):
             kws = [kws]
@@ -132,6 +140,7 @@ class TestClass:
                     pass
             else:
                 self.keywords.add(kwd)
+
 
 class TestCampaign(TestClass):
     def __init__(self, title):
@@ -145,21 +154,26 @@ class TestCampaign(TestClass):
         self.preexec = None
         self.preexec_output = None
         self.end_pos = 0
+
     def add_testset(self, testset):
         self.campaign.append(testset)
         testset.keywords.update(self.keywords)
+
     def startNum(self, beginpos):
         for ts in self:
             for t in ts:
                 t.num = beginpos
                 beginpos += 1
         self.end_pos = beginpos
+
     def __iter__(self):
         return self.campaign.__iter__()
+
     def all_tests(self):
         for ts in self:
             for t in ts:
                 yield t
+
 
 class TestSet(TestClass):
     def __init__(self, name):
@@ -169,11 +183,14 @@ class TestSet(TestClass):
         self.keywords = set()
         self.crc = None
         self.expand = 1
+
     def add_test(self, test):
         self.tests.append(test)
         test.keywords.update(self.keywords)
+
     def __iter__(self):
         return self.tests.__iter__()
+
 
 class UnitTest(TestClass):
     def __init__(self, name):
@@ -187,12 +204,14 @@ class UnitTest(TestClass):
         self.keywords = set()
         self.crc = None
         self.expand = 1
+
     def decode(self):
         if six.PY2:
             self.test = self.test.decode("utf8", "ignore")
             self.output = self.output.decode("utf8", "ignore")
             self.comments = self.comments.decode("utf8", "ignore")
             self.result = self.result.decode("utf8", "ignore")
+
     def __nonzero__(self):
         return self.res
     __bool__ = __nonzero__
@@ -227,6 +246,7 @@ def parse_config_file(config_path, verb=3):
         data = json.load(config_file, encoding="utf8")
         if verb > 2:
             print("### Loaded config file", config_path, file=sys.stderr)
+
     def get_if_exist(key, default):
         return data[key] if key in data else default
     return Bunch(testfiles=get_if_exist("testfiles", []),
@@ -246,6 +266,7 @@ def parse_config_file(config_path, verb=3):
                  format=get_if_exist("format", "ansi"))
 
 #### PARSE CAMPAIGN ####
+
 
 def parse_campaign_file(campaign_file):
     test_campaign = TestCampaign("Test campaign")
@@ -285,6 +306,7 @@ def parse_campaign_file(campaign_file):
                 test.test += l
     return test_campaign
 
+
 def dump_campaign(test_campaign):
     print("#"*(len(test_campaign.title)+6))
     print("## %(title)s ##" % test_campaign)
@@ -310,6 +332,7 @@ def dump_campaign(test_campaign):
             if c or k:
                 print("    %s%s" % (c, k)) 
 
+
 #### COMPUTE CAMPAIGN DIGESTS ####
 if six.PY2:
     def crc32(x):
@@ -323,6 +346,7 @@ else:
 
     def sha1(x):
         return hashlib.sha1(x.encode("utf8")).hexdigest().upper()
+
 
 def compute_campaign_digests(test_campaign):
     dc = ""
@@ -347,6 +371,7 @@ def filter_tests_on_numbers(test_campaign, num):
         test_campaign.campaign = [ts for ts in test_campaign.campaign
                                   if ts.tests]
 
+
 def filter_tests_keep_on_keywords(test_campaign, kw):
     def kw_match(lst, kw):
         for k in lst:
@@ -357,6 +382,7 @@ def filter_tests_keep_on_keywords(test_campaign, kw):
     if kw:
         for ts in test_campaign:
             ts.tests = [t for t in ts.tests if kw_match(t.keywords, kw)]
+
 
 def filter_tests_remove_on_keywords(test_campaign, kw):
     def kw_match(lst, kw):
@@ -419,6 +445,7 @@ def info_line(test_campaign):
     else:
         return "Run %s from [%s] by UTscapy" % (time.ctime(), filename)
 
+
 def html_info_line(test_campaign):
     filename = test_campaign.filename
     if filename is None:
@@ -443,6 +470,7 @@ def campaign_to_TEXT(test_campaign):
 
     return output
  
+
 def campaign_to_ANSI(test_campaign):
     output="%(title)s\n" % test_campaign
     output += "-- "+info_line(test_campaign)+"\n\n"
@@ -456,6 +484,7 @@ def campaign_to_ANSI(test_campaign):
                     output += "###(%(num)03i)=[%(result)s] %(name)s\n%(comments)s\n%(output)s\n\n" % t
 
     return output
+
 
 def campaign_to_xUNIT(test_campaign):
     output='<?xml version="1.0" encoding="UTF-8" ?>\n<testsuite>\n'
@@ -512,6 +541,7 @@ def campaign_to_HTML(test_campaign):
         output += "\n</ul>\n\n"
     return output
 
+
 def pack_html_campaigns(runned_campaigns, data, local=0, title=None):
     output = """
 <html>
@@ -549,6 +579,7 @@ def pack_html_campaigns(runned_campaigns, data, local=0, title=None):
 
     output %= out_dict
     return output
+
 
 def campaign_to_LATEX(test_campaign):
     output = r"""\documentclass{report}
@@ -591,7 +622,6 @@ def campaign_to_LATEX(test_campaign):
 
     output += "\\end{document}\n"
     return output
-
 
 
 #### USAGE ####
@@ -645,7 +675,6 @@ def execute_campaign(TESTFILE, OUTPUTFILE, PREEXEC, NUM, KW_OK, KW_KO, DUMP,
 
     remove_empty_testsets(test_campaign)
 
-
     # Dump campaign
     if DUMP:
         dump_campaign(test_campaign)
@@ -680,12 +709,14 @@ def execute_campaign(TESTFILE, OUTPUTFILE, PREEXEC, NUM, KW_OK, KW_KO, DUMP,
 
     return output, (result == 0), test_campaign
 
+
 def resolve_testfiles(TESTFILES):
     for tfile in TESTFILES[:]:
         if "*" in tfile:
             TESTFILES.remove(tfile)
             TESTFILES.extend(glob.glob(tfile))
     return TESTFILES
+
 
 def main(argv):
     ignore_globals = list(six.moves.builtins.__dict__.keys())
@@ -856,6 +887,7 @@ def main(argv):
 
     # Return state
     return glob_result
+
 
 if __name__ == "__main__":
     sys.exit(main(sys.argv[1:]))

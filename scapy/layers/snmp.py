@@ -23,6 +23,7 @@ from scapy.layers.inet import UDP, IP, ICMP
 
 ######[ ASN1 class ]######
 
+
 class ASN1_Class_SNMP(ASN1_Class_UNIVERSAL):
     name="SNMP"
     PDU_GET = 0xa0
@@ -38,23 +39,30 @@ class ASN1_Class_SNMP(ASN1_Class_UNIVERSAL):
 class ASN1_SNMP_PDU_GET(ASN1_SEQUENCE):
     tag = ASN1_Class_SNMP.PDU_GET
 
+
 class ASN1_SNMP_PDU_NEXT(ASN1_SEQUENCE):
     tag = ASN1_Class_SNMP.PDU_NEXT
+
 
 class ASN1_SNMP_PDU_RESPONSE(ASN1_SEQUENCE):
     tag = ASN1_Class_SNMP.PDU_RESPONSE
 
+
 class ASN1_SNMP_PDU_SET(ASN1_SEQUENCE):
     tag = ASN1_Class_SNMP.PDU_SET
+
 
 class ASN1_SNMP_PDU_TRAPv1(ASN1_SEQUENCE):
     tag = ASN1_Class_SNMP.PDU_TRAPv1
 
+
 class ASN1_SNMP_PDU_BULK(ASN1_SEQUENCE):
     tag = ASN1_Class_SNMP.PDU_BULK
 
+
 class ASN1_SNMP_PDU_INFORM(ASN1_SEQUENCE):
     tag = ASN1_Class_SNMP.PDU_INFORM
+
 
 class ASN1_SNMP_PDU_TRAPv2(ASN1_SEQUENCE):
     tag = ASN1_Class_SNMP.PDU_TRAPv2
@@ -65,27 +73,33 @@ class ASN1_SNMP_PDU_TRAPv2(ASN1_SEQUENCE):
 class BERcodec_SNMP_PDU_GET(BERcodec_SEQUENCE):
     tag = ASN1_Class_SNMP.PDU_GET
 
+
 class BERcodec_SNMP_PDU_NEXT(BERcodec_SEQUENCE):
     tag = ASN1_Class_SNMP.PDU_NEXT
+
 
 class BERcodec_SNMP_PDU_RESPONSE(BERcodec_SEQUENCE):
     tag = ASN1_Class_SNMP.PDU_RESPONSE
 
+
 class BERcodec_SNMP_PDU_SET(BERcodec_SEQUENCE):
     tag = ASN1_Class_SNMP.PDU_SET
+
 
 class BERcodec_SNMP_PDU_TRAPv1(BERcodec_SEQUENCE):
     tag = ASN1_Class_SNMP.PDU_TRAPv1
 
+
 class BERcodec_SNMP_PDU_BULK(BERcodec_SEQUENCE):
     tag = ASN1_Class_SNMP.PDU_BULK
+
 
 class BERcodec_SNMP_PDU_INFORM(BERcodec_SEQUENCE):
     tag = ASN1_Class_SNMP.PDU_INFORM
 
+
 class BERcodec_SNMP_PDU_TRAPv2(BERcodec_SEQUENCE):
     tag = ASN1_Class_SNMP.PDU_TRAPv2
-
 
 
 ######[ ASN1 fields ]######
@@ -93,30 +107,37 @@ class BERcodec_SNMP_PDU_TRAPv2(BERcodec_SEQUENCE):
 class ASN1F_SNMP_PDU_GET(ASN1F_SEQUENCE):
     ASN1_tag = ASN1_Class_SNMP.PDU_GET
 
+
 class ASN1F_SNMP_PDU_NEXT(ASN1F_SEQUENCE):
     ASN1_tag = ASN1_Class_SNMP.PDU_NEXT
+
 
 class ASN1F_SNMP_PDU_RESPONSE(ASN1F_SEQUENCE):
     ASN1_tag = ASN1_Class_SNMP.PDU_RESPONSE
 
+
 class ASN1F_SNMP_PDU_SET(ASN1F_SEQUENCE):
     ASN1_tag = ASN1_Class_SNMP.PDU_SET
+
 
 class ASN1F_SNMP_PDU_TRAPv1(ASN1F_SEQUENCE):
     ASN1_tag = ASN1_Class_SNMP.PDU_TRAPv1
 
+
 class ASN1F_SNMP_PDU_BULK(ASN1F_SEQUENCE):
     ASN1_tag = ASN1_Class_SNMP.PDU_BULK
 
+
 class ASN1F_SNMP_PDU_INFORM(ASN1F_SEQUENCE):
     ASN1_tag = ASN1_Class_SNMP.PDU_INFORM
+
 
 class ASN1F_SNMP_PDU_TRAPv2(ASN1F_SEQUENCE):
     ASN1_tag = ASN1_Class_SNMP.PDU_TRAPv2
 
 
-
 ######[ SNMP Packet ]######
+
 
 SNMP_error = { 0: "no_error",
                1: "too_big",
@@ -148,6 +169,7 @@ SNMP_trap_types = { 0: "cold_start",
                     6: "enterprise_specific",
                     }
 
+
 class SNMPvarbind(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE( ASN1F_OID("oid", "1.3"),
@@ -163,6 +185,7 @@ class SNMPget(ASN1_Packet):
                                     ASN1F_SEQUENCE_OF("varbindlist", [], SNMPvarbind)
                                     )
 
+
 class SNMPnext(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SNMP_PDU_NEXT( ASN1F_INTEGER("id", 0),
@@ -170,6 +193,7 @@ class SNMPnext(ASN1_Packet):
                                      ASN1F_INTEGER("error_index", 0),
                                      ASN1F_SEQUENCE_OF("varbindlist", [], SNMPvarbind)
                                      )
+
 
 class SNMPresponse(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
@@ -179,6 +203,7 @@ class SNMPresponse(ASN1_Packet):
                                          ASN1F_SEQUENCE_OF("varbindlist", [], SNMPvarbind)
                                          )
 
+
 class SNMPset(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SNMP_PDU_SET( ASN1F_INTEGER("id", 0),
@@ -187,6 +212,7 @@ class SNMPset(ASN1_Packet):
                                     ASN1F_SEQUENCE_OF("varbindlist", [], SNMPvarbind)
                                     )
     
+
 class SNMPtrapv1(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SNMP_PDU_TRAPv1( ASN1F_OID("enterprise", "1.3"),
@@ -197,6 +223,7 @@ class SNMPtrapv1(ASN1_Packet):
                                        ASN1F_SEQUENCE_OF("varbindlist", [], SNMPvarbind)
                                        )
 
+
 class SNMPbulk(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SNMP_PDU_BULK( ASN1F_INTEGER("id", 0),
@@ -205,6 +232,7 @@ class SNMPbulk(ASN1_Packet):
                                      ASN1F_SEQUENCE_OF("varbindlist", [], SNMPvarbind)
                                      )
     
+
 class SNMPinform(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SNMP_PDU_INFORM( ASN1F_INTEGER("id", 0),
@@ -213,6 +241,7 @@ class SNMPinform(ASN1_Packet):
                                        ASN1F_SEQUENCE_OF("varbindlist", [], SNMPvarbind)
                                        )
     
+
 class SNMPtrapv2(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SNMP_PDU_TRAPv2( ASN1F_INTEGER("id", 0),
@@ -231,6 +260,7 @@ class SNMP(ASN1_Packet):
                      SNMPget, SNMPnext, SNMPresponse, SNMPset,
                      SNMPtrapv1, SNMPbulk, SNMPinform, SNMPtrapv2)
         )
+
     def answers(self, other):
         return ( isinstance(self.PDU, SNMPresponse)    and
                  ( isinstance(other.PDU, SNMPget) or
@@ -238,11 +268,13 @@ class SNMP(ASN1_Packet):
                    isinstance(other.PDU, SNMPset)    ) and
                  self.PDU.id == other.PDU.id )
 
+
 bind_bottom_up(UDP, SNMP, sport=161)
 bind_bottom_up(UDP, SNMP, dport=161)
 bind_bottom_up(UDP, SNMP, sport=162)
 bind_bottom_up(UDP, SNMP, dport=162)
 bind_layers(UDP, SNMP, sport=161, dport=161)
+
 
 def snmpwalk(dst, oid="1", community="public"):
     try:

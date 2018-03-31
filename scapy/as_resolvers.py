@@ -13,9 +13,11 @@ import socket, errno
 from scapy.config import conf
 from scapy.compat import *
 
+
 class AS_resolver:
     server = None
     options = "-k" 
+
     def __init__(self, server=None, port=43, options=None):
         if server is not None:
             self.server = server
@@ -29,6 +31,7 @@ class AS_resolver:
         if self.options:
             self.s.send(self.options.encode("utf8")+b"\n")
             self.s.recv(8192)
+
     def _stop(self):
         self.s.close()
         
@@ -52,6 +55,7 @@ class AS_resolver:
             x += self.s.recv(8192)
         asn, desc = self._parse_whois(x)
         return ip, asn, desc
+
     def resolve(self, *ips):
         self._start()
         ret = []
@@ -61,6 +65,7 @@ class AS_resolver:
                 ret.append((ip, asn, desc))
         self._stop()
         return ret
+
 
 class AS_resolver_riswhois(AS_resolver):
     server = "riswhois.ripe.net"
@@ -75,6 +80,7 @@ class AS_resolver_radb(AS_resolver):
 class AS_resolver_cymru(AS_resolver):
     server = "whois.cymru.com"
     options = None
+
     def resolve(self, *ips):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.connect((self.server, self.port))
@@ -104,11 +110,14 @@ class AS_resolver_cymru(AS_resolver):
             ASNlist.append((ip, asn, desc))
         return ASNlist
 
+
 class AS_resolver_multi(AS_resolver):
     resolvers_list = ( AS_resolver_riswhois(), AS_resolver_radb(), AS_resolver_cymru() )
+
     def __init__(self, *reslist):
         if reslist:
             self.resolvers_list = reslist
+
     def resolve(self, *ips):
         todo = ips
         ret = []

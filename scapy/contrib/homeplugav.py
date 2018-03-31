@@ -153,6 +153,7 @@ QualcommTypeList = {  #0xA000 : "VS_SW_VER",
 
 EofPadList = [ 0xA000, 0xA038 ] # TODO: The complete list of Padding can help to improve the condition in VendorMME Class
 
+
 def FragmentCond(pkt):
     """
         A fragementation field condition
@@ -161,6 +162,7 @@ def FragmentCond(pkt):
     fragTypeTable = [ 0xA038, 0xA039 ]
     return ((pkt.version == 0x01 )  and ( pkt.HPtype in fragTypeTable ))
 
+
 class MACManagementHeader(Packet):
     name = "MACManagementHeader "
     if DefaultVendor == "Qualcomm":
@@ -168,9 +170,11 @@ class MACManagementHeader(Packet):
     fields_desc=[ ByteEnumField("version", 0, HPAVversionList),
                 EnumField("HPtype" , 0xA000, HPAVTypeList, "<H") ]
 
+
 class VendorMME(Packet):
     name = "VendorMME "
     fields_desc=[ X3BytesField("OUI", 0x00b052) ]
+
 
 class GetDeviceVersion(Packet):
     name = "GetDeviceVersion"
@@ -181,6 +185,7 @@ class GetDeviceVersion(Packet):
                 StrLenField("DeviceVersion_pad", b"\xcc\xcc\xcc\xcc\xcc"+b"\x00"*59, length_from = lambda pkt: 64-pkt.VersionLen), 
                 ByteEnumField("Upgradable", 0, {0: "False", 1: "True"}) ]
 
+
 class NetworkInformationRequest(Packet):
     name = "NetworkInformationRequest"
     fields_desc=[ ]
@@ -188,6 +193,8 @@ class NetworkInformationRequest(Packet):
 #""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 #   Networks & Stations informations for MAC Management V1.0
 #""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+
 class NetworkInfoV10(Packet):
     """
         Network Information Element
@@ -202,6 +209,7 @@ class NetworkInfoV10(Packet):
 
     def extract_padding(self, p):
         return b"", p
+
 
 class StationInfoV10(Packet):
     """
@@ -220,6 +228,8 @@ class StationInfoV10(Packet):
 #""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 #   Networks & Stations informations for MAC Management V1.1 
 #""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+
 class NetworkInfoV11(Packet):
     """
         Network Information Element
@@ -260,6 +270,7 @@ class StationInfoV11(Packet):
 
 #""""""""""""""""""""""""" END """"""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
+
 class NetworkInfoConfirmationV10(Packet):
     """
         Network Information Confirmation following the MAC Management version 1.0
@@ -269,6 +280,7 @@ class NetworkInfoConfirmationV10(Packet):
                 PacketListField("NetworksInfos", "", NetworkInfoV10, length_from=lambda pkt: pkt.LogicalNetworksNumber * 17),
                 XByteField("StationsNumber", 0x01),
                 PacketListField("StationsInfos", "", StationInfoV10, length_from=lambda pkt: pkt.StationsNumber * 21) ]
+
 
 class NetworkInfoConfirmationV11(Packet):
     """
@@ -288,6 +300,7 @@ class NetworkInfoConfirmationV11(Packet):
 ActionsList = { 0x02 : "'PIB Update Ready'",
                 0x04 : "'Loader (Bootloader)'" }
 
+
 class HostActionRequired(Packet):
     """
         Embedded Host Action Required Indice
@@ -295,12 +308,14 @@ class HostActionRequired(Packet):
     name = "HostActionRequired"
     fields_desc=[ ByteEnumField("ActionRequired", 0x02, ActionsList) ]
 
+
 class LoopbackRequest(Packet):
     name = "LoopbackRequest"
     fields_desc=[ ByteField("Duration", 0x01),
                 ByteField("reserved_l1", 0x01),
                 ShortField("LRlength", 0x0000) ]
                 # TODO: Test all possibles data to complete it
+
 
 class LoopbackConfirmation(Packet):
     name = "LoopbackConfirmation"
@@ -311,6 +326,7 @@ class LoopbackConfirmation(Packet):
 ################################################################
 # Encryption Key Packets
 ################################################################
+
 
 class SetEncryptionKeyRequest(Packet):
     name = "SetEncryptionKeyRequest"
@@ -324,9 +340,11 @@ class SetEncryptionKeyRequest(Packet):
                                 b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00", 
                                 16) ]
 
+
 SetEncKey_Status = {    0x00 : "Success",
                         0x10 : "Invalid EKS",
                         0x11 : "Invalid PKS" }
+
 
 class SetEncryptionKeyConfirmation(Packet):
     name = "SetEncryptionKeyConfirmation"
@@ -336,6 +354,7 @@ class SetEncryptionKeyConfirmation(Packet):
 # Default config Packet
 ################################################################
 
+
 class QUAResetFactoryConfirm(Packet):
     name = "QUAResetFactoryConfirm"
     fields_desc=[ ByteEnumField("Status", 0x0, StatusCodes) ] #TODO : Probably a Status bytefield?
@@ -344,9 +363,11 @@ class QUAResetFactoryConfirm(Packet):
 # NVM Parameters Packets
 ######################################################################
 
+
 class GetNVMParametersRequest(Packet):
     name = "Get NVM Parameters Request"
     fields_desc=[ ]
+
 
 class GetNVMParametersConfirmation(Packet):
     name = "Get NVM Parameters Confirmation"
@@ -360,27 +381,33 @@ class GetNVMParametersConfirmation(Packet):
 # Sniffer Packets
 ######################################################################
 
+
 SnifferControlList = { 0x0 : "'Disabled'",
                        0x1 : "'Enabled'" }
 
 SnifferTypeCodes = { 0x00 : "'Regular'" }
 
+
 class SnifferRequest(Packet):
     name = "SnifferRequest"
     fields_desc=[ ByteEnumField("SnifferControl", 0x0, SnifferControlList) ]
 
+
 SnifferCodes = { 0x00 : "'Success'",
                  0x10 : "'Invalid Control'" }
+
 
 class SnifferConfirmation(Packet):
     name = "SnifferConfirmation"
     fields_desc=[ ByteEnumField("Status", 0x0, StatusCodes) ]
+
 
 DirectionCodes = { 0x00 : "'Tx'",
                    0x01 : "'Rx'" }
 
 ANCodes = { 0x00 : "'In-home'",
             0x01 : "'Access'" }
+
 
 class SnifferIndicate(Packet):
     # TODO: Some bitfield have been regrouped for the moment => need more work on it
@@ -421,15 +448,18 @@ class SnifferIndicate(Packet):
 # Read MAC Memory
 #####################################################################
 
+
 class ReadMACMemoryRequest(Packet):
     name = "ReadMACMemoryRequest"
     fields_desc=[ LEIntField("Address" , 0x00000000),
                   LEIntField("Length", 0x00000400), 
                 ]
 
+
 ReadMACStatus = { 0x00 : "Success",
                   0x10 : "Invalid Address",
                   0x14 : "Invalid Length" }
+
 
 class ReadMACMemoryConfirmation(Packet):
     name = "ReadMACMemoryConfirmation"
@@ -444,10 +474,12 @@ class ReadMACMemoryConfirmation(Packet):
 # Read Module Datas
 ######################################################################
 
+
 ModuleIDList = {    0x00 : "MAC Soft-Loader Image",
                     0x01 : "MAC Software Image",
                     0x02 : "PIB",
                     0x10 : "Write Alternate Flash Location" }
+
 
 def chksum32(data):
     cksum = 0
@@ -455,12 +487,14 @@ def chksum32(data):
         cksum = (cksum ^ struct.unpack('<I', data[i:i+4])[0]) & 0xffffffff   
     return (~cksum) & 0xffffffff
 
+
 class ReadModuleDataRequest(Packet):
     name = "ReadModuleDataRequest"
     fields_desc=[ ByteEnumField("ModuleID", 0x02, ModuleIDList),
                   XByteField("reserved", 0x00),
                   LEShortField("Length" , 0x0400),
                   LEIntField("Offset", 0x00000000) ]
+
 
 class ReadModuleDataConfirmation(Packet):
     name = "ReadModuleDataConfirmation"
@@ -487,6 +521,7 @@ class ReadModuleDataConfirmation(Packet):
 # Write Module Datas
 ######################################################################
 
+
 class WriteModuleDataRequest(Packet):
     name = "WriteModuleDataRequest"
     fields_desc=[ ByteEnumField("ModuleID", 0x02, ModuleIDList),
@@ -510,6 +545,7 @@ class WriteModuleDataRequest(Packet):
 # Parse PIB                          #
 ######################################
 
+
 class ClassifierPriorityMap(Packet):
     name = "ClassifierPriorityMap"
     fields_desc=[ LEIntField("Priority" , 0),
@@ -523,6 +559,7 @@ class ClassifierPriorityMap(Packet):
     def extract_padding(self, p):
         return b"", p
 
+
 class ClassifierObj(Packet):
     name = "ClassifierObj"
     
@@ -535,6 +572,7 @@ class ClassifierObj(Packet):
 
     def extract_padding(self, p):
         return b"", p
+
 
 class AutoConnection(Packet):
     name = "AutoConnection"
@@ -561,6 +599,7 @@ class AutoConnection(Packet):
     def extract_padding(self, p):
         return b"", p
 
+
 class PeerNode(Packet):
     name = "PeerNodes"
     fields_desc=[ XByteField("PeerTEI", 0x0),
@@ -569,6 +608,7 @@ class PeerNode(Packet):
 
     def extract_padding(self, p):
         return b"", p
+
 
 class AggregateConfigEntrie(Packet):
     name = "AggregateConfigEntrie"
@@ -579,6 +619,7 @@ class AggregateConfigEntrie(Packet):
     def extract_padding(self, p):
         return b"", p
 
+
 class RSVD_CustomAggregationParameter(Packet):
     name = "RSVD_CustomAggregationParameter"
     fields_desc=[ XIntField("CustomAggregationParameter", 0),
@@ -586,6 +627,7 @@ class RSVD_CustomAggregationParameter(Packet):
 
     def extract_padding(self, p):
         return b"", p
+
 
 class PrescalerValue(Packet):
     name = "PrescalerValue"
@@ -595,6 +637,7 @@ class PrescalerValue(Packet):
     def extract_padding(self, p):
         return b"", p
 
+
 class GPIOMap(Packet):
     name = "GPIOMap"
     fields_desc=[ XByteField("GPIOvalue", 0),
@@ -603,6 +646,7 @@ class GPIOMap(Packet):
     def extract_padding(self, p):
         return b"", p
 
+
 class ReservedPercentageForCap(Packet):
     name = "ReservedPercentageForCap"
     fields_desc=[ XByteField("CAPpercent", 0),
@@ -610,6 +654,7 @@ class ReservedPercentageForCap(Packet):
 
     def extract_padding(self, p):
         return b"", p
+
 
 class ConfigBit(Packet):
     name = "ConfigBit"
@@ -626,6 +671,7 @@ class ConfigBit(Packet):
                   BitField("rsv1", 0, 6),
                 ]
                 
+
 class ContentionWindowTable(Packet):
     name = "ContentionWindowTable"
     fields_desc=[ XShortField("element", 0), 
@@ -634,6 +680,7 @@ class ContentionWindowTable(Packet):
     def extract_padding(self, p):
         return b"", p
 
+
 class BackoffDeferalCountTable(Packet):
     name = "BackoffDeferalCountTable"
     fields_desc=[ XByteField("element", 0),
@@ -641,6 +688,7 @@ class BackoffDeferalCountTable(Packet):
 
     def extract_padding(self, p):
         return b"", p
+
 
 class BehaviorBlockArray(Packet):
     name = "BehaviorBlockArray"
@@ -659,6 +707,7 @@ class BehaviorBlockArray(Packet):
     def extract_padding(self, p):
         return b"", p
 
+
 class EventBlockArray(Packet):
     name = "EventBlockArray"
     fields_desc=[ XByteField("EventPriorityID", 0),
@@ -673,6 +722,7 @@ class EventBlockArray(Packet):
 
     def extract_padding(self, p):
         return b"", p
+
 
 class ModulePIB(Packet):
     """
@@ -1093,6 +1143,7 @@ class ModulePIB(Packet):
         ConditionalField(PacketListField("EventBlockArrayES", "", EventBlockArray, length_from=lambda x: 550),
                          lambda pkt:(0x24BF >= pkt.__offset and 0x26E5 <= pkt.__offset+pkt.__length)),
     ]
+
     def __init__(self, packet="", offset = 0x0, length = 0x400):
         self.__offset = offset
         self.__length = length
@@ -1105,6 +1156,7 @@ class ModulePIB(Packet):
 
 StartMACCodes = { 0x00 : "Success" } 
 
+
 class StartMACRequest(Packet):
     name = "StartMACRequest"
     fields_desc=[ ByteEnumField("ModuleID", 0x00, StartMACCodes),
@@ -1114,6 +1166,7 @@ class StartMACRequest(Packet):
                   LEIntField("ImgCheckSum", 0x00000000),
                   LEIntField("ImgStartAddr", 0x00000000),
                 ]
+
 
 class StartMACConfirmation(Packet):
     name = "StartMACConfirmation"
@@ -1125,11 +1178,14 @@ class StartMACConfirmation(Packet):
 # Reset Device
 ######################################################################
 
+
 ResetDeviceCodes = { 0x00 : "Success" }
+
 
 class ResetDeviceRequest(Packet):
     name = "ResetDeviceRequest"
     fields_desc=[ ]
+
 
 class ResetDeviceConfirmation(Packet):
     name = "ResetDeviceConfirmation"
@@ -1139,11 +1195,14 @@ class ResetDeviceConfirmation(Packet):
 # Read Configuration Block
 ######################################################################
 
+
 ReadConfBlockCodes = { 0x00 : "Success" }
+
 
 class ReadConfBlockRequest(Packet):
     name = "ReadConfBlockRequest"
     fields_desc=[ ]
+
 
 CBImgTCodes = { 0x00 : "Generic Image",
                 0x01 : "Synopsis configuration",
@@ -1163,6 +1222,7 @@ CBImgTCodes = { 0x00 : "Generic Image",
                 0x0F : "Runtime parameters",
                 0x10 : "Custom module in scratch",
                 0x11 : "Custom module update applet" }
+
 
 class ConfBlock(Packet):
     name = "ConfBlock"
@@ -1188,6 +1248,7 @@ class ConfBlock(Packet):
                   LEIntField("MACClockRegister", 0),
                   LEIntField("reserved_1", 0), ]
 
+
 class ReadConfBlockConfirmation(Packet):
     name = "ReadConfBlockConfirmation"
     fields_desc=[ ByteEnumField("Status", 0x00, ReadConfBlockCodes),
@@ -1203,12 +1264,14 @@ class WriteModuleData2NVMRequest(Packet):
     name = "WriteModuleData2NVMRequest"
     fields_desc=[ ByteEnumField("ModuleID", 0x02, ModuleIDList) ]
 
+
 class WriteModuleData2NVMConfirmation(Packet):
     name = "WriteModuleData2NVMConfirmation"
     fields_desc=[ ByteEnumField("Status", 0x0, StatusCodes),
                   ByteEnumField("ModuleID", 0x02, ModuleIDList) ]
 
 ############################ END ######################################
+
 
 class HomePlugAV(Packet):
     """
@@ -1221,6 +1284,7 @@ class HomePlugAV(Packet):
 
     def answers(self, other):
         return ( isinstance(self, HomePlugAV ) )
+
 
 bind_layers( Ether, HomePlugAV, { "type": 0x88e1 } )
 

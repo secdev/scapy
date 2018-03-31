@@ -35,7 +35,6 @@ from scapy.arch.common import get_if, get_bpf_pointer
 from scapy.modules.six.moves import range
 
 
-
 # From bits/ioctls.h
 SIOCGIFHWADDR  = 0x8927          # Get hardware address    
 SIOCGIFADDR    = 0x8915          # get PA address          
@@ -104,6 +103,7 @@ del(_f)
 def get_if_raw_hwaddr(iff):
     return struct.unpack("16xh6s8x", get_if(iff, SIOCGIFHWADDR))
 
+
 def get_if_raw_addr(iff):
     try:
         return get_if(iff, SIOCGIFADDR)[20:24]
@@ -124,6 +124,8 @@ def get_if_list():
         l = plain_str(l)
         lst.append(l.split(":")[0].strip())
     return lst
+
+
 def get_working_if():
     for i in get_if_list():
         if i == LOOPBACK_NAME:                
@@ -132,6 +134,7 @@ def get_working_if():
         if ifflags & IFF_UP:
             return i
     return LOOPBACK_NAME
+
 
 def attach_filter(s, bpf_filter, iface):
     # XXX We generate the filter on the interface conf.iface 
@@ -163,6 +166,7 @@ def attach_filter(s, bpf_filter, iface):
     
     bp = get_bpf_pointer(lines)
     s.setsockopt(socket.SOL_SOCKET, SO_ATTACH_FILTER, bp)
+
 
 def set_promisc(s, iff, val=1):
     mreq = struct.pack("IHH8s", get_if_index(iff), PACKET_MR_PROMISC, 0, b"")
@@ -293,6 +297,7 @@ def read_routes():
 ### IPv6 ###
 ############
 
+
 def in6_getifaddr():
     """
     Returns a list of 3-tuples of the form (addr, scope, iface) where
@@ -319,6 +324,7 @@ def in6_getifaddr():
         ret.append((addr, int(tmp[3], 16), tmp[5]))
     return ret
 
+
 def read_routes6():
     try:
         f = open("/proc/net/ipv6_route", "rb")
@@ -335,6 +341,7 @@ def read_routes6():
     # 9. flags
     # 10. device name
     routes = []
+
     def proc2r(p):
         ret = struct.unpack('4s4s4s4s4s4s4s4s', raw(p))
         ret = b':'.join(ret).decode()
@@ -374,6 +381,7 @@ def read_routes6():
 def get_if_index(iff):
     return int(struct.unpack("I", get_if(iff, SIOCGIFINDEX)[16:20])[0])
 
+
 if os.uname()[4] in [ 'x86_64', 'aarch64' ]:
     def get_last_packet_timestamp(sock):
         ts = ioctl(sock, SIOCGSTAMP, "1234567890123456")
@@ -397,11 +405,9 @@ def _flush_fd(fd):
             break
 
 
-
-
-
 class L3PacketSocket(SuperSocket):
     desc = "read/write packets at layer 3 using Linux PF_PACKET sockets"
+
     def __init__(self, type = ETH_P_ALL, filter=None, promisc=None, iface=None, nofilter=0):
         self.type = type
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
@@ -430,6 +436,7 @@ class L3PacketSocket(SuperSocket):
                 self.iff = [iface]
             for i in self.iff:
                 set_promisc(self.ins, i)
+
     def close(self):
         if self.closed:
             return
@@ -438,6 +445,7 @@ class L3PacketSocket(SuperSocket):
             for i in self.iff:
                 set_promisc(self.ins, i, 0)
         SuperSocket.close(self)
+
     def recv(self, x=MTU):
         pkt, sa_ll = self.ins.recvfrom(x)
         if sa_ll[2] == socket.PACKET_OUTGOING:
@@ -494,9 +502,9 @@ class L3PacketSocket(SuperSocket):
                 raise
 
 
-
 class L2Socket(SuperSocket):
     desc = "read/write packets at layer 2 using Linux PF_PACKET sockets"
+
     def __init__(self, iface=None, type=ETH_P_ALL, promisc=None, filter=None, nofilter=0):
         self.iface = conf.iface if iface is None else iface
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
@@ -525,6 +533,7 @@ class L2Socket(SuperSocket):
         else:
             self.LL = conf.default_l2
             warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using %s", sa_ll[0], sa_ll[1], sa_ll[3], self.LL.name)
+
     def close(self):
         if self.closed:
             return
@@ -532,6 +541,7 @@ class L2Socket(SuperSocket):
         if self.promisc:
             set_promisc(self.ins, self.iface, 0)
         SuperSocket.close(self)
+
     def recv(self, x=MTU):
         pkt, sa_ll = self.ins.recvfrom(x)
         if sa_ll[2] == socket.PACKET_OUTGOING:
@@ -546,6 +556,7 @@ class L2Socket(SuperSocket):
             q = conf.raw_layer(pkt)
         q.time = get_last_packet_timestamp(self.ins)
         return q
+
     def send(self, x):
         try:
             return SuperSocket.send(self, x)
@@ -561,6 +572,7 @@ class L2Socket(SuperSocket):
 
 class L2ListenSocket(SuperSocket):
     desc = "read packets at layer 2 using Linux PF_PACKET sockets"
+
     def __init__(self, iface = None, type = ETH_P_ALL, promisc=None, filter=None, nofilter=0):
         self.type = type
         self.outs = None
@@ -590,6 +602,7 @@ class L2ListenSocket(SuperSocket):
                 set_promisc(self.ins, i)
         _flush_fd(self.ins)
         self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2**30)
+
     def close(self):
         if self.promisc:
             for i in self.iff:

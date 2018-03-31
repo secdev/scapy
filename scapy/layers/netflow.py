@@ -22,9 +22,11 @@ from scapy.layers.inet import UDP
 from scapy.layers.inet6 import IP6Field
 import scapy.modules.six as six
 
+
 class NetflowHeader(Packet):
     name = "Netflow Header"
     fields_desc = [ ShortField("version", 1) ]
+
 
 bind_layers( UDP, NetflowHeader, dport=2055 )
 
@@ -263,11 +265,13 @@ NetflowV9TemplateFieldDefaultLengths = {
 
 # NetflowV9 Ready-made fields
 
+
 class ShortOrInt(IntField):
     def getfield(self, pkt, x):
         if len(x) == 2:
             Field.__init__(self, self.name, self.default, fmt="!H")
         return Field.getfield(self, pkt, x)
+
 
 NetflowV9TemplateFieldDecoders = {  # Only contains fields that have a fixed length
         4: (ByteEnumField, [IP_PROTOS]),  # PROTOCOL
@@ -314,6 +318,7 @@ NetflowV9TemplateFieldDecoders = {  # Only contains fields that have a fixed len
         63: IP6Field,  # BGP_IPV6_NEXT_HOP
     }
 
+
 class NetflowHeaderV9(Packet):
     name = "Netflow Header V9"
     fields_desc = [ ShortField("count", 0),
@@ -322,10 +327,12 @@ class NetflowHeaderV9(Packet):
                     IntField("packageSequence", 0),
                     IntField("SourceID", 0) ]
 
+
 class NetflowTemplateFieldV9(Packet):
     name = "Netflow Flowset Template Field V9"
     fields_desc = [ ShortEnumField("fieldType", None, NetflowV9TemplateFieldTypes),
                     ShortField("fieldLength", 0) ]
+
     def __init__(self, *args, **kwargs):
         Packet.__init__(self, *args, **kwargs)
         if self.fieldType != None and not self.fieldLength and self.fieldType in NetflowV9TemplateFieldDefaultLengths:
@@ -333,6 +340,7 @@ class NetflowTemplateFieldV9(Packet):
 
     def default_payload_class(self, p):
         return conf.padding_layer
+
 
 class NetflowTemplateV9(Packet):
     name = "Netflow Flowset Template V9"
@@ -344,6 +352,7 @@ class NetflowTemplateV9(Packet):
     def default_payload_class(self, p):
         return conf.padding_layer
 
+
 class NetflowFlowsetV9(Packet):
     name = "Netflow FlowSet V9"
     fields_desc = [ ShortField("flowSetID", 0),
@@ -351,9 +360,11 @@ class NetflowFlowsetV9(Packet):
                     PacketListField("templates", [], NetflowTemplateV9,
                                     length_from = lambda pkt: pkt.length-4) ]
 
+
 class _CustomStrFixedLenField(StrFixedLenField):
     def i2repr(self, pkt, v):
         return repr(v)
+
 
 def _GenNetflowRecordV9(cls, lengths_list):
     _fields_desc = []
@@ -364,9 +375,11 @@ def _GenNetflowRecordV9(cls, lengths_list):
             _fields_desc.append(_f_type(NetflowV9TemplateFieldTypes.get(k, "unknown_data"), 0, *_f_args))
         else:
             _fields_desc.append(_CustomStrFixedLenField(NetflowV9TemplateFieldTypes.get(k, "unknown_data"), b"", length=j))
+
     class NetflowRecordV9I(cls):
         fields_desc = _fields_desc
     return NetflowRecordV9I
+
 
 class NetflowRecordV9(Packet):
     name = "Netflow DataFlowset Record V9"
@@ -374,6 +387,7 @@ class NetflowRecordV9(Packet):
 
     def default_payload_class(self, p):
         return conf.padding_layer
+
 
 class NetflowDataflowsetV9(Packet):
     name = "Netflow DataFlowSet V9"
@@ -391,6 +405,7 @@ class NetflowDataflowsetV9(Packet):
             if _pkt[:2] == b"\x00\x00":
                 return NetflowFlowsetV9
         return cls
+
 
 def netflowv9_defragment(plist):
     """Process all NetflowV9 Packets to match IDs of the DataFlowsets with the Headers.
@@ -472,11 +487,14 @@ def netflowv9_defragment(plist):
                     break
     return plist
 
+
 class NetflowOptionsRecordScopeV9(NetflowRecordV9):
     name = "Netflow Options Template Record V9 - Scope"
 
+
 class NetflowOptionsRecordOptionV9(NetflowRecordV9):
     name = "Netflow Options Template Record V9 - Option"
+
 
 class NetflowOptionsFlowsetOptionV9(Packet):
     name = "Netflow Options Template FlowSet V9 - Option"
@@ -486,6 +504,7 @@ class NetflowOptionsFlowsetOptionV9(Packet):
     def default_payload_class(self, p):
         return conf.padding_layer
 
+
 class NetflowOptionsFlowsetScopeV9(Packet):
     name = "Netflow Options Template FlowSet V9 - Scope"
     fields_desc = [ ShortEnumField("scopeFieldType", None, ScopeFieldTypes),
@@ -493,6 +512,7 @@ class NetflowOptionsFlowsetScopeV9(Packet):
 
     def default_payload_class(self, p):
         return conf.padding_layer
+
 
 class NetflowOptionsFlowsetV9(Packet):
     name = "Netflow Options Template FlowSet V9"
@@ -506,6 +526,7 @@ class NetflowOptionsFlowsetV9(Packet):
                     PadField(PacketListField("options", [], NetflowOptionsFlowsetOptionV9,
                                     length_from = lambda pkt: pkt.option_field_length),
                              4, padwith=b"\x00") ]
+
 
 bind_layers( NetflowHeader, NetflowHeaderV9, version=9 )
 bind_layers( NetflowHeaderV9, NetflowDataflowsetV9 )

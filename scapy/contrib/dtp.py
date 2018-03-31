@@ -36,6 +36,7 @@ from scapy.fields import *
 from scapy.layers.l2 import SNAP, Dot3, LLC
 from scapy.sendrecv import sendp
 
+
 class DtpGenericTlv(Packet):
     name = "DTP Generic TLV"
     fields_desc = [ XShortField("type", 0x0001),
@@ -53,12 +54,14 @@ class DtpGenericTlv(Packet):
     def guess_payload_class(self, p):
         return conf.padding_layer
 
+
 class DTPDomain(DtpGenericTlv):
     name = "DTP Domain"
     fields_desc = [ ShortField("type", 1),
             FieldLenField("length", None, "domain", adjust=lambda pkt, x:x + 4),
             StrLenField("domain", b"\x00", length_from=lambda pkt:pkt.length - 4)
             ]
+
 
 class DTPStatus(DtpGenericTlv):
     name = "DTP Status"
@@ -67,12 +70,14 @@ class DTPStatus(DtpGenericTlv):
             StrLenField("status", b"\x03", length_from=lambda pkt:pkt.length - 4)
             ]
 
+
 class DTPType(DtpGenericTlv):
     name = "DTP Type"
     fields_desc = [ ShortField("type", 3),
             FieldLenField("length", None, "dtptype", adjust=lambda pkt, x:x + 4),
             StrLenField("dtptype", b"\xa5", length_from=lambda pkt:pkt.length - 4)
             ]
+
 
 class DTPNeighbor(DtpGenericTlv):
     name = "DTP Neighbor"
@@ -82,6 +87,7 @@ class DTPNeighbor(DtpGenericTlv):
             MACField("neighbor", None)
             ]
 
+
 _DTP_TLV_CLS = {
     0x0001: DTPDomain,
     0x0002: DTPStatus,
@@ -89,12 +95,15 @@ _DTP_TLV_CLS = {
     0x0004: DTPNeighbor
    }
 
+
 class DTP(Packet):
     name = "DTP"
     fields_desc = [ByteField("ver", 1),
                    PacketListField("tlvlist", [], DtpGenericTlv)]
 
+
 bind_layers(SNAP, DTP, code=0x2004, OUI=0xc)
+
 
 def negotiate_trunk(iface=conf.iface, mymac=str(RandMAC())):
     print("Trying to negotiate a trunk on interface %s" % iface)

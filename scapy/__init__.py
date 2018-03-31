@@ -17,6 +17,7 @@ import subprocess
 
 _SCAPY_PKG_DIR = os.path.dirname(__file__)
 
+
 def _version_from_git_describe():
     """
     Read the version from ``git describe``. It returns the latest tag with an
@@ -58,6 +59,7 @@ def _version_from_git_describe():
     else:
         raise subprocess.CalledProcessError(p.returncode, err)
 
+
 def _version():
     version_file = os.path.join(_SCAPY_PKG_DIR, 'VERSION')
     try:
@@ -85,6 +87,7 @@ def _version():
                 return "git-archive.dev" + sha1
             else:
                 return 'unknown.version'
+
 
 VERSION = _version()
 

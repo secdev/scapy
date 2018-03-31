@@ -81,7 +81,6 @@ class Route6:
 
         return (prefix, plen, gw, dev, ifaddr, 1)
 
-
     def add(self, *args, **kargs):
         """Ex:
         add(dst="2001:db8:cafe:f000::/56")
@@ -90,7 +89,6 @@ class Route6:
         """
         self.invalidate_cache()
         self.routes.append(self.make_route(*args, **kargs))
-
 
     def delt(self, dst, gw=None):
         """ Ex:
@@ -142,7 +140,6 @@ class Route6:
                 new_routes.append(rt)
         self.invalidate_cache()
         self.routes = new_routes
-
 
     def ifadd(self, iff, addr):
         """
@@ -276,6 +273,7 @@ class Route6:
         self.cache[k] = res[0][2]
 
         return res[0][2]
+
 
 conf.route6 = Route6()
 try:

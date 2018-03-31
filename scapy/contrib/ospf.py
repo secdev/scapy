@@ -58,12 +58,14 @@ class _NoLLSLenField(LenField):
     LenField that will ignore the size of OSPF_LLS_Hdr if it exists
     in the payload
     """
+
     def i2m(self, pkt, x):
         if x is None:
             x = self.adjust(len(pkt.payload))
         if OSPF_LLS_Hdr in pkt:
             x -= len(pkt[OSPF_LLS_Hdr])
         return x
+
 
 class OSPF_Hdr(Packet):
     name = "OSPF Header"
@@ -138,6 +140,7 @@ class LLS_Generic_TLV(Packet):
     def guess_payload_class(self, p):
         return conf.padding_layer
 
+
 class LLS_Extended_Options(LLS_Generic_TLV):
     name = "LLS Extended Options and Flags"
     fields_desc = [ShortField("type", 1),
@@ -145,12 +148,14 @@ class LLS_Extended_Options(LLS_Generic_TLV):
                    StrLenField("options", "", length_from=lambda x: x.len)]
                  # TODO: FlagsField("options", 0, names=["LR", "RS"], size) with dynamic size
 
+
 class LLS_Crypto_Auth(LLS_Generic_TLV):
     name = "LLS Cryptographic Authentication"
     fields_desc = [ShortField("type", 2),
                    FieldLenField("len", 20, fmt="B", length_of=lambda x: x.authdata + 4),
                    XIntField("sequence", 0),
                    StrLenField("authdata", b"\x00" * 16, length_from=lambda x: x.len - 4)]
+
 
 _OSPF_LLSclasses = {1: "LLS_Extended_Options",
                     2: "LLS_Crypto_Auth"}
@@ -166,9 +171,11 @@ def _LLSGuessPayloadClass(p, **kargs):
         cls = globals()[clsname]
     return cls(p, **kargs)
 
+
 class FieldLenField32Bits(FieldLenField):
     def i2repr(self, pkt, x):
         return repr(x) if not x else str(FieldLenField.i2h(self, pkt, x) << 2) + " bytes"
+
 
 class OSPF_LLS_Hdr(Packet):
     name = "OSPF Link-local signaling"
@@ -182,6 +189,7 @@ class OSPF_LLS_Hdr(Packet):
             c = checksum(p)
             p = struct.pack("!H", c) + p[2:]
         return p
+
 
 _OSPF_LStypes = {1: "router",
                  2: "network",

@@ -35,6 +35,7 @@ except (ImportError, RuntimeError):
 
 ## PYX
 
+
 def _test_pyx():
     """Returns if PyX is correctly installed or not"""
     try:
@@ -44,6 +45,7 @@ def _test_pyx():
         return False
     else:
         return r == 0
+
 
 try:
     import pyx

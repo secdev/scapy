@@ -24,11 +24,13 @@ from scapy.layers.l2 import *
 from scapy.layers.inet import *
 from scapy.layers.inet6 import *
 
+
 class CHDLC(Packet):
     name = "Cisco HDLC"
     fields_desc = [ ByteEnumField("address", 0x0f, {0x0f : "unicast", 0x8f : "multicast"}),
                     ByteField("control", 0),
                     XShortField("proto", 0x0800)]
+
 
 class SLARP(Packet):
     name = "SLARP"
@@ -45,6 +47,7 @@ class SLARP(Packet):
                                         lambda pkt : pkt.type == 2),
                     ConditionalField(XShortField("reliability", 0xffff),
                                         lambda pkt : pkt.type == 2)]
+
 
 bind_layers( CHDLC, Dot3,  proto=0x6558)
 bind_layers( CHDLC, IP,    proto=0x800)

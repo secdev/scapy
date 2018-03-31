@@ -111,10 +111,12 @@ class _GMTUnixTimeField(UTCTimeField):
     "The current time and date in standard UNIX 32-bit format (seconds since
      the midnight starting Jan 1, 1970, GMT, ignoring leap seconds)."
     """
+
     def i2h(self, pkt, x):
         if x is not None:
             return x
         return 0
+
 
 class _TLSRandomBytesField(StrFixedLenField):
     def i2repr(self, pkt, x):
@@ -133,6 +135,7 @@ class _SessionIDField(StrLenField):
 class _CipherSuitesField(StrLenField):
     __slots__ = ["itemfmt", "itemsize", "i2s", "s2i"]
     islist = 1
+
     def __init__(self, name, default, dico, length_from=None, itemfmt="!H"):
         StrLenField.__init__(self, name, default, length_from=length_from)
         self.itemfmt = itemfmt
@@ -293,6 +296,7 @@ class TLSClientHello(_TLSHandshake):
 ###############################################################################
 ### ServerHello                                                             ###
 ###############################################################################
+
 
 class TLSServerHello(TLSClientHello):
     """
@@ -480,6 +484,7 @@ class _ASN1CertLenField(FieldLenField):
     """
     This is mostly a 3-byte FieldLenField.
     """
+
     def __init__(self, name, default, length_of=None, adjust=lambda pkt, x: x):
         self.length_of = length_of
         self.adjust = adjust
@@ -502,6 +507,7 @@ class _ASN1CertLenField(FieldLenField):
 
 class _ASN1CertListField(StrLenField):
     islist = 1
+
     def i2len(self, pkt, i):
         if i is None:
             return 0
@@ -551,6 +557,7 @@ class _ASN1CertListField(StrLenField):
 
     def any2i(self, pkt, x):
         return x
+
 
 class _ASN1CertField(StrLenField):
     def i2len(self, pkt, i):
@@ -627,12 +634,15 @@ class _ASN1CertAndExt(_GenericTLSSessionInheritance):
                     FieldLenField("extlen", None, length_of="ext"),
                     _ExtensionsField("ext", [],
                                      length_from=lambda pkt: pkt.extlen) ]
+
     def extract_padding(self, s):
         return b"", s
+
 
 class _ASN1CertAndExtListField(PacketListField):
     def m2i(self, pkt, m):
         return self.cls(m, tls_session=pkt.tls_session)
+
 
 class TLS13Certificate(_TLSHandshake):
     name = "TLS 1.3 Handshake - Certificate"
@@ -770,6 +780,7 @@ _tls_client_certificate_types =  {  1: "rsa_sign",
 class _CertTypesField(_CipherSuitesField):
     pass
 
+
 class _CertAuthoritiesField(StrLenField):
     """
     XXX Rework this with proper ASN.1 parsing.
@@ -898,6 +909,7 @@ class TLSCertificateVerify(_TLSHandshake):
 class _TLSCKExchKeysField(PacketField):
     __slots__ = ["length_from"]
     holds_packet = 1
+
     def __init__(self, name, length_from=None, remain=0):
         self.length_from = length_from
         PacketField.__init__(self, name, None, None, remain=remain)
@@ -960,6 +972,7 @@ class _VerifyDataField(StrLenField):
         else:
             sep = 12
         return s[sep:], s[:sep]
+
 
 class TLSFinished(_TLSHandshake):
     name = "TLS Handshake - Finished"
@@ -1055,6 +1068,7 @@ class TLSHelloVerifyRequest(_TLSHandshake):
 _tls_cert_chain_types = { 0: "individual_certs",
                           1: "pkipath" }
 
+
 class URLAndOptionalHash(Packet):
     name = "URLAndOptionHash structure for TLSCertificateURL"
     fields_desc = [ FieldLenField("urllen", None, length_of="url"),
@@ -1065,8 +1079,10 @@ class URLAndOptionalHash(Packet):
                                   adjust=lambda pkt, x: int(math.ceil(x/20.))),
                     StrLenField("hash", "",
                                 length_from=lambda pkt: 20*pkt.hash_present) ]
+
     def guess_payload_class(self, p):
         return Padding
+
 
 class TLSCertificateURL(_TLSHandshake):
     """
@@ -1089,16 +1105,21 @@ class ThreeBytesLenField(FieldLenField):
     def __init__(self, name, default,  length_of=None, adjust=lambda pkt, x: x):
         FieldLenField.__init__(self, name, default, length_of=length_of,
                                fmt='!I', adjust=adjust)
+
     def i2repr(self, pkt, x):
         if x is None:
             return 0
         return repr(self.i2h(pkt, x))
+
     def addfield(self, pkt, s, val):
         return s+struct.pack(self.fmt, self.i2m(pkt, val))[1:4]
+
     def getfield(self, pkt, s):
         return  s[3:], self.m2i(pkt, struct.unpack(self.fmt, b"\x00"+s[:3])[0])
 
+
 _cert_status_cls  = { 1: OCSP_Response }
+
 
 class _StatusField(PacketField):
     def m2i(self, pkt, m):
@@ -1107,6 +1128,7 @@ class _StatusField(PacketField):
         if idtype in _cert_status_cls:
             cls = _cert_status_cls[idtype]
         return cls(m)
+
 
 class TLSCertificateStatus(_TLSHandshake):
     name = "TLS Handshake - Certificate Status"
@@ -1128,8 +1150,10 @@ class SupDataEntry(Packet):
                     FieldLenField("len", None, length_of="data"),
                     StrLenField("data", "",
                                 length_from=lambda pkt:pkt.len) ]
+
     def guess_payload_class(self, p):
         return Padding
+
 
 class UserMappingData(Packet):
     name = "User Mapping Data"
@@ -1137,8 +1161,10 @@ class UserMappingData(Packet):
                     FieldLenField("len", None, length_of="data"),
                     StrLenField("data", "",
                                 length_from=lambda pkt: pkt.len)]
+
     def guess_payload_class(self, p):
         return Padding
+
 
 class SupDataEntryUM(Packet):
     name = "Supplemental Data Entry - User Mapping"
@@ -1148,8 +1174,10 @@ class SupDataEntryUM(Packet):
                     FieldLenField("dlen", None, length_of="data"),
                     PacketListField("data", [], UserMappingData,
                                     length_from=lambda pkt:pkt.dlen) ]
+
     def guess_payload_class(self, p):
         return Padding
+
 
 class TLSSupplementalData(_TLSHandshake):
     name = "TLS Handshake - Supplemental Data"

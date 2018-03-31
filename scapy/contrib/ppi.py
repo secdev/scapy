@@ -34,8 +34,12 @@ from scapy.layers.dot11 import Dot11
 
 # Dictionary to map the TLV type to the class name of a sub-packet
 _ppi_types = {}
+
+
 def addPPIType(id, value):
     _ppi_types[id] = value
+
+
 def getPPIType(id, default="default"):
     return _ppi_types.get(id, _ppi_types.get(default, None))
 
@@ -49,6 +53,7 @@ class PPIGenericFldHdr(Packet):
 
     def extract_padding(self, p):
         return b"", p
+
 
 def _PPIGuessPayloadClass(p, **kargs):
     """ This function tells the PacketListField how it should extract the
@@ -79,8 +84,6 @@ def _PPIGuessPayloadClass(p, **kargs):
     return out
 
 
-
-
 class PPI(Packet):
     name = "PPI Packet Header"
     fields_desc = [ ByteField('pph_version', 0),
@@ -88,8 +91,10 @@ class PPI(Packet):
                     FieldLenField('pph_len', None, length_of="PPIFieldHeaders", fmt="<H", adjust=lambda p, x:x+8 ),
                     LEIntField('dlt', None),
                     PacketListField("PPIFieldHeaders", [],  _PPIGuessPayloadClass, length_from=lambda p:p.pph_len-8,) ]
+
     def guess_payload_class(self, payload):
         return conf.l2types.get(self.dlt, Packet.guess_payload_class(self, payload))
+
 
 #Register PPI
 addPPIType("default", PPIGenericFldHdr)

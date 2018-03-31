@@ -22,15 +22,18 @@ from scapy.layers.inet6 import IPv6
 from scapy.layers.l2 import Ether, GRE
 from scapy.compat import orb
 
+
 class EoMCW(Packet):
     name = "EoMCW"
     fields_desc = [ BitField("zero", 0, 4),
                     BitField("reserved", 0, 12),
                     ShortField("seq", 0) ]
+
     def guess_payload_class(self, payload):
         if len(payload) >= 1:
             return Ether
         return Padding
+
 
 class MPLS(Packet):
    name = "MPLS"
@@ -54,6 +57,7 @@ class MPLS(Packet):
                else:
                    return Ether
        return Padding
+
 
 bind_layers(Ether, MPLS, type=0x8847)
 bind_layers(GRE, MPLS, proto=0x8847)

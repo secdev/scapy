@@ -28,6 +28,7 @@ if WINDOWS:
         raise OSError("Sox must be installed to play VoIP packets")
     sox_base = "\"" + conf.prog.sox + "\" -t .ul %s - -t waveaudio"
 
+
 def _merge_sound_bytes(x, y, sample_size=2):
     # TODO: find a better way to merge sound bytes
     # This will only add them one next to each other:
@@ -75,6 +76,7 @@ def voip_play(s1, lst=None, **kargs):
     """
     
     dsp, rd = os.popen2(sox_base % "")
+
     def play(pkt):
         if not pkt:
             return 
@@ -93,10 +95,12 @@ def voip_play(s1, lst=None, **kargs):
         dsp.close()
         rd.close()
 
+
 def voip_play1(s1, lst=None, **kargs):
     """Same than voip_play, backward compatibility
     """
     return voip_play(s1, lst, **kargs)
+
 
 def voip_play2(s1, **kargs):
     """
@@ -113,6 +117,7 @@ def voip_play2(s1, **kargs):
     global x1, x2
     x1 = ""
     x2 = ""
+
     def play(pkt):
         global x1, x2
         if not pkt:
@@ -130,6 +135,7 @@ def voip_play2(s1, **kargs):
             
     sniff(store=0, prn=play, **kargs)
 
+
 def voip_play3(lst=None, **kargs):
     """Same than voip_play, but made to
     read and play VoIP RTP packets, without
@@ -139,6 +145,7 @@ def voip_play3(lst=None, **kargs):
     for basic VoIP packets
     """
     dsp, rd = os.popen2(sox_base % "")
+
     def play(pkt, dsp=dsp):
         if pkt and pkt.haslayer(UDP) and pkt.haslayer(RTP):
             dsp.write(pkt.getlayer(RTP).load)

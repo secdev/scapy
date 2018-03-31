@@ -77,6 +77,7 @@ def der2pem(der_string, obj="UNKNOWN"):
     pem_string += ("\n-----END %s-----\n" % obj).encode()
     return pem_string
 
+
 @conf.commands.register
 def pem2der(pem_string):
     """Convert PEM string to DER format"""
@@ -90,6 +91,7 @@ def pem2der(pem_string):
     base64_string.replace(b"\n", b"")
     der_string = base64.b64decode(base64_string)
     return der_string
+
 
 def split_pem(s):
     """
@@ -302,6 +304,7 @@ class PubKeyRSA(PubKey, _EncryptAndVerifyRSA):
 
     def verify(self, msg, sig, t="pkcs", h="sha256", mgf=None, L=None):
         return _EncryptAndVerifyRSA.verify(self, msg, sig, t, h, mgf, L)
+
 
 class PubKeyECDSA(PubKey):
     """
@@ -860,6 +863,7 @@ class Chain(list):
     """
     Basically, an enhanced array of Cert.
     """
+
     def __init__(self, certList, cert0=None):
         """
         Construct a chain of certificates starting with a self-signed

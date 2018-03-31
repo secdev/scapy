@@ -18,6 +18,7 @@ from scapy.config import conf
 from scapy.error import log_interactive
 import scapy.modules.six as six
 
+
 class ReferenceAM(type):
     def __new__(cls, name, bases, dct):
         o = super(ReferenceAM, cls).__new__(cls, name, bases, dct)
@@ -34,7 +35,6 @@ class AnsweringMachine(six.with_metaclass(ReferenceAM, object)):
     send_options = { "verbose": 0 }
     send_options_list = ["iface", "inter", "loop", "verbose"]
     send_function = staticmethod(send)
-    
     
     def __init__(self, **kargs):
         self.mode = 0
