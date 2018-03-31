@@ -32,12 +32,12 @@ matrix:
         - os: linux
           python: pypy
           env:
-            - SCAPY_COVERAGE=yes
+            - TOXENV=pypy-linux_non_root,codecov
 
         - os: linux
           python: pypy3
           env:
-            - SCAPY_COVERAGE=yes
+            - TOXENV=pypy3-linux_non_root,codecov
 
         - os: osx
           language: generic
@@ -55,6 +55,20 @@ matrix:
           python: 2.7
           env:
             - TOXENV=py27-linux_root,codecov
+
+        - os: linux
+          sudo: required
+          python: pypy
+          env:
+            - TOXENV=pypy-linux_root,codecov
+
+# Note: a bug in pypy3 <= 5.10.1 prevents from using Scapy to inject packets
+#       see https://bitbucket.org/pypy/pypy/issues/2787/pypy3-sockname-error
+#        - os: linux
+#          sudo: required
+#          python: pypy3
+#          env:
+#            - TOXENV=pypy3-linux_root,codecov
 
         - os: linux
           sudo: required
