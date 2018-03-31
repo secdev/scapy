@@ -25,10 +25,12 @@ from scapy.layers.l2 import DestMACField, getmacbyip
 from scapy.error import warning
 from scapy.compat import chb, orb
 
+
 def isValidMCAddr(ip):
     """convert dotted quad string to long and check the first octet"""
     FirstOct=atol(ip)>>24 & 0xFF
     return (FirstOct >= 224) and (FirstOct <= 239)
+
 
 class IGMP(Packet):
     """IGMP Message Class for v1 and v2.
@@ -151,6 +153,7 @@ IGMPv2 message format   http://www.faqs.org/rfcs/rfc2236.html
             return self.underlayer.sprintf("IGMP: %IP.src% > %IP.dst% %IGMP.type% %IGMP.gaddr%")
         else:
             return self.sprintf("IGMP %IGMP.type% %IGMP.gaddr%")
+
 
 bind_layers( IP,            IGMP,            frag=0,
                                              proto=2,

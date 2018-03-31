@@ -19,6 +19,7 @@ from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.inet import UDP
 
+
 class VQP(Packet):
         name = "VQP"
         fields_desc = [
@@ -36,6 +37,7 @@ class VQP(Packet):
                 }),
                 IntField("seq", 0),
         ]
+
 
 class VQPEntry(Packet):
         name = "VQPEntry"
@@ -57,11 +59,13 @@ class VQPEntry(Packet):
                         length_from=lambda p: p.len), 
                         lambda p: p.datatype not in [3073, 3078, 3080]),
         ]
+
         def post_build(self, p, pay):
                 if self.len is None:
                         l = len(p.data)
                         p = p[:2]+struct.pack("!H", l)+p[4:]
                 return p
+
 
 bind_layers(UDP,        VQP,            sport=1589)
 bind_layers(UDP,        VQP,            dport=1589)

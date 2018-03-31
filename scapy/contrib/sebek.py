@@ -27,11 +27,13 @@ class SebekHead(Packet):
                     IntField("counter", 0),
                     IntField("time_sec", 0),
                     IntField("time_usec", 0) ]
+
     def mysummary(self):
         return self.sprintf("Sebek Header v%SebekHead.version% %SebekHead.type%")
 
 # we need this because Sebek headers differ between v1 and v3, and
 # between v3 type socket and v3 others
+
 
 class SebekV1(Packet):
     name = "Sebek v1"
@@ -41,11 +43,13 @@ class SebekV1(Packet):
                     StrFixedLenField("cmd", "", 12),
                     FieldLenField("data_length", None, "data", fmt="I"),
                     StrLenField("data", "", length_from=lambda x:x.data_length) ]
+
     def mysummary(self):
         if isinstance(self.underlayer, SebekHead):
             return self.underlayer.sprintf("Sebek v1 %SebekHead.type% (%SebekV1.cmd%)")
         else:
             return self.sprintf("Sebek v1 (%SebekV1.cmd%)")
+
 
 class SebekV3(Packet):
     name = "Sebek v3"
@@ -57,11 +61,13 @@ class SebekV3(Packet):
                     StrFixedLenField("cmd", "", 12),
                     FieldLenField("data_length", None, "data", fmt="I"),
                     StrLenField("data", "", length_from=lambda x:x.data_length) ]
+
     def mysummary(self):
         if isinstance(self.underlayer, SebekHead):
             return self.underlayer.sprintf("Sebek v%SebekHead.version% %SebekHead.type% (%SebekV3.cmd%)")
         else:
             return self.sprintf("Sebek v3 (%SebekV3.cmd%)")
+
 
 class SebekV2(SebekV3):
     def mysummary(self):
@@ -69,6 +75,7 @@ class SebekV2(SebekV3):
             return self.underlayer.sprintf("Sebek v%SebekHead.version% %SebekHead.type% (%SebekV2.cmd%)")
         else:
             return self.sprintf("Sebek v2 (%SebekV2.cmd%)")
+
 
 class SebekV3Sock(Packet):
     name = "Sebek v2 socket"
@@ -89,11 +96,13 @@ class SebekV3Sock(Packet):
                                                "recvmsg": 17, "sendto": 11,
                                                "recvfrom": 12}),
                     ByteEnumField("proto", 0, IP_PROTOS) ]
+
     def mysummary(self):
         if isinstance(self.underlayer, SebekHead):
             return self.underlayer.sprintf("Sebek v%SebekHead.version% %SebekHead.type% (%SebekV3Sock.cmd%)")
         else:
             return self.sprintf("Sebek v3 socket (%SebekV3Sock.cmd%)")
+
 
 class SebekV2Sock(SebekV3Sock):
     def mysummary(self):
@@ -101,6 +110,7 @@ class SebekV2Sock(SebekV3Sock):
             return self.underlayer.sprintf("Sebek v%SebekHead.version% %SebekHead.type% (%SebekV2Sock.cmd%)")
         else:
             return self.sprintf("Sebek v2 socket (%SebekV2Sock.cmd%)")
+
 
 bind_layers( UDP,           SebekHead,     sport=1101)
 bind_layers( UDP,           SebekHead,     dport=1101)

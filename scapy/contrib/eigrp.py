@@ -50,6 +50,7 @@ from scapy.layers.inet import IP
 from scapy.layers.inet6 import *
 from scapy.compat import chb, raw
 
+
 class EigrpIPField(StrField, IPField):
     """
     This is a special field type for handling ip addresses of destination networks in internal and
@@ -119,6 +120,7 @@ class EigrpIPField(StrField, IPField):
     def randval(self):
         return IPField.randval(self)
 
+
 class EigrpIP6Field(StrField, IP6Field):
     """
     This is a special field type for handling ip addresses of destination networks in internal and
@@ -183,6 +185,7 @@ class EigrpIP6Field(StrField, IP6Field):
     def randval(self):
         return IP6Field.randval(self)
 
+
 class EIGRPGeneric(Packet):
     name = "EIGRP Generic TLV"
     fields_desc = [ XShortField("type", 0x0000),
@@ -191,6 +194,7 @@ class EIGRPGeneric(Packet):
 
     def guess_payload_class(self, p):
         return conf.padding_layer
+
 
 class EIGRPParam(EIGRPGeneric):
     name = "EIGRP Parameters"
@@ -209,6 +213,7 @@ class EIGRPParam(EIGRPGeneric):
             ByteField("reserved", 0),
             ShortField("holdtime", 15)
             ]
+
 
 class EIGRPAuthData(EIGRPGeneric):
     name = "EIGRP Authentication Data"
@@ -230,6 +235,7 @@ class EIGRPAuthData(EIGRPGeneric):
 
         return p
 
+
 class EIGRPSeq(EIGRPGeneric):
     name = "EIGRP Sequence"
     fields_desc = [ XShortField("type", 0x0003),
@@ -249,6 +255,7 @@ class EIGRPSeq(EIGRPGeneric):
             p = p[:2] + chb((l >> 8) & 0xff) + chb(l & 0xff) + p[4:]
 
         return p
+
 
 class ShortVersionField(ShortField):
     def i2repr(self, pkt, x):
@@ -285,6 +292,7 @@ class ShortVersionField(ShortField):
     def randval(self):
         return RandShort()
 
+
 class EIGRPSwVer(EIGRPGeneric):
     name = "EIGRP Software Version"
     fields_desc = [ XShortField("type", 0x0004),
@@ -293,6 +301,7 @@ class EIGRPSwVer(EIGRPGeneric):
             ShortVersionField("eigrp", "v1.2")
             ]
 
+
 class EIGRPNms(EIGRPGeneric):
     name = "EIGRP Next Multicast Sequence"
     fields_desc = [ XShortField("type", 0x0005),
@@ -300,9 +309,11 @@ class EIGRPNms(EIGRPGeneric):
             IntField("nms", 2)
             ]
 
+
 # Don't get confused by the term "receive-only". This flag is always set, when you configure
 # one of the stub options. It's also the only flag set, when you configure "eigrp stub receive-only".
 _EIGRP_STUB_FLAGS = ["connected", "static", "summary", "receive-only", "redistributed", "leak-map"]
+
 
 class EIGRPStub(EIGRPGeneric):
     name = "EIGRP Stub Router"
@@ -311,6 +322,8 @@ class EIGRPStub(EIGRPGeneric):
             FlagsField("flags", 0x000d, 16, _EIGRP_STUB_FLAGS)]
 
 # Delay 0xffffffff == Destination Unreachable
+
+
 class EIGRPIntRoute(EIGRPGeneric):
     name = "EIGRP Internal Route"
     fields_desc = [ XShortField("type", 0x0102),
@@ -327,6 +340,7 @@ class EIGRPIntRoute(EIGRPGeneric):
             EigrpIPField("dst", "192.168.1.0", length_from=lambda pkt: pkt.prefixlen),
             ]
 
+
 _EIGRP_EXTERNAL_PROTOCOL_ID = {
                             0x01 : "IGRP",
                             0x02 : "EIGRP",
@@ -342,6 +356,7 @@ _EIGRP_EXTERNAL_PROTOCOL_ID = {
                             }
 
 _EIGRP_EXTROUTE_FLAGS = ["external", "candidate-default"]
+
 
 class EIGRPExtRoute(EIGRPGeneric):
     name = "EIGRP External Route"
@@ -366,6 +381,7 @@ class EIGRPExtRoute(EIGRPGeneric):
             EigrpIPField("dst", "192.168.1.0", length_from=lambda pkt: pkt.prefixlen)
             ]
 
+
 class EIGRPv6IntRoute(EIGRPGeneric):
     name = "EIGRP for IPv6 Internal Route"
     fields_desc = [ XShortField("type", 0x0402),
@@ -381,6 +397,7 @@ class EIGRPv6IntRoute(EIGRPGeneric):
             ByteField("prefixlen", 16),
             EigrpIP6Field("dst", "2001::", length_from=lambda pkt: pkt.prefixlen)
             ]
+
 
 class EIGRPv6ExtRoute(EIGRPGeneric):
     name = "EIGRP for IPv6 External Route"
@@ -405,6 +422,7 @@ class EIGRPv6ExtRoute(EIGRPGeneric):
             EigrpIP6Field("dst", "::", length_from=lambda pkt: pkt.prefixlen)
             ]
 
+
 _eigrp_tlv_cls = {
                     0x0001: "EIGRPParam",
                     0x0002: "EIGRPAuthData",
@@ -417,6 +435,7 @@ _eigrp_tlv_cls = {
                     0x0402: "EIGRPv6IntRoute",
                     0x0403: "EIGRPv6ExtRoute"
                    }
+
 
 class RepeatedTlvListField(PacketListField):
     def __init__(self, name, default, cls):
@@ -439,6 +458,7 @@ class RepeatedTlvListField(PacketListField):
     def addfield(self, pkt, s, val):
         return s + b"".join(raw(v) for v in val)
 
+
 def _EIGRPGuessPayloadClass(p, **kargs):
     cls = conf.raw_layer
     if len(p) >= 2:
@@ -446,6 +466,7 @@ def _EIGRPGuessPayloadClass(p, **kargs):
         clsname = _eigrp_tlv_cls.get(t, "EIGRPGeneric")
         cls = globals()[clsname]
     return cls(p, **kargs)
+
 
 _EIGRP_OPCODES = { 1 : "Update",
                    2 : "Request",
@@ -460,6 +481,7 @@ _EIGRP_OPCODES = { 1 : "Update",
 # Update-Flag: Not sure if Cisco calls it that way, but it's set when neighbors
 # are exchanging routing information
 _EIGRP_FLAGS = ["init", "cond-recv", "unknown", "update"]
+
 
 class EIGRP(Packet):
     name = "EIGRP"
@@ -488,6 +510,7 @@ class EIGRP(Packet):
             summarystr += " Flags=%EIGRP.flags%"
 
         return self.sprintf(summarystr + ")")
+
 
 bind_layers(IP, EIGRP, proto=88)
 bind_layers(IPv6, EIGRP, nh=88)

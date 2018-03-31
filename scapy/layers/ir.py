@@ -12,7 +12,6 @@ from scapy.fields import *
 from scapy.layers.l2 import CookedLinux
 
 
-
 # IR
 
 class IrLAPHead(Packet):
@@ -20,6 +19,7 @@ class IrLAPHead(Packet):
     fields_desc = [ XBitField("Address", 0x7f, 7),
                     BitEnumField("Type", 1, 1, {"Response": 0,
                                                 "Command": 1})]
+
 
 class IrLAPCommand(Packet):
     name = "IrDA Link Access Protocol Command"

@@ -56,6 +56,7 @@ class p0fKnowledgeBase(KnowledgeBase):
     def __init__(self, filename):
         KnowledgeBase.__init__(self, filename)
         #self.ttl_range=[255]
+
     def lazy_init(self):
         try:
             f=open(self.filename)
@@ -70,6 +71,7 @@ class p0fKnowledgeBase(KnowledgeBase):
                 l = tuple(l.split(":"))
                 if len(l) < 8:
                     continue
+
                 def a2i(x):
                     if x.isdigit():
                         return int(x)
@@ -84,7 +86,9 @@ class p0fKnowledgeBase(KnowledgeBase):
             self.base = None
         f.close()
 
+
 p0f_kdb, p0fa_kdb, p0fr_kdb, p0fo_kdb = None, None, None, None
+
 
 def p0f_load_knowledgebases():
     global p0f_kdb, p0fa_kdb, p0fr_kdb, p0fo_kdb
@@ -93,7 +97,9 @@ def p0f_load_knowledgebases():
     p0fr_kdb = p0fKnowledgeBase(conf.p0fr_base)
     p0fo_kdb = p0fKnowledgeBase(conf.p0fo_base)
 
+
 p0f_load_knowledgebases()
+
 
 def p0f_selectdb(flags):
     # tested flags: S, R, A
@@ -111,6 +117,7 @@ def p0f_selectdb(flags):
         return p0fo_kdb
     else:
         return None
+
 
 def packet2p0f(pkt):
     pkt = pkt.copy()
@@ -251,6 +258,7 @@ def packet2p0f(pkt):
 
     return (db, (win, ttl, pkt.flags.DF, ss, ooo, qq))
 
+
 def p0f_correl(x, y):
     d = 0
     # wwww can be "*" or "%nn". "Tnn" and "Snn" should work fine with
@@ -302,6 +310,7 @@ p0f(packet) -> accuracy, [list of guesses]
             r.append((b[6], b[7], b[1] - pkt[IP].ttl))
     return r
 
+
 def prnp0f(pkt):
     """Calls p0f and returns a user-friendly output"""
     # we should print which DB we use
@@ -329,6 +338,7 @@ def prnp0f(pkt):
         res += " (distance " + str(r[2]) + ")"
     print(res)
 
+
 @conf.commands.register
 def pkt2uptime(pkt, HZ=100):
     """Calculate the date the machine which emitted the packet booted using TCP timestamp 
@@ -346,6 +356,7 @@ pkt2uptime(pkt, [HZ=100])"""
             t = opt[1][0] / HZ
             return t
     raise TypeError("No timestamp option")
+
 
 def p0f_impersonate(pkt, osgenre=None, osdetails=None, signature=None,
                     extrahops=0, mtu=1500, uptime=None):
@@ -548,6 +559,7 @@ Some specifications of the p0f.fp file are not (yet) implemented."""
         pkt = pkt.underlayer
     return pkt
 
+
 def p0f_getlocalsigs():
     """This function returns a dictionary of signatures indexed by p0f
 db (e.g., p0f_kdb, p0fa_kdb, ...) for the local TCP/IP stack.
@@ -563,6 +575,7 @@ interface and may (are likely to) be different than those generated on
     if pid > 0:
         # parent: sniff
         result = {}
+
         def addresult(res):
             # TODO: wildcard window size in some cases? and maybe some
             # other values?

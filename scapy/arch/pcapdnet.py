@@ -28,6 +28,7 @@ if conf.use_winpcapy:
   #  Part of the code from https://github.com/phaethon/scapy translated to python2.X
   try:
       from scapy.modules.winpcapy import *
+
       def winpcapy_get_if_list():
           err = create_string_buffer(PCAP_ERRBUF_SIZE)
           devs = POINTER(pcap_if_t)()
@@ -130,8 +131,10 @@ if conf.use_winpcapy:
       pcap_freealldevs(devs)
 
   from ctypes import POINTER, byref, create_string_buffer
+
   class _PcapWrapper_pypcap:
       """Wrapper for the WinPcap calls"""
+
       def __init__(self, device, snaplen, promisc, to_ms, monitor=False):
           self.errbuf = create_string_buffer(PCAP_ERRBUF_SIZE)
           self.iface = create_string_buffer(device.encode("utf8"))
@@ -149,6 +152,7 @@ if conf.use_winpcapy:
           self.header = POINTER(pcap_pkthdr)()
           self.pkt_data = POINTER(c_ubyte)()
           self.bpf_program = bpf_program()
+
       def next(self):
           c = pcap_next_ex(self.pcap, byref(self.header), byref(self.pkt_data))
           if not c > 0:
@@ -157,13 +161,16 @@ if conf.use_winpcapy:
           pkt = b"".join(chb(i) for i in self.pkt_data[:self.header.contents.len])
           return ts, pkt
       __next__ = next
+
       def datalink(self):
           return pcap_datalink(self.pcap)
+
       def fileno(self):
           if sys.platform.startswith("win"):
             log_loading.error("Cannot get selectable PCAP fd on Windows")
             return 0
           return pcap_get_selectable_fd(self.pcap)
+
       def setfilter(self, f):
           filter_exp = create_string_buffer(f.encode("utf8"))
           if pcap_compile(self.pcap, byref(self.bpf_program), filter_exp, 0, -1) == -1:
@@ -174,18 +181,23 @@ if conf.use_winpcapy:
               log_loading.error("Could not install filter %s", f)
               return False
           return True
+
       def setnonblock(self, i):
           pcap_setnonblock(self.pcap, i, self.errbuf)
+
       def send(self, x):
           pcap_sendpacket(self.pcap, x, len(x))
+
       def close(self):
           pcap_close(self.pcap)
   open_pcap = lambda *args, **kargs: _PcapWrapper_pypcap(*args, **kargs)
+
   class PcapTimeoutElapsed(Scapy_Exception):
       pass
 
   class L2pcapListenSocket(SuperSocket, SelectableObject):
       desc = "read packets at layer 2 using libpcap"
+
       def __init__(self, iface = None, type = ETH_P_ALL, promisc=None, filter=None, monitor=False):
           self.type = type
           self.outs = None
@@ -244,10 +256,11 @@ if conf.use_winpcapy:
       def send(self, x):
           raise Scapy_Exception("Can't send anything with L2pcapListenSocket")
   
-
   conf.L2listen = L2pcapListenSocket
+
   class L2pcapSocket(SuperSocket, SelectableObject):
       desc = "read/write packets at layer 2 using only libpcap"
+
       def __init__(self, iface = None, type = ETH_P_ALL, promisc=None, filter=None, nofilter=0,
                    monitor=False):
           if iface is None:
@@ -283,6 +296,7 @@ if conf.use_winpcapy:
                       filter = "ether proto %i" % type
           if filter:
               self.ins.setfilter(filter)
+
       def send(self, x):
           sx = raw(x)
           if hasattr(x, "sent_time"):
@@ -335,12 +349,14 @@ if conf.use_winpcapy:
       desc = "read/write packets at layer 3 using only libpcap"
       #def __init__(self, iface = None, type = ETH_P_ALL, filter=None, nofilter=0):
       #    L2pcapSocket.__init__(self, iface, type, filter, nofilter)
+
       def recv(self, x = MTU):
           r = L2pcapSocket.recv(self, x) 
           if r:
             return r.payload
           else:
             return
+
       def send(self, x):
           # Makes send detects when it should add Loopback(), Dot11... instead of Ether()
           ll = self.ins.datalink()
@@ -382,10 +398,13 @@ if conf.use_pcap:
                     except TypeError:
                         # Older pypcap versions do not support the timeout_ms argument
                         self.pcap = pcap.pcap(device, snaplen, promisc, immediate=1)                    
+
                 def __getattr__(self, attr):
                     return getattr(self.pcap, attr)
+
                 def __del__(self):
                     warning("__del__: don't know how to close the file descriptor. Bugs ahead ! Please report this bug.")
+
                 def next(self):
                     c = self.pcap.next()
                     if c is None:
@@ -399,8 +418,10 @@ if conf.use_pcap:
                 def __init__(self, *args, **kargs):
                     self.pcap = pcap.pcapObject()
                     self.pcap.open_live(*args, **kargs)
+
                 def setfilter(self, filter):
                     self.pcap.setfilter(filter, 0, 0)
+
                 def next(self):
                     c = self.pcap.next()
                     if c is None:
@@ -408,8 +429,10 @@ if conf.use_pcap:
                     l, pkt, ts = c 
                     return ts, pkt
                 __next__ = next
+
                 def __getattr__(self, attr):
                     return getattr(self.pcap, attr)
+
                 def __del__(self):
                     os.close(self.pcap.fileno())
             open_pcap = lambda *args, **kargs: _PcapWrapper_libpcap(*args, **kargs)
@@ -417,6 +440,7 @@ if conf.use_pcap:
             class _PcapWrapper_pcapy:
                 def __init__(self, *args, **kargs):
                     self.pcap = pcap.open_live(*args, **kargs)
+
                 def next(self):
                     try:
                         c = self.pcap.next()
@@ -429,11 +453,14 @@ if conf.use_pcap:
                         s, us = h.getts()
                         return (s+0.000001*us), p
                 __next__ = next
+
                 def fileno(self):
                     raise RuntimeError("%s has no fileno. Please report this bug." %
                                        self.__class__.__name__)
+
                 def __getattr__(self, attr):
                     return getattr(self.pcap, attr)
+
                 def __del__(self):
                     try:
                         self.pcap.close()
@@ -442,12 +469,12 @@ if conf.use_pcap:
                                 "descriptor. Bugs ahead! Please update pcapy!")
             open_pcap = lambda *args, **kargs: _PcapWrapper_pcapy(*args, **kargs)
 
-        
         class PcapTimeoutElapsed(Scapy_Exception):
             pass
     
         class L2pcapListenSocket(SuperSocket):
             desc = "read packets at layer 2 using libpcap"
+
             def __init__(self, iface = None, type = ETH_P_ALL, promisc=None, filter=None):
                 self.type = type
                 self.outs = None
@@ -501,7 +528,6 @@ if conf.use_pcap:
             def send(self, x):
                 raise Scapy_Exception("Can't send anything with L2pcapListenSocket")
         
-    
         conf.L2listen = L2pcapListenSocket
 
 
@@ -517,12 +543,15 @@ if conf.use_dnet:
         if conf.interactive:
             log_loading.error("Unable to import dnet module: %s", e)
             conf.use_dnet = False
+
             def get_if_raw_hwaddr(iff):
                 "dummy"
                 return (0, b"\0\0\0\0\0\0")
+
             def get_if_raw_addr(iff):
                 "dummy"
                 return b"\0\0\0\0"
+
             def get_if_list():
                 "dummy"
                 return []
@@ -566,10 +595,8 @@ if conf.use_dnet:
                 warning("No MAC address found on %s !" % ifname)
                 return b"\0\0\0\0"
 
-
         def get_if_list():
             return [i.get("name", None) for i in dnet.intf()]
-
 
         def get_working_if():
             """Returns the first interface than can be used with dnet"""
@@ -587,6 +614,7 @@ if conf.use_dnet:
 if conf.use_pcap and conf.use_dnet:
     class L3dnetSocket(SuperSocket):
         desc = "read/write packets at layer 3 using libdnet and libpcap"
+
         def __init__(self, type = ETH_P_ALL, promisc=None, filter=None, iface=None, nofilter=0):
             self.iflist = {}
             self.intf = dnet.intf()
@@ -619,6 +647,7 @@ if conf.use_pcap and conf.use_dnet:
                         filter = "ether proto %i" % type
             if filter:
                 self.ins.setfilter(filter)
+
         def send(self, x):
             iff, a, gw  = x.route()
             if iff is None:
@@ -641,6 +670,7 @@ if conf.use_pcap and conf.use_dnet:
                 sx = raw(cls()/x)
             x.sent_time = time.time()
             ifs.send(sx)
+
         def recv(self, x=MTU):
             ll = self.ins.datalink()
             if ll in conf.l2types:
@@ -682,6 +712,7 @@ if conf.use_pcap and conf.use_dnet:
     
     class L2dnetSocket(SuperSocket):
         desc = "read/write packets at layer 2 using libdnet and libpcap"
+
         def __init__(self, iface = None, type = ETH_P_ALL, promisc=None, filter=None, nofilter=0):
             if iface is None:
                 iface = conf.iface
@@ -713,6 +744,7 @@ if conf.use_pcap and conf.use_dnet:
             if filter:
                 self.ins.setfilter(filter)
             self.outs = dnet.eth(iface)
+
         def recv(self, x=MTU):
             ll = self.ins.datalink()
             if ll in conf.l2types:

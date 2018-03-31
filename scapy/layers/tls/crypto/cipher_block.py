@@ -24,6 +24,7 @@ if conf.crypto_valid:
 
 _tls_block_cipher_algs = {}
 
+
 class _BlockCipherMetaclass(type):
     """
     Cipher classes are automatically registered through this metaclass.
@@ -74,7 +75,6 @@ class _BlockCipher(six.with_metaclass(_BlockCipherMetaclass, object)):
             self.ready["iv"] = True
         super(_BlockCipher, self).__setattr__(name, val)
 
-
     def encrypt(self, data):
         """
         Encrypt the data. Also, update the cipher iv. This is needed for SSLv3
@@ -115,7 +115,6 @@ if conf.crypto_valid:
 
     class Cipher_AES_256_CBC(Cipher_AES_128_CBC):
         key_len = 32
-
 
     class Cipher_CAMELLIA_128_CBC(_BlockCipher):
         pc_cls = algorithms.Camellia
@@ -196,7 +195,6 @@ if conf.crypto_valid:
         @property
         def key_size(self):
             return len(self.key) * 8
-
 
     _gcbn_format = "{cipher.name}-{mode.name}"
     if GetCipherByName(_gcbn_format)(backend, _ARC2, modes.CBC) != \

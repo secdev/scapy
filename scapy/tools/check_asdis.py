@@ -3,12 +3,14 @@
 from __future__ import print_function
 import getopt
 
+
 def usage():
     print("""Usage: check_asdis -i <pcap_file> [-o <wrong_packets.pcap>]
     -v   increase verbosity
     -d   hexdiff packets that differ
     -z   compress output pcap
     -a   open pcap file in append mode""", file=sys.stderr)
+
 
 def main(argv):
     PCAP_IN = None
@@ -36,7 +38,6 @@ def main(argv):
             elif opt == "-z":
                 COMPRESS = True
                 
-                
         if PCAP_IN is None:
             raise getopt.GetoptError("Missing pcap file (-i)")
     
@@ -44,12 +45,9 @@ def main(argv):
         print("ERROR: %s" % e, file=sys.stderr)
         raise SystemExit
     
-    
-
     from scapy.config import conf
     from scapy.utils import RawPcapReader, RawPcapWriter, hexdiff
     from scapy.layers import all
-
 
     pcap = RawPcapReader(PCAP_IN)
     pcap_out = None
@@ -61,7 +59,6 @@ def main(argv):
     if LLcls is None:
         print(" Unknown link type [%i]. Can't test anything!" % pcap.linktype, file=sys.stderr)
         raise SystemExit
-    
     
     i=-1
     differ=0

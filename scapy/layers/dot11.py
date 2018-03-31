@@ -81,11 +81,13 @@ class PrismHeader(Packet):
                   LEShortField("frmlen_len", 0),
                     LEIntField("frmlen", 0),
                     ]
+
     def answers(self, other):
         if isinstance(other, PrismHeader):
             return self.payload.answers(other.payload)
         else:
             return self.payload.answers(other)
+
 
 class RadioTap(Packet):
     name = "RadioTap dummy"
@@ -98,6 +100,7 @@ class RadioTap(Packet):
                                                      'b14', 'b15', 'b16', 'b17', 'b18', 'b19', 'b20', 'b21', 'b22', 'b23',
                                                      'b24', 'b25', 'b26', 'b27', 'b28', 'b29', 'b30', 'Ext']),
                     StrLenField('notdecoded', "", length_from= lambda pkt:pkt.len-8) ]
+
 
 class PPI(Packet):
     name = "Per-Packet Information header (partial)"
@@ -136,8 +139,10 @@ class Dot11(Packet):
                          pkt.FCfield & 3 == 3),  ## from-DS+to-DS
         ),
     ]
+
     def mysummary(self):
         return self.sprintf("802.11 %Dot11.type% %Dot11.subtype% %Dot11.addr2% > %Dot11.addr1%")
+
     def guess_payload_class(self, payload):
         if self.type == 0x02 and (0x08 <= self.subtype <= 0xF and self.subtype != 0xD):
             return Dot11QoS
@@ -145,6 +150,7 @@ class Dot11(Packet):
             return Dot11WEP
         else:
             return Packet.guess_payload_class(self, payload)
+
     def answers(self, other):
         if isinstance(other, Dot11):
             if self.type == 0: # management
@@ -161,6 +167,7 @@ class Dot11(Packet):
             elif self.type == 3: # reserved
                 return 0
         return 0
+
     def unwep(self, key=None, warn=1):
         if self.FCfield & 0x40 == 0:
             if warn:
@@ -184,6 +191,7 @@ class Dot11QoS(Packet):
                     BitField("EOSP", None, 1),
                     BitField("TID", None, 4),
                     ByteField("TXOP", None) ]
+
     def guess_payload_class(self, payload):
         if isinstance(self.underlayer, Dot11):
             if self.underlayer.FCfield & 0x40:
@@ -207,6 +215,7 @@ status_code = {0: "success", 1: "failure", 10: "cannot-support-all-cap",
                14: "bad-seq-num", 15: "challenge-failure",
                16: "timeout", 17: "AP-full", 18: "rate-unsupported" }
 
+
 class Dot11Beacon(Packet):
     name = "802.11 Beacon"
     fields_desc = [ LELongField("timestamp", 0),
@@ -220,6 +229,7 @@ class Dot11Elt(Packet):
                                             42: "ERPinfo", 46: "QoS Capability", 47: "ERPinfo", 48: "RSNinfo", 50: "ESRates", 221: "vendor", 68: "reserved"}),
                     FieldLenField("len", None, "info", "B"),
                     StrLenField("info", "", length_from=lambda x: x.len) ]
+
     def mysummary(self):
         if self.ID == 0:
             ssid = repr(self.info)
@@ -229,12 +239,15 @@ class Dot11Elt(Packet):
         else:
             return ""
 
+
 class Dot11ATIM(Packet):
     name = "802.11 ATIM"
+
 
 class Dot11Disas(Packet):
     name = "802.11 Disassociation"
     fields_desc = [ LEShortEnumField("reason", 1, reason_code) ]
+
 
 class Dot11AssoReq(Packet):
     name = "802.11 Association Request"
@@ -248,6 +261,7 @@ class Dot11AssoResp(Packet):
                     LEShortField("status", 0),
                     LEShortField("AID", 0) ]
 
+
 class Dot11ReassoReq(Packet):
     name = "802.11 Reassociation Request"
     fields_desc = [ FlagsField("cap", 0, 16, capability_list),
@@ -258,29 +272,33 @@ class Dot11ReassoReq(Packet):
 class Dot11ReassoResp(Dot11AssoResp):
     name = "802.11 Reassociation Response"
 
+
 class Dot11ProbeReq(Packet):
     name = "802.11 Probe Request"
     
+
 class Dot11ProbeResp(Packet):
     name = "802.11 Probe Response"
     fields_desc = [ LELongField("timestamp", 0),
                     LEShortField("beacon_interval", 0x0064),
                     FlagsField("cap", 0, 16, capability_list) ]
     
+
 class Dot11Auth(Packet):
     name = "802.11 Authentication"
     fields_desc = [ LEShortEnumField("algo", 0, ["open", "sharedkey"]),
                     LEShortField("seqnum", 0),
                     LEShortEnumField("status", 0, status_code) ]
+
     def answers(self, other):
         if self.seqnum == other.seqnum+1:
             return 1
         return 0
 
+
 class Dot11Deauth(Packet):
     name = "802.11 Deauthentication"
     fields_desc = [ LEShortEnumField("reason", 1, reason_code) ]
-
 
 
 class Dot11WEP(Packet):
@@ -453,15 +471,13 @@ iwconfig wlan0 mode managed
 conf.stats_dot11_protocols += [Dot11WEP, Dot11Beacon, ]
 
 
-        
-
-
 class Dot11PacketList(PacketList):
     def __init__(self, res=None, name="Dot11List", stats=None):
         if stats is None:
             stats = conf.stats_dot11_protocols
 
         PacketList.__init__(self, res, name, stats)
+
     def toEthernet(self):
         data = [x[Dot11] for x in self.res if Dot11 in x and x.type == 2]
         r2 = []

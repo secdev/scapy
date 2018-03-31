@@ -49,6 +49,7 @@ class _TLSAutomaton(Automaton):
     method for feeding a list of received messages, 'buffer_in'. Raw data
     which has not yet been interpreted as a TLS record is kept in 'remain_in'.
     """
+
     def parse_args(self, mycert=None, mykey=None, **kargs):
 
         super(_TLSAutomaton, self).parse_args(**kargs)
@@ -72,7 +73,6 @@ class _TLSAutomaton(Automaton):
             self.mykey = None
 
         self.verbose = kargs.get("verbose", True)
-
 
     def get_next_msg(self, socket_timeout=2, retry=2):
         """

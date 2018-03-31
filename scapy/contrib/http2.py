@@ -55,6 +55,7 @@ import scapy.error as error
 ################################################ HPACK Integer Fields ##################################################
 ########################################################################################################################
 
+
 class HPackMagicBitField(fields.BitField):
     """ HPackMagicBitField is a BitField variant that cannot be assigned another
     value than the default one. This field must not be used where there is
@@ -631,6 +632,7 @@ class FieldUVarLenField(AbstractUVarIntField):
 ########################################################################################################################
 ################################################ HPACK String Fields ###################################################
 ########################################################################################################################
+
 
 class HPackStringsInterface(six.with_metaclass(abc.ABCMeta, Sized)):
     @abc.abstractmethod
@@ -1288,6 +1290,7 @@ class HPackStrLenField(fields.Field):
 ################################################ HPACK Packets #########################################################
 ########################################################################################################################
 
+
 class HPackHdrString(packet.Packet):
     """ HPackHdrString is a packet that that is serialized into a RFC7541 par5.2
     string literal repr.
@@ -1405,12 +1408,14 @@ class HPackDynamicSizeUpdate(HPackHeaders):
 ############################################# HTTP/2 Frames ############################################################
 ########################################################################################################################
 
+
 class H2FramePayload(packet.Packet):
     """ H2FramePayload is an empty class that is a super class of all Scapy
     HTTP/2 Frame Packets
     """
 
 ############################################# HTTP/2 Data Frame Packets ################################################
+
 
 class H2DataFrame(H2FramePayload):
     """ H2DataFrame implements RFC7540 par6.1
@@ -1484,6 +1489,7 @@ class H2AbstractHeadersFrame(H2FramePayload):
     """Superclass of all variants of HTTP/2 Header Frame Packets.
     May be used for type checking.
     """
+
 
 class H2HeadersFrame(H2AbstractHeadersFrame):
     """ H2HeadersFrame implements RFC 7540 par6.2 Headers Frame
@@ -1637,6 +1643,7 @@ class H2PaddedPriorityHeadersFrame(H2AbstractHeadersFrame):
 
 ########################################### HTTP/2 Priority Frame Packets ##############################################
 
+
 class H2PriorityFrame(H2FramePayload):
     """ H2PriorityFrame implements RFC 7540 par6.3
     """
@@ -1649,6 +1656,7 @@ class H2PriorityFrame(H2FramePayload):
     ]
 
 ################################################# HTTP/2 Errors ########################################################
+
 
 class H2ErrorCodes(object):
     """ H2ErrorCodes is an enumeration of the error codes defined in
@@ -1769,6 +1777,7 @@ class H2SettingsFrame(H2FramePayload):
 
 ######################################## HTTP/2 Push Promise Frame Packets #############################################
 
+
 class H2PushPromiseFrame(H2FramePayload):
     """ H2PushPromiseFrame implements RFC7540 par6.6. This packet
     is the variant to use when the underlayer padding flag is cleared
@@ -1845,6 +1854,7 @@ class H2PaddedPushPromiseFrame(H2PushPromiseFrame):
 
 ############################################### HTTP/2 Ping Frame Packets ##############################################
 
+
 class H2PingFrame(H2FramePayload):
     """ H2PingFrame implements the RFC 7540 par6.7
     """
@@ -1891,6 +1901,7 @@ class H2GoAwayFrame(H2FramePayload):
 
 ###################################### HTTP/2 Window Update Frame Packets ##############################################
 
+
 class H2WindowUpdateFrame(H2FramePayload):
     """ H2WindowUpdateFrame implements the RFC 7540 par6.9
     """
@@ -1918,6 +1929,7 @@ class H2WindowUpdateFrame(H2FramePayload):
 
 ####################################### HTTP/2 Continuation Frame Packets ##############################################
 
+
 class H2ContinuationFrame(H2FramePayload):
     """ H2ContinuationFrame implements the RFC 7540 par6.10
     """
@@ -1933,6 +1945,7 @@ class H2ContinuationFrame(H2FramePayload):
     ]
 
 ########################################## HTTP/2 Base Frame Packets ###################################################
+
 
 class H2Frame(packet.Packet):
     """ H2Frame implements the frame structure as defined in RFC 7540 par4.1
@@ -2052,6 +2065,7 @@ class H2Frame(packet.Packet):
             p = struct.pack('!L', len(pay))[1:] + p[3:]
         return super(H2Frame, self).post_build(p, pay)
 
+
 class H2Seq(packet.Packet):
     """ H2Seq is a helper packet that contains several H2Frames and their
     payload. This packet can be used, for instance, while reading manually from
@@ -2139,6 +2153,7 @@ class HPackHdrEntry(Sized):
             return "{} {}".format(self._name, self._value)
         else:
             return "{}: {}".format(self._name, self._value)
+
     def __bytes__(self):
         return raw(self.__str__())
 

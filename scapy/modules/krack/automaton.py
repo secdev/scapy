@@ -741,7 +741,6 @@ class KrackAP(Automaton):
         log_runtime.debug(repr(pkt))
         self.deal_common_pkt(pkt)
 
-
     @ATMT.condition(RENEW_GTK)
     def gtk_pkt_1(self):
         raise self.WAIT_GTK_ACCEPT()

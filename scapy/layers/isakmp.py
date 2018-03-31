@@ -104,6 +104,7 @@ del(val)
 
 class ISAKMPTransformSetField(StrLenField):
     islist=1
+
     def type2num(self, type_val_tuple):
         typ, val = type_val_tuple
         type_val, enc_dict, tlv = ISAKMPTransformTypes.get(typ, (typ, {}, 0))
@@ -121,15 +122,18 @@ class ISAKMPTransformSetField(StrLenField):
         else:
             type_val |= 0x8000
         return struct.pack("!HH", type_val, val)+s
+
     def num2type(self, typ, enc):
         val = ISAKMPTransformNum.get(typ, (typ, {}))
         enc = val[1].get(enc, enc)
         return (val[0], enc)
+
     def i2m(self, pkt, i):
         if i is None:
             return b""
         i = [self.type2num(e) for e in i]
         return b"".join(i)
+
     def m2i(self, pkt, m):
         # I try to ensure that we don't read off the end of our packet based
         # on bad length fields we're provided in the packet. There are still
@@ -202,14 +206,13 @@ class ISAKMP(ISAKMP_class): # rfc2408
             if other.init_cookie == self.init_cookie:
                 return 1
         return 0
+
     def post_build(self, p, pay):
         p += pay
         if self.length is None:
             p = p[:24]+struct.pack("!I", len(p))+p[28:]
         return p
        
-
-
 
 class ISAKMP_payload_Transform(ISAKMP_class):
     name = "IKE Transform"
@@ -230,6 +233,7 @@ class ISAKMP_payload_Transform(ISAKMP_class):
 #        XIntField("durationh",0x000c0004L),
 #        XIntField("durationl",0x00007080L),
         ]
+
     def post_build(self, p, pay):
         if self.length is None:
             l = len(p)
@@ -238,8 +242,6 @@ class ISAKMP_payload_Transform(ISAKMP_class):
         return p
             
 
-
-        
 class ISAKMP_payload_Proposal(ISAKMP_class):
     name = "IKE proposal"
 #    ISAKMP_payload_type = 0
@@ -276,6 +278,7 @@ class ISAKMP_payload_VendorID(ISAKMP_class):
         StrLenField("vendorID", "", length_from=lambda x:x.length-4),
         ]
 
+
 class ISAKMP_payload_SA(ISAKMP_class):
     name = "ISAKMP SA"
     overload_fields = { ISAKMP: { "next_payload": 1 }}
@@ -288,6 +291,7 @@ class ISAKMP_payload_SA(ISAKMP_class):
         PacketLenField("prop", conf.raw_layer(), ISAKMP_payload_Proposal, length_from=lambda x: x.length-12),
         ]
 
+
 class ISAKMP_payload_Nonce(ISAKMP_class):
     name = "ISAKMP Nonce"
     overload_fields = { ISAKMP: { "next_payload": 10 }}
@@ -298,6 +302,7 @@ class ISAKMP_payload_Nonce(ISAKMP_class):
         StrLenField("load", "", length_from=lambda x:x.length-4),
         ]
 
+
 class ISAKMP_payload_KE(ISAKMP_class):
     name = "ISAKMP Key Exchange"
     overload_fields = { ISAKMP: { "next_payload": 4 }}
@@ -307,6 +312,7 @@ class ISAKMP_payload_KE(ISAKMP_class):
         FieldLenField("length", None, "load", "H", adjust=lambda pkt, x:x+4),
         StrLenField("load", "", length_from=lambda x:x.length-4),
         ]
+
 
 class ISAKMP_payload_ID(ISAKMP_class):
     name = "ISAKMP Identification"
@@ -323,7 +329,6 @@ class ISAKMP_payload_ID(ISAKMP_class):
         ]
 
 
-
 class ISAKMP_payload_Hash(ISAKMP_class):
     name = "ISAKMP Hash"
     overload_fields = { ISAKMP: { "next_payload": 8 }}
@@ -333,7 +338,6 @@ class ISAKMP_payload_Hash(ISAKMP_class):
         FieldLenField("length", None, "load", "H", adjust=lambda pkt, x:x+4),
         StrLenField("load", "", length_from=lambda x:x.length-4),
         ]
-
 
 
 ISAKMP_payload_type_overload = {}
@@ -347,6 +351,8 @@ ISAKMP_class._overload_fields = ISAKMP_payload_type_overload.copy()
 
 
 bind_layers( UDP,           ISAKMP,        dport=500, sport=500)
+
+
 def ikescan(ip):
     return sr(IP(dst=ip)/UDP()/ISAKMP(init_cookie=RandString(8),
                                       exch_type=2)/ISAKMP_payload_SA(prop=ISAKMP_payload_Proposal()))

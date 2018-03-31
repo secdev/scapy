@@ -29,11 +29,13 @@ from scapy.fields import *
 from scapy.layers.x509 import X509_SubjectPublicKeyInfo
 from scapy.layers.inet6 import icmp6ndoptscls, _ICMPv6NDGuessPayload
 
+
 class ICMPv6NDOptNonce(_ICMPv6NDGuessPayload, Packet):
     name = "ICMPv6NDOptNonce"
     fields_desc = [ ByteField("type", 14),
                     FieldLenField("len", None, length_of="nonce", fmt="B", adjust = lambda pkt, x: int(round((x+2)/8.))),
                     StrLenField("nonce", "", length_from = lambda pkt: pkt.len*8-2) ]
+
 
 class ICMPv6NDOptTmstp(_ICMPv6NDGuessPayload, Packet):
     name = "ICMPv6NDOptTmstp"
@@ -41,6 +43,7 @@ class ICMPv6NDOptTmstp(_ICMPv6NDGuessPayload, Packet):
                     ByteField("len", 2),
                     BitField("reserved", 0, 48),
                     UTCTimeField("timestamp", None) ]
+
 
 class ICMPv6NDOptRsaSig(_ICMPv6NDGuessPayload, Packet):
     name = "ICMPv6NDOptRsaSig"
@@ -50,6 +53,7 @@ class ICMPv6NDOptRsaSig(_ICMPv6NDGuessPayload, Packet):
                     StrFixedLenField("key_hash", "", length=16),
                     StrLenField("signature_pad", "", length_from = lambda pkt: pkt.len*8-20) ]
 
+
 class CGA_Params(Packet):
     name = "CGA Parameters data structure"
     fields_desc = [ StrFixedLenField("modifier", RandBin(size=16), length=16),
@@ -57,6 +61,7 @@ class CGA_Params(Packet):
                     ByteField("cc", 0),
                     PacketField("pubkey", X509_SubjectPublicKeyInfo(),
                                           X509_SubjectPublicKeyInfo)  ]
+
 
 class ICMPv6NDOptCGA(_ICMPv6NDGuessPayload, Packet):
     name = "ICMPv6NDOptCGA"
@@ -72,6 +77,7 @@ class ICMPv6NDOptCGA(_ICMPv6NDGuessPayload, Packet):
         l = -(4+l_) % 8  # Pad to 8 bytes
         p = p[:1] + chb((4+l_+l)//8) + chb(l) + p[3:4+l_] + b"\x00" * l + pay
         return p
+
 
 send_icmp6ndoptscls = { 11: ICMPv6NDOptCGA,
                        12: ICMPv6NDOptRsaSig,

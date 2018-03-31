@@ -21,6 +21,7 @@ import scapy.modules.six as six
 
 _tls_kx_algs = {}
 
+
 class _GenericKXMetaclass(type):
     """
     We could try to set server_kx_msg and client_kx_msg while parsing
@@ -49,10 +50,12 @@ class KX_NULL(_GenericKX):
     server_kx_msg_cls = lambda _, m: None
     client_kx_msg_cls = None
 
+
 class KX_SSLv2(_GenericKX):
     descr = "SSLv2 dummy key exchange class"
     server_kx_msg_cls = lambda _, m: None
     client_kx_msg_cls = None
+
 
 class KX_TLS13(_GenericKX):
     descr = "TLS 1.3 dummy key exchange class"
@@ -72,6 +75,7 @@ class KX_RSA(_GenericKX):
 #    server_kx_msg_cls = lambda _,m: None
 #    client_kx_msg_cls = None
 
+
 class KX_DHE_RSA(_GenericKX):
     descr = "Ephemeral DH with RSA signature"
     server_kx_msg_cls = lambda _, m: ServerDHParams
@@ -82,10 +86,12 @@ class KX_DHE_RSA(_GenericKX):
 #     server_kx_msg_cls = lambda _,m: None
 #     client_kx_msg_cls = None
 
+
 class KX_ECDHE_RSA(_GenericKX):
     descr = "Ephemeral ECDH with RSA signature"
     server_kx_msg_cls = lambda _, m: _tls_server_ecdh_cls_guess(m)
     client_kx_msg_cls = ClientECDiffieHellmanPublic
+
 
 class KX_RSA_EXPORT(KX_RSA):
     descr = "RSA encryption, export version"
@@ -93,6 +99,7 @@ class KX_RSA_EXPORT(KX_RSA):
 
 #class KX_DH_RSA_EXPORT(KX_DH_RSA):
 #    descr = "DH with RSA-based certificates - Export version"
+
 
 class KX_DHE_RSA_EXPORT(KX_DHE_RSA):
     descr = "Ephemeral DH with RSA signature, export version"
@@ -181,10 +188,12 @@ class KX_DH_anon(_GenericKX):
     server_kx_msg_cls = lambda _, m: ServerDHParams
     client_kx_msg_cls = ClientDiffieHellmanPublic
 
+
 class KX_ECDH_anon(_GenericKX):
     descr = "ECDH anonymous key exchange"
     server_kx_msg_cls = lambda _, m: _tls_server_ecdh_cls_guess(m)
     client_kx_msg_cls = ClientECDiffieHellmanPublic
+
 
 class KX_DH_anon_EXPORT(KX_DH_anon):
     descr = "Anonymous DH, no signatures - Export version"

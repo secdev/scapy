@@ -36,6 +36,7 @@ from scapy.supersocket import SuperSocket
 ## Debug class ##
 #################
 
+
 class debug:
     recv=[]
     sent=[]
@@ -69,12 +70,14 @@ def _sndrcv_snd(pks, timeout, inter, verbose, tobesent, stopevent):
         stopevent.wait(timeout)
         stopevent.set()
 
+
 class _BreakException(Exception):
     """A dummy exception used in _get_pkt() to get out of the infinite
 loop
 
     """
     pass
+
 
 def _sndrcv_rcv(pks, tobesent, stopevent, nbrecv, notans, verbose, chainCC,
                 multi):
@@ -90,6 +93,7 @@ def _sndrcv_rcv(pks, tobesent, stopevent, nbrecv, notans, verbose, chainCC,
             return pks.recv(MTU)
     elif conf.use_bpf:
         from scapy.arch.bpf.supersocket import bpf_select
+
         def _get_pkt():
             if bpf_select([pks]):
                 return pks.recv()
@@ -156,6 +160,7 @@ def _sndrcv_rcv(pks, tobesent, stopevent, nbrecv, notans, verbose, chainCC,
     finally:
         stopevent.set()
     return (hsent, ans, nbrecv, notans)
+
 
 def sndrcv(pks, pkt, timeout=None, inter=0, verbose=None, chainCC=False,
            retry=0, multi=False, rcv_pks=None):
@@ -290,6 +295,7 @@ def __gen_send(s, x, inter=0, loop=0, count=None, verbose=None, realtime=None, r
     if return_packets:
         return sent_packets
         
+
 @conf.commands.register
 def send(x, inter=0, loop=0, count=None, verbose=None, realtime=None, return_packets=False, socket=None,
          *args, **kargs):
@@ -300,6 +306,7 @@ send(packets, [inter=0], [loop=0], [count=None], [verbose=conf.verb], [realtime=
         socket = conf.L3socket(*args, **kargs)
     return __gen_send(socket, x, inter=inter, loop=loop, count=count, verbose=verbose,
                       realtime=realtime, return_packets=return_packets)
+
 
 @conf.commands.register
 def sendp(x, inter=0, loop=0, iface=None, iface_hint=None, count=None, verbose=None, realtime=None,
@@ -313,6 +320,7 @@ sendp(packets, [inter=0], [loop=0], [iface=None], [iface_hint=None], [count=None
         socket = conf.L2socket(iface=iface, *args, **kargs)
     return __gen_send(socket, x, inter=inter, loop=loop, count=count,
                       verbose=verbose, realtime=realtime, return_packets=return_packets)
+
 
 @conf.commands.register
 def sendpfast(x, pps=None, mbps=None, realtime=None, loop=0, file_cache=False, iface=None):
@@ -356,9 +364,6 @@ def sendpfast(x, pps=None, mbps=None, realtime=None, loop=0, file_cache=False, i
         os.unlink(f)
 
         
-
-        
-    
 @conf.commands.register
 def sr(x, promisc=None, filter=None, iface=None, nofilter=0, *args, **kargs):
     """Send and receive packets at layer 3
@@ -376,6 +381,7 @@ iface:    listen answers only on the given interface"""
     result = sndrcv(s, x, *args, **kargs)
     s.close()
     return result
+
 
 @conf.commands.register
 def sr1(x, promisc=None, filter=None, iface=None, nofilter=0, *args, **kargs):
@@ -398,6 +404,7 @@ iface:    listen answers only on the given interface"""
     else:
         return None
 
+
 @conf.commands.register
 def srp(x, promisc=None, iface=None, iface_hint=None, filter=None, nofilter=0, type=ETH_P_ALL, *args, **kargs):
     """Send and receive packets at layer 2
@@ -417,6 +424,7 @@ iface:    work only on the given interface"""
     result = sndrcv(s, x, *args, **kargs)
     s.close()
     return result
+
 
 @conf.commands.register
 def srp1(*args, **kargs):
@@ -438,6 +446,7 @@ iface:    work only on the given interface"""
         return None
 
 # SEND/RECV LOOP METHODS
+
 
 def __sr_loop(srfunc, pkts, prn=lambda x: x[1].summary(), prnfail=lambda x: x.summary(), inter=1, timeout=None, count=None, verbose=None, store=1, *args, **kargs):
     n = 0
@@ -491,11 +500,13 @@ def __sr_loop(srfunc, pkts, prn=lambda x: x[1].summary(), prnfail=lambda x: x.su
         print(ct.normal("\nSent %i packets, received %i packets. %3.1f%% hits." % (n, r, 100.0*r/n)))
     return plist.SndRcvList(ans), plist.PacketList(unans)
 
+
 @conf.commands.register
 def srloop(pkts, *args, **kargs):
     """Send a packet at layer 3 in loop and print the answer each time
 srloop(pkts, [prn], [inter], [count], ...) --> None"""
     return __sr_loop(sr, pkts, *args, **kargs)
+
 
 @conf.commands.register
 def srploop(pkts, *args, **kargs):
@@ -504,6 +515,7 @@ srloop(pkts, [prn], [inter], [count], ...) --> None"""
     return __sr_loop(srp, pkts, *args, **kargs)
 
 # SEND/RECV FLOOD METHODS
+
 
 def sndrcvflood(pks, pkt, inter=0, verbose=None, chainCC=False, prn=lambda x: x):
     if not verbose:
@@ -558,6 +570,7 @@ def sndrcvflood(pks, pkt, inter=0, verbose=None, chainCC=False, prn=lambda x: x)
 
     return plist.SndRcvList(ans), plist.PacketList(remain, "Unanswered")
 
+
 @conf.commands.register
 def srflood(x, promisc=None, filter=None, iface=None, nofilter=None, *args, **kargs):
     """Flood and receive packets at layer 3
@@ -570,6 +583,7 @@ iface:    listen answers only on the given interface"""
     r=sndrcvflood(s, x, *args, **kargs)
     s.close()
     return r
+
 
 @conf.commands.register
 def sr1flood(x, promisc=None, filter=None, iface=None, nofilter=0, *args, **kargs):
@@ -587,6 +601,7 @@ iface:    listen answers only on the given interface"""
     else:
         return None
 
+
 @conf.commands.register
 def srpflood(x, promisc=None, filter=None, iface=None, iface_hint=None, nofilter=None, *args, **kargs):
     """Flood and receive packets at layer 2
@@ -601,6 +616,7 @@ iface:    listen answers only on the given interface"""
     r=sndrcvflood(s, x, *args, **kargs)
     s.close()
     return r
+
 
 @conf.commands.register
 def srp1flood(x, promisc=None, filter=None, iface=None, nofilter=0, *args, **kargs):
@@ -619,6 +635,7 @@ iface:    listen answers only on the given interface"""
         return None
 
 # SNIFF METHODS
+
 
 @conf.commands.register
 def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
@@ -736,11 +753,13 @@ Examples:
     read_allowed_exceptions = ()
     if conf.use_bpf:
         from scapy.arch.bpf.supersocket import bpf_select
+
         def _select(sockets):
             return bpf_select(sockets, remain)
     elif WINDOWS:
         from scapy.arch.pcapdnet import PcapTimeoutElapsed
         read_allowed_exceptions = (PcapTimeoutElapsed,)
+
         def _select(sockets):
             try:
                 return sockets
@@ -822,6 +841,7 @@ Arguments:
             log_runtime.warning("Argument %s cannot be used in "
                                 "bridge_and_sniff() -- ignoring it.", arg)
             del kargs[arg]
+
     def _init_socket(iface, count):
         if isinstance(iface, SuperSocket):
             return iface, "iface%d" % count
@@ -835,6 +855,7 @@ Arguments:
         xfrms[if1] = xfrm12
     if xfrm21 is not None:
         xfrms[if2] = xfrm21
+
     def prn_send(pkt):
         try:
             sendsock = peers[pkt.sniffed_on]
@@ -866,6 +887,7 @@ Arguments:
         prn = prn_send
     else:
         prn_orig = prn
+
         def prn(pkt):
             prn_send(pkt)
             return prn_orig(pkt)
@@ -879,6 +901,7 @@ def tshark(*args, **kargs):
     """Sniff packets and print them calling pkt.summary(), a bit like text wireshark"""
     print("Capturing on '" + str(kargs.get('iface') if 'iface' in kargs else conf.iface) + "'")
     i = [0]  # This should be a nonlocal variable, using a mutable object for Python 2 compatibility
+
     def _cb(pkt):
         print("%5d\t%s" % (i[0], pkt.summary()))
         i[0] += 1

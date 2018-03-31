@@ -145,6 +145,7 @@ def read_routes():
 ### IPv6 ###
 ############
 
+
 def _in6_getifaddr(ifname):
     """
     Returns a list of IPv6 addresses configured on the interface ifname.
@@ -178,6 +179,7 @@ def _in6_getifaddr(ifname):
         ret.append((addr, scope, ifname))
 
     return ret
+
 
 def in6_getifaddr():
     """

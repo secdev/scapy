@@ -15,6 +15,7 @@ if conf.ipv6_enabled:
     from scapy.layers.inet6 import IPv6
 from scapy.config import conf
 
+
 class PFLog(Packet):
     name = "PFLog"
     # from OpenBSD src/sys/net/pfvar.h and src/sys/net/if_pflog.h
@@ -50,8 +51,10 @@ class PFLog(Packet):
                     ByteEnumField("direction", 255, {0: "inout", 1: "in",
                                                      2: "out", 255: "unknown"}),
                     StrFixedLenField("pad", b"\x00\x00\x00", 3 ) ]
+
     def mysummary(self):
         return self.sprintf("%PFLog.addrfamily% %PFLog.action% on %PFLog.iface% by rule %PFLog.rulenumber%")
+
 
 bind_layers(PFLog, IP, addrfamily=socket.AF_INET)
 if conf.ipv6_enabled:

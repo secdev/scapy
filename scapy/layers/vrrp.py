@@ -18,6 +18,8 @@ from scapy.error import warning
 IPPROTO_VRRP=112
 
 # RFC 3768 - Virtual Router Redundancy Protocol (VRRP)
+
+
 class VRRP(Packet):
     fields_desc = [
         BitField("version", 2, 4),
@@ -82,6 +84,7 @@ class VRRPv3(Packet):
             if ver_n_type < 48 or ver_n_type > 57: # Version != 3
                 return VRRP
         return VRRPv3
+
 
 # IPv6 is supported only on VRRPv3
 # Warning: those layers need to be un-binded in the CARP contrib module.

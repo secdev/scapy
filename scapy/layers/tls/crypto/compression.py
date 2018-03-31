@@ -17,6 +17,7 @@ import scapy.modules.six as six
 _tls_compression_algs = {}
 _tls_compression_algs_cls = {}
 
+
 class _GenericCompMetaclass(type):
     """
     Compression classes are automatically registered through this metaclass.
@@ -49,6 +50,7 @@ class Comp_NULL(_GenericComp):
     def decompress(self, s):
         return s
 
+
 class Comp_Deflate(_GenericComp):
     """
     DEFLATE algorithm, specified for TLS by RFC 3749.
@@ -67,6 +69,7 @@ class Comp_Deflate(_GenericComp):
     def __init__(self):
         self.compress_state = zlib.compressobj()
         self.decompress_state = zlib.decompressobj()
+
 
 class Comp_LZS(_GenericComp):
     """

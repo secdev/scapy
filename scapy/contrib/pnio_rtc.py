@@ -97,9 +97,9 @@ class PNIORealTimeRawData(Packet):
         # Manage the length of the packet if a length is provided
         return  self._config["length"]
 
+
 # Make sure an IOPS follows a data
 bind_layers(PNIORealTimeRawData, PNIORealTimeIOxS)
-
 
 
 ###############################
@@ -108,13 +108,16 @@ bind_layers(PNIORealTimeRawData, PNIORealTimeIOxS)
 
 class LowerLayerBoundPacketListField(PacketListField):
     """PacketList which binds each underlayer of packets to the current pkt"""
+
     def m2i(self, pkt, m):
         return self.cls(m, _underlayer=pkt)
+
 
 class NotionalLenField(Field):
     """A len fields which isn't present in the machine representation, but is
     computed from a given lambda"""
     __slots__ = ["length_from", "count_from"]
+
     def __init__(self, name, default, length_from=None, count_from=None):
         Field.__init__(self, name, default)
         self.length_from = length_from
@@ -144,6 +147,7 @@ class NotionalLenField(Field):
 # config: a config dict, given to the type class constructor
 conf.contribs["PNIO_RTC"] = {}
 
+
 def _get_ethernet(pkt):
     """Find the Ethernet packet of underlayer or None"""
     ether = pkt
@@ -151,9 +155,11 @@ def _get_ethernet(pkt):
         ether = ether.underlayer
     return ether
 
+
 def pnio_update_config(config):
     """Update the PNIO RTC config"""
     conf.contribs["PNIO_RTC"].update(config)
+
 
 def pnio_get_config(pkt):
     """Retrieve the config for a given communication"""
@@ -203,6 +209,8 @@ _PNIO_DS_FLAGS = [
     "reserved_2",
     "ignore",
     ]
+
+
 class PNIORealTime(Packet):
     """PROFINET cyclic real-time"""
     name = "PROFINET Real-Time"
@@ -415,6 +423,7 @@ class PNIORealTime(Packet):
         plt.tight_layout()
         plt.show()
 
+
 def entropy_of_byte(packets, position):
     """Compute the entropy of a byte at a given offset"""
     counter = [0 for _ in range(256)]
@@ -438,9 +447,11 @@ def entropy_of_byte(packets, position):
 ## PROFISafe ##
 ###############
 
+
 class XVarBytesField(XByteField):
     """Variable length bytes field, from 0 to 8 bytes"""
     __slots__ = ["length_from"]
+
     def __init__(self, name, default, length=None, length_from=None):
         self.length_from = length_from
         if length:
@@ -469,6 +480,7 @@ class Profisafe(PNIORealTimeRawData):
         XByteField("Control_Status", 0),
         XVarBytesField("CRC", 0, length_from=lambda p: p[Profisafe].crc_length())
         ]
+
     def data_length(self):
         """Return the length of the data"""
         ret = self.length() - self.crc_length() - 1

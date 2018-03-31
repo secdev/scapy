@@ -37,6 +37,8 @@ from scapy.layers.tls.crypto.ciphers import CipherError
 from scapy.layers.tls.crypto.h_mac import HMACError
 
 # Util
+
+
 def _tls_version_check(version, min):
     """Returns if version >= min, or False if version == None"""
     if version == None:
@@ -46,6 +48,7 @@ def _tls_version_check(version, min):
 ###############################################################################
 ### TLS Record Protocol                                                     ###
 ###############################################################################
+
 
 class _TLSEncryptedContent(Raw):
     """
@@ -64,6 +67,7 @@ class _TLSMsgListField(PacketListField):
     multiple sublayer messages (notably, several handshake messages),
     we inherit from PacketListField.
     """
+
     def __init__(self, name, default, length_from=None):
         if not length_from:
             length_from = self._get_length
@@ -525,7 +529,6 @@ class TLS(_GenericTLSSessionInheritance):
                 p = conf.raw_layer(s, _internal=1, _underlayer=self)
             self.add_payload(p)
 
-
     ### Building methods
 
     def _tls_compress(self, s):
@@ -678,6 +681,7 @@ class TLS(_GenericTLSSessionInheritance):
 
 _tls_changecipherspec_type = { 1: "change_cipher_spec" }
 
+
 class TLSChangeCipherSpec(_GenericTLSSessionInheritance):
     """
     Note that, as they are not handshake messages, the ccs messages do not get
@@ -719,6 +723,7 @@ _tls_alert_description = {
    110: "unsupported_extension",      111: "certificate_unobtainable",
    112: "unrecognized_name",          113: "bad_certificate_status_response",
    114: "bad_certificate_hash_value", 115: "unknown_psk_identity" }
+
 
 class TLSAlert(_GenericTLSSessionInheritance):
     name = "TLS Alert"

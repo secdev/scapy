@@ -37,6 +37,7 @@ from scapy.contrib.igmp import IGMP
 #   http://www.faqs.org/rfcs/rfc4286.html
 #
 
+
 class IGMPv3(IGMP):
     """IGMP Message Class for v3.
 
@@ -90,7 +91,6 @@ class IGMPv3(IGMP):
             code = 0x80 | exp | (value & 0x0F)
         self.mrcode = code
 
-
     def mysummary(self):
         """Display a summary of the IGMPv3 object."""
         if isinstance(self.underlayer, IP):
@@ -107,6 +107,7 @@ class IGMPv3(IGMP):
                 return IGMP
         return IGMPv3
 
+
 class IGMPv3mq(Packet):
     """IGMPv3 Membership Query.
     Payload of IGMPv3 when type=0x11"""
@@ -118,6 +119,7 @@ class IGMPv3mq(Packet):
                     ByteField("qqic", 0),
                     FieldLenField("numsrc", None, count_of="srcaddrs"),
                     FieldListField("srcaddrs", None, IPField("sa", "0.0.0.0"), count_from=lambda x: x.numsrc)]
+
 
 class IGMPv3gr(Packet):
     """IGMP Group Record for IGMPv3 Membership Report
@@ -146,6 +148,7 @@ class IGMPv3gr(Packet):
     def default_payload_class(self, payload):
         return conf.padding_layer
 
+
 class IGMPv3mr(Packet):
     """IGMP Membership Report extension for IGMPv3.
     Payload of IGMPv3 when type=0x22"""
@@ -154,12 +157,14 @@ class IGMPv3mr(Packet):
                     FieldLenField("numgrp", None, count_of="records"),
                     PacketListField("records", [], IGMPv3gr, count_from=lambda x: x.numgrp)]
 
+
 class IGMPv3mra(Packet):
     """IGMP Multicas Router Advertisement extension for IGMPv3.
     Payload of IGMPv3 when type=0x30"""
     name = "IGMPv3mra"
     fields_desc = [ ShortField("qryIntvl", 0),
                     ShortField("robust", 0)]
+
 
 bind_layers(IP,       IGMPv3,   frag=0,
                                 proto=2,

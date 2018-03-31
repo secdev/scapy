@@ -76,7 +76,6 @@ class Route:
         self.invalidate_cache()
         self.routes.append(self.make_route(*args, **kargs))
 
-        
     def delt(self,  *args, **kargs):
         """delt(host|net, gw|dev)"""
         self.invalidate_cache()
@@ -94,7 +93,6 @@ class Route:
         the_rawaddr = atol(the_addr)
         the_net = the_rawaddr & the_msk
         
-        
         for i, route in enumerate(self.routes):
             net, msk, gw, iface, addr, metric = route
             if scapy.consts.WINDOWS:
@@ -108,8 +106,6 @@ class Route:
                 self.routes[i] = (net, msk, gw, iface, the_addr, metric)
         conf.netcache.flush()
         
-                
-
     def ifdel(self, iff):
         self.invalidate_cache()
         new_routes=[]
@@ -130,7 +126,6 @@ class Route:
         the_net = the_rawaddr & the_msk
         self.routes.append((the_net, the_msk, '0.0.0.0', iff, the_addr, 1))
 
-
     def route(self, dest, verbose=None):
         if dest in self.cache:
             return self.cache[dest]
@@ -146,7 +141,6 @@ class Route:
             m = (dst[l:]+".").find(".")
             dst = dst[:l]+dst[l+m:]
 
-            
         dst = atol(dst)
         pathes=[]
         for d, m, gw, i, a, me in self.routes:
@@ -187,6 +181,7 @@ class Route:
             bcast = atol(addr)|(~msk&0xffffffff); # FIXME: check error in atol()
             return ltoa(bcast)
         warning("No broadcast address found for iface %s\n", iff);
+
 
 conf.route=Route()
 

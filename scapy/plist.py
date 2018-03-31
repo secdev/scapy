@@ -30,6 +30,7 @@ from scapy.modules.six.moves import range, zip
 
 class PacketList(BasePacketList):
     __slots__ = ["stats", "res", "listname"]
+
     def __init__(self, res=None, name="PacketList", stats=None):
         """create a packet list from a list of packets
            res: the list of packets
@@ -43,14 +44,19 @@ class PacketList(BasePacketList):
             res = res.res
         self.res = res
         self.listname = name
+
     def __len__(self):
         return len(self.res)
+
     def _elt2pkt(self, elt):
         return elt
+
     def _elt2sum(self, elt):
         return elt.summary()
+
     def _elt2show(self, elt):
         return self._elt2sum(elt)
+
     def __repr__(self):
         stats = {x: 0 for x in self.stats}
         other = 0
@@ -77,8 +83,10 @@ class PacketList(BasePacketList):
                                ct.punct(":"),
                                s,
                                ct.punct(">"))
+
     def __getattr__(self, attr):
         return getattr(self.res, attr)
+
     def __getitem__(self, item):
         if issubtype(item, BasePacket):
             return self.__class__([x for x in self.res if item in self._elt2pkt(x)],
@@ -87,12 +95,15 @@ class PacketList(BasePacketList):
             return self.__class__(self.res.__getitem__(item),
                                   name = "mod %s" % self.listname)
         return self.res.__getitem__(item)
+
     def __getslice__(self, *args, **kargs):
         return self.__class__(self.res.__getslice__(*args, **kargs),
                               name="mod %s"%self.listname)
+
     def __add__(self, other):
         return self.__class__(self.res+other.res,
                               name="%s+%s"%(self.listname, other.listname))
+
     def summary(self, prn=None, lfilter=None):
         """prints a summary of each packet
 prn:     function to apply to each packet instead of lambda x:x.summary()
@@ -105,6 +116,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
                 print(self._elt2sum(r))
             else:
                 print(prn(r))
+
     def nsummary(self, prn=None, lfilter=None):
         """prints a summary of each packet with the packet's number
 prn:     function to apply to each packet instead of lambda x:x.summary()
@@ -118,9 +130,11 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
                 print(self._elt2sum(res))
             else:
                 print(prn(res))
+
     def display(self): # Deprecated. Use show()
         """deprecated. is show()"""
         self.show()
+
     def show(self, *args, **kargs):
         """Best way to display the packet list. Defaults to nsummary() method"""
         return self.nsummary(*args, **kargs)
@@ -129,13 +143,16 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         """Returns a packet list filtered by a truth function"""
         return self.__class__([x for x in self.res if func(x)],
                               name="filtered %s"%self.listname)
+
     def make_table(self, *args, **kargs):
         """Prints a table using a function that returns for each packet its head column value, head row value and displayed value
         ex: p.make_table(lambda x:(x[IP].dst, x[TCP].dport, x[TCP].sprintf("%flags%")) """
         return make_table(self.res, *args, **kargs)
+
     def make_lined_table(self, *args, **kargs):
         """Same as make_table, but print a table with lines"""
         return make_lined_table(self.res, *args, **kargs)
+
     def make_tex_table(self, *args, **kargs):
         """Same as make_table, but print a table with LaTeX syntax"""
         return make_tex_table(self.res, *args, **kargs)
@@ -285,7 +302,6 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
                                         self._elt2sum(res)))
                     hexdump(p.getlayer(conf.padding_layer).load)
         
-
     def conversations(self, getsrcdst=None, **kargs):
         """Graphes a conversations between sources and destinations and display it
         (using graphviz and imagemagick)
@@ -367,6 +383,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
                 continue
 
         import math
+
         def normalize(n):
             return 2+math.log(n)/4.0
 
@@ -410,7 +427,6 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         gr += "}"
         return do_graph(gr, **kargs)
 
-
     def _dump_document(self, **kargs):
         import pyx
         d = pyx.document.document()
@@ -426,8 +442,6 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
                                        fittosize=1))
         return d
                      
-                 
-
     def psdump(self, filename = None, **kargs):
         """Creates a multi-page postcript file with a psdump of every packet
         filename: name of the file to write to. If empty, a temporary file is used and
@@ -560,9 +574,12 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
 
 class SndRcvList(PacketList):
     __slots__ = []
+
     def __init__(self, res=None, name="Results", stats=None):
         PacketList.__init__(self, res, name, stats)
+
     def _elt2pkt(self, elt):
         return elt[1]
+
     def _elt2sum(self, elt):
         return "%s ==> %s" % (elt[0].summary(), elt[1].summary()) 

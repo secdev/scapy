@@ -36,17 +36,20 @@ _tls_version_options = { "sslv2": 0x0002,
                          "tls13-d19": 0x7f13,
                          "tls13": 0x0304 }
 
+
 def _tls13_version_filter(version, legacy_version):
     if version < 0x0304:
         return version
     else:
         return legacy_version
 
+
 class _TLSClientVersionField(ShortEnumField):
     """
     We use the advertised_tls_version if it has been defined,
     and the legacy 0x0303 for TLS 1.3 packets.
     """
+
     def i2h(self, pkt, x):
         if x is None:
             v = pkt.tls_session.advertised_tls_version
@@ -69,6 +72,7 @@ class _TLSVersionField(ShortEnumField):
     We use the tls_version if it has been defined, else the advertised version.
     Also, the legacy 0x0301 is used for TLS 1.3 packets.
     """
+
     def i2h(self, pkt, x):
         if x is None:
             v = pkt.tls_session.tls_version
@@ -112,6 +116,7 @@ class _TLSIVField(StrField):
     kept empty (unless forced to a specific value) when the cipher is a stream
     cipher (and NULL is considered a stream cipher).
     """
+
     def i2len(self, pkt, i):
         if i is not None:
             return len(i)

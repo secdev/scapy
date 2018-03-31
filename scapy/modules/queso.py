@@ -32,6 +32,7 @@ def quesoTCPflags(flags):
         v |= 2**flv.index(i)
     return "%x" % v
 
+
 class QuesoKnowledgeBase(KnowledgeBase):
     def lazy_init(self):
         try:
@@ -92,6 +93,7 @@ def queso_sig(target, dport=80, timeout=3):
         ret.append(rs)
     return ret
             
+
 def queso_search(sig):
     p = queso_kdb.get_base()
     sig.reverse()

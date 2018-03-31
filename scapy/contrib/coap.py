@@ -202,6 +202,7 @@ class _CoAPOptsField(StrField):
 
         return raw(opts)
 
+
 class _CoAPPaymark(StrField):
 
     def i2h(self, pkt, x):
@@ -245,6 +246,7 @@ class CoAP(Packet):
             if k[0] == "Content-Format":
                 self.content_format = k[1]
         return pay
+
 
 bind_layers(UDP, CoAP, sport=5683)
 bind_layers(UDP, CoAP, dport=5683)

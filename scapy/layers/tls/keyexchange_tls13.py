@@ -233,8 +233,10 @@ class Ticket(Packet):
                                 length_from=lambda pkt: pkt.encstatelen),
                     StrFixedLenField("mac", None, 32) ]
 
+
 class TicketField(PacketField):
     __slots__ = ["length_from"]
+
     def __init__(self, name, default, length_from=None, **kargs):
         self.length_from = length_from
         PacketField.__init__(self, name, default, Ticket, **kargs)
@@ -244,6 +246,7 @@ class TicketField(PacketField):
         tbd, rem = m[:l], m[l:]
         return self.cls(tbd)/Padding(rem)
 
+
 class PSKIdentity(Packet):
     name = "PSK Identity"
     fields_desc = [FieldLenField("identity_len", None,
@@ -252,12 +255,14 @@ class PSKIdentity(Packet):
                                length_from=lambda pkt: pkt.identity_len),
                    IntField("obfuscated_ticket_age", 0) ]
 
+
 class PSKBinderEntry(Packet):
     name = "PSK Binder Entry"
     fields_desc = [FieldLenField("binder_len", None, fmt="B",
                                  length_of="binder"),
                    StrLenField("binder", "",
                                length_from=lambda pkt: pkt.binder_len) ]
+
 
 class TLS_Ext_PreSharedKey_CH(TLS_Ext_Unknown):
     #XXX define post_build and post_dissection methods

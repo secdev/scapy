@@ -11,6 +11,7 @@ from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.inet import UDP
 
+
 class RIP(Packet):
     name = "RIP header"
     fields_desc = [
@@ -27,6 +28,7 @@ class RIP(Packet):
         else:
             return Packet.guess_payload_class(self, payload)
 
+
 class RIPEntry(RIP):
     name = "RIP entry"
     fields_desc = [
@@ -37,6 +39,7 @@ class RIPEntry(RIP):
         IPField("nextHop", "0.0.0.0"),
         IntEnumField("metric", 1, {16: "Unreach"}),
         ]
+
 
 class RIPAuth(Packet):
     name = "RIP authentication"
