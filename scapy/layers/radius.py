@@ -529,7 +529,6 @@ class RadiusAttr_State(_RadiusAttrHexStringVal):
     val = 24
 
 
-
 def prepare_packed_data(radius_packet, packed_req_authenticator):
     """
     Pack RADIUS data prior computing the authentication MAC
@@ -576,6 +575,7 @@ class RadiusAttr_Message_Authenticator(_RadiusAttrHexStringVal):
 #
 # RADIUS attributes which values are IPv4 prefixes
 #
+
 
 class _RadiusAttrIPv4AddrVal(RadiusAttribute):
     """

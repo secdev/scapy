@@ -53,14 +53,18 @@ def _tls_P_hash(secret, seed, req_len, hm):
 def _tls_P_MD5(secret, seed, req_len):
     return _tls_P_hash(secret, seed, req_len, _tls_hmac_algs["HMAC-MD5"])
 
+
 def _tls_P_SHA1(secret, seed, req_len):
     return _tls_P_hash(secret, seed, req_len, _tls_hmac_algs["HMAC-SHA"])
+
 
 def _tls_P_SHA256(secret, seed, req_len):
     return _tls_P_hash(secret, seed, req_len, _tls_hmac_algs["HMAC-SHA256"])
 
+
 def _tls_P_SHA384(secret, seed, req_len):
     return _tls_P_hash(secret, seed, req_len, _tls_hmac_algs["HMAC-SHA384"])
+
 
 def _tls_P_SHA512(secret, seed, req_len):
     return _tls_P_hash(secret, seed, req_len, _tls_hmac_algs["HMAC-SHA512"])
@@ -83,6 +87,7 @@ def _sslv2_PRF(secret, seed, req_len):
             r += 1
 
     return res[:req_len]
+
 
 def _ssl_PRF(secret, seed, req_len):
     """
@@ -114,6 +119,7 @@ def _ssl_PRF(secret, seed, req_len):
 
     return res[:req_len]
 
+
 def _tls_PRF(secret, label, seed, req_len):
     """
     Provides the implementation of TLS PRF function as defined in
@@ -140,6 +146,7 @@ def _tls_PRF(secret, label, seed, req_len):
 
     return strxor(a1, a2)
 
+
 def _tls12_SHA256PRF(secret, label, seed, req_len):
     """
     Provides the implementation of TLS 1.2 PRF function as
@@ -158,8 +165,10 @@ def _tls12_SHA256PRF(secret, label, seed, req_len):
     """
     return _tls_P_SHA256(secret, label+seed, req_len)
 
+
 def _tls12_SHA384PRF(secret, label, seed, req_len):
     return _tls_P_SHA384(secret, label+seed, req_len)
+
 
 def _tls12_SHA512PRF(secret, label, seed, req_len):
     return _tls_P_SHA512(secret, label+seed, req_len)
@@ -175,6 +184,7 @@ class PRF(object):
     _tls_PRF() object is provided. It is expected to be initialised in the
     context of the connection state using the tls_version and the cipher suite.
     """
+
     def __init__(self, hash_name="SHA256", tls_version=0x0303):
         self.tls_version = tls_version
         self.hash_name = hash_name

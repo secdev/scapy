@@ -63,6 +63,7 @@ class connState(object):
     is encrypted and signed according to a new cipher suite, even though
     it cannot decipher the message nor verify its integrity.
     """
+
     def __init__(self,
                  connection_end="server",
                  read_or_write="read",
@@ -110,7 +111,6 @@ class connState(object):
             self.hkdf = TLS13_HKDF(self.hash.name.lower())
         else:
             self.prf = PRF(ciphersuite.hash_alg.name, tls_version)
-
 
     def debug_repr(self, name, secret):
         if conf.debug_tls and secret:
@@ -283,6 +283,7 @@ class readConnState(connState):
     def __init__(self, **kargs):
         connState.__init__(self, read_or_write="read", **kargs)
 
+
 class writeConnState(connState):
     def __init__(self, **kargs):
         connState.__init__(self, read_or_write="write", **kargs)
@@ -303,6 +304,7 @@ class tlsSession(object):
     The default connection_end is "server". This corresponds to the expected
     behaviour for static exchange analysis (with a ClientHello parsed first).
     """
+
     def __init__(self,
                  ipsrc=None, ipdst=None,
                  sport=None, dport=None, sid=None,
@@ -348,7 +350,6 @@ class tlsSession(object):
         self.prcs = None
         self.triggered_prcs_commit = False
 
-
         ### Certificates and private keys
 
         # The server certificate chain, as a list of Cert instances.
@@ -380,7 +381,6 @@ class tlsSession(object):
         self.client_certs = []
         self.client_key = None
 
-
         ### Ephemeral key exchange parameters
 
         # These are the group/curve parameters, needed to hold the information
@@ -407,7 +407,6 @@ class tlsSession(object):
         self.tls13_client_pubshares = {}
         self.tls13_server_privshare = {}
         self.tls13_server_pubshare = {}
-
 
         ### Negotiated session parameters
 
@@ -454,7 +453,6 @@ class tlsSession(object):
         #XXX no support for now
         #self.exchanged_pkts = []
 
-
     def __setattr__(self, name, val):
         if name == "connection_end":
             if hasattr(self, "rcs") and self.rcs:
@@ -466,7 +464,6 @@ class tlsSession(object):
             if hasattr(self, "pwcs") and self.pwcs:
                 self.pwcs.connection_end = val
         super(tlsSession, self).__setattr__(name, val)
-
 
     ### Mirroring
 
@@ -516,7 +513,6 @@ class tlsSession(object):
 
         return self
 
-
     ### Secrets management for SSLv3 to TLS 1.2
 
     def compute_master_secret(self):
@@ -543,7 +539,6 @@ class tlsSession(object):
                               server_random=self.server_random,
                               master_secret=self.master_secret)
 
-
     ### Secrets management for SSLv2
 
     def compute_sslv2_key_material(self):
@@ -567,7 +562,6 @@ class tlsSession(object):
         self.compute_sslv2_key_material()
         self.prcs.sslv2_derive_keys(key_material=self.sslv2_key_material)
         self.pwcs.sslv2_derive_keys(key_material=self.sslv2_key_material)
-
 
     ### Secrets management for TLS 1.3
 
@@ -758,7 +752,6 @@ class tlsSession(object):
             return False
         return version >= 0x0302
 
-
     ### Python object management
 
     def hash(self):
@@ -799,6 +792,7 @@ class tlsSession(object):
 ###############################################################################
 ### Session singleton                                                       ###
 ###############################################################################
+
 
 class _GenericTLSSessionInheritance(Packet):
     """

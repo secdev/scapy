@@ -48,11 +48,13 @@ class BOOTP(Packet):
                     Field("sname", b"", "64s"),
                     Field("file", b"", "128s"),
                     StrField("options", b"") ]
+
     def guess_payload_class(self, payload):
         if self.options[:len(dhcpmagic)] == dhcpmagic:
             return DHCP
         else:
             return Packet.guess_payload_class(self, payload)
+
     def extract_padding(self, s):
         if self.options[:len(dhcpmagic)] == dhcpmagic:
             # set BOOTP options to DHCP magic cookie and make rest a payload of DHCP options
@@ -61,8 +63,10 @@ class BOOTP(Packet):
             return payload, None
         else:
             return b"", None
+
     def hashret(self):
         return struct.pack("L", self.xid)
+
     def answers(self, other):
         if not isinstance(other, BOOTP):
             return 0
@@ -80,6 +84,7 @@ class _DHCPParamReqFieldListField(FieldListField):
 #DHCP_UNKNOWN, DHCP_IP, DHCP_IPLIST, DHCP_TYPE \
 #= range(4)
 #
+
 
 DHCPTypes = {
                 1: "discover",
@@ -167,8 +172,6 @@ del(v)
 del(k)
     
     
-
-
 class RandDHCPOptions(RandField):
     def __init__(self, size=None, rndstr=None):
         if size is None:
@@ -180,6 +183,7 @@ class RandDHCPOptions(RandField):
         self._opts = list(DHCPOptions.values())
         self._opts.remove("pad")
         self._opts.remove("end")
+
     def _fix(self):
         op = []
         for k in range(self.size):
@@ -193,6 +197,7 @@ class RandDHCPOptions(RandField):
 
 class DHCPOptionsField(StrField):
     islist=1
+
     def i2repr(self, pkt, x):
         s = []
         for v in x:
@@ -210,6 +215,7 @@ class DHCPOptionsField(StrField):
         
     def getfield(self, pkt, s):
         return b"", self.m2i(pkt, s)
+
     def m2i(self, pkt, x):
         opt = []
         while x:
@@ -252,6 +258,7 @@ class DHCPOptionsField(StrField):
                 opt.append((o, x[2:olen+2]))
                 x = x[olen+2:]
         return opt
+
     def i2m(self, pkt, x):
         if isinstance(x, str):
             return x
@@ -298,6 +305,7 @@ bind_layers( UDP,           BOOTP,         dport=68, sport=67)
 bind_bottom_up( UDP, BOOTP, dport=67, sport=67)
 bind_layers( BOOTP,         DHCP,          options=b'c\x82Sc')
 
+
 @conf.commands.register
 def dhcp_request(iface=None, **kargs):
     if conf.checkIPaddr != 0:
@@ -313,6 +321,7 @@ class BOOTP_am(AnsweringMachine):
     function_name = "bootpd"
     filter = "udp and port 68 and port 67"
     send_function = staticmethod(sendp)
+
     def parse_options(self, pool=Net("192.168.1.128/25"), network="192.168.1.0/24", gw="192.168.1.1",
                       domain="localnet", renewal_time=60, lease_time=1800):
         self.domain = domain
@@ -367,6 +376,7 @@ class BOOTP_am(AnsweringMachine):
 
 class DHCP_am(BOOTP_am):
     function_name="dhcpd"
+
     def make_reply(self, req):
         resp = BOOTP_am.make_reply(self, req)
         if DHCP in req:

@@ -245,20 +245,25 @@ class SkinnyDateTimeField(StrFixedLenField):
 class SkinnyMessageGeneric(Packet):
     name='Generic message'
 
+
 class SkinnyMessageKeepAlive(Packet):
     name='keep alive'
 
+
 class SkinnyMessageKeepAliveAck(Packet):
     name='keep alive ack'
+
 
 class SkinnyMessageOffHook(Packet):
     name = 'Off Hook'
     fields_desc = [ LEIntField("unknown1", 0),
                     LEIntField("unknown2", 0), ]
         
+
 class SkinnyMessageOnHook(SkinnyMessageOffHook):
     name = 'On Hook'
     
+
 class SkinnyMessageCallState(Packet):
     name='Skinny Call state message'
     fields_desc = [ LEIntEnumField("state", 1, skinny_callstates),
@@ -268,11 +273,13 @@ class SkinnyMessageCallState(Packet):
                     LEIntField("unknown2", 0),
                     LEIntField("unknown3", 0) ]
 
+
 class SkinnyMessageSoftKeyEvent(Packet):
     name='Soft Key Event'
     fields_desc = [ LEIntField("key", 0),
                     LEIntField("instance", 1),
                     LEIntField("callid", 0)]
+
 
 class SkinnyMessageSetRinger(Packet):
     name='Ring message'
@@ -280,6 +287,7 @@ class SkinnyMessageSetRinger(Packet):
                     LEIntField("unknown1", 0),
                     LEIntField("unknown2", 0),
                     LEIntField("unknown3", 0) ]
+
 
 _skinny_tones = {
     0x21: 'Inside dial tone',
@@ -289,12 +297,14 @@ _skinny_tones = {
     0x25: 'Reorder Tone'
     }
 
+
 class SkinnyMessageStartTone(Packet):
     name='Start tone'
     fields_desc = [ LEIntEnumField("tone", 0x21, _skinny_tones),
                     LEIntField("unknown1", 0),
                     LEIntField("instance", 1),
                     LEIntField("callid", 0)]
+
 
 class SkinnyMessageStopTone(SkinnyMessageGeneric):
     name='stop tone'
@@ -306,11 +316,13 @@ class SkinnyMessageSpeakerMode(Packet):
     name='Speaker mdoe'
     fields_desc = [ LEIntEnumField("ring", 0x1, skinny_speaker_modes) ]
 
+
 class SkinnyMessageSetLamp(Packet):
     name='Lamp message (light of the phone)'
     fields_desc = [ LEIntEnumField("stimulus", 0x5, skinny_stimulus),
                     LEIntField("instance", 1),
                     LEIntEnumField("mode", 2, skinny_lamp_mode) ]
+
 
 class SkinnyMessageSoftKeyEvent(Packet):
     name=' Call state message'
@@ -319,6 +331,7 @@ class SkinnyMessageSoftKeyEvent(Packet):
                     LEIntField("set", 0),
                     LEIntField("map", 0xffff)]
     
+
 class SkinnyMessagePromptStatus(Packet):
     name='Prompt status'
     fields_desc = [ LEIntField("timeout", 0),
@@ -326,19 +339,23 @@ class SkinnyMessagePromptStatus(Packet):
                     LEIntField("instance", 1),
                     LEIntField("callid", 0)]
 
+
 class SkinnyMessageCallPlane(Packet):
     name='Activate/Desactivate Call Plane Message'
     fields_desc = [ LEIntField("instance", 1)]
     
+
 class SkinnyMessageTimeDate(Packet):
     name='Setting date and time'
     fields_desc = [ SkinnyDateTimeField("settime", None),
                     LEIntField("timestamp", 0) ]
 
+
 class SkinnyMessageClearPromptStatus(Packet):
     name='clear prompt status'
     fields_desc = [ LEIntField("instance", 1),
                     LEIntField("callid", 0)]
+
 
 class SkinnyMessageKeypadButton(Packet):
     name='keypad button'
@@ -346,11 +363,13 @@ class SkinnyMessageKeypadButton(Packet):
                     LEIntField("instance", 1),
                     LEIntField("callid", 0)]
 
+
 class SkinnyMessageDialedNumber(Packet):
     name='dialed number'
     fields_desc = [ StrFixedLenField("number", "1337", 24),
                     LEIntField("instance", 1),
                     LEIntField("callid", 0)]
+
 
 _skinny_message_callinfo_restrictions = ['CallerName'
                                          , 'CallerNumber'
@@ -360,6 +379,8 @@ _skinny_message_callinfo_restrictions = ['CallerName'
                                          , 'OriginalCalledNumber'
                                          , 'LastRedirectName'
                                          , 'LastRedirectNumber'] + ['Bit%d' % i for i in range(8, 15)]
+
+
 class SkinnyMessageCallInfo(Packet):
     name='call information'
     fields_desc = [ StrFixedLenField("callername", "Jean Valjean", 40),
@@ -389,6 +410,7 @@ class SkinnyRateField(LEIntField):
             x=0
         return '%d ms/pkt' % x
 
+
 _skinny_codecs = {
     0x0: 'xxx',
     0x1: 'xxx',
@@ -401,6 +423,7 @@ _skinny_echo = {
     0x0: 'echo cancelation off',
     0x1: 'echo cancelation on'
     }
+
 
 class SkinnyMessageOpenReceiveChannel(Packet):
     name='open receive channel'
@@ -415,10 +438,12 @@ class SkinnyMessageOpenReceiveChannel(Packet):
     def guess_payload_class(self, p):
         return conf.padding_layer
 
+
 _skinny_receive_channel_status = {
     0x0: 'ok',
     0x1: 'ko'
     }
+
 
 class SkinnyMessageOpenReceiveChannelAck(Packet):
     name='open receive channel'
@@ -428,16 +453,19 @@ class SkinnyMessageOpenReceiveChannelAck(Packet):
                    LEIntField('passthru', 0),
                    LEIntField('callid', 0)]
 
+
 _skinny_silence = {
     0x0: 'silence suppression off',
     0x1: 'silence suppression on',
     }
+
 
 class SkinnyFramePerPacketField(LEIntField):
     def i2repr(self, pkt, x):
         if x is None:
             x=0
         return '%d frames/pkt' % x
+
 
 class SkinnyMessageStartMediaTransmission(Packet):
     name='start multimedia transmission'
@@ -456,6 +484,7 @@ class SkinnyMessageStartMediaTransmission(Packet):
     def guess_payload_class(self, p):
         return conf.padding_layer
     
+
 class SkinnyMessageCloseReceiveChannel(Packet):
     name='close receive channel'
     fields_desc = [LEIntField('conference', 0),
@@ -468,12 +497,14 @@ class SkinnyMessageCloseReceiveChannel(Packet):
                    LEIntEnumField('silence', 0, _skinny_silence),
                    LEIntField('callid', 0)]
 
+
 class SkinnyMessageStopMultiMediaTransmission(Packet):
     name='stop multimedia transmission'
     fields_desc = [LEIntField('conference', 0),
                    LEIntField('passthru', 0),
                    LEIntField('callid', 0)]
     
+
 class Skinny(Packet):
     name="Skinny"
     fields_desc = [ LEIntField("len", None),
@@ -487,9 +518,12 @@ class Skinny(Packet):
         return pkt+p
 
 # An helper 
+
+
 def get_cls(name, fallback_cls):
     return globals().get(name, fallback_cls)
     #return __builtin__.__dict__.get(name, fallback_cls)
+
 
 for msgid, strcls in skinny_messages_cls.items():
     cls=get_cls(strcls, SkinnyMessageGeneric)

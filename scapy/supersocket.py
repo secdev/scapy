@@ -23,6 +23,7 @@ import scapy.modules.six as six
 import scapy.packet
 from scapy.utils import PcapReader, tcpdump
 
+
 class _SuperSocket_metaclass(type):
     def __repr__(self):
         if self.desc is not None:
@@ -34,19 +35,24 @@ class _SuperSocket_metaclass(type):
 class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
     desc = None
     closed=0
+
     def __init__(self, family=socket.AF_INET, type=socket.SOCK_STREAM, proto=0):
         self.ins = socket.socket(family, type, proto)
         self.outs = self.ins
         self.promisc=None
+
     def send(self, x):
         sx = raw(x)
         if hasattr(x, "sent_time"):
             x.sent_time = time.time()
         return self.outs.send(sx)
+
     def recv(self, x=MTU):
         return conf.raw_layer(self.ins.recv(x))
+
     def fileno(self):
         return self.ins.fileno()
+
     def close(self):
         if self.closed:
             return
@@ -58,9 +64,11 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
         if hasattr(self, "ins"):
             if self.ins and self.ins.fileno() != -1:
                 self.ins.close()
+
     def sr(self, *args, **kargs):
         from scapy import sendrecv
         return sendrecv.sndrcv(self, *args, **kargs)
+
     def sr1(self, *args, **kargs):        
         from scapy import sendrecv
         a, b = sendrecv.sndrcv(self, *args, **kargs)
@@ -68,18 +76,22 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
             return a[0][1]
         else:
             return None
+
     def sniff(self, *args, **kargs):
         from scapy import sendrecv
         return sendrecv.sniff(opened_socket=self, *args, **kargs)
 
+
 class L3RawSocket(SuperSocket):
     desc = "Layer 3 using Raw sockets (PF_INET/SOCK_RAW)"
+
     def __init__(self, type = ETH_P_IP, filter=None, iface=None, promisc=None, nofilter=0):
         self.outs = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)
         self.outs.setsockopt(socket.SOL_IP, socket.IP_HDRINCL, 1)
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
         if iface is not None:
             self.ins.bind((iface, type))
+
     def recv(self, x=MTU):
         pkt, sa_ll = self.ins.recvfrom(x)
         if sa_ll[2] == socket.PACKET_OUTGOING:
@@ -110,6 +122,7 @@ class L3RawSocket(SuperSocket):
             from scapy.arch import get_last_packet_timestamp
             pkt.time = get_last_packet_timestamp(self.ins)
         return pkt
+
     def send(self, x):
         try:
             sx = raw(x)
@@ -118,8 +131,10 @@ class L3RawSocket(SuperSocket):
         except socket.error as msg:
             log_runtime.error(msg)
 
+
 class SimpleSocket(SuperSocket):
     desc = "wrapper around a classic socket"
+
     def __init__(self, sock):
         self.ins = sock
         self.outs = sock
@@ -127,6 +142,7 @@ class SimpleSocket(SuperSocket):
 
 class StreamSocket(SimpleSocket):
     desc = "transforms a stream socket into a layer 2"
+
     def __init__(self, sock, basecls=None):
         if basecls is None:
             basecls = conf.raw_layer
@@ -148,6 +164,7 @@ class StreamSocket(SimpleSocket):
             pad = pad.payload
         self.ins.recv(x)
         return pkt
+
 
 class SSLStreamSocket(StreamSocket):
     desc = "similar usage than StreamSocket but specialized for handling SSL-wrapped sockets"
@@ -214,8 +231,10 @@ class L2ListenTcpdump(SuperSocket):
             args.append(filter)
         self.tcpdump_proc = tcpdump(None, prog=prog, args=args, getproc=True)
         self.ins = PcapReader(self.tcpdump_proc.stdout)
+
     def recv(self, x=MTU):
         return self.ins.recv(x)
+
     def close(self):
         SuperSocket.close(self)
         self.tcpdump_proc.kill()

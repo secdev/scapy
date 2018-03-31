@@ -66,6 +66,7 @@ class AVSWLANHeader(Packet):
                       IntEnumField("encoding", 0, AVSWLANEncodingType),
                         ]
 
+
 conf.l2types.register(DLT_IEEE802_11_RADIO_AVS, AVSWLANHeader)
 
 bind_layers(AVSWLANHeader, Dot11)

@@ -58,6 +58,7 @@ class TLSInnerPlaintext(_GenericTLSSessionInheritance):
 
         return s
 
+
 class _TLSInnerPlaintextField(PacketField):
     def __init__(self, name, default, *args, **kargs):
         super(_TLSInnerPlaintextField, self).__init__(name,
@@ -97,7 +98,6 @@ class TLS13(_GenericTLSSessionInheritance):
     def __init__(self, *args, **kargs):
         self.deciphered_len = kargs.get("deciphered_len", None)
         super(TLS13, self).__init__(*args, **kargs)
-
 
     ### Parsing methods
 
@@ -166,7 +166,6 @@ class TLS13(_GenericTLSSessionInheritance):
             except:
                 p = conf.raw_layer(s, _internal=1, _underlayer=self)
             self.add_payload(p)
-
 
     ### Building methods
 

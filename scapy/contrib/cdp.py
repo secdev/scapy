@@ -90,6 +90,7 @@ _cdp_tlv_types = { 0x0001: "Device ID",
                    0x0019: "CDP Unknown command (send us a pcap file)",
                    0x001a: "Power Available"}
 
+
 def _CDPGuessPayloadClass(p, **kargs):
     cls = conf.raw_layer
     if len(p) >= 2:
@@ -99,23 +100,26 @@ def _CDPGuessPayloadClass(p, **kargs):
 
     return cls(p, **kargs)
 
+
 class CDPMsgGeneric(Packet):
     name = "CDP Generic Message"
     fields_desc = [ XShortEnumField("type", None, _cdp_tlv_types),
                     FieldLenField("len", None, "val", "!H"),
                     StrLenField("val", "", length_from=lambda x:x.len - 4) ]
 
-
     def guess_payload_class(self, p):
         return conf.padding_layer # _CDPGuessPayloadClass
+
 
 class CDPMsgDeviceID(CDPMsgGeneric):
     name = "Device ID"
     type = 0x0001
 
+
 _cdp_addr_record_ptype = {0x01: "NLPID", 0x02: "802.2"}
 _cdp_addrrecord_proto_ip = b"\xcc"
 _cdp_addrrecord_proto_ipv6 = b"\xaa\xaa\x03\x00\x00\x00\x86\xdd"
+
 
 class CDPAddrRecord(Packet):
     name = "CDP Address"
@@ -128,6 +132,7 @@ class CDPAddrRecord(Packet):
     def guess_payload_class(self, p):
         return conf.padding_layer
 
+
 class CDPAddrRecordIPv4(CDPAddrRecord):
     name = "CDP Address IPv4"
     fields_desc = [ ByteEnumField("ptype", 0x01, _cdp_addr_record_ptype),
@@ -136,6 +141,7 @@ class CDPAddrRecordIPv4(CDPAddrRecord):
                     ShortField("addrlen", 4),
                     IPField("addr", "0.0.0.0")]
 
+
 class CDPAddrRecordIPv6(CDPAddrRecord):
     name = "CDP Address IPv6"
     fields_desc = [ ByteEnumField("ptype", 0x02, _cdp_addr_record_ptype),
@@ -143,6 +149,7 @@ class CDPAddrRecordIPv6(CDPAddrRecord):
                     StrLenField("proto", _cdp_addrrecord_proto_ipv6, length_from=lambda x:x.plen),
                     ShortField("addrlen", 16),
                     IP6Field("addr", "::1")]
+
 
 def _CDPGuessAddrRecord(p, **kargs):
     cls = conf.raw_layer
@@ -161,6 +168,7 @@ def _CDPGuessAddrRecord(p, **kargs):
 
     return cls(p, **kargs)
 
+
 class CDPMsgAddr(CDPMsgGeneric):
     name = "Addresses"
     fields_desc = [ XShortEnumField("type", 0x0002, _cdp_tlv_types),
@@ -174,6 +182,7 @@ class CDPMsgAddr(CDPMsgGeneric):
             pkt = pkt[:2] + struct.pack("!H", l) + pkt[4:]
         p = pkt + pay
         return p
+
 
 class CDPMsgPortID(CDPMsgGeneric):
     name = "Port ID"
@@ -207,15 +216,19 @@ class CDPMsgPlatform(CDPMsgGeneric):
     name = "Platform"
     type = 0x0006
 
+
 _cdp_duplex = { 0x00: "Half", 0x01: "Full" }
 
 # ODR Routing
+
+
 class CDPMsgIPPrefix(CDPMsgGeneric):
     name = "IP Prefix"
     type = 0x0007
     fields_desc = [ XShortEnumField("type", 0x0007, _cdp_tlv_types),
                     ShortField("len", 8),
                     IPField("defaultgw", "192.168.0.1") ]
+
 
 class CDPMsgProtoHello(CDPMsgGeneric):
     name = "Protocol Hello"
@@ -228,9 +241,11 @@ class CDPMsgProtoHello(CDPMsgGeneric):
                     # (Protocol ID)
                     StrLenField("data", "", length_from=lambda p: p.len - 9) ]
 
+
 class CDPMsgVTPMgmtDomain(CDPMsgGeneric):
     name = "VTP Management Domain"
     type = 0x0009
+
 
 class CDPMsgNativeVLAN(CDPMsgGeneric):
     name = "Native VLAN"
@@ -238,11 +253,13 @@ class CDPMsgNativeVLAN(CDPMsgGeneric):
                     ShortField("len", 6),
                     ShortField("vlan", 1) ]
 
+
 class CDPMsgDuplex(CDPMsgGeneric):
     name = "Duplex"
     fields_desc = [ XShortEnumField("type", 0x000b, _cdp_tlv_types),
                     ShortField("len", 5),
                     ByteEnumField("duplex", 0x00, _cdp_duplex) ]
+
 
 class CDPMsgVoIPVLANReply(CDPMsgGeneric):
     name = "VoIP VLAN Reply"
@@ -285,11 +302,13 @@ class CDPMsgMTU(CDPMsgGeneric):
                     ShortField("len", 6),
                     ShortField("mtu", 1500)]
 
+
 class CDPMsgTrustBitmap(CDPMsgGeneric):
     name = "Trust Bitmap"
     fields_desc = [ XShortEnumField("type", 0x0012, _cdp_tlv_types),
                     ShortField("len", 5),
                     XByteField("trust_bitmap", 0x0) ]
+
 
 class CDPMsgUntrustedPortCoS(CDPMsgGeneric):
     name = "Untrusted Port CoS"
@@ -297,19 +316,23 @@ class CDPMsgUntrustedPortCoS(CDPMsgGeneric):
                     ShortField("len", 5),
                     XByteField("untrusted_port_cos", 0x0) ]
 
+
 class CDPMsgMgmtAddr(CDPMsgAddr):
     name = "Management Address"
     type = 0x0016
 
+
 class CDPMsgUnknown19(CDPMsgGeneric):
     name = "Unknown CDP Message"
     type = 0x0019
+
 
 class CDPMsg(CDPMsgGeneric):
     name = "CDP "
     fields_desc = [ XShortEnumField("type", None, _cdp_tlv_types),
                     FieldLenField("len", None, "val", "!H"),
                     StrLenField("val", "", length_from=lambda x:x.len - 4) ]
+
 
 class _CDPChecksum:
     def _check_len(self, pkt):
@@ -332,12 +355,14 @@ class _CDPChecksum:
             p = p[:2] + struct.pack("!H", cksum) + p[4:]
         return p
 
+
 class CDPv2_HDR(_CDPChecksum, CDPMsgGeneric):
     name = "Cisco Discovery Protocol version 2"
     fields_desc = [ ByteField("vers", 2),
                     ByteField("ttl", 180),
                     XShortField("cksum", None),
                     PacketListField("msg", [], _CDPGuessPayloadClass) ]
+
 
 bind_layers(SNAP, CDPv2_HDR, {"code": 0x2000, "OUI": 0xC})
 

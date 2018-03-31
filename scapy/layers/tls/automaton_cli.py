@@ -107,7 +107,6 @@ class TLSClientAutomaton(_TLSAutomaton):
         else:
             self.data_to_send = []
 
-
     def vprint_sessioninfo(self):
         if self.verbose:
             s = self.cur_session
@@ -123,7 +122,6 @@ class TLSClientAutomaton(_TLSAutomaton):
             if s.server_certs:
                 self.vprint("Server certificate chain: %r" % s.server_certs)
             self.vprint()
-
 
     @ATMT.state(initial=True)
     def INITIAL(self):

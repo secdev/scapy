@@ -23,13 +23,16 @@ import scapy.modules.six as six
 class StopAutorun(Scapy_Exception):
     code_run = ""
 
+
 class ScapyAutorunInterpreter(code.InteractiveInterpreter):
     def __init__(self, *args, **kargs):
         code.InteractiveInterpreter.__init__(self, *args, **kargs)
         self.error = 0
+
     def showsyntaxerror(self, *args, **kargs):
         self.error = 1
         return code.InteractiveInterpreter.showsyntaxerror(self, *args, **kargs)
+
     def showtraceback(self, *args, **kargs):
         self.error = 1
         exc_type, exc_value, exc_tb = sys.exc_info()
@@ -76,12 +79,15 @@ def autorun_commands(cmds, my_globals=None, ignore_globals=None, verb=0):
         conf.verb = sv
     return _
 
+
 def autorun_get_interactive_session(cmds, **kargs):
     class StringWriter:
         def __init__(self):
             self.s = ""
+
         def write(self, x):
             self.s += x
+
         def flush(self):
             pass
             
@@ -98,6 +104,7 @@ def autorun_get_interactive_session(cmds, **kargs):
         sys.stdout, sys.stderr = sstdout, sstderr
     return sw.s, res
 
+
 def autorun_get_text_interactive_session(cmds, **kargs):
     ct = conf.color_theme
     try:
@@ -107,6 +114,7 @@ def autorun_get_text_interactive_session(cmds, **kargs):
         conf.color_theme = ct
     return s, res
 
+
 def autorun_get_ansi_interactive_session(cmds, **kargs):
     ct = conf.color_theme
     try:
@@ -115,6 +123,7 @@ def autorun_get_ansi_interactive_session(cmds, **kargs):
     finally:
         conf.color_theme = ct
     return s, res
+
 
 def autorun_get_html_interactive_session(cmds, **kargs):
     ct = conf.color_theme
@@ -130,6 +139,7 @@ def autorun_get_html_interactive_session(cmds, **kargs):
         conf.color_theme = ct
     
     return to_html(s), res
+
 
 def autorun_get_latex_interactive_session(cmds, **kargs):
     ct = conf.color_theme

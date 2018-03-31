@@ -122,6 +122,7 @@ def isis_str2lspid(s):
 
 class _ISIS_IdFieldBase(Field):
     __slots__ = ["to_str", "to_id", "length"]
+
     def __init__(self, name, default, length, to_str, to_id):
         self.to_str = to_str
         self.to_id = to_id
@@ -327,11 +328,13 @@ class ISIS_IPv6NeighborAddressSubTlv(ISIS_GenericSubTlv):
                    FieldLenField("len", None, length_of= "address", fmt="B"),
                    IP6Field("address", "::")]
 
+
 class ISIS_AdministrativeGroupSubTlv(ISIS_GenericSubTlv):
     name = "Administrative Group SubTLV (Color)"
     fields_desc = [ByteEnumField("code", 3, _isis_subtlv_names_1),
                    FieldLenField("len", None, length_of="admingroup", fmt="B"),
                    IPField("admingroup", "0.0.0.1")]
+
 
 class ISIS_MaximumLinkBandwidthSubTlv(ISIS_GenericSubTlv):
     name = "Maximum Link Bandwidth SubTLV"
@@ -339,17 +342,20 @@ class ISIS_MaximumLinkBandwidthSubTlv(ISIS_GenericSubTlv):
                    FieldLenField("len", None, length_of="maxbw", fmt="B"), 
                    IEEEFloatField("maxbw", 1000)] # in B/s
 
+
 class ISIS_MaximumReservableLinkBandwidthSubTlv(ISIS_GenericSubTlv):
     name = "Maximum Reservable Link Bandwidth SubTLV"
     fields_desc = [ByteEnumField("type", 10, _isis_subtlv_names_1),
                    FieldLenField("len", None, length_of="maxrsvbw", fmt="B"),
                    IEEEFloatField("maxrsvbw", 1000)] # in B/s
 
+
 class ISIS_UnreservedBandwidthSubTlv(ISIS_GenericSubTlv):
     name = "Unreserved Bandwidth SubTLV"
     fields_desc = [ByteEnumField("type", 11, _isis_subtlv_names_1),
                    FieldLenField("len", None, length_of="unrsvbw", fmt="B"),
                    FieldListField("unrsvbw", [1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000], IEEEFloatField("", 1000), count_from= lambda pkt: pkt.len / 4 )] # in B/s
+
 
 class ISIS_TEDefaultMetricSubTlv(ISIS_GenericSubTlv):
     name = "TE Default Metric SubTLV"
@@ -525,12 +531,14 @@ class ISIS_ExtendedIpPrefix(Packet):
     def extract_padding(self, s):
         return "", s
 
+
 class ISIS_TERouterIDTlv(ISIS_GenericTlv):
     name = "ISIS TE Router ID TLV"
     fields_desc = [ByteEnumField("type", 134, _isis_tlv_names),
                    FieldLenField("len", None, length_of= "routerid", fmt="B"),
                    IPField("routerid", "0.0.0.0")]
  
+
 class ISIS_ExtendedIpReachabilityTlv(ISIS_GenericTlv):
     name = "ISIS Extended IP Reachability TLV"
     fields_desc = [ByteEnumField("type", 135, _isis_tlv_names),
@@ -725,6 +733,7 @@ class ISIS_IsReachabilityTlv(ISIS_GenericTlv):
         PacketListField("neighbours", [], ISIS_IsReachabilityEntry, count_from=lambda x: (x.len - 1) // 11)
     ]
 
+
 #######################################################################
 ##  ISIS PDU Packets                                                 ##
 #######################################################################
@@ -912,6 +921,7 @@ class ISIS_L2_PSNP(_ISIS_PSNP_Base):
 
     def answers(self, other):
         return _snp_answers(self, other, "ISIS_L2_LSP")
+
 
 register_cln_protocol(0x83, ISIS_CommonHdr)
 bind_layers(ISIS_CommonHdr, ISIS_L1_LAN_Hello, hdrlen=27, pdutype=15)

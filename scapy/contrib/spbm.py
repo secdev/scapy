@@ -40,6 +40,7 @@ from scapy.packet import Packet, bind_layers
 from scapy.fields import *
 from scapy.layers.l2 import Ether, Dot1Q
 
+
 class SPBM(Packet):
     name = "SPBM"
     fields_desc = [ BitField("prio", 0, 3),
@@ -51,6 +52,7 @@ class SPBM(Packet):
 
     def mysummary(self):
         return self.sprintf("SPBM (isid=%SPBM.isid%")
+
 
 bind_layers(Dot1Q, SPBM, type=0x88e7)
 bind_layers(SPBM, Ether)

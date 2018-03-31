@@ -31,9 +31,11 @@ class XLEShortField(LEShortField):
     def i2repr(self, pkt, x):
         return lhex(self.i2h(pkt, x))
 
+
 class XLELongField(LEShortField):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "<Q")
+
     def i2repr(self, pkt, x):
         return lhex(self.i2h(pkt, x))
 
@@ -41,23 +43,29 @@ class XLELongField(LEShortField):
 class LEMACField(Field):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "6s")
+
     def i2m(self, pkt, x):
         if x is None:
             return b"\0\0\0\0\0\0"
         return mac2str(x)[::-1]
+
     def m2i(self, pkt, x):
         return str2mac(x[::-1])
+
     def any2i(self, pkt, x):
         if isinstance(x, str) and len(x) is 6:
             x = self.m2i(pkt, x)
         return x
+
     def i2repr(self, pkt, x):
         x = self.i2h(pkt, x)
         if self in conf.resolve:
             x = conf.manufdb._resolve_MAC(x)
         return x
+
     def randval(self):
         return RandMAC()
+
 
 _bluetooth_packet_types = {
         0: "Acknowledgement",
@@ -70,12 +78,14 @@ _bluetooth_packet_types = {
         15: "Link Control"
     }
 
+
 class HCI_Hdr(Packet):
     name = "HCI header"
     fields_desc = [ ByteEnumField("type", 2, _bluetooth_packet_types) ]
 
     def mysummary(self):
         return self.sprintf("HCI %type%")
+
 
 class HCI_ACL_Hdr(Packet):
     name = "HCI ACL header"
@@ -121,7 +131,6 @@ class L2CAP_Hdr(Packet):
         return p
 
 
-
 class L2CAP_CmdHdr(Packet):
     name = "L2CAP command header"
     fields_desc = [
@@ -132,11 +141,13 @@ class L2CAP_CmdHdr(Packet):
                                 19: "conn_param_update_resp"}),
         ByteField("id", 0),
         LEShortField("len", None) ]
+
     def post_build(self, p, pay):
         p += pay
         if self.len is None:
             p = p[:2] + struct.pack("<H", len(pay)) + p[4:]
         return p
+
     def answers(self, other):
         if other.id == self.id:
             if self.code == 1:
@@ -147,11 +158,13 @@ class L2CAP_CmdHdr(Packet):
                 return self.payload.answers(other.payload)
         return 0
 
+
 class L2CAP_ConnReq(Packet):
     name = "L2CAP Conn Req"
     fields_desc = [ LEShortEnumField("psm", 0, {1: "SDP", 3: "RFCOMM", 5: "telephony control"}),
                     LEShortField("scid", 0),
                     ]
+
 
 class L2CAP_ConnResp(Packet):
     name = "L2CAP Conn Resp"
@@ -160,8 +173,10 @@ class L2CAP_ConnResp(Packet):
                     LEShortEnumField("result", 0, ["success", "pend", "cr_bad_psm", "cr_sec_block", "cr_no_mem", "reserved", "cr_inval_scid", "cr_scid_in_use"]),
                     LEShortEnumField("status", 0, ["no_info", "authen_pend", "author_pend", "reserved"]),
                     ]
+
     def answers(self, other):
         return isinstance(other, L2CAP_ConnReq) and self.dcid == other.scid
+
 
 class L2CAP_CmdRej(Packet):
     name = "L2CAP Command Rej"
@@ -175,12 +190,14 @@ class L2CAP_ConfReq(Packet):
                     LEShortField("flags", 0),
                     ]
 
+
 class L2CAP_ConfResp(Packet):
     name = "L2CAP Conf Resp"
     fields_desc = [ LEShortField("scid", 0),
                     LEShortField("flags", 0),
                     LEShortEnumField("result", 0, ["success", "unaccept", "reject", "unknown"]),
                     ]
+
     def answers(self, other):
         return isinstance(other, L2CAP_ConfReq) and self.scid == other.dcid
 
@@ -190,13 +207,14 @@ class L2CAP_DisconnReq(Packet):
     fields_desc = [ LEShortField("dcid", 0),
                     LEShortField("scid", 0), ]
 
+
 class L2CAP_DisconnResp(Packet):
     name = "L2CAP Disconn Resp"
     fields_desc = [ LEShortField("dcid", 0),
                     LEShortField("scid", 0), ]
+
     def answers(self, other):
         return self.scid == other.scid
-
 
 
 class L2CAP_InfoReq(Packet):
@@ -211,6 +229,7 @@ class L2CAP_InfoResp(Packet):
     fields_desc = [ LEShortField("type", 0),
                     LEShortEnumField("result", 0, ["success", "not_supp"]),
                     StrField("data", ""), ]
+
     def answers(self, other):
         return self.type == other.type
 
@@ -239,23 +258,28 @@ class ATT_Error_Response(Packet):
                     LEShortField("handle", 0),
                     XByteField("ecode", 0), ]
 
+
 class ATT_Exchange_MTU_Request(Packet):
     name = "Exchange MTU Request"
     fields_desc = [ LEShortField("mtu", 0), ]
 
+
 class ATT_Exchange_MTU_Response(Packet):
     name = "Exchange MTU Response"
     fields_desc = [ LEShortField("mtu", 0), ]
+
 
 class ATT_Find_Information_Request(Packet):
     name = "Find Information Request"
     fields_desc = [ XLEShortField("start", 0x0000),
                     XLEShortField("end", 0xffff), ]
 
+
 class ATT_Find_Information_Response(Packet):
     name = "Find Information Reponse"
     fields_desc = [ XByteField("format", 1),
                     StrField("data", "") ]
+
 
 class ATT_Find_By_Type_Value_Request(Packet):
     name = "Find By Type Value Request"
@@ -264,9 +288,11 @@ class ATT_Find_By_Type_Value_Request(Packet):
                     XLEShortField("uuid", None),
                     StrField("data", ""), ]
 
+
 class ATT_Find_By_Type_Value_Response(Packet):
     name = "Find By Type Value Response"
     fields_desc = [ StrField("handles", ""), ]
+
 
 class ATT_Read_By_Type_Request_128bit(Packet):
     name = "Read By Type Request"
@@ -274,11 +300,13 @@ class ATT_Read_By_Type_Request_128bit(Packet):
                     XLEShortField("end", 0xffff),
                     XLELongField("uuid1", None),
                     XLELongField("uuid2", None)]
+
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt and len(_pkt) == 6:
             return ATT_Read_By_Type_Request
         return ATT_Read_By_Type_Request_128bit
+
 
 class ATT_Read_By_Type_Request(Packet):
     name = "Read By Type Request"
@@ -286,19 +314,23 @@ class ATT_Read_By_Type_Request(Packet):
                     XLEShortField("end", 0xffff),
                     XLEShortField("uuid", None)]
 
+
 class ATT_Read_By_Type_Response(Packet):
     name = "Read By Type Response"
     # fields_desc = [ FieldLenField("len", None, length_of="data", fmt="B"),
     #                 StrLenField("data", "", length_from=lambda pkt:pkt.len), ]
     fields_desc = [ StrField("data", "") ]
 
+
 class ATT_Read_Request(Packet):
     name = "Read Request"
     fields_desc = [ XLEShortField("gatt_handle", 0), ]
 
+
 class ATT_Read_Response(Packet):
     name = "Read Response"
     fields_desc = [ StrField("value", ""), ]
+
 
 class ATT_Read_By_Group_Type_Request(Packet):
     name = "Read By Group Type Request"
@@ -306,24 +338,29 @@ class ATT_Read_By_Group_Type_Request(Packet):
                     XLEShortField("end", 0xffff),
                     XLEShortField("uuid", 0), ]
 
+
 class ATT_Read_By_Group_Type_Response(Packet):
     name = "Read By Group Type Response"
     fields_desc = [ XByteField("length", 0),
                     StrField("data", ""), ]
+
 
 class ATT_Write_Request(Packet):
     name = "Write Request"
     fields_desc = [ XLEShortField("gatt_handle", 0),
                     StrField("data", ""), ]
 
+
 class ATT_Write_Command(Packet):
     name = "Write Request"
     fields_desc = [ XLEShortField("gatt_handle", 0),
                     StrField("data", ""), ]
 
+
 class ATT_Write_Response(Packet):
     name = "Write Response"
     fields_desc = [ ]
+
 
 class ATT_Handle_Value_Notification(Packet):
     name = "Handle Value Notification"
@@ -345,6 +382,7 @@ class SM_Pairing_Request(Packet):
                     ByteField("initiator_key_distribution", 0),
                     ByteField("responder_key_distribution", 0), ]
 
+
 class SM_Pairing_Response(Packet):
     name = "Pairing Response"
     fields_desc = [ ByteEnumField("iocap", 3, {0: "DisplayOnly", 1: "DisplayYesNo", 2: "KeyboardOnly", 3: "NoInputNoOutput", 4: "KeyboardDisplay"}),
@@ -359,32 +397,39 @@ class SM_Confirm(Packet):
     name = "Pairing Confirm"
     fields_desc = [ StrFixedLenField("confirm", b'\x00' * 16, 16) ]
 
+
 class SM_Random(Packet):
     name = "Pairing Random"
     fields_desc = [ StrFixedLenField("random", b'\x00' * 16, 16) ]
+
 
 class SM_Failed(Packet):
     name = "Pairing Failed"
     fields_desc = [ XByteField("reason", 0) ]
 
+
 class SM_Encryption_Information(Packet):
     name = "Encryption Information"
     fields_desc = [ StrFixedLenField("ltk", b"\x00" * 16, 16), ]
+
 
 class SM_Master_Identification(Packet):
     name = "Master Identification"
     fields_desc = [ XLEShortField("ediv", 0),
                     StrFixedLenField("rand", b'\x00' * 8, 8), ]
     
+
 class SM_Identity_Information(Packet):
     name = "Identity Information"
     fields_desc = [ StrFixedLenField("irk", b'\x00' * 16, 16), ]
+
 
 class SM_Identity_Address_Information(Packet):
     name = "Identity Address Information"
     fields_desc = [ ByteEnumField("atype", 0, {0: "public"}),
                     LEMACField("address", None), ]
     
+
 class SM_Signing_Information(Packet):
     name = "Signing Information"
     fields_desc = [ StrFixedLenField("csrk", b'\x00' * 16, 16), ]
@@ -433,6 +478,7 @@ class EIR_Hdr(Packet):
     def mysummary(self):
         return self.sprintf("EIR %type%")
 
+
 class EIR_Element(Packet):
     name = "EIR Element"
 
@@ -448,11 +494,13 @@ class EIR_Element(Packet):
         # 'type' byte is included in the length, so substract 1:
         return pkt.underlayer.len - 1
 
+
 class EIR_Raw(EIR_Element):
     name = "EIR Raw"
     fields_desc = [
         StrLenField("data", "", length_from=EIR_Element.length_from)
     ]
+
 
 class EIR_Flags(EIR_Element):
     name = "Flags"
@@ -463,6 +511,7 @@ class EIR_Flags(EIR_Element):
                     "simul_le_br_edr_host"] + 3*["reserved"])
     ]
 
+
 class EIR_CompleteList16BitServiceUUIDs(EIR_Element):
     name = "Complete list of 16-bit service UUIDs"
     fields_desc = [
@@ -470,8 +519,10 @@ class EIR_CompleteList16BitServiceUUIDs(EIR_Element):
                        length_from=EIR_Element.length_from)
     ]
 
+
 class EIR_IncompleteList16BitServiceUUIDs(EIR_CompleteList16BitServiceUUIDs):
     name = "Incomplete list of 16-bit service UUIDs"
+
 
 class EIR_CompleteLocalName(EIR_Element):
     name = "Complete Local Name"
@@ -479,12 +530,15 @@ class EIR_CompleteLocalName(EIR_Element):
         StrLenField("local_name", "", length_from=EIR_Element.length_from)
     ]
 
+
 class EIR_ShortenedLocalName(EIR_CompleteLocalName):
     name = "Shortened Local Name"
+
 
 class EIR_TX_Power_Level(EIR_Element):
     name = "TX Power Level"
     fields_desc = [SignedByteField("level", 0)]
+
 
 class EIR_Manufacturer_Specific_Data(EIR_Element):
     name = "EIR Manufacturer Specific Data"
@@ -506,25 +560,31 @@ class HCI_Command_Hdr(Packet):
             p = p[:2] + struct.pack("B", len(pay)) + p[3:]
         return p
 
+
 class HCI_Cmd_Reset(Packet):
     name = "Reset"
+
 
 class HCI_Cmd_Set_Event_Filter(Packet):
     name = "Set Event Filter"
     fields_desc = [ ByteEnumField("type", 0, {0: "clear"}), ]
 
+
 class HCI_Cmd_Connect_Accept_Timeout(Packet):
     name = "Connection Attempt Timeout"
     fields_desc = [ LEShortField("timeout", 32000) ] # 32000 slots is 20000 msec
+
 
 class HCI_Cmd_LE_Host_Supported(Packet):
     name = "LE Host Supported"
     fields_desc = [ ByteField("supported", 1),
                     ByteField("simultaneous", 1), ]
 
+
 class HCI_Cmd_Set_Event_Mask(Packet):
     name = "Set Event Mask"
     fields_desc = [ StrFixedLenField("mask", b"\xff\xff\xfb\xff\x07\xf8\xbf\x3d", 8) ]
+
 
 class HCI_Cmd_Read_BD_Addr(Packet):
     name = "Read BD Addr"
@@ -538,15 +598,18 @@ class HCI_Cmd_LE_Set_Scan_Parameters(Packet):
                     ByteEnumField("atype", 0, {0: "public"}),
                     ByteEnumField("policy", 0, {0: "all"}), ]
 
+
 class HCI_Cmd_LE_Set_Scan_Enable(Packet):
     name = "LE Set Scan Enable"
     fields_desc = [ ByteField("enable", 1),
                     ByteField("filter_dups", 1), ]
 
+
 class HCI_Cmd_Disconnect(Packet):
     name = "Disconnect"
     fields_desc = [ XLEShortField("handle", 0),
                     ByteField("reason", 0x13), ]
+
 
 class HCI_Cmd_LE_Create_Connection(Packet):
     name = "LE Create Connection"
@@ -563,8 +626,10 @@ class HCI_Cmd_LE_Create_Connection(Packet):
                     LEShortField("min_ce", 0),
                     LEShortField("max_ce", 0), ]
     
+
 class HCI_Cmd_LE_Create_Connection_Cancel(Packet):
     name = "LE Create Connection Cancel"
+
 
 class HCI_Cmd_LE_Connection_Update(Packet):
     name = "LE Connection Update"
@@ -576,12 +641,15 @@ class HCI_Cmd_LE_Connection_Update(Packet):
                     LEShortField("min_ce", 0),
                     LEShortField("max_ce", 0xffff), ]
 
+
 class HCI_Cmd_LE_Read_Buffer_Size(Packet):
     name = "LE Read Buffer Size"
+
 
 class HCI_Cmd_LE_Set_Random_Address(Packet):
     name = "LE Set Random Address"
     fields_desc = [ LEMACField("address", None) ]
+
 
 class HCI_Cmd_LE_Set_Advertising_Parameters(Packet):
     name = "LE Set Advertising Parameters"
@@ -594,14 +662,17 @@ class HCI_Cmd_LE_Set_Advertising_Parameters(Packet):
                     ByteField("channel_map", 7),
                     ByteEnumField("filter_policy", 0, {0: "all:all", 1: "connect:all scan:whitelist", 2: "connect:whitelist scan:all", 3: "all:whitelist"}), ]
 
+
 class HCI_Cmd_LE_Set_Advertising_Data(Packet):
     name = "LE Set Advertising Data"
     fields_desc = [ FieldLenField("len", None, length_of="data", fmt="B"),
                     StrLenField("data", "", length_from=lambda pkt:pkt.len), ]
 
+
 class HCI_Cmd_LE_Set_Advertise_Enable(Packet):
     name = "LE Set Advertise Enable"
     fields_desc = [ ByteField("enable", 0) ]
+
 
 class HCI_Cmd_LE_Start_Encryption_Request(Packet):
     name = "LE Start Encryption"
@@ -610,14 +681,17 @@ class HCI_Cmd_LE_Start_Encryption_Request(Packet):
                     XLEShortField("ediv", 0),
                     StrFixedLenField("ltk", b'\x00' * 16, 16), ]
 
+
 class HCI_Cmd_LE_Long_Term_Key_Request_Negative_Reply(Packet):
     name = "LE Long Term Key Request Negative Reply"
     fields_desc = [ LEShortField("handle", 0), ]
+
 
 class HCI_Cmd_LE_Long_Term_Key_Request_Reply(Packet):
     name = "LE Long Term Key Request Reply"
     fields_desc = [ LEShortField("handle", 0),
                     StrFixedLenField("ltk", b'\x00' * 16, 16), ]
+
 
 class HCI_Event_Hdr(Packet):
     name = "HCI Event header"
@@ -638,6 +712,7 @@ class HCI_Event_Encryption_Change(Packet):
                     LEShortField("handle", 0),
                     ByteEnumField("enabled", 0, {0: "OFF", 1: "ON (LE)", 2: "ON (BR/EDR)"}), ]
 
+
 class HCI_Event_Command_Complete(Packet):
     name = "Command Complete"
     fields_desc = [ ByteField("number", 0),
@@ -650,20 +725,22 @@ class HCI_Cmd_Complete_Read_BD_Addr(Packet):
     fields_desc = [ LEMACField("addr", None), ]
 
 
-
 class HCI_Event_Command_Status(Packet):
     name = "Command Status"
     fields_desc = [ ByteEnumField("status", 0, {0: "pending"}),
                     ByteField("number", 0),
                     XLEShortField("opcode", None), ]
 
+
 class HCI_Event_Number_Of_Completed_Packets(Packet):
     name = "Number Of Completed Packets"
     fields_desc = [ ByteField("number", 0) ]
 
+
 class HCI_Event_LE_Meta(Packet):
     name = "LE Meta"
     fields_desc = [ ByteEnumField("event", 0, {2: "advertising_report"}) ]
+
 
 class HCI_LE_Meta_Connection_Complete(Packet):
     name = "Connection Complete"
@@ -677,6 +754,7 @@ class HCI_LE_Meta_Connection_Complete(Packet):
                     LEShortField("supervision", 42),
                     XByteField("clock_latency", 5), ]
 
+
 class HCI_LE_Meta_Connection_Update_Complete(Packet):
     name = "Connection Update Complete"
     fields_desc = [ ByteEnumField("status", 0, {0: "success"}),
@@ -684,6 +762,7 @@ class HCI_LE_Meta_Connection_Update_Complete(Packet):
                     LEShortField("interval", 54),
                     LEShortField("latency", 0),
                     LEShortField("timeout", 42), ]
+
 
 class HCI_LE_Meta_Advertising_Report(Packet):
     name = "Advertising Report"
@@ -803,14 +882,18 @@ bind_layers( SM_Hdr,        SM_Identity_Information, sm_command=8)
 bind_layers( SM_Hdr,        SM_Identity_Address_Information, sm_command=9)
 bind_layers( SM_Hdr,        SM_Signing_Information, sm_command=0x0a)
 
+
 class BluetoothSocketError(BaseException):
     pass
+
 
 class BluetoothCommandError(BaseException):
     pass
 
+
 class BluetoothL2CAPSocket(SuperSocket):
     desc = "read/write packets on a connected L2CAP socket"
+
     def __init__(self, bt_address):
         if WINDOWS:
             warning("Not available on Windows")
@@ -823,16 +906,20 @@ class BluetoothL2CAPSocket(SuperSocket):
     def recv(self, x=MTU):
         return L2CAP_CmdHdr(self.ins.recv(x))
 
+
 class BluetoothRFCommSocket(BluetoothL2CAPSocket):
     """read/write packets on a connected RFCOMM socket"""
+
     def __init__(self, bt_address, port=0):
         s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_RAW,
                           socket.BTPROTO_RFCOMM)
         s.connect((bt_address, port))
         self.ins = self.outs = s
 
+
 class BluetoothHCISocket(SuperSocket):
     desc = "read/write on a BlueTooth HCI socket"
+
     def __init__(self, iface=0x10000, type=None):
         if WINDOWS:
             warning("Not available on Windows")
@@ -845,9 +932,9 @@ class BluetoothHCISocket(SuperSocket):
         self.ins = self.outs = s
 #        s.connect((peer,0))
 
-
     def recv(self, x):
         return HCI_Hdr(self.ins.recv(x))
+
 
 class sockaddr_hci(Structure):
     _fields_ = [
@@ -856,8 +943,10 @@ class sockaddr_hci(Structure):
         ("hci_channel",     c_ushort),
     ]
 
+
 class BluetoothUserSocket(SuperSocket):
     desc = "read/write H4 over a Bluetooth user channel"
+
     def __init__(self, adapter_index=0):
         if WINDOWS:
             warning("Not available on Windows")
@@ -920,9 +1009,11 @@ class BluetoothUserSocket(SuperSocket):
         while self.readable():
             self.recv()
 
+
 conf.BTsocket = BluetoothRFCommSocket
 
 ## Bluetooth
+
 
 @conf.commands.register
 def srbt(bt_address, pkts, inter=0.1, *args, **kargs):
@@ -934,6 +1025,7 @@ def srbt(bt_address, pkts, inter=0.1, *args, **kargs):
     a, b = sndrcv(s, pkts, inter=inter, *args, **kargs)
     s.close()
     return a, b
+
 
 @conf.commands.register
 def srbt1(bt_address, pkts, *args, **kargs):

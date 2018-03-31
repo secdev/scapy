@@ -40,6 +40,7 @@ def pkcs_os2ip(s):
     """
     return int(bytes_hex(s), 16)
 
+
 def pkcs_i2osp(n, sLen):
     """
     I2OSP conversion function from RFC 3447.
@@ -55,6 +56,7 @@ def pkcs_i2osp(n, sLen):
     fmt = "%%0%dx" % (2*sLen)
     return hex_bytes(fmt % n)
 
+
 def pkcs_ilen(n):
     """
     This is a log base 256 which determines the minimum octet string
@@ -65,6 +67,7 @@ def pkcs_ilen(n):
         n >>= 8
         i += 1
     return i
+
 
 @crypto_validator
 def _legacy_pkcs1_v1_5_encode_md5_sha1(M, emLen):
@@ -114,7 +117,6 @@ if conf.crypto_valid:
             return _hashes[hashStr]()
         except KeyError:
             raise KeyError("Unknown hash function %s" % hashStr)
-
 
     def _get_padding(padStr, mgf=padding.MGF1, h=hashes.SHA256, label=None):
         if padStr == "pkcs":

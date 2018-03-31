@@ -62,6 +62,7 @@ class _SSLv2Handshake(_GenericTLSSessionInheritance):
 _tls_error_code = { 1: "no_cipher",         2: "no_certificate",
                     4: "bad_certificate",   6: "unsupported_certificate_type" }
 
+
 class SSLv2Error(_SSLv2Handshake):
     """
     SSLv2 Error.
@@ -217,6 +218,7 @@ class _SSLv2CipherSuiteField(EnumField):
     def getfield(self, pkt, s):
         return s[3:], self.m2i(pkt, s)
 
+
 class _SSLv2EncryptedKeyField(XStrLenField):
     def i2repr(self, pkt, x):
         s = super(_SSLv2EncryptedKeyField, self).i2repr(pkt, x)
@@ -225,6 +227,7 @@ class _SSLv2EncryptedKeyField(XStrLenField):
             ds = super(_SSLv2EncryptedKeyField, self).i2repr(pkt, dx)
             s += "    [decryptedkey= %s]" % ds
         return s
+
 
 class SSLv2ClientMasterKey(_SSLv2Handshake):
     """

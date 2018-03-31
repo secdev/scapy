@@ -17,16 +17,20 @@ import scapy.config
 from scapy.pton_ntop import inet_pton, inet_ntop
 from scapy.data import *
 
+
 def str2mac(s):
     return ("%02x:"*6)[:-1] % tuple(orb(x) for x in s)
+
 
 if not WINDOWS:
     if not scapy.config.conf.use_pcap and not scapy.config.conf.use_dnet:
         from scapy.arch.bpf.core import get_if_raw_addr
 
+
 def get_if_addr(iff):
     return inet_ntop(socket.AF_INET, get_if_raw_addr(iff))
     
+
 def get_if_hwaddr(iff):
     addrfamily, mac = get_if_raw_hwaddr(iff)
     if addrfamily in [ARPHDR_ETHER, ARPHDR_LOOPBACK]:
@@ -80,6 +84,7 @@ def get_if_addr6(iff):
     """
     return next((x[0] for x in in6_getifaddr()
                  if x[2] == iff and x[1] == IPV6_ADDR_GLOBAL), None)
+
 
 def get_if_raw_addr6(iff):
     """

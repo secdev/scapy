@@ -15,6 +15,7 @@ from scapy.fields import *
 from scapy.layers.inet import UDP, TCP
 from scapy.layers.l2 import SourceMACField
 
+
 class NetBIOS_DS(Packet):
     name = "NetBIOS datagram service"
     fields_desc = [
@@ -28,6 +29,7 @@ class NetBIOS_DS(Packet):
         NetBIOSNameField("srcname", ""),
         NetBIOSNameField("dstname", ""),
         ]
+
     def post_build(self, p, pay):
         p += pay
         if self.len is None:
@@ -70,6 +72,8 @@ class NBNSQueryRequest(Packet):
 # Name Registration Request
 # Name Refresh Request
 # Name Release Request or Demand
+
+
 class NBNSRequest(Packet):
     name="NBNS request"
     fields_desc = [ShortField("NAME_TRN_ID", 0),
@@ -95,6 +99,8 @@ class NBNSRequest(Packet):
 
 # Name Query Response
 # Name Registration Response
+
+
 class NBNSQueryResponse(Packet):
     name="NBNS query response"
     fields_desc = [ShortField("NAME_TRN_ID", 0),
@@ -115,6 +121,8 @@ class NBNSQueryResponse(Packet):
 
 # Name Query Response (negative)
 # Name Release Response
+
+
 class NBNSQueryResponseNegative(Packet):
     name="NBNS query response (negative)"
     fields_desc = [ShortField("NAME_TRN_ID", 0), 
@@ -136,6 +144,8 @@ class NBNSQueryResponseNegative(Packet):
                    IPField("NB_ADDRESS", "127.0.0.1")]
     
 # Node Status Response
+
+
 class NBNSNodeStatusResponse(Packet):
     name="NBNS Node Status Response"
     fields_desc = [ShortField("NAME_TRN_ID", 0), 
@@ -154,6 +164,8 @@ class NBNSNodeStatusResponse(Packet):
                    ByteField("NUM_NAMES", 1)]
 
 # Service for Node Status Response
+
+
 class NBNSNodeStatusResponseService(Packet):
     name="NBNS Node Status Response Service"
     fields_desc = [StrFixedLenField("NETBIOS_NAME", "WINDOWS         ", 15),
@@ -162,12 +174,16 @@ class NBNSNodeStatusResponseService(Packet):
                    ByteEnumField("UNUSED", 0, {0: "unused"})]
 
 # End of Node Status Response packet
+
+
 class NBNSNodeStatusResponseEnd(Packet):
     name="NBNS Node Status Response"
     fields_desc = [SourceMACField("MAC_ADDRESS"),
                    BitField("STATISTICS", 0, 57*8)]
 
 # Wait for Acknowledgement Response
+
+
 class NBNSWackResponse(Packet):
     name="NBNS Wait for Acknowledgement Response"
     fields_desc = [ShortField("NAME_TRN_ID", 0),
@@ -184,6 +200,7 @@ class NBNSWackResponse(Packet):
                    IntField("TTL", 2),
                    ShortField("RDLENGTH", 2),
                    BitField("RDATA", 10512, 16)] #10512=0010100100010000
+
 
 class NBTDatagram(Packet):
     name="NBT Datagram Packet"
@@ -207,6 +224,7 @@ class NBTSession(Packet):
     fields_desc= [ByteEnumField("TYPE", 0, {0x00: "Session Message", 0x81: "Session Request", 0x82: "Positive Session Response", 0x83: "Negative Session Response", 0x84: "Retarget Session Response", 0x85: "Session Keepalive"}),
                   BitField("RESERVED", 0x00, 7),
                   BitField("LENGTH", 0, 17)]
+
 
 bind_layers( UDP,           NBNSQueryRequest,  dport=137)
 bind_layers( UDP,           NBNSRequest,       dport=137)

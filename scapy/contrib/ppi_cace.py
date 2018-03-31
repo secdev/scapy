@@ -38,13 +38,17 @@ PPI_AGGREGATION  = 8
 PPI_DOT3         = 9
 
 # PPI 802.11 Common Field Header Fields
+
+
 class dBmByteField(Field):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "b")
+
     def i2repr(self, pkt, val):
         if (val != None):
             val = "%4d dBm" % val
         return val
+
 
 class PPITSFTField(LELongField):
     def i2h(self, pkt, val):
@@ -59,6 +63,7 @@ class PPITSFTField(LELongField):
             scale = 1e-6
         tout = scale * float(val)
         return tout
+
     def h2i(self, pkt, val):
         scale = 1e6
         if pkt:
@@ -69,12 +74,15 @@ class PPITSFTField(LELongField):
         tout = int((scale * val) + 0.5)
         return tout
 
+
 _PPIDot11CommonChFlags = ['', '', '', '', 'Turbo', 'CCK', 'OFDM', '2GHz', '5GHz',
                           'PassiveOnly', 'Dynamic CCK-OFDM', 'GSFK']
 
 _PPIDot11CommonPktFlags = ['FCS', 'TSFT_ms', 'FCS_Invalid', 'PHY_Error']
 
 # PPI 802.11 Common Field Header
+
+
 class Dot11Common(Packet):
     name = "PPI 802.11-Common"
     fields_desc = [ LEShortField('pfh_type', PPI_DOT11COMMON),
@@ -92,6 +100,7 @@ class Dot11Common(Packet):
     def extract_padding(self, p):
         return b"", p
 #Hopefully other CACE defined types will be added here.
+
 
 #Add the dot11common layer to the PPI array
 addPPIType(PPI_DOT11COMMON, Dot11Common)

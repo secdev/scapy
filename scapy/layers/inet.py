@@ -39,18 +39,23 @@ from scapy.modules.six.moves import range
 ## IP Tools class ##
 ####################
 
+
 class IPTools(object):
     """Add more powers to a class with an "src" attribute."""
     __slots__ = []
+
     def whois(self):
         """whois the source and print the output"""
         print(whois(self.src).decode("utf8", "ignore"))
+
     def _ttl(self):
         """Returns ttl or hlim, depending on the IP version"""
         return self.hlim if isinstance(self, scapy.layers.inet6.IPv6) else self.ttl
+
     def ottl(self):
         t = sorted([32, 64, 128, 255]+[self._ttl()])
         return t[t.index(self._ttl())+1]
+
     def hops(self):
         return self.ottl() - self._ttl()
 
@@ -89,6 +94,7 @@ class _IPOption_HDR(Packet):
                     BitEnumField("optclass", 0, 2, {0: "control", 2: "debug"}),
                     BitEnumField("option", 0, 5, _ip_options_names) ]
     
+
 class IPOption(Packet):
     name = "IP Option"
     fields_desc = [ _IPOption_HDR,
@@ -100,9 +106,11 @@ class IPOption(Packet):
         return b"", p
 
     registered_ip_options = {}
+
     @classmethod
     def register_variant(cls):
         cls.registered_ip_options[cls.option.default] = cls
+
     @classmethod
     def dispatch_hook(cls, pkt=None, *args, **kargs):
         if pkt:
@@ -110,6 +118,7 @@ class IPOption(Packet):
             if opt in cls.registered_ip_options:
                 return cls.registered_ip_options[opt]
         return cls
+
 
 class IPOption_EOL(IPOption):
     name = "IP Option End of Options List"
@@ -121,6 +130,7 @@ class IPOption_NOP(IPOption):
     name = "IP Option No Operation"
     option=1
     fields_desc = [ _IPOption_HDR ]
+
 
 class IPOption_Security(IPOption):
     name = "IP Option Security"
@@ -134,6 +144,7 @@ class IPOption_Security(IPOption):
                     StrFixedLenField("transmission_control_code", "xxx", 3),
                     ]
     
+
 class IPOption_RR(IPOption):
     name = "IP Option Record Route"
     option = 7
@@ -144,18 +155,22 @@ class IPOption_RR(IPOption):
                     FieldListField("routers", [], IPField("", "0.0.0.0"), 
                                    length_from=lambda pkt:pkt.length-3)
                     ]
+
     def get_current_router(self):
         return self.routers[self.pointer//4-1]
+
 
 class IPOption_LSRR(IPOption_RR):
     name = "IP Option Loose Source and Record Route"
     copy_flag = 1
     option = 3
 
+
 class IPOption_SSRR(IPOption_RR):
     name = "IP Option Strict Source and Record Route"
     copy_flag = 1
     option = 9
+
 
 class IPOption_Stream_Id(IPOption):
     name = "IP Option Stream ID"
@@ -165,6 +180,7 @@ class IPOption_Stream_Id(IPOption):
                     ByteField("length", 4),
                     ShortField("security", 0), ]
                     
+
 class IPOption_MTU_Probe(IPOption):
     name = "IP Option MTU Probe"
     option = 11
@@ -172,9 +188,11 @@ class IPOption_MTU_Probe(IPOption):
                     ByteField("length", 4),
                     ShortField("mtu", 0), ]
 
+
 class IPOption_MTU_Reply(IPOption_MTU_Probe):
     name = "IP Option MTU Reply"
     option = 12
+
 
 class IPOption_Traceroute(IPOption):
     name = "IP Option Traceroute"
@@ -186,6 +204,7 @@ class IPOption_Traceroute(IPOption):
                     ShortField("return_hops", 0),
                     IPField("originator_ip", "0.0.0.0") ]
 
+
 class IPOption_Address_Extension(IPOption):
     name = "IP Option Address Extension"
     copy_flag = 1
@@ -194,6 +213,7 @@ class IPOption_Address_Extension(IPOption):
                     ByteField("length", 10),
                     IPField("src_ext", "0.0.0.0"),
                     IPField("dst_ext", "0.0.0.0") ]
+
 
 class IPOption_Router_Alert(IPOption):
     name = "IP Option Router Alert"
@@ -215,7 +235,6 @@ class IPOption_SDBM(IPOption):
                                    length_from=lambda pkt:pkt.length-2)
                     ]
     
-
 
 TCPOptions = (
               { 0 : ("EOL", None),
@@ -248,14 +267,17 @@ TCPOptions = (
                 "TFO": 34,
                 } )
 
+
 class TCPOptionsField(StrField):
     islist=1
+
     def getfield(self, pkt, s):
         opsz = (pkt.dataofs-5)*4
         if opsz < 0:
             warning("bad dataofs (%i). Assuming dataofs=5"%pkt.dataofs)
             opsz = 0
         return s[opsz:], self.m2i(pkt, s[:opsz])
+
     def m2i(self, pkt, x):
         opt = []
         while x:
@@ -316,12 +338,14 @@ class TCPOptionsField(StrField):
                     continue
             opt += chb(onum) + chb(2+len(oval))+ raw(oval)
         return opt+b"\x00"*(3-((len(opt)+3)%4))
+
     def randval(self):
         return [] # XXX
     
 
 class ICMPTimeStampField(IntField):
     re_hmsm = re.compile("([0-2]?[0-9])[Hh:](([0-5]?[0-9])([Mm:]([0-5]?[0-9])([sS:.]([0-9]{0,3}))?)?)?$")
+
     def i2repr(self, pkt, val):
         if val is None:
             return "--"
@@ -330,6 +354,7 @@ class ICMPTimeStampField(IntField):
             min, sec = divmod(sec, 60)
             hour, min = divmod(min, 60)
             return "%d:%d:%d.%d" %(hour, min, sec, int(milli))
+
     def any2i(self, pkt, val):
         if isinstance(val, str):
             hmsms = self.re_hmsm.match(val)
@@ -346,13 +371,16 @@ class ICMPTimeStampField(IntField):
 
 class DestIPField(IPField, DestField):
     bindings = {}
+
     def __init__(self, name, default):
         IPField.__init__(self, name, None)
         DestField.__init__(self, name, default)
+
     def i2m(self, pkt, x):
         if x is None:
             x = self.dst_from_pkt(pkt)
         return IPField.i2m(self, pkt, x)
+
     def i2h(self, pkt, x):
         if x is None:
             x = self.dst_from_pkt(pkt)
@@ -376,6 +404,7 @@ class IP(Packet, IPTools):
                     Emph(SourceIPField("src", "dst")),
                     Emph(DestIPField("dst", "127.0.0.1")),
                     PacketListField("options", [], IPOption, length_from=lambda p:p.ihl*4-20) ]
+
     def post_build(self, p, pay):
         ihl = self.ihl
         p += b"\0"*((-len(p))%4) # pad IP options if needed
@@ -402,6 +431,7 @@ class IP(Packet, IPTools):
             # unused import, only to initialize conf.route
             import scapy.route
         return conf.route.route(dst)
+
     def hashret(self):
         if ( (self.proto == socket.IPPROTO_ICMP)
              and (isinstance(self.payload, ICMP))
@@ -415,6 +445,7 @@ class IP(Packet, IPTools):
             return (strxor(inet_aton(self.src), inet_aton(self.dst))
                     + struct.pack("B", self.proto) + self.payload.hashret())
         return struct.pack("B", self.proto) + self.payload.hashret()
+
     def answers(self, other):
         if not conf.checkIPinIP:  # skip IP in IP and IPv6 in IP
             if self.proto in [4, 41]:
@@ -443,6 +474,7 @@ class IP(Packet, IPTools):
                  (self.proto != other.proto) ):
                 return 0
             return self.payload.answers(other.payload)
+
     def mysummary(self):
         s = self.sprintf("%IP.src% > %IP.dst% %IP.proto%")
         if self.frag:
@@ -476,6 +508,7 @@ class IP(Packet, IPTools):
                 lst.append(q)
         return lst
 
+
 def in4_chksum(proto, u, p):
     """
     As Specified in RFC 2460 - 8.1 Upper-Layer Checksums
@@ -504,6 +537,7 @@ def in4_chksum(proto, u, p):
                          ln)
     return checksum(psdhdr+p)
 
+
 class TCP(Packet):
     name = "TCP"
     fields_desc = [ ShortEnumField("sport", 20, TCP_SERVICES),
@@ -517,6 +551,7 @@ class TCP(Packet):
                     XShortField("chksum", None),
                     ShortField("urgptr", 0),
                     TCPOptionsField("options", []) ]
+
     def post_build(self, p, pay):
         p += pay
         dataofs = self.dataofs
@@ -533,11 +568,13 @@ class TCP(Packet):
             else:
                 warning("No IP underlayer to compute checksum. Leaving null.")
         return p
+
     def hashret(self):
         if conf.checkIPsrc:
             return struct.pack("H", self.sport ^ self.dport)+self.payload.hashret()
         else:
             return self.payload.hashret()
+
     def answers(self, other):
         if not isinstance(other, TCP):
             return 0
@@ -568,6 +605,7 @@ class TCP(Packet):
         if abs(other.seq - self.ack) > 2 + len(other.payload):
             return 0
         return 1
+
     def mysummary(self):
         if isinstance(self.underlayer, IP):
             return self.underlayer.sprintf("TCP %IP.src%:%TCP.sport% > %IP.dst%:%TCP.dport% %TCP.flags%")
@@ -576,12 +614,14 @@ class TCP(Packet):
         else:
             return self.sprintf("TCP %TCP.sport% > %TCP.dport% %TCP.flags%")
 
+
 class UDP(Packet):
     name = "UDP"
     fields_desc = [ ShortEnumField("sport", 53, UDP_SERVICES),
                     ShortEnumField("dport", 53, UDP_SERVICES),
                     ShortField("len", None),
                     XShortField("chksum", None), ]
+
     def post_build(self, p, pay):
         p += pay
         l = self.len
@@ -604,11 +644,14 @@ class UDP(Packet):
             else:
                 warning("No IP underlayer to compute checksum. Leaving null.")
         return p
+
     def extract_padding(self, s):
         l = self.len - 8
         return s[:l], s[l:]
+
     def hashret(self):
         return self.payload.hashret()
+
     def answers(self, other):
         if not isinstance(other, UDP):
             return 0
@@ -616,6 +659,7 @@ class UDP(Packet):
             if self.dport != other.sport:
                 return 0
         return self.payload.answers(other.payload)
+
     def mysummary(self):
         if isinstance(self.underlayer, IP):
             return self.underlayer.sprintf("UDP %IP.src%:%UDP.sport% > %IP.dst%:%UDP.dport%")
@@ -623,6 +667,7 @@ class UDP(Packet):
             return self.underlayer.sprintf("UDP %IPv6.src%:%UDP.sport% > %IPv6.dst%:%UDP.dport%")
         else:
             return self.sprintf("UDP %UDP.sport% > %UDP.dport%")    
+
 
 icmptypes = { 0 : "echo-reply",
               3 : "dest-unreach",
@@ -665,8 +710,6 @@ icmpcodes = { 3 : { 0  : "network-unreachable",
                      1 : "required-option-missing", }, }
                          
                    
-
-
 class ICMP(Packet):
     name = "ICMP"
     fields_desc = [ ByteEnumField("type", 8, icmptypes),
@@ -686,6 +729,7 @@ class ICMP(Packet):
                     ConditionalField(ShortField("unused", 0), lambda pkt:pkt.type in [11, 12]),
                     ConditionalField(IntField("unused", 0), lambda pkt:pkt.type not in [0, 3, 5, 8, 11, 12, 13, 14, 15, 16, 17, 18])
                     ]
+
     def post_build(self, p, pay):
         p += pay
         if self.chksum is None:
@@ -697,6 +741,7 @@ class ICMP(Packet):
         if self.type in [0, 8, 13, 14, 15, 16, 17, 18]:
             return struct.pack("HH", self.id, self.seq)+self.payload.hashret()
         return self.payload.hashret()
+
     def answers(self, other):
         if not isinstance(other, ICMP):
             return 0
@@ -711,6 +756,7 @@ class ICMP(Packet):
             return IPerror
         else:
             return None
+
     def mysummary(self):
         if isinstance(self.underlayer, IP):
             return self.underlayer.sprintf("ICMP %IP.src% > %IP.dst% %ICMP.type% %ICMP.code%")
@@ -718,11 +764,9 @@ class ICMP(Packet):
             return self.sprintf("ICMP %ICMP.type% %ICMP.code%")
     
         
-
-
-
 class IPerror(IP):
     name = "IP in ICMP"
+
     def answers(self, other):
         if not isinstance(other, IP):
             return 0
@@ -734,12 +778,14 @@ class IPerror(IP):
                  (self.proto == other.proto) ):
             return 0
         return self.payload.answers(other.payload)
+
     def mysummary(self):
         return Packet.mysummary(self)
 
 
 class TCPerror(TCP):
     name = "TCP in ICMP"
+
     def answers(self, other):
         if not isinstance(other, TCP):
             return 0
@@ -755,12 +801,14 @@ class TCPerror(TCP):
                 if self.ack != other.ack:
                     return 0
         return 1
+
     def mysummary(self):
         return Packet.mysummary(self)
 
 
 class UDPerror(UDP):
     name = "UDP in ICMP"
+
     def answers(self, other):
         if not isinstance(other, UDP):
             return 0
@@ -769,13 +817,14 @@ class UDPerror(UDP):
                     (self.dport == other.dport)):
                 return 0
         return 1
+
     def mysummary(self):
         return Packet.mysummary(self)
 
                     
-
 class ICMPerror(ICMP):
     name = "ICMP in ICMP"
+
     def answers(self, other):
         if not isinstance(other, ICMP):
             return 0
@@ -790,8 +839,10 @@ class ICMPerror(ICMP):
                 return 0
         else:
             return 1
+
     def mysummary(self):
         return Packet.mysummary(self)
+
 
 bind_layers( Ether,         IP,            type=2048)
 bind_layers( CookedLinux,   IP,            proto=2048)
@@ -819,6 +870,8 @@ conf.l3types.register_num2layer(ETH_P_ALL, IP)
 
 def inet_register_l3(l2, l3):
     return getmacbyip(l3.dst)
+
+
 conf.neighbor.register_l3(Ether, IP, inet_register_l3)
 conf.neighbor.register_l3(Dot3, IP, inet_register_l3)
 
@@ -849,6 +902,7 @@ def fragment(pkt, fragsize=1480):
             lst.append(q)
     return lst
 
+
 @conf.commands.register
 def overlap_frag(p, overlap, fragsize=8, overlap_fragsize=None):
     """Build overlapping fragments to bypass NIPS
@@ -867,6 +921,7 @@ overlap_fragsize: the fragment size of the overlapping packet"""
     qfrag = fragment(q, overlap_fragsize)
     qfrag[-1][IP].flags |= 1
     return qfrag+fragment(p, fragsize)
+
 
 @conf.commands.register
 def defrag(plist):
@@ -926,6 +981,7 @@ def defrag(plist):
         defrag2.append(p.__class__(raw(p)))
     return nofrag, defrag2, missfrag
             
+
 @conf.commands.register
 def defragment(plist):
     """defrag(plist) -> plist defragmented as much as possible """
@@ -1002,7 +1058,6 @@ def defragment(plist):
     return PacketList(final, name=name)
             
         
-
 ### Add timeskew_graph() method to PacketList
 def _packetlist_timeskew_graph(self, ip, **kargs):
     """Tries to graph the timeskew between the timestamps and real time for a given ip"""
@@ -1051,6 +1106,7 @@ def _packetlist_timeskew_graph(self, ip, **kargs):
 
     return lines
 
+
 PacketList.timeskew_graph = _packetlist_timeskew_graph
 
 
@@ -1058,6 +1114,7 @@ PacketList.timeskew_graph = _packetlist_timeskew_graph
 class TracerouteResult(SndRcvList):
     __slots__ = ["graphdef", "graphpadding", "graphASres", "padding", "hloc",
                  "nloc"]
+
     def __init__(self, res=None, name="Traceroute", stats=None):
         PacketList.__init__(self, res, name, stats)
         self.graphdef = None
@@ -1070,7 +1127,6 @@ class TracerouteResult(SndRcvList):
         return self.make_table(lambda s_r: (s_r[0].sprintf("%IP.dst%:{TCP:tcp%ir,TCP.dport%}{UDP:udp%ir,UDP.dport%}{ICMP:ICMP}"),
                                             s_r[0].ttl,
                                             s_r[1].sprintf("%-15s,IP.src% {TCP:%TCP.flags%}{ICMP:%ir,ICMP.type%}")))
-
 
     def get_trace(self):
         trace = {}
@@ -1107,6 +1163,7 @@ class TracerouteResult(SndRcvList):
                 self.ip=ip
                 self.label=None
                 self.setlabel(self.ip)
+
             def setlabel(self, txt, visible=None):
                 if self.label is not None:
                     if visible is None:
@@ -1115,6 +1172,7 @@ class TracerouteResult(SndRcvList):
                 elif visible is None:
                     visible=0
                 self.label=visual.label(text=txt, pos=self.pos, space=self.radius, xoffset=10, yoffset=20, visible=visible)
+
             def action(self):
                 self.label.visible ^= 1
 
@@ -1198,7 +1256,6 @@ class TracerouteResult(SndRcvList):
             if movcenter:
                 visual.scene.center -= visual.scene.mouse.pos-movcenter
                 movcenter = visual.scene.mouse.pos
-                
                 
     def world_trace(self):
         """Display traceroute results on a world map."""
@@ -1410,7 +1467,6 @@ class TracerouteResult(SndRcvList):
             ASNs[asn] = iplist
             ASDs[asn] = desc
     
-    
         backcolorlist=colgen("60", "86", "ba", "ff")
         forecolorlist=colgen("a0", "70", "40", "20")
     
@@ -1431,9 +1487,6 @@ class TracerouteResult(SndRcvList):
                 s += '\t\t"%s";\n'%ip
             s += "\t}\n"
     
-    
-    
-    
         s += "#endpoints\n"
         for p in ports:
             s += '\t"%s" [shape=record,color=black,fillcolor=green,style=filled,label="%s|%s"];\n' % (p, p, "|".join(ports[p]))
@@ -1453,10 +1506,7 @@ class TracerouteResult(SndRcvList):
             for rcv in pad:
                 s += '\t"%s" [shape=triangle,color=black,fillcolor=red,style=filled];\n' % rcv
     
-    
-            
         s += "\n\tnode [shape=ellipse,color=black,style=solid];\n\n"
-    
     
         for rtk in rt:
             s += "#---[%s\n" % repr(rtk)
@@ -1489,7 +1539,6 @@ class TracerouteResult(SndRcvList):
         return do_graph(self.graphdef, **kargs)
 
 
-
 @conf.commands.register
 def traceroute(target, dport=80, minttl=1, maxttl=30, sport=RandShort(), l4 = None, filter=None, timeout=2, verbose=None, **kargs):
     """Instant TCP traceroute
@@ -1516,6 +1565,7 @@ traceroute(target, [maxttl=30,] [dport=80,] [sport=80,] [verbose=conf.verb]) -> 
         a.show()
     return a, b
 
+
 @conf.commands.register
 def traceroute_map(*args, **kargs):
     """Util function to call traceroute on multiple targets, then
@@ -1531,6 +1581,7 @@ def traceroute_map(*args, **kargs):
 #############################
 ## Simple TCP client stack ##
 #############################
+
 
 class TCP_client(Automaton):
     
@@ -1552,7 +1603,6 @@ class TCP_client(Automaton):
 #        bpf=None
         Automaton.parse_args(self, filter=bpf, **kargs)
 
-    
     def master_filter(self, pkt):
         return (IP in pkt and
                 pkt[IP].src == self.dst and
@@ -1562,7 +1612,6 @@ class TCP_client(Automaton):
                 pkt[TCP].dport == self.sport and
                 self.l4[TCP].seq >= pkt[TCP].ack and # XXX: seq/ack 2^32 wrap up
                 ((self.l4[TCP].ack == 0) or (self.l4[TCP].ack <= pkt[TCP].seq <= self.l4[TCP].ack+self.swin)) )
-
 
     @ATMT.state(initial=1)
     def START(self):
@@ -1584,21 +1633,21 @@ class TCP_client(Automaton):
     def CLOSED(self):
         pass
 
-    
     @ATMT.condition(START)
     def connect(self):
         raise self.SYN_SENT()
+
     @ATMT.action(connect)
     def send_syn(self):
         self.l4[TCP].flags = "S"
         self.send(self.l4)
         self.l4[TCP].seq += 1
 
-
     @ATMT.receive_condition(SYN_SENT)
     def synack_received(self, pkt):
         if pkt[TCP].flags & 0x3f == 0x12:
             raise self.ESTABLISHED().action_parameters(pkt)
+
     @ATMT.action(synack_received)
     def send_ack_of_synack(self, pkt):
         self.l4[TCP].ack = pkt[TCP].seq+1
@@ -1609,6 +1658,7 @@ class TCP_client(Automaton):
     def incoming_data_received(self, pkt):
         if not isinstance(pkt[TCP].payload, NoPayload) and not isinstance(pkt[TCP].payload, conf.padding_layer):
             raise self.ESTABLISHED().action_parameters(pkt)
+
     @ATMT.action(incoming_data_received)
     def receive_data(self, pkt):
         data = raw(pkt[TCP].payload)
@@ -1624,13 +1674,13 @@ class TCP_client(Automaton):
     @ATMT.ioevent(ESTABLISHED, name="tcp", as_supersocket="tcplink")
     def outgoing_data_received(self, fd):
         raise self.ESTABLISHED().action_parameters(fd.recv())
+
     @ATMT.action(outgoing_data_received)
     def send_data(self, d):
         self.l4[TCP].flags = "PA"
         self.send(self.l4/d)
         self.l4[TCP].seq += len(d)
         
-    
     @ATMT.receive_condition(ESTABLISHED)
     def reset_received(self, pkt):
         if pkt[TCP].flags & 4 != 0:
@@ -1640,6 +1690,7 @@ class TCP_client(Automaton):
     def fin_received(self, pkt):
         if pkt[TCP].flags & 0x1 == 1:
             raise self.LAST_ACK().action_parameters(pkt)
+
     @ATMT.action(fin_received)
     def send_finack(self, pkt):
         self.l4[TCP].flags = "FA"
@@ -1651,8 +1702,6 @@ class TCP_client(Automaton):
     def ack_of_fin_received(self, pkt):
         if pkt[TCP].flags & 0x3f == 0x10:
             raise self.CLOSED()
-
-
 
 
 #####################

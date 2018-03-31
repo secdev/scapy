@@ -64,6 +64,7 @@ else:
                                 +------------------Selectable-Selector-is-advertised-that-the-selectable-is-readable---------+
 """
 
+
 class SelectableObject:
     """DEV: to implement one of those, you need to add 2 things to your object:
     - add "check_recv" function
@@ -73,6 +74,7 @@ class SelectableObject:
     force the handler to use fileno(). This may only be useable on sockets created using
     the builtin socket API."""
     __selectable_force_select__ = False
+
     def check_recv(self):
         """DEV: will be called only once (at beginning) to check if the object is ready."""
         raise OSError("This method must be overwriten.")
@@ -103,6 +105,7 @@ class SelectableObject:
         except (threading.ThreadError, AttributeError):
             pass
 
+
 class SelectableSelector(object):
     """
     Select SelectableObject objects.
@@ -111,6 +114,7 @@ class SelectableSelector(object):
     remain: timeout. If 0, return [].
     customTypes: types of the objects that have the check_recv function.
     """
+
     def _release_all(self):
         """Releases all locks to kill all threads"""
         for i in self.inputs:
@@ -169,6 +173,7 @@ class SelectableSelector(object):
             r, _, _ = select(self.inputs, [], [], self.remain)
             return r
 
+
 def select_objects(inputs, remain):
     """
     Select SelectableObject objects. Same than:
@@ -181,49 +186,65 @@ def select_objects(inputs, remain):
     handler = SelectableSelector(inputs, remain)
     return handler.process()
 
+
 class ObjectPipe(SelectableObject):
     def __init__(self):
         self.rd, self.wr = os.pipe()
         self.queue = deque()
+
     def fileno(self):
         return self.rd
+
     def check_recv(self):
         return len(self.queue) > 0
+
     def send(self, obj):
         self.queue.append(obj)
         os.write(self.wr, b"X")
         self.call_release()
+
     def write(self, obj):
         self.send(obj)
+
     def recv(self, n=0):
         os.read(self.rd, 1)
         return self.queue.popleft()
+
     def read(self, n=0):
         return self.recv(n)
+
 
 class Message:
     def __init__(self, **args):
         self.__dict__.update(args)
+
     def __repr__(self):
         return "<Message %s>" % " ".join("%s=%r"%(k, v)
                                          for (k, v) in six.iteritems(self.__dict__)
                                          if not k.startswith("_"))
+
 
 class _instance_state:
     def __init__(self, instance):
         self.__self__ = instance.__self__
         self.__func__ = instance.__func__
         self.__self__.__class__ = instance.__self__.__class__
+
     def __getattr__(self, attr):
         return getattr(self.__func__, attr)
+
     def __call__(self, *args, **kargs):
         return self.__func__(self.__self__, *args, **kargs)
+
     def breaks(self):
         return self.__self__.add_breakpoints(self.__func__)
+
     def intercepts(self):
         return self.__self__.add_interception_points(self.__func__)
+
     def unbreaks(self):
         return self.__self__.remove_breakpoints(self.__func__)
+
     def unintercepts(self):
         return self.__self__.remove_interception_points(self.__func__)
         
@@ -252,12 +273,15 @@ class ATMT:
             self.args = args
             self.kargs = kargs
             self.action_parameters() # init action parameters
+
         def action_parameters(self, *args, **kargs):
             self.action_args = args
             self.action_kargs = kargs
             return self
+
         def run(self):
             return self.func(self.automaton, *self.args, **self.kargs)
+
         def __repr__(self):
             return "NewStateRequested(%s)" % self.state
 
@@ -269,6 +293,7 @@ class ATMT:
             f.atmt_initial = initial
             f.atmt_final = final
             f.atmt_error = error
+
             def state_wrapper(self, *args, **kargs):
                 return ATMT.NewStateRequested(f, self, *args, **kargs)
 
@@ -281,6 +306,7 @@ class ATMT:
             state_wrapper.atmt_origfunc = f
             return state_wrapper
         return deco
+
     @staticmethod
     def action(cond, prio=0):
         def deco(f, cond=cond):
@@ -290,6 +316,7 @@ class ATMT:
             f.atmt_cond[cond.atmt_condname] = prio
             return f
         return deco
+
     @staticmethod
     def condition(state, prio=0):
         def deco(f, state=state):
@@ -299,6 +326,7 @@ class ATMT:
             f.atmt_prio = prio
             return f
         return deco
+
     @staticmethod
     def receive_condition(state, prio=0):
         def deco(f, state=state):
@@ -308,6 +336,7 @@ class ATMT:
             f.atmt_prio = prio
             return f
         return deco
+
     @staticmethod
     def ioevent(state, name, prio=0, as_supersocket=None):
         def deco(f, state=state):
@@ -319,6 +348,7 @@ class ATMT:
             f.atmt_as_supersocket = as_supersocket
             return f
         return deco
+
     @staticmethod
     def timeout(state, timeout):
         def deco(f, state=state, timeout=timeout):
@@ -328,6 +358,7 @@ class ATMT:
             f.atmt_condname = f.__name__
             return f
         return deco
+
 
 class _ATMT_Command:
     RUN = "RUN"
@@ -343,6 +374,7 @@ class _ATMT_Command:
     REPLACE = "REPLACE"
     REJECT = "REJECT"
 
+
 class _ATMT_supersocket(SuperSocket):
     def __init__(self, name, ioevent, automaton, proto, args, kargs):
         self.name = name
@@ -352,12 +384,15 @@ class _ATMT_supersocket(SuperSocket):
         kargs["external_fd"] = {ioevent: self.spb}
         self.atmt = automaton(*args, **kargs)
         self.atmt.runbg()
+
     def fileno(self):
         return self.spa.fileno()
+
     def send(self, s):
         if not isinstance(s, bytes):
             s = bytes(s)
         return self.spa.send(s)
+
     def recv(self, n=MTU):
         try:
             r = self.spa.recv(n)
@@ -368,16 +403,20 @@ class _ATMT_supersocket(SuperSocket):
         if self.proto is not None:
             r = self.proto(r)
         return r
+
     def close(self):
         pass
+
 
 class _ATMT_to_supersocket:
     def __init__(self, name, ioevent, automaton):
         self.name = name
         self.ioevent = ioevent
         self.automaton = automaton
+
     def __call__(self, proto, *args, **kargs):
         return _ATMT_supersocket(self.name, self.ioevent, self.automaton, proto, args, kargs)
+
 
 class Automaton_metaclass(type):
     def __new__(cls, name, bases, dct):
@@ -434,7 +473,6 @@ class Automaton_metaclass(type):
                 for c in m.atmt_cond:
                     cls.actions[c].append(m)
             
-
         for v in six.itervalues(cls.timeout):
             v.sort(key=cmp_to_key(lambda t1_f1, t2_f2: cmp(t1_f1[0], t2_f2[0])))
             v.append((None, None))
@@ -468,7 +506,6 @@ class Automaton_metaclass(type):
                 if n in self.states:
                     s += '\t"%s" -> "%s" [ color=green ];\n' % (st.atmt_state, n)
             
-
         for c, k, v in ([("purple", k, v) for k, v in self.conditions.items()]+
                       [("red", k, v) for k, v in self.recv_conditions.items()]+
                       [("orange", k, v) for k, v in self.ioevents.items()]):
@@ -492,6 +529,7 @@ class Automaton_metaclass(type):
         s += "}\n"
         return do_graph(s, **kargs)
 
+
 class Automaton(six.with_metaclass(Automaton_metaclass)):
     def parse_args(self, debug=0, store=1, **kargs):
         self.debug_level=debug
@@ -503,7 +541,6 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
 
     def my_send(self, pkt):
         self.send_sock.send(pkt)
-
 
     ## Utility classes and exceptions
     class _IO_fdwrapper(SelectableObject):
@@ -521,21 +558,27 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                     wr = wr.fileno()
                 self.rd = rd
                 self.wr = wr
+
         def fileno(self):
             return self.rd
+
         def check_recv(self):
             return self.rd.check_recv()
+
         def read(self, n=65535):
             if WINDOWS:
                 return self.rd.recv(n)
             return os.read(self.rd, n)
+
         def write(self, msg):
             if WINDOWS:
                 self.rd.send(msg)
                 return self.call_release()
             return os.write(self.wr, msg)
+
         def recv(self, n=65535):
             return self.read(n)        
+
         def send(self, msg):
             return self.write(msg)
 
@@ -543,22 +586,27 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
         def __init__(self, rd, wr):
             self.rd = rd
             self.wr = wr
+
         def fileno(self):
             if isinstance(self.rd, int):
                 return self.rd
             return self.rd.fileno()
+
         def check_recv(self):
             return self.rd.check_recv()
+
         def recv(self, n=None):
             return self.rd.recv(n)
+
         def read(self, n=None):
             return self.recv(n)
+
         def send(self, msg):
             self.wr.send(msg)
             return self.call_release()
+
         def write(self, msg):
             return self.send(msg)
-
 
     class AutomatonException(Exception):
         def __init__(self, msg, state=None, result=None):
@@ -568,17 +616,22 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
 
     class AutomatonError(AutomatonException):
         pass
+
     class ErrorState(AutomatonException):
         pass
+
     class Stuck(AutomatonException):
         pass
+
     class AutomatonStopped(AutomatonException):
         pass
     
     class Breakpoint(AutomatonStopped):
         pass
+
     class Singlestep(AutomatonStopped):
         pass
+
     class InterceptionPoint(AutomatonStopped):
         def __init__(self, msg, state=None, result=None, packet=None):
             Automaton.AutomatonStopped.__init__(self, msg, state=state, result=result)
@@ -586,7 +639,6 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
 
     class CommandMessage(AutomatonException):
         pass
-
 
     ## Services
     def debug(self, lvl, msg):
@@ -616,7 +668,6 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
         
         if self.store_packets:
             self.packets.append(pkt.copy())
-
 
     ## Internals
     def __init__(self, *args, **kargs):

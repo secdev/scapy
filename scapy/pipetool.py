@@ -23,8 +23,10 @@ from scapy.utils import get_temp_file, do_graph
 
 import scapy.arch
 
+
 class PipeEngine(SelectableObject):
     pipes = {}
+
     @classmethod
     def list_pipes(cls):
         for pn, pc in sorted(cls.pipes.items()):
@@ -32,6 +34,7 @@ class PipeEngine(SelectableObject):
             if doc:
                 doc = doc.splitlines()[0]
             print("%20s: %s" % (pn, doc))
+
     @classmethod
     def list_pipes_detailed(cls):
         for pn, pc in sorted(cls.pipes.items()):
@@ -51,6 +54,7 @@ class PipeEngine(SelectableObject):
         self.__fd_queue = collections.deque()
         self.__fdr, self.__fdw = os.pipe()
         self.thread = None
+
     def __getattr__(self, attr):
         if attr.startswith("spawn_"):
             dname = attr[6:]
@@ -108,7 +112,6 @@ class PipeEngine(SelectableObject):
             self.add_one_pipe(q)
         return pl
             
-
     def run(self):
         log_interactive.info("Pipe engine thread started.")
         try:
@@ -161,8 +164,10 @@ class PipeEngine(SelectableObject):
             self.thread = _t
         else:
             warning("Pipe engine already running")
+
     def wait_and_stop(self):
         self.stop(_cmd="B")
+
     def stop(self, _cmd="X"):
         try:
             with self.command_lock:
@@ -223,10 +228,12 @@ class _ConnectorLogic(object):
         other.sinks.add(self)
         self.sources.add(other)
         return other
+
     def __gt__(self, other):
         self.sinks.add(other)
         other.sources.add(self)
         return other
+
     def __eq__(self, other):
         self > other
         other > self
@@ -236,10 +243,12 @@ class _ConnectorLogic(object):
         self.high_sources.add(other)
         other.high_sinks.add(self)
         return other
+
     def __rshift__(self, other):
         self.high_sinks.add(other)
         other.high_sources.add(self)
         return other
+
     def __floordiv__(self, other):
         self >> other
         other >> self
@@ -253,11 +262,13 @@ class _ConnectorLogic(object):
     def __hash__(self):
         return object.__hash__(self)
 
+
 class _PipeMeta(type):
     def __new__(cls, name, bases, dct):
         c = type.__new__(cls, name, bases, dct)
         PipeEngine.pipes[name] = c
         return c
+
 
 class Pipe(six.with_metaclass(_PipeMeta, _ConnectorLogic)):
     def __init__(self, name=None):
@@ -265,12 +276,15 @@ class Pipe(six.with_metaclass(_PipeMeta, _ConnectorLogic)):
         if name is None:
             name = "%s" % (self.__class__.__name__)
         self.name = name
+
     def _send(self, msg):
         for s in self.sinks:
             s.push(msg)
+
     def _high_send(self, msg):
         for s in self.high_sinks:
             s.high_push(msg)
+
     def _trigger(self, msg=None):
         for s in self.trigger_sinks:
             s.on_trigger(msg)
@@ -311,29 +325,37 @@ class Pipe(six.with_metaclass(_PipeMeta, _ConnectorLogic)):
                              ct.punct(",").join(ct.field_name(s.name) for s in self.trigger_sinks))
             s += ct.punct("]")
 
-
         s += ct.punct(">")
         return s
+
 
 class Source(Pipe, SelectableObject):
     def __init__(self, name=None):
         Pipe.__init__(self, name=name)
         self.is_exhausted = False
+
     def _read_message(self):
         return Message()
+
     def deliver(self):
         msg = self._read_message
         self._send(msg)
+
     def fileno(self):
         return None
+
     def check_recv(self):
         return False
+
     def exhausted(self):
         return self.is_exhausted
+
     def start(self):
         pass
+
     def stop(self):
         pass
+
 
 class Drain(Pipe):
     """Repeat messages from low/high entries to (resp.) low/high exits
@@ -343,22 +365,30 @@ class Drain(Pipe):
    >-|-------|->
      +-------+
 """
+
     def push(self, msg):
         self._send(msg)
+
     def high_push(self, msg):
         self._high_send(msg)
+
     def start(self):
         pass
+
     def stop(self):
         pass
+
 
 class Sink(Pipe):
     def push(self, msg):
         pass
+
     def high_push(self, msg):
         pass
+
     def start(self):
         pass
+
     def stop(self):
         pass
 
@@ -368,19 +398,25 @@ class AutoSource(Source, SelectableObject):
         Source.__init__(self, name=name)
         self.__fdr, self.__fdw = os.pipe()
         self._queue = collections.deque()
+
     def fileno(self):
         return self.__fdr
+
     def check_recv(self):
         return len(self._queue) > 0
+
     def _gen_data(self, msg):
         self._queue.append((msg, False))
         self._wake_up()
+
     def _gen_high_data(self, msg):
         self._queue.append((msg, True))
         self._wake_up()
+
     def _wake_up(self):
         os.write(self.__fdw, b"X")
         self.call_release()
+
     def deliver(self):
         os.read(self.__fdr, 1)
         try:
@@ -393,20 +429,23 @@ class AutoSource(Source, SelectableObject):
             else:
                 self._send(msg)
 
+
 class ThreadGenSource(AutoSource):
     def __init__(self, name=None):
         AutoSource.__init__(self, name=name)
         self.RUN = False
+
     def generate(self):
         pass
+
     def start(self):
         self.RUN = True
         Thread(target=self.generate).start()
+
     def stop(self):
         self.RUN = False
 
 
-        
 class ConsoleSink(Sink):
     """Print messages on low and high entries
      +-------+
@@ -415,10 +454,13 @@ class ConsoleSink(Sink):
    >-|--'    |->
      +-------+
 """
+
     def push(self, msg):
         print(">%r" % msg)
+
     def high_push(self, msg):
         print(">>%r" % msg)
+
 
 class RawConsoleSink(Sink):
     """Print messages on low and high entries
@@ -428,18 +470,22 @@ class RawConsoleSink(Sink):
    >-|--'    |->
      +-------+
 """
+
     def __init__(self, name=None, newlines=True):
         Sink.__init__(self, name=name)
         self.newlines = newlines
         self._write_pipe = 1
+
     def push(self, msg):
         if self.newlines:
             msg += "\n"
         os.write(self._write_pipe, msg.encode("utf8"))
+
     def high_push(self, msg):
         if self.newlines:
             msg += "\n"
         os.write(self._write_pipe, msg.encode("utf8"))
+
 
 class CLIFeeder(AutoSource):
     """Send messages from python command line
@@ -449,10 +495,13 @@ class CLIFeeder(AutoSource):
    >-|   `----|->
      +--------+
 """
+
     def send(self, msg):
         self._gen_data(msg)
+
     def close(self):
         self.is_exhausted = True
+
 
 class CLIHighFeeder(CLIFeeder):
     """Send messages from python command line to high output
@@ -462,6 +511,7 @@ class CLIHighFeeder(CLIFeeder):
    >-|        |->
      +--------+
 """
+
     def send(self, msg):
         self._gen_high_data(msg)
 
@@ -474,6 +524,7 @@ class PeriodicSource(ThreadGenSource):
    >-|  `----|->
      +-------+
 """
+
     def __init__(self, msg, period, period2=0, name=None):
         ThreadGenSource.__init__(self, name=name)
         if not isinstance(msg, (list, set, tuple)):
@@ -481,6 +532,7 @@ class PeriodicSource(ThreadGenSource):
         self.msg = msg
         self.period = period
         self.period2 = period2
+
     def generate(self):
         while self.RUN:
             empty_gen = True
@@ -493,6 +545,7 @@ class PeriodicSource(ThreadGenSource):
                 self._wake_up()
             time.sleep(self.period2)
         
+
 class TermSink(Sink):
     """Print messages on low and high entries on a separate terminal
      +-------+
@@ -501,6 +554,7 @@ class TermSink(Sink):
    >-|--'    |->
      +-------+
 """
+
     def __init__(self, name=None, keepterm=True, newlines=True, openearly=True):
         Sink.__init__(self, name=name)
         self.keepterm = keepterm
@@ -509,6 +563,7 @@ class TermSink(Sink):
         self.opened = False
         if self.openearly:
             self.start()
+
     def _start_windows(self):
         if not self.opened:
             self.opened = True
@@ -522,6 +577,7 @@ class TermSink(Sink):
             # This is the process PID
             self.pid = int(output)
             print("PID: %d" % self.pid)
+
     def _start_unix(self):
         if not self.opened:
             self.opened = True
@@ -534,11 +590,13 @@ class TermSink(Sink):
             cmd.extend(["-e", "cat <&%d" % rdesc])
             self.proc = subprocess.Popen(cmd, close_fds=False)
             os.close(rdesc)
+
     def start(self):
         if WINDOWS:
             return self._start_windows()
         else:
             return self._start_unix()
+
     def _stop_windows(self):
         if not self.keepterm:
             self.opened = False
@@ -549,16 +607,19 @@ class TermSink(Sink):
             handle = ctypes.windll.kernel32.OpenProcess(PROCESS_TERMINATE, False, self.pid)
             ctypes.windll.kernel32.TerminateProcess(handle, -1)
             ctypes.windll.kernel32.CloseHandle(handle)
+
     def _stop_unix(self):
         if not self.keepterm:
             self.opened = False
             self.proc.kill()
             self.proc.wait()
+
     def stop(self):
         if WINDOWS:
             return self._stop_windows()
         else:
             return self._stop_unix()
+
     def _print(self, s):
         if self.newlines:
             s+="\n"
@@ -568,8 +629,10 @@ class TermSink(Sink):
             wdesc.close()
         else:
             os.write(self.wdesc, s.encode())
+
     def push(self, msg):
         self._print(str(msg))
+
     def high_push(self, msg):
         self._print(str(msg))
     
@@ -582,13 +645,17 @@ class QueueSink(Sink):
    >-|--'    |->
      +-------+
 """
+
     def __init__(self, name=None):
         Sink.__init__(self, name=name)
         self.q = six.moves.queue.Queue()
+
     def push(self, msg):
         self.q.put(msg)
+
     def high_push(self, msg):
         self.q.put(msg)
+
     def recv(self):
         while True:
             try:
@@ -605,13 +672,17 @@ class TransformDrain(Drain):
    >-|--[f]--|->
      +-------+
 """
+
     def __init__(self, f, name=None):
         Drain.__init__(self, name=name)
         self.f = f
+
     def push(self, msg):
         self._send(self.f(msg))
+
     def high_push(self, msg):
         self._high_send(self.f(msg))
+
 
 class UpDrain(Drain):
     """Repeat messages from low entry to high exit
@@ -621,10 +692,13 @@ class UpDrain(Drain):
    >-|--'    |->
      +-------+
 """
+
     def push(self, msg):
         self._high_send(msg)
+
     def high_push(self, msg):
         pass
+
 
 class DownDrain(Drain):
     """Repeat messages from high entry to low exit
@@ -634,7 +708,9 @@ class DownDrain(Drain):
    >-|    `--|->
      +-------+
 """
+
     def push(self, msg):
         pass
+
     def high_push(self, msg):
         self._send(msg)

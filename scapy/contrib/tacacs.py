@@ -33,8 +33,8 @@ from scapy.modules.six.moves import range
 
 SECRET = 'test'
 
-def obfuscate(pay, secret, session_id, version, seq):
 
+def obfuscate(pay, secret, session_id, version, seq):
     '''
 
     Obfuscation methodology from section 3.7
@@ -61,6 +61,7 @@ def obfuscate(pay, secret, session_id, version, seq):
     # Obf/Unobfuscation via XOR operation between plaintext and pad
 
     return b"".join(chb(orb(pad[i]) ^ orb(pay[i])) for i in range(len(pay)))
+
 
 TACACSPRIVLEVEL = {15: 'Root',
                    1: 'User',
@@ -140,6 +141,7 @@ class TacacsAuthenticationStart(Packet):
                    StrLenField('rem_addr', '', length_from=lambda x: x.rem_addr_len),
                    StrLenField('data', '', length_from=lambda x: x.data_len)]
 
+
 class TacacsAuthenticationReply(Packet):
 
     '''
@@ -156,6 +158,7 @@ class TacacsAuthenticationReply(Packet):
                    FieldLenField('data_len', None, fmt='!H', length_of='data'),
                    StrLenField('server_msg', '', length_from=lambda x: x.server_msg_len),
                    StrLenField('data', '', length_from=lambda x: x.data_len)]
+
 
 class TacacsAuthenticationContinue(Packet):
 
@@ -177,6 +180,7 @@ class TacacsAuthenticationContinue(Packet):
 # Authorization Packets #
 #########################
 
+
 TACACSAUTHORTYPE = {0: 'Not Set',
                     1: 'None',
                     2: 'Kerberos 5',
@@ -194,6 +198,7 @@ TACACSAUTHORSTATUS = {1: 'Pass Add',
                       16: 'Fail',
                       17: 'Error',
                       33: 'Follow'}
+
 
 class TacacsAuthorizationRequest(Packet):
 
@@ -223,6 +228,7 @@ class TacacsAuthorizationRequest(Packet):
         if self.arg_cnt > 0:
             return TacacsPacketArguments
         return conf.padding_layer
+
 
 class TacacsAuthorizationReply(Packet):
 
@@ -261,6 +267,7 @@ TACACSACNTSTATUS = {1: 'Success',
                     2: 'Error',
                     33: 'Follow'}
 
+
 class TacacsAccountingRequest(Packet):
 
     '''
@@ -291,6 +298,7 @@ class TacacsAccountingRequest(Packet):
             return TacacsPacketArguments
         return conf.padding_layer
 
+
 class TacacsAccountingReply(Packet):
 
     '''
@@ -306,6 +314,7 @@ class TacacsAccountingReply(Packet):
                    ByteEnumField('status', None, TACACSACNTSTATUS),
                    StrLenField('server_msg', '', length_from=lambda x: x.server_msg_len),
                    StrLenField('data', '', length_from=lambda x: x.data_len)]
+
 
 class TacacsPacketArguments(Packet):
 
@@ -346,7 +355,6 @@ class TacacsPacketArguments(Packet):
         return conf.padding_layer
 
 
-
 class TacacsClientPacket(Packet):
 
     '''
@@ -356,11 +364,13 @@ class TacacsClientPacket(Packet):
     https://tools.ietf.org/html/draft-ietf-opsawg-tacacs-06#section-3.7
 
     '''
+
     def post_dissect(self, pay):
 
         if self.flags == 0:
             pay = obfuscate(pay, SECRET, self.session_id, self.version, self.seq)
             return pay
+
 
 class TacacsHeader(TacacsClientPacket):
 
@@ -415,7 +425,6 @@ class TacacsHeader(TacacsClientPacket):
 
         if self.length is None and pay:
             p = p[:-4] + struct.pack('!I', len(pay))
-
 
         if self.flags == 0:
 

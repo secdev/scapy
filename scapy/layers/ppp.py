@@ -39,6 +39,7 @@ class PPPoE(Packet):
             p = p[:4]+struct.pack("!H", l)+p[6:]
         return p
 
+
 class PPPoED(PPPoE):
     name = "PPP over Ethernet Discovery"
     fields_desc = [ BitField("version", 1, 4),
@@ -203,14 +204,17 @@ class HDLC(Packet):
     fields_desc = [ XByteField("address", 0xff),
                     XByteField("control", 0x03)  ]
 
+
 class PPP(Packet):
     name = "PPP Link Layer"
     fields_desc = [ ShortEnumField("proto", 0x0021, _PPP_proto) ]
+
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt and orb(_pkt[0]) == 0xff:
             cls = HDLC
         return cls
+
 
 _PPP_conftypes = { 1: "Configure-Request",
                    2: "Configure-Ack",
@@ -246,13 +250,16 @@ class PPP_IPCP_Option(Packet):
     fields_desc = [ ByteEnumField("type" , None , _PPP_ipcpopttypes),
                     FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p, x:x+2),
                     StrLenField("data", "", length_from=lambda p:max(0, p.len-2)) ]
+
     def extract_padding(self, pay):
         return b"", pay
 
     registered_options = {}
+
     @classmethod
     def register_variant(cls):
         cls.registered_options[cls.type.default] = cls
+
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt:
@@ -268,12 +275,14 @@ class PPP_IPCP_Option_IPAddress(PPP_IPCP_Option):
                     IPField("data", "0.0.0.0"),
                     ConditionalField(StrLenField("garbage", "", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
 
+
 class PPP_IPCP_Option_DNS1(PPP_IPCP_Option):
     name = "PPP IPCP Option: DNS1 Address"
     fields_desc = [ ByteEnumField("type" , 129 , _PPP_ipcpopttypes),
                     FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p, x:x+2),
                     IPField("data", "0.0.0.0"),
                     ConditionalField(StrLenField("garbage", "", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
+
 
 class PPP_IPCP_Option_DNS2(PPP_IPCP_Option):
     name = "PPP IPCP Option: DNS2 Address"
@@ -282,12 +291,14 @@ class PPP_IPCP_Option_DNS2(PPP_IPCP_Option):
                     IPField("data", "0.0.0.0"),
                     ConditionalField(StrLenField("garbage", "", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
 
+
 class PPP_IPCP_Option_NBNS1(PPP_IPCP_Option):
     name = "PPP IPCP Option: NBNS1 Address"
     fields_desc = [ ByteEnumField("type" , 130 , _PPP_ipcpopttypes),
                     FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p, x:x+2),
                     IPField("data", "0.0.0.0"),
                     ConditionalField(StrLenField("garbage", "", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
+
 
 class PPP_IPCP_Option_NBNS2(PPP_IPCP_Option):
     name = "PPP IPCP Option: NBNS2 Address"
@@ -309,24 +320,29 @@ class PPP_IPCP(Packet):
 _PPP_ecpopttypes = { 0: "OUI",
                      1: "DESE", }
 
+
 class PPP_ECP_Option(Packet):
     name = "PPP ECP Option"
     fields_desc = [ ByteEnumField("type" , None , _PPP_ecpopttypes),
                     FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p, x:x+2),
                     StrLenField("data", "", length_from=lambda p:max(0, p.len-2)) ]
+
     def extract_padding(self, pay):
         return b"", pay
 
     registered_options = {}
+
     @classmethod
     def register_variant(cls):
         cls.registered_options[cls.type.default] = cls
+
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt:
             o = orb(_pkt[0])
             return cls.registered_options.get(o, cls)
         return cls
+
 
 class PPP_ECP_Option_OUI(PPP_ECP_Option):
     fields_desc = [ ByteEnumField("type" , 0 , _PPP_ecpopttypes),
@@ -336,7 +352,6 @@ class PPP_ECP_Option_OUI(PPP_ECP_Option):
                     StrLenField("data", "", length_from=lambda p:p.len-6) ]
                     
 
-
 class PPP_ECP(Packet):
     fields_desc = [ ByteEnumField("code" , 1, _PPP_conftypes),
                     XByteField("id", 0 ),
@@ -344,6 +359,7 @@ class PPP_ECP(Packet):
                     PacketListField("options", [],  PPP_ECP_Option, length_from=lambda p:p.len-4,) ]
 
 ### Link Control Protocol (RFC 1661)
+
 
 _PPP_lcptypes = {1: "Configure-Request",
                  2: "Configure-Ack",
@@ -432,6 +448,7 @@ class PPP_LCP_MRU_Option(PPP_LCP_Option):
     fields_desc = [ByteEnumField("type", 1, _PPP_lcp_optiontypes),
                    FieldLenField("len", 4, fmt="B", adjust=lambda p, x:4),
                    ShortField("max_recv_unit", 1500)]
+
 
 _PPP_LCP_auth_protocols = {0xc023: "Password authentication protocol",
                            0xc223: "Challenge-response authentication protocol",
@@ -560,6 +577,7 @@ class PPP_LCP_Discard_Request(PPP_LCP):
                    StrLenField("data", "", length_from=lambda p:p.len-8)]
 
 ### Password authentication protocol (RFC 1334)
+
 
 _PPP_paptypes = {1: "Authenticate-Request",
                  2: "Authenticate-Ack",

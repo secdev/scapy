@@ -23,6 +23,7 @@ from functools import reduce
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
 
+
 class InheritOriginDNSStrPacket(Packet):
     __slots__ = Packet.__slots__ + ["_orig_s", "_orig_p"]
 
@@ -30,6 +31,7 @@ class InheritOriginDNSStrPacket(Packet):
         self._orig_s = _orig_s
         self._orig_p = _orig_p
         Packet.__init__(self, _pkt=_pkt, *args, **kwargs)
+
 
 class DNSStrField(StrField):
     def h2i(self, pkt, x):
@@ -74,9 +76,11 @@ class DNSStrField(StrField):
 
 class DNSRRCountField(ShortField):
     __slots__ = ["rr"]
+
     def __init__(self, name, default, rr):
         ShortField.__init__(self, name, default)
         self.rr = rr
+
     def _countRR(self, pkt):
         x = getattr(pkt, self.rr)
         i = 0
@@ -89,6 +93,7 @@ class DNSRRCountField(ShortField):
         if x is None:
             x = self._countRR(pkt)
         return x
+
     def i2h(self, pkt, x):
         if x is None:
             x = self._countRR(pkt)
@@ -130,14 +135,17 @@ def DNSgetstr(s, p):
 class DNSRRField(StrField):
     __slots__ = ["countfld", "passon"]
     holds_packets = 1
+
     def __init__(self, name, countfld, passon=1):
         StrField.__init__(self, name, None)
         self.countfld = countfld
         self.passon = passon
+
     def i2m(self, pkt, x):
         if x is None:
             return b""
         return raw(x)
+
     def decodeRR(self, name, s, p):
         ret = s[p:p+10]
         type, cls, ttl, rdlen = struct.unpack("!HHIH", ret)
@@ -155,6 +163,7 @@ class DNSRRField(StrField):
 
         rr.rrname = name
         return rr, p
+
     def getfield(self, pkt, s):
         if isinstance(s, tuple) :
             s, p = s
@@ -186,7 +195,6 @@ class DNSQRField(DNSRRField):
         rr = DNSQR(b"\x00"+ret, _orig_s=s, _orig_p=p)
         rr.qname = name
         return rr, p
-
 
 
 class RDataField(StrLenField):
@@ -221,6 +229,7 @@ class RDataField(StrLenField):
         if family is not None:
             s = inet_ntop(family, s)
         return s
+
     def i2m(self, pkt, s):
         if pkt.type == 1: # A
             if s:
@@ -247,14 +256,17 @@ class RDataField(StrLenField):
                 s = inet_pton(socket.AF_INET6, s)
         return s
 
+
 class RDLenField(Field):
     def __init__(self, name):
         Field.__init__(self, name, None, "H")
+
     def i2m(self, pkt, x):
         if x is None:
             rdataf = pkt.get_field("rdata")
             x = len(rdataf.i2m(pkt, pkt.rdata))
         return x
+
     def i2h(self, pkt, x):
         if x is None:
             rdataf = pkt.get_field("rdata")
@@ -348,7 +360,6 @@ class DNSQR(InheritOriginDNSStrPacket):
                    ShortEnumField("qclass", 1, dnsclasses)]
 
 
-
 # RFC 2671 - Extension Mechanisms for DNS (EDNS0)
 
 class EDNS0TLV(Packet):
@@ -359,6 +370,7 @@ class EDNS0TLV(Packet):
 
     def extract_padding(self, p):
         return "", p
+
 
 class DNSRROPT(InheritOriginDNSStrPacket):
     name = "DNS OPT Resource Record"
@@ -374,6 +386,7 @@ class DNSRROPT(InheritOriginDNSStrPacket):
                     PacketListField("rdata", [], EDNS0TLV, length_from=lambda pkt: pkt.rdlen) ]
 
 # RFC 4034 - Resource Records for the DNS Security Extensions
+
 
 # 09/2013 from http://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml
 dnssecalgotypes = { 0: "Reserved", 1: "RSA/MD5", 2: "Diffie-Hellman", 3: "DSA/SHA-1",
@@ -510,6 +523,7 @@ class RRlistField(StrField):
 
 class _DNSRRdummy(InheritOriginDNSStrPacket):
     name = "Dummy class that implements post_build() for Resource Records"
+
     def post_build(self, pkt, pay):
         if not self.rdlen == None:
             return pkt
@@ -519,6 +533,7 @@ class _DNSRRdummy(InheritOriginDNSStrPacket):
         pkt = pkt[:lrrname+8] + struct.pack("!H", l) + pkt[lrrname+8+2:]
 
         return pkt
+
 
 class DNSRRSOA(_DNSRRdummy):
     name = "DNS SOA Resource Record"
@@ -535,6 +550,7 @@ class DNSRRSOA(_DNSRRdummy):
                     IntField("expire", 0),
                     IntField("minimum", 0)
                   ]
+
 
 class DNSRRRSIG(_DNSRRdummy):
     name = "DNS RRSIG Resource Record"
@@ -600,12 +616,15 @@ class DNSRRDS(_DNSRRdummy):
 # RFC 5074 - DNSSEC Lookaside Validation (DLV)
 class DNSRRDLV(DNSRRDS):
     name = "DNS DLV Resource Record"
+
     def __init__(self, *args, **kargs):
        DNSRRDS.__init__(self, *args, **kargs)
        if not kargs.get('type', 0):
            self.type = 32769
 
 # RFC 5155 - DNS Security (DNSSEC) Hashed Authenticated Denial of Existence
+
+
 class DNSRRNSEC3(_DNSRRdummy):
     name = "DNS NSEC3 Resource Record"
     fields_desc = [ DNSStrField("rrname", ""),
@@ -640,6 +659,7 @@ class DNSRRNSEC3PARAM(_DNSRRdummy):
 
 # RFC 2782 - A DNS RR for specifying the location of services (DNS SRV)
 
+
 class DNSRRSRV(InheritOriginDNSStrPacket):
     name = "DNS SRV Resource Record"
     fields_desc = [ DNSStrField("rrname", ""),
@@ -652,9 +672,11 @@ class DNSRRSRV(InheritOriginDNSStrPacket):
                     ShortField("port", 0),
                     DNSStrField("target", ""), ]
 
+
 # RFC 2845 - Secret Key Transaction Authentication for DNS (TSIG)
 tsig_algo_sizes = { "HMAC-MD5.SIG-ALG.REG.INT": 16,
                     "hmac-sha1": 20 }
+
 
 class TimeSignedField(StrFixedLenField):
     def __init__(self, name, default):
@@ -693,6 +715,7 @@ class TimeSignedField(StrFixedLenField):
         time_struct = time.gmtime(self._convert_seconds(packed_seconds))
         return time.strftime("%a %b %d %H:%M:%S %Y", time_struct)
 
+
 class DNSRRTSIG(_DNSRRdummy):
     name = "DNS TSIG Resource Record"
     fields_desc = [ DNSStrField("rrname", ""),
@@ -727,8 +750,10 @@ DNSRR_DISPATCHER = {
 
 DNSSEC_CLASSES = tuple(six.itervalues(DNSRR_DISPATCHER))
 
+
 def isdnssecRR(obj):
     return isinstance(obj, DNSSEC_CLASSES)
+
 
 class DNSRR(InheritOriginDNSStrPacket):
     name = "DNS Resource Record"
@@ -769,8 +794,6 @@ RFC2136
         return r.getlayer(DNS).rcode
     else:
         return -1
-
-
 
 
 @conf.commands.register

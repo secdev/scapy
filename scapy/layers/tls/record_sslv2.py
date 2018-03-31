@@ -178,7 +178,6 @@ class SSLv2(TLS):
                 p = conf.raw_layer(s, _internal=1, _underlayer=self)
             self.add_payload(p)
 
-
     ### Building methods
 
     def _sslv2_mac_add(self, msg):

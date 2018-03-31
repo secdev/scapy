@@ -65,6 +65,7 @@ def phantom_mode(pkt):
         return False
     return pkt.tls_session.tls_version < 0x0303
 
+
 def phantom_decorate(f, get_or_add):
     """
     Decorator for version-dependent fields.
@@ -80,17 +81,20 @@ def phantom_decorate(f, get_or_add):
         return f(*args)
     return wrapper
 
+
 class SigAndHashAlgField(EnumField):
     """Used in _TLSSignature."""
     phantom_value = None
     getfield = phantom_decorate(EnumField.getfield, True)
     addfield = phantom_decorate(EnumField.addfield, False)
 
+
 class SigAndHashAlgsLenField(FieldLenField):
     """Used in TLS_Ext_SignatureAlgorithms and TLSCertificateResquest."""
     phantom_value = 0
     getfield = phantom_decorate(FieldLenField.getfield, True)
     addfield = phantom_decorate(FieldLenField.addfield, False)
+
 
 class SigAndHashAlgsField(FieldListField):
     """Used in TLS_Ext_SignatureAlgorithms and TLSCertificateResquest."""
@@ -101,6 +105,7 @@ class SigAndHashAlgsField(FieldListField):
 
 class SigLenField(FieldLenField):
     """There is a trick for SSLv2, which uses implicit lengths..."""
+
     def getfield(self, pkt, s):
         v = pkt.tls_session.tls_version
         if v and v < 0x0300:
@@ -114,8 +119,10 @@ class SigLenField(FieldLenField):
             return s
         return super(SigLenField, self).addfield(pkt, s, val)
 
+
 class SigValField(StrLenField):
     """There is a trick for SSLv2, which uses implicit lengths..."""
+
     def getfield(self, pkt, m):
         s = pkt.tls_session
         if s.tls_version and s.tls_version < 0x0300:
@@ -199,12 +206,14 @@ class _TLSSignature(_GenericTLSSessionInheritance):
     def guess_payload_class(self, p):
         return Padding
 
+
 class _TLSSignatureField(PacketField):
     """
     Used for 'digitally-signed struct' in several ServerKeyExchange,
     and also in CertificateVerify. We can handle the anonymous case.
     """
     __slots__ = ["length_from"]
+
     def __init__(self, name, default, length_from=None, remain=0):
         self.length_from = length_from
         PacketField.__init__(self, name, default, _TLSSignature, remain=remain)
@@ -239,6 +248,7 @@ class _TLSServerParamsField(PacketField):
     XXX We could use Serv*DHParams.check_params() once it has been implemented.
     """
     __slots__ = ["length_from"]
+
     def __init__(self, name, default, length_from=None, remain=0):
         self.length_from = length_from
         PacketField.__init__(self, name, default, None, remain=remain)
@@ -374,6 +384,7 @@ _tls_ec_curve_types = { 1: "explicit_prime",
 
 _tls_ec_basis_types = { 0: "ec_basis_trinomial", 1: "ec_basis_pentanomial"}
 
+
 class ECCurvePkt(Packet):
     name = "Elliptic Curve"
     fields_desc = [ FieldLenField("alen", None, length_of="a", fmt="B"),
@@ -389,8 +400,10 @@ class ECTrinomialBasis(Packet):
     val = 0
     fields_desc = [ FieldLenField("klen", None, length_of="k", fmt="B"),
                     StrLenField("k", "", length_from = lambda pkt: pkt.klen) ]
+
     def guess_payload_class(self, p):
         return Padding
+
 
 class ECPentanomialBasis(Packet):
     name = "EC Pentanomial Basis"
@@ -401,13 +414,17 @@ class ECPentanomialBasis(Packet):
                     StrLenField("k2", "", length_from=lambda pkt: pkt.k2len),
                     FieldLenField("k3len", None, length_of="k3", fmt="B"),
                     StrLenField("k3", "", length_from=lambda pkt: pkt.k3len) ]
+
     def guess_payload_class(self, p):
         return Padding
 
+
 _tls_ec_basis_cls = { 0: ECTrinomialBasis, 1: ECPentanomialBasis}
+
 
 class _ECBasisTypeField(ByteEnumField):
     __slots__ = ["basis_type_of"]
+
     def __init__(self, name, default, enum, basis_type_of, remain=0):
         self.basis_type_of = basis_type_of
         EnumField.__init__(self, name, default, enum, "B")
@@ -419,8 +436,10 @@ class _ECBasisTypeField(ByteEnumField):
             x = fld.i2basis_type(pkt, fval)
         return x
 
+
 class _ECBasisField(PacketField):
     __slots__ = ["clsdict", "basis_type_from"]
+
     def __init__(self, name, default, basis_type_from, clsdict, remain=0):
         self.clsdict = clsdict
         self.basis_type_from = basis_type_from
@@ -606,6 +625,7 @@ _tls_server_ecdh_cls = { 1: ServerECDHExplicitPrimeParams,
                          2: ServerECDHExplicitChar2Params,
                          3: ServerECDHNamedCurveParams }
 
+
 def _tls_server_ecdh_cls_guess(m):
     if not m:
         return None
@@ -758,6 +778,7 @@ class ClientDiffieHellmanPublic(_GenericTLSSessionInheritance):
     def guess_payload_class(self, p):
         return Padding
 
+
 class ClientECDiffieHellmanPublic(_GenericTLSSessionInheritance):
     """
     Note that the 'len' field is 1 byte longer than with the previous class.
@@ -819,9 +840,11 @@ class _UnEncryptedPreMasterSecret(Raw):
     we use this class to represent the encrypted data.
     """
     name = "RSA Encrypted PreMaster Secret (protected)"
+
     def __init__(self, *args, **kargs):
         kargs.pop('tls_session', None)
         return super(_UnEncryptedPreMasterSecret, self).__init__(*args, **kargs)
+
 
 class EncryptedPreMasterSecret(_GenericTLSSessionInheritance):
     """

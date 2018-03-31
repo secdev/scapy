@@ -32,6 +32,7 @@ if conf.crypto_valid_advanced:
 
 _tls_aead_cipher_algs = {}
 
+
 class _AEADCipherMetaclass(type):
     """
     Cipher classes are automatically registered through this metaclass.
@@ -52,6 +53,7 @@ class AEADTagError(Exception):
     Raised when MAC verification fails.
     """
     pass
+
 
 class _AEADCipher(six.with_metaclass(_AEADCipherMetaclass, object)):
     """
@@ -112,7 +114,6 @@ class _AEADCipher(six.with_metaclass(_AEADCipherMetaclass, object)):
                 val = pkcs_os2ip(val)
             self.ready["nonce_explicit"] = True
         super(_AEADCipher, self).__setattr__(name, val)
-
 
     def _get_nonce(self):
         return (self.fixed_iv +

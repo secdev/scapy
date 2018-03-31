@@ -57,6 +57,7 @@ class TLSServerAutomaton(_TLSAutomaton):
     Once this limit has been reached, the client (if still here) is dropped,
     and we wait for a new connection.
     """
+
     def parse_args(self, server="127.0.0.1", sport=4433,
                          mycert=None, mykey=None,
                          preferred_ciphersuite=None,
@@ -89,7 +90,6 @@ class TLSServerAutomaton(_TLSAutomaton):
         self.is_echo_server = is_echo_server
         self.max_client_idle_time = max_client_idle_time
 
-
     def vprint_sessioninfo(self):
         if self.verbose:
             s = self.cur_session
@@ -121,7 +121,6 @@ class TLSServerAutomaton(_TLSAutomaton):
         body = "<html><body><pre>%s</pre></body></html>\r\n\r\n" % s
         answer = (header+body) % len(body)
         return answer
-
 
     @ATMT.state(initial=True)
     def INITIAL(self):

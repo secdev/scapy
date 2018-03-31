@@ -37,6 +37,8 @@ uberlogger_sys_calls = {0: "READ_ID",
              13: "EXECVE_ID"}
 
 # First part of the header
+
+
 class Uberlogger_honeypot_caract(Packet):
     name = "Uberlogger honeypot_caract"
     fields_desc = [ByteField("honeypot_id", 0),
@@ -44,6 +46,8 @@ class Uberlogger_honeypot_caract(Packet):
                    ByteField("os_type_and_version", 0)]
 
 # Second part of the header
+
+
 class Uberlogger_uber_h(Packet):
     name  = "Uberlogger uber_h"
     fields_desc = [ByteEnumField("syscall_type", 0, uberlogger_sys_calls),
@@ -59,9 +63,12 @@ class Uberlogger_uber_h(Packet):
                    IntField("length", 0)]
 
 # The 9 following classes are options depending on the syscall type
+
+
 class Uberlogger_capget_data(Packet):
     name  = "Uberlogger capget_data"
     fields_desc = [IntField("target_pid", 0)]
+
 
 class Uberlogger_capset_data(Packet):
     name  = "Uberlogger capset_data"
@@ -70,36 +77,44 @@ class Uberlogger_capset_data(Packet):
                    IntField("permitted_cap", 0),
                    IntField("inheritable_cap", 0)]
 
+
 class Uberlogger_chmod_data(Packet):
     name  = "Uberlogger chmod_data"
     fields_desc = [ShortField("mode", 0)]
+
 
 class Uberlogger_chown_data(Packet):
     name  = "Uberlogger chown_data"
     fields_desc = [IntField("uid", 0),
                    IntField("gid", 0)]
 
+
 class Uberlogger_open_data(Packet):
     name  = "Uberlogger open_data"
     fields_desc = [IntField("flags", 0),
                    IntField("mode", 0)]
                    
+
 class Uberlogger_read_data(Packet):
     name  = "Uberlogger read_data"
     fields_desc = [IntField("fd", 0),
                    IntField("count", 0)]
                    
+
 class Uberlogger_setuid_data(Packet):
     name  = "Uberlogger setuid_data"
     fields_desc = [IntField("uid", 0)]
+
 
 class Uberlogger_create_module_data(Packet):
     name  = "Uberlogger create_module_data"
     fields_desc = [IntField("size", 0)]
 
+
 class Uberlogger_execve_data(Packet):
     name  = "Uberlogger execve_data"
     fields_desc = [IntField("nbarg", 0)]
+
 
 # Layer bounds for Uberlogger
 bind_layers(Uberlogger_honeypot_caract, Uberlogger_uber_h)

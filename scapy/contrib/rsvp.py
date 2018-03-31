@@ -31,6 +31,7 @@ rsvpmsgtypes = { 0x01 : "Path",
                  0x07 : "Reservation request acknowledgment"
 }
         
+
 class RSVP(Packet):
     name = "RSVP"
     fields_desc = [ BitField("Version", 1, 4),
@@ -40,6 +41,7 @@ class RSVP(Packet):
                     ByteField("TTL", 1),
                     XByteField("dataofs", 0),
                     ShortField("Length", None)]
+
     def post_build(self, p, pay):
         p += pay
         if self.Length is None:
@@ -50,6 +52,7 @@ class RSVP(Packet):
             p = p[:2]+chb(ck>>8)+chb(ck&0xff)+p[4:]
         return p
                     
+
 rsvptypes = { 0x01 : "Session",
               0x03 : "HOP",
               0x04 : "INTEGRITY",
@@ -127,11 +130,13 @@ rsvptypes = { 0x01 : "Session",
               0xE8  : "EXCLUDE_ROUTE"
 }      
 
+
 class RSVP_Object(Packet):
     name = "RSVP_Object"
     fields_desc = [ ShortField("Length", 4),
                   ByteEnumField("Class", 0x01, rsvptypes),
                   ByteField("C-Type", 1)]
+
     def guess_payload_class(self, payload):
         if self.Class == 0x03:
             return RSVP_HOP
@@ -147,28 +152,33 @@ class RSVP_Object(Packet):
             return RSVP_Data
     
     
-
 class RSVP_Data(Packet):
     name = "Data"
     overload_fields = { RSVP_Object: { "Class": 0x01 } }
     fields_desc = [StrLenField("Data", "", length_from= lambda pkt:pkt.underlayer.Length - 4)]
+
     def default_payload_class(self, payload):
       return RSVP_Object
+
 
 class RSVP_HOP(Packet):
     name = "HOP"
     overload_fields = { RSVP_Object: { "Class": 0x03 } }
     fields_desc = [ IPField("neighbor", "0.0.0.0"),
                   BitField("inface", 1, 32)]
+
     def default_payload_class(self, payload):
       return RSVP_Object
+
 
 class RSVP_Time(Packet):
     name = "Time Val"
     overload_fields = { RSVP_Object: { "Class": 0x05 } }
     fields_desc = [ BitField("refresh", 1, 32)]
+
     def default_payload_class(self, payload):
       return RSVP_Object
+
 
 class RSVP_SenderTSPEC(Packet):
     name = "Sender_TSPEC"
@@ -180,16 +190,20 @@ class RSVP_SenderTSPEC(Packet):
                     ByteField("reserve2", 0),
                     ShortField("Srv_Length", 4),
                     StrLenField("Tokens", "", length_from= lambda pkt:pkt.underlayer.Length - 12) ]
+
     def default_payload_class(self, payload):
       return RSVP_Object
+
 
 class RSVP_LabelReq(Packet):
     name = "Lable Req"
     overload_fields = { RSVP_Object: { "Class": 0x13 } }
     fields_desc = [  ShortField("reserve", 1),
                      ShortField("L3PID", 1)]
+
     def default_payload_class(self, payload):
       return RSVP_Object
+
 
 class RSVP_SessionAttrb(Packet):
     name = "Session_Attribute"
@@ -200,8 +214,10 @@ class RSVP_SessionAttrb(Packet):
                      FieldLenField("Name_length", None, length_of="Name"),
                      StrLenField("Name", "", length_from= lambda pkt:pkt.Name_length),
                      ]  
+
     def default_payload_class(self, payload):
       return RSVP_Object
+
 
 bind_layers( IP,     RSVP,     { "proto" : 46} )
 bind_layers( RSVP, RSVP_Object)

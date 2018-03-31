@@ -296,6 +296,7 @@ class LLDPDU(Packet):
         self._check()
         return super(LLDPDU, self).do_build()
 
+
 class _LLDPidField(StrLenField):
     """Class that selects the type of the ID field depending
     on the type of `subtype`"""
@@ -321,11 +322,13 @@ class _LLDPidField(StrLenField):
             log_runtime.exception("Failed to build " + self.name + " ! ")
             return StrLenField.i2m(self, pkt, x)
 
+
 def _ldp_id_adjustlen(pkt, x):
     """Return the length of the `id` field,
     according to its real encoded type"""
     f, v = pkt.getfield_and_val('id')
     return len(_LLDPidField.i2m(f, pkt, v)) + 1
+
 
 class LLDPDUChassisID(LLDPDU):
     """
@@ -436,6 +439,7 @@ class LLDPDUTimeToLive(LLDPDU):
         if conf.contribs['LLDP'].strict_mode() and self._length != 2:
             raise LLDPInvalidLengthField('length must be 2 - got '
                                          '{}'.format(self._length))
+
 
 class LLDPDUEndOfLLDPDU(LLDPDU):
     """
@@ -703,6 +707,7 @@ class LLDPDUGenericOrganisationSpecific(LLDPDU):
         XStrLenField('data', '', length_from=lambda pkt: pkt._length - 4)
     ]
 
+
 # 0x09 .. 0x7e is reserved for future standardization and for now treated as Raw() data
 LLDPDU_CLASS_TYPES = {
     0x00: LLDPDUEndOfLLDPDU,
@@ -717,10 +722,12 @@ LLDPDU_CLASS_TYPES = {
     127: LLDPDUGenericOrganisationSpecific
 }
 
+
 class LLDPConfiguration(object):
     """
     basic configuration for LLDP layer
     """
+
     def __init__(self):
         self._strict_mode = True
         self.strict_mode_enable()

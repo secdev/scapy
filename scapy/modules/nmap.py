@@ -51,6 +51,7 @@ fingerprints database. Loads from conf.nmap_base when self.filename is
 None.
 
     """
+
     def lazy_init(self):
         try:
             fdesc = open(conf.nmap_base
@@ -165,6 +166,7 @@ def nmap_sig(target, oport=80, cport=81, ucport=1):
             res[test] = rcv
 
     return nmap_probes2sig(res)
+
 
 def nmap_probes2sig(tests):
     tests = tests.copy()

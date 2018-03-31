@@ -24,6 +24,7 @@ class RandomEnumeration:
        When all the values have been drawn, if forever=1, the drawing is done again.
        If renewkeys=0, the draw will be in the same order, guaranteeing that the same
        number will be drawn in not less than the number of integers of the sequence"""
+
     def __init__(self, inf, sup, seed=None, forever=1, renewkeys=0):
         self.forever = forever
         self.renewkeys = renewkeys
@@ -46,6 +47,7 @@ class RandomEnumeration:
 
     def __iter__(self):
         return self
+
     def next(self):
         while True:
             if self.turns == 0 or (self.i == 0 and self.renewkeys):
@@ -73,20 +75,25 @@ class RandomEnumeration:
 class VolatileValue(object):
     def __repr__(self):
         return "<%s>" % self.__class__.__name__
+
     def __eq__(self, other):
         x = self._fix()
         y = other._fix() if isinstance(other, VolatileValue) else other
         if not isinstance(x, type(y)):
             return False
         return x == y
+
     def __getattr__(self, attr):
         if attr in ["__setstate__", "__getstate__"]:
             raise AttributeError(attr)
         return getattr(self._fix(), attr)
+
     def __str__(self):
         return str(self._fix())
+
     def __bytes__(self):
         return raw(self._fix())
+
     def __len__(self):
         return len(self._fix())
 
@@ -97,159 +104,208 @@ class VolatileValue(object):
 class RandField(VolatileValue):
     pass
 
+
 class RandNum(RandField):
     """Instances evaluate to random integers in selected range"""
     min = 0
     max = 0
+
     def __init__(self, min, max):
         self.min = min
         self.max = max
+
     def _fix(self):
         return random.randrange(self.min, self.max+1)
 
     def __int__(self):
         return int(self._fix())
+
     def __index__(self):
         return int(self)
+
     def __nonzero__(self):
         return bool(self.value)
     __bool__ = __nonzero__
+
     def __add__(self, other):
         return self._fix() + other
+
     def __radd__(self, other):
         return other + self._fix()
+
     def __sub__(self, other):
         return self._fix() - other
+
     def __rsub__(self, other):
         return other - self._fix()
+
     def __mul__(self, other):
         return self._fix() * other
+
     def __rmul__(self, other):
         return other * self._fix()
+
     def __floordiv__(self, other):
         return self._fix() / other
     __div__ = __floordiv__
 
     def __lt__(self, other):
         return self._fix() < other
+
     def __le__(self, other):
         return self._fix() <= other
+
     def __eq__(self, other):
         return self._fix() == other
+
     def __ne__(self, other):
         return self._fix() != other
+
     def __ge__(self, other):
         return self._fix() >= other
+
     def __gt__(self, other):
         return self._fix() > other
 
     def __lshift__(self, other):
         return self._fix() << other
+
     def __rshift__(self, other):
         return self._fix() >> other
+
     def __and__(self, other):
         return self._fix() & other
+
     def __rand__(self, other):
         return other & self._fix()
+
     def __or__(self, other):
         return self._fix() | other
+
     def __ror__(self, other):
         return other | self._fix()
+
 
 class RandNumGamma(RandNum):
     def __init__(self, alpha, beta):
         self.alpha = alpha
         self.beta = beta
+
     def _fix(self):
         return int(round(random.gammavariate(self.alpha, self.beta)))
+
 
 class RandNumGauss(RandNum):
     def __init__(self, mu, sigma):
         self.mu = mu
         self.sigma = sigma
+
     def _fix(self):
         return int(round(random.gauss(self.mu, self.sigma)))
+
 
 class RandNumExpo(RandNum):
     def __init__(self, lambd, base=0):
         self.lambd = lambd
         self.base = base
+
     def _fix(self):
         return self.base+int(round(random.expovariate(self.lambd)))
 
+
 class RandEnum(RandNum):
     """Instances evaluate to integer sampling without replacement from the given interval"""
+
     def __init__(self, min, max, seed=None):
         self.seq = RandomEnumeration(min, max, seed)
+
     def _fix(self):
         return next(self.seq)
+
 
 class RandByte(RandNum):
     def __init__(self):
         RandNum.__init__(self, 0, 2**8-1)
 
+
 class RandSByte(RandNum):
     def __init__(self):
         RandNum.__init__(self, -2**7, 2**7-1)
+
 
 class RandShort(RandNum):
     def __init__(self):
         RandNum.__init__(self, 0, 2**16-1)
 
+
 class RandSShort(RandNum):
     def __init__(self):
         RandNum.__init__(self, -2**15, 2**15-1)
+
 
 class RandInt(RandNum):
     def __init__(self):
         RandNum.__init__(self, 0, 2**32-1)
 
+
 class RandSInt(RandNum):
     def __init__(self):
         RandNum.__init__(self, -2**31, 2**31-1)
+
 
 class RandLong(RandNum):
     def __init__(self):
         RandNum.__init__(self, 0, 2**64-1)
 
+
 class RandSLong(RandNum):
     def __init__(self):
         RandNum.__init__(self, -2**63, 2**63-1)
+
 
 class RandEnumByte(RandEnum):
     def __init__(self):
         RandEnum.__init__(self, 0, 2**8-1)
 
+
 class RandEnumSByte(RandEnum):
     def __init__(self):
         RandEnum.__init__(self, -2**7, 2**7-1)
+
 
 class RandEnumShort(RandEnum):
     def __init__(self):
         RandEnum.__init__(self, 0, 2**16-1)
 
+
 class RandEnumSShort(RandEnum):
     def __init__(self):
         RandEnum.__init__(self, -2**15, 2**15-1)
+
 
 class RandEnumInt(RandEnum):
     def __init__(self):
         RandEnum.__init__(self, 0, 2**32-1)
 
+
 class RandEnumSInt(RandEnum):
     def __init__(self):
         RandEnum.__init__(self, -2**31, 2**31-1)
+
 
 class RandEnumLong(RandEnum):
     def __init__(self):
         RandEnum.__init__(self, 0, 2**64-1)
 
+
 class RandEnumSLong(RandEnum):
     def __init__(self):
         RandEnum.__init__(self, -2**63, 2**63-1)
 
+
 class RandEnumKeys(RandEnum):
     """Picks a random value from dict keys list. """
+
     def __init__(self, enum, seed=None):
         self.enum = list(enum)
         self.seq = RandomEnumeration(0, len(self.enum) - 1, seed)
@@ -257,40 +313,50 @@ class RandEnumKeys(RandEnum):
     def _fix(self):
         return self.enum[next(self.seq)]
 
+
 class RandChoice(RandField):
     def __init__(self, *args):
         if not args:
             raise TypeError("RandChoice needs at least one choice")
         self._choice = args
+
     def _fix(self):
         return random.choice(self._choice)
     
+
 class RandString(RandField):
     def __init__(self, size=None, chars=b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"):
         if size is None:
             size = RandNumExpo(0.01)
         self.size = size
         self.chars = chars
+
     def _fix(self):
         s = b""
         for _ in range(self.size):
             s += chb(random.choice(self.chars))
         return s
+
     def __str__(self):
         return plain_str(self._fix())
+
     def __bytes__(self):
         return raw(self._fix())
+
     def __mul__(self, n):
         return self._fix()*n
+
 
 class RandBin(RandString):
     def __init__(self, size=None):
         super(RandBin, self).__init__(size=size, chars=b"".join(chb(c) for c in range(256)))
 
+
 class RandTermString(RandBin):
     def __init__(self, size, term):
         self.term = raw(term)
         super(RandTermString, self).__init__(size=size)
+
     def _fix(self):
         return RandBin._fix(self)+self.term
     
@@ -298,8 +364,10 @@ class RandTermString(RandBin):
 class RandIP(RandString):
     def __init__(self, iptemplate="0.0.0.0/0"):
         self.ip = Net(iptemplate)
+
     def _fix(self):
         return self.ip.choice()
+
 
 class RandMAC(RandString):
     def __init__(self, template="*"):
@@ -315,9 +383,11 @@ class RandMAC(RandString):
             else:
                 v = int(template[i], 16)
             self.mac += (v,)
+
     def _fix(self):
         return "%02x:%02x:%02x:%02x:%02x:%02x" % self.mac
     
+
 class RandIP6(RandString):
     def __init__(self, ip6template="**"):
         self.tmpl = ip6template
@@ -342,6 +412,7 @@ class RandIP6(RandString):
                 self.sp[i] = RandNum(int(a, 16), int(b, 16))
         self.variable = "" in self.sp
         self.multi = self.sp.count("**")
+
     def _fix(self):
         done = 0
         nbm = self.multi
@@ -370,6 +441,7 @@ class RandIP6(RandString):
           ip[-1] = "0"
         return ":".join(ip)
 
+
 class RandOID(RandString):
     def __init__(self, fmt=None, depth=RandNumExpo(0.1), idnum=RandNumExpo(0.01)):
         self.ori_fmt = fmt
@@ -381,11 +453,13 @@ class RandOID(RandString):
         self.fmt = fmt
         self.depth = depth
         self.idnum = idnum
+
     def __repr__(self):
         if self.ori_fmt is None:
             return "<%s>" % self.__class__.__name__
         else:
             return "<%s [%s]>" % (self.__class__.__name__, self.ori_fmt)
+
     def _fix(self):
         if self.fmt is None:
             return ".".join(str(self.idnum) for _ in range(1 + self.depth))
@@ -553,12 +627,15 @@ class RandRegExp(RandField):
                 current.append(c)
 
         return RandRegExp.stack_fix(stack[1:], index)
+
     def __repr__(self):
         return "<%s [%r]>" % (self.__class__.__name__, self._regexp)
+
 
 class RandSingularity(RandChoice):
     pass
                 
+
 class RandSingNum(RandSingularity):
     @staticmethod
     def make_power_of_two(end):
@@ -589,33 +666,41 @@ class RandSingByte(RandSingNum):
     def __init__(self):
         RandSingNum.__init__(self, 0, 2**8-1)
 
+
 class RandSingSByte(RandSingNum):
     def __init__(self):
         RandSingNum.__init__(self, -2**7, 2**7-1)
+
 
 class RandSingShort(RandSingNum):
     def __init__(self):
         RandSingNum.__init__(self, 0, 2**16-1)
 
+
 class RandSingSShort(RandSingNum):
     def __init__(self):
         RandSingNum.__init__(self, -2**15, 2**15-1)
+
 
 class RandSingInt(RandSingNum):
     def __init__(self):
         RandSingNum.__init__(self, 0, 2**32-1)
 
+
 class RandSingSInt(RandSingNum):
     def __init__(self):
         RandSingNum.__init__(self, -2**31, 2**31-1)
+
 
 class RandSingLong(RandSingNum):
     def __init__(self):
         RandSingNum.__init__(self, 0, 2**64-1)
 
+
 class RandSingSLong(RandSingNum):
     def __init__(self):
         RandSingNum.__init__(self, -2**63, 2**63-1)
+
 
 class RandSingString(RandSingularity):
     def __init__(self):
@@ -676,6 +761,7 @@ class RandSingString(RandSingularity):
 
     def __str__(self):
         return str(self._fix())
+
     def __bytes__(self):
         return raw(self._fix())
                              
@@ -690,11 +776,13 @@ class RandPool(RandField):
                 p, w = p
             pool += [p]*w
         self._pool = pool
+
     def _fix(self):
         r = random.choice(self._pool)
         return r._fix()
 
 # Automatic timestamp
+
 
 class AutoTime(VolatileValue):
     def __init__(self, base=None):
@@ -702,9 +790,11 @@ class AutoTime(VolatileValue):
             self.diff = 0
         else:
             self.diff = time.time()-base
+
     def _fix(self):
         return time.time()-self.diff
             
+
 class IntAutoTime(AutoTime):
     def _fix(self):
         return int(time.time()-self.diff)
@@ -713,6 +803,7 @@ class IntAutoTime(AutoTime):
 class ZuluTime(AutoTime):
     def __init__(self, diff=0):
         self.diff = diff
+
     def _fix(self):
         return time.strftime("%y%m%d%H%M%SZ",
                              time.gmtime(time.time() + self.diff))
@@ -721,6 +812,7 @@ class ZuluTime(AutoTime):
 class GeneralizedTime(AutoTime):
     def __init__(self, diff=0):
         self.diff = diff
+
     def _fix(self):
         return time.strftime("%Y%m%d%H%M%SZ",
                              time.gmtime(time.time() + self.diff))
@@ -728,8 +820,10 @@ class GeneralizedTime(AutoTime):
 
 class DelayedEval(VolatileValue):
     """ Example of usage: DelayedEval("time.time()") """
+
     def __init__(self, expr):
         self.expr = expr
+
     def _fix(self):
         return eval(self.expr)
 
@@ -739,6 +833,7 @@ class IncrementalValue(VolatileValue):
         self.start = self.val = start
         self.step = step
         self.restart = restart
+
     def _fix(self):
         v = self.val
         if self.val == self.restart :
@@ -747,13 +842,16 @@ class IncrementalValue(VolatileValue):
             self.val += self.step
         return v
 
+
 class CorruptedBytes(VolatileValue):
     def __init__(self, s, p=0.01, n=None):
         self.s = s
         self.p = p
         self.n = n
+
     def _fix(self):
         return corrupt_bytes(self.s, self.p, self.n)
+
 
 class CorruptedBits(CorruptedBytes):
     def _fix(self):

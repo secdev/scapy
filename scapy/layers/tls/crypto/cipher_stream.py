@@ -19,6 +19,7 @@ if conf.crypto_valid:
 
 _tls_stream_cipher_algs = {}
 
+
 class _StreamCipherMetaclass(type):
     """
     Cipher classes are automatically registered through this metaclass.
@@ -78,7 +79,6 @@ class _StreamCipher(six.with_metaclass(_StreamCipherMetaclass, object)):
                 self.decryptor = self._cipher.decryptor()
             self.ready["key"] = True
         super(_StreamCipher, self).__setattr__(name, val)
-
 
     def encrypt(self, data):
         if False in six.itervalues(self.ready):

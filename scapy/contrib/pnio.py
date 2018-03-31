@@ -57,6 +57,7 @@ for i in range(0xFF80, 0xFF90):
 ## PROFINET IO ##
 #################
 
+
 class ProfinetIO(Packet):
     """Basic PROFINET IO dispatcher"""
     fields_desc = [XShortEnumField("frameID", 0, PNIO_FRAME_IDS)]
@@ -73,6 +74,7 @@ class ProfinetIO(Packet):
             return PNIORealTime
         else:
             return Packet.guess_payload_class(self, payload)
+
 
 bind_layers(Ether, ProfinetIO, type=0x8892)
 bind_layers(UDP, ProfinetIO, dport=0x8892)

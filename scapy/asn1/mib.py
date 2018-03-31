@@ -27,6 +27,7 @@ _mib_re_oiddecl = re.compile("$\s*([a-zA-Z0-9_-]+)\s+OBJECT([^:\{\}]|\{[^:]+\})+
 _mib_re_strings = re.compile('"[^"]*"')
 _mib_re_comments = re.compile('--.*(\r|\n)')
 
+
 class MIBDict(DADict):
     def _findroot(self, x):
         if x.startswith("."):
@@ -41,9 +42,11 @@ class MIBDict(DADict):
                     max = len(self[k])
                     root = k
         return root, x[max:-1]
+
     def _oidname(self, x):
         root, remainder = self._findroot(x)
         return root+remainder
+
     def _oid(self, x):
         xl = x.strip(".").split(".")
         p = len(xl)-1
@@ -53,6 +56,7 @@ class MIBDict(DADict):
             return x
         xl[p] = self[xl[p]] 
         return ".".join(xl[p:])
+
     def _make_graph(self, other_keys=None, **kargs):
         if other_keys is None:
             other_keys = []

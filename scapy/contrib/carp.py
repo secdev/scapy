@@ -23,6 +23,7 @@ from scapy.fields import BitField, ByteField, XShortField, IntField, XIntField
 from scapy.layers.vrrp import *
 from scapy.utils import checksum, inet_aton
 
+
 class CARP(Packet):
     name = "CARP"
     fields_desc = [ BitField("version", 4, 4),
@@ -67,6 +68,7 @@ class CARP(Packet):
         # XXX: do ip6l sorting
 
         return h.digest()
+
 
 warning("CARP overwrites VRRP !")
 # This cancel the bindings done in vrrp.py
