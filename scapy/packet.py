@@ -418,7 +418,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
                 sval = raw(val)
                 p += sval
                 if field_pos_list is not None:
-                    field_pos_list.append( (f.name, sval.encode("string_escape"), len(p), len(sval) ) )
+                    field_pos_list.append((f.name, sval.encode("string_escape"), len(p), len(sval)))
             else:
                 p = f.addfield(self, p, val)
         return p
@@ -482,17 +482,17 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         for f in self.fields_desc:
             if isinstance(f, ConditionalField) and not f._evalcond(self):
                 continue
-            p = f.addfield(self, p, self.getfieldval(f.name) )
+            p = f.addfield(self, p, self.getfieldval(f.name))
             if isinstance(p, bytes):
                 r = p[len(q):]
                 q = p
             else:
                 r = b""
-            pl.append( (f, f.i2repr(self, self.getfieldval(f.name)), r) )
+            pl.append((f, f.i2repr(self, self.getfieldval(f.name)), r))
             
         pkt, lst = self.payload.build_ps(internal=1)
         p += pkt
-        lst.append( (self, pl) )
+        lst.append((self, pl))
         
         return p, lst
     
@@ -648,7 +648,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             bkcol = next(backcolor)
             proto, fields = t.pop()
             y += 0.5
-            pt = pyx.text.text(XSTART, (YTXT-y)*YMUL, r"\font\cmssfont=cmss10\cmssfont{%s}" % proto.name, [ pyx.text.size.Large])
+            pt = pyx.text.text(XSTART, (YTXT-y)*YMUL, r"\font\cmssfont=cmss10\cmssfont{%s}" % proto.name, [pyx.text.size.Large])
             y += 1
             ptbb=pt.bbox()
             ptbb.enlarge(pyx.unit.u_pt*2)
@@ -1104,9 +1104,9 @@ A side effect is that, to obtain "{" and "}" characters, you must use
 "%(" and "%)".
 """
 
-        escape = { "%": "%",
+        escape = {"%": "%",
                    "(": "{",
-                   ")": "}" }
+                   ")": "}"}
 
         # Evaluate conditions 
         while "{" in fmt:
@@ -1241,7 +1241,7 @@ A side effect is that, to obtain "{" and "}" characters, you must use
             if isinstance(fv, Packet):
                 fv = fv.command()
             elif fld.islist and fld.holds_packets and isinstance(fv, list):
-                fv = "[%s]" % ",".join( map(Packet.command, fv))
+                fv = "[%s]" % ",".join(map(Packet.command, fv))
             elif isinstance(fld, FlagsField):
                 fv = int(fv)
             else:
@@ -1376,7 +1376,7 @@ class NoPayload(Packet):
             
 class Raw(Packet):
     name = "Raw"
-    fields_desc = [ StrField("load", "") ]
+    fields_desc = [StrField("load", "")]
 
     def answers(self, other):
         return 1

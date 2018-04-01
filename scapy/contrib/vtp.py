@@ -59,24 +59,24 @@ from scapy.fields import *
 from scapy.layers.l2 import *
 
 _VTP_VLAN_TYPE = {
-            1 : 'Ethernet',
-            2 : 'FDDI',
-            3 : 'TrCRF',
-            4 : 'FDDI-net',
-            5 : 'TrBRF'
+            1: 'Ethernet',
+            2: 'FDDI',
+            3: 'TrCRF',
+            4: 'FDDI-net',
+            5: 'TrBRF'
         }
 
 _VTP_VLANINFO_TLV_TYPE = {
-            0x01 : 'Source-Routing Ring Number',
-            0x02 : 'Source-Routing Bridge Number',
-            0x03 : 'Spanning-Tree Protocol Type',
-            0x04 : 'Parent VLAN',
-            0x05 : 'Translationally Bridged VLANs',
-            0x06 : 'Pruning',
-            0x07 : 'Bridge Type',
-            0x08 : 'Max ARE Hop Count',
-            0x09 : 'Max STE Hop Count',
-            0x0A : 'Backup CRF Mode'
+            0x01: 'Source-Routing Ring Number',
+            0x02: 'Source-Routing Bridge Number',
+            0x03: 'Spanning-Tree Protocol Type',
+            0x04: 'Parent VLAN',
+            0x05: 'Translationally Bridged VLANs',
+            0x06: 'Pruning',
+            0x07: 'Bridge Type',
+            0x08: 'Max ARE Hop Count',
+            0x09: 'Max STE Hop Count',
+            0x0A: 'Backup CRF Mode'
         }
 
 
@@ -85,7 +85,7 @@ class VTPVlanInfoTlv(Packet):
     fields_desc = [
             ByteEnumField("type", 0, _VTP_VLANINFO_TLV_TYPE),
             ByteField("length", 0),
-            StrLenField("value", None, length_from=lambda pkt : pkt.length + 1)
+            StrLenField("value", None, length_from=lambda pkt: pkt.length + 1)
             ]
 
     def guess_payload_class(self, p):
@@ -96,7 +96,7 @@ class VTPVlanInfo(Packet):
     name = "VTP VLAN Info"
     fields_desc = [
                     ByteField("len", None), # FIXME: compute length
-                    ByteEnumField("status", 0, {0 : "active", 1 : "suspended"}),
+                    ByteEnumField("status", 0, {0: "active", 1: "suspended"}),
                     ByteEnumField("type", 1, _VTP_VLAN_TYPE),
                     FieldLenField("vlannamelen", None, "vlanname", "B"),
                     ShortField("vlanid", 1),
@@ -129,10 +129,10 @@ class VTPVlanInfo(Packet):
 
 
 _VTP_Types = {
-            1 : 'Summary Advertisement',
-            2 : 'Subset Advertisements',
-            3 : 'Advertisement Request',
-            4 : 'Join'
+            1: 'Summary Advertisement',
+            2: 'Subset Advertisements',
+            3: 'Advertisement Request',
+            4: 'Join'
             }
 
 

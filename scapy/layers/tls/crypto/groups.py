@@ -418,11 +418,11 @@ class ffdhe8192(_FFDHParams): # From RFC 7919
     mLen = 8192
 
 
-_tls_named_ffdh_groups = { 256: "ffdhe2048", 257: "ffdhe3072",
+_tls_named_ffdh_groups = {256: "ffdhe2048", 257: "ffdhe3072",
                            258: "ffdhe4096", 259: "ffdhe6144",
-                           260: "ffdhe8192" }
+                           260: "ffdhe8192"}
 
-_tls_named_curves = {  1: "sect163k1",  2: "sect163r1",  3: "sect163r2",
+_tls_named_curves = {1: "sect163k1",  2: "sect163r1",  3: "sect163r2",
                        4: "sect193r1",  5: "sect193r2",  6: "sect233k1",
                        7: "sect233r1",  8: "sect239k1",  9: "sect283k1",
                       10: "sect283r1", 11: "sect409k1", 12: "sect409r1",

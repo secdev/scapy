@@ -20,13 +20,13 @@ from scapy.layers.inet import UDP
 
 class SebekHead(Packet):
     name = "Sebek header"
-    fields_desc = [ XIntField("magic", 0xd0d0d0),
+    fields_desc = [XIntField("magic", 0xd0d0d0),
                     ShortField("version", 1),
                     ShortEnumField("type", 0, {"read": 0, "write": 1,
                                              "socket": 2, "open": 3}),
                     IntField("counter", 0),
                     IntField("time_sec", 0),
-                    IntField("time_usec", 0) ]
+                    IntField("time_usec", 0)]
 
     def mysummary(self):
         return self.sprintf("Sebek Header v%SebekHead.version% %SebekHead.type%")
@@ -37,12 +37,12 @@ class SebekHead(Packet):
 
 class SebekV1(Packet):
     name = "Sebek v1"
-    fields_desc = [ IntField("pid", 0),
+    fields_desc = [IntField("pid", 0),
                     IntField("uid", 0),
                     IntField("fd", 0),
                     StrFixedLenField("cmd", "", 12),
                     FieldLenField("data_length", None, "data", fmt="I"),
-                    StrLenField("data", "", length_from=lambda x:x.data_length) ]
+                    StrLenField("data", "", length_from=lambda x:x.data_length)]
 
     def mysummary(self):
         if isinstance(self.underlayer, SebekHead):
@@ -53,14 +53,14 @@ class SebekV1(Packet):
 
 class SebekV3(Packet):
     name = "Sebek v3"
-    fields_desc = [ IntField("parent_pid", 0),
+    fields_desc = [IntField("parent_pid", 0),
                     IntField("pid", 0),
                     IntField("uid", 0),
                     IntField("fd", 0),
                     IntField("inode", 0),
                     StrFixedLenField("cmd", "", 12),
                     FieldLenField("data_length", None, "data", fmt="I"),
-                    StrLenField("data", "", length_from=lambda x:x.data_length) ]
+                    StrLenField("data", "", length_from=lambda x:x.data_length)]
 
     def mysummary(self):
         if isinstance(self.underlayer, SebekHead):
@@ -79,7 +79,7 @@ class SebekV2(SebekV3):
 
 class SebekV3Sock(Packet):
     name = "Sebek v2 socket"
-    fields_desc = [ IntField("parent_pid", 0),
+    fields_desc = [IntField("parent_pid", 0),
                     IntField("pid", 0),
                     IntField("uid", 0),
                     IntField("fd", 0),
@@ -90,12 +90,12 @@ class SebekV3Sock(Packet):
                     ShortField("dport", 0),
                     IPField("sip", "127.0.0.1"),
                     ShortField("sport", 0),
-                    ShortEnumField("call", 0, { "bind": 2,
+                    ShortEnumField("call", 0, {"bind": 2,
                                                 "connect": 3, "listen": 4,
                                                "accept": 5, "sendmsg": 16,
                                                "recvmsg": 17, "sendto": 11,
                                                "recvfrom": 12}),
-                    ByteEnumField("proto", 0, IP_PROTOS) ]
+                    ByteEnumField("proto", 0, IP_PROTOS)]
 
     def mysummary(self):
         if isinstance(self.underlayer, SebekHead):
@@ -112,11 +112,11 @@ class SebekV2Sock(SebekV3Sock):
             return self.sprintf("Sebek v2 socket (%SebekV2Sock.cmd%)")
 
 
-bind_layers( UDP,           SebekHead,     sport=1101)
-bind_layers( UDP,           SebekHead,     dport=1101)
-bind_layers( UDP,           SebekHead,     dport=1101, sport=1101)
-bind_layers( SebekHead,     SebekV1,       version=1)
-bind_layers( SebekHead,     SebekV2Sock,   version=2, type=2)
-bind_layers( SebekHead,     SebekV2,       version=2)
-bind_layers( SebekHead,     SebekV3Sock,   version=3, type=2)
-bind_layers( SebekHead,     SebekV3,       version=3)
+bind_layers(UDP,           SebekHead,     sport=1101)
+bind_layers(UDP,           SebekHead,     dport=1101)
+bind_layers(UDP,           SebekHead,     dport=1101, sport=1101)
+bind_layers(SebekHead,     SebekV1,       version=1)
+bind_layers(SebekHead,     SebekV2Sock,   version=2, type=2)
+bind_layers(SebekHead,     SebekV2,       version=2)
+bind_layers(SebekHead,     SebekV3Sock,   version=3, type=2)
+bind_layers(SebekHead,     SebekV3,       version=3)

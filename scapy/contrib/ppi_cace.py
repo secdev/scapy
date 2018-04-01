@@ -85,7 +85,7 @@ _PPIDot11CommonPktFlags = ['FCS', 'TSFT_ms', 'FCS_Invalid', 'PHY_Error']
 
 class Dot11Common(Packet):
     name = "PPI 802.11-Common"
-    fields_desc = [ LEShortField('pfh_type', PPI_DOT11COMMON),
+    fields_desc = [LEShortField('pfh_type', PPI_DOT11COMMON),
                     LEShortField('pfh_length', 20),
                     PPITSFTField('TSF_Timer', 0),
                     FlagsField('Pkt_Flags', 0, -16, _PPIDot11CommonPktFlags),

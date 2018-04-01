@@ -112,7 +112,7 @@ class AS_resolver_cymru(AS_resolver):
 
 
 class AS_resolver_multi(AS_resolver):
-    resolvers_list = ( AS_resolver_riswhois(), AS_resolver_radb(), AS_resolver_cymru() )
+    resolvers_list = (AS_resolver_riswhois(), AS_resolver_radb(), AS_resolver_cymru())
 
     def __init__(self, *reslist):
         if reslist:
@@ -127,8 +127,8 @@ class AS_resolver_multi(AS_resolver):
             except socket.error as e:
                 if e[0] in [errno.ECONNREFUSED, errno.ETIMEDOUT, errno.ECONNRESET]:
                     continue
-            resolved = [ ip for ip, asn, desc in res ]
-            todo = [ ip for ip in todo if ip not in resolved ]
+            resolved = [ip for ip, asn, desc in res]
+            todo = [ip for ip in todo if ip not in resolved]
             ret += res
             if len(todo) == 0:
                 break

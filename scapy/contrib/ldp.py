@@ -86,7 +86,7 @@ class FecTLVField(StrField):
             if mask % 8:
                 nbroctets += 1
             add=inet_ntoa(x[4:4+nbroctets]+b"\x00"*(4-nbroctets))
-            list.append( (add, mask) )
+            list.append((add, mask))
             used += 4 + nbroctets
             x=x[4+nbroctets:]
         return list
@@ -187,11 +187,11 @@ class StatusTLVField(StrField):
     def m2i(self, pkt, x):
         l = []
         statuscode = struct.unpack("!I", x[4:8])[0]
-        l.append( (statuscode & 2**31) >> 31)
-        l.append( (statuscode & 2**30) >> 30)
-        l.append( statuscode & 0x3FFFFFFF )
-        l.append( struct.unpack("!I", x[8:12])[0] )
-        l.append( struct.unpack("!H", x[12:14])[0] )
+        l.append((statuscode & 2**31) >> 31)
+        l.append((statuscode & 2**30) >> 30)
+        l.append(statuscode & 0x3FFFFFFF)
+        l.append(struct.unpack("!I", x[8:12])[0])
+        l.append(struct.unpack("!H", x[12:14])[0])
         return l
 
     def i2m(self, pkt, x):
@@ -229,9 +229,9 @@ class CommonHelloTLVField(StrField):
         v = struct.unpack("!H", x[4:6])[0]
         list.append(v)
         flags = orb(x[6])
-        v = ( flags & 0x80 ) >> 7
+        v = (flags & 0x80) >> 7
         list.append(v)
-        v = ( flags & 0x40 ) >> 7
+        v = (flags & 0x40) >> 7
         list.append(v)
         return list
 
@@ -261,12 +261,12 @@ class CommonSessionTLVField(StrField):
     def m2i(self, pkt, x):
         l = [struct.unpack("!H", x[6:8])[0]]
         octet = struct.unpack("B", x[8:9])[0]
-        l.append( (octet & 2**7 ) >> 7 )
-        l.append( (octet & 2**6 ) >> 6 )
-        l.append( struct.unpack("B", x[9:10])[0] )
-        l.append( struct.unpack("!H", x[10:12])[0] )
-        l.append( inet_ntoa(x[12:16]) )
-        l.append( struct.unpack("!H", x[16:18])[0] )
+        l.append((octet & 2**7) >> 7)
+        l.append((octet & 2**6) >> 6)
+        l.append(struct.unpack("B", x[9:10])[0])
+        l.append(struct.unpack("!H", x[10:12])[0])
+        l.append(inet_ntoa(x[12:16]))
+        l.append(struct.unpack("!H", x[16:18])[0])
         return l
 
     def i2m(self, pkt, x):
@@ -296,29 +296,29 @@ class CommonSessionTLVField(StrField):
 # 3.5.1. Notification Message
 class LDPNotification(_LDP_Packet):
     name = "LDPNotification"
-    fields_desc = [ BitField("u", 0, 1),
+    fields_desc = [BitField("u", 0, 1),
                     BitField("type", 0x0001, 15),
                     ShortField("len", None),
-                    IntField("id", 0) ,
-                    StatusTLVField("status", (0, 0, 0, 0, 0)) ]
+                    IntField("id", 0),
+                    StatusTLVField("status", (0, 0, 0, 0, 0))]
 
 # 3.5.2. Hello Message
 
 
 class LDPHello(_LDP_Packet):
     name = "LDPHello"
-    fields_desc = [ BitField("u", 0, 1),
+    fields_desc = [BitField("u", 0, 1),
                     BitField("type", 0x0100, 15),
                     ShortField("len", None),
-                    IntField("id", 0) ,
-                    CommonHelloTLVField("params", [180, 0, 0]) ]
+                    IntField("id", 0),
+                    CommonHelloTLVField("params", [180, 0, 0])]
 
 # 3.5.3. Initialization Message
 
 
 class LDPInit(_LDP_Packet):
     name = "LDPInit"
-    fields_desc = [ BitField("u", 0, 1),
+    fields_desc = [BitField("u", 0, 1),
                     XBitField("type", 0x0200, 15),
                     ShortField("len", None),
                     IntField("id", 0),
@@ -329,7 +329,7 @@ class LDPInit(_LDP_Packet):
 
 class LDPKeepAlive(_LDP_Packet):
     name = "LDPKeepAlive"
-    fields_desc = [ BitField("u", 0, 1),
+    fields_desc = [BitField("u", 0, 1),
                     XBitField("type", 0x0201, 15),
                     ShortField("len", None),
                     IntField("id", 0)]
@@ -339,29 +339,29 @@ class LDPKeepAlive(_LDP_Packet):
 
 class LDPAddress(_LDP_Packet):
     name = "LDPAddress"
-    fields_desc = [ BitField("u", 0, 1),
+    fields_desc = [BitField("u", 0, 1),
                     XBitField("type", 0x0300, 15),
                     ShortField("len", None),
                     IntField("id", 0),
-                    AddressTLVField("address", None) ]
+                    AddressTLVField("address", None)]
 
 # 3.5.6. Address Withdraw Message
 
 
 class LDPAddressWM(_LDP_Packet):
     name = "LDPAddressWM"
-    fields_desc = [ BitField("u", 0, 1),
+    fields_desc = [BitField("u", 0, 1),
                     XBitField("type", 0x0301, 15),
                     ShortField("len", None),
                     IntField("id", 0),
-                    AddressTLVField("address", None) ]
+                    AddressTLVField("address", None)]
 
 # 3.5.7. Label Mapping Message
 
 
 class LDPLabelMM(_LDP_Packet):
     name = "LDPLabelMM"
-    fields_desc = [ BitField("u", 0, 1),
+    fields_desc = [BitField("u", 0, 1),
                     XBitField("type", 0x0400, 15),
                     ShortField("len", None),
                     IntField("id", 0),
@@ -373,7 +373,7 @@ class LDPLabelMM(_LDP_Packet):
 
 class LDPLabelReqM(_LDP_Packet):
     name = "LDPLabelReqM"
-    fields_desc = [ BitField("u", 0, 1),
+    fields_desc = [BitField("u", 0, 1),
                     XBitField("type", 0x0401, 15),
                     ShortField("len", None),
                     IntField("id", 0),
@@ -384,7 +384,7 @@ class LDPLabelReqM(_LDP_Packet):
 
 class LDPLabelARM(_LDP_Packet):
     name = "LDPLabelARM"
-    fields_desc = [ BitField("u", 0, 1),
+    fields_desc = [BitField("u", 0, 1),
                     XBitField("type", 0x0404, 15),
                     ShortField("len", None),
                     IntField("id", 0),
@@ -396,7 +396,7 @@ class LDPLabelARM(_LDP_Packet):
 
 class LDPLabelWM(_LDP_Packet):
     name = "LDPLabelWM"
-    fields_desc = [ BitField("u", 0, 1),
+    fields_desc = [BitField("u", 0, 1),
                     XBitField("type", 0x0402, 15),
                     ShortField("len", None),
                     IntField("id", 0),
@@ -408,7 +408,7 @@ class LDPLabelWM(_LDP_Packet):
 
 class LDPLabelRelM(_LDP_Packet):
     name = "LDPLabelRelM"
-    fields_desc = [ BitField("u", 0, 1),
+    fields_desc = [BitField("u", 0, 1),
                     XBitField("type", 0x0403, 15),
                     ShortField("len", None),
                     IntField("id", 0),
@@ -420,10 +420,10 @@ class LDPLabelRelM(_LDP_Packet):
 
 class LDP(_LDP_Packet):
     name = "LDP"
-    fields_desc = [ ShortField("version", 1),
+    fields_desc = [ShortField("version", 1),
                     ShortField("len", None),
                     IPField("id", "127.0.0.1"),
-                    ShortField("space", 0) ]
+                    ShortField("space", 0)]
 
     def post_build(self, p, pay):
         pay = pay or b""
@@ -433,5 +433,5 @@ class LDP(_LDP_Packet):
         return p + pay
 
 
-bind_layers( TCP, LDP, sport=646, dport=646 )
-bind_layers( UDP, LDP, sport=646, dport=646 )
+bind_layers(TCP, LDP, sport=646, dport=646)
+bind_layers(UDP, LDP, sport=646, dport=646)

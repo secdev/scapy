@@ -19,4 +19,4 @@ class GPRS(Packet):
         ]
 
 
-bind_layers( GPRS,          IP,            )
+bind_layers(GPRS,          IP,)

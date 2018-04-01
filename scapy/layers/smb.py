@@ -365,11 +365,11 @@ class SMBSession_Setup_AndX_Response(Packet):
                  StrNullField("NativeFileSystem", "")]
 
 
-bind_layers( NBTSession,                           SMBNegociate_Protocol_Request_Header, )
-bind_layers( NBTSession,    SMBNegociate_Protocol_Response_Advanced_Security,  ExtendedSecurity=1)
-bind_layers( NBTSession,    SMBNegociate_Protocol_Response_No_Security,        ExtendedSecurity=0, EncryptionKeyLength=8)
-bind_layers( NBTSession,    SMBNegociate_Protocol_Response_No_Security_No_Key, ExtendedSecurity=0, EncryptionKeyLength=0)
-bind_layers( NBTSession,    SMBSession_Setup_AndX_Request, )
-bind_layers( NBTSession,    SMBSession_Setup_AndX_Response, )
-bind_layers( SMBNegociate_Protocol_Request_Header, SMBNegociate_Protocol_Request_Tail, )
-bind_layers( SMBNegociate_Protocol_Request_Tail,   SMBNegociate_Protocol_Request_Tail, )
+bind_layers(NBTSession,                           SMBNegociate_Protocol_Request_Header, )
+bind_layers(NBTSession,    SMBNegociate_Protocol_Response_Advanced_Security,  ExtendedSecurity=1)
+bind_layers(NBTSession,    SMBNegociate_Protocol_Response_No_Security,        ExtendedSecurity=0, EncryptionKeyLength=8)
+bind_layers(NBTSession,    SMBNegociate_Protocol_Response_No_Security_No_Key, ExtendedSecurity=0, EncryptionKeyLength=0)
+bind_layers(NBTSession,    SMBSession_Setup_AndX_Request, )
+bind_layers(NBTSession,    SMBSession_Setup_AndX_Response, )
+bind_layers(SMBNegociate_Protocol_Request_Header, SMBNegociate_Protocol_Request_Tail, )
+bind_layers(SMBNegociate_Protocol_Request_Tail,   SMBNegociate_Protocol_Request_Tail, )

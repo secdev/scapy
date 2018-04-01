@@ -187,7 +187,7 @@ def list_contrib(name=None):
             continue
         if mod.endswith(".py"):
             mod = mod[:-3]
-        desc = { "description": "-", "status": "?", "name": mod }
+        desc = {"description": "-", "status": "?", "name": mod}
         for l in io.open(f, errors="replace"):
             p = l.find("scapy.contrib.")
             if p >= 0:

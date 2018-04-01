@@ -768,11 +768,11 @@ class MKAPDU(Packet):
         return "", s
 
 
-bind_layers( Ether,         EAPOL,         type=34958)
-bind_layers( Ether,         EAPOL,         dst='01:80:c2:00:00:03', type=34958)
-bind_layers( CookedLinux,   EAPOL,         proto=34958)
-bind_layers( GRE,           EAPOL,         proto=34958)
-bind_layers( EAPOL,         EAP,           type=0)
-bind_layers( SNAP,          EAPOL,         code=34958)
-bind_layers( EAPOL,         MKAPDU,        type=5)
+bind_layers(Ether,         EAPOL,         type=34958)
+bind_layers(Ether,         EAPOL,         dst='01:80:c2:00:00:03', type=34958)
+bind_layers(CookedLinux,   EAPOL,         proto=34958)
+bind_layers(GRE,           EAPOL,         proto=34958)
+bind_layers(EAPOL,         EAP,           type=0)
+bind_layers(SNAP,          EAPOL,         code=34958)
+bind_layers(EAPOL,         MKAPDU,        type=5)
 

@@ -60,7 +60,7 @@ class IPTools(object):
         return self.ottl() - self._ttl()
 
 
-_ip_options_names = { 0: "end_of_list",
+_ip_options_names = {0: "end_of_list",
                       1: "nop",
                       2: "security",
                       3: "loose_source_route",
@@ -90,17 +90,17 @@ _ip_options_names = { 0: "end_of_list",
                       
 
 class _IPOption_HDR(Packet):
-    fields_desc = [ BitField("copy_flag", 0, 1),
+    fields_desc = [BitField("copy_flag", 0, 1),
                     BitEnumField("optclass", 0, 2, {0: "control", 2: "debug"}),
-                    BitEnumField("option", 0, 5, _ip_options_names) ]
+                    BitEnumField("option", 0, 5, _ip_options_names)]
     
 
 class IPOption(Packet):
     name = "IP Option"
-    fields_desc = [ _IPOption_HDR,
+    fields_desc = [_IPOption_HDR,
                     FieldLenField("length", None, fmt="B",  # Only option 0 and 1 have no length and value
                                   length_of="value", adjust=lambda pkt, l:l+2),
-                    StrLenField("value", "", length_from=lambda pkt:pkt.length-2) ]
+                    StrLenField("value", "", length_from=lambda pkt:pkt.length-2)]
     
     def extract_padding(self, p):
         return b"", p
@@ -123,20 +123,20 @@ class IPOption(Packet):
 class IPOption_EOL(IPOption):
     name = "IP Option End of Options List"
     option = 0
-    fields_desc = [ _IPOption_HDR ]
+    fields_desc = [_IPOption_HDR]
     
 
 class IPOption_NOP(IPOption):
     name = "IP Option No Operation"
     option=1
-    fields_desc = [ _IPOption_HDR ]
+    fields_desc = [_IPOption_HDR]
 
 
 class IPOption_Security(IPOption):
     name = "IP Option Security"
     copy_flag = 1
     option = 2
-    fields_desc = [ _IPOption_HDR,
+    fields_desc = [_IPOption_HDR,
                     ByteField("length", 11),
                     ShortField("security", 0),
                     ShortField("compartment", 0),
@@ -148,7 +148,7 @@ class IPOption_Security(IPOption):
 class IPOption_RR(IPOption):
     name = "IP Option Record Route"
     option = 7
-    fields_desc = [ _IPOption_HDR,
+    fields_desc = [_IPOption_HDR,
                     FieldLenField("length", None, fmt="B",
                                   length_of="routers", adjust=lambda pkt, l:l+3),
                     ByteField("pointer", 4), # 4 is first IP
@@ -176,7 +176,7 @@ class IPOption_Stream_Id(IPOption):
     name = "IP Option Stream ID"
     copy_flag = 1
     option = 8
-    fields_desc = [ _IPOption_HDR,
+    fields_desc = [_IPOption_HDR,
                     ByteField("length", 4),
                     ShortField("security", 0), ]
                     
@@ -184,7 +184,7 @@ class IPOption_Stream_Id(IPOption):
 class IPOption_MTU_Probe(IPOption):
     name = "IP Option MTU Probe"
     option = 11
-    fields_desc = [ _IPOption_HDR,
+    fields_desc = [_IPOption_HDR,
                     ByteField("length", 4),
                     ShortField("mtu", 0), ]
 
@@ -197,29 +197,29 @@ class IPOption_MTU_Reply(IPOption_MTU_Probe):
 class IPOption_Traceroute(IPOption):
     name = "IP Option Traceroute"
     option = 18
-    fields_desc = [ _IPOption_HDR,
+    fields_desc = [_IPOption_HDR,
                     ByteField("length", 12),
                     ShortField("id", 0),
                     ShortField("outbound_hops", 0),
                     ShortField("return_hops", 0),
-                    IPField("originator_ip", "0.0.0.0") ]
+                    IPField("originator_ip", "0.0.0.0")]
 
 
 class IPOption_Address_Extension(IPOption):
     name = "IP Option Address Extension"
     copy_flag = 1
     option = 19
-    fields_desc = [ _IPOption_HDR,
+    fields_desc = [_IPOption_HDR,
                     ByteField("length", 10),
                     IPField("src_ext", "0.0.0.0"),
-                    IPField("dst_ext", "0.0.0.0") ]
+                    IPField("dst_ext", "0.0.0.0")]
 
 
 class IPOption_Router_Alert(IPOption):
     name = "IP Option Router Alert"
     copy_flag = 1
     option = 20
-    fields_desc = [ _IPOption_HDR,
+    fields_desc = [_IPOption_HDR,
                     ByteField("length", 4),
                     ShortEnumField("alert", 0, {0: "router_shall_examine_packet"}), ]
 
@@ -228,7 +228,7 @@ class IPOption_SDBM(IPOption):
     name = "IP Option Selective Directed Broadcast Mode"
     copy_flag = 1
     option = 21
-    fields_desc = [ _IPOption_HDR,
+    fields_desc = [_IPOption_HDR,
                     FieldLenField("length", None, fmt="B",
                                   length_of="addresses", adjust=lambda pkt, l:l+2),
                     FieldListField("addresses", [], IPField("", "0.0.0.0"), 
@@ -237,23 +237,23 @@ class IPOption_SDBM(IPOption):
     
 
 TCPOptions = (
-              { 0 : ("EOL", None),
-                1 : ("NOP", None),
-                2 : ("MSS", "!H"),
-                3 : ("WScale", "!B"),
-                4 : ("SAckOK", None),
-                5 : ("SAck", "!"),
-                8 : ("Timestamp", "!II"),
-                14 : ("AltChkSum", "!BH"),
-                15 : ("AltChkSumOpt", None),
-                25 : ("Mood", "!p"),
-                28 : ("UTO", "!H"),
-                34 : ("TFO", "!II"),
+              {0: ("EOL", None),
+                1: ("NOP", None),
+                2: ("MSS", "!H"),
+                3: ("WScale", "!B"),
+                4: ("SAckOK", None),
+                5: ("SAck", "!"),
+                8: ("Timestamp", "!II"),
+                14: ("AltChkSum", "!BH"),
+                15: ("AltChkSumOpt", None),
+                25: ("Mood", "!p"),
+                28: ("UTO", "!H"),
+                34: ("TFO", "!II"),
                 # RFC 3692
-                253 : ("Experiment", "!HHHH"),
-                254 : ("Experiment", "!HHHH"),
+                253: ("Experiment", "!HHHH"),
+                254: ("Experiment", "!HHHH"),
                 },
-              { "EOL": 0,
+              {"EOL": 0,
                 "NOP": 1,
                 "MSS": 2,
                 "WScale": 3,
@@ -265,7 +265,7 @@ TCPOptions = (
                 "Mood": 25,
                 "UTO": 28,
                 "TFO": 34,
-                } )
+                })
 
 
 class TCPOptionsField(StrField):
@@ -390,7 +390,7 @@ class DestIPField(IPField, DestField):
 class IP(Packet, IPTools):
     __slots__ = ["_defrag_pos"]
     name = "IP"
-    fields_desc = [ BitField("version" , 4 , 4),
+    fields_desc = [BitField("version", 4, 4),
                     BitField("ihl", None, 4),
                     XByteField("tos", 0),
                     ShortField("len", None),
@@ -403,7 +403,7 @@ class IP(Packet, IPTools):
                     #IPField("src", "127.0.0.1"),
                     Emph(SourceIPField("src", "dst")),
                     Emph(DestIPField("dst", "127.0.0.1")),
-                    PacketListField("options", [], IPOption, length_from=lambda p:p.ihl*4-20) ]
+                    PacketListField("options", [], IPOption, length_from=lambda p:p.ihl*4-20)]
 
     def post_build(self, p, pay):
         ihl = self.ihl
@@ -433,9 +433,9 @@ class IP(Packet, IPTools):
         return conf.route.route(dst)
 
     def hashret(self):
-        if ( (self.proto == socket.IPPROTO_ICMP)
+        if ((self.proto == socket.IPPROTO_ICMP)
              and (isinstance(self.payload, ICMP))
-             and (self.payload.type in [3, 4, 5, 11, 12]) ):
+             and (self.payload.type in [3, 4, 5, 11, 12])):
             return self.payload.payload.hashret()
         if not conf.checkIPinIP and self.proto in [4, 41]:  # IP, IPv6
             return self.payload.hashret()
@@ -463,15 +463,15 @@ class IP(Packet, IPTools):
                 return self.payload.answers(other.payload)
             elif (self.dst != other.src):
                 return 0
-        if ( (self.proto == socket.IPPROTO_ICMP) and
+        if ((self.proto == socket.IPPROTO_ICMP) and
              (isinstance(self.payload, ICMP)) and
-             (self.payload.type in [3, 4, 5, 11, 12]) ):
+             (self.payload.type in [3, 4, 5, 11, 12])):
             # ICMP error message
             return self.payload.payload.answers(other)
 
         else:
-            if ( (conf.checkIPaddr and (self.src != other.dst)) or
-                 (self.proto != other.proto) ):
+            if ((conf.checkIPaddr and (self.src != other.dst)) or
+                 (self.proto != other.proto)):
                 return 0
             return self.payload.answers(other.payload)
 
@@ -540,7 +540,7 @@ def in4_chksum(proto, u, p):
 
 class TCP(Packet):
     name = "TCP"
-    fields_desc = [ ShortEnumField("sport", 20, TCP_SERVICES),
+    fields_desc = [ShortEnumField("sport", 20, TCP_SERVICES),
                     ShortEnumField("dport", 80, TCP_SERVICES),
                     IntField("seq", 0),
                     IntField("ack", 0),
@@ -550,7 +550,7 @@ class TCP(Packet):
                     ShortField("window", 8192),
                     XShortField("chksum", None),
                     ShortField("urgptr", 0),
-                    TCPOptionsField("options", []) ]
+                    TCPOptionsField("options", [])]
 
     def post_build(self, p, pay):
         p += pay
@@ -617,7 +617,7 @@ class TCP(Packet):
 
 class UDP(Packet):
     name = "UDP"
-    fields_desc = [ ShortEnumField("sport", 53, UDP_SERVICES),
+    fields_desc = [ShortEnumField("sport", 53, UDP_SERVICES),
                     ShortEnumField("dport", 53, UDP_SERVICES),
                     ShortField("len", None),
                     XShortField("chksum", None), ]
@@ -669,50 +669,50 @@ class UDP(Packet):
             return self.sprintf("UDP %UDP.sport% > %UDP.dport%")    
 
 
-icmptypes = { 0 : "echo-reply",
-              3 : "dest-unreach",
-              4 : "source-quench",
-              5 : "redirect",
-              8 : "echo-request",
-              9 : "router-advertisement",
-              10 : "router-solicitation",
-              11 : "time-exceeded",
-              12 : "parameter-problem",
-              13 : "timestamp-request",
-              14 : "timestamp-reply",
-              15 : "information-request",
-              16 : "information-response",
-              17 : "address-mask-request",
-              18 : "address-mask-reply" }
+icmptypes = {0: "echo-reply",
+              3: "dest-unreach",
+              4: "source-quench",
+              5: "redirect",
+              8: "echo-request",
+              9: "router-advertisement",
+              10: "router-solicitation",
+              11: "time-exceeded",
+              12: "parameter-problem",
+              13: "timestamp-request",
+              14: "timestamp-reply",
+              15: "information-request",
+              16: "information-response",
+              17: "address-mask-request",
+              18: "address-mask-reply"}
 
-icmpcodes = { 3 : { 0  : "network-unreachable",
-                    1  : "host-unreachable",
-                    2  : "protocol-unreachable",
-                    3  : "port-unreachable",
-                    4  : "fragmentation-needed",
-                    5  : "source-route-failed",
-                    6  : "network-unknown",
-                    7  : "host-unknown",
-                    9  : "network-prohibited",
-                    10 : "host-prohibited",
-                    11 : "TOS-network-unreachable",
-                    12 : "TOS-host-unreachable",
-                    13 : "communication-prohibited",
-                    14 : "host-precedence-violation",
-                    15 : "precedence-cutoff", },
-              5 : { 0  : "network-redirect",
-                    1  : "host-redirect",
-                    2  : "TOS-network-redirect",
-                    3  : "TOS-host-redirect", },
-              11 : { 0 : "ttl-zero-during-transit",
-                     1 : "ttl-zero-during-reassembly", },
-              12 : { 0 : "ip-header-bad",
-                     1 : "required-option-missing", }, }
+icmpcodes = {3: {0: "network-unreachable",
+                    1: "host-unreachable",
+                    2: "protocol-unreachable",
+                    3: "port-unreachable",
+                    4: "fragmentation-needed",
+                    5: "source-route-failed",
+                    6: "network-unknown",
+                    7: "host-unknown",
+                    9: "network-prohibited",
+                    10: "host-prohibited",
+                    11: "TOS-network-unreachable",
+                    12: "TOS-host-unreachable",
+                    13: "communication-prohibited",
+                    14: "host-precedence-violation",
+                    15: "precedence-cutoff", },
+              5: {0: "network-redirect",
+                    1: "host-redirect",
+                    2: "TOS-network-redirect",
+                    3: "TOS-host-redirect", },
+              11: {0: "ttl-zero-during-transit",
+                     1: "ttl-zero-during-reassembly", },
+              12: {0: "ip-header-bad",
+                     1: "required-option-missing", }, }
                          
                    
 class ICMP(Packet):
     name = "ICMP"
-    fields_desc = [ ByteEnumField("type", 8, icmptypes),
+    fields_desc = [ByteEnumField("type", 8, icmptypes),
                     MultiEnumField("code", 0, icmpcodes, depends_on=lambda pkt:pkt.type, fmt="B"),
                     XShortField("chksum", None),
                     ConditionalField(XShortField("id", 0),  lambda pkt:pkt.type in [0, 8, 13, 14, 15, 16, 17, 18]),
@@ -745,9 +745,9 @@ class ICMP(Packet):
     def answers(self, other):
         if not isinstance(other, ICMP):
             return 0
-        if ( (other.type, self.type) in [(8, 0), (13, 14), (15, 16), (17, 18)] and
+        if ((other.type, self.type) in [(8, 0), (13, 14), (15, 16), (17, 18)] and
              self.id == other.id and
-             self.seq == other.seq ):
+             self.seq == other.seq):
             return 1
         return 0
 
@@ -770,12 +770,12 @@ class IPerror(IP):
     def answers(self, other):
         if not isinstance(other, IP):
             return 0
-        if not ( ((conf.checkIPsrc == 0) or (self.dst == other.dst)) and
+        if not (((conf.checkIPsrc == 0) or (self.dst == other.dst)) and
                  (self.src == other.src) and
-                 ( ((conf.checkIPID == 0)
+                 (((conf.checkIPID == 0)
                     or (self.id == other.id)
                     or (conf.checkIPID == 1 and self.id == socket.htons(other.id)))) and
-                 (self.proto == other.proto) ):
+                 (self.proto == other.proto)):
             return 0
         return self.payload.answers(other.payload)
 
@@ -844,21 +844,21 @@ class ICMPerror(ICMP):
         return Packet.mysummary(self)
 
 
-bind_layers( Ether,         IP,            type=2048)
-bind_layers( CookedLinux,   IP,            proto=2048)
-bind_layers( GRE,           IP,            proto=2048)
-bind_layers( SNAP,          IP,            code=2048)
-bind_layers( Loopback,      IP,            type=0)
-bind_layers( Loopback,      IP,            type=2)
-bind_layers( IPerror,       IPerror,       frag=0, proto=4)
-bind_layers( IPerror,       ICMPerror,     frag=0, proto=1)
-bind_layers( IPerror,       TCPerror,      frag=0, proto=6)
-bind_layers( IPerror,       UDPerror,      frag=0, proto=17)
-bind_layers( IP,            IP,            frag=0, proto=4)
-bind_layers( IP,            ICMP,          frag=0, proto=1)
-bind_layers( IP,            TCP,           frag=0, proto=6)
-bind_layers( IP,            UDP,           frag=0, proto=17)
-bind_layers( IP,            GRE,           frag=0, proto=47)
+bind_layers(Ether,         IP,            type=2048)
+bind_layers(CookedLinux,   IP,            proto=2048)
+bind_layers(GRE,           IP,            proto=2048)
+bind_layers(SNAP,          IP,            code=2048)
+bind_layers(Loopback,      IP,            type=0)
+bind_layers(Loopback,      IP,            type=2)
+bind_layers(IPerror,       IPerror,       frag=0, proto=4)
+bind_layers(IPerror,       ICMPerror,     frag=0, proto=1)
+bind_layers(IPerror,       TCPerror,      frag=0, proto=6)
+bind_layers(IPerror,       UDPerror,      frag=0, proto=17)
+bind_layers(IP,            IP,            frag=0, proto=4)
+bind_layers(IP,            ICMP,          frag=0, proto=1)
+bind_layers(IP,            TCP,           frag=0, proto=6)
+bind_layers(IP,            UDP,           frag=0, proto=17)
+bind_layers(IP,            GRE,           frag=0, proto=47)
 
 conf.l2types.register(DLT_RAW, IP)
 conf.l2types.register_num2layer(DLT_RAW_ALT, IP)
@@ -1611,7 +1611,7 @@ class TCP_client(Automaton):
                 pkt[TCP].sport == self.dport and
                 pkt[TCP].dport == self.sport and
                 self.l4[TCP].seq >= pkt[TCP].ack and # XXX: seq/ack 2^32 wrap up
-                ((self.l4[TCP].ack == 0) or (self.l4[TCP].ack <= pkt[TCP].seq <= self.l4[TCP].ack+self.swin)) )
+                ((self.l4[TCP].ack == 0) or (self.l4[TCP].ack <= pkt[TCP].seq <= self.l4[TCP].ack+self.swin)))
 
     @ATMT.state(initial=1)
     def START(self):

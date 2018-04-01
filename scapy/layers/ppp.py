@@ -26,11 +26,11 @@ from scapy.fields import BitField, ByteEnumField, ByteField, \
 
 class PPPoE(Packet):
     name = "PPP over Ethernet"
-    fields_desc = [ BitField("version", 1, 4),
+    fields_desc = [BitField("version", 1, 4),
                     BitField("type", 1, 4),
                     ByteEnumField("code", 0, {0: "Session"}),
                     XShortField("sessionid", 0x0),
-                    ShortField("len", None) ]
+                    ShortField("len", None)]
 
     def post_build(self, p, pay):
         p += pay
@@ -42,14 +42,14 @@ class PPPoE(Packet):
 
 class PPPoED(PPPoE):
     name = "PPP over Ethernet Discovery"
-    fields_desc = [ BitField("version", 1, 4),
+    fields_desc = [BitField("version", 1, 4),
                     BitField("type", 1, 4),
                     ByteEnumField("code", 0x09, {0x09: "PADI", 0x07: "PADO", 0x19: "PADR", 0x65: "PADS", 0xa7: "PADT"}),
                     XShortField("sessionid", 0x0),
-                    ShortField("len", None) ]
+                    ShortField("len", None)]
 
 
-_PPP_proto = { 0x0001: "Padding Protocol",
+_PPP_proto = {0x0001: "Padding Protocol",
                0x0003: "ROHC small-CID [RFC3095]",
                0x0005: "ROHC large-CID [RFC3095]",
                0x0021: "Internet Protocol version 4",
@@ -201,13 +201,13 @@ _PPP_proto = { 0x0001: "Padding Protocol",
 
 
 class HDLC(Packet):
-    fields_desc = [ XByteField("address", 0xff),
-                    XByteField("control", 0x03)  ]
+    fields_desc = [XByteField("address", 0xff),
+                    XByteField("control", 0x03)]
 
 
 class PPP(Packet):
     name = "PPP Link Layer"
-    fields_desc = [ ShortEnumField("proto", 0x0021, _PPP_proto) ]
+    fields_desc = [ShortEnumField("proto", 0x0021, _PPP_proto)]
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
@@ -216,7 +216,7 @@ class PPP(Packet):
         return cls
 
 
-_PPP_conftypes = { 1: "Configure-Request",
+_PPP_conftypes = {1: "Configure-Request",
                    2: "Configure-Ack",
                    3: "Configure-Nak",
                    4: "Configure-Reject",
@@ -235,7 +235,7 @@ _PPP_conftypes = { 1: "Configure-Request",
 ### PPP IPCP stuff (RFC 1332)
 
 # All IPCP options are defined below (names and associated classes) 
-_PPP_ipcpopttypes = {     1: "IP-Addresses (Deprecated)",
+_PPP_ipcpopttypes = {1: "IP-Addresses (Deprecated)",
                           2: "IP-Compression-Protocol",
                           3: "IP-Address",
                           4: "Mobile-IPv4", # not implemented, present for completeness
@@ -247,9 +247,9 @@ _PPP_ipcpopttypes = {     1: "IP-Addresses (Deprecated)",
 
 class PPP_IPCP_Option(Packet):
     name = "PPP IPCP Option"
-    fields_desc = [ ByteEnumField("type" , None , _PPP_ipcpopttypes),
+    fields_desc = [ByteEnumField("type", None, _PPP_ipcpopttypes),
                     FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p, x:x+2),
-                    StrLenField("data", "", length_from=lambda p:max(0, p.len-2)) ]
+                    StrLenField("data", "", length_from=lambda p:max(0, p.len-2))]
 
     def extract_padding(self, pay):
         return b"", pay
@@ -270,62 +270,62 @@ class PPP_IPCP_Option(Packet):
 
 class PPP_IPCP_Option_IPAddress(PPP_IPCP_Option):
     name = "PPP IPCP Option: IP Address"
-    fields_desc = [ ByteEnumField("type" , 3 , _PPP_ipcpopttypes),
+    fields_desc = [ByteEnumField("type", 3, _PPP_ipcpopttypes),
                     FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p, x:x+2),
                     IPField("data", "0.0.0.0"),
-                    ConditionalField(StrLenField("garbage", "", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
+                    ConditionalField(StrLenField("garbage", "", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6)]
 
 
 class PPP_IPCP_Option_DNS1(PPP_IPCP_Option):
     name = "PPP IPCP Option: DNS1 Address"
-    fields_desc = [ ByteEnumField("type" , 129 , _PPP_ipcpopttypes),
+    fields_desc = [ByteEnumField("type", 129, _PPP_ipcpopttypes),
                     FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p, x:x+2),
                     IPField("data", "0.0.0.0"),
-                    ConditionalField(StrLenField("garbage", "", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
+                    ConditionalField(StrLenField("garbage", "", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6)]
 
 
 class PPP_IPCP_Option_DNS2(PPP_IPCP_Option):
     name = "PPP IPCP Option: DNS2 Address"
-    fields_desc = [ ByteEnumField("type" , 131 , _PPP_ipcpopttypes),
+    fields_desc = [ByteEnumField("type", 131, _PPP_ipcpopttypes),
                     FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p, x:x+2),
                     IPField("data", "0.0.0.0"),
-                    ConditionalField(StrLenField("garbage", "", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
+                    ConditionalField(StrLenField("garbage", "", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6)]
 
 
 class PPP_IPCP_Option_NBNS1(PPP_IPCP_Option):
     name = "PPP IPCP Option: NBNS1 Address"
-    fields_desc = [ ByteEnumField("type" , 130 , _PPP_ipcpopttypes),
+    fields_desc = [ByteEnumField("type", 130, _PPP_ipcpopttypes),
                     FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p, x:x+2),
                     IPField("data", "0.0.0.0"),
-                    ConditionalField(StrLenField("garbage", "", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
+                    ConditionalField(StrLenField("garbage", "", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6)]
 
 
 class PPP_IPCP_Option_NBNS2(PPP_IPCP_Option):
     name = "PPP IPCP Option: NBNS2 Address"
-    fields_desc = [ ByteEnumField("type" , 132 , _PPP_ipcpopttypes),
+    fields_desc = [ByteEnumField("type", 132, _PPP_ipcpopttypes),
                     FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p, x:x+2),
                     IPField("data", "0.0.0.0"),
-                    ConditionalField(StrLenField("garbage", "", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6) ]
+                    ConditionalField(StrLenField("garbage", "", length_from=lambda pkt:pkt.len-6), lambda p:p.len!=6)]
 
 
 class PPP_IPCP(Packet):
-    fields_desc = [ ByteEnumField("code" , 1, _PPP_conftypes),
-                    XByteField("id", 0 ),
-                    FieldLenField("len" , None, fmt="H", length_of="options", adjust=lambda p, x:x+4 ),
-                    PacketListField("options", [],  PPP_IPCP_Option, length_from=lambda p:p.len-4,) ]
+    fields_desc = [ByteEnumField("code", 1, _PPP_conftypes),
+                    XByteField("id", 0),
+                    FieldLenField("len", None, fmt="H", length_of="options", adjust=lambda p, x:x+4),
+                    PacketListField("options", [],  PPP_IPCP_Option, length_from=lambda p:p.len-4,)]
 
 
 ### ECP
 
-_PPP_ecpopttypes = { 0: "OUI",
+_PPP_ecpopttypes = {0: "OUI",
                      1: "DESE", }
 
 
 class PPP_ECP_Option(Packet):
     name = "PPP ECP Option"
-    fields_desc = [ ByteEnumField("type" , None , _PPP_ecpopttypes),
+    fields_desc = [ByteEnumField("type", None, _PPP_ecpopttypes),
                     FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p, x:x+2),
-                    StrLenField("data", "", length_from=lambda p:max(0, p.len-2)) ]
+                    StrLenField("data", "", length_from=lambda p:max(0, p.len-2))]
 
     def extract_padding(self, pay):
         return b"", pay
@@ -345,18 +345,18 @@ class PPP_ECP_Option(Packet):
 
 
 class PPP_ECP_Option_OUI(PPP_ECP_Option):
-    fields_desc = [ ByteEnumField("type" , 0 , _PPP_ecpopttypes),
+    fields_desc = [ByteEnumField("type", 0, _PPP_ecpopttypes),
                     FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p, x:x+6),
                     StrFixedLenField("oui", "", 3),
                     ByteField("subtype", 0),
-                    StrLenField("data", "", length_from=lambda p:p.len-6) ]
+                    StrLenField("data", "", length_from=lambda p:p.len-6)]
                     
 
 class PPP_ECP(Packet):
-    fields_desc = [ ByteEnumField("code" , 1, _PPP_conftypes),
-                    XByteField("id", 0 ),
-                    FieldLenField("len" , None, fmt="H", length_of="options", adjust=lambda p, x:x+4 ),
-                    PacketListField("options", [],  PPP_ECP_Option, length_from=lambda p:p.len-4,) ]
+    fields_desc = [ByteEnumField("code", 1, _PPP_conftypes),
+                    XByteField("id", 0),
+                    FieldLenField("len", None, fmt="H", length_of="options", adjust=lambda p, x:x+4),
+                    PacketListField("options", [],  PPP_ECP_Option, length_from=lambda p:p.len-4,)]
 
 ### Link Control Protocol (RFC 1661)
 
@@ -713,23 +713,23 @@ class PPP_CHAP_ChallengeResponse(PPP_CHAP):
             return PPP_CHAP.mysummary(self)
 
 
-bind_layers( Ether,         PPPoED,        type=0x8863)
-bind_layers( Ether,         PPPoE,         type=0x8864)
-bind_layers( CookedLinux,   PPPoED,        proto=0x8863)
-bind_layers( CookedLinux,   PPPoE,         proto=0x8864)
-bind_layers( PPPoE,         PPP,           code=0)
-bind_layers( HDLC,          PPP,           )
-bind_layers( PPP,           EAP,           proto=0xc227)
-bind_layers( PPP,           IP,            proto=0x0021)
-bind_layers( PPP,           IPv6,          proto=0x0057)
-bind_layers( PPP,           PPP_CHAP,      proto=0xc223)
-bind_layers( PPP,           PPP_IPCP,      proto=0x8021)
-bind_layers( PPP,           PPP_ECP,       proto=0x8053)
-bind_layers( PPP,           PPP_LCP,       proto=0xc021)
-bind_layers( PPP,           PPP_PAP,       proto=0xc023)
-bind_layers( Ether,         PPP_IPCP,      type=0x8021)
-bind_layers( Ether,         PPP_ECP,       type=0x8053)
-bind_layers( GRE_PPTP,      PPP,           proto=0x880b)
+bind_layers(Ether,         PPPoED,        type=0x8863)
+bind_layers(Ether,         PPPoE,         type=0x8864)
+bind_layers(CookedLinux,   PPPoED,        proto=0x8863)
+bind_layers(CookedLinux,   PPPoE,         proto=0x8864)
+bind_layers(PPPoE,         PPP,           code=0)
+bind_layers(HDLC,          PPP,)
+bind_layers(PPP,           EAP,           proto=0xc227)
+bind_layers(PPP,           IP,            proto=0x0021)
+bind_layers(PPP,           IPv6,          proto=0x0057)
+bind_layers(PPP,           PPP_CHAP,      proto=0xc223)
+bind_layers(PPP,           PPP_IPCP,      proto=0x8021)
+bind_layers(PPP,           PPP_ECP,       proto=0x8053)
+bind_layers(PPP,           PPP_LCP,       proto=0xc021)
+bind_layers(PPP,           PPP_PAP,       proto=0xc023)
+bind_layers(Ether,         PPP_IPCP,      type=0x8021)
+bind_layers(Ether,         PPP_ECP,       type=0x8053)
+bind_layers(GRE_PPTP,      PPP,           proto=0x880b)
 
 
 conf.l2types.register(DLT_PPP, PPP)

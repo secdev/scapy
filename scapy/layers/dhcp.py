@@ -33,7 +33,7 @@ dhcpmagic=b"c\x82Sc"
 
 class BOOTP(Packet):
     name = "BOOTP"
-    fields_desc = [ ByteEnumField("op", 1, {1: "BOOTREQUEST", 2: "BOOTREPLY"}),
+    fields_desc = [ByteEnumField("op", 1, {1: "BOOTREQUEST", 2: "BOOTREPLY"}),
                     ByteField("htype", 1),
                     ByteField("hlen", 6),
                     ByteField("hops", 0),
@@ -47,7 +47,7 @@ class BOOTP(Packet):
                     Field("chaddr", b"", "16s"),
                     Field("sname", b"", "64s"),
                     Field("file", b"", "128s"),
-                    StrField("options", b"") ]
+                    StrField("options", b"")]
 
     def guess_payload_class(self, payload):
         if self.options[:len(dhcpmagic)] == dhcpmagic:
@@ -236,7 +236,7 @@ class DHCPOptionsField(StrField):
 
                 if isinstance(f, str):
                     olen = orb(x[1])
-                    opt.append( (f, x[2:olen+2]) )
+                    opt.append((f, x[2:olen+2]))
                     x = x[olen+2:]
                 else:
                     olen = orb(x[1])
@@ -297,13 +297,13 @@ class DHCPOptionsField(StrField):
 
 class DHCP(Packet):
     name = "DHCP options"
-    fields_desc = [ DHCPOptionsField("options", b"") ]
+    fields_desc = [DHCPOptionsField("options", b"")]
 
 
-bind_layers( UDP,           BOOTP,         dport=67, sport=68)
-bind_layers( UDP,           BOOTP,         dport=68, sport=67)
-bind_bottom_up( UDP, BOOTP, dport=67, sport=67)
-bind_layers( BOOTP,         DHCP,          options=b'c\x82Sc')
+bind_layers(UDP,           BOOTP,         dport=67, sport=68)
+bind_layers(UDP,           BOOTP,         dport=68, sport=67)
+bind_bottom_up(UDP, BOOTP, dport=67, sport=67)
+bind_layers(BOOTP,         DHCP,          options=b'c\x82Sc')
 
 
 @conf.commands.register
@@ -329,7 +329,7 @@ class BOOTP_am(AnsweringMachine):
         msk = itom(int(msk))
         self.netmask = ltoa(msk)
         self.network = ltoa(atol(netw)&msk)
-        self.broadcast = ltoa( atol(self.network) | (0xffffffff&~msk) )
+        self.broadcast = ltoa(atol(self.network) | (0xffffffff&~msk))
         self.gw = gw
         if isinstance(pool, six.string_types):
             pool = Net(pool)

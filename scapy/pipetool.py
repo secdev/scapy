@@ -39,7 +39,7 @@ class PipeEngine(SelectableObject):
     def list_pipes_detailed(cls):
         for pn, pc in sorted(cls.pipes.items()):
             if pc.__doc__:
-                print("###### %s\n %s" % (pn , pc.__doc__))
+                print("###### %s\n %s" % (pn, pc.__doc__))
             else:
                 print("###### %s" % pn)
     

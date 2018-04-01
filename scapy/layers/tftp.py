@@ -16,18 +16,18 @@ from scapy.layers.inet import UDP, IP
 from scapy.modules.six.moves import range
 
 
-TFTP_operations = { 1: "RRQ", 2: "WRQ", 3: "DATA", 4: "ACK", 5: "ERROR", 6: "OACK" }
+TFTP_operations = {1: "RRQ", 2: "WRQ", 3: "DATA", 4: "ACK", 5: "ERROR", 6: "OACK"}
 
 
 class TFTP(Packet):
     name = "TFTP opcode"
-    fields_desc = [ ShortEnumField("op", 1, TFTP_operations), ]
+    fields_desc = [ShortEnumField("op", 1, TFTP_operations), ]
     
 
 class TFTP_RRQ(Packet):
     name = "TFTP Read Request"
-    fields_desc = [ StrNullField("filename", ""),
-                    StrNullField("mode", "octet") ]
+    fields_desc = [StrNullField("filename", ""),
+                    StrNullField("mode", "octet")]
 
     def answers(self, other):
         return 0
@@ -38,8 +38,8 @@ class TFTP_RRQ(Packet):
 
 class TFTP_WRQ(Packet):
     name = "TFTP Write Request"
-    fields_desc = [ StrNullField("filename", ""),
-                    StrNullField("mode", "octet") ]
+    fields_desc = [StrNullField("filename", ""),
+                    StrNullField("mode", "octet")]
 
     def answers(self, other):
         return 0
@@ -50,7 +50,7 @@ class TFTP_WRQ(Packet):
 
 class TFTP_DATA(Packet):
     name = "TFTP Data"
-    fields_desc = [ ShortField("block", 0) ]
+    fields_desc = [ShortField("block", 0)]
 
     def answers(self, other):
         return  self.block == 1 and isinstance(other, TFTP_RRQ)
@@ -60,20 +60,20 @@ class TFTP_DATA(Packet):
 
 
 class TFTP_Option(Packet):
-    fields_desc = [ StrNullField("oname", ""),
-                    StrNullField("value", "") ]
+    fields_desc = [StrNullField("oname", ""),
+                    StrNullField("value", "")]
 
     def extract_padding(self, pkt):
         return "", pkt
 
 
 class TFTP_Options(Packet):
-    fields_desc = [ PacketListField("options", [], TFTP_Option, length_from=lambda x:None) ]
+    fields_desc = [PacketListField("options", [], TFTP_Option, length_from=lambda x:None)]
 
     
 class TFTP_ACK(Packet):
     name = "TFTP Ack"
-    fields_desc = [ ShortField("block", 0) ]
+    fields_desc = [ShortField("block", 0)]
 
     def answers(self, other):
         if isinstance(other, TFTP_DATA):
@@ -86,7 +86,7 @@ class TFTP_ACK(Packet):
         return self.sprintf("ACK %block%"), [UDP]
 
 
-TFTP_Error_Codes = {  0: "Not defined",
+TFTP_Error_Codes = {0: "Not defined",
                       1: "File not found",
                       2: "Access violation",
                       3: "Disk full or allocation exceeded",
@@ -100,7 +100,7 @@ TFTP_Error_Codes = {  0: "Not defined",
 
 class TFTP_ERROR(Packet):
     name = "TFTP Error"
-    fields_desc = [ ShortEnumField("errorcode", 0, TFTP_Error_Codes),
+    fields_desc = [ShortEnumField("errorcode", 0, TFTP_Error_Codes),
                     StrNullField("errormsg", "")]
 
     def answers(self, other):
@@ -115,7 +115,7 @@ class TFTP_ERROR(Packet):
 
 class TFTP_OACK(Packet):
     name = "TFTP Option Ack"
-    fields_desc = [  ]
+    fields_desc = []
 
     def answers(self, other):
         return isinstance(other, TFTP_WRQ) or isinstance(other, TFTP_RRQ)
@@ -142,9 +142,9 @@ class TFTP_read(Automaton):
         self.sport = sport
 
     def master_filter(self, pkt):
-        return ( IP in pkt and pkt[IP].src == self.server and UDP in pkt
+        return (IP in pkt and pkt[IP].src == self.server and UDP in pkt
                  and pkt[UDP].dport == self.my_tid
-                 and (self.server_tid is None or pkt[UDP].sport == self.server_tid) )
+                 and (self.server_tid is None or pkt[UDP].sport == self.server_tid))
         
     # BEGIN
     @ATMT.state(initial=1)
@@ -231,15 +231,15 @@ class TFTP_write(Automaton):
         self.origdata = data
 
     def master_filter(self, pkt):
-        return ( IP in pkt and pkt[IP].src == self.server and UDP in pkt
+        return (IP in pkt and pkt[IP].src == self.server and UDP in pkt
                  and pkt[UDP].dport == self.my_tid
-                 and (self.server_tid is None or pkt[UDP].sport == self.server_tid) )
+                 and (self.server_tid is None or pkt[UDP].sport == self.server_tid))
         
     # BEGIN
     @ATMT.state(initial=1)
     def BEGIN(self):
         self.data = [self.origdata[i*self.blocksize:(i+1)*self.blocksize]
-                     for i in range( len(self.origdata)/self.blocksize+1)]
+                     for i in range(len(self.origdata)/self.blocksize+1)]
         self.my_tid = self.sport or RandShort()._fix()
         bind_bottom_up(UDP, TFTP, dport=self.my_tid)
         self.server_tid = None

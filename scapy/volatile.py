@@ -704,7 +704,7 @@ class RandSingSLong(RandSingNum):
 
 class RandSingString(RandSingularity):
     def __init__(self):
-        self._choice = [ "",
+        self._choice = ["",
                          "%x",
                          "%%",
                          "%s",
@@ -836,7 +836,7 @@ class IncrementalValue(VolatileValue):
 
     def _fix(self):
         v = self.val
-        if self.val == self.restart :
+        if self.val == self.restart:
             self.val = self.start
         else:
             self.val += self.step
