@@ -47,12 +47,16 @@ def _legacy_bpf_pointer(tcpdump_lines):
     """Get old-format BPF Pointer. Deprecated"""
     X86_64 = os.uname()[4] in ['x86_64', 'aarch64']
     size = int(tcpdump_lines[0])
-    bpf = ""
+    bpf = b""
     for l in tcpdump_lines[1:]:
-        bpf += struct.pack("HBBI", *map(long, l.split()))
+        if six.PY2:
+            int_type = long
+        else:
+            int_type = int
+        bpf += struct.pack("HBBI", *map(int_type, l.split()))
 
     # Thanks to http://www.netprojects.de/scapy-with-pypy-solved/ for the pypy trick
-    if conf.use_pypy and six.PY2:
+    if conf.use_pypy:
         str_buffer = ctypes.create_string_buffer(bpf)
         return struct.pack('HL', size, ctypes.addressof(str_buffer))
     else:
@@ -66,7 +70,7 @@ def _legacy_bpf_pointer(tcpdump_lines):
 
 def get_bpf_pointer(tcpdump_lines):
     """Create a BPF Pointer for TCPDump filter"""
-    if conf.use_pypy and six.PY2:
+    if conf.use_pypy:
         return _legacy_bpf_pointer(tcpdump_lines)
 
     # Allocate BPF instructions
