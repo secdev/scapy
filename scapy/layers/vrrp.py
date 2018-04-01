@@ -33,7 +33,7 @@ class VRRP(Packet):
         FieldListField("addrlist", [], IPField("", "0.0.0.0"),
                        count_from = lambda pkt: pkt.ipcount),
         IntField("auth1", 0),
-        IntField("auth2", 0) ]
+        IntField("auth2", 0)]
 
     def post_build(self, p, pay):
         if self.chksum is None:
@@ -89,6 +89,6 @@ class VRRPv3(Packet):
 # IPv6 is supported only on VRRPv3
 # Warning: those layers need to be un-binded in the CARP contrib module.
 # If you add/remove any, remember to also edit the one in CARP.py
-bind_layers( IP,            VRRP,          proto=IPPROTO_VRRP)
-bind_layers( IP,            VRRPv3,        proto=IPPROTO_VRRP)
-bind_layers( IPv6,          VRRPv3,        nh=IPPROTO_VRRP)
+bind_layers(IP,            VRRP,          proto=IPPROTO_VRRP)
+bind_layers(IP,            VRRPv3,        proto=IPPROTO_VRRP)
+bind_layers(IPv6,          VRRPv3,        nh=IPPROTO_VRRP)

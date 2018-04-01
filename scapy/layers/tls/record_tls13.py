@@ -32,9 +32,9 @@ from scapy.layers.tls.crypto.ciphers import CipherError
 
 class TLSInnerPlaintext(_GenericTLSSessionInheritance):
     name = "TLS Inner Plaintext"
-    fields_desc = [ _TLSMsgListField("msg", []),
+    fields_desc = [_TLSMsgListField("msg", []),
                     ByteEnumField("type", None, _tls_type),
-                    XStrField("pad", "") ]
+                    XStrField("pad", "")]
 
     def pre_dissect(self, s):
         """
@@ -89,11 +89,11 @@ class _TLSInnerPlaintextField(PacketField):
 class TLS13(_GenericTLSSessionInheritance):
     __slots__ = ["deciphered_len"]
     name = "TLS 1.3"
-    fields_desc = [ ByteEnumField("type", 0x17, _tls_type),
+    fields_desc = [ByteEnumField("type", 0x17, _tls_type),
                     _TLSVersionField("version", 0x0301, _tls_version),
                     _TLSLengthField("len", None),
                     _TLSInnerPlaintextField("inner", TLSInnerPlaintext()),
-                    _TLSMACField("auth_tag", None) ]
+                    _TLSMACField("auth_tag", None)]
 
     def __init__(self, *args, **kargs):
         self.deciphered_len = kargs.get("deciphered_len", None)

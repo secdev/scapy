@@ -29,11 +29,11 @@ from scapy.layers.tls.crypto.suites import (_tls_cipher_suites,
 ### Generic SSLv2 Handshake message                                         ###
 ###############################################################################
 
-_sslv2_handshake_type = { 0: "error",                1: "client_hello",
+_sslv2_handshake_type = {0: "error",                1: "client_hello",
                           2: "client_master_key",    3: "client_finished",
                           4: "server_hello",         5: "server_verify",
                           6: "server_finished",      7: "request_certificate",
-                          8: "client_certificate" }
+                          8: "client_certificate"}
 
 
 class _SSLv2Handshake(_GenericTLSSessionInheritance):
@@ -42,7 +42,7 @@ class _SSLv2Handshake(_GenericTLSSessionInheritance):
     Also used as a fallback for unknown TLS Handshake packets.
     """
     name = "SSLv2 Handshake Generic message"
-    fields_desc = [ ByteEnumField("msgtype", None, _sslv2_handshake_type) ]
+    fields_desc = [ByteEnumField("msgtype", None, _sslv2_handshake_type)]
 
     def guess_payload_class(self, p):
         return Padding
@@ -59,8 +59,8 @@ class _SSLv2Handshake(_GenericTLSSessionInheritance):
 ### Error                                                                   ###
 ###############################################################################
 
-_tls_error_code = { 1: "no_cipher",         2: "no_certificate",
-                    4: "bad_certificate",   6: "unsupported_certificate_type" }
+_tls_error_code = {1: "no_cipher",         2: "no_certificate",
+                    4: "bad_certificate",   6: "unsupported_certificate_type"}
 
 
 class SSLv2Error(_SSLv2Handshake):
@@ -68,8 +68,8 @@ class SSLv2Error(_SSLv2Handshake):
     SSLv2 Error.
     """
     name = "SSLv2 Handshake - Error"
-    fields_desc = [ ByteEnumField("msgtype", 0, _sslv2_handshake_type),
-                    ShortEnumField("code", None, _tls_error_code) ]
+    fields_desc = [ByteEnumField("msgtype", 0, _sslv2_handshake_type),
+                    ShortEnumField("code", None, _tls_error_code)]
 
 
 ###############################################################################
@@ -102,7 +102,7 @@ class SSLv2ClientHello(_SSLv2Handshake):
     SSLv2 ClientHello.
     """
     name = "SSLv2 Handshake - Client Hello"
-    fields_desc = [ ByteEnumField("msgtype", 1, _sslv2_handshake_type),
+    fields_desc = [ByteEnumField("msgtype", 1, _sslv2_handshake_type),
                     _TLSVersionField("version", 0x0002, _tls_version),
 
                     FieldLenField("cipherslen", None, fmt="!H",
@@ -119,7 +119,7 @@ class SSLv2ClientHello(_SSLv2Handshake):
                                       _tls_cipher_suites,
                                       length_from=lambda pkt: pkt.cipherslen),
                     XStrLenField("challenge", b"",
-                                 length_from=lambda pkt:pkt.challengelen) ]
+                                 length_from=lambda pkt:pkt.challengelen)]
 
     def tls_session_update(self, msg_str):
         super(SSLv2ClientHello, self).tls_session_update(msg_str)
@@ -159,7 +159,7 @@ class SSLv2ServerHello(_SSLv2Handshake):
     SSLv2 ServerHello.
     """
     name = "SSLv2 Handshake - Server Hello"
-    fields_desc = [ ByteEnumField("msgtype", 4, _sslv2_handshake_type),
+    fields_desc = [ByteEnumField("msgtype", 4, _sslv2_handshake_type),
 
                     ByteField("sid_hit", 0),
                     ByteEnumField("certtype", 1, {1: "x509_cert"}),
@@ -177,7 +177,7 @@ class SSLv2ServerHello(_SSLv2Handshake):
                     _SSLv2CipherSuitesField("ciphers", [], _tls_cipher_suites,
                                 length_from=lambda pkt: pkt.cipherslen),
                     XStrLenField("connection_id", b"",
-                                length_from=lambda pkt: pkt.connection_idlen) ]
+                                length_from=lambda pkt: pkt.connection_idlen)]
 
     def tls_session_update(self, msg_str):
         """
@@ -235,7 +235,7 @@ class SSLv2ClientMasterKey(_SSLv2Handshake):
     """
     __slots__ = ["decryptedkey"]
     name = "SSLv2 Handshake - Client Master Key"
-    fields_desc = [ ByteEnumField("msgtype", 2, _sslv2_handshake_type),
+    fields_desc = [ByteEnumField("msgtype", 2, _sslv2_handshake_type),
                     _SSLv2CipherSuiteField("cipher", None, _tls_cipher_suites),
 
                     FieldLenField("clearkeylen", None, fmt="!H",
@@ -250,7 +250,7 @@ class SSLv2ClientMasterKey(_SSLv2Handshake):
                     _SSLv2EncryptedKeyField("encryptedkey", "",
                                 length_from=lambda pkt: pkt.encryptedkeylen),
                     XStrLenField("keyarg", "",
-                                length_from=lambda pkt: pkt.keyarglen) ]
+                                length_from=lambda pkt: pkt.keyarglen)]
 
     def __init__(self, *args, **kargs):
         """
@@ -387,8 +387,8 @@ class SSLv2ServerVerify(_SSLv2Handshake):
     fed to the class. This is how SSLv2 defines the challenge length...
     """
     name = "SSLv2 Handshake - Server Verify"
-    fields_desc = [ ByteEnumField("msgtype", 5, _sslv2_handshake_type),
-                    XStrField("challenge", "") ]
+    fields_desc = [ByteEnumField("msgtype", 5, _sslv2_handshake_type),
+                    XStrField("challenge", "")]
 
     def build(self, *args, **kargs):
         fval = self.getfieldval("challenge")
@@ -414,9 +414,9 @@ class SSLv2RequestCertificate(_SSLv2Handshake):
     fed to the class. This is how SSLv2 defines the challenge length...
     """
     name = "SSLv2 Handshake - Request Certificate"
-    fields_desc = [ ByteEnumField("msgtype", 7, _sslv2_handshake_type),
+    fields_desc = [ByteEnumField("msgtype", 7, _sslv2_handshake_type),
                     ByteEnumField("authtype", 1, {1: "md5_with_rsa"}),
-                    XStrField("challenge", "") ]
+                    XStrField("challenge", "")]
 
     def tls_session_update(self, msg_str):
         super(SSLv2RequestCertificate, self).tls_session_update(msg_str)
@@ -432,7 +432,7 @@ class SSLv2ClientCertificate(_SSLv2Handshake):
     SSLv2 ClientCertificate.
     """
     name = "SSLv2 Handshake - Client Certificate"
-    fields_desc = [ ByteEnumField("msgtype", 8, _sslv2_handshake_type),
+    fields_desc = [ByteEnumField("msgtype", 8, _sslv2_handshake_type),
 
                     ByteEnumField("certtype", 1, {1: "x509_cert"}),
                     FieldLenField("certlen", None, fmt="!H",
@@ -443,7 +443,7 @@ class SSLv2ClientCertificate(_SSLv2Handshake):
                     _SSLv2CertDataField("certdata", b"",
                                       length_from=lambda pkt: pkt.certlen),
                     _TLSSignatureField("responsedata", None,
-                                length_from=lambda pkt: pkt.responselen) ]
+                                length_from=lambda pkt: pkt.responselen)]
 
     def build(self, *args, **kargs):
         s = self.tls_session
@@ -496,8 +496,8 @@ class SSLv2ClientFinished(_SSLv2Handshake):
     to the class. SSLv2 does not offer any other way to know the c_id length.
     """
     name = "SSLv2 Handshake - Client Finished"
-    fields_desc = [ ByteEnumField("msgtype", 3, _sslv2_handshake_type),
-                    XStrField("connection_id", "") ]
+    fields_desc = [ByteEnumField("msgtype", 3, _sslv2_handshake_type),
+                    XStrField("connection_id", "")]
 
     def build(self, *args, **kargs):
         fval = self.getfieldval("connection_id")
@@ -519,8 +519,8 @@ class SSLv2ServerFinished(_SSLv2Handshake):
     to the class. SSLv2 does not offer any other way to know the sid length.
     """
     name = "SSLv2 Handshake - Server Finished"
-    fields_desc = [ ByteEnumField("msgtype", 6, _sslv2_handshake_type),
-                    XStrField("sid", "") ]
+    fields_desc = [ByteEnumField("msgtype", 6, _sslv2_handshake_type),
+                    XStrField("sid", "")]
 
     def build(self, *args, **kargs):
         fval = self.getfieldval("sid")
@@ -537,9 +537,9 @@ class SSLv2ServerFinished(_SSLv2Handshake):
 ### All handshake messages defined in this module                           ###
 ###############################################################################
 
-_sslv2_handshake_cls = { 0: SSLv2Error,             1: SSLv2ClientHello,
+_sslv2_handshake_cls = {0: SSLv2Error,             1: SSLv2ClientHello,
                          2: SSLv2ClientMasterKey,   3: SSLv2ClientFinished,
                          4: SSLv2ServerHello,       5: SSLv2ServerVerify,
                          6: SSLv2ServerFinished,    7: SSLv2RequestCertificate,
-                         8: SSLv2ClientCertificate }
+                         8: SSLv2ClientCertificate}
 

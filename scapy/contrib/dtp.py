@@ -39,7 +39,7 @@ from scapy.sendrecv import sendp
 
 class DtpGenericTlv(Packet):
     name = "DTP Generic TLV"
-    fields_desc = [ XShortField("type", 0x0001),
+    fields_desc = [XShortField("type", 0x0001),
             FieldLenField("length", None, length_of=lambda pkt:pkt.value + 4),
             StrLenField("value", "", length_from=lambda pkt:pkt.length - 4)
             ]
@@ -57,7 +57,7 @@ class DtpGenericTlv(Packet):
 
 class DTPDomain(DtpGenericTlv):
     name = "DTP Domain"
-    fields_desc = [ ShortField("type", 1),
+    fields_desc = [ShortField("type", 1),
             FieldLenField("length", None, "domain", adjust=lambda pkt, x:x + 4),
             StrLenField("domain", b"\x00", length_from=lambda pkt:pkt.length - 4)
             ]
@@ -65,7 +65,7 @@ class DTPDomain(DtpGenericTlv):
 
 class DTPStatus(DtpGenericTlv):
     name = "DTP Status"
-    fields_desc = [ ShortField("type", 2),
+    fields_desc = [ShortField("type", 2),
             FieldLenField("length", None, "status", adjust=lambda pkt, x:x + 4),
             StrLenField("status", b"\x03", length_from=lambda pkt:pkt.length - 4)
             ]
@@ -73,7 +73,7 @@ class DTPStatus(DtpGenericTlv):
 
 class DTPType(DtpGenericTlv):
     name = "DTP Type"
-    fields_desc = [ ShortField("type", 3),
+    fields_desc = [ShortField("type", 3),
             FieldLenField("length", None, "dtptype", adjust=lambda pkt, x:x + 4),
             StrLenField("dtptype", b"\xa5", length_from=lambda pkt:pkt.length - 4)
             ]
@@ -81,7 +81,7 @@ class DTPType(DtpGenericTlv):
 
 class DTPNeighbor(DtpGenericTlv):
     name = "DTP Neighbor"
-    fields_desc = [ ShortField("type", 4),
+    fields_desc = [ShortField("type", 4),
             #FieldLenField("length", None, "neighbor", adjust=lambda pkt,x:x + 4),
             ShortField("len", 10),
             MACField("neighbor", None)

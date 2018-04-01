@@ -211,9 +211,9 @@ def hexdiff(x, y):
 
     for j in range(len(y)):
         for i in range(len(x)):
-            d[i, j] = min( ( d[i-1, j-1][0]+SUBST*(x[i] != y[j]), (i-1, j-1) ),
-                          ( d[i-1, j][0]+INSERT, (i-1, j) ),
-                          ( d[i, j-1][0]+INSERT, (i, j-1) ) )
+            d[i, j] = min((d[i-1, j-1][0]+SUBST*(x[i] != y[j]), (i-1, j-1)),
+                          (d[i-1, j][0]+INSERT, (i-1, j)),
+                          (d[i, j-1][0]+INSERT, (i, j-1)))
                           
     backtrackx = []
     backtracky = []
@@ -226,9 +226,9 @@ def hexdiff(x, y):
         i, j = i2, j2
 
     x = y = i = 0
-    colorize = { 0: lambda x: x,
+    colorize = {0: lambda x: x,
                 -1: conf.color_theme.left,
-                 1: conf.color_theme.right }
+                 1: conf.color_theme.right}
     
     dox=1
     doy=0
@@ -1602,7 +1602,7 @@ def whois(ip_address):
     s.close()
     ignore_tag = b"remarks:"
     # ignore all lines starting with the ignore_tag
-    lines = [ line for line in answer.split(b"\n") if not line or (line and not line.startswith(ignore_tag))]
+    lines = [line for line in answer.split(b"\n") if not line or (line and not line.startswith(ignore_tag))]
     # remove empty lines at the bottom
     for i in range(1, len(lines)):
         if not lines[-i].strip():

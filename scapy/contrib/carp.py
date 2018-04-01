@@ -26,7 +26,7 @@ from scapy.utils import checksum, inet_aton
 
 class CARP(Packet):
     name = "CARP"
-    fields_desc = [ BitField("version", 4, 4),
+    fields_desc = [BitField("version", 4, 4),
         BitField("type", 4, 4),
         ByteField("vhid", 1),
         ByteField("advskew", 0),
@@ -72,7 +72,7 @@ class CARP(Packet):
 
 warning("CARP overwrites VRRP !")
 # This cancel the bindings done in vrrp.py
-split_layers( IP,            VRRP,          proto=IPPROTO_VRRP)
-split_layers( IP,            VRRPv3,        proto=IPPROTO_VRRP)
+split_layers(IP,            VRRP,          proto=IPPROTO_VRRP)
+split_layers(IP,            VRRPv3,        proto=IPPROTO_VRRP)
 # CARP bindings
 bind_layers(IP, CARP, proto=112, dst='224.0.0.18')

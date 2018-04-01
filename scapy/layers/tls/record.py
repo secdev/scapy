@@ -258,14 +258,14 @@ class TLS(_GenericTLSSessionInheritance):
     """
     __slots__ = ["deciphered_len"]
     name = "TLS"
-    fields_desc = [ ByteEnumField("type", None, _tls_type),
+    fields_desc = [ByteEnumField("type", None, _tls_type),
                     _TLSVersionField("version", None, _tls_version),
                     _TLSLengthField("len", None),
                     _TLSIVField("iv", None),
                     _TLSMsgListField("msg", []),
                     _TLSMACField("mac", None),
                     _TLSPadField("pad", None),
-                    _TLSPadLenField("padlen", None) ]
+                    _TLSPadLenField("padlen", None)]
 
     def __init__(self, *args, **kargs):
         self.deciphered_len = kargs.get("deciphered_len", None)
@@ -679,7 +679,7 @@ class TLS(_GenericTLSSessionInheritance):
 ### TLS ChangeCipherSpec                                                    ###
 ###############################################################################
 
-_tls_changecipherspec_type = { 1: "change_cipher_spec" }
+_tls_changecipherspec_type = {1: "change_cipher_spec"}
 
 
 class TLSChangeCipherSpec(_GenericTLSSessionInheritance):
@@ -689,7 +689,7 @@ class TLSChangeCipherSpec(_GenericTLSSessionInheritance):
     Finished messages.
     """
     name = "TLS ChangeCipherSpec"
-    fields_desc = [ ByteEnumField("msgtype", 1, _tls_changecipherspec_type) ]
+    fields_desc = [ByteEnumField("msgtype", 1, _tls_changecipherspec_type)]
 
     def post_dissection_tls_session_update(self, msg_str):
         self.tls_session.triggered_prcs_commit = True
@@ -705,7 +705,7 @@ class TLSChangeCipherSpec(_GenericTLSSessionInheritance):
 ### TLS Alert                                                               ###
 ###############################################################################
 
-_tls_alert_level = { 1: "warning", 2: "fatal"}
+_tls_alert_level = {1: "warning", 2: "fatal"}
 
 _tls_alert_description = {
     0: "close_notify",                 10: "unexpected_message",
@@ -722,13 +722,13 @@ _tls_alert_description = {
     90: "user_canceled",              100: "no_renegotiation",
    110: "unsupported_extension",      111: "certificate_unobtainable",
    112: "unrecognized_name",          113: "bad_certificate_status_response",
-   114: "bad_certificate_hash_value", 115: "unknown_psk_identity" }
+   114: "bad_certificate_hash_value", 115: "unknown_psk_identity"}
 
 
 class TLSAlert(_GenericTLSSessionInheritance):
     name = "TLS Alert"
-    fields_desc = [ ByteEnumField("level", None, _tls_alert_level),
-                    ByteEnumField("descr", None, _tls_alert_description) ]
+    fields_desc = [ByteEnumField("level", None, _tls_alert_level),
+                    ByteEnumField("descr", None, _tls_alert_description)]
 
     def post_dissection_tls_session_update(self, msg_str):
         pass
@@ -743,7 +743,7 @@ class TLSAlert(_GenericTLSSessionInheritance):
 
 class TLSApplicationData(_GenericTLSSessionInheritance):
     name = "TLS Application Data"
-    fields_desc = [ StrField("data", "") ]
+    fields_desc = [StrField("data", "")]
 
     def post_dissection_tls_session_update(self, msg_str):
         pass

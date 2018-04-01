@@ -69,11 +69,11 @@ class SSLv2(TLS):
     """
     __slots__ = ["with_padding", "protected_record"]
     name = "SSLv2"
-    fields_desc = [ _SSLv2LengthField("len", None),
+    fields_desc = [_SSLv2LengthField("len", None),
                     _SSLv2PadLenField("padlen", None),
                     _TLSMACField("mac", b""),
                     _SSLv2MsgListField("msg", []),
-                    _SSLv2PadField("pad", "") ]
+                    _SSLv2PadField("pad", "")]
 
     def __init__(self, *args, **kargs):
         self.with_padding = kargs.get("with_padding", False)

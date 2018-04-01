@@ -169,7 +169,7 @@ class _CoAPOptsField(StrField):
         used = 0
         for o in opts:
             used += o[0]
-        return s[used:], [ (o[1], o[2]) for o in opts ]
+        return s[used:], [(o[1], o[2]) for o in opts]
 
     def m2i(self, pkt, x):
         opts = []

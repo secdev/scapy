@@ -109,7 +109,7 @@ def p0f_selectdb(flags):
     elif flags & 0x16 == 0x12:
         # SYN/ACK
         return p0fa_kdb
-    elif flags & 0x16 in [ 0x4, 0x14 ]:
+    elif flags & 0x16 in [0x4, 0x14]:
         # RST RST/ACK
         return p0fr_kdb
     elif flags & 0x16 == 0x10:

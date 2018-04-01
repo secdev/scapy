@@ -69,5 +69,5 @@ class VQPEntry(Packet):
 
 bind_layers(UDP,        VQP,            sport=1589)
 bind_layers(UDP,        VQP,            dport=1589)
-bind_layers(VQP,        VQPEntry,       )
-bind_layers(VQPEntry,   VQPEntry,       )
+bind_layers(VQP,        VQPEntry,)
+bind_layers(VQPEntry,   VQPEntry,)

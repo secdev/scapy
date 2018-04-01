@@ -354,7 +354,7 @@ class ISIS_UnreservedBandwidthSubTlv(ISIS_GenericSubTlv):
     name = "Unreserved Bandwidth SubTLV"
     fields_desc = [ByteEnumField("type", 11, _isis_subtlv_names_1),
                    FieldLenField("len", None, length_of="unrsvbw", fmt="B"),
-                   FieldListField("unrsvbw", [1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000], IEEEFloatField("", 1000), count_from= lambda pkt: pkt.len / 4 )] # in B/s
+                   FieldListField("unrsvbw", [1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000], IEEEFloatField("", 1000), count_from= lambda pkt: pkt.len / 4)] # in B/s
 
 
 class ISIS_TEDefaultMetricSubTlv(ISIS_GenericSubTlv):
@@ -652,7 +652,7 @@ class ISIS_P2PAdjacencyStateTlv(ISIS_GenericTlv):
     name = "ISIS P2P Adjacency State TLV"
     fields_desc = [ByteEnumField("type", 240, _isis_tlv_names),
                _AdjacencyStateTlvLenField("len", None, fmt="B"),
-               ByteEnumField("state", "Down", {0x2 : "Down", 0x1 : "Initialising", 0x0 : "Up"}),
+               ByteEnumField("state", "Down", {0x2: "Down", 0x1: "Initialising", 0x0: "Up"}),
                ConditionalField(IntField("extlocalcircuitid", None), lambda pkt: pkt.len >= 5),
                ConditionalField(ISIS_SystemIdField("neighboursystemid", None), lambda pkt: pkt.len >= 11),
                ConditionalField(IntField("neighbourextlocalcircuitid", None), lambda pkt: pkt.len == 15)]

@@ -25,10 +25,10 @@ import scapy.modules.six as six
 
 class NetflowHeader(Packet):
     name = "Netflow Header"
-    fields_desc = [ ShortField("version", 1) ]
+    fields_desc = [ShortField("version", 1)]
 
 
-bind_layers( UDP, NetflowHeader, dport=2055 )
+bind_layers(UDP, NetflowHeader, dport=2055)
 
 ###########################################
 ### Netflow Version 1
@@ -37,15 +37,15 @@ bind_layers( UDP, NetflowHeader, dport=2055 )
 
 class NetflowHeaderV1(Packet):
     name = "Netflow Header v1"
-    fields_desc = [ ShortField("count", 0),
+    fields_desc = [ShortField("count", 0),
                     IntField("sysUptime", 0),
                     UTCTimeField("unixSecs", 0),
-                    UTCTimeField("unixNanoSeconds", 0, use_nano=True) ]
+                    UTCTimeField("unixNanoSeconds", 0, use_nano=True)]
 
 
 class NetflowRecordV1(Packet):
     name = "Netflow Record v1"
-    fields_desc = [ IPField("ipsrc", "0.0.0.0"),
+    fields_desc = [IPField("ipsrc", "0.0.0.0"),
                     IPField("ipdst", "0.0.0.0"),
                     IPField("nexthop", "0.0.0.0"),
                     ShortField("inputIfIndex", 0),
@@ -60,12 +60,12 @@ class NetflowRecordV1(Packet):
                     ByteField("proto", 0),
                     ByteField("tos", 0),
                     IntField("padding1", 0),
-                    IntField("padding2", 0) ]
+                    IntField("padding2", 0)]
 
 
-bind_layers( NetflowHeader,   NetflowHeaderV1, version=1)
-bind_layers( NetflowHeaderV1, NetflowRecordV1 )
-bind_layers( NetflowRecordV1, NetflowRecordV1 )
+bind_layers(NetflowHeader,   NetflowHeaderV1, version=1)
+bind_layers(NetflowHeaderV1, NetflowRecordV1)
+bind_layers(NetflowRecordV1, NetflowRecordV1)
 
 
 #########################################
@@ -75,19 +75,19 @@ bind_layers( NetflowRecordV1, NetflowRecordV1 )
 
 class NetflowHeaderV5(Packet):
     name = "Netflow Header v5"
-    fields_desc = [ ShortField("count", 0),
+    fields_desc = [ShortField("count", 0),
                     IntField("sysUptime", 0),
                     UTCTimeField("unixSecs", 0),
                     UTCTimeField("unixNanoSeconds", 0, use_nano=True),
                     IntField("flowSequence", 0),
                     ByteField("engineType", 0),
                     ByteField("engineID", 0),
-                    ShortField("samplingInterval", 0) ]
+                    ShortField("samplingInterval", 0)]
 
 
 class NetflowRecordV5(Packet):
     name = "Netflow Record v5"
-    fields_desc = [ IPField("src", "127.0.0.1"),
+    fields_desc = [IPField("src", "127.0.0.1"),
                     IPField("dst", "127.0.0.1"),
                     IPField("nexthop", "0.0.0.0"),
                     ShortField("input", 0),
@@ -109,9 +109,9 @@ class NetflowRecordV5(Packet):
                     ShortField("pad2", 0)]
 
 
-bind_layers( NetflowHeader,   NetflowHeaderV5, version=5)
-bind_layers( NetflowHeaderV5, NetflowRecordV5 )
-bind_layers( NetflowRecordV5, NetflowRecordV5 )
+bind_layers(NetflowHeader,   NetflowHeaderV5, version=5)
+bind_layers(NetflowHeaderV5, NetflowRecordV5)
+bind_layers(NetflowRecordV5, NetflowRecordV5)
 
 #########################################
 ### Netflow Version 9
@@ -302,7 +302,7 @@ NetflowV9TemplateFieldDecoders = {  # Only contains fields that have a fixed len
         37: ShortField,  # FLOW_ACTIVE_TIMEOUT
         38: ByteField,  # ENGINE_TYPE
         39: ByteField,  # ENGINE_ID
-        46: (ByteEnumField, [{ 0x00: "UNKNOWN", 0x01: "TE-MIDPT", 0x02: "ATOM", 0x03: "VPN", 0x04: "BGP", 0x05: "LDP" }]),  # MPLS_TOP_LABEL_TYPE
+        46: (ByteEnumField, [{0x00: "UNKNOWN", 0x01: "TE-MIDPT", 0x02: "ATOM", 0x03: "VPN", 0x04: "BGP", 0x05: "LDP"}]),  # MPLS_TOP_LABEL_TYPE
         47: IPField,  # MPLS_TOP_LABEL_IP_ADDR
         48: ByteField,  # FLOW_SAMPLER_ID
         49: ByteField,  # FLOW_SAMPLER_MODE
@@ -313,7 +313,7 @@ NetflowV9TemplateFieldDecoders = {  # Only contains fields that have a fixed len
         58: ShortField,  # SRC_VLAN
         59: ShortField,  # DST_VLAN
         60: ByteField,  # IP_PROTOCOL_VERSION
-        61: (ByteEnumField, [{ 0x00: "Ingress flow", 0x01: "Egress flow" }]),  # DIRECTION
+        61: (ByteEnumField, [{0x00: "Ingress flow", 0x01: "Egress flow"}]),  # DIRECTION
         62: IP6Field,  # IPV6_NEXT_HOP
         63: IP6Field,  # BGP_IPV6_NEXT_HOP
     }
@@ -321,17 +321,17 @@ NetflowV9TemplateFieldDecoders = {  # Only contains fields that have a fixed len
 
 class NetflowHeaderV9(Packet):
     name = "Netflow Header V9"
-    fields_desc = [ ShortField("count", 0),
+    fields_desc = [ShortField("count", 0),
                     IntField("sysUptime", 0),
                     UTCTimeField("unixSecs", 0),
                     IntField("packageSequence", 0),
-                    IntField("SourceID", 0) ]
+                    IntField("SourceID", 0)]
 
 
 class NetflowTemplateFieldV9(Packet):
     name = "Netflow Flowset Template Field V9"
-    fields_desc = [ ShortEnumField("fieldType", None, NetflowV9TemplateFieldTypes),
-                    ShortField("fieldLength", 0) ]
+    fields_desc = [ShortEnumField("fieldType", None, NetflowV9TemplateFieldTypes),
+                    ShortField("fieldLength", 0)]
 
     def __init__(self, *args, **kwargs):
         Packet.__init__(self, *args, **kwargs)
@@ -344,10 +344,10 @@ class NetflowTemplateFieldV9(Packet):
 
 class NetflowTemplateV9(Packet):
     name = "Netflow Flowset Template V9"
-    fields_desc = [ ShortField("templateID", 255),
+    fields_desc = [ShortField("templateID", 255),
                     FieldLenField("fieldCount", None, count_of="template_fields"),
                     PacketListField("template_fields", [], NetflowTemplateFieldV9,
-                                    count_from = lambda pkt: pkt.fieldCount) ]
+                                    count_from = lambda pkt: pkt.fieldCount)]
 
     def default_payload_class(self, p):
         return conf.padding_layer
@@ -355,10 +355,10 @@ class NetflowTemplateV9(Packet):
 
 class NetflowFlowsetV9(Packet):
     name = "Netflow FlowSet V9"
-    fields_desc = [ ShortField("flowSetID", 0),
+    fields_desc = [ShortField("flowSetID", 0),
                     FieldLenField("length", None, length_of="templates", adjust=lambda pkt, x:x+4),
                     PacketListField("templates", [], NetflowTemplateV9,
-                                    length_from = lambda pkt: pkt.length-4) ]
+                                    length_from = lambda pkt: pkt.length-4)]
 
 
 class _CustomStrFixedLenField(StrFixedLenField):
@@ -383,7 +383,7 @@ def _GenNetflowRecordV9(cls, lengths_list):
 
 class NetflowRecordV9(Packet):
     name = "Netflow DataFlowset Record V9"
-    fields_desc = [ StrField("fieldValue", "") ]
+    fields_desc = [StrField("fieldValue", "")]
 
     def default_payload_class(self, p):
         return conf.padding_layer
@@ -391,11 +391,11 @@ class NetflowRecordV9(Packet):
 
 class NetflowDataflowsetV9(Packet):
     name = "Netflow DataFlowSet V9"
-    fields_desc = [ ShortField("templateID", 255),
+    fields_desc = [ShortField("templateID", 255),
                     FieldLenField("length", None, length_of="records", adjust = lambda pkt, x:x+4),
                     PadField(PacketListField("records", [], NetflowRecordV9,
                                     length_from = lambda pkt: pkt.length-4),
-                             4, padwith=b"\x00") ]
+                             4, padwith=b"\x00")]
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
@@ -498,8 +498,8 @@ class NetflowOptionsRecordOptionV9(NetflowRecordV9):
 
 class NetflowOptionsFlowsetOptionV9(Packet):
     name = "Netflow Options Template FlowSet V9 - Option"
-    fields_desc = [ ShortEnumField("optionFieldType", None, NetflowV9TemplateFieldTypes),
-                    ShortField("optionFieldlength", 0) ]
+    fields_desc = [ShortEnumField("optionFieldType", None, NetflowV9TemplateFieldTypes),
+                    ShortField("optionFieldlength", 0)]
 
     def default_payload_class(self, p):
         return conf.padding_layer
@@ -507,8 +507,8 @@ class NetflowOptionsFlowsetOptionV9(Packet):
 
 class NetflowOptionsFlowsetScopeV9(Packet):
     name = "Netflow Options Template FlowSet V9 - Scope"
-    fields_desc = [ ShortEnumField("scopeFieldType", None, ScopeFieldTypes),
-                    ShortField("scopeFieldlength", 0) ]
+    fields_desc = [ShortEnumField("scopeFieldType", None, ScopeFieldTypes),
+                    ShortField("scopeFieldlength", 0)]
 
     def default_payload_class(self, p):
         return conf.padding_layer
@@ -516,7 +516,7 @@ class NetflowOptionsFlowsetScopeV9(Packet):
 
 class NetflowOptionsFlowsetV9(Packet):
     name = "Netflow Options Template FlowSet V9"
-    fields_desc = [ ShortField("flowSetID", 1),
+    fields_desc = [ShortField("flowSetID", 1),
                     LenField("length", None),
                     ShortField("templateID", 255),
                     FieldLenField("option_scope_length", None, length_of="scopes"),
@@ -525,9 +525,9 @@ class NetflowOptionsFlowsetV9(Packet):
                                     length_from = lambda pkt: pkt.option_scope_length),
                     PadField(PacketListField("options", [], NetflowOptionsFlowsetOptionV9,
                                     length_from = lambda pkt: pkt.option_field_length),
-                             4, padwith=b"\x00") ]
+                             4, padwith=b"\x00")]
 
 
-bind_layers( NetflowHeader, NetflowHeaderV9, version=9 )
-bind_layers( NetflowHeaderV9, NetflowDataflowsetV9 )
-bind_layers( NetflowDataflowsetV9, NetflowDataflowsetV9 )
+bind_layers(NetflowHeader, NetflowHeaderV9, version=9)
+bind_layers(NetflowHeaderV9, NetflowDataflowsetV9)
+bind_layers(NetflowDataflowsetV9, NetflowDataflowsetV9)

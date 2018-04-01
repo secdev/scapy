@@ -826,7 +826,7 @@ class TLSClientAutomaton(_TLSAutomaton):
                    TLS_Ext_KeyShare_CH(client_shares=[KeyShareEntry(group=23)]),
                    TLS_Ext_SupportedVersions(versions=["TLS 1.3-d18"]),
                    TLS_Ext_SignatureAlgorithms(sig_algs=["sha256+rsapss",
-                                                         "sha256+rsa"]) ]
+                                                         "sha256+rsa"])]
             p = TLSClientHello(ciphers=0x1301, ext=ext)
         self.add_msg(p)
         raise self.TLS13_ADDED_CLIENTHELLO()

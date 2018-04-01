@@ -725,7 +725,7 @@ class PacketListField(PacketField):
         return 1
 
     def i2len(self, pkt, val):
-        return sum( len(p) for p in val )
+        return sum(len(p) for p in val)
 
     def do_copy(self, x):
         if x is None:
@@ -1102,7 +1102,7 @@ class BitField(Field):
         w = s[:nb_bytes]
 
         # split the substring byte by byte
-        _bytes = struct.unpack('!%dB' % nb_bytes , w)
+        _bytes = struct.unpack('!%dB' % nb_bytes, w)
 
         b = 0
         for c in range(nb_bytes):
@@ -1651,7 +1651,7 @@ class FixedPointField(BitField):
         if val is None:
             return val
         ival = int(val)
-        fract = int( (val-ival) * 2**self.frac_bits )
+        fract = int((val-ival) * 2**self.frac_bits)
         return (ival << self.frac_bits) | fract
 
     def i2h(self, pkt, val):

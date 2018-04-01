@@ -416,12 +416,12 @@ def in6_getRandomizedIfaceId(ifaceid, previous=None):
     return (s1, s2)
 
 
-_rfc1924map = [ '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E',
+_rfc1924map = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E',
                 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T',
                 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i',
                 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x',
                 'y', 'z', '!', '#', '$', '%', '&', '(', ')', '*', '+', '-', ';', '<', '=',
-                '>', '?', '@', '^', '_', '`', '{', '|', '}', '~' ]
+                '>', '?', '@', '^', '_', '`', '{', '|', '}', '~']
 
 
 def in6_ctop(addr):
@@ -541,7 +541,7 @@ def in6_isanycast(x): # RFC 2526
 def _in6_bitops(a1, a2, operator=0):
     a1 = struct.unpack('4I', a1)
     a2 = struct.unpack('4I', a2)
-    fop = [ lambda x, y: x | y,
+    fop = [lambda x, y: x | y,
             lambda x, y: x & y,
             lambda x, y: x ^ y
           ]

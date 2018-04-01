@@ -26,7 +26,7 @@ from scapy.layers.inet6 import *
 class RIPng(Packet):
     name = "RIPng header"
     fields_desc = [
-                    ByteEnumField("cmd", 1, {1 : "req", 2 : "resp"}),
+                    ByteEnumField("cmd", 1, {1: "req", 2: "resp"}),
                     ByteField("ver", 1),
                     ShortField("null", 0)
             ]
@@ -38,8 +38,8 @@ class RIPngEntry(Packet):
                     IP6Field("prefix_or_nh", "::"),
                     ShortField("routetag", 0),
                     ByteField("prefixlen", 0),
-                    ByteEnumField("metric", 1, {16 : "Unreach",
-                                                255 : "next-hop entry"})
+                    ByteEnumField("metric", 1, {16: "Unreach",
+                                                255: "next-hop entry"})
             ]
 
 

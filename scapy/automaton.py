@@ -834,9 +834,9 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                     self._run_condition(cond, *state_output)
     
                 # If still there and no conditions left, we are stuck!
-                if ( len(self.recv_conditions[self.state.state]) == 0 and
+                if (len(self.recv_conditions[self.state.state]) == 0 and
                      len(self.ioevents[self.state.state]) == 0 and
-                     len(self.timeout[self.state.state]) == 1 ):
+                     len(self.timeout[self.state.state]) == 1):
                     raise self.Stuck("stuck in [%s]" % self.state.state,
                                      state=self.state.state, result=state_output)
     

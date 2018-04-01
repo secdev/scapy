@@ -333,7 +333,7 @@ def sendpfast(x, pps=None, mbps=None, realtime=None, loop=0, file_cache=False, i
     iface: output interface """
     if iface is None:
         iface = conf.iface
-    argv = [conf.prog.tcpreplay, "--intf1=%s" % iface ]
+    argv = [conf.prog.tcpreplay, "--intf1=%s" % iface]
     if pps is not None:
         argv.append("--pps=%i" % pps)
     elif mbps is not None:
