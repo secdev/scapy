@@ -59,12 +59,12 @@ class TLSServerAutomaton(_TLSAutomaton):
     """
 
     def parse_args(self, server="127.0.0.1", sport=4433,
-                         mycert=None, mykey=None,
-                         preferred_ciphersuite=None,
-                         client_auth=False,
-                         is_echo_server=True,
-                         max_client_idle_time=60,
-                         **kargs):
+                   mycert=None, mykey=None,
+                   preferred_ciphersuite=None,
+                   client_auth=False,
+                   is_echo_server=True,
+                   max_client_idle_time=60,
+                   **kargs):
 
         super(TLSServerAutomaton, self).parse_args(mycert=mycert,
                                                    mykey=mykey,

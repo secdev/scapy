@@ -174,7 +174,7 @@ class _TLSAutomaton(Automaton):
         if get_next_msg:
             self.get_next_msg()
         if (not self.buffer_in or
-            not isinstance(self.buffer_in[0], pkt_cls)):
+                not isinstance(self.buffer_in[0], pkt_cls)):
             return
         self.cur_pkt = self.buffer_in[0]
         self.buffer_in = self.buffer_in[1:]

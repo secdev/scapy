@@ -38,49 +38,49 @@ class PrismHeader(Packet):
     """ iwpriv wlan0 monitor 3 """
     name = "Prism header"
     fields_desc = [LEIntField("msgcode", 68),
-                    LEIntField("len", 144),
-                    StrFixedLenField("dev", "", 16),
-                    LEIntField("hosttime_did", 0),
-                  LEShortField("hosttime_status", 0),
-                  LEShortField("hosttime_len", 0),
-                    LEIntField("hosttime", 0),
-                    LEIntField("mactime_did", 0),
-                  LEShortField("mactime_status", 0),
-                  LEShortField("mactime_len", 0),
-                    LEIntField("mactime", 0),
-                    LEIntField("channel_did", 0),
-                  LEShortField("channel_status", 0),
-                  LEShortField("channel_len", 0),
-                    LEIntField("channel", 0),
-                    LEIntField("rssi_did", 0),
-                  LEShortField("rssi_status", 0),
-                  LEShortField("rssi_len", 0),
-                    LEIntField("rssi", 0),
-                    LEIntField("sq_did", 0),
-                  LEShortField("sq_status", 0),
-                  LEShortField("sq_len", 0),
-                    LEIntField("sq", 0),
-                    LEIntField("signal_did", 0),
-                  LEShortField("signal_status", 0),
-                  LEShortField("signal_len", 0),
-              LESignedIntField("signal", 0),
-                    LEIntField("noise_did", 0),
-                  LEShortField("noise_status", 0),
-                  LEShortField("noise_len", 0),
-                    LEIntField("noise", 0),
-                    LEIntField("rate_did", 0),
-                  LEShortField("rate_status", 0),
-                  LEShortField("rate_len", 0),
-                    LEIntField("rate", 0),
-                    LEIntField("istx_did", 0),
-                  LEShortField("istx_status", 0),
-                  LEShortField("istx_len", 0),
-                    LEIntField("istx", 0),
-                    LEIntField("frmlen_did", 0),
-                  LEShortField("frmlen_status", 0),
-                  LEShortField("frmlen_len", 0),
-                    LEIntField("frmlen", 0),
-                    ]
+                   LEIntField("len", 144),
+                   StrFixedLenField("dev", "", 16),
+                   LEIntField("hosttime_did", 0),
+                   LEShortField("hosttime_status", 0),
+                   LEShortField("hosttime_len", 0),
+                   LEIntField("hosttime", 0),
+                   LEIntField("mactime_did", 0),
+                   LEShortField("mactime_status", 0),
+                   LEShortField("mactime_len", 0),
+                   LEIntField("mactime", 0),
+                   LEIntField("channel_did", 0),
+                   LEShortField("channel_status", 0),
+                   LEShortField("channel_len", 0),
+                   LEIntField("channel", 0),
+                   LEIntField("rssi_did", 0),
+                   LEShortField("rssi_status", 0),
+                   LEShortField("rssi_len", 0),
+                   LEIntField("rssi", 0),
+                   LEIntField("sq_did", 0),
+                   LEShortField("sq_status", 0),
+                   LEShortField("sq_len", 0),
+                   LEIntField("sq", 0),
+                   LEIntField("signal_did", 0),
+                   LEShortField("signal_status", 0),
+                   LEShortField("signal_len", 0),
+                   LESignedIntField("signal", 0),
+                   LEIntField("noise_did", 0),
+                   LEShortField("noise_status", 0),
+                   LEShortField("noise_len", 0),
+                   LEIntField("noise", 0),
+                   LEIntField("rate_did", 0),
+                   LEShortField("rate_status", 0),
+                   LEShortField("rate_len", 0),
+                   LEIntField("rate", 0),
+                   LEIntField("istx_did", 0),
+                   LEShortField("istx_status", 0),
+                   LEShortField("istx_len", 0),
+                   LEIntField("istx", 0),
+                   LEIntField("frmlen_did", 0),
+                   LEShortField("frmlen_status", 0),
+                   LEShortField("frmlen_len", 0),
+                   LEIntField("frmlen", 0),
+                   ]
 
     def answers(self, other):
         if isinstance(other, PrismHeader):
@@ -92,24 +92,24 @@ class PrismHeader(Packet):
 class RadioTap(Packet):
     name = "RadioTap dummy"
     fields_desc = [ByteField('version', 0),
-                    ByteField('pad', 0),
-                    FieldLenField('len', None, 'notdecoded', '<H', adjust=lambda pkt, x:x+8),
-                    FlagsField('present', None, -32, ['TSFT', 'Flags', 'Rate', 'Channel', 'FHSS', 'dBm_AntSignal',
+                   ByteField('pad', 0),
+                   FieldLenField('len', None, 'notdecoded', '<H', adjust=lambda pkt, x:x+8),
+                   FlagsField('present', None, -32, ['TSFT', 'Flags', 'Rate', 'Channel', 'FHSS', 'dBm_AntSignal',
                                                      'dBm_AntNoise', 'Lock_Quality', 'TX_Attenuation', 'dB_TX_Attenuation',
-                                                      'dBm_TX_Power', 'Antenna', 'dB_AntSignal', 'dB_AntNoise',
+                                                     'dBm_TX_Power', 'Antenna', 'dB_AntSignal', 'dB_AntNoise',
                                                      'b14', 'b15', 'b16', 'b17', 'b18', 'b19', 'b20', 'b21', 'b22', 'b23',
                                                      'b24', 'b25', 'b26', 'b27', 'b28', 'b29', 'b30', 'Ext']),
-                    StrLenField('notdecoded', "", length_from= lambda pkt:pkt.len-8)]
+                   StrLenField('notdecoded', "", length_from= lambda pkt:pkt.len-8)]
 
 
 class PPI(Packet):
     name = "Per-Packet Information header (partial)"
     fields_desc = [ByteField("version", 0),
-                    ByteField("flags", 0),
-                    FieldLenField("len", None, fmt="<H", length_of="notdecoded", adjust=lambda pkt, x:x+8),
-                    LEIntField("dlt", 0),
-                    StrLenField("notdecoded", "", length_from = lambda pkt:pkt.len-8)
-                    ]
+                   ByteField("flags", 0),
+                   FieldLenField("len", None, fmt="<H", length_of="notdecoded", adjust=lambda pkt, x:x+8),
+                   LEIntField("dlt", 0),
+                   StrLenField("notdecoded", "", length_from = lambda pkt:pkt.len-8)
+                   ]
 
 
 class Dot11(Packet):
@@ -187,10 +187,10 @@ class Dot11(Packet):
 class Dot11QoS(Packet):
     name = "802.11 QoS"
     fields_desc = [BitField("Reserved", None, 1),
-                    BitField("Ack_Policy", None, 2),
-                    BitField("EOSP", None, 1),
-                    BitField("TID", None, 4),
-                    ByteField("TXOP", None)]
+                   BitField("Ack_Policy", None, 2),
+                   BitField("EOSP", None, 1),
+                   BitField("TID", None, 4),
+                   ByteField("TXOP", None)]
 
     def guess_payload_class(self, payload):
         if isinstance(self.underlayer, Dot11):
@@ -200,7 +200,7 @@ class Dot11QoS(Packet):
 
 
 capability_list = ["res8", "res9", "short-slot", "res11",
-                    "res12", "DSSS-OFDM", "res14", "res15",
+                   "res12", "DSSS-OFDM", "res14", "res15",
                    "ESS", "IBSS", "CFP", "CFP-req",
                    "privacy", "short-preamble", "PBCC", "agility"]
 
@@ -219,16 +219,16 @@ status_code = {0: "success", 1: "failure", 10: "cannot-support-all-cap",
 class Dot11Beacon(Packet):
     name = "802.11 Beacon"
     fields_desc = [LELongField("timestamp", 0),
-                    LEShortField("beacon_interval", 0x0064),
-                    FlagsField("cap", 0, 16, capability_list)]
+                   LEShortField("beacon_interval", 0x0064),
+                   FlagsField("cap", 0, 16, capability_list)]
     
 
 class Dot11Elt(Packet):
     name = "802.11 Information Element"
     fields_desc = [ByteEnumField("ID", 0, {0: "SSID", 1: "Rates", 2: "FHset", 3: "DSset", 4: "CFset", 5: "TIM", 6: "IBSSset", 16: "challenge",
-                                            42: "ERPinfo", 46: "QoS Capability", 47: "ERPinfo", 48: "RSNinfo", 50: "ESRates", 221: "vendor", 68: "reserved"}),
-                    FieldLenField("len", None, "info", "B"),
-                    StrLenField("info", "", length_from=lambda x: x.len)]
+                                           42: "ERPinfo", 46: "QoS Capability", 47: "ERPinfo", 48: "RSNinfo", 50: "ESRates", 221: "vendor", 68: "reserved"}),
+                   FieldLenField("len", None, "info", "B"),
+                   StrLenField("info", "", length_from=lambda x: x.len)]
 
     def mysummary(self):
         if self.ID == 0:
@@ -252,21 +252,21 @@ class Dot11Disas(Packet):
 class Dot11AssoReq(Packet):
     name = "802.11 Association Request"
     fields_desc = [FlagsField("cap", 0, 16, capability_list),
-                    LEShortField("listen_interval", 0x00c8)]
+                   LEShortField("listen_interval", 0x00c8)]
 
 
 class Dot11AssoResp(Packet):
     name = "802.11 Association Response"
     fields_desc = [FlagsField("cap", 0, 16, capability_list),
-                    LEShortField("status", 0),
-                    LEShortField("AID", 0)]
+                   LEShortField("status", 0),
+                   LEShortField("AID", 0)]
 
 
 class Dot11ReassoReq(Packet):
     name = "802.11 Reassociation Request"
     fields_desc = [FlagsField("cap", 0, 16, capability_list),
-                    LEShortField("listen_interval", 0x00c8),
-                    MACField("current_AP", ETHER_ANY)]
+                   LEShortField("listen_interval", 0x00c8),
+                   MACField("current_AP", ETHER_ANY)]
 
 
 class Dot11ReassoResp(Dot11AssoResp):
@@ -280,15 +280,15 @@ class Dot11ProbeReq(Packet):
 class Dot11ProbeResp(Packet):
     name = "802.11 Probe Response"
     fields_desc = [LELongField("timestamp", 0),
-                    LEShortField("beacon_interval", 0x0064),
-                    FlagsField("cap", 0, 16, capability_list)]
+                   LEShortField("beacon_interval", 0x0064),
+                   FlagsField("cap", 0, 16, capability_list)]
     
 
 class Dot11Auth(Packet):
     name = "802.11 Authentication"
     fields_desc = [LEShortEnumField("algo", 0, ["open", "sharedkey"]),
-                    LEShortField("seqnum", 0),
-                    LEShortEnumField("status", 0, status_code)]
+                   LEShortField("seqnum", 0),
+                   LEShortEnumField("status", 0, status_code)]
 
     def answers(self, other):
         if self.seqnum == other.seqnum+1:
@@ -304,9 +304,9 @@ class Dot11Deauth(Packet):
 class Dot11WEP(Packet):
     name = "802.11 WEP packet"
     fields_desc = [StrFixedLenField("iv", b"\0\0\0", 3),
-                    ByteField("keyid", 0),
-                    StrField("wepdata", None, remain=4),
-                    IntField("icv", None)]
+                   ByteField("keyid", 0),
+                   StrField("wepdata", None, remain=4),
+                   IntField("icv", None)]
 
     @crypto_validator
     def decrypt(self, key=None):
@@ -416,7 +416,7 @@ iwconfig wlan0 mode managed
     filter = None
     
     def parse_options(self, iffrom=conf.iface, ifto=conf.iface, replace="",
-                            pattern="", ignorepattern=""):
+                      pattern="", ignorepattern=""):
         self.iffrom = iffrom
         self.ifto = ifto
         self.ptrn = re.compile(pattern.encode())

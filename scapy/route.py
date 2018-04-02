@@ -39,14 +39,14 @@ class Route:
         rtlst = []
         for net, msk, gw, iface, addr, metric in self.routes:
             rtlst.append((ltoa(net),
-                      ltoa(msk),
-                      gw,
-                      (iface.name if not isinstance(iface, six.string_types) else iface),
-                      addr,
-                      str(metric)))
+                          ltoa(msk),
+                          gw,
+                          (iface.name if not isinstance(iface, six.string_types) else iface),
+                          addr,
+                          str(metric)))
 
         return pretty_list(rtlst,
-                             [("Network", "Netmask", "Gateway", "Iface", "Output IP", "Metric")])
+                           [("Network", "Netmask", "Gateway", "Iface", "Output IP", "Metric")])
 
     def make_route(self, host=None, net=None, gw=None, dev=None, metric=1):
         from scapy.arch import get_if_addr

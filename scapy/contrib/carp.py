@@ -27,21 +27,21 @@ from scapy.utils import checksum, inet_aton
 class CARP(Packet):
     name = "CARP"
     fields_desc = [BitField("version", 4, 4),
-        BitField("type", 4, 4),
-        ByteField("vhid", 1),
-        ByteField("advskew", 0),
-        ByteField("authlen", 0),
-        ByteField("demotion", 0),
-        ByteField("advbase", 0),
-        XShortField("chksum", None),
-        XIntField("counter1", 0),
-        XIntField("counter2", 0),
-        XIntField("hmac1", 0),
-        XIntField("hmac2", 0),
-        XIntField("hmac3", 0),
-        XIntField("hmac4", 0),
-        XIntField("hmac5", 0)
-    ]
+                   BitField("type", 4, 4),
+                   ByteField("vhid", 1),
+                   ByteField("advskew", 0),
+                   ByteField("authlen", 0),
+                   ByteField("demotion", 0),
+                   ByteField("advbase", 0),
+                   XShortField("chksum", None),
+                   XIntField("counter1", 0),
+                   XIntField("counter2", 0),
+                   XIntField("hmac1", 0),
+                   XIntField("hmac2", 0),
+                   XIntField("hmac3", 0),
+                   XIntField("hmac4", 0),
+                   XIntField("hmac5", 0)
+                   ]
 
     def post_build(self, pkt, pay):
         if self.chksum == None:

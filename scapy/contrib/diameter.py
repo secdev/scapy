@@ -466,7 +466,7 @@ class AVP_VL_NV (AVP_Generic):
         IntField("avpCode", None),
         AVPFlags("avpFlags", None, 8, AVP_Flags_List),
         I3FieldLenField("avpLen", None, length_of="val",
-            adjust=lambda pkt, x:x + 8)
+                        adjust=lambda pkt, x:x + 8)
     ]
 
 
@@ -476,7 +476,7 @@ class AVP_VL_V (AVP_Generic):
         IntField("avpCode", None),
         AVPFlags("avpFlags", None, 8, AVP_Flags_List),
         I3FieldLenField("avpLen", None, length_of="val",
-            adjust=lambda pkt, x:x + 12),
+                        adjust=lambda pkt, x:x + 12),
         AVPVendor("avpVnd", 0)
     ]
 
@@ -488,10 +488,10 @@ class AVP_Unknown (AVP_Generic):
         IntField("avpCode", None),
         AVPFlags("avpFlags", None, 8, AVP_Flags_List),
         I3FieldLenField("avpLen", None, length_of="val",
-            adjust=lambda pkt, x:x + 8 + ((pkt.avpFlags & 0x80) >> 5)),
+                        adjust=lambda pkt, x:x + 8 + ((pkt.avpFlags & 0x80) >> 5)),
         ConditionalField(AVPVendor("avpVnd", 0), lambda pkt:pkt.avpFlags & 0x80),
         StrLenField("val", None,
-            length_from=lambda pkt:pkt.avpLen - 8 - ((pkt.avpFlags & 0x80) >> 5))
+                    length_from=lambda pkt:pkt.avpLen - 8 - ((pkt.avpFlags & 0x80) >> 5))
     ]
 
 
@@ -530,7 +530,7 @@ class AVPV_Grouped (AVP_VL_V):
     fields_desc = [
         AVP_VL_V,
         PacketListField('val', [], GuessAvpType,
-            length_from=lambda pkt:pkt.avpLen - 12)
+                        length_from=lambda pkt:pkt.avpLen - 12)
     ]
 
 
@@ -538,7 +538,7 @@ class AVPNV_Grouped (AVP_VL_NV):
     fields_desc = [
         AVP_VL_NV,
         PacketListField('val', [], GuessAvpType,
-            length_from=lambda pkt:pkt.avpLen - 8)]
+                        length_from=lambda pkt:pkt.avpLen - 8)]
 
 
 class AVPV_Unsigned32 (AVP_FL_V):
@@ -875,27 +875,27 @@ class AVP_0_6 (AVP_FL_NV):
     fields_desc = [
         AVP_FL_NV,
         Enumerated('val', None,
-            {
-                0: "Unknown",
-                1: "Login",
-                2: "Framed",
-                3: "Callback-Login",
-                4: "Callback-Framed",
-                5: "Outbound",
-                6: "Administrative",
-                7: "NAS-Prompt",
-                8: "Authenticate-Only",
-                9: "Callback-NAS-Prompt",
-                10: "Call Check",
-                11: "Callback Administrative",
-                12: "Voice",
-                13: "Fax",
-                14: "Modem Relay",
-                15: "IAPP-Register",
-                16: "IAPP-AP-Check",
-                17: "Authorize Only",
-                18: "Framed-Management",
-            })]
+                   {
+                       0: "Unknown",
+                       1: "Login",
+                       2: "Framed",
+                       3: "Callback-Login",
+                       4: "Callback-Framed",
+                       5: "Outbound",
+                       6: "Administrative",
+                       7: "NAS-Prompt",
+                       8: "Authenticate-Only",
+                       9: "Callback-NAS-Prompt",
+                       10: "Call Check",
+                       11: "Callback Administrative",
+                       12: "Voice",
+                       13: "Fax",
+                       14: "Modem Relay",
+                       15: "IAPP-Register",
+                       16: "IAPP-AP-Check",
+                       17: "Authorize Only",
+                       18: "Framed-Management",
+                   })]
 
 
 class AVP_0_7 (AVP_FL_NV):
@@ -904,22 +904,22 @@ class AVP_0_7 (AVP_FL_NV):
     fields_desc = [
         AVP_FL_NV,
         Enumerated('val', None,
-            {
-                1: "PPP",
-                2: "SLIP",
-                3: "ARAP",
-                4: "Gandalf",
-                5: "Xylogics",
-                6: "X.75",
-                7: "GPRS PDP Context",
-                255: "Ascend-ARA",
-                256: "MPP",
-                257: "EURAW",
-                258: "EUUI",
-                259: "X25",
-                260: "COMB",
-                261: "FR",
-            })]
+                   {
+                       1: "PPP",
+                       2: "SLIP",
+                       3: "ARAP",
+                       4: "Gandalf",
+                       5: "Xylogics",
+                       6: "X.75",
+                       7: "GPRS PDP Context",
+                       255: "Ascend-ARA",
+                       256: "MPP",
+                       257: "EURAW",
+                       258: "EUUI",
+                       259: "X25",
+                       260: "COMB",
+                       261: "FR",
+                   })]
 
 
 class AVP_0_10 (AVP_FL_NV):
@@ -928,12 +928,12 @@ class AVP_0_10 (AVP_FL_NV):
     fields_desc = [
         AVP_FL_NV,
         Enumerated('val', None,
-            {
-                0: "None",
-                1: "Send routing packets",
-                2: "Listen for routing packets",
-                3: "Send and Listen    ",
-            })]
+                   {
+                       0: "None",
+                       1: "Send routing packets",
+                       2: "Listen for routing packets",
+                       3: "Send and Listen    ",
+                   })]
 
 
 class AVP_0_13 (AVP_FL_NV):
@@ -942,7 +942,7 @@ class AVP_0_13 (AVP_FL_NV):
     fields_desc = [
         AVP_FL_NV,
         Enumerated('val', None, 
-            {0: "None", 2: "IPX header compression", 3: "Stac-LZS compression", })
+                   {0: "None", 2: "IPX header compression", 3: "Stac-LZS compression", })
     ]
 
 
@@ -952,25 +952,25 @@ class AVP_0_15 (AVP_FL_NV):
     fields_desc = [
         AVP_FL_NV,
         Enumerated('val', None,
-            {
-                0: "Telnet",
-                1: "Rlogin",
-                2: "TCP-Clear",
-                3: "PortMaster",
-                4: "LAT",
-                5: "X25-PAD",
-                6: "X25-T3POS",
-                7: "Unassigned",
-            })]
+                   {
+                       0: "Telnet",
+                       1: "Rlogin",
+                       2: "TCP-Clear",
+                       3: "PortMaster",
+                       4: "LAT",
+                       5: "X25-PAD",
+                       6: "X25-T3POS",
+                       7: "Unassigned",
+                   })]
 
 
 class AVP_0_45 (AVP_FL_NV):
     name = 'Acct-Authentic'
     avpLen = 12
     fields_desc = [
-            AVP_FL_NV,
-            Enumerated('val', None, 
-                {0: "None", 1: "RADIUS", 2: "Local", 3: "Remote", 4: "Diameter", })]
+        AVP_FL_NV,
+        Enumerated('val', None, 
+                   {0: "None", 1: "RADIUS", 2: "Local", 3: "Remote", 4: "Diameter", })]
 
 
 class AVP_0_61 (AVP_FL_NV):
@@ -979,43 +979,43 @@ class AVP_0_61 (AVP_FL_NV):
     fields_desc = [
         AVP_FL_NV,
         Enumerated('val', None,
-            {
-                0: "Async",
-                1: "Sync",
-                2: "ISDN-Sync",
-                3: "ISDN-Async-v120",
-                4: "ISDN-Async-v110",
-                5: "Virtual",
-                6: "PIAFS",
-                7: "HDLC-Clear-Channel",
-                8: "X25",
-                9: "X75",
-                10: "G.3 Fax",
-                11: "SDSL - Symmetric DSL",
-                14: "IDSL - ISDN Digital Subscriber Line",
-                15: "Ethernet",
-                16: "xDSL - Digital Subscriber Line of unknown type",
-                17: "Cable",
-                18: "Wireless - Other",
-                19: "Wireless - IEEE 802.11",
-                20: "Token-Ring",
-                21: "FDDI",
-                22: "Wireless - CDMA2000",
-                23: "Wireless - UMTS",
-                24: "Wireless - 1X-EV",
-                25: "IAPP",
-                26: "FTTP - Fiber to the Premises",
-                27: "Wireless - IEEE 802.16",
-                28: "Wireless - IEEE 802.20",
-                29: "Wireless - IEEE 802.22",
-                30: "PPPoA - PPP over ATM",
-                31: "PPPoEoA - PPP over Ethernet over ATM",
-                32: "PPPoEoE - PPP over Ethernet over Ethernet",
-                33: "PPPoEoVLAN - PPP over Ethernet over VLAN",
-                34: "PPPoEoQinQ - PPP over Ethernet over IEEE 802.1QinQ",
-                35: "xPON - Passive Optical Network",
-                36: "Wireless - XGP",
-            })]
+                   {
+                       0: "Async",
+                       1: "Sync",
+                       2: "ISDN-Sync",
+                       3: "ISDN-Async-v120",
+                       4: "ISDN-Async-v110",
+                       5: "Virtual",
+                       6: "PIAFS",
+                       7: "HDLC-Clear-Channel",
+                       8: "X25",
+                       9: "X75",
+                       10: "G.3 Fax",
+                       11: "SDSL - Symmetric DSL",
+                       14: "IDSL - ISDN Digital Subscriber Line",
+                       15: "Ethernet",
+                       16: "xDSL - Digital Subscriber Line of unknown type",
+                       17: "Cable",
+                       18: "Wireless - Other",
+                       19: "Wireless - IEEE 802.11",
+                       20: "Token-Ring",
+                       21: "FDDI",
+                       22: "Wireless - CDMA2000",
+                       23: "Wireless - UMTS",
+                       24: "Wireless - 1X-EV",
+                       25: "IAPP",
+                       26: "FTTP - Fiber to the Premises",
+                       27: "Wireless - IEEE 802.16",
+                       28: "Wireless - IEEE 802.20",
+                       29: "Wireless - IEEE 802.22",
+                       30: "PPPoA - PPP over ATM",
+                       31: "PPPoEoA - PPP over Ethernet over ATM",
+                       32: "PPPoEoE - PPP over Ethernet over Ethernet",
+                       33: "PPPoEoVLAN - PPP over Ethernet over VLAN",
+                       34: "PPPoEoQinQ - PPP over Ethernet over IEEE 802.1QinQ",
+                       35: "xPON - Passive Optical Network",
+                       36: "Wireless - XGP",
+                   })]
 
 
 class AVP_0_64 (AVP_FL_NV):
@@ -1024,21 +1024,21 @@ class AVP_0_64 (AVP_FL_NV):
     fields_desc = [
         AVP_FL_NV,
         Enumerated('val', None,
-            {
-                1: "PPTP",
-                2: "L2F",
-                3: "L2TP",
-                4: "ATMP",
-                5: "VTP",
-                6: "AH",
-                7: "IP-IP-Encap",
-                8: "MIN-IP-IP",
-                9: "ESP",
-                10: "GRE",
-                11: "DVS",
-                12: "IP-in-IP Tunneling",
-                13: "VLAN",
-            })]
+                   {
+                       1: "PPTP",
+                       2: "L2F",
+                       3: "L2TP",
+                       4: "ATMP",
+                       5: "VTP",
+                       6: "AH",
+                       7: "IP-IP-Encap",
+                       8: "MIN-IP-IP",
+                       9: "ESP",
+                       10: "GRE",
+                       11: "DVS",
+                       12: "IP-in-IP Tunneling",
+                       13: "VLAN",
+                   })]
 
 
 class AVP_0_65 (AVP_FL_NV):
@@ -1047,23 +1047,23 @@ class AVP_0_65 (AVP_FL_NV):
     fields_desc = [
         AVP_FL_NV,
         Enumerated('val', None,
-            {
-                1: "IPv4",
-                2: "IPv6",
-                3: "NSAP",
-                4: "HDLC",
-                5: "BBN",
-                6: "IEEE-802",
-                7: "E-163",
-                8: "E-164",
-                9: "F-69",
-                10: "X-121",
-                11: "IPX",
-                12: "Appletalk-802",
-                13: "Decnet4",
-                14: "Vines",
-                15: "E-164-NSAP",
-            })]
+                   {
+                       1: "IPv4",
+                       2: "IPv6",
+                       3: "NSAP",
+                       4: "HDLC",
+                       5: "BBN",
+                       6: "IEEE-802",
+                       7: "E-163",
+                       8: "E-164",
+                       9: "F-69",
+                       10: "X-121",
+                       11: "IPX",
+                       12: "Appletalk-802",
+                       13: "Decnet4",
+                       14: "Vines",
+                       15: "E-164-NSAP",
+                   })]
 
 
 class AVP_0_72 (AVP_FL_NV):
@@ -1072,11 +1072,11 @@ class AVP_0_72 (AVP_FL_NV):
     fields_desc = [
         AVP_FL_NV,
         Enumerated('val', None,
-            {
-                1: "Only allow access to default zone",
-                2: "Use zone filter inclusively",
-                3: "Use zone filter exclusively",
-            })]
+                   {
+                       1: "Only allow access to default zone",
+                       2: "Use zone filter inclusively",
+                       3: "Use zone filter exclusively",
+                   })]
 
 
 class AVP_0_76 (AVP_FL_NV):
@@ -1094,15 +1094,15 @@ class AVP_0_261 (AVP_FL_NV):
     fields_desc = [
         AVP_FL_NV,
         Enumerated('val', None,
-            {
-                0: "Don't Care",
-                1: "All Session",
-                2: "All Realm",
-                3: "Realm and Application",
-                4: "All Application",
-                5: "All Host",
-                6: "ALL_USER",
-            })]
+                   {
+                       0: "Don't Care",
+                       1: "All Session",
+                       2: "All Realm",
+                       3: "Realm and Application",
+                       4: "All Application",
+                       5: "All Host",
+                       6: "ALL_USER",
+                   })]
 
 
 class AVP_0_271 (AVP_FL_NV):
@@ -1111,7 +1111,7 @@ class AVP_0_271 (AVP_FL_NV):
     fields_desc = [
         AVP_FL_NV,
         Enumerated('val', None, 
-            {0: "REFUSE_SERVICE", 1: "TRY_AGAIN", 2: "ALLOW_SERVICE", 3: "TRY_AGAIN_ALLOW_SERVICE", })]
+                   {0: "REFUSE_SERVICE", 1: "TRY_AGAIN", 2: "ALLOW_SERVICE", 3: "TRY_AGAIN_ALLOW_SERVICE", })]
 
 
 class AVP_0_273 (AVP_FL_NV):
@@ -1125,7 +1125,7 @@ class AVP_0_274 (AVP_FL_NV):
     avpLen = 12
     fields_desc = [
         AVP_FL_NV, Enumerated('val', None, {
-                1: "AUTHENTICATE_ONLY", 2: "AUTHORIZE_ONLY", 3: "AUTHORIZE_AUTHENTICATE", })]
+            1: "AUTHENTICATE_ONLY", 2: "AUTHORIZE_ONLY", 3: "AUTHORIZE_AUTHENTICATE", })]
 
 
 class AVP_0_277 (AVP_FL_NV):
@@ -1226,7 +1226,7 @@ class AVP_0_387 (AVP_FL_NV):
     avpLen = 12
     fields_desc = [
         AVP_FL_NV, Enumerated('val', None, {
-                0: "REGISTRATION", 1: "DEREGISTRATION", 2: "REGISTRATION_AND_CAPABILITIES", })]
+            0: "REGISTRATION", 1: "DEREGISTRATION", 2: "REGISTRATION_AND_CAPABILITIES", })]
 
 
 class AVP_0_392 (AVP_FL_NV):
@@ -1234,7 +1234,7 @@ class AVP_0_392 (AVP_FL_NV):
     avpLen = 12
     fields_desc = [
         AVP_FL_NV, Enumerated('val', None, {
-                0: "USER_DATA_NOT_AVAILABLE", 1: "USER_DATA_ALREADY_AVAILABLE", })]
+            0: "USER_DATA_NOT_AVAILABLE", 1: "USER_DATA_ALREADY_AVAILABLE", })]
 
 
 class AVP_0_403 (AVP_FL_NV):
@@ -1249,7 +1249,7 @@ class AVP_0_406 (AVP_FL_NV):
     avpLen = 12
     fields_desc = [
         AVP_FL_NV, Enumerated('val', None, {
-                1: "PAP", 2: "CHAP", 3: "MS-CHAP-1", 4: "MS-CHAP-2", 5: "EAP", 6: "Undefined", 7: "None", })]
+            1: "PAP", 2: "CHAP", 3: "MS-CHAP-1", 4: "MS-CHAP-2", 5: "EAP", 6: "Undefined", 7: "None", })]
 
 
 class AVP_0_416 (AVP_FL_NV):
@@ -1257,7 +1257,7 @@ class AVP_0_416 (AVP_FL_NV):
     avpLen = 12
     fields_desc = [
         AVP_FL_NV, Enumerated('val', None, {
-                1: "INITIAL_REQUEST", 2: "UPDATE_REQUEST", 3: "TERMINATION_REQUEST", 4: "EVENT_REQUEST", })]
+            1: "INITIAL_REQUEST", 2: "UPDATE_REQUEST", 3: "TERMINATION_REQUEST", 4: "EVENT_REQUEST", })]
 
 
 class AVP_0_418 (AVP_FL_NV):
@@ -1284,7 +1284,7 @@ class AVP_0_427 (AVP_FL_NV):
     avpLen = 12
     fields_desc = [
         AVP_FL_NV, Enumerated('val', None, {
-                0: "TERMINATE", 1: "CONTINUE", 2: "RETRY_AND_TERMINATE", })]
+            0: "TERMINATE", 1: "CONTINUE", 2: "RETRY_AND_TERMINATE", })]
 
 
 class AVP_0_428 (AVP_FL_NV):
@@ -1305,7 +1305,7 @@ class AVP_0_436 (AVP_FL_NV):
     avpLen = 12
     fields_desc = [
         AVP_FL_NV, Enumerated('val', None, {
-                0: "DIRECT_DEBITING", 1: "REFUND_ACCOUNT", 2: "CHECK_BALANCE", 3: "PRICE_ENQUIRY", })]
+            0: "DIRECT_DEBITING", 1: "REFUND_ACCOUNT", 2: "CHECK_BALANCE", 3: "PRICE_ENQUIRY", })]
 
 
 class AVP_0_449 (AVP_FL_NV):
@@ -1336,7 +1336,7 @@ class AVP_0_452 (AVP_FL_NV):
     avpLen = 12
     fields_desc = [
         AVP_FL_NV, Enumerated('val', None, {
-                0: "UNIT_BEFORE_TARIFF_CHANGE", 1: "UNIT_AFTER_TARIFF_CHANGE", 2: "UNIT_INDETERMINATE", })]
+            0: "UNIT_BEFORE_TARIFF_CHANGE", 1: "UNIT_AFTER_TARIFF_CHANGE", 2: "UNIT_INDETERMINATE", })]
 
 
 class AVP_0_454 (AVP_FL_NV):
@@ -1362,7 +1362,7 @@ class AVP_0_455 (AVP_FL_NV):
     avpLen = 12
     fields_desc = [
         AVP_FL_NV, Enumerated('val', None, {
-                0: "MULTIPLE_SERVICES_NOT_SUPPORTED", 1: "MULTIPLE_SERVICES_SUPPORTED", })]
+            0: "MULTIPLE_SERVICES_NOT_SUPPORTED", 1: "MULTIPLE_SERVICES_SUPPORTED", })]
 
 
 class AVP_0_459 (AVP_FL_NV):
@@ -1370,7 +1370,7 @@ class AVP_0_459 (AVP_FL_NV):
     avpLen = 12
     fields_desc = [
         AVP_FL_NV, Enumerated('val', None, {
-                0: "IMEISV", 1: "MAC", 2: "EUI64", 3: "MODIFIED_EUI64", })]
+            0: "IMEISV", 1: "MAC", 2: "EUI64", 3: "MODIFIED_EUI64", })]
 
 
 class AVP_0_480 (AVP_FL_NV):
@@ -1378,7 +1378,7 @@ class AVP_0_480 (AVP_FL_NV):
     avpLen = 12
     fields_desc = [
         AVP_FL_NV, Enumerated('val', None, {
-                1: "Event Record", 2: "Start Record", 3: "Interim Record", 4: "Stop Record", })]
+            1: "Event Record", 2: "Start Record", 3: "Interim Record", 4: "Stop Record", })]
 
 
 class AVP_0_483 (AVP_FL_NV):
@@ -1386,7 +1386,7 @@ class AVP_0_483 (AVP_FL_NV):
     avpLen = 12
     fields_desc = [
         AVP_FL_NV, Enumerated('val', None, {
-                0: "Reserved", 1: "DELIVER_AND_GRANT", 2: "GRANT_AND_STORE", 3: "GRANT_AND_LOSE", })]
+            0: "Reserved", 1: "DELIVER_AND_GRANT", 2: "GRANT_AND_STORE", 3: "GRANT_AND_LOSE", })]
 
 
 class AVP_0_494 (AVP_FL_NV):
@@ -1401,7 +1401,7 @@ class AVP_0_513 (AVP_FL_NV):
     avpLen = 12
     fields_desc = [
         AVP_FL_NV, Enumerated('val', None, {
-                1: "ICMP", 2: "IGMP", 4: "IPv4", 6: "TCP", 17: "UDP", 132: "SCTP", })]
+            1: "ICMP", 2: "IGMP", 4: "IPv4", 6: "TCP", 17: "UDP", 132: "SCTP", })]
 
 
 class AVP_0_514 (AVP_FL_NV):
@@ -1587,12 +1587,12 @@ class AVP_10415_500 (AVP_FL_V):
     name = 'Abort-Cause'
     avpLen = 16
     fields_desc = [AVP_FL_V,
-                  Enumerated('val',
-                             None,
-                             {0: "BEARER_RELEASED",
-                              1: "INSUFFICIENT_SERVER_RESOURCES",
-                              2: "INSUFFICIENT_BEARER_RESOURCES",
-                              })]
+                   Enumerated('val',
+                              None,
+                              {0: "BEARER_RELEASED",
+                               1: "INSUFFICIENT_SERVER_RESOURCES",
+                               2: "INSUFFICIENT_BEARER_RESOURCES",
+                               })]
 
 
 class AVP_10415_511 (AVP_FL_V):
@@ -1600,7 +1600,7 @@ class AVP_10415_511 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-                0: "ENABLED-UPLINK", 1: "ENABLED-DOWNLINK", 2: "ENABLED", 3: "DISABLED", 4: "REMOVED", })]
+            0: "ENABLED-UPLINK", 1: "ENABLED-DOWNLINK", 2: "ENABLED", 3: "DISABLED", 4: "REMOVED", })]
 
 
 class AVP_10415_512 (AVP_FL_V):
@@ -1636,17 +1636,17 @@ class AVP_10415_520 (AVP_FL_V):
     name = 'Media-Type'
     avpLen = 16
     fields_desc = [AVP_FL_V,
-                  Enumerated('val',
-                             None,
-                             {0: "AUDIO",
-                              1: "VIDEO",
-                              2: "DATA",
-                              3: "APPLICATION",
-                              4: "CONTROL",
-                              5: "TEXT",
-                              6: "MESSAGE",
-                              4294967295: "OTHER",
-                              })]
+                   Enumerated('val',
+                              None,
+                              {0: "AUDIO",
+                               1: "VIDEO",
+                               2: "DATA",
+                               3: "APPLICATION",
+                               4: "CONTROL",
+                               5: "TEXT",
+                               6: "MESSAGE",
+                               4294967295: "OTHER",
+                               })]
 
 
 class AVP_10415_523 (AVP_FL_V):
@@ -1654,7 +1654,7 @@ class AVP_10415_523 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-                0: "SINGLE_DIALOGUE", 1: "SEVERAL_DIALOGUES", })]
+            0: "SINGLE_DIALOGUE", 1: "SEVERAL_DIALOGUES", })]
 
 
 class AVP_10415_527 (AVP_FL_V):
@@ -1662,7 +1662,7 @@ class AVP_10415_527 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-                0: "FINAL_SERVICE_INFORMATION", 1: "PRELIMINARY_SERVICE_INFORMATION", })]
+            0: "FINAL_SERVICE_INFORMATION", 1: "PRELIMINARY_SERVICE_INFORMATION", })]
 
 
 class AVP_10415_529 (AVP_FL_V):
@@ -1729,7 +1729,7 @@ class AVP_10415_623 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-                0: "REGISTRATION", 1: "DE_REGISTRATION", 2: "REGISTRATION_AND_CAPABILITIES", })]
+            0: "REGISTRATION", 1: "DE_REGISTRATION", 2: "REGISTRATION_AND_CAPABILITIES", })]
 
 
 class AVP_10415_624 (AVP_FL_V):
@@ -1737,7 +1737,7 @@ class AVP_10415_624 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-                0: "USER_DATA_NOT_AVAILABLE", 1: "USER_DATA_ALREADY_AVAILABLE", })]
+            0: "USER_DATA_NOT_AVAILABLE", 1: "USER_DATA_ALREADY_AVAILABLE", })]
 
 
 class AVP_10415_633 (AVP_FL_V):
@@ -1758,7 +1758,7 @@ class AVP_10415_648 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-                0: "NOT_MULTIPLE_REGISTRATION", 1: "MULTIPLE_REGISTRATION", })]
+            0: "NOT_MULTIPLE_REGISTRATION", 1: "MULTIPLE_REGISTRATION", })]
 
 
 class AVP_10415_650 (AVP_FL_V):
@@ -1766,7 +1766,7 @@ class AVP_10415_650 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-                0: "PRIORITY-0", 1: "PRIORITY-1", 2: "PRIORITY-2", 3: "PRIORITY-3", 4: "PRIORITY-4", })]
+            0: "PRIORITY-0", 1: "PRIORITY-1", 2: "PRIORITY-2", 3: "PRIORITY-3", 4: "PRIORITY-4", })]
 
 
 class AVP_10415_652 (AVP_FL_V):
@@ -1774,7 +1774,7 @@ class AVP_10415_652 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-                0: "NOT_PRIVILEDGED_SENDER", 1: "PRIVILEDGED_SENDER", })]
+            0: "NOT_PRIVILEDGED_SENDER", 1: "PRIVILEDGED_SENDER", })]
 
 
 class AVP_10415_703 (AVP_FL_V):
@@ -1840,7 +1840,7 @@ class AVP_10415_707 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-                0: "DoNotNeedInitiateActiveLocationRetrieval", 1: "InitiateActiveLocationRetrieval", })]
+            0: "DoNotNeedInitiateActiveLocationRetrieval", 1: "InitiateActiveLocationRetrieval", })]
 
 
 class AVP_10415_708 (AVP_FL_V):
@@ -1890,7 +1890,7 @@ class AVP_10415_718 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-                0: "ONLY_LOCAL_TIME_ZONE_REQUESTED", 1: "LOCAL_TIME_ZONE_WITH_LOCATION_INFO_REQUESTED", })]
+            0: "ONLY_LOCAL_TIME_ZONE_REQUESTED", 1: "LOCAL_TIME_ZONE_WITH_LOCATION_INFO_REQUESTED", })]
 
 
 class AVP_10415_829 (AVP_FL_V):
@@ -1944,46 +1944,46 @@ class AVP_10415_870 (AVP_FL_V):
     name = 'Trigger-Type'
     avpLen = 16
     fields_desc = [AVP_FL_V,
-        Enumerated('val',
-                   None,
-                   {1: "CHANGE_IN_SGSN_IP_ADDRESS ",
-                    2: "CHANGE_IN_QOS",
-                    3: "CHANGE_IN_LOCATION",
-                    4: "CHANGE_IN_RAT",
-                    5: "CHANGE_IN_UE_TIMEZONE",
-                    10: "CHANGEINQOS_TRAFFIC_CLASS",
-                    11: "CHANGEINQOS_RELIABILITY_CLASS",
-                    12: "CHANGEINQOS_DELAY_CLASS",
-                    13: "CHANGEINQOS_PEAK_THROUGHPUT",
-                    14: "CHANGEINQOS_PRECEDENCE_CLASS",
-                    15: "CHANGEINQOS_MEAN_THROUGHPUT",
-                    16: "CHANGEINQOS_MAXIMUM_BIT_RATE_FOR_UPLINK",
-                    17: "CHANGEINQOS_MAXIMUM_BIT_RATE_FOR_DOWNLINK",
-                    18: "CHANGEINQOS_RESIDUAL_BER",
-                    19: "CHANGEINQOS_SDU_ERROR_RATIO",
-                    20: "CHANGEINQOS_TRANSFER_DELAY",
-                    21: "CHANGEINQOS_TRAFFIC_HANDLING_PRIORITY",
-                    22: "CHANGEINQOS_GUARANTEED_BIT_RATE_FOR_UPLINK",
-                    23: "CHANGEINQOS_GUARANTEED_BIT_RATE_FOR_DOWNLINK",
-                    24: "CHANGEINQOS_APN_AGGREGATE_MAXIMUM_BIT_RATE",
-                    30: "CHANGEINLOCATION_MCC",
-                    31: "CHANGEINLOCATION_MNC",
-                    32: "CHANGEINLOCATION_RAC",
-                    33: "CHANGEINLOCATION_LAC",
-                    34: "CHANGEINLOCATION_CellId",
-                    35: "CHANGEINLOCATION_TAC",
-                    36: "CHANGEINLOCATION_ECGI",
-                    40: "CHANGE_IN_MEDIA_COMPOSITION",
-                    50: "CHANGE_IN_PARTICIPANTS_NMB",
-                    51: "CHANGE_IN_ THRSHLD_OF_PARTICIPANTS_NMB",
-                    52: "CHANGE_IN_USER_PARTICIPATING_TYPE",
-                    60: "CHANGE_IN_SERVICE_CONDITION",
-                    61: "CHANGE_IN_SERVING_NODE",
-                    70: "CHANGE_IN_USER_CSG_INFORMATION",
-                    71: "CHANGE_IN_HYBRID_SUBSCRIBED_USER_CSG_INFORMATION",
-                    72: "CHANGE_IN_HYBRID_UNSUBSCRIBED_USER_CSG_INFORMATION",
-                    73: "CHANGE_OF_UE_PRESENCE_IN_PRESENCE_REPORTING_AREA",
-                    })]
+                   Enumerated('val',
+                              None,
+                              {1: "CHANGE_IN_SGSN_IP_ADDRESS ",
+                               2: "CHANGE_IN_QOS",
+                               3: "CHANGE_IN_LOCATION",
+                               4: "CHANGE_IN_RAT",
+                               5: "CHANGE_IN_UE_TIMEZONE",
+                               10: "CHANGEINQOS_TRAFFIC_CLASS",
+                               11: "CHANGEINQOS_RELIABILITY_CLASS",
+                               12: "CHANGEINQOS_DELAY_CLASS",
+                               13: "CHANGEINQOS_PEAK_THROUGHPUT",
+                               14: "CHANGEINQOS_PRECEDENCE_CLASS",
+                               15: "CHANGEINQOS_MEAN_THROUGHPUT",
+                               16: "CHANGEINQOS_MAXIMUM_BIT_RATE_FOR_UPLINK",
+                               17: "CHANGEINQOS_MAXIMUM_BIT_RATE_FOR_DOWNLINK",
+                               18: "CHANGEINQOS_RESIDUAL_BER",
+                               19: "CHANGEINQOS_SDU_ERROR_RATIO",
+                               20: "CHANGEINQOS_TRANSFER_DELAY",
+                               21: "CHANGEINQOS_TRAFFIC_HANDLING_PRIORITY",
+                               22: "CHANGEINQOS_GUARANTEED_BIT_RATE_FOR_UPLINK",
+                               23: "CHANGEINQOS_GUARANTEED_BIT_RATE_FOR_DOWNLINK",
+                               24: "CHANGEINQOS_APN_AGGREGATE_MAXIMUM_BIT_RATE",
+                               30: "CHANGEINLOCATION_MCC",
+                               31: "CHANGEINLOCATION_MNC",
+                               32: "CHANGEINLOCATION_RAC",
+                               33: "CHANGEINLOCATION_LAC",
+                               34: "CHANGEINLOCATION_CellId",
+                               35: "CHANGEINLOCATION_TAC",
+                               36: "CHANGEINLOCATION_ECGI",
+                               40: "CHANGE_IN_MEDIA_COMPOSITION",
+                               50: "CHANGE_IN_PARTICIPANTS_NMB",
+                               51: "CHANGE_IN_ THRSHLD_OF_PARTICIPANTS_NMB",
+                               52: "CHANGE_IN_USER_PARTICIPATING_TYPE",
+                               60: "CHANGE_IN_SERVICE_CONDITION",
+                               61: "CHANGE_IN_SERVING_NODE",
+                               70: "CHANGE_IN_USER_CSG_INFORMATION",
+                               71: "CHANGE_IN_HYBRID_SUBSCRIBED_USER_CSG_INFORMATION",
+                               72: "CHANGE_IN_HYBRID_UNSUBSCRIBED_USER_CSG_INFORMATION",
+                               73: "CHANGE_OF_UE_PRESENCE_IN_PRESENCE_REPORTING_AREA",
+                               })]
 
 
 class AVP_10415_872 (AVP_FL_V):
@@ -2178,7 +2178,7 @@ class AVP_10415_1011 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-                0: "SERVICE_IDENTIFIER_LEVEL", 1: "RATING_GROUP_LEVEL", 2: "SPONSORED_CONNECTIVITY_LEVEL", })]
+            0: "SERVICE_IDENTIFIER_LEVEL", 1: "RATING_GROUP_LEVEL", 2: "SPONSORED_CONNECTIVITY_LEVEL", })]
 
 
 class AVP_10415_1015 (AVP_FL_V):
@@ -2217,16 +2217,16 @@ class AVP_10415_1027 (AVP_FL_V):
     name = 'IP-CAN-Type'
     avpLen = 16
     fields_desc = [AVP_FL_V,
-                                                     Enumerated('val',
-                                                                None,
-                                                                {0: "3GPP-GPRS",
-                                                                 1: "DOCSIS",
-                                                                 2: "xDSL",
-                                                                 3: "WiMAX",
-                                                                 4: "3GPP2",
-                                                                 5: "3GPP-EPS",
-                                                                 6: "Non-3GPP-EPS",
-                                                                 })]
+                   Enumerated('val',
+                              None,
+                              {0: "3GPP-GPRS",
+                               1: "DOCSIS",
+                               2: "xDSL",
+                               3: "WiMAX",
+                               4: "3GPP2",
+                               5: "3GPP-EPS",
+                               6: "Non-3GPP-EPS",
+                               })]
 
 
 class AVP_10415_1028 (AVP_FL_V):
@@ -2254,20 +2254,20 @@ class AVP_10415_1032 (AVP_FL_V):
     name = 'RAT-Type'
     avpLen = 16
     fields_desc = [AVP_FL_V,
-                  Enumerated('val',
-                             None,
-                             {0: "WLAN",
-                              1: "VIRTUAL",
-                              1000: "UTRAN",
-                              1001: "GERAN",
-                              1002: "GAN",
-                              1003: "HSPA_EVOLUTION",
-                              1004: "EUTRAN",
-                              2000: "CDMA2000_1X",
-                              2001: "HRPD",
-                              2002: "UMB",
-                              2003: "EHRPD",
-                              })]
+                   Enumerated('val',
+                              None,
+                              {0: "WLAN",
+                               1: "VIRTUAL",
+                               1000: "UTRAN",
+                               1001: "GERAN",
+                               1002: "GAN",
+                               1003: "HSPA_EVOLUTION",
+                               1004: "EUTRAN",
+                               2000: "CDMA2000_1X",
+                               2001: "HRPD",
+                               2002: "UMB",
+                               2003: "EHRPD",
+                               })]
 
 
 class AVP_10415_1045 (AVP_FL_V):
@@ -2275,7 +2275,7 @@ class AVP_10415_1045 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-                0: "UNSPECIFIED_REASON", 1: "UE_SUBSCRIPTION_REASON", 2: "INSUFFICIENT_SERVER_RESOURCES", })]
+            0: "UNSPECIFIED_REASON", 1: "UE_SUBSCRIPTION_REASON", 2: "INSUFFICIENT_SERVER_RESOURCES", })]
 
 
 class AVP_10415_1047 (AVP_FL_V):
@@ -2283,7 +2283,7 @@ class AVP_10415_1047 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-                0: "PRE-EMPTION_CAPABILITY_ENABLED", 1: "PRE-EMPTION_CAPABILITY_DISABLED", })]
+            0: "PRE-EMPTION_CAPABILITY_ENABLED", 1: "PRE-EMPTION_CAPABILITY_DISABLED", })]
 
 
 class AVP_10415_1048 (AVP_FL_V):
@@ -2291,7 +2291,7 @@ class AVP_10415_1048 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-                0: "PRE-EMPTION_VULNERABILITY_ENABLED", 1: "PRE-EMPTION_VULNERABILITY_DISABLED", })]
+            0: "PRE-EMPTION_VULNERABILITY_ENABLED", 1: "PRE-EMPTION_VULNERABILITY_DISABLED", })]
 
 
 class AVP_10415_1062 (AVP_FL_V):
@@ -2299,7 +2299,7 @@ class AVP_10415_1062 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-                0: "DELETION", 1: "ADDITION", 2: "MODIFICATION", })]
+            0: "DELETION", 1: "ADDITION", 2: "MODIFICATION", })]
 
 
 class AVP_10415_1063 (AVP_FL_V):
@@ -2396,7 +2396,7 @@ class AVP_10415_1209 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-                0: "Low", 1: "Normal", 2: "High", })]
+            0: "Low", 1: "Normal", 2: "High", })]
 
 
 class AVP_10415_1211 (AVP_FL_V):
@@ -2485,7 +2485,7 @@ class AVP_10415_1224 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-                0: "Forwarding not pending", 1: "Forwarding pending", 2: "NOT_SUPPORTED", })]
+            0: "Forwarding not pending", 1: "Forwarding pending", 2: "NOT_SUPPORTED", })]
 
 
 class AVP_10415_1225 (AVP_FL_V):
@@ -2514,7 +2514,7 @@ class AVP_10415_1254 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-                1: "Moderator", 2: "Dispatcher", 3: "Session-Owner", 4: "Session-Participant", })]
+            1: "Moderator", 2: "Dispatcher", 3: "Session-Owner", 4: "Session-Participant", })]
 
 
 class AVP_10415_1259 (AVP_FL_V):
@@ -2585,7 +2585,7 @@ class AVP_10415_1279 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-                0: "Normal", 1: "NW PoC Box", 2: "UE PoC Box", })]
+            0: "Normal", 1: "NW PoC Box", 2: "UE PoC Box", })]
 
 
 class AVP_10415_1417 (AVP_FL_V):
@@ -2712,14 +2712,14 @@ class AVP_10415_1482 (AVP_FL_V):
     name = 'PLMN-Client'
     avpLen = 16
     fields_desc = [AVP_FL_V,
-                  Enumerated('val',
-                             None,
-                             {0: "BROADCAST_SERVICE",
-                              1: "O_AND_M_HPLMN",
-                              2: "O_AND_M_VPLMN",
-                              3: "ANONYMOUS_LOCATION",
-                              4: "TARGET_UE_SUBSCRIBED_SERVICE",
-                              })]
+                   Enumerated('val',
+                              None,
+                              {0: "BROADCAST_SERVICE",
+                               1: "O_AND_M_HPLMN",
+                               2: "O_AND_M_VPLMN",
+                               3: "ANONYMOUS_LOCATION",
+                               4: "TARGET_UE_SUBSCRIBED_SERVICE",
+                               })]
 
 
 class AVP_10415_1491 (AVP_FL_V):
@@ -2763,7 +2763,7 @@ class AVP_10415_1501 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-                0: "NON_3GPP_SUBSCRIPTION_ALLOWED", 1: "NON_3GPP_SUBSCRIPTION_BARRED", })]
+            0: "NON_3GPP_SUBSCRIPTION_ALLOWED", 1: "NON_3GPP_SUBSCRIPTION_BARRED", })]
 
 
 class AVP_10415_1502 (AVP_FL_V):
@@ -2846,14 +2846,14 @@ class AVP_10415_1623 (AVP_FL_V):
     name = 'Job-Type'
     avpLen = 16
     fields_desc = [AVP_FL_V,
-    Enumerated('val',
-               None,
-               {0: "Immediate-MDT-only",
-                1: "Logged-MDT-only",
-                2: "Trace-only",
-                3: "Immediate-MDT-and-Trace",
-                4: "RLF-reports-only",
-                })]
+                   Enumerated('val',
+                              None,
+                              {0: "Immediate-MDT-only",
+                               1: "Logged-MDT-only",
+                               2: "Trace-only",
+                               3: "Immediate-MDT-and-Trace",
+                               4: "RLF-reports-only",
+                               })]
 
 
 class AVP_10415_1627 (AVP_FL_V):
@@ -2901,7 +2901,7 @@ class AVP_10415_1628 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-                0: "1", 1: "2", 2: "4", 3: "8", 4: "16", 5: "32", 6: "64", 7: "infinity", })]
+            0: "1", 1: "2", 2: "4", 3: "8", 4: "16", 5: "32", 6: "64", 7: "infinity", })]
 
 
 class AVP_10415_1631 (AVP_FL_V):
@@ -2929,7 +2929,7 @@ class AVP_10415_1632 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-                0: "600_sec", 1: "1200_sec", 2: "2400_sec", 3: "3600_sec", 4: "5400_sec", 5: "7200_sec", })]
+            0: "600_sec", 1: "1200_sec", 2: "2400_sec", 3: "3600_sec", 4: "5400_sec", 5: "7200_sec", })]
 
 
 class AVP_10415_1633 (AVP_FL_V):
@@ -2957,7 +2957,7 @@ class AVP_10415_1648 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-                0: "SMS_REGISTRATION_REQUIRED", 1: "SMS_REGISTRATION_NOT_PREFERRED", 2: "NO_PREFERENCE", })]
+            0: "SMS_REGISTRATION_REQUIRED", 1: "SMS_REGISTRATION_NOT_PREFERRED", 2: "NO_PREFERENCE", })]
 
 
 class AVP_10415_1650 (AVP_FL_V):
@@ -2965,7 +2965,7 @@ class AVP_10415_1650 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-                0: "NO_ADJUSTMENT", 1: "PLUS_ONE_HOUR_ADJUSTMENT", 2: "PLUS_TWO_HOURS_ADJUSTMENT", })]
+            0: "NO_ADJUSTMENT", 1: "PLUS_ONE_HOUR_ADJUSTMENT", 2: "PLUS_TWO_HOURS_ADJUSTMENT", })]
 
 
 class AVP_10415_2006 (AVP_FL_V):
@@ -3003,7 +3003,7 @@ class AVP_10415_2016 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-                0: "SMS Router", 1: "IP-SM-GW", 2: "SMS Router and IP-SM-GW", 3: "SMS-SC", })]
+            0: "SMS Router", 1: "IP-SM-GW", 2: "SMS Router and IP-SM-GW", 3: "SMS-SC", })]
 
 
 class AVP_10415_2025 (AVP_FL_V):
@@ -3065,7 +3065,7 @@ class AVP_10415_2047 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-                0: "SGSN", 1: "PMIPSGW", 2: "GTPSGW", 3: "ePDG", 4: "hSGW", 5: "MME", 6: "TWAN", })]
+            0: "SGSN", 1: "PMIPSGW", 2: "GTPSGW", 3: "ePDG", 4: "hSGW", 5: "MME", 6: "TWAN", })]
 
 
 class AVP_10415_2049 (AVP_FL_V):
@@ -3073,7 +3073,7 @@ class AVP_10415_2049 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-                0: "CREATE_CONF", 1: "JOIN_CONF", 2: "INVITE_INTO_CONF", 3: "QUIT_CONF", })]
+            0: "CREATE_CONF", 1: "JOIN_CONF", 2: "INVITE_INTO_CONF", 3: "QUIT_CONF", })]
 
 
 class AVP_10415_2051 (AVP_FL_V):
@@ -3242,7 +3242,7 @@ class AVP_10415_2507 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-                0: "VERTICAL_COORDINATE_IS_NOT REQUESTED", 1: "VERTICAL_COORDINATE_IS_REQUESTED", })]
+            0: "VERTICAL_COORDINATE_IS_NOT REQUESTED", 1: "VERTICAL_COORDINATE_IS_REQUESTED", })]
 
 
 class AVP_10415_2508 (AVP_FL_V):
@@ -3280,7 +3280,7 @@ class AVP_10415_2513 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-                0: "REQUESTED_ACCURACY_FULFILLED", 1: "REQUESTED_ACCURACY_NOT_FULFILLED", })]
+            0: "REQUESTED_ACCURACY_FULFILLED", 1: "REQUESTED_ACCURACY_NOT_FULFILLED", })]
 
 
 class AVP_10415_2518 (AVP_FL_V):
@@ -3344,7 +3344,7 @@ class AVP_10415_2604 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-                0: "Local GW Not Inserted", 1: "Local GW Inserted", })]
+            0: "Local GW Not Inserted", 1: "Local GW Inserted", })]
 
 
 class AVP_10415_2605 (AVP_FL_V):
@@ -3352,7 +3352,7 @@ class AVP_10415_2605 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-                0: "Transcoder Not Inserted", 1: "Transcoder Inserted", })]
+            0: "Transcoder Not Inserted", 1: "Transcoder Inserted", })]
 
 
 class AVP_10415_2702 (AVP_FL_V):
@@ -3360,7 +3360,7 @@ class AVP_10415_2702 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-                0: "4xx;", 1: "5xx;", 2: "Timeout", })]
+            0: "4xx;", 1: "5xx;", 2: "Timeout", })]
 
 
 class AVP_10415_2704 (AVP_FL_V):
@@ -3368,7 +3368,7 @@ class AVP_10415_2704 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-                0: "non-roaming", 1: "roaming without loopback", 2: "roaming with loopback", })]
+            0: "non-roaming", 1: "roaming without loopback", 2: "roaming with loopback", })]
 
 
 class AVP_10415_2706 (AVP_FL_V):
@@ -3483,7 +3483,7 @@ class AVP_10415_3448 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-                0: "Reserved", 1: "50 m", 2: "100 m", 3: "200 m", 4: "500 m", 5: "1000 m", })]
+            0: "Reserved", 1: "50 m", 2: "100 m", 3: "200 m", 4: "500 m", 5: "1000 m", })]
 
 
 class AVP_10415_3449 (AVP_FL_V):
@@ -3491,7 +3491,7 @@ class AVP_10415_3449 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-                0: "Proximity Alert sent", 1: "Time expired with no renewal", })]
+            0: "Proximity Alert sent", 1: "Time expired with no renewal", })]
 
 
 class AVP_10415_3451 (AVP_FL_V):

@@ -339,7 +339,7 @@ def _exec_query_vbs(cmd, fields):
     action = cmd[0]
     fields = [_VBS_WMI_FIELDS.get(cmd[1], _VBS_WMI_FIELDS.get("*", {})).get(fld, fld) for fld in fields]
     parsed_command = "WScript.Echo " + " & \" @ \" & ".join("line.%s" % fld for fld in fields
-                           if fld is not None)
+                                                            if fld is not None)
     # The IPAddress is an array: convert it to a string
     for key, val in _VBS_WMI_REPLACE.get(cmd[1], {}).items():
         parsed_command = parsed_command.replace(key, val)
@@ -435,9 +435,9 @@ class WinProgPath(ConfClass):
             env="SystemRoot"
         )
         self.cscript = win_find_exe("cscript", installsubdir="System32",
-                               env="SystemRoot")
+                                    env="SystemRoot")
         self.cmd = win_find_exe("cmd", installsubdir="System32",
-                               env="SystemRoot")
+                                env="SystemRoot")
         if self.wireshark:
             manu_path = load_manuf(os.path.sep.join(self.wireshark.split(os.path.sep)[:-1])+os.path.sep+"manuf")
             scapy.data.MANUFDB = conf.manufdb = manu_path
@@ -664,7 +664,7 @@ class NetworkInterface(object):
         # According to https://nmap.org/npcap/guide/npcap-devguide.html#npcap-feature-dot11
         self._check_npcap_requirement()
         x = POWERSHELL_PROCESS.query([_WlanHelper, self.guid[1:-1], "channel"],
-                        crp=False)[0].strip()
+                                     crp=False)[0].strip()
         return int(x)
 
     def setchannel(self, channel):

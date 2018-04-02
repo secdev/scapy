@@ -22,10 +22,10 @@ from scapy.layers.tls.basefields import _tls_type, _tls_version
 class TLSPlaintext(Packet):
     name = "TLS Plaintext"
     fields_desc = [ByteEnumField("type", None, _tls_type),
-                    ShortEnumField("version", None, _tls_version),
-                    FieldLenField("len", None, length_of="data", fmt="!H"),
-                    StrLenField("data", "",
-                                length_from = lambda pkt: pkt.len)]
+                   ShortEnumField("version", None, _tls_version),
+                   FieldLenField("len", None, length_of="data", fmt="!H"),
+                   StrLenField("data", "",
+                               length_from = lambda pkt: pkt.len)]
 
 
 class TLSCompressed(TLSPlaintext):

@@ -28,7 +28,7 @@ class ColorTable:
         "uline": ("\033[4m", "underline"),
         "blink": ("\033[5m", ""),
         "invert": ("\033[7m", ""),
-        }
+    }
 
     def __repr__(self):
         return "<ColorTable>"
@@ -309,7 +309,7 @@ def apply_ipython_style(shell):
         from scapy.error import log_loading
         log_loading.warning(
             "IPython too old. Shell color won't be handled."
-            )
+        )
         return
     from scapy.config import conf
     if isinstance(conf.prompt, Prompts):

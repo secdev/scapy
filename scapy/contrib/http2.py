@@ -1445,11 +1445,11 @@ class H2PaddedDataFrame(H2DataFrame):
     fields_desc = [
         fields.FieldLenField('padlen', None, length_of='padding', fmt="B"),
         fields.StrLenField('data', '',
-            length_from=lambda pkt: pkt.get_data_len()
-        ),
+                           length_from=lambda pkt: pkt.get_data_len()
+                           ),
         fields.StrLenField('padding', '',
-            length_from=lambda pkt: pkt.getfieldval('padlen')
-        )
+                           length_from=lambda pkt: pkt.getfieldval('padlen')
+                           )
     ]
 
     def get_data_len(self):
@@ -1526,11 +1526,11 @@ class H2PaddedHeadersFrame(H2AbstractHeadersFrame):
     fields_desc = [
         fields.FieldLenField('padlen', None, length_of='padding', fmt='B'),
         fields.PacketListField('hdrs', [], HPackHeaders,
-            length_from=lambda pkt: pkt.get_hdrs_len()
-        ),
+                               length_from=lambda pkt: pkt.get_hdrs_len()
+                               ),
         fields.StrLenField('padding', '',
-            length_from=lambda pkt: pkt.getfieldval('padlen')
-        )
+                           length_from=lambda pkt: pkt.getfieldval('padlen')
+                           )
     ]
 
     def get_hdrs_len(self):
@@ -1595,11 +1595,11 @@ class H2PaddedPriorityHeadersFrame(H2AbstractHeadersFrame):
         fields.BitField('stream_dependency', 0, 31),
         fields.ByteField('weight', 0),
         fields.PacketListField('hdrs', [], HPackHeaders,
-            length_from=lambda pkt: pkt.get_hdrs_len()
-        ),
+                               length_from=lambda pkt: pkt.get_hdrs_len()
+                               ),
         fields.StrLenField('padding', '',
-            length_from=lambda pkt: pkt.getfieldval('padlen')
-        )
+                           length_from=lambda pkt: pkt.getfieldval('padlen')
+                           )
     ]
 
     def get_hdrs_len(self):
@@ -1621,11 +1621,11 @@ class H2PaddedPriorityHeadersFrame(H2AbstractHeadersFrame):
         fld, fval = self.getfield_and_val('weight')
         weight_len = fld.i2len(self, fval)
         ret = int(self.s_len
-            - padding_len_len
-            - padding_len
-            - (bit_cnt / 8)
-            - weight_len
-        )
+                  - padding_len_len
+                  - padding_len
+                  - (bit_cnt / 8)
+                  - weight_len
+                  )
         assert(ret >= 0)
         return ret
 
@@ -1810,11 +1810,11 @@ class H2PaddedPushPromiseFrame(H2PushPromiseFrame):
         fields.BitField('reserved', 0, 1),
         fields.BitField('stream_id', 0, 31),
         fields.PacketListField('hdrs', [], HPackHeaders,
-            length_from=lambda pkt: pkt.get_hdrs_len()
-        ),
+                               length_from=lambda pkt: pkt.get_hdrs_len()
+                               ),
         fields.StrLenField('padding', '',
-            length_from=lambda pkt: pkt.getfieldval('padlen')
-        )
+                           length_from=lambda pkt: pkt.getfieldval('padlen')
+                           )
     ]
 
     def get_hdrs_len(self):
@@ -1833,10 +1833,10 @@ class H2PaddedPushPromiseFrame(H2PushPromiseFrame):
         bit_len += self.get_field('stream_id').size
 
         ret = int(self.s_len
-            - padding_len_len
-            - padding_len
-            - (bit_len / 8)
-        )
+                  - padding_len_len
+                  - padding_len
+                  - (bit_len / 8)
+                  )
         assert(ret >= 0)
         return ret
 
@@ -1877,7 +1877,7 @@ class H2PingFrame(H2FramePayload):
         assert(
             len(args) == 0 or (
                 (isinstance(args[0], bytes) or
-                isinstance(args[0], str))
+                 isinstance(args[0], str))
                 and len(args[0]) == 8
             )
         ), 'Invalid ping frame; length is not 8'
@@ -1921,7 +1921,7 @@ class H2WindowUpdateFrame(H2FramePayload):
         assert(
             len(args) == 0 or (
                 (isinstance(args[0], bytes) or
-                isinstance(args[0], str))
+                 isinstance(args[0], str))
                 and len(args[0]) == 4
             )
         ), 'Invalid window update frame; length is not 4'
@@ -1969,13 +1969,13 @@ class H2Frame(packet.Packet):
             9: 'ContFrm'
         }, "b"),
         fields.MultiFlagsField('flags', set(), 8, {
-                H2DataFrame.type_id: H2DataFrame.flags,
-                H2HeadersFrame.type_id: H2HeadersFrame.flags,
-                H2PushPromiseFrame.type_id: H2PushPromiseFrame.flags,
-                H2SettingsFrame.type_id: H2SettingsFrame.flags,
-                H2PingFrame.type_id: H2PingFrame.flags,
-                H2ContinuationFrame.type_id: H2ContinuationFrame.flags,
-            },
+            H2DataFrame.type_id: H2DataFrame.flags,
+            H2HeadersFrame.type_id: H2HeadersFrame.flags,
+            H2PushPromiseFrame.type_id: H2PushPromiseFrame.flags,
+            H2SettingsFrame.type_id: H2SettingsFrame.flags,
+            H2PingFrame.type_id: H2PingFrame.flags,
+            H2ContinuationFrame.type_id: H2ContinuationFrame.flags,
+        },
             depends_on=lambda pkt: pkt.getfieldval('type')
         ),
         fields.BitField('reserved', 0, 1),
@@ -2617,7 +2617,7 @@ class HPackHdrTable(Sized):
                        is_sensitive=lambda n, v: False,  # type: Callable[[str, str], bool]
                        should_index=lambda x: False,  # type: Callable[[str], bool]
                        register=True,  # type: bool
-    ):
+                       ):
         # type: (...) -> H2Seq
         """ parse_txt_hdrs parses headers expressed in text and converts them
         into a series of H2Frames with the "correct" flags. A body can be provided
@@ -2675,15 +2675,14 @@ class HPackHdrTable(Sized):
             # exceed the maximum length of a header fragment or it will just
             # never fit
             if (new_hdr_bin_len + base_frm_len > max_frm_sz
-                or (max_hdr_lst_sz != 0 and new_hdr_len > max_hdr_lst_sz)
-            ):
+                    or (max_hdr_lst_sz != 0 and new_hdr_len > max_hdr_lst_sz)):
                 raise Exception('Header too long: {}'.format(hdr_name))
 
             if (max_frm_sz < len(raw(cur_frm)) + base_frm_len + new_hdr_len
                 or (
                     max_hdr_lst_sz != 0
                     and max_hdr_lst_sz < cur_hdr_sz + new_hdr_len
-                )
+            )
             ):
                 flags = set()
                 if isinstance(cur_frm, H2HeadersFrame) and not body:

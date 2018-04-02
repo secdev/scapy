@@ -132,7 +132,7 @@ class TLS_Ext_KeyShare_CH(TLS_Ext_Unknown):
                    FieldLenField("client_shares_len", None,
                                  length_of="client_shares"),
                    PacketListField("client_shares", [], KeyShareEntry,
-                            length_from=lambda pkt: pkt.client_shares_len)]
+                                   length_from=lambda pkt: pkt.client_shares_len)]
 
     def post_build(self, pkt, pay):
         if not self.tls_session.frozen:
@@ -220,18 +220,18 @@ class TLS_Ext_KeyShare_SH(TLS_Ext_Unknown):
 
 
 _tls_ext_keyshare_cls  = {1: TLS_Ext_KeyShare_CH,
-                           2: TLS_Ext_KeyShare_SH,
-                           6: TLS_Ext_KeyShare_HRR}
+                          2: TLS_Ext_KeyShare_SH,
+                          6: TLS_Ext_KeyShare_HRR}
 
 
 class Ticket(Packet):
     name = "Recommended Ticket Construction (from RFC 5077)"
     fields_desc = [StrFixedLenField("key_name", None, 16),
-                    StrFixedLenField("iv", None, 16),
-                    FieldLenField("encstatelen", None, length_of="encstate"),
-                    StrLenField("encstate", "",
-                                length_from=lambda pkt: pkt.encstatelen),
-                    StrFixedLenField("mac", None, 32)]
+                   StrFixedLenField("iv", None, 16),
+                   FieldLenField("encstatelen", None, length_of="encstate"),
+                   StrLenField("encstate", "",
+                               length_from=lambda pkt: pkt.encstatelen),
+                   StrFixedLenField("mac", None, 32)]
 
 
 class TicketField(PacketField):
@@ -272,11 +272,11 @@ class TLS_Ext_PreSharedKey_CH(TLS_Ext_Unknown):
                    FieldLenField("identities_len", None,
                                  length_of="identities"),
                    PacketListField("identities", [], PSKIdentity,
-                            length_from=lambda pkt: pkt.identities_len),
+                                   length_from=lambda pkt: pkt.identities_len),
                    FieldLenField("binders_len", None,
                                  length_of="binders"),
                    PacketListField("binders", [], PSKBinderEntry,
-                            length_from=lambda pkt: pkt.binders_len)]
+                                   length_from=lambda pkt: pkt.binders_len)]
 
 
 class TLS_Ext_PreSharedKey_SH(TLS_Ext_Unknown):
@@ -287,5 +287,5 @@ class TLS_Ext_PreSharedKey_SH(TLS_Ext_Unknown):
 
 
 _tls_ext_presharedkey_cls  = {1: TLS_Ext_PreSharedKey_CH,
-                               2: TLS_Ext_PreSharedKey_SH}
+                              2: TLS_Ext_PreSharedKey_SH}
 

@@ -619,7 +619,7 @@ class L2ListenSocket(SuperSocket):
             cls = conf.default_l2
             warning("Unable to guess type (interface=%s protocol=%#x "
                     "family=%i). Using %s", sa_ll[0], sa_ll[1], sa_ll[3],
-                                              cls.name)
+                    cls.name)
 
         try:
             pkt = cls(pkt)

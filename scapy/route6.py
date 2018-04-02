@@ -55,8 +55,8 @@ class Route6:
             rtlst.append(('%s/%i'% (net, msk), gw, (iface if isinstance(iface, six.string_types) else iface.name), ", ".join(cset) if len(cset) > 0 else "", str(metric)))
 
         return pretty_list(rtlst,
-                             [('Destination', 'Next Hop', "Iface", "Src candidates", "Metric")],
-                             sortBy = 1)
+                           [('Destination', 'Next Hop', "Iface", "Src candidates", "Metric")],
+                           sortBy = 1)
 
     # Unlike Scapy's Route.make_route() function, we do not have 'host' and 'net'
     # parameters. We only have a 'dst' parameter that accepts 'prefix' and

@@ -310,10 +310,10 @@ _hcsi_gps_flags = _FlagsList({0: "No Fix Available", 1: "GPS", 2: "Differential 
 _hcsi_vector_char_flags = _FlagsList({0: "Antenna", 1: "Direction of Travel",
                                       2: "Front of Vehicle", 3: "Angle of Arrival", 4: "Transmitter Position",
                                       8: "GPS Derived", 9: "INS Derived", 10: "Compass Derived",
-                                     11: "Acclerometer Derived", 12: "Human Derived"})
+                                      11: "Acclerometer Derived", 12: "Human Derived"})
 
 _hcsi_antenna_flags = _FlagsList({1: "Horizontal Polarization",     2: "Vertical Polarization",
-                                   3: "Circular Polarization Left",  4: "Circular Polarization Right",
+                                  3: "Circular Polarization Left",  4: "Circular Polarization Right",
                                   16: "Electronically Steerable",   17: "Mechanically Steerable"})
 
 """ HCSI PPI Fields are similar to RadioTap.  A mask field called "present" specifies if each field
@@ -351,10 +351,10 @@ def _HCSIBuildFields(fields):
 class HCSIPacket(Packet):
     name = "PPI HCSI"
     fields_desc = [LEShortField('pfh_type', None),
-                    LEShortField('pfh_length', None),
-                    ByteField('geotag_ver', CURR_GEOTAG_VER),
-                    ByteField('geotag_pad', 0),
-                    LEShortField('geotag_len', None)]
+                   LEShortField('pfh_length', None),
+                   ByteField('geotag_ver', CURR_GEOTAG_VER),
+                   ByteField('geotag_pad', 0),
+                   LEShortField('geotag_len', None)]
 
     def post_build(self, p, pay):
         if self.pfh_length is None:
@@ -395,10 +395,10 @@ GPS_Fields = [FlagsField("GPSFlags", None, -32, _hcsi_gps_flags),
 class GPS(HCSIPacket):
     name = "PPI GPS"
     fields_desc = [LEShortField('pfh_type', PPI_GPS), #pfh_type
-                    LEShortField('pfh_length', None), #pfh_len
-                    ByteField('geotag_ver', CURR_GEOTAG_VER), #base_geotag_header.ver
-                    ByteField('geotag_pad', 0), #base_geotag_header.pad
-                    LEShortField('geotag_len', None)] + _HCSIBuildFields(GPS_Fields)
+                   LEShortField('pfh_length', None), #pfh_len
+                   ByteField('geotag_ver', CURR_GEOTAG_VER), #base_geotag_header.ver
+                   ByteField('geotag_pad', 0), #base_geotag_header.pad
+                   LEShortField('geotag_len', None)] + _HCSIBuildFields(GPS_Fields)
 
 
 #Vector Fields
@@ -424,54 +424,54 @@ VEC_Fields = [VectorFlags_Field("VectorFlags", None),
 class Vector(HCSIPacket):
     name = "PPI Vector"
     fields_desc = [LEShortField('pfh_type', PPI_VECTOR), #pfh_type
-                    LEShortField('pfh_length', None), #pfh_len
-                    ByteField('geotag_ver', CURR_GEOTAG_VER), #base_geotag_header.ver
-                    ByteField('geotag_pad', 0), #base_geotag_header.pad
-                    LEShortField('geotag_len', None)] + _HCSIBuildFields(VEC_Fields)
+                   LEShortField('pfh_length', None), #pfh_len
+                   ByteField('geotag_ver', CURR_GEOTAG_VER), #base_geotag_header.ver
+                   ByteField('geotag_pad', 0), #base_geotag_header.pad
+                   LEShortField('geotag_len', None)] + _HCSIBuildFields(VEC_Fields)
 
 
 #Sensor Fields
 # http://www.iana.org/assignments/icmp-parameters
 sensor_types= {1: "Velocity",
-                2: "Acceleration",
-                3: "Jerk",
-                100: "Rotation",
-                101: "Magnetic",
-                1000: "Temperature",
-                1001: "Barometer",
-                1002: "Humidity",
-                2000: "TDOA_Clock",
-                2001: "Phase"
-                }
+               2: "Acceleration",
+               3: "Jerk",
+               100: "Rotation",
+               101: "Magnetic",
+               1000: "Temperature",
+               1001: "Barometer",
+               1002: "Humidity",
+               2000: "TDOA_Clock",
+               2001: "Phase"
+               }
 SENS_Fields = [LEShortEnumField('SensorType', None, sensor_types),
-                 SignedByteField('ScaleFactor', None),
-                 Fixed6_4Field('Val_X', None),
-                 Fixed6_4Field('Val_Y', None),
-                 Fixed6_4Field('Val_Z', None),
-                 Fixed6_4Field('Val_T', None),
-                 Fixed6_4Field('Val_E', None),
-              HCSINullField("Reserved07", None),  HCSINullField("Reserved08", None),
-              HCSINullField("Reserved09", None),  HCSINullField("Reserved10", None),
-              HCSINullField("Reserved11", None),  HCSINullField("Reserved12", None),
-              HCSINullField("Reserved13", None),  HCSINullField("Reserved14", None),
-              HCSINullField("Reserved15", None),  HCSINullField("Reserved16", None),
-              HCSINullField("Reserved17", None),  HCSINullField("Reserved18", None),
-              HCSINullField("Reserved19", None),  HCSINullField("Reserved20", None),
-              HCSINullField("Reserved21", None),  HCSINullField("Reserved22", None),
-              HCSINullField("Reserved23", None),  HCSINullField("Reserved24", None),
-              HCSINullField("Reserved25", None),  HCSINullField("Reserved26", None),
-              HCSINullField("Reserved27", None),
-              HCSIDescField("DescString", None),  XLEIntField("AppId", None),
-              HCSIAppField("AppData", None),      HCSINullField("Extended", None)]
+               SignedByteField('ScaleFactor', None),
+               Fixed6_4Field('Val_X', None),
+               Fixed6_4Field('Val_Y', None),
+               Fixed6_4Field('Val_Z', None),
+               Fixed6_4Field('Val_T', None),
+               Fixed6_4Field('Val_E', None),
+               HCSINullField("Reserved07", None),  HCSINullField("Reserved08", None),
+               HCSINullField("Reserved09", None),  HCSINullField("Reserved10", None),
+               HCSINullField("Reserved11", None),  HCSINullField("Reserved12", None),
+               HCSINullField("Reserved13", None),  HCSINullField("Reserved14", None),
+               HCSINullField("Reserved15", None),  HCSINullField("Reserved16", None),
+               HCSINullField("Reserved17", None),  HCSINullField("Reserved18", None),
+               HCSINullField("Reserved19", None),  HCSINullField("Reserved20", None),
+               HCSINullField("Reserved21", None),  HCSINullField("Reserved22", None),
+               HCSINullField("Reserved23", None),  HCSINullField("Reserved24", None),
+               HCSINullField("Reserved25", None),  HCSINullField("Reserved26", None),
+               HCSINullField("Reserved27", None),
+               HCSIDescField("DescString", None),  XLEIntField("AppId", None),
+               HCSIAppField("AppData", None),      HCSINullField("Extended", None)]
 
               
 class Sensor(HCSIPacket):
     name = "PPI Sensor"
     fields_desc = [LEShortField('pfh_type', PPI_SENSOR), #pfh_type
-                    LEShortField('pfh_length', None), #pfh_len
-                    ByteField('geotag_ver', CURR_GEOTAG_VER), #base_geotag_header.ver
-                    ByteField('geotag_pad', 0), #base_geotag_header.pad
-                    LEShortField('geotag_len', None)] + _HCSIBuildFields(SENS_Fields)
+                   LEShortField('pfh_length', None), #pfh_len
+                   ByteField('geotag_ver', CURR_GEOTAG_VER), #base_geotag_header.ver
+                   ByteField('geotag_pad', 0), #base_geotag_header.pad
+                   LEShortField('geotag_len', None)] + _HCSIBuildFields(SENS_Fields)
 
 
 # HCSIAntenna Fields
@@ -497,10 +497,10 @@ ANT_Fields = [FlagsField("AntennaFlags", None, -32, _hcsi_antenna_flags),
 class Antenna(HCSIPacket):
     name = "PPI Antenna"
     fields_desc = [LEShortField('pfh_type', PPI_ANTENNA), #pfh_type
-                    LEShortField('pfh_length', None), #pfh_len
-                    ByteField('geotag_ver', CURR_GEOTAG_VER), #base_geotag_header.ver
-                    ByteField('geotag_pad', 0), #base_geotag_header.pad
-                    LEShortField('geotag_len', None)] + _HCSIBuildFields(ANT_Fields)
+                   LEShortField('pfh_length', None), #pfh_len
+                   ByteField('geotag_ver', CURR_GEOTAG_VER), #base_geotag_header.ver
+                   ByteField('geotag_pad', 0), #base_geotag_header.pad
+                   LEShortField('geotag_len', None)] + _HCSIBuildFields(ANT_Fields)
 
 
 addPPIType(PPI_GPS, GPS)

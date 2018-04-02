@@ -38,29 +38,29 @@ bind_layers(UDP, NetflowHeader, dport=2055)
 class NetflowHeaderV1(Packet):
     name = "Netflow Header v1"
     fields_desc = [ShortField("count", 0),
-                    IntField("sysUptime", 0),
-                    UTCTimeField("unixSecs", 0),
-                    UTCTimeField("unixNanoSeconds", 0, use_nano=True)]
+                   IntField("sysUptime", 0),
+                   UTCTimeField("unixSecs", 0),
+                   UTCTimeField("unixNanoSeconds", 0, use_nano=True)]
 
 
 class NetflowRecordV1(Packet):
     name = "Netflow Record v1"
     fields_desc = [IPField("ipsrc", "0.0.0.0"),
-                    IPField("ipdst", "0.0.0.0"),
-                    IPField("nexthop", "0.0.0.0"),
-                    ShortField("inputIfIndex", 0),
-                    ShortField("outpuIfIndex", 0),
-                    IntField("dpkts", 0),
-                    IntField("dbytes", 0),
-                    IntField("starttime", 0),
-                    IntField("endtime", 0),
-                    ShortField("srcport", 0),
-                    ShortField("dstport", 0),
-                    ShortField("padding", 0),
-                    ByteField("proto", 0),
-                    ByteField("tos", 0),
-                    IntField("padding1", 0),
-                    IntField("padding2", 0)]
+                   IPField("ipdst", "0.0.0.0"),
+                   IPField("nexthop", "0.0.0.0"),
+                   ShortField("inputIfIndex", 0),
+                   ShortField("outpuIfIndex", 0),
+                   IntField("dpkts", 0),
+                   IntField("dbytes", 0),
+                   IntField("starttime", 0),
+                   IntField("endtime", 0),
+                   ShortField("srcport", 0),
+                   ShortField("dstport", 0),
+                   ShortField("padding", 0),
+                   ByteField("proto", 0),
+                   ByteField("tos", 0),
+                   IntField("padding1", 0),
+                   IntField("padding2", 0)]
 
 
 bind_layers(NetflowHeader,   NetflowHeaderV1, version=1)
@@ -76,37 +76,37 @@ bind_layers(NetflowRecordV1, NetflowRecordV1)
 class NetflowHeaderV5(Packet):
     name = "Netflow Header v5"
     fields_desc = [ShortField("count", 0),
-                    IntField("sysUptime", 0),
-                    UTCTimeField("unixSecs", 0),
-                    UTCTimeField("unixNanoSeconds", 0, use_nano=True),
-                    IntField("flowSequence", 0),
-                    ByteField("engineType", 0),
-                    ByteField("engineID", 0),
-                    ShortField("samplingInterval", 0)]
+                   IntField("sysUptime", 0),
+                   UTCTimeField("unixSecs", 0),
+                   UTCTimeField("unixNanoSeconds", 0, use_nano=True),
+                   IntField("flowSequence", 0),
+                   ByteField("engineType", 0),
+                   ByteField("engineID", 0),
+                   ShortField("samplingInterval", 0)]
 
 
 class NetflowRecordV5(Packet):
     name = "Netflow Record v5"
     fields_desc = [IPField("src", "127.0.0.1"),
-                    IPField("dst", "127.0.0.1"),
-                    IPField("nexthop", "0.0.0.0"),
-                    ShortField("input", 0),
-                    ShortField("output", 0),
-                    IntField("dpkts", 1),
-                    IntField("dOctets", 60),
-                    IntField("first", 0),
-                    IntField("last", 0),
-                    ShortField("srcport", 0),
-                    ShortField("dstport", 0),
-                    ByteField("pad1", 0),
-                    FlagsField("tcpFlags", 0x2, 8, "FSRPAUEC"),
-                    ByteEnumField("prot", IP_PROTOS["tcp"], IP_PROTOS),
-                    ByteField("tos", 0),
-                    ShortField("src_as", 0),
-                    ShortField("dst_as", 0),
-                    ByteField("src_mask", 0),
-                    ByteField("dst_mask", 0),
-                    ShortField("pad2", 0)]
+                   IPField("dst", "127.0.0.1"),
+                   IPField("nexthop", "0.0.0.0"),
+                   ShortField("input", 0),
+                   ShortField("output", 0),
+                   IntField("dpkts", 1),
+                   IntField("dOctets", 60),
+                   IntField("first", 0),
+                   IntField("last", 0),
+                   ShortField("srcport", 0),
+                   ShortField("dstport", 0),
+                   ByteField("pad1", 0),
+                   FlagsField("tcpFlags", 0x2, 8, "FSRPAUEC"),
+                   ByteEnumField("prot", IP_PROTOS["tcp"], IP_PROTOS),
+                   ByteField("tos", 0),
+                   ShortField("src_as", 0),
+                   ShortField("dst_as", 0),
+                   ByteField("src_mask", 0),
+                   ByteField("dst_mask", 0),
+                   ShortField("pad2", 0)]
 
 
 bind_layers(NetflowHeader,   NetflowHeaderV5, version=5)
@@ -120,72 +120,72 @@ bind_layers(NetflowRecordV5, NetflowRecordV5)
 # https://www.ietf.org/rfc/rfc3954.txt
 
 NetflowV9TemplateFieldTypes = {
-        1: "IN_BYTES",
-        2: "IN_PKTS",
-        3: "FLOWS",
-        4: "PROTOCOL",
-        5: "TOS",
-        6: "TCP_FLAGS",
-        7: "L4_SRC_PORT",
-        8: "IPV4_SRC_ADDR",
-        9: "SRC_MASK",
-        10: "INPUT_SNMP",
-        11: "L4_DST_PORT",
-        12: "IPV4_DST_ADDR",
-        13: "DST_MASK",
-        14: "OUTPUT_SNMP",
-        15: "IPV4_NEXT_HOP",
-        16: "SRC_AS",
-        17: "DST_AS",
-        18: "BGP_IPV4_NEXT_HOP",
-        19: "MUL_DST_PKTS",
-        20: "MUL_DST_BYTES",
-        21: "LAST_SWITCHED",
-        22: "FIRST_SWITCHED",
-        23: "OUT_BYTES",
-        24: "OUT_PKTS",
-        27: "IPV6_SRC_ADDR",
-        28: "IPV6_DST_ADDR",
-        29: "IPV6_SRC_MASK",
-        30: "IPV6_DST_MASK",
-        31: "IPV6_FLOW_LABEL",
-        32: "ICMP_TYPE",
-        33: "MUL_IGMP_TYPE",
-        34: "SAMPLING_INTERVAL",
-        35: "SAMPLING_ALGORITHM",
-        36: "FLOW_ACTIVE_TIMEOUT",
-        37: "FLOW_INACTIVE_TIMEOUT",
-        38: "ENGINE_TYPE",
-        39: "ENGINE_ID",
-        40: "TOTAL_BYTES_EXP",
-        41: "TOTAL_PKTS_EXP",
-        42: "TOTAL_FLOWS_EXP",
-        46: "MPLS_TOP_LABEL_TYPE",
-        47: "MPLS_TOP_LABEL_IP_ADDR",
-        48: "FLOW_SAMPLER_ID",
-        49: "FLOW_SAMPLER_MODE",
-        50: "FLOW_SAMPLER_RANDOM_INTERVAL",
-        55: "DST_TOS",
-        56: "SRC_MAC",
-        57: "DST_MAC",
-        58: "SRC_VLAN",
-        59: "DST_VLAN",
-        60: "IP_PROTOCOL_VERSION",
-        61: "DIRECTION",
-        62: "IPV6_NEXT_HOP",
-        63: "BGP_IPV6_NEXT_HOP",
-        64: "IPV6_OPTION_HEADERS",
-        70: "MPLS_LABEL_1",
-        71: "MPLS_LABEL_2",
-        72: "MPLS_LABEL_3",
-        73: "MPLS_LABEL_4",
-        74: "MPLS_LABEL_5",
-        75: "MPLS_LABEL_6",
-        76: "MPLS_LABEL_7",
-        77: "MPLS_LABEL_8",
-        78: "MPLS_LABEL_9",
-        79: "MPLS_LABEL_10",
-    }
+    1: "IN_BYTES",
+    2: "IN_PKTS",
+    3: "FLOWS",
+    4: "PROTOCOL",
+    5: "TOS",
+    6: "TCP_FLAGS",
+    7: "L4_SRC_PORT",
+    8: "IPV4_SRC_ADDR",
+    9: "SRC_MASK",
+    10: "INPUT_SNMP",
+    11: "L4_DST_PORT",
+    12: "IPV4_DST_ADDR",
+    13: "DST_MASK",
+    14: "OUTPUT_SNMP",
+    15: "IPV4_NEXT_HOP",
+    16: "SRC_AS",
+    17: "DST_AS",
+    18: "BGP_IPV4_NEXT_HOP",
+    19: "MUL_DST_PKTS",
+    20: "MUL_DST_BYTES",
+    21: "LAST_SWITCHED",
+    22: "FIRST_SWITCHED",
+    23: "OUT_BYTES",
+    24: "OUT_PKTS",
+    27: "IPV6_SRC_ADDR",
+    28: "IPV6_DST_ADDR",
+    29: "IPV6_SRC_MASK",
+    30: "IPV6_DST_MASK",
+    31: "IPV6_FLOW_LABEL",
+    32: "ICMP_TYPE",
+    33: "MUL_IGMP_TYPE",
+    34: "SAMPLING_INTERVAL",
+    35: "SAMPLING_ALGORITHM",
+    36: "FLOW_ACTIVE_TIMEOUT",
+    37: "FLOW_INACTIVE_TIMEOUT",
+    38: "ENGINE_TYPE",
+    39: "ENGINE_ID",
+    40: "TOTAL_BYTES_EXP",
+    41: "TOTAL_PKTS_EXP",
+    42: "TOTAL_FLOWS_EXP",
+    46: "MPLS_TOP_LABEL_TYPE",
+    47: "MPLS_TOP_LABEL_IP_ADDR",
+    48: "FLOW_SAMPLER_ID",
+    49: "FLOW_SAMPLER_MODE",
+    50: "FLOW_SAMPLER_RANDOM_INTERVAL",
+    55: "DST_TOS",
+    56: "SRC_MAC",
+    57: "DST_MAC",
+    58: "SRC_VLAN",
+    59: "DST_VLAN",
+    60: "IP_PROTOCOL_VERSION",
+    61: "DIRECTION",
+    62: "IPV6_NEXT_HOP",
+    63: "BGP_IPV6_NEXT_HOP",
+    64: "IPV6_OPTION_HEADERS",
+    70: "MPLS_LABEL_1",
+    71: "MPLS_LABEL_2",
+    72: "MPLS_LABEL_3",
+    73: "MPLS_LABEL_4",
+    74: "MPLS_LABEL_5",
+    75: "MPLS_LABEL_6",
+    76: "MPLS_LABEL_7",
+    77: "MPLS_LABEL_8",
+    78: "MPLS_LABEL_9",
+    79: "MPLS_LABEL_10",
+}
 
 ScopeFieldTypes = {
     1: "System",
@@ -193,75 +193,75 @@ ScopeFieldTypes = {
     3: "Line card",
     4: "Cache",
     5: "Template",
-    }
+}
 
 NetflowV9TemplateFieldDefaultLengths = {
-        1: 4,
-        2: 4,
-        3: 4,
-        4: 1,
-        5: 1,
-        6: 1,
-        7: 2,
-        8: 4,
-        9: 1,
-        10: 2,
-        11: 2,
-        12: 4,
-        13: 1,
-        14: 2,
-        15: 4,
-        16: 2,
-        17: 2,
-        18: 4,
-        19: 4,
-        20: 4,
-        21: 4,
-        22: 4,
-        23: 4,
-        24: 4,
-        27: 16,
-        28: 16,
-        29: 1,
-        30: 1,
-        31: 3,
-        32: 2,
-        33: 1,
-        34: 4,
-        35: 1,
-        36: 2,
-        37: 2,
-        38: 1,
-        39: 1,
-        40: 4,
-        41: 4,
-        42: 4,
-        46: 1,
-        47: 4,
-        48: 1,
-        49: 1,
-        50: 4,
-        55: 1,
-        56: 6,
-        57: 6,
-        58: 2,
-        59: 2,
-        60: 1,
-        61: 1,
-        62: 16,
-        63: 16,
-        64: 4,
-        70: 3,
-        71: 3,
-        72: 3,
-        73: 3,
-        74: 3,
-        75: 3,
-        76: 3,
-        77: 3,
-        78: 3,
-        79: 3,
-    }
+    1: 4,
+    2: 4,
+    3: 4,
+    4: 1,
+    5: 1,
+    6: 1,
+    7: 2,
+    8: 4,
+    9: 1,
+    10: 2,
+    11: 2,
+    12: 4,
+    13: 1,
+    14: 2,
+    15: 4,
+    16: 2,
+    17: 2,
+    18: 4,
+    19: 4,
+    20: 4,
+    21: 4,
+    22: 4,
+    23: 4,
+    24: 4,
+    27: 16,
+    28: 16,
+    29: 1,
+    30: 1,
+    31: 3,
+    32: 2,
+    33: 1,
+    34: 4,
+    35: 1,
+    36: 2,
+    37: 2,
+    38: 1,
+    39: 1,
+    40: 4,
+    41: 4,
+    42: 4,
+    46: 1,
+    47: 4,
+    48: 1,
+    49: 1,
+    50: 4,
+    55: 1,
+    56: 6,
+    57: 6,
+    58: 2,
+    59: 2,
+    60: 1,
+    61: 1,
+    62: 16,
+    63: 16,
+    64: 4,
+    70: 3,
+    71: 3,
+    72: 3,
+    73: 3,
+    74: 3,
+    75: 3,
+    76: 3,
+    77: 3,
+    78: 3,
+    79: 3,
+}
 
 # NetflowV9 Ready-made fields
 
@@ -274,64 +274,64 @@ class ShortOrInt(IntField):
 
 
 NetflowV9TemplateFieldDecoders = {  # Only contains fields that have a fixed length
-        4: (ByteEnumField, [IP_PROTOS]),  # PROTOCOL
-        5: XByteField,  # TOS
-        6: ByteField,  # TCP_FLAGS
-        7: ShortField,  # L4_SRC_PORT
-        8: IPField,  # IPV4_SRC_ADDR
-        9: ByteField,  # SRC_MASK
-        11: ShortField,  # L4_DST_PORT
-        12: IPField,  # IPV4_DST_PORT
-        13: ByteField,  # DST_MASK
-        15: IPField,  # IPv4_NEXT_HOP
-        16: ShortOrInt,  # SRC_AS
-        17: ShortOrInt,  # DST_AS
-        18: IPField,  # BGP_IPv4_NEXT_HOP
-        21: (SecondsIntField, [True]),  # LAST_SWITCHED
-        22: (SecondsIntField, [True]),  # FIRST_SWITCHED
-        27: IP6Field,  # IPV6_SRC_ADDR
-        28: IP6Field,  # IPV6_DST_ADDR
-        29: ByteField,  # IPV6_SRC_MASK
-        30: ByteField,  # IPV6_DST_MASK
-        31: ThreeBytesField,  # IPV6_FLOW_LABEL
-        32: XShortField,  # ICMP_TYPE
-        33: ByteField,  # MUL_IGMP_TYPE
-        34: LongField,  # SAMPLING_INTERVAL
-        35: XByteField,  # SAMPLING_ALGORITHM
-        36: ShortField,  # FLOW_ACTIVE_TIMEOUT
-        37: ShortField,  # FLOW_ACTIVE_TIMEOUT
-        38: ByteField,  # ENGINE_TYPE
-        39: ByteField,  # ENGINE_ID
-        46: (ByteEnumField, [{0x00: "UNKNOWN", 0x01: "TE-MIDPT", 0x02: "ATOM", 0x03: "VPN", 0x04: "BGP", 0x05: "LDP"}]),  # MPLS_TOP_LABEL_TYPE
-        47: IPField,  # MPLS_TOP_LABEL_IP_ADDR
-        48: ByteField,  # FLOW_SAMPLER_ID
-        49: ByteField,  # FLOW_SAMPLER_MODE
-        50: LongField,  # FLOW_SAMPLER_RANDOM_INTERVAL
-        55: XByteField,  # DST_TOS
-        56: MACField,  # SRC_MAC
-        57: MACField,  # DST_MAC
-        58: ShortField,  # SRC_VLAN
-        59: ShortField,  # DST_VLAN
-        60: ByteField,  # IP_PROTOCOL_VERSION
-        61: (ByteEnumField, [{0x00: "Ingress flow", 0x01: "Egress flow"}]),  # DIRECTION
-        62: IP6Field,  # IPV6_NEXT_HOP
-        63: IP6Field,  # BGP_IPV6_NEXT_HOP
-    }
+    4: (ByteEnumField, [IP_PROTOS]),  # PROTOCOL
+    5: XByteField,  # TOS
+    6: ByteField,  # TCP_FLAGS
+    7: ShortField,  # L4_SRC_PORT
+    8: IPField,  # IPV4_SRC_ADDR
+    9: ByteField,  # SRC_MASK
+    11: ShortField,  # L4_DST_PORT
+    12: IPField,  # IPV4_DST_PORT
+    13: ByteField,  # DST_MASK
+    15: IPField,  # IPv4_NEXT_HOP
+    16: ShortOrInt,  # SRC_AS
+    17: ShortOrInt,  # DST_AS
+    18: IPField,  # BGP_IPv4_NEXT_HOP
+    21: (SecondsIntField, [True]),  # LAST_SWITCHED
+    22: (SecondsIntField, [True]),  # FIRST_SWITCHED
+    27: IP6Field,  # IPV6_SRC_ADDR
+    28: IP6Field,  # IPV6_DST_ADDR
+    29: ByteField,  # IPV6_SRC_MASK
+    30: ByteField,  # IPV6_DST_MASK
+    31: ThreeBytesField,  # IPV6_FLOW_LABEL
+    32: XShortField,  # ICMP_TYPE
+    33: ByteField,  # MUL_IGMP_TYPE
+    34: LongField,  # SAMPLING_INTERVAL
+    35: XByteField,  # SAMPLING_ALGORITHM
+    36: ShortField,  # FLOW_ACTIVE_TIMEOUT
+    37: ShortField,  # FLOW_ACTIVE_TIMEOUT
+    38: ByteField,  # ENGINE_TYPE
+    39: ByteField,  # ENGINE_ID
+    46: (ByteEnumField, [{0x00: "UNKNOWN", 0x01: "TE-MIDPT", 0x02: "ATOM", 0x03: "VPN", 0x04: "BGP", 0x05: "LDP"}]),  # MPLS_TOP_LABEL_TYPE
+    47: IPField,  # MPLS_TOP_LABEL_IP_ADDR
+    48: ByteField,  # FLOW_SAMPLER_ID
+    49: ByteField,  # FLOW_SAMPLER_MODE
+    50: LongField,  # FLOW_SAMPLER_RANDOM_INTERVAL
+    55: XByteField,  # DST_TOS
+    56: MACField,  # SRC_MAC
+    57: MACField,  # DST_MAC
+    58: ShortField,  # SRC_VLAN
+    59: ShortField,  # DST_VLAN
+    60: ByteField,  # IP_PROTOCOL_VERSION
+    61: (ByteEnumField, [{0x00: "Ingress flow", 0x01: "Egress flow"}]),  # DIRECTION
+    62: IP6Field,  # IPV6_NEXT_HOP
+    63: IP6Field,  # BGP_IPV6_NEXT_HOP
+}
 
 
 class NetflowHeaderV9(Packet):
     name = "Netflow Header V9"
     fields_desc = [ShortField("count", 0),
-                    IntField("sysUptime", 0),
-                    UTCTimeField("unixSecs", 0),
-                    IntField("packageSequence", 0),
-                    IntField("SourceID", 0)]
+                   IntField("sysUptime", 0),
+                   UTCTimeField("unixSecs", 0),
+                   IntField("packageSequence", 0),
+                   IntField("SourceID", 0)]
 
 
 class NetflowTemplateFieldV9(Packet):
     name = "Netflow Flowset Template Field V9"
     fields_desc = [ShortEnumField("fieldType", None, NetflowV9TemplateFieldTypes),
-                    ShortField("fieldLength", 0)]
+                   ShortField("fieldLength", 0)]
 
     def __init__(self, *args, **kwargs):
         Packet.__init__(self, *args, **kwargs)
@@ -345,9 +345,9 @@ class NetflowTemplateFieldV9(Packet):
 class NetflowTemplateV9(Packet):
     name = "Netflow Flowset Template V9"
     fields_desc = [ShortField("templateID", 255),
-                    FieldLenField("fieldCount", None, count_of="template_fields"),
-                    PacketListField("template_fields", [], NetflowTemplateFieldV9,
-                                    count_from = lambda pkt: pkt.fieldCount)]
+                   FieldLenField("fieldCount", None, count_of="template_fields"),
+                   PacketListField("template_fields", [], NetflowTemplateFieldV9,
+                                   count_from = lambda pkt: pkt.fieldCount)]
 
     def default_payload_class(self, p):
         return conf.padding_layer
@@ -356,9 +356,9 @@ class NetflowTemplateV9(Packet):
 class NetflowFlowsetV9(Packet):
     name = "Netflow FlowSet V9"
     fields_desc = [ShortField("flowSetID", 0),
-                    FieldLenField("length", None, length_of="templates", adjust=lambda pkt, x:x+4),
-                    PacketListField("templates", [], NetflowTemplateV9,
-                                    length_from = lambda pkt: pkt.length-4)]
+                   FieldLenField("length", None, length_of="templates", adjust=lambda pkt, x:x+4),
+                   PacketListField("templates", [], NetflowTemplateV9,
+                                   length_from = lambda pkt: pkt.length-4)]
 
 
 class _CustomStrFixedLenField(StrFixedLenField):
@@ -392,10 +392,10 @@ class NetflowRecordV9(Packet):
 class NetflowDataflowsetV9(Packet):
     name = "Netflow DataFlowSet V9"
     fields_desc = [ShortField("templateID", 255),
-                    FieldLenField("length", None, length_of="records", adjust = lambda pkt, x:x+4),
-                    PadField(PacketListField("records", [], NetflowRecordV9,
-                                    length_from = lambda pkt: pkt.length-4),
-                             4, padwith=b"\x00")]
+                   FieldLenField("length", None, length_of="records", adjust = lambda pkt, x:x+4),
+                   PadField(PacketListField("records", [], NetflowRecordV9,
+                                            length_from = lambda pkt: pkt.length-4),
+                            4, padwith=b"\x00")]
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
@@ -499,7 +499,7 @@ class NetflowOptionsRecordOptionV9(NetflowRecordV9):
 class NetflowOptionsFlowsetOptionV9(Packet):
     name = "Netflow Options Template FlowSet V9 - Option"
     fields_desc = [ShortEnumField("optionFieldType", None, NetflowV9TemplateFieldTypes),
-                    ShortField("optionFieldlength", 0)]
+                   ShortField("optionFieldlength", 0)]
 
     def default_payload_class(self, p):
         return conf.padding_layer
@@ -508,7 +508,7 @@ class NetflowOptionsFlowsetOptionV9(Packet):
 class NetflowOptionsFlowsetScopeV9(Packet):
     name = "Netflow Options Template FlowSet V9 - Scope"
     fields_desc = [ShortEnumField("scopeFieldType", None, ScopeFieldTypes),
-                    ShortField("scopeFieldlength", 0)]
+                   ShortField("scopeFieldlength", 0)]
 
     def default_payload_class(self, p):
         return conf.padding_layer
@@ -517,15 +517,15 @@ class NetflowOptionsFlowsetScopeV9(Packet):
 class NetflowOptionsFlowsetV9(Packet):
     name = "Netflow Options Template FlowSet V9"
     fields_desc = [ShortField("flowSetID", 1),
-                    LenField("length", None),
-                    ShortField("templateID", 255),
-                    FieldLenField("option_scope_length", None, length_of="scopes"),
-                    FieldLenField("option_field_length", None, length_of="options"),
-                    PacketListField("scopes", [], NetflowOptionsFlowsetScopeV9,
-                                    length_from = lambda pkt: pkt.option_scope_length),
-                    PadField(PacketListField("options", [], NetflowOptionsFlowsetOptionV9,
-                                    length_from = lambda pkt: pkt.option_field_length),
-                             4, padwith=b"\x00")]
+                   LenField("length", None),
+                   ShortField("templateID", 255),
+                   FieldLenField("option_scope_length", None, length_of="scopes"),
+                   FieldLenField("option_field_length", None, length_of="options"),
+                   PacketListField("scopes", [], NetflowOptionsFlowsetScopeV9,
+                                   length_from = lambda pkt: pkt.option_scope_length),
+                   PadField(PacketListField("options", [], NetflowOptionsFlowsetOptionV9,
+                                            length_from = lambda pkt: pkt.option_field_length),
+                            4, padwith=b"\x00")]
 
 
 bind_layers(NetflowHeader, NetflowHeaderV9, version=9)

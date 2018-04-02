@@ -103,9 +103,9 @@ class ASN1F_field(ASN1F_element):
             return b""
         if isinstance(x, ASN1_Object):
             if (self.ASN1_tag == ASN1_Class_UNIVERSAL.ANY
-                 or x.tag == ASN1_Class_UNIVERSAL.RAW
-                 or x.tag == ASN1_Class_UNIVERSAL.ERROR
-                 or self.ASN1_tag == x.tag):
+                or x.tag == ASN1_Class_UNIVERSAL.RAW
+                or x.tag == ASN1_Class_UNIVERSAL.ERROR
+                    or self.ASN1_tag == x.tag):
                 s = x.enc(pkt.ASN1_codec)
             else:
                 raise ASN1_Error("Encoding Error: got %r instead of an %r for field [%s]" % (x, self.ASN1_tag, self.name))
@@ -394,7 +394,7 @@ class ASN1F_SEQUENCE_OF(ASN1F_field):
                  implicit_tag=None, explicit_tag=None):
         self.cls = cls
         ASN1F_field.__init__(self, name, None, context=context,
-                        implicit_tag=implicit_tag, explicit_tag=explicit_tag)
+                             implicit_tag=implicit_tag, explicit_tag=explicit_tag)
         self.default = default
 
     def is_empty(self, pkt):
@@ -533,7 +533,7 @@ class ASN1F_CHOICE(ASN1F_field):
         if len(s) == 0:
             raise ASN1_Error("ASN1F_CHOICE: got empty string")
         _, s = BER_tagging_dec(s, hidden_tag=self.ASN1_tag,
-                              explicit_tag=self.explicit_tag)
+                               explicit_tag=self.explicit_tag)
         tag, _ = BER_id_dec(s)
         if tag not in self.choices:
             if self.flexible_tag:
@@ -583,7 +583,7 @@ class ASN1F_PACKET(ASN1F_field):
                  implicit_tag=None, explicit_tag=None):
         self.cls = cls
         ASN1F_field.__init__(self, name, None, context=context,
-                        implicit_tag=implicit_tag, explicit_tag=explicit_tag)
+                             implicit_tag=implicit_tag, explicit_tag=explicit_tag)
         if cls.ASN1_root.ASN1_tag == ASN1_Class_UNIVERSAL.SEQUENCE:
             if implicit_tag is None and explicit_tag is None:
                 self.network_tag = 16|0x20

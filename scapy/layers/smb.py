@@ -179,7 +179,7 @@ class SMBNegociate_Protocol_Response_Advanced_Security(Packet):
                    BitField("ExtendedSecurity", 1, 1),
                    BitField("CompBulk", 0, 2),
                    BitField("Reserved3", 0, 5),
-# There have been 127490112000000000 tenths of micro-seconds between 1st january 1601 and 1st january 2005. 127490112000000000=0x1C4EF94D6228000, so ServerTimeHigh=0xD6228000 and ServerTimeLow=0x1C4EF94.
+                   # There have been 127490112000000000 tenths of micro-seconds between 1st january 1601 and 1st january 2005. 127490112000000000=0x1C4EF94D6228000, so ServerTimeHigh=0xD6228000 and ServerTimeLow=0x1C4EF94.
                    LEIntField("ServerTimeHigh", 0xD6228000),
                    LEIntField("ServerTimeLow", 0x1C4EF94),
                    LEShortField("ServerTimeZone", 0x3c),
@@ -280,7 +280,7 @@ class SMBNegociate_Protocol_Response_No_Security_No_Key(Packet):
 class SMBSession_Setup_AndX_Request(Packet):
     name="Session Setup AndX Request"
     fields_desc=[StrFixedLenField("Start", b"\xffSMB", 4),
-                ByteEnumField("Command", 0x73, {0x73: "SMB_COM_SESSION_SETUP_ANDX"}),
+                 ByteEnumField("Command", 0x73, {0x73: "SMB_COM_SESSION_SETUP_ANDX"}),
                  ByteField("Error_Class", 0),
                  ByteField("Reserved", 0),
                  LEShortField("Error_Code", 0),

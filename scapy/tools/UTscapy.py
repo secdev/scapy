@@ -63,7 +63,7 @@ class File:
 # to work if you can't reach Internet.
 class External_Files:
     UTscapy_js = File("UTscapy.js", "http://www.secdev.org/projects/UTscapy/UTscapy.js",
-"""QlpoOTFBWSZTWWVijKQAAXxfgERUYOvAChIhBAC/79+qQAH8AFA0poANAMjQAAAG
+                      """QlpoOTFBWSZTWWVijKQAAXxfgERUYOvAChIhBAC/79+qQAH8AFA0poANAMjQAAAG
 ABo0NGEZNBo00BhgAaNDRhGTQaNNAYFURJinplGaKbRkJiekzSenqmpA0Gm1LFMp
 RUklVQlK9WUTZYpNFI1IiEWEFT09Sfj5uO+qO6S5DQwKIxM92+Zku94wL6V/1KTK
 an2c66Ug6SmVKy1ZIrgauxMVLF5xLH0lJRQuKlqLF10iatlTzqvw7S9eS3+h4lu3
@@ -73,7 +73,7 @@ gueXo3kcYi94K6hSO3ldD2O/qJXOFqJ8o3TE2aQahxtQpCVUKQMvODHwu2YkaORY
 ZC6gihEallcHDIAtRPScBACAJnUggYhLDX6DEko7nC9GvAw5OcEkiyDUbLdiGCzD
 aXWMC2DuQ2Y6sGf6NcRuON7QSbhHsPc4KKmZ/xdyRThQkGVijKQ=""")
     UTscapy_css = File("UTscapy.css", "http://www.secdev.org/projects/UTscapy/UTscapy.css",
-"""QlpoOTFBWSZTWTbBCNEAAE7fgHxwSB//+Cpj2QC//9/6UAR+63dxbNzO3ccmtGEk
+                       """QlpoOTFBWSZTWTbBCNEAAE7fgHxwSB//+Cpj2QC//9/6UAR+63dxbNzO3ccmtGEk
 pM0m1I9E/Qp6g9Q09TNQ9QDR6gMgAkiBFG9U9TEGRkGgABoABoBmpJkRAaAxD1AN
 Gh6gNADQBzAATJgATCYJhDAEYAEiQkwIyJk0n6qenpqeoaMUeo9RgIxp6pX78kfx
 Jx4MUhDHKEb2pJAYAelG1cybiZBBDipH8ocxNyHDAqTUxiQmIAEDE3ApIBUUECAT
@@ -834,7 +834,7 @@ def main(argv):
         Format.HTML: scapy.autorun_get_html_interactive_session,
         Format.LATEX: scapy.autorun_get_latex_interactive_session,
         Format.XUNIT: scapy.autorun_get_text_interactive_session,
-        }
+    }
 
     if VERB > 2:
         print("### Starting tests...", file=sys.stderr)
@@ -863,9 +863,9 @@ def main(argv):
             print("### Loading:", TESTFILE, file=sys.stderr)
         PREEXEC = PREEXEC_DICT[TESTFILE] if TESTFILE in PREEXEC_DICT else GLOB_PREEXEC
         output, result, campaign = execute_campaign(open(TESTFILE), OUTPUTFILE,
-                                          PREEXEC, NUM, KW_OK, KW_KO,
-                                          DUMP, FORMAT, VERB, ONLYFAILED,
-                                          CRC, autorun_func, pos_begin, ignore_globals)
+                                                    PREEXEC, NUM, KW_OK, KW_KO,
+                                                    DUMP, FORMAT, VERB, ONLYFAILED,
+                                                    CRC, autorun_func, pos_begin, ignore_globals)
         runned_campaigns.append(campaign)
         pos_begin = campaign.end_pos
         if UNIQUE:

@@ -22,20 +22,20 @@ _LLMNR_IPv4_mcast_addr = "224.0.0.252"
 class LLMNRQuery(Packet):
     name = "Link Local Multicast Node Resolution - Query"
     fields_desc = [ShortField("id", 0),
-                    BitField("qr", 0, 1),
-                    BitEnumField("opcode", 0, 4, {0: "QUERY"}),
-                    BitField("c", 0, 1),
-                    BitField("tc", 0, 2),
-                    BitField("z", 0, 4),
-                    BitEnumField("rcode", 0, 4, {0: "ok"}),
-                    DNSRRCountField("qdcount", None, "qd"),
-                    DNSRRCountField("ancount", None, "an"),
-                    DNSRRCountField("nscount", None, "ns"),
-                    DNSRRCountField("arcount", None, "ar"),
-                    DNSQRField("qd", "qdcount"),
-                    DNSRRField("an", "ancount"),
-                    DNSRRField("ns", "nscount"),
-                    DNSRRField("ar", "arcount", 0)]
+                   BitField("qr", 0, 1),
+                   BitEnumField("opcode", 0, 4, {0: "QUERY"}),
+                   BitField("c", 0, 1),
+                   BitField("tc", 0, 2),
+                   BitField("z", 0, 4),
+                   BitEnumField("rcode", 0, 4, {0: "ok"}),
+                   DNSRRCountField("qdcount", None, "qd"),
+                   DNSRRCountField("ancount", None, "an"),
+                   DNSRRCountField("nscount", None, "ns"),
+                   DNSRRCountField("arcount", None, "ar"),
+                   DNSQRField("qd", "qdcount"),
+                   DNSRRField("an", "ancount"),
+                   DNSRRField("ns", "nscount"),
+                   DNSRRField("ar", "arcount", 0)]
     overload_fields = {UDP: {"sport": 5355, "dport": 5355}}
 
     def hashret(self):

@@ -44,11 +44,11 @@ from scapy.layers.l2 import Ether, Dot1Q
 class SPBM(Packet):
     name = "SPBM"
     fields_desc = [BitField("prio", 0, 3),
-                    BitField("dei", 0, 1),
-                    BitField("nca", 0, 1),
-                    BitField("res1", 0, 1),
-                    BitField("res2", 0, 2),
-                    ThreeBytesField("isid", 0)]
+                   BitField("dei", 0, 1),
+                   BitField("nca", 0, 1),
+                   BitField("res1", 0, 1),
+                   BitField("res2", 0, 2),
+                   ThreeBytesField("isid", 0)]
 
     def mysummary(self):
         return self.sprintf("SPBM (isid=%SPBM.isid%")

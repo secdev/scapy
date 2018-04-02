@@ -152,7 +152,7 @@ class LLDPDU(Packet):
 
         last_layer = not pay
         if last_layer and conf.contribs['LLDP'].strict_mode() and \
-                        type(self).__name__ != LLDPDUEndOfLLDPDU.__name__:
+                type(self).__name__ != LLDPDUEndOfLLDPDU.__name__:
             raise LLDPInvalidLastLayerException('Last layer must be instance '
                                                 'of LLDPDUEndOfLLDPDU - '
                                                 'got {}'.

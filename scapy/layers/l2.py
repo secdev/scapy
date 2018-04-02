@@ -152,8 +152,8 @@ ETHER_TYPES['802_1AE'] = ETH_P_MACSEC
 class Ether(Packet):
     name = "Ethernet"
     fields_desc = [DestMACField("dst"),
-                    SourceMACField("src"),
-                    XShortEnumField("type", 0x9000, ETHER_TYPES)]
+                   SourceMACField("src"),
+                   XShortEnumField("type", 0x9000, ETHER_TYPES)]
     __slots__ = ["_defrag_pos"]
 
     def hashret(self):
@@ -179,8 +179,8 @@ class Ether(Packet):
 class Dot3(Packet):
     name = "802.3"
     fields_desc = [DestMACField("dst"),
-                    MACField("src", ETHER_ANY),
-                    LenField("len", None, "H")]
+                   MACField("src", ETHER_ANY),
+                   LenField("len", None, "H")]
 
     def extract_padding(self, s):
         l = self.len
@@ -205,8 +205,8 @@ class Dot3(Packet):
 class LLC(Packet):
     name = "LLC"
     fields_desc = [XByteField("dsap", 0x00),
-                    XByteField("ssap", 0x00),
-                    ByteField("ctrl", 0)]
+                   XByteField("ssap", 0x00),
+                   ByteField("ctrl", 0)]
 
 
 def l2_register_l3(l2, l3):
@@ -226,16 +226,16 @@ class CookedLinux(Packet):
                                                  2: "multicast",
                                                  3: "unicast-to-another-host",
                                                  4: "sent-by-us"}),
-                    XShortField("lladdrtype", 512),
-                    ShortField("lladdrlen", 0),
-                    StrFixedLenField("src", "", 8),
-                    XShortEnumField("proto", 0x800, ETHER_TYPES)]
+                   XShortField("lladdrtype", 512),
+                   ShortField("lladdrlen", 0),
+                   StrFixedLenField("src", "", 8),
+                   XShortEnumField("proto", 0x800, ETHER_TYPES)]
                     
                                    
 class SNAP(Packet):
     name = "SNAP"
     fields_desc = [X3BytesField("OUI", 0x000000),
-                    XShortEnumField("code", 0x000, ETHER_TYPES)]
+                   XShortEnumField("code", 0x000, ETHER_TYPES)]
 
 
 conf.neighbor.register_l3(Dot3, SNAP, l2_register_l3)
@@ -245,14 +245,14 @@ class Dot1Q(Packet):
     name = "802.1Q"
     aliastypes = [Ether]
     fields_desc =  [BitField("prio", 0, 3),
-                     BitField("id", 0, 1),
-                     BitField("vlan", 1, 12),
-                     XShortEnumField("type", 0x0000, ETHER_TYPES)]
+                    BitField("id", 0, 1),
+                    BitField("vlan", 1, 12),
+                    XShortEnumField("type", 0x0000, ETHER_TYPES)]
 
     def answers(self, other):
         if isinstance(other, Dot1Q):
             if ((self.type == other.type) and
-                 (self.vlan == other.vlan)):
+                    (self.vlan == other.vlan)):
                 return self.payload.answers(other.payload)
         else:
             return self.payload.answers(other)
@@ -281,40 +281,40 @@ conf.neighbor.register_l3(Ether, Dot1Q, l2_register_l3)
 class STP(Packet):
     name = "Spanning Tree Protocol"
     fields_desc = [ShortField("proto", 0),
-                    ByteField("version", 0),
-                    ByteField("bpdutype", 0),
-                    ByteField("bpduflags", 0),
-                    ShortField("rootid", 0),
-                    MACField("rootmac", ETHER_ANY),
-                    IntField("pathcost", 0),
-                    ShortField("bridgeid", 0),
-                    MACField("bridgemac", ETHER_ANY),
-                    ShortField("portid", 0),
-                    BCDFloatField("age", 1),
-                    BCDFloatField("maxage", 20),
-                    BCDFloatField("hellotime", 2),
-                    BCDFloatField("fwddelay", 15)]
+                   ByteField("version", 0),
+                   ByteField("bpdutype", 0),
+                   ByteField("bpduflags", 0),
+                   ShortField("rootid", 0),
+                   MACField("rootmac", ETHER_ANY),
+                   IntField("pathcost", 0),
+                   ShortField("bridgeid", 0),
+                   MACField("bridgemac", ETHER_ANY),
+                   ShortField("portid", 0),
+                   BCDFloatField("age", 1),
+                   BCDFloatField("maxage", 20),
+                   BCDFloatField("hellotime", 2),
+                   BCDFloatField("fwddelay", 15)]
 
 
 class ARP(Packet):
     name = "ARP"
     fields_desc = [XShortField("hwtype", 0x0001),
-                    XShortEnumField("ptype",  0x0800, ETHER_TYPES),
-                    ByteField("hwlen", 6),
-                    ByteField("plen", 4),
-                    ShortEnumField("op", 1, {"who-has": 1, "is-at": 2, "RARP-req": 3, "RARP-rep": 4, "Dyn-RARP-req": 5, "Dyn-RAR-rep": 6, "Dyn-RARP-err": 7, "InARP-req": 8, "InARP-rep": 9}),
-                    ARPSourceMACField("hwsrc"),
-                    SourceIPField("psrc", "pdst"),
-                    MACField("hwdst", ETHER_ANY),
-                    IPField("pdst", "0.0.0.0")]
+                   XShortEnumField("ptype",  0x0800, ETHER_TYPES),
+                   ByteField("hwlen", 6),
+                   ByteField("plen", 4),
+                   ShortEnumField("op", 1, {"who-has": 1, "is-at": 2, "RARP-req": 3, "RARP-rep": 4, "Dyn-RARP-req": 5, "Dyn-RAR-rep": 6, "Dyn-RARP-err": 7, "InARP-req": 8, "InARP-rep": 9}),
+                   ARPSourceMACField("hwsrc"),
+                   SourceIPField("psrc", "pdst"),
+                   MACField("hwdst", ETHER_ANY),
+                   IPField("pdst", "0.0.0.0")]
     who_has = 1
     is_at = 2
 
     def answers(self, other):
         if isinstance(other, ARP):
             if ((self.op == self.is_at) and
-                 (other.op == self.who_has) and
-                 (self.psrc == other.pdst)):
+                (other.op == self.who_has) and
+                    (self.psrc == other.pdst)):
                 return 1
         return 0
 
@@ -346,28 +346,28 @@ conf.neighbor.register_l3(Ether, ARP, l2_register_l3_arp)
 class GRErouting(Packet):
     name = "GRE routing informations"
     fields_desc = [ShortField("address_family", 0),
-                    ByteField("SRE_offset", 0),
-                    FieldLenField("SRE_len", None, "routing_info", "B"),
-                    StrLenField("routing_info", "", "SRE_len"),
-                    ]
+                   ByteField("SRE_offset", 0),
+                   FieldLenField("SRE_len", None, "routing_info", "B"),
+                   StrLenField("routing_info", "", "SRE_len"),
+                   ]
 
 
 class GRE(Packet):
     name = "GRE"
     fields_desc = [BitField("chksum_present", 0, 1),
-                    BitField("routing_present", 0, 1),
-                    BitField("key_present", 0, 1),
-                    BitField("seqnum_present", 0, 1),
-                    BitField("strict_route_source", 0, 1),
-                    BitField("recursion_control", 0, 3),
-                    BitField("flags", 0, 5),
-                    BitField("version", 0, 3),
-                    XShortEnumField("proto", 0x0000, ETHER_TYPES),
-                    ConditionalField(XShortField("chksum", None), lambda pkt:pkt.chksum_present==1 or pkt.routing_present==1),
-                    ConditionalField(XShortField("offset", None), lambda pkt:pkt.chksum_present==1 or pkt.routing_present==1),
-                    ConditionalField(XIntField("key", None), lambda pkt:pkt.key_present==1),
-                    ConditionalField(XIntField("seqence_number", None), lambda pkt:pkt.seqnum_present==1),
-                    ]
+                   BitField("routing_present", 0, 1),
+                   BitField("key_present", 0, 1),
+                   BitField("seqnum_present", 0, 1),
+                   BitField("strict_route_source", 0, 1),
+                   BitField("recursion_control", 0, 3),
+                   BitField("flags", 0, 5),
+                   BitField("version", 0, 3),
+                   XShortEnumField("proto", 0x0000, ETHER_TYPES),
+                   ConditionalField(XShortField("chksum", None), lambda pkt:pkt.chksum_present==1 or pkt.routing_present==1),
+                   ConditionalField(XShortField("offset", None), lambda pkt:pkt.chksum_present==1 or pkt.routing_present==1),
+                   ConditionalField(XIntField("key", None), lambda pkt:pkt.key_present==1),
+                   ConditionalField(XIntField("seqence_number", None), lambda pkt:pkt.seqnum_present==1),
+                   ]
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
@@ -430,10 +430,10 @@ class LoIntEnumField(EnumField):
 # https://github.com/wireshark/wireshark/blob/fe219637a6748130266a0b0278166046e60a2d68/epan/dissectors/packet-null.c
 # https://www.wireshark.org/docs/wsar_html/epan/aftypes_8h.html
 LOOPBACK_TYPES = {0x2: "IPv4",
-                   0x7: "OSI",
-                   0x10: "Appletalk",
-                   0x17: "Netware IPX/SPX",
-                   0x18: "IPv6", 0x1c: "IPv6", 0x1e: "IPv6"}
+                  0x7: "OSI",
+                  0x10: "Appletalk",
+                  0x17: "Netware IPX/SPX",
+                  0x18: "IPv6", 0x1c: "IPv6", 0x1e: "IPv6"}
 
 
 class Loopback(Packet):
@@ -528,7 +528,7 @@ Set cache=True if you want arping to modify internal ARP-Cache"""
     if verbose is None:
         verbose = conf.verb
     ans, unans = srp(Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst=net), verbose=verbose,
-                    filter="arp and arp[7] = 2", timeout=timeout, iface_hint=net, **kargs)
+                     filter="arp and arp[7] = 2", timeout=timeout, iface_hint=net, **kargs)
     ans = ARPingResult(ans.res)
 
     if cache and ans is not None:
@@ -553,7 +553,7 @@ def promiscping(net, timeout=2, fake_bcast="ff:ff:ff:ff:ff:fe", **kargs):
     """Send ARP who-has requests to determine which hosts are in promiscuous mode
     promiscping(net, iface=conf.iface)"""
     ans, unans = srp(Ether(dst=fake_bcast)/ARP(pdst=net),
-                    filter="arp and arp[7] = 2", timeout=timeout, iface_hint=net, **kargs)
+                     filter="arp and arp[7] = 2", timeout=timeout, iface_hint=net, **kargs)
     ans = ARPingResult(ans.res, name="PROMISCPing")
 
     ans.display()
