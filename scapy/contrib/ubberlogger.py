@@ -22,19 +22,19 @@ from scapy.fields import *
 
 # Syscalls known by Uberlogger
 uberlogger_sys_calls = {0: "READ_ID",
-             1: "OPEN_ID",
-             2: "WRITE_ID",
-             3: "CHMOD_ID",
-             4: "CHOWN_ID",
-             5: "SETUID_ID",
-             6: "CHROOT_ID",
-             7: "CREATE_MODULE_ID",
-             8: "INIT_MODULE_ID",
-             9: "DELETE_MODULE_ID",
-             10: "CAPSET_ID",
-             11: "CAPGET_ID",
-             12: "FORK_ID",
-             13: "EXECVE_ID"}
+                        1: "OPEN_ID",
+                        2: "WRITE_ID",
+                        3: "CHMOD_ID",
+                        4: "CHOWN_ID",
+                        5: "SETUID_ID",
+                        6: "CHROOT_ID",
+                        7: "CREATE_MODULE_ID",
+                        8: "INIT_MODULE_ID",
+                        9: "DELETE_MODULE_ID",
+                        10: "CAPSET_ID",
+                        11: "CAPGET_ID",
+                        12: "FORK_ID",
+                        13: "EXECVE_ID"}
 
 # First part of the header
 

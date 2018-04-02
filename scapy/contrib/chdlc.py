@@ -28,25 +28,25 @@ from scapy.layers.inet6 import *
 class CHDLC(Packet):
     name = "Cisco HDLC"
     fields_desc = [ByteEnumField("address", 0x0f, {0x0f: "unicast", 0x8f: "multicast"}),
-                    ByteField("control", 0),
-                    XShortField("proto", 0x0800)]
+                   ByteField("control", 0),
+                   XShortField("proto", 0x0800)]
 
 
 class SLARP(Packet):
     name = "SLARP"
     fields_desc = [IntEnumField("type", 2, {0: "request", 1: "reply", 2: "line keepalive"}),
-                    ConditionalField(IPField("address", "192.168.0.1"),
-                                        lambda pkt: pkt.type == 0 or pkt.type == 1),
-                    ConditionalField(IPField("mask", "255.255.255.0"),
-                                        lambda pkt: pkt.type == 0 or pkt.type == 1),
-                    ConditionalField(XShortField("unused", 0),
-                                        lambda pkt: pkt.type == 0 or pkt.type == 1),
-                    ConditionalField(IntField("mysequence", 0),
-                                        lambda pkt: pkt.type == 2),
-                    ConditionalField(IntField("yoursequence", 0),
-                                        lambda pkt: pkt.type == 2),
-                    ConditionalField(XShortField("reliability", 0xffff),
-                                        lambda pkt: pkt.type == 2)]
+                   ConditionalField(IPField("address", "192.168.0.1"),
+                                    lambda pkt: pkt.type == 0 or pkt.type == 1),
+                   ConditionalField(IPField("mask", "255.255.255.0"),
+                                    lambda pkt: pkt.type == 0 or pkt.type == 1),
+                   ConditionalField(XShortField("unused", 0),
+                                    lambda pkt: pkt.type == 0 or pkt.type == 1),
+                   ConditionalField(IntField("mysequence", 0),
+                                    lambda pkt: pkt.type == 2),
+                   ConditionalField(IntField("yoursequence", 0),
+                                    lambda pkt: pkt.type == 2),
+                   ConditionalField(XShortField("reliability", 0xffff),
+                                    lambda pkt: pkt.type == 2)]
 
 
 bind_layers(CHDLC, Dot3,  proto=0x6558)

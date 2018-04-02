@@ -13,9 +13,9 @@ from __future__ import print_function
 import struct
 
 from scapy.fields import BitField, ByteField, XByteField, ByteEnumField,\
-ShortField, IntField, XIntField, ByteEnumField, StrLenField, XStrField,\
-XStrLenField, XStrFixedLenField, LenField, FieldLenField, PacketField,\
-PacketListField, ConditionalField, PadField
+    ShortField, IntField, XIntField, ByteEnumField, StrLenField, XStrField,\
+    XStrLenField, XStrFixedLenField, LenField, FieldLenField, PacketField,\
+    PacketListField, ConditionalField, PadField
 from scapy.packet import Packet, bind_layers
 from scapy.layers.l2 import SourceMACField, Ether, CookedLinux, GRE, SNAP
 from scapy.utils import issubtype
@@ -87,7 +87,7 @@ class EAPOL(Packet):
     def answers(self, other):
         if isinstance(other, EAPOL):
             if ((self.type == self.EAP_PACKET) and
-               (other.type == self.EAP_PACKET)):
+                    (other.type == self.EAP_PACKET)):
                 return self.payload.answers(other.payload)
         return 0
 
@@ -257,7 +257,7 @@ class EAP(Packet):
                 return 0
             elif self.code == self.RESPONSE:
                 if ((other.code == self.REQUEST) and
-                   (other.type == self.type)):
+                        (other.type == self.type)):
                     return 1
             elif other.code == self.RESPONSE:
                 return 1

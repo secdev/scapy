@@ -34,72 +34,72 @@ from scapy.sendrecv import sr
 
 # see http://www.iana.org/assignments/ikev2-parameters for details
 IKEv2AttributeTypes= {"Encryption":    (1, {"DES-IV64": 1,
-                                                "DES": 2,
-                                                "3DES": 3,
-                                                "RC5": 4,
-                                                "IDEA": 5,
-                                                "CAST": 6,
-                                                "Blowfish": 7,
-                                                "3IDEA": 8,
-                                                "DES-IV32": 9,
-                                                "AES-CBC": 12,
-                                                "AES-CTR": 13,
-                                                "AES-CCM-8": 14,
-                                                "AES-CCM-12": 15,
-                                                "AES-CCM-16": 16,
-                                                "AES-GCM-8ICV": 18,
-                                                "AES-GCM-12ICV": 19,
-                                                "AES-GCM-16ICV": 20,
-                                                "Camellia-CBC": 23,
-                                                "Camellia-CTR": 24,
-                                                "Camellia-CCM-8ICV": 25,
-                                                "Camellia-CCM-12ICV": 26,
-                                                "Camellia-CCM-16ICV": 27,
-                                        }, 0),
-                         "PRF":            (2, {"PRF_HMAC_MD5": 1,
-                                                "PRF_HMAC_SHA1": 2,
-                                                "PRF_HMAC_TIGER": 3,
-                                                "PRF_AES128_XCBC": 4,
-                                                "PRF_HMAC_SHA2_256": 5,
-                                                "PRF_HMAC_SHA2_384": 6,
-                                                "PRF_HMAC_SHA2_512": 7,
-                                                "PRF_AES128_CMAC": 8,
-                                       }, 0),
-                         "Integrity":    (3, {"HMAC-MD5-96": 1,
-                                                "HMAC-SHA1-96": 2,
-                                                "DES-MAC": 3,
-                                                "KPDK-MD5": 4,
-                                                "AES-XCBC-96": 5,
-                                                "HMAC-MD5-128": 6,
-                                                "HMAC-SHA1-160": 7,
-                                                "AES-CMAC-96": 8,
-                                                "AES-128-GMAC": 9,
-                                                "AES-192-GMAC": 10,
-                                                "AES-256-GMAC": 11,
-                                                "SHA2-256-128": 12,
-                                                "SHA2-384-192": 13,
-                                                "SHA2-512-256": 14,
-                                        }, 0),
-                         "GroupDesc":     (4, {"768MODPgr": 1,
-                                                "1024MODPgr": 2,
-                                                "1536MODPgr": 5,
-                                                "2048MODPgr": 14,
-                                                "3072MODPgr": 15,
-                                                "4096MODPgr": 16,
-                                                "6144MODPgr": 17,
-                                                "8192MODPgr": 18,
-                                                "256randECPgr": 19,
-                                                "384randECPgr": 20,
-                                                "521randECPgr": 21,
-                                                "1024MODP160POSgr": 22,
-                                                "2048MODP224POSgr": 23,
-                                                "2048MODP256POSgr": 24,
-                                                "192randECPgr": 25,
-                                                "224randECPgr": 26,
-                                        }, 0),
-                         "Extended Sequence Number":       (5, {"No ESN":     0,
-                                                 "ESN":   1}, 0),
-                         }
+                                            "DES": 2,
+                                            "3DES": 3,
+                                            "RC5": 4,
+                                            "IDEA": 5,
+                                            "CAST": 6,
+                                            "Blowfish": 7,
+                                            "3IDEA": 8,
+                                            "DES-IV32": 9,
+                                            "AES-CBC": 12,
+                                            "AES-CTR": 13,
+                                            "AES-CCM-8": 14,
+                                            "AES-CCM-12": 15,
+                                            "AES-CCM-16": 16,
+                                            "AES-GCM-8ICV": 18,
+                                            "AES-GCM-12ICV": 19,
+                                            "AES-GCM-16ICV": 20,
+                                            "Camellia-CBC": 23,
+                                            "Camellia-CTR": 24,
+                                            "Camellia-CCM-8ICV": 25,
+                                            "Camellia-CCM-12ICV": 26,
+                                            "Camellia-CCM-16ICV": 27,
+                                            }, 0),
+                      "PRF":            (2, {"PRF_HMAC_MD5": 1,
+                                             "PRF_HMAC_SHA1": 2,
+                                             "PRF_HMAC_TIGER": 3,
+                                             "PRF_AES128_XCBC": 4,
+                                             "PRF_HMAC_SHA2_256": 5,
+                                             "PRF_HMAC_SHA2_384": 6,
+                                             "PRF_HMAC_SHA2_512": 7,
+                                             "PRF_AES128_CMAC": 8,
+                                             }, 0),
+                      "Integrity":    (3, {"HMAC-MD5-96": 1,
+                                           "HMAC-SHA1-96": 2,
+                                           "DES-MAC": 3,
+                                           "KPDK-MD5": 4,
+                                           "AES-XCBC-96": 5,
+                                           "HMAC-MD5-128": 6,
+                                           "HMAC-SHA1-160": 7,
+                                           "AES-CMAC-96": 8,
+                                           "AES-128-GMAC": 9,
+                                           "AES-192-GMAC": 10,
+                                           "AES-256-GMAC": 11,
+                                           "SHA2-256-128": 12,
+                                           "SHA2-384-192": 13,
+                                           "SHA2-512-256": 14,
+                                           }, 0),
+                      "GroupDesc":     (4, {"768MODPgr": 1,
+                                            "1024MODPgr": 2,
+                                            "1536MODPgr": 5,
+                                            "2048MODPgr": 14,
+                                            "3072MODPgr": 15,
+                                            "4096MODPgr": 16,
+                                            "6144MODPgr": 17,
+                                            "8192MODPgr": 18,
+                                            "256randECPgr": 19,
+                                            "384randECPgr": 20,
+                                            "521randECPgr": 21,
+                                            "1024MODP160POSgr": 22,
+                                            "2048MODP224POSgr": 23,
+                                            "2048MODP256POSgr": 24,
+                                            "192randECPgr": 25,
+                                            "224randECPgr": 26,
+                                            }, 0),
+                      "Extended Sequence Number":       (5, {"No ESN":     0,
+                                                             "ESN":   1}, 0),
+                      }
 
 IKEv2AuthenticationTypes = {
     0: "Reserved",
@@ -383,11 +383,11 @@ IKEv2_payload_type = ["None", "", "Proposal", "Transform"]
 
 IKEv2_payload_type.extend([""] * 29)
 IKEv2_payload_type.extend(["SA", "KE", "IDi", "IDr", "CERT", "CERTREQ", "AUTH", "Nonce", "Notify", "Delete",
-                       "VendorID", "TSi", "TSr", "Encrypted", "CP", "EAP", "", "", "", "", "Encrypted Fragment"])
+                           "VendorID", "TSi", "TSr", "Encrypted", "CP", "EAP", "", "", "", "", "Encrypted Fragment"])
 
 IKEv2_exchange_type = [""] * 34
 IKEv2_exchange_type.extend(["IKE_SA_INIT", "IKE_AUTH", "CREATE_CHILD_SA",
-                        "INFORMATIONAL", "IKE_SESSION_RESUME"])
+                            "INFORMATIONAL", "IKE_SESSION_RESUME"])
 
 
 class IKEv2_class(Packet):
@@ -415,7 +415,7 @@ class IKEv2(IKEv2_class): # rfc4306
         FlagsField("flags", 0, 8, ["res0", "res1", "res2", "Initiator", "Version", "Response", "res6", "res7"]),
         IntField("id", 0),
         IntField("length", None) # Length of total message: packets + all payloads
-        ]
+    ]
 
     def guess_payload_class(self, payload):
         if self.flags & 1:
@@ -472,7 +472,7 @@ class IKEv2_payload_Proposal(IKEv2_class):
         ByteField("trans_nb", None),
         StrLenField("SPI", "", length_from=lambda pkt: pkt.SPIsize),
         PacketLenField("trans", conf.raw_layer(), IKEv2_payload_Transform, length_from=lambda pkt: pkt.length-8-pkt.SPIsize),
-        ]
+    ]
 
 
 class IKEv2_payload(IKEv2_class):
@@ -482,7 +482,7 @@ class IKEv2_payload(IKEv2_class):
         FlagsField("flags", 0, 8, ["critical", "res1", "res2", "res3", "res4", "res5", "res6", "res7"]),
         FieldLenField("length", None, "load", "H", adjust=lambda pkt, x:x+4),
         StrLenField("load", "", length_from=lambda x:x.length-4),
-        ]
+    ]
 
 
 class IKEv2_payload_AUTH(IKEv2_class):
@@ -495,7 +495,7 @@ class IKEv2_payload_AUTH(IKEv2_class):
         ByteEnumField("auth_type", None, IKEv2AuthenticationTypes),
         X3BytesField("res2", 0),
         StrLenField("load", "", length_from=lambda x:x.length-8),
-        ]
+    ]
 
 
 class IKEv2_payload_VendorID(IKEv2_class):
@@ -506,7 +506,7 @@ class IKEv2_payload_VendorID(IKEv2_class):
         ByteField("res", 0),
         FieldLenField("length", None, "vendorID", "H", adjust=lambda pkt, x:x+4),
         StrLenField("vendorID", "", length_from=lambda x:x.length-4),
-        ]
+    ]
 
 
 class TrafficSelector(Packet):
@@ -535,7 +535,7 @@ class IPv4TrafficSelector(TrafficSelector):
         ShortField("end_port", 65535),
         IPField("starting_address_v4", "192.168.0.1"),
         IPField("ending_address_v4", "192.168.0.255"),
-        ]
+    ]
 
 
 class IPv6TrafficSelector(TrafficSelector):
@@ -548,7 +548,7 @@ class IPv6TrafficSelector(TrafficSelector):
         ShortField("end_port", 65535),
         IP6Field("starting_address_v6", "2001::"),
         IP6Field("ending_address_v6", "2001::"),
-        ]
+    ]
 
 
 class EncryptedTrafficSelector(TrafficSelector):
@@ -565,7 +565,7 @@ class EncryptedTrafficSelector(TrafficSelector):
         ByteField("ending_R_CTL", 0),
         ByteField("starting_type", 0),
         ByteField("ending_type", 0),
-        ]
+    ]
 
 
 class RawTrafficSelector(TrafficSelector):
@@ -575,7 +575,7 @@ class RawTrafficSelector(TrafficSelector):
         ByteEnumField("IP_protocol_ID", None, IPProtocolIDs),
         FieldLenField("length", None, "load", "H", adjust=lambda pkt, x:x+4),
         PacketField("load", "", Raw)
-        ]
+    ]
 
 
 class IKEv2_payload_TSi(IKEv2_class):
@@ -588,7 +588,7 @@ class IKEv2_payload_TSi(IKEv2_class):
         ByteField("number_of_TSs", 0),
         X3BytesField("res2", 0),
         PacketListField("traffic_selector", None, TrafficSelector, length_from=lambda x:x.length-8, count_from=lambda x:x.number_of_TSs),
-        ]
+    ]
 
 
 class IKEv2_payload_TSr(IKEv2_class):
@@ -601,7 +601,7 @@ class IKEv2_payload_TSr(IKEv2_class):
         ByteField("number_of_TSs", 0),
         X3BytesField("res2", 0),
         PacketListField("traffic_selector", None, TrafficSelector, length_from=lambda x:x.length-8, count_from=lambda x:x.number_of_TSs),
-        ]
+    ]
 
 
 class IKEv2_payload_Delete(IKEv2_class):
@@ -612,7 +612,7 @@ class IKEv2_payload_Delete(IKEv2_class):
         ByteField("res", 0),
         FieldLenField("length", None, "vendorID", "H", adjust=lambda pkt, x:x+4),
         StrLenField("vendorID", "", length_from=lambda x:x.length-4),
-        ]
+    ]
 
 
 class IKEv2_payload_SA(IKEv2_class):
@@ -623,7 +623,7 @@ class IKEv2_payload_SA(IKEv2_class):
         ByteField("res", 0),
         FieldLenField("length", None, "prop", "H", adjust=lambda pkt, x:x+4),
         PacketLenField("prop", conf.raw_layer(), IKEv2_payload_Proposal, length_from=lambda x:x.length-4),
-        ]
+    ]
 
 
 class IKEv2_payload_Nonce(IKEv2_class):
@@ -634,7 +634,7 @@ class IKEv2_payload_Nonce(IKEv2_class):
         ByteField("res", 0),
         FieldLenField("length", None, "load", "H", adjust=lambda pkt, x:x+4),
         StrLenField("load", "", length_from=lambda x:x.length-4),
-        ]
+    ]
 
 
 class IKEv2_payload_Notify(IKEv2_class):
@@ -649,7 +649,7 @@ class IKEv2_payload_Notify(IKEv2_class):
         ShortEnumField("type", 0, IKEv2NotifyMessageTypes),
         StrLenField("SPI", "", length_from=lambda x: x.SPIsize),
         StrLenField("load", "", length_from=lambda x: x.length-8),
-        ]
+    ]
 
 
 class IKEv2_payload_KE(IKEv2_class):
@@ -662,7 +662,7 @@ class IKEv2_payload_KE(IKEv2_class):
         ShortEnumField("group", 0, IKEv2TransformTypes['GroupDesc'][1]),
         ShortField("res2", 0),
         StrLenField("load", "", length_from=lambda x:x.length-8),
-        ]
+    ]
 
 
 class IKEv2_payload_IDi(IKEv2_class):
@@ -675,9 +675,9 @@ class IKEv2_payload_IDi(IKEv2_class):
         ByteEnumField("IDtype", 1, {1: "IPv4_addr", 2: "FQDN", 3: "Email_addr", 5: "IPv6_addr", 11: "Key"}),
         ByteEnumField("ProtoID", 0, {0: "Unused"}),
         ShortEnumField("Port", 0, {0: "Unused"}),
-#        IPField("IdentData","127.0.0.1"),
+        #        IPField("IdentData","127.0.0.1"),
         StrLenField("load", "", length_from=lambda x: x.length-8),
-        ]
+    ]
 
 
 class IKEv2_payload_IDr(IKEv2_class):
@@ -690,9 +690,9 @@ class IKEv2_payload_IDr(IKEv2_class):
         ByteEnumField("IDtype", 1, {1: "IPv4_addr", 2: "FQDN", 3: "Email_addr", 5: "IPv6_addr", 11: "Key"}),
         ByteEnumField("ProtoID", 0, {0: "Unused"}),
         ShortEnumField("Port", 0, {0: "Unused"}),
-#        IPField("IdentData","127.0.0.1"),
+        #        IPField("IdentData","127.0.0.1"),
         StrLenField("load", "", length_from=lambda x: x.length-8),
-        ]
+    ]
 
 
 class IKEv2_payload_Encrypted(IKEv2_class):
@@ -703,7 +703,7 @@ class IKEv2_payload_Encrypted(IKEv2_class):
         ByteField("res", 0),
         FieldLenField("length", None, "load", "H", adjust=lambda pkt, x:x+4),
         StrLenField("load", "", length_from=lambda x:x.length-4),
-        ]
+    ]
 
 
 class IKEv2_payload_Encrypted_Fragment(IKEv2_class):
@@ -716,7 +716,7 @@ class IKEv2_payload_Encrypted_Fragment(IKEv2_class):
         ShortField("frag_number", 1),
         ShortField("frag_total", 1),
         StrLenField("load", "", length_from=lambda x: x.length-8),
-        ]
+    ]
 
 
 class IKEv2_payload_CERTREQ(IKEv2_class):
@@ -727,7 +727,7 @@ class IKEv2_payload_CERTREQ(IKEv2_class):
         FieldLenField("length", None, "cert_data", "H", adjust=lambda pkt, x:x+5),
         ByteEnumField("cert_type", 0, IKEv2CertificateEncodings),
         StrLenField("cert_data", "", length_from=lambda x:x.length-5),
-        ]
+    ]
 
 
 class IKEv2_payload_CERT(IKEv2_class):
@@ -752,7 +752,7 @@ class IKEv2_payload_CERT_CRT(IKEv2_payload_CERT):
         FieldLenField("length", None, "x509Cert", "H", adjust=lambda pkt, x: x+len(pkt.x509Cert)+5),
         ByteEnumField("cert_type", 4, IKEv2CertificateEncodings),
         PacketLenField("x509Cert", X509_Cert(''), X509_Cert, length_from=lambda x:x.length-5),
-        ]
+    ]
 
 
 class IKEv2_payload_CERT_CRL(IKEv2_payload_CERT):
@@ -763,7 +763,7 @@ class IKEv2_payload_CERT_CRL(IKEv2_payload_CERT):
         FieldLenField("length", None, "x509CRL", "H", adjust=lambda pkt, x: x+len(pkt.x509CRL)+5),
         ByteEnumField("cert_type", 7, IKEv2CertificateEncodings),
         PacketLenField("x509CRL", X509_CRL(''), X509_CRL, length_from=lambda x:x.length-5),
-        ]
+    ]
 
 
 class IKEv2_payload_CERT_STR(IKEv2_payload_CERT):
@@ -774,7 +774,7 @@ class IKEv2_payload_CERT_STR(IKEv2_payload_CERT):
         FieldLenField("length", None, "cert_data", "H", adjust=lambda pkt, x: x+5),
         ByteEnumField("cert_type", 0, IKEv2CertificateEncodings),
         StrLenField("cert_data", "", length_from=lambda x:x.length-5),
-        ]
+    ]
 
 
 IKEv2_payload_type_overload = {}
@@ -796,4 +796,4 @@ bind_layers(UDP,           IKEv2,        dport=4500, sport=4500)
 def ikev2scan(ip, **kwargs):
     """Send a IKEv2 SA to an IP and wait for answers."""
     return sr(IP(dst=ip)/UDP()/IKEv2(init_SPI=RandString(8),
-                                      exch_type=34)/IKEv2_payload_SA(prop=IKEv2_payload_Proposal()), **kwargs)
+                                     exch_type=34)/IKEv2_payload_SA(prop=IKEv2_payload_Proposal()), **kwargs)

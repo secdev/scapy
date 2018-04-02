@@ -152,11 +152,11 @@ class Num2Layer:
             else:
                 dir = " ->"
             lst.append((num, "%#6x %s %-20s (%s)" % (num, dir, layer.__name__,
-                                                    layer._name)))
+                                                     layer._name)))
         for layer, num in six.iteritems(self.layer2num):
             if num not in self.num2layer or self.num2layer[num] != layer:
                 lst.append((num, "%#6x <-  %-20s (%s)" % (num, layer.__name__,
-                                                         layer._name)))
+                                                          layer._name)))
         lst.sort()
         return "\n".join(y for x, y in lst)
 

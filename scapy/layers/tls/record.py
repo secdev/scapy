@@ -130,7 +130,7 @@ class _TLSMsgListField(PacketListField):
 
         if remain == b"":
             if (((pkt.tls_session.tls_version or 0x0303) > 0x0200) and
-                hasattr(pkt, "type") and pkt.type == 23):
+                    hasattr(pkt, "type") and pkt.type == 23):
                 return ret, [TLSApplicationData(data=b"")]
             else:
                 return ret, [Raw(load=b"")]
@@ -194,7 +194,7 @@ class _TLSMsgListField(PacketListField):
             res += self.i2m(pkt, p)
         if (isinstance(pkt, _GenericTLSSessionInheritance) and
             _tls_version_check(pkt.tls_session.tls_version, 0x0304) and
-            not isinstance(pkt, TLS13ServerHello)):
+                not isinstance(pkt, TLS13ServerHello)):
                 return s + res
         if not pkt.type:
             pkt.type = 0
@@ -259,13 +259,13 @@ class TLS(_GenericTLSSessionInheritance):
     __slots__ = ["deciphered_len"]
     name = "TLS"
     fields_desc = [ByteEnumField("type", None, _tls_type),
-                    _TLSVersionField("version", None, _tls_version),
-                    _TLSLengthField("len", None),
-                    _TLSIVField("iv", None),
-                    _TLSMsgListField("msg", []),
-                    _TLSMACField("mac", None),
-                    _TLSPadField("pad", None),
-                    _TLSPadLenField("padlen", None)]
+                   _TLSVersionField("version", None, _tls_version),
+                   _TLSLengthField("len", None),
+                   _TLSIVField("iv", None),
+                   _TLSMsgListField("msg", []),
+                   _TLSMACField("mac", None),
+                   _TLSPadField("pad", None),
+                   _TLSPadLenField("padlen", None)]
 
     def __init__(self, *args, **kargs):
         self.deciphered_len = kargs.get("deciphered_len", None)
@@ -475,7 +475,7 @@ class TLS(_GenericTLSSessionInheritance):
             # Authenticated encryption
             # crypto/cipher_aead.py prints a warning for integrity failure
             if (conf.crypto_valid_advanced and
-                isinstance(self.tls_session.rcs.cipher, Cipher_CHACHA20_POLY1305)):
+                    isinstance(self.tls_session.rcs.cipher, Cipher_CHACHA20_POLY1305)):
                 iv = b""
                 cfrag, mac = self._tls_auth_decrypt(hdr, efrag)
             else:
@@ -485,7 +485,7 @@ class TLS(_GenericTLSSessionInheritance):
         frag = self._tls_decompress(cfrag)
 
         if (decryption_success and
-            not isinstance(self.tls_session.rcs.cipher, Cipher_NULL)):
+                not isinstance(self.tls_session.rcs.cipher, Cipher_NULL)):
             self.deciphered_len = len(frag)
         else:
             self.deciphered_len = None
@@ -728,7 +728,7 @@ _tls_alert_description = {
 class TLSAlert(_GenericTLSSessionInheritance):
     name = "TLS Alert"
     fields_desc = [ByteEnumField("level", None, _tls_alert_level),
-                    ByteEnumField("descr", None, _tls_alert_description)]
+                   ByteEnumField("descr", None, _tls_alert_description)]
 
     def post_dissection_tls_session_update(self, msg_str):
         pass

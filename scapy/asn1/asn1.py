@@ -447,7 +447,7 @@ class ASN1_UTC_TIME(ASN1_STRING):
         if name == "val":
             pretty_time = None
             if (isinstance(value, str) and
-                len(value) == 13 and value[-1] == "Z"):
+                    len(value) == 13 and value[-1] == "Z"):
                 dt = datetime.strptime(value[:-1], "%y%m%d%H%M%S")
                 pretty_time = dt.strftime("%b %d %H:%M:%S %Y GMT")
             else:
@@ -475,7 +475,7 @@ class ASN1_GENERALIZED_TIME(ASN1_STRING):
         if name == "val":
             pretty_time = None
             if (isinstance(value, str) and
-                len(value) == 15 and value[-1] == "Z"):
+                    len(value) == 15 and value[-1] == "Z"):
                 dt = datetime.strptime(value[:-1], "%Y%m%d%H%M%S")
                 pretty_time = dt.strftime("%b %d %H:%M:%S %Y GMT")
             else:

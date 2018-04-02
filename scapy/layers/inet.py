@@ -61,46 +61,46 @@ class IPTools(object):
 
 
 _ip_options_names = {0: "end_of_list",
-                      1: "nop",
-                      2: "security",
-                      3: "loose_source_route",
-                      4: "timestamp",
-                      5: "extended_security",
-                      6: "commercial_security",
-                      7: "record_route",
-                      8: "stream_id",
-                      9: "strict_source_route",
-                      10: "experimental_measurement",
-                      11: "mtu_probe",
-                      12: "mtu_reply",
-                      13: "flow_control",
-                      14: "access_control",
-                      15: "encode",
-                      16: "imi_traffic_descriptor",
-                      17: "extended_IP",
-                      18: "traceroute",
-                      19: "address_extension",
-                      20: "router_alert",
-                      21: "selective_directed_broadcast_mode",
-                      23: "dynamic_packet_state",
-                      24: "upstream_multicast_packet",
-                      25: "quick_start",
-                      30: "rfc4727_experiment", 
-                      }
+                     1: "nop",
+                     2: "security",
+                     3: "loose_source_route",
+                     4: "timestamp",
+                     5: "extended_security",
+                     6: "commercial_security",
+                     7: "record_route",
+                     8: "stream_id",
+                     9: "strict_source_route",
+                     10: "experimental_measurement",
+                     11: "mtu_probe",
+                     12: "mtu_reply",
+                     13: "flow_control",
+                     14: "access_control",
+                     15: "encode",
+                     16: "imi_traffic_descriptor",
+                     17: "extended_IP",
+                     18: "traceroute",
+                     19: "address_extension",
+                     20: "router_alert",
+                     21: "selective_directed_broadcast_mode",
+                     23: "dynamic_packet_state",
+                     24: "upstream_multicast_packet",
+                     25: "quick_start",
+                     30: "rfc4727_experiment", 
+                     }
                       
 
 class _IPOption_HDR(Packet):
     fields_desc = [BitField("copy_flag", 0, 1),
-                    BitEnumField("optclass", 0, 2, {0: "control", 2: "debug"}),
-                    BitEnumField("option", 0, 5, _ip_options_names)]
+                   BitEnumField("optclass", 0, 2, {0: "control", 2: "debug"}),
+                   BitEnumField("option", 0, 5, _ip_options_names)]
     
 
 class IPOption(Packet):
     name = "IP Option"
     fields_desc = [_IPOption_HDR,
-                    FieldLenField("length", None, fmt="B",  # Only option 0 and 1 have no length and value
-                                  length_of="value", adjust=lambda pkt, l:l+2),
-                    StrLenField("value", "", length_from=lambda pkt:pkt.length-2)]
+                   FieldLenField("length", None, fmt="B",  # Only option 0 and 1 have no length and value
+                                 length_of="value", adjust=lambda pkt, l:l+2),
+                   StrLenField("value", "", length_from=lambda pkt:pkt.length-2)]
     
     def extract_padding(self, p):
         return b"", p
@@ -137,24 +137,24 @@ class IPOption_Security(IPOption):
     copy_flag = 1
     option = 2
     fields_desc = [_IPOption_HDR,
-                    ByteField("length", 11),
-                    ShortField("security", 0),
-                    ShortField("compartment", 0),
-                    ShortField("handling_restrictions", 0),
-                    StrFixedLenField("transmission_control_code", "xxx", 3),
-                    ]
+                   ByteField("length", 11),
+                   ShortField("security", 0),
+                   ShortField("compartment", 0),
+                   ShortField("handling_restrictions", 0),
+                   StrFixedLenField("transmission_control_code", "xxx", 3),
+                   ]
     
 
 class IPOption_RR(IPOption):
     name = "IP Option Record Route"
     option = 7
     fields_desc = [_IPOption_HDR,
-                    FieldLenField("length", None, fmt="B",
-                                  length_of="routers", adjust=lambda pkt, l:l+3),
-                    ByteField("pointer", 4), # 4 is first IP
-                    FieldListField("routers", [], IPField("", "0.0.0.0"), 
-                                   length_from=lambda pkt:pkt.length-3)
-                    ]
+                   FieldLenField("length", None, fmt="B",
+                                 length_of="routers", adjust=lambda pkt, l:l+3),
+                   ByteField("pointer", 4), # 4 is first IP
+                   FieldListField("routers", [], IPField("", "0.0.0.0"), 
+                                  length_from=lambda pkt:pkt.length-3)
+                   ]
 
     def get_current_router(self):
         return self.routers[self.pointer//4-1]
@@ -177,16 +177,16 @@ class IPOption_Stream_Id(IPOption):
     copy_flag = 1
     option = 8
     fields_desc = [_IPOption_HDR,
-                    ByteField("length", 4),
-                    ShortField("security", 0), ]
+                   ByteField("length", 4),
+                   ShortField("security", 0), ]
                     
 
 class IPOption_MTU_Probe(IPOption):
     name = "IP Option MTU Probe"
     option = 11
     fields_desc = [_IPOption_HDR,
-                    ByteField("length", 4),
-                    ShortField("mtu", 0), ]
+                   ByteField("length", 4),
+                   ShortField("mtu", 0), ]
 
 
 class IPOption_MTU_Reply(IPOption_MTU_Probe):
@@ -198,11 +198,11 @@ class IPOption_Traceroute(IPOption):
     name = "IP Option Traceroute"
     option = 18
     fields_desc = [_IPOption_HDR,
-                    ByteField("length", 12),
-                    ShortField("id", 0),
-                    ShortField("outbound_hops", 0),
-                    ShortField("return_hops", 0),
-                    IPField("originator_ip", "0.0.0.0")]
+                   ByteField("length", 12),
+                   ShortField("id", 0),
+                   ShortField("outbound_hops", 0),
+                   ShortField("return_hops", 0),
+                   IPField("originator_ip", "0.0.0.0")]
 
 
 class IPOption_Address_Extension(IPOption):
@@ -210,9 +210,9 @@ class IPOption_Address_Extension(IPOption):
     copy_flag = 1
     option = 19
     fields_desc = [_IPOption_HDR,
-                    ByteField("length", 10),
-                    IPField("src_ext", "0.0.0.0"),
-                    IPField("dst_ext", "0.0.0.0")]
+                   ByteField("length", 10),
+                   IPField("src_ext", "0.0.0.0"),
+                   IPField("dst_ext", "0.0.0.0")]
 
 
 class IPOption_Router_Alert(IPOption):
@@ -220,8 +220,8 @@ class IPOption_Router_Alert(IPOption):
     copy_flag = 1
     option = 20
     fields_desc = [_IPOption_HDR,
-                    ByteField("length", 4),
-                    ShortEnumField("alert", 0, {0: "router_shall_examine_packet"}), ]
+                   ByteField("length", 4),
+                   ShortEnumField("alert", 0, {0: "router_shall_examine_packet"}), ]
 
 
 class IPOption_SDBM(IPOption):
@@ -229,43 +229,43 @@ class IPOption_SDBM(IPOption):
     copy_flag = 1
     option = 21
     fields_desc = [_IPOption_HDR,
-                    FieldLenField("length", None, fmt="B",
-                                  length_of="addresses", adjust=lambda pkt, l:l+2),
-                    FieldListField("addresses", [], IPField("", "0.0.0.0"), 
-                                   length_from=lambda pkt:pkt.length-2)
-                    ]
+                   FieldLenField("length", None, fmt="B",
+                                 length_of="addresses", adjust=lambda pkt, l:l+2),
+                   FieldListField("addresses", [], IPField("", "0.0.0.0"), 
+                                  length_from=lambda pkt:pkt.length-2)
+                   ]
     
 
 TCPOptions = (
-              {0: ("EOL", None),
-                1: ("NOP", None),
-                2: ("MSS", "!H"),
-                3: ("WScale", "!B"),
-                4: ("SAckOK", None),
-                5: ("SAck", "!"),
-                8: ("Timestamp", "!II"),
-                14: ("AltChkSum", "!BH"),
-                15: ("AltChkSumOpt", None),
-                25: ("Mood", "!p"),
-                28: ("UTO", "!H"),
-                34: ("TFO", "!II"),
-                # RFC 3692
-                253: ("Experiment", "!HHHH"),
-                254: ("Experiment", "!HHHH"),
-                },
+    {0: ("EOL", None),
+     1: ("NOP", None),
+     2: ("MSS", "!H"),
+     3: ("WScale", "!B"),
+     4: ("SAckOK", None),
+     5: ("SAck", "!"),
+     8: ("Timestamp", "!II"),
+     14: ("AltChkSum", "!BH"),
+     15: ("AltChkSumOpt", None),
+     25: ("Mood", "!p"),
+     28: ("UTO", "!H"),
+     34: ("TFO", "!II"),
+     # RFC 3692
+     253: ("Experiment", "!HHHH"),
+     254: ("Experiment", "!HHHH"),
+     },
               {"EOL": 0,
-                "NOP": 1,
-                "MSS": 2,
-                "WScale": 3,
-                "SAckOK": 4,
-                "SAck": 5,
-                "Timestamp": 8,
-                "AltChkSum": 14,
-                "AltChkSumOpt": 15,
-                "Mood": 25,
-                "UTO": 28,
-                "TFO": 34,
-                })
+               "NOP": 1,
+               "MSS": 2,
+               "WScale": 3,
+               "SAckOK": 4,
+               "SAck": 5,
+               "Timestamp": 8,
+               "AltChkSum": 14,
+               "AltChkSumOpt": 15,
+               "Mood": 25,
+               "UTO": 28,
+               "TFO": 34,
+               })
 
 
 class TCPOptionsField(StrField):
@@ -391,19 +391,19 @@ class IP(Packet, IPTools):
     __slots__ = ["_defrag_pos"]
     name = "IP"
     fields_desc = [BitField("version", 4, 4),
-                    BitField("ihl", None, 4),
-                    XByteField("tos", 0),
-                    ShortField("len", None),
-                    ShortField("id", 1),
-                    FlagsField("flags", 0, 3, ["MF", "DF", "evil"]),
-                    BitField("frag", 0, 13),
-                    ByteField("ttl", 64),
-                    ByteEnumField("proto", 0, IP_PROTOS),
-                    XShortField("chksum", None),
-                    #IPField("src", "127.0.0.1"),
-                    Emph(SourceIPField("src", "dst")),
-                    Emph(DestIPField("dst", "127.0.0.1")),
-                    PacketListField("options", [], IPOption, length_from=lambda p:p.ihl*4-20)]
+                   BitField("ihl", None, 4),
+                   XByteField("tos", 0),
+                   ShortField("len", None),
+                   ShortField("id", 1),
+                   FlagsField("flags", 0, 3, ["MF", "DF", "evil"]),
+                   BitField("frag", 0, 13),
+                   ByteField("ttl", 64),
+                   ByteEnumField("proto", 0, IP_PROTOS),
+                   XShortField("chksum", None),
+                   #IPField("src", "127.0.0.1"),
+                   Emph(SourceIPField("src", "dst")),
+                   Emph(DestIPField("dst", "127.0.0.1")),
+                   PacketListField("options", [], IPOption, length_from=lambda p:p.ihl*4-20)]
 
     def post_build(self, p, pay):
         ihl = self.ihl
@@ -434,8 +434,8 @@ class IP(Packet, IPTools):
 
     def hashret(self):
         if ((self.proto == socket.IPPROTO_ICMP)
-             and (isinstance(self.payload, ICMP))
-             and (self.payload.type in [3, 4, 5, 11, 12])):
+            and (isinstance(self.payload, ICMP))
+                and (self.payload.type in [3, 4, 5, 11, 12])):
             return self.payload.payload.hashret()
         if not conf.checkIPinIP and self.proto in [4, 41]:  # IP, IPv6
             return self.payload.hashret()
@@ -464,14 +464,14 @@ class IP(Packet, IPTools):
             elif (self.dst != other.src):
                 return 0
         if ((self.proto == socket.IPPROTO_ICMP) and
-             (isinstance(self.payload, ICMP)) and
-             (self.payload.type in [3, 4, 5, 11, 12])):
+            (isinstance(self.payload, ICMP)) and
+                (self.payload.type in [3, 4, 5, 11, 12])):
             # ICMP error message
             return self.payload.payload.answers(other)
 
         else:
             if ((conf.checkIPaddr and (self.src != other.dst)) or
-                 (self.proto != other.proto)):
+                    (self.proto != other.proto)):
                 return 0
             return self.payload.answers(other.payload)
 
@@ -541,16 +541,16 @@ def in4_chksum(proto, u, p):
 class TCP(Packet):
     name = "TCP"
     fields_desc = [ShortEnumField("sport", 20, TCP_SERVICES),
-                    ShortEnumField("dport", 80, TCP_SERVICES),
-                    IntField("seq", 0),
-                    IntField("ack", 0),
-                    BitField("dataofs", None, 4),
-                    BitField("reserved", 0, 3),
-                    FlagsField("flags", 0x2, 9, "FSRPAUECN"),
-                    ShortField("window", 8192),
-                    XShortField("chksum", None),
-                    ShortField("urgptr", 0),
-                    TCPOptionsField("options", [])]
+                   ShortEnumField("dport", 80, TCP_SERVICES),
+                   IntField("seq", 0),
+                   IntField("ack", 0),
+                   BitField("dataofs", None, 4),
+                   BitField("reserved", 0, 3),
+                   FlagsField("flags", 0x2, 9, "FSRPAUECN"),
+                   ShortField("window", 8192),
+                   XShortField("chksum", None),
+                   ShortField("urgptr", 0),
+                   TCPOptionsField("options", [])]
 
     def post_build(self, p, pay):
         p += pay
@@ -618,9 +618,9 @@ class TCP(Packet):
 class UDP(Packet):
     name = "UDP"
     fields_desc = [ShortEnumField("sport", 53, UDP_SERVICES),
-                    ShortEnumField("dport", 53, UDP_SERVICES),
-                    ShortField("len", None),
-                    XShortField("chksum", None), ]
+                   ShortEnumField("dport", 53, UDP_SERVICES),
+                   ShortField("len", None),
+                   XShortField("chksum", None), ]
 
     def post_build(self, p, pay):
         p += pay
@@ -670,20 +670,20 @@ class UDP(Packet):
 
 
 icmptypes = {0: "echo-reply",
-              3: "dest-unreach",
-              4: "source-quench",
-              5: "redirect",
-              8: "echo-request",
-              9: "router-advertisement",
-              10: "router-solicitation",
-              11: "time-exceeded",
-              12: "parameter-problem",
-              13: "timestamp-request",
-              14: "timestamp-reply",
-              15: "information-request",
-              16: "information-response",
-              17: "address-mask-request",
-              18: "address-mask-reply"}
+             3: "dest-unreach",
+             4: "source-quench",
+             5: "redirect",
+             8: "echo-request",
+             9: "router-advertisement",
+             10: "router-solicitation",
+             11: "time-exceeded",
+             12: "parameter-problem",
+             13: "timestamp-request",
+             14: "timestamp-reply",
+             15: "information-request",
+             16: "information-response",
+             17: "address-mask-request",
+             18: "address-mask-reply"}
 
 icmpcodes = {3: {0: "network-unreachable",
                     1: "host-unreachable",
@@ -700,35 +700,35 @@ icmpcodes = {3: {0: "network-unreachable",
                     13: "communication-prohibited",
                     14: "host-precedence-violation",
                     15: "precedence-cutoff", },
-              5: {0: "network-redirect",
-                    1: "host-redirect",
-                    2: "TOS-network-redirect",
-                    3: "TOS-host-redirect", },
-              11: {0: "ttl-zero-during-transit",
-                     1: "ttl-zero-during-reassembly", },
-              12: {0: "ip-header-bad",
-                     1: "required-option-missing", }, }
+             5: {0: "network-redirect",
+                 1: "host-redirect",
+                 2: "TOS-network-redirect",
+                 3: "TOS-host-redirect", },
+             11: {0: "ttl-zero-during-transit",
+                  1: "ttl-zero-during-reassembly", },
+             12: {0: "ip-header-bad",
+                  1: "required-option-missing", }, }
                          
                    
 class ICMP(Packet):
     name = "ICMP"
     fields_desc = [ByteEnumField("type", 8, icmptypes),
-                    MultiEnumField("code", 0, icmpcodes, depends_on=lambda pkt:pkt.type, fmt="B"),
-                    XShortField("chksum", None),
-                    ConditionalField(XShortField("id", 0),  lambda pkt:pkt.type in [0, 8, 13, 14, 15, 16, 17, 18]),
-                    ConditionalField(XShortField("seq", 0), lambda pkt:pkt.type in [0, 8, 13, 14, 15, 16, 17, 18]),
-                    ConditionalField(ICMPTimeStampField("ts_ori", None), lambda pkt:pkt.type in [13, 14]),
-                    ConditionalField(ICMPTimeStampField("ts_rx", None), lambda pkt:pkt.type in [13, 14]),
-                    ConditionalField(ICMPTimeStampField("ts_tx", None), lambda pkt:pkt.type in [13, 14]),
-                    ConditionalField(IPField("gw", "0.0.0.0"),  lambda pkt:pkt.type==5),
-                    ConditionalField(ByteField("ptr", 0),   lambda pkt:pkt.type==12),
-                    ConditionalField(ByteField("reserved", 0), lambda pkt:pkt.type in [3, 11]),
-                    ConditionalField(ByteField("length", 0), lambda pkt:pkt.type in [3, 11, 12]),
-                    ConditionalField(IPField("addr_mask", "0.0.0.0"), lambda pkt:pkt.type in [17, 18]),
-                    ConditionalField(ShortField("nexthopmtu", 0), lambda pkt:pkt.type==3),
-                    ConditionalField(ShortField("unused", 0), lambda pkt:pkt.type in [11, 12]),
-                    ConditionalField(IntField("unused", 0), lambda pkt:pkt.type not in [0, 3, 5, 8, 11, 12, 13, 14, 15, 16, 17, 18])
-                    ]
+                   MultiEnumField("code", 0, icmpcodes, depends_on=lambda pkt:pkt.type, fmt="B"),
+                   XShortField("chksum", None),
+                   ConditionalField(XShortField("id", 0),  lambda pkt:pkt.type in [0, 8, 13, 14, 15, 16, 17, 18]),
+                   ConditionalField(XShortField("seq", 0), lambda pkt:pkt.type in [0, 8, 13, 14, 15, 16, 17, 18]),
+                   ConditionalField(ICMPTimeStampField("ts_ori", None), lambda pkt:pkt.type in [13, 14]),
+                   ConditionalField(ICMPTimeStampField("ts_rx", None), lambda pkt:pkt.type in [13, 14]),
+                   ConditionalField(ICMPTimeStampField("ts_tx", None), lambda pkt:pkt.type in [13, 14]),
+                   ConditionalField(IPField("gw", "0.0.0.0"),  lambda pkt:pkt.type==5),
+                   ConditionalField(ByteField("ptr", 0),   lambda pkt:pkt.type==12),
+                   ConditionalField(ByteField("reserved", 0), lambda pkt:pkt.type in [3, 11]),
+                   ConditionalField(ByteField("length", 0), lambda pkt:pkt.type in [3, 11, 12]),
+                   ConditionalField(IPField("addr_mask", "0.0.0.0"), lambda pkt:pkt.type in [17, 18]),
+                   ConditionalField(ShortField("nexthopmtu", 0), lambda pkt:pkt.type==3),
+                   ConditionalField(ShortField("unused", 0), lambda pkt:pkt.type in [11, 12]),
+                   ConditionalField(IntField("unused", 0), lambda pkt:pkt.type not in [0, 3, 5, 8, 11, 12, 13, 14, 15, 16, 17, 18])
+                   ]
 
     def post_build(self, p, pay):
         p += pay
@@ -746,8 +746,8 @@ class ICMP(Packet):
         if not isinstance(other, ICMP):
             return 0
         if ((other.type, self.type) in [(8, 0), (13, 14), (15, 16), (17, 18)] and
-             self.id == other.id and
-             self.seq == other.seq):
+            self.id == other.id and
+                self.seq == other.seq):
             return 1
         return 0
 
@@ -771,11 +771,11 @@ class IPerror(IP):
         if not isinstance(other, IP):
             return 0
         if not (((conf.checkIPsrc == 0) or (self.dst == other.dst)) and
-                 (self.src == other.src) and
-                 (((conf.checkIPID == 0)
-                    or (self.id == other.id)
-                    or (conf.checkIPID == 1 and self.id == socket.htons(other.id)))) and
-                 (self.proto == other.proto)):
+                (self.src == other.src) and
+                (((conf.checkIPID == 0)
+                  or (self.id == other.id)
+                  or (conf.checkIPID == 1 and self.id == socket.htons(other.id)))) and
+                (self.proto == other.proto)):
             return 0
         return self.payload.answers(other.payload)
 
@@ -833,7 +833,7 @@ class ICMPerror(ICMP):
             return 0
         if self.code in [0, 8, 13, 14, 17, 18]:
             if (self.id == other.id and
-                self.seq == other.seq):
+                    self.seq == other.seq):
                 return 1
             else:
                 return 0
@@ -1533,7 +1533,7 @@ class TracerouteResult(SndRcvList):
             ASres = conf.AS_resolver
         if (self.graphdef is None or
             self.graphASres != ASres or
-            self.graphpadding != padding):
+                self.graphpadding != padding):
             self.make_graph(ASres, padding)
 
         return do_graph(self.graphdef, **kargs)
@@ -1553,12 +1553,12 @@ traceroute(target, [maxttl=30,] [dport=80,] [sport=80,] [verbose=conf.verb]) -> 
         filter="(icmp and (icmp[0]=3 or icmp[0]=4 or icmp[0]=5 or icmp[0]=11 or icmp[0]=12)) or (tcp and (tcp[13] & 0x16 > 0x10))"
     if l4 is None:
         a, b = sr(IP(dst=target, id=RandShort(), ttl=(minttl, maxttl))/TCP(seq=RandInt(), sport=sport, dport=dport),
-                 timeout=timeout, filter=filter, verbose=verbose, **kargs)
+                  timeout=timeout, filter=filter, verbose=verbose, **kargs)
     else:
         # this should always work
         filter="ip"
         a, b = sr(IP(dst=target, id=RandShort(), ttl=(minttl, maxttl))/l4,
-                 timeout=timeout, filter=filter, verbose=verbose, **kargs)
+                  timeout=timeout, filter=filter, verbose=verbose, **kargs)
 
     a = TracerouteResult(a.res)
     if verbose:

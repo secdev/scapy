@@ -289,8 +289,8 @@ class PubKeyRSA(PubKey, _EncryptAndVerifyRSA):
             e = pkcs_os2ip(e)
         self.fill_and_store(modulus=m, pubExp=e)
         self.pem = self.pubkey.public_bytes(
-                        encoding=serialization.Encoding.PEM,
-                        format=serialization.PublicFormat.SubjectPublicKeyInfo)
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo)
         self.der = pem2der(self.pem)
 
     def import_from_asn1pkt(self, pubkey):
@@ -321,7 +321,7 @@ class PubKeyECDSA(PubKey):
     def import_from_der(self, pubkey):
         # No lib support for explicit curves nor compressed points.
         self.pubkey = serialization.load_der_public_key(pubkey,
-                                                    backend=default_backend())
+                                                        backend=default_backend())
 
     def encrypt(self, msg, h="sha256", **kwargs):
         # cryptography lib does not support ECDSA encryption
@@ -458,8 +458,8 @@ class PrivKeyRSA(PrivKey, _EncryptAndVerifyRSA, _DecryptAndSignRSA):
     """
     @crypto_validator
     def fill_and_store(self, modulus=None, modulusLen=None, pubExp=None,
-                             prime1=None, prime2=None, coefficient=None,
-                             exponent1=None, exponent2=None, privExp=None):
+                       prime1=None, prime2=None, coefficient=None,
+                       exponent1=None, exponent2=None, privExp=None):
         pubExp = pubExp or 65537
         if None in [modulus, prime1, prime2, coefficient, privExp,
                     exponent1, exponent2]:
@@ -525,7 +525,7 @@ class PrivKeyECDSA(PrivKey):
     @crypto_validator
     def import_from_asn1pkt(self, privkey):
         self.key = serialization.load_der_private_key(raw(privkey), None,
-                                                  backend=default_backend())
+                                                      backend=default_backend())
         self.pubkey = self.key.public_key()
 
     @crypto_validator
@@ -722,7 +722,7 @@ class Cert(six.with_metaclass(_CertMaker, object)):
         for c in crl_list:
             if (self.authorityKeyID is not None and
                 c.authorityKeyID is not None and
-                self.authorityKeyID == c.authorityKeyID):
+                    self.authorityKeyID == c.authorityKeyID):
                 return self.serial in (x[0] for x in c.revoked_cert_serials)
             elif self.issuer == c.issuer:
                 return self.serial in (x[0] for x in c.revoked_cert_serials)

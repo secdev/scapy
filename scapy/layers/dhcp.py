@@ -34,20 +34,20 @@ dhcpmagic=b"c\x82Sc"
 class BOOTP(Packet):
     name = "BOOTP"
     fields_desc = [ByteEnumField("op", 1, {1: "BOOTREQUEST", 2: "BOOTREPLY"}),
-                    ByteField("htype", 1),
-                    ByteField("hlen", 6),
-                    ByteField("hops", 0),
-                    IntField("xid", 0),
-                    ShortField("secs", 0),
-                    FlagsField("flags", 0, 16, "???????????????B"),
-                    IPField("ciaddr", "0.0.0.0"),
-                    IPField("yiaddr", "0.0.0.0"),
-                    IPField("siaddr", "0.0.0.0"),
-                    IPField("giaddr", "0.0.0.0"),
-                    Field("chaddr", b"", "16s"),
-                    Field("sname", b"", "64s"),
-                    Field("file", b"", "128s"),
-                    StrField("options", b"")]
+                   ByteField("htype", 1),
+                   ByteField("hlen", 6),
+                   ByteField("hops", 0),
+                   IntField("xid", 0),
+                   ShortField("secs", 0),
+                   FlagsField("flags", 0, 16, "???????????????B"),
+                   IPField("ciaddr", "0.0.0.0"),
+                   IPField("yiaddr", "0.0.0.0"),
+                   IPField("siaddr", "0.0.0.0"),
+                   IPField("giaddr", "0.0.0.0"),
+                   Field("chaddr", b"", "16s"),
+                   Field("sname", b"", "64s"),
+                   Field("file", b"", "128s"),
+                   StrField("options", b"")]
 
     def guess_payload_class(self, payload):
         if self.options[:len(dhcpmagic)] == dhcpmagic:
@@ -87,20 +87,20 @@ class _DHCPParamReqFieldListField(FieldListField):
 
 
 DHCPTypes = {
-                1: "discover",
-                2: "offer",
-                3: "request",
-                4: "decline",
-                5: "ack",
-                6: "nak",
-                7: "release",
-                8: "inform",
-                9: "force_renew",
-                10: "lease_query",
-                11: "lease_unassigned",
-                12: "lease_unknown",
-                13: "lease_active",
-                }
+    1: "discover",
+    2: "offer",
+    3: "request",
+    4: "decline",
+    5: "ack",
+    6: "nak",
+    7: "release",
+    8: "inform",
+    9: "force_renew",
+    10: "lease_query",
+    11: "lease_unassigned",
+    12: "lease_unknown",
+    13: "lease_active",
+}
 
 DHCPOptions = {
     0: "pad",
@@ -156,7 +156,7 @@ DHCPOptions = {
     76: "StreetTalk_Dir_Assistance",
     82: "relay_agent_Information",
     255: "end"
-    }
+}
 
 DHCPRevOptions = {}
 
@@ -314,7 +314,7 @@ def dhcp_request(iface=None, **kargs):
         iface = conf.iface
     fam, hw = get_if_raw_hwaddr(iface)
     return srp1(Ether(dst="ff:ff:ff:ff:ff:ff")/IP(src="0.0.0.0", dst="255.255.255.255")/UDP(sport=68, dport=67)
-                 /BOOTP(chaddr=hw)/DHCP(options=[("message-type", "discover"), "end"]), iface=iface, **kargs)
+                /BOOTP(chaddr=hw)/DHCP(options=[("message-type", "discover"), "end"]), iface=iface, **kargs)
 
 
 class BOOTP_am(AnsweringMachine):

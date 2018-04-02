@@ -48,8 +48,8 @@ def getPPIType(id, default="default"):
 class PPIGenericFldHdr(Packet):
     name = "PPI Field Header"
     fields_desc = [LEShortField('pfh_type', 0),
-                    FieldLenField('pfh_length', None, length_of="value", fmt='<H', adjust=lambda p, x:x+4),
-                    StrLenField("value", "", length_from=lambda p:p.pfh_length)]
+                   FieldLenField('pfh_length', None, length_of="value", fmt='<H', adjust=lambda p, x:x+4),
+                   StrLenField("value", "", length_from=lambda p:p.pfh_length)]
 
     def extract_padding(self, p):
         return b"", p
@@ -87,10 +87,10 @@ def _PPIGuessPayloadClass(p, **kargs):
 class PPI(Packet):
     name = "PPI Packet Header"
     fields_desc = [ByteField('pph_version', 0),
-                    ByteField('pph_flags', 0),
-                    FieldLenField('pph_len', None, length_of="PPIFieldHeaders", fmt="<H", adjust=lambda p, x:x+8),
-                    LEIntField('dlt', None),
-                    PacketListField("PPIFieldHeaders", [],  _PPIGuessPayloadClass, length_from=lambda p:p.pph_len-8,)]
+                   ByteField('pph_flags', 0),
+                   FieldLenField('pph_len', None, length_of="PPIFieldHeaders", fmt="<H", adjust=lambda p, x:x+8),
+                   LEIntField('dlt', None),
+                   PacketListField("PPIFieldHeaders", [],  _PPIGuessPayloadClass, length_from=lambda p:p.pph_len-8,)]
 
     def guess_payload_class(self, payload):
         return conf.l2types.get(self.dlt, Packet.guess_payload_class(self, payload))

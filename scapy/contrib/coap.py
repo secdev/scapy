@@ -62,24 +62,24 @@ coap_codes = {
     165: "Proxying Not Supported"}
 
 coap_options = ({
-                    1: "If-Match",
-                    3: "Uri-Host",
-                    4: "ETag",
-                    5: "If-None-Match",
-                    7: "Uri-Port",
-                    8: "Location-Path",
-                    11: "Uri-Path",
-                    12: "Content-Format",
-                    14: "Max-Age",
-                    15: "Uri-Query",
-                    17: "Accept",
-                    20: "Location-Query",
-                    35: "Proxy-Uri",
-                    39: "Proxy-Scheme",
-                    60: "Size1"
-                },
-                {
-                    "If-Match": 1,
+    1: "If-Match",
+    3: "Uri-Host",
+    4: "ETag",
+    5: "If-None-Match",
+    7: "Uri-Port",
+    8: "Location-Path",
+    11: "Uri-Path",
+    12: "Content-Format",
+    14: "Max-Age",
+    15: "Uri-Query",
+    17: "Accept",
+    20: "Location-Query",
+    35: "Proxy-Uri",
+    39: "Proxy-Scheme",
+    60: "Size1"
+},
+    {
+    "If-Match": 1,
                     "Uri-Host": 3,
                     "ETag": 4,
                     "If-None-Match": 5,
@@ -94,7 +94,7 @@ coap_options = ({
                     "Proxy-Uri": 35,
                     "Proxy-Scheme": 39,
                     "Size1": 60
-                })
+})
 
 
 def _get_ext_field_size(val):

@@ -137,7 +137,7 @@ class connState(object):
         # When slicing the key_block, keep the right half of the material
         skip_first = False
         if ((self.connection_end == "client" and self.row == "read") or
-            (self.connection_end == "server" and self.row == "write")):
+                (self.connection_end == "server" and self.row == "write")):
             skip_first = True
 
         pos = 0
@@ -164,11 +164,11 @@ class connState(object):
         if cs.kx_alg.export:
             reqLen = cipher_alg.expanded_key_len
             cipher_secret = self.prf.postprocess_key_for_export(cipher_secret,
-                                                      client_random,
-                                                      server_random,
-                                                      self.connection_end,
-                                                      self.row,
-                                                      reqLen)
+                                                                client_random,
+                                                                server_random,
+                                                                self.connection_end,
+                                                                self.row,
+                                                                reqLen)
         self.debug_repr("cipher_secret", cipher_secret)
         pos += 2*cipher_alg.key_len
 
@@ -227,7 +227,7 @@ class connState(object):
         """
         skip_first = True
         if ((self.connection_end == "client" and self.row == "read") or
-            (self.connection_end == "server" and self.row == "write")):
+                (self.connection_end == "server" and self.row == "write")):
             skip_first = False
 
         cipher_alg = self.ciphersuite.cipher_alg
@@ -504,7 +504,7 @@ class tlsSession(object):
             self.pwcs.row = "write"
 
         self.triggered_prcs_commit, self.triggered_pwcs_commit = \
-                self.triggered_pwcs_commit, self.triggered_prcs_commit
+            self.triggered_pwcs_commit, self.triggered_prcs_commit
 
         if self.connection_end == "client":
             self.connection_end = "server"
@@ -582,7 +582,7 @@ class tlsSession(object):
 
         bk = hkdf.derive_secret(self.tls13_early_secret,
                                 b"external psk binder key",
-                               #"resumption psk binder key",
+                                #"resumption psk binder key",
                                 b"")
         self.tls13_derived_secrets["binder_key"] = bk
 
@@ -767,12 +767,12 @@ class tlsSession(object):
     def eq(self, other):
         ok = False
         if (self.sport == other.sport and self.dport == other.dport and
-            self.ipsrc == other.ipsrc and self.ipdst == other.ipdst):
+                self.ipsrc == other.ipsrc and self.ipdst == other.ipdst):
             ok = True
 
         if (not ok and
             self.dport == other.sport and self.sport == other.dport and
-            self.ipdst == other.ipsrc and self.ipsrc == other.ipdst):
+                self.ipdst == other.ipsrc and self.ipsrc == other.ipdst):
             ok = True
 
         if ok:

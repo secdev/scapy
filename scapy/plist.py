@@ -194,11 +194,11 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         # Get the list of packets
         if lfilter is None:
             l = [f(self.res[i], self.res[i+1])
-                    for i in range(len(self.res) - delay)]
+                 for i in range(len(self.res) - delay)]
         else:
             l = [f(self.res[i], self.res[i+1])
-                    for i in range(len(self.res) - delay)
-                        if lfilter(self.res[i])]
+                 for i in range(len(self.res) - delay)
+                 if lfilter(self.res[i])]
 
         # Mimic the default gnuplot output
         if kargs == {}:

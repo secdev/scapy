@@ -70,14 +70,14 @@ class _NoLLSLenField(LenField):
 class OSPF_Hdr(Packet):
     name = "OSPF Header"
     fields_desc = [
-                    ByteField("version", 2),
-                    ByteEnumField("type", 1, _OSPF_types),
-                    _NoLLSLenField("len", None, adjust=lambda x: x+24),
-                    IPField("src", "1.1.1.1"),
-                    IPField("area", "0.0.0.0"), # default: backbone
-                    XShortField("chksum", None),
-                    ShortEnumField("authtype", 0, {0: "Null", 1: "Simple", 2: "Crypto"}),
-                    # Null or Simple Authentication
+        ByteField("version", 2),
+        ByteEnumField("type", 1, _OSPF_types),
+        _NoLLSLenField("len", None, adjust=lambda x: x+24),
+        IPField("src", "1.1.1.1"),
+        IPField("area", "0.0.0.0"), # default: backbone
+        XShortField("chksum", None),
+        ShortEnumField("authtype", 0, {0: "Null", 1: "Simple", 2: "Crypto"}),
+        # Null or Simple Authentication
                     ConditionalField(XLongField("authdata", 0), lambda pkt: pkt.authtype != 2),
                     # Crypto Authentication
                     ConditionalField(XShortField("reserved", 0), lambda pkt: pkt.authtype == 2),
@@ -85,7 +85,7 @@ class OSPF_Hdr(Packet):
                     ConditionalField(ByteField("authdatalen", 0), lambda pkt: pkt.authtype == 2),
                     ConditionalField(XIntField("seq", 0), lambda pkt: pkt.authtype == 2),
                     # TODO: Support authdata (which is appended to the packets as if it were padding)
-                    ]
+    ]
 
     def post_build(self, p, pay):
         # See <http://tools.ietf.org/html/rfc5613>
@@ -107,7 +107,7 @@ class OSPF_Hdr(Packet):
     def answers(self, other):
         if (isinstance(other, OSPF_Hdr) and
             self.area == other.area and
-            self.type == 5):  # Only acknowledgements answer other packets
+                self.type == 5):  # Only acknowledgements answer other packets
                 return self.payload.answers(other.payload)
         return 0
 
@@ -291,8 +291,8 @@ class OSPF_Router_LSA(OSPF_BaseLSA):
                    ByteField("reserved", 0),
                    FieldLenField("linkcount", None, count_of="linklist"),
                    PacketListField("linklist", [], OSPF_Link,
-                                     count_from=lambda pkt: pkt.linkcount,
-                                     length_from=lambda pkt: pkt.linkcount * 12)]
+                                   count_from=lambda pkt: pkt.linkcount,
+                                   length_from=lambda pkt: pkt.linkcount * 12)]
 
 
 class OSPF_Network_LSA(OSPF_BaseLSA):
@@ -307,7 +307,7 @@ class OSPF_Network_LSA(OSPF_BaseLSA):
                    ShortField("len", None),
                    IPField("mask", "255.255.255.0"),
                    FieldListField("routerlist", [], IPField("", "1.1.1.1"),
-                                    length_from=lambda pkt: pkt.len - 24)]
+                                  length_from=lambda pkt: pkt.len - 24)]
 
 
 class OSPF_SummaryIP_LSA(OSPF_BaseLSA):
@@ -369,8 +369,8 @@ class OSPF_DBDesc(Packet):
                    FlagsField("dbdescr", 0, 8, ["MS", "M", "I", "R", "4", "3", "2", "1"]),
                    IntField("ddseq", 1),
                    PacketListField("lsaheaders", None, OSPF_LSA_Hdr,
-                                    count_from = lambda pkt: None,
-                                    length_from = lambda pkt: pkt.underlayer.len - 24 - 8)]
+                                   count_from = lambda pkt: None,
+                                   length_from = lambda pkt: pkt.underlayer.len - 24 - 8)]
 
     def guess_payload_class(self, payload):
         # check presence of LLS data block flag
@@ -393,16 +393,16 @@ class OSPF_LSReq_Item(Packet):
 class OSPF_LSReq(Packet):
     name = "OSPF Link State Request (container)"
     fields_desc = [PacketListField("requests", None, OSPF_LSReq_Item,
-                                  count_from = lambda pkt:None,
-                                  length_from = lambda pkt:pkt.underlayer.len - 24)]
+                                   count_from = lambda pkt:None,
+                                   length_from = lambda pkt:pkt.underlayer.len - 24)]
 
 
 class OSPF_LSUpd(Packet):
     name = "OSPF Link State Update"
     fields_desc = [FieldLenField("lsacount", None, fmt="!I", count_of="lsalist"),
                    PacketListField("lsalist", None, _LSAGuessPayloadClass,
-                                count_from = lambda pkt: pkt.lsacount,
-                                length_from = lambda pkt: pkt.underlayer.len - 24)]
+                                   count_from = lambda pkt: pkt.lsacount,
+                                   length_from = lambda pkt: pkt.underlayer.len - 24)]
 
 
 class OSPF_LSAck(Packet):
@@ -416,7 +416,7 @@ class OSPF_LSAck(Packet):
             for reqLSA in other.lsalist:
                 for ackLSA in self.lsaheaders:
                     if (reqLSA.type == ackLSA.type and
-                        reqLSA.seq == ackLSA.seq):
+                            reqLSA.seq == ackLSA.seq):
                         return 1
         return 0
 
@@ -469,7 +469,7 @@ class OSPFv3_Hello(Packet):
                    IPField("router", "0.0.0.0"),
                    IPField("backup", "0.0.0.0"),
                    FieldListField("neighbors", [], IPField("", "0.0.0.0"),
-                                    length_from=lambda pkt: (pkt.underlayer.len - 36))]
+                                  length_from=lambda pkt: (pkt.underlayer.len - 36))]
 
 
 _OSPFv3_LStypes = {0x2001: "router",
@@ -549,7 +549,7 @@ class OSPFv3_Router_LSA(OSPF_BaseLSA):
                    FlagsField("flags", 0, 8, ["B", "E", "V", "W"]),
                    OSPFv3OptionsField(),
                    PacketListField("linklist", [], OSPFv3_Link,
-                                     length_from=lambda pkt:pkt.len - 24)]
+                                   length_from=lambda pkt:pkt.len - 24)]
 
 
 class OSPFv3_Network_LSA(OSPF_BaseLSA):
@@ -564,7 +564,7 @@ class OSPFv3_Network_LSA(OSPF_BaseLSA):
                    ByteField("reserved", 0),
                    OSPFv3OptionsField(),
                    FieldListField("routerlist", [], IPField("", "0.0.0.1"),
-                                    length_from=lambda pkt: pkt.len - 24)]
+                                  length_from=lambda pkt: pkt.len - 24)]
 
 
 class OSPFv3PrefixOptionsField(FlagsField):
@@ -659,7 +659,7 @@ class OSPFv3_Link_LSA(OSPF_BaseLSA):
                    IP6Field("lladdr", "fe80::"),
                    FieldLenField("prefixes", None, count_of="prefixlist", fmt="I"),
                    PacketListField("prefixlist", None, OSPFv3_Prefix_Item,
-                                  count_from = lambda pkt: pkt.prefixes)]
+                                   count_from = lambda pkt: pkt.prefixes)]
 
 
 class OSPFv3_Intra_Area_Prefix_LSA(OSPF_BaseLSA):
@@ -676,7 +676,7 @@ class OSPFv3_Intra_Area_Prefix_LSA(OSPF_BaseLSA):
                    IPField("reflsid", "0.0.0.0"),
                    IPField("refadrouter", "0.0.0.0"),
                    PacketListField("prefixlist", None, OSPFv3_Prefix_Item,
-                                  count_from = lambda pkt: pkt.prefixes)]
+                                   count_from = lambda pkt: pkt.prefixes)]
 
 
 class OSPFv3_DBDesc(Packet):
@@ -688,8 +688,8 @@ class OSPFv3_DBDesc(Packet):
                    FlagsField("dbdescr", 0, 8, ["MS", "M", "I", "R"]),
                    IntField("ddseq", 1),
                    PacketListField("lsaheaders", None, OSPFv3_LSA_Hdr,
-                                    count_from = lambda pkt:None,
-                                    length_from = lambda pkt:pkt.underlayer.len - 28)]
+                                   count_from = lambda pkt:None,
+                                   length_from = lambda pkt:pkt.underlayer.len - 28)]
 
 
 class OSPFv3_LSReq_Item(Packet):
@@ -706,16 +706,16 @@ class OSPFv3_LSReq_Item(Packet):
 class OSPFv3_LSReq(Packet):
     name = "OSPFv3 Link State Request (container)"
     fields_desc = [PacketListField("requests", None, OSPFv3_LSReq_Item,
-                                  count_from = lambda pkt:None,
-                                  length_from = lambda pkt:pkt.underlayer.len - 16)]
+                                   count_from = lambda pkt:None,
+                                   length_from = lambda pkt:pkt.underlayer.len - 16)]
 
 
 class OSPFv3_LSUpd(Packet):
     name = "OSPFv3 Link State Update"
     fields_desc = [FieldLenField("lsacount", None, fmt="!I", count_of="lsalist"),
                    PacketListField("lsalist", [], _OSPFv3_LSAGuessPayloadClass,
-                                count_from = lambda pkt:pkt.lsacount,
-                                length_from = lambda pkt:pkt.underlayer.len - 16)]
+                                   count_from = lambda pkt:pkt.lsacount,
+                                   length_from = lambda pkt:pkt.underlayer.len - 16)]
 
 
 class OSPFv3_LSAck(Packet):

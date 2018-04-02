@@ -13,8 +13,8 @@ from scapy.packet import Packet, bind_layers
 from scapy.layers.inet import TCP
 from scapy.compat import *
 from scapy.fields import ByteEnumField, FieldLenField, FlagsField, IntField, IntEnumField,\
-                         LenField, XIntField, ShortField, ShortEnumField, StrFixedLenField,\
-                         StrLenField, XShortField, XByteField
+    LenField, XIntField, ShortField, ShortEnumField, StrFixedLenField,\
+    StrLenField, XShortField, XByteField
 
 _PPTP_MAGIC_COOKIE = 0x1a2b3c4d
 
@@ -22,13 +22,13 @@ _PPTP_msg_type = {1: "Control Message",
                   2: "Managemenent Message"}
 
 _PPTP_ctrl_msg_type = {  # Control Connection Management
-                       1: "Start-Control-Connection-Request",
-                       2: "Start-Control-Connection-Reply",
-                       3: "Stop-Control-Connection-Request",
-                       4: "Stop-Control-Connection-Reply",
-                       5: "Echo-Request",
-                       6: "Echo-Reply",
-                       # Call Management
+    1: "Start-Control-Connection-Request",
+    2: "Start-Control-Connection-Reply",
+    3: "Stop-Control-Connection-Request",
+    4: "Stop-Control-Connection-Reply",
+    5: "Echo-Request",
+    6: "Echo-Reply",
+    # Call Management
                        7: "Outgoing-Call-Request",
                        8: "Outgoing-Call-Reply",
                        9: "Incoming-Call-Request",

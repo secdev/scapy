@@ -60,25 +60,25 @@ HPAVTypeList = {0xA000: "'Get Device/sw version Request'",
                 0xA062: "'Embedded Host Action Required Indication'"}
 
 HPAVversionList = {0x00: "1.0",
-                    0x01: "1.1"}
+                   0x01: "1.1"}
 
 HPAVDeviceIDList = {0x00: "Unknown",
-                        0x01: "'INT6000'",
-                        0x02: "'INT6300'",
-                        0x03: "'INT6400'",
-                        0x04: "'AR7400'",
-                        0x05: "'AR6405'",
-                        0x20: "'QCA7450/QCA7420'",
-                        0x21: "'QCA6410/QCA6411'",
-                        0x22: "'QCA7000'"}
+                    0x01: "'INT6000'",
+                    0x02: "'INT6300'",
+                    0x03: "'INT6400'",
+                    0x04: "'AR7400'",
+                    0x05: "'AR6405'",
+                    0x20: "'QCA7450/QCA7420'",
+                    0x21: "'QCA6410/QCA6411'",
+                    0x22: "'QCA7000'"}
 
 StationRole = {0x00: "'Station'",
-                0x01: "'Proxy coordinator'",
-                0x02: "'Central coordinator'"}
+               0x01: "'Proxy coordinator'",
+               0x02: "'Central coordinator'"}
 
 StatusCodes = {0x00: "'Success'",
-                0x10: "'Invalid Address'",
-                0x14: "'Invalid Length'"}
+               0x10: "'Invalid Address'",
+               0x14: "'Invalid Length'"}
 
 DefaultVendor = "Qualcomm"
 
@@ -88,8 +88,8 @@ DefaultVendor = "Qualcomm"
 #########################################################################
 # Commented commands are already in HPAVTypeList, the other have to be implemted 
 QualcommTypeList = {  #0xA000 : "VS_SW_VER",
-                    0xA004: "VS_WR_MEM",
-                    #0xA008 : "VS_RD_MEM",
+    0xA004: "VS_WR_MEM",
+    #0xA008 : "VS_RD_MEM",
                     #0xA00C : "VS_ST_MAC",
                     #0xA010 : "VS_GET_NVM",
                     0xA014: "VS_RSVD_1",
@@ -168,7 +168,7 @@ class MACManagementHeader(Packet):
     if DefaultVendor == "Qualcomm":
         HPAVTypeList.update(QualcommTypeList) 
     fields_desc=[ByteEnumField("version", 0, HPAVversionList),
-                EnumField("HPtype", 0xA000, HPAVTypeList, "<H")]
+                 EnumField("HPtype", 0xA000, HPAVTypeList, "<H")]
 
 
 class VendorMME(Packet):
@@ -179,11 +179,11 @@ class VendorMME(Packet):
 class GetDeviceVersion(Packet):
     name = "GetDeviceVersion"
     fields_desc=[ByteEnumField("Status", 0x0, StatusCodes),
-                ByteEnumField("DeviceID", 0x20, HPAVDeviceIDList),
-                FieldLenField("VersionLen", None, count_of="DeviceVersion", fmt="B"),
-                StrLenField("DeviceVersion", b"NoVersion\x00", length_from = lambda pkt: pkt.VersionLen),
-                StrLenField("DeviceVersion_pad", b"\xcc\xcc\xcc\xcc\xcc"+b"\x00"*59, length_from = lambda pkt: 64-pkt.VersionLen), 
-                ByteEnumField("Upgradable", 0, {0: "False", 1: "True"})]
+                 ByteEnumField("DeviceID", 0x20, HPAVDeviceIDList),
+                 FieldLenField("VersionLen", None, count_of="DeviceVersion", fmt="B"),
+                 StrLenField("DeviceVersion", b"NoVersion\x00", length_from = lambda pkt: pkt.VersionLen),
+                 StrLenField("DeviceVersion_pad", b"\xcc\xcc\xcc\xcc\xcc"+b"\x00"*59, length_from = lambda pkt: 64-pkt.VersionLen), 
+                 ByteEnumField("Upgradable", 0, {0: "False", 1: "True"})]
 
 
 class NetworkInformationRequest(Packet):
@@ -201,11 +201,11 @@ class NetworkInfoV10(Packet):
     """
     name = "NetworkInfo"
     fields_desc = [StrFixedLenField("NetworkID", b"\x00\x00\x00\x00\x00\x00\x00", 7),
-                    XByteField("ShortNetworkID", 0x00),
-                    XByteField("TerminalEID", 0x01),
-                    ByteEnumField("StationRole", 0x00, StationRole),
-                    MACField("CCoMACAdress", "00:00:00:00:00:00"),
-                    XByteField("CCoTerminalEID", 0x01)]
+                   XByteField("ShortNetworkID", 0x00),
+                   XByteField("TerminalEID", 0x01),
+                   ByteEnumField("StationRole", 0x00, StationRole),
+                   MACField("CCoMACAdress", "00:00:00:00:00:00"),
+                   XByteField("CCoTerminalEID", 0x01)]
 
     def extract_padding(self, p):
         return b"", p
@@ -217,10 +217,10 @@ class StationInfoV10(Packet):
     """
     name = "StationInfo"
     fields_desc=[MACField("StationMAC", "00:00:00:00:00:00"),
-                XByteField("StationTerminalEID", 0x01), 
-                MACField("firstnodeMAC", "ff:ff:ff:ff:ff:ff"),
-                XByteField("TXaverage", 0x00),
-                XByteField("RXaverage", 0x00)]
+                 XByteField("StationTerminalEID", 0x01), 
+                 MACField("firstnodeMAC", "ff:ff:ff:ff:ff:ff"),
+                 XByteField("TXaverage", 0x00),
+                 XByteField("RXaverage", 0x00)]
 
     def extract_padding(self, p):
         return b"", p
@@ -236,14 +236,14 @@ class NetworkInfoV11(Packet):
     """
     name = "NetworkInfo"
     fields_desc = [StrFixedLenField("NetworkID", b"\x00\x00\x00\x00\x00\x00\x00", 7),
-                    ShortField("reserved_1", 0x0000),
-                    XByteField("ShortNetworkID", 0x00),
-                    XByteField("TerminalEID", 0x01),
-                    IntField("reserved_2", 0x00000000),
-                    ByteEnumField("StationRole", 0x00, StationRole),
-                    MACField("CCoMACAdress", "00:00:00:00:00:00"),
-                    XByteField("CCoTerminalEID", 0x01),
-                    X3BytesField("reserved_3", 0x000000)]
+                   ShortField("reserved_1", 0x0000),
+                   XByteField("ShortNetworkID", 0x00),
+                   XByteField("TerminalEID", 0x01),
+                   IntField("reserved_2", 0x00000000),
+                   ByteEnumField("StationRole", 0x00, StationRole),
+                   MACField("CCoMACAdress", "00:00:00:00:00:00"),
+                   XByteField("CCoTerminalEID", 0x01),
+                   X3BytesField("reserved_3", 0x000000)]
     
     def extract_padding(self, p):
         return b"", p
@@ -255,15 +255,15 @@ class StationInfoV11(Packet):
     """
     name = "StationInfo"
     fields_desc=[MACField("StationMAC", "00:00:00:00:00:00"),
-                XByteField("StationTerminalEID", 0x01),
-                X3BytesField("reserved_s2", 0x000000),
-                MACField("firstnodeMAC", "ff:ff:ff:ff:ff:ff"),
-                LEShortField("TXaverage", 0x0000),
-                BitField("RxCoupling", 0, 4),
-                BitField("TxCoupling", 0, 4),
-                XByteField("reserved_s3", 0x00),
-                LEShortField("RXaverage", 0x0000),
-                XByteField("reserved_s4", 0x00)]
+                 XByteField("StationTerminalEID", 0x01),
+                 X3BytesField("reserved_s2", 0x000000),
+                 MACField("firstnodeMAC", "ff:ff:ff:ff:ff:ff"),
+                 LEShortField("TXaverage", 0x0000),
+                 BitField("RxCoupling", 0, 4),
+                 BitField("TxCoupling", 0, 4),
+                 XByteField("reserved_s3", 0x00),
+                 LEShortField("RXaverage", 0x0000),
+                 XByteField("reserved_s4", 0x00)]
     
     def extract_padding(self, p):
         return b"", p
@@ -277,9 +277,9 @@ class NetworkInfoConfirmationV10(Packet):
     """
     name = "NetworkInfoConfirmation"
     fields_desc=[XByteField("LogicalNetworksNumber", 0x01),
-                PacketListField("NetworksInfos", "", NetworkInfoV10, length_from=lambda pkt: pkt.LogicalNetworksNumber * 17),
-                XByteField("StationsNumber", 0x01),
-                PacketListField("StationsInfos", "", StationInfoV10, length_from=lambda pkt: pkt.StationsNumber * 21)]
+                 PacketListField("NetworksInfos", "", NetworkInfoV10, length_from=lambda pkt: pkt.LogicalNetworksNumber * 17),
+                 XByteField("StationsNumber", 0x01),
+                 PacketListField("StationsInfos", "", StationInfoV10, length_from=lambda pkt: pkt.StationsNumber * 21)]
 
 
 class NetworkInfoConfirmationV11(Packet):
@@ -289,16 +289,16 @@ class NetworkInfoConfirmationV11(Packet):
     """
     name = "NetworkInfoConfirmation"
     fields_desc= [StrFixedLenField("reserved_n1", b"\x00\x00\x3a\x00\x00", 5),
-                XByteField("LogicalNetworksNumber", 0x01),
-                PacketListField("NetworksInfos", "", NetworkInfoV11, length_from=lambda pkt: pkt.LogicalNetworksNumber * 26),
-                XByteField("StationsNumber", 0x01),
-                StrFixedLenField("reserverd_s1", b"\x00\x00\x00\x00\x00", 5),
-                PacketListField("StationsInfos", "", StationInfoV11, length_from=lambda pkt: pkt.StationsNumber * 23)]
+                  XByteField("LogicalNetworksNumber", 0x01),
+                  PacketListField("NetworksInfos", "", NetworkInfoV11, length_from=lambda pkt: pkt.LogicalNetworksNumber * 26),
+                  XByteField("StationsNumber", 0x01),
+                  StrFixedLenField("reserverd_s1", b"\x00\x00\x00\x00\x00", 5),
+                  PacketListField("StationsInfos", "", StationInfoV11, length_from=lambda pkt: pkt.StationsNumber * 23)]
 
 
 # Description of Embedded Host Action Required Indice
 ActionsList = {0x02: "'PIB Update Ready'",
-                0x04: "'Loader (Bootloader)'"}
+               0x04: "'Loader (Bootloader)'"}
 
 
 class HostActionRequired(Packet):
@@ -312,16 +312,16 @@ class HostActionRequired(Packet):
 class LoopbackRequest(Packet):
     name = "LoopbackRequest"
     fields_desc=[ByteField("Duration", 0x01),
-                ByteField("reserved_l1", 0x01),
-                ShortField("LRlength", 0x0000)]
+                 ByteField("reserved_l1", 0x01),
+                 ShortField("LRlength", 0x0000)]
                 # TODO: Test all possibles data to complete it
 
 
 class LoopbackConfirmation(Packet):
     name = "LoopbackConfirmation"
     fields_desc=[ByteEnumField("Status", 0x0, StatusCodes), 
-                ByteField("Duration", 0x01),
-                ShortField("LRlength", 0x0000)]
+                 ByteField("Duration", 0x01),
+                 ShortField("LRlength", 0x0000)]
 
 ################################################################
 # Encryption Key Packets
@@ -331,19 +331,19 @@ class LoopbackConfirmation(Packet):
 class SetEncryptionKeyRequest(Packet):
     name = "SetEncryptionKeyRequest"
     fields_desc=[XByteField("EKS", 0x00),
-                StrFixedLenField("NMK", 
-                                b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
-                                16),
-                XByteField("PayloadEncKeySelect", 0x00),
-                MACField("DestinationMAC", "ff:ff:ff:ff:ff:ff"),
-                StrFixedLenField("DAK", 
-                                b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00", 
-                                16)]
+                 StrFixedLenField("NMK", 
+                                  b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
+                                  16),
+                 XByteField("PayloadEncKeySelect", 0x00),
+                 MACField("DestinationMAC", "ff:ff:ff:ff:ff:ff"),
+                 StrFixedLenField("DAK", 
+                                  b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00", 
+                                  16)]
 
 
 SetEncKey_Status = {0x00: "Success",
-                        0x10: "Invalid EKS",
-                        0x11: "Invalid PKS"}
+                    0x10: "Invalid EKS",
+                    0x11: "Invalid PKS"}
 
 
 class SetEncryptionKeyConfirmation(Packet):
@@ -372,10 +372,10 @@ class GetNVMParametersRequest(Packet):
 class GetNVMParametersConfirmation(Packet):
     name = "Get NVM Parameters Confirmation"
     fields_desc=[ByteEnumField("Status", 0x0, StatusCodes),
-                LEIntField("NVMType", 0x00000013),
-                LEIntField("NVMPageSize", 0x00000100),
-                LEIntField("NVMBlockSize", 0x00010000),
-                LEIntField("NVMMemorySize", 0x00100000)]
+                 LEIntField("NVMType", 0x00000013),
+                 LEIntField("NVMPageSize", 0x00000100),
+                 LEIntField("NVMBlockSize", 0x00010000),
+                 LEIntField("NVMMemorySize", 0x00100000)]
 
 ######################################################################
 # Sniffer Packets
@@ -383,7 +383,7 @@ class GetNVMParametersConfirmation(Packet):
 
 
 SnifferControlList = {0x0: "'Disabled'",
-                       0x1: "'Enabled'"}
+                      0x1: "'Enabled'"}
 
 SnifferTypeCodes = {0x00: "'Regular'"}
 
@@ -394,7 +394,7 @@ class SnifferRequest(Packet):
 
 
 SnifferCodes = {0x00: "'Success'",
-                 0x10: "'Invalid Control'"}
+                0x10: "'Invalid Control'"}
 
 
 class SnifferConfirmation(Packet):
@@ -403,46 +403,46 @@ class SnifferConfirmation(Packet):
 
 
 DirectionCodes = {0x00: "'Tx'",
-                   0x01: "'Rx'"}
+                  0x01: "'Rx'"}
 
 ANCodes = {0x00: "'In-home'",
-            0x01: "'Access'"}
+           0x01: "'Access'"}
 
 
 class SnifferIndicate(Packet):
     # TODO: Some bitfield have been regrouped for the moment => need more work on it
     name = "SnifferIndicate"
     fields_desc=[ByteEnumField("SnifferType", 0x0, SnifferTypeCodes), 
-                  ByteEnumField("Direction", 0x0, DirectionCodes),
-                  LELongField("SystemTime", 0x0),
-                  LEIntField("BeaconTime", 0x0), 
-                  XByteField("ShortNetworkID", 0x0),
-                  ByteField("SourceTermEqID", 0),
-                  ByteField("DestTermEqID", 0),
-                  ByteField("LinkID", 0),
-                  XByteField("PayloadEncrKeySelect", 0x0f),
-                  ByteField("PendingPHYblock", 0),
-                  ByteField("BitLoadingEstim", 0), 
-                  BitField("ToneMapIndex", 0, size=5),
-                  BitField("NumberofSymbols", 0, size=2),
-                  BitField("PHYblockSize", 0, size=1),
-                  XShortField("FrameLength", 0x0000),
-                  XByteField("ReversegrandLength", 0x0),
-                  BitField("RequestSACKtrans", 0, size=1),
-                  BitField("DataMACstreamCMD", 0, size=3),
-                  BitField("ManNACFrameStreamCMD", 0, size=3),
-                  BitField("reserved_1", 0, size=6),
-                  BitField("MultinetBroadcast", 0, size=1),
-                  BitField("DifferentCPPHYclock", 0, size=1),
-                  BitField("Multicast", 0, size=1),
-                  X3BytesField("FrameControlCheckSeq", 0x000000),
-                  XByteField("ShortNetworkID_", 0x0),
-                  IntField("BeaconTimestamp", 0),
-                  XShortField("BeaconTransOffset_0", 0x0000),
-                  XShortField("BeaconTransOffset_1", 0x0000),
-                  XShortField("BeaconTransOffset_2", 0x0000),
-                  XShortField("BeaconTransOffset_3", 0x0000),
-                  X3BytesField("FrameContrchkSeq", 0x000000)]
+                 ByteEnumField("Direction", 0x0, DirectionCodes),
+                 LELongField("SystemTime", 0x0),
+                 LEIntField("BeaconTime", 0x0), 
+                 XByteField("ShortNetworkID", 0x0),
+                 ByteField("SourceTermEqID", 0),
+                 ByteField("DestTermEqID", 0),
+                 ByteField("LinkID", 0),
+                 XByteField("PayloadEncrKeySelect", 0x0f),
+                 ByteField("PendingPHYblock", 0),
+                 ByteField("BitLoadingEstim", 0), 
+                 BitField("ToneMapIndex", 0, size=5),
+                 BitField("NumberofSymbols", 0, size=2),
+                 BitField("PHYblockSize", 0, size=1),
+                 XShortField("FrameLength", 0x0000),
+                 XByteField("ReversegrandLength", 0x0),
+                 BitField("RequestSACKtrans", 0, size=1),
+                 BitField("DataMACstreamCMD", 0, size=3),
+                 BitField("ManNACFrameStreamCMD", 0, size=3),
+                 BitField("reserved_1", 0, size=6),
+                 BitField("MultinetBroadcast", 0, size=1),
+                 BitField("DifferentCPPHYclock", 0, size=1),
+                 BitField("Multicast", 0, size=1),
+                 X3BytesField("FrameControlCheckSeq", 0x000000),
+                 XByteField("ShortNetworkID_", 0x0),
+                 IntField("BeaconTimestamp", 0),
+                 XShortField("BeaconTransOffset_0", 0x0000),
+                 XShortField("BeaconTransOffset_1", 0x0000),
+                 XShortField("BeaconTransOffset_2", 0x0000),
+                 XShortField("BeaconTransOffset_3", 0x0000),
+                 X3BytesField("FrameContrchkSeq", 0x000000)]
 
 ######################################################################
 # Read MAC Memory
@@ -452,23 +452,23 @@ class SnifferIndicate(Packet):
 class ReadMACMemoryRequest(Packet):
     name = "ReadMACMemoryRequest"
     fields_desc=[LEIntField("Address", 0x00000000),
-                  LEIntField("Length", 0x00000400), 
-                ]
+                 LEIntField("Length", 0x00000400), 
+                 ]
 
 
 ReadMACStatus = {0x00: "Success",
-                  0x10: "Invalid Address",
-                  0x14: "Invalid Length"}
+                 0x10: "Invalid Address",
+                 0x14: "Invalid Length"}
 
 
 class ReadMACMemoryConfirmation(Packet):
     name = "ReadMACMemoryConfirmation"
 
     fields_desc=[ByteEnumField("Status", 0x00, ReadMACStatus),
-                  LEIntField("Address", 0),
-                  FieldLenField("MACLen", None, length_of="MACData", fmt="<H"),
-                  StrLenField("MACData", b"\x00", length_from = lambda pkt: pkt.MACLen),
-                ]
+                 LEIntField("Address", 0),
+                 FieldLenField("MACLen", None, length_of="MACData", fmt="<H"),
+                 StrLenField("MACData", b"\x00", length_from = lambda pkt: pkt.MACLen),
+                 ]
 
 ######################################################################
 # Read Module Datas
@@ -476,9 +476,9 @@ class ReadMACMemoryConfirmation(Packet):
 
 
 ModuleIDList = {0x00: "MAC Soft-Loader Image",
-                    0x01: "MAC Software Image",
-                    0x02: "PIB",
-                    0x10: "Write Alternate Flash Location"}
+                0x01: "MAC Software Image",
+                0x02: "PIB",
+                0x10: "Write Alternate Flash Location"}
 
 
 def chksum32(data):
@@ -491,22 +491,22 @@ def chksum32(data):
 class ReadModuleDataRequest(Packet):
     name = "ReadModuleDataRequest"
     fields_desc=[ByteEnumField("ModuleID", 0x02, ModuleIDList),
-                  XByteField("reserved", 0x00),
-                  LEShortField("Length", 0x0400),
-                  LEIntField("Offset", 0x00000000)]
+                 XByteField("reserved", 0x00),
+                 LEShortField("Length", 0x0400),
+                 LEIntField("Offset", 0x00000000)]
 
 
 class ReadModuleDataConfirmation(Packet):
     name = "ReadModuleDataConfirmation"
     fields_desc=[ByteEnumField("Status", 0x0, StatusCodes),
-                  X3BytesField("reserved_1", 0x000000),
-                  ByteEnumField("ModuleID", 0x02, ModuleIDList),
-                  XByteField("reserved_2", 0x00),
-                  FieldLenField("DataLen", None, count_of="ModuleData", fmt="<H"),
-                  LEIntField("Offset", 0x00000000),
-                  LEIntField("checksum", None), 
-                  StrLenField("ModuleData", b"\x00", length_from = lambda pkt: pkt.DataLen),
-                ]
+                 X3BytesField("reserved_1", 0x000000),
+                 ByteEnumField("ModuleID", 0x02, ModuleIDList),
+                 XByteField("reserved_2", 0x00),
+                 FieldLenField("DataLen", None, count_of="ModuleData", fmt="<H"),
+                 LEIntField("Offset", 0x00000000),
+                 LEIntField("checksum", None), 
+                 StrLenField("ModuleData", b"\x00", length_from = lambda pkt: pkt.DataLen),
+                 ]
 
     def post_build(self, p, pay):
         if self.DataLen is None:
@@ -525,12 +525,12 @@ class ReadModuleDataConfirmation(Packet):
 class WriteModuleDataRequest(Packet):
     name = "WriteModuleDataRequest"
     fields_desc=[ByteEnumField("ModuleID", 0x02, ModuleIDList),
-                  XByteField("reserved_1", 0x00),
-                  FieldLenField("DataLen", None, count_of="ModuleData", fmt="<H"),
-                  LEIntField("Offset", 0x00000000),
-                  LEIntField("checksum", None),
-                  StrLenField("ModuleData", b"\x00", length_from = lambda pkt: pkt.DataLen),
-                ]
+                 XByteField("reserved_1", 0x00),
+                 FieldLenField("DataLen", None, count_of="ModuleData", fmt="<H"),
+                 LEIntField("Offset", 0x00000000),
+                 LEIntField("checksum", None),
+                 StrLenField("ModuleData", b"\x00", length_from = lambda pkt: pkt.DataLen),
+                 ]
 
     def post_build(self, p, pay):
         if self.DataLen is None:
@@ -549,12 +549,12 @@ class WriteModuleDataRequest(Packet):
 class ClassifierPriorityMap(Packet):
     name = "ClassifierPriorityMap"
     fields_desc=[LEIntField("Priority", 0),
-                  LEIntField("PID", 0),
-                  LEIntField("IndividualOperand", 0),
-                  StrFixedLenField("ClassifierValue",
-                                b"\x00"*16,
-                                16),
-                ]
+                 LEIntField("PID", 0),
+                 LEIntField("IndividualOperand", 0),
+                 StrFixedLenField("ClassifierValue",
+                                  b"\x00"*16,
+                                  16),
+                 ]
  
     def extract_padding(self, p):
         return b"", p
@@ -564,11 +564,11 @@ class ClassifierObj(Packet):
     name = "ClassifierObj"
     
     fields_desc=[LEIntField("ClassifierPID", 0),
-                  LEIntField("IndividualOperand", 0),
-                  StrFixedLenField("ClassifierValue",
-                                b"\x00"*16,
-                                16), 
-                ]
+                 LEIntField("IndividualOperand", 0),
+                 StrFixedLenField("ClassifierValue",
+                                  b"\x00"*16,
+                                  16), 
+                 ]
 
     def extract_padding(self, p):
         return b"", p
@@ -578,23 +578,23 @@ class AutoConnection(Packet):
     name = "AutoConnection"
 
     fields_desc=[XByteField("Action", 0x00), 
-                  XByteField("ClassificationOperand", 0x00),
-                  XShortField("NumClassifiers", 0x0000),
-                  PacketListField("ClassifierObjs", "", ClassifierObj, length_from=lambda x: 24),
-                  XShortField("CSPECversion", 0x0000),
-                  XByteField("ConnCAP", 0x00),
-                  XByteField("ConnCoQoSPrio", 0x00),
-                  ShortField("ConnRate", 0),
-                  LEIntField("ConnTTL", 0),
-                  ShortField("CSPECversion", 0),
-                  StrFixedLenField("VlanTag",
-                                b"\x00"*4,
-                                4),
-                  XIntField("reserved_1", 0),
-                  StrFixedLenField("reserved_2",
-                                b"\x00"*14,
-                                14),
-                ]
+                 XByteField("ClassificationOperand", 0x00),
+                 XShortField("NumClassifiers", 0x0000),
+                 PacketListField("ClassifierObjs", "", ClassifierObj, length_from=lambda x: 24),
+                 XShortField("CSPECversion", 0x0000),
+                 XByteField("ConnCAP", 0x00),
+                 XByteField("ConnCoQoSPrio", 0x00),
+                 ShortField("ConnRate", 0),
+                 LEIntField("ConnTTL", 0),
+                 ShortField("CSPECversion", 0),
+                 StrFixedLenField("VlanTag",
+                                  b"\x00"*4,
+                                  4),
+                 XIntField("reserved_1", 0),
+                 StrFixedLenField("reserved_2",
+                                  b"\x00"*14,
+                                  14),
+                 ]
 
     def extract_padding(self, p):
         return b"", p
@@ -603,8 +603,8 @@ class AutoConnection(Packet):
 class PeerNode(Packet):
     name = "PeerNodes"
     fields_desc=[XByteField("PeerTEI", 0x0),
-                  MACField("PIBMACAddr", "00:00:00:00:00:00"),
-                ]
+                 MACField("PIBMACAddr", "00:00:00:00:00:00"),
+                 ]
 
     def extract_padding(self, p):
         return b"", p
@@ -613,8 +613,8 @@ class PeerNode(Packet):
 class AggregateConfigEntrie(Packet):
     name = "AggregateConfigEntrie"
     fields_desc=[XByteField("TrafficTypeID", 0x0),
-                  XByteField("AggregationConfigID", 0x0),
-                ]
+                 XByteField("AggregationConfigID", 0x0),
+                 ]
 
     def extract_padding(self, p):
         return b"", p
@@ -623,7 +623,7 @@ class AggregateConfigEntrie(Packet):
 class RSVD_CustomAggregationParameter(Packet):
     name = "RSVD_CustomAggregationParameter"
     fields_desc=[XIntField("CustomAggregationParameter", 0),
-                ]
+                 ]
 
     def extract_padding(self, p):
         return b"", p
@@ -632,7 +632,7 @@ class RSVD_CustomAggregationParameter(Packet):
 class PrescalerValue(Packet):
     name = "PrescalerValue"
     fields_desc=[XIntField("prescaler", 0),
-                ]
+                 ]
 
     def extract_padding(self, p):
         return b"", p
@@ -641,7 +641,7 @@ class PrescalerValue(Packet):
 class GPIOMap(Packet):
     name = "GPIOMap"
     fields_desc=[XByteField("GPIOvalue", 0),
-                ]
+                 ]
 
     def extract_padding(self, p):
         return b"", p
@@ -650,7 +650,7 @@ class GPIOMap(Packet):
 class ReservedPercentageForCap(Packet):
     name = "ReservedPercentageForCap"
     fields_desc=[XByteField("CAPpercent", 0),
-                ]
+                 ]
 
     def extract_padding(self, p):
         return b"", p
@@ -659,23 +659,23 @@ class ReservedPercentageForCap(Packet):
 class ConfigBit(Packet):
     name = "ConfigBit"
     fields_desc=[BitField("OverrideSoundCap", 0, 1),
-                  BitField("OverrideFailHoldDefaults", 0, 1),
-                  BitField("OverrideResourceDefaults", 0, 1),
-                  BitField("OverrideContentionWindowDefaults", 0, 1),
-                  BitField("OverrideUnplugDetectionDefaults", 0, 1),
-                  BitField("OverrideResoundDefaults", 0, 1),
-                  BitField("OverrideExpiryDefaults", 0, 1),
-                  BitField("DisableWorseChannelTrigger", 0, 1),
-                  BitField("DisableBetterChannelTrigger", 0, 1),
-                  BitField("DisableNetworkEventTrigger", 0, 1),
-                  BitField("rsv1", 0, 6),
-                ]
+                 BitField("OverrideFailHoldDefaults", 0, 1),
+                 BitField("OverrideResourceDefaults", 0, 1),
+                 BitField("OverrideContentionWindowDefaults", 0, 1),
+                 BitField("OverrideUnplugDetectionDefaults", 0, 1),
+                 BitField("OverrideResoundDefaults", 0, 1),
+                 BitField("OverrideExpiryDefaults", 0, 1),
+                 BitField("DisableWorseChannelTrigger", 0, 1),
+                 BitField("DisableBetterChannelTrigger", 0, 1),
+                 BitField("DisableNetworkEventTrigger", 0, 1),
+                 BitField("rsv1", 0, 6),
+                 ]
                 
 
 class ContentionWindowTable(Packet):
     name = "ContentionWindowTable"
     fields_desc=[XShortField("element", 0), 
-                ]
+                 ]
 
     def extract_padding(self, p):
         return b"", p
@@ -684,7 +684,7 @@ class ContentionWindowTable(Packet):
 class BackoffDeferalCountTable(Packet):
     name = "BackoffDeferalCountTable"
     fields_desc=[XByteField("element", 0),
-                ]
+                 ]
 
     def extract_padding(self, p):
         return b"", p
@@ -693,16 +693,16 @@ class BackoffDeferalCountTable(Packet):
 class BehaviorBlockArray(Packet):
     name = "BehaviorBlockArray"
     fields_desc=[XByteField("BehId", 0),
-                  XByteField("NoOfSteps", 0),
-                  XByteField("DurationInMs", 0),
-                  XShortField("GPIOMaskBits_1", 0),
-                  XShortField("GPIOMaskBits_2", 0),
-                  XShortField("GPIOMaskBits_3", 0),
-                  XShortField("GPIOMaskBits_4", 0),
-                  XShortField("GPIOMaskBits_5", 0),
-                  XShortField("GPIOMaskBits_6", 0),
-                  XIntField("reserved_beh", 0),
-                ]
+                 XByteField("NoOfSteps", 0),
+                 XByteField("DurationInMs", 0),
+                 XShortField("GPIOMaskBits_1", 0),
+                 XShortField("GPIOMaskBits_2", 0),
+                 XShortField("GPIOMaskBits_3", 0),
+                 XShortField("GPIOMaskBits_4", 0),
+                 XShortField("GPIOMaskBits_5", 0),
+                 XShortField("GPIOMaskBits_6", 0),
+                 XIntField("reserved_beh", 0),
+                 ]
 
     def extract_padding(self, p):
         return b"", p
@@ -711,14 +711,14 @@ class BehaviorBlockArray(Packet):
 class EventBlockArray(Packet):
     name = "EventBlockArray"
     fields_desc=[XByteField("EventPriorityID", 0),
-                  XByteField("EventID", 0),
-                  XByteField("BehID_1", 0),
-                  XByteField("BehID_2", 0),
-                  XByteField("BehID_3", 0),
-                  XShortField("ParticipatingGPIOs", 0),
-                  XByteField("EventAttributes", 0),
-                  XShortField("reserved_evb", 0),
-                ]
+                 XByteField("EventID", 0),
+                 XByteField("BehID_1", 0),
+                 XByteField("BehID_2", 0),
+                 XByteField("BehID_3", 0),
+                 XShortField("ParticipatingGPIOs", 0),
+                 XByteField("EventAttributes", 0),
+                 XShortField("reserved_evb", 0),
+                 ]
 
     def extract_padding(self, p):
         return b"", p
@@ -1160,19 +1160,19 @@ StartMACCodes = {0x00: "Success"}
 class StartMACRequest(Packet):
     name = "StartMACRequest"
     fields_desc=[ByteEnumField("ModuleID", 0x00, StartMACCodes),
-                  X3BytesField("reserver_1", 0x000000),
-                  LEIntField("ImgLoadStartAddr", 0x00000000),
-                  LEIntField("ImgLength", 0x00000000),
-                  LEIntField("ImgCheckSum", 0x00000000),
-                  LEIntField("ImgStartAddr", 0x00000000),
-                ]
+                 X3BytesField("reserver_1", 0x000000),
+                 LEIntField("ImgLoadStartAddr", 0x00000000),
+                 LEIntField("ImgLength", 0x00000000),
+                 LEIntField("ImgCheckSum", 0x00000000),
+                 LEIntField("ImgStartAddr", 0x00000000),
+                 ]
 
 
 class StartMACConfirmation(Packet):
     name = "StartMACConfirmation"
     fields_desc=[ByteEnumField("Status", 0x00, StartMACCodes),
-                  XByteField("ModuleID", 0x00),
-                ]
+                 XByteField("ModuleID", 0x00),
+                 ]
 
 ######################################################################
 # Reset Device
@@ -1205,55 +1205,55 @@ class ReadConfBlockRequest(Packet):
 
 
 CBImgTCodes = {0x00: "Generic Image",
-                0x01: "Synopsis configuration",
-                0x02: "Denali configuration",
-                0x03: "Denali applet",
-                0x04: "Runtime firmware",
-                0x05: "OAS client",
-                0x06: "Custom image",
-                0x07: "Memory control applet",
-                0x08: "Power management applet",
-                0x09: "OAS client IP stack",
-                0x0A: "OAS client TR069",
-                0x0B: "SoftLoader",
-                0x0C: "Flash layout",
-                0x0D: "Unknown",
-                0x0E: "Chain manifest",
-                0x0F: "Runtime parameters",
-                0x10: "Custom module in scratch",
-                0x11: "Custom module update applet"}
+               0x01: "Synopsis configuration",
+               0x02: "Denali configuration",
+               0x03: "Denali applet",
+               0x04: "Runtime firmware",
+               0x05: "OAS client",
+               0x06: "Custom image",
+               0x07: "Memory control applet",
+               0x08: "Power management applet",
+               0x09: "OAS client IP stack",
+               0x0A: "OAS client TR069",
+               0x0B: "SoftLoader",
+               0x0C: "Flash layout",
+               0x0D: "Unknown",
+               0x0E: "Chain manifest",
+               0x0F: "Runtime parameters",
+               0x10: "Custom module in scratch",
+               0x11: "Custom module update applet"}
 
 
 class ConfBlock(Packet):
     name = "ConfBlock"
     fields_desc=[LEIntField("HeaderVersionNum", 0),
-                  LEIntField("ImgAddrNVM", 0), 
-                  LEIntField("ImgAddrSDRAM", 0),
-                  LEIntField("ImgLength", 0),
-                  LEIntField("ImgCheckSum", 0),
-                  LEIntField("EntryPoint", 0),
-                  XByteField("HeaderMinVersion", 0x00),
-                  ByteEnumField("HeaderImgType", 0x00, CBImgTCodes), 
-                  XShortField("HeaderIgnoreMask", 0x0000), 
-                  LEIntField("HeaderModuleID", 0), 
-                  LEIntField("HeaderModuleSubID", 0),
-                  LEIntField("AddrNextHeaderNVM", 0),
-                  LEIntField("HeaderChecksum", 0),
-                  LEIntField("SDRAMsize", 0),
-                  LEIntField("SDRAMConfRegister", 0),
-                  LEIntField("SDRAMTimingRegister_0", 0),
-                  LEIntField("SDRAMTimingRegister_1", 0),
-                  LEIntField("SDRAMControlRegister", 0),
-                  LEIntField("SDRAMRefreshRegister", 0),
-                  LEIntField("MACClockRegister", 0),
-                  LEIntField("reserved_1", 0), ]
+                 LEIntField("ImgAddrNVM", 0), 
+                 LEIntField("ImgAddrSDRAM", 0),
+                 LEIntField("ImgLength", 0),
+                 LEIntField("ImgCheckSum", 0),
+                 LEIntField("EntryPoint", 0),
+                 XByteField("HeaderMinVersion", 0x00),
+                 ByteEnumField("HeaderImgType", 0x00, CBImgTCodes), 
+                 XShortField("HeaderIgnoreMask", 0x0000), 
+                 LEIntField("HeaderModuleID", 0), 
+                 LEIntField("HeaderModuleSubID", 0),
+                 LEIntField("AddrNextHeaderNVM", 0),
+                 LEIntField("HeaderChecksum", 0),
+                 LEIntField("SDRAMsize", 0),
+                 LEIntField("SDRAMConfRegister", 0),
+                 LEIntField("SDRAMTimingRegister_0", 0),
+                 LEIntField("SDRAMTimingRegister_1", 0),
+                 LEIntField("SDRAMControlRegister", 0),
+                 LEIntField("SDRAMRefreshRegister", 0),
+                 LEIntField("MACClockRegister", 0),
+                 LEIntField("reserved_1", 0), ]
 
 
 class ReadConfBlockConfirmation(Packet):
     name = "ReadConfBlockConfirmation"
     fields_desc=[ByteEnumField("Status", 0x00, ReadConfBlockCodes),
-                  FieldLenField("BlockLen", None, count_of="ConfigurationBlock", fmt="B"),
-                  PacketListField("ConfigurationBlock", None, ConfBlock, length_from=lambda pkt:pkt.BlockLen)]
+                 FieldLenField("BlockLen", None, count_of="ConfigurationBlock", fmt="B"),
+                 PacketListField("ConfigurationBlock", None, ConfBlock, length_from=lambda pkt:pkt.BlockLen)]
 
 
 ######################################################################
@@ -1268,7 +1268,7 @@ class WriteModuleData2NVMRequest(Packet):
 class WriteModuleData2NVMConfirmation(Packet):
     name = "WriteModuleData2NVMConfirmation"
     fields_desc=[ByteEnumField("Status", 0x0, StatusCodes),
-                  ByteEnumField("ModuleID", 0x02, ModuleIDList)]
+                 ByteEnumField("ModuleID", 0x02, ModuleIDList)]
 
 ############################ END ######################################
 
@@ -1279,8 +1279,8 @@ class HomePlugAV(Packet):
     """
     name = "HomePlugAV "
     fields_desc=[MACManagementHeader,
-                ConditionalField(XShortField("FragmentInfo", 0x0), FragmentCond), # Fragmentation Field
-                VendorMME]
+                 ConditionalField(XShortField("FragmentInfo", 0x0), FragmentCond), # Fragmentation Field
+                 VendorMME]
 
     def answers(self, other):
         return (isinstance(self, HomePlugAV))

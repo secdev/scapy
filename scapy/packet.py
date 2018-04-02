@@ -845,7 +845,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             done = self.fields
         else:
             todo = [k for (k, v) in itertools.chain(six.iteritems(self.default_fields),
-                                                   six.iteritems(self.overloaded_fields))
+                                                    six.iteritems(self.overloaded_fields))
                     if isinstance(v, VolatileValue)] + list(self.fields.keys())
             done = {}
         return loop(todo, done)
@@ -1016,9 +1016,9 @@ values.
         else:
             ct = conf.color_theme
         s = "%s%s %s %s \n" % (label_lvl,
-                              ct.punct("###["),
-                              ct.layer_name(self.name),
-                              ct.punct("]###"))
+                               ct.punct("###["),
+                               ct.layer_name(self.name),
+                               ct.punct("]###"))
         for f in self.fields_desc:
             if isinstance(f, ConditionalField) and not f._evalcond(self):
                 continue
@@ -1036,8 +1036,8 @@ values.
                     s += fvalue._show_or_dump(dump=dump, indent=indent, label_lvl=label_lvl+lvl+"   |", first_call=False)
             else:
                 begn = "%s  %-10s%s " % (label_lvl+lvl,
-                                        ncol(f.name),
-                                        ct.punct("="),)
+                                         ncol(f.name),
+                                         ct.punct("="),)
                 reprval = f.i2repr(self, fvalue)
                 if isinstance(reprval, str):
                     reprval = reprval.replace("\n", "\n"+" "*(len(label_lvl)
@@ -1105,8 +1105,8 @@ A side effect is that, to obtain "{" and "}" characters, you must use
 """
 
         escape = {"%": "%",
-                   "(": "{",
-                   ")": "}"}
+                  "(": "{",
+                  ")": "}"}
 
         # Evaluate conditions 
         while "{" in fmt:
@@ -1480,8 +1480,8 @@ def ls(obj=None, case_sensitive=False, verbose=False):
         else:
             pattern = re.compile(obj, 0 if case_sensitive else re.I)
             all_layers = sorted((layer for layer in conf.layers
-                                if (pattern.search(layer.__name__ or '')
-                                    or pattern.search(layer.name or ''))),
+                                 if (pattern.search(layer.__name__ or '')
+                                     or pattern.search(layer.name or ''))),
                                 key=lambda x: x.__name__)
         for layer in all_layers:
             print("%-10s : %s" % (layer.__name__, layer._name))

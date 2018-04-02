@@ -56,14 +56,14 @@ IGMPv2 message format   http://www.faqs.org/rfcs/rfc2236.html
     name = "IGMP"
   
     igmptypes = {0x11: "Group Membership Query",
-                  0x12: "Version 1 - Membership Report",
-                  0x16: "Version 2 - Membership Report",
-                  0x17: "Leave Group"}
+                 0x12: "Version 1 - Membership Report",
+                 0x16: "Version 2 - Membership Report",
+                 0x17: "Leave Group"}
 
     fields_desc = [ByteEnumField("type", 0x11, igmptypes),
-                    ByteField("mrcode", 20),
-                    XShortField("chksum", None),
-                    IPField("gaddr", "0.0.0.0")]
+                   ByteField("mrcode", 20),
+                   XShortField("chksum", None),
+                   IPField("gaddr", "0.0.0.0")]
 
     def post_build(self, p, pay):
         """Called implicitly before a packet is sent to compute and place IGMP checksum.
@@ -156,5 +156,5 @@ IGMPv2 message format   http://www.faqs.org/rfcs/rfc2236.html
 
 
 bind_layers(IP,            IGMP,            frag=0,
-                                             proto=2,
-                                             ttl=1)
+            proto=2,
+            ttl=1)

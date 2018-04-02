@@ -27,7 +27,7 @@ class TFTP(Packet):
 class TFTP_RRQ(Packet):
     name = "TFTP Read Request"
     fields_desc = [StrNullField("filename", ""),
-                    StrNullField("mode", "octet")]
+                   StrNullField("mode", "octet")]
 
     def answers(self, other):
         return 0
@@ -39,7 +39,7 @@ class TFTP_RRQ(Packet):
 class TFTP_WRQ(Packet):
     name = "TFTP Write Request"
     fields_desc = [StrNullField("filename", ""),
-                    StrNullField("mode", "octet")]
+                   StrNullField("mode", "octet")]
 
     def answers(self, other):
         return 0
@@ -61,7 +61,7 @@ class TFTP_DATA(Packet):
 
 class TFTP_Option(Packet):
     fields_desc = [StrNullField("oname", ""),
-                    StrNullField("value", "")]
+                   StrNullField("value", "")]
 
     def extract_padding(self, pkt):
         return "", pkt
@@ -87,21 +87,21 @@ class TFTP_ACK(Packet):
 
 
 TFTP_Error_Codes = {0: "Not defined",
-                      1: "File not found",
-                      2: "Access violation",
-                      3: "Disk full or allocation exceeded",
-                      4: "Illegal TFTP operation",
-                      5: "Unknown transfer ID",
-                      6: "File already exists",
-                      7: "No such user",
-                      8: "Terminate transfer due to option negotiation",
-                      }
+                    1: "File not found",
+                    2: "Access violation",
+                    3: "Disk full or allocation exceeded",
+                    4: "Illegal TFTP operation",
+                    5: "Unknown transfer ID",
+                    6: "File already exists",
+                    7: "No such user",
+                    8: "Terminate transfer due to option negotiation",
+                    }
     
 
 class TFTP_ERROR(Packet):
     name = "TFTP Error"
     fields_desc = [ShortEnumField("errorcode", 0, TFTP_Error_Codes),
-                    StrNullField("errormsg", "")]
+                   StrNullField("errormsg", "")]
 
     def answers(self, other):
         return (isinstance(other, TFTP_DATA) or
@@ -143,8 +143,8 @@ class TFTP_read(Automaton):
 
     def master_filter(self, pkt):
         return (IP in pkt and pkt[IP].src == self.server and UDP in pkt
-                 and pkt[UDP].dport == self.my_tid
-                 and (self.server_tid is None or pkt[UDP].sport == self.server_tid))
+                and pkt[UDP].dport == self.my_tid
+                and (self.server_tid is None or pkt[UDP].sport == self.server_tid))
         
     # BEGIN
     @ATMT.state(initial=1)
@@ -232,8 +232,8 @@ class TFTP_write(Automaton):
 
     def master_filter(self, pkt):
         return (IP in pkt and pkt[IP].src == self.server and UDP in pkt
-                 and pkt[UDP].dport == self.my_tid
-                 and (self.server_tid is None or pkt[UDP].sport == self.server_tid))
+                and pkt[UDP].dport == self.my_tid
+                and (self.server_tid is None or pkt[UDP].sport == self.server_tid))
         
     # BEGIN
     @ATMT.state(initial=1)
