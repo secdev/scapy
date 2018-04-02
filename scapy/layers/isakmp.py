@@ -21,21 +21,21 @@ from functools import reduce
 
 
 # see http://www.iana.org/assignments/ipsec-registry for details
-ISAKMPAttributeTypes= { "Encryption":    (1, { "DES-CBC"  : 1,
-                                                "IDEA-CBC" : 2,
-                                                "Blowfish-CBC" : 3,
-                                                "RC5-R16-B64-CBC" : 4,
-                                                "3DES-CBC" : 5, 
-                                                "CAST-CBC" : 6, 
-                                                "AES-CBC" : 7, 
-                                                "CAMELLIA-CBC" : 8, }, 0),
-                         "Hash":          (2, { "MD5": 1,
+ISAKMPAttributeTypes= {"Encryption":    (1, {"DES-CBC": 1,
+                                                "IDEA-CBC": 2,
+                                                "Blowfish-CBC": 3,
+                                                "RC5-R16-B64-CBC": 4,
+                                                "3DES-CBC": 5, 
+                                                "CAST-CBC": 6, 
+                                                "AES-CBC": 7, 
+                                                "CAMELLIA-CBC": 8, }, 0),
+                         "Hash":          (2, {"MD5": 1,
                                                 "SHA": 2,
                                                 "Tiger": 3,
                                                 "SHA2-256": 4,
                                                 "SHA2-384": 5,
                                                 "SHA2-512": 6, }, 0),
-                         "Authentication": (3, { "PSK": 1, 
+                         "Authentication": (3, {"PSK": 1, 
                                                 "DSS": 2,
                                                 "RSA Sig": 3,
                                                 "RSA Encryption": 4,
@@ -57,16 +57,16 @@ ISAKMPAttributeTypes= { "Encryption":    (1, { "DES-CBC"  : 1,
                                                 "XAUTHRespRSAEncryption": 65008,
                                                 "XAUTHInitRSARevisedEncryption": 65009,
                                                 "XAUTHRespRSARevisedEncryptio": 65010, }, 0),
-                         "GroupDesc":     (4, { "768MODPgr"  : 1,
-                                                "1024MODPgr" : 2, 
-                                                "EC2Ngr155"  : 3,
-                                                "EC2Ngr185"  : 4,
-                                                "1536MODPgr" : 5, 
-                                                "2048MODPgr" : 14, 
-                                                "3072MODPgr" : 15, 
-                                                "4096MODPgr" : 16, 
-                                                "6144MODPgr" : 17, 
-                                                "8192MODPgr" : 18, }, 0),
+                         "GroupDesc":     (4, {"768MODPgr": 1,
+                                                "1024MODPgr": 2, 
+                                                "EC2Ngr155": 3,
+                                                "EC2Ngr185": 4,
+                                                "1536MODPgr": 5, 
+                                                "2048MODPgr": 14, 
+                                                "3072MODPgr": 15, 
+                                                "4096MODPgr": 16, 
+                                                "6144MODPgr": 17, 
+                                                "8192MODPgr": 18, }, 0),
                          "GroupType":      (5,  {"MODP":       1,
                                                  "ECP":        2,
                                                  "EC2N":       3}, 0),
@@ -76,7 +76,7 @@ ISAKMPAttributeTypes= { "Encryption":    (1, { "DES-CBC"  : 1,
                          "GroupCurveA":    (9,  {}, 1),
                          "GroupCurveB":    (10, {}, 1),
                          "LifeType":       (11, {"Seconds":     1,
-                                                 "Kilobytes":   2,  }, 0),
+                                                 "Kilobytes":   2}, 0),
                          "LifeDuration":   (12, {}, 1),
                          "PRF":            (13, {}, 0),
                          "KeyLength":      (14, {}, 0),
@@ -270,7 +270,7 @@ class ISAKMP_payload(ISAKMP_class):
 
 class ISAKMP_payload_VendorID(ISAKMP_class):
     name = "ISAKMP Vendor ID"
-    overload_fields = { ISAKMP: { "next_payload": 13 }}
+    overload_fields = {ISAKMP: {"next_payload": 13}}
     fields_desc = [
         ByteEnumField("next_payload", None, ISAKMP_payload_type),
         ByteField("res", 0),
@@ -281,7 +281,7 @@ class ISAKMP_payload_VendorID(ISAKMP_class):
 
 class ISAKMP_payload_SA(ISAKMP_class):
     name = "ISAKMP SA"
-    overload_fields = { ISAKMP: { "next_payload": 1 }}
+    overload_fields = {ISAKMP: {"next_payload": 1}}
     fields_desc = [
         ByteEnumField("next_payload", None, ISAKMP_payload_type),
         ByteField("res", 0),
@@ -294,7 +294,7 @@ class ISAKMP_payload_SA(ISAKMP_class):
 
 class ISAKMP_payload_Nonce(ISAKMP_class):
     name = "ISAKMP Nonce"
-    overload_fields = { ISAKMP: { "next_payload": 10 }}
+    overload_fields = {ISAKMP: {"next_payload": 10}}
     fields_desc = [
         ByteEnumField("next_payload", None, ISAKMP_payload_type),
         ByteField("res", 0),
@@ -305,7 +305,7 @@ class ISAKMP_payload_Nonce(ISAKMP_class):
 
 class ISAKMP_payload_KE(ISAKMP_class):
     name = "ISAKMP Key Exchange"
-    overload_fields = { ISAKMP: { "next_payload": 4 }}
+    overload_fields = {ISAKMP: {"next_payload": 4}}
     fields_desc = [
         ByteEnumField("next_payload", None, ISAKMP_payload_type),
         ByteField("res", 0),
@@ -316,7 +316,7 @@ class ISAKMP_payload_KE(ISAKMP_class):
 
 class ISAKMP_payload_ID(ISAKMP_class):
     name = "ISAKMP Identification"
-    overload_fields = { ISAKMP: { "next_payload": 5 }}
+    overload_fields = {ISAKMP: {"next_payload": 5}}
     fields_desc = [
         ByteEnumField("next_payload", None, ISAKMP_payload_type),
         ByteField("res", 0),
@@ -331,7 +331,7 @@ class ISAKMP_payload_ID(ISAKMP_class):
 
 class ISAKMP_payload_Hash(ISAKMP_class):
     name = "ISAKMP Hash"
-    overload_fields = { ISAKMP: { "next_payload": 8 }}
+    overload_fields = {ISAKMP: {"next_payload": 8}}
     fields_desc = [
         ByteEnumField("next_payload", None, ISAKMP_payload_type),
         ByteField("res", 0),
@@ -350,7 +350,7 @@ del i, payloadname, name
 ISAKMP_class._overload_fields = ISAKMP_payload_type_overload.copy()
 
 
-bind_layers( UDP,           ISAKMP,        dport=500, sport=500)
+bind_layers(UDP,           ISAKMP,        dport=500, sport=500)
 
 
 def ikescan(ip):

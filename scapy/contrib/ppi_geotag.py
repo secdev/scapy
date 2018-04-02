@@ -312,7 +312,7 @@ _hcsi_vector_char_flags = _FlagsList({0: "Antenna", 1: "Direction of Travel",
                                       8: "GPS Derived", 9: "INS Derived", 10: "Compass Derived",
                                      11: "Acclerometer Derived", 12: "Human Derived"})
 
-_hcsi_antenna_flags = _FlagsList({ 1: "Horizontal Polarization",     2: "Vertical Polarization",
+_hcsi_antenna_flags = _FlagsList({1: "Horizontal Polarization",     2: "Vertical Polarization",
                                    3: "Circular Polarization Left",  4: "Circular Polarization Right",
                                   16: "Electronically Steerable",   17: "Mechanically Steerable"})
 
@@ -350,7 +350,7 @@ def _HCSIBuildFields(fields):
 
 class HCSIPacket(Packet):
     name = "PPI HCSI"
-    fields_desc = [ LEShortField('pfh_type', None),
+    fields_desc = [LEShortField('pfh_type', None),
                     LEShortField('pfh_length', None),
                     ByteField('geotag_ver', CURR_GEOTAG_VER),
                     ByteField('geotag_pad', 0),
@@ -394,7 +394,7 @@ GPS_Fields = [FlagsField("GPSFlags", None, -32, _hcsi_gps_flags),
 
 class GPS(HCSIPacket):
     name = "PPI GPS"
-    fields_desc = [ LEShortField('pfh_type', PPI_GPS), #pfh_type
+    fields_desc = [LEShortField('pfh_type', PPI_GPS), #pfh_type
                     LEShortField('pfh_length', None), #pfh_len
                     ByteField('geotag_ver', CURR_GEOTAG_VER), #base_geotag_header.ver
                     ByteField('geotag_pad', 0), #base_geotag_header.pad
@@ -423,7 +423,7 @@ VEC_Fields = [VectorFlags_Field("VectorFlags", None),
 
 class Vector(HCSIPacket):
     name = "PPI Vector"
-    fields_desc = [ LEShortField('pfh_type', PPI_VECTOR), #pfh_type
+    fields_desc = [LEShortField('pfh_type', PPI_VECTOR), #pfh_type
                     LEShortField('pfh_length', None), #pfh_len
                     ByteField('geotag_ver', CURR_GEOTAG_VER), #base_geotag_header.ver
                     ByteField('geotag_pad', 0), #base_geotag_header.pad
@@ -432,18 +432,18 @@ class Vector(HCSIPacket):
 
 #Sensor Fields
 # http://www.iana.org/assignments/icmp-parameters
-sensor_types= { 1   : "Velocity",
-                2   : "Acceleration",
-                3   : "Jerk",
-                100 : "Rotation",
-                101 : "Magnetic",
+sensor_types= {1: "Velocity",
+                2: "Acceleration",
+                3: "Jerk",
+                100: "Rotation",
+                101: "Magnetic",
                 1000: "Temperature",
                 1001: "Barometer",
                 1002: "Humidity",
                 2000: "TDOA_Clock",
                 2001: "Phase"
                 }
-SENS_Fields = [  LEShortEnumField('SensorType', None, sensor_types),
+SENS_Fields = [LEShortEnumField('SensorType', None, sensor_types),
                  SignedByteField('ScaleFactor', None),
                  Fixed6_4Field('Val_X', None),
                  Fixed6_4Field('Val_Y', None),
@@ -467,9 +467,9 @@ SENS_Fields = [  LEShortEnumField('SensorType', None, sensor_types),
               
 class Sensor(HCSIPacket):
     name = "PPI Sensor"
-    fields_desc = [ LEShortField('pfh_type', PPI_SENSOR), #pfh_type
+    fields_desc = [LEShortField('pfh_type', PPI_SENSOR), #pfh_type
                     LEShortField('pfh_length', None), #pfh_len
-                    ByteField('geotag_ver', CURR_GEOTAG_VER ), #base_geotag_header.ver
+                    ByteField('geotag_ver', CURR_GEOTAG_VER), #base_geotag_header.ver
                     ByteField('geotag_pad', 0), #base_geotag_header.pad
                     LEShortField('geotag_len', None)] + _HCSIBuildFields(SENS_Fields)
 
@@ -496,7 +496,7 @@ ANT_Fields = [FlagsField("AntennaFlags", None, -32, _hcsi_antenna_flags),
 
 class Antenna(HCSIPacket):
     name = "PPI Antenna"
-    fields_desc = [ LEShortField('pfh_type', PPI_ANTENNA), #pfh_type
+    fields_desc = [LEShortField('pfh_type', PPI_ANTENNA), #pfh_type
                     LEShortField('pfh_length', None), #pfh_len
                     ByteField('geotag_ver', CURR_GEOTAG_VER), #base_geotag_header.ver
                     ByteField('geotag_pad', 0), #base_geotag_header.pad

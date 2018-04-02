@@ -59,13 +59,13 @@ class IGMPv3(IGMP):
 
     """
     name = "IGMPv3"
-    igmpv3types = { 0x11 : "Membership Query",
-                    0x22 : "Version 3 Membership Report",
-                    0x30 : "Multicast Router Advertisement",
-                    0x31 : "Multicast Router Solicitation",
-                    0x32 : "Multicast Router Termination"}
+    igmpv3types = {0x11: "Membership Query",
+                    0x22: "Version 3 Membership Report",
+                    0x30: "Multicast Router Advertisement",
+                    0x31: "Multicast Router Solicitation",
+                    0x32: "Multicast Router Termination"}
 
-    fields_desc = [ ByteEnumField("type", 0x11, igmpv3types),
+    fields_desc = [ByteEnumField("type", 0x11, igmpv3types),
                     ByteField("mrcode", 20),
                     XShortField("chksum", None)]
 
@@ -112,7 +112,7 @@ class IGMPv3mq(Packet):
     """IGMPv3 Membership Query.
     Payload of IGMPv3 when type=0x11"""
     name = "IGMPv3mq"
-    fields_desc = [ IPField("gaddr", "0.0.0.0"),
+    fields_desc = [IPField("gaddr", "0.0.0.0"),
                     BitField("resv", 0, 4),
                     BitField("s", 0, 1),
                     BitField("qrv", 0, 3),
@@ -128,18 +128,18 @@ class IGMPv3gr(Packet):
     of an instantiation of class IGMPv3mr.
     """
     name = "IGMPv3gr"
-    igmpv3grtypes = { 1 : "Mode Is Include",
-                      2 : "Mode Is Exclude",
-                      3 : "Change To Include Mode",
-                      4 : "Change To Exclude Mode",
-                      5 : "Allow New Sources",
-                      6 : "Block Old Sources"}
+    igmpv3grtypes = {1: "Mode Is Include",
+                      2: "Mode Is Exclude",
+                      3: "Change To Include Mode",
+                      4: "Change To Exclude Mode",
+                      5: "Allow New Sources",
+                      6: "Block Old Sources"}
 
-    fields_desc = [ ByteEnumField("rtype", 1, igmpv3grtypes),
+    fields_desc = [ByteEnumField("rtype", 1, igmpv3grtypes),
                     ByteField("auxdlen", 0),
                     FieldLenField("numsrc", None, count_of="srcaddrs"),
                     IPField("maddr", "0.0.0.0"),
-                    FieldListField("srcaddrs", [], IPField("sa", "0.0.0.0"), count_from=lambda x: x.numsrc) ]
+                    FieldListField("srcaddrs", [], IPField("sa", "0.0.0.0"), count_from=lambda x: x.numsrc)]
 
     def mysummary(self):
         """Display a summary of the IGMPv3 group record."""
@@ -153,7 +153,7 @@ class IGMPv3mr(Packet):
     """IGMP Membership Report extension for IGMPv3.
     Payload of IGMPv3 when type=0x22"""
     name = "IGMPv3mr"
-    fields_desc = [ XShortField("res2", 0),
+    fields_desc = [XShortField("res2", 0),
                     FieldLenField("numgrp", None, count_of="records"),
                     PacketListField("records", [], IGMPv3gr, count_from=lambda x: x.numgrp)]
 
@@ -162,7 +162,7 @@ class IGMPv3mra(Packet):
     """IGMP Multicas Router Advertisement extension for IGMPv3.
     Payload of IGMPv3 when type=0x30"""
     name = "IGMPv3mra"
-    fields_desc = [ ShortField("qryIntvl", 0),
+    fields_desc = [ShortField("qryIntvl", 0),
                     ShortField("robust", 0)]
 
 

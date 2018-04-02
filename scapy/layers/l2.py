@@ -65,7 +65,7 @@ def getmacbyip(ip, chainCC=0):
     if (tmp[0] & 0xf0) == 0xe0: # mcast @
         return "01:00:5e:%.2x:%.2x:%.2x" % (tmp[1]&0x7f, tmp[2], tmp[3])
     iff, a, gw = conf.route.route(ip)
-    if ( (iff == scapy.consts.LOOPBACK_INTERFACE) or (ip == conf.route.get_if_bcast(iff)) ):
+    if ((iff == scapy.consts.LOOPBACK_INTERFACE) or (ip == conf.route.get_if_bcast(iff))):
         return "ff:ff:ff:ff:ff:ff"
     if gw != "0.0.0.0":
         ip = gw
@@ -151,9 +151,9 @@ ETHER_TYPES['802_1AE'] = ETH_P_MACSEC
 
 class Ether(Packet):
     name = "Ethernet"
-    fields_desc = [ DestMACField("dst"),
+    fields_desc = [DestMACField("dst"),
                     SourceMACField("src"),
-                    XShortEnumField("type", 0x9000, ETHER_TYPES) ]
+                    XShortEnumField("type", 0x9000, ETHER_TYPES)]
     __slots__ = ["_defrag_pos"]
 
     def hashret(self):
@@ -178,9 +178,9 @@ class Ether(Packet):
 
 class Dot3(Packet):
     name = "802.3"
-    fields_desc = [ DestMACField("dst"),
+    fields_desc = [DestMACField("dst"),
                     MACField("src", ETHER_ANY),
-                    LenField("len", None, "H") ]
+                    LenField("len", None, "H")]
 
     def extract_padding(self, s):
         l = self.len
@@ -204,9 +204,9 @@ class Dot3(Packet):
 
 class LLC(Packet):
     name = "LLC"
-    fields_desc = [ XByteField("dsap", 0x00),
+    fields_desc = [XByteField("dsap", 0x00),
                     XByteField("ssap", 0x00),
-                    ByteField("ctrl", 0) ]
+                    ByteField("ctrl", 0)]
 
 
 def l2_register_l3(l2, l3):
@@ -221,7 +221,7 @@ class CookedLinux(Packet):
     # Documentation: http://www.tcpdump.org/linktypes/LINKTYPE_LINUX_SLL.html
     name = "cooked linux"
     # from wireshark's database
-    fields_desc = [ ShortEnumField("pkttype", 0, {0: "unicast",
+    fields_desc = [ShortEnumField("pkttype", 0, {0: "unicast",
                                                  1: "broadcast",
                                                  2: "multicast",
                                                  3: "unicast-to-another-host",
@@ -229,13 +229,13 @@ class CookedLinux(Packet):
                     XShortField("lladdrtype", 512),
                     ShortField("lladdrlen", 0),
                     StrFixedLenField("src", "", 8),
-                    XShortEnumField("proto", 0x800, ETHER_TYPES) ]
+                    XShortEnumField("proto", 0x800, ETHER_TYPES)]
                     
                                    
 class SNAP(Packet):
     name = "SNAP"
-    fields_desc = [ X3BytesField("OUI", 0x000000),
-                    XShortEnumField("code", 0x000, ETHER_TYPES) ]
+    fields_desc = [X3BytesField("OUI", 0x000000),
+                    XShortEnumField("code", 0x000, ETHER_TYPES)]
 
 
 conf.neighbor.register_l3(Dot3, SNAP, l2_register_l3)
@@ -243,16 +243,16 @@ conf.neighbor.register_l3(Dot3, SNAP, l2_register_l3)
 
 class Dot1Q(Packet):
     name = "802.1Q"
-    aliastypes = [ Ether ]
-    fields_desc =  [ BitField("prio", 0, 3),
+    aliastypes = [Ether]
+    fields_desc =  [BitField("prio", 0, 3),
                      BitField("id", 0, 1),
                      BitField("vlan", 1, 12),
-                     XShortEnumField("type", 0x0000, ETHER_TYPES) ]
+                     XShortEnumField("type", 0x0000, ETHER_TYPES)]
 
     def answers(self, other):
         if isinstance(other, Dot1Q):
-            if ( (self.type == other.type) and
-                 (self.vlan == other.vlan) ):
+            if ((self.type == other.type) and
+                 (self.vlan == other.vlan)):
                 return self.payload.answers(other.payload)
         else:
             return self.payload.answers(other)
@@ -280,7 +280,7 @@ conf.neighbor.register_l3(Ether, Dot1Q, l2_register_l3)
 
 class STP(Packet):
     name = "Spanning Tree Protocol"
-    fields_desc = [ ShortField("proto", 0),
+    fields_desc = [ShortField("proto", 0),
                     ByteField("version", 0),
                     ByteField("bpdutype", 0),
                     ByteField("bpduflags", 0),
@@ -293,12 +293,12 @@ class STP(Packet):
                     BCDFloatField("age", 1),
                     BCDFloatField("maxage", 20),
                     BCDFloatField("hellotime", 2),
-                    BCDFloatField("fwddelay", 15) ]
+                    BCDFloatField("fwddelay", 15)]
 
 
 class ARP(Packet):
     name = "ARP"
-    fields_desc = [ XShortField("hwtype", 0x0001),
+    fields_desc = [XShortField("hwtype", 0x0001),
                     XShortEnumField("ptype",  0x0800, ETHER_TYPES),
                     ByteField("hwlen", 6),
                     ByteField("plen", 4),
@@ -306,15 +306,15 @@ class ARP(Packet):
                     ARPSourceMACField("hwsrc"),
                     SourceIPField("psrc", "pdst"),
                     MACField("hwdst", ETHER_ANY),
-                    IPField("pdst", "0.0.0.0") ]
+                    IPField("pdst", "0.0.0.0")]
     who_has = 1
     is_at = 2
 
     def answers(self, other):
         if isinstance(other, ARP):
-            if ( (self.op == self.is_at) and
+            if ((self.op == self.is_at) and
                  (other.op == self.who_has) and
-                 (self.psrc == other.pdst) ):
+                 (self.psrc == other.pdst)):
                 return 1
         return 0
 
@@ -345,7 +345,7 @@ conf.neighbor.register_l3(Ether, ARP, l2_register_l3_arp)
 
 class GRErouting(Packet):
     name = "GRE routing informations"
-    fields_desc = [ ShortField("address_family", 0),
+    fields_desc = [ShortField("address_family", 0),
                     ByteField("SRE_offset", 0),
                     FieldLenField("SRE_len", None, "routing_info", "B"),
                     StrLenField("routing_info", "", "SRE_len"),
@@ -354,7 +354,7 @@ class GRErouting(Packet):
 
 class GRE(Packet):
     name = "GRE"
-    fields_desc = [ BitField("chksum_present", 0, 1),
+    fields_desc = [BitField("chksum_present", 0, 1),
                     BitField("routing_present", 0, 1),
                     BitField("key_present", 0, 1),
                     BitField("seqnum_present", 0, 1),
@@ -429,18 +429,18 @@ class LoIntEnumField(EnumField):
 
 # https://github.com/wireshark/wireshark/blob/fe219637a6748130266a0b0278166046e60a2d68/epan/dissectors/packet-null.c
 # https://www.wireshark.org/docs/wsar_html/epan/aftypes_8h.html
-LOOPBACK_TYPES = { 0x2: "IPv4",
+LOOPBACK_TYPES = {0x2: "IPv4",
                    0x7: "OSI",
                    0x10: "Appletalk",
                    0x17: "Netware IPX/SPX",
-                   0x18: "IPv6", 0x1c: "IPv6", 0x1e: "IPv6" }
+                   0x18: "IPv6", 0x1c: "IPv6", 0x1e: "IPv6"}
 
 
 class Loopback(Packet):
     """*BSD loopback layer"""
 
     name = "Loopback"
-    fields_desc = [ LoIntEnumField("type", 0x2, LOOPBACK_TYPES) ]
+    fields_desc = [LoIntEnumField("type", 0x2, LOOPBACK_TYPES)]
     __slots__ = ["_defrag_pos"]
 
 
@@ -448,36 +448,36 @@ class Dot1AD(Dot1Q):
     name = '802_1AD'
 
 
-bind_layers( Dot3,          LLC,           )
-bind_layers( Ether,         LLC,           type=122)
-bind_layers( Ether,         LLC,           type=34928)
-bind_layers( Ether,         Dot1Q,         type=33024)
-bind_layers( Ether,         Dot1AD,        type=0x88a8)
-bind_layers( Dot1AD,        Dot1AD,        type=0x88a8)
-bind_layers( Dot1AD,        Dot1Q,         type=0x8100)
-bind_layers( Dot1Q,         Dot1AD,        type=0x88a8)
-bind_layers( Ether,         Ether,         type=1)
-bind_layers( Ether,         ARP,           type=2054)
-bind_layers( CookedLinux,   LLC,           proto=122)
-bind_layers( CookedLinux,   Dot1Q,         proto=33024)
-bind_layers( CookedLinux,   Dot1AD,        type=0x88a8)
-bind_layers( CookedLinux,   Ether,         proto=1)
-bind_layers( CookedLinux,   ARP,           proto=2054)
-bind_layers( GRE,           LLC,           proto=122)
-bind_layers( GRE,           Dot1Q,         proto=33024)
-bind_layers( GRE,           Dot1AD,        type=0x88a8)
-bind_layers( GRE,           Ether,         proto=0x6558)
-bind_layers( GRE,           ARP,           proto=2054)
-bind_layers( GRE,           GRErouting,    { "routing_present" : 1 } )
-bind_layers( GRErouting,    conf.raw_layer, { "address_family" : 0, "SRE_len" : 0 })
-bind_layers( GRErouting,    GRErouting,    { } )
-bind_layers( LLC,           STP,           dsap=66, ssap=66, ctrl=3)
-bind_layers( LLC,           SNAP,          dsap=170, ssap=170, ctrl=3)
-bind_layers( SNAP,          Dot1Q,         code=33024)
-bind_layers( SNAP,          Dot1AD,        type=0x88a8)
-bind_layers( SNAP,          Ether,         code=1)
-bind_layers( SNAP,          ARP,           code=2054)
-bind_layers( SNAP,          STP,           code=267)
+bind_layers(Dot3,          LLC,)
+bind_layers(Ether,         LLC,           type=122)
+bind_layers(Ether,         LLC,           type=34928)
+bind_layers(Ether,         Dot1Q,         type=33024)
+bind_layers(Ether,         Dot1AD,        type=0x88a8)
+bind_layers(Dot1AD,        Dot1AD,        type=0x88a8)
+bind_layers(Dot1AD,        Dot1Q,         type=0x8100)
+bind_layers(Dot1Q,         Dot1AD,        type=0x88a8)
+bind_layers(Ether,         Ether,         type=1)
+bind_layers(Ether,         ARP,           type=2054)
+bind_layers(CookedLinux,   LLC,           proto=122)
+bind_layers(CookedLinux,   Dot1Q,         proto=33024)
+bind_layers(CookedLinux,   Dot1AD,        type=0x88a8)
+bind_layers(CookedLinux,   Ether,         proto=1)
+bind_layers(CookedLinux,   ARP,           proto=2054)
+bind_layers(GRE,           LLC,           proto=122)
+bind_layers(GRE,           Dot1Q,         proto=33024)
+bind_layers(GRE,           Dot1AD,        type=0x88a8)
+bind_layers(GRE,           Ether,         proto=0x6558)
+bind_layers(GRE,           ARP,           proto=2054)
+bind_layers(GRE,           GRErouting,    {"routing_present": 1})
+bind_layers(GRErouting,    conf.raw_layer, {"address_family": 0, "SRE_len": 0})
+bind_layers(GRErouting,    GRErouting,    {})
+bind_layers(LLC,           STP,           dsap=66, ssap=66, ctrl=3)
+bind_layers(LLC,           SNAP,          dsap=170, ssap=170, ctrl=3)
+bind_layers(SNAP,          Dot1Q,         code=33024)
+bind_layers(SNAP,          Dot1AD,        type=0x88a8)
+bind_layers(SNAP,          Ether,         code=1)
+bind_layers(SNAP,          ARP,           code=2054)
+bind_layers(SNAP,          STP,           code=267)
 
 conf.l2types.register(ARPHDR_ETHER, Ether)
 conf.l2types.register_num2layer(ARPHDR_METRICOM, Ether)

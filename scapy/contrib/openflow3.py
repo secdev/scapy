@@ -26,32 +26,32 @@ conf.contribs['OPENFLOW'] = {'prereq_autocomplete': True}
 ################# Predefined values #################
 #####################################################
 
-ofp_port_no = { 0xfffffff8: "IN_PORT",
+ofp_port_no = {0xfffffff8: "IN_PORT",
                 0xfffffff9: "TABLE",
                 0xfffffffa: "NORMAL",
                 0xfffffffb: "FLOOD",
                 0xfffffffc: "ALL",
                 0xfffffffd: "CONTROLLER",
                 0xfffffffe: "LOCAL",
-                0xffffffff: "ANY" }
+                0xffffffff: "ANY"}
 
-ofp_group = { 0xffffff00: "MAX",
+ofp_group = {0xffffff00: "MAX",
               0xfffffffc: "ALL",
-              0xffffffff: "ANY" }
+              0xffffffff: "ANY"}
 
-ofp_table = { 0xfe: "MAX",
-              0xff: "ALL" }
+ofp_table = {0xfe: "MAX",
+              0xff: "ALL"}
 
-ofp_queue = { 0xffffffff: "ALL" }
+ofp_queue = {0xffffffff: "ALL"}
 
-ofp_meter = { 0xffff0000: "MAX",
+ofp_meter = {0xffff0000: "MAX",
               0xfffffffd: "SLOWPATH",
               0xfffffffe: "CONTROLLER",
-              0xffffffff: "ALL" }
+              0xffffffff: "ALL"}
 
-ofp_buffer = { 0xffffffff: "NO_BUFFER" }
+ofp_buffer = {0xffffffff: "NO_BUFFER"}
 
-ofp_max_len = { 0xffff: "NO_BUFFER" }
+ofp_max_len = {0xffff: "NO_BUFFER"}
 
 
 #####################################################
@@ -75,22 +75,22 @@ class _ofp_hello_elem_header(Packet):
         return p + pay
 
 
-ofp_hello_elem_types = { 1: "OFPHET_VERSIONBITMAP" }
+ofp_hello_elem_types = {1: "OFPHET_VERSIONBITMAP"}
 
 
 class OFPHETVersionBitmap(_ofp_hello_elem_header):
     name = "OFPHET_VERSIONBITMAP"
-    fields_desc = [ ShortEnumField("type", 1, ofp_hello_elem_types),
+    fields_desc = [ShortEnumField("type", 1, ofp_hello_elem_types),
                     ShortField("len", 8),
-                    FlagsField("bitmap", 0, 32, [ "Type 0",
+                    FlagsField("bitmap", 0, 32, ["Type 0",
                                                   "OFv1.0",
                                                   "OFv1.1",
                                                   "OFv1.2",
                                                   "OFv1.3",
-                                                  "OFv1.4" ]) ]
+                                                  "OFv1.4"])]
 
 
-ofp_hello_elem_cls = { 1: OFPHETVersionBitmap }
+ofp_hello_elem_cls = {1: OFPHETVersionBitmap}
 
 
 class HelloElemPacketListField(PacketListField):
@@ -118,19 +118,19 @@ class HelloElemPacketListField(PacketListField):
 
 ####################### Ports #######################
 
-ofp_port_config = [ "PORT_DOWN",
+ofp_port_config = ["PORT_DOWN",
                     "NO_STP",        # undefined in v1.3
                     "NO_RECV",
                     "NO_RECV_STP",   # undefined in v1.3
                     "NO_FLOOD",      # undefined in v1.3
                     "NO_FWD",
-                    "NO_PACKET_IN" ]
+                    "NO_PACKET_IN"]
 
-ofp_port_state = [ "LINK_DOWN",
+ofp_port_state = ["LINK_DOWN",
                    "BLOCKED",
-                   "LIVE" ]
+                   "LIVE"]
 
-ofp_port_features = [ "10MB_HD",
+ofp_port_features = ["10MB_HD",
                       "10MB_FD",
                       "100MB_HD",
                       "100MB_FD",
@@ -145,12 +145,12 @@ ofp_port_features = [ "10MB_HD",
                       "FIBER",
                       "AUTONEG",
                       "PAUSE",
-                      "PAUSE_ASYM" ]
+                      "PAUSE_ASYM"]
 
 
 class OFPPort(Packet):
     name = "OFP_PHY_PORT"
-    fields_desc = [ IntEnumField("port_no", 0, ofp_port_no),
+    fields_desc = [IntEnumField("port_no", 0, ofp_port_no),
                     XIntField("pad1", 0),
                     MACField("hw_addr", "0"),
                     XShortField("pad2", 0),
@@ -162,7 +162,7 @@ class OFPPort(Packet):
                     FlagsField("supported", 0, 32, ofp_port_features),
                     FlagsField("peer", 0, 32, ofp_port_features),
                     IntField("curr_speed", 0),
-                    IntField("max_speed", 0) ]
+                    IntField("max_speed", 0)]
 
     def extract_padding(self, s):
         return b"", s
@@ -172,12 +172,12 @@ class OFPPort(Packet):
 
 ################### Matches & OXMs ##################
 
-ofp_oxm_classes = {      0: "OFPXMC_NXM_0",
+ofp_oxm_classes = {0: "OFPXMC_NXM_0",
                          1: "OFPXMC_NXM_1",
                     0x8000: "OFPXMC_OPENFLOW_BASIC",
-                    0xffff: "OFPXMC_EXPERIMENTER" }
+                    0xffff: "OFPXMC_EXPERIMENTER"}
 
-ofp_oxm_names = {  0: "OFB_IN_PORT",
+ofp_oxm_names = {0: "OFB_IN_PORT",
                    1: "OFB_IN_PHY_PORT",
                    2: "OFB_METADATA",
                    3: "OFB_ETH_DST",
@@ -216,9 +216,9 @@ ofp_oxm_names = {  0: "OFB_IN_PORT",
                   36: "OFB_MPLS_BOS",
                   37: "OFB_PBB_ISID",
                   38: "OFB_TUNNEL_ID",
-                  39: "OFB_IPV6_EXTHDR" }
+                  39: "OFB_IPV6_EXTHDR"}
 
-ofp_oxm_constr = {  0: ["OFBInPort", "in_port", 4],
+ofp_oxm_constr = {0: ["OFBInPort", "in_port", 4],
                     1: ["OFBInPhyPort", "in_phy_port", 4],
                     2: ["OFBMetadata", "metadata", 8],
                     3: ["OFBEthDst", "eth_dst", 6],
@@ -257,10 +257,10 @@ ofp_oxm_constr = {  0: ["OFBInPort", "in_port", 4],
                    36: ["OFBMPLSBoS", "mpls_bos", 1],
                    37: ["OFBPBBISID", "pbb_isid", 3],
                    38: ["OFBTunnelID", "tunnel_id", 8],
-                   39: ["OFBIPv6ExtHdr", "ipv6_ext_hdr_flags", 2] }
+                   39: ["OFBIPv6ExtHdr", "ipv6_ext_hdr_flags", 2]}
 
 # the ipv6flags array is useful only to the OFBIPv6ExtHdr class
-ipv6flags = [ "NONEXT",
+ipv6flags = ["NONEXT",
               "ESP",
               "AUTH",
               "DEST",
@@ -268,7 +268,7 @@ ipv6flags = [ "NONEXT",
               "ROUTER",
               "HOP",
               "UNREP",
-              "UNSEQ" ]
+              "UNSEQ"]
 
 ### here we fill ofp_oxm_fields with the fields that will be used
 ### to generate the various OXM classes
@@ -278,9 +278,9 @@ ofp_oxm_fields = {}
 
 
 def add_ofp_oxm_fields(i, org):
-    ofp_oxm_fields[i] = [ ShortEnumField("class", "OFPXMC_OPENFLOW_BASIC", ofp_oxm_classes),
+    ofp_oxm_fields[i] = [ShortEnumField("class", "OFPXMC_OPENFLOW_BASIC", ofp_oxm_classes),
                           BitEnumField("field", i//2, 7, ofp_oxm_names),
-                          BitField("hasmask", i%2, 1) ]
+                          BitField("hasmask", i%2, 1)]
     ofp_oxm_fields[i].append(ByteField("length", org[2]+org[2]*(i%2)))
     if i//2 == 0:           # OFBInPort
         ofp_oxm_fields[i].append(IntEnumField(org[1], 0, ofp_port_no))
@@ -327,7 +327,7 @@ def create_oxm_cls():
     if index % 2:
         oxm_fields = oxm_fields[:4]
 
-    cls = type(cls_name, (Packet,), { "name": oxm_name, "fields_desc": oxm_fields })
+    cls = type(cls_name, (Packet,), {"name": oxm_name, "fields_desc": oxm_fields})
     ### the first call to special function type will create the same class as in
     ### class OFBInPort(Packet):
     ###     def __init__(self):
@@ -515,7 +515,7 @@ OFBIPv6ExtHdrHMID = create_oxm_cls()
 ### (0x0800 means IPv4 by default, but you might want to use 0x86dd with IPv6)
 ### need_prereq codes are two times higher than previous oxm classes codes,
 ### except for 21 which is sort of a proxy for IPv6 (see below)
-need_prereq = { 14: [12, 0x1000],
+need_prereq = {14: [12, 0x1000],
                 16: [10, 0x0800],    # could be 0x86dd
                 18: [10, 0x0800],    # could be 0x86dd
                 20: [10, 0x0800],    # could be 0x86dd
@@ -547,7 +547,7 @@ need_prereq = { 14: [12, 0x1000],
                 70: [10, 0x8847],    # could be 0x8848
                 72: [10, 0x8847],    # could be 0x8848
                 74: [10, 0x88e7],
-                78: [10, 0x86dd] }
+                78: [10, 0x86dd]}
 
 
 class OXMPacketListField(PacketListField):
@@ -667,11 +667,11 @@ class OFPMatch(Packet):
         return s[zero_bytes:], s[:zero_bytes]
 
     name = "OFP_MATCH"
-    fields_desc= [ ShortEnumField("type", 1, { 0: "OFPMT_STANDARD",
-                                               1: "OFPMT_OXM" }),
+    fields_desc= [ShortEnumField("type", 1, {0: "OFPMT_STANDARD",
+                                               1: "OFPMT_OXM"}),
                    ShortField("length", None),
                    OXMPacketListField("oxm_fields", [], Packet,
-                                      length_from=lambda pkt:pkt.length-4) ]
+                                      length_from=lambda pkt:pkt.length-4)]
 
 ### ofp_match is no longer a fixed-length structure in v1.3
 ### furthermore it may include variable padding
@@ -711,7 +711,7 @@ class _ofp_action_header(Packet):
         return p + pay
 
 
-ofp_action_types = {     0: "OFPAT_OUTPUT",
+ofp_action_types = {0: "OFPAT_OUTPUT",
                          1: "OFPAT_SET_VLAN_VID",
                          2: "OFPAT_SET_VLAN_PCP",
                          3: "OFPAT_STRIP_VLAN",
@@ -740,95 +740,95 @@ ofp_action_types = {     0: "OFPAT_OUTPUT",
                         25: "OFPAT_SET_FIELD",
                         26: "OFPAT_PUSH_PBB",
                         27: "OFPAT_POP_PBB",
-                     65535: "OFPAT_EXPERIMENTER" }
+                     65535: "OFPAT_EXPERIMENTER"}
 
 
 class OFPATOutput(_ofp_action_header):
     name = "OFPAT_OUTPUT"
-    fields_desc = [ ShortEnumField("type", 0, ofp_action_types),
+    fields_desc = [ShortEnumField("type", 0, ofp_action_types),
                     ShortField("len", 16),
                     IntEnumField("port", 0, ofp_port_no),
                     ShortEnumField("max_len", "NO_BUFFER", ofp_max_len),
-                    XBitField("pad", 0, 48) ]
+                    XBitField("pad", 0, 48)]
 
 # the following actions are not supported by OFv1.3
 
 
 class OFPATSetVLANVID(_ofp_action_header):
     name = "OFPAT_SET_VLAN_VID"
-    fields_desc = [ ShortEnumField("type", 1, ofp_action_types),
+    fields_desc = [ShortEnumField("type", 1, ofp_action_types),
                     ShortField("len", 8),
                     ShortField("vlan_vid", 0),
-                    XShortField("pad", 0) ]
+                    XShortField("pad", 0)]
 
 
 class OFPATSetVLANPCP(_ofp_action_header):
     name = "OFPAT_SET_VLAN_PCP"
-    fields_desc = [ ShortEnumField("type", 2, ofp_action_types),
+    fields_desc = [ShortEnumField("type", 2, ofp_action_types),
                     ShortField("len", 8),
                     ByteField("vlan_pcp", 0),
-                    X3BytesField("pad", 0) ]
+                    X3BytesField("pad", 0)]
 
 
 class OFPATStripVLAN(_ofp_action_header):
     name = "OFPAT_STRIP_VLAN"
-    fields_desc = [ ShortEnumField("type", 3, ofp_action_types),
+    fields_desc = [ShortEnumField("type", 3, ofp_action_types),
                     ShortField("len", 8),
-                    XIntField("pad", 0) ]
+                    XIntField("pad", 0)]
 
 
 class OFPATSetDlSrc(_ofp_action_header):
     name = "OFPAT_SET_DL_SRC"
-    fields_desc = [ ShortEnumField("type", 4, ofp_action_types),
+    fields_desc = [ShortEnumField("type", 4, ofp_action_types),
                     ShortField("len", 16),
                     MACField("dl_addr", "0"),
-                    XBitField("pad", 0, 48) ]
+                    XBitField("pad", 0, 48)]
 
 
 class OFPATSetDlDst(_ofp_action_header):
     name = "OFPAT_SET_DL_DST"
-    fields_desc = [ ShortEnumField("type", 5, ofp_action_types),
+    fields_desc = [ShortEnumField("type", 5, ofp_action_types),
                     ShortField("len", 16),
                     MACField("dl_addr", "0"),
-                    XBitField("pad", 0, 48) ]
+                    XBitField("pad", 0, 48)]
 
 
 class OFPATSetNwSrc(_ofp_action_header):
     name = "OFPAT_SET_NW_SRC"
-    fields_desc = [ ShortEnumField("type", 6, ofp_action_types),
+    fields_desc = [ShortEnumField("type", 6, ofp_action_types),
                     ShortField("len", 8),
-                    IPField("nw_addr", "0") ]
+                    IPField("nw_addr", "0")]
 
 
 class OFPATSetNwDst(_ofp_action_header):
     name = "OFPAT_SET_NW_DST"
-    fields_desc = [ ShortEnumField("type", 7, ofp_action_types),
+    fields_desc = [ShortEnumField("type", 7, ofp_action_types),
                     ShortField("len", 8),
-                    IPField("nw_addr", "0") ]
+                    IPField("nw_addr", "0")]
 
 
 class OFPATSetNwToS(_ofp_action_header):
     name = "OFPAT_SET_TP_TOS"
-    fields_desc = [ ShortEnumField("type", 8, ofp_action_types),
+    fields_desc = [ShortEnumField("type", 8, ofp_action_types),
                     ShortField("len", 8),
                     ByteField("nw_tos", 0),
-                    X3BytesField("pad", 0) ]
+                    X3BytesField("pad", 0)]
 
 
 class OFPATSetTpSrc(_ofp_action_header):
     name = "OFPAT_SET_TP_SRC"
-    fields_desc = [ ShortEnumField("type", 9, ofp_action_types),
+    fields_desc = [ShortEnumField("type", 9, ofp_action_types),
                     ShortField("len", 8),
                     ShortField("tp_port", 0),
-                    XShortField("pad", 0) ]
+                    XShortField("pad", 0)]
 
 
 class OFPATSetTpDst(_ofp_action_header):
     name = "OFPAT_SET_TP_DST"
-    fields_desc = [ ShortEnumField("type", 10, ofp_action_types),
+    fields_desc = [ShortEnumField("type", 10, ofp_action_types),
                     ShortField("len", 8),
                     ShortField("tp_port", 0),
-                    XShortField("pad", 0) ]
+                    XShortField("pad", 0)]
 
 #class OFPATEnqueue(_ofp_action_header):
 #       name = "OFPAT_ENQUEUE"
@@ -841,108 +841,108 @@ class OFPATSetTpDst(_ofp_action_header):
 
 class OFPATSetMPLSLabel(_ofp_action_header):
     name = "OFPAT_SET_MPLS_LABEL"
-    fields_desc = [ ShortEnumField("type", 13, ofp_action_types),
+    fields_desc = [ShortEnumField("type", 13, ofp_action_types),
                     ShortField("len", 8),
-                    IntField("mpls_label", 0) ]
+                    IntField("mpls_label", 0)]
 
 
 class OFPATSetMPLSTC(_ofp_action_header):
     name = "OFPAT_SET_MPLS_TC"
-    fields_desc = [ ShortEnumField("type", 14, ofp_action_types),
+    fields_desc = [ShortEnumField("type", 14, ofp_action_types),
                     ShortField("len", 8),
                     ByteField("mpls_tc", 0),
-                    X3BytesField("pad", 0) ]
+                    X3BytesField("pad", 0)]
 
 # end of unsupported actions
 
 
 class OFPATCopyTTLOut(_ofp_action_header):
     name = "OFPAT_COPY_TTL_OUT"
-    fields_desc = [ ShortEnumField("type", 11, ofp_action_types),
+    fields_desc = [ShortEnumField("type", 11, ofp_action_types),
                     ShortField("len", 8),
-                    XIntField("pad", 0) ]
+                    XIntField("pad", 0)]
 
 
 class OFPATCopyTTLIn(_ofp_action_header):
     name = "OFPAT_COPY_TTL_IN"
-    fields_desc = [ ShortEnumField("type", 12, ofp_action_types),
+    fields_desc = [ShortEnumField("type", 12, ofp_action_types),
                     ShortField("len", 8),
-                    XIntField("pad", 0) ]
+                    XIntField("pad", 0)]
 
 
 class OFPATSetMPLSTTL(_ofp_action_header):
     name = "OFPAT_SET_MPLS_TTL"
-    fields_desc = [ ShortEnumField("type", 15, ofp_action_types),
+    fields_desc = [ShortEnumField("type", 15, ofp_action_types),
                     ShortField("len", 8),
                     ByteField("mpls_ttl", 0),
-                    X3BytesField("pad", 0) ]
+                    X3BytesField("pad", 0)]
 
 
 class OFPATDecMPLSTTL(_ofp_action_header):
     name = "OFPAT_DEC_MPLS_TTL"
-    fields_desc = [ ShortEnumField("type", 16, ofp_action_types),
+    fields_desc = [ShortEnumField("type", 16, ofp_action_types),
                     ShortField("len", 8),
-                    XIntField("pad", 0) ]
+                    XIntField("pad", 0)]
 
 
 class OFPATPushVLAN(_ofp_action_header):
     name = "OFPAT_PUSH_VLAN"
-    fields_desc = [ ShortEnumField("type", 17, ofp_action_types),
+    fields_desc = [ShortEnumField("type", 17, ofp_action_types),
                     ShortField("len", 8),
                     ShortField("ethertype", 0x8100),    # or 0x88a8
-                    XShortField("pad", 0) ]
+                    XShortField("pad", 0)]
 
 
 class OFPATPopVLAN(_ofp_action_header):
     name = "OFPAT_POP_VLAN"
-    fields_desc = [ ShortEnumField("type", 18, ofp_action_types),
+    fields_desc = [ShortEnumField("type", 18, ofp_action_types),
                     ShortField("len", 8),
-                    XIntField("pad", 0) ]
+                    XIntField("pad", 0)]
 
 
 class OFPATPushMPLS(_ofp_action_header):
     name = "OFPAT_PUSH_MPLS"
-    fields_desc = [ ShortEnumField("type", 19, ofp_action_types),
+    fields_desc = [ShortEnumField("type", 19, ofp_action_types),
                     ShortField("len", 8),
                     ShortField("ethertype", 0x8847),    # or 0x8848
-                    XShortField("pad", 0) ]
+                    XShortField("pad", 0)]
 
 
 class OFPATPopMPLS(_ofp_action_header):
     name = "OFPAT_POP_MPLS"
-    fields_desc = [ ShortEnumField("type", 20, ofp_action_types),
+    fields_desc = [ShortEnumField("type", 20, ofp_action_types),
                     ShortField("len", 8),
                     ShortField("ethertype", 0x8847),    # or 0x8848
-                    XShortField("pad", 0) ]
+                    XShortField("pad", 0)]
 
 
 class OFPATSetQueue(_ofp_action_header):
     name = "OFPAT_SET_QUEUE"
-    fields_desc = [ ShortEnumField("type", 21, ofp_action_types),
+    fields_desc = [ShortEnumField("type", 21, ofp_action_types),
                     ShortField("len", 8),
-                    IntEnumField("queue_id", 0, ofp_queue) ]
+                    IntEnumField("queue_id", 0, ofp_queue)]
 
 
 class OFPATGroup(_ofp_action_header):
     name = "OFPAT_GROUP"
-    fields_desc = [ ShortEnumField("type", 22, ofp_action_types),
+    fields_desc = [ShortEnumField("type", 22, ofp_action_types),
                     ShortField("len", 8),
-                    IntEnumField("group_id", 0, ofp_group) ]
+                    IntEnumField("group_id", 0, ofp_group)]
 
 
 class OFPATSetNwTTL(_ofp_action_header):
     name = "OFPAT_SET_NW_TTL"
-    fields_desc = [ ShortEnumField("type", 23, ofp_action_types),
+    fields_desc = [ShortEnumField("type", 23, ofp_action_types),
                     ShortField("len", 8),
                     ByteField("nw_ttl", 0),
-                    X3BytesField("pad", 0) ]
+                    X3BytesField("pad", 0)]
 
 
 class OFPATDecNwTTL(_ofp_action_header):
     name = "OFPAT_DEC_NW_TTL"
-    fields_desc = [ ShortEnumField("type", 24, ofp_action_types),
+    fields_desc = [ShortEnumField("type", 24, ofp_action_types),
                     ShortField("len", 8),
-                    XIntField("pad", 0) ]
+                    XIntField("pad", 0)]
 
 
 class OFPATSetField(_ofp_action_header):
@@ -965,38 +965,38 @@ class OFPATSetField(_ofp_action_header):
         return b"", s
 
     name = "OFPAT_SET_FIELD"
-    fields_desc = [ ShortEnumField("type", 25, ofp_action_types),
+    fields_desc = [ShortEnumField("type", 25, ofp_action_types),
                     ShortField("len", None),
                     # there should not be more than one oxm tlv
                     OXMPacketListField("field", [], Packet,
                                        length_from=lambda pkt:pkt.len-4,
                                        # /!\ contains padding!
-                                       autocomplete=False) ]
+                                       autocomplete=False)]
 
 
 class OFPATPushPBB(_ofp_action_header):
     name = "OFPAT_PUSH_PBB"
-    fields_desc = [ ShortEnumField("type", 26, ofp_action_types),
+    fields_desc = [ShortEnumField("type", 26, ofp_action_types),
                     ShortField("len", 8),
                     ShortField("ethertype", 0x88e7),
-                    XShortField("pad", 0) ]
+                    XShortField("pad", 0)]
 
 
 class OFPATPopPBB(_ofp_action_header):
     name = "OFPAT_POP_PBB"
-    fields_desc = [ ShortEnumField("type", 27, ofp_action_types),
+    fields_desc = [ShortEnumField("type", 27, ofp_action_types),
                     ShortField("len", 8),
-                    XIntField("pad", 0) ]
+                    XIntField("pad", 0)]
 
 
 class OFPATExperimenter(_ofp_action_header):
     name = "OFPAT_EXPERIMENTER"
-    fields_desc = [ ShortEnumField("type", 65535, ofp_action_types),
+    fields_desc = [ShortEnumField("type", 65535, ofp_action_types),
                     ShortField("len", 8),
-                    IntField("experimenter", 0) ]
+                    IntField("experimenter", 0)]
 
 
-ofp_action_cls = {     0: OFPATOutput,
+ofp_action_cls = {0: OFPATOutput,
                        1: OFPATSetVLANVID,
                        2: OFPATSetVLANPCP,
                        3: OFPATStripVLAN,
@@ -1025,7 +1025,7 @@ ofp_action_cls = {     0: OFPATOutput,
                       25: OFPATSetField,
                       26: OFPATPushPBB,
                       27: OFPATPopPBB,
-                   65535: OFPATExperimenter }
+                   65535: OFPATExperimenter}
 
 
 class ActionPacketListField(PacketListField):
@@ -1062,70 +1062,70 @@ class ActionPacketListField(PacketListField):
 
 class OFPATOutputID(_ofp_action_header):
     name = "OFPAT_OUTPUT"
-    fields_desc = [ ShortEnumField("type", 0, ofp_action_types),
-                    ShortField("len", 4) ]
+    fields_desc = [ShortEnumField("type", 0, ofp_action_types),
+                    ShortField("len", 4)]
 
 # the following actions are not supported by OFv1.3
 
 
 class OFPATSetVLANVIDID(_ofp_action_header):
     name = "OFPAT_SET_VLAN_VID"
-    fields_desc = [ ShortEnumField("type", 1, ofp_action_types),
-                    ShortField("len", 4) ]
+    fields_desc = [ShortEnumField("type", 1, ofp_action_types),
+                    ShortField("len", 4)]
 
 
 class OFPATSetVLANPCPID(_ofp_action_header):
     name = "OFPAT_SET_VLAN_PCP"
-    fields_desc = [ ShortEnumField("type", 2, ofp_action_types),
-                    ShortField("len", 4) ]
+    fields_desc = [ShortEnumField("type", 2, ofp_action_types),
+                    ShortField("len", 4)]
 
 
 class OFPATStripVLANID(_ofp_action_header):
     name = "OFPAT_STRIP_VLAN"
-    fields_desc = [ ShortEnumField("type", 3, ofp_action_types),
-                    ShortField("len", 4) ]
+    fields_desc = [ShortEnumField("type", 3, ofp_action_types),
+                    ShortField("len", 4)]
 
 
 class OFPATSetDlSrcID(_ofp_action_header):
     name = "OFPAT_SET_DL_SRC"
-    fields_desc = [ ShortEnumField("type", 4, ofp_action_types),
-                    ShortField("len", 4) ]
+    fields_desc = [ShortEnumField("type", 4, ofp_action_types),
+                    ShortField("len", 4)]
 
 
 class OFPATSetDlDstID(_ofp_action_header):
     name = "OFPAT_SET_DL_DST"
-    fields_desc = [ ShortEnumField("type", 5, ofp_action_types),
-                    ShortField("len", 4) ]
+    fields_desc = [ShortEnumField("type", 5, ofp_action_types),
+                    ShortField("len", 4)]
 
 
 class OFPATSetNwSrcID(_ofp_action_header):
     name = "OFPAT_SET_NW_SRC"
-    fields_desc = [ ShortEnumField("type", 6, ofp_action_types),
-                    ShortField("len", 4) ]
+    fields_desc = [ShortEnumField("type", 6, ofp_action_types),
+                    ShortField("len", 4)]
 
 
 class OFPATSetNwDstID(_ofp_action_header):
     name = "OFPAT_SET_NW_DST"
-    fields_desc = [ ShortEnumField("type", 7, ofp_action_types),
-                    ShortField("len", 4) ]
+    fields_desc = [ShortEnumField("type", 7, ofp_action_types),
+                    ShortField("len", 4)]
 
 
 class OFPATSetNwToSID(_ofp_action_header):
     name = "OFPAT_SET_TP_TOS"
-    fields_desc = [ ShortEnumField("type", 8, ofp_action_types),
-                    ShortField("len", 4) ]
+    fields_desc = [ShortEnumField("type", 8, ofp_action_types),
+                    ShortField("len", 4)]
 
 
 class OFPATSetTpSrcID(_ofp_action_header):
     name = "OFPAT_SET_TP_SRC"
-    fields_desc = [ ShortEnumField("type", 9, ofp_action_types),
-                    ShortField("len", 4) ]
+    fields_desc = [ShortEnumField("type", 9, ofp_action_types),
+                    ShortField("len", 4)]
 
 
 class OFPATSetTpDstID(_ofp_action_header):
     name = "OFPAT_SET_TP_DST"
-    fields_desc = [ ShortEnumField("type", 10, ofp_action_types),
-                    ShortField("len", 4) ]
+    fields_desc = [ShortEnumField("type", 10, ofp_action_types),
+                    ShortField("len", 4)]
 
 #class OFPATEnqueueID(_ofp_action_header):
 #       name = "OFPAT_ENQUEUE"
@@ -1135,115 +1135,115 @@ class OFPATSetTpDstID(_ofp_action_header):
 
 class OFPATSetMPLSLabelID(_ofp_action_header):
     name = "OFPAT_SET_MPLS_LABEL"
-    fields_desc = [ ShortEnumField("type", 13, ofp_action_types),
-                    ShortField("len", 4) ]
+    fields_desc = [ShortEnumField("type", 13, ofp_action_types),
+                    ShortField("len", 4)]
 
 
 class OFPATSetMPLSTCID(_ofp_action_header):
     name = "OFPAT_SET_MPLS_TC"
-    fields_desc = [ ShortEnumField("type", 14, ofp_action_types),
-                    ShortField("len", 4) ]
+    fields_desc = [ShortEnumField("type", 14, ofp_action_types),
+                    ShortField("len", 4)]
 
 # end of unsupported actions
 
 
 class OFPATCopyTTLOutID(_ofp_action_header):
     name = "OFPAT_COPY_TTL_OUT"
-    fields_desc = [ ShortEnumField("type", 11, ofp_action_types),
-                    ShortField("len", 4) ]
+    fields_desc = [ShortEnumField("type", 11, ofp_action_types),
+                    ShortField("len", 4)]
 
 
 class OFPATCopyTTLInID(_ofp_action_header):
     name = "OFPAT_COPY_TTL_IN"
-    fields_desc = [ ShortEnumField("type", 12, ofp_action_types),
-                    ShortField("len", 4) ]
+    fields_desc = [ShortEnumField("type", 12, ofp_action_types),
+                    ShortField("len", 4)]
 
 
 class OFPATSetMPLSTTLID(_ofp_action_header):
     name = "OFPAT_SET_MPLS_TTL"
-    fields_desc = [ ShortEnumField("type", 15, ofp_action_types),
-                    ShortField("len", 4) ]
+    fields_desc = [ShortEnumField("type", 15, ofp_action_types),
+                    ShortField("len", 4)]
 
 
 class OFPATDecMPLSTTLID(_ofp_action_header):
     name = "OFPAT_DEC_MPLS_TTL"
-    fields_desc = [ ShortEnumField("type", 16, ofp_action_types),
-                    ShortField("len", 4) ]
+    fields_desc = [ShortEnumField("type", 16, ofp_action_types),
+                    ShortField("len", 4)]
 
 
 class OFPATPushVLANID(_ofp_action_header):
     name = "OFPAT_PUSH_VLAN"
-    fields_desc = [ ShortEnumField("type", 17, ofp_action_types),
-                    ShortField("len", 4) ]
+    fields_desc = [ShortEnumField("type", 17, ofp_action_types),
+                    ShortField("len", 4)]
 
 
 class OFPATPopVLANID(_ofp_action_header):
     name = "OFPAT_POP_VLAN"
-    fields_desc = [ ShortEnumField("type", 18, ofp_action_types),
-                    ShortField("len", 4) ]
+    fields_desc = [ShortEnumField("type", 18, ofp_action_types),
+                    ShortField("len", 4)]
 
 
 class OFPATPushMPLSID(_ofp_action_header):
     name = "OFPAT_PUSH_MPLS"
-    fields_desc = [ ShortEnumField("type", 19, ofp_action_types),
-                    ShortField("len", 4) ]
+    fields_desc = [ShortEnumField("type", 19, ofp_action_types),
+                    ShortField("len", 4)]
 
 
 class OFPATPopMPLSID(_ofp_action_header):
     name = "OFPAT_POP_MPLS"
-    fields_desc = [ ShortEnumField("type", 20, ofp_action_types),
-                    ShortField("len", 4) ]
+    fields_desc = [ShortEnumField("type", 20, ofp_action_types),
+                    ShortField("len", 4)]
 
 
 class OFPATSetQueueID(_ofp_action_header):
     name = "OFPAT_SET_QUEUE"
-    fields_desc = [ ShortEnumField("type", 21, ofp_action_types),
-                    ShortField("len", 4) ]
+    fields_desc = [ShortEnumField("type", 21, ofp_action_types),
+                    ShortField("len", 4)]
 
 
 class OFPATGroupID(_ofp_action_header):
     name = "OFPAT_GROUP"
-    fields_desc = [ ShortEnumField("type", 22, ofp_action_types),
-                    ShortField("len", 4) ]
+    fields_desc = [ShortEnumField("type", 22, ofp_action_types),
+                    ShortField("len", 4)]
 
 
 class OFPATSetNwTTLID(_ofp_action_header):
     name = "OFPAT_SET_NW_TTL"
-    fields_desc = [ ShortEnumField("type", 23, ofp_action_types),
-                    ShortField("len", 4) ]
+    fields_desc = [ShortEnumField("type", 23, ofp_action_types),
+                    ShortField("len", 4)]
 
 
 class OFPATDecNwTTLID(_ofp_action_header):
     name = "OFPAT_DEC_NW_TTL"
-    fields_desc = [ ShortEnumField("type", 24, ofp_action_types),
-                    ShortField("len", 4) ]
+    fields_desc = [ShortEnumField("type", 24, ofp_action_types),
+                    ShortField("len", 4)]
 
 
 class OFPATSetFieldID(_ofp_action_header):
     name = "OFPAT_SET_FIELD"
-    fields_desc = [ ShortEnumField("type", 25, ofp_action_types),
-                    ShortField("len", 4) ]
+    fields_desc = [ShortEnumField("type", 25, ofp_action_types),
+                    ShortField("len", 4)]
 
 
 class OFPATPushPBBID(_ofp_action_header):
     name = "OFPAT_PUSH_PBB"
-    fields_desc = [ ShortEnumField("type", 26, ofp_action_types),
-                    ShortField("len", 4) ]
+    fields_desc = [ShortEnumField("type", 26, ofp_action_types),
+                    ShortField("len", 4)]
 
 
 class OFPATPopPBBID(_ofp_action_header):
     name = "OFPAT_POP_PBB"
-    fields_desc = [ ShortEnumField("type", 27, ofp_action_types),
-                    ShortField("len", 4) ]
+    fields_desc = [ShortEnumField("type", 27, ofp_action_types),
+                    ShortField("len", 4)]
 
 
 class OFPATExperimenterID(_ofp_action_header):
     name = "OFPAT_EXPERIMENTER"
-    fields_desc = [ ShortEnumField("type", 65535, ofp_action_types),
-                    ShortField("len", None) ]
+    fields_desc = [ShortEnumField("type", 65535, ofp_action_types),
+                    ShortField("len", None)]
 
 
-ofp_action_id_cls = {     0: OFPATOutputID,
+ofp_action_id_cls = {0: OFPATOutputID,
                           1: OFPATSetVLANVIDID,
                           2: OFPATSetVLANPCPID,
                           3: OFPATStripVLANID,
@@ -1272,7 +1272,7 @@ ofp_action_id_cls = {     0: OFPATOutputID,
                          25: OFPATSetFieldID,
                          26: OFPATPushPBBID,
                          27: OFPATPopPBBID,
-                      65535: OFPATExperimenterID }
+                      65535: OFPATExperimenterID}
 
 
 class ActionIDPacketListField(PacketListField):
@@ -1314,78 +1314,78 @@ class _ofp_instruction_header(Packet):
         return p + pay
 
 
-ofp_instruction_types = {     1: "OFPIT_GOTO_TABLE",
+ofp_instruction_types = {1: "OFPIT_GOTO_TABLE",
                               2: "OFPIT_WRITE_METADATA",
                               3: "OFPIT_WRITE_ACTIONS",
                               4: "OFPIT_APPLY_ACTIONS",
                               5: "OFPIT_CLEAR_ACTIONS",
                               6: "OFPIT_METER",
-                          65535: "OFPIT_EXPERIMENTER" }
+                          65535: "OFPIT_EXPERIMENTER"}
 
 
 class OFPITGotoTable(_ofp_instruction_header):
     name = "OFPIT_GOTO_TABLE"
-    fields_desc = [ ShortEnumField("type", 1, ofp_instruction_types),
+    fields_desc = [ShortEnumField("type", 1, ofp_instruction_types),
                     ShortField("len", 8),
                     ByteEnumField("table_id", 0, ofp_table),
-                    X3BytesField("pad", 0) ]
+                    X3BytesField("pad", 0)]
 
 
 class OFPITWriteMetadata(_ofp_instruction_header):
     name = "OFPIT_WRITE_METADATA"
-    fields_desc = [ ShortEnumField("type", 2, ofp_instruction_types),
+    fields_desc = [ShortEnumField("type", 2, ofp_instruction_types),
                     ShortField("len", 24),
                     XIntField("pad", 0),
                     LongField("metadata", 0),
-                    LongField("metadata_mask", 0) ]
+                    LongField("metadata_mask", 0)]
 
 
 class OFPITWriteActions(_ofp_instruction_header):
     name = "OFPIT_WRITE_ACTIONS"
-    fields_desc = [ ShortEnumField("type", 3, ofp_instruction_types),
+    fields_desc = [ShortEnumField("type", 3, ofp_instruction_types),
                     ShortField("len", None),
                     XIntField("pad", 0),
                     ActionPacketListField("actions", [], Packet,
-                                          length_from=lambda pkt:pkt.len-8) ]
+                                          length_from=lambda pkt:pkt.len-8)]
 
 
 class OFPITApplyActions(_ofp_instruction_header):
     name = "OFPIT_APPLY_ACTIONS"
-    fields_desc = [ ShortEnumField("type", 4, ofp_instruction_types),
+    fields_desc = [ShortEnumField("type", 4, ofp_instruction_types),
                     ShortField("len", None),
                     XIntField("pad", 0),
                     ActionPacketListField("actions", [], Packet,
-                                          length_from=lambda pkt:pkt.len-8) ]
+                                          length_from=lambda pkt:pkt.len-8)]
 
 
 class OFPITClearActions(_ofp_instruction_header):
     name = "OFPIT_CLEAR_ACTIONS"
-    fields_desc = [ ShortEnumField("type", 5, ofp_instruction_types),
+    fields_desc = [ShortEnumField("type", 5, ofp_instruction_types),
                     ShortField("len", 8),
-                    XIntField("pad", 0) ]
+                    XIntField("pad", 0)]
 
 
 class OFPITMeter(_ofp_instruction_header):
     name = "OFPIT_METER"
-    fields_desc = [ ShortEnumField("type", 6, ofp_instruction_types),
+    fields_desc = [ShortEnumField("type", 6, ofp_instruction_types),
                     ShortField("len", 8),
-                    IntEnumField("meter_id", 1, ofp_meter) ]
+                    IntEnumField("meter_id", 1, ofp_meter)]
 
 
 class OFPITExperimenter(_ofp_instruction_header):
     name = "OFPIT_EXPERIMENTER"
-    fields_desc = [ ShortEnumField("type", 65535, ofp_instruction_types),
+    fields_desc = [ShortEnumField("type", 65535, ofp_instruction_types),
                     ShortField("len", None),
-                    IntField("experimenter", 0) ]
+                    IntField("experimenter", 0)]
 
 
-ofp_instruction_cls = {     1: OFPITGotoTable,
+ofp_instruction_cls = {1: OFPITGotoTable,
                             2: OFPITWriteMetadata,
                             3: OFPITWriteActions,
                             4: OFPITApplyActions,
                             5: OFPITClearActions,
                             6: OFPITMeter,
-                        65535: OFPITExperimenter }
+                        65535: OFPITExperimenter}
 
 
 class InstructionPacketListField(PacketListField):
@@ -1422,53 +1422,53 @@ class InstructionPacketListField(PacketListField):
 
 class OFPITGotoTableID(_ofp_instruction_header):
     name = "OFPIT_GOTO_TABLE"
-    fields_desc = [ ShortEnumField("type", 1, ofp_instruction_types),
-                    ShortField("len", 4) ]
+    fields_desc = [ShortEnumField("type", 1, ofp_instruction_types),
+                    ShortField("len", 4)]
 
 
 class OFPITWriteMetadataID(_ofp_instruction_header):
     name = "OFPIT_WRITE_METADATA"
-    fields_desc = [ ShortEnumField("type", 2, ofp_instruction_types),
-                    ShortField("len", 4) ]
+    fields_desc = [ShortEnumField("type", 2, ofp_instruction_types),
+                    ShortField("len", 4)]
 
 
 class OFPITWriteActionsID(_ofp_instruction_header):
     name = "OFPIT_WRITE_ACTIONS"
-    fields_desc = [ ShortEnumField("type", 3, ofp_instruction_types),
-                    ShortField("len", 4) ]
+    fields_desc = [ShortEnumField("type", 3, ofp_instruction_types),
+                    ShortField("len", 4)]
 
 
 class OFPITApplyActionsID(_ofp_instruction_header):
     name = "OFPIT_APPLY_ACTIONS"
-    fields_desc = [ ShortEnumField("type", 4, ofp_instruction_types),
-                    ShortField("len", 4) ]
+    fields_desc = [ShortEnumField("type", 4, ofp_instruction_types),
+                    ShortField("len", 4)]
 
 
 class OFPITClearActionsID(_ofp_instruction_header):
     name = "OFPIT_CLEAR_ACTIONS"
-    fields_desc = [ ShortEnumField("type", 5, ofp_instruction_types),
-                    ShortField("len", 4) ]
+    fields_desc = [ShortEnumField("type", 5, ofp_instruction_types),
+                    ShortField("len", 4)]
 
 
 class OFPITMeterID(_ofp_instruction_header):
     name = "OFPIT_METER"
-    fields_desc = [ ShortEnumField("type", 6, ofp_instruction_types),
-                    ShortField("len", 4) ]
+    fields_desc = [ShortEnumField("type", 6, ofp_instruction_types),
+                    ShortField("len", 4)]
 
 
 class OFPITExperimenterID(_ofp_instruction_header):
     name = "OFPIT_EXPERIMENTER"
-    fields_desc = [ ShortEnumField("type", 65535, ofp_instruction_types),
-                    ShortField("len", None) ]
+    fields_desc = [ShortEnumField("type", 65535, ofp_instruction_types),
+                    ShortField("len", None)]
 
 
-ofp_instruction_id_cls = {     1: OFPITGotoTableID,
+ofp_instruction_id_cls = {1: OFPITGotoTableID,
                                2: OFPITWriteMetadataID,
                                3: OFPITWriteActionsID,
                                4: OFPITApplyActionsID,
                                5: OFPITClearActionsID,
                                6: OFPITMeterID,
-                           65535: OFPITExperimenterID }
+                           65535: OFPITExperimenterID}
 
 
 class InstructionIDPacketListField(PacketListField):
@@ -1512,13 +1512,13 @@ class OFPBucket(Packet):
         return p + pay
 
     name = "OFP_BUCKET"
-    fields_desc = [ ShortField("len", None),
+    fields_desc = [ShortField("len", None),
                     ShortField("weight", 0),
                     IntEnumField("watch_port", 0, ofp_port_no),
                     IntEnumField("watch_group", 0, ofp_group),
                     XIntField("pad", 0),
                     ActionPacketListField("actions", [], Packet,
-                                          length_from=lambda pkt:pkt.len-16) ]
+                                          length_from=lambda pkt:pkt.len-16)]
 
 
 class BucketPacketListField(PacketListField):
@@ -1553,28 +1553,28 @@ class _ofp_queue_property_header(Packet):
         return p + pay
 
 
-ofp_queue_property_types = { 0: "OFPQT_NONE",
-                             1: "OFPQT_MIN_RATE" }
+ofp_queue_property_types = {0: "OFPQT_NONE",
+                             1: "OFPQT_MIN_RATE"}
 
 
 class OFPQTNone(_ofp_queue_property_header):
     name = "OFPQT_NONE"
-    fields_desc = [ ShortEnumField("type", 0, ofp_queue_property_types),
+    fields_desc = [ShortEnumField("type", 0, ofp_queue_property_types),
                     ShortField("len", 8),
-                    XIntField("pad", 0) ]
+                    XIntField("pad", 0)]
 
 
 class OFPQTMinRate(_ofp_queue_property_header):
     name = "OFPQT_MIN_RATE"
-    fields_desc = [ ShortEnumField("type", 1, ofp_queue_property_types),
+    fields_desc = [ShortEnumField("type", 1, ofp_queue_property_types),
                     ShortField("len", 16),
                     XIntField("pad1", 0),
                     ShortField("rate", 0),
-                    XBitField("pad2", 0, 48) ]
+                    XBitField("pad2", 0, 48)]
 
 
-ofp_queue_property_cls = { 0: OFPQTNone,
-                           1: OFPQTMinRate }
+ofp_queue_property_cls = {0: OFPQTNone,
+                           1: OFPQTMinRate}
 
 
 class QueuePropertyPacketListField(PacketListField):
@@ -1614,11 +1614,11 @@ class OFPPacketQueue(Packet):
         return p + pay
 
     name = "OFP_PACKET_QUEUE"
-    fields_desc = [ IntEnumField("queue_id", 0, ofp_queue),
+    fields_desc = [IntEnumField("queue_id", 0, ofp_queue),
                     ShortField("len", None),
                     XShortField("pad", 0),
                     QueuePropertyPacketListField("properties", [], Packet,
-                                                 length_from=lambda pkt:pkt.len-8) ]
+                                                 length_from=lambda pkt:pkt.len-8)]
 
 
 class QueuePacketListField(PacketListField):
@@ -1643,42 +1643,42 @@ class QueuePacketListField(PacketListField):
 
 #################### Meter bands ####################
 
-ofp_meter_band_types = {     0: "OFPMBT_DROP",
+ofp_meter_band_types = {0: "OFPMBT_DROP",
                              1: "OFPMBT_DSCP_REMARK",
-                         65535: "OFPMBT_EXPERIMENTER" }
+                         65535: "OFPMBT_EXPERIMENTER"}
 
 
 class OFPMBTDrop(Packet):
     name = "OFPMBT_DROP"
-    fields_desc = [ ShortEnumField("type", 0, ofp_queue_property_types),
+    fields_desc = [ShortEnumField("type", 0, ofp_queue_property_types),
                     ShortField("len", 16),
                     IntField("rate", 0),
                     IntField("burst_size", 0),
-                    XIntField("pad", 0) ]
+                    XIntField("pad", 0)]
 
 
 class OFPMBTDSCPRemark(Packet):
     name = "OFPMBT_DSCP_REMARK"
-    fields_desc = [ ShortEnumField("type", 1, ofp_queue_property_types),
+    fields_desc = [ShortEnumField("type", 1, ofp_queue_property_types),
                     ShortField("len", 16),
                     IntField("rate", 0),
                     IntField("burst_size", 0),
                     ByteField("prec_level", 0),
-                    X3BytesField("pad", 0) ]
+                    X3BytesField("pad", 0)]
 
 
 class OFPMBTExperimenter(Packet):
     name = "OFPMBT_EXPERIMENTER"
-    fields_desc = [ ShortEnumField("type", 65535, ofp_queue_property_types),
+    fields_desc = [ShortEnumField("type", 65535, ofp_queue_property_types),
                     ShortField("len", 16),
                     IntField("rate", 0),
                     IntField("burst_size", 0),
-                    IntField("experimenter", 0) ]
+                    IntField("experimenter", 0)]
 
 
-ofp_meter_band_cls = { 0: OFPMBTDrop,
+ofp_meter_band_cls = {0: OFPMBTDrop,
                        1: OFPMBTDSCPRemark,
-                       2: OFPMBTExperimenter }
+                       2: OFPMBTExperimenter}
 
 
 class MeterBandPacketListField(PacketListField):
@@ -1703,13 +1703,13 @@ class MeterBandPacketListField(PacketListField):
 ############## OpenFlow 1.3 Messages ################
 #####################################################
 
-ofp_version = { 0x01: "OpenFlow 1.0",
+ofp_version = {0x01: "OpenFlow 1.0",
                 0x02: "OpenFlow 1.1",
                 0x03: "OpenFlow 1.2",
                 0x04: "OpenFlow 1.3",
-                0x05: "OpenFlow 1.4" }
+                0x05: "OpenFlow 1.4"}
 
-ofp_type = {  0: "OFPT_HELLO",
+ofp_type = {0: "OFPT_HELLO",
               1: "OFPT_ERROR",
               2: "OFPT_ECHO_REQUEST",
               3: "OFPT_ECHO_REPLY",
@@ -1738,7 +1738,7 @@ ofp_type = {  0: "OFPT_HELLO",
              26: "OFPT_GET_ASYNC_REQUEST",
              27: "OFPT_GET_ASYNC_REPLY",
              28: "OFPT_SET_ASYNC",
-             29: "OFPT_METER_MOD" }
+             29: "OFPT_METER_MOD"}
 
 
 class _ofp_header(Packet):
@@ -1753,12 +1753,12 @@ class _ofp_header(Packet):
 
 class OFPTHello(_ofp_header):
     name = "OFPT_HELLO"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 0, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
                     HelloElemPacketListField("elements", [], Packet,
-                                             length_from=lambda pkt:pkt.len-32) ]
+                                             length_from=lambda pkt:pkt.len-32)]
     overload_fields = {TCP: {"sport": 6653}}
 
 #####################################################
@@ -1781,7 +1781,7 @@ class OFPacketField(PacketField):
             return b"", Raw(s)
 
 
-ofp_error_type = {     0: "OFPET_HELLO_FAILED",
+ofp_error_type = {0: "OFPET_HELLO_FAILED",
                        1: "OFPET_BAD_REQUEST",
                        2: "OFPET_BAD_ACTION",
                        3: "OFPET_BAD_INSTRUCTION",
@@ -1795,30 +1795,30 @@ ofp_error_type = {     0: "OFPET_HELLO_FAILED",
                       11: "OFPET_ROLE_REQUEST_FAILED",
                       12: "OFPET_METER_MOD_FAILED",
                       13: "OFPET_TABLE_FEATURES_FAILED",
-                   65535: "OFPET_EXPERIMENTER" }
+                   65535: "OFPET_EXPERIMENTER"}
 
 
 class OFPETHelloFailed(_ofp_header):
     name = "OFPET_HELLO_FAILED"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 1, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
                     ShortEnumField("errtype", 0, ofp_error_type),
-                    ShortEnumField("errcode", 0, { 0: "OFPHFC_INCOMPATIBLE",
-                                                   1: "OFPHFC_EPERM" }),
-                    OFPacketField("data", "", Raw) ]
+                    ShortEnumField("errcode", 0, {0: "OFPHFC_INCOMPATIBLE",
+                                                   1: "OFPHFC_EPERM"}),
+                    OFPacketField("data", "", Raw)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
 class OFPETBadRequest(_ofp_header):
     name = "OFPET_BAD_REQUEST"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 1, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
                     ShortEnumField("errtype", 1, ofp_error_type),
-                    ShortEnumField("errcode", 0, {  0: "OFPBRC_BAD_VERSION",
+                    ShortEnumField("errcode", 0, {0: "OFPBRC_BAD_VERSION",
                                                     1: "OFPBRC_BAD_TYPE",
                                                     2: "OFPBRC_BAD_MULTIPART",
                                                     3: "OFPBRC_BAD_EXPERIMENTER",
@@ -1831,19 +1831,19 @@ class OFPETBadRequest(_ofp_header):
                                                    10: "OFPBRC_IS_SLAVE",
                                                    11: "OFPBRC_BAD_PORT",
                                                    12: "OFPBRC_BAD_PACKET",
-                                                   13: "OFPBRC_MULTIPART_BUFFER_OVERFLOW" }),
-                    OFPacketField("data", "", Raw) ]
+                                                   13: "OFPBRC_MULTIPART_BUFFER_OVERFLOW"}),
+                    OFPacketField("data", "", Raw)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
 class OFPETBadAction(_ofp_header):
     name = "OFPET_BAD_ACTION"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 1, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
                     ShortEnumField("errtype", 2, ofp_error_type),
-                    ShortEnumField("errcode", 0, {  0: "OFPBAC_BAD_TYPE",
+                    ShortEnumField("errcode", 0, {0: "OFPBAC_BAD_TYPE",
                                                     1: "OFPBAC_BAD_LEN",
                                                     2: "OFPBAC_BAD_EXPERIMENTER",
                                                     3: "OFPBAC_BAD_EXP_TYPE",
@@ -1858,19 +1858,19 @@ class OFPETBadAction(_ofp_header):
                                                    12: "OFPBAC_BAD_TAG",
                                                    13: "OFPBAC_BAD_SET_TYPE",
                                                    14: "OFPBAC_BAD_SET_LEN",
-                                                   15: "OFPBAC_BAD_SET_ARGUMENT" }),
-                    OFPacketField("data", "", Raw) ]
+                                                   15: "OFPBAC_BAD_SET_ARGUMENT"}),
+                    OFPacketField("data", "", Raw)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
 class OFPETBadInstruction(_ofp_header):
     name = "OFPET_BAD_INSTRUCTION"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 1, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
                     ShortEnumField("errtype", 3, ofp_error_type),
-                    ShortEnumField("errcode", 0, { 0: "OFPBIC_UNKNOWN_INST",
+                    ShortEnumField("errcode", 0, {0: "OFPBIC_UNKNOWN_INST",
                                                    1: "OFPBIC_UNSUP_INST",
                                                    2: "OFPBIC_BAD_TABLE_ID",
                                                    3: "OFPBIC_UNSUP_METADATA",
@@ -1878,19 +1878,19 @@ class OFPETBadInstruction(_ofp_header):
                                                    5: "OFPBIC_BAD_EXPERIMENTER",
                                                    6: "OFPBIC_BAD_EXP_TYPE",
                                                    7: "OFPBIC_BAD_LEN",
-                                                   8: "OFPBIC_EPERM" }),
-                    OFPacketField("data", "", Raw) ]
+                                                   8: "OFPBIC_EPERM"}),
+                    OFPacketField("data", "", Raw)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
 class OFPETBadMatch(_ofp_header):
     name = "OFPET_BAD_MATCH"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 1, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
                     ShortEnumField("errtype", 4, ofp_error_type),
-                    ShortEnumField("errcode", 0, {  0: "OFPBMC_BAD_TYPE",
+                    ShortEnumField("errcode", 0, {0: "OFPBMC_BAD_TYPE",
                                                     1: "OFPBMC_BAD_LEN",
                                                     2: "OFPBMC_BAD_TAG",
                                                     3: "OFPBMC_BAD_DL_ADDR_MASK",
@@ -1901,38 +1901,38 @@ class OFPETBadMatch(_ofp_header):
                                                     8: "OFPBMC_BAD_MASK",
                                                     9: "OFPBMC_BAD_PREREQ",
                                                    10: "OFPBMC_DUP_FIELD",
-                                                   11: "OFPBMC_EPERM" }),
-                    OFPacketField("data", "", Raw) ]
+                                                   11: "OFPBMC_EPERM"}),
+                    OFPacketField("data", "", Raw)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
 class OFPETFlowModFailed(_ofp_header):
     name = "OFPET_FLOW_MOD_FAILED"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 1, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
                     ShortEnumField("errtype", 5, ofp_error_type),
-                    ShortEnumField("errcode", 0, { 0: "OFPFMFC_UNKNOWN",
+                    ShortEnumField("errcode", 0, {0: "OFPFMFC_UNKNOWN",
                                                    1: "OFPFMFC_TABLE_FULL",
                                                    2: "OFPFMFC_BAD_TABLE_ID",
                                                    3: "OFPFMFC_OVERLAP",
                                                    4: "OFPFMFC_EPERM",
                                                    5: "OFPFMFC_BAD_TIMEOUT",
                                                    6: "OFPFMFC_BAD_COMMAND",
-                                                   7: "OFPFMFC_BAD_FLAGS" }),
-                    OFPacketField("data", "", Raw) ]
+                                                   7: "OFPFMFC_BAD_FLAGS"}),
+                    OFPacketField("data", "", Raw)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
 class OFPETGroupModFailed(_ofp_header):
     name = "OFPET_GROUP_MOD_FAILED"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 1, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
                     ShortEnumField("errtype", 6, ofp_error_type),
-                    ShortEnumField("errcode", 0, {  0: "OFPGMFC_GROUP_EXISTS",
+                    ShortEnumField("errcode", 0, {0: "OFPGMFC_GROUP_EXISTS",
                                                     1: "OFPGMFC_INVALID_GROUP",
                                                     2: "OFPGMFC_WEIGHT_UNSUPPORTED",
                                                     3: "OFPGMFC_OUT_OF_GROUPS",
@@ -1946,91 +1946,91 @@ class OFPETGroupModFailed(_ofp_header):
                                                    11: "OFPGMFC_BAD_COMMAND",
                                                    12: "OFPGMFC_BAD_BUCKET",
                                                    13: "OFPGMFC_BAD_WATCH",
-                                                   14: "OFPFMFC_EPERM" }),
-                    OFPacketField("data", "", Raw) ]
+                                                   14: "OFPFMFC_EPERM"}),
+                    OFPacketField("data", "", Raw)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
 class OFPETPortModFailed(_ofp_header):
     name = "OFPET_PORT_MOD_FAILED"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 1, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
                     ShortEnumField("errtype", 7, ofp_error_type),
-                    ShortEnumField("errcode", 0, { 0: "OFPPMFC_BAD_PORT",
+                    ShortEnumField("errcode", 0, {0: "OFPPMFC_BAD_PORT",
                                                    1: "OFPPMFC_BAD_HW_ADDR",
                                                    2: "OFPPMFC_BAD_CONFIG",
                                                    3: "OFPPMFC_BAD_ADVERTISE",
-                                                   4: "OFPPMFC_EPERM" }),
-                    OFPacketField("data", "", Raw) ]
+                                                   4: "OFPPMFC_EPERM"}),
+                    OFPacketField("data", "", Raw)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
 class OFPETTableModFailed(_ofp_header):
     name = "OFPET_TABLE_MOD_FAILED"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 1, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
                     ShortEnumField("errtype", 8, ofp_error_type),
-                    ShortEnumField("errcode", 0, { 0: "OFPTMFC_BAD_TABLE",
+                    ShortEnumField("errcode", 0, {0: "OFPTMFC_BAD_TABLE",
                                                    1: "OFPTMFC_BAD_CONFIG",
-                                                   2: "OFPTMFC_EPERM" }),
-                    OFPacketField("data", "", Raw) ]
+                                                   2: "OFPTMFC_EPERM"}),
+                    OFPacketField("data", "", Raw)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
 class OFPETQueueOpFailed(_ofp_header):
     name = "OFPET_QUEUE_OP_FAILED"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 1, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
                     ShortEnumField("errtype", 9, ofp_error_type),
-                    ShortEnumField("errcode", 0, { 0: "OFPQOFC_BAD_PORT",
+                    ShortEnumField("errcode", 0, {0: "OFPQOFC_BAD_PORT",
                                                    1: "OFPQOFC_BAD_QUEUE",
-                                                   2: "OFPQOFC_EPERM" }),
-                    OFPacketField("data", "", Raw) ]
+                                                   2: "OFPQOFC_EPERM"}),
+                    OFPacketField("data", "", Raw)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
 class OFPETSwitchConfigFailed(_ofp_header):
     name = "OFPET_SWITCH_CONFIG_FAILED"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 1, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
                     ShortEnumField("errtype", 10, ofp_error_type),
-                    ShortEnumField("errcode", 0, { 0: "OFPSCFC_BAD_FLAGS",
+                    ShortEnumField("errcode", 0, {0: "OFPSCFC_BAD_FLAGS",
                                                    1: "OFPSCFC_BAD_LEN",
-                                                   2: "OFPSCFC_EPERM" }),
-                    OFPacketField("data", "", Raw) ]
+                                                   2: "OFPSCFC_EPERM"}),
+                    OFPacketField("data", "", Raw)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
 class OFPETRoleRequestFailed(_ofp_header):
     name = "OFPET_ROLE_REQUEST_FAILED"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 1, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
                     ShortEnumField("errtype", 11, ofp_error_type),
-                    ShortEnumField("errcode", 0, { 0: "OFPRRFC_STALE",
+                    ShortEnumField("errcode", 0, {0: "OFPRRFC_STALE",
                                                    1: "OFPRRFC_UNSUP",
-                                                   2: "OFPRRFC_BAD_ROLE" }),
-                    OFPacketField("data", "", Raw) ]
+                                                   2: "OFPRRFC_BAD_ROLE"}),
+                    OFPacketField("data", "", Raw)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
 class OFPETMeterModFailed(_ofp_header):
     name = "OFPET_METER_MOD_FAILED"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 1, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
                     ShortEnumField("errtype", 12, ofp_error_type),
-                    ShortEnumField("errcode", 0, {  0: "OFPMMFC_UNKNOWN",
+                    ShortEnumField("errcode", 0, {0: "OFPMMFC_UNKNOWN",
                                                     1: "OFPMMFC_METER_EXISTS",
                                                     2: "OFPMMFC_INVALID_METER",
                                                     3: "OFPMMFC_UNKNOWN_METER",
@@ -2041,44 +2041,44 @@ class OFPETMeterModFailed(_ofp_header):
                                                     8: "OFPMMFC_BAD_BAND",
                                                     9: "OFPMMFC_BAD_BAND_VALUE",
                                                    10: "OFPMMFC_OUT_OF_METERS",
-                                                   11: "OFPMMFC_OUT_OF_BANDS" }),
-                    OFPacketField("data", "", Raw) ]
+                                                   11: "OFPMMFC_OUT_OF_BANDS"}),
+                    OFPacketField("data", "", Raw)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
 class OFPETTableFeaturesFailed(_ofp_header):
     name = "OFPET_TABLE_FEATURES_FAILED"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 1, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
                     ShortEnumField("errtype", 13, ofp_error_type),
-                    ShortEnumField("errcode", 0, { 0: "OFPTFFC_BAD_TABLE",
+                    ShortEnumField("errcode", 0, {0: "OFPTFFC_BAD_TABLE",
                                                    1: "OFPTFFC_BAD_METADATA",
                                                    2: "OFPTFFC_BAD_TYPE",
                                                    3: "OFPTFFC_BAD_LEN",
                                                    4: "OFPTFFC_BAD_ARGUMENT",
-                                                   5: "OFPTFFC_EPERM" }),
-                    OFPacketField("data", "", Raw) ]
+                                                   5: "OFPTFFC_EPERM"}),
+                    OFPacketField("data", "", Raw)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
 class OFPETExperimenter(_ofp_header):
     name = "OFPET_EXPERIMENTER"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 1, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
                     ShortEnumField("errtype", "OFPET_EXPERIMENTER", ofp_error_type),
                     ShortField("exp_type", None),
                     IntField("experimenter", None),
-                    OFPacketField("data", "", Raw) ]
+                    OFPacketField("data", "", Raw)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
 # ofp_error_cls allows generic method OpenFlow()
 # to choose the right class for dissection
-ofp_error_cls = {     0: OFPETHelloFailed,
+ofp_error_cls = {0: OFPETHelloFailed,
                       1: OFPETBadRequest,
                       2: OFPETBadAction,
                       3: OFPETBadInstruction,
@@ -2092,52 +2092,52 @@ ofp_error_cls = {     0: OFPETHelloFailed,
                      11: OFPETRoleRequestFailed,
                      12: OFPETMeterModFailed,
                      13: OFPETTableFeaturesFailed,
-                  65535: OFPETExperimenter }
+                  65535: OFPETExperimenter}
 
 ################ end of OFPT_ERRORS #################
 
 
 class OFPTEchoRequest(_ofp_header):
     name = "OFPT_ECHO_REQUEST"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 2, ofp_type),
                     ShortField("len", None),
-                    IntField("xid", 0) ]
+                    IntField("xid", 0)]
     overload_fields = {TCP: {"sport": 6653}}
 
 
 class OFPTEchoReply(_ofp_header):
     name = "OFPT_ECHO_REPLY"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 3, ofp_type),
                     ShortField("len", None),
-                    IntField("xid", 0) ]
+                    IntField("xid", 0)]
     overload_fields = {TCP: {"sport": 6653}}
 
 
 class OFPTExperimenter(_ofp_header):
     name = "OFPT_EXPERIMENTER"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 4, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
                     IntField("experimenter", 0),
-                    IntField("exp_type", 0) ]
+                    IntField("exp_type", 0)]
     overload_fields = {TCP: {"sport": 6653}}
 
 
 class OFPTFeaturesRequest(_ofp_header):
     name = "OFPT_FEATURES_REQUEST"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 5, ofp_type),
                     ShortField("len", None),
-                    IntField("xid", 0) ]
+                    IntField("xid", 0)]
     overload_fields = {TCP: {"sport": 6653}}
 
 
 class OFPTFeaturesReply(_ofp_header):
     name = "OFPT_FEATURES_REPLY"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 6, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
@@ -2146,7 +2146,7 @@ class OFPTFeaturesReply(_ofp_header):
                     ByteField("n_tables", 1),
                     ByteField("auxiliary_id", 0),
                     XShortField("pad", 0),
-                    FlagsField("capabilities", 0, 32, [ "FLOW_STATS",
+                    FlagsField("capabilities", 0, 32, ["FLOW_STATS",
                                                         "TABLE_STATS",
                                                         "PORT_STATS",
                                                         "GROUP_STATS",
@@ -2155,75 +2155,75 @@ class OFPTFeaturesReply(_ofp_header):
                                                         "QUEUE_STATS",
                                                         "ARP_MATCH_IP",   #undefined
                                                         "PORT_BLOCKED"]),
-                    IntField("reserved", 0) ]
+                    IntField("reserved", 0)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
 class OFPTGetConfigRequest(_ofp_header):
     name = "OFPT_GET_CONFIG_REQUEST"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 7, ofp_type),
                     ShortField("len", None),
-                    IntField("xid", 0) ]
+                    IntField("xid", 0)]
     overload_fields = {TCP: {"sport": 6653}}
 
 
 class OFPTGetConfigReply(_ofp_header):
     name = "OFPT_GET_CONFIG_REPLY"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 8, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
-                    ShortEnumField("flags", 0, { 0: "FRAG_NORMAL",
+                    ShortEnumField("flags", 0, {0: "FRAG_NORMAL",
                                                  1: "FRAG_DROP",
                                                  2: "FRAG_REASM",
-                                                 3: "FRAG_MASK" }),
-                    ShortField("miss_send_len", 0) ]
+                                                 3: "FRAG_MASK"}),
+                    ShortField("miss_send_len", 0)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
 class OFPTSetConfig(_ofp_header):
     name = "OFPT_SET_CONFIG"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 9, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
-                    ShortEnumField("flags", 0, { 0: "FRAG_NORMAL",
+                    ShortEnumField("flags", 0, {0: "FRAG_NORMAL",
                                                  1: "FRAG_DROP",
                                                  2: "FRAG_REASM",
-                                                 3: "FRAG_MASK" }),
-                    ShortField("miss_send_len", 128) ]
+                                                 3: "FRAG_MASK"}),
+                    ShortField("miss_send_len", 128)]
     overload_fields = {TCP: {"sport": 6653}}
 
 
 class OFPTPacketIn(_ofp_header):
     name = "OFPT_PACKET_IN"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 10, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
                     IntEnumField("buffer_id", "NO_BUFFER", ofp_buffer),
                     ShortField("total_len", 0),
-                    ByteEnumField("reason", 0, { 0: "OFPR_NO_MATCH",
+                    ByteEnumField("reason", 0, {0: "OFPR_NO_MATCH",
                                                  1: "OFPR_ACTION",
                                                  2: "OFPR_INVALID_TTL"}),
                     ByteEnumField("table_id", 0, ofp_table),
                     LongField("cookie", 0),
                     MatchField("match"),
                     XShortField("pad", 0),
-                    PacketField("data", "", Ether) ]
+                    PacketField("data", "", Ether)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
 class OFPTFlowRemoved(_ofp_header):
     name = "OFPT_FLOW_REMOVED"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 11, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
                     LongField("cookie", 0),
                     ShortField("priority", 0),
-                    ByteEnumField("reason", 0, { 0: "OFPRR_IDLE_TIMEOUT",
+                    ByteEnumField("reason", 0, {0: "OFPRR_IDLE_TIMEOUT",
                                                  1: "OFPRR_HARD_TIMEOUT",
                                                  2: "OFPRR_DELETE",
                                                  3: "OFPRR_GROUP_DELETE"}),
@@ -2234,27 +2234,27 @@ class OFPTFlowRemoved(_ofp_header):
                     ShortField("hard_timeout", 0),
                     LongField("packet_count", 0),
                     LongField("byte_count", 0),
-                    MatchField("match") ]
+                    MatchField("match")]
     overload_fields = {TCP: {"dport": 6653}}
 
 
 class OFPTPortStatus(_ofp_header):
     name = "OFPT_PORT_STATUS"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 12, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
-                    ByteEnumField("reason", 0, { 0: "OFPPR_ADD",
+                    ByteEnumField("reason", 0, {0: "OFPPR_ADD",
                                                  1: "OFPPR_DELETE",
                                                  2: "OFPPR_MODIFY"}),
                     XBitField("pad", 0, 56),
-                    PacketField("desc", OFPPort(), OFPPort) ]
+                    PacketField("desc", OFPPort(), OFPPort)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
 class OFPTPacketOut(_ofp_header):
     name = "OFPT_PACKET_OUT"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 13, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
@@ -2264,66 +2264,66 @@ class OFPTPacketOut(_ofp_header):
                     XBitField("pad", 0, 48),
                     ActionPacketListField("actions", [], Packet,
                                           length_from=lambda pkt:pkt.actions_len),
-                    PacketField("data", "", Ether) ]
+                    PacketField("data", "", Ether)]
     overload_fields = {TCP: {"sport": 6653}}
 
 
 class OFPTFlowMod(_ofp_header):
     name = "OFPT_FLOW_MOD"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 14, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
                     LongField("cookie", 0),
                     LongField("cookie_mask", 0),
                     ByteEnumField("table_id", 0, ofp_table),
-                    ByteEnumField("cmd", 0, { 0: "OFPFC_ADD",
+                    ByteEnumField("cmd", 0, {0: "OFPFC_ADD",
                                               1: "OFPFC_MODIFY",
                                               2: "OFPFC_MODIFY_STRICT",
                                               3: "OFPFC_DELETE",
-                                              4: "OFPFC_DELETE_STRICT" }),
+                                              4: "OFPFC_DELETE_STRICT"}),
                     ShortField("idle_timeout", 0),
                     ShortField("hard_timeout", 0),
                     ShortField("priority", 0),
                     IntEnumField("buffer_id", "NO_BUFFER", ofp_buffer),
                     IntEnumField("out_port", "ANY", ofp_port_no),
                     IntEnumField("out_group", "ANY", ofp_group),
-                    FlagsField("flags", 0, 16, [ "SEND_FLOW_REM",
+                    FlagsField("flags", 0, 16, ["SEND_FLOW_REM",
                                                  "CHECK_OVERLAP",
                                                  "RESET_COUNTS",
                                                  "NO_PKT_COUNTS",
-                                                 "NO_BYT_COUNTS" ]),
+                                                 "NO_BYT_COUNTS"]),
                     XShortField("pad", 0),
                     MatchField("match"),
                     InstructionPacketListField("instructions", [], Packet,
-                                               length_from=lambda pkt:pkt.len-48-(pkt.match.length+(8-pkt.match.length%8)%8)) ]
+                                               length_from=lambda pkt:pkt.len-48-(pkt.match.length+(8-pkt.match.length%8)%8))]
                                                # include match padding to match.length
     overload_fields = {TCP: {"sport": 6653}}
 
 
 class OFPTGroupMod(_ofp_header):
     name = "OFPT_GROUP_MOD"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 15, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
-                    ShortEnumField("cmd", 0, { 0: "OFPGC_ADD",
+                    ShortEnumField("cmd", 0, {0: "OFPGC_ADD",
                                                1: "OFPGC_MODIFY",
-                                               2: "OFPGC_DELETE" }),
-                    ByteEnumField("group_type", 0, { 0: "OFPGT_ALL",
+                                               2: "OFPGC_DELETE"}),
+                    ByteEnumField("group_type", 0, {0: "OFPGT_ALL",
                                                      1: "OFPGT_SELECT",
                                                      2: "OFPGT_INDIRECT",
-                                                     3: "OFPGT_FF" }),
+                                                     3: "OFPGT_FF"}),
                     XByteField("pad", 0),
                     IntEnumField("group_id", 0, ofp_group),
                     BucketPacketListField("buckets", [], Packet,
-                                          length_from=lambda pkt:pkt.len-16) ]
+                                          length_from=lambda pkt:pkt.len-16)]
     overload_fields = {TCP: {"sport": 6653}}
 
 
 class OFPTPortMod(_ofp_header):
     name = "OFPT_PORT_MOD"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 16, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
@@ -2334,19 +2334,19 @@ class OFPTPortMod(_ofp_header):
                     FlagsField("config", 0, 32, ofp_port_config),
                     FlagsField("mask", 0, 32, ofp_port_config),
                     FlagsField("advertise", 0, 32, ofp_port_features),
-                    XIntField("pad3", 0) ]
+                    XIntField("pad3", 0)]
     overload_fields = {TCP: {"sport": 6653}}
 
 
 class OFPTTableMod(_ofp_header):
     name = "OFPT_TABLE_MOD"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 17, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
                     ByteEnumField("table_id", 0, ofp_table),
                     X3BytesField("pad", 0),
-                    IntEnumField("config", 0, { 3: "OFPTC_DEPRECATED_MASK"}) ]
+                    IntEnumField("config", 0, {3: "OFPTC_DEPRECATED_MASK"})]
     overload_fields = {TCP: {"sport": 6653}}
 
 #####################################################
@@ -2354,7 +2354,7 @@ class OFPTTableMod(_ofp_header):
 #####################################################
 
 
-ofp_multipart_types = {     0: "OFPMP_DESC",
+ofp_multipart_types = {0: "OFPMP_DESC",
                             1: "OFPMP_FLOW",
                             2: "OFPMP_AGGREGATE",
                             3: "OFPMP_TABLE",
@@ -2368,28 +2368,28 @@ ofp_multipart_types = {     0: "OFPMP_DESC",
                            11: "OFPMP_METER_FEATURES",
                            12: "OFPMP_TABLE_FEATURES",
                            13: "OFPMP_PORT_DESC",
-                        65535: "OFPST_VENDOR" }
+                        65535: "OFPST_VENDOR"}
 
-ofpmp_request_flags = [ "REQ_MORE" ]
+ofpmp_request_flags = ["REQ_MORE"]
 
-ofpmp_reply_flags = [ "REPLY_MORE" ]
+ofpmp_reply_flags = ["REPLY_MORE"]
 
 
 class OFPMPRequestDesc(_ofp_header):
     name = "OFPMP_REQUEST_DESC"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 18, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
                     ShortEnumField("mp_type", 0, ofp_multipart_types),
                     FlagsField("flags", 0, 16, ofpmp_request_flags),
-                    XIntField("pad", 0) ]
+                    XIntField("pad", 0)]
     overload_fields = {TCP: {"sport": 6653}}
 
 
 class OFPMPReplyDesc(_ofp_header):
     name = "OFPMP_REPLY_DESC"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 19, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
@@ -2400,13 +2400,13 @@ class OFPMPReplyDesc(_ofp_header):
                     StrFixedLenField("hw_desc", "", 256),
                     StrFixedLenField("sw_desc", "", 256),
                     StrFixedLenField("serial_num", "", 32),
-                    StrFixedLenField("dp_desc", "", 256) ]
+                    StrFixedLenField("dp_desc", "", 256)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
 class OFPMPRequestFlow(_ofp_header):
     name = "OFPMP_REQUEST_FLOW"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 18, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
@@ -2420,7 +2420,7 @@ class OFPMPRequestFlow(_ofp_header):
                     IntField("pad3", 0),
                     LongField("cookie", 0),
                     LongField("cookie_mask", 0),
-                    MatchField("match") ]
+                    MatchField("match")]
     overload_fields = {TCP: {"sport": 6653}}
 
 
@@ -2431,7 +2431,7 @@ class OFPFlowStats(Packet):
             p = struct.pack("!H", l) + p[2:]
         return p + pay
     name = "OFP_FLOW_STATS"
-    fields_desc = [ ShortField("length", None),
+    fields_desc = [ShortField("length", None),
                     ByteEnumField("table_id", 0, ofp_table),
                     XByteField("pad1", 0),
                     IntField("duration_sec", 0),
@@ -2439,18 +2439,18 @@ class OFPFlowStats(Packet):
                     ShortField("priority", 0),
                     ShortField("idle_timeout", 0),
                     ShortField("hard_timeout", 0),
-                    FlagsField("flags", 0, 16, [ "SEND_FLOW_REM",
+                    FlagsField("flags", 0, 16, ["SEND_FLOW_REM",
                                                  "CHECK_OVERLAP",
                                                  "RESET_COUNTS",
                                                  "NO_PKT_COUNTS",
-                                                 "NO_BYT_COUNTS" ]),
+                                                 "NO_BYT_COUNTS"]),
                     IntField("pad2", 0),
                     LongField("cookie", 0),
                     LongField("packet_count", 0),
                     LongField("byte_count", 0),
                     MatchField("match"),
                     InstructionPacketListField("instructions", [], Packet,
-                                               length_from=lambda pkt:pkt.length-56-pkt.match.length) ]
+                                               length_from=lambda pkt:pkt.length-56-pkt.match.length)]
 
 
 class FlowStatsPacketListField(PacketListField):
@@ -2475,7 +2475,7 @@ class FlowStatsPacketListField(PacketListField):
 
 class OFPMPReplyFlow(_ofp_header):
     name = "OFPMP_REPLY_FLOW"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 19, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
@@ -2483,13 +2483,13 @@ class OFPMPReplyFlow(_ofp_header):
                     FlagsField("flags", 0, 16, ofpmp_reply_flags),
                     XIntField("pad1", 0),
                     FlowStatsPacketListField("flow_stats", [], Packet,
-                                             length_from=lambda pkt:pkt.len-16) ]
+                                             length_from=lambda pkt:pkt.len-16)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
 class OFPMPRequestAggregate(_ofp_header):
     name = "OFPMP_REQUEST_AGGREGATE"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 18, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
@@ -2503,13 +2503,13 @@ class OFPMPRequestAggregate(_ofp_header):
                     IntField("pad3", 0),
                     LongField("cookie", 0),
                     LongField("cookie_mask", 0),
-                    MatchField("match") ]
+                    MatchField("match")]
     overload_fields = {TCP: {"sport": 6653}}
 
 
 class OFPMPReplyAggregate(_ofp_header):
     name = "OFPMP_REPLY_AGGREGATE"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 19, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
@@ -2519,19 +2519,19 @@ class OFPMPReplyAggregate(_ofp_header):
                     LongField("packet_count", 0),
                     LongField("byte_count", 0),
                     IntField("flow_count", 0),
-                    XIntField("pad2", 0) ]
+                    XIntField("pad2", 0)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
 class OFPMPRequestTable(_ofp_header):
     name = "OFPMP_REQUEST_TABLE"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 18, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
                     ShortEnumField("mp_type", 3, ofp_multipart_types),
                     FlagsField("flags", 0, 16, ofpmp_request_flags),
-                    XIntField("pad1", 0) ]
+                    XIntField("pad1", 0)]
     overload_fields = {TCP: {"sport": 6653}}
 
 
@@ -2539,16 +2539,16 @@ class OFPTableStats(Packet):
     def extract_padding(self, s):
         return b"", s
     name = "OFP_TABLE_STATS"
-    fields_desc = [ ByteEnumField("table_id", 0, ofp_table),
+    fields_desc = [ByteEnumField("table_id", 0, ofp_table),
                     X3BytesField("pad1", 0),
                     IntField("active_count", 0),
                     LongField("lookup_count", 0),
-                    LongField("matched_count", 0) ]
+                    LongField("matched_count", 0)]
 
 
 class OFPMPReplyTable(_ofp_header):
     name = "OFPMP_REPLY_TABLE"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 19, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
@@ -2556,13 +2556,13 @@ class OFPMPReplyTable(_ofp_header):
                     FlagsField("flags", 0, 16, ofpmp_reply_flags),
                     XIntField("pad1", 0),
                     PacketListField("table_stats", None, OFPTableStats,
-                                    length_from=lambda pkt:pkt.len-16) ]
+                                    length_from=lambda pkt:pkt.len-16)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
 class OFPMPRequestPortStats(_ofp_header):
     name = "OFPMP_REQUEST_PORT_STATS"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 18, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
@@ -2570,7 +2570,7 @@ class OFPMPRequestPortStats(_ofp_header):
                     FlagsField("flags", 0, 16, ofpmp_request_flags),
                     XIntField("pad1", 0),
                     IntEnumField("port_no", "ANY", ofp_port_no),
-                    XIntField("pad", 0) ]
+                    XIntField("pad", 0)]
     overload_fields = {TCP: {"sport": 6653}}
 
 
@@ -2578,7 +2578,7 @@ class OFPPortStats(Packet):
     def extract_padding(self, s):
         return b"", s
     name = "OFP_PORT_STATS"
-    fields_desc = [ IntEnumField("port_no", 0, ofp_port_no),
+    fields_desc = [IntEnumField("port_no", 0, ofp_port_no),
                     XIntField("pad", 0),
                     LongField("rx_packets", 0),
                     LongField("tx_packets", 0),
@@ -2593,12 +2593,12 @@ class OFPPortStats(Packet):
                     LongField("rx_crc_err", 0),
                     LongField("collisions", 0),
                     IntField("duration_sec", 0),
-                    IntField("duration_nsec", 0) ]
+                    IntField("duration_nsec", 0)]
 
 
 class OFPMPReplyPortStats(_ofp_header):
     name = "OFPMP_REPLY_PORT_STATS"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 19, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
@@ -2606,13 +2606,13 @@ class OFPMPReplyPortStats(_ofp_header):
                     FlagsField("flags", 0, 16, ofpmp_reply_flags),
                     XIntField("pad1", 0),
                     PacketListField("port_stats", None, OFPPortStats,
-                                    length_from=lambda pkt:pkt.len-16) ]
+                                    length_from=lambda pkt:pkt.len-16)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
 class OFPMPRequestQueue(_ofp_header):
     name = "OFPMP_REQUEST_QUEUE"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 18, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
@@ -2620,7 +2620,7 @@ class OFPMPRequestQueue(_ofp_header):
                     FlagsField("flags", 0, 16, ofpmp_request_flags),
                     XIntField("pad1", 0),
                     IntEnumField("port_no", "ANY", ofp_port_no),
-                    IntEnumField("queue_id", "ALL", ofp_queue) ]
+                    IntEnumField("queue_id", "ALL", ofp_queue)]
     overload_fields = {TCP: {"sport": 6653}}
 
 
@@ -2628,18 +2628,18 @@ class OFPQueueStats(Packet):
     def extract_padding(self, s):
         return b"", s
     name = "OFP_QUEUE_STATS"
-    fields_desc = [ IntEnumField("port_no", 0, ofp_port_no),
+    fields_desc = [IntEnumField("port_no", 0, ofp_port_no),
                     IntEnumField("queue_id", 0, ofp_queue),
                     LongField("tx_bytes", 0),
                     LongField("tx_packets", 0),
                     LongField("tx_errors", 0),
                     IntField("duration_sec", 0),
-                    IntField("duration_nsec", 0) ]
+                    IntField("duration_nsec", 0)]
 
 
 class OFPMPReplyQueue(_ofp_header):
     name = "OFPMP_REPLY_QUEUE"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 19, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
@@ -2647,13 +2647,13 @@ class OFPMPReplyQueue(_ofp_header):
                     FlagsField("flags", 0, 16, ofpmp_reply_flags),
                     XIntField("pad1", 0),
                     PacketListField("queue_stats", None, OFPQueueStats,
-                            length_from=lambda pkt:pkt.len-16) ]
+                            length_from=lambda pkt:pkt.len-16)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
 class OFPMPRequestGroup(_ofp_header):
     name = "OFPMP_REQUEST_GROUP"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 18, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
@@ -2661,7 +2661,7 @@ class OFPMPRequestGroup(_ofp_header):
                     FlagsField("flags", 0, 16, ofpmp_request_flags),
                     XIntField("pad1", 0),
                     IntEnumField("group_id", "ANY", ofp_group),
-                    XIntField("pad2", 0) ]
+                    XIntField("pad2", 0)]
     overload_fields = {TCP: {"sport": 6653}}
 
 
@@ -2669,8 +2669,8 @@ class OFPBucketStats(Packet):
     def extract_padding(self, s):
         return b"", s
     name = "OFP_BUCKET_STATS"
-    fields_desc = [ LongField("packet_count", 0),
-                    LongField("byte_count", 0) ]
+    fields_desc = [LongField("packet_count", 0),
+                    LongField("byte_count", 0)]
 
 
 class OFPGroupStats(Packet):
@@ -2680,7 +2680,7 @@ class OFPGroupStats(Packet):
             p = struct.pack("!H", l) + p[2:]
         return p + pay
     name = "OFP_GROUP_STATS"
-    fields_desc = [ ShortField("length", None),
+    fields_desc = [ShortField("length", None),
                     XShortField("pad1", 0),
                     IntEnumField("group_id", 0, ofp_group),
                     IntField("ref_count", 0),
@@ -2690,7 +2690,7 @@ class OFPGroupStats(Packet):
                     IntField("duration_sec", 0),
                     IntField("duration_nsec", 0),
                     PacketListField("bucket_stats", None, OFPBucketStats,
-                                    length_from=lambda pkt:pkt.length-40) ]
+                                    length_from=lambda pkt:pkt.length-40)]
 
 
 class GroupStatsPacketListField(PacketListField):
@@ -2715,7 +2715,7 @@ class GroupStatsPacketListField(PacketListField):
 
 class OFPMPReplyGroup(_ofp_header):
     name = "OFPMP_REPLY_GROUP"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 19, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
@@ -2723,19 +2723,19 @@ class OFPMPReplyGroup(_ofp_header):
                     FlagsField("flags", 0, 16, ofpmp_reply_flags),
                     XIntField("pad1", 0),
                     GroupStatsPacketListField("group_stats", [], Packet,
-                                              length_from=lambda pkt:pkt.len-16) ]
+                                              length_from=lambda pkt:pkt.len-16)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
 class OFPMPRequestGroupDesc(_ofp_header):
     name = "OFPMP_REQUEST_GROUP_DESC"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 18, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
                     ShortEnumField("mp_type", 7, ofp_multipart_types),
                     FlagsField("flags", 0, 16, ofpmp_request_flags),
-                    XIntField("pad1", 0) ]
+                    XIntField("pad1", 0)]
     overload_fields = {TCP: {"sport": 6653}}
 
 
@@ -2746,15 +2746,15 @@ class OFPGroupDesc(Packet):
             p = struct.pack("!H", l) + p[2:]
         return p + pay
     name = "OFP_GROUP_DESC"
-    fields_desc = [ ShortField("length", None),
-                    ByteEnumField("type", 0, { 0: "OFPGT_ALL",
+    fields_desc = [ShortField("length", None),
+                    ByteEnumField("type", 0, {0: "OFPGT_ALL",
                                                1: "OFPGT_SELECT",
                                                2: "OFPGT_INDIRECT",
-                                               3: "OFPGT_FF" }),
+                                               3: "OFPGT_FF"}),
                     XByteField("pad", 0),
                     IntEnumField("group_id", 0, ofp_group),
                     BucketPacketListField("buckets", None, Packet,
-                                          length_from=lambda pkt: pkt.length-8) ]
+                                          length_from=lambda pkt: pkt.length-8)]
 
 
 class GroupDescPacketListField(PacketListField):
@@ -2779,7 +2779,7 @@ class GroupDescPacketListField(PacketListField):
 
 class OFPMPReplyGroupDesc(_ofp_header):
     name = "OFPMP_REPLY_GROUP_DESC"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 19, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
@@ -2787,19 +2787,19 @@ class OFPMPReplyGroupDesc(_ofp_header):
                     FlagsField("flags", 0, 16, ofpmp_reply_flags),
                     XIntField("pad1", 0),
                     GroupDescPacketListField("group_descs", [], Packet,
-                                             length_from=lambda pkt:pkt.len-16) ]
+                                             length_from=lambda pkt:pkt.len-16)]
     overload_fields = {TCP: {"dport": 6653}}
                     
 
 class OFPMPRequestGroupFeatures(_ofp_header):
     name = "OFPMP_REQUEST_GROUP_FEATURES"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 18, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
                     ShortEnumField("mp_type", 8, ofp_multipart_types),
                     FlagsField("flags", 0, 16, ofpmp_request_flags),
-                    XIntField("pad1", 0) ]
+                    XIntField("pad1", 0)]
     overload_fields = {TCP: {"sport": 6653}}
 
 
@@ -2808,21 +2808,21 @@ ofp_action_types_flags = list(ofp_action_types.values())[:-1]  # no ofpat_experi
 
 class OFPMPReplyGroupFeatures(_ofp_header):
     name = "OFPMP_REPLY_GROUP_FEATURES"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 19, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
                     ShortEnumField("mp_type", 8, ofp_multipart_types),
                     FlagsField("flags", 0, 16, ofpmp_reply_flags),
                     XIntField("pad1", 0),
-                    FlagsField("types", 0, 32, [ "ALL",
+                    FlagsField("types", 0, 32, ["ALL",
                                                  "SELECT",
                                                  "INDIRECT",
-                                                 "FF" ]),
-                    FlagsField("capabilities", 0, 32, [ "SELECT_WEIGHT",
+                                                 "FF"]),
+                    FlagsField("capabilities", 0, 32, ["SELECT_WEIGHT",
                                                         "SELECT_LIVENESS",
                                                         "CHAINING",
-                                                        "CHAINING_CHECKS" ]),
+                                                        "CHAINING_CHECKS"]),
                     IntField("max_group_all", 0),
                     IntField("max_group_select", 0),
                     IntField("max_group_indirect", 0),
@@ -2831,13 +2831,13 @@ class OFPMPReplyGroupFeatures(_ofp_header):
                     FlagsField("actions_all", 0, 32, ofp_action_types_flags),
                     FlagsField("actions_select", 0, 32, ofp_action_types_flags),
                     FlagsField("actions_indirect", 0, 32, ofp_action_types_flags),
-                    FlagsField("actions_ff", 0, 32, ofp_action_types_flags) ]
+                    FlagsField("actions_ff", 0, 32, ofp_action_types_flags)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
 class OFPMPRequestMeter(_ofp_header):
     name = "OFPMP_REQUEST_METER"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 18, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
@@ -2845,7 +2845,7 @@ class OFPMPRequestMeter(_ofp_header):
                     FlagsField("flags", 0, 16, ofpmp_request_flags),
                     XIntField("pad1", 0),
                     IntEnumField("meter_id", "ALL", ofp_meter),
-                    XIntField("pad2", 0) ]
+                    XIntField("pad2", 0)]
     overload_fields = {TCP: {"sport": 6653}}
 
 
@@ -2853,8 +2853,8 @@ class OFPMeterBandStats(Packet):
     def extract_padding(self, s):
         return b"", s
     name = "OFP_METER_BAND_STATS"
-    fields_desc = [ LongField("packet_band_count", 0),
-                    LongField("byte_band_count", 0) ]
+    fields_desc = [LongField("packet_band_count", 0),
+                    LongField("byte_band_count", 0)]
 
 
 class OFPMeterStats(Packet):
@@ -2864,7 +2864,7 @@ class OFPMeterStats(Packet):
             p = p[:4] + struct.pack("!H", l) + p[6:]
         return p + pay
     name = "OFP_GROUP_STATS"
-    fields_desc = [ IntEnumField("meter_id", 1, ofp_meter),
+    fields_desc = [IntEnumField("meter_id", 1, ofp_meter),
                     ShortField("len", None),
                     XBitField("pad", 0, 48),
                     IntField("flow_count", 0),
@@ -2873,7 +2873,7 @@ class OFPMeterStats(Packet):
                     IntField("duration_sec", 0),
                     IntField("duration_nsec", 0),
                     PacketListField("band_stats", None, OFPMeterBandStats,
-                                    length_from=lambda pkt:pkt.len-40) ]
+                                    length_from=lambda pkt:pkt.len-40)]
 
 
 class MeterStatsPacketListField(PacketListField):
@@ -2900,7 +2900,7 @@ class MeterStatsPacketListField(PacketListField):
 
 class OFPMPReplyMeter(_ofp_header):
     name = "OFPMP_REPLY_METER"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 19, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
@@ -2908,13 +2908,13 @@ class OFPMPReplyMeter(_ofp_header):
                     FlagsField("flags", 0, 16, ofpmp_reply_flags),
                     XIntField("pad1", 0),
                     MeterStatsPacketListField("meter_stats", [], Packet,
-                                              length_from=lambda pkt:pkt.len-16) ]
+                                              length_from=lambda pkt:pkt.len-16)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
 class OFPMPRequestMeterConfig(_ofp_header):
     name = "OFPMP_REQUEST_METER_CONFIG"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 18, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
@@ -2922,7 +2922,7 @@ class OFPMPRequestMeterConfig(_ofp_header):
                     FlagsField("flags", 0, 16, ofpmp_request_flags),
                     XIntField("pad1", 0),
                     IntEnumField("meter_id", "ALL", ofp_meter),
-                    XIntField("pad2", 0) ]
+                    XIntField("pad2", 0)]
     overload_fields = {TCP: {"sport": 6653}}
 
 
@@ -2933,14 +2933,14 @@ class OFPMeterConfig(Packet):
             p = struct.pack("!H", l) + p[2:]
         return p + pay
     name = "OFP_METER_CONFIG"
-    fields_desc = [ ShortField("length", None),
-                    FlagsField("flags", 0, 16, [ "KBPS",
+    fields_desc = [ShortField("length", None),
+                    FlagsField("flags", 0, 16, ["KBPS",
                                                  "PKTPS",
                                                  "BURST",
-                                                 "STATS" ]),
+                                                 "STATS"]),
                     IntEnumField("meter_id", 1, ofp_meter),
                     MeterBandPacketListField("bands", [], Packet,
-                                             length_from=lambda pkt:pkt.len-8) ]
+                                             length_from=lambda pkt:pkt.len-8)]
 
 
 class MeterConfigPacketListField(PacketListField):
@@ -2965,7 +2965,7 @@ class MeterConfigPacketListField(PacketListField):
 
 class OFPMPReplyMeterConfig(_ofp_header):
     name = "OFPMP_REPLY_METER_CONFIG"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 19, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
@@ -2973,25 +2973,25 @@ class OFPMPReplyMeterConfig(_ofp_header):
                     FlagsField("flags", 0, 16, ofpmp_reply_flags),
                     XIntField("pad1", 0),
                     MeterConfigPacketListField("meter_configs", [], Packet,
-                                               length_from=lambda pkt:pkt.len-16) ]
+                                               length_from=lambda pkt:pkt.len-16)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
 class OFPMPRequestMeterFeatures(_ofp_header):
     name = "OFPMP_REQUEST_METER_FEATURES"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 18, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
                     ShortEnumField("mp_type", 11, ofp_multipart_types),
                     FlagsField("flags", 0, 16, ofpmp_request_flags),
-                    XIntField("pad1", 0) ]
+                    XIntField("pad1", 0)]
     overload_fields = {TCP: {"sport": 6653}}
 
 
 class OFPMPReplyMeterFeatures(_ofp_header):
     name = "OFPMP_REPLY_METER_FEATURES"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 19, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
@@ -2999,16 +2999,16 @@ class OFPMPReplyMeterFeatures(_ofp_header):
                     FlagsField("flags", 0, 16, ofpmp_reply_flags),
                     XIntField("pad1", 0),
                     IntField("max_meter", 0),
-                    FlagsField("band_types", 0, 32, [ "DROP",
+                    FlagsField("band_types", 0, 32, ["DROP",
                                                       "DSCP_REMARK",
-                                                      "EXPERIMENTER" ]),
-                    FlagsField("capabilities", 0, 32, [ "KPBS",
+                                                      "EXPERIMENTER"]),
+                    FlagsField("capabilities", 0, 32, ["KPBS",
                                                         "PKTPS",
                                                         "BURST",
-                                                        "STATS" ]),
+                                                        "STATS"]),
                     ByteField("max_bands", 0),
                     ByteField("max_color", 0),
-                    XShortField("pad2", 0) ]
+                    XShortField("pad2", 0)]
     overload_fields = {TCP: {"dport": 6653}}
 
 ####### table features for multipart messages #######
@@ -3033,7 +3033,7 @@ class _ofp_table_features_prop_header(Packet):
         return b"", s
 
 
-ofp_table_features_prop_types = {     0: "OFPTFPT_INSTRUCTIONS",
+ofp_table_features_prop_types = {0: "OFPTFPT_INSTRUCTIONS",
                                       1: "OFPTFPT_INSTRUCTIONS_MISS",
                                       2: "OFPTFPT_NEXT_TABLES",
                                       3: "OFPTFPT_NEXT_TABLES_MISS",
@@ -3048,147 +3048,147 @@ ofp_table_features_prop_types = {     0: "OFPTFPT_INSTRUCTIONS",
                                      14: "OFPTFPT_APPLY_SETFIELD",
                                      15: "OFPTFPT_APPLY_SETFIELD_MISS",
                                   65534: "OFPTFPT_EXPERIMENTER",
-                                  65535: "OFPTFPT_EXPERIMENTER_MISS" }
+                                  65535: "OFPTFPT_EXPERIMENTER_MISS"}
 
 
 class OFPTFPTInstructions(_ofp_table_features_prop_header):
     name = "OFPTFPT_INSTRUCTIONS"
-    fields_desc = [ ShortField("type", 0),
+    fields_desc = [ShortField("type", 0),
                     ShortField("length", None),
                     InstructionIDPacketListField("instruction_ids", [], Packet,
-                                                 length_from=lambda pkt:pkt.length-4) ]
+                                                 length_from=lambda pkt:pkt.length-4)]
 
 
 class OFPTFPTInstructionsMiss(_ofp_table_features_prop_header):
     name = "OFPTFPT_INSTRUCTIONS_MISS"
-    fields_desc = [ ShortField("type", 1),
+    fields_desc = [ShortField("type", 1),
                     ShortField("length", None),
                     InstructionIDPacketListField("instruction_ids", [], Packet,
-                                                 length_from=lambda pkt:pkt.length-4) ]
+                                                 length_from=lambda pkt:pkt.length-4)]
 
 
 class OFPTableID(Packet):
     def extract_padding(self, s):
         return b"", s
     name = "OFP_TABLE_ID"
-    fields_desc = [ ByteEnumField("table_id", 0, ofp_table) ]
+    fields_desc = [ByteEnumField("table_id", 0, ofp_table)]
 
 
 class OFPTFPTNextTables(_ofp_table_features_prop_header):
     name = "OFPTFPT_NEXT_TABLES"
-    fields_desc = [ ShortField("type", 2),
+    fields_desc = [ShortField("type", 2),
                     ShortField("length", None),
                     PacketListField("next_table_ids", None, OFPTableID,
-                                    length_from=lambda pkt:pkt.length-4) ]
+                                    length_from=lambda pkt:pkt.length-4)]
 
 
 class OFPTFPTNextTablesMiss(_ofp_table_features_prop_header):
     name = "OFPTFPT_NEXT_TABLES_MISS"
-    fields_desc = [ ShortField("type", 3),
+    fields_desc = [ShortField("type", 3),
                     ShortField("length", None),
                     PacketListField("next_table_ids", None, OFPTableID,
-                                    length_from=lambda pkt:pkt.length-4) ]
+                                    length_from=lambda pkt:pkt.length-4)]
 
 
 class OFPTFPTWriteActions(_ofp_table_features_prop_header):
     name = "OFPTFPT_WRITE_ACTIONS"
-    fields_desc = [ ShortField("type", 4),
+    fields_desc = [ShortField("type", 4),
                     ShortField("length", None),
                     ActionIDPacketListField("action_ids", [], Packet,
-                                            length_from=lambda pkt:pkt.length-4) ]
+                                            length_from=lambda pkt:pkt.length-4)]
 
 
 class OFPTFPTWriteActionsMiss(_ofp_table_features_prop_header):
     name = "OFPTFPT_WRITE_ACTIONS_MISS"
-    fields_desc = [ ShortField("type", 5),
+    fields_desc = [ShortField("type", 5),
                     ShortField("length", None),
                     ActionIDPacketListField("action_ids", [], Packet,
-                                            length_from=lambda pkt:pkt.length-4) ]
+                                            length_from=lambda pkt:pkt.length-4)]
 
 
 class OFPTFPTApplyActions(_ofp_table_features_prop_header):
     name = "OFPTFPT_APPLY_ACTIONS"
-    fields_desc = [ ShortField("type", 6),
+    fields_desc = [ShortField("type", 6),
                     ShortField("length", None),
                     ActionIDPacketListField("action_ids", [], Packet,
-                                            length_from=lambda pkt:pkt.length-4) ]
+                                            length_from=lambda pkt:pkt.length-4)]
 
 
 class OFPTFPTApplyActionsMiss(_ofp_table_features_prop_header):
     name = "OFPTFPT_APPLY_ACTIONS_MISS"
-    fields_desc = [ ShortField("type", 7),
+    fields_desc = [ShortField("type", 7),
                     ShortField("length", None),
                     ActionIDPacketListField("action_ids", [], Packet,
-                                            length_from=lambda pkt:pkt.length-4) ]
+                                            length_from=lambda pkt:pkt.length-4)]
 
 
 class OFPTFPTMatch(_ofp_table_features_prop_header):
     name = "OFPTFPT_MATCH"
-    fields_desc = [ ShortField("type", 8),
+    fields_desc = [ShortField("type", 8),
                     ShortField("length", None),
                     OXMIDPacketListField("oxm_ids", [], Packet,
-                                         length_from=lambda pkt:pkt.length-4) ]
+                                         length_from=lambda pkt:pkt.length-4)]
 
 
 class OFPTFPTWildcards(_ofp_table_features_prop_header):
     name = "OFPTFPT_WILDCARDS"
-    fields_desc = [ ShortField("type", 10),
+    fields_desc = [ShortField("type", 10),
                     ShortField("length", None),
                     OXMIDPacketListField("oxm_ids", [], Packet,
-                                         length_from=lambda pkt:pkt.length-4) ]
+                                         length_from=lambda pkt:pkt.length-4)]
 
 
 class OFPTFPTWriteSetField(_ofp_table_features_prop_header):
     name = "OFPTFPT_WRITE_SETFIELD"
-    fields_desc = [ ShortField("type", 12),
+    fields_desc = [ShortField("type", 12),
                     ShortField("length", None),
                     OXMIDPacketListField("oxm_ids", [], Packet,
-                                         length_from=lambda pkt:pkt.length-4) ]
+                                         length_from=lambda pkt:pkt.length-4)]
 
 
 class OFPTFPTWriteSetFieldMiss(_ofp_table_features_prop_header):
     name = "OFPTFPT_WRITE_SETFIELD_MISS"
-    fields_desc = [ ShortField("type", 13),
+    fields_desc = [ShortField("type", 13),
                     ShortField("length", None),
                     OXMIDPacketListField("oxm_ids", [], Packet,
-                                         length_from=lambda pkt:pkt.length-4) ]
+                                         length_from=lambda pkt:pkt.length-4)]
 
 
 class OFPTFPTApplySetField(_ofp_table_features_prop_header):
     name = "OFPTFPT_APPLY_SETFIELD"
-    fields_desc = [ ShortField("type", 14),
+    fields_desc = [ShortField("type", 14),
                     ShortField("length", None),
                     OXMIDPacketListField("oxm_ids", [], Packet,
-                                         length_from=lambda pkt:pkt.length-4) ]
+                                         length_from=lambda pkt:pkt.length-4)]
 
 
 class OFPTFPTApplySetFieldMiss(_ofp_table_features_prop_header):
     name = "OFPTFPT_APPLY_SETFIELD_MISS"
-    fields_desc = [ ShortField("type", 15),
+    fields_desc = [ShortField("type", 15),
                     ShortField("length", None),
                     OXMIDPacketListField("oxm_ids", [], Packet,
-                                         length_from=lambda pkt:pkt.length-4) ]
+                                         length_from=lambda pkt:pkt.length-4)]
 
 
 class OFPTFPTExperimenter(_ofp_table_features_prop_header):
     name = "OFPTFPT_EXPERIMENTER"
-    fields_desc = [ ShortField("type", 65534),
+    fields_desc = [ShortField("type", 65534),
                     ShortField("length", None),
                     IntField("experimenter", 0),
                     IntField("exp_type", 0),
-                    PacketField("experimenter_data", None, Raw) ]
+                    PacketField("experimenter_data", None, Raw)]
 
 
 class OFPTFPTExperimenterMiss(_ofp_table_features_prop_header):
     name = "OFPTFPT_EXPERIMENTER_MISS"
-    fields_desc = [ ShortField("type", 65535),
+    fields_desc = [ShortField("type", 65535),
                     ShortField("length", None),
                     IntField("experimenter", 0),
                     IntField("exp_type", 0),
-                    PacketField("experimenter_data", None, Raw) ]
+                    PacketField("experimenter_data", None, Raw)]
 
 
-ofp_table_features_prop_cls = {     0: OFPTFPTInstructions,
+ofp_table_features_prop_cls = {0: OFPTFPTInstructions,
                                     1: OFPTFPTInstructionsMiss,
                                     2: OFPTFPTNextTables,
                                     3: OFPTFPTNextTablesMiss,
@@ -3203,7 +3203,7 @@ ofp_table_features_prop_cls = {     0: OFPTFPTInstructions,
                                    14: OFPTFPTApplySetField,
                                    15: OFPTFPTApplySetFieldMiss,
                                 65534: OFPTFPTExperimenter,
-                                65535: OFPTFPTExperimenterMiss }
+                                65535: OFPTFPTExperimenterMiss}
 
 
 class TableFeaturesPropPacketListField(PacketListField):
@@ -3242,17 +3242,17 @@ class OFPTableFeatures(Packet):
             p = struct.pack("!H", l) + p[2:]
         return p + pay
     name = "OFP_TABLE_FEATURES"
-    fields_desc = [ ShortField("length", None),
+    fields_desc = [ShortField("length", None),
                     ByteEnumField("table_id", 0, ofp_table),
                     XBitField("pad", 0, 40),
                     StrFixedLenField("table_name", "", 32),
                     LongField("metadata_match", 0),
                     LongField("metadata_write", 0),
-                    IntEnumField("config", 0, { 0: "OFPTC_NO_MASK",
-                                                3: "OFPTC_DEPRECATED_MASK" }),
+                    IntEnumField("config", 0, {0: "OFPTC_NO_MASK",
+                                                3: "OFPTC_DEPRECATED_MASK"}),
                     IntField("max_entries", 0),
                     TableFeaturesPropPacketListField("properties", [], Packet,
-                                                     length_from=lambda pkt:pkt.length-64) ]
+                                                     length_from=lambda pkt:pkt.length-64)]
 
 
 class TableFeaturesPacketListField(PacketListField):
@@ -3277,7 +3277,7 @@ class TableFeaturesPacketListField(PacketListField):
 
 class OFPMPRequestTableFeatures(_ofp_header):
     name = "OFPMP_REQUEST_TABLE_FEATURES"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 18, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
@@ -3285,13 +3285,13 @@ class OFPMPRequestTableFeatures(_ofp_header):
                     FlagsField("flags", 0, 16, ofpmp_request_flags),
                     XIntField("pad1", 0),
                     TableFeaturesPacketListField("table_features", [], Packet,
-                                                 length_from=lambda pkt:pkt.len-16) ] 
+                                                 length_from=lambda pkt:pkt.len-16)] 
     overload_fields = {TCP: {"sport": 6653}}
 
 
 class OFPMPReplyTableFeatures(_ofp_header):
     name = "OFPMP_REPLY_TABLE_FEATURES"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 19, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
@@ -3299,7 +3299,7 @@ class OFPMPReplyTableFeatures(_ofp_header):
                     FlagsField("flags", 0, 16, ofpmp_reply_flags),
                     XIntField("pad1", 0),
                     TableFeaturesPacketListField("table_features", [], Packet,
-                                                 length_from=lambda pkt:pkt.len-16) ]
+                                                 length_from=lambda pkt:pkt.len-16)]
     overload_fields = {TCP: {"dport": 6653}}
 
 ############### end of table features ###############
@@ -3307,7 +3307,7 @@ class OFPMPReplyTableFeatures(_ofp_header):
 
 class OFPMPRequestPortDesc(_ofp_header):
     name = "OFPMP_REQUEST_PORT_DESC"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 18, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
@@ -3315,13 +3315,13 @@ class OFPMPRequestPortDesc(_ofp_header):
                     FlagsField("flags", 0, 16, ofpmp_request_flags),
                     XIntField("pad1", 0),
                     IntEnumField("port_no", 0, ofp_port_no),
-                    XIntField("pad", 0) ]
+                    XIntField("pad", 0)]
     overload_fields = {TCP: {"sport": 6653}}
 
 
 class OFPMPReplyPortDesc(_ofp_header):
     name = "OFPMP_REPLY_PORT_DESC"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 19, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
@@ -3329,13 +3329,13 @@ class OFPMPReplyPortDesc(_ofp_header):
                     FlagsField("flags", 0, 16, ofpmp_reply_flags),
                     XIntField("pad1", 0),
                     PacketListField("ports", None, OFPPort,
-                                    length_from=lambda pkt:pkt.len-16) ]
+                                    length_from=lambda pkt:pkt.len-16)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
 class OFPMPRequestExperimenter(_ofp_header):
     name = "OFPST_REQUEST_EXPERIMENTER"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 18, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
@@ -3343,13 +3343,13 @@ class OFPMPRequestExperimenter(_ofp_header):
                     FlagsField("flags", 0, 16, ofpmp_request_flags),
                     XIntField("pad1", 0),
                     IntField("experimenter", 0),
-                    IntField("exp_type", 0) ]
+                    IntField("exp_type", 0)]
     overload_fields = {TCP: {"sport": 6653}}
 
 
 class OFPMPReplyExperimenter(_ofp_header):
     name = "OFPST_REPLY_EXPERIMENTER"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 19, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
@@ -3357,13 +3357,13 @@ class OFPMPReplyExperimenter(_ofp_header):
                     FlagsField("flags", 0, 16, ofpmp_reply_flags),
                     XIntField("pad1", 0),
                     IntField("experimenter", 0),
-                    IntField("exp_type", 0) ]
+                    IntField("exp_type", 0)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
 # ofp_multipart_request/reply_cls allows generic method OpenFlow()
 # to choose the right class for dissection
-ofp_multipart_request_cls = {     0: OFPMPRequestDesc,
+ofp_multipart_request_cls = {0: OFPMPRequestDesc,
                                   1: OFPMPRequestFlow,
                                   2: OFPMPRequestAggregate,
                                   3: OFPMPRequestTable,
@@ -3377,9 +3377,9 @@ ofp_multipart_request_cls = {     0: OFPMPRequestDesc,
                                  11: OFPMPRequestMeterFeatures,
                                  12: OFPMPRequestTableFeatures,
                                  13: OFPMPRequestPortDesc,
-                              65535: OFPMPRequestExperimenter }
+                              65535: OFPMPRequestExperimenter}
 
-ofp_multipart_reply_cls = {     0: OFPMPReplyDesc,
+ofp_multipart_reply_cls = {0: OFPMPReplyDesc,
                                 1: OFPMPReplyFlow,
                                 2: OFPMPReplyAggregate,
                                 3: OFPMPReplyTable,
@@ -3393,109 +3393,109 @@ ofp_multipart_reply_cls = {     0: OFPMPReplyDesc,
                                11: OFPMPReplyMeterFeatures,
                                12: OFPMPReplyTableFeatures,
                                13: OFPMPReplyPortDesc,
-                            65535: OFPMPReplyExperimenter }
+                            65535: OFPMPReplyExperimenter}
 
 ############## end of OFPT_MULTIPART ################
 
 
 class OFPTBarrierRequest(_ofp_header):
     name = "OFPT_BARRIER_REQUEST"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 20, ofp_type),
                     ShortField("len", None),
-                    IntField("xid", 0) ]
+                    IntField("xid", 0)]
     overload_fields = {TCP: {"sport": 6653}}
 
 
 class OFPTBarrierReply(_ofp_header):
     name = "OFPT_BARRIER_REPLY"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 21, ofp_type),
                     ShortField("len", None),
-                    IntField("xid", 0) ]
+                    IntField("xid", 0)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
 class OFPTQueueGetConfigRequest(_ofp_header):
     name = "OFPT_QUEUE_GET_CONFIG_REQUEST"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 22, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
                     IntEnumField("port_no", "ANY", ofp_port_no),
-                    XIntField("pad", 0) ]
+                    XIntField("pad", 0)]
     overload_fields = {TCP: {"sport": 6653}}
 
 
 class OFPTQueueGetConfigReply(_ofp_header):
     name = "OFPT_QUEUE_GET_CONFIG_REPLY"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 23, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
                     IntEnumField("port", 0, ofp_port_no),
                     XIntField("pad", 0),
                     QueuePacketListField("queues", [], Packet,
-                                         length_from=lambda pkt:pkt.len-16) ]
+                                         length_from=lambda pkt:pkt.len-16)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
 class OFPTRoleRequest(_ofp_header):
     name = "OFPT_ROLE_REQUEST"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 24, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
-                    IntEnumField("role", 0, { 0: "OFPCR_ROLE_NOCHANGE",
+                    IntEnumField("role", 0, {0: "OFPCR_ROLE_NOCHANGE",
                                               1: "OFPCR_ROLE_EQUAL",
                                               2: "OFPCR_ROLE_MASTER",
-                                              3: "OFPCR_ROLE_SLAVE" }),
+                                              3: "OFPCR_ROLE_SLAVE"}),
                     XIntField("pad", 0),
-                    LongField("generation_id", 0) ]
+                    LongField("generation_id", 0)]
     overload_fields = {TCP: {"sport": 6653}}
 
 
 class OFPTRoleReply(_ofp_header):
     name = "OFPT_ROLE_REPLY"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 25, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
-                    IntEnumField("role", 0, { 0: "OFPCR_ROLE_NOCHANGE",
+                    IntEnumField("role", 0, {0: "OFPCR_ROLE_NOCHANGE",
                                               1: "OFPCR_ROLE_EQUAL",
                                               2: "OFPCR_ROLE_MASTER",
-                                              3: "OFPCR_ROLE_SLAVE" }),
+                                              3: "OFPCR_ROLE_SLAVE"}),
                     XIntField("pad", 0),
-                    LongField("generation_id", 0) ]
+                    LongField("generation_id", 0)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
 class OFPTGetAsyncRequest(_ofp_header):
     name = "OFPT_GET_ASYNC_REQUEST"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 26, ofp_type),
                     ShortField("len", 8),
-                    IntField("xid", 0) ]
+                    IntField("xid", 0)]
     overload_fields = {TCP: {"sport": 6653}}
 
 
-ofp_packet_in_reason = [ "NO_MATCH",
+ofp_packet_in_reason = ["NO_MATCH",
                          "ACTION",
-                         "INVALID_TTL" ]
+                         "INVALID_TTL"]
 
-ofp_port_reason = [ "ADD",
+ofp_port_reason = ["ADD",
                     "DELETE",
-                    "MODIFY" ]
+                    "MODIFY"]
 
-ofp_flow_removed_reason = [ "IDLE_TIMEOUT",
+ofp_flow_removed_reason = ["IDLE_TIMEOUT",
                             "HARD_TIMEOUT",
                             "DELETE",
-                            "GROUP_DELETE" ]
+                            "GROUP_DELETE"]
 
 
 class OFPTGetAsyncReply(_ofp_header):
     name = "OFPT_GET_ASYNC_REPLY"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 27, ofp_type),
                     ShortField("len", 32),
                     IntField("xid", 0),
@@ -3504,13 +3504,13 @@ class OFPTGetAsyncReply(_ofp_header):
                     FlagsField("port_status_mask_master", 0, 32, ofp_port_reason),
                     FlagsField("port_status_mask_slave", 0, 32, ofp_port_reason),
                     FlagsField("flow_removed_mask_master", 0, 32, ofp_flow_removed_reason),
-                    FlagsField("flow_removed_mask_slave", 0, 32, ofp_flow_removed_reason) ]
+                    FlagsField("flow_removed_mask_slave", 0, 32, ofp_flow_removed_reason)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
 class OFPTSetAsync(_ofp_header):
     name = "OFPT_SET_ASYNC"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 28, ofp_type),
                     ShortField("len", 32),
                     IntField("xid", 0),
@@ -3519,31 +3519,31 @@ class OFPTSetAsync(_ofp_header):
                     FlagsField("port_status_mask_master", 0, 32, ofp_port_reason),
                     FlagsField("port_status_mask_slave", 0, 32, ofp_port_reason),
                     FlagsField("flow_removed_mask_master", 0, 32, ofp_flow_removed_reason),
-                    FlagsField("flow_removed_mask_slave", 0, 32, ofp_flow_removed_reason) ]
+                    FlagsField("flow_removed_mask_slave", 0, 32, ofp_flow_removed_reason)]
     overload_fields = {TCP: {"sport": 6653}}
 
 
 class OFPTMeterMod(_ofp_header):
     name = "OFPT_METER_MOD"
-    fields_desc = [ ByteEnumField("version", 0x04, ofp_version),
+    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
                     ByteEnumField("type", 29, ofp_type),
                     ShortField("len", None),
                     IntField("xid", 0),
-                    ShortEnumField("cmd", 0, { 0: "OFPMC_ADD",
+                    ShortEnumField("cmd", 0, {0: "OFPMC_ADD",
                                                1: "OFPMC_MODIFY",
-                                               2: "OFPMC_DELETE" }),
-                    FlagsField("flags", 0, 16, [ "KBPS",
+                                               2: "OFPMC_DELETE"}),
+                    FlagsField("flags", 0, 16, ["KBPS",
                                                  "PKTPS",
                                                  "BURST",
-                                                 "STATS" ]),
+                                                 "STATS"]),
                     IntEnumField("meter_id", 1, ofp_meter),
                     MeterBandPacketListField("bands", [], Packet,
-                                             length_from=lambda pkt:pkt.len-16) ]
+                                             length_from=lambda pkt:pkt.len-16)]
     overload_fields = {TCP: {"sport": 6653}}
 
 
 # ofpt_cls allows generic method OpenFlow() to choose the right class for dissection
-ofpt_cls = {  0: OFPTHello,
+ofpt_cls = {0: OFPTHello,
               #1: OFPTError,
               2: OFPTEchoRequest,
               3: OFPTEchoReply,
@@ -3572,7 +3572,7 @@ ofpt_cls = {  0: OFPTHello,
              26: OFPTGetAsyncRequest,
              27: OFPTGetAsyncReply,
              28: OFPTSetAsync,
-             29: OFPTMeterMod }
+             29: OFPTMeterMod}
 
 TCP_guess_payload_class_copy = TCP.guess_payload_class
 

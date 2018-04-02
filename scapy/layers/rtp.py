@@ -23,19 +23,19 @@ _rtp_payload_types = {
     18: 'G729',          25: 'CelB',
     26: 'JPEG',          28: 'nv',
     31: 'H261',          32: 'MPV',
-    33: 'MP2T',          34: 'H263' }
+    33: 'MP2T',          34: 'H263'}
 
 
 class RTPExtension(Packet):
     name = "RTP extension"
-    fields_desc = [ ShortField("header_id", 0),
+    fields_desc = [ShortField("header_id", 0),
                     FieldLenField("header_len", None, count_of="header", fmt="H"),
-                    FieldListField('header', [], IntField("hdr", 0), count_from=lambda pkt: pkt.header_len) ]
+                    FieldListField('header', [], IntField("hdr", 0), count_from=lambda pkt: pkt.header_len)]
 
 
 class RTP(Packet):
     name="RTP"
-    fields_desc = [ BitField('version', 2, 2),
+    fields_desc = [BitField('version', 2, 2),
                     BitField('padding', 0, 1),
                     BitField('extension', 0, 1),
                     BitFieldLenField('numsync', None, 4, count_of='sync'),
@@ -44,7 +44,7 @@ class RTP(Packet):
                     ShortField('sequence', 0),
                     IntField('timestamp', 0),
                     IntField('sourcesync', 0),
-                    FieldListField('sync', [], IntField("id", 0), count_from=lambda pkt:pkt.numsync) ]
+                    FieldListField('sync', [], IntField("id", 0), count_from=lambda pkt:pkt.numsync)]
 
 
 bind_layers(RTP, RTPExtension, extension=1)

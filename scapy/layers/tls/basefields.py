@@ -11,12 +11,12 @@ upon the TLS version or ciphersuite, the packet has to provide a TLS context.
 from scapy.fields import *
 import scapy.modules.six as six
 
-_tls_type = { 20: "change_cipher_spec",
+_tls_type = {20: "change_cipher_spec",
               21: "alert",
               22: "handshake",
-              23: "application_data" }
+              23: "application_data"}
 
-_tls_version = { 0x0002: "SSLv2",
+_tls_version = {0x0002: "SSLv2",
                  0x0200: "SSLv2",
                  0x0300: "SSLv3",
                  0x0301: "TLS 1.0",
@@ -24,17 +24,17 @@ _tls_version = { 0x0002: "SSLv2",
                  0x0303: "TLS 1.2",
                  0x7f12: "TLS 1.3-d18",
                  0x7f13: "TLS 1.3-d19",
-                 0x0304: "TLS 1.3" }
+                 0x0304: "TLS 1.3"}
 
-_tls_version_options = { "sslv2": 0x0002,
+_tls_version_options = {"sslv2": 0x0002,
                          "sslv3": 0x0300,
-                         "tls1" : 0x0301,
+                         "tls1": 0x0301,
                          "tls10": 0x0301,
                          "tls11": 0x0302,
                          "tls12": 0x0303,
                          "tls13-d18": 0x7f12,
                          "tls13-d19": 0x7f13,
-                         "tls13": 0x0304 }
+                         "tls13": 0x0304}
 
 
 def _tls13_version_filter(version, legacy_version):

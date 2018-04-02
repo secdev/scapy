@@ -359,8 +359,8 @@ def read_routes6():
         if fl & RTF_REJECT:
             continue
 
-        d = proc2r(d) ; dp = int(dp, 16)
-        s = proc2r(s) ; sp = int(sp, 16)
+        d = proc2r(d); dp = int(dp, 16)
+        s = proc2r(s); sp = int(sp, 16)
         nh = proc2r(nh)
 
         cset = [] # candidate set (possible source addresses)
@@ -382,7 +382,7 @@ def get_if_index(iff):
     return int(struct.unpack("I", get_if(iff, SIOCGIFINDEX)[16:20])[0])
 
 
-if os.uname()[4] in [ 'x86_64', 'aarch64' ]:
+if os.uname()[4] in ['x86_64', 'aarch64']:
     def get_last_packet_timestamp(sock):
         ts = ioctl(sock, SIOCGSTAMP, "1234567890123456")
         s, us = struct.unpack("QQ", ts)
@@ -611,7 +611,7 @@ class L2ListenSocket(SuperSocket):
 
     def recv(self, x=MTU):
         pkt, sa_ll = self.ins.recvfrom(x)
-        if sa_ll[3] in conf.l2types :
+        if sa_ll[3] in conf.l2types:
             cls = conf.l2types[sa_ll[3]]
         elif sa_ll[1] in conf.l3types:
             cls = conf.l3types[sa_ll[1]]

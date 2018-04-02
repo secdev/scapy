@@ -38,7 +38,7 @@ class KeyShareEntry(Packet):
     fields_desc = [ShortEnumField("group", None, _tls_named_groups),
                    FieldLenField("kxlen", None, length_of="key_exchange"),
                    StrLenField("key_exchange", "",
-                               length_from=lambda pkt: pkt.kxlen) ]
+                               length_from=lambda pkt: pkt.kxlen)]
 
     def __init__(self, *args, **kargs):
         self.privkey = None
@@ -132,7 +132,7 @@ class TLS_Ext_KeyShare_CH(TLS_Ext_Unknown):
                    FieldLenField("client_shares_len", None,
                                  length_of="client_shares"),
                    PacketListField("client_shares", [], KeyShareEntry,
-                            length_from=lambda pkt: pkt.client_shares_len) ]
+                            length_from=lambda pkt: pkt.client_shares_len)]
 
     def post_build(self, pkt, pay):
         if not self.tls_session.frozen:
@@ -163,14 +163,14 @@ class TLS_Ext_KeyShare_HRR(TLS_Ext_Unknown):
     name = "TLS Extension - Key Share (for HelloRetryRequest)"
     fields_desc = [ShortEnumField("type", 0x28, _tls_ext),
                    ShortField("len", None),
-                   ShortEnumField("selected_group", None, _tls_named_groups) ]
+                   ShortEnumField("selected_group", None, _tls_named_groups)]
 
 
 class TLS_Ext_KeyShare_SH(TLS_Ext_Unknown):
     name = "TLS Extension - Key Share (for ServerHello)"
     fields_desc = [ShortEnumField("type", 0x28, _tls_ext),
                    ShortField("len", None),
-                   PacketField("server_share", None, KeyShareEntry) ]
+                   PacketField("server_share", None, KeyShareEntry)]
 
     def post_build(self, pkt, pay):
         if not self.tls_session.frozen and self.server_share.privkey:
@@ -219,19 +219,19 @@ class TLS_Ext_KeyShare_SH(TLS_Ext_Unknown):
         return super(TLS_Ext_KeyShare_SH, self).post_dissection(r)
 
 
-_tls_ext_keyshare_cls  = { 1: TLS_Ext_KeyShare_CH,
+_tls_ext_keyshare_cls  = {1: TLS_Ext_KeyShare_CH,
                            2: TLS_Ext_KeyShare_SH,
-                           6: TLS_Ext_KeyShare_HRR }
+                           6: TLS_Ext_KeyShare_HRR}
 
 
 class Ticket(Packet):
     name = "Recommended Ticket Construction (from RFC 5077)"
-    fields_desc = [ StrFixedLenField("key_name", None, 16),
+    fields_desc = [StrFixedLenField("key_name", None, 16),
                     StrFixedLenField("iv", None, 16),
                     FieldLenField("encstatelen", None, length_of="encstate"),
                     StrLenField("encstate", "",
                                 length_from=lambda pkt: pkt.encstatelen),
-                    StrFixedLenField("mac", None, 32) ]
+                    StrFixedLenField("mac", None, 32)]
 
 
 class TicketField(PacketField):
@@ -253,7 +253,7 @@ class PSKIdentity(Packet):
                                  length_of="identity"),
                    TicketField("identity", "",
                                length_from=lambda pkt: pkt.identity_len),
-                   IntField("obfuscated_ticket_age", 0) ]
+                   IntField("obfuscated_ticket_age", 0)]
 
 
 class PSKBinderEntry(Packet):
@@ -261,7 +261,7 @@ class PSKBinderEntry(Packet):
     fields_desc = [FieldLenField("binder_len", None, fmt="B",
                                  length_of="binder"),
                    StrLenField("binder", "",
-                               length_from=lambda pkt: pkt.binder_len) ]
+                               length_from=lambda pkt: pkt.binder_len)]
 
 
 class TLS_Ext_PreSharedKey_CH(TLS_Ext_Unknown):
@@ -276,16 +276,16 @@ class TLS_Ext_PreSharedKey_CH(TLS_Ext_Unknown):
                    FieldLenField("binders_len", None,
                                  length_of="binders"),
                    PacketListField("binders", [], PSKBinderEntry,
-                            length_from=lambda pkt: pkt.binders_len) ]
+                            length_from=lambda pkt: pkt.binders_len)]
 
 
 class TLS_Ext_PreSharedKey_SH(TLS_Ext_Unknown):
     name = "TLS Extension - Pre Shared Key (for ServerHello)"
     fields_desc = [ShortEnumField("type", 0x29, _tls_ext),
                    ShortField("len", None),
-                   ShortField("selected_identity", None) ]
+                   ShortField("selected_identity", None)]
 
 
-_tls_ext_presharedkey_cls  = { 1: TLS_Ext_PreSharedKey_CH,
-                               2: TLS_Ext_PreSharedKey_SH }
+_tls_ext_presharedkey_cls  = {1: TLS_Ext_PreSharedKey_CH,
+                               2: TLS_Ext_PreSharedKey_SH}
 

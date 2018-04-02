@@ -25,9 +25,9 @@ from scapy.compat import orb
 
 class EoMCW(Packet):
     name = "EoMCW"
-    fields_desc = [ BitField("zero", 0, 4),
+    fields_desc = [BitField("zero", 0, 4),
                     BitField("reserved", 0, 12),
-                    ShortField("seq", 0) ]
+                    ShortField("seq", 0)]
 
     def guess_payload_class(self, payload):
         if len(payload) >= 1:
@@ -37,10 +37,10 @@ class EoMCW(Packet):
 
 class MPLS(Packet):
    name = "MPLS"
-   fields_desc =  [ BitField("label", 3, 20),
+   fields_desc =  [BitField("label", 3, 20),
                     BitField("cos", 0, 3),
                     BitField("s", 1, 1),
-                    ByteField("ttl", 0)  ]
+                    ByteField("ttl", 0)]
 
    def guess_payload_class(self, payload):
        if len(payload) >= 1:

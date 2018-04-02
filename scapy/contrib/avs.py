@@ -22,35 +22,35 @@ from scapy.fields import *
 from scapy.layers.dot11 import *
 from scapy.data import DLT_IEEE802_11_RADIO_AVS
 
-AVSWLANPhyType =  { 0 : "Unknown",
-                    1 : "FHSS 802.11 '97",
-                    2 : "DSSS 802.11 '97", 
-                    3 : "IR Baseband",
-                    4 : "DSSS 802.11b",
-                    5 : "PBCC 802.11b", 
-                    6 : "OFDM 802.11g",
-                    7 : "PBCC 802.11g",
-                    8 : "OFDM 802.11a" }
+AVSWLANPhyType =  {0: "Unknown",
+                    1: "FHSS 802.11 '97",
+                    2: "DSSS 802.11 '97", 
+                    3: "IR Baseband",
+                    4: "DSSS 802.11b",
+                    5: "PBCC 802.11b", 
+                    6: "OFDM 802.11g",
+                    7: "PBCC 802.11g",
+                    8: "OFDM 802.11a"}
 
-AVSWLANEncodingType =  { 0 : "Unknown",
-                         1 : "CCK",
-                         2 : "PBCC",
-                         3 : "OFDM"}
+AVSWLANEncodingType =  {0: "Unknown",
+                         1: "CCK",
+                         2: "PBCC",
+                         3: "OFDM"}
 
-AVSWLANSSIType = { 0 : "None",
-                   1 : "Normalized RSSI",
-                   2 : "dBm",
-                   3 : "Raw RSSI"}
+AVSWLANSSIType = {0: "None",
+                   1: "Normalized RSSI",
+                   2: "dBm",
+                   3: "Raw RSSI"}
 
-AVSWLANPreambleType = { 0 : "Unknown",
-                        1 : "Short",
-                        2 : "Long" }
+AVSWLANPreambleType = {0: "Unknown",
+                        1: "Short",
+                        2: "Long"}
 
 
 class AVSWLANHeader(Packet):
         """ iwpriv eth1 set_prismhdr 1 """
         name = "AVS WLAN Monitor Header"
-        fields_desc = [   IntField("version", 1),
+        fields_desc = [IntField("version", 1),
                           IntField("len", 64),
                          LongField("mactime", 0),
                          LongField("hosttime", 0),

@@ -77,7 +77,7 @@ class Net(Gen):
             x, y = [int(d) for d in a.split('-')]
             if x > y:
                 y = x
-            a = (x &  (0xff<<netmask) , max(y, (x | (0xff>>(8-netmask))))+1)
+            a = (x &  (0xff<<netmask), max(y, (x | (0xff>>(8-netmask))))+1)
         else:
             a = (int(a) & (0xff<<netmask), (int(a) | (0xff>>(8-netmask)))+1)
         return a

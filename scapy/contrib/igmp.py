@@ -55,12 +55,12 @@ IGMPv2 message format   http://www.faqs.org/rfcs/rfc2236.html
   """
     name = "IGMP"
   
-    igmptypes = { 0x11 : "Group Membership Query",
-                  0x12 : "Version 1 - Membership Report",
-                  0x16 : "Version 2 - Membership Report",
-                  0x17 : "Leave Group"}
+    igmptypes = {0x11: "Group Membership Query",
+                  0x12: "Version 1 - Membership Report",
+                  0x16: "Version 2 - Membership Report",
+                  0x17: "Leave Group"}
 
-    fields_desc = [ ByteEnumField("type", 0x11, igmptypes),
+    fields_desc = [ByteEnumField("type", 0x11, igmptypes),
                     ByteField("mrcode", 20),
                     XShortField("chksum", None),
                     IPField("gaddr", "0.0.0.0")]
@@ -155,6 +155,6 @@ IGMPv2 message format   http://www.faqs.org/rfcs/rfc2236.html
             return self.sprintf("IGMP %IGMP.type% %IGMP.gaddr%")
 
 
-bind_layers( IP,            IGMP,            frag=0,
+bind_layers(IP,            IGMP,            frag=0,
                                              proto=2,
                                              ttl=1)

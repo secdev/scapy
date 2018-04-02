@@ -37,7 +37,7 @@ else:
 class PrismHeader(Packet):
     """ iwpriv wlan0 monitor 3 """
     name = "Prism header"
-    fields_desc = [ LEIntField("msgcode", 68),
+    fields_desc = [LEIntField("msgcode", 68),
                     LEIntField("len", 144),
                     StrFixedLenField("dev", "", 16),
                     LEIntField("hosttime_did", 0),
@@ -91,7 +91,7 @@ class PrismHeader(Packet):
 
 class RadioTap(Packet):
     name = "RadioTap dummy"
-    fields_desc = [ ByteField('version', 0),
+    fields_desc = [ByteField('version', 0),
                     ByteField('pad', 0),
                     FieldLenField('len', None, 'notdecoded', '<H', adjust=lambda pkt, x:x+8),
                     FlagsField('present', None, -32, ['TSFT', 'Flags', 'Rate', 'Channel', 'FHSS', 'dBm_AntSignal',
@@ -99,12 +99,12 @@ class RadioTap(Packet):
                                                       'dBm_TX_Power', 'Antenna', 'dB_AntSignal', 'dB_AntNoise',
                                                      'b14', 'b15', 'b16', 'b17', 'b18', 'b19', 'b20', 'b21', 'b22', 'b23',
                                                      'b24', 'b25', 'b26', 'b27', 'b28', 'b29', 'b30', 'Ext']),
-                    StrLenField('notdecoded', "", length_from= lambda pkt:pkt.len-8) ]
+                    StrLenField('notdecoded', "", length_from= lambda pkt:pkt.len-8)]
 
 
 class PPI(Packet):
     name = "Per-Packet Information header (partial)"
-    fields_desc = [ ByteField("version", 0),
+    fields_desc = [ByteField("version", 0),
                     ByteField("flags", 0),
                     FieldLenField("len", None, fmt="<H", length_of="notdecoded", adjust=lambda pkt, x:x+8),
                     LEIntField("dlt", 0),
@@ -186,11 +186,11 @@ class Dot11(Packet):
 
 class Dot11QoS(Packet):
     name = "802.11 QoS"
-    fields_desc = [ BitField("Reserved", None, 1),
+    fields_desc = [BitField("Reserved", None, 1),
                     BitField("Ack_Policy", None, 2),
                     BitField("EOSP", None, 1),
                     BitField("TID", None, 4),
-                    ByteField("TXOP", None) ]
+                    ByteField("TXOP", None)]
 
     def guess_payload_class(self, payload):
         if isinstance(self.underlayer, Dot11):
@@ -199,7 +199,7 @@ class Dot11QoS(Packet):
         return Packet.guess_payload_class(self, payload)
 
 
-capability_list = [ "res8", "res9", "short-slot", "res11",
+capability_list = ["res8", "res9", "short-slot", "res11",
                     "res12", "DSSS-OFDM", "res14", "res15",
                    "ESS", "IBSS", "CFP", "CFP-req",
                    "privacy", "short-preamble", "PBCC", "agility"]
@@ -213,22 +213,22 @@ reason_code = {0: "reserved", 1: "unspec", 2: "auth-expired",
 status_code = {0: "success", 1: "failure", 10: "cannot-support-all-cap",
                11: "inexist-asso", 12: "asso-denied", 13: "algo-unsupported",
                14: "bad-seq-num", 15: "challenge-failure",
-               16: "timeout", 17: "AP-full", 18: "rate-unsupported" }
+               16: "timeout", 17: "AP-full", 18: "rate-unsupported"}
 
 
 class Dot11Beacon(Packet):
     name = "802.11 Beacon"
-    fields_desc = [ LELongField("timestamp", 0),
+    fields_desc = [LELongField("timestamp", 0),
                     LEShortField("beacon_interval", 0x0064),
-                    FlagsField("cap", 0, 16, capability_list) ]
+                    FlagsField("cap", 0, 16, capability_list)]
     
 
 class Dot11Elt(Packet):
     name = "802.11 Information Element"
-    fields_desc = [ ByteEnumField("ID", 0, {0: "SSID", 1: "Rates", 2: "FHset", 3: "DSset", 4: "CFset", 5: "TIM", 6: "IBSSset", 16: "challenge",
+    fields_desc = [ByteEnumField("ID", 0, {0: "SSID", 1: "Rates", 2: "FHset", 3: "DSset", 4: "CFset", 5: "TIM", 6: "IBSSset", 16: "challenge",
                                             42: "ERPinfo", 46: "QoS Capability", 47: "ERPinfo", 48: "RSNinfo", 50: "ESRates", 221: "vendor", 68: "reserved"}),
                     FieldLenField("len", None, "info", "B"),
-                    StrLenField("info", "", length_from=lambda x: x.len) ]
+                    StrLenField("info", "", length_from=lambda x: x.len)]
 
     def mysummary(self):
         if self.ID == 0:
@@ -246,27 +246,27 @@ class Dot11ATIM(Packet):
 
 class Dot11Disas(Packet):
     name = "802.11 Disassociation"
-    fields_desc = [ LEShortEnumField("reason", 1, reason_code) ]
+    fields_desc = [LEShortEnumField("reason", 1, reason_code)]
 
 
 class Dot11AssoReq(Packet):
     name = "802.11 Association Request"
-    fields_desc = [ FlagsField("cap", 0, 16, capability_list),
-                    LEShortField("listen_interval", 0x00c8) ]
+    fields_desc = [FlagsField("cap", 0, 16, capability_list),
+                    LEShortField("listen_interval", 0x00c8)]
 
 
 class Dot11AssoResp(Packet):
     name = "802.11 Association Response"
-    fields_desc = [ FlagsField("cap", 0, 16, capability_list),
+    fields_desc = [FlagsField("cap", 0, 16, capability_list),
                     LEShortField("status", 0),
-                    LEShortField("AID", 0) ]
+                    LEShortField("AID", 0)]
 
 
 class Dot11ReassoReq(Packet):
     name = "802.11 Reassociation Request"
-    fields_desc = [ FlagsField("cap", 0, 16, capability_list),
+    fields_desc = [FlagsField("cap", 0, 16, capability_list),
                     LEShortField("listen_interval", 0x00c8),
-                    MACField("current_AP", ETHER_ANY) ]
+                    MACField("current_AP", ETHER_ANY)]
 
 
 class Dot11ReassoResp(Dot11AssoResp):
@@ -279,16 +279,16 @@ class Dot11ProbeReq(Packet):
 
 class Dot11ProbeResp(Packet):
     name = "802.11 Probe Response"
-    fields_desc = [ LELongField("timestamp", 0),
+    fields_desc = [LELongField("timestamp", 0),
                     LEShortField("beacon_interval", 0x0064),
-                    FlagsField("cap", 0, 16, capability_list) ]
+                    FlagsField("cap", 0, 16, capability_list)]
     
 
 class Dot11Auth(Packet):
     name = "802.11 Authentication"
-    fields_desc = [ LEShortEnumField("algo", 0, ["open", "sharedkey"]),
+    fields_desc = [LEShortEnumField("algo", 0, ["open", "sharedkey"]),
                     LEShortField("seqnum", 0),
-                    LEShortEnumField("status", 0, status_code) ]
+                    LEShortEnumField("status", 0, status_code)]
 
     def answers(self, other):
         if self.seqnum == other.seqnum+1:
@@ -298,15 +298,15 @@ class Dot11Auth(Packet):
 
 class Dot11Deauth(Packet):
     name = "802.11 Deauthentication"
-    fields_desc = [ LEShortEnumField("reason", 1, reason_code) ]
+    fields_desc = [LEShortEnumField("reason", 1, reason_code)]
 
 
 class Dot11WEP(Packet):
     name = "802.11 WEP packet"
-    fields_desc = [ StrFixedLenField("iv", b"\0\0\0", 3),
+    fields_desc = [StrFixedLenField("iv", b"\0\0\0", 3),
                     ByteField("keyid", 0),
                     StrField("wepdata", None, remain=4),
-                    IntField("icv", None) ]
+                    IntField("icv", None)]
 
     @crypto_validator
     def decrypt(self, key=None):
@@ -358,32 +358,32 @@ class Dot11Ack(Packet):
     name = "802.11 Ack packet"
 
 
-bind_layers( PrismHeader,   Dot11,         )
-bind_layers( RadioTap,      Dot11,         )
-bind_layers( PPI,           Dot11,         dlt=105)
-bind_layers( Dot11,         LLC,           type=2)
-bind_layers( Dot11QoS,      LLC,           )
-bind_layers( Dot11,         Dot11AssoReq,    subtype=0, type=0)
-bind_layers( Dot11,         Dot11AssoResp,   subtype=1, type=0)
-bind_layers( Dot11,         Dot11ReassoReq,  subtype=2, type=0)
-bind_layers( Dot11,         Dot11ReassoResp, subtype=3, type=0)
-bind_layers( Dot11,         Dot11ProbeReq,   subtype=4, type=0)
-bind_layers( Dot11,         Dot11ProbeResp,  subtype=5, type=0)
-bind_layers( Dot11,         Dot11Beacon,     subtype=8, type=0)
-bind_layers( Dot11,         Dot11ATIM,       subtype=9, type=0)
-bind_layers( Dot11,         Dot11Disas,      subtype=10, type=0)
-bind_layers( Dot11,         Dot11Auth,       subtype=11, type=0)
-bind_layers( Dot11,         Dot11Deauth,     subtype=12, type=0)
-bind_layers( Dot11,         Dot11Ack,        subtype=13, type=1)
-bind_layers( Dot11Beacon,     Dot11Elt,    )
-bind_layers( Dot11AssoReq,    Dot11Elt,    )
-bind_layers( Dot11AssoResp,   Dot11Elt,    )
-bind_layers( Dot11ReassoReq,  Dot11Elt,    )
-bind_layers( Dot11ReassoResp, Dot11Elt,    )
-bind_layers( Dot11ProbeReq,   Dot11Elt,    )
-bind_layers( Dot11ProbeResp,  Dot11Elt,    )
-bind_layers( Dot11Auth,       Dot11Elt,    )
-bind_layers( Dot11Elt,        Dot11Elt,    )
+bind_layers(PrismHeader,   Dot11,)
+bind_layers(RadioTap,      Dot11,)
+bind_layers(PPI,           Dot11,         dlt=105)
+bind_layers(Dot11,         LLC,           type=2)
+bind_layers(Dot11QoS,      LLC,)
+bind_layers(Dot11,         Dot11AssoReq,    subtype=0, type=0)
+bind_layers(Dot11,         Dot11AssoResp,   subtype=1, type=0)
+bind_layers(Dot11,         Dot11ReassoReq,  subtype=2, type=0)
+bind_layers(Dot11,         Dot11ReassoResp, subtype=3, type=0)
+bind_layers(Dot11,         Dot11ProbeReq,   subtype=4, type=0)
+bind_layers(Dot11,         Dot11ProbeResp,  subtype=5, type=0)
+bind_layers(Dot11,         Dot11Beacon,     subtype=8, type=0)
+bind_layers(Dot11,         Dot11ATIM,       subtype=9, type=0)
+bind_layers(Dot11,         Dot11Disas,      subtype=10, type=0)
+bind_layers(Dot11,         Dot11Auth,       subtype=11, type=0)
+bind_layers(Dot11,         Dot11Deauth,     subtype=12, type=0)
+bind_layers(Dot11,         Dot11Ack,        subtype=13, type=1)
+bind_layers(Dot11Beacon,     Dot11Elt,)
+bind_layers(Dot11AssoReq,    Dot11Elt,)
+bind_layers(Dot11AssoResp,   Dot11Elt,)
+bind_layers(Dot11ReassoReq,  Dot11Elt,)
+bind_layers(Dot11ReassoResp, Dot11Elt,)
+bind_layers(Dot11ProbeReq,   Dot11Elt,)
+bind_layers(Dot11ProbeResp,  Dot11Elt,)
+bind_layers(Dot11Auth,       Dot11Elt,)
+bind_layers(Dot11Elt,        Dot11Elt,)
 
 
 conf.l2types.register(DLT_IEEE802_11, Dot11)
