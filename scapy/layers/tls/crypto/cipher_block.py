@@ -173,7 +173,7 @@ if conf.crypto_valid:
         "IDEA_128_CBC":     Cipher_IDEA_CBC,
         "DES_64_CBC":       Cipher_DES_CBC,
         "DES_192_EDE3_CBC": Cipher_3DES_EDE_CBC
-        })
+    })
 
 
 # We need some black magic for RC2, which is not registered by default

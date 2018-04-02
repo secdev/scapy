@@ -168,10 +168,10 @@ class MACsecSA(object):
         iv = self.make_iv(hdr)
         assoc, ct, icv = MACsecSA.split_pkt(orig_pkt, assoclen, self.icvlen)
         decryptor = Cipher(
-               algorithms.AES(self.key),
-               modes.GCM(iv, icv),
-               backend=default_backend()
-           ).decryptor()
+            algorithms.AES(self.key),
+            modes.GCM(iv, icv),
+            backend=default_backend()
+        ).decryptor()
         decryptor.authenticate_additional_data(assoc)
         pt = assoc[hdrlen:assoclen]
         pt += decryptor.update(ct)

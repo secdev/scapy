@@ -103,14 +103,14 @@ if conf.crypto_valid:
         block_size = 64
 
     _hashes = {
-            "md5": hashes.MD5,
+        "md5": hashes.MD5,
             "sha1": hashes.SHA1,
             "sha224": hashes.SHA224,
             "sha256": hashes.SHA256,
             "sha384": hashes.SHA384,
             "sha512": hashes.SHA512,
             "md5-sha1": MD5_SHA1
-            }
+    }
 
     def _get_hash(hashStr):
         try:

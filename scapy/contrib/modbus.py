@@ -588,8 +588,8 @@ _reserved_funccode_error = {
 class ModbusPDUReservedFunctionCodeRequest(Packet):
     name = "Reserved Function Code Request"
     fields_desc = [
-            ByteEnumField("funcCode", 0x00, _reserved_funccode_request),
-            StrFixedLenField('payload', '', 255), ]
+        ByteEnumField("funcCode", 0x00, _reserved_funccode_request),
+        StrFixedLenField('payload', '', 255), ]
 
     def extract_padding(self, s):
         return b"", None
@@ -601,8 +601,8 @@ class ModbusPDUReservedFunctionCodeRequest(Packet):
 class ModbusPDUReservedFunctionCodeResponse(Packet):
     name = "Reserved Function Code Response"
     fields_desc = [
-            ByteEnumField("funcCode", 0x00, _reserved_funccode_response),
-            StrFixedLenField('payload', '', 255), ]
+        ByteEnumField("funcCode", 0x00, _reserved_funccode_response),
+        StrFixedLenField('payload', '', 255), ]
 
     def extract_padding(self, s):
         return b"", None
@@ -614,8 +614,8 @@ class ModbusPDUReservedFunctionCodeResponse(Packet):
 class ModbusPDUReservedFunctionCodeError(Packet):
     name = "Reserved Function Code Error"
     fields_desc = [
-            ByteEnumField("funcCode", 0x00, _reserved_funccode_error),
-            StrFixedLenField('payload', '', 255), ]
+        ByteEnumField("funcCode", 0x00, _reserved_funccode_error),
+        StrFixedLenField('payload', '', 255), ]
 
     def extract_padding(self, s):
         return b"", None
@@ -641,7 +641,7 @@ class ModbusByteEnumField(EnumField):
 
     def i2repr_one(self, pkt, x):
         if self not in conf.noenum and not isinstance(x, VolatileValue) \
-                    and x in self.i2s:
+                and x in self.i2s:
             return self.i2s[x]
         if self.defEnum:
             return self.defEnum
@@ -651,10 +651,10 @@ class ModbusByteEnumField(EnumField):
 class ModbusPDUUserDefinedFunctionCodeRequest(Packet):
     name = "User-Defined Function Code Request"
     fields_desc = [
-            ModbusByteEnumField(
-                "funcCode", 0x00, _userdefined_funccode_request,
+        ModbusByteEnumField(
+            "funcCode", 0x00, _userdefined_funccode_request,
                 "Unknown user-defined request function Code"),
-            StrFixedLenField('payload', '', 255), ]
+        StrFixedLenField('payload', '', 255), ]
 
     def extract_padding(self, s):
         return b"", None
@@ -666,10 +666,10 @@ class ModbusPDUUserDefinedFunctionCodeRequest(Packet):
 class ModbusPDUUserDefinedFunctionCodeResponse(Packet):
     name = "User-Defined Function Code Response"
     fields_desc = [
-            ModbusByteEnumField(
-                "funcCode", 0x00, _userdefined_funccode_response,
+        ModbusByteEnumField(
+            "funcCode", 0x00, _userdefined_funccode_response,
                 "Unknown user-defined response function Code"),
-            StrFixedLenField('payload', '', 255), ]
+        StrFixedLenField('payload', '', 255), ]
 
     def extract_padding(self, s):
         return b"", None
@@ -681,10 +681,10 @@ class ModbusPDUUserDefinedFunctionCodeResponse(Packet):
 class ModbusPDUUserDefinedFunctionCodeError(Packet):
     name = "User-Defined Function Code Error"
     fields_desc = [
-            ModbusByteEnumField(
-                "funcCode", 0x00, _userdefined_funccode_error,
+        ModbusByteEnumField(
+            "funcCode", 0x00, _userdefined_funccode_error,
                 "Unknown user-defined error function Code"),
-            StrFixedLenField('payload', '', 255), ]
+        StrFixedLenField('payload', '', 255), ]
 
     def extract_padding(self, s):
         return b"", None

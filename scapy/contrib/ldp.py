@@ -46,7 +46,7 @@ class _LDP_Packet(Packet):
             0x0404: LDPLabelARM,
             0x0402: LDPLabelWM,
             0x0403: LDPLabelRelM,
-            }
+        }
         type = struct.unpack("!H", p[0:2])[0]
         type = type & 0x7fff
         if type == 0x0001 and struct.unpack("!H", p[2:4])[0] > 20:
@@ -297,10 +297,10 @@ class CommonSessionTLVField(StrField):
 class LDPNotification(_LDP_Packet):
     name = "LDPNotification"
     fields_desc = [BitField("u", 0, 1),
-                    BitField("type", 0x0001, 15),
-                    ShortField("len", None),
-                    IntField("id", 0),
-                    StatusTLVField("status", (0, 0, 0, 0, 0))]
+                   BitField("type", 0x0001, 15),
+                   ShortField("len", None),
+                   IntField("id", 0),
+                   StatusTLVField("status", (0, 0, 0, 0, 0))]
 
 # 3.5.2. Hello Message
 
@@ -308,10 +308,10 @@ class LDPNotification(_LDP_Packet):
 class LDPHello(_LDP_Packet):
     name = "LDPHello"
     fields_desc = [BitField("u", 0, 1),
-                    BitField("type", 0x0100, 15),
-                    ShortField("len", None),
-                    IntField("id", 0),
-                    CommonHelloTLVField("params", [180, 0, 0])]
+                   BitField("type", 0x0100, 15),
+                   ShortField("len", None),
+                   IntField("id", 0),
+                   CommonHelloTLVField("params", [180, 0, 0])]
 
 # 3.5.3. Initialization Message
 
@@ -319,10 +319,10 @@ class LDPHello(_LDP_Packet):
 class LDPInit(_LDP_Packet):
     name = "LDPInit"
     fields_desc = [BitField("u", 0, 1),
-                    XBitField("type", 0x0200, 15),
-                    ShortField("len", None),
-                    IntField("id", 0),
-                    CommonSessionTLVField("params", None)]
+                   XBitField("type", 0x0200, 15),
+                   ShortField("len", None),
+                   IntField("id", 0),
+                   CommonSessionTLVField("params", None)]
 
 # 3.5.4. KeepAlive Message
 
@@ -330,9 +330,9 @@ class LDPInit(_LDP_Packet):
 class LDPKeepAlive(_LDP_Packet):
     name = "LDPKeepAlive"
     fields_desc = [BitField("u", 0, 1),
-                    XBitField("type", 0x0201, 15),
-                    ShortField("len", None),
-                    IntField("id", 0)]
+                   XBitField("type", 0x0201, 15),
+                   ShortField("len", None),
+                   IntField("id", 0)]
 
 # 3.5.5. Address Message
 
@@ -340,10 +340,10 @@ class LDPKeepAlive(_LDP_Packet):
 class LDPAddress(_LDP_Packet):
     name = "LDPAddress"
     fields_desc = [BitField("u", 0, 1),
-                    XBitField("type", 0x0300, 15),
-                    ShortField("len", None),
-                    IntField("id", 0),
-                    AddressTLVField("address", None)]
+                   XBitField("type", 0x0300, 15),
+                   ShortField("len", None),
+                   IntField("id", 0),
+                   AddressTLVField("address", None)]
 
 # 3.5.6. Address Withdraw Message
 
@@ -351,10 +351,10 @@ class LDPAddress(_LDP_Packet):
 class LDPAddressWM(_LDP_Packet):
     name = "LDPAddressWM"
     fields_desc = [BitField("u", 0, 1),
-                    XBitField("type", 0x0301, 15),
-                    ShortField("len", None),
-                    IntField("id", 0),
-                    AddressTLVField("address", None)]
+                   XBitField("type", 0x0301, 15),
+                   ShortField("len", None),
+                   IntField("id", 0),
+                   AddressTLVField("address", None)]
 
 # 3.5.7. Label Mapping Message
 
@@ -362,11 +362,11 @@ class LDPAddressWM(_LDP_Packet):
 class LDPLabelMM(_LDP_Packet):
     name = "LDPLabelMM"
     fields_desc = [BitField("u", 0, 1),
-                    XBitField("type", 0x0400, 15),
-                    ShortField("len", None),
-                    IntField("id", 0),
-                    FecTLVField("fec", None),
-                    LabelTLVField("label", 0)]
+                   XBitField("type", 0x0400, 15),
+                   ShortField("len", None),
+                   IntField("id", 0),
+                   FecTLVField("fec", None),
+                   LabelTLVField("label", 0)]
 
 # 3.5.8. Label Request Message
 
@@ -374,10 +374,10 @@ class LDPLabelMM(_LDP_Packet):
 class LDPLabelReqM(_LDP_Packet):
     name = "LDPLabelReqM"
     fields_desc = [BitField("u", 0, 1),
-                    XBitField("type", 0x0401, 15),
-                    ShortField("len", None),
-                    IntField("id", 0),
-                    FecTLVField("fec", None)]
+                   XBitField("type", 0x0401, 15),
+                   ShortField("len", None),
+                   IntField("id", 0),
+                   FecTLVField("fec", None)]
 
 # 3.5.9. Label Abort Request Message
 
@@ -385,11 +385,11 @@ class LDPLabelReqM(_LDP_Packet):
 class LDPLabelARM(_LDP_Packet):
     name = "LDPLabelARM"
     fields_desc = [BitField("u", 0, 1),
-                    XBitField("type", 0x0404, 15),
-                    ShortField("len", None),
-                    IntField("id", 0),
-                    FecTLVField("fec", None),
-                    IntField("labelRMid", 0)]
+                   XBitField("type", 0x0404, 15),
+                   ShortField("len", None),
+                   IntField("id", 0),
+                   FecTLVField("fec", None),
+                   IntField("labelRMid", 0)]
 
 # 3.5.10. Label Withdraw Message
 
@@ -397,11 +397,11 @@ class LDPLabelARM(_LDP_Packet):
 class LDPLabelWM(_LDP_Packet):
     name = "LDPLabelWM"
     fields_desc = [BitField("u", 0, 1),
-                    XBitField("type", 0x0402, 15),
-                    ShortField("len", None),
-                    IntField("id", 0),
-                    FecTLVField("fec", None),
-                    LabelTLVField("label", 0)]
+                   XBitField("type", 0x0402, 15),
+                   ShortField("len", None),
+                   IntField("id", 0),
+                   FecTLVField("fec", None),
+                   LabelTLVField("label", 0)]
 
 # 3.5.11. Label Release Message
 
@@ -409,11 +409,11 @@ class LDPLabelWM(_LDP_Packet):
 class LDPLabelRelM(_LDP_Packet):
     name = "LDPLabelRelM"
     fields_desc = [BitField("u", 0, 1),
-                    XBitField("type", 0x0403, 15),
-                    ShortField("len", None),
-                    IntField("id", 0),
-                    FecTLVField("fec", None),
-                    LabelTLVField("label", 0)]
+                   XBitField("type", 0x0403, 15),
+                   ShortField("len", None),
+                   IntField("id", 0),
+                   FecTLVField("fec", None),
+                   LabelTLVField("label", 0)]
 
 # 3.1. LDP PDUs
 
@@ -421,9 +421,9 @@ class LDPLabelRelM(_LDP_Packet):
 class LDP(_LDP_Packet):
     name = "LDP"
     fields_desc = [ShortField("version", 1),
-                    ShortField("len", None),
-                    IPField("id", "127.0.0.1"),
-                    ShortField("space", 0)]
+                   ShortField("len", None),
+                   IPField("id", "127.0.0.1"),
+                   ShortField("space", 0)]
 
     def post_build(self, p, pay):
         pay = pay or b""

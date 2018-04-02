@@ -45,9 +45,9 @@ from scapy.config import conf
 from scapy.error import log_runtime, Scapy_Exception
 from scapy.layers.l2 import Ether, Dot1Q
 from scapy.fields import MACField, IPField, BitField, \
-         StrLenField, ByteEnumField, BitEnumField, \
-         EnumField, ThreeBytesField, BitFieldLenField, \
-         ShortField, XStrLenField
+    StrLenField, ByteEnumField, BitEnumField, \
+    EnumField, ThreeBytesField, BitFieldLenField, \
+    ShortField, XStrLenField
 from scapy.packet import Packet, Padding, bind_layers
 from scapy.modules.six.moves import range
 from scapy.data import ETHER_TYPES
@@ -152,7 +152,7 @@ class LLDPDU(Packet):
 
         last_layer = not pay
         if last_layer and conf.contribs['LLDP'].strict_mode() and \
-                        type(self).__name__ != LLDPDUEndOfLLDPDU.__name__:
+                type(self).__name__ != LLDPDUEndOfLLDPDU.__name__:
             raise LLDPInvalidLastLayerException('Last layer must be instance '
                                                 'of LLDPDUEndOfLLDPDU - '
                                                 'got {}'.

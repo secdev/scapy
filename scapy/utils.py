@@ -228,7 +228,7 @@ def hexdiff(x, y):
     x = y = i = 0
     colorize = {0: lambda x: x,
                 -1: conf.color_theme.left,
-                 1: conf.color_theme.right}
+                1: conf.color_theme.right}
     
     dox=1
     doy=0
@@ -592,7 +592,7 @@ _TEX_TR = {
     "~": "{\\tt\\char126}",
     "<": "{\\tt\\char60}",
     ">": "{\\tt\\char62}",
-    }
+}
     
 
 def tex_escape(x):

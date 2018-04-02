@@ -29,10 +29,10 @@ import struct
 # Scapy imports
 from scapy.all import Packet, bind_layers, Ether, UDP, Field, conf
 from scapy.fields import BitEnumField, BitField, ByteField,\
-        FlagsField,\
-        PacketListField,\
-        ShortField, StrFixedLenField,\
-        XBitField, XByteField
+    FlagsField,\
+    PacketListField,\
+    ShortField, StrFixedLenField,\
+    XBitField, XByteField
 
 # local imports
 from scapy.contrib.pnio import ProfinetIO
@@ -52,7 +52,7 @@ class PNIORealTimeIOxS(Packet):
         BitEnumField("instance", 0, 2, ["subslot", "slot", "device", "controller"]),
         XBitField("reserved", 0, 4),
         BitField("extension", 0, 1),
-        ]
+    ]
 
     def extract_padding(self, s):
         return None, s      # No extra payload
@@ -70,7 +70,7 @@ class PNIORealTimeRawData(Packet):
     name = "PNIO RTC Raw data"
     fields_desc = [
         StrFixedLenField("load", "", length_from=lambda p: p[PNIORealTimeRawData].length()),
-        ]
+    ]
 
     def __init__(self, _pkt="", post_transform=None, _internal=0, _underlayer=None, config=None, **fields):
         """
@@ -196,7 +196,7 @@ def _pnio_rtc_guess_payload_class(_pkt, _underlayer=None, *args, **kargs):
         return PNIORealTimeRawData(_pkt,
                                    config={"length": len(_pkt)},
                                    *args, **kargs
-                                  )
+                                   )
 
 
 _PNIO_DS_FLAGS = [
@@ -208,7 +208,7 @@ _PNIO_DS_FLAGS = [
     "no_problem",
     "reserved_2",
     "ignore",
-    ]
+]
 
 
 class PNIORealTime(Packet):
@@ -222,10 +222,10 @@ class PNIORealTime(Packet):
         ShortField("cycleCounter", 0),
         FlagsField("dataStatus", 0x35, 8, _PNIO_DS_FLAGS),
         ByteField("transferStatus", 0)
-        ]
+    ]
     overload_fields = {
         ProfinetIO: {"frameID": 0x8000},   # RT_CLASS_1
-        }
+    }
 
     def padding_length(self):
         """Compute the length of the padding need for the ethernet frame"""
@@ -297,7 +297,7 @@ class PNIORealTime(Packet):
                             start - length,
                             PNIORealTimeRawData,
                             {"length": i - start}
-                            ))
+                        ))
                         start = None
 
         return locations
@@ -324,9 +324,9 @@ class PNIORealTime(Packet):
             for i in range(len(locations[comm])):
                 # update each location with its value after profisafe analysis
                 locations[comm][i] = \
-                        PNIORealTime.analyse_one_profisafe_location(
-                            locations[comm][i], entropy
-                        )
+                    PNIORealTime.analyse_one_profisafe_location(
+                    locations[comm][i], entropy
+                )
 
         return locations
 
@@ -353,7 +353,7 @@ class PNIORealTime(Packet):
                     start,
                     Profisafe,
                     {"CRC": succ_count, "length": conf["length"]}
-                    )
+                )
         # Not a PROFISafe profile
         return (start, klass, conf)
 
@@ -379,14 +379,14 @@ class PNIORealTime(Packet):
                     if PNIORealTime in pkt and (pkt.src, pkt.dst) == comm:
                         comm_packets.append(
                             bytes(pkt[PNIORealTime])[:-4].rstrip(b"\0")
-                            )
+                        )
 
                 # Get the entropy
                 for start, dummy, conf in locations[comm]:
                     for i in range(start, start + conf["length"]):
                         entropies[comm].append(
                             (i, entropy_of_byte(comm_packets, i))
-                            )
+                        )
 
         return entropies
 
@@ -479,7 +479,7 @@ class Profisafe(PNIORealTimeRawData):
         StrFixedLenField("load", "", length_from=lambda p: p[Profisafe].data_length()),
         XByteField("Control_Status", 0),
         XVarBytesField("CRC", 0, length_from=lambda p: p[Profisafe].crc_length())
-        ]
+    ]
 
     def data_length(self):
         """Return the length of the data"""

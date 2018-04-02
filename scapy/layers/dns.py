@@ -365,8 +365,8 @@ class DNSQR(InheritOriginDNSStrPacket):
 class EDNS0TLV(Packet):
     name = "DNS EDNS0 TLV"
     fields_desc = [ShortEnumField("optcode", 0, {0: "Reserved", 1: "LLQ", 2: "UL", 3: "NSID", 4: "Reserved", 5: "PING"}),
-                    FieldLenField("optlen", None, "optdata", fmt="H"),
-                    StrLenField("optdata", "", length_from=lambda pkt: pkt.optlen)]
+                   FieldLenField("optlen", None, "optdata", fmt="H"),
+                   StrLenField("optdata", "", length_from=lambda pkt: pkt.optlen)]
 
     def extract_padding(self, p):
         return "", p
@@ -375,27 +375,27 @@ class EDNS0TLV(Packet):
 class DNSRROPT(InheritOriginDNSStrPacket):
     name = "DNS OPT Resource Record"
     fields_desc = [DNSStrField("rrname", ""),
-                    ShortEnumField("type", 41, dnstypes),
-                    ShortField("rclass", 4096),
-                    ByteField("extrcode", 0),
-                    ByteField("version", 0),
-                    # version 0 means EDNS0
-                    BitEnumField("z", 32768, 16, {32768: "D0"}),
-                    # D0 means DNSSEC OK from RFC 3225
-                    FieldLenField("rdlen", None, length_of="rdata", fmt="H"),
-                    PacketListField("rdata", [], EDNS0TLV, length_from=lambda pkt: pkt.rdlen)]
+                   ShortEnumField("type", 41, dnstypes),
+                   ShortField("rclass", 4096),
+                   ByteField("extrcode", 0),
+                   ByteField("version", 0),
+                   # version 0 means EDNS0
+                   BitEnumField("z", 32768, 16, {32768: "D0"}),
+                   # D0 means DNSSEC OK from RFC 3225
+                   FieldLenField("rdlen", None, length_of="rdata", fmt="H"),
+                   PacketListField("rdata", [], EDNS0TLV, length_from=lambda pkt: pkt.rdlen)]
 
 # RFC 4034 - Resource Records for the DNS Security Extensions
 
 
 # 09/2013 from http://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml
 dnssecalgotypes = {0: "Reserved", 1: "RSA/MD5", 2: "Diffie-Hellman", 3: "DSA/SHA-1",
-                    4: "Reserved", 5: "RSA/SHA-1", 6: "DSA-NSEC3-SHA1",
-                    7: "RSASHA1-NSEC3-SHA1", 8: "RSA/SHA-256", 9: "Reserved",
+                   4: "Reserved", 5: "RSA/SHA-1", 6: "DSA-NSEC3-SHA1",
+                   7: "RSASHA1-NSEC3-SHA1", 8: "RSA/SHA-256", 9: "Reserved",
                    10: "RSA/SHA-512", 11: "Reserved", 12: "GOST R 34.10-2001",
                    13: "ECDSA Curve P-256 with SHA-256", 14: "ECDSA Curve P-384 with SHA-384",
-                  252: "Reserved for Indirect Keys", 253: "Private algorithms - domain name",
-                  254: "Private algorithms - OID", 255: "Reserved"}
+                   252: "Reserved for Indirect Keys", 253: "Private algorithms - domain name",
+                   254: "Private algorithms - OID", 255: "Reserved"}
 
 # 09/2013 from http://www.iana.org/assignments/ds-rr-types/ds-rr-types.xhtml
 dnssecdigesttypes = {0: "Reserved", 1: "SHA-1", 2: "SHA-256", 3: "GOST R 34.11-94",  4: "SHA-384"}
@@ -502,7 +502,7 @@ def RRlist2bitmap(lst):
             struct.pack(
                 b"B",
                 sum(2 ** (7 - (x - 256 * wb) + (tmp * 8)) for x in rrlist
-                if 256 * wb + 8 * tmp <= x < 256 * wb + 8 * tmp + 8),
+                    if 256 * wb + 8 * tmp <= x < 256 * wb + 8 * tmp + 8),
             ) for tmp in range(bytes_count)
         )
 
@@ -538,79 +538,79 @@ class _DNSRRdummy(InheritOriginDNSStrPacket):
 class DNSRRSOA(_DNSRRdummy):
     name = "DNS SOA Resource Record"
     fields_desc = [DNSStrField("rrname", ""),
-                    ShortEnumField("type", 6, dnstypes),
-                    ShortEnumField("rclass", 1, dnsclasses),
-                    IntField("ttl", 0),
-                    ShortField("rdlen", None),
-                    DNSStrField("mname", ""),
-                    DNSStrField("rname", ""),
-                    IntField("serial", 0),
-                    IntField("refresh", 0),
-                    IntField("retry", 0),
-                    IntField("expire", 0),
-                    IntField("minimum", 0)
-                  ]
+                   ShortEnumField("type", 6, dnstypes),
+                   ShortEnumField("rclass", 1, dnsclasses),
+                   IntField("ttl", 0),
+                   ShortField("rdlen", None),
+                   DNSStrField("mname", ""),
+                   DNSStrField("rname", ""),
+                   IntField("serial", 0),
+                   IntField("refresh", 0),
+                   IntField("retry", 0),
+                   IntField("expire", 0),
+                   IntField("minimum", 0)
+                   ]
 
 
 class DNSRRRSIG(_DNSRRdummy):
     name = "DNS RRSIG Resource Record"
     fields_desc = [DNSStrField("rrname", ""),
-                    ShortEnumField("type", 46, dnstypes),
-                    ShortEnumField("rclass", 1, dnsclasses),
-                    IntField("ttl", 0),
-                    ShortField("rdlen", None),
-                    ShortEnumField("typecovered", 1, dnstypes),
-                    ByteEnumField("algorithm", 5, dnssecalgotypes),
-                    ByteField("labels", 0),
-                    IntField("originalttl", 0),
-                    TimeField("expiration", 0),
-                    TimeField("inception", 0),
-                    ShortField("keytag", 0),
-                    DNSStrField("signersname", ""),
-                    StrField("signature", "")
-                  ]
+                   ShortEnumField("type", 46, dnstypes),
+                   ShortEnumField("rclass", 1, dnsclasses),
+                   IntField("ttl", 0),
+                   ShortField("rdlen", None),
+                   ShortEnumField("typecovered", 1, dnstypes),
+                   ByteEnumField("algorithm", 5, dnssecalgotypes),
+                   ByteField("labels", 0),
+                   IntField("originalttl", 0),
+                   TimeField("expiration", 0),
+                   TimeField("inception", 0),
+                   ShortField("keytag", 0),
+                   DNSStrField("signersname", ""),
+                   StrField("signature", "")
+                   ]
 
 
 class DNSRRNSEC(_DNSRRdummy):
     name = "DNS NSEC Resource Record"
     fields_desc = [DNSStrField("rrname", ""),
-                    ShortEnumField("type", 47, dnstypes),
-                    ShortEnumField("rclass", 1, dnsclasses),
-                    IntField("ttl", 0),
-                    ShortField("rdlen", None),
-                    DNSStrField("nextname", ""),
-                    RRlistField("typebitmaps", "")
-                  ]
+                   ShortEnumField("type", 47, dnstypes),
+                   ShortEnumField("rclass", 1, dnsclasses),
+                   IntField("ttl", 0),
+                   ShortField("rdlen", None),
+                   DNSStrField("nextname", ""),
+                   RRlistField("typebitmaps", "")
+                   ]
 
 
 class DNSRRDNSKEY(_DNSRRdummy):
     name = "DNS DNSKEY Resource Record"
     fields_desc = [DNSStrField("rrname", ""),
-                    ShortEnumField("type", 48, dnstypes),
-                    ShortEnumField("rclass", 1, dnsclasses),
-                    IntField("ttl", 0),
-                    ShortField("rdlen", None),
-                    FlagsField("flags", 256, 16, "S???????Z???????"),
-                    # S: Secure Entry Point
-                    # Z: Zone Key
-                    ByteField("protocol", 3),
-                    ByteEnumField("algorithm", 5, dnssecalgotypes),
-                    StrField("publickey", "")
-                  ]
+                   ShortEnumField("type", 48, dnstypes),
+                   ShortEnumField("rclass", 1, dnsclasses),
+                   IntField("ttl", 0),
+                   ShortField("rdlen", None),
+                   FlagsField("flags", 256, 16, "S???????Z???????"),
+                   # S: Secure Entry Point
+                   # Z: Zone Key
+                   ByteField("protocol", 3),
+                   ByteEnumField("algorithm", 5, dnssecalgotypes),
+                   StrField("publickey", "")
+                   ]
 
 
 class DNSRRDS(_DNSRRdummy):
     name = "DNS DS Resource Record"
     fields_desc = [DNSStrField("rrname", ""),
-                    ShortEnumField("type", 43, dnstypes),
-                    ShortEnumField("rclass", 1, dnsclasses),
-                    IntField("ttl", 0),
-                    ShortField("rdlen", None),
-                    ShortField("keytag", 0),
-                    ByteEnumField("algorithm", 5, dnssecalgotypes),
-                    ByteEnumField("digesttype", 5, dnssecdigesttypes),
-                    StrField("digest", "")
-                  ]
+                   ShortEnumField("type", 43, dnstypes),
+                   ShortEnumField("rclass", 1, dnsclasses),
+                   IntField("ttl", 0),
+                   ShortField("rdlen", None),
+                   ShortField("keytag", 0),
+                   ByteEnumField("algorithm", 5, dnssecalgotypes),
+                   ByteEnumField("digesttype", 5, dnssecdigesttypes),
+                   StrField("digest", "")
+                   ]
 
 
 # RFC 5074 - DNSSEC Lookaside Validation (DLV)
@@ -628,34 +628,34 @@ class DNSRRDLV(DNSRRDS):
 class DNSRRNSEC3(_DNSRRdummy):
     name = "DNS NSEC3 Resource Record"
     fields_desc = [DNSStrField("rrname", ""),
-                    ShortEnumField("type", 50, dnstypes),
-                    ShortEnumField("rclass", 1, dnsclasses),
-                    IntField("ttl", 0),
-                    ShortField("rdlen", None),
-                    ByteField("hashalg", 0),
-                    BitEnumField("flags", 0, 8, {1: "Opt-Out"}),
-                    ShortField("iterations", 0),
-                    FieldLenField("saltlength", 0, fmt="!B", length_of="salt"),
-                    StrLenField("salt", "", length_from=lambda x: x.saltlength),
-                    FieldLenField("hashlength", 0, fmt="!B", length_of="nexthashedownername"),
-                    StrLenField("nexthashedownername", "", length_from=lambda x: x.hashlength),
-                    RRlistField("typebitmaps", "")
-                  ]
+                   ShortEnumField("type", 50, dnstypes),
+                   ShortEnumField("rclass", 1, dnsclasses),
+                   IntField("ttl", 0),
+                   ShortField("rdlen", None),
+                   ByteField("hashalg", 0),
+                   BitEnumField("flags", 0, 8, {1: "Opt-Out"}),
+                   ShortField("iterations", 0),
+                   FieldLenField("saltlength", 0, fmt="!B", length_of="salt"),
+                   StrLenField("salt", "", length_from=lambda x: x.saltlength),
+                   FieldLenField("hashlength", 0, fmt="!B", length_of="nexthashedownername"),
+                   StrLenField("nexthashedownername", "", length_from=lambda x: x.hashlength),
+                   RRlistField("typebitmaps", "")
+                   ]
 
 
 class DNSRRNSEC3PARAM(_DNSRRdummy):
     name = "DNS NSEC3PARAM Resource Record"
     fields_desc = [DNSStrField("rrname", ""),
-                    ShortEnumField("type", 51, dnstypes),
-                    ShortEnumField("rclass", 1, dnsclasses),
-                    IntField("ttl", 0),
-                    ShortField("rdlen", None),
-                    ByteField("hashalg", 0),
-                    ByteField("flags", 0),
-                    ShortField("iterations", 0),
-                    FieldLenField("saltlength", 0, fmt="!B", length_of="salt"),
-                    StrLenField("salt", "", length_from=lambda pkt: pkt.saltlength)
-                  ]
+                   ShortEnumField("type", 51, dnstypes),
+                   ShortEnumField("rclass", 1, dnsclasses),
+                   IntField("ttl", 0),
+                   ShortField("rdlen", None),
+                   ByteField("hashalg", 0),
+                   ByteField("flags", 0),
+                   ShortField("iterations", 0),
+                   FieldLenField("saltlength", 0, fmt="!B", length_of="salt"),
+                   StrLenField("salt", "", length_from=lambda pkt: pkt.saltlength)
+                   ]
 
 # RFC 2782 - A DNS RR for specifying the location of services (DNS SRV)
 
@@ -663,19 +663,19 @@ class DNSRRNSEC3PARAM(_DNSRRdummy):
 class DNSRRSRV(InheritOriginDNSStrPacket):
     name = "DNS SRV Resource Record"
     fields_desc = [DNSStrField("rrname", ""),
-                    ShortEnumField("type", 51, dnstypes),
-                    ShortEnumField("rclass", 1, dnsclasses),
-                    IntField("ttl", 0),
-                    ShortField("rdlen", None),
-                    ShortField("priority", 0),
-                    ShortField("weight", 0),
-                    ShortField("port", 0),
-                    DNSStrField("target", ""), ]
+                   ShortEnumField("type", 51, dnstypes),
+                   ShortEnumField("rclass", 1, dnsclasses),
+                   IntField("ttl", 0),
+                   ShortField("rdlen", None),
+                   ShortField("priority", 0),
+                   ShortField("weight", 0),
+                   ShortField("port", 0),
+                   DNSStrField("target", ""), ]
 
 
 # RFC 2845 - Secret Key Transaction Authentication for DNS (TSIG)
 tsig_algo_sizes = {"HMAC-MD5.SIG-ALG.REG.INT": 16,
-                    "hmac-sha1": 20}
+                   "hmac-sha1": 20}
 
 
 class TimeSignedField(StrFixedLenField):
@@ -719,20 +719,20 @@ class TimeSignedField(StrFixedLenField):
 class DNSRRTSIG(_DNSRRdummy):
     name = "DNS TSIG Resource Record"
     fields_desc = [DNSStrField("rrname", ""),
-                    ShortEnumField("type", 250, dnstypes),
-                    ShortEnumField("rclass", 1, dnsclasses),
-                    IntField("ttl", 0),
-                    ShortField("rdlen", None),
-                    DNSStrField("algo_name", "hmac-sha1"),
-                    TimeSignedField("time_signed", 0),
-                    ShortField("fudge", 0),
-                    FieldLenField("mac_len", 20, fmt="!H", length_of="mac_data"),
-                    StrLenField("mac_data", "", length_from=lambda pkt: pkt.mac_len),
-                    ShortField("original_id", 0),
-                    ShortField("error", 0),
-                    FieldLenField("other_len", 0, fmt="!H", length_of="other_data"),
-                    StrLenField("other_data", "", length_from=lambda pkt: pkt.other_len)
-                  ]
+                   ShortEnumField("type", 250, dnstypes),
+                   ShortEnumField("rclass", 1, dnsclasses),
+                   IntField("ttl", 0),
+                   ShortField("rdlen", None),
+                   DNSStrField("algo_name", "hmac-sha1"),
+                   TimeSignedField("time_signed", 0),
+                   ShortField("fudge", 0),
+                   FieldLenField("mac_len", 20, fmt="!H", length_of="mac_data"),
+                   StrLenField("mac_data", "", length_from=lambda pkt: pkt.mac_len),
+                   ShortField("original_id", 0),
+                   ShortField("error", 0),
+                   FieldLenField("other_len", 0, fmt="!H", length_of="other_data"),
+                   StrLenField("other_data", "", length_from=lambda pkt: pkt.other_len)
+                   ]
 
 
 DNSRR_DISPATCHER = {
@@ -759,11 +759,11 @@ class DNSRR(InheritOriginDNSStrPacket):
     name = "DNS Resource Record"
     show_indent=0
     fields_desc = [DNSStrField("rrname", ""),
-                    ShortEnumField("type", 1, dnstypes),
-                    ShortEnumField("rclass", 1, dnsclasses),
-                    IntField("ttl", 0),
-                    RDLenField("rdlen"),
-                    RDataField("rdata", "", length_from=lambda pkt:pkt.rdlen)]
+                   ShortEnumField("type", 1, dnstypes),
+                   ShortEnumField("rclass", 1, dnsclasses),
+                   IntField("ttl", 0),
+                   RDLenField("rdlen"),
+                   RDataField("rdata", "", length_from=lambda pkt:pkt.rdlen)]
 
 
 bind_layers(UDP, DNS, dport=5353)

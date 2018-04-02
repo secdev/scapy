@@ -35,17 +35,17 @@ RATType = {
 
 GTPmessageType = {1: "echo_request",
                      2: "echo_response",
-                    16: "create_pdp_context_req",
-                    17: "create_pdp_context_res",
-                    18: "update_pdp_context_req",
-                    19: "update_pdp_context_resp",
-                    20: "delete_pdp_context_req",
-                    21: "delete_pdp_context_res",
-                    26: "error_indication",
-                    27: "pdu_notification_req",
-                    31: "supported_extension_headers_notification",
-                   254: "end_marker",
-                   255: "g_pdu"}
+                  16: "create_pdp_context_req",
+                  17: "create_pdp_context_res",
+                  18: "update_pdp_context_req",
+                  19: "update_pdp_context_resp",
+                  20: "delete_pdp_context_req",
+                  21: "delete_pdp_context_res",
+                  26: "error_indication",
+                  27: "pdu_notification_req",
+                  31: "supported_extension_headers_notification",
+                  254: "end_marker",
+                  255: "g_pdu"}
 
 IEType = {1: "Cause",
              2: "IMSI",
@@ -53,39 +53,39 @@ IEType = {1: "Cause",
              4: "TLLI",
              5: "P_TMSI",
              8: "IE_ReorderingRequired",
-            14: "Recovery",
-            15: "SelectionMode",
-            16: "TEIDI",
-            17: "TEICP",
-            19: "TeardownInd",
-            20: "NSAPI",
-            26: "ChargingChrt",
-            27: "TraceReference",
-            28: "TraceType",
-           127: "ChargingId",
-           128: "EndUserAddress",
-           131: "AccessPointName",
-           132: "ProtocolConfigurationOptions",
-           133: "GSNAddress",
-           134: "MSInternationalNumber",
-           135: "QoS",
-           148: "CommonFlags",
-           149: "APNRestriction",
-           151: "RatType",
-           152: "UserLocationInformation",
-           153: "MSTimeZone",
-           154: "IMEI",
-           181: "MSInfoChangeReportingAction",
-           184: "BearerControlMode",
-           191: "EvolvedAllocationRetentionPriority",
-           255: "PrivateExtention"}
+          14: "Recovery",
+          15: "SelectionMode",
+          16: "TEIDI",
+          17: "TEICP",
+          19: "TeardownInd",
+          20: "NSAPI",
+          26: "ChargingChrt",
+          27: "TraceReference",
+          28: "TraceType",
+          127: "ChargingId",
+          128: "EndUserAddress",
+          131: "AccessPointName",
+          132: "ProtocolConfigurationOptions",
+          133: "GSNAddress",
+          134: "MSInternationalNumber",
+          135: "QoS",
+          148: "CommonFlags",
+          149: "APNRestriction",
+          151: "RatType",
+          152: "UserLocationInformation",
+          153: "MSTimeZone",
+          154: "IMEI",
+          181: "MSInfoChangeReportingAction",
+          184: "BearerControlMode",
+          191: "EvolvedAllocationRetentionPriority",
+          255: "PrivateExtention"}
 
 CauseValues = {0: "Request IMSI",
-                 1: "Request IMEI",
-                 2: "Request IMSI and IMEI",
-                 3: "No identity needed",
-                 4: "MS Refuses",
-                 5: "MS is not GPRS Responding",
+               1: "Request IMEI",
+               2: "Request IMSI and IMEI",
+               3: "No identity needed",
+               4: "MS Refuses",
+               5: "MS is not GPRS Responding",
                128: "Request accepted",
                129: "New PDP type due to network preference",
                130: "New PDP type due to single address bearer only",
@@ -128,23 +128,23 @@ CauseValues = {0: "Request IMSI",
                228: "Collision with network initiated request"}
 
 Selection_Mode = {11111100: "MS or APN",
-                   11111101: "MS",
-                   11111110: "NET",
-                   11111111: "FutureUse"}
+                  11111101: "MS",
+                  11111110: "NET",
+                  11111111: "FutureUse"}
 
 TrueFalse_value = {254: "False",
                    255: "True"}
 
 # http://www.arib.or.jp/IMT-2000/V720Mar09/5_Appendix/Rel8/29/29281-800.pdf
 ExtensionHeadersTypes = {
-        0: "No more extension headers",
-        1: "Reserved",
-        2: "Reserved",
-        64: "UDP Port",
-        192: "PDCP PDU Number",
-        193: "Reserved",
-        194: "Reserved"
-    }
+    0: "No more extension headers",
+    1: "Reserved",
+    2: "Reserved",
+    64: "UDP Port",
+    192: "PDCP PDU Number",
+    193: "Reserved",
+    194: "Reserved"
+}
 
 
 class TBCDByteField(StrFixedLenField):
@@ -189,31 +189,31 @@ class GTP_ExtensionHeader(Packet):
 
 class GTP_UDPPort_ExtensionHeader(GTP_ExtensionHeader):
     fields_desc=[ByteField("length", 0x40),
-                  ShortField("udp_port", None),
-                  ByteEnumField("next_ex", 0, ExtensionHeadersTypes), ]
+                 ShortField("udp_port", None),
+                 ByteEnumField("next_ex", 0, ExtensionHeadersTypes), ]
 
 
 class GTP_PDCP_PDU_ExtensionHeader(GTP_ExtensionHeader):
     fields_desc=[ByteField("length", 0x01),
-                  ShortField("pdcp_pdu", None),
-                  ByteEnumField("next_ex", 0, ExtensionHeadersTypes), ]
+                 ShortField("pdcp_pdu", None),
+                 ByteEnumField("next_ex", 0, ExtensionHeadersTypes), ]
     
 
 class GTPHeader(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
     name = "GTP-C Header"
     fields_desc=[BitField("version", 1, 3),
-                  BitField("PT", 1, 1),
-                  BitField("reserved", 0, 1),
-                  BitField("E", 0, 1),
-                  BitField("S", 0, 1),
-                  BitField("PN", 0, 1),
-                  ByteEnumField("gtp_type", None, GTPmessageType),
-                  ShortField("length", None),
-                  IntField("teid", 0),
-                  ConditionalField(XBitField("seq", 0, 16), lambda pkt:pkt.E==1 or pkt.S==1 or pkt.PN==1),
-                  ConditionalField(ByteField("npdu", 0), lambda pkt:pkt.E==1 or pkt.S==1 or pkt.PN==1),
-                  ConditionalField(ByteEnumField("next_ex", 0, ExtensionHeadersTypes), lambda pkt:pkt.E==1 or pkt.S==1 or pkt.PN==1), ]
+                 BitField("PT", 1, 1),
+                 BitField("reserved", 0, 1),
+                 BitField("E", 0, 1),
+                 BitField("S", 0, 1),
+                 BitField("PN", 0, 1),
+                 ByteEnumField("gtp_type", None, GTPmessageType),
+                 ShortField("length", None),
+                 IntField("teid", 0),
+                 ConditionalField(XBitField("seq", 0, 16), lambda pkt:pkt.E==1 or pkt.S==1 or pkt.PN==1),
+                 ConditionalField(ByteField("npdu", 0), lambda pkt:pkt.E==1 or pkt.S==1 or pkt.PN==1),
+                 ConditionalField(ByteEnumField("next_ex", 0, ExtensionHeadersTypes), lambda pkt:pkt.E==1 or pkt.S==1 or pkt.PN==1), ]
 
     def post_build(self, p, pay):
         p += pay
@@ -262,7 +262,7 @@ GTPforcedTypes = {
     27: GTPHeader,
     254: GTP_U_Header,
     255: GTP_U_Header
-    }
+}
 
 
 class GTPEchoRequest(Packet):
@@ -294,12 +294,12 @@ class IE_IMSI(IE_Base):
 class IE_Routing(IE_Base):
     name = "Routing Area Identity"
     fields_desc = [ByteEnumField("ietype", 3, IEType),
-                    TBCDByteField("MCC", "", 2),
-                    # MNC: if the third digit of MCC is 0xf,
-                    # then the length of MNC is 1 byte
-                    TBCDByteField("MNC", "", 1),
-                    ShortField("LAC", None),
-                    ByteField("RAC", None)]
+                   TBCDByteField("MCC", "", 2),
+                   # MNC: if the third digit of MCC is 0xf,
+                   # then the length of MNC is 1 byte
+                   TBCDByteField("MNC", "", 1),
+                   ShortField("LAC", None),
+                   ByteField("RAC", None)]
 
 
 class IE_ReorderingRequired(IE_Base):
@@ -311,74 +311,74 @@ class IE_ReorderingRequired(IE_Base):
 class IE_Recovery(IE_Base):
     name = "Recovery"
     fields_desc = [ByteEnumField("ietype", 14, IEType),
-                    ByteField("restart_counter", 24)]
+                   ByteField("restart_counter", 24)]
 
 
 class IE_SelectionMode(IE_Base):
     # Indicates the origin of the APN in the message
     name = "Selection Mode"
     fields_desc = [ByteEnumField("ietype", 15, IEType),
-                    BitEnumField("SelectionMode", "MS or APN", 
-                                 8, Selection_Mode)]
+                   BitEnumField("SelectionMode", "MS or APN", 
+                                8, Selection_Mode)]
 
 
 class IE_TEIDI(IE_Base):
     name = "Tunnel Endpoint Identifier Data"
     fields_desc = [ByteEnumField("ietype", 16, IEType),
-                    XIntField("TEIDI", RandInt())]
+                   XIntField("TEIDI", RandInt())]
 
 
 class IE_TEICP(IE_Base):
     name = "Tunnel Endpoint Identifier Control Plane"
     fields_desc = [ByteEnumField("ietype", 17, IEType),
-                    XIntField("TEICI", RandInt())]
+                   XIntField("TEICI", RandInt())]
 
 
 class IE_Teardown(IE_Base):
     name = "Teardown Indicator"
     fields_desc = [ByteEnumField("ietype", 19, IEType),
-                    ByteEnumField("indicator", "True", TrueFalse_value)]
+                   ByteEnumField("indicator", "True", TrueFalse_value)]
 
 
 class IE_NSAPI(IE_Base):
     # Identifies a PDP context in a mobility management context specified by TEICP
     name = "NSAPI"
     fields_desc = [ByteEnumField("ietype", 20, IEType),
-                    XBitField("sparebits", 0x0000, 4),
-                    XBitField("NSAPI", RandNum(0, 15), 4)]
+                   XBitField("sparebits", 0x0000, 4),
+                   XBitField("NSAPI", RandNum(0, 15), 4)]
 
 
 class IE_ChargingCharacteristics(IE_Base):
     # Way of informing both the SGSN and GGSN of the rules for 
     name = "Charging Characteristics"
     fields_desc = [ByteEnumField("ietype", 26, IEType),
-                    # producing charging information based on operator configured triggers.
-                    #    0000 .... .... .... : spare
-                    #    .... 1... .... .... : normal charging
-                    #    .... .0.. .... .... : prepaid charging
-                    #    .... ..0. .... .... : flat rate charging
-                    #    .... ...0 .... .... : hot billing charging
-                    #    .... .... 0000 0000 : reserved
-                    XBitField("Ch_ChSpare", None, 4),
-                    XBitField("normal_charging", None, 1),
-                    XBitField("prepaid_charging", None, 1),
-                    XBitField("flat_rate_charging", None, 1),
-                    XBitField("hot_billing_charging", None, 1),
-                    XBitField("Ch_ChReserved", 0, 8)]
+                   # producing charging information based on operator configured triggers.
+                   #    0000 .... .... .... : spare
+                   #    .... 1... .... .... : normal charging
+                   #    .... .0.. .... .... : prepaid charging
+                   #    .... ..0. .... .... : flat rate charging
+                   #    .... ...0 .... .... : hot billing charging
+                   #    .... .... 0000 0000 : reserved
+                   XBitField("Ch_ChSpare", None, 4),
+                   XBitField("normal_charging", None, 1),
+                   XBitField("prepaid_charging", None, 1),
+                   XBitField("flat_rate_charging", None, 1),
+                   XBitField("hot_billing_charging", None, 1),
+                   XBitField("Ch_ChReserved", 0, 8)]
 
 
 class IE_TraceReference(IE_Base):
     # Identifies a record or a collection of records for a particular trace.
     name = "Trace Reference"
     fields_desc = [ByteEnumField("ietype", 27, IEType),
-                    XBitField("Trace_reference", None, 16)]
+                   XBitField("Trace_reference", None, 16)]
 
 
 class IE_TraceType(IE_Base):
     # Indicates the type of the trace
     name = "Trace Type"
     fields_desc = [ByteEnumField("ietype", 28, IEType),
-                    XBitField("Trace_type", None, 16)]
+                   XBitField("Trace_type", None, 16)]
 
 
 class IE_ChargingId(IE_Base):
@@ -391,22 +391,22 @@ class IE_EndUserAddress(IE_Base):
     # Supply protocol specific information of the external packet 
     name = "End User Addresss"
     fields_desc = [ByteEnumField("ietype", 128, IEType),
-                    #         data network accessed by the GGPRS subscribers.
-                    #            - Request
-                    #                1    Type (1byte)
-                    #                2-3    Length (2bytes) - value 2
-                    #                4    Spare + PDP Type Organization
-                    #                5    PDP Type Number    
-                    #            - Response
-                    #                6-n    PDP Address
-                    ShortField("length", 2),
-                    BitField("SPARE", 15, 4),
-                    BitField("PDPTypeOrganization", 1, 4),
-                    XByteField("PDPTypeNumber", None),
-                    ConditionalField(IPField("PDPAddress", RandIP()),
-                                     lambda pkt: pkt.length == 6 or pkt.length == 22),
-                    ConditionalField(IP6Field("IPv6_PDPAddress", '::1'),
-                                     lambda pkt: pkt.length == 18 or pkt.length == 22)]
+                   #         data network accessed by the GGPRS subscribers.
+                   #            - Request
+                   #                1    Type (1byte)
+                   #                2-3    Length (2bytes) - value 2
+                   #                4    Spare + PDP Type Organization
+                   #                5    PDP Type Number    
+                   #            - Response
+                   #                6-n    PDP Address
+                   ShortField("length", 2),
+                   BitField("SPARE", 15, 4),
+                   BitField("PDPTypeOrganization", 1, 4),
+                   XByteField("PDPTypeNumber", None),
+                   ConditionalField(IPField("PDPAddress", RandIP()),
+                                    lambda pkt: pkt.length == 6 or pkt.length == 22),
+                   ConditionalField(IP6Field("IPv6_PDPAddress", '::1'),
+                                    lambda pkt: pkt.length == 18 or pkt.length == 22)]
 
 
 class APNStrLenField(StrLenField):
@@ -434,8 +434,8 @@ class IE_AccessPointName(IE_Base):
     # Sent by SGSN or by GGSN as defined in 3GPP TS 23.060
     name = "Access Point Name"
     fields_desc = [ByteEnumField("ietype", 131, IEType),
-                    ShortField("length",  None),
-                    APNStrLenField("APN", "nternet", length_from=lambda x: x.length)]
+                   ShortField("length",  None),
+                   APNStrLenField("APN", "nternet", length_from=lambda x: x.length)]
 
     def post_build(self, p, pay):
         if self.length is None:
@@ -447,24 +447,24 @@ class IE_AccessPointName(IE_Base):
 class IE_ProtocolConfigurationOptions(IE_Base):
     name = "Protocol Configuration Options"
     fields_desc = [ByteEnumField("ietype", 132, IEType),
-            ShortField("length", 4),
-            StrLenField("Protocol_Configuration", "", 
-                        length_from=lambda x: x.length)]
+                   ShortField("length", 4),
+                   StrLenField("Protocol_Configuration", "", 
+                               length_from=lambda x: x.length)]
 
 
 class IE_GSNAddress(IE_Base):
     name = "GSN Address"
     fields_desc = [ByteEnumField("ietype", 133, IEType),
-                    ShortField("length", 4),
-                    IPField("address", RandIP())]
+                   ShortField("length", 4),
+                   IPField("address", RandIP())]
 
 
 class IE_MSInternationalNumber(IE_Base):
     name = "MS International Number"
     fields_desc = [ByteEnumField("ietype", 134, IEType),
-                    ShortField("length", None),
-                    FlagsField("flags", 0x91, 8, ["Extension", "", "", "International Number", "", "", "", "ISDN numbering"]),
-                    TBCDByteField("digits", "33607080910", length_from=lambda x: x.length-1)]
+                   ShortField("length", None),
+                   FlagsField("flags", 0x91, 8, ["Extension", "", "", "International Number", "", "", "", "ISDN numbering"]),
+                   TBCDByteField("digits", "33607080910", length_from=lambda x: x.length-1)]
 
 
 class QoS_Profile(IE_Base):
@@ -609,14 +609,14 @@ class IE_RATType(IE_Base):
 class IE_UserLocationInformation(IE_Base):
     name = "User Location Information"
     fields_desc = [ByteEnumField("ietype", 152, IEType),
-                    ShortField("length", None),
-                    ByteField("type", 1),
-                    # Only type 1 is currently supported
-                    TBCDByteField("MCC", "", 2),
-                    # MNC: if the third digit of MCC is 0xf, then the length of MNC is 1 byte
-                    TBCDByteField("MNC", "", 1),
-                    ShortField("LAC", None),
-                    ShortField("SAC", None)]
+                   ShortField("length", None),
+                   ByteField("type", 1),
+                   # Only type 1 is currently supported
+                   TBCDByteField("MCC", "", 2),
+                   # MNC: if the third digit of MCC is 0xf, then the length of MNC is 1 byte
+                   TBCDByteField("MNC", "", 1),
+                   ShortField("LAC", None),
+                   ShortField("SAC", None)]
 
 
 class IE_MSTimeZone(IE_Base):
@@ -636,8 +636,8 @@ class IE_MSTimeZone(IE_Base):
 class IE_IMEI(IE_Base):
     name = "IMEI"
     fields_desc = [ByteEnumField("ietype", 154, IEType),
-                    ShortField("length", None),
-                    TBCDByteField("IMEI", "", length_from=lambda x: x.length)]
+                   ShortField("length", None),
+                   TBCDByteField("IMEI", "", length_from=lambda x: x.length)]
 
 
 class IE_MSInfoChangeReportingAction(IE_Base):
@@ -709,8 +709,8 @@ class IE_ExtensionHeaderList(IE_Base):
 class IE_NotImplementedTLV(Packet):
     name = "IE not implemented"
     fields_desc = [ByteEnumField("ietype", 0, IEType),
-                    ShortField("length",  None),
-                    StrLenField("data", "", length_from=lambda x: x.length)]
+                   ShortField("length",  None),
+                   StrLenField("data", "", length_from=lambda x: x.length)]
 
     def extract_padding(self, pkt):
         return "", pkt
@@ -781,9 +781,9 @@ class GTPCreatePDPContextRequest(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
     name = "GTP Create PDP Context Request"
     fields_desc = [PacketListField("IE_list", [IE_TEIDI(), IE_NSAPI(), IE_GSNAddress(),
-                                                 IE_GSNAddress(),
-                                                 IE_NotImplementedTLV(ietype=135, length=15, data=RandString(15))],
-                                    IE_Dispatcher)]
+                                               IE_GSNAddress(),
+                                               IE_NotImplementedTLV(ietype=135, length=15, data=RandString(15))],
+                                   IE_Dispatcher)]
 
     def hashret(self):
         return struct.pack("H", self.seq)
@@ -805,25 +805,25 @@ class GTPUpdatePDPContextRequest(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
     name = "GTP Update PDP Context Request"
     fields_desc = [PacketListField("IE_list", [
-                       IE_Cause(),
-                       IE_Recovery(),
-                       IE_TEIDI(),
-                       IE_TEICP(),
-                       IE_ChargingId(),
-                       IE_ProtocolConfigurationOptions(),
-                       IE_GSNAddress(),
-                       IE_GSNAddress(),
-                       IE_GSNAddress(),
-                       IE_GSNAddress(),
-                       IE_QoS(),
-                       IE_CharginGatewayAddress(),
-                       IE_CharginGatewayAddress(),
-                       IE_CommonFlags(),
-                       IE_APNRestriction(),
-                       IE_BearerControlMode(),
-                       IE_MSInfoChangeReportingAction(),
-                       IE_EvolvedAllocationRetentionPriority(),
-                       IE_PrivateExtension()],
+        IE_Cause(),
+        IE_Recovery(),
+        IE_TEIDI(),
+        IE_TEICP(),
+        IE_ChargingId(),
+        IE_ProtocolConfigurationOptions(),
+        IE_GSNAddress(),
+        IE_GSNAddress(),
+        IE_GSNAddress(),
+        IE_GSNAddress(),
+        IE_QoS(),
+        IE_CharginGatewayAddress(),
+        IE_CharginGatewayAddress(),
+        IE_CommonFlags(),
+        IE_APNRestriction(),
+        IE_BearerControlMode(),
+        IE_MSInfoChangeReportingAction(),
+        IE_EvolvedAllocationRetentionPriority(),
+        IE_PrivateExtension()],
         IE_Dispatcher)]
 
     def hashret(self):
@@ -861,17 +861,17 @@ class GTPPDUNotificationRequest(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
     name = "GTP PDU Notification Request"
     fields_desc = [PacketListField("IE_list", [IE_IMSI(),
-                        IE_TEICP(TEICI=RandInt()),
-                        IE_EndUserAddress(PDPTypeNumber=0x21),
-                        IE_AccessPointName(),
-                        IE_GSNAddress(address="127.0.0.1"),
-                        ], IE_Dispatcher)]
+                                               IE_TEICP(TEICI=RandInt()),
+                                               IE_EndUserAddress(PDPTypeNumber=0x21),
+                                               IE_AccessPointName(),
+                                               IE_GSNAddress(address="127.0.0.1"),
+                                               ], IE_Dispatcher)]
 
 
 class GTPSupportedExtensionHeadersNotification(Packet):
     name = "GTP Supported Extension Headers Notification"
     fields_desc = [PacketListField("IE_list", [IE_ExtensionHeaderList(),
-                        ], IE_Dispatcher)]
+                                               ], IE_Dispatcher)]
 
 
 class GTPErrorIndication(Packet):
@@ -883,7 +883,7 @@ class GTPmorethan1500(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
     name = "GTP More than 1500"
     fields_desc = [ByteEnumField("IE_Cause", "Cause", IEType),
-                    BitField("IE", 1, 12000), ]
+                   BitField("IE", 1, 12000), ]
 
 
 # Bind GTP-C

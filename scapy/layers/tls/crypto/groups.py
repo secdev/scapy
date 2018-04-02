@@ -419,22 +419,22 @@ class ffdhe8192(_FFDHParams): # From RFC 7919
 
 
 _tls_named_ffdh_groups = {256: "ffdhe2048", 257: "ffdhe3072",
-                           258: "ffdhe4096", 259: "ffdhe6144",
-                           260: "ffdhe8192"}
+                          258: "ffdhe4096", 259: "ffdhe6144",
+                          260: "ffdhe8192"}
 
 _tls_named_curves = {1: "sect163k1",  2: "sect163r1",  3: "sect163r2",
-                       4: "sect193r1",  5: "sect193r2",  6: "sect233k1",
-                       7: "sect233r1",  8: "sect239k1",  9: "sect283k1",
-                      10: "sect283r1", 11: "sect409k1", 12: "sect409r1",
-                      13: "sect571k1", 14: "sect571r1", 15: "secp160k1",
-                      16: "secp160r1", 17: "secp160r2", 18: "secp192k1",
-                      19: "secp192r1", 20: "secp224k1", 21: "secp224r1",
-                      22: "secp256k1", 23: "secp256r1", 24: "secp384r1",
-                      25: "secp521r1", 26: "brainpoolP256r1",
-                      27: "brainpoolP384r1", 28: "brainpoolP512r1",
-                      29: "x25519",    30: "x448",
-                      0xff01: "arbitrary_explicit_prime_curves",
-                      0xff02: "arbitrary_explicit_char2_curves"}
+                     4: "sect193r1",  5: "sect193r2",  6: "sect233k1",
+                     7: "sect233r1",  8: "sect239k1",  9: "sect283k1",
+                     10: "sect283r1", 11: "sect409k1", 12: "sect409r1",
+                     13: "sect571k1", 14: "sect571r1", 15: "secp160k1",
+                     16: "secp160r1", 17: "secp160r2", 18: "secp192k1",
+                     19: "secp192r1", 20: "secp224k1", 21: "secp224r1",
+                     22: "secp256k1", 23: "secp256r1", 24: "secp384r1",
+                     25: "secp521r1", 26: "brainpoolP256r1",
+                     27: "brainpoolP384r1", 28: "brainpoolP512r1",
+                     29: "x25519",    30: "x448",
+                     0xff01: "arbitrary_explicit_prime_curves",
+                     0xff02: "arbitrary_explicit_char2_curves"}
 
 _tls_named_groups = {}
 _tls_named_groups.update(_tls_named_ffdh_groups)

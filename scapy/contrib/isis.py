@@ -651,11 +651,11 @@ class _AdjacencyStateTlvLenField(Field):
 class ISIS_P2PAdjacencyStateTlv(ISIS_GenericTlv):
     name = "ISIS P2P Adjacency State TLV"
     fields_desc = [ByteEnumField("type", 240, _isis_tlv_names),
-               _AdjacencyStateTlvLenField("len", None, fmt="B"),
-               ByteEnumField("state", "Down", {0x2: "Down", 0x1: "Initialising", 0x0: "Up"}),
-               ConditionalField(IntField("extlocalcircuitid", None), lambda pkt: pkt.len >= 5),
-               ConditionalField(ISIS_SystemIdField("neighboursystemid", None), lambda pkt: pkt.len >= 11),
-               ConditionalField(IntField("neighbourextlocalcircuitid", None), lambda pkt: pkt.len == 15)]
+                   _AdjacencyStateTlvLenField("len", None, fmt="B"),
+                   ByteEnumField("state", "Down", {0x2: "Down", 0x1: "Initialising", 0x0: "Up"}),
+                   ConditionalField(IntField("extlocalcircuitid", None), lambda pkt: pkt.len >= 5),
+                   ConditionalField(ISIS_SystemIdField("neighboursystemid", None), lambda pkt: pkt.len >= 11),
+                   ConditionalField(IntField("neighbourextlocalcircuitid", None), lambda pkt: pkt.len == 15)]
 
 
 # TODO dynamically allocate sufficient size

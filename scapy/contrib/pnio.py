@@ -43,7 +43,7 @@ PNIO_FRAME_IDS = {
     0xFF41: "PTCP-DelayResPDU-followup",
     0xFF42: "PTCP-DelayFuResPDU",
     0xFF43: "PTCP-DelayResPDU",
-    }
+}
 for i in range(0x0100, 0x1000):
     PNIO_FRAME_IDS[i] = "RT_CLASS_3"
 for i in range(0x8000, 0xC000):
@@ -64,7 +64,7 @@ class ProfinetIO(Packet):
     overload_fields = {
         Ether: {"type": 0x8892},
         UDP: {"dport": 0x8892},
-        }
+    }
 
     def guess_payload_class(self, payload):
         # For frameID in the RT_CLASS_* range, use the RTC packet as payload

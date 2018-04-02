@@ -158,7 +158,7 @@ def load_mib(filenames):
 ####### pkcs1 #######
 
 pkcs1_oids = {
-        "rsaEncryption": "1.2.840.113549.1.1.1",
+    "rsaEncryption": "1.2.840.113549.1.1.1",
         "md2WithRSAEncryption": "1.2.840.113549.1.1.2",
         "md4WithRSAEncryption": "1.2.840.113549.1.1.3",
         "md5WithRSAEncryption": "1.2.840.113549.1.1.4",
@@ -172,18 +172,18 @@ pkcs1_oids = {
         "sha384WithRSAEncryption": "1.2.840.113549.1.1.12",
         "sha512WithRSAEncryption": "1.2.840.113549.1.1.13",
         "sha224WithRSAEncryption": "1.2.840.113549.1.1.14"
-        }
+}
 
 ####### secsig oiw #######
 
 secsig_oids = {
-        "sha1": "1.3.14.3.2.26"
-        }
+    "sha1": "1.3.14.3.2.26"
+}
 
 ####### pkcs9 #######
 
 pkcs9_oids = {
-        "modules": "1.2.840.113549.1.9.0",
+    "modules": "1.2.840.113549.1.9.0",
         "emailAddress": "1.2.840.113549.1.9.1",
         "unstructuredName": "1.2.840.113549.1.9.2",
         "contentType": "1.2.840.113549.1.9.3",
@@ -207,12 +207,12 @@ pkcs9_oids = {
         "pkcs-9-sx": "1.2.840.113549.1.9.26",
         "pkcs-9-mr": "1.2.840.113549.1.9.27",
         "id-aa-CMSAlgorithmProtection": "1.2.840.113549.1.9.52"
-        }
+}
 
 ####### x509 #######
 
 attributeType_oids = {
-        "objectClass": "2.5.4.0",
+    "objectClass": "2.5.4.0",
         "aliasedEntryName": "2.5.4.1",
         "knowledgeInformation": "2.5.4.2",
         "commonName": "2.5.4.3",
@@ -310,10 +310,10 @@ attributeType_oids = {
         "ldapUrl": "2.5.4.95",
         "ldapUrl": "2.5.4.96",
         "organizationIdentifier": "2.5.4.97"
-        }
+}
 
 certificateExtension_oids = {
-        "authorityKeyIdentifier": "2.5.29.1",
+    "authorityKeyIdentifier": "2.5.29.1",
         "keyAttributes": "2.5.29.2",
         "certificatePolicies": "2.5.29.3",
         "keyUsageRestriction": "2.5.29.4",
@@ -379,10 +379,10 @@ certificateExtension_oids = {
         "id-ce-allowedAttAss": "2.5.29.67",
         "id-ce-attributeMappings": "2.5.29.68",
         "id-ce-holderNameConstraints": "2.5.29.69"
-        }
+}
 
 certExt_oids = {
-        "cert-type": "2.16.840.1.113730.1.1",
+    "cert-type": "2.16.840.1.113730.1.1",
         "base-url": "2.16.840.1.113730.1.2",
         "revocation-url": "2.16.840.1.113730.1.3",
         "ca-revocation-url": "2.16.840.1.113730.1.4",
@@ -399,25 +399,25 @@ certExt_oids = {
         "cert-renewal-time": "2.16.840.1.113730.1.15",
         "aia": "2.16.840.1.113730.1.16",
         "cert-scope-of-use": "2.16.840.1.113730.1.17",
-        }
+}
 
 certPkixPe_oids = {
-        "authorityInfoAccess": "1.3.6.1.5.5.7.1.1",
+    "authorityInfoAccess": "1.3.6.1.5.5.7.1.1",
         "biometricInfo": "1.3.6.1.5.5.7.1.2",
         "qcStatements": "1.3.6.1.5.5.7.1.3",
         "auditIdentity": "1.3.6.1.5.5.7.1.4",
         "aaControls": "1.3.6.1.5.5.7.1.6",
         "proxying": "1.3.6.1.5.5.7.1.10",
         "subjectInfoAccess": "1.3.6.1.5.5.7.1.11"
-        }
+}
 
 certPkixQt_oids = {
-        "cps": "1.3.6.1.5.5.7.2.1",
+    "cps": "1.3.6.1.5.5.7.2.1",
         "unotice": "1.3.6.1.5.5.7.2.2"
-        }
+}
 
 certPkixKp_oids = {
-        "serverAuth": "1.3.6.1.5.5.7.3.1",
+    "serverAuth": "1.3.6.1.5.5.7.3.1",
         "clientAuth": "1.3.6.1.5.5.7.3.2",
         "codeSigning": "1.3.6.1.5.5.7.3.3",
         "emailProtection": "1.3.6.1.5.5.7.3.4",
@@ -429,10 +429,10 @@ certPkixKp_oids = {
         "dvcs": "1.3.6.1.5.5.7.3.10",
         "secureShellClient": "1.3.6.1.5.5.7.3.21",
         "secureShellServer": "1.3.6.1.5.5.7.3.22"
-        }
+}
 
 certPkixAd_oids = {
-        "ocsp": "1.3.6.1.5.5.7.48.1",
+    "ocsp": "1.3.6.1.5.5.7.48.1",
         "caIssuers": "1.3.6.1.5.5.7.48.2",
         "timestamping": "1.3.6.1.5.5.7.48.3",
         "id-ad-dvcs": "1.3.6.1.5.5.7.48.4",
@@ -441,39 +441,39 @@ certPkixAd_oids = {
         "id-pkix-ocsp-service-locator": "1.3.6.1.5.5.7.48.7",
         "id-ad-cmc": "1.3.6.1.5.5.7.48.12",
         "basic-response": "1.3.6.1.5.5.7.48.1.1"
-        }
+}
 
 ####### ansi-x962 #######
 
 x962KeyType_oids = {
-        "prime-field": "1.2.840.10045.1.1",
+    "prime-field": "1.2.840.10045.1.1",
         "characteristic-two-field": "1.2.840.10045.1.2",
         "ecPublicKey": "1.2.840.10045.2.1",
-        }
+}
 
 x962Signature_oids = {
-        "ecdsa-with-SHA1": "1.2.840.10045.4.1",
+    "ecdsa-with-SHA1": "1.2.840.10045.4.1",
         "ecdsa-with-Recommended": "1.2.840.10045.4.2",
         "ecdsa-with-SHA224": "1.2.840.10045.4.3.1",
         "ecdsa-with-SHA256": "1.2.840.10045.4.3.2",
         "ecdsa-with-SHA384": "1.2.840.10045.4.3.3",
         "ecdsa-with-SHA512": "1.2.840.10045.4.3.4"
-        }
+}
 
 ####### elliptic curves #######
 
 ansiX962Curve_oids = {
-        "prime192v1": "1.2.840.10045.3.1.1",
+    "prime192v1": "1.2.840.10045.3.1.1",
         "prime192v2": "1.2.840.10045.3.1.2",
         "prime192v3": "1.2.840.10045.3.1.3",
         "prime239v1": "1.2.840.10045.3.1.4",
         "prime239v2": "1.2.840.10045.3.1.5",
         "prime239v3": "1.2.840.10045.3.1.6",
         "prime256v1": "1.2.840.10045.3.1.7"
-        }
+}
 
 certicomCurve_oids = {
-        "ansit163k1": "1.3.132.0.1",
+    "ansit163k1": "1.3.132.0.1",
         "ansit163r1": "1.3.132.0.2",
         "ansit239k1": "1.3.132.0.3",
         "sect113r1": "1.3.132.0.4",
@@ -503,17 +503,17 @@ certicomCurve_oids = {
         "ansit409r1": "1.3.132.0.37",
         "ansit571k1": "1.3.132.0.38",
         "ansit571r1": "1.3.132.0.39"
-        }
+}
 
 ####### policies #######
 
 certPolicy_oids = {
-        "anyPolicy": "2.5.29.32.0"
-        }
+    "anyPolicy": "2.5.29.32.0"
+}
 
 # from Chromium source code (ev_root_ca_metadata.cc)
 evPolicy_oids = {
-        "EV AC Camerfirma S.A. Chambers of Commerce Root - 2008": "1.3.6.1.4.1.17326.10.14.2.1.2",
+    "EV AC Camerfirma S.A. Chambers of Commerce Root - 2008": "1.3.6.1.4.1.17326.10.14.2.1.2",
         "EV AC Camerfirma S.A. Chambers of Commerce Root - 2008": "1.3.6.1.4.1.17326.10.14.2.2.2",
         "EV AC Camerfirma S.A. Global Chambersign Root - 2008": "1.3.6.1.4.1.17326.10.8.12.1.2",
         "EV AC Camerfirma S.A. Global Chambersign Root - 2008": "1.3.6.1.4.1.17326.10.8.12.2.2",
@@ -563,27 +563,27 @@ evPolicy_oids = {
         "jurisdictionOfIncorporationLocalityName": "1.3.6.1.4.1.311.60.2.1.1",
         "jurisdictionOfIncorporationStateOrProvinceName": "1.3.6.1.4.1.311.60.2.1.2",
         "jurisdictionOfIncorporationCountryName": "1.3.6.1.4.1.311.60.2.1.3"
-        }
+}
 
 
 x509_oids_sets = [
-                 pkcs1_oids,
-                 secsig_oids,
-                 pkcs9_oids,
-                 attributeType_oids,
-                 certificateExtension_oids,
-                 certExt_oids,
-                 certPkixPe_oids,
-                 certPkixQt_oids,
-                 certPkixKp_oids,
-                 certPkixAd_oids,
-                 certPolicy_oids,
-                 evPolicy_oids,
-                 x962KeyType_oids,
-                 x962Signature_oids,
-                 ansiX962Curve_oids,
-                 certicomCurve_oids
-                 ]
+    pkcs1_oids,
+    secsig_oids,
+    pkcs9_oids,
+    attributeType_oids,
+    certificateExtension_oids,
+    certExt_oids,
+    certPkixPe_oids,
+    certPkixQt_oids,
+    certPkixKp_oids,
+    certPkixAd_oids,
+    certPolicy_oids,
+    evPolicy_oids,
+    x962KeyType_oids,
+    x962Signature_oids,
+    ansiX962Curve_oids,
+    certicomCurve_oids
+]
 
 x509_oids = {}
 
@@ -601,7 +601,7 @@ conf.mib = MIBDict(_name="MIB", **x509_oids)
 # of some algorithms from pkcs1_oids and x962Signature_oids.
 
 hash_by_oid = {
-        "1.2.840.113549.1.1.2": "md2",
+    "1.2.840.113549.1.1.2": "md2",
         "1.2.840.113549.1.1.3": "md4",
         "1.2.840.113549.1.1.4": "md5",
         "1.2.840.113549.1.1.5": "sha1",
@@ -614,5 +614,5 @@ hash_by_oid = {
         "1.2.840.10045.4.3.2": "sha256",
         "1.2.840.10045.4.3.3": "sha384",
         "1.2.840.10045.4.3.4": "sha512"
-        }
+}
 

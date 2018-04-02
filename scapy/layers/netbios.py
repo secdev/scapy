@@ -28,7 +28,7 @@ class NetBIOS_DS(Packet):
         ShortField("ofs", 0),
         NetBIOSNameField("srcname", ""),
         NetBIOSNameField("dstname", ""),
-        ]
+    ]
 
     def post_build(self, p, pay):
         p += pay

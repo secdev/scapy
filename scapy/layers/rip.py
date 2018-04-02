@@ -20,7 +20,7 @@ class RIP(Packet):
                                  9: "updateReq", 10: "updateResp", 11: "updateAck"}),
         ByteField("version", 1),
         ShortField("null", 0),
-        ]
+    ]
 
     def guess_payload_class(self, payload):
         if payload[:2] == b"\xff\xff":
@@ -38,7 +38,7 @@ class RIPEntry(RIP):
         IPField("mask", "0.0.0.0"),
         IPField("nextHop", "0.0.0.0"),
         IntEnumField("metric", 1, {16: "Unreach"}),
-        ]
+    ]
 
 
 class RIPAuth(Packet):
@@ -47,21 +47,21 @@ class RIPAuth(Packet):
         ShortEnumField("AF", 0xffff, {0xffff: "Auth"}),
         ShortEnumField("authtype", 2, {1: "md5authdata", 2: "simple", 3: "md5"}),
         ConditionalField(StrFixedLenField("password", None, 16),
-                                        lambda pkt: pkt.authtype == 2),
+                         lambda pkt: pkt.authtype == 2),
         ConditionalField(ShortField("digestoffset", 0),
-                                        lambda pkt: pkt.authtype == 3),
+                         lambda pkt: pkt.authtype == 3),
         ConditionalField(ByteField("keyid", 0),
-                                        lambda pkt: pkt.authtype == 3),
+                         lambda pkt: pkt.authtype == 3),
         ConditionalField(ByteField("authdatalen", 0),
-                                        lambda pkt: pkt.authtype == 3),
+                         lambda pkt: pkt.authtype == 3),
         ConditionalField(IntField("seqnum", 0),
-                                        lambda pkt: pkt.authtype == 3),
+                         lambda pkt: pkt.authtype == 3),
         ConditionalField(StrFixedLenField("zeropad", None, 8),
-                                        lambda pkt: pkt.authtype == 3),
+                         lambda pkt: pkt.authtype == 3),
         ConditionalField(StrLenField("authdata", None,
-                                length_from=lambda pkt: pkt.md5datalen),
-                                        lambda pkt: pkt.authtype == 1)
-        ]
+                                     length_from=lambda pkt: pkt.md5datalen),
+                         lambda pkt: pkt.authtype == 1)
+    ]
 
     def pre_dissect(self, s):
         if s[2:4] == b"\x00\x01":

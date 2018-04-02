@@ -408,13 +408,13 @@ class CryptAlgo(object):
         padding = data[len(data) - padlen - 2: len(data) - 2]
 
         return _ESPPlain(spi=esp.spi,
-                        seq=esp.seq,
-                        iv=iv,
-                        data=data,
-                        padding=padding,
-                        padlen=padlen,
-                        nh=nh,
-                        icv=icv)
+                         seq=esp.seq,
+                         iv=iv,
+                         data=data,
+                         padding=padding,
+                         padlen=padlen,
+                         nh=nh,
+                         icv=icv)
 
 #------------------------------------------------------------------------------
 # The names of the encryption algorithms are the same than in scapy.contrib.ikev2
@@ -629,10 +629,10 @@ if HMAC and hashes:
                                          icv_size=12)
 if CMAC and algorithms:
     AUTH_ALGOS['AES-CMAC-96'] = AuthAlgo('AES-CMAC-96',
-                                      mac=CMAC,
-                                      digestmod=algorithms.AES,
-                                      icv_size=12,
-                                      key_size=(16,))
+                                         mac=CMAC,
+                                         digestmod=algorithms.AES,
+                                         icv_size=12,
+                                         key_size=(16,))
 
 #------------------------------------------------------------------------------
 

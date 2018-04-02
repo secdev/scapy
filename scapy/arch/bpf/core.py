@@ -71,8 +71,8 @@ def get_if_raw_hwaddr(ifname):
 
     # Get MAC addresses
     addresses = [l for l in fd.readlines() if l.find("ether") >= 0 or
-                                              l.find("lladdr") >= 0 or
-                                              l.find("address") >= 0]
+                 l.find("lladdr") >= 0 or
+                 l.find("address") >= 0]
     if not addresses:
         raise Scapy_Exception("No MAC address found on %s !" % ifname)
 
@@ -133,7 +133,7 @@ def get_if_list():
 
     # Get interfaces
     interfaces = [line[:line.find(':')] for line in fd.readlines()
-                                        if ": flags" in line.lower()]
+                  if ": flags" in line.lower()]
     return interfaces
 
 
