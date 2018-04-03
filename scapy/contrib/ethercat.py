@@ -374,7 +374,7 @@ class EtherCatAPRD(EtherCatType12DLPDU):
     """
 
     fields_desc = [ByteField('_cmd', 0x01)] + \
-                  EtherCatType12DLPDU.PHYSICAL_ADDRESSING_DESC
+        EtherCatType12DLPDU.PHYSICAL_ADDRESSING_DESC
 
 
 class EtherCatFPRD(EtherCatType12DLPDU):
@@ -384,7 +384,7 @@ class EtherCatFPRD(EtherCatType12DLPDU):
     """
 
     fields_desc = [ByteField('_cmd', 0x04)] + \
-                  EtherCatType12DLPDU.PHYSICAL_ADDRESSING_DESC
+        EtherCatType12DLPDU.PHYSICAL_ADDRESSING_DESC
 
 
 class EtherCatBRD(EtherCatType12DLPDU):
@@ -394,7 +394,7 @@ class EtherCatBRD(EtherCatType12DLPDU):
     """
 
     fields_desc = [ByteField('_cmd', 0x07)] + \
-                  EtherCatType12DLPDU.BROADCAST_ADDRESSING_DESC
+        EtherCatType12DLPDU.BROADCAST_ADDRESSING_DESC
 
 
 class EtherCatLRD(EtherCatType12DLPDU):
@@ -404,7 +404,7 @@ class EtherCatLRD(EtherCatType12DLPDU):
     """
 
     fields_desc = [ByteField('_cmd', 0x0a)] + \
-                  EtherCatType12DLPDU.LOGICAL_ADDRESSING_DESC
+        EtherCatType12DLPDU.LOGICAL_ADDRESSING_DESC
 
 
 #################
@@ -419,7 +419,7 @@ class EtherCatAPWR(EtherCatType12DLPDU):
     """
 
     fields_desc = [ByteField('_cmd', 0x02)] + \
-                  EtherCatType12DLPDU.PHYSICAL_ADDRESSING_DESC
+        EtherCatType12DLPDU.PHYSICAL_ADDRESSING_DESC
 
 
 class EtherCatFPWR(EtherCatType12DLPDU):
@@ -429,7 +429,7 @@ class EtherCatFPWR(EtherCatType12DLPDU):
     """
 
     fields_desc = [ByteField('_cmd', 0x05)] + \
-                  EtherCatType12DLPDU.PHYSICAL_ADDRESSING_DESC
+        EtherCatType12DLPDU.PHYSICAL_ADDRESSING_DESC
 
 
 class EtherCatBWR(EtherCatType12DLPDU):
@@ -438,7 +438,7 @@ class EtherCatBWR(EtherCatType12DLPDU):
     """
 
     fields_desc = [ByteField('_cmd', 0x08)] + \
-                  EtherCatType12DLPDU.BROADCAST_ADDRESSING_DESC
+        EtherCatType12DLPDU.BROADCAST_ADDRESSING_DESC
 
 
 class EtherCatLWR(EtherCatType12DLPDU):
@@ -448,7 +448,7 @@ class EtherCatLWR(EtherCatType12DLPDU):
     """
 
     fields_desc = [ByteField('_cmd', 0x0b)] + \
-                  EtherCatType12DLPDU.LOGICAL_ADDRESSING_DESC
+        EtherCatType12DLPDU.LOGICAL_ADDRESSING_DESC
 
 
 ######################
@@ -463,7 +463,7 @@ class EtherCatAPRW(EtherCatType12DLPDU):
     """
 
     fields_desc = [ByteField('_cmd', 0x03)] + \
-                  EtherCatType12DLPDU.PHYSICAL_ADDRESSING_DESC
+        EtherCatType12DLPDU.PHYSICAL_ADDRESSING_DESC
 
 
 class EtherCatFPRW(EtherCatType12DLPDU):
@@ -473,7 +473,7 @@ class EtherCatFPRW(EtherCatType12DLPDU):
     """
 
     fields_desc = [ByteField('_cmd', 0x06)] + \
-                  EtherCatType12DLPDU.PHYSICAL_ADDRESSING_DESC
+        EtherCatType12DLPDU.PHYSICAL_ADDRESSING_DESC
 
 
 class EtherCatBRW(EtherCatType12DLPDU):
@@ -483,7 +483,7 @@ class EtherCatBRW(EtherCatType12DLPDU):
     """
 
     fields_desc = [ByteField('_cmd', 0x09)] + \
-                  EtherCatType12DLPDU.BROADCAST_ADDRESSING_DESC
+        EtherCatType12DLPDU.BROADCAST_ADDRESSING_DESC
 
 
 class EtherCatLRW(EtherCatType12DLPDU):
@@ -493,7 +493,7 @@ class EtherCatLRW(EtherCatType12DLPDU):
     """
 
     fields_desc = [ByteField('_cmd', 0x0c)] + \
-                  EtherCatType12DLPDU.LOGICAL_ADDRESSING_DESC
+        EtherCatType12DLPDU.LOGICAL_ADDRESSING_DESC
 
 
 class EtherCatARMW(EtherCatType12DLPDU):
@@ -503,7 +503,7 @@ class EtherCatARMW(EtherCatType12DLPDU):
     """
 
     fields_desc = [ByteField('_cmd', 0x0d)] + \
-                  EtherCatType12DLPDU.PHYSICAL_ADDRESSING_DESC
+        EtherCatType12DLPDU.PHYSICAL_ADDRESSING_DESC
 
 
 class EtherCatFRMW(EtherCatType12DLPDU):
@@ -513,7 +513,7 @@ class EtherCatFRMW(EtherCatType12DLPDU):
     """
 
     fields_desc = [ByteField('_cmd', 0x0e)] + \
-                  EtherCatType12DLPDU.PHYSICAL_ADDRESSING_DESC
+        EtherCatType12DLPDU.PHYSICAL_ADDRESSING_DESC
 
 
 class EtherCat(Packet):
@@ -624,6 +624,7 @@ class EtherCat(Packet):
                 '{}.guess_payload_class() - unknown or invalid '
                 'DLPDU type'.format(self.__class__.__name__))
             return Packet.guess_payload_class(self, payload)
+
 
 bind_layers(Ether, EtherCat, type=0x88a4)
 bind_layers(Dot1Q, EtherCat, type=0x88a4)
