@@ -6,4 +6,5 @@ MANIFEST
 *.egg-info/
 scapy/VERSION
 test/*.html
+.tox
 doc/scapy/_build
