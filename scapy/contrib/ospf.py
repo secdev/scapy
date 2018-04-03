@@ -250,7 +250,7 @@ class OSPF_Link(Packet):
 def _LSAGuessPayloadClass(p, **kargs):
     """ Guess the correct LSA class for a given payload """
     # This is heavily based on scapy-cdp.py by Nicolas Bareil and Arnaud Ebalard
-    
+
     cls = conf.raw_layer
     if len(p) >= 4:
         typ = orb(p[3])

@@ -62,7 +62,7 @@ def autorun_commands(cmds, my_globals=None, ignore_globals=None, verb=0):
                     sys.stderr.write(sys.__dict__.get("ps2", "... "))
                 else:
                     sys.stderr.write(str(sys.__dict__.get("ps1", sys.ps1)))
-                    
+
                 l = cmds.pop()
                 print(l)
                 cmd += "\n"+l
@@ -90,7 +90,7 @@ def autorun_get_interactive_session(cmds, **kargs):
 
         def flush(self):
             pass
-            
+
     sw = StringWriter()
     sstdout, sstderr = sys.stdout, sys.stderr
     try:
@@ -137,7 +137,7 @@ def autorun_get_html_interactive_session(cmds, **kargs):
             raise
     finally:
         conf.color_theme = ct
-    
+
     return to_html(s), res
 
 

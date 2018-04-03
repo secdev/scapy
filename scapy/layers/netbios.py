@@ -36,7 +36,7 @@ class NetBIOS_DS(Packet):
             l = len(p)-14
             p = p[:10]+struct.pack("!H", l)+p[12:]
         return p
-        
+
 #        ShortField("length",0),
 #        ShortField("Delimitor",0),
 #        ByteField("command",0),
@@ -46,7 +46,7 @@ class NetBIOS_DS(Packet):
 #        ShortField("RSPCor",0),
 #        StrFixedLenField("dest","",16),
 #        StrFixedLenField("source","",16),
-#        
+#
 #        ]
 #
 
@@ -125,7 +125,7 @@ class NBNSQueryResponse(Packet):
 
 class NBNSQueryResponseNegative(Packet):
     name="NBNS query response (negative)"
-    fields_desc = [ShortField("NAME_TRN_ID", 0), 
+    fields_desc = [ShortField("NAME_TRN_ID", 0),
                    ShortField("FLAGS", 0x8506),
                    ShortField("QDCOUNT", 0),
                    ShortField("ANCOUNT", 1),
@@ -142,13 +142,13 @@ class NBNSQueryResponseNegative(Packet):
                    BitEnumField("OWNER_NODE_TYPE", 00, 2, {0: "B node", 1: "P node", 2: "M node", 3: "H node"}),
                    BitEnumField("UNUSED", 0, 13, {0: "Unused"}),
                    IPField("NB_ADDRESS", "127.0.0.1")]
-    
+
 # Node Status Response
 
 
 class NBNSNodeStatusResponse(Packet):
     name="NBNS Node Status Response"
-    fields_desc = [ShortField("NAME_TRN_ID", 0), 
+    fields_desc = [ShortField("NAME_TRN_ID", 0),
                    ShortField("FLAGS", 0x8500),
                    ShortField("QDCOUNT", 0),
                    ShortField("ANCOUNT", 1),
@@ -217,7 +217,7 @@ class NBTDatagram(Packet):
                   NetBIOSNameField("DestinationName", "windows"),
                   ShortEnumField("SUFFIX2", 0x4141, {0x4141: "workstation", 0x4141+0x03: "messenger service", 0x4141+0x200: "file server service", 0x4141+0x10b: "domain master browser", 0x4141+0x10c: "domain controller", 0x4141+0x10e: "browser election service"}),
                   ByteField("NULL", 0)]
-    
+
 
 class NBTSession(Packet):
     name="NBT Session Packet"

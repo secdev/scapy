@@ -18,7 +18,7 @@
 # scapy.contrib.status = loads
 
 """
-CACE PPI types 
+CACE PPI types
 """
 import logging, struct
 from scapy.config import conf

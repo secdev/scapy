@@ -233,7 +233,7 @@ class L2CAP_InfoResp(Packet):
     def answers(self, other):
         return self.type == other.type
 
-    
+
 class L2CAP_Connection_Parameter_Update_Request(Packet):
     name = "L2CAP Connection Parameter Update Request"
     fields_desc = [LEShortField("min_interval", 0),
@@ -241,7 +241,7 @@ class L2CAP_Connection_Parameter_Update_Request(Packet):
                    LEShortField("slave_latency", 0),
                    LEShortField("timeout_mult", 0), ]
 
-    
+
 class L2CAP_Connection_Parameter_Update_Response(Packet):
     name = "L2CAP Connection Parameter Update Response"
     fields_desc = [LEShortField("move_result", 0), ]
@@ -417,7 +417,7 @@ class SM_Master_Identification(Packet):
     name = "Master Identification"
     fields_desc = [XLEShortField("ediv", 0),
                    StrFixedLenField("rand", b'\x00' * 8, 8), ]
-    
+
 
 class SM_Identity_Information(Packet):
     name = "Identity Information"
@@ -428,7 +428,7 @@ class SM_Identity_Address_Information(Packet):
     name = "Identity Address Information"
     fields_desc = [ByteEnumField("atype", 0, {0: "public"}),
                    LEMACField("address", None), ]
-    
+
 
 class SM_Signing_Information(Packet):
     name = "Signing Information"
@@ -625,7 +625,7 @@ class HCI_Cmd_LE_Create_Connection(Packet):
                    LEShortField("timeout", 42),
                    LEShortField("min_ce", 0),
                    LEShortField("max_ce", 0), ]
-    
+
 
 class HCI_Cmd_LE_Create_Connection_Cancel(Packet):
     name = "LE Create Connection Cancel"

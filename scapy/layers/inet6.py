@@ -115,7 +115,7 @@ def getmacbyip6(ip6, chainCC=0):
     (chainCC parameter value ends up being passed to sending function
      used to perform the resolution, if needed)
     """
-    
+
     if isinstance(ip6, Net6):
         ip6 = str(ip6)
 
@@ -1160,7 +1160,7 @@ class IPv6ExtHdrSegmentRouting(_IPv6ExtHdr):
         if self.lastentry is None:
             pkt = pkt[:4] + struct.pack("B", len(self.addresses)) + pkt[5:]
 
-        return _IPv6ExtHdr.post_build(self, pkt, pay) 
+        return _IPv6ExtHdr.post_build(self, pkt, pay)
 
 
 ########################### Fragmentation Header ############################
@@ -1652,7 +1652,7 @@ class ICMPv6MLQuery2(_ICMPv6): # RFC 3810
                                 count_from=lambda pkt: pkt.sources_number)]
 
     # RFC8810 - 4. Message Formats
-    overload_fields = {IPv6: {"dst": "ff02::1", "hlim": 1, "nh": 58}} 
+    overload_fields = {IPv6: {"dst": "ff02::1", "hlim": 1, "nh": 58}}
 
     def post_build(self, packet, payload):
         """Compute the 'sources_number' field when needed"""
@@ -1664,7 +1664,7 @@ class ICMPv6MLQuery2(_ICMPv6): # RFC 3810
 
 class ICMPv6MLDMultAddrRec(Packet):
     name = "ICMPv6 MLDv2 - Multicast Address Record"
-    fields_desc = [ByteField("rtype", 4), 
+    fields_desc = [ByteField("rtype", 4),
                    FieldLenField("auxdata_len", None,
                                  length_of="auxdata",
                                  fmt="B"),
@@ -3414,7 +3414,7 @@ class  AS_resolver6(AS_resolver_riswhois):
             except ValueError:
                 pass
 
-        return ip, asn, desc        
+        return ip, asn, desc
 
 
 class TracerouteResult6(TracerouteResult):
@@ -3458,10 +3458,10 @@ class TracerouteResult6(TracerouteResult):
 
     def graph(self, ASres=AS_resolver6(), **kargs):
         TracerouteResult.graph(self, ASres=ASres, **kargs)
-    
+
 
 @conf.commands.register
-def traceroute6(target, dport=80, minttl=1, maxttl=30, sport=RandShort(), 
+def traceroute6(target, dport=80, minttl=1, maxttl=30, sport=RandShort(),
                 l4 = None, timeout=2, verbose=None, **kargs):
     """Instant TCP traceroute using IPv6
     traceroute6(target, [maxttl=30], [dport=80], [sport=80]) -> None

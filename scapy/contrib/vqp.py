@@ -54,9 +54,9 @@ class VQPEntry(Packet):
             ConditionalField(MACField("data", "00:00:00:00:00:00"),
                              lambda p: p.datatype==3078),
             ConditionalField(MACField("data", "00:00:00:00:00:00"),
-                             lambda p: p.datatype==3080), 
+                             lambda p: p.datatype==3080),
             ConditionalField(StrLenField("data", None,
-                                         length_from=lambda p: p.len), 
+                                         length_from=lambda p: p.len),
                              lambda p: p.datatype not in [3073, 3078, 3080]),
         ]
 

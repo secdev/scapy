@@ -24,10 +24,10 @@ from scapy.data import DLT_IEEE802_11_RADIO_AVS
 
 AVSWLANPhyType =  {0: "Unknown",
                    1: "FHSS 802.11 '97",
-                   2: "DSSS 802.11 '97", 
+                   2: "DSSS 802.11 '97",
                    3: "IR Baseband",
                    4: "DSSS 802.11b",
-                   5: "PBCC 802.11b", 
+                   5: "PBCC 802.11b",
                    6: "OFDM 802.11g",
                    7: "PBCC 802.11g",
                    8: "OFDM 802.11a"}

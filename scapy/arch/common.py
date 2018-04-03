@@ -68,7 +68,7 @@ def get_bpf_pointer(tcpdump_lines):
     """Create a BPF Pointer for TCPDump filter"""
     if conf.use_pypy and six.PY2:
         return _legacy_bpf_pointer(tcpdump_lines)
-    
+
     # Allocate BPF instructions
     size = int(tcpdump_lines[0])
     bpf_insn_a = bpf_insn * size

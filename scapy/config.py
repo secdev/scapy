@@ -65,7 +65,7 @@ class Interceptor(object):
         setattr(obj, self.intname, val)
         self.hook(self.name, val, *self.args, **self.kargs)
 
-    
+
 class ProgPath(ConfClass):
     pdfreader = "open" if DARWIN else "xdg-open"
     psreader = "open" if DARWIN else "xdg-open"
@@ -114,17 +114,17 @@ class Emphasize(ConfigFieldList):
 
 class Resolve(ConfigFieldList):
     pass
-    
+
 
 class Num2Layer:
     def __init__(self):
         self.num2layer = {}
         self.layer2num = {}
-        
+
     def register(self, num, layer):
         self.register_num2layer(num, layer)
         self.register_layer2num(num, layer)
-        
+
     def register_num2layer(self, num, layer):
         self.num2layer[num] = layer
 
@@ -143,7 +143,7 @@ class Num2Layer:
 
     def get(self, item, default=None):
         return self[item] if item in self else default
-    
+
     def __repr__(self):
         lst = []
         for num, layer in six.iteritems(self.num2layer):
@@ -285,8 +285,8 @@ class CacheInstance(dict, object):
             for item in six.iteritems(self.__dict__):
                 s.append(fmt % item)
         return "\n".join(s)
-            
-            
+
+
 class NetCache:
     def __init__(self):
         self._caches_list = []
@@ -315,7 +315,7 @@ class NetCache:
 
     def __repr__(self):
         return "\n".join(c.summary() for c in self._caches_list)
-        
+
 
 class LogLevel(object):
     def __get__(self, obj, otype):
@@ -324,7 +324,7 @@ class LogLevel(object):
     def __set__(self, obj, val):
         log_scapy.setLevel(val)
         obj._logLevel = val
-        
+
 
 def isCryptographyValid():
     """

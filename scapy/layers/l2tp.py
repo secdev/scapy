@@ -19,7 +19,7 @@ from scapy.layers.ppp import PPP
 
 class L2TP(Packet):
     name = "L2TP"
-    fields_desc = [ 
+    fields_desc = [
         FlagsField("hdr", 0, 12, ['res00', 'res01', 'res02', 'res03', 'priority', 'offset',
                                   'res06', 'sequence', 'res08', 'res09', 'length', 'control']),
         BitEnumField("version", 2, 4, {2: 'L2TPv2'}),

@@ -609,7 +609,7 @@ class X509_AccessDescription(ASN1_Packet):
 
 class X509_ExtAuthInfoAccess(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_SEQUENCE_OF("authorityInfoAccess", 
+    ASN1_root = ASN1F_SEQUENCE_OF("authorityInfoAccess",
                                   [X509_AccessDescription()],
                                   X509_AccessDescription)
 
@@ -853,7 +853,7 @@ class _PacketFieldRaw(PacketField):
             del(r.underlayer.payload)
             remain = r.load
         return remain, i
- 
+
 
 class ECDSAPrivateKey_OpenSSL(Packet):
     name = "ECDSA Params + Private Key"

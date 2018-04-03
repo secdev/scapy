@@ -118,7 +118,7 @@ class FecTLVField(StrField):
     def getfield(self, pkt, s):
         l = self.size(s)
         return s[l:], self.m2i(pkt, s[:l])
-        
+
 
 # 3.4.2.1. Generic Label TLV
 
@@ -289,7 +289,7 @@ class CommonSessionTLVField(StrField):
     def getfield(self, pkt, s):
         l = 18
         return s[l:], self.m2i(pkt, s[:l])
-    
+
 
 ## Messages ##
 

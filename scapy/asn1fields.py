@@ -39,7 +39,7 @@ class ASN1F_field(ASN1F_element):
     islist = 0
     ASN1_tag = ASN1_Class_UNIVERSAL.ANY
     context = ASN1_Class_UNIVERSAL
-    
+
     def __init__(self, name, default, context=None,
                  implicit_tag=None, explicit_tag=None,
                  flexible_tag=False):
@@ -128,7 +128,7 @@ class ASN1F_field(ASN1F_element):
             return c, s
         else:
             return None, s
- 
+
     def build(self, pkt):
         return self.i2m(pkt, getattr(pkt, self.name))
 
@@ -155,7 +155,7 @@ class ASN1F_field(ASN1F_element):
 
     def get_fields_list(self):
         return [self]
-    
+
     def __hash__(self):
         return hash(self.name)
 
@@ -228,7 +228,7 @@ class ASN1F_BIT_STRING(ASN1F_field):
 
     def randval(self):
         return RandString(RandNum(0, 1000))
-    
+
 
 class ASN1F_STRING(ASN1F_field):
     ASN1_tag = ASN1_Class_UNIVERSAL.STRING
@@ -274,7 +274,7 @@ class ASN1F_VIDEOTEX_STRING(ASN1F_STRING):
 
 class ASN1F_IA5_STRING(ASN1F_STRING):
     ASN1_tag = ASN1_Class_UNIVERSAL.IA5_STRING
-   
+
 
 class ASN1F_UTC_TIME(ASN1F_STRING):
     ASN1_tag = ASN1_Class_UNIVERSAL.UTC_TIME
@@ -296,11 +296,11 @@ class ASN1F_ISO646_STRING(ASN1F_STRING):
 
 class ASN1F_UNIVERSAL_STRING(ASN1F_STRING):
     ASN1_tag = ASN1_Class_UNIVERSAL.UNIVERSAL_STRING
-   
+
 
 class ASN1F_BMP_STRING(ASN1F_STRING):
     ASN1_tag = ASN1_Class_UNIVERSAL.BMP_STRING
-   
+
 
 class ASN1F_SEQUENCE(ASN1F_field):
 # Here is how you could decode a SEQUENCE
@@ -442,7 +442,7 @@ class ASN1F_SET_OF(ASN1F_SEQUENCE_OF):
 
 
 class ASN1F_IPADDRESS(ASN1F_STRING):
-    ASN1_tag = ASN1_Class_UNIVERSAL.IPADDRESS    
+    ASN1_tag = ASN1_Class_UNIVERSAL.IPADDRESS
 
 
 class ASN1F_TIME_TICKS(ASN1F_INTEGER):

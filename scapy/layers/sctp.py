@@ -516,7 +516,7 @@ SCTP_PAYLOAD_PROTOCOL_INDENTIFIERS = {
     54: 'WebRTC String Partial',
     55: '3GPP PUA',
     56: 'WebRTC String Empty',
-    57: 'WebRTC Binary Empty'	
+    57: 'WebRTC Binary Empty'
 }
 
 
