@@ -77,7 +77,7 @@ class MACsecSA(object):
         if self.xpn_en:
             tmp_pn = (self.pn & 0xFFFFFFFF00000000) | (pkt[MACsec].pn & 0xFFFFFFFF)
             tmp_iv = self.ssci + struct.pack('!Q', tmp_pn)
-            return bytes(bytearray([a ^ b for a,b in zip(bytearray(tmp_iv), bytearray(self.salt))]))
+            return bytes(bytearray([a ^ b for a, b in zip(bytearray(tmp_iv), bytearray(self.salt))]))
         else:
             return self.sci + struct.pack('!I', pkt[MACsec].pn)
 
