@@ -65,7 +65,7 @@ _WlanHelper = NPCAP_PATH + "\\WlanHelper.exe"
 
 import scapy.consts
 
-
+IS_WINDOWS_XP = platform.release() == "XP"
 def is_new_release(win10more=False):
     release = platform.release()
     if conf.prog.powershell is None:
@@ -315,6 +315,10 @@ _VBS_WMI_FIELDS = {
         "Status": "State"
     }
 }
+if IS_WINDOWS_XP:
+    # On windows XP, InterfaceIndex does not exist in cscript, and is Index.
+    # This is not the case on Windows 7+
+    _VBS_WMI_FIELDS["Win32_NetworkAdapter"]["InterfaceIndex"] = "Index"
 
 _VBS_WMI_REPLACE = {
     "Win32_NetworkAdapterConfiguration": {
@@ -338,8 +342,12 @@ def _exec_query_vbs(cmd, fields):
         return
     action = cmd[0]
     fields = [_VBS_WMI_FIELDS.get(cmd[1], _VBS_WMI_FIELDS.get("*", {})).get(fld, fld) for fld in fields]
-    parsed_command = "WScript.Echo " + " & \" @ \" & ".join("line.%s" % fld for fld in fields
-                                                            if fld is not None)
+    if IS_WINDOWS_XP:
+        # On Windows XP, the Ampersand operator does not exist.
+        # Using old method (which does not support missing parameters (e.g. WLAN interfaces))
+        parsed_command = "\n  ".join("WScript.Echo line.%s" % fld for fld in fields if fld is not None)
+    else:
+        parsed_command = "WScript.Echo " + " & \" @ \" & ".join("line.%s" % fld for fld in fields if fld is not None)
     # The IPAddress is an array: convert it to a string
     for key, val in _VBS_WMI_REPLACE.get(cmd[1], {}).items():
         parsed_command = parsed_command.replace(key, val)
