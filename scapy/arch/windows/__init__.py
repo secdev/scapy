@@ -66,6 +66,8 @@ _WlanHelper = NPCAP_PATH + "\\WlanHelper.exe"
 import scapy.consts
 
 IS_WINDOWS_XP = platform.release() == "XP"
+
+
 def is_new_release(win10more=False):
     release = platform.release()
     if conf.prog.powershell is None:
