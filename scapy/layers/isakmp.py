@@ -25,9 +25,9 @@ ISAKMPAttributeTypes= {"Encryption":    (1, {"DES-CBC": 1,
                                              "IDEA-CBC": 2,
                                              "Blowfish-CBC": 3,
                                              "RC5-R16-B64-CBC": 4,
-                                             "3DES-CBC": 5, 
-                                             "CAST-CBC": 6, 
-                                             "AES-CBC": 7, 
+                                             "3DES-CBC": 5,
+                                             "CAST-CBC": 6,
+                                             "AES-CBC": 7,
                                              "CAMELLIA-CBC": 8, }, 0),
                        "Hash":          (2, {"MD5": 1,
                                              "SHA": 2,
@@ -35,7 +35,7 @@ ISAKMPAttributeTypes= {"Encryption":    (1, {"DES-CBC": 1,
                                              "SHA2-256": 4,
                                              "SHA2-384": 5,
                                              "SHA2-512": 6, }, 0),
-                       "Authentication": (3, {"PSK": 1, 
+                       "Authentication": (3, {"PSK": 1,
                                               "DSS": 2,
                                               "RSA Sig": 3,
                                               "RSA Encryption": 4,
@@ -58,14 +58,14 @@ ISAKMPAttributeTypes= {"Encryption":    (1, {"DES-CBC": 1,
                                               "XAUTHInitRSARevisedEncryption": 65009,
                                               "XAUTHRespRSARevisedEncryptio": 65010, }, 0),
                        "GroupDesc":     (4, {"768MODPgr": 1,
-                                             "1024MODPgr": 2, 
+                                             "1024MODPgr": 2,
                                              "EC2Ngr155": 3,
                                              "EC2Ngr185": 4,
-                                             "1536MODPgr": 5, 
-                                             "2048MODPgr": 14, 
-                                             "3072MODPgr": 15, 
-                                             "4096MODPgr": 16, 
-                                             "6144MODPgr": 17, 
+                                             "1536MODPgr": 5,
+                                             "2048MODPgr": 14,
+                                             "3072MODPgr": 15,
+                                             "4096MODPgr": 16,
+                                             "6144MODPgr": 17,
                                              "8192MODPgr": 18, }, 0),
                        "GroupType":      (5,  {"MODP":       1,
                                                "ECP":        2,
@@ -84,8 +84,8 @@ ISAKMPAttributeTypes= {"Encryption":    (1, {"DES-CBC": 1,
                        "GroupOrder":     (16, {}, 1),
                        }
 
-# the name 'ISAKMPTransformTypes' is actually a misnomer (since the table 
-# holds info for all ISAKMP Attribute types, not just transforms, but we'll 
+# the name 'ISAKMPTransformTypes' is actually a misnomer (since the table
+# holds info for all ISAKMP Attribute types, not just transforms, but we'll
 # keep it for backwards compatibility... for now at least
 ISAKMPTransformTypes = ISAKMPAttributeTypes
 
@@ -146,7 +146,7 @@ class ISAKMPTransformSetField(StrLenField):
             is_tlv = not (trans_type & 0x8000)
             if is_tlv:
                 # We should probably check to make sure the attribute type we
-                # are looking at is allowed to have a TLV format and issue a 
+                # are looking at is allowed to have a TLV format and issue a
                 # warning if we're given an TLV on a basic attribute.
                 value_len, = struct.unpack("!H", m[2:4])
                 if value_len+4 > len(m):
@@ -212,7 +212,7 @@ class ISAKMP(ISAKMP_class): # rfc2408
         if self.length is None:
             p = p[:24]+struct.pack("!I", len(p))+p[28:]
         return p
-       
+
 
 class ISAKMP_payload_Transform(ISAKMP_class):
     name = "IKE Transform"
@@ -240,7 +240,7 @@ class ISAKMP_payload_Transform(ISAKMP_class):
             p = p[:2]+chb((l>>8)&0xff)+chb(l&0xff)+p[4:]
         p += pay
         return p
-            
+
 
 class ISAKMP_payload_Proposal(ISAKMP_class):
     name = "IKE proposal"

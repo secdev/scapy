@@ -97,7 +97,7 @@ class Net(Gen):
 
     def __str__(self):
         return next(self.__iter__(), None)
-                                                                                               
+
     def __iter__(self):
         for d in range(*self.parsed[3]):
             for c in range(*self.parsed[2]):
@@ -107,7 +107,7 @@ class Net(Gen):
 
     def choice(self):
         return ".".join(str(random.randint(v[0], v[1] - 1)) for v in self.parsed)
-                          
+
     def __repr__(self):
         return "Net(%r)" % self.repr
 
@@ -125,17 +125,17 @@ class Net(Gen):
             p2, nm2 = self._parse_net(other)
         return all(a1 <= a2 and b1 >= b2 for (a1, b1), (a2, b2) in zip(self.parsed, p2))
 
-    def __rcontains__(self, other):        
+    def __rcontains__(self, other):
         return self in self.__class__(other)
-        
+
 
 class OID(Gen):
     name = "OID"
 
     def __init__(self, oid):
-        self.oid = oid        
+        self.oid = oid
         self.cmpt = []
-        fmt = []        
+        fmt = []
         for i in oid.split("."):
             if "-" in i:
                 fmt.append("%i")
@@ -147,7 +147,7 @@ class OID(Gen):
     def __repr__(self):
         return "OID(%r)" % self.oid
 
-    def __iter__(self):        
+    def __iter__(self):
         ii = [k[0] for k in self.cmpt]
         while True:
             yield self.fmt % tuple(ii)
@@ -249,11 +249,11 @@ class Field_metaclass(type):
 
 class NewDefaultValues(Packet_metaclass):
     """NewDefaultValues is deprecated (not needed anymore)
-    
+
     remove this:
         __metaclass__ = NewDefaultValues
     and it should still work.
-    """    
+    """
     def __new__(cls, name, bases, dct):
         from scapy.error import log_loading
         import traceback
@@ -266,7 +266,7 @@ class NewDefaultValues(Packet_metaclass):
             f, l="??", -1
             raise
         log_loading.warning("Deprecated (no more needed) use of NewDefaultValues  (%s l. %i).", f, l)
-        
+
         return super(NewDefaultValues, cls).__new__(cls, name, bases, dct)
 
 

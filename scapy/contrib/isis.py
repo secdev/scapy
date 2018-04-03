@@ -339,7 +339,7 @@ class ISIS_AdministrativeGroupSubTlv(ISIS_GenericSubTlv):
 class ISIS_MaximumLinkBandwidthSubTlv(ISIS_GenericSubTlv):
     name = "Maximum Link Bandwidth SubTLV"
     fields_desc = [ByteEnumField("type", 9, _isis_subtlv_names_1),
-                   FieldLenField("len", None, length_of="maxbw", fmt="B"), 
+                   FieldLenField("len", None, length_of="maxbw", fmt="B"),
                    IEEEFloatField("maxbw", 1000)] # in B/s
 
 
@@ -399,7 +399,7 @@ class ISIS_64bitAdministrativeTagSubTlv(ISIS_GenericSubTlv):
 #######################################################################
 ##  ISIS TLVs                                                        ##
 #######################################################################
-_isis_tlv_classes = { 
+_isis_tlv_classes = {
     1: "ISIS_AreaTlv",
     2: "ISIS_IsReachabilityTlv",
     6: "ISIS_IsNeighbourTlv",
@@ -429,7 +429,7 @@ _isis_tlv_names = {
     9: "LSP Entries TLV",
    10: "Authentication TLV",
    12: "Optional Checksum TLV",
-   13: "Purge Originator Identification TLV", 
+   13: "Purge Originator Identification TLV",
    14: "LSP Buffer Size TLV",
    22: "Extended IS-Reachability TLV",
    23: "IS Neighbour Attribute TLV",
@@ -537,7 +537,7 @@ class ISIS_TERouterIDTlv(ISIS_GenericTlv):
     fields_desc = [ByteEnumField("type", 134, _isis_tlv_names),
                    FieldLenField("len", None, length_of= "routerid", fmt="B"),
                    IPField("routerid", "0.0.0.0")]
- 
+
 
 class ISIS_ExtendedIpReachabilityTlv(ISIS_GenericTlv):
     name = "ISIS Extended IP Reachability TLV"

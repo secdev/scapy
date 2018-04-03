@@ -233,7 +233,7 @@ def sndrcv(pks, pkt, timeout=None, inter=0, verbose=None, chainCC=False,
 
         if autostop and len(remain) != len(tobesent):
             retry = autostop
-            
+
         tobesent = remain
         retry -= 1
 
@@ -294,7 +294,7 @@ def __gen_send(s, x, inter=0, loop=0, count=None, verbose=None, realtime=None, r
         print("\nSent %i packets." % n)
     if return_packets:
         return sent_packets
-        
+
 
 @conf.commands.register
 def send(x, inter=0, loop=0, count=None, verbose=None, realtime=None, return_packets=False, socket=None,
@@ -363,7 +363,7 @@ def sendpfast(x, pps=None, mbps=None, realtime=None, loop=0, file_cache=False, i
     finally:
         os.unlink(f)
 
-        
+
 @conf.commands.register
 def sr(x, promisc=None, filter=None, iface=None, nofilter=0, *args, **kargs):
     """Send and receive packets at layer 3
@@ -495,7 +495,7 @@ def __sr_loop(srfunc, pkts, prn=lambda x: x[1].summary(), prnfail=lambda x: x.su
                 time.sleep(inter+start-end)
     except KeyboardInterrupt:
         pass
- 
+
     if verbose and n>0:
         print(ct.normal("\nSent %i packets, received %i packets. %3.1f%% hits." % (n, r, 100.0*r/n)))
     return plist.SndRcvList(ans), plist.PacketList(unans)
@@ -575,7 +575,7 @@ def sndrcvflood(pks, pkt, inter=0, verbose=None, chainCC=False, prn=lambda x: x)
 def srflood(x, promisc=None, filter=None, iface=None, nofilter=None, *args, **kargs):
     """Flood and receive packets at layer 3
 prn:      function applied to packets received
-unique:   only consider packets whose print 
+unique:   only consider packets whose print
 nofilter: put 1 to avoid use of BPF filters
 filter:   provide a BPF filter
 iface:    listen answers only on the given interface"""
@@ -606,12 +606,12 @@ iface:    listen answers only on the given interface"""
 def srpflood(x, promisc=None, filter=None, iface=None, iface_hint=None, nofilter=None, *args, **kargs):
     """Flood and receive packets at layer 2
 prn:      function applied to packets received
-unique:   only consider packets whose print 
+unique:   only consider packets whose print
 nofilter: put 1 to avoid use of BPF filters
 filter:   provide a BPF filter
 iface:    listen answers only on the given interface"""
     if iface is None and iface_hint is not None:
-        iface = conf.route.route(iface_hint)[0]    
+        iface = conf.route.route(iface_hint)[0]
     s = conf.L2socket(promisc=promisc, filter=filter, iface=iface, nofilter=nofilter)
     r=sndrcvflood(s, x, *args, **kargs)
     s.close()

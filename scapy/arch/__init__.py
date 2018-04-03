@@ -29,7 +29,7 @@ if not WINDOWS:
 
 def get_if_addr(iff):
     return inet_ntop(socket.AF_INET, get_if_raw_addr(iff))
-    
+
 
 def get_if_hwaddr(iff):
     addrfamily, mac = get_if_raw_hwaddr(iff)
@@ -78,9 +78,9 @@ if scapy.config.conf.iface is None:
 
 def get_if_addr6(iff):
     """
-    Returns the main global unicast address associated with provided 
+    Returns the main global unicast address associated with provided
     interface, in human readable form. If no global address is found,
-    None is returned. 
+    None is returned.
     """
     return next((x[0] for x in in6_getifaddr()
                  if x[2] == iff and x[1] == IPV6_ADDR_GLOBAL), None)
@@ -88,12 +88,12 @@ def get_if_addr6(iff):
 
 def get_if_raw_addr6(iff):
     """
-    Returns the main global unicast address associated with provided 
-    interface, in network format. If no global address is found, None 
-    is returned. 
+    Returns the main global unicast address associated with provided
+    interface, in network format. If no global address is found, None
+    is returned.
     """
     ip6= get_if_addr6(iff)
     if ip6 is not None:
         return inet_pton(socket.AF_INET6, ip6)
-    
+
     return None

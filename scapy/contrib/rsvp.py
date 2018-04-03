@@ -30,7 +30,7 @@ rsvpmsgtypes = {0x01: "Path",
                 0x06: "Reservation teardown",
                 0x07: "Reservation request acknowledgment"
                 }
-        
+
 
 class RSVP(Packet):
     name = "RSVP"
@@ -51,7 +51,7 @@ class RSVP(Packet):
             ck = checksum(p)
             p = p[:2]+chb(ck>>8)+chb(ck&0xff)+p[4:]
         return p
-                    
+
 
 rsvptypes = {0x01: "Session",
              0x03: "HOP",
@@ -68,7 +68,7 @@ rsvptypes = {0x01: "Session",
              0x0E: "POLICY_DATA",
              0x0F: "RESV_CONFIRM",
              0x10: "RSVP_LABEL",
-             0x11: "HOP_COUNT",        
+             0x11: "HOP_COUNT",
              0x12: "STRICT_SOURCE_ROUTE",
              0x13: "LABEL_REQUEST",
              0x14: "EXPLICIT_ROUTE",
@@ -102,13 +102,13 @@ rsvptypes = {0x01: "Session",
              0x83: "RESTART_CA",
              0x84: "SESSION-OF-INTEREST",
              0x85: "LINK_CAPABILITY",
-             0x86: "Capability Object", 
+             0x86: "Capability Object",
              0xA1: "RSVP_HOP_L2",
-             0xA2: "LAN_NHOP_L2",    
-             0xA3: "LAN_NHOP_L3",    
-             0xA4: "LAN_LOOPBACK",    
+             0xA2: "LAN_NHOP_L2",
+             0xA3: "LAN_NHOP_L3",
+             0xA4: "LAN_LOOPBACK",
              0xA5: "TCLASS",
-             0xC0: "TUNNEL", 
+             0xC0: "TUNNEL",
              0xC1: "LSP_TUNNEL_INTERFACE_ID",
              0xC2: "USER_ERROR_SPEC",
              0xC3: "NOTIFY_REQUEST",
@@ -117,7 +117,7 @@ rsvptypes = {0x01: "Session",
              0xC6: "ALARM_SPEC",
              0xC7: "ASSOCIATION",
              0xC8: "SECONDARY_EXPLICIT_ROUTE",
-             0xC9: "SECONDARY_RECORD_ROUTE",                
+             0xC9: "SECONDARY_RECORD_ROUTE",
              0xCD: "FAST_REROUTE",
              0xCF: "SESSION_ATTRIBUTE",
              0xE1: "DCLASS",
@@ -128,7 +128,7 @@ rsvptypes = {0x01: "Session",
              0xE6: "CALL_ID",
              0xE7: "3GPP2_Object",
              0xE8: "EXCLUDE_ROUTE"
-             }      
+             }
 
 
 class RSVP_Object(Packet):
@@ -150,8 +150,8 @@ class RSVP_Object(Packet):
             return RSVP_SessionAttrb
         else:
             return RSVP_Data
-    
-    
+
+
 class RSVP_Data(Packet):
     name = "Data"
     overload_fields = {RSVP_Object: {"Class": 0x01}}
@@ -213,7 +213,7 @@ class RSVP_SessionAttrb(Packet):
                    ByteField("flags", 1),
                    FieldLenField("Name_length", None, length_of="Name"),
                    StrLenField("Name", "", length_from= lambda pkt:pkt.Name_length),
-                   ]  
+                   ]
 
     def default_payload_class(self, payload):
       return RSVP_Object

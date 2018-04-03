@@ -164,11 +164,11 @@ def linehexdump(x, onlyasc=0, onlyhex=0, dump=False):
 @conf.commands.register
 def chexdump(x, dump=False):
     """ Build a per byte hexadecimal representation
-    
+
     Example:
         >>> chexdump(IP())
         0x45, 0x00, 0x00, 0x14, 0x00, 0x01, 0x00, 0x00, 0x40, 0x00, 0x7c, 0xe7, 0x7f, 0x00, 0x00, 0x01, 0x7f, 0x00, 0x00, 0x01
-    
+
     :param x: a Packet
     :param dump: print the view if False
     :returns: a String only if dump=True
@@ -187,7 +187,7 @@ def hexstr(x, onlyasc=0, onlyhex=0):
     if not onlyasc:
         s.append(" ".join("%02x" % orb(b) for b in x))
     if not onlyhex:
-        s.append(sane(x)) 
+        s.append(sane(x))
     return "  ".join(s)
 
 
@@ -214,7 +214,7 @@ def hexdiff(x, y):
             d[i, j] = min((d[i-1, j-1][0]+SUBST*(x[i] != y[j]), (i-1, j-1)),
                           (d[i-1, j][0]+INSERT, (i-1, j)),
                           (d[i, j-1][0]+INSERT, (i, j-1)))
-                          
+
     backtrackx = []
     backtracky = []
     i=len(x)-1
@@ -229,7 +229,7 @@ def hexdiff(x, y):
     colorize = {0: lambda x: x,
                 -1: conf.color_theme.left,
                 1: conf.color_theme.right}
-    
+
     dox=1
     doy=0
     l = len(backtrackx)
@@ -244,7 +244,7 @@ def hexdiff(x, y):
             doy = 1
         if dox and linex == liney:
             doy=1
-            
+
         if dox:
             xd = y
             j = 0
@@ -267,9 +267,9 @@ def hexdiff(x, y):
             line=liney
         else:
             print("    ", end=' ')
-            
+
         print(" ", end=' ')
-        
+
         cl = ""
         for j in range(16):
             if i+j < l:
@@ -337,7 +337,7 @@ def _fletcher16(charbuf):
 @conf.commands.register
 def fletcher16_checksum(binbuf):
     """ Calculates Fletcher-16 checksum of the given buffer.
-        
+
         Note:
         If the buffer contains the two checkbytes derived from the Fletcher-16 checksum
         the result of this function has to be 0. Otherwise the buffer has been corrupted.
@@ -349,14 +349,14 @@ def fletcher16_checksum(binbuf):
 @conf.commands.register
 def fletcher16_checkbytes(binbuf, offset):
     """ Calculates the Fletcher-16 checkbytes returned as 2 byte binary-string.
-    
+
         Including the bytes into the buffer (at the position marked by offset) the
         global Fletcher-16 checksum of the buffer will be 0. Thus it is easy to verify
         the integrity of the buffer on the receiver side.
-        
+
         For details on the algorithm, see RFC 2328 chapter 12.1.7 and RFC 905 Annex B.
     """
-    
+
     # This is based on the GPLed C implementation in Zebra <http://www.zebra.org/>
     if len(binbuf) < offset:
         raise Exception("Packet too short for checkbytes %d" % len(binbuf))
@@ -522,7 +522,7 @@ def do_graph(graph, prog=None, format=None, target=None, type=None, string=None,
     target: filename or redirect. Defaults pipe to Imagemagick's display program
     prog: which graphviz program to use
     options: options to be passed to prog"""
-        
+
     if format is None:
         if WINDOWS:
             format = "png" # use common format to make sure a viewer is installed
@@ -569,7 +569,7 @@ def do_graph(graph, prog=None, format=None, target=None, type=None, string=None,
             if time.time() - waiting_start > 3:
                 warning("Temporary file '%s' could not be written. Graphic will not be displayed.", tempfile)
                 break
-        else:  
+        else:
             if conf.prog.display == conf.prog._default:
                 os.startfile(target.name)
             else:
@@ -593,7 +593,7 @@ _TEX_TR = {
     "<": "{\\tt\\char60}",
     ">": "{\\tt\\char62}",
 }
-    
+
 
 def tex_escape(x):
     s = ""
@@ -879,7 +879,7 @@ class RawPcapReader(six.with_metaclass(PcapReader_metaclass)):
 
     def read_packet(self, size=MTU):
         """return a single packet read from the file
-        
+
         returns None when no more packets are available
         """
         hdr = self.f.read(16)
@@ -892,9 +892,9 @@ class RawPcapReader(six.with_metaclass(PcapReader_metaclass)):
 
     def dispatch(self, callback):
         """call the specified callback routine for each packet read
-        
+
         This is just a convenience function for the main loop
-        that allows for easy launching of packet processing in a 
+        that allows for easy launching of packet processing in a
         thread.
         """
         for p in self:
@@ -944,7 +944,7 @@ class PcapReader(RawPcapReader):
         if rp is None:
             return None
         s, pkt_info = rp
-        
+
         try:
             p = self.LLcls(s)
         except KeyboardInterrupt:
@@ -1149,7 +1149,7 @@ sync:       do not bufferize writes to the capture file
 nano:       use nanosecond-precision (requires libpcap >= 1.5.0)
 
         """
-        
+
         self.linktype = linktype
         self.header_present = 0
         self.append = append
@@ -1182,11 +1182,11 @@ nano:       use nanosecond-precision (requires libpcap >= 1.5.0)
             g = [open, gzip.open][self.gz](self.filename, "rb")
             if g.read(16):
                 return
-            
+
         self.f.write(struct.pack(self.endian+"IHHIIII", 0xa1b23c4d if self.nano else 0xa1b2c3d4,
                                  2, 4, 0, 0, MTU, self.linktype))
         self.f.flush()
-    
+
     def write(self, pkt):
         """accepts either a single packet or a list of packets to be
         written to the dumpfile
@@ -1290,10 +1290,10 @@ def import_hexcap():
                 continue
     except EOFError:
         pass
-    
+
     p = p.replace(" ", "")
     return p.decode("hex")
-        
+
 
 @conf.commands.register
 def wireshark(pktlist):
@@ -1508,8 +1508,8 @@ def pretty_list(rtlst, header, sortBy=0):
 
 
 def __make_table(yfmtfunc, fmtfunc, endline, data, fxyz, sortx=None, sorty=None, seplinefunc=None):
-    vx = {} 
-    vy = {} 
+    vx = {}
+    vy = {}
     vz = {}
     vxf = {}
     vyf = {}
@@ -1567,7 +1567,7 @@ def __make_table(yfmtfunc, fmtfunc, endline, data, fxyz, sortx=None, sorty=None,
 
 def make_table(*args, **kargs):
     __make_table(lambda l: "%%-%is" % l, lambda l: "%%-%is" % l, "", *args, **kargs)
-    
+
 
 def make_lined_table(*args, **kargs):
     __make_table(lambda l: "%%-%is |" % l, lambda l: "%%-%is |" % l, "",

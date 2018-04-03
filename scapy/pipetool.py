@@ -42,7 +42,7 @@ class PipeEngine(SelectableObject):
                 print("###### %s\n %s" % (pn, pc.__doc__))
             else:
                 print("###### %s" % pn)
-    
+
     def __init__(self, *pipes):
         self.active_pipes = set()
         self.active_sources = set()
@@ -111,7 +111,7 @@ class PipeEngine(SelectableObject):
         for q in pl:
             self.add_one_pipe(q)
         return pl
-            
+
     def run(self):
         log_interactive.info("Pipe engine thread started.")
         try:
@@ -190,7 +190,7 @@ class PipeEngine(SelectableObject):
                 for p in pipes:
                     p.start()
                 self._write_cmd("A")
-    
+
     def graph(self, **kargs):
         g=['digraph "pipe" {', "\tnode [shape=rectangle];", ]
         for p in self.active_pipes:
@@ -212,7 +212,7 @@ class PipeEngine(SelectableObject):
                 g.append('\t"%i" -> "%i";' % (id(p), id(q)))
         g.append('}')
         graph = "\n".join(g)
-        do_graph(graph, **kargs) 
+        do_graph(graph, **kargs)
 
 
 class _ConnectorLogic(object):
@@ -544,7 +544,7 @@ class PeriodicSource(ThreadGenSource):
                 self.is_exhausted = True
                 self._wake_up()
             time.sleep(self.period2)
-        
+
 
 class TermSink(Sink):
     """Print messages on low and high entries on a separate terminal
@@ -635,7 +635,7 @@ class TermSink(Sink):
 
     def high_push(self, msg):
         self._print(str(msg))
-    
+
 
 class QueueSink(Sink):
     """Collect messages from high and low entries and queue them. Messages are unqueued with the .recv() method.

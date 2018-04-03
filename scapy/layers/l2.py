@@ -230,8 +230,8 @@ class CookedLinux(Packet):
                    ShortField("lladdrlen", 0),
                    StrFixedLenField("src", "", 8),
                    XShortEnumField("proto", 0x800, ETHER_TYPES)]
-                    
-                                   
+
+
 class SNAP(Packet):
     name = "SNAP"
     fields_desc = [X3BytesField("OUI", 0x000000),
@@ -274,7 +274,7 @@ class Dot1Q(Packet):
         else:
             return self.sprintf("802.1q (%Dot1Q.type%) vlan %Dot1Q.vlan%")
 
-            
+
 conf.neighbor.register_l3(Ether, Dot1Q, l2_register_l3)
 
 
@@ -334,7 +334,7 @@ class ARP(Packet):
             return self.sprintf("ARP who has %pdst% says %psrc%")
         else:
             return self.sprintf("ARP %op% %psrc% > %pdst%")
-                 
+
 
 def l2_register_l3_arp(l2, l3):
     return getmacbyip(l3.pdst)
@@ -576,7 +576,7 @@ class ARP_am(AnsweringMachine):
 
     Optional Args
      inter=<n>   Interval in seconds between ARP replies being sent
-    
+
     """
 
     function_name="farpd"
@@ -591,7 +591,7 @@ class ARP_am(AnsweringMachine):
         return (req.haslayer(ARP) and
                 req.getlayer(ARP).op == 1 and
                 (self.IP_addr == None or self.IP_addr == req.getlayer(ARP).pdst))
-    
+
     def make_reply(self, req):
         ether = req.getlayer(Ether)
         arp = req.getlayer(ARP)
@@ -630,7 +630,7 @@ class ARP_am(AnsweringMachine):
 @conf.commands.register
 def etherleak(target, **kargs):
     """Exploit Etherleak flaw"""
-    return srpflood(Ether()/ARP(pdst=target), 
+    return srpflood(Ether()/ARP(pdst=target),
                     prn=lambda s_r: conf.padding_layer in s_r[1] and hexstr(s_r[1][conf.padding_layer].load),
                     filter="arp", **kargs)
 

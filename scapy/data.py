@@ -113,7 +113,7 @@ EPOCH = time.mktime((1970, 1, 2, 0, 0, 0, 3, 1, 0))-86400
 
 MTU = 0xffff # a.k.a give me all you have
 
- 
+
 # file parsing to get some values :
 
 def load_protocols(filename):
@@ -215,8 +215,8 @@ class ManufDA(DADict):
 
     def __repr__(self):
         return "\n".join("<%s %s, %s>" % (i[0], i[1][0], i[1][1]) for i in self.__dict__.items())
-        
-        
+
+
 def load_manuf(filename):
     manufdb=ManufDA(_name=filename)
     with open(filename, "rb") as fdesc:
@@ -236,7 +236,7 @@ def load_manuf(filename):
                 log_loading.warning("Couldn't parse one line from [%s] [%r]",
                                     filename, l, exc_info=True)
     return manufdb
-    
+
 
 if WINDOWS:
     ETHER_TYPES=load_ethertypes("ethertypes")
@@ -289,5 +289,5 @@ class KnowledgeBase:
         if self.base is None:
             self.lazy_init()
         return self.base
-    
+
 

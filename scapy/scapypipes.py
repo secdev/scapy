@@ -76,7 +76,7 @@ class RdpcapSource(Source):
     def check_recv(self):
         return True
 
-    def deliver(self):    
+    def deliver(self):
         p = self.f.recv()
         print("deliver %r" % p)
         if p is None:
@@ -113,8 +113,8 @@ class InjectSink(Sink):
 class Inject3Sink(InjectSink):
     def start(self):
         self.s = conf.L3socket(iface=self.iface)
-    
-    
+
+
 class WrpcapSink(Sink):
     """Packets received on low input are written to PCA file
      +----------+
@@ -134,7 +134,7 @@ class WrpcapSink(Sink):
 
     def push(self, msg):
         self.f.write(msg)
-        
+
 
 class UDPDrain(Drain):
     """UDP payloads received on high entry are sent over UDP
@@ -160,7 +160,7 @@ class UDPDrain(Drain):
         from scapy.layers.inet import IP, UDP
         p = IP(dst=self.ip)/UDP(sport=1234, dport=self.port)/msg
         self._send(p)
-        
+
 
 class FDSourceSink(Source):
     """Use a file descriptor as source and sink

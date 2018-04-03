@@ -33,7 +33,7 @@ from scapy.modules.six.moves import range
 # Helpers and constants
 #####################################################################
 
-skinny_messages_cls = { 
+skinny_messages_cls = {
     # Station -> Callmanager
     0x0000: "SkinnyMessageKeepAlive",
   0x0001: "SkinnyMessageRegister",
@@ -208,7 +208,7 @@ class SkinnyDateTimeField(StrFixedLenField):
     def m2i(self, pkt, s):
         year, month, dow, day, hour, min, sec, milisecond=struct.unpack('<8I', s)
         return (year, month, day, hour, min, sec)
-    
+
     def i2m(self, pkt, val):
         if isinstance(val, str):
             val = self.h2i(pkt, val)
@@ -223,7 +223,7 @@ class SkinnyDateTimeField(StrFixedLenField):
 
     def i2repr(self, pkt, x):
         return self.i2h(pkt, x)
-    
+
     def h2i(self, pkt, s):
         t = ()
         if isinstance(s, str):
@@ -258,11 +258,11 @@ class SkinnyMessageOffHook(Packet):
     name = 'Off Hook'
     fields_desc = [LEIntField("unknown1", 0),
                    LEIntField("unknown2", 0), ]
-        
+
 
 class SkinnyMessageOnHook(SkinnyMessageOffHook):
     name = 'On Hook'
-    
+
 
 class SkinnyMessageCallState(Packet):
     name='Skinny Call state message'
@@ -311,7 +311,7 @@ class SkinnyMessageStopTone(SkinnyMessageGeneric):
     fields_desc = [LEIntField("instance", 1),
                    LEIntField("callid", 0)]
 
-    
+
 class SkinnyMessageSpeakerMode(Packet):
     name='Speaker mdoe'
     fields_desc = [LEIntEnumField("ring", 0x1, skinny_speaker_modes)]
@@ -330,7 +330,7 @@ class SkinnyMessageSoftKeyEvent(Packet):
                    LEIntField("callid", 0),
                    LEIntField("set", 0),
                    LEIntField("map", 0xffff)]
-    
+
 
 class SkinnyMessagePromptStatus(Packet):
     name='Prompt status'
@@ -343,7 +343,7 @@ class SkinnyMessagePromptStatus(Packet):
 class SkinnyMessageCallPlane(Packet):
     name='Activate/Desactivate Call Plane Message'
     fields_desc = [LEIntField("instance", 1)]
-    
+
 
 class SkinnyMessageTimeDate(Packet):
     name='Setting date and time'
@@ -476,7 +476,7 @@ class SkinnyMessageStartMediaTransmission(Packet):
 
     def guess_payload_class(self, p):
         return conf.padding_layer
-    
+
 
 class SkinnyMessageCloseReceiveChannel(Packet):
     name='close receive channel'
@@ -496,7 +496,7 @@ class SkinnyMessageStopMultiMediaTransmission(Packet):
     fields_desc = [LEIntField('conference', 0),
                    LEIntField('passthru', 0),
                    LEIntField('callid', 0)]
-    
+
 
 class Skinny(Packet):
     name="Skinny"
@@ -510,7 +510,7 @@ class Skinny(Packet):
             pkt=struct.pack('@I', l)+pkt[4:]
         return pkt+p
 
-# An helper 
+# An helper
 
 
 def get_cls(name, fallback_cls):

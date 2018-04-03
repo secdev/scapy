@@ -158,12 +158,12 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             self.fieldtype[f.name] = f
             if f.holds_packets:
                 self.packetfields.append(f)
-            
+
     def dissection_done(self, pkt):
         """DEV: will be called after a dissection is completed"""
         self.post_dissection(pkt)
         self.payload.dissection_done(pkt)
-        
+
     def post_dissection(self, pkt):
         """DEV: is called after the dissection of the whole packet"""
         pass
@@ -171,7 +171,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
     def get_field(self, fld):
         """DEV: returns the field instance from the name of the field"""
         return self.fieldtype[fld]
-        
+
     def add_payload(self, payload):
         if payload is None:
             return
@@ -228,7 +228,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         if attr in self.default_fields:
             return self.default_fields[attr]
         return self.payload.getfieldval(attr)
-    
+
     def getfield_and_val(self, attr):
         if attr in self.fields:
             return self.get_field(attr), self.fields[attr]
@@ -297,7 +297,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         except AttributeError:
             pass
         return object.__delattr__(self, attr)
-            
+
     def _superdir(self):
         """
         Return a list of slots and methods, including those from subclasses.
@@ -379,7 +379,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
 
     def __rmul__(self, other):
         return self.__mul__(other)
-    
+
     def __nonzero__(self):
         return True
     __bool__ = __nonzero__
@@ -447,7 +447,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             return self.post_build(pkt, pay)
         else:
             return pkt + pay
-    
+
     def build_padding(self):
         return self.payload.build_padding()
 
@@ -461,7 +461,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         p += self.build_padding()
         p = self.build_done(p)
         return p
-    
+
     def post_build(self, pkt, pay):
         """
         DEV: called right after the current layer is build.
@@ -489,13 +489,13 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             else:
                 r = b""
             pl.append((f, f.i2repr(self, self.getfieldval(f.name)), r))
-            
+
         pkt, lst = self.payload.build_ps(internal=1)
         p += pkt
         lst.append((self, pl))
-        
+
         return p, lst
-    
+
     def build_ps(self, internal=0):
         p, lst = self.do_build_ps()
 #        if not internal:
@@ -569,14 +569,14 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         XDSTART = 10
         y = 0.0
         yd = 0.0
-        xd = 0 
+        xd = 0
         XMUL= 0.55
         YMUL = 0.4
-    
+
         backcolor=colgen(0.6, 0.8, 1.0, trans=pyx.color.rgb)
         forecolor=colgen(0.2, 0.5, 0.8, trans=pyx.color.rgb)
 #        backcolor=makecol(0.376, 0.729, 0.525, 1.0)
-        
+
         def hexstr(x):
             return " ".join("%02x" % orb(c) for c in x)
 
@@ -622,7 +622,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
                                          pyx.path.lineto(lb.left(), gb.top()),
                                          pyx.path.lineto(fb.left(), gb.top()),
                                          pyx.path.closepath(),)
-                                         
+
         def make_dump(s, shift=0, y=0, col=None, bkcol=None, larg=16):
             c = pyx.canvas.canvas()
             tlist = []
@@ -642,7 +642,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             for txt in tlist:
                 c.insert(txt)
             return c, tlist[-1].bbox(), shift, y
-                            
+
         last_shift, last_y=0, 0.0
         while t:
             bkcol = next(backcolor)
@@ -682,13 +682,13 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
                         pass
                     else:
                         canvas.stroke(cnx, [pyx.style.linewidth.thin, pyx.deco.earrow.small, col])
-                        
+
                     canvas.insert(dt)
-                
+
                 canvas.insert(ft)
                 canvas.insert(vt)
             last_y += layer_shift
-    
+
         return canvas
 
     def extract_padding(self, s):
@@ -755,7 +755,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         s = self.do_dissect(s)
 
         s = self.post_dissect(s)
-            
+
         payl, pad = self.extract_padding(s)
         self.do_dissect_payload(payl)
         if pad and conf.padding:
@@ -775,7 +775,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
                        for k, v in six.iteritems(fval)):
                     return cls
         return self.default_payload_class(payload)
-    
+
     def default_payload_class(self, payload):
         """
         DEV: Returns the default payload class if nothing has been found by the
@@ -982,7 +982,7 @@ values.
 
     def __setitem__(self, cls, val):
         self[cls].underlayer.payload = val
-    
+
     def __contains__(self, cls):
         """"cls in self" returns true if self has a layer which is an instance of cls."""
         return self.haslayer(cls)
@@ -992,11 +992,11 @@ values.
 
     def fragment(self, *args, **kargs):
         return self.payload.fragment(*args, **kargs)
-    
+
     def display(self, *args, **kargs):  # Deprecated. Use show()
         """Deprecated. Use show() method."""
         self.show(*args, **kargs)
-    
+
     def _show_or_dump(self, dump=False, indent=3, lvl="", label_lvl="", first_call=True):
         """
         Internal method that shows or dumps a hierarchical view of a packet.
@@ -1108,7 +1108,7 @@ A side effect is that, to obtain "{" and "}" characters, you must use
                   "(": "{",
                   ")": "}"}
 
-        # Evaluate conditions 
+        # Evaluate conditions
         while "{" in fmt:
             i = fmt.rindex("{")
             j = fmt[i+1:].index("}")
@@ -1180,7 +1180,7 @@ A side effect is that, to obtain "{" and "}" characters, you must use
                     val = self.payload.sprintf("%%%s%%" % sfclsfld, relax)
                     f = "s"
                 s += ("%"+f) % val
-            
+
         s += fmt
         return s
 
@@ -1251,7 +1251,7 @@ A side effect is that, to obtain "{" and "}" characters, you must use
         pc = self.payload.command()
         if pc:
             c += "/"+pc
-        return c                    
+        return c
 
 
 class NoPayload(Packet):
@@ -1349,7 +1349,7 @@ class NoPayload(Packet):
         return None
 
     def fragment(self, *args, **kargs):
-        raise Scapy_Exception("cannot fragment this packet")        
+        raise Scapy_Exception("cannot fragment this packet")
 
     def show(self, indent=3, lvl="", label_lvl=""):
         pass
@@ -1368,12 +1368,12 @@ class NoPayload(Packet):
 
     def command(self):
         return ""
-    
+
 ####################
 ## packet classes ##
 ####################
 
-            
+
 class Raw(Packet):
     name = "Raw"
     fields_desc = [StrField("load", "")]
@@ -1393,7 +1393,7 @@ class Raw(Packet):
             else:
                 return "Raw %r" % self.load
         return Packet.mysummary(self)
-        
+
 
 class Padding(Raw):
     name = "Padding"
@@ -1421,14 +1421,14 @@ def bind_bottom_up(lower, upper, __fval=None, **fval):
         fval.update(__fval)
     lower.payload_guess = lower.payload_guess[:]
     lower.payload_guess.append((fval, upper))
-    
+
 
 def bind_top_down(lower, upper, __fval=None, **fval):
     if __fval is not None:
         fval.update(__fval)
     upper._overload_fields = upper._overload_fields.copy()
     upper._overload_fields[lower] = fval
-    
+
 
 @conf.commands.register
 def bind_layers(lower, upper, __fval=None, **fval):
@@ -1447,7 +1447,7 @@ def split_bottom_up(lower, upper, __fval=None, **fval):
         (f, u) = xxx_todo_changeme
         return u != upper or any(k not in f or f[k] != v for k, v in six.iteritems(fval))
     lower.payload_guess = [x for x in lower.payload_guess if do_filter(x)]
-        
+
 
 def split_top_down(lower, upper, __fval=None, **fval):
     if __fval is not None:

@@ -41,12 +41,12 @@ from scapy.contrib.igmp import IGMP
 class IGMPv3(IGMP):
     """IGMP Message Class for v3.
 
-    This class is derived from class Packet. 
-    The fields defined below are a 
-    direct interpretation of the v3 Membership Query Message. 
-    Fields 'type'  through 'qqic' are directly assignable. 
-    For 'numsrc', do not assign a value. 
-    Instead add to the 'srcaddrs' list to auto-set 'numsrc'. To 
+    This class is derived from class Packet.
+    The fields defined below are a
+    direct interpretation of the v3 Membership Query Message.
+    Fields 'type'  through 'qqic' are directly assignable.
+    For 'numsrc', do not assign a value.
+    Instead add to the 'srcaddrs' list to auto-set 'numsrc'. To
     assign values to 'srcaddrs', use the following methods:
       c = IGMPv3()
       c.srcaddrs = ['1.2.3.4', '5.6.7.8']
@@ -73,7 +73,7 @@ class IGMPv3(IGMP):
         """Encode and replace the mrcode value to its IGMPv3 encoded time value if needed,
         as specified in rfc3376#section-4.1.1.
 
-        If value < 128, return the value specified. If >= 128, encode as a floating 
+        If value < 128, return the value specified. If >= 128, encode as a floating
         point value. Value can be 0 - 31744.
         """
         value = self.mrcode

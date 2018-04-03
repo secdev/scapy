@@ -26,8 +26,8 @@ class MGCP(Packet):
                    StrStopField("version", "MGCP 1.0 NCS 1.0", b"\x0a", -1),
                    StrFixedLenField("sep4", b"\x0a", 1),
                    ]
-                    
-    
+
+
 #class MGCP(Packet):
 #    name = "MGCP"
 #    longname = "Media Gateway Control Protocol"
