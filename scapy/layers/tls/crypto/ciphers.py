@@ -8,6 +8,7 @@
 TLS ciphers.
 """
 
+
 class CipherError(Exception):
     """
     Raised when .decrypt() or .auth_decrypt() fails.

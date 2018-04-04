@@ -36,6 +36,7 @@ from scapy.supersocket import SuperSocket
 ## Debug class ##
 #################
 
+
 class debug:
     recv=[]
     sent=[]
@@ -69,12 +70,14 @@ def _sndrcv_snd(pks, timeout, inter, verbose, tobesent, stopevent):
         stopevent.wait(timeout)
         stopevent.set()
 
+
 class _BreakException(Exception):
     """A dummy exception used in _get_pkt() to get out of the infinite
 loop
 
     """
     pass
+
 
 def _sndrcv_rcv(pks, tobesent, stopevent, nbrecv, notans, verbose, chainCC,
                 multi):
@@ -90,6 +93,7 @@ def _sndrcv_rcv(pks, tobesent, stopevent, nbrecv, notans, verbose, chainCC,
             return pks.recv(MTU)
     elif conf.use_bpf:
         from scapy.arch.bpf.supersocket import bpf_select
+
         def _get_pkt():
             if bpf_select([pks]):
                 return pks.recv()
@@ -118,9 +122,9 @@ def _sndrcv_rcv(pks, tobesent, stopevent, nbrecv, notans, verbose, chainCC,
         try:
             while True:
                 r = _get_pkt()
+                if stopevent.is_set():
+                    break
                 if r is None:
-                    if stopevent.is_set():
-                        break
                     continue
                 ok = False
                 h = r.hashret()
@@ -157,6 +161,7 @@ def _sndrcv_rcv(pks, tobesent, stopevent, nbrecv, notans, verbose, chainCC,
         stopevent.set()
     return (hsent, ans, nbrecv, notans)
 
+
 def sndrcv(pks, pkt, timeout=None, inter=0, verbose=None, chainCC=False,
            retry=0, multi=False, rcv_pks=None):
     """Scapy raw function to send a packet and recieve its answer.
@@ -173,25 +178,26 @@ def sndrcv(pks, pkt, timeout=None, inter=0, verbose=None, chainCC=False,
     timeout:  how much time to wait after the last packet has been sent
     verbose:  set verbosity level
     multi:    whether to accept multiple answers for the same stimulus"""
-    if not isinstance(pkt, Gen):
-        pkt = SetGen(pkt)
+    is_single = isinstance(pkt, Gen)
+    pkts = [pkt] if is_single else pkt
     if verbose is None:
         verbose = conf.verb
-    debug.recv = plist.PacketList([],"Unanswered")
-    debug.sent = plist.PacketList([],"Sent")
+    debug.recv = plist.PacketList([], "Unanswered")
+    debug.sent = plist.PacketList([], "Sent")
     debug.match = plist.SndRcvList([])
     nbrecv = 0
     ans = []
     # do it here to fix random fields, so that parent and child have the same
-    tobesent = [p for p in pkt]
+    tobesent = [p for p in (pkt if is_single else SetGen(pkt))]
     notans = len(tobesent)
 
     if retry < 0:
-        retry = -retry
-        autostop = retry
+        autostop = retry = -retry
     else:
         autostop = 0
 
+    for pkt in pkts:
+        pkt.sent_time = None
     while retry >= 0:
         if timeout is not None and timeout < 0:
             timeout = None
@@ -207,18 +213,28 @@ def sndrcv(pks, pkt, timeout=None, inter=0, verbose=None, chainCC=False,
             (rcv_pks or pks), tobesent, stopevent, nbrecv, notans, verbose, chainCC, multi,
         )
         thread.join()
+
         ans.extend(newans)
+        to_set_time = [pkt for pkt in pkts if pkt.sent_time is None]
+        if to_set_time:
+            try:
+                sent_time = min(p.sent_time for p in tobesent if getattr(p, "sent_time", None))
+            except ValueError:
+                pass
+            else:
+                for pkt in to_set_time:
+                    pkt.sent_time = sent_time
 
-        remain = list(itertools.chain(*six.itervalues(hsent)))
-        if multi:
-            remain = [p for p in remain if not hasattr(p, '_answered')]
+        remain = itertools.chain(*six.itervalues(hsent))
+        remain = [p for p in remain if not hasattr(p, '_answered')] if multi else list(remain)
 
-        if autostop and len(remain) > 0 and len(remain) != len(tobesent):
-            retry = autostop
-            
-        tobesent = remain
-        if len(tobesent) == 0:
+        if not remain:
             break
+
+        if autostop and len(remain) != len(tobesent):
+            retry = autostop
+
+        tobesent = remain
         retry -= 1
 
     if conf.debug_match:
@@ -267,7 +283,7 @@ def __gen_send(s, x, inter=0, loop=0, count=None, verbose=None, realtime=None, r
                     sent_packets.append(p)
                 n += 1
                 if verbose:
-                    os.write(1,b".")
+                    os.write(1, b".")
                 time.sleep(inter)
             if loop < 0:
                 loop += 1
@@ -278,7 +294,8 @@ def __gen_send(s, x, inter=0, loop=0, count=None, verbose=None, realtime=None, r
         print("\nSent %i packets." % n)
     if return_packets:
         return sent_packets
-        
+
+
 @conf.commands.register
 def send(x, inter=0, loop=0, count=None, verbose=None, realtime=None, return_packets=False, socket=None,
          *args, **kargs):
@@ -287,8 +304,9 @@ send(packets, [inter=0], [loop=0], [count=None], [verbose=conf.verb], [realtime=
      [socket=None]) -> None"""
     if socket is None:
         socket = conf.L3socket(*args, **kargs)
-    return __gen_send(socket, x, inter=inter, loop=loop, count=count,verbose=verbose,
+    return __gen_send(socket, x, inter=inter, loop=loop, count=count, verbose=verbose,
                       realtime=realtime, return_packets=return_packets)
+
 
 @conf.commands.register
 def sendp(x, inter=0, loop=0, iface=None, iface_hint=None, count=None, verbose=None, realtime=None,
@@ -303,6 +321,7 @@ sendp(packets, [inter=0], [loop=0], [iface=None], [iface_hint=None], [count=None
     return __gen_send(socket, x, inter=inter, loop=loop, count=count,
                       verbose=verbose, realtime=realtime, return_packets=return_packets)
 
+
 @conf.commands.register
 def sendpfast(x, pps=None, mbps=None, realtime=None, loop=0, file_cache=False, iface=None):
     """Send packets at layer 2 using tcpreplay for performance
@@ -314,7 +333,7 @@ def sendpfast(x, pps=None, mbps=None, realtime=None, loop=0, file_cache=False, i
     iface: output interface """
     if iface is None:
         iface = conf.iface
-    argv = [conf.prog.tcpreplay, "--intf1=%s" % iface ]
+    argv = [conf.prog.tcpreplay, "--intf1=%s" % iface]
     if pps is not None:
         argv.append("--pps=%i" % pps)
     elif mbps is not None:
@@ -344,12 +363,9 @@ def sendpfast(x, pps=None, mbps=None, realtime=None, loop=0, file_cache=False, i
     finally:
         os.unlink(f)
 
-        
 
-        
-    
 @conf.commands.register
-def sr(x, promisc=None, filter=None, iface=None, nofilter=0, *args,**kargs):
+def sr(x, promisc=None, filter=None, iface=None, nofilter=0, *args, **kargs):
     """Send and receive packets at layer 3
 nofilter: put 1 to avoid use of BPF filters
 retry:    if positive, how many times to resend unanswered packets
@@ -366,8 +382,9 @@ iface:    listen answers only on the given interface"""
     s.close()
     return result
 
+
 @conf.commands.register
-def sr1(x, promisc=None, filter=None, iface=None, nofilter=0, *args,**kargs):
+def sr1(x, promisc=None, filter=None, iface=None, nofilter=0, *args, **kargs):
     """Send packets at layer 3 and return only the first answer
 nofilter: put 1 to avoid use of BPF filters
 retry:    if positive, how many times to resend unanswered packets
@@ -387,8 +404,9 @@ iface:    listen answers only on the given interface"""
     else:
         return None
 
+
 @conf.commands.register
-def srp(x, promisc=None, iface=None, iface_hint=None, filter=None, nofilter=0, type=ETH_P_ALL, *args,**kargs):
+def srp(x, promisc=None, iface=None, iface_hint=None, filter=None, nofilter=0, type=ETH_P_ALL, *args, **kargs):
     """Send and receive packets at layer 2
 nofilter: put 1 to avoid use of BPF filters
 retry:    if positive, how many times to resend unanswered packets
@@ -407,8 +425,9 @@ iface:    work only on the given interface"""
     s.close()
     return result
 
+
 @conf.commands.register
-def srp1(*args,**kargs):
+def srp1(*args, **kargs):
     """Send and receive packets at layer 2 and return only the first answer
 nofilter: put 1 to avoid use of BPF filters
 retry:    if positive, how many times to resend unanswered packets
@@ -428,7 +447,8 @@ iface:    work only on the given interface"""
 
 # SEND/RECV LOOP METHODS
 
-def __sr_loop(srfunc, pkts, prn=lambda x:x[1].summary(), prnfail=lambda x:x.summary(), inter=1, timeout=None, count=None, verbose=None, store=1, *args, **kargs):
+
+def __sr_loop(srfunc, pkts, prn=lambda x: x[1].summary(), prnfail=lambda x: x.summary(), inter=1, timeout=None, count=None, verbose=None, store=1, *args, **kargs):
     n = 0
     r = 0
     ct = conf.color_theme
@@ -442,7 +462,7 @@ def __sr_loop(srfunc, pkts, prn=lambda x:x[1].summary(), prnfail=lambda x:x.summ
     try:
         while True:
             parity ^= 1
-            col = [ct.even,ct.odd][parity]
+            col = [ct.even, ct.odd][parity]
             if count is not None:
                 if count == 0:
                     break
@@ -475,16 +495,18 @@ def __sr_loop(srfunc, pkts, prn=lambda x:x[1].summary(), prnfail=lambda x:x.summ
                 time.sleep(inter+start-end)
     except KeyboardInterrupt:
         pass
- 
+
     if verbose and n>0:
-        print(ct.normal("\nSent %i packets, received %i packets. %3.1f%% hits." % (n,r,100.0*r/n)))
-    return plist.SndRcvList(ans),plist.PacketList(unans)
+        print(ct.normal("\nSent %i packets, received %i packets. %3.1f%% hits." % (n, r, 100.0*r/n)))
+    return plist.SndRcvList(ans), plist.PacketList(unans)
+
 
 @conf.commands.register
 def srloop(pkts, *args, **kargs):
     """Send a packet at layer 3 in loop and print the answer each time
 srloop(pkts, [prn], [inter], [count], ...) --> None"""
     return __sr_loop(sr, pkts, *args, **kargs)
+
 
 @conf.commands.register
 def srploop(pkts, *args, **kargs):
@@ -494,12 +516,13 @@ srloop(pkts, [prn], [inter], [count], ...) --> None"""
 
 # SEND/RECV FLOOD METHODS
 
+
 def sndrcvflood(pks, pkt, inter=0, verbose=None, chainCC=False, prn=lambda x: x):
     if not verbose:
         verbose = conf.verb
-    if not isinstance(pkt, Gen):
-        pkt = SetGen(pkt)
-    tobesent = [p for p in pkt]
+    is_single = isinstance(pkt, Gen)
+    pkts = [pkt] if is_single else pkt
+    tobesent = [p for p in (pkt if is_single else SetGen(pkt))]
 
     stopevent = threading.Event()
     count_packets = six.moves.queue.Queue()
@@ -515,6 +538,8 @@ def sndrcvflood(pks, pkt, inter=0, verbose=None, chainCC=False, prn=lambda x: x)
 
     infinite_gen = send_in_loop(tobesent, stopevent)
 
+    for pkt in pkts:
+        pkt.sent_time = None
     # We don't use _sndrcv_snd verbose (it messes the logs up as in a thread that ends after recieving)
     thread = threading.Thread(
         target=_sndrcv_snd,
@@ -524,9 +549,19 @@ def sndrcvflood(pks, pkt, inter=0, verbose=None, chainCC=False, prn=lambda x: x)
 
     hsent, ans, nbrecv, notans = _sndrcv_rcv(pks, tobesent, stopevent, 0, len(tobesent), verbose, chainCC, False)
     thread.join()
+
+    ans = [(x, prn(y)) for (x, y) in ans]  # Apply prn
+    to_set_time = [pkt for pkt in pkts if pkt.sent_time is None]
+    if to_set_time:
+        try:
+            sent_time = min(p.sent_time for p in tobesent if getattr(p, "sent_time", None))
+        except ValueError:
+            pass
+        else:
+            for pkt in to_set_time:
+                pkt.sent_time = sent_time
+
     remain = list(itertools.chain(*six.itervalues(hsent)))
-    # Apply prn
-    ans = [(x, prn(y)) for (x, y) in ans]
 
     if verbose:
         print("\nReceived %i packets, got %i answers, remaining %i packets. Sent a total of %i packets." % (nbrecv+len(ans), len(ans), notans, count_packets.qsize()))
@@ -535,21 +570,23 @@ def sndrcvflood(pks, pkt, inter=0, verbose=None, chainCC=False, prn=lambda x: x)
 
     return plist.SndRcvList(ans), plist.PacketList(remain, "Unanswered")
 
+
 @conf.commands.register
-def srflood(x, promisc=None, filter=None, iface=None, nofilter=None, *args,**kargs):
+def srflood(x, promisc=None, filter=None, iface=None, nofilter=None, *args, **kargs):
     """Flood and receive packets at layer 3
 prn:      function applied to packets received
-unique:   only consider packets whose print 
+unique:   only consider packets whose print
 nofilter: put 1 to avoid use of BPF filters
 filter:   provide a BPF filter
 iface:    listen answers only on the given interface"""
     s = conf.L3socket(promisc=promisc, filter=filter, iface=iface, nofilter=nofilter)
-    r=sndrcvflood(s,x,*args,**kargs)
+    r=sndrcvflood(s, x, *args, **kargs)
     s.close()
     return r
 
+
 @conf.commands.register
-def sr1flood(x, promisc=None, filter=None, iface=None, nofilter=0, *args,**kargs):
+def sr1flood(x, promisc=None, filter=None, iface=None, nofilter=0, *args, **kargs):
     """Flood and receive packets at layer 3 and return only the first answer
 prn:      function applied to packets received
 verbose:  set verbosity level
@@ -564,23 +601,25 @@ iface:    listen answers only on the given interface"""
     else:
         return None
 
+
 @conf.commands.register
-def srpflood(x, promisc=None, filter=None, iface=None, iface_hint=None, nofilter=None, *args,**kargs):
+def srpflood(x, promisc=None, filter=None, iface=None, iface_hint=None, nofilter=None, *args, **kargs):
     """Flood and receive packets at layer 2
 prn:      function applied to packets received
-unique:   only consider packets whose print 
+unique:   only consider packets whose print
 nofilter: put 1 to avoid use of BPF filters
 filter:   provide a BPF filter
 iface:    listen answers only on the given interface"""
     if iface is None and iface_hint is not None:
-        iface = conf.route.route(iface_hint)[0]    
+        iface = conf.route.route(iface_hint)[0]
     s = conf.L2socket(promisc=promisc, filter=filter, iface=iface, nofilter=nofilter)
-    r=sndrcvflood(s,x,*args,**kargs)
+    r=sndrcvflood(s, x, *args, **kargs)
     s.close()
     return r
 
+
 @conf.commands.register
-def srp1flood(x, promisc=None, filter=None, iface=None, nofilter=0, *args,**kargs):
+def srp1flood(x, promisc=None, filter=None, iface=None, nofilter=0, *args, **kargs):
     """Flood and receive packets at layer 2 and return only the first answer
 prn:      function applied to packets received
 verbose:  set verbosity level
@@ -596,6 +635,7 @@ iface:    listen answers only on the given interface"""
         return None
 
 # SNIFF METHODS
+
 
 @conf.commands.register
 def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
@@ -713,11 +753,13 @@ Examples:
     read_allowed_exceptions = ()
     if conf.use_bpf:
         from scapy.arch.bpf.supersocket import bpf_select
+
         def _select(sockets):
             return bpf_select(sockets, remain)
     elif WINDOWS:
         from scapy.arch.pcapdnet import PcapTimeoutElapsed
         read_allowed_exceptions = (PcapTimeoutElapsed,)
+
         def _select(sockets):
             try:
                 return sockets
@@ -768,7 +810,7 @@ Examples:
     if opened_socket is None:
         for s in sniff_sockets:
             s.close()
-    return plist.PacketList(lst,"Sniffed")
+    return plist.PacketList(lst, "Sniffed")
 
 
 @conf.commands.register
@@ -799,6 +841,7 @@ Arguments:
             log_runtime.warning("Argument %s cannot be used in "
                                 "bridge_and_sniff() -- ignoring it.", arg)
             del kargs[arg]
+
     def _init_socket(iface, count):
         if isinstance(iface, SuperSocket):
             return iface, "iface%d" % count
@@ -812,6 +855,7 @@ Arguments:
         xfrms[if1] = xfrm12
     if xfrm21 is not None:
         xfrms[if2] = xfrm21
+
     def prn_send(pkt):
         try:
             sendsock = peers[pkt.sniffed_on]
@@ -843,6 +887,7 @@ Arguments:
         prn = prn_send
     else:
         prn_orig = prn
+
         def prn(pkt):
             prn_send(pkt)
             return prn_orig(pkt)
@@ -852,10 +897,11 @@ Arguments:
 
 
 @conf.commands.register
-def tshark(*args,**kargs):
+def tshark(*args, **kargs):
     """Sniff packets and print them calling pkt.summary(), a bit like text wireshark"""
     print("Capturing on '" + str(kargs.get('iface') if 'iface' in kargs else conf.iface) + "'")
     i = [0]  # This should be a nonlocal variable, using a mutable object for Python 2 compatibility
+
     def _cb(pkt):
         print("%5d\t%s" % (i[0], pkt.summary()))
         i[0] += 1

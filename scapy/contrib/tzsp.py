@@ -469,6 +469,7 @@ class TZSPTagUnknown(_TZSPTag):
         XStrLenField('data', '', length_from=lambda pkt: pkt.len)
     ]
 
+
 _TZSP_TAG_CLASSES = {
     _TZSPTag.TAG_TYPE_PADDING: TZSPTagPadding,
     _TZSPTag.TAG_TYPE_END: TZSPTagEnd,

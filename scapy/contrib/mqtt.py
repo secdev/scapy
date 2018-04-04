@@ -27,7 +27,7 @@ class VariableFieldLenField(FieldLenField):
                 data.append(val)
                 lastoffset = len(data) - 1
                 data = b"".join(chb(val | (0 if i == lastoffset else 128))
-                               for i, val in enumerate(data))
+                                for i, val in enumerate(data))
                 return s + data
             if len(data) > 3:
                 raise Scapy_Exception("%s: malformed length field" %
@@ -170,28 +170,28 @@ class MQTTPuback(Packet):
     name = "MQTT puback"
     fields_desc = [
         ShortField("msgid", None),
-        ]
+    ]
 
 
 class MQTTPubrec(Packet):
     name = "MQTT pubrec"
     fields_desc = [
         ShortField("msgid", None),
-        ]
+    ]
 
 
 class MQTTPubrel(Packet):
     name = "MQTT pubrel"
     fields_desc = [
         ShortField("msgid", None),
-        ]
+    ]
 
 
 class MQTTPubcomp(Packet):
     name = "MQTT pubcomp"
     fields_desc = [
         ShortField("msgid", None),
-        ]
+    ]
 
 
 class MQTTSubscribe(Packet):
@@ -202,7 +202,7 @@ class MQTTSubscribe(Packet):
         StrLenField("topic", "",
                     length_from=lambda pkt: pkt.length),
         ByteEnumField("QOS", 0, QOS_LEVEL),
-        ]
+    ]
 
 
 ALLOWED_RETURN_CODE = {0: 'Success',
@@ -216,7 +216,7 @@ class MQTTSuback(Packet):
     fields_desc = [
         ShortField("msgid", None),
         ByteEnumField("retcode", None, ALLOWED_RETURN_CODE)
-        ]
+    ]
 
 
 class MQTTUnsubscribe(Packet):
@@ -224,14 +224,14 @@ class MQTTUnsubscribe(Packet):
     fields_desc = [
         ShortField("msgid", None),
         StrNullField("payload", "")
-        ]
+    ]
 
 
 class MQTTUnsuback(Packet):
     name = "MQTT unsuback"
     fields_desc = [
         ShortField("msgid", None)
-        ]
+    ]
 
 
 # LAYERS BINDINGS

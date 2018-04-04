@@ -113,7 +113,7 @@ EPOCH = time.mktime((1970, 1, 2, 0, 0, 0, 3, 1, 0))-86400
 
 MTU = 0xffff # a.k.a give me all you have
 
- 
+
 # file parsing to get some values :
 
 def load_protocols(filename):
@@ -138,6 +138,7 @@ def load_protocols(filename):
         log_loading.info("Can't open %s file", filename)
     return dct
 
+
 def load_ethertypes(filename):
     spaces = re.compile(b"[ \t]+|\n")
     dct = DADict(_name=filename)
@@ -161,6 +162,7 @@ def load_ethertypes(filename):
     except IOError as msg:
         pass
     return dct
+
 
 def load_services(filename):
     spaces = re.compile(b"[ \t]+|\n")
@@ -188,28 +190,32 @@ def load_services(filename):
         f.close()
     except IOError:
         log_loading.info("Can't open /etc/services file")
-    return tdct,udct
+    return tdct, udct
 
 
 class ManufDA(DADict):
     def fixname(self, val):
         return plain_str(val)
+
     def _get_manuf_couple(self, mac):
         oui = ":".join(mac.split(":")[:3]).upper()
-        return self.__dict__.get(oui,(mac,mac))
+        return self.__dict__.get(oui, (mac, mac))
+
     def _get_manuf(self, mac):
         return self._get_manuf_couple(mac)[1]
+
     def _get_short_manuf(self, mac):
         return self._get_manuf_couple(mac)[0]
+
     def _resolve_MAC(self, mac):
         oui = ":".join(mac.split(":")[:3]).upper()
         if oui in self:
             return ":".join([self[oui][0]]+ mac.split(":")[3:])
         return mac
+
     def __repr__(self):
         return "\n".join("<%s %s, %s>" % (i[0], i[1][0], i[1][1]) for i in self.__dict__.items())
-        
-        
+
 
 def load_manuf(filename):
     manufdb=ManufDA(_name=filename)
@@ -219,7 +225,7 @@ def load_manuf(filename):
                 l = l.strip()
                 if not l or l.startswith(b"#"):
                     continue
-                oui,shrt=l.split()[:2]
+                oui, shrt=l.split()[:2]
                 i = l.find(b"#")
                 if i < 0:
                     lng=shrt
@@ -230,12 +236,12 @@ def load_manuf(filename):
                 log_loading.warning("Couldn't parse one line from [%s] [%r]",
                                     filename, l, exc_info=True)
     return manufdb
-    
+
 
 if WINDOWS:
     ETHER_TYPES=load_ethertypes("ethertypes")
     IP_PROTOS=load_protocols(os.environ["SystemRoot"]+"\system32\drivers\etc\protocol")
-    TCP_SERVICES,UDP_SERVICES=load_services(os.environ["SystemRoot"] + "\system32\drivers\etc\services")
+    TCP_SERVICES, UDP_SERVICES=load_services(os.environ["SystemRoot"] + "\system32\drivers\etc\services")
     # Default value, will be updated by arch.windows
     try:
         MANUFDB = load_manuf(os.environ["ProgramFiles"] + "\\wireshark\\manuf")
@@ -244,7 +250,7 @@ if WINDOWS:
 else:
     IP_PROTOS=load_protocols("/etc/protocols")
     ETHER_TYPES=load_ethertypes("/etc/ethertypes")
-    TCP_SERVICES,UDP_SERVICES=load_services("/etc/services")
+    TCP_SERVICES, UDP_SERVICES=load_services("/etc/services")
     MANUFDB = None
     for prefix in ['/usr', '/usr/local', '/opt', '/opt/wireshark']:
         try:
@@ -283,5 +289,5 @@ class KnowledgeBase:
         if self.base is None:
             self.lazy_init()
         return self.base
-    
+
 

@@ -62,24 +62,24 @@ coap_codes = {
     165: "Proxying Not Supported"}
 
 coap_options = ({
-                    1: "If-Match",
-                    3: "Uri-Host",
-                    4: "ETag",
-                    5: "If-None-Match",
-                    7: "Uri-Port",
-                    8: "Location-Path",
-                    11: "Uri-Path",
-                    12: "Content-Format",
-                    14: "Max-Age",
-                    15: "Uri-Query",
-                    17: "Accept",
-                    20: "Location-Query",
-                    35: "Proxy-Uri",
-                    39: "Proxy-Scheme",
-                    60: "Size1"
-                },
-                {
-                    "If-Match": 1,
+    1: "If-Match",
+    3: "Uri-Host",
+    4: "ETag",
+    5: "If-None-Match",
+    7: "Uri-Port",
+    8: "Location-Path",
+    11: "Uri-Path",
+    12: "Content-Format",
+    14: "Max-Age",
+    15: "Uri-Query",
+    17: "Accept",
+    20: "Location-Query",
+    35: "Proxy-Uri",
+    39: "Proxy-Scheme",
+    60: "Size1"
+},
+    {
+    "If-Match": 1,
                     "Uri-Host": 3,
                     "ETag": 4,
                     "If-None-Match": 5,
@@ -94,7 +94,7 @@ coap_options = ({
                     "Proxy-Uri": 35,
                     "Proxy-Scheme": 39,
                     "Size1": 60
-                })
+})
 
 
 def _get_ext_field_size(val):
@@ -169,7 +169,7 @@ class _CoAPOptsField(StrField):
         used = 0
         for o in opts:
             used += o[0]
-        return s[used:], [ (o[1], o[2]) for o in opts ]
+        return s[used:], [(o[1], o[2]) for o in opts]
 
     def m2i(self, pkt, x):
         opts = []
@@ -192,7 +192,7 @@ class _CoAPOptsField(StrField):
                 opt_lst.append((coap_options[1][o[0]], o[1]))
             else:
                 opt_lst.append(o)
-        opt_lst.sort(key=lambda o:o[0])
+        opt_lst.sort(key=lambda o: o[0])
 
         opts = _CoAPOpt(delta=opt_lst[0][0], opt_val=opt_lst[0][1])
         high_opt = opt_lst[0][0]
@@ -201,6 +201,7 @@ class _CoAPOptsField(StrField):
             high_opt = o[0]
 
         return raw(opts)
+
 
 class _CoAPPaymark(StrField):
 
@@ -245,6 +246,7 @@ class CoAP(Packet):
             if k[0] == "Content-Format":
                 self.content_format = k[1]
         return pay
+
 
 bind_layers(UDP, CoAP, sport=5683)
 bind_layers(UDP, CoAP, dport=5683)

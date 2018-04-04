@@ -67,6 +67,11 @@ z.pubkey.curve.name == "secp256k1"
 = PubKey class : Checking point value
 z.pubkey.public_numbers().x == 104748656174769496952370005421566518252704263000192720134585149244759951661467
 
+= PubKeyRSA class : Generate without modulus
+t = PubKeyRSA()
+t.fill_and_store(modulus=None, pubExp=32769, modulusLen=1024)
+assert t.pubkey.key_size == 1024
+assert t.pubkey.public_numbers().e == 32769
 
 ########### PrivKey class ###############################################
 
@@ -127,12 +132,100 @@ weDU+RsFxcyU/QxD9WYORzYarqxbcA==
 """)
 type(y) is PrivKeyECDSA
 
+= PrivKeyECDSA sign & verify
+a = PrivKeyECDSA()
+a.fill_and_store()
+msg = b"Scapy test message"
+data = a.sign(msg)
+assert a.verify(msg, data)
+assert not a.verify(b"Hello", data)
+
+= PubKeyECDSA verify
+b = PubKeyECDSA()
+b.pubkey = a.pubkey
+assert b.verify(msg, data)
+assert not b.verify(b"Hello", data)
+
+= PrivKey class : Importing DER-encoded RSA private key
+a = PrivKeyRSA(b'0\x82\x04\xa3\x02\x01\x00\x02\x82\x01\x01\x00\x98Wj?\xe9\xd3\x11\x9b\xa4KIK?\xec\xa3\xd6\x03H\x9a\xc1\x08\x7f\xb3\xf6\xc9$\xee\x9d\xc7\x98\xc7\t&\xe1Q9A\x17\x83m\xbd\x8b\xe7\xf1\xcb\x03\xdaO\x98\x87\x90-*\xbf\x06\x03\xb5\x99\xe3\x9cl\xe4\x89\xd9\x85GCo\x0cC\x9e\xbe\xf0*\xdb\xea}\xbc\x8b\'\x17\xe2\x1at\x1fp1D\x08\xe1\xd1\xe7W\xfa\xad\xf2\x8a[\xd8\'\x85\xbd\xfc\xd9\xc8o\xfc\x00g\x04\xb4\xa0\x98\x9f\xfe\xd4\xe4T^\xfb\x1f&\xc0|\x97^\xe4J\x9b\xa7\xe6\xc2(\x8b\xccZv\xa6n\x1fCEL\xa3\xac\x10Y\xa3\x97@\xd6\x8d\xf6\xce\x9b\x85\x06\xb2]#\xc7fR\x9c=\x82\xd7\xf4\x17@Z\xf2Q\x99\x9b\xc5*sA\xb2]\xe5\xce%A6\xbb\xb0\xa22\xed\xcc\xef\xb0L\xe9\x92\xcbM\xca0\xe7\xe6\xd0"i&L\xbdR\x1a\x1c\xf0~)\xcc\x13W\xba\xa7q\xe6\xff\xfaC\x8e\xe2o\x15\xa66\xdaM9.\x02\xee\xca\xa79\xf6\xf1b\x07t\xe8\x95\xdc\xfc\xf8\x06\xcc6;\xf3\x03\x02\x03\x01\x00\x01\x02\x82\x01\x00}\xcax\x96K\xda\x18H\xffQ\x974\xc6\x94\xfc\xf7\xc3\x80Y \x99\x86\xf10\x0f\t*\xeb\'\x9b\xf4\x85\x8f\x100\x04i\xc6#\xa5#\x05zA\x82\x94,\xd8\xda\xa6\xdd\x9b\x1e\x17\xdb\xbc\x86`\x8a\xbch\x82\x11}\x86z\xc0\xa8\xdad\x9f\x99$1\x0f\xa4A\xac\xc4\xeeC\xdfT^\x9cs\x04\x8b\x1c\x16s?f\xbb<\x94\xf0@Dl\xe6\x17i\xc8\xde\xa3\xf1^\xd7\xb1\xe0\x00W\xe6\x8d\x02w\x83_fVc\xa6?z\xb2E(;\xcf\x9bwr88\xf5\x05`QE\xba\xff5.\x84\x90\xe8w\xb0\xd1\xaf1\xb4\x95\xed*@\xe9\xf6\x1dcLa\x949\xcd|\xf5`\x026\x80K\x1fC\x06yZ\x12Q\xf75\xfb\xe4\\\x0bw2\xa5F||\xd3\xf58\xee\x86\x05\xfb\xf4\xe9\xfeh\\D\xb8e\xbcFb\x96\xbe\x9c\'\xcd\xc1\xbe\x95\xda\x05\x9b\x92\xf6\x98\x9b\xb6\x85\x9fB\x96\x18\xd6WKS\xf79\xc5\xaf\xe8\x85\x9d:h6\x08\x8e\xcc0\x12\xc9\xd0\xbc\x96T!\x02\x81\x81\x00\xc8\xc2X\xc3_y\x9a\xf1\xe5\xf1\\\xb1\'q\xe4\xc5\xe4\x1aj\x8c\xd6/\x8a\xa15\r\nk\x0f\xa6\xcc?\xa3a\xd9\x1b\x1d\xbd\xda\x05\x88!\xb2\x01\x03f9\xf29V\xe5\x0b\xb2>\xe2\xc9\xaf\x01\x92KX\x96\x9f\xea\xc6y\x1c\x0c7\xceh\xf5\x89\xb0\xa4_\x1e\xddz\x84\\\xfd\x05\\:)%\xdd\xd1?\xcac\xb4(bM\x88l\xc9fl[E-\xe1N\x89&T\xfb\xb1Ie\xb8\xa7\x9a\x12\x88\xcb\xa9\x14r\x9a\xd7\xc5/\xf01\x02\x81\x81\x00\xc2B{\x893\x94/\xa6\xf8{yP\xb8t\'%\xbb"B\x97~?\xf6\xec \xf3\xfb\x91\xa6\x879\xb7\xb0|z_8\xebHv\xd3xj\xccU\x15\xff\xcf\x81nnZ`e\x96\xa0\x07e\x84u\xe01\x18!\xd2\xfe\x85\xd2\xebv\xf99\x9d\x847a\xf8N\x9e\x9f\xa1hu\x0f\t\xd1"^\xb4Y\xb8e\xe3\x98\xc08WHK\xdcs\xc5\xe5\x93<\x1f\xcd\x1f.s|>\t\xf6\xac\x80\xbb\t\x948\xeb.\x0f\x9e\x85u\x9ds\x02\x81\x80A\xc0%\x02\x17\xca\xe4\x0cE\x9a\xff\x18\xa6*\x8f\x1a\xa0\xd2f\x03*B\xf7\xccDk\xb8\xf5\xc7r\x81\x82v(\x1d\xca\xdb\xba\xca$\xf5\xa8\xd3{\xb1yQ\x91\x1bfr-\x9a{.\x1b\x8f\xcd\x9b\xf4AWS\x98\xb8\xd8\x01o\x9e\xf7c8\xc7\x97\xaa\xbd\xdc\x85\xfd\x12L\xc21w;5.\xc9\xaf6\x8d:\x8aN\x8f\xa3\x85\x02\xdc\x13Gy\xbc\xf6\x81\xcc\x0e\xef\x16\xf67\xe2*\x06\x88\x1d\xd5\xe4\'\x8f\x80\xba\xe8+\xb2\xd18\x81\x02\x81\x80R\xb4w_\xfc\x83\xb4\x9e\x03\xe0\x9d\xcf\xce\x185\xaa\x8c\xb7\x93^h3\xd7n\xc4\xc0\xdbt1P\x154\xad\x80\xf1\xa0\xa4\xdd\x17&\xef\xf5\xae\x92|\x0f7\xb0"\xcc\xdfR\xbf\x03\xc1S4\x92\xf6\x081\x80\xf5cA/w\xceJ\xcd\x86b\x0f<\x01PF\xa5BGx2\xbe\xd3\xbe<9\xc3\xd4H\xf6\x86\xfa\x95H\x114\xa7\xe5\x14`}\xfa\xb5\xea\xbd\'Y\x85/I\xd0\'\xf1\xcb\x93\xab\r\xf2\xfb \xb5\xa5\x94\xba\x01O\x1d\x02\x81\x81\x00\xbeP\n-\x1dMb\x8d\xdeG\xf7qv\x82\x02v"Y\xee\x10\x83d\xbeJ\x02\xc4\xf8]T\xe1|,\xda\xba\x80\xb9+\xc8\x8a\xe4\xf9\x8b\x9f\x8c\xaaOY\x08ghE\xe5[\x02\x8b\xc9\x16\x84j{\xb1c\xf7%\x8c\xf9\xbdZ\xc0h\xcb\xd1\xb3\x93\xb6z\xb1\xd2)c\xa1\xbe\xae\x17(i\x97\\`[v\xb7 "\x7fe\x82\xef\x92\x06\xf8 \x11-x\xec\x16\xa6\x9d\xfb}~{\xbf8V\xf0I\x94We\x17\xee\xf7\xb5\xb8\xd4H')
+a_privNum = a.key.private_numbers()
+a_pubNum = a.pubkey.public_numbers()
+
+assert(x_pubNum.n == x_pubNum.n)
+assert(x_pubNum.e == x_pubNum.e)
+
+assert(x_privNum.p == a_privNum.p)
+assert(x_privNum.q == a_privNum.q)
+assert(x_privNum.dmp1 == a_privNum.dmp1)
+assert(x_privNum.dmq1 == a_privNum.dmq1)
+assert(x_privNum.d == a_privNum.d)
+
 = PrivKey class : Checking public attributes
 assert(y.key.curve.name == "secp256k1")
 y.key.public_key().public_numbers().y == 86290575637772818452062569410092503179882738810918951913926481113065456425840
 
 = PrivKey class : Checking private attributes
 y.key.private_numbers().private_value == 90719786431263082134670936670180839782031078050773732489701961692235185651857
+
++ PrivKey/Pubkey test signatures
+
+= PrivKey class : sign tbs cert
+
+pkey_sign = PrivKey("""
+-----BEGIN RSA PRIVATE KEY-----
+MIIEowIBAAKCAQEA1L8KacejlbFJ18bvAz5/W9mF+0GglJs6qyv8pAPPiX1mWaLZ
+Y42Kf/axHYrxUPXEqitRG3VkOy1HONAZhl90rY0jVUyYps94om4S98NECbY3eiVc
+02ZqQng5HyzBYJQeTh+EYrDaxPUXcVXjthmrt/6vbUHI1Kgk/gok8IBFMSzilxeO
+ZMJJ+dQigeDiaJGwHb3U5KzOm+hFb/IbwjdXJm3CG/58bCQp0rp6RD2qI/D6Xtvj
+pc/ms6q7vfBVpquSLeEIt4Jq2XC9RKGR7TGHaVe8vmU5rb/Y36ReYCw5+fMJqcP4
+fFlC6iexBDhgy1sqV0o0tu4TzJodn8n3SFResQIDAQABAoIBAHcXEe8w0AOloJ5n
+P7hjLcvusi96BzfoxSi4kM4HTA+84KRgoqw1uUf0giT1eCxHx3Uylk52okr2B55n
+70HnAVt9XEANho4qKW9Tis6iwd1l4RxA+ftkoyrePauT1BQKFgTJY8QTGAOU5zCM
+UdHIAPYYXX8dihxwm3SRnSf7xb/GSRkj5sMr0ioiBOZ91fwzbtOEbVXE58DyPNJm
+w/tBCFbibpr4iCU/6US8OyCxR/X4heRyKCcANXlHyE/eUO6TY8J2RaKbSQi+c3/y
+Y11ypSboyM3cGJ/URS5wRd0oQMQMANck4w+MlNU5jxsfN9wF32HWII8wq/6n3hHR
+M+H+3YECgYEA79nc8BLzFPrzuJud9JvCFEh0pNb0gLRb/MvIsaVUT7ac8/89tfvQ
+6qxWgP81ldJ7S+d/uh80CKg0lVwaxF4sQ6yNn/cvebW8tCCm0RkD8q3R9kxOd3Q/
+kLNeeBS/gPzh2xOmVuTE0ruv7ovYowU8WfJG2z20lv7WNsrN/Jm526kCgYEA4xH+
+EBVqoPYxzKoa0LNxSPfVOBO7wT19pS5Ny7yjI9oy724cNXn39H5KaCHC3ZnR0mII
+0znf7cbtbFHLSkR2MNzy1MC1VhIxFQ5yHLRCjZcKkjd+gZuJp0tCgY/r2dNYsBCR
+7W1vMz/wNsbufkOhi/DqC0Ru7onFbouGBdpID8kCgYEAjamr6NAIarfeA4dGQBdP
+BhPVcRbUyr+8JQ9ntiTkK0C8axCyLi5RMooffYk+6QKseCR/ODr9zK8sf5sq5BiL
+JF1iOL0SeVxx3CH85TtVLZykikh/f+ZVNO38OghnI5Q5AeAVOvVbmuvn+Yj3pzGM
+d8O1PgCwDQ7vDuWxzCQvtiECgYAGWA9YFbEX9CjqBeqf4BOPLVVorqx1NqmW/tcv
+lQKd0s/Pfq0NFW5HB2w+woq2NED3dsO2WwyVkRQ7DYH3fjgrH1EtfoDSecmjQ/cO
+ND8Tw5+I/EHtjxHmeaTPB91YBZ6ZtKzPDFqp/ORSM3agUnVl+oIfdHcA9Rpt/zns
+We/feQKBgGimvdIrurKPTrV49ltAKdkHmglpYeCaDr6aZKwWMcsrLmTZ6a4uRPFF
+TdK+rCyGyjmibTVRjdg5+7KXshSlBleNR3v+AySAxzpjwySVhTfRirCogHRFHrnK
+kXqy5xUkg11ETv6v91n3u5NVBlXVN4iwFRGSKsecw0qxSgKjbP4n
+-----END RSA PRIVATE KEY-----
+""")
+
+c_tosign = Cert("""
+-----BEGIN CERTIFICATE-----
+MIIC/TCCAeWgAwIBAgIJALkQBZa7rCRFMA0GCSqGSIb3DQEBBQUAMBUxEzARBgNV
+BAMMCnNlY2Rldi5vcmcwHhcNMTgwMjI3MTY1NjIyWhcNMjgwMjI1MTY1NjIyWjAV
+MRMwEQYDVQQDDApzZWNkZXYub3JnMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIB
+CgKCAQEA1L8KacejlbFJ18bvAz5/W9mF+0GglJs6qyv8pAPPiX1mWaLZY42Kf/ax
+HYrxUPXEqitRG3VkOy1HONAZhl90rY0jVUyYps94om4S98NECbY3eiVc02ZqQng5
+HyzBYJQeTh+EYrDaxPUXcVXjthmrt/6vbUHI1Kgk/gok8IBFMSzilxeOZMJJ+dQi
+geDiaJGwHb3U5KzOm+hFb/IbwjdXJm3CG/58bCQp0rp6RD2qI/D6Xtvjpc/ms6q7
+vfBVpquSLeEIt4Jq2XC9RKGR7TGHaVe8vmU5rb/Y36ReYCw5+fMJqcP4fFlC6iex
+BDhgy1sqV0o0tu4TzJodn8n3SFResQIDAQABo1AwTjAdBgNVHQ4EFgQUf98kGOpM
+CVBFdHxFb8DaL6tPe+8wHwYDVR0jBBgwFoAUf98kGOpMCVBFdHxFb8DaL6tPe+8w
+DAYDVR0TBAUwAwEB/zANBgkqhkiG9w0BAQUFAAOCAQEAmw0lTyEVH8YfytbVS9AW
+rTJ1wWhDGf+9jHHEjX/OIq5ii0Ks38WyybhD7cMQNfkZCgIjrutrLHN/m/wn9aDx
+y9vuubWvrcbqhur82YZbVnlvEiqEEyY/ULqCaW2X7UC2K/2NAy14oF6bClLX8LBq
+3G/lc6GUOToN6i4OuKeB9xxvJaBxsVIdnUW9IqesHatqV4yIhH1/flhqWM47LjHP
+a/uIGboyhl8p5bt3aVbXFwm/NeqsOVPDcQsBdWGldCN6loLE7b4eJDhjHbsuR2C3
+aomWcyGW1mRxNJUI0GQ5EHB5Vvy4mcxKG1DMYxG/rGf/EHk+xPJXpITIugbispbm
+uA==
+-----END CERTIFICATE-----
+""")
+tbs_signed = pkey_sign.signTBSCert(c_tosign.tbsCertificate)
+assert raw(tbs_signed.signatureValue) == b"BH\xdb@>\x82\x08b\xbc\xaf\x04%_\xeaV\xf5_\xa8\xf4\xf3\xd1\x0f\x86\xbd\x1b\xe2U\xfb\xf5/\rN\xc2\r\xbc\xa0Hn\xed\xb7\x18\xb2\xb3\xa5\x08m9\x9fY\xa6\xb32\xcd:\xd7\xab\xac\x8c\xcf@\xbb\x08Gt2\xb7\x93\x95\x92\x17\xa7j\x99\xa7)\xab\xbc\x07HP\xca\x00M$\xfb.\xb9\xb8\xac%i\x8c\xa2+\xe7ny!\xa1\xd2l\x0f>j\xd6\xb0\x9e\xcat)+\xbc\x16'\x9d\x1e\x80\x89\x01.\x9dS\xbb\xa0-\xb8\x0c\xe9\xe9:a\xbe\x14p\xd1\xbb\xf0I\xa2\x8fio`2\x1b7\xb8]\t3\xced`\x86\x97\x01\x82t\xd0\xc3c%\xa7\xda\\[]9\xfa\xba\r\x83\x8b\r\xa2(\x87\xe87C\xb7\\\x11\x163\x8e\xbf\xe2\x80\x7f\xf2\x93\xa4\x04w\xddG\x88\x1e#\xa6l\x15\xa1\xc6\xda\x1f\xd4\xb4$T\xa1\xd0\xe9\xd5t\xc4\xe4q\xbe\xa2\xd2\xba\x1b!/\x1dK\x17}\xc6.\xba\x81;\x00ft\x8du)\x15\n\t\x08\x1b\xb2Ol\xe1\x94g\xc8\xc0\xd6>"
+pkey_sign.resignCert(c_tosign)
+assert pkey_sign.verifyCert(c_tosign)
 
 
 ########### Keys crypto tests #######################################
@@ -215,6 +308,10 @@ x.notBefore == (2006, 7, 13, 7, 38, 59, 3, 194, -1)
 assert(x.notAfter_str_simple == '03/30/26')
 x.notAfter == (2026, 3, 30, 7, 38, 59, 0, 89, -1)
 
+= Cert class : test remainingDays
+assert abs(x.remainingDays("02/12/11")) > 5000
+assert abs(x.remainingDays("Feb 12 10:00:00 2011 Paris, Madrid")) > 1
+
 = Cert class : Checking RSA public key
 assert(type(x.pubKey) is PubKeyRSA)
 x_pubNum = x.pubKey.pubkey.public_numbers()
@@ -254,6 +351,17 @@ pubkey.public_numbers().x == 398717868817528174634918001549064694865613744866600
 = Cert class : Checking ECDSA signature
 y.signatureValue == b'0d\x020%\xa4\x81E\x02k\x12KutO\xc8#\xe3p\xf2ur\xde|\x89\xf0\xcf\x91ra\x9e^\x10\x92YV\xb9\x83\xc7\x10\xe78\xe9X&6}\xd5\xe44\x869\x020|6S\xf00\xe5bc:\x99\xe2\xb6\xa3;\x9b4\xfa\x1e\xda\x10\x92q^\x91\x13\xa7\xdd\xa4n\x92\xcc2\xd6\xf5!f\xc7/\xea\x96cjeE\x92\x95\x01\xb4'
 
+= Cert class : Test show
+awaited = """
+Serial: 15459312981008553731928384953135426796
+Issuer: /C=US/O=DigiCert Inc/OU=www.digicert.com/CN=DigiCert Assured ID Root G3
+Subject: /C=US/O=DigiCert Inc/OU=www.digicert.com/CN=DigiCert Assured ID Root G3
+Validity: Aug 01 12:00:00 2013 GMT to Jan 15 12:00:00 2038 GMT
+"""
+
+with ContextManagerCaptureOutput() as cmco:
+    y.show()
+    assert cmco.get_output().strip() == awaited.strip()
 
 ########### CRL class ###############################################
 
@@ -294,6 +402,26 @@ len(x.revoked_cert_serials) == 7
 
 = CRL class : Checking presence of one revoked certificate
 (94673785334145723688625287778885438961, '030109180612') in x.revoked_cert_serials
+
+= Cert/CRL class : Checking isRevoked
+cx = X509_Cert()
+cx.tbsCertificate.serialNumber.val = 59577943160751197113872490992424857032
+cx.tbsCertificate.issuer = x.x509CRL.tbsCertList.issuer
+cx = Cert(raw(cx))
+assert cx.isRevoked([x])
+
+= CRL class : Test show
+awaited = """
+Version: 1
+sigAlg: sha1_with_rsa_signature
+Issuer: /C=US/O=VeriSign, Inc./OU=Class 1 Public Primary Certification Authority
+lastUpdate: Nov 02 00:00:00 2006 GMT
+nextUpdate: Feb 17 23:59:59 2007 GMT
+"""
+
+with ContextManagerCaptureOutput() as cmco:
+    x.show()
+    assert cmco.get_output().strip() == awaited.strip()
 
 ########### High-level methods ###############################################
 
@@ -404,3 +532,103 @@ len(Chain([c0], c2)) == 1
 assert(Chain([], c0).verifyChain([c2], [c1]))
 not Chain([c1]).verifyChain([c0])
 
+= Chain class: Checking chain verification with file
+
+import tempfile
+
+tf_folder = tempfile.mkdtemp()
+
+try:
+    os.makedirs(tf_folder)
+except:
+    pass
+
+tf = os.path.join(tf_folder, "trusted")
+utf = os.path.join(tf_folder, "untrusted")
+
+tf
+utf
+
+# Create files
+trusted = open(tf, "w")
+trusted.write("""
+-----BEGIN CERTIFICATE-----
+MIIFADCCA+igAwIBAgIBBzANBgkqhkiG9w0BAQsFADCBjzELMAkGA1UEBhMCVVMx
+EDAOBgNVBAgTB0FyaXpvbmExEzARBgNVBAcTClNjb3R0c2RhbGUxJTAjBgNVBAoT
+HFN0YXJmaWVsZCBUZWNobm9sb2dpZXMsIEluYy4xMjAwBgNVBAMTKVN0YXJmaWVs
+ZCBSb290IENlcnRpZmljYXRlIEF1dGhvcml0eSAtIEcyMB4XDTExMDUwMzA3MDAw
+MFoXDTMxMDUwMzA3MDAwMFowgcYxCzAJBgNVBAYTAlVTMRAwDgYDVQQIEwdBcml6
+b25hMRMwEQYDVQQHEwpTY290dHNkYWxlMSUwIwYDVQQKExxTdGFyZmllbGQgVGVj
+aG5vbG9naWVzLCBJbmMuMTMwMQYDVQQLEypodHRwOi8vY2VydHMuc3RhcmZpZWxk
+dGVjaC5jb20vcmVwb3NpdG9yeS8xNDAyBgNVBAMTK1N0YXJmaWVsZCBTZWN1cmUg
+Q2VydGlmaWNhdGUgQXV0aG9yaXR5IC0gRzIwggEiMA0GCSqGSIb3DQEBAQUAA4IB
+DwAwggEKAoIBAQDlkGZL7PlGcakgg77pbL9KyUhpgXVObST2yxcT+LBxWYR6ayuF
+pDS1FuXLzOlBcCykLtb6Mn3hqN6UEKwxwcDYav9ZJ6t21vwLdGu4p64/xFT0tDFE
+3ZNWjKRMXpuJyySDm+JXfbfYEh/JhW300YDxUJuHrtQLEAX7J7oobRfpDtZNuTlV
+Bv8KJAV+L8YdcmzUiymMV33a2etmGtNPp99/UsQwxaXJDgLFU793OGgGJMNmyDd+
+MB5FcSM1/5DYKp2N57CSTTx/KgqT3M0WRmX3YISLdkuRJ3MUkuDq7o8W6o0OPnYX
+v32JgIBEQ+ct4EMJddo26K3biTr1XRKOIwSDAgMBAAGjggEsMIIBKDAPBgNVHRMB
+Af8EBTADAQH/MA4GA1UdDwEB/wQEAwIBBjAdBgNVHQ4EFgQUJUWBaFAmOD07LSy+
+zWrZtj2zZmMwHwYDVR0jBBgwFoAUfAwyH6fZMH/EfWijYqihzqsHWycwOgYIKwYB
+BQUHAQEELjAsMCoGCCsGAQUFBzABhh5odHRwOi8vb2NzcC5zdGFyZmllbGR0ZWNo
+LmNvbS8wOwYDVR0fBDQwMjAwoC6gLIYqaHR0cDovL2NybC5zdGFyZmllbGR0ZWNo
+LmNvbS9zZnJvb3QtZzIuY3JsMEwGA1UdIARFMEMwQQYEVR0gADA5MDcGCCsGAQUF
+BwIBFitodHRwczovL2NlcnRzLnN0YXJmaWVsZHRlY2guY29tL3JlcG9zaXRvcnkv
+MA0GCSqGSIb3DQEBCwUAA4IBAQBWZcr+8z8KqJOLGMfeQ2kTNCC+Tl94qGuc22pN
+QdvBE+zcMQAiXvcAngzgNGU0+bE6TkjIEoGIXFs+CFN69xpk37hQYcxTUUApS8L0
+rjpf5MqtJsxOYUPl/VemN3DOQyuwlMOS6eFfqhBJt2nk4NAfZKQrzR9voPiEJBjO
+eT2pkb9UGBOJmVQRDVXFJgt5T1ocbvlj2xSApAer+rKluYjdkf5lO6Sjeb6JTeHQ
+sPTIFwwKlhR8Cbds4cLYVdQYoKpBaXAko7nv6VrcPuuUSvC33l8Odvr7+2kDRUBQ
+7nIMpBKGgc0T0U7EPMpODdIm8QC3tKai4W56gf0wrHofx1l7
+-----END CERTIFICATE-----
+""")
+trusted.close()
+
+untrusted = open(utf, "w")
+untrusted.write("""
+-----BEGIN CERTIFICATE-----
+MIID3TCCAsWgAwIBAgIBADANBgkqhkiG9w0BAQsFADCBjzELMAkGA1UEBhMCVVMx
+EDAOBgNVBAgTB0FyaXpvbmExEzARBgNVBAcTClNjb3R0c2RhbGUxJTAjBgNVBAoT
+HFN0YXJmaWVsZCBUZWNobm9sb2dpZXMsIEluYy4xMjAwBgNVBAMTKVN0YXJmaWVs
+ZCBSb290IENlcnRpZmljYXRlIEF1dGhvcml0eSAtIEcyMB4XDTA5MDkwMTAwMDAw
+MFoXDTM3MTIzMTIzNTk1OVowgY8xCzAJBgNVBAYTAlVTMRAwDgYDVQQIEwdBcml6
+b25hMRMwEQYDVQQHEwpTY290dHNkYWxlMSUwIwYDVQQKExxTdGFyZmllbGQgVGVj
+aG5vbG9naWVzLCBJbmMuMTIwMAYDVQQDEylTdGFyZmllbGQgUm9vdCBDZXJ0aWZp
+Y2F0ZSBBdXRob3JpdHkgLSBHMjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoC
+ggEBAL3twQP89o/8ArFvW59I2Z154qK3A2FWGMNHttfKPTUuiUP3oWmb3ooa/RMg
+nLRJdzIpVv257IzdIvpy3Cdhl+72WoTsbhm5iSzchFvVdPtrX8WJpRBSiUZV9Lh1
+HOZ/5FSuS/hVclcCGfgXcVnrHigHdMWdSL5stPSksPNkN3mSwOxGXn/hbVNMYq/N
+Hwtjuzqd+/x5AJhhdM8mgkBj87JyahkNmcrUDnXMN/uLicFZ8WJ/X7NfZTD4p7dN
+dloedl40wOiWVpmKs/B/pM293DIxfJHP4F8R+GuqSVzRmZTRouNjWwl2tVZi4Ut0
+HZbUJtQIBFnQmA4O5t78w+wfkPECAwEAAaNCMEAwDwYDVR0TAQH/BAUwAwEB/zAO
+BgNVHQ8BAf8EBAMCAQYwHQYDVR0OBBYEFHwMMh+n2TB/xH1oo2Kooc6rB1snMA0G
+CSqGSIb3DQEBCwUAA4IBAQARWfolTwNvlJk7mh+ChTnUdgWUXuEok21iXQnCoKjU
+sHU48TRqneSfioYmUeYs0cYtbpUgSpIB7LiKZ3sx4mcujJUDJi5DnUox9g61DLu3
+4jd/IroAow57UvtruzvE03lRTs2Q9GcHGcg8RnoNAX3FWOdt5oUwF5okxBDgBPfg
+8n/Uqgr/Qh037ZTlZFkSIHc40zI+OIF1lnP6aI+xy84fxez6nH7PfrHxBy22/L/K
+pL/QlwVKvOoYKAKQvVR4CSFx09F9HdkWsKlhPdAKACL8x3vLCWRFCztAgfd9fDL1
+mMpYjn0q7pBZc2T5NnReJaH1ZgUufzkVqSr7UIuOhWn0
+-----END CERTIFICATE-----
+""")
+untrusted.close()
+
+assert Chain([], c0).verifyChainFromCAFile(tf, untrusted_file=utf)
+assert Chain([], c0).verifyChainFromCAPath(tf_folder, untrusted_file=utf)
+
+= Clear files
+
+try:
+    os.remove("./certs_test_ca/trusted")
+    os.remove("./certs_test_ca/untrusted")
+except:
+    pass
+
+try:
+    os.rmdir("././certs_test_ca")
+except:
+    pass
+
+= Test __repr__
+
+repr_str = Chain([], c0).__repr__()
+assert repr_str == '__ /OU=Domain Control Validated/CN=*.tools.ietf.org [Not Self Signed]\n'

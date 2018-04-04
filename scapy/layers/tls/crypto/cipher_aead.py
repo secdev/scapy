@@ -32,6 +32,7 @@ if conf.crypto_valid_advanced:
 
 _tls_aead_cipher_algs = {}
 
+
 class _AEADCipherMetaclass(type):
     """
     Cipher classes are automatically registered through this metaclass.
@@ -52,6 +53,7 @@ class AEADTagError(Exception):
     Raised when MAC verification fails.
     """
     pass
+
 
 class _AEADCipher(six.with_metaclass(_AEADCipherMetaclass, object)):
     """
@@ -112,7 +114,6 @@ class _AEADCipher(six.with_metaclass(_AEADCipherMetaclass, object)):
                 val = pkcs_os2ip(val)
             self.ready["nonce_explicit"] = True
         super(_AEADCipher, self).__setattr__(name, val)
-
 
     def _get_nonce(self):
         return (self.fixed_iv +
@@ -185,7 +186,7 @@ class _AEADCipher(six.with_metaclass(_AEADCipherMetaclass, object)):
         self.nonce_explicit = pkcs_os2ip(nonce_explicit_str)
         if add_length:
             A += struct.pack("!H", len(C))
-        
+
         if hasattr(self, "pc_cls"):
             self._cipher.mode._initialization_vector = self._get_nonce()
             self._cipher.mode._tag = mac
@@ -205,8 +206,8 @@ class _AEADCipher(six.with_metaclass(_AEADCipherMetaclass, object)):
                     P = self._cipher.decrypt(self._get_nonce(), C + mac, A)
             except InvalidTag:
                 raise AEADTagError(nonce_explicit_str,
-                                     "<unauthenticated data>",
-                                     mac)
+                                   "<unauthenticated data>",
+                                   mac)
         return nonce_explicit_str, P, mac
 
     def snapshot(self):
@@ -318,7 +319,7 @@ class _AEADCipher_TLS13(six.with_metaclass(_AEADCipherMetaclass, object)):
             res += encryptor.tag
         else:
             if (conf.crypto_valid_advanced and
-                isinstance(self._cipher, AESCCM)):
+                    isinstance(self._cipher, AESCCM)):
                 res = self._cipher.encrypt(self._get_nonce(seq_num), P, A,
                                            tag_length=self.tag_len)
             else:
@@ -350,12 +351,12 @@ class _AEADCipher_TLS13(six.with_metaclass(_AEADCipherMetaclass, object)):
         else:
             try:
                 if (conf.crypto_valid_advanced and
-                    isinstance(self._cipher, AESCCM)):
+                        isinstance(self._cipher, AESCCM)):
                     P = self._cipher.decrypt(self._get_nonce(seq_num), C + mac, A,
                                              tag_length=self.tag_len)
                 else:
                     if (conf.crypto_valid_advanced and
-                        isinstance(self, Cipher_CHACHA20_POLY1305)):
+                            isinstance(self, Cipher_CHACHA20_POLY1305)):
                         A += struct.pack("!H", len(C))
                     P = self._cipher.decrypt(self._get_nonce(seq_num), C + mac, A)
             except InvalidTag:

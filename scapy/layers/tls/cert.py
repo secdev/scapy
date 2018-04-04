@@ -37,6 +37,8 @@ if conf.crypto_valid:
     from cryptography.hazmat.backends import default_backend
     from cryptography.hazmat.primitives import serialization
     from cryptography.hazmat.primitives.asymmetric import rsa
+if conf.crypto_valid_advanced:
+    from cryptography.hazmat.backends.openssl.ec import InvalidSignature
 
 from scapy.error import warning
 from scapy.utils import binrepr
@@ -75,6 +77,7 @@ def der2pem(der_string, obj="UNKNOWN"):
     pem_string += ("\n-----END %s-----\n" % obj).encode()
     return pem_string
 
+
 @conf.commands.register
 def pem2der(pem_string):
     """Convert PEM string to DER format"""
@@ -88,6 +91,7 @@ def pem2der(pem_string):
     base64_string.replace(b"\n", b"")
     der_string = base64.b64decode(base64_string)
     return der_string
+
 
 def split_pem(s):
     """
@@ -285,8 +289,8 @@ class PubKeyRSA(PubKey, _EncryptAndVerifyRSA):
             e = pkcs_os2ip(e)
         self.fill_and_store(modulus=m, pubExp=e)
         self.pem = self.pubkey.public_bytes(
-                        encoding=serialization.Encoding.PEM,
-                        format=serialization.PublicFormat.SubjectPublicKeyInfo)
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo)
         self.der = pem2der(self.pem)
 
     def import_from_asn1pkt(self, pubkey):
@@ -300,6 +304,7 @@ class PubKeyRSA(PubKey, _EncryptAndVerifyRSA):
 
     def verify(self, msg, sig, t="pkcs", h="sha256", mgf=None, L=None):
         return _EncryptAndVerifyRSA.verify(self, msg, sig, t, h, mgf, L)
+
 
 class PubKeyECDSA(PubKey):
     """
@@ -316,7 +321,7 @@ class PubKeyECDSA(PubKey):
     def import_from_der(self, pubkey):
         # No lib support for explicit curves nor compressed points.
         self.pubkey = serialization.load_der_public_key(pubkey,
-                                                    backend=default_backend())
+                                                        backend=default_backend())
 
     def encrypt(self, msg, h="sha256", **kwargs):
         # cryptography lib does not support ECDSA encryption
@@ -325,9 +330,16 @@ class PubKeyECDSA(PubKey):
     @crypto_validator
     def verify(self, msg, sig, h="sha256", **kwargs):
         # 'sig' should be a DER-encoded signature, as per RFC 3279
-        verifier = self.pubkey.verifier(sig, ec.ECDSA(_get_hash(h)))
-        verifier.update(msg)
-        return verifier.verify()
+        if conf.crypto_valid_advanced:
+            try:
+                self.pubkey.verify(sig, msg, ec.ECDSA(_get_hash(h)))
+                return True
+            except InvalidSignature:
+                return False
+        else:
+            verifier = self.pubkey.verifier(sig, ec.ECDSA(_get_hash(h)))
+            verifier.update(msg)
+            return verifier.verify()
 
 
 ################
@@ -446,8 +458,8 @@ class PrivKeyRSA(PrivKey, _EncryptAndVerifyRSA, _DecryptAndSignRSA):
     """
     @crypto_validator
     def fill_and_store(self, modulus=None, modulusLen=None, pubExp=None,
-                             prime1=None, prime2=None, coefficient=None,
-                             exponent1=None, exponent2=None, privExp=None):
+                       prime1=None, prime2=None, coefficient=None,
+                       exponent1=None, exponent2=None, privExp=None):
         pubExp = pubExp or 65537
         if None in [modulus, prime1, prime2, coefficient, privExp,
                     exponent1, exponent2]:
@@ -513,21 +525,31 @@ class PrivKeyECDSA(PrivKey):
     @crypto_validator
     def import_from_asn1pkt(self, privkey):
         self.key = serialization.load_der_private_key(raw(privkey), None,
-                                                  backend=default_backend())
+                                                      backend=default_backend())
         self.pubkey = self.key.public_key()
 
     @crypto_validator
     def verify(self, msg, sig, h="sha256", **kwargs):
         # 'sig' should be a DER-encoded signature, as per RFC 3279
-        verifier = self.pubkey.verifier(sig, ec.ECDSA(_get_hash(h)))
-        verifier.update(msg)
-        return verifier.verify()
+        if conf.crypto_valid_advanced:
+            try:
+                self.pubkey.verify(sig, msg, ec.ECDSA(_get_hash(h)))
+                return True
+            except InvalidSignature:
+                return False
+        else:
+            verifier = self.pubkey.verifier(sig, ec.ECDSA(_get_hash(h)))
+            verifier.update(msg)
+            return verifier.verify()
 
     @crypto_validator
     def sign(self, data, h="sha256", **kwargs):
-        signer = self.key.signer(ec.ECDSA(_get_hash(h)))
-        signer.update(data)
-        return signer.finalize()
+        if conf.crypto_valid_advanced:
+            return self.key.sign(data, ec.ECDSA(_get_hash(h)))
+        else:
+            signer = self.key.signer(ec.ECDSA(_get_hash(h)))
+            signer.update(data)
+            return signer.finalize()
 
 
 ################
@@ -577,6 +599,7 @@ class Cert(six.with_metaclass(_CertMaker, object)):
         self.subject = tbsCert.get_subject()
         self.subject_str = tbsCert.get_subject_str()
         self.subject_hash = hash(self.subject_str)
+        self.authorityKeyID = None
 
         self.notBefore_str = tbsCert.validity.not_before.pretty_time
         notBefore = tbsCert.validity.not_before.val
@@ -699,7 +722,7 @@ class Cert(six.with_metaclass(_CertMaker, object)):
         for c in crl_list:
             if (self.authorityKeyID is not None and
                 c.authorityKeyID is not None and
-                self.authorityKeyID == c.authorityKeyID):
+                    self.authorityKeyID == c.authorityKeyID):
                 return self.serial in (x[0] for x in c.revoked_cert_serials)
             elif self.issuer == c.issuer:
                 return self.serial in (x[0] for x in c.revoked_cert_serials)
@@ -822,10 +845,7 @@ class CRL(six.with_metaclass(_CRLMaker, object)):
 
     def verify(self, anchors):
         # Return True iff the CRL is signed by one of the provided anchors.
-        for a in anchors:
-            if self.isIssuerCert(a):
-                return True
-        return False
+        return any(self.isIssuerCert(a) for a in anchors)
 
     def show(self):
         print("Version: %d" % self.version)
@@ -843,6 +863,7 @@ class Chain(list):
     """
     Basically, an enhanced array of Cert.
     """
+
     def __init__(self, certList, cert0=None):
         """
         Construct a chain of certificates starting with a self-signed
@@ -893,11 +914,7 @@ class Chain(list):
             if len(chain) == 1:             # anchor only
                 continue
             # check that the chain does not exclusively rely on untrusted
-            found = False
-            for c in self:
-                if c in chain[1:]:
-                    found = True
-            if found:
+            if any(c in chain[1:] for c in self):
                 for c in chain:
                     if c.remainingDays() < 0:
                         break
@@ -912,7 +929,7 @@ class Chain(list):
         certificates can be passed (as a file, this time).
         """
         try:
-            f = open(cafile)
+            f = open(cafile, "rb")
             ca_certs = f.read()
             f.close()
         except:
@@ -923,7 +940,7 @@ class Chain(list):
         untrusted = None
         if untrusted_file:
             try:
-                f = open(untrusted_file)
+                f = open(untrusted_file, "rb")
                 untrusted_certs = f.read()
                 f.close()
             except:
@@ -943,14 +960,14 @@ class Chain(list):
         try:
             anchors = []
             for cafile in os.listdir(capath):
-                anchors.append(Cert(open(cafile).read()))
+                anchors.append(Cert(open(os.path.join(capath, cafile), "rb").read()))
         except:
             raise Exception("capath provided is not a valid cert path")
 
         untrusted = None
         if untrusted_file:
             try:
-                f = open(untrusted_file)
+                f = open(untrusted_file, "rb")
                 untrusted_certs = f.read()
                 f.close()
             except:
@@ -993,11 +1010,10 @@ def _create_ca_file(anchor_list, filename):
     that can be used for certificate and CRL check.
     """
     try:
-        f = open(filename, "w")
-        for a in anchor_list:
-            s = a.output(fmt="PEM")
-            f.write(s)
-        f.close()
+        with open(filename, "w") as f:
+            for a in anchor_list:
+                s = a.output(fmt="PEM")
+                f.write(s)
     except IOError:
         return None
     return filename

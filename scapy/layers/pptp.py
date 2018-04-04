@@ -13,8 +13,8 @@ from scapy.packet import Packet, bind_layers
 from scapy.layers.inet import TCP
 from scapy.compat import *
 from scapy.fields import ByteEnumField, FieldLenField, FlagsField, IntField, IntEnumField,\
-                         LenField, XIntField, ShortField, ShortEnumField, StrFixedLenField,\
-                         StrLenField, XShortField, XByteField
+    LenField, XIntField, ShortField, ShortEnumField, StrFixedLenField,\
+    StrLenField, XShortField, XByteField
 
 _PPTP_MAGIC_COOKIE = 0x1a2b3c4d
 
@@ -22,13 +22,13 @@ _PPTP_msg_type = {1: "Control Message",
                   2: "Managemenent Message"}
 
 _PPTP_ctrl_msg_type = {  # Control Connection Management
-                       1: "Start-Control-Connection-Request",
-                       2: "Start-Control-Connection-Reply",
-                       3: "Stop-Control-Connection-Request",
-                       4: "Stop-Control-Connection-Reply",
-                       5: "Echo-Request",
-                       6: "Echo-Reply",
-                       # Call Management
+    1: "Start-Control-Connection-Request",
+    2: "Start-Control-Connection-Reply",
+    3: "Stop-Control-Connection-Request",
+    4: "Stop-Control-Connection-Reply",
+    5: "Echo-Request",
+    6: "Echo-Reply",
+    # Call Management
                        7: "Outgoing-Call-Request",
                        8: "Outgoing-Call-Reply",
                        9: "Incoming-Call-Request",
@@ -58,7 +58,7 @@ class PPTP(Packet):
                    XIntField("magic_cookie", _PPTP_MAGIC_COOKIE),
                    ShortEnumField("ctrl_msg_type", 1, _PPTP_ctrl_msg_type),
                    XShortField("reserved_0", 0x0000),
-                   StrLenField("data", "",length_from=lambda p: p.len - 12)]
+                   StrLenField("data", "", length_from=lambda p: p.len - 12)]
 
     registered_options = {}
 
@@ -98,6 +98,7 @@ class PPTPStartControlConnectionRequest(PPTP):
                    ShortField("firmware_revision", 256),
                    StrFixedLenField("host_name", "linux", 64),
                    StrFixedLenField("vendor_string", "", 64)]
+
 
 _PPTP_start_control_connection_result = {1: "OK",
                                          2: "General error",
@@ -147,6 +148,7 @@ class PPTPStopControlConnectionRequest(PPTP):
                    XByteField("reserved_1", 0x00),
                    XShortField("reserved_2", 0x0000)]
 
+
 _PPTP_stop_control_connection_result = {1: "OK",
                                         2: "General error"}
 
@@ -176,6 +178,7 @@ class PPTPEchoRequest(PPTP):
                    XShortField("reserved_0", 0x0000),
                    IntField("identifier", None)]
 
+
 _PPTP_echo_result = {1: "OK",
                      2: "General error"}
 
@@ -194,6 +197,7 @@ class PPTPEchoReply(PPTP):
 
     def answers(self, other):
         return isinstance(other, PPTPEchoRequest) and other.identifier == self.identifier
+
 
 _PPTP_bearer_type = {1: "Analog channel",
                      2: "Digital channel",
@@ -223,6 +227,7 @@ class PPTPOutgoingCallRequest(PPTP):
                    XShortField("reserved_1", 0x0000),
                    StrFixedLenField("phone_number", '', 64),
                    StrFixedLenField("subaddress", '', 64)]
+
 
 _PPTP_result_code = {1: "Connected",
                      2: "General error",
@@ -319,6 +324,7 @@ class PPTPCallClearRequest(PPTP):
                    ShortField("call_id", 1),
                    XShortField("reserved_1", 0x0000)]
 
+
 _PPTP_call_disconnect_result = {1: "Lost Carrier",
                                 2: "General error",
                                 3: "Admin Shutdown",
@@ -369,6 +375,7 @@ class PPTPSetLinkInfo(PPTP):
                    XShortField("reserved_1", 0x0000),
                    XIntField("send_accm", 0x00000000),
                    XIntField("receive_accm", 0x00000000)]
+
 
 bind_layers(TCP, PPTP, sport=1723)
 bind_layers(TCP, PPTP, dport=1723)

@@ -10,18 +10,19 @@ Packet class. Binding mechanism. fuzz() method.
 from __future__ import absolute_import
 from __future__ import print_function
 import re
-import time,itertools
+import time, itertools
 import copy
 import subprocess
 
 from scapy.fields import StrField, ConditionalField, Emph, PacketListField, BitField, \
     MultiEnumField, EnumField, FlagsField
 from scapy.config import conf
+from scapy.consts import WINDOWS
 from scapy.compat import *
 from scapy.base_classes import BasePacket, Gen, SetGen, Packet_metaclass
 from scapy.volatile import VolatileValue
-from scapy.utils import import_hexcap,tex_escape,colgen,get_temp_file, \
-    ContextManagerSubprocess
+from scapy.utils import import_hexcap, tex_escape, colgen, get_temp_file, \
+    issubtype, ContextManagerSubprocess
 from scapy.error import Scapy_Exception, log_runtime
 from scapy.extlib import PYX
 import scapy.modules.six as six
@@ -35,10 +36,13 @@ except ImportError:
 class RawVal:
     def __init__(self, val=""):
         self.val = val
+
     def __str__(self):
         return str(self.val)
+
     def __bytes__(self):
         return raw(self.val)
+
     def __repr__(self):
         return "<RawVal [%r]>" % self.val
 
@@ -73,12 +77,12 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
 
     @classmethod
     def upper_bonds(self):
-        for fval,upper in self.payload_guess:
+        for fval, upper in self.payload_guess:
             print("%-20s  %s" % (upper.__name__, ", ".join("%-12s" % ("%s=%r"%i) for i in six.iteritems(fval))))
 
     @classmethod
     def lower_bonds(self):
-        for lower,fval in six.iteritems(self._overload_fields):
+        for lower, fval in six.iteritems(self._overload_fields):
             print("%-20s  %s" % (lower.__name__, ", ".join("%-12s" % ("%s=%r"%i) for i in six.iteritems(fval))))
 
     def _unpickle(self, dlist):
@@ -154,12 +158,12 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             self.fieldtype[f.name] = f
             if f.holds_packets:
                 self.packetfields.append(f)
-            
-    def dissection_done(self,pkt):
+
+    def dissection_done(self, pkt):
         """DEV: will be called after a dissection is completed"""
         self.post_dissection(pkt)
         self.payload.dissection_done(pkt)
-        
+
     def post_dissection(self, pkt):
         """DEV: is called after the dissection of the whole packet"""
         pass
@@ -167,7 +171,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
     def get_field(self, fld):
         """DEV: returns the field instance from the name of the field"""
         return self.fieldtype[fld]
-        
+
     def add_payload(self, payload):
         if payload is None:
             return
@@ -185,14 +189,18 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
                 self.payload = conf.raw_layer(load=payload)
             else:
                 raise TypeError("payload must be either 'Packet' or 'bytes', not [%s]" % repr(payload))
+
     def remove_payload(self):
         self.payload.remove_underlayer(self)
         self.payload = NoPayload()
         self.overloaded_fields = {}
+
     def add_underlayer(self, underlayer):
         self.underlayer = underlayer
-    def remove_underlayer(self,other):
+
+    def remove_underlayer(self, other):
         self.underlayer = None
+
     def copy(self):
         """Returns a deep copy of the instance."""
         clone = self.__class__()
@@ -220,14 +228,14 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         if attr in self.default_fields:
             return self.default_fields[attr]
         return self.payload.getfieldval(attr)
-    
+
     def getfield_and_val(self, attr):
         if attr in self.fields:
-            return self.get_field(attr),self.fields[attr]
+            return self.get_field(attr), self.fields[attr]
         if attr in self.overloaded_fields:
-            return self.get_field(attr),self.overloaded_fields[attr]
+            return self.get_field(attr), self.overloaded_fields[attr]
         if attr in self.default_fields:
-            return self.get_field(attr),self.default_fields[attr]
+            return self.get_field(attr), self.default_fields[attr]
 
     def __getattr__(self, attr):
         try:
@@ -242,7 +250,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         if attr in self.default_fields:
             fld = self.get_field(attr)
             if fld is None:
-                any2i = lambda x,y: y
+                any2i = lambda x, y: y
             else:
                 any2i = fld.any2i
             self.fields[attr] = any2i(self, val)
@@ -254,13 +262,13 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             self.remove_payload()
             self.add_payload(val)
         else:
-            self.payload.setfieldval(attr,val)
+            self.payload.setfieldval(attr, val)
 
     def __setattr__(self, attr, val):
         if attr in self.__all_slots__:
             return object.__setattr__(self, attr, val)
         try:
-            return self.setfieldval(attr,val)
+            return self.setfieldval(attr, val)
         except AttributeError:
             pass
         return object.__setattr__(self, attr, val)
@@ -289,7 +297,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         except AttributeError:
             pass
         return object.__delattr__(self, attr)
-            
+
     def _superdir(self):
         """
         Return a list of slots and methods, including those from subclasses.
@@ -328,7 +336,6 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
                 ncol = ct.field_name
                 vcol = ct.field_value
 
-                
             s += " %s%s%s" % (ncol(f.name),
                               ct.punct("="),
                               vcol(val))
@@ -338,10 +345,13 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
                                   ct.punct("|"),
                                   repr(self.payload),
                                   ct.punct(">"))
+
     def __str__(self):
         return str(self.build())
+
     def __bytes__(self):
         return self.build()
+
     def __div__(self, other):
         if isinstance(other, Packet):
             cloneA = self.copy()
@@ -353,32 +363,39 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         else:
             return other.__rdiv__(self)
     __truediv__ = __div__
+
     def __rdiv__(self, other):
         if isinstance(other, (bytes, str)):
             return conf.raw_layer(load=other)/self
         else:
             raise TypeError
     __rtruediv__ = __rdiv__
+
     def __mul__(self, other):
         if isinstance(other, int):
             return  [self]*other
         else:
             raise TypeError
-    def __rmul__(self,other):
+
+    def __rmul__(self, other):
         return self.__mul__(other)
-    
+
     def __nonzero__(self):
         return True
     __bool__ = __nonzero__
+
     def __len__(self):
         return len(self.__bytes__())
+
     def copy_field_value(self, fieldname, value):
         return self.get_field(fieldname).do_copy(value)
+
     def copy_fields_dict(self, fields):
         if fields is None:
             return None
         return {fname: self.copy_field_value(fname, fval)
                 for fname, fval in six.iteritems(fields)}
+
     def self_build(self, field_pos_list=None):
         """
         Create the default layer regarding fields_desc dict
@@ -401,7 +418,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
                 sval = raw(val)
                 p += sval
                 if field_pos_list is not None:
-                    field_pos_list.append( (f.name, sval.encode("string_escape"), len(p), len(sval) ) )
+                    field_pos_list.append((f.name, sval.encode("string_escape"), len(p), len(sval)))
             else:
                 p = f.addfield(self, p, val)
         return p
@@ -430,7 +447,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             return self.post_build(pkt, pay)
         else:
             return pkt + pay
-    
+
     def build_padding(self):
         return self.payload.build_padding()
 
@@ -444,7 +461,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         p += self.build_padding()
         p = self.build_done(p)
         return p
-    
+
     def post_build(self, pkt, pay):
         """
         DEV: called right after the current layer is build.
@@ -465,22 +482,22 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         for f in self.fields_desc:
             if isinstance(f, ConditionalField) and not f._evalcond(self):
                 continue
-            p = f.addfield(self, p, self.getfieldval(f.name) )
+            p = f.addfield(self, p, self.getfieldval(f.name))
             if isinstance(p, bytes):
                 r = p[len(q):]
                 q = p
             else:
                 r = b""
-            pl.append( (f, f.i2repr(self,self.getfieldval(f.name)), r) )
-            
-        pkt,lst = self.payload.build_ps(internal=1)
+            pl.append((f, f.i2repr(self, self.getfieldval(f.name)), r))
+
+        pkt, lst = self.payload.build_ps(internal=1)
         p += pkt
-        lst.append( (self, pl) )
-        
-        return p,lst
-    
-    def build_ps(self,internal=0):
-        p,lst = self.do_build_ps()
+        lst.append((self, pl))
+
+        return p, lst
+
+    def build_ps(self, internal=0):
+        p, lst = self.do_build_ps()
 #        if not internal:
 #            pkt = self
 #            while pkt.haslayer(conf.padding_layer):
@@ -488,8 +505,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
 #                lst.append( (pkt, [ ("loakjkjd", pkt.load, pkt.load) ] ) )
 #                p += pkt.load
 #                pkt = pkt.payload
-        return p,lst
-
+        return p, lst
 
     def psdump(self, filename=None, **kargs):
         """
@@ -504,10 +520,14 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         if filename is None:
             fname = get_temp_file(autoext=".eps")
             canvas.writeEPSfile(fname)
-            with ContextManagerSubprocess("psdump()", conf.prog.psreader):
-                subprocess.Popen([conf.prog.psreader, fname])
+            if WINDOWS and conf.prog.psreader is None:
+                os.startfile(fname)
+            else:
+                with ContextManagerSubprocess("psdump()", conf.prog.psreader):
+                    subprocess.Popen([conf.prog.psreader, fname])
         else:
             canvas.writeEPSfile(filename)
+        print()
 
     def pdfdump(self, filename=None, **kargs):
         """
@@ -522,22 +542,25 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         if filename is None:
             fname = get_temp_file(autoext=".pdf")
             canvas.writePDFfile(fname)
-            with ContextManagerSubprocess("pdfdump()", conf.prog.pdfreader):
-                subprocess.Popen([conf.prog.pdfreader, fname])
+            if WINDOWS and conf.prog.pdfreader is None:
+                os.startfile(fname)
+            else:
+                with ContextManagerSubprocess("pdfdump()", conf.prog.pdfreader):
+                    subprocess.Popen([conf.prog.pdfreader, fname])
         else:
             canvas.writePDFfile(filename)
+        print()
 
-        
     def canvas_dump(self, layer_shift=0, rebuild=1):
         if PYX == 0:
             raise ImportError("PyX and its depedencies must be installed")
         canvas = pyx.canvas.canvas()
         if rebuild:
-            p,t = self.__class__(raw(self)).build_ps()
+            p, t = self.__class__(raw(self)).build_ps()
         else:
-            p,t = self.build_ps()
+            p, t = self.build_ps()
         YTXT=len(t)
-        for n,l in t:
+        for n, l in t:
             YTXT += len(l)
         YTXT = float(YTXT)
         YDUMP=YTXT
@@ -546,27 +569,22 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         XDSTART = 10
         y = 0.0
         yd = 0.0
-        xd = 0 
+        xd = 0
         XMUL= 0.55
         YMUL = 0.4
-    
+
         backcolor=colgen(0.6, 0.8, 1.0, trans=pyx.color.rgb)
         forecolor=colgen(0.2, 0.5, 0.8, trans=pyx.color.rgb)
 #        backcolor=makecol(0.376, 0.729, 0.525, 1.0)
-        
-        
-        def hexstr(x):
-            s = []
-            for c in x:
-                s.append("%02x" % orb(c))
-            return " ".join(s)
 
-                
-        def make_dump_txt(x,y,txt):
+        def hexstr(x):
+            return " ".join("%02x" % orb(c) for c in x)
+
+        def make_dump_txt(x, y, txt):
             return pyx.text.text(XDSTART+x*XMUL, (YDUMP-y)*YMUL, r"\tt{%s}"%hexstr(txt), [pyx.text.size.Large])
 
         def make_box(o):
-            return pyx.box.rect(o.left(), o.bottom(), o.width(), o.height(), relcenter=(0.5,0.5))
+            return pyx.box.rect(o.left(), o.bottom(), o.width(), o.height(), relcenter=(0.5, 0.5))
 
         def make_frame(lst):
             if len(lst) == 1:
@@ -604,13 +622,12 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
                                          pyx.path.lineto(lb.left(), gb.top()),
                                          pyx.path.lineto(fb.left(), gb.top()),
                                          pyx.path.closepath(),)
-                                         
 
         def make_dump(s, shift=0, y=0, col=None, bkcol=None, larg=16):
             c = pyx.canvas.canvas()
             tlist = []
             while s:
-                dmp,s = s[:larg-shift],s[larg-shift:]
+                dmp, s = s[:larg-shift], s[larg-shift:]
                 txt = make_dump_txt(shift, y, dmp)
                 tlist.append(txt)
                 shift += len(dmp)
@@ -621,22 +638,21 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
                 col = pyx.color.rgb.red
             if bkcol is None:
                 col = pyx.color.rgb.white
-            c.stroke(make_frame(tlist),[col,pyx.deco.filled([bkcol]),pyx.style.linewidth.Thick])
+            c.stroke(make_frame(tlist), [col, pyx.deco.filled([bkcol]), pyx.style.linewidth.Thick])
             for txt in tlist:
                 c.insert(txt)
             return c, tlist[-1].bbox(), shift, y
-                            
 
-        last_shift,last_y=0,0.0
+        last_shift, last_y=0, 0.0
         while t:
             bkcol = next(backcolor)
-            proto,fields = t.pop()
+            proto, fields = t.pop()
             y += 0.5
-            pt = pyx.text.text(XSTART, (YTXT-y)*YMUL, r"\font\cmssfont=cmss10\cmssfont{%s}" % proto.name, [ pyx.text.size.Large])
+            pt = pyx.text.text(XSTART, (YTXT-y)*YMUL, r"\font\cmssfont=cmss10\cmssfont{%s}" % proto.name, [pyx.text.size.Large])
             y += 1
             ptbb=pt.bbox()
             ptbb.enlarge(pyx.unit.u_pt*2)
-            canvas.stroke(ptbb.path(),[pyx.color.rgb.black, pyx.deco.filled([bkcol])])
+            canvas.stroke(ptbb.path(), [pyx.color.rgb.black, pyx.deco.filled([bkcol])])
             canvas.insert(pt)
             for fname, fval, fdump in fields:
                 col = next(forecolor)
@@ -649,7 +665,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
                 vt = pyx.text.text(XSTART+3, (YTXT-y)*YMUL, r"\font\cmssfont=cmss10\cmssfont{%s}" % tex_escape(fval))
                 y += 1.0
                 if fdump:
-                    dt,target,last_shift,last_y = make_dump(fdump, last_shift, last_y, col, bkcol)
+                    dt, target, last_shift, last_y = make_dump(fdump, last_shift, last_y, col, bkcol)
 
                     dtb = dt.bbox()
                     dtb=target
@@ -659,23 +675,21 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
                     dtb.enlarge(pyx.unit.u_pt)
                     try:
                         if yd < 0:
-                            cnx = pyx.connector.curve(bxvt,bxdt,absangle1=0, absangle2=-90)
+                            cnx = pyx.connector.curve(bxvt, bxdt, absangle1=0, absangle2=-90)
                         else:
-                            cnx = pyx.connector.curve(bxvt,bxdt,absangle1=0, absangle2=90)
+                            cnx = pyx.connector.curve(bxvt, bxdt, absangle1=0, absangle2=90)
                     except:
                         pass
                     else:
-                        canvas.stroke(cnx,[pyx.style.linewidth.thin,pyx.deco.earrow.small,col])
-                        
+                        canvas.stroke(cnx, [pyx.style.linewidth.thin, pyx.deco.earrow.small, col])
+
                     canvas.insert(dt)
-                
+
                 canvas.insert(ft)
                 canvas.insert(vt)
             last_y += layer_shift
-    
+
         return canvas
-
-
 
     def extract_padding(self, s):
         """
@@ -684,7 +698,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         :param str s: the current layer
         :return: a couple of strings (actual layer, padding)
         """
-        return s,None
+        return s, None
 
     def post_dissect(self, s):
         """DEV: is called right after the current layer has been dissected"""
@@ -726,10 +740,10 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
                 raise
             except:
                 if conf.debug_dissector:
-                    if isinstance(cls,type) and issubclass(cls,Packet):
+                    if issubtype(cls, Packet):
                         log_runtime.error("%s dissector failed" % cls.__name__)
                     else:
-                        log_runtime.error("%s.guess_payload_class() returned [%s]" % (self.__class__.__name__,repr(cls)))
+                        log_runtime.error("%s.guess_payload_class() returned [%s]" % (self.__class__.__name__, repr(cls)))
                     if cls is not None:
                         raise
                 p = conf.raw_layer(s, _internal=1, _underlayer=self)
@@ -741,12 +755,11 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         s = self.do_dissect(s)
 
         s = self.post_dissect(s)
-            
-        payl,pad = self.extract_padding(s)
+
+        payl, pad = self.extract_padding(s)
         self.do_dissect_payload(payl)
         if pad and conf.padding:
             self.add_payload(conf.padding_layer(pad))
-
 
     def guess_payload_class(self, payload):
         """
@@ -758,15 +771,11 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         """
         for t in self.aliastypes:
             for fval, cls in t.payload_guess:
-                ok = 1
-                for k, v in six.iteritems(fval):
-                    if not hasattr(self, k) or v != self.getfieldval(k):
-                        ok = 0
-                        break
-                if ok:
+                if all(hasattr(self, k) and v == self.getfieldval(k)
+                       for k, v in six.iteritems(fval)):
                     return cls
         return self.default_payload_class(payload)
-    
+
     def default_payload_class(self, payload):
         """
         DEV: Returns the default payload class if nothing has been found by the
@@ -819,7 +828,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
                     for x in loop(todo[:], done):
                         yield x
             else:
-                if isinstance(self.payload,NoPayload):
+                if isinstance(self.payload, NoPayload):
                     payloads = [None]
                 else:
                     payloads = self.payload
@@ -835,8 +844,8 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             todo = []
             done = self.fields
         else:
-            todo = [k for (k,v) in itertools.chain(six.iteritems(self.default_fields),
-                                                   six.iteritems(self.overloaded_fields))
+            todo = [k for (k, v) in itertools.chain(six.iteritems(self.default_fields),
+                                                    six.iteritems(self.overloaded_fields))
                     if isinstance(v, VolatileValue)] + list(self.fields.keys())
             done = {}
         return loop(todo, done)
@@ -849,6 +858,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             return 1
         else:
             raise TypeError((self, other))
+
     def __lt__(self, other):
         """True if self is an answer from other (other ==> self)."""
         if isinstance(other, Packet):
@@ -874,6 +884,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
     def hashret(self):
         """DEV: returns a string that has the same value for a request and its answer."""
         return self.payload.hashret()
+
     def answers(self, other):
         """DEV: true if self is an answer from other"""
         if other.__class__ == self.__class__:
@@ -890,7 +901,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             if fvalue_gen is None:
                 continue
             if not f.islist:
-                fvalue_gen = SetGen(fvalue_gen,_iterpacket=0)
+                fvalue_gen = SetGen(fvalue_gen, _iterpacket=0)
             for fvalue in fvalue_gen:
                 if isinstance(fvalue, Packet):
                     ret = fvalue.haslayer(cls)
@@ -911,9 +922,9 @@ values.
             nb = cls+1
             cls = None
         if isinstance(cls, str) and "." in cls:
-            ccls,fld = cls.split(".",1)
+            ccls, fld = cls.split(".", 1)
         else:
-            ccls,fld = cls,None
+            ccls, fld = cls, None
         if cls is None or match(self.__class__, cls) \
            or ccls in [self.__class__.__name__, self._name]:
             if all(self.getfieldval(fldname) == fldvalue
@@ -930,7 +941,7 @@ values.
             if fvalue_gen is None:
                 continue
             if not f.islist:
-                fvalue_gen = SetGen(fvalue_gen,_iterpacket=0)
+                fvalue_gen = SetGen(fvalue_gen, _iterpacket=0)
             for fvalue in fvalue_gen:
                 if isinstance(fvalue, Packet):
                     track=[]
@@ -971,22 +982,21 @@ values.
 
     def __setitem__(self, cls, val):
         self[cls].underlayer.payload = val
-    
+
     def __contains__(self, cls):
         """"cls in self" returns true if self has a layer which is an instance of cls."""
         return self.haslayer(cls)
 
     def route(self):
-        return (None,None,None)
+        return (None, None, None)
 
     def fragment(self, *args, **kargs):
         return self.payload.fragment(*args, **kargs)
-    
 
-    def display(self,*args,**kargs):  # Deprecated. Use show()
+    def display(self, *args, **kargs):  # Deprecated. Use show()
         """Deprecated. Use show() method."""
-        self.show(*args,**kargs)
-    
+        self.show(*args, **kargs)
+
     def _show_or_dump(self, dump=False, indent=3, lvl="", label_lvl="", first_call=True):
         """
         Internal method that shows or dumps a hierarchical view of a packet.
@@ -1006,9 +1016,9 @@ values.
         else:
             ct = conf.color_theme
         s = "%s%s %s %s \n" % (label_lvl,
-                              ct.punct("###["),
-                              ct.layer_name(self.name),
-                              ct.punct("]###"))
+                               ct.punct("###["),
+                               ct.layer_name(self.name),
+                               ct.punct("]###"))
         for f in self.fields_desc:
             if isinstance(f, ConditionalField) and not f._evalcond(self):
                 continue
@@ -1021,20 +1031,20 @@ values.
             fvalue = self.getfieldval(f.name)
             if isinstance(fvalue, Packet) or (f.islist and f.holds_packets and isinstance(fvalue, list)):
                 s += "%s  \\%-10s\\\n" % (label_lvl+lvl, ncol(f.name))
-                fvalue_gen = SetGen(fvalue,_iterpacket=0)
+                fvalue_gen = SetGen(fvalue, _iterpacket=0)
                 for fvalue in fvalue_gen:
                     s += fvalue._show_or_dump(dump=dump, indent=indent, label_lvl=label_lvl+lvl+"   |", first_call=False)
             else:
                 begn = "%s  %-10s%s " % (label_lvl+lvl,
-                                        ncol(f.name),
-                                        ct.punct("="),)
-                reprval = f.i2repr(self,fvalue)
+                                         ncol(f.name),
+                                         ct.punct("="),)
+                reprval = f.i2repr(self, fvalue)
                 if isinstance(reprval, str):
                     reprval = reprval.replace("\n", "\n"+" "*(len(label_lvl)
                                                               +len(lvl)
                                                               +len(f.name)
                                                               +4))
-                s += "%s%s\n" % (begn,vcol(reprval))
+                s += "%s%s\n" % (begn, vcol(reprval))
         if self.payload:
             s += self.payload._show_or_dump(dump=dump, indent=indent, lvl=lvl+(" "*indent*self.show_indent), label_lvl=label_lvl, first_call=False)
 
@@ -1094,12 +1104,11 @@ A side effect is that, to obtain "{" and "}" characters, you must use
 "%(" and "%)".
 """
 
-        escape = { "%": "%",
-                   "(": "{",
-                   ")": "}" }
+        escape = {"%": "%",
+                  "(": "{",
+                  ")": "}"}
 
-
-        # Evaluate conditions 
+        # Evaluate conditions
         while "{" in fmt:
             i = fmt.rindex("{")
             j = fmt[i+1:].index("}")
@@ -1107,7 +1116,7 @@ A side effect is that, to obtain "{" and "}" characters, you must use
             k = cond.find(":")
             if k < 0:
                 raise Scapy_Exception("Bad condition in format string: [%s] (read sprintf doc!)"%cond)
-            cond,format = cond[:k],cond[k+1:]
+            cond, format = cond[:k], cond[k+1:]
             res = False
             if cond[0] == "!":
                 res = True
@@ -1136,17 +1145,17 @@ A side effect is that, to obtain "{" and "}" characters, you must use
                     f = "s"
                     clsfld = fclsfld[0]
                 elif len(fclsfld) == 2:
-                    f,clsfld = fclsfld
+                    f, clsfld = fclsfld
                 else:
                     raise Scapy_Exception
                 if "." in clsfld:
-                    cls,fld = clsfld.split(".")
+                    cls, fld = clsfld.split(".")
                 else:
                     cls = self.__class__.__name__
                     fld = clsfld
                 num = 1
                 if ":" in cls:
-                    cls,num = cls.split(":")
+                    cls, num = cls.split(":")
                     num = int(num)
                 fmt = fmt[i+1:]
             except:
@@ -1156,22 +1165,22 @@ A side effect is that, to obtain "{" and "}" characters, you must use
                     val = time.strftime("%H:%M:%S.%%06i", time.localtime(self.time)) % int((self.time-int(self.time))*1000000)
                 elif cls == self.__class__.__name__ and hasattr(self, fld):
                     if num > 1:
-                        val = self.payload.sprintf("%%%s,%s:%s.%s%%" % (f,cls,num-1,fld), relax)
+                        val = self.payload.sprintf("%%%s,%s:%s.%s%%" % (f, cls, num-1, fld), relax)
                         f = "s"
                     elif f[-1] == "r":  # Raw field value
-                        val = getattr(self,fld)
+                        val = getattr(self, fld)
                         f = f[:-1]
                         if not f:
                             f = "s"
                     else:
-                        val = getattr(self,fld)
+                        val = getattr(self, fld)
                         if fld in self.fieldtype:
-                            val = self.fieldtype[fld].i2repr(self,val)
+                            val = self.fieldtype[fld].i2repr(self, val)
                 else:
                     val = self.payload.sprintf("%%%s%%" % sfclsfld, relax)
                     f = "s"
                 s += ("%"+f) % val
-            
+
         s += fmt
         return s
 
@@ -1188,7 +1197,7 @@ A side effect is that, to obtain "{" and "}" characters, you must use
         if not found or self.__class__ in needed:
             ret = self.mysummary()
             if isinstance(ret, tuple):
-                ret,n = ret
+                ret, n = ret
                 needed += n
         if ret or needed:
             found = 1
@@ -1199,24 +1208,23 @@ A side effect is that, to obtain "{" and "}" characters, you must use
             for f in self.fields_desc:
                 if f in conf.emph:
                     impf.append("%s=%s" % (f.name, f.i2repr(self, self.getfieldval(f.name))))
-            ret = "%s [%s]" % (ret," ".join(impf))
+            ret = "%s [%s]" % (ret, " ".join(impf))
         if ret and s:
             ret = "%s / %s" % (ret, s)
         else:
-            ret = "%s%s" % (ret,s)
-        return found,ret,needed
+            ret = "%s%s" % (ret, s)
+        return found, ret, needed
 
     def summary(self, intern=0):
         """Prints a one line summary of a packet."""
-        found,s,needed = self._do_summary()
+        found, s, needed = self._do_summary()
         return s
 
-    
-    def lastlayer(self,layer=None):
+    def lastlayer(self, layer=None):
         """Returns the uppest layer of the packet"""
         return self.payload.lastlayer(self)
 
-    def decode_payload_as(self,cls):
+    def decode_payload_as(self, cls):
         """Reassembles the payload and decode it using another packet class"""
         s = raw(self.payload)
         self.payload = cls(s, _internal=1, _underlayer=self)
@@ -1228,12 +1236,12 @@ A side effect is that, to obtain "{" and "}" characters, you must use
     def command(self):
         """Returns a string representing the command you have to type to obtain the same packet"""
         f = []
-        for fn,fv in self.fields.items():
+        for fn, fv in self.fields.items():
             fld = self.get_field(fn)
             if isinstance(fv, Packet):
                 fv = fv.command()
             elif fld.islist and fld.holds_packets and isinstance(fv, list):
-                fv = "[%s]" % ",".join( map(Packet.command, fv))
+                fv = "[%s]" % ",".join(map(Packet.command, fv))
             elif isinstance(fld, FlagsField):
                 fv = int(fv)
             else:
@@ -1243,7 +1251,8 @@ A side effect is that, to obtain "{" and "}" characters, you must use
         pc = self.payload.command()
         if pc:
             c += "/"+pc
-        return c                    
+        return c
+
 
 class NoPayload(Packet):
     def __new__(cls, *args, **kargs):
@@ -1252,95 +1261,130 @@ class NoPayload(Packet):
             cls.__singl__ = singl = Packet.__new__(cls)
             Packet.__init__(singl)
         return singl
+
     def __init__(self, *args, **kargs):
         pass
-    def dissection_done(self,pkt):
+
+    def dissection_done(self, pkt):
         return
+
     def add_payload(self, payload):
         raise Scapy_Exception("Can't add payload to NoPayload instance")
+
     def remove_payload(self):
         pass
-    def add_underlayer(self,underlayer):
+
+    def add_underlayer(self, underlayer):
         pass
-    def remove_underlayer(self,other):
+
+    def remove_underlayer(self, other):
         pass
+
     def copy(self):
         return self
+
     def __repr__(self):
         return ""
+
     def __str__(self):
         return ""
+
     def __bytes__(self):
         return b""
+
     def __nonzero__(self):
         return False
     __bool__ = __nonzero__
+
     def do_build(self):
         return b""
+
     def build(self):
         return b""
+
     def build_padding(self):
         return b""
+
     def build_done(self, p):
         return p
+
     def build_ps(self, internal=0):
-        return b"",[]
+        return b"", []
+
     def getfieldval(self, attr):
         raise AttributeError(attr)
+
     def getfield_and_val(self, attr):
         raise AttributeError(attr)
+
     def setfieldval(self, attr, val):
         raise AttributeError(attr)
+
     def delfieldval(self, attr):
         raise AttributeError(attr)
+
     def hide_defaults(self):
         pass
+
     def __iter__(self):
         return iter([])
+
     def __eq__(self, other):
         if isinstance(other, NoPayload):
             return True
         return False
+
     def hashret(self):
         return b""
+
     def answers(self, other):
         return isinstance(other, NoPayload) or isinstance(other, conf.padding_layer)
+
     def haslayer(self, cls):
         return 0
+
     def getlayer(self, cls, nb=1, _track=None, **flt):
         if _track is not None:
             _track.append(nb)
         return None
+
     def fragment(self, *args, **kargs):
-        raise Scapy_Exception("cannot fragment this packet")        
+        raise Scapy_Exception("cannot fragment this packet")
+
     def show(self, indent=3, lvl="", label_lvl=""):
         pass
+
     def sprintf(self, fmt, relax):
         if relax:
             return "??"
         else:
             raise Scapy_Exception("Format not found [%s]"%fmt)
+
     def _do_summary(self):
-        return 0,"",[]
-    def lastlayer(self,layer):
+        return 0, "", []
+
+    def lastlayer(self, layer):
         return layer
+
     def command(self):
         return ""
-    
+
 ####################
 ## packet classes ##
 ####################
 
-            
+
 class Raw(Packet):
     name = "Raw"
-    fields_desc = [ StrField("load", "") ]
+    fields_desc = [StrField("load", "")]
+
     def answers(self, other):
         return 1
 #        s = raw(other)
 #        t = self.load
 #        l = min(len(s), len(t))
 #        return  s[:l] == t[:l]
+
     def mysummary(self):
         cs = conf.raw_summary
         if cs:
@@ -1349,14 +1393,18 @@ class Raw(Packet):
             else:
                 return "Raw %r" % self.load
         return Packet.mysummary(self)
-        
+
+
 class Padding(Raw):
     name = "Padding"
+
     def self_build(self):
         return b""
+
     def build_padding(self):
         return (raw(self.load) if self.raw_packet_cache is None
                 else self.raw_packet_cache) + self.payload.build_padding()
+
 
 conf.raw_layer = Raw
 conf.padding_layer = Padding
@@ -1373,14 +1421,15 @@ def bind_bottom_up(lower, upper, __fval=None, **fval):
         fval.update(__fval)
     lower.payload_guess = lower.payload_guess[:]
     lower.payload_guess.append((fval, upper))
-    
+
 
 def bind_top_down(lower, upper, __fval=None, **fval):
     if __fval is not None:
         fval.update(__fval)
     upper._overload_fields = upper._overload_fields.copy()
     upper._overload_fields[lower] = fval
-    
+
+
 @conf.commands.register
 def bind_layers(lower, upper, __fval=None, **fval):
     """Bind 2 layers on some specific fields' values"""
@@ -1389,29 +1438,27 @@ def bind_layers(lower, upper, __fval=None, **fval):
     bind_top_down(lower, upper, **fval)
     bind_bottom_up(lower, upper, **fval)
 
+
 def split_bottom_up(lower, upper, __fval=None, **fval):
     if __fval is not None:
         fval.update(__fval)
-    def do_filter(xxx_todo_changeme,upper=upper,fval=fval):
-        (f,u) = xxx_todo_changeme
-        if u != upper:
-            return True
-        for k in fval:
-            if k not in f or f[k] != fval[k]:
-                return True
-        return False
+
+    def do_filter(xxx_todo_changeme, upper=upper, fval=fval):
+        (f, u) = xxx_todo_changeme
+        return u != upper or any(k not in f or f[k] != v for k, v in six.iteritems(fval))
     lower.payload_guess = [x for x in lower.payload_guess if do_filter(x)]
-        
+
+
 def split_top_down(lower, upper, __fval=None, **fval):
     if __fval is not None:
         fval.update(__fval)
     if lower in upper._overload_fields:
         ofval = upper._overload_fields[lower]
-        for k in fval:
-            if k not in ofval or ofval[k] != fval[k]:
-                return
+        if any(k not in ofval or ofval[k] != v for k, v in six.iteritems(fval)):
+            return
         upper._overload_fields = upper._overload_fields.copy()
         del(upper._overload_fields[lower])
+
 
 @conf.commands.register
 def split_layers(lower, upper, __fval=None, **fval):
@@ -1433,15 +1480,15 @@ def ls(obj=None, case_sensitive=False, verbose=False):
         else:
             pattern = re.compile(obj, 0 if case_sensitive else re.I)
             all_layers = sorted((layer for layer in conf.layers
-                                if (pattern.search(layer.__name__ or '')
-                                    or pattern.search(layer.name or ''))),
+                                 if (pattern.search(layer.__name__ or '')
+                                     or pattern.search(layer.name or ''))),
                                 key=lambda x: x.__name__)
         for layer in all_layers:
             print("%-10s : %s" % (layer.__name__, layer._name))
 
     else:
         is_pkt = isinstance(obj, Packet)
-        if (isinstance(obj, type) and issubclass(obj, Packet)) or is_pkt:
+        if issubtype(obj, Packet) or is_pkt:
             for f in obj.fields_desc:
                 cur_fld = f
                 attrs = []
@@ -1496,7 +1543,6 @@ def ls(obj=None, case_sensitive=False, verbose=False):
             print("Not a packet class or name. Type 'ls()' to list packet classes.")
 
 
-    
 #############
 ## Fuzzing ##
 #############

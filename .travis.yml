@@ -2,31 +2,32 @@ language: python
 
 matrix:
     include:
+        # PEP 8 checks
+        - os: linux
+          python: 2.7
+          env:
+            - TOXENV=flake8
+       
         # Run as a regular user
         - os: linux
           python: 2.7
           env:
-            - SCAPY_COVERAGE=yes
-
-        - os: linux
-          python: 3.3
-          env:
-            - SCAPY_COVERAGE=yes
+            - TOXENV=py27-linux_non_root,codecov
 
         - os: linux
           python: 3.4
           env:
-            - SCAPY_COVERAGE=yes
+            - TOXENV=py34-linux_non_root,codecov
 
         - os: linux
           python: 3.5
           env:
-            - SCAPY_COVERAGE=yes
+            - TOXENV=py35-linux_non_root,codecov
 
         - os: linux
           python: 3.6
           env:
-            - SCAPY_COVERAGE=yes
+            - TOXENV=py36-linux_non_root,codecov
 
         - os: linux
           python: pypy
@@ -53,31 +54,25 @@ matrix:
           sudo: required
           python: 2.7
           env:
-            - SCAPY_SUDO=sudo SCAPY_COVERAGE=yes
-
-        - os: linux
-          sudo: required
-          python: 3.3
-          env:
-            - SCAPY_SUDO=sudo SCAPY_COVERAGE=yes
+            - TOXENV=py27-linux_root,codecov
 
         - os: linux
           sudo: required
           python: 3.4
           env:
-            - SCAPY_SUDO=sudo SCAPY_COVERAGE=yes
+            - TOXENV=py34-linux_root,codecov
 
         - os: linux
           sudo: required
           python: 3.5
           env:
-            - SCAPY_SUDO=sudo SCAPY_COVERAGE=yes
+            - TOXENV=py35-linux_root,codecov
 
         - os: linux
           sudo: required
           python: 3.6
           env:
-            - SCAPY_SUDO=sudo SCAPY_COVERAGE=yes
+            - TOXENV=py36-linux_root,codecov
 
         - os: linux
           sudo: required

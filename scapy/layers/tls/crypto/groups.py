@@ -37,6 +37,7 @@ if conf.crypto_valid:
     except ValueError:
         # We get rid of the limitation through the cryptography v1.9 __init__.
         import six
+
         def DHParameterNumbers__init__hack(self, p, g, q=None):
             if (
                 not isinstance(p, six.integer_types) or
@@ -56,6 +57,7 @@ if conf.crypto_valid:
 
 
 _ffdh_groups = {}
+
 
 class _FFDHParamsMetaclass(type):
     def __new__(cls, ffdh_name, bases, dct):
@@ -81,6 +83,7 @@ class modp768(_FFDHParams):
     A63A3620 FFFFFFFF FFFFFFFF""")
     mLen = 768
 
+
 class modp1024(_FFDHParams): # From RFC 4306
     g = 0x02
     m = long_converter("""
@@ -90,6 +93,7 @@ class modp1024(_FFDHParams): # From RFC 4306
     A637ED6B 0BFF5CB6 F406B7ED EE386BFB 5A899FA5 AE9F2411 7C4B1FE6
     49286651 ECE65381 FFFFFFFF FFFFFFFF""")
     mLen  = 1024
+
 
 class modp1536(_FFDHParams): # From RFC 3526
     g = 0x02
@@ -103,6 +107,7 @@ class modp1536(_FFDHParams): # From RFC 3526
     83655D23 DCA3AD96 1C62F356 208552BB 9ED52907 7096966D
     670C354E 4ABC9804 F1746C08 CA237327 FFFFFFFF FFFFFFFF""")
     mLen  = 1536
+
 
 class modp2048(_FFDHParams): # From RFC 3526
     g = 0x02
@@ -119,6 +124,7 @@ class modp2048(_FFDHParams): # From RFC 3526
     DE2BCBF6 95581718 3995497C EA956AE5 15D22618 98FA0510
     15728E5A 8AACAA68 FFFFFFFF FFFFFFFF""")
     mLen  = 2048
+
 
 class modp3072(_FFDHParams): # From RFC 3526
     g = 0x02
@@ -140,6 +146,7 @@ class modp3072(_FFDHParams): # From RFC 3526
     BBE11757 7A615D6C 770988C0 BAD946E2 08E24FA0 74E5AB31
     43DB5BFC E0FD108E 4B82D120 A93AD2CA FFFFFFFF FFFFFFFF""")
     mLen  = 3072
+
 
 class modp4096(_FFDHParams): # From RFC 3526
     g = 0x02
@@ -167,6 +174,7 @@ class modp4096(_FFDHParams): # From RFC 3526
     93B4EA98 8D8FDDC1 86FFB7DC 90A6C08F 4DF435C9 34063199
     FFFFFFFF FFFFFFFF""")
     mLen  = 4096
+
 
 class modp6144(_FFDHParams): # From RFC 3526
     g = 0x02
@@ -200,6 +208,7 @@ class modp6144(_FFDHParams): # From RFC 3526
     387FE8D7 6E3C0468 043E8F66 3F4860EE 12BF2D5B 0B7474D6 E694F91E
     6DCC4024 FFFFFFFF FFFFFFFF""")
     mLen = 6144
+
 
 class modp8192(_FFDHParams): # From RFC 3526
     g = 0x02
@@ -249,6 +258,7 @@ class modp8192(_FFDHParams): # From RFC 3526
     60C980DD 98EDD3DF FFFFFFFF FFFFFFFF""")
     mLen = 8192
 
+
 class ffdhe2048(_FFDHParams): # From RFC 7919
     g = 0x02
     m = long_converter("""
@@ -265,6 +275,7 @@ class ffdhe2048(_FFDHParams): # From RFC 7919
     886B4238 61285C97 FFFFFFFF FFFFFFFF
     """)
     mLen = 2048
+
 
 class ffdhe3072(_FFDHParams): # From RFC 7919
     g = 0x02
@@ -287,6 +298,7 @@ class ffdhe3072(_FFDHParams): # From RFC 7919
     3C1B20EE 3FD59D7C 25E41D2B 66C62E37 FFFFFFFF FFFFFFFF
     """)
     mLen = 3072
+
 
 class ffdhe4096(_FFDHParams): # From RFC 7919
     g = 0x02
@@ -315,6 +327,7 @@ class ffdhe4096(_FFDHParams): # From RFC 7919
     FFFFFFFF FFFFFFFF
     """)
     mLen = 4096
+
 
 class ffdhe6144(_FFDHParams): # From RFC 7919
     g = 0x02
@@ -353,6 +366,7 @@ class ffdhe6144(_FFDHParams): # From RFC 7919
     A41D570D 7938DAD4 A40E329C D0E40E65 FFFFFFFF FFFFFFFF
     """)
     mLen = 6144
+
 
 class ffdhe8192(_FFDHParams): # From RFC 7919
     g = 0x02
@@ -404,23 +418,23 @@ class ffdhe8192(_FFDHParams): # From RFC 7919
     mLen = 8192
 
 
-_tls_named_ffdh_groups = { 256: "ffdhe2048", 257: "ffdhe3072",
-                           258: "ffdhe4096", 259: "ffdhe6144",
-                           260: "ffdhe8192" }
+_tls_named_ffdh_groups = {256: "ffdhe2048", 257: "ffdhe3072",
+                          258: "ffdhe4096", 259: "ffdhe6144",
+                          260: "ffdhe8192"}
 
-_tls_named_curves = {  1: "sect163k1",  2: "sect163r1",  3: "sect163r2",
-                       4: "sect193r1",  5: "sect193r2",  6: "sect233k1",
-                       7: "sect233r1",  8: "sect239k1",  9: "sect283k1",
-                      10: "sect283r1", 11: "sect409k1", 12: "sect409r1",
-                      13: "sect571k1", 14: "sect571r1", 15: "secp160k1",
-                      16: "secp160r1", 17: "secp160r2", 18: "secp192k1",
-                      19: "secp192r1", 20: "secp224k1", 21: "secp224r1",
-                      22: "secp256k1", 23: "secp256r1", 24: "secp384r1",
-                      25: "secp521r1", 26: "brainpoolP256r1",
-                      27: "brainpoolP384r1", 28: "brainpoolP512r1",
-                      29: "x25519",    30: "x448",
-                      0xff01: "arbitrary_explicit_prime_curves",
-                      0xff02: "arbitrary_explicit_char2_curves"}
+_tls_named_curves = {1: "sect163k1",  2: "sect163r1",  3: "sect163r2",
+                     4: "sect193r1",  5: "sect193r2",  6: "sect233k1",
+                     7: "sect233r1",  8: "sect239k1",  9: "sect283k1",
+                     10: "sect283r1", 11: "sect409k1", 12: "sect409r1",
+                     13: "sect571k1", 14: "sect571r1", 15: "secp160k1",
+                     16: "secp160r1", 17: "secp160r2", 18: "secp192k1",
+                     19: "secp192r1", 20: "secp224k1", 21: "secp224r1",
+                     22: "secp256k1", 23: "secp256r1", 24: "secp384r1",
+                     25: "secp521r1", 26: "brainpoolP256r1",
+                     27: "brainpoolP384r1", 28: "brainpoolP512r1",
+                     29: "x25519",    30: "x448",
+                     0xff01: "arbitrary_explicit_prime_curves",
+                     0xff02: "arbitrary_explicit_char2_curves"}
 
 _tls_named_groups = {}
 _tls_named_groups.update(_tls_named_ffdh_groups)
@@ -431,7 +445,7 @@ _tls_named_groups.update(_tls_named_curves)
 # Part of the code has been kept, but commented out, in case anyone would like
 # to improve ECC support in 'cryptography' (namely for the compressed point
 # format and additional curves).
-# 
+#
 # Recommended curve parameters from www.secg.org/SEC2-Ver-1.0.pdf
 # and www.ecc-brainpool.org/download/Domain-parameters.pdf
 #
@@ -526,7 +540,6 @@ _tls_named_groups.update(_tls_named_curves)
 #        x, y = extract_coordinates(g, curve)
 #        generator = Point(curve, x, y, r)
 #        return Curve(name, curve, generator, oid)
-
 
     ### Named curves
 

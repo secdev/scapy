@@ -21,6 +21,7 @@ _SSLv3_PAD2_SHA1 = b"\x5c"*40
 
 _tls_hmac_algs = {}
 
+
 class _GenericHMACMetaclass(type):
     """
     HMAC classes are automatically registered through this metaclass.
@@ -49,6 +50,7 @@ class HMACError(Exception):
     Raised when HMAC verification fails.
     """
     pass
+
 
 class _GenericHMAC(six.with_metaclass(_GenericHMACMetaclass, object)):
     def __init__(self, key=None):
@@ -87,20 +89,26 @@ class Hmac_NULL(_GenericHMAC):
     def digest_sslv3(self, tbd):
         return b""
 
+
 class Hmac_MD5(_GenericHMAC):
     pass
+
 
 class Hmac_SHA(_GenericHMAC):
     pass
 
+
 class Hmac_SHA224(_GenericHMAC):
     pass
+
 
 class Hmac_SHA256(_GenericHMAC):
     pass
 
+
 class Hmac_SHA384(_GenericHMAC):
     pass
+
 
 class Hmac_SHA512(_GenericHMAC):
     pass

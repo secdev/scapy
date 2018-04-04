@@ -126,6 +126,18 @@ assert BGPCapability in BGPCapFourBytesASN()
 assert isinstance(BGPCapFourBytesASN().getlayer(BGPCapability), BGPCapFourBytesASN)
 assert isinstance(BGPCapFourBytesASN()[BGPCapability], BGPCapFourBytesASN)
 
+= BGPCapability - sessions (1)
+p = IP()/TCP()/BGPCapability()
+l = PacketList(p)
+s = l.sessions()  # Crashed on commit: e42ecdc54556c4852ca06b1a6da6c1ccbf3f522e
+assert len(s) == 1
+
+= BGPCapability - sessions (2)
+p = IP()/UDP()/BGPCapability()
+l = PacketList(p)
+s = l.sessions()  # Crashed on commit: e42ecdc54556c4852ca06b1a6da6c1ccbf3f522e
+assert len(s) == 1
+
 
 ############################ BGPCapMultiprotocol ##############################
 + BGPCapMultiprotocol class tests

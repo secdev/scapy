@@ -62,8 +62,12 @@ Getting help
 
 Common problems are answered in the FAQ.
 
-There's a low traffic mailing list at ``scapy.ml(at)secdev.org``  (`archive <http://news.gmane.org/gmane.comp.security.scapy.general>`_, `RSS, NNTP <http://gmane.org/info.php?group=gmane.comp.security.scapy.general>`_). You are encouraged to send questions, bug reports, suggestions, ideas, cool usages of Scapy, etc. to this list. Subscribe by sending a mail to ``scapy.ml-subscribe(at)secdev.org``.
+If you need additional help, please check out:
 
+* The `Gitter channel <https://gitter.im/secdev/scapy>`_
+* The `GitHub repository <https://github.com/secdev/scapy/>`_
 
+There's also a low traffic mailing list at ``scapy.ml(at)secdev.org``  (`archive <http://news.gmane.org/gmane.comp.security.scapy.general>`_, `RSS, NNTP <http://gmane.org/info.php?group=gmane.comp.security.scapy.general>`_).
+Subscribe by sending a mail to ``scapy.ml-subscribe(at)secdev.org``.
 
-To avoid spam, you must subscribe to the mailing list to post.
+You are encouraged to send questions, bug reports, suggestions, ideas, cool usages of Scapy, etc.

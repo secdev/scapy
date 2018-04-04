@@ -13,11 +13,12 @@ from __future__ import print_function
 import struct
 
 from scapy.fields import BitField, ByteField, XByteField, ByteEnumField,\
-ShortField, IntField, XIntField, ByteEnumField, StrLenField, XStrField,\
-XStrLenField, XStrFixedLenField, LenField, FieldLenField, PacketField,\
-PacketListField, ConditionalField, PadField
+    ShortField, IntField, XIntField, ByteEnumField, StrLenField, XStrField,\
+    XStrLenField, XStrFixedLenField, LenField, FieldLenField, PacketField,\
+    PacketListField, ConditionalField, PadField
 from scapy.packet import Packet, bind_layers
 from scapy.layers.l2 import SourceMACField, Ether, CookedLinux, GRE, SNAP
+from scapy.utils import issubtype
 from scapy.config import conf
 from scapy.compat import orb, chb
 
@@ -86,7 +87,7 @@ class EAPOL(Packet):
     def answers(self, other):
         if isinstance(other, EAPOL):
             if ((self.type == self.EAP_PACKET) and
-               (other.type == self.EAP_PACKET)):
+                    (other.type == self.EAP_PACKET)):
                 return self.payload.answers(other.payload)
         return 0
 
@@ -241,7 +242,7 @@ class EAP(Packet):
         if cls == "EAP":
             if isinstance(self, EAP):
                 return True
-        elif issubclass(cls, EAP):
+        elif issubtype(cls, EAP):
             if isinstance(self, cls):
                 return True
         return super(EAP, self).haslayer(cls)
@@ -256,7 +257,7 @@ class EAP(Packet):
                 return 0
             elif self.code == self.RESPONSE:
                 if ((other.code == self.REQUEST) and
-                   (other.type == self.type)):
+                        (other.type == self.type)):
                     return 1
             elif other.code == self.RESPONSE:
                 return 1
@@ -767,11 +768,11 @@ class MKAPDU(Packet):
         return "", s
 
 
-bind_layers( Ether,         EAPOL,         type=34958)
-bind_layers( Ether,         EAPOL,         dst='01:80:c2:00:00:03', type=34958)
-bind_layers( CookedLinux,   EAPOL,         proto=34958)
-bind_layers( GRE,           EAPOL,         proto=34958)
-bind_layers( EAPOL,         EAP,           type=0)
-bind_layers( SNAP,          EAPOL,         code=34958)
-bind_layers( EAPOL,         MKAPDU,        type=5)
+bind_layers(Ether,         EAPOL,         type=34958)
+bind_layers(Ether,         EAPOL,         dst='01:80:c2:00:00:03', type=34958)
+bind_layers(CookedLinux,   EAPOL,         proto=34958)
+bind_layers(GRE,           EAPOL,         proto=34958)
+bind_layers(EAPOL,         EAP,           type=0)
+bind_layers(SNAP,          EAPOL,         code=34958)
+bind_layers(EAPOL,         MKAPDU,        type=5)
 

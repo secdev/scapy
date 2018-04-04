@@ -137,12 +137,12 @@ The following parameters can be used:
     elif example == "imsiDetach":
         print("""
 >>> a=imsiDetachIndication()
-... a.typeOfId=1; a.odd=1; a.idDigit1=0xF; 
+... a.typeOfId=1; a.odd=1; a.idDigit1=0xF;
 ... a.idDigit2_1=2; a.idDigit2=7; a.idDigit3_1=0;
 ... a.idDigit3=7; a.idDigit4_1=7; a.idDigit4=2;
 ... a.idDigit5_1=0; a.idDigit5=0; a.idDigit6_1=0;
 ... a.idDigit6=1; a.idDigit7_1=2; a.idDigit7=7;
-... a.idDigit8_1=7; a.idDigit8=5; a.idDigit9_1=1; a.idDigit9=4; 
+... a.idDigit8_1=7; a.idDigit8=5; a.idDigit9_1=1; a.idDigit9=4;
 >>> hexdump(a)
 0000   05 01 00 08 F0 27 07 72  00 01 27 75 14   .....'.r..'u.
 >>> sendum(a)
@@ -161,17 +161,17 @@ class TpPd(Packet):
     name = "Skip Indicator And Transaction Identifier and Protocol \
 Discriminator"
     fields_desc = [
-               BitField("ti", 0x0, 4),
-               BitField("pd", 0x3, 4)
-               ]
+        BitField("ti", 0x0, 4),
+        BitField("pd", 0x3, 4)
+    ]
 
 
 class MessageType(Packet):
     """Message Type Section 10.4"""
     name = "Message Type"
     fields_desc = [
-               XByteField("mesType", 0x3C)
-               ]
+        XByteField("mesType", 0x3C)
+    ]
 
 
 ##
@@ -373,8 +373,8 @@ class ChannelRequest(Packet):
     """Channel request Section 9.1.8"""
     name = "Channel Request"
     fields_desc = [
-             ByteField("estCause", 0x0)
-             ]
+        ByteField("estCause", 0x0)
+    ]
 
 
 def channelRequest():
@@ -565,8 +565,8 @@ def gprsSuspensionRequest():
 class HandoverAccess(Packet):
     name = "Handover Access"  # Section 9.1.14"
     fields_desc = [
-             ByteField("handover", None),
-             ]
+        ByteField("handover", None),
+    ]
 
 
 # Network to MS
@@ -803,11 +803,11 @@ class NotificationFacch():
     """NOTIFICATION/FACCH Section 9.1.21a"""
     name = "Notification/facch"
     fields_desc = [
-             BitField("rr", 0x0, 1),
-             BitField("msgTyoe", 0x0, 5),
-             BitField("layer2Header", 0x0, 2),
-             BitField("frChanDes", 0x0, 24)
-             ]
+        BitField("rr", 0x0, 1),
+        BitField("msgTyoe", 0x0, 5),
+        BitField("layer2Header", 0x0, 2),
+        BitField("frChanDes", 0x0, 24)
+    ]
 
 
 # The L2 pseudo length of this message has a value one
@@ -970,14 +970,14 @@ class SynchronizationChannelInformation():
     """SYNCHRONIZATION CHANNEL INFORMATION Section 9.1.30"""
     name = "Synchronization Channel Information"
     fields_desc = [
-             BitField("bsic", 0x0, 5),
-             BitField("t1Hi", 0x0, 3),
-             ByteField("t1Mi", 0x0),
-             BitField("t1Lo", 0x0, 1),
-             BitField("t2", 0x0, 5),
-             BitField("t3Hi", 0x0, 2),
-             BitField("t3Lo", 0x0, 1)
-             ]
+        BitField("bsic", 0x0, 5),
+        BitField("t1Hi", 0x0, 3),
+        ByteField("t1Mi", 0x0),
+        BitField("t1Lo", 0x0, 1),
+        BitField("t2", 0x0, 5),
+        BitField("t3Hi", 0x0, 2),
+        BitField("t3Lo", 0x0, 1)
+    ]
 
 
 # This message has a L2 Pseudo Length of 21.
@@ -1219,8 +1219,8 @@ class UplinkAccess():
     """UPLINK ACCESS Section 9.1.45"""
     name = "Uplink Access"
     fields_desc = [
-             ByteField("establishment", 0x0)
-             ]
+        ByteField("establishment", 0x0)
+    ]
 
 
 # Network to MS
@@ -1238,13 +1238,13 @@ class UplinkFree():
     """UPLINK FREE Section 9.1.47"""
     name = "Uplink Free"
     fields_desc = [
-             BitField("pd", 0x0, 1),
-             BitField("msgType", 0x0, 5),
-             BitField("layer2Header", 0x0, 2),
-             BitField("uplinkAccess", 0x0, 1),
-             BitField("lOrH", 0x0, 1),  # 0 for L, 1 for H
-             BitField("upIdCode", 0x0, 6),
-             ]
+        BitField("pd", 0x0, 1),
+        BitField("msgType", 0x0, 5),
+        BitField("layer2Header", 0x0, 2),
+        BitField("uplinkAccess", 0x0, 1),
+        BitField("lOrH", 0x0, 1),  # 0 for L, 1 for H
+        BitField("upIdCode", 0x0, 6),
+    ]
 
 
 def uplinkRelease():
@@ -1273,11 +1273,11 @@ def systemInformationType10():
     """SYSTEM INFORMATION TYPE 10 Section 9.1.50"""
     name = "SyStem Information Type 10"
     fields_desc = [
-             BitField("pd", 0x0, 1),
-             BitField("msgType", 0x0, 5),
-             BitField("layer2Header", 0x0, 2),
-             BitField("si10", 0x0, 160)
-             ]
+        BitField("pd", 0x0, 1),
+        BitField("msgType", 0x0, 5),
+        BitField("layer2Header", 0x0, 2),
+        BitField("si10", 0x0, 160)
+    ]
 
 
 # Network to MS
@@ -2057,7 +2057,7 @@ def setupMobileTerminated(RepeatIndicator_presence=0,
                           CallingPartySubaddress_presence=0,
                           CalledPartyBcdNumber_presence=0,
                           CalledPartySubaddress_presence=0,
-#                          RecallType_presence=0,
+                          #                          RecallType_presence=0,
                           RedirectingPartyBcdNumber_presence=0,
                           RedirectingPartySubaddress_presence=0,
                           RepeatIndicator_presence1=0,
@@ -2450,8 +2450,8 @@ def ptmsiReallocationComplete():
 
 
 def authenticationAndCipheringRequest(
-                                      AuthenticationParameterRAND_presence=0,
-                                      CiphKeySeqNr_presence=0):
+        AuthenticationParameterRAND_presence=0,
+        CiphKeySeqNr_presence=0):
     """AUTHENTICATION AND CIPHERING REQUEST Section 9.4.9"""
     a = TpPd(pd=0x3)
     b = MessageType(mesType=0x12)  # 00010010
@@ -2468,8 +2468,8 @@ def authenticationAndCipheringRequest(
 
 
 def authenticationAndCipheringResponse(
-                                       AuthenticationParameterSRES_presence=0,
-                                       MobileId_presence=0):
+        AuthenticationParameterSRES_presence=0,
+        MobileId_presence=0):
     """AUTHENTICATION AND CIPHERING RESPONSE Section 9.4.10"""
     a = TpPd(pd=0x3)
     b = MessageType(mesType=0x13)  # 00010011
@@ -2829,59 +2829,59 @@ class CellIdentityHdr(Packet):
     """ Cell identity Section 10.5.1.1 """
     name = "Cell Identity"
     fields_desc = [
-             BitField("eightBitCI", None, 1),
-             XBitField("ieiCI", None, 7),
-             ByteField("ciValue1", 0x0),
-             ByteField("ciValue2", 0x0)
-             ]
+        BitField("eightBitCI", None, 1),
+        XBitField("ieiCI", None, 7),
+        ByteField("ciValue1", 0x0),
+        ByteField("ciValue2", 0x0)
+    ]
 
 
 class CiphKeySeqNrHdr(Packet):
     """ Ciphering Key Sequence Number Section 10.5.1.2 """
     name = "Cipher Key Sequence Number"
     fields_desc = [
-             XBitField("ieiCKSN", None, 4),
-             BitField("spare", 0x0, 1),
-             BitField("keySeq", 0x0, 3)
-             ]
+        XBitField("ieiCKSN", None, 4),
+        BitField("spare", 0x0, 1),
+        BitField("keySeq", 0x0, 3)
+    ]
 
 
 # Fix 1/2 len problem
 class CiphKeySeqNrAndSpareHalfOctets(Packet):
     name = "Cipher Key Sequence Number and Spare Half Octets"
     fields_desc = [
-              BitField("spare", 0x0, 1),
-              BitField("keySeq", 0x0, 3),
-              BitField("spareHalfOctets", 0x0, 4)
-              ]
+        BitField("spare", 0x0, 1),
+        BitField("keySeq", 0x0, 3),
+        BitField("spareHalfOctets", 0x0, 4)
+    ]
 
 
 # Fix 1/2 len problem
 class CiphKeySeqNrAndMacModeAndChannelCodingRequest(Packet):
     name = "Cipher Key Sequence Number and Mac Mode And Channel Coding Request"
     fields_desc = [
-              BitField("spare", 0x0, 1),
-              BitField("keySeq", 0x0, 3),
-              BitField("macMode", 0x0, 2),
-              BitField("cs", 0x0, 2)
-              ]
+        BitField("spare", 0x0, 1),
+        BitField("keySeq", 0x0, 3),
+        BitField("macMode", 0x0, 2),
+        BitField("cs", 0x0, 2)
+    ]
 
 
 class LocalAreaIdHdr(Packet):
     """ Local Area Identification Section 10.5.1.3 """
     name = "Location Area Identification"
     fields_desc = [
-             BitField("eightBitLAI", None, 1),
-             XBitField("ieiLAI", None, 7),
-             BitField("mccDigit2", 0x0, 4),
-             BitField("mccDigit1", 0x0, 4),
-             BitField("mncDigit3", 0x0, 4),
-             BitField("mccDigit3", 0x0, 4),
-             BitField("mncDigit2", 0x0, 4),
-             BitField("mncDigit1", 0x0, 4),
-             ByteField("lac1", 0x0),
-             ByteField("lac2", 0x0)
-             ]
+        BitField("eightBitLAI", None, 1),
+        XBitField("ieiLAI", None, 7),
+        BitField("mccDigit2", 0x0, 4),
+        BitField("mccDigit1", 0x0, 4),
+        BitField("mncDigit3", 0x0, 4),
+        BitField("mccDigit3", 0x0, 4),
+        BitField("mncDigit2", 0x0, 4),
+        BitField("mncDigit1", 0x0, 4),
+        ByteField("lac1", 0x0),
+        ByteField("lac2", 0x0)
+    ]
 #
 # The Mobile Identity is a type 4 information element with a minimum
 # length of 3 octet and 11 octets length maximal.
@@ -2893,36 +2893,36 @@ class MobileIdHdr(Packet):
     """ Mobile Identity  Section 10.5.1.4 """
     name = "Mobile Identity"
     fields_desc = [
-             BitField("eightBitMI", 0x0, 1),
-             XBitField("ieiMI", 0x0, 7),
+        BitField("eightBitMI", 0x0, 1),
+        XBitField("ieiMI", 0x0, 7),
 
-             XByteField("lengthMI", None),
+        XByteField("lengthMI", None),
 
-             BitField("idDigit1", 0x0, 4),
-             BitField("oddEven", 0x0, 1),
-             BitField("typeOfId", 0x0, 3),
+        BitField("idDigit1", 0x0, 4),
+        BitField("oddEven", 0x0, 1),
+        BitField("typeOfId", 0x0, 3),
 
-             BitField("idDigit2_1", None, 4),  # optional
-             BitField("idDigit2", None, 4),
+        BitField("idDigit2_1", None, 4),  # optional
+        BitField("idDigit2", None, 4),
 
-             BitField("idDigit3_1", None, 4),
-             BitField("idDigit3", None, 4),
+        BitField("idDigit3_1", None, 4),
+        BitField("idDigit3", None, 4),
 
-             BitField("idDigit4_1", None, 4),
-             BitField("idDigit4", None, 4),
+        BitField("idDigit4_1", None, 4),
+        BitField("idDigit4", None, 4),
 
-             BitField("idDigit5_1", None, 4),
-             BitField("idDigit5", None, 4),
+        BitField("idDigit5_1", None, 4),
+        BitField("idDigit5", None, 4),
 
-             BitField("idDigit6_1", None, 4),
-             BitField("idDigit6", None, 4),
-             BitField("idDigit7_1", None, 4),
-             BitField("idDigit7", None, 4),
-             BitField("idDigit8_1", None, 4),
-             BitField("idDigit8", None, 4),
-             BitField("idDigit9_1", None, 4),
-             BitField("idDigit9", None, 4),
-             ]
+        BitField("idDigit6_1", None, 4),
+        BitField("idDigit6", None, 4),
+        BitField("idDigit7_1", None, 4),
+        BitField("idDigit7", None, 4),
+        BitField("idDigit8_1", None, 4),
+        BitField("idDigit8", None, 4),
+        BitField("idDigit9_1", None, 4),
+        BitField("idDigit9", None, 4),
+    ]
 
     def post_build(self, p, pay):
         # this list holds the values of the variables, the
@@ -2940,44 +2940,44 @@ class MobileStationClassmark1Hdr(Packet):
     """ Mobile Station Classmark 1 Section 10.5.1.5 """
     name = "Mobile Station Classmark 1"
     fields_desc = [
-             BitField("eightBitiMSC1", None, 1),
-             XBitField("ieiMSC1", None, 7),
-             BitField("spare", 0x0, 1),
-             BitField("revisionLvl", 0x0, 2),
-             BitField("esInd", 0x0, 1),
-             BitField("a51", 0x0, 1),
-             BitField("rfPowerCap", 0x0, 3)
-             ]
+        BitField("eightBitiMSC1", None, 1),
+        XBitField("ieiMSC1", None, 7),
+        BitField("spare", 0x0, 1),
+        BitField("revisionLvl", 0x0, 2),
+        BitField("esInd", 0x0, 1),
+        BitField("a51", 0x0, 1),
+        BitField("rfPowerCap", 0x0, 3)
+    ]
 
 
 class MobileStationClassmark2Hdr(Packet):
     """ Mobile Station Classmark 2 Section 10.5.1.6 """
     name = "Mobile Station Classmark 2"
     fields_desc = [
-             BitField("eightBitMSC2", None, 1),
-             XBitField("ieiMSC2", None, 7),
-             XByteField("lengthMSC2", 0x3),
-             BitField("spare", 0x0, 1),
-             BitField("revisionLvl", 0x0, 2),
-             BitField("esInd", 0x0, 1),
-             BitField("a51", 0x0, 1),
-             BitField("rfPowerCap", 0x0, 3),
-             BitField("spare1", 0x0, 1),
-             BitField("psCap", 0x0, 1),
-             BitField("ssScreenInd", 0x0, 2),
-             BitField("smCaPabi", 0x0, 1),
-             BitField("vbs", 0x0, 1),
-             BitField("vgcs", 0x0, 1),
-             BitField("fc", 0x0, 1),
-             BitField("cm3", 0x0, 1),
-             BitField("spare2", 0x0, 1),
-             BitField("lcsvaCap", 0x0, 1),
-             BitField("spare3", 0x0, 1),
-             BitField("soLsa", 0x0, 1),
-             BitField("cmsp", 0x0, 1),
-             BitField("a53", 0x0, 1),
-             BitField("a52", 0x0, 1)
-             ]
+        BitField("eightBitMSC2", None, 1),
+        XBitField("ieiMSC2", None, 7),
+        XByteField("lengthMSC2", 0x3),
+        BitField("spare", 0x0, 1),
+        BitField("revisionLvl", 0x0, 2),
+        BitField("esInd", 0x0, 1),
+        BitField("a51", 0x0, 1),
+        BitField("rfPowerCap", 0x0, 3),
+        BitField("spare1", 0x0, 1),
+        BitField("psCap", 0x0, 1),
+        BitField("ssScreenInd", 0x0, 2),
+        BitField("smCaPabi", 0x0, 1),
+        BitField("vbs", 0x0, 1),
+        BitField("vgcs", 0x0, 1),
+        BitField("fc", 0x0, 1),
+        BitField("cm3", 0x0, 1),
+        BitField("spare2", 0x0, 1),
+        BitField("lcsvaCap", 0x0, 1),
+        BitField("spare3", 0x0, 1),
+        BitField("soLsa", 0x0, 1),
+        BitField("cmsp", 0x0, 1),
+        BitField("a53", 0x0, 1),
+        BitField("a52", 0x0, 1)
+    ]
 
 
 # len max 14
@@ -2985,7 +2985,7 @@ class MobileStationClassmark3(Packet):
     """ Mobile Station Classmark 3 Section 10.5.1.7 """
     name = "Mobile Station Classmark 3"
     fields_desc = [
-             # FIXME
+        # FIXME
              ByteField("ieiMSC3", 0x0),
              ByteField("byte2", 0x0),
              ByteField("byte3", 0x0),
@@ -3000,66 +3000,66 @@ class MobileStationClassmark3(Packet):
              ByteField("byte12", 0x0),
              ByteField("byte13", 0x0),
              ByteField("byte14", 0x0)
-             ]
+    ]
 
 
 class SpareHalfOctets(Packet):
     """ Spare Half Octet Section 10.5.1.8 """
     name = "Spare Half Octet"
     fields_desc = [
-             BitField("filler", None, 4),
-             BitField("spareHalfOctets", 0x0, 4)
-             ]
+        BitField("filler", None, 4),
+        BitField("spareHalfOctets", 0x0, 4)
+    ]
 
 
 class DescriptiveGroupOrBroadcastCallReferenceHdr(Packet):
     """ Descriptive group or broadcast call reference  Section 10.5.1.9 """
     name = "Descriptive Group or Broadcast Call Reference"
     fields_desc = [
-             BitField("eightBitDGOBCR", None, 1),
-             XBitField("ieiDGOBCR", None, 7),
-             BitField("binCallRef", 0x0, 27),
-             BitField("sf", 0x0, 1),
-             BitField("fa", 0x0, 1),
-             BitField("callPrio", 0x0, 3),
-             BitField("cipherInfo", 0x0, 4),
-             BitField("spare1", 0x0, 1),
-             BitField("spare2", 0x0, 1),
-             BitField("spare3", 0x0, 1),
-             BitField("spare4", 0x0, 1)
-             ]
+        BitField("eightBitDGOBCR", None, 1),
+        XBitField("ieiDGOBCR", None, 7),
+        BitField("binCallRef", 0x0, 27),
+        BitField("sf", 0x0, 1),
+        BitField("fa", 0x0, 1),
+        BitField("callPrio", 0x0, 3),
+        BitField("cipherInfo", 0x0, 4),
+        BitField("spare1", 0x0, 1),
+        BitField("spare2", 0x0, 1),
+        BitField("spare3", 0x0, 1),
+        BitField("spare4", 0x0, 1)
+    ]
 
 
 class GroupCipherKeyNumber(Packet):
     """ Group Cipher Key Number reference  Section 10.5.1.10 """
     name = "Group Cipher Key Number"
     fields_desc = [
-             XBitField("ieiGCKN", None, 4),
-             BitField("groupCipher", 0x0, 4)
-             ]
+        XBitField("ieiGCKN", None, 4),
+        BitField("groupCipher", 0x0, 4)
+    ]
 
 
 class PdAndSapiHdr(Packet):
     """ PD and SAPI $(CCBS)$  Section 10.5.1.10a """
     name = "PD and SAPI $(CCBS)$"
     fields_desc = [
-             BitField("eightBitPAS", None, 1),
-             XBitField("ieiPAS", None, 7),
-             BitField("spare", 0x0, 1),
-             BitField("spare1", 0x0, 1),
-             BitField("sapi", 0x0, 2),
-             BitField("pd", 0x0, 4)
-             ]
+        BitField("eightBitPAS", None, 1),
+        XBitField("ieiPAS", None, 7),
+        BitField("spare", 0x0, 1),
+        BitField("spare1", 0x0, 1),
+        BitField("sapi", 0x0, 2),
+        BitField("pd", 0x0, 4)
+    ]
 
 
 class PriorityLevelHdr(Packet):
     """ Priority Level Section 10.5.1.11 """
     name = "Priority Level"
     fields_desc = [
-             XBitField("ieiPL", None, 4),
-             BitField("spare", 0x0, 1),
-             BitField("callPrio", 0x0, 3)
-             ]
+        XBitField("ieiPL", None, 4),
+        BitField("spare", 0x0, 1),
+        BitField("callPrio", 0x0, 3)
+    ]
 
 #
 # Radio Resource management information elements
@@ -3071,23 +3071,23 @@ class BaRangeHdr(Packet):
     """ BA Range Section 10.5.2.1a """
     name = "BA Range"
     fields_desc = [
-             BitField("eightBitBR", None, 1),
-             XBitField("ieiBR", None, 7),
+        BitField("eightBitBR", None, 1),
+        XBitField("ieiBR", None, 7),
 
-             XByteField("lengthBR", None),
-#error: byte format requires -128 <= number <= 127
-             ByteField("nrOfRanges", 0x0),
-#              # rX = range X
-#              # L o = Lower H i = higher
-#              # H p = high Part Lp = low Part
-             ByteField("r1LoHp", 0x0),
+        XByteField("lengthBR", None),
+        #error: byte format requires -128 <= number <= 127
+        ByteField("nrOfRanges", 0x0),
+        #              # rX = range X
+        #              # L o = Lower H i = higher
+        #              # H p = high Part Lp = low Part
+        ByteField("r1LoHp", 0x0),
 
-             BitField("r1LoLp", 0x0, 3),
-             BitField("r1HiHp", 0x0, 5),
+        BitField("r1LoLp", 0x0, 3),
+        BitField("r1HiHp", 0x0, 5),
 
-             BitField("r1HiLp", 0x0, 4),
-             BitField("r2LoHp", 0x0, 4),
-             # optional
+        BitField("r1HiLp", 0x0, 4),
+        BitField("r2LoHp", 0x0, 4),
+        # optional
              BitField("r2LoLp", None, 5),
              BitField("r2HiHp", None, 3),
 
@@ -3503,7 +3503,7 @@ class BaRangeHdr(Packet):
              BitField("r84LoLp", None, 5),
              BitField("r84HiHp", None, 3),
              ByteField("r84HiLp", None)
-             ]
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -3520,7 +3520,7 @@ class BaListPrefHdr(Packet):
     """ BA List Pref Section 10.5.2.1c """
     name = "BA List Pref"
     fields_desc = [
-             # FIXME dynamic
+        # FIXME dynamic
              BitField("eightBitBLP", None, 1),
              XBitField("ieiBLP", None, 7),
 
@@ -3532,7 +3532,7 @@ class BaListPrefHdr(Packet):
              BitField("rangeUpper", 0x0, 10),
              BitField("baFreq", 0x0, 10),
              BitField("sparePad", 0x0, 8)
-             ]
+    ]
 
 
 # len 17 || Have a look at the specs for the field format
@@ -3546,110 +3546,110 @@ class CellChannelDescriptionHdr(Packet):
     """ Cell Channel Description  Section 10.5.2.1b """
     name = "Cell Channel Description "
     fields_desc = [
-             BitField("eightBitCCD", None, 1),
-             XBitField("ieiCCD", None, 7),
-             BitField("bit128", 0x0, 1),
-             BitField("bit127", 0x0, 1),
-             BitField("spare1", 0x0, 1),
-             BitField("spare2", 0x0, 1),
-             BitField("bit124", 0x0, 1),
-             BitField("bit123", 0x0, 1),
-             BitField("bit122", 0x0, 1),
-             BitField("bit121", 0x0, 1),
-             ByteField("bit120", 0x0),
-             ByteField("bit112", 0x0),
-             ByteField("bit104", 0x0),
-             ByteField("bit96", 0x0),
-             ByteField("bit88", 0x0),
-             ByteField("bit80", 0x0),
-             ByteField("bit72", 0x0),
-             ByteField("bit64", 0x0),
-             ByteField("bit56", 0x0),
-             ByteField("bit48", 0x0),
-             ByteField("bit40", 0x0),
-             ByteField("bit32", 0x0),
-             ByteField("bit24", 0x0),
-             ByteField("bit16", 0x0),
-             ByteField("bit8", 0x0)
-             ]
+        BitField("eightBitCCD", None, 1),
+        XBitField("ieiCCD", None, 7),
+        BitField("bit128", 0x0, 1),
+        BitField("bit127", 0x0, 1),
+        BitField("spare1", 0x0, 1),
+        BitField("spare2", 0x0, 1),
+        BitField("bit124", 0x0, 1),
+        BitField("bit123", 0x0, 1),
+        BitField("bit122", 0x0, 1),
+        BitField("bit121", 0x0, 1),
+        ByteField("bit120", 0x0),
+        ByteField("bit112", 0x0),
+        ByteField("bit104", 0x0),
+        ByteField("bit96", 0x0),
+        ByteField("bit88", 0x0),
+        ByteField("bit80", 0x0),
+        ByteField("bit72", 0x0),
+        ByteField("bit64", 0x0),
+        ByteField("bit56", 0x0),
+        ByteField("bit48", 0x0),
+        ByteField("bit40", 0x0),
+        ByteField("bit32", 0x0),
+        ByteField("bit24", 0x0),
+        ByteField("bit16", 0x0),
+        ByteField("bit8", 0x0)
+    ]
 
 
 class CellDescriptionHdr(Packet):
     """ Cell Description  Section 10.5.2.2 """
     name = "Cell Description"
     fields_desc = [
-             BitField("eightBitCD", None, 1),
-             XBitField("ieiCD", None, 7),
-             BitField("bcchHigh", 0x0, 2),
-             BitField("ncc", 0x0, 3),
-             BitField("bcc", 0x0, 3),
-             ByteField("bcchLow", 0x0)
-             ]
+        BitField("eightBitCD", None, 1),
+        XBitField("ieiCD", None, 7),
+        BitField("bcchHigh", 0x0, 2),
+        BitField("ncc", 0x0, 3),
+        BitField("bcc", 0x0, 3),
+        ByteField("bcchLow", 0x0)
+    ]
 
 
 class CellOptionsBCCHHdr(Packet):
     """ Cell Options (BCCH)  Section 10.5.2.3 """
     name = "Cell Options (BCCH)"
     fields_desc = [
-             BitField("eightBitCOB", None, 1),
-             XBitField("ieiCOB", None, 7),
-             BitField("spare", 0x0, 1),
-             BitField("pwrc", 0x0, 1),
-             BitField("dtx", 0x0, 2),
-             BitField("rLinkTout", 0x0, 4)
-             ]
+        BitField("eightBitCOB", None, 1),
+        XBitField("ieiCOB", None, 7),
+        BitField("spare", 0x0, 1),
+        BitField("pwrc", 0x0, 1),
+        BitField("dtx", 0x0, 2),
+        BitField("rLinkTout", 0x0, 4)
+    ]
 
 
 class CellOptionsSACCHHdr(Packet):
     """ Cell Options (SACCH) Section 10.5.2.3a """
     name = "Cell Options (SACCH)"
     fields_desc = [
-             BitField("eightBitCOS", None, 1),
-             XBitField("ieiCOS", None, 7),
-             BitField("dtx", 0x0, 1),
-             BitField("pwrc", 0x0, 1),
-             BitField("dtx", 0x0, 1),
-             BitField("rLinkTout", 0x0, 4)
-             ]
+        BitField("eightBitCOS", None, 1),
+        XBitField("ieiCOS", None, 7),
+        BitField("dtx", 0x0, 1),
+        BitField("pwrc", 0x0, 1),
+        BitField("dtx", 0x0, 1),
+        BitField("rLinkTout", 0x0, 4)
+    ]
 
 
 class CellSelectionParametersHdr(Packet):
     """ Cell Selection Parameters Section 10.5.2.4 """
     name = "Cell Selection Parameters"
     fields_desc = [
-             BitField("eightBitCSP", None, 1),
-             XBitField("ieiCSP", None, 7),
-             BitField("cellReselect", 0x0, 3),
-             BitField("msTxPwrMax", 0x0, 5),
-             BitField("acs", None, 1),
-             BitField("neci", None, 1),
-             BitField("rxlenAccMin", None, 6)
-             ]
+        BitField("eightBitCSP", None, 1),
+        XBitField("ieiCSP", None, 7),
+        BitField("cellReselect", 0x0, 3),
+        BitField("msTxPwrMax", 0x0, 5),
+        BitField("acs", None, 1),
+        BitField("neci", None, 1),
+        BitField("rxlenAccMin", None, 6)
+    ]
 
 
 class MacModeAndChannelCodingRequestHdr(Packet):
     """ MAC Mode and Channel Coding Requested Section 10.5.2.4a """
     name = "MAC Mode and Channel Coding Requested"
     fields_desc = [
-             XBitField("ieiMMACCR", None, 4),
-             BitField("macMode", 0x0, 2),
-             BitField("cs", 0x0, 2)
-             ]
+        XBitField("ieiMMACCR", None, 4),
+        BitField("macMode", 0x0, 2),
+        BitField("cs", 0x0, 2)
+    ]
 
 
 class ChannelDescriptionHdr(Packet):
     """ Channel Description  Section 10.5.2.5 """
     name = "Channel Description"
     fields_desc = [
-             BitField("eightBitCD", None, 1),
-             XBitField("ieiCD", None, 7),
+        BitField("eightBitCD", None, 1),
+        XBitField("ieiCD", None, 7),
 
-             BitField("channelTyp", 0x0, 5),
-             BitField("tn", 0x0, 3),
+        BitField("channelTyp", 0x0, 5),
+        BitField("tn", 0x0, 3),
 
-             BitField("tsc", 0x0, 3),
-             BitField("h", 0x1, 1),
-             # if h=1 maybe we find a better solution here...
+        BitField("tsc", 0x0, 3),
+        BitField("h", 0x1, 1),
+        # if h=1 maybe we find a better solution here...
              BitField("maioHi", 0x0, 4),
 
              BitField("maioLo", 0x0, 2),
@@ -3657,105 +3657,105 @@ class ChannelDescriptionHdr(Packet):
              #BitField("spare", 0x0, 2),
              #BitField("arfcnHigh", 0x0, 2),
              #ByteField("arfcnLow", 0x0)
-             ]
+    ]
 
 
 class ChannelDescription2Hdr(Packet):
     """ Channel Description 2 Section 10.5.2.5a """
     name = "Channel Description 2"
     fields_desc = [
-             BitField("eightBitCD2", None, 1),
-             XBitField("ieiCD2", None, 7),
-             BitField("channelTyp", 0x0, 5),
-             BitField("tn", 0x0, 3),
-             BitField("tsc", 0x0, 3),
-             BitField("h", 0x0, 1),
-             # if h=1
+        BitField("eightBitCD2", None, 1),
+        XBitField("ieiCD2", None, 7),
+        BitField("channelTyp", 0x0, 5),
+        BitField("tn", 0x0, 3),
+        BitField("tsc", 0x0, 3),
+        BitField("h", 0x0, 1),
+        # if h=1
              # BitField("maioHi", 0x0, 4),
              # BitField("maioLo", 0x0, 2),
              # BitField("hsn", 0x0, 6)
              BitField("spare", 0x0, 2),
              BitField("arfcnHigh", 0x0, 2),
              ByteField("arfcnLow", 0x0)
-             ]
+    ]
 
 
 class ChannelModeHdr(Packet):
     """ Channel Mode Section 10.5.2.6 """
     name = "Channel Mode"
     fields_desc = [
-             BitField("eightBitCM", None, 1),
-             XBitField("ieiCM", None, 7),
-             ByteField("mode", 0x0)
-             ]
+        BitField("eightBitCM", None, 1),
+        XBitField("ieiCM", None, 7),
+        ByteField("mode", 0x0)
+    ]
 
 
 class ChannelMode2Hdr(Packet):
     """ Channel Mode 2 Section 10.5.2.7 """
     name = "Channel Mode 2"
     fields_desc = [
-             BitField("eightBitCM2", None, 1),
-             XBitField("ieiCM2", None, 7),
-             ByteField("mode", 0x0)
-             ]
+        BitField("eightBitCM2", None, 1),
+        XBitField("ieiCM2", None, 7),
+        ByteField("mode", 0x0)
+    ]
 
 
 class ChannelNeededHdr(Packet):
     """ Channel Needed Section 10.5.2.8 """
     name = "Channel Needed"
     fields_desc = [
-             XBitField("ieiCN", None, 4),
-             BitField("channel2", 0x0, 2),
-             BitField("channel1", 0x0, 2),
-             ]
+        XBitField("ieiCN", None, 4),
+        BitField("channel2", 0x0, 2),
+        BitField("channel1", 0x0, 2),
+    ]
 
 
 class ChannelRequestDescriptionHdr(Packet):
     """Channel Request Description  Section 10.5.2.8a """
     name = "Channel Request Description"
     fields_desc = [
-             BitField("eightBitCRD", None, 1),
-             XBitField("ieiCRD", None, 7),
-             BitField("mt", 0x0, 1),
-             ConditionalField(BitField("spare", 0x0, 39),
-                              lambda pkt: pkt.mt == 0),
-             ConditionalField(BitField("spare", 0x0, 3),
-                              lambda pkt: pkt.mt == 1),
-             ConditionalField(BitField("priority", 0x0, 2),
-                              lambda pkt: pkt.mt == 1),
-             ConditionalField(BitField("rlcMode", 0x0, 1),
-                              lambda pkt: pkt.mt == 1),
-             ConditionalField(BitField("llcFrame", 0x1, 1),
-                              lambda pkt: pkt.mt == 1),
-             ConditionalField(ByteField("reqBandMsb", 0x0),
-                              lambda pkt: pkt.mt == 1),
-             ConditionalField(ByteField("reqBandLsb", 0x0),
-                              lambda pkt: pkt.mt == 1),
-             ConditionalField(ByteField("rlcMsb", 0x0),
-                              lambda pkt: pkt.mt == 1),
-             ConditionalField(ByteField("rlcLsb", 0x0),
-                              lambda pkt: pkt.mt == 1)
-             ]
+        BitField("eightBitCRD", None, 1),
+        XBitField("ieiCRD", None, 7),
+        BitField("mt", 0x0, 1),
+        ConditionalField(BitField("spare", 0x0, 39),
+                         lambda pkt: pkt.mt == 0),
+        ConditionalField(BitField("spare", 0x0, 3),
+                         lambda pkt: pkt.mt == 1),
+        ConditionalField(BitField("priority", 0x0, 2),
+                         lambda pkt: pkt.mt == 1),
+        ConditionalField(BitField("rlcMode", 0x0, 1),
+                         lambda pkt: pkt.mt == 1),
+        ConditionalField(BitField("llcFrame", 0x1, 1),
+                         lambda pkt: pkt.mt == 1),
+        ConditionalField(ByteField("reqBandMsb", 0x0),
+                         lambda pkt: pkt.mt == 1),
+        ConditionalField(ByteField("reqBandLsb", 0x0),
+                         lambda pkt: pkt.mt == 1),
+        ConditionalField(ByteField("rlcMsb", 0x0),
+                         lambda pkt: pkt.mt == 1),
+        ConditionalField(ByteField("rlcLsb", 0x0),
+                         lambda pkt: pkt.mt == 1)
+    ]
 
 
 class CipherModeSettingHdr(Packet):
     """Cipher Mode Setting Section 10.5.2.9 """
     name = "Cipher Mode Setting"
     fields_desc = [
-             XBitField("ieiCMS", None, 4),
-             BitField("algoId", 0x0, 3),
-             BitField("sc", 0x0, 1),
-             ]
+        XBitField("ieiCMS", None, 4),
+        BitField("algoId", 0x0, 3),
+        BitField("sc", 0x0, 1),
+    ]
 
 
 class CipherResponseHdr(Packet):
     """Cipher Response Section 10.5.2.10 """
     name = "Cipher Response"
     fields_desc = [
-             XBitField("ieiCR", None, 4),
-             BitField("spare", 0x0, 3),
-             BitField("cr", 0x0, 1),
-             ]
+        XBitField("ieiCR", None, 4),
+        BitField("spare", 0x0, 3),
+        BitField("cr", 0x0, 1),
+    ]
 
 
 # This  packet fixes the problem with the 1/2 Byte length. Concatenation
@@ -3763,61 +3763,61 @@ class CipherResponseHdr(Packet):
 class CipherModeSettingAndcipherResponse(Packet):
     name = "Cipher Mode Setting And Cipher Response"
     fields_desc = [
-             BitField("algoId", 0x0, 3),
-             BitField("sc", 0x0, 1),
-             BitField("spare", 0x0, 3),
-             BitField("cr", 0x0, 1)
-             ]
+        BitField("algoId", 0x0, 3),
+        BitField("sc", 0x0, 1),
+        BitField("spare", 0x0, 3),
+        BitField("cr", 0x0, 1)
+    ]
 
 
 class ControlChannelDescriptionHdr(Packet):
     """Control Channel Description Section 10.5.2.11 """
     name = "Control Channel Description"
     fields_desc = [
-             BitField("eightBitCCD", None, 1),
-             XBitField("ieiCCD", None, 7),
+        BitField("eightBitCCD", None, 1),
+        XBitField("ieiCCD", None, 7),
 
-             BitField("spare", 0x0, 1),
-             BitField("att", 0x0, 1),
-             BitField("bsAgBlksRes", 0x0, 3),
-             BitField("ccchConf", 0x0, 3),
+        BitField("spare", 0x0, 1),
+        BitField("att", 0x0, 1),
+        BitField("bsAgBlksRes", 0x0, 3),
+        BitField("ccchConf", 0x0, 3),
 
-             BitField("spare", 0x0, 1),
-             BitField("spare1", 0x0, 1),
-             BitField("spare2", 0x0, 1),
-             BitField("spare3", 0x0, 1),
-             BitField("spare4", 0x0, 1),
-             BitField("bsPaMfrms", 0x0, 3),
+        BitField("spare", 0x0, 1),
+        BitField("spare1", 0x0, 1),
+        BitField("spare2", 0x0, 1),
+        BitField("spare3", 0x0, 1),
+        BitField("spare4", 0x0, 1),
+        BitField("bsPaMfrms", 0x0, 3),
 
-             ByteField("t3212", 0x0)
-             ]
+        ByteField("t3212", 0x0)
+    ]
 
 
 class FrequencyChannelSequenceHdr(Packet):
     """Frequency Channel Sequence Section 10.5.2.12"""
     name = "Frequency Channel Sequence"
     fields_desc = [
-             BitField("eightBitFCS", None, 1),
-             XBitField("ieiFCS", None, 7),
-             BitField("spare", 0x0, 1),
-             BitField("lowestArfcn", 0x0, 7),
-             BitField("skipArfcn01", 0x0, 4),
-             BitField("skipArfcn02", 0x0, 4),
-             BitField("skipArfcn03", 0x0, 4),
-             BitField("skipArfcn04", 0x0, 4),
-             BitField("skipArfcn05", 0x0, 4),
-             BitField("skipArfcn06", 0x0, 4),
-             BitField("skipArfcn07", 0x0, 4),
-             BitField("skipArfcn08", 0x0, 4),
-             BitField("skipArfcn09", 0x0, 4),
-             BitField("skipArfcn10", 0x0, 4),
-             BitField("skipArfcn11", 0x0, 4),
-             BitField("skipArfcn12", 0x0, 4),
-             BitField("skipArfcn13", 0x0, 4),
-             BitField("skipArfcn14", 0x0, 4),
-             BitField("skipArfcn15", 0x0, 4),
-             BitField("skipArfcn16", 0x0, 4)
-             ]
+        BitField("eightBitFCS", None, 1),
+        XBitField("ieiFCS", None, 7),
+        BitField("spare", 0x0, 1),
+        BitField("lowestArfcn", 0x0, 7),
+        BitField("skipArfcn01", 0x0, 4),
+        BitField("skipArfcn02", 0x0, 4),
+        BitField("skipArfcn03", 0x0, 4),
+        BitField("skipArfcn04", 0x0, 4),
+        BitField("skipArfcn05", 0x0, 4),
+        BitField("skipArfcn06", 0x0, 4),
+        BitField("skipArfcn07", 0x0, 4),
+        BitField("skipArfcn08", 0x0, 4),
+        BitField("skipArfcn09", 0x0, 4),
+        BitField("skipArfcn10", 0x0, 4),
+        BitField("skipArfcn11", 0x0, 4),
+        BitField("skipArfcn12", 0x0, 4),
+        BitField("skipArfcn13", 0x0, 4),
+        BitField("skipArfcn14", 0x0, 4),
+        BitField("skipArfcn15", 0x0, 4),
+        BitField("skipArfcn16", 0x0, 4)
+    ]
 
 
 class FrequencyListHdr(Packet):
@@ -3829,33 +3829,33 @@ class FrequencyListHdr(Packet):
  # Some formats are frequency bit maps, the others use a special encoding
  # scheme.
     fields_desc = [
-             BitField("eightBitFL", None, 1),
-             XBitField("ieiFL", None, 7),
-             XByteField("lengthFL", None),
+        BitField("eightBitFL", None, 1),
+        XBitField("ieiFL", None, 7),
+        XByteField("lengthFL", None),
 
-             BitField("formatID", 0x0, 2),
-             BitField("spare", 0x0, 2),
-             BitField("arfcn124", 0x0, 1),
-             BitField("arfcn123", 0x0, 1),
-             BitField("arfcn122", 0x0, 1),
-             BitField("arfcn121", 0x0, 1),
+        BitField("formatID", 0x0, 2),
+        BitField("spare", 0x0, 2),
+        BitField("arfcn124", 0x0, 1),
+        BitField("arfcn123", 0x0, 1),
+        BitField("arfcn122", 0x0, 1),
+        BitField("arfcn121", 0x0, 1),
 
-             ByteField("arfcn120", 0x0),
-             ByteField("arfcn112", 0x0),
-             ByteField("arfcn104", 0x0),
-             ByteField("arfcn96", 0x0),
-             ByteField("arfcn88", 0x0),
-             ByteField("arfcn80", 0x0),
-             ByteField("arfcn72", 0x0),
-             ByteField("arfcn64", 0x0),
-             ByteField("arfcn56", 0x0),
-             ByteField("arfcn48", 0x0),
-             ByteField("arfcn40", 0x0),
-             ByteField("arfcn32", 0x0),
-             ByteField("arfcn24", 0x0),
-             ByteField("arfcn16", 0x0),
-             ByteField("arfcn8", 0x0)
-             ]
+        ByteField("arfcn120", 0x0),
+        ByteField("arfcn112", 0x0),
+        ByteField("arfcn104", 0x0),
+        ByteField("arfcn96", 0x0),
+        ByteField("arfcn88", 0x0),
+        ByteField("arfcn80", 0x0),
+        ByteField("arfcn72", 0x0),
+        ByteField("arfcn64", 0x0),
+        ByteField("arfcn56", 0x0),
+        ByteField("arfcn48", 0x0),
+        ByteField("arfcn40", 0x0),
+        ByteField("arfcn32", 0x0),
+        ByteField("arfcn24", 0x0),
+        ByteField("arfcn16", 0x0),
+        ByteField("arfcn8", 0x0)
+    ]
 
 
 class FrequencyShortListHdr(Packet):
@@ -3867,32 +3867,32 @@ class FrequencyShortListHdr(Packet):
 #variable length and does not contain a length indicator and that it
 #shall not be encoded in bitmap 0 format.
     fields_desc = [
-             ByteField("ieiFSL", 0x0),
-             ByteField("byte2", 0x0),
-             ByteField("byte3", 0x0),
-             ByteField("byte4", 0x0),
-             ByteField("byte5", 0x0),
-             ByteField("byte6", 0x0),
-             ByteField("byte7", 0x0),
-             ByteField("byte8", 0x0),
-             ByteField("byte9", 0x0),
-             ByteField("byte10", 0x0)
-             ]
+        ByteField("ieiFSL", 0x0),
+        ByteField("byte2", 0x0),
+        ByteField("byte3", 0x0),
+        ByteField("byte4", 0x0),
+        ByteField("byte5", 0x0),
+        ByteField("byte6", 0x0),
+        ByteField("byte7", 0x0),
+        ByteField("byte8", 0x0),
+        ByteField("byte9", 0x0),
+        ByteField("byte10", 0x0)
+    ]
 
 
 class FrequencyShortListHdr2(Packet):
     """Frequency Short List2 Section 10.5.2.14a"""
     name = "Frequency Short List 2"
     fields_desc = [
-             ByteField("byte1", 0x0),
-             ByteField("byte2", 0x0),
-             ByteField("byte3", 0x0),
-             ByteField("byte4", 0x0),
-             ByteField("byte5", 0x0),
-             ByteField("byte6", 0x0),
-             ByteField("byte7", 0x0),
-             ByteField("byte8", 0x0)
-             ]
+        ByteField("byte1", 0x0),
+        ByteField("byte2", 0x0),
+        ByteField("byte3", 0x0),
+        ByteField("byte4", 0x0),
+        ByteField("byte5", 0x0),
+        ByteField("byte6", 0x0),
+        ByteField("byte7", 0x0),
+        ByteField("byte8", 0x0)
+    ]
 
 
 # len 4 to 13
@@ -3900,17 +3900,17 @@ class GroupChannelDescriptionHdr(Packet):
     """Group Channel Description Section 10.5.2.14b"""
     name = "Group Channel Description"
     fields_desc = [
-             BitField("eightBitGCD", None, 1),
-             XBitField("ieiGCD", None, 7),
+        BitField("eightBitGCD", None, 1),
+        XBitField("ieiGCD", None, 7),
 
-             XByteField("lengthGCD", None),
+        XByteField("lengthGCD", None),
 
-             BitField("channelType", 0x0, 5),
-             BitField("tn", 0x0, 3),
+        BitField("channelType", 0x0, 5),
+        BitField("tn", 0x0, 3),
 
-             BitField("tsc", 0x0, 3),
-             BitField("h", 0x0, 1),
-             # if  h == 0 the  packet looks the following way:
+        BitField("tsc", 0x0, 3),
+        BitField("h", 0x0, 1),
+        # if  h == 0 the  packet looks the following way:
              ConditionalField(BitField("spare", 0x0, 2),
                               lambda pkt: pkt. h == 0x0),
              ConditionalField(BitField("arfcnHi", 0x0, 2),
@@ -3934,7 +3934,7 @@ class GroupChannelDescriptionHdr(Packet):
              ByteField("maC12", None),
              ByteField("maC13", None),
              ByteField("maC14", None)
-             ]
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -3950,20 +3950,20 @@ class GprsResumptionHdr(Packet):
     """GPRS Resumption  Section 10.5.2.14c"""
     name = "GPRS Resumption"
     fields_desc = [
-             XBitField("ieiGR", None, 4),
-             BitField("spare", 0x0, 3),
-             BitField("ack", 0x0, 1)
-             ]
+        XBitField("ieiGR", None, 4),
+        BitField("spare", 0x0, 3),
+        BitField("ack", 0x0, 1)
+    ]
 
 
 class HandoverReferenceHdr(Packet):
     """Handover Reference Section 10.5.2.15"""
     name = "Handover Reference"
     fields_desc = [
-             BitField("eightBitHR", None, 1),
-             XBitField("ieiHR", None, 7),
-             ByteField("handoverRef", 0x0)
-             ]
+        BitField("eightBitHR", None, 1),
+        XBitField("ieiHR", None, 7),
+        ByteField("handoverRef", 0x0)
+    ]
 
 
 # len 1-12
@@ -3971,8 +3971,8 @@ class IaRestOctets(Packet):
     """IA Rest Octets Section 10.5.2.16"""
     name = "IA Rest Octets"
     fields_desc = [
-             ByteField("ieiIRO", 0x0),
-             # FIXME brainfuck  packet
+        ByteField("ieiIRO", 0x0),
+        # FIXME brainfuck  packet
              XByteField("lengthIRO", None),
              ByteField("byte2", None),
              ByteField("byte3", None),
@@ -3984,7 +3984,7 @@ class IaRestOctets(Packet):
              ByteField("byte9", None),
              ByteField("byte10", None),
              ByteField("byte11", None)
-             ]
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -4002,33 +4002,33 @@ class IraRestOctetsHdr(Packet):
     """IAR Rest Octets Section 10.5.2.17"""
     name = "IAR Rest Octets"
     fields_desc = [
-             BitField("eightBitIRO", None, 1),
-             XBitField("ieiIRO", None, 7),
-             BitField("spare01", 0x0, 1),
-             BitField("spare02", 0x0, 1),
-             BitField("spare03", 0x1, 1),
-             BitField("spare04", 0x0, 1),
-             BitField("spare05", 0x1, 1),
-             BitField("spare06", 0x0, 1),
-             BitField("spare07", 0x1, 1),
-             BitField("spare08", 0x1, 1),
-             BitField("spare09", 0x0, 1),
-             BitField("spare10", 0x0, 1),
-             BitField("spare11", 0x1, 1),
-             BitField("spare12", 0x0, 1),
-             BitField("spare13", 0x1, 1),
-             BitField("spare14", 0x0, 1),
-             BitField("spare15", 0x1, 1),
-             BitField("spare16", 0x1, 1),
-             BitField("spare17", 0x0, 1),
-             BitField("spare18", 0x0, 1),
-             BitField("spare19", 0x1, 1),
-             BitField("spare20", 0x0, 1),
-             BitField("spare21", 0x1, 1),
-             BitField("spare22", 0x0, 1),
-             BitField("spare23", 0x1, 1),
-             BitField("spare24", 0x1, 1)
-             ]
+        BitField("eightBitIRO", None, 1),
+        XBitField("ieiIRO", None, 7),
+        BitField("spare01", 0x0, 1),
+        BitField("spare02", 0x0, 1),
+        BitField("spare03", 0x1, 1),
+        BitField("spare04", 0x0, 1),
+        BitField("spare05", 0x1, 1),
+        BitField("spare06", 0x0, 1),
+        BitField("spare07", 0x1, 1),
+        BitField("spare08", 0x1, 1),
+        BitField("spare09", 0x0, 1),
+        BitField("spare10", 0x0, 1),
+        BitField("spare11", 0x1, 1),
+        BitField("spare12", 0x0, 1),
+        BitField("spare13", 0x1, 1),
+        BitField("spare14", 0x0, 1),
+        BitField("spare15", 0x1, 1),
+        BitField("spare16", 0x1, 1),
+        BitField("spare17", 0x0, 1),
+        BitField("spare18", 0x0, 1),
+        BitField("spare19", 0x1, 1),
+        BitField("spare20", 0x0, 1),
+        BitField("spare21", 0x1, 1),
+        BitField("spare22", 0x0, 1),
+        BitField("spare23", 0x1, 1),
+        BitField("spare24", 0x1, 1)
+    ]
 
 
 # len is 1 to 5 what do we do with the variable size? no length
@@ -4037,102 +4037,102 @@ class IaxRestOctetsHdr(Packet):
     """IAX Rest Octets Section 10.5.2.18"""
     name = "IAX Rest Octets"
     fields_desc = [
-             BitField("eightBitIRO", None, 1),
-             XBitField("ieiIRO", None, 7),
-             BitField("spare01", 0x0, 1),
-             BitField("spare02", 0x0, 1),
-             BitField("spare03", 0x1, 1),
-             BitField("spare04", 0x0, 1),
-             BitField("spare05", 0x1, 1),
-             BitField("spare06", 0x0, 1),
-             BitField("spare07", 0x1, 1),
-             BitField("spare08", 0x1, 1),
-             ByteField("spareB1", None),
-             ByteField("spareB2", None),
-             ByteField("spareB3", None)
-             ]
+        BitField("eightBitIRO", None, 1),
+        XBitField("ieiIRO", None, 7),
+        BitField("spare01", 0x0, 1),
+        BitField("spare02", 0x0, 1),
+        BitField("spare03", 0x1, 1),
+        BitField("spare04", 0x0, 1),
+        BitField("spare05", 0x1, 1),
+        BitField("spare06", 0x0, 1),
+        BitField("spare07", 0x1, 1),
+        BitField("spare08", 0x1, 1),
+        ByteField("spareB1", None),
+        ByteField("spareB2", None),
+        ByteField("spareB3", None)
+    ]
 
 
 class L2PseudoLengthHdr(Packet):
     """L2 Pseudo Length Section 10.5.2.19"""
     name = "L2 Pseudo Length"
     fields_desc = [
-             BitField("eightBitPL", None, 1),
-             XBitField("ieiPL", None, 7),
-             BitField("l2pLength", None, 6),
-             BitField("bit2", 0x0, 1),
-             BitField("bit1", 0x1, 1)
-             ]
+        BitField("eightBitPL", None, 1),
+        XBitField("ieiPL", None, 7),
+        BitField("l2pLength", None, 6),
+        BitField("bit2", 0x0, 1),
+        BitField("bit1", 0x1, 1)
+    ]
 
 
 class MeasurementResultsHdr(Packet):
     """Measurement Results Section 10.5.2.20"""
     name = "Measurement Results"
     fields_desc = [
-             BitField("eightBitMR", None, 1),
-             XBitField("ieiMR", None, 7),
-             BitField("baUsed", 0x0, 1),
-             BitField("dtxUsed", 0x0, 1),
-             BitField("rxLevFull", 0x0, 6),
-             BitField("spare", 0x0, 1),
-             BitField("measValid", 0x0, 1),
-             BitField("rxLevSub", 0x0, 6),
-             BitField("spare0", 0x0, 1),
-             BitField("rxqualFull", 0x0, 3),
-             BitField("rxqualSub", 0x0, 3),
-             BitField("noNcellHi", 0x0, 1),
-             BitField("noNcellLo", 0x0, 2),
-             BitField("rxlevC1", 0x0, 6),
-             BitField("bcchC1", 0x0, 5),
-             BitField("bsicC1Hi", 0x0, 3),
-             BitField("bsicC1Lo", 0x0, 3),
-             BitField("rxlevC2", 0x0, 5),
-             BitField("rxlevC2Lo", 0x0, 1),
-             BitField("bcchC2", 0x0, 5),
-             BitField("bsicC1Hi", 0x0, 2),
-             BitField("bscicC2Lo", 0x0, 4),
-             BitField("bscicC2Hi", 0x0, 4),
+        BitField("eightBitMR", None, 1),
+        XBitField("ieiMR", None, 7),
+        BitField("baUsed", 0x0, 1),
+        BitField("dtxUsed", 0x0, 1),
+        BitField("rxLevFull", 0x0, 6),
+        BitField("spare", 0x0, 1),
+        BitField("measValid", 0x0, 1),
+        BitField("rxLevSub", 0x0, 6),
+        BitField("spare0", 0x0, 1),
+        BitField("rxqualFull", 0x0, 3),
+        BitField("rxqualSub", 0x0, 3),
+        BitField("noNcellHi", 0x0, 1),
+        BitField("noNcellLo", 0x0, 2),
+        BitField("rxlevC1", 0x0, 6),
+        BitField("bcchC1", 0x0, 5),
+        BitField("bsicC1Hi", 0x0, 3),
+        BitField("bsicC1Lo", 0x0, 3),
+        BitField("rxlevC2", 0x0, 5),
+        BitField("rxlevC2Lo", 0x0, 1),
+        BitField("bcchC2", 0x0, 5),
+        BitField("bsicC1Hi", 0x0, 2),
+        BitField("bscicC2Lo", 0x0, 4),
+        BitField("bscicC2Hi", 0x0, 4),
 
-             BitField("rxlevC3Lo", 0x0, 2),
-             BitField("bcchC3", 0x0, 5),
-             BitField("rxlevC3Hi", 0x0, 1),
+        BitField("rxlevC3Lo", 0x0, 2),
+        BitField("bcchC3", 0x0, 5),
+        BitField("rxlevC3Hi", 0x0, 1),
 
-             BitField("bsicC3Lo", 0x0, 5),
-             BitField("bsicC3Hi", 0x0, 3),
+        BitField("bsicC3Lo", 0x0, 5),
+        BitField("bsicC3Hi", 0x0, 3),
 
-             BitField("rxlevC4Lo", 0x0, 3),
-             BitField("bcchC4", 0x0, 5),
+        BitField("rxlevC4Lo", 0x0, 3),
+        BitField("bcchC4", 0x0, 5),
 
-             BitField("bsicC4", 0x0, 6),
-             BitField("rxlevC5Hi", 0x0, 2),
+        BitField("bsicC4", 0x0, 6),
+        BitField("rxlevC5Hi", 0x0, 2),
 
-             BitField("rxlevC5Lo", 0x0, 4),
-             BitField("bcchC5Hi", 0x0, 4),
+        BitField("rxlevC5Lo", 0x0, 4),
+        BitField("bcchC5Hi", 0x0, 4),
 
-             BitField("bcchC5Lo", 0x0, 1),
-             BitField("bsicC5", 0x0, 6),
-             BitField("rxlevC6", 0x0, 1),
+        BitField("bcchC5Lo", 0x0, 1),
+        BitField("bsicC5", 0x0, 6),
+        BitField("rxlevC6", 0x0, 1),
 
-             BitField("rxlevC6Lo", 0x0, 5),
-             BitField("bcchC6Hi", 0x0, 3),
+        BitField("rxlevC6Lo", 0x0, 5),
+        BitField("bcchC6Hi", 0x0, 3),
 
-             BitField("bcchC6Lo", 0x0, 3),
-             BitField("bsicC6", 0x0, 5)
-             ]
+        BitField("bcchC6Lo", 0x0, 3),
+        BitField("bsicC6", 0x0, 5)
+    ]
 
 
 class GprsMeasurementResultsHdr(Packet):
     """GPRS Measurement Results Section 10.5.2.20a"""
     name = "GPRS Measurement Results"
     fields_desc = [
-             BitField("eightBitGMR", None, 1),
-             XBitField("ieiGMR", None, 7),
-             BitField("cValue", 0x0, 6),
-             BitField("rxqualHi", 0x0, 2),
-             BitField("rxqL", 0x0, 1),
-             BitField("spare", 0x0, 1),
-             BitField("signVar", 0x0, 6)
-             ]
+        BitField("eightBitGMR", None, 1),
+        XBitField("ieiGMR", None, 7),
+        BitField("cValue", 0x0, 6),
+        BitField("rxqualHi", 0x0, 2),
+        BitField("rxqL", 0x0, 1),
+        BitField("spare", 0x0, 1),
+        BitField("signVar", 0x0, 6)
+    ]
 
 
 # len 3 to 10
@@ -4140,18 +4140,18 @@ class MobileAllocationHdr(Packet):
     """Mobile Allocation Section 10.5.2.21"""
     name = "Mobile Allocation"
     fields_desc = [
-             BitField("eightBitMA", None, 1),
-             XBitField("ieiMA", None, 7),
-             XByteField("lengthMA", None),
-             ByteField("maC64", 0x12),
-             ByteField("maC56", None),  # optional fields start here
-             ByteField("maC48", None),
-             ByteField("maC40", None),
-             ByteField("maC32", None),
-             ByteField("maC24", None),
-             ByteField("maC16", None),
-             ByteField("maC8", None)
-             ]
+        BitField("eightBitMA", None, 1),
+        XBitField("ieiMA", None, 7),
+        XByteField("lengthMA", None),
+        ByteField("maC64", 0x12),
+        ByteField("maC56", None),  # optional fields start here
+        ByteField("maC48", None),
+        ByteField("maC40", None),
+        ByteField("maC32", None),
+        ByteField("maC24", None),
+        ByteField("maC16", None),
+        ByteField("maC8", None)
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -4167,16 +4167,16 @@ class MobileTimeDifferenceHdr(Packet):
     """Mobile Time Difference Section 10.5.2.21a"""
     name = "Mobile Time Difference"
     fields_desc = [
-             BitField("eightBitMTD", None, 1),
-             XBitField("ieiMTD", None, 7),
-             XByteField("lengthMTD", 0x5),
-             ByteField("valueHi", 0x0),
-             ByteField("valueCnt", 0x0),
-             BitField("valueLow", 0x0, 5),
-             BitField("spare", 0x0, 1),
-             BitField("spare1", 0x0, 1),
-             BitField("spare2", 0x0, 1)
-             ]
+        BitField("eightBitMTD", None, 1),
+        XBitField("ieiMTD", None, 7),
+        XByteField("lengthMTD", 0x5),
+        ByteField("valueHi", 0x0),
+        ByteField("valueCnt", 0x0),
+        BitField("valueLow", 0x0, 5),
+        BitField("spare", 0x0, 1),
+        BitField("spare1", 0x0, 1),
+        BitField("spare2", 0x0, 1)
+    ]
 
 
 # min 4 octets max 8
@@ -4184,32 +4184,32 @@ class MultiRateConfigurationHdr(Packet):
     """ MultiRate configuration Section 10.5.2.21aa"""
     name = "MultiRate Configuration"
     fields_desc = [
-             BitField("eightBitMRC", None, 1),
-             XBitField("ieiMRC", None, 7),
+        BitField("eightBitMRC", None, 1),
+        XBitField("ieiMRC", None, 7),
 
-             XByteField("lengthMRC", None),
+        XByteField("lengthMRC", None),
 
-             BitField("mrVersion", 0x0, 3),
-             BitField("spare", 0x0, 1),
-             BitField("icmi", 0x0, 1),
-             BitField("spare", 0x0, 1),
-             BitField("startMode", 0x0, 2),
+        BitField("mrVersion", 0x0, 3),
+        BitField("spare", 0x0, 1),
+        BitField("icmi", 0x0, 1),
+        BitField("spare", 0x0, 1),
+        BitField("startMode", 0x0, 2),
 
-             ByteField("amrCodec", 0x0),
+        ByteField("amrCodec", 0x0),
 
-             BitField("spare", None, 2),
-             BitField("threshold1", None, 6),
+        BitField("spare", None, 2),
+        BitField("threshold1", None, 6),
 
-             BitField("hysteresis1", None, 4),
-             BitField("threshold2", None, 4),
+        BitField("hysteresis1", None, 4),
+        BitField("threshold2", None, 4),
 
-             BitField("threshold2cnt", None, 2),
-             BitField("hysteresis2", None, 4),
-             BitField("threshold3", None, 2),
+        BitField("threshold2cnt", None, 2),
+        BitField("hysteresis2", None, 4),
+        BitField("threshold3", None, 2),
 
-             BitField("threshold3cnt", None, 4),
-             BitField("hysteresis3", None, 4)
-             ]
+        BitField("threshold3cnt", None, 4),
+        BitField("hysteresis3", None, 4)
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -4226,24 +4226,24 @@ class MultislotAllocationHdr(Packet):
     """Multislot Allocation Section 10.5.2.21b"""
     name = "Multislot Allocation"
     fields_desc = [
-             BitField("eightBitMSA", None, 1),
-             XBitField("ieiMSA", None, 7),
-             XByteField("lengthMSA", None),
-             BitField("ext0", 0x1, 1),
-             BitField("da", 0x0, 7),
-             ConditionalField(BitField("ext1", 0x1, 1),  # optional
-                              lambda pkt: pkt.ext0 == 0),
-             ConditionalField(BitField("ua", 0x0, 7),
-                              lambda pkt: pkt.ext0 == 0),
-             ByteField("chan1", None),
-             ByteField("chan2", None),
-             ByteField("chan3", None),
-             ByteField("chan4", None),
-             ByteField("chan5", None),
-             ByteField("chan6", None),
-             ByteField("chan7", None),
-             ByteField("chan8", None)
-             ]
+        BitField("eightBitMSA", None, 1),
+        XBitField("ieiMSA", None, 7),
+        XByteField("lengthMSA", None),
+        BitField("ext0", 0x1, 1),
+        BitField("da", 0x0, 7),
+        ConditionalField(BitField("ext1", 0x1, 1),  # optional
+                         lambda pkt: pkt.ext0 == 0),
+        ConditionalField(BitField("ua", 0x0, 7),
+                         lambda pkt: pkt.ext0 == 0),
+        ByteField("chan1", None),
+        ByteField("chan2", None),
+        ByteField("chan3", None),
+        ByteField("chan4", None),
+        ByteField("chan5", None),
+        ByteField("chan6", None),
+        ByteField("chan7", None),
+        ByteField("chan8", None)
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -4259,10 +4259,10 @@ class NcModeHdr(Packet):
     """NC mode Section 10.5.2.21c"""
     name = "NC Mode"
     fields_desc = [
-             XBitField("ieiNM", None, 4),
-             BitField("spare", 0x0, 2),
-             BitField("ncMode", 0x0, 2)
-             ]
+        XBitField("ieiNM", None, 4),
+        BitField("spare", 0x0, 2),
+        BitField("ncMode", 0x0, 2)
+    ]
 
 
 # Fix for len problem
@@ -4270,55 +4270,55 @@ class NcModeHdr(Packet):
 class NcModeAndSpareHalfOctets(Packet):
     name = "NC Mode And Spare Half Octets"
     fields_desc = [
-             BitField("spare", 0x0, 2),
-             BitField("ncMode", 0x0, 2),
-             BitField("spareHalfOctets", 0x0, 4)
-             ]
+        BitField("spare", 0x0, 2),
+        BitField("ncMode", 0x0, 2),
+        BitField("spareHalfOctets", 0x0, 4)
+    ]
 
 
 class NeighbourCellsDescriptionHdr(Packet):
     """Neighbour Cells Description Section 10.5.2.22"""
     name = "Neighbour Cells Description"
     fields_desc = [
-             BitField("eightBitNCD", None, 1),
-             XBitField("ieiNCD", None, 7),
-             BitField("bit128", 0x0, 1),
-             BitField("bit127", 0x0, 1),
-             BitField("extInd", 0x0, 1),
-             BitField("baInd", 0x0, 1),
-             BitField("bit124", 0x0, 1),
-             BitField("bit123", 0x0, 1),
-             BitField("bit122", 0x0, 1),
-             BitField("bit121", 0x0, 1),
-             BitField("120bits", 0x0, 120)
-             ]
+        BitField("eightBitNCD", None, 1),
+        XBitField("ieiNCD", None, 7),
+        BitField("bit128", 0x0, 1),
+        BitField("bit127", 0x0, 1),
+        BitField("extInd", 0x0, 1),
+        BitField("baInd", 0x0, 1),
+        BitField("bit124", 0x0, 1),
+        BitField("bit123", 0x0, 1),
+        BitField("bit122", 0x0, 1),
+        BitField("bit121", 0x0, 1),
+        BitField("120bits", 0x0, 120)
+    ]
 
 
 class NeighbourCellsDescription2Hdr(Packet):
     """Neighbour Cells Description 2 Section 10.5.2.22a"""
     name = "Neighbour Cells Description 2"
     fields_desc = [
-             BitField("eightBitNCD2", None, 1),
-             XBitField("ieiNCD2", None, 7),
-             BitField("bit128", 0x0, 1),
-             BitField("multiband", 0x0, 2),
-             BitField("baInd", 0x0, 1),
-             BitField("bit124", 0x0, 1),
-             BitField("bit123", 0x0, 1),
-             BitField("bit122", 0x0, 1),
-             BitField("bit121", 0x0, 1),
-             BitField("120bits", 0x0, 120)
-             ]
+        BitField("eightBitNCD2", None, 1),
+        XBitField("ieiNCD2", None, 7),
+        BitField("bit128", 0x0, 1),
+        BitField("multiband", 0x0, 2),
+        BitField("baInd", 0x0, 1),
+        BitField("bit124", 0x0, 1),
+        BitField("bit123", 0x0, 1),
+        BitField("bit122", 0x0, 1),
+        BitField("bit121", 0x0, 1),
+        BitField("120bits", 0x0, 120)
+    ]
 
 
 class NtNRestOctets(Packet):
     """NT/N Rest Octets Section 10.5.2.22c"""
     name = "NT/N Rest Octets"
     fields_desc = [
-              BitField("nln", 0x0, 2),
-              BitField("ncnInfo", 0x0, 4),
-              BitField("spare", 0x0, 2)
-              ]
+        BitField("nln", 0x0, 2),
+        BitField("ncnInfo", 0x0, 4),
+        BitField("spare", 0x0, 2)
+    ]
 
 
 #
@@ -4329,11 +4329,11 @@ class P1RestOctets(Packet):
     """P1 Rest Octets Section 10.5.2.23"""
     name = "P1 Rest Octets"
     fields_desc = [
-              BitField("nln", 0x0, 2),
-              BitField("nlnStatus", 0x0, 1),
-              BitField("prio1", 0x0, 3),
-              BitField("prio2", 0x0, 3),
-              # optional
+        BitField("nln", 0x0, 2),
+        BitField("nlnStatus", 0x0, 1),
+        BitField("prio1", 0x0, 3),
+        BitField("prio2", 0x0, 3),
+        # optional
               BitField("pageIndication1", 0x0, 1),
               BitField("pageIndication2", 0x0, 1),
               BitField("spare", 0x0, 5),
@@ -4353,7 +4353,7 @@ class P1RestOctets(Packet):
               ByteField("spareB14", None),
               ByteField("spareB15", None),
               ByteField("spareB16", None),
-              ]
+    ]
 
 
 # len 2-12
@@ -4361,17 +4361,17 @@ class P2RestOctets(Packet):
     """P2 Rest Octets Section 10.5.2.24"""
     name = "P2 Rest Octets"
     fields_desc = [
-              BitField("cn3", 0x0, 2),
-              BitField("nln", 0x0, 2),
-              BitField("nlnStatus", 0x0, 1),
-              BitField("prio1", 0x0, 3),
+        BitField("cn3", 0x0, 2),
+        BitField("nln", 0x0, 2),
+        BitField("nlnStatus", 0x0, 1),
+        BitField("prio1", 0x0, 3),
 
-              BitField("prio2", 0x0, 3),
-              BitField("prio3", 0x0, 3),
-              BitField("pageIndication3", 0x0, 1),
-              BitField("spare", 0x0, 1),
+        BitField("prio2", 0x0, 3),
+        BitField("prio3", 0x0, 3),
+        BitField("pageIndication3", 0x0, 1),
+        BitField("spare", 0x0, 1),
 
-              # optinal (No length field!)
+        # optinal (No length field!)
               ByteField("spareB1", None),
               ByteField("spareB2", None),
               ByteField("spareB3", None),
@@ -4384,7 +4384,7 @@ class P2RestOctets(Packet):
 
               ByteField("spareB9", None),
               ByteField("spareB10", None)
-              ]
+    ]
 
 
 # len 4
@@ -4392,16 +4392,16 @@ class P3RestOctets(Packet):
     """P3 Rest Octets Section 10.5.2.25"""
     name = "P3 Rest Octets"
     fields_desc = [
-              BitField("cn3", 0x0, 2),
-              BitField("cn4", 0x0, 2),
-              BitField("nln", 0x0, 2),
-              BitField("nlnStatus", 0x0, 1),
-              BitField("prio1", 0x0, 3),
-              BitField("prio2", 0x0, 3),
-              BitField("prio3", 0x0, 3),
-              BitField("prio4", 0x0, 3),
-              BitField("spare", 0x0, 5)
-              ]
+        BitField("cn3", 0x0, 2),
+        BitField("cn4", 0x0, 2),
+        BitField("nln", 0x0, 2),
+        BitField("nlnStatus", 0x0, 1),
+        BitField("prio1", 0x0, 3),
+        BitField("prio2", 0x0, 3),
+        BitField("prio3", 0x0, 3),
+        BitField("prio4", 0x0, 3),
+        BitField("spare", 0x0, 5)
+    ]
 
 
 # len 4
@@ -4419,31 +4419,31 @@ class PacketChannelDescription(Packet):
     """Packet Channel Description Section 10.5.2.25a"""
     name = "Packet Channel Description"
     fields_desc = [
-              ByteField("ieiPCD", None),
-              BitField("chanType", 0x0, 5),  # This  packet has multiple
-                                  # possible layouts. I moddeled the first one
-              BitField("tn", 0x0, 3),     # maybe build an
+        ByteField("ieiPCD", None),
+        BitField("chanType", 0x0, 5),  # This  packet has multiple
+        # possible layouts. I moddeled the first one
+        BitField("tn", 0x0, 3),     # maybe build an
                                           #"interactive" builder. Like
                                           # a Q/A then propose a
                                           #  packet?
-              BitField("tsc", 0x0, 3),
-              BitField("chooser1", 0x0, 1),
-              BitField("chooser2", 0x0, 1),
-              BitField("spare1", 0x0, 1),
-              BitField("arfcn", 0x0, 10),
-              ]
+        BitField("tsc", 0x0, 3),
+        BitField("chooser1", 0x0, 1),
+        BitField("chooser2", 0x0, 1),
+        BitField("spare1", 0x0, 1),
+        BitField("arfcn", 0x0, 10),
+    ]
 
 
 class DedicatedModeOrTBFHdr(Packet):
     """Dedicated mode or TBF Section 10.5.2.25b"""
     name = "Dedicated Mode or TBF"
     fields_desc = [
-             XBitField("ieiDMOT", None, 4),
-             BitField("spare", 0x0, 1),
-             BitField("tma", 0x0, 1),
-             BitField("downlink", 0x0, 1),
-             BitField("td", 0x0, 1)
-             ]
+        XBitField("ieiDMOT", None, 4),
+        BitField("spare", 0x0, 1),
+        BitField("tma", 0x0, 1),
+        BitField("downlink", 0x0, 1),
+        BitField("td", 0x0, 1)
+    ]
 
 
 # FIXME add implementation
@@ -4451,19 +4451,19 @@ class RrPacketUplinkAssignment(Packet):
     """RR Packet Uplink Assignment Section 10.5.2.25c"""
     name = "RR Packet Uplink Assignment"
     fields_desc = [
-             # Fill me
-             ]
+        # Fill me
+    ]
 
 
 class PageModeHdr(Packet):
     """Page Mode Section 10.5.2.26"""
     name = "Page Mode"
     fields_desc = [
-             XBitField("ieiPM", None, 4),
-             BitField("spare", 0x0, 1),
-             BitField("spare1", 0x0, 1),
-             BitField("pm", 0x0, 2)
-             ]
+        XBitField("ieiPM", None, 4),
+        BitField("spare", 0x0, 1),
+        BitField("spare1", 0x0, 1),
+        BitField("pm", 0x0, 2)
+    ]
 
 
 # Fix for 1/2 len problem
@@ -4471,14 +4471,14 @@ class PageModeHdr(Packet):
 class PageModeAndDedicatedModeOrTBF(Packet):
     name = "Page Mode and Dedicated Mode Or TBF"
     fields_desc = [
-             BitField("spare", 0x0, 1),
-             BitField("spare1", 0x0, 1),
-             BitField("pm", 0x0, 2),
-             BitField("spare", 0x0, 1),
-             BitField("tma", 0x0, 1),
-             BitField("downlink", 0x0, 1),
-             BitField("td", 0x0, 1)
-             ]
+        BitField("spare", 0x0, 1),
+        BitField("spare1", 0x0, 1),
+        BitField("pm", 0x0, 2),
+        BitField("spare", 0x0, 1),
+        BitField("tma", 0x0, 1),
+        BitField("downlink", 0x0, 1),
+        BitField("td", 0x0, 1)
+    ]
 
 
 # Fix for 1/2 len problem
@@ -4486,11 +4486,11 @@ class PageModeAndDedicatedModeOrTBF(Packet):
 class PageModeAndSpareHalfOctets(Packet):
     name = "Page Mode and Spare Half Octets"
     fields_desc = [
-             BitField("spare", 0x0, 1),
-             BitField("spare1", 0x0, 1),
-             BitField("pm", 0x0, 2),
-             BitField("spareHalfOctets", 0x0, 4)
-             ]
+        BitField("spare", 0x0, 1),
+        BitField("spare1", 0x0, 1),
+        BitField("pm", 0x0, 2),
+        BitField("spareHalfOctets", 0x0, 4)
+    ]
 
 
 # Fix for 1/2 len problem
@@ -4498,128 +4498,128 @@ class PageModeAndSpareHalfOctets(Packet):
 class PageModeAndChannelNeeded(Packet):
     name = "Page Mode and Channel Needed"
     fields_desc = [
-             BitField("spare", 0x0, 1),
-             BitField("spare1", 0x0, 1),
-             BitField("pm", 0x0, 2),
-             BitField("channel2", 0x0, 2),
-             BitField("channel1", 0x0, 2)
-             ]
+        BitField("spare", 0x0, 1),
+        BitField("spare1", 0x0, 1),
+        BitField("pm", 0x0, 2),
+        BitField("channel2", 0x0, 2),
+        BitField("channel1", 0x0, 2)
+    ]
 
 
 class NccPermittedHdr(Packet):
     """NCC Permitted Section 10.5.2.27"""
     name = "NCC Permitted"
     fields_desc = [
-             BitField("eightBitNP", None, 1),
-             XBitField("ieiNP", None, 7),
-             ByteField("nccPerm", 0x0)
-             ]
+        BitField("eightBitNP", None, 1),
+        XBitField("ieiNP", None, 7),
+        ByteField("nccPerm", 0x0)
+    ]
 
 
 class PowerCommandHdr(Packet):
     """Power Command Section 10.5.2.28"""
     name = "Power Command"
     fields_desc = [
-             BitField("eightBitPC", None, 1),
-             XBitField("ieiPC", None, 7),
-             BitField("spare", 0x0, 1),
-             BitField("spare1", 0x0, 1),
-             BitField("spare2", 0x0, 1),
-             BitField("powerLvl", 0x0, 5)
-             ]
+        BitField("eightBitPC", None, 1),
+        XBitField("ieiPC", None, 7),
+        BitField("spare", 0x0, 1),
+        BitField("spare1", 0x0, 1),
+        BitField("spare2", 0x0, 1),
+        BitField("powerLvl", 0x0, 5)
+    ]
 
 
 class PowerCommandAndAccessTypeHdr(Packet):
     """Power Command and access type  Section 10.5.2.28a"""
     name = "Power Command and Access Type"
     fields_desc = [
-             BitField("eightBitPCAAT", None, 1),
-             XBitField("ieiPCAAT", None, 7),
-             BitField("atc", 0x0, 1),
-             BitField("spare", 0x0, 1),
-             BitField("spare1", 0x0, 1),
-             BitField("powerLvl", 0x0, 5)
-             ]
+        BitField("eightBitPCAAT", None, 1),
+        XBitField("ieiPCAAT", None, 7),
+        BitField("atc", 0x0, 1),
+        BitField("spare", 0x0, 1),
+        BitField("spare1", 0x0, 1),
+        BitField("powerLvl", 0x0, 5)
+    ]
 
 
 class RachControlParametersHdr(Packet):
     """RACH Control Parameters Section 10.5.2.29"""
     name = "RACH Control Parameters"
     fields_desc = [
-             BitField("eightBitRCP", None, 1),
-             XBitField("ieiRCP", None, 7),
-             BitField("maxRetrans", 0x0, 2),
-             BitField("txInteger", 0x0, 4),
-             BitField("cellBarrAccess", 0x0, 1),
-             BitField("re", 0x0, 1),
-             BitField("ACC15", 0x0, 1),
-             BitField("ACC14", 0x0, 1),
-             BitField("ACC13", 0x0, 1),
-             BitField("ACC12", 0x0, 1),
-             BitField("ACC11", 0x0, 1),
-             BitField("ACC10", 0x0, 1),
-             BitField("ACC09", 0x0, 1),
-             BitField("ACC08", 0x0, 1),
-             BitField("ACC07", 0x0, 1),
-             BitField("ACC06", 0x0, 1),
-             BitField("ACC05", 0x0, 1),
-             BitField("ACC04", 0x0, 1),
-             BitField("ACC03", 0x0, 1),
-             BitField("ACC02", 0x0, 1),
-             BitField("ACC01", 0x0, 1),
-             BitField("ACC00", 0x0, 1),
-             ]
+        BitField("eightBitRCP", None, 1),
+        XBitField("ieiRCP", None, 7),
+        BitField("maxRetrans", 0x0, 2),
+        BitField("txInteger", 0x0, 4),
+        BitField("cellBarrAccess", 0x0, 1),
+        BitField("re", 0x0, 1),
+        BitField("ACC15", 0x0, 1),
+        BitField("ACC14", 0x0, 1),
+        BitField("ACC13", 0x0, 1),
+        BitField("ACC12", 0x0, 1),
+        BitField("ACC11", 0x0, 1),
+        BitField("ACC10", 0x0, 1),
+        BitField("ACC09", 0x0, 1),
+        BitField("ACC08", 0x0, 1),
+        BitField("ACC07", 0x0, 1),
+        BitField("ACC06", 0x0, 1),
+        BitField("ACC05", 0x0, 1),
+        BitField("ACC04", 0x0, 1),
+        BitField("ACC03", 0x0, 1),
+        BitField("ACC02", 0x0, 1),
+        BitField("ACC01", 0x0, 1),
+        BitField("ACC00", 0x0, 1),
+    ]
 
 
 class RequestReferenceHdr(Packet):
     """Request Reference  Section 10.5.2.30"""
     name = "Request Reference"
     fields_desc = [
-             BitField("eightBitRR", None, 1),
-             XBitField("ieiRR", None, 7),
-             ByteField("ra", 0x0),
-             BitField("t1", 0x0, 5),
-             BitField("t3Hi", 0x0, 3),
-             BitField("t3Lo", 0x0, 3),
-             BitField("t2", 0x0, 5)
-             ]
+        BitField("eightBitRR", None, 1),
+        XBitField("ieiRR", None, 7),
+        ByteField("ra", 0x0),
+        BitField("t1", 0x0, 5),
+        BitField("t3Hi", 0x0, 3),
+        BitField("t3Lo", 0x0, 3),
+        BitField("t2", 0x0, 5)
+    ]
 
 
 class RrCauseHdr(Packet):
     """RR Cause  Section 10.5.2.31"""
     name = "RR Cause"
     fields_desc = [
-             BitField("eightBitRC", None, 1),
-             XBitField("ieiRC", None, 7),
-             ByteField("rrCause", 0x0)
-             ]
+        BitField("eightBitRC", None, 1),
+        XBitField("ieiRC", None, 7),
+        ByteField("rrCause", 0x0)
+    ]
 
 
 class Si1RestOctets(Packet):
     """SI 1 Rest Octets Section 10.5.2.32"""
     name = "SI 1 Rest Octets"
     fields_desc = [
-             ByteField("nchPos", 0x0)
-             ]
+        ByteField("nchPos", 0x0)
+    ]
 
 
 class Si2bisRestOctets(Packet):
     """SI 2bis Rest Octets Section 10.5.2.33"""
     name = "SI 2bis Rest Octets"
     fields_desc = [
-             ByteField("spare", 0x0)
-             ]
+        ByteField("spare", 0x0)
+    ]
 
 
 class Si2terRestOctets(Packet):
     """SI 2ter Rest Octets Section 10.5.2.33a"""
     name = "SI 2ter Rest Octets"
     fields_desc = [
-             ByteField("spare1", 0x0),
-             ByteField("spare2", 0x0),
-             ByteField("spare3", 0x0),
-             ByteField("spare4", 0x0)
-             ]
+        ByteField("spare1", 0x0),
+        ByteField("spare2", 0x0),
+        ByteField("spare3", 0x0),
+        ByteField("spare4", 0x0)
+    ]
 
 
 # len 5
@@ -4627,12 +4627,12 @@ class Si3RestOctets(Packet):
     """SI 3 Rest Octets Section 10.5.2.34"""
     name = "SI 3 Rest Octets"
     fields_desc = [
-             ByteField("byte1", 0x0),
-             ByteField("byte2", 0x0),
-             ByteField("byte3", 0x0),
-             ByteField("byte4", 0x0),
-             ByteField("byte5", 0x0)
-             ]
+        ByteField("byte1", 0x0),
+        ByteField("byte2", 0x0),
+        ByteField("byte3", 0x0),
+        ByteField("byte4", 0x0),
+        ByteField("byte5", 0x0)
+    ]
 
 
 # len 1 to 11
@@ -4640,18 +4640,18 @@ class Si4RestOctets(Packet):
     """SI 4 Rest Octets Section 10.5.2.35"""
     name = "SI 4 Rest Octets"
     fields_desc = [
-             XByteField("lengthSI4", None),
-             ByteField("byte2", None),
-             ByteField("byte3", None),
-             ByteField("byte4", None),
-             ByteField("byte5", None),
-             ByteField("byte6", None),
-             ByteField("byte7", None),
-             ByteField("byte8", None),
-             ByteField("byte9", None),
-             ByteField("byte10", None),
-             ByteField("byte11", None)
-             ]
+        XByteField("lengthSI4", None),
+        ByteField("byte2", None),
+        ByteField("byte3", None),
+        ByteField("byte4", None),
+        ByteField("byte5", None),
+        ByteField("byte6", None),
+        ByteField("byte7", None),
+        ByteField("byte8", None),
+        ByteField("byte9", None),
+        ByteField("byte10", None),
+        ByteField("byte11", None)
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -4669,8 +4669,8 @@ class Si6RestOctets(Packet):
     """SI 6 Rest Octets Section 10.5.2.35a"""
     name = "SI 4 Rest Octets"
     fields_desc = [
-             # FIXME
-             ]
+        # FIXME
+    ]
 
 
 # len 21
@@ -4678,7 +4678,7 @@ class Si7RestOctets(Packet):
     """SI 7 Rest Octets Section 10.5.2.36"""
     name = "SI 7 Rest Octets"
     fields_desc = [
-             # FIXME
+        # FIXME
              XByteField("lengthSI7", 0x15),
              ByteField("byte2", 0x0),
              ByteField("byte3", 0x0),
@@ -4700,7 +4700,7 @@ class Si7RestOctets(Packet):
              ByteField("byte19", 0x0),
              ByteField("byte20", 0x0),
              ByteField("byte21", 0x0)
-             ]
+    ]
 
 
 # len 21
@@ -4708,7 +4708,7 @@ class Si8RestOctets(Packet):
     """SI 8 Rest Octets Section 10.5.2.37"""
     name = "SI 8 Rest Octets"
     fields_desc = [
-             # FIXME
+        # FIXME
              XByteField("lengthSI8", 0x15),
              ByteField("byte2", 0x0),
              ByteField("byte3", 0x0),
@@ -4730,7 +4730,7 @@ class Si8RestOctets(Packet):
              ByteField("byte19", 0x0),
              ByteField("byte20", 0x0),
              ByteField("byte21", 0x0)
-             ]
+    ]
 
 
 #len 17
@@ -4738,7 +4738,7 @@ class Si9RestOctets(Packet):
     """SI 9 Rest Octets Section 10.5.2.37a"""
     name = "SI 9 Rest Octets"
     fields_desc = [
-             # FIXME
+        # FIXME
              XByteField("lengthSI9", 0x11),
              ByteField("byte2", 0x0),
              ByteField("byte3", 0x0),
@@ -4756,7 +4756,7 @@ class Si9RestOctets(Packet):
              ByteField("byte15", 0x0),
              ByteField("byte16", 0x0),
              ByteField("byte17", 0x0)
-             ]
+    ]
 
 
 # len 21
@@ -4764,7 +4764,7 @@ class Si13RestOctets(Packet):
     """SI 13 Rest Octets Section 10.5.2.37b"""
     name = "SI 13 Rest Octets"
     fields_desc = [
-             # FIXME
+        # FIXME
              XByteField("lengthSI3", 0x15),
              ByteField("byte2", 0x0),
              ByteField("byte3", 0x0),
@@ -4786,7 +4786,7 @@ class Si13RestOctets(Packet):
              ByteField("byte19", 0x0),
              ByteField("byte20", 0x0),
              ByteField("byte21", 0x0)
-             ]
+    ]
 
 
 # 10.5.2.37c [spare]
@@ -4798,7 +4798,7 @@ class Si16RestOctets(Packet):
     """SI 16 Rest Octets Section 10.5.2.37e"""
     name = "SI 16 Rest Octets"
     fields_desc = [
-             # FIXME
+        # FIXME
              XByteField("lengthSI16", 0x15),
              ByteField("byte2", 0x0),
              ByteField("byte3", 0x0),
@@ -4820,7 +4820,7 @@ class Si16RestOctets(Packet):
              ByteField("byte19", 0x0),
              ByteField("byte20", 0x0),
              ByteField("byte21", 0x0)
-             ]
+    ]
 
 
 # len 21
@@ -4828,7 +4828,7 @@ class Si17RestOctets(Packet):
     """SI 17 Rest Octets Section 10.5.2.37f"""
     name = "SI 17 Rest Octets"
     fields_desc = [
-             # FIXME
+        # FIXME
              XByteField("lengthSI17", 0x15),
              ByteField("byte2", 0x0),
              ByteField("byte3", 0x0),
@@ -4850,105 +4850,105 @@ class Si17RestOctets(Packet):
              ByteField("byte19", 0x0),
              ByteField("byte20", 0x0),
              ByteField("byte21", 0x0)
-             ]
+    ]
 
 
 class StartingTimeHdr(Packet):
     """Starting Time Section 10.5.2.38"""
     name = "Starting Time"
     fields_desc = [
-             BitField("eightBitST", None, 1),
-             XBitField("ieiST", None, 7),
-             ByteField("ra", 0x0),
-             BitField("t1", 0x0, 5),
-             BitField("t3Hi", 0x0, 3),
-             BitField("t3Lo", 0x0, 3),
-             BitField("t2", 0x0, 5)
-             ]
+        BitField("eightBitST", None, 1),
+        XBitField("ieiST", None, 7),
+        ByteField("ra", 0x0),
+        BitField("t1", 0x0, 5),
+        BitField("t3Hi", 0x0, 3),
+        BitField("t3Lo", 0x0, 3),
+        BitField("t2", 0x0, 5)
+    ]
 
 
 class SynchronizationIndicationHdr(Packet):
     """Synchronization Indication Section 10.5.2.39"""
     name = "Synchronization Indication"
     fields_desc = [
-             XBitField("ieiSI", None, 4),
-             BitField("nci", 0x0, 1),
-             BitField("rot", 0x0, 1),
-             BitField("si", 0x0, 2)
-             ]
+        XBitField("ieiSI", None, 4),
+        BitField("nci", 0x0, 1),
+        BitField("rot", 0x0, 1),
+        BitField("si", 0x0, 2)
+    ]
 
 
 class TimingAdvanceHdr(Packet):
     """Timing Advance Section 10.5.2.40"""
     name = "Timing Advance"
     fields_desc = [
-             BitField("eightBitTA", None, 1),
-             XBitField("ieiTA", None, 7),
-             BitField("spare", 0x0, 1),
-             BitField("spare1", 0x0, 1),
-             BitField("timingVal", 0x0, 6)
-             ]
+        BitField("eightBitTA", None, 1),
+        XBitField("ieiTA", None, 7),
+        BitField("spare", 0x0, 1),
+        BitField("spare1", 0x0, 1),
+        BitField("timingVal", 0x0, 6)
+    ]
 
 
 class TimeDifferenceHdr(Packet):
     """ Time Difference Section 10.5.2.41"""
     name = "Time Difference"
     fields_desc = [
-             BitField("eightBitTD", None, 1),
-             XBitField("ieiTD", None, 7),
-             XByteField("lengthTD", 0x3),
-             ByteField("timeValue", 0x0)
-             ]
+        BitField("eightBitTD", None, 1),
+        XBitField("ieiTD", None, 7),
+        XByteField("lengthTD", 0x3),
+        ByteField("timeValue", 0x0)
+    ]
 
 
 class TlliHdr(Packet):
     """ TLLI Section Section 10.5.2.41a"""
     name = "TLLI"
     fields_desc = [
-             BitField("eightBitT", None, 1),
-             XBitField("ieiT", None, 7),
-             ByteField("value", 0x0),
-             ByteField("value1", 0x0),
-             ByteField("value2", 0x0),
-             ByteField("value3", 0x0)
-             ]
+        BitField("eightBitT", None, 1),
+        XBitField("ieiT", None, 7),
+        ByteField("value", 0x0),
+        ByteField("value1", 0x0),
+        ByteField("value2", 0x0),
+        ByteField("value3", 0x0)
+    ]
 
 
 class TmsiPTmsiHdr(Packet):
     """ TMSI/P-TMSI Section 10.5.2.42"""
     name = "TMSI/P-TMSI"
     fields_desc = [
-             BitField("eightBitTPT", None, 1),
-             XBitField("ieiTPT", None, 7),
-             ByteField("value", 0x0),
-             ByteField("value1", 0x0),
-             ByteField("value2", 0x0),
-             ByteField("value3", 0x0)
-             ]
+        BitField("eightBitTPT", None, 1),
+        XBitField("ieiTPT", None, 7),
+        ByteField("value", 0x0),
+        ByteField("value1", 0x0),
+        ByteField("value2", 0x0),
+        ByteField("value3", 0x0)
+    ]
 
 
 class VgcsTargetModeIdenticationHdr(Packet):
     """ VGCS target Mode Indication 10.5.2.42a"""
     name = "VGCS Target Mode Indication"
     fields_desc = [
-             BitField("eightBitVTMI", None, 1),
-             XBitField("ieiVTMI", None, 7),
-             XByteField("lengthVTMI", 0x2),
-             BitField("targerMode", 0x0, 2),
-             BitField("cipherKeyNb", 0x0, 4),
-             BitField("spare", 0x0, 1),
-             BitField("spare1", 0x0, 1)
-             ]
+        BitField("eightBitVTMI", None, 1),
+        XBitField("ieiVTMI", None, 7),
+        XByteField("lengthVTMI", 0x2),
+        BitField("targerMode", 0x0, 2),
+        BitField("cipherKeyNb", 0x0, 4),
+        BitField("spare", 0x0, 1),
+        BitField("spare1", 0x0, 1)
+    ]
 
 
 class WaitIndicationHdr(Packet):
     """ Wait Indication Section 10.5.2.43"""
     name = "Wait Indication"
     fields_desc = [  # asciiart of specs strange
-             BitField("eightBitWI", None, 1),
-             XBitField("ieiWI", None, 7),
-             ByteField("timeoutVal", 0x0)
-             ]
+        BitField("eightBitWI", None, 1),
+        XBitField("ieiWI", None, 7),
+        ByteField("timeoutVal", 0x0)
+    ]
 
 
 # len 17
@@ -4956,59 +4956,59 @@ class ExtendedMeasurementResultsHdr(Packet):
     """EXTENDED MEASUREMENT RESULTS Section 10.5.2.45"""
     name = "Extended Measurement Results"
     fields_desc = [
-             BitField("eightBitEMR", None, 1),
-             XBitField("ieiEMR", None, 7),
+        BitField("eightBitEMR", None, 1),
+        XBitField("ieiEMR", None, 7),
 
-             BitField("scUsed", None, 1),
-             BitField("dtxUsed", None, 1),
-             BitField("rxLevC0", None, 6),
+        BitField("scUsed", None, 1),
+        BitField("dtxUsed", None, 1),
+        BitField("rxLevC0", None, 6),
 
-             BitField("rxLevC1", None, 6),
-             BitField("rxLevC2Hi", None, 2),
+        BitField("rxLevC1", None, 6),
+        BitField("rxLevC2Hi", None, 2),
 
-             BitField("rxLevC2Lo", None, 4),
-             BitField("rxLevC3Hi", None, 4),
+        BitField("rxLevC2Lo", None, 4),
+        BitField("rxLevC3Hi", None, 4),
 
-             BitField("rxLevC3Lo", None, 3),
-             BitField("rxLevC4", None, 5),
+        BitField("rxLevC3Lo", None, 3),
+        BitField("rxLevC4", None, 5),
 
-             BitField("rxLevC5", None, 6),
-             BitField("rxLevC6Hi", None, 2),
+        BitField("rxLevC5", None, 6),
+        BitField("rxLevC6Hi", None, 2),
 
-             BitField("rxLevC6Lo", None, 4),
-             BitField("rxLevC7Hi", None, 4),
+        BitField("rxLevC6Lo", None, 4),
+        BitField("rxLevC7Hi", None, 4),
 
-             BitField("rxLevC7Lo", None, 2),
-             BitField("rxLevC8", None, 6),
+        BitField("rxLevC7Lo", None, 2),
+        BitField("rxLevC8", None, 6),
 
-             BitField("rxLevC9", None, 6),
-             BitField("rxLevC10Hi", None, 2),
+        BitField("rxLevC9", None, 6),
+        BitField("rxLevC10Hi", None, 2),
 
-             BitField("rxLevC10Lo", None, 4),
-             BitField("rxLevC11Hi", None, 4),
+        BitField("rxLevC10Lo", None, 4),
+        BitField("rxLevC11Hi", None, 4),
 
-             BitField("rxLevC13Lo", None, 2),
-             BitField("rxLevC12", None, 6),
+        BitField("rxLevC13Lo", None, 2),
+        BitField("rxLevC12", None, 6),
 
-             BitField("rxLevC13", None, 6),
-             BitField("rxLevC14Hi", None, 2),
+        BitField("rxLevC13", None, 6),
+        BitField("rxLevC14Hi", None, 2),
 
-             BitField("rxLevC14Lo", None, 4),
-             BitField("rxLevC15Hi", None, 4),
+        BitField("rxLevC14Lo", None, 4),
+        BitField("rxLevC15Hi", None, 4),
 
-             BitField("rxLevC15Lo", None, 2),
-             BitField("rxLevC16", None, 6),
+        BitField("rxLevC15Lo", None, 2),
+        BitField("rxLevC16", None, 6),
 
 
-             BitField("rxLevC17", None, 6),
-             BitField("rxLevC18Hi", None, 2),
+        BitField("rxLevC17", None, 6),
+        BitField("rxLevC18Hi", None, 2),
 
-             BitField("rxLevC18Lo", None, 4),
-             BitField("rxLevC19Hi", None, 4),
+        BitField("rxLevC18Lo", None, 4),
+        BitField("rxLevC19Hi", None, 4),
 
-             BitField("rxLevC19Lo", None, 2),
-             BitField("rxLevC20", None, 6)
-             ]
+        BitField("rxLevC19Lo", None, 2),
+        BitField("rxLevC20", None, 6)
+    ]
 
 
 # len 17
@@ -5016,63 +5016,63 @@ class ExtendedMeasurementFrequencyListHdr(Packet):
     """Extended Measurement Frequency List Section 10.5.2.46"""
     name = "Extended Measurement Frequency List"
     fields_desc = [
-             BitField("eightBitEMFL", None, 1),
-             XBitField("ieiEMFL", None, 7),
+        BitField("eightBitEMFL", None, 1),
+        XBitField("ieiEMFL", None, 7),
 
-             BitField("bit128", 0x0, 1),
-             BitField("bit127", 0x0, 1),
-             BitField("spare", 0x0, 1),
-             BitField("seqCode", 0x0, 1),
-             BitField("bit124", 0x0, 1),
-             BitField("bit123", 0x0, 1),
-             BitField("bit122", 0x0, 1),
-             BitField("bit121", 0x0, 1),
+        BitField("bit128", 0x0, 1),
+        BitField("bit127", 0x0, 1),
+        BitField("spare", 0x0, 1),
+        BitField("seqCode", 0x0, 1),
+        BitField("bit124", 0x0, 1),
+        BitField("bit123", 0x0, 1),
+        BitField("bit122", 0x0, 1),
+        BitField("bit121", 0x0, 1),
 
-             BitField("bitsRest", 0x0, 128)
-             ]
+        BitField("bitsRest", 0x0, 128)
+    ]
 
 
 class SuspensionCauseHdr(Packet):
     """Suspension Cause Section 10.5.2.47"""
     name = "Suspension Cause"
     fields_desc = [
-             BitField("eightBitSC", None, 1),
-             XBitField("ieiSC", None, 7),
-             ByteField("suspVal", 0x0)
-             ]
+        BitField("eightBitSC", None, 1),
+        XBitField("ieiSC", None, 7),
+        ByteField("suspVal", 0x0)
+    ]
 
 
 class ApduIDHdr(Packet):
     """APDU Flags Section 10.5.2.48"""
     name = "Apdu Id"
     fields_desc = [
-             XBitField("ieiAI", None, 4),
-             BitField("id", None, 4)
-             ]
+        XBitField("ieiAI", None, 4),
+        BitField("id", None, 4)
+    ]
 
 
 class ApduFlagsHdr(Packet):
     """APDU Flags Section 10.5.2.49"""
     name = "Apdu Flags"
     fields_desc = [
-             XBitField("iei", None, 4),
-             BitField("spare", 0x0, 1),
-             BitField("cr", 0x0, 1),
-             BitField("firstSeg", 0x0, 1),
-             BitField("lastSeg", 0x0, 1)
-             ]
+        XBitField("iei", None, 4),
+        BitField("spare", 0x0, 1),
+        BitField("cr", 0x0, 1),
+        BitField("firstSeg", 0x0, 1),
+        BitField("lastSeg", 0x0, 1)
+    ]
 
 
 # Fix 1/2 len problem
 class ApduIDAndApduFlags(Packet):
     name = "Apu Id and Apdu Flags"
     fields_desc = [
-             BitField("id", None, 4),
-             BitField("spare", 0x0, 1),
-             BitField("cr", 0x0, 1),
-             BitField("firstSeg", 0x0, 1),
-             BitField("lastSeg", 0x0, 1)
-             ]
+        BitField("id", None, 4),
+        BitField("spare", 0x0, 1),
+        BitField("cr", 0x0, 1),
+        BitField("firstSeg", 0x0, 1),
+        BitField("lastSeg", 0x0, 1)
+    ]
 
 
 # len 2 to max L3 (251) (done)
@@ -5080,10 +5080,10 @@ class ApduDataHdr(Packet):
     """APDU Data Section 10.5.2.50"""
     name = "Apdu Data"
     fields_desc = [
-             BitField("eightBitAD", None, 1),
-             XBitField("ieiAD", None, 7),
-             XByteField("lengthAD", None),
-             #optional
+        BitField("eightBitAD", None, 1),
+        XBitField("ieiAD", None, 7),
+        XByteField("lengthAD", None),
+        #optional
              ByteField("apuInfo1", None),
              ByteField("apuInfo2", None),
              ByteField("apuInfo3", None),
@@ -5333,7 +5333,7 @@ class ApduDataHdr(Packet):
              ByteField("apuInfo247", None),
              ByteField("apuInfo248", None),
              ByteField("apuInfo249", None)
-             ]
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -5353,78 +5353,78 @@ class AuthenticationParameterRAND(Packet):
     """Authentication parameter RAND Section 10.5.3.1"""
     name = "Authentication Parameter Rand"
     fields_desc = [
-             ByteField("ieiAPR", None),
-             BitField("randValue", 0x0, 128)
-             ]
+        ByteField("ieiAPR", None),
+        BitField("randValue", 0x0, 128)
+    ]
 
 
 class AuthenticationParameterSRES(Packet):
     """Authentication parameter SRES Section 10.5.3.2"""
     name = "Authentication Parameter Sres"
     fields_desc = [
-             ByteField("ieiAPS", None),
-             BitField("sresValue", 0x0, 40)
-             ]
+        ByteField("ieiAPS", None),
+        BitField("sresValue", 0x0, 40)
+    ]
 
 
 class CmServiceType(Packet):
     """CM service type Section 10.5.3.3"""
     name = "CM Service Type"
     fields_desc = [
-             XBitField("ieiCST", 0x0, 4),
-             BitField("serviceType", 0x0, 4)
-             ]
+        XBitField("ieiCST", 0x0, 4),
+        BitField("serviceType", 0x0, 4)
+    ]
 
 
 class CmServiceTypeAndCiphKeySeqNr(Packet):
     name = "CM Service Type and Cipher Key Sequence Number"
     fields_desc = [
-             BitField("keySeq", 0x0, 3),
-             BitField("spare", 0x0, 1),
-             BitField("serviceType", 0x0, 4)
-             ]
+        BitField("keySeq", 0x0, 3),
+        BitField("spare", 0x0, 1),
+        BitField("serviceType", 0x0, 4)
+    ]
 
 
 class IdentityType(Packet):
     """Identity type Section 10.5.3.4"""
     name = "Identity Type"
     fields_desc = [
-             XBitField("ieiIT", 0x0, 4),
-             BitField("spare", 0x0, 1),
-             BitField("idType", 0x1, 3)
-             ]
+        XBitField("ieiIT", 0x0, 4),
+        BitField("spare", 0x0, 1),
+        BitField("idType", 0x1, 3)
+    ]
 
 
 # Fix 1/2 len problem
 class IdentityTypeAndSpareHalfOctet(Packet):
     name = "Identity Type and Spare Half Octet"
     fields_desc = [
-             BitField("spare", 0x0, 1),
-             BitField("idType", 0x1, 3),
-             BitField("spareHalfOctets", 0x0, 4)
-             ]
+        BitField("spare", 0x0, 1),
+        BitField("idType", 0x1, 3),
+        BitField("spareHalfOctets", 0x0, 4)
+    ]
 
 
 class LocationUpdatingType(Packet):
     """Location updating type  Section 10.5.3.5"""
     name = "Location Updating Type"
     fields_desc = [
-             XBitField("ieiLUT", 0x0, 4),
-             BitField("for", 0x0, 1),
-             BitField("spare", 0x0, 1),
-             BitField("lut", 0x0, 2)
-             ]
+        XBitField("ieiLUT", 0x0, 4),
+        BitField("for", 0x0, 1),
+        BitField("spare", 0x0, 1),
+        BitField("lut", 0x0, 2)
+    ]
 
 
 class LocationUpdatingTypeAndCiphKeySeqNr(Packet):
     name = "Location Updating Type and Cipher Key Sequence Number"
     fields_desc = [
-             BitField("for", 0x0, 1),
-             BitField("spare", 0x0, 1),
-             BitField("lut", 0x0, 2),
-             BitField("spare", 0x0, 1),
-             BitField("keySeq", 0x0, 3)
-             ]
+        BitField("for", 0x0, 1),
+        BitField("spare", 0x0, 1),
+        BitField("lut", 0x0, 2),
+        BitField("spare", 0x0, 1),
+        BitField("keySeq", 0x0, 3)
+    ]
 
 
 # len 3 to L3 max (251) (done)
@@ -5432,16 +5432,16 @@ class NetworkNameHdr(Packet):
     """Network Name Section 10.5.3.5a"""
     name = "Network Name"
     fields_desc = [
-             BitField("eightBitNN", None, 1),
-             XBitField("ieiNN", None, 7),
+        BitField("eightBitNN", None, 1),
+        XBitField("ieiNN", None, 7),
 
-             XByteField("lengthNN", None),
+        XByteField("lengthNN", None),
 
-             BitField("ext1", 0x1, 1),
-             BitField("codingScheme", 0x0, 3),
-             BitField("addCi", 0x0, 1),
-             BitField("nbSpare", 0x0, 3),
-             # optional
+        BitField("ext1", 0x1, 1),
+        BitField("codingScheme", 0x0, 3),
+        BitField("addCi", 0x0, 1),
+        BitField("nbSpare", 0x0, 3),
+        # optional
              ByteField("txtString1", None),
              ByteField("txtString2", None),
              ByteField("txtString3", None),
@@ -5690,7 +5690,7 @@ class NetworkNameHdr(Packet):
              ByteField("txtString246", None),
              ByteField("txtString247", None),
              ByteField("txtString248", None)
-             ]
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -5706,64 +5706,64 @@ class RejectCause(Packet):
     """Reject cause Section 10.5.3.6"""
     name = "Reject Cause"
     fields_desc = [
-             ByteField("ieiRC", 0x0),
-             ByteField("rejCause", 0x0)
-             ]
+        ByteField("ieiRC", 0x0),
+        ByteField("rejCause", 0x0)
+    ]
 
 
 class FollowOnProceed(Packet):
     """Follow-on Proceed Section 10.5.3.7"""
     name = "Follow-on Proceed"
     fields_desc = [
-             ByteField("ieiFOP", 0x0),
-             ]
+        ByteField("ieiFOP", 0x0),
+    ]
 
 
 class TimeZoneHdr(Packet):
     """Time Zone  Section 10.5.3.8"""
     name = "Time Zone"
     fields_desc = [
-             BitField("eightBitTZ", None, 1),
-             XBitField("ieiTZ", None, 7),
-             ByteField("timeZone", 0x0),
-             ]
+        BitField("eightBitTZ", None, 1),
+        XBitField("ieiTZ", None, 7),
+        ByteField("timeZone", 0x0),
+    ]
 
 
 class TimeZoneAndTimeHdr(Packet):
     """Time Zone and Time Section 10.5.3.9"""
     name = "Time Zone and Time"
     fields_desc = [
-             BitField("eightBitTZAT", None, 1),
-             XBitField("ieiTZAT", None, 7),
-             ByteField("year", 0x0),
-             ByteField("month", 0x0),
-             ByteField("day", 0x0),
-             ByteField("hour", 0x0),
-             ByteField("minute", 0x0),
-             ByteField("second", 0x0),
-             ByteField("timeZone", 0x0)
-             ]
+        BitField("eightBitTZAT", None, 1),
+        XBitField("ieiTZAT", None, 7),
+        ByteField("year", 0x0),
+        ByteField("month", 0x0),
+        ByteField("day", 0x0),
+        ByteField("hour", 0x0),
+        ByteField("minute", 0x0),
+        ByteField("second", 0x0),
+        ByteField("timeZone", 0x0)
+    ]
 
 
 class CtsPermissionHdr(Packet):
     """CTS permission Section 10.5.3.10"""
     name = "Cts Permission"
     fields_desc = [
-             BitField("eightBitCP", None, 1),
-             XBitField("ieiCP", None, 7),
-             ]
+        BitField("eightBitCP", None, 1),
+        XBitField("ieiCP", None, 7),
+    ]
 
 
 class LsaIdentifierHdr(Packet):
     """LSA Identifier Section 10.5.3.11"""
     name = "Lsa Identifier"
     fields_desc = [
-             BitField("eightBitLI", None, 1),
-             XBitField("ieiLI", None, 7),
-             ByteField("lsaID", 0x0),
-             ByteField("lsaID1", 0x0),
-             ByteField("lsaID2", 0x0)
-             ]
+        BitField("eightBitLI", None, 1),
+        XBitField("ieiLI", None, 7),
+        ByteField("lsaID", 0x0),
+        ByteField("lsaID1", 0x0),
+        ByteField("lsaID2", 0x0)
+    ]
 
 
 #
@@ -5777,34 +5777,34 @@ class LockingShiftProcedureHdr(Packet):
     """Locking shift procedure Section 10.5.4.2"""
     name = "Locking Shift Procedure"
     fields_desc = [
-             XBitField("ieiLSP", None, 4),
-             BitField("lockShift", 0x0, 1),
-             BitField("codesetId", 0x0, 3)
-             ]
+        XBitField("ieiLSP", None, 4),
+        BitField("lockShift", 0x0, 1),
+        BitField("codesetId", 0x0, 3)
+    ]
 
 
 class NonLockingShiftProcedureHdr(Packet):
     """Non-locking shift procedure Section 10.5.4.3"""
     name = "Non-locking Shift Procedure"
     fields_desc = [
-             XBitField("ieiNLSP", None, 4),
-             BitField("nonLockShift", 0x1, 1),
-             BitField("codesetId", 0x0, 3)
-             ]
+        XBitField("ieiNLSP", None, 4),
+        BitField("nonLockShift", 0x1, 1),
+        BitField("codesetId", 0x0, 3)
+    ]
 
 
 class AuxiliaryStatesHdr(Packet):
     """Auxiliary states Section 10.5.4.4"""
     name = "Auxiliary States"
     fields_desc = [
-             BitField("eightBitAS", None, 1),
-             XBitField("ieiAS", None, 7),
-             XByteField("lengthAS", 0x3),
-             BitField("ext", 0x1, 1),
-             BitField("spare", 0x0, 3),
-             BitField("holdState", 0x0, 2),
-             BitField("mptyState", 0x0, 2)
-             ]
+        BitField("eightBitAS", None, 1),
+        XBitField("ieiAS", None, 7),
+        XByteField("lengthAS", 0x3),
+        BitField("ext", 0x1, 1),
+        BitField("spare", 0x0, 3),
+        BitField("holdState", 0x0, 2),
+        BitField("mptyState", 0x0, 2)
+    ]
 
 
 # len 3 to 15
@@ -5812,40 +5812,40 @@ class BearerCapabilityHdr(Packet):
     """Bearer capability Section 10.5.4.5"""
     name = "Bearer Capability"
     fields_desc = [
-             BitField("eightBitBC", None, 1),
-             XBitField("ieiBC", None, 7),
+        BitField("eightBitBC", None, 1),
+        XBitField("ieiBC", None, 7),
 
-             XByteField("lengthBC", None),
+        XByteField("lengthBC", None),
 
-             BitField("ext0", 0x1, 1),
-             BitField("radioChReq", 0x1, 2),
-             BitField("codingStd", 0x0, 1),
-             BitField("transMode", 0x0, 1),
-             BitField("infoTransCa", 0x0, 3),
-             # optional
+        BitField("ext0", 0x1, 1),
+        BitField("radioChReq", 0x1, 2),
+        BitField("codingStd", 0x0, 1),
+        BitField("transMode", 0x0, 1),
+        BitField("infoTransCa", 0x0, 3),
+        # optional
              ConditionalField(BitField("ext1", 0x1, 1),
-                                       lambda pkt: pkt.ext0 == 0),
+                              lambda pkt: pkt.ext0 == 0),
              ConditionalField(BitField("coding", None, 1),
-                                       lambda pkt: pkt.ext0 == 0),
+                              lambda pkt: pkt.ext0 == 0),
              ConditionalField(BitField("spare", None, 2),
-                                       lambda pkt: pkt.ext0 == 0),
+                              lambda pkt: pkt.ext0 == 0),
              ConditionalField(BitField("speechVers", 0x0, 4),
-                                       lambda pkt: pkt.ext0 == 0),
+                              lambda pkt: pkt.ext0 == 0),
 
              ConditionalField(BitField("ext2", 0x1, 1),
-                                       lambda pkt: pkt.ext1 == 0),
+                              lambda pkt: pkt.ext1 == 0),
              ConditionalField(BitField("compress", None, 1),
-                                       lambda pkt: pkt.ext1 == 0),
+                              lambda pkt: pkt.ext1 == 0),
              ConditionalField(BitField("structure", None, 2),
-                                       lambda pkt: pkt.ext1 == 0),
+                              lambda pkt: pkt.ext1 == 0),
              ConditionalField(BitField("dupMode", None, 1),
-                                       lambda pkt: pkt.ext1 == 0),
+                              lambda pkt: pkt.ext1 == 0),
              ConditionalField(BitField("config", None, 1),
-                                       lambda pkt: pkt.ext1 == 0),
+                              lambda pkt: pkt.ext1 == 0),
              ConditionalField(BitField("nirr", None, 1),
-                                       lambda pkt: pkt.ext1 == 0),
+                              lambda pkt: pkt.ext1 == 0),
              ConditionalField(BitField("establi", 0x0, 1),
-                                       lambda pkt: pkt.ext1 == 0),
+                              lambda pkt: pkt.ext1 == 0),
 
              BitField("ext3", None, 1),
              BitField("accessId", None, 2),
@@ -5853,30 +5853,30 @@ class BearerCapabilityHdr(Packet):
              BitField("signaling", None, 3),
 
              ConditionalField(BitField("ext4", None, 1),
-                                       lambda pkt: pkt.ext3 == 0),
+                              lambda pkt: pkt.ext3 == 0),
              ConditionalField(BitField("otherITC", None, 2),
-                                       lambda pkt: pkt.ext3 == 0),
+                              lambda pkt: pkt.ext3 == 0),
              ConditionalField(BitField("otherRate", None, 2),
-                                       lambda pkt: pkt.ext3 == 0),
+                              lambda pkt: pkt.ext3 == 0),
              ConditionalField(BitField("spare1", 0x0, 3),
-                                       lambda pkt: pkt.ext3 == 0),
+                              lambda pkt: pkt.ext3 == 0),
 
              ConditionalField(BitField("ext5", 0x1, 1),
-                                       lambda pkt: pkt.ext4 == 0),
+                              lambda pkt: pkt.ext4 == 0),
              ConditionalField(BitField("hdr", None, 1),
-                                       lambda pkt: pkt.ext4 == 0),
+                              lambda pkt: pkt.ext4 == 0),
              ConditionalField(BitField("multiFr", None, 1),
-                                       lambda pkt: pkt.ext4 == 0),
+                              lambda pkt: pkt.ext4 == 0),
              ConditionalField(BitField("mode", None, 1),
-                                       lambda pkt: pkt.ext4 == 0),
+                              lambda pkt: pkt.ext4 == 0),
              ConditionalField(BitField("lli", None, 1),
-                                       lambda pkt: pkt.ext4 == 0),
+                              lambda pkt: pkt.ext4 == 0),
              ConditionalField(BitField("assig", None, 1),
-                                       lambda pkt: pkt.ext4 == 0),
+                              lambda pkt: pkt.ext4 == 0),
              ConditionalField(BitField("inbNeg", None, 1),
-                                       lambda pkt: pkt.ext4 == 0),
+                              lambda pkt: pkt.ext4 == 0),
              ConditionalField(BitField("spare2", 0x0, 1),
-                                       lambda pkt: pkt.ext4 == 0),
+                              lambda pkt: pkt.ext4 == 0),
 
              BitField("ext6", None, 1),
              BitField("layer1Id", None, 2),
@@ -5884,62 +5884,62 @@ class BearerCapabilityHdr(Packet):
              BitField("sync", None, 1),
 
              ConditionalField(BitField("ext7", None, 1),
-                                       lambda pkt: pkt.ext6 == 0),
+                              lambda pkt: pkt.ext6 == 0),
              ConditionalField(BitField("stopBit", None, 1),
-                                       lambda pkt: pkt.ext6 == 0),
+                              lambda pkt: pkt.ext6 == 0),
              ConditionalField(BitField("negoc", None, 1),
-                                       lambda pkt: pkt.ext6 == 0),
+                              lambda pkt: pkt.ext6 == 0),
              ConditionalField(BitField("nbDataBit", None, 1),
-                                       lambda pkt: pkt.ext6 == 0),
+                              lambda pkt: pkt.ext6 == 0),
              ConditionalField(BitField("userRate", None, 4),
-                                       lambda pkt: pkt.ext6 == 0),
+                              lambda pkt: pkt.ext6 == 0),
 
              ConditionalField(BitField("ext8", None, 1),
-                                       lambda pkt: pkt.ext7 == 0),
+                              lambda pkt: pkt.ext7 == 0),
              ConditionalField(BitField("interRate", None, 2),
-                                       lambda pkt: pkt.ext7 == 0),
+                              lambda pkt: pkt.ext7 == 0),
              ConditionalField(BitField("nicTX", None, 1),
-                                       lambda pkt: pkt.ext7 == 0),
+                              lambda pkt: pkt.ext7 == 0),
              ConditionalField(BitField("nicRX", None, 1),
-                                       lambda pkt: pkt.ext7 == 0),
+                              lambda pkt: pkt.ext7 == 0),
              ConditionalField(BitField("parity", None, 3),
-                                       lambda pkt: pkt.ext7 == 0),
+                              lambda pkt: pkt.ext7 == 0),
 
              ConditionalField(BitField("ext9", None, 1),
-                                       lambda pkt: pkt.ext8 == 0),
+                              lambda pkt: pkt.ext8 == 0),
              ConditionalField(BitField("connEle", None, 2),
-                                       lambda pkt: pkt.ext8 == 0),
+                              lambda pkt: pkt.ext8 == 0),
              ConditionalField(BitField("modemType", None, 5),
-                                       lambda pkt: pkt.ext8 == 0),
+                              lambda pkt: pkt.ext8 == 0),
 
              ConditionalField(BitField("ext10", None, 1),
-                                       lambda pkt: pkt.ext9 == 0),
+                              lambda pkt: pkt.ext9 == 0),
              ConditionalField(BitField("otherModemType", None, 2),
-                                       lambda pkt: pkt.ext9 == 0),
+                              lambda pkt: pkt.ext9 == 0),
              ConditionalField(BitField("netUserRate", None, 5),
-                                       lambda pkt: pkt.ext9 == 0),
+                              lambda pkt: pkt.ext9 == 0),
 
              ConditionalField(BitField("ext11", None, 1),
-                                       lambda pkt: pkt.ext10 == 0),
+                              lambda pkt: pkt.ext10 == 0),
              ConditionalField(BitField("chanCoding", None, 4),
-                                       lambda pkt: pkt.ext10 == 0),
+                              lambda pkt: pkt.ext10 == 0),
              ConditionalField(BitField("maxTrafficChan", None, 3),
-                                       lambda pkt: pkt.ext10 == 0),
+                              lambda pkt: pkt.ext10 == 0),
 
              ConditionalField(BitField("ext12", None, 1),
-                                       lambda pkt: pkt.ext11 == 0),
+                              lambda pkt: pkt.ext11 == 0),
              ConditionalField(BitField("uimi", None, 3),
-                                       lambda pkt: pkt.ext11 == 0),
+                              lambda pkt: pkt.ext11 == 0),
              ConditionalField(BitField("airInterfaceUserRate", None, 4),
-                                       lambda pkt: pkt.ext11 == 0),
+                              lambda pkt: pkt.ext11 == 0),
 
              ConditionalField(BitField("ext13", 0x1, 1),
-                                       lambda pkt: pkt.ext12 == 0),
+                              lambda pkt: pkt.ext12 == 0),
              ConditionalField(BitField("layer2Ch", None, 2),
-                                       lambda pkt: pkt.ext12 == 0),
+                              lambda pkt: pkt.ext12 == 0),
              ConditionalField(BitField("userInfoL2", 0x0, 5),
-                                       lambda pkt: pkt.ext12 == 0)
-             ]
+                              lambda pkt: pkt.ext12 == 0)
+    ]
 
     # We have a bug here. packet is not working if used in message
     def post_build(self, p, pay):
@@ -5959,24 +5959,24 @@ class CallControlCapabilitiesHdr(Packet):
     """Call Control Capabilities Section 10.5.4.5a"""
     name = "Call Control Capabilities"
     fields_desc = [
-             BitField("eightBitCCC", None, 1),
-             XBitField("ieiCCC", None, 7),
-             XByteField("lengthCCC", 0x3),
-             BitField("spare", 0x0, 6),
-             BitField("pcp", 0x0, 1),
-             BitField("dtmf", 0x0, 1)
-             ]
+        BitField("eightBitCCC", None, 1),
+        XBitField("ieiCCC", None, 7),
+        XByteField("lengthCCC", 0x3),
+        BitField("spare", 0x0, 6),
+        BitField("pcp", 0x0, 1),
+        BitField("dtmf", 0x0, 1)
+    ]
 
 
 class CallStateHdr(Packet):
     """Call State Section 10.5.4.6"""
     name = "Call State"
     fields_desc = [
-             BitField("eightBitCS", None, 1),
-             XBitField("ieiCS", None, 7),
-             BitField("codingStd", 0x0, 2),
-             BitField("stateValue", 0x0, 6)
-             ]
+        BitField("eightBitCS", None, 1),
+        XBitField("ieiCS", None, 7),
+        BitField("codingStd", 0x0, 2),
+        BitField("stateValue", 0x0, 6)
+    ]
 
 
 # len 3 to 43
@@ -5984,13 +5984,13 @@ class CalledPartyBcdNumberHdr(Packet):
     """Called party BCD number Section 10.5.4.7"""
     name = "Called Party BCD Number"
     fields_desc = [
-             BitField("eightBitCPBN", None, 1),
-             XBitField("ieiCPBN", None, 7),
-             XByteField("lengthCPBN", None),
-             BitField("ext", 0x1, 1),
-             BitField("typeNb", 0x0, 3),
-             BitField("nbPlanId", 0x0, 4),
-             # optional
+        BitField("eightBitCPBN", None, 1),
+        XBitField("ieiCPBN", None, 7),
+        XByteField("lengthCPBN", None),
+        BitField("ext", 0x1, 1),
+        BitField("typeNb", 0x0, 3),
+        BitField("nbPlanId", 0x0, 4),
+        # optional
              BitField("nbDigit2", None, 4),
              BitField("nbDigit1", None, 4),
              BitField("nbDigit4", None, 4),
@@ -6040,7 +6040,7 @@ class CalledPartyBcdNumberHdr(Packet):
              BitField("nbDigit37", None, 4),
              BitField("nbDigit40", None, 4),
              BitField("nbDigit39", None, 4),
-# ^^^^^^ 20 first optional bytes ^^^^^^^^^^^^^^^
+        # ^^^^^^ 20 first optional bytes ^^^^^^^^^^^^^^^
              BitField("nbDigit42", None, 4),
              BitField("nbDigit41", None, 4),
              BitField("nbDigit44", None, 4),
@@ -6090,7 +6090,7 @@ class CalledPartyBcdNumberHdr(Packet):
              BitField("nbDigit77", None, 4),
              BitField("nbDigit80", None, 4),
              BitField("nbDigit79", None, 4),
-             ]
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -6107,10 +6107,10 @@ class CalledPartySubaddressHdr(Packet):
     """Called party subaddress Section 10.5.4.8"""
     name = "Called Party Subaddress"
     fields_desc = [
-             BitField("eightBitCPS", None, 1),
-             XBitField("ieiCPS", None, 7),
-             XByteField("lengthCPS", None),
-             # optional
+        BitField("eightBitCPS", None, 1),
+        XBitField("ieiCPS", None, 7),
+        XByteField("lengthCPS", None),
+        # optional
              BitField("ext", None, 1),
              BitField("subAddr", None, 3),
              BitField("oddEven", None, 1),
@@ -6136,7 +6136,7 @@ class CalledPartySubaddressHdr(Packet):
              ByteField("subInfo17", None),
              ByteField("subInfo18", None),
              ByteField("subInfo19", None)
-             ]
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -6153,13 +6153,13 @@ class CallingPartyBcdNumberHdr(Packet):
     """Called party subaddress Section 10.5.4.9"""
     name = "Called Party Subaddress"
     fields_desc = [
-             BitField("eightBitCPBN", None, 1),
-             XBitField("ieiCPBN", None, 7),
-             XByteField("lengthCPBN", None),
-             BitField("ext", 0x1, 1),
-             BitField("typeNb", 0x0, 3),
-             BitField("nbPlanId", 0x0, 4),
-             # optional
+        BitField("eightBitCPBN", None, 1),
+        XBitField("ieiCPBN", None, 7),
+        XByteField("lengthCPBN", None),
+        BitField("ext", 0x1, 1),
+        BitField("typeNb", 0x0, 3),
+        BitField("nbPlanId", 0x0, 4),
+        # optional
              ConditionalField(BitField("ext1", 0x1, 1),
                               lambda pkt: pkt.ext == 0),
              ConditionalField(BitField("presId", None, 2),
@@ -6198,7 +6198,7 @@ class CallingPartyBcdNumberHdr(Packet):
 
              BitField("nbDigit20", None, 4),
              BitField("nbDigit19", None, 4),
-             ]
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -6215,10 +6215,10 @@ class CallingPartySubaddressHdr(Packet):
     """Calling party subaddress  Section 10.5.4.10"""
     name = "Calling Party Subaddress"
     fields_desc = [
-             BitField("eightBitCPS", None, 1),
-             XBitField("ieiCPS", None, 7),
-             XByteField("lengthCPS", None),
-             # optional
+        BitField("eightBitCPS", None, 1),
+        XBitField("ieiCPS", None, 7),
+        XByteField("lengthCPS", None),
+        # optional
              BitField("ext1", None, 1),
              BitField("typeAddr", None, 3),
              BitField("oddEven", None, 1),
@@ -6244,7 +6244,7 @@ class CallingPartySubaddressHdr(Packet):
              ByteField("subInfo17", None),
              ByteField("subInfo18", None),
              ByteField("subInfo19", None)
-             ]
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -6261,21 +6261,21 @@ class CauseHdr(Packet):
     """Cause Section 10.5.4.11"""
     name = "Cause"
     fields_desc = [
-             BitField("eightBitC", None, 1),
-             XBitField("ieiC", None, 7),
+        BitField("eightBitC", None, 1),
+        XBitField("ieiC", None, 7),
 
-             XByteField("lengthC", None),
+        XByteField("lengthC", None),
 
-             BitField("ext", 0x1, 1),
-             BitField("codingStd", 0x0, 2),
-             BitField("spare", 0x0, 1),
-             BitField("location", 0x0, 4),
+        BitField("ext", 0x1, 1),
+        BitField("codingStd", 0x0, 2),
+        BitField("spare", 0x0, 1),
+        BitField("location", 0x0, 4),
 
-             ConditionalField(BitField("ext1", 0x1, 1),
-                              lambda pkt: pkt.ext == 0),
-             ConditionalField(BitField("recommendation", 0x0, 7),
-                              lambda pkt: pkt.ext == 0),
-             # optional
+        ConditionalField(BitField("ext1", 0x1, 1),
+                         lambda pkt: pkt.ext == 0),
+        ConditionalField(BitField("recommendation", 0x0, 7),
+                         lambda pkt: pkt.ext == 0),
+        # optional
              BitField("ext2", None, 1),
              BitField("causeValue", None, 7),
 
@@ -6306,7 +6306,7 @@ class CauseHdr(Packet):
              ByteField("diagnositc24", None),
              ByteField("diagnositc25", None),
              ByteField("diagnositc26", None),
-             ]
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -6322,36 +6322,36 @@ class ClirSuppressionHdr(Packet):
     """CLIR suppression Section 10.5.4.11a"""
     name = "Clir Suppression"
     fields_desc = [
-             BitField("eightBitCS", None, 1),
-             XBitField("ieiCS", None, 7),
-             ]
+        BitField("eightBitCS", None, 1),
+        XBitField("ieiCS", None, 7),
+    ]
 
 
 class ClirInvocationHdr(Packet):
     """CLIR invocation Section 10.5.4.11b"""
     name = "Clir Invocation"
     fields_desc = [
-             BitField("eightBitCI", None, 1),
-             XBitField("ieiCI", None, 7),
-             ]
+        BitField("eightBitCI", None, 1),
+        XBitField("ieiCI", None, 7),
+    ]
 
 
 class CongestionLevelHdr(Packet):
     """Congestion level Section 10.5.4.12"""
     name = "Congestion Level"
     fields_desc = [
-             XBitField("ieiCL", None, 4),
-             BitField("notDef", 0x0, 4) 
-             ]
+        XBitField("ieiCL", None, 4),
+        BitField("notDef", 0x0, 4)
+    ]
 
 
 # Fix 1/2 len problem
 class CongestionLevelAndSpareHalfOctets(Packet):
     name = "Congestion Level and Spare Half Octets"
     fields_desc = [
-             BitField("ieiCL", 0x0, 4),
-             BitField("spareHalfOctets", 0x0, 4)
-             ]
+        BitField("ieiCL", 0x0, 4),
+        BitField("spareHalfOctets", 0x0, 4)
+    ]
 
 
 # len 3 to 14
@@ -6359,15 +6359,15 @@ class ConnectedNumberHdr(Packet):
     """Connected number Section 10.5.4.13"""
     name = "Connected Number"
     fields_desc = [
-             BitField("eightBitCN", None, 1),
-             XBitField("ieiCN", None, 7),
+        BitField("eightBitCN", None, 1),
+        XBitField("ieiCN", None, 7),
 
-             XByteField("lengthCN", None),
+        XByteField("lengthCN", None),
 
-             BitField("ext", 0x1, 1),
-             BitField("typeNb", 0x0, 3),
-             BitField("typePlanId", 0x0, 4),
-             # optional
+        BitField("ext", 0x1, 1),
+        BitField("typeNb", 0x0, 3),
+        BitField("typePlanId", 0x0, 4),
+        # optional
              ConditionalField(BitField("ext1", 0x1, 1),
                               lambda pkt: pkt.ext == 0),
              ConditionalField(BitField("presId", None, 2),
@@ -6406,7 +6406,7 @@ class ConnectedNumberHdr(Packet):
 
              BitField("nbDigit20", None, 4),
              BitField("nbDigit19", None, 4)
-             ]
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -6423,11 +6423,11 @@ class ConnectedSubaddressHdr(Packet):
     """Connected subaddress Section 10.5.4.14"""
     name = "Connected Subaddress"
     fields_desc = [
-             BitField("eightBitCS", None, 1),
-             XBitField("ieiCS", None, 7),
+        BitField("eightBitCS", None, 1),
+        XBitField("ieiCS", None, 7),
 
-             XByteField("lengthCS", None),
-             # optional
+        XByteField("lengthCS", None),
+        # optional
              BitField("ext", None, 1),
              BitField("typeOfSub", None, 3),
              BitField("oddEven", None, 1),
@@ -6453,7 +6453,7 @@ class ConnectedSubaddressHdr(Packet):
              ByteField("subInfo17", None),
              ByteField("subInfo18", None),
              ByteField("subInfo19", None)
-             ]
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -6470,10 +6470,10 @@ class FacilityHdr(Packet):
     """Facility Section 10.5.4.15"""
     name = "Facility"
     fields_desc = [
-             BitField("eightBitF", None, 1),
-             XBitField("ieiF", None, 7),
-             XByteField("lengthF", None),
-             # optional
+        BitField("eightBitF", None, 1),
+        XBitField("ieiF", None, 7),
+        XByteField("lengthF", None),
+        # optional
              ByteField("facilityInfo1", None),
              ByteField("facilityInfo2", None),
              ByteField("facilityInfo3", None),
@@ -6723,7 +6723,7 @@ class FacilityHdr(Packet):
              ByteField("facilityInfo247", None),
              ByteField("facilityInfo248", None),
              ByteField("facilityInfo249", None)
-             ]
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -6740,11 +6740,11 @@ class HighLayerCompatibilityHdr(Packet):
     """High layer compatibility Section 10.5.4.16"""
     name = "High Layer Compatibility"
     fields_desc = [
-             BitField("eightBitHLC", None, 1),
-             XBitField("ieiHLC", None, 7),
+        BitField("eightBitHLC", None, 1),
+        XBitField("ieiHLC", None, 7),
 
-             XByteField("lengthHLC", None),
-             # optional
+        XByteField("lengthHLC", None),
+        # optional
              BitField("ext", None, 1),
              BitField("codingStd", None, 2),
              BitField("interpret", None, 3),
@@ -6754,10 +6754,10 @@ class HighLayerCompatibilityHdr(Packet):
              BitField("highLayerId", None, 7),
 
              ConditionalField(BitField("ext2", 0x1, 1),
-                                       lambda pkt: pkt.ext1 == 0),
+                              lambda pkt: pkt.ext1 == 0),
              ConditionalField(BitField("exHiLayerId", 0x0, 7),
-                                       lambda pkt: pkt.ext1 == 0)
-             ]
+                              lambda pkt: pkt.ext1 == 0)
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -6777,11 +6777,11 @@ class KeypadFacilityHdr(Packet):
     """Keypad facility Section 10.5.4.17"""
     name = "Keypad Facility"
     fields_desc = [
-             BitField("eightBitKF", None, 1),
-             XBitField("ieiKF", None, 7),
-             BitField("spare", 0x0, 1),
-             BitField("keyPadInfo", 0x0, 7)
-             ]
+        BitField("eightBitKF", None, 1),
+        XBitField("ieiKF", None, 7),
+        BitField("spare", 0x0, 1),
+        BitField("keyPadInfo", 0x0, 7)
+    ]
 
 
 # len 2 to 15
@@ -6789,11 +6789,11 @@ class LowLayerCompatibilityHdr(Packet):
     """Low layer compatibility Section 10.5.4.18"""
     name = "Low Layer Compatibility"
     fields_desc = [
-             BitField("eightBitLLC", None, 1),
-             XBitField("ieiLLC", None, 7),
+        BitField("eightBitLLC", None, 1),
+        XBitField("ieiLLC", None, 7),
 
-             XByteField("lengthLLC", None),
-             # optional
+        XByteField("lengthLLC", None),
+        # optional
              ByteField("rest0", None),
              ByteField("rest1", None),
              ByteField("rest2", None),
@@ -6807,7 +6807,7 @@ class LowLayerCompatibilityHdr(Packet):
              ByteField("rest10", None),
              ByteField("rest11", None),
              ByteField("rest12", None)
-             ]
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -6823,47 +6823,47 @@ class MoreDataHdr(Packet):
     """More data Section 10.5.4.19"""
     name = "More Data"
     fields_desc = [
-             BitField("eightBitMD", None, 1),
-             XBitField("ieiMD", None, 7),
-             ]
+        BitField("eightBitMD", None, 1),
+        XBitField("ieiMD", None, 7),
+    ]
 
 
 class NotificationIndicatorHdr(Packet):
     """Notification indicator Section 10.5.4.20"""
     name = "Notification Indicator"
     fields_desc = [
-             BitField("eightBitNI", None, 1),
-             XBitField("ieiNI", None, 7),
-             BitField("ext", 0x1, 1),
-             BitField("notifDesc", 0x0, 7)
-             ]
+        BitField("eightBitNI", None, 1),
+        XBitField("ieiNI", None, 7),
+        BitField("ext", 0x1, 1),
+        BitField("notifDesc", 0x0, 7)
+    ]
 
 
 class ProgressIndicatorHdr(Packet):
     """Progress indicator Section 10.5.4.21"""
     name = "Progress Indicator"
     fields_desc = [
-             BitField("eightBitPI", None, 1),
-             XBitField("ieiPI", None, 7),
-             XByteField("lengthPI", 0x2),
-             BitField("ext", 0x1, 1),
-             BitField("codingStd", 0x0, 2),
-             BitField("spare", 0x0, 1),
-             BitField("location", 0x0, 4),
-             BitField("ext1", 0x1, 1),
-             BitField("progressDesc", 0x0, 7)
-             ]
+        BitField("eightBitPI", None, 1),
+        XBitField("ieiPI", None, 7),
+        XByteField("lengthPI", 0x2),
+        BitField("ext", 0x1, 1),
+        BitField("codingStd", 0x0, 2),
+        BitField("spare", 0x0, 1),
+        BitField("location", 0x0, 4),
+        BitField("ext1", 0x1, 1),
+        BitField("progressDesc", 0x0, 7)
+    ]
 
 
 class RecallTypeHdr(Packet):
     """Recall type $(CCBS)$  Section 10.5.4.21a"""
     name = "Recall Type $(CCBS)$"
     fields_desc = [
-             BitField("eightBitRT", None, 1),
-             XBitField("ieiRT", None, 7),
-             BitField("spare", 0x0, 5),
-             BitField("recallType", 0x0, 3)
-             ]
+        BitField("eightBitRT", None, 1),
+        XBitField("ieiRT", None, 7),
+        BitField("spare", 0x0, 5),
+        BitField("recallType", 0x0, 3)
+    ]
 
 
 # len 3 to 19
@@ -6871,23 +6871,23 @@ class RedirectingPartyBcdNumberHdr(Packet):
     """Redirecting party BCD number  Section 10.5.4.21b"""
     name = "Redirecting Party BCD Number"
     fields_desc = [
-             BitField("eightBitRPBN", None, 1),
-             XBitField("ieiRPBN", None, 7),
+        BitField("eightBitRPBN", None, 1),
+        XBitField("ieiRPBN", None, 7),
 
-             XByteField("lengthRPBN", None),
+        XByteField("lengthRPBN", None),
 
-             BitField("ext", 0x1, 1),
-             BitField("typeNb", 0x0, 3),
-             BitField("numberingPlan", 0x0, 4),
-             # optional
+        BitField("ext", 0x1, 1),
+        BitField("typeNb", 0x0, 3),
+        BitField("numberingPlan", 0x0, 4),
+        # optional
              ConditionalField(BitField("ext1", 0x1, 1),
-                                       lambda pkt: pkt.ext == 0),
+                              lambda pkt: pkt.ext == 0),
              ConditionalField(BitField("presId", None, 2),
-                                       lambda pkt: pkt.ext == 0),
+                              lambda pkt: pkt.ext == 0),
              ConditionalField(BitField("spare", None, 3),
-                                       lambda pkt: pkt.ext == 0),
+                              lambda pkt: pkt.ext == 0),
              ConditionalField(BitField("screenId", None, 2),
-                                       lambda pkt: pkt.ext == 0),
+                              lambda pkt: pkt.ext == 0),
 
              BitField("nbDigit2", None, 4),
              BitField("nbDigit1", None, 4),
@@ -6933,7 +6933,7 @@ class RedirectingPartyBcdNumberHdr(Packet):
 
              BitField("nbDigit30", None, 4),
              BitField("nbDigit29", None, 4),
-             ]
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -6950,11 +6950,11 @@ class RedirectingPartySubaddressHdr(Packet):
     """Redirecting party subaddress  Section 10.5.4.21c"""
     name = "Redirecting Party BCD Number"
     fields_desc = [
-             BitField("eightBitRPS", None, 1),
-             XBitField("ieiRPS", None, 7),
+        BitField("eightBitRPS", None, 1),
+        XBitField("ieiRPS", None, 7),
 
-             XByteField("lengthRPS", None),
-             # optional
+        XByteField("lengthRPS", None),
+        # optional
              BitField("ext", None, 1),
              BitField("typeSub", None, 3),
              BitField("oddEven", None, 1),
@@ -6980,7 +6980,7 @@ class RedirectingPartySubaddressHdr(Packet):
              ByteField("subInfo17", None),
              ByteField("subInfo18", None),
              ByteField("subInfo19", None)
-             ]
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -6996,17 +6996,17 @@ class RepeatIndicatorHdr(Packet):
     """Repeat indicator Section 10.5.4.22"""
     name = "Repeat Indicator"
     fields_desc = [
-             XBitField("ieiRI", None, 4),
-             BitField("repeatIndic", 0x0, 4)
-             ]
+        XBitField("ieiRI", None, 4),
+        BitField("repeatIndic", 0x0, 4)
+    ]
 
 
 class ReverseCallSetupDirectionHdr(Packet):
     """Reverse call setup direction Section 10.5.4.22a"""
     name = "Reverse Call Setup Direction"
     fields_desc = [
-             ByteField("ieiRCSD", 0x0)
-             ]
+        ByteField("ieiRCSD", 0x0)
+    ]
 
 
 # no upper length min 2(max for L3) (251)
@@ -7014,10 +7014,10 @@ class SetupContainerHdr(Packet):
     """SETUP Container $(CCBS)$ Section 10.5.4.22b"""
     name = "Setup Container $(CCBS)$"
     fields_desc = [
-             BitField("eightBitSC", None, 1),
-             XBitField("ieiSC", None, 7),
-             XByteField("lengthSC", None),
-             # optional
+        BitField("eightBitSC", None, 1),
+        XBitField("ieiSC", None, 7),
+        XByteField("lengthSC", None),
+        # optional
              ByteField("mess1", None),
              ByteField("mess2", None),
              ByteField("mess3", None),
@@ -7267,7 +7267,7 @@ class SetupContainerHdr(Packet):
              ByteField("mess247", None),
              ByteField("mess248", None),
              ByteField("mess249", None),
-             ]
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -7283,10 +7283,10 @@ class SignalHdr(Packet):
     """Signal Section 10.5.4.23"""
     name = "Signal"
     fields_desc = [
-             BitField("eightBitS", None, 1),
-             XBitField("ieiS", None, 7),
-             ByteField("sigValue", 0x0)
-             ]
+        BitField("eightBitS", None, 1),
+        XBitField("ieiS", None, 7),
+        ByteField("sigValue", 0x0)
+    ]
 
 
 # length 2 to max for L3 message (251)
@@ -7294,10 +7294,10 @@ class SsVersionIndicatorHdr(Packet):
     """SS Version Indicator  Section 10.5.4.24"""
     name = "SS Version Indicator"
     fields_desc = [
-             BitField("eightBitSVI", None, 1),
-             XBitField("ieiSVI", None, 7),
-             XByteField("lengthSVI", None),
-             # optional
+        BitField("eightBitSVI", None, 1),
+        XBitField("ieiSVI", None, 7),
+        XByteField("lengthSVI", None),
+        # optional
              ByteField("info1", None),
              ByteField("info2", None),
              ByteField("info3", None),
@@ -7547,7 +7547,7 @@ class SsVersionIndicatorHdr(Packet):
              ByteField("info247", None),
              ByteField("info248", None),
              ByteField("info249", None),
-             ]
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -7564,16 +7564,16 @@ class UserUserHdr(Packet):
     """User-user Section 10.5.4.25"""
     name = "User-User"
     fields_desc = [
-             BitField("eightBitUU", None, 1),
-             XBitField("ieiUU", None, 7),
+        BitField("eightBitUU", None, 1),
+        XBitField("ieiUU", None, 7),
 
-             XByteField("lengthUU", None),  # dynamic length of field depending
-                                           # of the type of message
+        XByteField("lengthUU", None),  # dynamic length of field depending
+        # of the type of message
                                            # let user decide which length he
                                            # wants to take
                                            # => more fuzzing options
-             ByteField("userUserPD", 0x0),
-             # optional
+        ByteField("userUserPD", 0x0),
+        # optional
              ByteField("userUserInfo1", None),
              ByteField("userUserInfo2", None),
              ByteField("userUserInfo3", None),
@@ -7706,7 +7706,7 @@ class UserUserHdr(Packet):
              ByteField("userUserInfo129", None),
              ByteField("userUserInfo130", None),
              ByteField("userUserInfo131", None)
-             ]
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -7722,24 +7722,24 @@ class AlertingPatternHdr(Packet):
     """Alerting Pattern 10.5.4.26"""
     name = "Alerting Pattern"
     fields_desc = [
-             BitField("eightBitAP", None, 1),
-             XBitField("ieiAP", None, 7),
-             XByteField("lengthAP", 0x3),
-             BitField("spare", 0x0, 4),
-             BitField("alertingValue", 0x0, 4)
-             ]
+        BitField("eightBitAP", None, 1),
+        XBitField("ieiAP", None, 7),
+        XByteField("lengthAP", 0x3),
+        BitField("spare", 0x0, 4),
+        BitField("alertingValue", 0x0, 4)
+    ]
 
 
 class AllowedActionsHdr(Packet):
     """Allowed actions $(CCBS)$ Section 10.5.4.26"""
     name = "Allowed Actions $(CCBS)$"
     fields_desc = [
-             BitField("eightBitAA", None, 1),
-             XBitField("ieiAA", None, 7),
-             XByteField("lengthAP", 0x3),
-             BitField("CCBS", 0x0, 1),
-             BitField("spare", 0x0, 7)
-             ]
+        BitField("eightBitAA", None, 1),
+        XBitField("ieiAA", None, 7),
+        XByteField("lengthAP", 0x3),
+        BitField("CCBS", 0x0, 1),
+        BitField("spare", 0x0, 7)
+    ]
 
 
 #
@@ -7750,51 +7750,51 @@ class AttachResult(Packet):
     """Attach result Section 10.5.5.1"""
     name = "Attach Result"
     fields_desc = [
-             XBitField("ieiAR", 0x0, 4),
-             BitField("spare", 0x0, 1),
-             BitField("result", 0x1, 3)
-             ]
+        XBitField("ieiAR", 0x0, 4),
+        BitField("spare", 0x0, 1),
+        BitField("result", 0x1, 3)
+    ]
 
 
 class AttachTypeHdr(Packet):
     """Attach type Section 10.5.5.2"""
     name = "Attach Type"
     fields_desc = [
-             XBitField("ieiAT", None, 4),
-             BitField("spare", 0x0, 1),
-             BitField("type", 0x1, 3)
-             ]
+        XBitField("ieiAT", None, 4),
+        BitField("spare", 0x0, 1),
+        BitField("type", 0x1, 3)
+    ]
 
 
 # Fix 1/2 len problem
 class AttachTypeAndCiphKeySeqNr(Packet):
     name = "Attach Type and Cipher Key Sequence Number"
     fields_desc = [
-             BitField("spare", 0x0, 1),
-             BitField("type", 0x1, 3),
-             BitField("spareHalfOctets", 0x0, 4)
-             ]
+        BitField("spare", 0x0, 1),
+        BitField("type", 0x1, 3),
+        BitField("spareHalfOctets", 0x0, 4)
+    ]
 
 
 class CipheringAlgorithm(Packet):
     """Ciphering algorithm Section 10.5.5.3"""
     name = "Ciphering Algorithm"
     fields_desc = [
-             XBitField("ieiCA", 0x0, 4),
-             BitField("spare", 0x0, 1),
-             BitField("type", 0x1, 3)
-             ]
+        XBitField("ieiCA", 0x0, 4),
+        BitField("spare", 0x0, 1),
+        BitField("type", 0x1, 3)
+    ]
 
 
 # Fix 1/2 len problem
 class CipheringAlgorithmAndImeisvRequest(Packet):
     name = "Ciphering Algorithm and Imeisv Request"
     fields_desc = [
-             BitField("spare", 0x0, 1),
-             BitField("type", 0x1, 3),
-             BitField("spare", 0x0, 1),
-             BitField("imeisvVal", 0x0, 3)
-             ]
+        BitField("spare", 0x0, 1),
+        BitField("type", 0x1, 3),
+        BitField("spare", 0x0, 1),
+        BitField("imeisvVal", 0x0, 3)
+    ]
 
 
 # [Spare]
@@ -7802,144 +7802,144 @@ class TmsiStatus(Packet):
     """[Spare] TMSI status Section 10.5.5.4"""
     name = "[Spare] TMSI Status"
     fields_desc = [
-             XBitField("ieiTS", None, 4),
-             BitField("spare", 0x0, 3),
-             BitField("flag", 0x1, 1)
-             ]
+        XBitField("ieiTS", None, 4),
+        BitField("spare", 0x0, 3),
+        BitField("flag", 0x1, 1)
+    ]
 
 
 class DetachType(Packet):
     """Detach type Section 10.5.5.5"""
     name = "Detach Type"
     fields_desc = [
-             XBitField("ieiDT", 0x0, 4),
-             BitField("poweroff", 0x0, 1),
-             BitField("type", 0x1, 3)
-             ]
+        XBitField("ieiDT", 0x0, 4),
+        BitField("poweroff", 0x0, 1),
+        BitField("type", 0x1, 3)
+    ]
 
 
 # Fix 1/2 len problem
 class DetachTypeAndForceToStandby(Packet):
     name = "Detach Type and Force To Standby"
     fields_desc = [
-             BitField("poweroff", 0x0, 1),
-             BitField("type", 0x1, 3),
-             BitField("spare", 0x0, 1),
-             BitField("forceStandby", 0x0, 3)
-             ]
+        BitField("poweroff", 0x0, 1),
+        BitField("type", 0x1, 3),
+        BitField("spare", 0x0, 1),
+        BitField("forceStandby", 0x0, 3)
+    ]
 
 
 # Fix 1/2 len problem
 class DetachTypeAndSpareHalfOctets(Packet):
     name = "Detach Type and Spare Half Octets"
     fields_desc = [
-             BitField("poweroff", 0x0, 1),
-             BitField("type", 0x1, 3),
-             BitField("spareHalfOctets", 0x0, 4)
-             ]
+        BitField("poweroff", 0x0, 1),
+        BitField("type", 0x1, 3),
+        BitField("spareHalfOctets", 0x0, 4)
+    ]
 
 
 class DrxParameter(Packet):
     """DRX parameter Section 10.5.5.6"""
     name = "DRX Parameter"
     fields_desc = [
-             ByteField("ieiDP", 0x0),
-             ByteField("splitPG", 0x0),
-             BitField("spare", 0x0, 4),
-             BitField("splitCCCH", 0x0, 1),
-             BitField("NonDrxTimer", 0x1, 3)
-             ]
+        ByteField("ieiDP", 0x0),
+        ByteField("splitPG", 0x0),
+        BitField("spare", 0x0, 4),
+        BitField("splitCCCH", 0x0, 1),
+        BitField("NonDrxTimer", 0x1, 3)
+    ]
 
 
 class ForceToStandby(Packet):
     """Force to standby Section 10.5.5.7"""
     name = "Force To Standby"
     fields_desc = [
-             XBitField("ieiFTS", 0x0, 4),
-             BitField("spare", 0x0, 1),
-             BitField("forceStandby", 0x0, 3)
-             ]
+        XBitField("ieiFTS", 0x0, 4),
+        BitField("spare", 0x0, 1),
+        BitField("forceStandby", 0x0, 3)
+    ]
 
 
 # Fix 1/2 len problem
 class ForceToStandbyAndAcReferenceNumber(Packet):
     name = "Force To Standby And Ac Reference Number"
     fields_desc = [
-             BitField("spare", 0x0, 1),
-             BitField("forceStandby", 0x0, 3),
-             BitField("acRefVal", 0x0, 4)
-             ]
+        BitField("spare", 0x0, 1),
+        BitField("forceStandby", 0x0, 3),
+        BitField("acRefVal", 0x0, 4)
+    ]
 
 
 # Fix 1/2 len problem
 class ForceToStandbyAndUpdateResult(Packet):
     name = "Force To Standby And Update Result"
     fields_desc = [
-             BitField("spare", 0x0, 1),
-             BitField("forceStandby", 0x0, 3),
-             BitField("spare", 0x0, 1),
-             BitField("updateResVal", 0x0, 3)
-             ]
+        BitField("spare", 0x0, 1),
+        BitField("forceStandby", 0x0, 3),
+        BitField("spare", 0x0, 1),
+        BitField("updateResVal", 0x0, 3)
+    ]
 
 
 # Fix 1/2 len problem
 class ForceToStandbyAndSpareHalfOctets(Packet):
     name = "Force To Standby And Spare Half Octets"
     fields_desc = [
-             BitField("spare", 0x0, 1),
-             BitField("forceStandby", 0x0, 3),
-             BitField("spareHalfOctets", 0x0, 4)
-             ]
+        BitField("spare", 0x0, 1),
+        BitField("forceStandby", 0x0, 3),
+        BitField("spareHalfOctets", 0x0, 4)
+    ]
 
 
 class PTmsiSignature(Packet):
     """P-TMSI signature Section 10.5.5.8"""
     name = "P-TMSI Signature"
     fields_desc = [
-             ByteField("ieiPTS", 0x0),
-             BitField("signature", 0x0, 24)
-             ]
+        ByteField("ieiPTS", 0x0),
+        BitField("signature", 0x0, 24)
+    ]
 
 
 class IdentityType2(Packet):
     """Identity type 2 Section 10.5.5.9"""
     name = "Identity Type 2"
     fields_desc = [
-             XBitField("ieiIT2", 0x0, 4),
-             BitField("spare", 0x0, 1),
-             BitField("typeOfIdentity", 0x0, 3)
-             ]
+        XBitField("ieiIT2", 0x0, 4),
+        BitField("spare", 0x0, 1),
+        BitField("typeOfIdentity", 0x0, 3)
+    ]
 
 
 # Fix 1/2 len problem
 class IdentityType2AndforceToStandby(Packet):
     name = "Identity Type 2 and Force to Standby"
     fields_desc = [
-             BitField("spare", 0x0, 1),
-             BitField("typeOfIdentity", 0x0, 3),
-             BitField("spare", 0x0, 1),
-             BitField("forceStandby", 0x0, 3)
-             ]
+        BitField("spare", 0x0, 1),
+        BitField("typeOfIdentity", 0x0, 3),
+        BitField("spare", 0x0, 1),
+        BitField("forceStandby", 0x0, 3)
+    ]
 
 
 class ImeisvRequest(Packet):
     """IMEISV request Section 10.5.5.10"""
     name = "IMEISV Request"
     fields_desc = [
-             XBitField("ieiIR", 0x0, 4),
-             BitField("spare", 0x0, 1),
-             BitField("imeisvVal", 0x0, 3)
-             ]
+        XBitField("ieiIR", 0x0, 4),
+        BitField("spare", 0x0, 1),
+        BitField("imeisvVal", 0x0, 3)
+    ]
 
 
 # Fix 1/2 len problem
 class ImeisvRequestAndForceToStandby(Packet):
     name = "IMEISV Request and Force To Standby"
     fields_desc = [
-             BitField("spare", 0x0, 1),
-             BitField("imeisvVal", 0x0, 3),
-             BitField("spareHalfOctets", 0x0, 4)
-             ]
+        BitField("spare", 0x0, 1),
+        BitField("imeisvVal", 0x0, 3),
+        BitField("spareHalfOctets", 0x0, 4)
+    ]
 
 
 # length 4 to 19
@@ -7947,12 +7947,12 @@ class ReceiveNpduNumbersList(Packet):
     """Receive N-PDU Numbers list Section 10.5.5.11"""
     name = "Receive N-PDU Numbers list"
     fields_desc = [
-             ByteField("ieiRNNL", 0x0),
+        ByteField("ieiRNNL", 0x0),
 
-             XByteField("lengthRNNL", None),
+        XByteField("lengthRNNL", None),
 
-             BitField("nbList0", 0x0, 16),
-             # optional
+        BitField("nbList0", 0x0, 16),
+        # optional
              ByteField("nbList1", None),
              ByteField("nbList2", None),
              ByteField("nbList3", None),
@@ -7968,7 +7968,7 @@ class ReceiveNpduNumbersList(Packet):
              ByteField("nbList13", None),
              ByteField("nbList14", None),
              ByteField("nbList15", None),
-             ]
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -7984,10 +7984,10 @@ class MsNetworkCapability(Packet):
     """MS network capability Section 10.5.5.12"""
     name = "MS Network Capability"
     fields_desc = [
-             ByteField("ieiMNC", 0x0),
-             XByteField("lengthMNC", 0x3),
-             ByteField("msNetValue", 0x0)
-             ]
+        ByteField("ieiMNC", 0x0),
+        XByteField("lengthMNC", 0x3),
+        ByteField("msNetValue", 0x0)
+    ]
 
 
 # length 6 to 14
@@ -7995,15 +7995,15 @@ class MsRadioAccessCapability(Packet):
     """MS Radio Access capability Section 10.5.5.12a"""
     name = "MS Radio Access Capability"
     fields_desc = [
-             ByteField("ieiMRAC", 0x24),
+        ByteField("ieiMRAC", 0x24),
 
-             XByteField("lengthMRAC", None),
+        XByteField("lengthMRAC", None),
 
-             BitField("spare1", 0x0, 1),  # ...
+        BitField("spare1", 0x0, 1),  # ...
 
-             BitField("accessCap", 0x0, 4),
-             BitField("accessTechType", 0x0, 4),
-             # access capability
+        BitField("accessCap", 0x0, 4),
+        BitField("accessTechType", 0x0, 4),
+        # access capability
              BitField("bool", 0x0, 1),
              BitField("lengthContent", 0x0, 7),
              BitField("spare1", 0x0, 1),  # ...
@@ -8034,7 +8034,7 @@ class MsRadioAccessCapability(Packet):
 
              BitField("smsVal", 0x0, 4),
              BitField("smVal", 0x0, 4)
-             ]
+    ]
 
 
 # 10.5.5.13 Spare
@@ -8044,26 +8044,26 @@ class GmmCause(Packet):
     """GMM cause Section 10.5.5.14"""
     name = "GMM Cause"
     fields_desc = [
-             ByteField("ieiGC", 0x0),
-             ByteField("causeValue", 0x0)
-             ]
+        ByteField("ieiGC", 0x0),
+        ByteField("causeValue", 0x0)
+    ]
 
 
 class RoutingAreaIdentification(Packet):
     """Routing area identification Section 10.5.5.15"""
     name = "Routing Area Identification"
     fields_desc = [
-             ByteField("ieiRAI", 0x0),
-             BitField("mccDigit2", 0x0, 4),
-             BitField("mccDigit1", 0x0, 4),
-             BitField("mncDigit3", 0x0, 4),
-             BitField("mccDigit3", 0x0, 4),
-             BitField("mccDigit2", 0x0, 4),
-             BitField("mccDigit1", 0x0, 4),
-             ByteField("LAC", 0x0),
-             ByteField("LAC1", 0x0),
-             ByteField("LAC", 0x0)
-             ]
+        ByteField("ieiRAI", 0x0),
+        BitField("mccDigit2", 0x0, 4),
+        BitField("mccDigit1", 0x0, 4),
+        BitField("mncDigit3", 0x0, 4),
+        BitField("mccDigit3", 0x0, 4),
+        BitField("mccDigit2", 0x0, 4),
+        BitField("mccDigit1", 0x0, 4),
+        ByteField("LAC", 0x0),
+        ByteField("LAC1", 0x0),
+        ByteField("LAC", 0x0)
+    ]
 # 10.5.5.16 Spare
 # This is intentionally left spare.
 
@@ -8072,49 +8072,49 @@ class UpdateResult(Packet):
     """Update result Section 10.5.5.17"""
     name = "Update Result"
     fields_desc = [
-             XBitField("ieiUR", 0x0, 4),
-             BitField("spare", 0x0, 1),
-             BitField("updateResVal", 0x0, 3)
-             ]
+        XBitField("ieiUR", 0x0, 4),
+        BitField("spare", 0x0, 1),
+        BitField("updateResVal", 0x0, 3)
+    ]
 
 
 class UpdateType(Packet):
     """Update type Section 10.5.5.18"""
     name = "Update Type"
     fields_desc = [
-             XBitField("ieiUT", 0x0, 4),
-             BitField("spare", 0x0, 1),
-             BitField("updateTypeVal", 0x0, 3)
-             ]
+        XBitField("ieiUT", 0x0, 4),
+        BitField("spare", 0x0, 1),
+        BitField("updateTypeVal", 0x0, 3)
+    ]
 
 
 # Fix 1/2 len problem
 class UpdateTypeAndCiphKeySeqNr(Packet):
     name = "Update Type and Cipher Key Sequence Number"
     fields_desc = [
-             BitField("spare", 0x0, 1),
-             BitField("updateTypeVal", 0x0, 3),
-             BitField("spare", 0x0, 1),
-             BitField("keySeq", 0x0, 3)
-             ]
+        BitField("spare", 0x0, 1),
+        BitField("updateTypeVal", 0x0, 3),
+        BitField("spare", 0x0, 1),
+        BitField("keySeq", 0x0, 3)
+    ]
 
 
 class AcReferenceNumber(Packet):
     """A&C reference number Section 10.5.5.19"""
     name = "A&C Reference Number"
     fields_desc = [
-             XBitField("ieiARN", 0x0, 4),
-             BitField("acRefVal", 0x0, 4)
-             ]
+        XBitField("ieiARN", 0x0, 4),
+        BitField("acRefVal", 0x0, 4)
+    ]
 
 
 # Fix 1/2 len problem
 class AcReferenceNumberAndSpareHalfOctets(Packet):
     name = "A&C Reference Number and Spare Half Octets"
     fields_desc = [
-             BitField("acRefVal", 0x0, 4),
-             BitField("spareHalfOctets", 0x0, 4)
-             ]
+        BitField("acRefVal", 0x0, 4),
+        BitField("spareHalfOctets", 0x0, 4)
+    ]
 #
 # 10.5.6 Session management information elements
 #
@@ -8125,10 +8125,10 @@ class AccessPointName(Packet):
     """Access Point Name Section 10.5.6.1"""
     name = "Access Point Name"
     fields_desc = [
-             ByteField("ieiAPN", 0x0),
-             XByteField("lengthAPN", None),
-             ByteField("apName", 0x0),
-             # optional
+        ByteField("ieiAPN", 0x0),
+        XByteField("lengthAPN", None),
+        ByteField("apName", 0x0),
+        # optional
              ByteField("apName1", None),
              ByteField("apName2", None),
              ByteField("apName3", None),
@@ -8228,7 +8228,7 @@ class AccessPointName(Packet):
              ByteField("apName97", None),
              ByteField("apName98", None),
              ByteField("apName99", None)
-             ]
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -8244,10 +8244,10 @@ class NetworkServiceAccessPointIdentifier(Packet):
     """Network service access point identifier Section 10.5.6.2"""
     name = "Network Service Access Point Identifier"
     fields_desc = [
-             ByteField("ieiNSAPI", 0x0),
-             BitField("spare", 0x0, 4),
-             BitField("nsapiVal", 0x0, 4)
-             ]
+        ByteField("ieiNSAPI", 0x0),
+        BitField("spare", 0x0, 4),
+        BitField("nsapiVal", 0x0, 4)
+    ]
 
 
 # length 2 to 253
@@ -8255,10 +8255,10 @@ class ProtocolConfigurationOptions(Packet):
     """Protocol configuration options Section 10.5.6.3"""
     name = "Protocol Configuration Options"
     fields_desc = [
-             ByteField("ieiPCO", 0x0),
+        ByteField("ieiPCO", 0x0),
 
-             XByteField("lengthPCO", None),
-             # optional
+        XByteField("lengthPCO", None),
+        # optional
              BitField("ext", None, 1),
              BitField("spare", None, 4),
              BitField("configProto", None, 3),
@@ -8595,7 +8595,7 @@ class ProtocolConfigurationOptions(Packet):
              ByteField("protoId83", None),
              ByteField("lenProto83", None),
              ByteField("proto83Content", None),
-             ]
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -8612,15 +8612,15 @@ class PacketDataProtocolAddress(Packet):
     """Packet data protocol address Section 10.5.6.4"""
     name = "Packet Data Protocol Address"
     fields_desc = [
-             ByteField("ieiPDPA", 0x0),
+        ByteField("ieiPDPA", 0x0),
 
-             XByteField("lengthPDPA", None),
+        XByteField("lengthPDPA", None),
 
-             BitField("spare", 0x0, 4),
-             BitField("pdpTypeOrga", 0x0, 4),
+        BitField("spare", 0x0, 4),
+        BitField("pdpTypeOrga", 0x0, 4),
 
-             ByteField("pdpTypeNb", 0x0),
-             # optional
+        ByteField("pdpTypeNb", 0x0),
+        # optional
              ByteField("addressInfo1", None),
              ByteField("addressInfo2", None),
              ByteField("addressInfo3", None),
@@ -8637,7 +8637,7 @@ class PacketDataProtocolAddress(Packet):
              ByteField("addressInfo14", None),
              ByteField("addressInfo15", None),
              ByteField("addressInfo16", None)
-             ]
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -8653,29 +8653,29 @@ class QualityOfService(Packet):
     """Quality of service Section 10.5.6.5"""
     name = "Quality of Service"
     fields_desc = [
-             ByteField("ieiQOS", 0x0),
-             XByteField("lengthQOS", 0x5),
+        ByteField("ieiQOS", 0x0),
+        XByteField("lengthQOS", 0x5),
 
-             BitField("spare", 0x0, 2),
-             BitField("delayClass", 0x0, 3),
-             BitField("reliaClass", 0x0, 3),
+        BitField("spare", 0x0, 2),
+        BitField("delayClass", 0x0, 3),
+        BitField("reliaClass", 0x0, 3),
 
-             BitField("peak", 0x0, 4),
-             BitField("spare", 0x0, 1),
-             BitField("precedenceCl", 0x0, 3),
+        BitField("peak", 0x0, 4),
+        BitField("spare", 0x0, 1),
+        BitField("precedenceCl", 0x0, 3),
 
-             BitField("spare", 0x0, 3),
-             BitField("mean", 0x0, 5)
-             ]
+        BitField("spare", 0x0, 3),
+        BitField("mean", 0x0, 5)
+    ]
 
 
 class SmCause(Packet):
     """SM cause Section 10.5.6.6"""
     name = "SM Cause"
     fields_desc = [
-             ByteField("ieiSC", 0x0),
-             ByteField("causeVal", 0x0)
-             ]
+        ByteField("ieiSC", 0x0),
+        ByteField("causeVal", 0x0)
+    ]
 
 # 10.5.6.7 Spare
 # This is intentionally left spare.
@@ -8685,30 +8685,30 @@ class AaDeactivationCause(Packet):
     """AA deactivation cause Section 10.5.6.8"""
     name = "AA Deactivation Cause"
     fields_desc = [
-             XBitField("ieiADC", 0x0, 4),
-             BitField("spare", 0x0, 1),
-             BitField("aaVal", 0x0, 3)
-             ]
+        XBitField("ieiADC", 0x0, 4),
+        BitField("spare", 0x0, 1),
+        BitField("aaVal", 0x0, 3)
+    ]
 
 
 # Fix 1/2 len problem
 class AaDeactivationCauseAndSpareHalfOctets(Packet):
     name = "AA Deactivation Cause and Spare Half Octets"
     fields_desc = [
-             BitField("spare", 0x0, 1),
-             BitField("aaVal", 0x0, 3),
-             BitField("spareHalfOctets", 0x0, 4)
-             ]
+        BitField("spare", 0x0, 1),
+        BitField("aaVal", 0x0, 3),
+        BitField("spareHalfOctets", 0x0, 4)
+    ]
 
 
 class LlcServiceAccessPointIdentifier(Packet):
     """LLC service access point identifier Section 10.5.6.9"""
     name = "LLC Service Access Point Identifier"
     fields_desc = [
-             ByteField("ieiLSAPI", None),
-             BitField("spare", 0x0, 4),
-             BitField("llcVal", 0x0, 4)
-             ]
+        ByteField("ieiLSAPI", None),
+        BitField("spare", 0x0, 4),
+        BitField("llcVal", 0x0, 4)
+    ]
 
 
 #
@@ -8721,63 +8721,63 @@ class RadioPriority(Packet):
     """Radio priority Section 10.5.7.2"""
     name = "Radio Priority"
     fields_desc = [
-             XBitField("ieiRP", 0x0, 4),
-             BitField("spare", 0x1, 1),
-             BitField("rplv", 0x0, 3)
-             ]
+        XBitField("ieiRP", 0x0, 4),
+        BitField("spare", 0x1, 1),
+        BitField("rplv", 0x0, 3)
+    ]
 
 
 # Fix 1/2 len problem
 class RadioPriorityAndSpareHalfOctets(Packet):
     name = "Radio Priority and Spare Half Octets"
     fields_desc = [
-             BitField("spare", 0x1, 1),
-             BitField("rplv", 0x0, 3),
-             BitField("spareHalfOctets", 0x0, 4)
-             ]
+        BitField("spare", 0x1, 1),
+        BitField("rplv", 0x0, 3),
+        BitField("spareHalfOctets", 0x0, 4)
+    ]
 
 
 class GprsTimer(Packet):
     """GPRS Timer Section 10.5.7.3"""
     name = "GPRS Timer"
     fields_desc = [
-             ByteField("ieiGT", 0x0),
-             BitField("unit", 0x0, 3),
-             BitField("timerVal", 0x0, 5)
-             ]
+        ByteField("ieiGT", 0x0),
+        BitField("unit", 0x0, 3),
+        BitField("timerVal", 0x0, 5)
+    ]
 
 
 class CellIdentity(Packet):
     """ Cell identity Section 10.5.1.1 """
     name = "Cell Identity"
     fields_desc = [
-             ByteField("ciValue1", 0x0),
-             ByteField("ciValue2", 0x0)
-             ]
+        ByteField("ciValue1", 0x0),
+        ByteField("ciValue2", 0x0)
+    ]
 
 
 class CiphKeySeqNr(Packet):
     """ Ciphering Key Sequence Number Section 10.5.1.2 """
     name = "Cipher Key Sequence Number"
     fields_desc = [
-             BitField("spare", 0x0, 1),
-             BitField("keySeq", 0x0, 3)
-             ]
+        BitField("spare", 0x0, 1),
+        BitField("keySeq", 0x0, 3)
+    ]
 
 
 class LocalAreaId(Packet):
     """ Local Area Identification Section 10.5.1.3 """
     name = "Location Area Identification"
     fields_desc = [
-             BitField("mccDigit2", 0x0, 4),
-             BitField("mccDigit1", 0x0, 4),
-             BitField("mncDigit3", 0x0, 4),
-             BitField("mccDigit3", 0x0, 4),
-             BitField("mncDigit2", 0x0, 4),
-             BitField("mncDigit1", 0x0, 4),
-             ByteField("lac1", 0x0),
-             ByteField("lac2", 0x0)
-             ]
+        BitField("mccDigit2", 0x0, 4),
+        BitField("mccDigit1", 0x0, 4),
+        BitField("mncDigit3", 0x0, 4),
+        BitField("mccDigit3", 0x0, 4),
+        BitField("mncDigit2", 0x0, 4),
+        BitField("mncDigit1", 0x0, 4),
+        ByteField("lac1", 0x0),
+        ByteField("lac2", 0x0)
+    ]
 #
 # The Mobile Identity is a type 4 information element with a minimum
 # length of 3 octet and 11 octets length maximal.
@@ -8789,28 +8789,28 @@ class MobileId(Packet):
     """ Mobile Identity  Section 10.5.1.4 """
     name = "Mobile Identity"
     fields_desc = [
-             XByteField("lengthMI", None),
-             BitField("idDigit1", 0x0, 4),
-             BitField("oddEven", 0x0, 1),
-             BitField("typeOfId", 0x0, 3),
+        XByteField("lengthMI", None),
+        BitField("idDigit1", 0x0, 4),
+        BitField("oddEven", 0x0, 1),
+        BitField("typeOfId", 0x0, 3),
 
-             BitField("idDigit2_1", None, 4),  # optional
-             BitField("idDigit2", None, 4),
-             BitField("idDigit3_1", None, 4),
-             BitField("idDigit3", None, 4),
-             BitField("idDigit4_1", None, 4),
-             BitField("idDigit4", None, 4),
-             BitField("idDigit5_1", None, 4),
-             BitField("idDigit5", None, 4),
-             BitField("idDigit6_1", None, 4),
-             BitField("idDigit6", None, 4),
-             BitField("idDigit7_1", None, 4),
-             BitField("idDigit7", None, 4),
-             BitField("idDigit8_1", None, 4),
-             BitField("idDigit8", None, 4),
-             BitField("idDigit9_1", None, 4),
-             BitField("idDigit9", None, 4),
-             ]
+        BitField("idDigit2_1", None, 4),  # optional
+        BitField("idDigit2", None, 4),
+        BitField("idDigit3_1", None, 4),
+        BitField("idDigit3", None, 4),
+        BitField("idDigit4_1", None, 4),
+        BitField("idDigit4", None, 4),
+        BitField("idDigit5_1", None, 4),
+        BitField("idDigit5", None, 4),
+        BitField("idDigit6_1", None, 4),
+        BitField("idDigit6", None, 4),
+        BitField("idDigit7_1", None, 4),
+        BitField("idDigit7", None, 4),
+        BitField("idDigit8_1", None, 4),
+        BitField("idDigit8", None, 4),
+        BitField("idDigit9_1", None, 4),
+        BitField("idDigit9", None, 4),
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -8826,76 +8826,76 @@ class MobileStationClassmark1(Packet):
     """ Mobile Station Classmark 1 Section 10.5.1.5 """
     name = "Mobile Station Classmark 1"
     fields_desc = [
-             BitField("spare", 0x0, 1),
-             BitField("revisionLvl", 0x0, 2),
-             BitField("esInd", 0x0, 1),
-             BitField("a51", 0x0, 1),
-             BitField("rfPowerCap", 0x0, 3)
-             ]
+        BitField("spare", 0x0, 1),
+        BitField("revisionLvl", 0x0, 2),
+        BitField("esInd", 0x0, 1),
+        BitField("a51", 0x0, 1),
+        BitField("rfPowerCap", 0x0, 3)
+    ]
 
 
 class MobileStationClassmark2(Packet):
     """ Mobile Station Classmark 2 Section 10.5.1.6 """
     name = "Mobile Station Classmark 2"
     fields_desc = [
-             XByteField("lengthMSC2", 0x3),
-             BitField("spare", 0x0, 1),
-             BitField("revisionLvl", 0x0, 2),
-             BitField("esInd", 0x0, 1),
-             BitField("a51", 0x0, 1),
-             BitField("rfPowerCap", 0x0, 3),
-             BitField("spare1", 0x0, 1),
-             BitField("psCap", 0x0, 1),
-             BitField("ssScreenInd", 0x0, 2),
-             BitField("smCaPabi", 0x0, 1),
-             BitField("vbs", 0x0, 1),
-             BitField("vgcs", 0x0, 1),
-             BitField("fc", 0x0, 1),
-             BitField("cm3", 0x0, 1),
-             BitField("spare2", 0x0, 1),
-             BitField("lcsvaCap", 0x0, 1),
-             BitField("spare3", 0x0, 1),
-             BitField("soLsa", 0x0, 1),
-             BitField("cmsp", 0x0, 1),
-             BitField("a53", 0x0, 1),
-             BitField("a52", 0x0, 1)
-             ]
+        XByteField("lengthMSC2", 0x3),
+        BitField("spare", 0x0, 1),
+        BitField("revisionLvl", 0x0, 2),
+        BitField("esInd", 0x0, 1),
+        BitField("a51", 0x0, 1),
+        BitField("rfPowerCap", 0x0, 3),
+        BitField("spare1", 0x0, 1),
+        BitField("psCap", 0x0, 1),
+        BitField("ssScreenInd", 0x0, 2),
+        BitField("smCaPabi", 0x0, 1),
+        BitField("vbs", 0x0, 1),
+        BitField("vgcs", 0x0, 1),
+        BitField("fc", 0x0, 1),
+        BitField("cm3", 0x0, 1),
+        BitField("spare2", 0x0, 1),
+        BitField("lcsvaCap", 0x0, 1),
+        BitField("spare3", 0x0, 1),
+        BitField("soLsa", 0x0, 1),
+        BitField("cmsp", 0x0, 1),
+        BitField("a53", 0x0, 1),
+        BitField("a52", 0x0, 1)
+    ]
 
 
 class DescriptiveGroupOrBroadcastCallReference(Packet):
     """ Descriptive group or broadcast call reference  Section 10.5.1.9 """
     name = "Descriptive Group or Broadcast Call Reference"
     fields_desc = [
-             BitField("binCallRef", 0x0, 27),
-             BitField("sf", 0x0, 1),
-             BitField("fa", 0x0, 1),
-             BitField("callPrio", 0x0, 3),
-             BitField("cipherInfo", 0x0, 4),
-             BitField("spare1", 0x0, 1),
-             BitField("spare2", 0x0, 1),
-             BitField("spare3", 0x0, 1),
-             BitField("spare4", 0x0, 1)
-             ]
+        BitField("binCallRef", 0x0, 27),
+        BitField("sf", 0x0, 1),
+        BitField("fa", 0x0, 1),
+        BitField("callPrio", 0x0, 3),
+        BitField("cipherInfo", 0x0, 4),
+        BitField("spare1", 0x0, 1),
+        BitField("spare2", 0x0, 1),
+        BitField("spare3", 0x0, 1),
+        BitField("spare4", 0x0, 1)
+    ]
 
 
 class PdAndSapi(Packet):
     """ PD and SAPI $(CCBS)$  Section 10.5.1.10a """
     name = "PD and SAPI $(CCBS)$"
     fields_desc = [
-             BitField("spare", 0x0, 1),
-             BitField("spare1", 0x0, 1),
-             BitField("sapi", 0x0, 2),
-             BitField("pd", 0x0, 4)
-             ]
+        BitField("spare", 0x0, 1),
+        BitField("spare1", 0x0, 1),
+        BitField("sapi", 0x0, 2),
+        BitField("pd", 0x0, 4)
+    ]
 
 
 class PriorityLevel(Packet):
     """ Priority Level Section 10.5.1.11 """
     name = "Priority Level"
     fields_desc = [
-             BitField("spare", 0x0, 1),
-             BitField("callPrio", 0x0, 3)
-             ]
+        BitField("spare", 0x0, 1),
+        BitField("callPrio", 0x0, 3)
+    ]
 
 #
 # Radio Resource management information elements
@@ -8908,20 +8908,20 @@ class BaRange(Packet):
     name = "BA Range"
     fields_desc = [
 
-             XByteField("lengthBR", None),
-#error: byte format requires -128 <= number <= 127
-             ByteField("nrOfRanges", 0x0),
-#              # rX = range X
-#              # L o = Lower H i = higher
-#              # H p = high Part Lp = low Part
-             ByteField("r1LoHp", 0x0),
+        XByteField("lengthBR", None),
+        #error: byte format requires -128 <= number <= 127
+        ByteField("nrOfRanges", 0x0),
+        #              # rX = range X
+        #              # L o = Lower H i = higher
+        #              # H p = high Part Lp = low Part
+        ByteField("r1LoHp", 0x0),
 
-             BitField("r1LoLp", 0x0, 3),
-             BitField("r1HiHp", 0x0, 5),
+        BitField("r1LoLp", 0x0, 3),
+        BitField("r1HiHp", 0x0, 5),
 
-             BitField("r1HiLp", 0x0, 4),
-             BitField("r2LoHp", 0x0, 4),
-             # optional
+        BitField("r1HiLp", 0x0, 4),
+        BitField("r2LoHp", 0x0, 4),
+        # optional
              BitField("r2LoLp", None, 5),
              BitField("r2HiHp", None, 3),
 
@@ -9337,7 +9337,7 @@ class BaRange(Packet):
              BitField("r84LoLp", None, 5),
              BitField("r84HiHp", None, 3),
              ByteField("r84HiLp", None)
-             ]
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -9354,15 +9354,15 @@ class BaListPref(Packet):
     """ BA List Pref Section 10.5.2.1c """
     name = "BA List Pref"
     fields_desc = [
-             XByteField("lengthBLP", None),
+        XByteField("lengthBLP", None),
 
-             BitField("fixBit", 0x0, 1),
-             BitField("rangeLower", 0x0, 10),
-             BitField("fixBit2", 0x0, 1),
-             BitField("rangeUpper", 0x0, 10),
-             BitField("baFreq", 0x0, 10),
-             BitField("sparePad", 0x0, 8)
-             ]
+        BitField("fixBit", 0x0, 1),
+        BitField("rangeLower", 0x0, 10),
+        BitField("fixBit2", 0x0, 1),
+        BitField("rangeUpper", 0x0, 10),
+        BitField("baFreq", 0x0, 10),
+        BitField("sparePad", 0x0, 8)
+    ]
 
 
 # len 17 || Have a look at the specs for the field format
@@ -9376,84 +9376,84 @@ class CellChannelDescription(Packet):
     """ Cell Channel Description  Section 10.5.2.1b """
     name = "Cell Channel Description "
     fields_desc = [
-             BitField("bit128", 0x0, 1),
-             BitField("bit127", 0x0, 1),
-             BitField("spare1", 0x0, 1),
-             BitField("spare2", 0x0, 1),
-             BitField("bit124", 0x0, 1),
-             BitField("bit123", 0x0, 1),
-             BitField("bit122", 0x0, 1),
-             BitField("bit121", 0x0, 1),
-             ByteField("bit120", 0x0),
-             ByteField("bit112", 0x0),
-             ByteField("bit104", 0x0),
-             ByteField("bit96", 0x0),
-             ByteField("bit88", 0x0),
-             ByteField("bit80", 0x0),
-             ByteField("bit72", 0x0),
-             ByteField("bit64", 0x0),
-             ByteField("bit56", 0x0),
-             ByteField("bit48", 0x0),
-             ByteField("bit40", 0x0),
-             ByteField("bit32", 0x0),
-             ByteField("bit24", 0x0),
-             ByteField("bit16", 0x0),
-             ByteField("bit8", 0x0)
-             ]
+        BitField("bit128", 0x0, 1),
+        BitField("bit127", 0x0, 1),
+        BitField("spare1", 0x0, 1),
+        BitField("spare2", 0x0, 1),
+        BitField("bit124", 0x0, 1),
+        BitField("bit123", 0x0, 1),
+        BitField("bit122", 0x0, 1),
+        BitField("bit121", 0x0, 1),
+        ByteField("bit120", 0x0),
+        ByteField("bit112", 0x0),
+        ByteField("bit104", 0x0),
+        ByteField("bit96", 0x0),
+        ByteField("bit88", 0x0),
+        ByteField("bit80", 0x0),
+        ByteField("bit72", 0x0),
+        ByteField("bit64", 0x0),
+        ByteField("bit56", 0x0),
+        ByteField("bit48", 0x0),
+        ByteField("bit40", 0x0),
+        ByteField("bit32", 0x0),
+        ByteField("bit24", 0x0),
+        ByteField("bit16", 0x0),
+        ByteField("bit8", 0x0)
+    ]
 
 
 class CellDescription(Packet):
     """ Cell Description  Section 10.5.2.2 """
     name = "Cell Description"
     fields_desc = [
-             BitField("bcchHigh", 0x0, 2),
-             BitField("ncc", 0x0, 3),
-             BitField("bcc", 0x0, 3),
-             ByteField("bcchLow", 0x0)
-             ]
+        BitField("bcchHigh", 0x0, 2),
+        BitField("ncc", 0x0, 3),
+        BitField("bcc", 0x0, 3),
+        ByteField("bcchLow", 0x0)
+    ]
 
 
 class CellOptionsBCCH(Packet):
     """ Cell Options (BCCH)  Section 10.5.2.3 """
     name = "Cell Options (BCCH)"
     fields_desc = [
-             BitField("spare", 0x0, 1),
-             BitField("pwrc", 0x0, 1),
-             BitField("dtx", 0x0, 2),
-             BitField("rLinkTout", 0x0, 4)
-             ]
+        BitField("spare", 0x0, 1),
+        BitField("pwrc", 0x0, 1),
+        BitField("dtx", 0x0, 2),
+        BitField("rLinkTout", 0x0, 4)
+    ]
 
 
 class CellOptionsSACCH(Packet):
     """ Cell Options (SACCH) Section 10.5.2.3a """
     name = "Cell Options (SACCH)"
     fields_desc = [
-             BitField("dtx", 0x0, 1),
-             BitField("pwrc", 0x0, 1),
-             BitField("dtx", 0x0, 1),
-             BitField("rLinkTout", 0x0, 4)
-             ]
+        BitField("dtx", 0x0, 1),
+        BitField("pwrc", 0x0, 1),
+        BitField("dtx", 0x0, 1),
+        BitField("rLinkTout", 0x0, 4)
+    ]
 
 
 class CellSelectionParameters(Packet):
     """ Cell Selection Parameters Section 10.5.2.4 """
     name = "Cell Selection Parameters"
     fields_desc = [
-             BitField("cellReselect", 0x0, 3),
-             BitField("msTxPwrMax", 0x0, 5),
-             BitField("acs", None, 1),
-             BitField("neci", None, 1),
-             BitField("rxlenAccMin", None, 6)
-             ]
+        BitField("cellReselect", 0x0, 3),
+        BitField("msTxPwrMax", 0x0, 5),
+        BitField("acs", None, 1),
+        BitField("neci", None, 1),
+        BitField("rxlenAccMin", None, 6)
+    ]
 
 
 class MacModeAndChannelCodingRequest(Packet):
     """ MAC Mode and Channel Coding Requested Section 10.5.2.4a """
     name = "MAC Mode and Channel Coding Requested"
     fields_desc = [
-             BitField("macMode", 0x0, 2),
-             BitField("cs", 0x0, 2)
-             ]
+        BitField("macMode", 0x0, 2),
+        BitField("cs", 0x0, 2)
+    ]
 
 
 class ChannelDescription(Packet):
@@ -9461,103 +9461,103 @@ class ChannelDescription(Packet):
     name = "Channel Description"
     fields_desc = [
 
-             BitField("channelTyp", 0x0, 5),
-             BitField("tn", 0x0, 3),
+        BitField("channelTyp", 0x0, 5),
+        BitField("tn", 0x0, 3),
 
-             BitField("tsc", 0x0, 3),
-             BitField("h", 0x1, 1),
-             BitField("maioHi", 0x0, 4),
+        BitField("tsc", 0x0, 3),
+        BitField("h", 0x1, 1),
+        BitField("maioHi", 0x0, 4),
 
-             BitField("maioLo", 0x0, 2),
-             BitField("hsn", 0x0, 6)
-             ]
+        BitField("maioLo", 0x0, 2),
+        BitField("hsn", 0x0, 6)
+    ]
 
 
 class ChannelDescription2(Packet):
     """ Channel Description 2 Section 10.5.2.5a """
     name = "Channel Description 2"
     fields_desc = [
-             BitField("channelTyp", 0x0, 5),
-             BitField("tn", 0x0, 3),
-             BitField("tsc", 0x0, 3),
-             BitField("h", 0x0, 1),
-             # if h=1
+        BitField("channelTyp", 0x0, 5),
+        BitField("tn", 0x0, 3),
+        BitField("tsc", 0x0, 3),
+        BitField("h", 0x0, 1),
+        # if h=1
              # BitField("maioHi", 0x0, 4),
              # BitField("maioLo", 0x0, 2),
              # BitField("hsn", 0x0, 6)
              BitField("spare", 0x0, 2),
              BitField("arfcnHigh", 0x0, 2),
              ByteField("arfcnLow", 0x0)
-             ]
+    ]
 
 
 class ChannelMode(Packet):
     """ Channel Mode Section 10.5.2.6 """
     name = "Channel Mode"
     fields_desc = [
-             ByteField("mode", 0x0)
-             ]
+        ByteField("mode", 0x0)
+    ]
 
 
 class ChannelMode2(Packet):
     """ Channel Mode 2 Section 10.5.2.7 """
     name = "Channel Mode 2"
     fields_desc = [
-             ByteField("mode", 0x0)
-             ]
+        ByteField("mode", 0x0)
+    ]
 
 
 class ChannelNeeded(Packet):
     """ Channel Needed Section 10.5.2.8 """
     name = "Channel Needed"
     fields_desc = [
-             BitField("channel2", 0x0, 2),
-             BitField("channel1", 0x0, 2),
-             ]
+        BitField("channel2", 0x0, 2),
+        BitField("channel1", 0x0, 2),
+    ]
 
 
 class ChannelRequestDescription(Packet):
     """Channel Request Description  Section 10.5.2.8a """
     name = "Channel Request Description"
     fields_desc = [
-             BitField("mt", 0x0, 1),
-             ConditionalField(BitField("spare", 0x0, 39),
-                              lambda pkt: pkt.mt == 0),
-             ConditionalField(BitField("spare", 0x0, 3),
-                              lambda pkt: pkt.mt == 1),
-             ConditionalField(BitField("priority", 0x0, 2),
-                              lambda pkt: pkt.mt == 1),
-             ConditionalField(BitField("rlcMode", 0x0, 1),
-                              lambda pkt: pkt.mt == 1),
-             ConditionalField(BitField("llcFrame", 0x1, 1),
-                              lambda pkt: pkt.mt == 1),
-             ConditionalField(ByteField("reqBandMsb", 0x0),
-                              lambda pkt: pkt.mt == 1),
-             ConditionalField(ByteField("reqBandLsb", 0x0),
-                              lambda pkt: pkt.mt == 1),
-             ConditionalField(ByteField("rlcMsb", 0x0),
-                              lambda pkt: pkt.mt == 1),
-             ConditionalField(ByteField("rlcLsb", 0x0),
-                              lambda pkt: pkt.mt == 1)
-             ]
+        BitField("mt", 0x0, 1),
+        ConditionalField(BitField("spare", 0x0, 39),
+                         lambda pkt: pkt.mt == 0),
+        ConditionalField(BitField("spare", 0x0, 3),
+                         lambda pkt: pkt.mt == 1),
+        ConditionalField(BitField("priority", 0x0, 2),
+                         lambda pkt: pkt.mt == 1),
+        ConditionalField(BitField("rlcMode", 0x0, 1),
+                         lambda pkt: pkt.mt == 1),
+        ConditionalField(BitField("llcFrame", 0x1, 1),
+                         lambda pkt: pkt.mt == 1),
+        ConditionalField(ByteField("reqBandMsb", 0x0),
+                         lambda pkt: pkt.mt == 1),
+        ConditionalField(ByteField("reqBandLsb", 0x0),
+                         lambda pkt: pkt.mt == 1),
+        ConditionalField(ByteField("rlcMsb", 0x0),
+                         lambda pkt: pkt.mt == 1),
+        ConditionalField(ByteField("rlcLsb", 0x0),
+                         lambda pkt: pkt.mt == 1)
+    ]
 
 
 class CipherModeSetting(Packet):
     """Cipher Mode Setting Section 10.5.2.9 """
     name = "Cipher Mode Setting"
     fields_desc = [
-             BitField("algoId", 0x0, 3),
-             BitField("sc", 0x0, 1),
-             ]
+        BitField("algoId", 0x0, 3),
+        BitField("sc", 0x0, 1),
+    ]
 
 
 class CipherResponse(Packet):
     """Cipher Response Section 10.5.2.10 """
     name = "Cipher Response"
     fields_desc = [
-             BitField("spare", 0x0, 3),
-             BitField("cr", 0x0, 1),
-             ]
+        BitField("spare", 0x0, 3),
+        BitField("cr", 0x0, 1),
+    ]
 
 
 class ControlChannelDescription(Packet):
@@ -9565,45 +9565,45 @@ class ControlChannelDescription(Packet):
     name = "Control Channel Description"
     fields_desc = [
 
-             BitField("spare", 0x0, 1),
-             BitField("att", 0x0, 1),
-             BitField("bsAgBlksRes", 0x0, 3),
-             BitField("ccchConf", 0x0, 3),
+        BitField("spare", 0x0, 1),
+        BitField("att", 0x0, 1),
+        BitField("bsAgBlksRes", 0x0, 3),
+        BitField("ccchConf", 0x0, 3),
 
-             BitField("spare", 0x0, 1),
-             BitField("spare1", 0x0, 1),
-             BitField("spare2", 0x0, 1),
-             BitField("spare3", 0x0, 1),
-             BitField("spare4", 0x0, 1),
-             BitField("bsPaMfrms", 0x0, 3),
+        BitField("spare", 0x0, 1),
+        BitField("spare1", 0x0, 1),
+        BitField("spare2", 0x0, 1),
+        BitField("spare3", 0x0, 1),
+        BitField("spare4", 0x0, 1),
+        BitField("bsPaMfrms", 0x0, 3),
 
-             ByteField("t3212", 0x0)
-             ]
+        ByteField("t3212", 0x0)
+    ]
 
 
 class FrequencyChannelSequence(Packet):
     """Frequency Channel Sequence Section 10.5.2.12"""
     name = "Frequency Channel Sequence"
     fields_desc = [
-             BitField("spare", 0x0, 1),
-             BitField("lowestArfcn", 0x0, 7),
-             BitField("skipArfcn01", 0x0, 4),
-             BitField("skipArfcn02", 0x0, 4),
-             BitField("skipArfcn03", 0x0, 4),
-             BitField("skipArfcn04", 0x0, 4),
-             BitField("skipArfcn05", 0x0, 4),
-             BitField("skipArfcn06", 0x0, 4),
-             BitField("skipArfcn07", 0x0, 4),
-             BitField("skipArfcn08", 0x0, 4),
-             BitField("skipArfcn09", 0x0, 4),
-             BitField("skipArfcn10", 0x0, 4),
-             BitField("skipArfcn11", 0x0, 4),
-             BitField("skipArfcn12", 0x0, 4),
-             BitField("skipArfcn13", 0x0, 4),
-             BitField("skipArfcn14", 0x0, 4),
-             BitField("skipArfcn15", 0x0, 4),
-             BitField("skipArfcn16", 0x0, 4)
-             ]
+        BitField("spare", 0x0, 1),
+        BitField("lowestArfcn", 0x0, 7),
+        BitField("skipArfcn01", 0x0, 4),
+        BitField("skipArfcn02", 0x0, 4),
+        BitField("skipArfcn03", 0x0, 4),
+        BitField("skipArfcn04", 0x0, 4),
+        BitField("skipArfcn05", 0x0, 4),
+        BitField("skipArfcn06", 0x0, 4),
+        BitField("skipArfcn07", 0x0, 4),
+        BitField("skipArfcn08", 0x0, 4),
+        BitField("skipArfcn09", 0x0, 4),
+        BitField("skipArfcn10", 0x0, 4),
+        BitField("skipArfcn11", 0x0, 4),
+        BitField("skipArfcn12", 0x0, 4),
+        BitField("skipArfcn13", 0x0, 4),
+        BitField("skipArfcn14", 0x0, 4),
+        BitField("skipArfcn15", 0x0, 4),
+        BitField("skipArfcn16", 0x0, 4)
+    ]
 
 
 class FrequencyList(Packet):
@@ -9615,31 +9615,31 @@ class FrequencyList(Packet):
  # Some formats are frequency bit maps, the others use a special encoding
  # scheme.
     fields_desc = [
-             XByteField("lengthFL", None),
+        XByteField("lengthFL", None),
 
-             BitField("formatID", 0x0, 2),
-             BitField("spare", 0x0, 2),
-             BitField("arfcn124", 0x0, 1),
-             BitField("arfcn123", 0x0, 1),
-             BitField("arfcn122", 0x0, 1),
-             BitField("arfcn121", 0x0, 1),
+        BitField("formatID", 0x0, 2),
+        BitField("spare", 0x0, 2),
+        BitField("arfcn124", 0x0, 1),
+        BitField("arfcn123", 0x0, 1),
+        BitField("arfcn122", 0x0, 1),
+        BitField("arfcn121", 0x0, 1),
 
-             ByteField("arfcn120", 0x0),
-             ByteField("arfcn112", 0x0),
-             ByteField("arfcn104", 0x0),
-             ByteField("arfcn96", 0x0),
-             ByteField("arfcn88", 0x0),
-             ByteField("arfcn80", 0x0),
-             ByteField("arfcn72", 0x0),
-             ByteField("arfcn64", 0x0),
-             ByteField("arfcn56", 0x0),
-             ByteField("arfcn48", 0x0),
-             ByteField("arfcn40", 0x0),
-             ByteField("arfcn32", 0x0),
-             ByteField("arfcn24", 0x0),
-             ByteField("arfcn16", 0x0),
-             ByteField("arfcn8", 0x0)
-             ]
+        ByteField("arfcn120", 0x0),
+        ByteField("arfcn112", 0x0),
+        ByteField("arfcn104", 0x0),
+        ByteField("arfcn96", 0x0),
+        ByteField("arfcn88", 0x0),
+        ByteField("arfcn80", 0x0),
+        ByteField("arfcn72", 0x0),
+        ByteField("arfcn64", 0x0),
+        ByteField("arfcn56", 0x0),
+        ByteField("arfcn48", 0x0),
+        ByteField("arfcn40", 0x0),
+        ByteField("arfcn32", 0x0),
+        ByteField("arfcn24", 0x0),
+        ByteField("arfcn16", 0x0),
+        ByteField("arfcn8", 0x0)
+    ]
 
 
 # len 4 to 13
@@ -9647,14 +9647,14 @@ class GroupChannelDescription(Packet):
     """Group Channel Description Section 10.5.2.14b"""
     name = "Group Channel Description"
     fields_desc = [
-             XByteField("lengthGCD", None),
+        XByteField("lengthGCD", None),
 
-             BitField("channelType", 0x0, 5),
-             BitField("tn", 0x0, 3),
+        BitField("channelType", 0x0, 5),
+        BitField("tn", 0x0, 3),
 
-             BitField("tsc", 0x0, 3),
-             BitField("h", 0x0, 1),
-             # if  h == 0 the  packet looks the following way:
+        BitField("tsc", 0x0, 3),
+        BitField("h", 0x0, 1),
+        # if  h == 0 the  packet looks the following way:
              ConditionalField(BitField("spare", 0x0, 2),
                               lambda pkt: pkt. h == 0x0),
              ConditionalField(BitField("arfcnHi", 0x0, 2),
@@ -9678,7 +9678,7 @@ class GroupChannelDescription(Packet):
              ByteField("maC12", None),
              ByteField("maC13", None),
              ByteField("maC14", None)
-             ]
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -9694,48 +9694,48 @@ class GprsResumption(Packet):
     """GPRS Resumption  Section 10.5.2.14c"""
     name = "GPRS Resumption"
     fields_desc = [
-             BitField("spare", 0x0, 3),
-             BitField("ack", 0x0, 1)
-             ]
+        BitField("spare", 0x0, 3),
+        BitField("ack", 0x0, 1)
+    ]
 
 
 class HandoverReference(Packet):
     """Handover Reference Section 10.5.2.15"""
     name = "Handover Reference"
     fields_desc = [
-             ByteField("handoverRef", 0x0)
-             ]
+        ByteField("handoverRef", 0x0)
+    ]
 
 
 class IraRestOctets(Packet):
     """IAR Rest Octets Section 10.5.2.17"""
     name = "IAR Rest Octets"
     fields_desc = [
-             BitField("spare01", 0x0, 1),
-             BitField("spare02", 0x0, 1),
-             BitField("spare03", 0x1, 1),
-             BitField("spare04", 0x0, 1),
-             BitField("spare05", 0x1, 1),
-             BitField("spare06", 0x0, 1),
-             BitField("spare07", 0x1, 1),
-             BitField("spare08", 0x1, 1),
-             BitField("spare09", 0x0, 1),
-             BitField("spare10", 0x0, 1),
-             BitField("spare11", 0x1, 1),
-             BitField("spare12", 0x0, 1),
-             BitField("spare13", 0x1, 1),
-             BitField("spare14", 0x0, 1),
-             BitField("spare15", 0x1, 1),
-             BitField("spare16", 0x1, 1),
-             BitField("spare17", 0x0, 1),
-             BitField("spare18", 0x0, 1),
-             BitField("spare19", 0x1, 1),
-             BitField("spare20", 0x0, 1),
-             BitField("spare21", 0x1, 1),
-             BitField("spare22", 0x0, 1),
-             BitField("spare23", 0x1, 1),
-             BitField("spare24", 0x1, 1)
-             ]
+        BitField("spare01", 0x0, 1),
+        BitField("spare02", 0x0, 1),
+        BitField("spare03", 0x1, 1),
+        BitField("spare04", 0x0, 1),
+        BitField("spare05", 0x1, 1),
+        BitField("spare06", 0x0, 1),
+        BitField("spare07", 0x1, 1),
+        BitField("spare08", 0x1, 1),
+        BitField("spare09", 0x0, 1),
+        BitField("spare10", 0x0, 1),
+        BitField("spare11", 0x1, 1),
+        BitField("spare12", 0x0, 1),
+        BitField("spare13", 0x1, 1),
+        BitField("spare14", 0x0, 1),
+        BitField("spare15", 0x1, 1),
+        BitField("spare16", 0x1, 1),
+        BitField("spare17", 0x0, 1),
+        BitField("spare18", 0x0, 1),
+        BitField("spare19", 0x1, 1),
+        BitField("spare20", 0x0, 1),
+        BitField("spare21", 0x1, 1),
+        BitField("spare22", 0x0, 1),
+        BitField("spare23", 0x1, 1),
+        BitField("spare24", 0x1, 1)
+    ]
 
 
 # len is 1 to 5 what do we do with the variable size? no length
@@ -9744,101 +9744,101 @@ class IaxRestOctets(Packet):
     """IAX Rest Octets Section 10.5.2.18"""
     name = "IAX Rest Octets"
     fields_desc = [
-             BitField("spare01", 0x0, 1),
-             BitField("spare02", 0x0, 1),
-             BitField("spare03", 0x1, 1),
-             BitField("spare04", 0x0, 1),
-             BitField("spare05", 0x1, 1),
-             BitField("spare06", 0x0, 1),
-             BitField("spare07", 0x1, 1),
-             BitField("spare08", 0x1, 1),
-             ByteField("spareB1", None),
-             ByteField("spareB2", None),
-             ByteField("spareB3", None)
-             ]
+        BitField("spare01", 0x0, 1),
+        BitField("spare02", 0x0, 1),
+        BitField("spare03", 0x1, 1),
+        BitField("spare04", 0x0, 1),
+        BitField("spare05", 0x1, 1),
+        BitField("spare06", 0x0, 1),
+        BitField("spare07", 0x1, 1),
+        BitField("spare08", 0x1, 1),
+        ByteField("spareB1", None),
+        ByteField("spareB2", None),
+        ByteField("spareB3", None)
+    ]
 
 
 class L2PseudoLength(Packet):
     """L2 Pseudo Length Section 10.5.2.19"""
     name = "L2 Pseudo Length"
     fields_desc = [
-             BitField("l2pLength", None, 6),
-             BitField("bit2", 0x0, 1),
-             BitField("bit1", 0x1, 1)
-             ]
+        BitField("l2pLength", None, 6),
+        BitField("bit2", 0x0, 1),
+        BitField("bit1", 0x1, 1)
+    ]
 
 
 class MeasurementResults(Packet):
     """Measurement Results Section 10.5.2.20"""
     name = "Measurement Results"
     fields_desc = [
-             BitField("baUsed", 0x0, 1),
-             BitField("dtxUsed", 0x0, 1),
-             BitField("rxLevFull", 0x0, 6),
+        BitField("baUsed", 0x0, 1),
+        BitField("dtxUsed", 0x0, 1),
+        BitField("rxLevFull", 0x0, 6),
 
-             BitField("spare", 0x0, 1),
-             BitField("measValid", 0x0, 1),
-             BitField("rxLevSub", 0x0, 6),
+        BitField("spare", 0x0, 1),
+        BitField("measValid", 0x0, 1),
+        BitField("rxLevSub", 0x0, 6),
 
-             BitField("spare0", 0x0, 1),
-             BitField("rxqualFull", 0x0, 3),
-             BitField("rxqualSub", 0x0, 3),
-             BitField("noNcellHi", 0x0, 1),
+        BitField("spare0", 0x0, 1),
+        BitField("rxqualFull", 0x0, 3),
+        BitField("rxqualSub", 0x0, 3),
+        BitField("noNcellHi", 0x0, 1),
 
-             BitField("noNcellLo", 0x0, 2),
-             BitField("rxlevC1", 0x0, 6),
+        BitField("noNcellLo", 0x0, 2),
+        BitField("rxlevC1", 0x0, 6),
 
-             BitField("bcchC1", 0x0, 5),
-             BitField("bsicC1Hi", 0x0, 3),
+        BitField("bcchC1", 0x0, 5),
+        BitField("bsicC1Hi", 0x0, 3),
 
-             BitField("bsicC1Lo", 0x0, 3),
-             BitField("rxlevC2", 0x0, 5),
+        BitField("bsicC1Lo", 0x0, 3),
+        BitField("rxlevC2", 0x0, 5),
 
-             BitField("rxlevC2Lo", 0x0, 1),
-             BitField("bcchC2", 0x0, 5),
-             BitField("bsicC2Hi", 0x0, 2),
+        BitField("rxlevC2Lo", 0x0, 1),
+        BitField("bcchC2", 0x0, 5),
+        BitField("bsicC2Hi", 0x0, 2),
 
-             BitField("bscicC2Lo", 0x0, 4),
-             BitField("bscicC2Hi", 0x0, 4),
+        BitField("bscicC2Lo", 0x0, 4),
+        BitField("bscicC2Hi", 0x0, 4),
 
-             BitField("rxlevC3Lo", 0x0, 2),
-             BitField("bcchC3", 0x0, 5),
-             BitField("rxlevC3Hi", 0x0, 1),
+        BitField("rxlevC3Lo", 0x0, 2),
+        BitField("bcchC3", 0x0, 5),
+        BitField("rxlevC3Hi", 0x0, 1),
 
-             BitField("bsicC3Lo", 0x0, 5),
-             BitField("bsicC3Hi", 0x0, 3),
+        BitField("bsicC3Lo", 0x0, 5),
+        BitField("bsicC3Hi", 0x0, 3),
 
-             BitField("rxlevC4Lo", 0x0, 3),
-             BitField("bcchC4", 0x0, 5),
+        BitField("rxlevC4Lo", 0x0, 3),
+        BitField("bcchC4", 0x0, 5),
 
-             BitField("bsicC4", 0x0, 6),
-             BitField("rxlevC5Hi", 0x0, 2),
+        BitField("bsicC4", 0x0, 6),
+        BitField("rxlevC5Hi", 0x0, 2),
 
-             BitField("rxlevC5Lo", 0x0, 4),
-             BitField("bcchC5Hi", 0x0, 4),
+        BitField("rxlevC5Lo", 0x0, 4),
+        BitField("bcchC5Hi", 0x0, 4),
 
-             BitField("bcchC5Lo", 0x0, 1),
-             BitField("bsicC5", 0x0, 6),
-             BitField("rxlevC6", 0x0, 1),
+        BitField("bcchC5Lo", 0x0, 1),
+        BitField("bsicC5", 0x0, 6),
+        BitField("rxlevC6", 0x0, 1),
 
-             BitField("rxlevC6Lo", 0x0, 5),
-             BitField("bcchC6Hi", 0x0, 3),
+        BitField("rxlevC6Lo", 0x0, 5),
+        BitField("bcchC6Hi", 0x0, 3),
 
-             BitField("bcchC6Lo", 0x0, 3),
-             BitField("bsicC6", 0x0, 5)
-             ]
+        BitField("bcchC6Lo", 0x0, 3),
+        BitField("bsicC6", 0x0, 5)
+    ]
 
 
 class GprsMeasurementResults(Packet):
     """GPRS Measurement Results Section 10.5.2.20a"""
     name = "GPRS Measurement Results"
     fields_desc = [
-             BitField("cValue", 0x0, 6),
-             BitField("rxqualHi", 0x0, 2),
-             BitField("rxqL", 0x0, 1),
-             BitField("spare", 0x0, 1),
-             BitField("signVar", 0x0, 6)
-             ]
+        BitField("cValue", 0x0, 6),
+        BitField("rxqualHi", 0x0, 2),
+        BitField("rxqL", 0x0, 1),
+        BitField("spare", 0x0, 1),
+        BitField("signVar", 0x0, 6)
+    ]
 
 
 # len 3 to 10
@@ -9846,16 +9846,16 @@ class MobileAllocation(Packet):
     """Mobile Allocation Section 10.5.2.21"""
     name = "Mobile Allocation"
     fields_desc = [
-             XByteField("lengthMA", None),
-             ByteField("maC64", 0x12),
-             ByteField("maC56", None),  # optional fields start here
-             ByteField("maC48", None),
-             ByteField("maC40", None),
-             ByteField("maC32", None),
-             ByteField("maC24", None),
-             ByteField("maC16", None),
-             ByteField("maC8", None)
-             ]
+        XByteField("lengthMA", None),
+        ByteField("maC64", 0x12),
+        ByteField("maC56", None),  # optional fields start here
+        ByteField("maC48", None),
+        ByteField("maC40", None),
+        ByteField("maC32", None),
+        ByteField("maC24", None),
+        ByteField("maC16", None),
+        ByteField("maC8", None)
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -9871,14 +9871,14 @@ class MobileTimeDifference(Packet):
     """Mobile Time Difference Section 10.5.2.21a"""
     name = "Mobile Time Difference"
     fields_desc = [
-             XByteField("lengthMTD", 0x5),
-             ByteField("valueHi", 0x0),
-             ByteField("valueCnt", 0x0),
-             BitField("valueLow", 0x0, 5),
-             BitField("spare", 0x0, 1),
-             BitField("spare1", 0x0, 1),
-             BitField("spare2", 0x0, 1)
-             ]
+        XByteField("lengthMTD", 0x5),
+        ByteField("valueHi", 0x0),
+        ByteField("valueCnt", 0x0),
+        BitField("valueLow", 0x0, 5),
+        BitField("spare", 0x0, 1),
+        BitField("spare1", 0x0, 1),
+        BitField("spare2", 0x0, 1)
+    ]
 
 
 # min 4 octets max 8
@@ -9890,29 +9890,29 @@ class MultiRateConfiguration(Packet):
  #  packet, for example having only 6 bytes, the last 4 bytes are  named
  # "Spare" in the specs. Here they are  named "threshold2"
     fields_desc = [
-             XByteField("lengthMRC", None),
+        XByteField("lengthMRC", None),
 
-             BitField("mrVersion", 0x0, 3),
-             BitField("spare", 0x0, 1),
-             BitField("icmi", 0x0, 1),
-             BitField("spare", 0x0, 1),
-             BitField("startMode", 0x0, 2),
+        BitField("mrVersion", 0x0, 3),
+        BitField("spare", 0x0, 1),
+        BitField("icmi", 0x0, 1),
+        BitField("spare", 0x0, 1),
+        BitField("startMode", 0x0, 2),
 
-             ByteField("amrCodec", None),
+        ByteField("amrCodec", None),
 
-             BitField("spare", None, 2),
-             BitField("threshold1", None, 6),
+        BitField("spare", None, 2),
+        BitField("threshold1", None, 6),
 
-             BitField("hysteresis1", None, 4),
-             BitField("threshold2", None, 4),
+        BitField("hysteresis1", None, 4),
+        BitField("threshold2", None, 4),
 
-             BitField("threshold2cnt", None, 2),
-             BitField("hysteresis2", None, 4),
-             BitField("threshold3", None, 2),
+        BitField("threshold2cnt", None, 2),
+        BitField("hysteresis2", None, 4),
+        BitField("threshold3", None, 2),
 
-             BitField("threshold3cnt", None, 4),
-             BitField("hysteresis3", None, 4)
-             ]
+        BitField("threshold3cnt", None, 4),
+        BitField("hysteresis3", None, 4)
+    ]
 
     def post_build(self, p, pay):
         # we set the length
@@ -9930,22 +9930,22 @@ class MultislotAllocation(Packet):
     """Multislot Allocation Section 10.5.2.21b"""
     name = "Multislot Allocation"
     fields_desc = [
-             XByteField("lengthMSA", None),
-             BitField("ext0", 0x1, 1),
-             BitField("da", 0x0, 7),
-             ConditionalField(BitField("ext1", 0x1, 1),  # optional
-                                        lambda pkt: pkt.ext0 == 0),
-             ConditionalField(BitField("ua", 0x0, 7),
-                                        lambda pkt: pkt.ext0 == 0),
-             ByteField("chan1", None),
-             ByteField("chan2", None),
-             ByteField("chan3", None),
-             ByteField("chan4", None),
-             ByteField("chan5", None),
-             ByteField("chan6", None),
-             ByteField("chan7", None),
-             ByteField("chan8", None)
-             ]
+        XByteField("lengthMSA", None),
+        BitField("ext0", 0x1, 1),
+        BitField("da", 0x0, 7),
+        ConditionalField(BitField("ext1", 0x1, 1),  # optional
+                         lambda pkt: pkt.ext0 == 0),
+        ConditionalField(BitField("ua", 0x0, 7),
+                         lambda pkt: pkt.ext0 == 0),
+        ByteField("chan1", None),
+        ByteField("chan2", None),
+        ByteField("chan3", None),
+        ByteField("chan4", None),
+        ByteField("chan5", None),
+        ByteField("chan6", None),
+        ByteField("chan7", None),
+        ByteField("chan8", None)
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -9961,40 +9961,40 @@ class NcMode(Packet):
     """NC mode Section 10.5.2.21c"""
     name = "NC Mode"
     fields_desc = [
-             BitField("spare", 0x0, 2),
-             BitField("ncMode", 0x0, 2)
-             ]
+        BitField("spare", 0x0, 2),
+        BitField("ncMode", 0x0, 2)
+    ]
 
 
 class NeighbourCellsDescription(Packet):
     """Neighbour Cells Description Section 10.5.2.22"""
     name = "Neighbour Cells Description"
     fields_desc = [
-             BitField("bit128", 0x0, 1),
-             BitField("bit127", 0x0, 1),
-             BitField("extInd", 0x0, 1),
-             BitField("baInd", 0x0, 1),
-             BitField("bit124", 0x0, 1),
-             BitField("bit123", 0x0, 1),
-             BitField("bit122", 0x0, 1),
-             BitField("bit121", 0x0, 1),
-             BitField("120bits", 0x0, 120)
-             ]
+        BitField("bit128", 0x0, 1),
+        BitField("bit127", 0x0, 1),
+        BitField("extInd", 0x0, 1),
+        BitField("baInd", 0x0, 1),
+        BitField("bit124", 0x0, 1),
+        BitField("bit123", 0x0, 1),
+        BitField("bit122", 0x0, 1),
+        BitField("bit121", 0x0, 1),
+        BitField("120bits", 0x0, 120)
+    ]
 
 
 class NeighbourCellsDescription2(Packet):
     """Neighbour Cells Description 2 Section 10.5.2.22a"""
     name = "Neighbour Cells Description 2"
     fields_desc = [
-             BitField("bit128", 0x0, 1),
-             BitField("multiband", 0x0, 2),
-             BitField("baInd", 0x0, 1),
-             BitField("bit124", 0x0, 1),
-             BitField("bit123", 0x0, 1),
-             BitField("bit122", 0x0, 1),
-             BitField("bit121", 0x0, 1),
-             BitField("120bits", 0x0, 120)
-             ]
+        BitField("bit128", 0x0, 1),
+        BitField("multiband", 0x0, 2),
+        BitField("baInd", 0x0, 1),
+        BitField("bit124", 0x0, 1),
+        BitField("bit123", 0x0, 1),
+        BitField("bit122", 0x0, 1),
+        BitField("bit121", 0x0, 1),
+        BitField("120bits", 0x0, 120)
+    ]
 
 
 # len 4
@@ -10011,181 +10011,181 @@ class DedicatedModeOrTBF(Packet):
     """Dedicated mode or TBF Section 10.5.2.25b"""
     name = "Dedicated Mode or TBF"
     fields_desc = [
-             BitField("spare", 0x0, 1),
-             BitField("tma", 0x0, 1),
-             BitField("downlink", 0x0, 1),
-             BitField("td", 0x0, 1)
-             ]
+        BitField("spare", 0x0, 1),
+        BitField("tma", 0x0, 1),
+        BitField("downlink", 0x0, 1),
+        BitField("td", 0x0, 1)
+    ]
 
 
 class PageMode(Packet):
     """Page Mode Section 10.5.2.26"""
     name = "Page Mode"
     fields_desc = [
-             BitField("spare", 0x0, 1),
-             BitField("spare1", 0x0, 1),
-             BitField("pm", 0x0, 2)
-             ]
+        BitField("spare", 0x0, 1),
+        BitField("spare1", 0x0, 1),
+        BitField("pm", 0x0, 2)
+    ]
 
 
 class NccPermitted(Packet):
     """NCC Permitted Section 10.5.2.27"""
     name = "NCC Permitted"
     fields_desc = [
-             ByteField("nccPerm", 0x0)
-             ]
+        ByteField("nccPerm", 0x0)
+    ]
 
 
 class PowerCommand(Packet):
     """Power Command Section 10.5.2.28"""
     name = "Power Command"
     fields_desc = [
-             BitField("spare", 0x0, 1),
-             BitField("spare1", 0x0, 1),
-             BitField("spare2", 0x0, 1),
-             BitField("powerLvl", 0x0, 5)
-             ]
+        BitField("spare", 0x0, 1),
+        BitField("spare1", 0x0, 1),
+        BitField("spare2", 0x0, 1),
+        BitField("powerLvl", 0x0, 5)
+    ]
 
 
 class PowerCommandAndAccessType(Packet):
     """Power Command and access type  Section 10.5.2.28a"""
     name = "Power Command and Access Type"
     fields_desc = [
-             BitField("atc", 0x0, 1),
-             BitField("spare", 0x0, 1),
-             BitField("spare1", 0x0, 1),
-             BitField("powerLvl", 0x0, 5)
-             ]
+        BitField("atc", 0x0, 1),
+        BitField("spare", 0x0, 1),
+        BitField("spare1", 0x0, 1),
+        BitField("powerLvl", 0x0, 5)
+    ]
 
 
 class RachControlParameters(Packet):
     """RACH Control Parameters Section 10.5.2.29"""
     name = "RACH Control Parameters"
     fields_desc = [
-             BitField("maxRetrans", 0x0, 2),
-             BitField("txInteger", 0x0, 4),
-             BitField("cellBarrAccess", 0x0, 1),
-             BitField("re", 0x0, 1),
-             BitField("ACC15", 0x0, 1),
-             BitField("ACC14", 0x0, 1),
-             BitField("ACC13", 0x0, 1),
-             BitField("ACC12", 0x0, 1),
-             BitField("ACC11", 0x0, 1),
-             BitField("ACC10", 0x0, 1),
-             BitField("ACC09", 0x0, 1),
-             BitField("ACC08", 0x0, 1),
-             BitField("ACC07", 0x0, 1),
-             BitField("ACC06", 0x0, 1),
-             BitField("ACC05", 0x0, 1),
-             BitField("ACC04", 0x0, 1),
-             BitField("ACC03", 0x0, 1),
-             BitField("ACC02", 0x0, 1),
-             BitField("ACC01", 0x0, 1),
-             BitField("ACC00", 0x0, 1),
-             ]
+        BitField("maxRetrans", 0x0, 2),
+        BitField("txInteger", 0x0, 4),
+        BitField("cellBarrAccess", 0x0, 1),
+        BitField("re", 0x0, 1),
+        BitField("ACC15", 0x0, 1),
+        BitField("ACC14", 0x0, 1),
+        BitField("ACC13", 0x0, 1),
+        BitField("ACC12", 0x0, 1),
+        BitField("ACC11", 0x0, 1),
+        BitField("ACC10", 0x0, 1),
+        BitField("ACC09", 0x0, 1),
+        BitField("ACC08", 0x0, 1),
+        BitField("ACC07", 0x0, 1),
+        BitField("ACC06", 0x0, 1),
+        BitField("ACC05", 0x0, 1),
+        BitField("ACC04", 0x0, 1),
+        BitField("ACC03", 0x0, 1),
+        BitField("ACC02", 0x0, 1),
+        BitField("ACC01", 0x0, 1),
+        BitField("ACC00", 0x0, 1),
+    ]
 
 
 class RequestReference(Packet):
     """Request Reference  Section 10.5.2.30"""
     name = "Request Reference"
     fields_desc = [
-             ByteField("ra", 0x0),
-             BitField("t1", 0x0, 5),
-             BitField("t3Hi", 0x0, 3),
-             BitField("t3Lo", 0x0, 3),
-             BitField("t2", 0x0, 5)
-             ]
+        ByteField("ra", 0x0),
+        BitField("t1", 0x0, 5),
+        BitField("t3Hi", 0x0, 3),
+        BitField("t3Lo", 0x0, 3),
+        BitField("t2", 0x0, 5)
+    ]
 
 
 class RrCause(Packet):
     """RR Cause  Section 10.5.2.31"""
     name = "RR Cause"
     fields_desc = [
-             ByteField("rrCause", 0x0)
-             ]
+        ByteField("rrCause", 0x0)
+    ]
 
 
 class StartingTime(Packet):
     """Starting Time Section 10.5.2.38"""
     name = "Starting Time"
     fields_desc = [
-             ByteField("ra", 0x0),
-             BitField("t1", 0x0, 5),
-             BitField("t3Hi", 0x0, 3),
-             BitField("t3Lo", 0x0, 3),
-             BitField("t2", 0x0, 5)
-             ]
+        ByteField("ra", 0x0),
+        BitField("t1", 0x0, 5),
+        BitField("t3Hi", 0x0, 3),
+        BitField("t3Lo", 0x0, 3),
+        BitField("t2", 0x0, 5)
+    ]
 
 
 class SynchronizationIndication(Packet):
     """Synchronization Indication Section 10.5.2.39"""
     name = "Synchronization Indication"
     fields_desc = [
-             BitField("nci", 0x0, 1),
-             BitField("rot", 0x0, 1),
-             BitField("si", 0x0, 2)
-             ]
+        BitField("nci", 0x0, 1),
+        BitField("rot", 0x0, 1),
+        BitField("si", 0x0, 2)
+    ]
 
 
 class TimingAdvance(Packet):
     """Timing Advance Section 10.5.2.40"""
     name = "Timing Advance"
     fields_desc = [
-             BitField("spare", 0x0, 1),
-             BitField("spare1", 0x0, 1),
-             BitField("timingVal", 0x0, 6)
-             ]
+        BitField("spare", 0x0, 1),
+        BitField("spare1", 0x0, 1),
+        BitField("timingVal", 0x0, 6)
+    ]
 
 
 class TimeDifference(Packet):
     """ Time Difference Section 10.5.2.41"""
     name = "Time Difference"
     fields_desc = [
-             XByteField("lengthTD", 0x3),
-             ByteField("timeValue", 0x0)
-             ]
+        XByteField("lengthTD", 0x3),
+        ByteField("timeValue", 0x0)
+    ]
 
 
 class Tlli(Packet):
     """ TLLI Section Section 10.5.2.41a"""
     name = "TLLI"
     fields_desc = [
-             ByteField("value", 0x0),
-             ByteField("value1", 0x0),
-             ByteField("value2", 0x0),
-             ByteField("value3", 0x0)
-             ]
+        ByteField("value", 0x0),
+        ByteField("value1", 0x0),
+        ByteField("value2", 0x0),
+        ByteField("value3", 0x0)
+    ]
 
 
 class TmsiPTmsi(Packet):
     """ TMSI/P-TMSI Section 10.5.2.42"""
     name = "TMSI/P-TMSI"
     fields_desc = [
-             ByteField("value", 0x0),
-             ByteField("value1", 0x0),
-             ByteField("value2", 0x0),
-             ByteField("value3", 0x0)
-             ]
+        ByteField("value", 0x0),
+        ByteField("value1", 0x0),
+        ByteField("value2", 0x0),
+        ByteField("value3", 0x0)
+    ]
 
 
 class VgcsTargetModeIdentication(Packet):
     """ VGCS target Mode Indication 10.5.2.42a"""
     name = "VGCS Target Mode Indication"
     fields_desc = [
-             XByteField("lengthVTMI", 0x2),
-             BitField("targerMode", 0x0, 2),
-             BitField("cipherKeyNb", 0x0, 4),
-             BitField("spare", 0x0, 1),
-             BitField("spare1", 0x0, 1)
-             ]
+        XByteField("lengthVTMI", 0x2),
+        BitField("targerMode", 0x0, 2),
+        BitField("cipherKeyNb", 0x0, 4),
+        BitField("spare", 0x0, 1),
+        BitField("spare1", 0x0, 1)
+    ]
 
 
 class WaitIndication(Packet):
     """ Wait Indication Section 10.5.2.43"""
     name = "Wait Indication"
     fields_desc = [  # asciiart of specs strange
-             ByteField("timeoutVal", 0x0)
-             ]
+        ByteField("timeoutVal", 0x0)
+    ]
 
 
 #class Si10RestOctets(Packet):
@@ -10200,56 +10200,56 @@ class ExtendedMeasurementResults(Packet):
     name = "Extended Measurement Results"
     fields_desc = [
 
-             BitField("scUsed", None, 1),
-             BitField("dtxUsed", None, 1),
-             BitField("rxLevC0", None, 6),
+        BitField("scUsed", None, 1),
+        BitField("dtxUsed", None, 1),
+        BitField("rxLevC0", None, 6),
 
-             BitField("rxLevC1", None, 6),
-             BitField("rxLevC2Hi", None, 2),
+        BitField("rxLevC1", None, 6),
+        BitField("rxLevC2Hi", None, 2),
 
-             BitField("rxLevC2Lo", None, 4),
-             BitField("rxLevC3Hi", None, 4),
+        BitField("rxLevC2Lo", None, 4),
+        BitField("rxLevC3Hi", None, 4),
 
-             BitField("rxLevC3Lo", None, 3),
-             BitField("rxLevC4", None, 5),
+        BitField("rxLevC3Lo", None, 3),
+        BitField("rxLevC4", None, 5),
 
-             BitField("rxLevC5", None, 6),
-             BitField("rxLevC6Hi", None, 2),
+        BitField("rxLevC5", None, 6),
+        BitField("rxLevC6Hi", None, 2),
 
-             BitField("rxLevC6Lo", None, 4),
-             BitField("rxLevC7Hi", None, 4),
+        BitField("rxLevC6Lo", None, 4),
+        BitField("rxLevC7Hi", None, 4),
 
-             BitField("rxLevC7Lo", None, 2),
-             BitField("rxLevC8", None, 6),
+        BitField("rxLevC7Lo", None, 2),
+        BitField("rxLevC8", None, 6),
 
-             BitField("rxLevC9", None, 6),
-             BitField("rxLevC10Hi", None, 2),
+        BitField("rxLevC9", None, 6),
+        BitField("rxLevC10Hi", None, 2),
 
-             BitField("rxLevC10Lo", None, 4),
-             BitField("rxLevC11Hi", None, 4),
+        BitField("rxLevC10Lo", None, 4),
+        BitField("rxLevC11Hi", None, 4),
 
-             BitField("rxLevC13Lo", None, 2),
-             BitField("rxLevC12", None, 6),
+        BitField("rxLevC13Lo", None, 2),
+        BitField("rxLevC12", None, 6),
 
-             BitField("rxLevC13", None, 6),
-             BitField("rxLevC14Hi", None, 2),
+        BitField("rxLevC13", None, 6),
+        BitField("rxLevC14Hi", None, 2),
 
-             BitField("rxLevC14Lo", None, 4),
-             BitField("rxLevC15Hi", None, 4),
+        BitField("rxLevC14Lo", None, 4),
+        BitField("rxLevC15Hi", None, 4),
 
-             BitField("rxLevC15Lo", None, 2),
-             BitField("rxLevC16", None, 6),
+        BitField("rxLevC15Lo", None, 2),
+        BitField("rxLevC16", None, 6),
 
 
-             BitField("rxLevC17", None, 6),
-             BitField("rxLevC18Hi", None, 2),
+        BitField("rxLevC17", None, 6),
+        BitField("rxLevC18Hi", None, 2),
 
-             BitField("rxLevC18Lo", None, 4),
-             BitField("rxLevC19Hi", None, 4),
+        BitField("rxLevC18Lo", None, 4),
+        BitField("rxLevC19Hi", None, 4),
 
-             BitField("rxLevC19Lo", None, 2),
-             BitField("rxLevC20", None, 6)
-             ]
+        BitField("rxLevC19Lo", None, 2),
+        BitField("rxLevC20", None, 6)
+    ]
 
 
 # len 17
@@ -10258,44 +10258,44 @@ class ExtendedMeasurementFrequencyList(Packet):
     name = "Extended Measurement Frequency List"
     fields_desc = [
 
-             BitField("bit128", 0x0, 1),
-             BitField("bit127", 0x0, 1),
-             BitField("spare", 0x0, 1),
-             BitField("seqCode", 0x0, 1),
-             BitField("bit124", 0x0, 1),
-             BitField("bit123", 0x0, 1),
-             BitField("bit122", 0x0, 1),
-             BitField("bit121", 0x0, 1),
+        BitField("bit128", 0x0, 1),
+        BitField("bit127", 0x0, 1),
+        BitField("spare", 0x0, 1),
+        BitField("seqCode", 0x0, 1),
+        BitField("bit124", 0x0, 1),
+        BitField("bit123", 0x0, 1),
+        BitField("bit122", 0x0, 1),
+        BitField("bit121", 0x0, 1),
 
-             BitField("bitsRest", 0x0, 128)
-             ]
+        BitField("bitsRest", 0x0, 128)
+    ]
 
 
 class SuspensionCause(Packet):
     """Suspension Cause Section 10.5.2.47"""
     name = "Suspension Cause"
     fields_desc = [
-             ByteField("suspVal", 0x0)
-             ]
+        ByteField("suspVal", 0x0)
+    ]
 
 
 class ApduID(Packet):
     """APDU Flags Section 10.5.2.48"""
     name = "Apdu Id"
     fields_desc = [
-             BitField("id", None, 4)
-             ]
+        BitField("id", None, 4)
+    ]
 
 
 class ApduFlags(Packet):
     """APDU Flags Section 10.5.2.49"""
     name = "Apdu Flags"
     fields_desc = [
-             BitField("spare", 0x0, 1),
-             BitField("cr", 0x0, 1),
-             BitField("firstSeg", 0x0, 1),
-             BitField("lastSeg", 0x0, 1)
-             ]
+        BitField("spare", 0x0, 1),
+        BitField("cr", 0x0, 1),
+        BitField("firstSeg", 0x0, 1),
+        BitField("lastSeg", 0x0, 1)
+    ]
 
 
 # len 1 to max L3 (251) (done)
@@ -10303,8 +10303,8 @@ class ApduData(Packet):
     """APDU Data Section 10.5.2.50"""
     name = "Apdu Data"
     fields_desc = [
-             XByteField("lengthAD", None),
-             #optional
+        XByteField("lengthAD", None),
+        #optional
              ByteField("apuInfo1", None),
              ByteField("apuInfo2", None),
              ByteField("apuInfo3", None),
@@ -10554,7 +10554,7 @@ class ApduData(Packet):
              ByteField("apuInfo247", None),
              ByteField("apuInfo248", None),
              ByteField("apuInfo249", None)
-             ]
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -10575,13 +10575,13 @@ class NetworkName(Packet):
     name = "Network Name"
     fields_desc = [
 
-             XByteField("lengthNN", None),
+        XByteField("lengthNN", None),
 
-             BitField("ext", 0x1, 1),
-             BitField("codingScheme", 0x0, 3),
-             BitField("addCi", 0x0, 1),
-             BitField("nbSpare", 0x0, 3),
-             # optional
+        BitField("ext", 0x1, 1),
+        BitField("codingScheme", 0x0, 3),
+        BitField("addCi", 0x0, 1),
+        BitField("nbSpare", 0x0, 3),
+        # optional
              ByteField("txtString1", None),
              ByteField("txtString2", None),
              ByteField("txtString3", None),
@@ -10830,7 +10830,7 @@ class NetworkName(Packet):
              ByteField("txtString246", None),
              ByteField("txtString247", None),
              ByteField("txtString248", None)
-             ]
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -10846,39 +10846,39 @@ class TimeZone(Packet):
     """Time Zone  Section 10.5.3.8"""
     name = "Time Zone"
     fields_desc = [
-             ByteField("timeZone", 0x0),
-             ]
+        ByteField("timeZone", 0x0),
+    ]
 
 
 class TimeZoneAndTime(Packet):
     """Time Zone and Time Section 10.5.3.9"""
     name = "Time Zone and Time"
     fields_desc = [
-             ByteField("year", 0x0),
-             ByteField("month", 0x0),
-             ByteField("day", 0x0),
-             ByteField("hour", 0x0),
-             ByteField("minute", 0x0),
-             ByteField("second", 0x0),
-             ByteField("timeZone", 0x0)
-             ]
+        ByteField("year", 0x0),
+        ByteField("month", 0x0),
+        ByteField("day", 0x0),
+        ByteField("hour", 0x0),
+        ByteField("minute", 0x0),
+        ByteField("second", 0x0),
+        ByteField("timeZone", 0x0)
+    ]
 
 
 class CtsPermission(Packet):
     """CTS permission Section 10.5.3.10"""
     name = "Cts Permission"
     fields_desc = [
-             ]
+    ]
 
 
 class LsaIdentifier(Packet):
     """LSA Identifier Section 10.5.3.11"""
     name = "Lsa Identifier"
     fields_desc = [
-             ByteField("lsaID", 0x0),
-             ByteField("lsaID1", 0x0),
-             ByteField("lsaID2", 0x0)
-             ]
+        ByteField("lsaID", 0x0),
+        ByteField("lsaID1", 0x0),
+        ByteField("lsaID2", 0x0)
+    ]
 
 
 #
@@ -10892,30 +10892,30 @@ class LockingShiftProcedure(Packet):
     """Locking shift procedure Section 10.5.4.2"""
     name = "Locking Shift Procedure"
     fields_desc = [
-             BitField("lockShift", 0x0, 1),
-             BitField("codesetId", 0x0, 3)
-             ]
+        BitField("lockShift", 0x0, 1),
+        BitField("codesetId", 0x0, 3)
+    ]
 
 
 class NonLockingShiftProcedure(Packet):
     """Non-locking shift procedure Section 10.5.4.3"""
     name = "Non-locking Shift Procedure"
     fields_desc = [
-             BitField("nonLockShift", 0x1, 1),
-             BitField("codesetId", 0x0, 3)
-             ]
+        BitField("nonLockShift", 0x1, 1),
+        BitField("codesetId", 0x0, 3)
+    ]
 
 
 class AuxiliaryStates(Packet):
     """Auxiliary states Section 10.5.4.4"""
     name = "Auxiliary States"
     fields_desc = [
-             XByteField("lengthAS", 0x3),
-             BitField("ext", 0x1, 1),
-             BitField("spare", 0x0, 3),
-             BitField("holdState", 0x0, 2),
-             BitField("mptyState", 0x0, 2)
-             ]
+        XByteField("lengthAS", 0x3),
+        BitField("ext", 0x1, 1),
+        BitField("spare", 0x0, 3),
+        BitField("holdState", 0x0, 2),
+        BitField("mptyState", 0x0, 2)
+    ]
 
 
 # len 3 to 15
@@ -10924,37 +10924,37 @@ class BearerCapability(Packet):
     name = "Bearer Capability"
     fields_desc = [
 
-             XByteField("lengthBC", None),
+        XByteField("lengthBC", None),
 
-             BitField("ext0", 0x1, 1),
-             BitField("radioChReq", 0x1, 2),
-             BitField("codingStd", 0x0, 1),
-             BitField("transMode", 0x0, 1),
-             BitField("infoTransCa", 0x0, 3),
-             # optional
+        BitField("ext0", 0x1, 1),
+        BitField("radioChReq", 0x1, 2),
+        BitField("codingStd", 0x0, 1),
+        BitField("transMode", 0x0, 1),
+        BitField("infoTransCa", 0x0, 3),
+        # optional
              ConditionalField(BitField("ext1", 0x1, 1),
-                                       lambda pkt: pkt.ext0 == 0),
+                              lambda pkt: pkt.ext0 == 0),
              ConditionalField(BitField("coding", None, 1),
-                                       lambda pkt: pkt.ext0 == 0),
+                              lambda pkt: pkt.ext0 == 0),
              ConditionalField(BitField("spare", None, 2),
-                                       lambda pkt: pkt.ext0 == 0),
+                              lambda pkt: pkt.ext0 == 0),
              ConditionalField(BitField("speechVers", 0x0, 4),
-                                       lambda pkt: pkt.ext0 == 0),
+                              lambda pkt: pkt.ext0 == 0),
 
              ConditionalField(BitField("ext2", 0x1, 1),
-                                       lambda pkt: pkt.ext1 == 0),
+                              lambda pkt: pkt.ext1 == 0),
              ConditionalField(BitField("compress", None, 1),
-                                       lambda pkt: pkt.ext1 == 0),
+                              lambda pkt: pkt.ext1 == 0),
              ConditionalField(BitField("structure", None, 2),
-                                       lambda pkt: pkt.ext1 == 0),
+                              lambda pkt: pkt.ext1 == 0),
              ConditionalField(BitField("dupMode", None, 1),
-                                       lambda pkt: pkt.ext1 == 0),
+                              lambda pkt: pkt.ext1 == 0),
              ConditionalField(BitField("config", None, 1),
-                                       lambda pkt: pkt.ext1 == 0),
+                              lambda pkt: pkt.ext1 == 0),
              ConditionalField(BitField("nirr", None, 1),
-                                       lambda pkt: pkt.ext1 == 0),
+                              lambda pkt: pkt.ext1 == 0),
              ConditionalField(BitField("establi", 0x0, 1),
-                                       lambda pkt: pkt.ext1 == 0),
+                              lambda pkt: pkt.ext1 == 0),
 
              BitField("ext3", None, 1),
              BitField("accessId", None, 2),
@@ -10962,30 +10962,30 @@ class BearerCapability(Packet):
              BitField("signaling", None, 3),
 
              ConditionalField(BitField("ext4", None, 1),
-                                       lambda pkt: pkt.ext3 == 0),
+                              lambda pkt: pkt.ext3 == 0),
              ConditionalField(BitField("otherITC", None, 2),
-                                       lambda pkt: pkt.ext3 == 0),
+                              lambda pkt: pkt.ext3 == 0),
              ConditionalField(BitField("otherRate", None, 2),
-                                       lambda pkt: pkt.ext3 == 0),
+                              lambda pkt: pkt.ext3 == 0),
              ConditionalField(BitField("spare1", 0x0, 3),
-                                       lambda pkt: pkt.ext3 == 0),
+                              lambda pkt: pkt.ext3 == 0),
 
              ConditionalField(BitField("ext5", 0x1, 1),
-                                       lambda pkt: pkt.ext4 == 0),
+                              lambda pkt: pkt.ext4 == 0),
              ConditionalField(BitField("hdr", None, 1),
-                                       lambda pkt: pkt.ext4 == 0),
+                              lambda pkt: pkt.ext4 == 0),
              ConditionalField(BitField("multiFr", None, 1),
-                                       lambda pkt: pkt.ext4 == 0),
+                              lambda pkt: pkt.ext4 == 0),
              ConditionalField(BitField("mode", None, 1),
-                                       lambda pkt: pkt.ext4 == 0),
+                              lambda pkt: pkt.ext4 == 0),
              ConditionalField(BitField("lli", None, 1),
-                                       lambda pkt: pkt.ext4 == 0),
+                              lambda pkt: pkt.ext4 == 0),
              ConditionalField(BitField("assig", None, 1),
-                                       lambda pkt: pkt.ext4 == 0),
+                              lambda pkt: pkt.ext4 == 0),
              ConditionalField(BitField("inbNeg", None, 1),
-                                       lambda pkt: pkt.ext4 == 0),
+                              lambda pkt: pkt.ext4 == 0),
              ConditionalField(BitField("spare2", 0x0, 1),
-                                       lambda pkt: pkt.ext4 == 0),
+                              lambda pkt: pkt.ext4 == 0),
 
              BitField("ext6", None, 1),
              BitField("layer1Id", None, 2),
@@ -10993,62 +10993,62 @@ class BearerCapability(Packet):
              BitField("sync", None, 1),
 
              ConditionalField(BitField("ext7", None, 1),
-                                       lambda pkt: pkt.ext6 == 0),
+                              lambda pkt: pkt.ext6 == 0),
              ConditionalField(BitField("stopBit", None, 1),
-                                       lambda pkt: pkt.ext6 == 0),
+                              lambda pkt: pkt.ext6 == 0),
              ConditionalField(BitField("negoc", None, 1),
-                                       lambda pkt: pkt.ext6 == 0),
+                              lambda pkt: pkt.ext6 == 0),
              ConditionalField(BitField("nbDataBit", None, 1),
-                                       lambda pkt: pkt.ext6 == 0),
+                              lambda pkt: pkt.ext6 == 0),
              ConditionalField(BitField("userRate", None, 4),
-                                       lambda pkt: pkt.ext6 == 0),
+                              lambda pkt: pkt.ext6 == 0),
 
              ConditionalField(BitField("ext8", None, 1),
-                                       lambda pkt: pkt.ext7 == 0),
+                              lambda pkt: pkt.ext7 == 0),
              ConditionalField(BitField("interRate", None, 2),
-                                       lambda pkt: pkt.ext7 == 0),
+                              lambda pkt: pkt.ext7 == 0),
              ConditionalField(BitField("nicTX", None, 1),
-                                       lambda pkt: pkt.ext7 == 0),
+                              lambda pkt: pkt.ext7 == 0),
              ConditionalField(BitField("nicRX", None, 1),
-                                       lambda pkt: pkt.ext7 == 0),
+                              lambda pkt: pkt.ext7 == 0),
              ConditionalField(BitField("parity", None, 3),
-                                       lambda pkt: pkt.ext7 == 0),
+                              lambda pkt: pkt.ext7 == 0),
 
              ConditionalField(BitField("ext9", None, 1),
-                                       lambda pkt: pkt.ext8 == 0),
+                              lambda pkt: pkt.ext8 == 0),
              ConditionalField(BitField("connEle", None, 2),
-                                       lambda pkt: pkt.ext8 == 0),
+                              lambda pkt: pkt.ext8 == 0),
              ConditionalField(BitField("modemType", None, 5),
-                                       lambda pkt: pkt.ext8 == 0),
+                              lambda pkt: pkt.ext8 == 0),
 
              ConditionalField(BitField("ext10", None, 1),
-                                       lambda pkt: pkt.ext9 == 0),
+                              lambda pkt: pkt.ext9 == 0),
              ConditionalField(BitField("otherModemType", None, 2),
-                                       lambda pkt: pkt.ext9 == 0),
+                              lambda pkt: pkt.ext9 == 0),
              ConditionalField(BitField("netUserRate", None, 5),
-                                       lambda pkt: pkt.ext9 == 0),
+                              lambda pkt: pkt.ext9 == 0),
 
              ConditionalField(BitField("ext11", None, 1),
-                                       lambda pkt: pkt.ext10 == 0),
+                              lambda pkt: pkt.ext10 == 0),
              ConditionalField(BitField("chanCoding", None, 4),
-                                       lambda pkt: pkt.ext10 == 0),
+                              lambda pkt: pkt.ext10 == 0),
              ConditionalField(BitField("maxTrafficChan", None, 3),
-                                       lambda pkt: pkt.ext10 == 0),
+                              lambda pkt: pkt.ext10 == 0),
 
              ConditionalField(BitField("ext12", None, 1),
-                                       lambda pkt: pkt.ext11 == 0),
+                              lambda pkt: pkt.ext11 == 0),
              ConditionalField(BitField("uimi", None, 3),
-                                       lambda pkt: pkt.ext11 == 0),
+                              lambda pkt: pkt.ext11 == 0),
              ConditionalField(BitField("airInterfaceUserRate", None, 4),
-                                       lambda pkt: pkt.ext11 == 0),
+                              lambda pkt: pkt.ext11 == 0),
 
              ConditionalField(BitField("ext13", 0x1, 1),
-                                       lambda pkt: pkt.ext12 == 0),
+                              lambda pkt: pkt.ext12 == 0),
              ConditionalField(BitField("layer2Ch", None, 2),
-                                       lambda pkt: pkt.ext12 == 0),
+                              lambda pkt: pkt.ext12 == 0),
              ConditionalField(BitField("userInfoL2", 0x0, 5),
-                                       lambda pkt: pkt.ext12 == 0)
-             ]
+                              lambda pkt: pkt.ext12 == 0)
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -11064,20 +11064,20 @@ class CallControlCapabilities(Packet):
     """Call Control Capabilities Section 10.5.4.5a"""
     name = "Call Control Capabilities"
     fields_desc = [
-             XByteField("lengthCCC", 0x3),
-             BitField("spare", 0x0, 6),
-             BitField("pcp", 0x0, 1),
-             BitField("dtmf", 0x0, 1)
-             ]
+        XByteField("lengthCCC", 0x3),
+        BitField("spare", 0x0, 6),
+        BitField("pcp", 0x0, 1),
+        BitField("dtmf", 0x0, 1)
+    ]
 
 
 class CallState(Packet):
     """Call State Section 10.5.4.6"""
     name = "Call State"
     fields_desc = [
-             BitField("codingStd", 0x0, 2),
-             BitField("stateValue", 0x0, 6)
-             ]
+        BitField("codingStd", 0x0, 2),
+        BitField("stateValue", 0x0, 6)
+    ]
 
 
 # len 3 to 43
@@ -11085,11 +11085,11 @@ class CalledPartyBcdNumber(Packet):
     """Called party BCD number Section 10.5.4.7"""
     name = "Called Party BCD Number"
     fields_desc = [
-             XByteField("lengthCPBN", None),
-             BitField("ext", 0x1, 1),
-             BitField("typeNb", 0x0, 3),
-             BitField("nbPlanId", 0x0, 4),
-             # optional
+        XByteField("lengthCPBN", None),
+        BitField("ext", 0x1, 1),
+        BitField("typeNb", 0x0, 3),
+        BitField("nbPlanId", 0x0, 4),
+        # optional
              BitField("nbDigit2", None, 4),
              BitField("nbDigit1", None, 4),
              BitField("nbDigit4", None, 4),
@@ -11139,7 +11139,7 @@ class CalledPartyBcdNumber(Packet):
              BitField("nbDigit37", None, 4),
              BitField("nbDigit40", None, 4),
              BitField("nbDigit39", None, 4),
-# ^^^^^^ 20 first optional bytes ^^^^^^^^^^^^^^^
+        # ^^^^^^ 20 first optional bytes ^^^^^^^^^^^^^^^
              BitField("nbDigit42", None, 4),
              BitField("nbDigit41", None, 4),
              BitField("nbDigit44", None, 4),
@@ -11189,7 +11189,7 @@ class CalledPartyBcdNumber(Packet):
              BitField("nbDigit77", None, 4),
              BitField("nbDigit80", None, 4),
              BitField("nbDigit79", None, 4),
-             ]
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -11206,8 +11206,8 @@ class CalledPartySubaddress(Packet):
     """Called party subaddress Section 10.5.4.8"""
     name = "Called Party Subaddress"
     fields_desc = [
-             XByteField("lengthCPS", None),
-             # optional
+        XByteField("lengthCPS", None),
+        # optional
              BitField("ext", None, 1),
              BitField("subAddr", None, 3),
              BitField("oddEven", None, 1),
@@ -11233,7 +11233,7 @@ class CalledPartySubaddress(Packet):
              ByteField("subInfo17", None),
              ByteField("subInfo18", None),
              ByteField("subInfo19", None)
-             ]
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -11250,19 +11250,19 @@ class CallingPartyBcdNumber(Packet):
     """Called party subaddress Section 10.5.4.9"""
     name = "Called Party Subaddress"
     fields_desc = [
-             XByteField("lengthCPBN", None),
-             BitField("ext", 0x1, 1),
-             BitField("typeNb", 0x0, 3),
-             BitField("nbPlanId", 0x0, 4),
-             # optional
+        XByteField("lengthCPBN", None),
+        BitField("ext", 0x1, 1),
+        BitField("typeNb", 0x0, 3),
+        BitField("nbPlanId", 0x0, 4),
+        # optional
              ConditionalField(BitField("ext1", 0x1, 1),
-                             lambda pkt: pkt.ext == 0),
+                              lambda pkt: pkt.ext == 0),
              ConditionalField(BitField("presId", None, 2),
-                             lambda pkt: pkt.ext == 0),
+                              lambda pkt: pkt.ext == 0),
              ConditionalField(BitField("spare", None, 3),
-                             lambda pkt: pkt.ext == 0),
+                              lambda pkt: pkt.ext == 0),
              ConditionalField(BitField("screenId", 0x0, 2),
-                             lambda pkt: pkt.ext == 0),
+                              lambda pkt: pkt.ext == 0),
 
              BitField("nbDigit2", None, 4),
              BitField("nbDigit1", None, 4),
@@ -11293,7 +11293,7 @@ class CallingPartyBcdNumber(Packet):
 
              BitField("nbDigit20", None, 4),
              BitField("nbDigit19", None, 4),
-             ]
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -11310,8 +11310,8 @@ class CallingPartySubaddress(Packet):
     """Calling party subaddress  Section 10.5.4.10"""
     name = "Calling Party Subaddress"
     fields_desc = [
-             XByteField("lengthCPS", None),
-             # optional
+        XByteField("lengthCPS", None),
+        # optional
              BitField("ext1", None, 1),
              BitField("typeAddr", None, 3),
              BitField("oddEven", None, 1),
@@ -11337,7 +11337,7 @@ class CallingPartySubaddress(Packet):
              ByteField("subInfo17", None),
              ByteField("subInfo18", None),
              ByteField("subInfo19", None)
-             ]
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -11355,18 +11355,18 @@ class Cause(Packet):
     name = "Cause"
     fields_desc = [
 
-             XByteField("lengthC", None),
+        XByteField("lengthC", None),
 
-             BitField("ext", 0x1, 1),
-             BitField("codingStd", 0x0, 2),
-             BitField("spare", 0x0, 1),
-             BitField("location", 0x0, 4),
+        BitField("ext", 0x1, 1),
+        BitField("codingStd", 0x0, 2),
+        BitField("spare", 0x0, 1),
+        BitField("location", 0x0, 4),
 
-             ConditionalField(BitField("ext1", 0x1, 1),
-                              lambda pkt: pkt.ext == 0),
-             ConditionalField(BitField("recommendation", 0x1, 7),
-                              lambda pkt: pkt.ext == 0),
-             # optional
+        ConditionalField(BitField("ext1", 0x1, 1),
+                         lambda pkt: pkt.ext == 0),
+        ConditionalField(BitField("recommendation", 0x1, 7),
+                         lambda pkt: pkt.ext == 0),
+        # optional
              BitField("ext2", None, 1),
              BitField("causeValue", None, 7),
 
@@ -11397,7 +11397,7 @@ class Cause(Packet):
              ByteField("diagnositc24", None),
              ByteField("diagnositc25", None),
              ByteField("diagnositc26", None),
-             ]
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -11413,22 +11413,22 @@ class ClirSuppression(Packet):
     """CLIR suppression Section 10.5.4.11a"""
     name = "Clir Suppression"
     fields_desc = [
-             ]
+    ]
 
 
 class ClirInvocation(Packet):
     """CLIR invocation Section 10.5.4.11b"""
     name = "Clir Invocation"
     fields_desc = [
-             ]
+    ]
 
 
 class CongestionLevel(Packet):
     """Congestion level Section 10.5.4.12"""
     name = "Congestion Level"
     fields_desc = [
-             BitField("notDef", 0x0, 4)  # not defined by the std
-             ]
+        BitField("notDef", 0x0, 4)  # not defined by the std
+    ]
 
 
 # len 3 to 14
@@ -11437,12 +11437,12 @@ class ConnectedNumber(Packet):
     name = "Connected Number"
     fields_desc = [
 
-             XByteField("lengthCN", None),
+        XByteField("lengthCN", None),
 
-             BitField("ext", 0x1, 1),
-             BitField("typeNb", 0x0, 3),
-             BitField("typePlanId", 0x0, 4),
-             # optional
+        BitField("ext", 0x1, 1),
+        BitField("typeNb", 0x0, 3),
+        BitField("typePlanId", 0x0, 4),
+        # optional
              ConditionalField(BitField("ext1", 0x1, 1),
                               lambda pkt: pkt.ext == 0),
              ConditionalField(BitField("presId", None, 2),
@@ -11481,7 +11481,7 @@ class ConnectedNumber(Packet):
 
              BitField("nbDigit20", None, 4),
              BitField("nbDigit19", None, 4)
-             ]
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -11499,8 +11499,8 @@ class ConnectedSubaddress(Packet):
     name = "Connected Subaddress"
     fields_desc = [
 
-             XByteField("lengthCS", None),
-             # optional
+        XByteField("lengthCS", None),
+        # optional
              BitField("ext", None, 1),
              BitField("typeOfSub", None, 3),
              BitField("oddEven", None, 1),
@@ -11526,7 +11526,7 @@ class ConnectedSubaddress(Packet):
              ByteField("subInfo17", None),
              ByteField("subInfo18", None),
              ByteField("subInfo19", None)
-             ]
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -11543,8 +11543,8 @@ class Facility(Packet):
     """Facility Section 10.5.4.15"""
     name = "Facility"
     fields_desc = [
-             XByteField("lengthF", None),
-             # optional
+        XByteField("lengthF", None),
+        # optional
              ByteField("facilityInfo1", None),
              ByteField("facilityInfo2", None),
              ByteField("facilityInfo3", None),
@@ -11794,7 +11794,7 @@ class Facility(Packet):
              ByteField("facilityInfo247", None),
              ByteField("facilityInfo248", None),
              ByteField("facilityInfo249", None)
-             ]
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -11812,8 +11812,8 @@ class HighLayerCompatibility(Packet):
     name = "High Layer Compatibility"
     fields_desc = [
 
-             XByteField("lengthHLC", None),
-             # optional
+        XByteField("lengthHLC", None),
+        # optional
              BitField("ext", None, 1),
              BitField("codingStd", None, 2),
              BitField("interpret", None, 3),
@@ -11826,7 +11826,7 @@ class HighLayerCompatibility(Packet):
                               lambda pkt: pkt.ext1 == 0),
              ConditionalField(BitField("exHiLayerId", 0x0, 7),
                               lambda pkt: pkt.ext1 == 0),
-             ]
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -11838,7 +11838,7 @@ class HighLayerCompatibility(Packet):
         return p + pay
 #
 # 10.5.4.16.1           Static conditions for the high layer
-# compatibility IE contents 
+# compatibility IE contents
 #
 
 
@@ -11846,9 +11846,9 @@ class KeypadFacility(Packet):
     """Keypad facility Section 10.5.4.17"""
     name = "Keypad Facility"
     fields_desc = [
-             BitField("spare", 0x0, 1),
-             BitField("keyPadInfo", 0x0, 7)
-             ]
+        BitField("spare", 0x0, 1),
+        BitField("keyPadInfo", 0x0, 7)
+    ]
 
 
 # len 2 to 15
@@ -11857,8 +11857,8 @@ class LowLayerCompatibility(Packet):
     name = "Low Layer Compatibility"
     fields_desc = [
 
-             XByteField("lengthLLC", None),
-             # optional
+        XByteField("lengthLLC", None),
+        # optional
              ByteField("rest0", None),
              ByteField("rest1", None),
              ByteField("rest2", None),
@@ -11872,7 +11872,7 @@ class LowLayerCompatibility(Packet):
              ByteField("rest10", None),
              ByteField("rest11", None),
              ByteField("rest12", None)
-             ]
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -11888,39 +11888,39 @@ class MoreData(Packet):
     """More data Section 10.5.4.19"""
     name = "More Data"
     fields_desc = [
-             ]
+    ]
 
 
 class NotificationIndicator(Packet):
     """Notification indicator Section 10.5.4.20"""
     name = "Notification Indicator"
     fields_desc = [
-             BitField("ext1", 0x1, 1),
-             BitField("notifDesc", 0x0, 7)
-             ]
+        BitField("ext1", 0x1, 1),
+        BitField("notifDesc", 0x0, 7)
+    ]
 
 
 class ProgressIndicator(Packet):
     """Progress indicator Section 10.5.4.21"""
     name = "Progress Indicator"
     fields_desc = [
-             XByteField("lengthPI", 0x2),
-             BitField("ext", 0x1, 1),
-             BitField("codingStd", 0x0, 2),
-             BitField("spare", 0x0, 1),
-             BitField("location", 0x0, 4),
-             BitField("ext1", 0x1, 1),
-             BitField("progressDesc", 0x0, 7)
-             ]
+        XByteField("lengthPI", 0x2),
+        BitField("ext", 0x1, 1),
+        BitField("codingStd", 0x0, 2),
+        BitField("spare", 0x0, 1),
+        BitField("location", 0x0, 4),
+        BitField("ext1", 0x1, 1),
+        BitField("progressDesc", 0x0, 7)
+    ]
 
 
 class RecallType(Packet):
     """Recall type $(CCBS)$  Section 10.5.4.21a"""
     name = "Recall Type $(CCBS)$"
     fields_desc = [
-             BitField("spare", 0x0, 5),
-             BitField("recallType", 0x0, 3)
-             ]
+        BitField("spare", 0x0, 5),
+        BitField("recallType", 0x0, 3)
+    ]
 
 
 # len 3 to 19
@@ -11929,20 +11929,20 @@ class RedirectingPartyBcdNumber(Packet):
     name = "Redirecting Party BCD Number"
     fields_desc = [
 
-             XByteField("lengthRPBN", None),
+        XByteField("lengthRPBN", None),
 
-             BitField("ext", 0x1, 1),
-             BitField("typeNb", 0x0, 3),
-             BitField("numberingPlan", 0x0, 4),
-             # optional
+        BitField("ext", 0x1, 1),
+        BitField("typeNb", 0x0, 3),
+        BitField("numberingPlan", 0x0, 4),
+        # optional
              ConditionalField(BitField("ext1", 0x1, 1),
-                                       lambda pkt: pkt.ext == 0),
+                              lambda pkt: pkt.ext == 0),
              ConditionalField(BitField("presId", 0x0, 2),
-                                       lambda pkt: pkt.ext == 0),
+                              lambda pkt: pkt.ext == 0),
              ConditionalField(BitField("spare", 0x0, 3),
-                                       lambda pkt: pkt.ext == 0),
+                              lambda pkt: pkt.ext == 0),
              ConditionalField(BitField("screenId", 0x0, 2),
-                                       lambda pkt: pkt.ext == 0),
+                              lambda pkt: pkt.ext == 0),
 
              BitField("nbDigit2", None, 4),
              BitField("nbDigit1", None, 4),
@@ -11988,7 +11988,7 @@ class RedirectingPartyBcdNumber(Packet):
 
              BitField("nbDigit30", None, 4),
              BitField("nbDigit29", None, 4),
-             ]
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -12006,8 +12006,8 @@ class RedirectingPartySubaddress(Packet):
     name = "Redirecting Party BCD Number"
     fields_desc = [
 
-             XByteField("lengthRPS", None),
-             # optional
+        XByteField("lengthRPS", None),
+        # optional
              BitField("ext", None, 1),
              BitField("typeSub", None, 3),
              BitField("oddEven", None, 1),
@@ -12033,7 +12033,7 @@ class RedirectingPartySubaddress(Packet):
              ByteField("subInfo17", None),
              ByteField("subInfo18", None),
              ByteField("subInfo19", None)
-             ]
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -12049,8 +12049,8 @@ class RepeatIndicator(Packet):
     """Repeat indicator Section 10.5.4.22"""
     name = "Repeat Indicator"
     fields_desc = [
-             BitField("repeatIndic", 0x0, 4)
-             ]
+        BitField("repeatIndic", 0x0, 4)
+    ]
 
 
 # no upper length min 2(max for L3) (251)
@@ -12058,8 +12058,8 @@ class SetupContainer(Packet):
     """SETUP Container $(CCBS)$ Section 10.5.4.22b"""
     name = "Setup Container $(CCBS)$"
     fields_desc = [
-             XByteField("lengthSC", None),
-             # optional
+        XByteField("lengthSC", None),
+        # optional
              ByteField("mess1", None),
              ByteField("mess2", None),
              ByteField("mess3", None),
@@ -12309,7 +12309,7 @@ class SetupContainer(Packet):
              ByteField("mess247", None),
              ByteField("mess248", None),
              ByteField("mess249", None),
-             ]
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -12325,8 +12325,8 @@ class Signal(Packet):
     """Signal Section 10.5.4.23"""
     name = "Signal"
     fields_desc = [
-             ByteField("sigValue", 0x0)
-             ]
+        ByteField("sigValue", 0x0)
+    ]
 
 
 # length 2 to max for L3 message (251)
@@ -12334,8 +12334,8 @@ class SsVersionIndicator(Packet):
     """SS Version Indicator  Section 10.5.4.24"""
     name = "SS Version Indicator"
     fields_desc = [
-             XByteField("lengthSVI", None),
-             # optional
+        XByteField("lengthSVI", None),
+        # optional
              ByteField("info1", None),
              ByteField("info2", None),
              ByteField("info3", None),
@@ -12585,7 +12585,7 @@ class SsVersionIndicator(Packet):
              ByteField("info247", None),
              ByteField("info248", None),
              ByteField("info249", None),
-             ]
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -12603,13 +12603,13 @@ class UserUser(Packet):
     name = "User-User"
     fields_desc = [
 
-             XByteField("lengthUU", None),  # dynamic length of field depending
-                                           # of the type of message
+        XByteField("lengthUU", None),  # dynamic length of field depending
+        # of the type of message
                                            # let user decide which length he
                                            # wants to take
                                            # => more fuzzing options
-             ByteField("userUserPD", 0x0),
-             # optional
+        ByteField("userUserPD", 0x0),
+        # optional
              ByteField("userUserInfo1", None),
              ByteField("userUserInfo2", None),
              ByteField("userUserInfo3", None),
@@ -12742,7 +12742,7 @@ class UserUser(Packet):
              ByteField("userUserInfo129", None),
              ByteField("userUserInfo130", None),
              ByteField("userUserInfo131", None)
-             ]
+    ]
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
@@ -12758,20 +12758,20 @@ class AlertingPattern(Packet):
     """Alerting Pattern 10.5.4.26"""
     name = "Alerting Pattern"
     fields_desc = [
-             XByteField("lengthAP", 0x3),
-             BitField("spare", 0x0, 4),
-             BitField("alertingValue", 0x0, 4)
-             ]
+        XByteField("lengthAP", 0x3),
+        BitField("spare", 0x0, 4),
+        BitField("alertingValue", 0x0, 4)
+    ]
 
 
 class AllowedActions(Packet):
     """Allowed actions $(CCBS)$ Section 10.5.4.26"""
     name = "Allowed Actions $(CCBS)$"
     fields_desc = [
-             XByteField("lengthAP", 0x3),
-             BitField("CCBS", 0x0, 1),
-             BitField("spare", 0x0, 7)
-             ]
+        XByteField("lengthAP", 0x3),
+        BitField("CCBS", 0x0, 1),
+        BitField("spare", 0x0, 7)
+    ]
 
 
 #
@@ -12783,9 +12783,9 @@ class AttachType(Packet):
     """Attach type Section 10.5.5.2"""
     name = "Attach Type"
     fields_desc = [
-             BitField("spare", 0x0, 1),
-             BitField("type", 0x1, 3)
-             ]
+        BitField("spare", 0x0, 1),
+        BitField("type", 0x1, 3)
+    ]
 
 
 if __name__ == "__main__":

@@ -52,11 +52,11 @@ class Route6:
         rtlst = []
 
         for net, msk, gw, iface, cset, metric in self.routes:
-            rtlst.append(('%s/%i'% (net,msk), gw, (iface if isinstance(iface, six.string_types) else iface.name), ", ".join(cset) if len(cset) > 0 else "", str(metric)))
+            rtlst.append(('%s/%i'% (net, msk), gw, (iface if isinstance(iface, six.string_types) else iface.name), ", ".join(cset) if len(cset) > 0 else "", str(metric)))
 
         return pretty_list(rtlst,
-                             [('Destination', 'Next Hop', "Iface", "Src candidates", "Metric")],
-                             sortBy = 1)
+                           [('Destination', 'Next Hop', "Iface", "Src candidates", "Metric")],
+                           sortBy = 1)
 
     # Unlike Scapy's Route.make_route() function, we do not have 'host' and 'net'
     # parameters. We only have a 'dst' parameter that accepts 'prefix' and
@@ -81,7 +81,6 @@ class Route6:
 
         return (prefix, plen, gw, dev, ifaddr, 1)
 
-
     def add(self, *args, **kargs):
         """Ex:
         add(dst="2001:db8:cafe:f000::/56")
@@ -90,7 +89,6 @@ class Route6:
         """
         self.invalidate_cache()
         self.routes.append(self.make_route(*args, **kargs))
-
 
     def delt(self, dst, gw=None):
         """ Ex:
@@ -121,16 +119,16 @@ class Route6:
 
         naddr = inet_pton(socket.AF_INET6, the_addr)
         nmask = in6_cidr2mask(the_plen)
-        the_net = inet_ntop(socket.AF_INET6, in6_and(nmask,naddr))
+        the_net = inet_ntop(socket.AF_INET6, in6_and(nmask, naddr))
 
         for i, route in enumerate(self.routes):
             net, plen, gw, iface, addr, metric = route
             if iface != iff:
                 continue
             if gw == '::':
-                self.routes[i] = (the_net,the_plen,gw,iface,[the_addr],metric)
+                self.routes[i] = (the_net, the_plen, gw, iface, [the_addr], metric)
             else:
-                self.routes[i] = (net,plen,gw,iface,[the_addr],metric)
+                self.routes[i] = (net, plen, gw, iface, [the_addr], metric)
         self.invalidate_cache()
         conf.netcache.in6_neighbor.flush()
 
@@ -142,7 +140,6 @@ class Route6:
                 new_routes.append(rt)
         self.invalidate_cache()
         self.routes = new_routes
-
 
     def ifadd(self, iff, addr):
         """
@@ -162,9 +159,9 @@ class Route6:
         plen = int(plen)
         naddr = inet_pton(socket.AF_INET6, addr)
         nmask = in6_cidr2mask(plen)
-        prefix = inet_ntop(socket.AF_INET6, in6_and(nmask,naddr))
+        prefix = inet_ntop(socket.AF_INET6, in6_and(nmask, naddr))
         self.invalidate_cache()
-        self.routes.append((prefix,plen,'::',iff,[addr],1))
+        self.routes.append((prefix, plen, '::', iff, [addr], 1))
 
     def route(self, dst, dev=None):
         """
@@ -184,7 +181,7 @@ class Route6:
         # Transform "2001:db8:cafe:*::1-5:0/120" to one IPv6 address of the set
         dst = dst.split("/")[0]
         savedst = dst # In case following inet_pton() fails
-        dst = dst.replace("*","0")
+        dst = dst.replace("*", "0")
         l = dst.find("-")
         while l >= 0:
             m = (dst[l:]+":").find(":")
@@ -196,6 +193,10 @@ class Route6:
         except socket.error:
             dst = socket.getaddrinfo(savedst, None, socket.AF_INET6)[0][-1][0]
             # TODO : Check if name resolution went well
+
+        # Use the default interface while dealing with link-local addresses
+        if dev is None and (in6_islladdr(dst) or in6_ismlladdr(dst)):
+            dev = conf.iface
 
         # Deal with dev-specific request for cache search
         k = dst
@@ -272,6 +273,7 @@ class Route6:
         self.cache[k] = res[0][2]
 
         return res[0][2]
+
 
 conf.route6 = Route6()
 try:

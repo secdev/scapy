@@ -10,6 +10,7 @@ General utility functions.
 from __future__ import absolute_import
 from __future__ import print_function
 import os, sys, socket, types
+import collections
 import random, time
 import gzip, zlib
 import re, struct, array
@@ -19,11 +20,11 @@ import tempfile
 import warnings
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
-warnings.filterwarnings("ignore","tempnam",RuntimeWarning, __name__)
+warnings.filterwarnings("ignore", "tempnam", RuntimeWarning, __name__)
 
 from scapy.config import conf
 from scapy.consts import DARWIN, WINDOWS
-from scapy.data import MTU
+from scapy.data import MTU, DLT_EN10MB
 from scapy.compat import *
 from scapy.error import log_runtime, log_loading, log_interactive, Scapy_Exception, warning
 from scapy.base_classes import BasePacketList
@@ -32,9 +33,20 @@ from scapy.base_classes import BasePacketList
 ## Tools ##
 ###########
 
+
+def issubtype(x, t):
+    """issubtype(C, B) -> bool
+
+    Return whether C is a class and if it is a subclass of class B.
+    When using a tuple as the second argument issubtype(X, (A, B, ...)),
+    is a shortcut for issubtype(X, A) or issubtype(X, B) or ... (etc.).
+    """
+    return isinstance(x, type) and issubclass(x, t)
+
+
 def get_temp_file(keep=False, autoext=""):
     """Create a temporary file and return its name. When keep is False,
-the file is deleted when scapy exits.
+    the file is deleted when scapy exits.
 
     """
     fname = tempfile.NamedTemporaryFile(prefix="scapy", suffix=autoext,
@@ -43,25 +55,28 @@ the file is deleted when scapy exits.
         conf.temp_files.append(fname)
     return fname
 
+
 def sane_color(x):
     r=""
     for i in x:
         j = orb(i)
         if (j < 32) or (j >= 127):
-            r=r+conf.color_theme.not_printable(".")
+            r += conf.color_theme.not_printable(".")
         else:
-            r=r+chr(j)
+            r += chr(j)
     return r
+
 
 def sane(x):
     r=""
     for i in x:
         j = orb(i)
         if (j < 32) or (j >= 127):
-            r=r+"."
+            r += "."
         else:
-            r=r+chr(j)
+            r += chr(j)
     return r
+
 
 @conf.commands.register
 def restart():
@@ -72,6 +87,7 @@ def restart():
         os._exit(subprocess.call([sys.executable] + sys.argv))
     os.execv(sys.executable, [sys.executable] + sys.argv)
 
+
 def lhex(x):
     if type(x) in six.integer_types:
         return hex(x)
@@ -81,6 +97,7 @@ def lhex(x):
         return "[%s]" % ", ".join(map(lhex, x))
     else:
         return x
+
 
 @conf.commands.register
 def hexdump(x, dump=False):
@@ -143,14 +160,15 @@ def linehexdump(x, onlyasc=0, onlyhex=0, dump=False):
     else:
         print(s)
 
+
 @conf.commands.register
 def chexdump(x, dump=False):
     """ Build a per byte hexadecimal representation
-    
+
     Example:
         >>> chexdump(IP())
         0x45, 0x00, 0x00, 0x14, 0x00, 0x01, 0x00, 0x00, 0x40, 0x00, 0x7c, 0xe7, 0x7f, 0x00, 0x00, 0x01, 0x7f, 0x00, 0x00, 0x01
-    
+
     :param x: a Packet
     :param dump: print the view if False
     :returns: a String only if dump=True
@@ -162,21 +180,24 @@ def chexdump(x, dump=False):
     else:
         print(s)
 
+
 @conf.commands.register
 def hexstr(x, onlyasc=0, onlyhex=0):
     s = []
     if not onlyasc:
         s.append(" ".join("%02x" % orb(b) for b in x))
     if not onlyhex:
-        s.append(sane(x)) 
+        s.append(sane(x))
     return "  ".join(s)
+
 
 def repr_hex(s):
     """ Convert provided bitstring to a simple string of hex digits """
     return "".join("%02x" % orb(x) for x in s)
 
+
 @conf.commands.register
-def hexdiff(x,y):
+def hexdiff(x, y):
     """Show differences between 2 binary strings"""
     x=raw(x)[::-1]
     y=raw(y)[::-1]
@@ -184,34 +205,31 @@ def hexdiff(x,y):
     INSERT=1
     d = {(-1, -1): (0, (-1, -1))}
     for j in range(len(y)):
-        d[-1,j] = d[-1,j-1][0]+INSERT, (-1,j-1)
+        d[-1, j] = d[-1, j-1][0]+INSERT, (-1, j-1)
     for i in range(len(x)):
-        d[i,-1] = d[i-1,-1][0]+INSERT, (i-1,-1)
+        d[i, -1] = d[i-1, -1][0]+INSERT, (i-1, -1)
 
     for j in range(len(y)):
         for i in range(len(x)):
-            d[i,j] = min( ( d[i-1,j-1][0]+SUBST*(x[i] != y[j]), (i-1,j-1) ),
-                          ( d[i-1,j][0]+INSERT, (i-1,j) ),
-                          ( d[i,j-1][0]+INSERT, (i,j-1) ) )
-                          
+            d[i, j] = min((d[i-1, j-1][0]+SUBST*(x[i] != y[j]), (i-1, j-1)),
+                          (d[i-1, j][0]+INSERT, (i-1, j)),
+                          (d[i, j-1][0]+INSERT, (i, j-1)))
 
     backtrackx = []
     backtracky = []
     i=len(x)-1
     j=len(y)-1
     while not (i == j == -1):
-        i2,j2 = d[i,j][1]
+        i2, j2 = d[i, j][1]
         backtrackx.append(x[i2+1:i+1])
         backtracky.append(y[j2+1:j+1])
-        i,j = i2,j2
-
-        
+        i, j = i2, j2
 
     x = y = i = 0
-    colorize = { 0: lambda x:x,
+    colorize = {0: lambda x: x,
                 -1: conf.color_theme.left,
-                 1: conf.color_theme.right }
-    
+                1: conf.color_theme.right}
+
     dox=1
     doy=0
     l = len(backtrackx)
@@ -226,7 +244,7 @@ def hexdiff(x,y):
             doy = 1
         if dox and linex == liney:
             doy=1
-            
+
         if dox:
             xd = y
             j = 0
@@ -249,9 +267,9 @@ def hexdiff(x,y):
             line=liney
         else:
             print("    ", end=' ')
-            
+
         print(" ", end=' ')
-        
+
         cl = ""
         for j in range(16):
             if i+j < l:
@@ -270,8 +288,7 @@ def hexdiff(x,y):
             if j == 7:
                 print("", end=' ')
 
-
-        print(" ",cl)
+        print(" ", cl)
 
         if doy or not yy:
             doy=0
@@ -284,7 +301,8 @@ def hexdiff(x,y):
             else:
                 i += 16
 
-if struct.pack("H",1) == b"\x00\x01": # big endian
+
+if struct.pack("H", 1) == b"\x00\x01": # big endian
     def checksum(pkt):
         if len(pkt) % 2 == 1:
             pkt += b"\0"
@@ -313,37 +331,38 @@ def _fletcher16(charbuf):
 
     c0 %= 255
     c1 %= 255
-    return (c0,c1)
+    return (c0, c1)
+
 
 @conf.commands.register
 def fletcher16_checksum(binbuf):
     """ Calculates Fletcher-16 checksum of the given buffer.
-        
+
         Note:
         If the buffer contains the two checkbytes derived from the Fletcher-16 checksum
         the result of this function has to be 0. Otherwise the buffer has been corrupted.
     """
-    (c0,c1)= _fletcher16(binbuf)
+    (c0, c1)= _fletcher16(binbuf)
     return (c1 << 8) | c0
 
 
 @conf.commands.register
 def fletcher16_checkbytes(binbuf, offset):
     """ Calculates the Fletcher-16 checkbytes returned as 2 byte binary-string.
-    
+
         Including the bytes into the buffer (at the position marked by offset) the
         global Fletcher-16 checksum of the buffer will be 0. Thus it is easy to verify
         the integrity of the buffer on the receiver side.
-        
+
         For details on the algorithm, see RFC 2328 chapter 12.1.7 and RFC 905 Annex B.
     """
-    
+
     # This is based on the GPLed C implementation in Zebra <http://www.zebra.org/>
     if len(binbuf) < offset:
         raise Exception("Packet too short for checkbytes %d" % len(binbuf))
 
     binbuf = binbuf[:offset] + b"\x00\x00" + binbuf[offset + 2:]
-    (c0,c1)= _fletcher16(binbuf)
+    (c0, c1)= _fletcher16(binbuf)
 
     x = ((len(binbuf) - offset - 1) * c0 - c1) % 255
 
@@ -358,12 +377,14 @@ def fletcher16_checkbytes(binbuf, offset):
 
 
 def mac2str(mac):
-    return b"".join(chb(int(x, 16)) for x in mac.split(':'))
+    return b"".join(chb(int(x, 16)) for x in plain_str(mac).split(':'))
+
 
 def str2mac(s):
     if isinstance(s, str):
         return ("%02x:"*6)[:-1] % tuple(map(ord, s))
     return ("%02x:"*6)[:-1] % tuple(s)
+
 
 def randstring(l):
     """
@@ -371,25 +392,28 @@ def randstring(l):
     """
     return b"".join(struct.pack('B', random.randint(0, 255)) for _ in range(l))
 
+
 def zerofree_randstring(l):
     """
     Returns a random string of length l (l >= 0) without zero in it.
     """
     return b"".join(struct.pack('B', random.randint(1, 255)) for _ in range(l))
 
+
 def strxor(s1, s2):
     """
     Returns the binary XOR of the 2 provided strings s1 and s2. s1 and s2
     must be of same length.
     """
-    return b"".join(map(lambda x,y:chb(orb(x)^orb(y)), s1, s2))
+    return b"".join(map(lambda x, y: chb(orb(x)^orb(y)), s1, s2))
+
 
 def strand(s1, s2):
     """
     Returns the binary AND of the 2 provided strings s1 and s2. s1 and s2
     must be of same length.
     """
-    return b"".join(map(lambda x,y:chb(orb(x)&orb(y)), s1, s2))
+    return b"".join(map(lambda x, y: chb(orb(x)&orb(y)), s1, s2))
 
 
 # Workaround bug 643005 : https://sourceforge.net/tracker/?func=detail&atid=105470&aid=643005&group_id=5470
@@ -414,21 +438,26 @@ def atol(x):
     except socket.error:
         ip = inet_aton(socket.gethostbyname(x))
     return struct.unpack("!I", ip)[0]
+
+
 def ltoa(x):
     return inet_ntoa(struct.pack("!I", x&0xffffffff))
 
+
 def itom(x):
     return (0xffffffff00000000>>x)&0xffffffff
+
 
 class ContextManagerSubprocess(object):
     """
     Context manager that eases checking for unknown command.
 
     Example:
-    >>> with ContextManagerSubprocess("my custom message"):
+    >>> with ContextManagerSubprocess("my custom message", "unknown_command"):
     >>>     subprocess.Popen(["unknown_command"])
 
     """
+
     def __init__(self, name, prog):
         self.name = name
         self.prog = prog
@@ -445,6 +474,7 @@ class ContextManagerSubprocess(object):
                 log_runtime.error(msg, exc_info=True)
                 return True  # Suppress the exception
 
+
 class ContextManagerCaptureOutput(object):
     """
     Context manager that intercept the console's output.
@@ -454,14 +484,17 @@ class ContextManagerCaptureOutput(object):
     ...     print("hey")
     ...     assert cmco.get_output() == "hey"
     """
+
     def __init__(self):
         self.result_export_object = ""
         try:
             import mock
         except:
             raise ImportError("The mock module needs to be installed !")
+
     def __enter__(self):
         import mock
+
         def write(s, decorator=self):
             decorator.result_export_object += s
         mock_stdout = mock.Mock()
@@ -469,15 +502,18 @@ class ContextManagerCaptureOutput(object):
         self.bck_stdout = sys.stdout
         sys.stdout = mock_stdout
         return self
+
     def __exit__(self, *exc):
         sys.stdout = self.bck_stdout
         return False
+
     def get_output(self, eval_bytes=False):
         if self.result_export_object.startswith("b'") and eval_bytes:
             return plain_str(eval(self.result_export_object))
         return self.result_export_object
 
-def do_graph(graph,prog=None,format=None,target=None,type=None,string=None,options=None):
+
+def do_graph(graph, prog=None, format=None, target=None, type=None, string=None, options=None):
     """do_graph(graph, prog=conf.prog.dot, format="svg",
          target="| conf.prog.display", options=None, [string=1]):
     string: if not None, simply return the graph string
@@ -486,7 +522,7 @@ def do_graph(graph,prog=None,format=None,target=None,type=None,string=None,optio
     target: filename or redirect. Defaults pipe to Imagemagick's display program
     prog: which graphviz program to use
     options: options to be passed to prog"""
-        
+
     if format is None:
         if WINDOWS:
             format = "png" # use common format to make sure a viewer is installed
@@ -533,56 +569,62 @@ def do_graph(graph,prog=None,format=None,target=None,type=None,string=None,optio
             if time.time() - waiting_start > 3:
                 warning("Temporary file '%s' could not be written. Graphic will not be displayed.", tempfile)
                 break
-        else:  
+        else:
             if conf.prog.display == conf.prog._default:
                 os.startfile(target.name)
             else:
                 with ContextManagerSubprocess("do_graph()", conf.prog.display):
                     subprocess.Popen([conf.prog.display, target.name])
 
+
 _TEX_TR = {
-    "{":"{\\tt\\char123}",
-    "}":"{\\tt\\char125}",
-    "\\":"{\\tt\\char92}",
-    "^":"\\^{}",
-    "$":"\\$",
-    "#":"\\#",
-    "~":"\\~",
-    "_":"\\_",
-    "&":"\\&",
-    "%":"\\%",
-    "|":"{\\tt\\char124}",
-    "~":"{\\tt\\char126}",
-    "<":"{\\tt\\char60}",
-    ">":"{\\tt\\char62}",
-    }
-    
+    "{": "{\\tt\\char123}",
+    "}": "{\\tt\\char125}",
+    "\\": "{\\tt\\char92}",
+    "^": "\\^{}",
+    "$": "\\$",
+    "#": "\\#",
+    "~": "\\~",
+    "_": "\\_",
+    "&": "\\&",
+    "%": "\\%",
+    "|": "{\\tt\\char124}",
+    "~": "{\\tt\\char126}",
+    "<": "{\\tt\\char60}",
+    ">": "{\\tt\\char62}",
+}
+
+
 def tex_escape(x):
     s = ""
     for c in x:
-        s += _TEX_TR.get(c,c)
+        s += _TEX_TR.get(c, c)
     return s
 
-def colgen(*lstcol,**kargs):
+
+def colgen(*lstcol, **kargs):
     """Returns a generator that mixes provided quantities forever
     trans: a function to convert the three arguments into a color. lambda x,y,z:(x,y,z) by default"""
     if len(lstcol) < 2:
         lstcol *= 2
-    trans = kargs.get("trans", lambda x,y,z: (x,y,z))
+    trans = kargs.get("trans", lambda x, y, z: (x, y, z))
     while True:
         for i in range(len(lstcol)):
             for j in range(len(lstcol)):
                 for k in range(len(lstcol)):
                     if i != j or j != k or k != i:
-                        yield trans(lstcol[(i+j)%len(lstcol)],lstcol[(j+k)%len(lstcol)],lstcol[(k+i)%len(lstcol)])
+                        yield trans(lstcol[(i+j)%len(lstcol)], lstcol[(j+k)%len(lstcol)], lstcol[(k+i)%len(lstcol)])
+
 
 def incremental_label(label="tag%05i", start=0):
     while True:
         yield label % start
         start += 1
 
+
 def binrepr(val):
     return bin(val)[2:]
+
 
 def long_converter(s):
     return int(s.replace('\n', '').replace(' ', ''), 16)
@@ -591,49 +633,63 @@ def long_converter(s):
 #### Enum management ####
 #########################
 
+
 class EnumElement:
     _value=None
+
     def __init__(self, key, value):
         self._key = key
         self._value = value
+
     def __repr__(self):
         return "<%s %s[%r]>" % (self.__dict__.get("_name", self.__class__.__name__), self._key, self._value)
+
     def __getattr__(self, attr):
         return getattr(self._value, attr)
+
     def __str__(self):
         return self._key
+
     def __bytes__(self):
         return raw(self.__str__())
+
     def __hash__(self):
         return self._value
+
     def __int__(self):
         return int(self._value)
+
     def __eq__(self, other):
         return self._value == int(other)
+
     def __neq__(self, other):
         return not self.__eq__(other)
 
 
 class Enum_metaclass(type):
     element_class = EnumElement
+
     def __new__(cls, name, bases, dct):
         rdict={}
-        for k,v in six.iteritems(dct):
+        for k, v in six.iteritems(dct):
             if isinstance(v, int):
-                v = cls.element_class(k,v)
+                v = cls.element_class(k, v)
                 dct[k] = v
                 rdict[v] = k
         dct["__rdict__"] = rdict
         return super(Enum_metaclass, cls).__new__(cls, name, bases, dct)
+
     def __getitem__(self, attr):
         return self.__rdict__[attr]
+
     def __contains__(self, val):
         return val in self.__rdict__
+
     def get(self, attr, val=None):
         return self.__rdict__.get(attr, val)
+
     def __repr__(self):
         return "<%s>" % self.__dict__.get("name", self.__name__)
-
 
 
 ###################
@@ -643,6 +699,7 @@ class Enum_metaclass(type):
 
 def export_object(obj):
     print(bytes_base64(gzip.zlib.compress(six.moves.cPickle.dumps(obj, 2), 9)))
+
 
 def import_object(obj=None):
     if obj is None:
@@ -657,33 +714,34 @@ def save_object(fname, obj):
     six.moves.cPickle.dump(obj, fd)
     fd.close()
 
+
 def load_object(fname):
     """unpickle a Python object"""
-    return six.moves.cPickle.load(gzip.open(fname,"rb"))
+    return six.moves.cPickle.load(gzip.open(fname, "rb"))
+
 
 @conf.commands.register
 def corrupt_bytes(s, p=0.01, n=None):
     """Corrupt a given percentage or number of bytes from a string"""
-    s = array.array("B",raw(s))
+    s = array.array("B", raw(s))
     l = len(s)
     if n is None:
-        n = max(1,int(l*p))
+        n = max(1, int(l*p))
     for i in random.sample(range(l), n):
-        s[i] = (s[i]+random.randint(1,255))%256
+        s[i] = (s[i]+random.randint(1, 255))%256
     return s.tostring()
+
 
 @conf.commands.register
 def corrupt_bits(s, p=0.01, n=None):
     """Flip a given percentage or number of bits from a string"""
-    s = array.array("B",raw(s))
+    s = array.array("B", raw(s))
     l = len(s)*8
     if n is None:
-        n = max(1,int(l*p))
+        n = max(1, int(l*p))
     for i in random.sample(range(l), n):
         s[i // 8] ^= 1 << (i % 8)
     return s.tostring()
-
-
 
 
 #############################
@@ -707,6 +765,7 @@ sync: do not bufferize writes to the capture file
     """
     with PcapWriter(filename, *args, **kargs) as fdesc:
         fdesc.write(pkt)
+
 
 @conf.commands.register
 def rdpcap(filename, count=-1):
@@ -762,22 +821,24 @@ class PcapReader_metaclass(type):
         """Open (if necessary) filename, and read the magic."""
         if isinstance(filename, six.string_types):
             try:
-                fdesc = gzip.open(filename,"rb")
+                fdesc = gzip.open(filename, "rb")
                 magic = fdesc.read(4)
             except IOError:
                 fdesc = open(filename, "rb")
                 magic = fdesc.read(4)
         else:
             fdesc = filename
-            filename = (fdesc.name
-                        if hasattr(fdesc, "name") else
-                        "No name")
+            filename = getattr(fdesc, "name", "No name")
             magic = fdesc.read(4)
         return filename, fdesc, magic
 
 
 class RawPcapReader(six.with_metaclass(PcapReader_metaclass)):
     """A stateful pcap reader. Each packet is returned as a string"""
+
+    PacketMetadata = collections.namedtuple("PacketMetadata",
+                                            ["sec", "usec", "wirelen", "caplen"])
+
     def __init__(self, filename, fdesc, magic):
         self.filename = filename
         self.f = fdesc
@@ -816,31 +877,30 @@ class RawPcapReader(six.with_metaclass(PcapReader_metaclass)):
         return pkt
     __next__ = next
 
-
     def read_packet(self, size=MTU):
         """return a single packet read from the file
-        
+
         returns None when no more packets are available
         """
         hdr = self.f.read(16)
         if len(hdr) < 16:
             return None
-        sec,usec,caplen,wirelen = struct.unpack(self.endian+"IIII", hdr)
-        s = self.f.read(caplen)[:size]
-        return s, (sec, usec, caplen, wirelen)
-
+        sec, usec, caplen, wirelen = struct.unpack(self.endian+"IIII", hdr)
+        return (self.f.read(caplen)[:size],
+                RawPcapReader.PacketMetadata(sec=sec, usec=usec,
+                                             wirelen=wirelen, caplen=caplen))
 
     def dispatch(self, callback):
         """call the specified callback routine for each packet read
-        
+
         This is just a convenience function for the main loop
-        that allows for easy launching of packet processing in a 
+        that allows for easy launching of packet processing in a
         thread.
         """
         for p in self:
             callback(p)
 
-    def read_all(self,count=-1):
+    def read_all(self, count=-1):
         """return a list of all packets in the pcap file
         """
         res=[]
@@ -876,14 +936,15 @@ class PcapReader(RawPcapReader):
         try:
             self.LLcls = conf.l2types[self.linktype]
         except KeyError:
-            warning("PcapReader: unknown LL type [%i]/[%#x]. Using Raw packets" % (self.linktype,self.linktype))
+            warning("PcapReader: unknown LL type [%i]/[%#x]. Using Raw packets" % (self.linktype, self.linktype))
             self.LLcls = conf.raw_layer
+
     def read_packet(self, size=MTU):
         rp = super(PcapReader, self).read_packet(size=size)
         if rp is None:
             return None
-        s, (sec, usec, caplen, wirelen) = rp
-        
+        s, pkt_info = rp
+
         try:
             p = self.LLcls(s)
         except KeyboardInterrupt:
@@ -892,13 +953,15 @@ class PcapReader(RawPcapReader):
             if conf.debug_dissector:
                 raise
             p = conf.raw_layer(s)
-        p.time = sec + (0.000000001 if self.nano else 0.000001) * usec
-        p.wirelen = wirelen
+        p.time = pkt_info.sec + (0.000000001 if self.nano else 0.000001) * pkt_info.usec
+        p.wirelen = pkt_info.wirelen
         return p
-    def read_all(self,count=-1):
+
+    def read_all(self, count=-1):
         res = RawPcapReader.read_all(self, count)
         from scapy import plist
-        return plist.PacketList(res,name = os.path.basename(self.filename))
+        return plist.PacketList(res, name = os.path.basename(self.filename))
+
     def recv(self, size=MTU):
         return self.read_packet(size=size)
 
@@ -910,6 +973,10 @@ class RawPcapNgReader(RawPcapReader):
     """
 
     alternative = RawPcapReader
+
+    PacketMetadata = collections.namedtuple("PacketMetadata",
+                                            ["linktype", "tsresol",
+                                             "tshigh", "tslow", "wirelen"])
 
     def __init__(self, filename, fdesc, magic):
         self.filename = filename
@@ -996,8 +1063,11 @@ class RawPcapNgReader(RawPcapReader):
             block[:20],
         )
         return (block[20:20 + caplen][:size],
-                (self.interfaces[intid][0], self.interfaces[intid][2],
-                 tshigh, tslow, wirelen))
+                RawPcapNgReader.PacketMetadata(linktype=self.interfaces[intid][0],
+                                               tsresol=self.interfaces[intid][2],
+                                               tshigh=tshigh,
+                                               tslow=tslow,
+                                               wirelen=wirelen))
 
     def read_block_spb(self, block, size):
         """Simple Packet Block"""
@@ -1008,8 +1078,11 @@ class RawPcapNgReader(RawPcapReader):
         wirelen, = struct.unpack(self.endian + "I", block[:4])
         caplen = min(wirelen, self.interfaces[intid][1])
         return (block[4:4 + caplen][:size],
-                (self.interfaces[intid][0], self.interfaces[intid][2],
-                 None, None, wirelen))
+                RawPcapNgReader.PacketMetadata(linktype=self.interfaces[intid][0],
+                                               tsresol=self.interfaces[intid][2],
+                                               tshigh=None,
+                                               tslow=None,
+                                               wirelen=wirelen))
 
     def read_block_pkt(self, block, size):
         """(Obsolete) Packet Block"""
@@ -1018,8 +1091,11 @@ class RawPcapNgReader(RawPcapReader):
             block[:20],
         )
         return (block[20:20 + caplen][:size],
-                (self.interfaces[intid][0], self.interfaces[intid][2],
-                 tshigh, tslow, wirelen))
+                RawPcapNgReader.PacketMetadata(linktype=self.interfaces[intid][0],
+                                               tsresol=self.interfaces[intid][2],
+                                               tshigh=tshigh,
+                                               tslow=tslow,
+                                               wirelen=wirelen))
 
 
 class PcapNgReader(RawPcapNgReader):
@@ -1046,16 +1122,19 @@ class PcapNgReader(RawPcapNgReader):
             p.time = float((tshigh << 32) + tslow) / tsresol
         p.wirelen = wirelen
         return p
-    def read_all(self,count=-1):
+
+    def read_all(self, count=-1):
         res = RawPcapNgReader.read_all(self, count)
         from scapy import plist
         return plist.PacketList(res, name=os.path.basename(self.filename))
+
     def recv(self, size=MTU):
         return self.read_packet()
 
 
 class RawPcapWriter:
     """A stream PCAP writer with more control than wrpcap()"""
+
     def __init__(self, filename, linktype=None, gz=False, endianness="",
                  append=False, sync=False, nano=False):
         """
@@ -1070,7 +1149,7 @@ sync:       do not bufferize writes to the capture file
 nano:       use nanosecond-precision (requires libpcap >= 1.5.0)
 
         """
-        
+
         self.linktype = linktype
         self.header_present = 0
         self.append = append
@@ -1084,12 +1163,10 @@ nano:       use nanosecond-precision (requires libpcap >= 1.5.0)
 
         if isinstance(filename, six.string_types):
             self.filename = filename
-            self.f = [open,gzip.open][gz](filename,append and "ab" or "wb", gz and 9 or bufsz)
+            self.f = [open, gzip.open][gz](filename, append and "ab" or "wb", gz and 9 or bufsz)
         else:
             self.f = filename
-            self.filename = (filename.name
-                             if hasattr(filename, "name") else
-                             "No name")
+            self.filename = getattr(filename, "name", "No name")
 
     def fileno(self):
         return self.f.fileno()
@@ -1102,14 +1179,13 @@ nano:       use nanosecond-precision (requires libpcap >= 1.5.0)
             # safest way to tell whether the header is already present
             # because we have to handle compressed streams that
             # are not as flexible as basic files
-            g = [open,gzip.open][self.gz](self.filename,"rb")
+            g = [open, gzip.open][self.gz](self.filename, "rb")
             if g.read(16):
                 return
-            
+
         self.f.write(struct.pack(self.endian+"IHHIIII", 0xa1b23c4d if self.nano else 0xa1b2c3d4,
                                  2, 4, 0, 0, MTU, self.linktype))
         self.f.flush()
-    
 
     def write(self, pkt):
         """accepts either a single packet or a list of packets to be
@@ -1126,6 +1202,7 @@ nano:       use nanosecond-precision (requires libpcap >= 1.5.0)
                 try:
                     p = next(pkt)
                 except StopIteration:
+                    self._write_header(None)
                     return
                 self._write_header(p)
                 self._write_packet(p)
@@ -1164,6 +1241,7 @@ nano:       use nanosecond-precision (requires libpcap >= 1.5.0)
 
     def __enter__(self):
         return self
+
     def __exit__(self, exc_type, exc_value, tracback):
         self.flush()
         self.close()
@@ -1171,6 +1249,7 @@ nano:       use nanosecond-precision (requires libpcap >= 1.5.0)
 
 class PcapWriter(RawPcapWriter):
     """A stream PCAP writer with more control than wrpcap()"""
+
     def _write_header(self, pkt):
         if isinstance(pkt, tuple) and pkt:
             pkt = pkt[0]
@@ -1179,7 +1258,7 @@ class PcapWriter(RawPcapWriter):
                 self.linktype = conf.l2types[pkt.__class__]
             except KeyError:
                 warning("PcapWriter: unknown LL type for %s. Using type 1 (Ethernet)", pkt.__class__.__name__)
-                self.linktype = 1
+                self.linktype = DLT_EN10MB
         RawPcapWriter._write_header(self, pkt)
 
     def _write_packet(self, packet):
@@ -1197,6 +1276,7 @@ class PcapWriter(RawPcapWriter):
 
 re_extract_hexcap = re.compile("^((0x)?[0-9a-fA-F]{2,}[ :\t]{,3}|) *(([0-9a-fA-F]{2} {,2}){,16})")
 
+
 @conf.commands.register
 def import_hexcap():
     p = ""
@@ -1210,10 +1290,9 @@ def import_hexcap():
                 continue
     except EOFError:
         pass
-    
-    p = p.replace(" ","")
+
+    p = p.replace(" ", "")
     return p.decode("hex")
-        
 
 
 @conf.commands.register
@@ -1223,6 +1302,7 @@ def wireshark(pktlist):
     wrpcap(f, pktlist)
     with ContextManagerSubprocess("wireshark()", conf.prog.wireshark):
         subprocess.Popen([conf.prog.wireshark, "-r", f])
+
 
 @conf.commands.register
 def tcpdump(pktlist, dump=False, getfd=False, args=None,
@@ -1336,16 +1416,18 @@ u'64'
         return proc.stdout
     proc.wait()
 
+
 @conf.commands.register
 def hexedit(x):
     x = str(x)
     f = get_temp_file()
-    open(f,"wb").write(x)
+    open(f, "wb").write(x)
     with ContextManagerSubprocess("hexedit()", conf.prog.hexedit):
         subprocess.call([conf.prog.hexedit, f])
     x = open(f).read()
     os.unlink(f)
     return x
+
 
 def get_terminal_width():
     """Get terminal width if in a window"""
@@ -1382,6 +1464,7 @@ def get_terminal_width():
             return sizex
         else:
             return None
+
 
 def pretty_list(rtlst, header, sortBy=0):
     """Pretty list to fit the terminal, and add header"""
@@ -1423,19 +1506,20 @@ def pretty_list(rtlst, header, sortBy=0):
     rt = "\n".join(((fmt % x).strip() for x in rtlst))
     return rt
 
+
 def __make_table(yfmtfunc, fmtfunc, endline, data, fxyz, sortx=None, sorty=None, seplinefunc=None):
-    vx = {} 
-    vy = {} 
+    vx = {}
+    vy = {}
     vz = {}
     vxf = {}
     vyf = {}
     l = 0
     for e in data:
         xx, yy, zz = [str(s) for s in fxyz(e)]
-        l = max(len(yy),l)
-        vx[xx] = max(vx.get(xx,0), len(xx), len(zz))
+        l = max(len(yy), l)
+        vx[xx] = max(vx.get(xx, 0), len(xx), len(zz))
         vy[yy] = None
-        vz[(xx,yy)] = zz
+        vz[(xx, yy)] = zz
 
     vxk = list(vx)
     vyk = list(vy)
@@ -1460,7 +1544,6 @@ def __make_table(yfmtfunc, fmtfunc, endline, data, fxyz, sortx=None, sorty=None,
             except:
                 vyk.sort()
 
-
     if seplinefunc:
         sepline = seplinefunc(l, [vx[x] for x in vxk])
         print(sepline)
@@ -1476,25 +1559,29 @@ def __make_table(yfmtfunc, fmtfunc, endline, data, fxyz, sortx=None, sorty=None,
     for y in vyk:
         print(fmt % y, end=' ')
         for x in vxk:
-            print(vxf[x] % vz.get((x,y), "-"), end=' ')
+            print(vxf[x] % vz.get((x, y), "-"), end=' ')
         print(endline)
     if seplinefunc:
         print(sepline)
 
+
 def make_table(*args, **kargs):
-    __make_table(lambda l:"%%-%is" % l, lambda l:"%%-%is" % l, "", *args, **kargs)
-    
+    __make_table(lambda l: "%%-%is" % l, lambda l: "%%-%is" % l, "", *args, **kargs)
+
+
 def make_lined_table(*args, **kargs):
-    __make_table(lambda l:"%%-%is |" % l, lambda l:"%%-%is |" % l, "",
-                 seplinefunc=lambda a,x:"+".join('-'*(y+2) for y in [a-1]+x+[-2]),
+    __make_table(lambda l: "%%-%is |" % l, lambda l: "%%-%is |" % l, "",
+                 seplinefunc=lambda a, x: "+".join('-'*(y+2) for y in [a-1]+x+[-2]),
                  *args, **kargs)
 
+
 def make_tex_table(*args, **kargs):
-    __make_table(lambda l: "%s", lambda l: "& %s", "\\\\", seplinefunc=lambda a,x:"\\hline", *args, **kargs)
+    __make_table(lambda l: "%s", lambda l: "& %s", "\\\\", seplinefunc=lambda a, x: "\\hline", *args, **kargs)
 
 ####################
 ### WHOIS CLIENT ###
 ####################
+
 
 def whois(ip_address):
     """Whois client for Python"""
@@ -1515,7 +1602,7 @@ def whois(ip_address):
     s.close()
     ignore_tag = b"remarks:"
     # ignore all lines starting with the ignore_tag
-    lines = [ line for line in answer.split(b"\n") if not line or (line and not line.startswith(ignore_tag))]
+    lines = [line for line in answer.split(b"\n") if not line or (line and not line.startswith(ignore_tag))]
     # remove empty lines at the bottom
     for i in range(1, len(lines)):
         if not lines[-i].strip():

@@ -15,18 +15,17 @@ import datetime
 
 from scapy.packet import Packet, bind_layers
 from scapy.fields import (BitField, BitEnumField, ByteField, ByteEnumField, \
-XByteField, SignedByteField, FlagsField, ShortField, LEShortField, IntField,\
-LEIntField, FixedPointField, IPField, StrField, StrFixedLenField,\
-StrFixedLenEnumField, XStrFixedLenField, PacketField, PacketLenField,\
-PacketListField, FieldListField, ConditionalField, PadField)
+                          XByteField, SignedByteField, FlagsField, ShortField, LEShortField, IntField,\
+                          LEIntField, FixedPointField, IPField, StrField, StrFixedLenField,\
+                          StrFixedLenEnumField, XStrFixedLenField, PacketField, PacketLenField,\
+                          PacketListField, FieldListField, ConditionalField, PadField)
 from scapy.layers.inet6 import IP6Field
 from scapy.layers.inet import UDP
-from scapy.utils import lhex
+from scapy.utils import issubtype, lhex
 from scapy.compat import *
 from scapy.config import conf
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
-
 
 
 #############################################################################
@@ -214,7 +213,7 @@ class NTP(Packet):
         if cls == "NTP":
             if isinstance(self, NTP):
                 return True
-        elif issubclass(cls, NTP):
+        elif issubtype(cls, NTP):
             if isinstance(self, cls):
                 return True
         return super(NTP, self).haslayer(cls)

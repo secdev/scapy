@@ -37,6 +37,8 @@ from scapy.layers.tls.crypto.ciphers import CipherError
 from scapy.layers.tls.crypto.h_mac import HMACError
 
 # Util
+
+
 def _tls_version_check(version, min):
     """Returns if version >= min, or False if version == None"""
     if version == None:
@@ -46,6 +48,7 @@ def _tls_version_check(version, min):
 ###############################################################################
 ### TLS Record Protocol                                                     ###
 ###############################################################################
+
 
 class _TLSEncryptedContent(Raw):
     """
@@ -64,6 +67,7 @@ class _TLSMsgListField(PacketListField):
     multiple sublayer messages (notably, several handshake messages),
     we inherit from PacketListField.
     """
+
     def __init__(self, name, default, length_from=None):
         if not length_from:
             length_from = self._get_length
@@ -126,7 +130,7 @@ class _TLSMsgListField(PacketListField):
 
         if remain == b"":
             if (((pkt.tls_session.tls_version or 0x0303) > 0x0200) and
-                hasattr(pkt, "type") and pkt.type == 23):
+                    hasattr(pkt, "type") and pkt.type == 23):
                 return ret, [TLSApplicationData(data=b"")]
             else:
                 return ret, [Raw(load=b"")]
@@ -190,7 +194,7 @@ class _TLSMsgListField(PacketListField):
             res += self.i2m(pkt, p)
         if (isinstance(pkt, _GenericTLSSessionInheritance) and
             _tls_version_check(pkt.tls_session.tls_version, 0x0304) and
-            not isinstance(pkt, TLS13ServerHello)):
+                not isinstance(pkt, TLS13ServerHello)):
                 return s + res
         if not pkt.type:
             pkt.type = 0
@@ -254,14 +258,14 @@ class TLS(_GenericTLSSessionInheritance):
     """
     __slots__ = ["deciphered_len"]
     name = "TLS"
-    fields_desc = [ ByteEnumField("type", None, _tls_type),
-                    _TLSVersionField("version", None, _tls_version),
-                    _TLSLengthField("len", None),
-                    _TLSIVField("iv", None),
-                    _TLSMsgListField("msg", []),
-                    _TLSMACField("mac", None),
-                    _TLSPadField("pad", None),
-                    _TLSPadLenField("padlen", None) ]
+    fields_desc = [ByteEnumField("type", None, _tls_type),
+                   _TLSVersionField("version", None, _tls_version),
+                   _TLSLengthField("len", None),
+                   _TLSIVField("iv", None),
+                   _TLSMsgListField("msg", []),
+                   _TLSMACField("mac", None),
+                   _TLSPadField("pad", None),
+                   _TLSPadLenField("padlen", None)]
 
     def __init__(self, *args, **kargs):
         self.deciphered_len = kargs.get("deciphered_len", None)
@@ -471,7 +475,7 @@ class TLS(_GenericTLSSessionInheritance):
             # Authenticated encryption
             # crypto/cipher_aead.py prints a warning for integrity failure
             if (conf.crypto_valid_advanced and
-                isinstance(self.tls_session.rcs.cipher, Cipher_CHACHA20_POLY1305)):
+                    isinstance(self.tls_session.rcs.cipher, Cipher_CHACHA20_POLY1305)):
                 iv = b""
                 cfrag, mac = self._tls_auth_decrypt(hdr, efrag)
             else:
@@ -481,7 +485,7 @@ class TLS(_GenericTLSSessionInheritance):
         frag = self._tls_decompress(cfrag)
 
         if (decryption_success and
-            not isinstance(self.tls_session.rcs.cipher, Cipher_NULL)):
+                not isinstance(self.tls_session.rcs.cipher, Cipher_NULL)):
             self.deciphered_len = len(frag)
         else:
             self.deciphered_len = None
@@ -524,7 +528,6 @@ class TLS(_GenericTLSSessionInheritance):
             except:
                 p = conf.raw_layer(s, _internal=1, _underlayer=self)
             self.add_payload(p)
-
 
     ### Building methods
 
@@ -676,7 +679,8 @@ class TLS(_GenericTLSSessionInheritance):
 ### TLS ChangeCipherSpec                                                    ###
 ###############################################################################
 
-_tls_changecipherspec_type = { 1: "change_cipher_spec" }
+_tls_changecipherspec_type = {1: "change_cipher_spec"}
+
 
 class TLSChangeCipherSpec(_GenericTLSSessionInheritance):
     """
@@ -685,7 +689,7 @@ class TLSChangeCipherSpec(_GenericTLSSessionInheritance):
     Finished messages.
     """
     name = "TLS ChangeCipherSpec"
-    fields_desc = [ ByteEnumField("msgtype", 1, _tls_changecipherspec_type) ]
+    fields_desc = [ByteEnumField("msgtype", 1, _tls_changecipherspec_type)]
 
     def post_dissection_tls_session_update(self, msg_str):
         self.tls_session.triggered_prcs_commit = True
@@ -701,7 +705,7 @@ class TLSChangeCipherSpec(_GenericTLSSessionInheritance):
 ### TLS Alert                                                               ###
 ###############################################################################
 
-_tls_alert_level = { 1: "warning", 2: "fatal"}
+_tls_alert_level = {1: "warning", 2: "fatal"}
 
 _tls_alert_description = {
     0: "close_notify",                 10: "unexpected_message",
@@ -718,12 +722,13 @@ _tls_alert_description = {
     90: "user_canceled",              100: "no_renegotiation",
    110: "unsupported_extension",      111: "certificate_unobtainable",
    112: "unrecognized_name",          113: "bad_certificate_status_response",
-   114: "bad_certificate_hash_value", 115: "unknown_psk_identity" }
+   114: "bad_certificate_hash_value", 115: "unknown_psk_identity"}
+
 
 class TLSAlert(_GenericTLSSessionInheritance):
     name = "TLS Alert"
-    fields_desc = [ ByteEnumField("level", None, _tls_alert_level),
-                    ByteEnumField("descr", None, _tls_alert_description) ]
+    fields_desc = [ByteEnumField("level", None, _tls_alert_level),
+                   ByteEnumField("descr", None, _tls_alert_description)]
 
     def post_dissection_tls_session_update(self, msg_str):
         pass
@@ -738,7 +743,7 @@ class TLSAlert(_GenericTLSSessionInheritance):
 
 class TLSApplicationData(_GenericTLSSessionInheritance):
     name = "TLS Application Data"
-    fields_desc = [ StrField("data", "") ]
+    fields_desc = [StrField("data", "")]
 
     def post_dissection_tls_session_update(self, msg_str):
         pass

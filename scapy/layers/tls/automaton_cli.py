@@ -59,10 +59,10 @@ class TLSClientAutomaton(_TLSAutomaton):
     """
 
     def parse_args(self, server="127.0.0.1", dport=4433, server_name=None,
-                         mycert=None, mykey=None,
-                         client_hello=None, version=None,
-                         data=None,
-                         **kargs):
+                   mycert=None, mykey=None,
+                   client_hello=None, version=None,
+                   data=None,
+                   **kargs):
 
         super(TLSClientAutomaton, self).parse_args(mycert=mycert,
                                                    mykey=mykey,
@@ -107,7 +107,6 @@ class TLSClientAutomaton(_TLSAutomaton):
         else:
             self.data_to_send = []
 
-
     def vprint_sessioninfo(self):
         if self.verbose:
             s = self.cur_session
@@ -123,7 +122,6 @@ class TLSClientAutomaton(_TLSAutomaton):
             if s.server_certs:
                 self.vprint("Server certificate chain: %r" % s.server_certs)
             self.vprint()
-
 
     @ATMT.state(initial=True)
     def INITIAL(self):
@@ -355,7 +353,7 @@ class TLSClientAutomaton(_TLSAutomaton):
         hs_msg = [type(m) for m in self.cur_session.handshake_messages_parsed]
         if (not TLSCertificateRequest in hs_msg or
             self.mycert is None or
-            self.mykey is None):
+                self.mykey is None):
             return
         self.add_msg(TLSCertificateVerify())
         raise self.ADDED_CERTIFICATEVERIFY()
@@ -824,11 +822,11 @@ class TLSClientAutomaton(_TLSAutomaton):
             # you will most likely need to provide an SNI extension.
            #sn = ServerName(servername="<put server name here>")
             ext = [TLS_Ext_SupportedGroups(groups=["secp256r1"]),
-                  #TLS_Ext_ServerName(servernames=[sn]),
+                   #TLS_Ext_ServerName(servernames=[sn]),
                    TLS_Ext_KeyShare_CH(client_shares=[KeyShareEntry(group=23)]),
                    TLS_Ext_SupportedVersions(versions=["TLS 1.3-d18"]),
                    TLS_Ext_SignatureAlgorithms(sig_algs=["sha256+rsapss",
-                                                         "sha256+rsa"]) ]
+                                                         "sha256+rsa"])]
             p = TLSClientHello(ciphers=0x1301, ext=ext)
         self.add_msg(p)
         raise self.TLS13_ADDED_CLIENTHELLO()

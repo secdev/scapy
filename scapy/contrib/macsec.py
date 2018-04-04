@@ -168,10 +168,10 @@ class MACsecSA(object):
         iv = self.make_iv(hdr)
         assoc, ct, icv = MACsecSA.split_pkt(orig_pkt, assoclen, self.icvlen)
         decryptor = Cipher(
-               algorithms.AES(self.key),
-               modes.GCM(iv, icv),
-               backend=default_backend()
-           ).decryptor()
+            algorithms.AES(self.key),
+            modes.GCM(iv, icv),
+            backend=default_backend()
+        ).decryptor()
         decryptor.authenticate_additional_data(assoc)
         pt = assoc[hdrlen:assoclen]
         pt += decryptor.update(ct)
@@ -210,6 +210,6 @@ class MACsec(Packet):
 bind_layers(MACsec, IP, type=ETH_P_IP)
 bind_layers(MACsec, IPv6, type=ETH_P_IPV6)
 
-bind_layers( Dot1AD,        MACsec,        type=ETH_P_MACSEC)
-bind_layers( Dot1Q,         MACsec,        type=ETH_P_MACSEC)
-bind_layers( Ether,         MACsec,        type=ETH_P_MACSEC)
+bind_layers(Dot1AD,        MACsec,        type=ETH_P_MACSEC)
+bind_layers(Dot1Q,         MACsec,        type=ETH_P_MACSEC)
+bind_layers(Ether,         MACsec,        type=ETH_P_MACSEC)

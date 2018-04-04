@@ -12,9 +12,9 @@ from scapy.fields import *
 from scapy.layers.inet import TCP
 
 # shamelessly ripped from Ethereal dissector
-skinny_messages = { 
-# Station -> Callmanager
-  0x0000: "KeepAliveMessage",
+skinny_messages = {
+    # Station -> Callmanager
+    0x0000: "KeepAliveMessage",
   0x0001: "RegisterMessage",
   0x0002: "IpPortMessage",
   0x0003: "KeypadButtonMessage",
@@ -61,7 +61,7 @@ skinny_messages = {
   0x0039: "AuditConferenceResMessage",
   0x0040: "AuditParticipantResMessage",
   0x0041: "DeviceToUserDataVersion1Message",
-# Callmanager -> Station */
+    # Callmanager -> Station */
   0x0081: "RegisterAckMessage",
   0x0082: "StartToneMessage",
   0x0083: "StopToneMessage",
@@ -147,15 +147,15 @@ skinny_messages = {
   0x013C: "AuditConferenceReqMessage",
   0x013D: "AuditParticipantReqMessage",
   0x013F: "UserToDeviceDataVersion1Message",
-  }
+}
 
 
-        
 class Skinny(Packet):
     name="Skinny"
-    fields_desc = [ LEIntField("len",0),
-                    LEIntField("res",0),
-                    LEIntEnumField("msg",0,skinny_messages) ]
+    fields_desc = [LEIntField("len", 0),
+                   LEIntField("res", 0),
+                   LEIntEnumField("msg", 0, skinny_messages)]
 
-bind_layers( TCP,           Skinny,        dport=2000)
-bind_layers( TCP,           Skinny,        sport=2000)
+
+bind_layers(TCP,           Skinny,        dport=2000)
+bind_layers(TCP,           Skinny,        sport=2000)

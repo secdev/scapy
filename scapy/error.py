@@ -11,26 +11,30 @@ Logging subsystem and basic exception class.
 ##### Logging subsystem #####
 #############################
 
+
 class Scapy_Exception(Exception):
     pass
 
+
 import logging, traceback, time
+
 
 class ScapyFreqFilter(logging.Filter):
     def __init__(self):
         logging.Filter.__init__(self)
         self.warning_table = {}
+
     def filter(self, record):
         from scapy.config import conf
         wt = conf.warning_threshold
         if wt > 0:
             stk = traceback.extract_stack()
             caller=None
-            for f,l,n,c in stk:
+            for f, l, n, c in stk:
                 if n == 'warning':
                     break
                 caller = l
-            tm,nb = self.warning_table.get(caller, (0,0))
+            tm, nb = self.warning_table.get(caller, (0, 0))
             ltm = time.time()
             if ltm-tm > wt:
                 tm = ltm
@@ -42,19 +46,12 @@ class ScapyFreqFilter(logging.Filter):
                         record.msg = "more "+record.msg
                 else:
                     return 0
-            self.warning_table[caller] = (tm,nb)
-        return 1    
+            self.warning_table[caller] = (tm, nb)
+        return 1
 
-try:
-    from logging import NullHandler
-except ImportError:
-    # compat for python 2.6
-    from logging import Handler
-    class NullHandler(Handler):
-        def emit(self, record):
-            pass
+
 log_scapy = logging.getLogger("scapy")
-log_scapy.addHandler(NullHandler())
+log_scapy.addHandler(logging.NullHandler())
 log_runtime = logging.getLogger("scapy.runtime")          # logs at runtime
 log_runtime.addFilter(ScapyFreqFilter())
 log_interactive = logging.getLogger("scapy.interactive")  # logs in interactive functions
@@ -64,5 +61,5 @@ log_loading = logging.getLogger("scapy.loading")          # logs when loading Sc
 def warning(x, *args, **kargs):
     """
     Prints a warning during runtime.
-    """ 
+    """
     log_runtime.warning(x, *args, **kargs)

@@ -31,25 +31,25 @@ if conf.crypto_valid:
 ### Common Fields                                                           ###
 ###############################################################################
 
-_tls_hash_sig = { 0x0000: "none+anon",    0x0001: "none+rsa",
-                  0x0002: "none+dsa",     0x0003: "none+ecdsa",
-                  0x0100: "md5+anon",     0x0101: "md5+rsa",
-                  0x0102: "md5+dsa",      0x0103: "md5+ecdsa",
-                  0x0200: "sha1+anon",    0x0201: "sha1+rsa",
-                  0x0202: "sha1+dsa",     0x0203: "sha1+ecdsa",
-                  0x0300: "sha224+anon",  0x0301: "sha224+rsa",
-                  0x0302: "sha224+dsa",   0x0303: "sha224+ecdsa",
-                  0x0400: "sha256+anon",  0x0401: "sha256+rsa",
-                  0x0402: "sha256+dsa",   0x0403: "sha256+ecdsa",
-                  0x0500: "sha384+anon",  0x0501: "sha384+rsa",
-                  0x0502: "sha384+dsa",   0x0503: "sha384+ecdsa",
-                  0x0600: "sha512+anon",  0x0601: "sha512+rsa",
-                  0x0602: "sha512+dsa",   0x0603: "sha512+ecdsa",
-                  0x0804: "sha256+rsapss",
-                  0x0805: "sha384+rsapss",
-                  0x0806: "sha512+rsapss",
-                  0x0807: "ed25519",
-                  0x0808: "ed448" }
+_tls_hash_sig = {0x0000: "none+anon",    0x0001: "none+rsa",
+                 0x0002: "none+dsa",     0x0003: "none+ecdsa",
+                 0x0100: "md5+anon",     0x0101: "md5+rsa",
+                 0x0102: "md5+dsa",      0x0103: "md5+ecdsa",
+                 0x0200: "sha1+anon",    0x0201: "sha1+rsa",
+                 0x0202: "sha1+dsa",     0x0203: "sha1+ecdsa",
+                 0x0300: "sha224+anon",  0x0301: "sha224+rsa",
+                 0x0302: "sha224+dsa",   0x0303: "sha224+ecdsa",
+                 0x0400: "sha256+anon",  0x0401: "sha256+rsa",
+                 0x0402: "sha256+dsa",   0x0403: "sha256+ecdsa",
+                 0x0500: "sha384+anon",  0x0501: "sha384+rsa",
+                 0x0502: "sha384+dsa",   0x0503: "sha384+ecdsa",
+                 0x0600: "sha512+anon",  0x0601: "sha512+rsa",
+                 0x0602: "sha512+dsa",   0x0603: "sha512+ecdsa",
+                 0x0804: "sha256+rsapss",
+                 0x0805: "sha384+rsapss",
+                 0x0806: "sha512+rsapss",
+                 0x0807: "ed25519",
+                 0x0808: "ed448"}
 
 
 def phantom_mode(pkt):
@@ -64,6 +64,7 @@ def phantom_mode(pkt):
     if not pkt.tls_session.tls_version:
         return False
     return pkt.tls_session.tls_version < 0x0303
+
 
 def phantom_decorate(f, get_or_add):
     """
@@ -80,17 +81,20 @@ def phantom_decorate(f, get_or_add):
         return f(*args)
     return wrapper
 
+
 class SigAndHashAlgField(EnumField):
     """Used in _TLSSignature."""
     phantom_value = None
     getfield = phantom_decorate(EnumField.getfield, True)
     addfield = phantom_decorate(EnumField.addfield, False)
 
+
 class SigAndHashAlgsLenField(FieldLenField):
     """Used in TLS_Ext_SignatureAlgorithms and TLSCertificateResquest."""
     phantom_value = 0
     getfield = phantom_decorate(FieldLenField.getfield, True)
     addfield = phantom_decorate(FieldLenField.addfield, False)
+
 
 class SigAndHashAlgsField(FieldListField):
     """Used in TLS_Ext_SignatureAlgorithms and TLSCertificateResquest."""
@@ -101,6 +105,7 @@ class SigAndHashAlgsField(FieldListField):
 
 class SigLenField(FieldLenField):
     """There is a trick for SSLv2, which uses implicit lengths..."""
+
     def getfield(self, pkt, s):
         v = pkt.tls_session.tls_version
         if v and v < 0x0300:
@@ -114,8 +119,10 @@ class SigLenField(FieldLenField):
             return s
         return super(SigLenField, self).addfield(pkt, s, val)
 
+
 class SigValField(StrLenField):
     """There is a trick for SSLv2, which uses implicit lengths..."""
+
     def getfield(self, pkt, m):
         s = pkt.tls_session
         if s.tls_version and s.tls_version < 0x0300:
@@ -144,17 +151,17 @@ class _TLSSignature(_GenericTLSSessionInheritance):
     #XXX 'sig_alg' should be set in __init__ depending on the context.
     """
     name = "TLS Digital Signature"
-    fields_desc = [ SigAndHashAlgField("sig_alg", 0x0401, _tls_hash_sig),
-                    SigLenField("sig_len", None, fmt="!H",
-                                length_of="sig_val"),
-                    SigValField("sig_val", None,
-                                length_from=lambda pkt: pkt.sig_len) ]
+    fields_desc = [SigAndHashAlgField("sig_alg", 0x0401, _tls_hash_sig),
+                   SigLenField("sig_len", None, fmt="!H",
+                               length_of="sig_val"),
+                   SigValField("sig_val", None,
+                               length_from=lambda pkt: pkt.sig_len)]
 
     def __init__(self, *args, **kargs):
         super(_TLSSignature, self).__init__(*args, **kargs)
         if (self.tls_session and
             self.tls_session.tls_version and
-            self.tls_session.tls_version < 0x0303):
+                self.tls_session.tls_version < 0x0303):
             self.sig_alg = None
 
     def _update_sig(self, m, key):
@@ -199,12 +206,14 @@ class _TLSSignature(_GenericTLSSessionInheritance):
     def guess_payload_class(self, p):
         return Padding
 
+
 class _TLSSignatureField(PacketField):
     """
     Used for 'digitally-signed struct' in several ServerKeyExchange,
     and also in CertificateVerify. We can handle the anonymous case.
     """
     __slots__ = ["length_from"]
+
     def __init__(self, name, default, length_from=None, remain=0):
         self.length_from = length_from
         PacketField.__init__(self, name, default, _TLSSignature, remain=remain)
@@ -239,6 +248,7 @@ class _TLSServerParamsField(PacketField):
     XXX We could use Serv*DHParams.check_params() once it has been implemented.
     """
     __slots__ = ["length_from"]
+
     def __init__(self, name, default, length_from=None, remain=0):
         self.length_from = length_from
         PacketField.__init__(self, name, default, None, remain=remain)
@@ -283,15 +293,15 @@ class ServerDHParams(_GenericTLSSessionInheritance):
     of a ClientKeyExchange (which includes secret generation).
     """
     name = "Server FFDH parameters"
-    fields_desc = [ FieldLenField("dh_plen", None, length_of="dh_p"),
-                    StrLenField("dh_p", "",
-                                length_from=lambda pkt: pkt.dh_plen),
-                    FieldLenField("dh_glen", None, length_of="dh_g"),
-                    StrLenField("dh_g", "",
-                                length_from=lambda pkt: pkt.dh_glen),
-                    FieldLenField("dh_Yslen", None, length_of="dh_Ys"),
-                    StrLenField("dh_Ys", "",
-                                length_from=lambda pkt: pkt.dh_Yslen) ]
+    fields_desc = [FieldLenField("dh_plen", None, length_of="dh_p"),
+                   StrLenField("dh_p", "",
+                               length_from=lambda pkt: pkt.dh_plen),
+                   FieldLenField("dh_glen", None, length_of="dh_g"),
+                   StrLenField("dh_g", "",
+                               length_from=lambda pkt: pkt.dh_glen),
+                   FieldLenField("dh_Yslen", None, length_of="dh_Ys"),
+                   StrLenField("dh_Ys", "",
+                               length_from=lambda pkt: pkt.dh_Yslen)]
 
     @crypto_validator
     def fill_missing(self):
@@ -368,18 +378,19 @@ class ServerDHParams(_GenericTLSSessionInheritance):
 
 ### Elliptic Curve Diffie-Hellman
 
-_tls_ec_curve_types = { 1: "explicit_prime",
-                        2: "explicit_char2",
-                        3: "named_curve" }
+_tls_ec_curve_types = {1: "explicit_prime",
+                       2: "explicit_char2",
+                       3: "named_curve"}
 
-_tls_ec_basis_types = { 0: "ec_basis_trinomial", 1: "ec_basis_pentanomial"}
+_tls_ec_basis_types = {0: "ec_basis_trinomial", 1: "ec_basis_pentanomial"}
+
 
 class ECCurvePkt(Packet):
     name = "Elliptic Curve"
-    fields_desc = [ FieldLenField("alen", None, length_of="a", fmt="B"),
-                    StrLenField("a", "", length_from = lambda pkt: pkt.alen),
-                    FieldLenField("blen", None, length_of="b", fmt="B"),
-                    StrLenField("b", "", length_from = lambda pkt: pkt.blen) ]
+    fields_desc = [FieldLenField("alen", None, length_of="a", fmt="B"),
+                   StrLenField("a", "", length_from = lambda pkt: pkt.alen),
+                   FieldLenField("blen", None, length_of="b", fmt="B"),
+                   StrLenField("b", "", length_from = lambda pkt: pkt.blen)]
 
 
 ## Char2 Curves
@@ -387,27 +398,33 @@ class ECCurvePkt(Packet):
 class ECTrinomialBasis(Packet):
     name = "EC Trinomial Basis"
     val = 0
-    fields_desc = [ FieldLenField("klen", None, length_of="k", fmt="B"),
-                    StrLenField("k", "", length_from = lambda pkt: pkt.klen) ]
+    fields_desc = [FieldLenField("klen", None, length_of="k", fmt="B"),
+                   StrLenField("k", "", length_from = lambda pkt: pkt.klen)]
+
     def guess_payload_class(self, p):
         return Padding
+
 
 class ECPentanomialBasis(Packet):
     name = "EC Pentanomial Basis"
     val = 1
-    fields_desc = [ FieldLenField("k1len", None, length_of="k1", fmt="B"),
-                    StrLenField("k1", "", length_from=lambda pkt: pkt.k1len),
-                    FieldLenField("k2len", None, length_of="k2", fmt="B"),
-                    StrLenField("k2", "", length_from=lambda pkt: pkt.k2len),
-                    FieldLenField("k3len", None, length_of="k3", fmt="B"),
-                    StrLenField("k3", "", length_from=lambda pkt: pkt.k3len) ]
+    fields_desc = [FieldLenField("k1len", None, length_of="k1", fmt="B"),
+                   StrLenField("k1", "", length_from=lambda pkt: pkt.k1len),
+                   FieldLenField("k2len", None, length_of="k2", fmt="B"),
+                   StrLenField("k2", "", length_from=lambda pkt: pkt.k2len),
+                   FieldLenField("k3len", None, length_of="k3", fmt="B"),
+                   StrLenField("k3", "", length_from=lambda pkt: pkt.k3len)]
+
     def guess_payload_class(self, p):
         return Padding
 
-_tls_ec_basis_cls = { 0: ECTrinomialBasis, 1: ECPentanomialBasis}
+
+_tls_ec_basis_cls = {0: ECTrinomialBasis, 1: ECPentanomialBasis}
+
 
 class _ECBasisTypeField(ByteEnumField):
     __slots__ = ["basis_type_of"]
+
     def __init__(self, name, default, enum, basis_type_of, remain=0):
         self.basis_type_of = basis_type_of
         EnumField.__init__(self, name, default, enum, "B")
@@ -415,12 +432,14 @@ class _ECBasisTypeField(ByteEnumField):
     def i2m(self, pkt, x):
         if x is None:
             val = 0
-            fld,fval = pkt.getfield_and_val(self.basis_type_of)
+            fld, fval = pkt.getfield_and_val(self.basis_type_of)
             x = fld.i2basis_type(pkt, fval)
         return x
 
+
 class _ECBasisField(PacketField):
     __slots__ = ["clsdict", "basis_type_from"]
+
     def __init__(self, name, default, basis_type_from, clsdict, remain=0):
         self.clsdict = clsdict
         self.basis_type_from = basis_type_from
@@ -454,25 +473,25 @@ class ServerECDHExplicitPrimeParams(_GenericTLSSessionInheritance):
     support from the cryptography library, hence no context operations.
     """
     name = "Server ECDH parameters - Explicit Prime"
-    fields_desc = [ ByteEnumField("curve_type", 1, _tls_ec_curve_types),
-                    FieldLenField("plen", None, length_of="p", fmt="B"),
-                    StrLenField("p", "", length_from=lambda pkt: pkt.plen),
-                    PacketField("curve", None, ECCurvePkt),
-                    FieldLenField("baselen", None, length_of="base", fmt="B"),
-                    StrLenField("base", "",
-                                length_from=lambda pkt: pkt.baselen),
-                    FieldLenField("orderlen", None,
-                                  length_of="order", fmt="B"),
-                    StrLenField("order", "",
-                                length_from=lambda pkt: pkt.orderlen),
-                    FieldLenField("cofactorlen", None,
-                                  length_of="cofactor", fmt="B"),
-                    StrLenField("cofactor", "",
-                                length_from=lambda pkt: pkt.cofactorlen),
-                    FieldLenField("pointlen", None,
-                                  length_of="point", fmt="B"),
-                    StrLenField("point", "",
-                                length_from=lambda pkt: pkt.pointlen) ]
+    fields_desc = [ByteEnumField("curve_type", 1, _tls_ec_curve_types),
+                   FieldLenField("plen", None, length_of="p", fmt="B"),
+                   StrLenField("p", "", length_from=lambda pkt: pkt.plen),
+                   PacketField("curve", None, ECCurvePkt),
+                   FieldLenField("baselen", None, length_of="base", fmt="B"),
+                   StrLenField("base", "",
+                               length_from=lambda pkt: pkt.baselen),
+                   FieldLenField("orderlen", None,
+                                 length_of="order", fmt="B"),
+                   StrLenField("order", "",
+                               length_from=lambda pkt: pkt.orderlen),
+                   FieldLenField("cofactorlen", None,
+                                 length_of="cofactor", fmt="B"),
+                   StrLenField("cofactor", "",
+                               length_from=lambda pkt: pkt.cofactorlen),
+                   FieldLenField("pointlen", None,
+                                 length_of="point", fmt="B"),
+                   StrLenField("point", "",
+                               length_from=lambda pkt: pkt.pointlen)]
 
     def fill_missing(self):
         """
@@ -492,23 +511,23 @@ class ServerECDHExplicitChar2Params(_GenericTLSSessionInheritance):
     support from the cryptography library, hence no context operations.
     """
     name = "Server ECDH parameters - Explicit Char2"
-    fields_desc = [ ByteEnumField("curve_type", 2, _tls_ec_curve_types),
-                    ShortField("m", None),
-                    _ECBasisTypeField("basis_type", None,
-                                      _tls_ec_basis_types, "basis"),
-                    _ECBasisField("basis", ECTrinomialBasis(),
-                                  lambda pkt: pkt.basis_type,
-                                  _tls_ec_basis_cls),
-                    PacketField("curve", ECCurvePkt(), ECCurvePkt),
-                    FieldLenField("baselen", None, length_of="base", fmt="B"),
-                    StrLenField("base", "",
-                                length_from = lambda pkt: pkt.baselen),
-                    ByteField("order", None),
-                    ByteField("cofactor", None),
-                    FieldLenField("pointlen", None,
-                                  length_of="point", fmt="B"),
-                    StrLenField("point", "",
-                                length_from = lambda pkt: pkt.pointlen) ]
+    fields_desc = [ByteEnumField("curve_type", 2, _tls_ec_curve_types),
+                   ShortField("m", None),
+                   _ECBasisTypeField("basis_type", None,
+                                     _tls_ec_basis_types, "basis"),
+                   _ECBasisField("basis", ECTrinomialBasis(),
+                                 lambda pkt: pkt.basis_type,
+                                 _tls_ec_basis_cls),
+                   PacketField("curve", ECCurvePkt(), ECCurvePkt),
+                   FieldLenField("baselen", None, length_of="base", fmt="B"),
+                   StrLenField("base", "",
+                               length_from = lambda pkt: pkt.baselen),
+                   ByteField("order", None),
+                   ByteField("cofactor", None),
+                   FieldLenField("pointlen", None,
+                                 length_of="point", fmt="B"),
+                   StrLenField("point", "",
+                               length_from = lambda pkt: pkt.pointlen)]
 
     def fill_missing(self):
         if self.curve_type is None:
@@ -520,12 +539,12 @@ class ServerECDHExplicitChar2Params(_GenericTLSSessionInheritance):
 
 class ServerECDHNamedCurveParams(_GenericTLSSessionInheritance):
     name = "Server ECDH parameters - Named Curve"
-    fields_desc = [ ByteEnumField("curve_type", 3, _tls_ec_curve_types),
-                    ShortEnumField("named_curve", None, _tls_named_curves),
-                    FieldLenField("pointlen", None,
-                                  length_of="point", fmt="B"),
-                    StrLenField("point", None,
-                                length_from = lambda pkt: pkt.pointlen) ]
+    fields_desc = [ByteEnumField("curve_type", 3, _tls_ec_curve_types),
+                   ShortEnumField("named_curve", None, _tls_named_curves),
+                   FieldLenField("pointlen", None,
+                                 length_of="point", fmt="B"),
+                   StrLenField("point", None,
+                               length_from = lambda pkt: pkt.pointlen)]
 
     @crypto_validator
     def fill_missing(self):
@@ -545,12 +564,8 @@ class ServerECDHNamedCurveParams(_GenericTLSSessionInheritance):
             curve = ec.SECP256R1()
             s.server_kx_privkey = ec.generate_private_key(curve,
                                                           default_backend())
-            curve_id = 0
-            for cid, name in six.iteritems(_tls_named_curves):
-                if name == curve.name:
-                    curve_id = cid
-                    break
-            self.named_curve = curve_id
+            self.named_curve = next((cid for cid, name in six.iteritems(_tls_named_curves)
+                                     if name == curve.name), 0)
         else:
             curve_name = _tls_named_curves.get(self.named_curve)
             if curve_name is None:
@@ -606,9 +621,10 @@ class ServerECDHNamedCurveParams(_GenericTLSSessionInheritance):
         return Padding
 
 
-_tls_server_ecdh_cls = { 1: ServerECDHExplicitPrimeParams,
-                         2: ServerECDHExplicitChar2Params,
-                         3: ServerECDHNamedCurveParams }
+_tls_server_ecdh_cls = {1: ServerECDHExplicitPrimeParams,
+                        2: ServerECDHExplicitChar2Params,
+                        3: ServerECDHNamedCurveParams}
+
 
 def _tls_server_ecdh_cls_guess(m):
     if not m:
@@ -628,12 +644,12 @@ class ServerRSAParams(_GenericTLSSessionInheritance):
     has already been advertised in the Certificate message.
     """
     name = "Server RSA_EXPORT parameters"
-    fields_desc = [ FieldLenField("rsamodlen", None, length_of="rsamod"),
-                    StrLenField("rsamod", "",
-                                length_from = lambda pkt: pkt.rsamodlen),
-                    FieldLenField("rsaexplen", None, length_of="rsaexp"),
-                    StrLenField("rsaexp", "",
-                                length_from = lambda pkt: pkt.rsaexplen) ]
+    fields_desc = [FieldLenField("rsamodlen", None, length_of="rsamod"),
+                   StrLenField("rsamod", "",
+                               length_from = lambda pkt: pkt.rsamodlen),
+                   FieldLenField("rsaexplen", None, length_of="rsaexp"),
+                   StrLenField("rsaexp", "",
+                               length_from = lambda pkt: pkt.rsaexplen)]
 
     @crypto_validator
     def fill_missing(self):
@@ -680,10 +696,10 @@ class ServerPSKParams(Packet):
     which should contain a Server*DHParams after 'psk_identity_hint'.
     """
     name = "Server PSK parameters"
-    fields_desc = [ FieldLenField("psk_identity_hint_len", None,
-                                  length_of="psk_identity_hint", fmt="!H"),
-                    StrLenField("psk_identity_hint", "",
-                        length_from=lambda pkt: pkt.psk_identity_hint_len) ]
+    fields_desc = [FieldLenField("psk_identity_hint_len", None,
+                                 length_of="psk_identity_hint", fmt="!H"),
+                   StrLenField("psk_identity_hint", "",
+                               length_from=lambda pkt: pkt.psk_identity_hint_len)]
 
     def fill_missing(self):
         pass
@@ -711,9 +727,9 @@ class ClientDiffieHellmanPublic(_GenericTLSSessionInheritance):
     in *client* certificate. For now we can only do ephemeral/explicit DH.
     """
     name = "Client DH Public Value"
-    fields_desc = [ FieldLenField("dh_Yclen", None, length_of="dh_Yc"),
-                    StrLenField("dh_Yc", "",
-                                length_from=lambda pkt: pkt.dh_Yclen) ]
+    fields_desc = [FieldLenField("dh_Yclen", None, length_of="dh_Yc"),
+                   StrLenField("dh_Yc", "",
+                               length_from=lambda pkt: pkt.dh_Yclen)]
 
     @crypto_validator
     def fill_missing(self):
@@ -762,15 +778,16 @@ class ClientDiffieHellmanPublic(_GenericTLSSessionInheritance):
     def guess_payload_class(self, p):
         return Padding
 
+
 class ClientECDiffieHellmanPublic(_GenericTLSSessionInheritance):
     """
     Note that the 'len' field is 1 byte longer than with the previous class.
     """
     name = "Client ECDH Public Value"
-    fields_desc = [ FieldLenField("ecdh_Yclen", None,
-                                  length_of="ecdh_Yc", fmt="B"),
-                    StrLenField("ecdh_Yc", "",
-                                length_from=lambda pkt: pkt.ecdh_Yclen)]
+    fields_desc = [FieldLenField("ecdh_Yclen", None,
+                                 length_of="ecdh_Yc", fmt="B"),
+                   StrLenField("ecdh_Yc", "",
+                               length_from=lambda pkt: pkt.ecdh_Yclen)]
 
     @crypto_validator
     def fill_missing(self):
@@ -823,19 +840,20 @@ class _UnEncryptedPreMasterSecret(Raw):
     we use this class to represent the encrypted data.
     """
     name = "RSA Encrypted PreMaster Secret (protected)"
+
     def __init__(self, *args, **kargs):
-        if 'tls_session' in kargs:
-            del(kargs['tls_session'])
+        kargs.pop('tls_session', None)
         return super(_UnEncryptedPreMasterSecret, self).__init__(*args, **kargs)
+
 
 class EncryptedPreMasterSecret(_GenericTLSSessionInheritance):
     """
     Pay attention to implementation notes in section 7.4.7.1 of RFC 5246.
     """
     name = "RSA Encrypted PreMaster Secret"
-    fields_desc = [ _TLSClientVersionField("client_version", None,
-                                           _tls_version),
-                    StrFixedLenField("random", None, 46) ]
+    fields_desc = [_TLSClientVersionField("client_version", None,
+                                          _tls_version),
+                   StrFixedLenField("random", None, 46)]
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
@@ -914,8 +932,8 @@ class ClientPSKIdentity(Packet):
     which should contain either an EncryptedPMS or a ClientDiffieHellmanPublic.
     """
     name = "Server PSK parameters"
-    fields_desc = [ FieldLenField("psk_identity_len", None,
-                                  length_of="psk_identity", fmt="!H"),
-                    StrLenField("psk_identity", "",
-                        length_from=lambda pkt: pkt.psk_identity_len) ]
+    fields_desc = [FieldLenField("psk_identity_len", None,
+                                 length_of="psk_identity", fmt="!H"),
+                   StrLenField("psk_identity", "",
+                               length_from=lambda pkt: pkt.psk_identity_len)]
 

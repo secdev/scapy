@@ -35,16 +35,15 @@ from scapy.arch.common import get_if, get_bpf_pointer
 from scapy.modules.six.moves import range
 
 
-
 # From bits/ioctls.h
-SIOCGIFHWADDR  = 0x8927          # Get hardware address    
-SIOCGIFADDR    = 0x8915          # get PA address          
-SIOCGIFNETMASK = 0x891b          # get network PA mask     
-SIOCGIFNAME    = 0x8910          # get iface name          
-SIOCSIFLINK    = 0x8911          # set iface channel       
-SIOCGIFCONF    = 0x8912          # get iface list          
-SIOCGIFFLAGS   = 0x8913          # get flags               
-SIOCSIFFLAGS   = 0x8914          # set flags               
+SIOCGIFHWADDR  = 0x8927          # Get hardware address
+SIOCGIFADDR    = 0x8915          # get PA address
+SIOCGIFNETMASK = 0x891b          # get network PA mask
+SIOCGIFNAME    = 0x8910          # get iface name
+SIOCSIFLINK    = 0x8911          # set iface channel
+SIOCGIFCONF    = 0x8912          # get iface list
+SIOCGIFFLAGS   = 0x8913          # get flags
+SIOCSIFFLAGS   = 0x8914          # set flags
 SIOCGIFINDEX   = 0x8933          # name -> if_index mapping
 SIOCGIFCOUNT   = 0x8938          # get number of devices
 SIOCGSTAMP     = 0x8906          # get packet timestamp (as a timeval)
@@ -99,10 +98,11 @@ with os.popen("%s -V 2> /dev/null" % conf.prog.tcpdump) as _f:
     else:
         TCPDUMP=1
 del(_f)
-    
+
 
 def get_if_raw_hwaddr(iff):
-    return struct.unpack("16xh6s8x",get_if(iff,SIOCGIFHWADDR))
+    return struct.unpack("16xh6s8x", get_if(iff, SIOCGIFHWADDR))
+
 
 def get_if_raw_addr(iff):
     try:
@@ -124,17 +124,20 @@ def get_if_list():
         l = plain_str(l)
         lst.append(l.split(":")[0].strip())
     return lst
+
+
 def get_working_if():
     for i in get_if_list():
-        if i == LOOPBACK_NAME:                
+        if i == LOOPBACK_NAME:
             continue
-        ifflags = struct.unpack("16xH14x",get_if(i,SIOCGIFFLAGS))[0]
+        ifflags = struct.unpack("16xH14x", get_if(i, SIOCGIFFLAGS))[0]
         if ifflags & IFF_UP:
             return i
     return LOOPBACK_NAME
 
+
 def attach_filter(s, bpf_filter, iface):
-    # XXX We generate the filter on the interface conf.iface 
+    # XXX We generate the filter on the interface conf.iface
     # because tcpdump open the "any" interface and ppp interfaces
     # in cooked mode. As we use them in raw mode, the filter will not
     # work... one solution could be to use "any" interface and translate
@@ -160,11 +163,12 @@ def attach_filter(s, bpf_filter, iface):
             "Failed to attach filter: tcpdump returned %d", ret
         )
         return
-    
+
     bp = get_bpf_pointer(lines)
     s.setsockopt(socket.SOL_SOCKET, SO_ATTACH_FILTER, bp)
 
-def set_promisc(s,iff,val=1):
+
+def set_promisc(s, iff, val=1):
     mreq = struct.pack("IHH8s", get_if_index(iff), PACKET_MR_PROMISC, 0, b"")
     if val:
         cmd = PACKET_ADD_MEMBERSHIP
@@ -206,7 +210,7 @@ def get_alias_address(iface_name, ip_mask, gw_str, metric):
         ifaddr = struct.unpack(">I", ifreq[20:24])[0]
         ifreq = ioctl(sck, SIOCGIFNETMASK, struct.pack("16s16x", ifname))
         msk = struct.unpack(">I", ifreq[20:24])[0]
-       
+
         # Get the full interface name
         ifname = plain_str(ifname)
         if ':' in ifname:
@@ -251,18 +255,18 @@ def read_routes():
 
     for l in f.readlines()[1:]:
         l = plain_str(l)
-        iff,dst,gw,flags,x,x,metric,msk,x,x,x = l.split()
-        flags = int(flags,16)
+        iff, dst, gw, flags, x, x, metric, msk, x, x, x = l.split()
+        flags = int(flags, 16)
         if flags & RTF_UP == 0:
             continue
         if flags & RTF_REJECT:
             continue
         try:
-            ifreq = ioctl(s, SIOCGIFADDR,struct.pack("16s16x", iff.encode("utf8")))
+            ifreq = ioctl(s, SIOCGIFADDR, struct.pack("16s16x", iff.encode("utf8")))
         except IOError: # interface is present in routing tables but does not have any assigned IP
             ifaddr="0.0.0.0"
         else:
-            addrfamily = struct.unpack("h",ifreq[16:18])[0]
+            addrfamily = struct.unpack("h", ifreq[16:18])[0]
             if addrfamily == socket.AF_INET:
                 ifaddr = scapy.utils.inet_ntoa(ifreq[20:24])
             else:
@@ -285,13 +289,14 @@ def read_routes():
 
         else:
             routes.append((dst_int, msk_int, gw_str, iff, ifaddr, metric))
-    
+
     f.close()
     return routes
 
 ############
 ### IPv6 ###
 ############
+
 
 def in6_getifaddr():
     """
@@ -305,7 +310,7 @@ def in6_getifaddr():
     ret = []
     try:
         fdesc = open("/proc/net/if_inet6", "rb")
-    except IOError as err:    
+    except IOError as err:
         return ret
     for line in fdesc:
         # addr, index, plen, scope, flags, ifname
@@ -319,9 +324,10 @@ def in6_getifaddr():
         ret.append((addr, int(tmp[3], 16), tmp[5]))
     return ret
 
+
 def read_routes6():
     try:
-        f = open("/proc/net/ipv6_route","rb")
+        f = open("/proc/net/ipv6_route", "rb")
     except IOError as err:
         return []
     # 1. destination network
@@ -335,15 +341,16 @@ def read_routes6():
     # 9. flags
     # 10. device name
     routes = []
+
     def proc2r(p):
         ret = struct.unpack('4s4s4s4s4s4s4s4s', raw(p))
         ret = b':'.join(ret).decode()
         return scapy.utils6.in6_ptop(ret)
-    
-    lifaddr = in6_getifaddr() 
+
+    lifaddr = in6_getifaddr()
     for l in f.readlines():
         l = plain_str(l)
-        d,dp,s,sp,nh,metric,rc,us,fl,dev = l.split()
+        d, dp, s, sp, nh, metric, rc, us, fl, dev = l.split()
         metric = int(metric, 16)
         fl = int(fl, 16)
 
@@ -352,8 +359,8 @@ def read_routes6():
         if fl & RTF_REJECT:
             continue
 
-        d = proc2r(d) ; dp = int(dp, 16)
-        s = proc2r(s) ; sp = int(sp, 16)
+        d = proc2r(d); dp = int(dp, 16)
+        s = proc2r(s); sp = int(sp, 16)
         nh = proc2r(nh)
 
         cset = [] # candidate set (possible source addresses)
@@ -364,25 +371,26 @@ def read_routes6():
         else:
             devaddrs = (x for x in lifaddr if x[2] == dev)
             cset = scapy.utils6.construct_source_candidate_set(d, dp, devaddrs)
-        
+
         if len(cset) != 0:
             routes.append((d, dp, nh, dev, cset, metric))
     f.close()
-    return routes   
+    return routes
 
 
 def get_if_index(iff):
-    return int(struct.unpack("I",get_if(iff, SIOCGIFINDEX)[16:20])[0])
+    return int(struct.unpack("I", get_if(iff, SIOCGIFINDEX)[16:20])[0])
 
-if os.uname()[4] in [ 'x86_64', 'aarch64' ]:
+
+if os.uname()[4] in ['x86_64', 'aarch64']:
     def get_last_packet_timestamp(sock):
         ts = ioctl(sock, SIOCGSTAMP, "1234567890123456")
-        s,us = struct.unpack("QQ",ts)
+        s, us = struct.unpack("QQ", ts)
         return s+us/1000000.0
 else:
     def get_last_packet_timestamp(sock):
         ts = ioctl(sock, SIOCGSTAMP, "12345678")
-        s,us = struct.unpack("II",ts)
+        s, us = struct.unpack("II", ts)
         return s+us/1000000.0
 
 
@@ -390,18 +398,16 @@ def _flush_fd(fd):
     if hasattr(fd, 'fileno'):
         fd = fd.fileno()
     while True:
-        r,w,e = select([fd],[],[],0)
+        r, w, e = select([fd], [], [], 0)
         if r:
-            os.read(fd,MTU)
+            os.read(fd, MTU)
         else:
             break
 
 
-
-
-
 class L3PacketSocket(SuperSocket):
     desc = "read/write packets at layer 3 using Linux PF_PACKET sockets"
+
     def __init__(self, type = ETH_P_ALL, filter=None, promisc=None, iface=None, nofilter=0):
         self.type = type
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
@@ -430,6 +436,7 @@ class L3PacketSocket(SuperSocket):
                 self.iff = [iface]
             for i in self.iff:
                 set_promisc(self.ins, i)
+
     def close(self):
         if self.closed:
             return
@@ -438,6 +445,7 @@ class L3PacketSocket(SuperSocket):
             for i in self.iff:
                 set_promisc(self.ins, i, 0)
         SuperSocket.close(self)
+
     def recv(self, x=MTU):
         pkt, sa_ll = self.ins.recvfrom(x)
         if sa_ll[2] == socket.PACKET_OUTGOING:
@@ -463,23 +471,23 @@ class L3PacketSocket(SuperSocket):
             pkt = conf.raw_layer(pkt)
         if lvl == 2:
             pkt = pkt.payload
-            
+
         if pkt is not None:
             pkt.time = get_last_packet_timestamp(self.ins)
         return pkt
-    
+
     def send(self, x):
-        iff,a,gw  = x.route()
+        iff, a, gw  = x.route()
         if iff is None:
             iff = conf.iface
         sdto = (iff, self.type)
         self.outs.bind(sdto)
         sn = self.outs.getsockname()
-        ll = lambda x:x
+        ll = lambda x: x
         if type(x) in conf.l3types:
             sdto = (iff, conf.l3types[type(x)])
         if sn[3] in conf.l2types:
-            ll = lambda x:conf.l2types[sn[3]]()/x
+            ll = lambda x: conf.l2types[sn[3]]()/x
         sx = raw(ll(x))
         x.sent_time = time.time()
         try:
@@ -494,14 +502,14 @@ class L3PacketSocket(SuperSocket):
                 raise
 
 
-
 class L2Socket(SuperSocket):
     desc = "read/write packets at layer 2 using Linux PF_PACKET sockets"
+
     def __init__(self, iface=None, type=ETH_P_ALL, promisc=None, filter=None, nofilter=0):
         self.iface = conf.iface if iface is None else iface
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
         self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 0)
-        if not nofilter: 
+        if not nofilter:
             if conf.except_filter:
                 if filter:
                     filter = "(%s) and not (%s)" % (filter, conf.except_filter)
@@ -525,6 +533,7 @@ class L2Socket(SuperSocket):
         else:
             self.LL = conf.default_l2
             warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using %s", sa_ll[0], sa_ll[1], sa_ll[3], self.LL.name)
+
     def close(self):
         if self.closed:
             return
@@ -532,6 +541,7 @@ class L2Socket(SuperSocket):
         if self.promisc:
             set_promisc(self.ins, self.iface, 0)
         SuperSocket.close(self)
+
     def recv(self, x=MTU):
         pkt, sa_ll = self.ins.recvfrom(x)
         if sa_ll[2] == socket.PACKET_OUTGOING:
@@ -546,6 +556,7 @@ class L2Socket(SuperSocket):
             q = conf.raw_layer(pkt)
         q.time = get_last_packet_timestamp(self.ins)
         return q
+
     def send(self, x):
         try:
             return SuperSocket.send(self, x)
@@ -561,6 +572,7 @@ class L2Socket(SuperSocket):
 
 class L2ListenSocket(SuperSocket):
     desc = "read packets at layer 2 using Linux PF_PACKET sockets"
+
     def __init__(self, iface = None, type = ETH_P_ALL, promisc=None, filter=None, nofilter=0):
         self.type = type
         self.outs = None
@@ -590,6 +602,7 @@ class L2ListenSocket(SuperSocket):
                 set_promisc(self.ins, i)
         _flush_fd(self.ins)
         self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2**30)
+
     def close(self):
         if self.promisc:
             for i in self.iff:
@@ -598,7 +611,7 @@ class L2ListenSocket(SuperSocket):
 
     def recv(self, x=MTU):
         pkt, sa_ll = self.ins.recvfrom(x)
-        if sa_ll[3] in conf.l2types :
+        if sa_ll[3] in conf.l2types:
             cls = conf.l2types[sa_ll[3]]
         elif sa_ll[1] in conf.l3types:
             cls = conf.l3types[sa_ll[1]]
@@ -606,7 +619,7 @@ class L2ListenSocket(SuperSocket):
             cls = conf.default_l2
             warning("Unable to guess type (interface=%s protocol=%#x "
                     "family=%i). Using %s", sa_ll[0], sa_ll[1], sa_ll[3],
-                                              cls.name)
+                    cls.name)
 
         try:
             pkt = cls(pkt)
@@ -619,7 +632,7 @@ class L2ListenSocket(SuperSocket):
         pkt.time = get_last_packet_timestamp(self.ins)
         pkt.direction = sa_ll[2]
         return pkt
-    
+
     def send(self, x):
         raise Scapy_Exception("Can't send anything with L2ListenSocket")
 

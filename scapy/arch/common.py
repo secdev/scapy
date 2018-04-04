@@ -17,6 +17,7 @@ import scapy.modules.six as six
 
 ## UTILS
 
+
 def get_if(iff, cmd):
     """Ease SIOCGIF* ioctl calls"""
 
@@ -26,6 +27,7 @@ def get_if(iff, cmd):
     return ifreq
 
 ## BPF HANDLERS
+
 
 class bpf_insn(Structure):
     """"The BPF instruction data structure"""
@@ -40,13 +42,14 @@ class bpf_program(Structure):
     _fields_ = [("bf_len", c_uint),
                 ("bf_insns", POINTER(bpf_insn))]
 
+
 def _legacy_bpf_pointer(tcpdump_lines):
     """Get old-format BPF Pointer. Deprecated"""
     X86_64 = os.uname()[4] in ['x86_64', 'aarch64']
     size = int(tcpdump_lines[0])
     bpf = ""
     for l in tcpdump_lines[1:]:
-        bpf += struct.pack("HBBI",*map(long,l.split()))
+        bpf += struct.pack("HBBI", *map(long, l.split()))
 
     # Thanks to http://www.netprojects.de/scapy-with-pypy-solved/ for the pypy trick
     if conf.use_pypy and six.PY2:
@@ -60,11 +63,12 @@ def _legacy_bpf_pointer(tcpdump_lines):
         else:
             return struct.pack("HI", size, id(bpf)+20)
 
+
 def get_bpf_pointer(tcpdump_lines):
     """Create a BPF Pointer for TCPDump filter"""
     if conf.use_pypy and six.PY2:
         return _legacy_bpf_pointer(tcpdump_lines)
-    
+
     # Allocate BPF instructions
     size = int(tcpdump_lines[0])
     bpf_insn_a = bpf_insn * size

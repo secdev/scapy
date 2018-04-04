@@ -7,7 +7,7 @@
 Common customizations for all Unix-like operating systems other than Linux
 """
 
-import sys,os,struct,socket,time
+import sys, os, struct, socket, time
 from fcntl import ioctl
 import socket
 
@@ -71,14 +71,15 @@ def read_routes():
         if SOLARIS:
             lspl = l.split()
             if len(lspl) == 10:
-                dest,mask,gw,netif,mxfrg,rtt,ref,flg = lspl[:8]
+                dest, mask, gw, netif, mxfrg, rtt, ref, flg = lspl[:8]
             else: # missing interface
-                dest,mask,gw,mxfrg,rtt,ref,flg = lspl[:7]
+                dest, mask, gw, mxfrg, rtt, ref, flg = lspl[:7]
                 netif=None
         else:
             rt = l.split()
-            dest,gw,flg = rt[:3]
-            netif = rt[4 + mtu_present + prio_present + refs_present]
+            dest, gw, flg = rt[:3]
+            locked = OPENBSD and rt[6] == "L"
+            netif = rt[4 + mtu_present + prio_present + refs_present + locked]
         if flg.find("Lc") >= 0:
             continue
         if dest == "default":
@@ -88,7 +89,7 @@ def read_routes():
             if SOLARIS:
                 netmask = scapy.utils.atol(mask)
             elif "/" in dest:
-                dest,netmask = dest.split("/")
+                dest, netmask = dest.split("/")
                 netmask = scapy.utils.itom(int(netmask))
             else:
                 netmask = scapy.utils.itom((dest.count(".") + 1) * 8)
@@ -101,7 +102,7 @@ def read_routes():
         if netif is not None:
             try:
                 ifaddr = get_if_addr(netif)
-                routes.append((dest,netmask, gw, netif, ifaddr, metric))
+                routes.append((dest, netmask, gw, netif, ifaddr, metric))
             except OSError as exc:
                 if exc.message == 'Device not configured':
                     # This means the interface name is probably truncated by
@@ -116,16 +117,16 @@ def read_routes():
                 else:
                     raise
         else:
-            pending_if.append((dest,netmask,gw))
+            pending_if.append((dest, netmask, gw))
     f.close()
 
     # On Solaris, netstat does not provide output interfaces for some routes
     # We need to parse completely the routing table to route their gw and
     # know their output interface
-    for dest,netmask,gw in pending_if:
+    for dest, netmask, gw in pending_if:
         gw_l = scapy.utils.atol(gw)
-        max_rtmask,gw_if,gw_if_addr, = 0,None,None
-        for rtdst,rtmask,_,rtif,rtaddr in routes[:]:
+        max_rtmask, gw_if, gw_if_addr, = 0, None, None
+        for rtdst, rtmask, _, rtif, rtaddr in routes[:]:
             if gw_l & rtmask == rtdst:
                 if rtmask >= max_rtmask:
                     max_rtmask = rtmask
@@ -134,7 +135,7 @@ def read_routes():
         # XXX: TODO add metrics
         metric = 1
         if gw_if:
-            routes.append((dest,netmask, gw, gw_if, gw_if_addr, metric))
+            routes.append((dest, netmask, gw, gw_if, gw_if_addr, metric))
         else:
             warning("Did not find output interface to reach gateway %s", gw)
 
@@ -143,6 +144,7 @@ def read_routes():
 ############
 ### IPv6 ###
 ############
+
 
 def _in6_getifaddr(ifname):
     """
@@ -177,6 +179,7 @@ def _in6_getifaddr(ifname):
         ret.append((addr, scope, ifname))
 
     return ret
+
 
 def in6_getifaddr():
     """

@@ -171,13 +171,14 @@ assert get_var("init_value") == 123
  
 = Session test with fname
 
-init_session("scapySession2")
+session_name = tempfile.mktemp()
+init_session(session_name)
 set_var("test_value", IP(dst="192.168.0.1")) # test_value = IP(dst="192.168.0.1")
-save_session(fname="scapySession1.dat")
+save_session(fname="%s.dat" % session_name)
 del_var("test_value")
 
 set_var("z", True) #z = True
-load_session(fname="scapySession1.dat")
+load_session(fname="%s.dat" % session_name)
 try:
     get_var("z")
     assert False
@@ -185,13 +186,13 @@ except:
     pass
 
 set_var("z", False) #z = False
-update_session(fname="scapySession1.dat")
+update_session(fname="%s.dat" % session_name)
 assert get_var("test_value").dst == "192.168.0.1" #test_value.dst == "192.168.0.1"
 assert not get_var("z")
 
 = Clear session files
 
-os.remove("scapySession1.dat")
+os.remove("%s.dat" % session_name)
 
 = Test temporary file creation
 ~ appveyor_only
@@ -800,6 +801,15 @@ assert(x.PDU.varbindlist[0].value == b"172.31.19.2")
 assert(x.PDU.varbindlist[2].oid == "1.3.6.1.4.1.253.8.64.4.2.1.5.10.14130400")
 assert(x.PDU.varbindlist[2].value == 1)
 
+= Basic UDP/SNMP bindings
+~ SNMP ASN1
+z = UDP()/x
+z = UDP(raw(z))
+assert SNMP in z
+
+x = UDP()/SNMP()
+assert x.sport == x.dport == 161
+
 = ASN1 - ASN1_Object
 assert ASN1_Object(1) == ASN1_Object(1)
 assert ASN1_Object(1) > ASN1_Object(0)
@@ -1213,6 +1223,34 @@ for i in range(10):
 
 response = res[0][1]
 assert response[ICMP].type == 0
+
+= Test set of sent_time by sr
+~ netaccess IP ICMP
+packet = IP(dst="8.8.8.8")/ICMP()
+r = sr(packet)
+assert packet.sent_time is not None
+
+= Test set of sent_time by sr (multiple packets)
+~ netaccess IP ICMP
+packet1 = IP(dst="8.8.8.8")/ICMP()
+packet2 = IP(dst="8.8.4.4")/ICMP()
+r = sr([packet1, packet2])
+assert packet1.sent_time is not None
+assert packet2.sent_time is not None
+
+= Test set of sent_time by srflood
+~ netaccess IP ICMP
+packet = IP(dst="8.8.8.8")/ICMP()
+r = srflood(packet)
+assert packet.sent_time is not None
+
+= Test set of sent_time by srflood (multiple packets)
+~ netaccess IP ICMP
+packet1 = IP(dst="8.8.8.8")/ICMP()
+packet2 = IP(dst="8.8.4.4")/ICMP()
+r = srflood([packet1, packet2])
+assert packet1.sent_time is not None
+assert packet2.sent_time is not None
 
 ############
 ############
@@ -2332,6 +2370,15 @@ raw(IPv6ExtHdrHopByHop(options=[RouterAlert()])) == b';\x00\x05\x02\x00\x00\x01\
 = IPv6ExtHdrHopByHop - Instantiation with Jumbo option
 raw(IPv6ExtHdrHopByHop(options=[Jumbo()])) == b';\x00\xc2\x04\x00\x00\x00\x00'
 
+= IPv6ExtHdrHopByHop - Complete dissection with Jumbo option
+s = b'`\x00\x00\x00\x00\x00\x00@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01:\x00\xc2\x04\x00\x00\x00\x10\x80\x00\x7f\xbb\x00\x00\x00\x00'
+p = IPv6(s)
+assert IPv6ExtHdrHopByHop in p and Jumbo in p and ICMPv6EchoRequest in p
+
+s = b'`\x00\x00\x00\x00\x00\x00@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01:\x01\x01\x06\x00\x00\x00\x00\x00\x00\xc2\x04\x00\x00\x00\x18\x80\x00\x7f\xbb\x00\x00\x00\x00'
+p = IPv6(s)
+assert IPv6ExtHdrHopByHop in p and PadN in p and Jumbo in p and ICMPv6EchoRequest in p
+
 = IPv6ExtHdrHopByHop - Instantiation with Pad1 option
 raw(IPv6ExtHdrHopByHop(options=[Pad1()])) == b';\x00\x00\x01\x03\x00\x00\x00'
 
@@ -2935,6 +2982,12 @@ s = raw(IPv6()/ICMPv6NIQueryName(data="n.d.org"))
 p = IPv6(s)
 ICMPv6NIQueryName in p and p[ICMPv6NIQueryName].data == b"n.d.org"
 
+= ICMPv6NIQueryName - dissection
+s = b'\x8b\x00z^\x00\x02\x00\x00\x00\x03g\x90\xc7\xa3\xdd[\xff\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
+p = ICMPv6NIQueryName(s)
+p.show()
+assert ICMPv6NIQueryName in p and p.data == "ff02::1"
+
 
 ############
 ############
@@ -3002,6 +3055,20 @@ type(a) is tuple and len(a) == 2 and a[0] == 2 and a[1] == '169.254.253.252'
 
 = ICMPv6NIQueryIPv4 - IPv4 address
 ICMPv6NIQueryIPv4(data="169.254.253.252").data == '169.254.253.252'
+
+= ICMPv6NIQueryIPv4 - dissection
+s = b'\x8b\x01\x00\x00\x00\x04\x00\x00\xc2\xb9\xc2\x96\xc3\xa1.H\x07freebsd\x00\x00'
+p = ICMPv6NIQueryIPv4(s)
+p.show()
+assert ICMPv6NIQueryIPv4 in p and p.data == b"freebsd"
+
+= ICMPv6NIQueryIPv4 - hashret()
+~ not_pypy random_weird_py3
+random.seed(0x2807)
+p = IPv6()/ICMPv6NIQueryIPv4(data="freebsd")
+h_py2 = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00:\xe10S7\x9d\x91\x84\xc9'
+h_py3 = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00:\xa8\x19uE\x01\xcf\xe3\x04'
+assert p.hashret() in [h_py2, h_py3]
 
 
 ############
@@ -3232,6 +3299,13 @@ type(a) is tuple and len(a) == 2 and a[0] == 2 and type(a[1]) is list and len(a[
 = ICMPv6NIReplyName - [ttl, single-label, single-label, fqdn]
 ICMPv6NIReplyName(data=[42, "abricot", "poire", "n.d.tld"]).data == [42, b"abricot", b"poire", b"n.d.tld"]
 
+= ICMPv6NIReplyName - dissection
+
+s = b'\x8c\x00\xd1\x0f\x00\x02\x00\x00\x00\x00\xd9$\x94\x8d\xc6%\x00\x00\x00\x00\x07freebsd\x00\x00'
+p = ICMPv6NIReplyName(s)
+p.show()
+assert ICMPv6NIReplyName in p and p.data == [0, b'freebsd']
+
 
 ############
 ############
@@ -3417,6 +3491,8 @@ raw(defragment6(l)) == b'`\x00\x00\x00\x0f\xb4\x06@\x00\x00\x00\x00\x00\x00\x00\
 + Test Route6 class
 
 = Route6 - Route6 flushing
+conf_iface = conf.iface
+conf.iface = "eth0"
 conf.route6.routes=[
 (                               '::1', 128,                       '::',   'lo', ['::1'], 1), 
 (          'fe80::20f:1fff:feca:4650', 128,                       '::',   'lo', ['::1'], 1)]
@@ -3434,6 +3510,7 @@ conf.route6.routes=[
 (                                '::',   0, 'fe80::20f:34ff:fe8a:8aa1', 'eth0', ['2001:db8:0:4444:20f:1fff:feca:4650', '2002:db8:0:4444:20f:1fff:feca:4650'], 1)
 ]
 conf.route6.route("2002::1") == ('eth0', '2002:db8:0:4444:20f:1fff:feca:4650', 'fe80::20f:34ff:fe8a:8aa1') and conf.route6.route("2001::1") == ('eth0', '2001:db8:0:4444:20f:1fff:feca:4650', 'fe80::20f:34ff:fe8a:8aa1') and conf.route6.route("fe80::20f:1fff:feab:4870") == ('eth0', 'fe80::20f:1fff:feca:4650', '::') and conf.route6.route("::1") == ('lo', '::1', '::') and conf.route6.route("::") == ('eth0', '2001:db8:0:4444:20f:1fff:feca:4650', 'fe80::20f:34ff:fe8a:8aa1') and conf.route6.route('ff00::') == ('eth0', '2001:db8:0:4444:20f:1fff:feca:4650', 'fe80::20f:34ff:fe8a:8aa1')
+conf.iface = conf_iface
 conf.route6.resync()
 if not len(conf.route6.routes):
     # IPv6 seems disabled. Force a route to ::1
@@ -3494,11 +3571,54 @@ assert _ICMPv6Error().guess_payload_class(None) == IPerror6
 + ICMPv6ML
 
 = ICMPv6MLQuery - build & dissection
-s = raw(IPv6()/ICMPv6MLQuery())
-s == b"`\x00\x00\x00\x00\x18:\x01\xfe\x80\x00\x00\x00\x00\x00\x00\xba\xca:\xff\xfer\xb0\x8b\xff\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x82\x00\xb4O'\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+s = raw(IPv6(src="fe80::1")/ICMPv6MLQuery())
+assert s == b"`\x00\x00\x00\x00\x18:\x01\xfe\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\xff\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x82\x00Y\x17'\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
 
 p = IPv6(s)
-ICMPv6MLQuery in p and p[IPv6].dst == "ff02::1"
+assert ICMPv6MLQuery in p and p[IPv6].dst == "ff02::1"
+
+= Check awnswers
+
+q = IPv6()/IPv6ExtHdrHopByHop(options=[RouterAlert()])/ICMPv6MLQuery()
+a = IPv6()/IPv6ExtHdrHopByHop(options=[RouterAlert()])/ICMPv6MLReport()
+
+assert a.answers(q)
+
+############
+############
++ ICMPv6MLv2
+
+= ICMPv6MLQuery2 - build & dissection
+p = IPv6()/IPv6ExtHdrHopByHop(options=[RouterAlert()])/ICMPv6MLQuery2(sources=["::1"])
+s = raw(p)
+assert s == b"`\x00\x00\x00\x004\x00@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01:\x00\x05\x02\x00\x00\x01\x00\x82\x00V\x85'\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01"
+
+p = IPv6(s)
+assert ICMPv6MLQuery2 in p and p.sources_number == 1
+
+= ICMPv6MLReport2 - build & dissection
+p = IPv6()/IPv6ExtHdrHopByHop(options=[RouterAlert()])/ICMPv6MLReport2(records=[ICMPv6MLDMultAddrRec(), ICMPv6MLDMultAddrRec(sources=["::1"], auxdata="scapy")])
+s = raw(p)
+assert s == b'`\x00\x00\x00\x00M\x00@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01:\x00\x05\x02\x00\x00\x01\x00\x8f\x00\x1a\xa1\x00\x00\x00\x02\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x04\x05\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01scapy'
+
+p = IPv6(s)
+assert ICMPv6MLReport2 in p and p.records_number == 2
+
+= ICMPv6MLReport2 and ICMPv6MLDMultAddrRec - dissection
+
+z = b'33\x00\x00\x00\x16\xd0P\x99V\xdd\xf9\x86\xdd`\x00\x00\x00\x00\x1c:\x01\xfe\x80\x00\x00\x00\x00\x00\x00q eX\x98\x86\xfa\x88\xff\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x16\x8f\x00\x13\x4d\x00\x00\x00\x01\x04\x00\x00\x00\xff\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\xffR\xf3\xe1'
+w = Ether(z)
+
+assert len(w.records) == 1
+assert isinstance(w.records[0], ICMPv6MLDMultAddrRec)
+assert w.records[0].dst == "ff02::1:ff52:f3e1"
+
+= Check answers
+
+q = IPv6()/IPv6ExtHdrHopByHop(options=[RouterAlert()])/ICMPv6MLQuery2()
+a = IPv6()/IPv6ExtHdrHopByHop(options=[RouterAlert()])/ICMPv6MLReport2()
+
+assert a.answers(q)
 
 ############
 ############
@@ -3553,11 +3673,178 @@ test_show()
 saved_AS_resolver = conf.AS_resolver
 conf.AS_resolver = None
 tr6.make_graph()
-len(tr6.graphdef) == 492
-tr6.graphdef.startswith("digraph trace {") == True
+assert len(tr6.graphdef) == 530
+assert tr6.graphdef.startswith("digraph trace {")
 '"2001:db8::1 53/udp";' in tr6.graphdef
-conf.AS_resolver = conf.AS_resolver
+conf.AS_resolver = saved_AS_resolver 
 
+############
+############
++ IPv6 attacks
+
+= Define test utilities
+
+import mock
+
+@mock.patch("scapy.layers.inet6.sniff")
+@mock.patch("scapy.layers.inet6.sendp")
+def test_attack(function, pktlist, sendp_mock, sniff_mock, options=()):
+    pktlist = [Ether(raw(x)) for x in pktlist]
+    ret_list = []
+    def _fake_sniff(lfilter=None, prn=None, **kwargs):
+        for p in pktlist:
+            if lfilter and lfilter(p) and prn:
+                prn(p)
+    sniff_mock.side_effect = _fake_sniff
+    def _fake_sendp(pkt, *args, **kwargs):
+        ret_list.append(Ether(raw(pkt)))
+    sendp_mock.side_effect = _fake_sendp
+    function(*options)
+    return ret_list
+
+= Test NDP_Attack_DAD_DoS_via_NS
+
+data = [Ether(src='aa:aa:aa:aa:aa:aa', dst='33:33:ff:00:11:11')/IPv6(src="::", dst="ff02::1:ff00:1111")/ICMPv6ND_NS(tgt="ffff::1111", code=17, res=3758096385),
+        Ether(src='aa:aa:aa:aa:aa:aa', dst='33:33:ff:5d:c3:53')/IPv6(src="::", dst="ff02::1:ff5d:c353")/ICMPv6ND_NS(tgt="b643:44c3:f659:f8e6:31c0:6437:825d:c353"),
+        Ether()/IP()/ICMP()]
+results = test_attack(NDP_Attack_DAD_DoS_via_NS, data)
+assert len(results) == 2
+
+a = results[0][IPv6]
+assert a[IPv6].src == "::"
+assert a[IPv6].dst == "ff02::1:ff00:1111"
+assert a[IPv6].hlim == 255
+assert a[ICMPv6ND_NS].tgt == "ffff::1111"
+
+b = results[1][IPv6]
+assert b[IPv6].src == "::"
+assert b[IPv6].dst == "ff02::1:ff5d:c353"
+assert b[IPv6].hlim == 255
+assert b[ICMPv6ND_NS].tgt == "b643:44c3:f659:f8e6:31c0:6437:825d:c353"
+
+= Test NDP_Attack_DAD_DoS_via_NA
+
+data = [Ether(src='aa:aa:aa:aa:aa:aa', dst='33:33:ff:00:11:11')/IPv6(src="::", dst="ff02::1:ff00:1111")/ICMPv6ND_NS(tgt="ffff::1111", code=17, res=3758096385),
+        Ether(src='aa:aa:aa:aa:aa:aa', dst='33:33:ff:5d:c3:53')/IPv6(src="::", dst="ff02::1:ff5d:c353")/ICMPv6ND_NS(tgt="b643:44c3:f659:f8e6:31c0:6437:825d:c353"),
+        Ether()/IP()/ICMP()]
+results = test_attack(NDP_Attack_DAD_DoS_via_NA, data, options=(None, None, None, "ab:ab:ab:ab:ab:ab"))
+assert len(results) == 2
+results[0].dst = "ff:ff:ff:ff:ff:ff"
+results[1].dst = "ff:ff:ff:ff:ff:ff"
+
+a = results[0]
+assert a[Ether].dst == "ff:ff:ff:ff:ff:ff"
+assert a[Ether].src == "ab:ab:ab:ab:ab:ab"
+assert a[IPv6].src == "ffff::1111"
+assert a[IPv6].dst == "ff02::1:ff00:1111"
+assert a[IPv6].hlim == 255
+assert a[ICMPv6ND_NA].tgt == "ffff::1111"
+assert a[ICMPv6NDOptDstLLAddr].lladdr == "ab:ab:ab:ab:ab:ab"
+
+b = results[1]
+assert b[Ether].dst == "ff:ff:ff:ff:ff:ff"
+assert b[Ether].src == "ab:ab:ab:ab:ab:ab"
+assert b[IPv6].src == "b643:44c3:f659:f8e6:31c0:6437:825d:c353"
+assert b[IPv6].dst == "ff02::1:ff5d:c353"
+assert b[IPv6].hlim == 255
+assert b[ICMPv6ND_NA].tgt == "b643:44c3:f659:f8e6:31c0:6437:825d:c353"
+assert b[ICMPv6NDOptDstLLAddr].lladdr == "ab:ab:ab:ab:ab:ab"
+
+= Test NDP_Attack_NA_Spoofing
+
+data = [Ether(src='aa:aa:aa:aa:aa:aa', dst='33:33:ff:d4:e5:f6')/IPv6(src="753a:727c:97b5:f71d:51ea:3901:ab52:e110", dst="ff02::1:ffd4:e5f6")/ICMPv6ND_NS(tgt="ff02::1:ffd4:e5f6", code=171, res=3758096),
+        Ether(src='aa:aa:aa:aa:aa:aa', dst='33:33:e4:68:c9:4f')/IPv6(src="753a:727c:97b5:f71d:51ea:3901:ab52:e110", dst="fe9c:98b0:52b5:7033:5db0:394f:e468:c94f")/ICMPv6ND_NS(),
+        Ether()/IP()/ICMP()]
+results = test_attack(NDP_Attack_NA_Spoofing, data, options=(None, None, None, "ff:ff:ff:ff:ff:ff", None))
+assert len(results) == 2
+
+a = results[0]
+assert a[Ether].dst == "aa:aa:aa:aa:aa:aa"
+assert a[Ether].src == "ff:ff:ff:ff:ff:ff"
+assert a[IPv6].src == "ff02::1:ffd4:e5f6"
+assert a[IPv6].dst == "753a:727c:97b5:f71d:51ea:3901:ab52:e110"
+assert a[IPv6].hlim == 255
+assert a[ICMPv6ND_NA].R == 0
+assert a[ICMPv6ND_NA].S == 1
+assert a[ICMPv6ND_NA].O == 1
+assert a[ICMPv6ND_NA].tgt == "ff02::1:ffd4:e5f6"
+assert a[ICMPv6NDOptDstLLAddr].lladdr == "ff:ff:ff:ff:ff:ff"
+
+b = results[1]
+assert b[Ether].dst == "aa:aa:aa:aa:aa:aa"
+assert b[Ether].src == "ff:ff:ff:ff:ff:ff"
+assert b[IPv6].src == "::"
+assert b[IPv6].dst == "753a:727c:97b5:f71d:51ea:3901:ab52:e110"
+assert b[IPv6].hlim == 255
+assert b[ICMPv6ND_NA].R == 0
+assert b[ICMPv6ND_NA].S == 1
+assert b[ICMPv6ND_NA].O == 1
+assert b[ICMPv6ND_NA].tgt == "::"
+assert b[ICMPv6NDOptDstLLAddr].lladdr == "ff:ff:ff:ff:ff:ff"
+
+= Test NDP_Attack_Kill_Default_Router
+
+data = [Ether(src='aa:aa:aa:aa:aa:aa', dst='33:33:ff:d4:e5:f6')/IPv6(src="753a:727c:97b5:f71d:51ea:3901:ab52:e110", dst="ff02::1:ffd4:e5f6")/ICMPv6ND_RA(routerlifetime=1),
+        Ether(src='aa:aa:aa:aa:aa:aa', dst='33:33:ab:52:e1:10')/IPv6(src="fe9c:98b0:52b5:7033:5db0:394f:e468:c94f", dst="753a:727c:97b5:f71d:51ea:3901:ab52:e110")/ICMPv6ND_RA(routerlifetime=1),
+        Ether()/IP()/"RANDOM"]
+results = test_attack(NDP_Attack_Kill_Default_Router, data)
+assert len(results) == 2
+
+a = results[0][IPv6]
+assert a[IPv6].src == "753a:727c:97b5:f71d:51ea:3901:ab52:e110"
+assert a[IPv6].dst == "ff02::1"
+assert a[IPv6].hlim == 255
+assert a[ICMPv6ND_RA].M == 0
+assert a[ICMPv6ND_RA].O == 0
+assert a[ICMPv6ND_RA].H == 0
+assert a[ICMPv6ND_RA].P == 0
+assert a[ICMPv6ND_RA].routerlifetime == 0
+assert a[ICMPv6ND_RA].reachabletime == 0
+assert a[ICMPv6ND_RA].retranstimer == 0
+assert a[ICMPv6NDOptSrcLLAddr].lladdr == "aa:aa:aa:aa:aa:aa"
+
+b = results[1][IPv6]
+assert b[IPv6].src == "fe9c:98b0:52b5:7033:5db0:394f:e468:c94f"
+assert b[IPv6].dst == "ff02::1"
+assert b[IPv6].hlim == 255
+assert b[ICMPv6ND_RA].M == 0
+assert b[ICMPv6ND_RA].O == 0
+assert b[ICMPv6ND_RA].H == 0
+assert b[ICMPv6ND_RA].P == 0
+assert b[ICMPv6ND_RA].routerlifetime == 0
+assert b[ICMPv6ND_RA].reachabletime == 0
+assert b[ICMPv6ND_RA].retranstimer == 0
+assert b[ICMPv6NDOptSrcLLAddr].lladdr == "aa:aa:aa:aa:aa:aa"
+
+= Test NDP_Attack_Fake_Router
+
+ra  = Ether()/IPv6()/ICMPv6ND_RA()
+ra /= ICMPv6NDOptPrefixInfo(prefix="2001:db8:1::", prefixlen=64)
+ra /= ICMPv6NDOptPrefixInfo(prefix="2001:db8:2::", prefixlen=64)
+ra /= ICMPv6NDOptSrcLLAddr(lladdr="00:11:22:33:44:55")
+
+rad = Ether(raw(ra))
+
+data = [Ether(src='aa:aa:aa:aa:aa:aa', dst='33:33:ab:52:e1:10')/IPv6(src="753a:727c:97b5:f71d:51ea:3901:ab52:e110", dst="ff02::1:ffd4:e5f6")/ICMPv6ND_RS(code=11, res=3758096),
+        Ether(src='aa:aa:aa:aa:aa:aa', dst='33:33:ab:52:e1:10')/IPv6(src="753a:727c:97b5:f71d:51ea:3901:ab52:e110", dst="fe9c:98b0:52b5:7033:5db0:394f:e468:c94f")/ICMPv6ND_RS(),
+        Ether()/IP()/ICMP()]
+results = test_attack(NDP_Attack_Fake_Router, data, options=(ra,))
+assert len(results) == 2
+
+assert results[0] == rad
+assert results[1] == rad
+
+= Test NDP_Attack_NS_Spoofing
+
+r = test_attack(NDP_Attack_NS_Spoofing, [], options=("aa:aa:aa:aa:aa:aa", "753a:727c:97b5:f71d:51ea:3901:ab52:e110", "2001:db8::1", 'e4a0:654b:1a24:1b15:761d:2e5d:245d:ba83', "cc:cc:cc:cc:cc:cc", "dd:dd:dd:dd:dd:dd"))[0]
+
+assert r[Ether].dst == "dd:dd:dd:dd:dd:dd"
+assert r[Ether].src == "cc:cc:cc:cc:cc:cc"
+assert r[IPv6].hlim == 255
+assert r[IPv6].src == "753a:727c:97b5:f71d:51ea:3901:ab52:e110"
+assert r[IPv6].dst == "e4a0:654b:1a24:1b15:761d:2e5d:245d:ba83"
+assert r[ICMPv6ND_NS].tgt == "2001:db8::1"
+assert r[ICMPv6NDOptSrcLLAddr].lladdr == "aa:aa:aa:aa:aa:aa"
 
 # Below is our Homework : here is the mountain ...
 #
@@ -5478,53 +5765,35 @@ nf5.version == 5 and nf5[NetflowHeaderV5].count == 2 and isinstance(nf5[NetflowR
 ############
 + Netflow v9
 
-= NetflowHeaderV9 - advanced building
+= NetflowV9 - advanced dissection
 
-import time
+import os
+tmp = "/test/pcaps/netflowv9.pcap"
+filename = os.path.abspath(os.path.join(os.path.dirname(__file__),"../")) + tmp
+filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else filename
+a = rdpcap(filename)
+a = netflowv9_defragment(a)
 
-pkt = NetflowHeader()/\
-    NetflowHeaderV9(unixSecs=int(time.time()))/\
-    NetflowFlowsetV9(templates=[
-        NetflowTemplateV9(templateID=258, template_fields=[
-            NetflowTemplateFieldV9(fieldType=1),
-            NetflowTemplateFieldV9(fieldType=62),
-        ]),
-        NetflowTemplateV9(templateID=257, template_fields=[
-            NetflowTemplateFieldV9(fieldType=1),
-            NetflowTemplateFieldV9(fieldType=62),
-        ]),
-    ])/NetflowDataflowsetV9(templateID=258, records=[
-        NetflowRecordV9(fieldValue=b"\x01\x02\x03\x05"),
-        NetflowRecordV9(fieldValue=b"\x05\x03\x02\x01\x04\x03\x02\x01\x04\x03\x02\x01\x04\x03\x02\x01"),
-    ])/NetflowDataflowsetV9(templateID=257, records=[
-        NetflowRecordV9(fieldValue=b"\x01\x02\x03\x04"),
-        NetflowRecordV9(fieldValue=b"\x04\x03\x02\x01\x04\x03\x02\x01\x04\x03\x02\x01\x04\x03\x02\x01"),
-    ])/NetflowOptionsFlowsetV9(templateID=256, scopes=[NetflowOptionsFlowsetScopeV9(scopeFieldType=1, scopeFieldlength=4),
-                                                       NetflowOptionsFlowsetScopeV9(scopeFieldType=1, scopeFieldlength=3)], 
-                                               options=[NetflowOptionsFlowsetOptionV9(optionFieldType=1, optionFieldlength=2),
-                                                        NetflowOptionsFlowsetOptionV9(optionFieldType=1, optionFieldlength=1)])/\
-    NetflowOptionsDataRecordV9(templateID=256, records=[NetflowOptionsRecordScopeV9(fieldValue=b"\x01\x02\x03\x04"),
-                                                        NetflowOptionsRecordScopeV9(fieldValue=b"\x01\x02\x03"),
-                                                        NetflowOptionsRecordOptionV9(fieldValue=b"\x01\x02"),
-                                                        NetflowOptionsRecordOptionV9(fieldValue=b"\x01")])
+nfv9_fl = a[4]
+assert NetflowFlowsetV9 in nfv9_fl
+assert len(nfv9_fl.templates[0].template_fields) == 21
 
-assert pkt[NetflowFlowsetV9].templates[0].template_fields[0].fieldLength == 4
-assert pkt[NetflowFlowsetV9].templates[0].template_fields[1].fieldLength == 16
+nfv9_ds = a[61]
+assert NetflowDataflowsetV9 in nfv9_ds
+assert len(nfv9_ds[NetflowDataflowsetV9].records) == 24
+assert nfv9_ds[NetflowDataflowsetV9].records[21].IP_PROTOCOL_VERSION == 4
+assert nfv9_ds.records[21].IPV4_SRC_ADDR == '20.0.0.248'
+assert nfv9_ds.records[21].IPV4_DST_ADDR == '30.0.0.248'
 
-= NetflowHeaderV9 - advanced dissection
+nfv9_options_fl = a[5]
+assert NetflowOptionsFlowsetV9 in nfv9_options_fl
+assert isinstance(nfv9_options_fl[NetflowOptionsFlowsetV9].scopes[0], NetflowOptionsFlowsetScopeV9)
+assert isinstance(nfv9_options_fl[NetflowOptionsFlowsetV9].options[0], NetflowOptionsFlowsetOptionV9)
+assert nfv9_options_fl[NetflowOptionsFlowsetV9].options[0].optionFieldType == 36
 
-d = NetflowHeader(raw(pkt))
-d.show()
-assert len(d[NetflowDataflowsetV9].records) == 2
-assert d.getlayer(NetflowDataflowsetV9, templateID=257).records[0].fieldValue == b"\x01\x02\x03\x04"
-assert d.getlayer(NetflowDataflowsetV9, templateID=257).records[1].fieldValue == b"\x04\x03\x02\x01\x04\x03\x02\x01\x04\x03\x02\x01\x04\x03\x02\x01"
-
-assert d.getlayer(NetflowDataflowsetV9, templateID=258).records[0].fieldValue == b"\x01\x02\x03\x05"
-assert d.getlayer(NetflowDataflowsetV9, templateID=258).records[1].fieldValue == b"\x05\x03\x02\x01\x04\x03\x02\x01\x04\x03\x02\x01\x04\x03\x02\x01"
-
-assert d[NetflowOptionsFlowsetV9].scopes[0].scopeFieldType == 1
-assert d[NetflowOptionsDataRecordV9].records[1].fieldValue == b"\x01\x02\x03"
-assert d[NetflowOptionsDataRecordV9].records[3].fieldValue == b"\x01"
+nfv9_options_ds = a[255]
+assert NetflowDataflowsetV9 in nfv9_options_ds
+assert isinstance(nfv9_options_ds.records[0], NetflowOptionsRecordScopeV9)
 
 ############
 ############
@@ -5678,6 +5947,15 @@ filename = tempfile.mktemp(suffix=".pcap")
 wrpcap(filename, [IP()/UDP(), IPv6()/UDP()], linktype=DLT_RAW)
 packets = rdpcap(filename)
 assert(isinstance(packets[0], IP) and isinstance(packets[1], IPv6))
+
+= Check wrpcap() with no packet
+
+import tempfile
+filename = tempfile.mktemp(suffix=".pcap")
+wrpcap(filename, [])
+fstat = os.stat(filename)
+assert fstat.st_size != 0
+os.remove(filename)
 
 ############
 ############
@@ -6079,7 +6357,7 @@ assert isinstance(pkt, DNS) and isinstance(pkt.payload, NoPayload)
 + Mocked read_routes() calls
 
 = Truncated netstat -rn output on OS X
-~ mock_read_routes6_bsd
+~ mock_read_routes_bsd
 
 import mock
 from io import StringIO
@@ -6134,12 +6412,70 @@ default            link#11            UCSI            1        0 bridge1
 test_osx_netstat_truncated()
 
 
+= OpenBSD 6.3
+~ mock_read_routes_bsd
+
+import mock
+from io import StringIO
+
+@mock.patch("scapy.arch.unix.OPENBSD")
+@mock.patch("scapy.arch.unix.os")
+def test_openbsd_6_3(mock_os, mock_openbsd):
+    """Test read_routes() on OpenBSD 6.3"""
+    # 'netstat -rn -f inet' output
+    netstat_output = u"""
+Routing tables
+
+Internet:
+Destination        Gateway            Flags   Refs      Use   Mtu  Prio Iface
+default            10.0.1.254         UGS        0        0     -     8 bge0 
+224/4              127.0.0.1          URS        0       23 32768     8 lo0  
+10.0.1/24          10.0.1.26          UCn        4      192     -     4 bge0 
+10.0.1.1           00:30:48:57:ed:0b  UHLc       2      338     -     3 bge0 
+10.0.1.2           00:03:ba:0c:0b:52  UHLc       1      186     -     3 bge0 
+10.0.1.26          00:30:48:62:b3:f4  UHLl       0    47877     -     1 bge0 
+10.0.1.135         link#1             UHLch      1      194     -     3 bge0 
+10.0.1.254         link#1             UHLch      1      190     -     3 bge0 
+10.0.1.255         10.0.1.26          UHb        0        0     -     1 bge0 
+10.188.6/24        10.188.6.17        Cn         0        0     -     4 tap3 
+10.188.6.17        fe:e1:ba:d7:ff:32  UHLl       0       25     -     1 tap3 
+10.188.6.255       10.188.6.17        Hb         0        0     -     1 tap3 
+10.188.135/24      10.0.1.135         UGS        0        0  1350 L   8 bge0 
+127/8              127.0.0.1          UGRS       0        0 32768     8 lo0  
+127.0.0.1          127.0.0.1          UHhl       1  3835230 32768     1 lo0  
+"""
+    # Mocked file descriptor
+    strio = StringIO(netstat_output)
+    mock_os.popen = mock.MagicMock(return_value=strio)
+    
+    # Mocked OpenBSD parsing behavior
+    mock_openbsd = True
+    # Test the function
+    from scapy.arch.unix import read_routes
+    routes = read_routes()
+    for r in routes:
+        print(ltoa(r[0]), ltoa(r[1]), r)
+        # check that default route exists in parsed data structure
+        if ltoa(r[0]) == "0.0.0.0":
+            default=r
+        # check that route with locked mtu exists in parsed data structure
+        if ltoa(r[0]) == "10.188.135.0":
+            locked=r
+    assert(len(routes) == 11)
+    assert(default[2] == "10.0.1.254")
+    assert(default[3] == "bge0")
+    assert(locked[2] == "10.0.1.135")
+    assert(locked[3] == "bge0")
+
+test_openbsd_6_3()
+
+
 ############
 ############
 + Mocked read_routes6() calls
 
 = Preliminary definitions
-~ mock_read_routes6_bsd
+~ mock_read_routes_bsd
 
 import mock
 from io import StringIO
@@ -6169,7 +6505,7 @@ def check_mandatory_ipv6_routes(routes6):
 
 
 = Mac OS X 10.9.5
-~ mock_read_routes6_bsd
+~ mock_read_routes_bsd
 
 @mock.patch("scapy.arch.unix.in6_getifaddr")
 @mock.patch("scapy.arch.unix.os")
@@ -6210,7 +6546,7 @@ test_osx_10_9_5()
 
 
 = Mac OS X 10.9.5 with global IPv6 connectivity
-~ mock_read_routes6_bsd
+~ mock_read_routes_bsd
 @mock.patch("scapy.arch.unix.in6_getifaddr")
 @mock.patch("scapy.arch.unix.os")
 def test_osx_10_9_5_global(mock_os, mock_in6_getifaddr):
@@ -6259,7 +6595,7 @@ test_osx_10_9_5_global()
 
 
 = Mac OS X 10.10.4
-~ mock_read_routes6_bsd
+~ mock_read_routes_bsd
 
 @mock.patch("scapy.arch.unix.in6_getifaddr")
 @mock.patch("scapy.arch.unix.os")
@@ -6299,7 +6635,7 @@ test_osx_10_10_4()
 
 
 = FreeBSD 10.2
-~ mock_read_routes6_bsd
+~ mock_read_routes_bsd
 
 @mock.patch("scapy.arch.unix.in6_getifaddr")
 @mock.patch("scapy.arch.unix.os")
@@ -6338,7 +6674,7 @@ test_freebsd_10_2()
 
 
 = OpenBSD 5.5
-~ mock_read_routes6_bsd
+~ mock_read_routes_bsd
 
 @mock.patch("scapy.arch.unix.OPENBSD")
 @mock.patch("scapy.arch.unix.in6_getifaddr")
@@ -6396,7 +6732,7 @@ test_openbsd_5_5()
 
 
 = NetBSD 7.0
-~ mock_read_routes6_bsd
+~ mock_read_routes_bsd
 
 @mock.patch("scapy.arch.unix.NETBSD")
 @mock.patch("scapy.arch.unix.in6_getifaddr")
@@ -6838,6 +7174,17 @@ assert(type(eap[EAP]) == EAP_PEAP)
 eap = LEAP()
 assert(type(eap[EAP]) == LEAP)
 
+= EAP - sessions (1)
+p = IP()/TCP()/EAP()
+l = PacketList(p)
+s = l.sessions()  # Crashed on commit: e42ecdc54556c4852ca06b1a6da6c1ccbf3f522e
+assert len(s) == 1
+
+= EAP - sessions (2)
+p = IP()/UDP()/EAP()
+l = PacketList(p)
+s = l.sessions()  # Crashed on commit: e42ecdc54556c4852ca06b1a6da6c1ccbf3f522e
+assert len(s) == 1
 
 
 ############
@@ -6861,7 +7208,6 @@ assert(not NTPControl in p)
 assert(NTPPrivate in p)
 assert(NTP in p)
 
-
 = NTP - Layers (2)
 p = NTPHeader()
 assert(type(p[NTP]) == NTPHeader)
@@ -6870,6 +7216,17 @@ assert(type(p[NTP]) == NTPControl)
 p = NTPPrivate()
 assert(type(p[NTP]) == NTPPrivate)
 
+= NTP - sessions (1)
+p = IP()/TCP()/NTP()
+l = PacketList(p)
+s = l.sessions()  # Crashed on commit: e42ecdc54556c4852ca06b1a6da6c1ccbf3f522e
+assert len(s) == 1
+
+= NTP - sessions (2)
+p = IP()/UDP()/NTP()
+l = PacketList(p)
+s = l.sessions()  # Crashed on commit: e42ecdc54556c4852ca06b1a6da6c1ccbf3f522e
+assert len(s) == 1
 
 ############
 ############
@@ -8405,6 +8762,18 @@ type(radius_attr[RadiusAttribute])
 assert(type(radius_attr[RadiusAttribute]) == RadiusAttr_EAP_Message)
 assert(EAP in radius_attr.value)
 
+= RADIUS - sessions (1)
+p = IP()/TCP(sport=1812)/Radius(authenticator="scapy")/RadiusAttribute(value="scapy")
+l = PacketList(p)
+s = l.sessions()  # Crashed on commit: e42ecdc54556c4852ca06b1a6da6c1ccbf3f522e
+assert len(s) == 1
+
+= RADIUS - sessions (2)
+p = IP()/UDP(sport=1812)/Radius(authenticator="scapy")/RadiusAttribute(value="scapy")
+l = PacketList(p)
+s = l.sessions()  # Crashed on commit: e42ecdc54556c4852ca06b1a6da6c1ccbf3f522e
+assert len(s) == 1
+
 
 ############
 ############
@@ -8716,7 +9085,7 @@ assert(rss == ("CON:" if six.PY2 else "foo.exe:"))
 
 random.seed(0x2807)
 rts = RandTermString(4, "scapy")
-assert(sane(raw(rts)) in ["...[scapy", "......scapy"])
+assert(sane(raw(rts)) in ["...Zscapy", "$#..scapy"])
 
 
 ############
@@ -9165,8 +9534,11 @@ Dot11 in p and p.addr3 == "00:00:00:00:00:00"
 p.mysummary() == '802.11 Management 0 00:00:00:00:00:00 > 00:00:00:00:00:00'
 
 = Dot11QoS - build
+s = raw(Dot11()/Dot11QoS(Ack_Policy=1))
+assert s == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00 \x00'
+
 s = raw(Dot11(type=2, subtype=8)/Dot11QoS(TID=4))
-s == b'\x88\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x04\x00'
+assert s == b'\x88\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x04\x00'
 
 = Dot11 - binary in SSID
 pkt = Dot11() / Dot11Beacon() / Dot11Elt(ID=0, info=b"".join(chb(i) for i in range(32)))
@@ -9195,6 +9567,7 @@ Dot11(type=0, subtype=1).answers(query) == True
 = Dot11 - misc
 assert Dot11Elt(info="scapy").summary() == "SSID='scapy'"
 assert Dot11Elt(ID=1).mysummary() == ""
+assert Dot11(b'\x84\x00\x00\x00\x00\x11\x22\x33\x44\x55\x00\x11\x22\x33\x44\x55').addr2 == '00:11:22:33:44:55'
 
 = Multiple Dot11Elt layers
 pkt = Dot11() / Dot11Beacon() / Dot11Elt(ID="Rates") / Dot11Elt(ID="SSID", info="Scapy")
@@ -9685,11 +10058,23 @@ def test_conversations(mock_do_graph):
     mock_do_graph.side_effect = fake_do_graph
     plist = PacketList([IP(dst="127.0.0.2")/TCP(dport=i) for i in range(2)])
     plist.extend([IP(src="127.0.0.2")/TCP(sport=i) for i in range(2)])
+    plist.extend([IPv6(dst="::2", src="::1")/TCP(sport=i) for i in range(2)])
+    plist.extend([IPv6(src="::2", dst="::1")/TCP(sport=i) for i in range(2)])
+    plist.extend([Ether()/ARP(pdst="127.0.0.1")])
     result_conversations = plist.conversations()
-    assert(len(result_conversations.split('\n')) == 5)
+    assert(len(result_conversations.split('\n')) == 8)
     assert(result_conversations.startswith('digraph "conv" {'))
+    assert("127.0.0.1" in result_conversations)
+    assert("::1" in result_conversations)
 
 test_conversations()
+
+= sessions()
+
+pl = PacketList([Ether()/IPv6()/ICMPv6EchoRequest(), Ether()/IPv6()/IPv6()])
+pl.extend([Ether()/IP()/IP(), Ether()/ARP()])
+pl.extend([Ether()/Ether()/IP()])
+assert(len(pl.sessions().keys()) == 5)
 
 = afterglow()
 
@@ -9793,3 +10178,15 @@ assert raw(created) == b'\x80\x11\x124\x00\xbcaN\xab\xcd\xef\x01'
 parsed = RTP(raw(created))
 assert parsed.sourcesync == 0xabcdef01
 assert "RTPExtension" not in parsed
+
+#= Test snmpwalk()
+#
+#~ netaccess
+#def test_snmpwalk(dst):
+#    with ContextManagerCaptureOutput() as cmco:
+#        snmpwalk(dst=dst)
+#        output = cmco.get_output()
+#    expected = "No answers\n"
+#    assert(output == expected)
+#
+#test_snmpwalk("secdev.org")

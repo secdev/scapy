@@ -57,13 +57,14 @@ class TLSServerAutomaton(_TLSAutomaton):
     Once this limit has been reached, the client (if still here) is dropped,
     and we wait for a new connection.
     """
+
     def parse_args(self, server="127.0.0.1", sport=4433,
-                         mycert=None, mykey=None,
-                         preferred_ciphersuite=None,
-                         client_auth=False,
-                         is_echo_server=True,
-                         max_client_idle_time=60,
-                         **kargs):
+                   mycert=None, mykey=None,
+                   preferred_ciphersuite=None,
+                   client_auth=False,
+                   is_echo_server=True,
+                   max_client_idle_time=60,
+                   **kargs):
 
         super(TLSServerAutomaton, self).parse_args(mycert=mycert,
                                                    mykey=mykey,
@@ -88,7 +89,6 @@ class TLSServerAutomaton(_TLSAutomaton):
         self.client_auth = client_auth
         self.is_echo_server = is_echo_server
         self.max_client_idle_time = max_client_idle_time
-
 
     def vprint_sessioninfo(self):
         if self.verbose:
@@ -121,7 +121,6 @@ class TLSServerAutomaton(_TLSAutomaton):
         body = "<html><body><pre>%s</pre></body></html>\r\n\r\n" % s
         answer = (header+body) % len(body)
         return answer
-
 
     @ATMT.state(initial=True)
     def INITIAL(self):
@@ -493,13 +492,9 @@ class TLSServerAutomaton(_TLSAutomaton):
             print("> Received: %r" % p.data)
             recv_data = p.data
             lines = recv_data.split(b"\n")
-            stop = False
             for l in lines:
                 if l.startswith(b"stop_server"):
-                    stop = True
-                    break
-            if stop:
-                raise self.CLOSE_NOTIFY_FINAL()
+                    raise self.CLOSE_NOTIFY_FINAL()
         elif isinstance(p, TLSAlert):
             print("> Received: %r" % p)
             raise self.CLOSE_NOTIFY()
@@ -799,13 +794,9 @@ class TLSServerAutomaton(_TLSAutomaton):
             print("> Received: %r" % p)
 
         lines = cli_data.split(b"\n")
-        stop = False
         for l in lines:
             if l.startswith(b"stop_server"):
-                stop = True
-                break
-        if stop:
-            raise self.SSLv2_CLOSE_NOTIFY_FINAL()
+                raise self.SSLv2_CLOSE_NOTIFY_FINAL()
 
         answer = b""
         if cli_data.startswith(b"GET / HTTP/1.1"):

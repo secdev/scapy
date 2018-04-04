@@ -7,20 +7,20 @@ Download and Installation
 Overview
 ========
 
- 0. Install `Python 2.7.X or 3.3+ <https://www.python.org/downloads/>`_.
+ 0. Install `Python 2.7.X or 3.4+ <https://www.python.org/downloads/>`_.
  1. `Download and install Scapy. <#installing-scapy-v2-x>`_
- 2. `Follow the platform specific instructions (depedencies) <#platform-specific-instructions>`_.
+ 2. `Follow the platform-specific instructions (depedencies) <#platform-specific-instructions>`_.
  3. (Optional): `Install additional software for special features <#optional-software-for-special-features>`_.
  4. Run Scapy with root privileges.
  
-Each of these steps can be done in a different way dependent on your platform and on the version of Scapy you want to use. 
+Each of these steps can be done in a different way depending on your platform and on the version of Scapy you want to use. 
 
 At the moment, there are two different versions of Scapy:
 
 * **Scapy v2.x**. The current up-to-date version. It consists of several files  packaged in the standard distutils way.
-  Scapy v2 <= 2.3.3 needs Python 2.5, Scapy v2 > 2.3.3 needs Python 2.7 or 3.3+.
+  Scapy v2 <= 2.3.3 needs Python 2.5, Scapy v2 > 2.3.3 needs Python 2.7 or 3.4+.
 * **Scapy v1.x (deprecated)**. It does not support Python 3. It consists of only one file and works on Python 2.4, so it might be easier to install.
-  Moreover, your OS may already have a specially prepared packages or ports for it. Last version is v1.2.2.
+  Moreover, your OS may already have specially prepared packages or ports for it. The last version is v1.2.2.
 
 .. note::
 
@@ -45,7 +45,7 @@ Latest release
 --------------
 
 .. note::
-   To get the latest versions, with bugsfixes and new features, but maybe not as stable, see the `development version <#current-development-version>`_.
+   To get the latest versions, with bugfixes and new features, but maybe not as stable, see the `development version <#current-development-version>`_.
 
 Use pip::
 
@@ -87,7 +87,7 @@ $ sh <(curl -sL scapy.net)
 
    To make a zip executable, some bytes have been added before the zip header.
    Most zip programs handle this, but not all. If your zip program complains
-   about the zip file to be corrupted, either change it, or download a 
+   about the zip file to be corrupted, either change it or download a 
    non-executable zip at https://github.com/secdev/scapy/archive/master.zip
 
  
@@ -123,7 +123,7 @@ Then you can always update to the latest version::
 
 .. note::
 
-   You can run scapy without installing it using the ``run_scapy`` (unix) or ``run_scapy.bat`` (Windows) script or running it directly from the executable zip file (see previous section).
+   You can run scapy without installing it using the ``run_scapy`` (unix) or ``run_scapy.bat`` (Windows) script or running it directly from the executable zip file (see the previous section).
 
 Installing Scapy v1.2 (Deprecated)
 ==================================
@@ -137,8 +137,8 @@ Just download the last version and run it with your Python interpreter::
 Optional software for special features
 ======================================
 
-For some special features you have to install more software. 
-Most of those softwares are installable via ``pip``.
+For some special features, you have to install more software. 
+Most of those software are installable via ``pip``.
 Here are the topics involved and some examples that you can use to try if your installation was successful.
 
 .. index::
@@ -219,7 +219,7 @@ Linux native
 
 Scapy can run natively on Linux, without libdnet and libpcap.
 
-* Install `Python 2.7 or 3.3+ <http://www.python.org>`_.
+* Install `Python 2.7 or 3.4+ <http://www.python.org>`_.
 * Install `tcpdump <http://www.tcpdump.org>`_ and make sure it is in the $PATH. (It's only used to compile BPF filters (``-ddd option``))
 * Make sure your kernel has Packet sockets selected (``CONFIG_PACKET``)
 * If your kernel is < 2.6, make sure that Socket filtering is selected ``CONFIG_FILTER``) 
@@ -382,13 +382,13 @@ Scapy is primarily being developed for Unix-like systems and works best on those
 
 You need the following software packages in order to install Scapy on Windows:
 
-  * `Python <http://www.python.org>`_: `Python 2.7.X or 3.3+ <https://www.python.org/downloads/>`_. After installation, add the Python installation directory and its \Scripts subdirectory to your PATH. Depending on your Python version, the defaults would be ``C:\Python27`` and ``C:\Python27\Scripts`` respectively.
+  * `Python <http://www.python.org>`_: `Python 2.7.X or 3.4+ <https://www.python.org/downloads/>`_. After installation, add the Python installation directory and its \Scripts subdirectory to your PATH. Depending on your Python version, the defaults would be ``C:\Python27`` and ``C:\Python27\Scripts`` respectively.
   * `Npcap <https://nmap.org/npcap/>`_: `the latest version <https://nmap.org/npcap/#download>`_. Default values are recommanded. Scapy will also work with Winpcap.
   * `Scapy <http://www.secdev.org/projects/scapy/>`_: `latest development version <https://github.com/secdev/scapy/archive/master.zip>`_ from the `Git repository <https://github.com/secdev/scapy>`_. Unzip the archive, open a command prompt in that directory and run "python setup.py install". 
 
 Just download the files and run the setup program. Choosing the default installation options should be safe.
 
-For your convenience direct links are given to the version that is supported (Python 2.7 and 3.3+). If these links do not work or if you are using a different Python version (which will surely not work), just visit the homepage of the respective package and look for a Windows binary. As a last resort, search the web for the filename.
+For your convenience direct links are given to the version that is supported (Python 2.7 and 3.4+). If these links do not work or if you are using a different Python version (which will surely not work), just visit the homepage of the respective package and look for a Windows binary. As a last resort, search the web for the filename.
 
 After all packages are installed, open a command prompt (cmd.exe) and run Scapy by typing ``scapy``. If you have set the PATH correctly, this will find a little batch file in your ``C:\Python27\Scripts`` directory and instruct the Python interpreter to load Scapy.
 
@@ -417,7 +417,7 @@ As Winpcap is becoming old, it's recommended to use Npcap instead. Npcap is part
 You may **uninstall winpcap from your Program Files**, then you will need to remove:
  * C:/Windows/System32/wpcap.dll
  * C:/Windows/System32/Packet.dll
-And if you are on a x64 machine:
+And if you are on an x64 machine:
  * C:/Windows/SysWOW64/wpcap.dll
  * C:/Windows/SysWOW64/Packet.dll
 
@@ -441,20 +441,16 @@ The instructions to build the HTML version are: ::
    cd doc/scapy
    make html
 
-Or on windows, simply run ``BuildDoc.bat``
-
 You can now open the resulting HTML file ``_build/html/index.html`` in your favorite web browser.
 
 To use the ReadTheDocs' template, you will have to install the corresponding theme with: ::
 
    pip install sphinx_rtd_theme
 
-If installed, it will be automatically used, but you may disable it by setting ``auto_rtd`` to ``False`` in ``doc/scapy/conf.py``
-
 UML diagram
 -----------
-Using ``pyreverse`` you can build an UML representation of the Scapy source code's object hierarchy. Here is an
-example on how to build the inheritance graph for the Fields objects : ::
+Using ``pyreverse`` you can build a UML representation of the Scapy source code's object hierarchy. Here is an
+example of how to build the inheritance graph for the Fields objects : ::
 
    (activate a virtualenv)
    pip install pylint

@@ -11,30 +11,31 @@ upon the TLS version or ciphersuite, the packet has to provide a TLS context.
 from scapy.fields import *
 import scapy.modules.six as six
 
-_tls_type = { 20: "change_cipher_spec",
-              21: "alert",
-              22: "handshake",
-              23: "application_data" }
+_tls_type = {20: "change_cipher_spec",
+             21: "alert",
+             22: "handshake",
+             23: "application_data"}
 
-_tls_version = { 0x0002: "SSLv2",
-                 0x0200: "SSLv2",
-                 0x0300: "SSLv3",
-                 0x0301: "TLS 1.0",
-                 0x0302: "TLS 1.1",
-                 0x0303: "TLS 1.2",
-                 0x7f12: "TLS 1.3-d18",
-                 0x7f13: "TLS 1.3-d19",
-                 0x0304: "TLS 1.3" }
+_tls_version = {0x0002: "SSLv2",
+                0x0200: "SSLv2",
+                0x0300: "SSLv3",
+                0x0301: "TLS 1.0",
+                0x0302: "TLS 1.1",
+                0x0303: "TLS 1.2",
+                0x7f12: "TLS 1.3-d18",
+                0x7f13: "TLS 1.3-d19",
+                0x0304: "TLS 1.3"}
 
-_tls_version_options = { "sslv2": 0x0002,
-                         "sslv3": 0x0300,
-                         "tls1" : 0x0301,
-                         "tls10": 0x0301,
-                         "tls11": 0x0302,
-                         "tls12": 0x0303,
-                         "tls13-d18": 0x7f12,
-                         "tls13-d19": 0x7f13,
-                         "tls13": 0x0304 }
+_tls_version_options = {"sslv2": 0x0002,
+                        "sslv3": 0x0300,
+                        "tls1": 0x0301,
+                        "tls10": 0x0301,
+                        "tls11": 0x0302,
+                        "tls12": 0x0303,
+                        "tls13-d18": 0x7f12,
+                        "tls13-d19": 0x7f13,
+                        "tls13": 0x0304}
+
 
 def _tls13_version_filter(version, legacy_version):
     if version < 0x0304:
@@ -42,11 +43,13 @@ def _tls13_version_filter(version, legacy_version):
     else:
         return legacy_version
 
+
 class _TLSClientVersionField(ShortEnumField):
     """
     We use the advertised_tls_version if it has been defined,
     and the legacy 0x0303 for TLS 1.3 packets.
     """
+
     def i2h(self, pkt, x):
         if x is None:
             v = pkt.tls_session.advertised_tls_version
@@ -69,6 +72,7 @@ class _TLSVersionField(ShortEnumField):
     We use the tls_version if it has been defined, else the advertised version.
     Also, the legacy 0x0301 is used for TLS 1.3 packets.
     """
+
     def i2h(self, pkt, x):
         if x is None:
             v = pkt.tls_session.tls_version
@@ -112,6 +116,7 @@ class _TLSIVField(StrField):
     kept empty (unless forced to a specific value) when the cipher is a stream
     cipher (and NULL is considered a stream cipher).
     """
+
     def i2len(self, pkt, i):
         if i is not None:
             return len(i)
@@ -161,7 +166,7 @@ class _TLSMACField(StrField):
 
     def getfield(self, pkt, s):
         if (pkt.tls_session.rcs.cipher.type != "aead" and
-            False in six.itervalues(pkt.tls_session.rcs.cipher.ready)):
+                False in six.itervalues(pkt.tls_session.rcs.cipher.ready)):
             #XXX Find a more proper way to handle the still-encrypted case
             return s, b""
         l = pkt.tls_session.rcs.mac_len
