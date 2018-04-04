@@ -419,8 +419,7 @@ class TLS_Ext_SignatureAlgorithms(TLS_Ext_Unknown):                 # RFC 5246
                    SigAndHashAlgsField("sig_algs", [],
                                        EnumField("hash_sig", None,
                                                  _tls_hash_sig),
-                                       length_from=
-                                       lambda pkt: pkt.sig_algs_len)]
+                                       length_from=lambda pkt: pkt.sig_algs_len)]
 
 
 class TLS_Ext_Heartbeat(TLS_Ext_Unknown):                           # RFC 6520

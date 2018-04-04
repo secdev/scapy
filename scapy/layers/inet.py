@@ -1206,8 +1206,8 @@ class TracerouteResult(SndRcvList):
                     col = visual.color.blue
 
                 s = IPsphere(pos=((l-1)*visual.cos(2*i*visual.pi/l), (l-1)*visual.sin(2*i*visual.pi/l), 2*t),
-                             ip = r[i][0],
-                             color = col)
+                             ip=r[i][0],
+                             color=col)
                 for trlst in six.itervalues(tr3d):
                     if t <= len(trlst):
                         if trlst[t-1] == i:
@@ -1540,7 +1540,7 @@ class TracerouteResult(SndRcvList):
 
 
 @conf.commands.register
-def traceroute(target, dport=80, minttl=1, maxttl=30, sport=RandShort(), l4 = None, filter=None, timeout=2, verbose=None, **kargs):
+def traceroute(target, dport=80, minttl=1, maxttl=30, sport=RandShort(), l4=None, filter=None, timeout=2, verbose=None, **kargs):
     """Instant TCP traceroute
 traceroute(target, [maxttl=30,] [dport=80,] [sport=80,] [verbose=conf.verb]) -> None
 """

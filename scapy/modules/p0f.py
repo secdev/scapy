@@ -589,7 +589,7 @@ interface and may (are likely to) be different than those generated on
         # each packet is seen twice: S + RA, S + SA + A + FA + A
         # XXX are the packets also seen twice on non Linux systems ?
         count=14
-        pl = sniff(iface=iface, filter='tcp and port ' + str(port), count = count, timeout=3)
+        pl = sniff(iface=iface, filter='tcp and port ' + str(port), count=count, timeout=3)
         for pkt in pl:
             for elt in packet2p0f(pkt):
                 addresult(elt)
@@ -600,7 +600,7 @@ interface and may (are likely to) be different than those generated on
         # child: send
         # XXX erk
         time.sleep(1)
-        s1 = socket.socket(socket.AF_INET, type = socket.SOCK_STREAM)
+        s1 = socket.socket(socket.AF_INET, type=socket.SOCK_STREAM)
         # S & RA
         try:
             s1.connect(('127.0.0.1', port))

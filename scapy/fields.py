@@ -903,7 +903,7 @@ class StrLenFieldUtf16(StrLenField):
 class BoundStrLenField(StrLenField):
     __slots__ = ["minlen", "maxlen"]
 
-    def __init__(self, name, default, minlen= 0, maxlen= 255, fld=None, length_from=None):
+    def __init__(self, name, default, minlen=0, maxlen=255, fld=None, length_from=None):
         StrLenField.__init__(self, name, default, fld, length_from)
         self.minlen = minlen
         self.maxlen = maxlen
@@ -977,7 +977,7 @@ class FieldListField(Field):
 class FieldLenField(Field):
     __slots__ = ["length_of", "count_of", "adjust"]
 
-    def __init__(self, name, default,  length_of=None, fmt = "H", count_of=None, adjust=lambda pkt, x: x, fld=None):
+    def __init__(self, name, default,  length_of=None, fmt="H", count_of=None, adjust=lambda pkt, x: x, fld=None):
         Field.__init__(self, name, default, fmt)
         self.length_of = length_of
         self.count_of = count_of
@@ -1152,7 +1152,7 @@ class XBitField(BitField):
 
 
 class _EnumField(Field):
-    def __init__(self, name, default, enum, fmt = "H"):
+    def __init__(self, name, default, enum, fmt="H"):
         """ Initializes enum fields.
 
         @param name:    name of this field
@@ -1229,7 +1229,7 @@ class EnumField(_EnumField):
 
 
 class CharEnumField(EnumField):
-    def __init__(self, name, default, enum, fmt = "1s"):
+    def __init__(self, name, default, enum, fmt="1s"):
         EnumField.__init__(self, name, default, enum, fmt)
         if self.i2s is not None:
             k = list(self.i2s)
@@ -1310,7 +1310,7 @@ class XShortEnumField(ShortEnumField):
 
 
 class _MultiEnumField(_EnumField):
-    def __init__(self, name, default, enum, depends_on, fmt = "H"):
+    def __init__(self, name, default, enum, depends_on, fmt="H"):
 
         self.depends_on = depends_on
         self.i2s_multi = enum
@@ -1389,7 +1389,7 @@ class LELongField(Field):
 
 
 class LEFieldLenField(FieldLenField):
-    def __init__(self, name, default,  length_of=None, fmt = "<H", count_of=None, adjust=lambda pkt, x: x, fld=None):
+    def __init__(self, name, default,  length_of=None, fmt="<H", count_of=None, adjust=lambda pkt, x: x, fld=None):
         FieldLenField.__init__(self, name, default, length_of=length_of, fmt=fmt, count_of=count_of, fld=fld, adjust=adjust)
 
 
@@ -1729,12 +1729,12 @@ class _IPPrefixFieldBase(Field):
 
 
 class IPPrefixField(_IPPrefixFieldBase):
-    def __init__(self, name, default, wordbytes=1, length_from= None):
+    def __init__(self, name, default, wordbytes=1, length_from=None):
         _IPPrefixFieldBase.__init__(self, name, default, wordbytes, 4, inet_aton, inet_ntoa, length_from)
 
 
 class IP6PrefixField(_IPPrefixFieldBase):
-    def __init__(self, name, default, wordbytes= 1, length_from= None):
+    def __init__(self, name, default, wordbytes=1, length_from=None):
         _IPPrefixFieldBase.__init__(self, name, default, wordbytes, 16, lambda a: inet_pton(socket.AF_INET6, a), lambda n: inet_ntop(socket.AF_INET6, n), length_from)
 
 

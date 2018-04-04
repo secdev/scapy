@@ -171,7 +171,7 @@ class SSLv2(TLS):
         if s:
             try:
                 p = SSLv2(s, _internal=1, _underlayer=self,
-                          tls_session = self.tls_session)
+                          tls_session=self.tls_session)
             except KeyboardInterrupt:
                 raise
             except:

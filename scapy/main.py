@@ -527,7 +527,7 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=20):
                     exec_lines=["print(\"\"\"" + banner + "\"\"\")"]
                 )
             except:
-                code.interact(banner = the_banner, local=SESSION)
+                code.interact(banner=the_banner, local=SESSION)
         else:
             cfg = Config()
             try:
@@ -548,9 +548,9 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=20):
             try:
                 start_ipython(config=cfg, user_ns=SESSION)
             except (AttributeError, TypeError):
-                code.interact(banner = the_banner, local=SESSION)
+                code.interact(banner=the_banner, local=SESSION)
     else:
-        code.interact(banner = the_banner, local=SESSION)
+        code.interact(banner=the_banner, local=SESSION)
 
     if conf.session:
         save_session(conf.session, SESSION)

@@ -25,7 +25,7 @@ class TLSPlaintext(Packet):
                    ShortEnumField("version", None, _tls_version),
                    FieldLenField("len", None, length_of="data", fmt="!H"),
                    StrLenField("data", "",
-                               length_from = lambda pkt: pkt.len)]
+                               length_from=lambda pkt: pkt.len)]
 
 
 class TLSCompressed(TLSPlaintext):

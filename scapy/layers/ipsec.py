@@ -907,7 +907,7 @@ class SecurityAssociation(object):
     def _encrypt_ah(self, pkt, seq_num=None):
 
         ah = AH(spi=self.spi, seq=seq_num or self.seq_num,
-                icv = b"\x00" * self.auth_algo.icv_size)
+                icv=b"\x00" * self.auth_algo.icv_size)
 
         if self.tunnel_header:
             tunnel = self.tunnel_header.copy()

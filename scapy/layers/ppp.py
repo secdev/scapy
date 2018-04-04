@@ -390,7 +390,7 @@ class PPP_LCP(Packet):
         return b"", pay
 
     @classmethod
-    def dispatch_hook(cls, _pkt = None, *args, **kargs):
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt:
             o = orb(_pkt[0])
             if o in [1, 2, 3, 4]:
@@ -499,7 +499,7 @@ class PPP_LCP_Quality_Protocol_Option(PPP_LCP_Option):
 
 class PPP_LCP_Magic_Number_Option(PPP_LCP_Option):
     fields_desc = [ByteEnumField("type", 5, _PPP_lcp_optiontypes),
-                   FieldLenField("len", 6, fmt="B", adjust = lambda p, x:6),
+                   FieldLenField("len", 6, fmt="B", adjust=lambda p, x:6),
                    IntField("magic_number", None)]
 
 

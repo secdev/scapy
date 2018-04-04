@@ -276,7 +276,7 @@ class KnowledgeBase:
     def lazy_init(self):
         self.base = ""
 
-    def reload(self, filename = None):
+    def reload(self, filename=None):
         if filename is not None:
             self.filename = filename
         oldbase = self.base

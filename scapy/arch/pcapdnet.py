@@ -198,7 +198,7 @@ if conf.use_winpcapy:
   class L2pcapListenSocket(SuperSocket, SelectableObject):
       desc = "read packets at layer 2 using libpcap"
 
-      def __init__(self, iface = None, type = ETH_P_ALL, promisc=None, filter=None, monitor=False):
+      def __init__(self, iface=None, type=ETH_P_ALL, promisc=None, filter=None, monitor=False):
           self.type = type
           self.outs = None
           self.iface = iface
@@ -261,7 +261,7 @@ if conf.use_winpcapy:
   class L2pcapSocket(SuperSocket, SelectableObject):
       desc = "read/write packets at layer 2 using only libpcap"
 
-      def __init__(self, iface = None, type = ETH_P_ALL, promisc=None, filter=None, nofilter=0,
+      def __init__(self, iface=None, type=ETH_P_ALL, promisc=None, filter=None, nofilter=0,
                    monitor=False):
           if iface is None:
               iface = conf.iface
@@ -350,7 +350,7 @@ if conf.use_winpcapy:
       #def __init__(self, iface = None, type = ETH_P_ALL, filter=None, nofilter=0):
       #    L2pcapSocket.__init__(self, iface, type, filter, nofilter)
 
-      def recv(self, x = MTU):
+      def recv(self, x=MTU):
           r = L2pcapSocket.recv(self, x)
           if r:
             return r.payload
@@ -475,7 +475,7 @@ if conf.use_pcap:
         class L2pcapListenSocket(SuperSocket):
             desc = "read packets at layer 2 using libpcap"
 
-            def __init__(self, iface = None, type = ETH_P_ALL, promisc=None, filter=None):
+            def __init__(self, iface=None, type=ETH_P_ALL, promisc=None, filter=None):
                 self.type = type
                 self.outs = None
                 self.iface = iface
@@ -615,7 +615,7 @@ if conf.use_pcap and conf.use_dnet:
     class L3dnetSocket(SuperSocket):
         desc = "read/write packets at layer 3 using libdnet and libpcap"
 
-        def __init__(self, type = ETH_P_ALL, promisc=None, filter=None, iface=None, nofilter=0):
+        def __init__(self, type=ETH_P_ALL, promisc=None, filter=None, iface=None, nofilter=0):
             self.iflist = {}
             self.intf = dnet.intf()
             if iface is None:
@@ -713,7 +713,7 @@ if conf.use_pcap and conf.use_dnet:
     class L2dnetSocket(SuperSocket):
         desc = "read/write packets at layer 2 using libdnet and libpcap"
 
-        def __init__(self, iface = None, type = ETH_P_ALL, promisc=None, filter=None, nofilter=0):
+        def __init__(self, iface=None, type=ETH_P_ALL, promisc=None, filter=None, nofilter=0):
             if iface is None:
                 iface = conf.iface
             self.iface = iface
