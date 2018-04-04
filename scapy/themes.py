@@ -219,7 +219,7 @@ class FormatTheme(ColorTheme):
         if attr.startswith("__"):
             raise AttributeError(attr)
         colfmt = self.__class__.__dict__.get("style_%s" % attr, "%s")
-        return create_styler(fmt2 = colfmt)
+        return create_styler(fmt2=colfmt)
 
 
 class LatexTheme(FormatTheme):

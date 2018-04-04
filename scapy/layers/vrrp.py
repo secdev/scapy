@@ -31,7 +31,7 @@ class VRRP(Packet):
         ByteField("adv", 1),
         XShortField("chksum", None),
         FieldListField("addrlist", [], IPField("", "0.0.0.0"),
-                       count_from = lambda pkt: pkt.ipcount),
+                       count_from=lambda pkt: pkt.ipcount),
         IntField("auth1", 0),
         IntField("auth2", 0)]
 
@@ -63,7 +63,7 @@ class VRRPv3(Packet):
         XShortField("chksum", None),
         # FIXME: addrlist should also allow IPv6 addresses :/
         FieldListField("addrlist", [], IPField("", "0.0.0.0"),
-                       count_from = lambda pkt: pkt.ipcount)]
+                       count_from=lambda pkt: pkt.ipcount)]
 
     def post_build(self, p, pay):
         if self.chksum is None:

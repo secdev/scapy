@@ -76,7 +76,7 @@ def getmacbyip(ip, chainCC=0):
 
     res = srp1(Ether(dst=ETHER_BROADCAST)/ARP(op="who-has", pdst=ip),
                type=ETH_P_ARP,
-               iface = iff,
+               iface=iff,
                timeout=2,
                verbose=0,
                chainCC=chainCC,

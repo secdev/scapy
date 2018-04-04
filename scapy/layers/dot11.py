@@ -99,7 +99,7 @@ class RadioTap(Packet):
                                                      'dBm_TX_Power', 'Antenna', 'dB_AntSignal', 'dB_AntNoise',
                                                      'b14', 'b15', 'b16', 'b17', 'b18', 'b19', 'b20', 'b21', 'b22', 'b23',
                                                      'b24', 'b25', 'b26', 'b27', 'b28', 'b29', 'b30', 'Ext']),
-                   StrLenField('notdecoded', "", length_from= lambda pkt:pkt.len-8)]
+                   StrLenField('notdecoded', "", length_from=lambda pkt:pkt.len-8)]
 
 
 class PPI(Packet):
@@ -108,7 +108,7 @@ class PPI(Packet):
                    ByteField("flags", 0),
                    FieldLenField("len", None, fmt="<H", length_of="notdecoded", adjust=lambda pkt, x:x+8),
                    LEIntField("dlt", 0),
-                   StrLenField("notdecoded", "", length_from = lambda pkt:pkt.len-8)
+                   StrLenField("notdecoded", "", length_from=lambda pkt:pkt.len-8)
                    ]
 
 

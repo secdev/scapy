@@ -388,9 +388,9 @@ _tls_ec_basis_types = {0: "ec_basis_trinomial", 1: "ec_basis_pentanomial"}
 class ECCurvePkt(Packet):
     name = "Elliptic Curve"
     fields_desc = [FieldLenField("alen", None, length_of="a", fmt="B"),
-                   StrLenField("a", "", length_from = lambda pkt: pkt.alen),
+                   StrLenField("a", "", length_from=lambda pkt: pkt.alen),
                    FieldLenField("blen", None, length_of="b", fmt="B"),
-                   StrLenField("b", "", length_from = lambda pkt: pkt.blen)]
+                   StrLenField("b", "", length_from=lambda pkt: pkt.blen)]
 
 
 ## Char2 Curves
@@ -399,7 +399,7 @@ class ECTrinomialBasis(Packet):
     name = "EC Trinomial Basis"
     val = 0
     fields_desc = [FieldLenField("klen", None, length_of="k", fmt="B"),
-                   StrLenField("k", "", length_from = lambda pkt: pkt.klen)]
+                   StrLenField("k", "", length_from=lambda pkt: pkt.klen)]
 
     def guess_payload_class(self, p):
         return Padding
@@ -521,13 +521,13 @@ class ServerECDHExplicitChar2Params(_GenericTLSSessionInheritance):
                    PacketField("curve", ECCurvePkt(), ECCurvePkt),
                    FieldLenField("baselen", None, length_of="base", fmt="B"),
                    StrLenField("base", "",
-                               length_from = lambda pkt: pkt.baselen),
+                               length_from=lambda pkt: pkt.baselen),
                    ByteField("order", None),
                    ByteField("cofactor", None),
                    FieldLenField("pointlen", None,
                                  length_of="point", fmt="B"),
                    StrLenField("point", "",
-                               length_from = lambda pkt: pkt.pointlen)]
+                               length_from=lambda pkt: pkt.pointlen)]
 
     def fill_missing(self):
         if self.curve_type is None:
@@ -544,7 +544,7 @@ class ServerECDHNamedCurveParams(_GenericTLSSessionInheritance):
                    FieldLenField("pointlen", None,
                                  length_of="point", fmt="B"),
                    StrLenField("point", None,
-                               length_from = lambda pkt: pkt.pointlen)]
+                               length_from=lambda pkt: pkt.pointlen)]
 
     @crypto_validator
     def fill_missing(self):
@@ -646,10 +646,10 @@ class ServerRSAParams(_GenericTLSSessionInheritance):
     name = "Server RSA_EXPORT parameters"
     fields_desc = [FieldLenField("rsamodlen", None, length_of="rsamod"),
                    StrLenField("rsamod", "",
-                               length_from = lambda pkt: pkt.rsamodlen),
+                               length_from=lambda pkt: pkt.rsamodlen),
                    FieldLenField("rsaexplen", None, length_of="rsaexp"),
                    StrLenField("rsaexp", "",
-                               length_from = lambda pkt: pkt.rsaexplen)]
+                               length_from=lambda pkt: pkt.rsaexplen)]
 
     @crypto_validator
     def fill_missing(self):

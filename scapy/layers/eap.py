@@ -265,11 +265,11 @@ class EAP(Packet):
 
     def mysummary(self):
         summary_str = "EAP %{eap_class}.code% %{eap_class}.type%".format(
-            eap_class = self.__class__.__name__
+            eap_class=self.__class__.__name__
         )
         if self.type == 1 and self.code == EAP.RESPONSE:
             summary_str += " %{eap_class}.identity%".format(
-                eap_class = self.__class__.__name__
+                eap_class=self.__class__.__name__
             )
         return self.sprintf(summary_str)
 

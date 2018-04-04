@@ -242,8 +242,7 @@ class TLSClientHello(_TLSHandshake):
                    _CompressionMethodsField("comp", [0],
                                             _tls_compression_algs,
                                             itemfmt="B",
-                                            length_from=
-                                            lambda pkt: pkt.complen),
+                                            length_from=lambda pkt: pkt.complen),
 
                    _ExtensionsLenField("extlen", None, length_of="ext"),
                    _ExtensionsField("ext", None,
@@ -319,7 +318,7 @@ class TLSServerHello(TLSClientHello):
 
                    FieldLenField("sidlen", None, length_of="sid", fmt="B"),
                    _SessionIDField("sid", "",
-                                   length_from = lambda pkt: pkt.sidlen),
+                                   length_from=lambda pkt: pkt.sidlen),
 
                    EnumField("cipher", None, _tls_cipher_suites),
                    _CompressionMethodsField("comp", [0],
@@ -609,7 +608,7 @@ class TLSCertificate(_TLSHandshake):
                    ThreeBytesField("msglen", None),
                    _ASN1CertLenField("certslen", None, length_of="certs"),
                    _ASN1CertListField("certs", [],
-                                      length_from = lambda pkt: pkt.certslen)]
+                                      length_from=lambda pkt: pkt.certslen)]
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
@@ -944,7 +943,7 @@ class TLSClientKeyExchange(_TLSHandshake):
     fields_desc = [ByteEnumField("msgtype", 16, _tls_handshake_type),
                    ThreeBytesField("msglen", None),
                    _TLSCKExchKeysField("exchkeys",
-                                       length_from = lambda pkt: pkt.msglen)]
+                                       length_from=lambda pkt: pkt.msglen)]
 
     def build(self, *args, **kargs):
         fval = self.getfieldval("exchkeys")

@@ -85,7 +85,7 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
 class L3RawSocket(SuperSocket):
     desc = "Layer 3 using Raw sockets (PF_INET/SOCK_RAW)"
 
-    def __init__(self, type = ETH_P_IP, filter=None, iface=None, promisc=None, nofilter=0):
+    def __init__(self, type=ETH_P_IP, filter=None, iface=None, promisc=None, nofilter=0):
         self.outs = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_RAW)
         self.outs.setsockopt(socket.SOL_IP, socket.IP_HDRINCL, 1)
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))

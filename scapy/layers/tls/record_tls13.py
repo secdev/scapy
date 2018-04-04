@@ -160,7 +160,7 @@ class TLS13(_GenericTLSSessionInheritance):
         if s:
             try:
                 p = TLS(s, _internal=1, _underlayer=self,
-                        tls_session = self.tls_session)
+                        tls_session=self.tls_session)
             except KeyboardInterrupt:
                 raise
             except:
