@@ -26,14 +26,14 @@ def get_algs_from_ciphersuite_name(ciphersuite_name):
     tls1_3 = False
     if ciphersuite_name.startswith("TLS"):
         s = ciphersuite_name[4:]
-    
+
         if s.endswith("CCM") or s.endswith("CCM_8"):
             kx_name, s = s.split("_WITH_")
             kx_alg = _tls_kx_algs.get(kx_name)
             hash_alg = _tls_hash_algs.get("SHA256")
             cipher_alg = _tls_cipher_algs.get(s)
             hmac_alg = None
-    
+
         else:
             if "WITH" in s:
                 kx_name, s = s.split("_WITH_")
@@ -41,15 +41,15 @@ def get_algs_from_ciphersuite_name(ciphersuite_name):
             else:
                 tls1_3 = True
                 kx_alg = _tls_kx_algs.get("TLS13")
-    
+
             hash_name = s.split('_')[-1]
             hash_alg = _tls_hash_algs.get(hash_name)
-    
+
             cipher_name = s[:-(len(hash_name) + 1)]
             if tls1_3:
                 cipher_name += "_TLS13"
             cipher_alg = _tls_cipher_algs.get(cipher_name)
-    
+
             hmac_alg = None
             if cipher_alg is not None and cipher_alg.type != "aead":
                 hmac_name = "HMAC-%s" % hash_name

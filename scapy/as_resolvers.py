@@ -16,7 +16,7 @@ from scapy.compat import *
 
 class AS_resolver:
     server = None
-    options = "-k" 
+    options = "-k"
 
     def __init__(self, server=None, port=43, options=None):
         if server is not None:
@@ -24,7 +24,7 @@ class AS_resolver:
         self.port = port
         if options is not None:
             self.options = options
-        
+
     def _start(self):
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s.connect((self.server, self.port))
@@ -34,7 +34,7 @@ class AS_resolver:
 
     def _stop(self):
         self.s.close()
-        
+
     def _parse_whois(self, txt):
         asn, desc = None, b""
         for l in txt.splitlines():
@@ -75,7 +75,7 @@ class AS_resolver_riswhois(AS_resolver):
 class AS_resolver_radb(AS_resolver):
     server = "whois.ra.net"
     options = "-k -M"
-    
+
 
 class AS_resolver_cymru(AS_resolver):
     server = "whois.cymru.com"

@@ -69,7 +69,7 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
         from scapy import sendrecv
         return sendrecv.sndrcv(self, *args, **kargs)
 
-    def sr1(self, *args, **kargs):        
+    def sr1(self, *args, **kargs):
         from scapy import sendrecv
         a, b = sendrecv.sndrcv(self, *args, **kargs)
         if len(a) > 0:
@@ -117,7 +117,7 @@ class L3RawSocket(SuperSocket):
             pkt = conf.raw_layer(pkt)
         if lvl == 2:
             pkt = pkt.payload
-            
+
         if pkt is not None:
             from scapy.arch import get_last_packet_timestamp
             pkt.time = get_last_packet_timestamp(self.ins)
@@ -148,7 +148,7 @@ class StreamSocket(SimpleSocket):
             basecls = conf.raw_layer
         SimpleSocket.__init__(self, sock)
         self.basecls = basecls
-        
+
     def recv(self, x=MTU):
         pkt = self.ins.recv(x, socket.MSG_PEEK)
         x = len(pkt)

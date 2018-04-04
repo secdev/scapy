@@ -137,12 +137,12 @@ The following parameters can be used:
     elif example == "imsiDetach":
         print("""
 >>> a=imsiDetachIndication()
-... a.typeOfId=1; a.odd=1; a.idDigit1=0xF; 
+... a.typeOfId=1; a.odd=1; a.idDigit1=0xF;
 ... a.idDigit2_1=2; a.idDigit2=7; a.idDigit3_1=0;
 ... a.idDigit3=7; a.idDigit4_1=7; a.idDigit4=2;
 ... a.idDigit5_1=0; a.idDigit5=0; a.idDigit6_1=0;
 ... a.idDigit6=1; a.idDigit7_1=2; a.idDigit7=7;
-... a.idDigit8_1=7; a.idDigit8=5; a.idDigit9_1=1; a.idDigit9=4; 
+... a.idDigit8_1=7; a.idDigit8=5; a.idDigit9_1=1; a.idDigit9=4;
 >>> hexdump(a)
 0000   05 01 00 08 F0 27 07 72  00 01 27 75 14   .....'.r..'u.
 >>> sendum(a)
@@ -6341,7 +6341,7 @@ class CongestionLevelHdr(Packet):
     name = "Congestion Level"
     fields_desc = [
         XBitField("ieiCL", None, 4),
-        BitField("notDef", 0x0, 4) 
+        BitField("notDef", 0x0, 4)
     ]
 
 
@@ -11838,7 +11838,7 @@ class HighLayerCompatibility(Packet):
         return p + pay
 #
 # 10.5.4.16.1           Static conditions for the high layer
-# compatibility IE contents 
+# compatibility IE contents
 #
 
 

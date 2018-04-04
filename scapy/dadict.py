@@ -42,7 +42,7 @@ class DADict:
     def __getitem__(self, attr):
         return getattr(self, attr)
 
-    def __setitem__(self, attr, val):        
+    def __setitem__(self, attr, val):
         return setattr(self, self.fixname(attr), val)
 
     def __iter__(self):
@@ -70,7 +70,7 @@ class DADict:
     def update(self, *args, **kwargs):
         for k, v in six.iteritems(dict(*args, **kwargs)):
             self[k] = v
-    
+
     def _find(self, *args, **kargs):
          return self._recurs_find((), *args, **kargs)
 

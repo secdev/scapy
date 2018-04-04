@@ -82,7 +82,7 @@ class ASN1Codec(EnumElement):
 
     def get_stem(cls):
         return cls.stem
-    
+
 
 class ASN1_Codecs_metaclass(Enum_metaclass):
     element_class = ASN1Codec
@@ -142,7 +142,7 @@ class ASN1_Class_metaclass(Enum_metaclass):
         rdict = {}
         for k, v in six.iteritems(dct):
             if isinstance(v, int):
-                v = ASN1Tag(k, v) 
+                v = ASN1Tag(k, v)
                 dct[k] = v
                 rdict[v] = v
             elif isinstance(v, ASN1Tag):
@@ -151,10 +151,10 @@ class ASN1_Class_metaclass(Enum_metaclass):
 
         cls = type.__new__(cls, name, bases, dct)
         for v in cls.__dict__.values():
-            if isinstance(v, ASN1Tag): 
+            if isinstance(v, ASN1Tag):
                 v.context = cls # overwrite ASN1Tag contexts, even cloned ones
         return cls
-            
+
 
 class ASN1_Class(six.with_metaclass(ASN1_Class_metaclass)):
     pass
@@ -511,7 +511,7 @@ class ASN1_SEQUENCE(ASN1_Object):
         for o in self.val:
             s += o.strshow(lvl=lvl+1)
         return s
-    
+
 
 class ASN1_SET(ASN1_SEQUENCE):
     tag = ASN1_Class_UNIVERSAL.SET
@@ -531,6 +531,6 @@ class ASN1_GAUGE32(ASN1_INTEGER):
 
 class ASN1_TIME_TICKS(ASN1_INTEGER):
     tag = ASN1_Class_UNIVERSAL.TIME_TICKS
-   
+
 
 conf.ASN1_default_codec = ASN1_Codecs.BER

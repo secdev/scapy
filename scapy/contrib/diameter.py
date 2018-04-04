@@ -941,7 +941,7 @@ class AVP_0_13 (AVP_FL_NV):
     avpLen = 12
     fields_desc = [
         AVP_FL_NV,
-        Enumerated('val', None, 
+        Enumerated('val', None,
                    {0: "None", 2: "IPX header compression", 3: "Stac-LZS compression", })
     ]
 
@@ -969,7 +969,7 @@ class AVP_0_45 (AVP_FL_NV):
     avpLen = 12
     fields_desc = [
         AVP_FL_NV,
-        Enumerated('val', None, 
+        Enumerated('val', None,
                    {0: "None", 1: "RADIUS", 2: "Local", 3: "Remote", 4: "Diameter", })]
 
 
@@ -1110,7 +1110,7 @@ class AVP_0_271 (AVP_FL_NV):
     avpLen = 12
     fields_desc = [
         AVP_FL_NV,
-        Enumerated('val', None, 
+        Enumerated('val', None,
                    {0: "REFUSE_SERVICE", 1: "TRY_AGAIN", 2: "ALLOW_SERVICE", 3: "TRY_AGAIN_ALLOW_SERVICE", })]
 
 

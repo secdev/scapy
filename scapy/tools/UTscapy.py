@@ -31,7 +31,7 @@ def import_module(name):
     if name.endswith(".py"):
         name = name[:-3]
     f, path, desc = imp.find_module(name, [thepath])
-    
+
     try:
         return imp.load_module(name, f, path, desc)
     finally:
@@ -58,7 +58,7 @@ class File:
             dir += "/"
         open(dir+self.name, "wb").write(self.get_local())
 
-        
+
 # Embed a base64 encoded bziped version of js and css files
 # to work if you can't reach Internet.
 class External_Files:
@@ -113,7 +113,7 @@ class EnumClass:
     def from_string(cls, x):
         return cls.__dict__[x.upper()]
     from_string = classmethod(from_string)
-    
+
 
 class Format(EnumClass):
     TEXT  = 1
@@ -330,7 +330,7 @@ def dump_campaign(test_campaign):
             if t.crc:
                 c = "[%(crc)s] " % t
             if c or k:
-                print("    %s%s" % (c, k)) 
+                print("    %s%s" % (c, k))
 
 
 #### COMPUTE CAMPAIGN DIGESTS ####
@@ -378,7 +378,7 @@ def filter_tests_keep_on_keywords(test_campaign, kw):
             if k in kw:
                 return True
         return False
-    
+
     if kw:
         for ts in test_campaign:
             ts.tests = [t for t in ts.tests if kw_match(t.keywords, kw)]
@@ -390,7 +390,7 @@ def filter_tests_remove_on_keywords(test_campaign, kw):
             if k in lst:
                 return True
         return False
-    
+
     if kw:
         for ts in test_campaign:
             ts.tests = [t for t in ts.tests if not kw_match(t.keywords, kw)]
@@ -460,7 +460,7 @@ def campaign_to_TEXT(test_campaign):
     output="%(title)s\n" % test_campaign
     output += "-- "+info_line(test_campaign)+"\n\n"
     output += "Passed=%(passed)i\nFailed=%(failed)i\n\n%(headcomments)s\n" % test_campaign
-    
+
     for testset in test_campaign:
         if any(t.expand for t in testset):
             output += "######\n## %(name)s\n######\n%(comments)s\n\n" % testset
@@ -469,13 +469,13 @@ def campaign_to_TEXT(test_campaign):
                     output += "###(%(num)03i)=[%(result)s] %(name)s\n%(comments)s\n%(output)s\n\n" % t
 
     return output
- 
+
 
 def campaign_to_ANSI(test_campaign):
     output="%(title)s\n" % test_campaign
     output += "-- "+info_line(test_campaign)+"\n\n"
     output += "Passed=%(passed)i\nFailed=%(failed)i\n\n%(headcomments)s\n" % test_campaign
-    
+
     for testset in test_campaign:
         if any(t.expand for t in testset):
             output += "######\n## %(name)s\n######\n%(comments)s\n\n" % testset
@@ -560,7 +560,7 @@ def pack_html_campaigns(runned_campaigns, data, local=0, title=None):
         for ts in test_campaign:
             for t in ts:
                 output += """<span class=button%(result)s onClick="goto_id('tst%(num)il')">%(num)03i</span>\n""" % t
-        
+
     output += """</p>\n\n
 <link rel="stylesheet" href="%(UTscapy_css)s" type="text/css">
 <script language="JavaScript" src="%(UTscapy_js)s" type="text/javascript"></script>
@@ -604,13 +604,13 @@ def campaign_to_LATEX(test_campaign):
 
 """ % test_campaign
     output %= info_line(test_campaign)
-    
+
     for testset in test_campaign:
         output += "\\chapter{%(name)s}\n\n%(comments)s\n\n" % testset
         for t in testset:
             if t.expand:
                 output += r"""\section{%(name)s}
-            
+
 [%(num)03i] [%(result)s]
 
 %(comments)s
@@ -625,9 +625,9 @@ def campaign_to_LATEX(test_campaign):
 
 
 #### USAGE ####
-                      
+
 def usage():
-    print("""Usage: UTscapy [-m module] [-f {text|ansi|HTML|LaTeX}] [-o output_file] 
+    print("""Usage: UTscapy [-m module] [-f {text|ansi|HTML|LaTeX}] [-o output_file]
                [-t testfile] [-T testfile] [-k keywords [-k ...]] [-K keywords [-K ...]]
                [-l] [-d|-D] [-F] [-q[q]] [-P preexecute_python_code]
                [-s /path/to/scapy] [-c configfile]
@@ -661,7 +661,7 @@ def execute_campaign(TESTFILE, OUTPUTFILE, PREEXEC, NUM, KW_OK, KW_KO, DUMP,
     # Report parameters
     if PREEXEC:
         test_campaign.preexec = PREEXEC
-    
+
     # Compute campaign CRC and SHA
     if CRC:
         compute_campaign_digests(test_campaign)
@@ -722,7 +722,7 @@ def main(argv):
     ignore_globals = list(six.moves.builtins.__dict__.keys())
 
     # Parse arguments
-    
+
     FORMAT = Format.ANSI
     TESTFILE = sys.stdin
     OUTPUTFILE = sys.stdout
@@ -823,7 +823,7 @@ def main(argv):
                 six.moves.builtins.__dict__.update(mod.__dict__)
             except ImportError as e:
                 raise getopt.GetoptError("cannot import [%s]: %s" % (m, e))
-                
+
     except getopt.GetoptError as msg:
         print("ERROR:", msg, file=sys.stderr)
         raise SystemExit
@@ -880,7 +880,7 @@ def main(argv):
     # Concenate outputs
     if FORMAT == Format.HTML:
         glob_output = pack_html_campaigns(runned_campaigns, glob_output, LOCAL, glob_title)
-    
+
     OUTPUTFILE.write(glob_output.encode("utf8", "ignore")
                      if 'b' in OUTPUTFILE.mode else glob_output)
     OUTPUTFILE.close()

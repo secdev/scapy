@@ -407,7 +407,7 @@ def win_find_exe(filename, installsubdir=None, env="ProgramFiles"):
         except IOError:
             path = None
         else:
-            break        
+            break
     return path
 
 
@@ -441,7 +441,7 @@ class WinProgPath(ConfClass):
         if self.wireshark:
             manu_path = load_manuf(os.path.sep.join(self.wireshark.split(os.path.sep)[:-1])+os.path.sep+"manuf")
             scapy.data.MANUFDB = conf.manufdb = manu_path
-        
+
         self.os_access = (self.powershell is not None) or (self.cscript is not None)
 
 
@@ -467,7 +467,7 @@ if conf.prog.tcpdump and conf.use_npcap and conf.prog.os_access:
 
 
 class PcapNameNotFoundError(Scapy_Exception):
-    pass    
+    pass
 
 
 def _validate_interface(iface):
@@ -524,11 +524,11 @@ def get_ip_from_name(ifname, v6=False):
     """Backward compatibility: indirectly calls get_ips
     Deprecated."""
     return get_ips(v6=v6).get(ifname, "")
-        
+
 
 class NetworkInterface(object):
     """A network interface of your local host"""
-    
+
     def __init__(self, data=None):
         self.name = None
         self.ip = None
@@ -774,14 +774,14 @@ def pcap_service_start(askadmin=True):
 
 def pcap_service_stop(askadmin=True):
     """Stops the pcap adapter. Will ask for admin. Returns True if success"""
-    return pcap_service_control('Stop-Service', askadmin=askadmin) 
-    
+    return pcap_service_control('Stop-Service', askadmin=askadmin)
+
 
 from scapy.modules.six.moves import UserDict
 
 
 class NetworkInterfaceDict(UserDict):
-    """Store information about network interfaces and convert between names""" 
+    """Store information about network interfaces and convert between names"""
 
     def load_from_powershell(self):
         if not conf.prog.os_access:
@@ -801,7 +801,7 @@ class NetworkInterfaceDict(UserDict):
                     interface.ip = ifaces_ips.get(interface.name, "")
             except (KeyError, PcapNameNotFoundError):
                 pass
-        
+
         if not self.data and conf.use_winpcapy:
             _detect = pcap_service_status()
 
@@ -938,7 +938,7 @@ def dev_from_pcapname(pcap_name):
 def dev_from_index(if_index):
     """Return Windows adapter name for given Windows interface index"""
     return IFACES.dev_from_index(if_index)
-    
+
 
 def show_interfaces(resolve_mac=True):
     """Print list of available network interfaces"""
@@ -1002,7 +1002,7 @@ def _read_routes_7():
         except ValueError:
             continue
     return routes
-        
+
 
 def read_routes():
     routes = []
@@ -1016,7 +1016,7 @@ def read_routes():
             routes = _read_routes_xp()
         else:
             routes = _read_routes_7()
-    except Exception as e:    
+    except Exception as e:
         warning("Error building scapy IPv4 routing table : %s", e)
     else:
         if not routes:
@@ -1149,7 +1149,7 @@ def _read_routes6_7():
         if not l.strip():
             if not current_object:
                 continue
-            
+
             if len(current_object) == len(regex_list):
                 try:
                     if_index = current_object[2]
@@ -1191,7 +1191,7 @@ def read_routes6():
             routes6 = _read_routes6_post2008()
         else:
             routes6 = _read_routes6_7()
-    except Exception as e:    
+    except Exception as e:
         warning("Error building scapy IPv6 routing table : %s", e)
     return routes6
 

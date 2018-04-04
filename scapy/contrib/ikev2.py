@@ -356,8 +356,8 @@ IPProtocolIDs = {
     142: "Robust Header Compression",
 }
 
-# the name 'IKEv2TransformTypes' is actually a misnomer (since the table 
-# holds info for all IKEv2 Attribute types, not just transforms, but we'll 
+# the name 'IKEv2TransformTypes' is actually a misnomer (since the table
+# holds info for all IKEv2 Attribute types, not just transforms, but we'll
 # keep it for backwards compatibility... for now at least
 IKEv2TransformTypes = IKEv2AttributeTypes
 

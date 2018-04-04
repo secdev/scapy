@@ -157,7 +157,7 @@ def nmap_sig(target, oport=80, cport=81, ucport=1):
 
     for snd, rcv in ans:
         if snd.sport == 5008:
-            res["PU"] = (snd, rcv) 
+            res["PU"] = (snd, rcv)
         else:
             test = "T%i" % (snd.sport - 5000)
             if rcv is not None and ICMP in rcv:

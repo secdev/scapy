@@ -52,7 +52,7 @@ def voip_play(s1, lst=None, **kargs):
     specified as a list.
 
     It will play only the incoming packets !
-    
+
     :param s1: The IP of the src of all VoIP packets.
     :param lst: (optional) A list of packets to load
     :type s1: string
@@ -74,14 +74,14 @@ def voip_play(s1, lst=None, **kargs):
     .. seealso:: voip_play3
     to read RTP VoIP packets
     """
-    
+
     dsp, rd = os.popen2(sox_base % "")
 
     def play(pkt):
         if not pkt:
-            return 
+            return
         if not pkt.haslayer(UDP) or not pkt.haslayer(IP):
-            return 
+            return
         ip=pkt.getlayer(IP)
         if s1 == ip.src:
             dsp.write(pkt.getlayer(conf.raw_layer).load[12:])
@@ -121,9 +121,9 @@ def voip_play2(s1, **kargs):
     def play(pkt):
         global x1, x2
         if not pkt:
-            return 
+            return
         if not pkt.haslayer(UDP) or not pkt.haslayer(IP):
-            return 
+            return
         ip=pkt.getlayer(IP)
         if s1 in [ip.src, ip.dst]:
             if ip.dst == s1:
@@ -132,7 +132,7 @@ def voip_play2(s1, **kargs):
                 x2 += pkt.getlayer(conf.raw_layer).load[12:]
             x1, x2, r = _merge_sound_bytes(x1, x2)
             dsp.write(r)
-            
+
     sniff(store=0, prn=play, **kargs)
 
 
@@ -140,7 +140,7 @@ def voip_play3(lst=None, **kargs):
     """Same than voip_play, but made to
     read and play VoIP RTP packets, without
     checking IP.
-    
+
     .. seealso:: voip_play
     for basic VoIP packets
     """

@@ -445,7 +445,7 @@ _tls_named_groups.update(_tls_named_curves)
 # Part of the code has been kept, but commented out, in case anyone would like
 # to improve ECC support in 'cryptography' (namely for the compressed point
 # format and additional curves).
-# 
+#
 # Recommended curve parameters from www.secg.org/SEC2-Ver-1.0.pdf
 # and www.ecc-brainpool.org/download/Domain-parameters.pdf
 #

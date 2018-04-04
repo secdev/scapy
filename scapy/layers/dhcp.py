@@ -143,7 +143,7 @@ DHCPOptions = {
     59: IntField("rebinding_time", 37800),
     60: "vendor_class_id",
     61: "client_id",
-    
+
     64: "NISplus_domain",
     65: IPField("NISplus_server", "0.0.0.0"),
     69: IPField("SMTP_server", "0.0.0.0"),
@@ -170,8 +170,8 @@ for k, v in six.iteritems(DHCPOptions):
 del(n)
 del(v)
 del(k)
-    
-    
+
+
 class RandDHCPOptions(RandField):
     def __init__(self, size=None, rndstr=None):
         if size is None:
@@ -212,7 +212,7 @@ class DHCPOptionsField(StrField):
             else:
                 s.append(sane(v))
         return "[%s]" % (" ".join(s))
-        
+
     def getfield(self, pkt, s):
         return b"", self.m2i(pkt, s)
 
@@ -283,7 +283,7 @@ class DHCPOptionsField(StrField):
                 s += chb(len(oval))
                 s += oval
 
-            elif (isinstance(o, str) and o in DHCPRevOptions and 
+            elif (isinstance(o, str) and o in DHCPRevOptions and
                   DHCPRevOptions[o][1] == None):
                 s += chb(DHCPRevOptions[o][0])
             elif isinstance(o, int):
@@ -354,7 +354,7 @@ class BOOTP_am(AnsweringMachine):
     def print_reply(self, req, reply):
         print("Reply %s to %s" % (reply.getlayer(IP).dst, reply.dst))
 
-    def make_reply(self, req):        
+    def make_reply(self, req):
         mac = req.src
         if isinstance(self.pool, list):
             if mac not in self.leases:
@@ -362,7 +362,7 @@ class BOOTP_am(AnsweringMachine):
             ip = self.leases[mac]
         else:
             ip = self.pool
-            
+
         repb = req.getlayer(BOOTP).copy()
         repb.op="BOOTREPLY"
         repb.yiaddr = ip
@@ -390,10 +390,10 @@ class DHCP_am(BOOTP_am):
                              ("broadcast_address", self.broadcast),
                              ("subnet_mask", self.netmask),
                              ("renewal_time", self.renewal_time),
-                             ("lease_time", self.lease_time), 
+                             ("lease_time", self.lease_time),
                              "end"
                              ]
             resp /= DHCP(options=dhcp_options)
         return resp
-    
+
 

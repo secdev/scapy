@@ -221,7 +221,7 @@ class Dot11Beacon(Packet):
     fields_desc = [LELongField("timestamp", 0),
                    LEShortField("beacon_interval", 0x0064),
                    FlagsField("cap", 0, 16, capability_list)]
-    
+
 
 class Dot11Elt(Packet):
     name = "802.11 Information Element"
@@ -275,14 +275,14 @@ class Dot11ReassoResp(Dot11AssoResp):
 
 class Dot11ProbeReq(Packet):
     name = "802.11 Probe Request"
-    
+
 
 class Dot11ProbeResp(Packet):
     name = "802.11 Probe Response"
     fields_desc = [LELongField("timestamp", 0),
                    LEShortField("beacon_interval", 0x0064),
                    FlagsField("cap", 0, 16, capability_list)]
-    
+
 
 class Dot11Auth(Packet):
     name = "802.11 Authentication"
@@ -414,7 +414,7 @@ iwconfig wlan0 mode managed
 """
     function_name = "airpwn"
     filter = None
-    
+
     def parse_options(self, iffrom=conf.iface, ifto=conf.iface, replace="",
                       pattern="", ignorepattern=""):
         self.iffrom = iffrom
@@ -422,7 +422,7 @@ iwconfig wlan0 mode managed
         self.ptrn = re.compile(pattern.encode())
         self.iptrn = re.compile(ignorepattern.encode())
         self.replace = replace
-        
+
     def is_request(self, pkt):
         if not isinstance(pkt, Dot11):
             return 0
@@ -456,7 +456,7 @@ iwconfig wlan0 mode managed
         q.getlayer(TCP).flags="RA"
         q.getlayer(TCP).seq+=len(self.replace)
         return [p, q]
-    
+
     def print_reply(self, query, *reply):
         p = reply[0][0]
         print(p.sprintf("Sent %IP.src%:%IP.sport% > %IP.dst%:%TCP.dport%"))
@@ -486,5 +486,5 @@ class Dot11PacketList(PacketList):
             q.unwep()
             r2.append(Ether()/q.payload.payload.payload) #Dot11/LLC/SNAP/IP
         return PacketList(r2, name="Ether from %s"%self.listname)
-        
-        
+
+

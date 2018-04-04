@@ -85,14 +85,14 @@ class Route:
             del(self.routes[i])
         except ValueError:
             warning("no matching route found")
-             
+
     def ifchange(self, iff, addr):
         self.invalidate_cache()
         the_addr, the_msk = (addr.split("/")+["32"])[:2]
         the_msk = itom(int(the_msk))
         the_rawaddr = atol(the_addr)
         the_net = the_rawaddr & the_msk
-        
+
         for i, route in enumerate(self.routes):
             net, msk, gw, iface, addr, metric = route
             if scapy.consts.WINDOWS:
@@ -105,7 +105,7 @@ class Route:
             else:
                 self.routes[i] = (net, msk, gw, iface, the_addr, metric)
         conf.netcache.flush()
-        
+
     def ifdel(self, iff):
         self.invalidate_cache()
         new_routes=[]
@@ -117,7 +117,7 @@ class Route:
                 continue
             new_routes.append(rt)
         self.routes=new_routes
-        
+
     def ifadd(self, iff, addr):
         self.invalidate_cache()
         the_addr, the_msk = (addr.split("/")+["32"])[:2]
@@ -133,7 +133,7 @@ class Route:
             verbose=conf.verb
         # Transform "192.168.*.1-5" to one IP of the set
         dst = dest.split("/")[0]
-        dst = dst.replace("*", "0") 
+        dst = dst.replace("*", "0")
         while True:
             l = dst.find("-")
             if l < 0:
@@ -168,7 +168,7 @@ class Route:
         ret = pathes[0][2]
         self.cache[dest] = ret
         return ret
-            
+
     def get_if_bcast(self, iff):
         for net, msk, gw, iface, addr, metric in self.routes:
             if net == 0:

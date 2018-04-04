@@ -103,7 +103,7 @@ class SMBNetlogon_Protocol_Response_Tail_SAM(Packet):
                    ShortField("Data38", 0x0),
                    ShortField("Data39", 0x0d00),
                    ShortField("Data40", 0x0),
-                   ShortField("Data41", 0xffff)]                   
+                   ShortField("Data41", 0xffff)]
 
 # SMB NetLogon Protocol Response Tail LM2.0
 
@@ -231,7 +231,7 @@ class SMBNegociate_Protocol_Response_No_Security(Packet):
                    BitField("EncryptionKey", 0, 64),
                    StrNullField("DomainName", "WORKGROUP"),
                    StrNullField("ServerName", "RMFF1")]
-    
+
 # SMBNegociate Protocol Response No Security No Key
 
 
@@ -273,7 +273,7 @@ class SMBNegociate_Protocol_Response_No_Security_No_Key(Packet):
                    LEShortField("ByteCount", 16),
                    StrNullField("DomainName", "WORKGROUP"),
                    StrNullField("ServerName", "RMFF1")]
-    
+
 # Session Setup AndX Request
 
 

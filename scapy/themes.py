@@ -35,13 +35,13 @@ class ColorTable:
 
     def __getattr__(self, attr):
         return self.colors.get(attr, [""])[0]
-    
+
     def ansi_to_pygments(self, x): # Transform ansi encoded text to Pygments text
         inv_map = {v[0]: v[1] for k, v in self.colors.items()}
         for k, v in inv_map.items():
             x = x.replace(k, " "+v)
         return x.strip()
-        
+
 
 Color = ColorTable()
 
@@ -69,7 +69,7 @@ class ColorTheme:
                     "__reduce_ex__"]:
             raise AttributeError()
         return create_styler()
-        
+
 
 class NoTheme(ColorTheme):
     pass
@@ -79,7 +79,7 @@ class AnsiColorTheme(ColorTheme):
     def __getattr__(self, attr):
         if attr.startswith("__"):
             raise AttributeError(attr)
-        s = "style_%s" % attr 
+        s = "style_%s" % attr
         if s in self.__class__.__dict__:
             before = getattr(self, s)
             after = self.style_normal
@@ -87,7 +87,7 @@ class AnsiColorTheme(ColorTheme):
             before = after = ""
 
         return create_styler(before=before, after=after)
-        
+
     style_normal = ""
     style_prompt = ""
     style_punct = ""
@@ -141,7 +141,7 @@ class DefaultTheme(AnsiColorTheme):
     style_left = Color.blue+Color.invert
     style_right = Color.red+Color.invert
     style_logo = Color.green+Color.bold
-    
+
 
 class BrightTheme(AnsiColorTheme):
     style_normal = Color.normal
@@ -219,7 +219,7 @@ class FormatTheme(ColorTheme):
         if attr.startswith("__"):
             raise AttributeError(attr)
         colfmt = self.__class__.__dict__.get("style_%s" % attr, "%s")
-        return create_styler(fmt2 = colfmt)       
+        return create_styler(fmt2 = colfmt)
 
 
 class LatexTheme(FormatTheme):
@@ -248,8 +248,8 @@ class LatexTheme2(FormatTheme):
     style_layer_name = r"@`@textcolor@[@red@]@@[@@`@bfseries@[@@]@%s@]@"
     style_field_name = r"@`@textcolor@[@blue@]@@[@%s@]@"
     style_field_value = r"@`@textcolor@[@purple@]@@[@%s@]@"
-    style_emph_field_name = r"@`@textcolor@[@blue@]@@[@@`@underline@[@%s@]@@]@" 
-    style_emph_field_value = r"@`@textcolor@[@purple@]@@[@@`@underline@[@%s@]@@]@" 
+    style_emph_field_name = r"@`@textcolor@[@blue@]@@[@@`@underline@[@%s@]@@]@"
+    style_emph_field_value = r"@`@textcolor@[@purple@]@@[@@`@underline@[@%s@]@@]@"
     style_packetlist_name = r"@`@textcolor@[@red@]@@[@@`@bfseries@[@@]@%s@]@"
     style_packetlist_proto = r"@`@textcolor@[@blue@]@@[@%s@]@"
     style_packetlist_value = r"@`@textcolor@[@purple@]@@[@%s@]@"

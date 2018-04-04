@@ -47,7 +47,7 @@ class ScapyFreqFilter(logging.Filter):
                 else:
                     return 0
             self.warning_table[caller] = (tm, nb)
-        return 1    
+        return 1
 
 
 log_scapy = logging.getLogger("scapy")
@@ -61,5 +61,5 @@ log_loading = logging.getLogger("scapy.loading")          # logs when loading Sc
 def warning(x, *args, **kargs):
     """
     Prints a warning during runtime.
-    """ 
+    """
     log_runtime.warning(x, *args, **kargs)

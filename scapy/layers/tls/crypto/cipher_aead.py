@@ -186,7 +186,7 @@ class _AEADCipher(six.with_metaclass(_AEADCipherMetaclass, object)):
         self.nonce_explicit = pkcs_os2ip(nonce_explicit_str)
         if add_length:
             A += struct.pack("!H", len(C))
-        
+
         if hasattr(self, "pc_cls"):
             self._cipher.mode._initialization_vector = self._get_nonce()
             self._cipher.mode._tag = mac

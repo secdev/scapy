@@ -89,7 +89,7 @@ def BER_len_dec(s):
             ll <<= 8
             ll |= orb(c)
         return ll, s[l+1:]
-        
+
 
 def BER_num_enc(l, size=1):
         x=[]
@@ -217,7 +217,7 @@ class BERcodec_Object(six.with_metaclass(BERcodec_metaclass)):
     def check_string(cls, s):
         if not s:
             raise BER_Decoding_Error("%s: Got empty object while expecting tag %r" %
-                                     (cls.__name__, cls.tag), remaining=s)        
+                                     (cls.__name__, cls.tag), remaining=s)
 
     @classmethod
     def check_type(cls, s):
@@ -323,7 +323,7 @@ class BERcodec_INTEGER(BERcodec_Object):
                 x <<= 8
                 x |= orb(c)
         return cls.asn1_object(x), t
-    
+
 
 class BERcodec_BOOLEAN(BERcodec_INTEGER):
     tag = ASN1_Class_UNIVERSAL.BOOLEAN
@@ -484,7 +484,7 @@ class BERcodec_SEQUENCE(BERcodec_Object):
                 if err.decoded is not None:
                     obj.append(err.decoded)
                 err.decoded = obj
-                raise 
+                raise
             obj.append(o)
         if len(st) < l:
             raise BER_Decoding_Error("Not enough bytes to decode sequence", decoded=obj)
@@ -503,7 +503,7 @@ class BERcodec_IPADDRESS(BERcodec_STRING):
         try:
             s = inet_aton(ipaddr_ascii)
         except Exception:
-            raise BER_Encoding_Error("IPv4 address could not be encoded") 
+            raise BER_Encoding_Error("IPv4 address could not be encoded")
         return chb(hash(cls.tag))+BER_len_enc(len(s))+s
 
     @classmethod

@@ -46,7 +46,7 @@ _cdp_tlv_cls = {0x0001: "CDPMsgDeviceID",
                 0x0008: "CDPMsgProtoHello",
                 0x0009: "CDPMsgVTPMgmtDomain", # CDPv2
                 0x000a: "CDPMsgNativeVLAN",    # CDPv2
-                0x000b: "CDPMsgDuplex",        # 
+                0x000b: "CDPMsgDuplex",        #
                 #                 0x000c: "CDPMsgGeneric",
                 #                 0x000d: "CDPMsgGeneric",
                 0x000e: "CDPMsgVoIPVLANReply",
@@ -73,7 +73,7 @@ _cdp_tlv_types = {0x0001: "Device ID",
                   0x0008: "Protocol Hello",
                   0x0009: "VTP Management Domain", # CDPv2
                   0x000a: "Native VLAN",    # CDPv2
-                  0x000b: "Duplex",        # 
+                  0x000b: "Duplex",        #
                   0x000c: "CDP Unknown command (send us a pcap file)",
                   0x000d: "CDP Unknown command (send us a pcap file)",
                   0x000e: "VoIP VLAN Reply",
