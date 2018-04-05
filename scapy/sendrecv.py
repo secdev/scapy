@@ -640,7 +640,7 @@ iface:    listen answers only on the given interface"""
 @conf.commands.register
 def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
           L2socket=None, timeout=None, opened_socket=None,
-          stop_filter=None, iface=None, *arg, **karg):
+          stop_filter=None, iface=None, started_callback=None, *arg, **karg):
     """
     Sniff packets and return a list of packets.
 
@@ -666,6 +666,8 @@ def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
         iface: interface or list of interfaces (default: None for sniffing
                on all interfaces).
         monitor: use monitor mode. May not be available on all OS
+        started_callback: called as soon as the sniffer starts sniffing
+                          (default: None).
 
     The iface, offline and opened_socket parameters can be either an
     element, a list of elements, or a dict object mapping an element to a
@@ -755,6 +757,8 @@ def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
                     return []
                 raise
     try:
+        if started_callback:
+            started_callback()
         while sniff_sockets:
             if timeout is not None:
                 remain = stoptime - time.time()
