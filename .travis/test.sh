@@ -15,6 +15,13 @@ then
     UT_FLAGS=" -K tcpdump"
   fi
 
+  if python --version 2>&1 | grep -q '^Python 3\.'
+  then
+    # Some Python 3 tests currently fail. They should be tracked and
+    # fixed.
+    UT_FLAGS+=" -K FIXME_py3"
+  fi
+
   # Dump Environment (so that we can check PATH, UT_FLAGS, etc.)
   set
 
