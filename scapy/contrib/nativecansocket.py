@@ -98,8 +98,6 @@ class CANSocket(SuperSocket):
 
 @conf.commands.register
 def srcan(pkt, iface=None, receive_own_messages=False, canfilter=None, *args, **kargs):
-    if "timeout" not in kargs:
-        kargs["timeout"] = -1
     s = CANSocket(iface, receive_own_messages, canfilter)
     a, b = s.sr(pkt, *args, **kargs)
     s.close()
