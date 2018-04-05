@@ -5,7 +5,8 @@
   ],
   "remove_testfiles": [
     "test\\cansocket_native.uts",
-    "test\\cansocket_python_can.uts"
+    "test\\cansocket_python_can.uts",
+    "test\\isotp.uts"
   ],
   "onlyfailed": true,
   "preexec": {
