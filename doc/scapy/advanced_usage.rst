@@ -1088,9 +1088,8 @@ You may also want to use the dynamic address reconfiguration without necessarily
     $ sudo echo 1 > /proc/sys/net/sctp/addip_noauth_enable
 
 
-****************
 Automotive usage
-****************
+================
 
 .. note::
     All automotive related features work best on linux systems. CAN and ISOTP sockets in scapy are based on linux kernel modules.
@@ -1101,13 +1100,41 @@ Automotive usage
     on a more powerful machine.
 
 Examples
-========
+--------
+
+
+Hands-On
+--------
+
+Send a message over Linux SocketCAN::
+
+    load_contrib('cansocket')
+    socket = CANSocket(iface='can0')
+    packet = CAN(identifier=0x123, data=b'01020304')
+
+    socket.sr1(packet, timeout=1)
+
+    srcan(packet, 'can0', timeout=1)
+
+Send a message over a Vector-Interface::
+
+    import can
+    conf.contribs['CANSocket'] = {'use-python-can' : True}
+    load_contrib('cansocket')
+    from can.interfaces.vector import VectorBus
+    socket = CANSocket(iface=VectorBus(0, bitrate=1000000))
+    packet = CAN(identifier=0x123, data=b'01020304')
+    socket.sr1(packet)
+
+    srcan(packet, VectorBus(0, bitrate=1000000))
+
+
 
 CAN Layer
 ---------
 
 Setup
-~~~~~
+-----
 
 This commands enable a virtual CAN interface on your machine::
 
@@ -1122,7 +1149,7 @@ If it's required, the CAN interface can be set into an listen-only or loop back 
     ip link set vcan0 type can help  # shows additional information
 
 CAN Frame
-~~~~~~~~~
+---------
 
 Creating a standard CAN frame::
 
@@ -1139,7 +1166,7 @@ Writing and reading to pcap files::
     y = rdpcap('/tmp/scapyPcapTest.pcap', 1)
 
 Native CANSocket
-~~~~~~~~~~
+----------------
 
 Creating a simple native CANSocket::
 
@@ -1174,7 +1201,7 @@ Creating a native CANSocket which also receives its own messages::
 
 
 python-can CANSocket
-~~~~~~~~~~
+--------------------
 
 Ways of creating a python-can CANSocket::
 
@@ -1197,10 +1224,10 @@ Creating a python-can CANSocket with multiple filters::
 For further details on python-can check: https://python-can.readthedocs.io/en/2.1.0/
 
 Setup
-=====
+-----
 
 Hardware Setup
---------------
+^^^^^^^^^^^^^^
 
 Beagle Bone Black Operating System Setup
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1480,7 +1507,7 @@ can be chosen to fit the bitrate of a CAN bus under test.
     ifconfig can1 up
 
 Software Setup
---------------
+^^^^^^^^^^^^^^
 
 Cannelloni Framework Installation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

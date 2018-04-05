@@ -90,7 +90,7 @@ def _sndrcv_rcv(pks, tobesent, stopevent, nbrecv, notans, verbose, chainCC,
 
     from scapy.contrib.cansocket import is_python_can_socket
 
-    if WINDOWS:
+    if WINDOWS and not is_python_can_socket(pks):
         def _get_pkt():
             return pks.recv(MTU)
     elif conf.use_bpf:
