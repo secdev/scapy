@@ -1,0 +1,41 @@
+% Licklider Transmission Protocol tests
+
+############
+############
++ Licklider Transmission Protocol (LTP) basic tests
+
+~ TODO: no pcap have been found on Internet. Check that scapy correctly decode those too
+
+= Build packets & dissect
+
+load_contrib("ltp")
+pkt = Ether(src="aa:aa:aa:aa:aa:aa", dst="bb:bb:bb:bb:bb:bb")/IP(src="192.168.0.1", dst="192.168.0.2")/UDP()/LTP(flags=8,\
+        SessionOriginator=2,
+        SessionNumber=113,
+        ReportCheckpointSerialNo=12,
+        ReportUpperBound=0,
+        ReportLowerBound=5,
+        ReportReceptionClaims=[
+            LTPReceptionClaim(ReceptionClaimOffset=1, ReceptionClaimLength=4),
+            LTPReceptionClaim(ReceptionClaimOffset=2, ReceptionClaimLength=3),
+        ],
+        HeaderExtensions=[
+            LTPex(ExTag=1, ExData=b"\x00"),
+        ],
+        TrailerExtensions=[
+            LTPex(ExTag=0, ExData=b"\x01"),
+            LTPex(ExTag=1, ExData=b"\x02"),
+        ])
+
+pkt = Ether(raw(pkt))
+assert LTP in pkt
+assert pkt[LTP].ReportLowerBound == 5
+assert pkt[LTP].ReportCheckpointSerialNo == 12
+assert pkt[LTP].ReportReceptionClaims[0].ReceptionClaimLength == 4
+assert pkt[LTP].ReportReceptionClaims[1].ReceptionClaimOffset == 2
+assert pkt[LTP].HeaderExtensions[0].ExTag == 1
+assert pkt[LTP].HeaderExtensions[0].ExData == b"\x00"
+
+s = pkt.summary()
+s
+assert s.replace("ltp_deepspace", "1113") == 'Ether / IP / UDP 192.168.0.1:1113 > 192.168.0.2:1113 / LTP 113'
