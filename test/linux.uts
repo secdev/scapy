@@ -209,6 +209,19 @@ except Exception:
 = veth interface usage - ctx manager
 ~ linux needs_root veth
 
+from threading import Condition
+
+cond_started = Condition()
+
+def _sniffer_started():
+
+    global cond_started
+    cond_started.acquire()
+    cond_started.notify()
+    cond_started.release()
+
+cond_started.acquire()
+
 try:
     with VEthPair('veth_scapy_0', 'veth_scapy_1') as veth:
         if_list = get_if_list()
@@ -219,12 +232,13 @@ try:
             sniffed = sniff(iface='veth_scapy_1',
                             store=True,
                             count=2,
-                            lfilter=lambda p: Ether in p and p[Ether].type == 0xbeef)
+                            lfilter=lambda p: Ether in p and p[Ether].type == 0xbeef,
+                            started_callback=_sniffer_started)
             global frm_count
             frm_count = 2
         t_sniffer = Thread(target=_sniffer)
         t_sniffer.start()
-        time.sleep(1)
+        cond_started.wait()
         sendp(Ether(type=0xbeef)/Raw(b'0123456789'),
               iface='veth_scapy_0',
               count=2)
@@ -241,6 +255,20 @@ except Exception:
 
 = veth interface usage - manual interface handling
 ~ linux needs_root veth
+
+from threading import Condition
+
+cond_started = Condition()
+
+def _sniffer_started():
+
+    global cond_started
+    cond_started.acquire()
+    cond_started.notify()
+    cond_started.release()
+
+cond_started.acquire()
+
 
 veth = VEthPair('veth_scapy_0', 'veth_scapy_1')
 try:
@@ -260,13 +288,14 @@ def _sniffer():
     sniffed = sniff(iface='veth_scapy_1',
                     store=True,
                     count=2,
-                    lfilter=lambda p: Ether in p and p[Ether].type == 0xbeef)
+                    lfilter=lambda p: Ether in p and p[Ether].type == 0xbeef,
+                    started_callback=_sniffer_started)
     global frm_count
     frm_count = 2
 
 t_sniffer = Thread(target=_sniffer)
 t_sniffer.start()
-time.sleep(1)
+cond_started.wait()
 sendp(Ether(type=0xbeef)/Raw(b'0123456789'),
       iface='veth_scapy_0',
       count=2)
