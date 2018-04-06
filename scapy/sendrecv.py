@@ -642,65 +642,45 @@ def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
           L2socket=None, timeout=None, opened_socket=None,
           stop_filter=None, iface=None, *arg, **karg):
     """
+    Sniff packets and return a list of packets.
 
-Sniff packets and return a list of packets.
+    Args:
+        count: number of packets to capture. 0 means infinity.
+        store: whether to store sniffed packets or discard them
+        prn: function to apply to each packet. If something is returned, it
+             is displayed.
+             --Ex: prn = lambda x: x.summary()
+        filter: BPF filter to apply.
+        lfilter: Python function applied to each packet to determine if
+                 further action may be done.
+                 --Ex: lfilter = lambda x: x.haslayer(Padding)
+        offline: PCAP file (or list of PCAP files) to read packets from,
+                 instead of sniffing them
+        timeout: stop sniffing after a given time (default: None).
+        L2socket: use the provided L2socket (default: use conf.L2listen).
+        opened_socket: provide an object (or a list of objects) ready to use
+                      .recv() on.
+        stop_filter: Python function applied to each packet to determine if
+                     we have to stop the capture after this packet.
+                     --Ex: stop_filter = lambda x: x.haslayer(TCP)
+        iface: interface or list of interfaces (default: None for sniffing
+               on all interfaces).
+        monitor: use monitor mode. May not be available on all OS
 
-Arguments:
+    The iface, offline and opened_socket parameters can be either an
+    element, a list of elements, or a dict object mapping an element to a
+    label (see examples below).
 
-  count: number of packets to capture. 0 means infinity.
-
-  store: whether to store sniffed packets or discard them
-
-  prn: function to apply to each packet. If something is returned, it
-      is displayed.
-
-      Ex: prn = lambda x: x.summary()
-
-  filter: BPF filter to apply.
-
-  lfilter: Python function applied to each packet to determine if
-      further action may be done.
-
-      Ex: lfilter = lambda x: x.haslayer(Padding)
-
-  offline: PCAP file (or list of PCAP files) to read packets from,
-      instead of sniffing them
-
-  timeout: stop sniffing after a given time (default: None).
-
-  L2socket: use the provided L2socket (default: use conf.L2listen).
-
-  opened_socket: provide an object (or a list of objects) ready to use
-      .recv() on.
-
-  stop_filter: Python function applied to each packet to determine if
-      we have to stop the capture after this packet.
-
-      Ex: stop_filter = lambda x: x.haslayer(TCP)
-
-  iface: interface or list of interfaces (default: None for sniffing
-      on all interfaces).
-
-The iface, offline and opened_socket parameters can be either an
-element, a list of elements, or a dict object mapping an element to a
-label (see examples below).
-
-Examples:
-
-  >>> sniff(filter="arp")
-
-  >>> sniff(lfilter=lambda pkt: ARP in pkt)
-
-  >>> sniff(iface="eth0", prn=Packet.summary)
-
-  >>> sniff(iface=["eth0", "mon0"],
-  ...       prn=lambda pkt: "%s: %s" % (pkt.sniffed_on,
-  ...                                   pkt.summary()))
-
-  >>> sniff(iface={"eth0": "Ethernet", "mon0": "Wifi"},
-  ...       prn=lambda pkt: "%s: %s" % (pkt.sniffed_on,
-  ...                                   pkt.summary()))
-
+    Examples:
+      >>> sniff(filter="arp")
+      >>> sniff(lfilter=lambda pkt: ARP in pkt)
+      >>> sniff(iface="eth0", prn=Packet.summary)
+      >>> sniff(iface=["eth0", "mon0"],
+      ...       prn=lambda pkt: "%s: %s" % (pkt.sniffed_on,
+      ...                                   pkt.summary()))
+      >>> sniff(iface={"eth0": "Ethernet", "mon0": "Wifi"},
+      ...       prn=lambda pkt: "%s: %s" % (pkt.sniffed_on,
+      ...                                   pkt.summary()))
     """
     c = 0
     sniff_sockets = {}  # socket: label dict
