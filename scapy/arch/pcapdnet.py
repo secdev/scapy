@@ -135,7 +135,7 @@ if conf.use_winpcapy:
   class _PcapWrapper_pypcap:
       """Wrapper for the WinPcap calls"""
 
-      def __init__(self, device, snaplen, promisc, to_ms, monitor=False):
+      def __init__(self, device, snaplen, promisc, to_ms, monitor=None):
           self.errbuf = create_string_buffer(PCAP_ERRBUF_SIZE)
           self.iface = create_string_buffer(device.encode("utf8"))
           if monitor:
@@ -198,7 +198,7 @@ if conf.use_winpcapy:
   class L2pcapListenSocket(SuperSocket, SelectableObject):
       desc = "read packets at layer 2 using libpcap"
 
-      def __init__(self, iface=None, type=ETH_P_ALL, promisc=None, filter=None, monitor=False):
+      def __init__(self, iface=None, type=ETH_P_ALL, promisc=None, filter=None, monitor=None):
           self.type = type
           self.outs = None
           self.iface = iface
@@ -262,7 +262,7 @@ if conf.use_winpcapy:
       desc = "read/write packets at layer 2 using only libpcap"
 
       def __init__(self, iface=None, type=ETH_P_ALL, promisc=None, filter=None, nofilter=0,
-                   monitor=False):
+                   monitor=None):
           if iface is None:
               iface = conf.iface
           self.iface = iface

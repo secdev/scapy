@@ -959,11 +959,22 @@ _orig_open_pcap = pcapdnet.open_pcap
 
 
 def open_pcap(iface, *args, **kargs):
+    """open_pcap: Windows routine for creating a pcap from an interface.
+    This function is also responsible for detecting monitor mode.
+    """
     iface_pcap_name = pcapname(iface)
     if not isinstance(iface, NetworkInterface) and iface_pcap_name is not None:
         iface = IFACES.dev_from_name(iface)
-    if conf.use_npcap and isinstance(iface, NetworkInterface) and iface.ismonitor():
-        kargs["monitor"] = True
+    if conf.use_npcap and isinstance(iface, NetworkInterface):
+        monitored = iface.ismonitor()
+        kw_monitor = kargs.get("monitor", None)
+        if kw_monitor is None:
+            # The monitor param is not specified. Matching it to current state
+            kargs["monitor"] = monitored
+        elif kw_monitor is not monitored:
+            # The monitor param is specified, and not matching the current
+            # interface state
+            iface.setmonitor(kw_monitor)
     return _orig_open_pcap(iface_pcap_name, *args, **kargs)
 
 
