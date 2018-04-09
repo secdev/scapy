@@ -369,8 +369,8 @@ class OSPF_DBDesc(Packet):
                    FlagsField("dbdescr", 0, 8, ["MS", "M", "I", "R", "4", "3", "2", "1"]),
                    IntField("ddseq", 1),
                    PacketListField("lsaheaders", None, OSPF_LSA_Hdr,
-                                   count_from = lambda pkt: None,
-                                   length_from = lambda pkt: pkt.underlayer.len - 24 - 8)]
+                                   count_from=lambda pkt: None,
+                                   length_from=lambda pkt: pkt.underlayer.len - 24 - 8)]
 
     def guess_payload_class(self, payload):
         # check presence of LLS data block flag
@@ -393,23 +393,23 @@ class OSPF_LSReq_Item(Packet):
 class OSPF_LSReq(Packet):
     name = "OSPF Link State Request (container)"
     fields_desc = [PacketListField("requests", None, OSPF_LSReq_Item,
-                                   count_from = lambda pkt:None,
-                                   length_from = lambda pkt:pkt.underlayer.len - 24)]
+                                   count_from=lambda pkt:None,
+                                   length_from=lambda pkt:pkt.underlayer.len - 24)]
 
 
 class OSPF_LSUpd(Packet):
     name = "OSPF Link State Update"
     fields_desc = [FieldLenField("lsacount", None, fmt="!I", count_of="lsalist"),
                    PacketListField("lsalist", None, _LSAGuessPayloadClass,
-                                   count_from = lambda pkt: pkt.lsacount,
-                                   length_from = lambda pkt: pkt.underlayer.len - 24)]
+                                   count_from=lambda pkt: pkt.lsacount,
+                                   length_from=lambda pkt: pkt.underlayer.len - 24)]
 
 
 class OSPF_LSAck(Packet):
     name = "OSPF Link State Acknowledgement"
     fields_desc = [PacketListField("lsaheaders", None, OSPF_LSA_Hdr,
-                                   count_from = lambda pkt: None,
-                                   length_from = lambda pkt: pkt.underlayer.len - 24)]
+                                   count_from=lambda pkt: None,
+                                   length_from=lambda pkt: pkt.underlayer.len - 24)]
 
     def answers(self, other):
         if isinstance(other, OSPF_LSUpd):
@@ -659,7 +659,7 @@ class OSPFv3_Link_LSA(OSPF_BaseLSA):
                    IP6Field("lladdr", "fe80::"),
                    FieldLenField("prefixes", None, count_of="prefixlist", fmt="I"),
                    PacketListField("prefixlist", None, OSPFv3_Prefix_Item,
-                                   count_from = lambda pkt: pkt.prefixes)]
+                                   count_from=lambda pkt: pkt.prefixes)]
 
 
 class OSPFv3_Intra_Area_Prefix_LSA(OSPF_BaseLSA):
@@ -676,7 +676,7 @@ class OSPFv3_Intra_Area_Prefix_LSA(OSPF_BaseLSA):
                    IPField("reflsid", "0.0.0.0"),
                    IPField("refadrouter", "0.0.0.0"),
                    PacketListField("prefixlist", None, OSPFv3_Prefix_Item,
-                                   count_from = lambda pkt: pkt.prefixes)]
+                                   count_from=lambda pkt: pkt.prefixes)]
 
 
 class OSPFv3_DBDesc(Packet):
@@ -688,8 +688,8 @@ class OSPFv3_DBDesc(Packet):
                    FlagsField("dbdescr", 0, 8, ["MS", "M", "I", "R"]),
                    IntField("ddseq", 1),
                    PacketListField("lsaheaders", None, OSPFv3_LSA_Hdr,
-                                   count_from = lambda pkt:None,
-                                   length_from = lambda pkt:pkt.underlayer.len - 28)]
+                                   count_from=lambda pkt:None,
+                                   length_from=lambda pkt:pkt.underlayer.len - 28)]
 
 
 class OSPFv3_LSReq_Item(Packet):
@@ -706,23 +706,23 @@ class OSPFv3_LSReq_Item(Packet):
 class OSPFv3_LSReq(Packet):
     name = "OSPFv3 Link State Request (container)"
     fields_desc = [PacketListField("requests", None, OSPFv3_LSReq_Item,
-                                   count_from = lambda pkt:None,
-                                   length_from = lambda pkt:pkt.underlayer.len - 16)]
+                                   count_from=lambda pkt:None,
+                                   length_from=lambda pkt:pkt.underlayer.len - 16)]
 
 
 class OSPFv3_LSUpd(Packet):
     name = "OSPFv3 Link State Update"
     fields_desc = [FieldLenField("lsacount", None, fmt="!I", count_of="lsalist"),
                    PacketListField("lsalist", [], _OSPFv3_LSAGuessPayloadClass,
-                                   count_from = lambda pkt:pkt.lsacount,
-                                   length_from = lambda pkt:pkt.underlayer.len - 16)]
+                                   count_from=lambda pkt:pkt.lsacount,
+                                   length_from=lambda pkt:pkt.underlayer.len - 16)]
 
 
 class OSPFv3_LSAck(Packet):
     name = "OSPFv3 Link State Acknowledgement"
     fields_desc = [PacketListField("lsaheaders", None, OSPFv3_LSA_Hdr,
-                                   count_from = lambda pkt:None,
-                                   length_from = lambda pkt:pkt.underlayer.len - 16)]
+                                   count_from=lambda pkt:None,
+                                   length_from=lambda pkt:pkt.underlayer.len - 16)]
 
 
 bind_layers(IP, OSPF_Hdr, proto=89)

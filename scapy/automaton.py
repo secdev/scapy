@@ -649,7 +649,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
         if self.state.state in self.interception_points:
             self.debug(3, "INTERCEPT: packet intercepted: %s" % pkt.summary())
             self.intercepted_packet = pkt
-            cmd = Message(type = _ATMT_Command.INTERCEPT, state=self.state, pkt=pkt)
+            cmd = Message(type=_ATMT_Command.INTERCEPT, state=self.state, pkt=pkt)
             self.cmdout.send(cmd)
             cmd = self.cmdin.recv()
             self.intercepted_packet = None
@@ -815,7 +815,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                 if self.state.state in self.breakpoints and self.state.state != self.breakpointed:
                     self.breakpointed = self.state.state
                     yield self.Breakpoint("breakpoint triggered on state %s" % self.state.state,
-                                          state = self.state.state)
+                                          state=self.state.state)
                 self.breakpointed = None
                 state_output = self.state.run()
                 if self.state.error:
@@ -923,13 +923,13 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
 
     def run(self, resume=None, wait=True):
         if resume is None:
-            resume = Message(type = _ATMT_Command.RUN)
+            resume = Message(type=_ATMT_Command.RUN)
         self.cmdin.send(resume)
         if wait:
             try:
                 c = self.cmdout.recv()
             except KeyboardInterrupt:
-                self.cmdin.send(Message(type = _ATMT_Command.FREEZE))
+                self.cmdin.send(Message(type=_ATMT_Command.FREEZE))
                 return
             if c.type == _ATMT_Command.END:
                 return c.result
@@ -946,7 +946,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
         self.run(resume, wait)
 
     def next(self):
-        return self.run(resume = Message(type=_ATMT_Command.NEXT))
+        return self.run(resume=Message(type=_ATMT_Command.NEXT))
     __next__ = next
 
     def stop(self):
@@ -974,7 +974,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
         return self.run(resume=rsm, wait=wait)
 
     def reject_packet(self, wait=False):
-        rsm = Message(type = _ATMT_Command.REJECT)
+        rsm = Message(type=_ATMT_Command.REJECT)
         return self.run(resume=rsm, wait=wait)
 
 

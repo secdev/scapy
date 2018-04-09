@@ -134,7 +134,7 @@ bind_layers(TFTP_OACK, TFTP_Options)
 
 
 class TFTP_read(Automaton):
-    def parse_args(self, filename, server, sport = None, port=69, **kargs):
+    def parse_args(self, filename, server, sport=None, port=69, **kargs):
         Automaton.parse_args(self, **kargs)
         self.filename = filename
         self.server = server
@@ -191,7 +191,7 @@ class TFTP_read(Automaton):
     @ATMT.action(receive_data)
 #    @ATMT.action(receive_error)
     def send_ack(self):
-        self.last_packet = self.l3 / TFTP_ACK(block = self.awaiting)
+        self.last_packet = self.l3 / TFTP_ACK(block=self.awaiting)
         self.send(self.last_packet)
 
     # RECEIVED
@@ -360,7 +360,7 @@ class TFTP_WRQ_server(Automaton):
 
     @ATMT.action(receive_data)
     def ack_data(self):
-        self.last_packet = self.l3/TFTP_ACK(block = self.blk)
+        self.last_packet = self.l3/TFTP_ACK(block=self.blk)
         self.send(self.last_packet)
 
     @ATMT.state()

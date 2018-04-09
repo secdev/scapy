@@ -93,7 +93,7 @@ class PacketList(BasePacketList):
                                   name="%s from %s"%(item.__name__, self.listname))
         if isinstance(item, slice):
             return self.__class__(self.res.__getitem__(item),
-                                  name = "mod %s" % self.listname)
+                                  name="mod %s" % self.listname)
         return self.res.__getitem__(item)
 
     def __getslice__(self, *args, **kargs):
@@ -442,7 +442,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
                                        fittosize=1))
         return d
 
-    def psdump(self, filename = None, **kargs):
+    def psdump(self, filename=None, **kargs):
         """Creates a multi-page postcript file with a psdump of every packet
         filename: name of the file to write to. If empty, a temporary file is used and
                   conf.prog.psreader is called"""
@@ -459,7 +459,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
             d.writePSfile(filename)
         print()
 
-    def pdfdump(self, filename = None, **kargs):
+    def pdfdump(self, filename=None, **kargs):
         """Creates a PDF file with a psdump of every packet
         filename: name of the file to write to. If empty, a temporary file is used and
                   conf.prog.pdfreader is called"""

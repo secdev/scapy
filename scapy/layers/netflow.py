@@ -347,7 +347,7 @@ class NetflowTemplateV9(Packet):
     fields_desc = [ShortField("templateID", 255),
                    FieldLenField("fieldCount", None, count_of="template_fields"),
                    PacketListField("template_fields", [], NetflowTemplateFieldV9,
-                                   count_from = lambda pkt: pkt.fieldCount)]
+                                   count_from=lambda pkt: pkt.fieldCount)]
 
     def default_payload_class(self, p):
         return conf.padding_layer
@@ -358,7 +358,7 @@ class NetflowFlowsetV9(Packet):
     fields_desc = [ShortField("flowSetID", 0),
                    FieldLenField("length", None, length_of="templates", adjust=lambda pkt, x:x+4),
                    PacketListField("templates", [], NetflowTemplateV9,
-                                   length_from = lambda pkt: pkt.length-4)]
+                                   length_from=lambda pkt: pkt.length-4)]
 
 
 class _CustomStrFixedLenField(StrFixedLenField):
@@ -392,9 +392,9 @@ class NetflowRecordV9(Packet):
 class NetflowDataflowsetV9(Packet):
     name = "Netflow DataFlowSet V9"
     fields_desc = [ShortField("templateID", 255),
-                   FieldLenField("length", None, length_of="records", adjust = lambda pkt, x:x+4),
+                   FieldLenField("length", None, length_of="records", adjust=lambda pkt, x:x+4),
                    PadField(PacketListField("records", [], NetflowRecordV9,
-                                            length_from = lambda pkt: pkt.length-4),
+                                            length_from=lambda pkt: pkt.length-4),
                             4, padwith=b"\x00")]
 
     @classmethod
@@ -522,9 +522,9 @@ class NetflowOptionsFlowsetV9(Packet):
                    FieldLenField("option_scope_length", None, length_of="scopes"),
                    FieldLenField("option_field_length", None, length_of="options"),
                    PacketListField("scopes", [], NetflowOptionsFlowsetScopeV9,
-                                   length_from = lambda pkt: pkt.option_scope_length),
+                                   length_from=lambda pkt: pkt.option_scope_length),
                    PadField(PacketListField("options", [], NetflowOptionsFlowsetOptionV9,
-                                            length_from = lambda pkt: pkt.option_field_length),
+                                            length_from=lambda pkt: pkt.option_field_length),
                             4, padwith=b"\x00")]
 
 

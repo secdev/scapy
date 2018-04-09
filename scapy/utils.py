@@ -960,7 +960,7 @@ class PcapReader(RawPcapReader):
     def read_all(self, count=-1):
         res = RawPcapReader.read_all(self, count)
         from scapy import plist
-        return plist.PacketList(res, name = os.path.basename(self.filename))
+        return plist.PacketList(res, name=os.path.basename(self.filename))
 
     def recv(self, size=MTU):
         return self.read_packet(size=size)

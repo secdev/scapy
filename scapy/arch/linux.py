@@ -408,7 +408,7 @@ def _flush_fd(fd):
 class L3PacketSocket(SuperSocket):
     desc = "read/write packets at layer 3 using Linux PF_PACKET sockets"
 
-    def __init__(self, type = ETH_P_ALL, filter=None, promisc=None, iface=None, nofilter=0):
+    def __init__(self, type=ETH_P_ALL, filter=None, promisc=None, iface=None, nofilter=0):
         self.type = type
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
         self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 0)
@@ -573,7 +573,7 @@ class L2Socket(SuperSocket):
 class L2ListenSocket(SuperSocket):
     desc = "read packets at layer 2 using Linux PF_PACKET sockets"
 
-    def __init__(self, iface = None, type = ETH_P_ALL, promisc=None, filter=None, nofilter=0):
+    def __init__(self, iface=None, type=ETH_P_ALL, promisc=None, filter=None, nofilter=0):
         self.type = type
         self.outs = None
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
