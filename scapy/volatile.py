@@ -124,7 +124,7 @@ class RandNum(RandField):
         return int(self)
 
     def __nonzero__(self):
-        return bool(self.value)
+        return bool(self._fix())
     __bool__ = __nonzero__
 
     def __add__(self, other):

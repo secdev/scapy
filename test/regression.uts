@@ -9087,6 +9087,9 @@ random.seed(0x2807)
 rts = RandTermString(4, "scapy")
 assert(sane(raw(rts)) in ["...Zscapy", "$#..scapy"])
 
+= RandInt (test __bool__)
+a = "True" if RandNum(False, True) else "False"
+assert a in ["True", "False"]
 
 ############
 ############
