@@ -44,7 +44,7 @@ class MACsecSA(object):
     Provides encapsulation, decapsulation, encryption, and decryption
     of MACsec frames
     """
-    def __init__(self, sci, an, pn, key, icvlen, encrypt, send_sci, xpn_en = False, ssci = None, salt = None):
+    def __init__(self, sci, an, pn, key, icvlen, encrypt, send_sci, xpn_en=False, ssci=None, salt=None):
         if isinstance(sci, six.integer_types):
             self.sci = struct.pack('!Q', sci)
         elif isinstance(sci, bytes):
