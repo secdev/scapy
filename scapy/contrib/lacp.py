@@ -16,10 +16,11 @@
 # scapy.contrib.status = loads
 
 from scapy.packet import Packet, bind_layers
-from scapy.fields import ByteField, MACField, ShortField, Field, ByteEnumField, IntField
+from scapy.fields import ByteField, MACField, ShortField, Field, ByteEnumField, IntField, XStrFixedLenField
 from scapy.layers.l2 import Ether
 from scapy.utils import lhex
 from scapy.data import ETHER_TYPES
+from scapy.modules.six.moves import range
 import struct
 
 
@@ -33,29 +34,10 @@ SLOW_SUB_TYPES = {
 
 class SlowProtocol(Packet):
     name = "SlowProtocol"
-    fields_desc = [ ByteEnumField("subtype", 0, SLOW_SUB_TYPES) ]
+    fields_desc = [ByteEnumField("subtype", 0, SLOW_SUB_TYPES)]
 
 
 bind_layers(Ether, SlowProtocol, type=0x8809, dst='01:80:c2:00:00:02')
-
-
-class XBytesField(Field):
-
-    def __init__(self, name, default, length=1):
-        Field.__init__(self, name, default, "B" * length)
-
-    def i2repr(self, pkt, x):
-        return lhex(self.i2h(pkt, x))
-
-    def addfield(self, pkt, s, val):
-        octets = []
-        for i in xrange(self.sz):
-            octets.insert(0, val & 0xff)
-            val >>= 8
-        return s + struct.pack(self.fmt, *octets)
-
-    def getfield(self, pkt, s):
-        return s[self.sz:], self.m2i(pkt, struct.unpack(self.fmt, s[:self.sz])[0])
 
 
 class LACP(Packet):
@@ -70,7 +52,7 @@ class LACP(Packet):
         ShortField("actor_port_priority", 0),
         ShortField("actor_port_numer", 0),
         ByteField("actor_state", 0),
-        XBytesField("actor_reserved", 0, 3),
+        XStrFixedLenField("actor_reserved", 0, 3),
         ByteField("partner_type", 2),
         ByteField("partner_length", 20),
         ShortField("partner_system_priority", 0),
@@ -79,14 +61,14 @@ class LACP(Packet):
         ShortField("partner_port_priority", 0),
         ShortField("partner_port_numer", 0),
         ByteField("partner_state", 0),
-        XBytesField("partner_reserved", 0, 3),
+        XStrFixedLenField("partner_reserved", 0, 3),
         ByteField("collector_type", 3),
         ByteField("collector_length", 16),
         ShortField("collector_max_delay", 0),
-        XBytesField("colletctor_reserved", 0, 12),
+        XStrFixedLenField("colletctor_reserved", 0, 12),
         ByteField("terminator_type", 0),
         ByteField("terminator_length", 0),
-        XBytesField("reserved", 0, 50),
+        XStrFixedLenField("reserved", 0, 50),
     ]
 
 
@@ -107,10 +89,10 @@ class MarkerProtocol(Packet):
         ShortField("requester_port", 0),
         MACField("requester_system", None),
         IntField("requester_transaction_id", 0),
-        XBytesField("marker_reserved", 0, 2),
+        XStrFixedLenField("marker_reserved", 0, 2),
         ByteField("terminator_type", 0),
         ByteField("terminator_length", 0),
-        XBytesField("reserved", 0, 90),
+        XStrFixedLenField("reserved", 0, 90),
     ]
 
 
