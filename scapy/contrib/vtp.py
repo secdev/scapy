@@ -95,7 +95,7 @@ class VTPVlanInfoTlv(Packet):
 class VTPVlanInfo(Packet):
     name = "VTP VLAN Info"
     fields_desc = [
-        ByteField("len", None), # FIXME: compute length
+        ByteField("len", None),  # FIXME: compute length
         ByteEnumField("status", 0, {0: "active", 1: "suspended"}),
         ByteEnumField("type", 1, _VTP_VLAN_TYPE),
         FieldLenField("vlannamelen", None, "vlanname", "B"),

@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
 """
 Unit testing infrastructure for Scapy
@@ -16,12 +16,12 @@ import scapy.modules.six as six
 from scapy.modules.six.moves import range
 
 
-### Util class ###
+#   Util class   #
 
 class Bunch:
     __init__ = lambda self, **kw: setattr(self, '__dict__', kw)
 
-#### Import tool ####
+#    Import tool    #
 
 
 def import_module(name):
@@ -39,7 +39,7 @@ def import_module(name):
             f.close()
 
 
-#### INTERNAL/EXTERNAL FILE EMBEDDING ####
+#    INTERNAL/EXTERNAL FILE EMBEDDING    #
 
 class File:
     def __init__(self, name, URL, local):
@@ -107,7 +107,7 @@ r1APYgXihjQwM2M83AKIhwQQJv/F3JFOFCQNsEI0QA==""")
     get_URL_dict = classmethod(get_URL_dict)
 
 
-#### HELPER CLASSES FOR PARAMETRING OUTPUT FORMAT ####
+#    HELPER CLASSES FOR PARAMETRING OUTPUT FORMAT    #
 
 class EnumClass:
     def from_string(cls, x):
@@ -123,7 +123,7 @@ class Format(EnumClass):
     XUNIT = 5
 
 
-#### TEST CLASSES ####
+#    TEST CLASSES    #
 
 class TestClass:
     def __getitem__(self, item):
@@ -265,7 +265,7 @@ def parse_config_file(config_path, verb=3):
                  kw_ko=get_if_exist("kw_ko", []),
                  format=get_if_exist("format", "ansi"))
 
-#### PARSE CAMPAIGN ####
+#    PARSE CAMPAIGN    #
 
 
 def parse_campaign_file(campaign_file):
@@ -333,7 +333,7 @@ def dump_campaign(test_campaign):
                 print("    %s%s" % (c, k))
 
 
-#### COMPUTE CAMPAIGN DIGESTS ####
+#    COMPUTE CAMPAIGN DIGESTS    #
 if six.PY2:
     def crc32(x):
         return "%08X" % (0xffffffff & zlib.crc32(x))
@@ -362,7 +362,7 @@ def compute_campaign_digests(test_campaign):
     test_campaign.sha = sha1(open(test_campaign.filename).read())
 
 
-#### FILTER CAMPAIGN #####
+#    FILTER CAMPAIGN     #
 
 def filter_tests_on_numbers(test_campaign, num):
     if num:
@@ -400,7 +400,7 @@ def remove_empty_testsets(test_campaign):
     test_campaign.campaign = [ts for ts in test_campaign.campaign if ts.tests]
 
 
-#### RUN CAMPAIGN #####
+#    RUN CAMPAIGN     #
 
 def run_campaign(test_campaign, get_interactive_session, verb=3, ignore_globals=None):
     passed=failed=0
@@ -436,7 +436,7 @@ def run_campaign(test_campaign, get_interactive_session, verb=3, ignore_globals=
     return failed
 
 
-#### INFO LINES ####
+#    INFO LINES    #
 
 def info_line(test_campaign):
     filename = test_campaign.filename
@@ -454,7 +454,7 @@ def html_info_line(test_campaign):
         return """Run %s from [%s] by <a href="http://www.secdev.org/projects/UTscapy/">UTscapy</a><br>""" % (time.ctime(), filename)
 
 
-#### CAMPAIGN TO something ####
+#    CAMPAIGN TO something    #
 
 def campaign_to_TEXT(test_campaign):
     output="%(title)s\n" % test_campaign
@@ -624,7 +624,7 @@ def campaign_to_LATEX(test_campaign):
     return output
 
 
-#### USAGE ####
+#    USAGE    #
 
 def usage():
     print("""Usage: UTscapy [-m module] [-f {text|ansi|HTML|LaTeX}] [-o output_file]
@@ -651,7 +651,7 @@ def usage():
     raise SystemExit
 
 
-#### MAIN ####
+#    MAIN    #
 
 def execute_campaign(TESTFILE, OUTPUTFILE, PREEXEC, NUM, KW_OK, KW_KO, DUMP,
                      FORMAT, VERB, ONLYFAILED, CRC, autorun_func, pos_begin=0, ignore_globals=None):

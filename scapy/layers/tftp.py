@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
 """
 TFTP (Trivial File Transfer Protocol).
@@ -213,7 +213,7 @@ class TFTP_read(Automaton):
         split_bottom_up(UDP, TFTP, dport=self.my_tid)
         return pkt[TFTP_ERROR].summary()
 
-    #END
+    # END
     @ATMT.state(final=1)
     def END(self):
         split_bottom_up(UDP, TFTP, dport=self.my_tid)
@@ -419,7 +419,7 @@ class TFTP_RRQ_server(Automaton):
             self.data = self.store[self.filename]
         elif self.dir is not None:
             fn = os.path.abspath(os.path.join(self.dir, self.filename))
-            if fn.startswith(self.dir): # Check we're still in the server's directory
+            if fn.startswith(self.dir):  # Check we're still in the server's directory
                 try:
                     self.data=open(fn).read()
                 except IOError:

@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
 """
 Implementation of the configuration object.
@@ -20,7 +20,7 @@ from scapy.modules import six
 from scapy.themes import NoTheme, apply_ipython_style
 
 ############
-## Config ##
+#  Config  #
 ############
 
 
@@ -180,7 +180,7 @@ class CommandsList(list):
 
     def register(self, cmd):
         self.append(cmd)
-        return cmd # return cmd so that method can be used as a decorator
+        return cmd  # return cmd so that method can be used as a decorator
 
 
 def lsc():
@@ -454,8 +454,8 @@ debug_tls:When 1, print some TLS session secrets when they are computed.
     wepkey = ""
     cache_iflist = {}
     cache_ipaddrs = {}
-    route = None # Filed by route.py
-    route6 = None # Filed by route6.py
+    route = None  # Filed by route.py
+    route6 = None  # Filed by route6.py
     auto_fragment = 1
     debug_dissector = 0
     color_theme = Interceptor("color_theme", NoTheme(), _prompt_changer)
@@ -502,7 +502,7 @@ if not Conf.ipv6_enabled:
             Conf.load_layers.remove(m)
 
 conf=Conf()
-conf.logLevel=30 # 30=Warning
+conf.logLevel=30  # 30=Warning
 
 
 def crypto_validator(func):

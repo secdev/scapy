@@ -32,7 +32,7 @@ import logging
 from types import IntType
 from types import NoneType
 from types import StringType
-#from  time import sleep
+# from  time import sleep
 import socket
 logging.getLogger("scapy").setLevel(1)
 
@@ -387,8 +387,8 @@ def cipheringModeCommand():
     a = TpPd(pd=0x6)
     b = MessageType(mesType=0x35)  # 00110101
     c = RrCause()
- #d=cipherModeSetting()
- #e=cipherResponse()
+ # d=cipherModeSetting()
+ # e=cipherResponse()
  # FIX
     d = CipherModeSettingAndcipherResponse()
     packet = a / b / c / d
@@ -713,9 +713,9 @@ def handoverFailure():
     return packet
 
 
-#The L2 pseudo length of this message is the sum of lengths of all
-#information elements present in the message except
-#the IA Rest Octets and L2 Pseudo Length information elements.
+# The L2 pseudo length of this message is the sum of lengths of all
+# information elements present in the message except
+# the IA Rest Octets and L2 Pseudo Length information elements.
 # Network to MS
 def immediateAssignment(ChannelDescription_presence=0,
                         PacketChannelDescription_presence=0,
@@ -744,9 +744,9 @@ def immediateAssignment(ChannelDescription_presence=0,
     return packet
 
 
-#The L2 pseudo length of this message is the sum of lengths of all
-#information elements present in the message except
-#the IAX Rest Octets and L2 Pseudo Length information elements.
+# The L2 pseudo length of this message is the sum of lengths of all
+# information elements present in the message except
+# the IAX Rest Octets and L2 Pseudo Length information elements.
 
 # Network to MS
 def immediateAssignmentExtended(StartingTime_presence=0):
@@ -847,9 +847,9 @@ def rrCellChangeOrder():
 # Network to MS
 def pagingRequestType1(MobileId_presence=0):
     """PAGING REQUEST TYPE 1 Section 9.1.22"""
- #The L2 pseudo length of this message is the sum of lengths of all
- #information elements present in the message except
- #the P1 Rest Octets and L2 Pseudo Length information elements.
+ # The L2 pseudo length of this message is the sum of lengths of all
+ # information elements present in the message except
+ # the P1 Rest Octets and L2 Pseudo Length information elements.
     a = L2PseudoLength()
     b = TpPd(pd=0x6)
     c = MessageType(mesType=0x21)  # 00100001
@@ -1053,9 +1053,9 @@ def systemInformationType3():
     return packet
 
 
-#The L2 pseudo length of this message is the
-#sum of lengths of all information elements present in the message except
-#the SI 4 Rest Octets and L2 Pseudo Length
+# The L2 pseudo length of this message is the
+# sum of lengths of all information elements present in the message except
+# the SI 4 Rest Octets and L2 Pseudo Length
 # Network to MS
 def systemInformationType4(ChannelDescription_presence=0,
                            MobileAllocation_presence=0):
@@ -1078,7 +1078,7 @@ def systemInformationType4(ChannelDescription_presence=0,
     return packet
 
 
-#This message has a L2 Pseudo Length of 18
+# This message has a L2 Pseudo Length of 18
 # Network to MS
 def systemInformationType5():
     """SYSTEM INFORMATION TYPE 5 Section 9.1.37"""
@@ -1090,7 +1090,7 @@ def systemInformationType5():
     return packet
 
 
-#This message has a L2 Pseudo Length of 18
+# This message has a L2 Pseudo Length of 18
 # Network to MS
 def systemInformationType5bis():
     """SYSTEM INFORMATION TYPE 5bis Section 9.1.38"""
@@ -1114,7 +1114,7 @@ def systemInformationType5ter():
     return packet
 
 
-#This message has a L2 Pseudo Length of 11
+# This message has a L2 Pseudo Length of 11
 # Network to MS
 def systemInformationType6():
     """SYSTEM INFORMATION TYPE 6 Section 9.1.40"""
@@ -3075,7 +3075,7 @@ class BaRangeHdr(Packet):
         XBitField("ieiBR", None, 7),
 
         XByteField("lengthBR", None),
-        #error: byte format requires -128 <= number <= 127
+        # error: byte format requires -128 <= number <= 127
         ByteField("nrOfRanges", 0x0),
         #              # rX = range X
         #              # L o = Lower H i = higher
@@ -3654,9 +3654,9 @@ class ChannelDescriptionHdr(Packet):
 
              BitField("maioLo", 0x0, 2),
              BitField("hsn", 0x0, 6)
-             #BitField("spare", 0x0, 2),
-             #BitField("arfcnHigh", 0x0, 2),
-             #ByteField("arfcnLow", 0x0)
+             # BitField("spare", 0x0, 2),
+             # BitField("arfcnHigh", 0x0, 2),
+             # ByteField("arfcnLow", 0x0)
     ]
 
 
@@ -3862,10 +3862,10 @@ class FrequencyShortListHdr(Packet):
     """Frequency Short List Section 10.5.2.14"""
     name = "Frequency Short List"
 # len is 10
-#This element is encoded exactly as the Frequency List information element,
-#except that it has a fixed length instead of a
-#variable length and does not contain a length indicator and that it
-#shall not be encoded in bitmap 0 format.
+# This element is encoded exactly as the Frequency List information element,
+# except that it has a fixed length instead of a
+# variable length and does not contain a length indicator and that it
+# shall not be encoded in bitmap 0 format.
     fields_desc = [
         ByteField("ieiFSL", 0x0),
         ByteField("byte2", 0x0),
@@ -3990,7 +3990,7 @@ class IaRestOctets(Packet):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
         res = adapt(1, 12, a, self.fields_desc)
         if self.lengthIRO is None:
-            if res[1] < 0: # FIXME better fix
+            if res[1] < 0:  # FIXME better fix
                 res[1] = 0
             p = p[:1] + struct.pack(">B", res[1]) + p[2:]
         if res[0] != 0:
@@ -4423,7 +4423,7 @@ class PacketChannelDescription(Packet):
         BitField("chanType", 0x0, 5),  # This  packet has multiple
         # possible layouts. I moddeled the first one
         BitField("tn", 0x0, 3),     # maybe build an
-                                          #"interactive" builder. Like
+                                          # "interactive" builder. Like
                                           # a Q/A then propose a
                                           #  packet?
         BitField("tsc", 0x0, 3),
@@ -4733,7 +4733,7 @@ class Si8RestOctets(Packet):
     ]
 
 
-#len 17
+# len 17
 class Si9RestOctets(Packet):
     """SI 9 Rest Octets Section 10.5.2.37a"""
     name = "SI 9 Rest Octets"
@@ -5083,7 +5083,7 @@ class ApduDataHdr(Packet):
         BitField("eightBitAD", None, 1),
         XBitField("ieiAD", None, 7),
         XByteField("lengthAD", None),
-        #optional
+        # optional
              ByteField("apuInfo1", None),
              ByteField("apuInfo2", None),
              ByteField("apuInfo3", None),
@@ -5770,7 +5770,7 @@ class LsaIdentifierHdr(Packet):
 # 10.5.4 Call control information elements
 #
 
-#10.5.4.1 Extensions of codesets
+# 10.5.4.1 Extensions of codesets
 # This is only text and no  packet
 
 class LockingShiftProcedureHdr(Packet):
@@ -6735,7 +6735,7 @@ class FacilityHdr(Packet):
         return p + pay
 
 
-#len 2 to 5
+# len 2 to 5
 class HighLayerCompatibilityHdr(Packet):
     """High layer compatibility Section 10.5.4.16"""
     name = "High Layer Compatibility"
@@ -8909,7 +8909,7 @@ class BaRange(Packet):
     fields_desc = [
 
         XByteField("lengthBR", None),
-        #error: byte format requires -128 <= number <= 127
+        # error: byte format requires -128 <= number <= 127
         ByteField("nrOfRanges", 0x0),
         #              # rX = range X
         #              # L o = Lower H i = higher
@@ -10188,7 +10188,7 @@ class WaitIndication(Packet):
     ]
 
 
-#class Si10RestOctets(Packet):
+# class Si10RestOctets(Packet):
 #     """SI10 rest octets 10.5.2.44"""
 #     name = "SI10 rest octets"
 #     fields_desc = [
@@ -10304,7 +10304,7 @@ class ApduData(Packet):
     name = "Apdu Data"
     fields_desc = [
         XByteField("lengthAD", None),
-        #optional
+        # optional
              ByteField("apuInfo1", None),
              ByteField("apuInfo2", None),
              ByteField("apuInfo3", None),
@@ -10885,7 +10885,7 @@ class LsaIdentifier(Packet):
 # 10.5.4 Call control information elements
 #
 
-#10.5.4.1 Extensions of codesets
+# 10.5.4.1 Extensions of codesets
 # This is only text and no  packet
 
 class LockingShiftProcedure(Packet):
@@ -11806,7 +11806,7 @@ class Facility(Packet):
         return p + pay
 
 
-#len 2 to 5
+# len 2 to 5
 class HighLayerCompatibility(Packet):
     """High layer compatibility Section 10.5.4.16"""
     name = "High Layer Compatibility"

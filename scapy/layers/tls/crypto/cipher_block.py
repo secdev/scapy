@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
-##               2015, 2016, 2017 Maxence Tury
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
+#               2015, 2016, 2017 Maxence Tury
+# This program is published under a GPLv2 license
 
 """
 Block ciphers.
@@ -126,7 +126,7 @@ if conf.crypto_valid:
         key_len = 32
 
 
-### Mostly deprecated ciphers
+# Mostly deprecated ciphers
 
 if conf.crypto_valid:
     class Cipher_DES_CBC(_BlockCipher):

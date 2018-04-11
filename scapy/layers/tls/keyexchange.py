@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
-##               2015, 2016, 2017 Maxence Tury
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
+#               2015, 2016, 2017 Maxence Tury
+# This program is published under a GPLv2 license
 
 """
 TLS key exchange logic.
@@ -28,7 +28,7 @@ if conf.crypto_valid:
 
 
 ###############################################################################
-### Common Fields                                                           ###
+#   Common Fields                                                             #
 ###############################################################################
 
 _tls_hash_sig = {0x0000: "none+anon",    0x0001: "none+rsa",
@@ -276,10 +276,10 @@ class _TLSServerParamsField(PacketField):
 
 
 ###############################################################################
-### Server Key Exchange parameters & value                                  ###
+#   Server Key Exchange parameters & value                                    #
 ###############################################################################
 
-### Finite Field Diffie-Hellman
+# Finite Field Diffie-Hellman
 
 class ServerDHParams(_GenericTLSSessionInheritance):
     """
@@ -376,7 +376,7 @@ class ServerDHParams(_GenericTLSSessionInheritance):
         return Padding
 
 
-### Elliptic Curve Diffie-Hellman
+# Elliptic Curve Diffie-Hellman
 
 _tls_ec_curve_types = {1: "explicit_prime",
                        2: "explicit_char2",
@@ -393,7 +393,7 @@ class ECCurvePkt(Packet):
                    StrLenField("b", "", length_from=lambda pkt: pkt.blen)]
 
 
-## Char2 Curves
+# Char2 Curves
 
 class ECTrinomialBasis(Packet):
     name = "EC Trinomial Basis"
@@ -459,13 +459,13 @@ class _ECBasisField(PacketField):
         return val
 
 
-## Distinct ECParameters
+# Distinct ECParameters
 ##
-## To support the different ECParameters structures defined in Sect. 5.4 of
-## RFC 4492, we define 3 separates classes for implementing the 3 associated
-## ServerECDHParams: ServerECDHNamedCurveParams, ServerECDHExplicitPrimeParams
-## and ServerECDHExplicitChar2Params (support for this one is only partial).
-## The most frequent encounter of the 3 is (by far) ServerECDHNamedCurveParams.
+# To support the different ECParameters structures defined in Sect. 5.4 of
+# RFC 4492, we define 3 separates classes for implementing the 3 associated
+# ServerECDHParams: ServerECDHNamedCurveParams, ServerECDHExplicitPrimeParams
+# and ServerECDHExplicitChar2Params (support for this one is only partial).
+# The most frequent encounter of the 3 is (by far) ServerECDHNamedCurveParams.
 
 class ServerECDHExplicitPrimeParams(_GenericTLSSessionInheritance):
     """
@@ -597,8 +597,8 @@ class ServerECDHNamedCurveParams(_GenericTLSSessionInheritance):
         XXX Support compressed point format.
         XXX Check that the pubkey received is on the curve.
         """
-        #point_format = 0
-        #if self.point[0] in [b'\x02', b'\x03']:
+        # point_format = 0
+        # if self.point[0] in [b'\x02', b'\x03']:
         #    point_format = 1
 
         curve_name = _tls_named_curves[self.named_curve]
@@ -633,7 +633,7 @@ def _tls_server_ecdh_cls_guess(m):
     return _tls_server_ecdh_cls.get(curve_type, None)
 
 
-### RSA Encryption (export)
+# RSA Encryption (export)
 
 class ServerRSAParams(_GenericTLSSessionInheritance):
     """
@@ -686,7 +686,7 @@ class ServerRSAParams(_GenericTLSSessionInheritance):
         return Padding
 
 
-### Pre-Shared Key
+# Pre-Shared Key
 
 class ServerPSKParams(Packet):
     """
@@ -712,10 +712,10 @@ class ServerPSKParams(Packet):
 
 
 ###############################################################################
-### Client Key Exchange value                                               ###
+#   Client Key Exchange value                                                 #
 ###############################################################################
 
-### FFDH/ECDH
+# FFDH/ECDH
 
 class ClientDiffieHellmanPublic(_GenericTLSSessionInheritance):
     """
@@ -832,7 +832,7 @@ class ClientECDiffieHellmanPublic(_GenericTLSSessionInheritance):
             s.compute_ms_and_derive_keys()
 
 
-### RSA Encryption (standard & export)
+# RSA Encryption (standard & export)
 
 class _UnEncryptedPreMasterSecret(Raw):
     """

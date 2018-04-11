@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
 """
 Direct Access dictionary.
@@ -14,7 +14,7 @@ import scapy.modules.six as six
 from scapy.compat import *
 
 ###############################
-## Direct Access dictionary  ##
+#  Direct Access dictionary   #
 ###############################
 
 

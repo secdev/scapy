@@ -1,21 +1,21 @@
 #############################################################################
-##                                                                         ##
-## http2.py --- HTTP/2 support for Scapy                                   ##
-##              see RFC7540 and RFC7541                                    ##
-##              for more informations                                      ##
-##                                                                         ##
-## Copyright (C) 2016  Florian Maury <florian.maury@ssi.gouv.fr>           ##
-##                                                                         ##
-## This file is part of Scapy                                              ##
-## Scapy is free software: you can redistribute it and/or modify it        ##
-## under the terms of the GNU General Public License version 2 as          ##
-## published by the Free Software Foundation.                              ##
-##                                                                         ##
-## This program is distributed in the hope that it will be useful, but     ##
-## WITHOUT ANY WARRANTY; without even the implied warranty of              ##
-## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU       ##
-## General Public License for more details.                                ##
-##                                                                         ##
+#                                                                           #
+#  http2.py --- HTTP/2 support for Scapy                                    #
+#               see RFC7540 and RFC7541                                     #
+#               for more informations                                       #
+#                                                                           #
+#  Copyright (C) 2016  Florian Maury <florian.maury@ssi.gouv.fr>            #
+#                                                                           #
+#  This file is part of Scapy                                               #
+#  Scapy is free software: you can redistribute it and/or modify it         #
+#  under the terms of the GNU General Public License version 2 as           #
+#  published by the Free Software Foundation.                               #
+#                                                                           #
+#  This program is distributed in the hope that it will be useful, but      #
+#  WITHOUT ANY WARRANTY; without even the implied warranty of               #
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU        #
+#  General Public License for more details.                                 #
+#                                                                           #
 #############################################################################
 """http2 Module
 Implements packets and fields required to encode/decode HTTP/2 Frames
@@ -52,7 +52,7 @@ import scapy.volatile as volatile
 import scapy.error as error
 
 ########################################################################################################################
-################################################ HPACK Integer Fields ##################################################
+#                                                HPACK Integer Fields                                                  #
 ########################################################################################################################
 
 
@@ -384,9 +384,9 @@ class AbstractUVarIntField(fields.Field):
             return s + self.i2m(pkt, val)
 
         # s is a tuple
-        #assert(s[1] >= 0)
-        #assert(s[2] >= 0)
-        #assert (8 - s[1]) == self.size, 'EINVAL: s: not enough bits remaining in current byte to read the prefix'
+        # assert(s[1] >= 0)
+        # assert(s[2] >= 0)
+        # assert (8 - s[1]) == self.size, 'EINVAL: s: not enough bits remaining in current byte to read the prefix'
 
         if val >= self._max_value:
             return s[0] + chb((s[2] << self.size) + self._max_value) + self.i2m(pkt, val)[1:]
@@ -630,7 +630,7 @@ class FieldUVarLenField(AbstractUVarIntField):
         return ret
 
 ########################################################################################################################
-################################################ HPACK String Fields ###################################################
+#                                                HPACK String Fields                                                   #
 ########################################################################################################################
 
 
@@ -1287,7 +1287,7 @@ class HPackStrLenField(fields.Field):
         return repr(self.i2h(pkt, x))
 
 ########################################################################################################################
-################################################ HPACK Packets #########################################################
+#                                                HPACK Packets                                                         #
 ########################################################################################################################
 
 
@@ -1405,7 +1405,7 @@ class HPackDynamicSizeUpdate(HPackHeaders):
     ]
 
 ########################################################################################################################
-############################################# HTTP/2 Frames ############################################################
+#                                             HTTP/2 Frames                                                            #
 ########################################################################################################################
 
 
@@ -1414,7 +1414,7 @@ class H2FramePayload(packet.Packet):
     HTTP/2 Frame Packets
     """
 
-############################################# HTTP/2 Data Frame Packets ################################################
+#                                             HTTP/2 Data Frame Packets                                                #
 
 
 class H2DataFrame(H2FramePayload):
@@ -1483,7 +1483,7 @@ class H2PaddedDataFrame(H2DataFrame):
         return s
 
 
-############################################# HTTP/2 Header Frame Packets ##############################################
+#                                             HTTP/2 Header Frame Packets                                              #
 
 class H2AbstractHeadersFrame(H2FramePayload):
     """Superclass of all variants of HTTP/2 Header Frame Packets.
@@ -1641,7 +1641,7 @@ class H2PaddedPriorityHeadersFrame(H2AbstractHeadersFrame):
         self.s_len = len(s)
         return s
 
-########################################### HTTP/2 Priority Frame Packets ##############################################
+#                                           HTTP/2 Priority Frame Packets                                              #
 
 
 class H2PriorityFrame(H2FramePayload):
@@ -1655,7 +1655,7 @@ class H2PriorityFrame(H2FramePayload):
         fields.ByteField('weight', 0)
     ]
 
-################################################# HTTP/2 Errors ########################################################
+#                                                 HTTP/2 Errors                                                        #
 
 
 class H2ErrorCodes(object):
@@ -1698,7 +1698,7 @@ class H2ErrorCodes(object):
     }
 
 
-########################################### HTTP/2 Reset Frame Packets #################################################
+#                                           HTTP/2 Reset Frame Packets                                                 #
 
 class H2ResetFrame(H2FramePayload):
     """ H2ResetFrame implements RFC 7540 par6.4
@@ -1710,7 +1710,7 @@ class H2ResetFrame(H2FramePayload):
     ]
 
 
-########################################### HTTP/2 Settings Frame Packets ##############################################
+#                                           HTTP/2 Settings Frame Packets                                              #
 
 class H2Setting(packet.Packet):
     """ H2Setting implements a setting, as defined in RFC7540 par6.5.1
@@ -1775,7 +1775,7 @@ class H2SettingsFrame(H2FramePayload):
         ), 'Invalid settings frame; length is not a multiple of 6'
         super(H2SettingsFrame, self).__init__(*args, **kwargs)
 
-######################################## HTTP/2 Push Promise Frame Packets #############################################
+#                                        HTTP/2 Push Promise Frame Packets                                             #
 
 
 class H2PushPromiseFrame(H2FramePayload):
@@ -1852,7 +1852,7 @@ class H2PaddedPushPromiseFrame(H2PushPromiseFrame):
         self.s_len = len(s)
         return s
 
-############################################### HTTP/2 Ping Frame Packets ##############################################
+#                                               HTTP/2 Ping Frame Packets                                              #
 
 
 class H2PingFrame(H2FramePayload):
@@ -1884,7 +1884,7 @@ class H2PingFrame(H2FramePayload):
         super(H2PingFrame, self).__init__(*args, **kwargs)
 
 
-############################################# HTTP/2 GoAway Frame Packets ##############################################
+#                                             HTTP/2 GoAway Frame Packets                                              #
 
 class H2GoAwayFrame(H2FramePayload):
     """ H2GoAwayFrame implements the RFC 7540 par6.8
@@ -1899,7 +1899,7 @@ class H2GoAwayFrame(H2FramePayload):
         fields.StrField('additional_data', '')
     ]
 
-###################################### HTTP/2 Window Update Frame Packets ##############################################
+#                                      HTTP/2 Window Update Frame Packets                                              #
 
 
 class H2WindowUpdateFrame(H2FramePayload):
@@ -1927,7 +1927,7 @@ class H2WindowUpdateFrame(H2FramePayload):
         ), 'Invalid window update frame; length is not 4'
         super(H2WindowUpdateFrame, self).__init__(*args, **kwargs)
 
-####################################### HTTP/2 Continuation Frame Packets ##############################################
+#                                       HTTP/2 Continuation Frame Packets                                              #
 
 
 class H2ContinuationFrame(H2FramePayload):
@@ -1944,7 +1944,7 @@ class H2ContinuationFrame(H2FramePayload):
         fields.PacketListField('hdrs', [], HPackHeaders)
     ]
 
-########################################## HTTP/2 Base Frame Packets ###################################################
+#                                          HTTP/2 Base Frame Packets                                                   #
 
 
 class H2Frame(packet.Packet):
@@ -2098,13 +2098,13 @@ packet.bind_layers(H2Frame, H2WindowUpdateFrame, {'type': H2WindowUpdateFrame.ty
 packet.bind_layers(H2Frame, H2ContinuationFrame, {'type': H2ContinuationFrame.type_id})
 
 
-########################################## HTTP/2 Connection Preface ###################################################
+#                                          HTTP/2 Connection Preface                                                   #
 # From RFC 7540 par3.5
 H2_CLIENT_CONNECTION_PREFACE = bytes_hex('505249202a20485454502f322e300d0a0d0a534d0d0a0d0a')
 
 
 ########################################################################################################################
-################################################### HTTP/2 Helpers #####################################################
+#                                                   HTTP/2 Helpers                                                     #
 ########################################################################################################################
 
 class HPackHdrEntry(Sized):

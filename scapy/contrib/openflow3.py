@@ -1,12 +1,12 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more information
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more information
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
-## Copyright (C) 2014 Maxence Tury <maxence.tury@ssi.gouv.fr>
-## OpenFlow is an open standard used in SDN deployments.
-## Based on OpenFlow v1.3.4
-## Specifications can be retrieved from https://www.opennetworking.org/
+# Copyright (C) 2014 Maxence Tury <maxence.tury@ssi.gouv.fr>
+# OpenFlow is an open standard used in SDN deployments.
+# Based on OpenFlow v1.3.4
+# Specifications can be retrieved from https://www.opennetworking.org/
 
 # scapy.contrib.description = Openflow v1.3
 # scapy.contrib.status = loads
@@ -18,12 +18,12 @@ from scapy.layers.l2 import *
 from scapy.layers.inet import *
 from scapy.compat import *
 
-### If prereq_autocomplete is True then match prerequisites will be
-### automatically handled. See OFPMatch class.
+# If prereq_autocomplete is True then match prerequisites will be
+# automatically handled. See OFPMatch class.
 conf.contribs['OPENFLOW'] = {'prereq_autocomplete': True}
 
 #####################################################
-################# Predefined values #################
+#                 Predefined values                 #
 #####################################################
 
 ofp_port_no = {0xfffffff8: "IN_PORT",
@@ -55,15 +55,15 @@ ofp_max_len = {0xffff: "NO_BUFFER"}
 
 
 #####################################################
-################# Common structures #################
+#                 Common structures                 #
 #####################################################
 
-### The following structures will be used in different types
-### of OpenFlow messages: ports, matches/OXMs, actions,
-### instructions, buckets, queues, meter bands.
+# The following structures will be used in different types
+# of OpenFlow messages: ports, matches/OXMs, actions,
+# instructions, buckets, queues, meter bands.
 
 
-################## Hello elements ###################
+#                  Hello elements                   #
 
 class _ofp_hello_elem_header(Packet):
     name = "Dummy OpenFlow Hello Elem Header"
@@ -116,7 +116,7 @@ class HelloElemPacketListField(PacketListField):
         return remain, lst
 
 
-####################### Ports #######################
+#                       Ports                       #
 
 ofp_port_config = ["PORT_DOWN",
                    "NO_STP",        # undefined in v1.3
@@ -170,7 +170,7 @@ class OFPPort(Packet):
     # as belonging to the same layer (s usually contains other OFPPorts)
 
 
-################### Matches & OXMs ##################
+#                   Matches & OXMs                  #
 
 ofp_oxm_classes = {0: "OFPXMC_NXM_0",
                    1: "OFPXMC_NXM_1",
@@ -270,10 +270,10 @@ ipv6flags = ["NONEXT",
              "UNREP",
              "UNSEQ"]
 
-### here we fill ofp_oxm_fields with the fields that will be used
-### to generate the various OXM classes
-### e.g. the call to add_ofp_oxm_fields(0, ["OFBInPort", "in_port", 4])
-### will add {0: [ShortEnumField("class",..), BitEnumField("field",..),..]}
+# here we fill ofp_oxm_fields with the fields that will be used
+# to generate the various OXM classes
+# e.g. the call to add_ofp_oxm_fields(0, ["OFBInPort", "in_port", 4])
+# will add {0: [ShortEnumField("class",..), BitEnumField("field",..),..]}
 ofp_oxm_fields = {}
 
 
@@ -301,9 +301,9 @@ for i, cls in ofp_oxm_constr.items():
     add_ofp_oxm_fields(2*i, cls)
     add_ofp_oxm_fields(2*i+1, cls)
 
-### now we create every OXM class with the same call,
-### (except that static variable create_oxm_class.i is each time different)
-### and we fill ofp_oxm_cls with them
+# now we create every OXM class with the same call,
+# (except that static variable create_oxm_class.i is each time different)
+# and we fill ofp_oxm_cls with them
 ofp_oxm_cls = {}
 ofp_oxm_id_cls = {}
 
@@ -328,15 +328,15 @@ def create_oxm_cls():
         oxm_fields = oxm_fields[:4]
 
     cls = type(cls_name, (Packet,), {"name": oxm_name, "fields_desc": oxm_fields})
-    ### the first call to special function type will create the same class as in
-    ### class OFBInPort(Packet):
-    ###     def __init__(self):
-    ###         self.name = "OFB_IN_PORT"
-    ###         self.fields_desc = [ ShortEnumField("class", 0x8000, ofp_oxm_classes),
-    ###                              BitEnumField("field", 0, 7, ofp_oxm_names),
-    ###                              BitField("hasmask", 0, 1),
-    ###                              ByteField("length", 4),
-    ###                              IntEnumField("in_port", 0, ofp_port_no) ]
+    # the first call to special function type will create the same class as in
+    # class OFBInPort(Packet):
+    # def __init__(self):
+    #         self.name = "OFB_IN_PORT"
+    # self.fields_desc = [ ShortEnumField("class", 0x8000, ofp_oxm_classes),
+    #                              BitEnumField("field", 0, 7, ofp_oxm_names),
+    #                              BitField("hasmask", 0, 1),
+    #                              ByteField("length", 4),
+    # IntEnumField("in_port", 0, ofp_port_no) ]
 
     if index % 2 == 0:
         ofp_oxm_cls[index//2] = cls
@@ -507,14 +507,14 @@ OFBIPv6ExtHdrID = create_oxm_cls()
 OFBIPv6ExtHdrHM = create_oxm_cls()
 OFBIPv6ExtHdrHMID = create_oxm_cls()
 
-### need_prereq holds a list of prerequisites defined in 7.2.3.8 of the specifications
-### e.g. if you want to use an OFBTCPSrc instance (code 26)
-### you first need to declare an OFBIPProto instance (code 20) with value 6,
-### and if you want to use an OFBIPProto instance (still code 20)
-### you first need to declare an OFBEthType instance (code 10) with value 0x0800
-### (0x0800 means IPv4 by default, but you might want to use 0x86dd with IPv6)
-### need_prereq codes are two times higher than previous oxm classes codes,
-### except for 21 which is sort of a proxy for IPv6 (see below)
+# need_prereq holds a list of prerequisites defined in 7.2.3.8 of the specifications
+# e.g. if you want to use an OFBTCPSrc instance (code 26)
+# you first need to declare an OFBIPProto instance (code 20) with value 6,
+# and if you want to use an OFBIPProto instance (still code 20)
+# you first need to declare an OFBEthType instance (code 10) with value 0x0800
+# (0x0800 means IPv4 by default, but you might want to use 0x86dd with IPv6)
+# need_prereq codes are two times higher than previous oxm classes codes,
+# except for 21 which is sort of a proxy for IPv6 (see below)
 need_prereq = {14: [12, 0x1000],
                16: [10, 0x0800],    # could be 0x86dd
                18: [10, 0x0800],    # could be 0x86dd
@@ -538,8 +538,8 @@ need_prereq = {14: [12, 0x1000],
                52: [10, 0x86dd],
                54: [10, 0x86dd],
                56: [10, 0x86dd],
-               58: [21, 58],        ### small trick here, we refer to normally non-
-               60: [21, 58],        ### existent field 21 to distinguish ipv6
+               58: [21, 58],  # small trick here, we refer to normally non-
+               60: [21, 58],  # existent field 21 to distinguish ipv6
                62: [58, 135],       # could be 136
                64: [58, 135],
                66: [58, 136],
@@ -560,9 +560,9 @@ class OXMPacketListField(PacketListField):
         self.index = []
 
     def i2m(self, pkt, val):
-            ### this part makes for a faster writing of specs-compliant matches
-            ### expect some unwanted behaviour if you try incoherent associations
-            ### you might want to set autocomplete=False in __init__ method
+            # this part makes for a faster writing of specs-compliant matches
+            # expect some unwanted behaviour if you try incoherent associations
+            # you might want to set autocomplete=False in __init__ method
         if self.autocomplete or conf.contribs['OPENFLOW']['prereq_autocomplete']:
             # val might be modified during the loop so we need a fixed copy
             fix_val = copy.deepcopy(val)
@@ -620,12 +620,12 @@ class OXMPacketListField(PacketListField):
             lst.append(p)
 
         self.index = []
-        ### since OXMPacketListField is called only twice (when OFPMatch and OFPSetField
-        ### classes are created) and not when you want to instantiate an OFPMatch,
-        ### index needs to be reinitialized, otherwise there will be some conflicts
-        ### e.g. if you create OFPMatch with OFBTCPSrc and then change to OFBTCPDst,
-        ### index will already be filled with ethertype and nwproto codes,
-        ### thus the corresponding fields will not be added to the packet
+        # since OXMPacketListField is called only twice (when OFPMatch and OFPSetField
+        # classes are created) and not when you want to instantiate an OFPMatch,
+        # index needs to be reinitialized, otherwise there will be some conflicts
+        # e.g. if you create OFPMatch with OFBTCPSrc and then change to OFBTCPDst,
+        # index will already be filled with ethertype and nwproto codes,
+        # thus the corresponding fields will not be added to the packet
         return remain + ret, lst
 
 
@@ -673,9 +673,9 @@ class OFPMatch(Packet):
                   OXMPacketListField("oxm_fields", [], Packet,
                                      length_from=lambda pkt:pkt.length-4)]
 
-### ofp_match is no longer a fixed-length structure in v1.3
-### furthermore it may include variable padding
-### we introduce to that end a subclass of PacketField
+# ofp_match is no longer a fixed-length structure in v1.3
+# furthermore it may include variable padding
+# we introduce to that end a subclass of PacketField
 
 
 class MatchField(PacketField):
@@ -684,10 +684,10 @@ class MatchField(PacketField):
 
     def getfield(self, pkt, s):
         i = self.m2i(pkt, s)
-        ### i can be <OFPMatch> or <OFPMatch <Padding>>
-        ### or <OFPMatch <Raw>> or <OFPMatch <Raw <Padding>>>
-        ### and we want to return "", <OFPMatch> or "", <OFPMatch <Padding>>
-        ### or raw(<Raw>), <OFPMatch> or raw(<Raw>), <OFPMatch <Padding>>
+        # i can be <OFPMatch> or <OFPMatch <Padding>>
+        # or <OFPMatch <Raw>> or <OFPMatch <Raw <Padding>>>
+        # and we want to return "", <OFPMatch> or "", <OFPMatch <Padding>>
+        # or raw(<Raw>), <OFPMatch> or raw(<Raw>), <OFPMatch <Padding>>
         if Raw in i:
             r = i[Raw]
             if Padding in r:
@@ -699,7 +699,7 @@ class MatchField(PacketField):
             return b"", i
 
 
-###################### Actions ######################
+#                      Actions                      #
 
 class _ofp_action_header(Packet):
     name = "Dummy OpenFlow Action Header"
@@ -722,7 +722,7 @@ ofp_action_types = {0: "OFPAT_OUTPUT",
                     8: "OFPAT_SET_NW_TOS",
                     9: "OFPAT_SET_TP_SRC",
                     10: "OFPAT_SET_TP_DST",
-                    #11: "OFPAT_ENQUEUE",
+                    # 11: "OFPAT_ENQUEUE",
                         11: "OFPAT_COPY_TTL_OUT",
                         12: "OFPAT_COPY_TTL_IN",
                         13: "OFPAT_SET_MPLS_LABEL",
@@ -830,7 +830,7 @@ class OFPATSetTpDst(_ofp_action_header):
                    ShortField("tp_port", 0),
                    XShortField("pad", 0)]
 
-#class OFPATEnqueue(_ofp_action_header):
+# class OFPATEnqueue(_ofp_action_header):
 #       name = "OFPAT_ENQUEUE"
 #       fields_desc = [ ShortEnumField("type", 11, ofp_action_types),
 #                       ShortField("len", 16),
@@ -1007,7 +1007,7 @@ ofp_action_cls = {0: OFPATOutput,
                   8: OFPATSetNwToS,
                   9: OFPATSetTpSrc,
                   10: OFPATSetTpDst,
-                  #11: OFPATEnqueue,
+                  # 11: OFPATEnqueue,
                   11: OFPATCopyTTLOut,
                   12: OFPATCopyTTLIn,
                   13: OFPATSetMPLSLabel,
@@ -1055,7 +1055,7 @@ class ActionPacketListField(PacketListField):
         return remain, lst
 
 
-##################### Action IDs ####################
+#                     Action IDs                    #
 
 # length is computed as in instruction structures,
 # so we reuse _ofp_instruction_header
@@ -1127,7 +1127,7 @@ class OFPATSetTpDstID(_ofp_action_header):
     fields_desc = [ShortEnumField("type", 10, ofp_action_types),
                    ShortField("len", 4)]
 
-#class OFPATEnqueueID(_ofp_action_header):
+# class OFPATEnqueueID(_ofp_action_header):
 #       name = "OFPAT_ENQUEUE"
 #       fields_desc = [ ShortEnumField("type", 11, ofp_action_types),
 #                       ShortField("len", 4) ]
@@ -1254,7 +1254,7 @@ ofp_action_id_cls = {0: OFPATOutputID,
                      8: OFPATSetNwToSID,
                      9: OFPATSetTpSrcID,
                      10: OFPATSetTpDstID,
-                     #11: OFPATEnqueueID,
+                     # 11: OFPATEnqueueID,
                      11: OFPATCopyTTLOutID,
                      12: OFPATCopyTTLInID,
                      13: OFPATSetMPLSLabelID,
@@ -1302,7 +1302,7 @@ class ActionIDPacketListField(PacketListField):
         return remain, lst
 
 
-#################### Instructions ###################
+#                    Instructions                   #
 
 class _ofp_instruction_header(Packet):
     name = "Dummy OpenFlow Instruction Header"
@@ -1415,7 +1415,7 @@ class InstructionPacketListField(PacketListField):
         return remain, lst
 
 
-################## Instruction IDs ##################
+#                  Instruction IDs                  #
 
 # length is computed as in instruction structures,
 # so we reuse _ofp_instruction_header
@@ -1498,7 +1498,7 @@ class InstructionIDPacketListField(PacketListField):
         return remain, lst
 
 
-###################### Buckets ######################
+#                      Buckets                      #
 
 class OFPBucket(Packet):
 
@@ -1541,7 +1541,7 @@ class BucketPacketListField(PacketListField):
         return remain, lst
 
 
-####################### Queues ######################
+#                       Queues                      #
 
 class _ofp_queue_property_header(Packet):
     name = "Dummy OpenFlow Queue Property Header"
@@ -1641,7 +1641,7 @@ class QueuePacketListField(PacketListField):
         return remain, lst
 
 
-#################### Meter bands ####################
+#                    Meter bands                    #
 
 ofp_meter_band_types = {0: "OFPMBT_DROP",
                         1: "OFPMBT_DSCP_REMARK",
@@ -1700,7 +1700,7 @@ class MeterBandPacketListField(PacketListField):
 
 
 #####################################################
-############## OpenFlow 1.3 Messages ################
+#              OpenFlow 1.3 Messages                #
 #####################################################
 
 ofp_version = {0x01: "OpenFlow 1.0",
@@ -1762,11 +1762,11 @@ class OFPTHello(_ofp_header):
     overload_fields = {TCP: {"sport": 6653}}
 
 #####################################################
-##################### OFPT_ERROR ####################
+#                     OFPT_ERROR                    #
 #####################################################
 
-### this class will be used to display some messages
-### sent back by the switch after an error
+# this class will be used to display some messages
+# sent back by the switch after an error
 
 
 class OFPacketField(PacketField):
@@ -2094,7 +2094,7 @@ ofp_error_cls = {0: OFPETHelloFailed,
                  13: OFPETTableFeaturesFailed,
                  65535: OFPETExperimenter}
 
-################ end of OFPT_ERRORS #################
+#                end of OFPT_ERRORS                 #
 
 
 class OFPTEchoRequest(_ofp_header):
@@ -2150,10 +2150,10 @@ class OFPTFeaturesReply(_ofp_header):
                                                       "TABLE_STATS",
                                                       "PORT_STATS",
                                                       "GROUP_STATS",
-                                                      "RESERVED",       #undefined
+                                                      "RESERVED",  # undefined
                                                       "IP_REASM",
                                                       "QUEUE_STATS",
-                                                      "ARP_MATCH_IP",   #undefined
+                                                      "ARP_MATCH_IP",  # undefined
                                                       "PORT_BLOCKED"]),
                    IntField("reserved", 0)]
     overload_fields = {TCP: {"dport": 6653}}
@@ -2350,7 +2350,7 @@ class OFPTTableMod(_ofp_header):
     overload_fields = {TCP: {"sport": 6653}}
 
 #####################################################
-################## OFPT_MULTIPART ###################
+#                  OFPT_MULTIPART                   #
 #####################################################
 
 
@@ -3011,7 +3011,7 @@ class OFPMPReplyMeterFeatures(_ofp_header):
                    XShortField("pad2", 0)]
     overload_fields = {TCP: {"dport": 6653}}
 
-####### table features for multipart messages #######
+#       table features for multipart messages       #
 
 
 class _ofp_table_features_prop_header(Packet):
@@ -3302,7 +3302,7 @@ class OFPMPReplyTableFeatures(_ofp_header):
                                                 length_from=lambda pkt:pkt.len-16)]
     overload_fields = {TCP: {"dport": 6653}}
 
-############### end of table features ###############
+#               end of table features               #
 
 
 class OFPMPRequestPortDesc(_ofp_header):
@@ -3395,7 +3395,7 @@ ofp_multipart_reply_cls = {0: OFPMPReplyDesc,
                            13: OFPMPReplyPortDesc,
                            65535: OFPMPReplyExperimenter}
 
-############## end of OFPT_MULTIPART ################
+#              end of OFPT_MULTIPART                #
 
 
 class OFPTBarrierRequest(_ofp_header):
@@ -3544,7 +3544,7 @@ class OFPTMeterMod(_ofp_header):
 
 # ofpt_cls allows generic method OpenFlow() to choose the right class for dissection
 ofpt_cls = {0: OFPTHello,
-            #1: OFPTError,
+            # 1: OFPTError,
             2: OFPTEchoRequest,
             3: OFPTEchoReply,
             4: OFPTExperimenter,
@@ -3561,8 +3561,8 @@ ofpt_cls = {0: OFPTHello,
             15: OFPTGroupMod,
             16: OFPTPortMod,
             17: OFPTTableMod,
-            #18: OFPTMultipartRequest,
-            #19: OFPTMultipartReply,
+            # 18: OFPTMultipartRequest,
+            # 19: OFPTMultipartReply,
             20: OFPTBarrierRequest,
             21: OFPTBarrierReply,
             22: OFPTQueueGetConfigRequest,

@@ -96,7 +96,7 @@ class PPI(Packet):
         return conf.l2types.get(self.dlt, Packet.guess_payload_class(self, payload))
 
 
-#Register PPI
+# Register PPI
 addPPIType("default", PPIGenericFldHdr)
 
 conf.l2types.register(DLT_PPI, PPI)

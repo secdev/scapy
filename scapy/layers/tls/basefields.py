@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
-##               2015, 2016, 2017 Maxence Tury
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
+#               2015, 2016, 2017 Maxence Tury
+# This program is published under a GPLv2 license
 
 """
 TLS base fields, used for record parsing/building. As several operations depend
@@ -167,13 +167,13 @@ class _TLSMACField(StrField):
     def getfield(self, pkt, s):
         if (pkt.tls_session.rcs.cipher.type != "aead" and
                 False in six.itervalues(pkt.tls_session.rcs.cipher.ready)):
-            #XXX Find a more proper way to handle the still-encrypted case
+            # XXX Find a more proper way to handle the still-encrypted case
             return s, b""
         l = pkt.tls_session.rcs.mac_len
         return s[l:], self.m2i(pkt, s[:l])
 
     def i2repr(self, pkt, x):
-        #XXX Provide status when dissection has been performed successfully?
+        # XXX Provide status when dissection has been performed successfully?
         return repr(self.i2m(pkt, x))
 
 
@@ -204,7 +204,7 @@ class _TLSPadField(StrField):
         return s, None
 
     def i2repr(self, pkt, x):
-        #XXX Provide status when dissection has been performed successfully?
+        # XXX Provide status when dissection has been performed successfully?
         return repr(self.i2m(pkt, x))
 
 
@@ -219,14 +219,14 @@ class _TLSPadLenField(ByteField):
         return s, None
 
 
-### SSLv2 fields
+# SSLv2 fields
 
 class _SSLv2LengthField(_TLSLengthField):
     def i2repr(self, pkt, x):
         s = super(_SSLv2LengthField, self).i2repr(pkt, x)
         if pkt.with_padding:
             x |= 0x8000
-        #elif pkt.with_escape:      #XXX no complete support for 'escape' yet
+        # elif pkt.with_escape:      #XXX no complete support for 'escape' yet
         #   x |= 0x4000
             s += "    [with padding: %s]" % hex(x)
         return s

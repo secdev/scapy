@@ -4,23 +4,23 @@
 # scapy.contrib.status = loads
 
 #############################################################################
-##                                                                         ##
-## cdp.py --- Cisco Discovery Protocol (CDP) extension for Scapy           ##
-##                                                                         ##
-## Copyright (C) 2006    Nicolas Bareil  <nicolas.bareil AT eads DOT net>  ##
-##                       Arnaud Ebalard  <arnaud.ebalard AT eads DOT net>  ##
-##                       EADS/CRC security team                            ##
-##                                                                         ##
-## This file is part of Scapy                                              ##
-## Scapy is free software: you can redistribute it and/or modify it        ##
-## under the terms of the GNU General Public License version 2 as          ##
-## published by the Free Software Foundation; version 2.                   ##
-##                                                                         ##
-## This program is distributed in the hope that it will be useful, but     ##
-## WITHOUT ANY WARRANTY; without even the implied warranty of              ##
-## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU       ##
-## General Public License for more details.                                ##
-##                                                                         ##
+#                                                                           #
+#  cdp.py --- Cisco Discovery Protocol (CDP) extension for Scapy            #
+#                                                                           #
+#  Copyright (C) 2006    Nicolas Bareil  <nicolas.bareil AT eads DOT net>   #
+#                        Arnaud Ebalard  <arnaud.ebalard AT eads DOT net>   #
+#                        EADS/CRC security team                             #
+#                                                                           #
+#  This file is part of Scapy                                               #
+#  Scapy is free software: you can redistribute it and/or modify it         #
+#  under the terms of the GNU General Public License version 2 as           #
+#  published by the Free Software Foundation; version 2.                    #
+#                                                                           #
+#  This program is distributed in the hope that it will be useful, but      #
+#  WITHOUT ANY WARRANTY; without even the implied warranty of               #
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU        #
+#  General Public License for more details.                                 #
+#                                                                           #
 #############################################################################
 
 from __future__ import absolute_import
@@ -44,7 +44,7 @@ _cdp_tlv_cls = {0x0001: "CDPMsgDeviceID",
                 0x0006: "CDPMsgPlatform",
                 0x0007: "CDPMsgIPPrefix",
                 0x0008: "CDPMsgProtoHello",
-                0x0009: "CDPMsgVTPMgmtDomain", # CDPv2
+                0x0009: "CDPMsgVTPMgmtDomain",  # CDPv2
                 0x000a: "CDPMsgNativeVLAN",    # CDPv2
                 0x000b: "CDPMsgDuplex",        #
                 #                 0x000c: "CDPMsgGeneric",
@@ -71,7 +71,7 @@ _cdp_tlv_types = {0x0001: "Device ID",
                   0x0006: "Platform",
                   0x0007: "IP Prefix",
                   0x0008: "Protocol Hello",
-                  0x0009: "VTP Management Domain", # CDPv2
+                  0x0009: "VTP Management Domain",  # CDPv2
                   0x000a: "Native VLAN",    # CDPv2
                   0x000b: "Duplex",        #
                   0x000c: "CDP Unknown command (send us a pcap file)",
@@ -108,7 +108,7 @@ class CDPMsgGeneric(Packet):
                    StrLenField("val", "", length_from=lambda x:x.len - 4)]
 
     def guess_payload_class(self, p):
-        return conf.padding_layer # _CDPGuessPayloadClass
+        return conf.padding_layer  # _CDPGuessPayloadClass
 
 
 class CDPMsgDeviceID(CDPMsgGeneric):

@@ -1,10 +1,10 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
-## Copyright (C) 2005  Guillaume Valadon <guedou@hongo.wide.ad.jp>
-##                     Arnaud Ebalard <arnaud.ebalard@eads.net>
+# Copyright (C) 2005  Guillaume Valadon <guedou@hongo.wide.ad.jp>
+#                     Arnaud Ebalard <arnaud.ebalard@eads.net>
 
 """
 Utility functions for IPv6.
@@ -73,7 +73,7 @@ def construct_source_candidate_set(addr, plen, laddr):
         cset = (x for x in laddr if x[1] == IPV6_ADDR_GLOBAL)
     cset = [x[0] for x in cset]
     # TODO convert the cmd use into a key
-    cset.sort(key=cmp_to_key(cset_sort)) # Sort with global addresses first
+    cset.sort(key=cmp_to_key(cset_sort))  # Sort with global addresses first
     return cset
 
 
@@ -164,15 +164,15 @@ def get_source_addr_from_candidate_set(dst, candidate_set):
 # TODO : integrate Unique Local Addresses
 def in6_getAddrType(addr):
     naddr = inet_pton(socket.AF_INET6, addr)
-    paddr = inet_ntop(socket.AF_INET6, naddr) # normalize
+    paddr = inet_ntop(socket.AF_INET6, naddr)  # normalize
     addrType = 0
     # _Assignable_ Global Unicast Address space
     # is defined in RFC 3513 as those in 2000::/3
     if ((orb(naddr[0]) & 0xE0) == 0x20):
         addrType = (IPV6_ADDR_UNICAST | IPV6_ADDR_GLOBAL)
-        if naddr[:2] == b' \x02': # Mark 6to4 @
+        if naddr[:2] == b' \x02':  # Mark 6to4 @
             addrType |= IPV6_ADDR_6TO4
-    elif orb(naddr[0]) == 0xff: # multicast
+    elif orb(naddr[0]) == 0xff:  # multicast
         addrScope = paddr[3]
         if addrScope == '2':
             addrType = (IPV6_ADDR_LINKLOCAL | IPV6_ADDR_MULTICAST)
@@ -214,7 +214,7 @@ def in6_mactoifaceid(mac, ulbit=None):
     return eui64.upper()
 
 
-def in6_ifaceidtomac(ifaceid): # TODO: finish commenting function behavior
+def in6_ifaceidtomac(ifaceid):  # TODO: finish commenting function behavior
     """
     Extract the mac address from provided iface ID. Iface ID is provided
     in printable format ("XXXX:XXFF:FEXX:XXXX", eventually compressed). None
@@ -259,7 +259,7 @@ def in6_addrtovendor(addr):
         return None
 
     res = conf.manufdb._get_manuf(mac)
-    if len(res) == 17 and res.count(':') != 5: # Mac address, i.e. unknown
+    if len(res) == 17 and res.count(':') != 5:  # Mac address, i.e. unknown
         res = "UNKNOWN"
 
     return res
@@ -369,7 +369,7 @@ def in6_getLocalUniquePrefix():
     # delta = mktime(gmtime(0)) - mktime(self.epoch)
     # x = x-delta
 
-    tod = time.time() # time of day. Will bother with epoch later
+    tod = time.time()  # time of day. Will bother with epoch later
     i = int(tod)
     j = int((tod - i)*(2**32))
     tod = struct.pack("!II", i, j)
@@ -477,7 +477,7 @@ def in6_isaddr6to4(x):
     return x[:2] == b' \x02'
 
 
-conf.teredoPrefix = "2001::" # old one was 3ffe:831f (it is a /32)
+conf.teredoPrefix = "2001::"  # old one was 3ffe:831f (it is a /32)
 conf.teredoServerPort = 3544
 
 
@@ -520,7 +520,7 @@ def in6_iseui64(x):
     return x == eui64
 
 
-def in6_isanycast(x): # RFC 2526
+def in6_isanycast(x):  # RFC 2526
     if in6_iseui64(x):
         s = '::fdff:ffff:ffff:ff80'
         packed_x = inet_pton(socket.AF_INET6, x)
@@ -529,11 +529,11 @@ def in6_isanycast(x): # RFC 2526
         return x_and_s == packed_s
     else:
         # not EUI-64
-        #|              n bits             |    121-n bits    |   7 bits   |
-        #+---------------------------------+------------------+------------+
-        #|           subnet prefix         | 1111111...111111 | anycast ID |
-        #+---------------------------------+------------------+------------+
-        #                                  |   interface identifier field  |
+        # |              n bits             |    121-n bits    |   7 bits   |
+        # +---------------------------------+------------------+------------+
+        # |           subnet prefix         | 1111111...111111 | anycast ID |
+        # +---------------------------------+------------------+------------+
+        #                                   |   interface identifier field  |
         warning('in6_isanycast(): TODO not EUI-64')
         return 0
 
@@ -606,7 +606,7 @@ def in6_getnsma(a):
     return r
 
 
-def in6_getnsmac(a): # return multicast Ethernet address associated with multicast v6 destination
+def in6_getnsmac(a):  # return multicast Ethernet address associated with multicast v6 destination
     """
     Return the multicast mac address associated with provided
     IPv6 address. Passed address must be in network format.

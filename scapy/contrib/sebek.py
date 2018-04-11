@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
 """
 Sebek: kernel module for data collection on honeypots.
@@ -15,7 +15,7 @@ from scapy.packet import *
 from scapy.layers.inet import UDP
 
 
-### SEBEK
+# SEBEK
 
 
 class SebekHead(Packet):

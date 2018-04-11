@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
 """
 Fields that hold random numbers.
@@ -15,7 +15,7 @@ from scapy.utils import corrupt_bits, corrupt_bytes
 from scapy.modules.six.moves import range
 
 ####################
-## Random numbers ##
+#  Random numbers  #
 ####################
 
 
@@ -58,7 +58,7 @@ class RandomEnumeration:
             while self.i < 2**self.n:
                 ct = self.i^self.cnt_key
                 self.i += 1
-                for _ in range(self.rounds): # Unbalanced Feistel Network
+                for _ in range(self.rounds):  # Unbalanced Feistel Network
                     lsb = ct & self.fsmask
                     ct >>= self.fs
                     lsb ^= self.sbox[ct%self.sbox_size]
@@ -483,7 +483,7 @@ class RandRegExp(RandField):
         self._lambda = lambda_
 
     @staticmethod
-    def choice_expand(s): #XXX does not support special sets like (ex ':alnum:')
+    def choice_expand(s):  # XXX does not support special sets like (ex ':alnum:')
         m = ""
         invert = s and s[0] == "^"
         while True:

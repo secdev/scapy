@@ -54,7 +54,7 @@ for i in range(0xFF80, 0xFF90):
     PNIO_FRAME_IDS[i] = "FragmentationFrameID"
 
 #################
-## PROFINET IO ##
+#  PROFINET IO  #
 #################
 
 

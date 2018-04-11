@@ -1,6 +1,6 @@
-## This file is part of Scapy
-## Copyright (C) 2017 Maxence Tury
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# Copyright (C) 2017 Maxence Tury
+# This program is published under a GPLv2 license
 
 """
 Common TLS 1.3 fields & bindings.
@@ -27,7 +27,7 @@ from scapy.layers.tls.crypto.ciphers import CipherError
 
 
 ###############################################################################
-### TLS Record Protocol                                                     ###
+#   TLS Record Protocol                                                       #
 ###############################################################################
 
 class TLSInnerPlaintext(_GenericTLSSessionInheritance):
@@ -99,7 +99,7 @@ class TLS13(_GenericTLSSessionInheritance):
         self.deciphered_len = kargs.get("deciphered_len", None)
         super(TLS13, self).__init__(*args, **kargs)
 
-    ### Parsing methods
+    # Parsing methods
 
     def _tls_auth_decrypt(self, s):
         """
@@ -167,7 +167,7 @@ class TLS13(_GenericTLSSessionInheritance):
                 p = conf.raw_layer(s, _internal=1, _underlayer=self)
             self.add_payload(p)
 
-    ### Building methods
+    # Building methods
 
     def _tls_auth_encrypt(self, s):
         """

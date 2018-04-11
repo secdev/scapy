@@ -1,8 +1,8 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## Modified by Maxence Tury <maxence.tury@ssi.gouv.fr>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# Modified by Maxence Tury <maxence.tury@ssi.gouv.fr>
+# This program is published under a GPLv2 license
 
 """
 Management Information Base (MIB) parsing
@@ -18,7 +18,7 @@ import scapy.modules.six as six
 from scapy.compat import *
 
 #################
-## MIB parsing ##
+#  MIB parsing  #
 #################
 
 _mib_re_integer = re.compile("^[0-9]+$")
@@ -152,10 +152,10 @@ def load_mib(filenames):
 
 
 ####################
-## OID references ##
+#  OID references  #
 ####################
 
-####### pkcs1 #######
+#      pkcs1       #
 
 pkcs1_oids = {
     "rsaEncryption": "1.2.840.113549.1.1.1",
@@ -174,13 +174,13 @@ pkcs1_oids = {
         "sha224WithRSAEncryption": "1.2.840.113549.1.1.14"
 }
 
-####### secsig oiw #######
+#       secsig oiw       #
 
 secsig_oids = {
     "sha1": "1.3.14.3.2.26"
 }
 
-####### pkcs9 #######
+#       pkcs9       #
 
 pkcs9_oids = {
     "modules": "1.2.840.113549.1.9.0",
@@ -209,7 +209,7 @@ pkcs9_oids = {
         "id-aa-CMSAlgorithmProtection": "1.2.840.113549.1.9.52"
 }
 
-####### x509 #######
+#       x509       #
 
 attributeType_oids = {
     "objectClass": "2.5.4.0",
@@ -443,7 +443,7 @@ certPkixAd_oids = {
         "basic-response": "1.3.6.1.5.5.7.48.1.1"
 }
 
-####### ansi-x962 #######
+#       ansi-x962       #
 
 x962KeyType_oids = {
     "prime-field": "1.2.840.10045.1.1",
@@ -460,7 +460,7 @@ x962Signature_oids = {
         "ecdsa-with-SHA512": "1.2.840.10045.4.3.4"
 }
 
-####### elliptic curves #######
+#       elliptic curves       #
 
 ansiX962Curve_oids = {
     "prime192v1": "1.2.840.10045.3.1.1",
@@ -505,7 +505,7 @@ certicomCurve_oids = {
         "ansit571r1": "1.3.132.0.39"
 }
 
-####### policies #######
+#       policies       #
 
 certPolicy_oids = {
     "anyPolicy": "2.5.29.32.0"
@@ -594,7 +594,7 @@ conf.mib = MIBDict(_name="MIB", **x509_oids)
 
 
 #########################
-## Hash mapping helper ##
+#  Hash mapping helper  #
 #########################
 
 # This dict enables static access to string references to the hash functions

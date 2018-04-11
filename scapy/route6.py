@@ -1,19 +1,17 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
-## Copyright (C) 2005  Guillaume Valadon <guedou@hongo.wide.ad.jp>
-##                     Arnaud Ebalard <arnaud.ebalard@eads.net>
+# Copyright (C) 2005  Guillaume Valadon <guedou@hongo.wide.ad.jp>
+#                     Arnaud Ebalard <arnaud.ebalard@eads.net>
 
 """
 Routing and network interface handling for IPv6.
 """
 
 #############################################################################
-#############################################################################
-###                      Routing/Interfaces stuff                         ###
-#############################################################################
+#                        Routing/Interfaces stuff                           #
 #############################################################################
 
 from __future__ import absolute_import
@@ -180,7 +178,7 @@ class Route6:
         """
         # Transform "2001:db8:cafe:*::1-5:0/120" to one IPv6 address of the set
         dst = dst.split("/")[0]
-        savedst = dst # In case following inet_pton() fails
+        savedst = dst  # In case following inet_pton() fails
         dst = dst.replace("*", "0")
         l = dst.find("-")
         while l >= 0:
@@ -230,7 +228,7 @@ class Route6:
         pathes = [x for x in pathes if x[0] == best_plen]
 
         res = []
-        for p in pathes: # Here we select best source address for every route
+        for p in pathes:  # Here we select best source address for every route
             tmp = p[2]
             srcaddr = get_source_addr_from_candidate_set(dst, tmp[1])
             if srcaddr is not None:

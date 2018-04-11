@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
 """
 Wireless LAN according to IEEE 802.11.
@@ -31,7 +31,7 @@ else:
     log_loading.info("Can't import python-cryptography v1.7+. Disabled WEP decryption/encryption. (Dot11)")
 
 
-### Layers
+# Layers
 
 
 class PrismHeader(Packet):
@@ -136,7 +136,7 @@ class Dot11(Packet):
         ConditionalField(
             MACField("addr4", ETHER_ANY),
             lambda pkt: (pkt.type == 2 and
-                         pkt.FCfield & 3 == 3),  ## from-DS+to-DS
+                         pkt.FCfield & 3 == 3),  # from-DS+to-DS
         ),
     ]
 
@@ -153,18 +153,18 @@ class Dot11(Packet):
 
     def answers(self, other):
         if isinstance(other, Dot11):
-            if self.type == 0: # management
-                if self.addr1.lower() != other.addr2.lower(): # check resp DA w/ req SA
+            if self.type == 0:  # management
+                if self.addr1.lower() != other.addr2.lower():  # check resp DA w/ req SA
                     return 0
                 if (other.subtype, self.subtype) in [(0, 1), (2, 3), (4, 5)]:
                     return 1
-                if self.subtype == other.subtype == 11: # auth
+                if self.subtype == other.subtype == 11:  # auth
                     return self.payload.answers(other.payload)
-            elif self.type == 1: # control
+            elif self.type == 1:  # control
                 return 0
-            elif self.type == 2: # data
+            elif self.type == 2:  # data
                 return self.payload.answers(other.payload)
-            elif self.type == 3: # reserved
+            elif self.type == 3:  # reserved
                 return 0
         return 0
 
@@ -484,7 +484,7 @@ class Dot11PacketList(PacketList):
         for p in data:
             q = p.copy()
             q.unwep()
-            r2.append(Ether()/q.payload.payload.payload) #Dot11/LLC/SNAP/IP
+            r2.append(Ether()/q.payload.payload.payload)  # Dot11/LLC/SNAP/IP
         return PacketList(r2, name="Ether from %s"%self.listname)
 
 

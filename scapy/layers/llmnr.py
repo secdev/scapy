@@ -10,7 +10,7 @@ LLMNR (Link Local Multicast Node Resolution).
 """
 
 #############################################################################
-###                           LLMNR (RFC4795)                             ###
+#                             LLMNR (RFC4795)                               #
 #############################################################################
 # LLMNR is based on the DNS packet format (RFC1035 Section 4)
 # RFC also envisions LLMNR over TCP. Like vista, we don't support it -- arno
@@ -57,7 +57,7 @@ class _LLMNR(Packet):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if len(_pkt) >= 2:
-            if (orb(_pkt[2]) & 0x80): # Response
+            if (orb(_pkt[2]) & 0x80):  # Response
                 return LLMNRResponse
             else:                  # Query
                 return LLMNRQuery

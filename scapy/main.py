@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
 """
 Main module for interactive startup.
@@ -109,7 +109,7 @@ def _usage():
 
 
 ######################
-## Extension system ##
+#  Extension system  #
 ######################
 
 
@@ -200,7 +200,7 @@ def list_contrib(name=None):
 
 
 ##############################
-## Session saving/restoring ##
+#  Session saving/restoring  #
 ##############################
 
 def update_ipython_session(session):
@@ -306,7 +306,7 @@ def init_session(session_name, mydict=None):
     six.moves.builtins.__dict__.update(scapy_builtins)
     GLOBKEYS.extend(scapy_builtins)
     GLOBKEYS.append("scapy_session")
-    scapy_builtins=None # XXX replace with "with" statement
+    scapy_builtins=None  # XXX replace with "with" statement
 
     if session_name:
         try:
@@ -346,7 +346,7 @@ def init_session(session_name, mydict=None):
         GLOBKEYS.extend(mydict)
 
 ################
-##### Main #####
+#     Main     #
 ################
 
 

@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## Copyright (C) 2008 Arnaud Ebalard <arno@natisbad.org>
-##   2015, 2016, 2017 Maxence Tury <maxence.tury@ssi.gouv.fr>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# Copyright (C) 2008 Arnaud Ebalard <arno@natisbad.org>
+#   2015, 2016, 2017 Maxence Tury <maxence.tury@ssi.gouv.fr>
+# This program is published under a GPLv2 license
 
 """
 PKCS #1 methods as defined in RFC 3447.
@@ -51,7 +51,7 @@ def pkcs_i2osp(n, sLen):
             sLen     intended length of the resulting octet string
     Output: s        corresponding octet string
     """
-    #if n >= 256**sLen:
+    # if n >= 256**sLen:
     #    raise Exception("Integer too large for provided sLen %d" % sLen)
     fmt = "%%0%dx" % (2*sLen)
     return hex_bytes(fmt % n)

@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
 """
 Fields: basic data structures that make up parts of packets.
@@ -22,7 +22,7 @@ from scapy.modules.six.moves import range
 
 
 ############
-## Fields ##
+#  Fields  #
 ############
 
 class Field(six.with_metaclass(Field_metaclass, object)):
@@ -983,7 +983,7 @@ class FieldLenField(Field):
         self.count_of = count_of
         self.adjust = adjust
         if fld is not None:
-            #FIELD_LENGTH_MANAGEMENT_DEPRECATION(self.__class__.__name__)
+            # FIELD_LENGTH_MANAGEMENT_DEPRECATION(self.__class__.__name__)
             self.length_of = fld
 
     def i2m(self, pkt, x):
@@ -1005,7 +1005,7 @@ class StrNullField(StrField):
     def getfield(self, pkt, s):
         l = s.find(b"\x00")
         if l < 0:
-            #XXX \x00 not found
+            # XXX \x00 not found
             return b"", s
         return s[l+1:], self.m2i(pkt, s[:l])
 
@@ -1684,7 +1684,7 @@ class _IPPrefixFieldBase(Field):
     def h2i(self, pkt, x):
         # "fc00:1::1/64" -> ("fc00:1::1", 64)
         [pfx, pfxlen]= x.split('/')
-        self.aton(pfx) # check for validity
+        self.aton(pfx)  # check for validity
         return (pfx, int(pfxlen))
 
     def i2h(self, pkt, x):

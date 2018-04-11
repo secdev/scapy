@@ -1,8 +1,8 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## Copyright (C) 6WIND <olivier.matz@6wind.com>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# Copyright (C) 6WIND <olivier.matz@6wind.com>
+# This program is published under a GPLv2 license
 
 """
 SCTP (Stream Control Transmission Protocol).
@@ -210,7 +210,7 @@ sctpchunkparamtypes = {
     0xc006: "adaptation-layer",
 }
 
-############## SCTP header
+# SCTP header
 
 # Dummy class to guess payload type (variable parameters)
 
@@ -246,7 +246,7 @@ class SCTP(_SCTPChunkGuessPayload, Packet):
             p = p[:8]+struct.pack(">I", crc)+p[12:]
         return p
 
-############## SCTP Chunk variable params
+# SCTP Chunk variable params
 
 
 class ChunkParamField(PacketListField):
@@ -454,7 +454,7 @@ class SCTPChunkParamAdaptationLayer(_SCTPChunkParam, Packet):
                    ShortField("len", 8),
                    XIntField("indication", None), ]
 
-############## SCTP Chunks
+# SCTP Chunks
 
 
 # Dictionary taken from: http://www.iana.org/assignments/sctp-parameters/sctp-parameters.xhtml

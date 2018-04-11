@@ -81,7 +81,7 @@ conf.debug_dissector = True
 
 
 #######################################################################
-##  ISIS Utilities + Fields                                          ##
+#   ISIS Utilities + Fields                                           #
 #######################################################################
 def isis_area2str(area):
     return b"".join(hex_bytes(x) for x in area.split("."))
@@ -260,7 +260,7 @@ class ISIS_GenericSubTlv(_ISIS_GenericTlv_Base):
 
 
 #######################################################################
-##  ISIS Sub-TLVs for TLVs 22, 23, 141, 222, 223                     ##
+#   ISIS Sub-TLVs for TLVs 22, 23, 141, 222, 223                      #
 #######################################################################
 _isis_subtlv_classes_1 = {
     3:  "ISIS_AdministrativeGroupSubTlv",
@@ -340,21 +340,21 @@ class ISIS_MaximumLinkBandwidthSubTlv(ISIS_GenericSubTlv):
     name = "Maximum Link Bandwidth SubTLV"
     fields_desc = [ByteEnumField("type", 9, _isis_subtlv_names_1),
                    FieldLenField("len", None, length_of="maxbw", fmt="B"),
-                   IEEEFloatField("maxbw", 1000)] # in B/s
+                   IEEEFloatField("maxbw", 1000)]  # in B/s
 
 
 class ISIS_MaximumReservableLinkBandwidthSubTlv(ISIS_GenericSubTlv):
     name = "Maximum Reservable Link Bandwidth SubTLV"
     fields_desc = [ByteEnumField("type", 10, _isis_subtlv_names_1),
                    FieldLenField("len", None, length_of="maxrsvbw", fmt="B"),
-                   IEEEFloatField("maxrsvbw", 1000)] # in B/s
+                   IEEEFloatField("maxrsvbw", 1000)]  # in B/s
 
 
 class ISIS_UnreservedBandwidthSubTlv(ISIS_GenericSubTlv):
     name = "Unreserved Bandwidth SubTLV"
     fields_desc = [ByteEnumField("type", 11, _isis_subtlv_names_1),
                    FieldLenField("len", None, length_of="unrsvbw", fmt="B"),
-                   FieldListField("unrsvbw", [1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000], IEEEFloatField("", 1000), count_from=lambda pkt: pkt.len / 4)] # in B/s
+                   FieldListField("unrsvbw", [1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000], IEEEFloatField("", 1000), count_from=lambda pkt: pkt.len / 4)]  # in B/s
 
 
 class ISIS_TEDefaultMetricSubTlv(ISIS_GenericSubTlv):
@@ -365,7 +365,7 @@ class ISIS_TEDefaultMetricSubTlv(ISIS_GenericSubTlv):
 
 
 #######################################################################
-##  ISIS Sub-TLVs for TLVs 135, 235, 236, and 237                    ##
+#   ISIS Sub-TLVs for TLVs 135, 235, 236, and 237                     #
 #######################################################################
 _isis_subtlv_classes_2 = {
     1:  "ISIS_32bitAdministrativeTagSubTlv",
@@ -397,7 +397,7 @@ class ISIS_64bitAdministrativeTagSubTlv(ISIS_GenericSubTlv):
 
 
 #######################################################################
-##  ISIS TLVs                                                        ##
+#   ISIS TLVs                                                         #
 #######################################################################
 _isis_tlv_classes = {
     1: "ISIS_AreaTlv",
@@ -678,7 +678,7 @@ class ISIS_ProtocolsSupportedTlv(ISIS_GenericTlv):
 
 
 #######################################################################
-##  ISIS Old-Style TLVs                                              ##
+#   ISIS Old-Style TLVs                                               #
 #######################################################################
 
 class ISIS_IpReachabilityEntry(Packet):
@@ -735,7 +735,7 @@ class ISIS_IsReachabilityTlv(ISIS_GenericTlv):
 
 
 #######################################################################
-##  ISIS PDU Packets                                                 ##
+#   ISIS PDU Packets                                                  #
 #######################################################################
 _isis_pdu_names = {
     15: "L1 LAN Hello",

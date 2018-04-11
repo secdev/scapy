@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## Copyright (C) 2007, 2008, 2009 Arnaud Ebalard <arno@natisbad.com>
-##               2015, 2016, 2017 Maxence Tury <maxence.tury@ssi.gouv.fr>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# Copyright (C) 2007, 2008, 2009 Arnaud Ebalard <arno@natisbad.com>
+#               2015, 2016, 2017 Maxence Tury <maxence.tury@ssi.gouv.fr>
+# This program is published under a GPLv2 license
 
 """
 Tools for handling TLS sessions and digital certificates.

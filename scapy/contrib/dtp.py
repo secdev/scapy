@@ -82,7 +82,7 @@ class DTPType(DtpGenericTlv):
 class DTPNeighbor(DtpGenericTlv):
     name = "DTP Neighbor"
     fields_desc = [ShortField("type", 4),
-                   #FieldLenField("length", None, "neighbor", adjust=lambda pkt,x:x + 4),
+                   # FieldLenField("length", None, "neighbor", adjust=lambda pkt,x:x + 4),
                    ShortField("len", 10),
                    MACField("neighbor", None)
                    ]

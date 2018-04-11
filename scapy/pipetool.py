@@ -1,9 +1,9 @@
 #! /usr/bin/env python
 
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
 from __future__ import print_function
 import os
@@ -421,7 +421,7 @@ class AutoSource(Source, SelectableObject):
         os.read(self.__fdr, 1)
         try:
             msg, high = self._queue.popleft()
-        except IndexError: #empty queue. Exhausted source
+        except IndexError:  # empty queue. Exhausted source
             pass
         else:
             if high:

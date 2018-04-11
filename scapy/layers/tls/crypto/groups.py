@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
-##               2015, 2016, 2017 Maxence Tury
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
+#               2015, 2016, 2017 Maxence Tury
+# This program is published under a GPLv2 license
 
 """
 This is a register for DH groups from RFC 3526 and RFC 4306.
@@ -84,7 +84,7 @@ class modp768(_FFDHParams):
     mLen = 768
 
 
-class modp1024(_FFDHParams): # From RFC 4306
+class modp1024(_FFDHParams):  # From RFC 4306
     g = 0x02
     m = long_converter("""
     FFFFFFFF FFFFFFFF C90FDAA2 2168C234 C4C6628B 80DC1CD1 29024E08
@@ -95,7 +95,7 @@ class modp1024(_FFDHParams): # From RFC 4306
     mLen  = 1024
 
 
-class modp1536(_FFDHParams): # From RFC 3526
+class modp1536(_FFDHParams):  # From RFC 3526
     g = 0x02
     m = long_converter("""
     FFFFFFFF FFFFFFFF C90FDAA2 2168C234 C4C6628B 80DC1CD1
@@ -109,7 +109,7 @@ class modp1536(_FFDHParams): # From RFC 3526
     mLen  = 1536
 
 
-class modp2048(_FFDHParams): # From RFC 3526
+class modp2048(_FFDHParams):  # From RFC 3526
     g = 0x02
     m = long_converter("""
     FFFFFFFF FFFFFFFF C90FDAA2 2168C234 C4C6628B 80DC1CD1
@@ -126,7 +126,7 @@ class modp2048(_FFDHParams): # From RFC 3526
     mLen  = 2048
 
 
-class modp3072(_FFDHParams): # From RFC 3526
+class modp3072(_FFDHParams):  # From RFC 3526
     g = 0x02
     m = long_converter("""
     FFFFFFFF FFFFFFFF C90FDAA2 2168C234 C4C6628B 80DC1CD1
@@ -148,7 +148,7 @@ class modp3072(_FFDHParams): # From RFC 3526
     mLen  = 3072
 
 
-class modp4096(_FFDHParams): # From RFC 3526
+class modp4096(_FFDHParams):  # From RFC 3526
     g = 0x02
     m = long_converter("""
     FFFFFFFF FFFFFFFF C90FDAA2 2168C234 C4C6628B 80DC1CD1
@@ -176,7 +176,7 @@ class modp4096(_FFDHParams): # From RFC 3526
     mLen  = 4096
 
 
-class modp6144(_FFDHParams): # From RFC 3526
+class modp6144(_FFDHParams):  # From RFC 3526
     g = 0x02
     m = long_converter("""
     FFFFFFFF FFFFFFFF C90FDAA2 2168C234 C4C6628B 80DC1CD1 29024E08
@@ -210,7 +210,7 @@ class modp6144(_FFDHParams): # From RFC 3526
     mLen = 6144
 
 
-class modp8192(_FFDHParams): # From RFC 3526
+class modp8192(_FFDHParams):  # From RFC 3526
     g = 0x02
     m = long_converter("""
     FFFFFFFF FFFFFFFF C90FDAA2 2168C234 C4C6628B 80DC1CD1
@@ -259,7 +259,7 @@ class modp8192(_FFDHParams): # From RFC 3526
     mLen = 8192
 
 
-class ffdhe2048(_FFDHParams): # From RFC 7919
+class ffdhe2048(_FFDHParams):  # From RFC 7919
     g = 0x02
     m = long_converter("""
     FFFFFFFF FFFFFFFF ADF85458 A2BB4A9A AFDC5620 273D3CF1
@@ -277,7 +277,7 @@ class ffdhe2048(_FFDHParams): # From RFC 7919
     mLen = 2048
 
 
-class ffdhe3072(_FFDHParams): # From RFC 7919
+class ffdhe3072(_FFDHParams):  # From RFC 7919
     g = 0x02
     m = long_converter("""
     FFFFFFFF FFFFFFFF ADF85458 A2BB4A9A AFDC5620 273D3CF1
@@ -300,7 +300,7 @@ class ffdhe3072(_FFDHParams): # From RFC 7919
     mLen = 3072
 
 
-class ffdhe4096(_FFDHParams): # From RFC 7919
+class ffdhe4096(_FFDHParams):  # From RFC 7919
     g = 0x02
     m = long_converter("""
     FFFFFFFF FFFFFFFF ADF85458 A2BB4A9A AFDC5620 273D3CF1
@@ -329,7 +329,7 @@ class ffdhe4096(_FFDHParams): # From RFC 7919
     mLen = 4096
 
 
-class ffdhe6144(_FFDHParams): # From RFC 7919
+class ffdhe6144(_FFDHParams):  # From RFC 7919
     g = 0x02
     m = long_converter("""
     FFFFFFFF FFFFFFFF ADF85458 A2BB4A9A AFDC5620 273D3CF1
@@ -368,7 +368,7 @@ class ffdhe6144(_FFDHParams): # From RFC 7919
     mLen = 6144
 
 
-class ffdhe8192(_FFDHParams): # From RFC 7919
+class ffdhe8192(_FFDHParams):  # From RFC 7919
     g = 0x02
     m = long_converter("""
     FFFFFFFF FFFFFFFF ADF85458 A2BB4A9A AFDC5620 273D3CF1
@@ -450,13 +450,13 @@ _tls_named_groups.update(_tls_named_curves)
 # and www.ecc-brainpool.org/download/Domain-parameters.pdf
 #
 #
-#import math
+# import math
 #
-#from scapy.utils import long_converter, binrepr
-#from scapy.layers.tls.crypto.pkcs1 import pkcs_i2osp, pkcs_os2ip
+# from scapy.utils import long_converter, binrepr
+# from scapy.layers.tls.crypto.pkcs1 import pkcs_i2osp, pkcs_os2ip
 #
 #
-#def encode_point(point, point_format=0):
+# def encode_point(point, point_format=0):
 #    """
 #    Return a string representation of the Point p, according to point_format.
 #    """
@@ -473,16 +473,16 @@ _tls_named_groups.update(_tls_named_curves)
 #    return frmt + x + y
 #
 #
-#try:
+# try:
 #    import ecdsa
 #    ecdsa_support = True
-#except ImportError:
+# except ImportError:
 #    import logging
 #    log_loading = logging.getLogger("scapy.loading")
 #    log_loading.info("Can't import python ecdsa lib. No curves.")
 #
 #
-#if ecdsa_support:
+# if ecdsa_support:
 #
 #    from ecdsa.ellipticcurve import CurveFp, Point
 #    from ecdsa.curves import Curve
@@ -541,7 +541,7 @@ _tls_named_groups.update(_tls_named_curves)
 #        generator = Point(curve, x, y, r)
 #        return Curve(name, curve, generator, oid)
 
-    ### Named curves
+    # Named curves
 
     # We always provide _a as a positive integer.
 

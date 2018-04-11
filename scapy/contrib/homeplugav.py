@@ -87,27 +87,27 @@ DefaultVendor = "Qualcomm"
 # from https://github.com/qca/open-plc-utils/blob/master/mme/qualcomm.h #
 #########################################################################
 # Commented commands are already in HPAVTypeList, the other have to be implemted
-QualcommTypeList = {  #0xA000 : "VS_SW_VER",
+QualcommTypeList = {  # 0xA000 : "VS_SW_VER",
     0xA004: "VS_WR_MEM",
-    #0xA008 : "VS_RD_MEM",
-                    #0xA00C : "VS_ST_MAC",
-                    #0xA010 : "VS_GET_NVM",
+    # 0xA008 : "VS_RD_MEM",
+                    # 0xA00C : "VS_ST_MAC",
+                    # 0xA010 : "VS_GET_NVM",
                     0xA014: "VS_RSVD_1",
                     0xA018: "VS_RSVD_2",
-                    #0xA01C : "VS_RS_DEV",
-                    #0xA020 : "VS_WR_MOD",
-                    #0xA024 : "VS_RD_MOD",
-                    #0xA028 : "VS_MOD_NVM",
+                    # 0xA01C : "VS_RS_DEV",
+                    # 0xA020 : "VS_WR_MOD",
+                    # 0xA024 : "VS_RD_MOD",
+                    # 0xA028 : "VS_MOD_NVM",
                     0xA02C: "VS_WD_RPT",
                     0xA030: "VS_LNK_STATS",
-                    #0xA034 : "VS_SNIFFER",
-                    #0xA038 : "VS_NW_INFO",
+                    # 0xA034 : "VS_SNIFFER",
+                    # 0xA038 : "VS_NW_INFO",
                     0xA03C: "VS_RSVD_3",
                     0xA040: "VS_CP_RPT",
                     0xA044: "VS_ARPC",
-                    #0xA050 : "VS_SET_KEY",
+                    # 0xA050 : "VS_SET_KEY",
                     0xA054: "VS_MFG_STRING",
-                    #0xA058 : "VS_RD_CBLOCK",
+                    # 0xA058 : "VS_RD_CBLOCK",
                     0xA05C: "VS_SET_SDRAM",
                     0xA060: "VS_HOST_ACTION",
                     0xA068: "VS_OP_ATTRIBUTES",
@@ -149,9 +149,9 @@ QualcommTypeList = {  #0xA000 : "VS_SW_VER",
                     0xA114: "VS_MDU_TRAFFIC_STATS",
                     0xA118: "VS_FORWARD_CONFIG",
                     0xA200: "VS_HYBRID_INFO"}
-########## END OF Qualcomm commands ##########################
+#          END OF Qualcomm commands                          #
 
-EofPadList = [0xA000, 0xA038] # TODO: The complete list of Padding can help to improve the condition in VendorMME Class
+EofPadList = [0xA000, 0xA038]  # TODO: The complete list of Padding can help to improve the condition in VendorMME Class
 
 
 def FragmentCond(pkt):
@@ -190,9 +190,9 @@ class NetworkInformationRequest(Packet):
     name = "NetworkInformationRequest"
     fields_desc=[]
 
-#""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+#########################################################################################
 #   Networks & Stations informations for MAC Management V1.0
-#""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+#########################################################################################
 
 
 class NetworkInfoV10(Packet):
@@ -225,9 +225,9 @@ class StationInfoV10(Packet):
     def extract_padding(self, p):
         return b"", p
 
-#""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+#########################################################################################
 #   Networks & Stations informations for MAC Management V1.1
-#""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+#########################################################################################
 
 
 class NetworkInfoV11(Packet):
@@ -268,7 +268,7 @@ class StationInfoV11(Packet):
     def extract_padding(self, p):
         return b"", p
 
-#""""""""""""""""""""""""" END """"""""""""""""""""""""""""""""""""""""""""""""""""""""""
+#                          END                                                          #
 
 
 class NetworkInfoConfirmationV10(Packet):
@@ -357,7 +357,7 @@ class SetEncryptionKeyConfirmation(Packet):
 
 class QUAResetFactoryConfirm(Packet):
     name = "QUAResetFactoryConfirm"
-    fields_desc=[ByteEnumField("Status", 0x0, StatusCodes)] #TODO : Probably a Status bytefield?
+    fields_desc=[ByteEnumField("Status", 0x0, StatusCodes)]  # TODO : Probably a Status bytefield?
 
 ######################################################################
 # NVM Parameters Packets
@@ -733,7 +733,7 @@ class ModulePIB(Packet):
     __slots__ = ["_ModulePIB__offset", "_ModulePIB__length"]
     fields_desc=[
         ConditionalField(XByteField("FirmwareMajorVersion", 0x00),
-                         lambda pkt:(0x0 == pkt.__offset and 0x1 <= pkt.__offset+pkt.__length)), # The following conditional fiels just check if the current field fits in the data range
+                         lambda pkt:(0x0 == pkt.__offset and 0x1 <= pkt.__offset+pkt.__length)),  # The following conditional fiels just check if the current field fits in the data range
         ConditionalField(XByteField("PIBMinorVersion", 0x00),
                          lambda pkt:(0x1 >= pkt.__offset and 0x2 <= pkt.__offset+pkt.__length)),
         ConditionalField(XShortField("reserved_1", 0x0000),
@@ -1270,7 +1270,7 @@ class WriteModuleData2NVMConfirmation(Packet):
     fields_desc=[ByteEnumField("Status", 0x0, StatusCodes),
                  ByteEnumField("ModuleID", 0x02, ModuleIDList)]
 
-############################ END ######################################
+#                            END                                      #
 
 
 class HomePlugAV(Packet):
@@ -1279,7 +1279,7 @@ class HomePlugAV(Packet):
     """
     name = "HomePlugAV "
     fields_desc=[MACManagementHeader,
-                 ConditionalField(XShortField("FragmentInfo", 0x0), FragmentCond), # Fragmentation Field
+                 ConditionalField(XShortField("FragmentInfo", 0x0), FragmentCond),  # Fragmentation Field
                  VendorMME]
 
     def answers(self, other):

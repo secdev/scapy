@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
-##               2015, 2016, 2017 Maxence Tury
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
+# 2015, 2016, 2017 Maxence Tury
+# This program is published under a GPLv2 license
 
 """
 Common TLS fields & bindings.
@@ -46,7 +46,7 @@ def _tls_version_check(version, min):
     return version >= min
 
 ###############################################################################
-### TLS Record Protocol                                                     ###
+#   TLS Record Protocol                                                       #
 ###############################################################################
 
 
@@ -299,7 +299,7 @@ class TLS(_GenericTLSSessionInheritance):
             return conf.raw_layer
         return TLS
 
-    ### Parsing methods
+    # Parsing methods
 
     def _tls_auth_decrypt(self, hdr, s):
         """
@@ -421,7 +421,7 @@ class TLS(_GenericTLSSessionInheritance):
                 # random IV, hence it does not correspond to anything.
                 # What actually matters is that we got the first encrypted block
                 # in order to decrypt the second block (first data block).
-                #if version >= 0x0302:
+                # if version >= 0x0302:
                 #    block_size = self.tls_session.rcs.cipher.block_size
                 #    iv, pfrag = pfrag[:block_size], pfrag[block_size:]
                 #    l = struct.unpack('!H', hdr[3:5])[0]
@@ -529,7 +529,7 @@ class TLS(_GenericTLSSessionInheritance):
                 p = conf.raw_layer(s, _internal=1, _underlayer=self)
             self.add_payload(p)
 
-    ### Building methods
+    # Building methods
 
     def _tls_compress(self, s):
         """
@@ -625,7 +625,7 @@ class TLS(_GenericTLSSessionInheritance):
 
             # Excerpt below better corresponds to TLS 1.1 IV definition,
             # but the result is the same as with TLS 1.2 anyway.
-            #if self.version >= 0x0302:
+            # if self.version >= 0x0302:
             #    l = self.tls_session.wcs.cipher.block_size
             #    iv = randstring(l)
             #    mfrag = iv + mfrag
@@ -676,7 +676,7 @@ class TLS(_GenericTLSSessionInheritance):
 
 
 ###############################################################################
-### TLS ChangeCipherSpec                                                    ###
+#   TLS ChangeCipherSpec                                                      #
 ###############################################################################
 
 _tls_changecipherspec_type = {1: "change_cipher_spec"}
@@ -702,7 +702,7 @@ class TLSChangeCipherSpec(_GenericTLSSessionInheritance):
 
 
 ###############################################################################
-### TLS Alert                                                               ###
+#   TLS Alert                                                                 #
 ###############################################################################
 
 _tls_alert_level = {1: "warning", 2: "fatal"}
@@ -738,7 +738,7 @@ class TLSAlert(_GenericTLSSessionInheritance):
 
 
 ###############################################################################
-### TLS Application Data                                                    ###
+#   TLS Application Data                                                      #
 ###############################################################################
 
 class TLSApplicationData(_GenericTLSSessionInheritance):
@@ -753,7 +753,7 @@ class TLSApplicationData(_GenericTLSSessionInheritance):
 
 
 ###############################################################################
-### Bindings                                                                ###
+#   Bindings                                                                  #
 ###############################################################################
 
 bind_layers(TCP, TLS, sport=443)

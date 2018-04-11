@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
 """
 DHCP (Dynamic Host Configuration Protocol) and BOOTP
@@ -81,8 +81,8 @@ class _DHCPParamReqFieldListField(FieldListField):
             ret.append(val)
         return b"", [x[0] for x in ret]
 
-#DHCP_UNKNOWN, DHCP_IP, DHCP_IPLIST, DHCP_TYPE \
-#= range(4)
+# DHCP_UNKNOWN, DHCP_IP, DHCP_IPLIST, DHCP_TYPE \
+# = range(4)
 #
 
 
