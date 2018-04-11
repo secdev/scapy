@@ -5,22 +5,22 @@
 
 
 #############################################################################
-##                                                                         ##
-## scapy-skinny.py --- Skinny Call Control Protocol (SCCP) extension       ##
-##                                                                         ##
-## Copyright (C) 2006    Nicolas Bareil      <nicolas.bareil@ eads.net>    ##
-##                       EADS/CRC security team                            ##
-##                                                                         ##
-## This file is part of Scapy                                              ##
-## Scapy is free software: you can redistribute it and/or modify           ##
-## under the terms of the GNU General Public License version 2 as          ##
-## published by the Free Software Foundation; version 2.                   ##
-##                                                                         ##
-## This program is distributed in the hope that it will be useful, but     ##
-## WITHOUT ANY WARRANTY; without even the implied warranty of              ##
-## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU       ##
-## General Public License for more details.                                ##
-##                                                                         ##
+#                                                                           #
+#  scapy-skinny.py --- Skinny Call Control Protocol (SCCP) extension        #
+#                                                                           #
+#  Copyright (C) 2006    Nicolas Bareil      <nicolas.bareil@ eads.net>     #
+#                        EADS/CRC security team                             #
+#                                                                           #
+#  This file is part of Scapy                                               #
+#  Scapy is free software: you can redistribute it and/or modify            #
+#  under the terms of the GNU General Public License version 2 as           #
+#  published by the Free Software Foundation; version 2.                    #
+#                                                                           #
+#  This program is distributed in the hope that it will be useful, but      #
+#  WITHOUT ANY WARRANTY; without even the implied warranty of               #
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU        #
+#  General Public License for more details.                                 #
+#                                                                           #
 #############################################################################
 
 from __future__ import absolute_import
@@ -198,7 +198,7 @@ skinny_stimulus = {
 
 
 ############
-## Fields ##
+#  Fields  #
 ############
 
 class SkinnyDateTimeField(StrFixedLenField):
@@ -239,7 +239,7 @@ class SkinnyDateTimeField(StrFixedLenField):
 
 
 ###########################
-## Packet abstract class ##
+#  Packet abstract class  #
 ###########################
 
 class SkinnyMessageGeneric(Packet):
@@ -506,7 +506,7 @@ class Skinny(Packet):
 
     def post_build(self, pkt, p):
         if self.len is None:
-            l=len(p)+len(pkt)-8 # on compte pas les headers len et reserved
+            l=len(p)+len(pkt)-8  # on compte pas les headers len et reserved
             pkt=struct.pack('@I', l)+pkt[4:]
         return pkt+p
 
@@ -515,7 +515,7 @@ class Skinny(Packet):
 
 def get_cls(name, fallback_cls):
     return globals().get(name, fallback_cls)
-    #return __builtin__.__dict__.get(name, fallback_cls)
+    # return __builtin__.__dict__.get(name, fallback_cls)
 
 
 for msgid, strcls in skinny_messages_cls.items():

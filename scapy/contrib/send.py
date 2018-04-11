@@ -14,8 +14,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Scapy. If not, see <http://www.gnu.org/licenses/>.
 
-## Copyright (C) 2009 Adline Stephane <adline.stephane@gmail.com>
-## Copyright     2018 Gabriel Potter <gabriel@potter.fr>
+# Copyright (C) 2009 Adline Stephane <adline.stephane@gmail.com>
+# Copyright     2018 Gabriel Potter <gabriel@potter.fr>
 
 # Partial support of RFC3971
 # scapy.contrib.description = Secure Neighbor Discovery (SEND) (ICMPv6)

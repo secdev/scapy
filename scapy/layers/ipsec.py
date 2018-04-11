@@ -1,16 +1,16 @@
 #############################################################################
-## ipsec.py --- IPsec support for Scapy                                    ##
-##                                                                         ##
-## Copyright (C) 2014  6WIND                                               ##
-##                                                                         ##
-## This program is free software; you can redistribute it and/or modify it ##
-## under the terms of the GNU General Public License version 2 as          ##
-## published by the Free Software Foundation.                              ##
-##                                                                         ##
-## This program is distributed in the hope that it will be useful, but     ##
-## WITHOUT ANY WARRANTY; without even the implied warranty of              ##
-## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU       ##
-## General Public License for more details.                                ##
+#  ipsec.py --- IPsec support for Scapy                                     #
+#                                                                           #
+#  Copyright (C) 2014  6WIND                                                #
+#                                                                           #
+#  This program is free software; you can redistribute it and/or modify it  #
+#  under the terms of the GNU General Public License version 2 as           #
+#  published by the Free Software Foundation.                               #
+#                                                                           #
+#  This program is distributed in the hope that it will be useful, but      #
+#  WITHOUT ANY WARRANTY; without even the implied warranty of               #
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU        #
+#  General Public License for more details.                                 #
 #############################################################################
 """
 IPsec layer
@@ -60,7 +60,7 @@ from scapy.layers.inet6 import IPv6, IPv6ExtHdrHopByHop, IPv6ExtHdrDestOpt, \
     IPv6ExtHdrRouting
 
 
-#------------------------------------------------------------------------------
+###############################################################################
 class AH(Packet):
     """
     Authentication Header
@@ -106,7 +106,7 @@ bind_layers(IPv6, AH, nh=socket.IPPROTO_AH)
 bind_layers(AH, IP, nh=socket.IPPROTO_IP)
 bind_layers(AH, IPv6, nh=socket.IPPROTO_IPV6)
 
-#------------------------------------------------------------------------------
+###############################################################################
 
 
 class ESP(Packet):
@@ -137,7 +137,7 @@ bind_layers(IPv6, ESP, nh=socket.IPPROTO_ESP)
 bind_layers(UDP, ESP, dport=4500)  # NAT-Traversal encapsulation
 bind_layers(UDP, ESP, sport=4500)  # NAT-Traversal encapsulation
 
-#------------------------------------------------------------------------------
+###############################################################################
 
 
 class _ESPPlain(Packet):
@@ -163,7 +163,7 @@ class _ESPPlain(Packet):
         return raw(self.data) + self.padding + struct.pack("BB", self.padlen, self.nh)
 
 
-#------------------------------------------------------------------------------
+###############################################################################
 if conf.crypto_valid:
     from cryptography.exceptions import InvalidTag
     from cryptography.hazmat.backends import default_backend
@@ -178,7 +178,7 @@ else:
     InvalidTag = default_backend = None
     Cipher = algorithms = modes = None
 
-#------------------------------------------------------------------------------
+###############################################################################
 
 
 def _lcm(a, b):
@@ -416,7 +416,7 @@ class CryptAlgo(object):
                          nh=nh,
                          icv=icv)
 
-#------------------------------------------------------------------------------
+###############################################################################
 # The names of the encryption algorithms are the same than in scapy.contrib.ikev2
 # see http://www.iana.org/assignments/ikev2-parameters/ikev2-parameters.xhtml
 
@@ -471,7 +471,7 @@ if algorithms:
                                     cipher=algorithms.CAST5,
                                     mode=modes.CBC)
 
-#------------------------------------------------------------------------------
+###############################################################################
 if conf.crypto_valid:
     from cryptography.hazmat.primitives.hmac import HMAC
     from cryptography.hazmat.primitives.cmac import CMAC
@@ -480,7 +480,7 @@ else:
     # no error if cryptography is not available but authentication won't be supported
     HMAC = CMAC = hashes = None
 
-#------------------------------------------------------------------------------
+###############################################################################
 
 
 class IPSecIntegrityError(Exception):
@@ -595,7 +595,7 @@ class AuthAlgo(object):
             raise IPSecIntegrityError('pkt_icv=%r, computed_icv=%r' %
                                       (pkt_icv, computed_icv))
 
-#------------------------------------------------------------------------------
+###############################################################################
 # The names of the integrity algorithms are the same than in scapy.contrib.ikev2
 # see http://www.iana.org/assignments/ikev2-parameters/ikev2-parameters.xhtml
 
@@ -634,7 +634,7 @@ if CMAC and algorithms:
                                          icv_size=12,
                                          key_size=(16,))
 
-#------------------------------------------------------------------------------
+###############################################################################
 
 
 def split_for_transport(orig_pkt, transport_proto):
@@ -686,16 +686,16 @@ def split_for_transport(orig_pkt, transport_proto):
         return header, nh, next_hdr
 
 
-#------------------------------------------------------------------------------
+###############################################################################
 # see RFC 4302 - Appendix A. Mutability of IP Options/Extension Headers
 IMMUTABLE_IPV4_OPTIONS = (
-    0, # End Of List
-    1, # No OPeration
-    2, # Security
-    5, # Extended Security
-    6, # Commercial Security
-    20, # Router Alert
-    21, # Sender Directed Multi-Destination Delivery
+    0,  # End Of List
+    1,  # No OPeration
+    2,  # Security
+    5,  # Extended Security
+    6,  # Commercial Security
+    20,  # Router Alert
+    21,  # Sender Directed Multi-Destination Delivery
 )
 
 
@@ -768,7 +768,7 @@ def zero_mutable_fields(pkt, sending=False):
 
     return pkt
 
-#------------------------------------------------------------------------------
+###############################################################################
 
 
 class SecurityAssociation(object):

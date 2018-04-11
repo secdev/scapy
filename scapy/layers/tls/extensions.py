@@ -1,6 +1,6 @@
-## This file is part of Scapy
-## Copyright (C) 2017 Maxence Tury
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# Copyright (C) 2017 Maxence Tury
+# This program is published under a GPLv2 license
 
 """
 TLS handshake extensions.
@@ -28,7 +28,7 @@ _tls_ext = {0: "server_name",             # RFC 4366
             7: "client_authz",            # RFC 5878
             8: "server_authz",            # RFC 5878
             9: "cert_type",               # RFC 6091
-            #10: "elliptic_curves",         # RFC 4492
+            # 10: "elliptic_curves",         # RFC 4492
             10: "supported_groups",
             11: "ec_point_formats",        # RFC 4492
             13: "signature_algorithms",    # RFC 5246
@@ -37,7 +37,7 @@ _tls_ext = {0: "server_name",             # RFC 4366
             0x12: "signed_certificate_timestamp",  # RFC 6962
             0x15: "padding",               # RFC 7685
             0x16: "encrypt_then_mac",      # RFC 7366
-            0x17: "extended_master_secret",# RFC 7627
+            0x17: "extended_master_secret",  # RFC 7627
             0x23: "session_ticket",        # RFC 5077
             0x28: "key_share",
             0x29: "pre_shared_key",
@@ -73,7 +73,7 @@ class TLS_Ext_Unknown(_GenericTLSSessionInheritance):
 
 
 ###############################################################################
-### ClientHello/ServerHello extensions                                      ###
+#   ClientHello/ServerHello extensions                                        #
 ###############################################################################
 
 # We provide these extensions mostly for packet manipulation purposes.
@@ -580,7 +580,7 @@ _tls_ext_cls = {0: TLS_Ext_ServerName,
                 7: TLS_Ext_ClientAuthz,
                 8: TLS_Ext_ServerAuthz,
                 9: _TLS_Ext_CertTypeDispatcher,
-                #10: TLS_Ext_SupportedEllipticCurves,
+                # 10: TLS_Ext_SupportedEllipticCurves,
                 10: TLS_Ext_SupportedGroups,
                 11: TLS_Ext_SupportedPointFormat,
                 13: TLS_Ext_SignatureAlgorithms,
@@ -597,8 +597,8 @@ _tls_ext_cls = {0: TLS_Ext_ServerName,
                 0x2c: TLS_Ext_Cookie,
                 0x2d: TLS_Ext_PSKKeyExchangeModes,
                 0x2e: TLS_Ext_TicketEarlyDataInfo,
-                #0x2f: TLS_Ext_CertificateAuthorities,       #XXX
-                #0x30: TLS_Ext_OIDFilters,                   #XXX
+                # 0x2f: TLS_Ext_CertificateAuthorities,       #XXX
+                # 0x30: TLS_Ext_OIDFilters,                   #XXX
                 0x3374: TLS_Ext_NPN,
                 0xff01: TLS_Ext_RenegotiationInfo
                 }
@@ -640,7 +640,7 @@ class _ExtensionsLenField(FieldLenField):
                 pkt.tls_session.frozen = tmp
 
                 i = self.adjust(pkt, f)
-                if i == 0: # for correct build if no ext and not explicitly 0
+                if i == 0:  # for correct build if no ext and not explicitly 0
                     return s
         return s + struct.pack(self.fmt, i)
 

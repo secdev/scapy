@@ -1,8 +1,8 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## Enhanced by Maxence Tury <maxence.tury@ssi.gouv.fr>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# Enhanced by Maxence Tury <maxence.tury@ssi.gouv.fr>
+# This program is published under a GPLv2 license
 
 """
 X.509 certificates.
@@ -39,9 +39,9 @@ class ASN1P_PRIVSEQ(ASN1_Packet):
 
 
 #######################
-##### RSA packets #####
+#     RSA packets     #
 #######################
-##### based on RFC 3447
+# based on RFC 3447
 
 # It could be interesting to use os.urandom and try to generate
 # a new modulus each time RSAPublicKey is called with default values.
@@ -79,9 +79,9 @@ class RSAPrivateKey(ASN1_Packet):
                               RSAOtherPrimeInfo)))
 
 ####################################
-########## ECDSA packets ###########
+#          ECDSA packets           #
 ####################################
-#### based on RFC 3279 & 5480 & 5915
+# based on RFC 3279 & 5480 & 5915
 
 
 class ECFieldID(ASN1_Packet):
@@ -148,12 +148,12 @@ class ECDSASignature(ASN1_Packet):
 
 
 ######################
-#### X509 packets ####
+#    X509 packets    #
 ######################
-#### based on RFC 5280
+# based on RFC 5280
 
 
-####### Names #######
+#       Names       #
 
 class ASN1F_X509_DirectoryString(ASN1F_CHOICE):
 # we include ASN1 bit strings for rare instances of x500 addresses
@@ -215,7 +215,7 @@ class X509_DNSName(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_IA5_STRING("dNSName", "")
 
-#XXX write me
+# XXX write me
 
 
 class X509_X400Address(ASN1_Packet):
@@ -290,7 +290,7 @@ class X509_GeneralName(ASN1_Packet):
                                           implicit_tag=0x88))
 
 
-####### Extensions #######
+#       Extensions       #
 
 class X509_ExtAuthorityKeyIdentifier(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
@@ -740,7 +740,7 @@ class X509_Extensions(ASN1_Packet):
                           None, X509_Extension))
 
 
-####### Public key wrapper #######
+#       Public key wrapper       #
 
 class X509_AlgorithmIdentifier(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
@@ -814,9 +814,9 @@ class X509_SubjectPublicKeyInfo(ASN1_Packet):
     ASN1_root = ASN1F_X509_SubjectPublicKeyInfo()
 
 
-###### OpenSSL compatibility wrappers ######
+#      OpenSSL compatibility wrappers      #
 
-#XXX As ECDSAPrivateKey already uses the structure from RFC 5958,
+# XXX As ECDSAPrivateKey already uses the structure from RFC 5958,
 # and as we would prefer encapsulated RSA private keys to be parsed,
 # this lazy implementation actually supports RSA encoding only.
 # We'd rather call it RSAPrivateKey_OpenSSL than X509_PrivateKeyInfo.
@@ -865,7 +865,7 @@ class ECDSAPrivateKey_OpenSSL(Packet):
                                ECDSAPrivateKey)]
 
 
-####### TBSCertificate & Certificate #######
+#       TBSCertificate & Certificate       #
 
 _default_issuer = [
     X509_RDN(),
@@ -1050,7 +1050,7 @@ class X509_Cert(ASN1_Packet):
     ASN1_root = ASN1F_X509_Cert()
 
 
-####### TBSCertList & CRL #######
+#       TBSCertList & CRL       #
 
 class X509_RevokedCertificate(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
@@ -1168,9 +1168,9 @@ class X509_CRL(ASN1_Packet):
 
 
 #############################
-#### OCSP Status packets ####
+#    OCSP Status packets    #
 #############################
-########### based on RFC 6960
+# based on RFC 6960
 
 class OCSP_CertID(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER

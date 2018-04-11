@@ -1,9 +1,9 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## Modified by Maxence Tury <maxence.tury@ssi.gouv.fr>
-## Acknowledgment: Ralph Broenink
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# Modified by Maxence Tury <maxence.tury@ssi.gouv.fr>
+# Acknowledgment: Ralph Broenink
+# This program is published under a GPLv2 license
 
 """
 Basic Encoding Rules (BER) for ASN.1
@@ -17,11 +17,11 @@ from scapy.asn1.asn1 import ASN1_Decoding_Error, ASN1_Encoding_Error, ASN1_BadTa
 import scapy.modules.six as six
 
 ##################
-## BER encoding ##
+#  BER encoding  #
 ##################
 
 
-#####[ BER tools ]#####
+#    [ BER tools ]    #
 
 
 class BER_Exception(Exception):
@@ -192,7 +192,7 @@ def BER_tagging_enc(s, implicit_tag=None, explicit_tag=None):
             s = BER_id_enc(explicit_tag) + BER_len_enc(len(s)) + s
     return s
 
-#####[ BER classes ]#####
+#    [ BER classes ]    #
 
 
 class BERcodec_metaclass(type):
@@ -288,7 +288,7 @@ ASN1_Codecs.BER.register_stem(BERcodec_Object)
 
 
 ##########################
-#### BERcodec objects ####
+#    BERcodec objects    #
 ##########################
 
 class BERcodec_INTEGER(BERcodec_Object):
@@ -317,7 +317,7 @@ class BERcodec_INTEGER(BERcodec_Object):
         l, s, t = cls.check_type_check_len(s)
         x = 0
         if s:
-            if orb(s[0])&0x80: # negative int
+            if orb(s[0])&0x80:  # negative int
                 x = -1
             for c in s:
                 x <<= 8
@@ -473,7 +473,7 @@ class BERcodec_SEQUENCE(BERcodec_Object):
     def do_dec(cls, s, context=None, safe=False):
         if context is None:
             context = cls.tag.context
-        l, st = cls.check_type_get_len(s) # we may have len(s) < l
+        l, st = cls.check_type_get_len(s)  # we may have len(s) < l
         s, t = st[:l], st[l:]
         obj = []
         while s:

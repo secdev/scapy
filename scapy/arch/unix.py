@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
 """
 Common customizations for all Unix-like operating systems other than Linux
@@ -22,7 +22,7 @@ from scapy.config import conf
 
 
 ##################
-## Routes stuff ##
+#  Routes stuff  #
 ##################
 
 def _guess_iface_name(netif):
@@ -43,11 +43,11 @@ def _guess_iface_name(netif):
 
 def read_routes():
     if SOLARIS:
-        f=os.popen("netstat -rvn") # -f inet
+        f=os.popen("netstat -rvn")  # -f inet
     elif FREEBSD:
-        f=os.popen("netstat -rnW") # -W to handle long interface names
+        f=os.popen("netstat -rnW")  # -W to handle long interface names
     else:
-        f=os.popen("netstat -rn") # -f inet
+        f=os.popen("netstat -rn")  # -f inet
     ok = 0
     mtu_present = False
     prio_present = False
@@ -57,7 +57,7 @@ def read_routes():
         if not l:
             break
         l = l.strip()
-        if l.find("----") >= 0: # a separation line
+        if l.find("----") >= 0:  # a separation line
             continue
         if not ok:
             if l.find("Destination") >= 0:
@@ -72,7 +72,7 @@ def read_routes():
             lspl = l.split()
             if len(lspl) == 10:
                 dest, mask, gw, netif, mxfrg, rtt, ref, flg = lspl[:8]
-            else: # missing interface
+            else:  # missing interface
                 dest, mask, gw, mxfrg, rtt, ref, flg = lspl[:7]
                 netif=None
         else:
@@ -142,7 +142,7 @@ def read_routes():
     return routes
 
 ############
-### IPv6 ###
+#   IPv6   #
 ############
 
 
@@ -162,10 +162,10 @@ def _in6_getifaddr(ifname):
     ret = []
     for line in f:
         if "inet6" in line:
-            addr = line.rstrip().split(None, 2)[1] # The second element is the IPv6 address
+            addr = line.rstrip().split(None, 2)[1]  # The second element is the IPv6 address
         else:
             continue
-        if '%' in line: # Remove the interface identifier if present
+        if '%' in line:  # Remove the interface identifier if present
             addr = addr.split("%", 1)[0]
 
         # Check if it is a valid IPv6 address
@@ -206,7 +206,7 @@ def in6_getifaddr():
                 iface = l.split()[0].rstrip(':')
                 splitted_line.append(iface)
 
-    else: # FreeBSD, NetBSD or Darwin
+    else:  # FreeBSD, NetBSD or Darwin
         try:
             f = os.popen("%s -l" % conf.prog.ifconfig)
         except OSError as msg:

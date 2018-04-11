@@ -30,13 +30,13 @@ from scapy.error import warning
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
 
-CURR_GEOTAG_VER = 2 #Major revision of specification
+CURR_GEOTAG_VER = 2  # Major revision of specification
 
 PPI_GPS     = 30002
 PPI_VECTOR  = 30003
 PPI_SENSOR  = 30004
 PPI_ANTENNA = 30005
-#The FixedX_Y Fields are used to store fixed point numbers in a variety of fields in the GEOLOCATION-TAGS specification
+# The FixedX_Y Fields are used to store fixed point numbers in a variety of fields in the GEOLOCATION-TAGS specification
 
 
 class Fixed3_6Field(LEIntField):
@@ -65,7 +65,7 @@ class Fixed3_6Field(LEIntField):
     def i2m(self, pkt, x):
         """Convert internal value to machine value"""
         if x is None:
-            #Try to return zero if undefined
+            # Try to return zero if undefined
             x = self.h2i(pkt, 0)
         return x
 
@@ -103,7 +103,7 @@ class Fixed3_7Field(LEIntField):
     def i2m(self, pkt, x):
         """Convert internal value to machine value"""
         if x is None:
-            #Try to return zero if undefined
+            # Try to return zero if undefined
             x = self.h2i(pkt, 0)
         return x
 
@@ -141,7 +141,7 @@ class Fixed6_4Field(LEIntField):
     def i2m(self, pkt, x):
         """Convert internal value to machine value"""
         if x is None:
-            #Try to return zero if undefined
+            # Try to return zero if undefined
             x = self.h2i(pkt, 0)
         return x
 
@@ -151,12 +151,12 @@ class Fixed6_4Field(LEIntField):
         else:
             y=self.i2h(pkt, x)
         return "%6.4f"%(y)
-#The GPS timestamps fractional time counter is stored in a 32-bit unsigned ns counter.
-#The ept field is as well,
+# The GPS timestamps fractional time counter is stored in a 32-bit unsigned ns counter.
+# The ept field is as well,
 
 
 class NSCounter_Field(LEIntField):
-    def i2h(self, pkt, x): #converts nano-seconds to seconds for output
+    def i2h(self, pkt, x):  # converts nano-seconds to seconds for output
         if x is not None:
             if (x < 0):
                 warning("NSCounter_Field: Internal value too negative: %d",  x)
@@ -167,7 +167,7 @@ class NSCounter_Field(LEIntField):
             x = (x / 1e9)
         return x
 
-    def h2i(self, pkt, x): #converts input in seconds into nano-seconds for storage
+    def h2i(self, pkt, x):  # converts input in seconds into nano-seconds for storage
         if x is not None:
             if (x < 0):
                 warning("NSCounter_Field: Input value too negative: %.10f",  x)
@@ -251,11 +251,11 @@ class VectorFlags_Field(XLEIntField):
                     y &= (~self._relmask)
                     y |= self._relvals[i]
                 else:
-                    #logging.warning("Unknown VectorFlags Argument: %s",  value)
+                    # logging.warning("Unknown VectorFlags Argument: %s",  value)
                     pass
         else:
             y = x
-        #print "any2i: %s --> %s" % (str(x), str(y))
+        # print "any2i: %s --> %s" % (str(x), str(y))
         return y
 
 
@@ -304,8 +304,8 @@ _hcsi_gps_flags = _FlagsList({0: "No Fix Available", 1: "GPS", 2: "Differential 
                               5: "Float Real Time Kinematic", 6: "Estimated (Dead Reckoning)",
                               7: "Manual Input", 8: "Simulation"})
 
-#_hcsi_vector_flags = _FlagsList({0:"ForwardFrame", 1:"RotationsAbsoluteXYZ", 5:"OffsetFromGPS_XYZ"})
-#This has been replaced with the VectorFlags_Field class, in order to handle the RelativeTo:subfield
+# _hcsi_vector_flags = _FlagsList({0:"ForwardFrame", 1:"RotationsAbsoluteXYZ", 5:"OffsetFromGPS_XYZ"})
+# This has been replaced with the VectorFlags_Field class, in order to handle the RelativeTo:subfield
 
 _hcsi_vector_char_flags = _FlagsList({0: "Antenna", 1: "Direction of Travel",
                                       2: "Front of Vehicle", 3: "Angle of Arrival", 4: "Transmitter Position",
@@ -372,7 +372,7 @@ class HCSIPacket(Packet):
         return b"", p
 
 
-#GPS Fields
+# GPS Fields
 GPS_Fields = [FlagsField("GPSFlags", None, -32, _hcsi_gps_flags),
               Fixed3_7Field("Latitude", None),
               Fixed3_7Field("Longitude", None),    Fixed6_4Field("Altitude", None),
@@ -394,14 +394,14 @@ GPS_Fields = [FlagsField("GPSFlags", None, -32, _hcsi_gps_flags),
 
 class GPS(HCSIPacket):
     name = "PPI GPS"
-    fields_desc = [LEShortField('pfh_type', PPI_GPS), #pfh_type
-                   LEShortField('pfh_length', None), #pfh_len
-                   ByteField('geotag_ver', CURR_GEOTAG_VER), #base_geotag_header.ver
-                   ByteField('geotag_pad', 0), #base_geotag_header.pad
+    fields_desc = [LEShortField('pfh_type', PPI_GPS),  # pfh_type
+                   LEShortField('pfh_length', None),  # pfh_len
+                   ByteField('geotag_ver', CURR_GEOTAG_VER),  # base_geotag_header.ver
+                   ByteField('geotag_pad', 0),  # base_geotag_header.pad
                    LEShortField('geotag_len', None)] + _HCSIBuildFields(GPS_Fields)
 
 
-#Vector Fields
+# Vector Fields
 VEC_Fields = [VectorFlags_Field("VectorFlags", None),
               FlagsField("VectorChars", None, -32, _hcsi_vector_char_flags),
               Fixed3_6Field("Pitch", None),       Fixed3_6Field("Roll", None),
@@ -423,14 +423,14 @@ VEC_Fields = [VectorFlags_Field("VectorFlags", None),
 
 class Vector(HCSIPacket):
     name = "PPI Vector"
-    fields_desc = [LEShortField('pfh_type', PPI_VECTOR), #pfh_type
-                   LEShortField('pfh_length', None), #pfh_len
-                   ByteField('geotag_ver', CURR_GEOTAG_VER), #base_geotag_header.ver
-                   ByteField('geotag_pad', 0), #base_geotag_header.pad
+    fields_desc = [LEShortField('pfh_type', PPI_VECTOR),  # pfh_type
+                   LEShortField('pfh_length', None),  # pfh_len
+                   ByteField('geotag_ver', CURR_GEOTAG_VER),  # base_geotag_header.ver
+                   ByteField('geotag_pad', 0),  # base_geotag_header.pad
                    LEShortField('geotag_len', None)] + _HCSIBuildFields(VEC_Fields)
 
 
-#Sensor Fields
+# Sensor Fields
 # http://www.iana.org/assignments/icmp-parameters
 sensor_types= {1: "Velocity",
                2: "Acceleration",
@@ -467,10 +467,10 @@ SENS_Fields = [LEShortEnumField('SensorType', None, sensor_types),
 
 class Sensor(HCSIPacket):
     name = "PPI Sensor"
-    fields_desc = [LEShortField('pfh_type', PPI_SENSOR), #pfh_type
-                   LEShortField('pfh_length', None), #pfh_len
-                   ByteField('geotag_ver', CURR_GEOTAG_VER), #base_geotag_header.ver
-                   ByteField('geotag_pad', 0), #base_geotag_header.pad
+    fields_desc = [LEShortField('pfh_type', PPI_SENSOR),  # pfh_type
+                   LEShortField('pfh_length', None),  # pfh_len
+                   ByteField('geotag_ver', CURR_GEOTAG_VER),  # base_geotag_header.ver
+                   ByteField('geotag_pad', 0),  # base_geotag_header.pad
                    LEShortField('geotag_len', None)] + _HCSIBuildFields(SENS_Fields)
 
 
@@ -496,10 +496,10 @@ ANT_Fields = [FlagsField("AntennaFlags", None, -32, _hcsi_antenna_flags),
 
 class Antenna(HCSIPacket):
     name = "PPI Antenna"
-    fields_desc = [LEShortField('pfh_type', PPI_ANTENNA), #pfh_type
-                   LEShortField('pfh_length', None), #pfh_len
-                   ByteField('geotag_ver', CURR_GEOTAG_VER), #base_geotag_header.ver
-                   ByteField('geotag_pad', 0), #base_geotag_header.pad
+    fields_desc = [LEShortField('pfh_type', PPI_ANTENNA),  # pfh_type
+                   LEShortField('pfh_length', None),  # pfh_len
+                   ByteField('geotag_ver', CURR_GEOTAG_VER),  # base_geotag_header.ver
+                   ByteField('geotag_pad', 0),  # base_geotag_header.pad
                    LEShortField('geotag_len', None)] + _HCSIBuildFields(ANT_Fields)
 
 

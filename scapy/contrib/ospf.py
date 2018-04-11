@@ -74,7 +74,7 @@ class OSPF_Hdr(Packet):
         ByteEnumField("type", 1, _OSPF_types),
         _NoLLSLenField("len", None, adjust=lambda x: x+24),
         IPField("src", "1.1.1.1"),
-        IPField("area", "0.0.0.0"), # default: backbone
+        IPField("area", "0.0.0.0"),  # default: backbone
         XShortField("chksum", None),
         ShortEnumField("authtype", 0, {0: "Null", 1: "Simple", 2: "Crypto"}),
         # Null or Simple Authentication
@@ -207,7 +207,7 @@ _OSPF_LSclasses = {1: "OSPF_Router_LSA",
 
 
 def ospf_lsa_checksum(lsa):
-    return fletcher16_checkbytes(b"\x00\x00" + lsa[2:], 16) # leave out age
+    return fletcher16_checkbytes(b"\x00\x00" + lsa[2:], 16)  # leave out age
 
 
 class OSPF_LSA_Hdr(Packet):
@@ -421,9 +421,9 @@ class OSPF_LSAck(Packet):
         return 0
 
 
-#------------------------------------------------------------------------------
+###############################################################################
 # OSPFv3
-#------------------------------------------------------------------------------
+###############################################################################
 class OSPFv3_Hdr(Packet):
     name = "OSPFv3 Header"
     fields_desc = [ByteField("version", 3),

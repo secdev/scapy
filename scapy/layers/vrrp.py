@@ -1,8 +1,8 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## Copyright (C) 6WIND <olivier.matz@6wind.com>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# Copyright (C) 6WIND <olivier.matz@6wind.com>
+# This program is published under a GPLv2 license
 
 """
 VRRP (Virtual Router Redundancy Protocol).
@@ -45,7 +45,7 @@ class VRRP(Packet):
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt and len(_pkt) >= 9:
             ver_n_type = orb(_pkt[0])
-            if ver_n_type >= 48 and ver_n_type <= 57: # Version == 3
+            if ver_n_type >= 48 and ver_n_type <= 57:  # Version == 3
                 return VRRPv3
         return VRRP
 
@@ -81,7 +81,7 @@ class VRRPv3(Packet):
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt and len(_pkt) >= 16:
             ver_n_type = orb(_pkt[0])
-            if ver_n_type < 48 or ver_n_type > 57: # Version != 3
+            if ver_n_type < 48 or ver_n_type > 57:  # Version != 3
                 return VRRP
         return VRRPv3
 

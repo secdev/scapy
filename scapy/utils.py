@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
 """
 General utility functions.
@@ -30,7 +30,7 @@ from scapy.error import log_runtime, log_loading, log_interactive, Scapy_Excepti
 from scapy.base_classes import BasePacketList
 
 ###########
-## Tools ##
+#  Tools  #
 ###########
 
 
@@ -302,7 +302,7 @@ def hexdiff(x, y):
                 i += 16
 
 
-if struct.pack("H", 1) == b"\x00\x01": # big endian
+if struct.pack("H", 1) == b"\x00\x01":  # big endian
     def checksum(pkt):
         if len(pkt) % 2 == 1:
             pkt += b"\0"
@@ -525,7 +525,7 @@ def do_graph(graph, prog=None, format=None, target=None, type=None, string=None,
 
     if format is None:
         if WINDOWS:
-            format = "png" # use common format to make sure a viewer is installed
+            format = "png"  # use common format to make sure a viewer is installed
         else:
             format = "svg"
     if string:
@@ -630,7 +630,7 @@ def long_converter(s):
     return int(s.replace('\n', '').replace(' ', ''), 16)
 
 #########################
-#### Enum management ####
+#    Enum management    #
 #########################
 
 
@@ -693,7 +693,7 @@ class Enum_metaclass(type):
 
 
 ###################
-## Object saving ##
+#  Object saving  #
 ###################
 
 
@@ -745,7 +745,7 @@ def corrupt_bits(s, p=0.01, n=None):
 
 
 #############################
-## pcap capture file stuff ##
+#  pcap capture file stuff  #
 #############################
 
 @conf.commands.register
@@ -842,10 +842,10 @@ class RawPcapReader(six.with_metaclass(PcapReader_metaclass)):
     def __init__(self, filename, fdesc, magic):
         self.filename = filename
         self.f = fdesc
-        if magic == b"\xa1\xb2\xc3\xd4": # big endian
+        if magic == b"\xa1\xb2\xc3\xd4":  # big endian
             self.endian = ">"
             self.nano = False
-        elif magic == b"\xd4\xc3\xb2\xa1": # little endian
+        elif magic == b"\xd4\xc3\xb2\xa1":  # little endian
             self.endian = "<"
             self.nano = False
         elif magic == b"\xa1\xb2\x3c\x4d":  # big endian, nanosecond-precision
@@ -989,7 +989,7 @@ class RawPcapNgReader(RawPcapReader):
             3: self.read_block_spb,
             6: self.read_block_epb,
         }
-        if magic != b"\x0a\x0d\x0d\x0a": # PcapNg:
+        if magic != b"\x0a\x0d\x0d\x0a":  # PcapNg:
             raise Scapy_Exception(
                 "Not a pcapng capture file (bad magic: %r)" % magic
             )
@@ -1442,7 +1442,7 @@ def get_terminal_width():
             (bufx, bufy, curx, cury, wattr,
              left, top, right, bottom, maxx, maxy) = struct.unpack("hhhhHhhhhhh", csbi.raw)
             sizex = right - left + 1
-            #sizey = bottom - top + 1
+            # sizey = bottom - top + 1
             return sizex
         else:
             return None
@@ -1579,7 +1579,7 @@ def make_tex_table(*args, **kargs):
     __make_table(lambda l: "%s", lambda l: "& %s", "\\\\", seplinefunc=lambda a, x: "\\hline", *args, **kargs)
 
 ####################
-### WHOIS CLIENT ###
+#   WHOIS CLIENT   #
 ####################
 
 

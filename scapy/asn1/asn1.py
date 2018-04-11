@@ -1,8 +1,8 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## Modified by Maxence Tury <maxence.tury@ssi.gouv.fr>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# Modified by Maxence Tury <maxence.tury@ssi.gouv.fr>
+# This program is published under a GPLv2 license
 
 """
 ASN.1 (Abstract Syntax Notation One)
@@ -51,7 +51,7 @@ class RandASN1Object(RandField):
 
 
 ##############
-#### ASN1 ####
+#    ASN1    #
 ##############
 
 class ASN1_Error(Scapy_Exception):
@@ -108,7 +108,7 @@ class ASN1Tag(EnumElement):
             codec = {}
         self._codec = codec
 
-    def clone(self): # /!\ not a real deep copy. self.codec is shared
+    def clone(self):  # /!\ not a real deep copy. self.codec is shared
         return self.__class__(self._key, self._value, self._context, self._codec)
 
     def register_asn1_object(self, asn1obj):
@@ -133,7 +133,7 @@ class ASN1Tag(EnumElement):
 class ASN1_Class_metaclass(Enum_metaclass):
     element_class = ASN1Tag
 
-    def __new__(cls, name, bases, dct): # XXX factorise a bit with Enum_metaclass.__new__()
+    def __new__(cls, name, bases, dct):  # XXX factorise a bit with Enum_metaclass.__new__()
         for b in bases:
             for k, v in six.iteritems(b.__dict__):
                 if k not in dct and isinstance(v, ASN1Tag):
@@ -152,7 +152,7 @@ class ASN1_Class_metaclass(Enum_metaclass):
         cls = type.__new__(cls, name, bases, dct)
         for v in cls.__dict__.values():
             if isinstance(v, ASN1Tag):
-                v.context = cls # overwrite ASN1Tag contexts, even cloned ones
+                v.context = cls  # overwrite ASN1Tag contexts, even cloned ones
         return cls
 
 
@@ -254,7 +254,7 @@ class ASN1_Object(six.with_metaclass(ASN1_Object_metaclass)):
 
 
 #######################
-####  ASN1 objects ####
+#     ASN1 objects    #
 #######################
 
 # on the whole, we order the classes by ASN1_Class_UNIVERSAL tag value

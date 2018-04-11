@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
-##               2015, 2016, 2017 Maxence Tury
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
+#               2015, 2016, 2017 Maxence Tury
+# This program is published under a GPLv2 license
 
 """
 TLS server automaton. This makes for a primitive TLS stack.
@@ -174,7 +174,7 @@ class TLSServerAutomaton(_TLSAutomaton):
         self.cur_session.server_key = self.mykey
         if isinstance(self.mykey, PrivKeyRSA):
             self.cur_session.server_rsa_key = self.mykey
-        #elif isinstance(self.mykey, PrivKeyECDSA):
+        # elif isinstance(self.mykey, PrivKeyECDSA):
         #    self.cur_session.server_ecdsa_key = self.mykey
         raise self.WAITING_CLIENTFLIGHT1()
 
@@ -187,7 +187,7 @@ class TLSServerAutomaton(_TLSAutomaton):
     def RECEIVED_CLIENTFLIGHT1(self):
         pass
 
-    ########################### TLS handshake #################################
+    #                           TLS handshake                                 #
 
     @ATMT.condition(RECEIVED_CLIENTFLIGHT1, prio=1)
     def should_handle_ClientHello(self):
@@ -468,7 +468,7 @@ class TLSServerAutomaton(_TLSAutomaton):
             self.vprint("Will now act as a simple echo server.")
         raise self.WAITING_CLIENTDATA()
 
-    ####################### end of TLS handshake ##############################
+    #                       end of TLS handshake                              #
 
     @ATMT.state()
     def WAITING_CLIENTDATA(self):
@@ -559,11 +559,11 @@ class TLSServerAutomaton(_TLSAutomaton):
         except:
             self.vprint("Could not send termination Alert, maybe the client left?")
         # We might call shutdown, but unit tests with s_client fail with this.
-        #self.socket.shutdown(1)
+        # self.socket.shutdown(1)
         self.socket.close()
         raise self.FINAL()
 
-    ########################## SSLv2 handshake ################################
+    #                          SSLv2 handshake                                #
 
     @ATMT.condition(RECEIVED_CLIENTFLIGHT1, prio=2)
     def sslv2_should_handle_ClientHello(self):
@@ -686,7 +686,7 @@ class TLSServerAutomaton(_TLSAutomaton):
         else:
             raise self.SSLv2_RECEIVED_CLIENTFINISHED()
 
-    ####################### SSLv2 client authentication #######################
+    #                       SSLv2 client authentication                       #
 
     @ATMT.condition(SSLv2_HANDLED_CLIENTFINISHED, prio=2)
     def sslv2_should_add_RequestCertificate(self):
@@ -739,7 +739,7 @@ class TLSServerAutomaton(_TLSAutomaton):
         # We could care about the client CA, but we don't.
         raise self.SSLv2_HANDLED_CLIENTFINISHED()
 
-    ################### end of SSLv2 client authentication ####################
+    #                   end of SSLv2 client authentication                    #
 
     @ATMT.condition(SSLv2_HANDLED_CLIENTFINISHED, prio=3)
     def sslv2_should_add_ServerFinished(self):
@@ -764,7 +764,7 @@ class TLSServerAutomaton(_TLSAutomaton):
             self.vprint("Will now act as a simple echo server.")
         raise self.SSLv2_WAITING_CLIENTDATA()
 
-    ######################## end of SSLv2 handshake ###########################
+    #                        end of SSLv2 handshake                           #
 
     @ATMT.state()
     def SSLv2_WAITING_CLIENTDATA(self):

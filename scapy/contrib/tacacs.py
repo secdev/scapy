@@ -88,7 +88,7 @@ TACACSAUTHENACTION = {1: 'Login',
 TACACSAUTHENTYPE = {1: 'ASCII',
                     2: 'PAP',
                     3: 'CHAP',
-                    4: 'ARAP', #Deprecated
+                    4: 'ARAP',  # Deprecated
                     5: 'MSCHAP',
                     6: 'MSCHAPv2'}
 

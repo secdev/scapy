@@ -1,8 +1,8 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## Enhanced by Maxence Tury <maxence.tury@ssi.gouv.fr>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# Enhanced by Maxence Tury <maxence.tury@ssi.gouv.fr>
+# This program is published under a GPLv2 license
 
 """
 Classes that implement ASN.1 data structures.
@@ -31,7 +31,7 @@ class ASN1F_element(object):
 
 
 ##########################
-#### Basic ASN1 Field ####
+#    Basic ASN1 Field    #
 ##########################
 
 class ASN1F_field(ASN1F_element):
@@ -167,7 +167,7 @@ class ASN1F_field(ASN1F_element):
 
 
 ############################
-#### Simple ASN1 Fields ####
+#    Simple ASN1 Fields    #
 ############################
 
 class ASN1F_BOOLEAN(ASN1F_field):
@@ -450,7 +450,7 @@ class ASN1F_TIME_TICKS(ASN1F_INTEGER):
 
 
 #############################
-#### Complex ASN1 Fields ####
+#    Complex ASN1 Fields    #
 #############################
 
 class ASN1F_optional(ASN1F_element):
@@ -546,10 +546,10 @@ class ASN1F_CHOICE(ASN1F_field):
             # we don't want to import ASN1_Packet in this module...
             return self.extract_packet(choice, s)
         elif isinstance(choice, type):
-            #XXX find a way not to instantiate the ASN1F_field
+            # XXX find a way not to instantiate the ASN1F_field
             return choice(self.name, b"").m2i(pkt, s)
         else:
-            #XXX check properly if this is an ASN1F_PACKET
+            # XXX check properly if this is an ASN1F_PACKET
             return choice.m2i(pkt, s)
 
     def i2m(self, pkt, x):

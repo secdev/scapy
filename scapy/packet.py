@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
 """
 Packet class. Binding mechanism. fuzz() method.
@@ -276,7 +276,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
     def delfieldval(self, attr):
         if attr in self.fields:
             del(self.fields[attr])
-            self.explicit = 0 # in case a default value must be explicited
+            self.explicit = 0  # in case a default value must be explicited
             self.raw_packet_cache = None
             self.raw_packet_cache_fields = None
             self.wirelen = None
@@ -1012,7 +1012,7 @@ values.
 
         if dump:
             from scapy.themes import AnsiColorTheme
-            ct = AnsiColorTheme() # No color for dump output
+            ct = AnsiColorTheme()  # No color for dump output
         else:
             ct = conf.color_theme
         s = "%s%s %s %s \n" % (label_lvl,
@@ -1370,7 +1370,7 @@ class NoPayload(Packet):
         return ""
 
 ####################
-## packet classes ##
+#  packet classes  #
 ####################
 
 
@@ -1412,7 +1412,7 @@ if conf.default_l2 is None:
     conf.default_l2 = Raw
 
 #################
-## Bind layers ##
+#  Bind layers  #
 #################
 
 
@@ -1544,7 +1544,7 @@ def ls(obj=None, case_sensitive=False, verbose=False):
 
 
 #############
-## Fuzzing ##
+#  Fuzzing  #
 #############
 
 @conf.commands.register

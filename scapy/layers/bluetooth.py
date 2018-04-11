@@ -1,8 +1,8 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## Copyright (C) Mike Ryan <mikeryan@lacklustre.net>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# Copyright (C) Mike Ryan <mikeryan@lacklustre.net>
+# This program is published under a GPLv2 license
 
 """
 Bluetooth layers, sockets and send/receive functions.
@@ -106,7 +106,7 @@ class HCI_ACL_Hdr(Packet):
         return struct.pack("!H", r) + s[2:]
 
     def post_dissect(self, s):
-        self.raw_packet_cache = None # Reset packet to allow post_build
+        self.raw_packet_cache = None  # Reset packet to allow post_build
         return s
 
     def post_build(self, p, pay):
@@ -438,7 +438,7 @@ class SM_Signing_Information(Packet):
 class EIR_Hdr(Packet):
     name = "EIR Header"
     fields_desc = [
-        LenField("len", None, fmt="B", adjust=lambda x: x+1), # Add bytes mark
+        LenField("len", None, fmt="B", adjust=lambda x: x+1),  # Add bytes mark
         ByteEnumField("type", 0, {
             0x01: "flags",
             0x02: "incomplete_list_16_bit_svc_uuids",
@@ -572,7 +572,7 @@ class HCI_Cmd_Set_Event_Filter(Packet):
 
 class HCI_Cmd_Connect_Accept_Timeout(Packet):
     name = "Connection Attempt Timeout"
-    fields_desc = [LEShortField("timeout", 32000)] # 32000 slots is 20000 msec
+    fields_desc = [LEShortField("timeout", 32000)]  # 32000 slots is 20000 msec
 
 
 class HCI_Cmd_LE_Host_Supported(Packet):
@@ -839,7 +839,7 @@ bind_layers(EIR_Hdr, EIR_Raw)
 
 bind_layers(HCI_ACL_Hdr,   L2CAP_Hdr,)
 bind_layers(L2CAP_Hdr,     L2CAP_CmdHdr,      cid=1)
-bind_layers(L2CAP_Hdr,     L2CAP_CmdHdr,      cid=5) #LE L2CAP Signaling Channel
+bind_layers(L2CAP_Hdr,     L2CAP_CmdHdr,      cid=5)  # LE L2CAP Signaling Channel
 bind_layers(L2CAP_CmdHdr,  L2CAP_CmdRej,      code=1)
 bind_layers(L2CAP_CmdHdr,  L2CAP_ConnReq,     code=2)
 bind_layers(L2CAP_CmdHdr,  L2CAP_ConnResp,    code=3)
@@ -927,7 +927,7 @@ class BluetoothHCISocket(SuperSocket):
         s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_RAW, socket.BTPROTO_HCI)
         s.setsockopt(socket.SOL_HCI, socket.HCI_DATA_DIR, 1)
         s.setsockopt(socket.SOL_HCI, socket.HCI_TIME_STAMP, 1)
-        s.setsockopt(socket.SOL_HCI, socket.HCI_FILTER, struct.pack("IIIh2x", 0xffffffff, 0xffffffff, 0xffffffff, 0)) #type mask, event mask, event mask, opcode
+        s.setsockopt(socket.SOL_HCI, socket.HCI_FILTER, struct.pack("IIIh2x", 0xffffffff, 0xffffffff, 0xffffffff, 0))  # type mask, event mask, event mask, opcode
         s.bind((iface,))
         self.ins = self.outs = s
 #        s.connect((peer,0))
@@ -971,15 +971,15 @@ class BluetoothUserSocket(SuperSocket):
         bind.restype = c_int
 
         ########
-        ## actual code
+        # actual code
 
-        s = socket_c(31, 3, 1) # (AF_BLUETOOTH, SOCK_RAW, HCI_CHANNEL_USER)
+        s = socket_c(31, 3, 1)  # (AF_BLUETOOTH, SOCK_RAW, HCI_CHANNEL_USER)
         if s < 0:
             raise BluetoothSocketError("Unable to open PF_BLUETOOTH socket")
 
         sa = sockaddr_hci()
         sa.sin_family = 31  # AF_BLUETOOTH
-        sa.hci_dev = adapter_index # adapter index
+        sa.hci_dev = adapter_index  # adapter index
         sa.hci_channel = 1   # HCI_USER_CHANNEL
 
         r = bind(s, sockaddr_hcip(sa), sizeof(sa))
@@ -1012,7 +1012,7 @@ class BluetoothUserSocket(SuperSocket):
 
 conf.BTsocket = BluetoothRFCommSocket
 
-## Bluetooth
+# Bluetooth
 
 
 @conf.commands.register

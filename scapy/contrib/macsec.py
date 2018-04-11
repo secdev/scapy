@@ -1,7 +1,7 @@
 # This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Sabrina Dubroca <sd@queasysnail.net>
-## This program is published under a GPLv2 license
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Sabrina Dubroca <sd@queasysnail.net>
+# This program is published under a GPLv2 license
 
 """
 Classes and functions for MACsec.

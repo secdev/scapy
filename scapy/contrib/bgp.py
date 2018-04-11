@@ -347,7 +347,7 @@ subsequent_afis = {
     4: "Network Layer Reachability Information (NLRI) with MPLS Labels",  # RFC 3107
     5: "MCAST-VPN",  # RFC 6514
     6: "Network Layer Reachability Information used for Dynamic Placement of\
-        Multi-Segment Pseudowires", # RFC 7267
+        Multi-Segment Pseudowires",  # RFC 7267
     7: "Encapsulation SAFI",  # RFC 5512
     8: "MCAST-VPLS",  # RFC 7117
     64: "Tunnel SAFI",  # DRAFT-NALAWADE-KAPOOR-TUNNEL-SAFI-01

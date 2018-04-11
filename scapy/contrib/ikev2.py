@@ -21,7 +21,7 @@ import logging
 import struct
 
 
-## Modified from the original ISAKMP code by Yaron Sheffer <yaronf.ietf@gmail.com>, June 2010.
+# Modified from the original ISAKMP code by Yaron Sheffer <yaronf.ietf@gmail.com>, June 2010.
 
 from scapy.packet import *
 from scapy.fields import *
@@ -404,7 +404,7 @@ class IKEv2_class(Packet):
             return IKEv2_payload
 
 
-class IKEv2(IKEv2_class): # rfc4306
+class IKEv2(IKEv2_class):  # rfc4306
     name = "IKEv2"
     fields_desc = [
         StrFixedLenField("init_SPI", "", 8),
@@ -414,7 +414,7 @@ class IKEv2(IKEv2_class): # rfc4306
         ByteEnumField("exch_type", 0, IKEv2_exchange_type),
         FlagsField("flags", 0, 8, ["res0", "res1", "res2", "Initiator", "Version", "Response", "res6", "res7"]),
         IntField("id", 0),
-        IntField("length", None) # Length of total message: packets + all payloads
+        IntField("length", None)  # Length of total message: packets + all payloads
     ]
 
     def guess_payload_class(self, payload):
@@ -789,7 +789,7 @@ IKEv2_class._overload_fields = IKEv2_payload_type_overload.copy()
 split_layers(UDP, ISAKMP, sport=500)
 split_layers(UDP, ISAKMP, dport=500)
 
-bind_layers(UDP,           IKEv2,        dport=500, sport=500) # TODO: distinguish IKEv1/IKEv2
+bind_layers(UDP,           IKEv2,        dport=500, sport=500)  # TODO: distinguish IKEv1/IKEv2
 bind_layers(UDP,           IKEv2,        dport=4500, sport=4500)
 
 

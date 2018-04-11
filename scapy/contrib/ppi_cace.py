@@ -99,9 +99,9 @@ class Dot11Common(Packet):
 
     def extract_padding(self, p):
         return b"", p
-#Hopefully other CACE defined types will be added here.
+# Hopefully other CACE defined types will be added here.
 
 
-#Add the dot11common layer to the PPI array
+# Add the dot11common layer to the PPI array
 addPPIType(PPI_DOT11COMMON, Dot11Common)
 

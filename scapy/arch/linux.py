@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
 """
 Linux specific functions.
@@ -263,7 +263,7 @@ def read_routes():
             continue
         try:
             ifreq = ioctl(s, SIOCGIFADDR, struct.pack("16s16x", iff.encode("utf8")))
-        except IOError: # interface is present in routing tables but does not have any assigned IP
+        except IOError:  # interface is present in routing tables but does not have any assigned IP
             ifaddr="0.0.0.0"
         else:
             addrfamily = struct.unpack("h", ifreq[16:18])[0]
@@ -294,7 +294,7 @@ def read_routes():
     return routes
 
 ############
-### IPv6 ###
+#   IPv6   #
 ############
 
 
@@ -363,7 +363,7 @@ def read_routes6():
         s = proc2r(s); sp = int(sp, 16)
         nh = proc2r(nh)
 
-        cset = [] # candidate set (possible source addresses)
+        cset = []  # candidate set (possible source addresses)
         if dev == LOOPBACK_NAME:
             if d == '::':
                 continue

@@ -1,32 +1,32 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
 #############################################################################
-##                                                                         ##
-## hsrp.py --- HSRP  protocol support for Scapy                            ##
-##                                                                         ##
-## Copyright (C) 2010  Mathieu RENARD mathieu.renard(at)gmail.com          ##
-##                                                                         ##
-## This program is free software; you can redistribute it and/or modify it ##
-## under the terms of the GNU General Public License version 2 as          ##
-## published by the Free Software Foundation; version 2.                   ##
-##                                                                         ##
-## This program is distributed in the hope that it will be useful, but     ##
-## WITHOUT ANY WARRANTY; without even the implied warranty of              ##
-## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU       ##
-## General Public License for more details.                                ##
-##                                                                         ##
+#                                                                           #
+#  hsrp.py --- HSRP  protocol support for Scapy                             #
+#                                                                           #
+#  Copyright (C) 2010  Mathieu RENARD mathieu.renard(at)gmail.com           #
+#                                                                           #
+#  This program is free software; you can redistribute it and/or modify it  #
+#  under the terms of the GNU General Public License version 2 as           #
+#  published by the Free Software Foundation; version 2.                    #
+#                                                                           #
+#  This program is distributed in the hope that it will be useful, but      #
+#  WITHOUT ANY WARRANTY; without even the implied warranty of               #
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU        #
+#  General Public License for more details.                                 #
+#                                                                           #
 #############################################################################
-## HSRP Version 1
-##  Ref. RFC 2281
-## HSRP Version 2
-##  Ref. http://www.smartnetworks.jp/2006/02/hsrp_8_hsrp_version_2.html
+# HSRP Version 1
+# Ref. RFC 2281
+# HSRP Version 2
+# Ref. http://www.smartnetworks.jp/2006/02/hsrp_8_hsrp_version_2.html
 ##
-## $Log: hsrp.py,v $
-## Revision 0.2  2011/05/01 15:23:34  mrenard
-##   Cleanup code
+# $Log: hsrp.py,v $
+# Revision 0.2  2011/05/01 15:23:34  mrenard
+# Cleanup code
 
 """
 HSRP (Hot Standby Router Protocol): proprietary redundancy protocol for Cisco routers.

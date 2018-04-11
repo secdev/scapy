@@ -1,8 +1,8 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-##               Vincent Mauge   <vmauge.nospam@nospam.gmail.com>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# Vincent Mauge   <vmauge.nospam@nospam.gmail.com>
+# This program is published under a GPLv2 license
 
 """
 RADIUS (Remote Authentication Dial In User Service)

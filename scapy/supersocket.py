@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
 """
 SuperSocket.
@@ -173,7 +173,7 @@ class SSLStreamSocket(StreamSocket):
         self._buf = b""
         super(SSLStreamSocket, self).__init__(sock, basecls)
 
-    #65535, the default value of x is the maximum length of a TLS record
+    # 65535, the default value of x is the maximum length of a TLS record
     def recv(self, x=65535):
         pkt = None
         if self._buf != b"":

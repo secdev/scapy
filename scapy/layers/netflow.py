@@ -1,9 +1,9 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
-## Netflow V5 appended by spaceB0x and Guillaume Valadon
-## Netflow V9 appended ny Gabriel Potter
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
+# Netflow V5 appended by spaceB0x and Guillaume Valadon
+# Netflow V9 appended ny Gabriel Potter
 
 """
 Cisco NetFlow protocol v1, v5 and v9
@@ -31,7 +31,7 @@ class NetflowHeader(Packet):
 bind_layers(UDP, NetflowHeader, dport=2055)
 
 ###########################################
-### Netflow Version 1
+# Netflow Version 1
 ###########################################
 
 
@@ -69,7 +69,7 @@ bind_layers(NetflowRecordV1, NetflowRecordV1)
 
 
 #########################################
-### Netflow Version 5
+# Netflow Version 5
 #########################################
 
 
@@ -114,7 +114,7 @@ bind_layers(NetflowHeaderV5, NetflowRecordV5)
 bind_layers(NetflowRecordV5, NetflowRecordV5)
 
 #########################################
-### Netflow Version 9
+# Netflow Version 9
 #########################################
 
 # https://www.ietf.org/rfc/rfc3954.txt
@@ -417,7 +417,7 @@ def netflowv9_defragment(plist):
         root = pkt.firstlayer()
         # Get all linked NetflowFlowsetV9
         for p in packet_list:
-            if NetflowFlowsetV9 in p: ## STEP 1 - NetflowFlowsetV9
+            if NetflowFlowsetV9 in p:  # STEP 1 - NetflowFlowsetV9
                 current = p[NetflowFlowsetV9]
                 for ntv9 in current.templates:
                     current_ftl = root.getlayer(NetflowDataflowsetV9, templateID=ntv9.templateID)
@@ -446,7 +446,7 @@ def netflowv9_defragment(plist):
                         current_ftl.records = res
                         current_ftl.do_dissect_payload(data)
                         break
-            if NetflowOptionsFlowsetV9 in p: ## STEP 2 - NetflowOptionsFlowsetV9
+            if NetflowOptionsFlowsetV9 in p:  # STEP 2 - NetflowOptionsFlowsetV9
                 current = p[NetflowOptionsFlowsetV9]
                 current_ftl = root.getlayer(NetflowDataflowsetV9, templateID=current.templateID)
                 if current_ftl:
@@ -459,7 +459,7 @@ def netflowv9_defragment(plist):
                         continue
                     res = []
                     # Now, according to the NetflowOptionsFlowsetV9 data, re-dissect NetflowDataflowsetV9
-                    ## A - Decode scopes
+                    # A - Decode scopes
                     lengths_list = []
                     for scope in current.scopes:
                         lengths_list.append((scope.scopeFieldlength, scope.scopeFieldType))
@@ -469,7 +469,7 @@ def netflowv9_defragment(plist):
                         while len(data) >= tot_len:
                             res.append(cls(data[:tot_len]))
                             data = data[tot_len:]
-                    ## B - Decode options
+                    # B - Decode options
                     lengths_list = []
                     for option in current.options:
                         lengths_list.append((option.optionFieldlength, option.optionFieldType))

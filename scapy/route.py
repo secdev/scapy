@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
 """
 Routing and handling of network interfaces.
@@ -19,7 +19,7 @@ from scapy.utils import atol, ltoa, itom, pretty_list
 
 
 ##############################
-## Routing/Interfaces stuff ##
+#  Routing/Interfaces stuff  #
 ##############################
 
 class Route:
@@ -144,7 +144,7 @@ class Route:
         dst = atol(dst)
         pathes=[]
         for d, m, gw, i, a, me in self.routes:
-            if not a: # some interfaces may not currently be connected
+            if not a:  # some interfaces may not currently be connected
                 continue
             aa = atol(a)
             if aa == dst:
@@ -178,7 +178,7 @@ class Route:
                     continue
             elif iff != iface:
                 continue
-            bcast = atol(addr)|(~msk&0xffffffff); # FIXME: check error in atol()
+            bcast = atol(addr)|(~msk&0xffffffff);  # FIXME: check error in atol()
             return ltoa(bcast)
         warning("No broadcast address found for iface %s\n", iff);
 

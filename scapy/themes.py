@@ -1,19 +1,19 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
 """
 Color themes for the interactive console.
 """
 
 ##################
-## Color themes ##
+#  Color themes  #
 ##################
 
 
 class ColorTable:
-    colors = { # Format: (ansi, pygments)
+    colors = {  # Format: (ansi, pygments)
         "normal": ("\033[0m", "noinherit"),
         "black": ("\033[30m", "#ansiblack"),
         "red": ("\033[31m", "#ansired"),
@@ -36,7 +36,7 @@ class ColorTable:
     def __getattr__(self, attr):
         return self.colors.get(attr, [""])[0]
 
-    def ansi_to_pygments(self, x): # Transform ansi encoded text to Pygments text
+    def ansi_to_pygments(self, x):  # Transform ansi encoded text to Pygments text
         inv_map = {v[0]: v[1] for k, v in self.colors.items()}
         for k, v in inv_map.items():
             x = x.replace(k, " "+v)
@@ -228,8 +228,8 @@ class LatexTheme(FormatTheme):
     style_layer_name = r"\textcolor{red}{\bf %s}"
     style_field_name = r"\textcolor{blue}{%s}"
     style_field_value = r"\textcolor{purple}{%s}"
-    style_emph_field_name = r"\textcolor{blue}{\underline{%s}}" #ul
-    style_emph_field_value = r"\textcolor{purple}{\underline{%s}}" #ul
+    style_emph_field_name = r"\textcolor{blue}{\underline{%s}}"  # ul
+    style_emph_field_value = r"\textcolor{purple}{\underline{%s}}"  # ul
     style_packetlist_name = r"\textcolor{red}{\bf %s}"
     style_packetlist_proto = r"\textcolor{blue}{%s}"
     style_packetlist_value = r"\textcolor{purple}{%s}"
@@ -313,7 +313,7 @@ def apply_ipython_style(shell):
         return
     from scapy.config import conf
     if isinstance(conf.prompt, Prompts):
-        shell.prompts_class = conf.prompt # Set custom prompt style
+        shell.prompts_class = conf.prompt  # Set custom prompt style
     else:
         class ClassicPrompt(Prompts):
             def in_prompt_tokens(self, cli=None):
@@ -321,8 +321,8 @@ def apply_ipython_style(shell):
 
             def out_prompt_tokens(self):
                return [(Token.OutPrompt, ''), ]
-        shell.prompts_class=ClassicPrompt # Apply classic prompt style
-    shell.highlighting_style_overrides = { # Register and apply scapy color style
+        shell.prompts_class=ClassicPrompt  # Apply classic prompt style
+    shell.highlighting_style_overrides = {  # Register and apply scapy color style
         Token.Prompt: Color.ansi_to_pygments(conf.color_theme.style_prompt),
     }
     try:

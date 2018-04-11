@@ -1,6 +1,6 @@
-## This file is part of Scapy
-## Copyright (C) 2017 Maxence Tury
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# Copyright (C) 2017 Maxence Tury
+# This program is published under a GPLv2 license
 
 """
 Stateless HKDF for TLS 1.3.

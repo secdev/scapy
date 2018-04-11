@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
 """
 Global variables and functions for handling external data sets.
@@ -21,7 +21,7 @@ from scapy.compat import *
 
 
 ############
-## Consts ##
+#  Consts  #
 ############
 
 ETHER_ANY = b"\x00"*6
@@ -102,8 +102,8 @@ IPV6_ADDR_GLOBAL      = 0x00
 IPV6_ADDR_LINKLOCAL   = 0x20
 IPV6_ADDR_SITELOCAL   = 0x40     # deprecated since Sept. 2004 by RFC 3879
 IPV6_ADDR_SCOPE_MASK  = 0xF0
-#IPV6_ADDR_COMPATv4   = 0x80     # deprecated; i.e. ::/96
-#IPV6_ADDR_MAPPED     = 0x1000   # i.e.; ::ffff:0.0.0.0/96
+# IPV6_ADDR_COMPATv4   = 0x80     # deprecated; i.e. ::/96
+# IPV6_ADDR_MAPPED     = 0x1000   # i.e.; ::ffff:0.0.0.0/96
 IPV6_ADDR_6TO4        = 0x0100   # Added to have more specific info (should be 0x0101 ?)
 IPV6_ADDR_UNSPECIFIED = 0x10000
 
@@ -111,7 +111,7 @@ IPV6_ADDR_UNSPECIFIED = 0x10000
 # On windows, epoch is 01/02/1970 at 00:00
 EPOCH = time.mktime((1970, 1, 2, 0, 0, 0, 3, 1, 0))-86400
 
-MTU = 0xffff # a.k.a give me all you have
+MTU = 0xffff  # a.k.a give me all you have
 
 
 # file parsing to get some values :
@@ -265,7 +265,7 @@ else:
 
 
 #####################
-## knowledge bases ##
+#  knowledge bases  #
 #####################
 
 class KnowledgeBase:
