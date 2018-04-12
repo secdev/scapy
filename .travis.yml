@@ -44,11 +44,6 @@ matrix:
           env:
             - SCAPY_COVERAGE=yes
 
-        - os: osx
-          language: generic
-          env:
-            - SCAPY_USE_PCAPDNET=yes SCAPY_COVERAGE=yes
-
         # Run as root
         - os: linux
           sudo: required
@@ -94,7 +89,7 @@ matrix:
           virtualenv:
             system_site_packages: true
           env:
-            - SCAPY_SUDO=sudo SCAPY_USE_PCAPDNET=yes SCAPY_COVERAGE=yes
+            - SCAPY_SUDO=sudo SCAPY_USE_PCAPDNET=yes TOXENV=py27-pcapdnet_root,codecov
 
         - os: osx
           language: generic
@@ -104,7 +99,7 @@ matrix:
         - os: osx
           language: generic
           env:
-            - SCAPY_SUDO=sudo SCAPY_USE_PCAPDNET=yes SCAPY_COVERAGE=yes
+            - SCAPY_SUDO=sudo SCAPY_USE_PCAPDNET=yes TOXENV=py27-pcapdnet_root,codecov
 
         - os: osx
           language: generic
