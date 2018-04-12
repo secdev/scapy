@@ -455,8 +455,11 @@ if conf.use_pcap:
                 __next__ = next
 
                 def fileno(self):
-                    raise RuntimeError("%s has no fileno. Please report this bug." %
-                                       self.__class__.__name__)
+                    try:
+                        return self.pcap.getfd()
+                    except AttributeError:
+                        warning("fileno: getfd() does not exist. Please use "
+                                "pcapy 0.11.3+ !")
 
                 def __getattr__(self, attr):
                     return getattr(self.pcap, attr)
