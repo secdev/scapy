@@ -1,14 +1,14 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
 """
 Generators and packet meta classes.
 """
 
 ################
-## Generators ##
+#  Generators  #
 ################
 
 from __future__ import absolute_import
@@ -164,28 +164,28 @@ class OID(Gen):
 
 
 ######################################
-## Packet abstract and base classes ##
+#  Packet abstract and base classes  #
 ######################################
 
 class Packet_metaclass(type):
     def __new__(cls, name, bases, dct):
-        if "fields_desc" in dct: # perform resolution of references to other packets
+        if "fields_desc" in dct:  # perform resolution of references to other packets
             current_fld = dct["fields_desc"]
             resolved_fld = []
             for f in current_fld:
-                if isinstance(f, Packet_metaclass): # reference to another fields_desc
+                if isinstance(f, Packet_metaclass):  # reference to another fields_desc
                     for f2 in f.fields_desc:
                         resolved_fld.append(f2)
                 else:
                     resolved_fld.append(f)
-        else: # look for a fields_desc in parent classes
+        else:  # look for a fields_desc in parent classes
             resolved_fld = None
             for b in bases:
                 if hasattr(b, "fields_desc"):
                     resolved_fld = b.fields_desc
                     break
 
-        if resolved_fld: # perform default value replacements
+        if resolved_fld:  # perform default value replacements
             final_fld = []
             for f in resolved_fld:
                 if f.name in dct:
@@ -275,7 +275,7 @@ class BasePacket(Gen):
 
 
 #############################
-## Packet list base class  ##
+#  Packet list base class   #
 #############################
 
 class BasePacketList(object):

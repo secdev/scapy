@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
-##               2015, 2016, 2017 Maxence Tury
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
+# 2015, 2016, 2017 Maxence Tury
+# This program is published under a GPLv2 license
 
 """
 TLS Pseudorandom Function.
@@ -17,7 +17,7 @@ from scapy.modules.six.moves import range
 from scapy.compat import *
 
 
-### Data expansion functions
+# Data expansion functions
 
 def _tls_P_hash(secret, seed, req_len, hm):
     """
@@ -70,7 +70,7 @@ def _tls_P_SHA512(secret, seed, req_len):
     return _tls_P_hash(secret, seed, req_len, _tls_hmac_algs["HMAC-SHA512"])
 
 
-### PRF functions, according to the protocol version
+# PRF functions, according to the protocol version
 
 def _sslv2_PRF(secret, seed, req_len):
     hash_md5 = _tls_hash_algs["MD5"]()

@@ -1,6 +1,6 @@
-## This file is part of Scapy
-## Copyright (C) 2017 Maxence Tury
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# Copyright (C) 2017 Maxence Tury
+# This program is published under a GPLv2 license
 
 """
 TLS 1.3 key exchange logic.
@@ -265,7 +265,7 @@ class PSKBinderEntry(Packet):
 
 
 class TLS_Ext_PreSharedKey_CH(TLS_Ext_Unknown):
-    #XXX define post_build and post_dissection methods
+    # XXX define post_build and post_dissection methods
     name = "TLS Extension - Pre Shared Key (for ClientHello)"
     fields_desc = [ShortEnumField("type", 0x28, _tls_ext),
                    ShortField("len", None),

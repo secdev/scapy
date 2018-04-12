@@ -241,14 +241,14 @@ class KrackAP(Automaton):
             key_data_encrypt=None,
             key_rsc=0,
             key_id=0,
-            key_descriptor_type=2, # EAPOL RSN Key
+            key_descriptor_type=2,  # EAPOL RSN Key
     ):
         pkt = EAPOL(version="802.1X-2004", type="EAPOL-Key")
 
         key_iv = KrackAP.gen_nonce(16)
 
-        assert key_rsc == 0 # Other values unsupported
-        assert key_id == 0 # Other values unsupported
+        assert key_rsc == 0  # Other values unsupported
+        assert key_id == 0  # Other values unsupported
         payload = b"".join([
             chb(key_descriptor_type),
             struct.pack(">H", key_information),
@@ -267,7 +267,7 @@ class KrackAP(Automaton):
         if data is None and key_mic is None and key_data_encrypt is None:
             # If key is unknown and there is no data, no MIC is needed
             # Exemple: handshake 1/4
-            payload += b'\x00' * 2 # Length
+            payload += b'\x00' * 2  # Length
             return pkt / Raw(load=payload)
 
         assert data is not None
@@ -304,11 +304,11 @@ class KrackAP(Automaton):
         Ref: 802.11i p81
         """
         return b''.join([
-            b'\xdd', # Type KDE
+            b'\xdd',  # Type KDE
             chb(len(self.gtk_full) + 6),
-            b'\x00\x0f\xac', # OUI
-            b'\x01', # GTK KDE
-            b'\x00\x00', # KeyID - Tx - Reserved x2
+            b'\x00\x0f\xac',  # OUI
+            b'\x01',  # GTK KDE
+            b'\x00\x00',  # KeyID - Tx - Reserved x2
             self.gtk_full,
         ])
 
@@ -536,7 +536,7 @@ class KrackAP(Automaton):
             SC=(next(self.seq_num) << 4),
         )
         rep /= LLC(dsap=0xaa, ssap=0xaa, ctrl=3)
-        rep /= SNAP(OUI=0, code=0x888e) # 802.1X Authentication
+        rep /= SNAP(OUI=0, code=0x888e)  # 802.1X Authentication
         rep /= self.build_EAPOL_Key_8021X2004(
             key_information=0x89,
             replay_counter=next(self.replay_counter),
@@ -581,7 +581,7 @@ class KrackAP(Automaton):
         )
 
         rep /= LLC(dsap=0xaa, ssap=0xaa, ctrl=3)
-        rep /= SNAP(OUI=0, code=0x888e) # 802.1X Authentication
+        rep /= SNAP(OUI=0, code=0x888e)  # 802.1X Authentication
 
         self.install_GTK()
         data = self.RSN
@@ -640,7 +640,7 @@ class KrackAP(Automaton):
             )
 
             rep /= LLC(dsap=0xaa, ssap=0xaa, ctrl=3)
-            rep /= SNAP(OUI=0, code=0x888e) # 802.1X Authentication
+            rep /= SNAP(OUI=0, code=0x888e)  # 802.1X Authentication
 
             data = self.RSN
             data += self.build_GTK_KDE()
@@ -749,7 +749,7 @@ class KrackAP(Automaton):
     def send_renew_gtk(self):
 
         rep_to_enc = LLC(dsap=0xaa, ssap=0xaa, ctrl=3)
-        rep_to_enc /= SNAP(OUI=0, code=0x888e) # 802.1X Authentication
+        rep_to_enc /= SNAP(OUI=0, code=0x888e)  # 802.1X Authentication
 
         data = self.build_GTK_KDE()
 

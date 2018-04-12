@@ -1,12 +1,12 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more information
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more information
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
-## Copyright (C) 2014 Maxence Tury <maxence.tury@ssi.gouv.fr>
-## OpenFlow is an open standard used in SDN deployments.
-## Based on OpenFlow v1.0.1
-## Specifications can be retrieved from https://www.opennetworking.org/
+# Copyright (C) 2014 Maxence Tury <maxence.tury@ssi.gouv.fr>
+# OpenFlow is an open standard used in SDN deployments.
+# Based on OpenFlow v1.0.1
+# Specifications can be retrieved from https://www.opennetworking.org/
 
 # scapy.contrib.description = Openflow v1.0
 # scapy.contrib.status = loads
@@ -18,12 +18,12 @@ from scapy.layers.l2 import *
 from scapy.layers.inet import *
 from scapy.compat import orb, raw
 
-### If prereq_autocomplete is True then match prerequisites will be
-### automatically handled. See OFPMatch class.
+# If prereq_autocomplete is True then match prerequisites will be
+# automatically handled. See OFPMatch class.
 conf.contribs['OPENFLOW'] = {'prereq_autocomplete': True}
 
 #####################################################
-################# Predefined values #################
+#                 Predefined values                 #
 #####################################################
 
 ofp_port_no = {0xfff8: "IN_PORT",
@@ -44,14 +44,14 @@ ofp_buffer = {0xffffffff: "NO_BUFFER"}
 ofp_max_len = {0xffff: "NO_BUFFER"}
 
 #####################################################
-################# Common structures #################
+#                 Common structures                 #
 #####################################################
 
-### The following structures will be used in different types
-### of OpenFlow messages: ports, matches, actions, queues.
+# The following structures will be used in different types
+# of OpenFlow messages: ports, matches, actions, queues.
 
 
-##################### Ports #####################
+#                     Ports                     #
 
 ofp_port_config = ["PORT_DOWN",
                    "NO_STP",
@@ -131,7 +131,7 @@ class OFPMatch(Packet):
     def extract_padding(self, s):
         return b"", s
 
-    ### with post_build we create the wildcards field bit by bit
+    # with post_build we create the wildcards field bit by bit
     def post_build(self, p, pay):
         # first 10 bits of an ofp_match are always set to 0
         l = "0"*10
@@ -187,9 +187,9 @@ class OFPMatch(Packet):
             l+="0"*(8-len(w2))
             l+=w2
 
-        ### In order to write OFPMatch compliant with the specifications,
-        ### if prereq_autocomplete has been set to True
-        ### we assume ethertype=IP or nwproto=TCP when appropriate subfields are provided.
+        # In order to write OFPMatch compliant with the specifications,
+        # if prereq_autocomplete has been set to True
+        # we assume ethertype=IP or nwproto=TCP when appropriate subfields are provided.
         if conf.contribs['OPENFLOW']['prereq_autocomplete']:
             if self.dl_type is None:
                 if self.nw_src is not "0" or self.nw_dst is not "0" or self.nw_proto is not None or self.nw_tos is not None:
@@ -207,7 +207,7 @@ class OFPMatch(Packet):
         return p + pay
 
 
-###################### Actions ######################
+#                      Actions                      #
 
 class _ofp_action_header(Packet):
     name = "Dummy OpenFlow Action Header"
@@ -373,7 +373,7 @@ class ActionPacketListField(PacketListField):
         return remain, lst
 
 
-####################### Queues ######################
+#                       Queues                      #
 
 class _ofp_queue_property_header(Packet):
     name = "Dummy OpenFlow Queue Property Header"
@@ -478,7 +478,7 @@ class QueuePacketListField(PacketListField):
 
 
 #####################################################
-############## OpenFlow 1.0 Messages ################
+#              OpenFlow 1.0 Messages                #
 #####################################################
 
 class _ofp_header(Packet):
@@ -530,11 +530,11 @@ class OFPTHello(_ofp_header):
     overload_fields = {TCP: {"sport": 6653}}
 
 #####################################################
-#################### OFPT_ERROR #####################
+#                    OFPT_ERROR                     #
 #####################################################
 
-### this class will be used to display some messages
-### sent back by the switch after an error
+# this class will be used to display some messages
+# sent back by the switch after an error
 
 
 class OFPacketField(PacketField):
@@ -662,7 +662,7 @@ ofp_error_cls = {0: OFPETHelloFailed,
                  4: OFPETPortModFailed,
                  5: OFPETQueueOpFailed}
 
-################ end of OFPT_ERRORS #################
+#                end of OFPT_ERRORS                 #
 
 
 class OFPTEchoRequest(_ofp_header):
@@ -874,7 +874,7 @@ class OFPTPortMod(_ofp_header):
     overload_fields = {TCP: {"sport": 6653}}
 
 #####################################################
-##################### OFPT_STATS ####################
+#                     OFPT_STATS                    #
 #####################################################
 
 
@@ -1190,7 +1190,7 @@ ofp_stats_reply_cls = {0: OFPTStatsReplyDesc,
                        5: OFPTStatsReplyQueue,
                        65535: OFPTStatsReplyVendor}
 
-################ end of OFPT_STATS ##################
+#                end of OFPT_STATS                  #
 
 
 class OFPTBarrierRequest(_ofp_header):
@@ -1237,7 +1237,7 @@ class OFPTQueueGetConfigReply(_ofp_header):
 
 # ofpt_cls allows generic method OpenFlow() to choose the right class for dissection
 ofpt_cls = {0: OFPTHello,
-            #1: OFPTError,
+            # 1: OFPTError,
             2: OFPTEchoRequest,
             3: OFPTEchoReply,
             4: OFPTVendor,
@@ -1252,8 +1252,8 @@ ofpt_cls = {0: OFPTHello,
             13: OFPTPacketOut,
             14: OFPTFlowMod,
             15: OFPTPortMod,
-            #16: OFPTStatsRequest,
-            #17: OFPTStatsReply,
+            # 16: OFPTStatsRequest,
+            # 17: OFPTStatsReply,
             18: OFPTBarrierRequest,
             19: OFPTBarrierReply,
             20: OFPTQueueGetConfigRequest,

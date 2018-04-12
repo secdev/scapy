@@ -1,8 +1,8 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## Copyright (C) Gabriel Potter <gabriel@potter.fr>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# Copyright (C) Gabriel Potter <gabriel@potter.fr>
+# This program is published under a GPLv2 license
 
 """
 Customizations needed to support Microsoft Windows.
@@ -47,7 +47,7 @@ conf.use_winpcapy = True
 
 WINDOWS = (os.name == 'nt')
 
-#hot-patching socket for missing variables on Windows
+# hot-patching socket for missing variables on Windows
 import socket
 if not hasattr(socket, 'IPPROTO_IPIP'):
     socket.IPPROTO_IPIP=4
@@ -235,7 +235,7 @@ def _exec_query_ps(cmd, fields):
     stdout = POWERSHELL_PROCESS.query(query_cmd)
     # Process stdout
     for line in stdout:
-        if not line.strip(): # skip empty lines
+        if not line.strip():  # skip empty lines
             continue
         sl = line.split(':', 1)
         if len(sl) == 1:
@@ -304,7 +304,7 @@ def _get_npcap_dot11_adapters():
 
 
 # Some names differ between VBS and PS
-## None: field will not be returned under VBS
+# None: field will not be returned under VBS
 _VBS_WMI_FIELDS = {
     "Win32_NetworkAdapter": {
         "InterfaceDescription": "Description",
@@ -505,7 +505,7 @@ def get_windows_if_list():
         # Ethernet                  Killer E2200 Gigabit Ethernet Contro...      13 Up           D0-50-99-56-DD-F9         1 Gbps
         query = exec_query(['Get-NetAdapter'],
                            ['InterfaceDescription', 'InterfaceIndex', 'Name',
-                            'InterfaceGuid', 'MacAddress', 'InterfaceAlias']) # It is normal that it is in this order
+                            'InterfaceGuid', 'MacAddress', 'InterfaceAlias'])  # It is normal that it is in this order
     else:
         query = exec_query(['Get-WmiObject', 'Win32_NetworkAdapter'],
                            ['Name', 'InterfaceIndex', 'InterfaceDescription',
@@ -1018,7 +1018,7 @@ def _read_routes_7():
                            ['Name', 'Mask', 'NextHop', 'InterfaceIndex', 'Metric1']):
         try:
             iface = dev_from_index(line[3])
-            ip = "127.0.0.1" if line[3] == "1" else iface.ip # Force loopback on iface 1
+            ip = "127.0.0.1" if line[3] == "1" else iface.ip  # Force loopback on iface 1
             routes.append((atol(line[0]), atol(line[1]), line[2], iface, ip, int(line[4])))
         except ValueError:
             continue
@@ -1083,7 +1083,7 @@ def _read_routes_post2008():
         #     log_loading.warning("Building Scapy's routing table: Couldn't get outgoing interface for destination %s", dest)
         #     continue
         dest, mask = line[1].split('/')
-        ip = "127.0.0.1" if line[0] == "1" else iface.ip # Force loopback on iface 1
+        ip = "127.0.0.1" if line[0] == "1" else iface.ip  # Force loopback on iface 1
         if not line[4].strip():  # InterfaceMetric is not available. Load it from netsh
             if not if4_metrics:
                  if4_metrics = _get_metrics()
@@ -1095,7 +1095,7 @@ def _read_routes_post2008():
     return routes
 
 ############
-### IPv6 ###
+#   IPv6   #
 ############
 
 
@@ -1116,7 +1116,7 @@ def in6_getifaddr():
 
 
 def _append_route6(routes, dpref, dp, nh, iface, lifaddr, metric):
-    cset = [] # candidate set (possible source addresses)
+    cset = []  # candidate set (possible source addresses)
     if iface.name == scapy.consts.LOOPBACK_NAME:
         if dpref == '::':
             return
@@ -1184,7 +1184,7 @@ def _read_routes6_7():
                 dp = int(_ip[1])
                 _match = re.search(r_ipv6[0], current_object[3])
                 nh = "::"
-                if _match: # Detect if Next Hop is specified (if not, it will be the IFName)
+                if _match:  # Detect if Next Hop is specified (if not, it will be the IFName)
                     _nhg1 = _match.group(1)
                     nh = _nhg1 if re.match(".*:.*:.*", _nhg1) else "::"
                 metric = int(current_object[6]) + if6_metrics.get(if_index, 0)

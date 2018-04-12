@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
 """
 Run commands when the Scapy interpreter starts.
@@ -17,7 +17,7 @@ import scapy.modules.six as six
 
 
 #########################
-##### Autorun stuff #####
+#     Autorun stuff     #
 #########################
 
 class StopAutorun(Scapy_Exception):
@@ -54,7 +54,7 @@ def autorun_commands(cmds, my_globals=None, ignore_globals=None, verb=0):
             interp = ScapyAutorunInterpreter(my_globals)
             cmd = ""
             cmds = cmds.splitlines()
-            cmds.append("") # ensure we finish multi-line commands
+            cmds.append("")  # ensure we finish multi-line commands
             cmds.reverse()
             six.moves.builtins.__dict__["_"] = None
             while True:

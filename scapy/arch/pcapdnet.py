@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
 """
 Packet sending and receiving with libdnet and libpcap/WinPcap.
@@ -63,7 +63,7 @@ if conf.use_winpcapy:
           log_loading.warning("wpcap.dll is not installed. You won't be able to send/recieve packets. Visit the scapy's doc to install it")
 
   # From BSD net/bpf.h
-  #BIOCIMMEDIATE=0x80044270
+  # BIOCIMMEDIATE=0x80044270
   BIOCIMMEDIATE=-2147204496
 
   class PcapTimeoutElapsed(Scapy_Exception):
@@ -212,7 +212,7 @@ if conf.use_winpcapy:
               ioctl(self.ins.fileno(), BIOCIMMEDIATE, struct.pack("I", 1))
           except:
               pass
-          if type == ETH_P_ALL: # Do not apply any filter if Ethernet type is given
+          if type == ETH_P_ALL:  # Do not apply any filter if Ethernet type is given
               if conf.except_filter:
                   if filter:
                       filter = "(%s) and not (%s)" % (filter, conf.except_filter)
@@ -347,7 +347,7 @@ if conf.use_winpcapy:
 
   class L3pcapSocket(L2pcapSocket):
       desc = "read/write packets at layer 3 using only libpcap"
-      #def __init__(self, iface = None, type = ETH_P_ALL, filter=None, nofilter=0):
+      # def __init__(self, iface = None, type = ETH_P_ALL, filter=None, nofilter=0):
       #    L2pcapSocket.__init__(self, iface, type, filter, nofilter)
 
       def recv(self, x=MTU):
@@ -387,10 +387,10 @@ if conf.use_pcap:
     if conf.use_pcap:
 
         # From BSD net/bpf.h
-        #BIOCIMMEDIATE=0x80044270
+        # BIOCIMMEDIATE=0x80044270
         BIOCIMMEDIATE=-2147204496
 
-        if hasattr(pcap, "pcap"): # python-pypcap
+        if hasattr(pcap, "pcap"):  # python-pypcap
             class _PcapWrapper_pypcap:
                 def __init__(self, device, snaplen, promisc, to_ms):
                     try:
@@ -413,7 +413,7 @@ if conf.use_pcap:
                     return ts, raw(pkt)
                 __next__ = next
             open_pcap = lambda *args, **kargs: _PcapWrapper_pypcap(*args, **kargs)
-        elif hasattr(pcap, "pcapObject"): # python-libpcap
+        elif hasattr(pcap, "pcapObject"):  # python-libpcap
             class _PcapWrapper_libpcap:
                 def __init__(self, *args, **kargs):
                     self.pcap = pcap.pcapObject()
@@ -436,7 +436,7 @@ if conf.use_pcap:
                 def __del__(self):
                     os.close(self.pcap.fileno())
             open_pcap = lambda *args, **kargs: _PcapWrapper_libpcap(*args, **kargs)
-        elif hasattr(pcap, "open_live"): # python-pcapy
+        elif hasattr(pcap, "open_live"):  # python-pcapy
             class _PcapWrapper_pcapy:
                 def __init__(self, *args, **kargs):
                     self.pcap = pcap.open_live(*args, **kargs)
@@ -489,7 +489,7 @@ if conf.use_pcap:
                     ioctl(self.ins.fileno(), BIOCIMMEDIATE, struct.pack("I", 1))
                 except:
                     pass
-                if type == ETH_P_ALL: # Do not apply any filter if Ethernet type is given
+                if type == ETH_P_ALL:  # Do not apply any filter if Ethernet type is given
                     if conf.except_filter:
                         if filter:
                             filter = "(%s) and not (%s)" % (filter, conf.except_filter)

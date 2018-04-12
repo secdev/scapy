@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
 """
 NetBIOS over TCP/IP
@@ -50,7 +50,7 @@ class NetBIOS_DS(Packet):
 #        ]
 #
 
-#NetBIOS
+# NetBIOS
 
 
 # Name Query Request
@@ -199,7 +199,7 @@ class NBNSWackResponse(Packet):
                    ShortEnumField("RR_CLASS", 1, {1: "INTERNET"}),
                    IntField("TTL", 2),
                    ShortField("RDLENGTH", 2),
-                   BitField("RDATA", 10512, 16)] #10512=0010100100010000
+                   BitField("RDATA", 10512, 16)]  # 10512=0010100100010000
 
 
 class NBTDatagram(Packet):

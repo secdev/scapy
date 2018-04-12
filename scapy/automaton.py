@@ -1,8 +1,8 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## Copyright (C) Gabriel Potter <gabriel@potter.fr>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# Copyright (C) Gabriel Potter <gabriel@potter.fr>
+# This program is published under a GPLv2 license
 
 """
 Automata with states, transitions and actions.
@@ -250,7 +250,7 @@ class _instance_state:
 
 
 ##############
-## Automata ##
+#  Automata  #
 ##############
 
 class ATMT:
@@ -272,7 +272,7 @@ class ATMT:
             self.automaton = automaton
             self.args = args
             self.kargs = kargs
-            self.action_parameters() # init action parameters
+            self.action_parameters()  # init action parameters
 
         def action_parameters(self, *args, **kargs):
             self.action_args = args
@@ -435,7 +435,7 @@ class Automaton_metaclass(type):
         members = {}
         classes = [cls]
         while classes:
-            c = classes.pop(0) # order is important to avoid breaking method overloading
+            c = classes.pop(0)  # order is important to avoid breaking method overloading
             classes += list(c.__bases__)
             for k, v in six.iteritems(c.__dict__):
                 if k not in members:
@@ -491,7 +491,7 @@ class Automaton_metaclass(type):
     def graph(self, **kargs):
         s = 'digraph "%s" {\n'  % self.__class__.__name__
 
-        se = "" # Keep initial nodes at the begining for better rendering
+        se = ""  # Keep initial nodes at the begining for better rendering
         for st in six.itervalues(self.states):
             if st.atmt_initial:
                 se = ('\t"%s" [ style=filled, fillcolor=blue, shape=box, root=true];\n' % st.atmt_state)+se
@@ -542,7 +542,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
     def my_send(self, pkt):
         self.send_sock.send(pkt)
 
-    ## Utility classes and exceptions
+    # Utility classes and exceptions
     class _IO_fdwrapper(SelectableObject):
         def __init__(self, rd, wr):
             if WINDOWS:
@@ -640,7 +640,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
     class CommandMessage(AutomatonException):
         pass
 
-    ## Services
+    # Services
     def debug(self, lvl, msg):
         if self.debug_level >= lvl:
             log_interactive.debug(msg)
@@ -669,7 +669,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
         if self.store_packets:
             self.packets.append(pkt.copy())
 
-    ## Internals
+    # Internals
     def __init__(self, *args, **kargs):
         external_fd = kargs.pop("external_fd", {})
         self.send_sock_class = kargs.pop("ll", conf.L3socket)
@@ -892,7 +892,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                 self.state = state_req
                 yield state_req
 
-    ## Public API
+    # Public API
     def add_interception_points(self, *ipts):
         for ipt in ipts:
             if hasattr(ipt, "atmt_state"):

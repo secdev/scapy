@@ -1,4 +1,4 @@
-## RSVP layer
+# RSVP layer
 
 # This file is part of Scapy
 # Scapy is free software: you can redistribute it and/or modify

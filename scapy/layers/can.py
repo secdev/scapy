@@ -48,7 +48,7 @@ class CAN(Packet):
         :param pkt: str of the CAN packet
         :return: packet str with the first four bytes swapped
         """
-        len_partial = len(pkt) - 4 # len of the packet, CAN ID excluded
+        len_partial = len(pkt) - 4  # len of the packet, CAN ID excluded
         return struct.pack('<I{}s'.format(len_partial), *struct.unpack('>I{}s'.format(len_partial), pkt))
 
     def pre_dissect(self, s):

@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
 """
 ISAKMP (Internet Security Association and Key Management Protocol).
@@ -183,7 +183,7 @@ class ISAKMP_class(Packet):
             return ISAKMP_payload
 
 
-class ISAKMP(ISAKMP_class): # rfc2408
+class ISAKMP(ISAKMP_class):  # rfc2408
     name = "ISAKMP"
     fields_desc = [
         StrFixedLenField("init_cookie", "", 8),
@@ -191,7 +191,7 @@ class ISAKMP(ISAKMP_class): # rfc2408
         ByteEnumField("next_payload", 0, ISAKMP_payload_type),
         XByteField("version", 0x10),
         ByteEnumField("exch_type", 0, ISAKMP_exchange_type),
-        FlagsField("flags", 0, 8, ["encryption", "commit", "auth_only", "res3", "res4", "res5", "res6", "res7"]), # XXX use a Flag field
+        FlagsField("flags", 0, 8, ["encryption", "commit", "auth_only", "res3", "res4", "res5", "res6", "res7"]),  # XXX use a Flag field
         IntField("id", 0),
         IntField("length", None)
     ]

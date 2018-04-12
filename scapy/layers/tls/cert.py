@@ -1,8 +1,8 @@
-## This file is part of Scapy
-## Copyright (C) 2008 Arnaud Ebalard <arnaud.ebalard@eads.net>
-##                                   <arno@natisbad.org>
-##   2015, 2016, 2017 Maxence Tury   <maxence.tury@ssi.gouv.fr>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# Copyright (C) 2008 Arnaud Ebalard <arnaud.ebalard@eads.net>
+#                                   <arno@natisbad.org>
+#   2015, 2016, 2017 Maxence Tury   <maxence.tury@ssi.gouv.fr>
+# This program is published under a GPLv2 license
 
 """
 High-level methods for PKI objects (X.509 certificates, CRLs, asymmetric keys).
@@ -113,7 +113,7 @@ class _PKIObj(object):
     def __init__(self, frmt, der, pem):
         # Note that changing attributes of the _PKIObj does not update these
         # values (e.g. modifying k.modulus does not change k.der).
-        #XXX use __setattr__ for this
+        # XXX use __setattr__ for this
         self.frmt = frmt
         self.der = der
         self.pem = pem

@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
 """
 PPP (Point to Point Protocol)
@@ -232,13 +232,13 @@ _PPP_conftypes = {1: "Configure-Request",
                   }
 
 
-### PPP IPCP stuff (RFC 1332)
+# PPP IPCP stuff (RFC 1332)
 
 # All IPCP options are defined below (names and associated classes)
 _PPP_ipcpopttypes = {1: "IP-Addresses (Deprecated)",
                      2: "IP-Compression-Protocol",
                      3: "IP-Address",
-                     4: "Mobile-IPv4", # not implemented, present for completeness
+                     4: "Mobile-IPv4",  # not implemented, present for completeness
                      129: "Primary-DNS-Address",
                      130: "Primary-NBNS-Address",
                      131: "Secondary-DNS-Address",
@@ -315,7 +315,7 @@ class PPP_IPCP(Packet):
                    PacketListField("options", [],  PPP_IPCP_Option, length_from=lambda p:p.len-4,)]
 
 
-### ECP
+# ECP
 
 _PPP_ecpopttypes = {0: "OUI",
                     1: "DESE", }
@@ -358,7 +358,7 @@ class PPP_ECP(Packet):
                    FieldLenField("len", None, fmt="H", length_of="options", adjust=lambda p, x:x+4),
                    PacketListField("options", [],  PPP_ECP_Option, length_from=lambda p:p.len-4,)]
 
-### Link Control Protocol (RFC 1661)
+# Link Control Protocol (RFC 1661)
 
 
 _PPP_lcptypes = {1: "Configure-Request",
@@ -576,7 +576,7 @@ class PPP_LCP_Discard_Request(PPP_LCP):
                    IntField("magic_number", None),
                    StrLenField("data", "", length_from=lambda p:p.len-8)]
 
-### Password authentication protocol (RFC 1334)
+# Password authentication protocol (RFC 1334)
 
 
 _PPP_paptypes = {1: "Authenticate-Request",
@@ -645,7 +645,7 @@ class PPP_PAP_Response(PPP_PAP):
         return res
 
 
-### Challenge Handshake Authentication protocol (RFC1994)
+# Challenge Handshake Authentication protocol (RFC1994)
 
 _PPP_chaptypes = {1: "Challenge",
                   2: "Response",

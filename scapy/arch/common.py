@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
 """
 Functions common to different architectures
@@ -15,7 +15,7 @@ from ctypes import c_uint, c_uint32, c_ushort, c_ubyte
 from scapy.config import conf
 import scapy.modules.six as six
 
-## UTILS
+# UTILS
 
 
 def get_if(iff, cmd):
@@ -26,7 +26,7 @@ def get_if(iff, cmd):
     sck.close()
     return ifreq
 
-## BPF HANDLERS
+# BPF HANDLERS
 
 
 class bpf_insn(Structure):

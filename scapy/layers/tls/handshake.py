@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
-##               2015, 2016, 2017 Maxence Tury
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
+#               2015, 2016, 2017 Maxence Tury
+# This program is published under a GPLv2 license
 
 """
 TLS handshake fields & logic.
@@ -42,7 +42,7 @@ from scapy.layers.tls.crypto.suites import (_tls_cipher_suites,
 
 
 ###############################################################################
-### Generic TLS Handshake message                                           ###
+#   Generic TLS Handshake message                                             #
 ###############################################################################
 
 _tls_handshake_type = {0: "hello_request",         1: "client_hello",
@@ -86,7 +86,7 @@ class _TLSHandshake(_GenericTLSSessionInheritance):
 
 
 ###############################################################################
-### HelloRequest                                                            ###
+#   HelloRequest                                                              #
 ###############################################################################
 
 class TLSHelloRequest(_TLSHandshake):
@@ -103,7 +103,7 @@ class TLSHelloRequest(_TLSHandshake):
 
 
 ###############################################################################
-### ClientHello fields                                                      ###
+#   ClientHello fields                                                        #
 ###############################################################################
 
 class _GMTUnixTimeField(UTCTimeField):
@@ -206,7 +206,7 @@ class _CompressionMethodsField(_CipherSuitesField):
 
 
 ###############################################################################
-### ClientHello                                                             ###
+#   ClientHello                                                               #
 ###############################################################################
 
 class TLSClientHello(_TLSHandshake):
@@ -224,7 +224,7 @@ class TLSClientHello(_TLSHandshake):
                    ThreeBytesField("msglen", None),
                    _TLSClientVersionField("version", None, _tls_version),
 
-                   #_TLSRandomBytesField("random_bytes", None, 32),
+                   # _TLSRandomBytesField("random_bytes", None, 32),
                    _GMTUnixTimeField("gmt_unix_time", None),
                    _TLSRandomBytesField("random_bytes", None, 28),
 
@@ -293,7 +293,7 @@ class TLSClientHello(_TLSHandshake):
                     break
 
 ###############################################################################
-### ServerHello                                                             ###
+#   ServerHello                                                               #
 ###############################################################################
 
 
@@ -312,7 +312,7 @@ class TLSServerHello(TLSClientHello):
                    ThreeBytesField("msglen", None),
                    _TLSVersionField("version", None, _tls_version),
 
-                   #_TLSRandomBytesField("random_bytes", None, 32),
+                   # _TLSRandomBytesField("random_bytes", None, 32),
                    _GMTUnixTimeField("gmt_unix_time", None),
                    _TLSRandomBytesField("random_bytes", None, 28),
 
@@ -331,7 +331,7 @@ class TLSServerHello(TLSClientHello):
                                     length_from=lambda pkt: (pkt.msglen -
                                                              (pkt.sidlen or 0) -
                                                              38))]
-                                                              #40)) ]
+                                                              # 40)) ]
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
@@ -447,7 +447,7 @@ class TLS13ServerHello(TLSClientHello):
 
 
 ###############################################################################
-### HelloRetryRequest                                                       ###
+#   HelloRetryRequest                                                         #
 ###############################################################################
 
 class TLSHelloRetryRequest(_TLSHandshake):
@@ -461,7 +461,7 @@ class TLSHelloRetryRequest(_TLSHandshake):
 
 
 ###############################################################################
-### EncryptedExtensions                                                     ###
+#   EncryptedExtensions                                                       #
 ###############################################################################
 
 class TLSEncryptedExtensions(_TLSHandshake):
@@ -474,10 +474,10 @@ class TLSEncryptedExtensions(_TLSHandshake):
 
 
 ###############################################################################
-### Certificate                                                             ###
+#   Certificate                                                               #
 ###############################################################################
 
-#XXX It might be appropriate to rewrite this mess with basic 3-byte FieldLenField.
+# XXX It might be appropriate to rewrite this mess with basic 3-byte FieldLenField.
 
 class _ASN1CertLenField(FieldLenField):
     """
@@ -669,7 +669,7 @@ class TLS13Certificate(_TLSHandshake):
 
 
 ###############################################################################
-### ServerKeyExchange                                                       ###
+#   ServerKeyExchange                                                         #
 ###############################################################################
 
 class TLSServerKeyExchange(_TLSHandshake):
@@ -761,7 +761,7 @@ class TLSServerKeyExchange(_TLSHandshake):
 
 
 ###############################################################################
-### CertificateRequest                                                      ###
+#   CertificateRequest                                                        #
 ###############################################################################
 
 _tls_client_certificate_types =  {1: "rsa_sign",
@@ -837,7 +837,7 @@ class TLSCertificateRequest(_TLSHandshake):
 
 
 ###############################################################################
-### ServerHelloDone                                                         ###
+#   ServerHelloDone                                                           #
 ###############################################################################
 
 class TLSServerHelloDone(_TLSHandshake):
@@ -847,7 +847,7 @@ class TLSServerHelloDone(_TLSHandshake):
 
 
 ###############################################################################
-### CertificateVerify                                                       ###
+#   CertificateVerify                                                         #
 ###############################################################################
 
 class TLSCertificateVerify(_TLSHandshake):
@@ -902,7 +902,7 @@ class TLSCertificateVerify(_TLSHandshake):
 
 
 ###############################################################################
-### ClientKeyExchange                                                       ###
+#   ClientKeyExchange                                                         #
 ###############################################################################
 
 class _TLSCKExchKeysField(PacketField):
@@ -959,7 +959,7 @@ class TLSClientKeyExchange(_TLSHandshake):
 
 
 ###############################################################################
-### Finished                                                                ###
+#   Finished                                                                  #
 ###############################################################################
 
 class _VerifyDataField(StrLenField):
@@ -1041,10 +1041,10 @@ class TLSFinished(_TLSHandshake):
                 s.compute_tls13_resumption_secret()
 
 
-## Additional handshake messages
+# Additional handshake messages
 
 ###############################################################################
-### HelloVerifyRequest                                                      ###
+#   HelloVerifyRequest                                                        #
 ###############################################################################
 
 class TLSHelloVerifyRequest(_TLSHandshake):
@@ -1061,7 +1061,7 @@ class TLSHelloVerifyRequest(_TLSHandshake):
 
 
 ###############################################################################
-### CertificateURL                                                          ###
+#   CertificateURL                                                            #
 ###############################################################################
 
 _tls_cert_chain_types = {0: "individual_certs",
@@ -1097,7 +1097,7 @@ class TLSCertificateURL(_TLSHandshake):
 
 
 ###############################################################################
-### CertificateStatus                                                       ###
+#   CertificateStatus                                                         #
 ###############################################################################
 
 class ThreeBytesLenField(FieldLenField):
@@ -1140,7 +1140,7 @@ class TLSCertificateStatus(_TLSHandshake):
 
 
 ###############################################################################
-### SupplementalData                                                        ###
+#   SupplementalData                                                          #
 ###############################################################################
 
 class SupDataEntry(Packet):
@@ -1188,7 +1188,7 @@ class TLSSupplementalData(_TLSHandshake):
 
 
 ###############################################################################
-### NewSessionTicket                                                        ###
+#   NewSessionTicket                                                          #
 ###############################################################################
 
 class TLSNewSessionTicket(_TLSHandshake):
@@ -1226,7 +1226,7 @@ class TLS13NewSessionTicket(_TLSHandshake):
                    IntField("ticket_lifetime", 0xffffffff),
                    IntField("ticket_age_add", 0),
                    FieldLenField("ticketlen", None, length_of="ticket"),
-                   #TicketField("ticket", "",
+                   # TicketField("ticket", "",
                    StrLenField("ticket", "",
                                length_from=lambda pkt: pkt.ticketlen),
                    _ExtensionsLenField("extlen", None, length_of="ext"),
@@ -1242,7 +1242,7 @@ class TLS13NewSessionTicket(_TLSHandshake):
 
 
 ###############################################################################
-### All handshake messages defined in this module                           ###
+#   All handshake messages defined in this module                             #
 ###############################################################################
 
 _tls_handshake_cls = {0: TLSHelloRequest,          1: TLSClientHello,

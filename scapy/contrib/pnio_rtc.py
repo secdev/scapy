@@ -41,7 +41,7 @@ from scapy.modules.six.moves import range
 
 
 #####################################
-## PROFINET Real-Time Data Packets ##
+#  PROFINET Real-Time Data Packets  #
 #####################################
 
 class PNIORealTimeIOxS(Packet):
@@ -103,7 +103,7 @@ bind_layers(PNIORealTimeRawData, PNIORealTimeIOxS)
 
 
 ###############################
-## PROFINET Real-Time Fields ##
+#  PROFINET Real-Time Fields  #
 ###############################
 
 class LowerLayerBoundPacketListField(PacketListField):
@@ -136,7 +136,7 @@ class NotionalLenField(Field):
 
 
 ###############################
-## PNIORealTime Configuration #
+#  PNIORealTime Configuration #
 ###############################
 
 # conf.contribs["PNIO_RTC"] is a dict which contains data layout for each Ethernet
@@ -173,7 +173,7 @@ def pnio_get_config(pkt):
 
 
 ###############################
-## PROFINET Real-Time Packet ##
+#  PROFINET Real-Time Packet  #
 ###############################
 
 def _pnio_rtc_guess_payload_class(_pkt, _underlayer=None, *args, **kargs):
@@ -348,7 +348,7 @@ class PNIORealTime(Packet):
                 else:
                     succ_count = 0
             # PROFISafe profiles must end with at least 3 bytes of high entropy
-            if succ_count >= 3: # Possible profisafe CRC
+            if succ_count >= 3:  # Possible profisafe CRC
                 return (
                     start,
                     Profisafe,
@@ -370,7 +370,7 @@ class PNIORealTime(Packet):
         # Retrieve the entropy of each data byte, for each communication
         entropies = {}
         for comm in locations:
-            if len(locations[comm]) > 0: # Doesn't append empty data
+            if len(locations[comm]) > 0:  # Doesn't append empty data
                 entropies[comm] = []
                 comm_packets = []
 
@@ -444,7 +444,7 @@ def entropy_of_byte(packets, position):
     return entropy
 
 ###############
-## PROFISafe ##
+#  PROFISafe  #
 ###############
 
 

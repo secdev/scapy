@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
-##               2015, 2016, 2017 Maxence Tury
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
+#               2015, 2016, 2017 Maxence Tury
+# This program is published under a GPLv2 license
 
 """
 TLS helpers, provided as out-of-context methods.
@@ -220,7 +220,7 @@ def _tls_aead_auth_decrypt(alg, c, read_seq_num):
     p.len = plen
     p.data = alg.auth_decrypt(A, c.data, read_seq_num)
 
-    if p.data is None: # Verification failed.
+    if p.data is None:  # Verification failed.
         return None
     return p
 

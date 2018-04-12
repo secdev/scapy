@@ -30,7 +30,7 @@
 
 from scapy.fields import Field, FieldLenField
 
-## SDNV definitions
+# SDNV definitions
 
 
 class SDNVValueError(Exception):

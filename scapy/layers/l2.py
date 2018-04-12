@@ -1,7 +1,7 @@
 # This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
 """
 Classes and functions for layer 2 protocols.
@@ -30,7 +30,7 @@ if conf.route is None:
 
 
 #################
-## Tools       ##
+#  Tools        #
 #################
 
 
@@ -52,7 +52,7 @@ class Neighbor:
 
 conf.neighbor = Neighbor()
 
-conf.netcache.new_cache("arp_cache", 120) # cache entries expire after 120s
+conf.netcache.new_cache("arp_cache", 120)  # cache entries expire after 120s
 
 
 @conf.commands.register
@@ -62,7 +62,7 @@ def getmacbyip(ip, chainCC=0):
         ip = next(iter(ip))
     ip = inet_ntoa(inet_aton(ip))
     tmp = [orb(e) for e in inet_aton(ip)]
-    if (tmp[0] & 0xf0) == 0xe0: # mcast @
+    if (tmp[0] & 0xf0) == 0xe0:  # mcast @
         return "01:00:5e:%.2x:%.2x:%.2x" % (tmp[1]&0x7f, tmp[2], tmp[3])
     iff, a, gw = conf.route.route(ip)
     if ((iff == scapy.consts.LOOPBACK_INTERFACE) or (ip == conf.route.get_if_bcast(iff))):
@@ -88,7 +88,7 @@ def getmacbyip(ip, chainCC=0):
     return None
 
 
-### Fields
+# Fields
 
 class DestMACField(MACField):
     def __init__(self, name):
@@ -143,7 +143,7 @@ class ARPSourceMACField(SourceMACField):
         )
 
 
-### Layers
+# Layers
 
 ETHER_TYPES['802_AD'] = 0x88a8
 ETHER_TYPES['802_1AE'] = ETH_P_MACSEC
@@ -414,7 +414,7 @@ class GRE_PPTP(GRE):
         return p
 
 
-### *BSD loopback layer
+# *BSD loopback layer
 
 class LoIntEnumField(EnumField):
     def __init__(self, name, default, enum):
@@ -491,7 +491,7 @@ conf.l2types.register_num2layer(DLT_NULL, Loopback)
 conf.l3types.register(ETH_P_ARP, ARP)
 
 
-### Technics
+# Technics
 
 
 @conf.commands.register

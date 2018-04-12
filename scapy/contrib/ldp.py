@@ -62,7 +62,7 @@ class _LDP_Packet(Packet):
             p = p[:2]+struct.pack("!H", l)+p[4:]
         return p+pay
 
-## Fields ##
+#  Fields  #
 
 # 3.4.1. FEC TLV
 
@@ -76,11 +76,11 @@ class FecTLVField(StrField):
         x=x[4:]
         list=[]
         while x:
-            #if x[0] == 1:
+            # if x[0] == 1:
             #   list.append('Wildcard')
-            #else:
-            #mask=orb(x[8*i+3])
-            #add=inet_ntoa(x[8*i+4:8*i+8])
+            # else:
+            # mask=orb(x[8*i+3])
+            # add=inet_ntoa(x[8*i+4:8*i+8])
             mask=orb(x[3])
             nbroctets = mask // 8
             if mask % 8:
@@ -291,7 +291,7 @@ class CommonSessionTLVField(StrField):
         return s[l:], self.m2i(pkt, s[:l])
 
 
-## Messages ##
+#  Messages  #
 
 # 3.5.1. Notification Message
 class LDPNotification(_LDP_Packet):

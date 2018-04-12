@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
 """
 Functions to send and receive packets.
@@ -33,7 +33,7 @@ if conf.route is None:
 from scapy.supersocket import SuperSocket
 
 #################
-## Debug class ##
+#  Debug class  #
 #################
 
 
@@ -44,7 +44,7 @@ class debug:
 
 
 ####################
-## Send / Receive ##
+#  Send / Receive  #
 ####################
 
 

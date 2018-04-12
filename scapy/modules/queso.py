@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
 """
 Clone of queso OS fingerprinting
@@ -13,13 +13,13 @@ from scapy.layers.inet import IP, TCP
 from scapy.error import warning
 from scapy.volatile import RandInt
 from scapy.sendrecv import sr
-#from
+# from
 
 conf.queso_base ="/etc/queso.conf"
 
 
 #################
-## Queso stuff ##
+#  Queso stuff  #
 #################
 
 

@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
 """
 PacketList: holds several packets and allows to do operations on them.
@@ -25,7 +25,7 @@ from scapy.modules.six.moves import range, zip
 
 
 #############
-## Results ##
+#  Results  #
 #############
 
 class PacketList(BasePacketList):
@@ -131,7 +131,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
             else:
                 print(prn(res))
 
-    def display(self): # Deprecated. Use show()
+    def display(self):  # Deprecated. Use show()
         """deprecated. is show()"""
         self.show()
 
@@ -557,7 +557,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
             copied = False
             for scheme in args:
                 fld = scheme[0]
-                old = scheme[1] # not used if len(scheme) == 2
+                old = scheme[1]  # not used if len(scheme) == 2
                 new = scheme[-1]
                 for o in fld.owners:
                     if o in p:

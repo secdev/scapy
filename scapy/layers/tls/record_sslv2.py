@@ -1,6 +1,6 @@
-## This file is part of Scapy
-## Copyright (C) 2017 Maxence Tury
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# Copyright (C) 2017 Maxence Tury
+# This program is published under a GPLv2 license
 
 """
 SSLv2 Record.
@@ -21,7 +21,7 @@ from scapy.layers.tls.basefields import (_SSLv2LengthField, _SSLv2PadField,
 
 
 ###############################################################################
-### SSLv2 Record Protocol                                                   ###
+#   SSLv2 Record Protocol                                                     #
 ###############################################################################
 
 class _SSLv2MsgListField(_TLSMsgListField):
@@ -80,7 +80,7 @@ class SSLv2(TLS):
         self.protected_record = kargs.get("protected_record", None)
         super(SSLv2, self).__init__(*args, **kargs)
 
-    ### Parsing methods
+    # Parsing methods
 
     def _sslv2_mac_verify(self, msg, mac):
         secret = self.tls_session.rcs.cipher.key
@@ -178,7 +178,7 @@ class SSLv2(TLS):
                 p = conf.raw_layer(s, _internal=1, _underlayer=self)
             self.add_payload(p)
 
-    ### Building methods
+    # Building methods
 
     def _sslv2_mac_add(self, msg):
         secret = self.tls_session.wcs.cipher.key

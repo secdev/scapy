@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
 """
 IPv4 (Internet Protocol v4).
@@ -36,7 +36,7 @@ import scapy.modules.six as six
 from scapy.modules.six.moves import range
 
 ####################
-## IP Tools class ##
+#  IP Tools class  #
 ####################
 
 
@@ -151,7 +151,7 @@ class IPOption_RR(IPOption):
     fields_desc = [_IPOption_HDR,
                    FieldLenField("length", None, fmt="B",
                                  length_of="routers", adjust=lambda pkt, l:l+3),
-                   ByteField("pointer", 4), # 4 is first IP
+                   ByteField("pointer", 4),  # 4 is first IP
                    FieldListField("routers", [], IPField("", "0.0.0.0"),
                                   length_from=lambda pkt:pkt.length-3)
                    ]
@@ -297,7 +297,7 @@ class TCPOptionsField(StrField):
             oval = x[2:olen]
             if onum in TCPOptions[0]:
                 oname, ofmt = TCPOptions[0][onum]
-                if onum == 5: #SAck
+                if onum == 5:  # SAck
                     ofmt += "%iI" % (len(oval)//4)
                 if ofmt and struct.calcsize(ofmt) == len(oval):
                     oval = struct.unpack(ofmt, oval)
@@ -322,7 +322,7 @@ class TCPOptionsField(StrField):
                 elif oname in TCPOptions[1]:
                     onum = TCPOptions[1][oname]
                     ofmt = TCPOptions[0][onum][1]
-                    if onum == 5: #SAck
+                    if onum == 5:  # SAck
                         ofmt += "%iI" % len(oval)
                     if ofmt is not None and (not isinstance(oval, str) or "s" in ofmt):
                         if not isinstance(oval, tuple):
@@ -340,7 +340,7 @@ class TCPOptionsField(StrField):
         return opt+b"\x00"*(3-((len(opt)+3)%4))
 
     def randval(self):
-        return [] # XXX
+        return []  # XXX
 
 
 class ICMPTimeStampField(IntField):
@@ -400,14 +400,14 @@ class IP(Packet, IPTools):
                    ByteField("ttl", 64),
                    ByteEnumField("proto", 0, IP_PROTOS),
                    XShortField("chksum", None),
-                   #IPField("src", "127.0.0.1"),
+                   # IPField("src", "127.0.0.1"),
                    Emph(SourceIPField("src", "dst")),
                    Emph(DestIPField("dst", "127.0.0.1")),
                    PacketListField("options", [], IPOption, length_from=lambda p:p.ihl*4-20)]
 
     def post_build(self, p, pay):
         ihl = self.ihl
-        p += b"\0"*((-len(p))%4) # pad IP options if needed
+        p += b"\0"*((-len(p))%4)  # pad IP options if needed
         if ihl is None:
             ihl = len(p)//4
             p = chb(((self.version&0xf)<<4) | ihl&0x0f)+p[1:]
@@ -877,7 +877,7 @@ conf.neighbor.register_l3(Dot3, IP, inet_register_l3)
 
 
 ###################
-## Fragmentation ##
+#  Fragmentation  #
 ###################
 
 @conf.commands.register
@@ -945,7 +945,7 @@ def defrag(plist):
         lst.sort(key=lambda x: x.frag)
         p = lst[0]
         lastp = lst[-1]
-        if p.frag > 0 or lastp.flags & 1 != 0: # first or last fragment missing
+        if p.frag > 0 or lastp.flags & 1 != 0:  # first or last fragment missing
             missfrag.append(lst)
             continue
         p = p.copy()
@@ -958,7 +958,7 @@ def defrag(plist):
             clen = ip.len - (ip.ihl<<2)
         txt = conf.raw_layer()
         for q in lst[1:]:
-            if clen != q.frag<<3: # Wrong fragmentation offset
+            if clen != q.frag<<3:  # Wrong fragmentation offset
                 if clen > q.frag<<3:
                     warning("Fragment overlap (%i > %i) %r || %r ||  %r" % (clen, q.frag<<3, p, txt, q))
                 missfrag.append(lst)
@@ -971,7 +971,7 @@ def defrag(plist):
                 del(q[conf.padding_layer].underlayer.payload)
             txt.add_payload(q[IP].payload.copy())
         else:
-            ip.flags &= ~1 # !MF
+            ip.flags &= ~1  # !MF
             del(ip.chksum)
             del(ip.len)
             p = p/txt
@@ -1007,7 +1007,7 @@ def defragment(plist):
         lst.sort(key=lambda x: x.frag)
         p = lst[0]
         lastp = lst[-1]
-        if p.frag > 0 or lastp.flags & 1 != 0: # first or last fragment missing
+        if p.frag > 0 or lastp.flags & 1 != 0:  # first or last fragment missing
             missfrag += lst
             continue
         p = p.copy()
@@ -1020,7 +1020,7 @@ def defragment(plist):
             clen = ip.len - (ip.ihl<<2)
         txt = conf.raw_layer()
         for q in lst[1:]:
-            if clen != q.frag<<3: # Wrong fragmentation offset
+            if clen != q.frag<<3:  # Wrong fragmentation offset
                 if clen > q.frag<<3:
                     warning("Fragment overlap (%i > %i) %r || %r ||  %r" % (clen, q.frag<<3, p, txt, q))
                 missfrag += lst
@@ -1033,7 +1033,7 @@ def defragment(plist):
                 del(q[conf.padding_layer].underlayer.payload)
             txt.add_payload(q[IP].payload.copy())
         else:
-            ip.flags &= ~1 # !MF
+            ip.flags &= ~1  # !MF
             del(ip.chksum)
             del(ip.len)
             p = p/txt
@@ -1058,7 +1058,7 @@ def defragment(plist):
     return PacketList(final, name=name)
 
 
-### Add timeskew_graph() method to PacketList
+# Add timeskew_graph() method to PacketList
 def _packetlist_timeskew_graph(self, ip, **kargs):
     """Tries to graph the timeskew between the timestamps and real time for a given ip"""
 
@@ -1087,7 +1087,7 @@ def _packetlist_timeskew_graph(self, ip, **kargs):
     def _wrap_data(ts_tuple, wrap_seconds=2000):
         """Wrap the list of tuples."""
 
-        ct, rt = ts_tuple # (creation_time, replied_timestamp)
+        ct, rt = ts_tuple  # (creation_time, replied_timestamp)
         X = ct % wrap_seconds
         Y = ((ct-first_creation_time) - ((rt-first_replied_timestamp)/1000.0))
 
@@ -1110,7 +1110,7 @@ def _packetlist_timeskew_graph(self, ip, **kargs):
 PacketList.timeskew_graph = _packetlist_timeskew_graph
 
 
-### Create a new packet list
+# Create a new packet list
 class TracerouteResult(SndRcvList):
     __slots__ = ["graphdef", "graphpadding", "graphASres", "padding", "hloc",
                  "nloc"]
@@ -1431,11 +1431,11 @@ class TracerouteResult(SndRcvList):
                 if n not in trace:
                     trace[n] = next(unknown_label)
             if rtk not in ports_done:
-                if rtk[2] == 1: #ICMP
+                if rtk[2] == 1:  # ICMP
                     bh = "%s %i/icmp" % (rtk[1], rtk[3])
-                elif rtk[2] == 6: #TCP
+                elif rtk[2] == 6:  # TCP
                     bh = "%s %i/tcp" % (rtk[1], rtk[3])
-                elif rtk[2] == 17: #UDP
+                elif rtk[2] == 17:  # UDP
                     bh = '%s %i/udp' % (rtk[1], rtk[3])
                 else:
                     bh = '%s %i/proto' % (rtk[1], rtk[2])
@@ -1579,7 +1579,7 @@ def traceroute_map(*args, **kargs):
     return TracerouteResult(res).world_trace()
 
 #############################
-## Simple TCP client stack ##
+#  Simple TCP client stack  #
 #############################
 
 
@@ -1610,7 +1610,7 @@ class TCP_client(Automaton):
                 TCP in pkt and
                 pkt[TCP].sport == self.dport and
                 pkt[TCP].dport == self.sport and
-                self.l4[TCP].seq >= pkt[TCP].ack and # XXX: seq/ack 2^32 wrap up
+                self.l4[TCP].seq >= pkt[TCP].ack and  # XXX: seq/ack 2^32 wrap up
                 ((self.l4[TCP].ack == 0) or (self.l4[TCP].ack <= pkt[TCP].seq <= self.l4[TCP].ack+self.swin)))
 
     @ATMT.state(initial=1)
@@ -1705,7 +1705,7 @@ class TCP_client(Automaton):
 
 
 #####################
-## Reporting stuff ##
+#  Reporting stuff  #
 #####################
 
 
@@ -1768,7 +1768,7 @@ def fragleak(target, sport=123, dport=123, timeout=0.2, onlyasc=0):
                 if not sin:
                     continue
                 ans=s.recv(1600)
-                if not isinstance(ans, IP): #TODO: IPv6
+                if not isinstance(ans, IP):  # TODO: IPv6
                     continue
                 if not isinstance(ans.payload, ICMP):
                     continue

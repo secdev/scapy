@@ -1,12 +1,12 @@
 #! /usr/bin/env python
 
-## Copyright (C) 2018 Leonardo Monteiro <decastromonteiro@gmail.com>
-##               2017 Alexis Sultan    <alexis.sultan@sfr.com>
-##               2017 Alessio Deiana <adeiana@gmail.com>
-##               2014 Guillaume Valadon <guillaume.valadon@ssi.gouv.fr>
-##               2012 ffranz <ffranz@iniqua.com>
+# Copyright (C) 2018 Leonardo Monteiro <decastromonteiro@gmail.com>
+#               2017 Alexis Sultan    <alexis.sultan@sfr.com>
+#               2017 Alessio Deiana <adeiana@gmail.com>
+#               2014 Guillaume Valadon <guillaume.valadon@ssi.gouv.fr>
+#               2012 ffranz <ffranz@iniqua.com>
 ##
-## This program is published under a GPLv2 license
+# This program is published under a GPLv2 license
 
 # scapy.contrib.description = GTP
 # scapy.contrib.status = loads
