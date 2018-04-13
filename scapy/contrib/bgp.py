@@ -2024,12 +2024,12 @@ class BGPPathAttr(Packet):
         ConditionalField(
             ShortField("attr_ext_len", None),
             lambda x: x.type_flags != None and\
-                has_extended_length(x.type_flags)
+            has_extended_length(x.type_flags)
         ),
         ConditionalField(
             ByteField("attr_len", None),
             lambda x: x.type_flags != None and not\
-                has_extended_length(x.type_flags)
+            has_extended_length(x.type_flags)
         ),
         _PathAttrPacketField("attribute", None, Packet)
     ]

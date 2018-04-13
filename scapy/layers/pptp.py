@@ -29,17 +29,17 @@ _PPTP_ctrl_msg_type = {  # Control Connection Management
     5: "Echo-Request",
     6: "Echo-Reply",
     # Call Management
-                       7: "Outgoing-Call-Request",
-                       8: "Outgoing-Call-Reply",
-                       9: "Incoming-Call-Request",
-                       10: "Incoming-Call-Reply",
-                       11: "Incoming-Call-Connected",
-                       12: "Call-Clear-Request",
-                       13: "Call-Disconnect-Notify",
-                       # Error Reporting
-                       14: "WAN-Error-Notify",
-                       # PPP Session Control
-                       15: "Set-Link-Info"}
+    7: "Outgoing-Call-Request",
+    8: "Outgoing-Call-Reply",
+    9: "Incoming-Call-Request",
+    10: "Incoming-Call-Reply",
+    11: "Incoming-Call-Connected",
+    12: "Call-Clear-Request",
+    13: "Call-Disconnect-Notify",
+    # Error Reporting
+    14: "WAN-Error-Notify",
+    # PPP Session Control
+    15: "Set-Link-Info"}
 
 _PPTP_general_error_code = {0: "None",
                             1: "Not-Connected",

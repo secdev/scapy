@@ -556,16 +556,16 @@ class PPP_LCP_Protocol_Reject(PPP_LCP):
 
 
 class PPP_LCP_Echo(PPP_LCP):
-     fields_desc = [ByteEnumField("code", 9, _PPP_lcptypes),
-                    XByteField("id", 0),
-                    FieldLenField("len", None, fmt="H", length_of="data",
-                                  adjust=lambda p, x:x+8),
-                    IntField("magic_number", None),
-                    StrLenField("data", "", length_from=lambda p:p.len-8)]
+    fields_desc = [ByteEnumField("code", 9, _PPP_lcptypes),
+                   XByteField("id", 0),
+                   FieldLenField("len", None, fmt="H", length_of="data",
+                                 adjust=lambda p, x:x+8),
+                   IntField("magic_number", None),
+                   StrLenField("data", "", length_from=lambda p:p.len-8)]
 
-     def answers(self, other):
-         return isinstance(other, PPP_LCP_Echo) and self.code == 10\
-             and other.code == 9 and self.id == other.id
+    def answers(self, other):
+        return isinstance(other, PPP_LCP_Echo) and self.code == 10\
+            and other.code == 9 and self.id == other.id
 
 
 class PPP_LCP_Discard_Request(PPP_LCP):

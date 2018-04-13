@@ -563,7 +563,7 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
                 if in6_ismaddr(self.dst):
                     if ((od == sd) or
                             (in6_isaddrllallnodes(self.dst) and in6_isaddrllallservers(other.dst))):
-                         return self.payload.answers(other.payload)
+                        return self.payload.answers(other.payload)
                     return False
                 if (os == sd):
                     return self.payload.answers(other.payload)
@@ -753,7 +753,7 @@ def in6_chksum(nh, u, p):
             final_dest_addr_found = 1
         elif (isinstance(u, IPv6ExtHdrDestOpt) and (len(u.options) == 1) and
               isinstance(u.options[0], HAO)):
-             hahdr  = u.options[0].hoa
+            hahdr  = u.options[0].hoa
         u = u.underlayer
     if u is None:
         warning("No IPv6 underlayer to compute checksum. Leaving null.")
@@ -1248,8 +1248,8 @@ def fragment6(pkt, fragSize):
     # If the payload is bigger than 65535, a Jumbo payload must be used, as
     # an IPv6 packet can't be bigger than 65535 bytes.
     if len(raw(pkt[IPv6ExtHdrFragment])) > 65535:
-      warning("An IPv6 packet can'be bigger than 65535, please use a Jumbo payload.")
-      return []
+        warning("An IPv6 packet can'be bigger than 65535, please use a Jumbo payload.")
+        return []
 
     s = raw(pkt)  # for instantiation to get upper layer checksum right
 
@@ -1728,7 +1728,7 @@ class ICMPv6MRD_Advertisement(_ICMPv6):
                    ShortField("queryint", 0),
                    ShortField("robustness", 0)]
     overload_fields = {IPv6: {"nh": 58, "hlim": 1, "dst": "ff02::2"}}
-                       # IPv6 Router Alert requires manual inclusion
+    # IPv6 Router Alert requires manual inclusion
 
     def extract_padding(self, s):
         return s[:8], s[8:]
@@ -1740,7 +1740,7 @@ class ICMPv6MRD_Solicitation(_ICMPv6):
                    ByteField("res", 0),
                    XShortField("cksum", None)]
     overload_fields = {IPv6: {"nh": 58, "hlim": 1, "dst": "ff02::2"}}
-                       # IPv6 Router Alert requires manual inclusion
+    # IPv6 Router Alert requires manual inclusion
 
     def extract_padding(self, s):
         return s[:4], s[4:]
@@ -1752,7 +1752,7 @@ class ICMPv6MRD_Termination(_ICMPv6):
                    ByteField("res", 0),
                    XShortField("cksum", None)]
     overload_fields = {IPv6: {"nh": 58, "hlim": 1, "dst": "ff02::6A"}}
-                       # IPv6 Router Alert requires manual inclusion
+    # IPv6 Router Alert requires manual inclusion
 
     def extract_padding(self, s):
         return s[:4], s[4:]
@@ -2120,8 +2120,8 @@ class DomainNameListField(StrLenField):
                 if len(cur):
                     res.append(".".join(cur) + ".")
             else:
-              # Store the current name
-              res.append(".".join(cur) + ".")
+                # Store the current name
+                res.append(".".join(cur) + ".")
             if x and ord(x[0]) == 0:
                 x = x[1:]
         return res
@@ -2593,7 +2593,7 @@ class NIReplyDataField(StrField):
 
     def h2i(self, pkt, x):
         qtype = 0  # We will decode it as string if not
-                  # overridden through 'qtype' in pkt
+        # overridden through 'qtype' in pkt
 
         # No user hint, let's use 'qtype' value for that purpose
         if not isinstance(x, tuple):
@@ -2864,11 +2864,11 @@ class _MIP6OptAlign:
     parameters. (x=0 and y=0 are used when no alignment is required)"""
 
     def alignment_delta(self, curpos):
-      x = self.x; y = self.y
-      if x == 0 and y ==0:
-          return 0
-      delta = x*((curpos - y + x - 1)//x) + y - curpos
-      return delta
+        x = self.x; y = self.y
+        if x == 0 and y ==0:
+            return 0
+        delta = x*((curpos - y + x - 1)//x) + y - curpos
+        return delta
 
 
 class MIP6OptBRAdvice(_MIP6OptAlign, Packet):
@@ -3499,48 +3499,48 @@ class L3RawSocket6(L3RawSocket):
 
 
 def IPv6inIP(dst='203.178.135.36', src=None):
-  _IPv6inIP.dst = dst
-  _IPv6inIP.src = src
-  if not conf.L3socket == _IPv6inIP:
-    _IPv6inIP.cls = conf.L3socket
-  else:
-    del(conf.L3socket)
-  return _IPv6inIP
+    _IPv6inIP.dst = dst
+    _IPv6inIP.src = src
+    if not conf.L3socket == _IPv6inIP:
+        _IPv6inIP.cls = conf.L3socket
+    else:
+        del(conf.L3socket)
+    return _IPv6inIP
 
 
 class _IPv6inIP(SuperSocket):
-  dst = '127.0.0.1'
-  src = None
-  cls = None
+    dst = '127.0.0.1'
+    src = None
+    cls = None
 
-  def __init__(self, family=socket.AF_INET6, type=socket.SOCK_STREAM, proto=0, **args):
-    SuperSocket.__init__(self, family, type, proto)
-    self.worker = self.cls(**args)
+    def __init__(self, family=socket.AF_INET6, type=socket.SOCK_STREAM, proto=0, **args):
+        SuperSocket.__init__(self, family, type, proto)
+        self.worker = self.cls(**args)
 
-  def set(self, dst, src=None):
-    _IPv6inIP.src = src
-    _IPv6inIP.dst = dst
+    def set(self, dst, src=None):
+        _IPv6inIP.src = src
+        _IPv6inIP.dst = dst
 
-  def nonblock_recv(self):
-    p = self.worker.nonblock_recv()
-    return self._recv(p)
+    def nonblock_recv(self):
+        p = self.worker.nonblock_recv()
+        return self._recv(p)
 
-  def recv(self, x):
-    p = self.worker.recv(x)
-    return self._recv(p, x)
+    def recv(self, x):
+        p = self.worker.recv(x)
+        return self._recv(p, x)
 
-  def _recv(self, p, x=MTU):
-    if p is None:
-      return p
-    elif isinstance(p, IP):
-      # TODO: verify checksum
-      if p.src == self.dst and p.proto == socket.IPPROTO_IPV6:
-        if isinstance(p.payload, IPv6):
-          return p.payload
-    return p
+    def _recv(self, p, x=MTU):
+        if p is None:
+            return p
+        elif isinstance(p, IP):
+            # TODO: verify checksum
+            if p.src == self.dst and p.proto == socket.IPPROTO_IPV6:
+                if isinstance(p.payload, IPv6):
+                    return p.payload
+        return p
 
-  def send(self, x):
-    return self.worker.send(IP(dst=self.dst, src=self.src, proto=socket.IPPROTO_IPV6)/x)
+    def send(self, x):
+        return self.worker.send(IP(dst=self.dst, src=self.src, proto=socket.IPPROTO_IPV6)/x)
 
 
 #############################################################################

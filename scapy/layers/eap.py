@@ -203,10 +203,10 @@ class EAP(Packet):
                          lambda pkt:pkt.code == EAP.RESPONSE and pkt.type == 3),
         ConditionalField(
             StrLenField("identity", '', length_from=lambda pkt: pkt.len - 5),
-                         lambda pkt: pkt.code == EAP.RESPONSE and hasattr(pkt, 'type') and pkt.type == 1),
+            lambda pkt: pkt.code == EAP.RESPONSE and hasattr(pkt, 'type') and pkt.type == 1),
         ConditionalField(
             StrLenField("message", '', length_from=lambda pkt: pkt.len - 5),
-                         lambda pkt: pkt.code == EAP.REQUEST and hasattr(pkt, 'type') and pkt.type == 1)
+            lambda pkt: pkt.code == EAP.REQUEST and hasattr(pkt, 'type') and pkt.type == 1)
     ]
 
     #########################################################################

@@ -253,19 +253,19 @@ TCPOptions = (
      253: ("Experiment", "!HHHH"),
      254: ("Experiment", "!HHHH"),
      },
-              {"EOL": 0,
-               "NOP": 1,
-               "MSS": 2,
-               "WScale": 3,
-               "SAckOK": 4,
-               "SAck": 5,
-               "Timestamp": 8,
-               "AltChkSum": 14,
-               "AltChkSumOpt": 15,
-               "Mood": 25,
-               "UTO": 28,
-               "TFO": 34,
-               })
+    {"EOL": 0,
+     "NOP": 1,
+     "MSS": 2,
+     "WScale": 3,
+     "SAckOK": 4,
+     "SAck": 5,
+     "Timestamp": 8,
+     "AltChkSum": 14,
+     "AltChkSumOpt": 15,
+     "Mood": 25,
+     "UTO": 28,
+     "TFO": 34,
+     })
 
 
 class TCPOptionsField(StrField):

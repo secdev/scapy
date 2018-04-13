@@ -303,17 +303,17 @@ class ASN1F_BMP_STRING(ASN1F_STRING):
 
 
 class ASN1F_SEQUENCE(ASN1F_field):
-# Here is how you could decode a SEQUENCE
-# with an unknown, private high-tag prefix :
-# class PrivSeq(ASN1_Packet):
-#     ASN1_codec = ASN1_Codecs.BER
-#     ASN1_root = ASN1F_SEQUENCE(
-#                       <asn1 field #0>,
-#                       ...
-#                       <asn1 field #N>,
-#                       explicit_tag=0,
-#                       flexible_tag=True)
-# Because we use flexible_tag, the value of the explicit_tag does not matter.
+    # Here is how you could decode a SEQUENCE
+    # with an unknown, private high-tag prefix :
+    # class PrivSeq(ASN1_Packet):
+    #     ASN1_codec = ASN1_Codecs.BER
+    #     ASN1_root = ASN1F_SEQUENCE(
+    #                       <asn1 field #0>,
+    #                       ...
+    #                       <asn1 field #N>,
+    #                       explicit_tag=0,
+    #                       flexible_tag=True)
+    # Because we use flexible_tag, the value of the explicit_tag does not matter.
     ASN1_tag = ASN1_Class_UNIVERSAL.SEQUENCE
     holds_packets = 1
 

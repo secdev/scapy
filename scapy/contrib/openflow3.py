@@ -570,8 +570,8 @@ class OXMPacketListField(PacketListField):
                 f = 2*oxm.field
                 fix_index = list(self.index)
                 while f in need_prereq:
-                # this loop enables a small recursion
-                # e.g. ipv6_nd<--icmpv6<--ip_proto<--eth_type
+                    # this loop enables a small recursion
+                    # e.g. ipv6_nd<--icmpv6<--ip_proto<--eth_type
                     prereq = need_prereq[f]
                     f = prereq[0]
                     f2 = 20 if f == 21 else f       # ipv6 trick...
@@ -641,7 +641,7 @@ class OXMIDPacketListField(PacketListField):
         remain = s[:lim]
 
         while remain and len(remain) >= 4:
-        # all OXM ID are 32-bit long (no experimenter OXM support here)
+            # all OXM ID are 32-bit long (no experimenter OXM support here)
             current = remain[:4]
             remain = remain[4:]
             p = self.m2i(pkt, current)
@@ -2297,7 +2297,7 @@ class OFPTFlowMod(_ofp_header):
                    MatchField("match"),
                    InstructionPacketListField("instructions", [], Packet,
                                               length_from=lambda pkt:pkt.len-48-(pkt.match.length+(8-pkt.match.length%8)%8))]
-                                               # include match padding to match.length
+    # include match padding to match.length
     overload_fields = {TCP: {"sport": 6653}}
 
 
@@ -3579,8 +3579,8 @@ TCP_guess_payload_class_copy = TCP.guess_payload_class
 
 def OpenFlow(self, payload):
     if self is None or self.dport == 6653 or self.dport == 6633 or self.sport == 6653 or self.sport == 6633:
-    # port 6653 has been allocated by IANA, port 6633 should no longer be used
-    # OpenFlow function may be called with None self in OFPPacketField
+        # port 6653 has been allocated by IANA, port 6633 should no longer be used
+        # OpenFlow function may be called with None self in OFPPacketField
         of_type = orb(payload[1])
         if of_type == 1:
             err_type = orb(payload[9])
