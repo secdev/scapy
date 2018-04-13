@@ -60,7 +60,7 @@ def cmp(a, b):
 if six.PY2:
     def orb(x):
         """Return ord(x) when necessary."""
-        if isinstance(x, basestring):
+        if isinstance(x, basestring):  # noqa: F821
             return ord(x)
         return x
 else:
@@ -85,7 +85,7 @@ if six.PY2:
 
     def plain_str(x):
         """Convert basic byte objects to str"""
-        return x if isinstance(x, basestring) else str(x)
+        return x if isinstance(x, basestring) else str(x)  # noqa: F821
 
     def chb(x):
         """Same than chr() but encode as bytes.

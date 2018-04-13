@@ -47,9 +47,10 @@ from scapy.layers.l2 import Ether, Dot1Q
 from scapy.fields import MACField, IPField, BitField, ByteField, \
     StrLenField, ByteEnumField, BitEnumField, \
     EnumField, ThreeBytesField, BitFieldLenField, \
-    ShortField, XStrLenField
+    ShortField, XStrLenField, ByteField
 from scapy.packet import Packet, Padding, bind_layers
 from scapy.modules.six.moves import range
+import scapy.modules.six as six
 from scapy.data import ETHER_TYPES
 from scapy.compat import orb
 

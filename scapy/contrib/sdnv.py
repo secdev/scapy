@@ -28,7 +28,8 @@
 # scapy.contrib.description = Self-Delimiting Numeric Values (SDNV)
 # scapy.contrib.status = library
 
-from scapy.fields import Field, FieldLenField
+from scapy.fields import Field, FieldLenField, LenField
+from scapy.compat import raw
 
 # SDNV definitions
 
@@ -43,7 +44,7 @@ class SDNV:
         self.maxValue = maxValue
         return
 
-    def setMax(self, max):
+    def setMax(self, maxValue):
         self.maxValue = maxValue
 
     def getMax(self):

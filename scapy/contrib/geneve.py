@@ -30,6 +30,7 @@ from scapy.layers.inet import IP, UDP
 from scapy.layers.inet6 import IPv6
 from scapy.layers.l2 import Ether, ETHER_TYPES
 from scapy.compat import chb, orb
+from scapy.error import warning
 
 
 class GENEVEOptionsField(XStrField):

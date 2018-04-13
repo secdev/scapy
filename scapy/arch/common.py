@@ -50,7 +50,7 @@ def _legacy_bpf_pointer(tcpdump_lines):
     bpf = b""
     for l in tcpdump_lines[1:]:
         if six.PY2:
-            int_type = long
+            int_type = long  # noqa: F821
         else:
             int_type = int
         bpf += struct.pack("HBBI", *map(int_type, l.split()))
