@@ -44,7 +44,7 @@ class WPA_key(Packet):
 
     def answers(self, other):
         if isinstance(other, WPA_key):
-               return 1
+            return 1
         return 0
 
 

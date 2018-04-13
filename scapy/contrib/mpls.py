@@ -37,29 +37,29 @@ class EoMCW(Packet):
 
 
 class MPLS(Packet):
-   name = "MPLS"
-   fields_desc =  [BitField("label", 3, 20),
-                   BitField("cos", 0, 3),
-                   BitField("s", 1, 1),
-                   ByteField("ttl", 0)]
+    name = "MPLS"
+    fields_desc =  [BitField("label", 3, 20),
+                    BitField("cos", 0, 3),
+                    BitField("s", 1, 1),
+                    ByteField("ttl", 0)]
 
-   def guess_payload_class(self, payload):
-       if len(payload) >= 1:
-           if not self.s:
-              return MPLS
-           ip_version = (orb(payload[0]) >> 4) & 0xF
-           if ip_version == 4:
-               return IP
-           elif ip_version == 5:
-               return BIER
-           elif ip_version == 6:
-               return IPv6
-           else:
-               if orb(payload[0]) == 0 and orb(payload[1]) == 0:
-                   return EoMCW
-               else:
-                   return Ether
-       return Padding
+    def guess_payload_class(self, payload):
+        if len(payload) >= 1:
+            if not self.s:
+                return MPLS
+            ip_version = (orb(payload[0]) >> 4) & 0xF
+            if ip_version == 4:
+                return IP
+            elif ip_version == 5:
+                return BIER
+            elif ip_version == 6:
+                return IPv6
+            else:
+                if orb(payload[0]) == 0 and orb(payload[1]) == 0:
+                    return EoMCW
+                else:
+                    return Ether
+        return Padding
 
 
 bind_layers(Ether, MPLS, type=0x8847)

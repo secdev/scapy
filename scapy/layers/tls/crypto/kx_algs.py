@@ -113,9 +113,9 @@ class KX_DHE_RSA_EXPORT(KX_DHE_RSA):
 #     client_kx_msg_cls = None
 
 class KX_ECDHE_ECDSA(_GenericKX):
-   descr = "Ephemeral ECDH with ECDSA signature"
-   server_kx_msg_cls = lambda _, m: _tls_server_ecdh_cls_guess(m)
-   client_kx_msg_cls = ClientECDiffieHellmanPublic
+    descr = "Ephemeral ECDH with ECDSA signature"
+    server_kx_msg_cls = lambda _, m: _tls_server_ecdh_cls_guess(m)
+    client_kx_msg_cls = ClientECDiffieHellmanPublic
 
 
 # Classes below are offered without any guarantee.

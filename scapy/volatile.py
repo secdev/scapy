@@ -430,7 +430,7 @@ class RandIP6(RandString):
             elif isinstance(n, RandNum):
                 ip.append("%04x" % n)
             elif n == 0:
-              ip.append("0")
+                ip.append("0")
             elif not n:
                 ip.append("")
             else:
@@ -438,7 +438,7 @@ class RandIP6(RandString):
         if len(ip) == 9:
             ip.remove("")
         if ip[-1] == "":
-          ip[-1] = "0"
+            ip[-1] = "0"
         return ":".join(ip)
 
 

@@ -80,8 +80,8 @@ def is_new_release(win10more=False):
             pass
     else:
         try:
-             if float(release) >= 8:
-                 return True
+            if float(release) >= 8:
+                return True
         except ValueError:
             if (release=="post2008Server"):
                 return True
@@ -1086,7 +1086,7 @@ def _read_routes_post2008():
         ip = "127.0.0.1" if line[0] == "1" else iface.ip  # Force loopback on iface 1
         if not line[4].strip():  # InterfaceMetric is not available. Load it from netsh
             if not if4_metrics:
-                 if4_metrics = _get_metrics()
+                if4_metrics = _get_metrics()
             metric = int(line[3]) + if4_metrics.get(iface.win_index, 0)  # RouteMetric + InterfaceMetric
         else:
             metric = int(line[3]) + int(line[4])  # RouteMetric + InterfaceMetric

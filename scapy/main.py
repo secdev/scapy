@@ -247,9 +247,9 @@ def save_session(fname=None, session=None, pickleProto=-1):
             del(to_be_saved[k])
 
     try:
-         os.rename(fname, fname+".bak")
+        os.rename(fname, fname+".bak")
     except OSError:
-         pass
+        pass
 
     f=gzip.open(fname, "wb")
     six.moves.cPickle.dump(to_be_saved, f, pickleProto)

@@ -72,7 +72,7 @@ class DADict:
             self[k] = v
 
     def _find(self, *args, **kargs):
-         return self._recurs_find((), *args, **kargs)
+        return self._recurs_find((), *args, **kargs)
 
     def _recurs_find(self, path, *args, **kargs):
         if self in path:

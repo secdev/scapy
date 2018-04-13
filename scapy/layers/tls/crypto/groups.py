@@ -541,9 +541,9 @@ _tls_named_groups.update(_tls_named_curves)
 #        generator = Point(curve, x, y, r)
 #        return Curve(name, curve, generator, oid)
 
-    # Named curves
+# Named curves
 
-    # We always provide _a as a positive integer.
+# We always provide _a as a positive integer.
 
 #    _p          = long_converter("""
 #                  ffffffff ffffffff ffffffff fffffffe ffffac73""")

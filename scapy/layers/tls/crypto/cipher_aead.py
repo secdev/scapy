@@ -218,10 +218,10 @@ class _AEADCipher(six.with_metaclass(_AEADCipherMetaclass, object)):
 
 if conf.crypto_valid:
     class Cipher_AES_128_GCM(_AEADCipher):
-       # XXX use the new AESGCM if available
-       # if conf.crypto_valid_advanced:
-       #    cipher_cls = AESGCM
-       # else:
+        # XXX use the new AESGCM if available
+        # if conf.crypto_valid_advanced:
+        #    cipher_cls = AESGCM
+        # else:
         pc_cls = algorithms.AES
         pc_cls_mode = modes.GCM
         key_len = 16
@@ -387,10 +387,10 @@ if conf.crypto_valid_advanced:
 
 if conf.crypto_valid:
     class Cipher_AES_128_GCM_TLS13(_AEADCipher_TLS13):
-       # XXX use the new AESGCM if available
-       # if conf.crypto_valid_advanced:
-       #    cipher_cls = AESGCM
-       # else:
+        # XXX use the new AESGCM if available
+        # if conf.crypto_valid_advanced:
+        #    cipher_cls = AESGCM
+        # else:
         pc_cls = algorithms.AES
         pc_cls_mode = modes.GCM
         key_len = 16

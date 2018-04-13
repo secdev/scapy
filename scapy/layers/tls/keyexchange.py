@@ -221,7 +221,7 @@ class _TLSSignatureField(PacketField):
     def m2i(self, pkt, m):
         l = self.length_from(pkt)
         if l == 0:
-           return None
+            return None
         return _TLSSignature(m, tls_session=pkt.tls_session)
 
     def getfield(self, pkt, s):

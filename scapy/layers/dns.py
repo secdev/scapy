@@ -41,7 +41,7 @@ class DNSStrField(StrField):
 
     def i2m(self, pkt, x):
         if x == b".":
-          return b"\x00"
+            return b"\x00"
 
         # Truncate chunks that cannot be encoded (more than 63 bytes..)
         x = b"".join(chb(len(y)) + y for y in (k[:63] for k in x.split(b".")))
@@ -157,7 +157,7 @@ class DNSRRField(StrField):
         elif type in DNSRR_DISPATCHER:
             rr = DNSRR_DISPATCHER[type](b"\x00"+ret+s[p:p+rdlen], _orig_s=s, _orig_p=p)
         else:
-          del(rr.rdlen)
+            del(rr.rdlen)
 
         p += rdlen
 
@@ -220,7 +220,7 @@ class RDataField(StrLenField):
             while tmp_s:
                 tmp_len = orb(tmp_s[0]) + 1
                 if tmp_len > len(tmp_s):
-                  warning("DNS RR TXT prematured end of character-string (size=%i, remaining bytes=%i)" % (tmp_len, len(tmp_s)))
+                    warning("DNS RR TXT prematured end of character-string (size=%i, remaining bytes=%i)" % (tmp_len, len(tmp_s)))
                 ret_s += tmp_s[1:tmp_len]
                 tmp_s = tmp_s[tmp_len:]
             s = ret_s
@@ -618,9 +618,9 @@ class DNSRRDLV(DNSRRDS):
     name = "DNS DLV Resource Record"
 
     def __init__(self, *args, **kargs):
-       DNSRRDS.__init__(self, *args, **kargs)
-       if not kargs.get('type', 0):
-           self.type = 32769
+        DNSRRDS.__init__(self, *args, **kargs)
+        if not kargs.get('type', 0):
+            self.type = 32769
 
 # RFC 5155 - DNS Security (DNSSEC) Hashed Authenticated Denial of Existence
 

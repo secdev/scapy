@@ -85,7 +85,7 @@ class RSAPrivateKey(ASN1_Packet):
 
 
 class ECFieldID(ASN1_Packet):
-# No characteristic-two-field support for now.
+    # No characteristic-two-field support for now.
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE(
         ASN1F_OID("fieldType", "prime-field"),
@@ -156,7 +156,7 @@ class ECDSASignature(ASN1_Packet):
 #       Names       #
 
 class ASN1F_X509_DirectoryString(ASN1F_CHOICE):
-# we include ASN1 bit strings for rare instances of x500 addresses
+    # we include ASN1 bit strings for rare instances of x500 addresses
     def __init__(self, name, default, **kwargs):
         ASN1F_CHOICE.__init__(self, name, default,
                               ASN1F_PRINTABLE_STRING, ASN1F_UTF8_STRING,
@@ -410,7 +410,7 @@ class X509_ExtPolicyMappings(ASN1_Packet):
 
 
 class X509_ExtBasicConstraints(ASN1_Packet):
-# The cA field should not be optional, but some certs omit it for False.
+    # The cA field should not be optional, but some certs omit it for False.
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE(
         ASN1F_optional(
@@ -658,32 +658,32 @@ class X509_ExtDefault(ASN1_Packet):
 # Here we only reproduce those written in RFC5280.
 _ext_mapping = {
     "2.5.29.9": X509_ExtSubjectDirectoryAttributes,
-        "2.5.29.14": X509_ExtSubjectKeyIdentifier,
-        "2.5.29.15": X509_ExtKeyUsage,
-        "2.5.29.16": X509_ExtPrivateKeyUsagePeriod,
-        "2.5.29.17": X509_ExtSubjectAltName,
-        "2.5.29.18": X509_ExtIssuerAltName,
-        "2.5.29.19": X509_ExtBasicConstraints,
-        "2.5.29.20": X509_ExtCRLNumber,
-        "2.5.29.21": X509_ExtReasonCode,
-        "2.5.29.24": X509_ExtInvalidityDate,
-        "2.5.29.27": X509_ExtDeltaCRLIndicator,
-        "2.5.29.28": X509_ExtIssuingDistributionPoint,
-        "2.5.29.29": X509_ExtCertificateIssuer,
-        "2.5.29.30": X509_ExtNameConstraints,
-        "2.5.29.31": X509_ExtCRLDistributionPoints,
-        "2.5.29.32": X509_ExtCertificatePolicies,
-        "2.5.29.33": X509_ExtPolicyMappings,
-        "2.5.29.35": X509_ExtAuthorityKeyIdentifier,
-        "2.5.29.36": X509_ExtPolicyConstraints,
-        "2.5.29.37": X509_ExtExtendedKeyUsage,
-        "2.5.29.46": X509_ExtFreshestCRL,
-        "2.5.29.54": X509_ExtInhibitAnyPolicy,
-        "2.16.840.1.113730.1.1": X509_ExtNetscapeCertType,
-        "2.16.840.1.113730.1.13": X509_ExtComment,
-        "1.3.6.1.5.5.7.1.1": X509_ExtAuthInfoAccess,
-        "1.3.6.1.5.5.7.1.3": X509_ExtQcStatements,
-        "1.3.6.1.5.5.7.1.11": X509_ExtSubjInfoAccess
+    "2.5.29.14": X509_ExtSubjectKeyIdentifier,
+    "2.5.29.15": X509_ExtKeyUsage,
+    "2.5.29.16": X509_ExtPrivateKeyUsagePeriod,
+    "2.5.29.17": X509_ExtSubjectAltName,
+    "2.5.29.18": X509_ExtIssuerAltName,
+    "2.5.29.19": X509_ExtBasicConstraints,
+    "2.5.29.20": X509_ExtCRLNumber,
+    "2.5.29.21": X509_ExtReasonCode,
+    "2.5.29.24": X509_ExtInvalidityDate,
+    "2.5.29.27": X509_ExtDeltaCRLIndicator,
+    "2.5.29.28": X509_ExtIssuingDistributionPoint,
+    "2.5.29.29": X509_ExtCertificateIssuer,
+    "2.5.29.30": X509_ExtNameConstraints,
+    "2.5.29.31": X509_ExtCRLDistributionPoints,
+    "2.5.29.32": X509_ExtCertificatePolicies,
+    "2.5.29.33": X509_ExtPolicyMappings,
+    "2.5.29.35": X509_ExtAuthorityKeyIdentifier,
+    "2.5.29.36": X509_ExtPolicyConstraints,
+    "2.5.29.37": X509_ExtExtendedKeyUsage,
+    "2.5.29.46": X509_ExtFreshestCRL,
+    "2.5.29.54": X509_ExtInhibitAnyPolicy,
+    "2.16.840.1.113730.1.1": X509_ExtNetscapeCertType,
+    "2.16.840.1.113730.1.13": X509_ExtComment,
+    "1.3.6.1.5.5.7.1.1": X509_ExtAuthInfoAccess,
+    "1.3.6.1.5.5.7.1.3": X509_ExtQcStatements,
+    "1.3.6.1.5.5.7.1.11": X509_ExtSubjInfoAccess
 }
 
 
@@ -905,11 +905,11 @@ class X509_Validity(ASN1_Packet):
 
 _attrName_mapping = [
     ("countryName", "C"),
-        ("stateOrProvinceName", "ST"),
-        ("localityName", "L"),
-        ("organizationName", "O"),
-        ("organizationUnitName", "OU"),
-        ("commonName", "CN")
+    ("stateOrProvinceName", "ST"),
+    ("localityName", "L"),
+    ("organizationName", "O"),
+    ("organizationUnitName", "OU"),
+    ("commonName", "CN")
 ]
 _attrName_specials = [name for name, symbol in _attrName_mapping]
 
