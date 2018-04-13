@@ -1,5 +1,9 @@
 environment:
-
+  # This key is encrypted using secdev's appveyor private key,
+  # dissected only on master builds (not PRs) and is used during
+  # npcap OEM installation
+  npcap_oem_key:
+    secure: d120KTZBsVnzZ+pFPLPEOTOkyJxTVRjhbDJn9L+RYnM=
   # Python versions that will be tested
   # Note: it defines variables that can be used later
   matrix:
