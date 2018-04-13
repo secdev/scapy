@@ -23,6 +23,8 @@ import io
 from scapy.error import log_interactive, log_loading, log_scapy, warning
 import scapy.modules.six as six
 from scapy.themes import DefaultTheme, BlackAndWhite, apply_ipython_style
+from scapy.consts import WINDOWS
+from scapy.config import conf, ConfClass
 
 IGNORED = list(six.moves.builtins.__dict__)
 
@@ -206,6 +208,7 @@ def list_contrib(name=None):
 def update_ipython_session(session):
     """Updates IPython session with a custom one"""
     try:
+        global get_ipython
         get_ipython().user_ns.update(session)
     except:
         pass

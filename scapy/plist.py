@@ -17,7 +17,7 @@ from scapy.config import conf
 from scapy.consts import WINDOWS
 from scapy.base_classes import BasePacket, BasePacketList
 from scapy.utils import do_graph, hexdump, make_table, make_lined_table, make_tex_table, \
-    get_temp_file, issubtype
+    get_temp_file, issubtype, ContextManagerSubprocess
 from scapy.extlib import plt, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
 from functools import reduce
 import scapy.modules.six as six
