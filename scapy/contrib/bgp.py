@@ -1659,6 +1659,7 @@ _ext_high_low_dict = {
     BGPPAExtCommRedirectAS4Byte: (0x82, 0x08),
 }
 
+
 class _ExtCommValuePacketField(PacketField):
     """
     PacketField handling Extended Communities "value parts".
