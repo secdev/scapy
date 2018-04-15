@@ -15,7 +15,7 @@ from scapy.volatile import RandInt
 from scapy.sendrecv import sr
 # from
 
-conf.queso_base ="/etc/queso.conf"
+conf.queso_base = "/etc/queso.conf"
 
 
 #################
@@ -75,7 +75,7 @@ def queso_sig(target, dport=80, timeout=3):
     p = queso_kdb.get_base()
     ret = []
     for flags in ["S", "SA", "F", "FA", "SF", "P", "SEC"]:
-        ans, unans = sr(IP(dst=target)/TCP(dport=dport, flags=flags, seq=RandInt()),
+        ans, unans = sr(IP(dst=target) / TCP(dport=dport, flags=flags, seq=RandInt()),
                         timeout=timeout, verbose=0)
         if len(ans) == 0:
             rs = "- - - -"
@@ -84,10 +84,10 @@ def queso_sig(target, dport=80, timeout=3):
             rs = "%i" % (r.seq != 0)
             if not r.ack:
                 r += " 0"
-            elif r.ack-s.seq > 666:
+            elif r.ack - s.seq > 666:
                 rs += " R" % 0
             else:
-                rs += " +%i" % (r.ack-s.seq)
+                rs += " +%i" % (r.ack - s.seq)
             rs += " %X" % r.window
             rs += " %x" % r.payload.flags
         ret.append(rs)

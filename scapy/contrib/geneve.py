@@ -33,12 +33,12 @@ from scapy.compat import chb, orb
 
 
 class GENEVEOptionsField(XStrField):
-    islist=1
+    islist = 1
 
     def getfield(self, pkt, s):
-        opln = pkt.optionlen*4
+        opln = pkt.optionlen * 4
         if opln < 0:
-            warning("bad optionlen (%i). Assuming optionlen=0"%pkt.optionlen)
+            warning("bad optionlen (%i). Assuming optionlen=0" % pkt.optionlen)
             opln = 0
         return s[opln:], self.m2i(pkt, s[:opln])
 
@@ -59,8 +59,8 @@ class GENEVE(Packet):
         p += pay
         optionlen = self.optionlen
         if optionlen is None:
-            optionlen = (len(self.options)+3)//4
-            p = chb(optionlen & 0x2f | orb(p[0])&0xc0)+p[1:]
+            optionlen = (len(self.options) + 3) // 4
+            p = chb(optionlen & 0x2f | orb(p[0]) & 0xc0) + p[1:]
         return p
 
     def answers(self, other):

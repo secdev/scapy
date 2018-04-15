@@ -27,9 +27,9 @@ from scapy.layers.tls.basefields import (_SSLv2LengthField, _SSLv2PadField,
 class _SSLv2MsgListField(_TLSMsgListField):
     def __init__(self, name, default, length_from=None):
         if not length_from:
-            length_from=lambda pkt: ((pkt.len & 0x7fff) -
-                                     (pkt.padlen or 0) -
-                                     len(pkt.mac))
+            length_from = lambda pkt: ((pkt.len & 0x7fff) -
+                                       (pkt.padlen or 0) -
+                                       len(pkt.mac))
         super(_SSLv2MsgListField, self).__init__(name, default, length_from)
 
     def m2i(self, pkt, m):
@@ -111,9 +111,9 @@ class SSLv2(TLS):
             msglen_clean = msglen & 0x3fff
 
         hdr = s[:hdrlen]
-        efrag = s[hdrlen:hdrlen+msglen_clean]
-        self.protected_record = s[:hdrlen+msglen_clean]
-        r = s[hdrlen+msglen_clean:]
+        efrag = s[hdrlen:hdrlen + msglen_clean]
+        self.protected_record = s[:hdrlen + msglen_clean]
+        r = s[hdrlen + msglen_clean:]
 
         mac = pad = b""
 

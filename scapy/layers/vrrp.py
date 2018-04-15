@@ -15,7 +15,7 @@ from scapy.layers.inet import *
 from scapy.layers.inet6 import *
 from scapy.error import warning
 
-IPPROTO_VRRP=112
+IPPROTO_VRRP = 112
 
 # RFC 3768 - Virtual Router Redundancy Protocol (VRRP)
 
@@ -38,7 +38,7 @@ class VRRP(Packet):
     def post_build(self, p, pay):
         if self.chksum is None:
             ck = checksum(p)
-            p = p[:6]+chb(ck>>8)+chb(ck&0xff)+p[8:]
+            p = p[:6] + chb(ck >> 8) + chb(ck & 0xff) + p[8:]
         return p
 
     @classmethod
@@ -74,7 +74,7 @@ class VRRPv3(Packet):
             else:
                 warning("No IP(v6) layer to compute checksum on VRRP. Leaving null")
                 ck = 0
-            p = p[:6]+chb(ck>>8)+chb(ck&0xff)+p[8:]
+            p = p[:6] + chb(ck >> 8) + chb(ck & 0xff) + p[8:]
         return p
 
     @classmethod
@@ -89,6 +89,6 @@ class VRRPv3(Packet):
 # IPv6 is supported only on VRRPv3
 # Warning: those layers need to be un-binded in the CARP contrib module.
 # If you add/remove any, remember to also edit the one in CARP.py
-bind_layers(IP,            VRRP,          proto=IPPROTO_VRRP)
-bind_layers(IP,            VRRPv3,        proto=IPPROTO_VRRP)
-bind_layers(IPv6,          VRRPv3,        nh=IPPROTO_VRRP)
+bind_layers(IP, VRRP, proto=IPPROTO_VRRP)
+bind_layers(IP, VRRPv3, proto=IPPROTO_VRRP)
+bind_layers(IPv6, VRRPv3, nh=IPPROTO_VRRP)

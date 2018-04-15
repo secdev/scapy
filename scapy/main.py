@@ -147,7 +147,7 @@ def load_module(name):
     available globally.
 
     """
-    _load("scapy.modules."+name)
+    _load("scapy.modules." + name)
 
 
 def load_layer(name, globals_dict=None, symb_list=None):
@@ -177,7 +177,7 @@ def load_contrib(name):
 
 def list_contrib(name=None):
     if name is None:
-        name="*.py"
+        name = "*.py"
     elif "*" not in name and "?" not in name and not name.endswith(".py"):
         name += ".py"
     name = os.path.join(os.path.dirname(__file__), "contrib", name)
@@ -194,7 +194,7 @@ def list_contrib(name=None):
                 p += 14
                 q = l.find("=", p)
                 key = l[p:q].strip()
-                value = l[q+1:].strip()
+                value = l[q + 1:].strip()
                 desc[key] = value
         print("%(name)-20s: %(description)-40s status=%(status)s" % desc)
 
@@ -247,11 +247,11 @@ def save_session(fname=None, session=None, pickleProto=-1):
             del(to_be_saved[k])
 
     try:
-        os.rename(fname, fname+".bak")
+        os.rename(fname, fname + ".bak")
     except OSError:
         pass
 
-    f=gzip.open(fname, "wb")
+    f = gzip.open(fname, "wb")
     six.moves.cPickle.dump(to_be_saved, f, pickleProto)
     f.close()
     del f
@@ -306,7 +306,7 @@ def init_session(session_name, mydict=None):
     six.moves.builtins.__dict__.update(scapy_builtins)
     GLOBKEYS.extend(scapy_builtins)
     GLOBKEYS.append("scapy_session")
-    scapy_builtins=None  # XXX replace with "with" statement
+    scapy_builtins = None  # XXX replace with "with" statement
 
     if session_name:
         try:
@@ -323,7 +323,7 @@ def init_session(session_name, mydict=None):
             except EOFError:
                 log_loading.error("Error opening session [%s]" % session_name)
             except AttributeError:
-                log_loading.error("Error opening session [%s]. Attribute missing" %  session_name)
+                log_loading.error("Error opening session [%s]. Attribute missing" % session_name)
 
         if SESSION:
             if "conf" in SESSION:
@@ -422,7 +422,7 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=20):
             elif opt == "-P":
                 PRESTART_FILE = None
             elif opt == "-d":
-                conf.logLevel = max(1, conf.logLevel-10)
+                conf.logLevel = max(1, conf.logLevel - 10)
 
         if len(opts[1]) > 0:
             raise getopt.GetoptError("Too many parameters : [%s]" % " ".join(opts[1]))

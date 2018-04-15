@@ -49,10 +49,10 @@ class SLARP(Packet):
                                     lambda pkt: pkt.type == 2)]
 
 
-bind_layers(CHDLC, Dot3,  proto=0x6558)
-bind_layers(CHDLC, IP,    proto=0x800)
-bind_layers(CHDLC, IPv6,  proto=0x86dd)
+bind_layers(CHDLC, Dot3, proto=0x6558)
+bind_layers(CHDLC, IP, proto=0x800)
+bind_layers(CHDLC, IPv6, proto=0x86dd)
 bind_layers(CHDLC, SLARP, proto=0x8035)
-bind_layers(CHDLC, STP,   proto=0x4242)
+bind_layers(CHDLC, STP, proto=0x4242)
 
 conf.l2types.register(DLT_C_HDLC, CHDLC)

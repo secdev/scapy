@@ -96,7 +96,7 @@ def neighsol(addr, src, iface, timeout=1, chainCC=0):
     nsma = in6_getnsma(inet_pton(socket.AF_INET6, addr))
     d = inet_ntop(socket.AF_INET6, nsma)
     dm = in6_getnsmac(nsma)
-    p = Ether(dst=dm)/IPv6(dst=d, src=src, hlim=255)
+    p = Ether(dst=dm) / IPv6(dst=d, src=src, hlim=255)
     p /= ICMPv6ND_NS(tgt=addr)
     p /= ICMPv6NDOptSrcLLAddr(lladdr=get_if_hwaddr(iface))
     res = srp1(p, type=ETH_P_IPV6, iface=iface, timeout=1, verbose=0,
@@ -162,9 +162,9 @@ class Net6(Gen):  # syntax ex. fec0::/126
     def __init__(self, net):
         self.repr = net
 
-        tmp = net.split('/')+["128"]
+        tmp = net.split('/') + ["128"]
         if not self.ip_regex.match(net):
-            tmp[0]=socket.getaddrinfo(tmp[0], None, socket.AF_INET6)[0][-1][0]
+            tmp[0] = socket.getaddrinfo(tmp[0], None, socket.AF_INET6)[0][-1][0]
 
         netmask = int(tmp[1])
         self.net = inet_pton(socket.AF_INET6, tmp[0])
@@ -187,7 +187,7 @@ class Net6(Gen):  # syntax ex. fec0::/126
         ]
 
         def rec(n, l):
-            sep = ':' if n and  n % 2 == 0 else ''
+            sep = ':' if n and n % 2 == 0 else ''
             if n == 16:
                 return l
             return rec(n + 1, [y + sep + '%.2x' % i
@@ -270,7 +270,7 @@ class SourceIP6Field(IP6Field):
 
     def i2m(self, pkt, x):
         if x is None:
-            dst=getattr(pkt, self.dstname)
+            dst = getattr(pkt, self.dstname)
             iff, x, nh = conf.route6.route(dst)
         return IP6Field.i2m(self, pkt, x)
 
@@ -350,7 +350,7 @@ class IP6ListField(StrField):
         self.length_from = length_from
 
     def i2len(self, pkt, i):
-        return 16*len(i)
+        return 16 * len(i)
 
     def i2count(self, pkt, i):
         if isinstance(i, list):
@@ -377,7 +377,7 @@ class IP6ListField(StrField):
             addr = inet_ntop(socket.AF_INET6, remain[:16])
             lst.append(addr)
             remain = remain[16:]
-        return remain+ret, lst
+        return remain + ret, lst
 
     def i2m(self, pkt, x):
         s = b""
@@ -445,7 +445,7 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
         p += pay
         if self.plen is None:
             l = len(p) - 40
-            p = p[:4]+struct.pack("!H", l)+p[6:]
+            p = p[:4] + struct.pack("!H", l) + p[6:]
         return p
 
     def extract_padding(self, data):
@@ -461,13 +461,13 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
             #        mandatory alignment (4n + 2, RFC2675 Section 2)
             jumbo_len = None
             idx = 0
-            offset = 4*idx+2
+            offset = 4 * idx + 2
             while offset <= len(data):
                 opt_type = orb(data[offset])
                 if opt_type == 0xc2:  # Jumbo option
-                    jumbo_len = struct.unpack("I", data[offset+2:offset+2+4])[0]
+                    jumbo_len = struct.unpack("I", data[offset + 2:offset + 2 + 4])[0]
                     break
-                offset = 4*idx+2
+                offset = 4 * idx + 2
                 idx += 1
 
             if jumbo_len is None:
@@ -485,7 +485,7 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
             if self.payload.type < 128:
                 return self.payload.payload.hashret()
             elif (self.payload.type in [133, 134, 135, 136, 144, 145]):
-                return struct.pack("B", self.nh)+self.payload.hashret()
+                return struct.pack("B", self.nh) + self.payload.hashret()
 
         if not conf.checkIPinIP and self.nh in [4, 41]:  # IP, IPv6
             return self.payload.hashret()
@@ -538,7 +538,7 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
             ss = inet_pton(socket.AF_INET6, self.src)
             return strxor(sd, ss) + struct.pack("B", nh) + self.payload.hashret()
         else:
-            return struct.pack("B", nh)+self.payload.hashret()
+            return struct.pack("B", nh) + self.payload.hashret()
 
     def answers(self, other):
         if not conf.checkIPinIP:  # skip IP in IP and IPv6 in IP
@@ -655,20 +655,20 @@ class IPerror6(IPv6):
                         selfup.options != otherup.options):  # seems clamped
 
                     # Save fields modified by MSS clamping
-                    old_otherup_opts    = otherup.options
-                    old_otherup_cksum   = otherup.chksum
+                    old_otherup_opts = otherup.options
+                    old_otherup_cksum = otherup.chksum
                     old_otherup_dataofs = otherup.dataofs
-                    old_selfup_opts     = selfup.options
-                    old_selfup_cksum    = selfup.chksum
-                    old_selfup_dataofs  = selfup.dataofs
+                    old_selfup_opts = selfup.options
+                    old_selfup_cksum = selfup.chksum
+                    old_selfup_dataofs = selfup.dataofs
 
                     # Nullify them
                     otherup.options = []
-                    otherup.chksum  = 0
+                    otherup.chksum = 0
                     otherup.dataofs = 0
-                    selfup.options  = []
-                    selfup.chksum   = 0
-                    selfup.dataofs  = 0
+                    selfup.options = []
+                    selfup.chksum = 0
+                    selfup.dataofs = 0
 
                     # Test it and save result
                     s1 = raw(selfup)
@@ -678,11 +678,11 @@ class IPerror6(IPv6):
 
                     # recall saved values
                     otherup.options = old_otherup_opts
-                    otherup.chksum  = old_otherup_cksum
+                    otherup.chksum = old_otherup_cksum
                     otherup.dataofs = old_otherup_dataofs
-                    selfup.options  = old_selfup_opts
-                    selfup.chksum   = old_selfup_cksum
-                    selfup.dataofs  = old_selfup_dataofs
+                    selfup.options = old_selfup_opts
+                    selfup.chksum = old_selfup_cksum
+                    selfup.dataofs = old_selfup_dataofs
 
                     return res
 
@@ -753,7 +753,7 @@ def in6_chksum(nh, u, p):
             final_dest_addr_found = 1
         elif (isinstance(u, IPv6ExtHdrDestOpt) and (len(u.options) == 1) and
               isinstance(u.options[0], HAO)):
-            hahdr  = u.options[0].hoa
+            hahdr = u.options[0].hoa
         u = u.underlayer
     if u is None:
         warning("No IPv6 underlayer to compute checksum. Leaving null.")
@@ -768,7 +768,7 @@ def in6_chksum(nh, u, p):
         ph6.dst = u.dst
     ph6.uplen = len(p)
     ph6s = raw(ph6)
-    return checksum(ph6s+p)
+    return checksum(ph6s + p)
 
 
 #############################################################################
@@ -875,7 +875,7 @@ class RouterAlert(Packet):  # RFC 2711 - IPv6 Hop-By-Hop Option
 
     def alignment_delta(self, curpos):  # alignment requirement : 2n+0
         x = 2; y = 0
-        delta = x*((curpos - y + x - 1)//x) + y - curpos
+        delta = x * ((curpos - y + x - 1) // x) + y - curpos
         return delta
 
 
@@ -887,7 +887,7 @@ class Jumbo(Packet):  # IPv6 Hop-By-Hop Option
 
     def alignment_delta(self, curpos):  # alignment requirement : 4n+2
         x = 4; y = 2
-        delta = x*((curpos - y + x - 1)//x) + y - curpos
+        delta = x * ((curpos - y + x - 1) // x) + y - curpos
         return delta
 
 
@@ -899,7 +899,7 @@ class HAO(Packet):  # IPv6 Destination Options Header Option
 
     def alignment_delta(self, curpos):  # alignment requirement : 8n+6
         x = 8; y = 6
-        delta = x*((curpos - y + x - 1)//x) + y - curpos
+        delta = x * ((curpos - y + x - 1) // x) + y - curpos
         return delta
 
 
@@ -959,7 +959,7 @@ class _HopByHopOptionsField(PacketListField):
                 del(op.payload)
             else:
                 x = b""
-        return x+ret, opt
+        return x + ret, opt
 
     def i2m(self, pkt, x):
         autopad = None
@@ -979,7 +979,7 @@ class _HopByHopOptionsField(PacketListField):
             if d == 1:
                 s += raw(Pad1())
             elif d != 0:
-                s += raw(PadN(optdata=b'\x00'*(d-2)))
+                s += raw(PadN(optdata=b'\x00' * (d - 2)))
             pstr = raw(p)
             curpos += len(pstr)
             s += pstr
@@ -993,12 +993,12 @@ class _HopByHopOptionsField(PacketListField):
         if d == 1:
             s += raw(Pad1())
         elif d != 0:
-            s += raw(PadN(optdata=b'\x00'*(d-2)))
+            s += raw(PadN(optdata=b'\x00' * (d - 2)))
 
         return s
 
     def addfield(self, pkt, s, val):
-        return s+self.i2m(pkt, val)
+        return s + self.i2m(pkt, val)
 
 
 class _PhantomAutoPadField(ByteField):
@@ -1018,10 +1018,10 @@ class IPv6ExtHdrHopByHop(_IPv6ExtHdr):
     name = "IPv6 Extension Header - Hop-by-Hop Options Header"
     fields_desc = [ByteEnumField("nh", 59, ipv6nh),
                    FieldLenField("len", None, length_of="options", fmt="B",
-                                 adjust=lambda pkt, x: (x+2+7)//8 - 1),
+                                 adjust=lambda pkt, x: (x + 2 + 7) // 8 - 1),
                    _PhantomAutoPadField("autopad", 1),  # autopad activated by default
                    _HopByHopOptionsField("options", [], HBHOptUnknown, 2,
-                                         length_from=lambda pkt: (8*(pkt.len+1))-2)]
+                                         length_from=lambda pkt: (8 * (pkt.len + 1)) - 2)]
     overload_fields = {IPv6: {"nh": 0}}
 
 
@@ -1031,10 +1031,10 @@ class IPv6ExtHdrDestOpt(_IPv6ExtHdr):
     name = "IPv6 Extension Header - Destination Options Header"
     fields_desc = [ByteEnumField("nh", 59, ipv6nh),
                    FieldLenField("len", None, length_of="options", fmt="B",
-                                 adjust=lambda pkt, x: (x+2+7)//8 - 1),
+                                 adjust=lambda pkt, x: (x + 2 + 7) // 8 - 1),
                    _PhantomAutoPadField("autopad", 1),  # autopad activated by default
                    _HopByHopOptionsField("options", [], HBHOptUnknown, 2,
-                                         length_from=lambda pkt: (8*(pkt.len+1))-2)]
+                                         length_from=lambda pkt: (8 * (pkt.len + 1)) - 2)]
     overload_fields = {IPv6: {"nh": 60}}
 
 
@@ -1044,17 +1044,17 @@ class IPv6ExtHdrRouting(_IPv6ExtHdr):
     name = "IPv6 Option Header Routing"
     fields_desc = [ByteEnumField("nh", 59, ipv6nh),
                    FieldLenField("len", None, count_of="addresses", fmt="B",
-                                 adjust=lambda pkt, x:2*x),  # in 8 bytes blocks
+                                 adjust=lambda pkt, x:2 * x),  # in 8 bytes blocks
                    ByteField("type", 0),
                    ByteField("segleft", None),
                    BitField("reserved", 0, 32),  # There is meaning in this field ...
                    IP6ListField("addresses", [],
-                                length_from=lambda pkt: 8*pkt.len)]
+                                length_from=lambda pkt: 8 * pkt.len)]
     overload_fields = {IPv6: {"nh": 43}}
 
     def post_build(self, pkt, pay):
         if self.segleft is None:
-            pkt = pkt[:3]+struct.pack("B", len(self.addresses))+pkt[4:]
+            pkt = pkt[:3] + struct.pack("B", len(self.addresses)) + pkt[4:]
         return _IPv6ExtHdr.post_build(self, pkt, pay)
 
 
@@ -1130,7 +1130,7 @@ class IPv6ExtHdrSegmentRouting(_IPv6ExtHdr):
                    IP6ListField("addresses", ["::1"],
                                 count_from=lambda pkt: pkt.lastentry),
                    PacketListField("tlv_objects", [], IPv6ExtHdrSegmentRoutingTLV,
-                                   length_from=lambda pkt: 8*pkt.len - 16*pkt.lastentry)]
+                                   length_from=lambda pkt: 8 * pkt.len - 16 * pkt.lastentry)]
 
     overload_fields = {IPv6: {"nh": 43}}
 
@@ -1144,12 +1144,12 @@ class IPv6ExtHdrSegmentRouting(_IPv6ExtHdr):
                 warning("IPv6ExtHdrSegmentRouting(): can't pad 1 byte !")
             elif tmp_mod >= 2:
                 # Add the padding extension
-                tmp_pad = b"\x00" * (tmp_mod-2)
+                tmp_pad = b"\x00" * (tmp_mod - 2)
                 tlv = IPv6ExtHdrSegmentRoutingTLVPadding(padding=tmp_pad)
                 pkt += raw(tlv)
 
             tmp_len = (len(pkt) - 8) // 8
-            pkt = pkt[:1] + struct.pack("B", tmp_len)+ pkt[2:]
+            pkt = pkt[:1] + struct.pack("B", tmp_len) + pkt[2:]
 
         if self.segleft is None:
             tmp_len = len(self.addresses)
@@ -1198,23 +1198,23 @@ def defragment6(packets):
     res = []
     while l:
         min_pos = 0
-        min_offset  = l[0][IPv6ExtHdrFragment].offset
+        min_offset = l[0][IPv6ExtHdrFragment].offset
         for p in l:
             cur_offset = p[IPv6ExtHdrFragment].offset
             if cur_offset < min_offset:
                 min_pos = 0
-                min_offset  = cur_offset
+                min_offset = cur_offset
         res.append(l[min_pos])
         del(l[min_pos])
 
     # regenerate the fragmentable part
     fragmentable = b""
     for p in res:
-        q=p[IPv6ExtHdrFragment]
-        offset = 8*q.offset
+        q = p[IPv6ExtHdrFragment]
+        offset = 8 * q.offset
         if offset != len(fragmentable):
             warning("Expected an offset of %d. Found %d. Padding with XXXX" % (len(fragmentable), offset))
-        fragmentable += b"X"*(offset - len(fragmentable))
+        fragmentable += b"X" * (offset - len(fragmentable))
         fragmentable += raw(q.payload)
 
     # Regenerate the unfragmentable part.
@@ -1258,7 +1258,7 @@ def fragment6(pkt, fragSize):
 
     # Fragmentable part : fake IPv6 for Fragmentable part length computation
     fragPart = pkt[IPv6ExtHdrFragment].payload
-    tmp = raw(IPv6(src="::1", dst="::1")/fragPart)
+    tmp = raw(IPv6(src="::1", dst="::1") / fragPart)
     fragPartLen = len(tmp) - 40  # basic IPv6 header length
     fragPartStr = s[-fragPartLen:]
 
@@ -1283,7 +1283,7 @@ def fragment6(pkt, fragSize):
     if lastFragSize <= 0 or innerFragSize == 0:
         warning("Provided fragment size value is too low. " +
                 "Should be more than %d" % (unfragPartLen + 8))
-        return [unfragPart/fragHeader/fragPart]
+        return [unfragPart / fragHeader / fragPart]
 
     remain = fragPartStr
     res = []
@@ -1304,14 +1304,14 @@ def fragment6(pkt, fragSize):
             fragOffset += (innerFragSize // 8)  # compute new one
             if IPv6 in unfragPart:
                 unfragPart[IPv6].plen = None
-            tempo = unfragPart/fragHeader/conf.raw_layer(load=tmp)
+            tempo = unfragPart / fragHeader / conf.raw_layer(load=tmp)
             res.append(tempo)
         else:
             fragHeader.offset = fragOffset    # update offSet
             fragHeader.m = 0
             if IPv6 in unfragPart:
                 unfragPart[IPv6].plen = None
-            tempo = unfragPart/fragHeader/conf.raw_layer(load=remain)
+            tempo = unfragPart / fragHeader / conf.raw_layer(load=remain)
             res.append(tempo)
             break
     return res
@@ -1468,7 +1468,7 @@ class _ICMPv6(Packet):
         p += pay
         if self.cksum == None:
             chksum = in6_chksum(58, self.underlayer, p)
-            p = p[:2]+struct.pack("!H", chksum)+p[4:]
+            p = p[:2] + struct.pack("!H", chksum) + p[4:]
         return p
 
     def hashret(self):
@@ -1560,7 +1560,7 @@ class ICMPv6EchoRequest(_ICMPv6):
         return self.sprintf("%name% (id: %id% seq: %seq%)")
 
     def hashret(self):
-        return struct.pack("HH", self.id, self.seq)+self.payload.hashret()
+        return struct.pack("HH", self.id, self.seq) + self.payload.hashret()
 
 
 class ICMPv6EchoReply(ICMPv6EchoRequest):
@@ -1602,8 +1602,8 @@ class _ICMPv6ML(_ICMPv6):
 
 class ICMPv6MLQuery(_ICMPv6ML):  # RFC 2710
     name = "MLD - Multicast Listener Query"
-    type   = 130
-    mrd    = 10000  # 10s for mrd
+    type = 130
+    mrd = 10000  # 10s for mrd
     mladdr = "::"
     overload_fields = {IPv6: {"dst": "ff02::1", "hlim": 1, "nh": 58}}
 
@@ -1670,10 +1670,10 @@ class ICMPv6MLDMultAddrRec(Packet):
                                  fmt="B"),
                    FieldLenField("sources_number", None,
                                  length_of="sources",
-                                 adjust=lambda p, num: num//16),
+                                 adjust=lambda p, num: num // 16),
                    IP6Field("dst", "::"),
                    IP6ListField("sources", [],
-                                length_from=lambda p: 16*p.sources_number),
+                                length_from=lambda p: 16 * p.sources_number),
                    StrLenField("auxdata", "",
                                length_from=lambda p: p.auxdata_len)]
 
@@ -1834,9 +1834,9 @@ class ICMPv6NDOptUnknown(_ICMPv6NDGuessPayload, Packet):
     name = "ICMPv6 Neighbor Discovery Option - Scapy Unimplemented"
     fields_desc = [ByteField("type", None),
                    FieldLenField("len", None, length_of="data", fmt="B",
-                                 adjust=lambda pkt, x: x+2),
+                                 adjust=lambda pkt, x: x + 2),
                    StrLenField("data", "",
-                               length_from=lambda pkt: pkt.len-2)]
+                               length_from=lambda pkt: pkt.len - 2)]
 
 # NOTE: len includes type and len field. Expressed in unit of 8 bytes
 # TODO: Revoir le coup du ETHER_ANY
@@ -1914,10 +1914,10 @@ class ICMPv6NDOptRedirectedHdr(_ICMPv6NDGuessPayload, Packet):
     name = "ICMPv6 Neighbor Discovery Option - Redirected Header"
     fields_desc = [ByteField("type", 4),
                    FieldLenField("len", None, length_of="pkt", fmt="B",
-                                 adjust=lambda pkt, x:(x+8)//8),
-                   StrFixedLenField("res", b"\x00"*6, 6),
+                                 adjust=lambda pkt, x:(x + 8) // 8),
+                   StrFixedLenField("res", b"\x00" * 6, 6),
                    TruncPktLenField("pkt", b"", IPv6, 8,
-                                    length_from=lambda pkt: 8*pkt.len-8)]
+                                    length_from=lambda pkt: 8 * pkt.len - 8)]
 
 # See which value should be used for default MTU instead of 1280
 
@@ -2023,7 +2023,7 @@ class _IP6PrefixField(IP6Field):
 
     def __init__(self, name, default):
         IP6Field.__init__(self, name, default)
-        self.length_from = lambda pkt: 8*(pkt.len - 1)
+        self.length_from = lambda pkt: 8 * (pkt.len - 1)
 
     def addfield(self, pkt, s, val):
         return s + self.i2m(pkt, val)
@@ -2032,7 +2032,7 @@ class _IP6PrefixField(IP6Field):
         l = self.length_from(pkt)
         p = s[:l]
         if l < 16:
-            p += b'\x00'*(16-l)
+            p += b'\x00' * (16 - l)
         return s[l:], self.m2i(pkt, p)
 
     def i2len(self, pkt, x):
@@ -2052,16 +2052,16 @@ class _IP6PrefixField(IP6Field):
         if l in [0, 1]:
             return b""
         if l in [2, 3]:
-            return x[:8*(l-1)]
+            return x[:8 * (l - 1)]
 
-        return x + b'\x00'*8*(l-3)
+        return x + b'\x00' * 8 * (l - 3)
 
 
 class ICMPv6NDOptRouteInfo(_ICMPv6NDGuessPayload, Packet):  # RFC 4191
     name = "ICMPv6 Neighbor Discovery Option - Route Information Option"
     fields_desc = [ByteField("type", 24),
                    FieldLenField("len", None, length_of="prefix", fmt="B",
-                                 adjust=lambda pkt, x: x//8 + 1),
+                                 adjust=lambda pkt, x: x // 8 + 1),
                    ByteField("plen", None),
                    BitField("res1", 0, 3),
                    BitField("prf", 0, 2),
@@ -2074,11 +2074,11 @@ class ICMPv6NDOptRDNSS(_ICMPv6NDGuessPayload, Packet):  # RFC 5006
     name = "ICMPv6 Neighbor Discovery Option - Recursive DNS Server Option"
     fields_desc = [ByteField("type", 25),
                    FieldLenField("len", None, count_of="dns", fmt="B",
-                                 adjust=lambda pkt, x: 2*x+1),
+                                 adjust=lambda pkt, x: 2 * x + 1),
                    ShortField("res", None),
                    IntField("lifetime", 0xffffffff),
                    IP6ListField("dns", [],
-                                length_from=lambda pkt: 8*(pkt.len-1))]
+                                length_from=lambda pkt: 8 * (pkt.len - 1))]
 
 
 class ICMPv6NDOptEFA(_ICMPv6NDGuessPayload, Packet):  # RFC 5175 (prev. 5075)
@@ -2113,8 +2113,8 @@ class DomainNameListField(StrLenField):
             cur = []
             while x and ord(x[0]) != 0:
                 l = ord(x[0])
-                cur.append(x[1:l+1])
-                x = x[l+1:]
+                cur.append(x[1:l + 1])
+                x = x[l + 1:]
             if self.padded:
                 # Discard following \x00 in padded mode
                 if len(cur):
@@ -2130,10 +2130,10 @@ class DomainNameListField(StrLenField):
         def conditionalTrailingDot(z):
             if z and orb(z[-1]) == 0:
                 return z
-            return z+b'\x00'
+            return z + b'\x00'
         # Build the encode names
         tmp = ([chb(len(z)) + z.encode("utf8") for z in y.split('.')] for y in x)  # Also encode string to bytes
-        ret_string  = b"".join(conditionalTrailingDot(b"".join(x)) for x in tmp)
+        ret_string = b"".join(conditionalTrailingDot(b"".join(x)) for x in tmp)
 
         # In padded mode, add some \x00 bytes
         if self.padded and not len(ret_string) % self.padded_unit == 0:
@@ -2146,11 +2146,11 @@ class ICMPv6NDOptDNSSL(_ICMPv6NDGuessPayload, Packet):  # RFC 6106
     name = "ICMPv6 Neighbor Discovery Option - DNS Search List Option"
     fields_desc = [ByteField("type", 31),
                    FieldLenField("len", None, length_of="searchlist", fmt="B",
-                                 adjust=lambda pkt, x: 1+ x//8),
+                                 adjust=lambda pkt, x: 1 + x // 8),
                    ShortField("res", None),
                    IntField("lifetime", 0xffffffff),
                    DomainNameListField("searchlist", [],
-                                       length_from=lambda pkt: 8*pkt.len -8,
+                                       length_from=lambda pkt: 8 * pkt.len - 8,
                                        padded=True)
                    ]
 
@@ -2203,7 +2203,7 @@ class ICMPv6ND_NS(_ICMPv6NDGuessPayload, _ICMPv6, Packet):
         return self.sprintf("%name% (tgt: %tgt%)")
 
     def hashret(self):
-        return raw(self.tgt)+self.payload.hashret()
+        return raw(self.tgt) + self.payload.hashret()
 
 
 class ICMPv6ND_NA(_ICMPv6NDGuessPayload, _ICMPv6, Packet):
@@ -2222,7 +2222,7 @@ class ICMPv6ND_NA(_ICMPv6NDGuessPayload, _ICMPv6, Packet):
         return self.sprintf("%name% (tgt: %tgt%)")
 
     def hashret(self):
-        return raw(self.tgt)+self.payload.hashret()
+        return raw(self.tgt) + self.payload.hashret()
 
     def answers(self, other):
         return isinstance(other, ICMPv6ND_NS) and self.tgt == other.tgt
@@ -2247,10 +2247,10 @@ class ICMPv6NDOptSrcAddrList(_ICMPv6NDGuessPayload, Packet):
     name = "ICMPv6 Inverse Neighbor Discovery Option - Source Address List"
     fields_desc = [ByteField("type", 9),
                    FieldLenField("len", None, count_of="addrlist", fmt="B",
-                                 adjust=lambda pkt, x: 2*x+1),
-                   StrFixedLenField("res", b"\x00"*6, 6),
+                                 adjust=lambda pkt, x: 2 * x + 1),
+                   StrFixedLenField("res", b"\x00" * 6, 6),
                    IP6ListField("addrlist", [],
-                                length_from=lambda pkt: 8*(pkt.len-1))]
+                                length_from=lambda pkt: 8 * (pkt.len - 1))]
 
 
 class ICMPv6NDOptTgtAddrList(ICMPv6NDOptSrcAddrList):
@@ -2338,7 +2338,7 @@ class NonceField(StrFixedLenField):
 def computeNIGroupAddr(name):
     """Compute the NI group Address. Can take a FQDN as input parameter"""
     name = name.lower().split(".")[0]
-    record = chr(len(name))+name
+    record = chr(len(name)) + name
     h = md5(record.encode("utf8"))
     h = h.digest()
     addr = "ff02::2:%2x%2x:%2x%2x" % struct.unpack("BBBB", h[:4])
@@ -2466,7 +2466,7 @@ class NIQueryDataField(StrField):
                 val = val[1:]
                 if l == 0:
                     break
-                res.append(plain_str(val[:l])+".")
+                res.append(plain_str(val[:l]) + ".")
                 val = val[l:]
             tmp = "".join(res)
             if tmp and tmp[-1] == '.':
@@ -2642,11 +2642,11 @@ class NIReplyDataField(StrField):
             tmp = b""
         if t == 2:
             ttl, dnsstr = tmp
-            return s+ struct.pack("!I", ttl) + dnsstr
+            return s + struct.pack("!I", ttl) + dnsstr
         elif t == 3:
-            return s + b"".join(map(lambda x_y1: struct.pack("!I", x_y1[0])+inet_pton(socket.AF_INET6, x_y1[1]), tmp))
+            return s + b"".join(map(lambda x_y1: struct.pack("!I", x_y1[0]) + inet_pton(socket.AF_INET6, x_y1[1]), tmp))
         elif t == 4:
-            return s + b"".join(map(lambda x_y2: struct.pack("!I", x_y2[0])+inet_pton(socket.AF_INET, x_y2[1]), tmp))
+            return s + b"".join(map(lambda x_y2: struct.pack("!I", x_y2[0]) + inet_pton(socket.AF_INET, x_y2[1]), tmp))
         else:
             return s + tmp
 
@@ -2670,7 +2670,7 @@ class NIReplyDataField(StrField):
             res = []
             while len(s) >= 20:  # 4 + 16
                 ttl = struct.unpack("!I", s[:4])[0]
-                ip  = inet_ntop(socket.AF_INET6, s[4:20])
+                ip = inet_ntop(socket.AF_INET6, s[4:20])
                 res.append((ttl, ip))
                 s = s[20:]
             return s, (3, res)
@@ -2680,7 +2680,7 @@ class NIReplyDataField(StrField):
             res = []
             while len(s) >= 8:  # 4 + 4
                 ttl = struct.unpack("!I", s[:4])[0]
-                ip  = inet_ntop(socket.AF_INET, s[4:8])
+                ip = inet_ntop(socket.AF_INET, s[4:8])
                 res.append((ttl, ip))
                 s = s[8:]
             return s, (4, res)
@@ -2787,7 +2787,7 @@ class ICMPv6HAADRequest(_ICMPv6):
                    XBitField("res", 0, 15)]
 
     def hashret(self):
-        return struct.pack("!H", self.id)+self.payload.hashret()
+        return struct.pack("!H", self.id) + self.payload.hashret()
 
 
 class ICMPv6HAADReply(_ICMPv6):
@@ -2801,7 +2801,7 @@ class ICMPv6HAADReply(_ICMPv6):
                    IP6ListField('addresses', None)]
 
     def hashret(self):
-        return struct.pack("!H", self.id)+self.payload.hashret()
+        return struct.pack("!H", self.id) + self.payload.hashret()
 
     def answers(self, other):
         if not isinstance(other, ICMPv6HAADRequest):
@@ -2865,9 +2865,9 @@ class _MIP6OptAlign:
 
     def alignment_delta(self, curpos):
         x = self.x; y = self.y
-        if x == 0 and y ==0:
+        if x == 0 and y == 0:
             return 0
-        delta = x*((curpos - y + x - 1)//x) + y - curpos
+        delta = x * ((curpos - y + x - 1) // x) + y - curpos
         return delta
 
 
@@ -2928,10 +2928,10 @@ class MIP6OptMNID(_MIP6OptAlign, Packet):  # RFC 4283
     name = "MIPv6 Option - Mobile Node Identifier"
     fields_desc = [ByteEnumField("otype", 8, _mobopttypes),
                    FieldLenField("olen", None, length_of="id", fmt="B",
-                                 adjust=lambda pkt, x: x+1),
+                                 adjust=lambda pkt, x: x + 1),
                    ByteEnumField("subtype", 1, {1: "NAI"}),
                    StrLenField("id", "",
-                               length_from=lambda pkt: pkt.olen-1)]
+                               length_from=lambda pkt: pkt.olen - 1)]
     x = 0; y = 0  # alignment requirement: none
 
 # We only support decoding and basic build. Automatic HMAC computation is
@@ -2943,12 +2943,12 @@ class MIP6OptMsgAuth(_MIP6OptAlign, Packet):  # RFC 4285 (Sect. 5)
     name = "MIPv6 Option - Mobility Message Authentication"
     fields_desc = [ByteEnumField("otype", 9, _mobopttypes),
                    FieldLenField("olen", None, length_of="authdata", fmt="B",
-                                 adjust=lambda pkt, x: x+5),
+                                 adjust=lambda pkt, x: x + 5),
                    ByteEnumField("subtype", 1, {1: "MN-HA authentication mobility option",
                                                 2: "MN-AAA authentication mobility option"}),
                    IntField("mspi", None),
-                   StrLenField("authdata", "A"*12,
-                               length_from=lambda pkt: pkt.olen-5)]
+                   StrLenField("authdata", "A" * 12,
+                               length_from=lambda pkt: pkt.olen - 5)]
     x = 4; y = 1  # alignment requirement: 4n+1
 
 # Extracted from RFC 1305 (NTP) :
@@ -2959,7 +2959,7 @@ class MIP6OptMsgAuth(_MIP6OptAlign, Packet):  # RFC 4285 (Sect. 5)
 
 class NTPTimestampField(LongField):
     def i2repr(self, pkt, x):
-        if x < ((50*31536000)<<32):
+        if x < ((50 * 31536000) << 32):
             return "Some date a few decades ago (%d)" % x
 
         # delta from epoch (= (1900, 1, 1, 0, 0, 0, 5, 1, 0)) to
@@ -3030,7 +3030,7 @@ class MIP6OptCareOfTest(_MIP6OptAlign, Packet):  # RFC 4866 (Sect. 5.5)
     name = "MIPv6 option - Care-of Test"
     fields_desc = [ByteEnumField("otype", 16, _mobopttypes),
                    FieldLenField("olen", None, length_of="cokt", fmt="B"),
-                   StrLenField("cokt", b'\x00'*8,
+                   StrLenField("cokt", b'\x00' * 8,
                                length_from=lambda pkt: pkt.olen)]
     x = 0; y = 0  # alignment requirement: none
 
@@ -3113,13 +3113,13 @@ class _MobilityHeader(Packet):
         p += pay
         l = self.len
         if self.len is None:
-            l = (len(p)-8)//8
+            l = (len(p) - 8) // 8
         p = chb(p[0]) + struct.pack("B", l) + chb(p[2:])
         if self.cksum is None:
             cksum = in6_chksum(135, self.underlayer, p)
         else:
             cksum = self.cksum
-        p = chb(p[:4])+struct.pack("!H", cksum)+chb(p[6:])
+        p = chb(p[:4]) + struct.pack("!H", cksum) + chb(p[6:])
         return p
 
 
@@ -3130,8 +3130,8 @@ class MIP6MH_Generic(_MobilityHeader):  # Mainly for decoding of unknown msg
                    ByteEnumField("mhtype", None, mhtypes),
                    ByteField("res", None),
                    XShortField("cksum", None),
-                   StrLenField("msg", b"\x00"*2,
-                               length_from=lambda pkt: 8*pkt.len-6)]
+                   StrLenField("msg", b"\x00" * 2,
+                               length_from=lambda pkt: 8 * pkt.len - 6)]
 
 
 # TODO: make a generic _OptionsField
@@ -3186,7 +3186,7 @@ class _MobilityOptionsField(PacketListField):
             if d == 1:
                 s += raw(Pad1())
             elif d != 0:
-                s += raw(PadN(optdata=b'\x00'*(d-2)))
+                s += raw(PadN(optdata=b'\x00' * (d - 2)))
             pstr = raw(p)
             curpos += len(pstr)
             s += pstr
@@ -3200,12 +3200,12 @@ class _MobilityOptionsField(PacketListField):
         if d == 1:
             s += raw(Pad1())
         elif d != 0:
-            s += raw(PadN(optdata=b'\x00'*(d-2)))
+            s += raw(PadN(optdata=b'\x00' * (d - 2)))
 
         return s
 
     def addfield(self, pkt, s, val):
-        return s+self.i2m(pkt, val)
+        return s + self.i2m(pkt, val)
 
 
 class MIP6MH_BRR(_MobilityHeader):
@@ -3218,7 +3218,7 @@ class MIP6MH_BRR(_MobilityHeader):
                    ShortField("res2", None),
                    _PhantomAutoPadField("autopad", 1),  # autopad activated by default
                    _MobilityOptionsField("options", [], MIP6OptUnknown, 8,
-                                         length_from=lambda pkt: 8*pkt.len)]
+                                         length_from=lambda pkt: 8 * pkt.len)]
     overload_fields = {IPv6: {"nh": 135}}
 
     def hashret(self):
@@ -3235,11 +3235,11 @@ class MIP6MH_HoTI(_MobilityHeader):
                    ByteEnumField("mhtype", 1, mhtypes),
                    ByteField("res", None),
                    XShortField("cksum", None),
-                   StrFixedLenField("reserved", b"\x00"*2, 2),
-                   StrFixedLenField("cookie", b"\x00"*8, 8),
+                   StrFixedLenField("reserved", b"\x00" * 2, 2),
+                   StrFixedLenField("cookie", b"\x00" * 8, 8),
                    _PhantomAutoPadField("autopad", 1),  # autopad activated by default
                    _MobilityOptionsField("options", [], MIP6OptUnknown, 16,
-                                         length_from=lambda pkt: 8*(pkt.len-1))]
+                                         length_from=lambda pkt: 8 * (pkt.len - 1))]
     overload_fields = {IPv6: {"nh": 135}}
 
     def hashret(self):
@@ -3262,11 +3262,11 @@ class MIP6MH_HoT(_MobilityHeader):
                    ByteField("res", None),
                    XShortField("cksum", None),
                    ShortField("index", None),
-                   StrFixedLenField("cookie", b"\x00"*8, 8),
-                   StrFixedLenField("token", b"\x00"*8, 8),
+                   StrFixedLenField("cookie", b"\x00" * 8, 8),
+                   StrFixedLenField("token", b"\x00" * 8, 8),
                    _PhantomAutoPadField("autopad", 1),  # autopad activated by default
                    _MobilityOptionsField("options", [], MIP6OptUnknown, 24,
-                                         length_from=lambda pkt: 8*(pkt.len-2))]
+                                         length_from=lambda pkt: 8 * (pkt.len - 2))]
     overload_fields = {IPv6: {"nh": 135}}
 
     def hashret(self):
@@ -3295,7 +3295,7 @@ class MIP6MH_CoT(MIP6MH_HoT):
 
 class LifetimeField(ShortField):
     def i2repr(self, pkt, x):
-        return "%d sec" % (4*x)
+        return "%d sec" % (4 * x)
 
 
 class MIP6MH_BU(_MobilityHeader):
@@ -3311,7 +3311,7 @@ class MIP6MH_BU(_MobilityHeader):
                    LifetimeField("mhtime", 3),  # unit == 4 seconds
                    _PhantomAutoPadField("autopad", 1),  # autopad activated by default
                    _MobilityOptionsField("options", [], MIP6OptUnknown, 12,
-                                         length_from=lambda pkt: 8*pkt.len - 4)]
+                                         length_from=lambda pkt: 8 * pkt.len - 4)]
     overload_fields = {IPv6: {"nh": 135}}
 
     def hashret(self):  # Hack: see comment in MIP6MH_BRR.hashret()
@@ -3337,7 +3337,7 @@ class MIP6MH_BA(_MobilityHeader):
                    XShortField("mhtime", 0),  # unit == 4 seconds
                    _PhantomAutoPadField("autopad", 1),  # autopad activated by default
                    _MobilityOptionsField("options", [], MIP6OptUnknown, 12,
-                                         length_from=lambda pkt: 8*pkt.len-4)]
+                                         length_from=lambda pkt: 8 * pkt.len - 4)]
     overload_fields = {IPv6: {"nh": 135}}
 
     def hashret(self):  # Hack: see comment in MIP6MH_BRR.hashret()
@@ -3370,7 +3370,7 @@ class MIP6MH_BE(_MobilityHeader):
                    ByteField("reserved", 0),
                    IP6Field("ha", "::"),
                    _MobilityOptionsField("options", [], MIP6OptUnknown, 24,
-                                         length_from=lambda pkt: 8*(pkt.len-2))]
+                                         length_from=lambda pkt: 8 * (pkt.len - 2))]
     overload_fields = {IPv6: {"nh": 135}}
 
 
@@ -3390,7 +3390,7 @@ _mip6_mhtype2cls = {0: MIP6MH_BRR,
 #############################################################################
 #############################################################################
 
-class  AS_resolver6(AS_resolver_riswhois):
+class AS_resolver6(AS_resolver_riswhois):
     def _resolve_one(self, ip):
         """
         overloaded version to provide a Whois resolution on the
@@ -3423,9 +3423,9 @@ class TracerouteResult6(TracerouteResult):
     def show(self):
         return self.make_table(lambda s_r: (s_r[0].sprintf("%-42s,IPv6.dst%:{TCP:tcp%TCP.dport%}{UDP:udp%UDP.dport%}{ICMPv6EchoRequest:IER}"),  # TODO: ICMPv6 !
                                             s_r[0].hlim,
-                                            s_r[1].sprintf("%-42s,IPv6.src% {TCP:%TCP.flags%}"+
-                                                           "{ICMPv6DestUnreach:%ir,type%}{ICMPv6PacketTooBig:%ir,type%}"+
-                                                           "{ICMPv6TimeExceeded:%ir,type%}{ICMPv6ParamProblem:%ir,type%}"+
+                                            s_r[1].sprintf("%-42s,IPv6.src% {TCP:%TCP.flags%}" +
+                                                           "{ICMPv6DestUnreach:%ir,type%}{ICMPv6PacketTooBig:%ir,type%}" +
+                                                           "{ICMPv6TimeExceeded:%ir,type%}{ICMPv6ParamProblem:%ir,type%}" +
                                                            "{ICMPv6EchoReply:%ir,type%}")))
 
     def get_trace(self):
@@ -3470,10 +3470,10 @@ def traceroute6(target, dport=80, minttl=1, maxttl=30, sport=RandShort(),
         verbose = conf.verb
 
     if l4 is None:
-        a, b = sr(IPv6(dst=target, hlim=(minttl, maxttl))/TCP(seq=RandInt(), sport=sport, dport=dport),
+        a, b = sr(IPv6(dst=target, hlim=(minttl, maxttl)) / TCP(seq=RandInt(), sport=sport, dport=dport),
                   timeout=timeout, filter="icmp6 or tcp", verbose=verbose, **kargs)
     else:
-        a, b = sr(IPv6(dst=target, hlim=(minttl, maxttl))/l4,
+        a, b = sr(IPv6(dst=target, hlim=(minttl, maxttl)) / l4,
                   timeout=timeout, verbose=verbose, **kargs)
 
     a = TracerouteResult6(a.res)
@@ -3540,7 +3540,7 @@ class _IPv6inIP(SuperSocket):
         return p
 
     def send(self, x):
-        return self.worker.send(IP(dst=self.dst, src=self.src, proto=socket.IPPROTO_IPV6)/x)
+        return self.worker.send(IP(dst=self.dst, src=self.src, proto=socket.IPPROTO_IPV6) / x)
 
 
 #############################################################################
@@ -3648,7 +3648,7 @@ def NDP_Attack_DAD_DoS_via_NS(iface=None, mac_src_filter=None, tgt_filter=None,
         mac = req[Ether].src
         dst = req[IPv6].dst
         tgt = req[ICMPv6ND_NS].tgt
-        rep = Ether(src=reply_mac)/IPv6(src="::", dst=dst)/ICMPv6ND_NS(tgt=tgt)
+        rep = Ether(src=reply_mac) / IPv6(src="::", dst=dst) / ICMPv6ND_NS(tgt=tgt)
         sendp(rep, iface=iface, verbose=0)
 
         print("Reply NS for target address %s (received from %s)" % (tgt, mac))
@@ -3707,7 +3707,7 @@ def NDP_Attack_DAD_DoS_via_NA(iface=None, mac_src_filter=None, tgt_filter=None,
         mac = req[Ether].src
         dst = req[IPv6].dst
         tgt = req[ICMPv6ND_NS].tgt
-        rep = Ether(src=reply_mac)/IPv6(src=tgt, dst=dst)
+        rep = Ether(src=reply_mac) / IPv6(src=tgt, dst=dst)
         rep /= ICMPv6ND_NA(tgt=tgt, S=0, R=0, O=1)
         rep /= ICMPv6NDOptDstLLAddr(lladdr=reply_mac)
         sendp(rep, iface=iface, verbose=0)
@@ -3827,7 +3827,7 @@ def NDP_Attack_NA_Spoofing(iface=None, mac_src_filter=None, tgt_filter=None,
         pkt = req[IPv6]
         src = pkt.src
         tgt = req[ICMPv6ND_NS].tgt
-        rep = Ether(src=reply_mac, dst=mac)/IPv6(src=tgt, dst=src)
+        rep = Ether(src=reply_mac, dst=mac) / IPv6(src=tgt, dst=src)
         rep /= ICMPv6ND_NA(tgt=tgt, S=1, R=router, O=1)  # target from the NS
 
         # "If the solicitation IP Destination Address is not a multicast
@@ -4048,7 +4048,7 @@ def NDP_Attack_Kill_Default_Router(iface=None, mac_src_filter=None,
             ether_params["dst"] = tgt_mac
 
         # Basis of fake RA (high pref, zero lifetime)
-        rep = Ether(**ether_params)/IPv6(src=src, dst="ff02::1")
+        rep = Ether(**ether_params) / IPv6(src=src, dst="ff02::1")
         rep /= ICMPv6ND_RA(prf=1, routerlifetime=0)
 
         # Add it a PIO from the request ...
@@ -4194,18 +4194,18 @@ conf.l2types.register(DLT_IPV6, IPv6)
 conf.l2types.register(DLT_RAW, _IPv46)
 conf.l2types.register_num2layer(DLT_RAW_ALT, _IPv46)
 
-bind_layers(Ether,     IPv6,     type=0x86dd)
-bind_layers(CookedLinux, IPv6,   proto=0x86dd)
-bind_layers(GRE,       IPv6,     proto=0x86dd)
-bind_layers(SNAP,      IPv6,     code=0x86dd)
-bind_layers(Loopback,  IPv6,     type=0x18)
-bind_layers(Loopback,  IPv6,     type=0x1c)
-bind_layers(Loopback,  IPv6,     type=0x1e)
-bind_layers(IPerror6,  TCPerror, nh=socket.IPPROTO_TCP)
-bind_layers(IPerror6,  UDPerror, nh=socket.IPPROTO_UDP)
-bind_layers(IPv6,      TCP,      nh=socket.IPPROTO_TCP)
-bind_layers(IPv6,      UDP,      nh=socket.IPPROTO_UDP)
-bind_layers(IP,        IPv6,     proto=socket.IPPROTO_IPV6)
-bind_layers(IPv6,      IPv6,     nh=socket.IPPROTO_IPV6)
-bind_layers(IPv6,      IP,       nh=socket.IPPROTO_IPIP)
-bind_layers(IPv6,      GRE,      nh=socket.IPPROTO_GRE)
+bind_layers(Ether, IPv6, type=0x86dd)
+bind_layers(CookedLinux, IPv6, proto=0x86dd)
+bind_layers(GRE, IPv6, proto=0x86dd)
+bind_layers(SNAP, IPv6, code=0x86dd)
+bind_layers(Loopback, IPv6, type=0x18)
+bind_layers(Loopback, IPv6, type=0x1c)
+bind_layers(Loopback, IPv6, type=0x1e)
+bind_layers(IPerror6, TCPerror, nh=socket.IPPROTO_TCP)
+bind_layers(IPerror6, UDPerror, nh=socket.IPPROTO_UDP)
+bind_layers(IPv6, TCP, nh=socket.IPPROTO_TCP)
+bind_layers(IPv6, UDP, nh=socket.IPPROTO_UDP)
+bind_layers(IP, IPv6, proto=socket.IPPROTO_IPV6)
+bind_layers(IPv6, IPv6, nh=socket.IPPROTO_IPV6)
+bind_layers(IPv6, IP, nh=socket.IPPROTO_IPIP)
+bind_layers(IPv6, GRE, nh=socket.IPPROTO_GRE)

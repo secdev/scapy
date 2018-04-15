@@ -49,7 +49,7 @@ class Uberlogger_honeypot_caract(Packet):
 
 
 class Uberlogger_uber_h(Packet):
-    name  = "Uberlogger uber_h"
+    name = "Uberlogger uber_h"
     fields_desc = [ByteEnumField("syscall_type", 0, uberlogger_sys_calls),
                    IntField("time_sec", 0),
                    IntField("time_usec", 0),
@@ -66,12 +66,12 @@ class Uberlogger_uber_h(Packet):
 
 
 class Uberlogger_capget_data(Packet):
-    name  = "Uberlogger capget_data"
+    name = "Uberlogger capget_data"
     fields_desc = [IntField("target_pid", 0)]
 
 
 class Uberlogger_capset_data(Packet):
-    name  = "Uberlogger capset_data"
+    name = "Uberlogger capset_data"
     fields_desc = [IntField("target_pid", 0),
                    IntField("effective_cap", 0),
                    IntField("permitted_cap", 0),
@@ -79,40 +79,40 @@ class Uberlogger_capset_data(Packet):
 
 
 class Uberlogger_chmod_data(Packet):
-    name  = "Uberlogger chmod_data"
+    name = "Uberlogger chmod_data"
     fields_desc = [ShortField("mode", 0)]
 
 
 class Uberlogger_chown_data(Packet):
-    name  = "Uberlogger chown_data"
+    name = "Uberlogger chown_data"
     fields_desc = [IntField("uid", 0),
                    IntField("gid", 0)]
 
 
 class Uberlogger_open_data(Packet):
-    name  = "Uberlogger open_data"
+    name = "Uberlogger open_data"
     fields_desc = [IntField("flags", 0),
                    IntField("mode", 0)]
 
 
 class Uberlogger_read_data(Packet):
-    name  = "Uberlogger read_data"
+    name = "Uberlogger read_data"
     fields_desc = [IntField("fd", 0),
                    IntField("count", 0)]
 
 
 class Uberlogger_setuid_data(Packet):
-    name  = "Uberlogger setuid_data"
+    name = "Uberlogger setuid_data"
     fields_desc = [IntField("uid", 0)]
 
 
 class Uberlogger_create_module_data(Packet):
-    name  = "Uberlogger create_module_data"
+    name = "Uberlogger create_module_data"
     fields_desc = [IntField("size", 0)]
 
 
 class Uberlogger_execve_data(Packet):
-    name  = "Uberlogger execve_data"
+    name = "Uberlogger execve_data"
     fields_desc = [IntField("nbarg", 0)]
 
 

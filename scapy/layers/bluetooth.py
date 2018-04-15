@@ -152,7 +152,7 @@ class L2CAP_CmdHdr(Packet):
         if other.id == self.id:
             if self.code == 1:
                 return 1
-            if other.code in [2, 4, 6, 8, 10, 18] and self.code == other.code+1:
+            if other.code in [2, 4, 6, 8, 10, 18] and self.code == other.code + 1:
                 if other.code == 8:
                     return 1
                 return self.payload.answers(other.payload)
@@ -438,7 +438,7 @@ class SM_Signing_Information(Packet):
 class EIR_Hdr(Packet):
     name = "EIR Header"
     fields_desc = [
-        LenField("len", None, fmt="B", adjust=lambda x: x+1),  # Add bytes mark
+        LenField("len", None, fmt="B", adjust=lambda x: x + 1),  # Add bytes mark
         ByteEnumField("type", 0, {
             0x01: "flags",
             0x02: "incomplete_list_16_bit_svc_uuids",
@@ -508,7 +508,7 @@ class EIR_Flags(EIR_Element):
         FlagsField("flags", 0x2, 8,
                    ["limited_disc_mode", "general_disc_mode",
                     "br_edr_not_supported", "simul_le_br_edr_ctrl",
-                    "simul_le_br_edr_host"] + 3*["reserved"])
+                    "simul_le_br_edr_host"] + 3 * ["reserved"])
     ]
 
 
@@ -783,10 +783,10 @@ class HCI_LE_Meta_Long_Term_Key_Request(Packet):
                    XLEShortField("ediv", 0), ]
 
 
-bind_layers(HCI_Hdr,       HCI_Command_Hdr,    type=1)
-bind_layers(HCI_Hdr,       HCI_ACL_Hdr,        type=2)
-bind_layers(HCI_Hdr,       HCI_Event_Hdr,      type=4)
-bind_layers(HCI_Hdr,       conf.raw_layer,)
+bind_layers(HCI_Hdr, HCI_Command_Hdr, type=1)
+bind_layers(HCI_Hdr, HCI_ACL_Hdr, type=2)
+bind_layers(HCI_Hdr, HCI_Event_Hdr, type=4)
+bind_layers(HCI_Hdr, conf.raw_layer,)
 
 conf.l2types.register(DLT_BLUETOOTH_HCI_H4, HCI_Hdr)
 
@@ -837,50 +837,50 @@ bind_layers(EIR_Hdr, EIR_TX_Power_Level, type=0x0a)
 bind_layers(EIR_Hdr, EIR_Manufacturer_Specific_Data, type=0xff)
 bind_layers(EIR_Hdr, EIR_Raw)
 
-bind_layers(HCI_ACL_Hdr,   L2CAP_Hdr,)
-bind_layers(L2CAP_Hdr,     L2CAP_CmdHdr,      cid=1)
-bind_layers(L2CAP_Hdr,     L2CAP_CmdHdr,      cid=5)  # LE L2CAP Signaling Channel
-bind_layers(L2CAP_CmdHdr,  L2CAP_CmdRej,      code=1)
-bind_layers(L2CAP_CmdHdr,  L2CAP_ConnReq,     code=2)
-bind_layers(L2CAP_CmdHdr,  L2CAP_ConnResp,    code=3)
-bind_layers(L2CAP_CmdHdr,  L2CAP_ConfReq,     code=4)
-bind_layers(L2CAP_CmdHdr,  L2CAP_ConfResp,    code=5)
-bind_layers(L2CAP_CmdHdr,  L2CAP_DisconnReq,  code=6)
-bind_layers(L2CAP_CmdHdr,  L2CAP_DisconnResp, code=7)
-bind_layers(L2CAP_CmdHdr,  L2CAP_InfoReq,     code=10)
-bind_layers(L2CAP_CmdHdr,  L2CAP_InfoResp,    code=11)
-bind_layers(L2CAP_CmdHdr,  L2CAP_Connection_Parameter_Update_Request,    code=18)
-bind_layers(L2CAP_CmdHdr,  L2CAP_Connection_Parameter_Update_Response,    code=19)
-bind_layers(L2CAP_Hdr,     ATT_Hdr,           cid=4)
-bind_layers(ATT_Hdr,       ATT_Error_Response, opcode=0x1)
-bind_layers(ATT_Hdr,       ATT_Exchange_MTU_Request, opcode=0x2)
-bind_layers(ATT_Hdr,       ATT_Exchange_MTU_Response, opcode=0x3)
-bind_layers(ATT_Hdr,       ATT_Find_Information_Request, opcode=0x4)
-bind_layers(ATT_Hdr,       ATT_Find_Information_Response, opcode=0x5)
-bind_layers(ATT_Hdr,       ATT_Find_By_Type_Value_Request, opcode=0x6)
-bind_layers(ATT_Hdr,       ATT_Find_By_Type_Value_Response, opcode=0x7)
-bind_layers(ATT_Hdr,       ATT_Read_By_Type_Request_128bit, opcode=0x8)
-bind_layers(ATT_Hdr,       ATT_Read_By_Type_Request, opcode=0x8)
-bind_layers(ATT_Hdr,       ATT_Read_By_Type_Response, opcode=0x9)
-bind_layers(ATT_Hdr,       ATT_Read_Request, opcode=0xa)
-bind_layers(ATT_Hdr,       ATT_Read_Response, opcode=0xb)
-bind_layers(ATT_Hdr,       ATT_Read_By_Group_Type_Request, opcode=0x10)
-bind_layers(ATT_Hdr,       ATT_Read_By_Group_Type_Response, opcode=0x11)
-bind_layers(ATT_Hdr,       ATT_Write_Request, opcode=0x12)
-bind_layers(ATT_Hdr,       ATT_Write_Response, opcode=0x13)
-bind_layers(ATT_Hdr,       ATT_Write_Command, opcode=0x52)
-bind_layers(ATT_Hdr,       ATT_Handle_Value_Notification, opcode=0x1b)
-bind_layers(L2CAP_Hdr,     SM_Hdr,            cid=6)
-bind_layers(SM_Hdr,        SM_Pairing_Request, sm_command=1)
-bind_layers(SM_Hdr,        SM_Pairing_Response, sm_command=2)
-bind_layers(SM_Hdr,        SM_Confirm,        sm_command=3)
-bind_layers(SM_Hdr,        SM_Random,         sm_command=4)
-bind_layers(SM_Hdr,        SM_Failed,         sm_command=5)
-bind_layers(SM_Hdr,        SM_Encryption_Information, sm_command=6)
-bind_layers(SM_Hdr,        SM_Master_Identification, sm_command=7)
-bind_layers(SM_Hdr,        SM_Identity_Information, sm_command=8)
-bind_layers(SM_Hdr,        SM_Identity_Address_Information, sm_command=9)
-bind_layers(SM_Hdr,        SM_Signing_Information, sm_command=0x0a)
+bind_layers(HCI_ACL_Hdr, L2CAP_Hdr,)
+bind_layers(L2CAP_Hdr, L2CAP_CmdHdr, cid=1)
+bind_layers(L2CAP_Hdr, L2CAP_CmdHdr, cid=5)  # LE L2CAP Signaling Channel
+bind_layers(L2CAP_CmdHdr, L2CAP_CmdRej, code=1)
+bind_layers(L2CAP_CmdHdr, L2CAP_ConnReq, code=2)
+bind_layers(L2CAP_CmdHdr, L2CAP_ConnResp, code=3)
+bind_layers(L2CAP_CmdHdr, L2CAP_ConfReq, code=4)
+bind_layers(L2CAP_CmdHdr, L2CAP_ConfResp, code=5)
+bind_layers(L2CAP_CmdHdr, L2CAP_DisconnReq, code=6)
+bind_layers(L2CAP_CmdHdr, L2CAP_DisconnResp, code=7)
+bind_layers(L2CAP_CmdHdr, L2CAP_InfoReq, code=10)
+bind_layers(L2CAP_CmdHdr, L2CAP_InfoResp, code=11)
+bind_layers(L2CAP_CmdHdr, L2CAP_Connection_Parameter_Update_Request, code=18)
+bind_layers(L2CAP_CmdHdr, L2CAP_Connection_Parameter_Update_Response, code=19)
+bind_layers(L2CAP_Hdr, ATT_Hdr, cid=4)
+bind_layers(ATT_Hdr, ATT_Error_Response, opcode=0x1)
+bind_layers(ATT_Hdr, ATT_Exchange_MTU_Request, opcode=0x2)
+bind_layers(ATT_Hdr, ATT_Exchange_MTU_Response, opcode=0x3)
+bind_layers(ATT_Hdr, ATT_Find_Information_Request, opcode=0x4)
+bind_layers(ATT_Hdr, ATT_Find_Information_Response, opcode=0x5)
+bind_layers(ATT_Hdr, ATT_Find_By_Type_Value_Request, opcode=0x6)
+bind_layers(ATT_Hdr, ATT_Find_By_Type_Value_Response, opcode=0x7)
+bind_layers(ATT_Hdr, ATT_Read_By_Type_Request_128bit, opcode=0x8)
+bind_layers(ATT_Hdr, ATT_Read_By_Type_Request, opcode=0x8)
+bind_layers(ATT_Hdr, ATT_Read_By_Type_Response, opcode=0x9)
+bind_layers(ATT_Hdr, ATT_Read_Request, opcode=0xa)
+bind_layers(ATT_Hdr, ATT_Read_Response, opcode=0xb)
+bind_layers(ATT_Hdr, ATT_Read_By_Group_Type_Request, opcode=0x10)
+bind_layers(ATT_Hdr, ATT_Read_By_Group_Type_Response, opcode=0x11)
+bind_layers(ATT_Hdr, ATT_Write_Request, opcode=0x12)
+bind_layers(ATT_Hdr, ATT_Write_Response, opcode=0x13)
+bind_layers(ATT_Hdr, ATT_Write_Command, opcode=0x52)
+bind_layers(ATT_Hdr, ATT_Handle_Value_Notification, opcode=0x1b)
+bind_layers(L2CAP_Hdr, SM_Hdr, cid=6)
+bind_layers(SM_Hdr, SM_Pairing_Request, sm_command=1)
+bind_layers(SM_Hdr, SM_Pairing_Response, sm_command=2)
+bind_layers(SM_Hdr, SM_Confirm, sm_command=3)
+bind_layers(SM_Hdr, SM_Random, sm_command=4)
+bind_layers(SM_Hdr, SM_Failed, sm_command=5)
+bind_layers(SM_Hdr, SM_Encryption_Information, sm_command=6)
+bind_layers(SM_Hdr, SM_Master_Identification, sm_command=7)
+bind_layers(SM_Hdr, SM_Identity_Information, sm_command=8)
+bind_layers(SM_Hdr, SM_Identity_Address_Information, sm_command=9)
+bind_layers(SM_Hdr, SM_Signing_Information, sm_command=0x0a)
 
 
 class BluetoothSocketError(BaseException):
@@ -938,9 +938,9 @@ class BluetoothHCISocket(SuperSocket):
 
 class sockaddr_hci(Structure):
     _fields_ = [
-        ("sin_family",      c_ushort),
-        ("hci_dev",         c_ushort),
-        ("hci_channel",     c_ushort),
+        ("sin_family", c_ushort),
+        ("hci_dev", c_ushort),
+        ("hci_channel", c_ushort),
     ]
 
 

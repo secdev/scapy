@@ -64,7 +64,7 @@ if conf.use_winpcapy:
 
     # From BSD net/bpf.h
     # BIOCIMMEDIATE=0x80044270
-    BIOCIMMEDIATE=-2147204496
+    BIOCIMMEDIATE = -2147204496
 
     class PcapTimeoutElapsed(Scapy_Exception):
         pass
@@ -365,12 +365,12 @@ if conf.use_winpcapy:
             else:
                 cls = conf.default_l2
                 warning("Unable to guess datalink type (interface=%s linktype=%i). Using %s", self.iface, ll, cls.name)
-            sx = raw(cls()/x)
+            sx = raw(cls() / x)
             if hasattr(x, "sent_time"):
                 x.sent_time = time.time()
             return self.ins.send(sx)
-    conf.L2socket=L2pcapSocket
-    conf.L3socket=L3pcapSocket
+    conf.L2socket = L2pcapSocket
+    conf.L3socket = L3pcapSocket
 
 if conf.use_pcap:
     try:
@@ -388,7 +388,7 @@ if conf.use_pcap:
 
         # From BSD net/bpf.h
         # BIOCIMMEDIATE=0x80044270
-        BIOCIMMEDIATE=-2147204496
+        BIOCIMMEDIATE = -2147204496
 
         if hasattr(pcap, "pcap"):  # python-pypcap
             class _PcapWrapper_pypcap:
@@ -451,7 +451,7 @@ if conf.use_pcap:
                         if h is None:
                             return
                         s, us = h.getts()
-                        return (s+0.000001*us), p
+                        return (s + 0.000001 * us), p
                 __next__ = next
 
                 def fileno(self):
@@ -563,7 +563,7 @@ if conf.use_dnet:
                address corresponding to the interface 'iff'"""
 
             if iff == scapy.arch.LOOPBACK_NAME:
-                return (ARPHDR_LOOPBACK, b'\x00'*6)
+                return (ARPHDR_LOOPBACK, b'\x00' * 6)
 
             # Retrieve interface information
             try:
@@ -649,7 +649,7 @@ if conf.use_pcap and conf.use_dnet:
                 self.ins.setfilter(filter)
 
         def send(self, x):
-            iff, a, gw  = x.route()
+            iff, a, gw = x.route()
             if iff is None:
                 iff = conf.iface
             ifs, cls = self.iflist.get(iff, (None, None))
@@ -667,7 +667,7 @@ if conf.use_pcap and conf.use_dnet:
             if cls is None:
                 sx = raw(x)
             else:
-                sx = raw(cls()/x)
+                sx = raw(cls() / x)
             x.sent_time = time.time()
             ifs.send(sx)
 
@@ -784,8 +784,8 @@ if conf.use_pcap and conf.use_dnet:
                     del(self.outs)
             self.closed = True
 
-    conf.L3socket=L3dnetSocket
-    conf.L2socket=L2dnetSocket
+    conf.L3socket = L3dnetSocket
+    conf.L2socket = L2dnetSocket
 
 
 

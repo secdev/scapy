@@ -63,7 +63,7 @@ class EigrpIPField(StrField, IPField):
 
     def __init__(self, name, default, length=None, length_from=None):
         StrField.__init__(self, name, default)
-        self.length_from  = length_from
+        self.length_from = length_from
         if length is not None:
             self.length_from = lambda pkt, length=length: length
 
@@ -132,7 +132,7 @@ class EigrpIP6Field(StrField, IP6Field):
 
     def __init__(self, name, default, length=None, length_from=None):
         StrField.__init__(self, name, default)
-        self.length_from  = length_from
+        self.length_from = length_from
         if length is not None:
             self.length_from = lambda pkt, length=length: length
 

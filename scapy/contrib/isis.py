@@ -101,7 +101,7 @@ def isis_sysid2str(sysid):
 
 
 def isis_str2sysid(s):
-    return ("%02X%02X."*3)[:-1] % tuple(orb(x) for x in s)
+    return ("%02X%02X." * 3)[:-1] % tuple(orb(x) for x in s)
 
 
 def isis_nodeid2str(nodeid):
@@ -131,7 +131,7 @@ class _ISIS_IdFieldBase(Field):
 
     def i2m(self, pkt, x):
         if x is None:
-            return b"\0"*self.length
+            return b"\0" * self.length
 
         return self.to_str(x)
 
@@ -165,7 +165,7 @@ class _ISIS_RandId(RandString):
 class _ISIS_RandAreaId(_ISIS_RandId):
     def __init__(self, bytecount=None):
         self.bytecount = random.randint(1, 13) if bytecount is None else bytecount
-        self.format = "%02X" + (".%02X%02X" * ((self.bytecount-1) // 2)) + ("" if ((self.bytecount-1) % 2) == 0 else ".%02X")
+        self.format = "%02X" + (".%02X%02X" * ((self.bytecount - 1) // 2)) + ("" if ((self.bytecount - 1) % 2) == 0 else ".%02X")
 
 
 class ISIS_AreaIdField(Field):
@@ -190,7 +190,7 @@ class ISIS_AreaIdField(Field):
 
     def addfield(self, pkt, s, val):
         sval = self.i2m(pkt, val)
-        return s+struct.pack("!%is" % len(sval), sval)
+        return s + struct.pack("!%is" % len(sval), sval)
 
     def getfield(self, pkt, s):
         numbytes = self.length_from(pkt)
@@ -263,11 +263,11 @@ class ISIS_GenericSubTlv(_ISIS_GenericTlv_Base):
 #   ISIS Sub-TLVs for TLVs 22, 23, 141, 222, 223                      #
 #######################################################################
 _isis_subtlv_classes_1 = {
-    3:  "ISIS_AdministrativeGroupSubTlv",
-    4:  "ISIS_LinkLocalRemoteIdentifiersSubTlv",
-    6:  "ISIS_IPv4InterfaceAddressSubTlv",
-    8:  "ISIS_IPv4NeighborAddressSubTlv",
-    9:  "ISIS_MaximumLinkBandwidthSubTlv",
+    3: "ISIS_AdministrativeGroupSubTlv",
+    4: "ISIS_LinkLocalRemoteIdentifiersSubTlv",
+    6: "ISIS_IPv4InterfaceAddressSubTlv",
+    8: "ISIS_IPv4NeighborAddressSubTlv",
+    9: "ISIS_MaximumLinkBandwidthSubTlv",
     10: "ISIS_MaximumReservableLinkBandwidthSubTlv",
     11: "ISIS_UnreservedBandwidthSubTlv",
     12: "ISIS_IPv6InterfaceAddressSubTlv",
@@ -276,11 +276,11 @@ _isis_subtlv_classes_1 = {
 }
 
 _isis_subtlv_names_1 = {
-    3:  "Administrative Group (Color)",
-    4:  "Link Local/Remote Identifiers",
-    6:  "IPv4 Interface Address",
-    8:  "IPv4 Neighbor Address",
-    9:  "Maximum Link Bandwidth",
+    3: "Administrative Group (Color)",
+    4: "Link Local/Remote Identifiers",
+    6: "IPv4 Interface Address",
+    8: "IPv4 Neighbor Address",
+    9: "Maximum Link Bandwidth",
     10: "Maximum Reservable Link Bandwidth",
     11: "Unreserved Bandwidth",
     12: "IPv6 Interface Address",
@@ -360,7 +360,7 @@ class ISIS_UnreservedBandwidthSubTlv(ISIS_GenericSubTlv):
 class ISIS_TEDefaultMetricSubTlv(ISIS_GenericSubTlv):
     name = "TE Default Metric SubTLV"
     fields_desc = [ByteEnumField("type", 18, _isis_subtlv_names_1),
-                   FieldLenField("len", None, length_of="temetric", adjust=lambda pkt, x:x-1, fmt="B"),
+                   FieldLenField("len", None, length_of="temetric", adjust=lambda pkt, x:x - 1, fmt="B"),
                    ThreeBytesField("temetric", 1000)]
 
 
@@ -368,13 +368,13 @@ class ISIS_TEDefaultMetricSubTlv(ISIS_GenericSubTlv):
 #   ISIS Sub-TLVs for TLVs 135, 235, 236, and 237                     #
 #######################################################################
 _isis_subtlv_classes_2 = {
-    1:  "ISIS_32bitAdministrativeTagSubTlv",
-    2:  "ISIS_64bitAdministrativeTagSubTlv"
+    1: "ISIS_32bitAdministrativeTagSubTlv",
+    2: "ISIS_64bitAdministrativeTagSubTlv"
 }
 
 _isis_subtlv_names_2 = {
-    1:  "32-bit Administrative Tag",
-    2:  "64-bit Administrative Tag"
+    1: "32-bit Administrative Tag",
+    2: "64-bit Administrative Tag"
 }
 
 
@@ -601,7 +601,7 @@ class ISIS_Ipv6Prefix(Packet):
 
 
 class ISIS_Ipv6ReachabilityTlv(ISIS_GenericTlv):
-    name= "ISIS IPv6 Reachability TLV"
+    name = "ISIS IPv6 Reachability TLV"
     fields_desc = [ByteEnumField("type", 236, _isis_tlv_names),
                    FieldLenField("len", None, length_of="pfxs", fmt="B"),
                    PacketListField("pfxs", [], ISIS_Ipv6Prefix, length_from=lambda pkt: pkt.len)]
@@ -728,7 +728,7 @@ class ISIS_IsReachabilityTlv(ISIS_GenericTlv):
     name = "ISIS IS Reachability TLV"
     fields_desc = [
         ByteEnumField("type", 2, _isis_tlv_names),
-        FieldLenField("len", None, fmt="B", length_of="neighbours", adjust=lambda pkt, x: x+1),
+        FieldLenField("len", None, fmt="B", length_of="neighbours", adjust=lambda pkt, x: x + 1),
         ByteField("virtual", 0),
         PacketListField("neighbours", [], ISIS_IsReachabilityEntry, count_from=lambda x: (x.len - 1) // 11)
     ]
@@ -771,7 +771,7 @@ class ISIS_CommonHdr(Packet):
         if checksumInfo is not None:
             (cbegin, cpos) = checksumInfo
             checkbytes = fletcher16_checkbytes(pdu[cbegin:], (cpos - cbegin))
-            pdu = pdu[:cpos] + checkbytes + pdu[cpos+2:]
+            pdu = pdu[:cpos] + checkbytes + pdu[cpos + 2:]
 
         return pdu
 

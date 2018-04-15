@@ -63,7 +63,7 @@ class NetflowRecordV1(Packet):
                    IntField("padding2", 0)]
 
 
-bind_layers(NetflowHeader,   NetflowHeaderV1, version=1)
+bind_layers(NetflowHeader, NetflowHeaderV1, version=1)
 bind_layers(NetflowHeaderV1, NetflowRecordV1)
 bind_layers(NetflowRecordV1, NetflowRecordV1)
 
@@ -109,7 +109,7 @@ class NetflowRecordV5(Packet):
                    ShortField("pad2", 0)]
 
 
-bind_layers(NetflowHeader,   NetflowHeaderV5, version=5)
+bind_layers(NetflowHeader, NetflowHeaderV5, version=5)
 bind_layers(NetflowHeaderV5, NetflowRecordV5)
 bind_layers(NetflowRecordV5, NetflowRecordV5)
 
@@ -356,9 +356,9 @@ class NetflowTemplateV9(Packet):
 class NetflowFlowsetV9(Packet):
     name = "Netflow FlowSet V9"
     fields_desc = [ShortField("flowSetID", 0),
-                   FieldLenField("length", None, length_of="templates", adjust=lambda pkt, x:x+4),
+                   FieldLenField("length", None, length_of="templates", adjust=lambda pkt, x:x + 4),
                    PacketListField("templates", [], NetflowTemplateV9,
-                                   length_from=lambda pkt: pkt.length-4)]
+                                   length_from=lambda pkt: pkt.length - 4)]
 
 
 class _CustomStrFixedLenField(StrFixedLenField):
@@ -392,9 +392,9 @@ class NetflowRecordV9(Packet):
 class NetflowDataflowsetV9(Packet):
     name = "Netflow DataFlowSet V9"
     fields_desc = [ShortField("templateID", 255),
-                   FieldLenField("length", None, length_of="records", adjust=lambda pkt, x:x+4),
+                   FieldLenField("length", None, length_of="records", adjust=lambda pkt, x:x + 4),
                    PadField(PacketListField("records", [], NetflowRecordV9,
-                                            length_from=lambda pkt: pkt.length-4),
+                                            length_from=lambda pkt: pkt.length - 4),
                             4, padwith=b"\x00")]
 
     @classmethod

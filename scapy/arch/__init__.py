@@ -19,7 +19,7 @@ from scapy.data import *
 
 
 def str2mac(s):
-    return ("%02x:"*6)[:-1] % tuple(orb(x) for x in s)
+    return ("%02x:" * 6)[:-1] % tuple(orb(x) for x in s)
 
 
 if not WINDOWS:
@@ -92,7 +92,7 @@ def get_if_raw_addr6(iff):
     interface, in network format. If no global address is found, None
     is returned.
     """
-    ip6= get_if_addr6(iff)
+    ip6 = get_if_addr6(iff)
     if ip6 is not None:
         return inet_pton(socket.AF_INET6, ip6)
 

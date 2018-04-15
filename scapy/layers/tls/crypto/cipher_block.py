@@ -170,8 +170,8 @@ _sslv2_block_cipher_algs = {}
 
 if conf.crypto_valid:
     _sslv2_block_cipher_algs.update({
-        "IDEA_128_CBC":     Cipher_IDEA_CBC,
-        "DES_64_CBC":       Cipher_DES_CBC,
+        "IDEA_128_CBC": Cipher_IDEA_CBC,
+        "DES_64_CBC": Cipher_DES_CBC,
         "DES_192_EDE3_CBC": Cipher_3DES_EDE_CBC
     })
 

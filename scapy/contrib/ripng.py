@@ -43,6 +43,6 @@ class RIPngEntry(Packet):
     ]
 
 
-bind_layers(UDP,        RIPng,          sport=521, dport=521)
-bind_layers(RIPng,      RIPngEntry)
+bind_layers(UDP, RIPng, sport=521, dport=521)
+bind_layers(RIPng, RIPngEntry)
 bind_layers(RIPngEntry, RIPngEntry)

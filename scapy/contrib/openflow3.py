@@ -70,7 +70,7 @@ class _ofp_hello_elem_header(Packet):
 
     def post_build(self, p, pay):
         if self.len is None:
-            l = len(p)+len(pay)
+            l = len(p) + len(pay)
             p = p[:2] + struct.pack("!H", l) + p[4:]
         return p + pay
 
@@ -279,27 +279,27 @@ ofp_oxm_fields = {}
 
 def add_ofp_oxm_fields(i, org):
     ofp_oxm_fields[i] = [ShortEnumField("class", "OFPXMC_OPENFLOW_BASIC", ofp_oxm_classes),
-                         BitEnumField("field", i//2, 7, ofp_oxm_names),
-                         BitField("hasmask", i%2, 1)]
-    ofp_oxm_fields[i].append(ByteField("length", org[2]+org[2]*(i%2)))
-    if i//2 == 0:           # OFBInPort
+                         BitEnumField("field", i // 2, 7, ofp_oxm_names),
+                         BitField("hasmask", i % 2, 1)]
+    ofp_oxm_fields[i].append(ByteField("length", org[2] + org[2] * (i % 2)))
+    if i // 2 == 0:           # OFBInPort
         ofp_oxm_fields[i].append(IntEnumField(org[1], 0, ofp_port_no))
-    elif i//2 == 3 or i//2 == 4:          # OFBEthSrc & OFBEthDst
+    elif i // 2 == 3 or i // 2 == 4:          # OFBEthSrc & OFBEthDst
         ofp_oxm_fields[i].append(MACField(org[1], None))
-    elif i//2 == 11 or i//2 == 12:        # OFBIPv4Src & OFBIPv4Dst
+    elif i // 2 == 11 or i // 2 == 12:        # OFBIPv4Src & OFBIPv4Dst
         ofp_oxm_fields[i].append(IPField(org[1], "0"))
-    elif i//2 == 39:        # OFBIPv6ExtHdr
-        ofp_oxm_fields[i].append(FlagsField(org[1], 0, 8*org[2], ipv6flags))
+    elif i // 2 == 39:        # OFBIPv6ExtHdr
+        ofp_oxm_fields[i].append(FlagsField(org[1], 0, 8 * org[2], ipv6flags))
     else:
-        ofp_oxm_fields[i].append(BitField(org[1], 0, 8*org[2]))
-    if i%2:
-        ofp_oxm_fields[i].append(BitField(org[1]+"_mask", 0, 8*org[2]))
+        ofp_oxm_fields[i].append(BitField(org[1], 0, 8 * org[2]))
+    if i % 2:
+        ofp_oxm_fields[i].append(BitField(org[1] + "_mask", 0, 8 * org[2]))
 
 
 # some HM classes are not supported par OFv1.3 but we will create them anyway
 for i, cls in ofp_oxm_constr.items():
-    add_ofp_oxm_fields(2*i, cls)
-    add_ofp_oxm_fields(2*i+1, cls)
+    add_ofp_oxm_fields(2 * i, cls)
+    add_ofp_oxm_fields(2 * i + 1, cls)
 
 # now we create every OXM class with the same call,
 # (except that static variable create_oxm_class.i is each time different)
@@ -314,15 +314,15 @@ def create_oxm_cls():
         create_oxm_cls.i = 0
 
     index = create_oxm_cls.i
-    cls_name = ofp_oxm_constr[index//4][0]
+    cls_name = ofp_oxm_constr[index // 4][0]
     # we create standard OXM then OXM ID then OXM with mask then OXM-hasmask ID
     if index % 4 == 2:
         cls_name += "HM"
     if index % 2:
         cls_name += "ID"
 
-    oxm_name = ofp_oxm_names[index//4]
-    oxm_fields = ofp_oxm_fields[index//2]
+    oxm_name = ofp_oxm_names[index // 4]
+    oxm_fields = ofp_oxm_fields[index // 2]
     # for ID classes we just want the first 4 fields (no payload)
     if index % 2:
         oxm_fields = oxm_fields[:4]
@@ -339,9 +339,9 @@ def create_oxm_cls():
     # IntEnumField("in_port", 0, ofp_port_no) ]
 
     if index % 2 == 0:
-        ofp_oxm_cls[index//2] = cls
+        ofp_oxm_cls[index // 2] = cls
     else:
-        ofp_oxm_id_cls[index//2] = cls
+        ofp_oxm_id_cls[index // 2] = cls
     create_oxm_cls.i += 1
     return cls
 
@@ -567,7 +567,7 @@ class OXMPacketListField(PacketListField):
             # val might be modified during the loop so we need a fixed copy
             fix_val = copy.deepcopy(val)
             for oxm in fix_val:
-                f = 2*oxm.field
+                f = 2 * oxm.field
                 fix_index = list(self.index)
                 while f in need_prereq:
                     # this loop enables a small recursion
@@ -578,7 +578,7 @@ class OXMPacketListField(PacketListField):
                     if f2 not in fix_index:
                         self.index.insert(0, f2)
                         prrq = ofp_oxm_cls[f2]()    # never HM
-                        setattr(prrq, ofp_oxm_constr[f2//2][1], prereq[1])
+                        setattr(prrq, ofp_oxm_constr[f2 // 2][1], prereq[1])
                         val.insert(0, prrq)
                     # we could do more complicated stuff to
                     # make sure prerequisite order is correct
@@ -590,7 +590,7 @@ class OXMPacketListField(PacketListField):
 
     def m2i(self, pkt, s):
         t = orb(s[2])
-        nrm_t = t - t%2
+        nrm_t = t - t % 2
         if nrm_t not in self.index:
             self.index.append(nrm_t)
         return ofp_oxm_cls.get(t, Raw)(s)
@@ -654,24 +654,24 @@ class OFPMatch(Packet):
     def post_build(self, p, pay):
         l = self.length
         if l is None:
-            l = len(p)+len(pay)
+            l = len(p) + len(pay)
             p = p[:2] + struct.pack("!H", l) + p[4:]
-            zero_bytes = (8 - l%8) % 8
+            zero_bytes = (8 - l % 8) % 8
             p += b"\x00" * zero_bytes
         # message with user-defined length will not be automatically padded
         return p + pay
 
     def extract_padding(self, s):
         l = self.length
-        zero_bytes = (8 - l%8) % 8
+        zero_bytes = (8 - l % 8) % 8
         return s[zero_bytes:], s[:zero_bytes]
 
     name = "OFP_MATCH"
-    fields_desc= [ShortEnumField("type", 1, {0: "OFPMT_STANDARD",
-                                             1: "OFPMT_OXM"}),
-                  ShortField("length", None),
-                  OXMPacketListField("oxm_fields", [], Packet,
-                                     length_from=lambda pkt:pkt.length-4)]
+    fields_desc = [ShortEnumField("type", 1, {0: "OFPMT_STANDARD",
+                                              1: "OFPMT_OXM"}),
+                   ShortField("length", None),
+                   OXMPacketListField("oxm_fields", [], Packet,
+                                      length_from=lambda pkt:pkt.length - 4)]
 
 # ofp_match is no longer a fixed-length structure in v1.3
 # furthermore it may include variable padding
@@ -706,7 +706,7 @@ class _ofp_action_header(Packet):
 
     def post_build(self, p, pay):
         if self.len is None:
-            l = len(p)+len(pay)
+            l = len(p) + len(pay)
             p = p[:2] + struct.pack("!H", l) + p[4:]
         return p + pay
 
@@ -951,12 +951,12 @@ class OFPATSetField(_ofp_action_header):
         l = self.len
         zero_bytes = 0
         if l is None:
-            l = len(p)+len(pay)
-            zero_bytes = (8 - l%8) % 8
+            l = len(p) + len(pay)
+            zero_bytes = (8 - l % 8) % 8
             l = l + zero_bytes    # add padding length
             p = p[:2] + struct.pack("!H", l) + p[4:]
         else:
-            zero_bytes = (8 - l%8) % 8
+            zero_bytes = (8 - l % 8) % 8
         # every message will be padded correctly
         p += b"\x00" * zero_bytes
         return p + pay
@@ -969,7 +969,7 @@ class OFPATSetField(_ofp_action_header):
                    ShortField("len", None),
                    # there should not be more than one oxm tlv
                    OXMPacketListField("field", [], Packet,
-                                      length_from=lambda pkt:pkt.len-4,
+                                      length_from=lambda pkt:pkt.len - 4,
                                       # /!\ contains padding!
                                       autocomplete=False)]
 
@@ -1041,7 +1041,7 @@ class ActionPacketListField(PacketListField):
         lst = []
         remain = s
 
-        while remain and len(remain)>=4:
+        while remain and len(remain) >= 4:
             l = ActionPacketListField._get_action_length(remain)
             if l < 8 or len(remain) < l:
                 # length should be at least 8 (non-zero, 64-bit aligned),
@@ -1309,7 +1309,7 @@ class _ofp_instruction_header(Packet):
 
     def post_build(self, p, pay):
         if self.len is None:
-            l = len(p)+len(pay)
+            l = len(p) + len(pay)
             p = p[:2] + struct.pack("!H", l) + p[4:]
         return p + pay
 
@@ -1346,7 +1346,7 @@ class OFPITWriteActions(_ofp_instruction_header):
                    ShortField("len", None),
                    XIntField("pad", 0),
                    ActionPacketListField("actions", [], Packet,
-                                         length_from=lambda pkt:pkt.len-8)]
+                                         length_from=lambda pkt:pkt.len - 8)]
 
 
 class OFPITApplyActions(_ofp_instruction_header):
@@ -1355,7 +1355,7 @@ class OFPITApplyActions(_ofp_instruction_header):
                    ShortField("len", None),
                    XIntField("pad", 0),
                    ActionPacketListField("actions", [], Packet,
-                                         length_from=lambda pkt:pkt.len-8)]
+                                         length_from=lambda pkt:pkt.len - 8)]
 
 
 class OFPITClearActions(_ofp_instruction_header):
@@ -1507,7 +1507,7 @@ class OFPBucket(Packet):
 
     def post_build(self, p, pay):
         if self.len is None:
-            l = len(p)+len(pay)
+            l = len(p) + len(pay)
             p = struct.pack("!H", l) + p[2:]
         return p + pay
 
@@ -1518,7 +1518,7 @@ class OFPBucket(Packet):
                    IntEnumField("watch_group", 0, ofp_group),
                    XIntField("pad", 0),
                    ActionPacketListField("actions", [], Packet,
-                                         length_from=lambda pkt:pkt.len-16)]
+                                         length_from=lambda pkt:pkt.len - 16)]
 
 
 class BucketPacketListField(PacketListField):
@@ -1548,7 +1548,7 @@ class _ofp_queue_property_header(Packet):
 
     def post_build(self, p, pay):
         if self.len is None:
-            l = len(p)+len(pay)
+            l = len(p) + len(pay)
             p = p[:2] + struct.pack("!H", l) + p[4:]
         return p + pay
 
@@ -1609,7 +1609,7 @@ class OFPPacketQueue(Packet):
         if self.properties == []:
             p += raw(OFPQTNone())
         if self.len is None:
-            l = len(p)+len(pay)
+            l = len(p) + len(pay)
             p = p[:4] + struct.pack("!H", l) + p[6:]
         return p + pay
 
@@ -1618,7 +1618,7 @@ class OFPPacketQueue(Packet):
                    ShortField("len", None),
                    XShortField("pad", 0),
                    QueuePropertyPacketListField("properties", [], Packet,
-                                                length_from=lambda pkt:pkt.len-8)]
+                                                length_from=lambda pkt:pkt.len - 8)]
 
 
 class QueuePacketListField(PacketListField):
@@ -1746,7 +1746,7 @@ class _ofp_header(Packet):
 
     def post_build(self, p, pay):
         if self.len is None:
-            l = len(p)+len(pay)
+            l = len(p) + len(pay)
             p = p[:2] + struct.pack("!H", l) + p[4:]
         return p + pay
 
@@ -1758,7 +1758,7 @@ class OFPTHello(_ofp_header):
                    ShortField("len", None),
                    IntField("xid", 0),
                    HelloElemPacketListField("elements", [], Packet,
-                                            length_from=lambda pkt:pkt.len-32)]
+                                            length_from=lambda pkt:pkt.len - 32)]
     overload_fields = {TCP: {"sport": 6653}}
 
 #####################################################
@@ -2296,7 +2296,7 @@ class OFPTFlowMod(_ofp_header):
                    XShortField("pad", 0),
                    MatchField("match"),
                    InstructionPacketListField("instructions", [], Packet,
-                                              length_from=lambda pkt:pkt.len-48-(pkt.match.length+(8-pkt.match.length%8)%8))]
+                                              length_from=lambda pkt:pkt.len - 48 - (pkt.match.length + (8 - pkt.match.length % 8) % 8))]
     # include match padding to match.length
     overload_fields = {TCP: {"sport": 6653}}
 
@@ -2317,7 +2317,7 @@ class OFPTGroupMod(_ofp_header):
                    XByteField("pad", 0),
                    IntEnumField("group_id", 0, ofp_group),
                    BucketPacketListField("buckets", [], Packet,
-                                         length_from=lambda pkt:pkt.len-16)]
+                                         length_from=lambda pkt:pkt.len - 16)]
     overload_fields = {TCP: {"sport": 6653}}
 
 
@@ -2427,7 +2427,7 @@ class OFPMPRequestFlow(_ofp_header):
 class OFPFlowStats(Packet):
     def post_build(self, p, pay):
         if self.length is None:
-            l = len(p)+len(pay)
+            l = len(p) + len(pay)
             p = struct.pack("!H", l) + p[2:]
         return p + pay
     name = "OFP_FLOW_STATS"
@@ -2450,7 +2450,7 @@ class OFPFlowStats(Packet):
                    LongField("byte_count", 0),
                    MatchField("match"),
                    InstructionPacketListField("instructions", [], Packet,
-                                              length_from=lambda pkt:pkt.length-56-pkt.match.length)]
+                                              length_from=lambda pkt:pkt.length - 56 - pkt.match.length)]
 
 
 class FlowStatsPacketListField(PacketListField):
@@ -2483,7 +2483,7 @@ class OFPMPReplyFlow(_ofp_header):
                    FlagsField("flags", 0, 16, ofpmp_reply_flags),
                    XIntField("pad1", 0),
                    FlowStatsPacketListField("flow_stats", [], Packet,
-                                            length_from=lambda pkt:pkt.len-16)]
+                                            length_from=lambda pkt:pkt.len - 16)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
@@ -2556,7 +2556,7 @@ class OFPMPReplyTable(_ofp_header):
                    FlagsField("flags", 0, 16, ofpmp_reply_flags),
                    XIntField("pad1", 0),
                    PacketListField("table_stats", None, OFPTableStats,
-                                   length_from=lambda pkt:pkt.len-16)]
+                                   length_from=lambda pkt:pkt.len - 16)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
@@ -2606,7 +2606,7 @@ class OFPMPReplyPortStats(_ofp_header):
                    FlagsField("flags", 0, 16, ofpmp_reply_flags),
                    XIntField("pad1", 0),
                    PacketListField("port_stats", None, OFPPortStats,
-                                   length_from=lambda pkt:pkt.len-16)]
+                                   length_from=lambda pkt:pkt.len - 16)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
@@ -2647,7 +2647,7 @@ class OFPMPReplyQueue(_ofp_header):
                    FlagsField("flags", 0, 16, ofpmp_reply_flags),
                    XIntField("pad1", 0),
                    PacketListField("queue_stats", None, OFPQueueStats,
-                                   length_from=lambda pkt:pkt.len-16)]
+                                   length_from=lambda pkt:pkt.len - 16)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
@@ -2676,7 +2676,7 @@ class OFPBucketStats(Packet):
 class OFPGroupStats(Packet):
     def post_build(self, p, pay):
         if self.length is None:
-            l = len(p)+len(pay)
+            l = len(p) + len(pay)
             p = struct.pack("!H", l) + p[2:]
         return p + pay
     name = "OFP_GROUP_STATS"
@@ -2690,7 +2690,7 @@ class OFPGroupStats(Packet):
                    IntField("duration_sec", 0),
                    IntField("duration_nsec", 0),
                    PacketListField("bucket_stats", None, OFPBucketStats,
-                                   length_from=lambda pkt:pkt.length-40)]
+                                   length_from=lambda pkt:pkt.length - 40)]
 
 
 class GroupStatsPacketListField(PacketListField):
@@ -2723,7 +2723,7 @@ class OFPMPReplyGroup(_ofp_header):
                    FlagsField("flags", 0, 16, ofpmp_reply_flags),
                    XIntField("pad1", 0),
                    GroupStatsPacketListField("group_stats", [], Packet,
-                                             length_from=lambda pkt:pkt.len-16)]
+                                             length_from=lambda pkt:pkt.len - 16)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
@@ -2742,7 +2742,7 @@ class OFPMPRequestGroupDesc(_ofp_header):
 class OFPGroupDesc(Packet):
     def post_build(self, p, pay):
         if self.length is None:
-            l = len(p)+len(pay)
+            l = len(p) + len(pay)
             p = struct.pack("!H", l) + p[2:]
         return p + pay
     name = "OFP_GROUP_DESC"
@@ -2754,7 +2754,7 @@ class OFPGroupDesc(Packet):
                    XByteField("pad", 0),
                    IntEnumField("group_id", 0, ofp_group),
                    BucketPacketListField("buckets", None, Packet,
-                                         length_from=lambda pkt: pkt.length-8)]
+                                         length_from=lambda pkt: pkt.length - 8)]
 
 
 class GroupDescPacketListField(PacketListField):
@@ -2787,7 +2787,7 @@ class OFPMPReplyGroupDesc(_ofp_header):
                    FlagsField("flags", 0, 16, ofpmp_reply_flags),
                    XIntField("pad1", 0),
                    GroupDescPacketListField("group_descs", [], Packet,
-                                            length_from=lambda pkt:pkt.len-16)]
+                                            length_from=lambda pkt:pkt.len - 16)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
@@ -2860,7 +2860,7 @@ class OFPMeterBandStats(Packet):
 class OFPMeterStats(Packet):
     def post_build(self, p, pay):
         if self.len is None:
-            l = len(p)+len(pay)
+            l = len(p) + len(pay)
             p = p[:4] + struct.pack("!H", l) + p[6:]
         return p + pay
     name = "OFP_GROUP_STATS"
@@ -2873,7 +2873,7 @@ class OFPMeterStats(Packet):
                    IntField("duration_sec", 0),
                    IntField("duration_nsec", 0),
                    PacketListField("band_stats", None, OFPMeterBandStats,
-                                   length_from=lambda pkt:pkt.len-40)]
+                                   length_from=lambda pkt:pkt.len - 40)]
 
 
 class MeterStatsPacketListField(PacketListField):
@@ -2908,7 +2908,7 @@ class OFPMPReplyMeter(_ofp_header):
                    FlagsField("flags", 0, 16, ofpmp_reply_flags),
                    XIntField("pad1", 0),
                    MeterStatsPacketListField("meter_stats", [], Packet,
-                                             length_from=lambda pkt:pkt.len-16)]
+                                             length_from=lambda pkt:pkt.len - 16)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
@@ -2929,7 +2929,7 @@ class OFPMPRequestMeterConfig(_ofp_header):
 class OFPMeterConfig(Packet):
     def post_build(self, p, pay):
         if self.length is None:
-            l = len(p)+len(pay)
+            l = len(p) + len(pay)
             p = struct.pack("!H", l) + p[2:]
         return p + pay
     name = "OFP_METER_CONFIG"
@@ -2940,7 +2940,7 @@ class OFPMeterConfig(Packet):
                                                "STATS"]),
                    IntEnumField("meter_id", 1, ofp_meter),
                    MeterBandPacketListField("bands", [], Packet,
-                                            length_from=lambda pkt:pkt.len-8)]
+                                            length_from=lambda pkt:pkt.len - 8)]
 
 
 class MeterConfigPacketListField(PacketListField):
@@ -2973,7 +2973,7 @@ class OFPMPReplyMeterConfig(_ofp_header):
                    FlagsField("flags", 0, 16, ofpmp_reply_flags),
                    XIntField("pad1", 0),
                    MeterConfigPacketListField("meter_configs", [], Packet,
-                                              length_from=lambda pkt:pkt.len-16)]
+                                              length_from=lambda pkt:pkt.len - 16)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
@@ -3020,16 +3020,16 @@ class _ofp_table_features_prop_header(Packet):
     def post_build(self, p, pay):
         l = self.length
         if l is None:
-            l = len(p)+len(pay)
+            l = len(p) + len(pay)
             p = p[:2] + struct.pack("!H", l) + p[4:]
         # every message will be padded correctly
-        zero_bytes = (8 - l%8) % 8
+        zero_bytes = (8 - l % 8) % 8
         p += b"\x00" * zero_bytes
         return p + pay
 
     def extract_padding(self, s):
         l = self.length
-        zero_bytes = (8 - l%8) % 8
+        zero_bytes = (8 - l % 8) % 8
         return b"", s
 
 
@@ -3056,7 +3056,7 @@ class OFPTFPTInstructions(_ofp_table_features_prop_header):
     fields_desc = [ShortField("type", 0),
                    ShortField("length", None),
                    InstructionIDPacketListField("instruction_ids", [], Packet,
-                                                length_from=lambda pkt:pkt.length-4)]
+                                                length_from=lambda pkt:pkt.length - 4)]
 
 
 class OFPTFPTInstructionsMiss(_ofp_table_features_prop_header):
@@ -3064,7 +3064,7 @@ class OFPTFPTInstructionsMiss(_ofp_table_features_prop_header):
     fields_desc = [ShortField("type", 1),
                    ShortField("length", None),
                    InstructionIDPacketListField("instruction_ids", [], Packet,
-                                                length_from=lambda pkt:pkt.length-4)]
+                                                length_from=lambda pkt:pkt.length - 4)]
 
 
 class OFPTableID(Packet):
@@ -3079,7 +3079,7 @@ class OFPTFPTNextTables(_ofp_table_features_prop_header):
     fields_desc = [ShortField("type", 2),
                    ShortField("length", None),
                    PacketListField("next_table_ids", None, OFPTableID,
-                                   length_from=lambda pkt:pkt.length-4)]
+                                   length_from=lambda pkt:pkt.length - 4)]
 
 
 class OFPTFPTNextTablesMiss(_ofp_table_features_prop_header):
@@ -3087,7 +3087,7 @@ class OFPTFPTNextTablesMiss(_ofp_table_features_prop_header):
     fields_desc = [ShortField("type", 3),
                    ShortField("length", None),
                    PacketListField("next_table_ids", None, OFPTableID,
-                                   length_from=lambda pkt:pkt.length-4)]
+                                   length_from=lambda pkt:pkt.length - 4)]
 
 
 class OFPTFPTWriteActions(_ofp_table_features_prop_header):
@@ -3095,7 +3095,7 @@ class OFPTFPTWriteActions(_ofp_table_features_prop_header):
     fields_desc = [ShortField("type", 4),
                    ShortField("length", None),
                    ActionIDPacketListField("action_ids", [], Packet,
-                                           length_from=lambda pkt:pkt.length-4)]
+                                           length_from=lambda pkt:pkt.length - 4)]
 
 
 class OFPTFPTWriteActionsMiss(_ofp_table_features_prop_header):
@@ -3103,7 +3103,7 @@ class OFPTFPTWriteActionsMiss(_ofp_table_features_prop_header):
     fields_desc = [ShortField("type", 5),
                    ShortField("length", None),
                    ActionIDPacketListField("action_ids", [], Packet,
-                                           length_from=lambda pkt:pkt.length-4)]
+                                           length_from=lambda pkt:pkt.length - 4)]
 
 
 class OFPTFPTApplyActions(_ofp_table_features_prop_header):
@@ -3111,7 +3111,7 @@ class OFPTFPTApplyActions(_ofp_table_features_prop_header):
     fields_desc = [ShortField("type", 6),
                    ShortField("length", None),
                    ActionIDPacketListField("action_ids", [], Packet,
-                                           length_from=lambda pkt:pkt.length-4)]
+                                           length_from=lambda pkt:pkt.length - 4)]
 
 
 class OFPTFPTApplyActionsMiss(_ofp_table_features_prop_header):
@@ -3119,7 +3119,7 @@ class OFPTFPTApplyActionsMiss(_ofp_table_features_prop_header):
     fields_desc = [ShortField("type", 7),
                    ShortField("length", None),
                    ActionIDPacketListField("action_ids", [], Packet,
-                                           length_from=lambda pkt:pkt.length-4)]
+                                           length_from=lambda pkt:pkt.length - 4)]
 
 
 class OFPTFPTMatch(_ofp_table_features_prop_header):
@@ -3127,7 +3127,7 @@ class OFPTFPTMatch(_ofp_table_features_prop_header):
     fields_desc = [ShortField("type", 8),
                    ShortField("length", None),
                    OXMIDPacketListField("oxm_ids", [], Packet,
-                                        length_from=lambda pkt:pkt.length-4)]
+                                        length_from=lambda pkt:pkt.length - 4)]
 
 
 class OFPTFPTWildcards(_ofp_table_features_prop_header):
@@ -3135,7 +3135,7 @@ class OFPTFPTWildcards(_ofp_table_features_prop_header):
     fields_desc = [ShortField("type", 10),
                    ShortField("length", None),
                    OXMIDPacketListField("oxm_ids", [], Packet,
-                                        length_from=lambda pkt:pkt.length-4)]
+                                        length_from=lambda pkt:pkt.length - 4)]
 
 
 class OFPTFPTWriteSetField(_ofp_table_features_prop_header):
@@ -3143,7 +3143,7 @@ class OFPTFPTWriteSetField(_ofp_table_features_prop_header):
     fields_desc = [ShortField("type", 12),
                    ShortField("length", None),
                    OXMIDPacketListField("oxm_ids", [], Packet,
-                                        length_from=lambda pkt:pkt.length-4)]
+                                        length_from=lambda pkt:pkt.length - 4)]
 
 
 class OFPTFPTWriteSetFieldMiss(_ofp_table_features_prop_header):
@@ -3151,7 +3151,7 @@ class OFPTFPTWriteSetFieldMiss(_ofp_table_features_prop_header):
     fields_desc = [ShortField("type", 13),
                    ShortField("length", None),
                    OXMIDPacketListField("oxm_ids", [], Packet,
-                                        length_from=lambda pkt:pkt.length-4)]
+                                        length_from=lambda pkt:pkt.length - 4)]
 
 
 class OFPTFPTApplySetField(_ofp_table_features_prop_header):
@@ -3159,7 +3159,7 @@ class OFPTFPTApplySetField(_ofp_table_features_prop_header):
     fields_desc = [ShortField("type", 14),
                    ShortField("length", None),
                    OXMIDPacketListField("oxm_ids", [], Packet,
-                                        length_from=lambda pkt:pkt.length-4)]
+                                        length_from=lambda pkt:pkt.length - 4)]
 
 
 class OFPTFPTApplySetFieldMiss(_ofp_table_features_prop_header):
@@ -3167,7 +3167,7 @@ class OFPTFPTApplySetFieldMiss(_ofp_table_features_prop_header):
     fields_desc = [ShortField("type", 15),
                    ShortField("length", None),
                    OXMIDPacketListField("oxm_ids", [], Packet,
-                                        length_from=lambda pkt:pkt.length-4)]
+                                        length_from=lambda pkt:pkt.length - 4)]
 
 
 class OFPTFPTExperimenter(_ofp_table_features_prop_header):
@@ -3223,7 +3223,7 @@ class TableFeaturesPropPacketListField(PacketListField):
         while remain and len(remain) >= 4:
             l = TableFeaturesPropPacketListField._get_table_features_prop_length(remain)
             # add padding !
-            lpad = l + (8 - l%8)%8
+            lpad = l + (8 - l % 8) % 8
             if l < 4 or len(remain) < lpad:
                 # no zero length nor incoherent length
                 break
@@ -3238,7 +3238,7 @@ class TableFeaturesPropPacketListField(PacketListField):
 class OFPTableFeatures(Packet):
     def post_build(self, p, pay):
         if self.length is None:
-            l = len(p)+len(pay)
+            l = len(p) + len(pay)
             p = struct.pack("!H", l) + p[2:]
         return p + pay
     name = "OFP_TABLE_FEATURES"
@@ -3252,7 +3252,7 @@ class OFPTableFeatures(Packet):
                                               3: "OFPTC_DEPRECATED_MASK"}),
                    IntField("max_entries", 0),
                    TableFeaturesPropPacketListField("properties", [], Packet,
-                                                    length_from=lambda pkt:pkt.length-64)]
+                                                    length_from=lambda pkt:pkt.length - 64)]
 
 
 class TableFeaturesPacketListField(PacketListField):
@@ -3285,7 +3285,7 @@ class OFPMPRequestTableFeatures(_ofp_header):
                    FlagsField("flags", 0, 16, ofpmp_request_flags),
                    XIntField("pad1", 0),
                    TableFeaturesPacketListField("table_features", [], Packet,
-                                                length_from=lambda pkt:pkt.len-16)]
+                                                length_from=lambda pkt:pkt.len - 16)]
     overload_fields = {TCP: {"sport": 6653}}
 
 
@@ -3299,7 +3299,7 @@ class OFPMPReplyTableFeatures(_ofp_header):
                    FlagsField("flags", 0, 16, ofpmp_reply_flags),
                    XIntField("pad1", 0),
                    TableFeaturesPacketListField("table_features", [], Packet,
-                                                length_from=lambda pkt:pkt.len-16)]
+                                                length_from=lambda pkt:pkt.len - 16)]
     overload_fields = {TCP: {"dport": 6653}}
 
 #               end of table features               #
@@ -3329,7 +3329,7 @@ class OFPMPReplyPortDesc(_ofp_header):
                    FlagsField("flags", 0, 16, ofpmp_reply_flags),
                    XIntField("pad1", 0),
                    PacketListField("ports", None, OFPPort,
-                                   length_from=lambda pkt:pkt.len-16)]
+                                   length_from=lambda pkt:pkt.len - 16)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
@@ -3436,7 +3436,7 @@ class OFPTQueueGetConfigReply(_ofp_header):
                    IntEnumField("port", 0, ofp_port_no),
                    XIntField("pad", 0),
                    QueuePacketListField("queues", [], Packet,
-                                        length_from=lambda pkt:pkt.len-16)]
+                                        length_from=lambda pkt:pkt.len - 16)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
@@ -3538,7 +3538,7 @@ class OFPTMeterMod(_ofp_header):
                                                "STATS"]),
                    IntEnumField("meter_id", 1, ofp_meter),
                    MeterBandPacketListField("bands", [], Packet,
-                                            length_from=lambda pkt:pkt.len-16)]
+                                            length_from=lambda pkt:pkt.len - 16)]
     overload_fields = {TCP: {"sport": 6653}}
 
 

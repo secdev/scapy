@@ -150,7 +150,7 @@ def nmap_sig(target, oport=80, cport=81, ucport=1):
             options=tcpopt, flags=flags)
         for i, flags in enumerate(["CS", "", "SFUP", "A", "S", "A", "FPU"])
     ]
-    tests.append(IP(dst=target)/UDP(sport=5008, dport=ucport)/(300 * "i"))
+    tests.append(IP(dst=target) / UDP(sport=5008, dport=ucport) / (300 * "i"))
 
     ans, unans = sr(tests, timeout=2)
     ans.extend((x, None) for x in unans)

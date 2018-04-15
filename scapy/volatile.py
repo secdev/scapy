@@ -32,15 +32,15 @@ class RandomEnumeration:
         self.rnd = random.Random(seed)
         self.sbox_size = 256
 
-        self.top = sup-inf+1
+        self.top = sup - inf + 1
 
-        n=0
-        while (1<<n) < self.top:
+        n = 0
+        while (1 << n) < self.top:
             n += 1
-        self.n =n
+        self.n = n
 
-        self.fs = min(3, (n+1)//2)
-        self.fsmask = 2**self.fs-1
+        self.fs = min(3, (n + 1) // 2)
+        self.fsmask = 2**self.fs - 1
         self.rounds = max(self.n, 3)
         self.turns = 0
         self.i = 0
@@ -51,21 +51,21 @@ class RandomEnumeration:
     def next(self):
         while True:
             if self.turns == 0 or (self.i == 0 and self.renewkeys):
-                self.cnt_key = self.rnd.randint(0, 2**self.n-1)
+                self.cnt_key = self.rnd.randint(0, 2**self.n - 1)
                 self.sbox = [self.rnd.randint(0, self.fsmask)
                              for _ in range(self.sbox_size)]
             self.turns += 1
             while self.i < 2**self.n:
-                ct = self.i^self.cnt_key
+                ct = self.i ^ self.cnt_key
                 self.i += 1
                 for _ in range(self.rounds):  # Unbalanced Feistel Network
                     lsb = ct & self.fsmask
                     ct >>= self.fs
-                    lsb ^= self.sbox[ct%self.sbox_size]
-                    ct |= lsb << (self.n-self.fs)
+                    lsb ^= self.sbox[ct % self.sbox_size]
+                    ct |= lsb << (self.n - self.fs)
 
                 if ct < self.top:
-                    return self.inf+ct
+                    return self.inf + ct
             self.i = 0
             if not self.forever:
                 raise StopIteration
@@ -115,7 +115,7 @@ class RandNum(RandField):
         self.max = max
 
     def _fix(self):
-        return random.randrange(self.min, self.max+1)
+        return random.randrange(self.min, self.max + 1)
 
     def __int__(self):
         return int(self._fix())
@@ -210,7 +210,7 @@ class RandNumExpo(RandNum):
         self.base = base
 
     def _fix(self):
-        return self.base+int(round(random.expovariate(self.lambd)))
+        return self.base + int(round(random.expovariate(self.lambd)))
 
 
 class RandEnum(RandNum):
@@ -225,82 +225,82 @@ class RandEnum(RandNum):
 
 class RandByte(RandNum):
     def __init__(self):
-        RandNum.__init__(self, 0, 2**8-1)
+        RandNum.__init__(self, 0, 2**8 - 1)
 
 
 class RandSByte(RandNum):
     def __init__(self):
-        RandNum.__init__(self, -2**7, 2**7-1)
+        RandNum.__init__(self, -2**7, 2**7 - 1)
 
 
 class RandShort(RandNum):
     def __init__(self):
-        RandNum.__init__(self, 0, 2**16-1)
+        RandNum.__init__(self, 0, 2**16 - 1)
 
 
 class RandSShort(RandNum):
     def __init__(self):
-        RandNum.__init__(self, -2**15, 2**15-1)
+        RandNum.__init__(self, -2**15, 2**15 - 1)
 
 
 class RandInt(RandNum):
     def __init__(self):
-        RandNum.__init__(self, 0, 2**32-1)
+        RandNum.__init__(self, 0, 2**32 - 1)
 
 
 class RandSInt(RandNum):
     def __init__(self):
-        RandNum.__init__(self, -2**31, 2**31-1)
+        RandNum.__init__(self, -2**31, 2**31 - 1)
 
 
 class RandLong(RandNum):
     def __init__(self):
-        RandNum.__init__(self, 0, 2**64-1)
+        RandNum.__init__(self, 0, 2**64 - 1)
 
 
 class RandSLong(RandNum):
     def __init__(self):
-        RandNum.__init__(self, -2**63, 2**63-1)
+        RandNum.__init__(self, -2**63, 2**63 - 1)
 
 
 class RandEnumByte(RandEnum):
     def __init__(self):
-        RandEnum.__init__(self, 0, 2**8-1)
+        RandEnum.__init__(self, 0, 2**8 - 1)
 
 
 class RandEnumSByte(RandEnum):
     def __init__(self):
-        RandEnum.__init__(self, -2**7, 2**7-1)
+        RandEnum.__init__(self, -2**7, 2**7 - 1)
 
 
 class RandEnumShort(RandEnum):
     def __init__(self):
-        RandEnum.__init__(self, 0, 2**16-1)
+        RandEnum.__init__(self, 0, 2**16 - 1)
 
 
 class RandEnumSShort(RandEnum):
     def __init__(self):
-        RandEnum.__init__(self, -2**15, 2**15-1)
+        RandEnum.__init__(self, -2**15, 2**15 - 1)
 
 
 class RandEnumInt(RandEnum):
     def __init__(self):
-        RandEnum.__init__(self, 0, 2**32-1)
+        RandEnum.__init__(self, 0, 2**32 - 1)
 
 
 class RandEnumSInt(RandEnum):
     def __init__(self):
-        RandEnum.__init__(self, -2**31, 2**31-1)
+        RandEnum.__init__(self, -2**31, 2**31 - 1)
 
 
 class RandEnumLong(RandEnum):
     def __init__(self):
-        RandEnum.__init__(self, 0, 2**64-1)
+        RandEnum.__init__(self, 0, 2**64 - 1)
 
 
 class RandEnumSLong(RandEnum):
     def __init__(self):
-        RandEnum.__init__(self, -2**63, 2**63-1)
+        RandEnum.__init__(self, -2**63, 2**63 - 1)
 
 
 class RandEnumKeys(RandEnum):
@@ -344,7 +344,7 @@ class RandString(RandField):
         return raw(self._fix())
 
     def __mul__(self, n):
-        return self._fix()*n
+        return self._fix() * n
 
 
 class RandBin(RandString):
@@ -358,7 +358,7 @@ class RandTermString(RandBin):
         super(RandTermString, self).__init__(size=size)
 
     def _fix(self):
-        return RandBin._fix(self)+self.term
+        return RandBin._fix(self) + self.term
 
 
 class RandIP(RandString):
@@ -398,15 +398,15 @@ class RandIP6(RandString):
             if "-" in v:
                 a, b = v.split("-")
             elif v == "*":
-                a=b=""
+                a = b = ""
             else:
-                a=b=v
+                a = b = v
 
             if not a:
                 a = "0"
             if not b:
                 b = "ffff"
-            if a==b:
+            if a == b:
                 self.sp[i] = int(a, 16)
             else:
                 self.sp[i] = RandNum(int(a, 16), int(b, 16))
@@ -420,7 +420,7 @@ class RandIP6(RandString):
         for i, n in enumerate(self.sp):
             if n == "**":
                 nbm -= 1
-                remain = 8-(len(self.sp)-i-1)-len(ip)+nbm
+                remain = 8 - (len(self.sp) - i - 1) - len(ip) + nbm
                 if "" in self.sp:
                     remain += 1
                 if nbm or self.variable:
@@ -490,18 +490,18 @@ class RandRegExp(RandField):
             p = s.find("-")
             if p < 0:
                 break
-            if p == 0 or p == len(s)-1:
+            if p == 0 or p == len(s) - 1:
                 m = "-"
                 if p:
                     s = s[:-1]
                 else:
                     s = s[1:]
             else:
-                c1 = s[p-1]
-                c2 = s[p+1]
-                rng = "".join(map(chr, range(ord(c1), ord(c2)+1)))
-                s = s[:p-1]+rng+s[p+1:]
-        res = m+s
+                c1 = s[p - 1]
+                c2 = s[p + 1]
+                rng = "".join(map(chr, range(ord(c1), ord(c2) + 1)))
+                s = s[:p - 1] + rng + s[p + 1:]
+        res = m + s
         if invert:
             res = "".join(chr(x) for x in range(256) if chr(x) not in res)
         return res
@@ -513,8 +513,8 @@ class RandRegExp(RandField):
         for e in lst:
             if isinstance(e, list):
                 if mul != 1:
-                    mul = mul-1
-                    r += RandRegExp.stack_fix(e[1:]*mul, index)
+                    mul = mul - 1
+                    r += RandRegExp.stack_fix(e[1:] * mul, index)
                 # only the last iteration should be kept for back reference
                 f = RandRegExp.stack_fix(e[1:], index)
                 for i, idx in enumerate(index):
@@ -525,7 +525,7 @@ class RandRegExp(RandField):
             elif isinstance(e, tuple):
                 kind, val = e
                 if kind == "cite":
-                    r += index[val-1]
+                    r += index[val - 1]
                 elif kind == "repeat":
                     mul = val
 
@@ -534,11 +534,11 @@ class RandRegExp(RandField):
                         c = random.choice(val)
                         r += RandRegExp.stack_fix(c[1:], index)
                     else:
-                        r += RandRegExp.stack_fix([e]*mul, index)
+                        r += RandRegExp.stack_fix([e] * mul, index)
                         mul = 1
             else:
                 if mul != 1:
-                    r += RandRegExp.stack_fix([e]*mul, index)
+                    r += RandRegExp.stack_fix([e] * mul, index)
                     mul = 1
                 else:
                     r += str(e)
@@ -553,7 +553,7 @@ class RandRegExp(RandField):
         interp = True
         while i < ln:
             c = self._regexp[i]
-            i+=1
+            i += 1
 
             if c == '(':
                 current = [current]
@@ -588,7 +588,7 @@ class RandRegExp(RandField):
                 e = current.pop()
                 if "," not in num:
                     n = int(num)
-                    current.append([current]+[e]*n)
+                    current.append([current] + [e] * n)
                 else:
                     num_min, num_max = num.split(",")
                     if not num_min:
@@ -605,17 +605,17 @@ class RandRegExp(RandField):
                 if c == "s":
                     c = RandChoice(" ", "\t")
                 elif c in "0123456789":
-                    c = ("cite", ord(c)-0x30)
+                    c = ("cite", ord(c) - 0x30)
                 current.append(c)
                 i += 1
             elif not interp:
                 current.append(c)
             elif c == '+':
                 e = current.pop()
-                current.append([current]+[e]*(int(random.expovariate(self._lambda))+1))
+                current.append([current] + [e] * (int(random.expovariate(self._lambda)) + 1))
             elif c == '*':
                 e = current.pop()
-                current.append([current]+[e]*int(random.expovariate(self._lambda)))
+                current.append([current] + [e] * int(random.expovariate(self._lambda)))
             elif c == '?':
                 if random.randint(0, 1):
                     current.pop()
@@ -645,16 +645,16 @@ class RandSingNum(RandSingularity):
         if end < 0:
             end = -end
             sign = -1
-        end_n = int(math.log(end)/math.log(2))+1
-        return {sign*2**i for i in range(end_n)}
+        end_n = int(math.log(end) / math.log(2)) + 1
+        return {sign * 2**i for i in range(end_n)}
 
     def __init__(self, mn, mx):
-        sing = {0, mn, mx, int((mn+mx)/2)}
+        sing = {0, mn, mx, int((mn + mx) / 2)}
         sing |= self.make_power_of_two(mn)
         sing |= self.make_power_of_two(mx)
         for i in sing.copy():
-            sing.add(i+1)
-            sing.add(i-1)
+            sing.add(i + 1)
+            sing.add(i - 1)
         for i in sing.copy():
             if not mn <= i <= mx:
                 sing.remove(i)
@@ -664,42 +664,42 @@ class RandSingNum(RandSingularity):
 
 class RandSingByte(RandSingNum):
     def __init__(self):
-        RandSingNum.__init__(self, 0, 2**8-1)
+        RandSingNum.__init__(self, 0, 2**8 - 1)
 
 
 class RandSingSByte(RandSingNum):
     def __init__(self):
-        RandSingNum.__init__(self, -2**7, 2**7-1)
+        RandSingNum.__init__(self, -2**7, 2**7 - 1)
 
 
 class RandSingShort(RandSingNum):
     def __init__(self):
-        RandSingNum.__init__(self, 0, 2**16-1)
+        RandSingNum.__init__(self, 0, 2**16 - 1)
 
 
 class RandSingSShort(RandSingNum):
     def __init__(self):
-        RandSingNum.__init__(self, -2**15, 2**15-1)
+        RandSingNum.__init__(self, -2**15, 2**15 - 1)
 
 
 class RandSingInt(RandSingNum):
     def __init__(self):
-        RandSingNum.__init__(self, 0, 2**32-1)
+        RandSingNum.__init__(self, 0, 2**32 - 1)
 
 
 class RandSingSInt(RandSingNum):
     def __init__(self):
-        RandSingNum.__init__(self, -2**31, 2**31-1)
+        RandSingNum.__init__(self, -2**31, 2**31 - 1)
 
 
 class RandSingLong(RandSingNum):
     def __init__(self):
-        RandSingNum.__init__(self, 0, 2**64-1)
+        RandSingNum.__init__(self, 0, 2**64 - 1)
 
 
 class RandSingSLong(RandSingNum):
     def __init__(self):
-        RandSingNum.__init__(self, -2**63, 2**63-1)
+        RandSingNum.__init__(self, -2**63, 2**63 - 1)
 
 
 class RandSingString(RandSingularity):
@@ -714,17 +714,17 @@ class RandSingString(RandSingularity):
                         "%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s",
                         "%",
                         "%%%",
-                        "A"*4096,
-                        b"\x00"*4096,
-                        b"\xff"*4096,
-                        b"\x7f"*4096,
-                        b"\x80"*4096,
-                        " "*4096,
-                        "\\"*4096,
-                        "("*4096,
-                        "../"*1024,
-                        "/"*1024,
-                        "${HOME}"*512,
+                        "A" * 4096,
+                        b"\x00" * 4096,
+                        b"\xff" * 4096,
+                        b"\x7f" * 4096,
+                        b"\x80" * 4096,
+                        " " * 4096,
+                        "\\" * 4096,
+                        "(" * 4096,
+                        "../" * 1024,
+                        "/" * 1024,
+                        "${HOME}" * 512,
                         " or 1=1 --",
                         "' or 1=1 --",
                         '" or 1=1 --',
@@ -774,7 +774,7 @@ class RandPool(RandField):
             w = 1
             if isinstance(p, tuple):
                 p, w = p
-            pool += [p]*w
+            pool += [p] * w
         self._pool = pool
 
     def _fix(self):
@@ -789,15 +789,15 @@ class AutoTime(VolatileValue):
         if base == None:
             self.diff = 0
         else:
-            self.diff = time.time()-base
+            self.diff = time.time() - base
 
     def _fix(self):
-        return time.time()-self.diff
+        return time.time() - self.diff
 
 
 class IntAutoTime(AutoTime):
     def _fix(self):
-        return int(time.time()-self.diff)
+        return int(time.time() - self.diff)
 
 
 class ZuluTime(AutoTime):

@@ -100,18 +100,18 @@ class _GenericCipherSuiteMetaclass(type):
                 dct["hash_alg"] = h
 
                 if not tls1_3:
-                    kb_len = 2*c.key_len
+                    kb_len = 2 * c.key_len
 
                     if c.type == "stream" or c.type == "block":
-                        kb_len += 2*hm.key_len
+                        kb_len += 2 * hm.key_len
 
                     kb_len_v1_0 = kb_len
                     if c.type == "block":
-                        kb_len_v1_0 += 2*c.block_size
+                        kb_len_v1_0 += 2 * c.block_size
                         # no explicit IVs added for TLS 1.1+
                     elif c.type == "aead":
-                        kb_len_v1_0 += 2*c.fixed_iv_len
-                        kb_len += 2*c.fixed_iv_len
+                        kb_len_v1_0 += 2 * c.fixed_iv_len
+                        kb_len += 2 * c.fixed_iv_len
 
                     dct["_key_block_len_v1_0"] = kb_len_v1_0
                     dct["key_block_len"] = kb_len

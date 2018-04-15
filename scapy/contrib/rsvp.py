@@ -46,10 +46,10 @@ class RSVP(Packet):
         p += pay
         if self.Length is None:
             l = len(p)
-            p = p[:6]+chb((l>>8)&0xff)+chb(l&0xff)+p[8:]
+            p = p[:6] + chb((l >> 8) & 0xff) + chb(l & 0xff) + p[8:]
         if self.chksum is None:
             ck = checksum(p)
-            p = p[:2]+chb(ck>>8)+chb(ck&0xff)+p[4:]
+            p = p[:2] + chb(ck >> 8) + chb(ck & 0xff) + p[4:]
         return p
 
 
@@ -59,10 +59,10 @@ rsvptypes = {0x01: "Session",
              0x05: "TIME_VALUES",
              0x06: "ERROR_SPEC",
              0x07: "SCOPE",
-             0x08:  "STYLE",
-             0x09:  "FLOWSPEC",
-             0x0A:  "FILTER_SPEC",
-             0x0B:  "SENDER_TEMPLATE",
+             0x08: "STYLE",
+             0x09: "FLOWSPEC",
+             0x0A: "FILTER_SPEC",
+             0x0B: "SENDER_TEMPLATE",
              0x0C: "SENDER_TSPEC",
              0x0D: "ADSPEC",
              0x0E: "POLICY_DATA",
@@ -219,5 +219,5 @@ class RSVP_SessionAttrb(Packet):
         return RSVP_Object
 
 
-bind_layers(IP,     RSVP,     {"proto": 46})
+bind_layers(IP, RSVP, {"proto": 46})
 bind_layers(RSVP, RSVP_Object)

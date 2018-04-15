@@ -151,7 +151,7 @@ class connState(object):
             end = start + cs.hmac_alg.key_len
             mac_secret = key_block[start:end]
             self.debug_repr("mac_secret", mac_secret)
-            pos += 2*cs.hmac_alg.key_len
+            pos += 2 * cs.hmac_alg.key_len
         else:
             mac_secret = None
 
@@ -170,7 +170,7 @@ class connState(object):
                                                                 self.row,
                                                                 reqLen)
         self.debug_repr("cipher_secret", cipher_secret)
-        pos += 2*cipher_alg.key_len
+        pos += 2 * cipher_alg.key_len
 
         # Implicit IV (for block and AEAD ciphers)
         start = pos
@@ -270,7 +270,7 @@ class connState(object):
             s = '\n'.join('\t' + x for x in s.split('\n')) + '\n'
             return s
 
-        res =  "Connection end : %s\n" % self.connection_end.upper()
+        res = "Connection end : %s\n" % self.connection_end.upper()
         res += "Cipher suite   : %s (0x%04x)\n" % (self.ciphersuite.name,
                                                    self.ciphersuite.val)
         res += "Compression    : %s (0x%02x)\n" % (self.compression.name,
@@ -552,7 +552,7 @@ class tlsSession(object):
         km = self.pwcs.prf.derive_key_block(self.master_secret,
                                             self.sslv2_challenge,
                                             self.sslv2_connection_id,
-                                            2*self.pwcs.cipher.key_len)
+                                            2 * self.pwcs.cipher.key_len)
         self.sslv2_key_material = km
         if conf.debug_tls:
             log_runtime.debug("TLS: master secret: %s", repr_hex(self.master_secret))
@@ -976,7 +976,7 @@ class _tls_sessions(object):
                     sid = sid[:11] + "..."
                 res.append((src, dst, sid))
         colwidth = (max([len(y) for y in x]) for x in zip(*res))
-        fmt = "  ".join(map(lambda x: "%%-%ds"%x, colwidth))
+        fmt = "  ".join(map(lambda x: "%%-%ds" % x, colwidth))
         return "\n".join(map(lambda x: fmt % x, res))
 
 

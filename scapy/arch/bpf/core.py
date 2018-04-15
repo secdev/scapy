@@ -57,7 +57,7 @@ def get_if_raw_addr(ifname):
 def get_if_raw_hwaddr(ifname):
     """Returns the packed MAC address configured on 'ifname'."""
 
-    NULL_MAC_ADDRESS = b'\x00'*6
+    NULL_MAC_ADDRESS = b'\x00' * 6
 
     # Handle the loopback interface separately
     if ifname == LOOPBACK_NAME:

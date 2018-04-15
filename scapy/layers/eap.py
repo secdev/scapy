@@ -108,62 +108,62 @@ class EAPOL(Packet):
 #
 
 eap_types = {
-    0:   "Reserved",
-    1:   "Identity",
-    2:   "Notification",
-    3:   "Legacy Nak",
-    4:   "MD5-Challenge",
-    5:   "One-Time Password (OTP)",
-    6:   "Generic Token Card (GTC)",
-    7:   "Allocated - RFC3748",
-    8:   "Allocated - RFC3748",
-    9:   "RSA Public Key Authentication",
-    10:  "DSS Unilateral",
-    11:  "KEA",
-    12:  "KEA-VALIDATE",
-    13:  "EAP-TLS",
-    14:  "Defender Token (AXENT)",
-    15:  "RSA Security SecurID EAP",
-    16:  "Arcot Systems EAP",
-    17:  "EAP-Cisco Wireless",
-    18:  "GSM Subscriber Identity Modules (EAP-SIM)",
-    19:  "SRP-SHA1",
-    20:  "Unassigned",
-    21:  "EAP-TTLS",
-    22:  "Remote Access Service",
-    23:  "EAP-AKA Authentication",
-    24:  "EAP-3Com Wireless",
-    25:  "PEAP",
-    26:  "MS-EAP-Authentication",
-    27:  "Mutual Authentication w/Key Exchange (MAKE)",
-    28:  "CRYPTOCard",
-    29:  "EAP-MSCHAP-V2",
-    30:  "DynamID",
-    31:  "Rob EAP",
-    32:  "Protected One-Time Password",
-    33:  "MS-Authentication-TLV",
-    34:  "SentriNET",
-    35:  "EAP-Actiontec Wireless",
-    36:  "Cogent Systems Biometrics Authentication EAP",
-    37:  "AirFortress EAP",
-    38:  "EAP-HTTP Digest",
-    39:  "SecureSuite EAP",
-    40:  "DeviceConnect EAP",
-    41:  "EAP-SPEKE",
-    42:  "EAP-MOBAC",
-    43:  "EAP-FAST",
-    44:  "ZoneLabs EAP (ZLXEAP)",
-    45:  "EAP-Link",
-    46:  "EAP-PAX",
-    47:  "EAP-PSK",
-    48:  "EAP-SAKE",
-    49:  "EAP-IKEv2",
-    50:  "EAP-AKA",
-    51:  "EAP-GPSK",
-    52:  "EAP-pwd",
-    53:  "EAP-EKE Version 1",
-    54:  "EAP Method Type for PT-EAP",
-    55:  "TEAP",
+    0: "Reserved",
+    1: "Identity",
+    2: "Notification",
+    3: "Legacy Nak",
+    4: "MD5-Challenge",
+    5: "One-Time Password (OTP)",
+    6: "Generic Token Card (GTC)",
+    7: "Allocated - RFC3748",
+    8: "Allocated - RFC3748",
+    9: "RSA Public Key Authentication",
+    10: "DSS Unilateral",
+    11: "KEA",
+    12: "KEA-VALIDATE",
+    13: "EAP-TLS",
+    14: "Defender Token (AXENT)",
+    15: "RSA Security SecurID EAP",
+    16: "Arcot Systems EAP",
+    17: "EAP-Cisco Wireless",
+    18: "GSM Subscriber Identity Modules (EAP-SIM)",
+    19: "SRP-SHA1",
+    20: "Unassigned",
+    21: "EAP-TTLS",
+    22: "Remote Access Service",
+    23: "EAP-AKA Authentication",
+    24: "EAP-3Com Wireless",
+    25: "PEAP",
+    26: "MS-EAP-Authentication",
+    27: "Mutual Authentication w/Key Exchange (MAKE)",
+    28: "CRYPTOCard",
+    29: "EAP-MSCHAP-V2",
+    30: "DynamID",
+    31: "Rob EAP",
+    32: "Protected One-Time Password",
+    33: "MS-Authentication-TLV",
+    34: "SentriNET",
+    35: "EAP-Actiontec Wireless",
+    36: "Cogent Systems Biometrics Authentication EAP",
+    37: "AirFortress EAP",
+    38: "EAP-HTTP Digest",
+    39: "SecureSuite EAP",
+    40: "DeviceConnect EAP",
+    41: "EAP-SPEKE",
+    42: "EAP-MOBAC",
+    43: "EAP-FAST",
+    44: "ZoneLabs EAP (ZLXEAP)",
+    45: "EAP-Link",
+    46: "EAP-PAX",
+    47: "EAP-PSK",
+    48: "EAP-SAKE",
+    49: "EAP-IKEv2",
+    50: "EAP-AKA",
+    51: "EAP-GPSK",
+    52: "EAP-pwd",
+    53: "EAP-EKE Version 1",
+    54: "EAP Method Type for PT-EAP",
+    55: "TEAP",
     254: "Reserved for the Expanded Type",
     255: "Experimental",
 }
@@ -419,23 +419,23 @@ class LEAP(EAP):
 #
 
 _parameter_set_types = {
-    1:   "Live Peer List",
-    2:   "Potential Peer List",
-    3:   "MACsec SAK Use",
-    4:   "Distributed SAK",
-    5:   "Distributed CAK",
-    6:   "KMD",
-    7:   "Announcement",
+    1: "Live Peer List",
+    2: "Potential Peer List",
+    3: "MACsec SAK Use",
+    4: "Distributed SAK",
+    5: "Distributed CAK",
+    6: "KMD",
+    7: "Announcement",
     255: "ICV Indicator"
 }
 
 
 # Used by MKAParamSet::dispatch_hook() to instantiate the appropriate class
 _param_set_cls = {
-    1:   "MKALivePeerListParamSet",
-    2:   "MKAPotentialPeerListParamSet",
-    3:   "MKASAKUseParamSet",
-    4:   "MKADistributedSAKParamSet",
+    1: "MKALivePeerListParamSet",
+    2: "MKAPotentialPeerListParamSet",
+    3: "MKASAKUseParamSet",
+    4: "MKADistributedSAKParamSet",
     255: "MKAICVSet",
 }
 
@@ -768,11 +768,11 @@ class MKAPDU(Packet):
         return "", s
 
 
-bind_layers(Ether,         EAPOL,         type=34958)
-bind_layers(Ether,         EAPOL,         dst='01:80:c2:00:00:03', type=34958)
-bind_layers(CookedLinux,   EAPOL,         proto=34958)
-bind_layers(GRE,           EAPOL,         proto=34958)
-bind_layers(EAPOL,         EAP,           type=0)
-bind_layers(SNAP,          EAPOL,         code=34958)
-bind_layers(EAPOL,         MKAPDU,        type=5)
+bind_layers(Ether, EAPOL, type=34958)
+bind_layers(Ether, EAPOL, dst='01:80:c2:00:00:03', type=34958)
+bind_layers(CookedLinux, EAPOL, proto=34958)
+bind_layers(GRE, EAPOL, proto=34958)
+bind_layers(EAPOL, EAP, type=0)
+bind_layers(SNAP, EAPOL, code=34958)
+bind_layers(EAPOL, MKAPDU, type=5)
 

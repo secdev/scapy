@@ -113,7 +113,7 @@ def _ssl_PRF(secret, seed, req_len):
     rounds = (req_len + hash_md5.hash_len - 1) // hash_md5.hash_len
 
     for i in range(rounds):
-        label = d[i] * (i+1)
+        label = d[i] * (i + 1)
         tmp = hash_sha1.digest(label + secret + seed)
         res += hash_md5.digest(secret + tmp)
 
@@ -141,8 +141,8 @@ def _tls_PRF(secret, label, seed, req_len):
     S1 = secret[:l]
     S2 = secret[-l:]
 
-    a1 = _tls_P_MD5(S1, label+seed, req_len)
-    a2 = _tls_P_SHA1(S2, label+seed, req_len)
+    a1 = _tls_P_MD5(S1, label + seed, req_len)
+    a2 = _tls_P_SHA1(S2, label + seed, req_len)
 
     return strxor(a1, a2)
 
@@ -163,15 +163,15 @@ def _tls12_SHA256PRF(secret, label, seed, req_len):
     - seed: the seed used by the expansion functions.
     - req_len: amount of keystream to be generated
     """
-    return _tls_P_SHA256(secret, label+seed, req_len)
+    return _tls_P_SHA256(secret, label + seed, req_len)
 
 
 def _tls12_SHA384PRF(secret, label, seed, req_len):
-    return _tls_P_SHA384(secret, label+seed, req_len)
+    return _tls_P_SHA384(secret, label + seed, req_len)
 
 
 def _tls12_SHA512PRF(secret, label, seed, req_len):
-    return _tls_P_SHA512(secret, label+seed, req_len)
+    return _tls_P_SHA512(secret, label + seed, req_len)
 
 
 class PRF(object):
@@ -254,10 +254,10 @@ class PRF(object):
                 d = {"client": b"SRVR", "server": b"CLNT"}
             label = d[con_end]
 
-            sslv3_md5_pad1 = b"\x36"*48
-            sslv3_md5_pad2 = b"\x5c"*48
-            sslv3_sha1_pad1 = b"\x36"*40
-            sslv3_sha1_pad2 = b"\x5c"*40
+            sslv3_md5_pad1 = b"\x36" * 48
+            sslv3_md5_pad2 = b"\x5c" * 48
+            sslv3_sha1_pad1 = b"\x36" * 40
+            sslv3_sha1_pad2 = b"\x5c" * 40
 
             md5 = _tls_hash_algs["MD5"]()
             sha1 = _tls_hash_algs["SHA"]()
@@ -343,7 +343,7 @@ class PRF(object):
             iv_block = self.prf("",
                                 b"IV block",
                                 client_random + server_random,
-                                2*req_len)
+                                2 * req_len)
             if s:
                 iv = iv_block[:req_len]
             else:

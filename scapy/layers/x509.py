@@ -184,7 +184,7 @@ class X509_Attribute(ASN1_Packet):
 
 class X509_AttributeTypeAndValue(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root =  ASN1F_SEQUENCE(
+    ASN1_root = ASN1F_SEQUENCE(
         ASN1F_OID("type", "2.5.4.6"),
         ASN1F_X509_DirectoryString("value",
                                    ASN1_PRINTABLE_STRING("FR")))
@@ -296,7 +296,7 @@ class X509_ExtAuthorityKeyIdentifier(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
     ASN1_root = ASN1F_SEQUENCE(
         ASN1F_optional(
-            ASN1F_STRING("keyIdentifier", b"\xff"*20,
+            ASN1F_STRING("keyIdentifier", b"\xff" * 20,
                          implicit_tag=0x80)),
         ASN1F_optional(
             ASN1F_SEQUENCE_OF("authorityCertIssuer", None,
@@ -316,7 +316,7 @@ class X509_ExtSubjectDirectoryAttributes(ASN1_Packet):
 
 class X509_ExtSubjectKeyIdentifier(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root = ASN1F_STRING("keyIdentifier", "xff"*20)
+    ASN1_root = ASN1F_STRING("keyIdentifier", "xff" * 20)
 
 
 class X509_ExtFullName(ASN1_Packet):
@@ -894,7 +894,7 @@ _default_subject = [
 
 class X509_Validity(ASN1_Packet):
     ASN1_codec = ASN1_Codecs.BER
-    ASN1_root =  ASN1F_SEQUENCE(
+    ASN1_root = ASN1F_SEQUENCE(
         ASN1F_CHOICE("not_before",
                      ASN1_UTC_TIME(str(ZuluTime(-600))),
                      ASN1F_UTC_TIME, ASN1F_GENERALIZED_TIME),
@@ -1014,7 +1014,7 @@ class ASN1F_X509_Cert(ASN1F_SEQUENCE):
                             X509_AlgorithmIdentifier(),
                             X509_AlgorithmIdentifier),
                ASN1F_BIT_STRING("signatureValue",
-                                "defaultsignature"*2)]
+                                "defaultsignature" * 2)]
         ASN1F_SEQUENCE.__init__(self, *seq, **kargs)
 
     def m2i(self, pkt, x):
@@ -1131,7 +1131,7 @@ class ASN1F_X509_CRL(ASN1F_SEQUENCE):
                             X509_AlgorithmIdentifier(),
                             X509_AlgorithmIdentifier),
                ASN1F_BIT_STRING("signatureValue",
-                                "defaultsignature"*2)]
+                                "defaultsignature" * 2)]
         ASN1F_SEQUENCE.__init__(self, *seq, **kargs)
 
     def m2i(self, pkt, x):
@@ -1292,7 +1292,7 @@ class ASN1F_OCSP_BasicResponse(ASN1F_SEQUENCE):
                             X509_AlgorithmIdentifier(),
                             X509_AlgorithmIdentifier),
                ASN1F_BIT_STRING("signature",
-                                "defaultsignature"*2),
+                                "defaultsignature" * 2),
                ASN1F_optional(
                    ASN1F_SEQUENCE_OF("certs", None, X509_Cert,
                                      explicit_tag=0xa0))]

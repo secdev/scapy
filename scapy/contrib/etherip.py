@@ -27,6 +27,6 @@ class EtherIP(Packet):
                    BitField("reserved", 0, 12)]
 
 
-bind_layers(IP,            EtherIP,       frag=0, proto=0x61)
-bind_layers(EtherIP,       Ether)
+bind_layers(IP, EtherIP, frag=0, proto=0x61)
+bind_layers(EtherIP, Ether)
 

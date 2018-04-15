@@ -206,20 +206,20 @@ class SkinnyDateTimeField(StrFixedLenField):
         StrFixedLenField.__init__(self, name, default, 32)
 
     def m2i(self, pkt, s):
-        year, month, dow, day, hour, min, sec, milisecond=struct.unpack('<8I', s)
+        year, month, dow, day, hour, min, sec, milisecond = struct.unpack('<8I', s)
         return (year, month, day, hour, min, sec)
 
     def i2m(self, pkt, val):
         if isinstance(val, str):
             val = self.h2i(pkt, val)
-        l= val[:2] + (0,) + val[2:7] + (0,)
+        l = val[:2] + (0,) + val[2:7] + (0,)
         return struct.pack('<8I', *l)
 
     def i2h(self, pkt, x):
         if isinstance(x, str):
             return x
         else:
-            return time.ctime(time.mktime(x+(0, 0, 0)))
+            return time.ctime(time.mktime(x + (0, 0, 0)))
 
     def i2repr(self, pkt, x):
         return self.i2h(pkt, x)
@@ -234,7 +234,7 @@ class SkinnyDateTimeField(StrFixedLenField):
                 y, m, d, h, min, sec, rest, rest, rest = time.gmtime(time.time())
                 t = (y, m, d, h, min, sec)
             else:
-                t=s
+                t = s
         return t
 
 
@@ -243,15 +243,15 @@ class SkinnyDateTimeField(StrFixedLenField):
 ###########################
 
 class SkinnyMessageGeneric(Packet):
-    name='Generic message'
+    name = 'Generic message'
 
 
 class SkinnyMessageKeepAlive(Packet):
-    name='keep alive'
+    name = 'keep alive'
 
 
 class SkinnyMessageKeepAliveAck(Packet):
-    name='keep alive ack'
+    name = 'keep alive ack'
 
 
 class SkinnyMessageOffHook(Packet):
@@ -265,7 +265,7 @@ class SkinnyMessageOnHook(SkinnyMessageOffHook):
 
 
 class SkinnyMessageCallState(Packet):
-    name='Skinny Call state message'
+    name = 'Skinny Call state message'
     fields_desc = [LEIntEnumField("state", 1, skinny_callstates),
                    LEIntField("instance", 1),
                    LEIntField("callid", 0),
@@ -275,14 +275,14 @@ class SkinnyMessageCallState(Packet):
 
 
 class SkinnyMessageSoftKeyEvent(Packet):
-    name='Soft Key Event'
+    name = 'Soft Key Event'
     fields_desc = [LEIntField("key", 0),
                    LEIntField("instance", 1),
                    LEIntField("callid", 0)]
 
 
 class SkinnyMessageSetRinger(Packet):
-    name='Ring message'
+    name = 'Ring message'
     fields_desc = [LEIntEnumField("ring", 0x1, skinny_ring_type),
                    LEIntField("unknown1", 0),
                    LEIntField("unknown2", 0),
@@ -299,7 +299,7 @@ _skinny_tones = {
 
 
 class SkinnyMessageStartTone(Packet):
-    name='Start tone'
+    name = 'Start tone'
     fields_desc = [LEIntEnumField("tone", 0x21, _skinny_tones),
                    LEIntField("unknown1", 0),
                    LEIntField("instance", 1),
@@ -307,25 +307,25 @@ class SkinnyMessageStartTone(Packet):
 
 
 class SkinnyMessageStopTone(SkinnyMessageGeneric):
-    name='stop tone'
+    name = 'stop tone'
     fields_desc = [LEIntField("instance", 1),
                    LEIntField("callid", 0)]
 
 
 class SkinnyMessageSpeakerMode(Packet):
-    name='Speaker mdoe'
+    name = 'Speaker mdoe'
     fields_desc = [LEIntEnumField("ring", 0x1, skinny_speaker_modes)]
 
 
 class SkinnyMessageSetLamp(Packet):
-    name='Lamp message (light of the phone)'
+    name = 'Lamp message (light of the phone)'
     fields_desc = [LEIntEnumField("stimulus", 0x5, skinny_stimulus),
                    LEIntField("instance", 1),
                    LEIntEnumField("mode", 2, skinny_lamp_mode)]
 
 
 class SkinnyMessageSoftKeyEvent(Packet):
-    name=' Call state message'
+    name = ' Call state message'
     fields_desc = [LEIntField("instance", 1),
                    LEIntField("callid", 0),
                    LEIntField("set", 0),
@@ -333,39 +333,39 @@ class SkinnyMessageSoftKeyEvent(Packet):
 
 
 class SkinnyMessagePromptStatus(Packet):
-    name='Prompt status'
+    name = 'Prompt status'
     fields_desc = [LEIntField("timeout", 0),
-                   StrFixedLenField("text", b"\0"*32, 32),
+                   StrFixedLenField("text", b"\0" * 32, 32),
                    LEIntField("instance", 1),
                    LEIntField("callid", 0)]
 
 
 class SkinnyMessageCallPlane(Packet):
-    name='Activate/Desactivate Call Plane Message'
+    name = 'Activate/Desactivate Call Plane Message'
     fields_desc = [LEIntField("instance", 1)]
 
 
 class SkinnyMessageTimeDate(Packet):
-    name='Setting date and time'
+    name = 'Setting date and time'
     fields_desc = [SkinnyDateTimeField("settime", None),
                    LEIntField("timestamp", 0)]
 
 
 class SkinnyMessageClearPromptStatus(Packet):
-    name='clear prompt status'
+    name = 'clear prompt status'
     fields_desc = [LEIntField("instance", 1),
                    LEIntField("callid", 0)]
 
 
 class SkinnyMessageKeypadButton(Packet):
-    name='keypad button'
+    name = 'keypad button'
     fields_desc = [LEIntField("key", 0),
                    LEIntField("instance", 1),
                    LEIntField("callid", 0)]
 
 
 class SkinnyMessageDialedNumber(Packet):
-    name='dialed number'
+    name = 'dialed number'
     fields_desc = [StrFixedLenField("number", "1337", 24),
                    LEIntField("instance", 1),
                    LEIntField("callid", 0)]
@@ -375,7 +375,7 @@ _skinny_message_callinfo_restrictions = ['CallerName', 'CallerNumber', 'CalledNa
 
 
 class SkinnyMessageCallInfo(Packet):
-    name='call information'
+    name = 'call information'
     fields_desc = [StrFixedLenField("callername", "Jean Valjean", 40),
                    StrFixedLenField("callernum", "1337", 24),
                    StrFixedLenField("calledname", "Causette", 40),
@@ -388,10 +388,10 @@ class SkinnyMessageCallInfo(Packet):
                    StrFixedLenField("lastredirectingnum", "1034", 24),
                    LEIntField("originalredirectreason", 0),
                    LEIntField("lastredirectreason", 0),
-                   StrFixedLenField('voicemailboxG', b'\0'*24, 24),
-                   StrFixedLenField('voicemailboxD', b'\0'*24, 24),
-                   StrFixedLenField('originalvoicemailboxD', b'\0'*24, 24),
-                   StrFixedLenField('lastvoicemailboxD', b'\0'*24, 24),
+                   StrFixedLenField('voicemailboxG', b'\0' * 24, 24),
+                   StrFixedLenField('voicemailboxD', b'\0' * 24, 24),
+                   StrFixedLenField('originalvoicemailboxD', b'\0' * 24, 24),
+                   StrFixedLenField('lastvoicemailboxD', b'\0' * 24, 24),
                    LEIntField('security', 0),
                    FlagsField('restriction', 0, 16, _skinny_message_callinfo_restrictions),
                    LEIntField('unknown', 0)]
@@ -400,7 +400,7 @@ class SkinnyMessageCallInfo(Packet):
 class SkinnyRateField(LEIntField):
     def i2repr(self, pkt, x):
         if x is None:
-            x=0
+            x = 0
         return '%d ms/pkt' % x
 
 
@@ -419,7 +419,7 @@ _skinny_echo = {
 
 
 class SkinnyMessageOpenReceiveChannel(Packet):
-    name='open receive channel'
+    name = 'open receive channel'
     fields_desc = [LEIntField('conference', 0),
                    LEIntField('passthru', 0),
                    SkinnyRateField('rate', 20),
@@ -439,7 +439,7 @@ _skinny_receive_channel_status = {
 
 
 class SkinnyMessageOpenReceiveChannelAck(Packet):
-    name='open receive channel'
+    name = 'open receive channel'
     fields_desc = [LEIntEnumField('status', 0, _skinny_receive_channel_status),
                    IPField('remote', '0.0.0.0'),
                    LEIntField('port', RandShort()),
@@ -456,12 +456,12 @@ _skinny_silence = {
 class SkinnyFramePerPacketField(LEIntField):
     def i2repr(self, pkt, x):
         if x is None:
-            x=0
+            x = 0
         return '%d frames/pkt' % x
 
 
 class SkinnyMessageStartMediaTransmission(Packet):
-    name='start multimedia transmission'
+    name = 'start multimedia transmission'
     fields_desc = [LEIntField('conference', 0),
                    LEIntField('passthru', 0),
                    IPField('remote', '0.0.0.0'),
@@ -479,7 +479,7 @@ class SkinnyMessageStartMediaTransmission(Packet):
 
 
 class SkinnyMessageCloseReceiveChannel(Packet):
-    name='close receive channel'
+    name = 'close receive channel'
     fields_desc = [LEIntField('conference', 0),
                    LEIntField('passthru', 0),
                    IPField('remote', '0.0.0.0'),
@@ -492,23 +492,23 @@ class SkinnyMessageCloseReceiveChannel(Packet):
 
 
 class SkinnyMessageStopMultiMediaTransmission(Packet):
-    name='stop multimedia transmission'
+    name = 'stop multimedia transmission'
     fields_desc = [LEIntField('conference', 0),
                    LEIntField('passthru', 0),
                    LEIntField('callid', 0)]
 
 
 class Skinny(Packet):
-    name="Skinny"
+    name = "Skinny"
     fields_desc = [LEIntField("len", None),
                    LEIntField("res", 0),
                    LEIntEnumField("msg", 0, skinny_messages_cls)]
 
     def post_build(self, pkt, p):
         if self.len is None:
-            l=len(p)+len(pkt)-8  # on compte pas les headers len et reserved
-            pkt=struct.pack('@I', l)+pkt[4:]
-        return pkt+p
+            l = len(p) + len(pkt) - 8  # on compte pas les headers len et reserved
+            pkt = struct.pack('@I', l) + pkt[4:]
+        return pkt + p
 
 # An helper
 
@@ -519,7 +519,7 @@ def get_cls(name, fallback_cls):
 
 
 for msgid, strcls in skinny_messages_cls.items():
-    cls=get_cls(strcls, SkinnyMessageGeneric)
+    cls = get_cls(strcls, SkinnyMessageGeneric)
     bind_layers(Skinny, cls, {"msg": msgid})
 
 bind_layers(TCP, Skinny, {"dport": 2000})

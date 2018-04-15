@@ -221,13 +221,13 @@ def in6_ifaceidtomac(ifaceid):  # TODO: finish commenting function behavior
     is returned on error.
     """
     try:
-        ifaceid = inet_pton(socket.AF_INET6, "::"+ifaceid)[8:16]
+        ifaceid = inet_pton(socket.AF_INET6, "::" + ifaceid)[8:16]
     except:
         return None
     if ifaceid[3:5] != b'\xff\xfe':
         return None
     first = struct.unpack("B", ifaceid[:1])[0]
-    ulbit = 2*[1, '-', 0][first & 0x02]
+    ulbit = 2 * [1, '-', 0][first & 0x02]
     first = struct.pack("B", ((first & 0xFD) | ulbit))
     oui = first + ifaceid[1:3]
     end = ifaceid[5:]
@@ -332,7 +332,7 @@ def in6_get6to4Prefix(addr):
     """
     try:
         addr = inet_pton(socket.AF_INET, addr)
-        addr = inet_ntop(socket.AF_INET6, b'\x20\x02'+addr+b'\x00'*10)
+        addr = inet_ntop(socket.AF_INET6, b'\x20\x02' + addr + b'\x00' * 10)
     except:
         return None
     return addr
@@ -371,14 +371,14 @@ def in6_getLocalUniquePrefix():
 
     tod = time.time()  # time of day. Will bother with epoch later
     i = int(tod)
-    j = int((tod - i)*(2**32))
+    j = int((tod - i) * (2**32))
     tod = struct.pack("!II", i, j)
     mac = RandMAC()
     # construct modified EUI-64 ID
     eui64 = inet_pton(socket.AF_INET6, '::' + in6_mactoifaceid(mac))[8:]
     import hashlib
-    globalid = hashlib.sha1(tod+eui64).digest()[:5]
-    return inet_ntop(socket.AF_INET6, b'\xfd' + globalid + b'\x00'*10)
+    globalid = hashlib.sha1(tod + eui64).digest()[:5]
+    return inet_ntop(socket.AF_INET6, b'\xfd' + globalid + b'\x00' * 10)
 
 
 def in6_getRandomizedIfaceId(ifaceid, previous=None):
@@ -406,13 +406,13 @@ def in6_getRandomizedIfaceId(ifaceid, previous=None):
         for _ in range(8):
             s += chb(random.choice(d))
         previous = s
-    s = inet_pton(socket.AF_INET6, "::"+ifaceid)[8:] + previous
+    s = inet_pton(socket.AF_INET6, "::" + ifaceid)[8:] + previous
     import hashlib
     s = hashlib.md5(s).digest()
     s1, s2 = s[:8], s[8:]
     s1 = chb(orb(s1[0]) | 0x04) + s1[1:]
-    s1 = inet_ntop(socket.AF_INET6, b"\xff"*8 + s1)[20:]
-    s2 = inet_ntop(socket.AF_INET6, b"\xff"*8 + s2)[20:]
+    s1 = inet_ntop(socket.AF_INET6, b"\xff" * 8 + s1)[20:]
+    s2 = inet_ntop(socket.AF_INET6, b"\xff" * 8 + s2)[20:]
     return (s1, s2)
 
 
@@ -436,11 +436,11 @@ def in6_ctop(addr):
     i = 0
     for c in addr:
         j = _rfc1924map.index(c)
-        i = 85*i + j
+        i = 85 * i + j
     res = []
     for j in range(4):
-        res.append(struct.pack("!I", i%2**32))
-        i = i//(2**32)
+        res.append(struct.pack("!I", i % 2**32))
+        i = i // (2**32)
     res.reverse()
     return inet_ntop(socket.AF_INET6, b"".join(res))
 
@@ -452,18 +452,18 @@ def in6_ptoc(addr):
     Returns None on error.
     """
     try:
-        d=struct.unpack("!IIII", inet_pton(socket.AF_INET6, addr))
+        d = struct.unpack("!IIII", inet_pton(socket.AF_INET6, addr))
     except:
         return None
     res = 0
     m = [2**96, 2**64, 2**32, 1]
     for i in range(4):
-        res += d[i]*m[i]
+        res += d[i] * m[i]
     rem = res
     res = []
     while rem:
-        res.append(_rfc1924map[rem%85])
-        rem = rem//85
+        res.append(_rfc1924map[rem % 85])
+        rem = rem // 85
     res.reverse()
     return "".join(res)
 
@@ -503,8 +503,8 @@ def teredoAddrExtractInfo(x):
     addr = inet_pton(socket.AF_INET6, x)
     server = inet_ntop(socket.AF_INET, addr[4:8])
     flag = struct.unpack("!H", addr[8:10])[0]
-    mappedport = struct.unpack("!H", strxor(addr[10:12], b'\xff'*2))[0]
-    mappedaddr = inet_ntop(socket.AF_INET, strxor(addr[12:16], b'\xff'*4))
+    mappedport = struct.unpack("!H", strxor(addr[10:12], b'\xff' * 2))[0]
+    mappedaddr = inet_ntop(socket.AF_INET, strxor(addr[12:16], b'\xff' * 4))
     return server, flag, mappedaddr, mappedport
 
 
@@ -545,7 +545,7 @@ def _in6_bitops(a1, a2, operator=0):
            lambda x, y: x & y,
            lambda x, y: x ^ y
            ]
-    ret = map(fop[operator%len(fop)], a1, a2)
+    ret = map(fop[operator % len(fop)], a1, a2)
     return b"".join(struct.pack('I', x) for x in ret)
 
 
@@ -588,7 +588,7 @@ def in6_cidr2mask(m):
 
     t = []
     for i in range(0, 4):
-        t.append(max(0, 2**32  - 2**(32-min(32, m))))
+        t.append(max(0, 2**32 - 2**(32 - min(32, m))))
         m -= 32
 
     return b"".join(struct.pack('!I', x) for x in t)
@@ -614,7 +614,7 @@ def in6_getnsmac(a):  # return multicast Ethernet address associated with multic
 
     a = struct.unpack('16B', a)[-4:]
     mac = '33:33:'
-    mac += ':'.join("%.2x" %x for x in a)
+    mac += ':'.join("%.2x" % x for x in a)
     return mac
 
 
@@ -652,7 +652,7 @@ def in6_isllsnmaddr(str):
     multicast address, i.e. belongs to ff02::1:ff00:0/104. False is
     returned otherwise.
     """
-    temp = in6_and(b"\xff"*13+b"\x00"*3, inet_pton(socket.AF_INET6, str))
+    temp = in6_and(b"\xff" * 13 + b"\x00" * 3, inet_pton(socket.AF_INET6, str))
     temp2 = b'\xff\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\xff\x00\x00\x00'
     return temp == temp2
 
@@ -810,7 +810,7 @@ def in6_get_common_plen(a, b):
     for i in range(16):
         mbits = matching_bits(orb(tmpA[i]), orb(tmpB[i]))
         if mbits != 8:
-            return 8*i + mbits
+            return 8 * i + mbits
     return 128
 
 

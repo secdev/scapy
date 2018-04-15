@@ -39,6 +39,6 @@ class IrLMP(Packet):
                    StrField("Device name", "")]
 
 
-bind_layers(CookedLinux,   IrLAPHead,     proto=23)
-bind_layers(IrLAPHead,     IrLAPCommand,  Type=1)
-bind_layers(IrLAPCommand,  IrLMP,)
+bind_layers(CookedLinux, IrLAPHead, proto=23)
+bind_layers(IrLAPHead, IrLAPCommand, Type=1)
+bind_layers(IrLAPCommand, IrLMP,)

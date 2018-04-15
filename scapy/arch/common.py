@@ -63,9 +63,9 @@ def _legacy_bpf_pointer(tcpdump_lines):
         # XXX. Argl! We need to give the kernel a pointer on the BPF,
         # Python object header seems to be 20 bytes. 36 bytes for x86 64bits arch.
         if X86_64:
-            return struct.pack("HL", size, id(bpf)+36)
+            return struct.pack("HL", size, id(bpf) + 36)
         else:
-            return struct.pack("HI", size, id(bpf)+20)
+            return struct.pack("HI", size, id(bpf) + 20)
 
 
 def get_bpf_pointer(tcpdump_lines):

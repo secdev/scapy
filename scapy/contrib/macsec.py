@@ -108,7 +108,7 @@ class MACsecSA(object):
     @staticmethod
     def shortlen(pkt):
         """determine shortlen for a raw packet (not encapsulated yet)"""
-        datalen = len(pkt) - 2*6
+        datalen = len(pkt) - 2 * 6
         if datalen < 48:
             return datalen
         return 0
@@ -126,7 +126,7 @@ class MACsecSA(object):
                      shortlen=MACsecSA.shortlen(pkt),
                      pn=(self.pn & 0xFFFFFFFF), type=pkt.type)
         hdr.type = ETH_P_MACSEC
-        return hdr/tag/payload
+        return hdr / tag / payload
 
     # this doesn't really need to be a method, but for symmetry with
     # encap(), it is
@@ -140,8 +140,8 @@ class MACsecSA(object):
         next_layer = packet[MACsec].payload
         del prev_layer.payload
         if prev_layer.name == Ether().name:
-            return Ether(raw(prev_layer/next_layer))
-        return prev_layer/next_layer
+            return Ether(raw(prev_layer / next_layer))
+        return prev_layer / next_layer
 
     def encrypt(self, orig_pkt, assoclen=None):
         """encrypt a MACsec frame for this Secure Association"""
@@ -229,6 +229,6 @@ class MACsec(Packet):
 bind_layers(MACsec, IP, type=ETH_P_IP)
 bind_layers(MACsec, IPv6, type=ETH_P_IPV6)
 
-bind_layers(Dot1AD,        MACsec,        type=ETH_P_MACSEC)
-bind_layers(Dot1Q,         MACsec,        type=ETH_P_MACSEC)
-bind_layers(Ether,         MACsec,        type=ETH_P_MACSEC)
+bind_layers(Dot1AD, MACsec, type=ETH_P_MACSEC)
+bind_layers(Dot1Q, MACsec, type=ETH_P_MACSEC)
+bind_layers(Ether, MACsec, type=ETH_P_MACSEC)
