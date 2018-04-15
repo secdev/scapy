@@ -151,9 +151,9 @@ Here are the topics involved and some examples that you can use to try if your i
      >>> p=sniff(count=50)
      >>> p.plot(lambda x:len(x))
  
-* 2D graphics. ``psdump()`` and ``pdfdump()`` need `PyX <http://pyx.sourceforge.net/>`_ which in turn needs a LaTeX distribution: `texlive (Unix) <http://www.tug.org/texlive/>`_ or `MikTex (Windows) <https://miktex.org/>`_. For viewing the PDF and PS files interactively, you also need `Adobe Reader <http://www.adobe.com/products/reader/>`_ (``acroread``) and `gv <http://wwwthep.physik.uni-mainz.de/~plass/gv/>`_ (``gv``). 
+* 2D graphics. ``psdump()`` and ``pdfdump()`` need `PyX <http://pyx.sourceforge.net/>`_ which in turn needs a LaTeX distribution: `texlive (Unix) <http://www.tug.org/texlive/>`_ or `MikTex (Windows) <https://miktex.org/>`_.
   
-  Note: PyX requires version 0.12 on Python 2.7. This means that on Python 2.7, it needs to be installed via ``pip install pyx==0.12``. Otherwise ``pip install pyx``
+  Note: PyX requires version 0.12.1 on Python 2.7. This means that on Python 2.7, it needs to be installed via ``pip install pyx==0.12.1``. Otherwise ``pip install pyx``
   
   .. code-block:: python
    
