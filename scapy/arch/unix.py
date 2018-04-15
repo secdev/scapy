@@ -43,11 +43,11 @@ def _guess_iface_name(netif):
 
 def read_routes():
     if SOLARIS:
-        f=os.popen("netstat -rvn")  # -f inet
+        f = os.popen("netstat -rvn")  # -f inet
     elif FREEBSD:
-        f=os.popen("netstat -rnW")  # -W to handle long interface names
+        f = os.popen("netstat -rnW")  # -W to handle long interface names
     else:
-        f=os.popen("netstat -rn")  # -f inet
+        f = os.popen("netstat -rn")  # -f inet
     ok = 0
     mtu_present = False
     prio_present = False
@@ -74,7 +74,7 @@ def read_routes():
                 dest, mask, gw, netif, mxfrg, rtt, ref, flg = lspl[:8]
             else:  # missing interface
                 dest, mask, gw, mxfrg, rtt, ref, flg = lspl[:7]
-                netif=None
+                netif = None
         else:
             rt = l.split()
             dest, gw, flg = rt[:3]
@@ -93,7 +93,7 @@ def read_routes():
                 netmask = scapy.utils.itom(int(netmask))
             else:
                 netmask = scapy.utils.itom((dest.count(".") + 1) * 8)
-            dest += ".0"*(3-dest.count("."))
+            dest += ".0" * (3 - dest.count("."))
             dest = scapy.utils.atol(dest)
         # XXX: TODO: add metrics for unix.py (use -e option on netstat)
         metric = 1

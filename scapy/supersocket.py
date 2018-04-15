@@ -34,12 +34,12 @@ class _SuperSocket_metaclass(type):
 
 class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
     desc = None
-    closed=0
+    closed = 0
 
     def __init__(self, family=socket.AF_INET, type=socket.SOCK_STREAM, proto=0):
         self.ins = socket.socket(family, type, proto)
         self.outs = self.ins
-        self.promisc=None
+        self.promisc = None
 
     def send(self, x):
         sx = raw(x)

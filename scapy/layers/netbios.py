@@ -33,8 +33,8 @@ class NetBIOS_DS(Packet):
     def post_build(self, p, pay):
         p += pay
         if self.len is None:
-            l = len(p)-14
-            p = p[:10]+struct.pack("!H", l)+p[12:]
+            l = len(p) - 14
+            p = p[:10] + struct.pack("!H", l) + p[12:]
         return p
 
 #        ShortField("length",0),
@@ -56,7 +56,7 @@ class NetBIOS_DS(Packet):
 # Name Query Request
 # Node Status Request
 class NBNSQueryRequest(Packet):
-    name="NBNS query request"
+    name = "NBNS query request"
     fields_desc = [ShortField("NAME_TRN_ID", 0),
                    ShortField("FLAGS", 0x0110),
                    ShortField("QDCOUNT", 1),
@@ -64,7 +64,7 @@ class NBNSQueryRequest(Packet):
                    ShortField("NSCOUNT", 0),
                    ShortField("ARCOUNT", 0),
                    NetBIOSNameField("QUESTION_NAME", "windows"),
-                   ShortEnumField("SUFFIX", 0x4141, {0x4141: "workstation", 0x4141+0x03: "messenger service", 0x4141+0x200: "file server service", 0x4141+0x10b: "domain master browser", 0x4141+0x10c: "domain controller", 0x4141+0x10e: "browser election service"}),
+                   ShortEnumField("SUFFIX", 0x4141, {0x4141: "workstation", 0x4141 + 0x03: "messenger service", 0x4141 + 0x200: "file server service", 0x4141 + 0x10b: "domain master browser", 0x4141 + 0x10c: "domain controller", 0x4141 + 0x10e: "browser election service"}),
                    ByteField("NULL", 0),
                    ShortEnumField("QUESTION_TYPE", 0x20, {0x20: "NB", 0x21: "NBSTAT"}),
                    ShortEnumField("QUESTION_CLASS", 1, {1: "INTERNET"})]
@@ -75,7 +75,7 @@ class NBNSQueryRequest(Packet):
 
 
 class NBNSRequest(Packet):
-    name="NBNS request"
+    name = "NBNS request"
     fields_desc = [ShortField("NAME_TRN_ID", 0),
                    ShortField("FLAGS", 0x2910),
                    ShortField("QDCOUNT", 1),
@@ -83,7 +83,7 @@ class NBNSRequest(Packet):
                    ShortField("NSCOUNT", 0),
                    ShortField("ARCOUNT", 1),
                    NetBIOSNameField("QUESTION_NAME", "windows"),
-                   ShortEnumField("SUFFIX", 0x4141, {0x4141: "workstation", 0x4141+0x03: "messenger service", 0x4141+0x200: "file server service", 0x4141+0x10b: "domain master browser", 0x4141+0x10c: "domain controller", 0x4141+0x10e: "browser election service"}),
+                   ShortEnumField("SUFFIX", 0x4141, {0x4141: "workstation", 0x4141 + 0x03: "messenger service", 0x4141 + 0x200: "file server service", 0x4141 + 0x10b: "domain master browser", 0x4141 + 0x10c: "domain controller", 0x4141 + 0x10e: "browser election service"}),
                    ByteField("NULL", 0),
                    ShortEnumField("QUESTION_TYPE", 0x20, {0x20: "NB", 0x21: "NBSTAT"}),
                    ShortEnumField("QUESTION_CLASS", 1, {1: "INTERNET"}),
@@ -102,7 +102,7 @@ class NBNSRequest(Packet):
 
 
 class NBNSQueryResponse(Packet):
-    name="NBNS query response"
+    name = "NBNS query response"
     fields_desc = [ShortField("NAME_TRN_ID", 0),
                    ShortField("FLAGS", 0x8500),
                    ShortField("QDCOUNT", 0),
@@ -110,7 +110,7 @@ class NBNSQueryResponse(Packet):
                    ShortField("NSCOUNT", 0),
                    ShortField("ARCOUNT", 0),
                    NetBIOSNameField("RR_NAME", "windows"),
-                   ShortEnumField("SUFFIX", 0x4141, {0x4141: "workstation", 0x4141+0x03: "messenger service", 0x4141+0x200: "file server service", 0x4141+0x10b: "domain master browser", 0x4141+0x10c: "domain controller", 0x4141+0x10e: "browser election service"}),
+                   ShortEnumField("SUFFIX", 0x4141, {0x4141: "workstation", 0x4141 + 0x03: "messenger service", 0x4141 + 0x200: "file server service", 0x4141 + 0x10b: "domain master browser", 0x4141 + 0x10c: "domain controller", 0x4141 + 0x10e: "browser election service"}),
                    ByteField("NULL", 0),
                    ShortEnumField("QUESTION_TYPE", 0x20, {0x20: "NB", 0x21: "NBSTAT"}),
                    ShortEnumField("QUESTION_CLASS", 1, {1: "INTERNET"}),
@@ -124,7 +124,7 @@ class NBNSQueryResponse(Packet):
 
 
 class NBNSQueryResponseNegative(Packet):
-    name="NBNS query response (negative)"
+    name = "NBNS query response (negative)"
     fields_desc = [ShortField("NAME_TRN_ID", 0),
                    ShortField("FLAGS", 0x8506),
                    ShortField("QDCOUNT", 0),
@@ -132,7 +132,7 @@ class NBNSQueryResponseNegative(Packet):
                    ShortField("NSCOUNT", 0),
                    ShortField("ARCOUNT", 0),
                    NetBIOSNameField("RR_NAME", "windows"),
-                   ShortEnumField("SUFFIX", 0x4141, {0x4141: "workstation", 0x4141+0x03: "messenger service", 0x4141+0x200: "file server service", 0x4141+0x10b: "domain master browser", 0x4141+0x10c: "domain controller", 0x4141+0x10e: "browser election service"}),
+                   ShortEnumField("SUFFIX", 0x4141, {0x4141: "workstation", 0x4141 + 0x03: "messenger service", 0x4141 + 0x200: "file server service", 0x4141 + 0x10b: "domain master browser", 0x4141 + 0x10c: "domain controller", 0x4141 + 0x10e: "browser election service"}),
                    ByteField("NULL", 0),
                    ShortEnumField("RR_TYPE", 0x20, {0x20: "NB", 0x21: "NBSTAT"}),
                    ShortEnumField("RR_CLASS", 1, {1: "INTERNET"}),
@@ -147,7 +147,7 @@ class NBNSQueryResponseNegative(Packet):
 
 
 class NBNSNodeStatusResponse(Packet):
-    name="NBNS Node Status Response"
+    name = "NBNS Node Status Response"
     fields_desc = [ShortField("NAME_TRN_ID", 0),
                    ShortField("FLAGS", 0x8500),
                    ShortField("QDCOUNT", 0),
@@ -155,7 +155,7 @@ class NBNSNodeStatusResponse(Packet):
                    ShortField("NSCOUNT", 0),
                    ShortField("ARCOUNT", 0),
                    NetBIOSNameField("RR_NAME", "windows"),
-                   ShortEnumField("SUFFIX", 0x4141, {0x4141: "workstation", 0x4141+0x03: "messenger service", 0x4141+0x200: "file server service", 0x4141+0x10b: "domain master browser", 0x4141+0x10c: "domain controller", 0x4141+0x10e: "browser election service"}),
+                   ShortEnumField("SUFFIX", 0x4141, {0x4141: "workstation", 0x4141 + 0x03: "messenger service", 0x4141 + 0x200: "file server service", 0x4141 + 0x10b: "domain master browser", 0x4141 + 0x10c: "domain controller", 0x4141 + 0x10e: "browser election service"}),
                    ByteField("NULL", 0),
                    ShortEnumField("RR_TYPE", 0x21, {0x20: "NB", 0x21: "NBSTAT"}),
                    ShortEnumField("RR_CLASS", 1, {1: "INTERNET"}),
@@ -167,7 +167,7 @@ class NBNSNodeStatusResponse(Packet):
 
 
 class NBNSNodeStatusResponseService(Packet):
-    name="NBNS Node Status Response Service"
+    name = "NBNS Node Status Response Service"
     fields_desc = [StrFixedLenField("NETBIOS_NAME", "WINDOWS         ", 15),
                    ByteEnumField("SUFFIX", 0, {0: "workstation", 0x03: "messenger service", 0x20: "file server service", 0x1b: "domain master browser", 0x1c: "domain controller", 0x1e: "browser election service"}),
                    ByteField("NAME_FLAGS", 0x4),
@@ -177,15 +177,15 @@ class NBNSNodeStatusResponseService(Packet):
 
 
 class NBNSNodeStatusResponseEnd(Packet):
-    name="NBNS Node Status Response"
+    name = "NBNS Node Status Response"
     fields_desc = [SourceMACField("MAC_ADDRESS"),
-                   BitField("STATISTICS", 0, 57*8)]
+                   BitField("STATISTICS", 0, 57 * 8)]
 
 # Wait for Acknowledgement Response
 
 
 class NBNSWackResponse(Packet):
-    name="NBNS Wait for Acknowledgement Response"
+    name = "NBNS Wait for Acknowledgement Response"
     fields_desc = [ShortField("NAME_TRN_ID", 0),
                    ShortField("FLAGS", 0xBC07),
                    ShortField("QDCOUNT", 0),
@@ -193,7 +193,7 @@ class NBNSWackResponse(Packet):
                    ShortField("NSCOUNT", 0),
                    ShortField("ARCOUNT", 0),
                    NetBIOSNameField("RR_NAME", "windows"),
-                   ShortEnumField("SUFFIX", 0x4141, {0x4141: "workstation", 0x4141+0x03: "messenger service", 0x4141+0x200: "file server service", 0x4141+0x10b: "domain master browser", 0x4141+0x10c: "domain controller", 0x4141+0x10e: "browser election service"}),
+                   ShortEnumField("SUFFIX", 0x4141, {0x4141: "workstation", 0x4141 + 0x03: "messenger service", 0x4141 + 0x200: "file server service", 0x4141 + 0x10b: "domain master browser", 0x4141 + 0x10c: "domain controller", 0x4141 + 0x10e: "browser election service"}),
                    ByteField("NULL", 0),
                    ShortEnumField("RR_TYPE", 0x20, {0x20: "NB", 0x21: "NBSTAT"}),
                    ShortEnumField("RR_CLASS", 1, {1: "INTERNET"}),
@@ -203,38 +203,38 @@ class NBNSWackResponse(Packet):
 
 
 class NBTDatagram(Packet):
-    name="NBT Datagram Packet"
-    fields_desc= [ByteField("Type", 0x10),
-                  ByteField("Flags", 0x02),
-                  ShortField("ID", 0),
-                  IPField("SourceIP", "127.0.0.1"),
-                  ShortField("SourcePort", 138),
-                  ShortField("Length", 272),
-                  ShortField("Offset", 0),
-                  NetBIOSNameField("SourceName", "windows"),
-                  ShortEnumField("SUFFIX1", 0x4141, {0x4141: "workstation", 0x4141+0x03: "messenger service", 0x4141+0x200: "file server service", 0x4141+0x10b: "domain master browser", 0x4141+0x10c: "domain controller", 0x4141+0x10e: "browser election service"}),
-                  ByteField("NULL", 0),
-                  NetBIOSNameField("DestinationName", "windows"),
-                  ShortEnumField("SUFFIX2", 0x4141, {0x4141: "workstation", 0x4141+0x03: "messenger service", 0x4141+0x200: "file server service", 0x4141+0x10b: "domain master browser", 0x4141+0x10c: "domain controller", 0x4141+0x10e: "browser election service"}),
-                  ByteField("NULL", 0)]
+    name = "NBT Datagram Packet"
+    fields_desc = [ByteField("Type", 0x10),
+                   ByteField("Flags", 0x02),
+                   ShortField("ID", 0),
+                   IPField("SourceIP", "127.0.0.1"),
+                   ShortField("SourcePort", 138),
+                   ShortField("Length", 272),
+                   ShortField("Offset", 0),
+                   NetBIOSNameField("SourceName", "windows"),
+                   ShortEnumField("SUFFIX1", 0x4141, {0x4141: "workstation", 0x4141 + 0x03: "messenger service", 0x4141 + 0x200: "file server service", 0x4141 + 0x10b: "domain master browser", 0x4141 + 0x10c: "domain controller", 0x4141 + 0x10e: "browser election service"}),
+                   ByteField("NULL", 0),
+                   NetBIOSNameField("DestinationName", "windows"),
+                   ShortEnumField("SUFFIX2", 0x4141, {0x4141: "workstation", 0x4141 + 0x03: "messenger service", 0x4141 + 0x200: "file server service", 0x4141 + 0x10b: "domain master browser", 0x4141 + 0x10c: "domain controller", 0x4141 + 0x10e: "browser election service"}),
+                   ByteField("NULL", 0)]
 
 
 class NBTSession(Packet):
-    name="NBT Session Packet"
-    fields_desc= [ByteEnumField("TYPE", 0, {0x00: "Session Message", 0x81: "Session Request", 0x82: "Positive Session Response", 0x83: "Negative Session Response", 0x84: "Retarget Session Response", 0x85: "Session Keepalive"}),
-                  BitField("RESERVED", 0x00, 7),
-                  BitField("LENGTH", 0, 17)]
+    name = "NBT Session Packet"
+    fields_desc = [ByteEnumField("TYPE", 0, {0x00: "Session Message", 0x81: "Session Request", 0x82: "Positive Session Response", 0x83: "Negative Session Response", 0x84: "Retarget Session Response", 0x85: "Session Keepalive"}),
+                   BitField("RESERVED", 0x00, 7),
+                   BitField("LENGTH", 0, 17)]
 
 
-bind_layers(UDP,           NBNSQueryRequest,  dport=137)
-bind_layers(UDP,           NBNSRequest,       dport=137)
-bind_layers(UDP,           NBNSQueryResponse, sport=137)
-bind_layers(UDP,           NBNSQueryResponseNegative, sport=137)
-bind_layers(UDP,           NBNSNodeStatusResponse,    sport=137)
-bind_layers(NBNSNodeStatusResponse,        NBNSNodeStatusResponseService, )
-bind_layers(NBNSNodeStatusResponse,        NBNSNodeStatusResponseService, )
+bind_layers(UDP, NBNSQueryRequest, dport=137)
+bind_layers(UDP, NBNSRequest, dport=137)
+bind_layers(UDP, NBNSQueryResponse, sport=137)
+bind_layers(UDP, NBNSQueryResponseNegative, sport=137)
+bind_layers(UDP, NBNSNodeStatusResponse, sport=137)
+bind_layers(NBNSNodeStatusResponse, NBNSNodeStatusResponseService, )
+bind_layers(NBNSNodeStatusResponse, NBNSNodeStatusResponseService, )
 bind_layers(NBNSNodeStatusResponseService, NBNSNodeStatusResponseService, )
 bind_layers(NBNSNodeStatusResponseService, NBNSNodeStatusResponseEnd, )
-bind_layers(UDP,           NBNSWackResponse, sport=137)
-bind_layers(UDP,           NBTDatagram,      dport=138)
-bind_layers(TCP,           NBTSession,       dport=139)
+bind_layers(UDP, NBNSWackResponse, sport=137)
+bind_layers(UDP, NBTDatagram, dport=138)
+bind_layers(TCP, NBTSession, dport=139)

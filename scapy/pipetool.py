@@ -96,7 +96,7 @@ class PipeEngine(SelectableObject):
     def get_pipe_list(self, pipe):
         def flatten(p, l):
             l.add(p)
-            for q in p.sources|p.sinks|p.high_sources|p.high_sinks:
+            for q in p.sources | p.sinks | p.high_sources | p.high_sinks:
                 if q not in l:
                     flatten(q, l)
         pl = set()
@@ -120,7 +120,7 @@ class PipeEngine(SelectableObject):
             sources = self.active_sources
             sources.add(self)
             exhausted = set([])
-            RUN=True
+            RUN = True
             STOP_IF_EXHAUSTED = False
             while RUN and (not STOP_IF_EXHAUSTED or len(sources) > 1):
                 fds = select_objects(sources, 2)
@@ -128,12 +128,12 @@ class PipeEngine(SelectableObject):
                     if fd is self:
                         cmd = self._read_cmd()
                         if cmd == "X":
-                            RUN=False
+                            RUN = False
                             break
                         elif cmd == "B":
                             STOP_IF_EXHAUSTED = True
                         elif cmd == "A":
-                            sources = self.active_sources-exhausted
+                            sources = self.active_sources - exhausted
                             sources.add(self)
                         else:
                             warning("Unknown internal pipe engine command: %r. Ignoring." % cmd)
@@ -192,7 +192,7 @@ class PipeEngine(SelectableObject):
                 self._write_cmd("A")
 
     def graph(self, **kargs):
-        g=['digraph "pipe" {', "\tnode [shape=rectangle];", ]
+        g = ['digraph "pipe" {', "\tnode [shape=rectangle];", ]
         for p in self.active_pipes:
             g.append('\t"%i" [label="%s"];' % (id(p), p.name))
         g.append("")
@@ -293,36 +293,36 @@ class Pipe(six.with_metaclass(_PipeMeta, _ConnectorLogic)):
         ct = conf.color_theme
         s = "%s%s" % (ct.punct("<"), ct.layer_name(self.name))
         if self.sources or self.sinks:
-            s+= " %s" % ct.punct("[")
+            s += " %s" % ct.punct("[")
             if self.sources:
-                s+="%s%s" %  (ct.punct(",").join(ct.field_name(s.name) for s in self.sources),
-                              ct.field_value(">"))
+                s += "%s%s" % (ct.punct(",").join(ct.field_name(s.name) for s in self.sources),
+                               ct.field_value(">"))
             s += ct.layer_name("#")
             if self.sinks:
-                s+="%s%s" % (ct.field_value(">"),
-                             ct.punct(",").join(ct.field_name(s.name) for s in self.sinks))
+                s += "%s%s" % (ct.field_value(">"),
+                               ct.punct(",").join(ct.field_name(s.name) for s in self.sinks))
             s += ct.punct("]")
 
         if self.high_sources or self.high_sinks:
-            s+= " %s" % ct.punct("[")
+            s += " %s" % ct.punct("[")
             if self.high_sources:
-                s+="%s%s" %  (ct.punct(",").join(ct.field_name(s.name) for s in self.high_sources),
-                              ct.field_value(">>"))
+                s += "%s%s" % (ct.punct(",").join(ct.field_name(s.name) for s in self.high_sources),
+                               ct.field_value(">>"))
             s += ct.layer_name("#")
             if self.high_sinks:
-                s+="%s%s" % (ct.field_value(">>"),
-                             ct.punct(",").join(ct.field_name(s.name) for s in self.high_sinks))
+                s += "%s%s" % (ct.field_value(">>"),
+                               ct.punct(",").join(ct.field_name(s.name) for s in self.high_sinks))
             s += ct.punct("]")
 
         if self.trigger_sources or self.trigger_sinks:
-            s+= " %s" % ct.punct("[")
+            s += " %s" % ct.punct("[")
             if self.trigger_sources:
-                s+="%s%s" %  (ct.punct(",").join(ct.field_name(s.name) for s in self.trigger_sources),
-                              ct.field_value("^"))
+                s += "%s%s" % (ct.punct(",").join(ct.field_name(s.name) for s in self.trigger_sources),
+                               ct.field_value("^"))
             s += ct.layer_name("#")
             if self.trigger_sinks:
-                s+="%s%s" % (ct.field_value("^"),
-                             ct.punct(",").join(ct.field_name(s.name) for s in self.trigger_sinks))
+                s += "%s%s" % (ct.field_value("^"),
+                               ct.punct(",").join(ct.field_name(s.name) for s in self.trigger_sinks))
             s += ct.punct("]")
 
         s += ct.punct(">")
@@ -528,7 +528,7 @@ class PeriodicSource(ThreadGenSource):
     def __init__(self, msg, period, period2=0, name=None):
         ThreadGenSource.__init__(self, name=name)
         if not isinstance(msg, (list, set, tuple)):
-            msg=[msg]
+            msg = [msg]
         self.msg = msg
         self.period = period
         self.period2 = period2
@@ -622,7 +622,7 @@ class TermSink(Sink):
 
     def _print(self, s):
         if self.newlines:
-            s+="\n"
+            s += "\n"
         if WINDOWS:
             wdesc = open(self.__f, "a")
             wdesc.write(s)

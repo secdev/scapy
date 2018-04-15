@@ -29,10 +29,10 @@ if conf.route is None:
     # unused import, only to initialize conf.route
     import scapy.route
 
-conf.p0f_base ="/etc/p0f/p0f.fp"
-conf.p0fa_base ="/etc/p0f/p0fa.fp"
-conf.p0fr_base ="/etc/p0f/p0fr.fp"
-conf.p0fo_base ="/etc/p0f/p0fo.fp"
+conf.p0f_base = "/etc/p0f/p0f.fp"
+conf.p0fa_base = "/etc/p0f/p0fa.fp"
+conf.p0fr_base = "/etc/p0f/p0fr.fp"
+conf.p0fo_base = "/etc/p0f/p0fo.fp"
 
 
 ###############
@@ -59,7 +59,7 @@ class p0fKnowledgeBase(KnowledgeBase):
 
     def lazy_init(self):
         try:
-            f=open(self.filename)
+            f = open(self.filename)
         except IOError:
             warning("Can't open base %s", self.filename)
             return
@@ -201,9 +201,9 @@ def packet2p0f(pkt):
     win = pkt.payload.window
     if mss != -1:
         if mss != 0 and win % mss == 0:
-            win = "S" + str(win/mss)
+            win = "S" + str(win / mss)
         elif win % (mss + 40) == 0:
-            win = "T" + str(win/(mss+40))
+            win = "T" + str(win / (mss + 40))
     win = str(win)
 
     qq = ""
@@ -331,7 +331,7 @@ def prnp0f(pkt):
         uptime = None
     res = pkt.sprintf("%IP.src%:%TCP.sport% - " + r[0] + " " + r[1])
     if uptime is not None:
-        res += pkt.sprintf(" (up: " + str(uptime/3600) + " hrs)\n  -> %IP.dst%:%TCP.dport% (%TCP.flags%)")
+        res += pkt.sprintf(" (up: " + str(uptime / 3600) + " hrs)\n  -> %IP.dst%:%TCP.dport% (%TCP.flags%)")
     else:
         res += pkt.sprintf("\n  -> %IP.dst%:%TCP.dport% (%TCP.flags%)")
     if r[2] is not None:
@@ -418,9 +418,9 @@ Some specifications of the p0f.fp file are not (yet) implemented."""
                 # MSS might have a maximum size because of window size
                 # specification
                 if pers[0][0] == 'S':
-                    maxmss = (2**16-1) // int(pers[0][1:])
+                    maxmss = (2**16 - 1) // int(pers[0][1:])
                 else:
-                    maxmss = (2**16-1)
+                    maxmss = (2**16 - 1)
                 # disregard hint if out of range
                 if mss_hint and not 0 <= mss_hint <= maxmss:
                     mss_hint = None
@@ -439,7 +439,7 @@ Some specifications of the p0f.fp file are not (yet) implemented."""
                         options.append(('MSS', mss_hint))
                     else:
                         options.append((
-                            'MSS', coef*random.randint(1, maxmss//coef)))
+                            'MSS', coef * random.randint(1, maxmss // coef)))
                 else:
                     options.append(('MSS', int(opt[1:])))
             elif opt[0] == 'W':
@@ -456,7 +456,7 @@ Some specifications of the p0f.fp file are not (yet) implemented."""
                         options.append(('WScale', wscale_hint))
                     else:
                         options.append((
-                            'WScale', coef*RandNum(min=1, max=(2**8-1)//coef)))
+                            'WScale', coef * RandNum(min=1, max=(2**8 - 1) // coef)))
                 else:
                     options.append(('WScale', int(opt[1:])))
             elif opt == 'T0':
@@ -470,7 +470,7 @@ Some specifications of the p0f.fp file are not (yet) implemented."""
                     # hence we don't want to use the hint if it was 0.
                     ts_a = ts_hint[0]
                 else:
-                    ts_a = random.randint(120, 100*60*60*24*365)
+                    ts_a = random.randint(120, 100 * 60 * 60 * 24 * 365)
                 # Determine second timestamp.
                 if 'T' not in pers[5]:
                     ts_b = 0
@@ -483,7 +483,7 @@ Some specifications of the p0f.fp file are not (yet) implemented."""
                     #    oval = struct.pack(ofmt, *oval)"
                     # Actually, this is enough to often raise the error:
                     #    struct.pack('I', RandInt())
-                    ts_b = random.randint(1, 2**32-1)
+                    ts_b = random.randint(1, 2**32 - 1)
                 options.append(('Timestamp', (ts_a, ts_b)))
             elif opt == 'S':
                 options.append(('SAckOK', ''))
@@ -512,7 +512,7 @@ Some specifications of the p0f.fp file are not (yet) implemented."""
         pkt.payload.window = int(pers[0])
     elif pers[0][0] == '%':
         coef = int(pers[0][1:])
-        pkt.payload.window = coef * RandNum(min=1, max=(2**16-1)//coef)
+        pkt.payload.window = coef * RandNum(min=1, max=(2**16 - 1) // coef)
     elif pers[0][0] == 'T':
         pkt.payload.window = mtu * int(pers[0][1:])
     elif pers[0][0] == 'S':
@@ -525,7 +525,7 @@ Some specifications of the p0f.fp file are not (yet) implemented."""
         raise Scapy_Exception('Unhandled window size specification')
 
     # ttl
-    pkt.ttl = pers[1]-extrahops
+    pkt.ttl = pers[1] - extrahops
     # DF flag
     pkt.flags |= (2 * pers[2])
     # FIXME: ss (packet size) not handled (how ? may be with D quirk
@@ -588,7 +588,7 @@ interface and may (are likely to) be different than those generated on
         iface = conf.route.route('127.0.0.1')[0]
         # each packet is seen twice: S + RA, S + SA + A + FA + A
         # XXX are the packets also seen twice on non Linux systems ?
-        count=14
+        count = 14
         pl = sniff(iface=iface, filter='tcp and port ' + str(port), count=count, timeout=3)
         for pkt in pl:
             for elt in packet2p0f(pkt):

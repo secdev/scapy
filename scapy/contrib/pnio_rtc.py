@@ -95,7 +95,7 @@ class PNIORealTimeRawData(Packet):
     def length(self):
         """Get the length of the raw data"""
         # Manage the length of the packet if a length is provided
-        return  self._config["length"]
+        return self._config["length"]
 
 
 # Make sure an IOPS follows a data
@@ -460,12 +460,12 @@ class XVarBytesField(XByteField):
 
     def addfield(self, pkt, s, val):
         length = self.length_from(pkt)
-        return s + struct.pack(self.fmt, self.i2m(pkt, val))[8-length:]
+        return s + struct.pack(self.fmt, self.i2m(pkt, val))[8 - length:]
 
     def getfield(self, pkt, s):
         length = self.length_from(pkt)
-        val = struct.unpack(self.fmt, b"\x00"*(8 - length) + s[:length])[0]
-        return  s[length:], self.m2i(pkt, val)
+        val = struct.unpack(self.fmt, b"\x00" * (8 - length) + s[:length])[0]
+        return s[length:], self.m2i(pkt, val)
 
 
 class Profisafe(PNIORealTimeRawData):
@@ -484,7 +484,7 @@ class Profisafe(PNIORealTimeRawData):
     def data_length(self):
         """Return the length of the data"""
         ret = self.length() - self.crc_length() - 1
-        return  ret
+        return ret
 
     def crc_length(self):
         """Return the length of the crc"""

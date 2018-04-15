@@ -78,12 +78,12 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
     @classmethod
     def upper_bonds(self):
         for fval, upper in self.payload_guess:
-            print("%-20s  %s" % (upper.__name__, ", ".join("%-12s" % ("%s=%r"%i) for i in six.iteritems(fval))))
+            print("%-20s  %s" % (upper.__name__, ", ".join("%-12s" % ("%s=%r" % i) for i in six.iteritems(fval))))
 
     @classmethod
     def lower_bonds(self):
         for lower, fval in six.iteritems(self._overload_fields):
-            print("%-20s  %s" % (lower.__name__, ", ".join("%-12s" % ("%s=%r"%i) for i in six.iteritems(fval))))
+            print("%-20s  %s" % (lower.__name__, ", ".join("%-12s" % ("%s=%r" % i) for i in six.iteritems(fval))))
 
     def _unpickle(self, dlist):
         """Used to unpack pickling"""
@@ -111,7 +111,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         return self.copy()
 
     def __init__(self, _pkt=b"", post_transform=None, _internal=0, _underlayer=None, **fields):
-        self.time  = time.time()
+        self.time = time.time()
         self.sent_time = None
         self.name = (self.__class__.__name__
                      if self._name is None else
@@ -326,7 +326,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             if f.name in self.fields:
                 val = f.i2repr(self, self.fields[f.name])
             elif f.name in self.overloaded_fields:
-                val =  f.i2repr(self, self.overloaded_fields[f.name])
+                val = f.i2repr(self, self.overloaded_fields[f.name])
             else:
                 continue
             if isinstance(f, Emph) or f in conf.emph:
@@ -339,12 +339,12 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             s += " %s%s%s" % (ncol(f.name),
                               ct.punct("="),
                               vcol(val))
-        return "%s%s %s %s%s%s"% (ct.punct("<"),
-                                  ct.layer_name(self.__class__.__name__),
-                                  s,
-                                  ct.punct("|"),
-                                  repr(self.payload),
-                                  ct.punct(">"))
+        return "%s%s %s %s%s%s" % (ct.punct("<"),
+                                   ct.layer_name(self.__class__.__name__),
+                                   s,
+                                   ct.punct("|"),
+                                   repr(self.payload),
+                                   ct.punct(">"))
 
     def __str__(self):
         return str(self.build())
@@ -359,21 +359,21 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             cloneA.add_payload(cloneB)
             return cloneA
         elif isinstance(other, (bytes, str)):
-            return self/conf.raw_layer(load=other)
+            return self / conf.raw_layer(load=other)
         else:
             return other.__rdiv__(self)
     __truediv__ = __div__
 
     def __rdiv__(self, other):
         if isinstance(other, (bytes, str)):
-            return conf.raw_layer(load=other)/self
+            return conf.raw_layer(load=other) / self
         else:
             raise TypeError
     __rtruediv__ = __rdiv__
 
     def __mul__(self, other):
         if isinstance(other, int):
-            return  [self]*other
+            return [self] * other
         else:
             raise TypeError
 
@@ -411,7 +411,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
                     break
             if self.raw_packet_cache is not None:
                 return self.raw_packet_cache
-        p=b""
+        p = b""
         for f in self.fields_desc:
             val = self.getfieldval(f.name)
             if isinstance(val, RawVal):
@@ -470,7 +470,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         :param str pay: the packet payload (build by do_build_payload function)
         :return: a string of the packet with the payload
         """
-        return pkt+pay
+        return pkt + pay
 
     def build_done(self, p):
         return self.payload.build_done(p)
@@ -559,29 +559,29 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             p, t = self.__class__(raw(self)).build_ps()
         else:
             p, t = self.build_ps()
-        YTXT=len(t)
+        YTXT = len(t)
         for n, l in t:
             YTXT += len(l)
         YTXT = float(YTXT)
-        YDUMP=YTXT
+        YDUMP = YTXT
 
         XSTART = 1
         XDSTART = 10
         y = 0.0
         yd = 0.0
         xd = 0
-        XMUL= 0.55
+        XMUL = 0.55
         YMUL = 0.4
 
-        backcolor=colgen(0.6, 0.8, 1.0, trans=pyx.color.rgb)
-        forecolor=colgen(0.2, 0.5, 0.8, trans=pyx.color.rgb)
+        backcolor = colgen(0.6, 0.8, 1.0, trans=pyx.color.rgb)
+        forecolor = colgen(0.2, 0.5, 0.8, trans=pyx.color.rgb)
 #        backcolor=makecol(0.376, 0.729, 0.525, 1.0)
 
         def hexstr(x):
             return " ".join("%02x" % orb(c) for c in x)
 
         def make_dump_txt(x, y, txt):
-            return pyx.text.text(XDSTART+x*XMUL, (YDUMP-y)*YMUL, r"\tt{%s}"%hexstr(txt), [pyx.text.size.Large])
+            return pyx.text.text(XDSTART + x * XMUL, (YDUMP - y) * YMUL, r"\tt{%s}" % hexstr(txt), [pyx.text.size.Large])
 
         def make_box(o):
             return pyx.box.rect(o.left(), o.bottom(), o.width(), o.height(), relcenter=(0.5, 0.5))
@@ -627,7 +627,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             c = pyx.canvas.canvas()
             tlist = []
             while s:
-                dmp, s = s[:larg-shift], s[larg-shift:]
+                dmp, s = s[:larg - shift], s[larg - shift:]
                 txt = make_dump_txt(shift, y, dmp)
                 tlist.append(txt)
                 shift += len(dmp)
@@ -643,32 +643,32 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
                 c.insert(txt)
             return c, tlist[-1].bbox(), shift, y
 
-        last_shift, last_y=0, 0.0
+        last_shift, last_y = 0, 0.0
         while t:
             bkcol = next(backcolor)
             proto, fields = t.pop()
             y += 0.5
-            pt = pyx.text.text(XSTART, (YTXT-y)*YMUL, r"\font\cmssfont=cmss10\cmssfont{%s}" % proto.name, [pyx.text.size.Large])
+            pt = pyx.text.text(XSTART, (YTXT - y) * YMUL, r"\font\cmssfont=cmss10\cmssfont{%s}" % proto.name, [pyx.text.size.Large])
             y += 1
-            ptbb=pt.bbox()
-            ptbb.enlarge(pyx.unit.u_pt*2)
+            ptbb = pt.bbox()
+            ptbb.enlarge(pyx.unit.u_pt * 2)
             canvas.stroke(ptbb.path(), [pyx.color.rgb.black, pyx.deco.filled([bkcol])])
             canvas.insert(pt)
             for fname, fval, fdump in fields:
                 col = next(forecolor)
-                ft = pyx.text.text(XSTART, (YTXT-y)*YMUL, r"\font\cmssfont=cmss10\cmssfont{%s}" % tex_escape(fname.name))
+                ft = pyx.text.text(XSTART, (YTXT - y) * YMUL, r"\font\cmssfont=cmss10\cmssfont{%s}" % tex_escape(fname.name))
                 if isinstance(fval, str):
                     if len(fval) > 18:
-                        fval = fval[:18]+"[...]"
+                        fval = fval[:18] + "[...]"
                 else:
-                    fval=""
-                vt = pyx.text.text(XSTART+3, (YTXT-y)*YMUL, r"\font\cmssfont=cmss10\cmssfont{%s}" % tex_escape(fval))
+                    fval = ""
+                vt = pyx.text.text(XSTART + 3, (YTXT - y) * YMUL, r"\font\cmssfont=cmss10\cmssfont{%s}" % tex_escape(fval))
                 y += 1.0
                 if fdump:
                     dt, target, last_shift, last_y = make_dump(fdump, last_shift, last_y, col, bkcol)
 
                     dtb = dt.bbox()
-                    dtb=target
+                    dtb = target
                     vtb = vt.bbox()
                     bxvt = make_box(vtb)
                     bxdt = make_box(dtb)
@@ -824,7 +824,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
                     else:
                         elt = SetGen(elt)
                 for e in elt:
-                    done[eltname]=e
+                    done[eltname] = e
                     for x in loop(todo[:], done):
                         yield x
             else:
@@ -833,7 +833,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
                 else:
                     payloads = self.payload
                 for payl in payloads:
-                    done2=done.copy()
+                    done2 = done.copy()
                     for k in done2:
                         if isinstance(done2[k], VolatileValue):
                             done2[k] = done2[k]._fix()
@@ -919,7 +919,7 @@ values.
         else:
             match = lambda cls1, cls2: cls1 == cls2
         if isinstance(cls, int):
-            nb = cls+1
+            nb = cls + 1
             cls = None
         if isinstance(cls, str) and "." in cls:
             ccls, fld = cls.split(".", 1)
@@ -935,7 +935,7 @@ values.
                     else:
                         return self.getfieldval(fld)
                 else:
-                    nb -=1
+                    nb -= 1
         for f in self.packetfields:
             fvalue_gen = self.getfieldval(f.name)
             if fvalue_gen is None:
@@ -944,7 +944,7 @@ values.
                 fvalue_gen = SetGen(fvalue_gen, _iterpacket=0)
             for fvalue in fvalue_gen:
                 if isinstance(fvalue, Packet):
-                    track=[]
+                    track = []
                     ret = fvalue.getlayer(cls, nb=nb, _track=track,
                                           _subclass=_subclass)
                     if ret is not None:
@@ -1030,23 +1030,23 @@ values.
                 vcol = ct.field_value
             fvalue = self.getfieldval(f.name)
             if isinstance(fvalue, Packet) or (f.islist and f.holds_packets and isinstance(fvalue, list)):
-                s += "%s  \\%-10s\\\n" % (label_lvl+lvl, ncol(f.name))
+                s += "%s  \\%-10s\\\n" % (label_lvl + lvl, ncol(f.name))
                 fvalue_gen = SetGen(fvalue, _iterpacket=0)
                 for fvalue in fvalue_gen:
-                    s += fvalue._show_or_dump(dump=dump, indent=indent, label_lvl=label_lvl+lvl+"   |", first_call=False)
+                    s += fvalue._show_or_dump(dump=dump, indent=indent, label_lvl=label_lvl + lvl + "   |", first_call=False)
             else:
-                begn = "%s  %-10s%s " % (label_lvl+lvl,
+                begn = "%s  %-10s%s " % (label_lvl + lvl,
                                          ncol(f.name),
                                          ct.punct("="),)
                 reprval = f.i2repr(self, fvalue)
                 if isinstance(reprval, str):
-                    reprval = reprval.replace("\n", "\n"+" "*(len(label_lvl)
-                                                              +len(lvl)
-                                                              +len(f.name)
-                                                              +4))
+                    reprval = reprval.replace("\n", "\n" + " " * (len(label_lvl)
+                                                                  + len(lvl)
+                                                                  + len(f.name)
+                                                                  + 4))
                 s += "%s%s\n" % (begn, vcol(reprval))
         if self.payload:
-            s += self.payload._show_or_dump(dump=dump, indent=indent, lvl=lvl+(" "*indent*self.show_indent), label_lvl=label_lvl, first_call=False)
+            s += self.payload._show_or_dump(dump=dump, indent=indent, lvl=lvl + (" " * indent * self.show_indent), label_lvl=label_lvl, first_call=False)
 
         if first_call and not dump:
             print(s)
@@ -1111,12 +1111,12 @@ A side effect is that, to obtain "{" and "}" characters, you must use
         # Evaluate conditions
         while "{" in fmt:
             i = fmt.rindex("{")
-            j = fmt[i+1:].index("}")
-            cond = fmt[i+1:i+j+1]
+            j = fmt[i + 1:].index("}")
+            cond = fmt[i + 1:i + j + 1]
             k = cond.find(":")
             if k < 0:
-                raise Scapy_Exception("Bad condition in format string: [%s] (read sprintf doc!)"%cond)
-            cond, format = cond[:k], cond[k+1:]
+                raise Scapy_Exception("Bad condition in format string: [%s] (read sprintf doc!)" % cond)
+            cond, format = cond[:k], cond[k + 1:]
             res = False
             if cond[0] == "!":
                 res = True
@@ -1125,14 +1125,14 @@ A side effect is that, to obtain "{" and "}" characters, you must use
                 res = not res
             if not res:
                 format = ""
-            fmt = fmt[:i]+format+fmt[i+j+2:]
+            fmt = fmt[:i] + format + fmt[i + j + 2:]
 
         # Evaluate directives
         s = ""
         while "%" in fmt:
             i = fmt.index("%")
             s += fmt[:i]
-            fmt = fmt[i+1:]
+            fmt = fmt[i + 1:]
             if fmt and fmt[0] in escape:
                 s += escape[fmt[0]]
                 fmt = fmt[1:]
@@ -1157,15 +1157,15 @@ A side effect is that, to obtain "{" and "}" characters, you must use
                 if ":" in cls:
                     cls, num = cls.split(":")
                     num = int(num)
-                fmt = fmt[i+1:]
+                fmt = fmt[i + 1:]
             except:
                 raise Scapy_Exception("Bad format string [%%%s%s]" % (fmt[:25], fmt[25:] and "..."))
             else:
                 if fld == "time":
-                    val = time.strftime("%H:%M:%S.%%06i", time.localtime(self.time)) % int((self.time-int(self.time))*1000000)
+                    val = time.strftime("%H:%M:%S.%%06i", time.localtime(self.time)) % int((self.time - int(self.time)) * 1000000)
                 elif cls == self.__class__.__name__ and hasattr(self, fld):
                     if num > 1:
-                        val = self.payload.sprintf("%%%s,%s:%s.%s%%" % (f, cls, num-1, fld), relax)
+                        val = self.payload.sprintf("%%%s,%s:%s.%s%%" % (f, cls, num - 1, fld), relax)
                         f = "s"
                     elif f[-1] == "r":  # Raw field value
                         val = getattr(self, fld)
@@ -1179,7 +1179,7 @@ A side effect is that, to obtain "{" and "}" characters, you must use
                 else:
                     val = self.payload.sprintf("%%%s%%" % sfclsfld, relax)
                     f = "s"
-                s += ("%"+f) % val
+                s += ("%" + f) % val
 
         s += fmt
         return s
@@ -1250,7 +1250,7 @@ A side effect is that, to obtain "{" and "}" characters, you must use
         c = "%s(%s)" % (self.__class__.__name__, ", ".join(f))
         pc = self.payload.command()
         if pc:
-            c += "/"+pc
+            c += "/" + pc
         return c
 
 
@@ -1358,7 +1358,7 @@ class NoPayload(Packet):
         if relax:
             return "??"
         else:
-            raise Scapy_Exception("Format not found [%s]"%fmt)
+            raise Scapy_Exception("Format not found [%s]" % fmt)
 
     def _do_summary(self):
         return 0, "", []

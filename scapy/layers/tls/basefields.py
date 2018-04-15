@@ -199,7 +199,7 @@ class _TLSPadField(StrField):
             # because it's possible that the padding is followed by some data
             # from another TLS record (hence the last byte from s would not be
             # the last byte from the current record padding).
-            l = orb(s[pkt.padlen-1])
+            l = orb(s[pkt.padlen - 1])
             return s[l:], self.m2i(pkt, s[:l])
         return s, None
 

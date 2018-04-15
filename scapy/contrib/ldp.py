@@ -61,8 +61,8 @@ class _LDP_Packet(Packet):
     def post_build(self, p, pay):
         if self.len is None:
             l = len(p) - 4
-            p = p[:2]+struct.pack("!H", l)+p[4:]
-        return p+pay
+            p = p[:2] + struct.pack("!H", l) + p[4:]
+        return p + pay
 
 #  Fields  #
 
@@ -70,27 +70,27 @@ class _LDP_Packet(Packet):
 
 
 class FecTLVField(StrField):
-    islist=1
+    islist = 1
 
     def m2i(self, pkt, x):
         nbr = struct.unpack("!H", x[2:4])[0]
         used = 0
-        x=x[4:]
-        list=[]
+        x = x[4:]
+        list = []
         while x:
             # if x[0] == 1:
             #   list.append('Wildcard')
             # else:
             # mask=orb(x[8*i+3])
             # add=inet_ntoa(x[8*i+4:8*i+8])
-            mask=orb(x[3])
+            mask = orb(x[3])
             nbroctets = mask // 8
             if mask % 8:
                 nbroctets += 1
-            add=inet_ntoa(x[4:4+nbroctets]+b"\x00"*(4-nbroctets))
+            add = inet_ntoa(x[4:4 + nbroctets] + b"\x00" * (4 - nbroctets))
             list.append((add, mask))
             used += 4 + nbroctets
-            x=x[4+nbroctets:]
+            x = x[4 + nbroctets:]
         return list
 
     def i2m(self, pkt, x):
@@ -148,15 +148,15 @@ class LabelTLVField(StrField):
 # 3.4.3. Address List TLV
 
 class AddressTLVField(StrField):
-    islist=1
+    islist = 1
 
     def m2i(self, pkt, x):
         nbr = struct.unpack("!H", x[2:4])[0] - 2
         nbr //= 4
-        x=x[6:]
-        list=[]
+        x = x[6:]
+        list = []
         for i in range(0, nbr):
-            add = x[4*i:4*i+4]
+            add = x[4 * i:4 * i + 4]
             list.append(inet_ntoa(add))
         return list
 
@@ -165,8 +165,8 @@ class AddressTLVField(StrField):
             return b""
         if isinstance(x, bytes):
             return x
-        l=2+len(x)*4
-        s = b"\x01\x01"+struct.pack("!H", l)+b"\x00\x01"
+        l = 2 + len(x) * 4
+        s = b"\x01\x01" + struct.pack("!H", l) + b"\x00\x01"
         for o in x:
             s += inet_aton(o)
         return s
@@ -184,7 +184,7 @@ class AddressTLVField(StrField):
 # 3.4.6. Status TLV
 
 class StatusTLVField(StrField):
-    islist=1
+    islist = 1
 
     def m2i(self, pkt, x):
         l = []
@@ -431,7 +431,7 @@ class LDP(_LDP_Packet):
         pay = pay or b""
         if self.len is None:
             l = len(p) + len(pay) - 4
-            p = p[:2]+struct.pack("!H", l)+p[4:]
+            p = p[:2] + struct.pack("!H", l) + p[4:]
         return p + pay
 
 

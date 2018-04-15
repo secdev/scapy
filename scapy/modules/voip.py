@@ -34,15 +34,15 @@ def _merge_sound_bytes(x, y, sample_size=2):
     # This will only add them one next to each other:
     # \xff + \xff ==> \xff\xff
     m = ""
-    ss=sample_size
+    ss = sample_size
     min_ = 0
     if len(x) >= len(y):
         min_ = y
     elif len(x) < len(y):
         min_ = x
     r_ = len(min_)
-    for i in range(r_/ss):
-        m += x[ss*i:ss*(i+1)]+y[ss*i:ss*(i+1)]
+    for i in range(r_ / ss):
+        m += x[ss * i:ss * (i + 1)] + y[ss * i:ss * (i + 1)]
     return x[r_:], y[r_:], m
 
 
@@ -82,7 +82,7 @@ def voip_play(s1, lst=None, **kargs):
             return
         if not pkt.haslayer(UDP) or not pkt.haslayer(IP):
             return
-        ip=pkt.getlayer(IP)
+        ip = pkt.getlayer(IP)
         if s1 == ip.src:
             dsp.write(pkt.getlayer(conf.raw_layer).load[12:])
     try:
@@ -124,7 +124,7 @@ def voip_play2(s1, **kargs):
             return
         if not pkt.haslayer(UDP) or not pkt.haslayer(IP):
             return
-        ip=pkt.getlayer(IP)
+        ip = pkt.getlayer(IP)
         if s1 in [ip.src, ip.dst]:
             if ip.dst == s1:
                 x1 += pkt.getlayer(conf.raw_layer).load[12:]

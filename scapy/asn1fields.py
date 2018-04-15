@@ -181,7 +181,7 @@ class ASN1F_INTEGER(ASN1F_field):
     ASN1_tag = ASN1_Class_UNIVERSAL.INTEGER
 
     def randval(self):
-        return RandNum(-2**64, 2**64-1)
+        return RandNum(-2**64, 2**64 - 1)
 
 
 class ASN1F_enum_INTEGER(ASN1F_INTEGER):
@@ -337,7 +337,7 @@ class ASN1F_SEQUENCE(ASN1F_field):
         return all(f.is_empty(pkt) for f in self.seq)
 
     def get_fields_list(self):
-        return reduce(lambda x, y: x+y.get_fields_list(), self.seq, [])
+        return reduce(lambda x, y: x + y.get_fields_list(), self.seq, [])
 
     def m2i(self, pkt, s):
         """
@@ -377,7 +377,7 @@ class ASN1F_SEQUENCE(ASN1F_field):
         return x
 
     def build(self, pkt):
-        s = reduce(lambda x, y: x+y.build(pkt), self.seq, b"")
+        s = reduce(lambda x, y: x + y.build(pkt), self.seq, b"")
         return self.i2m(pkt, s)
 
 
@@ -422,7 +422,7 @@ class ASN1F_SEQUENCE_OF(ASN1F_field):
 
     def build(self, pkt):
         val = getattr(pkt, self.name)
-        if isinstance(val, ASN1_Object) and val.tag==ASN1_Class_UNIVERSAL.RAW:
+        if isinstance(val, ASN1_Object) and val.tag == ASN1_Class_UNIVERSAL.RAW:
             s = val
         elif val is None:
             s = b""
@@ -586,7 +586,7 @@ class ASN1F_PACKET(ASN1F_field):
                              implicit_tag=implicit_tag, explicit_tag=explicit_tag)
         if cls.ASN1_root.ASN1_tag == ASN1_Class_UNIVERSAL.SEQUENCE:
             if implicit_tag is None and explicit_tag is None:
-                self.network_tag = 16|0x20
+                self.network_tag = 16 | 0x20
         self.default = default
 
     def m2i(self, pkt, s):

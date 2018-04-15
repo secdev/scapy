@@ -28,14 +28,14 @@ from scapy.layers.l2 import Ether
 from scapy.layers.dot11 import Dot11
 from scapy.contrib.ppi import *
 
-PPI_DOT11COMMON  = 2
-PPI_DOT11NMAC    = 3
+PPI_DOT11COMMON = 2
+PPI_DOT11NMAC = 3
 PPI_DOT11NMACPHY = 4
-PPI_SPECTRUMMAP  = 5
-PPI_PROCESSINFO  = 6
-PPI_CAPTUREINFO  = 7
-PPI_AGGREGATION  = 8
-PPI_DOT3         = 9
+PPI_SPECTRUMMAP = 5
+PPI_PROCESSINFO = 6
+PPI_CAPTUREINFO = 7
+PPI_AGGREGATION = 8
+PPI_DOT3 = 9
 
 # PPI 802.11 Common Field Header Fields
 

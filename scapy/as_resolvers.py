@@ -29,7 +29,7 @@ class AS_resolver:
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s.connect((self.server, self.port))
         if self.options:
-            self.s.send(self.options.encode("utf8")+b"\n")
+            self.s.send(self.options.encode("utf8") + b"\n")
             self.s.recv(8192)
 
     def _stop(self):
@@ -51,7 +51,7 @@ class AS_resolver:
     def _resolve_one(self, ip):
         self.s.send(("%s\n" % ip).encode("utf8"))
         x = b""
-        while not (b"%" in x  or b"source" in x):
+        while not (b"%" in x or b"source" in x):
             x += self.s.recv(8192)
         asn, desc = self._parse_whois(x)
         return ip, asn, desc
@@ -84,7 +84,7 @@ class AS_resolver_cymru(AS_resolver):
     def resolve(self, *ips):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.connect((self.server, self.port))
-        s.send(b"begin\r\n"+b"\r\n".join(ip.encode("utf8") for ip in ips)+b"\r\nend\r\n")
+        s.send(b"begin\r\n" + b"\r\n".join(ip.encode("utf8") for ip in ips) + b"\r\nend\r\n")
         r = b""
         while True:
             l = s.recv(8192)

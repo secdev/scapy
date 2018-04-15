@@ -40,9 +40,9 @@ class ConfClass(object):
             if i[0] != "_":
                 r = repr(getattr(self, i))
                 r = " ".join(r.split())
-                wlen = 76-max(len(i), 10)
+                wlen = 76 - max(len(i), 10)
                 if len(r) > wlen:
-                    r = r[:wlen-3]+"..."
+                    r = r[:wlen - 3] + "..."
                 s += "%-10s = %s\n" % (i, r)
         return s[:-1]
 
@@ -51,7 +51,7 @@ class Interceptor(object):
     def __init__(self, name, default, hook, args=None, kargs=None):
         self.name = name
         self.intname = "_intercepted_%s" % name
-        self.default=default
+        self.default = default
         self.hook = hook
         self.args = args if args is not None else []
         self.kargs = kargs if kargs is not None else {}
@@ -105,7 +105,7 @@ class ConfigFieldList:
         return elt in self.fields
 
     def __repr__(self):
-        return "<%s [%s]>" %  (self.__class__.__name__, " ".join(str(x) for x in self.fields))
+        return "<%s [%s]>" % (self.__class__.__name__, " ".join(str(x) for x in self.fields))
 
 
 class Emphasize(ConfigFieldList):
@@ -172,7 +172,7 @@ class LayersList(list):
 
 class CommandsList(list):
     def __repr__(self):
-        s=[]
+        s = []
         for l in sorted(self, key=lambda x: x.__name__):
             doc = l.__doc__.split("\n")[0] if l.__doc__ else "--"
             s.append("%-20s: %s" % (l.__name__, doc))
@@ -204,7 +204,7 @@ class CacheInstance(dict, object):
         val = dict.__getitem__(self, item)
         if self.timeout is not None:
             t = self._timetable[item]
-            if time.time()-t > self.timeout:
+            if time.time() - t > self.timeout:
                 raise KeyError(item)
         return val
 
@@ -233,14 +233,14 @@ class CacheInstance(dict, object):
     def iteritems(self):
         if self.timeout is None:
             return six.iteritems(self.__dict__)
-        t0=time.time()
-        return ((k, v) for (k, v) in six.iteritems(self.__dict__) if t0-self._timetable[k] < self.timeout)
+        t0 = time.time()
+        return ((k, v) for (k, v) in six.iteritems(self.__dict__) if t0 - self._timetable[k] < self.timeout)
 
     def iterkeys(self):
         if self.timeout is None:
             return six.iterkeys(self.__dict__)
-        t0=time.time()
-        return (k for k in six.iterkeys(self.__dict__) if t0-self._timetable[k] < self.timeout)
+        t0 = time.time()
+        return (k for k in six.iterkeys(self.__dict__) if t0 - self._timetable[k] < self.timeout)
 
     def __iter__(self):
         return six.iterkeys(self.__dict__)
@@ -248,26 +248,26 @@ class CacheInstance(dict, object):
     def itervalues(self):
         if self.timeout is None:
             return six.itervalues(self.__dict__)
-        t0=time.time()
-        return (v for (k, v) in six.iteritems(self.__dict__) if t0-self._timetable[k] < self.timeout)
+        t0 = time.time()
+        return (v for (k, v) in six.iteritems(self.__dict__) if t0 - self._timetable[k] < self.timeout)
 
     def items(self):
         if self.timeout is None:
             return dict.items(self)
-        t0=time.time()
-        return [(k, v) for (k, v) in six.iteritems(self.__dict__) if t0-self._timetable[k] < self.timeout]
+        t0 = time.time()
+        return [(k, v) for (k, v) in six.iteritems(self.__dict__) if t0 - self._timetable[k] < self.timeout]
 
     def keys(self):
         if self.timeout is None:
             return dict.keys(self)
-        t0=time.time()
-        return [k for k in six.iterkeys(self.__dict__) if t0-self._timetable[k] < self.timeout]
+        t0 = time.time()
+        return [k for k in six.iterkeys(self.__dict__) if t0 - self._timetable[k] < self.timeout]
 
     def values(self):
         if self.timeout is None:
             return list(six.itervalues(self))
-        t0=time.time()
-        return [v for (k, v) in six.iteritems(self.__dict__) if t0-self._timetable[k] < self.timeout]
+        t0 = time.time()
+        return [v for (k, v) in six.iteritems(self.__dict__) if t0 - self._timetable[k] < self.timeout]
 
     def __len__(self):
         if self.timeout is None:
@@ -281,7 +281,7 @@ class CacheInstance(dict, object):
         s = []
         if self:
             mk = max(len(k) for k in six.iterkeys(self.__dict__))
-            fmt = "%%-%is %%s" % (mk+1)
+            fmt = "%%-%is %%s" % (mk + 1)
             for item in six.iteritems(self.__dict__):
                 s.append(fmt % item)
         return "\n".join(s)
@@ -501,8 +501,8 @@ if not Conf.ipv6_enabled:
         if m in Conf.load_layers:
             Conf.load_layers.remove(m)
 
-conf=Conf()
-conf.logLevel=30  # 30=Warning
+conf = Conf()
+conf.logLevel = 30  # 30=Warning
 
 
 def crypto_validator(func):

@@ -158,7 +158,7 @@ class UDPDrain(Drain):
 
     def high_push(self, msg):
         from scapy.layers.inet import IP, UDP
-        p = IP(dst=self.ip)/UDP(sport=1234, dport=self.port)/msg
+        p = IP(dst=self.ip) / UDP(sport=1234, dport=self.port) / msg
         self._send(p)
 
 

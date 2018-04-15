@@ -361,7 +361,7 @@ class KrackAP(Automaton):
         Extra arguments will be ignored, and are just left for compatibiliy
         """
 
-        payload = LLC()/SNAP()/pkt[Ether].payload
+        payload = LLC() / SNAP() / pkt[Ether].payload
         dest = pkt.dst
         if dest == "ff:ff:ff:ff:ff:ff":
             self.send_wpa_to_group(payload, dest)
@@ -384,7 +384,7 @@ class KrackAP(Automaton):
                 log_runtime.info("Detected IP: %s", self.arp_target_ip)
 
             # Reply
-            ARP_ans = LLC()/SNAP()/ARP(
+            ARP_ans = LLC() / SNAP() / ARP(
                 op="is-at",
                 psrc=self.arp_source_ip,
                 pdst=self.arp_target_ip,
@@ -812,10 +812,10 @@ class KrackAP(Automaton):
                              self.arp_source_ip,
                              self.arp_target_ip)
             arp_pkt = self.send_wpa_to_group(
-                LLC()/SNAP()/ARP(op="who-has",
-                                 psrc=self.arp_source_ip,
-                                 pdst=self.arp_target_ip,
-                                 hwsrc=self.mac),
+                LLC() / SNAP() / ARP(op="who-has",
+                                     psrc=self.arp_source_ip,
+                                     pdst=self.arp_target_ip,
+                                     hwsrc=self.mac),
                 dest='ff:ff:ff:ff:ff:ff',
             )
             self.arp_sent.append(arp_pkt)

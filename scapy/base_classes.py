@@ -40,7 +40,7 @@ def _get_values(value):
 
 class SetGen(Gen):
     def __init__(self, values, _iterpacket=1):
-        self._iterpacket=_iterpacket
+        self._iterpacket = _iterpacket
         if isinstance(values, (list, BasePacketList)):
             self.values = [_get_values(val) for val in values]
         else:
@@ -77,22 +77,22 @@ class Net(Gen):
             x, y = [int(d) for d in a.split('-')]
             if x > y:
                 y = x
-            a = (x &  (0xff<<netmask), max(y, (x | (0xff>>(8-netmask))))+1)
+            a = (x & (0xff << netmask), max(y, (x | (0xff >> (8 - netmask)))) + 1)
         else:
-            a = (int(a) & (0xff<<netmask), (int(a) | (0xff>>(8-netmask)))+1)
+            a = (int(a) & (0xff << netmask), (int(a) | (0xff >> (8 - netmask))) + 1)
         return a
 
     @classmethod
     def _parse_net(cls, net):
-        tmp=net.split('/')+["32"]
+        tmp = net.split('/') + ["32"]
         if not cls.ip_regex.match(net):
-            tmp[0]=socket.gethostbyname(tmp[0])
+            tmp[0] = socket.gethostbyname(tmp[0])
         netmask = int(tmp[1])
-        ret_list = [cls._parse_digit(x, y-netmask) for (x, y) in zip(tmp[0].split('.'), [8, 16, 24, 32])]
+        ret_list = [cls._parse_digit(x, y - netmask) for (x, y) in zip(tmp[0].split('.'), [8, 16, 24, 32])]
         return ret_list, netmask
 
     def __init__(self, net):
-        self.repr=net
+        self.repr = net
         self.parsed, self.netmask = self._parse_net(net)
 
     def __str__(self):
@@ -156,7 +156,7 @@ class OID(Gen):
                 if i >= len(ii):
                     raise StopIteration
                 if ii[i] < self.cmpt[i][1]:
-                    ii[i]+=1
+                    ii[i] += 1
                     break
                 else:
                     ii[i] = self.cmpt[i][0]
@@ -258,12 +258,12 @@ class NewDefaultValues(Packet_metaclass):
         from scapy.error import log_loading
         import traceback
         try:
-            for tb in traceback.extract_stack()+[("??", -1, None, "")]:
+            for tb in traceback.extract_stack() + [("??", -1, None, "")]:
                 f, l, _, line = tb
                 if line.startswith("class"):
                     break
         except:
-            f, l="??", -1
+            f, l = "??", -1
             raise
         log_loading.warning("Deprecated (no more needed) use of NewDefaultValues  (%s l. %i).", f, l)
 

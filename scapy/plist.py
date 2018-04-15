@@ -90,7 +90,7 @@ class PacketList(BasePacketList):
     def __getitem__(self, item):
         if issubtype(item, BasePacket):
             return self.__class__([x for x in self.res if item in self._elt2pkt(x)],
-                                  name="%s from %s"%(item.__name__, self.listname))
+                                  name="%s from %s" % (item.__name__, self.listname))
         if isinstance(item, slice):
             return self.__class__(self.res.__getitem__(item),
                                   name="mod %s" % self.listname)
@@ -98,11 +98,11 @@ class PacketList(BasePacketList):
 
     def __getslice__(self, *args, **kargs):
         return self.__class__(self.res.__getslice__(*args, **kargs),
-                              name="mod %s"%self.listname)
+                              name="mod %s" % self.listname)
 
     def __add__(self, other):
-        return self.__class__(self.res+other.res,
-                              name="%s+%s"%(self.listname, other.listname))
+        return self.__class__(self.res + other.res,
+                              name="%s+%s" % (self.listname, other.listname))
 
     def summary(self, prn=None, lfilter=None):
         """prints a summary of each packet
@@ -142,7 +142,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
     def filter(self, func):
         """Returns a packet list filtered by a truth function"""
         return self.__class__([x for x in self.res if func(x)],
-                              name="filtered %s"%self.listname)
+                              name="filtered %s" % self.listname)
 
     def make_table(self, *args, **kargs):
         """Prints a table using a function that returns for each packet its head column value, head row value and displayed value
@@ -193,10 +193,10 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
 
         # Get the list of packets
         if lfilter is None:
-            l = [f(self.res[i], self.res[i+1])
+            l = [f(self.res[i], self.res[i + 1])
                  for i in range(len(self.res) - delay)]
         else:
-            l = [f(self.res[i], self.res[i+1])
+            l = [f(self.res[i], self.res[i + 1])
                  for i in range(len(self.res) - delay)
                  if lfilter(self.res[i])]
 
@@ -294,7 +294,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
             p = self._elt2pkt(res)
             if p.haslayer(conf.padding_layer):
                 pad = p.getlayer(conf.padding_layer).load
-                if pad == pad[0]*len(pad):
+                if pad == pad[0] * len(pad):
                     continue
                 if lfilter is None or lfilter(p):
                     print("%s %s %s" % (conf.color_theme.id(i, fmt="%04i"),
@@ -372,20 +372,20 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
                     sl[s] = (1, [e])
                 if e in el:
                     n, l = el[e]
-                    n+=1
+                    n += 1
                     if d not in l:
                         l.append(d)
                     el[e] = (n, l)
                 else:
                     el[e] = (1, [d])
-                dl[d] = dl.get(d, 0)+1
+                dl[d] = dl.get(d, 0) + 1
             except:
                 continue
 
         import math
 
         def normalize(n):
-            return 2+math.log(n)/4.0
+            return 2 + math.log(n) / 4.0
 
         def minmax(x):
             m, M = reduce(lambda a, b: (min(a[0], b[0]), max(a[1], b[1])),
@@ -404,14 +404,14 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
 
         gr += "# src nodes\n"
         for s in sl:
-            n, l = sl[s]; n = 1+float(n-mins)/(maxs-mins)
+            n, l = sl[s]; n = 1 + float(n - mins) / (maxs - mins)
             gr += '"src.%s" [label = "%s", shape=box, fillcolor="#FF0000", style=filled, fixedsize=1, height=%.2f,width=%.2f];\n' % (repr(s), repr(s), n, n)
         gr += "# event nodes\n"
         for e in el:
-            n, l = el[e]; n = n = 1+float(n-mine)/(maxe-mine)
+            n, l = el[e]; n = n = 1 + float(n - mine) / (maxe - mine)
             gr += '"evt.%s" [label = "%s", shape=circle, fillcolor="#00FFFF", style=filled, fixedsize=1, height=%.2f, width=%.2f];\n' % (repr(e), repr(e), n, n)
         for d in dl:
-            n = dl[d]; n = n = 1+float(n-mind)/(maxd-mind)
+            n = dl[d]; n = n = 1 + float(n - mind) / (maxd - mind)
             gr += '"dst.%s" [label = "%s", shape=triangle, fillcolor="#0000ff", style=filled, fixedsize=1, height=%.2f, width=%.2f];\n' % (repr(d), repr(d), n, n)
 
         gr += "###\n"
@@ -434,11 +434,11 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         for i, res in enumerate(self.res):
             c = self._elt2pkt(res).canvas_dump(**kargs)
             cbb = c.bbox()
-            c.text(cbb.left(), cbb.top()+1, r"\font\cmssfont=cmss12\cmssfont{Frame %i/%i}" % (i, l), [pyx.text.size.LARGE])
+            c.text(cbb.left(), cbb.top() + 1, r"\font\cmssfont=cmss12\cmssfont{Frame %i/%i}" % (i, l), [pyx.text.size.LARGE])
             if conf.verb >= 2:
                 os.write(1, b".")
             d.append(pyx.document.page(c, paperformat=pyx.document.paperformat.A4,
-                                       margin=1*pyx.unit.t_cm,
+                                       margin=1 * pyx.unit.t_cm,
                                        fittosize=1))
         return d
 
@@ -485,14 +485,14 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         while i < len(remain):
             s = remain[i]
             j = i
-            while j < len(remain)-1:
+            while j < len(remain) - 1:
                 j += 1
                 r = remain[j]
                 if r.answers(s):
                     sr.append((s, r))
                     if multi:
-                        remain[i]._answered=1
-                        remain[j]._answered=2
+                        remain[i]._answered = 1
+                        remain[j]._answered = 2
                         continue
                     del(remain[j])
                     del(remain[i])
@@ -549,7 +549,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
           lst.replace( (IP.ttl, 64), (TCP.sport, 666, 777), )
         """
         delete_checksums = kargs.get("delete_checksums", False)
-        x=PacketList(name="Replaced %s" % self.listname)
+        x = PacketList(name="Replaced %s" % self.listname)
         if not isinstance(args[0], tuple):
             args = (args,)
         for p in self.res:

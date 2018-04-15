@@ -50,13 +50,13 @@ WINDOWS = (os.name == 'nt')
 # hot-patching socket for missing variables on Windows
 import socket
 if not hasattr(socket, 'IPPROTO_IPIP'):
-    socket.IPPROTO_IPIP=4
+    socket.IPPROTO_IPIP = 4
 if not hasattr(socket, 'IPPROTO_AH'):
-    socket.IPPROTO_AH=51
+    socket.IPPROTO_AH = 51
 if not hasattr(socket, 'IPPROTO_ESP'):
-    socket.IPPROTO_ESP=50
+    socket.IPPROTO_ESP = 50
 if not hasattr(socket, 'IPPROTO_GRE'):
-    socket.IPPROTO_GRE=47
+    socket.IPPROTO_GRE = 47
 
 from scapy.arch import pcapdnet
 from scapy.arch.pcapdnet import *
@@ -83,7 +83,7 @@ def is_new_release(win10more=False):
             if float(release) >= 8:
                 return True
         except ValueError:
-            if (release=="post2008Server"):
+            if (release == "post2008Server"):
                 return True
     return False
 
@@ -230,7 +230,7 @@ def _exec_query_ps(cmd, fields):
     query_cmd = cmd + ['|', 'select %s' % ', '.join(fields),  # select fields
                        '|', 'fl',  # print as a list
                        '|', 'out-string', '-Width', '4096']  # do not crop
-    l=[]
+    l = []
     # Ask the powershell manager to process the query
     stdout = POWERSHELL_PROCESS.query(query_cmd)
     # Process stdout
@@ -245,7 +245,7 @@ def _exec_query_ps(cmd, fields):
             l.append(sl[1].strip())
         if len(l) == len(fields):
             yield l
-            l=[]
+            l = []
 
 
 def _vbs_exec_code(code, split_tag="@"):
@@ -407,7 +407,7 @@ def _where(filename, dirs=None, env="PATH"):
 
 def win_find_exe(filename, installsubdir=None, env="ProgramFiles"):
     """Find executable in current dir, system path or given ProgramFiles subdir"""
-    fns = [filename] if filename.endswith(".exe") else [filename+".exe", filename]
+    fns = [filename] if filename.endswith(".exe") else [filename + ".exe", filename]
     for fn in fns:
         try:
             if installsubdir is None:
@@ -449,7 +449,7 @@ class WinProgPath(ConfClass):
         self.cmd = win_find_exe("cmd", installsubdir="System32",
                                 env="SystemRoot")
         if self.wireshark:
-            manu_path = load_manuf(os.path.sep.join(self.wireshark.split(os.path.sep)[:-1])+os.path.sep+"manuf")
+            manu_path = load_manuf(os.path.sep.join(self.wireshark.split(os.path.sep)[:-1]) + os.path.sep + "manuf")
             scapy.data.MANUFDB = conf.manufdb = manu_path
 
         self.os_access = (self.powershell is not None) or (self.cscript is not None)
@@ -1013,7 +1013,7 @@ def _read_routes_xp():
 
 
 def _read_routes_7():
-    routes=[]
+    routes = []
     for line in exec_query(['Get-WmiObject', 'Win32_IP4RouteTable'],
                            ['Name', 'Mask', 'NextHop', 'InterfaceIndex', 'Metric1']):
         try:
@@ -1145,7 +1145,7 @@ def _read_routes6_post2008():
         dpref, dp = line[1].split('/')
         dp = int(dp)
         nh = line[2]
-        metric = int(line[3])+int(line[4])
+        metric = int(line[3]) + int(line[4])
 
         _append_route6(routes6, dpref, dp, nh, iface, lifaddr, metric)
     return routes6
@@ -1163,8 +1163,8 @@ def _read_routes6_7():
     r_all = ["(.*)"]
     r_ipv6 = [".*:\s+([A-z|0-9|:]+(\/\d+)?)"]
     # Build regex list for each object
-    regex_list = r_ipv6*2 + r_int + r_all*3 + r_int + r_all*3
-    current_object =  []
+    regex_list = r_ipv6 * 2 + r_int + r_all * 3 + r_int + r_all * 3
+    current_object = []
     index = 0
     for l in stdout:
         if not l.strip():

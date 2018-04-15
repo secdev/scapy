@@ -219,7 +219,7 @@ class Message:
         self.__dict__.update(args)
 
     def __repr__(self):
-        return "<Message %s>" % " ".join("%s=%r"%(k, v)
+        return "<Message %s>" % " ".join("%s=%r" % (k, v)
                                          for (k, v) in six.iteritems(self.__dict__)
                                          if not k.startswith("_"))
 
@@ -421,14 +421,14 @@ class _ATMT_to_supersocket:
 class Automaton_metaclass(type):
     def __new__(cls, name, bases, dct):
         cls = super(Automaton_metaclass, cls).__new__(cls, name, bases, dct)
-        cls.states={}
+        cls.states = {}
         cls.state = None
-        cls.recv_conditions={}
-        cls.conditions={}
-        cls.ioevents={}
-        cls.timeout={}
-        cls.actions={}
-        cls.initial_states=[]
+        cls.recv_conditions = {}
+        cls.conditions = {}
+        cls.ioevents = {}
+        cls.timeout = {}
+        cls.actions = {}
+        cls.initial_states = []
         cls.ionames = []
         cls.iosupersockets = []
 
@@ -448,10 +448,10 @@ class Automaton_metaclass(type):
             if m.atmt_type == ATMT.STATE:
                 s = m.atmt_state
                 cls.states[s] = m
-                cls.recv_conditions[s]=[]
-                cls.ioevents[s]=[]
-                cls.conditions[s]=[]
-                cls.timeout[s]=[]
+                cls.recv_conditions[s] = []
+                cls.ioevents[s] = []
+                cls.conditions[s] = []
+                cls.timeout[s] = []
                 if m.atmt_initial:
                     cls.initial_states.append(m)
             elif m.atmt_type in [ATMT.CONDITION, ATMT.RECV, ATMT.TIMEOUT, ATMT.IOEVENT]:
@@ -489,12 +489,12 @@ class Automaton_metaclass(type):
         return cls
 
     def graph(self, **kargs):
-        s = 'digraph "%s" {\n'  % self.__class__.__name__
+        s = 'digraph "%s" {\n' % self.__class__.__name__
 
         se = ""  # Keep initial nodes at the begining for better rendering
         for st in six.itervalues(self.states):
             if st.atmt_initial:
-                se = ('\t"%s" [ style=filled, fillcolor=blue, shape=box, root=true];\n' % st.atmt_state)+se
+                se = ('\t"%s" [ style=filled, fillcolor=blue, shape=box, root=true];\n' % st.atmt_state) + se
             elif st.atmt_final:
                 se += '\t"%s" [ style=filled, fillcolor=green, shape=octagon ];\n' % st.atmt_state
             elif st.atmt_error:
@@ -502,15 +502,15 @@ class Automaton_metaclass(type):
         s += se
 
         for st in six.itervalues(self.states):
-            for n in st.atmt_origfunc.__code__.co_names+st.atmt_origfunc.__code__.co_consts:
+            for n in st.atmt_origfunc.__code__.co_names + st.atmt_origfunc.__code__.co_consts:
                 if n in self.states:
                     s += '\t"%s" -> "%s" [ color=green ];\n' % (st.atmt_state, n)
 
-        for c, k, v in ([("purple", k, v) for k, v in self.conditions.items()]+
-                        [("red", k, v) for k, v in self.recv_conditions.items()]+
+        for c, k, v in ([("purple", k, v) for k, v in self.conditions.items()] +
+                        [("red", k, v) for k, v in self.recv_conditions.items()] +
                         [("orange", k, v) for k, v in self.ioevents.items()]):
             for f in v:
-                for n in f.__code__.co_names+f.__code__.co_consts:
+                for n in f.__code__.co_names + f.__code__.co_consts:
                     if n in self.states:
                         l = f.atmt_condname
                         for x in self.actions[f.atmt_condname]:
@@ -520,7 +520,7 @@ class Automaton_metaclass(type):
             for t, f in v:
                 if f is None:
                     continue
-                for n in f.__code__.co_names+f.__code__.co_consts:
+                for n in f.__code__.co_names + f.__code__.co_consts:
                     if n in self.states:
                         l = "%s/%.1fs" % (f.atmt_condname, t)
                         for x in self.actions[f.atmt_condname]:
@@ -532,7 +532,7 @@ class Automaton_metaclass(type):
 
 class Automaton(six.with_metaclass(Automaton_metaclass)):
     def parse_args(self, debug=0, store=1, **kargs):
-        self.debug_level=debug
+        self.debug_level = debug
         self.socket_kargs = kargs
         self.store_packets = store
 
@@ -680,9 +680,9 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
         self.breakpoints = set()
         self.interception_points = set()
         self.intercepted_packet = None
-        self.debug_level=0
-        self.init_args=args
-        self.init_kargs=kargs
+        self.debug_level = 0
+        self.init_args = args
+        self.init_kargs = kargs
         self.io = type.__new__(type, "IOnamespace", (), {})
         self.oi = type.__new__(type, "IOnamespace", (), {})
         self.cmdin = ObjectPipe()
@@ -755,16 +755,16 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
             self.threadid = threading.currentThread().ident
 
             # Update default parameters
-            a = args+self.init_args[len(args):]
+            a = args + self.init_args[len(args):]
             k = self.init_kargs.copy()
             k.update(kargs)
             self.parse_args(*a, **k)
 
             # Start the automaton
-            self.state=self.initial_states[0](self)
+            self.state = self.initial_states[0](self)
             self.send_sock = self.send_sock_class(**self.socket_kargs)
             self.listen_sock = self.recv_sock_class(**self.socket_kargs)
-            self.packets = PacketList(name="session[%s]"%self.__class__.__name__)
+            self.packets = PacketList(name="session[%s]" % self.__class__.__name__)
 
             singlestep = True
             iterator = self._do_iter()
@@ -800,10 +800,10 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                 self.cmdout.send(c)
             except Exception as e:
                 exc_info = sys.exc_info()
-                self.debug(3, "Transfering exception from tid=%i:\n%s"% (self.threadid, traceback.format_exception(*exc_info)))
+                self.debug(3, "Transfering exception from tid=%i:\n%s" % (self.threadid, traceback.format_exception(*exc_info)))
                 m = Message(type=_ATMT_Command.EXCEPTION, exception=e, exc_info=exc_info)
                 self.cmdout.send(m)
-            self.debug(3, "Stopping control thread (tid=%i)"%self.threadid)
+            self.debug(3, "Stopping control thread (tid=%i)" % self.threadid)
             self.threadid = None
 
     def _do_iter(self):
@@ -851,7 +851,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                 for ioev in self.ioevents[self.state.state]:
                     fds.append(self.ioin[ioev.atmt_ioname])
                 while True:
-                    t = time.time()-t0
+                    t = time.time() - t0
                     if next_timeout is not None:
                         if next_timeout <= t:
                             self._run_condition(timeout_func, *state_output)
@@ -859,7 +859,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                     if next_timeout is None:
                         remain = None
                     else:
-                        remain = next_timeout-t
+                        remain = next_timeout - t
 
                     self.debug(5, "Select on %r" % fds)
                     r = select_objects(fds, remain)
@@ -936,9 +936,9 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
             elif c.type == _ATMT_Command.INTERCEPT:
                 raise self.InterceptionPoint("packet intercepted", state=c.state.state, packet=c.pkt)
             elif c.type == _ATMT_Command.SINGLESTEP:
-                raise self.Singlestep("singlestep state=[%s]"%c.state.state, state=c.state.state)
+                raise self.Singlestep("singlestep state=[%s]" % c.state.state, state=c.state.state)
             elif c.type == _ATMT_Command.BREAKPOINT:
-                raise self.Breakpoint("breakpoint triggered on state [%s]"%c.state.state, state=c.state.state)
+                raise self.Breakpoint("breakpoint triggered on state [%s]" % c.state.state, state=c.state.state)
             elif c.type == _ATMT_Command.EXCEPTION:
                 six.reraise(c.exc_info[0], c.exc_info[1], c.exc_info[2])
 

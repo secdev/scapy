@@ -24,8 +24,8 @@ from scapy.compat import *
 #  Consts  #
 ############
 
-ETHER_ANY = b"\x00"*6
-ETHER_BROADCAST = b"\xff"*6
+ETHER_ANY = b"\x00" * 6
+ETHER_BROADCAST = b"\xff" * 6
 
 ETH_P_ALL = 3
 ETH_P_IP = 0x800
@@ -85,31 +85,31 @@ DLT_PFLOG = 117
 DLT_PRISM_HEADER = 119
 DLT_AIRONET_HEADER = 120
 DLT_IEEE802_11_RADIO = 127
-DLT_LINUX_IRDA  = 144
+DLT_LINUX_IRDA = 144
 DLT_IEEE802_11_RADIO_AVS = 163
 DLT_BLUETOOTH_HCI_H4 = 187
-DLT_PPI   = 192
+DLT_PPI = 192
 DLT_CAN_SOCKETCAN = 227
 DLT_IPV4 = 228
 DLT_IPV6 = 229
 
 # From net/ipv6.h on Linux (+ Additions)
-IPV6_ADDR_UNICAST     = 0x01
-IPV6_ADDR_MULTICAST   = 0x02
-IPV6_ADDR_CAST_MASK   = 0x0F
-IPV6_ADDR_LOOPBACK    = 0x10
-IPV6_ADDR_GLOBAL      = 0x00
-IPV6_ADDR_LINKLOCAL   = 0x20
-IPV6_ADDR_SITELOCAL   = 0x40     # deprecated since Sept. 2004 by RFC 3879
-IPV6_ADDR_SCOPE_MASK  = 0xF0
+IPV6_ADDR_UNICAST = 0x01
+IPV6_ADDR_MULTICAST = 0x02
+IPV6_ADDR_CAST_MASK = 0x0F
+IPV6_ADDR_LOOPBACK = 0x10
+IPV6_ADDR_GLOBAL = 0x00
+IPV6_ADDR_LINKLOCAL = 0x20
+IPV6_ADDR_SITELOCAL = 0x40     # deprecated since Sept. 2004 by RFC 3879
+IPV6_ADDR_SCOPE_MASK = 0xF0
 # IPV6_ADDR_COMPATv4   = 0x80     # deprecated; i.e. ::/96
 # IPV6_ADDR_MAPPED     = 0x1000   # i.e.; ::ffff:0.0.0.0/96
-IPV6_ADDR_6TO4        = 0x0100   # Added to have more specific info (should be 0x0101 ?)
+IPV6_ADDR_6TO4 = 0x0100   # Added to have more specific info (should be 0x0101 ?)
 IPV6_ADDR_UNSPECIFIED = 0x10000
 
 
 # On windows, epoch is 01/02/1970 at 00:00
-EPOCH = time.mktime((1970, 1, 2, 0, 0, 0, 3, 1, 0))-86400
+EPOCH = time.mktime((1970, 1, 2, 0, 0, 0, 3, 1, 0)) - 86400
 
 MTU = 0xffff  # a.k.a give me all you have
 
@@ -123,7 +123,7 @@ def load_protocols(filename):
         for l in open(filename, "rb"):
             try:
                 shrp = l.find(b"#")
-                if  shrp >= 0:
+                if shrp >= 0:
                     l = l[:shrp]
                 l = l.strip()
                 if not l:
@@ -143,11 +143,11 @@ def load_ethertypes(filename):
     spaces = re.compile(b"[ \t]+|\n")
     dct = DADict(_name=filename)
     try:
-        f=open(filename, "rb")
+        f = open(filename, "rb")
         for l in f:
             try:
                 shrp = l.find(b"#")
-                if  shrp >= 0:
+                if shrp >= 0:
                     l = l[:shrp]
                 l = l.strip()
                 if not l:
@@ -166,14 +166,14 @@ def load_ethertypes(filename):
 
 def load_services(filename):
     spaces = re.compile(b"[ \t]+|\n")
-    tdct=DADict(_name="%s-tcp"%filename)
-    udct=DADict(_name="%s-udp"%filename)
+    tdct = DADict(_name="%s-tcp" % filename)
+    udct = DADict(_name="%s-udp" % filename)
     try:
-        f=open(filename, "rb")
+        f = open(filename, "rb")
         for l in f:
             try:
                 shrp = l.find(b"#")
-                if  shrp >= 0:
+                if shrp >= 0:
                     l = l[:shrp]
                 l = l.strip()
                 if not l:
@@ -210,7 +210,7 @@ class ManufDA(DADict):
     def _resolve_MAC(self, mac):
         oui = ":".join(mac.split(":")[:3]).upper()
         if oui in self:
-            return ":".join([self[oui][0]]+ mac.split(":")[3:])
+            return ":".join([self[oui][0]] + mac.split(":")[3:])
         return mac
 
     def __repr__(self):
@@ -218,19 +218,19 @@ class ManufDA(DADict):
 
 
 def load_manuf(filename):
-    manufdb=ManufDA(_name=filename)
+    manufdb = ManufDA(_name=filename)
     with open(filename, "rb") as fdesc:
         for l in fdesc:
             try:
                 l = l.strip()
                 if not l or l.startswith(b"#"):
                     continue
-                oui, shrt=l.split()[:2]
+                oui, shrt = l.split()[:2]
                 i = l.find(b"#")
                 if i < 0:
-                    lng=shrt
+                    lng = shrt
                 else:
-                    lng = l[i+2:]
+                    lng = l[i + 2:]
                 manufdb[oui] = plain_str(shrt), plain_str(lng)
             except Exception:
                 log_loading.warning("Couldn't parse one line from [%s] [%r]",
@@ -239,18 +239,18 @@ def load_manuf(filename):
 
 
 if WINDOWS:
-    ETHER_TYPES=load_ethertypes("ethertypes")
-    IP_PROTOS=load_protocols(os.environ["SystemRoot"]+"\system32\drivers\etc\protocol")
-    TCP_SERVICES, UDP_SERVICES=load_services(os.environ["SystemRoot"] + "\system32\drivers\etc\services")
+    ETHER_TYPES = load_ethertypes("ethertypes")
+    IP_PROTOS = load_protocols(os.environ["SystemRoot"] + "\system32\drivers\etc\protocol")
+    TCP_SERVICES, UDP_SERVICES = load_services(os.environ["SystemRoot"] + "\system32\drivers\etc\services")
     # Default value, will be updated by arch.windows
     try:
         MANUFDB = load_manuf(os.environ["ProgramFiles"] + "\\wireshark\\manuf")
     except IOError:
         MANUFDB = None
 else:
-    IP_PROTOS=load_protocols("/etc/protocols")
-    ETHER_TYPES=load_ethertypes("/etc/ethertypes")
-    TCP_SERVICES, UDP_SERVICES=load_services("/etc/services")
+    IP_PROTOS = load_protocols("/etc/protocols")
+    ETHER_TYPES = load_ethertypes("/etc/ethertypes")
+    TCP_SERVICES, UDP_SERVICES = load_services("/etc/services")
     MANUFDB = None
     for prefix in ['/usr', '/usr/local', '/opt', '/opt/wireshark']:
         try:

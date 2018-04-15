@@ -124,7 +124,7 @@ class _AEADCipher(six.with_metaclass(_AEADCipherMetaclass, object)):
         Increment the explicit nonce while avoiding any overflow.
         """
         ne = self.nonce_explicit + 1
-        self.nonce_explicit = ne % 2**(self.nonce_explicit_len*8)
+        self.nonce_explicit = ne % 2**(self.nonce_explicit_len * 8)
 
     def auth_encrypt(self, P, A, seq_num=None):
         """

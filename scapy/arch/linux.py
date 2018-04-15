@@ -36,17 +36,17 @@ from scapy.modules.six.moves import range
 
 
 # From bits/ioctls.h
-SIOCGIFHWADDR  = 0x8927          # Get hardware address
-SIOCGIFADDR    = 0x8915          # get PA address
+SIOCGIFHWADDR = 0x8927          # Get hardware address
+SIOCGIFADDR = 0x8915          # get PA address
 SIOCGIFNETMASK = 0x891b          # get network PA mask
-SIOCGIFNAME    = 0x8910          # get iface name
-SIOCSIFLINK    = 0x8911          # set iface channel
-SIOCGIFCONF    = 0x8912          # get iface list
-SIOCGIFFLAGS   = 0x8913          # get flags
-SIOCSIFFLAGS   = 0x8914          # set flags
-SIOCGIFINDEX   = 0x8933          # name -> if_index mapping
-SIOCGIFCOUNT   = 0x8938          # get number of devices
-SIOCGSTAMP     = 0x8906          # get packet timestamp (as a timeval)
+SIOCGIFNAME = 0x8910          # get iface name
+SIOCSIFLINK = 0x8911          # set iface channel
+SIOCGIFCONF = 0x8912          # get iface list
+SIOCGIFFLAGS = 0x8913          # get flags
+SIOCSIFFLAGS = 0x8914          # set flags
+SIOCGIFINDEX = 0x8933          # name -> if_index mapping
+SIOCGIFCOUNT = 0x8938          # get number of devices
+SIOCGSTAMP = 0x8906          # get packet timestamp (as a timeval)
 
 # From if.h
 IFF_UP = 0x1               # Interface is up.
@@ -60,14 +60,14 @@ IFF_NOARP = 0x80           # No address resolution protocol.
 IFF_PROMISC = 0x100        # Receive all packets.
 
 # From netpacket/packet.h
-PACKET_ADD_MEMBERSHIP  = 1
+PACKET_ADD_MEMBERSHIP = 1
 PACKET_DROP_MEMBERSHIP = 2
-PACKET_RECV_OUTPUT     = 3
-PACKET_RX_RING         = 5
-PACKET_STATISTICS      = 6
-PACKET_MR_MULTICAST    = 0
-PACKET_MR_PROMISC      = 1
-PACKET_MR_ALLMULTI     = 2
+PACKET_RECV_OUTPUT = 3
+PACKET_RX_RING = 5
+PACKET_STATISTICS = 6
+PACKET_MR_MULTICAST = 0
+PACKET_MR_PROMISC = 1
+PACKET_MR_ALLMULTI = 2
 
 # From bits/socket.h
 SOL_PACKET = 263
@@ -94,9 +94,9 @@ PACKET_FASTROUTE = 6  # Fastrouted frame
 with os.popen("%s -V 2> /dev/null" % conf.prog.tcpdump) as _f:
     if _f.close() >> 8 == 0x7f:
         log_loading.warning("Failed to execute tcpdump. Check it is installed and in the PATH")
-        TCPDUMP=0
+        TCPDUMP = 0
     else:
-        TCPDUMP=1
+        TCPDUMP = 1
 del(_f)
 
 
@@ -113,7 +113,7 @@ def get_if_raw_addr(iff):
 
 def get_if_list():
     try:
-        f=open("/proc/net/dev", "rb")
+        f = open("/proc/net/dev", "rb")
     except IOError:
         warning("Can't open /proc/net/dev !")
         return []
@@ -197,7 +197,7 @@ def get_alias_address(iface_name, ip_mask, gw_str, metric):
     # Extract interfaces names
     out = struct.unpack("iL", ifreq)[0]
     names = names.tostring()
-    names = [names[i:i+offset].split(b'\0', 1)[0] for i in range(0, out, name_len)]
+    names = [names[i:i + offset].split(b'\0', 1)[0] for i in range(0, out, name_len)]
 
     # Look for the IP address
     for ifname in names:
@@ -230,12 +230,12 @@ def get_alias_address(iface_name, ip_mask, gw_str, metric):
 
 def read_routes():
     try:
-        f=open("/proc/net/route", "rb")
+        f = open("/proc/net/route", "rb")
     except IOError:
         warning("Can't open /proc/net/route !")
         return []
     routes = []
-    s=socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         ifreq = ioctl(s, SIOCGIFADDR, struct.pack("16s16x", scapy.consts.LOOPBACK_NAME.encode("utf8")))
         addrfamily = struct.unpack("h", ifreq[16:18])[0]
@@ -264,7 +264,7 @@ def read_routes():
         try:
             ifreq = ioctl(s, SIOCGIFADDR, struct.pack("16s16x", iff.encode("utf8")))
         except IOError:  # interface is present in routing tables but does not have any assigned IP
-            ifaddr="0.0.0.0"
+            ifaddr = "0.0.0.0"
         else:
             addrfamily = struct.unpack("h", ifreq[16:18])[0]
             if addrfamily == socket.AF_INET:
@@ -386,12 +386,12 @@ if os.uname()[4] in ['x86_64', 'aarch64']:
     def get_last_packet_timestamp(sock):
         ts = ioctl(sock, SIOCGSTAMP, "1234567890123456")
         s, us = struct.unpack("QQ", ts)
-        return s+us/1000000.0
+        return s + us / 1000000.0
 else:
     def get_last_packet_timestamp(sock):
         ts = ioctl(sock, SIOCGSTAMP, "12345678")
         s, us = struct.unpack("II", ts)
-        return s+us/1000000.0
+        return s + us / 1000000.0
 
 
 def _flush_fd(fd):
@@ -477,7 +477,7 @@ class L3PacketSocket(SuperSocket):
         return pkt
 
     def send(self, x):
-        iff, a, gw  = x.route()
+        iff, a, gw = x.route()
         if iff is None:
             iff = conf.iface
         sdto = (iff, self.type)
@@ -487,7 +487,7 @@ class L3PacketSocket(SuperSocket):
         if type(x) in conf.l3types:
             sdto = (iff, conf.l3types[type(x)])
         if sn[3] in conf.l2types:
-            ll = lambda x: conf.l2types[sn[3]]()/x
+            ll = lambda x: conf.l2types[sn[3]]() / x
         sx = raw(ll(x))
         x.sent_time = time.time()
         try:

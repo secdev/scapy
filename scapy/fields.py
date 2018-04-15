@@ -39,7 +39,7 @@ class Field(six.with_metaclass(Field_metaclass, object)):
         if fmt[0] in "@=<>!":
             self.fmt = fmt
         else:
-            self.fmt = "!"+fmt
+            self.fmt = "!" + fmt
         self.default = self.any2i(None, default)
         self.sz = struct.calcsize(self.fmt)
         self.owners = []
@@ -86,11 +86,11 @@ class Field(six.with_metaclass(Field_metaclass, object)):
 
     def addfield(self, pkt, s, val):
         """Add an internal value  to a string"""
-        return s+struct.pack(self.fmt, self.i2m(pkt, val))
+        return s + struct.pack(self.fmt, self.i2m(pkt, val))
 
     def getfield(self, pkt, s):
         """Extract an internal value from a string"""
-        return  s[self.sz:], self.m2i(pkt, struct.unpack(self.fmt, s[:self.sz])[0])
+        return s[self.sz:], self.m2i(pkt, struct.unpack(self.fmt, s[:self.sz])[0])
 
     def do_copy(self, x):
         if hasattr(x, "copy"):
@@ -192,16 +192,16 @@ class PadField(object):
         self._padwith = padwith or b""
 
     def padlen(self, flen):
-        return -flen%self._align
+        return -flen % self._align
 
     def getfield(self, pkt, s):
         remain, val = self._fld.getfield(pkt, s)
-        padlen = self.padlen(len(s)-len(remain))
+        padlen = self.padlen(len(s) - len(remain))
         return remain[padlen:], val
 
     def addfield(self, pkt, s, val):
         sval = self._fld.addfield(pkt, b"", val)
-        return s+sval+struct.pack("%is" % (self.padlen(len(sval))), self._padwith)
+        return s + sval + struct.pack("%is" % (self.padlen(len(sval))), self._padwith)
 
     def __getattr__(self, attr):
         return getattr(self._fld, attr)
@@ -346,7 +346,7 @@ class XByteField(ByteField):
 
 class OByteField(ByteField):
     def i2repr(self, pkt, x):
-        return "%03o"%self.i2h(pkt, x)
+        return "%03o" % self.i2h(pkt, x)
 
 
 class X3BytesField(XByteField):
@@ -354,10 +354,10 @@ class X3BytesField(XByteField):
         Field.__init__(self, name, default, "!I")
 
     def addfield(self, pkt, s, val):
-        return s+struct.pack(self.fmt, self.i2m(pkt, val))[1:4]
+        return s + struct.pack(self.fmt, self.i2m(pkt, val))[1:4]
 
     def getfield(self, pkt, s):
-        return  s[3:], self.m2i(pkt, struct.unpack(self.fmt, b"\x00"+s[:3])[0])
+        return s[3:], self.m2i(pkt, struct.unpack(self.fmt, b"\x00" + s[:3])[0])
 
 
 class ThreeBytesField(X3BytesField, ByteField):
@@ -775,7 +775,7 @@ class PacketListField(PacketField):
                 else:
                     remain = b""
             lst.append(p)
-        return remain+ret, lst
+        return remain + ret, lst
 
     def addfield(self, pkt, s, val):
         return s + b"".join(raw(v) for v in val)
@@ -786,7 +786,7 @@ class StrFixedLenField(StrField):
 
     def __init__(self, name, default, length=None, length_from=None):
         StrField.__init__(self, name, default)
-        self.length_from  = length_from
+        self.length_from = length_from
         if length is not None:
             self.length_from = lambda pkt, length=length: length
 
@@ -801,7 +801,7 @@ class StrFixedLenField(StrField):
 
     def addfield(self, pkt, s, val):
         l = self.length_from(pkt)
-        return s+struct.pack("%is"%l, self.i2m(pkt, val))
+        return s + struct.pack("%is" % l, self.i2m(pkt, val))
 
     def randval(self):
         try:
@@ -833,18 +833,18 @@ class NetBIOSNameField(StrFixedLenField):
         StrFixedLenField.__init__(self, name, default, length)
 
     def i2m(self, pkt, x):
-        l = self.length_from(pkt)//2
+        l = self.length_from(pkt) // 2
         if x is None:
             x = b""
-        x += b" "*(l)
+        x += b" " * (l)
         x = x[:l]
-        x = b"".join(chb(0x41 + orb(b)>>4) + chb(0x41 + orb(b)&0xf) for b in x)
-        x = b" "+x
+        x = b"".join(chb(0x41 + orb(b) >> 4) + chb(0x41 + orb(b) & 0xf) for b in x)
+        x = b" " + x
         return x
 
     def m2i(self, pkt, x):
         x = x.strip(b"\x00").strip(b" ")
-        return b"".join(map(lambda x, y: chb((((orb(x)-1)&0xf)<<4)+((orb(y)-1)&0xf)), x[::2], x[1::2]))
+        return b"".join(map(lambda x, y: chb((((orb(x) - 1) & 0xf) << 4) + ((orb(y) - 1) & 0xf)), x[::2], x[1::2]))
 
 
 class StrLenField(StrField):
@@ -971,13 +971,13 @@ class FieldListField(Field):
                 c -= 1
             s, v = self.field.getfield(pkt, s)
             val.append(v)
-        return s+ret, val
+        return s + ret, val
 
 
 class FieldLenField(Field):
     __slots__ = ["length_of", "count_of", "adjust"]
 
-    def __init__(self, name, default,  length_of=None, fmt="H", count_of=None, adjust=lambda pkt, x: x, fld=None):
+    def __init__(self, name, default, length_of=None, fmt="H", count_of=None, adjust=lambda pkt, x: x, fld=None):
         Field.__init__(self, name, default, fmt)
         self.length_of = length_of
         self.count_of = count_of
@@ -1000,14 +1000,14 @@ class FieldLenField(Field):
 
 class StrNullField(StrField):
     def addfield(self, pkt, s, val):
-        return s+self.i2m(pkt, val)+b"\x00"
+        return s + self.i2m(pkt, val) + b"\x00"
 
     def getfield(self, pkt, s):
         l = s.find(b"\x00")
         if l < 0:
             # XXX \x00 not found
             return b"", s
-        return s[l+1:], self.m2i(pkt, s[:l])
+        return s[l + 1:], self.m2i(pkt, s[:l])
 
     def randval(self):
         return RandTermString(RandNum(0, 1200), b"\x00")
@@ -1026,7 +1026,7 @@ class StrStopField(StrField):
         if l < 0:
             return b"", s
 #            raise Scapy_Exception,"StrStopField: stop value [%s] not found" %stop
-        l += len(self.stop)+self.additionnal
+        l += len(self.stop) + self.additionnal
         return s[l:], s[:l]
 
     def randval(self):
@@ -1048,10 +1048,10 @@ class LenField(Field):
 
 class BCDFloatField(Field):
     def i2m(self, pkt, x):
-        return int(256*x)
+        return int(256 * x)
 
     def m2i(self, pkt, x):
-        return x/256.0
+        return x / 256.0
 
 
 class BitField(Field):
@@ -1081,12 +1081,12 @@ class BitField(Field):
         if self.rev:
             val = self.reverse(val)
         v <<= self.size
-        v |= val & ((1<<self.size) - 1)
+        v |= val & ((1 << self.size) - 1)
         bitsdone += self.size
         while bitsdone >= 8:
             bitsdone -= 8
-            s = s+struct.pack("!B", v >> bitsdone)
-            v &= (1<<bitsdone)-1
+            s = s + struct.pack("!B", v >> bitsdone)
+            v &= (1 << bitsdone) - 1
         if bitsdone:
             return s, bitsdone, v
         else:
@@ -1098,7 +1098,7 @@ class BitField(Field):
         else:
             bn = 0
         # we don't want to process all the string
-        nb_bytes = (self.size+bn-1)//8 + 1
+        nb_bytes = (self.size + bn - 1) // 8 + 1
         w = s[:nb_bytes]
 
         # split the substring byte by byte
@@ -1106,20 +1106,20 @@ class BitField(Field):
 
         b = 0
         for c in range(nb_bytes):
-            b |= int(_bytes[c]) << (nb_bytes-c-1)*8
+            b |= int(_bytes[c]) << (nb_bytes - c - 1) * 8
 
         # get rid of high order bits
-        b &= (1 << (nb_bytes*8-bn)) - 1
+        b &= (1 << (nb_bytes * 8 - bn)) - 1
 
         # remove low order bits
-        b = b >> (nb_bytes*8 - self.size - bn)
+        b = b >> (nb_bytes * 8 - self.size - bn)
 
         if self.rev:
             b = self.reverse(b)
 
         bn += self.size
-        s = s[bn//8:]
-        bn = bn%8
+        s = s[bn // 8:]
+        bn = bn % 8
         b = self.m2i(pkt, b)
         if bn:
             return (s, bn), b
@@ -1127,10 +1127,10 @@ class BitField(Field):
             return s, b
 
     def randval(self):
-        return RandNum(0, 2**self.size-1)
+        return RandNum(0, 2**self.size - 1)
 
     def i2len(self, pkt, x):
-        return float(self.size)/8
+        return float(self.size) / 8
 
 
 class BitFieldLenField(BitField):
@@ -1389,7 +1389,7 @@ class LELongField(Field):
 
 
 class LEFieldLenField(FieldLenField):
-    def __init__(self, name, default,  length_of=None, fmt="<H", count_of=None, adjust=lambda pkt, x: x, fld=None):
+    def __init__(self, name, default, length_of=None, fmt="<H", count_of=None, adjust=lambda pkt, x: x, fld=None):
         FieldLenField.__init__(self, name, default, length_of=length_of, fmt=fmt, count_of=count_of, fld=fld, adjust=adjust)
 
 
@@ -1651,14 +1651,14 @@ class FixedPointField(BitField):
         if val is None:
             return val
         ival = int(val)
-        fract = int((val-ival) * 2**self.frac_bits)
+        fract = int((val - ival) * 2**self.frac_bits)
         return (ival << self.frac_bits) | fract
 
     def i2h(self, pkt, val):
         int_part = val >> self.frac_bits
         frac_part = val & (1 << self.frac_bits) - 1
         frac_part /= 2.0**self.frac_bits
-        return int_part+frac_part
+        return int_part + frac_part
 
     def i2repr(self, pkt, val):
         return self.i2h(pkt, val)
@@ -1678,53 +1678,53 @@ class _IPPrefixFieldBase(Field):
         self.length_from = length_from
 
     def _numbytes(self, pfxlen):
-        wbits= self.wordbytes * 8
+        wbits = self.wordbytes * 8
         return ((pfxlen + (wbits - 1)) // wbits) * self.wordbytes
 
     def h2i(self, pkt, x):
         # "fc00:1::1/64" -> ("fc00:1::1", 64)
-        [pfx, pfxlen]= x.split('/')
+        [pfx, pfxlen] = x.split('/')
         self.aton(pfx)  # check for validity
         return (pfx, int(pfxlen))
 
     def i2h(self, pkt, x):
         # ("fc00:1::1", 64) -> "fc00:1::1/64"
-        (pfx, pfxlen)= x
+        (pfx, pfxlen) = x
         return "%s/%i" % (pfx, pfxlen)
 
     def i2m(self, pkt, x):
         # ("fc00:1::1", 64) -> (b"\xfc\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01", 64)
-        (pfx, pfxlen)= x
-        s= self.aton(pfx);
+        (pfx, pfxlen) = x
+        s = self.aton(pfx);
         return (s[:self._numbytes(pfxlen)], pfxlen)
 
     def m2i(self, pkt, x):
         # (b"\xfc\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01", 64) -> ("fc00:1::1", 64)
-        (s, pfxlen)= x
+        (s, pfxlen) = x
 
         if len(s) < self.maxbytes:
-            s= s + (b"\0" * (self.maxbytes - len(s)))
+            s = s + (b"\0" * (self.maxbytes - len(s)))
         return (self.ntoa(s), pfxlen)
 
     def any2i(self, pkt, x):
         if x is None:
-            return (self.ntoa(b"\0"*self.maxbytes), 1)
+            return (self.ntoa(b"\0" * self.maxbytes), 1)
 
         return self.h2i(pkt, x)
 
     def i2len(self, pkt, x):
-        (_, pfxlen)= x
+        (_, pfxlen) = x
         return pfxlen
 
     def addfield(self, pkt, s, val):
-        (rawpfx, pfxlen)= self.i2m(pkt, val)
-        fmt= "!%is" % self._numbytes(pfxlen)
-        return s+struct.pack(fmt, rawpfx)
+        (rawpfx, pfxlen) = self.i2m(pkt, val)
+        fmt = "!%is" % self._numbytes(pfxlen)
+        return s + struct.pack(fmt, rawpfx)
 
     def getfield(self, pkt, s):
-        pfxlen= self.length_from(pkt)
-        numbytes= self._numbytes(pfxlen)
-        fmt= "!%is" % numbytes
+        pfxlen = self.length_from(pkt)
+        numbytes = self._numbytes(pfxlen)
+        fmt = "!%is" % numbytes
         return s[numbytes:], self.m2i(pkt, (struct.unpack(fmt, s[:numbytes])[0], pfxlen))
 
 
@@ -1753,7 +1753,7 @@ class UTCTimeField(IntField):
         if x is None:
             x = 0
         elif self.use_nano:
-            x = x/1e9
+            x = x / 1e9
         x = int(x) + self.delta
         t = time.strftime(self.strf, time.gmtime(x))
         return "%s (%d)" % (t, x)
@@ -1773,5 +1773,5 @@ class SecondsIntField(IntField):
         if x is None:
             x = 0
         elif self.use_msec:
-            x = x/1e3
+            x = x / 1e3
         return "%s sec" % x

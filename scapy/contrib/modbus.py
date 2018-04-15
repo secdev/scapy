@@ -105,7 +105,7 @@ class ModbusPDU03ReadHoldingRegistersRequest(Packet):
 class ModbusPDU03ReadHoldingRegistersResponse(Packet):
     name = "Read Holding Registers Response"
     fields_desc = [XByteField("funcCode", 0x03),
-                   BitFieldLenField("byteCount", None, 8, count_of="registerVal", adjust=lambda pkt, x: x*2),
+                   BitFieldLenField("byteCount", None, 8, count_of="registerVal", adjust=lambda pkt, x: x * 2),
                    FieldListField("registerVal", [0x0000], ShortField("", 0x0000),
                                   count_from=lambda pkt: pkt.byteCount)]
 
@@ -129,7 +129,7 @@ class ModbusPDU04ReadInputRegistersRequest(Packet):
 class ModbusPDU04ReadInputRegistersResponse(Packet):
     name = "Read Input Registers Response"
     fields_desc = [XByteField("funcCode", 0x04),
-                   BitFieldLenField("byteCount", None, 8, count_of="registerVal", adjust=lambda pkt, x: x*2),
+                   BitFieldLenField("byteCount", None, 8, count_of="registerVal", adjust=lambda pkt, x: x * 2),
                    FieldListField("registerVal", [0x0000], ShortField("", 0x0000),
                                   count_from=lambda pkt: pkt.byteCount)]
 
@@ -233,7 +233,7 @@ class ModbusPDU10WriteMultipleRegistersRequest(Packet):
     fields_desc = [XByteField("funcCode", 0x10),
                    XShortField("startingAddr", 0x0000),
                    BitFieldLenField("quantityRegisters", None, 16, count_of="outputsValue",),
-                   BitFieldLenField("byteCount", None, 8, count_of="outputsValue", adjust=lambda pkt, x: x*2),
+                   BitFieldLenField("byteCount", None, 8, count_of="outputsValue", adjust=lambda pkt, x: x * 2),
                    FieldListField("outputsValue", [0x0000], XShortField("", 0x0000),
                                   count_from=lambda pkt: pkt.byteCount)]
 
@@ -305,10 +305,10 @@ class ModbusPDU14ReadFileRecordRequest(Packet):
 
 class ModbusReadFileSubResponse(Packet):
     name = "Sub-response"
-    fields_desc = [BitFieldLenField("respLength", None, 8, count_of="recData", adjust=lambda pkt, p: p*2+1),
+    fields_desc = [BitFieldLenField("respLength", None, 8, count_of="recData", adjust=lambda pkt, p: p * 2 + 1),
                    ByteField("refType", 0x06),
                    FieldListField("recData", [0x0000], XShortField("", 0x0000),
-                                  count_from=lambda pkt: (pkt.respLength-1)//2)]
+                                  count_from=lambda pkt: (pkt.respLength - 1) // 2)]
 
     def guess_payload_class(self, payload):
         return ModbusReadFileSubResponse
@@ -344,9 +344,9 @@ class ModbusWriteFileSubRequest(Packet):
     fields_desc = [ByteField("refType", 0x06),
                    ShortField("fileNumber", 0x0001),
                    ShortField("recordNumber", 0x0000),
-                   BitFieldLenField("recordLength", None, 16, length_of="recordData", adjust=lambda pkt, p: p//2),
+                   BitFieldLenField("recordLength", None, 16, length_of="recordData", adjust=lambda pkt, p: p // 2),
                    FieldListField("recordData", [0x0000], ShortField("", 0x0000),
-                                  length_from=lambda pkt: pkt.recordLength*2)]
+                                  length_from=lambda pkt: pkt.recordLength * 2)]
 
     def guess_payload_class(self, payload):
         if payload:
@@ -425,7 +425,7 @@ class ModbusPDU17ReadWriteMultipleRegistersRequest(Packet):
                    XShortField("readQuantityRegisters", 0x0001),
                    XShortField("writeStartingAddr", 0x0000),
                    BitFieldLenField("writeQuantityRegisters", None, 16, count_of="writeRegistersValue"),
-                   BitFieldLenField("byteCount", None, 8, count_of="writeRegistersValue", adjust=lambda pkt, x: x*2),
+                   BitFieldLenField("byteCount", None, 8, count_of="writeRegistersValue", adjust=lambda pkt, x: x * 2),
                    FieldListField("writeRegistersValue", [0x0000], XShortField("", 0x0000),
                                   count_from=lambda pkt: pkt.byteCount)]
 
@@ -433,7 +433,7 @@ class ModbusPDU17ReadWriteMultipleRegistersRequest(Packet):
 class ModbusPDU17ReadWriteMultipleRegistersResponse(Packet):
     name = "Read Write Multiple Registers Response"
     fields_desc = [XByteField("funcCode", 0x17),
-                   BitFieldLenField("byteCount", None, 8, count_of="registerVal", adjust=lambda pkt, x: x*2),
+                   BitFieldLenField("byteCount", None, 8, count_of="registerVal", adjust=lambda pkt, x: x * 2),
                    FieldListField("registerVal", [0x0000], ShortField("", 0x0000),
                                   count_from=lambda pkt: pkt.byteCount)]
 
@@ -454,7 +454,7 @@ class ModbusPDU18ReadFIFOQueueResponse(Packet):
     name = "Read FIFO Queue Response"
     fields_desc = [XByteField("funcCode", 0x18),
                    # TODO: ByteCount must includes size of FIFOCount
-                   BitFieldLenField("byteCount", None, 16, count_of="FIFOVal", adjust=lambda pkt, p: p*2+2),
+                   BitFieldLenField("byteCount", None, 16, count_of="FIFOVal", adjust=lambda pkt, p: p * 2 + 2),
                    BitFieldLenField("FIFOCount", None, 16, count_of="FIFOVal"),
                    FieldListField("FIFOVal", [], ShortField("", 0x0000), count_from=lambda pkt: pkt.byteCount)]
 

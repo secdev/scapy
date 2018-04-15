@@ -38,10 +38,10 @@ class EoMCW(Packet):
 
 class MPLS(Packet):
     name = "MPLS"
-    fields_desc =  [BitField("label", 3, 20),
-                    BitField("cos", 0, 3),
-                    BitField("s", 1, 1),
-                    ByteField("ttl", 0)]
+    fields_desc = [BitField("label", 3, 20),
+                   BitField("cos", 0, 3),
+                   BitField("s", 1, 1),
+                   ByteField("ttl", 0)]
 
     def guess_payload_class(self, payload):
         if len(payload) >= 1:

@@ -34,10 +34,10 @@ class MIBDict(DADict):
             x = x[1:]
         if not x.endswith("."):
             x += "."
-        max=0
-        root="."
+        max = 0
+        root = "."
         for k in six.iterkeys(self):
-            if x.startswith(self[k]+"."):
+            if x.startswith(self[k] + "."):
                 if max < len(self[k]):
                     max = len(self[k])
                     root = k
@@ -45,11 +45,11 @@ class MIBDict(DADict):
 
     def _oidname(self, x):
         root, remainder = self._findroot(x)
-        return root+remainder
+        return root + remainder
 
     def _oid(self, x):
         xl = x.strip(".").split(".")
-        p = len(xl)-1
+        p = len(xl) - 1
         while p >= 0 and _mib_re_integer.match(xl[p]):
             p -= 1
         if p != 0 or xl[p] not in self:
@@ -71,7 +71,7 @@ class MIBDict(DADict):
         s += "\n"
         for k, o in nodes:
             parent, remainder = self._findroot(o[:-1])
-            remainder = remainder[1:]+o[-1]
+            remainder = remainder[1:] + o[-1]
             if parent != ".":
                 parent = self[parent]
             s += '\t"%s" -> "%s" [label="%s"];\n' % (parent, o, remainder)
@@ -134,7 +134,7 @@ def load_mib(filenames):
             for m in _mib_re_oiddecl.finditer(cleantext):
                 gr = m.groups()
                 ident, oid = gr[0], gr[-1]
-                ident=fixname(ident)
+                ident = fixname(ident)
                 oid = oid.split()
                 for i, elt in enumerate(oid):
                     m = _mib_re_both.match(elt)
@@ -144,11 +144,11 @@ def load_mib(filenames):
 
     newmib = MIBDict(_name="MIB")
     for k, o in six.iteritems(the_mib):
-        newmib[k]=".".join(o)
+        newmib[k] = ".".join(o)
     for k, o in six.iteritems(unresolved):
-        newmib[k]=".".join(o)
+        newmib[k] = ".".join(o)
 
-    conf.mib=newmib
+    conf.mib = newmib
 
 
 ####################

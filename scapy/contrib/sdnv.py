@@ -92,7 +92,7 @@ class SDNV2(Field):
     """ SDNV2 field """
 
     def addfield(self, pkt, s, val):
-        return s+raw(SDNVUtil.encode(val))
+        return s + raw(SDNVUtil.encode(val))
 
     def getfield(self, pkt, s):
         b = bytearray(s)
@@ -102,9 +102,9 @@ class SDNV2(Field):
 
 class SDNV2FieldLenField(FieldLenField, SDNV2):
     def addfield(self, pkt, s, val):
-        return s+raw(SDNVUtil.encode(FieldLenField.i2m(self, pkt, val)))
+        return s + raw(SDNVUtil.encode(FieldLenField.i2m(self, pkt, val)))
 
 
 class SDNV2LenField(LenField, SDNV2):
     def addfield(self, pkt, s, val):
-        return s+raw(SDNVUtil.encode(LenField.i2m(self, pkt, val)))
+        return s + raw(SDNVUtil.encode(LenField.i2m(self, pkt, val)))

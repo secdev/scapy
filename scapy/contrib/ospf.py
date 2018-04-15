@@ -72,7 +72,7 @@ class OSPF_Hdr(Packet):
     fields_desc = [
         ByteField("version", 2),
         ByteEnumField("type", 1, _OSPF_types),
-        _NoLLSLenField("len", None, adjust=lambda x: x+24),
+        _NoLLSLenField("len", None, adjust=lambda x: x + 24),
         IPField("src", "1.1.1.1"),
         IPField("area", "0.0.0.0"),  # default: backbone
         XShortField("chksum", None),

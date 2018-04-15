@@ -255,7 +255,7 @@ class Address (StrLenField):
         elif x.startswith(b'\x00\x02'):    # IPv6 address
             return inet_ntop(socket.AF_INET6, x[2:])
         else:   # Address format not yet decoded
-            print ('Warning: Address format not yet decoded.')
+            print('Warning: Address format not yet decoded.')
             return bytes_hex(x)
 
     def any2i(self, pkt, x):
@@ -268,7 +268,7 @@ class Address (StrLenField):
                     s = inet_pton(socket.AF_INET6, x)
                     return b'\x00\x02' + s
                 except BaseException:
-                    print ('Warning: Address format not supported yet.')
+                    print('Warning: Address format not supported yet.')
         return b''
 
 

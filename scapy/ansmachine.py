@@ -62,7 +62,7 @@ class AnsweringMachine(six.with_metaclass(ReferenceAM, object)):
         if mode == 0:
             self.__dict__[attr] = val
         else:
-            [self.optam1, self.optam2][mode-1][attr] = val
+            [self.optam1, self.optam2][mode - 1][attr] = val
 
     def parse_options(self):
         pass
@@ -75,7 +75,7 @@ class AnsweringMachine(six.with_metaclass(ReferenceAM, object)):
                 sniffopt[k] = kargs[k]
             if k in self.send_options_list:
                 sendopt[k] = kargs[k]
-            if k in self.sniff_options_list+self.send_options_list:
+            if k in self.sniff_options_list + self.send_options_list:
                 del kargs[k]
         if mode != 2 or kargs:
             if mode == 1:
@@ -117,9 +117,9 @@ class AnsweringMachine(six.with_metaclass(ReferenceAM, object)):
 
     def __call__(self, *args, **kargs):
         optsend, optsniff = self.parse_all_options(2, kargs)
-        self.optsend=self.defoptsend.copy()
+        self.optsend = self.defoptsend.copy()
         self.optsend.update(optsend)
-        self.optsniff=self.defoptsniff.copy()
+        self.optsniff = self.defoptsniff.copy()
         self.optsniff.update(optsniff)
 
         try:

@@ -40,7 +40,7 @@ class WPA_key(Packet):
         return s[:l], s[l:]
 
     def hashret(self):
-        return chr(self.type)+self.payload.hashret()
+        return chr(self.type) + self.payload.hashret()
 
     def answers(self, other):
         if isinstance(other, WPA_key):
@@ -48,4 +48,4 @@ class WPA_key(Packet):
         return 0
 
 
-bind_layers(EAPOL,         WPA_key,       type=3)
+bind_layers(EAPOL, WPA_key, type=3)

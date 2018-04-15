@@ -54,7 +54,7 @@ class TLSInnerPlaintext(_GenericTLSSessionInheritance):
             msg_len = l - n
         self.fields_desc[0].length_from = lambda pkt: msg_len
 
-        self.type = struct.unpack("B", s[msg_len:msg_len+1])[0]
+        self.type = struct.unpack("B", s[msg_len:msg_len + 1])[0]
 
         return s
 
@@ -133,7 +133,7 @@ class TLS13(_GenericTLSSessionInheritance):
             return s
         else:
             msglen = struct.unpack('!H', s[3:5])[0]
-            hdr, efrag, r = s[:5], s[5:5+msglen], s[msglen+5:]
+            hdr, efrag, r = s[:5], s[5:5 + msglen], s[msglen + 5:]
             frag, auth_tag = self._tls_auth_decrypt(efrag)
             self.deciphered_len = len(frag)
             return hdr + frag + auth_tag + r

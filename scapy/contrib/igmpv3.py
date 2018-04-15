@@ -82,12 +82,12 @@ class IGMPv3(IGMP):
         elif value > 31743:
             code = 255
         else:
-            exp=0
-            value>>=3
-            while(value>31):
-                exp+=1
-                value>>=1
-            exp<<=4
+            exp = 0
+            value >>= 3
+            while(value > 31):
+                exp += 1
+                value >>= 1
+            exp <<= 4
             code = 0x80 | exp | (value & 0x0F)
         self.mrcode = code
 
@@ -166,12 +166,12 @@ class IGMPv3mra(Packet):
                    ShortField("robust", 0)]
 
 
-bind_layers(IP,       IGMPv3,   frag=0,
+bind_layers(IP, IGMPv3, frag=0,
             proto=2,
             ttl=1,
             tos=0xc0,
             dst='224.0.0.22')
 
-bind_layers(IGMPv3,   IGMPv3mq, type=0x11)
-bind_layers(IGMPv3,   IGMPv3mr, type=0x22, mrcode=0x0)
-bind_layers(IGMPv3,   IGMPv3mra, type=0x30)
+bind_layers(IGMPv3, IGMPv3mq, type=0x11)
+bind_layers(IGMPv3, IGMPv3mr, type=0x22, mrcode=0x0)
+bind_layers(IGMPv3, IGMPv3mra, type=0x30)

@@ -53,7 +53,7 @@ def pkcs_i2osp(n, sLen):
     """
     # if n >= 256**sLen:
     #    raise Exception("Integer too large for provided sLen %d" % sLen)
-    fmt = "%%0%dx" % (2*sLen)
+    fmt = "%%0%dx" % (2 * sLen)
     return hex_bytes(fmt % n)
 
 
@@ -84,7 +84,7 @@ def _legacy_pkcs1_v1_5_encode_md5_sha1(M, emLen):
         warning("pkcs_emsa_pkcs1_v1_5_encode: "
                 "intended encoded message length too short")
         return None
-    PS = b'\xff'*(emLen - 36 - 3)
+    PS = b'\xff' * (emLen - 36 - 3)
     return b'\x00' + b'\x01' + PS + b'\x00' + H
 
 
@@ -174,7 +174,7 @@ class _EncryptAndVerifyRSA(object):
         n = self._modulus
         if isinstance(s, int) and six.PY2:
             s = long(s)
-        if (six.PY2 and not isinstance(s, long)) or s > n-1:
+        if (six.PY2 and not isinstance(s, long)) or s > n - 1:
             warning("Key._rsaep() expects a long between 0 and n-1")
             return None
         m = pow(s, self._pubExp, n)
@@ -219,7 +219,7 @@ class _DecryptAndSignRSA(object):
         n = self._modulus
         if isinstance(m, int) and six.PY2:
             m = long(m)
-        if (six.PY2 and not isinstance(m, long)) or m > n-1:
+        if (six.PY2 and not isinstance(m, long)) or m > n - 1:
             warning("Key._rsaep() expects a long between 0 and n-1")
             return None
         privExp = self.key.private_numbers().d

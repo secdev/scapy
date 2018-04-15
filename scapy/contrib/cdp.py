@@ -204,7 +204,7 @@ class CDPMsgCapabilities(CDPMsgGeneric):
     name = "Capabilities"
     fields_desc = [XShortEnumField("type", 0x0004, _cdp_tlv_types),
                    ShortField("len", 8),
-                   FlagsField("cap", 0, 32,  _cdp_capabilities)]
+                   FlagsField("cap", 0, 32, _cdp_capabilities)]
 
 
 class CDPMsgSoftwareVersion(CDPMsgGeneric):
