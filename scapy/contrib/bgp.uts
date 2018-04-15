@@ -615,6 +615,21 @@ raw(BGPPathAttr(type_code = 14, attribute = BGPPAMPReachNLRI(afi = 2, safi = 1, 
 a = BGPPathAttr(b'\x90\x0f\x00X\x00\x02\x01\x03`\x03\x80\x03\xa0\x03\xc0\x04\xe0\x05\xf0\x06\xf8\x10 \x02`\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff@\x01\x00\x00\x00\x00\x00\x00\x00\x17 \x01\x00  \x01\x00\x000 \x01\x00\x02\x00\x00  \x01\r\xb8\n\xfe\xc0\x07\xfc\n\xfe\x80\x1c \x01\x00\x10\x03 \x06\x04\x03@\x08_\x05\x08\x04\x10')
 a.type_flags == 0x90 and a.type_code == 15 and a.attr_ext_len == 88 and a.attribute.afi == 2 and a.attribute.safi == 1 and a.attribute.afi_safi_specific.withdrawn_routes[0].prefix == "6000::/3" and a.attribute.afi_safi_specific.withdrawn_routes[1].prefix == "8000::/3" and a.attribute.afi_safi_specific.withdrawn_routes[2].prefix == "a000::/3" and a.attribute.afi_safi_specific.withdrawn_routes[3].prefix == "c000::/3" and a.attribute.afi_safi_specific.withdrawn_routes[4].prefix == "e000::/4" and a.attribute.afi_safi_specific.withdrawn_routes[5].prefix == "f000::/5" and a.attribute.afi_safi_specific.withdrawn_routes[23].prefix == "1000::/4"
 
+= BGPPathAttr - advanced
+b = BGPPathAttr(type_code=0x10, attribute=BGPPAExtComms(extended_communities=[
+                                                            BGPPAExtCommunity(value=BGPPAExtCommTwoOctetASSpecific()),
+                                                            BGPPAExtCommunity(value=BGPPAExtCommIPv4AddressSpecific()),
+                                                            BGPPAExtCommunity(value=BGPPAExtCommFourOctetASSpecific()),
+                                                            BGPPAExtCommunity(value=BGPPAExtCommOpaque()),
+                                                            BGPPAExtCommunity(value=BGPPAExtCommTrafficMarking()),
+                                                            BGPPAExtCommunity(value=BGPPAExtCommRedirectIPv4()),
+                                                            BGPPAExtCommunity(value=BGPPAExtCommRedirectAS4Byte()),
+                                                        ]))
+b = BGPPathAttr(raw(b))
+cls_list = [x.value.__class__ for x in b.attribute.extended_communities]
+assert cls_list == [BGPPAExtCommTwoOctetASSpecific, BGPPAExtCommIPv4AddressSpecific, BGPPAExtCommFourOctetASSpecific, BGPPAExtCommOpaque,
+                    BGPPAExtCommTrafficMarking, BGPPAExtCommRedirectIPv4, BGPPAExtCommRedirectAS4Byte]
+b.show()
 
 ################################# BGPUpdate ##################################
 + BGPUpdate class tests
