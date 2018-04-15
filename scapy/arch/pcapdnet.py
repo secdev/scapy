@@ -207,7 +207,7 @@ if conf.use_winpcapy:
             if promisc is None:
                 promisc = conf.sniff_promisc
             self.promisc = promisc
-            self.ins = open_pcap(iface, 1600, self.promisc, 100, monitor=monitor)
+            self.ins = open_pcap(iface, MTU, self.promisc, 100, monitor=monitor)
             try:
                 ioctl(self.ins.fileno(), BIOCIMMEDIATE, struct.pack("I", 1))
             except:
@@ -269,11 +269,11 @@ if conf.use_winpcapy:
             if promisc is None:
                 promisc = 0
             self.promisc = promisc
-            self.ins = open_pcap(iface, 1600, self.promisc, 100, monitor=monitor)
+            self.ins = open_pcap(iface, MTU, self.promisc, 100, monitor=monitor)
             # We need to have a different interface open because of an
             # access violation in Npcap that occurs in multi-threading
             # (see https://github.com/nmap/nmap/issues/982)
-            self.outs = open_pcap(iface, 1600, self.promisc, 100)
+            self.outs = open_pcap(iface, MTU, self.promisc, 100)
             try:
                 ioctl(self.ins.fileno(), BIOCIMMEDIATE, struct.pack("I", 1))
             except:
@@ -484,7 +484,7 @@ if conf.use_pcap:
                 if promisc is None:
                     promisc = conf.sniff_promisc
                 self.promisc = promisc
-                self.ins = open_pcap(iface, 1600, self.promisc, 100)
+                self.ins = open_pcap(iface, MTU, self.promisc, 100)
                 try:
                     ioctl(self.ins.fileno(), BIOCIMMEDIATE, struct.pack("I", 1))
                 except:
@@ -624,7 +624,7 @@ if conf.use_pcap and conf.use_dnet:
             if promisc is None:
                 promisc = 0
             self.promisc = promisc
-            self.ins = open_pcap(iface, 1600, self.promisc, 100)
+            self.ins = open_pcap(iface, MTU, self.promisc, 100)
             try:
                 ioctl(self.ins.fileno(), BIOCIMMEDIATE, struct.pack("I", 1))
             except:
@@ -720,7 +720,7 @@ if conf.use_pcap and conf.use_dnet:
             if promisc is None:
                 promisc = 0
             self.promisc = promisc
-            self.ins = open_pcap(iface, 1600, self.promisc, 100)
+            self.ins = open_pcap(iface, MTU, self.promisc, 100)
             try:
                 ioctl(self.ins.fileno(), BIOCIMMEDIATE, struct.pack("I", 1))
             except:
