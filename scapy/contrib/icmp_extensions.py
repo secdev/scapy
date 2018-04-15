@@ -78,7 +78,7 @@ def ICMPExtension_post_dissection(self, pkt):
 
     lastlayer = pkt.lastlayer()
     if not isinstance(lastlayer, conf.padding_layer):
-      return
+        return
 
     if IP in pkt:
         if (ICMP in pkt and

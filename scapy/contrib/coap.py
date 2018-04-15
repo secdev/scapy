@@ -80,20 +80,20 @@ coap_options = ({
 },
     {
     "If-Match": 1,
-                    "Uri-Host": 3,
-                    "ETag": 4,
-                    "If-None-Match": 5,
-                    "Uri-Port": 7,
-                    "Location-Path": 8,
-                    "Uri-Path": 11,
-                    "Content-Format": 12,
-                    "Max-Age": 14,
-                    "Uri-Query": 15,
-                    "Accept": 17,
-                    "Location-Query": 20,
-                    "Proxy-Uri": 35,
-                    "Proxy-Scheme": 39,
-                    "Size1": 60
+    "Uri-Host": 3,
+    "ETag": 4,
+    "If-None-Match": 5,
+    "Uri-Port": 7,
+    "Location-Path": 8,
+    "Uri-Path": 11,
+    "Content-Format": 12,
+    "Max-Age": 14,
+    "Uri-Query": 15,
+    "Accept": 17,
+    "Location-Query": 20,
+    "Proxy-Uri": 35,
+    "Proxy-Scheme": 39,
+    "Size1": 60
 })
 
 

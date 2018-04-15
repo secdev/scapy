@@ -339,7 +339,7 @@ if six.PY2:
         return "%08X" % (0xffffffff & zlib.crc32(x))
 
     def sha1(x):
-         return hashlib.sha1(x).hexdigest().upper()
+        return hashlib.sha1(x).hexdigest().upper()
 else:
     def crc32(x):
         return "%08X" % (0xffffffff & zlib.crc32(bytearray(x, "utf8")))
@@ -876,7 +876,7 @@ def main(argv):
             break
 
     if VERB > 2:
-            print("### Writing output...", file=sys.stderr)
+        print("### Writing output...", file=sys.stderr)
     # Concenate outputs
     if FORMAT == Format.HTML:
         glob_output = pack_html_campaigns(runned_campaigns, glob_output, LOCAL, glob_title)

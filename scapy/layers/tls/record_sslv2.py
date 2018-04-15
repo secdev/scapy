@@ -44,17 +44,17 @@ class _SSLv2MsgListField(_TLSMsgListField):
             return cls(m, tls_session=pkt.tls_session)
 
     def i2m(self, pkt, p):
-       cur = b""
-       if isinstance(p, _GenericTLSSessionInheritance):
-           p.tls_session = pkt.tls_session
-           if not pkt.tls_session.frozen:
-               cur = p.raw_stateful()
-               p.post_build_tls_session_update(cur)
-           else:
-               cur = raw(p)
-       else:
-           cur = raw(p)
-       return cur
+        cur = b""
+        if isinstance(p, _GenericTLSSessionInheritance):
+            p.tls_session = pkt.tls_session
+            if not pkt.tls_session.frozen:
+                cur = p.raw_stateful()
+                p.post_build_tls_session_update(cur)
+            else:
+                cur = raw(p)
+        else:
+            cur = raw(p)
+        return cur
 
     def addfield(self, pkt, s, val):
         res = b""

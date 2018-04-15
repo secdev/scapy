@@ -78,13 +78,13 @@ class OSPF_Hdr(Packet):
         XShortField("chksum", None),
         ShortEnumField("authtype", 0, {0: "Null", 1: "Simple", 2: "Crypto"}),
         # Null or Simple Authentication
-                    ConditionalField(XLongField("authdata", 0), lambda pkt: pkt.authtype != 2),
-                    # Crypto Authentication
-                    ConditionalField(XShortField("reserved", 0), lambda pkt: pkt.authtype == 2),
-                    ConditionalField(ByteField("keyid", 1), lambda pkt: pkt.authtype == 2),
-                    ConditionalField(ByteField("authdatalen", 0), lambda pkt: pkt.authtype == 2),
-                    ConditionalField(XIntField("seq", 0), lambda pkt: pkt.authtype == 2),
-                    # TODO: Support authdata (which is appended to the packets as if it were padding)
+        ConditionalField(XLongField("authdata", 0), lambda pkt: pkt.authtype != 2),
+        # Crypto Authentication
+        ConditionalField(XShortField("reserved", 0), lambda pkt: pkt.authtype == 2),
+        ConditionalField(ByteField("keyid", 1), lambda pkt: pkt.authtype == 2),
+        ConditionalField(ByteField("authdatalen", 0), lambda pkt: pkt.authtype == 2),
+        ConditionalField(XIntField("seq", 0), lambda pkt: pkt.authtype == 2),
+        # TODO: Support authdata (which is appended to the packets as if it were padding)
     ]
 
     def post_build(self, p, pay):
@@ -108,7 +108,7 @@ class OSPF_Hdr(Packet):
         if (isinstance(other, OSPF_Hdr) and
             self.area == other.area and
                 self.type == 5):  # Only acknowledgements answer other packets
-                return self.payload.answers(other.payload)
+            return self.payload.answers(other.payload)
         return 0
 
 
@@ -146,7 +146,7 @@ class LLS_Extended_Options(LLS_Generic_TLV):
     fields_desc = [ShortField("type", 1),
                    FieldLenField("len", None, fmt="!H", length_of="options"),
                    StrLenField("options", "", length_from=lambda x: x.len)]
-                 # TODO: FlagsField("options", 0, names=["LR", "RS"], size) with dynamic size
+    # TODO: FlagsField("options", 0, names=["LR", "RS"], size) with dynamic size
 
 
 class LLS_Crypto_Auth(LLS_Generic_TLV):

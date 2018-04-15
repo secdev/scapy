@@ -158,31 +158,31 @@ class _TLSMsgListField(PacketListField):
             return remain + ret, lst
 
     def i2m(self, pkt, p):
-       """
-       Update the context with information from the built packet.
-       If no type was given at the record layer, we try to infer it.
-       """
-       cur = b""
-       if isinstance(p, _GenericTLSSessionInheritance):
-           if pkt.type is None:
-               if isinstance(p, TLSChangeCipherSpec):
-                   pkt.type = 20
-               elif isinstance(p, TLSAlert):
-                   pkt.type = 21
-               elif isinstance(p, _TLSHandshake):
-                   pkt.type = 22
-               elif isinstance(p, TLSApplicationData):
-                   pkt.type = 23
-           p.tls_session = pkt.tls_session
-           if not pkt.tls_session.frozen:
-               cur = p.raw_stateful()
-               p.post_build_tls_session_update(cur)
-           else:
-               cur = raw(p)
-       else:
-           pkt.type = 23
-           cur = raw(p)
-       return cur
+        """
+        Update the context with information from the built packet.
+        If no type was given at the record layer, we try to infer it.
+        """
+        cur = b""
+        if isinstance(p, _GenericTLSSessionInheritance):
+            if pkt.type is None:
+                if isinstance(p, TLSChangeCipherSpec):
+                    pkt.type = 20
+                elif isinstance(p, TLSAlert):
+                    pkt.type = 21
+                elif isinstance(p, _TLSHandshake):
+                    pkt.type = 22
+                elif isinstance(p, TLSApplicationData):
+                    pkt.type = 23
+            p.tls_session = pkt.tls_session
+            if not pkt.tls_session.frozen:
+                cur = p.raw_stateful()
+                p.post_build_tls_session_update(cur)
+            else:
+                cur = raw(p)
+        else:
+            pkt.type = 23
+            cur = raw(p)
+        return cur
 
     def addfield(self, pkt, s, val):
         """
@@ -195,7 +195,7 @@ class _TLSMsgListField(PacketListField):
         if (isinstance(pkt, _GenericTLSSessionInheritance) and
             _tls_version_check(pkt.tls_session.tls_version, 0x0304) and
                 not isinstance(pkt, TLS13ServerHello)):
-                return s + res
+            return s + res
         if not pkt.type:
             pkt.type = 0
         hdr = struct.pack("!B", pkt.type) + s[1:5]
@@ -720,9 +720,9 @@ _tls_alert_description = {
     60: "export_restriction_RESERVED", 70: "protocol_version",
     71: "insufficient_security",       80: "internal_error",
     90: "user_canceled",              100: "no_renegotiation",
-   110: "unsupported_extension",      111: "certificate_unobtainable",
-   112: "unrecognized_name",          113: "bad_certificate_status_response",
-   114: "bad_certificate_hash_value", 115: "unknown_psk_identity"}
+    110: "unsupported_extension",      111: "certificate_unobtainable",
+    112: "unrecognized_name",          113: "bad_certificate_status_response",
+    114: "bad_certificate_hash_value", 115: "unknown_psk_identity"}
 
 
 class TLSAlert(_GenericTLSSessionInheritance):
