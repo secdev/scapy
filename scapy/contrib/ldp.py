@@ -32,6 +32,7 @@ from scapy.modules.six.moves import range
 
 from scapy.contrib.mpls import *
 
+
 class _LDP_Packet(Packet):
     # Guess payload
     def guess_payload_class(self, p):
@@ -432,6 +433,7 @@ class LDP(_LDP_Packet):
             l = len(p) + len(pay) - 4
             p = p[:2]+struct.pack("!H", l)+p[4:]
         return p + pay
+
 
 bind_bottom_up(TCP, LDP, sport=646)
 bind_bottom_up(TCP, LDP, dport=646)
