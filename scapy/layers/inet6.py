@@ -3444,9 +3444,9 @@ class TracerouteResult6(TracerouteResult):
         return self.make_table(lambda s, r: (s.sprintf("%-42s,IPv6.dst%:{TCP:tcp%TCP.dport%}{UDP:udp%UDP.dport%}{ICMPv6EchoRequest:IER}"),  # TODO: ICMPv6 !
                                              s.hlim,
                                              r.sprintf("%-42s,IPv6.src% {TCP:%TCP.flags%}" +
-                                                           "{ICMPv6DestUnreach:%ir,type%}{ICMPv6PacketTooBig:%ir,type%}" +
-                                                           "{ICMPv6TimeExceeded:%ir,type%}{ICMPv6ParamProblem:%ir,type%}" +
-                                                           "{ICMPv6EchoReply:%ir,type%}")))
+                                                       "{ICMPv6DestUnreach:%ir,type%}{ICMPv6PacketTooBig:%ir,type%}" +
+                                                       "{ICMPv6TimeExceeded:%ir,type%}{ICMPv6ParamProblem:%ir,type%}" +
+                                                       "{ICMPv6EchoReply:%ir,type%}")))
 
     def get_trace(self):
         trace = {}

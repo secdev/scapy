@@ -56,6 +56,7 @@ def cmp(a, b):
     """Old Python 2 function"""
     return (a > b) - (a < b)
 
+
 def lambda_tuple_converter(func):
     """
     Converts a Python 2 function as
@@ -67,6 +68,7 @@ def lambda_tuple_converter(func):
         return lambda *args: func(args[0] if len(args) == 1 else args)
     else:
         return func
+
 
 if six.PY2:
     def orb(x):
