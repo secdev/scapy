@@ -68,23 +68,16 @@ import scapy.consts
 IS_WINDOWS_XP = platform.release() == "XP"
 
 
-def is_new_release(win10more=False):
+def is_new_release():
     release = platform.release()
     if conf.prog.powershell is None:
         return False
-    if win10more:
-        try:
-            if float(release) >= 10:
-                return True
-        except:
-            pass
-    else:
-        try:
-            if float(release) >= 8:
-                return True
-        except ValueError:
-            if (release == "post2008Server"):
-                return True
+    try:
+        if float(release) >= 8:
+            return True
+    except ValueError:
+        if (release == "post2008Server"):
+            return True
     return False
 
 
@@ -1132,6 +1125,7 @@ def _append_route6(routes, dpref, dp, nh, iface, lifaddr, metric):
 
 def _read_routes6_post2008():
     routes6 = []
+    if6_metrics = None
     # This works only starting from Windows 8/2012 and up. For older Windows another solution is needed
     # Get-NetRoute -AddressFamily IPV6 | select ifIndex, DestinationPrefix, NextHop | fl
     lifaddr = in6_getifaddr()
@@ -1145,7 +1139,12 @@ def _read_routes6_post2008():
         dpref, dp = line[1].split('/')
         dp = int(dp)
         nh = line[2]
-        metric = int(line[3]) + int(line[4])
+        if not line[4].strip():  # InterfaceMetric is not available. Load it from netsh
+            if not if6_metrics:
+                if6_metrics = _get_metrics(ipv6=True)
+            metric = int(line[3]) + if6_metrics.get(iface.win_index, 0)  # RouteMetric + InterfaceMetric
+        else:
+            metric = int(line[3]) + int(line[4])  # RouteMetric + InterfaceMetric
 
         _append_route6(routes6, dpref, dp, nh, iface, lifaddr, metric)
     return routes6
@@ -1208,7 +1207,7 @@ def read_routes6():
         return routes6
     try:
         # Interface metrics have been added to powershell in win10+
-        if is_new_release(win10more=True):
+        if is_new_release():
             routes6 = _read_routes6_post2008()
         else:
             routes6 = _read_routes6_7()
