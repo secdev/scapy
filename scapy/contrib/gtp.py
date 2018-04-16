@@ -168,7 +168,7 @@ class TBCDByteField(StrFixedLenField):
         val = str(val)
         ret_string = ""
         for i in range(0, len(val), 2):
-            tmp = val[i:i+2]
+            tmp = val[i:i + 2]
             if len(tmp) == 2:
                 ret_string += chr(int(tmp[1] + tmp[0], 16))
             else:
@@ -188,38 +188,38 @@ class GTP_ExtensionHeader(Packet):
 
 
 class GTP_UDPPort_ExtensionHeader(GTP_ExtensionHeader):
-    fields_desc=[ByteField("length", 0x40),
-                 ShortField("udp_port", None),
-                 ByteEnumField("next_ex", 0, ExtensionHeadersTypes), ]
+    fields_desc = [ByteField("length", 0x40),
+                   ShortField("udp_port", None),
+                   ByteEnumField("next_ex", 0, ExtensionHeadersTypes), ]
 
 
 class GTP_PDCP_PDU_ExtensionHeader(GTP_ExtensionHeader):
-    fields_desc=[ByteField("length", 0x01),
-                 ShortField("pdcp_pdu", None),
-                 ByteEnumField("next_ex", 0, ExtensionHeadersTypes), ]
+    fields_desc = [ByteField("length", 0x01),
+                   ShortField("pdcp_pdu", None),
+                   ByteEnumField("next_ex", 0, ExtensionHeadersTypes), ]
 
 
 class GTPHeader(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
     name = "GTP-C Header"
-    fields_desc=[BitField("version", 1, 3),
-                 BitField("PT", 1, 1),
-                 BitField("reserved", 0, 1),
-                 BitField("E", 0, 1),
-                 BitField("S", 0, 1),
-                 BitField("PN", 0, 1),
-                 ByteEnumField("gtp_type", None, GTPmessageType),
-                 ShortField("length", None),
-                 IntField("teid", 0),
-                 ConditionalField(XBitField("seq", 0, 16), lambda pkt:pkt.E==1 or pkt.S==1 or pkt.PN==1),
-                 ConditionalField(ByteField("npdu", 0), lambda pkt:pkt.E==1 or pkt.S==1 or pkt.PN==1),
-                 ConditionalField(ByteEnumField("next_ex", 0, ExtensionHeadersTypes), lambda pkt:pkt.E==1 or pkt.S==1 or pkt.PN==1), ]
+    fields_desc = [BitField("version", 1, 3),
+                   BitField("PT", 1, 1),
+                   BitField("reserved", 0, 1),
+                   BitField("E", 0, 1),
+                   BitField("S", 0, 1),
+                   BitField("PN", 0, 1),
+                   ByteEnumField("gtp_type", None, GTPmessageType),
+                   ShortField("length", None),
+                   IntField("teid", 0),
+                   ConditionalField(XBitField("seq", 0, 16), lambda pkt:pkt.E == 1 or pkt.S == 1 or pkt.PN == 1),
+                   ConditionalField(ByteField("npdu", 0), lambda pkt:pkt.E == 1 or pkt.S == 1 or pkt.PN == 1),
+                   ConditionalField(ByteEnumField("next_ex", 0, ExtensionHeadersTypes), lambda pkt:pkt.E == 1 or pkt.S == 1 or pkt.PN == 1), ]
 
     def post_build(self, p, pay):
         p += pay
         if self.length is None:
-            l = len(p)-8
-            p = p[:2] + struct.pack("!H", l)+ p[4:]
+            l = len(p) - 8
+            p = p[:2] + struct.pack("!H", l) + p[4:]
         return p
 
     def hashret(self):
@@ -418,7 +418,7 @@ class APNStrLenField(StrLenField):
             tmp_len = orb(tmp_s[0]) + 1
             if tmp_len > len(tmp_s):
                 warning("APN prematured end of character-string (size=%i, remaining bytes=%i)" % (tmp_len, len(tmp_s)))
-            ret_s +=  tmp_s[1:tmp_len]
+            ret_s += tmp_s[1:tmp_len]
             tmp_s = tmp_s[tmp_len:]
             if len(tmp_s):
                 ret_s += b"."
@@ -434,13 +434,13 @@ class IE_AccessPointName(IE_Base):
     # Sent by SGSN or by GGSN as defined in 3GPP TS 23.060
     name = "Access Point Name"
     fields_desc = [ByteEnumField("ietype", 131, IEType),
-                   ShortField("length",  None),
+                   ShortField("length", None),
                    APNStrLenField("APN", "nternet", length_from=lambda x: x.length)]
 
     def post_build(self, p, pay):
         if self.length is None:
-            l = len(p)-3
-            p = p[:2] + struct.pack("!B", l)+ p[3:]
+            l = len(p) - 3
+            p = p[:2] + struct.pack("!B", l) + p[3:]
         return p
 
 
@@ -464,7 +464,7 @@ class IE_MSInternationalNumber(IE_Base):
     fields_desc = [ByteEnumField("ietype", 134, IEType),
                    ShortField("length", None),
                    FlagsField("flags", 0x91, 8, ["Extension", "", "", "International Number", "", "", "", "ISDN numbering"]),
-                   TBCDByteField("digits", "33607080910", length_from=lambda x: x.length-1)]
+                   TBCDByteField("digits", "33607080910", length_from=lambda x: x.length - 1)]
 
 
 class QoS_Profile(IE_Base):
@@ -709,7 +709,7 @@ class IE_ExtensionHeaderList(IE_Base):
 class IE_NotImplementedTLV(Packet):
     name = "IE not implemented"
     fields_desc = [ByteEnumField("ietype", 0, IEType),
-                   ShortField("length",  None),
+                   ShortField("length", None),
                    StrLenField("data", "", length_from=lambda x: x.length)]
 
     def extract_padding(self, pkt):

@@ -28,7 +28,7 @@ from scapy.compat import chb, orb
 
 def isValidMCAddr(ip):
     """convert dotted quad string to long and check the first octet"""
-    FirstOct=atol(ip)>>24 & 0xFF
+    FirstOct = atol(ip) >> 24 & 0xFF
     return (FirstOct >= 224) and (FirstOct <= 239)
 
 
@@ -76,7 +76,7 @@ IGMPv2 message format   http://www.faqs.org/rfcs/rfc2236.html
         p += pay
         if self.chksum is None:
             ck = checksum(p)
-            p = p[:2]+chb(ck>>8)+chb(ck&0xff)+p[4:]
+            p = p[:2] + chb(ck >> 8) + chb(ck & 0xff) + p[4:]
         return p
 
     @classmethod
@@ -155,6 +155,6 @@ IGMPv2 message format   http://www.faqs.org/rfcs/rfc2236.html
             return self.sprintf("IGMP %IGMP.type% %IGMP.gaddr%")
 
 
-bind_layers(IP,            IGMP,            frag=0,
+bind_layers(IP, IGMP, frag=0,
             proto=2,
             ttl=1)

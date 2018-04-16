@@ -20,7 +20,7 @@ from scapy.compat import *
 
 def fixname(x):
     if x and str(x[0]) in "0123456789":
-        x = "n_"+x
+        x = "n_" + x
     return x.translate("________________________________________________0123456789_______ABCDEFGHIJKLMNOPQRSTUVWXYZ______abcdefghijklmnopqrstuvwxyz_____________________________________________________________________________________________________________________________________")
 
 
@@ -30,7 +30,7 @@ class DADict_Exception(Scapy_Exception):
 
 class DADict:
     def __init__(self, _name="DADict", **kargs):
-        self._name=_name
+        self._name = _name
         self.update(kargs)
 
     def fixname(self, val):
@@ -55,7 +55,7 @@ class DADict:
                 print("%10s = %r" % (k, getattr(self, k)))
 
     def __repr__(self):
-        return "<%s/ %s>" % (self._name, " ".join(x for x in self.__dict__ if x and x[0]!="_"))
+        return "<%s/ %s>" % (self._name, " ".join(x for x in self.__dict__ if x and x[0] != "_"))
 
     def _branch(self, br, uniq=0):
         if uniq and br._name in self:
@@ -81,7 +81,7 @@ class DADict:
             return self
         for o in self:
             if isinstance(o, DADict):
-                p = o._recurs_find(path+(self,), *args, **kargs)
+                p = o._recurs_find(path + (self,), *args, **kargs)
                 if p is not None:
                     return p
         return None
@@ -97,7 +97,7 @@ class DADict:
             r.append(self)
         for o in self:
             if isinstance(o, DADict):
-                p = o._recurs_find_all(path+(self,), *args, **kargs)
+                p = o._recurs_find_all(path + (self,), *args, **kargs)
                 r += p
         return r
 

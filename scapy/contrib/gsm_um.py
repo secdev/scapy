@@ -4251,7 +4251,7 @@ class MultislotAllocationHdr(Packet):
         if res[0] != 0:
             p = p[:-res[0]]
         if self.lengthMSA is None:
-            p = p[:1] + struct.pack(">B", len(p)-2) + p[2:]
+            p = p[:1] + struct.pack(">B", len(p) - 2) + p[2:]
         return p + pay
 
 
@@ -5951,7 +5951,7 @@ class BearerCapabilityHdr(Packet):
         if len(p) is 5:
             p = p[:-2]
         if self.lengthBC is None:
-            p = p[:1] + struct.pack(">B", len(p)-3) + p[2:]
+            p = p[:1] + struct.pack(">B", len(p) - 3) + p[2:]
         return p + pay
 
 
@@ -6140,7 +6140,7 @@ class CalledPartySubaddressHdr(Packet):
 
     def post_build(self, p, pay):
         a = [getattr(self, fld.name) for fld in self.fields_desc]
-        res = adapt(2, 23,  a, self.fields_desc)
+        res = adapt(2, 23, a, self.fields_desc)
         if self.lengthCPS is None:
             p = p[:1] + struct.pack(">B", res[1]) + p[2:]
         if res[0] != 0:
@@ -6206,7 +6206,7 @@ class CallingPartyBcdNumberHdr(Packet):
         if res[0] != 0:
             p = p[:-res[0]]
         if self.lengthCPBN is None:
-            p = p[:1] + struct.pack(">B", len(p)-2) + p[2:]
+            p = p[:1] + struct.pack(">B", len(p) - 2) + p[2:]
         return p + pay
 
 
@@ -6314,7 +6314,7 @@ class CauseHdr(Packet):
         if res[0] != 0:
             p = p[:-res[0]]
         if self.lengthC is None:
-            p = p[:1] + struct.pack(">B", len(p)-2) + p[2:]
+            p = p[:1] + struct.pack(">B", len(p) - 2) + p[2:]
         return p + pay
 
 
@@ -6414,7 +6414,7 @@ class ConnectedNumberHdr(Packet):
         if res[0] != 0:
             p = p[:-res[0]]
         if self.lengthCN is None:
-            p = p[:1] + struct.pack(">B", len(p)-2) + p[2:]
+            p = p[:1] + struct.pack(">B", len(p) - 2) + p[2:]
         return p + pay
 
 
@@ -6765,7 +6765,7 @@ class HighLayerCompatibilityHdr(Packet):
         if res[0] != 0:
             p = p[:-res[0]]
         if self.lengthHLC is None:
-            p = p[:1] + struct.pack(">B", len(p)-2) + p[2:]
+            p = p[:1] + struct.pack(">B", len(p) - 2) + p[2:]
         return p + pay
 #
 # 10.5.4.16.1           Static conditions for the high layer
@@ -6941,7 +6941,7 @@ class RedirectingPartyBcdNumberHdr(Packet):
         if res[0] != 0:
             p = p[:-res[0]]
         if self.lengthRPBN is None:
-            p = p[:1] + struct.pack(">B", len(p)-2) + p[2:]
+            p = p[:1] + struct.pack(">B", len(p) - 2) + p[2:]
         return p + pay
 
 
@@ -9953,7 +9953,7 @@ class MultislotAllocation(Packet):
         if res[0] != 0:
             p = p[:-res[0]]
         if self.lengthMSA is None:
-            p = struct.pack(">B", len(p)-1) + p[1:]
+            p = struct.pack(">B", len(p) - 1) + p[1:]
         return p + pay
 
 
@@ -11056,7 +11056,7 @@ class BearerCapability(Packet):
         if res[0] != 0:
             p = p[:-res[0]]
         if self.lengthBC is None:
-            p = struct.pack(">B", len(p)-1) + p[1:]
+            p = struct.pack(">B", len(p) - 1) + p[1:]
         return p + pay
 
 
@@ -11301,7 +11301,7 @@ class CallingPartyBcdNumber(Packet):
         if res[0] != 0:
             p = p[:-res[0]]
         if self.lengthCPBN is None:
-            p = struct.pack(">B", len(p)-1) + p[1:]
+            p = struct.pack(">B", len(p) - 1) + p[1:]
         return p + pay
 
 
@@ -11405,7 +11405,7 @@ class Cause(Packet):
         if res[0] != 0:
             p = p[:-res[0]]
         if self.lengthC is None:
-            p = struct.pack(">B", len(p)-1) + p[1:]
+            p = struct.pack(">B", len(p) - 1) + p[1:]
         return p + pay
 
 
@@ -11489,7 +11489,7 @@ class ConnectedNumber(Packet):
         if res[0] != 0:
             p = p[:-res[0]]
         if self.lengthCN is None:
-            p = struct.pack(">B", len(p)-1) + p[1:]
+            p = struct.pack(">B", len(p) - 1) + p[1:]
         return p + pay
 
 
@@ -11834,7 +11834,7 @@ class HighLayerCompatibility(Packet):
         if res[0] != 0:
             p = p[:-res[0]]
         if self.lengthHLC is None:
-            p = struct.pack(">B", len(p)-1) + p[1:]
+            p = struct.pack(">B", len(p) - 1) + p[1:]
         return p + pay
 #
 # 10.5.4.16.1           Static conditions for the high layer
@@ -11996,7 +11996,7 @@ class RedirectingPartyBcdNumber(Packet):
         if res[0] != 0:
             p = p[:-res[0]]
         if self.lengthRPBN is None:
-            p = struct.pack(">B", len(p)-1) + p[1:]
+            p = struct.pack(">B", len(p) - 1) + p[1:]
         return p + pay
 
 

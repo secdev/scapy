@@ -32,9 +32,9 @@ from scapy.modules.six.moves import range
 
 CURR_GEOTAG_VER = 2  # Major revision of specification
 
-PPI_GPS     = 30002
-PPI_VECTOR  = 30003
-PPI_SENSOR  = 30004
+PPI_GPS = 30002
+PPI_VECTOR = 30003
+PPI_SENSOR = 30004
 PPI_ANTENNA = 30005
 # The FixedX_Y Fields are used to store fixed point numbers in a variety of fields in the GEOLOCATION-TAGS specification
 
@@ -71,20 +71,20 @@ class Fixed3_6Field(LEIntField):
 
     def i2repr(self, pkt, x):
         if x is None:
-            y=0
+            y = 0
         else:
-            y=self.i2h(pkt, x)
-        return "%3.6f"%(y)
+            y = self.i2h(pkt, x)
+        return "%3.6f" % (y)
 
 
 class Fixed3_7Field(LEIntField):
     def i2h(self, pkt, x):
         if x is not None:
             if (x < 0):
-                warning("Fixed3_7: Internal value too negative: %d",  x)
+                warning("Fixed3_7: Internal value too negative: %d", x)
                 x = 0
             elif (x > 3600000000):
-                warning("Fixed3_7: Internal value too positive: %d",  x)
+                warning("Fixed3_7: Internal value too positive: %d", x)
                 x = 3600000000
             x = (x - 1800000000) * 1e-7
         return x
@@ -92,10 +92,10 @@ class Fixed3_7Field(LEIntField):
     def h2i(self, pkt, x):
         if x is not None:
             if (x <= -180.00000005):
-                warning("Fixed3_7: Input value too negative: %.8f",  x)
+                warning("Fixed3_7: Input value too negative: %.8f", x)
                 x = -180.0
             elif (x >= 180.00000005):
-                warning("Fixed3_7: Input value too positive: %.8f",  x)
+                warning("Fixed3_7: Input value too positive: %.8f", x)
                 x = 180.0
             x = int(round((x + 180.0) * 1e7))
         return x
@@ -109,20 +109,20 @@ class Fixed3_7Field(LEIntField):
 
     def i2repr(self, pkt, x):
         if x is None:
-            y=0
+            y = 0
         else:
-            y=self.i2h(pkt, x)
-        return "%3.7f"%(y)
+            y = self.i2h(pkt, x)
+        return "%3.7f" % (y)
 
 
 class Fixed6_4Field(LEIntField):
     def i2h(self, pkt, x):
         if x is not None:
             if (x < 0):
-                warning("Fixed6_4: Internal value too negative: %d",  x)
+                warning("Fixed6_4: Internal value too negative: %d", x)
                 x = 0
             elif (x > 3600000000):
-                warning("Fixed6_4: Internal value too positive: %d",  x)
+                warning("Fixed6_4: Internal value too positive: %d", x)
                 x = 3600000000
             x = (x - 1800000000) * 1e-4
         return x
@@ -130,10 +130,10 @@ class Fixed6_4Field(LEIntField):
     def h2i(self, pkt, x):
         if x is not None:
             if (x <= -180000.00005):
-                warning("Fixed6_4: Input value too negative: %.5f",  x)
+                warning("Fixed6_4: Input value too negative: %.5f", x)
                 x = -180000.0
             elif (x >= 180000.00005):
-                warning("Fixed6_4: Input value too positive: %.5f",  x)
+                warning("Fixed6_4: Input value too positive: %.5f", x)
                 x = 180000.0
             x = int(round((x + 180000.0) * 1e4))
         return x
@@ -147,10 +147,10 @@ class Fixed6_4Field(LEIntField):
 
     def i2repr(self, pkt, x):
         if x is None:
-            y=0
+            y = 0
         else:
-            y=self.i2h(pkt, x)
-        return "%6.4f"%(y)
+            y = self.i2h(pkt, x)
+        return "%6.4f" % (y)
 # The GPS timestamps fractional time counter is stored in a 32-bit unsigned ns counter.
 # The ept field is as well,
 
@@ -159,31 +159,31 @@ class NSCounter_Field(LEIntField):
     def i2h(self, pkt, x):  # converts nano-seconds to seconds for output
         if x is not None:
             if (x < 0):
-                warning("NSCounter_Field: Internal value too negative: %d",  x)
+                warning("NSCounter_Field: Internal value too negative: %d", x)
                 x = 0
             elif (x >= 2**32):
-                warning("NSCounter_Field: Internal value too positive: %d",  x)
-                x = 2**32-1
+                warning("NSCounter_Field: Internal value too positive: %d", x)
+                x = 2**32 - 1
             x = (x / 1e9)
         return x
 
     def h2i(self, pkt, x):  # converts input in seconds into nano-seconds for storage
         if x is not None:
             if (x < 0):
-                warning("NSCounter_Field: Input value too negative: %.10f",  x)
+                warning("NSCounter_Field: Input value too negative: %.10f", x)
                 x = 0
             elif (x >= (2**32) / 1e9):
-                warning("NSCounter_Field: Input value too positive: %.10f",  x)
-                x = (2**32-1) / 1e9
+                warning("NSCounter_Field: Input value too positive: %.10f", x)
+                x = (2**32 - 1) / 1e9
             x = int(round((x * 1e9)))
         return x
 
     def i2repr(self, pkt, x):
         if x is None:
-            y=0
+            y = 0
         else:
-            y=self.i2h(pkt, x)
-        return "%1.9f"%(y)
+            y = self.i2h(pkt, x)
+        return "%1.9f" % (y)
 
 
 class LETimeField(UTCTimeField, LEIntField):
@@ -219,11 +219,11 @@ class GPSTime_Field(LETimeField):
 
 class VectorFlags_Field(XLEIntField):
     """Represents te VectorFlags field. Handles the RelativeTo:sub-field"""
-    _fwdstr   = "DefinesForward"
-    _resmask  = 0xfffffff8
-    _relmask  = 0x6
+    _fwdstr = "DefinesForward"
+    _resmask = 0xfffffff8
+    _relmask = 0x6
     _relnames = ["RelativeToForward", "RelativeToEarth", "RelativeToCurrent", "RelativeToReserved"]
-    _relvals  = [0x00, 0x02, 0x04, 0x06]
+    _relvals = [0x00, 0x02, 0x04, 0x06]
 
     def i2repr(self, pkt, x):
         if x is None:
@@ -312,9 +312,9 @@ _hcsi_vector_char_flags = _FlagsList({0: "Antenna", 1: "Direction of Travel",
                                       8: "GPS Derived", 9: "INS Derived", 10: "Compass Derived",
                                       11: "Acclerometer Derived", 12: "Human Derived"})
 
-_hcsi_antenna_flags = _FlagsList({1: "Horizontal Polarization",     2: "Vertical Polarization",
-                                  3: "Circular Polarization Left",  4: "Circular Polarization Right",
-                                  16: "Electronically Steerable",   17: "Mechanically Steerable"})
+_hcsi_antenna_flags = _FlagsList({1: "Horizontal Polarization", 2: "Vertical Polarization",
+                                  3: "Circular Polarization Left", 4: "Circular Polarization Right",
+                                  16: "Electronically Steerable", 17: "Mechanically Steerable"})
 
 """ HCSI PPI Fields are similar to RadioTap.  A mask field called "present" specifies if each field
 is present.  All other fields are conditional.  When dissecting a packet, each field is present if
@@ -375,21 +375,21 @@ class HCSIPacket(Packet):
 # GPS Fields
 GPS_Fields = [FlagsField("GPSFlags", None, -32, _hcsi_gps_flags),
               Fixed3_7Field("Latitude", None),
-              Fixed3_7Field("Longitude", None),    Fixed6_4Field("Altitude", None),
-              Fixed6_4Field("Altitude_g", None),   GPSTime_Field("GPSTime", None),
-              NSCounter_Field("FractionalTime", None),  Fixed3_6Field("eph", None),
-              Fixed3_6Field("epv", None),          NSCounter_Field("ept", None),
-              HCSINullField("Reserved10", None),   HCSINullField("Reserved11", None),
-              HCSINullField("Reserved12", None),   HCSINullField("Reserved13", None),
-              HCSINullField("Reserved14", None),   HCSINullField("Reserved15", None),
-              HCSINullField("Reserved16", None),   HCSINullField("Reserved17", None),
-              HCSINullField("Reserved18", None),   HCSINullField("Reserved19", None),
-              HCSINullField("Reserved20", None),   HCSINullField("Reserved21", None),
-              HCSINullField("Reserved22", None),   HCSINullField("Reserved23", None),
-              HCSINullField("Reserved24", None),   HCSINullField("Reserved25", None),
-              HCSINullField("Reserved26", None),   HCSINullField("Reserved27", None),
-              HCSIDescField("DescString", None),   XLEIntField("AppId", None),
-              HCSIAppField("AppData", None),       HCSINullField("Extended", None)]
+              Fixed3_7Field("Longitude", None), Fixed6_4Field("Altitude", None),
+              Fixed6_4Field("Altitude_g", None), GPSTime_Field("GPSTime", None),
+              NSCounter_Field("FractionalTime", None), Fixed3_6Field("eph", None),
+              Fixed3_6Field("epv", None), NSCounter_Field("ept", None),
+              HCSINullField("Reserved10", None), HCSINullField("Reserved11", None),
+              HCSINullField("Reserved12", None), HCSINullField("Reserved13", None),
+              HCSINullField("Reserved14", None), HCSINullField("Reserved15", None),
+              HCSINullField("Reserved16", None), HCSINullField("Reserved17", None),
+              HCSINullField("Reserved18", None), HCSINullField("Reserved19", None),
+              HCSINullField("Reserved20", None), HCSINullField("Reserved21", None),
+              HCSINullField("Reserved22", None), HCSINullField("Reserved23", None),
+              HCSINullField("Reserved24", None), HCSINullField("Reserved25", None),
+              HCSINullField("Reserved26", None), HCSINullField("Reserved27", None),
+              HCSIDescField("DescString", None), XLEIntField("AppId", None),
+              HCSIAppField("AppData", None), HCSINullField("Extended", None)]
 
 
 class GPS(HCSIPacket):
@@ -404,21 +404,21 @@ class GPS(HCSIPacket):
 # Vector Fields
 VEC_Fields = [VectorFlags_Field("VectorFlags", None),
               FlagsField("VectorChars", None, -32, _hcsi_vector_char_flags),
-              Fixed3_6Field("Pitch", None),       Fixed3_6Field("Roll", None),
-              Fixed3_6Field("Heading", None),     Fixed6_4Field("Off_X", None),
-              Fixed6_4Field("Off_Y", None),       Fixed6_4Field("Off_Z", None),
-              HCSINullField("Reserved08", None),  HCSINullField("Reserved09", None),
-              HCSINullField("Reserved10", None),  HCSINullField("Reserved11", None),
-              HCSINullField("Reserved12", None),  HCSINullField("Reserved13", None),
-              HCSINullField("Reserved14", None),  HCSINullField("Reserved15", None),
-              Fixed3_6Field("Err_Rot", None),     Fixed6_4Field("Err_Off", None),
-              HCSINullField("Reserved18", None),  HCSINullField("Reserved19", None),
-              HCSINullField("Reserved20", None),  HCSINullField("Reserved21", None),
-              HCSINullField("Reserved22", None),  HCSINullField("Reserved23", None),
-              HCSINullField("Reserved24", None),  HCSINullField("Reserved25", None),
-              HCSINullField("Reserved26", None),  HCSINullField("Reserved27", None),
-              HCSIDescField("DescString", None),  XLEIntField("AppId", None),
-              HCSIAppField("AppData", None),      HCSINullField("Extended", None)]
+              Fixed3_6Field("Pitch", None), Fixed3_6Field("Roll", None),
+              Fixed3_6Field("Heading", None), Fixed6_4Field("Off_X", None),
+              Fixed6_4Field("Off_Y", None), Fixed6_4Field("Off_Z", None),
+              HCSINullField("Reserved08", None), HCSINullField("Reserved09", None),
+              HCSINullField("Reserved10", None), HCSINullField("Reserved11", None),
+              HCSINullField("Reserved12", None), HCSINullField("Reserved13", None),
+              HCSINullField("Reserved14", None), HCSINullField("Reserved15", None),
+              Fixed3_6Field("Err_Rot", None), Fixed6_4Field("Err_Off", None),
+              HCSINullField("Reserved18", None), HCSINullField("Reserved19", None),
+              HCSINullField("Reserved20", None), HCSINullField("Reserved21", None),
+              HCSINullField("Reserved22", None), HCSINullField("Reserved23", None),
+              HCSINullField("Reserved24", None), HCSINullField("Reserved25", None),
+              HCSINullField("Reserved26", None), HCSINullField("Reserved27", None),
+              HCSIDescField("DescString", None), XLEIntField("AppId", None),
+              HCSIAppField("AppData", None), HCSINullField("Extended", None)]
 
 
 class Vector(HCSIPacket):
@@ -432,17 +432,17 @@ class Vector(HCSIPacket):
 
 # Sensor Fields
 # http://www.iana.org/assignments/icmp-parameters
-sensor_types= {1: "Velocity",
-               2: "Acceleration",
-               3: "Jerk",
-               100: "Rotation",
-               101: "Magnetic",
-               1000: "Temperature",
-               1001: "Barometer",
-               1002: "Humidity",
-               2000: "TDOA_Clock",
-               2001: "Phase"
-               }
+sensor_types = {1: "Velocity",
+                2: "Acceleration",
+                3: "Jerk",
+                100: "Rotation",
+                101: "Magnetic",
+                1000: "Temperature",
+                1001: "Barometer",
+                1002: "Humidity",
+                2000: "TDOA_Clock",
+                2001: "Phase"
+                }
 SENS_Fields = [LEShortEnumField('SensorType', None, sensor_types),
                SignedByteField('ScaleFactor', None),
                Fixed6_4Field('Val_X', None),
@@ -450,19 +450,19 @@ SENS_Fields = [LEShortEnumField('SensorType', None, sensor_types),
                Fixed6_4Field('Val_Z', None),
                Fixed6_4Field('Val_T', None),
                Fixed6_4Field('Val_E', None),
-               HCSINullField("Reserved07", None),  HCSINullField("Reserved08", None),
-               HCSINullField("Reserved09", None),  HCSINullField("Reserved10", None),
-               HCSINullField("Reserved11", None),  HCSINullField("Reserved12", None),
-               HCSINullField("Reserved13", None),  HCSINullField("Reserved14", None),
-               HCSINullField("Reserved15", None),  HCSINullField("Reserved16", None),
-               HCSINullField("Reserved17", None),  HCSINullField("Reserved18", None),
-               HCSINullField("Reserved19", None),  HCSINullField("Reserved20", None),
-               HCSINullField("Reserved21", None),  HCSINullField("Reserved22", None),
-               HCSINullField("Reserved23", None),  HCSINullField("Reserved24", None),
-               HCSINullField("Reserved25", None),  HCSINullField("Reserved26", None),
+               HCSINullField("Reserved07", None), HCSINullField("Reserved08", None),
+               HCSINullField("Reserved09", None), HCSINullField("Reserved10", None),
+               HCSINullField("Reserved11", None), HCSINullField("Reserved12", None),
+               HCSINullField("Reserved13", None), HCSINullField("Reserved14", None),
+               HCSINullField("Reserved15", None), HCSINullField("Reserved16", None),
+               HCSINullField("Reserved17", None), HCSINullField("Reserved18", None),
+               HCSINullField("Reserved19", None), HCSINullField("Reserved20", None),
+               HCSINullField("Reserved21", None), HCSINullField("Reserved22", None),
+               HCSINullField("Reserved23", None), HCSINullField("Reserved24", None),
+               HCSINullField("Reserved25", None), HCSINullField("Reserved26", None),
                HCSINullField("Reserved27", None),
-               HCSIDescField("DescString", None),  XLEIntField("AppId", None),
-               HCSIAppField("AppData", None),      HCSINullField("Extended", None)]
+               HCSIDescField("DescString", None), XLEIntField("AppId", None),
+               HCSIAppField("AppData", None), HCSINullField("Extended", None)]
 
 
 class Sensor(HCSIPacket):
@@ -477,21 +477,21 @@ class Sensor(HCSIPacket):
 # HCSIAntenna Fields
 ANT_Fields = [FlagsField("AntennaFlags", None, -32, _hcsi_antenna_flags),
               ByteField("Gain", None),
-              Fixed3_6Field("HorizBw", None),              Fixed3_6Field("VertBw", None),
-              Fixed3_6Field("PrecisionGain", None),         XLEShortField("BeamID", None),
-              HCSINullField("Reserved06", None),           HCSINullField("Reserved07", None),
-              HCSINullField("Reserved08", None),           HCSINullField("Reserved09", None),
-              HCSINullField("Reserved10", None),           HCSINullField("Reserved11", None),
-              HCSINullField("Reserved12", None),           HCSINullField("Reserved13", None),
-              HCSINullField("Reserved14", None),           HCSINullField("Reserved15", None),
-              HCSINullField("Reserved16", None),           HCSINullField("Reserved17", None),
-              HCSINullField("Reserved18", None),           HCSINullField("Reserved19", None),
-              HCSINullField("Reserved20", None),           HCSINullField("Reserved21", None),
-              HCSINullField("Reserved22", None),           HCSINullField("Reserved23", None),
-              HCSINullField("Reserved24", None),           HCSINullField("Reserved25", None),
-              HCSIDescField("SerialNumber", None),         HCSIDescField("ModelName", None),
-              HCSIDescField("DescString", None),           XLEIntField("AppId", None),
-              HCSIAppField("AppData", None),               HCSINullField("Extended", None)]
+              Fixed3_6Field("HorizBw", None), Fixed3_6Field("VertBw", None),
+              Fixed3_6Field("PrecisionGain", None), XLEShortField("BeamID", None),
+              HCSINullField("Reserved06", None), HCSINullField("Reserved07", None),
+              HCSINullField("Reserved08", None), HCSINullField("Reserved09", None),
+              HCSINullField("Reserved10", None), HCSINullField("Reserved11", None),
+              HCSINullField("Reserved12", None), HCSINullField("Reserved13", None),
+              HCSINullField("Reserved14", None), HCSINullField("Reserved15", None),
+              HCSINullField("Reserved16", None), HCSINullField("Reserved17", None),
+              HCSINullField("Reserved18", None), HCSINullField("Reserved19", None),
+              HCSINullField("Reserved20", None), HCSINullField("Reserved21", None),
+              HCSINullField("Reserved22", None), HCSINullField("Reserved23", None),
+              HCSINullField("Reserved24", None), HCSINullField("Reserved25", None),
+              HCSIDescField("SerialNumber", None), HCSIDescField("ModelName", None),
+              HCSIDescField("DescString", None), XLEIntField("AppId", None),
+              HCSIAppField("AppData", None), HCSINullField("Extended", None)]
 
 
 class Antenna(HCSIPacket):

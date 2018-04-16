@@ -62,7 +62,7 @@ class BIER(Packet):
                                length_from=lambda x:(8 << x.length))]
 
 
-bind_layers(BIER, IP,   Proto=4)
+bind_layers(BIER, IP, Proto=4)
 bind_layers(BIER, IPv6, Proto=5)
-bind_layers(UDP,  BIFT, dport=8138)
+bind_layers(UDP, BIFT, dport=8138)
 bind_layers(BIFT, BIER)

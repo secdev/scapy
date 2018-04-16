@@ -151,11 +151,11 @@ skinny_messages = {
 
 
 class Skinny(Packet):
-    name="Skinny"
+    name = "Skinny"
     fields_desc = [LEIntField("len", 0),
                    LEIntField("res", 0),
                    LEIntEnumField("msg", 0, skinny_messages)]
 
 
-bind_layers(TCP,           Skinny,        dport=2000)
-bind_layers(TCP,           Skinny,        sport=2000)
+bind_layers(TCP, Skinny, dport=2000)
+bind_layers(TCP, Skinny, sport=2000)

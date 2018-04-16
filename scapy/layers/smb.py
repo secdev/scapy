@@ -14,7 +14,7 @@ from scapy.layers.netbios import NBTSession
 
 # SMB NetLogon Response Header
 class SMBNetlogon_Protocol_Response_Header(Packet):
-    name="SMBNetlogon Protocol Response Header"
+    name = "SMBNetlogon Protocol Response Header"
     fields_desc = [StrFixedLenField("Start", b"\xffSMB", 4),
                    ByteEnumField("Command", 0x25, {0x25: "Trans"}),
                    ByteField("Error_Class", 0x02),
@@ -120,7 +120,7 @@ class SMBNetlogon_Protocol_Response_Tail_LM20(Packet):
 
 
 class SMBNegociate_Protocol_Request_Header(Packet):
-    name="SMBNegociate Protocol Request Header"
+    name = "SMBNegociate Protocol Request Header"
     fields_desc = [StrFixedLenField("Start", b"\xffSMB", 4),
                    ByteEnumField("Command", 0x72, {0x72: "SMB_COM_NEGOTIATE"}),
                    ByteField("Error_Class", 0),
@@ -142,15 +142,15 @@ class SMBNegociate_Protocol_Request_Header(Packet):
 
 
 class SMBNegociate_Protocol_Request_Tail(Packet):
-    name="SMB Negociate Protocol Request Tail"
-    fields_desc=[ByteField("BufferFormat", 0x02),
-                 StrNullField("BufferData", "NT LM 0.12")]
+    name = "SMB Negociate Protocol Request Tail"
+    fields_desc = [ByteField("BufferFormat", 0x02),
+                   StrNullField("BufferData", "NT LM 0.12")]
 
 # SMBNegociate Protocol Response Advanced Security
 
 
 class SMBNegociate_Protocol_Response_Advanced_Security(Packet):
-    name="SMBNegociate Protocol Response Advanced Security"
+    name = "SMBNegociate Protocol Response Advanced Security"
     fields_desc = [StrFixedLenField("Start", b"\xffSMB", 4),
                    ByteEnumField("Command", 0x72, {0x72: "SMB_COM_NEGOTIATE"}),
                    ByteField("Error_Class", 0),
@@ -184,16 +184,16 @@ class SMBNegociate_Protocol_Response_Advanced_Security(Packet):
                    LEIntField("ServerTimeLow", 0x1C4EF94),
                    LEShortField("ServerTimeZone", 0x3c),
                    ByteField("EncryptionKeyLength", 0),
-                   LEFieldLenField("ByteCount", None, "SecurityBlob", adjust=lambda pkt, x: x-16),
+                   LEFieldLenField("ByteCount", None, "SecurityBlob", adjust=lambda pkt, x: x - 16),
                    BitField("GUID", 0, 128),
-                   StrLenField("SecurityBlob", "", length_from=lambda x: x.ByteCount+16)]
+                   StrLenField("SecurityBlob", "", length_from=lambda x: x.ByteCount + 16)]
 
 # SMBNegociate Protocol Response No Security
 # When using no security, with EncryptionKeyLength=8, you must have an EncryptionKey before the DomainName
 
 
 class SMBNegociate_Protocol_Response_No_Security(Packet):
-    name="SMBNegociate Protocol Response No Security"
+    name = "SMBNegociate Protocol Response No Security"
     fields_desc = [StrFixedLenField("Start", b"\xffSMB", 4),
                    ByteEnumField("Command", 0x72, {0x72: "SMB_COM_NEGOTIATE"}),
                    ByteField("Error_Class", 0),
@@ -236,7 +236,7 @@ class SMBNegociate_Protocol_Response_No_Security(Packet):
 
 
 class SMBNegociate_Protocol_Response_No_Security_No_Key(Packet):
-    namez="SMBNegociate Protocol Response No Security No Key"
+    namez = "SMBNegociate Protocol Response No Security No Key"
     fields_desc = [StrFixedLenField("Start", b"\xffSMB", 4),
                    ByteEnumField("Command", 0x72, {0x72: "SMB_COM_NEGOTIATE"}),
                    ByteField("Error_Class", 0),
@@ -278,98 +278,98 @@ class SMBNegociate_Protocol_Response_No_Security_No_Key(Packet):
 
 
 class SMBSession_Setup_AndX_Request(Packet):
-    name="Session Setup AndX Request"
-    fields_desc=[StrFixedLenField("Start", b"\xffSMB", 4),
-                 ByteEnumField("Command", 0x73, {0x73: "SMB_COM_SESSION_SETUP_ANDX"}),
-                 ByteField("Error_Class", 0),
-                 ByteField("Reserved", 0),
-                 LEShortField("Error_Code", 0),
-                 ByteField("Flags", 0x18),
-                 LEShortField("Flags2", 0x0001),
-                 LEShortField("PIDHigh", 0x0000),
-                 LELongField("Signature", 0x0),
-                 LEShortField("Unused", 0x0),
-                 LEShortField("TID", 0),
-                 LEShortField("PID", 1),
-                 LEShortField("UID", 0),
-                 LEShortField("MID", 2),
-                 ByteField("WordCount", 13),
-                 ByteEnumField("AndXCommand", 0x75, {0x75: "SMB_COM_TREE_CONNECT_ANDX"}),
-                 ByteField("Reserved2", 0),
-                 LEShortField("AndXOffset", 96),
-                 LEShortField("MaxBufferS", 2920),
-                 LEShortField("MaxMPXCount", 50),
-                 LEShortField("VCNumber", 0),
-                 LEIntField("SessionKey", 0),
-                 LEFieldLenField("ANSIPasswordLength", None, "ANSIPassword"),
-                 LEShortField("UnicodePasswordLength", 0),
-                 LEIntField("Reserved3", 0),
-                 LEShortField("ServerCapabilities", 0x05),
-                 BitField("UnixExtensions", 0, 1),
-                 BitField("Reserved4", 0, 7),
-                 BitField("ExtendedSecurity", 0, 1),
-                 BitField("CompBulk", 0, 2),
-                 BitField("Reserved5", 0, 5),
-                 LEShortField("ByteCount", 35),
-                 StrLenField("ANSIPassword", "Pass", length_from=lambda x: x.ANSIPasswordLength),
-                 StrNullField("Account", "GUEST"),
-                 StrNullField("PrimaryDomain",  ""),
-                 StrNullField("NativeOS", "Windows 4.0"),
-                 StrNullField("NativeLanManager", "Windows 4.0"),
-                 ByteField("WordCount2", 4),
-                 ByteEnumField("AndXCommand2", 0xFF, {0xFF: "SMB_COM_NONE"}),
-                 ByteField("Reserved6", 0),
-                 LEShortField("AndXOffset2", 0),
-                 LEShortField("Flags3", 0x2),
-                 LEShortField("PasswordLength", 0x1),
-                 LEShortField("ByteCount2", 18),
-                 ByteField("Password", 0),
-                 StrNullField("Path", "\\\\WIN2K\\IPC$"),
-                 StrNullField("Service", "IPC")]
+    name = "Session Setup AndX Request"
+    fields_desc = [StrFixedLenField("Start", b"\xffSMB", 4),
+                   ByteEnumField("Command", 0x73, {0x73: "SMB_COM_SESSION_SETUP_ANDX"}),
+                   ByteField("Error_Class", 0),
+                   ByteField("Reserved", 0),
+                   LEShortField("Error_Code", 0),
+                   ByteField("Flags", 0x18),
+                   LEShortField("Flags2", 0x0001),
+                   LEShortField("PIDHigh", 0x0000),
+                   LELongField("Signature", 0x0),
+                   LEShortField("Unused", 0x0),
+                   LEShortField("TID", 0),
+                   LEShortField("PID", 1),
+                   LEShortField("UID", 0),
+                   LEShortField("MID", 2),
+                   ByteField("WordCount", 13),
+                   ByteEnumField("AndXCommand", 0x75, {0x75: "SMB_COM_TREE_CONNECT_ANDX"}),
+                   ByteField("Reserved2", 0),
+                   LEShortField("AndXOffset", 96),
+                   LEShortField("MaxBufferS", 2920),
+                   LEShortField("MaxMPXCount", 50),
+                   LEShortField("VCNumber", 0),
+                   LEIntField("SessionKey", 0),
+                   LEFieldLenField("ANSIPasswordLength", None, "ANSIPassword"),
+                   LEShortField("UnicodePasswordLength", 0),
+                   LEIntField("Reserved3", 0),
+                   LEShortField("ServerCapabilities", 0x05),
+                   BitField("UnixExtensions", 0, 1),
+                   BitField("Reserved4", 0, 7),
+                   BitField("ExtendedSecurity", 0, 1),
+                   BitField("CompBulk", 0, 2),
+                   BitField("Reserved5", 0, 5),
+                   LEShortField("ByteCount", 35),
+                   StrLenField("ANSIPassword", "Pass", length_from=lambda x: x.ANSIPasswordLength),
+                   StrNullField("Account", "GUEST"),
+                   StrNullField("PrimaryDomain", ""),
+                   StrNullField("NativeOS", "Windows 4.0"),
+                   StrNullField("NativeLanManager", "Windows 4.0"),
+                   ByteField("WordCount2", 4),
+                   ByteEnumField("AndXCommand2", 0xFF, {0xFF: "SMB_COM_NONE"}),
+                   ByteField("Reserved6", 0),
+                   LEShortField("AndXOffset2", 0),
+                   LEShortField("Flags3", 0x2),
+                   LEShortField("PasswordLength", 0x1),
+                   LEShortField("ByteCount2", 18),
+                   ByteField("Password", 0),
+                   StrNullField("Path", "\\\\WIN2K\\IPC$"),
+                   StrNullField("Service", "IPC")]
 
 # Session Setup AndX Response
 
 
 class SMBSession_Setup_AndX_Response(Packet):
-    name="Session Setup AndX Response"
-    fields_desc=[StrFixedLenField("Start", b"\xffSMB", 4),
-                 ByteEnumField("Command", 0x73, {0x73: "SMB_COM_SESSION_SETUP_ANDX"}),
-                 ByteField("Error_Class", 0),
-                 ByteField("Reserved", 0),
-                 LEShortField("Error_Code", 0),
-                 ByteField("Flags", 0x90),
-                 LEShortField("Flags2", 0x1001),
-                 LEShortField("PIDHigh", 0x0000),
-                 LELongField("Signature", 0x0),
-                 LEShortField("Unused", 0x0),
-                 LEShortField("TID", 0),
-                 LEShortField("PID", 1),
-                 LEShortField("UID", 0),
-                 LEShortField("MID", 2),
-                 ByteField("WordCount", 3),
-                 ByteEnumField("AndXCommand", 0x75, {0x75: "SMB_COM_TREE_CONNECT_ANDX"}),
-                 ByteField("Reserved2", 0),
-                 LEShortField("AndXOffset", 66),
-                 LEShortField("Action", 0),
-                 LEShortField("ByteCount", 25),
-                 StrNullField("NativeOS", "Windows 4.0"),
-                 StrNullField("NativeLanManager", "Windows 4.0"),
-                 StrNullField("PrimaryDomain", ""),
-                 ByteField("WordCount2", 3),
-                 ByteEnumField("AndXCommand2", 0xFF, {0xFF: "SMB_COM_NONE"}),
-                 ByteField("Reserved3", 0),
-                 LEShortField("AndXOffset2", 80),
-                 LEShortField("OptionalSupport", 0x01),
-                 LEShortField("ByteCount2", 5),
-                 StrNullField("Service", "IPC"),
-                 StrNullField("NativeFileSystem", "")]
+    name = "Session Setup AndX Response"
+    fields_desc = [StrFixedLenField("Start", b"\xffSMB", 4),
+                   ByteEnumField("Command", 0x73, {0x73: "SMB_COM_SESSION_SETUP_ANDX"}),
+                   ByteField("Error_Class", 0),
+                   ByteField("Reserved", 0),
+                   LEShortField("Error_Code", 0),
+                   ByteField("Flags", 0x90),
+                   LEShortField("Flags2", 0x1001),
+                   LEShortField("PIDHigh", 0x0000),
+                   LELongField("Signature", 0x0),
+                   LEShortField("Unused", 0x0),
+                   LEShortField("TID", 0),
+                   LEShortField("PID", 1),
+                   LEShortField("UID", 0),
+                   LEShortField("MID", 2),
+                   ByteField("WordCount", 3),
+                   ByteEnumField("AndXCommand", 0x75, {0x75: "SMB_COM_TREE_CONNECT_ANDX"}),
+                   ByteField("Reserved2", 0),
+                   LEShortField("AndXOffset", 66),
+                   LEShortField("Action", 0),
+                   LEShortField("ByteCount", 25),
+                   StrNullField("NativeOS", "Windows 4.0"),
+                   StrNullField("NativeLanManager", "Windows 4.0"),
+                   StrNullField("PrimaryDomain", ""),
+                   ByteField("WordCount2", 3),
+                   ByteEnumField("AndXCommand2", 0xFF, {0xFF: "SMB_COM_NONE"}),
+                   ByteField("Reserved3", 0),
+                   LEShortField("AndXOffset2", 80),
+                   LEShortField("OptionalSupport", 0x01),
+                   LEShortField("ByteCount2", 5),
+                   StrNullField("Service", "IPC"),
+                   StrNullField("NativeFileSystem", "")]
 
 
-bind_layers(NBTSession,                           SMBNegociate_Protocol_Request_Header, )
-bind_layers(NBTSession,    SMBNegociate_Protocol_Response_Advanced_Security,  ExtendedSecurity=1)
-bind_layers(NBTSession,    SMBNegociate_Protocol_Response_No_Security,        ExtendedSecurity=0, EncryptionKeyLength=8)
-bind_layers(NBTSession,    SMBNegociate_Protocol_Response_No_Security_No_Key, ExtendedSecurity=0, EncryptionKeyLength=0)
-bind_layers(NBTSession,    SMBSession_Setup_AndX_Request, )
-bind_layers(NBTSession,    SMBSession_Setup_AndX_Response, )
+bind_layers(NBTSession, SMBNegociate_Protocol_Request_Header, )
+bind_layers(NBTSession, SMBNegociate_Protocol_Response_Advanced_Security, ExtendedSecurity=1)
+bind_layers(NBTSession, SMBNegociate_Protocol_Response_No_Security, ExtendedSecurity=0, EncryptionKeyLength=8)
+bind_layers(NBTSession, SMBNegociate_Protocol_Response_No_Security_No_Key, ExtendedSecurity=0, EncryptionKeyLength=0)
+bind_layers(NBTSession, SMBSession_Setup_AndX_Request, )
+bind_layers(NBTSession, SMBSession_Setup_AndX_Response, )
 bind_layers(SMBNegociate_Protocol_Request_Header, SMBNegociate_Protocol_Request_Tail, )
-bind_layers(SMBNegociate_Protocol_Request_Tail,   SMBNegociate_Protocol_Request_Tail, )
+bind_layers(SMBNegociate_Protocol_Request_Tail, SMBNegociate_Protocol_Request_Tail, )

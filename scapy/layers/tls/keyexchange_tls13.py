@@ -219,9 +219,9 @@ class TLS_Ext_KeyShare_SH(TLS_Ext_Unknown):
         return super(TLS_Ext_KeyShare_SH, self).post_dissection(r)
 
 
-_tls_ext_keyshare_cls  = {1: TLS_Ext_KeyShare_CH,
-                          2: TLS_Ext_KeyShare_SH,
-                          6: TLS_Ext_KeyShare_HRR}
+_tls_ext_keyshare_cls = {1: TLS_Ext_KeyShare_CH,
+                         2: TLS_Ext_KeyShare_SH,
+                         6: TLS_Ext_KeyShare_HRR}
 
 
 class Ticket(Packet):
@@ -244,7 +244,7 @@ class TicketField(PacketField):
     def m2i(self, pkt, m):
         l = self.length_from(pkt)
         tbd, rem = m[:l], m[l:]
-        return self.cls(tbd)/Padding(rem)
+        return self.cls(tbd) / Padding(rem)
 
 
 class PSKIdentity(Packet):
@@ -286,6 +286,6 @@ class TLS_Ext_PreSharedKey_SH(TLS_Ext_Unknown):
                    ShortField("selected_identity", None)]
 
 
-_tls_ext_presharedkey_cls  = {1: TLS_Ext_PreSharedKey_CH,
-                              2: TLS_Ext_PreSharedKey_SH}
+_tls_ext_presharedkey_cls = {1: TLS_Ext_PreSharedKey_CH,
+                             2: TLS_Ext_PreSharedKey_SH}
 

@@ -42,9 +42,9 @@ class MobileIPTunnelData(Packet):
                    ShortField("res", 0)]
 
 
-bind_layers(UDP,           MobileIP,           sport=434)
-bind_layers(UDP,           MobileIP,           dport=434)
-bind_layers(MobileIP,      MobileIPRRQ,        type=1)
-bind_layers(MobileIP,      MobileIPRRP,        type=3)
-bind_layers(MobileIP,      MobileIPTunnelData, type=4)
-bind_layers(MobileIPTunnelData, IP,           nexthdr=4)
+bind_layers(UDP, MobileIP, sport=434)
+bind_layers(UDP, MobileIP, dport=434)
+bind_layers(MobileIP, MobileIPRRQ, type=1)
+bind_layers(MobileIP, MobileIPRRP, type=3)
+bind_layers(MobileIP, MobileIPTunnelData, type=4)
+bind_layers(MobileIPTunnelData, IP, nexthdr=4)

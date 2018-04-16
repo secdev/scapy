@@ -39,7 +39,7 @@ class Neighbor:
         self.resolvers = {}
 
     def register_l3(self, l2, l3, resolve_method):
-        self.resolvers[l2, l3]=resolve_method
+        self.resolvers[l2, l3] = resolve_method
 
     def resolve(self, l2inst, l3inst):
         k = l2inst.__class__, l3inst.__class__
@@ -63,7 +63,7 @@ def getmacbyip(ip, chainCC=0):
     ip = inet_ntoa(inet_aton(ip))
     tmp = [orb(e) for e in inet_aton(ip)]
     if (tmp[0] & 0xf0) == 0xe0:  # mcast @
-        return "01:00:5e:%.2x:%.2x:%.2x" % (tmp[1]&0x7f, tmp[2], tmp[3])
+        return "01:00:5e:%.2x:%.2x:%.2x" % (tmp[1] & 0x7f, tmp[2], tmp[3])
     iff, a, gw = conf.route.route(ip)
     if ((iff == scapy.consts.LOOPBACK_INTERFACE) or (ip == conf.route.get_if_bcast(iff))):
         return "ff:ff:ff:ff:ff:ff"
@@ -74,7 +74,7 @@ def getmacbyip(ip, chainCC=0):
     if mac:
         return mac
 
-    res = srp1(Ether(dst=ETHER_BROADCAST)/ARP(op="who-has", pdst=ip),
+    res = srp1(Ether(dst=ETHER_BROADCAST) / ARP(op="who-has", pdst=ip),
                type=ETH_P_ARP,
                iface=iff,
                timeout=2,
@@ -157,7 +157,7 @@ class Ether(Packet):
     __slots__ = ["_defrag_pos"]
 
     def hashret(self):
-        return struct.pack("H", self.type)+self.payload.hashret()
+        return struct.pack("H", self.type) + self.payload.hashret()
 
     def answers(self, other):
         if isinstance(other, Ether):
@@ -244,10 +244,10 @@ conf.neighbor.register_l3(Dot3, SNAP, l2_register_l3)
 class Dot1Q(Packet):
     name = "802.1Q"
     aliastypes = [Ether]
-    fields_desc =  [BitField("prio", 0, 3),
-                    BitField("id", 0, 1),
-                    BitField("vlan", 1, 12),
-                    XShortEnumField("type", 0x0000, ETHER_TYPES)]
+    fields_desc = [BitField("prio", 0, 3),
+                   BitField("id", 0, 1),
+                   BitField("vlan", 1, 12),
+                   XShortEnumField("type", 0x0000, ETHER_TYPES)]
 
     def answers(self, other):
         if isinstance(other, Dot1Q):
@@ -299,7 +299,7 @@ class STP(Packet):
 class ARP(Packet):
     name = "ARP"
     fields_desc = [XShortField("hwtype", 0x0001),
-                   XShortEnumField("ptype",  0x0800, ETHER_TYPES),
+                   XShortEnumField("ptype", 0x0800, ETHER_TYPES),
                    ByteField("hwlen", 6),
                    ByteField("plen", 4),
                    ShortEnumField("op", 1, {"who-has": 1, "is-at": 2, "RARP-req": 3, "RARP-rep": 4, "Dyn-RARP-req": 5, "Dyn-RAR-rep": 6, "Dyn-RARP-err": 7, "InARP-req": 8, "InARP-rep": 9}),
@@ -363,10 +363,10 @@ class GRE(Packet):
                    BitField("flags", 0, 5),
                    BitField("version", 0, 3),
                    XShortEnumField("proto", 0x0000, ETHER_TYPES),
-                   ConditionalField(XShortField("chksum", None), lambda pkt:pkt.chksum_present==1 or pkt.routing_present==1),
-                   ConditionalField(XShortField("offset", None), lambda pkt:pkt.chksum_present==1 or pkt.routing_present==1),
-                   ConditionalField(XIntField("key", None), lambda pkt:pkt.key_present==1),
-                   ConditionalField(XIntField("seqence_number", None), lambda pkt:pkt.seqnum_present==1),
+                   ConditionalField(XShortField("chksum", None), lambda pkt:pkt.chksum_present == 1 or pkt.routing_present == 1),
+                   ConditionalField(XShortField("offset", None), lambda pkt:pkt.chksum_present == 1 or pkt.routing_present == 1),
+                   ConditionalField(XIntField("key", None), lambda pkt:pkt.key_present == 1),
+                   ConditionalField(XIntField("seqence_number", None), lambda pkt:pkt.seqnum_present == 1),
                    ]
 
     @classmethod
@@ -379,7 +379,7 @@ class GRE(Packet):
         p += pay
         if self.chksum_present and self.chksum is None:
             c = checksum(p)
-            p = p[:4]+chb((c>>8)&0xff)+chb(c&0xff)+p[6:]
+            p = p[:4] + chb((c >> 8) & 0xff) + chb(c & 0xff) + p[6:]
         return p
 
 
@@ -448,36 +448,36 @@ class Dot1AD(Dot1Q):
     name = '802_1AD'
 
 
-bind_layers(Dot3,          LLC,)
-bind_layers(Ether,         LLC,           type=122)
-bind_layers(Ether,         LLC,           type=34928)
-bind_layers(Ether,         Dot1Q,         type=33024)
-bind_layers(Ether,         Dot1AD,        type=0x88a8)
-bind_layers(Dot1AD,        Dot1AD,        type=0x88a8)
-bind_layers(Dot1AD,        Dot1Q,         type=0x8100)
-bind_layers(Dot1Q,         Dot1AD,        type=0x88a8)
-bind_layers(Ether,         Ether,         type=1)
-bind_layers(Ether,         ARP,           type=2054)
-bind_layers(CookedLinux,   LLC,           proto=122)
-bind_layers(CookedLinux,   Dot1Q,         proto=33024)
-bind_layers(CookedLinux,   Dot1AD,        type=0x88a8)
-bind_layers(CookedLinux,   Ether,         proto=1)
-bind_layers(CookedLinux,   ARP,           proto=2054)
-bind_layers(GRE,           LLC,           proto=122)
-bind_layers(GRE,           Dot1Q,         proto=33024)
-bind_layers(GRE,           Dot1AD,        type=0x88a8)
-bind_layers(GRE,           Ether,         proto=0x6558)
-bind_layers(GRE,           ARP,           proto=2054)
-bind_layers(GRE,           GRErouting,    {"routing_present": 1})
-bind_layers(GRErouting,    conf.raw_layer, {"address_family": 0, "SRE_len": 0})
-bind_layers(GRErouting,    GRErouting,    {})
-bind_layers(LLC,           STP,           dsap=66, ssap=66, ctrl=3)
-bind_layers(LLC,           SNAP,          dsap=170, ssap=170, ctrl=3)
-bind_layers(SNAP,          Dot1Q,         code=33024)
-bind_layers(SNAP,          Dot1AD,        type=0x88a8)
-bind_layers(SNAP,          Ether,         code=1)
-bind_layers(SNAP,          ARP,           code=2054)
-bind_layers(SNAP,          STP,           code=267)
+bind_layers(Dot3, LLC,)
+bind_layers(Ether, LLC, type=122)
+bind_layers(Ether, LLC, type=34928)
+bind_layers(Ether, Dot1Q, type=33024)
+bind_layers(Ether, Dot1AD, type=0x88a8)
+bind_layers(Dot1AD, Dot1AD, type=0x88a8)
+bind_layers(Dot1AD, Dot1Q, type=0x8100)
+bind_layers(Dot1Q, Dot1AD, type=0x88a8)
+bind_layers(Ether, Ether, type=1)
+bind_layers(Ether, ARP, type=2054)
+bind_layers(CookedLinux, LLC, proto=122)
+bind_layers(CookedLinux, Dot1Q, proto=33024)
+bind_layers(CookedLinux, Dot1AD, type=0x88a8)
+bind_layers(CookedLinux, Ether, proto=1)
+bind_layers(CookedLinux, ARP, proto=2054)
+bind_layers(GRE, LLC, proto=122)
+bind_layers(GRE, Dot1Q, proto=33024)
+bind_layers(GRE, Dot1AD, type=0x88a8)
+bind_layers(GRE, Ether, proto=0x6558)
+bind_layers(GRE, ARP, proto=2054)
+bind_layers(GRE, GRErouting, {"routing_present": 1})
+bind_layers(GRErouting, conf.raw_layer, {"address_family": 0, "SRE_len": 0})
+bind_layers(GRErouting, GRErouting, {})
+bind_layers(LLC, STP, dsap=66, ssap=66, ctrl=3)
+bind_layers(LLC, SNAP, dsap=170, ssap=170, ctrl=3)
+bind_layers(SNAP, Dot1Q, code=33024)
+bind_layers(SNAP, Dot1AD, type=0x88a8)
+bind_layers(SNAP, Ether, code=1)
+bind_layers(SNAP, ARP, code=2054)
+bind_layers(SNAP, STP, code=267)
 
 conf.l2types.register(ARPHDR_ETHER, Ether)
 conf.l2types.register_num2layer(ARPHDR_METRICOM, Ether)
@@ -500,7 +500,7 @@ def arpcachepoison(target, victim, interval=60):
 arpcachepoison(target, victim, [interval=60]) -> None
 """
     tmac = getmacbyip(target)
-    p = Ether(dst=tmac)/ARP(op="who-has", psrc=victim, pdst=target)
+    p = Ether(dst=tmac) / ARP(op="who-has", psrc=victim, pdst=target)
     try:
         while True:
             sendp(p, iface_hint=target)
@@ -527,7 +527,7 @@ arping(net, [cache=0,] [iface=conf.iface,] [verbose=conf.verb]) -> None
 Set cache=True if you want arping to modify internal ARP-Cache"""
     if verbose is None:
         verbose = conf.verb
-    ans, unans = srp(Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst=net), verbose=verbose,
+    ans, unans = srp(Ether(dst="ff:ff:ff:ff:ff:ff") / ARP(pdst=net), verbose=verbose,
                      filter="arp and arp[7] = 2", timeout=timeout, iface_hint=net, **kargs)
     ans = ARPingResult(ans.res)
 
@@ -552,7 +552,7 @@ def is_promisc(ip, fake_bcast="ff:ff:00:00:00:00", **kargs):
 def promiscping(net, timeout=2, fake_bcast="ff:ff:ff:ff:ff:fe", **kargs):
     """Send ARP who-has requests to determine which hosts are in promiscuous mode
     promiscping(net, iface=conf.iface)"""
-    ans, unans = srp(Ether(dst=fake_bcast)/ARP(pdst=net),
+    ans, unans = srp(Ether(dst=fake_bcast) / ARP(pdst=net),
                      filter="arp and arp[7] = 2", timeout=timeout, iface_hint=net, **kargs)
     ans = ARPingResult(ans.res, name="PROMISCPing")
 
@@ -579,13 +579,13 @@ class ARP_am(AnsweringMachine):
 
     """
 
-    function_name="farpd"
+    function_name = "farpd"
     filter = "arp"
     send_function = staticmethod(sendp)
 
     def parse_options(self, IP_addr=None, ARP_addr=None):
-        self.IP_addr=IP_addr
-        self.ARP_addr=ARP_addr
+        self.IP_addr = IP_addr
+        self.ARP_addr = ARP_addr
 
     def is_request(self, req):
         return (req.haslayer(ARP) and
@@ -610,11 +610,11 @@ class ARP_am(AnsweringMachine):
         else:
             ARP_addr = self.ARP_addr
         resp = Ether(dst=ether.src,
-                     src=ARP_addr)/ARP(op="is-at",
-                                       hwsrc=ARP_addr,
-                                       psrc=arp.pdst,
-                                       hwdst=arp.hwsrc,
-                                       pdst=arp.psrc)
+                     src=ARP_addr) / ARP(op="is-at",
+                                         hwsrc=ARP_addr,
+                                         psrc=arp.pdst,
+                                         hwdst=arp.hwsrc,
+                                         pdst=arp.psrc)
         return resp
 
     def send_reply(self, reply):
@@ -630,7 +630,7 @@ class ARP_am(AnsweringMachine):
 @conf.commands.register
 def etherleak(target, **kargs):
     """Exploit Etherleak flaw"""
-    return srpflood(Ether()/ARP(pdst=target),
+    return srpflood(Ether() / ARP(pdst=target),
                     prn=lambda s_r: conf.padding_layer in s_r[1] and hexstr(s_r[1][conf.padding_layer].load),
                     filter="arp", **kargs)
 

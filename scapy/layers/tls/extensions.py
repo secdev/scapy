@@ -69,7 +69,7 @@ class TLS_Ext_Unknown(_GenericTLSSessionInheritance):
         if self.len is None:
             l = len(p) - 4
             p = p[:2] + struct.pack("!H", l) + p[4:]
-        return p+pay
+        return p + pay
 
 
 ###############################################################################
@@ -96,30 +96,30 @@ class TLS_Ext_PrettyPacketList(TLS_Ext_Unknown):
             ncol = ct.field_name
             vcol = ct.field_value
             fvalue = self.getfieldval(f.name)
-            begn = "%s  %-10s%s " % (label_lvl+lvl, ncol(f.name),
+            begn = "%s  %-10s%s " % (label_lvl + lvl, ncol(f.name),
                                      ct.punct("="),)
             reprval = f.i2repr(self, fvalue)
             if isinstance(reprval, str):
-                reprval = reprval.replace("\n", "\n"+" "*(len(label_lvl)
-                                                          +len(lvl)
-                                                          +len(f.name)
-                                                          +4))
+                reprval = reprval.replace("\n", "\n" + " " * (len(label_lvl)
+                                                              + len(lvl)
+                                                              + len(f.name)
+                                                              + 4))
             s += "%s%s\n" % (begn, vcol(reprval))
         f = self.fields_desc[-1]
         ncol = ct.field_name
         vcol = ct.field_value
         fvalue = self.getfieldval(f.name)
-        begn = "%s  %-10s%s " % (label_lvl+lvl, ncol(f.name), ct.punct("="),)
+        begn = "%s  %-10s%s " % (label_lvl + lvl, ncol(f.name), ct.punct("="),)
         reprval = f.i2repr(self, fvalue)
         if isinstance(reprval, str):
-            reprval = reprval.replace("\n", "\n"+" "*(len(label_lvl)
-                                                      +len(lvl)
-                                                      +len(f.name)
-                                                      +4))
+            reprval = reprval.replace("\n", "\n" + " " * (len(label_lvl)
+                                                          + len(lvl)
+                                                          + len(f.name)
+                                                          + 4))
         s += "%s%s\n" % (begn, vcol(reprval))
         if self.payload:
             s += self.payload._show_or_dump(dump=dump, indent=indent,
-                                            lvl=lvl+(" "*indent*self.show_indent),
+                                            lvl=lvl + (" " * indent * self.show_indent),
                                             label_lvl=label_lvl, first_call=False)
 
         if first_call and not dump:
@@ -164,7 +164,7 @@ class TLS_Ext_ServerName(TLS_Ext_PrettyPacketList):                 # RFC 4366
     name = "TLS Extension - Server Name"
     fields_desc = [ShortEnumField("type", 0, _tls_ext),
                    FieldLenField("len", None, length_of="servernames",
-                                 adjust=lambda pkt, x: x+2),
+                                 adjust=lambda pkt, x: x + 2),
                    ServerLenField("servernameslen", None,
                                   length_of="servernames"),
                    ServerListField("servernames", [], ServerName,
@@ -294,7 +294,7 @@ class OCSPStatusRequest(Packet):
 
 
 _cert_status_type = {1: "ocsp"}
-_cert_status_req_cls  = {1: OCSPStatusRequest}
+_cert_status_req_cls = {1: OCSPStatusRequest}
 
 
 class _StatusReqField(PacketListField):
@@ -646,8 +646,8 @@ class _ExtensionsLenField(FieldLenField):
 
 
 class _ExtensionsField(StrLenField):
-    islist=1
-    holds_packets=1
+    islist = 1
+    holds_packets = 1
 
     def i2len(self, pkt, i):
         if i is None:
@@ -687,8 +687,8 @@ class _ExtensionsField(StrLenField):
             elif cls is TLS_Ext_PreSharedKey:
                 from scapy.layers.tls.keyexchange_tls13 import _tls_ext_presharedkey_cls
                 cls = _tls_ext_presharedkey_cls.get(pkt.msgtype, TLS_Ext_Unknown)
-            res.append(cls(m[:l+4], tls_session=pkt.tls_session))
-            m = m[l+4:]
+            res.append(cls(m[:l + 4], tls_session=pkt.tls_session))
+            m = m[l + 4:]
         return res
 
 

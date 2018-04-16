@@ -124,5 +124,5 @@ class BPBLOCK(Packet):
 
 
 ltp_bind_payload(BP, lambda pkt: pkt.DATA_ClientServiceID == 1)
-bind_layers(BP,                     BPBLOCK)
-bind_layers(BPBLOCK,                BPBLOCK)
+bind_layers(BP, BPBLOCK)
+bind_layers(BPBLOCK, BPBLOCK)

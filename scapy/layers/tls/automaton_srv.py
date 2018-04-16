@@ -104,7 +104,7 @@ class TLSServerAutomaton(_TLSAutomaton):
             self.vprint()
 
     def http_sessioninfo(self):
-        header  = "HTTP/1.1 200 OK\r\n"
+        header = "HTTP/1.1 200 OK\r\n"
         header += "Server: Scapy TLS Extension\r\n"
         header += "Content-type: text/html\r\n"
         header += "Content-length: %d\r\n\r\n"
@@ -119,7 +119,7 @@ class TLSServerAutomaton(_TLSAutomaton):
         ms = self.cur_session.master_secret
         s += "Master secret : %s\n" % repr_hex(ms)
         body = "<html><body><pre>%s</pre></body></html>\r\n\r\n" % s
-        answer = (header+body) % len(body)
+        answer = (header + body) % len(body)
         return answer
 
     @ATMT.state(initial=True)

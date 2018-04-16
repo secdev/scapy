@@ -28,7 +28,7 @@ from scapy.error import warning
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
 
-dhcpmagic=b"c\x82Sc"
+dhcpmagic = b"c\x82Sc"
 
 
 class BOOTP(Packet):
@@ -179,7 +179,7 @@ class RandDHCPOptions(RandField):
         self.size = size
         if rndstr is None:
             rndstr = RandBin(RandNum(0, 255))
-        self.rndstr=rndstr
+        self.rndstr = rndstr
         self._opts = list(DHCPOptions.values())
         self._opts.remove("pad")
         self._opts.remove("end")
@@ -189,20 +189,20 @@ class RandDHCPOptions(RandField):
         for k in range(self.size):
             o = random.choice(self._opts)
             if isinstance(o, str):
-                op.append((o, self.rndstr*1))
+                op.append((o, self.rndstr * 1))
             else:
                 op.append((o.name, o.randval()._fix()))
         return op
 
 
 class DHCPOptionsField(StrField):
-    islist=1
+    islist = 1
 
     def i2repr(self, pkt, x):
         s = []
         for v in x:
             if isinstance(v, tuple) and len(v) >= 2:
-                if  v[0] in DHCPRevOptions and isinstance(DHCPRevOptions[v[0]][1], Field):
+                if v[0] in DHCPRevOptions and isinstance(DHCPRevOptions[v[0]][1], Field):
                     f = DHCPRevOptions[v[0]][1]
                     vv = ",".join(f.i2repr(pkt, val) for val in v[1:])
                 else:
@@ -228,7 +228,7 @@ class DHCPOptionsField(StrField):
                 opt.append("pad")
                 x = x[1:]
                 continue
-            if len(x) < 2 or len(x) < orb(x[1])+2:
+            if len(x) < 2 or len(x) < orb(x[1]) + 2:
                 opt.append(x)
                 break
             elif o in DHCPOptions:
@@ -236,13 +236,13 @@ class DHCPOptionsField(StrField):
 
                 if isinstance(f, str):
                     olen = orb(x[1])
-                    opt.append((f, x[2:olen+2]))
-                    x = x[olen+2:]
+                    opt.append((f, x[2:olen + 2]))
+                    x = x[olen + 2:]
                 else:
                     olen = orb(x[1])
                     lval = [f.name]
                     try:
-                        left = x[2:olen+2]
+                        left = x[2:olen + 2]
                         while left:
                             left, val = f.getfield(pkt, left)
                             lval.append(val)
@@ -252,11 +252,11 @@ class DHCPOptionsField(StrField):
                     else:
                         otuple = tuple(lval)
                     opt.append(otuple)
-                    x = x[olen+2:]
+                    x = x[olen + 2:]
             else:
                 olen = orb(x[1])
-                opt.append((o, x[2:olen+2]))
-                x = x[olen+2:]
+                opt.append((o, x[2:olen + 2]))
+                x = x[olen + 2:]
         return opt
 
     def i2m(self, pkt, x):
@@ -272,7 +272,7 @@ class DHCPOptionsField(StrField):
                     onum, oval = name, b"".join(lval)
                 elif name in DHCPRevOptions:
                     onum, f = DHCPRevOptions[name]
-                    if  f is not None:
+                    if f is not None:
                         lval = [f.addfield(pkt, b"", f.any2i(pkt, val)) for val in lval]
                     oval = b"".join(lval)
                 else:
@@ -287,7 +287,7 @@ class DHCPOptionsField(StrField):
                   DHCPRevOptions[o][1] == None):
                 s += chb(DHCPRevOptions[o][0])
             elif isinstance(o, int):
-                s += chb(o)+b"\0"
+                s += chb(o) + b"\0"
             elif isinstance(o, (str, bytes)):
                 s += raw(o)
             else:
@@ -300,10 +300,10 @@ class DHCP(Packet):
     fields_desc = [DHCPOptionsField("options", b"")]
 
 
-bind_layers(UDP,           BOOTP,         dport=67, sport=68)
-bind_layers(UDP,           BOOTP,         dport=68, sport=67)
+bind_layers(UDP, BOOTP, dport=67, sport=68)
+bind_layers(UDP, BOOTP, dport=68, sport=67)
 bind_bottom_up(UDP, BOOTP, dport=67, sport=67)
-bind_layers(BOOTP,         DHCP,          options=b'c\x82Sc')
+bind_layers(BOOTP, DHCP, options=b'c\x82Sc')
 
 
 @conf.commands.register
@@ -313,8 +313,8 @@ def dhcp_request(iface=None, **kargs):
     if iface is None:
         iface = conf.iface
     fam, hw = get_if_raw_hwaddr(iface)
-    return srp1(Ether(dst="ff:ff:ff:ff:ff:ff")/IP(src="0.0.0.0", dst="255.255.255.255")/UDP(sport=68, dport=67)
-                /BOOTP(chaddr=hw)/DHCP(options=[("message-type", "discover"), "end"]), iface=iface, **kargs)
+    return srp1(Ether(dst="ff:ff:ff:ff:ff:ff") / IP(src="0.0.0.0", dst="255.255.255.255") / UDP(sport=68, dport=67)
+                / BOOTP(chaddr=hw) / DHCP(options=[("message-type", "discover"), "end"]), iface=iface, **kargs)
 
 
 class BOOTP_am(AnsweringMachine):
@@ -325,11 +325,11 @@ class BOOTP_am(AnsweringMachine):
     def parse_options(self, pool=Net("192.168.1.128/25"), network="192.168.1.0/24", gw="192.168.1.1",
                       domain="localnet", renewal_time=60, lease_time=1800):
         self.domain = domain
-        netw, msk = (network.split("/")+["32"])[:2]
+        netw, msk = (network.split("/") + ["32"])[:2]
         msk = itom(int(msk))
         self.netmask = ltoa(msk)
-        self.network = ltoa(atol(netw)&msk)
-        self.broadcast = ltoa(atol(self.network) | (0xffffffff&~msk))
+        self.network = ltoa(atol(netw) & msk)
+        self.broadcast = ltoa(atol(self.network) | (0xffffffff & ~msk))
         self.gw = gw
         if isinstance(pool, six.string_types):
             pool = Net(pool)
@@ -364,25 +364,25 @@ class BOOTP_am(AnsweringMachine):
             ip = self.pool
 
         repb = req.getlayer(BOOTP).copy()
-        repb.op="BOOTREPLY"
+        repb.op = "BOOTREPLY"
         repb.yiaddr = ip
         repb.siaddr = self.gw
         repb.ciaddr = self.gw
         repb.giaddr = self.gw
         del(repb.payload)
-        rep=Ether(dst=mac)/IP(dst=ip)/UDP(sport=req.dport, dport=req.sport)/repb
+        rep = Ether(dst=mac) / IP(dst=ip) / UDP(sport=req.dport, dport=req.sport) / repb
         return rep
 
 
 class DHCP_am(BOOTP_am):
-    function_name="dhcpd"
+    function_name = "dhcpd"
 
     def make_reply(self, req):
         resp = BOOTP_am.make_reply(self, req)
         if DHCP in req:
             dhcp_options = [(op[0], {1: 2, 3: 5}.get(op[1], op[1]))
                             for op in req[DHCP].options
-                            if isinstance(op, tuple)  and op[0] == "message-type"]
+                            if isinstance(op, tuple) and op[0] == "message-type"]
             dhcp_options += [("server_id", self.gw),
                              ("domain", self.domain),
                              ("router", self.gw),

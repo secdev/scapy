@@ -65,7 +65,7 @@ def autorun_commands(cmds, my_globals=None, ignore_globals=None, verb=0):
 
                 l = cmds.pop()
                 print(l)
-                cmd += "\n"+l
+                cmd += "\n" + l
                 if interp.runsource(cmd):
                     continue
                 if interp.error:

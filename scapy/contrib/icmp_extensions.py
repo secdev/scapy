@@ -36,9 +36,9 @@ class ICMPExtensionObject(Packet):
 
     def post_build(self, p, pay):
         if self.len is None:
-            l = len(p)+len(pay)
-            p = struct.pack('!H', l)+p[2:]
-        return p+pay
+            l = len(p) + len(pay)
+            p = struct.pack('!H', l) + p[2:]
+        return p + pay
 
 
 class ICMPExtensionHeader(Packet):
@@ -52,8 +52,8 @@ class ICMPExtensionHeader(Packet):
     def post_build(self, p, pay):
         if self.chksum is None:
             ck = checksum(p)
-            p = p[:2]+chr(ck>>8)+chr(ck&0xff)+p[4:]
-        return p+pay
+            p = p[:2] + chr(ck >> 8) + chr(ck & 0xff) + p[4:]
+        return p + pay
 
     def guess_payload_class(self, payload):
         if len(payload) < self._min_ieo_len:
@@ -191,5 +191,5 @@ scapy.layers.inet6.ICMPv6TimeExceeded.post_dissection = ICMPExtension_post_disse
 
 # ICMPExtensionHeader looks at fields from the upper layer object when
 # determining which upper layer to use.
-bind_layers(ICMPExtensionHeader, ICMPExtensionMPLS,                 classnum=1, classtype=1)
+bind_layers(ICMPExtensionHeader, ICMPExtensionMPLS, classnum=1, classtype=1)
 bind_layers(ICMPExtensionHeader, ICMPExtensionInterfaceInformation, classnum=2)

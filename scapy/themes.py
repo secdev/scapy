@@ -39,7 +39,7 @@ class ColorTable:
     def ansi_to_pygments(self, x):  # Transform ansi encoded text to Pygments text
         inv_map = {v[0]: v[1] for k, v in self.colors.items()}
         for k, v in inv_map.items():
-            x = x.replace(k, " "+v)
+            x = x.replace(k, " " + v)
         return x.strip()
 
 
@@ -53,7 +53,7 @@ def create_styler(fmt=None, before="", after="", fmt2="%s"):
                 val = str(val)
         else:
             val = fmt % val
-        return fmt2 % (before+val+after)
+        return fmt2 % (before + val + after)
     return do_style
 
 
@@ -119,99 +119,99 @@ class BlackAndWhite(AnsiColorTheme):
 
 class DefaultTheme(AnsiColorTheme):
     style_normal = Color.normal
-    style_prompt = Color.blue+Color.bold
+    style_prompt = Color.blue + Color.bold
     style_punct = Color.normal
-    style_id = Color.blue+Color.bold
+    style_id = Color.blue + Color.bold
     style_not_printable = Color.grey
-    style_layer_name = Color.red+Color.bold
+    style_layer_name = Color.red + Color.bold
     style_field_name = Color.blue
     style_field_value = Color.purple
-    style_emph_field_name = Color.blue+Color.uline+Color.bold
-    style_emph_field_value = Color.purple+Color.uline+Color.bold
-    style_packetlist_name = Color.red+Color.bold
+    style_emph_field_name = Color.blue + Color.uline + Color.bold
+    style_emph_field_value = Color.purple + Color.uline + Color.bold
+    style_packetlist_name = Color.red + Color.bold
     style_packetlist_proto = Color.blue
     style_packetlist_value = Color.purple
-    style_fail = Color.red+Color.bold
-    style_success = Color.blue+Color.bold
-    style_even = Color.black+Color.bold
+    style_fail = Color.red + Color.bold
+    style_success = Color.blue + Color.bold
+    style_even = Color.black + Color.bold
     style_odd = Color.black
     style_opening = Color.yellow
     style_active = Color.black
     style_closed = Color.grey
-    style_left = Color.blue+Color.invert
-    style_right = Color.red+Color.invert
-    style_logo = Color.green+Color.bold
+    style_left = Color.blue + Color.invert
+    style_right = Color.red + Color.invert
+    style_logo = Color.green + Color.bold
 
 
 class BrightTheme(AnsiColorTheme):
     style_normal = Color.normal
     style_punct = Color.normal
-    style_id = Color.yellow+Color.bold
-    style_layer_name = Color.red+Color.bold
-    style_field_name = Color.yellow+Color.bold
-    style_field_value = Color.purple+Color.bold
-    style_emph_field_name = Color.yellow+Color.bold
-    style_emph_field_value = Color.green+Color.bold
-    style_packetlist_name = Color.red+Color.bold
-    style_packetlist_proto = Color.yellow+Color.bold
-    style_packetlist_value = Color.purple+Color.bold
-    style_fail = Color.red+Color.bold
-    style_success = Color.blue+Color.bold
-    style_even = Color.black+Color.bold
+    style_id = Color.yellow + Color.bold
+    style_layer_name = Color.red + Color.bold
+    style_field_name = Color.yellow + Color.bold
+    style_field_value = Color.purple + Color.bold
+    style_emph_field_name = Color.yellow + Color.bold
+    style_emph_field_value = Color.green + Color.bold
+    style_packetlist_name = Color.red + Color.bold
+    style_packetlist_proto = Color.yellow + Color.bold
+    style_packetlist_value = Color.purple + Color.bold
+    style_fail = Color.red + Color.bold
+    style_success = Color.blue + Color.bold
+    style_even = Color.black + Color.bold
     style_odd = Color.black
-    style_left = Color.cyan+Color.invert
-    style_right = Color.purple+Color.invert
-    style_logo = Color.green+Color.bold
+    style_left = Color.cyan + Color.invert
+    style_right = Color.purple + Color.invert
+    style_logo = Color.green + Color.bold
 
 
 class RastaTheme(AnsiColorTheme):
-    style_normal = Color.normal+Color.green+Color.bold
-    style_prompt = Color.yellow+Color.bold
+    style_normal = Color.normal + Color.green + Color.bold
+    style_prompt = Color.yellow + Color.bold
     style_punct = Color.red
-    style_id = Color.green+Color.bold
+    style_id = Color.green + Color.bold
     style_not_printable = Color.green
-    style_layer_name = Color.red+Color.bold
-    style_field_name = Color.yellow+Color.bold
-    style_field_value = Color.green+Color.bold
+    style_layer_name = Color.red + Color.bold
+    style_field_name = Color.yellow + Color.bold
+    style_field_value = Color.green + Color.bold
     style_emph_field_name = Color.green
     style_emph_field_value = Color.green
-    style_packetlist_name = Color.red+Color.bold
-    style_packetlist_proto = Color.yellow+Color.bold
-    style_packetlist_value = Color.green+Color.bold
+    style_packetlist_name = Color.red + Color.bold
+    style_packetlist_proto = Color.yellow + Color.bold
+    style_packetlist_value = Color.green + Color.bold
     style_fail = Color.red
-    style_success = Color.red+Color.bold
+    style_success = Color.red + Color.bold
     style_even = Color.yellow
     style_odd = Color.green
-    style_left = Color.yellow+Color.invert
-    style_right = Color.red+Color.invert
-    style_logo = Color.green+Color.bold
+    style_left = Color.yellow + Color.invert
+    style_right = Color.red + Color.invert
+    style_logo = Color.green + Color.bold
 
 
 class ColorOnBlackTheme(AnsiColorTheme):
     """Color theme for black backgrounds"""
     style_normal = Color.normal
-    style_prompt = Color.green+Color.bold
+    style_prompt = Color.green + Color.bold
     style_punct = Color.normal
     style_id = Color.green
-    style_not_printable = Color.black+Color.bold
-    style_layer_name = Color.yellow+Color.bold
+    style_not_printable = Color.black + Color.bold
+    style_layer_name = Color.yellow + Color.bold
     style_field_name = Color.cyan
-    style_field_value = Color.purple+Color.bold
-    style_emph_field_name = Color.cyan+Color.bold
-    style_emph_field_value = Color.red+Color.bold
-    style_packetlist_name = Color.black+Color.bold
-    style_packetlist_proto = Color.yellow+Color.bold
-    style_packetlist_value = Color.purple+Color.bold
-    style_fail = Color.red+Color.bold
+    style_field_value = Color.purple + Color.bold
+    style_emph_field_name = Color.cyan + Color.bold
+    style_emph_field_value = Color.red + Color.bold
+    style_packetlist_name = Color.black + Color.bold
+    style_packetlist_proto = Color.yellow + Color.bold
+    style_packetlist_value = Color.purple + Color.bold
+    style_fail = Color.red + Color.bold
     style_success = Color.green
-    style_even = Color.black+Color.bold
+    style_even = Color.black + Color.bold
     style_odd = Color.grey
     style_opening = Color.yellow
-    style_active = Color.grey+Color.bold
-    style_closed = Color.black+Color.bold
-    style_left = Color.cyan+Color.bold
-    style_right = Color.red+Color.bold
-    style_logo = Color.green+Color.bold
+    style_active = Color.grey + Color.bold
+    style_closed = Color.black + Color.bold
+    style_left = Color.cyan + Color.bold
+    style_right = Color.red + Color.bold
+    style_logo = Color.green + Color.bold
 
 
 class FormatTheme(ColorTheme):
@@ -321,7 +321,7 @@ def apply_ipython_style(shell):
 
             def out_prompt_tokens(self):
                 return [(Token.OutPrompt, ''), ]
-        shell.prompts_class=ClassicPrompt  # Apply classic prompt style
+        shell.prompts_class = ClassicPrompt  # Apply classic prompt style
     shell.highlighting_style_overrides = {  # Register and apply scapy color style
         Token.Prompt: Color.ansi_to_pygments(conf.color_theme.style_prompt),
     }

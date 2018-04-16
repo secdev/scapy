@@ -40,10 +40,10 @@ class L2TP(Packet):
 
     def post_build(self, pkt, pay):
         if self.len is None:
-            l = len(pkt)+len(pay)
-            pkt = pkt[:2]+struct.pack("!H", l)+pkt[4:]
-        return pkt+pay
+            l = len(pkt) + len(pay)
+            pkt = pkt[:2] + struct.pack("!H", l) + pkt[4:]
+        return pkt + pay
 
 
-bind_layers(UDP,           L2TP,          sport=1701, dport=1701)
-bind_layers(L2TP,          PPP,)
+bind_layers(UDP, L2TP, sport=1701, dport=1701)
+bind_layers(L2TP, PPP,)

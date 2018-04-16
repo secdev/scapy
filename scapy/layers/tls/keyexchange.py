@@ -31,20 +31,20 @@ if conf.crypto_valid:
 #   Common Fields                                                             #
 ###############################################################################
 
-_tls_hash_sig = {0x0000: "none+anon",    0x0001: "none+rsa",
-                 0x0002: "none+dsa",     0x0003: "none+ecdsa",
-                 0x0100: "md5+anon",     0x0101: "md5+rsa",
-                 0x0102: "md5+dsa",      0x0103: "md5+ecdsa",
-                 0x0200: "sha1+anon",    0x0201: "sha1+rsa",
-                 0x0202: "sha1+dsa",     0x0203: "sha1+ecdsa",
-                 0x0300: "sha224+anon",  0x0301: "sha224+rsa",
-                 0x0302: "sha224+dsa",   0x0303: "sha224+ecdsa",
-                 0x0400: "sha256+anon",  0x0401: "sha256+rsa",
-                 0x0402: "sha256+dsa",   0x0403: "sha256+ecdsa",
-                 0x0500: "sha384+anon",  0x0501: "sha384+rsa",
-                 0x0502: "sha384+dsa",   0x0503: "sha384+ecdsa",
-                 0x0600: "sha512+anon",  0x0601: "sha512+rsa",
-                 0x0602: "sha512+dsa",   0x0603: "sha512+ecdsa",
+_tls_hash_sig = {0x0000: "none+anon", 0x0001: "none+rsa",
+                 0x0002: "none+dsa", 0x0003: "none+ecdsa",
+                 0x0100: "md5+anon", 0x0101: "md5+rsa",
+                 0x0102: "md5+dsa", 0x0103: "md5+ecdsa",
+                 0x0200: "sha1+anon", 0x0201: "sha1+rsa",
+                 0x0202: "sha1+dsa", 0x0203: "sha1+ecdsa",
+                 0x0300: "sha224+anon", 0x0301: "sha224+rsa",
+                 0x0302: "sha224+dsa", 0x0303: "sha224+ecdsa",
+                 0x0400: "sha256+anon", 0x0401: "sha256+rsa",
+                 0x0402: "sha256+dsa", 0x0403: "sha256+ecdsa",
+                 0x0500: "sha384+anon", 0x0501: "sha384+rsa",
+                 0x0502: "sha384+dsa", 0x0503: "sha384+ecdsa",
+                 0x0600: "sha512+anon", 0x0601: "sha512+rsa",
+                 0x0602: "sha512+dsa", 0x0603: "sha512+ecdsa",
                  0x0804: "sha256+rsapss",
                  0x0805: "sha384+rsapss",
                  0x0806: "sha512+rsapss",
@@ -259,7 +259,7 @@ class _TLSServerParamsField(PacketField):
         if s.prcs:
             cls = s.prcs.key_exchange.server_kx_msg_cls(m)
             if cls is None:
-                return None, Raw(m[:l])/Padding(m[l:])
+                return None, Raw(m[:l]) / Padding(m[l:])
             return cls(m, tls_session=s)
         else:
             try:
@@ -271,7 +271,7 @@ class _TLSServerParamsField(PacketField):
                 cls = _tls_server_ecdh_cls_guess(m)
                 p = cls(m, tls_session=s)
                 if pkcs_os2ip(p.load[:2]) not in _tls_hash_sig:
-                    return None, Raw(m[:l])/Padding(m[l:])
+                    return None, Raw(m[:l]) / Padding(m[l:])
                 return p
 
 
@@ -318,7 +318,7 @@ class ServerDHParams(_GenericTLSSessionInheritance):
         default_mLen = _ffdh_groups['modp2048'][1]
 
         if not self.dh_p:
-            self.dh_p = pkcs_i2osp(default_params.p, default_mLen//8)
+            self.dh_p = pkcs_i2osp(default_params.p, default_mLen // 8)
         if self.dh_plen is None:
             self.dh_plen = len(self.dh_p)
 
@@ -335,7 +335,7 @@ class ServerDHParams(_GenericTLSSessionInheritance):
             s.server_kx_privkey = real_params.generate_private_key()
             pubkey = s.server_kx_privkey.public_key()
             y = pubkey.public_numbers().y
-            self.dh_Ys = pkcs_i2osp(y, pubkey.key_size//8)
+            self.dh_Ys = pkcs_i2osp(y, pubkey.key_size // 8)
         # else, we assume that the user wrote the server_kx_privkey by himself
         if self.dh_Yslen is None:
             self.dh_Yslen = len(self.dh_Ys)
@@ -659,11 +659,11 @@ class ServerRSAParams(_GenericTLSSessionInheritance):
         pubNum = k.pubkey.public_numbers()
 
         if not self.rsamod:
-            self.rsamod = pkcs_i2osp(pubNum.n, k.pubkey.key_size//8)
+            self.rsamod = pkcs_i2osp(pubNum.n, k.pubkey.key_size // 8)
         if self.rsamodlen is None:
             self.rsamodlen = len(self.rsamod)
 
-        rsaexplen = math.ceil(math.log(pubNum.e)/math.log(2)/8.)
+        rsaexplen = math.ceil(math.log(pubNum.e) / math.log(2) / 8.)
         if not self.rsaexp:
             self.rsaexp = pkcs_i2osp(pubNum.e, rsaexplen)
         if self.rsaexplen is None:
@@ -672,8 +672,8 @@ class ServerRSAParams(_GenericTLSSessionInheritance):
     @crypto_validator
     def register_pubkey(self):
         mLen = self.rsamodlen
-        m    = self.rsamod
-        e    = self.rsaexp
+        m = self.rsamod
+        e = self.rsaexp
         self.tls_session.server_tmp_rsa_key = PubKeyRSA((e, m, mLen))
 
     def post_dissection(self, pkt):
@@ -738,7 +738,7 @@ class ClientDiffieHellmanPublic(_GenericTLSSessionInheritance):
         s.client_kx_privkey = params.generate_private_key()
         pubkey = s.client_kx_privkey.public_key()
         y = pubkey.public_numbers().y
-        self.dh_Yc = pkcs_i2osp(y, pubkey.key_size//8)
+        self.dh_Yc = pkcs_i2osp(y, pubkey.key_size // 8)
 
         if s.client_kx_privkey and s.server_kx_pubkey:
             pms = s.client_kx_privkey.exchange(s.server_kx_pubkey)
@@ -799,8 +799,8 @@ class ClientECDiffieHellmanPublic(_GenericTLSSessionInheritance):
         x = pubkey.public_numbers().x
         y = pubkey.public_numbers().y
         self.ecdh_Yc = (b"\x04" +
-                        pkcs_i2osp(x, params.key_size//8) +
-                        pkcs_i2osp(y, params.key_size//8))
+                        pkcs_i2osp(x, params.key_size // 8) +
+                        pkcs_i2osp(y, params.key_size // 8))
 
         if s.client_kx_privkey and s.server_kx_pubkey:
             pms = s.client_kx_privkey.exchange(ec.ECDH(), s.server_kx_pubkey)
@@ -870,7 +870,7 @@ class EncryptedPreMasterSecret(_GenericTLSSessionInheritance):
             if len(m) < 2:      # Should not happen
                 return m
             l = struct.unpack("!H", m[:2])[0]
-            if len(m) != l+2:
+            if len(m) != l + 2:
                 err = "TLS 1.0+, but RSA Encrypted PMS with no explicit length"
                 warning(err)
             else:
@@ -884,7 +884,7 @@ class EncryptedPreMasterSecret(_GenericTLSSessionInheritance):
             pms = decrypted[-48:]
         else:
             # the dispatch_hook is supposed to prevent this case
-            pms = b"\x00"*48
+            pms = b"\x00" * 48
             err = "No server RSA key to decrypt Pre Master Secret. Skipping."
             warning(err)
 

@@ -58,7 +58,7 @@ class Route:
         else:
             raise Scapy_Exception("make_route: Incorrect parameters. You should specify a host or a net")
         if gw is None:
-            gw="0.0.0.0"
+            gw = "0.0.0.0"
         if dev is None:
             if gw:
                 nhop = gw
@@ -76,19 +76,19 @@ class Route:
         self.invalidate_cache()
         self.routes.append(self.make_route(*args, **kargs))
 
-    def delt(self,  *args, **kargs):
+    def delt(self, *args, **kargs):
         """delt(host|net, gw|dev)"""
         self.invalidate_cache()
         route = self.make_route(*args, **kargs)
         try:
-            i=self.routes.index(route)
+            i = self.routes.index(route)
             del(self.routes[i])
         except ValueError:
             warning("no matching route found")
 
     def ifchange(self, iff, addr):
         self.invalidate_cache()
-        the_addr, the_msk = (addr.split("/")+["32"])[:2]
+        the_addr, the_msk = (addr.split("/") + ["32"])[:2]
         the_msk = itom(int(the_msk))
         the_rawaddr = atol(the_addr)
         the_net = the_rawaddr & the_msk
@@ -108,7 +108,7 @@ class Route:
 
     def ifdel(self, iff):
         self.invalidate_cache()
-        new_routes=[]
+        new_routes = []
         for rt in self.routes:
             if scapy.consts.WINDOWS:
                 if iff.guid == rt[3].guid:
@@ -116,11 +116,11 @@ class Route:
             elif iff == rt[3]:
                 continue
             new_routes.append(rt)
-        self.routes=new_routes
+        self.routes = new_routes
 
     def ifadd(self, iff, addr):
         self.invalidate_cache()
-        the_addr, the_msk = (addr.split("/")+["32"])[:2]
+        the_addr, the_msk = (addr.split("/") + ["32"])[:2]
         the_msk = itom(int(the_msk))
         the_rawaddr = atol(the_addr)
         the_net = the_rawaddr & the_msk
@@ -130,7 +130,7 @@ class Route:
         if dest in self.cache:
             return self.cache[dest]
         if verbose is None:
-            verbose=conf.verb
+            verbose = conf.verb
         # Transform "192.168.*.1-5" to one IP of the set
         dst = dest.split("/")[0]
         dst = dst.replace("*", "0")
@@ -138,11 +138,11 @@ class Route:
             l = dst.find("-")
             if l < 0:
                 break
-            m = (dst[l:]+".").find(".")
-            dst = dst[:l]+dst[l+m:]
+            m = (dst[l:] + ".").find(".")
+            dst = dst[:l] + dst[l + m:]
 
         dst = atol(dst)
-        pathes=[]
+        pathes = []
         for d, m, gw, i, a, me in self.routes:
             if not a:  # some interfaces may not currently be connected
                 continue
@@ -178,12 +178,12 @@ class Route:
                     continue
             elif iff != iface:
                 continue
-            bcast = atol(addr)|(~msk&0xffffffff);  # FIXME: check error in atol()
+            bcast = atol(addr) | (~msk & 0xffffffff);  # FIXME: check error in atol()
             return ltoa(bcast)
         warning("No broadcast address found for iface %s\n", iff);
 
 
-conf.route=Route()
+conf.route = Route()
 
 iface = conf.route.route("0.0.0.0", verbose=0)[0]
 

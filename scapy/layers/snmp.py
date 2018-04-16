@@ -25,7 +25,7 @@ from scapy.layers.inet import UDP, IP, ICMP
 
 
 class ASN1_Class_SNMP(ASN1_Class_UNIVERSAL):
-    name="SNMP"
+    name = "SNMP"
     PDU_GET = 0xa0
     PDU_NEXT = 0xa1
     PDU_RESPONSE = 0xa2
@@ -262,7 +262,7 @@ class SNMP(ASN1_Packet):
     )
 
     def answers(self, other):
-        return (isinstance(self.PDU, SNMPresponse)    and
+        return (isinstance(self.PDU, SNMPresponse) and
                 (isinstance(other.PDU, SNMPget) or
                  isinstance(other.PDU, SNMPnext) or
                  isinstance(other.PDU, SNMPset)) and
@@ -279,7 +279,7 @@ bind_layers(UDP, SNMP, sport=161, dport=161)
 def snmpwalk(dst, oid="1", community="public"):
     try:
         while True:
-            r = sr1(IP(dst=dst)/UDP(sport=RandShort())/SNMP(community=community, PDU=SNMPnext(varbindlist=[SNMPvarbind(oid=oid)])), timeout=2, chainCC=1, verbose=0, retry=2)
+            r = sr1(IP(dst=dst) / UDP(sport=RandShort()) / SNMP(community=community, PDU=SNMPnext(varbindlist=[SNMPvarbind(oid=oid)])), timeout=2, chainCC=1, verbose=0, retry=2)
             if r is None:
                 print("No answers")
                 break

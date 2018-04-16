@@ -41,10 +41,10 @@ class RandASN1Object(RandField):
             z = GeneralizedTime()._fix()
             return o(z)
         elif issubclass(o, ASN1_STRING):
-            z = int(random.expovariate(0.05)+1)
+            z = int(random.expovariate(0.05) + 1)
             return o("".join(random.choice(self.chars) for _ in range(z)))
         elif issubclass(o, ASN1_SEQUENCE) and (n < 10):
-            z = int(random.expovariate(0.08)+1)
+            z = int(random.expovariate(0.08) + 1)
             return o([self.__class__(objlist=self.objlist)._fix(n + 1)
                       for _ in range(z)])
         return ASN1_INTEGER(int(random.gauss(0, 1000)))
@@ -179,8 +179,8 @@ class ASN1_Class_UNIVERSAL(ASN1_Class):
     EMBEDDED_PDF = 11
     UTF8_STRING = 12
     RELATIVE_OID = 13
-    SEQUENCE = 16|0x20          # constructed encoding
-    SET = 17|0x20               # constructed encoding
+    SEQUENCE = 16 | 0x20          # constructed encoding
+    SET = 17 | 0x20               # constructed encoding
     NUMERIC_STRING = 18
     PRINTABLE_STRING = 19
     T61_STRING = 20             # aka TELETEX_STRING
@@ -194,10 +194,10 @@ class ASN1_Class_UNIVERSAL(ASN1_Class):
     UNIVERSAL_STRING = 28
     CHAR_STRING = 29
     BMP_STRING = 30
-    IPADDRESS = 0|0x40          # application-specific encoding
-    COUNTER32 = 1|0x40          # application-specific encoding
-    GAUGE32 = 2|0x40            # application-specific encoding
-    TIME_TICKS = 3|0x40         # application-specific encoding
+    IPADDRESS = 0 | 0x40          # application-specific encoding
+    COUNTER32 = 1 | 0x40          # application-specific encoding
+    GAUGE32 = 2 | 0x40            # application-specific encoding
+    TIME_TICKS = 3 | 0x40         # application-specific encoding
 
 
 class ASN1_Object_metaclass(type):
@@ -229,7 +229,7 @@ class ASN1_Object(six.with_metaclass(ASN1_Object_metaclass)):
         return self.enc(conf.ASN1_default_codec)
 
     def strshow(self, lvl=0):
-        return ("  "*lvl)+repr(self)+"\n"
+        return ("  " * lvl) + repr(self) + "\n"
 
     def show(self, lvl=0):
         print(self.strshow(lvl))
@@ -310,7 +310,7 @@ class ASN1_BOOLEAN(ASN1_INTEGER):
     # BER: 0 means False, anything else means True
 
     def __repr__(self):
-        return '%s %s' % (not (self.val==0), ASN1_Object.__repr__(self))
+        return '%s %s' % (not (self.val == 0), ASN1_Object.__repr__(self))
 
 
 class ASN1_BIT_STRING(ASN1_Object):
@@ -353,7 +353,7 @@ class ASN1_BIT_STRING(ASN1_Object):
                     else:
                         unused_bits = 8 - (len(value) % 8)
                     padded_value = str_value + ("0" * unused_bits)
-                    bytes_arr = zip(*[iter(padded_value)]*8)
+                    bytes_arr = zip(*[iter(padded_value)] * 8)
                     val_readable = b"".join(chb(int("".join(x), 2)) for x in bytes_arr)
             else:
                 val_readable = "<invalid val>"
@@ -369,13 +369,13 @@ class ASN1_BIT_STRING(ASN1_Object):
     def __repr__(self):
         if len(self.val) <= 16:
             v = plain_str(self.val)
-            return "<%s[%s] (%d unused bit%s)>" % (self.__dict__.get("name", self.__class__.__name__), v, self.unused_bits, "s" if self.unused_bits>1 else "")
+            return "<%s[%s] (%d unused bit%s)>" % (self.__dict__.get("name", self.__class__.__name__), v, self.unused_bits, "s" if self.unused_bits > 1 else "")
         else:
             s = self.val_readable
             if len(s) > 20:
                 s = s[:10] + b"..." + s[-10:]
             v = plain_str(self.val)
-            return "<%s[%s] (%d unused bit%s)>" % (self.__dict__.get("name", self.__class__.__name__), v, self.unused_bits, "s" if self.unused_bits>1 else "")
+            return "<%s[%s] (%d unused bit%s)>" % (self.__dict__.get("name", self.__class__.__name__), v, self.unused_bits, "s" if self.unused_bits > 1 else "")
 
     def __str__(self):
         return self.val_readable
@@ -507,9 +507,9 @@ class ASN1_SEQUENCE(ASN1_Object):
     tag = ASN1_Class_UNIVERSAL.SEQUENCE
 
     def strshow(self, lvl=0):
-        s = ("  "*lvl)+("# %s:" % self.__class__.__name__)+"\n"
+        s = ("  " * lvl) + ("# %s:" % self.__class__.__name__) + "\n"
         for o in self.val:
-            s += o.strshow(lvl=lvl+1)
+            s += o.strshow(lvl=lvl + 1)
         return s
 
 

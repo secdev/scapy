@@ -350,7 +350,7 @@ class TacacsPacketArguments(Packet):
         while isinstance(cur, TacacsPacketArguments):
             cur = cur.underlayer
             i += 1
-        if i+1 < cur.arg_cnt:
+        if i + 1 < cur.arg_cnt:
             return TacacsPacketArguments
         return conf.padding_layer
 

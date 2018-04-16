@@ -57,7 +57,7 @@ def get_temp_file(keep=False, autoext=""):
 
 
 def sane_color(x):
-    r=""
+    r = ""
     for i in x:
         j = orb(i)
         if (j < 32) or (j >= 127):
@@ -68,7 +68,7 @@ def sane_color(x):
 
 
 def sane(x):
-    r=""
+    r = ""
     for i in x:
         j = orb(i)
         if (j < 32) or (j >= 127):
@@ -114,14 +114,14 @@ def hexdump(x, dump=False):
     while i < l:
         s += "%04x  " % i
         for j in range(16):
-            if i+j < l:
-                s += "%02X" % orb(x[i+j])
+            if i + j < l:
+                s += "%02X" % orb(x[i + j])
             else:
                 s += "  "
-            if j%16 == 7:
+            if j % 16 == 7:
                 s += ""
         s += " "
-        s += sane_color(x[i:i+16])
+        s += sane_color(x[i:i + 16])
         i += 16
         s += "\n"
     # remove trailing \n
@@ -199,30 +199,30 @@ def repr_hex(s):
 @conf.commands.register
 def hexdiff(x, y):
     """Show differences between 2 binary strings"""
-    x=raw(x)[::-1]
-    y=raw(y)[::-1]
-    SUBST=1
-    INSERT=1
+    x = raw(x)[::-1]
+    y = raw(y)[::-1]
+    SUBST = 1
+    INSERT = 1
     d = {(-1, -1): (0, (-1, -1))}
     for j in range(len(y)):
-        d[-1, j] = d[-1, j-1][0]+INSERT, (-1, j-1)
+        d[-1, j] = d[-1, j - 1][0] + INSERT, (-1, j - 1)
     for i in range(len(x)):
-        d[i, -1] = d[i-1, -1][0]+INSERT, (i-1, -1)
+        d[i, -1] = d[i - 1, -1][0] + INSERT, (i - 1, -1)
 
     for j in range(len(y)):
         for i in range(len(x)):
-            d[i, j] = min((d[i-1, j-1][0]+SUBST*(x[i] != y[j]), (i-1, j-1)),
-                          (d[i-1, j][0]+INSERT, (i-1, j)),
-                          (d[i, j-1][0]+INSERT, (i, j-1)))
+            d[i, j] = min((d[i - 1, j - 1][0] + SUBST * (x[i] != y[j]), (i - 1, j - 1)),
+                          (d[i - 1, j][0] + INSERT, (i - 1, j)),
+                          (d[i, j - 1][0] + INSERT, (i, j - 1)))
 
     backtrackx = []
     backtracky = []
-    i=len(x)-1
-    j=len(y)-1
+    i = len(x) - 1
+    j = len(y) - 1
     while not (i == j == -1):
         i2, j2 = d[i, j][1]
-        backtrackx.append(x[i2+1:i+1])
-        backtracky.append(y[j2+1:j+1])
+        backtrackx.append(x[i2 + 1:i + 1])
+        backtracky.append(y[j2 + 1:j + 1])
         i, j = i2, j2
 
     x = y = i = 0
@@ -230,20 +230,20 @@ def hexdiff(x, y):
                 -1: conf.color_theme.left,
                 1: conf.color_theme.right}
 
-    dox=1
-    doy=0
+    dox = 1
+    doy = 0
     l = len(backtrackx)
     while i < l:
-        separate=0
-        linex = backtrackx[i:i+16]
-        liney = backtracky[i:i+16]
+        separate = 0
+        linex = backtrackx[i:i + 16]
+        liney = backtracky[i:i + 16]
         xx = sum(len(k) for k in linex)
         yy = sum(len(k) for k in liney)
         if dox and not xx:
             dox = 0
             doy = 1
         if dox and linex == liney:
-            doy=1
+            doy = 1
 
         if dox:
             xd = y
@@ -251,9 +251,9 @@ def hexdiff(x, y):
             while not linex[j]:
                 j += 1
                 xd -= 1
-            print(colorize[doy-dox]("%04x" % xd), end=' ')
+            print(colorize[doy - dox]("%04x" % xd), end=' ')
             x += xx
-            line=linex
+            line = linex
         else:
             print("    ", end=' ')
         if doy:
@@ -262,9 +262,9 @@ def hexdiff(x, y):
             while not liney[j]:
                 j += 1
                 yd -= 1
-            print(colorize[doy-dox]("%04x" % yd), end=' ')
+            print(colorize[doy - dox]("%04x" % yd), end=' ')
             y += yy
-            line=liney
+            line = liney
         else:
             print("    ", end=' ')
 
@@ -272,11 +272,11 @@ def hexdiff(x, y):
 
         cl = ""
         for j in range(16):
-            if i+j < l:
+            if i + j < l:
                 if line[j]:
-                    col = colorize[(linex[j]!=liney[j])*(doy-dox)]
+                    col = colorize[(linex[j] != liney[j]) * (doy - dox)]
                     print(col("%02X" % orb(line[j])), end=' ')
-                    if linex[j]==liney[j]:
+                    if linex[j] == liney[j]:
                         cl += sane_color(line[j])
                     else:
                         cl += col(sane(line[j]))
@@ -291,13 +291,13 @@ def hexdiff(x, y):
         print(" ", cl)
 
         if doy or not yy:
-            doy=0
-            dox=1
+            doy = 0
+            dox = 1
             i += 16
         else:
             if yy:
-                dox=0
-                doy=1
+                dox = 0
+                doy = 1
             else:
                 i += 16
 
@@ -319,7 +319,7 @@ else:
         s = (s >> 16) + (s & 0xffff)
         s += s >> 16
         s = ~s
-        return (((s>>8)&0xff)|s<<8) & 0xffff
+        return (((s >> 8) & 0xff) | s << 8) & 0xffff
 
 
 def _fletcher16(charbuf):
@@ -342,7 +342,7 @@ def fletcher16_checksum(binbuf):
         If the buffer contains the two checkbytes derived from the Fletcher-16 checksum
         the result of this function has to be 0. Otherwise the buffer has been corrupted.
     """
-    (c0, c1)= _fletcher16(binbuf)
+    (c0, c1) = _fletcher16(binbuf)
     return (c1 << 8) | c0
 
 
@@ -362,7 +362,7 @@ def fletcher16_checkbytes(binbuf, offset):
         raise Exception("Packet too short for checkbytes %d" % len(binbuf))
 
     binbuf = binbuf[:offset] + b"\x00\x00" + binbuf[offset + 2:]
-    (c0, c1)= _fletcher16(binbuf)
+    (c0, c1) = _fletcher16(binbuf)
 
     x = ((len(binbuf) - offset - 1) * c0 - c1) % 255
 
@@ -382,8 +382,8 @@ def mac2str(mac):
 
 def str2mac(s):
     if isinstance(s, str):
-        return ("%02x:"*6)[:-1] % tuple(map(ord, s))
-    return ("%02x:"*6)[:-1] % tuple(s)
+        return ("%02x:" * 6)[:-1] % tuple(map(ord, s))
+    return ("%02x:" * 6)[:-1] % tuple(s)
 
 
 def randstring(l):
@@ -405,7 +405,7 @@ def strxor(s1, s2):
     Returns the binary XOR of the 2 provided strings s1 and s2. s1 and s2
     must be of same length.
     """
-    return b"".join(map(lambda x, y: chb(orb(x)^orb(y)), s1, s2))
+    return b"".join(map(lambda x, y: chb(orb(x) ^ orb(y)), s1, s2))
 
 
 def strand(s1, s2):
@@ -413,7 +413,7 @@ def strand(s1, s2):
     Returns the binary AND of the 2 provided strings s1 and s2. s1 and s2
     must be of same length.
     """
-    return b"".join(map(lambda x, y: chb(orb(x)&orb(y)), s1, s2))
+    return b"".join(map(lambda x, y: chb(orb(x) & orb(y)), s1, s2))
 
 
 # Workaround bug 643005 : https://sourceforge.net/tracker/?func=detail&atid=105470&aid=643005&group_id=5470
@@ -422,7 +422,7 @@ try:
 except socket.error:
     def inet_aton(x):
         if x == "255.255.255.255":
-            return b"\xff"*4
+            return b"\xff" * 4
         else:
             return socket.inet_aton(x)
 else:
@@ -441,11 +441,11 @@ def atol(x):
 
 
 def ltoa(x):
-    return inet_ntoa(struct.pack("!I", x&0xffffffff))
+    return inet_ntoa(struct.pack("!I", x & 0xffffffff))
 
 
 def itom(x):
-    return (0xffffffff00000000>>x)&0xffffffff
+    return (0xffffffff00000000 >> x) & 0xffffffff
 
 
 class ContextManagerSubprocess(object):
@@ -531,13 +531,13 @@ def do_graph(graph, prog=None, format=None, target=None, type=None, string=None,
     if string:
         return graph
     if type is not None:
-        format=type
+        format = type
     if prog is None:
         prog = conf.prog.dot
-    start_viewer=False
+    start_viewer = False
     if target is None:
         if WINDOWS:
-            target = get_temp_file(autoext="."+format)
+            target = get_temp_file(autoext="." + format)
             start_viewer = True
         else:
             with ContextManagerSubprocess("do_graph()", conf.prog.display):
@@ -613,7 +613,7 @@ def colgen(*lstcol, **kargs):
             for j in range(len(lstcol)):
                 for k in range(len(lstcol)):
                     if i != j or j != k or k != i:
-                        yield trans(lstcol[(i+j)%len(lstcol)], lstcol[(j+k)%len(lstcol)], lstcol[(k+i)%len(lstcol)])
+                        yield trans(lstcol[(i + j) % len(lstcol)], lstcol[(j + k) % len(lstcol)], lstcol[(k + i) % len(lstcol)])
 
 
 def incremental_label(label="tag%05i", start=0):
@@ -635,7 +635,7 @@ def long_converter(s):
 
 
 class EnumElement:
-    _value=None
+    _value = None
 
     def __init__(self, key, value):
         self._key = key
@@ -670,7 +670,7 @@ class Enum_metaclass(type):
     element_class = EnumElement
 
     def __new__(cls, name, bases, dct):
-        rdict={}
+        rdict = {}
         for k, v in six.iteritems(dct):
             if isinstance(v, int):
                 v = cls.element_class(k, v)
@@ -726,9 +726,9 @@ def corrupt_bytes(s, p=0.01, n=None):
     s = array.array("B", raw(s))
     l = len(s)
     if n is None:
-        n = max(1, int(l*p))
+        n = max(1, int(l * p))
     for i in random.sample(range(l), n):
-        s[i] = (s[i]+random.randint(1, 255))%256
+        s[i] = (s[i] + random.randint(1, 255)) % 256
     return s.tostring()
 
 
@@ -736,9 +736,9 @@ def corrupt_bytes(s, p=0.01, n=None):
 def corrupt_bits(s, p=0.01, n=None):
     """Flip a given percentage or number of bits from a string"""
     s = array.array("B", raw(s))
-    l = len(s)*8
+    l = len(s) * 8
     if n is None:
-        n = max(1, int(l*p))
+        n = max(1, int(l * p))
     for i in random.sample(range(l), n):
         s[i // 8] ^= 1 << (i % 8)
     return s.tostring()
@@ -859,7 +859,7 @@ class RawPcapReader(six.with_metaclass(PcapReader_metaclass)):
                 "Not a pcap capture file (bad magic: %r)" % magic
             )
         hdr = self.f.read(20)
-        if len(hdr)<20:
+        if len(hdr) < 20:
             raise Scapy_Exception("Invalid pcap file (too short)")
         vermaj, vermin, tz, sig, snaplen, linktype = struct.unpack(
             self.endian + "HHIIII", hdr
@@ -885,7 +885,7 @@ class RawPcapReader(six.with_metaclass(PcapReader_metaclass)):
         hdr = self.f.read(16)
         if len(hdr) < 16:
             return None
-        sec, usec, caplen, wirelen = struct.unpack(self.endian+"IIII", hdr)
+        sec, usec, caplen, wirelen = struct.unpack(self.endian + "IIII", hdr)
         return (self.f.read(caplen)[:size],
                 RawPcapReader.PacketMetadata(sec=sec, usec=usec,
                                              wirelen=wirelen, caplen=caplen))
@@ -903,7 +903,7 @@ class RawPcapReader(six.with_metaclass(PcapReader_metaclass)):
     def read_all(self, count=-1):
         """return a list of all packets in the pcap file
         """
-        res=[]
+        res = []
         while count != 0:
             count -= 1
             p = self.read_packet()
@@ -1157,7 +1157,7 @@ nano:       use nanosecond-precision (requires libpcap >= 1.5.0)
         self.endian = endianness
         self.sync = sync
         self.nano = nano
-        bufsz=4096
+        bufsz = 4096
         if sync:
             bufsz = 0
 
@@ -1172,7 +1172,7 @@ nano:       use nanosecond-precision (requires libpcap >= 1.5.0)
         return self.f.fileno()
 
     def _write_header(self, pkt):
-        self.header_present=1
+        self.header_present = 1
 
         if self.append:
             # Even if prone to race conditions, this seems to be
@@ -1183,7 +1183,7 @@ nano:       use nanosecond-precision (requires libpcap >= 1.5.0)
             if g.read(16):
                 return
 
-        self.f.write(struct.pack(self.endian+"IHHIIII", 0xa1b23c4d if self.nano else 0xa1b2c3d4,
+        self.f.write(struct.pack(self.endian + "IHHIIII", 0xa1b23c4d if self.nano else 0xa1b2c3d4,
                                  2, 4, 0, 0, MTU, self.linktype))
         self.f.flush()
 
@@ -1222,13 +1222,13 @@ nano:       use nanosecond-precision (requires libpcap >= 1.5.0)
         if wirelen is None:
             wirelen = caplen
         if sec is None or usec is None:
-            t=time.time()
+            t = time.time()
             it = int(t)
             if sec is None:
                 sec = it
             if usec is None:
                 usec = int(round((t - it) * (1000000000 if self.nano else 1000000)))
-        self.f.write(struct.pack(self.endian+"IIII", sec, usec, caplen, wirelen))
+        self.f.write(struct.pack(self.endian + "IIII", sec, usec, caplen, wirelen))
         self.f.write(packet)
         if self.sync:
             self.f.flush()
@@ -1470,7 +1470,7 @@ def pretty_list(rtlst, header, sortBy=0):
     """Pretty list to fit the terminal, and add header"""
     _space = "  "
     # Windows has a fat terminal border
-    _spacelen = len(_space) * (len(header)-1) + (10 if WINDOWS else 0)
+    _spacelen = len(_space) * (len(header) - 1) + (10 if WINDOWS else 0)
     _croped = False
     # Sort correctly
     rtlst.sort(key=lambda x: x[sortBy])
@@ -1493,7 +1493,7 @@ def pretty_list(rtlst, header, sortBy=0):
             j = row.index(max(row))
             # Re-build column tuple with the edited element
             t = list(rtlst[j])
-            t[i] = t[i][:-2]+"_"
+            t[i] = t[i][:-2] + "_"
             rtlst[j] = tuple(t)
             # Update max size
             row[j] = len(t[i])
@@ -1571,7 +1571,7 @@ def make_table(*args, **kargs):
 
 def make_lined_table(*args, **kargs):
     __make_table(lambda l: "%%-%is |" % l, lambda l: "%%-%is |" % l, "",
-                 seplinefunc=lambda a, x: "+".join('-'*(y+2) for y in [a-1]+x+[-2]),
+                 seplinefunc=lambda a, x: "+".join('-' * (y + 2) for y in [a - 1] + x + [-2]),
                  *args, **kargs)
 
 

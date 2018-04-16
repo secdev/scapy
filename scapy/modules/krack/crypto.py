@@ -41,12 +41,12 @@ def customPRF512(key, amac, smac, anonce, snonce):
     B = "".join(sorted([amac, smac]) + sorted([anonce, snonce]))
 
     blen = 64
-    i    = 0
-    R    = ''
-    while i<=((blen*8+159)/160):
-        hmacsha1 = hmac.new(key, A+chr(0x00)+B+chr(i), hashlib.sha1)
-        i+=1
-        R = R+hmacsha1.digest()
+    i = 0
+    R = ''
+    while i <= ((blen * 8 + 159) / 160):
+        hmacsha1 = hmac.new(key, A + chr(0x00) + B + chr(i), hashlib.sha1)
+        i += 1
+        R = R + hmacsha1.digest()
     return R[:blen]
 
 # TKIP - WEPSeed generation
@@ -255,7 +255,7 @@ def michael(key, to_hash):
     l, r = unpack('<II', key)
     for i in range(nb_block + 2):
         # Convert i-th block to int
-        block_i = unpack('<I', data[i*4:i*4 + 4])[0]
+        block_i = unpack('<I', data[i * 4:i * 4 + 4])[0]
         l ^= block_i
         l, r = _michael_b(l, r)
     return pack('<II', l, r)

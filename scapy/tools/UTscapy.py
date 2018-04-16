@@ -56,7 +56,7 @@ class File:
     def write(self, dir):
         if dir:
             dir += "/"
-        open(dir+self.name, "wb").write(self.get_local())
+        open(dir + self.name, "wb").write(self.get_local())
 
 
 # Embed a base64 encoded bziped version of js and css files
@@ -116,9 +116,9 @@ class EnumClass:
 
 
 class Format(EnumClass):
-    TEXT  = 1
-    ANSI  = 2
-    HTML  = 3
+    TEXT = 1
+    ANSI = 2
+    HTML = 3
     LATEX = 4
     XUNIT = 5
 
@@ -270,7 +270,7 @@ def parse_config_file(config_path, verb=3):
 
 def parse_campaign_file(campaign_file):
     test_campaign = TestCampaign("Test campaign")
-    test_campaign.filename=  campaign_file.name
+    test_campaign.filename = campaign_file.name
     testset = None
     test = None
     testnb = 0
@@ -308,18 +308,18 @@ def parse_campaign_file(campaign_file):
 
 
 def dump_campaign(test_campaign):
-    print("#"*(len(test_campaign.title)+6))
+    print("#" * (len(test_campaign.title) + 6))
     print("## %(title)s ##" % test_campaign)
-    print("#"*(len(test_campaign.title)+6))
+    print("#" * (len(test_campaign.title) + 6))
     if test_campaign.sha and test_campaign.crc:
         print("CRC=[%(crc)s] SHA=[%(sha)s]" % test_campaign)
     print("from file %(filename)s" % test_campaign)
     print()
     for ts in test_campaign:
         if ts.crc:
-            print("+--[%s]%s(%s)--" % (ts.name, "-"*max(2, 80-len(ts.name)-18), ts.crc))
+            print("+--[%s]%s(%s)--" % (ts.name, "-" * max(2, 80 - len(ts.name) - 18), ts.crc))
         else:
-            print("+--[%s]%s" % (ts.name, "-"*max(2, 80-len(ts.name)-6)))
+            print("+--[%s]%s" % (ts.name, "-" * max(2, 80 - len(ts.name) - 6)))
         if ts.keywords:
             print("  kw=%s" % ",".join(ts.keywords))
         for t in ts:
@@ -355,9 +355,9 @@ def compute_campaign_digests(test_campaign):
         for t in ts:
             dt = t.test.strip()
             t.crc = crc32(dt)
-            dts += "\0"+dt
+            dts += "\0" + dt
         ts.crc = crc32(dts)
-        dc += "\0\x01"+dts
+        dc += "\0\x01" + dts
     test_campaign.crc = crc32(dc)
     test_campaign.sha = sha1(open(test_campaign.filename).read())
 
@@ -403,7 +403,7 @@ def remove_empty_testsets(test_campaign):
 #    RUN CAMPAIGN     #
 
 def run_campaign(test_campaign, get_interactive_session, verb=3, ignore_globals=None):
-    passed=failed=0
+    passed = failed = 0
     if test_campaign.preexec:
         test_campaign.preexec_output = get_interactive_session(test_campaign.preexec.strip(), ignore_globals=ignore_globals)[0]
     for testset in test_campaign:
@@ -412,10 +412,10 @@ def run_campaign(test_campaign, get_interactive_session, verb=3, ignore_globals=
             the_res = False
             try:
                 if res is None or res:
-                    the_res= True
+                    the_res = True
             except Exception as msg:
-                t.output+="UTscapy: Error during result interpretation:\n"
-                t.output+="".join(traceback.format_exception(sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2],))
+                t.output += "UTscapy: Error during result interpretation:\n"
+                t.output += "".join(traceback.format_exception(sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2],))
             if the_res:
                 t.res = True
                 res = "passed"
@@ -457,8 +457,8 @@ def html_info_line(test_campaign):
 #    CAMPAIGN TO something    #
 
 def campaign_to_TEXT(test_campaign):
-    output="%(title)s\n" % test_campaign
-    output += "-- "+info_line(test_campaign)+"\n\n"
+    output = "%(title)s\n" % test_campaign
+    output += "-- " + info_line(test_campaign) + "\n\n"
     output += "Passed=%(passed)i\nFailed=%(failed)i\n\n%(headcomments)s\n" % test_campaign
 
     for testset in test_campaign:
@@ -472,8 +472,8 @@ def campaign_to_TEXT(test_campaign):
 
 
 def campaign_to_ANSI(test_campaign):
-    output="%(title)s\n" % test_campaign
-    output += "-- "+info_line(test_campaign)+"\n\n"
+    output = "%(title)s\n" % test_campaign
+    output += "-- " + info_line(test_campaign) + "\n\n"
     output += "Passed=%(passed)i\nFailed=%(failed)i\n\n%(headcomments)s\n" % test_campaign
 
     for testset in test_campaign:
@@ -487,7 +487,7 @@ def campaign_to_ANSI(test_campaign):
 
 
 def campaign_to_xUNIT(test_campaign):
-    output='<?xml version="1.0" encoding="UTF-8" ?>\n<testsuite>\n'
+    output = '<?xml version="1.0" encoding="UTF-8" ?>\n<testsuite>\n'
     for testset in test_campaign:
         for t in testset:
             output += ' <testcase classname="%s"\n' % testset.name.encode("string_escape").replace('"', ' ')
@@ -509,8 +509,8 @@ def campaign_to_HTML(test_campaign):
 
     if test_campaign.crc is not None and test_campaign.sha is not None:
         output += "CRC=<span class=crc>%(crc)s</span> SHA=<span class=crc>%(sha)s</span><br>" % test_campaign
-    output += "<small><em>"+html_info_line(test_campaign)+"</em></small>"
-    output += test_campaign.headcomments +  "\n<p>PASSED=%(passed)i FAILED=%(failed)i<p>\n\n" % test_campaign
+    output += "<small><em>" + html_info_line(test_campaign) + "</em></small>"
+    output += test_campaign.headcomments + "\n<p>PASSED=%(passed)i FAILED=%(failed)i<p>\n\n" % test_campaign
 
     for testset in test_campaign:
         output += "<h2>" % testset
@@ -520,7 +520,7 @@ def campaign_to_HTML(test_campaign):
         for t in testset:
             output += """<li class=%(result)s id="tst%(num)il">\n""" % t
             if t.expand == 2:
-                output +="""
+                output += """
 <span id="tst%(num)i+" class="button%(result)s" onClick="show('tst%(num)i')" style="POSITION: absolute; VISIBILITY: hidden;">+%(num)03i+</span>
 <span id="tst%(num)i-" class="button%(result)s" onClick="hide('tst%(num)i')">-%(num)03i-</span>
 """ % t
@@ -757,7 +757,7 @@ def main(argv):
             elif opt == "-s":
                 SCAPY = optarg
             elif opt == "-P":
-                GLOB_PREEXEC += "\n"+optarg
+                GLOB_PREEXEC += "\n" + optarg
             elif opt == "-f":
                 try:
                     FORMAT = Format.from_string(optarg)

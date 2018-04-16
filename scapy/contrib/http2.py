@@ -1118,7 +1118,7 @@ class HPackZString(HPackStringsInterface):
         s = []  # type: List[str]
         i = 0
         while i < byte_len:
-            s.insert(0, chb((bit_str >> (i*8)) & 0xFF))
+            s.insert(0, chb((bit_str >> (i * 8)) & 0xFF))
             i += 1
         return b''.join(s)
 
@@ -2603,7 +2603,7 @@ class HPackHdrTable(Sized):
             return None, None
 
         if grp.group(1) is not None:
-            hdr_name = b':'+grp.group(1)
+            hdr_name = b':' + grp.group(1)
         else:
             hdr_name = grp.group(2)
         return plain_str(hdr_name.lower()), plain_str(grp.group(3))
@@ -2687,7 +2687,7 @@ class HPackHdrTable(Sized):
                 flags = set()
                 if isinstance(cur_frm, H2HeadersFrame) and not body:
                     flags.add('ES')
-                ret.frames.append(H2Frame(stream_id=stream_id, flags=flags)/cur_frm)
+                ret.frames.append(H2Frame(stream_id=stream_id, flags=flags) / cur_frm)
                 cur_frm = H2ContinuationFrame()
                 cur_hdr_sz = 0
 
@@ -2698,7 +2698,7 @@ class HPackHdrTable(Sized):
         flags = {'EH'}
         if isinstance(cur_frm, H2HeadersFrame) and not body:
             flags.add('ES')
-        ret.frames.append(H2Frame(stream_id=stream_id, flags=flags)/cur_frm)
+        ret.frames.append(H2Frame(stream_id=stream_id, flags=flags) / cur_frm)
 
         if body:
             base_data_frm_len = len(raw(H2DataFrame()))
@@ -2710,7 +2710,7 @@ class HPackHdrTable(Sized):
                 if len(nxt_frgmt) == 0:
                     flags.add('ES')
                 ret.frames.append(
-                    H2Frame(stream_id=stream_id, flags=flags)/H2DataFrame(data=frgmt)
+                    H2Frame(stream_id=stream_id, flags=flags) / H2DataFrame(data=frgmt)
                 )
                 frgmt = nxt_frgmt
         return ret
