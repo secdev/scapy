@@ -1646,6 +1646,20 @@ class BGPPAExtCommTrafficMarking(Packet):
     ]
 
 
+_ext_high_low_dict = {
+    BGPPAExtCommTwoOctetASSpecific: (0x00, 0x00),
+    BGPPAExtCommIPv4AddressSpecific: (0x01, 0x00),
+    BGPPAExtCommFourOctetASSpecific: (0x02, 0x00),
+    BGPPAExtCommOpaque: (0x03, 0x00),
+    BGPPAExtCommTrafficRate: (0x80, 0x06),
+    BGPPAExtCommTrafficAction: (0x80, 0x07),
+    BGPPAExtCommRedirectAS2Byte: (0x80, 0x08),
+    BGPPAExtCommTrafficMarking: (0x80, 0x09),
+    BGPPAExtCommRedirectIPv4: (0x81, 0x08),
+    BGPPAExtCommRedirectAS4Byte: (0x82, 0x08),
+}
+
+
 class _ExtCommValuePacketField(PacketField):
     """
     PacketField handling Extended Communities "value parts".
@@ -1753,7 +1767,7 @@ class BGPPAExtCommunity(Packet):
         ByteEnumField("type_high", 0, _ext_comm_types),
         _TypeLowField(
             "type_low",
-            0,
+            None,
             enum_from=lambda x: _get_ext_comm_subtype(x.type_high)
         ),
         _ExtCommValuePacketField(
@@ -1767,6 +1781,9 @@ class BGPPAExtCommunity(Packet):
     def post_build(self, p, pay):
         if self.value is None:
             p = p[:2]
+        if self.type_low is None and self.value is not None:
+            high, low = _ext_high_low_dict.get(self.value.__class__, (0x00, 0x00))
+            p = chb(high) + chb(low) + p[2:]
         return p + pay
 
 

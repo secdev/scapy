@@ -50,12 +50,34 @@ hexdump(ofm)
 s = b'\x04\x0e\x00\x98\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x01\x00\n\x80\x00\x0c\x02\x00\n\x00\x00\x00\x00\x00\x00\x00\x04\x00@\x00\x00\x00\x00\x00\x19\x00\x18\x80\x00\n\x02\x08\x00\x80\x00\x16\x04\xc0\xa8\n)\x00\x00\x00\x00\x00\x00\x00\x19\x00\x10\x80\x00\x08\x06\x1a\xd5\xcbN<d\x00\x00\x00\x00\x00\x10\xff\xff\xff\xfa\xff\xff\x00\x00\x00\x00\x00\x00\x00\x03\x00\x18\x00\x00\x00\x00\x00\x00\x00\x10\xff\xff\xff\xfd\xff\xff\x00\x00\x00\x00\x00\x00'
 raw(ofm) == s
 
+= OFPTFlowMod(), complex flow_mod - Dissection
+ofm = OFPTFlowMod(raw(ofm))
+assert len(ofm.instructions[0].actions) == 3
+assert len(ofm.instructions[1].actions) == 1
+assert isinstance(ofm.instructions[0].actions[0].field[0], OFBEthType)
+assert ofm.instructions[0].actions[0].field[1].ipv4_src == '192.168.10.41'
+
+= OFPFlowStats()
+fls = OFPFlowStats(instructions=OFPITGotoTable(table_id=0))
+fls = OFPFlowStats(raw(fls))
+assert fls.match.type == 1
+assert fls.instructions[0].type == 1
+assert fls.instructions[0].table_id == 0
+
 = OFPETBadRequest() containing a flow_mod with wrong table_id
 flowmod = OFPTFlowMod(instructions=OFPITGotoTable(table_id=0))
 ofm = OFPETBadRequest(errcode='OFPBRC_BAD_TABLE_ID', data=raw(flowmod))
 hexdump(ofm)
 s = b'\x04\x01\x00L\x00\x00\x00\x00\x00\x01\x00\t\x04\x0e\x00@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x01\x00\x04\x00\x00\x00\x00\x00\x01\x00\x08\x00\x00\x00\x00'
 raw(ofm) == s
+
+= OFPTFPTInstructions()
+fpti = OFPTFPTInstructions(instruction_ids=[OFPITGotoTableID(), OFPITClearActionsID()])
+fpti = OFPTFPTInstructions(raw(fpti))
+assert len(fpti) == 16
+assert fpti.instruction_ids[0].type == 1
+assert fpti.instruction_ids[0].table_id == 0
+assert fpti.instruction_ids[1].type == 5
 
 = OFPTPacketIn() containing an Ethernet frame
 ofm = OFPTPacketIn(data=Ether()/IP()/ICMP())
@@ -64,6 +86,45 @@ dat = p.data
 assert(isinstance(dat, Ether))
 assert(isinstance(dat.payload, IP))
 isinstance(dat.payload.payload, ICMP)
+
+= OFPTGroupMod()
+fptgm = OFPTGroupMod(buckets=[OFPBucket(actions=[OFPATOutput(port='CONTROLLER')])])
+fptgm = OFPTGroupMod(raw(fptgm))
+assert fptgm.buckets[0].actions[0].port == 4294967293
+assert fptgm.buckets[0].actions[0].len == len(fptgm.buckets[0].actions[0]) == 16
+assert fptgm.buckets[0].actions[0].type == 0
+assert fptgm.buckets[0].actions[0].max_len == 0xffff
+
+= OFPTQueueGetConfigReply()
+qgcr = OFPTQueueGetConfigReply(queues=[OFPPacketQueue(queue_id=0, properties=[OFPQTNone()]), OFPPacketQueue(queue_id=1, properties=[OFPQTNone(), OFPQTMinRate(rate=123)])])
+qgcr = OFPTQueueGetConfigReply(raw(qgcr))
+assert qgcr.queues[0].queue_id == 0
+assert len(qgcr.queues[0].properties) == 1
+assert qgcr.queues[0].properties[0].type == 0
+
+assert qgcr.queues[1].queue_id == 1
+assert len(qgcr.queues[1].properties) == 2
+assert qgcr.queues[1].properties[0].type == 0
+assert qgcr.queues[1].properties[1].type == 1
+assert qgcr.queues[1].properties[1].rate == 123
+
+= OFPMPReplyMeter()
+rm = OFPMPReplyMeter(flags="REPLY_MORE", meter_stats=[OFPMeterStats(meter_id=2, duration_sec=3, byte_in_count=15, band_stats=[OFPMeterBandStats(packet_band_count=0x123, byte_band_count=0x456)])])
+rm = OFPMPReplyMeter(raw(rm))
+assert rm.flags == 1
+assert rm.meter_stats[0].meter_id == 2
+assert rm.meter_stats[0].duration_sec == 3
+assert rm.meter_stats[0].byte_in_count == 15
+assert rm.meter_stats[0].band_stats[0].packet_band_count == 0x123
+assert rm.meter_stats[0].band_stats[0].byte_band_count == 0x456
+
+= OFPMPReplyMeterConfig()
+rmc = OFPMPReplyMeterConfig(meter_configs=[OFPMeterConfig(flags="KBPS+STATS", bands=[OFPMBTDrop()]), OFPMeterConfig(bands=[OFPMBTDSCPRemark(burst_size=12)])])
+rmc = OFPMPReplyMeterConfig(raw(rmc))
+assert rmc.meter_configs[0].flags == 9
+assert rmc.meter_configs[0].bands[0].type == 0
+assert rmc.meter_configs[1].bands[0].type == 1
+assert rmc.meter_configs[1].bands[0].burst_size == 12
 
 + Layer bindings
 
@@ -82,10 +143,11 @@ p[TCP].sport == 6653
 isinstance(p[TCP].payload, OFPTHello)
 
 = Advanced TCP()/OFPTHello() built, with OFPHETVersionBitmap 
-pkt = TCP()/OFPTHello(elements=[OFPHETVersionBitmap(bitmap="OFv1.4")])
+pkt = TCP()/OFPTHello(elements=[OFPHETVersionBitmap(bitmap="OFv1.4", len=None)])
 pkt = TCP(raw(pkt))
 assert isinstance(pkt[OFPTHello].elements[0], OFPHETVersionBitmap)
 assert pkt[OFPTHello].elements[0].bitmap == 32
+assert pkt[OFPTHello].elements[0].len == 8
 
 = complete Ether()/IP()/TCP()/OFPTFeaturesRequest()
 ofm = Ether(src='00:11:22:33:44:55',dst='01:23:45:67:89:ab')/IP(src='10.0.0.7',dst='192.168.0.42')/TCP(sport=6633)/OFPTFeaturesRequest(xid=23)

@@ -30,6 +30,8 @@ from scapy.layers.inet import TCP
 from scapy.base_classes import Net
 from scapy.modules.six.moves import range
 
+from scapy.contrib.mpls import *
+
 
 class _LDP_Packet(Packet):
     # Guess payload
@@ -98,7 +100,7 @@ class FecTLVField(StrField):
             return x
         s = b"\x01\x00"
         l = 0
-        fec = ""
+        fec = b""
         for o in x:
             fec += b"\x02\x00\x01"
             # mask length
@@ -433,5 +435,9 @@ class LDP(_LDP_Packet):
         return p + pay
 
 
+bind_bottom_up(TCP, LDP, sport=646)
+bind_bottom_up(TCP, LDP, dport=646)
+bind_bottom_up(TCP, UDP, sport=646)
+bind_bottom_up(TCP, UDP, dport=646)
 bind_layers(TCP, LDP, sport=646, dport=646)
 bind_layers(UDP, LDP, sport=646, dport=646)
