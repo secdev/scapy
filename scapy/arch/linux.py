@@ -449,34 +449,27 @@ class L3PacketSocket(SuperSocket):
                 set_promisc(self.ins, i, 0)
         SuperSocket.close(self)
 
-    def recv(self, x=MTU):
+    def recv_raw(self, x=MTU):
         pkt, sa_ll = self.ins.recvfrom(x)
         if sa_ll[2] == socket.PACKET_OUTGOING:
-            return None
+            return None, None, None
         if sa_ll[3] in conf.l2types:
             cls = conf.l2types[sa_ll[3]]
-            lvl = 2
+            self.lvl = 2
         elif sa_ll[1] in conf.l3types:
             cls = conf.l3types[sa_ll[1]]
-            lvl = 3
+            self.lvl = 3
         else:
             cls = conf.default_l2
             warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using %s", sa_ll[0], sa_ll[1], sa_ll[3], cls.name)
-            lvl = 2
+            self.lvl = 2
+        ts = get_last_packet_timestamp(self.ins)
+        return cls, pkt, ts
 
-        try:
-            pkt = cls(pkt)
-        except KeyboardInterrupt:
-            raise
-        except:
-            if conf.debug_dissector:
-                raise
-            pkt = conf.raw_layer(pkt)
-        if lvl == 2:
+    def recv(self, x=MTU):
+        pkt = SuperSocket.recv(self, x)
+        if pkt and self.lvl == 2:
             pkt = pkt.payload
-
-        if pkt is not None:
-            pkt.time = get_last_packet_timestamp(self.ins)
         return pkt
 
     def send(self, x):
@@ -545,20 +538,12 @@ class L2Socket(SuperSocket):
             set_promisc(self.ins, self.iface, 0)
         SuperSocket.close(self)
 
-    def recv(self, x=MTU):
+    def recv_raw(self, x=MTU):
         pkt, sa_ll = self.ins.recvfrom(x)
         if sa_ll[2] == socket.PACKET_OUTGOING:
-            return None
-        try:
-            q = self.LL(pkt)
-        except KeyboardInterrupt:
-            raise
-        except:
-            if conf.debug_dissector:
-                raise
-            q = conf.raw_layer(pkt)
-        q.time = get_last_packet_timestamp(self.ins)
-        return q
+            return None, None, None
+        ts = get_last_packet_timestamp(self.ins)
+        return self.LL, pkt, ts
 
     def send(self, x):
         try:
@@ -612,7 +597,7 @@ class L2ListenSocket(SuperSocket):
                 set_promisc(self.ins, i, 0)
         SuperSocket.close(self)
 
-    def recv(self, x=MTU):
+    def recv_raw(self, x=MTU):
         pkt, sa_ll = self.ins.recvfrom(x)
         if sa_ll[3] in conf.l2types:
             cls = conf.l2types[sa_ll[3]]
@@ -624,16 +609,14 @@ class L2ListenSocket(SuperSocket):
                     "family=%i). Using %s", sa_ll[0], sa_ll[1], sa_ll[3],
                     cls.name)
 
-        try:
-            pkt = cls(pkt)
-        except KeyboardInterrupt:
-            raise
-        except:
-            if conf.debug_dissector:
-                raise
-            pkt = conf.raw_layer(pkt)
-        pkt.time = get_last_packet_timestamp(self.ins)
-        pkt.direction = sa_ll[2]
+        ts = get_last_packet_timestamp(self.ins)
+        #direction = sa_ll[2]
+        return cls, pkt, ts#, direction
+
+    def recv(self, x=MTU):
+        #cls, pkt, ts, direction = self.recv_raw()
+        pkt = SuperSocket.recv(self, x)
+        #pkt.direction = direction
         return pkt
 
     def send(self, x):

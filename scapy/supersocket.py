@@ -47,8 +47,24 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
             x.sent_time = time.time()
         return self.outs.send(sx)
 
+    def recv_raw(self, x=MTU):
+        """Returns a tuple containing (cls, pkt_data, time)"""
+        return conf.raw_layer, self.ins.recv(x), None
+
     def recv(self, x=MTU):
-        return conf.raw_layer(self.ins.recv(x))
+        cls, val, ts = self.recv_raw(x)
+        if not val or not cls:
+            return
+        try:
+            pkt = cls(val)
+        except KeyboardInterrupt:
+            raise
+        except:
+            if conf.debug_dissector:
+                raise
+            pkt = conf.raw_layer(val)
+        pkt.time = ts
+        return pkt
 
     def fileno(self):
         return self.ins.fileno()

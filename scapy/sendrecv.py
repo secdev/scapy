@@ -92,7 +92,11 @@ def _sndrcv_rcv(pks, tobesent, stopevent, nbrecv, notans, verbose, chainCC,
 
     if WINDOWS and not is_python_can_socket():
         def _get_pkt():
-            return pks.recv(MTU)
+            from scapy.arch.pcapdnet import PcapTimeoutElapsed
+            try:
+                return pks.recv(MTU)
+            except PcapTimeoutElapsed:
+                return None
     elif conf.use_bpf:
         from scapy.arch.bpf.supersocket import bpf_select
 
@@ -800,10 +804,7 @@ def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
         read_allowed_exceptions = (PcapTimeoutElapsed,)
 
         def _select(sockets):
-            try:
-                return sockets
-            except PcapTimeoutElapsed:
-                return []
+            return sockets
     elif is_python_can_socket():
         from scapy.contrib.cansocket_python_can import CANSocketTimeoutElapsed
         read_allowed_exceptions = (CANSocketTimeoutElapsed,)
