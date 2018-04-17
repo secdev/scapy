@@ -19,7 +19,7 @@ assert select_objects([TimeOutSelector()], 1) == []
 ############
 + Windows Networking tests
 
-= Mocked read_routes6() calls
+= Mocked read_routes6() calls with a few missing InterfaceMetric
 
 import mock
 from scapy.tools.UTscapy import Bunch
@@ -49,11 +49,12 @@ def dev_from_index_custom(if_index):
             return iface
     raise ValueError("Unknown network interface index %r" % if_index)
 
+@mock.patch("scapy.arch.windows._get_metrics")
 @mock.patch("scapy.arch.windows.construct_source_candidate_set")
 @mock.patch("scapy.arch.windows.get_if_list")
 @mock.patch("scapy.arch.windows.dev_from_index")
 @mock.patch("scapy.arch.windows.POWERSHELL_PROCESS.query")
-def test_read_routes6_windows(mock_comm, mock_dev_from_index, mock_winpcapylist, mock_utils6cset):
+def test_read_routes6_windows(mock_comm, mock_dev_from_index, mock_winpcapylist, mock_utils6cset, mock_get_metrics):
     """Test read_routes6() on Windows"""
     # 'Get-NetRoute -AddressFamily IPV6 | select ifIndex, DestinationPrefix, NextHop'
     get_net_route_output = """
@@ -121,7 +122,7 @@ ifIndex           : 13
 DestinationPrefix : 2a01:e35:2f17:fe60:dc1d:24e8:af00:125e/128
 NextHop           : ::
 RouteMetric       : 20
-InterfaceMetric   : 256
+InterfaceMetric   : 
 
 ifIndex           : 13
 DestinationPrefix : 2a01:e35:2f17:fe60::/64
@@ -143,6 +144,7 @@ InterfaceMetric   : 256
 """
     mock_comm.return_value = get_net_route_output.split("\n")
     mock_winpcapylist.return_value = [u'\\Device\\NPF_{0EC72537-B662-4F5D-B34E-48BFAE799BBE}', u'\\Device\\NPF_{C56DFFB3-992C-4964-B000-3E7C0F76E8BA}']
+    mock_get_metrics.side_effect = lambda ipv6=True: {'16': 0, '13': 999}
     # Mocked in6_getifaddr() output
     mock_dev_from_index.side_effect = dev_from_index_custom
     # Random
@@ -154,7 +156,8 @@ InterfaceMetric   : 256
     print(len(routes))
     assert(len(routes) == 9)
     assert(check_mandatory_ipv6_routes(routes))
-
+    assert routes[6][5] == 1019
+    assert routes[7][5] == 286
 
 test_read_routes6_windows()
 
@@ -182,7 +185,7 @@ InterfaceMetric   :
     mock_exec_query.side_effect = lambda *args, **kargs: exc_query_output.split("\n")
     mock_winpcapylist.return_value = [u'\\Device\\NPF_{0EC72537-B662-4F5D-B34E-48BFAE799BBE}', u'\\Device\\NPF_{C56DFFB3-992C-4964-B000-3E7C0F76E8BA}']
     mock_dev_from_index.side_effect = dev_from_index_custom
-    mock_get_metrics.side_effect = lambda: {'16': 0, '13': 123}
+    mock_get_metrics.side_effect = lambda ipv6=False: {'16': 0, '13': 123}
     routes = _read_routes_post2008()
     for r in routes:
         print(r)
