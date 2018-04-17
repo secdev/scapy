@@ -610,13 +610,14 @@ class L2ListenSocket(SuperSocket):
                     cls.name)
 
         ts = get_last_packet_timestamp(self.ins)
-        #direction = sa_ll[2]
-        return cls, pkt, ts#, direction
+        # direction = sa_ll[2]
+        return cls, pkt, ts  # , direction
 
     def recv(self, x=MTU):
-        #cls, pkt, ts, direction = self.recv_raw()
+        # cls, pkt, ts, direction = self.recv_raw()
+        # [Dissection stuff]
         pkt = SuperSocket.recv(self, x)
-        #pkt.direction = direction
+        # pkt.direction = direction
         return pkt
 
     def send(self, x):

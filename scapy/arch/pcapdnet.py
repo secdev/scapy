@@ -28,11 +28,13 @@ if not scapy.consts.WINDOWS:
     from fcntl import ioctl
 
 ############
-## COMMON ##
+#  COMMON  #
 ############
+
 
 class PcapTimeoutElapsed(Scapy_Exception):
     pass
+
 
 class _L2pcapdnetSocket(SuperSocket, SelectableObject):
     def check_recv(self):
@@ -64,9 +66,11 @@ class _L2pcapdnetSocket(SuperSocket, SelectableObject):
         self.ins.setnonblock(0)
         return p
 
+
 ###################
-## WINPCAP/NPCAP ##
+#  WINPCAP/NPCAP  #
 ###################
+
 
 if conf.use_winpcapy:
     NPCAP_PATH = os.environ["WINDIR"] + "\\System32\\Npcap"
@@ -357,8 +361,9 @@ if conf.use_winpcapy:
     conf.L3socket = L3pcapSocket
 
 ################
-## PCAP/PCAPY ##
+#  PCAP/PCAPY  #
 ################
+
 
 if conf.use_pcap:
     try:
@@ -496,7 +501,7 @@ if conf.use_pcap:
         conf.L2listen = L2pcapListenSocket
 
 ##########
-## DNET ##
+#  DNET  #
 ##########
 
 if conf.use_dnet:
@@ -579,7 +584,7 @@ if conf.use_dnet:
             return intf.get("name", scapy.consts.LOOPBACK_NAME)
 
 #################
-## DNET & PCAP ##
+#  DNET & PCAP  #
 #################
 
 if conf.use_pcap and conf.use_dnet:
