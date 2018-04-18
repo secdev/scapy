@@ -242,6 +242,162 @@ if conf.use_winpcapy:
 
     open_pcap = lambda *args, **kargs: _PcapWrapper_pypcap(*args, **kargs)
 
+################
+#  PCAP/PCAPY  #
+################
+
+
+if conf.use_pcap:
+    try:
+        import pcap  # python-pypcap
+        _PCAP_MODE = "pypcap"
+    except ImportError as e:
+        try:
+            import libpcap as pcap  # python-libpcap
+            _PCAP_MODE = "libpcap"
+        except ImportError as e2:
+            try:
+                import pcapy as pcap  # python-pcapy
+                _PCAP_MODE = "pcapy"
+            except ImportError as e3:
+                if conf.interactive:
+                    log_loading.error("Unable to import pcap module: %s/%s", e, e2)
+                    conf.use_pcap = False
+                else:
+                    raise
+    if conf.use_pcap:
+
+        # From BSD net/bpf.h
+        # BIOCIMMEDIATE=0x80044270
+        BIOCIMMEDIATE = -2147204496
+
+        if _PCAP_MODE == "pypcap":  # python-pypcap
+            class _PcapWrapper_pypcap:
+                def __init__(self, device, snaplen, promisc, to_ms, monitor=False):
+                    try:
+                        self.pcap = pcap.pcap(device, snaplen, promisc, immediate=1, timeout_ms=to_ms, rfmon=monitor)
+                    except TypeError:
+                        try:
+                            if monitor:
+                                warning("Your pypcap version is too old to support monitor mode, Please use pypcap 1.2.1+ !")
+                            self.pcap = pcap.pcap(device, snaplen, promisc, immediate=1, timeout_ms=to_ms)
+                        except TypeError:
+                            # Even older pypcap versions do not support the timeout_ms argument
+                            self.pcap = pcap.pcap(device, snaplen, promisc, immediate=1)
+
+                def __getattr__(self, attr):
+                    return getattr(self.pcap, attr)
+
+                def setnonblock(self, i):
+                    self.pcap.setnonblock(i)
+
+                def __del__(self):
+                    try:
+                        self.pcap.close()
+                    except AttributeError:
+                        warning("__del__: don't know how to close the file "
+                                "descriptor. Bugs ahead! Please use python-pypcap 1.2.1+")
+
+                def send(self, x):
+                    self.pcap.sendpacket(x)
+
+                def next(self):
+                    c = self.pcap.next()
+                    if c is None:
+                        return
+                    ts, pkt = c
+                    return ts, raw(pkt)
+                __next__ = next
+            open_pcap = lambda *args, **kargs: _PcapWrapper_pypcap(*args, **kargs)
+        elif _PCAP_MODE == "libpcap":  # python-libpcap
+            class _PcapWrapper_libpcap:
+                def __init__(self, device, snaplen, promisc, to_ms, monitor=False):
+                    self.errbuf = create_string_buffer(PCAP_ERRBUF_SIZE)
+                    if monitor:
+                        self.pcap = pcap.pcap_create(device, self.errbuf)
+                        pcap.pcap_set_snaplen(self.pcap, snaplen)
+                        pcap.pcap_set_promisc(self.pcap, promisc)
+                        pcap.pcap_set_timeout(self.pcap, to_ms)
+                        if pcap.pcap_set_rfmon(self.pcap, 1) != 0:
+                            warning("Could not set monitor mode")
+                        if pcap.pcap_activate(self.pcap) != 0:
+                            raise OSError("Could not activate the pcap handler")
+                    else:
+                        self.pcap = pcap.open_live(device, snaplen, promisc, to_ms)
+
+                def setfilter(self, filter):
+                    self.pcap.setfilter(filter, 0, 0)
+
+                def next(self):
+                    c = self.pcap.next()
+                    if c is None:
+                        return
+                    l, pkt, ts = c
+                    return ts, pkt
+                __next__ = next
+
+                def setnonblock(self, i):
+                    pcap.pcap_setnonblock(self.pcap, i, self.errbuf)
+
+                def __getattr__(self, attr):
+                    return getattr(self.pcap, attr)
+
+                def send(self, x):
+                    pcap.pcap_sendpacket(self.pcap, x, len(x))
+
+                def __del__(self):
+                    pcap.close(self.pcap)
+            open_pcap = lambda *args, **kargs: _PcapWrapper_libpcap(*args, **kargs)
+        elif _PCAP_MODE == "pcapy":  # python-pcapy
+            class _PcapWrapper_pcapy:
+                def __init__(self, device, snaplen, promisc, to_ms, monitor=False):
+                    if monitor:
+                        warning("pcapy does not support monitor mode ! Use pypcap or libpcap instead !")
+                    self.pcap = pcap.open_live(device, snaplen, promisc, to_ms)
+
+                def next(self):
+                    try:
+                        c = self.pcap.next()
+                    except pcap.PcapError:
+                        return None
+                    else:
+                        h, p = c
+                        if h is None:
+                            return
+                        s, us = h.getts()
+                        return (s + 0.000001 * us), p
+                __next__ = next
+
+                def fileno(self):
+                    try:
+                        return self.pcap.getfd()
+                    except AttributeError:
+                        warning("fileno: getfd() does not exist. Please use "
+                                "pcapy 0.11.3+ !")
+
+                def setnonblock(self, i):
+                    self.pcap.setnonblock(i)
+
+                def __getattr__(self, attr):
+                    return getattr(self.pcap, attr)
+
+                def send(self, x):
+                    self.pcap.sendpacket(x)
+
+                def __del__(self):
+                    try:
+                        self.pcap.close()
+                    except AttributeError:
+                        warning("__del__: don't know how to close the file "
+                                "descriptor. Bugs ahead! Please update pcapy!")
+            open_pcap = lambda *args, **kargs: _PcapWrapper_pcapy(*args, **kargs)
+
+
+#################
+# PCAP/WINPCAPY #
+#################
+
+if conf.use_pcap or conf.use_winpcapy:
     class L2pcapListenSocket(_L2pcapdnetSocket):
         desc = "read packets at layer 2 using libpcap"
 
@@ -362,146 +518,6 @@ if conf.use_winpcapy:
             return self.ins.send(sx)
     conf.L2socket = L2pcapSocket
     conf.L3socket = L3pcapSocket
-
-################
-#  PCAP/PCAPY  #
-################
-
-
-if conf.use_pcap:
-    try:
-        import pcap
-    except ImportError as e:
-        try:
-            import pcapy as pcap
-        except ImportError as e2:
-            if conf.interactive:
-                log_loading.error("Unable to import pcap module: %s/%s", e, e2)
-                conf.use_pcap = False
-            else:
-                raise
-    if conf.use_pcap:
-
-        # From BSD net/bpf.h
-        # BIOCIMMEDIATE=0x80044270
-        BIOCIMMEDIATE = -2147204496
-
-        if hasattr(pcap, "pcap"):  # python-pypcap
-            class _PcapWrapper_pypcap:
-                def __init__(self, device, snaplen, promisc, to_ms):
-                    try:
-                        self.pcap = pcap.pcap(device, snaplen, promisc, immediate=1, timeout_ms=to_ms)
-                    except TypeError:
-                        # Older pypcap versions do not support the timeout_ms argument
-                        self.pcap = pcap.pcap(device, snaplen, promisc, immediate=1)
-
-                def __getattr__(self, attr):
-                    return getattr(self.pcap, attr)
-
-                def __del__(self):
-                    warning("__del__: don't know how to close the file descriptor. Bugs ahead ! Please report this bug.")
-
-                def next(self):
-                    c = self.pcap.next()
-                    if c is None:
-                        return
-                    ts, pkt = c
-                    return ts, raw(pkt)
-                __next__ = next
-            open_pcap = lambda *args, **kargs: _PcapWrapper_pypcap(*args, **kargs)
-        elif hasattr(pcap, "pcapObject"):  # python-libpcap
-            class _PcapWrapper_libpcap:
-                def __init__(self, *args, **kargs):
-                    self.pcap = pcap.pcapObject()
-                    self.pcap.open_live(*args, **kargs)
-
-                def setfilter(self, filter):
-                    self.pcap.setfilter(filter, 0, 0)
-
-                def next(self):
-                    c = self.pcap.next()
-                    if c is None:
-                        return
-                    l, pkt, ts = c
-                    return ts, pkt
-                __next__ = next
-
-                def __getattr__(self, attr):
-                    return getattr(self.pcap, attr)
-
-                def __del__(self):
-                    os.close(self.pcap.fileno())
-            open_pcap = lambda *args, **kargs: _PcapWrapper_libpcap(*args, **kargs)
-        elif hasattr(pcap, "open_live"):  # python-pcapy
-            class _PcapWrapper_pcapy:
-                def __init__(self, *args, **kargs):
-                    self.pcap = pcap.open_live(*args, **kargs)
-
-                def next(self):
-                    try:
-                        c = self.pcap.next()
-                    except pcap.PcapError:
-                        return None
-                    else:
-                        h, p = c
-                        if h is None:
-                            return
-                        s, us = h.getts()
-                        return (s + 0.000001 * us), p
-                __next__ = next
-
-                def fileno(self):
-                    try:
-                        return self.pcap.getfd()
-                    except AttributeError:
-                        warning("fileno: getfd() does not exist. Please use "
-                                "pcapy 0.11.3+ !")
-
-                def __getattr__(self, attr):
-                    return getattr(self.pcap, attr)
-
-                def __del__(self):
-                    try:
-                        self.pcap.close()
-                    except AttributeError:
-                        warning("__del__: don't know how to close the file "
-                                "descriptor. Bugs ahead! Please update pcapy!")
-            open_pcap = lambda *args, **kargs: _PcapWrapper_pcapy(*args, **kargs)
-
-        class L2pcapListenSocket(_L2pcapdnetSocket):
-            desc = "read packets at layer 2 using libpcap"
-
-            def __init__(self, iface=None, type=ETH_P_ALL, promisc=None, filter=None):
-                self.type = type
-                self.outs = None
-                self.iface = iface
-                if iface is None:
-                    iface = conf.iface
-                if promisc is None:
-                    promisc = conf.sniff_promisc
-                self.promisc = promisc
-                # See windows's L2pcapListenSocket for more info about this line
-                self.ins = open_pcap(iface, MTU, self.promisc, 100)
-                try:
-                    ioctl(self.ins.fileno(), BIOCIMMEDIATE, struct.pack("I", 1))
-                except:
-                    pass
-                if type == ETH_P_ALL:  # Do not apply any filter if Ethernet type is given
-                    if conf.except_filter:
-                        if filter:
-                            filter = "(%s) and not (%s)" % (filter, conf.except_filter)
-                        else:
-                            filter = "not (%s)" % conf.except_filter
-                    if filter:
-                        self.ins.setfilter(filter)
-
-            def close(self):
-                del(self.ins)
-
-            def send(self, x):
-                raise Scapy_Exception("Can't send anything with L2pcapListenSocket")
-
-        conf.L2listen = L2pcapListenSocket
 
 ##########
 #  DNET  #
