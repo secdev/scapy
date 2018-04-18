@@ -1,8 +1,8 @@
-## This file is for use with Scapy
-## See http://www.secdev.org/projects/scapy for more information
-## Copyright (C) Airbus DS CyberSecurity
-## Authors: Jean-Michel Picod, Arnaud Lebrun, Jonathan Christofer Demay
-## This program is published under a GPLv2 license
+# This file is for use with Scapy
+# See http://www.secdev.org/projects/scapy for more information
+# Copyright (C) Airbus DS CyberSecurity
+# Authors: Jean-Michel Picod, Arnaud Lebrun, Jonathan Christofer Demay
+# This program is published under a GPLv2 license
 
 """Bluetooth 4LE layer"""
 
@@ -16,6 +16,7 @@ from scapy.fields import *
 from scapy.layers import dot11
 
 from scapy.modules.six.moves import range
+
 
 class BTLE_PPI(Packet):
     name = "BTLE PPI header"
@@ -59,7 +60,7 @@ class BTLEChanMapField(XByteField):
         Field.__init__(self, name, default, "<Q")
 
     def addfield(self, pkt, s, val):
-        return s+struct.pack(self.fmt, self.i2m(pkt, val))[:5]
+        return s + struct.pack(self.fmt, self.i2m(pkt, val))[:5]
 
     def getfield(self, pkt, s):
         return s[5:], self.m2i(pkt, struct.unpack(self.fmt, s[:5] + b"\x00\x00\x00")[0])
@@ -233,7 +234,7 @@ class BTLE_CONNECT_REQ(Packet):
     fields_desc = [
         BDAddrField("InitA", ""),
         BDAddrField("AdvA", ""),
-        #LLDATA
+        # LLDATA
         XIntField("AA", 0x00),
         X3BytesField("crc_init", 0x0),
         XByteField("win_size", 0x0),
