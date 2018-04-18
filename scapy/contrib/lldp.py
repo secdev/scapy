@@ -44,7 +44,7 @@
 from scapy.config import conf
 from scapy.error import log_runtime, Scapy_Exception
 from scapy.layers.l2 import Ether, Dot1Q
-from scapy.fields import MACField, IPField, BitField, \
+from scapy.fields import MACField, IPField, BitField, ByteField, \
     StrLenField, ByteEnumField, BitEnumField, \
     EnumField, ThreeBytesField, BitFieldLenField, \
     ShortField, XStrLenField
@@ -392,7 +392,7 @@ class LLDPDUPortID(LLDPDU):
         range(0x08, 0xff): 'reserved'
     }
 
-    LLDP_PORT_ID_TLV_SUBTYPES = {
+    LLDP_PORT_ID_TLV_SUBTYPES_FIELDS = {
         0x03: MACField,
         0x04: IPField,
     }
@@ -411,7 +411,7 @@ class LLDPDUPortID(LLDPDU):
         BitFieldLenField('_length', None, 9, length_of='id',
                          adjust=lambda pkt, x: _ldp_id_adjustlen(pkt, x)),
         ByteEnumField('subtype', 0x00, LLDP_PORT_ID_TLV_SUBTYPES),
-        _LLDPidField('id', '', LLDP_PORT_ID_TLV_SUBTYPES, length_from=lambda pkt: pkt._length - 1)
+        _LLDPidField('id', '', LLDP_PORT_ID_TLV_SUBTYPES_FIELDS, length_from=lambda pkt: pkt._length - 1)
     ]
 
     def _check(self):
