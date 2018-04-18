@@ -41,13 +41,14 @@ class _L2pcapdnetSocket(SuperSocket, SelectableObject):
         return True
 
     def recv_raw(self, x=MTU):
-        """Returns a tuple containing (cls, pkt_data, time)"""
+        """Receives a packet, then returns a tuple containing (cls, pkt_data, time)"""
         ll = self.ins.datalink()
         if ll in conf.l2types:
             cls = conf.l2types[ll]
         else:
             cls = conf.default_l2
-            warning("Unable to guess datalink type (interface=%s linktype=%i). Using %s", self.iface, ll, cls.name)
+            warning("Unable to guess datalink type (interface=%s linktype=%i). Using %s",
+                    self.iface, ll, cls.name)
 
         pkt = None
         while pkt is None:
@@ -61,6 +62,8 @@ class _L2pcapdnetSocket(SuperSocket, SelectableObject):
         return cls, pkt, ts
 
     def nonblock_recv(self):
+        """Receives and dissect a packet in non-blocking mode.
+        Note: on Windows, this won't do anything."""
         self.ins.setnonblock(1)
         p = self.recv(MTU)
         self.ins.setnonblock(0)

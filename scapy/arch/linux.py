@@ -450,6 +450,7 @@ class L3PacketSocket(SuperSocket):
         SuperSocket.close(self)
 
     def recv_raw(self, x=MTU):
+        """Receives a packet, then returns a tuple containing (cls, pkt_data, time)"""
         pkt, sa_ll = self.ins.recvfrom(x)
         if sa_ll[2] == socket.PACKET_OUTGOING:
             return None, None, None
@@ -539,6 +540,7 @@ class L2Socket(SuperSocket):
         SuperSocket.close(self)
 
     def recv_raw(self, x=MTU):
+        """Receives a packet, then returns a tuple containing (cls, pkt_data, time)"""
         pkt, sa_ll = self.ins.recvfrom(x)
         if sa_ll[2] == socket.PACKET_OUTGOING:
             return None, None, None
@@ -598,6 +600,7 @@ class L2ListenSocket(SuperSocket):
         SuperSocket.close(self)
 
     def recv_raw(self, x=MTU):
+        """Receives a packet, then returns a tuple containing (cls, pkt_data, time)"""
         pkt, sa_ll = self.ins.recvfrom(x)
         if sa_ll[3] in conf.l2types:
             cls = conf.l2types[sa_ll[3]]
