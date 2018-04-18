@@ -20,9 +20,10 @@ import struct
 import sys
 import time
 
+import subprocess
 
 from scapy.compat import *
-from scapy.consts import LOOPBACK_NAME, IS_64BITS
+from scapy.consts import LOOPBACK_NAME, IS_64BITS, LINUX
 import scapy.utils
 import scapy.utils6
 from scapy.packet import Packet, Padding
@@ -640,3 +641,65 @@ class L2ListenSocket(SuperSocket):
 conf.L3socket = L3PacketSocket
 conf.L2socket = L2Socket
 conf.L2listen = L2ListenSocket
+
+
+class ScapyInvalidPlatformException(Scapy_Exception):
+    pass
+
+
+class VEthPair(object):
+    """
+    encapsulates a virtual Ethernet interface pair
+    """
+
+    def __init__(self, iface_name, peer_name):
+
+        if not LINUX:
+            # ToDo: do we need a kernel version check here?
+            raise ScapyInvalidPlatformException('virtual Ethernet interface pair only available on Linux')
+
+        self.ifaces = [iface_name, peer_name]
+
+    def iface(self):
+        return self.ifaces[0]
+
+    def peer(self):
+        return self.ifaces[1]
+
+    def setup(self):
+        """
+        create veth pair links
+        :raises subprocess.CalledProcessError if operation fails
+        """
+        subprocess.check_call(['ip', 'link', 'add', self.ifaces[0], 'type', 'veth', 'peer', 'name', self.ifaces[1]])
+
+    def destroy(self):
+        """
+        remove veth pair links
+        :raises subprocess.CalledProcessError if operation failes
+        """
+        subprocess.check_call(['ip', 'link', 'del', self.ifaces[0]])
+
+    def up(self):
+        """
+        set veth pair links up
+        :raises subprocess.CalledProcessError if operation failes
+        """
+        for idx in [0, 1]:
+            subprocess.check_call(["ip", "link", "set", self.ifaces[idx], "up"])
+
+    def down(self):
+        """
+        set veth pair links down
+        :raises subprocess.CalledProcessError if operation failes
+        """
+        for idx in [0, 1]:
+            subprocess.check_call(["ip", "link", "set", self.ifaces[idx], "down"])
+
+    def __enter__(self):
+        self.setup()
+        self.up()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.destroy()
