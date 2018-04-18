@@ -1,7 +1,7 @@
 # This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Sabrina Dubroca <sd@queasysnail.net>
-## This program is published under a GPLv2 license
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Sabrina Dubroca <sd@queasysnail.net>
+# This program is published under a GPLv2 license
 
 """
 Classes and functions for MACsec.
@@ -44,7 +44,7 @@ class MACsecSA(object):
     Provides encapsulation, decapsulation, encryption, and decryption
     of MACsec frames
     """
-    def __init__(self, sci, an, pn, key, icvlen, encrypt, send_sci):
+    def __init__(self, sci, an, pn, key, icvlen, encrypt, send_sci, xpn_en=False, ssci=None, salt=None):
         if isinstance(sci, six.integer_types):
             self.sci = struct.pack('!Q', sci)
         elif isinstance(sci, bytes):
@@ -57,10 +57,29 @@ class MACsecSA(object):
         self.icvlen = icvlen
         self.do_encrypt = encrypt
         self.send_sci = send_sci
+        self.xpn_en = xpn_en
+        if self.xpn_en:
+            # Get SSCI (32 bits)
+            if isinstance(ssci, six.integer_types):
+                self.ssci = struct.pack('!L', ssci)
+            elif isinstance(ssci, bytes):
+                self.ssci = ssci
+            else:
+                raise TypeError("SSCI must be either bytes or int")
+            # Get Salt (96 bits, only bytes allowed)
+            if isinstance(salt, bytes):
+                self.salt = salt
+            else:
+                raise TypeError("Salt must be bytes")
 
     def make_iv(self, pkt):
         """generate an IV for the packet"""
-        return self.sci + struct.pack('!I', pkt[MACsec].pn)
+        if self.xpn_en:
+            tmp_pn = (self.pn & 0xFFFFFFFF00000000) | (pkt[MACsec].pn & 0xFFFFFFFF)
+            tmp_iv = self.ssci + struct.pack('!Q', tmp_pn)
+            return bytes(bytearray([a ^ b for a, b in zip(bytearray(tmp_iv), bytearray(self.salt))]))
+        else:
+            return self.sci + struct.pack('!I', pkt[MACsec].pn)
 
     @staticmethod
     def split_pkt(pkt, assoclen, icvlen=0):
@@ -89,7 +108,7 @@ class MACsecSA(object):
     @staticmethod
     def shortlen(pkt):
         """determine shortlen for a raw packet (not encapsulated yet)"""
-        datalen = len(pkt) - 2*6
+        datalen = len(pkt) - 2 * 6
         if datalen < 48:
             return datalen
         return 0
@@ -105,9 +124,9 @@ class MACsecSA(object):
                      SC=self.send_sci,
                      E=self.e_bit(), C=self.c_bit(),
                      shortlen=MACsecSA.shortlen(pkt),
-                     pn=self.pn, type=pkt.type)
+                     pn=(self.pn & 0xFFFFFFFF), type=pkt.type)
         hdr.type = ETH_P_MACSEC
-        return hdr/tag/payload
+        return hdr / tag / payload
 
     # this doesn't really need to be a method, but for symmetry with
     # encap(), it is
@@ -121,8 +140,8 @@ class MACsecSA(object):
         next_layer = packet[MACsec].payload
         del prev_layer.payload
         if prev_layer.name == Ether().name:
-            return Ether(raw(prev_layer/next_layer))
-        return prev_layer/next_layer
+            return Ether(raw(prev_layer / next_layer))
+        return prev_layer / next_layer
 
     def encrypt(self, orig_pkt, assoclen=None):
         """encrypt a MACsec frame for this Secure Association"""
@@ -168,10 +187,10 @@ class MACsecSA(object):
         iv = self.make_iv(hdr)
         assoc, ct, icv = MACsecSA.split_pkt(orig_pkt, assoclen, self.icvlen)
         decryptor = Cipher(
-               algorithms.AES(self.key),
-               modes.GCM(iv, icv),
-               backend=default_backend()
-           ).decryptor()
+            algorithms.AES(self.key),
+            modes.GCM(iv, icv),
+            backend=default_backend()
+        ).decryptor()
         decryptor.authenticate_additional_data(assoc)
         pt = assoc[hdrlen:assoclen]
         pt += decryptor.update(ct)
@@ -210,6 +229,6 @@ class MACsec(Packet):
 bind_layers(MACsec, IP, type=ETH_P_IP)
 bind_layers(MACsec, IPv6, type=ETH_P_IPV6)
 
-bind_layers( Dot1AD,        MACsec,        type=ETH_P_MACSEC)
-bind_layers( Dot1Q,         MACsec,        type=ETH_P_MACSEC)
-bind_layers( Ether,         MACsec,        type=ETH_P_MACSEC)
+bind_layers(Dot1AD, MACsec, type=ETH_P_MACSEC)
+bind_layers(Dot1Q, MACsec, type=ETH_P_MACSEC)
+bind_layers(Ether, MACsec, type=ETH_P_MACSEC)

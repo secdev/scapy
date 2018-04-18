@@ -1,6 +1,6 @@
-## This file is part of Scapy
-## Copyright (C) 2017 Maxence Tury
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# Copyright (C) 2017 Maxence Tury
+# This program is published under a GPLv2 license
 
 """
 TLS handshake extensions.
@@ -18,40 +18,40 @@ from scapy.layers.tls.session import _GenericTLSSessionInheritance
 from scapy.layers.tls.crypto.groups import _tls_named_groups
 
 
-_tls_ext = {  0: "server_name",             # RFC 4366
-              1: "max_fragment_length",     # RFC 4366
-              2: "client_certificate_url",  # RFC 4366
-              3: "trusted_ca_keys",         # RFC 4366
-              4: "truncated_hmac",          # RFC 4366
-              5: "status_request",          # RFC 4366
-              6: "user_mapping",            # RFC 4681
-              7: "client_authz",            # RFC 5878
-              8: "server_authz",            # RFC 5878
-              9: "cert_type",               # RFC 6091
-            #10: "elliptic_curves",         # RFC 4492
-             10: "supported_groups",
-             11: "ec_point_formats",        # RFC 4492
-             13: "signature_algorithms",    # RFC 5246
-             0x0f: "heartbeat",             # RFC 6520
-             0x10: "alpn",                  # RFC 7301
-             0x12: "signed_certificate_timestamp",  # RFC 6962
-             0x15: "padding",               # RFC 7685
-             0x16: "encrypt_then_mac",      # RFC 7366
-             0x17: "extended_master_secret",# RFC 7627
-             0x23: "session_ticket",        # RFC 5077
-             0x28: "key_share",
-             0x29: "pre_shared_key",
-             0x2a: "early_data",
-             0x2b: "supported_versions",
-             0x2c: "cookie",
-             0x2d: "psk_key_exchange_modes",
-             0x2e: "ticket_early_data_info",
-             0x2f: "certificate_authorities",
-             0x30: "oid_filters",
-             0x3374: "next_protocol_negotiation",
-                                            # RFC-draft-agl-tls-nextprotoneg-03
-             0xff01: "renegotiation_info"   # RFC 5746
-             }
+_tls_ext = {0: "server_name",             # RFC 4366
+            1: "max_fragment_length",     # RFC 4366
+            2: "client_certificate_url",  # RFC 4366
+            3: "trusted_ca_keys",         # RFC 4366
+            4: "truncated_hmac",          # RFC 4366
+            5: "status_request",          # RFC 4366
+            6: "user_mapping",            # RFC 4681
+            7: "client_authz",            # RFC 5878
+            8: "server_authz",            # RFC 5878
+            9: "cert_type",               # RFC 6091
+            # 10: "elliptic_curves",         # RFC 4492
+            10: "supported_groups",
+            11: "ec_point_formats",        # RFC 4492
+            13: "signature_algorithms",    # RFC 5246
+            0x0f: "heartbeat",             # RFC 6520
+            0x10: "alpn",                  # RFC 7301
+            0x12: "signed_certificate_timestamp",  # RFC 6962
+            0x15: "padding",               # RFC 7685
+            0x16: "encrypt_then_mac",      # RFC 7366
+            0x17: "extended_master_secret",  # RFC 7627
+            0x23: "session_ticket",        # RFC 5077
+            0x28: "key_share",
+            0x29: "pre_shared_key",
+            0x2a: "early_data",
+            0x2b: "supported_versions",
+            0x2c: "cookie",
+            0x2d: "psk_key_exchange_modes",
+            0x2e: "ticket_early_data_info",
+            0x2f: "certificate_authorities",
+            0x30: "oid_filters",
+            0x3374: "next_protocol_negotiation",
+            # RFC-draft-agl-tls-nextprotoneg-03
+            0xff01: "renegotiation_info"   # RFC 5746
+            }
 
 
 class TLS_Ext_Unknown(_GenericTLSSessionInheritance):
@@ -63,17 +63,17 @@ class TLS_Ext_Unknown(_GenericTLSSessionInheritance):
     fields_desc = [ShortEnumField("type", None, _tls_ext),
                    FieldLenField("len", None, fmt="!H", length_of="val"),
                    StrLenField("val", "",
-                               length_from=lambda pkt: pkt.len) ]
+                               length_from=lambda pkt: pkt.len)]
 
     def post_build(self, p, pay):
         if self.len is None:
             l = len(p) - 4
             p = p[:2] + struct.pack("!H", l) + p[4:]
-        return p+pay
+        return p + pay
 
 
 ###############################################################################
-### ClientHello/ServerHello extensions                                      ###
+#   ClientHello/ServerHello extensions                                        #
 ###############################################################################
 
 # We provide these extensions mostly for packet manipulation purposes.
@@ -85,6 +85,7 @@ class TLS_Ext_PrettyPacketList(TLS_Ext_Unknown):
     the final field is showed as a 1-line list rather than as lots of packets.
     XXX Define a new condition for packet lists in Packet._show_or_dump?
     """
+
     def _show_or_dump(self, dump=False, indent=3,
                       lvl="", label_lvl="", first_call=True):
         """ Reproduced from packet.py """
@@ -95,31 +96,31 @@ class TLS_Ext_PrettyPacketList(TLS_Ext_Unknown):
             ncol = ct.field_name
             vcol = ct.field_value
             fvalue = self.getfieldval(f.name)
-            begn = "%s  %-10s%s " % (label_lvl+lvl, ncol(f.name),
+            begn = "%s  %-10s%s " % (label_lvl + lvl, ncol(f.name),
                                      ct.punct("="),)
-            reprval = f.i2repr(self,fvalue)
+            reprval = f.i2repr(self, fvalue)
             if isinstance(reprval, str):
-                reprval = reprval.replace("\n", "\n"+" "*(len(label_lvl)
-                                                          +len(lvl)
-                                                          +len(f.name)
-                                                          +4))
-            s += "%s%s\n" % (begn,vcol(reprval))
+                reprval = reprval.replace("\n", "\n" + " " * (len(label_lvl)
+                                                              + len(lvl)
+                                                              + len(f.name)
+                                                              + 4))
+            s += "%s%s\n" % (begn, vcol(reprval))
         f = self.fields_desc[-1]
         ncol = ct.field_name
         vcol = ct.field_value
         fvalue = self.getfieldval(f.name)
-        begn = "%s  %-10s%s " % (label_lvl+lvl, ncol(f.name), ct.punct("="),)
-        reprval = f.i2repr(self,fvalue)
+        begn = "%s  %-10s%s " % (label_lvl + lvl, ncol(f.name), ct.punct("="),)
+        reprval = f.i2repr(self, fvalue)
         if isinstance(reprval, str):
-            reprval = reprval.replace("\n", "\n"+" "*(len(label_lvl)
-                                                      +len(lvl)
-                                                      +len(f.name)
-                                                      +4))
-        s += "%s%s\n" % (begn,vcol(reprval))
+            reprval = reprval.replace("\n", "\n" + " " * (len(label_lvl)
+                                                          + len(lvl)
+                                                          + len(f.name)
+                                                          + 4))
+        s += "%s%s\n" % (begn, vcol(reprval))
         if self.payload:
             s += self.payload._show_or_dump(dump=dump, indent=indent,
-                                lvl=lvl+(" "*indent*self.show_indent),
-                                label_lvl=label_lvl, first_call=False)
+                                            lvl=lvl + (" " * indent * self.show_indent),
+                                            label_lvl=label_lvl, first_call=False)
 
         if first_call and not dump:
             print(s)
@@ -127,39 +128,45 @@ class TLS_Ext_PrettyPacketList(TLS_Ext_Unknown):
             return s
 
 
-_tls_server_name_types = { 0: "host_name" }
+_tls_server_name_types = {0: "host_name"}
+
 
 class ServerName(Packet):
     name = "HostName"
-    fields_desc = [ ByteEnumField("nametype", 0, _tls_server_name_types),
-                    FieldLenField("namelen", None, length_of="servername"),
-                    StrLenField("servername", "",
-                                length_from=lambda pkt: pkt.namelen) ]
+    fields_desc = [ByteEnumField("nametype", 0, _tls_server_name_types),
+                   FieldLenField("namelen", None, length_of="servername"),
+                   StrLenField("servername", "",
+                               length_from=lambda pkt: pkt.namelen)]
+
     def guess_payload_class(self, p):
         return Padding
+
 
 class ServerListField(PacketListField):
     def i2repr(self, pkt, x):
         res = [p.servername for p in x]
         return "[%s]" % b", ".join(res)
 
+
 class ServerLenField(FieldLenField):
     """
     There is no length when there are no servernames (as in a ServerHello).
     """
+
     def addfield(self, pkt, s, val):
         if not val:
             if not pkt.servernames:
                 return s
         return super(ServerLenField, self).addfield(pkt, s, val)
 
+
 class TLS_Ext_ServerName(TLS_Ext_PrettyPacketList):                 # RFC 4366
     name = "TLS Extension - Server Name"
     fields_desc = [ShortEnumField("type", 0, _tls_ext),
                    FieldLenField("len", None, length_of="servernames",
-                                 adjust=lambda pkt,x: x+2),
+                                 adjust=lambda pkt, x: x + 2),
                    ServerLenField("servernameslen", None,
-                                 length_of="servernames"),
+                                  length_of="servernames"),
                    ServerListField("servernames", [], ServerName,
                                    length_from=lambda pkt: pkt.servernameslen)]
 
@@ -168,35 +175,40 @@ class TLS_Ext_MaxFragLen(TLS_Ext_Unknown):                          # RFC 4366
     name = "TLS Extension - Max Fragment Length"
     fields_desc = [ShortEnumField("type", 1, _tls_ext),
                    ShortField("len", None),
-                   ByteEnumField("maxfraglen", 4, { 1: "2^9",
-                                                    2: "2^10",
-                                                    3: "2^11",
-                                                    4: "2^12" }) ]
+                   ByteEnumField("maxfraglen", 4, {1: "2^9",
+                                                   2: "2^10",
+                                                   3: "2^11",
+                                                   4: "2^12"})]
 
 
 class TLS_Ext_ClientCertURL(TLS_Ext_Unknown):                       # RFC 4366
     name = "TLS Extension - Client Certificate URL"
     fields_desc = [ShortEnumField("type", 2, _tls_ext),
-                   ShortField("len", None) ]
+                   ShortField("len", None)]
 
 
 _tls_trusted_authority_types = {0: "pre_agreed",
                                 1: "key_sha1_hash",
                                 2: "x509_name",
-                                3: "cert_sha1_hash" }
+                                3: "cert_sha1_hash"}
+
 
 class TAPreAgreed(Packet):
     name = "Trusted authority - pre_agreed"
-    fields_desc = [ ByteEnumField("idtype", 0, _tls_trusted_authority_types) ]
+    fields_desc = [ByteEnumField("idtype", 0, _tls_trusted_authority_types)]
+
     def guess_payload_class(self, p):
         return Padding
 
+
 class TAKeySHA1Hash(Packet):
     name = "Trusted authority - key_sha1_hash"
-    fields_desc = [ ByteEnumField("idtype", 1, _tls_trusted_authority_types),
-                    StrFixedLenField("id", None, 20) ]
+    fields_desc = [ByteEnumField("idtype", 1, _tls_trusted_authority_types),
+                   StrFixedLenField("id", None, 20)]
+
     def guess_payload_class(self, p):
         return Padding
+
 
 class TAX509Name(Packet):
     """
@@ -204,29 +216,35 @@ class TAX509Name(Packet):
     rather than current StrLenField.
     """
     name = "Trusted authority - x509_name"
-    fields_desc = [ ByteEnumField("idtype", 2, _tls_trusted_authority_types),
-                    FieldLenField("dnlen", None, length_of="dn"),
-                    StrLenField("dn", "", length_from=lambda pkt: pkt.dnlen) ]
+    fields_desc = [ByteEnumField("idtype", 2, _tls_trusted_authority_types),
+                   FieldLenField("dnlen", None, length_of="dn"),
+                   StrLenField("dn", "", length_from=lambda pkt: pkt.dnlen)]
+
     def guess_payload_class(self, p):
         return Padding
 
+
 class TACertSHA1Hash(Packet):
     name = "Trusted authority - cert_sha1_hash"
-    fields_desc = [ ByteEnumField("idtype", 3, _tls_trusted_authority_types),
-                    StrFixedLenField("id", None, 20) ]
+    fields_desc = [ByteEnumField("idtype", 3, _tls_trusted_authority_types),
+                   StrFixedLenField("id", None, 20)]
+
     def guess_payload_class(self, p):
         return Padding
+
 
 _tls_trusted_authority_cls = {0: TAPreAgreed,
                               1: TAKeySHA1Hash,
                               2: TAX509Name,
-                              3: TACertSHA1Hash }
+                              3: TACertSHA1Hash}
+
 
 class _TAListField(PacketListField):
     """
     Specific version that selects the right Trusted Authority (previous TA*)
     class to be used for dissection based on idtype.
     """
+
     def m2i(self, pkt, m):
         idtype = ord(m[0])
         cls = self.cls
@@ -234,44 +252,50 @@ class _TAListField(PacketListField):
             cls = _tls_trusted_authority_cls[idtype]
         return cls(m)
 
+
 class TLS_Ext_TrustedCAInd(TLS_Ext_Unknown):                        # RFC 4366
     name = "TLS Extension - Trusted CA Indication"
     fields_desc = [ShortEnumField("type", 3, _tls_ext),
                    ShortField("len", None),
                    FieldLenField("talen", None, length_of="ta"),
                    _TAListField("ta", [], Raw,
-                                length_from=lambda pkt: pkt.talen) ]
+                                length_from=lambda pkt: pkt.talen)]
 
 
 class TLS_Ext_TruncatedHMAC(TLS_Ext_Unknown):                       # RFC 4366
     name = "TLS Extension - Truncated HMAC"
     fields_desc = [ShortEnumField("type", 4, _tls_ext),
-                   ShortField("len", None) ]
+                   ShortField("len", None)]
 
 
 class ResponderID(Packet):
     name = "Responder ID structure"
-    fields_desc = [ FieldLenField("respidlen", None, length_of="respid"),
-                    StrLenField("respid", "",
-                                length_from=lambda pkt: pkt.respidlen)]
+    fields_desc = [FieldLenField("respidlen", None, length_of="respid"),
+                   StrLenField("respid", "",
+                               length_from=lambda pkt: pkt.respidlen)]
+
     def guess_payload_class(self, p):
         return Padding
+
 
 class OCSPStatusRequest(Packet):
     """
     This is the structure defined in RFC 6066, not in RFC 6960!
     """
     name = "OCSPStatusRequest structure"
-    fields_desc = [ FieldLenField("respidlen", None, length_of="respid"),
-                    PacketListField("respid", [], ResponderID,
-                                    length_from=lambda pkt: pkt.respidlen),
-                    FieldLenField("reqextlen", None, length_of="reqext"),
-                    PacketField("reqext", "", X509_Extensions) ]
+    fields_desc = [FieldLenField("respidlen", None, length_of="respid"),
+                   PacketListField("respid", [], ResponderID,
+                                   length_from=lambda pkt: pkt.respidlen),
+                   FieldLenField("reqextlen", None, length_of="reqext"),
+                   PacketField("reqext", "", X509_Extensions)]
+
     def guess_payload_class(self, p):
         return Padding
 
-_cert_status_type = { 1: "ocsp" }
-_cert_status_req_cls  = { 1: OCSPStatusRequest }
+
+_cert_status_type = {1: "ocsp"}
+_cert_status_req_cls = {1: OCSPStatusRequest}
+
 
 class _StatusReqField(PacketListField):
     def m2i(self, pkt, m):
@@ -281,13 +305,14 @@ class _StatusReqField(PacketListField):
             cls = _cert_status_req_cls[idtype]
         return cls(m)
 
+
 class TLS_Ext_CSR(TLS_Ext_Unknown):                                 # RFC 4366
     name = "TLS Extension - Certificate Status Request"
     fields_desc = [ShortEnumField("type", 5, _tls_ext),
                    ShortField("len", None),
                    ByteEnumField("stype", None, _cert_status_type),
                    _StatusReqField("req", [], Raw,
-                                  length_from=lambda pkt: pkt.len - 1) ]
+                                   length_from=lambda pkt: pkt.len - 1)]
 
 
 class TLS_Ext_UserMapping(TLS_Ext_Unknown):                         # RFC 4681
@@ -297,7 +322,7 @@ class TLS_Ext_UserMapping(TLS_Ext_Unknown):                         # RFC 4681
                    FieldLenField("umlen", None, fmt="B", length_of="um"),
                    FieldListField("um", [],
                                   ByteField("umtype", 0),
-                                  length_from=lambda pkt: pkt.umlen) ]
+                                  length_from=lambda pkt: pkt.umlen)]
 
 
 class TLS_Ext_ClientAuthz(TLS_Ext_Unknown):                         # RFC 5878
@@ -307,6 +332,7 @@ class TLS_Ext_ClientAuthz(TLS_Ext_Unknown):                         # RFC 5878
                    ShortField("len", None),
                    ]
 
+
 class TLS_Ext_ServerAuthz(TLS_Ext_Unknown):                         # RFC 5878
     """ XXX Unsupported """
     name = "TLS Extension - Server Authz"
@@ -315,7 +341,8 @@ class TLS_Ext_ServerAuthz(TLS_Ext_Unknown):                         # RFC 5878
                    ]
 
 
-_tls_cert_types = { 0: "X.509", 1: "OpenPGP" }
+_tls_cert_types = {0: "X.509", 1: "OpenPGP"}
+
 
 class TLS_Ext_ClientCertType(TLS_Ext_Unknown):                      # RFC 5081
     name = "TLS Extension - Certificate Type (client version)"
@@ -325,13 +352,15 @@ class TLS_Ext_ClientCertType(TLS_Ext_Unknown):                      # RFC 5081
                    FieldListField("ctypes", [0, 1],
                                   ByteEnumField("certtypes", None,
                                                 _tls_cert_types),
-                                  length_from=lambda pkt: pkt.ctypeslen) ]
+                                  length_from=lambda pkt: pkt.ctypeslen)]
+
 
 class TLS_Ext_ServerCertType(TLS_Ext_Unknown):                      # RFC 5081
     name = "TLS Extension - Certificate Type (server version)"
     fields_desc = [ShortEnumField("type", 9, _tls_ext),
                    ShortField("len", None),
-                   ByteEnumField("ctype", None, _tls_cert_types) ]
+                   ByteEnumField("ctype", None, _tls_cert_types)]
+
 
 def _TLS_Ext_CertTypeDispatcher(m, *args, **kargs):
     """
@@ -358,15 +387,17 @@ class TLS_Ext_SupportedGroups(TLS_Ext_Unknown):
                    FieldListField("groups", [],
                                   ShortEnumField("ng", None,
                                                  _tls_named_groups),
-                                  length_from=lambda pkt: pkt.groupslen) ]
+                                  length_from=lambda pkt: pkt.groupslen)]
+
 
 class TLS_Ext_SupportedEllipticCurves(TLS_Ext_SupportedGroups):     # RFC 4492
     pass
 
 
-_tls_ecpoint_format = { 0: "uncompressed",
-                        1: "ansiX962_compressed_prime",
-                        2: "ansiX962_compressed_char2" }
+_tls_ecpoint_format = {0: "uncompressed",
+                       1: "ansiX962_compressed_prime",
+                       2: "ansiX962_compressed_char2"}
+
 
 class TLS_Ext_SupportedPointFormat(TLS_Ext_Unknown):                # RFC 4492
     name = "TLS Extension - Supported Point Format"
@@ -374,9 +405,9 @@ class TLS_Ext_SupportedPointFormat(TLS_Ext_Unknown):                # RFC 4492
                    ShortField("len", None),
                    FieldLenField("ecpllen", None, fmt="B", length_of="ecpl"),
                    FieldListField("ecpl", [0],
-                                    ByteEnumField("nc", None,
-                                                  _tls_ecpoint_format),
-                                    length_from=lambda pkt: pkt.ecpllen) ]
+                                  ByteEnumField("nc", None,
+                                                _tls_ecpoint_format),
+                                  length_from=lambda pkt: pkt.ecpllen)]
 
 
 class TLS_Ext_SignatureAlgorithms(TLS_Ext_Unknown):                 # RFC 5246
@@ -387,9 +418,8 @@ class TLS_Ext_SignatureAlgorithms(TLS_Ext_Unknown):                 # RFC 5246
                                           length_of="sig_algs"),
                    SigAndHashAlgsField("sig_algs", [],
                                        EnumField("hash_sig", None,
-                                                    _tls_hash_sig),
-                                       length_from=
-                                           lambda pkt: pkt.sig_algs_len) ]
+                                                 _tls_hash_sig),
+                                       length_from=lambda pkt: pkt.sig_algs_len)]
 
 
 class TLS_Ext_Heartbeat(TLS_Ext_Unknown):                           # RFC 6520
@@ -397,22 +427,25 @@ class TLS_Ext_Heartbeat(TLS_Ext_Unknown):                           # RFC 6520
     fields_desc = [ShortEnumField("type", 0x0f, _tls_ext),
                    ShortField("len", None),
                    ByteEnumField("heartbeat_mode", 2,
-                       { 1: "peer_allowed_to_send",
-                         2: "peer_not_allowed_to_send" }) ]
+                                 {1: "peer_allowed_to_send",
+                                  2: "peer_not_allowed_to_send"})]
 
 
 class ProtocolName(Packet):
     name = "Protocol Name"
-    fields_desc = [ FieldLenField("len", None, fmt='B', length_of="protocol"),
-                    StrLenField("protocol", "",
-                                length_from=lambda pkt: pkt.len)]
+    fields_desc = [FieldLenField("len", None, fmt='B', length_of="protocol"),
+                   StrLenField("protocol", "",
+                               length_from=lambda pkt: pkt.len)]
+
     def guess_payload_class(self, p):
         return Padding
+
 
 class ProtocolListField(PacketListField):
     def i2repr(self, pkt, x):
         res = [p.protocol for p in x]
         return "[%s]" % b", ".join(res)
+
 
 class TLS_Ext_ALPN(TLS_Ext_PrettyPacketList):                       # RFC 7301
     name = "TLS Extension - Application Layer Protocol Negotiation"
@@ -420,7 +453,7 @@ class TLS_Ext_ALPN(TLS_Ext_PrettyPacketList):                       # RFC 7301
                    ShortField("len", None),
                    FieldLenField("protocolslen", None, length_of="protocols"),
                    ProtocolListField("protocols", [], ProtocolName,
-                                     length_from=lambda pkt:pkt.protocolslen) ]
+                                     length_from=lambda pkt:pkt.protocolslen)]
 
 
 class TLS_Ext_Padding(TLS_Ext_Unknown):                             # RFC 7685
@@ -428,19 +461,19 @@ class TLS_Ext_Padding(TLS_Ext_Unknown):                             # RFC 7685
     fields_desc = [ShortEnumField("type", 0x15, _tls_ext),
                    FieldLenField("len", None, length_of="padding"),
                    StrLenField("padding", "",
-                               length_from=lambda pkt: pkt.len) ]
+                               length_from=lambda pkt: pkt.len)]
 
 
 class TLS_Ext_EncryptThenMAC(TLS_Ext_Unknown):                      # RFC 7366
     name = "TLS Extension - Encrypt-then-MAC"
     fields_desc = [ShortEnumField("type", 0x16, _tls_ext),
-                   ShortField("len", None) ]
+                   ShortField("len", None)]
 
 
 class TLS_Ext_ExtendedMasterSecret(TLS_Ext_Unknown):                # RFC 7627
     name = "TLS Extension - Extended Master Secret"
     fields_desc = [ShortEnumField("type", 0x17, _tls_ext),
-                   ShortField("len", None) ]
+                   ShortField("len", None)]
 
 
 class TLS_Ext_SessionTicket(TLS_Ext_Unknown):                       # RFC 5077
@@ -452,25 +485,25 @@ class TLS_Ext_SessionTicket(TLS_Ext_Unknown):                       # RFC 5077
     fields_desc = [ShortEnumField("type", 0x23, _tls_ext),
                    FieldLenField("len", None, length_of="ticket"),
                    StrLenField("ticket", "",
-                               length_from=lambda pkt: pkt.len) ]
+                               length_from=lambda pkt: pkt.len)]
 
 
 class TLS_Ext_KeyShare(TLS_Ext_Unknown):
     name = "TLS Extension - Key Share (dummy class)"
     fields_desc = [ShortEnumField("type", 0x28, _tls_ext),
-                   ShortField("len", None) ]
+                   ShortField("len", None)]
 
 
 class TLS_Ext_PreSharedKey(TLS_Ext_Unknown):
     name = "TLS Extension - Pre Shared Key (dummy class)"
     fields_desc = [ShortEnumField("type", 0x29, _tls_ext),
-                   ShortField("len", None) ]
+                   ShortField("len", None)]
 
 
 class TLS_Ext_EarlyData(TLS_Ext_Unknown):
     name = "TLS Extension - Early Data"
     fields_desc = [ShortEnumField("type", 0x2a, _tls_ext),
-                   ShortField("len", None) ]
+                   ShortField("len", None)]
 
 
 class TLS_Ext_SupportedVersions(TLS_Ext_Unknown):
@@ -482,7 +515,7 @@ class TLS_Ext_SupportedVersions(TLS_Ext_Unknown):
                    FieldListField("versions", [],
                                   ShortEnumField("version", None,
                                                  _tls_version),
-                                  length_from=lambda pkt: pkt.versionslen) ]
+                                  length_from=lambda pkt: pkt.versionslen)]
 
 
 class TLS_Ext_Cookie(TLS_Ext_Unknown):
@@ -491,10 +524,11 @@ class TLS_Ext_Cookie(TLS_Ext_Unknown):
                    ShortField("len", None),
                    FieldLenField("cookielen", None, length_of="cookie"),
                    XStrLenField("cookie", "",
-                                length_from=lambda pkt: pkt.cookielen) ]
+                                length_from=lambda pkt: pkt.cookielen)]
 
 
-_tls_psk_kx_modes = { 0: "psk_ke", 1: "psk_dhe_ke" }
+_tls_psk_kx_modes = {0: "psk_ke", 1: "psk_dhe_ke"}
+
 
 class TLS_Ext_PSKKeyExchangeModes(TLS_Ext_Unknown):
     name = "TLS Extension - PSK Key Exchange Modes"
@@ -504,15 +538,15 @@ class TLS_Ext_PSKKeyExchangeModes(TLS_Ext_Unknown):
                                  length_of="kxmodes"),
                    FieldListField("kxmodes", [],
                                   ByteEnumField("kxmode", None,
-                                                 _tls_psk_kx_modes),
-                                  length_from=lambda pkt: pkt.kxmodeslen) ]
+                                                _tls_psk_kx_modes),
+                                  length_from=lambda pkt: pkt.kxmodeslen)]
 
 
 class TLS_Ext_TicketEarlyDataInfo(TLS_Ext_Unknown):
     name = "TLS Extension - Ticket Early Data Info"
     fields_desc = [ShortEnumField("type", 0x2e, _tls_ext),
                    ShortField("len", None),
-                   IntField("max_early_data_size", 0) ]
+                   IntField("max_early_data_size", 0)]
 
 
 class TLS_Ext_NPN(TLS_Ext_PrettyPacketList):
@@ -523,7 +557,7 @@ class TLS_Ext_NPN(TLS_Ext_PrettyPacketList):
     fields_desc = [ShortEnumField("type", 0x3374, _tls_ext),
                    FieldLenField("len", None, length_of="protocols"),
                    ProtocolListField("protocols", [], ProtocolName,
-                                     length_from=lambda pkt:pkt.len) ]
+                                     length_from=lambda pkt:pkt.len)]
 
 
 class TLS_Ext_RenegotiationInfo(TLS_Ext_Unknown):                   # RFC 5746
@@ -533,20 +567,20 @@ class TLS_Ext_RenegotiationInfo(TLS_Ext_Unknown):                   # RFC 5746
                    FieldLenField("reneg_conn_len", None, fmt='B',
                                  length_of="renegotiated_connection"),
                    StrLenField("renegotiated_connection", "",
-                               length_from=lambda pkt: pkt.reneg_conn_len) ]
+                               length_from=lambda pkt: pkt.reneg_conn_len)]
 
 
-_tls_ext_cls = { 0: TLS_Ext_ServerName,
-                 1: TLS_Ext_MaxFragLen,
-                 2: TLS_Ext_ClientCertURL,
-                 3: TLS_Ext_TrustedCAInd,
-                 4: TLS_Ext_TruncatedHMAC,
-                 5: TLS_Ext_CSR,
-                 6: TLS_Ext_UserMapping,
-                 7: TLS_Ext_ClientAuthz,
-                 8: TLS_Ext_ServerAuthz,
-                 9: _TLS_Ext_CertTypeDispatcher,
-               #10: TLS_Ext_SupportedEllipticCurves,
+_tls_ext_cls = {0: TLS_Ext_ServerName,
+                1: TLS_Ext_MaxFragLen,
+                2: TLS_Ext_ClientCertURL,
+                3: TLS_Ext_TrustedCAInd,
+                4: TLS_Ext_TruncatedHMAC,
+                5: TLS_Ext_CSR,
+                6: TLS_Ext_UserMapping,
+                7: TLS_Ext_ClientAuthz,
+                8: TLS_Ext_ServerAuthz,
+                9: _TLS_Ext_CertTypeDispatcher,
+                # 10: TLS_Ext_SupportedEllipticCurves,
                 10: TLS_Ext_SupportedGroups,
                 11: TLS_Ext_SupportedPointFormat,
                 13: TLS_Ext_SignatureAlgorithms,
@@ -563,8 +597,8 @@ _tls_ext_cls = { 0: TLS_Ext_ServerName,
                 0x2c: TLS_Ext_Cookie,
                 0x2d: TLS_Ext_PSKKeyExchangeModes,
                 0x2e: TLS_Ext_TicketEarlyDataInfo,
-               #0x2f: TLS_Ext_CertificateAuthorities,       #XXX
-               #0x30: TLS_Ext_OIDFilters,                   #XXX
+                # 0x2f: TLS_Ext_CertificateAuthorities,       #XXX
+                # 0x30: TLS_Ext_OIDFilters,                   #XXX
                 0x3374: TLS_Ext_NPN,
                 0xff01: TLS_Ext_RenegotiationInfo
                 }
@@ -598,7 +632,7 @@ class _ExtensionsLenField(FieldLenField):
         """
         if i is None:
             if self.length_of is not None:
-                fld,fval = pkt.getfield_and_val(self.length_of)
+                fld, fval = pkt.getfield_and_val(self.length_of)
 
                 tmp = pkt.tls_session.frozen
                 pkt.tls_session.frozen = True
@@ -606,13 +640,14 @@ class _ExtensionsLenField(FieldLenField):
                 pkt.tls_session.frozen = tmp
 
                 i = self.adjust(pkt, f)
-                if i == 0: # for correct build if no ext and not explicitly 0
+                if i == 0:  # for correct build if no ext and not explicitly 0
                     return s
         return s + struct.pack(self.fmt, i)
 
+
 class _ExtensionsField(StrLenField):
-    islist=1
-    holds_packets=1
+    islist = 1
+    holds_packets = 1
 
     def i2len(self, pkt, i):
         if i is None:
@@ -652,8 +687,8 @@ class _ExtensionsField(StrLenField):
             elif cls is TLS_Ext_PreSharedKey:
                 from scapy.layers.tls.keyexchange_tls13 import _tls_ext_presharedkey_cls
                 cls = _tls_ext_presharedkey_cls.get(pkt.msgtype, TLS_Ext_Unknown)
-            res.append(cls(m[:l+4], tls_session=pkt.tls_session))
-            m = m[l+4:]
+            res.append(cls(m[:l + 4], tls_session=pkt.tls_session))
+            m = m[l + 4:]
         return res
 
 

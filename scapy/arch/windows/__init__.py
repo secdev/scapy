@@ -1,8 +1,8 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## Copyright (C) Gabriel Potter <gabriel@potter.fr>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# Copyright (C) Gabriel Potter <gabriel@potter.fr>
+# This program is published under a GPLv2 license
 
 """
 Customizations needed to support Microsoft Windows.
@@ -47,16 +47,16 @@ conf.use_winpcapy = True
 
 WINDOWS = (os.name == 'nt')
 
-#hot-patching socket for missing variables on Windows
+# hot-patching socket for missing variables on Windows
 import socket
 if not hasattr(socket, 'IPPROTO_IPIP'):
-    socket.IPPROTO_IPIP=4
+    socket.IPPROTO_IPIP = 4
 if not hasattr(socket, 'IPPROTO_AH'):
-    socket.IPPROTO_AH=51
+    socket.IPPROTO_AH = 51
 if not hasattr(socket, 'IPPROTO_ESP'):
-    socket.IPPROTO_ESP=50
+    socket.IPPROTO_ESP = 50
 if not hasattr(socket, 'IPPROTO_GRE'):
-    socket.IPPROTO_GRE=47
+    socket.IPPROTO_GRE = 47
 
 from scapy.arch import pcapdnet
 from scapy.arch.pcapdnet import *
@@ -65,24 +65,21 @@ _WlanHelper = NPCAP_PATH + "\\WlanHelper.exe"
 
 import scapy.consts
 
-def is_new_release(win10more=False):
+IS_WINDOWS_XP = platform.release() == "XP"
+
+
+def is_new_release():
     release = platform.release()
     if conf.prog.powershell is None:
         return False
-    if win10more:
-        try:
-            if float(release) >= 10:
-                return True
-        except:
-            pass
-    else:
-        try:
-             if float(release) >= 8:
-                 return True
-        except ValueError:
-            if (release=="post2008Server"):
-                return True
+    try:
+        if float(release) >= 8:
+            return True
+    except ValueError:
+        if (release == "post2008Server"):
+            return True
     return False
+
 
 def _encapsulate_admin(cmd):
     """Encapsulate a command with an Administrator flag"""
@@ -90,11 +87,13 @@ def _encapsulate_admin(cmd):
     # rights, which will execute the command
     return "Start-Process PowerShell -windowstyle hidden -Wait -Verb RunAs -ArgumentList '-command &{%s}'" % cmd
 
+
 def _windows_title(title=None):
     """Updates the terminal title with the default one or with `title`
     if provided."""
     if conf.interactive:
         _winapi_SetConsoleTitle(title or "Scapy v{}".format(conf.version))
+
 
 def _suppress_file_handles_inheritance(r=1000):
     """HACK: python 2.7 file descriptors.
@@ -129,6 +128,7 @@ def _suppress_file_handles_inheritance(r=1000):
 
     return handles
 
+
 def _restore_file_handles_inheritance(handles):
     """HACK: python 2.7 file descriptors.
 
@@ -149,10 +149,12 @@ def _restore_file_handles_inheritance(handles):
         except (ctypes.WinError, WindowsError, OSError):
             pass
 
+
 class _PowershellManager(Thread):
     """Instance used to send multiple commands on the same Powershell process.
     Will be instantiated on loading and automatically stopped.
     """
+
     def __init__(self):
         opened_handles = _suppress_file_handles_inheritance()
         try:
@@ -210,6 +212,7 @@ class _PowershellManager(Thread):
         except:
             pass
 
+
 def _exec_query_ps(cmd, fields):
     """Execute a PowerShell query, using the cmd command,
     and select and parse the provided fields.
@@ -220,12 +223,12 @@ def _exec_query_ps(cmd, fields):
     query_cmd = cmd + ['|', 'select %s' % ', '.join(fields),  # select fields
                        '|', 'fl',  # print as a list
                        '|', 'out-string', '-Width', '4096']  # do not crop
-    l=[]
+    l = []
     # Ask the powershell manager to process the query
     stdout = POWERSHELL_PROCESS.query(query_cmd)
     # Process stdout
     for line in stdout:
-        if not line.strip(): # skip empty lines
+        if not line.strip():  # skip empty lines
             continue
         sl = line.split(':', 1)
         if len(sl) == 1:
@@ -235,7 +238,8 @@ def _exec_query_ps(cmd, fields):
             l.append(sl[1].strip())
         if len(l) == len(fields):
             yield l
-            l=[]
+            l = []
+
 
 def _vbs_exec_code(code, split_tag="@"):
     if not conf.prog.cscript:
@@ -256,6 +260,7 @@ def _vbs_exec_code(code, split_tag="@"):
     os.unlink(tmpfile.name)
     _windows_title()
 
+
 def _get_hardware_iface_guid(devid):
     """
     Get the hardware interface guid for device with 'devid' number
@@ -274,6 +279,7 @@ def _get_hardware_iface_guid(devid):
     guid = guid.strip()
     return guid if guid.startswith("{") and guid.endswith("}") else None
 
+
 def _get_npcap_dot11_adapters():
     """
     Get the npcap 802.11 adapters from the registry or None if npcap
@@ -289,8 +295,9 @@ def _get_npcap_dot11_adapters():
         return None
     return dot11_adapters
 
+
 # Some names differ between VBS and PS
-## None: field will not be returned under VBS
+# None: field will not be returned under VBS
 _VBS_WMI_FIELDS = {
     "Win32_NetworkAdapter": {
         "InterfaceDescription": "Description",
@@ -303,6 +310,10 @@ _VBS_WMI_FIELDS = {
         "Status": "State"
     }
 }
+if IS_WINDOWS_XP:
+    # On windows XP, InterfaceIndex does not exist in cscript, and is Index.
+    # This is not the case on Windows 7+
+    _VBS_WMI_FIELDS["Win32_NetworkAdapter"]["InterfaceIndex"] = "Index"
 
 _VBS_WMI_REPLACE = {
     "Win32_NetworkAdapterConfiguration": {
@@ -316,6 +327,7 @@ _VBS_WMI_OUTPUT = {
     }
 }
 
+
 def _exec_query_vbs(cmd, fields):
     """Execute a query using VBS. Currently Get-WmiObject, Get-Service
     queries are supported.
@@ -325,10 +337,14 @@ def _exec_query_vbs(cmd, fields):
         return
     action = cmd[0]
     fields = [_VBS_WMI_FIELDS.get(cmd[1], _VBS_WMI_FIELDS.get("*", {})).get(fld, fld) for fld in fields]
-    parsed_command = "WScript.Echo " + " & \" @ \" & ".join("line.%s" % fld for fld in fields
-                           if fld is not None)
+    if IS_WINDOWS_XP:
+        # On Windows XP, the Ampersand operator does not exist.
+        # Using old method (which does not support missing parameters (e.g. WLAN interfaces))
+        parsed_command = "\n  ".join("WScript.Echo line.%s" % fld for fld in fields if fld is not None)
+    else:
+        parsed_command = "WScript.Echo " + " & \" @ \" & ".join("line.%s" % fld for fld in fields if fld is not None)
     # The IPAddress is an array: convert it to a string
-    for key,val in _VBS_WMI_REPLACE.get(cmd[1], {}).items():
+    for key, val in _VBS_WMI_REPLACE.get(cmd[1], {}).items():
         parsed_command = parsed_command.replace(key, val)
     if action == "Get-WmiObject":
         values = _vbs_exec_code("""Set wmi = GetObject("winmgmts:")
@@ -353,6 +369,7 @@ Set line = wmi.Get("Win32_Service.Name='" & serviceName & "'")
                )
                for fld in fields]
 
+
 def exec_query(cmd, fields):
     """Execute a system query using PowerShell if it is available, and
     using VBS/cscript as a fallback.
@@ -361,6 +378,7 @@ def exec_query(cmd, fields):
     if conf.prog.powershell is None:
         return _exec_query_vbs(cmd, fields)
     return _exec_query_ps(cmd, fields)
+
 
 def _where(filename, dirs=None, env="PATH"):
     """Find file in current dir, in deep_lookup cache or in system path"""
@@ -379,9 +397,10 @@ def _where(filename, dirs=None, env="PATH"):
     except StopIteration:
         raise IOError("File not found: %s" % filename)
 
+
 def win_find_exe(filename, installsubdir=None, env="ProgramFiles"):
     """Find executable in current dir, system path or given ProgramFiles subdir"""
-    fns = [filename] if filename.endswith(".exe") else [filename+".exe", filename]
+    fns = [filename] if filename.endswith(".exe") else [filename + ".exe", filename]
     for fn in fns:
         try:
             if installsubdir is None:
@@ -391,12 +410,13 @@ def win_find_exe(filename, installsubdir=None, env="ProgramFiles"):
         except IOError:
             path = None
         else:
-            break        
+            break
     return path
 
 
 class WinProgPath(ConfClass):
     _default = "<System default>"
+
     def __init__(self):
         self._reload()
 
@@ -418,14 +438,15 @@ class WinProgPath(ConfClass):
             env="SystemRoot"
         )
         self.cscript = win_find_exe("cscript", installsubdir="System32",
-                               env="SystemRoot")
+                                    env="SystemRoot")
         self.cmd = win_find_exe("cmd", installsubdir="System32",
-                               env="SystemRoot")
+                                env="SystemRoot")
         if self.wireshark:
-            manu_path = load_manuf(os.path.sep.join(self.wireshark.split(os.path.sep)[:-1])+os.path.sep+"manuf")
+            manu_path = load_manuf(os.path.sep.join(self.wireshark.split(os.path.sep)[:-1]) + os.path.sep + "manuf")
             scapy.data.MANUFDB = conf.manufdb = manu_path
-        
+
         self.os_access = (self.powershell is not None) or (self.cscript is not None)
+
 
 conf.prog = WinProgPath()
 if not conf.prog.os_access:
@@ -447,8 +468,10 @@ if conf.prog.tcpdump and conf.use_npcap and conf.prog.os_access:
         warning("The installed Windump version does not work with Npcap ! Refer to 'Winpcap/Npcap conflicts' in scapy's doc")
     del windump_ok
 
+
 class PcapNameNotFoundError(Scapy_Exception):
-    pass    
+    pass
+
 
 def _validate_interface(iface):
     if "guid" in iface and iface["guid"]:
@@ -462,6 +485,7 @@ def _validate_interface(iface):
         return True
     return False
 
+
 def get_windows_if_list():
     """Returns windows interfaces."""
     if not conf.prog.os_access:
@@ -474,7 +498,7 @@ def get_windows_if_list():
         # Ethernet                  Killer E2200 Gigabit Ethernet Contro...      13 Up           D0-50-99-56-DD-F9         1 Gbps
         query = exec_query(['Get-NetAdapter'],
                            ['InterfaceDescription', 'InterfaceIndex', 'Name',
-                            'InterfaceGuid', 'MacAddress', 'InterfaceAlias']) # It is normal that it is in this order
+                            'InterfaceGuid', 'MacAddress', 'InterfaceAlias'])  # It is normal that it is in this order
     else:
         query = exec_query(['Get-WmiObject', 'Win32_NetworkAdapter'],
                            ['Name', 'InterfaceIndex', 'InterfaceDescription',
@@ -485,6 +509,7 @@ def get_windows_if_list():
          for line in query)
         if _validate_interface(iface)
     ]
+
 
 def get_ips(v6=False):
     """Returns all available IPs matching to interfaces, using the windows system.
@@ -497,14 +522,16 @@ def get_ips(v6=False):
             res[descr] = ipaddr.split(",", 1)[v6].strip('{}').strip()
     return res
 
+
 def get_ip_from_name(ifname, v6=False):
     """Backward compatibility: indirectly calls get_ips
     Deprecated."""
     return get_ips(v6=v6).get(ifname, "")
-        
+
+
 class NetworkInterface(object):
     """A network interface of your local host"""
-    
+
     def __init__(self, data=None):
         self.name = None
         self.ip = None
@@ -640,7 +667,7 @@ class NetworkInterface(object):
         # According to https://nmap.org/npcap/guide/npcap-devguide.html#npcap-feature-dot11
         self._check_npcap_requirement()
         x = POWERSHELL_PROCESS.query([_WlanHelper, self.guid[1:-1], "channel"],
-                        crp=False)[0].strip()
+                                     crp=False)[0].strip()
         return int(x)
 
     def setchannel(self, channel):
@@ -717,9 +744,11 @@ class NetworkInterface(object):
     def __repr__(self):
         return "<%s %s %s>" % (self.__class__.__name__, self.name, self.guid)
 
+
 def pcap_service_name():
     """Return the pcap adapter service's name"""
     return "npcap" if conf.use_npcap else "npf"
+
 
 def pcap_service_status():
     """Returns a tuple (name, description, started) of the windows pcap adapter"""
@@ -731,6 +760,7 @@ def pcap_service_status():
             return (name, description, started)
     return (None, None, None)
 
+
 def pcap_service_control(action, askadmin=True):
     """Util to run pcap control command"""
     if not conf.prog.powershell:
@@ -739,18 +769,23 @@ def pcap_service_control(action, askadmin=True):
     stdout = POWERSHELL_PROCESS.query([_encapsulate_admin(command) if askadmin else command])
     return "error" not in "".join(stdout).lower()
 
+
 def pcap_service_start(askadmin=True):
     """Starts the pcap adapter. Will ask for admin. Returns True if success"""
     return pcap_service_control('Start-Service', askadmin=askadmin)
 
+
 def pcap_service_stop(askadmin=True):
     """Stops the pcap adapter. Will ask for admin. Returns True if success"""
-    return pcap_service_control('Stop-Service', askadmin=askadmin) 
-    
+    return pcap_service_control('Stop-Service', askadmin=askadmin)
+
+
 from scapy.modules.six.moves import UserDict
 
+
 class NetworkInterfaceDict(UserDict):
-    """Store information about network interfaces and convert between names""" 
+    """Store information about network interfaces and convert between names"""
+
     def load_from_powershell(self):
         if not conf.prog.os_access:
             return
@@ -769,9 +804,10 @@ class NetworkInterfaceDict(UserDict):
                     interface.ip = ifaces_ips.get(interface.name, "")
             except (KeyError, PcapNameNotFoundError):
                 pass
-        
+
         if not self.data and conf.use_winpcapy:
             _detect = pcap_service_status()
+
             def _ask_user():
                 if not conf.interactive:
                     return False
@@ -870,11 +906,13 @@ class NetworkInterfaceDict(UserDict):
     def __repr__(self):
         return self.show(print_result=False)
 
+
 # Init POWERSHELL_PROCESS
 POWERSHELL_PROCESS = _PowershellManager()
 
 IFACES = ifaces = NetworkInterfaceDict()
 IFACES.load_from_powershell()
+
 
 def pcapname(dev):
     """Return pypcap device name for given interface or libdnet/Scapy
@@ -894,31 +932,51 @@ def pcapname(dev):
             return None
         raise
 
+
 def dev_from_pcapname(pcap_name):
     """Return libdnet/Scapy device name for given pypcap device name"""
     return IFACES.dev_from_pcapname(pcap_name)
 
+
 def dev_from_index(if_index):
     """Return Windows adapter name for given Windows interface index"""
     return IFACES.dev_from_index(if_index)
-    
+
+
 def show_interfaces(resolve_mac=True):
     """Print list of available network interfaces"""
     return IFACES.show(resolve_mac)
 
+
 _orig_open_pcap = pcapdnet.open_pcap
+
+
 def open_pcap(iface, *args, **kargs):
+    """open_pcap: Windows routine for creating a pcap from an interface.
+    This function is also responsible for detecting monitor mode.
+    """
     iface_pcap_name = pcapname(iface)
     if not isinstance(iface, NetworkInterface) and iface_pcap_name is not None:
         iface = IFACES.dev_from_name(iface)
-    if conf.use_npcap and isinstance(iface, NetworkInterface) and iface.ismonitor():
-        kargs["monitor"] = True
+    if conf.use_npcap and isinstance(iface, NetworkInterface):
+        monitored = iface.ismonitor()
+        kw_monitor = kargs.get("monitor", None)
+        if kw_monitor is None:
+            # The monitor param is not specified. Matching it to current state
+            kargs["monitor"] = monitored
+        elif kw_monitor is not monitored:
+            # The monitor param is specified, and not matching the current
+            # interface state
+            iface.setmonitor(kw_monitor)
     return _orig_open_pcap(iface_pcap_name, *args, **kargs)
+
+
 pcapdnet.open_pcap = open_pcap
 
 get_if_raw_hwaddr = pcapdnet.get_if_raw_hwaddr = lambda iface, *args, **kargs: (
     ARPHDR_ETHER, mac2str(IFACES.dev_from_pcapname(pcapname(iface)).mac)
 )
+
 
 def _read_routes_xp():
     # The InterfaceIndex in Win32_IP4RouteTable does not match the
@@ -946,18 +1004,20 @@ def _read_routes_xp():
             routes.append((dst, mask, gw, iface, iface.ip, metric))
     return routes
 
+
 def _read_routes_7():
-    routes=[]
+    routes = []
     for line in exec_query(['Get-WmiObject', 'Win32_IP4RouteTable'],
                            ['Name', 'Mask', 'NextHop', 'InterfaceIndex', 'Metric1']):
         try:
             iface = dev_from_index(line[3])
-            ip = "127.0.0.1" if line[3] == "1" else iface.ip # Force loopback on iface 1
+            ip = "127.0.0.1" if line[3] == "1" else iface.ip  # Force loopback on iface 1
             routes.append((atol(line[0]), atol(line[1]), line[2], iface, ip, int(line[4])))
         except ValueError:
             continue
     return routes
-        
+
+
 def read_routes():
     routes = []
     if not conf.prog.os_access:
@@ -970,12 +1030,13 @@ def read_routes():
             routes = _read_routes_xp()
         else:
             routes = _read_routes_7()
-    except Exception as e:    
+    except Exception as e:
         warning("Error building scapy IPv4 routing table : %s", e)
     else:
         if not routes:
             warning("No default IPv4 routes found. Your Windows release may no be supported and you have to enter your routes manually")
     return routes
+
 
 def _get_metrics(ipv6=False):
     """Returns a dict containing all IPv4 or IPv6 interfaces' metric,
@@ -996,6 +1057,7 @@ def _get_metrics(ipv6=False):
             _buffer.append(_line)
     return res
 
+
 def _read_routes_post2008():
     routes = []
     if4_metrics = None
@@ -1014,10 +1076,10 @@ def _read_routes_post2008():
         #     log_loading.warning("Building Scapy's routing table: Couldn't get outgoing interface for destination %s", dest)
         #     continue
         dest, mask = line[1].split('/')
-        ip = "127.0.0.1" if line[0] == "1" else iface.ip # Force loopback on iface 1
+        ip = "127.0.0.1" if line[0] == "1" else iface.ip  # Force loopback on iface 1
         if not line[4].strip():  # InterfaceMetric is not available. Load it from netsh
             if not if4_metrics:
-                 if4_metrics = _get_metrics()
+                if4_metrics = _get_metrics()
             metric = int(line[3]) + if4_metrics.get(iface.win_index, 0)  # RouteMetric + InterfaceMetric
         else:
             metric = int(line[3]) + int(line[4])  # RouteMetric + InterfaceMetric
@@ -1026,8 +1088,9 @@ def _read_routes_post2008():
     return routes
 
 ############
-### IPv6 ###
+#   IPv6   #
 ############
+
 
 def in6_getifaddr():
     """
@@ -1044,8 +1107,9 @@ def in6_getifaddr():
         ifaddrs.append(("::1", 0, scapy.consts.LOOPBACK_INTERFACE))
     return ifaddrs
 
+
 def _append_route6(routes, dpref, dp, nh, iface, lifaddr, metric):
-    cset = [] # candidate set (possible source addresses)
+    cset = []  # candidate set (possible source addresses)
     if iface.name == scapy.consts.LOOPBACK_NAME:
         if dpref == '::':
             return
@@ -1058,8 +1122,10 @@ def _append_route6(routes, dpref, dp, nh, iface, lifaddr, metric):
     # APPEND (DESTINATION, NETMASK, NEXT HOP, IFACE, CANDIDATS, METRIC)
     routes.append((dpref, dp, nh, iface, cset, metric))
 
+
 def _read_routes6_post2008():
     routes6 = []
+    if6_metrics = None
     # This works only starting from Windows 8/2012 and up. For older Windows another solution is needed
     # Get-NetRoute -AddressFamily IPV6 | select ifIndex, DestinationPrefix, NextHop | fl
     lifaddr = in6_getifaddr()
@@ -1073,10 +1139,16 @@ def _read_routes6_post2008():
         dpref, dp = line[1].split('/')
         dp = int(dp)
         nh = line[2]
-        metric = int(line[3])+int(line[4])
+        if not line[4].strip():  # InterfaceMetric is not available. Load it from netsh
+            if not if6_metrics:
+                if6_metrics = _get_metrics(ipv6=True)
+            metric = int(line[3]) + if6_metrics.get(iface.win_index, 0)  # RouteMetric + InterfaceMetric
+        else:
+            metric = int(line[3]) + int(line[4])  # RouteMetric + InterfaceMetric
 
         _append_route6(routes6, dpref, dp, nh, iface, lifaddr, metric)
     return routes6
+
 
 def _read_routes6_7():
     # Not supported in powershell, we have to use netsh
@@ -1090,14 +1162,14 @@ def _read_routes6_7():
     r_all = ["(.*)"]
     r_ipv6 = [".*:\s+([A-z|0-9|:]+(\/\d+)?)"]
     # Build regex list for each object
-    regex_list = r_ipv6*2 + r_int + r_all*3 + r_int + r_all*3
-    current_object =  []
+    regex_list = r_ipv6 * 2 + r_int + r_all * 3 + r_int + r_all * 3
+    current_object = []
     index = 0
     for l in stdout:
         if not l.strip():
             if not current_object:
                 continue
-            
+
             if len(current_object) == len(regex_list):
                 try:
                     if_index = current_object[2]
@@ -1111,7 +1183,7 @@ def _read_routes6_7():
                 dp = int(_ip[1])
                 _match = re.search(r_ipv6[0], current_object[3])
                 nh = "::"
-                if _match: # Detect if Next Hop is specified (if not, it will be the IFName)
+                if _match:  # Detect if Next Hop is specified (if not, it will be the IFName)
                     _nhg1 = _match.group(1)
                     nh = _nhg1 if re.match(".*:.*:.*", _nhg1) else "::"
                 metric = int(current_object[6]) + if6_metrics.get(if_index, 0)
@@ -1128,19 +1200,21 @@ def _read_routes6_7():
                 index = index + 1
     return routes
 
+
 def read_routes6():
     routes6 = []
     if not conf.prog.os_access:
         return routes6
     try:
         # Interface metrics have been added to powershell in win10+
-        if is_new_release(win10more=True):
+        if is_new_release():
             routes6 = _read_routes6_post2008()
         else:
             routes6 = _read_routes6_7()
-    except Exception as e:    
+    except Exception as e:
         warning("Error building scapy IPv6 routing table : %s", e)
     return routes6
+
 
 def get_working_if():
     try:
@@ -1151,12 +1225,14 @@ def get_working_if():
         # no route
         return scapy.consts.LOOPBACK_INTERFACE
 
+
 def _get_valid_guid():
     if scapy.consts.LOOPBACK_INTERFACE:
         return scapy.consts.LOOPBACK_INTERFACE.guid
     else:
         return next((i.guid for i in six.itervalues(IFACES)
                      if not i.is_invalid()), None)
+
 
 def route_add_loopback(routes=None, ipv6=False, iflist=None):
     """Add a route to 127.0.0.1 and ::1 to simplify unit tests on Windows"""
@@ -1230,6 +1306,7 @@ if not conf.use_winpcapy:
 
     class NotAvailableSocket(SuperSocket):
         desc = "wpcap.dll missing"
+
         def __init__(self, *args, **kargs):
             raise RuntimeError("Sniffing and sending packets is not available: "
                                "winpcap is not installed")

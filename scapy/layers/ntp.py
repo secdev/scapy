@@ -15,10 +15,10 @@ import datetime
 
 from scapy.packet import Packet, bind_layers
 from scapy.fields import (BitField, BitEnumField, ByteField, ByteEnumField, \
-XByteField, SignedByteField, FlagsField, ShortField, LEShortField, IntField,\
-LEIntField, FixedPointField, IPField, StrField, StrFixedLenField,\
-StrFixedLenEnumField, XStrFixedLenField, PacketField, PacketLenField,\
-PacketListField, FieldListField, ConditionalField, PadField)
+                          XByteField, SignedByteField, FlagsField, ShortField, LEShortField, IntField,\
+                          LEIntField, FixedPointField, IPField, StrField, StrFixedLenField,\
+                          StrFixedLenEnumField, XStrFixedLenField, PacketField, PacketLenField,\
+                          PacketListField, FieldListField, ConditionalField, PadField)
 from scapy.layers.inet6 import IP6Field
 from scapy.layers.inet import UDP
 from scapy.utils import issubtype, lhex
@@ -28,9 +28,8 @@ import scapy.modules.six as six
 from scapy.modules.six.moves import range
 
 
-
 #############################################################################
-##### Constants
+# Constants
 #############################################################################
 
 _NTP_AUTH_MD5_MIN_SIZE = 68
@@ -54,7 +53,7 @@ _NTP_HASH_SIZE = 128
 
 
 #############################################################################
-##### Fields and utilities
+#     Fields and utilities
 #############################################################################
 
 class XLEShortField(LEShortField):
@@ -96,7 +95,7 @@ class TimeStampField(FixedPointField):
 
 
 #############################################################################
-##### NTP
+#     NTP
 #############################################################################
 
 # RFC 5905 / Section 7.3
@@ -267,10 +266,10 @@ class NTPExtension(Packet):
     Packet handling a NTPv4 extension.
     """
 
-    #________________________________________________________________________
+    #########################################################################
     #
     # RFC 7822
-    #________________________________________________________________________
+    #########################################################################
     #
     # 7.5.  NTP Extension Field Format
     #
@@ -298,7 +297,7 @@ class NTPExtension(Packet):
     #
     #    All extension fields are zero-padded to a word (four octets)
     #    boundary.
-    #________________________________________________________________________
+    #########################################################################
     #
 
     name = "extension"
@@ -355,16 +354,16 @@ class NTPExtensions(Packet):
     Packet handling the NTPv4 extensions and the "MAC part" of the packet.
     """
 
-    #________________________________________________________________________
+    #########################################################################
     #
     # RFC 5905 / RFC 7822
-    #________________________________________________________________________
+    #########################################################################
     #
     # 7.5. NTP Extension Field Format
     #
     # In NTPv4, one or more extension fields can be inserted after the
     # header and before the MAC, if a MAC is present.
-    #________________________________________________________________________
+    #########################################################################
     #
 
     name = "NTPv4 extensions"
@@ -380,10 +379,10 @@ class NTPHeader(NTP):
     Packet handling the RFC 5905 NTP packet.
     """
 
-    #________________________________________________________________________
+    #########################################################################
     #
     # RFC 5905
-    #________________________________________________________________________
+    #########################################################################
     #
     #   0                   1                   2                   3
     #   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -432,7 +431,7 @@ class NTPHeader(NTP):
     #  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     #
     #                  Figure 8: Packet Header Format
-    #________________________________________________________________________
+    #########################################################################
     #
 
     name = "NTPHeader"
@@ -489,7 +488,7 @@ class _NTPInvalidDataException(Exception):
 
 
 ##############################################################################
-##### Private (mode 7)
+#     Private (mode 7)
 ##############################################################################
 
 # Operation codes
@@ -689,13 +688,13 @@ class NTPControlStatusField(PacketField):
     This field provides better readability for the "status" field.
     """
 
-    #________________________________________________________________________
+    #########################################################################
     #
     # RFC 1305
-    #________________________________________________________________________
+    #########################################################################
     #
     # Appendix B.3. Commands // ntpd source code: ntp_control.h
-    #________________________________________________________________________
+    #########################################################################
     #
 
     def m2i(self, pkt, m):
@@ -795,13 +794,13 @@ class NTPControl(NTP):
     Packet handling NTP mode 6 / "Control" messages.
     """
 
-    #________________________________________________________________________
+    #########################################################################
     #
     # RFC 1305
-    #________________________________________________________________________
+    #########################################################################
     #
     # Appendix B.3. Commands // ntpd source code: ntp_control.h
-    #________________________________________________________________________
+    #########################################################################
     #
 
     name = "Control message"
@@ -835,7 +834,7 @@ class NTPControl(NTP):
 
 
 ##############################################################################
-##### Private (mode 7)
+#     Private (mode 7)
 ##############################################################################
 
 _information_error_codes = {
@@ -1676,10 +1675,9 @@ class NTPPrivate(NTP):
     Packet handling the private (mode 7) messages.
     """
 
-    #________________________________________________________________________
-    #
+    #########################################################################
     # ntpd source code: ntp_request.h
-    #________________________________________________________________________
+    #########################################################################
     #
     # A mode 7 packet is used exchanging data between an NTP server
     # and a client for purposes other than time synchronization, e.g.
@@ -1782,7 +1780,7 @@ class NTPPrivate(NTP):
     # Implementations using encryption might want to include a time stamp
     # or other data in the request packet padding.  The key used for requests
     # is implementation defined, but key 15 is suggested as a default.
-    #________________________________________________________________________
+    #########################################################################
     #
 
     name = "Private (mode 7)"
@@ -1827,7 +1825,7 @@ class NTPPrivate(NTP):
 
 
 ##############################################################################
-##### Layer bindings
+#     Layer bindings
 ##############################################################################
 
 bind_layers(UDP, NTP, {"sport": 123})

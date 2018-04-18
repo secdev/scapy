@@ -34,8 +34,12 @@ from scapy.layers.dot11 import Dot11
 
 # Dictionary to map the TLV type to the class name of a sub-packet
 _ppi_types = {}
+
+
 def addPPIType(id, value):
     _ppi_types[id] = value
+
+
 def getPPIType(id, default="default"):
     return _ppi_types.get(id, _ppi_types.get(default, None))
 
@@ -43,12 +47,13 @@ def getPPIType(id, default="default"):
 # Default PPI Field Header
 class PPIGenericFldHdr(Packet):
     name = "PPI Field Header"
-    fields_desc = [ LEShortField('pfh_type', 0),
-                    FieldLenField('pfh_length', None, length_of="value", fmt='<H', adjust=lambda p,x:x+4),
-                    StrLenField("value", "", length_from=lambda p:p.pfh_length) ]
+    fields_desc = [LEShortField('pfh_type', 0),
+                   FieldLenField('pfh_length', None, length_of="value", fmt='<H', adjust=lambda p, x:x + 4),
+                   StrLenField("value", "", length_from=lambda p:p.pfh_length)]
 
     def extract_padding(self, p):
-        return b"",p
+        return b"", p
+
 
 def _PPIGuessPayloadClass(p, **kargs):
     """ This function tells the PacketListField how it should extract the
@@ -59,7 +64,7 @@ def _PPIGuessPayloadClass(p, **kargs):
         payload, the remainder of p is added as out's payload.
     """
     if len(p) >= 4:
-        t,pfh_len = struct.unpack("<HH", p[:4])
+        t, pfh_len = struct.unpack("<HH", p[:4])
         # Find out if the value t is in the dict _ppi_types.
         # If not, return the default TLV class
         cls = getPPIType(t, "default")
@@ -79,19 +84,19 @@ def _PPIGuessPayloadClass(p, **kargs):
     return out
 
 
-
-
 class PPI(Packet):
     name = "PPI Packet Header"
-    fields_desc = [ ByteField('pph_version', 0),
-                    ByteField('pph_flags', 0),
-                    FieldLenField('pph_len', None, length_of="PPIFieldHeaders", fmt="<H", adjust=lambda p,x:x+8 ),
-                    LEIntField('dlt', None),
-                    PacketListField("PPIFieldHeaders", [],  _PPIGuessPayloadClass, length_from=lambda p:p.pph_len-8,) ]
-    def guess_payload_class(self,payload):
+    fields_desc = [ByteField('pph_version', 0),
+                   ByteField('pph_flags', 0),
+                   FieldLenField('pph_len', None, length_of="PPIFieldHeaders", fmt="<H", adjust=lambda p, x:x + 8),
+                   LEIntField('dlt', None),
+                   PacketListField("PPIFieldHeaders", [], _PPIGuessPayloadClass, length_from=lambda p:p.pph_len - 8,)]
+
+    def guess_payload_class(self, payload):
         return conf.l2types.get(self.dlt, Packet.guess_payload_class(self, payload))
 
-#Register PPI
+
+# Register PPI
 addPPIType("default", PPIGenericFldHdr)
 
 conf.l2types.register(DLT_PPI, PPI)

@@ -213,6 +213,7 @@ associated string, but used that encoding format::
 
     class VarLenQField(Field):
         """ variable length quantities """
+        __slots__ = ["fld"]
     
         def __init__(self, name, default, fld):
             Field.__init__(self, name, default)

@@ -1,8 +1,8 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## Copyright (C) Gabriel Potter <gabriel@potter.fr>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# Copyright (C) Gabriel Potter <gabriel@potter.fr>
+# This program is published under a GPLv2 license
 
 """
 Python 2 and 3 link classes.
@@ -18,6 +18,7 @@ import scapy.modules.six as six
 # Python3 #
 ###########
 
+
 def cmp_to_key(mycmp):
     # TODO remove me once all 'key=cmp_to_key(..)' has been fixed in utils6.py, automaton.py
     """Convert a cmp= function into a key= function.
@@ -30,19 +31,26 @@ def cmp_to_key(mycmp):
     class K(object):
         def __init__(self, obj, *args):
             self.obj = obj
+
         def __lt__(self, other):
             return mycmp(self.obj, other.obj) < 0
+
         def __gt__(self, other):
             return mycmp(self.obj, other.obj) > 0
+
         def __eq__(self, other):
             return mycmp(self.obj, other.obj) == 0
+
         def __le__(self, other):
-            return mycmp(self.obj, other.obj) <= 0  
+            return mycmp(self.obj, other.obj) <= 0
+
         def __ge__(self, other):
             return mycmp(self.obj, other.obj) >= 0
+
         def __ne__(self, other):
             return mycmp(self.obj, other.obj) != 0
     return K
+
 
 def cmp(a, b):
     """Old Python 2 function"""
@@ -114,19 +122,23 @@ else:
                 return bytes([int(x)])
             return bytes([x])
 
+
 def bytes_hex(x):
     """Hexify a str or a bytes object"""
     return binascii.b2a_hex(raw(x))
 
+
 def hex_bytes(x):
     """De-hexify a str or a byte object"""
     return binascii.a2b_hex(raw(x))
+
 
 def base64_bytes(x):
     """Turn base64 into bytes"""
     if six.PY2:
         return base64.decodestring(x)
     return base64.decodebytes(raw(x))
+
 
 def bytes_base64(x):
     """Turn bytes into base64"""

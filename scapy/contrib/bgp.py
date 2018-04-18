@@ -347,7 +347,7 @@ subsequent_afis = {
     4: "Network Layer Reachability Information (NLRI) with MPLS Labels",  # RFC 3107
     5: "MCAST-VPN",  # RFC 6514
     6: "Network Layer Reachability Information used for Dynamic Placement of\
-        Multi-Segment Pseudowires", # RFC 7267
+        Multi-Segment Pseudowires",  # RFC 7267
     7: "Encapsulation SAFI",  # RFC 5512
     8: "MCAST-VPLS",  # RFC 7117
     64: "Tunnel SAFI",  # DRAFT-NALAWADE-KAPOOR-TUNNEL-SAFI-01
@@ -1646,6 +1646,20 @@ class BGPPAExtCommTrafficMarking(Packet):
     ]
 
 
+_ext_high_low_dict = {
+    BGPPAExtCommTwoOctetASSpecific: (0x00, 0x00),
+    BGPPAExtCommIPv4AddressSpecific: (0x01, 0x00),
+    BGPPAExtCommFourOctetASSpecific: (0x02, 0x00),
+    BGPPAExtCommOpaque: (0x03, 0x00),
+    BGPPAExtCommTrafficRate: (0x80, 0x06),
+    BGPPAExtCommTrafficAction: (0x80, 0x07),
+    BGPPAExtCommRedirectAS2Byte: (0x80, 0x08),
+    BGPPAExtCommTrafficMarking: (0x80, 0x09),
+    BGPPAExtCommRedirectIPv4: (0x81, 0x08),
+    BGPPAExtCommRedirectAS4Byte: (0x82, 0x08),
+}
+
+
 class _ExtCommValuePacketField(PacketField):
     """
     PacketField handling Extended Communities "value parts".
@@ -1753,7 +1767,7 @@ class BGPPAExtCommunity(Packet):
         ByteEnumField("type_high", 0, _ext_comm_types),
         _TypeLowField(
             "type_low",
-            0,
+            None,
             enum_from=lambda x: _get_ext_comm_subtype(x.type_high)
         ),
         _ExtCommValuePacketField(
@@ -1767,6 +1781,9 @@ class BGPPAExtCommunity(Packet):
     def post_build(self, p, pay):
         if self.value is None:
             p = p[:2]
+        if self.type_low is None and self.value is not None:
+            high, low = _ext_high_low_dict.get(self.value.__class__, (0x00, 0x00))
+            p = chb(high) + chb(low) + p[2:]
         return p + pay
 
 
@@ -1989,7 +2006,7 @@ class _PathAttrPacketField(PacketField):
         # Unassigned
         elif (type_code >= 30 and type_code <= 39) or\
             (type_code >= 41 and type_code <= 127) or\
-            (type_code >= 129 and type_code <= 254):
+                (type_code >= 129 and type_code <= 254):
             ret = conf.raw_layer(m)
         # Known path attributes
         else:
@@ -2024,12 +2041,12 @@ class BGPPathAttr(Packet):
         ConditionalField(
             ShortField("attr_ext_len", None),
             lambda x: x.type_flags != None and\
-                has_extended_length(x.type_flags)
+            has_extended_length(x.type_flags)
         ),
         ConditionalField(
             ByteField("attr_len", None),
             lambda x: x.type_flags != None and not\
-                has_extended_length(x.type_flags)
+            has_extended_length(x.type_flags)
         ),
         _PathAttrPacketField("attribute", None, Packet)
     ]

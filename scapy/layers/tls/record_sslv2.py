@@ -1,6 +1,6 @@
-## This file is part of Scapy
-## Copyright (C) 2017 Maxence Tury
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# Copyright (C) 2017 Maxence Tury
+# This program is published under a GPLv2 license
 
 """
 SSLv2 Record.
@@ -21,15 +21,15 @@ from scapy.layers.tls.basefields import (_SSLv2LengthField, _SSLv2PadField,
 
 
 ###############################################################################
-### SSLv2 Record Protocol                                                   ###
+#   SSLv2 Record Protocol                                                     #
 ###############################################################################
 
 class _SSLv2MsgListField(_TLSMsgListField):
     def __init__(self, name, default, length_from=None):
         if not length_from:
-            length_from=lambda pkt: ((pkt.len & 0x7fff) -
-                                     (pkt.padlen or 0) -
-                                     len(pkt.mac))
+            length_from = lambda pkt: ((pkt.len & 0x7fff) -
+                                       (pkt.padlen or 0) -
+                                       len(pkt.mac))
         super(_SSLv2MsgListField, self).__init__(name, default, length_from)
 
     def m2i(self, pkt, m):
@@ -44,17 +44,17 @@ class _SSLv2MsgListField(_TLSMsgListField):
             return cls(m, tls_session=pkt.tls_session)
 
     def i2m(self, pkt, p):
-       cur = b""
-       if isinstance(p, _GenericTLSSessionInheritance):
-           p.tls_session = pkt.tls_session
-           if not pkt.tls_session.frozen:
-               cur = p.raw_stateful()
-               p.post_build_tls_session_update(cur)
-           else:
-               cur = raw(p)
-       else:
-           cur = raw(p)
-       return cur
+        cur = b""
+        if isinstance(p, _GenericTLSSessionInheritance):
+            p.tls_session = pkt.tls_session
+            if not pkt.tls_session.frozen:
+                cur = p.raw_stateful()
+                p.post_build_tls_session_update(cur)
+            else:
+                cur = raw(p)
+        else:
+            cur = raw(p)
+        return cur
 
     def addfield(self, pkt, s, val):
         res = b""
@@ -69,18 +69,18 @@ class SSLv2(TLS):
     """
     __slots__ = ["with_padding", "protected_record"]
     name = "SSLv2"
-    fields_desc = [ _SSLv2LengthField("len", None),
-                    _SSLv2PadLenField("padlen", None),
-                    _TLSMACField("mac", b""),
-                    _SSLv2MsgListField("msg", []),
-                    _SSLv2PadField("pad", "") ]
+    fields_desc = [_SSLv2LengthField("len", None),
+                   _SSLv2PadLenField("padlen", None),
+                   _TLSMACField("mac", b""),
+                   _SSLv2MsgListField("msg", []),
+                   _SSLv2PadField("pad", "")]
 
     def __init__(self, *args, **kargs):
         self.with_padding = kargs.get("with_padding", False)
         self.protected_record = kargs.get("protected_record", None)
         super(SSLv2, self).__init__(*args, **kargs)
 
-    ### Parsing methods
+    # Parsing methods
 
     def _sslv2_mac_verify(self, msg, mac):
         secret = self.tls_session.rcs.cipher.key
@@ -111,9 +111,9 @@ class SSLv2(TLS):
             msglen_clean = msglen & 0x3fff
 
         hdr = s[:hdrlen]
-        efrag = s[hdrlen:hdrlen+msglen_clean]
-        self.protected_record = s[:hdrlen+msglen_clean]
-        r = s[hdrlen+msglen_clean:]
+        efrag = s[hdrlen:hdrlen + msglen_clean]
+        self.protected_record = s[:hdrlen + msglen_clean]
+        r = s[hdrlen + msglen_clean:]
 
         mac = pad = b""
 
@@ -171,15 +171,14 @@ class SSLv2(TLS):
         if s:
             try:
                 p = SSLv2(s, _internal=1, _underlayer=self,
-                          tls_session = self.tls_session)
+                          tls_session=self.tls_session)
             except KeyboardInterrupt:
                 raise
             except:
                 p = conf.raw_layer(s, _internal=1, _underlayer=self)
             self.add_payload(p)
 
-
-    ### Building methods
+    # Building methods
 
     def _sslv2_mac_add(self, msg):
         secret = self.tls_session.wcs.cipher.key

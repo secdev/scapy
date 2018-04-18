@@ -1,6 +1,6 @@
-## This file is part of Scapy
-## Copyright (C) 2017 Maxence Tury
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# Copyright (C) 2017 Maxence Tury
+# This program is published under a GPLv2 license
 
 """
 Common TLS 1.3 fields & bindings.
@@ -27,14 +27,14 @@ from scapy.layers.tls.crypto.ciphers import CipherError
 
 
 ###############################################################################
-### TLS Record Protocol                                                     ###
+#   TLS Record Protocol                                                       #
 ###############################################################################
 
 class TLSInnerPlaintext(_GenericTLSSessionInheritance):
     name = "TLS Inner Plaintext"
-    fields_desc = [ _TLSMsgListField("msg", []),
-                    ByteEnumField("type", None, _tls_type),
-                    XStrField("pad", "") ]
+    fields_desc = [_TLSMsgListField("msg", []),
+                   ByteEnumField("type", None, _tls_type),
+                   XStrField("pad", "")]
 
     def pre_dissect(self, s):
         """
@@ -54,9 +54,10 @@ class TLSInnerPlaintext(_GenericTLSSessionInheritance):
             msg_len = l - n
         self.fields_desc[0].length_from = lambda pkt: msg_len
 
-        self.type = struct.unpack("B", s[msg_len:msg_len+1])[0]
+        self.type = struct.unpack("B", s[msg_len:msg_len + 1])[0]
 
         return s
+
 
 class _TLSInnerPlaintextField(PacketField):
     def __init__(self, name, default, *args, **kargs):
@@ -88,18 +89,17 @@ class _TLSInnerPlaintextField(PacketField):
 class TLS13(_GenericTLSSessionInheritance):
     __slots__ = ["deciphered_len"]
     name = "TLS 1.3"
-    fields_desc = [ ByteEnumField("type", 0x17, _tls_type),
-                    _TLSVersionField("version", 0x0301, _tls_version),
-                    _TLSLengthField("len", None),
-                    _TLSInnerPlaintextField("inner", TLSInnerPlaintext()),
-                    _TLSMACField("auth_tag", None) ]
+    fields_desc = [ByteEnumField("type", 0x17, _tls_type),
+                   _TLSVersionField("version", 0x0301, _tls_version),
+                   _TLSLengthField("len", None),
+                   _TLSInnerPlaintextField("inner", TLSInnerPlaintext()),
+                   _TLSMACField("auth_tag", None)]
 
     def __init__(self, *args, **kargs):
         self.deciphered_len = kargs.get("deciphered_len", None)
         super(TLS13, self).__init__(*args, **kargs)
 
-
-    ### Parsing methods
+    # Parsing methods
 
     def _tls_auth_decrypt(self, s):
         """
@@ -133,7 +133,7 @@ class TLS13(_GenericTLSSessionInheritance):
             return s
         else:
             msglen = struct.unpack('!H', s[3:5])[0]
-            hdr, efrag, r = s[:5], s[5:5+msglen], s[msglen+5:]
+            hdr, efrag, r = s[:5], s[5:5 + msglen], s[msglen + 5:]
             frag, auth_tag = self._tls_auth_decrypt(efrag)
             self.deciphered_len = len(frag)
             return hdr + frag + auth_tag + r
@@ -160,15 +160,14 @@ class TLS13(_GenericTLSSessionInheritance):
         if s:
             try:
                 p = TLS(s, _internal=1, _underlayer=self,
-                        tls_session = self.tls_session)
+                        tls_session=self.tls_session)
             except KeyboardInterrupt:
                 raise
             except:
                 p = conf.raw_layer(s, _internal=1, _underlayer=self)
             self.add_payload(p)
 
-
-    ### Building methods
+    # Building methods
 
     def _tls_auth_encrypt(self, s):
         """

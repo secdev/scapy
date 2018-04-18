@@ -1,6 +1,6 @@
-## This file is part of Scapy
-## Copyright (C) 2017 Maxence Tury
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# Copyright (C) 2017 Maxence Tury
+# This program is published under a GPLv2 license
 
 """
 Stateless HKDF for TLS 1.3.
@@ -35,7 +35,7 @@ class TLS13_HKDF(object):
         return hkdf.derive(prk)
 
     def expand_label(self, secret, label, hash_value, length):
-        hkdf_label  = struct.pack("!H", length)
+        hkdf_label = struct.pack("!H", length)
         hkdf_label += struct.pack("B", 9 + len(label))
         hkdf_label += b"TLS 1.3, "
         hkdf_label += label

@@ -1,0 +1,79 @@
+% SDNV library tests
+
+############
+############
++ Test SDNV encoding/decoding
+
+= Load SDNVUtil
+
+# Explicit to load SDNVUtil
+load_contrib("sdnv")
+
+= Define utils
+
+def doTestVector(vec):
+    # Test numbers individually
+    for n in vec:
+        ba = SDNVUtil.encode(n)
+        (num, sdnvLen) = SDNVUtil.decode(ba, 0)
+        if num != n:
+            print("Error encoding/decoding", n)
+            return False
+    # Encode them all in a bunch
+    ba = bytearray()
+    for n in vec:
+        temp = SDNVUtil.encode(n)
+        ba = ba + temp
+    offset = 0
+    outNums = []
+    for n in vec:
+        (num, sdnvLen) = SDNVUtil.decode(ba, offset)
+        outNums.append(num)
+        offset += sdnvLen
+    if outNums != vec:
+        print("Failed on multi-number encode/decode")
+        return False
+    return True
+
+= Vector tests: small ints
+
+ba = bytearray()
+theNums = [0, 1, 2, 5, 126, 127, 128, 129,
+           130, 150, 190, 220, 254, 255, 256]
+assert doTestVector(theNums)
+
+= Vector tests: big ints
+
+theNums = [0, 1, 0, 1, 0, 128, 32765,
+           SDNVUtil.maxValue - 10, 4, 32766, 32767, 32768, 32769]
+assert doTestVector(theNums)
+
+= 100 random vector tests
+
+import random
+
+def doRandomTestVector(howMany):
+    vec = []
+    for i in range(0, howMany):
+        vec.append(random.randint(0, SDNVUtil.maxValue))
+    result = doTestVector(vec)
+    return result
+
+assert doRandomTestVector(100)
+
+= SDVN tests
+
+# Tests using the SDNV class
+s = SDNV(30)
+b = s.encode(17)
+theNums = [0, 4, 20, 29, 30, 31, 33]
+not_enc = []
+for n in theNums:
+    try:
+        b = s.encode(n)
+    except SDNVValueError as e:
+        print("Could not encode", n, "-- maximum value is:", e.maxValue)
+        not_enc.append(n)
+
+not_enc.sort()
+assert not_enc == [31, 33]

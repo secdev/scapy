@@ -50,6 +50,7 @@ from scapy.layers.inet import IP
 from scapy.layers.inet6 import *
 from scapy.compat import chb, raw
 
+
 class EigrpIPField(StrField, IPField):
     """
     This is a special field type for handling ip addresses of destination networks in internal and
@@ -62,9 +63,9 @@ class EigrpIPField(StrField, IPField):
 
     def __init__(self, name, default, length=None, length_from=None):
         StrField.__init__(self, name, default)
-        self.length_from  = length_from
+        self.length_from = length_from
         if length is not None:
-            self.length_from = lambda pkt,length=length: length
+            self.length_from = lambda pkt, length=length: length
 
     def h2i(self, pkt, x):
         return IPField.h2i(self, pkt, x)
@@ -119,6 +120,7 @@ class EigrpIPField(StrField, IPField):
     def randval(self):
         return IPField.randval(self)
 
+
 class EigrpIP6Field(StrField, IP6Field):
     """
     This is a special field type for handling ip addresses of destination networks in internal and
@@ -130,9 +132,9 @@ class EigrpIP6Field(StrField, IP6Field):
 
     def __init__(self, name, default, length=None, length_from=None):
         StrField.__init__(self, name, default)
-        self.length_from  = length_from
+        self.length_from = length_from
         if length is not None:
-            self.length_from = lambda pkt,length=length: length
+            self.length_from = lambda pkt, length=length: length
 
     def any2i(self, pkt, x):
         return IP6Field.any2i(self, pkt, x)
@@ -183,43 +185,46 @@ class EigrpIP6Field(StrField, IP6Field):
     def randval(self):
         return IP6Field.randval(self)
 
+
 class EIGRPGeneric(Packet):
     name = "EIGRP Generic TLV"
-    fields_desc = [ XShortField("type", 0x0000),
-            FieldLenField("len", None, "value", "!H", adjust=lambda pkt,x: x + 4),
-            StrLenField("value", b"\x00", length_from=lambda pkt: pkt.len - 4)]
+    fields_desc = [XShortField("type", 0x0000),
+                   FieldLenField("len", None, "value", "!H", adjust=lambda pkt, x: x + 4),
+                   StrLenField("value", b"\x00", length_from=lambda pkt: pkt.len - 4)]
 
     def guess_payload_class(self, p):
         return conf.padding_layer
 
+
 class EIGRPParam(EIGRPGeneric):
     name = "EIGRP Parameters"
-    fields_desc = [ XShortField("type", 0x0001),
-            ShortField("len", 12),
-            # Bandwidth
-            ByteField("k1", 1),
-            # Load
-            ByteField("k2", 0),
-            # Delay
-            ByteField("k3", 1),
-            # Reliability
-            ByteField("k4", 0),
-            # MTU
-            ByteField("k5", 0),
-            ByteField("reserved", 0),
-            ShortField("holdtime", 15)
-            ]
+    fields_desc = [XShortField("type", 0x0001),
+                   ShortField("len", 12),
+                   # Bandwidth
+                   ByteField("k1", 1),
+                   # Load
+                   ByteField("k2", 0),
+                   # Delay
+                   ByteField("k3", 1),
+                   # Reliability
+                   ByteField("k4", 0),
+                   # MTU
+                   ByteField("k5", 0),
+                   ByteField("reserved", 0),
+                   ShortField("holdtime", 15)
+                   ]
+
 
 class EIGRPAuthData(EIGRPGeneric):
     name = "EIGRP Authentication Data"
-    fields_desc = [ XShortField("type", 0x0002),
-            FieldLenField("len", None, "authdata", "!H", adjust=lambda pkt,x: x + 24),
-            ShortEnumField("authtype", 2, {2 : "MD5"}),
-            ShortField("keysize", None),
-            IntField("keyid", 1),
-            StrFixedLenField("nullpad", b"\x00" * 12, 12),
-            StrLenField("authdata", RandString(16), length_from=lambda pkt: pkt.keysize)
-            ]
+    fields_desc = [XShortField("type", 0x0002),
+                   FieldLenField("len", None, "authdata", "!H", adjust=lambda pkt, x: x + 24),
+                   ShortEnumField("authtype", 2, {2: "MD5"}),
+                   ShortField("keysize", None),
+                   IntField("keyid", 1),
+                   StrFixedLenField("nullpad", b"\x00" * 12, 12),
+                   StrLenField("authdata", RandString(16), length_from=lambda pkt: pkt.keysize)
+                   ]
 
     def post_build(self, p, pay):
         p += pay
@@ -230,16 +235,17 @@ class EIGRPAuthData(EIGRPGeneric):
 
         return p
 
+
 class EIGRPSeq(EIGRPGeneric):
     name = "EIGRP Sequence"
-    fields_desc = [ XShortField("type", 0x0003),
-            ShortField("len", None),
-            ByteField("addrlen", 4),
-            ConditionalField(IPField("ipaddr", "192.168.0.1"),
-                            lambda pkt:pkt.addrlen == 4),
-            ConditionalField(IP6Field("ip6addr", "2001::"),
-                            lambda pkt:pkt.addrlen == 16)
-            ]
+    fields_desc = [XShortField("type", 0x0003),
+                   ShortField("len", None),
+                   ByteField("addrlen", 4),
+                   ConditionalField(IPField("ipaddr", "192.168.0.1"),
+                                    lambda pkt:pkt.addrlen == 4),
+                   ConditionalField(IP6Field("ip6addr", "2001::"),
+                                    lambda pkt:pkt.addrlen == 16)
+                   ]
 
     def post_build(self, p, pay):
         p += pay
@@ -249,6 +255,7 @@ class EIGRPSeq(EIGRPGeneric):
             p = p[:2] + chb((l >> 8) & 0xff) + chb(l & 0xff) + p[4:]
 
         return p
+
 
 class ShortVersionField(ShortField):
     def i2repr(self, pkt, x):
@@ -285,138 +292,150 @@ class ShortVersionField(ShortField):
     def randval(self):
         return RandShort()
 
+
 class EIGRPSwVer(EIGRPGeneric):
     name = "EIGRP Software Version"
-    fields_desc = [ XShortField("type", 0x0004),
-            ShortField("len", 8),
-            ShortVersionField("ios", "v12.0"),
-            ShortVersionField("eigrp", "v1.2")
-            ]
+    fields_desc = [XShortField("type", 0x0004),
+                   ShortField("len", 8),
+                   ShortVersionField("ios", "v12.0"),
+                   ShortVersionField("eigrp", "v1.2")
+                   ]
+
 
 class EIGRPNms(EIGRPGeneric):
     name = "EIGRP Next Multicast Sequence"
-    fields_desc = [ XShortField("type", 0x0005),
-            ShortField("len", 8),
-            IntField("nms", 2)
-            ]
+    fields_desc = [XShortField("type", 0x0005),
+                   ShortField("len", 8),
+                   IntField("nms", 2)
+                   ]
+
 
 # Don't get confused by the term "receive-only". This flag is always set, when you configure
 # one of the stub options. It's also the only flag set, when you configure "eigrp stub receive-only".
 _EIGRP_STUB_FLAGS = ["connected", "static", "summary", "receive-only", "redistributed", "leak-map"]
 
+
 class EIGRPStub(EIGRPGeneric):
     name = "EIGRP Stub Router"
-    fields_desc = [ XShortField("type", 0x0006),
-            ShortField("len", 6),
-            FlagsField("flags", 0x000d, 16, _EIGRP_STUB_FLAGS)]
+    fields_desc = [XShortField("type", 0x0006),
+                   ShortField("len", 6),
+                   FlagsField("flags", 0x000d, 16, _EIGRP_STUB_FLAGS)]
 
 # Delay 0xffffffff == Destination Unreachable
+
+
 class EIGRPIntRoute(EIGRPGeneric):
     name = "EIGRP Internal Route"
-    fields_desc = [ XShortField("type", 0x0102),
-            FieldLenField("len", None, "dst", "!H", adjust=lambda pkt,x: x + 25),
-            IPField("nexthop", "192.168.0.0"),
-            IntField("delay", 128000),
-            IntField("bandwidth", 256),
-            ThreeBytesField("mtu", 1500),
-            ByteField("hopcount", 0),
-            ByteField("reliability", 255),
-            ByteField("load", 0),
-            XShortField("reserved", 0),
-            ByteField("prefixlen", 24),
-            EigrpIPField("dst", "192.168.1.0", length_from=lambda pkt: pkt.prefixlen),
-            ]
+    fields_desc = [XShortField("type", 0x0102),
+                   FieldLenField("len", None, "dst", "!H", adjust=lambda pkt, x: x + 25),
+                   IPField("nexthop", "192.168.0.0"),
+                   IntField("delay", 128000),
+                   IntField("bandwidth", 256),
+                   ThreeBytesField("mtu", 1500),
+                   ByteField("hopcount", 0),
+                   ByteField("reliability", 255),
+                   ByteField("load", 0),
+                   XShortField("reserved", 0),
+                   ByteField("prefixlen", 24),
+                   EigrpIPField("dst", "192.168.1.0", length_from=lambda pkt: pkt.prefixlen),
+                   ]
+
 
 _EIGRP_EXTERNAL_PROTOCOL_ID = {
-                            0x01 : "IGRP",
-                            0x02 : "EIGRP",
-                            0x03 : "Static Route",
-                            0x04 : "RIP",
-                            0x05 : "Hello",
-                            0x06 : "OSPF",
-                            0x07 : "IS-IS",
-                            0x08 : "EGP",
-                            0x09 : "BGP",
-                            0x0A : "IDRP",
-                            0x0B : "Connected Link"
-                            }
+    0x01: "IGRP",
+    0x02: "EIGRP",
+    0x03: "Static Route",
+    0x04: "RIP",
+    0x05: "Hello",
+    0x06: "OSPF",
+    0x07: "IS-IS",
+    0x08: "EGP",
+    0x09: "BGP",
+    0x0A: "IDRP",
+    0x0B: "Connected Link"
+}
 
 _EIGRP_EXTROUTE_FLAGS = ["external", "candidate-default"]
 
+
 class EIGRPExtRoute(EIGRPGeneric):
     name = "EIGRP External Route"
-    fields_desc = [ XShortField("type", 0x0103),
-            FieldLenField("len", None, "dst", "!H", adjust=lambda pkt,x: x + 45),
-            IPField("nexthop", "192.168.0.0"),
-            IPField("originrouter", "192.168.0.1"),
-            IntField("originasn", 0),
-            IntField("tag", 0),
-            IntField("externalmetric", 0),
-            ShortField("reserved", 0),
-            ByteEnumField("extprotocolid", 3, _EIGRP_EXTERNAL_PROTOCOL_ID),
-            FlagsField("flags", 0, 8, _EIGRP_EXTROUTE_FLAGS),
-            IntField("delay", 0),
-            IntField("bandwidth", 256),
-            ThreeBytesField("mtu", 1500),
-            ByteField("hopcount", 0),
-            ByteField("reliability", 255),
-            ByteField("load", 0),
-            XShortField("reserved2", 0),
-            ByteField("prefixlen", 24),
-            EigrpIPField("dst", "192.168.1.0", length_from=lambda pkt: pkt.prefixlen)
-            ]
+    fields_desc = [XShortField("type", 0x0103),
+                   FieldLenField("len", None, "dst", "!H", adjust=lambda pkt, x: x + 45),
+                   IPField("nexthop", "192.168.0.0"),
+                   IPField("originrouter", "192.168.0.1"),
+                   IntField("originasn", 0),
+                   IntField("tag", 0),
+                   IntField("externalmetric", 0),
+                   ShortField("reserved", 0),
+                   ByteEnumField("extprotocolid", 3, _EIGRP_EXTERNAL_PROTOCOL_ID),
+                   FlagsField("flags", 0, 8, _EIGRP_EXTROUTE_FLAGS),
+                   IntField("delay", 0),
+                   IntField("bandwidth", 256),
+                   ThreeBytesField("mtu", 1500),
+                   ByteField("hopcount", 0),
+                   ByteField("reliability", 255),
+                   ByteField("load", 0),
+                   XShortField("reserved2", 0),
+                   ByteField("prefixlen", 24),
+                   EigrpIPField("dst", "192.168.1.0", length_from=lambda pkt: pkt.prefixlen)
+                   ]
+
 
 class EIGRPv6IntRoute(EIGRPGeneric):
     name = "EIGRP for IPv6 Internal Route"
-    fields_desc = [ XShortField("type", 0x0402),
-            FieldLenField("len", None, "dst", "!H", adjust=lambda pkt,x: x + 37),
-            IP6Field("nexthop", "::"),
-            IntField("delay", 128000),
-            IntField("bandwidth", 256000),
-            ThreeBytesField("mtu", 1500),
-            ByteField("hopcount", 1),
-            ByteField("reliability", 255),
-            ByteField("load", 0),
-            XShortField("reserved", 0),
-            ByteField("prefixlen", 16),
-            EigrpIP6Field("dst", "2001::", length_from=lambda pkt: pkt.prefixlen)
-            ]
+    fields_desc = [XShortField("type", 0x0402),
+                   FieldLenField("len", None, "dst", "!H", adjust=lambda pkt, x: x + 37),
+                   IP6Field("nexthop", "::"),
+                   IntField("delay", 128000),
+                   IntField("bandwidth", 256000),
+                   ThreeBytesField("mtu", 1500),
+                   ByteField("hopcount", 1),
+                   ByteField("reliability", 255),
+                   ByteField("load", 0),
+                   XShortField("reserved", 0),
+                   ByteField("prefixlen", 16),
+                   EigrpIP6Field("dst", "2001::", length_from=lambda pkt: pkt.prefixlen)
+                   ]
+
 
 class EIGRPv6ExtRoute(EIGRPGeneric):
     name = "EIGRP for IPv6 External Route"
-    fields_desc = [ XShortField("type", 0x0403),
-            FieldLenField("len", None, "dst", "!H", adjust=lambda pkt,x: x + 57),
-            IP6Field("nexthop", "::"),
-            IPField("originrouter", "192.168.0.1"),
-            IntField("originasn", 0),
-            IntField("tag", 0),
-            IntField("externalmetric", 0),
-            ShortField("reserved", 0),
-            ByteEnumField("extprotocolid", 3, _EIGRP_EXTERNAL_PROTOCOL_ID),
-            FlagsField("flags", 0, 8, _EIGRP_EXTROUTE_FLAGS),
-            IntField("delay", 0),
-            IntField("bandwidth", 256000),
-            ThreeBytesField("mtu", 1500),
-            ByteField("hopcount", 1),
-            ByteField("reliability", 0),
-            ByteField("load", 1),
-            XShortField("reserved2", 0),
-            ByteField("prefixlen", 8),
-            EigrpIP6Field("dst", "::", length_from=lambda pkt: pkt.prefixlen)
-            ]
+    fields_desc = [XShortField("type", 0x0403),
+                   FieldLenField("len", None, "dst", "!H", adjust=lambda pkt, x: x + 57),
+                   IP6Field("nexthop", "::"),
+                   IPField("originrouter", "192.168.0.1"),
+                   IntField("originasn", 0),
+                   IntField("tag", 0),
+                   IntField("externalmetric", 0),
+                   ShortField("reserved", 0),
+                   ByteEnumField("extprotocolid", 3, _EIGRP_EXTERNAL_PROTOCOL_ID),
+                   FlagsField("flags", 0, 8, _EIGRP_EXTROUTE_FLAGS),
+                   IntField("delay", 0),
+                   IntField("bandwidth", 256000),
+                   ThreeBytesField("mtu", 1500),
+                   ByteField("hopcount", 1),
+                   ByteField("reliability", 0),
+                   ByteField("load", 1),
+                   XShortField("reserved2", 0),
+                   ByteField("prefixlen", 8),
+                   EigrpIP6Field("dst", "::", length_from=lambda pkt: pkt.prefixlen)
+                   ]
+
 
 _eigrp_tlv_cls = {
-                    0x0001: "EIGRPParam",
-                    0x0002: "EIGRPAuthData",
-                    0x0003: "EIGRPSeq",
-                    0x0004: "EIGRPSwVer",
-                    0x0005: "EIGRPNms",
-                    0x0006: "EIGRPStub",
-                    0x0102: "EIGRPIntRoute",
-                    0x0103: "EIGRPExtRoute",
-                    0x0402: "EIGRPv6IntRoute",
-                    0x0403: "EIGRPv6ExtRoute"
-                   }
+    0x0001: "EIGRPParam",
+    0x0002: "EIGRPAuthData",
+    0x0003: "EIGRPSeq",
+    0x0004: "EIGRPSwVer",
+    0x0005: "EIGRPNms",
+    0x0006: "EIGRPStub",
+    0x0102: "EIGRPIntRoute",
+    0x0103: "EIGRPExtRoute",
+    0x0402: "EIGRPv6IntRoute",
+    0x0403: "EIGRPv6ExtRoute"
+}
+
 
 class RepeatedTlvListField(PacketListField):
     def __init__(self, name, default, cls):
@@ -434,10 +453,11 @@ class RepeatedTlvListField(PacketListField):
             else:
                 remain = b""
             lst.append(p)
-        return remain,lst
+        return remain, lst
 
     def addfield(self, pkt, s, val):
         return s + b"".join(raw(v) for v in val)
+
 
 def _EIGRPGuessPayloadClass(p, **kargs):
     cls = conf.raw_layer
@@ -447,31 +467,33 @@ def _EIGRPGuessPayloadClass(p, **kargs):
         cls = globals()[clsname]
     return cls(p, **kargs)
 
-_EIGRP_OPCODES = { 1 : "Update",
-                   2 : "Request",
-                   3 : "Query",
-                   4 : "Replay",
-                   5 : "Hello",
-                   6 : "IPX SAP",
-                   10 : "SIA Query",
-                   11 : "SIA Reply" }
+
+_EIGRP_OPCODES = {1: "Update",
+                  2: "Request",
+                  3: "Query",
+                  4: "Replay",
+                  5: "Hello",
+                  6: "IPX SAP",
+                  10: "SIA Query",
+                  11: "SIA Reply"}
 
 # The Conditional Receive bit is used for reliable multicast communication.
 # Update-Flag: Not sure if Cisco calls it that way, but it's set when neighbors
 # are exchanging routing information
 _EIGRP_FLAGS = ["init", "cond-recv", "unknown", "update"]
 
+
 class EIGRP(Packet):
     name = "EIGRP"
-    fields_desc = [ ByteField("ver", 2),
-                    ByteEnumField("opcode", 5, _EIGRP_OPCODES),
-                    XShortField("chksum", None),
-                    FlagsField("flags", 0, 32, _EIGRP_FLAGS),
-                    IntField("seq", 0),
-                    IntField("ack", 0),
-                    IntField("asn", 100),
-                    RepeatedTlvListField("tlvlist", [], _EIGRPGuessPayloadClass)
-                 ]
+    fields_desc = [ByteField("ver", 2),
+                   ByteEnumField("opcode", 5, _EIGRP_OPCODES),
+                   XShortField("chksum", None),
+                   FlagsField("flags", 0, 32, _EIGRP_FLAGS),
+                   IntField("seq", 0),
+                   IntField("ack", 0),
+                   IntField("asn", 100),
+                   RepeatedTlvListField("tlvlist", [], _EIGRPGuessPayloadClass)
+                   ]
 
     def post_build(self, p, pay):
         p += pay
@@ -488,6 +510,7 @@ class EIGRP(Packet):
             summarystr += " Flags=%EIGRP.flags%"
 
         return self.sprintf(summarystr + ")")
+
 
 bind_layers(IP, EIGRP, proto=88)
 bind_layers(IPv6, EIGRP, nh=88)

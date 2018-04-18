@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
-##               2015, 2016, 2017 Maxence Tury
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
+#               2015, 2016, 2017 Maxence Tury
+# This program is published under a GPLv2 license
 
 """
 TLS helpers, provided as out-of-context methods.
@@ -21,14 +21,16 @@ from scapy.layers.tls.basefields import _tls_type, _tls_version
 
 class TLSPlaintext(Packet):
     name = "TLS Plaintext"
-    fields_desc = [ ByteEnumField("type", None, _tls_type),
-                    ShortEnumField("version", None, _tls_version),
-                    FieldLenField("len", None, length_of="data", fmt="!H"),
-                    StrLenField("data", "",
-                                length_from = lambda pkt: pkt.len) ]
+    fields_desc = [ByteEnumField("type", None, _tls_type),
+                   ShortEnumField("version", None, _tls_version),
+                   FieldLenField("len", None, length_of="data", fmt="!H"),
+                   StrLenField("data", "",
+                               length_from=lambda pkt: pkt.len)]
+
 
 class TLSCompressed(TLSPlaintext):
     name = "TLS Compressed"
+
 
 class TLSCiphertext(TLSPlaintext):
     name = "TLS Ciphertext"
@@ -46,6 +48,7 @@ def _tls_compress(alg, p):
     c.len = len(c.data)
     return c
 
+
 def _tls_decompress(alg, c):
     """
     Decompress c (a TLSCompressed instance) using compression algorithm
@@ -57,6 +60,7 @@ def _tls_decompress(alg, c):
     p.data = alg.decompress(c.data)
     p.len = len(p.data)
     return p
+
 
 def _tls_mac_add(alg, c, write_seq_num):
     """
@@ -70,6 +74,7 @@ def _tls_mac_add(alg, c, write_seq_num):
     h = alg.digest(write_seq_num + bytes(c))
     c.data += h
     c.len += alg.hash_len
+
 
 def _tls_mac_verify(alg, p, read_seq_num):
     """
@@ -98,6 +103,7 @@ def _tls_mac_verify(alg, p, read_seq_num):
     h = alg.digest(read_seq_num + bytes(p))
     return h == received_h
 
+
 def _tls_add_pad(p, block_size):
     """
     Provided with cipher block size parameter and current TLSCompressed packet
@@ -109,6 +115,7 @@ def _tls_add_pad(p, block_size):
     padding = chb(padlen) * (padlen + 1)
     p.len += len(padding)
     p.data += padding
+
 
 def _tls_del_pad(p):
     """
@@ -139,6 +146,7 @@ def _tls_del_pad(p):
 
     return True
 
+
 def _tls_encrypt(alg, p):
     """
     Provided with an already MACed TLSCompressed packet, and a stream or block
@@ -153,6 +161,7 @@ def _tls_encrypt(alg, p):
     c.len = len(c.data)
     return c
 
+
 def _tls_decrypt(alg, c):
     """
     Provided with a TLSCiphertext instance c, and a stream or block cipher alg,
@@ -164,6 +173,7 @@ def _tls_decrypt(alg, c):
     p.data = alg.decrypt(c.data)
     p.len = len(p.data)
     return p
+
 
 def _tls_aead_auth_encrypt(alg, p, write_seq_num):
     """
@@ -185,6 +195,7 @@ def _tls_aead_auth_encrypt(alg, p, write_seq_num):
     c.data = alg.auth_encrypt(P, A, write_seq_num)
     c.len = len(c.data)
     return c
+
 
 def _tls_aead_auth_decrypt(alg, c, read_seq_num):
     """
@@ -209,7 +220,7 @@ def _tls_aead_auth_decrypt(alg, c, read_seq_num):
     p.len = plen
     p.data = alg.auth_decrypt(A, c.data, read_seq_num)
 
-    if p.data is None: # Verification failed.
+    if p.data is None:  # Verification failed.
         return None
     return p
 

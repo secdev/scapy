@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
 """
 Convert IPv6 addresses between textual representation and binary.
@@ -19,6 +19,7 @@ from scapy.compat import *
 
 _IP6_ZEROS = re.compile('(?::|^)(0(?::0)+)(?::|$)')
 _INET6_PTON_EXC = socket.error("illegal IP address string passed to inet_pton")
+
 
 def _inet6_pton(addr):
     """Convert an IPv6 address from text representation into binary form,

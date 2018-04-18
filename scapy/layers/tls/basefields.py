@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
-##               2015, 2016, 2017 Maxence Tury
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
+#               2015, 2016, 2017 Maxence Tury
+# This program is published under a GPLv2 license
 
 """
 TLS base fields, used for record parsing/building. As several operations depend
@@ -11,30 +11,31 @@ upon the TLS version or ciphersuite, the packet has to provide a TLS context.
 from scapy.fields import *
 import scapy.modules.six as six
 
-_tls_type = { 20: "change_cipher_spec",
-              21: "alert",
-              22: "handshake",
-              23: "application_data" }
+_tls_type = {20: "change_cipher_spec",
+             21: "alert",
+             22: "handshake",
+             23: "application_data"}
 
-_tls_version = { 0x0002: "SSLv2",
-                 0x0200: "SSLv2",
-                 0x0300: "SSLv3",
-                 0x0301: "TLS 1.0",
-                 0x0302: "TLS 1.1",
-                 0x0303: "TLS 1.2",
-                 0x7f12: "TLS 1.3-d18",
-                 0x7f13: "TLS 1.3-d19",
-                 0x0304: "TLS 1.3" }
+_tls_version = {0x0002: "SSLv2",
+                0x0200: "SSLv2",
+                0x0300: "SSLv3",
+                0x0301: "TLS 1.0",
+                0x0302: "TLS 1.1",
+                0x0303: "TLS 1.2",
+                0x7f12: "TLS 1.3-d18",
+                0x7f13: "TLS 1.3-d19",
+                0x0304: "TLS 1.3"}
 
-_tls_version_options = { "sslv2": 0x0002,
-                         "sslv3": 0x0300,
-                         "tls1" : 0x0301,
-                         "tls10": 0x0301,
-                         "tls11": 0x0302,
-                         "tls12": 0x0303,
-                         "tls13-d18": 0x7f12,
-                         "tls13-d19": 0x7f13,
-                         "tls13": 0x0304 }
+_tls_version_options = {"sslv2": 0x0002,
+                        "sslv3": 0x0300,
+                        "tls1": 0x0301,
+                        "tls10": 0x0301,
+                        "tls11": 0x0302,
+                        "tls12": 0x0303,
+                        "tls13-d18": 0x7f12,
+                        "tls13-d19": 0x7f13,
+                        "tls13": 0x0304}
+
 
 def _tls13_version_filter(version, legacy_version):
     if version < 0x0304:
@@ -42,11 +43,13 @@ def _tls13_version_filter(version, legacy_version):
     else:
         return legacy_version
 
+
 class _TLSClientVersionField(ShortEnumField):
     """
     We use the advertised_tls_version if it has been defined,
     and the legacy 0x0303 for TLS 1.3 packets.
     """
+
     def i2h(self, pkt, x):
         if x is None:
             v = pkt.tls_session.advertised_tls_version
@@ -69,6 +72,7 @@ class _TLSVersionField(ShortEnumField):
     We use the tls_version if it has been defined, else the advertised version.
     Also, the legacy 0x0301 is used for TLS 1.3 packets.
     """
+
     def i2h(self, pkt, x):
         if x is None:
             v = pkt.tls_session.tls_version
@@ -112,6 +116,7 @@ class _TLSIVField(StrField):
     kept empty (unless forced to a specific value) when the cipher is a stream
     cipher (and NULL is considered a stream cipher).
     """
+
     def i2len(self, pkt, i):
         if i is not None:
             return len(i)
@@ -161,14 +166,14 @@ class _TLSMACField(StrField):
 
     def getfield(self, pkt, s):
         if (pkt.tls_session.rcs.cipher.type != "aead" and
-            False in six.itervalues(pkt.tls_session.rcs.cipher.ready)):
-            #XXX Find a more proper way to handle the still-encrypted case
+                False in six.itervalues(pkt.tls_session.rcs.cipher.ready)):
+            # XXX Find a more proper way to handle the still-encrypted case
             return s, b""
         l = pkt.tls_session.rcs.mac_len
         return s[l:], self.m2i(pkt, s[:l])
 
     def i2repr(self, pkt, x):
-        #XXX Provide status when dissection has been performed successfully?
+        # XXX Provide status when dissection has been performed successfully?
         return repr(self.i2m(pkt, x))
 
 
@@ -194,12 +199,12 @@ class _TLSPadField(StrField):
             # because it's possible that the padding is followed by some data
             # from another TLS record (hence the last byte from s would not be
             # the last byte from the current record padding).
-            l = orb(s[pkt.padlen-1])
+            l = orb(s[pkt.padlen - 1])
             return s[l:], self.m2i(pkt, s[:l])
         return s, None
 
     def i2repr(self, pkt, x):
-        #XXX Provide status when dissection has been performed successfully?
+        # XXX Provide status when dissection has been performed successfully?
         return repr(self.i2m(pkt, x))
 
 
@@ -214,14 +219,14 @@ class _TLSPadLenField(ByteField):
         return s, None
 
 
-### SSLv2 fields
+# SSLv2 fields
 
 class _SSLv2LengthField(_TLSLengthField):
     def i2repr(self, pkt, x):
         s = super(_SSLv2LengthField, self).i2repr(pkt, x)
         if pkt.with_padding:
             x |= 0x8000
-        #elif pkt.with_escape:      #XXX no complete support for 'escape' yet
+        # elif pkt.with_escape:      #XXX no complete support for 'escape' yet
         #   x |= 0x4000
             s += "    [with padding: %s]" % hex(x)
         return s

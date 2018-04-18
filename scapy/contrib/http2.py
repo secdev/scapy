@@ -1,21 +1,21 @@
 #############################################################################
-##                                                                         ##
-## http2.py --- HTTP/2 support for Scapy                                   ##
-##              see RFC7540 and RFC7541                                    ##
-##              for more informations                                      ##
-##                                                                         ##
-## Copyright (C) 2016  Florian Maury <florian.maury@ssi.gouv.fr>           ##
-##                                                                         ##
-## This file is part of Scapy                                              ##
-## Scapy is free software: you can redistribute it and/or modify it        ##
-## under the terms of the GNU General Public License version 2 as          ##
-## published by the Free Software Foundation.                              ##
-##                                                                         ##
-## This program is distributed in the hope that it will be useful, but     ##
-## WITHOUT ANY WARRANTY; without even the implied warranty of              ##
-## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU       ##
-## General Public License for more details.                                ##
-##                                                                         ##
+#                                                                           #
+#  http2.py --- HTTP/2 support for Scapy                                    #
+#               see RFC7540 and RFC7541                                     #
+#               for more informations                                       #
+#                                                                           #
+#  Copyright (C) 2016  Florian Maury <florian.maury@ssi.gouv.fr>            #
+#                                                                           #
+#  This file is part of Scapy                                               #
+#  Scapy is free software: you can redistribute it and/or modify it         #
+#  under the terms of the GNU General Public License version 2 as           #
+#  published by the Free Software Foundation.                               #
+#                                                                           #
+#  This program is distributed in the hope that it will be useful, but      #
+#  WITHOUT ANY WARRANTY; without even the implied warranty of               #
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU        #
+#  General Public License for more details.                                 #
+#                                                                           #
 #############################################################################
 """http2 Module
 Implements packets and fields required to encode/decode HTTP/2 Frames
@@ -52,8 +52,9 @@ import scapy.volatile as volatile
 import scapy.error as error
 
 ########################################################################################################################
-################################################ HPACK Integer Fields ##################################################
+#                                                HPACK Integer Fields                                                  #
 ########################################################################################################################
+
 
 class HPackMagicBitField(fields.BitField):
     """ HPackMagicBitField is a BitField variant that cannot be assigned another
@@ -383,9 +384,9 @@ class AbstractUVarIntField(fields.Field):
             return s + self.i2m(pkt, val)
 
         # s is a tuple
-        #assert(s[1] >= 0)
-        #assert(s[2] >= 0)
-        #assert (8 - s[1]) == self.size, 'EINVAL: s: not enough bits remaining in current byte to read the prefix'
+        # assert(s[1] >= 0)
+        # assert(s[2] >= 0)
+        # assert (8 - s[1]) == self.size, 'EINVAL: s: not enough bits remaining in current byte to read the prefix'
 
         if val >= self._max_value:
             return s[0] + chb((s[2] << self.size) + self._max_value) + self.i2m(pkt, val)[1:]
@@ -629,8 +630,9 @@ class FieldUVarLenField(AbstractUVarIntField):
         return ret
 
 ########################################################################################################################
-################################################ HPACK String Fields ###################################################
+#                                                HPACK String Fields                                                   #
 ########################################################################################################################
+
 
 class HPackStringsInterface(six.with_metaclass(abc.ABCMeta, Sized)):
     @abc.abstractmethod
@@ -1116,7 +1118,7 @@ class HPackZString(HPackStringsInterface):
         s = []  # type: List[str]
         i = 0
         while i < byte_len:
-            s.insert(0, chb((bit_str >> (i*8)) & 0xFF))
+            s.insert(0, chb((bit_str >> (i * 8)) & 0xFF))
             i += 1
         return b''.join(s)
 
@@ -1285,8 +1287,9 @@ class HPackStrLenField(fields.Field):
         return repr(self.i2h(pkt, x))
 
 ########################################################################################################################
-################################################ HPACK Packets #########################################################
+#                                                HPACK Packets                                                         #
 ########################################################################################################################
+
 
 class HPackHdrString(packet.Packet):
     """ HPackHdrString is a packet that that is serialized into a RFC7541 par5.2
@@ -1402,15 +1405,17 @@ class HPackDynamicSizeUpdate(HPackHeaders):
     ]
 
 ########################################################################################################################
-############################################# HTTP/2 Frames ############################################################
+#                                             HTTP/2 Frames                                                            #
 ########################################################################################################################
+
 
 class H2FramePayload(packet.Packet):
     """ H2FramePayload is an empty class that is a super class of all Scapy
     HTTP/2 Frame Packets
     """
 
-############################################# HTTP/2 Data Frame Packets ################################################
+#                                             HTTP/2 Data Frame Packets                                                #
+
 
 class H2DataFrame(H2FramePayload):
     """ H2DataFrame implements RFC7540 par6.1
@@ -1440,11 +1445,11 @@ class H2PaddedDataFrame(H2DataFrame):
     fields_desc = [
         fields.FieldLenField('padlen', None, length_of='padding', fmt="B"),
         fields.StrLenField('data', '',
-            length_from=lambda pkt: pkt.get_data_len()
-        ),
+                           length_from=lambda pkt: pkt.get_data_len()
+                           ),
         fields.StrLenField('padding', '',
-            length_from=lambda pkt: pkt.getfieldval('padlen')
-        )
+                           length_from=lambda pkt: pkt.getfieldval('padlen')
+                           )
     ]
 
     def get_data_len(self):
@@ -1478,12 +1483,13 @@ class H2PaddedDataFrame(H2DataFrame):
         return s
 
 
-############################################# HTTP/2 Header Frame Packets ##############################################
+#                                             HTTP/2 Header Frame Packets                                              #
 
 class H2AbstractHeadersFrame(H2FramePayload):
     """Superclass of all variants of HTTP/2 Header Frame Packets.
     May be used for type checking.
     """
+
 
 class H2HeadersFrame(H2AbstractHeadersFrame):
     """ H2HeadersFrame implements RFC 7540 par6.2 Headers Frame
@@ -1520,11 +1526,11 @@ class H2PaddedHeadersFrame(H2AbstractHeadersFrame):
     fields_desc = [
         fields.FieldLenField('padlen', None, length_of='padding', fmt='B'),
         fields.PacketListField('hdrs', [], HPackHeaders,
-            length_from=lambda pkt: pkt.get_hdrs_len()
-        ),
+                               length_from=lambda pkt: pkt.get_hdrs_len()
+                               ),
         fields.StrLenField('padding', '',
-            length_from=lambda pkt: pkt.getfieldval('padlen')
-        )
+                           length_from=lambda pkt: pkt.getfieldval('padlen')
+                           )
     ]
 
     def get_hdrs_len(self):
@@ -1589,11 +1595,11 @@ class H2PaddedPriorityHeadersFrame(H2AbstractHeadersFrame):
         fields.BitField('stream_dependency', 0, 31),
         fields.ByteField('weight', 0),
         fields.PacketListField('hdrs', [], HPackHeaders,
-            length_from=lambda pkt: pkt.get_hdrs_len()
-        ),
+                               length_from=lambda pkt: pkt.get_hdrs_len()
+                               ),
         fields.StrLenField('padding', '',
-            length_from=lambda pkt: pkt.getfieldval('padlen')
-        )
+                           length_from=lambda pkt: pkt.getfieldval('padlen')
+                           )
     ]
 
     def get_hdrs_len(self):
@@ -1615,11 +1621,11 @@ class H2PaddedPriorityHeadersFrame(H2AbstractHeadersFrame):
         fld, fval = self.getfield_and_val('weight')
         weight_len = fld.i2len(self, fval)
         ret = int(self.s_len
-            - padding_len_len
-            - padding_len
-            - (bit_cnt / 8)
-            - weight_len
-        )
+                  - padding_len_len
+                  - padding_len
+                  - (bit_cnt / 8)
+                  - weight_len
+                  )
         assert(ret >= 0)
         return ret
 
@@ -1635,7 +1641,8 @@ class H2PaddedPriorityHeadersFrame(H2AbstractHeadersFrame):
         self.s_len = len(s)
         return s
 
-########################################### HTTP/2 Priority Frame Packets ##############################################
+#                                           HTTP/2 Priority Frame Packets                                              #
+
 
 class H2PriorityFrame(H2FramePayload):
     """ H2PriorityFrame implements RFC 7540 par6.3
@@ -1648,7 +1655,8 @@ class H2PriorityFrame(H2FramePayload):
         fields.ByteField('weight', 0)
     ]
 
-################################################# HTTP/2 Errors ########################################################
+#                                                 HTTP/2 Errors                                                        #
+
 
 class H2ErrorCodes(object):
     """ H2ErrorCodes is an enumeration of the error codes defined in
@@ -1690,7 +1698,7 @@ class H2ErrorCodes(object):
     }
 
 
-########################################### HTTP/2 Reset Frame Packets #################################################
+#                                           HTTP/2 Reset Frame Packets                                                 #
 
 class H2ResetFrame(H2FramePayload):
     """ H2ResetFrame implements RFC 7540 par6.4
@@ -1702,7 +1710,7 @@ class H2ResetFrame(H2FramePayload):
     ]
 
 
-########################################### HTTP/2 Settings Frame Packets ##############################################
+#                                           HTTP/2 Settings Frame Packets                                              #
 
 class H2Setting(packet.Packet):
     """ H2Setting implements a setting, as defined in RFC7540 par6.5.1
@@ -1767,7 +1775,8 @@ class H2SettingsFrame(H2FramePayload):
         ), 'Invalid settings frame; length is not a multiple of 6'
         super(H2SettingsFrame, self).__init__(*args, **kwargs)
 
-######################################## HTTP/2 Push Promise Frame Packets #############################################
+#                                        HTTP/2 Push Promise Frame Packets                                             #
+
 
 class H2PushPromiseFrame(H2FramePayload):
     """ H2PushPromiseFrame implements RFC7540 par6.6. This packet
@@ -1801,11 +1810,11 @@ class H2PaddedPushPromiseFrame(H2PushPromiseFrame):
         fields.BitField('reserved', 0, 1),
         fields.BitField('stream_id', 0, 31),
         fields.PacketListField('hdrs', [], HPackHeaders,
-            length_from=lambda pkt: pkt.get_hdrs_len()
-        ),
+                               length_from=lambda pkt: pkt.get_hdrs_len()
+                               ),
         fields.StrLenField('padding', '',
-            length_from=lambda pkt: pkt.getfieldval('padlen')
-        )
+                           length_from=lambda pkt: pkt.getfieldval('padlen')
+                           )
     ]
 
     def get_hdrs_len(self):
@@ -1824,10 +1833,10 @@ class H2PaddedPushPromiseFrame(H2PushPromiseFrame):
         bit_len += self.get_field('stream_id').size
 
         ret = int(self.s_len
-            - padding_len_len
-            - padding_len
-            - (bit_len / 8)
-        )
+                  - padding_len_len
+                  - padding_len
+                  - (bit_len / 8)
+                  )
         assert(ret >= 0)
         return ret
 
@@ -1843,7 +1852,8 @@ class H2PaddedPushPromiseFrame(H2PushPromiseFrame):
         self.s_len = len(s)
         return s
 
-############################################### HTTP/2 Ping Frame Packets ##############################################
+#                                               HTTP/2 Ping Frame Packets                                              #
+
 
 class H2PingFrame(H2FramePayload):
     """ H2PingFrame implements the RFC 7540 par6.7
@@ -1867,14 +1877,14 @@ class H2PingFrame(H2FramePayload):
         assert(
             len(args) == 0 or (
                 (isinstance(args[0], bytes) or
-                isinstance(args[0], str))
+                 isinstance(args[0], str))
                 and len(args[0]) == 8
             )
         ), 'Invalid ping frame; length is not 8'
         super(H2PingFrame, self).__init__(*args, **kwargs)
 
 
-############################################# HTTP/2 GoAway Frame Packets ##############################################
+#                                             HTTP/2 GoAway Frame Packets                                              #
 
 class H2GoAwayFrame(H2FramePayload):
     """ H2GoAwayFrame implements the RFC 7540 par6.8
@@ -1889,7 +1899,8 @@ class H2GoAwayFrame(H2FramePayload):
         fields.StrField('additional_data', '')
     ]
 
-###################################### HTTP/2 Window Update Frame Packets ##############################################
+#                                      HTTP/2 Window Update Frame Packets                                              #
+
 
 class H2WindowUpdateFrame(H2FramePayload):
     """ H2WindowUpdateFrame implements the RFC 7540 par6.9
@@ -1910,13 +1921,14 @@ class H2WindowUpdateFrame(H2FramePayload):
         assert(
             len(args) == 0 or (
                 (isinstance(args[0], bytes) or
-                isinstance(args[0], str))
+                 isinstance(args[0], str))
                 and len(args[0]) == 4
             )
         ), 'Invalid window update frame; length is not 4'
         super(H2WindowUpdateFrame, self).__init__(*args, **kwargs)
 
-####################################### HTTP/2 Continuation Frame Packets ##############################################
+#                                       HTTP/2 Continuation Frame Packets                                              #
+
 
 class H2ContinuationFrame(H2FramePayload):
     """ H2ContinuationFrame implements the RFC 7540 par6.10
@@ -1932,7 +1944,8 @@ class H2ContinuationFrame(H2FramePayload):
         fields.PacketListField('hdrs', [], HPackHeaders)
     ]
 
-########################################## HTTP/2 Base Frame Packets ###################################################
+#                                          HTTP/2 Base Frame Packets                                                   #
+
 
 class H2Frame(packet.Packet):
     """ H2Frame implements the frame structure as defined in RFC 7540 par4.1
@@ -1956,13 +1969,13 @@ class H2Frame(packet.Packet):
             9: 'ContFrm'
         }, "b"),
         fields.MultiFlagsField('flags', set(), 8, {
-                H2DataFrame.type_id: H2DataFrame.flags,
-                H2HeadersFrame.type_id: H2HeadersFrame.flags,
-                H2PushPromiseFrame.type_id: H2PushPromiseFrame.flags,
-                H2SettingsFrame.type_id: H2SettingsFrame.flags,
-                H2PingFrame.type_id: H2PingFrame.flags,
-                H2ContinuationFrame.type_id: H2ContinuationFrame.flags,
-            },
+            H2DataFrame.type_id: H2DataFrame.flags,
+            H2HeadersFrame.type_id: H2HeadersFrame.flags,
+            H2PushPromiseFrame.type_id: H2PushPromiseFrame.flags,
+            H2SettingsFrame.type_id: H2SettingsFrame.flags,
+            H2PingFrame.type_id: H2PingFrame.flags,
+            H2ContinuationFrame.type_id: H2ContinuationFrame.flags,
+        },
             depends_on=lambda pkt: pkt.getfieldval('type')
         ),
         fields.BitField('reserved', 0, 1),
@@ -2052,6 +2065,7 @@ class H2Frame(packet.Packet):
             p = struct.pack('!L', len(pay))[1:] + p[3:]
         return super(H2Frame, self).post_build(p, pay)
 
+
 class H2Seq(packet.Packet):
     """ H2Seq is a helper packet that contains several H2Frames and their
     payload. This packet can be used, for instance, while reading manually from
@@ -2084,13 +2098,13 @@ packet.bind_layers(H2Frame, H2WindowUpdateFrame, {'type': H2WindowUpdateFrame.ty
 packet.bind_layers(H2Frame, H2ContinuationFrame, {'type': H2ContinuationFrame.type_id})
 
 
-########################################## HTTP/2 Connection Preface ###################################################
+#                                          HTTP/2 Connection Preface                                                   #
 # From RFC 7540 par3.5
 H2_CLIENT_CONNECTION_PREFACE = bytes_hex('505249202a20485454502f322e300d0a0d0a534d0d0a0d0a')
 
 
 ########################################################################################################################
-################################################### HTTP/2 Helpers #####################################################
+#                                                   HTTP/2 Helpers                                                     #
 ########################################################################################################################
 
 class HPackHdrEntry(Sized):
@@ -2139,6 +2153,7 @@ class HPackHdrEntry(Sized):
             return "{} {}".format(self._name, self._value)
         else:
             return "{}: {}".format(self._name, self._value)
+
     def __bytes__(self):
         return raw(self.__str__())
 
@@ -2588,7 +2603,7 @@ class HPackHdrTable(Sized):
             return None, None
 
         if grp.group(1) is not None:
-            hdr_name = b':'+grp.group(1)
+            hdr_name = b':' + grp.group(1)
         else:
             hdr_name = grp.group(2)
         return plain_str(hdr_name.lower()), plain_str(grp.group(3))
@@ -2602,7 +2617,7 @@ class HPackHdrTable(Sized):
                        is_sensitive=lambda n, v: False,  # type: Callable[[str, str], bool]
                        should_index=lambda x: False,  # type: Callable[[str], bool]
                        register=True,  # type: bool
-    ):
+                       ):
         # type: (...) -> H2Seq
         """ parse_txt_hdrs parses headers expressed in text and converts them
         into a series of H2Frames with the "correct" flags. A body can be provided
@@ -2660,20 +2675,19 @@ class HPackHdrTable(Sized):
             # exceed the maximum length of a header fragment or it will just
             # never fit
             if (new_hdr_bin_len + base_frm_len > max_frm_sz
-                or (max_hdr_lst_sz != 0 and new_hdr_len > max_hdr_lst_sz)
-            ):
+                    or (max_hdr_lst_sz != 0 and new_hdr_len > max_hdr_lst_sz)):
                 raise Exception('Header too long: {}'.format(hdr_name))
 
             if (max_frm_sz < len(raw(cur_frm)) + base_frm_len + new_hdr_len
                 or (
                     max_hdr_lst_sz != 0
                     and max_hdr_lst_sz < cur_hdr_sz + new_hdr_len
-                )
+            )
             ):
                 flags = set()
                 if isinstance(cur_frm, H2HeadersFrame) and not body:
                     flags.add('ES')
-                ret.frames.append(H2Frame(stream_id=stream_id, flags=flags)/cur_frm)
+                ret.frames.append(H2Frame(stream_id=stream_id, flags=flags) / cur_frm)
                 cur_frm = H2ContinuationFrame()
                 cur_hdr_sz = 0
 
@@ -2684,7 +2698,7 @@ class HPackHdrTable(Sized):
         flags = {'EH'}
         if isinstance(cur_frm, H2HeadersFrame) and not body:
             flags.add('ES')
-        ret.frames.append(H2Frame(stream_id=stream_id, flags=flags)/cur_frm)
+        ret.frames.append(H2Frame(stream_id=stream_id, flags=flags) / cur_frm)
 
         if body:
             base_data_frm_len = len(raw(H2DataFrame()))
@@ -2696,7 +2710,7 @@ class HPackHdrTable(Sized):
                 if len(nxt_frgmt) == 0:
                     flags.add('ES')
                 ret.frames.append(
-                    H2Frame(stream_id=stream_id, flags=flags)/H2DataFrame(data=frgmt)
+                    H2Frame(stream_id=stream_id, flags=flags) / H2DataFrame(data=frgmt)
                 )
                 frgmt = nxt_frgmt
         return ret

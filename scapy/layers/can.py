@@ -36,13 +36,25 @@ class CAN(Packet):
         FieldLenField('length', None, length_of='data', fmt='B'),
         ThreeBytesField('reserved', 0),
         StrLenField('data', '', length_from=lambda pkt: pkt.length),
-        StrLenField('padding', '', length_from=lambda pkt: 8 - pkt.length),
     ]
+
+    @staticmethod
+    def inv_endianness(pkt):
+        """ Invert the order of the first four bytes of a CAN packet
+
+        This method is meant to be used specifically to convert a CAN packet
+        between the pcap format and the socketCAN format
+
+        :param pkt: str of the CAN packet
+        :return: packet str with the first four bytes swapped
+        """
+        len_partial = len(pkt) - 4  # len of the packet, CAN ID excluded
+        return struct.pack('<I{}s'.format(len_partial), *struct.unpack('>I{}s'.format(len_partial), pkt))
 
     def pre_dissect(self, s):
         """ Implements the swap-bytes functionality when dissecting """
         if conf.contribs['CAN']['swap-bytes']:
-            return struct.pack('<I12s', *struct.unpack('>I12s', s))
+            return CAN.inv_endianness(s)
         return s
 
     def self_build(self, field_pos_list=None):
@@ -60,7 +72,7 @@ class CAN(Packet):
                     break
             if self.raw_packet_cache is not None:
                 if conf.contribs['CAN']['swap-bytes']:
-                    return struct.pack('<I12s', *struct.unpack('>I12s', self.raw_packet_cache))
+                    return CAN.inv_endianness(self.raw_packet_cache)
                 return self.raw_packet_cache
         p = b""
         for f in self.fields_desc:
@@ -73,8 +85,11 @@ class CAN(Packet):
             else:
                 p = f.addfield(self, p, val)
         if conf.contribs['CAN']['swap-bytes']:
-            return struct.pack('<I12s', *struct.unpack('>I12s', p))
+            return CAN.inv_endianness(p)
         return p
+
+    def extract_padding(self, p):
+        return b'', p
 
 
 conf.l2types.register(DLT_CAN_SOCKETCAN, CAN)

@@ -13,7 +13,7 @@ import os
 
 
 EZIP_HEADER = """#! /bin/sh
-PYTHONPATH=$0/%s exec python -m scapy.__init__
+PYTHONPATH=$0/%s exec python -m scapy
 """
 
 
@@ -89,7 +89,6 @@ setup(
         "Programming Language :: Python :: 2",
         "Programming Language :: Python :: 2.7",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.3",
         "Programming Language :: Python :: 3.4",
         "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",

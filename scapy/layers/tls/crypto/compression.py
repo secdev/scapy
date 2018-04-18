@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
-##                     2015, 2016 Maxence Tury
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
+#               2015, 2016 Maxence Tury
+# This program is published under a GPLv2 license
 
 """
 TLS compression.
@@ -16,6 +16,7 @@ import scapy.modules.six as six
 
 _tls_compression_algs = {}
 _tls_compression_algs_cls = {}
+
 
 class _GenericCompMetaclass(type):
     """
@@ -49,6 +50,7 @@ class Comp_NULL(_GenericComp):
     def decompress(self, s):
         return s
 
+
 class Comp_Deflate(_GenericComp):
     """
     DEFLATE algorithm, specified for TLS by RFC 3749.
@@ -67,6 +69,7 @@ class Comp_Deflate(_GenericComp):
     def __init__(self):
         self.compress_state = zlib.compressobj()
         self.decompress_state = zlib.decompressobj()
+
 
 class Comp_LZS(_GenericComp):
     """

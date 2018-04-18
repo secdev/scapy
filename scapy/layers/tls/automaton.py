@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
-##               2015, 2016, 2017 Maxence Tury
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
+#               2015, 2016, 2017 Maxence Tury
+# This program is published under a GPLv2 license
 
 """
 The _TLSAutomaton class provides methods common to both TLS client and server.
@@ -49,6 +49,7 @@ class _TLSAutomaton(Automaton):
     method for feeding a list of received messages, 'buffer_in'. Raw data
     which has not yet been interpreted as a TLS record is kept in 'remain_in'.
     """
+
     def parse_args(self, mycert=None, mykey=None, **kargs):
 
         super(_TLSAutomaton, self).parse_args(**kargs)
@@ -72,7 +73,6 @@ class _TLSAutomaton(Automaton):
             self.mykey = None
 
         self.verbose = kargs.get("verbose", True)
-
 
     def get_next_msg(self, socket_timeout=2, retry=2):
         """
@@ -174,7 +174,7 @@ class _TLSAutomaton(Automaton):
         if get_next_msg:
             self.get_next_msg()
         if (not self.buffer_in or
-            not isinstance(self.buffer_in[0], pkt_cls)):
+                not isinstance(self.buffer_in[0], pkt_cls)):
             return
         self.cur_pkt = self.buffer_in[0]
         self.buffer_in = self.buffer_in[1:]

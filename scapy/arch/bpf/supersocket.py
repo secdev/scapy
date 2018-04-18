@@ -234,7 +234,7 @@ class L2bpfListenSocket(_L2bpfSocket):
         """Return the index to the end of the current packet"""
 
         # from <net/bpf.h>
-        return ((bh_h + bh_c)+(BPF_ALIGNMENT-1)) & ~(BPF_ALIGNMENT-1)
+        return ((bh_h + bh_c) + (BPF_ALIGNMENT - 1)) & ~(BPF_ALIGNMENT - 1)
 
     def extract_frames(self, bpf_buffer):
         """Extract all frames from the buffer and stored them in the received list."""
@@ -253,16 +253,16 @@ class L2bpfListenSocket(_L2bpfSocket):
             bh_tstamp_offset = 8
 
         # Parse the BPF header
-        bh_caplen = struct.unpack('I', bpf_buffer[bh_tstamp_offset:bh_tstamp_offset+4])[0]
+        bh_caplen = struct.unpack('I', bpf_buffer[bh_tstamp_offset:bh_tstamp_offset + 4])[0]
         next_offset = bh_tstamp_offset + 4
-        bh_datalen = struct.unpack('I', bpf_buffer[next_offset:next_offset+4])[0]
+        bh_datalen = struct.unpack('I', bpf_buffer[next_offset:next_offset + 4])[0]
         next_offset += 4
-        bh_hdrlen = struct.unpack('H', bpf_buffer[next_offset:next_offset+2])[0]
+        bh_hdrlen = struct.unpack('H', bpf_buffer[next_offset:next_offset + 2])[0]
         if bh_datalen == 0:
             return
 
         # Get and store the Scapy object
-        frame_str = bpf_buffer[bh_hdrlen:bh_hdrlen+bh_caplen]
+        frame_str = bpf_buffer[bh_hdrlen:bh_hdrlen + bh_caplen]
         try:
             pkt = self.guessed_cls(frame_str)
         except:
@@ -342,7 +342,7 @@ class L3bpfSocket(L2bpfSocket):
             self.assigned_interface = iff
 
         # Build the frame
-        frame = raw(self.guessed_cls()/pkt)
+        frame = raw(self.guessed_cls() / pkt)
         pkt.sent_time = time.time()
 
         # Send the frame

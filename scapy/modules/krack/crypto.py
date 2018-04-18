@@ -14,6 +14,7 @@ from scapy.packet import Raw
 
 # ARC4
 
+
 def ARC4_encrypt(key, data, skip=0):
     """Encrypt data @data with key @key, skipping @skip first bytes of the
     keystream"""
@@ -25,6 +26,7 @@ def ARC4_encrypt(key, data, skip=0):
         encryptor.update("\x00" * skip)
     return encryptor.update(data)
 
+
 def ARC4_decrypt(key, data, skip=0):
     """Decrypt data @data with key @key, skipping @skip first bytes of the
     keystream"""
@@ -32,22 +34,24 @@ def ARC4_decrypt(key, data, skip=0):
 
 # Custom WPA PseudoRandomFunction
 
+
 def customPRF512(key, amac, smac, anonce, snonce):
     """Source https://stackoverflow.com/questions/12018920/"""
     A = "Pairwise key expansion"
     B = "".join(sorted([amac, smac]) + sorted([anonce, snonce]))
 
     blen = 64
-    i    = 0
-    R    = ''
-    while i<=((blen*8+159)/160):
-        hmacsha1 = hmac.new(key,A+chr(0x00)+B+chr(i), hashlib.sha1)
-        i+=1
-        R = R+hmacsha1.digest()
+    i = 0
+    R = ''
+    while i <= ((blen * 8 + 159) / 160):
+        hmacsha1 = hmac.new(key, A + chr(0x00) + B + chr(i), hashlib.sha1)
+        i += 1
+        R = R + hmacsha1.digest()
     return R[:blen]
 
 # TKIP - WEPSeed generation
 # Tested against pyDot11: tkip.py
+
 
 # 802.11i p.53-54
 _SBOXS = [
@@ -124,17 +128,22 @@ _SBOXS = [
 # 802.11i Annex H
 PHASE1_LOOP_CNT = 8
 
+
 def _MK16(b1, b2):
     return (b1 << 8) | b2
+
 
 def _SBOX16(index):
     return _SBOXS[0][index & 0xff] ^ _SBOXS[1][(index >> 8)]
 
+
 def _CAST16(value):
     return value & 0xffff
 
+
 def _RotR1(value):
     return ((value >> 1) & 0x7fff) | (value << 15)
+
 
 def gen_TKIP_RC4_key(TSC, TA, TK):
     """Implement TKIP WEPSeed generation
@@ -207,15 +216,19 @@ def gen_TKIP_RC4_key(TSC, TA, TK):
 # TKIP - Michael
 # Tested against cryptopy (crypto.keyedHash.michael: Michael)
 
+
 def _rotate_right32(value, shift):
     return (value >> (shift % 32) | value << ((32 - shift) % 32)) & 0xFFFFFFFF
+
 
 def _rotate_left32(value, shift):
     return (value << (shift % 32) | value >> ((32 - shift) % 32)) & 0xFFFFFFFF
 
+
 def _XSWAP(value):
     """Swap 2 least significant bytes of @value"""
     return ((value & 0xFF00FF00) >> 8) | ((value & 0x00FF00FF) << 8)
+
 
 def _michael_b(l, r):
     """Defined in 802.11i p.49"""
@@ -229,6 +242,7 @@ def _michael_b(l, r):
     l = (l + r) % 2**32
     return l, r
 
+
 def michael(key, to_hash):
     """Defined in 802.11i p.48"""
 
@@ -241,12 +255,13 @@ def michael(key, to_hash):
     l, r = unpack('<II', key)
     for i in range(nb_block + 2):
         # Convert i-th block to int
-        block_i = unpack('<I', data[i*4:i*4 + 4])[0]
+        block_i = unpack('<I', data[i * 4:i * 4 + 4])[0]
         l ^= block_i
         l, r = _michael_b(l, r)
     return pack('<II', l, r)
 
 # TKIP packet utils
+
 
 def parse_TKIP_hdr(pkt):
     """Extract TSCs, TA and encoded-data from a packet @pkt"""
@@ -272,6 +287,7 @@ def parse_TKIP_hdr(pkt):
 
     return TSC, TA, payload.read()
 
+
 def build_TKIP_payload(data, iv, mac, tk):
     """Build a TKIP header for IV @iv and mac @mac, and encrypt @data
     based on temporal key @tk
@@ -284,7 +300,7 @@ def build_TKIP_payload(data, iv, mac, tk):
         (iv >> 8) & 0xFF,
         iv & 0xFF
     )
-    bitfield = 1 << 5 # Extended IV
+    bitfield = 1 << 5  # Extended IV
     TKIP_hdr = chr(TSC1) + chr((TSC1 | 0x20) & 0x7f) + chr(TSC0) + chr(bitfield)
     TKIP_hdr += chr(TSC2) + chr(TSC3) + chr(TSC4) + chr(TSC5)
 
@@ -295,6 +311,7 @@ def build_TKIP_payload(data, iv, mac, tk):
     rc4_key = gen_TKIP_RC4_key(TSC, TA, TK)
     return TKIP_hdr + ARC4_encrypt(rc4_key, data)
 
+
 def parse_data_pkt(pkt, tk):
     """Extract data from a WPA packet @pkt with temporal key @tk"""
     TSC, TA, data = parse_TKIP_hdr(pkt)
@@ -303,13 +320,16 @@ def parse_data_pkt(pkt, tk):
     rc4_key = gen_TKIP_RC4_key(TSC, TA, TK)
     return ARC4_decrypt(rc4_key, data)
 
+
 class ICVError(Exception):
     """The expected ICV is not the computed one"""
     pass
 
+
 class MICError(Exception):
     """The expected MIC is not the computed one"""
     pass
+
 
 def check_MIC_ICV(data, mic_key, source, dest):
     """Check MIC, ICV & return the data from a decrypted TKIP packet"""
@@ -326,8 +346,8 @@ def check_MIC_ICV(data, mic_key, source, dest):
     if expected_ICV != ICV:
         raise ICVError()
 
-    sa = hex_bytes(source.replace(":", "")) # Source MAC
-    da = hex_bytes(dest.replace(":", "")) # Dest MAC
+    sa = hex_bytes(source.replace(":", ""))  # Source MAC
+    da = hex_bytes(dest.replace(":", ""))  # Dest MAC
 
     expected_MIC = michael(mic_key, da + sa + "\x00" + "\x00" * 3 + data_clear)
     if expected_MIC != MIC:
@@ -335,13 +355,14 @@ def check_MIC_ICV(data, mic_key, source, dest):
 
     return data_clear
 
+
 def build_MIC_ICV(data, mic_key, source, dest):
     """Compute and return the data with its MIC and ICV"""
     # DATA - MIC(DA - SA - Priority=0 - 0 - 0 - 0 - DATA) - ICV
     # 802.11i p.47
 
-    sa = hex_bytes(source.replace(":", "")) # Source MAC
-    da = hex_bytes(dest.replace(":", "")) # Dest MAC
+    sa = hex_bytes(source.replace(":", ""))  # Source MAC
+    da = hex_bytes(dest.replace(":", ""))  # Dest MAC
     MIC = michael(mic_key, da + sa + "\x00" + "\x00" * 3 + data)
     ICV = pack("<I", crc32(data + MIC) & 0xFFFFFFFF)
 

@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
-##               2015, 2016, 2017 Maxence Tury
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
+#               2015, 2016, 2017 Maxence Tury
+# This program is published under a GPLv2 license
 
 """
 TLS client automaton. This makes for a primitive TLS stack.
@@ -59,10 +59,10 @@ class TLSClientAutomaton(_TLSAutomaton):
     """
 
     def parse_args(self, server="127.0.0.1", dport=4433, server_name=None,
-                         mycert=None, mykey=None,
-                         client_hello=None, version=None,
-                         data=None,
-                         **kargs):
+                   mycert=None, mykey=None,
+                   client_hello=None, version=None,
+                   data=None,
+                   **kargs):
 
         super(TLSClientAutomaton, self).parse_args(mycert=mycert,
                                                    mykey=mykey,
@@ -107,7 +107,6 @@ class TLSClientAutomaton(_TLSAutomaton):
         else:
             self.data_to_send = []
 
-
     def vprint_sessioninfo(self):
         if self.verbose:
             s = self.cur_session
@@ -123,7 +122,6 @@ class TLSClientAutomaton(_TLSAutomaton):
             if s.server_certs:
                 self.vprint("Server certificate chain: %r" % s.server_certs)
             self.vprint()
-
 
     @ATMT.state(initial=True)
     def INITIAL(self):
@@ -160,7 +158,7 @@ class TLSClientAutomaton(_TLSAutomaton):
         else:
             raise self.PREPARE_CLIENTFLIGHT1()
 
-    ########################### TLS handshake #################################
+    #                           TLS handshake                                 #
 
     @ATMT.state()
     def PREPARE_CLIENTFLIGHT1(self):
@@ -355,7 +353,7 @@ class TLSClientAutomaton(_TLSAutomaton):
         hs_msg = [type(m) for m in self.cur_session.handshake_messages_parsed]
         if (not TLSCertificateRequest in hs_msg or
             self.mycert is None or
-            self.mykey is None):
+                self.mykey is None):
             return
         self.add_msg(TLSCertificateVerify())
         raise self.ADDED_CERTIFICATEVERIFY()
@@ -428,7 +426,7 @@ class TLSClientAutomaton(_TLSAutomaton):
         self.vprint_sessioninfo()
         self.vprint("You may send data or use 'quit'.")
 
-    ####################### end of TLS handshake ##############################
+    #                       end of TLS handshake                              #
 
     @ATMT.condition(HANDLED_SERVERFINISHED)
     def should_wait_ClientData(self):
@@ -517,7 +515,7 @@ class TLSClientAutomaton(_TLSAutomaton):
             self.vprint("Could not send termination Alert, maybe the server stopped?")
         raise self.FINAL()
 
-    ########################## SSLv2 handshake ################################
+    #                          SSLv2 handshake                                #
 
     @ATMT.state()
     def SSLv2_PREPARE_CLIENTHELLO(self):
@@ -671,7 +669,7 @@ class TLSClientAutomaton(_TLSAutomaton):
         self.raise_on_packet(SSLv2ServerFinished,
                              self.SSLv2_HANDLED_SERVERFINISHED)
 
-    ####################### SSLv2 client authentication #######################
+    #                       SSLv2 client authentication                       #
 
     @ATMT.condition(SSLv2_RECEIVED_SERVERFINISHED, prio=2)
     def sslv2_should_handle_RequestCertificate(self):
@@ -704,7 +702,7 @@ class TLSClientAutomaton(_TLSAutomaton):
     def SSLv2_SENT_CLIENTCERTIFICATE(self):
         raise self.SSLv2_WAITING_SERVERFINISHED()
 
-    ################### end of SSLv2 client authentication ####################
+    #                   end of SSLv2 client authentication                    #
 
     @ATMT.state()
     def SSLv2_HANDLED_SERVERFINISHED(self):
@@ -721,7 +719,7 @@ class TLSClientAutomaton(_TLSAutomaton):
         self.vprint("Missing SSLv2 ServerFinished message!")
         raise self.SSLv2_CLOSE_NOTIFY()
 
-    ######################## end of SSLv2 handshake ###########################
+    #                        end of SSLv2 handshake                           #
 
     @ATMT.condition(SSLv2_HANDLED_SERVERFINISHED)
     def sslv2_should_wait_ClientData(self):
@@ -807,7 +805,7 @@ class TLSClientAutomaton(_TLSAutomaton):
         self.socket.close()
         raise self.FINAL()
 
-    ######################### TLS 1.3 handshake ###############################
+    #                         TLS 1.3 handshake                               #
 
     @ATMT.state()
     def TLS13_START(self):
@@ -822,13 +820,13 @@ class TLSClientAutomaton(_TLSAutomaton):
         else:
             # When trying to connect to a public TLS 1.3 server,
             # you will most likely need to provide an SNI extension.
-           #sn = ServerName(servername="<put server name here>")
+            # sn = ServerName(servername="<put server name here>")
             ext = [TLS_Ext_SupportedGroups(groups=["secp256r1"]),
-                  #TLS_Ext_ServerName(servernames=[sn]),
+                   # TLS_Ext_ServerName(servernames=[sn]),
                    TLS_Ext_KeyShare_CH(client_shares=[KeyShareEntry(group=23)]),
                    TLS_Ext_SupportedVersions(versions=["TLS 1.3-d18"]),
                    TLS_Ext_SignatureAlgorithms(sig_algs=["sha256+rsapss",
-                                                         "sha256+rsa"]) ]
+                                                         "sha256+rsa"])]
             p = TLSClientHello(ciphers=0x1301, ext=ext)
         self.add_msg(p)
         raise self.TLS13_ADDED_CLIENTHELLO()
@@ -912,7 +910,7 @@ class TLSClientAutomaton(_TLSAutomaton):
     @ATMT.state()
     def TLS13_PREPARE_CLIENTFLIGHT2(self):
         self.add_record(is_tls13=True)
-        #raise self.FINAL()
+        # raise self.FINAL()
 
     @ATMT.condition(TLS13_PREPARE_CLIENTFLIGHT2)
     def tls13_should_add_ClientFinished(self):
@@ -936,7 +934,7 @@ class TLSClientAutomaton(_TLSAutomaton):
     def FINAL(self):
         # We might call shutdown, but it may happen that the server
         # did not wait for us to shutdown after answering our data query.
-        #self.socket.shutdown(1)
+        # self.socket.shutdown(1)
         self.vprint("Closing client socket...")
         self.socket.close()
         self.vprint("Ending TLS client automaton.")

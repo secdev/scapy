@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
-##               2015, 2016, 2017 Maxence Tury
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# Copyright (C) 2007, 2008, 2009 Arnaud Ebalard
+#               2015, 2016, 2017 Maxence Tury
+# This program is published under a GPLv2 license
 
 """
 Stream ciphers.
@@ -18,6 +18,7 @@ if conf.crypto_valid:
 
 
 _tls_stream_cipher_algs = {}
+
 
 class _StreamCipherMetaclass(type):
     """
@@ -78,7 +79,6 @@ class _StreamCipher(six.with_metaclass(_StreamCipherMetaclass, object)):
                 self.decryptor = self._cipher.decryptor()
             self.ready["key"] = True
         super(_StreamCipher, self).__setattr__(name, val)
-
 
     def encrypt(self, data):
         if False in six.itervalues(self.ready):

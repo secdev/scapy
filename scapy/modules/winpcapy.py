@@ -8,7 +8,7 @@
 # Copyright:   (c) Massimo Ciani 2009
 #
 #-------------------------------------------------------------------------------
-# Modified for scapy's usage
+# Modified for scapy's usage - Mainly to support Npcap
 
 ## This file is part of Scapy
 ## See http://www.secdev.org/projects/scapy for more informations
@@ -20,6 +20,16 @@ import sys, os
 from scapy.consts import WINDOWS
 
 HAVE_REMOTE=False
+
+# Notes: Npcap, DLL and Windows
+
+# Npcap documentation advise using SetDllDirectory in order to load Npcap rather than
+# Winpcap, as they both use the same `wpcap.dll` file but in different folders.
+#   Sadly in Python, the DLLs located in C:/Windows/System32 are pre-loaded,
+# and I don't think that there is a way to avoid this behavior.
+# ==> Trying to load any of those DLLs (e.g. using CDLL) will return the pre-loaded ones.
+# This means that SetDllDirectory is useless, as we cannot unload the already loaded DLL.
+# Thus, we tell users to uninstall winpcap, when we detect winpcap and npcap installed.
 
 if WINDOWS:
     HAVE_REMOTE=True

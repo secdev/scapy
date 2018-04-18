@@ -167,3 +167,45 @@ t_sniff.join()
 
 = Delete the tun interfaces
 del tun0, tun1
+
+############
+############
++ Test bridge_and_sniff() using veth pairs
+~ linux needs_root veth
+
+= Ensure bridge_and_sniff does not close sockets if data is send within xfrm on ingress interface
+
+with VEthPair('a_0', 'a_1') as veth_0:
+    with VEthPair('b_0', 'b_1') as veth_1:
+        xfrm_count = {
+            'a_0':0,
+            'b_0': 0
+        }
+        def xfrm_x(pkt):
+            pkt_tx = pkt.copy()
+            ether_lyr = pkt_tx[Ether]
+            ether_lyr.type = 0x1234  # we send to peer interface - avoid loop
+            # send on receiving interface - triggers return None on recv() in L2Socket
+            sendp(pkt_tx, iface=pkt.sniffed_on)
+            global xfrm_count
+            xfrm_count[pkt.sniffed_on] = xfrm_count[pkt.sniffed_on] + 1
+            return True
+        t_bridge = Thread(target=bridge_and_sniff,
+                          args=('a_0', 'b_0'),
+                          kwargs={
+                              'xfrm12': xfrm_x,
+                              'xfrm21': xfrm_x,
+                              'store': False,
+                              'count': 4,
+                              'lfilter': lambda p: Ether in p and p[Ether].type == 0xbeef})
+        t_bridge.start()
+        time.sleep(1)
+        # send frames in both directions
+        for if_name in ['a_1', 'b_1', 'a_1', 'b_1']:
+            sendp([Ether(type=0xbeef) /
+                   Raw(b'On a scale from one to ten what is your favourite colour of the alphabet?')],
+                  iface=if_name)
+        t_bridge.join(1)
+        # now test of the socket used in bridge_and_sniff() was alive all the time
+        assert (xfrm_count['a_0'] == 2)
+        assert (xfrm_count['b_0'] == 2)

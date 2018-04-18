@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
 """
 External link to programs
@@ -14,7 +14,7 @@ from scapy.error import *
 # in interactive mode, because it needs to be called after the
 # logger has been setup, to be able to print the warning messages
 
-## MATPLOTLIB
+# MATPLOTLIB
 
 try:
     from matplotlib import get_backend as matplotlib_get_backend
@@ -33,7 +33,8 @@ except (ImportError, RuntimeError):
     MATPLOTLIB_DEFAULT_PLOT_KARGS = dict()
     log_loading.info("Can't import matplotlib. Won't be able to plot.")
 
-## PYX
+# PYX
+
 
 def _test_pyx():
     """Returns if PyX is correctly installed or not"""
@@ -44,6 +45,7 @@ def _test_pyx():
         return False
     else:
         return r == 0
+
 
 try:
     import pyx

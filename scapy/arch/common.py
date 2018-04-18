@@ -1,7 +1,7 @@
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
-## Copyright (C) Philippe Biondi <phil@secdev.org>
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
 
 """
 Functions common to different architectures
@@ -15,7 +15,8 @@ from ctypes import c_uint, c_uint32, c_ushort, c_ubyte
 from scapy.config import conf
 import scapy.modules.six as six
 
-## UTILS
+# UTILS
+
 
 def get_if(iff, cmd):
     """Ease SIOCGIF* ioctl calls"""
@@ -25,7 +26,8 @@ def get_if(iff, cmd):
     sck.close()
     return ifreq
 
-## BPF HANDLERS
+# BPF HANDLERS
+
 
 class bpf_insn(Structure):
     """"The BPF instruction data structure"""
@@ -40,31 +42,37 @@ class bpf_program(Structure):
     _fields_ = [("bf_len", c_uint),
                 ("bf_insns", POINTER(bpf_insn))]
 
+
 def _legacy_bpf_pointer(tcpdump_lines):
     """Get old-format BPF Pointer. Deprecated"""
     X86_64 = os.uname()[4] in ['x86_64', 'aarch64']
     size = int(tcpdump_lines[0])
-    bpf = ""
+    bpf = b""
     for l in tcpdump_lines[1:]:
-        bpf += struct.pack("HBBI",*map(long,l.split()))
+        if six.PY2:
+            int_type = long
+        else:
+            int_type = int
+        bpf += struct.pack("HBBI", *map(int_type, l.split()))
 
     # Thanks to http://www.netprojects.de/scapy-with-pypy-solved/ for the pypy trick
-    if conf.use_pypy and six.PY2:
+    if conf.use_pypy:
         str_buffer = ctypes.create_string_buffer(bpf)
         return struct.pack('HL', size, ctypes.addressof(str_buffer))
     else:
         # XXX. Argl! We need to give the kernel a pointer on the BPF,
         # Python object header seems to be 20 bytes. 36 bytes for x86 64bits arch.
         if X86_64:
-            return struct.pack("HL", size, id(bpf)+36)
+            return struct.pack("HL", size, id(bpf) + 36)
         else:
-            return struct.pack("HI", size, id(bpf)+20)
+            return struct.pack("HI", size, id(bpf) + 20)
+
 
 def get_bpf_pointer(tcpdump_lines):
     """Create a BPF Pointer for TCPDump filter"""
-    if conf.use_pypy and six.PY2:
+    if conf.use_pypy:
         return _legacy_bpf_pointer(tcpdump_lines)
-    
+
     # Allocate BPF instructions
     size = int(tcpdump_lines[0])
     bpf_insn_a = bpf_insn * size
