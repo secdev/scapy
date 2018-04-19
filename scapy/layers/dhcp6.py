@@ -1458,7 +1458,7 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
             print("\n[+] Starting DHCPv6 service on %s:" % self.iface)
 
     def is_request(self, p):
-        if not IPv6 in p:
+        if IPv6 not in p:
             return False
 
         src = p[IPv6].src
@@ -1482,7 +1482,7 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
         if ((p.msgtype == 1) or  # Solicit
             (p.msgtype == 6) or  # Rebind
                 (p.msgtype == 4)):  # Confirm
-            if ((not DHCP6OptClientId in p) or
+            if ((DHCP6OptClientId not in p) or
                     DHCP6OptServerId in p):
                 return False
 
@@ -1497,8 +1497,8 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
               p.msgtype == 8):  # Release
 
             # Both options must be present
-            if ((not DHCP6OptServerId in p) or
-                    (not DHCP6OptClientId in p)):
+            if ((DHCP6OptServerId not in p) or
+                    (DHCP6OptClientId not in p)):
                 return False
             # provided server DUID must match ours
             duid = p[DHCP6OptServerId].duid

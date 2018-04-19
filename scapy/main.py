@@ -95,7 +95,7 @@ def _validate_local(x):
     Will return False for any default modules (sys), or if
     they are detected as private vars (starting with a _)"""
     global IGNORED
-    return x[0] != "_" and not x in IGNORED
+    return x[0] != "_" and x not in IGNORED
 
 
 DEFAULT_PRESTART_FILE = _probe_config_file(".scapy_prestart.py")

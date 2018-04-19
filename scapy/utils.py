@@ -872,7 +872,7 @@ class RawPcapReader(six.with_metaclass(PcapReader_metaclass)):
     def next(self):
         """implement the iterator protocol on a set of packets in a pcap file"""
         pkt = self.read_packet()
-        if pkt == None:
+        if pkt is None:
             raise StopIteration
         return pkt
     __next__ = next
@@ -1253,7 +1253,7 @@ class PcapWriter(RawPcapWriter):
     def _write_header(self, pkt):
         if isinstance(pkt, tuple) and pkt:
             pkt = pkt[0]
-        if self.linktype == None:
+        if self.linktype is None:
             try:
                 self.linktype = conf.l2types[pkt.__class__]
             except KeyError:

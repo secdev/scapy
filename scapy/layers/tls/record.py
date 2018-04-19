@@ -41,7 +41,7 @@ from scapy.layers.tls.crypto.h_mac import HMACError
 
 def _tls_version_check(version, min):
     """Returns if version >= min, or False if version == None"""
-    if version == None:
+    if version is None:
         return False
     return version >= min
 

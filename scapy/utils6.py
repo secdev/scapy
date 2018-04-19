@@ -288,7 +288,7 @@ def in6_getLinkScopedMcastAddr(addr, grpid=None, scope=2):
     If no link-local address can be used to generate the Link-Scoped IPv6
     Multicast address, or if another error occurs, None is returned.
     """
-    if not scope in [0, 1, 2]:
+    if scope not in [0, 1, 2]:
         return None
     try:
         if not in6_islladdr(addr):

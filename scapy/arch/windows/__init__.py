@@ -460,7 +460,7 @@ if conf.prog.tcpdump and conf.use_npcap and conf.prog.os_access:
             stdout, err = p_test_windump.communicate()
             _windows_title()
             _output = stdout.lower()
-            return b"npcap" in _output and not b"winpcap" in _output
+            return b"npcap" in _output and b"winpcap" not in _output
         except:
             return False
     windump_ok = test_windump_npcap()
@@ -1286,7 +1286,7 @@ def route_add_loopback(routes=None, ipv6=False, iflist=None):
     loopback_route = (loop_net, loop_mask, "0.0.0.0", adapter, "127.0.0.1", 1)
     loopback_route6 = ('::1', 128, '::', adapter, ["::1"], 1)
     loopback_route6_custom = ("fe80::", 128, "::", adapter, ["::1"], 1)
-    if routes == None:
+    if routes is None:
         # Injection
         conf.route6.routes.append(loopback_route6)
         conf.route6.routes.append(loopback_route6_custom)

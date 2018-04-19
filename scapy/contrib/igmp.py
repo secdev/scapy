@@ -118,7 +118,7 @@ IGMPv2 message format   http://www.faqs.org/rfcs/rfc2236.html
         """
         gaddr = self.gaddr if hasattr(self, "gaddr") and self.gaddr else "0.0.0.0"
         underlayer = self.underlayer
-        if not self.type in [0x11, 0x30]:                               # General Rule 1
+        if self.type not in [0x11, 0x30]:                               # General Rule 1
             self.mrcode = 0
         if isinstance(underlayer, IP):
             if (self.type == 0x11):

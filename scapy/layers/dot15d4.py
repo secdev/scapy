@@ -244,7 +244,7 @@ class dot15d4AddressField(Field):
     def __init__(self, name, default, length_of=None, fmt="<H", adjust=None):
         Field.__init__(self, name, default, fmt)
         self.length_of = length_of
-        if adjust != None:
+        if adjust is not None:
             self.adjust = adjust
         else:
             self.adjust = lambda pkt, x: self.lengthFromAddrMode(pkt, x)
@@ -424,7 +424,7 @@ class Dot15d4Data(Packet):
                          lambda pkt:pkt.underlayer.getfieldval("fcf_srcaddrmode") != 0),
         # Security field present if fcf_security == True
         ConditionalField(PacketField("aux_sec_header", Dot15d4AuxSecurityHeader(), Dot15d4AuxSecurityHeader),
-                         lambda pkt:pkt.underlayer.getfieldval("fcf_security") == True),
+                         lambda pkt:pkt.underlayer.getfieldval("fcf_security") is True),
     ]
 
     def mysummary(self):
@@ -438,7 +438,7 @@ class Dot15d4Beacon(Packet):
         dot15d4AddressField("src_addr", None, length_of="fcf_srcaddrmode"),
         # Security field present if fcf_security == True
         ConditionalField(PacketField("aux_sec_header", Dot15d4AuxSecurityHeader(), Dot15d4AuxSecurityHeader),
-                         lambda pkt:pkt.underlayer.getfieldval("fcf_security") == True),
+                         lambda pkt:pkt.underlayer.getfieldval("fcf_security") is True),
 
         # Superframe spec field:
         BitField("sf_sforder", 15, 4),  # not used by ZigBee
@@ -487,7 +487,7 @@ class Dot15d4Cmd(Packet):
                          lambda pkt:pkt.underlayer.getfieldval("fcf_srcaddrmode") != 0),
         # Security field present if fcf_security == True
         ConditionalField(PacketField("aux_sec_header", Dot15d4AuxSecurityHeader(), Dot15d4AuxSecurityHeader),
-                         lambda pkt:pkt.underlayer.getfieldval("fcf_security") == True),
+                         lambda pkt:pkt.underlayer.getfieldval("fcf_security") is True),
         ByteEnumField("cmd_id", 0, {
             1: "AssocReq",  # Association request
             2: "AssocResp",  # Association response

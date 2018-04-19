@@ -1769,7 +1769,7 @@ class UTCTimeField(IntField):
         return "%s (%d)" % (t, x)
 
     def i2m(self, pkt, x):
-        return int(x) if x != None else 0
+        return int(x) if x is not None else 0
 
 
 class SecondsIntField(IntField):
