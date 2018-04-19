@@ -512,7 +512,7 @@ class LoWPAN_IPHC(Packet):
                 raise Exception('Reserved')
             elif self.dam == 0x3:
                 underlayer = self.underlayer
-                while underlayer != None and not isinstance(underlayer, Dot15d4Data):
+                while underlayer is not None and not isinstance(underlayer, Dot15d4Data):
                     underlayer = underlayer.underlayer
                 if type(underlayer) == Dot15d4Data:
                     if underlayer.underlayer.fcf_destaddrmode == 3:
@@ -615,8 +615,8 @@ class LoWPAN_IPHC(Packet):
                     tmp_ip[16 - source_addr_mode2(self):16]
             elif self.sam == 0x3:  # EXTRACT ADDRESS FROM Dot15d4
                 underlayer = self.underlayer
-                if underlayer != None:
-                    while underlayer != None and not isinstance(underlayer, Dot15d4Data):
+                if underlayer is not None:
+                    while underlayer is not None and not isinstance(underlayer, Dot15d4Data):
                         underlayer = underlayer.underlayer
                     assert type(underlayer) == Dot15d4Data
                     if underlayer.underlayer.fcf_srcaddrmode == 3:

@@ -313,7 +313,7 @@ class TLSClientAutomaton(_TLSAutomaton):
         XXX We may want to add a complete chain.
         """
         hs_msg = [type(m) for m in self.cur_session.handshake_messages_parsed]
-        if not TLSCertificateRequest in hs_msg:
+        if TLSCertificateRequest not in hs_msg:
             return
         certs = []
         if self.mycert:
@@ -351,7 +351,7 @@ class TLSClientAutomaton(_TLSAutomaton):
         the case when the Certificate message was empty.
         """
         hs_msg = [type(m) for m in self.cur_session.handshake_messages_parsed]
-        if (not TLSCertificateRequest in hs_msg or
+        if (TLSCertificateRequest not in hs_msg or
             self.mycert is None or
                 self.mykey is None):
             return

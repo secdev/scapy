@@ -284,7 +284,7 @@ class DHCPOptionsField(StrField):
                 s += oval
 
             elif (isinstance(o, str) and o in DHCPRevOptions and
-                  DHCPRevOptions[o][1] == None):
+                  DHCPRevOptions[o][1] is None):
                 s += chb(DHCPRevOptions[o][0])
             elif isinstance(o, int):
                 s += chb(o) + b"\0"

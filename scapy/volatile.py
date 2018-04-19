@@ -786,7 +786,7 @@ class RandPool(RandField):
 
 class AutoTime(VolatileValue):
     def __init__(self, base=None):
-        if base == None:
+        if base is None:
             self.diff = 0
         else:
             self.diff = time.time() - base

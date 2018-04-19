@@ -97,7 +97,7 @@ def read_routes():
             dest = scapy.utils.atol(dest)
         # XXX: TODO: add metrics for unix.py (use -e option on netstat)
         metric = 1
-        if not "G" in flg:
+        if "G" not in flg:
             gw = '0.0.0.0'
         if netif is not None:
             try:
@@ -270,7 +270,7 @@ def read_routes6():
         metric = 1
 
         # Check flags
-        if not "U" in flags:  # usable route
+        if "U" not in flags:  # usable route
             continue
         if "R" in flags:  # Host or net unreachable
             continue

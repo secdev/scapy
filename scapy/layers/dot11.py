@@ -435,7 +435,7 @@ iwconfig wlan0 mode managed
         pay = raw(tcp.payload)
         if not self.ptrn.match(pay):
             return 0
-        if self.iptrn.match(pay) == True:
+        if self.iptrn.match(pay) is True:
             return 0
         return True
 

@@ -182,7 +182,7 @@ TBCD_TO_ASCII = b"0123456789*#abc"
 class GTP_ExtensionHeader(Packet):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
-        if _pkt == None:
+        if _pkt is None:
             return GTP_UDPPort_ExtensionHeader
         return cls
 

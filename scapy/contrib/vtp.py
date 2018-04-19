@@ -111,7 +111,7 @@ class VTPVlanInfo(Packet):
     def post_build(self, p, pay):
         vlannamelen = 4 * ((len(self.vlanname) + 3) / 4)
 
-        if self.len == None:
+        if self.len is None:
             l = vlannamelen + 12
             p = chr(l & 0xff) + p[1:]
 
@@ -175,7 +175,7 @@ class VTP(Packet):
     ]
 
     def post_build(self, p, pay):
-        if self.domnamelen == None:
+        if self.domnamelen is None:
             domnamelen = len(self.domname.strip(b"\x00"))
             p = p[:3] + chr(domnamelen & 0xff) + p[4:]
 

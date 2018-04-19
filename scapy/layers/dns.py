@@ -525,7 +525,7 @@ class _DNSRRdummy(InheritOriginDNSStrPacket):
     name = "Dummy class that implements post_build() for Resource Records"
 
     def post_build(self, pkt, pay):
-        if not self.rdlen == None:
+        if self.rdlen is not None:
             return pkt
 
         lrrname = len(self.fields_desc[0].i2m("", self.getfieldval("rrname")))

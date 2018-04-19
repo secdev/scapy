@@ -104,7 +104,7 @@ class ASN1Tag(EnumElement):
     def __init__(self, key, value, context=None, codec=None):
         EnumElement.__init__(self, key, value)
         self._context = context
-        if codec == None:
+        if codec is None:
             codec = {}
         self._codec = codec
 

@@ -335,7 +335,7 @@ class NetflowTemplateFieldV9(Packet):
 
     def __init__(self, *args, **kwargs):
         Packet.__init__(self, *args, **kwargs)
-        if self.fieldType != None and not self.fieldLength and self.fieldType in NetflowV9TemplateFieldDefaultLengths:
+        if self.fieldType is not None and not self.fieldLength and self.fieldType in NetflowV9TemplateFieldDefaultLengths:
             self.fieldLength = NetflowV9TemplateFieldDefaultLengths[self.fieldType]
 
     def default_payload_class(self, p):

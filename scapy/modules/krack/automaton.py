@@ -460,7 +460,7 @@ class KrackAP(Automaton):
     @ATMT.receive_condition(WAIT_AUTH_REQUEST)
     def probe_request_received(self, pkt):
         # Avoid packet from other interfaces
-        if not RadioTap in pkt:
+        if RadioTap not in pkt:
             return
         if Dot11ProbeReq in pkt and pkt[Dot11Elt::{'ID': 0}].info == self.ssid:
             raise self.WAIT_AUTH_REQUEST().action_parameters(pkt)
@@ -473,7 +473,7 @@ class KrackAP(Automaton):
     @ATMT.receive_condition(WAIT_AUTH_REQUEST)
     def authent_received(self, pkt):
         # Avoid packet from other interfaces
-        if not RadioTap in pkt:
+        if RadioTap not in pkt:
             return
         if Dot11Auth in pkt and pkt.addr1 == pkt.addr3 == self.mac:
             raise self.AUTH_RESPONSE_SENT().action_parameters(pkt)
@@ -548,7 +548,7 @@ class KrackAP(Automaton):
     @ATMT.receive_condition(WPA_HANDSHAKE_STEP_1_SENT)
     def wpa_handshake_1_sent(self, pkt):
         # Avoid packet from other interfaces
-        if not RadioTap in pkt:
+        if RadioTap not in pkt:
             return
         if EAPOL in pkt and pkt.addr1 == pkt.addr3 == self.mac and \
            pkt[EAPOL].load[1] == "\x01":
@@ -601,7 +601,7 @@ class KrackAP(Automaton):
     @ATMT.receive_condition(WPA_HANDSHAKE_STEP_3_SENT)
     def wpa_handshake_3_sent(self, pkt):
         # Avoid packet from other interfaces
-        if not RadioTap in pkt:
+        if RadioTap not in pkt:
             return
         if EAPOL in pkt and pkt.addr1 == pkt.addr3 == self.mac and \
            pkt[EAPOL].load[1:3] == "\x03\x09":
@@ -675,7 +675,7 @@ class KrackAP(Automaton):
     @ATMT.receive_condition(ANALYZE_DATA)
     def get_data(self, pkt):
         # Avoid packet from other interfaces
-        if not RadioTap in pkt:
+        if RadioTap not in pkt:
             return
 
         # Skip retries
@@ -771,7 +771,7 @@ class KrackAP(Automaton):
     @ATMT.receive_condition(WAIT_GTK_ACCEPT)
     def get_gtk_2(self, pkt):
         # Avoid packet from other interfaces
-        if not RadioTap in pkt:
+        if RadioTap not in pkt:
             return
 
         # Skip retries
@@ -846,7 +846,7 @@ class KrackAP(Automaton):
     @ATMT.receive_condition(WAIT_ARP_REPLIES)
     def get_arp(self, pkt):
         # Avoid packet from other interfaces
-        if not RadioTap in pkt:
+        if RadioTap not in pkt:
             return
 
         # Skip retries
