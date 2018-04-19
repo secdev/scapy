@@ -196,7 +196,8 @@ def packet2p0f(pkt):
                 ooo += "?%i," % option[0]
             # FIXME: ilen
     ooo = ooo[:-1]
-    if ooo == "": ooo = "."
+    if ooo == "":
+        ooo = "."
 
     win = pkt.payload.window
     if mss != -1:
@@ -535,9 +536,12 @@ Some specifications of the p0f.fp file are not (yet) implemented."""
         for qq in pers[5]:
             # FIXME: not handled: P, I, X, !
             # T handled with the Timestamp option
-            if qq == 'Z': pkt.id = 0
-            elif qq == 'U': pkt.payload.urgptr = RandShort()
-            elif qq == 'A': pkt.payload.ack = RandInt()
+            if qq == 'Z':
+                pkt.id = 0
+            elif qq == 'U':
+                pkt.payload.urgptr = RandShort()
+            elif qq == 'A':
+                pkt.payload.ack = RandInt()
             elif qq == 'F':
                 if db == p0fo_kdb:
                     pkt.payload.flags |= 0x20  # U
@@ -545,7 +549,8 @@ Some specifications of the p0f.fp file are not (yet) implemented."""
                     pkt.payload.flags |= random.choice([8, 32, 40])  # P/U/PU
             elif qq == 'D' and db != p0fo_kdb:
                 pkt /= conf.raw_layer(load=RandString(random.randint(1, 10)))  # XXX p0fo.fp
-            elif qq == 'Q': pkt.payload.seq = pkt.payload.ack
+            elif qq == 'Q':
+                pkt.payload.seq = pkt.payload.ack
             # elif qq == '0': pkt.payload.seq = 0
         # if db == p0fr_kdb:
         # '0' quirk is actually not only for p0fr.fp (see
