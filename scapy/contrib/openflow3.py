@@ -3585,15 +3585,18 @@ def OpenFlow(self, payload):
         if of_type == 1:
             err_type = orb(payload[9])
             # err_type is a short int, but last byte is enough
-            if err_type == 255: err_type = 65535
+            if err_type == 255:
+                err_type = 65535
             return ofp_error_cls[err_type]
         elif of_type == 18:
             mp_type = orb(payload[9])
-            if mp_type == 255: mp_type = 65535
+            if mp_type == 255:
+                mp_type = 65535
             return ofp_multipart_request_cls[mp_type]
         elif of_type == 19:
             mp_type = orb(payload[9])
-            if mp_type == 255: mp_type = 65535
+            if mp_type == 255:
+                mp_type = 65535
             return ofp_multipart_reply_cls[mp_type]
         else:
             return ofpt_cls[of_type]

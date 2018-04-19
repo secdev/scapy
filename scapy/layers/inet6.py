@@ -874,7 +874,8 @@ class RouterAlert(Packet):  # RFC 2711 - IPv6 Hop-By-Hop Option
     #        iana.org/assignments/ipv6-routeralert-values/ipv6-routeralert-values.xhtml
 
     def alignment_delta(self, curpos):  # alignment requirement : 2n+0
-        x = 2; y = 0
+        x = 2
+        y = 0
         delta = x * ((curpos - y + x - 1) // x) + y - curpos
         return delta
 
@@ -886,7 +887,8 @@ class Jumbo(Packet):  # IPv6 Hop-By-Hop Option
                    IntField("jumboplen", None)]
 
     def alignment_delta(self, curpos):  # alignment requirement : 4n+2
-        x = 4; y = 2
+        x = 4
+        y = 2
         delta = x * ((curpos - y + x - 1) // x) + y - curpos
         return delta
 
@@ -898,7 +900,8 @@ class HAO(Packet):  # IPv6 Destination Options Header Option
                    IP6Field("hoa", "::")]
 
     def alignment_delta(self, curpos):  # alignment requirement : 8n+6
-        x = 8; y = 6
+        x = 8
+        y = 6
         delta = x * ((curpos - y + x - 1) // x) + y - curpos
         return delta
 
@@ -2864,7 +2867,8 @@ class _MIP6OptAlign:
     parameters. (x=0 and y=0 are used when no alignment is required)"""
 
     def alignment_delta(self, curpos):
-        x = self.x; y = self.y
+        x = self.x
+        y = self.y
         if x == 0 and y == 0:
             return 0
         delta = x * ((curpos - y + x - 1) // x) + y - curpos
@@ -2876,7 +2880,8 @@ class MIP6OptBRAdvice(_MIP6OptAlign, Packet):
     fields_desc = [ByteEnumField('otype', 2, _mobopttypes),
                    ByteField('olen', 2),
                    ShortField('rinter', 0)]
-    x = 2; y = 0  # alignment requirement: 2n
+    x = 2
+    y = 0  # alignment requirement: 2n
 
 
 class MIP6OptAltCoA(_MIP6OptAlign, Packet):
@@ -2884,7 +2889,8 @@ class MIP6OptAltCoA(_MIP6OptAlign, Packet):
     fields_desc = [ByteEnumField('otype', 3, _mobopttypes),
                    ByteField('olen', 16),
                    IP6Field("acoa", "::")]
-    x = 8; y = 6  # alignment requirement: 8n+6
+    x = 8
+    y = 6  # alignment requirement: 8n+6
 
 
 class MIP6OptNonceIndices(_MIP6OptAlign, Packet):
@@ -2893,7 +2899,8 @@ class MIP6OptNonceIndices(_MIP6OptAlign, Packet):
                    ByteField('olen', 16),
                    ShortField('hni', 0),
                    ShortField('coni', 0)]
-    x = 2; y = 0  # alignment requirement: 2n
+    x = 2
+    y = 0  # alignment requirement: 2n
 
 
 class MIP6OptBindingAuthData(_MIP6OptAlign, Packet):
@@ -2901,7 +2908,8 @@ class MIP6OptBindingAuthData(_MIP6OptAlign, Packet):
     fields_desc = [ByteEnumField('otype', 5, _mobopttypes),
                    ByteField('olen', 16),
                    BitField('authenticator', 0, 96)]
-    x = 8; y = 2  # alignment requirement: 8n+2
+    x = 8
+    y = 2  # alignment requirement: 8n+2
 
 
 class MIP6OptMobNetPrefix(_MIP6OptAlign, Packet):  # NEMO - RFC 3963
@@ -2911,7 +2919,8 @@ class MIP6OptMobNetPrefix(_MIP6OptAlign, Packet):  # NEMO - RFC 3963
                    ByteField("reserved", 0),
                    ByteField("plen", 64),
                    IP6Field("prefix", "::")]
-    x = 8; y = 4  # alignment requirement: 8n+4
+    x = 8
+    y = 4  # alignment requirement: 8n+4
 
 
 class MIP6OptLLAddr(_MIP6OptAlign, Packet):  # Sect 6.4.4 of RFC 4068
@@ -2921,7 +2930,8 @@ class MIP6OptLLAddr(_MIP6OptAlign, Packet):  # Sect 6.4.4 of RFC 4068
                    ByteEnumField("ocode", 2, _rfc4068_lla_optcode),
                    ByteField("pad", 0),
                    MACField("lla", ETHER_ANY)]  # Only support ethernet
-    x = 0; y = 0  # alignment requirement: none
+    x = 0
+    y = 0  # alignment requirement: none
 
 
 class MIP6OptMNID(_MIP6OptAlign, Packet):  # RFC 4283
@@ -2932,7 +2942,8 @@ class MIP6OptMNID(_MIP6OptAlign, Packet):  # RFC 4283
                    ByteEnumField("subtype", 1, {1: "NAI"}),
                    StrLenField("id", "",
                                length_from=lambda pkt: pkt.olen - 1)]
-    x = 0; y = 0  # alignment requirement: none
+    x = 0
+    y = 0  # alignment requirement: none
 
 # We only support decoding and basic build. Automatic HMAC computation is
 # too much work for our current needs. It is left to the user (I mean ...
@@ -2949,7 +2960,8 @@ class MIP6OptMsgAuth(_MIP6OptAlign, Packet):  # RFC 4285 (Sect. 5)
                    IntField("mspi", None),
                    StrLenField("authdata", "A" * 12,
                                length_from=lambda pkt: pkt.olen - 5)]
-    x = 4; y = 1  # alignment requirement: 4n+1
+    x = 4
+    y = 1  # alignment requirement: 4n+1
 
 # Extracted from RFC 1305 (NTP) :
 # NTP timestamps are represented as a 64-bit unsigned fixed-point number,
@@ -2978,14 +2990,16 @@ class MIP6OptReplayProtection(_MIP6OptAlign, Packet):  # RFC 4285 (Sect. 6)
     fields_desc = [ByteEnumField("otype", 10, _mobopttypes),
                    ByteField("olen", 8),
                    NTPTimestampField("timestamp", 0)]
-    x = 8; y = 2  # alignment requirement: 8n+2
+    x = 8
+    y = 2  # alignment requirement: 8n+2
 
 
 class MIP6OptCGAParamsReq(_MIP6OptAlign, Packet):  # RFC 4866 (Sect. 5.6)
     name = "MIPv6 option - CGA Parameters Request"
     fields_desc = [ByteEnumField("otype", 11, _mobopttypes),
                    ByteField("olen", 0)]
-    x = 0; y = 0  # alignment requirement: none
+    x = 0
+    y = 0  # alignment requirement: none
 
 # XXX TODO: deal with CGA param fragmentation and build of defragmented
 # XXX       version. Passing of a big CGAParam structure should be
@@ -2998,7 +3012,8 @@ class MIP6OptCGAParams(_MIP6OptAlign, Packet):  # RFC 4866 (Sect. 5.1)
                    FieldLenField("olen", None, length_of="cgaparams", fmt="B"),
                    StrLenField("cgaparams", "",
                                length_from=lambda pkt: pkt.olen)]
-    x = 0; y = 0  # alignment requirement: none
+    x = 0
+    y = 0  # alignment requirement: none
 
 
 class MIP6OptSignature(_MIP6OptAlign, Packet):  # RFC 4866 (Sect. 5.2)
@@ -3007,7 +3022,8 @@ class MIP6OptSignature(_MIP6OptAlign, Packet):  # RFC 4866 (Sect. 5.2)
                    FieldLenField("olen", None, length_of="sig", fmt="B"),
                    StrLenField("sig", "",
                                length_from=lambda pkt: pkt.olen)]
-    x = 0; y = 0  # alignment requirement: none
+    x = 0
+    y = 0  # alignment requirement: none
 
 
 class MIP6OptHomeKeygenToken(_MIP6OptAlign, Packet):  # RFC 4866 (Sect. 5.3)
@@ -3016,14 +3032,16 @@ class MIP6OptHomeKeygenToken(_MIP6OptAlign, Packet):  # RFC 4866 (Sect. 5.3)
                    FieldLenField("olen", None, length_of="hkt", fmt="B"),
                    StrLenField("hkt", "",
                                length_from=lambda pkt: pkt.olen)]
-    x = 0; y = 0  # alignment requirement: none
+    x = 0
+    y = 0  # alignment requirement: none
 
 
 class MIP6OptCareOfTestInit(_MIP6OptAlign, Packet):  # RFC 4866 (Sect. 5.4)
     name = "MIPv6 option - Care-of Test Init"
     fields_desc = [ByteEnumField("otype", 15, _mobopttypes),
                    ByteField("olen", 0)]
-    x = 0; y = 0  # alignment requirement: none
+    x = 0
+    y = 0  # alignment requirement: none
 
 
 class MIP6OptCareOfTest(_MIP6OptAlign, Packet):  # RFC 4866 (Sect. 5.5)
@@ -3032,7 +3050,8 @@ class MIP6OptCareOfTest(_MIP6OptAlign, Packet):  # RFC 4866 (Sect. 5.5)
                    FieldLenField("olen", None, length_of="cokt", fmt="B"),
                    StrLenField("cokt", b'\x00' * 8,
                                length_from=lambda pkt: pkt.olen)]
-    x = 0; y = 0  # alignment requirement: none
+    x = 0
+    y = 0  # alignment requirement: none
 
 
 class MIP6OptUnknown(_MIP6OptAlign, Packet):
@@ -3041,7 +3060,8 @@ class MIP6OptUnknown(_MIP6OptAlign, Packet):
                    FieldLenField("olen", None, length_of="odata", fmt="B"),
                    StrLenField("odata", "",
                                length_from=lambda pkt: pkt.olen)]
-    x = 0; y = 0  # alignment requirement: none
+    x = 0
+    y = 0  # alignment requirement: none
 
 
 moboptcls = {0: Pad1,

@@ -42,7 +42,8 @@ from scapy.modules.six.moves import range
 try:
     from typing import Optional, List, Union, Callable, Any, Tuple, Sized
 except ImportError:
-    class Sized(object): pass
+    class Sized(object):
+        pass
 
 import scapy.fields as fields
 import scapy.packet as packet
@@ -636,17 +637,20 @@ class FieldUVarLenField(AbstractUVarIntField):
 
 class HPackStringsInterface(six.with_metaclass(abc.ABCMeta, Sized)):
     @abc.abstractmethod
-    def __str__(self): pass
+    def __str__(self):
+        pass
 
     def __bytes__(self):
         r = self.__str__()
         return r if isinstance(r, bytes) else raw(r)
 
     @abc.abstractmethod
-    def origin(self): pass
+    def origin(self):
+        pass
 
     @abc.abstractmethod
-    def __len__(self): pass
+    def __len__(self):
+        pass
 
 
 class HPackLiteralString(HPackStringsInterface):

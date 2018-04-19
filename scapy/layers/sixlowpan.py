@@ -440,7 +440,8 @@ class LoWPAN_IPHC(Packet):
         packet = IPv6()
         packet.version = IPHC_DEFAULT_VERSION
         packet.tc, packet.fl = self._getTrafficClassAndFlowLabel()
-        if not self.nh: packet.nh = self._nhField
+        if not self.nh:
+            packet.nh = self._nhField
         # HLIM: Hop Limit
         if self.hlim == 0:
             packet.hlim = self._hopLimit

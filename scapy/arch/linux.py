@@ -360,8 +360,10 @@ def read_routes6():
         if fl & RTF_REJECT:
             continue
 
-        d = proc2r(d); dp = int(dp, 16)
-        s = proc2r(s); sp = int(sp, 16)
+        d = proc2r(d)
+        dp = int(dp, 16)
+        s = proc2r(s)
+        sp = int(sp, 16)
         nh = proc2r(nh)
 
         cset = []  # candidate set (possible source addresses)

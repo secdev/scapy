@@ -138,10 +138,14 @@ class OFPMatch(Packet):
 
         # when one field has not been declared, it is assumed to be wildcarded
         if self.wildcards1 is None:
-            if self.nw_tos is None: l += "1"
-            else: l += "0"
-            if self.dl_vlan_pcp is None: l += "1"
-            else: l += "0"
+            if self.nw_tos is None:
+                l += "1"
+            else:
+                l += "0"
+            if self.dl_vlan_pcp is None:
+                l += "1"
+            else:
+                l += "0"
         else:
             w1 = binrepr(self.wildcards1)
             l += "0" * (2 - len(w1))
@@ -149,16 +153,20 @@ class OFPMatch(Packet):
 
         # ip masks use 6 bits each
         if self.nw_dst_mask is None:
-            if self.nw_dst is "0": l += "111111"
+            if self.nw_dst is "0":
+                l += "111111"
             # 0x100000 would be ok too (32-bit IP mask)
-            else: l += "0" * 6
+            else:
+                l += "0" * 6
         else:
             m1 = binrepr(self.nw_dst_mask)
             l += "0" * (6 - len(m1))
             l += m1
         if self.nw_src_mask is None:
-            if self.nw_src is "0": l += "111111"
-            else: l += "0" * 6
+            if self.nw_src is "0":
+                l += "111111"
+            else:
+                l += "0" * 6
         else:
             m2 = binrepr(self.nw_src_mask)
             l += "0" * (6 - len(m2))
@@ -166,22 +174,38 @@ class OFPMatch(Packet):
 
         # wildcards2 works the same way as wildcards1
         if self.wildcards2 is None:
-            if self.tp_dst is None: l += "1"
-            else: l += "0"
-            if self.tp_src is None: l += "1"
-            else: l += "0"
-            if self.nw_proto is None: l += "1"
-            else: l += "0"
-            if self.dl_type is None: l += "1"
-            else: l += "0"
-            if self.dl_dst is None: l += "1"
-            else: l += "0"
-            if self.dl_src is None: l += "1"
-            else: l += "0"
-            if self.dl_vlan is None: l += "1"
-            else: l += "0"
-            if self.in_port is None: l += "1"
-            else: l += "0"
+            if self.tp_dst is None:
+                l += "1"
+            else:
+                l += "0"
+            if self.tp_src is None:
+                l += "1"
+            else:
+                l += "0"
+            if self.nw_proto is None:
+                l += "1"
+            else:
+                l += "0"
+            if self.dl_type is None:
+                l += "1"
+            else:
+                l += "0"
+            if self.dl_dst is None:
+                l += "1"
+            else:
+                l += "0"
+            if self.dl_src is None:
+                l += "1"
+            else:
+                l += "0"
+            if self.dl_vlan is None:
+                l += "1"
+            else:
+                l += "0"
+            if self.in_port is None:
+                l += "1"
+            else:
+                l += "0"
         else:
             w2 = binrepr(self.wildcards2)
             l += "0" * (8 - len(w2))
@@ -1270,15 +1294,18 @@ def OpenFlow(self, payload):
         if of_type == 1:
             err_type = orb(payload[9])
             # err_type is a short int, but last byte is enough
-            if err_type == 255: err_type = 65535
+            if err_type == 255:
+                err_type = 65535
             return ofp_error_cls[err_type]
         elif of_type == 16:
             mp_type = orb(payload[9])
-            if mp_type == 255: mp_type = 65535
+            if mp_type == 255:
+                mp_type = 65535
             return ofp_stats_request_cls[mp_type]
         elif of_type == 17:
             mp_type = orb(payload[9])
-            if mp_type == 255: mp_type = 65535
+            if mp_type == 255:
+                mp_type = 65535
             return ofp_stats_reply_cls[mp_type]
         else:
             return ofpt_cls[of_type]

@@ -215,7 +215,7 @@ class _CoAPPaymark(StrField):
     def m2i(self, pkt, x):
         if len(x) > 0 and x[:1] == b"\xff":
             return 1, b'\xff'
-        return 0, b'';
+        return 0, b''
 
     def i2m(self, pkt, x):
         return x
