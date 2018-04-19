@@ -9,7 +9,10 @@ Implementation of the configuration object.
 
 from __future__ import absolute_import
 from __future__ import print_function
-import os, time, socket, sys
+import os
+import time
+import socket
+import sys
 
 from scapy import VERSION, base_classes
 from scapy.consts import DARWIN

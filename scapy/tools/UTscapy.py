@@ -9,8 +9,19 @@ Unit testing infrastructure for Scapy
 
 from __future__ import absolute_import
 from __future__ import print_function
-import sys, getopt, imp, glob, importlib
-import hashlib, copy, bz2, base64, os.path, time, traceback, zlib
+import sys
+import getopt
+import imp
+import glob
+import importlib
+import hashlib
+import copy
+import bz2
+import base64
+import os.path
+import time
+import traceback
+import zlib
 from scapy.consts import WINDOWS
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
@@ -241,7 +252,8 @@ def parse_config_file(config_path, verb=3):
     }
 
     """
-    import json, unicodedata
+    import json
+    import unicodedata
     with open(config_path) as config_file:
         data = json.load(config_file, encoding="utf8")
         if verb > 2:

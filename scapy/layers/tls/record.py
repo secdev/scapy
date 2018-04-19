@@ -12,7 +12,8 @@ ApplicationData submessages. For the Handshake type, see tls_handshake.py.
 See the TLS class documentation for more information.
 """
 
-import struct, traceback
+import struct
+import traceback
 
 from scapy.config import conf
 from scapy.error import log_runtime

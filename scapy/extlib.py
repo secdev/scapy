@@ -7,7 +7,8 @@
 External link to programs
 """
 
-import os, subprocess
+import os
+import subprocess
 from scapy.error import *
 
 # Notice: this file must not be called before main.py, if started

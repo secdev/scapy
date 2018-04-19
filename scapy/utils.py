@@ -9,11 +9,18 @@ General utility functions.
 
 from __future__ import absolute_import
 from __future__ import print_function
-import os, sys, socket, types
+import os
+import sys
+import socket
+import types
 import collections
-import random, time
-import gzip, zlib
-import re, struct, array
+import random
+import time
+import gzip
+import zlib
+import re
+import struct
+import array
 import subprocess
 import tempfile
 
@@ -1449,7 +1456,9 @@ def get_terminal_width():
     else:
         sizex = 0
         try:
-            import struct, fcntl, termios
+            import struct
+            import fcntl
+            import termios
             s = struct.pack('HHHH', 0, 0, 0, 0)
             x = fcntl.ioctl(1, termios.TIOCGWINSZ, s)
             sizex = struct.unpack('HHHH', x)[1]

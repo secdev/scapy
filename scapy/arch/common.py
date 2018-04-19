@@ -9,7 +9,9 @@ Functions common to different architectures
 
 import socket
 from fcntl import ioctl
-import os, struct, ctypes
+import os
+import struct
+import ctypes
 from ctypes import POINTER, Structure
 from ctypes import c_uint, c_uint32, c_ushort, c_ubyte
 from scapy.config import conf

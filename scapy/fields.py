@@ -8,7 +8,10 @@ Fields: basic data structures that make up parts of packets.
 """
 
 from __future__ import absolute_import
-import struct, copy, socket, collections
+import struct
+import copy
+import socket
+import collections
 from scapy.config import conf
 from scapy.dadict import DADict
 from scapy.volatile import *

@@ -9,7 +9,12 @@ IPv4 (Internet Protocol v4).
 
 from __future__ import absolute_import
 from __future__ import print_function
-import os, time, struct, re, socket, types
+import os
+import time
+import struct
+import re
+import socket
+import types
 from select import select
 from collections import defaultdict
 

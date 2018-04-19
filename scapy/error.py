@@ -16,7 +16,9 @@ class Scapy_Exception(Exception):
     pass
 
 
-import logging, traceback, time
+import logging
+import traceback
+import time
 
 
 class ScapyFreqFilter(logging.Filter):

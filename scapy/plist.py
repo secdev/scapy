@@ -10,7 +10,8 @@ PacketList: holds several packets and allows to do operations on them.
 
 from __future__ import absolute_import
 from __future__ import print_function
-import os, subprocess
+import os
+import subprocess
 from collections import defaultdict
 
 from scapy.config import conf

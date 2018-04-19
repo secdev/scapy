@@ -8,7 +8,9 @@
 Bluetooth layers, sockets and send/receive functions.
 """
 
-import socket, struct, array
+import socket
+import struct
+import array
 from ctypes import *
 from select import select
 

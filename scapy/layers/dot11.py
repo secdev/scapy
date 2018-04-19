@@ -8,7 +8,8 @@ Wireless LAN according to IEEE 802.11.
 """
 
 from __future__ import print_function
-import re, struct
+import re
+import struct
 from zlib import crc32
 
 from scapy.config import conf, crypto_validator

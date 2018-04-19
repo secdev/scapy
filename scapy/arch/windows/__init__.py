@@ -9,7 +9,13 @@ Customizations needed to support Microsoft Windows.
 """
 from __future__ import absolute_import
 from __future__ import print_function
-import os, re, sys, socket, time, itertools, platform
+import os
+import re
+import sys
+import socket
+import time
+import itertools
+import platform
 import subprocess as sp
 from glob import glob
 import ctypes

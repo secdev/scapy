@@ -8,7 +8,9 @@ Fields that hold random numbers.
 """
 
 from __future__ import absolute_import
-import random, time, math
+import random
+import time
+import math
 from scapy.base_classes import Net
 from scapy.compat import *
 from scapy.utils import corrupt_bits, corrupt_bytes
