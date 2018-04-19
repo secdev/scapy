@@ -15,7 +15,9 @@
 # scapy.contrib.description = CARP
 # scapy.contrib.status = loads
 
-import struct, hmac, hashlib
+import struct
+import hmac
+import hashlib
 
 from scapy.packet import *
 from scapy.layers.inet import IP

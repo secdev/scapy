@@ -22,7 +22,8 @@
 PPI-GEOLOCATION tags
 """
 from __future__ import absolute_import
-import struct, time
+import struct
+import time
 from scapy.packet import *
 from scapy.fields import *
 from scapy.contrib.ppi import PPIGenericFldHdr, addPPIType

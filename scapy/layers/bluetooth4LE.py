@@ -6,7 +6,8 @@
 
 """Bluetooth 4LE layer"""
 
-import socket, struct
+import socket
+import struct
 
 from scapy.compat import orb, chb
 from scapy.config import conf

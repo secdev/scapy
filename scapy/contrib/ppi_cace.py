@@ -20,7 +20,8 @@
 """
 CACE PPI types
 """
-import logging, struct
+import logging
+import struct
 from scapy.config import conf
 from scapy.packet import *
 from scapy.fields import *

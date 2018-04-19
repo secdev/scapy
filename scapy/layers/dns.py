@@ -8,7 +8,8 @@ DNS: Domain Name System.
 """
 
 from __future__ import absolute_import
-import socket, struct
+import socket
+import struct
 
 from scapy.config import conf
 from scapy.packet import *
@@ -405,7 +406,8 @@ class TimeField(IntField):
 
     def any2i(self, pkt, x):
         if isinstance(x, str):
-            import time, calendar
+            import time
+            import calendar
             t = time.strptime(x, "%Y%m%d%H%M%S")
             return int(calendar.timegm(t))
         return x

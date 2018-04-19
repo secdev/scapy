@@ -7,7 +7,11 @@
 Common customizations for all Unix-like operating systems other than Linux
 """
 
-import sys, os, struct, socket, time
+import sys
+import os
+import struct
+import socket
+import time
 from fcntl import ioctl
 import socket
 

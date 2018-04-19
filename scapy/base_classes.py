@@ -12,7 +12,9 @@ Generators and packet meta classes.
 ################
 
 from __future__ import absolute_import
-import re, random, socket
+import re
+import random
+import socket
 import types
 from scapy.modules.six.moves import range
 

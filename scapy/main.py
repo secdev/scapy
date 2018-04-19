@@ -10,8 +10,13 @@ Main module for interactive startup.
 from __future__ import absolute_import
 from __future__ import print_function
 
-import sys, os, getopt, re, code
-import gzip, glob
+import sys
+import os
+import getopt
+import re
+import code
+import gzip
+import glob
 import importlib
 import logging
 from random import choice

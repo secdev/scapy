@@ -11,7 +11,8 @@
 Wireless MAC according to IEEE 802.15.4.
 """
 
-import re, struct
+import re
+import struct
 
 from scapy.compat import orb, raw
 

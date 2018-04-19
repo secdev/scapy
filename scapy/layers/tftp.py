@@ -8,7 +8,8 @@ TFTP (Trivial File Transfer Protocol).
 """
 
 from __future__ import absolute_import
-import os, random
+import os
+import random
 from scapy.packet import *
 from scapy.fields import *
 from scapy.automaton import *

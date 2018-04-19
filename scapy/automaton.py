@@ -9,7 +9,13 @@ Automata with states, transitions and actions.
 """
 
 from __future__ import absolute_import
-import types, itertools, time, os, sys, socket, traceback
+import types
+import itertools
+import time
+import os
+import sys
+import socket
+import traceback
 from select import select
 from collections import deque
 import threading

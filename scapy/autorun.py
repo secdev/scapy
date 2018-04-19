@@ -8,7 +8,9 @@ Run commands when the Scapy interpreter starts.
 """
 
 from __future__ import print_function
-import code, sys, importlib
+import code
+import sys
+import importlib
 from scapy.config import conf
 from scapy.themes import *
 from scapy.error import Scapy_Exception

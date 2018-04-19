@@ -7,7 +7,10 @@
 Packet sending and receiving with libdnet and libpcap/WinPcap.
 """
 
-import time, struct, sys, platform
+import time
+import struct
+import sys
+import platform
 import socket
 if not sys.platform.startswith("win"):
     from fcntl import ioctl
