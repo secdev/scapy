@@ -425,7 +425,7 @@ def run_campaign(test_campaign, get_interactive_session, verb=3, ignore_globals=
             try:
                 if res is None or res:
                     the_res = True
-            except Exception as msg:
+            except Exception:
                 t.output += "UTscapy: Error during result interpretation:\n"
                 t.output += "".join(traceback.format_exception(sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2],))
             if the_res:
@@ -705,7 +705,6 @@ def execute_campaign(TESTFILE, OUTPUTFILE, PREEXEC, NUM, KW_OK, KW_KO, DUMP,
             else:
                 t.expand = 2
 
-    pos_end = 0
     # Generate report
     if FORMAT == Format.TEXT:
         output = campaign_to_TEXT(test_campaign)

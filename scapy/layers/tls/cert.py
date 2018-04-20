@@ -828,7 +828,7 @@ class CRL(six.with_metaclass(_CRLMaker, object)):
                 if date[-1] == "Z":
                     date = date[:-1]
                 try:
-                    revocationDate = time.strptime(date, "%y%m%d%H%M%S")
+                    time.strptime(date, "%y%m%d%H%M%S")
                 except:
                     raise Exception(error_msg)
                 revoked.append((serial, date))

@@ -798,7 +798,6 @@ class TLSServerAutomaton(_TLSAutomaton):
             if l.startswith(b"stop_server"):
                 raise self.SSLv2_CLOSE_NOTIFY_FINAL()
 
-        answer = b""
         if cli_data.startswith(b"GET / HTTP/1.1"):
             p = Raw(self.http_sessioninfo())
 

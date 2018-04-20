@@ -158,7 +158,7 @@ def _in6_getifaddr(ifname):
     # Get the output of ifconfig
     try:
         f = os.popen("%s %s" % (conf.prog.ifconfig, ifname))
-    except OSError as msg:
+    except OSError:
         log_interactive.warning("Failed to execute ifconfig.")
         return []
 
@@ -199,7 +199,7 @@ def in6_getifaddr():
     if OPENBSD:
         try:
             f = os.popen("%s" % conf.prog.ifconfig)
-        except OSError as msg:
+        except OSError:
             log_interactive.warning("Failed to execute ifconfig.")
             return []
 
@@ -213,7 +213,7 @@ def in6_getifaddr():
     else:  # FreeBSD, NetBSD or Darwin
         try:
             f = os.popen("%s -l" % conf.prog.ifconfig)
-        except OSError as msg:
+        except OSError:
             log_interactive.warning("Failed to execute ifconfig.")
             return []
 

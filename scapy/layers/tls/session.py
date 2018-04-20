@@ -722,8 +722,6 @@ class tlsSession(object):
         ctsN_1 = hkdf.expand_label(ctsN, "application traffic secret", "", hl)
         cts.append(ctsN_1)
 
-        sts = self.tls13_derived_secrets["server_traffic_secrets"]
-        stsN = sts[-1]
         stsN_1 = hkdf.expand_label(ctsN, "application traffic secret", "", hl)
         cts.append(stsN_1)
 

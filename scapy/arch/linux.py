@@ -311,7 +311,7 @@ def in6_getifaddr():
     ret = []
     try:
         fdesc = open("/proc/net/if_inet6", "rb")
-    except IOError as err:
+    except IOError:
         return ret
     for line in fdesc:
         # addr, index, plen, scope, flags, ifname
@@ -329,7 +329,7 @@ def in6_getifaddr():
 def read_routes6():
     try:
         f = open("/proc/net/ipv6_route", "rb")
-    except IOError as err:
+    except IOError:
         return []
     # 1. destination network
     # 2. destination prefix length

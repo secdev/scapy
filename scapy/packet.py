@@ -570,7 +570,6 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         XDSTART = 10
         y = 0.0
         yd = 0.0
-        xd = 0
         XMUL = 0.55
         YMUL = 0.4
 

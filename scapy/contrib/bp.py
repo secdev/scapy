@@ -73,7 +73,7 @@ class BP(Packet):
         if (self.ProcFlags & 0x20):
             tmp += ' ACKME'
         RAWCOS = (self.ProcFlags & 0x0180)
-        COS = (self.ProcFlags & 0x180) >> 7
+        COS = RAWCOS >> 7
         cos_tmp = ''
         if COS == 0x00:
             cos_tmp += 'B '

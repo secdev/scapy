@@ -388,7 +388,6 @@ class AVP_Generic (Packet):
 def AVP(avpId, **fields):
     """ Craft an AVP based on its id and optional parameter fields"""
     val = None
-    name = 'AVP Unknown'
     classType = AVP_Unknown
     if isinstance(avpId, str):
         try:

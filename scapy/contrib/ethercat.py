@@ -85,7 +85,7 @@ class LEBitField(BitField):
                 raise LEBitFieldSequenceException('field after field {} must '
                                                   'be of type LEBitField or '
                                                   'derived classes'.format(self.name))
-        except IndexError as e:
+        except IndexError:
             # no more fields -> error
             raise LEBitFieldSequenceException('Missing further LEBitField '
                                               'based fields after field '

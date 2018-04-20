@@ -431,7 +431,6 @@ class _ECBasisTypeField(ByteEnumField):
 
     def i2m(self, pkt, x):
         if x is None:
-            val = 0
             fld, fval = pkt.getfield_and_val(self.basis_type_of)
             x = fld.i2basis_type(pkt, fval)
         return x

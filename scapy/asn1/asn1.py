@@ -125,7 +125,7 @@ class ASN1Tag(EnumElement):
     def get_codec(self, codec):
         try:
             c = self._codec[codec]
-        except KeyError as msg:
+        except KeyError:
             raise ASN1_Error("Codec %r not found for tag %r" % (codec, self))
         return c
 

@@ -241,7 +241,6 @@ def hexdiff(x, y):
     doy = 0
     l = len(backtrackx)
     while i < l:
-        separate = 0
         linex = backtrackx[i:i + 16]
         liney = backtracky[i:i + 16]
         xx = sum(len(k) for k in linex)
@@ -1001,7 +1000,7 @@ class RawPcapNgReader(RawPcapReader):
                 "Not a pcapng capture file (bad magic: %r)" % magic
             )
         # see https://github.com/pcapng/pcapng
-        blocklen, magic = self.f.read(4), self.f.read(4)
+        blocklen, magic = self.f.read(4), self.f.read(4)  # noqa: F841
         if magic == b"\x1a\x2b\x3c\x4d":
             self.endian = ">"
         elif magic == b"\x4d\x3c\x2b\x1a":
@@ -1521,7 +1520,6 @@ def __make_table(yfmtfunc, fmtfunc, endline, data, fxyz, sortx=None, sorty=None,
     vy = {}
     vz = {}
     vxf = {}
-    vyf = {}
     l = 0
     for e in data:
         xx, yy, zz = [str(s) for s in fxyz(e)]

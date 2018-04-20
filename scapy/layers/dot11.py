@@ -431,7 +431,6 @@ iwconfig wlan0 mode managed
             return 0
         if not pkt.haslayer(TCP):
             return 0
-        ip = pkt.getlayer(IP)
         tcp = pkt.getlayer(TCP)
         pay = raw(tcp.payload)
         if not self.ptrn.match(pay):

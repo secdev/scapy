@@ -3028,8 +3028,6 @@ class _ofp_table_features_prop_header(Packet):
         return p + pay
 
     def extract_padding(self, s):
-        l = self.length
-        zero_bytes = (8 - l % 8) % 8
         return b"", s
 
 
