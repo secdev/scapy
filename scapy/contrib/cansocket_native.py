@@ -65,7 +65,7 @@ class CANSocket(SuperSocket):
     def recv(self, x=CAN_FRAME_SIZE):
         try:
             pkt, sa_ll = self.ins.recvfrom(x)
-        except BlockingIOError:
+        except BlockingIOError:  # noqa: F821
             warning("Captured no data, socket in non-blocking mode.")
             return None
         except socket.timeout:
