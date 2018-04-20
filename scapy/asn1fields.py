@@ -366,7 +366,7 @@ class ASN1F_SEQUENCE(ASN1F_field):
             for obj in self.seq:
                 try:
                     s = obj.dissect(pkt, s)
-                except ASN1F_badsequence as e:
+                except ASN1F_badsequence:
                     break
             if len(s) > 0:
                 raise BER_Decoding_Error("unexpected remainder", remaining=s)

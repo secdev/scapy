@@ -416,7 +416,6 @@ class RandIP6(RandString):
         self.multi = self.sp.count("**")
 
     def _fix(self):
-        done = 0
         nbm = self.multi
         ip = []
         for i, n in enumerate(self.sp):

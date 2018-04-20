@@ -117,8 +117,6 @@ class SSLv2(TLS):
 
         mac = pad = b""
 
-        cipher_type = self.tls_session.rcs.cipher.type
-
         # Decrypt (with implicit IV if block cipher)
         mfrag = self._tls_decrypt(efrag)
 

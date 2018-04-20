@@ -273,7 +273,6 @@ class OSPF_BaseLSA(Packet):
         return p    # p+pay?
 
     def extract_padding(self, s):
-        length = self.len
         return "", s
 
 

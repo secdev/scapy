@@ -1337,7 +1337,7 @@ class TracerouteResult(SndRcvList):
                 trt[trace_id] = loctrace
 
         # Load the map renderer
-        fig = plt.figure(num='Scapy')
+        plt.figure(num='Scapy')
         ax = plt.axes(projection=ccrs.PlateCarree())
         # Draw countries
         ax.coastlines()

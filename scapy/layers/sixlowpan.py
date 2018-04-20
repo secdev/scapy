@@ -524,7 +524,6 @@ class LoWPAN_IPHC(Packet):
                             b"\x00\x00\x00\xff\xfe\x00" + \
                             struct.pack(">Q", underlayer.dest_addr)[6:]
                 else:
-                    payload = packet.payload
                     # Most of the times, it's necessary the IEEE 802.15.4 data to extract this address
                     raise Exception('Unimplemented: IP Header is contained into IEEE 802.15.4 frame, in this case it\'s not available.')
             elif self.dam not in [0x1, 0x2]:
@@ -628,7 +627,6 @@ class LoWPAN_IPHC(Packet):
                             b"\x00\x00\x00\xff\xfe\x00" + \
                             struct.pack(">Q", underlayer.src_addr)[6:]
                 else:
-                    payload = packet.payload
                     # Most of the times, it's necessary the IEEE 802.15.4 data to extract this address
                     raise Exception('Unimplemented: IP Header is contained into IEEE 802.15.4 frame, in this case it\'s not available.')
             else:
@@ -705,8 +703,6 @@ class LoWPAN_IPHC(Packet):
         return Packet.do_build(self)
 
     def do_build_payload(self):
-        ipv6 = self.payload
-
         if self.header_compression and\
            self.header_compression & 240 == 240:  # TODO: UDP header IMPROVE
             return raw(self.payload)[40 + 16:]

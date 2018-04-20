@@ -92,7 +92,7 @@ def get_dev_bpf():
         try:
             fd = os.open("/dev/bpf%i" % bpf, os.O_RDWR)
             return (fd, bpf)
-        except OSError as err:
+        except OSError:
             continue
 
     raise Scapy_Exception("No /dev/bpf handle is available !")
@@ -158,7 +158,7 @@ def get_working_ifaces():
         # Get interface flags
         try:
             result = get_if(ifname, SIOCGIFFLAGS)
-        except IOError as msg:
+        except IOError:
             warning("ioctl(SIOCGIFFLAGS) failed on %s !", ifname)
             continue
 
@@ -175,7 +175,7 @@ def get_working_ifaces():
             try:
                 fcntl.ioctl(fd, BIOCSETIF, struct.pack("16s16x", ifname.encode()))
                 interfaces.append((ifname, int(ifname[-1])))
-            except IOError as err:
+            except IOError:
                 pass
 
             # Close the file descriptor

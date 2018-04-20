@@ -161,7 +161,7 @@ def load_ethertypes(filename):
             except Exception as e:
                 log_loading.info("Couldn't parse file [%s]: line [%r] (%s)", filename, l, e)
         f.close()
-    except IOError as msg:
+    except IOError:
         pass
     return dct
 

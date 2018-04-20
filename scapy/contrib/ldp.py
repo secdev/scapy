@@ -73,7 +73,6 @@ class FecTLVField(StrField):
     islist = 1
 
     def m2i(self, pkt, x):
-        nbr = struct.unpack("!H", x[2:4])[0]
         used = 0
         x = x[4:]
         list = []
