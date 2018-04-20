@@ -21,7 +21,7 @@ then
     UT_FLAGS=" -K tcpdump"
   fi
 
-  if python --version 2>&1 | grep -q '^Python 3\.'
+  if [[ $TOXENV == py3* ]]
   then
     # Some Python 3 tests currently fail. They should be tracked and
     # fixed.
