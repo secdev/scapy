@@ -87,7 +87,8 @@ class OFPHETVersionBitmap(_ofp_hello_elem_header):
                                                 "OFv1.1",
                                                 "OFv1.2",
                                                 "OFv1.3",
-                                                "OFv1.4"])]
+                                                "OFv1.4",
+                                                "OFv1.5"])]
 
 
 ofp_hello_elem_cls = {1: OFPHETVersionBitmap}
