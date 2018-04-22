@@ -227,7 +227,7 @@ class KrackAP(Automaton):
             / Dot11Elt(ID="DSset", info=chb(self.channel)) \
             / Dot11Elt(
             ID="RSNinfo",
-            info=b'\x01\x00\x00\x0f\xac\x02\x01\x00\x00\x0f\xac\x02'\
+            info=b'\x01\x00\x00\x0f\xac\x02\x01\x00\x00\x0f\xac\x02'
             b'\x01\x00\x00\x0f\xac\x02\x00\x00'
         )
 
