@@ -871,4 +871,3 @@ class TLSServerAutomaton(_TLSAutomaton):
         self.vprint("Closing server socket...")
         self.serversocket.close()
         self.vprint("Ending TLS server automaton.")
-

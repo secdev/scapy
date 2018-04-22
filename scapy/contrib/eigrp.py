@@ -518,4 +518,3 @@ bind_layers(IPv6, EIGRP, nh=88)
 if __name__ == "__main__":
     from scapy.main import interact
     interact(mydict=globals(), mybanner="EIGRP")
-

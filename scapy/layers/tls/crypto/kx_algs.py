@@ -197,4 +197,3 @@ class KX_ECDH_anon(_GenericKX):
 
 class KX_DH_anon_EXPORT(KX_DH_anon):
     descr = "Anonymous DH, no signatures - Export version"
-

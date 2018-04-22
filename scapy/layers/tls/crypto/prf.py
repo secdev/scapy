@@ -349,4 +349,3 @@ class PRF(object):
             else:
                 iv = iv_block[req_len:]
         return iv
-

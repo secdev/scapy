@@ -700,4 +700,3 @@ _tls_named_groups.update(_tls_named_curves)
 #    generator   = Point(curve, _Gx, _Gy, _r)
 #    BRNP512r1   = Curve("BRNP512r1", curve, generator,
 #                        (1, 3, 36, 3, 3, 2, 8, 1, 1, 13), "brainpoolP512r1")
-

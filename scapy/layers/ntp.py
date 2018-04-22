@@ -1831,5 +1831,3 @@ class NTPPrivate(NTP):
 bind_layers(UDP, NTP, {"sport": 123})
 bind_layers(UDP, NTP, {"dport": 123})
 bind_layers(UDP, NTP, {"sport": 123, "dport": 123})
-
-

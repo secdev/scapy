@@ -636,5 +636,3 @@ def etherleak(target, **kargs):
     return srpflood(Ether() / ARP(pdst=target),
                     prn=lambda s_r: conf.padding_layer in s_r[1] and hexstr(s_r[1][conf.padding_layer].load),
                     filter="arp", **kargs)
-
-

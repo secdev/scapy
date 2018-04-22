@@ -857,4 +857,3 @@ class CorruptedBytes(VolatileValue):
 class CorruptedBits(CorruptedBytes):
     def _fix(self):
         return corrupt_bits(self.s, self.p, self.n)
-

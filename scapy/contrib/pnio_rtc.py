@@ -489,4 +489,3 @@ class Profisafe(PNIORealTimeRawData):
     def crc_length(self):
         """Return the length of the crc"""
         return self._config["CRC"]
-

@@ -69,5 +69,3 @@ bind_bottom_up(UDP, _LLMNR, sport=5355)
 bind_layers(UDP, _LLMNR, sport=5355, dport=5355)
 
 # LLMNRQuery(id=RandShort(), qd=DNSQR(qname="vista.")))
-
-

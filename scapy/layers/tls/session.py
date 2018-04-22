@@ -980,4 +980,3 @@ class _tls_sessions(object):
 
 conf.tls_sessions = _tls_sessions()
 conf.tls_verbose = False
-

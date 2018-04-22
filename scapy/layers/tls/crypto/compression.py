@@ -86,4 +86,3 @@ class Comp_LZS(_GenericComp):
     def decompress(self, s):
         warning("LZS Compression algorithm is not implemented yet")
         return s
-

@@ -792,6 +792,3 @@ if conf.use_pcap and conf.use_dnet:
 
     conf.L3socket = L3dnetSocket
     conf.L2socket = L2dnetSocket
-
-
-

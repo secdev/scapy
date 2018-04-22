@@ -8,4 +8,3 @@ Aggregate some TLS crypto objects.
 """
 
 from scapy.layers.tls.crypto.suites import *
-

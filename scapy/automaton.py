@@ -982,6 +982,3 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
     def reject_packet(self, wait=False):
         rsm = Message(type=_ATMT_Command.REJECT)
         return self.run(resume=rsm, wait=wait)
-
-
-

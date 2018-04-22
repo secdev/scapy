@@ -204,4 +204,3 @@ class TLS13(_GenericTLSSessionInheritance):
             self.tls_session.triggered_pwcs_commit = False
 
         return hdr + frag + pay
-

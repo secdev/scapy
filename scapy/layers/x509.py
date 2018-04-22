@@ -1351,4 +1351,3 @@ class OCSP_Response(ASN1_Packet):
             ASN1F_PACKET("responseBytes", None,
                          OCSP_ResponseBytes,
                          explicit_tag=0xa0)))
-

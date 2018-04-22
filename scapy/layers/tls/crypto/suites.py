@@ -1315,4 +1315,3 @@ def get_usable_ciphersuites(l, kx):
                 if ciph.kx_alg.anonymous or kx in ciph.kx_alg.name:
                     res.append(c)
     return res
-

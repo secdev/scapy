@@ -267,4 +267,3 @@ class SSLv2(TLS):
         self.tls_session.wcs.seq_num += 1
 
         return hdr + efrag + pay
-

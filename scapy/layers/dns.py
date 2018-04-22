@@ -840,5 +840,3 @@ class DNS_am(AnsweringMachine):
         resp /= DNS(id=dns.id, qr=1, qd=dns.qd,
                     an=DNSRR(rrname=dns.qd.qname, ttl=10, rdata=rdata))
         return resp
-
-

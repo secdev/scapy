@@ -528,4 +528,3 @@ bind_layers(TCP, Skinny, {"sport": 2000})
 if __name__ == "__main__":
     from scapy.main import interact
     interact(mydict=globals(), mybanner="Welcome to Skinny add-on")
-

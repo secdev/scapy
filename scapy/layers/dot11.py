@@ -486,5 +486,3 @@ class Dot11PacketList(PacketList):
             q.unwep()
             r2.append(Ether() / q.payload.payload.payload)  # Dot11/LLC/SNAP/IP
         return PacketList(r2, name="Ether from %s" % self.listname)
-
-

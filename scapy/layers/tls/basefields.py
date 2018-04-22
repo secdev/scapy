@@ -258,4 +258,3 @@ class _SSLv2PadLenField(_TLSPadLenField):
         if pkt.with_padding:
             return ByteField.getfield(self, pkt, s)
         return s, None
-

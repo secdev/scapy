@@ -2536,4 +2536,3 @@ bind_layers(BGPHeader, BGPRouteRefresh, {"type": 5})
 # When loading the module, display the current module configuration.
 log_runtime.warning(
     "[bgp.py] use_2_bytes_asn: %s", bgp_module_conf.use_2_bytes_asn)
-

@@ -61,4 +61,3 @@ class TLS13_HKDF(object):
         hm = HMAC(finished_key, self.hash, default_backend())
         hm.update(hash_value)
         return hm.finalize()
-

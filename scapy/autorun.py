@@ -156,5 +156,3 @@ def autorun_get_latex_interactive_session(cmds, **kargs):
     finally:
         conf.color_theme = ct
     return to_latex(s), res
-
-
