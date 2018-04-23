@@ -6474,6 +6474,45 @@ test_openbsd_6_3()
 
 ############
 ############
++ Mocked _parse_tcpreplay_result(stdout, stderr, argv, results_dict)
+~ mock_parse_tcpreplay_result
+
+# This is tested with tcpreplay version: 3.4.4
+
+stdout = """Actual: 1024 packets (198929 bytes) sent in 67.88 seconds.              Rated: 2930.6 bps, 0.02 Mbps, 15.09 pps
+Statistics for network device: mon0
+        Attempted packets:         1024
+        Successful packets:        1024
+        Failed packets:            0
+        Retried packets (ENOBUFS): 0
+        Retried packets (EAGAIN):  0"""
+
+stderr = """Warning in sendpacket.c:sendpacket_open_pf() line 669:
+Unsupported physical layer type 0x0323 on mon0.  Maybe it works, maybe it wont.  See tickets #123/318
+sending out mon0
+processing file: replay-example.pcap"""
+
+argv = ['tcpreplay' '--intf1=mon0' '--multiplier=1.00' '--timer=nano' 'replay-example.pcap']
+results_dict = {}
+_parse_tcpreplay_result(stdout, stderr, argv, results_dict)
+
+assert(results_dict["packets"] == 1024)
+assert(results_dict["bytes"] == 198929)
+assert(results_dict["time"] == 67.88)
+assert(results_dict["bps"] == 2930.6)
+assert(results_dict["mbps"] == 0.02)
+assert(results_dict["pps"] == 15.09)
+assert(results_dict["attempted"] == 1024)
+assert(results_dict["successful"] == 1024)
+assert(results_dict["failed"] == 0)
+assert(results_dict["retried_enobufs"] == 0)
+assert(results_dict["retried_eagain"] == 0)
+assert(results_dict["command"] == argv)
+assert(len(results_dict["warnings"]) == 4)
+
+
+############
+############
 + Mocked read_routes6() calls
 
 = Preliminary definitions
