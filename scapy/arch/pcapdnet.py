@@ -523,7 +523,10 @@ if conf.use_pcap or conf.use_winpcapy:
 #  DNET  #
 ##########
 
+# DEPRECATED
+
 if conf.use_dnet:
+    warning("Dnet usage with scapy is deprecated, and will be removed in a future version.")
     try:
         try:
             # First try to import dnet
@@ -601,121 +604,3 @@ if conf.use_dnet:
                 return scapy.consts.LOOPBACK_NAME
 
             return intf.get("name", scapy.consts.LOOPBACK_NAME)
-
-#################
-#  DNET & PCAP  #
-#################
-
-if conf.use_pcap and conf.use_dnet:
-    class L3dnetSocket(_L2pcapdnetSocket):
-        desc = "read/write packets at layer 3 using libdnet and libpcap"
-
-        def __init__(self, type=ETH_P_ALL, promisc=None, filter=None, iface=None, nofilter=0):
-            self.iflist = {}
-            self.intf = dnet.intf()
-            if iface is None:
-                iface = conf.iface
-            self.iface = iface
-            if promisc is None:
-                promisc = 0
-            self.promisc = promisc
-            self.ins = open_pcap(iface, MTU, self.promisc, 100)
-            try:
-                ioctl(self.ins.fileno(), BIOCIMMEDIATE, struct.pack("I", 1))
-            except:
-                pass
-            if nofilter:
-                if type != ETH_P_ALL:  # PF_PACKET stuff. Need to emulate this for pcap
-                    filter = "ether proto %i" % type
-                else:
-                    filter = None
-            else:
-                if conf.except_filter:
-                    if filter:
-                        filter = "(%s) and not (%s)" % (filter, conf.except_filter)
-                    else:
-                        filter = "not (%s)" % conf.except_filter
-                if type != ETH_P_ALL:  # PF_PACKET stuff. Need to emulate this for pcap
-                    if filter:
-                        filter = "(ether proto %i) and (%s)" % (type, filter)
-                    else:
-                        filter = "ether proto %i" % type
-            if filter:
-                self.ins.setfilter(filter)
-
-        def send(self, x):
-            iff, a, gw = x.route()
-            if iff is None:
-                iff = conf.iface
-            ifs, cls = self.iflist.get(iff, (None, None))
-            if ifs is None:
-                iftype = self.intf.get(iff)["type"]
-                if iftype == dnet.INTF_TYPE_ETH:
-                    try:
-                        cls = conf.l2types[1]
-                    except KeyError:
-                        warning("Unable to find Ethernet class. Using nothing")
-                    ifs = dnet.eth(iff)
-                else:
-                    ifs = dnet.ip()
-                self.iflist[iff] = ifs, cls
-            if cls is None:
-                sx = raw(x)
-            else:
-                sx = raw(cls() / x)
-            x.sent_time = time.time()
-            ifs.send(sx)
-
-        def close(self):
-            if not self.closed:
-                if hasattr(self, "ins"):
-                    del(self.ins)
-                if hasattr(self, "outs"):
-                    del(self.outs)
-            self.closed = True
-
-    class L2dnetSocket(_L2pcapdnetSocket):
-        desc = "read/write packets at layer 2 using libdnet and libpcap"
-
-        def __init__(self, iface=None, type=ETH_P_ALL, promisc=None, filter=None, nofilter=0):
-            if iface is None:
-                iface = conf.iface
-            self.iface = iface
-            if promisc is None:
-                promisc = 0
-            self.promisc = promisc
-            self.ins = open_pcap(iface, MTU, self.promisc, 100)
-            try:
-                ioctl(self.ins.fileno(), BIOCIMMEDIATE, struct.pack("I", 1))
-            except:
-                pass
-            if nofilter:
-                if type != ETH_P_ALL:  # PF_PACKET stuff. Need to emulate this for pcap
-                    filter = "ether proto %i" % type
-                else:
-                    filter = None
-            else:
-                if conf.except_filter:
-                    if filter:
-                        filter = "(%s) and not (%s)" % (filter, conf.except_filter)
-                    else:
-                        filter = "not (%s)" % conf.except_filter
-                if type != ETH_P_ALL:  # PF_PACKET stuff. Need to emulate this for pcap
-                    if filter:
-                        filter = "(ether proto %i) and (%s)" % (type, filter)
-                    else:
-                        filter = "ether proto %i" % type
-            if filter:
-                self.ins.setfilter(filter)
-            self.outs = dnet.eth(iface)
-
-        def close(self):
-            if not self.closed:
-                if hasattr(self, "ins"):
-                    del(self.ins)
-                if hasattr(self, "outs"):
-                    del(self.outs)
-            self.closed = True
-
-    conf.L3socket = L3dnetSocket
-    conf.L2socket = L2dnetSocket
