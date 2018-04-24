@@ -328,14 +328,18 @@ sendp(packets, [inter=0], [loop=0], [iface=None], [iface_hint=None], [count=None
 
 
 @conf.commands.register
-def sendpfast(x, pps=None, mbps=None, realtime=None, loop=0, file_cache=False, iface=None):
+def sendpfast(x, pps=None, mbps=None, realtime=None, loop=0, file_cache=False, iface=None, replay_args=None,
+              parse_results=False):
     """Send packets at layer 2 using tcpreplay for performance
     pps:  packets per second
     mpbs: MBits per second
     realtime: use packet's timestamp, bending time with real-time value
     loop: number of times to process the packet list
     file_cache: cache packets in RAM instead of reading from disk at each iteration
-    iface: output interface """
+    iface: output interface
+    replay_args: List of additional tcpreplay args (List[str])
+    parse_results: Return a dictionary of information outputted by tcpreplay (default=False)
+    :returns stdout, stderr, command used"""
     if iface is None:
         iface = conf.iface
     argv = [conf.prog.tcpreplay, "--intf1=%s" % iface]
@@ -350,14 +354,27 @@ def sendpfast(x, pps=None, mbps=None, realtime=None, loop=0, file_cache=False, i
 
     if loop:
         argv.append("--loop=%i" % loop)
-        if file_cache:
-            argv.append("--preload-pcap")
+    if file_cache:
+        argv.append("--preload-pcap")
+
+    # Check for any additional args we didn't cover.
+    if replay_args is not None:
+        argv.extend(replay_args)
 
     f = get_temp_file()
     argv.append(f)
     wrpcap(f, x)
+    results = None
     try:
-        subprocess.check_call(argv)
+        log_runtime.info(argv)
+        with subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as cmd:
+            stdout, stderr = cmd.communicate()
+            log_runtime.info(stdout)
+            log_runtime.warning(stderr)
+            if parse_results:
+                results = {}
+                _parse_tcpreplay_result(stdout, stderr, argv, results)
+
     except KeyboardInterrupt:
         log_interactive.info("Interrupted by user")
     except Exception:
@@ -367,6 +384,40 @@ def sendpfast(x, pps=None, mbps=None, realtime=None, loop=0, file_cache=False, i
             raise
     finally:
         os.unlink(f)
+        return results
+
+
+def _parse_tcpreplay_result(stdout, stderr, argv, results_dict):
+    """
+    Parse the output of tcpreplay and modify the results_dict to populate output information.
+    Tested with tcpreplay v3.4.4
+    Tested with tcpreplay v4.1.2
+    :param stdout: stdout of tcpreplay subprocess call
+    :param stderr: stderr of tcpreplay subprocess call
+    :param argv: the command used in the subprocess call
+    :param results_dict: empty dictionary to be modified when putting in results
+    :return: None
+    """
+    try:
+        stdout = str(stdout, "utf-8").replace("\nRated: ", "\t\tRated: ").replace("\t", "").split("\n")
+        stderr = str(stderr, "utf-8").replace("\t", "").split("\n")
+        actual = stdout[0].split(" ")
+
+        results_dict["packets"] = int(actual[1]),
+        results_dict["bytes"] = int(actual[3][1:]),
+        results_dict["time"] = float(actual[7]),
+        results_dict["bps"] = float(actual[9]),
+        results_dict["mbps"] = float(actual[11]),
+        results_dict["pps"] = float(actual[13]),
+        results_dict["attempted"] = int(stdout[2].split(" ")[-1:][0]),
+        results_dict["successful"] = int(stdout[3].split(" ")[-1:][0]),
+        results_dict["failed"] = int(stdout[4].split(" ")[-1:][0]),
+        results_dict["retried_enobufs"] = int(stdout[5].split(" ")[-1:][0]),
+        results_dict["retried_eagain"] = int(stdout[6].split(" ")[-1][0]),
+        results_dict["command"] = str(argv),
+        results_dict["warnings"] = stderr[:len(stderr) - 1]
+    except Exception as parse_exception:
+        log_runtime.error("Error parsing output: " + str(parse_exception))
 
 
 @conf.commands.register
