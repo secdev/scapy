@@ -1,7 +1,8 @@
 {
   "testfiles": [
     "test/*.uts",
-    "scapy/contrib/*.uts"
+    "scapy/contrib/*.uts",
+    "test/tls/tests_tls_netaccess.uts"
   ],
   "remove_testfiles": [
     "test/mock_windows.uts",
