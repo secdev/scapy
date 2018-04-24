@@ -3,6 +3,7 @@ concurrency = multiprocessing
 omit =
     # Scapy specific paths
     scapy/tools/UTscapy.py
+    test/*
     # Scapy external modules
     scapy/modules/six.py
     scapy/modules/winpcapy.py
