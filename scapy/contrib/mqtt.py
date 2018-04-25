@@ -22,7 +22,7 @@ class VariableFieldLenField(FieldLenField):
         while val:
             if val > 127:
                 data.append(val & 127)
-                val /= 127
+                val //= 128
             else:
                 data.append(val)
                 lastoffset = len(data) - 1
