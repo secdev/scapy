@@ -10160,6 +10160,17 @@ if PYX:
     assert(os.path.exists(filename))
     os.unlink(filename)
 
+= __getstate__ / __setstate__ (used by pickle)
+
+import pickle
+
+frm = Ether(src='00:11:22:33:44:55', dst='00:11:22:33:44:55')/Raw()
+pl = PacketList(res=[frm, frm])
+pickled = pickle.dumps(pl)
+pl = pickle.loads(pickled)
+assert(len(pl) == 2)
+
+
 ############
 ############
 + Scapy version
