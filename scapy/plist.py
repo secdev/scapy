@@ -85,6 +85,19 @@ class PacketList(BasePacketList):
                                s,
                                ct.punct(">"))
 
+    def __getstate__(self):
+        state = {
+            'res': self.res,
+            'stats': self.stats,
+            'listname': self.listname
+        }
+        return state
+
+    def __setstate__(self, state):
+        self.res = state['res']
+        self.stats = state['stats']
+        self.listname = state['listname']
+
     def __getattr__(self, attr):
         return getattr(self.res, attr)
 
