@@ -52,44 +52,13 @@ Use pip::
 $ pip install scapy
 
 
-You can also download the `latest version <http://scapy.net>`_ to a temporary directory and install it in the standard `distutils <http://docs.python.org/inst/inst.html>`_ way::
+You can also download the `latest version <https://github.com/secdev/scapy/archive/master.zip>`_ to a temporary directory and install it in the standard `distutils <http://docs.python.org/inst/inst.html>`_ way::
 
 $ cd /tmp
-$ wget --trust-server-names scapy.net   # or wget -O scapy.zip scapy.net
-$ unzip scapy-x.x.x.zip
-$ cd scapy
+$ wget --trust-server-names https://github.com/secdev/scapy/archive/master.zip   # or wget -O master.zip https://github.com/secdev/scapy/archive/master.zip
+$ unzip master.zip
+$ cd master
 $ sudo python setup.py install
- 
-Alternatively, you can execute the zip file::
-
-$ chmod +x scapy-x.x.x.zip
-$ sudo ./scapy-x.x.x.zip
-
-or::
-
-$ sudo sh scapy-x.x.x.zip
-
-or::
-
-$ mv scapy-x.x.x.zip /usr/local/bin/scapy
-$ sudo scapy
-
-or::
-
-$ chmod +x scapy-x.x.x.zip
-$ ./scapy-x.x.x.zip
-
-or download and run in one command::
-  
-$ sh <(curl -sL scapy.net)
-
-.. note::
-
-   To make a zip executable, some bytes have been added before the zip header.
-   Most zip programs handle this, but not all. If your zip program complains
-   about the zip file to be corrupted, either change it or download a 
-   non-executable zip at https://github.com/secdev/scapy/archive/master.zip
-
  
 Current development version
 ----------------------------
@@ -392,7 +361,7 @@ For your convenience direct links are given to the version that is supported (Py
 
 After all packages are installed, open a command prompt (cmd.exe) and run Scapy by typing ``scapy``. If you have set the PATH correctly, this will find a little batch file in your ``C:\Python27\Scripts`` directory and instruct the Python interpreter to load Scapy.
 
-If really nothing seems to work, consider skipping the Windows version and using Scapy from a Linux Live CD -- either in a virtual machine on your Windows host or by booting from CDROM: An older version of Scapy is already included in grml and BackTrack for example. While using the Live CD you can easily upgrade to the latest Scapy version by typing ``cd /tmp && wget scapy.net``.
+If really nothing seems to work, consider skipping the Windows version and using Scapy from a Linux Live CD -- either in a virtual machine on your Windows host or by booting from CDROM: An older version of Scapy is already included in grml and BackTrack for example. While using the Live CD you can easily upgrade to the latest Scapy version by using the `above installation methods <#installing-scapy-v2-x>`_.
 
 Screenshot
 ^^^^^^^^^^
