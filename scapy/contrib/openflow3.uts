@@ -149,6 +149,12 @@ assert isinstance(pkt[OFPTHello].elements[0], OFPHETVersionBitmap)
 assert pkt[OFPTHello].elements[0].bitmap == 32
 assert pkt[OFPTHello].elements[0].len == 8
 
+pkt = TCP()/OFPTHello(elements=[OFPHETVersionBitmap(bitmap="OFv1.5", len=None)])
+pkt = TCP(raw(pkt))
+assert isinstance(pkt[OFPTHello].elements[0], OFPHETVersionBitmap)
+assert pkt[OFPTHello].elements[0].bitmap == 64
+assert pkt[OFPTHello].elements[0].len == 8
+
 = complete Ether()/IP()/TCP()/OFPTFeaturesRequest()
 ofm = Ether(src='00:11:22:33:44:55',dst='01:23:45:67:89:ab')/IP(src='10.0.0.7',dst='192.168.0.42')/TCP(sport=6633)/OFPTFeaturesRequest(xid=23)
 s = b'\x01#Eg\x89\xab\x00\x11"3DU\x08\x00E\x00\x000\x00\x01\x00\x00@\x06\xaf\xee\n\x00\x00\x07\xc0\xa8\x00*\x19\xe9\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\xa6\xa4\x00\x00\x04\x05\x00\x08\x00\x00\x00\x17'
