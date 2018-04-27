@@ -86,6 +86,10 @@ class PacketList(BasePacketList):
                                ct.punct(">"))
 
     def __getstate__(self):
+        """
+        create a basic representation of the instance, used in conjunction with __setstate__() e.g. by pickle
+        :return: dict representing this instance
+        """
         state = {
             'res': self.res,
             'stats': self.stats,
@@ -94,6 +98,10 @@ class PacketList(BasePacketList):
         return state
 
     def __setstate__(self, state):
+        """
+        set instance attributes to values given by state, used in conjunction with __getstate__() e.g. by pickle
+        :param state: dict representing this instance
+        """
         self.res = state['res']
         self.stats = state['stats']
         self.listname = state['listname']
