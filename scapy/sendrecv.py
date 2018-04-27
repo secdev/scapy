@@ -18,6 +18,7 @@ import time
 import types
 
 from scapy.consts import DARWIN, FREEBSD, OPENBSD, WINDOWS
+from scapy.compat import plain_str
 from scapy.data import ETH_P_ALL, MTU
 from scapy.config import conf
 from scapy.packet import Packet, Gen
@@ -262,8 +263,8 @@ def sndrcv(pks, pkt, timeout=None, inter=0, verbose=None, chainCC=False,
         if listable:
             i = 0
             for p in (pkt if isinstance(pkt, list) else [pkt]):
-               p.sent_time = timessent[i]
-               i += 1
+                p.sent_time = timessent[i]
+                i += 1
 
         if store_unanswered:
             remain = list(itertools.chain(*six.itervalues(hsent)))
@@ -416,8 +417,7 @@ def sendpfast(x, pps=None, mbps=None, realtime=None, loop=0, file_cache=False, i
             log_runtime.info(stdout)
             log_runtime.warning(stderr)
             if parse_results:
-                results = {}
-                _parse_tcpreplay_result(stdout, stderr, argv, results)
+                results = _parse_tcpreplay_result(stdout, stderr, argv)
 
     except KeyboardInterrupt:
         log_interactive.info("Interrupted by user")
@@ -431,7 +431,7 @@ def sendpfast(x, pps=None, mbps=None, realtime=None, loop=0, file_cache=False, i
         return results
 
 
-def _parse_tcpreplay_result(stdout, stderr, argv, results_dict):
+def _parse_tcpreplay_result(stdout, stderr, argv):
     """
     Parse the output of tcpreplay and modify the results_dict to populate output information.
     Tested with tcpreplay v3.4.4
@@ -439,29 +439,31 @@ def _parse_tcpreplay_result(stdout, stderr, argv, results_dict):
     :param stdout: stdout of tcpreplay subprocess call
     :param stderr: stderr of tcpreplay subprocess call
     :param argv: the command used in the subprocess call
-    :param results_dict: empty dictionary to be modified when putting in results
-    :return: None
+    :return: dictionary containing the results
     """
     try:
-        stdout = str(stdout, "utf-8").replace("\nRated: ", "\t\tRated: ").replace("\t", "").split("\n")
-        stderr = str(stderr, "utf-8").replace("\t", "").split("\n")
-        actual = stdout[0].split(" ")
+        results_dict = {}
+        stdout = plain_str(stdout).replace("\nRated: ", "\t\tRated: ").replace("\t", "").split("\n")
+        stderr = plain_str(stderr).replace("\t", "").split("\n")
+        actual = [x for x in stdout[0].split(" ") if x]
 
-        results_dict["packets"] = int(actual[1]),
-        results_dict["bytes"] = int(actual[3][1:]),
-        results_dict["time"] = float(actual[7]),
-        results_dict["bps"] = float(actual[9]),
-        results_dict["mbps"] = float(actual[11]),
-        results_dict["pps"] = float(actual[13]),
-        results_dict["attempted"] = int(stdout[2].split(" ")[-1:][0]),
-        results_dict["successful"] = int(stdout[3].split(" ")[-1:][0]),
-        results_dict["failed"] = int(stdout[4].split(" ")[-1:][0]),
-        results_dict["retried_enobufs"] = int(stdout[5].split(" ")[-1:][0]),
-        results_dict["retried_eagain"] = int(stdout[6].split(" ")[-1][0]),
-        results_dict["command"] = str(argv),
+        results_dict["packets"] = int(actual[1])
+        results_dict["bytes"] = int(actual[3][1:])
+        results_dict["time"] = float(actual[7])
+        results_dict["bps"] = float(actual[10])
+        results_dict["mbps"] = float(actual[12])
+        results_dict["pps"] = float(actual[14])
+        results_dict["attempted"] = int(stdout[2].split(" ")[-1:][0])
+        results_dict["successful"] = int(stdout[3].split(" ")[-1:][0])
+        results_dict["failed"] = int(stdout[4].split(" ")[-1:][0])
+        results_dict["retried_enobufs"] = int(stdout[5].split(" ")[-1:][0])
+        results_dict["retried_eagain"] = int(stdout[6].split(" ")[-1][0])
+        results_dict["command"] = str(argv)
         results_dict["warnings"] = stderr[:len(stderr) - 1]
+        return results_dict
     except Exception as parse_exception:
         log_runtime.error("Error parsing output: " + str(parse_exception))
+        return {}
 
 
 @conf.commands.register
@@ -690,8 +692,8 @@ def sndrcvflood(pks, pkt, inter=0, verbose=None, chainCC=False, store_unanswered
     if listable:
         i = 0
         for p in (pkt if isinstance(pkt, list) else [pkt]):
-           p.sent_time = timessent[i]
-           i += 1
+            p.sent_time = timessent[i]
+            i += 1
 
     if process is not None:
         ans = [(x, process(y)) for (x, y) in ans]  # Apply process

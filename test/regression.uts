@@ -6509,7 +6509,7 @@ test_openbsd_6_3()
 
 = Test mocked _parse_tcpreplay_result
 
-# This is tested with tcpreplay version: 3.4.4
+from scapy.sendrecv import _parse_tcpreplay_result
 
 stdout = """Actual: 1024 packets (198929 bytes) sent in 67.88 seconds.              Rated: 2930.6 bps, 0.02 Mbps, 15.09 pps
 Statistics for network device: mon0
@@ -6525,8 +6525,9 @@ sending out mon0
 processing file: replay-example.pcap"""
 
 argv = ['tcpreplay' '--intf1=mon0' '--multiplier=1.00' '--timer=nano' 'replay-example.pcap']
-results_dict = {}
-_parse_tcpreplay_result(stdout, stderr, argv, results_dict)
+results_dict = _parse_tcpreplay_result(stdout, stderr, argv)
+
+results_dict
 
 assert(results_dict["packets"] == 1024)
 assert(results_dict["bytes"] == 198929)
@@ -6539,8 +6540,8 @@ assert(results_dict["successful"] == 1024)
 assert(results_dict["failed"] == 0)
 assert(results_dict["retried_enobufs"] == 0)
 assert(results_dict["retried_eagain"] == 0)
-assert(results_dict["command"] == argv)
-assert(len(results_dict["warnings"]) == 4)
+assert(results_dict["command"] == str(argv))
+assert(len(results_dict["warnings"]) == 3)
 
 
 ############
