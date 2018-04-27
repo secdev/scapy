@@ -14,6 +14,7 @@ import os
 import subprocess
 from collections import defaultdict
 
+from scapy.compat import lambda_tuple_converter
 from scapy.config import conf
 from scapy.consts import WINDOWS
 from scapy.base_classes import BasePacket, BasePacketList
@@ -165,11 +166,15 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         lfilter: a truth function that decides whether a packet must be plotted
         """
 
+        # Python 2 backward compatibility
+        f = lambda_tuple_converter(f)
+        lfilter = lambda_tuple_converter(lfilter)
+
         # Get the list of packets
         if lfilter is None:
-            l = [f(e) for e in self.res]
+            l = [f(*e) for e in self.res]
         else:
-            l = [f(e) for e in self.res if lfilter(e)]
+            l = [f(*e) for e in self.res if lfilter(*e)]
 
         # Mimic the default gnuplot output
         if kargs == {}:
@@ -219,11 +224,15 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         A list of matplotlib.lines.Line2D is returned.
         """
 
+        # Python 2 backward compatibility
+        f = lambda_tuple_converter(f)
+        lfilter = lambda_tuple_converter(lfilter)
+
         # Get the list of packets
         if lfilter is None:
-            l = (f(e) for e in self.res)
+            l = (f(*e) for e in self.res)
         else:
-            l = (f(e) for e in self.res if lfilter(e))
+            l = (f(*e) for e in self.res if lfilter(*e))
 
         # Apply the function f to the packets
         d = {}

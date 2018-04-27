@@ -57,6 +57,19 @@ def cmp(a, b):
     return (a > b) - (a < b)
 
 
+def lambda_tuple_converter(func):
+    """
+    Converts a Python 2 function as
+      lambda (x,y): x + y
+    In the Python 3 format:
+      lambda x,y : x + y
+    """
+    if func is not None and func.__code__.co_argcount == 1:
+        return lambda *args: func(args[0] if len(args) == 1 else args)
+    else:
+        return func
+
+
 if six.PY2:
     def orb(x):
         """Return ord(x) when necessary."""

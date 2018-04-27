@@ -1101,7 +1101,13 @@ old_debug_dissector = conf.debug_dissector
 conf.debug_dissector = False
 ans,unans=sr(IP(dst="www.google.com/30")/TCP(dport=[80,443]),timeout=2)
 conf.debug_dissector = old_debug_dissector
-ans.make_table(lambda s_r: (s_r[0].dst, s_r[0].dport, s_r[1].sprintf("{TCP:%TCP.flags%}{ICMP:%ICMP.code%}")))
+
+# Backward compatibility: Python 2 only
+if six.PY2:
+    exec("""ans.make_table(lambda (s, r): (s.dst, s.dport, r.sprintf("{TCP:%TCP.flags%}{ICMP:%ICMP.code%}")))""")
+
+# New format: all Python versions
+ans.make_table(lambda s, r: (s.dst, s.dport, r.sprintf("{TCP:%TCP.flags%}{ICMP:%ICMP.code%}")))
 
 = Send & receive with retry
 ~ netaccess IP ICMP

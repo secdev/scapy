@@ -1516,13 +1516,18 @@ def pretty_list(rtlst, header, sortBy=0):
 
 
 def __make_table(yfmtfunc, fmtfunc, endline, data, fxyz, sortx=None, sorty=None, seplinefunc=None):
+    """Core function of the make_table suite, which generates the table"""
     vx = {}
     vy = {}
     vz = {}
     vxf = {}
+
+    # Python 2 backward compatibility
+    fxyz = lambda_tuple_converter(fxyz)
+
     l = 0
     for e in data:
-        xx, yy, zz = [str(s) for s in fxyz(e)]
+        xx, yy, zz = [str(s) for s in fxyz(*e)]
         l = max(len(yy), l)
         vx[xx] = max(vx.get(xx, 0), len(xx), len(zz))
         vy[yy] = None
