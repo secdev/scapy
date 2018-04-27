@@ -419,9 +419,9 @@ class Dot15d4Data(Packet):
     fields_desc = [
         XLEShortField("dest_panid", 0xFFFF),
         dot15d4AddressField("dest_addr", 0xFFFF, length_of="fcf_destaddrmode"),
-        ConditionalField(XLEShortField("src_panid", 0x0), \
+        ConditionalField(XLEShortField("src_panid", 0x0),
                          lambda pkt:util_srcpanid_present(pkt)),
-        ConditionalField(dot15d4AddressField("src_addr", None, length_of="fcf_srcaddrmode"), \
+        ConditionalField(dot15d4AddressField("src_addr", None, length_of="fcf_srcaddrmode"),
                          lambda pkt:pkt.underlayer.getfieldval("fcf_srcaddrmode") != 0),
         # Security field present if fcf_security == True
         ConditionalField(PacketField("aux_sec_header", Dot15d4AuxSecurityHeader(), Dot15d4AuxSecurityHeader),

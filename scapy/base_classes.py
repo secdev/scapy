@@ -31,7 +31,7 @@ def _get_values(value):
     return value.
 
     """
-    if (isinstance(value, tuple) and (2 <= len(value) <= 3) and \
+    if (isinstance(value, tuple) and (2 <= len(value) <= 3) and
             all(hasattr(i, "__int__") for i in value)):
         # We use values[1] + 1 as stop value for (x)range to maintain
         # the behavior of using tuples as field `values`

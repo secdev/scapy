@@ -131,4 +131,3 @@ class Cipher_NULL(_StreamCipher):
 
     def decrypt(self, data):
         return data
-

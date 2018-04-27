@@ -129,4 +129,3 @@ class AnsweringMachine(six.with_metaclass(ReferenceAM, object)):
 
     def sniff(self):
         sniff(**self.optsniff)
-

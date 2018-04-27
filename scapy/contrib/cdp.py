@@ -365,4 +365,3 @@ class CDPv2_HDR(_CDPChecksum, CDPMsgGeneric):
 
 
 bind_layers(SNAP, CDPv2_HDR, {"code": 0x2000, "OUI": 0xC})
-

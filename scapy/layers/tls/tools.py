@@ -223,4 +223,3 @@ def _tls_aead_auth_decrypt(alg, c, read_seq_num):
     if p.data is None:  # Verification failed.
         return None
     return p
-

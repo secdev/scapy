@@ -938,4 +938,3 @@ class TLSClientAutomaton(_TLSAutomaton):
         self.vprint("Closing client socket...")
         self.socket.close()
         self.vprint("Ending TLS client automaton.")
-

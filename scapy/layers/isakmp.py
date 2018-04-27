@@ -356,4 +356,3 @@ bind_layers(UDP, ISAKMP, dport=500, sport=500)
 def ikescan(ip):
     return sr(IP(dst=ip) / UDP() / ISAKMP(init_cookie=RandString(8),
                                           exch_type=2) / ISAKMP_payload_SA(prop=ISAKMP_payload_Proposal()))
-

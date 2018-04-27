@@ -291,5 +291,3 @@ class KnowledgeBase:
         if self.base is None:
             self.lazy_init()
         return self.base
-
-

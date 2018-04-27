@@ -1566,6 +1566,3 @@ def fuzz(p, _inplace=0):
                         q.default_fields[f.name] = rnd
         q = q.payload
     return p
-
-
-

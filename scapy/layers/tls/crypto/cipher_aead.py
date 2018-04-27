@@ -409,4 +409,3 @@ if conf.crypto_valid_advanced:
 
     class Cipher_AES_128_CCM_8_TLS13(Cipher_AES_128_CCM_TLS13):
         tag_len = 8
-

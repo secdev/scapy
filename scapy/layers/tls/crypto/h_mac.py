@@ -112,4 +112,3 @@ class Hmac_SHA384(_GenericHMAC):
 
 class Hmac_SHA512(_GenericHMAC):
     pass
-

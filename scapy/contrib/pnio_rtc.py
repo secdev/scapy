@@ -382,8 +382,8 @@ class PNIORealTime(Packet):
                         )
 
                 # Get the entropy
-                for start, dummy, conf in locations[comm]:
-                    for i in range(start, start + conf["length"]):
+                for start, dummy, config in locations[comm]:
+                    for i in range(start, start + config["length"]):
                         entropies[comm].append(
                             (i, entropy_of_byte(comm_packets, i))
                         )
@@ -489,4 +489,3 @@ class Profisafe(PNIORealTimeRawData):
     def crc_length(self):
         """Return the length of the crc"""
         return self._config["CRC"]
-

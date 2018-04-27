@@ -395,5 +395,3 @@ class DHCP_am(BOOTP_am):
                              ]
             resp /= DHCP(options=dhcp_options)
         return resp
-
-

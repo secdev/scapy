@@ -542,4 +542,3 @@ _sslv2_handshake_cls = {0: SSLv2Error, 1: SSLv2ClientHello,
                         4: SSLv2ServerHello, 5: SSLv2ServerVerify,
                         6: SSLv2ServerFinished, 7: SSLv2RequestCertificate,
                         8: SSLv2ClientCertificate}
-

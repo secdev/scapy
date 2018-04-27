@@ -933,4 +933,3 @@ bind_layers(ISIS_CommonHdr, ISIS_L1_CSNP, hdrlen=33, pdutype=24)
 bind_layers(ISIS_CommonHdr, ISIS_L2_CSNP, hdrlen=33, pdutype=25)
 bind_layers(ISIS_CommonHdr, ISIS_L1_PSNP, hdrlen=17, pdutype=26)
 bind_layers(ISIS_CommonHdr, ISIS_L2_PSNP, hdrlen=17, pdutype=27)
-

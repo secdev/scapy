@@ -78,4 +78,3 @@ class ProfinetIO(Packet):
 
 bind_layers(Ether, ProfinetIO, type=0x8892)
 bind_layers(UDP, ProfinetIO, dport=0x8892)
-

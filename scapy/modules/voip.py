@@ -161,4 +161,3 @@ def voip_play3(lst=None, **kargs):
             rd.close()
         except:
             pass
-

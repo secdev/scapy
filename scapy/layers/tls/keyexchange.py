@@ -935,4 +935,3 @@ class ClientPSKIdentity(Packet):
                                  length_of="psk_identity", fmt="!H"),
                    StrLenField("psk_identity", "",
                                length_from=lambda pkt: pkt.psk_identity_len)]
-

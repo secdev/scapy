@@ -31,5 +31,3 @@ class ASN1_Packet(six.with_metaclass(ASN1Packet_metaclass, Packet)):
 
     def do_dissect(self, x):
         return self.ASN1_root.dissect(self, x)
-
-

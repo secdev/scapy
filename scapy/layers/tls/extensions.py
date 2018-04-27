@@ -690,5 +690,3 @@ class _ExtensionsField(StrLenField):
             res.append(cls(m[:l + 4], tls_session=pkt.tls_session))
             m = m[l + 4:]
         return res
-
-

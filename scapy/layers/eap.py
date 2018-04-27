@@ -775,4 +775,3 @@ bind_layers(GRE, EAPOL, proto=34958)
 bind_layers(EAPOL, EAP, type=0)
 bind_layers(SNAP, EAPOL, code=34958)
 bind_layers(EAPOL, MKAPDU, type=5)
-

@@ -1017,4 +1017,3 @@ def _create_ca_file(anchor_list, filename):
     except IOError:
         return None
     return filename
-

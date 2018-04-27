@@ -288,4 +288,3 @@ class TLS_Ext_PreSharedKey_SH(TLS_Ext_Unknown):
 
 _tls_ext_presharedkey_cls = {1: TLS_Ext_PreSharedKey_CH,
                              2: TLS_Ext_PreSharedKey_SH}
-

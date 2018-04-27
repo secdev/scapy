@@ -70,4 +70,3 @@ class Hash_SHA384(_GenericHash):
 class Hash_SHA512(_GenericHash):
     hash_cls = sha512
     hash_len = 64
-

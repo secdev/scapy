@@ -618,4 +618,3 @@ interface and may (are likely to) be different than those generated on
         s1.close()
         os._exit(0)
     return result
-

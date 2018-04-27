@@ -291,4 +291,3 @@ def snmpwalk(dst, oid="1", community="public"):
 
     except KeyboardInterrupt:
         pass
-

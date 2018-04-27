@@ -14,10 +14,10 @@ import time
 import datetime
 
 from scapy.packet import Packet, bind_layers
-from scapy.fields import (BitField, BitEnumField, ByteField, ByteEnumField, \
-                          XByteField, SignedByteField, FlagsField, ShortField, LEShortField, IntField,\
-                          LEIntField, FixedPointField, IPField, StrField, StrFixedLenField,\
-                          StrFixedLenEnumField, XStrFixedLenField, PacketField, PacketLenField,\
+from scapy.fields import (BitField, BitEnumField, ByteField, ByteEnumField,
+                          XByteField, SignedByteField, FlagsField, ShortField, LEShortField, IntField,
+                          LEIntField, FixedPointField, IPField, StrField, StrFixedLenField,
+                          StrFixedLenEnumField, XStrFixedLenField, PacketField, PacketLenField,
                           PacketListField, FieldListField, ConditionalField, PadField)
 from scapy.layers.inet6 import IP6Field
 from scapy.layers.inet import UDP
@@ -1831,5 +1831,3 @@ class NTPPrivate(NTP):
 bind_layers(UDP, NTP, {"sport": 123})
 bind_layers(UDP, NTP, {"dport": 123})
 bind_layers(UDP, NTP, {"sport": 123, "dport": 123})
-
-

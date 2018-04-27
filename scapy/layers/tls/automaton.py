@@ -223,4 +223,3 @@ class _TLSAutomaton(Automaton):
     def vprint(self, s=""):
         if self.verbose:
             log_interactive.info("> %s", s)
-

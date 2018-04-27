@@ -1254,4 +1254,3 @@ _tls_handshake_cls = {0: TLSHelloRequest, 1: TLSClientHello,
                       16: TLSClientKeyExchange, 20: TLSFinished,
                       21: TLSCertificateURL, 22: TLSCertificateStatus,
                       23: TLSSupplementalData}
-
