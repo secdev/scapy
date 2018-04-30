@@ -1,13 +1,27 @@
 # This file is part of Scapy
 # See http://www.secdev.org/projects/scapy for more informations
+# Scapy is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 2 of the License, or
+# any later version.
+#
+# Scapy is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Scapy. If not, see <http://www.gnu.org/licenses/>.
+
 # Copyright (C) Philippe Biondi <phil@secdev.org>
-# This program is published under a GPLv2 license
+# Original PPI author: <jellch@harris.com>
 
 """
 Wireless LAN according to IEEE 802.11.
 """
 
 from __future__ import print_function
+import math
 import re
 import struct
 from zlib import crc32
@@ -90,27 +104,186 @@ class PrismHeader(Packet):
             return self.payload.answers(other)
 
 
+class _RadiotapReversePadField(ReversePadField):
+    def __init__(self, fld):
+        self._fld = fld
+        self._padwith = b"\x00"
+        # Quote from https://www.radiotap.org/:
+        # ""Radiotap requires that all fields in the radiotap header are aligned to natural boundaries.
+        # For radiotap, that means all 8-, 16-, 32-, and 64-bit fields must begin on 8-, 16-, 32-, and 64-bit boundaries, respectively.""
+        if isinstance(self._fld, BitField):
+            self._align = int(math.ceil(self.i2len(None, None)))
+        else:
+            self._align = struct.calcsize(self._fld.fmt)
+
+
+class _dbmField(ByteField):
+    def i2m(self, pkt, x):
+        return super(ByteField, self).i2m(pkt, x + 256)
+
+    def m2i(self, pkt, x):
+        return super(ByteField, self).m2i(pkt, x) - 256
+
+    def i2repr(self, pkt, x):
+        return "%sdBm" % x
+
+
+_vht_bandwidth = {0: "20MHz", 1: "40MHz", 2: "40MHz", 3: "40MHz", 4: "80MHz", 5: "80MHz",
+                  6: "80MHz", 7: "80MHz", 8: "80MHz", 9: "80MHz", 10: "80MHz", 11: "160MHz",
+                  12: "160MHz", 13: "160MHz", 14: "160MHz", 15: "160MHz", 16: "160MHz", 17: "160MHz",
+                  18: "160MHz", 19: "160MHz", 20: "160MHz", 21: "160MHz", 22: "160MHz", 23: "160MHz",
+                  24: "160MHz", 25: "160MHz"}
+
+
 class RadioTap(Packet):
     name = "RadioTap dummy"
     fields_desc = [ByteField('version', 0),
                    ByteField('pad', 0),
-                   FieldLenField('len', None, 'notdecoded', '<H', adjust=lambda pkt, x:x + 8),
+                   LEShortField('len', None),
                    FlagsField('present', None, -32, ['TSFT', 'Flags', 'Rate', 'Channel', 'FHSS', 'dBm_AntSignal',
                                                      'dBm_AntNoise', 'Lock_Quality', 'TX_Attenuation', 'dB_TX_Attenuation',
                                                      'dBm_TX_Power', 'Antenna', 'dB_AntSignal', 'dB_AntNoise',
-                                                     'b14', 'b15', 'b16', 'b17', 'b18', 'b19', 'b20', 'b21', 'b22', 'b23',
-                                                     'b24', 'b25', 'b26', 'b27', 'b28', 'b29', 'b30', 'Ext']),
-                   StrLenField('notdecoded', "", length_from=lambda pkt:pkt.len - 8)]
+                                                     'RXFlags', 'b16', 'b17', 'b18', 'ChannelPlus', 'MCS', 'A_MPDU',
+                                                     'VHT', 'timestamp', 'b24', 'b25', 'b26', 'b27', 'b28', 'b29',
+                                                     'RadiotapNS', 'VendorNS', 'Ext']),
+                   ConditionalField(_RadiotapReversePadField(BitField("mac_timestamp", 0, -64)), lambda pkt: pkt.present and pkt.present.TSFT),
+                   ConditionalField(
+                       _RadiotapReversePadField(
+                           FlagsField("Flags", None, -8, ['CFP', 'ShortPreamble', 'wep', 'fragment',
+                                                          'FCS', 'pad', 'badFCS', 'ShortGI'])
+                       ),
+                       lambda pkt: pkt.present and pkt.present.Flags),
+                   ConditionalField(_RadiotapReversePadField(ByteField("Rate", 0)), lambda pkt: pkt.present and pkt.present.Rate),
+                   ConditionalField(_RadiotapReversePadField(LEShortField("Channel", 0)), lambda pkt: pkt.present and pkt.present.Channel),
+                   ConditionalField(
+                       _RadiotapReversePadField(
+                           FlagsField("ChannelFlags", None, -16, ['res1', 'res2', 'res3', 'res4', 'Turbo', 'CCK',
+                                                                  'OFDM', '2GHz', '5GHz', 'Passive', 'Dynamic_CCK_OFDM',
+                                                                  'GFSK', 'GSM', 'StaticTurbo', '10MHz', '5MHz'])
+                       ),
+                       lambda pkt: pkt.present and pkt.present.Channel),
+                   ConditionalField(_RadiotapReversePadField(_dbmField("dBm_AntSignal", 0)), lambda pkt: pkt.present and pkt.present.dBm_AntSignal),
+                   ConditionalField(_RadiotapReversePadField(_dbmField("dBm_AntNoise", 0)), lambda pkt: pkt.present and pkt.present.dBm_AntNoise),
+                   ConditionalField(_RadiotapReversePadField(ByteField("Antenna", 0)), lambda pkt: pkt.present and pkt.present.Antenna),
+                   # ChannelPlus
+                   ConditionalField(
+                       _RadiotapReversePadField(
+                           FlagsField("ChannelFlags2", None, -32, ['res1', 'res2', 'res3', 'res4', 'Turbo', 'CCK',
+                                                                   'OFDM', '2GHz', '5GHz', 'Passive', 'Dynamic_CCK_OFDM',
+                                                                   'GFSK', 'GSM', 'StaticTurbo', '10MHz', '5MHz',
+                                                                   '20MHz', '40MHz_ext_channel_above', '40MHz_ext_channel_below',
+                                                                   'res5', 'res6', 'res7', 'res8', 'res9'])
+                       ),
+                       lambda pkt: pkt.present and pkt.present.ChannelPlus),
+                   ConditionalField(_RadiotapReversePadField(LEShortField("ChannelFrequency", 0)), lambda pkt: pkt.present and pkt.present.ChannelPlus),
+                   ConditionalField(_RadiotapReversePadField(ByteField("ChannelNumber", 0)), lambda pkt: pkt.present and pkt.present.ChannelPlus),
+                   # A_MPDU
+                   ConditionalField(_RadiotapReversePadField(LEIntField("A_MPDU_ref", 0)), lambda pkt: pkt.present and pkt.present.A_MPDU),
+                   ConditionalField(
+                       _RadiotapReversePadField(
+                           FlagsField("A_MPDU_flags", None, -32, ['Report0Subframe', 'Is0Subframe', 'KnownLastSubframe',
+                                                                  'LastSubframe', 'CRCerror', 'EOFsubframe', 'KnownEOF',
+                                                                  'res1', 'res2', 'res3', 'res4', 'res5', 'res6', 'res7', 'res8'])
+                       ),
+                       lambda pkt: pkt.present and pkt.present.A_MPDU),
+                   # VHT
+                   ConditionalField(
+                       _RadiotapReversePadField(
+                           FlagsField("KnownVHT", None, -16, ['STBC', 'TXOP_PS_NOT_ALLOWED', 'GuardInterval', 'SGINsysmDis',
+                                                              'LDPCextraOFDM', 'Beamformed', 'Bandwidth', 'GroupID', 'PartialAID',
+                                                              'res1', 'res2', 'res3', 'res4', 'res5', 'res6', 'res7'])
+                       ),
+                       lambda pkt: pkt.present and pkt.present.VHT),
+                   ConditionalField(
+                       _RadiotapReversePadField(
+                           FlagsField("PresentVHT", None, -8, ['STBC', 'TXOP_PS_NOT_ALLOWED', 'GuardInterval', 'SGINsysmDis',
+                                                               'LDPCextraOFDM', 'Beamformed', 'res1', 'res2'])
+                       ),
+                       lambda pkt: pkt.present and pkt.present.VHT),
+                   ConditionalField(_RadiotapReversePadField(ByteEnumField("bandwidth", 0, _vht_bandwidth)), lambda pkt: pkt.present and pkt.present.VHT),
+                   ConditionalField(_RadiotapReversePadField(StrFixedLenField("mcs_nss", 0, length=5)), lambda pkt: pkt.present and pkt.present.VHT),
+                   ConditionalField(_RadiotapReversePadField(ByteField("GroupID", 0)), lambda pkt: pkt.present and pkt.present.VHT),
+                   ConditionalField(_RadiotapReversePadField(ShortField("PartialAID", 0)), lambda pkt: pkt.present and pkt.present.VHT),
+                   StrLenField('notdecoded', "", length_from=lambda pkt: pkt.len - pkt._tmp_dissect_pos)]
+
+    def guess_payload_class(self, payload):
+        if self.Flags.FCS:
+            return Dot11FCS
+        else:
+            return Dot11
+
+    def post_build(self, p, pay):
+        if self.len is None:
+            p = p[:2] + struct.pack("!H", len(p))[::-1] + p[3:]
+        return p + pay
+
+
+# Dictionary to map the TLV type to the class name of a sub-packet
+_ppi_types = {}
+
+
+def addPPIType(id, value):
+    _ppi_types[id] = value
+
+
+def getPPIType(id, default="default"):
+    return _ppi_types.get(id, _ppi_types.get(default, None))
+
+
+# Default PPI Field Header
+class PPIGenericFldHdr(Packet):
+    name = "PPI Field Header"
+    fields_desc = [LEShortField('pfh_type', 0),
+                   FieldLenField('pfh_length', None, length_of="value", fmt='<H', adjust=lambda p, x:x + 4),
+                   StrLenField("value", "", length_from=lambda p:p.pfh_length)]
+
+    def extract_padding(self, p):
+        return b"", p
+
+
+def _PPIGuessPayloadClass(p, **kargs):
+    """ This function tells the PacketListField how it should extract the
+        TLVs from the payload.  We pass cls only the length string
+        pfh_len says it needs.  If a payload is returned, that means
+        part of the sting was unused.  This converts to a Raw layer, and
+        the remainder of p is added as Raw's payload.  If there is no
+        payload, the remainder of p is added as out's payload.
+    """
+    if len(p) >= 4:
+        t, pfh_len = struct.unpack("<HH", p[:4])
+        # Find out if the value t is in the dict _ppi_types.
+        # If not, return the default TLV class
+        cls = getPPIType(t, "default")
+        pfh_len += 4
+        out = cls(p[:pfh_len], **kargs)
+        if (out.payload):
+            out.payload = conf.raw_layer(out.payload.load)
+            out.payload.underlayer = out
+            if (len(p) > pfh_len):
+                out.payload.payload = conf.padding_layer(p[pfh_len:])
+                out.payload.payload.underlayer = out.payload
+        elif (len(p) > pfh_len):
+            out.payload = conf.padding_layer(p[pfh_len:])
+            out.payload.underlayer = out
+    else:
+        out = conf.raw_layer(p, **kargs)
+    return out
 
 
 class PPI(Packet):
-    name = "Per-Packet Information header (partial)"
-    fields_desc = [ByteField("version", 0),
-                   ByteField("flags", 0),
-                   FieldLenField("len", None, fmt="<H", length_of="notdecoded", adjust=lambda pkt, x:x + 8),
-                   LEIntField("dlt", 0),
-                   StrLenField("notdecoded", "", length_from=lambda pkt:pkt.len - 8)
-                   ]
+    name = "Per-Packet Information header (PPI)"
+    fields_desc = [ByteField('version', 0),
+                   ByteField('flags', 0),
+                   FieldLenField('len', None, length_of="PPIFieldHeaders", fmt="<H", adjust=lambda p, x: x + 8),
+                   LEIntField('dlt', 1),
+                   PacketListField("PPIFieldHeaders", [], _PPIGuessPayloadClass, length_from=lambda p: p.len - 8,)]
+
+    def guess_payload_class(self, payload):
+        return conf.l2types.get(self.dlt, Packet.guess_payload_class(self, payload))
+
+
+# Register PPI
+addPPIType("default", PPIGenericFldHdr)
 
 
 class Dot11(Packet):
@@ -138,11 +311,12 @@ class Dot11(Packet):
             MACField("addr4", ETHER_ANY),
             lambda pkt: (pkt.type == 2 and
                          pkt.FCfield & 3 == 3),  # from-DS+to-DS
-        ),
+        )
     ]
 
     def mysummary(self):
-        return self.sprintf("802.11 %Dot11.type% %Dot11.subtype% %Dot11.addr2% > %Dot11.addr1%")
+        # Supports both Dot11 and Dot11FCS
+        return self.sprintf("802.11 %%%s.type%% %%%s.subtype%% %%%s.addr2%% > %%%s.addr1%%" % ((self.__class__.__name__,) * 4))
 
     def guess_payload_class(self, payload):
         if self.type == 0x02 and (0x08 <= self.subtype <= 0xF and self.subtype != 0xD):
@@ -185,6 +359,30 @@ class Dot11(Packet):
         self.payload = self.payload.payload
 
 
+class Dot11FCS(Dot11):
+    name = "802.11-FCS"
+    fields_desc = Dot11.fields_desc + [XLEIntField("fcs", None)]  # Automatically moved to the end of the packet
+
+    def compute_fcs(self, s):
+        return struct.pack("!I", crc32(s) & 0xffffffff)[::-1]
+
+    def post_build(self, p, pay):
+        # Switch payload and frame check sequence
+        return p[:-4] + pay + (p[-4:] if self.fcs is not None else self.compute_fcs(p[:-4] + pay))
+
+    def post_dissect(self, s):
+        self.raw_packet_cache = None  # Reset packet to allow post_build
+        return s
+
+    def pre_dissect(self, s):
+        # Get the frame check sequence
+        sty = orb(s[0])
+        ty = orb(s[1]) >> 2
+        fc = struct.unpack("!H", s[2:4])[0]
+        length = 12 + 6 * ((ty != 1 or sty in [0x8, 0x9, 0xa, 0xb, 0xe, 0xf]) + (ty in [0, 2]) + (ty == 2 and fc & 3 == 3))
+        return s[:length] + s[-4:] + s[length:-4]
+
+
 class Dot11QoS(Packet):
     name = "802.11 QoS"
     fields_desc = [BitField("Reserved", None, 1),
@@ -224,10 +422,37 @@ class Dot11Beacon(Packet):
                    FlagsField("cap", 0, 16, capability_list)]
 
 
+_dot11_info_elts_ids = {
+    0: "SSID",
+    1: "Rates",
+    2: "FHset",
+    3: "DSset",
+    4: "CFset",
+    5: "TIM",
+    6: "IBSSset",
+    7: "Country",
+    10: "Request",
+    16: "challenge",
+    33: "PowerCapability",
+    36: "Channels",
+    42: "ERPinfo",
+    45: "HTCapabilities",
+    46: "QoSCapability",
+    47: "ERPinfo",
+    48: "RSNinfo",
+    50: "ESRates",
+    52: "PowerConstraint",
+    107: "Interworking",
+    127: "ExtendendCapatibilities",
+    191: "VHTCapabilities",
+    221: "vendor",
+    68: "reserved"
+}
+
+
 class Dot11Elt(Packet):
     name = "802.11 Information Element"
-    fields_desc = [ByteEnumField("ID", 0, {0: "SSID", 1: "Rates", 2: "FHset", 3: "DSset", 4: "CFset", 5: "TIM", 6: "IBSSset", 16: "challenge",
-                                           42: "ERPinfo", 46: "QoS Capability", 47: "ERPinfo", 48: "RSNinfo", 50: "ESRates", 221: "vendor", 68: "reserved"}),
+    fields_desc = [ByteEnumField("ID", 0, _dot11_info_elts_ids),
                    FieldLenField("len", None, "info", "B"),
                    StrLenField("info", "", length_from=lambda x: x.len,
                                max_length=255)]
@@ -539,8 +764,8 @@ class Dot11Ack(Packet):
 
 
 bind_layers(PrismHeader, Dot11,)
-bind_layers(RadioTap, Dot11,)
-bind_layers(PPI, Dot11, dlt=105)
+bind_layers(PPI, Dot11, dlt=DLT_IEEE802_11)
+bind_layers(PPI, Ether, dlt=DLT_EN10MB)
 bind_layers(Dot11, LLC, type=2)
 bind_layers(Dot11QoS, LLC,)
 bind_layers(Dot11, Dot11AssoReq, subtype=0, type=0)

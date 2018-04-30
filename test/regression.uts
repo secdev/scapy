@@ -688,6 +688,15 @@ class TestPad(Packet):
 
 TestPad() == TestPad(raw(TestPad()))
 
+= ReversePadField
+~ PadField padding
+
+class TestReversePad(Packet):
+    fields_desc = [ ByteField("a", 0),
+                    ReversePadField(IntField("b", 0), 4)]
+
+assert raw(TestReversePad(a=1, b=0xffffffff)) == b'\x01\x00\x00\x00\xff\xff\xff\xff'
+assert TestReversePad(raw(TestReversePad(a=1, b=0xffffffff))).b == 0xffffffff
 
 ############
 ############
@@ -767,6 +776,18 @@ assert(r == b'\x00\x00\x00\x00\xe3OjYLw\xc3x_%\xd0\xcf\xdeu-\xc3pH#\x1eK\xae\xf5
 p = Dot11WEP(r)
 p
 assert(TCP in p and p[TCP].seq == 12345678)
+
+= RadioTap - dissection & build
+data = b'\x00\x008\x00k\x084\x00oo\x0f\x98\x00\x00\x00\x00\x10\x00\x99\x16@\x01\xc5\xa1\x01\x00\x00\x00@\x01\x02\x00\x99\x16\x9d"\x05\x0b\x00\x00\x00\x00\x00\x00\xff\x01\x16\x01\x82\x00\x00\x00\x01\x00\x00\x00\x88\x020\x00\xb8\xe8VB_\xb2\x82*\xa8Uq\x15\xf0\x9f\xc2\x11\x16dP\xb0\x00\x00\xaa\xaa\x03\x00\x00\x00\x08\x00E\x00\x00GC\xad@\x007\x11\x97;\xd0C\xde{\xac\x10\r\xee\x005\xed\xec\x003\xd5/\xfc\\\x81\x80\x00\x01\x00\x01\x00\x00\x00\x00\tlocalhost\x00\x00\x01\x00\x01\xc0\x0c\x00\x01\x00\x01\x00\t:\x80\x00\x04\x7f\x00\x00\x01\xcdj\x88]'
+r = RadioTap(data)
+r = RadioTap(raw(r))
+assert r.dBm_AntSignal == -59
+assert r.ChannelFrequency == 5785
+assert r.present == 3410027
+assert r.A_MPDU_ref == 2821
+assert r.KnownVHT == 511
+assert r.PresentVHT == 22
+assert r.notdecoded == b''
 
 = RadioTap Big-Small endian dissection
 data = b'\x00\x00\x1a\x00/H\x00\x00\xe1\xd3\xcb\x05\x00\x00\x00\x00@0x\x14@\x01\xac\x00\x00\x00'
@@ -9819,6 +9840,10 @@ assert f[Dot11EltRSN].pmkids.nb_pmkids == 1
 assert len(f[Dot11EltRSN].pmkids.pmkid_list) == 1
 assert f[Dot11EltRSN].pmkids.pmkid_list[0] == b'LD\xfe\xf2l\xdcV\xce\x0b7\xab\xc62\x02O\x11'
 
+
+######################################
+# More PPI tests in contrib/ppi_cace #
+######################################
 
 ############
 ############

@@ -5,7 +5,6 @@
 
 = Define test suite
 
-from scapy.contrib.ppi import *
 from scapy.contrib.ppi_cace import *
 from scapy.contrib.ppi_geotag import *
 

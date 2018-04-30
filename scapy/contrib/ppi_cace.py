@@ -26,8 +26,7 @@ from scapy.config import conf
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.l2 import Ether
-from scapy.layers.dot11 import Dot11
-from scapy.contrib.ppi import *
+from scapy.layers.dot11 import *
 
 PPI_DOT11COMMON = 2
 PPI_DOT11NMAC = 3

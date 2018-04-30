@@ -360,6 +360,21 @@ class PadField(object):
         return getattr(self._fld, attr)
 
 
+class ReversePadField(PadField):
+    """Add bytes BEFORE the proxified field so that it starts at the specified
+       alignment from its beginning"""
+
+    def getfield(self, pkt, s):
+        # We need to get the length that has already been dissected
+        padlen = self.padlen(pkt._tmp_dissect_pos)
+        remain, val = self._fld.getfield(pkt, s[padlen:])
+        return remain, val
+
+    def addfield(self, pkt, s, val):
+        sval = self._fld.addfield(pkt, b"", val)
+        return s + struct.pack("%is" % (self.padlen(len(s))), self._padwith) + sval
+
+
 class DestField(Field):
     __slots__ = ["defaultdst"]
     # Each subclass must have its own bindings attribute
