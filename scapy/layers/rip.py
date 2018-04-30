@@ -70,8 +70,9 @@ class RIPAuth(Packet):
         return s
 
 
-bind_layers(UDP, RIP, sport=520)
-bind_layers(UDP, RIP, dport=520)
+bind_bottom_up(UDP, RIP, dport=520)
+bind_bottom_up(UDP, RIP, sport=520)
+bind_layers(UDP, RIP, sport=520, dport=520)
 bind_layers(RIP, RIPEntry,)
 bind_layers(RIPEntry, RIPEntry,)
 bind_layers(RIPAuth, RIPEntry,)

@@ -42,5 +42,6 @@ class MGCP(Packet):
 #                    ByteField("is_duplicate",0),
 #                    ByteField("req_available",0) ]
 #
-bind_layers(UDP, MGCP, dport=2727)
-bind_layers(UDP, MGCP, sport=2727)
+bind_bottom_up(UDP, MGCP, dport=2727)
+bind_bottom_up(UDP, MGCP, sport=2727)
+bind_layers(UDP, MGCP, sport=2727, dport=2727)

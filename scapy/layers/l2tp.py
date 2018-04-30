@@ -45,5 +45,7 @@ class L2TP(Packet):
         return pkt + pay
 
 
-bind_layers(UDP, L2TP, sport=1701, dport=1701)
+bind_bottom_up(UDP, L2TP, dport=1701)
+bind_bottom_up(UDP, L2TP, sport=1701)
+bind_layers(UDP, L2TP, dport=1701, sport=1701)
 bind_layers(L2TP, PPP,)
