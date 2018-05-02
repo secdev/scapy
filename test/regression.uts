@@ -10166,6 +10166,20 @@ if PYX:
     assert(os.path.exists(filename))
     os.unlink(filename)
 
+= __getstate__ / __setstate__ (used by pickle)
+
+import pickle
+
+frm = Ether(src='00:11:22:33:44:55', dst='00:22:33:44:55:66')/Raw()
+pl = PacketList(res=[frm, frm], name='WhatAGreatName')
+pickled = pickle.dumps(pl)
+pl = pickle.loads(pickled)
+assert(pl.listname == "WhatAGreatName")
+assert(len(pl) == 2)
+assert(pl[0][Ether].src == '00:11:22:33:44:55')
+assert(pl[1][Ether].dst == '00:22:33:44:55:66')
+
+
 ############
 ############
 + Scapy version
