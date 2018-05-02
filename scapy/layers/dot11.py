@@ -279,7 +279,7 @@ class Dot11Elt(Packet):
 
     def getlayer(self, cls, nb=1, _track=None, _subclass=True, **flt):
         return super(Dot11Elt, self).getlayer(cls, nb=nb, _track=_track,
-                                        _subclass=True, **flt)
+                                              _subclass=True, **flt)
 
 
 class RSNCipherSuite(Packet):
@@ -370,7 +370,7 @@ class Dot11EltRSN(Dot11Elt):
         ConditionalField(
             PacketField("pmkids", None, PMKIDListPacket),
             lambda pkt: pkt.len - (12 + (pkt.nb_pairwise_cipher_suites * 4) +
-                (pkt.nb_akm_suites * 4)) >= 18
+                                   (pkt.nb_akm_suites * 4)) >= 18
         )
     ]
 
