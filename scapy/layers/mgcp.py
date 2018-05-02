@@ -17,11 +17,11 @@ from scapy.layers.inet import UDP
 class MGCP(Packet):
     name = "MGCP"
     longname = "Media Gateway Control Protocol"
-    fields_desc = [StrStopField("verb", "AUEP", " ", -1),
+    fields_desc = [StrStopField("verb", "AUEP", b" ", -1),
                    StrFixedLenField("sep1", " ", 1),
-                   StrStopField("transaction_id", "1234567", " ", -1),
+                   StrStopField("transaction_id", "1234567", b" ", -1),
                    StrFixedLenField("sep2", " ", 1),
-                   StrStopField("endpoint", "dummy@dummy.net", " ", -1),
+                   StrStopField("endpoint", "dummy@dummy.net", b" ", -1),
                    StrFixedLenField("sep3", " ", 1),
                    StrStopField("version", "MGCP 1.0 NCS 1.0", b"\x0a", -1),
                    StrFixedLenField("sep4", b"\x0a", 1),
