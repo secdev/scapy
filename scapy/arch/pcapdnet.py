@@ -526,7 +526,7 @@ if conf.use_pcap or conf.use_winpcapy:
 # DEPRECATED
 
 if conf.use_dnet:
-    warning("Dnet usage with scapy is deprecated, and will be removed in a future version.")
+    warning("dnet usage with scapy is deprecated, and will be removed in a future version.")
     try:
         try:
             # First try to import dnet
