@@ -4,6 +4,9 @@
 
 + Basic tests
 
+= Import Bunch
+from scapy.tools.UTscapy import Bunch
+
 = Test default test case
 
 s = PeriodicSource("hello", 1, name="src")
@@ -223,20 +226,28 @@ assert test_val == "hello"
 + Advanced ScapyPipes pipetools tests
 
 = Test SniffSource
-~ netaccess needs_root
 
-p = PipeEngine()
+import mock
+r, w = os.pipe()
+os.write(w, b"X")
 
-s = SniffSource()
-d1 = Drain(name="d1")
-c = QueueSink(name="c")
-s > d1 > c
+mocked_l2listen = mock.patch("scapy.config.conf.L2listen", return_value=Bunch(close=lambda *args: None, fileno=lambda: r, recv=lambda *args: Raw("data")))
+mocked_l2listen.start()
 
-p.add(s)
-p.start()
-sniff(count=3)
-p.stop()
-assert c.q.get()
+try:
+    p = PipeEngine()
+    s = SniffSource()
+    d1 = Drain(name="d1")
+    c = QueueSink(name="c")
+    s > d1 > c
+    p.add(s)
+    p.start()
+    assert c.q.get(2)
+    p.stop()
+finally:
+    mocked_l2listen.stop()
+    os.close(r)
+    os.close(w)
 
 = Test exhausted AutoSource and SniffSource
 
@@ -551,9 +562,6 @@ assert DNS in res[0] and res[0][UDP].sport == 1234
 p.stop()
 
 = FDSourceSink on a Bunch object
-
-class Bunch:
-    __init__ = lambda self, **kw: setattr(self, '__dict__', kw)
 
 fd = Bunch(write=lambda x: None, read=lambda: "hello", fileno=lambda: None)
 
