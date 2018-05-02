@@ -198,10 +198,9 @@ def sndrcv(pks, pkt, timeout=None, inter=0, verbose=None, chainCC=False,
     timeout:  how much time to wait after the last packet has been sent
     verbose:  set verbosity level
     multi:    whether to accept multiple answers for the same stimulus
-    store_unanswered:
-              whether to store not-answered packets or not. Default True.
-              setting it to False will increase speed, and will return None
-              as the unans list.
+    store_unanswered: whether to store not-answered packets or not. Default True.
+                      setting it to False will increase speed, and will return None
+                      as the unans list.
     process:  if specified, only result from process(pkt) will be stored.
               the function should follow the following format:
                 lambda sent, recieved: (func(sent), func2(recieved))
@@ -477,10 +476,9 @@ verbose:  set verbosity level
 multi:    whether to accept multiple answers for the same stimulus
 filter:   provide a BPF filter
 iface:    listen answers only on the given interface
-store_unanswered:
-          whether to store not-answered packets or not. Default True.
-          setting it to False will increase speed, and will return None
-          as the unans list.
+store_unanswered: whether to store not-answered packets or not. Default True.
+                  setting it to False will increase speed, and will return None
+                  as the unans list.
 process:  if specified, only result from process(pkt) will be stored.
           the function should follow the following format:
             lambda sent, recieved: (func(sent), func2(recieved))
@@ -503,10 +501,9 @@ verbose:  set verbosity level
 multi:    whether to accept multiple answers for the same stimulus
 filter:   provide a BPF filter
 iface:    listen answers only on the given interface
-store_unanswered:
-          whether to store not-answered packets or not. Default True.
-          setting it to False will increase speed, and will return None
-          as the unans list.
+store_unanswered: whether to store not-answered packets or not. Default True.
+                  setting it to False will increase speed, and will return None
+                  as the unans list.
 process:  if specified, only result from process(pkt) will be stored.
           the function should follow the following format:
             lambda sent, recieved: (func(sent), func2(recieved))
@@ -532,10 +529,9 @@ verbose:  set verbosity level
 multi:    whether to accept multiple answers for the same stimulus
 filter:   provide a BPF filter
 iface:    work only on the given interface
-store_unanswered:
-          whether to store not-answered packets or not. Default True.
-          setting it to False will increase speed, and will return None
-          as the unans list.
+store_unanswered: whether to store not-answered packets or not. Default True.
+                  setting it to False will increase speed, and will return None
+                  as the unans list.
 process:  if specified, only result from process(pkt) will be stored.
           the function should follow the following format:
             lambda sent, recieved: (func(sent), func2(recieved))
@@ -560,10 +556,9 @@ verbose:  set verbosity level
 multi:    whether to accept multiple answers for the same stimulus
 filter:   provide a BPF filter
 iface:    work only on the given interface
-store_unanswered:
-          whether to store not-answered packets or not. Default True.
-          setting it to False will increase speed, and will return None
-          as the unans list.
+store_unanswered: whether to store not-answered packets or not. Default True.
+                  setting it to False will increase speed, and will return None
+                  as the unans list.
 process:  if specified, only result from process(pkt) will be stored.
           the function should follow the following format:
             lambda sent, recieved: (func(sent), func2(recieved))
