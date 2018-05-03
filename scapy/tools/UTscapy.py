@@ -821,6 +821,10 @@ def main(argv):
             elif opt == "-K":
                 KW_KO.append(optarg.split(","))
 
+        # Discard Python3 tests when using Python2
+        if six.PY2:
+            KW_KO.append(["python3_only"])
+
         if VERB > 2:
             print("### Booting scapy...", file=sys.stderr)
         try:
