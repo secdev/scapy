@@ -985,6 +985,84 @@ True
 
 ############
 ############
++ XByteEnumField tests
+
+= Building expect_exception handler
+~ field xbyteenumfield
+
+def expect_exception(e, c):
+    try:
+        eval(c)
+        return False
+    except e:
+        return True
+
+
+= XByteEnumField tests initialization
+~ field xbyteenumfield
+
+f = XByteEnumField('test', 0, {0: 'Foo', 1: 'Bar'})
+fcb = XByteEnumField('test', 0, (
+    lambda x: 'Foo' if x == 0 else 'Bar' if x == 1 else lhex(x),
+    lambda x: x
+))
+
+True
+
+= XByteEnumField.i2repr_one
+~ field xbyteenumfield
+
+assert(f.i2repr_one(None, 0) == 'Foo')
+assert(f.i2repr_one(None, 1) == 'Bar')
+assert(f.i2repr_one(None, 0xff) == '0xff')
+
+assert(f.i2repr_one(None, 0) == 'Foo')
+assert(f.i2repr_one(None, 1) == 'Bar')
+assert(f.i2repr_one(None, 0xff) == '0xff')
+
+True
+
+= XByteEnumField update tests initialization
+~ field xbyteenumfield
+enum = ObservableDict({0: 'Foo', 1: 'Bar'})
+f = XByteEnumField('test', 0, enum)
+fcb = XByteEnumField('test', 0, (
+    lambda x: 'Foo' if x == 0 else 'Bar' if x == 1 else lhex(x),
+    lambda x: x
+))
+
+True
+
+= XByteEnumField.i2repr_one with update
+~ field xbyteenumfield
+
+assert(f.i2repr_one(None, 0) == 'Foo')
+assert(f.i2repr_one(None, 1) == 'Bar')
+assert(f.i2repr_one(None, 2) == '0x2')
+assert(f.i2repr_one(None, 0xff) == '0xff')
+
+assert(f.i2repr_one(None, 0) == 'Foo')
+assert(f.i2repr_one(None, 1) == 'Bar')
+assert(f.i2repr_one(None, 2) == '0x2')
+assert(f.i2repr_one(None, 0xff) == '0xff')
+
+del enum[1]
+enum[2] = 'Baz'
+
+assert(f.i2repr_one(None, 0) == 'Foo')
+assert(f.i2repr_one(None, 1) == '0x1')
+assert(f.i2repr_one(None, 2) == 'Baz')
+assert(f.i2repr_one(None, 0xff) == '0xff')
+
+assert(f.i2repr_one(None, 0) == 'Foo')
+assert(f.i2repr_one(None, 1) == '0x1')
+assert(f.i2repr_one(None, 2) == 'Baz')
+assert(f.i2repr_one(None, 0xff) == '0xff')
+
+True
+
+############
+############
 + XShortEnumField tests
 
 = Building expect_exception handler
@@ -1018,6 +1096,45 @@ assert(f.i2repr_one(None, 0xff) == '0xff')
 
 assert(f.i2repr_one(None, 0) == 'Foo')
 assert(f.i2repr_one(None, 1) == 'Bar')
+assert(f.i2repr_one(None, 0xff) == '0xff')
+
+True
+
+= XShortEnumField update tests initialization
+~ field xshortenumfield
+enum = ObservableDict({0: 'Foo', 1: 'Bar'})
+f = XShortEnumField('test', 0, enum)
+fcb = XShortEnumField('test', 0, (
+    lambda x: 'Foo' if x == 0 else 'Bar' if x == 1 else lhex(x),
+    lambda x: x
+))
+
+True
+
+= XShortEnumField.i2repr_one with update
+~ field xshortenumfield
+
+assert(f.i2repr_one(None, 0) == 'Foo')
+assert(f.i2repr_one(None, 1) == 'Bar')
+assert(f.i2repr_one(None, 2) == '0x2')
+assert(f.i2repr_one(None, 0xff) == '0xff')
+
+assert(f.i2repr_one(None, 0) == 'Foo')
+assert(f.i2repr_one(None, 1) == 'Bar')
+assert(f.i2repr_one(None, 2) == '0x2')
+assert(f.i2repr_one(None, 0xff) == '0xff')
+
+del enum[1]
+enum[2] = 'Baz'
+
+assert(f.i2repr_one(None, 0) == 'Foo')
+assert(f.i2repr_one(None, 1) == '0x1')
+assert(f.i2repr_one(None, 2) == 'Baz')
+assert(f.i2repr_one(None, 0xff) == '0xff')
+
+assert(f.i2repr_one(None, 0) == 'Foo')
+assert(f.i2repr_one(None, 1) == '0x1')
+assert(f.i2repr_one(None, 2) == 'Baz')
 assert(f.i2repr_one(None, 0xff) == '0xff')
 
 True
