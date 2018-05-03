@@ -847,11 +847,12 @@ class NetBIOSNameField(StrFixedLenField):
 
     def i2m(self, pkt, x):
         l = self.length_from(pkt) // 2
+        x = raw(x)
         if x is None:
             x = b""
         x += b" " * (l)
         x = x[:l]
-        x = b"".join(chb(0x41 + orb(b) >> 4) + chb(0x41 + orb(b) & 0xf) for b in x)
+        x = b"".join(chb(0x41 + (orb(b) >> 4)) + chb(0x41 + (orb(b) & 0xf)) for b in x)
         x = b" " + x
         return x
 
