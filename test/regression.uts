@@ -1274,7 +1274,7 @@ else:
 = check _resolve_MAC
 
 if conf.manufdb:
-    assert conf.manufdb._resolve_MAC("00:00:63") == "HP"
+    assert conf.manufdb._resolve_MAC("00:00:17") == "Oracle"
 else:
     True
 
