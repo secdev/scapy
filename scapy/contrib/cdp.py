@@ -105,7 +105,8 @@ class CDPMsgGeneric(Packet):
     name = "CDP Generic Message"
     fields_desc = [XShortEnumField("type", None, _cdp_tlv_types),
                    FieldLenField("len", None, "val", "!H"),
-                   StrLenField("val", "", length_from=lambda x:x.len - 4)]
+                   StrLenField("val", "", length_from=lambda x:x.len - 4,
+                               max_length=65531)]
 
     def guess_payload_class(self, p):
         return conf.padding_layer  # _CDPGuessPayloadClass
@@ -125,9 +126,11 @@ class CDPAddrRecord(Packet):
     name = "CDP Address"
     fields_desc = [ByteEnumField("ptype", 0x01, _cdp_addr_record_ptype),
                    FieldLenField("plen", None, "proto", "B"),
-                   StrLenField("proto", None, length_from=lambda x:x.plen),
+                   StrLenField("proto", None, length_from=lambda x:x.plen,
+                               max_length=255),
                    FieldLenField("addrlen", None, length_of=lambda x:x.addr),
-                   StrLenField("addr", None, length_from=lambda x:x.addrlen)]
+                   StrLenField("addr", None, length_from=lambda x:x.addrlen,
+                               max_length=65535)]
 
     def guess_payload_class(self, p):
         return conf.padding_layer
@@ -137,7 +140,8 @@ class CDPAddrRecordIPv4(CDPAddrRecord):
     name = "CDP Address IPv4"
     fields_desc = [ByteEnumField("ptype", 0x01, _cdp_addr_record_ptype),
                    FieldLenField("plen", 1, "proto", "B"),
-                   StrLenField("proto", _cdp_addrrecord_proto_ip, length_from=lambda x:x.plen),
+                   StrLenField("proto", _cdp_addrrecord_proto_ip,
+                               length_from=lambda x: x.plen, max_length=255),
                    ShortField("addrlen", 4),
                    IPField("addr", "0.0.0.0")]
 
@@ -146,7 +150,8 @@ class CDPAddrRecordIPv6(CDPAddrRecord):
     name = "CDP Address IPv6"
     fields_desc = [ByteEnumField("ptype", 0x02, _cdp_addr_record_ptype),
                    FieldLenField("plen", 8, "proto", "B"),
-                   StrLenField("proto", _cdp_addrrecord_proto_ipv6, length_from=lambda x:x.plen),
+                   StrLenField("proto", _cdp_addrrecord_proto_ipv6,
+                               length_from=lambda x:x.plen, max_length=255),
                    ShortField("addrlen", 16),
                    IP6Field("addr", "::1")]
 
@@ -273,11 +278,13 @@ class CDPMsgVoIPVLANQuery(CDPMsgGeneric):
     name = "VoIP VLAN Query"
     type = 0x000f
     fields_desc = [XShortEnumField("type", 0x000f, _cdp_tlv_types),
-                   ShortField("len", 7),
+                   FieldLenField("len", None, "unknown2", fmt="!H",
+                                 adjust=lambda pkt, x: x + 7),
                    XByteField("unknown1", 0),
                    ShortField("vlan", 1),
                    # TLV length (len) - 2 (type) - 2 (len) - 1 (unknown1) - 2 (vlan)
-                   StrLenField("unknown2", "", length_from=lambda p: p.len - 7)]
+                   StrLenField("unknown2", "", length_from=lambda p: p.len - 7,
+                               max_length=65528)]
 
 
 class _CDPPowerField(ShortField):
@@ -330,8 +337,10 @@ class CDPMsgUnknown19(CDPMsgGeneric):
 class CDPMsg(CDPMsgGeneric):
     name = "CDP "
     fields_desc = [XShortEnumField("type", None, _cdp_tlv_types),
-                   FieldLenField("len", None, "val", "!H"),
-                   StrLenField("val", "", length_from=lambda x:x.len - 4)]
+                   FieldLenField("len", None, "val", fmt="!H",
+                                 adjust=lambda pkt, x: x + 4),
+                   StrLenField("val", "", length_from=lambda x:x.len - 4,
+                               max_length=65531)]
 
 
 class _CDPChecksum:

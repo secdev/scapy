@@ -637,15 +637,9 @@ class BGPCapGeneric(BGPCapability):
     name = "BGP Capability"
     fields_desc = [
         ByteEnumField("code", 0, _capabilities),
-        ByteField("length", 0),
-        ConditionalField(
-            StrLenField(
-                "cap_data",
-                '',
-                length_from=lambda p: p.length
-            ),
-            lambda p: p.length > 0
-        )
+        FieldLenField("length", None, fmt="B", length_of="cap_data"),
+        StrLenField("cap_data", '',
+                    length_from=lambda p: p.length, max_length=255),
     ]
 
 

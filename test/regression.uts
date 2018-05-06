@@ -774,6 +774,10 @@ r = RadioTap(data)
 r.show()
 assert r.present == 18479
 
+= fuzz() calls for Dot11Elt()
+for i in range(10):
+    assert isinstance(raw(fuzz(Dot11Elt())), bytes)
+
 
 ############
 ############

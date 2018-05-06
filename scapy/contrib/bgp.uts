@@ -731,3 +731,10 @@ assert(m.orf_data[0].entries[1].action == 0)
 assert(m.orf_data[0].entries[1].match == 0)
 assert(m.orf_data[0].entries[1].prefix.prefix == "0.0.0.0/0")
 
+
+########## BGPCapGeneric fuzz() ###################################
++ BGPCapGeneric fuzz()
+
+= BGPCapGeneric fuzz()
+for i in range(10):
+    assert isinstance(raw(fuzz(BGPCapGeneric())), bytes)

@@ -862,15 +862,19 @@ class NetBIOSNameField(StrFixedLenField):
 
 
 class StrLenField(StrField):
-    __slots__ = ["length_from"]
+    __slots__ = ["length_from", "max_length"]
 
-    def __init__(self, name, default, fld=None, length_from=None):
+    def __init__(self, name, default, fld=None, length_from=None, max_length=None):
         StrField.__init__(self, name, default)
         self.length_from = length_from
+        self.max_length = max_length
 
     def getfield(self, pkt, s):
         l = self.length_from(pkt)
         return s[l:], self.m2i(pkt, s[:l])
+
+    def randval(self):
+        return RandBin(RandNum(0, self.max_length or 1200))
 
 
 class XStrField(StrField):
