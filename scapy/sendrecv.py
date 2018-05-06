@@ -92,7 +92,11 @@ def _sndrcv_rcv(pks, tobesent, stopevent, nbrecv, notans, verbose, chainCC,
 
     if WINDOWS and not is_python_can_socket():
         def _get_pkt():
-            return pks.recv(MTU)
+            from scapy.arch.pcapdnet import PcapTimeoutElapsed
+            try:
+                return pks.recv(MTU)
+            except PcapTimeoutElapsed:
+                return None
     elif conf.use_bpf:
         from scapy.arch.bpf.supersocket import bpf_select
 
@@ -431,8 +435,6 @@ verbose:  set verbosity level
 multi:    whether to accept multiple answers for the same stimulus
 filter:   provide a BPF filter
 iface:    listen answers only on the given interface"""
-    if "timeout" not in kargs:
-        kargs["timeout"] = -1
     s = conf.L3socket(promisc=promisc, filter=filter, iface=iface, nofilter=nofilter)
     result = sndrcv(s, x, *args, **kargs)
     s.close()
@@ -450,8 +452,6 @@ verbose:  set verbosity level
 multi:    whether to accept multiple answers for the same stimulus
 filter:   provide a BPF filter
 iface:    listen answers only on the given interface"""
-    if "timeout" not in kargs:
-        kargs["timeout"] = -1
     s = conf.L3socket(promisc=promisc, filter=filter, nofilter=nofilter, iface=iface)
     ans, _ = sndrcv(s, x, *args, **kargs)
     s.close()
@@ -472,8 +472,6 @@ verbose:  set verbosity level
 multi:    whether to accept multiple answers for the same stimulus
 filter:   provide a BPF filter
 iface:    work only on the given interface"""
-    if "timeout" not in kargs:
-        kargs["timeout"] = -1
     if iface is None and iface_hint is not None:
         iface = conf.route.route(iface_hint)[0]
     s = conf.L2socket(promisc=promisc, iface=iface, filter=filter, nofilter=nofilter, type=type)
@@ -493,8 +491,6 @@ verbose:  set verbosity level
 multi:    whether to accept multiple answers for the same stimulus
 filter:   provide a BPF filter
 iface:    work only on the given interface"""
-    if "timeout" not in kargs:
-        kargs["timeout"] = -1
     ans, _ = srp(*args, **kargs)
     if len(ans) > 0:
         return ans[0][1]
@@ -800,10 +796,7 @@ def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
         read_allowed_exceptions = (PcapTimeoutElapsed,)
 
         def _select(sockets):
-            try:
-                return sockets
-            except PcapTimeoutElapsed:
-                return []
+            return sockets
     elif is_python_can_socket():
         from scapy.contrib.cansocket_python_can import CANSocketTimeoutElapsed
         read_allowed_exceptions = (CANSocketTimeoutElapsed,)
