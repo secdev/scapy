@@ -5763,6 +5763,12 @@ raw(NetflowRecordV5(dst="192.168.0.1")) == b'\x7f\x00\x00\x01\xc0\xa8\x00\x01\x0
 
 raw(NetflowHeader()/NetflowHeaderV5(count=1)/NetflowRecordV5(dst="192.168.0.1")) == b'\x00\x05\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x7f\x00\x00\x01\xc0\xa8\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00<\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 
+= NetflowHeaderV5 - UDP bindings
+
+s = raw(IP(src="127.0.0.1")/UDP()/NetflowHeader()/NetflowHeaderV5())
+assert s == b'E\x00\x004\x00\x01\x00\x00@\x11|\xb6\x7f\x00\x00\x01\x7f\x00\x00\x01\x08\x07\x08\x07\x00 \xf1\x98\x00\x05\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+pkt = IP(s)
+assert NetflowHeaderV5 in pkt
 
 = NetflowHeaderV5 - basic dissection
 
@@ -8625,6 +8631,32 @@ L2TP in p and len(p[L2TP]) == 6 and p.tunnel_id == 0 and p.session_id == 0 and p
 
 ############
 ############
++ MGCP tests
+
+= MGCP - build
+s = raw(IP(src="127.0.0.1")/UDP()/MGCP(endpoint="scapy@secdev.org", transaction_id="04523"))
+s == b'E\x00\x00I\x00\x01\x00\x00@\x11|\xa1\x7f\x00\x00\x01\x7f\x00\x00\x01\n\xa7\n\xa7\x005\xf8\xaeAUEP 04523 scapy@secdev.org MGCP 1.0 NCS 1.0\n'
+
+= MGCP - dissect
+pkt = Ether(b'\x1b\x81\xb8\xa8J5\xe3\xebn\x90q\xb8\x08\x00E\x00\x00E\x00\x01\x00\x00@\x11\xf7\xde\xc0\xa8\x00\xff\xc0\xa8\x00y\n\xa7\n\xa7\x001\x05\xb5AUEP 155 god@heaven.com MGCP 1.0 NCS 1.0\n')
+assert pkt[MGCP].endpoint == b'god@heaven.com'
+
+
+############
+############
++ MobileIP tests
+
+= MobileIP - build
+s = raw(IP(src="127.0.0.1")/UDP()/MobileIP()/MobileIPRRP(homeaddr='156.133.50.141', haaddr='95.83.86.216'))
+s == b'E\x00\x000\x00\x01\x00\x00@\x11|\xba\x7f\x00\x00\x01\x7f\x00\x00\x01\x01\xb2\x01\xb2\x00\x1cu]\x03\x00\x00\xb4\x9c\x852\x8d_SV\xd8\x00\x00\x00\x00\x00\x00\x00\x00'
+
+= MobileIP - dissect
+pkt = IP(s)
+assert pkt[MobileIP][MobileIPRRP].haaddr == '95.83.86.216'
+
+
+############
+############
 + HSRP tests
 
 = HSRP - build & dissection
@@ -8642,6 +8674,11 @@ assert pkt[HSRPmd5].type == 4 and pkt[HSRPmd5].sourceip == defaddr
 = RIP - build
 s = raw(IP()/UDP(sport=520)/RIP()/RIPEntry()/RIPAuth(authtype=2, password="scapy"))
 s == b'E\x00\x00H\x00\x01\x00\x00@\x11|\xa2\x7f\x00\x00\x01\x7f\x00\x00\x01\x02\x08\x02\x08\x004\xae\x99\x01\x01\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\xff\xff\x00\x02scapy\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+= RIP - UDP bindings
+w = IP(raw(IP()/UDP()/RIP()/RIPEntry()/RIPAuth(authtype=2, password="scapy")))
+assert RIPAuth in w
+assert w[RIPAuth].password.startswith(b"scapy")
 
 = RIP - dissection
 p = IP(s)
@@ -8835,6 +8872,16 @@ p = IP()/UDP(sport=1812)/Radius(authenticator="scapy")/RadiusAttribute(value="sc
 l = PacketList(p)
 s = l.sessions()  # Crashed on commit: e42ecdc54556c4852ca06b1a6da6c1ccbf3f522e
 assert len(s) == 1
+
+
+############
+############
++ Skinny tests
+
+= Skinny - build & dissection
+p = raw(IP(src="127.0.0.1")/TCP()/Skinny(msg="ServiceURLStatMessage"))
+assert p == b'E\x00\x004\x00\x01\x00\x00@\x06|\xc1\x7f\x00\x00\x01\x7f\x00\x00\x01\x07\xd0\x07\xd0\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00S3\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00/\x01\x00\x00'
+assert IP(p)[Skinny].msg == 303
 
 
 ############

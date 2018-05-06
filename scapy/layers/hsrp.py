@@ -78,6 +78,10 @@ class HSRPmd5(Packet):
         return p
 
 
+bind_bottom_up(UDP, HSRP, dport=1985)
+bind_bottom_up(UDP, HSRP, sport=1985)
+bind_bottom_up(UDP, HSRP, dport=2029)
+bind_bottom_up(UDP, HSRP, sport=2029)
 bind_layers(UDP, HSRP, dport=1985, sport=1985)
 bind_layers(UDP, HSRP, dport=2029, sport=2029)
 DestIPField.bind_addr(UDP, "224.0.0.2", dport=1985)

@@ -350,6 +350,8 @@ del i, payloadname, name
 ISAKMP_class._overload_fields = ISAKMP_payload_type_overload.copy()
 
 
+bind_bottom_up(UDP, ISAKMP, dport=500)
+bind_bottom_up(UDP, ISAKMP, sport=500)
 bind_layers(UDP, ISAKMP, dport=500, sport=500)
 
 

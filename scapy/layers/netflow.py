@@ -28,7 +28,9 @@ class NetflowHeader(Packet):
     fields_desc = [ShortField("version", 1)]
 
 
-bind_layers(UDP, NetflowHeader, dport=2055)
+bind_bottom_up(UDP, NetflowHeader, dport=2055)
+bind_bottom_up(UDP, NetflowHeader, sport=2055)
+bind_layers(UDP, NetflowHeader, dport=2055, sport=2055)
 
 ###########################################
 # Netflow Version 1

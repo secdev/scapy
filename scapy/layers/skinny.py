@@ -159,3 +159,4 @@ class Skinny(Packet):
 
 bind_layers(TCP, Skinny, dport=2000)
 bind_layers(TCP, Skinny, sport=2000)
+bind_layers(TCP, Skinny, dport=2000, sport=2000)

@@ -1417,6 +1417,16 @@ if conf.default_l2 is None:
 
 
 def bind_bottom_up(lower, upper, __fval=None, **fval):
+    """Bind 2 layers for dissection.
+    The upper layer will be chosen for dissection on top of the lower layer, if
+    ALL the passed arguments are validated. If multiple calls are made with the same
+    layers, the last one will be used as default.
+
+    ex:
+        >>> bind_bottom_up(Ether, SNAP, type=0x1234)
+        >>> Ether(b'\xff\xff\xff\xff\xff\xff\xd0P\x99V\xdd\xf9\x124\x00\x00\x00\x00\x00')
+        <Ether  dst=ff:ff:ff:ff:ff:ff src=d0:50:99:56:dd:f9 type=0x1234 |<SNAP  OUI=0x0 code=0x0 |>>
+    """
     if __fval is not None:
         fval.update(__fval)
     lower.payload_guess = lower.payload_guess[:]
@@ -1424,6 +1434,15 @@ def bind_bottom_up(lower, upper, __fval=None, **fval):
 
 
 def bind_top_down(lower, upper, __fval=None, **fval):
+    """Bind 2 layers for building.
+    When the upper layer is added as a payload of the lower layer, all the arguments
+    will be applied to them.
+
+    ex:
+        >>> bind_top_down(Ether, SNAP, type=0x1234)
+        >>> Ether()/SNAP()
+        <Ether  type=0x1234 |<SNAP  |>>
+    """
     if __fval is not None:
         fval.update(__fval)
     upper._overload_fields = upper._overload_fields.copy()
@@ -1432,7 +1451,14 @@ def bind_top_down(lower, upper, __fval=None, **fval):
 
 @conf.commands.register
 def bind_layers(lower, upper, __fval=None, **fval):
-    """Bind 2 layers on some specific fields' values"""
+    """Bind 2 layers on some specific fields' values. It makes the packet beeing built
+    and dissected when the arguments are present.
+
+    This functions calls both bind_bottom_up and bind_top_down, with all passed arguments.
+    Please have a look at their docs:
+     - help(bind_bottom_up)
+     - help(bind_top_down)
+     """
     if __fval is not None:
         fval.update(__fval)
     bind_top_down(lower, upper, **fval)
@@ -1440,6 +1466,9 @@ def bind_layers(lower, upper, __fval=None, **fval):
 
 
 def split_bottom_up(lower, upper, __fval=None, **fval):
+    """This call un-links an association that was made using bind_bottom_up.
+    Have a look at help(bind_bottom_up)
+    """
     if __fval is not None:
         fval.update(__fval)
 
@@ -1450,6 +1479,9 @@ def split_bottom_up(lower, upper, __fval=None, **fval):
 
 
 def split_top_down(lower, upper, __fval=None, **fval):
+    """This call un-links an association that was made using bind_top_down.
+    Have a look at help(bind_top_down)
+    """
     if __fval is not None:
         fval.update(__fval)
     if lower in upper._overload_fields:
@@ -1462,7 +1494,14 @@ def split_top_down(lower, upper, __fval=None, **fval):
 
 @conf.commands.register
 def split_layers(lower, upper, __fval=None, **fval):
-    """Split 2 layers previously bound"""
+    """Split 2 layers previously bound.
+    This call un-links calls bind_top_down and bind_bottom_up. It is the opposite of
+    bind_layers.
+
+    Please have a look at their docs:
+     - help(split_bottom_up)
+     - help(split_top_down)
+    """
     if __fval is not None:
         fval.update(__fval)
     split_bottom_up(lower, upper, **fval)
