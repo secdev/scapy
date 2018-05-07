@@ -229,7 +229,8 @@ class Dot11Elt(Packet):
     fields_desc = [ByteEnumField("ID", 0, {0: "SSID", 1: "Rates", 2: "FHset", 3: "DSset", 4: "CFset", 5: "TIM", 6: "IBSSset", 16: "challenge",
                                            42: "ERPinfo", 46: "QoS Capability", 47: "ERPinfo", 48: "RSNinfo", 50: "ESRates", 221: "vendor", 68: "reserved"}),
                    FieldLenField("len", None, "info", "B"),
-                   StrLenField("info", "", length_from=lambda x: x.len)]
+                   StrLenField("info", "", length_from=lambda x: x.len,
+                               max_length=255)]
 
     def mysummary(self):
         if self.ID == 0:

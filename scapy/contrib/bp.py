@@ -116,7 +116,9 @@ class BPBLOCK(Packet):
     fields_desc = [ByteEnumField('Type', 1, {1: "Bundle payload block"}),
                    SDNV2('ProcFlags', 0),
                    SDNV2FieldLenField('BlockLen', None, length_of="load"),
-                   StrLenField("load", "", length_from=lambda pkt: pkt.BlockLen)
+                   StrLenField("load", "",
+                               length_from=lambda pkt: pkt.BlockLen,
+                               max_length=65535)
                    ]
 
     def mysummary(self):
