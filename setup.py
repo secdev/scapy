@@ -63,7 +63,7 @@ setup(
         'scapy/tools',
     ],
     scripts=SCRIPTS,
-    data_files=[('share/man/man1', ["doc/scapy.1.gz"])],
+    data_files=[('share/man/man1', ["doc/scapy.1"])],
     package_data={
         'scapy': ['VERSION'],
     },
