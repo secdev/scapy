@@ -252,9 +252,10 @@ def in6_addrtovendor(addr):
     """
     Extract the MAC address from a modified EUI-64 constructed IPv6
     address provided and use the IANA oui.txt file to get the vendor.
-    The database used for the conversion is the one loaded by Scapy,
-    based on Wireshark (/usr/share/wireshark/wireshark/manuf)  None
-    is returned on error, "UNKNOWN" if the vendor is unknown.
+    The database used for the conversion is the one loaded by Scapy
+    from a Wireshark installation if discovered in a well-known
+    location. None is returned on error, "UNKNOWN" if the vendor is
+    unknown.
     """
     mac = in6_addrtomac(addr)
     if mac is None or conf.manufdb is None:
