@@ -1,4 +1,4 @@
-.TH SCAPY 1 "May 12, 2003"
+.TH SCAPY 1 "May 8, 2018"
 .SH NAME
 scapy \- Interactive packet manipulation tool
 .SH SYNOPSIS
@@ -6,37 +6,37 @@ scapy \- Interactive packet manipulation tool
 .RI [ options ]
 .SH DESCRIPTION
 This manual page documents briefly the
-.B scapy
+.B Scapy
 tool.
 .PP
-\fBscapy\fP is a powerful interactive packet manipulation tool, 
+\fBScapy\fP is a powerful interactive packet manipulation tool, 
 packet generator, network scanner, network discovery, packet sniffer,
 etc. It can for the moment replace hping, parts of nmap, arpspoof, arp-sk,
 arping, tcpdump, tshark, p0f, ...
 .PP
-\fBscapy\fP uses the python interpreter as a command board. That means that 
-you can use directly python language (assign variables, use loops, 
-define functions, etc.) If you give a file as parameter when you run 
-\fBscapy\fP, your session (variables, functions, intances, ...) will be saved 
-when you leave the interpretor, and restored the next time you launch
-\fBscapy\fP. 
+\fBScapy\fP uses the Python interpreter as a command board. That means that 
+you can use directly Python language (assign variables, use loops, 
+define functions, etc.) If you give a file a parameter when you run 
+\fBScapy\fP, your session (variables, functions, instances, ...) will be saved 
+when you leave the interpreter and restored the next time you launch
+\fBScapy\fP. 
 .PP
-The idea is simple. Those kind of tools do two things : sending packets 
-and receiving answers. That's what \fBscapy\fP does : you define a set of 
+The idea is simple. Those kinds of tools do two things : sending packets 
+and receiving answers. That's what \fBScapy\fP does : you define a set of 
 packets, it sends them, receives answers, matches requests with answers 
 and returns a list of packet couples (request, answer) and a list of 
 unmatched packets. This has the big advantage over tools like nmap or 
 hping that an answer is not reduced to (open/closed/filtered), but is 
 the whole packet. 
 .PP
-On top of this can be build more high level functions, for example one 
+On top of this can be used to build more high-level functions, for example, one 
 that does traceroutes and give as a result only the start TTL of the 
 request and the source IP of the answer. One that pings a whole network 
 and gives the list of machines answering. One that does a portscan and 
 returns a LaTeX report. 
 
 .SH OPTIONS
-Options for scapy are:
+Options for Scapy are:
 .TP
 \fB\-h\fR
 display usage
@@ -45,7 +45,7 @@ display usage
 increase log verbosity. Can be used many times.
 .TP
 \fB\-s\fR FILE
-use FILE to save/load session values (variables, functions, intances, ...) 
+use FILE to save/load session values (variables, functions, instances, ...) 
 .TP
 \fB\-p\fR PRESTART_FILE 
 use PRESTART_FILE instead of $HOME/.scapy_prestart.py as pre-startup file
@@ -73,7 +73,7 @@ this object contains the configuration.
 
 .SH FILES
 \fB$HOME/.scapy_prestart.py\fR
-This file is run before scapy core is loaded. Only the \fb\conf\fP object 
+This file is run before Scapy core is loaded. Only the \fb\conf\fP object 
 is available. This file can be used to manipulate \fBconf.load_layers\fP 
 list to choose which layers will be loaded:
 
@@ -83,8 +83,8 @@ conf.load_layers.append("new_layer")
 .fi
 
 \fB$HOME/.scapy_startup.py\fR
-This file is run after scapy is loaded. It can be used to configure
-some of the scapy behaviors:
+This file is run after Scapy is loaded. It can be used to configure
+some of the Scapy behaviors:
 
 .nf
 conf.prog.pdfreader="xpdf"
@@ -104,21 +104,21 @@ sr(IP(dst="172.16.1.1", ihl=2, options="\verb$\x02$", version=3)/ICMP())
 .fi
 
 .LP
-Packet sniffing and dissection (with a bpf filter or thetereal-like output):
+Packet sniffing and dissection (with a bpf filter or tshark-like output):
 .nf
 a=sniff(filter="tcp port 110")
 a=sniff(prn = lambda x: x.display) 
 .fi
 
 .LP
-Sniffed packet reemission:
+Sniffed packet re-emission:
 .nf
 a=sniff(filter="tcp port 110")
 sendp(a)
 .fi
 
 .LP
-Pcap file packet reemission:
+Pcap file packet re-emission:
 .nf
 sendp(rdpcap("file.cap"))
 .fi
@@ -161,7 +161,7 @@ nmap_fp("172.16.1.232")
 
 
 .LP
-ARP cache poisonning:
+ARP cache poisoning:
 .nf
 sendp(Ether(dst=tmac)/ARP(op="who-has", psrc=victim, pdst=target))
 .fi
@@ -175,7 +175,8 @@ report_ports("192.168.2.34", (20,30))
 .SH SEE ALSO
 
 .nf
-https://github.com/secdev/scapy
+https://scapy.net/
+https://github.com/secdev/scapy/
 https://scapy.readthedocs.io/en/latest/
 .fi
 
@@ -186,7 +187,7 @@ May miss packets under heavy load.
 
 Session saving is limited by Python ability to marshal objects. As a 
 consequence, lambda functions and generators can't be saved, which seriously
-reduce usefulness of this feature. 
+reduce the usefulness of this feature. 
 
 BPF filters don't work on Point-to-point interfaces.
 
