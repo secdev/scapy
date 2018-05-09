@@ -24,6 +24,34 @@ import scapy.modules.six as six
 from scapy.modules.six.moves import range
 
 
+"""
+Helper class to specify a protocol extendable for runtime modifications
+"""
+
+
+class ObservableDict(dict):
+    def __init__(self, *args, **kw):
+        self.observers = []
+        super(ObservableDict, self).__init__(*args, **kw)
+
+    def observe(self, observer):
+        self.observers.append(observer)
+
+    def __setitem__(self, key, value):
+        for o in self.observers:
+            o.notify_set(self, key, value)
+        super(ObservableDict, self).__setitem__(key, value)
+
+    def __delitem__(self, key):
+        for o in self.observers:
+            o.notify_del(self, key)
+        super(ObservableDict, self).__delitem__(key)
+
+    def update(self, anotherDict):
+        for k in anotherDict:
+            self[k] = anotherDict[k]
+
+
 ############
 #  Fields  #
 ############
@@ -1186,6 +1214,9 @@ class _EnumField(Field):
         @param fmt:     struct.pack format used to parse and serialize the
                         internal value from and to machine representation.
         """
+        if isinstance(enum, ObservableDict):
+            enum.observe(self)
+
         if isinstance(enum, tuple):
             self.i2s_cb = enum[0]
             self.s2i_cb = enum[1]
@@ -1241,6 +1272,17 @@ class _EnumField(Field):
         else:
             return self.i2repr_one(pkt, x)
 
+    def notify_set(self, enum, key, value):
+        log_runtime.debug("At %s: Change to %s at 0x%x" % (self, value, key))
+        self.i2s[key] = value
+        self.s2i[value] = key
+
+    def notify_del(self, enum, key):
+        log_runtime.debug("At %s: Delete value at 0x%x" % (self, key))
+        value = self.i2s[key]
+        del self.i2s[key]
+        del self.s2i[value]
+
 
 class EnumField(_EnumField):
     __slots__ = ["i2s", "s2i", "s2i_cb", "i2s_cb"]
@@ -1293,6 +1335,20 @@ class LEShortEnumField(EnumField):
 class ByteEnumField(EnumField):
     def __init__(self, name, default, enum):
         EnumField.__init__(self, name, default, enum, "B")
+
+
+class XByteEnumField(ByteEnumField):
+    def i2repr_one(self, pkt, x):
+        if self not in conf.noenum and not isinstance(x, VolatileValue):
+            try:
+                return self.i2s[x]
+            except KeyError:
+                pass
+            except TypeError:
+                ret = self.i2s_cb(x)
+                if ret is not None:
+                    return ret
+        return lhex(x)
 
 
 class IntEnumField(EnumField):
