@@ -171,7 +171,10 @@ class _PowershellManager(Thread):
                        "-Command", "-"]  # Listen commands from stdin
             else:  # Fallback on CMD (powershell-only commands will fail, but scapy use the VBS fallback)
                 cmd = [conf.prog.cmd]
-            self.process = sp.Popen(cmd, stdout=sp.PIPE, stdin=sp.PIPE, stderr=sp.STDOUT)
+            # Let's hide the window with startup infos
+            startupinfo = sp.STARTUPINFO()
+            startupinfo.dwFlags |= sp.STARTF_USESHOWWINDOW
+            self.process = sp.Popen(cmd, stdout=sp.PIPE, stdin=sp.PIPE, stderr=sp.STDOUT, startupinfo=startupinfo)
             self.cmd = not conf.prog.powershell
         finally:
             _restore_file_handles_inheritance(opened_handles)
