@@ -26,7 +26,7 @@ import struct
 import time
 from scapy.packet import *
 from scapy.fields import *
-from scapy.layers.dot11 import *
+from scapy.layers.ppi import addPPIType
 from scapy.error import warning
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
