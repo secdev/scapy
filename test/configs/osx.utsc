@@ -7,8 +7,7 @@
     "test/linux.uts",
     "test/mock_windows.uts",
     "test/cansocket_native.uts",
-    "test/cansocket_python_can.uts",
-    "test/isotp.uts"
+    "test/cansocket_python_can.uts"
   ],
   "onlyfailed": true,
   "preexec": {
