@@ -9,6 +9,7 @@ Implementation of the configuration object.
 
 from __future__ import absolute_import
 from __future__ import print_function
+from glob import glob
 import os
 import time
 import socket
@@ -69,12 +70,39 @@ class Interceptor(object):
         self.hook(self.name, val, *self.args, **self.kargs)
 
 
+def which(filename, dirs=None, env="PATH"):
+    """Find file in current dir, the list of dirs or the env variable"""
+    if dirs is None:
+        dirs = []
+    if glob(filename):
+        return filename
+    paths = [os.curdir] + os.environ[env].split(os.path.pathsep) + dirs
+    try:
+        return next(os.path.normpath(match)
+                    for path in paths
+                    for match in glob(os.path.join(path, filename))
+                    if match)
+    except StopIteration:
+        raise IOError("File not found: %s" % filename)
+
+
+def _find_progpath(filename, default=None):
+    """Uses which to find the absolute path of the `filename`, if
+    it is available through the PATH environment variable.
+     If not available, returns default
+    """
+    try:
+        return which(filename)
+    except IOError:
+        return default or filename
+
+
 class ProgPath(ConfClass):
     pdfreader = "open" if DARWIN else "xdg-open"
     psreader = "open" if DARWIN else "xdg-open"
     dot = "dot"
     display = "display"
-    tcpdump = "tcpdump"
+    tcpdump = _find_progpath("tcpdump", "/usr/sbin/tcpdump")
     tcpreplay = "tcpreplay"
     hexedit = "hexer"
     tshark = "tshark"
