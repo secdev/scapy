@@ -9,11 +9,10 @@ RADIUS (Remote Authentication Dial In User Service)
 """
 
 import struct
-import logging
 import hashlib
 import hmac
-from scapy.compat import *
-from scapy.packet import Packet, bind_layers
+from scapy.compat import orb, raw
+from scapy.packet import Packet, Padding, bind_layers
 from scapy.fields import ByteField, ByteEnumField, IntField, StrLenField,\
     XStrLenField, XStrFixedLenField, FieldLenField, PacketField,\
     PacketListField, IPField, MultiEnumField
@@ -277,6 +276,9 @@ class RadiusAttribute(Packet):
             length = len(p)
             p = p[:1] + struct.pack("!B", length) + p[2:]
         return p
+
+    def guess_payload_class(self, _):
+        return Padding
 
 
 class _SpecificRadiusAttr(RadiusAttribute):
@@ -1055,32 +1057,6 @@ class RadiusAttr_Vendor_Specific(RadiusAttribute):
     ]
 
 
-class _RADIUSAttrPacketListField(PacketListField):
-    """
-    PacketListField handling a list of RADIUS attributes.
-    """
-
-    def getfield(self, pkt, s):
-        lst = []
-        length = None
-        ret = ""
-
-        if self.length_from is not None:
-            length = self.length_from(pkt)
-
-        if length is not None:
-            remain, ret = s[:length], s[length:]
-
-        while remain:
-            attr_len = orb(remain[1])
-            current = remain[:attr_len]
-            remain = remain[attr_len:]
-            packet = self.m2i(pkt, current)
-            lst.append(packet)
-
-        return remain + ret, lst
-
-
 # See IANA RADIUS Packet Type Codes registry
 _packet_codes = {
     1: "Access-Request",
@@ -1145,7 +1121,7 @@ class Radius(Packet):
             adjust=lambda pkt, x: len(pkt.attributes) + 20
         ),
         XStrFixedLenField("authenticator", "", 16),
-        _RADIUSAttrPacketListField(
+        PacketListField(
             "attributes",
             [],
             RadiusAttribute,
