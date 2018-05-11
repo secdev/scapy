@@ -16,7 +16,7 @@ from scapy.fields import BitField, ByteField, XByteField, ByteEnumField,\
     ShortField, IntField, XIntField, ByteEnumField, StrLenField, XStrField,\
     XStrLenField, XStrFixedLenField, LenField, FieldLenField, PacketField,\
     PacketListField, ConditionalField, PadField
-from scapy.packet import Packet, bind_layers
+from scapy.packet import Packet, Padding, bind_layers
 from scapy.layers.l2 import SourceMACField, Ether, CookedLinux, GRE, SNAP
 from scapy.utils import issubtype
 from scapy.config import conf
@@ -278,6 +278,9 @@ class EAP(Packet):
             l = len(p) + len(pay)
             p = p[:2] + chb((l >> 8) & 0xff) + chb(l & 0xff) + p[4:]
         return p + pay
+
+    def guess_payload_class(self, _):
+        return Padding
 
 
 class EAP_MD5(EAP):

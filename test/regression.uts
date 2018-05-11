@@ -8877,6 +8877,10 @@ l = PacketList(p)
 s = l.sessions()  # Crashed on commit: e42ecdc54556c4852ca06b1a6da6c1ccbf3f522e
 assert len(s) == 1
 
+= Issue GH#1407
+s = b"Z\xa5\xaaUZ\xa5\xaaU\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xe9\xc5\x00\x00\x14'\x02\x00\x00\x001\x9a\xe44\xea4"
+isinstance(Radius(s), Radius)
+
 
 ############
 ############
