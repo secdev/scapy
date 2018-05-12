@@ -163,7 +163,8 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         return self.nsummary(*args, **kargs)
 
     def filter(self, func):
-        """Returns a packet list filtered by a truth function"""
+        """Returns a packet list filtered by a truth function. This truth
+        function has to take a packet as the only argument and return a boolean value."""
         return self.__class__([x for x in self.res if func(x)],
                               name="filtered %s" % self.listname)
 
