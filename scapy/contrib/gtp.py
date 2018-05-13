@@ -8,7 +8,7 @@
 ##
 # This program is published under a GPLv2 license
 
-# scapy.contrib.description = GTP
+# scapy.contrib.description = GPRS Tunneling Protocol (GTP)
 # scapy.contrib.status = loads
 
 from __future__ import absolute_import

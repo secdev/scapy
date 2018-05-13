@@ -15,6 +15,10 @@
 
 # Original PPI author: <jellch@harris.com>
 
+# scapy.contrib.description = Parallel Peripheral Interface (PPI)
+# scapy.contrib.status = loads
+
+
 """
 Per-Packet Information (PPI) Protocol
 """

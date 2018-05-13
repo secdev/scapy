@@ -5,15 +5,14 @@
 # Intern at INRIA Grand Nancy Est
 # This program is published under a GPLv2 license
 """
+6LoWPAN Protocol Stack
+======================
 
 This implementation follows the next documents:
     * Transmission of IPv6 Packets over IEEE 802.15.4 Networks
     * Compression Format for IPv6 Datagrams in Low Power and Lossy
       networks (6LoWPAN): draft-ietf-6lowpan-hc-15
     * RFC 4291
-
-6LoWPAN Protocol Stack
-======================
 
                             |-----------------------|
 Application                 | Application Protocols |

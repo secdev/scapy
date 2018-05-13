@@ -12,7 +12,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Scapy. If not, see <http://www.gnu.org/licenses/>.
 
-# scapy.contrib.description = WPA EAPOL dissector
+# scapy.contrib.description = WPA EAPOL-KEY
 # scapy.contrib.status = loads
 
 from scapy.packet import Packet, bind_layers

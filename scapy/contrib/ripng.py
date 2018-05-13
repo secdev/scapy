@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Scapy. If not, see <http://www.gnu.org/licenses/>.
 
-# scapy.contrib.description = RIPng
+# scapy.contrib.description = Routing Information Protocol next generation (RIPng)
 # scapy.contrib.status = loads
 
 from scapy.packet import Packet, bind_layers

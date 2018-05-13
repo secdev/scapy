@@ -3,6 +3,8 @@
 # Copyright (C) Santiago Hernandez Ramos <shramos@protonmail.com>
 # This program is published under GPLv2 license
 
+# scapy.contrib.description = Message Queuing Telemetry Transport (MQTT)
+# scapy.contrib.status = loads
 
 from scapy.packet import Packet, bind_layers
 from scapy.fields import FieldLenField, BitEnumField, StrLenField, \

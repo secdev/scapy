@@ -6,6 +6,14 @@
 # Copyright (C) Enrico Pozzobon <enricopozzobon@gmail.com>
 # This program is published under a GPLv2 license
 
+# scapy.contrib.description = ISO-TP (ISO 15765-2)
+# scapy.contrib.status = loads
+
+"""
+ISOTPSocket.
+"""
+
+
 import ctypes
 from ctypes.util import find_library
 import struct
@@ -886,7 +894,7 @@ class ISOTPSocketImplementation:
                     load = self.ea_hdr
                     load += struct.pack("B", N_PCI_CF + self.tx_sn)
                     load += self.tx_buf[self.tx_idx:self.tx_idx + max_bytes]
-                    assert (len(load) <= 8)
+	assert (len(load) <= 8)
                     self.sendfunc(load)
 
                     self.tx_sn = (self.tx_sn + 1) % 16

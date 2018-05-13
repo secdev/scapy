@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# scapy.contrib.description = OSPF
+# scapy.contrib.description = Open Shortest Path First (OSPF)
 # scapy.contrib.status = loads
 
 # This file is part of Scapy

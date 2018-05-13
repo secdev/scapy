@@ -1,11 +1,19 @@
-#! /usr/bin/env python
-# RFC 7348 - Virtual eXtensible Local Area Network (VXLAN):
-# A Framework for Overlaying Virtualized Layer 2 Networks over Layer 3 Networks
-# http://tools.ietf.org/html/rfc7348
-# https://www.ietf.org/id/draft-ietf-nvo3-vxlan-gpe-02.txt
-#
-# VXLAN Group Policy Option:
-# http://tools.ietf.org/html/draft-smith-vxlan-group-policy-00
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
+
+"""
+Virtual eXtensible Local Area Network (VXLAN)
+- RFC 7348 -
+
+A Framework for Overlaying Virtualized Layer 2 Networks over Layer 3 Networks
+http://tools.ietf.org/html/rfc7348
+https://www.ietf.org/id/draft-ietf-nvo3-vxlan-gpe-02.txt
+
+VXLAN Group Policy Option:
+http://tools.ietf.org/html/draft-smith-vxlan-group-policy-00
+"""
 
 from scapy.packet import Packet, bind_layers
 from scapy.layers.l2 import Ether

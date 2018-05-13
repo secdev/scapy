@@ -4,7 +4,7 @@
 # This program is published under a GPLv2 license
 
 """
-Cisco Skinny protocol.
+Skinny Call Control Protocol (SCCP)
 """
 
 from scapy.packet import Packet, bind_layers

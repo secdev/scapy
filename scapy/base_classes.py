@@ -229,8 +229,9 @@ class Packet_metaclass(type):
         for f in newcls.fields_desc:
             if hasattr(f, "register_owner"):
                 f.register_owner(newcls)
-        from scapy import config
-        config.conf.layers.register(newcls)
+        if newcls.__name__[0] != "_":
+            from scapy import config
+            config.conf.layers.register(newcls)
         return newcls
 
     def __getattr__(self, attr):

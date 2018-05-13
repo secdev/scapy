@@ -3,6 +3,9 @@
 # Copyright (C) Sabrina Dubroca <sd@queasysnail.net>
 # This program is published under a GPLv2 license
 
+# scapy.contrib.description = 802.1AE - IEEE MAC Security standard (MACsec)
+# scapy.contrib.status = loads
+
 """
 Classes and functions for MACsec.
 """

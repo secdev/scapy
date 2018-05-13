@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Scapy. If not, see <http://www.gnu.org/licenses/>.
 
-# scapy.contrib.description = DTP
+# scapy.contrib.description = Dynamic Trunking Protocol (DTP)
 # scapy.contrib.status = loads
 
 """
