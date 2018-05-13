@@ -1603,17 +1603,71 @@ def split_layers(lower, upper, __fval=None, **fval):
 
 
 @conf.commands.register
-def ls(obj=None, case_sensitive=False, verbose=False):
-    """List  available layers, or infos on a given layer class or name"""
+def ls(obj=None, case_sensitive=False, verbose=False, fancy_mode=None):
+    """List  available layers, or infos on a given layer class or name.
+    params:
+     - obj: Packet / packet name to use
+     - case_sensitive: if obj is a string, is it case sensitive?
+     - verbose
+     - fancy_mode: should fancy mode mode be used ? (default: None = automatic when interactive)
+    """
     is_string = isinstance(obj, six.string_types)
+    fancy_mode = conf.interactive if fancy_mode is None else fancy_mode
+    if fancy_mode:
+        try:
+            import prompt_toolkit
+            fancy_mode = int(prompt_toolkit.__version__[0]) >= 2
+        except ImportError:
+            fancy_mode = False
 
     if obj is None or is_string:
-        if obj is None:
+        if obj is None and fancy_mode:
+            # Only available with prompt_toolkit > 2.0, not released on PyPi yet
+            from prompt_toolkit.shortcuts.dialogs import radiolist_dialog, yes_no_dialog
+            from prompt_toolkit.formatted_text import HTML
+            # 1 - Ask for layer or contrib
+            is_layer = yes_no_dialog(
+                title="Scapy v%s" % conf.version,
+                text=HTML(six.text_type('<style bg="white" fg="red">Chose the type of packets you want to explore:</style>')),
+                yes_text=six.text_type("Layers"),
+                no_text=six.text_type("Contribs"))
+            # 2 - Retrieve list of Packets
+            if is_layer:
+                # Get all loaded layers
+                _radio_values = conf.layers.layers()
+                # Restrict to layers-only (not contribs) + packet.py and asn1*.py
+                _radio_values = [x for x in _radio_values if ("layers" in x[0] or
+                                                              "packet" in x[0] or
+                                                              "asn1" in x[0])]
+            else:
+                # Get all existing contribs
+                from scapy.main import list_contrib
+                _radio_values = list_contrib(ret=True)
+                _radio_values = [(x['name'], x['description']) for x in _radio_values]
+                # Remove very specific modules
+                _radio_values = [x for x in _radio_values if not ("can" in x[0])]
+            # Python 2 compat
+            if six.PY2:
+                _radio_values = [(six.text_type(x),six.text_type(y)) for x,y in _radio_values]
+            # 3 - Ask for the layer/contrib module to explore
+            result = radiolist_dialog(
+                values=_radio_values,
+                title="Scapy v%s" % conf.version,
+                text=HTML(six.text_type('<style bg="white" fg="red">Please select a layer among the following, to see all packets contained in it:</style>')))
+            if result is None:
+                return  # User pressed "Cancel"
+            # 4 - (Contrib only): load contrib
+            if not is_layer:
+                load_contrib(result)
+                result = "scapy.contrib." + result
+            # 5 - Get the list of all Packets contained in that module
+            all_layers = conf.layers.ldict[result]
+        elif obj is None:
             all_layers = sorted(conf.layers, key=lambda x: x.__name__)
         else:
             pattern = re.compile(obj, 0 if case_sensitive else re.I)
             all_layers = sorted((layer for layer in conf.layers
-                                 if (isinstance(layer.name, str) and
+                                 if (isinstance(layer.__name__, str) and
                                      pattern.search(layer.__name__)) or
                                  (isinstance(layer.name, str) and
                                      pattern.search(layer.name))),
