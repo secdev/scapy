@@ -392,8 +392,10 @@ And if you are on an x64 machine:
 
 To use npcap instead. Those files are not removed by the Winpcap un-installer.
 
-2. If you get the message 'The installed Windump version does not work with Npcap' it means that you have installed an old version of Windump.
+2. If you get the message 'The installed Windump version does not work with Npcap' it surely means that you have installed an old version of Windump.
 Download the correct one on https://github.com/hsluoyz/WinDump/releases
+
+In some cases, it could also mean that you had installed Npcap and Winpcap, and that Windump is using Winpcap. Fully delete Winpcap using the above method to solve the problem.
 
 Build the documentation offline
 ===============================
