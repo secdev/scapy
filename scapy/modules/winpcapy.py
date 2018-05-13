@@ -23,14 +23,6 @@ HAVE_REMOTE=False
 
 # Notes: Npcap, DLL and Windows
 
-# Npcap documentation advise using SetDllDirectory in order to load Npcap rather than
-# Winpcap, as they both use the same `wpcap.dll` file but in different folders.
-#   Sadly in Python, the DLLs located in C:/Windows/System32 are pre-loaded,
-# and I don't think that there is a way to avoid this behavior.
-# ==> Trying to load any of those DLLs (e.g. using CDLL) will return the pre-loaded ones.
-# This means that SetDllDirectory is useless, as we cannot unload the already loaded DLL.
-# Thus, we tell users to uninstall winpcap, when we detect winpcap and npcap installed.
-
 if WINDOWS:
     HAVE_REMOTE=True
     SOCKET = c_uint
@@ -38,8 +30,14 @@ if WINDOWS:
     if os.path.exists(npcap_folder):
         # Try to load npcap
         os.environ['PATH'] = npcap_folder + ";" + os.environ['PATH']
+        # Set DLL directory priority
+        windll.kernel32.SetDllDirectoryW(npcap_folder)
+        # Packet.dll is unused, but needs to overwrite the winpcap one if it exists
+        windll.LoadLibrary(npcap_folder + "\\Packet.dll")
+        _lib = windll.LoadLibrary(npcap_folder + "\\wpcap.dll")
+    else:
+        _lib=WinDLL("wpcap.dll")
     del npcap_folder
-    _lib=CDLL("wpcap.dll")
 else:
     SOCKET = c_int
     _lib_name = find_library("pcap")
