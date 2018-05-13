@@ -17,14 +17,13 @@ import time
 import itertools
 import platform
 import subprocess as sp
-from glob import glob
 import ctypes
 from ctypes import wintypes
 import tempfile
 from threading import Thread, Event
 
 import scapy
-from scapy.config import conf, ConfClass
+from scapy.config import conf, ConfClass, which
 from scapy.error import Scapy_Exception, log_loading, log_runtime, warning
 from scapy.utils import atol, itom, inet_aton, inet_ntoa, PcapReader, pretty_list
 from scapy.utils6 import construct_source_candidate_set
@@ -389,33 +388,15 @@ def exec_query(cmd, fields):
     return _exec_query_ps(cmd, fields)
 
 
-def _where(filename, dirs=None, env="PATH"):
-    """Find file in current dir, in deep_lookup cache or in system path"""
-    if dirs is None:
-        dirs = []
-    if not isinstance(dirs, list):
-        dirs = [dirs]
-    if glob(filename):
-        return filename
-    paths = [os.curdir] + os.environ[env].split(os.path.pathsep) + dirs
-    try:
-        return next(os.path.normpath(match)
-                    for path in paths
-                    for match in glob(os.path.join(path, filename))
-                    if match)
-    except StopIteration:
-        raise IOError("File not found: %s" % filename)
-
-
-def win_find_exe(filename, installsubdir=None, env="ProgramFiles"):
+def _win_find_progpath(filename, installsubdir=None, env="ProgramFiles"):
     """Find executable in current dir, system path or given ProgramFiles subdir"""
     fns = [filename] if filename.endswith(".exe") else [filename + ".exe", filename]
     for fn in fns:
         try:
             if installsubdir is None:
-                path = _where(fn)
+                path = which(fn)
             else:
-                path = _where(fn, dirs=[os.path.join(os.environ[env], installsubdir)])
+                path = which(fn, dirs=[os.path.join(os.environ[env], installsubdir)])
         except IOError:
             path = None
         else:
@@ -433,23 +414,23 @@ class WinProgPath(ConfClass):
         self.pdfreader = None
         self.psreader = None
         # We try some magic to find the appropriate executables
-        self.dot = win_find_exe("dot")
-        self.tcpdump = win_find_exe("windump")
-        self.tshark = win_find_exe("tshark")
-        self.tcpreplay = win_find_exe("tcpreplay")
+        self.dot = _win_find_progpath("dot")
+        self.tcpdump = _win_find_progpath("windump")
+        self.tshark = _win_find_progpath("tshark")
+        self.tcpreplay = _win_find_progpath("tcpreplay")
         self.display = self._default
-        self.hexedit = win_find_exe("hexer")
-        self.sox = win_find_exe("sox")
-        self.wireshark = win_find_exe("wireshark", "wireshark")
-        self.powershell = win_find_exe(
+        self.hexedit = _win_find_progpath("hexer")
+        self.sox = _win_find_progpath("sox")
+        self.wireshark = _win_find_progpath("wireshark", "wireshark")
+        self.powershell = _win_find_progpath(
             "powershell",
             installsubdir="System32\\WindowsPowerShell\\v1.0",
             env="SystemRoot"
         )
-        self.cscript = win_find_exe("cscript", installsubdir="System32",
-                                    env="SystemRoot")
-        self.cmd = win_find_exe("cmd", installsubdir="System32",
-                                env="SystemRoot")
+        self.cscript = _win_find_progpath("cscript", installsubdir="System32",
+                                          env="SystemRoot")
+        self.cmd = _win_find_progpath("cmd", installsubdir="System32",
+                                      env="SystemRoot")
         if self.wireshark:
             manu_path = load_manuf(os.path.sep.join(self.wireshark.split(os.path.sep)[:-1]) + os.path.sep + "manuf")
             scapy.data.MANUFDB = conf.manufdb = manu_path
