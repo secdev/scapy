@@ -1,0 +1,144 @@
+# isotp unit tests
+#
+# Type the following command to launch start the tests:
+# $ sudo bash test/run_tests -t test/isotp.uts -F
+
+% isotp unit tests
+~ python3_only
+
++ Configuration of scapy
+
+= Setup string for vcan
+~ conf command
+bashCommand1 = "/bin/bash -c 'sudo modprobe can; sudo modprobe vcan; sudo ip link add name vcan0 type vcan; sudo ip link set dev vcan0 up'"
+
+= Load os
+~ conf command needs_root linux
+import os
+import threading
+from time import sleep
+import subprocess
+
+p = subprocess.Popen(['bash', '-c', 'lsmod | grep "^can_isotp"'], stdout=subprocess.PIPE)
+sleep(0.2)
+HAS_ISOTP_INSTALLED = b"can_isotp" in p.stdout.readline()
+
+= Load isotp socket and setup vcan
+~ conf command needs_root linux
+if HAS_ISOTP_INSTALLED:
+    0 == os.system(bashCommand1)
+
+if HAS_ISOTP_INSTALLED:
+    conf.contribs['CANSocket'] = {'use-python-can': True}
+    load_layer("can")
+    from scapy.contrib.cansocket_python_can import *
+    import can
+    load_contrib("isotp")
+
+
++ Basic Socket Tests()
+
+= ISOTP Socket simple send
+~ needs_root linux
+if HAS_ISOTP_INSTALLED:
+    def sender():
+        sleep(0.2)
+        sock = ISOTPSocket('vcan0', 123, 321)
+        sock.send(ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33'))
+    
+    
+    txThread = threading.Thread(target=sender)
+    sock = ISOTPSocket('vcan0', 321, 123)
+    txThread.start()
+    rx = sock.recv()
+    rx == ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33')
+    rx.show()
+    bytes(rx)
+    bytes(ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33'))
+    txThread.join()
+
+= ISOTP Socket send with extended addressing
+~ needs_root linux
+if HAS_ISOTP_INSTALLED:
+    def sender():
+        sleep(0.2)
+        sock = ISOTPSocket('vcan0', 123, 321, 23, 21)
+        sock.send(ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33'))
+    
+    txThread = threading.Thread(target=sender)
+    sock = ISOTPSocket('vcan0', 321, 123, 21, 23)
+    txThread.start()
+    rx = sock.recv()
+    rx == ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33')
+    txThread.join()
+
+= ISOTP Socket validate single frame
+~ needs_root linux
+if HAS_ISOTP_INSTALLED:
+    def sender():
+        sleep(0.1)
+        sock = ISOTPSocket('vcan0', 0x123, 0x321)
+        sock.send(Raw(load=b'\x11\x22\x33'))
+    
+    txThread = threading.Thread(target=sender)
+    sock = CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0', bitrate=250000))
+    txThread.start()
+    rx = sock.recv()
+    tx = CAN(identifier=0x321, length=4, data=b'\x03\x11\x22\x33')
+    rx.data == tx.data
+    rx.length == tx.length
+    rx.identifier == tx.identifier
+    txThread.join()
+    
+= ISOTP Socket sr1 test
+~ needs_root linux
+if HAS_ISOTP_INSTALLED:
+    def sender():
+        sleep(0.1)
+        sock = ISOTPSocket('vcan0', 0x123, 0x321)
+        rx = sock.sr1(Raw(load=b'\x11\x22\x33'), timeout=1, verbose=True)
+        assert(rx is not None)
+        assert(rx == ISOTP(b'\x7f\x22\x33'))
+    
+    txThread = threading.Thread(target=sender)
+    sock = CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0', bitrate=250000))
+    txThread.start()
+    rx = sock.recv()
+    rx == CAN(identifier=0x321, length=4, data=b'\x03\x11\x22\x33')
+    sock.send(CAN(identifier=0x123, length=4, data=b'\x03\x7f\x22\x33'))
+    txThread.join()
+    
+= ISOTP Socket sr1 and ISOTP test
+~ needs_root linux
+if HAS_ISOTP_INSTALLED:
+    def sender():
+        sleep(0.1)
+        sock = ISOTPSocket('vcan0', 0x123, 0x321)
+        rx = sock.sr1(ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33'), timeout=1, verbose=True)
+        rx is not None
+        rx == ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33')
+    
+    txThread = threading.Thread(target=sender)
+    sock = ISOTPSocket('vcan0', 0x321, 0x123)
+    txThread.start()
+    rx = sock.recv()
+    rx == ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33')
+    sock.send(ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33'))
+    txThread.join()
+    
+= ISOTP Socket sr1 and ISOTP test vice versa
+~ needs_root linux
+if HAS_ISOTP_INSTALLED:
+    def receiver():
+        sock = ISOTPSocket('vcan0', 0x321, 0x123)
+        rx = sock.recv()
+        rx == ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33')
+        sock.send(ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33'))
+    
+    rxThread = threading.Thread(target=receiver)
+    rxThread.start()
+    sleep(0.1)
+    sock = ISOTPSocket('vcan0', 0x123, 0x321)
+    rx = sock.sr1(ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33'), timeout=1,verbose=True)
+    rx == ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33')
+    rxThread.join()

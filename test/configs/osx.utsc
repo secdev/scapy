@@ -7,7 +7,8 @@
     "test/linux.uts",
     "test/mock_windows.uts",
     "scapy/contrib/cansocket_native.uts",
-    "scapy/contrib/cansocket_python_can.uts"
+    "scapy/contrib/cansocket_python_can.uts",
+    "test/isotp.uts"
   ],
   "onlyfailed": true,
   "preexec": {
