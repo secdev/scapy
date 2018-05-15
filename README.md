@@ -109,6 +109,7 @@ Python modules, such as `matplotlib` or `cryptography`. See the
 [documentation](http://scapy.readthedocs.io/en/latest/installation.html) and
 follow the instructions to install them.
 
+[//]: # (stop_pypi_description)
 ## Contributing ##
 
 Want to contribute? Great! Please take a few minutes to
