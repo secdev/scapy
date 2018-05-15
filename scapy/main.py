@@ -458,7 +458,7 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=20):
                 "instead.\nAutoCompletion, History are disabled."
             )
             if WINDOWS:
-                log_loading.warning("IPyton not available. On Windows, colors are disabled")
+                log_loading.warning("IPython not available. On Windows, colors are disabled")
                 conf.color_theme = BlackAndWhite()
             IPYTHON = False
         else:
