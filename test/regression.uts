@@ -561,6 +561,7 @@ assert not x.haslayer("TCP in ICMP")
 pkt = IP() / IP(ttl=3) / IP()
 assert pkt[IP::{"ttl":3}].ttl == 3
 assert pkt.getlayer(IP, ttl=3).ttl == 3
+assert IPv6ExtHdrHopByHop(options=[HBHOptUnknown()]).getlayer(HBHOptUnknown, otype=42) is None
 
 = specific haslayer and getlayer implementations for NTP
 ~ haslayer getlayer NTP

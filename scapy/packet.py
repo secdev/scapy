@@ -946,7 +946,7 @@ values.
                 if isinstance(fvalue, Packet):
                     track = []
                     ret = fvalue.getlayer(cls, nb=nb, _track=track,
-                                          _subclass=_subclass)
+                                          _subclass=_subclass, **flt)
                     if ret is not None:
                         return ret
                     nb = track[0]
