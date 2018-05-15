@@ -547,7 +547,7 @@ Sniffing
 .. index::
    single: sniff()
 
-We can easily capture some packets or even clone tcpdump or tshark. Either one interface or a list of interfaces to sniff on can be provided. If no interface is given, sniffing will happen on every interface::
+We can easily capture some packets or even clone tcpdump or tshark. Either one interface or a list of interfaces to sniff on can be provided. If no interface is given, sniffing will happen on ``conf.iface``::
 
     >>>  sniff(filter="icmp and host 66.35.250.151", count=2)
     <Sniffed: UDP:0 TCP:0 ICMP:2 Other:0>
