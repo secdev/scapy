@@ -451,7 +451,11 @@ class WinProgPath(ConfClass):
         self.cmd = win_find_exe("cmd", installsubdir="System32",
                                 env="SystemRoot")
         if self.wireshark:
-            manu_path = load_manuf(os.path.sep.join(self.wireshark.split(os.path.sep)[:-1]) + os.path.sep + "manuf")
+            try:
+                manu_path = load_manuf(os.path.sep.join(self.wireshark.split(os.path.sep)[:-1]) + os.path.sep + "manuf")
+            except (IOError, OSError):  # FileNotFoundError not available on Py2 - using OSError
+                log_loading.warning("Wireshark is installed, but cannot read manuf !")
+                manu_path = None
             scapy.data.MANUFDB = conf.manufdb = manu_path
 
         self.os_access = (self.powershell is not None) or (self.cscript is not None)
