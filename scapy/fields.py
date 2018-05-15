@@ -1557,6 +1557,11 @@ class FlagValue(object):
             return all(bool((2 ** self.names.index(flag)) & int(self))
                        for flag in attr)
         except ValueError:
+            if '_' in attr:
+                try:
+                    return self.__getattr__(attr.replace('_', '-'))
+                except AttributeError:
+                    pass
             return super(FlagValue, self).__getattr__(attr)
 
     def __setattr__(self, attr, value):

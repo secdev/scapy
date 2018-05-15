@@ -1232,3 +1232,7 @@ try:
     assert(False)
 except FieldValueRangeException:
     pass
+
+= FlasgField - Python incompatible name
+
+assert Dot11().FCfield.to_DS is False
