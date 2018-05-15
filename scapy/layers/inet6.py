@@ -27,7 +27,9 @@ IPv6 (Internet Protocol v6).
 from __future__ import absolute_import
 from __future__ import print_function
 
+from functools import reduce
 from hashlib import md5
+import operator
 import random
 import re
 import socket
@@ -35,7 +37,7 @@ import struct
 from time import gmtime, strftime
 
 import scapy.modules.six as six
-from scapy.modules.six.moves import range, zip
+from scapy.modules.six.moves import range
 if not socket.has_ipv6:
     raise socket.error("can't use AF_INET6, IPv6 is disabled")
 if not hasattr(socket, "IPPROTO_IPV6"):
@@ -171,8 +173,7 @@ class Net6(Gen):  # syntax ex. fec0::/126
         self.mask = in6_cidr2mask(netmask)
         self.plen = netmask
 
-    def __iter__(self):
-
+    def _parse(self):
         def parse_digit(value, netmask):
             netmask = min(8, max(netmask, 0))
             value = int(value)
@@ -186,6 +187,9 @@ class Net6(Gen):  # syntax ex. fec0::/126
             )
         ]
 
+    def __iter__(self):
+        self._parse()
+
         def rec(n, l):
             sep = ':' if n and n % 2 == 0 else ''
             if n == 16:
@@ -196,6 +200,10 @@ class Net6(Gen):  # syntax ex. fec0::/126
                                for y in l])
 
         return iter(rec(0, ['']))
+
+    def __iterlen__(self):
+        self._parse()
+        return reduce(operator.mul, ((y - x) for (x, y) in self.parsed), 1)
 
     def __str__(self):
         try:

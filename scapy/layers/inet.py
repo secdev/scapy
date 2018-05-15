@@ -447,7 +447,8 @@ class IP(Packet, IPTools):
         if self.dst == "224.0.0.251":  # mDNS
             return struct.pack("B", self.proto) + self.payload.hashret()
         if conf.checkIPsrc and conf.checkIPaddr:
-            return (strxor(inet_aton(self.src), inet_aton(self.dst))
+            return (strxor(inet_pton(socket.AF_INET, self.src),
+                           inet_pton(socket.AF_INET, self.dst))
                     + struct.pack("B", self.proto) + self.payload.hashret())
         return struct.pack("B", self.proto) + self.payload.hashret()
 
@@ -536,8 +537,8 @@ def in4_chksum(proto, u, p):
     else:
         ln = len(p)
     psdhdr = struct.pack("!4s4sHH",
-                         inet_aton(u.src),
-                         inet_aton(u.dst),
+                         inet_pton(socket.AF_INET, u.src),
+                         inet_pton(socket.AF_INET, u.dst),
                          proto,
                          ln)
     return checksum(psdhdr + p)

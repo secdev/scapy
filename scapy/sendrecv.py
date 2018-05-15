@@ -15,11 +15,13 @@ import os
 from select import select, error as select_error
 import subprocess
 import time
+import types
 
 from scapy.consts import DARWIN, FREEBSD, OPENBSD, WINDOWS
+from scapy.compat import plain_str
 from scapy.data import ETH_P_ALL, MTU
 from scapy.config import conf
-from scapy.packet import Gen
+from scapy.packet import Packet, Gen
 from scapy.utils import get_temp_file, PcapReader, tcpdump, wrpcap
 from scapy import plist
 from scapy.error import log_runtime, log_interactive
@@ -48,14 +50,23 @@ class debug:
 ####################
 
 
-def _sndrcv_snd(pks, timeout, inter, verbose, tobesent, stopevent):
+def _sndrcv_snd(pks, timeout, inter, verbose, tobesent, hsent, timessent, stopevent):
     """Function used in the sending thread of sndrcv()"""
     try:
         i = 0
+        rec_time = timessent is not None
         if verbose:
             print("Begin emission:")
         for p in tobesent:
+            # Populate the dictionary of _sndrcv_rcv
+            # _sndrcv_rcv wont miss the answer of a packet that has not been sent
+            hsent.setdefault(p.hashret(), []).append(p)
+            if stopevent.is_set():
+                break
+            # Send packet
             pks.send(p)
+            if rec_time:
+                timessent[i] = p.sent_time
             i += 1
             time.sleep(inter)
         if verbose:
@@ -79,14 +90,12 @@ loop
     pass
 
 
-def _sndrcv_rcv(pks, tobesent, stopevent, nbrecv, notans, verbose, chainCC,
-                multi):
+def _sndrcv_rcv(pks, hsent, stopevent, nbrecv, notans, verbose, chainCC,
+                multi, _storage_policy=None):
     """Function used to recieve packets and check their hashret"""
+    if not _storage_policy:
+        _storage_policy = lambda x, y: (x, y)
     ans = []
-    hsent = {}
-    for i in tobesent:
-        h = i.hashret()
-        hsent.setdefault(i.hashret(), []).append(i)
 
     is_python_can_socket = getattr(pks, "is_python_can_socket", lambda: False)
 
@@ -141,7 +150,7 @@ def _sndrcv_rcv(pks, tobesent, stopevent, nbrecv, notans, verbose, chainCC,
                     hlst = hsent[h]
                     for i, sentpkt in enumerate(hlst):
                         if r.answers(sentpkt):
-                            ans.append((sentpkt, r))
+                            ans.append(_storage_policy(sentpkt, r))
                             if verbose > 1:
                                 os.write(1, b"*")
                             ok = True
@@ -153,6 +162,7 @@ def _sndrcv_rcv(pks, tobesent, stopevent, nbrecv, notans, verbose, chainCC,
                                     notans -= 1
                                 sentpkt._answered = 1
                             break
+                del r
                 if notans == 0 and not multi:
                     break
                 if not ok:
@@ -172,7 +182,8 @@ def _sndrcv_rcv(pks, tobesent, stopevent, nbrecv, notans, verbose, chainCC,
 
 
 def sndrcv(pks, pkt, timeout=None, inter=0, verbose=None, chainCC=False,
-           retry=0, multi=False, rcv_pks=None):
+           retry=0, multi=False, rcv_pks=None, store_unanswered=True,
+           process=None, prebuild=False):
     """Scapy raw function to send a packet and recieve its answer.
     WARNING: This is an internal function. Using sr/srp/sr1/srp is
     more appropriate in many cases.
@@ -186,64 +197,87 @@ def sndrcv(pks, pkt, timeout=None, inter=0, verbose=None, chainCC=False,
               if negative, how many times to retry when no more packets are answered
     timeout:  how much time to wait after the last packet has been sent
     verbose:  set verbosity level
-    multi:    whether to accept multiple answers for the same stimulus"""
-    is_single = isinstance(pkt, Gen)
-    pkts = [pkt] if is_single else pkt
+    multi:    whether to accept multiple answers for the same stimulus
+    store_unanswered: whether to store not-answered packets or not. Default True.
+                      setting it to False will increase speed, and will return None
+                      as the unans list.
+    process:  if specified, only result from process(pkt) will be stored.
+              the function should follow the following format:
+                lambda sent, recieved: (func(sent), func2(recieved))
+              if the packet is unanswered, `recieved` will be None.
+              if `store_unanswered` is False, the function won't be called on un-answered packets.
+    prebuild: pre-build the packets before starting to send them. Default to False. Automatically used
+              when a generator is passed as the packet
+    """
     if verbose is None:
         verbose = conf.verb
+    use_prn_mode = False
+    _storage_policy = None
+    if process is not None:
+        use_prn_mode = True
+        _storage_policy = lambda x, y: process(x, y)
     debug.recv = plist.PacketList([], "Unanswered")
     debug.sent = plist.PacketList([], "Sent")
     debug.match = plist.SndRcvList([])
     nbrecv = 0
     ans = []
+    listable = (isinstance(pkt, Packet) and pkt.__iterlen__() == 1) or isinstance(pkt, list)
     # do it here to fix random fields, so that parent and child have the same
-    tobesent = [p for p in (pkt if is_single else SetGen(pkt))]
-    notans = len(tobesent)
+    if isinstance(pkt, types.GeneratorType) or prebuild:
+        tobesent = [p for p in pkt]
+        notans = len(tobesent)
+    else:
+        tobesent = SetGen(pkt) if not isinstance(pkt, Gen) else pkt
+        notans = tobesent.__iterlen__()
 
     if retry < 0:
         autostop = retry = -retry
     else:
         autostop = 0
 
-    for pkt in pkts:
-        pkt.sent_time = None
     while retry >= 0:
         if timeout is not None and timeout < 0:
             timeout = None
         stopevent = threading.Event()
 
+        hsent = {}
+        timessent = {} if listable else None
+
         thread = threading.Thread(
             target=_sndrcv_snd,
-            args=(pks, timeout, inter, verbose, tobesent, stopevent),
+            args=(pks, timeout, inter, verbose, tobesent, hsent, timessent, stopevent),
         )
+        thread.setDaemon(True)
         thread.start()
 
         hsent, newans, nbrecv, notans = _sndrcv_rcv(
-            (rcv_pks or pks), tobesent, stopevent, nbrecv, notans, verbose, chainCC, multi,
+            (rcv_pks or pks), hsent, stopevent, nbrecv, notans, verbose, chainCC, multi,
+            _storage_policy=_storage_policy,
         )
         thread.join()
 
         ans.extend(newans)
-        to_set_time = [pkt for pkt in pkts if pkt.sent_time is None]
-        if to_set_time:
-            try:
-                sent_time = min(p.sent_time for p in tobesent if getattr(p, "sent_time", None))
-            except ValueError:
-                pass
-            else:
-                for pkt in to_set_time:
-                    pkt.sent_time = sent_time
 
-        remain = itertools.chain(*six.itervalues(hsent))
-        remain = [p for p in remain if not hasattr(p, '_answered')] if multi else list(remain)
+        # Restore time_sent to original packets
+        if listable:
+            i = 0
+            for p in (pkt if isinstance(pkt, list) else [pkt]):
+                p.sent_time = timessent[i]
+                i += 1
 
-        if not remain:
-            break
+        if store_unanswered:
+            remain = list(itertools.chain(*six.itervalues(hsent)))
+            if multi:
+                remain = [p for p in remain if not hasattr(p, '_answered')]
 
-        if autostop and len(remain) != len(tobesent):
-            retry = autostop
+            if autostop and len(remain) > 0 and len(remain) != len(tobesent):
+                retry = autostop
 
-        tobesent = remain
+            tobesent = remain
+            if len(tobesent) == 0:
+                break
+        else:
+            remain = []
         retry -= 1
 
     if conf.debug_match:
@@ -258,7 +292,13 @@ def sndrcv(pks, pkt, timeout=None, inter=0, verbose=None, chainCC=False,
 
     if verbose:
         print("\nReceived %i packets, got %i answers, remaining %i packets" % (nbrecv + len(ans), len(ans), notans))
-    return plist.SndRcvList(ans), plist.PacketList(remain, "Unanswered")
+
+    if store_unanswered and use_prn_mode:
+        remain = [process(x, None) for x in remain]
+
+    ans_result = ans if use_prn_mode else plist.SndRcvList(ans)
+    unans_result = remain if use_prn_mode else (None if not store_unanswered else plist.PacketList(remain, "Unanswered"))
+    return ans_result, unans_result
 
 
 def __gen_send(s, x, inter=0, loop=0, count=None, verbose=None, realtime=None, return_packets=False, *args, **kargs):
@@ -376,8 +416,7 @@ def sendpfast(x, pps=None, mbps=None, realtime=None, loop=0, file_cache=False, i
             log_runtime.info(stdout)
             log_runtime.warning(stderr)
             if parse_results:
-                results = {}
-                _parse_tcpreplay_result(stdout, stderr, argv, results)
+                results = _parse_tcpreplay_result(stdout, stderr, argv)
 
     except KeyboardInterrupt:
         log_interactive.info("Interrupted by user")
@@ -391,7 +430,7 @@ def sendpfast(x, pps=None, mbps=None, realtime=None, loop=0, file_cache=False, i
         return results
 
 
-def _parse_tcpreplay_result(stdout, stderr, argv, results_dict):
+def _parse_tcpreplay_result(stdout, stderr, argv):
     """
     Parse the output of tcpreplay and modify the results_dict to populate output information.
     Tested with tcpreplay v3.4.4
@@ -399,29 +438,31 @@ def _parse_tcpreplay_result(stdout, stderr, argv, results_dict):
     :param stdout: stdout of tcpreplay subprocess call
     :param stderr: stderr of tcpreplay subprocess call
     :param argv: the command used in the subprocess call
-    :param results_dict: empty dictionary to be modified when putting in results
-    :return: None
+    :return: dictionary containing the results
     """
     try:
-        stdout = str(stdout, "utf-8").replace("\nRated: ", "\t\tRated: ").replace("\t", "").split("\n")
-        stderr = str(stderr, "utf-8").replace("\t", "").split("\n")
-        actual = stdout[0].split(" ")
+        results_dict = {}
+        stdout = plain_str(stdout).replace("\nRated: ", "\t\tRated: ").replace("\t", "").split("\n")
+        stderr = plain_str(stderr).replace("\t", "").split("\n")
+        actual = [x for x in stdout[0].split(" ") if x]
 
-        results_dict["packets"] = int(actual[1]),
-        results_dict["bytes"] = int(actual[3][1:]),
-        results_dict["time"] = float(actual[7]),
-        results_dict["bps"] = float(actual[9]),
-        results_dict["mbps"] = float(actual[11]),
-        results_dict["pps"] = float(actual[13]),
-        results_dict["attempted"] = int(stdout[2].split(" ")[-1:][0]),
-        results_dict["successful"] = int(stdout[3].split(" ")[-1:][0]),
-        results_dict["failed"] = int(stdout[4].split(" ")[-1:][0]),
-        results_dict["retried_enobufs"] = int(stdout[5].split(" ")[-1:][0]),
-        results_dict["retried_eagain"] = int(stdout[6].split(" ")[-1][0]),
-        results_dict["command"] = str(argv),
+        results_dict["packets"] = int(actual[1])
+        results_dict["bytes"] = int(actual[3][1:])
+        results_dict["time"] = float(actual[7])
+        results_dict["bps"] = float(actual[10])
+        results_dict["mbps"] = float(actual[12])
+        results_dict["pps"] = float(actual[14])
+        results_dict["attempted"] = int(stdout[2].split(" ")[-1:][0])
+        results_dict["successful"] = int(stdout[3].split(" ")[-1:][0])
+        results_dict["failed"] = int(stdout[4].split(" ")[-1:][0])
+        results_dict["retried_enobufs"] = int(stdout[5].split(" ")[-1:][0])
+        results_dict["retried_eagain"] = int(stdout[6].split(" ")[-1][0])
+        results_dict["command"] = str(argv)
         results_dict["warnings"] = stderr[:len(stderr) - 1]
+        return results_dict
     except Exception as parse_exception:
         log_runtime.error("Error parsing output: " + str(parse_exception))
+        return {}
 
 
 @conf.commands.register
@@ -434,7 +475,15 @@ timeout:  how much time to wait after the last packet has been sent
 verbose:  set verbosity level
 multi:    whether to accept multiple answers for the same stimulus
 filter:   provide a BPF filter
-iface:    listen answers only on the given interface"""
+iface:    listen answers only on the given interface
+store_unanswered: whether to store not-answered packets or not. Default True.
+                  setting it to False will increase speed, and will return None
+                  as the unans list.
+process:  if specified, only result from process(pkt) will be stored.
+          the function should follow the following format:
+            lambda sent, recieved: (func(sent), func2(recieved))
+          if the packet is unanswered, `recieved` will be None.
+          if `store_unanswered` is False, the function won't be called on un-answered packets."""
     s = conf.L3socket(promisc=promisc, filter=filter, iface=iface, nofilter=nofilter)
     result = sndrcv(s, x, *args, **kargs)
     s.close()
@@ -451,7 +500,15 @@ timeout:  how much time to wait after the last packet has been sent
 verbose:  set verbosity level
 multi:    whether to accept multiple answers for the same stimulus
 filter:   provide a BPF filter
-iface:    listen answers only on the given interface"""
+iface:    listen answers only on the given interface
+store_unanswered: whether to store not-answered packets or not. Default True.
+                  setting it to False will increase speed, and will return None
+                  as the unans list.
+process:  if specified, only result from process(pkt) will be stored.
+          the function should follow the following format:
+            lambda sent, recieved: (func(sent), func2(recieved))
+          if the packet is unanswered, `recieved` will be None.
+          if `store_unanswered` is False, the function won't be called on un-answered packets."""
     s = conf.L3socket(promisc=promisc, filter=filter, nofilter=nofilter, iface=iface)
     ans, _ = sndrcv(s, x, *args, **kargs)
     s.close()
@@ -471,7 +528,15 @@ timeout:  how much time to wait after the last packet has been sent
 verbose:  set verbosity level
 multi:    whether to accept multiple answers for the same stimulus
 filter:   provide a BPF filter
-iface:    work only on the given interface"""
+iface:    work only on the given interface
+store_unanswered: whether to store not-answered packets or not. Default True.
+                  setting it to False will increase speed, and will return None
+                  as the unans list.
+process:  if specified, only result from process(pkt) will be stored.
+          the function should follow the following format:
+            lambda sent, recieved: (func(sent), func2(recieved))
+          if the packet is unanswered, `recieved` will be None.
+          if `store_unanswered` is False, the function won't be called on un-answered packets."""
     if iface is None and iface_hint is not None:
         iface = conf.route.route(iface_hint)[0]
     s = conf.L2socket(promisc=promisc, iface=iface, filter=filter, nofilter=nofilter, type=type)
@@ -490,7 +555,15 @@ timeout:  how much time to wait after the last packet has been sent
 verbose:  set verbosity level
 multi:    whether to accept multiple answers for the same stimulus
 filter:   provide a BPF filter
-iface:    work only on the given interface"""
+iface:    work only on the given interface
+store_unanswered: whether to store not-answered packets or not. Default True.
+                  setting it to False will increase speed, and will return None
+                  as the unans list.
+process:  if specified, only result from process(pkt) will be stored.
+          the function should follow the following format:
+            lambda sent, recieved: (func(sent), func2(recieved))
+          if the packet is unanswered, `recieved` will be None.
+          if `store_unanswered` is False, the function won't be called on un-answered packets."""
     ans, _ = srp(*args, **kargs)
     if len(ans) > 0:
         return ans[0][1]
@@ -569,15 +642,22 @@ srloop(pkts, [prn], [inter], [count], ...) --> None"""
 # SEND/RECV FLOOD METHODS
 
 
-def sndrcvflood(pks, pkt, inter=0, verbose=None, chainCC=False, prn=lambda x: x):
+def sndrcvflood(pks, pkt, inter=0, verbose=None, chainCC=False, store_unanswered=True, process=None):
     if not verbose:
         verbose = conf.verb
-    is_single = isinstance(pkt, Gen)
-    pkts = [pkt] if is_single else pkt
-    tobesent = [p for p in (pkt if is_single else SetGen(pkt))]
+    listable = (isinstance(pkt, Packet) and pkt.__iterlen__() == 1) or isinstance(pkt, list)
+    tobesent = pkt
+
+    use_prn_mode = False
+    _storage_policy = None
+    if process is not None:
+        use_prn_mode = True
+        _storage_policy = lambda x, y: process(x, y)
 
     stopevent = threading.Event()
     count_packets = six.moves.queue.Queue()
+    hsent = {}
+    timessent = {} if listable else None
 
     def send_in_loop(tobesent, stopevent, count_packets=count_packets):
         """Infinite generator that produces the same packet until stopevent is triggered."""
@@ -590,37 +670,43 @@ def sndrcvflood(pks, pkt, inter=0, verbose=None, chainCC=False, prn=lambda x: x)
 
     infinite_gen = send_in_loop(tobesent, stopevent)
 
-    for pkt in pkts:
-        pkt.sent_time = None
     # We don't use _sndrcv_snd verbose (it messes the logs up as in a thread that ends after recieving)
     thread = threading.Thread(
         target=_sndrcv_snd,
-        args=(pks, None, inter, False, infinite_gen, stopevent),
+        args=(pks, None, inter, False, infinite_gen, hsent, timessent, stopevent),
     )
     thread.start()
 
-    hsent, ans, nbrecv, notans = _sndrcv_rcv(pks, tobesent, stopevent, 0, len(tobesent), verbose, chainCC, False)
+    hsent, ans, nbrecv, notans = _sndrcv_rcv(
+        pks, hsent, stopevent, 0, len(tobesent), verbose, chainCC, False,
+        _storage_policy=_storage_policy
+    )
     thread.join()
 
-    ans = [(x, prn(y)) for (x, y) in ans]  # Apply prn
-    to_set_time = [pkt for pkt in pkts if pkt.sent_time is None]
-    if to_set_time:
-        try:
-            sent_time = min(p.sent_time for p in tobesent if getattr(p, "sent_time", None))
-        except ValueError:
-            pass
-        else:
-            for pkt in to_set_time:
-                pkt.sent_time = sent_time
+    # Restore time_sent to original packets
+    if listable:
+        i = 0
+        for p in (pkt if isinstance(pkt, list) else [pkt]):
+            p.sent_time = timessent[i]
+            i += 1
 
-    remain = list(itertools.chain(*six.itervalues(hsent)))
+    if process is not None:
+        ans = [(x, process(y)) for (x, y) in ans]  # Apply process
+
+    if store_unanswered:
+        if use_prn_mode:
+            remain = [process(x, None) for x in itertools.chain(*six.itervalues(hsent))]
+        else:
+            remain = list(itertools.chain(*six.itervalues(hsent)))
 
     if verbose:
         print("\nReceived %i packets, got %i answers, remaining %i packets. Sent a total of %i packets." % (nbrecv + len(ans), len(ans), notans, count_packets.qsize()))
     count_packets.empty()
     del count_packets
 
-    return plist.SndRcvList(ans), plist.PacketList(remain, "Unanswered")
+    ans_result = ans if use_prn_mode else plist.SndRcvList(ans)
+    unans_result = remain if use_prn_mode else (None if not store_unanswered else plist.PacketList(remain, "Unanswered"))
+    return ans_result, unans_result
 
 
 @conf.commands.register
