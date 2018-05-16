@@ -1344,9 +1344,9 @@ class _EnumField(Field):
             self.i2s_cb = None
             self.s2i_cb = None
             if isinstance(enum, list):
-                keys = range(len(enum))
+                keys = list(range(len(enum)))
             elif isinstance(enum, DADict):
-                keys = enum.iterkeys()
+                keys = enum.keys()
             else:
                 keys = list(enum)
             if any(isinstance(x, str) for x in keys):
