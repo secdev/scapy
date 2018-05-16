@@ -8,16 +8,24 @@ Fields: basic data structures that make up parts of packets.
 """
 
 from __future__ import absolute_import
-import struct
-import copy
-import socket
 import collections
+import copy
+import inspect
+import socket
+import struct
+import time
+
+
 from scapy.config import conf
 from scapy.dadict import DADict
-from scapy.volatile import *
-from scapy.data import *
-from scapy.compat import *
-from scapy.utils import *
+from scapy.volatile import RandBin, RandByte, RandEnumKeys, RandInt, RandIP, RandIP6, RandLong, RandMAC, RandNum, RandShort, RandSInt, RandTermString, VolatileValue
+from scapy.data import EPOCH
+from scapy.error import log_runtime, Scapy_Exception
+from scapy.compat import bytes_hex, chb, orb, plain_str, raw
+from scapy.pton_ntop import inet_ntop, inet_pton
+from scapy.utils import inet_aton, inet_ntoa, lhex, mac2str, str2mac
+from scapy.utils6 import in6_6to4ExtractAddr, in6_isaddr6to4, \
+    in6_isaddrTeredo, in6_ptop, Net6, teredoAddrExtractInfo
 from scapy.base_classes import BasePacket, Gen, Net, Field_metaclass
 from scapy.error import warning
 import scapy.modules.six as six
@@ -479,6 +487,98 @@ class SourceIPField(IPField):
         if x is None:
             x = self.__findaddr(pkt)
         return IPField.i2h(self, pkt, x)
+
+
+class IP6Field(Field):
+    def __init__(self, name, default):
+        Field.__init__(self, name, default, "16s")
+
+    def h2i(self, pkt, x):
+        if isinstance(x, bytes):
+            x = plain_str(x)
+        if isinstance(x, str):
+            try:
+                x = in6_ptop(x)
+            except socket.error:
+                x = Net6(x)
+        elif isinstance(x, list):
+            x = [self.h2i(pkt, n) for n in x]
+        return x
+
+    def i2m(self, pkt, x):
+        if x is None:
+            x = "::"
+        return inet_pton(socket.AF_INET6, plain_str(x))
+
+    def m2i(self, pkt, x):
+        return inet_ntop(socket.AF_INET6, x)
+
+    def any2i(self, pkt, x):
+        return self.h2i(pkt, x)
+
+    def i2repr(self, pkt, x):
+        if x is None:
+            return self.i2h(pkt, x)
+        elif not isinstance(x, Net6) and not isinstance(x, list):
+            if in6_isaddrTeredo(x):   # print Teredo info
+                server, _, maddr, mport = teredoAddrExtractInfo(x)
+                return "%s [Teredo srv: %s cli: %s:%s]" % (self.i2h(pkt, x), server, maddr, mport)
+            elif in6_isaddr6to4(x):   # print encapsulated address
+                vaddr = in6_6to4ExtractAddr(x)
+                return "%s [6to4 GW: %s]" % (self.i2h(pkt, x), vaddr)
+        r = self.i2h(pkt, x)          # No specific information to return
+        return r if isinstance(r, str) else repr(r)
+
+    def randval(self):
+        return RandIP6()
+
+
+class SourceIP6Field(IP6Field):
+    __slots__ = ["dstname"]
+
+    def __init__(self, name, dstname):
+        IP6Field.__init__(self, name, None)
+        self.dstname = dstname
+
+    def i2m(self, pkt, x):
+        if x is None:
+            dst = ("::" if self.dstname is None else
+                   getattr(pkt, self.dstname) or "::")
+            iff, x, nh = conf.route6.route(dst)
+        return IP6Field.i2m(self, pkt, x)
+
+    def i2h(self, pkt, x):
+        if x is None:
+            if conf.route6 is None:
+                # unused import, only to initialize conf.route6
+                import scapy.route6
+            dst = ("::" if self.dstname is None else getattr(pkt, self.dstname))
+            if isinstance(dst, (Gen, list)):
+                r = {conf.route6.route(str(daddr)) for daddr in dst}
+                if len(r) > 1:
+                    warning("More than one possible route for %r" % (dst,))
+                x = min(r)[1]
+            else:
+                x = conf.route6.route(dst)[1]
+        return IP6Field.i2h(self, pkt, x)
+
+
+class DestIP6Field(IP6Field, DestField):
+    bindings = {}
+
+    def __init__(self, name, default):
+        IP6Field.__init__(self, name, None)
+        DestField.__init__(self, name, default)
+
+    def i2m(self, pkt, x):
+        if x is None:
+            x = self.dst_from_pkt(pkt)
+        return IP6Field.i2m(self, pkt, x)
+
+    def i2h(self, pkt, x):
+        if x is None:
+            x = self.dst_from_pkt(pkt)
+        return IP6Field.i2h(self, pkt, x)
 
 
 class ByteField(Field):
