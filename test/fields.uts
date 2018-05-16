@@ -46,9 +46,6 @@ conf.route.delt(net="1.2.3.4/32")
 = IPField class
 ~ core field
 
-if WINDOWS:
-    route_add_loopback()
-
 i = IPField("foo", None)
 r = i.i2m(None, "1.2.3.4")
 r

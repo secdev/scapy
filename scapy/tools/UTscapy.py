@@ -839,6 +839,10 @@ def main(argv):
             except ImportError as e:
                 raise getopt.GetoptError("cannot import [%s]: %s" % (m, e))
 
+        if WINDOWS:
+            from scapy.arch.windows import route_add_loopback
+            route_add_loopback()
+
     except getopt.GetoptError as msg:
         print("ERROR:", msg, file=sys.stderr)
         raise SystemExit

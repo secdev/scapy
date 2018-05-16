@@ -368,18 +368,20 @@ assert status[0] in ["npcap", "npf"]
 assert status[2] == True
 
 = test pcap_service_stop
+~ appveyor_only
 
 pcap_service_stop()
 assert pcap_service_status()[2] == False
 
 = test pcap_service_start
+~ appveyor_only
 
 pcap_service_start()
 assert pcap_service_status()[2] == True
 
 = Test auto-pcap start UI
 
-old_ifaces = IFACES.data
+old_ifaces = IFACES.data.copy()
 
 @mock.patch("scapy.arch.windows.get_if_list")
 def _test_autostart_ui(mocked_getiflist):
