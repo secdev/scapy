@@ -212,6 +212,120 @@ class ConditionalField(object):
         return getattr(self.fld, attr)
 
 
+class MultipleTypeField(object):
+    """MultipleTypeField are used for fields that can be implemented by
+various Field subclasses, depending on conditions on the packet.
+
+It is initialized with `flds` and `dflt`.
+
+`dflt` is the default field type, to be used when none of the
+conditions matched the current packet.
+
+`flds` is a list of tuples (`fld`, `cond`), where `fld` if a field
+type, and `cond` a "condition" to determine if `fld` is the field type
+that should be used.
+
+`cond` is either:
+
+  - a callable `cond_pkt` that accepts one argument (the packet) and
+    returns True if `fld` should be used, False otherwise.
+
+  - a tuple (`cond_pkt`, `cond_pkt_val`), where `cond_pkt` is the same
+    as in the previous case and `cond_pkt_val` is a callable that
+    accepts two arguments (the packet, and the value to be set) and
+    returns True if `fld` should be used, False otherwise.
+
+See scapy.layers.l2.ARP (type "help(ARP)" in Scapy) for an example of
+use.
+
+    """
+
+    __slots__ = ["flds", "dflt", "name"]
+
+    def __init__(self, flds, dflt):
+        self.flds = flds
+        self.dflt = dflt
+        self.name = self.dflt.name
+
+    def _find_fld_pkt(self, pkt):
+        """Given a Packet instance `pkt`, returns the Field subclass to be
+used. If you know the value to be set (e.g., in .addfield()), use
+._find_fld_pkt_val() instead.
+
+        """
+        for fld, cond in self.flds:
+            if isinstance(cond, tuple):
+                cond = cond[0]
+            if cond(pkt):
+                return fld
+        return self.dflt
+
+    def _find_fld_pkt_val(self, pkt, val):
+        """Given a Packet instance `pkt` and the value `val` to be set,
+returns the Field subclass to be used.
+
+        """
+        for fld, cond in self.flds:
+            if isinstance(cond, tuple):
+                if cond[1](pkt, val):
+                    return fld
+            elif cond(pkt):
+                return fld
+        return self.dflt
+
+    def _find_fld(self):
+        """Returns the Field subclass to be used, depending on the Packet
+instance, or the default subclass.
+
+DEV: since the Packet instance is not provided, we have to use a hack
+to guess it. It should only be used if you cannot provide the current
+Packet instance (for example, because of the current Scapy API).
+
+If you have the current Packet instance, use ._find_fld_pkt_val() (if
+the value to set is also known) of ._find_fld_pkt() instead.
+
+        """
+        # Hack to preserve current Scapy API
+        # See https://stackoverflow.com/a/7272464/3223422
+        frame = inspect.currentframe().f_back.f_back
+        while frame is not None:
+            try:
+                pkt = frame.f_locals['self']
+            except KeyError:
+                pass
+            else:
+                if isinstance(pkt, tuple(self.dflt.owners)):
+                    return self._find_fld_pkt(pkt)
+            frame = frame.f_back
+        return self.dflt
+
+    def getfield(self, pkt, s):
+        return self._find_fld_pkt(pkt).getfield(pkt, s)
+
+    def addfield(self, pkt, s, val):
+        return self._find_fld_pkt_val(pkt, val).addfield(pkt, s, val)
+
+    def any2i(self, pkt, val):
+        return self._find_fld_pkt_val(pkt, val).any2i(pkt, val)
+
+    def h2i(self, pkt, val):
+        return self._find_fld_pkt_val(pkt, val).h2i(pkt, val)
+
+    def i2h(self, pkt, val):
+        return self._find_fld_pkt_val(pkt, val).i2h(pkt, val)
+
+    def i2len(self, pkt, val):
+        return self._find_fld_pkt_val(pkt, val).i2len(pkt, val)
+
+    def register_owner(self, cls):
+        for fld, _ in self.flds:
+            fld.owners.append(cls)
+        self.dflt.owners.append(cls)
+
+    def __getattr__(self, attr):
+        return getattr(self._find_fld(), attr)
+
+
 class PadField(object):
     """Add bytes after the proxified field so that it ends at the specified
        alignment from its beginning"""
