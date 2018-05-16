@@ -9,6 +9,7 @@ from distutils import archive_util
 from distutils import sysconfig
 from distutils.core import setup
 from distutils.command.sdist import sdist
+import io
 import os
 
 
@@ -39,6 +40,13 @@ def make_ezipfile(base_name, base_dir, verbose=0, dry_run=0, **kwargs):
 
 archive_util.ARCHIVE_FORMATS["ezip"] = (
     make_ezipfile, [], 'Executable ZIP file')
+
+def get_long_description():
+    try:
+        with io.open("README.md", encoding="utf-8") as f:
+            return f.read().partition("[//]: # (stop_pypi_description)")[0]
+    except IOError:
+        return None
 
 SCRIPTS = ['bin/scapy', 'bin/UTscapy']
 # On Windows we also need additional batch files to run the above scripts
@@ -73,6 +81,8 @@ setup(
     author_email='phil(at)secdev.org',
     maintainer='Pierre LALET, Guillaume VALADON',
     description='Scapy: interactive packet manipulation tool',
+    long_description=get_long_description(),
+    long_description_content_type='text/markdown',
     license='GPLv2',
     url='http://www.secdev.org/projects/scapy',
     download_url='https://github.com/secdev/scapy/tarball/master',
