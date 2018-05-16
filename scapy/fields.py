@@ -432,7 +432,9 @@ class IPField(Field):
         return x
 
     def i2m(self, pkt, x):
-        return inet_aton(x)
+        if x is None:
+            return b'\x00\x00\x00\x00'
+        return inet_aton(plain_str(x))
 
     def m2i(self, pkt, x):
         return inet_ntoa(x)
@@ -460,7 +462,7 @@ class SourceIPField(IPField):
             # unused import, only to initialize conf.route
             import scapy.route
         dst = ("0.0.0.0" if self.dstname is None
-               else getattr(pkt, self.dstname))
+               else getattr(pkt, self.dstname) or "0.0.0.0")
         if isinstance(dst, (Gen, list)):
             r = {conf.route.route(str(daddr)) for daddr in dst}
             if len(r) > 1:

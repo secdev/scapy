@@ -15,7 +15,7 @@ import scapy.consts
 from scapy.config import conf
 from scapy.error import Scapy_Exception, warning
 from scapy.modules import six
-from scapy.utils import atol, ltoa, itom, pretty_list
+from scapy.utils import atol, ltoa, itom, plain_str, pretty_list
 
 
 ##############################
@@ -127,6 +127,10 @@ class Route:
         self.routes.append((the_net, the_msk, '0.0.0.0', iff, the_addr, 1))
 
     def route(self, dest, verbose=None):
+        if dest is None:
+            dest = "0.0.0.0"
+        elif isinstance(dest, bytes):
+            dest = plain_str(dest)
         if dest in self.cache:
             return self.cache[dest]
         if verbose is None:
