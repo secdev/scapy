@@ -33,8 +33,8 @@ if WINDOWS:
         # Set DLL directory priority
         windll.kernel32.SetDllDirectoryW(npcap_folder)
         # Packet.dll is unused, but needs to overwrite the winpcap one if it exists
-        windll.LoadLibrary(npcap_folder + "\\Packet.dll")
-        _lib = windll.LoadLibrary(npcap_folder + "\\wpcap.dll")
+        cdll.LoadLibrary(npcap_folder + "\\Packet.dll")
+        _lib = cdll.LoadLibrary(npcap_folder + "\\wpcap.dll")
     else:
         _lib=WinDLL("wpcap.dll")
     del npcap_folder
