@@ -6,12 +6,16 @@
 SSLv2 handshake fields & logic.
 """
 
-import math
+import struct
 
+from scapy.compat import chb
 from scapy.error import log_runtime, warning
-from scapy.fields import *
-from scapy.packet import Packet, Raw, Padding
-from scapy.layers.tls.cert import Cert, PrivKey, PubKey
+from scapy.utils import randstring
+from scapy.fields import ByteEnumField, ByteField, EnumField, FieldLenField, \
+    ShortEnumField, StrLenField, XStrField, XStrLenField
+
+from scapy.packet import Padding
+from scapy.layers.tls.cert import Cert
 from scapy.layers.tls.basefields import _tls_version, _TLSVersionField
 from scapy.layers.tls.handshake import _CipherSuitesField
 from scapy.layers.tls.keyexchange import _TLSSignatureField, _TLSSignature
@@ -19,8 +23,6 @@ from scapy.layers.tls.session import (_GenericTLSSessionInheritance,
                                       readConnState, writeConnState)
 from scapy.layers.tls.crypto.suites import (_tls_cipher_suites,
                                             _tls_cipher_suites_cls,
-                                            _GenericCipherSuite,
-                                            _GenericCipherSuiteMetaclass,
                                             get_usable_ciphersuites,
                                             SSL_CK_DES_192_EDE3_CBC_WITH_MD5)
 
