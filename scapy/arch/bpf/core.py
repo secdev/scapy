@@ -88,7 +88,7 @@ def get_dev_bpf():
     """Returns an opened BPF file object"""
 
     # Get the first available BPF handle
-    for bpf in range(0, 8):
+    for bpf in range(256):
         try:
             fd = os.open("/dev/bpf%i" % bpf, os.O_RDWR)
             return (fd, bpf)
