@@ -10,17 +10,19 @@ DHCP (Dynamic Host Configuration Protocol) and BOOTP
 from __future__ import absolute_import
 from __future__ import print_function
 from collections import Iterable
+import random
 import struct
 
-from scapy.packet import *
-from scapy.fields import *
-from scapy.ansmachine import *
-from scapy.data import *
-from scapy.compat import *
+from scapy.ansmachine import AnsweringMachine
+from scapy.base_classes import Net
+from scapy.data import chb, orb, raw
+from scapy.fields import ByteEnumField, ByteField, Field, FieldListField, \
+    FlagsField, IntField, IPField, ShortField, StrField
 from scapy.layers.inet import UDP, IP
 from scapy.layers.l2 import Ether
-from scapy.base_classes import Net
-from scapy.volatile import RandField
+from scapy.packet import bind_layers, bind_bottom_up
+from scapy.utils import atol, itom, ltoa, sane
+from scapy.volatile import RandBin, RandField, RandNum, RandNumExpo
 
 from scapy.arch import get_if_raw_hwaddr
 from scapy.sendrecv import *
