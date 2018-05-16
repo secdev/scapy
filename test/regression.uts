@@ -9993,6 +9993,42 @@ test_IPID_count()
 
 ############
 ############
++ ARP
+
+= ARP for IPv4
+
+p = raw(ARP())
+assert p == raw(ARP(ptype=0x0800))
+p = ARP(p)
+assert p.ptype == 0x0800
+assert valid_ip(p.pdst)
+assert valid_ip(p.psrc)
+assert isinstance(p.payload, NoPayload)
+
+= ARP for IPv6
+
+p = ARP(raw(ARP(ptype=0x86dd)))
+assert p.ptype == 0x86dd
+assert valid_ip6(p.pdst)
+assert valid_ip6(p.psrc)
+assert isinstance(p.payload, NoPayload)
+
+= Dummy ARP
+
+p = ARP(raw(ARP(plen=2, hwlen=1, hwdst="x", hwsrc="y", pdst="aa", psrc="bb")))
+assert p.hwdst == b"x"
+assert p.hwsrc == b"y"
+assert p.pdst == b"aa"
+assert p.psrc == b"bb"
+assert isinstance(p.payload, NoPayload)
+
+p = ARP(raw(ARP(plen=1, hwlen=1)))
+assert p.hwdst == p.hwsrc == p.pdst == p.psrc == b"\x00"
+assert isinstance(p.payload, NoPayload)
+
+
+############
+############
 + Fields
 
 = FieldLenField with BitField
