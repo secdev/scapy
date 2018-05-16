@@ -725,7 +725,7 @@ class StrField(Field):
         return len(i)
 
     def any2i(self, pkt, x):
-        if isinstance(x, str if six.PY3 else unicode):
+        if isinstance(x, six.text_type):
             x = raw(x)
         return super(StrField, self).any2i(pkt, x)
 
