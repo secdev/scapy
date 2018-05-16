@@ -285,7 +285,7 @@ class Dot11Elt(Packet):
 class RSNCipherSuite(Packet):
     name = "Cipher suite"
     fields_desc = [
-        X3BytesField("OUI", 0x000fac),
+        X3BytesField("oui", 0x000fac),
         ByteEnumField("cipher", 0x04, {
             0x00: "Use group cipher suite",
             0x01: "WEP-40",
@@ -303,7 +303,7 @@ class RSNCipherSuite(Packet):
 class AKMSuite(Packet):
     name = "AKM suite"
     fields_desc = [
-        X3BytesField("OUI", 0x000fac),
+        X3BytesField("oui", 0x000fac),
         ByteEnumField("suite", 0x01, {
             0x00: "Reserved",
             0x01: "IEEE 802.1X / PMKSA caching",
@@ -345,7 +345,7 @@ class Dot11EltRSN(Dot11Elt):
         ),
         PacketListField(
             "pairwise_cipher_suites",
-            RSNCipherSuite(),
+            [RSNCipherSuite()],
             RSNCipherSuite,
             count_from=lambda p: p.nb_pairwise_cipher_suites
         ),
@@ -356,7 +356,7 @@ class Dot11EltRSN(Dot11Elt):
         ),
         PacketListField(
             "akm_suites",
-            AKMSuite(),
+            [AKMSuite()],
             AKMSuite,
             count_from=lambda p: p.nb_akm_suites
         ),
@@ -380,7 +380,7 @@ class Dot11EltMicrosoftWPA(Dot11Elt):
     fields_desc = [
         ByteField("ID", 221),
         FieldLenField("len", 0, "info", "B"),
-        X3BytesField("vendor_specific_oui", 0x0050f2),
+        X3BytesField("oui", 0x0050f2),
         XByteField("type", 0x01),
         LEShortField("version", 1),
         PacketField("group_cipher_suite", RSNCipherSuite(), RSNCipherSuite),
