@@ -13,10 +13,16 @@
 
 from __future__ import absolute_import
 import struct
-from scapy.fields import *
-from scapy.layers.l2 import *
-from scapy.layers.inet import *
-from scapy.compat import orb, raw
+
+
+from scapy.compat import chb, orb, raw
+from scapy.config import conf
+from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, FieldLenField, FlagsField, IntEnumField, IntField, IPField, LongField, MACField, PacketField, PacketListField, ShortEnumField, ShortField, StrFixedLenField, X3BytesField, XBitField, XByteField, XIntField, XShortField
+from scapy.layers.l2 import Ether
+from scapy.layers.inet import TCP
+from scapy.packet import Packet, Raw
+from scapy.utils import binrepr
+
 
 # If prereq_autocomplete is True then match prerequisites will be
 # automatically handled. See OFPMatch class.
