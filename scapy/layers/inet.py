@@ -440,7 +440,7 @@ class IP(Packet, IPTools):
     def hashret(self):
         if ((self.proto == socket.IPPROTO_ICMP)
             and (isinstance(self.payload, ICMP))
-                and (self.payload.type in [3, 4, 5, 11, 12])):
+                and (self.payload.type in [3, 4, 5, 11, 12, 40])):
             return self.payload.payload.hashret()
         if not conf.checkIPinIP and self.proto in [4, 41]:  # IP, IPv6
             return self.payload.hashret()
@@ -471,7 +471,7 @@ class IP(Packet, IPTools):
                 return 0
         if ((self.proto == socket.IPPROTO_ICMP) and
             (isinstance(self.payload, ICMP)) and
-                (self.payload.type in [3, 4, 5, 11, 12])):
+                (self.payload.type in [3, 4, 5, 11, 12, 40])):
             # ICMP error message
             return self.payload.payload.answers(other)
 
@@ -689,7 +689,8 @@ icmptypes = {0: "echo-reply",
              15: "information-request",
              16: "information-response",
              17: "address-mask-request",
-             18: "address-mask-reply"}
+             18: "address-mask-reply",
+             40: "security-failures"}
 
 icmpcodes = {3: {0: "network-unreachable",
                     1: "host-unreachable",
@@ -713,7 +714,13 @@ icmpcodes = {3: {0: "network-unreachable",
              11: {0: "ttl-zero-during-transit",
                   1: "ttl-zero-during-reassembly", },
              12: {0: "ip-header-bad",
-                  1: "required-option-missing", }, }
+                  1: "required-option-missing", },
+             40: {0: "bad-spi",
+                  1: "authentication-failed",
+                  2: "decompression-failed",
+                  3: "decryption-failed",
+                  4: "need-authentication",
+                  5: "need-authorization", }, }
 
 
 class ICMP(Packet):
@@ -728,12 +735,13 @@ class ICMP(Packet):
                    ConditionalField(ICMPTimeStampField("ts_tx", None), lambda pkt:pkt.type in [13, 14]),
                    ConditionalField(IPField("gw", "0.0.0.0"), lambda pkt:pkt.type == 5),
                    ConditionalField(ByteField("ptr", 0), lambda pkt:pkt.type == 12),
-                   ConditionalField(ByteField("reserved", 0), lambda pkt:pkt.type in [3, 11]),
+                   ConditionalField(ByteField("reserved", 0), lambda pkt:pkt.type in [3, 11, 40]),
                    ConditionalField(ByteField("length", 0), lambda pkt:pkt.type in [3, 11, 12]),
                    ConditionalField(IPField("addr_mask", "0.0.0.0"), lambda pkt:pkt.type in [17, 18]),
                    ConditionalField(ShortField("nexthopmtu", 0), lambda pkt:pkt.type == 3),
                    ConditionalField(ShortField("unused", 0), lambda pkt:pkt.type in [11, 12]),
-                   ConditionalField(IntField("unused", 0), lambda pkt:pkt.type not in [0, 3, 5, 8, 11, 12, 13, 14, 15, 16, 17, 18])
+                   ConditionalField(ShortField("ptr", 0), lambda pkt:pkt.type == 40),
+                   ConditionalField(IntField("unused", 0), lambda pkt:pkt.type not in [0, 3, 5, 8, 11, 12, 13, 14, 15, 16, 17, 18, 40])
                    ]
 
     def post_build(self, p, pay):
@@ -758,7 +766,7 @@ class ICMP(Packet):
         return 0
 
     def guess_payload_class(self, payload):
-        if self.type in [3, 4, 5, 11, 12]:
+        if self.type in [3, 4, 5, 11, 12, 40]:
             return IPerror
         else:
             return None
