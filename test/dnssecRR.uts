@@ -116,6 +116,8 @@ t.rrname == b'isc.org.' and t.keytag == 12892 and t.algorithm == 5 and t.digestt
 
 = DNSRR(type="TXT") instanciation
 t = DNSRR(type="TXT", rdata="test")
+assert t.rdata == b"test"
+assert raw(DNSRR(type="TXT", rdata=["hello", "DNS", "!"])) == b'\x00\x00\x10\x00\x01\x00\x00\x00\x00\x00\x0c\x05hello\x03DNS\x01!'
 
 = Build DNSRR
 an = DNSRR(type='AAAA', rdata='2001::1')
@@ -124,7 +126,7 @@ assert an.rdata == '2001::1'
 
 = DNSRRR(), check parameters
 t = DNSRR(b'\x04test\x00\x00\x10\x00\x01\x00\x00\x00\x00\x018\xffScapy is an interactive packet manipulation program that enables you to sniff, mangle, send network packets ; test equipments ; probe and discover networks ; quickly develop new protocols. It can easily handle most classical tasks like scanning, tracerout7ing, probing, unit tests, attacks or network discovery.')
-t.type == 16 and t.rdlen == 312 and t.rdata[:5] == b"Scapy" and t.rdata[-10:] == b"discovery."
+t.type == 16 and t.rdlen == 312 and t.rdata[0][:5] == b"Scapy" and t.rdata[1][-10:] == b"discovery."
 
 + Test DNSRRTSIG RR
 
