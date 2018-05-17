@@ -249,12 +249,12 @@ class Dot11Elt(Packet):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt:
-            id_ = orb(_pkt[0])
-            if id_ == 221:
-                a = orb(_pkt[2])
-                b = orb(_pkt[3])
-                c = orb(_pkt[4])
-                if a == 0x00 and b == 0x50 and c == 0xf2:
+            _id = orb(_pkt[0])
+            if _id == 221:
+                oui_a = orb(_pkt[2])
+                oui_b = orb(_pkt[3])
+                oui_c = orb(_pkt[4])
+                if oui_a == 0x00 and oui_b == 0x50 and oui_c == 0xf2:
                     # MS OUI
                     type_ = orb(_pkt[5])
                     if type_ == 0x01:
@@ -265,13 +265,12 @@ class Dot11Elt(Packet):
                 else:
                     return Dot11EltVendorSpecific
             else:
-                return cls.registered_ies.get(id_, cls)
+                return cls.registered_ies.get(_id, cls)
         return cls
 
     def haslayer(self, cls):
-        if cls == "Dot11Elt":
-            if isinstance(self, Dot11Elt):
-                return True
+        if isinstance(self, Dot11Elt):
+            return True
         elif issubtype(cls, Dot11Elt):
             if isinstance(self, cls):
                 return True
