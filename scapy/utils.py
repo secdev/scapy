@@ -386,6 +386,14 @@ def mac2str(mac):
     return b"".join(chb(int(x, 16)) for x in plain_str(mac).split(':'))
 
 
+def valid_mac(mac):
+    try:
+        return len(mac2str(mac)) == 6
+    except ValueError:
+        pass
+    return False
+
+
 def str2mac(s):
     if isinstance(s, str):
         return ("%02x:" * 6)[:-1] % tuple(map(ord, s))
@@ -444,6 +452,43 @@ def atol(x):
     except socket.error:
         ip = inet_aton(socket.gethostbyname(x))
     return struct.unpack("!I", ip)[0]
+
+
+def valid_ip(addr):
+    addr = plain_str(addr)
+    try:
+        atol(addr)
+    except (OSError, socket.error):
+        return False
+    return True
+
+
+def valid_net(addr):
+    addr = plain_str(addr)
+    if '/' in addr:
+        ip, mask = addr.split('/', 1)
+        return valid_ip(ip) and mask.isdigit() and 0 <= int(mask) <= 32
+    return valid_ip(addr)
+
+
+def valid_ip6(addr):
+    addr = plain_str(addr)
+    try:
+        inet_pton(socket.AF_INET6, addr)
+    except socket.error:
+        try:
+            socket.getaddrinfo(addr, None, socket.AF_INET6)[0][4][0]
+        except socket.error:
+            return False
+    return True
+
+
+def valid_net6(addr):
+    addr = plain_str(addr)
+    if '/' in addr:
+        ip, mask = addr.split('/', 1)
+        return valid_ip6(ip) and mask.isdigit() and 0 <= int(mask) <= 128
+    return valid_ip6(addr)
 
 
 def ltoa(x):

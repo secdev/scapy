@@ -18,12 +18,13 @@
 # scapy.contrib.status = loads
 
 from __future__ import print_function
-from scapy.packet import *
-from scapy.fields import *
-from scapy.layers.inet import *
-from scapy.layers.l2 import DestMACField, getmacbyip
-from scapy.error import warning
 from scapy.compat import chb, orb
+from scapy.error import warning
+from scapy.fields import ByteEnumField, ByteField, IPField, XShortField
+from scapy.layers.inet import IP, IPOption_Router_Alert
+from scapy.layers.l2 import Ether, getmacbyip
+from scapy.packet import bind_layers, Packet
+from scapy.utils import atol, checksum
 
 
 def isValidMCAddr(ip):

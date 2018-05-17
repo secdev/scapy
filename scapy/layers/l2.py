@@ -25,7 +25,7 @@ from scapy.plist import SndRcvList
 from scapy.fields import *
 from scapy.sendrecv import srp, srp1, srpflood
 from scapy.arch import get_if_hwaddr
-from scapy.utils import inet_ntoa, inet_aton
+from scapy.utils import inet_ntoa, inet_aton, valid_mac, valid_net, valid_net6
 from scapy.error import warning
 if conf.route is None:
     # unused import, only to initialize conf.route
@@ -140,10 +140,7 @@ class SourceMACField(MACField):
 
 class ARPSourceMACField(SourceMACField):
     def __init__(self, name):
-        super(ARPSourceMACField, self).__init__(
-            name,
-            getif=lambda pkt: pkt.route()[0],
-        )
+        super(ARPSourceMACField, self).__init__(name)
 
 
 # Layers
@@ -301,15 +298,81 @@ class STP(Packet):
 
 class ARP(Packet):
     name = "ARP"
-    fields_desc = [XShortField("hwtype", 0x0001),
-                   XShortEnumField("ptype", 0x0800, ETHER_TYPES),
-                   ByteField("hwlen", 6),
-                   ByteField("plen", 4),
-                   ShortEnumField("op", 1, {"who-has": 1, "is-at": 2, "RARP-req": 3, "RARP-rep": 4, "Dyn-RARP-req": 5, "Dyn-RAR-rep": 6, "Dyn-RARP-err": 7, "InARP-req": 8, "InARP-rep": 9}),
-                   ARPSourceMACField("hwsrc"),
-                   SourceIPField("psrc", "pdst"),
-                   MACField("hwdst", ETHER_ANY),
-                   IPField("pdst", "0.0.0.0")]
+    fields_desc = [
+        XShortField("hwtype", 0x0001),
+        XShortEnumField("ptype", 0x0800, ETHER_TYPES),
+        FieldLenField("hwlen", None, fmt="B", length_of="hwsrc"),
+        FieldLenField("plen", None, fmt="B", length_of="psrc"),
+        ShortEnumField("op", 1, {
+            "who-has": 1,
+            "is-at": 2,
+            "RARP-req": 3,
+            "RARP-rep": 4,
+            "Dyn-RARP-req": 5,
+            "Dyn-RAR-rep": 6,
+            "Dyn-RARP-err": 7,
+            "InARP-req": 8,
+            "InARP-rep": 9
+        }),
+        MultipleTypeField(
+            [
+                (ARPSourceMACField("hwsrc"),
+                 (lambda pkt: pkt.hwtype == 1 and pkt.hwlen == 6,
+                  lambda pkt, val: pkt.hwtype == 1 and (
+                      pkt.hwlen == 6 or (pkt.hwlen is None and
+                                         (val is None or len(val) == 6 or
+                                          valid_mac(val)))
+                  ))),
+            ],
+            StrFixedLenField("hwsrc", None, length_from=lambda pkt: pkt.hwlen),
+        ),
+        MultipleTypeField(
+            [
+                (SourceIPField("psrc", "pdst"),
+                 (lambda pkt: pkt.ptype == 0x0800 and pkt.plen == 4,
+                  lambda pkt, val: pkt.ptype == 0x0800 and (
+                      pkt.plen == 4 or (pkt.plen is None and
+                                        (val is None or valid_net(val)))
+                  ))),
+                (SourceIP6Field("psrc", "pdst"),
+                 (lambda pkt: pkt.ptype == 0x86dd and pkt.plen == 16,
+                  lambda pkt, val: pkt.ptype == 0x86dd and (
+                      pkt.plen == 16 or (pkt.plen is None and
+                                         (val is None or valid_net6(val)))
+                  ))),
+            ],
+            StrFixedLenField("psrc", None, length_from=lambda pkt: pkt.plen),
+        ),
+        MultipleTypeField(
+            [
+                (MACField("hwdst", ETHER_ANY),
+                 (lambda pkt: pkt.hwtype == 1 and pkt.hwlen == 6,
+                  lambda pkt, val: pkt.hwtype == 1 and (
+                      pkt.hwlen == 6 or (pkt.hwlen is None and
+                                         (val is None or len(val) == 6 or
+                                          valid_mac(val)))
+                  ))),
+            ],
+            StrFixedLenField("hwdst", None, length_from=lambda pkt: pkt.hwlen),
+        ),
+        MultipleTypeField(
+            [
+                (IPField("pdst", "0.0.0.0"),
+                 (lambda pkt: pkt.ptype == 0x0800 and pkt.plen == 4,
+                  lambda pkt, val: pkt.ptype == 0x0800 and (
+                      pkt.plen == 4 or (pkt.plen is None and
+                                        (val is None or valid_net(val)))
+                  ))),
+                (IP6Field("pdst", "::"),
+                 (lambda pkt: pkt.ptype == 0x86dd and pkt.plen == 16,
+                  lambda pkt, val: pkt.ptype == 0x86dd and (
+                      pkt.plen == 16 or (pkt.plen is None and
+                                         (val is None or valid_net6(val)))
+                  ))),
+            ],
+            StrFixedLenField("pdst", None, length_from=lambda pkt: pkt.plen),
+        ),
+    ]
     who_has = 1
     is_at = 2
 

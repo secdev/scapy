@@ -12,14 +12,20 @@ mechanisms which are addressed with keyexchange.py.
 
 from __future__ import absolute_import
 import math
+import struct
 
 from scapy.error import log_runtime, warning
-from scapy.fields import *
-from scapy.compat import *
+from scapy.fields import ByteEnumField, ByteField, EnumField, Field, \
+    FieldLenField, IntField, PacketField, PacketListField, ShortField, \
+    StrFixedLenField, StrLenField, ThreeBytesField, UTCTimeField
+
+from scapy.compat import bytes_hex, orb, raw
+from scapy.config import conf
+from scapy.modules import six
 from scapy.packet import Packet, Raw, Padding
-from scapy.utils import repr_hex
+from scapy.utils import randstring, repr_hex
 from scapy.layers.x509 import OCSP_Response
-from scapy.layers.tls.cert import Cert, PrivKey, PubKey
+from scapy.layers.tls.cert import Cert
 from scapy.layers.tls.basefields import (_tls_version, _TLSVersionField,
                                          _TLSClientVersionField)
 from scapy.layers.tls.extensions import (_ExtensionsLenField, _ExtensionsField,
@@ -28,7 +34,6 @@ from scapy.layers.tls.keyexchange import (_TLSSignature, _TLSServerParamsField,
                                           _TLSSignatureField, ServerRSAParams,
                                           SigAndHashAlgsField, _tls_hash_sig,
                                           SigAndHashAlgsLenField)
-from scapy.layers.tls.keyexchange_tls13 import TicketField
 from scapy.layers.tls.session import (_GenericTLSSessionInheritance,
                                       readConnState, writeConnState)
 from scapy.layers.tls.crypto.compression import (_tls_compression_algs,

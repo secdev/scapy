@@ -8,16 +8,24 @@ Fields: basic data structures that make up parts of packets.
 """
 
 from __future__ import absolute_import
-import struct
-import copy
-import socket
 import collections
+import copy
+import inspect
+import socket
+import struct
+import time
+
+
 from scapy.config import conf
 from scapy.dadict import DADict
-from scapy.volatile import *
-from scapy.data import *
-from scapy.compat import *
-from scapy.utils import *
+from scapy.volatile import RandBin, RandByte, RandEnumKeys, RandInt, RandIP, RandIP6, RandLong, RandMAC, RandNum, RandShort, RandSInt, RandTermString, VolatileValue
+from scapy.data import EPOCH
+from scapy.error import log_runtime, Scapy_Exception
+from scapy.compat import bytes_hex, chb, orb, plain_str, raw
+from scapy.pton_ntop import inet_ntop, inet_pton
+from scapy.utils import inet_aton, inet_ntoa, lhex, mac2str, str2mac
+from scapy.utils6 import in6_6to4ExtractAddr, in6_isaddr6to4, \
+    in6_isaddrTeredo, in6_ptop, Net6, teredoAddrExtractInfo
 from scapy.base_classes import BasePacket, Gen, Net, Field_metaclass
 from scapy.error import warning
 import scapy.modules.six as six
@@ -212,6 +220,120 @@ class ConditionalField(object):
         return getattr(self.fld, attr)
 
 
+class MultipleTypeField(object):
+    """MultipleTypeField are used for fields that can be implemented by
+various Field subclasses, depending on conditions on the packet.
+
+It is initialized with `flds` and `dflt`.
+
+`dflt` is the default field type, to be used when none of the
+conditions matched the current packet.
+
+`flds` is a list of tuples (`fld`, `cond`), where `fld` if a field
+type, and `cond` a "condition" to determine if `fld` is the field type
+that should be used.
+
+`cond` is either:
+
+  - a callable `cond_pkt` that accepts one argument (the packet) and
+    returns True if `fld` should be used, False otherwise.
+
+  - a tuple (`cond_pkt`, `cond_pkt_val`), where `cond_pkt` is the same
+    as in the previous case and `cond_pkt_val` is a callable that
+    accepts two arguments (the packet, and the value to be set) and
+    returns True if `fld` should be used, False otherwise.
+
+See scapy.layers.l2.ARP (type "help(ARP)" in Scapy) for an example of
+use.
+
+    """
+
+    __slots__ = ["flds", "dflt", "name"]
+
+    def __init__(self, flds, dflt):
+        self.flds = flds
+        self.dflt = dflt
+        self.name = self.dflt.name
+
+    def _find_fld_pkt(self, pkt):
+        """Given a Packet instance `pkt`, returns the Field subclass to be
+used. If you know the value to be set (e.g., in .addfield()), use
+._find_fld_pkt_val() instead.
+
+        """
+        for fld, cond in self.flds:
+            if isinstance(cond, tuple):
+                cond = cond[0]
+            if cond(pkt):
+                return fld
+        return self.dflt
+
+    def _find_fld_pkt_val(self, pkt, val):
+        """Given a Packet instance `pkt` and the value `val` to be set,
+returns the Field subclass to be used.
+
+        """
+        for fld, cond in self.flds:
+            if isinstance(cond, tuple):
+                if cond[1](pkt, val):
+                    return fld
+            elif cond(pkt):
+                return fld
+        return self.dflt
+
+    def _find_fld(self):
+        """Returns the Field subclass to be used, depending on the Packet
+instance, or the default subclass.
+
+DEV: since the Packet instance is not provided, we have to use a hack
+to guess it. It should only be used if you cannot provide the current
+Packet instance (for example, because of the current Scapy API).
+
+If you have the current Packet instance, use ._find_fld_pkt_val() (if
+the value to set is also known) of ._find_fld_pkt() instead.
+
+        """
+        # Hack to preserve current Scapy API
+        # See https://stackoverflow.com/a/7272464/3223422
+        frame = inspect.currentframe().f_back.f_back
+        while frame is not None:
+            try:
+                pkt = frame.f_locals['self']
+            except KeyError:
+                pass
+            else:
+                if isinstance(pkt, tuple(self.dflt.owners)):
+                    return self._find_fld_pkt(pkt)
+            frame = frame.f_back
+        return self.dflt
+
+    def getfield(self, pkt, s):
+        return self._find_fld_pkt(pkt).getfield(pkt, s)
+
+    def addfield(self, pkt, s, val):
+        return self._find_fld_pkt_val(pkt, val).addfield(pkt, s, val)
+
+    def any2i(self, pkt, val):
+        return self._find_fld_pkt_val(pkt, val).any2i(pkt, val)
+
+    def h2i(self, pkt, val):
+        return self._find_fld_pkt_val(pkt, val).h2i(pkt, val)
+
+    def i2h(self, pkt, val):
+        return self._find_fld_pkt_val(pkt, val).i2h(pkt, val)
+
+    def i2len(self, pkt, val):
+        return self._find_fld_pkt_val(pkt, val).i2len(pkt, val)
+
+    def register_owner(self, cls):
+        for fld, _ in self.flds:
+            fld.owners.append(cls)
+        self.dflt.owners.append(cls)
+
+    def __getattr__(self, attr):
+        return getattr(self._find_fld(), attr)
+
+
 class PadField(object):
     """Add bytes after the proxified field so that it ends at the specified
        alignment from its beginning"""
@@ -318,7 +440,9 @@ class IPField(Field):
         return x
 
     def i2m(self, pkt, x):
-        return inet_aton(x)
+        if x is None:
+            return b'\x00\x00\x00\x00'
+        return inet_aton(plain_str(x))
 
     def m2i(self, pkt, x):
         return inet_ntoa(x)
@@ -346,7 +470,7 @@ class SourceIPField(IPField):
             # unused import, only to initialize conf.route
             import scapy.route
         dst = ("0.0.0.0" if self.dstname is None
-               else getattr(pkt, self.dstname))
+               else getattr(pkt, self.dstname) or "0.0.0.0")
         if isinstance(dst, (Gen, list)):
             r = {conf.route.route(str(daddr)) for daddr in dst}
             if len(r) > 1:
@@ -363,6 +487,98 @@ class SourceIPField(IPField):
         if x is None:
             x = self.__findaddr(pkt)
         return IPField.i2h(self, pkt, x)
+
+
+class IP6Field(Field):
+    def __init__(self, name, default):
+        Field.__init__(self, name, default, "16s")
+
+    def h2i(self, pkt, x):
+        if isinstance(x, bytes):
+            x = plain_str(x)
+        if isinstance(x, str):
+            try:
+                x = in6_ptop(x)
+            except socket.error:
+                x = Net6(x)
+        elif isinstance(x, list):
+            x = [self.h2i(pkt, n) for n in x]
+        return x
+
+    def i2m(self, pkt, x):
+        if x is None:
+            x = "::"
+        return inet_pton(socket.AF_INET6, plain_str(x))
+
+    def m2i(self, pkt, x):
+        return inet_ntop(socket.AF_INET6, x)
+
+    def any2i(self, pkt, x):
+        return self.h2i(pkt, x)
+
+    def i2repr(self, pkt, x):
+        if x is None:
+            return self.i2h(pkt, x)
+        elif not isinstance(x, Net6) and not isinstance(x, list):
+            if in6_isaddrTeredo(x):   # print Teredo info
+                server, _, maddr, mport = teredoAddrExtractInfo(x)
+                return "%s [Teredo srv: %s cli: %s:%s]" % (self.i2h(pkt, x), server, maddr, mport)
+            elif in6_isaddr6to4(x):   # print encapsulated address
+                vaddr = in6_6to4ExtractAddr(x)
+                return "%s [6to4 GW: %s]" % (self.i2h(pkt, x), vaddr)
+        r = self.i2h(pkt, x)          # No specific information to return
+        return r if isinstance(r, str) else repr(r)
+
+    def randval(self):
+        return RandIP6()
+
+
+class SourceIP6Field(IP6Field):
+    __slots__ = ["dstname"]
+
+    def __init__(self, name, dstname):
+        IP6Field.__init__(self, name, None)
+        self.dstname = dstname
+
+    def i2m(self, pkt, x):
+        if x is None:
+            dst = ("::" if self.dstname is None else
+                   getattr(pkt, self.dstname) or "::")
+            iff, x, nh = conf.route6.route(dst)
+        return IP6Field.i2m(self, pkt, x)
+
+    def i2h(self, pkt, x):
+        if x is None:
+            if conf.route6 is None:
+                # unused import, only to initialize conf.route6
+                import scapy.route6
+            dst = ("::" if self.dstname is None else getattr(pkt, self.dstname))
+            if isinstance(dst, (Gen, list)):
+                r = {conf.route6.route(str(daddr)) for daddr in dst}
+                if len(r) > 1:
+                    warning("More than one possible route for %r" % (dst,))
+                x = min(r)[1]
+            else:
+                x = conf.route6.route(dst)[1]
+        return IP6Field.i2h(self, pkt, x)
+
+
+class DestIP6Field(IP6Field, DestField):
+    bindings = {}
+
+    def __init__(self, name, default):
+        IP6Field.__init__(self, name, None)
+        DestField.__init__(self, name, default)
+
+    def i2m(self, pkt, x):
+        if x is None:
+            x = self.dst_from_pkt(pkt)
+        return IP6Field.i2m(self, pkt, x)
+
+    def i2h(self, pkt, x):
+        if x is None:
+            x = self.dst_from_pkt(pkt)
+        return IP6Field.i2h(self, pkt, x)
 
 
 class ByteField(Field):
@@ -609,7 +825,7 @@ class StrField(Field):
         return len(i)
 
     def any2i(self, pkt, x):
-        if isinstance(x, str if six.PY3 else unicode):
+        if isinstance(x, six.text_type):
             x = raw(x)
         return super(StrField, self).any2i(pkt, x)
 
@@ -1228,9 +1444,9 @@ class _EnumField(Field):
             self.i2s_cb = None
             self.s2i_cb = None
             if isinstance(enum, list):
-                keys = range(len(enum))
+                keys = list(range(len(enum)))
             elif isinstance(enum, DADict):
-                keys = enum.iterkeys()
+                keys = enum.keys()
             else:
                 keys = list(enum)
             if any(isinstance(x, str) for x in keys):

@@ -18,7 +18,8 @@ import types
 from select import select
 from collections import defaultdict
 
-from scapy.utils import checksum, inet_aton, inet_ntoa
+from scapy.utils import checksum, do_graph, incremental_label, inet_aton, \
+    inet_ntoa, linehexdump, strxor
 from scapy.base_classes import Gen
 from scapy.data import *
 from scapy.layers.l2 import *

@@ -12,16 +12,21 @@
 # scapy.contrib.status = loads
 
 from __future__ import absolute_import
-import time
-import logging
+import struct
 
-from scapy.packet import *
-from scapy.fields import *
+
+from scapy.compat import chb, orb
+from scapy.error import warning
+from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
+    ConditionalField, FieldLenField, FieldListField, FlagsField, IntField, \
+    IPField, PacketListField, ShortField, StrFixedLenField, StrLenField, \
+    XBitField, XByteField, XIntField
 from scapy.layers.inet import IP, UDP
 from scapy.layers.inet6 import IP6Field
-from scapy.error import warning
 from scapy.modules.six.moves import range
-from scapy.compat import chb, orb, plain_str
+from scapy.packet import bind_layers, Packet, Raw
+from scapy.volatile import RandInt, RandIP, RandNum, RandString
+
 
 # GTP Data types
 
@@ -34,7 +39,7 @@ RATType = {
 }
 
 GTPmessageType = {1: "echo_request",
-                     2: "echo_response",
+                  2: "echo_response",
                   16: "create_pdp_context_req",
                   17: "create_pdp_context_res",
                   18: "update_pdp_context_req",
@@ -907,7 +912,3 @@ bind_layers(UDP, GTP_U_Header, dport=2152)
 bind_layers(UDP, GTP_U_Header, sport=2152)
 bind_layers(GTP_U_Header, GTPErrorIndication, gtp_type=26, S=1)
 bind_layers(GTP_U_Header, IP, gtp_type=255)
-
-if __name__ == "__main__":
-    from scapy.all import *
-    interact(mydict=globals(), mybanner="GTPv1 add-on")

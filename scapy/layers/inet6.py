@@ -29,15 +29,11 @@ from __future__ import print_function
 
 from functools import reduce
 from hashlib import md5
-import operator
 import random
-import re
 import socket
 import struct
 from time import gmtime, strftime
 
-import scapy.modules.six as six
-from scapy.modules.six.moves import range
 if not socket.has_ipv6:
     raise socket.error("can't use AF_INET6, IPv6 is disabled")
 if not hasattr(socket, "IPPROTO_IPV6"):
@@ -48,31 +44,33 @@ if not hasattr(socket, "IPPROTO_IPIP"):
     socket.IPPROTO_IPIP = 4
 
 from scapy.arch import get_if_hwaddr
-from scapy.config import conf
+from scapy.as_resolvers import AS_resolver_riswhois
 from scapy.base_classes import Gen
+from scapy.compat import chb, orb, raw, plain_str
+from scapy.config import conf
+import scapy.consts
 from scapy.data import DLT_IPV6, DLT_RAW, DLT_RAW_ALT, ETHER_ANY, ETH_P_IPV6, \
     MTU
-from scapy.compat import chb, orb, raw, plain_str
-import scapy.consts
+from scapy.error import warning
 from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
-    DestField, Field, FieldLenField, FlagsField, IntField, LongField, \
-    MACField, PacketLenField, PacketListField, ShortEnumField, ShortField, \
-    StrField, StrFixedLenField, StrLenField, X3BytesField, XBitField, \
-    XIntField, XShortField
-from scapy.packet import bind_layers, Packet, Raw
-from scapy.volatile import RandInt, RandIP6, RandShort
-from scapy.sendrecv import sendp, sniff, sr, srp1
-from scapy.as_resolvers import AS_resolver_riswhois
-from scapy.supersocket import SuperSocket, L3RawSocket
-from scapy.utils6 import in6_6to4ExtractAddr, in6_and, in6_cidr2mask, \
-    in6_getnsma, in6_getnsmac, in6_isaddr6to4, in6_isaddrllallnodes, \
-    in6_isaddrllallservers, in6_isaddrTeredo, in6_isllsnmaddr, in6_ismaddr, \
-    in6_ptop, teredoAddrExtractInfo
-from scapy.layers.l2 import CookedLinux, Ether, GRE, Loopback, SNAP
+    DestIP6Field, FieldLenField, FlagsField, IntField, IP6Field, \
+    LongField, MACField, PacketLenField, PacketListField, ShortEnumField, \
+    ShortField, SourceIP6Field, StrField, StrFixedLenField, StrLenField, X3BytesField, \
+    XBitField, XIntField, XShortField
 from scapy.layers.inet import IP, IPTools, TCP, TCPerror, TracerouteResult, \
     UDP, UDPerror
+from scapy.layers.l2 import CookedLinux, Ether, GRE, Loopback, SNAP
+import scapy.modules.six as six
+from scapy.modules.six.moves import range
+from scapy.packet import bind_layers, Packet, Raw
+from scapy.sendrecv import sendp, sniff, sr, srp1
+from scapy.supersocket import SuperSocket, L3RawSocket
 from scapy.utils import checksum, inet_pton, inet_ntop, strxor
-from scapy.error import warning
+from scapy.utils6 import in6_getnsma, in6_getnsmac, in6_isaddr6to4, in6_isaddrllallnodes, \
+    in6_isaddrllallservers, in6_isaddrTeredo, in6_isllsnmaddr, in6_ismaddr, \
+    Net6, teredoAddrExtractInfo
+from scapy.volatile import RandInt, RandShort
+
 if conf.route6 is None:
     # unused import, only to initialize conf.route6
     import scapy.route6
@@ -152,169 +150,9 @@ def getmacbyip6(ip6, chainCC=0):
 
 #############################################################################
 #############################################################################
-#                IPv6 addresses manipulation routines                       #
-#############################################################################
-#############################################################################
-
-class Net6(Gen):  # syntax ex. fec0::/126
-    """Generate a list of IPv6s from a network address or a name"""
-    name = "ipv6"
-    ip_regex = re.compile(r"^([a-fA-F0-9:]+)(/[1]?[0-3]?[0-9])?$")
-
-    def __init__(self, net):
-        self.repr = net
-
-        tmp = net.split('/') + ["128"]
-        if not self.ip_regex.match(net):
-            tmp[0] = socket.getaddrinfo(tmp[0], None, socket.AF_INET6)[0][-1][0]
-
-        netmask = int(tmp[1])
-        self.net = inet_pton(socket.AF_INET6, tmp[0])
-        self.mask = in6_cidr2mask(netmask)
-        self.plen = netmask
-
-    def _parse(self):
-        def parse_digit(value, netmask):
-            netmask = min(8, max(netmask, 0))
-            value = int(value)
-            return (value & (0xff << netmask),
-                    (value | (0xff >> (8 - netmask))) + 1)
-
-        self.parsed = [
-            parse_digit(x, y) for x, y in zip(
-                struct.unpack("16B", in6_and(self.net, self.mask)),
-                (x - self.plen for x in range(8, 129, 8)),
-            )
-        ]
-
-    def __iter__(self):
-        self._parse()
-
-        def rec(n, l):
-            sep = ':' if n and n % 2 == 0 else ''
-            if n == 16:
-                return l
-            return rec(n + 1, [y + sep + '%.2x' % i
-                               # faster than '%s%s%.2x' % (y, sep, i)
-                               for i in range(*self.parsed[n])
-                               for y in l])
-
-        return iter(rec(0, ['']))
-
-    def __iterlen__(self):
-        self._parse()
-        return reduce(operator.mul, ((y - x) for (x, y) in self.parsed), 1)
-
-    def __str__(self):
-        try:
-            return next(self.__iter__())
-        except StopIteration:
-            return None
-
-    def __eq__(self, other):
-        return str(other) == str(self)
-
-    def __ne__(self, other):
-        return str(other) != str(self)
-
-    def __repr__(self):
-        return "Net6(%r)" % self.repr
-
-
-#############################################################################
-#############################################################################
 #                                IPv6 Class                                 #
 #############################################################################
 #############################################################################
-
-class IP6Field(Field):
-    def __init__(self, name, default):
-        Field.__init__(self, name, default, "16s")
-
-    def h2i(self, pkt, x):
-        if isinstance(x, bytes):
-            x = plain_str(x)
-        if isinstance(x, str):
-            try:
-                x = in6_ptop(x)
-            except socket.error:
-                x = Net6(x)
-        elif isinstance(x, list):
-            x = [self.h2i(pkt, n) for n in x]
-        return x
-
-    def i2m(self, pkt, x):
-        return inet_pton(socket.AF_INET6, plain_str(x))
-
-    def m2i(self, pkt, x):
-        return inet_ntop(socket.AF_INET6, x)
-
-    def any2i(self, pkt, x):
-        return self.h2i(pkt, x)
-
-    def i2repr(self, pkt, x):
-        if x is None:
-            return self.i2h(pkt, x)
-        elif not isinstance(x, Net6) and not isinstance(x, list):
-            if in6_isaddrTeredo(x):   # print Teredo info
-                server, _, maddr, mport = teredoAddrExtractInfo(x)
-                return "%s [Teredo srv: %s cli: %s:%s]" % (self.i2h(pkt, x), server, maddr, mport)
-            elif in6_isaddr6to4(x):   # print encapsulated address
-                vaddr = in6_6to4ExtractAddr(x)
-                return "%s [6to4 GW: %s]" % (self.i2h(pkt, x), vaddr)
-        r = self.i2h(pkt, x)          # No specific information to return
-        return r if isinstance(r, str) else repr(r)
-
-    def randval(self):
-        return RandIP6()
-
-
-class SourceIP6Field(IP6Field):
-    __slots__ = ["dstname"]
-
-    def __init__(self, name, dstname):
-        IP6Field.__init__(self, name, None)
-        self.dstname = dstname
-
-    def i2m(self, pkt, x):
-        if x is None:
-            dst = getattr(pkt, self.dstname)
-            iff, x, nh = conf.route6.route(dst)
-        return IP6Field.i2m(self, pkt, x)
-
-    def i2h(self, pkt, x):
-        if x is None:
-            if conf.route6 is None:
-                # unused import, only to initialize conf.route6
-                import scapy.route6
-            dst = ("::" if self.dstname is None else getattr(pkt, self.dstname))
-            if isinstance(dst, (Gen, list)):
-                r = {conf.route6.route(str(daddr)) for daddr in dst}
-                if len(r) > 1:
-                    warning("More than one possible route for %r" % (dst,))
-                x = min(r)[1]
-            else:
-                x = conf.route6.route(dst)[1]
-        return IP6Field.i2h(self, pkt, x)
-
-
-class DestIP6Field(IP6Field, DestField):
-    bindings = {}
-
-    def __init__(self, name, default):
-        IP6Field.__init__(self, name, None)
-        DestField.__init__(self, name, default)
-
-    def i2m(self, pkt, x):
-        if x is None:
-            x = self.dst_from_pkt(pkt)
-        return IP6Field.i2m(self, pkt, x)
-
-    def i2h(self, pkt, x):
-        if x is None:
-            x = self.dst_from_pkt(pkt)
-        return IP6Field.i2h(self, pkt, x)
-
 
 ipv6nh = {0: "Hop-by-Hop Option Header",
           4: "IP",

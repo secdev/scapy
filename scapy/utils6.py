@@ -10,12 +10,14 @@
 Utility functions for IPv6.
 """
 from __future__ import absolute_import
+import operator
 import random
 import socket
 import struct
 
 from scapy.config import conf
 import scapy.consts
+from scapy.base_classes import Gen
 from scapy.data import *
 from scapy.utils import *
 from scapy.compat import *
@@ -23,7 +25,7 @@ from scapy.pton_ntop import *
 from scapy.volatile import RandMAC
 from scapy.error import warning
 from functools import reduce
-from scapy.modules.six.moves import range
+from scapy.modules.six.moves import range, zip
 
 
 def construct_source_candidate_set(addr, plen, laddr):
@@ -826,3 +828,68 @@ def in6_isvalid(address):
         return True
     except:
         return False
+
+
+class Net6(Gen):  # syntax ex. fec0::/126
+    """Generate a list of IPv6s from a network address or a name"""
+    name = "ipv6"
+    ip_regex = re.compile(r"^([a-fA-F0-9:]+)(/[1]?[0-3]?[0-9])?$")
+
+    def __init__(self, net):
+        self.repr = net
+
+        tmp = net.split('/') + ["128"]
+        if not self.ip_regex.match(net):
+            tmp[0] = socket.getaddrinfo(tmp[0], None, socket.AF_INET6)[0][-1][0]
+
+        netmask = int(tmp[1])
+        self.net = inet_pton(socket.AF_INET6, tmp[0])
+        self.mask = in6_cidr2mask(netmask)
+        self.plen = netmask
+
+    def _parse(self):
+        def parse_digit(value, netmask):
+            netmask = min(8, max(netmask, 0))
+            value = int(value)
+            return (value & (0xff << netmask),
+                    (value | (0xff >> (8 - netmask))) + 1)
+
+        self.parsed = [
+            parse_digit(x, y) for x, y in zip(
+                struct.unpack("16B", in6_and(self.net, self.mask)),
+                (x - self.plen for x in range(8, 129, 8)),
+            )
+        ]
+
+    def __iter__(self):
+        self._parse()
+
+        def rec(n, l):
+            sep = ':' if n and n % 2 == 0 else ''
+            if n == 16:
+                return l
+            return rec(n + 1, [y + sep + '%.2x' % i
+                               # faster than '%s%s%.2x' % (y, sep, i)
+                               for i in range(*self.parsed[n])
+                               for y in l])
+
+        return iter(rec(0, ['']))
+
+    def __iterlen__(self):
+        self._parse()
+        return reduce(operator.mul, ((y - x) for (x, y) in self.parsed), 1)
+
+    def __str__(self):
+        try:
+            return next(self.__iter__())
+        except StopIteration:
+            return None
+
+    def __eq__(self, other):
+        return str(other) == str(self)
+
+    def __ne__(self, other):
+        return str(other) != str(self)
+
+    def __repr__(self):
+        return "Net6(%r)" % self.repr

@@ -20,16 +20,24 @@
 # scapy.contrib.description = GTPv2
 # scapy.contrib.status = loads
 
-import time
 import logging
+import struct
+import time
 
-from scapy.packet import *
-from scapy.fields import *
+
+from scapy.compat import orb
+from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
+    ConditionalField, IntField, IPField, LongField, PacketField, \
+    PacketListField, ShortEnumField, ShortField, StrFixedLenField, \
+    StrLenField, ThreeBytesField, XBitField, XIntField, XShortField
 from scapy.layers.inet import IP, UDP
 from scapy.layers.inet6 import IP6Field
-from scapy.compat import orb
+from scapy.packet import bind_layers, Packet, Raw
+from scapy.volatile import RandIP, RandShort
 
-import scapy.contrib.gtp as gtp
+
+from scapy.contrib import gtp
+
 
 RATType = {
     6: "EUTRAN",
