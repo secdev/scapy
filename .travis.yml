@@ -42,7 +42,7 @@ matrix:
         - os: osx
           language: generic
           env:
-            - SCAPY_COVERAGE=yes
+            - TOXENV=py27-osx_non_root,codecov
 
         # Run as root
         - os: linux
@@ -94,7 +94,7 @@ matrix:
         - os: osx
           language: generic
           env:
-            - SCAPY_SUDO=sudo SCAPY_COVERAGE=yes
+            - TOXENV=py27-osx_root,codecov
 
         - os: osx
           language: generic
