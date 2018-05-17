@@ -241,6 +241,184 @@ class Dot11Elt(Packet):
         else:
             return ""
 
+    registered_ies = {}
+
+    @classmethod
+    def register_variant(cls):
+        cls.registered_ies[cls.ID.default] = cls
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt:
+            _id = orb(_pkt[0])
+            if _id == 221:
+                oui_a = orb(_pkt[2])
+                oui_b = orb(_pkt[3])
+                oui_c = orb(_pkt[4])
+                if oui_a == 0x00 and oui_b == 0x50 and oui_c == 0xf2:
+                    # MS OUI
+                    type_ = orb(_pkt[5])
+                    if type_ == 0x01:
+                        # MS WPA IE
+                        return Dot11EltMicrosoftWPA
+                    else:
+                        return Dot11EltVendorSpecific
+                else:
+                    return Dot11EltVendorSpecific
+            else:
+                return cls.registered_ies.get(_id, cls)
+        return cls
+
+    def haslayer(self, cls):
+        if cls == "Dot11Elt":
+            if isinstance(self, Dot11Elt):
+                return True
+        elif issubtype(cls, Dot11Elt):
+            if isinstance(self, cls):
+                return True
+        return super(Dot11Elt, self).haslayer(cls)
+
+    def getlayer(self, cls, nb=1, _track=None, _subclass=True, **flt):
+        return super(Dot11Elt, self).getlayer(cls, nb=nb, _track=_track,
+                                              _subclass=True, **flt)
+
+
+class RSNCipherSuite(Packet):
+    name = "Cipher suite"
+    fields_desc = [
+        X3BytesField("oui", 0x000fac),
+        ByteEnumField("cipher", 0x04, {
+            0x00: "Use group cipher suite",
+            0x01: "WEP-40",
+            0x02: "TKIP",
+            0x03: "Reserved",
+            0x04: "CCMP",
+            0x05: "WEP-104"
+        })
+    ]
+
+    def extract_padding(self, s):
+        return "", s
+
+
+class AKMSuite(Packet):
+    name = "AKM suite"
+    fields_desc = [
+        X3BytesField("oui", 0x000fac),
+        ByteEnumField("suite", 0x01, {
+            0x00: "Reserved",
+            0x01: "IEEE 802.1X / PMKSA caching",
+            0x02: "PSK"
+        })
+    ]
+
+    def extract_padding(self, s):
+        return "", s
+
+
+class PMKIDListPacket(Packet):
+    name = "PMKIDs"
+    fields_desc = [
+        LEFieldLenField("nb_pmkids", 0, count_of="pmk_id_list"),
+        FieldListField(
+            "pmkid_list",
+            None,
+            XStrFixedLenField("", "", length=16),
+            count_from=lambda pkt: pkt.nb_pmkids
+        )
+    ]
+
+    def extract_padding(self, s):
+        return "", s
+
+
+class Dot11EltRSN(Dot11Elt):
+    name = "RSN information"
+    fields_desc = [
+        ByteField("ID", 48),
+        FieldLenField("len", 0, "info", "B"),
+        LEShortField("version", 1),
+        PacketField("group_cipher_suite", RSNCipherSuite(), RSNCipherSuite),
+        LEFieldLenField(
+            "nb_pairwise_cipher_suites",
+            1,
+            count_of="pairwise_cipher_suites"
+        ),
+        PacketListField(
+            "pairwise_cipher_suites",
+            [RSNCipherSuite()],
+            RSNCipherSuite,
+            count_from=lambda p: p.nb_pairwise_cipher_suites
+        ),
+        LEFieldLenField(
+            "nb_akm_suites",
+            1,
+            count_of="akm_suites"
+        ),
+        PacketListField(
+            "akm_suites",
+            [AKMSuite()],
+            AKMSuite,
+            count_from=lambda p: p.nb_akm_suites
+        ),
+        BitField("pre_auth", 0, 1),
+        BitField("no_pairwise", 0, 1),
+        BitField("ptksa_replay_counter", 0, 2),
+        BitField("gtksa_replay_counter", 0, 2),
+        BitField("mfp_required", 0, 1),
+        BitField("mfp_capable", 0, 1),
+        BitField("reserved", 0, 8),
+        ConditionalField(
+            PacketField("pmkids", None, PMKIDListPacket),
+            lambda pkt: pkt.len - (12 + (pkt.nb_pairwise_cipher_suites * 4) +
+                                   (pkt.nb_akm_suites * 4)) >= 18
+        )
+    ]
+
+
+class Dot11EltMicrosoftWPA(Dot11Elt):
+    name = "Microsoft WPA"
+    fields_desc = [
+        ByteField("ID", 221),
+        FieldLenField("len", 0, "info", "B"),
+        X3BytesField("oui", 0x0050f2),
+        XByteField("type", 0x01),
+        LEShortField("version", 1),
+        PacketField("group_cipher_suite", RSNCipherSuite(), RSNCipherSuite),
+        LEFieldLenField(
+            "nb_pairwise_cipher_suites",
+            1,
+            count_of="pairwise_cipher_suites"
+        ),
+        PacketListField(
+            "pairwise_cipher_suites",
+            RSNCipherSuite(),
+            RSNCipherSuite,
+            count_from=lambda p: p.nb_pairwise_cipher_suites
+        ),
+        LEFieldLenField(
+            "nb_akm_suites",
+            1,
+            count_of="akm_suites"
+        ),
+        PacketListField(
+            "akm_suites",
+            AKMSuite(),
+            AKMSuite,
+            count_from=lambda p: p.nb_akm_suites
+        )
+    ]
+
+
+class Dot11EltVendorSpecific(Dot11Elt):
+    name = "Vendor Specific"
+    fields_desc = [
+        ByteField("ID", 221),
+        FieldLenField("len", 0, "info", "B"),
+        X3BytesField("oui", 0x000000),
+        StrLenField("info", "", length_from=lambda x: x.len - 3)
+    ]
+
 
 class Dot11ATIM(Packet):
     name = "802.11 ATIM"
