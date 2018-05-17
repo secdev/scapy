@@ -269,8 +269,9 @@ class Dot11Elt(Packet):
         return cls
 
     def haslayer(self, cls):
-        if isinstance(self, Dot11Elt):
-            return True
+        if cls == "Dot11Elt":
+            if isinstance(self, Dot11Elt):
+                return True
         elif issubtype(cls, Dot11Elt):
             if isinstance(self, cls):
                 return True
