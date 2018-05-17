@@ -455,16 +455,22 @@ def atol(x):
 
 
 def valid_ip(addr):
-    addr = plain_str(addr)
+    try:
+        addr = plain_str(addr)
+    except UnicodeDecodeError:
+        return False
     try:
         atol(addr)
-    except (OSError, socket.error):
+    except (OSError, ValueError, socket.error):
         return False
     return True
 
 
 def valid_net(addr):
-    addr = plain_str(addr)
+    try:
+        addr = plain_str(addr)
+    except UnicodeDecodeError:
+        return False
     if '/' in addr:
         ip, mask = addr.split('/', 1)
         return valid_ip(ip) and mask.isdigit() and 0 <= int(mask) <= 32
@@ -472,7 +478,10 @@ def valid_net(addr):
 
 
 def valid_ip6(addr):
-    addr = plain_str(addr)
+    try:
+        addr = plain_str(addr)
+    except UnicodeDecodeError:
+        return False
     try:
         inet_pton(socket.AF_INET6, addr)
     except socket.error:
@@ -484,7 +493,10 @@ def valid_ip6(addr):
 
 
 def valid_net6(addr):
-    addr = plain_str(addr)
+    try:
+        addr = plain_str(addr)
+    except UnicodeDecodeError:
+        return False
     if '/' in addr:
         ip, mask = addr.split('/', 1)
         return valid_ip6(ip) and mask.isdigit() and 0 <= int(mask) <= 128

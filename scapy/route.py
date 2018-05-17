@@ -130,7 +130,10 @@ class Route:
         if dest is None:
             dest = "0.0.0.0"
         elif isinstance(dest, bytes):
-            dest = plain_str(dest)
+            try:
+                dest = plain_str(dest)
+            except UnicodeDecodeError:
+                dest = "0.0.0.0"
         if dest in self.cache:
             return self.cache[dest]
         if verbose is None:
