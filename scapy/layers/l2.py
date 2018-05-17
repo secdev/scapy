@@ -14,21 +14,27 @@ import struct
 import time
 import socket
 
-import scapy
-from scapy.base_classes import Net
+from scapy.ansmachine import AnsweringMachine
+from scapy.arch import get_if_addr, get_if_hwaddr
+from scapy.base_classes import Gen, Net
+from scapy.compat import chb, orb
 from scapy.config import conf
-from scapy.data import *
-from scapy.compat import *
-from scapy.packet import *
-from scapy.ansmachine import *
-from scapy.plist import PacketList, SndRcvList
-from scapy.fields import *
-from scapy.sendrecv import srp, srp1, srpflood
-from scapy.arch import get_if_hwaddr
-from scapy.utils import inet_ntoa, inet_aton, valid_mac, valid_ip, valid_net, \
-    valid_net6
+from scapy import consts
+from scapy.data import ARPHDR_ETHER, ARPHDR_LOOPBACK, ARPHDR_METRICOM, \
+    DLT_LINUX_IRDA, DLT_LINUX_SLL, DLT_LOOP, DLT_NULL, ETHER_ANY, \
+    ETHER_BROADCAST, ETHER_TYPES, ETH_P_ARP, ETH_P_MACSEC
 from scapy.error import warning
+from scapy.fields import BCDFloatField, BitField, ByteField, \
+    ConditionalField, EnumField, FieldLenField, IntField, IP6Field, IPField, \
+    LenField, MACField, MultipleTypeField, ShortEnumField, ShortField, \
+    SourceIP6Field, SourceIPField, StrFixedLenField, StrLenField, \
+    X3BytesField, XByteField, XIntField, XShortEnumField, XShortField
 from scapy.modules.six import viewitems
+from scapy.packet import bind_layers, Packet
+from scapy.plist import PacketList, SndRcvList
+from scapy.sendrecv import sendp, srp, srp1
+from scapy.utils import checksum, hexdump, hexstr, inet_ntoa, inet_aton, \
+    mac2str, valid_mac, valid_ip, valid_net, valid_net6
 if conf.route is None:
     # unused import, only to initialize conf.route
     import scapy.route
@@ -69,8 +75,8 @@ def getmacbyip(ip, chainCC=0):
     tmp = [orb(e) for e in inet_aton(ip)]
     if (tmp[0] & 0xf0) == 0xe0:  # mcast @
         return "01:00:5e:%.2x:%.2x:%.2x" % (tmp[1] & 0x7f, tmp[2], tmp[3])
-    iff, a, gw = conf.route.route(ip)
-    if ((iff == scapy.consts.LOOPBACK_INTERFACE) or (ip == conf.route.get_if_bcast(iff))):
+    iff, _, gw = conf.route.route(ip)
+    if ((iff == consts.LOOPBACK_INTERFACE) or (ip == conf.route.get_if_bcast(iff))):
         return "ff:ff:ff:ff:ff:ff"
     if gw != "0.0.0.0":
         ip = gw
