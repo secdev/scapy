@@ -247,7 +247,7 @@ if WINDOWS:
     # Default value, will be updated by arch.windows
     try:
         MANUFDB = load_manuf(os.environ["ProgramFiles"] + "\\wireshark\\manuf")
-    except IOError:
+    except (IOError, OSError):  # FileNotFoundError not available on Py2 - using OSError
         MANUFDB = None
 else:
     IP_PROTOS = load_protocols("/etc/protocols")
@@ -260,7 +260,7 @@ else:
                                               "manuf"))
             if MANUFDB:
                 break
-        except IOError:
+        except (IOError, OSError):  # Same as above
             pass
     if not MANUFDB:
         log_loading.warning("Cannot read wireshark manuf database")
