@@ -373,16 +373,21 @@ class ARP(Packet):
             StrFixedLenField("pdst", None, length_from=lambda pkt: pkt.plen),
         ),
     ]
-    who_has = 1
-    is_at = 2
+
+    def hashret(self):
+        return struct.pack(">HHH", self.hwtype, self.ptype,
+                           ((self.op + 1) // 2)) + self.payload.hashret()
 
     def answers(self, other):
-        if isinstance(other, ARP):
-            if ((self.op == self.is_at) and
-                (other.op == self.who_has) and
-                    (self.psrc == other.pdst)):
-                return 1
-        return 0
+        if not isinstance(other, ARP):
+            return False
+        if self.op != other.op + 1:
+            return False
+        # We use a loose comparison on psrc vs pdst to catch answers
+        # with ARP leaks
+        self_psrc = self.get_field('psrc').i2m(self, self.psrc)
+        other_pdst = other.get_field('pdst').i2m(other, other.pdst)
+        return self_psrc[:len(other_pdst)] == other_pdst[:len(self_psrc)]
 
     def route(self):
         dst = self.pdst
@@ -394,12 +399,11 @@ class ARP(Packet):
         return "", s
 
     def mysummary(self):
-        if self.op == self.is_at:
-            return self.sprintf("ARP is at %hwsrc% says %psrc%")
-        elif self.op == self.who_has:
+        if self.op == 1:
             return self.sprintf("ARP who has %pdst% says %psrc%")
-        else:
-            return self.sprintf("ARP %op% %psrc% > %pdst%")
+        if self.op == 2:
+            return self.sprintf("ARP is at %hwsrc% says %psrc%")
+        return self.sprintf("ARP %op% %psrc% > %pdst%")
 
 
 def l2_register_l3_arp(l2, l3):

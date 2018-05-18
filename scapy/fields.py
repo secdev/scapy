@@ -322,6 +322,9 @@ the value to set is also known) of ._find_fld_pkt() instead.
     def i2h(self, pkt, val):
         return self._find_fld_pkt_val(pkt, val).i2h(pkt, val)
 
+    def i2m(self, pkt, val):
+        return self._find_fld_pkt_val(pkt, val).i2m(pkt, val)
+
     def i2len(self, pkt, val):
         return self._find_fld_pkt_val(pkt, val).i2len(pkt, val)
 
