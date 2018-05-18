@@ -81,7 +81,12 @@ t_bridge.join()
 t_sniff.join()
 
 = Delete the tap interfaces
-del tap0, tap1
+if conf.use_pypy:
+    # See https://pypy.readthedocs.io/en/latest/cpython_differences.html
+    tap0.close()
+    tap1.close()
+else:
+    del tap0, tap1
 
 
 ############
@@ -166,7 +171,12 @@ t_bridge.join()
 t_sniff.join()
 
 = Delete the tun interfaces
-del tun0, tun1
+if conf.use_pypy:
+    # See https://pypy.readthedocs.io/en/latest/cpython_differences.html
+    tun0.close()
+    tun1.close()
+else:
+    del tun0, tun1
 
 
 ############
@@ -290,4 +300,8 @@ assert len(unans) == 1
 
 t_answer.join()
 
-del tap0
+if conf.use_pypy:
+    # See https://pypy.readthedocs.io/en/latest/cpython_differences.html
+    tap0.close()
+else:
+    del tap0
