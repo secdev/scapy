@@ -1,4 +1,5 @@
 # This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more informations
 # Scapy is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 2 of the License, or
@@ -12,22 +13,17 @@
 # You should have received a copy of the GNU General Public License
 # along with Scapy. If not, see <http://www.gnu.org/licenses/>.
 
-# author: <jellch@harris.com>
-
-# scapy.contrib.description = PPI
-# scapy.contrib.status = loads
-
+# Original PPI author: <jellch@harris.com>
 
 """
-PPI (Per-Packet Information).
+Per-Packet Information (PPI) Protocol
 """
-import logging
+
 import struct
-
 
 from scapy.config import conf
 from scapy.data import DLT_EN10MB, DLT_IEEE802_11, DLT_PPI
-from scapy.packet import *
+from scapy.packet import bind_layers, Packet
 from scapy.fields import *
 from scapy.layers.l2 import Ether
 from scapy.layers.dot11 import Dot11
@@ -85,12 +81,12 @@ def _PPIGuessPayloadClass(p, **kargs):
 
 
 class PPI(Packet):
-    name = "PPI Packet Header"
-    fields_desc = [ByteField('pph_version', 0),
-                   ByteField('pph_flags', 0),
-                   FieldLenField('pph_len', None, length_of="PPIFieldHeaders", fmt="<H", adjust=lambda p, x:x + 8),
-                   LEIntField('dlt', None),
-                   PacketListField("PPIFieldHeaders", [], _PPIGuessPayloadClass, length_from=lambda p:p.pph_len - 8,)]
+    name = "Per-Packet Information header (PPI)"
+    fields_desc = [ByteField('version', 0),
+                   ByteField('flags', 0),
+                   FieldLenField('len', None, length_of="PPIFieldHeaders", fmt="<H", adjust=lambda p, x: x + 8),
+                   LEIntField('dlt', 1),
+                   PacketListField("PPIFieldHeaders", [], _PPIGuessPayloadClass, length_from=lambda p: p.len - 8,)]
 
     def guess_payload_class(self, payload):
         return conf.l2types.get(self.dlt, Packet.guess_payload_class(self, payload))

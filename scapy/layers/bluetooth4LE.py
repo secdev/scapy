@@ -14,7 +14,7 @@ from scapy.config import conf
 from scapy.data import MTU, DLT_BLUETOOTH_LE_LL
 from scapy.packet import *
 from scapy.fields import *
-from scapy.layers import dot11
+from scapy.layers.ppi import PPI
 
 from scapy.modules.six.moves import range
 
@@ -123,7 +123,7 @@ class BTLE(Packet):
         return s[:4] + s[-3:] + s[4:-3]
 
     def post_dissection(self, pkt):
-        if isinstance(pkt, dot11.PPI):
+        if isinstance(pkt, PPI):
             pkt.notdecoded = PPI_FieldHeader(pkt.notdecoded)
 
     def hashret(self):
@@ -261,5 +261,5 @@ bind_layers(BTLE_ADV, BTLE_ADV_SCAN_IND, PDU_type=6)
 
 conf.l2types.register(DLT_BLUETOOTH_LE_LL, BTLE)
 
-bind_layers(dot11.PPI, BTLE, dlt=147)
+bind_layers(PPI, BTLE, dlt=147)
 bind_layers(PPI_FieldHeader, BTLE_PPI, pfh_type=30006)
