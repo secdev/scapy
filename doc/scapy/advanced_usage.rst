@@ -1287,169 +1287,143 @@ Beagle Bone Black Operating System Setup
        systemctl restart connman.service
 
 
-#. | **Install Required Packages**
-   | This step is required to install all necessary software packages to
-     continue with the modification of the BBB device tree overlay.
-
-   ::
-
-       apt-get update
-       apt-get -y upgrade
-       exit
-       git clone https://github.com/beagleboard/bb.org-overlays
-       cd ./bb.org-overlays
-
-
-   Verify the installed DTC1 version to ensure that the DTC1 is suitable
-   for the downloaded overlays. Version 1.4.1 or higher is required.
-
-   ::
-
-       dtc --version
-
-
-   Update the installed DTC1 with an update script in the cloned
-   repository.
-
-   ::
-
-       ./dtc-overlay.sh
-
-
-   Compile all delivered DTS files and install the DTBO onto the current
-   system. Again, a delivered script simplifies this job.
-
-   ::
-
-       ./install.sh
-
-
-   Now, the operating system and the device tree are ready for
-   modifications.
-
 Dual-CAN Setup
 ~~~~~~~~~~~~~~
 
-#. | **Create a CAN0 Overlay**
+#. | **Device tree setup**
+   | You’ll need to follow this section only if you want to use two CAN
+    interfaces (DCAN0 and DCAN1). This will disable I2C2 from using pins
+    P9.19 and P9.20, which are needed by DCAN0. You only need to perform the
+    steps in this section once.
+
+   | Warning: The configuration in this section will disable BBB capes from
+    working. Each cape has a small I2C EEPROM that stores info that the BBB
+    needs to know in order to communicate with the cape. Disable I2C2, and
+    the BBB has no way to talk to cape EEPROMs. Of course, if you don’t use
+    capes then this is not a problem.
+
+   | Acquire DTS sources that matches your kernel version. Go
+    `here <https://github.com/beagleboard/linux/>`__ and switch over to the
+    branch that represents your kernel version. Download the entire branch
+    as a ZIP file. Extract it and do the following (version 4.1 shown as an
+    example):
+
+    ::
+
+        # cd ~/src/linux-4.1/arch/arm/boot/dts/include/
+        # rm dt-bindings
+        # ln -s ../../../../../include/dt-bindings
+        # cd ..
+        Edit am335x-bone-common.dtsi and ensure the line with "//pinctrl-0 = <&i2c2_pins>;" is commented out.
+        Remove the complete &ocp section at the end of this file
+        # mv am335x-boneblack.dts am335x-boneblack.raw.dts
+        # cpp -nostdinc -I include -undef -x assembler-with-cpp am335x-boneblack.raw.dts > am335x-boneblack.dts
+        # dtc -W no-unit_address_vs_reg -O dtb -o am335x-boneblack.dtb -b 0 -@ am335x-boneblack.dts
+        # cp /boot/dtbs/am335x-boneblack.dtb /boot/dtbs/am335x-boneblack.orig.dtb
+        # cp am335x-boneblack.dtb /boot/dtbs/
+        Reboot
+
+#. **Overlay setup**
+    | This section describes how to build the device overlays for the two CAN devices (DCAN0 and DCAN1). You only need to perform the steps in this section once.
+    | Acquire BBB cape overlays, in one of two ways…
+
+    ::
+
+        # apt-get install bb-cape-overlays
+        https://github.com/beagleboard/bb.org-overlays/
+
+    | Then do the following:
+
+
+    ::
+
+        # cd ~/src/bb.org-overlays-master/src/arm
+        # ln -s ../../include
+        # mv BB-CAN1-00A0.dts BB-CAN1-00A0.raw.dts
+        # cp BB-CAN1-00A0.raw.dts BB-CAN0-00A0.raw.dts
+        Edit BB-CAN0-00A0.raw.dts and make relevant to CAN0. Example is shown below.
+        # cpp -nostdinc -I include -undef -x assembler-with-cpp BB-CAN0-00A0.raw.dts > BB-CAN0-00A0.dts
+        # cpp -nostdinc -I include -undef -x assembler-with-cpp BB-CAN1-00A0.raw.dts > BB-CAN1-00A0.dts
+        # dtc -W no-unit_address_vs_reg -O dtb -o BB-CAN0-00A0.dtbo -b 0 -@ BB-CAN0-00A0.dts
+        # dtc -W no-unit_address_vs_reg -O dtb -o BB-CAN1-00A0.dtbo -b 0 -@ BB-CAN1-00A0.dts
+        # cp *.dtbo /lib/firmware
+
+
+#. | **CAN0 Example Overlay**
    | Inside the DTS folder, create a file with the content of the
      following listing.
 
    ::
 
-       cd ~/bb.org-overlays/src/arm
-       cat <<EOF > BB-CAN0-00A0.dts
+        cd ~/bb.org-overlays/src/arm
+        cat <<EOF > BB-CAN0-00A0.raw.dts
 
-       /dts-v1/;
-       /plugin/;
+        /*
+         * Copyright (C) 2015 Robert Nelson <robertcnelson@gmail.com>
+         *
+         * Virtual cape for CAN0 on connector pins P9.19 P9.20
+         *
+         * This program is free software; you can redistribute it and/or modify
+         * it under the terms of the GNU General Public License version 2 as
+         * published by the Free Software Foundation.
+         */
+        /dts-v1/;
+        /plugin/;
 
-       #include <dt-bindings/board/am335x-bbw-bbb-base.h>
-       #include <dt-bindings/pinctrl/am33xx.h>
+        #include <dt-bindings/board/am335x-bbw-bbb-base.h>
+        #include <dt-bindings/pinctrl/am33xx.h>
 
-       / {
-           compatible = "ti,beaglebone", \
-           "ti,beaglebone-black", "ti,beaglebone-green";
+        / {
+            compatible = "ti,beaglebone", "ti,beaglebone-black", "ti,beaglebone-green";
 
-           /* identification */
-           part-number = "BB-CAN0";
-           version = "00A0";
+            /* identification */
+            part-number = "BB-CAN0";
+            version = "00A0";
 
-           /* state the resources this cape uses */
-           exclusive-use =
-           /* the pin header uses */
-           "P9.19", /* can0_rx */
-           "P9.20", /* can0_tx */
-           /* the hardware ip uses */
-           "dcan0";
+            /* state the resources this cape uses */
+            exclusive-use =
+                /* the pin header uses */
+                "P9.19",	/* can0_rx */
+                "P9.20",	/* can0_tx */
+                /* the hardware ip uses */
+                "dcan0";
 
-           fragment@0 {
-               target = <&am33xx_pinmux>;
-               __overlay__ {
-                bb_dcan0_pins: pinmux_dcan0_pins {
-                   pinctrl-single,pins = <
-                    0x178 0x12 /* d_can0_tx */
-                    0x17C 0x32 /* d_can0_rx */
-                    >;
-                   };
-               };
-           };
+            fragment@0 {
+                target = <&am33xx_pinmux>;
+                __overlay__ {
+                    bb_dcan0_pins: pinmux_dcan0_pins {
+                        pinctrl-single,pins = <
+                            BONE_P9_19 (PIN_INPUT_PULLUP | MUX_MODE2) /* uart1_txd.d_can0_rx */
+                            BONE_P9_20 (PIN_OUTPUT_PULLUP | MUX_MODE2) /* uart1_rxd.d_can0_tx */
+                        >;
+                    };
+                };
+            };
 
-           fragment@1 {
-               target = <&dcan0>;
-               __overlay__ {
-                status = "okay";
-                pinctrl-names = "default";
-                pinctrl-0 = <&bb_dcan0_pins>;
-               };
-           };
-       };
-       EOF
-
-
-   Compile the generated file with the delivered Makefile from the
-   repository.
-
-   ::
-
-       cd ../../
-       make
-       sudo make install
-
-
-#. | **Modify the Boot Device Tree Blob**
-   | Backup and decompile the current device tree blob.
-
-   ::
-
-       cp /boot/dtbs/4.4.54-ti-r93/am335x-boneblack.dtb ~/
-       dtc -I dtb -O dts ~/am335x-boneblack.dtb > ~/am335x-boneblack.dts
-
-
-   To free the CAN0 pins of the BBB, used I2C2 pins need to be disabled.
-   This can be done by commenting out the appropriate lines in the DTS
-   file. Search for the pinmux\_i2c2\_pins section and save the modified
-   file with a new name. The BeagleBone community uses the I2C2
-   peripheral module for the communication and identification of
-   extension modules, so called capes. This modification disables the
-   compatibility to any of these capes.
-
-   ::
-
-       vim am335x-boneblack.dts
-
-       895 /* pinmux_i2c2_pins {
-       896     pinctrl-single,pins = <0x178 0x33 0x17c 0x33>;
-       897     linux,phandle = <0x35>;
-       898     phandle = <0x35>;
-       899 };*/
-
-       : wq am335x-boneblack_new.dts
-
-
-   Compile the modified DTS file and replace the original file in the
-   boot partition of the BBB. Reboot the BBB after the replacement.
-
-   ::
-
-       dtc -O dtb -o ~/am335x-boneblack_new.dtb -b 0 ~/am335x-boneblack_new.dts
-
-       cp ~/am335x-boneblack_new.dtb /boot/dtbs/4.4.54-ti-r93/am335x-boneblack.dtb
-
-       reboot
+            fragment@1 {
+                target = <&dcan0>;
+                __overlay__ {
+                    status = "okay";
+                    pinctrl-names = "default";
+                    pinctrl-0 = <&bb_dcan0_pins>;
+                };
+            };
+        };
+        EOF
 
 
 #. | **Test the Dual-CAN Setup**
-   | Load the CAN kernel modules and the overlays.
+   | Do the following each time you need CAN, or automate these steps if you like.
 
    ::
 
-       sudo su
-       modprobe can
-       modprobe can-dev
-       modprobe can-raw
-
-       echo BB-CAN0 > /sys/devices/platform/bone_capemgr/slots
-       echo BB-CAN1 > /sys/devices/platform/bone_capemgr/slots
-
+        # echo BB-CAN0 > /sys/devices/platform/bone_capemgr/slots
+        # echo BB-CAN1 > /sys/devices/platform/bone_capemgr/slots
+        # modprobe can
+        # modprobe can-dev
+        # modprobe can-raw
+        # ip link set can0 up type can bitrate 50000
+        # ip link set can1 up type can bitrate 50000
 
    Check the output of the Capemanager if both CAN interfaces have been
    loaded.
@@ -1466,20 +1440,18 @@ Dual-CAN Setup
        5: P-O-L-   1 Override Board Name,00A0,Override Manuf, BB-CAN1
 
 
-   If something went wrong, ``dmesg`` provides kernel messages to
-   analyze the root of failure.
+   If something went wrong, ``dmesg`` provides kernel messages to analyze the root of failure.
 
-#. **Optional: Enable Dual-CAN Setup at Boot**
+#. | **References**
 
-   ::
+    -  `embedded-things.com: Enable CANbus on the Beaglebone
+       Black <http://www.embedded-things.com/bbb/enable-canbus-on-the-beaglebone-black/>`__
+    -  `electronics.stackexchange.com: Beaglebone Black CAN bus
+       Setup <https://electronics.stackexchange.com/questions/195416/beaglebone-black-can-bus-setup>`__
 
-       echo "modprobe can \
-       modprobe can-dev \
-       modprobe can-raw" >> /etc/modules
+#. | **Acknowledgment**
+   | Thanks to Tom Haramori. Parts of this section are copied from his guide: https://github.com/haramori/rhme3/blob/master/Preparation/BBB_CAN_setup.md
 
-       echo "cape_enable=bone_capemgr.enable_partno=BB-CAN0,BB-CAN1" >> /boot/uEnv.txt
-
-       update-initramfs -u
 
 
 ISO-TP Kernel Module Installation
@@ -1537,6 +1509,5 @@ setup of virtual CAN interfaces.
 
     cannelloni -I vcan0 -R <remote-IP> -r 20000 -l 20000 &
     cannelloni -I vcan1 -R <remote-IP> -r 20001 -l 20001 &
-
 
 
