@@ -81,7 +81,12 @@ t_bridge.join()
 t_sniff.join()
 
 = Delete the tap interfaces
-del tap0, tap1
+if conf.use_pypy:
+    # See https://pypy.readthedocs.io/en/latest/cpython_differences.html
+    tap0.close()
+    tap1.close()
+else:
+    del tap0, tap1
 
 
 ############
@@ -166,7 +171,13 @@ t_bridge.join()
 t_sniff.join()
 
 = Delete the tun interfaces
-del tun0, tun1
+if conf.use_pypy:
+    # See https://pypy.readthedocs.io/en/latest/cpython_differences.html
+    tun0.close()
+    tun1.close()
+else:
+    del tun0, tun1
+
 
 ############
 ############
@@ -209,3 +220,88 @@ with VEthPair('a_0', 'a_1') as veth_0:
         # now test of the socket used in bridge_and_sniff() was alive all the time
         assert (xfrm_count['a_0'] == 2)
         assert (xfrm_count['b_0'] == 2)
+
+
+############
+############
++ Test arpleak() using a tap socket
+
+~ tap linux
+
+= Create two tap interfaces
+
+import mock
+import struct
+import subprocess
+from threading import Thread
+import time
+
+tap0 = TunTapInterface("tap0")
+
+if LINUX:
+    assert subprocess.check_call(["ip", "link", "set", "tap0", "up"]) == 0
+else:
+    assert subprocess.check_call(["ifconfig", "tap0", "up"]) == 0
+
+def answer_arp_leak(pkt):
+    mymac = b"\x00\x01\x02\x03\x04\x06"
+    myip = b"\x01\x02\x03\x02"
+    if not ARP in pkt:
+        return
+    e_src = pkt.src
+    pkt = raw(pkt[ARP])
+    if pkt[:4] != b'\x00\x01\x08\x00':
+        print("Invalid ARP")
+        return
+    hwlen, plen, op = struct.unpack('>BBH', pkt[4:8])
+    if op != 1:
+        print("Invalid ARP op")
+        return
+    fmt = ('%ds%ds' % (hwlen, plen)) * 2
+    hwsrc, psrc, hwdst, pdst = struct.unpack(fmt,
+                                             pkt[8:8 + (plen + hwlen) * 2])
+    if pdst[:4] != myip[:plen]:
+        print("Invalid ARP pdst %r" % pdst)
+        return
+    ans = Ether(dst=e_src, src=mymac, type=0x0806)
+    ans /= (b'\x00\x01\x08\x00' +
+            struct.pack('>BBH' + fmt,
+                        hwlen, plen, 2, mymac, myip, hwsrc, psrc))
+    tap0.send(ans)
+    print('Answered!')
+
+t_answer = Thread(
+    target=sniff,
+    kwargs={"prn": answer_arp_leak, "timeout": 10, "store": False,
+            "opened_socket": tap0}
+)
+
+t_answer.start()
+
+@mock.patch("scapy.layers.l2.get_if_addr")
+@mock.patch("scapy.layers.l2.get_if_hwaddr")
+def test_arpleak(mock_get_if_hwaddr, mock_get_if_addr, hwlen=255, plen=255):
+    conf.route.ifadd("tap0", "1.2.3.0/24")
+    mock_get_if_addr.side_effect = lambda _: "1.2.3.1"
+    mock_get_if_hwaddr.side_effect = lambda _: "00:01:02:03:04:05"
+    return arpleak("1.2.3.2/31", timeout=2, hwlen=hwlen, plen=plen)
+
+time.sleep(2)
+
+ans, unans = test_arpleak()
+assert len(ans) == 1
+assert len(unans) == 1
+ans, unans = test_arpleak(hwlen=6)
+assert len(ans) == 1
+assert len(unans) == 1
+ans, unans = test_arpleak(plen=4)
+assert len(ans) == 1
+assert len(unans) == 1
+
+t_answer.join()
+
+if conf.use_pypy:
+    # See https://pypy.readthedocs.io/en/latest/cpython_differences.html
+    tap0.close()
+else:
+    del tap0

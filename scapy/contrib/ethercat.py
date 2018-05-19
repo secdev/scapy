@@ -43,14 +43,18 @@
         - padding for minimum frame size is added automatically
 
 """
+
+
+import struct
+
+
 from scapy.compat import raw
-from scapy.error import Scapy_Exception
+from scapy.error import log_runtime, Scapy_Exception
 from scapy.fields import BitField, ByteField, LEShortField, FieldListField, LEIntField, FieldLenField, _EnumField, \
     EnumField
-from scapy.layers.dot11 import Packet
-from scapy.layers.l2 import Ether, Dot1Q, Padding, bind_layers, \
-    log_runtime, struct
+from scapy.layers.l2 import Ether, Dot1Q
 from scapy.modules import six
+from scapy.packet import bind_layers, Packet, Padding
 
 '''
 EtherCat uses some little endian bitfields without alignment to any common boundaries.
@@ -104,7 +108,7 @@ class LEBitField(BitField):
 
         """
         if type(s) is tuple and len(s) == 4:
-            s, bitsdone, data, lower_field_type = s
+            s, bitsdone, data, _ = s
             self._check_field_type(pkt, -1)
         else:
             # this is the first bit field in the set
@@ -611,9 +615,8 @@ class EtherCat(Packet):
 
             return raw(_EtherCatLengthCalc(length=self.length,
                                            type=self.type)) + pay + raw(pad)
-        else:
-            return raw(_EtherCatLengthCalc(length=self.length,
-                                           type=self.type)) + pay
+        return raw(_EtherCatLengthCalc(length=self.length,
+                                       type=self.type)) + pay
 
     def guess_payload_class(self, payload):
         try:
