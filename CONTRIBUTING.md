@@ -122,7 +122,7 @@ The project aims to provide code that works both on Python 2 and Python 3. There
 - lambdas must be written using a single argument when using tuples: use `lambda x, y: x + f(y)` instead of `lambda (x, y): x + f(y)`.
 - use int instead of long
 - use list comprehension instead of map() and filter()
-- use scapy.modules.six.range instead of xrange and range
+- use scapy.modules.six.moves.range instead of xrange and range
 - use scapy.modules.six.itervalues(dict) instead of dict.values() or dict.itervalues()
 - use scapy.modules.six.string_types instead of basestring
 - `__bool__ = __nonzero__` must be used when declaring `__nonzero__` methods
