@@ -18,31 +18,25 @@
 # scapy.contrib.status = loads
 
 """
-A basic dissector for DCE/RPC. Isn't reliable for all packets and for building
+A basic dissector for DCE/RPC.
+Isn't reliable for all packets and for building
 """
 
-# external imports
+# TODO: namespace locally used fields
 import re
 import struct
-
-# Scapy imports
-from scapy.all import Packet, bind_layers, Field, RandField, RandNum, \
-        RandInt, RandShort, RandByte
-from scapy.fields import BitEnumField, ByteEnumField, ByteField,\
-        FlagsField,\
-        IntField,\
-        LenField,\
-        ShortField,\
-        XByteField, XShortField
+from scapy.packet import Packet, Raw, bind_layers
+from scapy.fields import Field, BitEnumField, ByteEnumField, ByteField, \
+    FlagsField, IntField, LenField, ShortField, XByteField, XShortField
+from scapy.volatile import RandField, RandNum, RandInt, RandShort, RandByte
+import scapy.modules.six
 
 
-############
-## Fields ##
-############
-
+# Fields
 class EndiannessField(object):
     """Field which change the endianess of a sub-field"""
     __slots__ = ["fld", "endianess_from"]
+
     def __init__(self, fld, endianess_from):
         self.fld = fld
         self.endianess_from = endianess_from
@@ -67,14 +61,16 @@ class EndiannessField(object):
     def __getattr__(self, attr):
         return getattr(self.fld, attr)
 
+
 class UUIDField(Field):
     """UUID Field"""
     __slots__ = ["reg"]
+
     def __init__(self, name, default):
         # create and compile the regex used to extract the uuid values from str
         reg = r"^\s*{0}-{1}-{1}-{2}{2}-{2}{2}{2}{2}{2}{2}\s*$".format(
             "([0-9a-f]{8})", "([0-9a-f]{4})", "([0-9a-f]{2})"
-            )
+        )
         self.reg = re.compile(reg, re.I)
 
         Field.__init__(self, name, default, fmt="I2H8B")
@@ -83,7 +79,7 @@ class UUIDField(Field):
         if val is None:
             return (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 
-        if isinstance(val, str):
+        if isinstance(val, bytearray) or isinstance(val, str):  # py3 concern
             # use the regex to extract the values
             match = self.reg.match(val)
             if match:
@@ -95,24 +91,25 @@ class UUIDField(Field):
             return val
 
     def m2i(self, pkt, val):
-        return ("%08x-%04x-%04x-%02x%02x-" + "%02x"*6) % val
+        return ("%08x-%04x-%04x-%02x%02x-" + "%02x" * 6) % val
 
     def any2i(self, pkt, val):
-        if isinstance(val, str) and len(val) == 16:
+        if isinstance(val, bytearray) and len(val) == 16:
             return self.getfield(pkt, val)[1]
-        elif isinstance(val, str):
+        elif isinstance(val, bytearray):
             return val.lower()
         return val
 
     def addfield(self, pkt, s, val):
         return s + struct.pack(self.fmt, *self.i2m(pkt, val))
+
     def getfield(self, pkt, s):
-        return s[16:], \
-                self.m2i(pkt, struct.unpack(self.fmt, s[:16]))
+        return s[16:], self.m2i(pkt, struct.unpack(self.fmt, s[:16]))
 
     @staticmethod
     def randval():
         return RandUUID()
+
 
 class RandUUID(RandField):
     """generate a random UUID"""
@@ -123,7 +120,7 @@ class RandUUID(RandField):
                 base.format(8), base.format(4), base.format(2)
             ),
             re.I
-            )
+        )
 
         tmp = reg.match(template)
         if tmp:
@@ -133,7 +130,7 @@ class RandUUID(RandField):
 
         rnd_f = [RandInt] + [RandShort] * 2 + [RandByte] * 8
         self.uuid = ()
-        for i in xrange(11):
+        for i in scapy.modules.six.moves.range(11):
             if template[i] == "*":
                 val = rnd_f[i]()
             elif ":" in template[i]:
@@ -144,13 +141,10 @@ class RandUUID(RandField):
             self.uuid += (val,)
 
     def _fix(self):
-        return ("%08x-%04x-%04x-%02x%02x-" + "%02x"*6) % self.uuid
+        return ("%08x-%04x-%04x-%02x%02x-" + "%02x" * 6) % self.uuid
 
 
-####################
-## DCE/RPC Packet ##
-####################
-
+# DCE/RPC Packet
 DCE_RPC_TYPE = ["request", "ping", "response", "fault", "working", "no_call",
                 "reject", "acknowledge", "connectionless_cancel", "frag_ack",
                 "cancel_ack"]
@@ -158,6 +152,7 @@ DCE_RPC_FLAGS1 = ["reserved_0", "last_frag", "frag", "no_frag_ack", "maybe",
                   "idempotent", "broadcast", "reserved_7"]
 DCE_RPC_FLAGS2 = ["reserved_0", "cancel_pending", "reserved_2", "reserved_3",
                   "reserved_4", "reserved_5", "reserved_6", "reserved_7"]
+
 
 def dce_rpc_endianess(pkt):
     """Determine the right endianess sign for a given DCE/RPC packet"""
@@ -167,6 +162,7 @@ def dce_rpc_endianess(pkt):
         return "<"
     else:
         return "!"
+
 
 class DceRpc(Packet):
     """DCE/RPC packet"""
@@ -181,22 +177,34 @@ class DceRpc(Packet):
         ByteEnumField("float", 0, ["IEEE", "VAX", "CRAY", "IBM"]),
         ByteField("DataRepr_reserved", 0),
         XByteField("serial_high", 0),
-        EndiannessField(UUIDField("object_uuid", None), endianess_from=dce_rpc_endianess),
-        EndiannessField(UUIDField("interface_uuid", None), endianess_from=dce_rpc_endianess),
-        EndiannessField(UUIDField("activity", None), endianess_from=dce_rpc_endianess),
-        EndiannessField(IntField("boot_time", 0), endianess_from=dce_rpc_endianess),
-        EndiannessField(IntField("interface_version", 1), endianess_from=dce_rpc_endianess),
-        EndiannessField(IntField("sequence_num", 0), endianess_from=dce_rpc_endianess),
-        EndiannessField(ShortField("opnum", 0), endianess_from=dce_rpc_endianess),
-        EndiannessField(XShortField("interface_hint", 0xffff), endianess_from=dce_rpc_endianess),
-        EndiannessField(XShortField("activity_hint", 0xffff), endianess_from=dce_rpc_endianess),
-        EndiannessField(LenField("frag_len", None, fmt="H"), endianess_from=dce_rpc_endianess),
-        EndiannessField(ShortField("frag_num", 0), endianess_from=dce_rpc_endianess),
-        ByteEnumField("auth", 0, ["none"]), # TODO other auth ?
+        EndiannessField(UUIDField("object_uuid", None),
+                        endianess_from=dce_rpc_endianess),
+        EndiannessField(UUIDField("interface_uuid", None),
+                        endianess_from=dce_rpc_endianess),
+        EndiannessField(UUIDField("activity", None),
+                        endianess_from=dce_rpc_endianess),
+        EndiannessField(IntField("boot_time", 0),
+                        endianess_from=dce_rpc_endianess),
+        EndiannessField(IntField("interface_version", 1),
+                        endianess_from=dce_rpc_endianess),
+        EndiannessField(IntField("sequence_num", 0),
+                        endianess_from=dce_rpc_endianess),
+        EndiannessField(ShortField("opnum", 0),
+                        endianess_from=dce_rpc_endianess),
+        EndiannessField(XShortField("interface_hint", 0xffff),
+                        endianess_from=dce_rpc_endianess),
+        EndiannessField(XShortField("activity_hint", 0xffff),
+                        endianess_from=dce_rpc_endianess),
+        EndiannessField(LenField("frag_len", None, fmt="H"),
+                        endianess_from=dce_rpc_endianess),
+        EndiannessField(ShortField("frag_num", 0),
+                        endianess_from=dce_rpc_endianess),
+        ByteEnumField("auth", 0, ["none"]),  # TODO other auth ?
         XByteField("serial_low", 0),
-        ]
+    ]
 
-### Heuristical way to find the payload class
+
+# Heuristically way to find the payload class
 #
 # To add a possible payload to a DCE/RPC packet, one must first create the
 # packet class, then instead of binding layers using bind_layers, he must
@@ -220,15 +228,14 @@ class DceRpcPayload(Packet):
             if hasattr(klass, "can_handle") and \
                     klass.can_handle(_pkt, _underlayer):
                 return klass
-
-        # Raise an exception for debug. If debug is not set, it falls back to
-        # Raw packet
-        raise Exception("DCE/RPC payload class not found")
+        print("DCE/RPC payload class not found or undefined (using Raw)")
+        return Raw
 
     @classmethod
     def register_possible_payload(cls, pay):
         """Method to call from possible DCE/RPC endpoint to register it as
         possible payload"""
         cls._payload_class.append(pay)
+
 
 bind_layers(DceRpc, DceRpcPayload)
