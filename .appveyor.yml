@@ -10,9 +10,11 @@ environment:
     - PYTHON: "C:\\Python27-x64"
       PYTHON_VERSION: "2.7.x"
       PYTHON_ARCH: "64"
+      TOXENV: "py27-windows"
     - PYTHON: "C:\\Python36-x64"
       PYTHON_VERSION: "3.6.x"
       PYTHON_ARCH: "64"
+      TOXENV: "py36-windows"
 
 # There is no build phase for Scapy
 build: off
@@ -23,36 +25,17 @@ install:
   - ps: .\.appveyor\InstallWindump.ps1
   - choco install -y wireshark
   # Install Python modules
-  - "%PYTHON%\\python -m pip install cryptography coverage mock"
-  - set PATH="%PYTHON%\\Scripts\\;%PATH%"
+  - "%PYTHON%\\python -m pip install tox"
+  - set PATH=%PYTHON%\\Scripts\\;%PATH%
 
 test_script:
   # Set environment variables
   - set PYTHONPATH=%APPVEYOR_BUILD_FOLDER%
-  - set PATH="%APPVEYOR_BUILD_FOLDER%;C:\Program Files\Wireshark\;%PATH%"
-
-  # Disable open_ssl client tests
-  - set ARGS=-K open_ssl_client
-  # Disable broken Python 3 tests if Python3 is detected
-  - if not x%PYTHON:3=%==x%PYTHON% set ARGS=%ARGS% -K FIXME_py3
+  - set PATH=%APPVEYOR_BUILD_FOLDER%;C:\Program Files\Wireshark\;C:\Program Files\Windump\;%PATH%
   
   # Main unit tests
-  - "%PYTHON%\\python -m coverage run --parallel-mode bin\\UTscapy -f text -t test\\regression.uts -F -K mock_read_routes_bsd -K ipv6 || exit /b 42"
-  - 'del test\regression.uts'
-
-  # Secondary and contrib unit tests
-  - 'del test\bpf.uts test\linux.uts test\sendsniff.uts' # Don't bother with OS dependent regression tests
-  - "%PYTHON%\\python -m coverage run --parallel-mode bin\\UTscapy -c test\\configs\\windows.utsc %ARGS% || exit /b 42"
-  
-  # TLS unit tests
-  # Note: due to a multiprocessing bug, we got to be in the UTscapy.py folder and call it directly
-  - 'cd scapy/tools'
-  - "%PYTHON%\\python -m coverage run --concurrency=multiprocessing UTscapy.py -f text -t ..\\..\\test\\tls\\tests_tls_netaccess.uts -F -P \"sys.path.append(os.path.abspath('../../test/tls'))\" %ARGS% || exit /b 42"
-  - 'cd ../../'
+  - "%PYTHON%\\python -m tox"
 
 after_test:
   # Install & run codecov
-  - "%PYTHON%\\python -m pip install codecov"
-  - "SET PATH=%PYTHON%\\Scripts\\;%PATH%"
-  - "coverage combine ./"
-  - codecov
+  - tox -e codecov

@@ -1,5 +1,7 @@
 % TLS session establishment tests
 
+~ crypto needs_root
+
 # More informations at http://www.secdev.org/projects/UTscapy/
 
 ############
@@ -9,17 +11,69 @@
 ### DISCLAIMER: Those tests are slow ###
 
 = Load server util functions
-~ open_ssl_client crypto needs_root
 
 from __future__ import print_function
 
 import sys, os, re, time, multiprocessing, subprocess
 
-dirname = "/test/tls/"
-dirname = os.getenv("SCAPY_ROOT_DIR")+dirname if not os.path.exists(dirname) else dirname
-sys.path.append(os.path.abspath(dirname))
+from ast import literal_eval
+import os
+import sys
+from contextlib import contextmanager
+from io import BytesIO, StringIO
 
-from travis_test_server import *
+from scapy.modules import six
+
+from scapy.layers.tls.automaton_srv import TLSServerAutomaton
+
+@contextmanager
+def captured_output():
+    new_out, new_err = (StringIO(), StringIO()) if six.PY3 else (BytesIO(), BytesIO())
+    old_out, old_err = sys.stdout, sys.stderr
+    try:
+        sys.stdout, sys.stderr = new_out, new_err
+        yield sys.stdout, sys.stderr
+    finally:
+        sys.stdout, sys.stderr = old_out, old_err
+
+def check_output_for_data(out, err, expected_data):
+    errored = err.getvalue()
+    if errored:
+        return (False, errored)
+    output = out.getvalue().strip()
+    if expected_data:
+        for data in output.split('> Received: ')[1:]:
+            for line in literal_eval(data).split(b'\n'):
+                if line == expected_data:
+                    return (True, output)
+        return (False, output)
+    else:
+        return (True, None)
+
+def run_tls_test_server(expected_data, q):
+    correct = False
+    print("Server started !")
+    with captured_output() as (out, err):
+        # Prepare automaton
+        filename = "/test/tls/pki/srv_cert.pem"
+        mycert = os.getenv("SCAPY_ROOT_DIR")+filename if not os.path.exists(filename) else filename
+        filename = "/test/tls/pki/srv_key.pem"
+        mykey = os.getenv("SCAPY_ROOT_DIR")+filename if not os.path.exists(filename) else filename
+        print(os.environ["SCAPY_ROOT_DIR"])
+        print(mykey)
+        print(mycert)
+        assert os.path.exists(mycert)
+        assert os.path.exists(mykey)
+        t = TLSServerAutomaton(mycert=mycert,
+                               mykey=mykey)
+        # Sync threads
+        q.put(True)
+        # Run server automaton
+        t.run()
+        # Return correct answer
+        correct, out_e = check_output_for_data(out, err, expected_data)
+    # Return data
+    q.put(out_e)
 
 def test_tls_server(suite="", version=""):
     msg = ("TestS_%s_data" % suite).encode()
@@ -64,85 +118,107 @@ def test_tls_server(suite="", version=""):
         raise RuntimeError("Test timed out")
     # Analyse values
     print(q_.get())
-    assert th_.exitcode == 0
 
 
 = Testing TLS server with TLS 1.0 and TLS_RSA_WITH_RC4_128_SHA
-~ open_ssl_client crypto needs_root
+~ open_ssl_client
 
 test_tls_server("RC4-SHA", "-tls1")
 
 = Testing TLS server with TLS 1.1 and TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA
-~ open_ssl_client crypto needs_root
+~ open_ssl_client
 
 test_tls_server("EDH-RSA-DES-CBC3-SHA", "-tls1_1")
 
 = Testing TLS server with TLS 1.2 and TLS_DHE_RSA_WITH_AES_128_CBC_SHA256
-~ open_ssl_client crypto needs_root
+~ open_ssl_client
 
 test_tls_server("DHE-RSA-AES128-SHA256", "-tls1_2")
 
 = Testing TLS server with TLS 1.2 and TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
-~ open_ssl_client crypto needs_root
+~ open_ssl_client
 
 test_tls_server("ECDHE-RSA-AES256-GCM-SHA384", "-tls1_2")
 
 + TLS client automaton tests
 
 = Load client utils functions
-~ crypto needs_root
 
-import sys, os, threading
+import sys, os, time, threading
+
+from scapy.layers.tls.automaton_cli import TLSClientAutomaton
+from scapy.layers.tls.handshake import TLSClientHello
 
 from scapy.modules.six.moves.queue import Queue
 
-sys.path.append(os.path.abspath("./tls"))
+send_data = cipher_suite_code = version = None
 
-from travis_test_client import *
+def run_tls_test_client(send_data=None, cipher_suite_code=None, version=None):
+    if version == "0002":
+        t = TLSClientAutomaton(data=[send_data, b"stop_server", b"quit"], version="sslv2")
+    else:
+        ch = TLSClientHello(version=int(version, 16), ciphers=int(cipher_suite_code, 16))
+        t = TLSClientAutomaton(client_hello=ch, data=[send_data, b"stop_server", b"quit"], debug=1)
+    t.run()
+
+def test_tls_client(suite, version, q):
+    msg = ("TestC_%s_data" % suite).encode()
+    # Run server
+    q_ = Queue()
+    th_ = threading.Thread(target=run_tls_test_server, args=(msg, q_))
+    th_.setDaemon(True)
+    th_.start()
+    # Synchronise threads
+    print("Syncrhonising...")
+    assert q_.get() is True
+    time.sleep(1)
+    print("Thread syncrhonised")
+    # Run client
+    run_tls_test_client(msg, suite, version)
+    # Wait for server
+    print("Client running, waiting...")
+    th_.join(60)
+    if th_.is_alive():
+        raise RuntimeError("Test timed out")
+    # Return values
+    q.put(q_.get())
 
 def perform_tls_client_test(suite, version):
     # Run test_tls_client in an other thread
     q = Queue()
     p = threading.Thread(target=test_tls_client, args=(suite, version, q))
+    p.setDaemon(True)
     p.start()
     # Wait for the function to end
     p.join()
     # Analyse data and return
     if not q.empty():
         print(q.get())
-    if not q.empty():
-        assert q.get() == 0
     else:
         print("ERROR: Missing one of the return value detected !")
         assert False
 
 = Testing TLS server and client with SSLv2 and SSL_CK_DES_192_EDE3_CBC_WITH_MD5
-~ crypto needs_root
 
 perform_tls_client_test("0700c0", "0002")
 
 = Testing TLS client with SSLv3 and TLS_RSA_EXPORT_WITH_RC4_40_MD5
-~ crypto needs_root
 
 perform_tls_client_test("0003", "0300")
 
 = Testing TLS client with TLS 1.0 and TLS_DHE_RSA_WITH_CAMELLIA_256_CBC_SHA
-~ crypto needs_root
 
 perform_tls_client_test("0088", "0301")
 
 = Testing TLS client with TLS 1.1 and TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA
-~ crypto needs_root
 
 perform_tls_client_test("c013", "0302")
 
 = Testing TLS client with TLS 1.2 and TLS_DHE_RSA_WITH_AES_128_GCM_SHA256
-~ crypto needs_root
 
 perform_tls_client_test("009e", "0303")
 
 = Testing TLS client with TLS 1.2 and TLS_ECDH_anon_WITH_RC4_128_SHA
-~ crypto needs_root
 
 perform_tls_client_test("c016", "0303")
 

@@ -877,6 +877,9 @@ def main(argv):
             from scapy.arch.windows import route_add_loopback
             route_add_loopback()
 
+        # Add SCAPY_ROOT_DIR environment variable, used for tests
+        os.environ['SCAPY_ROOT_DIR'] = os.environ.get("PWD", os.getcwd())
+
     except getopt.GetoptError as msg:
         print("ERROR:", msg, file=sys.stderr)
         raise SystemExit

@@ -24,5 +24,6 @@ if ($_chksum -ne $checksum){
     echo "Checksums matches !"
 }
 # Finally, move it and remove tmp files
-Move-Item -Force $PSScriptRoot"\npcap\x64\WinDump.exe" "C:\Windows\System32\windump.exe"
+New-Item -Path "C:\Program Files\Windump" -ItemType directory
+Move-Item -Force $PSScriptRoot"\npcap\x64\WinDump.exe" "C:\Program Files\Windump\windump.exe"
 Remove-Item $PSScriptRoot"\npcap" -recurse

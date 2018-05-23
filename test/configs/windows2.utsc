@@ -1,11 +1,14 @@
 {
   "testfiles": [
     "*.uts",
+    "tls\\tests_tls_netaccess.uts",
     "..\\scapy\\contrib\\*.uts"
   ],
   "remove_testfiles": [
     "..\\scapy\\contrib\\cansocket_native.uts",
-    "..\\scapy\\contrib\\cansocket_python_can.uts"
+    "..\\scapy\\contrib\\cansocket_python_can.uts",
+    "bpf.uts",
+    "linux.uts"
   ],
   "breakfailed": true,
   "onlyfailed": true,
@@ -19,7 +22,9 @@
   "kw_ko": [
     "crypto_advanced",
     "mock_read_routes_bsd",
+    "open_ssl_client",
     "appveyor_only",
+    "osx",
     "linux"
   ]
 }
