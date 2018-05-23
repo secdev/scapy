@@ -199,6 +199,8 @@ class DNSQRField(DNSRRField):
 
 
 class RDataField(StrLenField):
+    islist = 1
+
     def m2i(self, pkt, s):
         family = None
         if pkt.type == 1:  # A
@@ -214,7 +216,7 @@ class RDataField(StrLenField):
                 else:
                     s = DNSgetstr(s, 0)[0]
         elif pkt.type == 16:  # TXT
-            ret_s = b""
+            ret_s = list()
             tmp_s = s
             # RDATA contains a list of strings, each are prepended with
             # a byte containing the size of the following string.
@@ -222,7 +224,7 @@ class RDataField(StrLenField):
                 tmp_len = orb(tmp_s[0]) + 1
                 if tmp_len > len(tmp_s):
                     warning("DNS RR TXT prematured end of character-string (size=%i, remaining bytes=%i)" % (tmp_len, len(tmp_s)))
-                ret_s += tmp_s[1:tmp_len]
+                ret_s.append(tmp_s[1:tmp_len])
                 tmp_s = tmp_s[tmp_len:]
             s = ret_s
         elif pkt.type == 28:  # AAAA
@@ -240,18 +242,17 @@ class RDataField(StrLenField):
             if orb(s[-1]):
                 s += b"\x00"
         elif pkt.type == 16:  # TXT
-            if s:
-                s = raw(s)
-                ret_s = b""
+            ret_s = b""
+            for text in s:
                 # The initial string must be splitted into a list of strings
                 # prepended with theirs sizes.
-                while len(s) >= 255:
-                    ret_s += b"\xff" + s[:255]
-                    s = s[255:]
+                while len(text) >= 255:
+                    ret_s += b"\xff" + text[:255]
+                    text = text[255:]
                 # The remaining string is less than 255 bytes long
-                if len(s):
-                    ret_s += struct.pack("!B", len(s)) + s
-                s = ret_s
+                if len(text):
+                    ret_s += struct.pack("!B", len(text)) + raw(text)
+            s = ret_s
         elif pkt.type == 28:  # AAAA
             if s:
                 s = inet_pton(socket.AF_INET6, s)
