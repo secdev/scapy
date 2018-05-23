@@ -26,17 +26,17 @@
 
         references:
             - https://en.wikipedia.org/wiki/TZSP
-            - https://web.archive.org/web/20050404125022/http://www.networkchemistry.com/support/appnotes/an001_tzsp.html
+            - https://web.archive.org/web/20050404125022/http://www.networkchemistry.com/support/appnotes/an001_tzsp.html  # noqa: E501
 
     :NOTES:
-        - to allow Scapy to dissect this layer automatically, you need to bind the TZSP layer to UDP using
+        - to allow Scapy to dissect this layer automatically, you need to bind the TZSP layer to UDP using  # noqa: E501
           the default TZSP port (0x9090), e.g.
 
             bind_layers(UDP, TZSP, sport=TZSP_PORT_DEFAULT)
             bind_layers(UDP, TZSP, dport=TZSP_PORT_DEFAULT)
 
-        - packet format definition from www.networkchemistry.com is different from the one given by wikipedia
-        - seems Wireshark implements the wikipedia protocol version (didn't dive into their code)
+        - packet format definition from www.networkchemistry.com is different from the one given by wikipedia  # noqa: E501
+        - seems Wireshark implements the wikipedia protocol version (didn't dive into their code)  # noqa: E501
         - observed (miss)behavior of Wireshark (2.2.6)
           - fails to decode RSSI & SNR using short values - only one byte taken
           - SNR is labeled as silence
@@ -47,7 +47,7 @@
 from scapy.compat import orb
 from scapy.contrib.avs import AVSWLANHeader
 from scapy.error import warning, Scapy_Exception
-from scapy.fields import ByteField, ShortEnumField, IntField, FieldLenField, YesNoByteField
+from scapy.fields import ByteField, ShortEnumField, IntField, FieldLenField, YesNoByteField  # noqa: E501
 from scapy.layers.dot11 import Packet, Dot11, PrismHeader
 from scapy.layers.l2 import Ether
 from scapy.fields import StrLenField, ByteEnumField, ShortField, XStrLenField
@@ -95,7 +95,7 @@ class TZSP(Packet):
     fields_desc = [
         ByteField('version', 0x01),
         ByteEnumField('type', TYPE_RX_PACKET, TYPES),
-        ShortEnumField('encapsulated_protocol', ENCAPSULATED_ETHERNET, ENCAPSULATED_PROTOCOLS)
+        ShortEnumField('encapsulated_protocol', ENCAPSULATED_ETHERNET, ENCAPSULATED_PROTOCOLS)  # noqa: E501
     ]
 
     def get_encapsulated_payload_class(self):
@@ -105,23 +105,23 @@ class TZSP(Packet):
         """
 
         try:
-            return TZSP.ENCAPSULATED_PROTOCOL_CLASSES[self.encapsulated_protocol]
+            return TZSP.ENCAPSULATED_PROTOCOL_CLASSES[self.encapsulated_protocol]  # noqa: E501
         except KeyError:
             warning(
-                'unknown or invalid encapsulation type (%i) - returning payload as raw()' % self.encapsulated_protocol)
+                'unknown or invalid encapsulation type (%i) - returning payload as raw()' % self.encapsulated_protocol)  # noqa: E501
             return Raw
 
     def guess_payload_class(self, payload):
         if self.type == TZSP.TYPE_KEEPALIVE:
             if len(payload):
-                warning('payload (%i bytes) in KEEPALIVE/NULL packet' % len(payload))
+                warning('payload (%i bytes) in KEEPALIVE/NULL packet' % len(payload))  # noqa: E501
             return Raw
         else:
             return _tzsp_guess_next_tag(payload)
 
     def get_encapsulated_payload(self):
 
-        has_encapsulated_data = self.type == TZSP.TYPE_RX_PACKET or self.type == TZSP.TYPE_TX_PACKET
+        has_encapsulated_data = self.type == TZSP.TYPE_RX_PACKET or self.type == TZSP.TYPE_TX_PACKET  # noqa: E501
 
         if has_encapsulated_data:
             end_tag_lyr = self.payload.getlayer(TZSPTagEnd)
@@ -136,14 +136,14 @@ def _tzsp_handle_unknown_tag(payload, tag_type):
     payload_len = len(payload)
 
     if payload_len < 2:
-        warning('invalid or unknown tag type (%i) and too short packet - treat remaining data as Raw' % tag_type)
+        warning('invalid or unknown tag type (%i) and too short packet - treat remaining data as Raw' % tag_type)  # noqa: E501
         return Raw
 
     tag_data_length = orb(payload[1])
 
     tag_data_fits_in_payload = (tag_data_length + 2) <= payload_len
     if not tag_data_fits_in_payload:
-        warning('invalid or unknown tag type (%i) and too short packet - treat remaining data as Raw' % tag_type)
+        warning('invalid or unknown tag type (%i) and too short packet - treat remaining data as Raw' % tag_type)  # noqa: E501
         return Raw
 
     warning('invalid or unknown tag type (%i)' % tag_type)
@@ -153,7 +153,7 @@ def _tzsp_handle_unknown_tag(payload, tag_type):
 
 def _tzsp_guess_next_tag(payload):
     """
-    :return: class representing the next tag, Raw on error, None on missing payload
+    :return: class representing the next tag, Raw on error, None on missing payload  # noqa: E501
     """
 
     if not payload:
@@ -184,7 +184,7 @@ def _tzsp_guess_next_tag(payload):
     try:
         return tag_class_definition[length]
     except KeyError:
-        warning('invalid tag length {} for tag type {}'.format(length, tag_type))
+        warning('invalid tag length {} for tag type {}'.format(length, tag_type))  # noqa: E501
         return Raw
 
 
@@ -246,7 +246,7 @@ class TZSPTagEnd(Packet):
 
     def guess_payload_class(self, payload):
         """
-        the type of the payload encapsulation is given be the outer TZSP layers attribute encapsulation_protocol
+        the type of the payload encapsulation is given be the outer TZSP layers attribute encapsulation_protocol  # noqa: E501
         """
 
         under_layer = self.underlayer
@@ -381,7 +381,7 @@ class TZSPTagContentionFree(_TZSPTag):
     YES = 0x01
 
     fields_desc = [
-        ByteEnumField('type', _TZSPTag.TAG_TYPE_CONTENTION_FREE, _TZSPTag.TAG_TYPES),
+        ByteEnumField('type', _TZSPTag.TAG_TYPE_CONTENTION_FREE, _TZSPTag.TAG_TYPES),  # noqa: E501
         ByteField('len', 1),
         YesNoByteField('contention_free', NO)
     ]
@@ -411,7 +411,7 @@ class TZSPTagError(_TZSPTag):
     fields_desc = [
         ByteEnumField('type', _TZSPTag.TAG_TYPE_FCS_ERROR, _TZSPTag.TAG_TYPES),
         ByteField('len', 1),
-        YesNoByteField('fcs_error', NO, config={'no': NO, 'yes': YES, 'reserved': (YES + 1, 0xff)})
+        YesNoByteField('fcs_error', NO, config={'no': NO, 'yes': YES, 'reserved': (YES + 1, 0xff)})  # noqa: E501
     ]
 
 
@@ -420,7 +420,7 @@ class TZSPTagRXChannel(_TZSPTag):
     channel the sensor was on while receiving the frame
     """
     fields_desc = [
-        ByteEnumField('type', _TZSPTag.TAG_TYPE_RX_CHANNEL, _TZSPTag.TAG_TYPES),
+        ByteEnumField('type', _TZSPTag.TAG_TYPE_RX_CHANNEL, _TZSPTag.TAG_TYPES),  # noqa: E501
         ByteField('len', 1),
         ByteField('rx_channel', 0)
     ]
@@ -431,7 +431,7 @@ class TZSPTagPacketCount(_TZSPTag):
     packet counter
     """
     fields_desc = [
-        ByteEnumField('type', _TZSPTag.TAG_TYPE_PACKET_COUNT, _TZSPTag.TAG_TYPES),
+        ByteEnumField('type', _TZSPTag.TAG_TYPE_PACKET_COUNT, _TZSPTag.TAG_TYPES),  # noqa: E501
         ByteField('len', 4),
         IntField('packet_count', 0)
     ]
@@ -442,7 +442,7 @@ class TZSPTagRXFrameLength(_TZSPTag):
     received packet length
     """
     fields_desc = [
-        ByteEnumField('type', _TZSPTag.TAG_TYPE_RX_FRAME_LENGTH, _TZSPTag.TAG_TYPES),
+        ByteEnumField('type', _TZSPTag.TAG_TYPE_RX_FRAME_LENGTH, _TZSPTag.TAG_TYPES),  # noqa: E501
         ByteField('len', 2),
         ShortField('rx_frame_length', 0)
     ]
@@ -453,7 +453,7 @@ class TZSPTagWlanRadioHdrSerial(_TZSPTag):
     (vendor specific) unique capture device (sensor/AP) identifier
     """
     fields_desc = [
-        ByteEnumField('type', _TZSPTag.TAG_TYPE_WLAN_RADIO_HDR_SERIAL, _TZSPTag.TAG_TYPES),
+        ByteEnumField('type', _TZSPTag.TAG_TYPE_WLAN_RADIO_HDR_SERIAL, _TZSPTag.TAG_TYPES),  # noqa: E501
         FieldLenField('len', None, length_of='sensor_id', fmt='b'),
         StrLenField('sensor_id', '', length_from=lambda pkt:pkt.len)
     ]
@@ -473,7 +473,7 @@ class TZSPTagUnknown(_TZSPTag):
 _TZSP_TAG_CLASSES = {
     _TZSPTag.TAG_TYPE_PADDING: TZSPTagPadding,
     _TZSPTag.TAG_TYPE_END: TZSPTagEnd,
-    _TZSPTag.TAG_TYPE_RAW_RSSI: {1: TZSPTagRawRSSIByte, 2: TZSPTagRawRSSIShort},
+    _TZSPTag.TAG_TYPE_RAW_RSSI: {1: TZSPTagRawRSSIByte, 2: TZSPTagRawRSSIShort},  # noqa: E501
     _TZSPTag.TAG_TYPE_SNR: {1: TZSPTagSNRByte, 2: TZSPTagSNRShort},
     _TZSPTag.TAG_TYPE_DATA_RATE: TZSPTagDataRate,
     _TZSPTag.TAG_TYPE_TIMESTAMP: TZSPTagTimestamp,

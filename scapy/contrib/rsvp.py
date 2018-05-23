@@ -155,7 +155,7 @@ class RSVP_Object(Packet):
 class RSVP_Data(Packet):
     name = "Data"
     overload_fields = {RSVP_Object: {"Class": 0x01}}
-    fields_desc = [StrLenField("Data", "", length_from=lambda pkt:pkt.underlayer.Length - 4)]
+    fields_desc = [StrLenField("Data", "", length_from=lambda pkt:pkt.underlayer.Length - 4)]  # noqa: E501
 
     def default_payload_class(self, payload):
         return RSVP_Object
@@ -189,7 +189,7 @@ class RSVP_SenderTSPEC(Packet):
                    ByteField("Srv_hdr", 1),
                    ByteField("reserve2", 0),
                    ShortField("Srv_Length", 4),
-                   StrLenField("Tokens", "", length_from=lambda pkt:pkt.underlayer.Length - 12)]
+                   StrLenField("Tokens", "", length_from=lambda pkt:pkt.underlayer.Length - 12)]  # noqa: E501
 
     def default_payload_class(self, payload):
         return RSVP_Object
@@ -212,7 +212,7 @@ class RSVP_SessionAttrb(Packet):
                    ByteField("Hold_priority", 1),
                    ByteField("flags", 1),
                    FieldLenField("Name_length", None, length_of="Name"),
-                   StrLenField("Name", "", length_from=lambda pkt:pkt.Name_length),
+                   StrLenField("Name", "", length_from=lambda pkt:pkt.Name_length),  # noqa: E501
                    ]
 
     def default_payload_class(self, payload):

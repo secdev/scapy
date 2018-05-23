@@ -36,7 +36,7 @@ def get_if_hwaddr(iff):
     if addrfamily in [ARPHDR_ETHER, ARPHDR_LOOPBACK]:
         return str2mac(mac)
     else:
-        raise Scapy_Exception("Unsupported address family (%i) for interface [%s]" % (addrfamily, iff))
+        raise Scapy_Exception("Unsupported address family (%i) for interface [%s]" % (addrfamily, iff))  # noqa: E501
 
 
 # Next step is to import following architecture specific functions:
@@ -61,7 +61,7 @@ elif BSD:
     if scapy.config.conf.use_pcap or scapy.config.conf.use_dnet:
         from scapy.arch.pcapdnet import *
     else:
-        from scapy.arch.bpf.supersocket import L2bpfListenSocket, L2bpfSocket, L3bpfSocket
+        from scapy.arch.bpf.supersocket import L2bpfListenSocket, L2bpfSocket, L3bpfSocket  # noqa: E501
         from scapy.arch.bpf.core import *
         scapy.config.conf.use_bpf = True
         scapy.config.conf.L2listen = L2bpfListenSocket

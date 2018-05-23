@@ -35,38 +35,38 @@ if WINDOWS:
 else:
     recv_error = ()
 
-""" In Windows, select.select is not available for custom objects. Here's the implementation of scapy to re-create this functionnality
+""" In Windows, select.select is not available for custom objects. Here's the implementation of scapy to re-create this functionnality  # noqa: E501
 # Passive way: using no-ressources locks
-               +---------+             +---------------+      +-------------------------+
-               |  Start  +------------->Select_objects +----->+Linux: call select.select|
-               +---------+             |(select.select)|      +-------------------------+
+               +---------+             +---------------+      +-------------------------+  # noqa: E501
+               |  Start  +------------->Select_objects +----->+Linux: call select.select|  # noqa: E501
+               +---------+             |(select.select)|      +-------------------------+  # noqa: E501
                                        +-------+-------+
                                                |
                                           +----v----+               +--------+
-                                          | Windows |               |Time Out+----------------------------------+
-                                          +----+----+               +----+---+                                  |
-                                               |                         ^                                      |
-      Event                                    |                         |                                      |
-        +                                      |                         |                                      |
-        |                              +-------v-------+                 |                                      |
-        |                       +------+Selectable Sel.+-----+-----------------+-----------+                    |
-        |                       |      +-------+-------+     |           |     |           v              +-----v-----+
-+-------v----------+            |              |             |           |     |        Passive lock<-----+release_all<------+
-|Data added to list|       +----v-----+  +-----v-----+  +----v-----+     v     v            +             +-----------+      |
-+--------+---------+       |Selectable|  |Selectable |  |Selectable|   ............         |                                |
-         |                 +----+-----+  +-----------+  +----------+                        |                                |
-         |                      v                                                           |                                |
-         v                 +----+------+   +------------------+               +-------------v-------------------+            |
-   +-----+------+          |wait_return+-->+  check_recv:     |               |                                 |            |
-   |call_release|          +----+------+   |If data is in list|               |  END state: selectable returned |        +---+--------+
-   +-----+--------              v          +-------+----------+               |                                 |        | exit door  |
-         |                    else                 |                          +---------------------------------+        +---+--------+
-         |                      +                  |                                                                         |
-         |                 +----v-------+          |                                                                         |
-         +--------->free -->Passive lock|          |                                                                         |
-                           +----+-------+          |                                                                         |
-                                |                  |                                                                         |
-                                |                  v                                                                         |
+                                          | Windows |               |Time Out+----------------------------------+  # noqa: E501
+                                          +----+----+               +----+---+                                  |  # noqa: E501
+                                               |                         ^                                      |  # noqa: E501
+      Event                                    |                         |                                      |  # noqa: E501
+        +                                      |                         |                                      |  # noqa: E501
+        |                              +-------v-------+                 |                                      |  # noqa: E501
+        |                       +------+Selectable Sel.+-----+-----------------+-----------+                    |  # noqa: E501
+        |                       |      +-------+-------+     |           |     |           v              +-----v-----+  # noqa: E501
++-------v----------+            |              |             |           |     |        Passive lock<-----+release_all<------+  # noqa: E501
+|Data added to list|       +----v-----+  +-----v-----+  +----v-----+     v     v            +             +-----------+      |  # noqa: E501
++--------+---------+       |Selectable|  |Selectable |  |Selectable|   ............         |                                |  # noqa: E501
+         |                 +----+-----+  +-----------+  +----------+                        |                                |  # noqa: E501
+         |                      v                                                           |                                |  # noqa: E501
+         v                 +----+------+   +------------------+               +-------------v-------------------+            |  # noqa: E501
+   +-----+------+          |wait_return+-->+  check_recv:     |               |                                 |            |  # noqa: E501
+   |call_release|          +----+------+   |If data is in list|               |  END state: selectable returned |        +---+--------+  # noqa: E501
+   +-----+--------              v          +-------+----------+               |                                 |        | exit door  |  # noqa: E501
+         |                    else                 |                          +---------------------------------+        +---+--------+  # noqa: E501
+         |                      +                  |                                                                         |  # noqa: E501
+         |                 +----v-------+          |                                                                         |  # noqa: E501
+         +--------->free -->Passive lock|          |                                                                         |  # noqa: E501
+                           +----+-------+          |                                                                         |  # noqa: E501
+                                |                  |                                                                         |  # noqa: E501
+                                |                  v                                                                         |  # noqa: E501
                                 +------------------Selectable-Selector-is-advertised-that-the-selectable-is-readable---------+
 """
 
@@ -76,17 +76,17 @@ class SelectableObject:
     - add "check_recv" function
     - call "self.call_release" once you are ready to be read
 
-    You can set the __selectable_force_select__ to True in the class, if you want to
-    force the handler to use fileno(). This may only be useable on sockets created using
+    You can set the __selectable_force_select__ to True in the class, if you want to  # noqa: E501
+    force the handler to use fileno(). This may only be useable on sockets created using  # noqa: E501
     the builtin socket API."""
     __selectable_force_select__ = False
 
     def check_recv(self):
-        """DEV: will be called only once (at beginning) to check if the object is ready."""
+        """DEV: will be called only once (at beginning) to check if the object is ready."""  # noqa: E501
         raise OSError("This method must be overwriten.")
 
     def _wait_non_ressources(self, callback):
-        """This get started as a thread, and waits for the data lock to be freed then advertise itself to the SelectableSelector using the callback"""
+        """This get started as a thread, and waits for the data lock to be freed then advertise itself to the SelectableSelector using the callback"""  # noqa: E501
         self.trigger = threading.Lock()
         self.was_ended = False
         self.trigger.acquire()
@@ -98,7 +98,7 @@ class SelectableObject:
         """Entry point of SelectableObject: register the callback"""
         if self.check_recv():
             return callback(self)
-        _t = threading.Thread(target=self._wait_non_ressources, args=(callback,))
+        _t = threading.Thread(target=self._wait_non_ressources, args=(callback,))  # noqa: E501
         _t.setDaemon(True)
         _t.start()
 
@@ -167,11 +167,11 @@ class SelectableSelector(object):
                     i.wait_return(self._exit_door)
             if select_inputs:
                 # Use default select function
-                self.results.extend(select(select_inputs, [], [], self.remain)[0])
+                self.results.extend(select(select_inputs, [], [], self.remain)[0])  # noqa: E501
             if not self.remain:
                 return self.results
 
-            threading.Thread(target=self._timeout_thread, args=(self.remain,)).start()
+            threading.Thread(target=self._timeout_thread, args=(self.remain,)).start()  # noqa: E501
             if not self._ended:
                 self.available_lock.acquire()
             return self.results
@@ -226,7 +226,7 @@ class Message:
 
     def __repr__(self):
         return "<Message %s>" % " ".join("%s=%r" % (k, v)
-                                         for (k, v) in six.iteritems(self.__dict__)
+                                         for (k, v) in six.iteritems(self.__dict__)  # noqa: E501
                                          if not k.startswith("_"))
 
 
@@ -386,7 +386,7 @@ class _ATMT_supersocket(SuperSocket):
         self.name = name
         self.ioevent = ioevent
         self.proto = proto
-        self.spa, self.spb = socket.socketpair(socket.AF_UNIX, socket.SOCK_DGRAM)
+        self.spa, self.spb = socket.socketpair(socket.AF_UNIX, socket.SOCK_DGRAM)  # noqa: E501
         kargs["external_fd"] = {ioevent: self.spb}
         self.atmt = automaton(*args, **kargs)
         self.atmt.runbg()
@@ -421,7 +421,7 @@ class _ATMT_to_supersocket:
         self.automaton = automaton
 
     def __call__(self, proto, *args, **kargs):
-        return _ATMT_supersocket(self.name, self.ioevent, self.automaton, proto, args, kargs)
+        return _ATMT_supersocket(self.name, self.ioevent, self.automaton, proto, args, kargs)  # noqa: E501
 
 
 class Automaton_metaclass(type):
@@ -441,14 +441,14 @@ class Automaton_metaclass(type):
         members = {}
         classes = [cls]
         while classes:
-            c = classes.pop(0)  # order is important to avoid breaking method overloading
+            c = classes.pop(0)  # order is important to avoid breaking method overloading  # noqa: E501
             classes += list(c.__bases__)
             for k, v in six.iteritems(c.__dict__):
                 if k not in members:
                     members[k] = v
 
         decorated = [v for v in six.itervalues(members)
-                     if isinstance(v, types.FunctionType) and hasattr(v, "atmt_type")]
+                     if isinstance(v, types.FunctionType) and hasattr(v, "atmt_type")]  # noqa: E501
 
         for m in decorated:
             if m.atmt_type == ATMT.STATE:
@@ -460,7 +460,7 @@ class Automaton_metaclass(type):
                 cls.timeout[s] = []
                 if m.atmt_initial:
                     cls.initial_states.append(m)
-            elif m.atmt_type in [ATMT.CONDITION, ATMT.RECV, ATMT.TIMEOUT, ATMT.IOEVENT]:
+            elif m.atmt_type in [ATMT.CONDITION, ATMT.RECV, ATMT.TIMEOUT, ATMT.IOEVENT]:  # noqa: E501
                 cls.actions[m.atmt_condname] = []
 
         for m in decorated:
@@ -480,17 +480,17 @@ class Automaton_metaclass(type):
                     cls.actions[c].append(m)
 
         for v in six.itervalues(cls.timeout):
-            v.sort(key=cmp_to_key(lambda t1_f1, t2_f2: cmp(t1_f1[0], t2_f2[0])))
+            v.sort(key=cmp_to_key(lambda t1_f1, t2_f2: cmp(t1_f1[0], t2_f2[0])))  # noqa: E501
             v.append((None, None))
         for v in itertools.chain(six.itervalues(cls.conditions),
                                  six.itervalues(cls.recv_conditions),
                                  six.itervalues(cls.ioevents)):
-            v.sort(key=cmp_to_key(lambda c1, c2: cmp(c1.atmt_prio, c2.atmt_prio)))
+            v.sort(key=cmp_to_key(lambda c1, c2: cmp(c1.atmt_prio, c2.atmt_prio)))  # noqa: E501
         for condname, actlst in six.iteritems(cls.actions):
-            actlst.sort(key=cmp_to_key(lambda c1, c2: cmp(c1.atmt_cond[condname], c2.atmt_cond[condname])))
+            actlst.sort(key=cmp_to_key(lambda c1, c2: cmp(c1.atmt_cond[condname], c2.atmt_cond[condname])))  # noqa: E501
 
         for ioev in cls.iosupersockets:
-            setattr(cls, ioev.atmt_as_supersocket, _ATMT_to_supersocket(ioev.atmt_as_supersocket, ioev.atmt_ioname, cls))
+            setattr(cls, ioev.atmt_as_supersocket, _ATMT_to_supersocket(ioev.atmt_as_supersocket, ioev.atmt_ioname, cls))  # noqa: E501
 
         return cls
 
@@ -500,20 +500,20 @@ class Automaton_metaclass(type):
         se = ""  # Keep initial nodes at the begining for better rendering
         for st in six.itervalues(self.states):
             if st.atmt_initial:
-                se = ('\t"%s" [ style=filled, fillcolor=blue, shape=box, root=true];\n' % st.atmt_state) + se
+                se = ('\t"%s" [ style=filled, fillcolor=blue, shape=box, root=true];\n' % st.atmt_state) + se  # noqa: E501
             elif st.atmt_final:
-                se += '\t"%s" [ style=filled, fillcolor=green, shape=octagon ];\n' % st.atmt_state
+                se += '\t"%s" [ style=filled, fillcolor=green, shape=octagon ];\n' % st.atmt_state  # noqa: E501
             elif st.atmt_error:
-                se += '\t"%s" [ style=filled, fillcolor=red, shape=octagon ];\n' % st.atmt_state
+                se += '\t"%s" [ style=filled, fillcolor=red, shape=octagon ];\n' % st.atmt_state  # noqa: E501
         s += se
 
         for st in six.itervalues(self.states):
-            for n in st.atmt_origfunc.__code__.co_names + st.atmt_origfunc.__code__.co_consts:
+            for n in st.atmt_origfunc.__code__.co_names + st.atmt_origfunc.__code__.co_consts:  # noqa: E501
                 if n in self.states:
-                    s += '\t"%s" -> "%s" [ color=green ];\n' % (st.atmt_state, n)
+                    s += '\t"%s" -> "%s" [ color=green ];\n' % (st.atmt_state, n)  # noqa: E501
 
-        for c, k, v in ([("purple", k, v) for k, v in self.conditions.items()] +
-                        [("red", k, v) for k, v in self.recv_conditions.items()] +
+        for c, k, v in ([("purple", k, v) for k, v in self.conditions.items()] +  # noqa: E501
+                        [("red", k, v) for k, v in self.recv_conditions.items()] +  # noqa: E501
                         [("orange", k, v) for k, v in self.ioevents.items()]):
             for f in v:
                 for n in f.__code__.co_names + f.__code__.co_consts:
@@ -521,7 +521,7 @@ class Automaton_metaclass(type):
                         l = f.atmt_condname
                         for x in self.actions[f.atmt_condname]:
                             l += "\\l>[%s]" % x.__name__
-                        s += '\t"%s" -> "%s" [label="%s", color=%s];\n' % (k, n, l, c)
+                        s += '\t"%s" -> "%s" [label="%s", color=%s];\n' % (k, n, l, c)  # noqa: E501
         for k, v in six.iteritems(self.timeout):
             for t, f in v:
                 if f is None:
@@ -531,7 +531,7 @@ class Automaton_metaclass(type):
                         l = "%s/%.1fs" % (f.atmt_condname, t)
                         for x in self.actions[f.atmt_condname]:
                             l += "\\l>[%s]" % x.__name__
-                        s += '\t"%s" -> "%s" [label="%s",color=blue];\n' % (k, n, l)
+                        s += '\t"%s" -> "%s" [label="%s",color=blue];\n' % (k, n, l)  # noqa: E501
         s += "}\n"
         return do_graph(s, **kargs)
 
@@ -556,7 +556,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                 if isinstance(rd, ObjectPipe):
                     self.rd = rd
                 else:
-                    raise OSError("On windows, only instances of ObjectPipe are externally available")
+                    raise OSError("On windows, only instances of ObjectPipe are externally available")  # noqa: E501
             else:
                 if rd is not None and not isinstance(rd, int):
                     rd = rd.fileno()
@@ -640,7 +640,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
 
     class InterceptionPoint(AutomatonStopped):
         def __init__(self, msg, state=None, result=None, packet=None):
-            Automaton.AutomatonStopped.__init__(self, msg, state=state, result=result)
+            Automaton.AutomatonStopped.__init__(self, msg, state=state, result=result)  # noqa: E501
             self.packet = packet
 
     class CommandMessage(AutomatonException):
@@ -655,7 +655,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
         if self.state.state in self.interception_points:
             self.debug(3, "INTERCEPT: packet intercepted: %s" % pkt.summary())
             self.intercepted_packet = pkt
-            cmd = Message(type=_ATMT_Command.INTERCEPT, state=self.state, pkt=pkt)
+            cmd = Message(type=_ATMT_Command.INTERCEPT, state=self.state, pkt=pkt)  # noqa: E501
             self.cmdout.send(cmd)
             cmd = self.cmdin.recv()
             self.intercepted_packet = None
@@ -664,11 +664,11 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                 return
             elif cmd.type == _ATMT_Command.REPLACE:
                 pkt = cmd.pkt
-                self.debug(3, "INTERCEPT: packet replaced by: %s" % pkt.summary())
+                self.debug(3, "INTERCEPT: packet replaced by: %s" % pkt.summary())  # noqa: E501
             elif cmd.type == _ATMT_Command.ACCEPT:
                 self.debug(3, "INTERCEPT: packet accepted")
             else:
-                raise self.AutomatonError("INTERCEPT: unkown verdict: %r" % cmd.type)
+                raise self.AutomatonError("INTERCEPT: unkown verdict: %r" % cmd.type)  # noqa: E501
         self.my_send(pkt)
         self.debug(3, "SENT : %s" % pkt.summary())
 
@@ -700,7 +700,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
             if not isinstance(extfd, tuple):
                 extfd = (extfd, extfd)
             elif WINDOWS:
-                raise OSError("Tuples are not allowed as external_fd on windows")
+                raise OSError("Tuples are not allowed as external_fd on windows")  # noqa: E501
             ioin, ioout = extfd
             if ioin is None:
                 ioin = ObjectPipe()
@@ -732,10 +732,10 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
 
     def _run_condition(self, cond, *args, **kargs):
         try:
-            self.debug(5, "Trying %s [%s]" % (cond.atmt_type, cond.atmt_condname))
+            self.debug(5, "Trying %s [%s]" % (cond.atmt_type, cond.atmt_condname))  # noqa: E501
             cond(self, *args, **kargs)
         except ATMT.NewStateRequested as state_req:
-            self.debug(2, "%s [%s] taken to state [%s]" % (cond.atmt_type, cond.atmt_condname, state_req.state))
+            self.debug(2, "%s [%s] taken to state [%s]" % (cond.atmt_type, cond.atmt_condname, state_req.state))  # noqa: E501
             if cond.atmt_type == ATMT.RECV:
                 if self.store_packets:
                     self.packets.append(args[0])
@@ -744,14 +744,14 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                 action(self, *state_req.action_args, **state_req.action_kargs)
             raise
         except Exception as e:
-            self.debug(2, "%s [%s] raised exception [%s]" % (cond.atmt_type, cond.atmt_condname, e))
+            self.debug(2, "%s [%s] raised exception [%s]" % (cond.atmt_type, cond.atmt_condname, e))  # noqa: E501
             raise
         else:
-            self.debug(2, "%s [%s] not taken" % (cond.atmt_type, cond.atmt_condname))
+            self.debug(2, "%s [%s] not taken" % (cond.atmt_type, cond.atmt_condname))  # noqa: E501
 
     def _do_start(self, *args, **kargs):
         ready = threading.Event()
-        _t = threading.Thread(target=self._do_control, args=(ready,) + (args), kwargs=kargs)
+        _t = threading.Thread(target=self._do_control, args=(ready,) + (args), kwargs=kargs)  # noqa: E501
         _t.setDaemon(True)
         _t.start()
         ready.wait()
@@ -770,7 +770,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
             self.state = self.initial_states[0](self)
             self.send_sock = self.send_sock_class(**self.socket_kargs)
             self.listen_sock = self.recv_sock_class(**self.socket_kargs)
-            self.packets = PacketList(name="session[%s]" % self.__class__.__name__)
+            self.packets = PacketList(name="session[%s]" % self.__class__.__name__)  # noqa: E501
 
             singlestep = True
             iterator = self._do_iter()
@@ -794,11 +794,11 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                         if isinstance(state, self.CommandMessage):
                             break
                         elif isinstance(state, self.Breakpoint):
-                            c = Message(type=_ATMT_Command.BREAKPOINT, state=state)
+                            c = Message(type=_ATMT_Command.BREAKPOINT, state=state)  # noqa: E501
                             self.cmdout.send(c)
                             break
                         if singlestep:
-                            c = Message(type=_ATMT_Command.SINGLESTEP, state=state)
+                            c = Message(type=_ATMT_Command.SINGLESTEP, state=state)  # noqa: E501
                             self.cmdout.send(c)
                             break
             except StopIteration as e:
@@ -806,8 +806,8 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                 self.cmdout.send(c)
             except Exception as e:
                 exc_info = sys.exc_info()
-                self.debug(3, "Transfering exception from tid=%i:\n%s" % (self.threadid, traceback.format_exception(*exc_info)))
-                m = Message(type=_ATMT_Command.EXCEPTION, exception=e, exc_info=exc_info)
+                self.debug(3, "Transfering exception from tid=%i:\n%s" % (self.threadid, traceback.format_exception(*exc_info)))  # noqa: E501
+                m = Message(type=_ATMT_Command.EXCEPTION, exception=e, exc_info=exc_info)  # noqa: E501
                 self.cmdout.send(m)
             self.debug(3, "Stopping control thread (tid=%i)" % self.threadid)
             self.threadid = None
@@ -818,15 +818,15 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                 self.debug(1, "## state=[%s]" % self.state.state)
 
                 # Entering a new state. First, call new state function
-                if self.state.state in self.breakpoints and self.state.state != self.breakpointed:
+                if self.state.state in self.breakpoints and self.state.state != self.breakpointed:  # noqa: E501
                     self.breakpointed = self.state.state
-                    yield self.Breakpoint("breakpoint triggered on state %s" % self.state.state,
+                    yield self.Breakpoint("breakpoint triggered on state %s" % self.state.state,  # noqa: E501
                                           state=self.state.state)
                 self.breakpointed = None
                 state_output = self.state.run()
                 if self.state.error:
-                    raise self.ErrorState("Reached %s: [%r]" % (self.state.state, state_output),
-                                          result=state_output, state=self.state.state)
+                    raise self.ErrorState("Reached %s: [%r]" % (self.state.state, state_output),  # noqa: E501
+                                          result=state_output, state=self.state.state)  # noqa: E501
                 if self.state.final:
                     raise StopIteration(state_output)
 
@@ -844,7 +844,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                     len(self.ioevents[self.state.state]) == 0 and
                         len(self.timeout[self.state.state]) == 1):
                     raise self.Stuck("stuck in [%s]" % self.state.state,
-                                     state=self.state.state, result=state_output)
+                                     state=self.state.state, result=state_output)  # noqa: E501
 
                 # Finally listen and pay attention to timeouts
                 expirations = iter(self.timeout[self.state.state])
@@ -873,7 +873,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                     for fd in r:
                         self.debug(5, "Looking at %r" % fd)
                         if fd == self.cmdin:
-                            yield self.CommandMessage("Received command message")
+                            yield self.CommandMessage("Received command message")  # noqa: E501
                         elif fd == self.listen_sock:
                             try:
                                 pkt = self.listen_sock.recv(MTU)
@@ -882,19 +882,19 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                             else:
                                 if pkt is not None:
                                     if self.master_filter(pkt):
-                                        self.debug(3, "RECVD: %s" % pkt.summary())
-                                        for rcvcond in self.recv_conditions[self.state.state]:
-                                            self._run_condition(rcvcond, pkt, *state_output)
+                                        self.debug(3, "RECVD: %s" % pkt.summary())  # noqa: E501
+                                        for rcvcond in self.recv_conditions[self.state.state]:  # noqa: E501
+                                            self._run_condition(rcvcond, pkt, *state_output)  # noqa: E501
                                     else:
-                                        self.debug(4, "FILTR: %s" % pkt.summary())
+                                        self.debug(4, "FILTR: %s" % pkt.summary())  # noqa: E501
                         else:
                             self.debug(3, "IOEVENT on %s" % fd.ioname)
                             for ioevt in self.ioevents[self.state.state]:
                                 if ioevt.atmt_ioname == fd.ioname:
-                                    self._run_condition(ioevt, fd, *state_output)
+                                    self._run_condition(ioevt, fd, *state_output)  # noqa: E501
 
             except ATMT.NewStateRequested as state_req:
-                self.debug(2, "switching from [%s] to [%s]" % (self.state.state, state_req.state))
+                self.debug(2, "switching from [%s] to [%s]" % (self.state.state, state_req.state))  # noqa: E501
                 self.state = state_req
                 yield state_req
 
@@ -940,11 +940,11 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
             if c.type == _ATMT_Command.END:
                 return c.result
             elif c.type == _ATMT_Command.INTERCEPT:
-                raise self.InterceptionPoint("packet intercepted", state=c.state.state, packet=c.pkt)
+                raise self.InterceptionPoint("packet intercepted", state=c.state.state, packet=c.pkt)  # noqa: E501
             elif c.type == _ATMT_Command.SINGLESTEP:
-                raise self.Singlestep("singlestep state=[%s]" % c.state.state, state=c.state.state)
+                raise self.Singlestep("singlestep state=[%s]" % c.state.state, state=c.state.state)  # noqa: E501
             elif c.type == _ATMT_Command.BREAKPOINT:
-                raise self.Breakpoint("breakpoint triggered on state [%s]" % c.state.state, state=c.state.state)
+                raise self.Breakpoint("breakpoint triggered on state [%s]" % c.state.state, state=c.state.state)  # noqa: E501
             elif c.type == _ATMT_Command.EXCEPTION:
                 six.reraise(c.exc_info[0], c.exc_info[1], c.exc_info[2])
 

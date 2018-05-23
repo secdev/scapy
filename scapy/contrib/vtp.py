@@ -102,9 +102,9 @@ class VTPVlanInfo(Packet):
         ShortField("vlanid", 1),
         ShortField("mtu", 1500),
         XIntField("dot10index", None),
-        StrLenField("vlanname", "default", length_from=lambda pkt: 4 * ((pkt.vlannamelen + 3) / 4)),
+        StrLenField("vlanname", "default", length_from=lambda pkt: 4 * ((pkt.vlannamelen + 3) / 4)),  # noqa: E501
         ConditionalField(PacketListField("tlvlist", [], VTPVlanInfoTlv,
-                                         length_from=lambda pkt:pkt.len - 12 - (4 * ((pkt.vlannamelen + 3) / 4))),
+                                         length_from=lambda pkt:pkt.len - 12 - (4 * ((pkt.vlannamelen + 3) / 4))),  # noqa: E501
                          lambda pkt:pkt.type not in [1, 2])
     ]
 
@@ -141,7 +141,7 @@ class VTPTimeStampField(StrFixedLenField):
         StrFixedLenField.__init__(self, name, default, 12)
 
     def i2repr(self, pkt, x):
-        return "%s-%s-%s %s:%s:%s" % (x[:2], x[2:4], x[4:6], x[6:8], x[8:10], x[10:12])
+        return "%s-%s-%s %s:%s:%s" % (x[:2], x[2:4], x[4:6], x[6:8], x[8:10], x[10:12])  # noqa: E501
 
 
 class VTP(Packet):

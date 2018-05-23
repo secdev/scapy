@@ -75,7 +75,7 @@ class PPITSFTField(LELongField):
         return tout
 
 
-_PPIDot11CommonChFlags = ['', '', '', '', 'Turbo', 'CCK', 'OFDM', '2GHz', '5GHz',
+_PPIDot11CommonChFlags = ['', '', '', '', 'Turbo', 'CCK', 'OFDM', '2GHz', '5GHz',  # noqa: E501
                           'PassiveOnly', 'Dynamic CCK-OFDM', 'GSFK']
 
 _PPIDot11CommonPktFlags = ['FCS', 'TSFT_ms', 'FCS_Invalid', 'PHY_Error']

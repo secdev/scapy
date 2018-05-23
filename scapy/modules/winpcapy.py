@@ -1,5 +1,5 @@
 # Original license
-#-------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------  # noqa: E501
 # Name:        winpcapy.py
 #
 # Author:      Massimo Ciani
@@ -7,7 +7,7 @@
 # Created:     01/09/2009
 # Copyright:   (c) Massimo Ciani 2009
 #
-#-------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------  # noqa: E501
 # Modified for scapy's usage - Mainly to support Npcap
 
 ## This file is part of Scapy
@@ -32,7 +32,7 @@ if WINDOWS:
         os.environ['PATH'] = npcap_folder + ";" + os.environ['PATH']
         # Set DLL directory priority
         windll.kernel32.SetDllDirectoryW(npcap_folder)
-        # Packet.dll is unused, but needs to overwrite the winpcap one if it exists
+        # Packet.dll is unused, but needs to overwrite the winpcap one if it exists  # noqa: E501
         cdll.LoadLibrary(npcap_folder + "\\Packet.dll")
         _lib = cdll.LoadLibrary(npcap_folder + "\\wpcap.dll")
     else:
@@ -228,7 +228,7 @@ MODE_STAT = 1
 #typedef u_int  bpf_u_int32 (already defined)
 #   32-bit unsigned integer
 #typedef struct pcap  pcap_t
-#   Descriptor of an open capture instance. This structure is opaque to the user, that handles its content through the functions provided by wpcap.dll.
+#   Descriptor of an open capture instance. This structure is opaque to the user, that handles its content through the functions provided by wpcap.dll.  # noqa: E501
 pcap_t = pcap
 #typedef struct pcap_dumper   pcap_dumper_t
 #   libpcap savefile descriptor.
@@ -253,15 +253,15 @@ pcap_addr_t = pcap_addr
 
 ##
 ## Unix-compatible Functions
-## These functions are part of the libpcap library, and therefore work both on Windows and on Linux. 
+## These functions are part of the libpcap library, and therefore work both on Windows and on Linux.   # noqa: E501
 ##
 
-#typedef void(* pcap_handler )(u_char *user, const struct pcap_pkthdr *pkt_header, const u_char *pkt_data)
+#typedef void(* pcap_handler )(u_char *user, const struct pcap_pkthdr *pkt_header, const u_char *pkt_data)  # noqa: E501
 #   Prototype of the callback function that receives the packets.
 ## This one is defined from programmer
-pcap_handler=CFUNCTYPE(None,POINTER(c_ubyte),POINTER(pcap_pkthdr),POINTER(c_ubyte))
+pcap_handler=CFUNCTYPE(None,POINTER(c_ubyte),POINTER(pcap_pkthdr),POINTER(c_ubyte))  # noqa: E501
 
-#pcap_t *   pcap_open_live (const char *device, int snaplen, int promisc, int to_ms, char *ebuf)
+#pcap_t *   pcap_open_live (const char *device, int snaplen, int promisc, int to_ms, char *ebuf)  # noqa: E501
 #   Open a live capture from the network.
 pcap_open_live = _lib.pcap_open_live
 pcap_open_live.restype = POINTER(pcap_t)
@@ -281,7 +281,7 @@ pcap_open_offline.argtypes = [STRING, STRING]
 
 try:  # NPCAP ONLY function
     #int pcap_set_rfmon (pcap_t *p)
-    #   sets whether monitor mode should be set on a capture handle when the handle is activated.
+    #   sets whether monitor mode should be set on a capture handle when the handle is activated.  # noqa: E501
     pcap_set_rfmon = _lib.pcap_set_rfmon
     pcap_set_rfmon.restype = c_int
     pcap_set_rfmon.argtypes = [POINTER(pcap_t), c_int]
@@ -337,7 +337,7 @@ pcap_getnonblock.restype = c_int
 pcap_getnonblock.argtypes = [POINTER(pcap_t), STRING]
 
 #int pcap_findalldevs (pcap_if_t **alldevsp, char *errbuf)
-#   Construct a list of network devices that can be opened with pcap_open_live().
+#   Construct a list of network devices that can be opened with pcap_open_live().  # noqa: E501
 pcap_findalldevs = _lib.pcap_findalldevs
 pcap_findalldevs.restype = c_int
 pcap_findalldevs.argtypes = [POINTER(POINTER(pcap_if_t)), STRING]
@@ -354,17 +354,17 @@ pcap_lookupdev = _lib.pcap_lookupdev
 pcap_lookupdev.restype = STRING
 pcap_lookupdev.argtypes = [STRING]
 
-#int pcap_lookupnet (const char *device, bpf_u_int32 *netp, bpf_u_int32 *maskp, char *errbuf)
+#int pcap_lookupnet (const char *device, bpf_u_int32 *netp, bpf_u_int32 *maskp, char *errbuf)  # noqa: E501
 #   Return the subnet and netmask of an interface.
 pcap_lookupnet = _lib.pcap_lookupnet
 pcap_lookupnet.restype = c_int
-pcap_lookupnet.argtypes = [STRING, POINTER(bpf_u_int32), POINTER(bpf_u_int32), STRING]
+pcap_lookupnet.argtypes = [STRING, POINTER(bpf_u_int32), POINTER(bpf_u_int32), STRING]  # noqa: E501
 
 #int pcap_dispatch (pcap_t *p, int cnt, pcap_handler callback, u_char *user)
 #   Collect a group of packets.
 pcap_dispatch = _lib.pcap_dispatch
 pcap_dispatch.restype = c_int
-pcap_dispatch.argtypes = [POINTER(pcap_t), c_int, pcap_handler, POINTER(u_char)]
+pcap_dispatch.argtypes = [POINTER(pcap_t), c_int, pcap_handler, POINTER(u_char)]  # noqa: E501
 
 #int pcap_loop (pcap_t *p, int cnt, pcap_handler callback, u_char *user)
 #   Collect a group of packets.
@@ -378,14 +378,14 @@ pcap_next = _lib.pcap_next
 pcap_next.restype = POINTER(u_char)
 pcap_next.argtypes = [POINTER(pcap_t), POINTER(pcap_pkthdr)]
 
-#int pcap_next_ex (pcap_t *p, struct pcap_pkthdr **pkt_header, const u_char **pkt_data)
+#int pcap_next_ex (pcap_t *p, struct pcap_pkthdr **pkt_header, const u_char **pkt_data)  # noqa: E501
 #   Read a packet from an interface or from an offline capture.
 pcap_next_ex = _lib.pcap_next_ex
 pcap_next_ex.restype = c_int
-pcap_next_ex.argtypes = [POINTER(pcap_t), POINTER(POINTER(pcap_pkthdr)), POINTER(POINTER(u_char))]
+pcap_next_ex.argtypes = [POINTER(pcap_t), POINTER(POINTER(pcap_pkthdr)), POINTER(POINTER(u_char))]  # noqa: E501
 
 #void pcap_breakloop (pcap_t *)
-#   set a flag that will force pcap_dispatch() or pcap_loop() to return rather than looping.
+#   set a flag that will force pcap_dispatch() or pcap_loop() to return rather than looping.  # noqa: E501
 pcap_breakloop = _lib.pcap_breakloop
 pcap_breakloop.restype = None
 pcap_breakloop.argtypes = [POINTER(pcap_t)]
@@ -401,7 +401,7 @@ pcap_sendpacket.argtypes = [POINTER(pcap_t), c_void_p, c_int]
 #   Save a packet to disk.
 pcap_dump = _lib.pcap_dump
 pcap_dump.restype = None
-pcap_dump.argtypes = [POINTER(pcap_dumper_t), POINTER(pcap_pkthdr), POINTER(u_char)]
+pcap_dump.argtypes = [POINTER(pcap_dumper_t), POINTER(pcap_pkthdr), POINTER(u_char)]  # noqa: E501
 
 #long pcap_dump_ftell (pcap_dumper_t *)
 #   Return the file position for a "savefile".
@@ -409,17 +409,17 @@ pcap_dump_ftell = _lib.pcap_dump_ftell
 pcap_dump_ftell.restype = c_long
 pcap_dump_ftell.argtypes = [POINTER(pcap_dumper_t)]
 
-#int pcap_compile (pcap_t *p, struct bpf_program *fp, char *str, int optimize, bpf_u_int32 netmask)
-#   Compile a packet filter, converting an high level filtering expression (see Filtering expression syntax) in a program that can be interpreted by the kernel-level filtering engine.
+#int pcap_compile (pcap_t *p, struct bpf_program *fp, char *str, int optimize, bpf_u_int32 netmask)  # noqa: E501
+#   Compile a packet filter, converting an high level filtering expression (see Filtering expression syntax) in a program that can be interpreted by the kernel-level filtering engine.  # noqa: E501
 pcap_compile = _lib.pcap_compile
 pcap_compile.restype = c_int
-pcap_compile.argtypes = [POINTER(pcap_t), POINTER(bpf_program), STRING, c_int, bpf_u_int32]
+pcap_compile.argtypes = [POINTER(pcap_t), POINTER(bpf_program), STRING, c_int, bpf_u_int32]  # noqa: E501
 
-#int pcap_compile_nopcap (int snaplen_arg, int linktype_arg, struct bpf_program *program, char *buf, int optimize, bpf_u_int32 mask)
-#   Compile a packet filter without the need of opening an adapter. This function converts an high level filtering expression (see Filtering expression syntax) in a program that can be interpreted by the kernel-level filtering engine.
+#int pcap_compile_nopcap (int snaplen_arg, int linktype_arg, struct bpf_program *program, char *buf, int optimize, bpf_u_int32 mask)  # noqa: E501
+#   Compile a packet filter without the need of opening an adapter. This function converts an high level filtering expression (see Filtering expression syntax) in a program that can be interpreted by the kernel-level filtering engine.  # noqa: E501
 pcap_compile_nopcap = _lib.pcap_compile_nopcap
 pcap_compile_nopcap.restype = c_int
-pcap_compile_nopcap.argtypes = [c_int, c_int, POINTER(bpf_program), STRING, c_int, bpf_u_int32]
+pcap_compile_nopcap.argtypes = [c_int, c_int, POINTER(bpf_program), STRING, c_int, bpf_u_int32]  # noqa: E501
 
 #int pcap_setfilter (pcap_t *p, struct bpf_program *fp)
 #   Associate a filter to a capture.
@@ -446,49 +446,49 @@ pcap_list_datalinks.restype = c_int
 #pcap_list_datalinks.argtypes = [POINTER(pcap_t), POINTER(POINTER(c_int))]
 
 #int pcap_set_datalink (pcap_t *p, int dlt)
-#   Set the current data link type of the pcap descriptor to the type specified by dlt. -1 is returned on failure.
+#   Set the current data link type of the pcap descriptor to the type specified by dlt. -1 is returned on failure.  # noqa: E501
 pcap_set_datalink = _lib.pcap_set_datalink
 pcap_set_datalink.restype = c_int
 pcap_set_datalink.argtypes = [POINTER(pcap_t), c_int]
 
 #int pcap_datalink_name_to_val (const char *name)
-#   Translates a data link type name, which is a DLT_ name with the DLT_ removed, to the corresponding data link type value. The translation is case-insensitive. -1 is returned on failure.
+#   Translates a data link type name, which is a DLT_ name with the DLT_ removed, to the corresponding data link type value. The translation is case-insensitive. -1 is returned on failure.  # noqa: E501
 pcap_datalink_name_to_val = _lib.pcap_datalink_name_to_val
 pcap_datalink_name_to_val.restype = c_int
 pcap_datalink_name_to_val.argtypes = [STRING]
 
 #const char *   pcap_datalink_val_to_name (int dlt)
-#   Translates a data link type value to the corresponding data link type name. NULL is returned on failure.
+#   Translates a data link type value to the corresponding data link type name. NULL is returned on failure.  # noqa: E501
 pcap_datalink_val_to_name = _lib.pcap_datalink_val_to_name
 pcap_datalink_val_to_name.restype = STRING
 pcap_datalink_val_to_name.argtypes = [c_int]
 
 #const char *   pcap_datalink_val_to_description (int dlt)
-#   Translates a data link type value to a short description of that data link type. NULL is returned on failure.
+#   Translates a data link type value to a short description of that data link type. NULL is returned on failure.  # noqa: E501
 pcap_datalink_val_to_description = _lib.pcap_datalink_val_to_description
 pcap_datalink_val_to_description.restype = STRING
 pcap_datalink_val_to_description.argtypes = [c_int]
 
 #int pcap_snapshot (pcap_t *p)
-#   Return the dimension of the packet portion (in bytes) that is delivered to the application.
+#   Return the dimension of the packet portion (in bytes) that is delivered to the application.  # noqa: E501
 pcap_snapshot = _lib.pcap_snapshot
 pcap_snapshot.restype = c_int
 pcap_snapshot.argtypes = [POINTER(pcap_t)]
 
 #int pcap_is_swapped (pcap_t *p)
-#   returns true if the current savefile uses a different byte order than the current system.
+#   returns true if the current savefile uses a different byte order than the current system.  # noqa: E501
 pcap_is_swapped = _lib.pcap_is_swapped
 pcap_is_swapped.restype = c_int
 pcap_is_swapped.argtypes = [POINTER(pcap_t)]
 
 #int pcap_major_version (pcap_t *p)
-#   return the major version number of the pcap library used to write the savefile.
+#   return the major version number of the pcap library used to write the savefile.  # noqa: E501
 pcap_major_version = _lib.pcap_major_version
 pcap_major_version.restype = c_int
 pcap_major_version.argtypes = [POINTER(pcap_t)]
 
 #int pcap_minor_version (pcap_t *p)
-#   return the minor version number of the pcap library used to write the savefile.
+#   return the minor version number of the pcap library used to write the savefile.  # noqa: E501
 pcap_minor_version = _lib.pcap_minor_version
 pcap_minor_version.restype = c_int
 pcap_minor_version.argtypes = [POINTER(pcap_t)]
@@ -506,7 +506,7 @@ pcap_stats.restype = c_int
 pcap_stats.argtypes = [POINTER(pcap_t), POINTER(pcap_stat)]
 
 #void pcap_perror (pcap_t *p, char *prefix)
-#   print the text of the last pcap library error on stderr, prefixed by prefix.
+#   print the text of the last pcap library error on stderr, prefixed by prefix.  # noqa: E501
 pcap_perror = _lib.pcap_perror
 pcap_perror.restype = None
 pcap_perror.argtypes = [POINTER(pcap_t), STRING]
@@ -524,7 +524,7 @@ pcap_strerror.restype = STRING
 pcap_strerror.argtypes = [c_int]
 
 #const char *   pcap_lib_version (void)
-#   Returns a pointer to a string giving information about the version of the libpcap library being used; note that it contains more information than just a version number.
+#   Returns a pointer to a string giving information about the version of the libpcap library being used; note that it contains more information than just a version number.  # noqa: E501
 pcap_lib_version = _lib.pcap_lib_version
 pcap_lib_version.restype = STRING
 pcap_lib_version.argtypes = []
@@ -536,13 +536,13 @@ pcap_close.restype = None
 pcap_close.argtypes = [POINTER(pcap_t)]
 
 #FILE *   pcap_dump_file (pcap_dumper_t *p)
-#   return the standard I/O stream of the 'savefile' opened by pcap_dump_open().
+#   return the standard I/O stream of the 'savefile' opened by pcap_dump_open().  # noqa: E501
 pcap_dump_file=_lib.pcap_dump_file
 pcap_dump_file.restype=FILE
 pcap_dump_file.argtypes= [POINTER(pcap_dumper_t)]
 
 #int pcap_dump_flush (pcap_dumper_t *p)
-#   Flushes the output buffer to the ``savefile,'' so that any packets written with pcap_dump() but not yet written to the ``savefile'' will be written. -1 is returned on error, 0 on success.
+#   Flushes the output buffer to the ``savefile,'' so that any packets written with pcap_dump() but not yet written to the ``savefile'' will be written. -1 is returned on error, 0 on success.  # noqa: E501
 pcap_dump_flush = _lib.pcap_dump_flush
 pcap_dump_flush.restype = c_int
 pcap_dump_flush.argtypes = [POINTER(pcap_dumper_t)]
@@ -555,15 +555,15 @@ pcap_dump_close.argtypes = [POINTER(pcap_dumper_t)]
 
 if not WINDOWS:
     #int pcap_get_selectable_fd(pcap_t, *p)
-    #   Returns, on UNIX, a file descriptor number for a file descriptor on which one can do a select(), poll(). -1 is returned if no such descriptor exists.
+    #   Returns, on UNIX, a file descriptor number for a file descriptor on which one can do a select(), poll(). -1 is returned if no such descriptor exists.  # noqa: E501
     pcap_get_selectable_fd = _lib.pcap_get_selectable_fd
     pcap_get_selectable_fd.restype = c_int    
     pcap_get_selectable_fd.argtypes = [POINTER(pcap_t)]
 
 ###########################################
 ## Windows-specific Extensions
-## The functions in this section extend libpcap to offer advanced functionalities
-## (like remote packet capture, packet buffer size variation or high-precision packet injection).
+## The functions in this section extend libpcap to offer advanced functionalities  # noqa: E501
+## (like remote packet capture, packet buffer size variation or high-precision packet injection).  # noqa: E501
 ## Howerver, at the moment they can be used only in Windows.
 ###########################################
 if WINDOWS:
@@ -575,7 +575,7 @@ if WINDOWS:
     #define   PCAP_SRC_FILE   2
     #define   PCAP_SRC_IFLOCAL   3
     #define   PCAP_SRC_IFREMOTE   4
-    #Internal representation of the type of source in use (file, remote/local interface).
+    #Internal representation of the type of source in use (file, remote/local interface).  # noqa: E501
     PCAP_SRC_FILE = 2
     PCAP_SRC_IFLOCAL = 3
     PCAP_SRC_IFREMOTE = 4
@@ -585,7 +585,7 @@ if WINDOWS:
     ##############
     #define   PCAP_SRC_FILE_STRING   "file://"
     #define   PCAP_SRC_IF_STRING   "rpcap://"
-    #String that will be used to determine the type of source in use (file, remote/local interface).
+    #String that will be used to determine the type of source in use (file, remote/local interface).  # noqa: E501
     PCAP_SRC_FILE_STRING="file://"
     PCAP_SRC_IF_STRING="rpcap://"
     
@@ -596,7 +596,7 @@ if WINDOWS:
     #   Defines if the adapter has to go in promiscuous mode.
     PCAP_OPENFLAG_PROMISCUOUS=1
     # define  PCAP_OPENFLAG_DATATX_UDP   2
-    #   Defines if the data transfer (in case of a remote capture) has to be done with UDP protocol.
+    #   Defines if the data transfer (in case of a remote capture) has to be done with UDP protocol.  # noqa: E501
     PCAP_OPENFLAG_DATATX_UDP=2
     # define  PCAP_OPENFLAG_NOCAPTURE_RPCAP   4
     PCAP_OPENFLAG_NOCAPTURE_RPCAP=4
@@ -635,7 +635,7 @@ if WINDOWS:
     ## Remote struct and defines
     ##############
     # define  PCAP_BUF_SIZE   1024
-    # Defines the maximum buffer size in which address, port, interface names are kept.
+    # Defines the maximum buffer size in which address, port, interface names are kept.  # noqa: E501
     PCAP_BUF_SIZE = 1024
     # define  RPCAP_HOSTLIST_SIZE   1024
     # Maximum length of an host name (needed for the RPCAP active mode).
@@ -647,7 +647,7 @@ if WINDOWS:
                   ("buffer",c_char_p)]
         
     ## struct   pcap_rmtauth
-    ## This structure keeps the information needed to autheticate the user on a remote machine
+    ## This structure keeps the information needed to autheticate the user on a remote machine  # noqa: E501
     class pcap_rmtauth(Structure):
         _fields_=[("type",c_int),
                   ("username",c_char_p),
@@ -660,13 +660,13 @@ if WINDOWS:
                   ("value",c_int)]
 
     #PAirpcapHandle   pcap_get_airpcap_handle (pcap_t *p)
-    #   Returns the AirPcap handler associated with an adapter. This handler can be used to change the wireless-related settings of the CACE Technologies AirPcap wireless capture adapters.
+    #   Returns the AirPcap handler associated with an adapter. This handler can be used to change the wireless-related settings of the CACE Technologies AirPcap wireless capture adapters.  # noqa: E501
     
-    #bool pcap_offline_filter (struct bpf_program *prog, const struct pcap_pkthdr *header, const u_char *pkt_data)
+    #bool pcap_offline_filter (struct bpf_program *prog, const struct pcap_pkthdr *header, const u_char *pkt_data)  # noqa: E501
     #   Returns if a given filter applies to an offline packet.
     pcap_offline_filter = _lib.pcap_offline_filter
     pcap_offline_filter.restype = c_bool
-    pcap_offline_filter.argtypes = [POINTER(bpf_program),POINTER(pcap_pkthdr),POINTER(u_char)]
+    pcap_offline_filter.argtypes = [POINTER(bpf_program),POINTER(pcap_pkthdr),POINTER(u_char)]  # noqa: E501
     
     #int pcap_live_dump (pcap_t *p, char *filename, int maxsize, int maxpacks)
     #   Save a capture to file.
@@ -675,7 +675,7 @@ if WINDOWS:
     pcap_live_dump.argtypes = [POINTER(pcap_t), POINTER(c_char), c_int,c_int]
     
     #int pcap_live_dump_ended (pcap_t *p, int sync)
-    #   Return the status of the kernel dump process, i.e. tells if one of the limits defined with pcap_live_dump() has been reached.
+    #   Return the status of the kernel dump process, i.e. tells if one of the limits defined with pcap_live_dump() has been reached.  # noqa: E501
     pcap_live_dump_ended = _lib.pcap_live_dump_ended
     pcap_live_dump_ended.restype = c_int
     pcap_live_dump_ended.argtypes = [POINTER(pcap_t), c_int]
@@ -722,41 +722,41 @@ if WINDOWS:
     pcap_sendqueue_destroy.restype = None
     pcap_sendqueue_destroy.argtypes = [POINTER(pcap_send_queue)]
     
-    #int pcap_sendqueue_queue (pcap_send_queue *queue, const struct pcap_pkthdr *pkt_header, const u_char *pkt_data)
+    #int pcap_sendqueue_queue (pcap_send_queue *queue, const struct pcap_pkthdr *pkt_header, const u_char *pkt_data)  # noqa: E501
     #   Add a packet to a send queue.
     pcap_sendqueue_queue = _lib.pcap_sendqueue_queue
     pcap_sendqueue_queue.restype = c_int
-    pcap_sendqueue_queue.argtypes = [POINTER(pcap_send_queue), POINTER(pcap_pkthdr), POINTER(u_char)]
+    pcap_sendqueue_queue.argtypes = [POINTER(pcap_send_queue), POINTER(pcap_pkthdr), POINTER(u_char)]  # noqa: E501
     
-    #u_int pcap_sendqueue_transmit (pcap_t *p, pcap_send_queue *queue, int sync)
+    #u_int pcap_sendqueue_transmit (pcap_t *p, pcap_send_queue *queue, int sync)  # noqa: E501
     #   Send a queue of raw packets to the network.
     pcap_sendqueue_transmit = _lib.pcap_sendqueue_transmit
     pcap_sendqueue_transmit.retype = u_int
-    pcap_sendqueue_transmit.argtypes = [POINTER(pcap_t), POINTER(pcap_send_queue), c_int]
+    pcap_sendqueue_transmit.argtypes = [POINTER(pcap_t), POINTER(pcap_send_queue), c_int]  # noqa: E501
     
-    #int pcap_findalldevs_ex (char *source, struct pcap_rmtauth *auth, pcap_if_t **alldevs, char *errbuf)
+    #int pcap_findalldevs_ex (char *source, struct pcap_rmtauth *auth, pcap_if_t **alldevs, char *errbuf)  # noqa: E501
     #   Create a list of network devices that can be opened with pcap_open().
     pcap_findalldevs_ex = _lib.pcap_findalldevs_ex
     pcap_findalldevs_ex.retype = c_int
-    pcap_findalldevs_ex.argtypes = [STRING, POINTER(pcap_rmtauth), POINTER(POINTER(pcap_if_t)), STRING]
+    pcap_findalldevs_ex.argtypes = [STRING, POINTER(pcap_rmtauth), POINTER(POINTER(pcap_if_t)), STRING]  # noqa: E501
     
-    #int pcap_createsrcstr (char *source, int type, const char *host, const char *port, const char *name, char *errbuf)
-    #   Accept a set of strings (host name, port, ...), and it returns the complete source string according to the new format (e.g. 'rpcap://1.2.3.4/eth0').
+    #int pcap_createsrcstr (char *source, int type, const char *host, const char *port, const char *name, char *errbuf)  # noqa: E501
+    #   Accept a set of strings (host name, port, ...), and it returns the complete source string according to the new format (e.g. 'rpcap://1.2.3.4/eth0').  # noqa: E501
     pcap_createsrcstr = _lib.pcap_createsrcstr
     pcap_createsrcstr.restype = c_int
-    pcap_createsrcstr.argtypes = [STRING, c_int, STRING, STRING, STRING, STRING]
+    pcap_createsrcstr.argtypes = [STRING, c_int, STRING, STRING, STRING, STRING]  # noqa: E501
     
-    #int pcap_parsesrcstr (const char *source, int *type, char *host, char *port, char *name, char *errbuf)
-    #   Parse the source string and returns the pieces in which the source can be split.
+    #int pcap_parsesrcstr (const char *source, int *type, char *host, char *port, char *name, char *errbuf)  # noqa: E501
+    #   Parse the source string and returns the pieces in which the source can be split.  # noqa: E501
     pcap_parsesrcstr = _lib.pcap_parsesrcstr
     pcap_parsesrcstr.retype = c_int
-    pcap_parsesrcstr.argtypes = [STRING, POINTER(c_int), STRING, STRING, STRING, STRING]
+    pcap_parsesrcstr.argtypes = [STRING, POINTER(c_int), STRING, STRING, STRING, STRING]  # noqa: E501
     
-    #pcap_t *   pcap_open (const char *source, int snaplen, int flags, int read_timeout, struct pcap_rmtauth *auth, char *errbuf)
-    #   Open a generic source in order to capture / send (WinPcap only) traffic.
+    #pcap_t *   pcap_open (const char *source, int snaplen, int flags, int read_timeout, struct pcap_rmtauth *auth, char *errbuf)  # noqa: E501
+    #   Open a generic source in order to capture / send (WinPcap only) traffic.  # noqa: E501
     pcap_open = _lib.pcap_open
     pcap_open.restype = POINTER(pcap_t)
-    pcap_open.argtypes = [STRING, c_int, c_int, c_int, POINTER(pcap_rmtauth), STRING]
+    pcap_open.argtypes = [STRING, c_int, c_int, c_int, POINTER(pcap_rmtauth), STRING]  # noqa: E501
     
     #struct pcap_samp *  pcap_setsampling (pcap_t *p)
     #   Define a sampling method for packet capture.
@@ -764,11 +764,11 @@ if WINDOWS:
     pcap_setsampling.restype = POINTER(pcap_samp)
     pcap_setsampling.argtypes = [POINTER(pcap_t)]
     
-    #SOCKET pcap_remoteact_accept (const char *address, const char *port, const char *hostlist, char *connectinghost, struct pcap_rmtauth *auth, char *errbuf)
+    #SOCKET pcap_remoteact_accept (const char *address, const char *port, const char *hostlist, char *connectinghost, struct pcap_rmtauth *auth, char *errbuf)  # noqa: E501
     #   Block until a network connection is accepted (active mode only).
     pcap_remoteact_accept = _lib.pcap_remoteact_accept
     pcap_remoteact_accept.restype = SOCKET
-    pcap_remoteact_accept.argtypes = [STRING, STRING, STRING, STRING, POINTER(pcap_rmtauth), STRING]
+    pcap_remoteact_accept.argtypes = [STRING, STRING, STRING, STRING, POINTER(pcap_rmtauth), STRING]  # noqa: E501
     
     #int pcap_remoteact_close (const char *host, char *errbuf)
     #   Drop an active connection (active mode only).
@@ -783,7 +783,7 @@ if WINDOWS:
     pcap_remoteact_cleanup.argtypes = []
     
     #int pcap_remoteact_list (char *hostlist, char sep, int size, char *errbuf)
-    #   Return the hostname of the host that have an active connection with us (active mode only). 
+    #   Return the hostname of the host that have an active connection with us (active mode only).   # noqa: E501
     pcap_remoteact_list = _lib.pcap_remoteact_list
     pcap_remoteact_list.restype = c_int
     pcap_remoteact_list.argtypes = [STRING, c_char, c_int, STRING]

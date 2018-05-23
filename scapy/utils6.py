@@ -311,13 +311,13 @@ def in6_getLinkScopedMcastAddr(addr, grpid=None, scope=2):
                 try:
                     grpid = int(grpid, 16) & 0xffffffff
                 except:
-                    warning("in6_getLinkScopedMcastPrefix(): Invalid group id provided")
+                    warning("in6_getLinkScopedMcastPrefix(): Invalid group id provided")  # noqa: E501
                     return None
             elif len(grpid) == 4:
                 try:
                     grpid = struct.unpack("!I", grpid)[0]
                 except:
-                    warning("in6_getLinkScopedMcastPrefix(): Invalid group id provided")
+                    warning("in6_getLinkScopedMcastPrefix(): Invalid group id provided")  # noqa: E501
                     return None
         grpid = struct.pack("!I", grpid)
 
@@ -421,11 +421,11 @@ def in6_getRandomizedIfaceId(ifaceid, previous=None):
     return (s1, s2)
 
 
-_rfc1924map = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E',
-               'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T',
-               'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i',
-               'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x',
-               'y', 'z', '!', '#', '$', '%', '&', '(', ')', '*', '+', '-', ';', '<', '=',
+_rfc1924map = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E',  # noqa: E501
+               'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T',  # noqa: E501
+               'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i',  # noqa: E501
+               'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x',  # noqa: E501
+               'y', 'z', '!', '#', '$', '%', '&', '(', ')', '*', '+', '-', ';', '<', '=',  # noqa: E501
                '>', '?', '@', '^', '_', '`', '{', '|', '}', '~']
 
 
@@ -589,7 +589,7 @@ def in6_cidr2mask(m):
 
     """
     if m > 128 or m < 0:
-        raise Scapy_Exception("value provided to in6_cidr2mask outside [0, 128] domain (%d)" % m)
+        raise Scapy_Exception("value provided to in6_cidr2mask outside [0, 128] domain (%d)" % m)  # noqa: E501
 
     t = []
     for i in range(0, 4):
@@ -611,7 +611,7 @@ def in6_getnsma(a):
     return r
 
 
-def in6_getnsmac(a):  # return multicast Ethernet address associated with multicast v6 destination
+def in6_getnsmac(a):  # return multicast Ethernet address associated with multicast v6 destination  # noqa: E501
     """
     Return the multicast mac address associated with provided
     IPv6 address. Passed address must be in network format.
@@ -840,7 +840,7 @@ class Net6(Gen):  # syntax ex. fec0::/126
 
         tmp = net.split('/') + ["128"]
         if not self.ip_regex.match(net):
-            tmp[0] = socket.getaddrinfo(tmp[0], None, socket.AF_INET6)[0][-1][0]
+            tmp[0] = socket.getaddrinfo(tmp[0], None, socket.AF_INET6)[0][-1][0]  # noqa: E501
 
         netmask = int(tmp[1])
         self.net = inet_pton(socket.AF_INET6, tmp[0])

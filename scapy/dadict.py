@@ -21,7 +21,7 @@ from scapy.compat import *
 def fixname(x):
     if x and str(x[0]) in "0123456789":
         x = "n_" + x
-    return x.translate("________________________________________________0123456789_______ABCDEFGHIJKLMNOPQRSTUVWXYZ______abcdefghijklmnopqrstuvwxyz_____________________________________________________________________________________________________________________________________")
+    return x.translate("________________________________________________0123456789_______ABCDEFGHIJKLMNOPQRSTUVWXYZ______abcdefghijklmnopqrstuvwxyz_____________________________________________________________________________________________________________________________________")  # noqa: E501
 
 
 class DADict_Exception(Scapy_Exception):
@@ -55,11 +55,11 @@ class DADict:
                 print("%10s = %r" % (k, getattr(self, k)))
 
     def __repr__(self):
-        return "<%s/ %s>" % (self._name, " ".join(x for x in self.__dict__ if x and x[0] != "_"))
+        return "<%s/ %s>" % (self._name, " ".join(x for x in self.__dict__ if x and x[0] != "_"))  # noqa: E501
 
     def _branch(self, br, uniq=0):
         if uniq and br._name in self:
-            raise DADict_Exception("DADict: [%s] already branched in [%s]" % (br._name, self._name))
+            raise DADict_Exception("DADict: [%s] already branched in [%s]" % (br._name, self._name))  # noqa: E501
         self[br._name] = br
 
     def _my_find(self, *args, **kargs):

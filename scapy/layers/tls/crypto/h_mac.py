@@ -59,7 +59,7 @@ class _GenericHMAC(six.with_metaclass(_GenericHMACMetaclass, object)):
     def digest(self, tbd):
         if self.key is None:
             raise HMACError
-        return hmac.new(raw(self.key), raw(tbd), self.hash_alg.hash_cls).digest()
+        return hmac.new(raw(self.key), raw(tbd), self.hash_alg.hash_cls).digest()  # noqa: E501
 
     def digest_sslv3(self, tbd):
         if self.key is None:

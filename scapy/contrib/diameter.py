@@ -3,18 +3,18 @@
 #       Diameter protocol implementation for Scapy
 #   Original Author: patrick battistello
 #
-#   This implements the base Diameter protocol RFC6733 and the additional standards:
-#     RFC7155, RFC4004, RFC4006, RFC4072, RFC4740, RFC5778, RFC5447, RFC6942, RFC5777
-#     ETS29229 V12.3.0 (2014-09), ETS29272 V13.1.0 (2015-03), ETS29329 V12.5.0 (2014-12),
-#     ETS29212 V13.1.0 (2015-03), ETS32299 V13.0.0 (2015-03), ETS29210 V6.7.0 (2006-12),
-#     ETS29214 V13.1.0 (2015-03), ETS29273 V12.7.0 (2015-03), ETS29173 V12.3.0 (2015-03),
-#     ETS29172 V12.5.0 (2015-03), ETS29215 V13.1.0 (2015-03), ETS29209 V6.8.0 (2011-09),
+#   This implements the base Diameter protocol RFC6733 and the additional standards:  # noqa: E501
+#     RFC7155, RFC4004, RFC4006, RFC4072, RFC4740, RFC5778, RFC5447, RFC6942, RFC5777  # noqa: E501
+#     ETS29229 V12.3.0 (2014-09), ETS29272 V13.1.0 (2015-03), ETS29329 V12.5.0 (2014-12),  # noqa: E501
+#     ETS29212 V13.1.0 (2015-03), ETS32299 V13.0.0 (2015-03), ETS29210 V6.7.0 (2006-12),  # noqa: E501
+#     ETS29214 V13.1.0 (2015-03), ETS29273 V12.7.0 (2015-03), ETS29173 V12.3.0 (2015-03),  # noqa: E501
+#     ETS29172 V12.5.0 (2015-03), ETS29215 V13.1.0 (2015-03), ETS29209 V6.8.0 (2011-09),  # noqa: E501
 #     ETS29061 V13.0.0 (2015-03), ETS29219 V13.0.0 (2014-12)
 #
 #       IMPORTANT note:
 #
-#           - Some Diameter fields (Unsigned64, Float32, ...) have not been tested yet due to lack
-#               of network captures containing AVPs of that types contributions are welcomed.
+#           - Some Diameter fields (Unsigned64, Float32, ...) have not been tested yet due to lack  # noqa: E501
+#               of network captures containing AVPs of that types contributions are welcomed.  # noqa: E501
 #
 ##########################################################################
 
@@ -95,7 +95,7 @@ class DRFlags (FlagsField):
 
 class DRCode (I3BytesEnumField):
     def __init__(self, name, default, enum):
-        """enum is a dict of tupples, so conversion is required before calling the actual init method.
+        """enum is a dict of tupples, so conversion is required before calling the actual init method.  # noqa: E501
            Note: the conversion is done only once."""
         enumDict = {}
         for k, v in enum.items():
@@ -290,7 +290,7 @@ class IPFilterRule (StrLenField):
 
 
 class Grouped (StrLenField):
-    """This class is just for declarative purpose because it is used in the AVP definitions dict."""
+    """This class is just for declarative purpose because it is used in the AVP definitions dict."""  # noqa: E501
     pass
 
 
@@ -349,7 +349,7 @@ def GuessAvpType(p, **kargs):
         # Set AVP code and vendor
         avpCode = struct.unpack("!I", p[:AVP_Code_length])[0]
         vnd = bool(struct.unpack(
-            "!B", p[AVP_Code_length:AVP_Code_length + AVP_Flag_length])[0] & 128)
+            "!B", p[AVP_Code_length:AVP_Code_length + AVP_Flag_length])[0] & 128)  # noqa: E501
         vndCode = vnd and struct.unpack("!I", p[8:12])[0] or 0
         # Check if vendor and code defined and fetch the corresponding AVP
         # definition
@@ -395,7 +395,7 @@ def AVP(avpId, **fields):
                 for code in AvpDefDict[vnd]:
                     val = AvpDefDict[vnd][code]
                     if val[0][:len(
-                            avpId)] == avpId:  # A prefix of the full name is considered valid
+                            avpId)] == avpId:  # A prefix of the full name is considered valid  # noqa: E501
                         raise
             found = False
         except BaseException:
@@ -416,7 +416,7 @@ def AVP(avpId, **fields):
         warning('The AVP identifier %s has not been found.' % str(avpId))
         if isinstance(avpId, str):  # The string input is not valid
             return None
-    # At this point code, vnd are provisionned val may be set (if found is True)
+    # At this point code, vnd are provisionned val may be set (if found is True)  # noqa: E501
     # Set/override AVP code
     fields['avpCode'] = code
     # Set vendor if not already defined and relevant
@@ -481,16 +481,16 @@ class AVP_VL_V (AVP_Generic):
 
 
 class AVP_Unknown (AVP_Generic):
-    """ The default structure for AVPs which could not be decoded (optional vendor field, variable length). """
+    """ The default structure for AVPs which could not be decoded (optional vendor field, variable length). """  # noqa: E501
     name = 'AVP Unknown'
     fields_desc = [
         IntField("avpCode", None),
         AVPFlags("avpFlags", None, 8, AVP_Flags_List),
         I3FieldLenField("avpLen", None, length_of="val",
-                        adjust=lambda pkt, x:x + 8 + ((pkt.avpFlags & 0x80) >> 5)),
-        ConditionalField(AVPVendor("avpVnd", 0), lambda pkt:pkt.avpFlags & 0x80),
+                        adjust=lambda pkt, x:x + 8 + ((pkt.avpFlags & 0x80) >> 5)),  # noqa: E501
+        ConditionalField(AVPVendor("avpVnd", 0), lambda pkt:pkt.avpFlags & 0x80),  # noqa: E501
         StrLenField("val", None,
-                    length_from=lambda pkt:pkt.avpLen - 8 - ((pkt.avpFlags & 0x80) >> 5))
+                    length_from=lambda pkt:pkt.avpLen - 8 - ((pkt.avpFlags & 0x80) >> 5))  # noqa: E501
     ]
 
 
@@ -665,7 +665,7 @@ class AVP_0_268 (AVP_FL_NV):
                                2005: "DIAMETER_UNREGISTERED_SERVICE",
                                2006: "DIAMETER_SUCCESS_SERVER_NAME_NOT_STORED",
                                2007: "DIAMETER_SERVER_SELECTION",
-                               2008: "DIAMETER_SUCCESS_AUTH_SENT_SERVER_NOT_STORED",
+                               2008: "DIAMETER_SUCCESS_AUTH_SENT_SERVER_NOT_STORED",  # noqa: E501
                                2009: "DIAMETER_SUCCESS_RELOCATE_HA",
                                3001: "DIAMETER_COMMAND_UNSUPPORTED",
                                3002: "DIAMETER_UNABLE_TO_DELIVER",
@@ -708,15 +708,15 @@ class AVP_0_268 (AVP_FL_NV):
                                5017: "DIAMETER_NO_COMMON_SECURITY",
                                5018: "DIAMETER_RADIUS_AVP_UNTRANSLATABLE",
                                5024: "DIAMETER_ERROR_NO_FOREIGN_HA_SERVICE",
-                               5025: "DIAMETER_ERROR_END_TO_END_MIP_KEY_ENCRYPTION",
+                               5025: "DIAMETER_ERROR_END_TO_END_MIP_KEY_ENCRYPTION",  # noqa: E501
                                5030: "DIAMETER_USER_UNKNOWN",
                                5031: "DIAMETER_RATING_FAILED",
                                5032: "DIAMETER_ERROR_USER_UNKNOWN",
                                5033: "DIAMETER_ERROR_IDENTITIES_DONT_MATCH",
                                5034: "DIAMETER_ERROR_IDENTITY_NOT_REGISTERED",
                                5035: "DIAMETER_ERROR_ROAMING_NOT_ALLOWED",
-                               5036: "DIAMETER_ERROR_IDENTITY_ALREADY_REGISTERED",
-                               5037: "DIAMETER_ERROR_AUTH_SCHEME_NOT_SUPPORTED",
+                               5036: "DIAMETER_ERROR_IDENTITY_ALREADY_REGISTERED",  # noqa: E501
+                               5037: "DIAMETER_ERROR_AUTH_SCHEME_NOT_SUPPORTED",  # noqa: E501
                                5038: "DIAMETER_ERROR_IN_ASSIGNMENT_TYPE",
                                5039: "DIAMETER_ERROR_TOO_MUCH_DATA",
                                5040: "DIAMETER_ERROR_NOT SUPPORTED_USER_DATA",
@@ -764,7 +764,7 @@ class AVP_0_298 (AVP_FL_NV):
                 5011: "DIAMETER_ERROR_FEATURE_UNSUPPORTED",
                 5041: "DIAMETER_ERROR_USER_NO_WLAN_SUBSCRIPTION",
                 5042: "DIAMETER_ERROR_W-APN_UNUSED_BY_USER",
-                5043: "DIAMETER_ERROR_W-DIAMETER_ERROR_NO_ACCESS_INDEPENDENT_SUBSCRIPTION",
+                5043: "DIAMETER_ERROR_W-DIAMETER_ERROR_NO_ACCESS_INDEPENDENT_SUBSCRIPTION",  # noqa: E501
                 5044: "DIAMETER_ERROR_USER_NO_W-APN_SUBSCRIPTION",
                 5045: "DIAMETER_ERROR_UNSUITABLE_NETWORK",
                 5061: "INVALID_SERVICE_INFORMATION",
@@ -941,7 +941,7 @@ class AVP_0_13 (AVP_FL_NV):
     fields_desc = [
         AVP_FL_NV,
         Enumerated('val', None,
-                   {0: "None", 2: "IPX header compression", 3: "Stac-LZS compression", })
+                   {0: "None", 2: "IPX header compression", 3: "Stac-LZS compression", })  # noqa: E501
     ]
 
 
@@ -969,7 +969,7 @@ class AVP_0_45 (AVP_FL_NV):
     fields_desc = [
         AVP_FL_NV,
         Enumerated('val', None,
-                   {0: "None", 1: "RADIUS", 2: "Local", 3: "Remote", 4: "Diameter", })]
+                   {0: "None", 1: "RADIUS", 2: "Local", 3: "Remote", 4: "Diameter", })]  # noqa: E501
 
 
 class AVP_0_61 (AVP_FL_NV):
@@ -1011,7 +1011,7 @@ class AVP_0_61 (AVP_FL_NV):
                        31: "PPPoEoA - PPP over Ethernet over ATM",
                        32: "PPPoEoE - PPP over Ethernet over Ethernet",
                        33: "PPPoEoVLAN - PPP over Ethernet over VLAN",
-                       34: "PPPoEoQinQ - PPP over Ethernet over IEEE 802.1QinQ",
+                       34: "PPPoEoQinQ - PPP over Ethernet over IEEE 802.1QinQ",  # noqa: E501
                        35: "xPON - Passive Optical Network",
                        36: "Wireless - XGP",
                    })]
@@ -1110,13 +1110,13 @@ class AVP_0_271 (AVP_FL_NV):
     fields_desc = [
         AVP_FL_NV,
         Enumerated('val', None,
-                   {0: "REFUSE_SERVICE", 1: "TRY_AGAIN", 2: "ALLOW_SERVICE", 3: "TRY_AGAIN_ALLOW_SERVICE", })]
+                   {0: "REFUSE_SERVICE", 1: "TRY_AGAIN", 2: "ALLOW_SERVICE", 3: "TRY_AGAIN_ALLOW_SERVICE", })]  # noqa: E501
 
 
 class AVP_0_273 (AVP_FL_NV):
     name = 'Disconnect-Cause'
     avpLen = 12
-    fields_desc = [AVP_FL_NV, Enumerated('val', None, {0: "REBOOTING", 1: "BUSY", 2: "DO_NOT_WANT_TO_TALK_TO_YOU", })]
+    fields_desc = [AVP_FL_NV, Enumerated('val', None, {0: "REBOOTING", 1: "BUSY", 2: "DO_NOT_WANT_TO_TALK_TO_YOU", })]  # noqa: E501
 
 
 class AVP_0_274 (AVP_FL_NV):
@@ -1124,19 +1124,19 @@ class AVP_0_274 (AVP_FL_NV):
     avpLen = 12
     fields_desc = [
         AVP_FL_NV, Enumerated('val', None, {
-            1: "AUTHENTICATE_ONLY", 2: "AUTHORIZE_ONLY", 3: "AUTHORIZE_AUTHENTICATE", })]
+            1: "AUTHENTICATE_ONLY", 2: "AUTHORIZE_ONLY", 3: "AUTHORIZE_AUTHENTICATE", })]  # noqa: E501
 
 
 class AVP_0_277 (AVP_FL_NV):
     name = 'Auth-Session-State'
     avpLen = 12
-    fields_desc = [AVP_FL_NV, Enumerated('val', None, {0: "STATE_MAINTAINED", 1: "NO_STATE_MAINTAINED", })]
+    fields_desc = [AVP_FL_NV, Enumerated('val', None, {0: "STATE_MAINTAINED", 1: "NO_STATE_MAINTAINED", })]  # noqa: E501
 
 
 class AVP_0_285 (AVP_FL_NV):
     name = 'Re-Auth-Request-Type'
     avpLen = 12
-    fields_desc = [AVP_FL_NV, Enumerated('val', None, {0: "AUTHORIZE_ONLY", 1: "AUTHORIZE_AUTHENTICATE", })]
+    fields_desc = [AVP_FL_NV, Enumerated('val', None, {0: "AUTHORIZE_ONLY", 1: "AUTHORIZE_AUTHENTICATE", })]  # noqa: E501
 
 
 class AVP_0_295 (AVP_FL_NV):
@@ -1170,7 +1170,7 @@ class AVP_0_346 (AVP_FL_NV):
     name = 'MIP-Replay-Mode'
     avpLen = 12
     fields_desc = [
-        AVP_FL_NV, Enumerated('val', None, {1: "None", 2: "Timestamps", 3: "Nonces", })]
+        AVP_FL_NV, Enumerated('val', None, {1: "None", 2: "Timestamps", 3: "Nonces", })]  # noqa: E501
 
 
 class AVP_0_375 (AVP_FL_NV):
@@ -1225,7 +1225,7 @@ class AVP_0_387 (AVP_FL_NV):
     avpLen = 12
     fields_desc = [
         AVP_FL_NV, Enumerated('val', None, {
-            0: "REGISTRATION", 1: "DEREGISTRATION", 2: "REGISTRATION_AND_CAPABILITIES", })]
+            0: "REGISTRATION", 1: "DEREGISTRATION", 2: "REGISTRATION_AND_CAPABILITIES", })]  # noqa: E501
 
 
 class AVP_0_392 (AVP_FL_NV):
@@ -1248,7 +1248,7 @@ class AVP_0_406 (AVP_FL_NV):
     avpLen = 12
     fields_desc = [
         AVP_FL_NV, Enumerated('val', None, {
-            1: "PAP", 2: "CHAP", 3: "MS-CHAP-1", 4: "MS-CHAP-2", 5: "EAP", 6: "Undefined", 7: "None", })]
+            1: "PAP", 2: "CHAP", 3: "MS-CHAP-1", 4: "MS-CHAP-2", 5: "EAP", 6: "Undefined", 7: "None", })]  # noqa: E501
 
 
 class AVP_0_416 (AVP_FL_NV):
@@ -1256,26 +1256,26 @@ class AVP_0_416 (AVP_FL_NV):
     avpLen = 12
     fields_desc = [
         AVP_FL_NV, Enumerated('val', None, {
-            1: "INITIAL_REQUEST", 2: "UPDATE_REQUEST", 3: "TERMINATION_REQUEST", 4: "EVENT_REQUEST", })]
+            1: "INITIAL_REQUEST", 2: "UPDATE_REQUEST", 3: "TERMINATION_REQUEST", 4: "EVENT_REQUEST", })]  # noqa: E501
 
 
 class AVP_0_418 (AVP_FL_NV):
     name = 'CC-Session-Failover'
     avpLen = 12
-    fields_desc = [AVP_FL_NV, Enumerated('val', None, {0: "FAILOVER_NOT_SUPPORTED", 1: "FAILOVER_SUPPORTED", })]
+    fields_desc = [AVP_FL_NV, Enumerated('val', None, {0: "FAILOVER_NOT_SUPPORTED", 1: "FAILOVER_SUPPORTED", })]  # noqa: E501
 
 
 class AVP_0_422 (AVP_FL_NV):
     name = 'Check-Balance-Result'
     avpLen = 12
     fields_desc = [
-        AVP_FL_NV, Enumerated('val', None, {0: "ENOUGH_CREDIT", 1: "NO_CREDIT", })]
+        AVP_FL_NV, Enumerated('val', None, {0: "ENOUGH_CREDIT", 1: "NO_CREDIT", })]  # noqa: E501
 
 
 class AVP_0_426 (AVP_FL_NV):
     name = 'Credit-Control'
     avpLen = 12
-    fields_desc = [AVP_FL_NV, Enumerated('val', None, {0: "CREDIT_AUTHORIZATION", 1: "RE_AUTHORIZATION", })]
+    fields_desc = [AVP_FL_NV, Enumerated('val', None, {0: "CREDIT_AUTHORIZATION", 1: "RE_AUTHORIZATION", })]  # noqa: E501
 
 
 class AVP_0_427 (AVP_FL_NV):
@@ -1290,13 +1290,13 @@ class AVP_0_428 (AVP_FL_NV):
     name = 'Direct-Debiting-Failure-Handling'
     avpLen = 12
     fields_desc = [
-        AVP_FL_NV, Enumerated('val', None, {0: "TERMINATE_OR_BUFFER", 1: "CONTINUE", })]
+        AVP_FL_NV, Enumerated('val', None, {0: "TERMINATE_OR_BUFFER", 1: "CONTINUE", })]  # noqa: E501
 
 
 class AVP_0_433 (AVP_FL_NV):
     name = 'Redirect-Address-Type'
     avpLen = 12
-    fields_desc = [AVP_FL_NV, Enumerated('val', None, {0: "IPV4_ADDRESS", 1: "IPV6_ADDRESS", 2: "URL", 3: "SIP_URI", })]
+    fields_desc = [AVP_FL_NV, Enumerated('val', None, {0: "IPV4_ADDRESS", 1: "IPV6_ADDRESS", 2: "URL", 3: "SIP_URI", })]  # noqa: E501
 
 
 class AVP_0_436 (AVP_FL_NV):
@@ -1304,13 +1304,13 @@ class AVP_0_436 (AVP_FL_NV):
     avpLen = 12
     fields_desc = [
         AVP_FL_NV, Enumerated('val', None, {
-            0: "DIRECT_DEBITING", 1: "REFUND_ACCOUNT", 2: "CHECK_BALANCE", 3: "PRICE_ENQUIRY", })]
+            0: "DIRECT_DEBITING", 1: "REFUND_ACCOUNT", 2: "CHECK_BALANCE", 3: "PRICE_ENQUIRY", })]  # noqa: E501
 
 
 class AVP_0_449 (AVP_FL_NV):
     name = 'Final-Unit-Action'
     avpLen = 12
-    fields_desc = [AVP_FL_NV, Enumerated('val', None, {0: "TERMINATE", 1: "REDIRECT", 2: "RESTRICT_ACCESS", })]
+    fields_desc = [AVP_FL_NV, Enumerated('val', None, {0: "TERMINATE", 1: "REDIRECT", 2: "RESTRICT_ACCESS", })]  # noqa: E501
 
 
 class AVP_0_450 (AVP_FL_NV):
@@ -1335,7 +1335,7 @@ class AVP_0_452 (AVP_FL_NV):
     avpLen = 12
     fields_desc = [
         AVP_FL_NV, Enumerated('val', None, {
-            0: "UNIT_BEFORE_TARIFF_CHANGE", 1: "UNIT_AFTER_TARIFF_CHANGE", 2: "UNIT_INDETERMINATE", })]
+            0: "UNIT_BEFORE_TARIFF_CHANGE", 1: "UNIT_AFTER_TARIFF_CHANGE", 2: "UNIT_INDETERMINATE", })]  # noqa: E501
 
 
 class AVP_0_454 (AVP_FL_NV):
@@ -1361,7 +1361,7 @@ class AVP_0_455 (AVP_FL_NV):
     avpLen = 12
     fields_desc = [
         AVP_FL_NV, Enumerated('val', None, {
-            0: "MULTIPLE_SERVICES_NOT_SUPPORTED", 1: "MULTIPLE_SERVICES_SUPPORTED", })]
+            0: "MULTIPLE_SERVICES_NOT_SUPPORTED", 1: "MULTIPLE_SERVICES_SUPPORTED", })]  # noqa: E501
 
 
 class AVP_0_459 (AVP_FL_NV):
@@ -1377,7 +1377,7 @@ class AVP_0_480 (AVP_FL_NV):
     avpLen = 12
     fields_desc = [
         AVP_FL_NV, Enumerated('val', None, {
-            1: "Event Record", 2: "Start Record", 3: "Interim Record", 4: "Stop Record", })]
+            1: "Event Record", 2: "Start Record", 3: "Interim Record", 4: "Stop Record", })]  # noqa: E501
 
 
 class AVP_0_483 (AVP_FL_NV):
@@ -1385,14 +1385,14 @@ class AVP_0_483 (AVP_FL_NV):
     avpLen = 12
     fields_desc = [
         AVP_FL_NV, Enumerated('val', None, {
-            0: "Reserved", 1: "DELIVER_AND_GRANT", 2: "GRANT_AND_STORE", 3: "GRANT_AND_LOSE", })]
+            0: "Reserved", 1: "DELIVER_AND_GRANT", 2: "GRANT_AND_STORE", 3: "GRANT_AND_LOSE", })]  # noqa: E501
 
 
 class AVP_0_494 (AVP_FL_NV):
     name = 'MIP6-Auth-Mode'
     avpLen = 12
     fields_desc = [
-        AVP_FL_NV, Enumerated('val', None, {0: "Reserved", 1: "IP6_AUTH_MN_AAA", })]
+        AVP_FL_NV, Enumerated('val', None, {0: "Reserved", 1: "IP6_AUTH_MN_AAA", })]  # noqa: E501
 
 
 class AVP_0_513 (AVP_FL_NV):
@@ -1400,7 +1400,7 @@ class AVP_0_513 (AVP_FL_NV):
     avpLen = 12
     fields_desc = [
         AVP_FL_NV, Enumerated('val', None, {
-            1: "ICMP", 2: "IGMP", 4: "IPv4", 6: "TCP", 17: "UDP", 132: "SCTP", })]
+            1: "ICMP", 2: "IGMP", 4: "IPv4", 6: "TCP", 17: "UDP", 132: "SCTP", })]  # noqa: E501
 
 
 class AVP_0_514 (AVP_FL_NV):
@@ -1461,7 +1461,7 @@ class AVP_0_536 (AVP_FL_NV):
     name = 'Fragmentation-Flag'
     avpLen = 12
     fields_desc = [
-        AVP_FL_NV, Enumerated('val', None, {0: "Don't Fragment", 1: "More Fragments", })]
+        AVP_FL_NV, Enumerated('val', None, {0: "Don't Fragment", 1: "More Fragments", })]  # noqa: E501
 
 
 class AVP_0_538 (AVP_FL_NV):
@@ -1562,7 +1562,7 @@ class AVP_0_570 (AVP_FL_NV):
     name = 'Timezone-Flag'
     avpLen = 12
     fields_desc = [
-        AVP_FL_NV, Enumerated('val', None, {0: "UTC", 1: "LOCAL", 2: "OFFSET", })]
+        AVP_FL_NV, Enumerated('val', None, {0: "UTC", 1: "LOCAL", 2: "OFFSET", })]  # noqa: E501
 
 
 class AVP_0_575 (AVP_FL_NV):
@@ -1599,13 +1599,13 @@ class AVP_10415_511 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-            0: "ENABLED-UPLINK", 1: "ENABLED-DOWNLINK", 2: "ENABLED", 3: "DISABLED", 4: "REMOVED", })]
+            0: "ENABLED-UPLINK", 1: "ENABLED-DOWNLINK", 2: "ENABLED", 3: "DISABLED", 4: "REMOVED", })]  # noqa: E501
 
 
 class AVP_10415_512 (AVP_FL_V):
     name = 'Flow-Usage'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "NO_INFORMATION", 1: "RTCP", 2: "AF_SIGNALLING", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "NO_INFORMATION", 1: "RTCP", 2: "AF_SIGNALLING", })]  # noqa: E501
 
 
 class AVP_10415_513 (AVP_FL_V):
@@ -1661,7 +1661,7 @@ class AVP_10415_527 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-            0: "FINAL_SERVICE_INFORMATION", 1: "PRELIMINARY_SERVICE_INFORMATION", })]
+            0: "FINAL_SERVICE_INFORMATION", 1: "PRELIMINARY_SERVICE_INFORMATION", })]  # noqa: E501
 
 
 class AVP_10415_529 (AVP_FL_V):
@@ -1674,14 +1674,14 @@ class AVP_10415_529 (AVP_FL_V):
 class AVP_10415_533 (AVP_FL_V):
     name = 'Rx-Request-Type'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "INITIAL_REQUEST", 1: "UPDATE_REQUEST", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "INITIAL_REQUEST", 1: "UPDATE_REQUEST", })]  # noqa: E501
 
 
 class AVP_10415_536 (AVP_FL_V):
     name = 'Required-Access-Info'
     avpLen = 16
     fields_desc = [
-        AVP_FL_V, Enumerated('val', None, {0: "USER_LOCATION", 1: "MS_TIME_ZONE", })]
+        AVP_FL_V, Enumerated('val', None, {0: "USER_LOCATION", 1: "MS_TIME_ZONE", })]  # noqa: E501
 
 
 class AVP_10415_614 (AVP_FL_V):
@@ -1728,7 +1728,7 @@ class AVP_10415_623 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-            0: "REGISTRATION", 1: "DE_REGISTRATION", 2: "REGISTRATION_AND_CAPABILITIES", })]
+            0: "REGISTRATION", 1: "DE_REGISTRATION", 2: "REGISTRATION_AND_CAPABILITIES", })]  # noqa: E501
 
 
 class AVP_10415_624 (AVP_FL_V):
@@ -1749,7 +1749,7 @@ class AVP_10415_633 (AVP_FL_V):
 class AVP_10415_638 (AVP_FL_V):
     name = 'Loose-Route-Indication'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "LOOSE_ROUTE_NOT_REQUIRED", 1: "LOOSE_ROUTE_REQUIRED", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "LOOSE_ROUTE_NOT_REQUIRED", 1: "LOOSE_ROUTE_REQUIRED", })]  # noqa: E501
 
 
 class AVP_10415_648 (AVP_FL_V):
@@ -1765,7 +1765,7 @@ class AVP_10415_650 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-            0: "PRIORITY-0", 1: "PRIORITY-1", 2: "PRIORITY-2", 3: "PRIORITY-3", 4: "PRIORITY-4", })]
+            0: "PRIORITY-0", 1: "PRIORITY-1", 2: "PRIORITY-2", 3: "PRIORITY-3", 4: "PRIORITY-4", })]  # noqa: E501
 
 
 class AVP_10415_652 (AVP_FL_V):
@@ -1824,7 +1824,7 @@ class AVP_10415_705 (AVP_FL_V):
     name = 'Subs-Req-Type'
     avpLen = 16
     fields_desc = [
-        AVP_FL_V, Enumerated('val', None, {0: "Subscribe", 1: "Unsubscribe", })]
+        AVP_FL_V, Enumerated('val', None, {0: "Subscribe", 1: "Unsubscribe", })]  # noqa: E501
 
 
 class AVP_10415_706 (AVP_FL_V):
@@ -1839,7 +1839,7 @@ class AVP_10415_707 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-            0: "DoNotNeedInitiateActiveLocationRetrieval", 1: "InitiateActiveLocationRetrieval", })]
+            0: "DoNotNeedInitiateActiveLocationRetrieval", 1: "InitiateActiveLocationRetrieval", })]  # noqa: E501
 
 
 class AVP_10415_708 (AVP_FL_V):
@@ -1861,27 +1861,27 @@ class AVP_10415_708 (AVP_FL_V):
 class AVP_10415_710 (AVP_FL_V):
     name = 'Send-Data-Indication'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "USER_DATA_NOT_REQUESTED", 1: "USER_DATA_REQUESTED", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "USER_DATA_NOT_REQUESTED", 1: "USER_DATA_REQUESTED", })]  # noqa: E501
 
 
 class AVP_10415_712 (AVP_FL_V):
     name = 'One-Time-Notification'
     avpLen = 16
     fields_desc = [
-        AVP_FL_V, Enumerated('val', None, {0: "ONE_TIME_NOTIFICATION_REQUESTED", })]
+        AVP_FL_V, Enumerated('val', None, {0: "ONE_TIME_NOTIFICATION_REQUESTED", })]  # noqa: E501
 
 
 class AVP_10415_714 (AVP_FL_V):
     name = 'Serving-Node-Indication'
     avpLen = 16
     fields_desc = [
-        AVP_FL_V, Enumerated('val', None, {0: "ONLY_SERVING_NODES_REQUIRED", })]
+        AVP_FL_V, Enumerated('val', None, {0: "ONLY_SERVING_NODES_REQUIRED", })]  # noqa: E501
 
 
 class AVP_10415_717 (AVP_FL_V):
     name = 'Pre-paging-Supported'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "PREPAGING_NOT_SUPPORTED", 1: "PREPAGING_SUPPORTED", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "PREPAGING_NOT_SUPPORTED", 1: "PREPAGING_SUPPORTED", })]  # noqa: E501
 
 
 class AVP_10415_718 (AVP_FL_V):
@@ -1889,13 +1889,13 @@ class AVP_10415_718 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-            0: "ONLY_LOCAL_TIME_ZONE_REQUESTED", 1: "LOCAL_TIME_ZONE_WITH_LOCATION_INFO_REQUESTED", })]
+            0: "ONLY_LOCAL_TIME_ZONE_REQUESTED", 1: "LOCAL_TIME_ZONE_WITH_LOCATION_INFO_REQUESTED", })]  # noqa: E501
 
 
 class AVP_10415_829 (AVP_FL_V):
     name = 'Role-Of-Node'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "HPLMN", 1: "VPLMN", 2: "FORWARDING_ROLE", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "HPLMN", 1: "VPLMN", 2: "FORWARDING_ROLE", })]  # noqa: E501
 
 
 class AVP_10415_862 (AVP_FL_V):
@@ -1929,14 +1929,14 @@ class AVP_10415_862 (AVP_FL_V):
 class AVP_10415_864 (AVP_FL_V):
     name = 'Originator'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "Calling Party", 1: "Called Party", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "Calling Party", 1: "Called Party", })]  # noqa: E501
 
 
 class AVP_10415_867 (AVP_FL_V):
     name = 'PS-Append-Free-Format-Data'
     avpLen = 16
     fields_desc = [
-        AVP_FL_V, Enumerated('val', None, {0: "'Append' ", 1: "'Overwrite' ", })]
+        AVP_FL_V, Enumerated('val', None, {0: "'Append' ", 1: "'Overwrite' ", })]  # noqa: E501
 
 
 class AVP_10415_870 (AVP_FL_V):
@@ -1962,9 +1962,9 @@ class AVP_10415_870 (AVP_FL_V):
                                19: "CHANGEINQOS_SDU_ERROR_RATIO",
                                20: "CHANGEINQOS_TRANSFER_DELAY",
                                21: "CHANGEINQOS_TRAFFIC_HANDLING_PRIORITY",
-                               22: "CHANGEINQOS_GUARANTEED_BIT_RATE_FOR_UPLINK",
-                               23: "CHANGEINQOS_GUARANTEED_BIT_RATE_FOR_DOWNLINK",
-                               24: "CHANGEINQOS_APN_AGGREGATE_MAXIMUM_BIT_RATE",
+                               22: "CHANGEINQOS_GUARANTEED_BIT_RATE_FOR_UPLINK",  # noqa: E501
+                               23: "CHANGEINQOS_GUARANTEED_BIT_RATE_FOR_DOWNLINK",  # noqa: E501
+                               24: "CHANGEINQOS_APN_AGGREGATE_MAXIMUM_BIT_RATE",  # noqa: E501
                                30: "CHANGEINLOCATION_MCC",
                                31: "CHANGEINLOCATION_MNC",
                                32: "CHANGEINLOCATION_RAC",
@@ -1979,9 +1979,9 @@ class AVP_10415_870 (AVP_FL_V):
                                60: "CHANGE_IN_SERVICE_CONDITION",
                                61: "CHANGE_IN_SERVING_NODE",
                                70: "CHANGE_IN_USER_CSG_INFORMATION",
-                               71: "CHANGE_IN_HYBRID_SUBSCRIBED_USER_CSG_INFORMATION",
-                               72: "CHANGE_IN_HYBRID_UNSUBSCRIBED_USER_CSG_INFORMATION",
-                               73: "CHANGE_OF_UE_PRESENCE_IN_PRESENCE_REPORTING_AREA",
+                               71: "CHANGE_IN_HYBRID_SUBSCRIBED_USER_CSG_INFORMATION",  # noqa: E501
+                               72: "CHANGE_IN_HYBRID_UNSUBSCRIBED_USER_CSG_INFORMATION",  # noqa: E501
+                               73: "CHANGE_OF_UE_PRESENCE_IN_PRESENCE_REPORTING_AREA",  # noqa: E501
                                })]
 
 
@@ -2009,13 +2009,13 @@ class AVP_10415_872 (AVP_FL_V):
 class AVP_10415_882 (AVP_FL_V):
     name = 'Media-Initiator-Flag'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "called party", 1: "calling party", 2: "unknown", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "called party", 1: "calling party", 2: "unknown", })]  # noqa: E501
 
 
 class AVP_10415_883 (AVP_FL_V):
     name = 'PoC-Server-Role'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "Participating PoC Server", 1: "Controlling PoC Server", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "Participating PoC Server", 1: "Controlling PoC Server", })]  # noqa: E501
 
 
 class AVP_10415_884 (AVP_FL_V):
@@ -2058,7 +2058,7 @@ class AVP_10415_902 (AVP_FL_V):
     name = 'MBMS-StartStop-Indication'
     avpLen = 16
     fields_desc = [
-        AVP_FL_V, Enumerated('val', None, {0: "START", 1: "STOP", 2: "UPDATE", })]
+        AVP_FL_V, Enumerated('val', None, {0: "START", 1: "STOP", 2: "UPDATE", })]  # noqa: E501
 
 
 class AVP_10415_906 (AVP_FL_V):
@@ -2072,26 +2072,26 @@ class AVP_10415_907 (AVP_FL_V):
     name = 'MBMS-2G-3G-Indicator'
     avpLen = 16
     fields_desc = [
-        AVP_FL_V, Enumerated('val', None, {0: "2G", 1: "3G", 2: "2G-AND-3G", })]
+        AVP_FL_V, Enumerated('val', None, {0: "2G", 1: "3G", 2: "2G-AND-3G", })]  # noqa: E501
 
 
 class AVP_10415_921 (AVP_FL_V):
     name = 'CN-IP-Multicast-Distribution'
     avpLen = 16
     fields_desc = [
-        AVP_FL_V, Enumerated('val', None, {0: "NO-IP-MULTICAST", 1: "IP-MULTICAST", })]
+        AVP_FL_V, Enumerated('val', None, {0: "NO-IP-MULTICAST", 1: "IP-MULTICAST", })]  # noqa: E501
 
 
 class AVP_10415_922 (AVP_FL_V):
     name = 'MBMS-HC-Indicator'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "uncompressed-header", 1: "compressed-header", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "uncompressed-header", 1: "compressed-header", })]  # noqa: E501
 
 
 class AVP_10415_1000 (AVP_FL_V):
     name = 'Bearer-Usage'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "GENERAL", 1: "IMS SIGNALLING", 2: "DEDICATED", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "GENERAL", 1: "IMS SIGNALLING", 2: "DEDICATED", })]  # noqa: E501
 
 
 class AVP_10415_1006 (AVP_FL_V):
@@ -2157,19 +2157,19 @@ class AVP_10415_1006 (AVP_FL_V):
 class AVP_10415_1007 (AVP_FL_V):
     name = 'Metering-Method'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "DURATION", 1: "VOLUME", 2: "DURATION_VOLUME", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "DURATION", 1: "VOLUME", 2: "DURATION_VOLUME", })]  # noqa: E501
 
 
 class AVP_10415_1008 (AVP_FL_V):
     name = 'Offline'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "DISABLE_OFFLINE", 1: "ENABLE_OFFLINE", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "DISABLE_OFFLINE", 1: "ENABLE_OFFLINE", })]  # noqa: E501
 
 
 class AVP_10415_1009 (AVP_FL_V):
     name = 'Online'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "DISABLE_ONLINE", 1: "ENABLE_ONLINE", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "DISABLE_ONLINE", 1: "ENABLE_ONLINE", })]  # noqa: E501
 
 
 class AVP_10415_1011 (AVP_FL_V):
@@ -2177,7 +2177,7 @@ class AVP_10415_1011 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-            0: "SERVICE_IDENTIFIER_LEVEL", 1: "RATING_GROUP_LEVEL", 2: "SPONSORED_CONNECTIVITY_LEVEL", })]
+            0: "SERVICE_IDENTIFIER_LEVEL", 1: "RATING_GROUP_LEVEL", 2: "SPONSORED_CONNECTIVITY_LEVEL", })]  # noqa: E501
 
 
 class AVP_10415_1015 (AVP_FL_V):
@@ -2190,26 +2190,26 @@ class AVP_10415_1015 (AVP_FL_V):
 class AVP_10415_1019 (AVP_FL_V):
     name = 'PCC-Rule-Status'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "ACTIVE", 1: "INACTIVE", 2: "TEMPORARY_INACTIVE", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "ACTIVE", 1: "INACTIVE", 2: "TEMPORARY_INACTIVE", })]  # noqa: E501
 
 
 class AVP_10415_1021 (AVP_FL_V):
     name = 'Bearer-Operation'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "TERMINATION", 1: "ESTABLISHMENT", 2: "MODIFICATION", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "TERMINATION", 1: "ESTABLISHMENT", 2: "MODIFICATION", })]  # noqa: E501
 
 
 class AVP_10415_1023 (AVP_FL_V):
     name = 'Bearer-Control-Mode'
     avpLen = 16
     fields_desc = [
-        AVP_FL_V, Enumerated('val', None, {0: "UE_ONLY", 1: "RESERVED", 2: "UE_NW", })]
+        AVP_FL_V, Enumerated('val', None, {0: "UE_ONLY", 1: "RESERVED", 2: "UE_NW", })]  # noqa: E501
 
 
 class AVP_10415_1024 (AVP_FL_V):
     name = 'Network-Request-Support'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "NETWORK_REQUEST NOT SUPPORTED", 1: "NETWORK_REQUEST SUPPORTED", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "NETWORK_REQUEST NOT SUPPORTED", 1: "NETWORK_REQUEST SUPPORTED", })]  # noqa: E501
 
 
 class AVP_10415_1027 (AVP_FL_V):
@@ -2274,7 +2274,7 @@ class AVP_10415_1045 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-            0: "UNSPECIFIED_REASON", 1: "UE_SUBSCRIPTION_REASON", 2: "INSUFFICIENT_SERVER_RESOURCES", })]
+            0: "UNSPECIFIED_REASON", 1: "UE_SUBSCRIPTION_REASON", 2: "INSUFFICIENT_SERVER_RESOURCES", })]  # noqa: E501
 
 
 class AVP_10415_1047 (AVP_FL_V):
@@ -2282,7 +2282,7 @@ class AVP_10415_1047 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-            0: "PRE-EMPTION_CAPABILITY_ENABLED", 1: "PRE-EMPTION_CAPABILITY_DISABLED", })]
+            0: "PRE-EMPTION_CAPABILITY_ENABLED", 1: "PRE-EMPTION_CAPABILITY_DISABLED", })]  # noqa: E501
 
 
 class AVP_10415_1048 (AVP_FL_V):
@@ -2290,7 +2290,7 @@ class AVP_10415_1048 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-            0: "PRE-EMPTION_VULNERABILITY_ENABLED", 1: "PRE-EMPTION_VULNERABILITY_DISABLED", })]
+            0: "PRE-EMPTION_VULNERABILITY_ENABLED", 1: "PRE-EMPTION_VULNERABILITY_DISABLED", })]  # noqa: E501
 
 
 class AVP_10415_1062 (AVP_FL_V):
@@ -2311,14 +2311,14 @@ class AVP_10415_1063 (AVP_FL_V):
 class AVP_10415_1068 (AVP_FL_V):
     name = 'Usage-Monitoring-Level'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "SESSION_LEVEL", 1: "PCC_RULE_LEVEL", 2: "ADC_RULE_LEVEL", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "SESSION_LEVEL", 1: "PCC_RULE_LEVEL", 2: "ADC_RULE_LEVEL", })]  # noqa: E501
 
 
 class AVP_10415_1069 (AVP_FL_V):
     name = 'Usage-Monitoring-Report'
     avpLen = 16
     fields_desc = [
-        AVP_FL_V, Enumerated('val', None, {0: "USAGE_MONITORING_REPORT_REQUIRED", })]
+        AVP_FL_V, Enumerated('val', None, {0: "USAGE_MONITORING_REPORT_REQUIRED", })]  # noqa: E501
 
 
 class AVP_10415_1070 (AVP_FL_V):
@@ -2354,19 +2354,19 @@ class AVP_10415_1073 (AVP_FL_V):
     name = 'Charging-Correlation-Indicator'
     avpLen = 16
     fields_desc = [
-        AVP_FL_V, Enumerated('val', None, {0: "CHARGING_IDENTIFIER_REQUIRED", })]
+        AVP_FL_V, Enumerated('val', None, {0: "CHARGING_IDENTIFIER_REQUIRED", })]  # noqa: E501
 
 
 class AVP_10415_1080 (AVP_FL_V):
     name = 'Flow-Direction'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "UNSPECIFIED", 1: "DOWNLINK", 2: "UPLINK", 3: "BIDIRECTIONAL", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "UNSPECIFIED", 1: "DOWNLINK", 2: "UPLINK", 3: "BIDIRECTIONAL", })]  # noqa: E501
 
 
 class AVP_10415_1086 (AVP_FL_V):
     name = 'Redirect-Support'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "REDIRECTION_DISABLED", 1: "REDIRECTION_ENABLED", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "REDIRECTION_DISABLED", 1: "REDIRECTION_ENABLED", })]  # noqa: E501
 
 
 class AVP_10415_1099 (AVP_FL_V):
@@ -2428,7 +2428,7 @@ class AVP_10415_1211 (AVP_FL_V):
 class AVP_10415_1214 (AVP_FL_V):
     name = 'Class-Identifier'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "Personal", 1: "Advertisement", 2: "Informational", 3: "Auto", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "Personal", 1: "Advertisement", 2: "Informational", 3: "Auto", })]  # noqa: E501
 
 
 class AVP_10415_1216 (AVP_FL_V):
@@ -2484,7 +2484,7 @@ class AVP_10415_1224 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-            0: "Forwarding not pending", 1: "Forwarding pending", 2: "NOT_SUPPORTED", })]
+            0: "Forwarding not pending", 1: "Forwarding pending", 2: "NOT_SUPPORTED", })]  # noqa: E501
 
 
 class AVP_10415_1225 (AVP_FL_V):
@@ -2513,7 +2513,7 @@ class AVP_10415_1254 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-            1: "Moderator", 2: "Dispatcher", 3: "Session-Owner", 4: "Session-Participant", })]
+            1: "Moderator", 2: "Dispatcher", 3: "Session-Owner", 4: "Session-Participant", })]  # noqa: E501
 
 
 class AVP_10415_1259 (AVP_FL_V):
@@ -2569,14 +2569,14 @@ class AVP_10415_1268 (AVP_FL_V):
 class AVP_10415_1271 (AVP_FL_V):
     name = 'Time-Quota-Type'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "DISCRETE_TIME_PERIOD", 1: "CONTINUOUS_TIME_PERIOD", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "DISCRETE_TIME_PERIOD", 1: "CONTINUOUS_TIME_PERIOD", })]  # noqa: E501
 
 
 class AVP_10415_1277 (AVP_FL_V):
     name = 'PoC-Session-Initiation-Type'
     avpLen = 16
     fields_desc = [
-        AVP_FL_V, Enumerated('val', None, {0: "Pre-established", 1: "On-demand", })]
+        AVP_FL_V, Enumerated('val', None, {0: "Pre-established", 1: "On-demand", })]  # noqa: E501
 
 
 class AVP_10415_1279 (AVP_FL_V):
@@ -2590,7 +2590,7 @@ class AVP_10415_1279 (AVP_FL_V):
 class AVP_10415_1417 (AVP_FL_V):
     name = 'Network-Access-Mode'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "PACKET_AND_CIRCUIT", 1: "Reserved", 2: "ONLY_PACKET", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "PACKET_AND_CIRCUIT", 1: "Reserved", 2: "ONLY_PACKET", })]  # noqa: E501
 
 
 class AVP_10415_1420 (AVP_FL_V):
@@ -2613,14 +2613,14 @@ class AVP_10415_1420 (AVP_FL_V):
 class AVP_10415_1424 (AVP_FL_V):
     name = 'Subscriber-Status'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "SERVICE_GRANTED", 1: "OPERATOR_DETERMINED_BARRING", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "SERVICE_GRANTED", 1: "OPERATOR_DETERMINED_BARRING", })]  # noqa: E501
 
 
 class AVP_10415_1428 (AVP_FL_V):
     name = 'All-APN-Configurations-Included-Indicator'
     avpLen = 16
     fields_desc = [
-        AVP_FL_V, Enumerated('val', None, {0: "ALL_APN_CONFIGURATIONS_INCLUDED", })]
+        AVP_FL_V, Enumerated('val', None, {0: "ALL_APN_CONFIGURATIONS_INCLUDED", })]  # noqa: E501
 
 
 class AVP_10415_1432 (AVP_FL_V):
@@ -2633,7 +2633,7 @@ class AVP_10415_1432 (AVP_FL_V):
 class AVP_10415_1434 (AVP_FL_V):
     name = 'Alert-Reason'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "UE_PRESENT", 1: "UE_MEMORY_AVAILABLE", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "UE_PRESENT", 1: "UE_MEMORY_AVAILABLE", })]  # noqa: E501
 
 
 class AVP_10415_1438 (AVP_FL_V):
@@ -2646,20 +2646,20 @@ class AVP_10415_1438 (AVP_FL_V):
 class AVP_10415_1445 (AVP_FL_V):
     name = 'Equipment-Status'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "WHITELISTED", 1: "BLACKLISTED", 2: "GREYLISTED", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "WHITELISTED", 1: "BLACKLISTED", 2: "GREYLISTED", })]  # noqa: E501
 
 
 class AVP_10415_1456 (AVP_FL_V):
     name = 'PDN-Type'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "IPv4", 1: "IPv6", 2: "IPv4v6", 3: "IPv4_OR_IPv6", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "IPv4", 1: "IPv6", 2: "IPv4v6", 3: "IPv4_OR_IPv6", })]  # noqa: E501
 
 
 class AVP_10415_1457 (AVP_FL_V):
     name = 'Roaming-Restricted-Due-To-Unsupported-Feature'
     avpLen = 16
     fields_desc = [
-        AVP_FL_V, Enumerated('val', None, {0: "Roaming-Restricted-Due-To-Unsupported-Feature", })]
+        AVP_FL_V, Enumerated('val', None, {0: "Roaming-Restricted-Due-To-Unsupported-Feature", })]  # noqa: E501
 
 
 class AVP_10415_1462 (AVP_FL_V):
@@ -2704,7 +2704,7 @@ class AVP_10415_1481 (AVP_FL_V):
     name = 'GMLC-Restriction'
     avpLen = 16
     fields_desc = [
-        AVP_FL_V, Enumerated('val', None, {0: "GMLC_LIST", 1: "HOME_COUNTRY", })]
+        AVP_FL_V, Enumerated('val', None, {0: "GMLC_LIST", 1: "HOME_COUNTRY", })]  # noqa: E501
 
 
 class AVP_10415_1482 (AVP_FL_V):
@@ -2732,14 +2732,14 @@ class AVP_10415_1492 (AVP_FL_V):
     name = 'IMS-Voice-Over-PS-Sessions-Supported'
     avpLen = 16
     fields_desc = [
-        AVP_FL_V, Enumerated('val', None, {0: "NOT_SUPPORTED", 1: "SUPPORTED", })]
+        AVP_FL_V, Enumerated('val', None, {0: "NOT_SUPPORTED", 1: "SUPPORTED", })]  # noqa: E501
 
 
 class AVP_10415_1493 (AVP_FL_V):
     name = 'Homogeneous-Support-of-IMS-Voice-Over-PS-Sessions'
     avpLen = 16
     fields_desc = [
-        AVP_FL_V, Enumerated('val', None, {0: "NOT_SUPPORTED", 1: "SUPPORTED", })]
+        AVP_FL_V, Enumerated('val', None, {0: "NOT_SUPPORTED", 1: "SUPPORTED", })]  # noqa: E501
 
 
 class AVP_10415_1499 (AVP_FL_V):
@@ -2762,13 +2762,13 @@ class AVP_10415_1501 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-            0: "NON_3GPP_SUBSCRIPTION_ALLOWED", 1: "NON_3GPP_SUBSCRIPTION_BARRED", })]
+            0: "NON_3GPP_SUBSCRIPTION_ALLOWED", 1: "NON_3GPP_SUBSCRIPTION_BARRED", })]  # noqa: E501
 
 
 class AVP_10415_1502 (AVP_FL_V):
     name = 'Non-3GPP-IP-Access-APN'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "NON_3GPP_APNS_ENABLE", 1: "NON_3GPP_APNS_DISABLE", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "NON_3GPP_APNS_ENABLE", 1: "NON_3GPP_APNS_DISABLE", })]  # noqa: E501
 
 
 class AVP_10415_1503 (AVP_FL_V):
@@ -2802,7 +2802,7 @@ class AVP_10415_1610 (AVP_FL_V):
 class AVP_10415_1613 (AVP_FL_V):
     name = 'SIPTO-Permission'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "SIPTO_ALLOWED", 1: "SIPTO_NOTALLOWED", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "SIPTO_ALLOWED", 1: "SIPTO_NOTALLOWED", })]  # noqa: E501
 
 
 class AVP_10415_1614 (AVP_FL_V):
@@ -2825,20 +2825,20 @@ class AVP_10415_1614 (AVP_FL_V):
 class AVP_10415_1615 (AVP_FL_V):
     name = 'UE-SRVCC-Capability'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "UE-SRVCC-NOT-SUPPORTED", 1: "UE-SRVCC-SUPPORTED", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "UE-SRVCC-NOT-SUPPORTED", 1: "UE-SRVCC-SUPPORTED", })]  # noqa: E501
 
 
 class AVP_10415_1617 (AVP_FL_V):
     name = 'VPLMN-LIPA-Allowed'
     avpLen = 16
     fields_desc = [
-        AVP_FL_V, Enumerated('val', None, {0: "LIPA-NOTALLOWED", 1: "LIPA-ALLOWED", })]
+        AVP_FL_V, Enumerated('val', None, {0: "LIPA-NOTALLOWED", 1: "LIPA-ALLOWED", })]  # noqa: E501
 
 
 class AVP_10415_1618 (AVP_FL_V):
     name = 'LIPA-Permission'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "LIPA-PROHIBITED", 1: "LIPA-ONLY", 2: "LIPA-CONDITIONAL", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "LIPA-PROHIBITED", 1: "LIPA-ONLY", 2: "LIPA-CONDITIONAL", })]  # noqa: E501
 
 
 class AVP_10415_1623 (AVP_FL_V):
@@ -2900,7 +2900,7 @@ class AVP_10415_1628 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-            0: "1", 1: "2", 2: "4", 3: "8", 4: "16", 5: "32", 6: "64", 7: "infinity", })]
+            0: "1", 1: "2", 2: "4", 3: "8", 4: "16", 5: "32", 6: "64", 7: "infinity", })]  # noqa: E501
 
 
 class AVP_10415_1631 (AVP_FL_V):
@@ -2928,20 +2928,20 @@ class AVP_10415_1632 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-            0: "600_sec", 1: "1200_sec", 2: "2400_sec", 3: "3600_sec", 4: "5400_sec", 5: "7200_sec", })]
+            0: "600_sec", 1: "1200_sec", 2: "2400_sec", 3: "3600_sec", 4: "5400_sec", 5: "7200_sec", })]  # noqa: E501
 
 
 class AVP_10415_1633 (AVP_FL_V):
     name = 'Relay-Node-Indicator'
     avpLen = 16
     fields_desc = [
-        AVP_FL_V, Enumerated('val', None, {0: "NOT_RELAY_NODE", 1: "RELAY_NODE", })]
+        AVP_FL_V, Enumerated('val', None, {0: "NOT_RELAY_NODE", 1: "RELAY_NODE", })]  # noqa: E501
 
 
 class AVP_10415_1634 (AVP_FL_V):
     name = 'MDT-User-Consent'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "CONSENT_NOT_GIVEN", 1: "CONSENT_GIVEN", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "CONSENT_NOT_GIVEN", 1: "CONSENT_GIVEN", })]  # noqa: E501
 
 
 class AVP_10415_1636 (AVP_FL_V):
@@ -2956,7 +2956,7 @@ class AVP_10415_1648 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-            0: "SMS_REGISTRATION_REQUIRED", 1: "SMS_REGISTRATION_NOT_PREFERRED", 2: "NO_PREFERENCE", })]
+            0: "SMS_REGISTRATION_REQUIRED", 1: "SMS_REGISTRATION_NOT_PREFERRED", 2: "NO_PREFERENCE", })]  # noqa: E501
 
 
 class AVP_10415_1650 (AVP_FL_V):
@@ -2964,7 +2964,7 @@ class AVP_10415_1650 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-            0: "NO_ADJUSTMENT", 1: "PLUS_ONE_HOUR_ADJUSTMENT", 2: "PLUS_TWO_HOURS_ADJUSTMENT", })]
+            0: "NO_ADJUSTMENT", 1: "PLUS_ONE_HOUR_ADJUSTMENT", 2: "PLUS_TWO_HOURS_ADJUSTMENT", })]  # noqa: E501
 
 
 class AVP_10415_2006 (AVP_FL_V):
@@ -2994,7 +2994,7 @@ class AVP_10415_2007 (AVP_FL_V):
 class AVP_10415_2011 (AVP_FL_V):
     name = 'Reply-Path-Requested'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "No Reply Path Set", 1: "Reply path Set", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "No Reply Path Set", 1: "Reply path Set", })]  # noqa: E501
 
 
 class AVP_10415_2016 (AVP_FL_V):
@@ -3002,7 +3002,7 @@ class AVP_10415_2016 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-            0: "SMS Router", 1: "IP-SM-GW", 2: "SMS Router and IP-SM-GW", 3: "SMS-SC", })]
+            0: "SMS Router", 1: "IP-SM-GW", 2: "SMS Router and IP-SM-GW", 3: "SMS-SC", })]  # noqa: E501
 
 
 class AVP_10415_2025 (AVP_FL_V):
@@ -3049,7 +3049,7 @@ class AVP_10415_2033 (AVP_FL_V):
     name = 'Subscriber-Role'
     avpLen = 16
     fields_desc = [
-        AVP_FL_V, Enumerated('val', None, {0: "Originating", 1: "Terminating", })]
+        AVP_FL_V, Enumerated('val', None, {0: "Originating", 1: "Terminating", })]  # noqa: E501
 
 
 class AVP_10415_2036 (AVP_FL_V):
@@ -3064,7 +3064,7 @@ class AVP_10415_2047 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-            0: "SGSN", 1: "PMIPSGW", 2: "GTPSGW", 3: "ePDG", 4: "hSGW", 5: "MME", 6: "TWAN", })]
+            0: "SGSN", 1: "PMIPSGW", 2: "GTPSGW", 3: "ePDG", 4: "hSGW", 5: "MME", 6: "TWAN", })]  # noqa: E501
 
 
 class AVP_10415_2049 (AVP_FL_V):
@@ -3072,7 +3072,7 @@ class AVP_10415_2049 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-            0: "CREATE_CONF", 1: "JOIN_CONF", 2: "INVITE_INTO_CONF", 3: "QUIT_CONF", })]
+            0: "CREATE_CONF", 1: "JOIN_CONF", 2: "INVITE_INTO_CONF", 3: "QUIT_CONF", })]  # noqa: E501
 
 
 class AVP_10415_2051 (AVP_FL_V):
@@ -3086,7 +3086,7 @@ class AVP_10415_2065 (AVP_FL_V):
     name = 'SGW-Change'
     avpLen = 16
     fields_desc = [
-        AVP_FL_V, Enumerated('val', None, {0: "ACR_Start_NOT_due_to_SGW_Change", })]
+        AVP_FL_V, Enumerated('val', None, {0: "ACR_Start_NOT_due_to_SGW_Change", })]  # noqa: E501
 
 
 class AVP_10415_2066 (AVP_FL_V):
@@ -3134,14 +3134,14 @@ class AVP_10415_2118 (AVP_FL_V):
 class AVP_10415_2203 (AVP_FL_V):
     name = 'Subsession-Operation'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "TERMINATION", 1: "ESTABLISHMENT", 2: "MODIFICATION", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "TERMINATION", 1: "ESTABLISHMENT", 2: "MODIFICATION", })]  # noqa: E501
 
 
 class AVP_10415_2204 (AVP_FL_V):
     name = 'Multiple-BBERF-Action'
     avpLen = 16
     fields_desc = [
-        AVP_FL_V, Enumerated('val', None, {0: "ESTABLISHMENT", 1: "TERMINATION", })]
+        AVP_FL_V, Enumerated('val', None, {0: "ESTABLISHMENT", 1: "TERMINATION", })]  # noqa: E501
 
 
 class AVP_10415_2206 (AVP_FL_V):
@@ -3161,20 +3161,20 @@ class AVP_10415_2208 (AVP_FL_V):
 class AVP_10415_2303 (AVP_FL_V):
     name = 'Online-Charging-Flag'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "ECF address not provided", 1: "ECF address provided", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "ECF address not provided", 1: "ECF address provided", })]  # noqa: E501
 
 
 class AVP_10415_2308 (AVP_FL_V):
     name = 'IMSI-Unauthenticated-Flag'
     avpLen = 16
     fields_desc = [
-        AVP_FL_V, Enumerated('val', None, {0: "Authenticated", 1: "Unauthenticated", })]
+        AVP_FL_V, Enumerated('val', None, {0: "Authenticated", 1: "Unauthenticated", })]  # noqa: E501
 
 
 class AVP_10415_2310 (AVP_FL_V):
     name = 'AoC-Format'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "MONETARY", 1: "NON_MONETARY", 2: "CAI", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "MONETARY", 1: "NON_MONETARY", 2: "CAI", })]  # noqa: E501
 
 
 class AVP_10415_2312 (AVP_FL_V):
@@ -3187,35 +3187,35 @@ class AVP_10415_2312 (AVP_FL_V):
 class AVP_10415_2313 (AVP_FL_V):
     name = 'AoC-Service-Type'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "NONE", 1: "AOC-S", 2: "AOC-D", 3: "AOC-E", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "NONE", 1: "AOC-S", 2: "AOC-D", 3: "AOC-E", })]  # noqa: E501
 
 
 class AVP_10415_2317 (AVP_FL_V):
     name = 'CSG-Access-Mode'
     avpLen = 16
     fields_desc = [
-        AVP_FL_V, Enumerated('val', None, {0: "Closed mode", 1: "Hybrid Mode", })]
+        AVP_FL_V, Enumerated('val', None, {0: "Closed mode", 1: "Hybrid Mode", })]  # noqa: E501
 
 
 class AVP_10415_2318 (AVP_FL_V):
     name = 'CSG-Membership-Indication'
     avpLen = 16
     fields_desc = [
-        AVP_FL_V, Enumerated('val', None, {0: "Not CSG member", 1: "CSG Member  ", })]
+        AVP_FL_V, Enumerated('val', None, {0: "Not CSG member", 1: "CSG Member  ", })]  # noqa: E501
 
 
 class AVP_10415_2322 (AVP_FL_V):
     name = 'IMS-Emergency-Indicator'
     avpLen = 16
     fields_desc = [
-        AVP_FL_V, Enumerated('val', None, {0: "Non Emergency", 1: "Emergency", })]
+        AVP_FL_V, Enumerated('val', None, {0: "Non Emergency", 1: "Emergency", })]  # noqa: E501
 
 
 class AVP_10415_2323 (AVP_FL_V):
     name = 'MBMS-Charged-Party'
     avpLen = 16
     fields_desc = [
-        AVP_FL_V, Enumerated('val', None, {0: "Content Provider", 1: "Subscriber", })]
+        AVP_FL_V, Enumerated('val', None, {0: "Content Provider", 1: "Subscriber", })]  # noqa: E501
 
 
 class AVP_10415_2500 (AVP_FL_V):
@@ -3241,20 +3241,20 @@ class AVP_10415_2507 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-            0: "VERTICAL_COORDINATE_IS_NOT REQUESTED", 1: "VERTICAL_COORDINATE_IS_REQUESTED", })]
+            0: "VERTICAL_COORDINATE_IS_NOT REQUESTED", 1: "VERTICAL_COORDINATE_IS_REQUESTED", })]  # noqa: E501
 
 
 class AVP_10415_2508 (AVP_FL_V):
     name = 'Velocity-Requested'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "VELOCITY_IS_NOT_REQUESTED", 1: "BEST VELOCITY_IS_REQUESTED", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "VELOCITY_IS_NOT_REQUESTED", 1: "BEST VELOCITY_IS_REQUESTED", })]  # noqa: E501
 
 
 class AVP_10415_2509 (AVP_FL_V):
     name = 'Response-Time'
     avpLen = 16
     fields_desc = [
-        AVP_FL_V, Enumerated('val', None, {0: "LOW_DELAY", 1: "DELAY_TOLERANT", })]
+        AVP_FL_V, Enumerated('val', None, {0: "LOW_DELAY", 1: "DELAY_TOLERANT", })]  # noqa: E501
 
 
 class AVP_10415_2512 (AVP_FL_V):
@@ -3279,7 +3279,7 @@ class AVP_10415_2513 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-            0: "REQUESTED_ACCURACY_FULFILLED", 1: "REQUESTED_ACCURACY_NOT_FULFILLED", })]
+            0: "REQUESTED_ACCURACY_FULFILLED", 1: "REQUESTED_ACCURACY_NOT_FULFILLED", })]  # noqa: E501
 
 
 class AVP_10415_2518 (AVP_FL_V):
@@ -3301,7 +3301,7 @@ class AVP_10415_2518 (AVP_FL_V):
 class AVP_10415_2519 (AVP_FL_V):
     name = 'Pseudonym-Indicator'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "PSEUDONYM_NOT_REQUESTED", 1: "PSEUDONYM_REQUESTED", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "PSEUDONYM_NOT_REQUESTED", 1: "PSEUDONYM_REQUESTED", })]  # noqa: E501
 
 
 class AVP_10415_2523 (AVP_FL_V):
@@ -3314,21 +3314,21 @@ class AVP_10415_2523 (AVP_FL_V):
 class AVP_10415_2538 (AVP_FL_V):
     name = 'Occurrence-Info'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "ONE_TIME_EVENT", 1: "MULTIPLE_TIME_EVENT", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "ONE_TIME_EVENT", 1: "MULTIPLE_TIME_EVENT", })]  # noqa: E501
 
 
 class AVP_10415_2550 (AVP_FL_V):
     name = 'Periodic-Location-Support-Indicator'
     avpLen = 16
     fields_desc = [
-        AVP_FL_V, Enumerated('val', None, {0: "NOT_SUPPORTED", 1: "SUPPORTED", })]
+        AVP_FL_V, Enumerated('val', None, {0: "NOT_SUPPORTED", 1: "SUPPORTED", })]  # noqa: E501
 
 
 class AVP_10415_2551 (AVP_FL_V):
     name = 'Prioritized-List-Indicator'
     avpLen = 16
     fields_desc = [
-        AVP_FL_V, Enumerated('val', None, {0: "NOT_PRIORITIZED", 1: "PRIORITIZED", })]
+        AVP_FL_V, Enumerated('val', None, {0: "NOT_PRIORITIZED", 1: "PRIORITIZED", })]  # noqa: E501
 
 
 class AVP_10415_2602 (AVP_FL_V):
@@ -3367,7 +3367,7 @@ class AVP_10415_2704 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-            0: "non-roaming", 1: "roaming without loopback", 2: "roaming with loopback", })]
+            0: "non-roaming", 1: "roaming without loopback", 2: "roaming with loopback", })]  # noqa: E501
 
 
 class AVP_10415_2706 (AVP_FL_V):
@@ -3387,7 +3387,7 @@ class AVP_10415_2707 (AVP_FL_V):
 class AVP_10415_2710 (AVP_FL_V):
     name = 'Access-Transfer-Type'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "PS to CS Transfer", 1: "CS to PS Transfer", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "PS to CS Transfer", 1: "CS to PS Transfer", })]  # noqa: E501
 
 
 class AVP_10415_2717 (AVP_FL_V):
@@ -3414,20 +3414,20 @@ class AVP_10415_2811 (AVP_FL_V):
 class AVP_10415_2904 (AVP_FL_V):
     name = 'SL-Request-Type'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "INITIAL_REQUEST", 1: "INTERMEDIATE_REQUEST", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "INITIAL_REQUEST", 1: "INTERMEDIATE_REQUEST", })]  # noqa: E501
 
 
 class AVP_10415_3407 (AVP_FL_V):
     name = 'SM-Device-Trigger-Indicator'
     avpLen = 16
     fields_desc = [
-        AVP_FL_V, Enumerated('val', None, {0: "Not DeviceTrigger ", 1: "Device Trigger", })]
+        AVP_FL_V, Enumerated('val', None, {0: "Not DeviceTrigger ", 1: "Device Trigger", })]  # noqa: E501
 
 
 class AVP_10415_3415 (AVP_FL_V):
     name = 'Forwarding-Pending'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "Forwarding not pending", 1: "Forwarding pending", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "Forwarding not pending", 1: "Forwarding pending", })]  # noqa: E501
 
 
 class AVP_10415_3421 (AVP_FL_V):
@@ -3448,7 +3448,7 @@ class AVP_10415_3428 (AVP_FL_V):
     name = 'Coverage-Status'
     avpLen = 16
     fields_desc = [
-        AVP_FL_V, Enumerated('val', None, {0: "Out of coverage", 1: "In coverage", })]
+        AVP_FL_V, Enumerated('val', None, {0: "Out of coverage", 1: "In coverage", })]  # noqa: E501
 
 
 class AVP_10415_3438 (AVP_FL_V):
@@ -3468,13 +3468,13 @@ class AVP_10415_3442 (AVP_FL_V):
 class AVP_10415_3443 (AVP_FL_V):
     name = 'ProSe-Event-Type'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "Annoucing", 1: "Monitoring", 2: "Match Report", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "Annoucing", 1: "Monitoring", 2: "Match Report", })]  # noqa: E501
 
 
 class AVP_10415_3445 (AVP_FL_V):
     name = 'ProSe-Functionality'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "Direct discovery", 1: "EPC-level discovery", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "Direct discovery", 1: "EPC-level discovery", })]  # noqa: E501
 
 
 class AVP_10415_3448 (AVP_FL_V):
@@ -3482,7 +3482,7 @@ class AVP_10415_3448 (AVP_FL_V):
     avpLen = 16
     fields_desc = [
         AVP_FL_V, Enumerated('val', None, {
-            0: "Reserved", 1: "50 m", 2: "100 m", 3: "200 m", 4: "500 m", 5: "1000 m", })]
+            0: "Reserved", 1: "50 m", 2: "100 m", 3: "200 m", 4: "500 m", 5: "1000 m", })]  # noqa: E501
 
 
 class AVP_10415_3449 (AVP_FL_V):
@@ -3496,7 +3496,7 @@ class AVP_10415_3449 (AVP_FL_V):
 class AVP_10415_3451 (AVP_FL_V):
     name = 'ProSe-Role-Of-UE'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "Announcing UE", 1: "Monitoring UE", 2: "Requestor UE", })]
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "Announcing UE", 1: "Monitoring UE", 2: "Requestor UE", })]  # noqa: E501
 
 
 class AVP_10415_3454 (AVP_FL_V):
@@ -3509,7 +3509,7 @@ class AVP_10415_3454 (AVP_FL_V):
 # Remaining AVPs (which do not need to be declared as classes)
 ##############################################################
 
-# In AvpDefDict dictionary, the first level key is the 'AVP vendor' and the second level key is the 'AVP code'
+# In AvpDefDict dictionary, the first level key is the 'AVP vendor' and the second level key is the 'AVP code'  # noqa: E501
 # Each tupple then defines the AVP name, the Scapy class and the default flags
 AvpDefDict = {
     0: {
@@ -3844,7 +3844,7 @@ AvpDefDict = {
         500: ('Abort-Cause', AVP_10415_500, 192),
         501: ('Access-Network-Charging-Address', AVPV_Address, 192),
         502: ('Access-Network-Charging-Identifier', AVPV_Grouped, 192),
-        503: ('Access-Network-Charging-Identifier-Value', AVPV_OctetString, 192),
+        503: ('Access-Network-Charging-Identifier-Value', AVPV_OctetString, 192),  # noqa: E501
         504: ('AF-Application-Identifier', AVPV_OctetString, 192),
         505: ('AF-Charging-Identifier', AVPV_OctetString, 192),
         506: ('Authorization-Token', AVPV_OctetString, 192),
@@ -3901,8 +3901,8 @@ AvpDefDict = {
         618: ('Charging-Information', AVPV_Grouped, 192),
         619: ('Primary-Event-Charging-Function-Name', AVPV_StrLenField, 192),
         620: ('Secondary-Event-Charging-Function-Name', AVPV_StrLenField, 192),
-        621: ('Primary-Charging-Collection-Function-Name', AVPV_StrLenField, 192),
-        622: ('Secondary-Charging-Collection-Function-Name', AVPV_StrLenField, 192),
+        621: ('Primary-Charging-Collection-Function-Name', AVPV_StrLenField, 192),  # noqa: E501
+        622: ('Secondary-Charging-Collection-Function-Name', AVPV_StrLenField, 192),  # noqa: E501
         623: ('User-Authorization-Type', AVP_10415_623, 192),
         624: ('User-Data-Already-Available', AVP_10415_624, 192),
         625: ('Confidentiality-Key', AVPV_OctetString, 192),
@@ -3972,7 +3972,7 @@ AvpDefDict = {
         834: ('SIP-Request-Timestamp', AVPV_Time, 192),
         835: ('SIP-Response-Timestamp', AVPV_Time, 192),
         836: ('Application-Server', AVPV_StrLenField, 192),
-        837: ('Application-provided-called-party-address', AVPV_StrLenField, 192),
+        837: ('Application-provided-called-party-address', AVPV_StrLenField, 192),  # noqa: E501
         838: ('Inter-Operator-Identifier', AVPV_Grouped, 192),
         839: ('Originating-IOI', AVPV_StrLenField, 192),
         840: ('Terminating-IOI', AVPV_StrLenField, 192),
@@ -4213,7 +4213,7 @@ AvpDefDict = {
         1425: ('Operator-Determined-Barring', AVPV_Unsigned32, 192),
         1426: ('Access-Restriction-Data', AVPV_Unsigned32, 192),
         1427: ('APN-OI-Replacement', AVPV_StrLenField, 192),
-        1428: ('All-APN-Configurations-Included-Indicator', AVP_10415_1428, 192),
+        1428: ('All-APN-Configurations-Included-Indicator', AVP_10415_1428, 192),  # noqa: E501
         1429: ('APN-Configuration-Profile', AVPV_Grouped, 192),
         1430: ('APN-Configuration', AVPV_Grouped, 192),
         1431: ('EPS-Subscribed-QoS-Profile', AVPV_Grouped, 192),
@@ -4239,7 +4239,7 @@ AvpDefDict = {
         1453: ('Kc', AVPV_OctetString, 192),
         1454: ('SRES', AVPV_OctetString, 192),
         1456: ('PDN-Type', AVP_10415_1456, 192),
-        1457: ('Roaming-Restricted-Due-To-Unsupported-Feature', AVP_10415_1457, 192),
+        1457: ('Roaming-Restricted-Due-To-Unsupported-Feature', AVP_10415_1457, 192),  # noqa: E501
         1458: ('Trace-Data', AVPV_Grouped, 192),
         1459: ('Trace-Reference', AVPV_OctetString, 192),
         1462: ('Trace-Depth', AVP_10415_1462, 192),
@@ -4273,7 +4273,7 @@ AvpDefDict = {
         1490: ('IDR-Flags', AVPV_Unsigned32, 192),
         1491: ('ICS-Indicator', AVP_10415_1491, 128),
         1492: ('IMS-Voice-Over-PS-Sessions-Supported', AVP_10415_1492, 128),
-        1493: ('Homogeneous-Support-of-IMS-Voice-Over-PS-Sessions', AVP_10415_1493, 128),
+        1493: ('Homogeneous-Support-of-IMS-Voice-Over-PS-Sessions', AVP_10415_1493, 128),  # noqa: E501
         1494: ('Last-UE-Activity-Time', AVPV_Time, 128),
         1495: ('EPS-User-State', AVPV_Grouped, 128),
         1496: ('EPS-Location-Information', AVPV_Grouped, 128),
@@ -4394,7 +4394,7 @@ AvpDefDict = {
         2021: ('Remaining-Balance', AVPV_Grouped, 192),
         2022: ('Refund-Information', AVPV_OctetString, 192),
         2023: ('Carrier-Select-Routing-Information', AVPV_StrLenField, 192),
-        2024: ('Number-Portability-Routing-Information', AVPV_StrLenField, 192),
+        2024: ('Number-Portability-Routing-Information', AVPV_StrLenField, 192),  # noqa: E501
         2025: ('PoC-Event-Type', AVP_10415_2025, 192),
         2026: ('Recipient-Info', AVPV_Grouped, 192),
         2027: ('Originator-Received-Address', AVPV_Grouped, 192),
@@ -4614,7 +4614,7 @@ AvpDefDict = {
         3436: ('Requested-PLMN-Identifier', AVPV_StrLenField, 192),
         3437: ('Requestor-PLMN-Identifier', AVPV_StrLenField, 192),
         3438: ('Role-Of-ProSe-Function', AVP_10415_3438, 192),
-        3439: ('Usage-Information-Report-Sequence-Number', AVPV_Integer32, 192),
+        3439: ('Usage-Information-Report-Sequence-Number', AVPV_Integer32, 192),  # noqa: E501
         3440: ('ProSe-3rd-Party-Application-ID', AVPV_StrLenField, 192),
         3441: ('ProSe-Direct-Communication-Data-Container', AVPV_Grouped, 192),
         3442: ('ProSe-Direct-Discovery-Model', AVP_10415_3442, 192),
@@ -4652,20 +4652,20 @@ DR_Flags_List = ["x", "x", "x", "x", "T", "E", "P", "R"]
 
 # The Diameter commands definition fields meaning:
 # 2nd: the 2 letters prefix for both requests and answers
-# 3rd: dictionary of Request/Answer command flags for each supported application ID. Each dictionnary key is one of the
+# 3rd: dictionary of Request/Answer command flags for each supported application ID. Each dictionnary key is one of the  # noqa: E501
 # supported application ID and each value is a tupple defining the request
 # flag and then the answer flag
 DR_cmd_def = {
     257: ('Capabilities-Exchange', 'CE', {0: (128, 0)}),
-    258: ('Re-Auth', 'RA', {0: (192, 64), 1: (192, 64), 16777250: (192, 64), 16777272: (192, 64), 16777264: (192, 64)}),
+    258: ('Re-Auth', 'RA', {0: (192, 64), 1: (192, 64), 16777250: (192, 64), 16777272: (192, 64), 16777264: (192, 64)}),  # noqa: E501
     260: ('AA-Mobile-Node', 'AM', {2: (192, 64)}),
     262: ('Home-Agent-MIP', 'HA', {2: (192, 64)}),
-    265: ('AA', 'AA', {16777272: (192, 64), 1: (192, 64), 16777250: (192, 64), 16777264: (192, 64)}),
-    268: ('Diameter-EAP', 'DE', {16777272: (192, 64), 16777264: (192, 64), 16777250: (192, 64), 5: (192, 64), 7: (192, 64)}),
+    265: ('AA', 'AA', {16777272: (192, 64), 1: (192, 64), 16777250: (192, 64), 16777264: (192, 64)}),  # noqa: E501
+    268: ('Diameter-EAP', 'DE', {16777272: (192, 64), 16777264: (192, 64), 16777250: (192, 64), 5: (192, 64), 7: (192, 64)}),  # noqa: E501
     271: ('Accounting', 'AC', {0: (192, 64), 1: (192, 64)}),
     272: ('Credit-Control', 'CC', {4: (192, 64)}),
-    274: ('Abort-Session', 'AS', {0: (192, 64), 1: (192, 64), 16777250: (192, 64), 16777272: (192, 64), 16777264: (192, 64)}),
-    275: ('Session-Termination', 'ST', {0: (192, 64), 1: (192, 64), 16777250: (192, 64), 16777264: (192, 64), 16777272: (192, 64)}),
+    274: ('Abort-Session', 'AS', {0: (192, 64), 1: (192, 64), 16777250: (192, 64), 16777272: (192, 64), 16777264: (192, 64)}),  # noqa: E501
+    275: ('Session-Termination', 'ST', {0: (192, 64), 1: (192, 64), 16777250: (192, 64), 16777264: (192, 64), 16777272: (192, 64)}),  # noqa: E501
     280: ('Device-Watchdog', 'DW', {0: (128, 0)}),
     282: ('Disconnect-Peer', 'DP', {0: (128, 0)}),
     283: ('User-Authorization', 'UA', {6: (192, 64)}),
@@ -4675,10 +4675,10 @@ DR_cmd_def = {
     287: ('Registration-Termination', 'RT', {6: (192, 64)}),
     288: ('Push-Profile', 'PP', {6: (192, 64)}),
     300: ('User-Authorization', 'UA', {16777216: (192, 64)}),
-    301: ('Server-Assignment', 'SA', {16777216: (192, 64), 16777265: (192, 64)}),
+    301: ('Server-Assignment', 'SA', {16777216: (192, 64), 16777265: (192, 64)}),  # noqa: E501
     302: ('Location-Info', 'LI', {16777216: (192, 64)}),
     303: ('Multimedia-Auth', 'MA', {16777216: (192, 64), 16777265: (192, 64)}),
-    304: ('Registration-Termination', 'RT', {16777216: (192, 64), 16777265: (192, 64)}),
+    304: ('Registration-Termination', 'RT', {16777216: (192, 64), 16777265: (192, 64)}),  # noqa: E501
     305: ('Push-Profile', 'PP', {16777216: (192, 64), 16777265: (128, 64)}),
     306: ('User-Data', 'UD', {16777217: (192, 64)}),
     307: ('Profile-Update', 'PU', {16777217: (192, 64)}),
@@ -4739,7 +4739,7 @@ class DiamG (Packet):
 
 
 def getCmdParams(cmd, request, **fields):
-    """Update or fill the fields parameters depending on command code. Both cmd and drAppId can be provided
+    """Update or fill the fields parameters depending on command code. Both cmd and drAppId can be provided  # noqa: E501
        in string or int format."""
     drCode = None
     params = None
@@ -4752,12 +4752,12 @@ def getCmdParams(cmd, request, **fields):
         else:
             params = ('Unknown', 'UK', {0: (128, 0)})
             warning(
-                'No Diameter command with code %d found in DR_cmd_def dictionary' %
+                'No Diameter command with code %d found in DR_cmd_def dictionary' %  # noqa: E501
                 cmd)
     else:  # Assume command is a string
         if len(cmd) > 3:     # Assume full command name given
             fpos = 0
-        else:         # Assume abbreviated name is given and take only the first two letters
+        else:         # Assume abbreviated name is given and take only the first two letters  # noqa: E501
             cmd = cmd[:2]
             fpos = 1
         for k, f in DR_cmd_def.items():
@@ -4768,7 +4768,7 @@ def getCmdParams(cmd, request, **fields):
                 break
         if not drCode:
             warning(
-                'Diameter command with name %s not found in DR_cmd_def dictionary.' %
+                'Diameter command with name %s not found in DR_cmd_def dictionary.' %  # noqa: E501
                 cmd)
             return (fields, 'Unknown')
     # The drCode is set/overriden in any case
@@ -4787,7 +4787,7 @@ def getCmdParams(cmd, request, **fields):
             if not found:
                 del(fields['drAppId'])
                 warning(
-                    'Application ID with name %s not found in AppIDsEnum dictionary.' %
+                    'Application ID with name %s not found in AppIDsEnum dictionary.' %  # noqa: E501
                     val)
                 return (fields, 'Unknown')
         else:   # Assume type is int

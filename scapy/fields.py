@@ -18,7 +18,7 @@ import time
 
 from scapy.config import conf
 from scapy.dadict import DADict
-from scapy.volatile import RandBin, RandByte, RandEnumKeys, RandInt, RandIP, RandIP6, RandLong, RandMAC, RandNum, RandShort, RandSInt, RandTermString, VolatileValue
+from scapy.volatile import RandBin, RandByte, RandEnumKeys, RandInt, RandIP, RandIP6, RandLong, RandMAC, RandNum, RandShort, RandSInt, RandTermString, VolatileValue  # noqa: E501
 from scapy.data import EPOCH
 from scapy.error import log_runtime, Scapy_Exception
 from scapy.compat import bytes_hex, chb, orb, plain_str, raw
@@ -116,7 +116,7 @@ class Field(six.with_metaclass(Field_metaclass, object)):
         return x
 
     def any2i(self, pkt, x):
-        """Try to understand the most input values possible and make an internal value from them"""
+        """Try to understand the most input values possible and make an internal value from them"""  # noqa: E501
         return self.h2i(pkt, x)
 
     def i2repr(self, pkt, x):
@@ -129,7 +129,7 @@ class Field(six.with_metaclass(Field_metaclass, object)):
 
     def getfield(self, pkt, s):
         """Extract an internal value from a string"""
-        return s[self.sz:], self.m2i(pkt, struct.unpack(self.fmt, s[:self.sz])[0])
+        return s[self.sz:], self.m2i(pkt, struct.unpack(self.fmt, s[:self.sz])[0])  # noqa: E501
 
     def do_copy(self, x):
         if hasattr(x, "copy"):
@@ -142,16 +142,16 @@ class Field(six.with_metaclass(Field_metaclass, object)):
         return x
 
     def __repr__(self):
-        return "<Field (%s).%s>" % (",".join(x.__name__ for x in self.owners), self.name)
+        return "<Field (%s).%s>" % (",".join(x.__name__ for x in self.owners), self.name)  # noqa: E501
 
     def copy(self):
         return copy.deepcopy(self)
 
     def randval(self):
-        """Return a volatile object whose value is both random and suitable for this field"""
+        """Return a volatile object whose value is both random and suitable for this field"""  # noqa: E501
         fmtt = self.fmt[-1]
         if fmtt in "BHIQ":
-            return {"B": RandByte, "H": RandShort, "I": RandInt, "Q": RandLong}[fmtt]()
+            return {"B": RandByte, "H": RandShort, "I": RandInt, "Q": RandLong}[fmtt]()  # noqa: E501
         elif fmtt == "s":
             if self.fmt[0] in "0123456789":
                 l = int(self.fmt[:-1])
@@ -357,7 +357,7 @@ class PadField(object):
 
     def addfield(self, pkt, s, val):
         sval = self._fld.addfield(pkt, b"", val)
-        return s + sval + struct.pack("%is" % (self.padlen(len(sval))), self._padwith)
+        return s + sval + struct.pack("%is" % (self.padlen(len(sval))), self._padwith)  # noqa: E501
 
     def __getattr__(self, attr):
         return getattr(self._fld, attr)
@@ -375,7 +375,7 @@ class ReversePadField(PadField):
 
     def addfield(self, pkt, s, val):
         sval = self._fld.addfield(pkt, b"", val)
-        return s + struct.pack("%is" % (self.padlen(len(s))), self._padwith) + sval
+        return s + struct.pack("%is" % (self.padlen(len(s))), self._padwith) + sval  # noqa: E501
 
 
 class DestField(Field):
@@ -540,7 +540,7 @@ class IP6Field(Field):
         elif not isinstance(x, Net6) and not isinstance(x, list):
             if in6_isaddrTeredo(x):   # print Teredo info
                 server, _, maddr, mport = teredoAddrExtractInfo(x)
-                return "%s [Teredo srv: %s cli: %s:%s]" % (self.i2h(pkt, x), server, maddr, mport)
+                return "%s [Teredo srv: %s cli: %s:%s]" % (self.i2h(pkt, x), server, maddr, mport)  # noqa: E501
             elif in6_isaddr6to4(x):   # print encapsulated address
                 vaddr = in6_6to4ExtractAddr(x)
                 return "%s [6to4 GW: %s]" % (self.i2h(pkt, x), vaddr)
@@ -570,7 +570,7 @@ class SourceIP6Field(IP6Field):
             if conf.route6 is None:
                 # unused import, only to initialize conf.route6
                 import scapy.route6
-            dst = ("::" if self.dstname is None else getattr(pkt, self.dstname))
+            dst = ("::" if self.dstname is None else getattr(pkt, self.dstname))  # noqa: E501
             if isinstance(dst, (Gen, list)):
                 r = {conf.route6.route(str(daddr)) for daddr in dst}
                 if len(r) > 1:
@@ -622,7 +622,7 @@ class X3BytesField(XByteField):
         return s + struct.pack(self.fmt, self.i2m(pkt, val))[1:4]
 
     def getfield(self, pkt, s):
-        return s[3:], self.m2i(pkt, struct.unpack(self.fmt, b"\x00" + s[:3])[0])
+        return s[3:], self.m2i(pkt, struct.unpack(self.fmt, b"\x00" + s[:3])[0])  # noqa: E501
 
 
 class ThreeBytesField(X3BytesField, ByteField):
@@ -645,21 +645,21 @@ class FieldAttributeException(Scapy_Exception):
 
 class YesNoByteField(ByteField):
     """
-    byte based flag field that shows representation of its number based on a given association
+    byte based flag field that shows representation of its number based on a given association  # noqa: E501
 
     in its default configuration the following representation is generated:
         x == 0 : 'no'
         x != 0 : 'yes'
 
-    in more sophisticated use-cases (e.g. yes/no/invalid) one can use the config attribute to configure
-    key-value, key-range and key-value-set associations that will be used to generate the values representation.
+    in more sophisticated use-cases (e.g. yes/no/invalid) one can use the config attribute to configure  # noqa: E501
+    key-value, key-range and key-value-set associations that will be used to generate the values representation.  # noqa: E501
 
-    a range is given by a tuple (<first-val>, <last-value>) including the last value. a single-value tuple
+    a range is given by a tuple (<first-val>, <last-value>) including the last value. a single-value tuple  # noqa: E501
     is treated as scalar.
 
-    a list defines a set of (probably non consecutive) values that should be associated to a given key.
+    a list defines a set of (probably non consecutive) values that should be associated to a given key.  # noqa: E501
 
-    all values not associated with a key will be shown as number of type unsigned byte.
+    all values not associated with a key will be shown as number of type unsigned byte.  # noqa: E501
 
     config = {
                 'no' : 0,
@@ -700,32 +700,32 @@ class YesNoByteField(ByteField):
 
             if value_spec_type is int:
                 if value_spec < 0 or value_spec > 255:
-                    raise FieldValueRangeException('given field value {} invalid - '
-                                                   'must be in range [0..255]'.format(value_spec))
+                    raise FieldValueRangeException('given field value {} invalid - '  # noqa: E501
+                                                   'must be in range [0..255]'.format(value_spec))  # noqa: E501
                 assoc_table[value_spec] = key
 
             elif value_spec_type is list:
                 for value in value_spec:
                     if value < 0 or value > 255:
-                        raise FieldValueRangeException('given field value {} invalid - '
-                                                       'must be in range [0..255]'.format(value))
+                        raise FieldValueRangeException('given field value {} invalid - '  # noqa: E501
+                                                       'must be in range [0..255]'.format(value))  # noqa: E501
                     assoc_table[value] = key
 
             elif value_spec_type is tuple:
                 value_spec_len = len(value_spec)
                 if value_spec_len != 2:
-                    raise FieldAttributeException('invalid length {} of given config item tuple {} - must be '
-                                                  '(<start-range>, <end-range>).'.format(value_spec_len, value_spec))
+                    raise FieldAttributeException('invalid length {} of given config item tuple {} - must be '  # noqa: E501
+                                                  '(<start-range>, <end-range>).'.format(value_spec_len, value_spec))  # noqa: E501
 
                 value_range_start = value_spec[0]
                 if value_range_start < 0 or value_range_start > 255:
-                    raise FieldValueRangeException('given field value {} invalid - '
-                                                   'must be in range [0..255]'.format(value_range_start))
+                    raise FieldValueRangeException('given field value {} invalid - '  # noqa: E501
+                                                   'must be in range [0..255]'.format(value_range_start))  # noqa: E501
 
                 value_range_end = value_spec[1]
                 if value_range_end < 0 or value_range_end > 255:
-                    raise FieldValueRangeException('given field value {} invalid - '
-                                                   'must be in range [0..255]'.format(value_range_end))
+                    raise FieldValueRangeException('given field value {} invalid - '  # noqa: E501
+                                                   'must be in range [0..255]'.format(value_range_end))  # noqa: E501
 
                 for value in range(value_range_start, value_range_end + 1):
 
@@ -736,7 +736,7 @@ class YesNoByteField(ByteField):
     def __init__(self, name, default, config=None, *args, **kargs):
 
         if not config:
-            # this represents the common use case and therefore it is kept small
+            # this represents the common use case and therefore it is kept small  # noqa: E501
             self.eval_fn = lambda x: 'no' if x == 0 else 'yes'
         else:
             self._build_config_representation(config)
@@ -918,68 +918,68 @@ class PacketLenField(PacketField):
 
 
 class PacketListField(PacketField):
-    """ PacketListField represents a series of Packet instances that might occur right in the middle of another Packet
+    """ PacketListField represents a series of Packet instances that might occur right in the middle of another Packet  # noqa: E501
     field list.
-    This field type may also be used to indicate that a series of Packet instances have a sibling semantic instead of
+    This field type may also be used to indicate that a series of Packet instances have a sibling semantic instead of  # noqa: E501
     a parent/child relationship (i.e. a stack of layers).
     """
     __slots__ = ["count_from", "length_from", "next_cls_cb"]
     islist = 1
 
-    def __init__(self, name, default, cls=None, count_from=None, length_from=None, next_cls_cb=None):
-        """ The number of Packet instances that are dissected by this field can be parametrized using one of three
+    def __init__(self, name, default, cls=None, count_from=None, length_from=None, next_cls_cb=None):  # noqa: E501
+        """ The number of Packet instances that are dissected by this field can be parametrized using one of three  # noqa: E501
         different mechanisms/parameters:
-            * count_from: a callback that returns the number of Packet instances to dissect. The callback prototype is:
+            * count_from: a callback that returns the number of Packet instances to dissect. The callback prototype is:  # noqa: E501
             count_from(pkt:Packet) -> int
-            * length_from: a callback that returns the number of bytes that must be dissected by this field. The
+            * length_from: a callback that returns the number of bytes that must be dissected by this field. The  # noqa: E501
             callback prototype is:
             length_from(pkt:Packet) -> int
-            * next_cls_cb: a callback that enables a Scapy developer to dynamically discover if another Packet instance
+            * next_cls_cb: a callback that enables a Scapy developer to dynamically discover if another Packet instance  # noqa: E501
             should be dissected or not. See below for this callback prototype.
 
-        The bytes that are not consumed during the dissection of this field are passed to the next field of the current
+        The bytes that are not consumed during the dissection of this field are passed to the next field of the current  # noqa: E501
         packet.
 
-        For the serialization of such a field, the list of Packets that are contained in a PacketListField can be
+        For the serialization of such a field, the list of Packets that are contained in a PacketListField can be  # noqa: E501
         heterogeneous and is unrestricted.
 
-        The type of the Packet instances that are dissected with this field is specified or discovered using one of the
+        The type of the Packet instances that are dissected with this field is specified or discovered using one of the  # noqa: E501
         following mechanism:
-            * the cls parameter may contain a callable that returns an instance of the dissected Packet. This
-                may either be a reference of a Packet subclass (e.g. DNSRROPT in layers/dns.py) to generate an
-                homogeneous PacketListField or a function deciding the type of the Packet instance
+            * the cls parameter may contain a callable that returns an instance of the dissected Packet. This  # noqa: E501
+                may either be a reference of a Packet subclass (e.g. DNSRROPT in layers/dns.py) to generate an  # noqa: E501
+                homogeneous PacketListField or a function deciding the type of the Packet instance  # noqa: E501
                 (e.g. _CDPGuessAddrRecord in contrib/cdp.py)
-            * the cls parameter may contain a class object with a defined "dispatch_hook" classmethod. That
-                method must return a Packet instance. The dispatch_hook callmethod must implement the following prototype:
-                dispatch_hook(cls, _pkt:Optional[Packet], *args, **kargs) -> Packet_metaclass
-                The _pkt parameter may contain a reference to the packet instance containing the PacketListField that is
+            * the cls parameter may contain a class object with a defined "dispatch_hook" classmethod. That  # noqa: E501
+                method must return a Packet instance. The dispatch_hook callmethod must implement the following prototype:  # noqa: E501
+                dispatch_hook(cls, _pkt:Optional[Packet], *args, **kargs) -> Packet_metaclass  # noqa: E501
+                The _pkt parameter may contain a reference to the packet instance containing the PacketListField that is  # noqa: E501
                 being dissected.
-            * the next_cls_cb parameter may contain a callable whose prototype is:
-                cbk(pkt:Packet, lst:List[Packet], cur:Optional[Packet], remain:str) -> Optional[Packet_metaclass]
-                The pkt argument contains a reference to the Packet instance containing the PacketListField that is
-                being dissected. The lst argument is the list of all Packet instances that were previously parsed during
-                the current PacketListField dissection, save for the very last Packet instance. The cur argument
-                contains a reference to that very last parsed Packet instance. The remain argument contains the bytes
-                that may still be consumed by the current PacketListField dissection operation. This callback returns
-                either the type of the next Packet to dissect or None to indicate that no more Packet are to be
+            * the next_cls_cb parameter may contain a callable whose prototype is:  # noqa: E501
+                cbk(pkt:Packet, lst:List[Packet], cur:Optional[Packet], remain:str) -> Optional[Packet_metaclass]  # noqa: E501
+                The pkt argument contains a reference to the Packet instance containing the PacketListField that is  # noqa: E501
+                being dissected. The lst argument is the list of all Packet instances that were previously parsed during  # noqa: E501
+                the current PacketListField dissection, save for the very last Packet instance. The cur argument  # noqa: E501
+                contains a reference to that very last parsed Packet instance. The remain argument contains the bytes  # noqa: E501
+                that may still be consumed by the current PacketListField dissection operation. This callback returns  # noqa: E501
+                either the type of the next Packet to dissect or None to indicate that no more Packet are to be  # noqa: E501
                 dissected.
-                These four arguments allows a variety of dynamic discovery of the number of Packet to dissect and of the
-                type of each one of these Packets, including: type determination based on current Packet instances or
-                its underlayers, continuation based on the previously parsed Packet instances within that
-                PacketListField, continuation based on a look-ahead on the bytes to be dissected...
+                These four arguments allows a variety of dynamic discovery of the number of Packet to dissect and of the  # noqa: E501
+                type of each one of these Packets, including: type determination based on current Packet instances or  # noqa: E501
+                its underlayers, continuation based on the previously parsed Packet instances within that  # noqa: E501
+                PacketListField, continuation based on a look-ahead on the bytes to be dissected...  # noqa: E501
 
-        The cls and next_cls_cb parameters are semantically exclusive, although one could specify both. If both are
-        specified, cls is silently ignored. The same is true for count_from and next_cls_cb.
-        length_from and next_cls_cb are compatible and the dissection will end, whichever of the two stop conditions
+        The cls and next_cls_cb parameters are semantically exclusive, although one could specify both. If both are  # noqa: E501
+        specified, cls is silently ignored. The same is true for count_from and next_cls_cb.  # noqa: E501
+        length_from and next_cls_cb are compatible and the dissection will end, whichever of the two stop conditions  # noqa: E501
         comes first.
 
         @param name: the name of the field
-        @param default: the default value of this field; generally an empty Python list
-        @param cls: either a callable returning a Packet instance or a class object defining a dispatch_hook class
+        @param default: the default value of this field; generally an empty Python list  # noqa: E501
+        @param cls: either a callable returning a Packet instance or a class object defining a dispatch_hook class  # noqa: E501
             method
-        @param count_from: a callback returning the number of Packet instances to dissect
+        @param count_from: a callback returning the number of Packet instances to dissect  # noqa: E501
         @param length_from: a callback returning the number of bytes to dissect
-        @param next_cls_cb: a callback returning either None or the type of the next Packet to dissect.
+        @param next_cls_cb: a callback returning either None or the type of the next Packet to dissect.  # noqa: E501
         """
         if default is None:
             default = []  # Create a new list for each instance
@@ -1006,7 +1006,7 @@ class PacketListField(PacketField):
         if x is None:
             return None
         else:
-            return [p if isinstance(p, six.string_types) else p.copy() for p in x]
+            return [p if isinstance(p, six.string_types) else p.copy() for p in x]  # noqa: E501
 
     def getfield(self, pkt, s):
         c = l = cls = None
@@ -1089,8 +1089,8 @@ class StrFixedLenField(StrField):
 class StrFixedLenEnumField(StrFixedLenField):
     __slots__ = ["enum"]
 
-    def __init__(self, name, default, length=None, enum=None, length_from=None):
-        StrFixedLenField.__init__(self, name, default, length=length, length_from=length_from)
+    def __init__(self, name, default, length=None, enum=None, length_from=None):  # noqa: E501
+        StrFixedLenField.__init__(self, name, default, length=length, length_from=length_from)  # noqa: E501
         self.enum = enum
 
     def i2repr(self, pkt, v):
@@ -1114,19 +1114,19 @@ class NetBIOSNameField(StrFixedLenField):
             x = b""
         x += b" " * (l)
         x = x[:l]
-        x = b"".join(chb(0x41 + (orb(b) >> 4)) + chb(0x41 + (orb(b) & 0xf)) for b in x)
+        x = b"".join(chb(0x41 + (orb(b) >> 4)) + chb(0x41 + (orb(b) & 0xf)) for b in x)  # noqa: E501
         x = b" " + x
         return x
 
     def m2i(self, pkt, x):
         x = x.strip(b"\x00").strip(b" ")
-        return b"".join(map(lambda x, y: chb((((orb(x) - 1) & 0xf) << 4) + ((orb(y) - 1) & 0xf)), x[::2], x[1::2]))
+        return b"".join(map(lambda x, y: chb((((orb(x) - 1) & 0xf) << 4) + ((orb(y) - 1) & 0xf)), x[::2], x[1::2]))  # noqa: E501
 
 
 class StrLenField(StrField):
     __slots__ = ["length_from", "max_length"]
 
-    def __init__(self, name, default, fld=None, length_from=None, max_length=None):
+    def __init__(self, name, default, fld=None, length_from=None, max_length=None):  # noqa: E501
         StrField.__init__(self, name, default)
         self.length_from = length_from
         self.max_length = max_length
@@ -1183,7 +1183,7 @@ class StrLenFieldUtf16(StrLenField):
 class BoundStrLenField(StrLenField):
     __slots__ = ["minlen", "maxlen"]
 
-    def __init__(self, name, default, minlen=0, maxlen=255, fld=None, length_from=None):
+    def __init__(self, name, default, minlen=0, maxlen=255, fld=None, length_from=None):  # noqa: E501
         StrLenField.__init__(self, name, default, fld, length_from)
         self.minlen = minlen
         self.maxlen = maxlen
@@ -1196,7 +1196,7 @@ class FieldListField(Field):
     __slots__ = ["field", "count_from", "length_from"]
     islist = 1
 
-    def __init__(self, name, default, field, length_from=None, count_from=None):
+    def __init__(self, name, default, field, length_from=None, count_from=None):  # noqa: E501
         if default is None:
             default = []  # Create a new list for each instance
         self.field = field
@@ -1257,7 +1257,7 @@ class FieldListField(Field):
 class FieldLenField(Field):
     __slots__ = ["length_of", "count_of", "adjust"]
 
-    def __init__(self, name, default, length_of=None, fmt="H", count_of=None, adjust=lambda pkt, x: x, fld=None):
+    def __init__(self, name, default, length_of=None, fmt="H", count_of=None, adjust=lambda pkt, x: x, fld=None):  # noqa: E501
         Field.__init__(self, name, default, fmt)
         self.length_of = length_of
         self.count_of = count_of
@@ -1305,7 +1305,7 @@ class StrStopField(StrField):
         l = s.find(self.stop)
         if l < 0:
             return b"", s
-#            raise Scapy_Exception,"StrStopField: stop value [%s] not found" %stop
+#            raise Scapy_Exception,"StrStopField: stop value [%s] not found" %stop  # noqa: E501
         l += len(self.stop) + self.additionnal
         return s[l:], s[:l]
 
@@ -1416,14 +1416,14 @@ class BitField(Field):
 class BitFieldLenField(BitField):
     __slots__ = ["length_of", "count_of", "adjust"]
 
-    def __init__(self, name, default, size, length_of=None, count_of=None, adjust=lambda pkt, x: x):
+    def __init__(self, name, default, size, length_of=None, count_of=None, adjust=lambda pkt, x: x):  # noqa: E501
         BitField.__init__(self, name, default, size)
         self.length_of = length_of
         self.count_of = count_of
         self.adjust = adjust
 
     def i2m(self, pkt, x):
-        return (FieldLenField.i2m.__func__ if six.PY2 else FieldLenField.i2m)(self, pkt, x)
+        return (FieldLenField.i2m.__func__ if six.PY2 else FieldLenField.i2m)(self, pkt, x)  # noqa: E501
 
 
 class XBitField(BitField):
@@ -1437,9 +1437,9 @@ class _EnumField(Field):
 
         @param name:    name of this field
         @param default: default value of this field
-        @param enum:    either a dict or a tuple of two callables. Dict keys are
+        @param enum:    either a dict or a tuple of two callables. Dict keys are  # noqa: E501
                         the internal values, while the dict values are the
-                        user-friendly representations. If the tuple is provided,
+                        user-friendly representations. If the tuple is provided,  # noqa: E501
                         the first callable receives the internal value as
                         parameter and returns the user-friendly representation
                         and the second callable does the converse. The first
@@ -1697,8 +1697,8 @@ class LELongField(Field):
 
 
 class LEFieldLenField(FieldLenField):
-    def __init__(self, name, default, length_of=None, fmt="<H", count_of=None, adjust=lambda pkt, x: x, fld=None):
-        FieldLenField.__init__(self, name, default, length_of=length_of, fmt=fmt, count_of=count_of, fld=fld, adjust=adjust)
+    def __init__(self, name, default, length_of=None, fmt="<H", count_of=None, adjust=lambda pkt, x: x, fld=None):  # noqa: E501
+        FieldLenField.__init__(self, name, default, length_of=length_of, fmt=fmt, count_of=count_of, fld=fld, adjust=adjust)  # noqa: E501
 
 
 class FlagValue(object):
@@ -1823,7 +1823,7 @@ class FlagsField(BitField):
    Example:
        >>> from scapy.packet import Packet
        >>> class FlagsTest(Packet):
-               fields_desc = [FlagsField("flags", 0, 8, ["f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7"])]
+               fields_desc = [FlagsField("flags", 0, 8, ["f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7"])]  # noqa: E501
        >>> FlagsTest(flags=9).show2()
        ###[ FlagsTest ]###
          flags     = f0+f3
@@ -1834,7 +1834,7 @@ class FlagsField(BitField):
    :param name: field's name
    :param default: default value for the field
    :param size: number of bits in the field
-   :param names: (list or dict) label for each flag, Least Significant Bit tag's name is written first
+   :param names: (list or dict) label for each flag, Least Significant Bit tag's name is written first  # noqa: E501
    """
     ismutable = True
     __slots__ = ["multi", "names"]
@@ -1855,7 +1855,7 @@ used in *2i() and i2*() methods.
                 else FlagValue(v, self.names)
                 for v in x
             )
-        return x if x is None or isinstance(x, FlagValue) else FlagValue(x, self.names)
+        return x if x is None or isinstance(x, FlagValue) else FlagValue(x, self.names)  # noqa: E501
 
     def any2i(self, pkt, x):
         return self._fixup_val(super(FlagsField, self).any2i(pkt, x))
@@ -1903,7 +1903,7 @@ class MultiFlagsField(BitField):
                                 s.add(i)
                                 break
                         else:
-                            assert False, 'Unknown flag "{}" with this dependency'.format(i)
+                            assert False, 'Unknown flag "{}" with this dependency'.format(i)  # noqa: E501
                             continue
                     x = s
         return x
@@ -1982,7 +1982,7 @@ class FixedPointField(BitField):
 class _IPPrefixFieldBase(Field):
     __slots__ = ["wordbytes", "maxbytes", "aton", "ntoa", "length_from"]
 
-    def __init__(self, name, default, wordbytes, maxbytes, aton, ntoa, length_from):
+    def __init__(self, name, default, wordbytes, maxbytes, aton, ntoa, length_from):  # noqa: E501
         self.wordbytes = wordbytes
         self.maxbytes = maxbytes
         self.aton = aton
@@ -2006,13 +2006,13 @@ class _IPPrefixFieldBase(Field):
         return "%s/%i" % (pfx, pfxlen)
 
     def i2m(self, pkt, x):
-        # ("fc00:1::1", 64) -> (b"\xfc\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01", 64)
+        # ("fc00:1::1", 64) -> (b"\xfc\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01", 64)  # noqa: E501
         (pfx, pfxlen) = x
         s = self.aton(pfx)
         return (s[:self._numbytes(pfxlen)], pfxlen)
 
     def m2i(self, pkt, x):
-        # (b"\xfc\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01", 64) -> ("fc00:1::1", 64)
+        # (b"\xfc\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01", 64) -> ("fc00:1::1", 64)  # noqa: E501
         (s, pfxlen) = x
 
         if len(s) < self.maxbytes:
@@ -2038,23 +2038,23 @@ class _IPPrefixFieldBase(Field):
         pfxlen = self.length_from(pkt)
         numbytes = self._numbytes(pfxlen)
         fmt = "!%is" % numbytes
-        return s[numbytes:], self.m2i(pkt, (struct.unpack(fmt, s[:numbytes])[0], pfxlen))
+        return s[numbytes:], self.m2i(pkt, (struct.unpack(fmt, s[:numbytes])[0], pfxlen))  # noqa: E501
 
 
 class IPPrefixField(_IPPrefixFieldBase):
     def __init__(self, name, default, wordbytes=1, length_from=None):
-        _IPPrefixFieldBase.__init__(self, name, default, wordbytes, 4, inet_aton, inet_ntoa, length_from)
+        _IPPrefixFieldBase.__init__(self, name, default, wordbytes, 4, inet_aton, inet_ntoa, length_from)  # noqa: E501
 
 
 class IP6PrefixField(_IPPrefixFieldBase):
     def __init__(self, name, default, wordbytes=1, length_from=None):
-        _IPPrefixFieldBase.__init__(self, name, default, wordbytes, 16, lambda a: inet_pton(socket.AF_INET6, a), lambda n: inet_ntop(socket.AF_INET6, n), length_from)
+        _IPPrefixFieldBase.__init__(self, name, default, wordbytes, 16, lambda a: inet_pton(socket.AF_INET6, a), lambda n: inet_ntop(socket.AF_INET6, n), length_from)  # noqa: E501
 
 
 class UTCTimeField(IntField):
     __slots__ = ["epoch", "delta", "strf", "use_nano"]
 
-    def __init__(self, name, default, epoch=None, use_nano=False, strf="%a, %d %b %Y %H:%M:%S +0000"):
+    def __init__(self, name, default, epoch=None, use_nano=False, strf="%a, %d %b %Y %H:%M:%S +0000"):  # noqa: E501
         IntField.__init__(self, name, default)
         mk_epoch = EPOCH if epoch is None else time.mktime(epoch)
         self.epoch = mk_epoch

@@ -26,7 +26,7 @@
 
     :Thanks:
 
-    - TLV code derived from the CDP implementation of scapy. (Thanks to Nicolas Bareil and Arnaud Ebalard)
+    - TLV code derived from the CDP implementation of scapy. (Thanks to Nicolas Bareil and Arnaud Ebalard)  # noqa: E501
 """
 
 from __future__ import absolute_import
@@ -40,8 +40,8 @@ from scapy.sendrecv import sendp
 class DtpGenericTlv(Packet):
     name = "DTP Generic TLV"
     fields_desc = [XShortField("type", 0x0001),
-                   FieldLenField("length", None, length_of=lambda pkt:pkt.value + 4),
-                   StrLenField("value", "", length_from=lambda pkt:pkt.length - 4)
+                   FieldLenField("length", None, length_of=lambda pkt:pkt.value + 4),  # noqa: E501
+                   StrLenField("value", "", length_from=lambda pkt:pkt.length - 4)  # noqa: E501
                    ]
 
     @classmethod
@@ -58,31 +58,31 @@ class DtpGenericTlv(Packet):
 class DTPDomain(DtpGenericTlv):
     name = "DTP Domain"
     fields_desc = [ShortField("type", 1),
-                   FieldLenField("length", None, "domain", adjust=lambda pkt, x:x + 4),
-                   StrLenField("domain", b"\x00", length_from=lambda pkt:pkt.length - 4)
+                   FieldLenField("length", None, "domain", adjust=lambda pkt, x:x + 4),  # noqa: E501
+                   StrLenField("domain", b"\x00", length_from=lambda pkt:pkt.length - 4)  # noqa: E501
                    ]
 
 
 class DTPStatus(DtpGenericTlv):
     name = "DTP Status"
     fields_desc = [ShortField("type", 2),
-                   FieldLenField("length", None, "status", adjust=lambda pkt, x:x + 4),
-                   StrLenField("status", b"\x03", length_from=lambda pkt:pkt.length - 4)
+                   FieldLenField("length", None, "status", adjust=lambda pkt, x:x + 4),  # noqa: E501
+                   StrLenField("status", b"\x03", length_from=lambda pkt:pkt.length - 4)  # noqa: E501
                    ]
 
 
 class DTPType(DtpGenericTlv):
     name = "DTP Type"
     fields_desc = [ShortField("type", 3),
-                   FieldLenField("length", None, "dtptype", adjust=lambda pkt, x:x + 4),
-                   StrLenField("dtptype", b"\xa5", length_from=lambda pkt:pkt.length - 4)
+                   FieldLenField("length", None, "dtptype", adjust=lambda pkt, x:x + 4),  # noqa: E501
+                   StrLenField("dtptype", b"\xa5", length_from=lambda pkt:pkt.length - 4)  # noqa: E501
                    ]
 
 
 class DTPNeighbor(DtpGenericTlv):
     name = "DTP Neighbor"
     fields_desc = [ShortField("type", 4),
-                   # FieldLenField("length", None, "neighbor", adjust=lambda pkt,x:x + 4),
+                   # FieldLenField("length", None, "neighbor", adjust=lambda pkt,x:x + 4),  # noqa: E501
                    ShortField("len", 10),
                    MACField("neighbor", None)
                    ]
@@ -109,5 +109,5 @@ def negotiate_trunk(iface=conf.iface, mymac=str(RandMAC())):
     print("Trying to negotiate a trunk on interface %s" % iface)
     p = Dot3(src=mymac, dst="01:00:0c:cc:cc:cc") / LLC()
     p /= SNAP()
-    p /= DTP(tlvlist=[DTPDomain(), DTPStatus(), DTPType(), DTPNeighbor(neighbor=mymac)])
+    p /= DTP(tlvlist=[DTPDomain(), DTPStatus(), DTPType(), DTPNeighbor(neighbor=mymac)])  # noqa: E501
     sendp(p)

@@ -33,8 +33,8 @@ from scapy.layers.inet6 import icmp6ndoptscls, _ICMPv6NDGuessPayload
 class ICMPv6NDOptNonce(_ICMPv6NDGuessPayload, Packet):
     name = "ICMPv6NDOptNonce"
     fields_desc = [ByteField("type", 14),
-                   FieldLenField("len", None, length_of="nonce", fmt="B", adjust=lambda pkt, x: int(round((x + 2) / 8.))),
-                   StrLenField("nonce", "", length_from=lambda pkt: pkt.len * 8 - 2)]
+                   FieldLenField("len", None, length_of="nonce", fmt="B", adjust=lambda pkt, x: int(round((x + 2) / 8.))),  # noqa: E501
+                   StrLenField("nonce", "", length_from=lambda pkt: pkt.len * 8 - 2)]  # noqa: E501
 
 
 class ICMPv6NDOptTmstp(_ICMPv6NDGuessPayload, Packet):
@@ -48,10 +48,10 @@ class ICMPv6NDOptTmstp(_ICMPv6NDGuessPayload, Packet):
 class ICMPv6NDOptRsaSig(_ICMPv6NDGuessPayload, Packet):
     name = "ICMPv6NDOptRsaSig"
     fields_desc = [ByteField("type", 12),
-                   FieldLenField("len", None, length_of="signature_pad", fmt="B", adjust=lambda pkt, x: (x + 20) // 8),
+                   FieldLenField("len", None, length_of="signature_pad", fmt="B", adjust=lambda pkt, x: (x + 20) // 8),  # noqa: E501
                    ShortField("reserved", 0),
                    StrFixedLenField("key_hash", "", length=16),
-                   StrLenField("signature_pad", "", length_from=lambda pkt: pkt.len * 8 - 20)]
+                   StrLenField("signature_pad", "", length_from=lambda pkt: pkt.len * 8 - 20)]  # noqa: E501
 
 
 class CGA_Params(Packet):
@@ -66,16 +66,16 @@ class CGA_Params(Packet):
 class ICMPv6NDOptCGA(_ICMPv6NDGuessPayload, Packet):
     name = "ICMPv6NDOptCGA"
     fields_desc = [ByteField("type", 11),
-                   FieldLenField("len", None, length_of="CGA_PARAMS", fmt="B", adjust=lambda pkt, x: (x + pkt.padlength + 4) // 8),
+                   FieldLenField("len", None, length_of="CGA_PARAMS", fmt="B", adjust=lambda pkt, x: (x + pkt.padlength + 4) // 8),  # noqa: E501
                    FieldLenField("padlength", 0, length_of="padding", fmt="B"),
                    ByteField("reserved", 0),
-                   PacketLenField("CGA_PARAMS", "", CGA_Params, length_from=lambda pkt: pkt.len * 8 - pkt.padlength - 4),
-                   StrLenField("padding", "", length_from=lambda pkt: pkt.padlength)]
+                   PacketLenField("CGA_PARAMS", "", CGA_Params, length_from=lambda pkt: pkt.len * 8 - pkt.padlength - 4),  # noqa: E501
+                   StrLenField("padding", "", length_from=lambda pkt: pkt.padlength)]  # noqa: E501
 
     def post_build(self, p, pay):
         l_ = len(self.CGA_PARAMS)
         l = -(4 + l_) % 8  # Pad to 8 bytes
-        p = p[:1] + chb((4 + l_ + l) // 8) + chb(l) + p[3:4 + l_] + b"\x00" * l + pay
+        p = p[:1] + chb((4 + l_ + l) // 8) + chb(l) + p[3:4 + l_] + b"\x00" * l + pay  # noqa: E501
         return p
 
 

@@ -41,12 +41,12 @@ class Route:
             rtlst.append((ltoa(net),
                           ltoa(msk),
                           gw,
-                          (iface.name if not isinstance(iface, six.string_types) else iface),
+                          (iface.name if not isinstance(iface, six.string_types) else iface),  # noqa: E501
                           addr,
                           str(metric)))
 
         return pretty_list(rtlst,
-                           [("Network", "Netmask", "Gateway", "Iface", "Output IP", "Metric")])
+                           [("Network", "Netmask", "Gateway", "Iface", "Output IP", "Metric")])  # noqa: E501
 
     def make_route(self, host=None, net=None, gw=None, dev=None, metric=1):
         from scapy.arch import get_if_addr
@@ -56,7 +56,7 @@ class Route:
             thenet, msk = net.split("/")
             msk = int(msk)
         else:
-            raise Scapy_Exception("make_route: Incorrect parameters. You should specify a host or a net")
+            raise Scapy_Exception("make_route: Incorrect parameters. You should specify a host or a net")  # noqa: E501
         if gw is None:
             gw = "0.0.0.0"
         if dev is None:
@@ -101,7 +101,7 @@ class Route:
             elif iff != iface:
                 continue
             if gw == '0.0.0.0':
-                self.routes[i] = (the_net, the_msk, gw, iface, the_addr, metric)
+                self.routes[i] = (the_net, the_msk, gw, iface, the_addr, metric)  # noqa: E501
             else:
                 self.routes[i] = (net, msk, gw, iface, the_addr, metric)
         conf.netcache.flush()
@@ -156,7 +156,7 @@ class Route:
             aa = atol(a)
             if aa == dst:
                 pathes.append(
-                    (0xffffffff, 1, (scapy.consts.LOOPBACK_INTERFACE, a, "0.0.0.0"))
+                    (0xffffffff, 1, (scapy.consts.LOOPBACK_INTERFACE, a, "0.0.0.0"))  # noqa: E501
                 )
             if (dst & m) == (d & m):
                 pathes.append((m, me, (i, a, gw)))
@@ -185,7 +185,7 @@ class Route:
                     continue
             elif iff != iface:
                 continue
-            bcast = atol(addr) | (~msk & 0xffffffff)  # FIXME: check error in atol()
+            bcast = atol(addr) | (~msk & 0xffffffff)  # FIXME: check error in atol()  # noqa: E501
             return ltoa(bcast)
         warning("No broadcast address found for iface %s\n", iff)
 
@@ -194,7 +194,7 @@ conf.route = Route()
 
 iface = conf.route.route("0.0.0.0", verbose=0)[0]
 
-# Warning: scapy.consts.LOOPBACK_INTERFACE must always be used statically, because it
+# Warning: scapy.consts.LOOPBACK_INTERFACE must always be used statically, because it  # noqa: E501
 # may be changed by scapy/arch/windows during execution
 
 if getattr(iface, "name", iface) == scapy.consts.LOOPBACK_INTERFACE:

@@ -33,7 +33,7 @@ class ScapyAutorunInterpreter(code.InteractiveInterpreter):
 
     def showsyntaxerror(self, *args, **kargs):
         self.error = 1
-        return code.InteractiveInterpreter.showsyntaxerror(self, *args, **kargs)
+        return code.InteractiveInterpreter.showsyntaxerror(self, *args, **kargs)  # noqa: E501
 
     def showtraceback(self, *args, **kargs):
         self.error = 1
@@ -129,7 +129,7 @@ def autorun_get_ansi_interactive_session(cmds, **kargs):
 
 def autorun_get_html_interactive_session(cmds, **kargs):
     ct = conf.color_theme
-    to_html = lambda s: s.replace("<", "&lt;").replace(">", "&gt;").replace("#[#", "<").replace("#]#", ">")
+    to_html = lambda s: s.replace("<", "&lt;").replace(">", "&gt;").replace("#[#", "<").replace("#]#", ">")  # noqa: E501
     try:
         try:
             conf.color_theme = HTMLTheme2()
@@ -145,7 +145,7 @@ def autorun_get_html_interactive_session(cmds, **kargs):
 
 def autorun_get_latex_interactive_session(cmds, **kargs):
     ct = conf.color_theme
-    to_latex = lambda s: tex_escape(s).replace("@[@", "{").replace("@]@", "}").replace("@`@", "\\")
+    to_latex = lambda s: tex_escape(s).replace("@[@", "{").replace("@]@", "}").replace("@`@", "\\")  # noqa: E501
     try:
         try:
             conf.color_theme = LatexTheme2()

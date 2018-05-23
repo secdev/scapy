@@ -53,7 +53,7 @@ class PFLog(Packet):
                    StrFixedLenField("pad", b"\x00\x00\x00", 3)]
 
     def mysummary(self):
-        return self.sprintf("%PFLog.addrfamily% %PFLog.action% on %PFLog.iface% by rule %PFLog.rulenumber%")
+        return self.sprintf("%PFLog.addrfamily% %PFLog.action% on %PFLog.iface% by rule %PFLog.rulenumber%")  # noqa: E501
 
 
 bind_layers(PFLog, IP, addrfamily=socket.AF_INET)

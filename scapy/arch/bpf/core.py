@@ -34,7 +34,7 @@ LIBC.ioctl.restype = c_int
 # Addresses manipulation functions
 
 def get_if_raw_addr(ifname):
-    """Returns the IPv4 address configured on 'ifname', packed with inet_pton."""
+    """Returns the IPv4 address configured on 'ifname', packed with inet_pton."""  # noqa: E501
 
     # Get ifconfig output
     try:
@@ -102,7 +102,7 @@ def attach_filter(fd, iface, bpf_filter_string):
     """Attach a BPF filter to the BPF file descriptor"""
 
     # Retrieve the BPF byte code in decimal
-    command = "%s -i %s -ddd -s 1600 '%s'" % (conf.prog.tcpdump, iface, bpf_filter_string)
+    command = "%s -i %s -ddd -s 1600 '%s'" % (conf.prog.tcpdump, iface, bpf_filter_string)  # noqa: E501
     try:
         f = os.popen(command)
     except OSError as msg:
@@ -173,7 +173,7 @@ def get_working_ifaces():
 
             # Check if the interface can be used
             try:
-                fcntl.ioctl(fd, BIOCSETIF, struct.pack("16s16x", ifname.encode()))
+                fcntl.ioctl(fd, BIOCSETIF, struct.pack("16s16x", ifname.encode()))  # noqa: E501
                 interfaces.append((ifname, int(ifname[-1])))
             except IOError:
                 pass

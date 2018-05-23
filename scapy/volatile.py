@@ -23,9 +23,9 @@ from scapy.modules.six.moves import range
 
 class RandomEnumeration:
     """iterate through a sequence in random order.
-       When all the values have been drawn, if forever=1, the drawing is done again.
-       If renewkeys=0, the draw will be in the same order, guaranteeing that the same
-       number will be drawn in not less than the number of integers of the sequence"""
+       When all the values have been drawn, if forever=1, the drawing is done again.  # noqa: E501
+       If renewkeys=0, the draw will be in the same order, guaranteeing that the same  # noqa: E501
+       number will be drawn in not less than the number of integers of the sequence"""  # noqa: E501
 
     def __init__(self, inf, sup, seed=None, forever=1, renewkeys=0):
         self.forever = forever
@@ -216,7 +216,7 @@ class RandNumExpo(RandNum):
 
 
 class RandEnum(RandNum):
-    """Instances evaluate to integer sampling without replacement from the given interval"""
+    """Instances evaluate to integer sampling without replacement from the given interval"""  # noqa: E501
 
     def __init__(self, min, max, seed=None):
         self.seq = RandomEnumeration(min, max, seed)
@@ -327,7 +327,7 @@ class RandChoice(RandField):
 
 
 class RandString(RandField):
-    def __init__(self, size=None, chars=b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"):
+    def __init__(self, size=None, chars=b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"):  # noqa: E501
         if size is None:
             size = RandNumExpo(0.01)
         self.size = size
@@ -351,7 +351,7 @@ class RandString(RandField):
 
 class RandBin(RandString):
     def __init__(self, size=None):
-        super(RandBin, self).__init__(size=size, chars=b"".join(chb(c) for c in range(256)))
+        super(RandBin, self).__init__(size=size, chars=b"".join(chb(c) for c in range(256)))  # noqa: E501
 
 
 class RandTermString(RandBin):
@@ -444,7 +444,7 @@ class RandIP6(RandString):
 
 
 class RandOID(RandString):
-    def __init__(self, fmt=None, depth=RandNumExpo(0.1), idnum=RandNumExpo(0.01)):
+    def __init__(self, fmt=None, depth=RandNumExpo(0.1), idnum=RandNumExpo(0.01)):  # noqa: E501
         self.ori_fmt = fmt
         if fmt is not None:
             fmt = fmt.split(".")
@@ -484,7 +484,7 @@ class RandRegExp(RandField):
         self._lambda = lambda_
 
     @staticmethod
-    def choice_expand(s):  # XXX does not support special sets like (ex ':alnum:')
+    def choice_expand(s):  # XXX does not support special sets like (ex ':alnum:')  # noqa: E501
         m = ""
         invert = s and s[0] == "^"
         while True:
@@ -613,10 +613,10 @@ class RandRegExp(RandField):
                 current.append(c)
             elif c == '+':
                 e = current.pop()
-                current.append([current] + [e] * (int(random.expovariate(self._lambda)) + 1))
+                current.append([current] + [e] * (int(random.expovariate(self._lambda)) + 1))  # noqa: E501
             elif c == '*':
                 e = current.pop()
-                current.append([current] + [e] * int(random.expovariate(self._lambda)))
+                current.append([current] + [e] * int(random.expovariate(self._lambda)))  # noqa: E501
             elif c == '?':
                 if random.randint(0, 1):
                     current.pop()
@@ -739,13 +739,13 @@ class RandSingString(RandSingularity):
                         b"\x00",
                         "%00",
                         "\\",
-                        "../../../../../../../../../../../../../../../../../etc/passwd",
+                        "../../../../../../../../../../../../../../../../../etc/passwd",  # noqa: E501
                         "%2e%2e%2f" * 20 + "etc/passwd",
                         "%252e%252e%252f" * 20 + "boot.ini",
                         "..%c0%af" * 20 + "etc/passwd",
                         "..%c0%af" * 20 + "boot.ini",
                         "//etc/passwd",
-                        r"..\..\..\..\..\..\..\..\..\..\..\..\..\..\..\..\..\boot.ini",
+                        r"..\..\..\..\..\..\..\..\..\..\..\..\..\..\..\..\..\boot.ini",  # noqa: E501
                         "AUX:",
                         "CLOCK$",
                         "COM:",
@@ -769,7 +769,7 @@ class RandSingString(RandSingularity):
 
 class RandPool(RandField):
     def __init__(self, *args):
-        """Each parameter is a volatile object or a couple (volatile object, weight)"""
+        """Each parameter is a volatile object or a couple (volatile object, weight)"""  # noqa: E501
         pool = []
         for p in args:
             w = 1

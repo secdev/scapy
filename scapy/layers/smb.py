@@ -64,7 +64,7 @@ class SMBMailSlot(Packet):
 
 class SMBNetlogon_Protocol_Response_Tail_SAM(Packet):
     name = "SMB Netlogon Protocol Response Tail SAM"
-    fields_desc = [ByteEnumField("Command", 0x17, {0x12: "SAM logon request", 0x17: "SAM Active directory Response"}),
+    fields_desc = [ByteEnumField("Command", 0x17, {0x12: "SAM logon request", 0x17: "SAM Active directory Response"}),  # noqa: E501
                    ByteField("unused", 0),
                    ShortField("Data1", 0),
                    ShortField("Data2", 0xfd01),
@@ -110,7 +110,7 @@ class SMBNetlogon_Protocol_Response_Tail_SAM(Packet):
 
 class SMBNetlogon_Protocol_Response_Tail_LM20(Packet):
     name = "SMB Netlogon Protocol Response Tail LM20"
-    fields_desc = [ByteEnumField("Command", 0x06, {0x06: "LM 2.0 Response to logon request"}),
+    fields_desc = [ByteEnumField("Command", 0x06, {0x06: "LM 2.0 Response to logon request"}),  # noqa: E501
                    ByteField("unused", 0),
                    StrFixedLenField("DblSlash", "\\\\", 2),
                    StrNullField("ServerName", "WIN"),
@@ -179,17 +179,17 @@ class SMBNegociate_Protocol_Response_Advanced_Security(Packet):
                    BitField("ExtendedSecurity", 1, 1),
                    BitField("CompBulk", 0, 2),
                    BitField("Reserved3", 0, 5),
-                   # There have been 127490112000000000 tenths of micro-seconds between 1st january 1601 and 1st january 2005. 127490112000000000=0x1C4EF94D6228000, so ServerTimeHigh=0xD6228000 and ServerTimeLow=0x1C4EF94.
+                   # There have been 127490112000000000 tenths of micro-seconds between 1st january 1601 and 1st january 2005. 127490112000000000=0x1C4EF94D6228000, so ServerTimeHigh=0xD6228000 and ServerTimeLow=0x1C4EF94.  # noqa: E501
                    LEIntField("ServerTimeHigh", 0xD6228000),
                    LEIntField("ServerTimeLow", 0x1C4EF94),
                    LEShortField("ServerTimeZone", 0x3c),
                    ByteField("EncryptionKeyLength", 0),
-                   LEFieldLenField("ByteCount", None, "SecurityBlob", adjust=lambda pkt, x: x - 16),
+                   LEFieldLenField("ByteCount", None, "SecurityBlob", adjust=lambda pkt, x: x - 16),  # noqa: E501
                    BitField("GUID", 0, 128),
-                   StrLenField("SecurityBlob", "", length_from=lambda x: x.ByteCount + 16)]
+                   StrLenField("SecurityBlob", "", length_from=lambda x: x.ByteCount + 16)]  # noqa: E501
 
 # SMBNegociate Protocol Response No Security
-# When using no security, with EncryptionKeyLength=8, you must have an EncryptionKey before the DomainName
+# When using no security, with EncryptionKeyLength=8, you must have an EncryptionKey before the DomainName  # noqa: E501
 
 
 class SMBNegociate_Protocol_Response_No_Security(Packet):
@@ -222,7 +222,7 @@ class SMBNegociate_Protocol_Response_No_Security(Packet):
                    BitField("ExtendedSecurity", 0, 1),
                    FlagsField("CompBulk", 0, 2, "CB"),
                    BitField("Reserved3", 0, 5),
-                   # There have been 127490112000000000 tenths of micro-seconds between 1st january 1601 and 1st january 2005. 127490112000000000=0x1C4EF94D6228000, so ServerTimeHigh=0xD6228000 and ServerTimeLow=0x1C4EF94.
+                   # There have been 127490112000000000 tenths of micro-seconds between 1st january 1601 and 1st january 2005. 127490112000000000=0x1C4EF94D6228000, so ServerTimeHigh=0xD6228000 and ServerTimeLow=0x1C4EF94.  # noqa: E501
                    LEIntField("ServerTimeHigh", 0xD6228000),
                    LEIntField("ServerTimeLow", 0x1C4EF94),
                    LEShortField("ServerTimeZone", 0x3c),
@@ -265,7 +265,7 @@ class SMBNegociate_Protocol_Response_No_Security_No_Key(Packet):
                    BitField("ExtendedSecurity", 0, 1),
                    FlagsField("CompBulk", 0, 2, "CB"),
                    BitField("Reserved3", 0, 5),
-                   # There have been 127490112000000000 tenths of micro-seconds between 1st january 1601 and 1st january 2005. 127490112000000000=0x1C4EF94D6228000, so ServerTimeHigh=0xD6228000 and ServerTimeLow=0x1C4EF94.
+                   # There have been 127490112000000000 tenths of micro-seconds between 1st january 1601 and 1st january 2005. 127490112000000000=0x1C4EF94D6228000, so ServerTimeHigh=0xD6228000 and ServerTimeLow=0x1C4EF94.  # noqa: E501
                    LEIntField("ServerTimeHigh", 0xD6228000),
                    LEIntField("ServerTimeLow", 0x1C4EF94),
                    LEShortField("ServerTimeZone", 0x3c),
@@ -280,7 +280,7 @@ class SMBNegociate_Protocol_Response_No_Security_No_Key(Packet):
 class SMBSession_Setup_AndX_Request(Packet):
     name = "Session Setup AndX Request"
     fields_desc = [StrFixedLenField("Start", b"\xffSMB", 4),
-                   ByteEnumField("Command", 0x73, {0x73: "SMB_COM_SESSION_SETUP_ANDX"}),
+                   ByteEnumField("Command", 0x73, {0x73: "SMB_COM_SESSION_SETUP_ANDX"}),  # noqa: E501
                    ByteField("Error_Class", 0),
                    ByteField("Reserved", 0),
                    LEShortField("Error_Code", 0),
@@ -294,7 +294,7 @@ class SMBSession_Setup_AndX_Request(Packet):
                    LEShortField("UID", 0),
                    LEShortField("MID", 2),
                    ByteField("WordCount", 13),
-                   ByteEnumField("AndXCommand", 0x75, {0x75: "SMB_COM_TREE_CONNECT_ANDX"}),
+                   ByteEnumField("AndXCommand", 0x75, {0x75: "SMB_COM_TREE_CONNECT_ANDX"}),  # noqa: E501
                    ByteField("Reserved2", 0),
                    LEShortField("AndXOffset", 96),
                    LEShortField("MaxBufferS", 2920),
@@ -311,7 +311,7 @@ class SMBSession_Setup_AndX_Request(Packet):
                    BitField("CompBulk", 0, 2),
                    BitField("Reserved5", 0, 5),
                    LEShortField("ByteCount", 35),
-                   StrLenField("ANSIPassword", "Pass", length_from=lambda x: x.ANSIPasswordLength),
+                   StrLenField("ANSIPassword", "Pass", length_from=lambda x: x.ANSIPasswordLength),  # noqa: E501
                    StrNullField("Account", "GUEST"),
                    StrNullField("PrimaryDomain", ""),
                    StrNullField("NativeOS", "Windows 4.0"),
@@ -333,7 +333,7 @@ class SMBSession_Setup_AndX_Request(Packet):
 class SMBSession_Setup_AndX_Response(Packet):
     name = "Session Setup AndX Response"
     fields_desc = [StrFixedLenField("Start", b"\xffSMB", 4),
-                   ByteEnumField("Command", 0x73, {0x73: "SMB_COM_SESSION_SETUP_ANDX"}),
+                   ByteEnumField("Command", 0x73, {0x73: "SMB_COM_SESSION_SETUP_ANDX"}),  # noqa: E501
                    ByteField("Error_Class", 0),
                    ByteField("Reserved", 0),
                    LEShortField("Error_Code", 0),
@@ -347,7 +347,7 @@ class SMBSession_Setup_AndX_Response(Packet):
                    LEShortField("UID", 0),
                    LEShortField("MID", 2),
                    ByteField("WordCount", 3),
-                   ByteEnumField("AndXCommand", 0x75, {0x75: "SMB_COM_TREE_CONNECT_ANDX"}),
+                   ByteEnumField("AndXCommand", 0x75, {0x75: "SMB_COM_TREE_CONNECT_ANDX"}),  # noqa: E501
                    ByteField("Reserved2", 0),
                    LEShortField("AndXOffset", 66),
                    LEShortField("Action", 0),
@@ -366,10 +366,10 @@ class SMBSession_Setup_AndX_Response(Packet):
 
 
 bind_layers(NBTSession, SMBNegociate_Protocol_Request_Header, )
-bind_layers(NBTSession, SMBNegociate_Protocol_Response_Advanced_Security, ExtendedSecurity=1)
-bind_layers(NBTSession, SMBNegociate_Protocol_Response_No_Security, ExtendedSecurity=0, EncryptionKeyLength=8)
-bind_layers(NBTSession, SMBNegociate_Protocol_Response_No_Security_No_Key, ExtendedSecurity=0, EncryptionKeyLength=0)
+bind_layers(NBTSession, SMBNegociate_Protocol_Response_Advanced_Security, ExtendedSecurity=1)  # noqa: E501
+bind_layers(NBTSession, SMBNegociate_Protocol_Response_No_Security, ExtendedSecurity=0, EncryptionKeyLength=8)  # noqa: E501
+bind_layers(NBTSession, SMBNegociate_Protocol_Response_No_Security_No_Key, ExtendedSecurity=0, EncryptionKeyLength=0)  # noqa: E501
 bind_layers(NBTSession, SMBSession_Setup_AndX_Request, )
 bind_layers(NBTSession, SMBSession_Setup_AndX_Response, )
-bind_layers(SMBNegociate_Protocol_Request_Header, SMBNegociate_Protocol_Request_Tail, )
-bind_layers(SMBNegociate_Protocol_Request_Tail, SMBNegociate_Protocol_Request_Tail, )
+bind_layers(SMBNegociate_Protocol_Request_Header, SMBNegociate_Protocol_Request_Tail, )  # noqa: E501
+bind_layers(SMBNegociate_Protocol_Request_Tail, SMBNegociate_Protocol_Request_Tail, )  # noqa: E501

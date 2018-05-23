@@ -33,7 +33,7 @@ class WPA_key(Packet):
                    StrFixedLenField("wpa_key_id", "", 8),
                    StrFixedLenField("wpa_key_mic", "", 16),
                    LenField("wpa_key_length", None, "H"),
-                   StrLenField("wpa_key", "", length_from=lambda pkt:pkt.wpa_key_length)]
+                   StrLenField("wpa_key", "", length_from=lambda pkt:pkt.wpa_key_length)]  # noqa: E501
 
     def extract_padding(self, s):
         l = self.len

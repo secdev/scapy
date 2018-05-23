@@ -444,7 +444,7 @@ class TLSClientAutomaton(_TLSAutomaton):
         Special characters are handled so that it becomes a valid HTTP request.
         """
         if not self.data_to_send:
-            data = six.moves.input().replace('\\r', '\r').replace('\\n', '\n').encode()
+            data = six.moves.input().replace('\\r', '\r').replace('\\n', '\n').encode()  # noqa: E501
         else:
             data = self.data_to_send.pop()
         if data == b"quit":
@@ -512,7 +512,7 @@ class TLSClientAutomaton(_TLSAutomaton):
         try:
             self.flush_records()
         except:
-            self.vprint("Could not send termination Alert, maybe the server stopped?")
+            self.vprint("Could not send termination Alert, maybe the server stopped?")  # noqa: E501
         raise self.FINAL()
 
     #                          SSLv2 handshake                                #
@@ -732,7 +732,7 @@ class TLSClientAutomaton(_TLSAutomaton):
     @ATMT.condition(SSLv2_WAITING_CLIENTDATA, prio=1)
     def sslv2_add_ClientData(self):
         if not self.data_to_send:
-            data = six.moves.input().replace('\\r', '\r').replace('\\n', '\n').encode()
+            data = six.moves.input().replace('\\r', '\r').replace('\\n', '\n').encode()  # noqa: E501
         else:
             data = self.data_to_send.pop()
             self.vprint("> Read from list: %s" % data)
@@ -801,7 +801,7 @@ class TLSClientAutomaton(_TLSAutomaton):
         try:
             self.flush_records()
         except:
-            self.vprint("Could not send our goodbye. The server probably stopped.")
+            self.vprint("Could not send our goodbye. The server probably stopped.")  # noqa: E501
         self.socket.close()
         raise self.FINAL()
 
@@ -823,7 +823,7 @@ class TLSClientAutomaton(_TLSAutomaton):
             # sn = ServerName(servername="<put server name here>")
             ext = [TLS_Ext_SupportedGroups(groups=["secp256r1"]),
                    # TLS_Ext_ServerName(servernames=[sn]),
-                   TLS_Ext_KeyShare_CH(client_shares=[KeyShareEntry(group=23)]),
+                   TLS_Ext_KeyShare_CH(client_shares=[KeyShareEntry(group=23)]),  # noqa: E501
                    TLS_Ext_SupportedVersions(versions=["TLS 1.3-d18"]),
                    TLS_Ext_SignatureAlgorithms(sig_algs=["sha256+rsapss",
                                                          "sha256+rsa"])]

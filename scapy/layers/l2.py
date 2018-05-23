@@ -58,7 +58,7 @@ class Neighbor:
             return self.resolvers[k](l2inst, l3inst)
 
     def __repr__(self):
-        return "\n".join("%-15s -> %-15s" % (l2.__name__, l3.__name__) for l2, l3 in self.resolvers)
+        return "\n".join("%-15s -> %-15s" % (l2.__name__, l3.__name__) for l2, l3 in self.resolvers)  # noqa: E501
 
 
 conf.neighbor = Neighbor()
@@ -76,7 +76,7 @@ def getmacbyip(ip, chainCC=0):
     if (tmp[0] & 0xf0) == 0xe0:  # mcast @
         return "01:00:5e:%.2x:%.2x:%.2x" % (tmp[1] & 0x7f, tmp[2], tmp[3])
     iff, _, gw = conf.route.route(ip)
-    if ((iff == consts.LOOPBACK_INTERFACE) or (ip == conf.route.get_if_bcast(iff))):
+    if ((iff == consts.LOOPBACK_INTERFACE) or (ip == conf.route.get_if_bcast(iff))):  # noqa: E501
         return "ff:ff:ff:ff:ff:ff"
     if gw != "0.0.0.0":
         ip = gw
@@ -113,7 +113,7 @@ class DestMACField(MACField):
                 pass
             if x is None:
                 x = "ff:ff:ff:ff:ff:ff"
-                warning("Mac address to reach destination not found. Using broadcast.")
+                warning("Mac address to reach destination not found. Using broadcast.")  # noqa: E501
         return MACField.i2h(self, pkt, x)
 
     def i2m(self, pkt, x):
@@ -278,7 +278,7 @@ class Dot1Q(Packet):
 
     def mysummary(self):
         if isinstance(self.underlayer, Ether):
-            return self.underlayer.sprintf("802.1q %Ether.src% > %Ether.dst% (%Dot1Q.type%) vlan %Dot1Q.vlan%")
+            return self.underlayer.sprintf("802.1q %Ether.src% > %Ether.dst% (%Dot1Q.type%) vlan %Dot1Q.vlan%")  # noqa: E501
         else:
             return self.sprintf("802.1q (%Dot1Q.type%) vlan %Dot1Q.vlan%")
 
@@ -441,10 +441,10 @@ class GRE(Packet):
                    BitField("flags", 0, 5),
                    BitField("version", 0, 3),
                    XShortEnumField("proto", 0x0000, ETHER_TYPES),
-                   ConditionalField(XShortField("chksum", None), lambda pkt:pkt.chksum_present == 1 or pkt.routing_present == 1),
-                   ConditionalField(XShortField("offset", None), lambda pkt:pkt.chksum_present == 1 or pkt.routing_present == 1),
-                   ConditionalField(XIntField("key", None), lambda pkt:pkt.key_present == 1),
-                   ConditionalField(XIntField("seqence_number", None), lambda pkt:pkt.seqnum_present == 1),
+                   ConditionalField(XShortField("chksum", None), lambda pkt:pkt.chksum_present == 1 or pkt.routing_present == 1),  # noqa: E501
+                   ConditionalField(XShortField("offset", None), lambda pkt:pkt.chksum_present == 1 or pkt.routing_present == 1),  # noqa: E501
+                   ConditionalField(XIntField("key", None), lambda pkt:pkt.key_present == 1),  # noqa: E501
+                   ConditionalField(XIntField("seqence_number", None), lambda pkt:pkt.seqnum_present == 1),  # noqa: E501
                    ]
 
     @classmethod
@@ -481,14 +481,14 @@ class GRE_PPTP(GRE):
                    XShortEnumField("proto", 0x880b, ETHER_TYPES),
                    ShortField("payload_len", None),
                    ShortField("call_id", None),
-                   ConditionalField(XIntField("seqence_number", None), lambda pkt: pkt.seqnum_present == 1),
-                   ConditionalField(XIntField("ack_number", None), lambda pkt: pkt.acknum_present == 1)]
+                   ConditionalField(XIntField("seqence_number", None), lambda pkt: pkt.seqnum_present == 1),  # noqa: E501
+                   ConditionalField(XIntField("ack_number", None), lambda pkt: pkt.acknum_present == 1)]  # noqa: E501
 
     def post_build(self, p, pay):
         p += pay
         if self.payload_len is None:
             pay_len = len(pay)
-            p = p[:4] + chb((pay_len >> 8) & 0xff) + chb(pay_len & 0xff) + p[6:]
+            p = p[:4] + chb((pay_len >> 8) & 0xff) + chb(pay_len & 0xff) + p[6:]  # noqa: E501
         return p
 
 
@@ -605,13 +605,13 @@ arping(net, [cache=0,] [iface=conf.iface,] [verbose=conf.verb]) -> None
 Set cache=True if you want arping to modify internal ARP-Cache"""
     if verbose is None:
         verbose = conf.verb
-    ans, unans = srp(Ether(dst="ff:ff:ff:ff:ff:ff") / ARP(pdst=net), verbose=verbose,
-                     filter="arp and arp[7] = 2", timeout=timeout, iface_hint=net, **kargs)
+    ans, unans = srp(Ether(dst="ff:ff:ff:ff:ff:ff") / ARP(pdst=net), verbose=verbose,  # noqa: E501
+                     filter="arp and arp[7] = 2", timeout=timeout, iface_hint=net, **kargs)  # noqa: E501
     ans = ARPingResult(ans.res)
 
     if cache and ans is not None:
         for pair in ans:
-            conf.netcache.arp_cache[pair[1].psrc] = (pair[1].hwsrc, time.time())
+            conf.netcache.arp_cache[pair[1].psrc] = (pair[1].hwsrc, time.time())  # noqa: E501
     if verbose:
         ans.show()
     return ans, unans
@@ -619,9 +619,9 @@ Set cache=True if you want arping to modify internal ARP-Cache"""
 
 @conf.commands.register
 def is_promisc(ip, fake_bcast="ff:ff:00:00:00:00", **kargs):
-    """Try to guess if target is in Promisc mode. The target is provided by its ip."""
+    """Try to guess if target is in Promisc mode. The target is provided by its ip."""  # noqa: E501
 
-    responses = srp1(Ether(dst=fake_bcast) / ARP(op="who-has", pdst=ip), type=ETH_P_ARP, iface_hint=ip, timeout=1, verbose=0, **kargs)
+    responses = srp1(Ether(dst=fake_bcast) / ARP(op="who-has", pdst=ip), type=ETH_P_ARP, iface_hint=ip, timeout=1, verbose=0, **kargs)  # noqa: E501
 
     return responses is not None
 
@@ -631,7 +631,7 @@ def promiscping(net, timeout=2, fake_bcast="ff:ff:ff:ff:ff:fe", **kargs):
     """Send ARP who-has requests to determine which hosts are in promiscuous mode
     promiscping(net, iface=conf.iface)"""
     ans, unans = srp(Ether(dst=fake_bcast) / ARP(pdst=net),
-                     filter="arp and arp[7] = 2", timeout=timeout, iface_hint=net, **kargs)
+                     filter="arp and arp[7] = 2", timeout=timeout, iface_hint=net, **kargs)  # noqa: E501
     ans = ARPingResult(ans.res, name="PROMISCPing")
 
     ans.display()
@@ -668,7 +668,7 @@ class ARP_am(AnsweringMachine):
     def is_request(self, req):
         return (req.haslayer(ARP) and
                 req.getlayer(ARP).op == 1 and
-                (self.IP_addr is None or self.IP_addr == req.getlayer(ARP).pdst))
+                (self.IP_addr is None or self.IP_addr == req.getlayer(ARP).pdst))  # noqa: E501
 
     def make_reply(self, req):
         ether = req.getlayer(Ether)
@@ -709,7 +709,7 @@ class ARP_am(AnsweringMachine):
 def etherleak(target, **kargs):
     """Exploit Etherleak flaw"""
     return srp(Ether() / ARP(pdst=target),
-               prn=lambda s_r: conf.padding_layer in s_r[1] and hexstr(s_r[1][conf.padding_layer].load),
+               prn=lambda s_r: conf.padding_layer in s_r[1] and hexstr(s_r[1][conf.padding_layer].load),  # noqa: E501
                filter="arp", **kargs)
 
 

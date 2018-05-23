@@ -289,7 +289,7 @@ class _SpecificRadiusAttr(RadiusAttribute):
 
     __slots__ = ["val"]
 
-    def __init__(self, _pkt="", post_transform=None, _internal=0, _underlayer=None, **fields):
+    def __init__(self, _pkt="", post_transform=None, _internal=0, _underlayer=None, **fields):  # noqa: E501
         super(_SpecificRadiusAttr, self).__init__(
             _pkt,
             post_transform,
@@ -498,7 +498,7 @@ class _RadiusAttrHexStringVal(_SpecificRadiusAttr):
 
     __slots__ = ["val"]
 
-    def __init__(self, _pkt="", post_transform=None, _internal=0, _underlayer=None, **fields):
+    def __init__(self, _pkt="", post_transform=None, _internal=0, _underlayer=None, **fields):  # noqa: E501
         super(_RadiusAttrHexStringVal, self).__init__(
             _pkt,
             post_transform,
@@ -522,7 +522,7 @@ class _RadiusAttrHexStringVal(_SpecificRadiusAttr):
             "B",
             adjust=lambda p, x: len(p.value) + 2
         ),
-        XStrLenField("value", "", length_from=lambda p: p.len - 2 if p.len else 0)
+        XStrLenField("value", "", length_from=lambda p: p.len - 2 if p.len else 0)  # noqa: E501
     ]
 
 
@@ -797,7 +797,7 @@ _radius_attrs_values = {
         9: "X.75",
         10: "G.3 Fax",
         11: "SDSL - Symmetric DSL",
-        12: "ADSL-CAP - Asymmetric DSL, Carrierless Amplitude Phase Modulation",
+        12: "ADSL-CAP - Asymmetric DSL, Carrierless Amplitude Phase Modulation",  # noqa: E501
         13: "ADSL-DMT - Asymmetric DSL, Discrete Multi-Tone",
         14: "IDSL - ISDN Digital Subscriber Line",
         15: "Ethernet",

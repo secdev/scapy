@@ -108,7 +108,7 @@ class ASN1F_field(ASN1F_element):
                     or self.ASN1_tag == x.tag):
                 s = x.enc(pkt.ASN1_codec)
             else:
-                raise ASN1_Error("Encoding Error: got %r instead of an %r for field [%s]" % (x, self.ASN1_tag, self.name))
+                raise ASN1_Error("Encoding Error: got %r instead of an %r for field [%s]" % (x, self.ASN1_tag, self.name))  # noqa: E501
         else:
             s = self.ASN1_tag.get_codec(pkt.ASN1_codec).enc(x)
         return BER_tagging_enc(s, implicit_tag=self.implicit_tag,
@@ -221,7 +221,7 @@ class ASN1F_BIT_STRING(ASN1F_field):
     def __init__(self, name, default, default_readable=True, context=None,
                  implicit_tag=None, explicit_tag=None):
         if default is not None and default_readable:
-            default = b"".join(binrepr(orb(x)).zfill(8).encode("utf8") for x in default)
+            default = b"".join(binrepr(orb(x)).zfill(8).encode("utf8") for x in default)  # noqa: E501
         ASN1F_field.__init__(self, name, default, context=context,
                              implicit_tag=implicit_tag,
                              explicit_tag=explicit_tag)
@@ -313,7 +313,7 @@ class ASN1F_SEQUENCE(ASN1F_field):
     #                       <asn1 field #N>,
     #                       explicit_tag=0,
     #                       flexible_tag=True)
-    # Because we use flexible_tag, the value of the explicit_tag does not matter.
+    # Because we use flexible_tag, the value of the explicit_tag does not matter.  # noqa: E501
     ASN1_tag = ASN1_Class_UNIVERSAL.SEQUENCE
     holds_packets = 1
 
@@ -394,7 +394,7 @@ class ASN1F_SEQUENCE_OF(ASN1F_field):
                  implicit_tag=None, explicit_tag=None):
         self.cls = cls
         ASN1F_field.__init__(self, name, None, context=context,
-                             implicit_tag=implicit_tag, explicit_tag=explicit_tag)
+                             implicit_tag=implicit_tag, explicit_tag=explicit_tag)  # noqa: E501
         self.default = default
 
     def is_empty(self, pkt):
@@ -422,7 +422,7 @@ class ASN1F_SEQUENCE_OF(ASN1F_field):
 
     def build(self, pkt):
         val = getattr(pkt, self.name)
-        if isinstance(val, ASN1_Object) and val.tag == ASN1_Class_UNIVERSAL.RAW:
+        if isinstance(val, ASN1_Object) and val.tag == ASN1_Class_UNIVERSAL.RAW:  # noqa: E501
             s = val
         elif val is None:
             s = b""
@@ -521,7 +521,7 @@ class ASN1F_CHOICE(ASN1F_field):
                     self.choices[p.ASN1_tag] = p
                 else:                       # should be ASN1F_PACKET instance
                     self.choices[p.network_tag] = p
-                    self.pktchoices[hash(p.cls)] = (p.implicit_tag, p.explicit_tag)
+                    self.pktchoices[hash(p.cls)] = (p.implicit_tag, p.explicit_tag)  # noqa: E501
             else:
                 raise ASN1_Error("ASN1F_CHOICE: no tag found for one field")
 
@@ -569,7 +569,7 @@ class ASN1F_CHOICE(ASN1F_field):
             if hasattr(p, "ASN1_root"):   # should be ASN1_Packet class
                 randchoices.append(packet.fuzz(p()))
             elif hasattr(p, "ASN1_tag"):
-                if isinstance(p, type):       # should be (basic) ASN1F_field class
+                if isinstance(p, type):       # should be (basic) ASN1F_field class  # noqa: E501
                     randchoices.append(p("dummy", None).randval())
                 else:                     # should be ASN1F_PACKET instance
                     randchoices.append(p.randval())
@@ -583,14 +583,14 @@ class ASN1F_PACKET(ASN1F_field):
                  implicit_tag=None, explicit_tag=None):
         self.cls = cls
         ASN1F_field.__init__(self, name, None, context=context,
-                             implicit_tag=implicit_tag, explicit_tag=explicit_tag)
+                             implicit_tag=implicit_tag, explicit_tag=explicit_tag)  # noqa: E501
         if cls.ASN1_root.ASN1_tag == ASN1_Class_UNIVERSAL.SEQUENCE:
             if implicit_tag is None and explicit_tag is None:
                 self.network_tag = 16 | 0x20
         self.default = default
 
     def m2i(self, pkt, s):
-        diff_tag, s = BER_tagging_dec(s, hidden_tag=self.cls.ASN1_root.ASN1_tag,
+        diff_tag, s = BER_tagging_dec(s, hidden_tag=self.cls.ASN1_root.ASN1_tag,  # noqa: E501
                                       implicit_tag=self.implicit_tag,
                                       explicit_tag=self.explicit_tag,
                                       safe=self.flexible_tag)

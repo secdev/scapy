@@ -132,7 +132,7 @@ class TLS_Ext_KeyShare_CH(TLS_Ext_Unknown):
                    FieldLenField("client_shares_len", None,
                                  length_of="client_shares"),
                    PacketListField("client_shares", [], KeyShareEntry,
-                                   length_from=lambda pkt: pkt.client_shares_len)]
+                                   length_from=lambda pkt: pkt.client_shares_len)]  # noqa: E501
 
     def post_build(self, pkt, pay):
         if not self.tls_session.frozen:
@@ -141,7 +141,7 @@ class TLS_Ext_KeyShare_CH(TLS_Ext_Unknown):
                 if kse.privkey:
                     if _tls_named_curves[kse.group] in privshares:
                         pkt_info = pkt.firstlayer().summary()
-                        log_runtime.info("TLS: group %s used twice in the same ClientHello [%s]", kse.group, pkt_info)
+                        log_runtime.info("TLS: group %s used twice in the same ClientHello [%s]", kse.group, pkt_info)  # noqa: E501
                         break
                     privshares[_tls_named_groups[kse.group]] = kse.privkey
         return super(TLS_Ext_KeyShare_CH, self).post_build(pkt, pay)
@@ -153,7 +153,7 @@ class TLS_Ext_KeyShare_CH(TLS_Ext_Unknown):
                     pubshares = self.tls_session.tls13_client_pubshares
                     if _tls_named_curves[kse.group] in pubshares:
                         pkt_info = r.firstlayer().summary()
-                        log_runtime.info("TLS: group %s used twice in the same ClientHello [%s]", kse.group, pkt_info)
+                        log_runtime.info("TLS: group %s used twice in the same ClientHello [%s]", kse.group, pkt_info)  # noqa: E501
                         break
                     pubshares[_tls_named_curves[kse.group]] = kse.pubkey
         return super(TLS_Ext_KeyShare_CH, self).post_dissection(r)
@@ -178,7 +178,7 @@ class TLS_Ext_KeyShare_SH(TLS_Ext_Unknown):
             privshare = self.tls_session.tls13_server_privshare
             if len(privshare) > 0:
                 pkt_info = pkt.firstlayer().summary()
-                log_runtime.info("TLS: overwriting previous server key share [%s]", pkt_info)
+                log_runtime.info("TLS: overwriting previous server key share [%s]", pkt_info)  # noqa: E501
             group_name = _tls_named_groups[self.server_share.group]
             privshare[group_name] = self.server_share.privkey
 
@@ -201,7 +201,7 @@ class TLS_Ext_KeyShare_SH(TLS_Ext_Unknown):
             pubshare = self.tls_session.tls13_server_pubshare
             if len(pubshare) > 0:
                 pkt_info = r.firstlayer().summary()
-                log_runtime.info("TLS: overwriting previous server key share [%s]", pkt_info)
+                log_runtime.info("TLS: overwriting previous server key share [%s]", pkt_info)  # noqa: E501
             group_name = _tls_named_groups[self.server_share.group]
             pubshare[group_name] = self.server_share.pubkey
 

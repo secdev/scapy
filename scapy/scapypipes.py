@@ -226,7 +226,7 @@ class TCPConnectPipe(Source):
 
 
 class TCPListenPipe(TCPConnectPipe):
-    """TCP listen on [addr:]port and use first connection as source and sink ; send peer address to high output
+    """TCP listen on [addr:]port and use first connection as source and sink ; send peer address to high output  # noqa: E501
      +------^------+
   >>-|    +-[peer]-|->>
      |   /         |

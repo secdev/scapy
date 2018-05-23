@@ -64,9 +64,9 @@ class NBNSQueryRequest(Packet):
                    ShortField("NSCOUNT", 0),
                    ShortField("ARCOUNT", 0),
                    NetBIOSNameField("QUESTION_NAME", "windows"),
-                   ShortEnumField("SUFFIX", 0x4141, {0x4141: "workstation", 0x4141 + 0x03: "messenger service", 0x4141 + 0x200: "file server service", 0x4141 + 0x10b: "domain master browser", 0x4141 + 0x10c: "domain controller", 0x4141 + 0x10e: "browser election service"}),
+                   ShortEnumField("SUFFIX", 0x4141, {0x4141: "workstation", 0x4141 + 0x03: "messenger service", 0x4141 + 0x200: "file server service", 0x4141 + 0x10b: "domain master browser", 0x4141 + 0x10c: "domain controller", 0x4141 + 0x10e: "browser election service"}),  # noqa: E501
                    ByteField("NULL", 0),
-                   ShortEnumField("QUESTION_TYPE", 0x20, {0x20: "NB", 0x21: "NBSTAT"}),
+                   ShortEnumField("QUESTION_TYPE", 0x20, {0x20: "NB", 0x21: "NBSTAT"}),  # noqa: E501
                    ShortEnumField("QUESTION_CLASS", 1, {1: "INTERNET"})]
 
 # Name Registration Request
@@ -83,17 +83,17 @@ class NBNSRequest(Packet):
                    ShortField("NSCOUNT", 0),
                    ShortField("ARCOUNT", 1),
                    NetBIOSNameField("QUESTION_NAME", "windows"),
-                   ShortEnumField("SUFFIX", 0x4141, {0x4141: "workstation", 0x4141 + 0x03: "messenger service", 0x4141 + 0x200: "file server service", 0x4141 + 0x10b: "domain master browser", 0x4141 + 0x10c: "domain controller", 0x4141 + 0x10e: "browser election service"}),
+                   ShortEnumField("SUFFIX", 0x4141, {0x4141: "workstation", 0x4141 + 0x03: "messenger service", 0x4141 + 0x200: "file server service", 0x4141 + 0x10b: "domain master browser", 0x4141 + 0x10c: "domain controller", 0x4141 + 0x10e: "browser election service"}),  # noqa: E501
                    ByteField("NULL", 0),
-                   ShortEnumField("QUESTION_TYPE", 0x20, {0x20: "NB", 0x21: "NBSTAT"}),
+                   ShortEnumField("QUESTION_TYPE", 0x20, {0x20: "NB", 0x21: "NBSTAT"}),  # noqa: E501
                    ShortEnumField("QUESTION_CLASS", 1, {1: "INTERNET"}),
-                   ShortEnumField("RR_NAME", 0xC00C, {0xC00C: "Label String Pointer to QUESTION_NAME"}),
-                   ShortEnumField("RR_TYPE", 0x20, {0x20: "NB", 0x21: "NBSTAT"}),
+                   ShortEnumField("RR_NAME", 0xC00C, {0xC00C: "Label String Pointer to QUESTION_NAME"}),  # noqa: E501
+                   ShortEnumField("RR_TYPE", 0x20, {0x20: "NB", 0x21: "NBSTAT"}),  # noqa: E501
                    ShortEnumField("RR_CLASS", 1, {1: "INTERNET"}),
                    IntField("TTL", 0),
                    ShortField("RDLENGTH", 6),
-                   BitEnumField("G", 0, 1, {0: "Unique name", 1: "Group name"}),
-                   BitEnumField("OWNER_NODE_TYPE", 00, 2, {0: "B node", 1: "P node", 2: "M node", 3: "H node"}),
+                   BitEnumField("G", 0, 1, {0: "Unique name", 1: "Group name"}),  # noqa: E501
+                   BitEnumField("OWNER_NODE_TYPE", 00, 2, {0: "B node", 1: "P node", 2: "M node", 3: "H node"}),  # noqa: E501
                    BitEnumField("UNUSED", 0, 13, {0: "Unused"}),
                    IPField("NB_ADDRESS", "127.0.0.1")]
 
@@ -110,9 +110,9 @@ class NBNSQueryResponse(Packet):
                    ShortField("NSCOUNT", 0),
                    ShortField("ARCOUNT", 0),
                    NetBIOSNameField("RR_NAME", "windows"),
-                   ShortEnumField("SUFFIX", 0x4141, {0x4141: "workstation", 0x4141 + 0x03: "messenger service", 0x4141 + 0x200: "file server service", 0x4141 + 0x10b: "domain master browser", 0x4141 + 0x10c: "domain controller", 0x4141 + 0x10e: "browser election service"}),
+                   ShortEnumField("SUFFIX", 0x4141, {0x4141: "workstation", 0x4141 + 0x03: "messenger service", 0x4141 + 0x200: "file server service", 0x4141 + 0x10b: "domain master browser", 0x4141 + 0x10c: "domain controller", 0x4141 + 0x10e: "browser election service"}),  # noqa: E501
                    ByteField("NULL", 0),
-                   ShortEnumField("QUESTION_TYPE", 0x20, {0x20: "NB", 0x21: "NBSTAT"}),
+                   ShortEnumField("QUESTION_TYPE", 0x20, {0x20: "NB", 0x21: "NBSTAT"}),  # noqa: E501
                    ShortEnumField("QUESTION_CLASS", 1, {1: "INTERNET"}),
                    IntField("TTL", 0x493e0),
                    ShortField("RDLENGTH", 6),
@@ -132,14 +132,14 @@ class NBNSQueryResponseNegative(Packet):
                    ShortField("NSCOUNT", 0),
                    ShortField("ARCOUNT", 0),
                    NetBIOSNameField("RR_NAME", "windows"),
-                   ShortEnumField("SUFFIX", 0x4141, {0x4141: "workstation", 0x4141 + 0x03: "messenger service", 0x4141 + 0x200: "file server service", 0x4141 + 0x10b: "domain master browser", 0x4141 + 0x10c: "domain controller", 0x4141 + 0x10e: "browser election service"}),
+                   ShortEnumField("SUFFIX", 0x4141, {0x4141: "workstation", 0x4141 + 0x03: "messenger service", 0x4141 + 0x200: "file server service", 0x4141 + 0x10b: "domain master browser", 0x4141 + 0x10c: "domain controller", 0x4141 + 0x10e: "browser election service"}),  # noqa: E501
                    ByteField("NULL", 0),
-                   ShortEnumField("RR_TYPE", 0x20, {0x20: "NB", 0x21: "NBSTAT"}),
+                   ShortEnumField("RR_TYPE", 0x20, {0x20: "NB", 0x21: "NBSTAT"}),  # noqa: E501
                    ShortEnumField("RR_CLASS", 1, {1: "INTERNET"}),
                    IntField("TTL", 0),
                    ShortField("RDLENGTH", 6),
-                   BitEnumField("G", 0, 1, {0: "Unique name", 1: "Group name"}),
-                   BitEnumField("OWNER_NODE_TYPE", 00, 2, {0: "B node", 1: "P node", 2: "M node", 3: "H node"}),
+                   BitEnumField("G", 0, 1, {0: "Unique name", 1: "Group name"}),  # noqa: E501
+                   BitEnumField("OWNER_NODE_TYPE", 00, 2, {0: "B node", 1: "P node", 2: "M node", 3: "H node"}),  # noqa: E501
                    BitEnumField("UNUSED", 0, 13, {0: "Unused"}),
                    IPField("NB_ADDRESS", "127.0.0.1")]
 
@@ -155,9 +155,9 @@ class NBNSNodeStatusResponse(Packet):
                    ShortField("NSCOUNT", 0),
                    ShortField("ARCOUNT", 0),
                    NetBIOSNameField("RR_NAME", "windows"),
-                   ShortEnumField("SUFFIX", 0x4141, {0x4141: "workstation", 0x4141 + 0x03: "messenger service", 0x4141 + 0x200: "file server service", 0x4141 + 0x10b: "domain master browser", 0x4141 + 0x10c: "domain controller", 0x4141 + 0x10e: "browser election service"}),
+                   ShortEnumField("SUFFIX", 0x4141, {0x4141: "workstation", 0x4141 + 0x03: "messenger service", 0x4141 + 0x200: "file server service", 0x4141 + 0x10b: "domain master browser", 0x4141 + 0x10c: "domain controller", 0x4141 + 0x10e: "browser election service"}),  # noqa: E501
                    ByteField("NULL", 0),
-                   ShortEnumField("RR_TYPE", 0x21, {0x20: "NB", 0x21: "NBSTAT"}),
+                   ShortEnumField("RR_TYPE", 0x21, {0x20: "NB", 0x21: "NBSTAT"}),  # noqa: E501
                    ShortEnumField("RR_CLASS", 1, {1: "INTERNET"}),
                    IntField("TTL", 0),
                    ShortField("RDLENGTH", 83),
@@ -169,7 +169,7 @@ class NBNSNodeStatusResponse(Packet):
 class NBNSNodeStatusResponseService(Packet):
     name = "NBNS Node Status Response Service"
     fields_desc = [StrFixedLenField("NETBIOS_NAME", "WINDOWS         ", 15),
-                   ByteEnumField("SUFFIX", 0, {0: "workstation", 0x03: "messenger service", 0x20: "file server service", 0x1b: "domain master browser", 0x1c: "domain controller", 0x1e: "browser election service"}),
+                   ByteEnumField("SUFFIX", 0, {0: "workstation", 0x03: "messenger service", 0x20: "file server service", 0x1b: "domain master browser", 0x1c: "domain controller", 0x1e: "browser election service"}),  # noqa: E501
                    ByteField("NAME_FLAGS", 0x4),
                    ByteEnumField("UNUSED", 0, {0: "unused"})]
 
@@ -193,9 +193,9 @@ class NBNSWackResponse(Packet):
                    ShortField("NSCOUNT", 0),
                    ShortField("ARCOUNT", 0),
                    NetBIOSNameField("RR_NAME", "windows"),
-                   ShortEnumField("SUFFIX", 0x4141, {0x4141: "workstation", 0x4141 + 0x03: "messenger service", 0x4141 + 0x200: "file server service", 0x4141 + 0x10b: "domain master browser", 0x4141 + 0x10c: "domain controller", 0x4141 + 0x10e: "browser election service"}),
+                   ShortEnumField("SUFFIX", 0x4141, {0x4141: "workstation", 0x4141 + 0x03: "messenger service", 0x4141 + 0x200: "file server service", 0x4141 + 0x10b: "domain master browser", 0x4141 + 0x10c: "domain controller", 0x4141 + 0x10e: "browser election service"}),  # noqa: E501
                    ByteField("NULL", 0),
-                   ShortEnumField("RR_TYPE", 0x20, {0x20: "NB", 0x21: "NBSTAT"}),
+                   ShortEnumField("RR_TYPE", 0x20, {0x20: "NB", 0x21: "NBSTAT"}),  # noqa: E501
                    ShortEnumField("RR_CLASS", 1, {1: "INTERNET"}),
                    IntField("TTL", 2),
                    ShortField("RDLENGTH", 2),
@@ -212,16 +212,16 @@ class NBTDatagram(Packet):
                    ShortField("Length", 272),
                    ShortField("Offset", 0),
                    NetBIOSNameField("SourceName", "windows"),
-                   ShortEnumField("SUFFIX1", 0x4141, {0x4141: "workstation", 0x4141 + 0x03: "messenger service", 0x4141 + 0x200: "file server service", 0x4141 + 0x10b: "domain master browser", 0x4141 + 0x10c: "domain controller", 0x4141 + 0x10e: "browser election service"}),
+                   ShortEnumField("SUFFIX1", 0x4141, {0x4141: "workstation", 0x4141 + 0x03: "messenger service", 0x4141 + 0x200: "file server service", 0x4141 + 0x10b: "domain master browser", 0x4141 + 0x10c: "domain controller", 0x4141 + 0x10e: "browser election service"}),  # noqa: E501
                    ByteField("NULL", 0),
                    NetBIOSNameField("DestinationName", "windows"),
-                   ShortEnumField("SUFFIX2", 0x4141, {0x4141: "workstation", 0x4141 + 0x03: "messenger service", 0x4141 + 0x200: "file server service", 0x4141 + 0x10b: "domain master browser", 0x4141 + 0x10c: "domain controller", 0x4141 + 0x10e: "browser election service"}),
+                   ShortEnumField("SUFFIX2", 0x4141, {0x4141: "workstation", 0x4141 + 0x03: "messenger service", 0x4141 + 0x200: "file server service", 0x4141 + 0x10b: "domain master browser", 0x4141 + 0x10c: "domain controller", 0x4141 + 0x10e: "browser election service"}),  # noqa: E501
                    ByteField("NULL", 0)]
 
 
 class NBTSession(Packet):
     name = "NBT Session Packet"
-    fields_desc = [ByteEnumField("TYPE", 0, {0x00: "Session Message", 0x81: "Session Request", 0x82: "Positive Session Response", 0x83: "Negative Session Response", 0x84: "Retarget Session Response", 0x85: "Session Keepalive"}),
+    fields_desc = [ByteEnumField("TYPE", 0, {0x00: "Session Message", 0x81: "Session Request", 0x82: "Positive Session Response", 0x83: "Negative Session Response", 0x84: "Retarget Session Response", 0x85: "Session Keepalive"}),  # noqa: E501
                    BitField("RESERVED", 0x00, 7),
                    BitField("LENGTH", 0, 17)]
 

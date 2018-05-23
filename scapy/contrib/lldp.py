@@ -28,7 +28,7 @@
             - IEEE 802.1AB 2016 - LLDP protocol, topology and MIB description
 
     :TODO:
-        - organization specific TLV e.g. ProfiNet (see LLDPDUGenericOrganisationSpecific for a starting point)
+        - organization specific TLV e.g. ProfiNet (see LLDPDUGenericOrganisationSpecific for a starting point)  # noqa: E501
 
     :NOTES:
         - you can find the layer configuration options at the end of this file
@@ -182,7 +182,7 @@ class LLDPDU(Packet):
         frame_size += LLDPDU.ETHER_HEADER_LEN
         frame_size += len(pkt) + len(pay) + LLDPDU.ETHER_FSC_LEN
         if frame_size < LLDPDU.ETHER_FRAME_MIN_LEN:
-            return pkt + pay + b'\x00' * (LLDPDU.ETHER_FRAME_MIN_LEN - frame_size)
+            return pkt + pay + b'\x00' * (LLDPDU.ETHER_FRAME_MIN_LEN - frame_size)  # noqa: E501
         return pkt + pay
 
     @staticmethod
@@ -366,7 +366,7 @@ class LLDPDUChassisID(LLDPDU):
         BitFieldLenField('_length', None, 9, length_of='id',
                          adjust=lambda pkt, x: _ldp_id_adjustlen(pkt, x)),
         ByteEnumField('subtype', 0x00, LLDP_CHASSIS_ID_TLV_SUBTYPES),
-        _LLDPidField('id', '', LLDP_CHASSIS_ID_TLV_SUBTYPES_FIELDS, length_from=lambda pkt: pkt._length - 1)
+        _LLDPidField('id', '', LLDP_CHASSIS_ID_TLV_SUBTYPES_FIELDS, length_from=lambda pkt: pkt._length - 1)  # noqa: E501
     ]
 
     def _check(self):
@@ -412,7 +412,7 @@ class LLDPDUPortID(LLDPDU):
         BitFieldLenField('_length', None, 9, length_of='id',
                          adjust=lambda pkt, x: _ldp_id_adjustlen(pkt, x)),
         ByteEnumField('subtype', 0x00, LLDP_PORT_ID_TLV_SUBTYPES),
-        _LLDPidField('id', '', LLDP_PORT_ID_TLV_SUBTYPES_FIELDS, length_from=lambda pkt: pkt._length - 1)
+        _LLDPidField('id', '', LLDP_PORT_ID_TLV_SUBTYPES_FIELDS, length_from=lambda pkt: pkt._length - 1)  # noqa: E501
     ]
 
     def _check(self):
@@ -651,7 +651,7 @@ class LLDPDUManagementAddress(LLDPDU):
                          8 + len(pkt.management_address) + len(pkt.object_id)),
         BitFieldLenField('_management_address_string_length', None, 8,
                          length_of='management_address',
-                         adjust=lambda pkt, x: len(pkt.management_address) + 1),
+                         adjust=lambda pkt, x: len(pkt.management_address) + 1),  # noqa: E501
         ByteEnumField('management_address_subtype', 0x00,
                       IANA_ADDRESS_FAMILY_NUMBERS),
         XStrLenField('management_address', '',
@@ -696,20 +696,20 @@ class LLDPDUGenericOrganisationSpecific(LLDPDU):
         ORG_UNIQUE_CODE_PNO: "PROFIBUS International (PNO)",
         ORG_UNIQUE_CODE_IEEE_802_1: "IEEE 802.1",
         ORG_UNIQUE_CODE_IEEE_802_3: "IEEE 802.3",
-        ORG_UNIQUE_CODE_TIA_TR_41_MED: "TIA TR-41 Committee . Media Endpoint Discovery",
+        ORG_UNIQUE_CODE_TIA_TR_41_MED: "TIA TR-41 Committee . Media Endpoint Discovery",  # noqa: E501
         ORG_UNIQUE_CODE_HYTEC: "Hytec Geraetebau GmbH"
     }
 
     fields_desc = [
         BitEnumField('_type', 127, 7, LLDPDU.TYPES),
-        BitFieldLenField('_length', None, 9, length_of='data', adjust=lambda pkt, x: len(pkt.data) + 4),
+        BitFieldLenField('_length', None, 9, length_of='data', adjust=lambda pkt, x: len(pkt.data) + 4),  # noqa: E501
         ThreeBytesEnumField('org_code', 0, ORG_UNIQUE_CODES),
         ByteField('subtype', 0x00),
         XStrLenField('data', '', length_from=lambda pkt: pkt._length - 4)
     ]
 
 
-# 0x09 .. 0x7e is reserved for future standardization and for now treated as Raw() data
+# 0x09 .. 0x7e is reserved for future standardization and for now treated as Raw() data  # noqa: E501
 LLDPDU_CLASS_TYPES = {
     0x00: LLDPDUEndOfLLDPDU,
     0x01: LLDPDUChassisID,

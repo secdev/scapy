@@ -15,10 +15,10 @@ import datetime
 
 from scapy.packet import Packet, bind_layers
 from scapy.fields import (BitField, BitEnumField, ByteField, ByteEnumField,
-                          XByteField, SignedByteField, FlagsField, ShortField, LEShortField, IntField,
-                          LEIntField, FixedPointField, IPField, StrField, StrFixedLenField,
-                          StrFixedLenEnumField, XStrFixedLenField, PacketField, PacketLenField,
-                          PacketListField, FieldListField, ConditionalField, PadField)
+                          XByteField, SignedByteField, FlagsField, ShortField, LEShortField, IntField,  # noqa: E501
+                          LEIntField, FixedPointField, IPField, StrField, StrFixedLenField,  # noqa: E501
+                          StrFixedLenEnumField, XStrFixedLenField, PacketField, PacketLenField,  # noqa: E501
+                          PacketListField, FieldListField, ConditionalField, PadField)  # noqa: E501
 from scapy.layers.inet6 import IP6Field
 from scapy.layers.inet import UDP
 from scapy.utils import issubtype, lhex
@@ -79,7 +79,7 @@ class TimeStampField(FixedPointField):
         val = self.i2h(pkt, val)
         if val < _NTP_BASETIME:
             return val
-        return time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.gmtime(val - _NTP_BASETIME))
+        return time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.gmtime(val - _NTP_BASETIME))  # noqa: E501
 
     def any2i(self, pkt, val):
         if isinstance(val, six.string_types):
@@ -538,7 +538,7 @@ _system_event_codes = {
     1: "system restart",
     2: "system or hardware fault",
     3: "system new status word (leap bits or synchronization change)",
-    4: "system new synchronization source or stratum (sys.peer or sys.stratum change)",
+    4: "system new synchronization source or stratum (sys.peer or sys.stratum change)",  # noqa: E501
     5: "system clock reset (offset correction exceeds CLOCK.MAX)",
     6: "system invalid time or date",
     7: "system clock exception",
@@ -1508,7 +1508,7 @@ class NTPPrivateRespPacketListField(PacketListField):
             is_v6 = struct.unpack("!I", s[48:52])[0]
             ret = NTPInfoIfStatsIPv6(s) if is_v6 else NTPInfoIfStatsIPv4(s)
         else:
-            ret = _private_data_objects.get(pkt.request_code, conf.raw_layer)(s)
+            ret = _private_data_objects.get(pkt.request_code, conf.raw_layer)(s)  # noqa: E501
 
         return ret
 
@@ -1519,7 +1519,7 @@ class NTPPrivateRespPacketListField(PacketListField):
         if length > 0:
             item_counter = 0
             # Response payloads can be placed in several packets
-            while len(remain) >= pkt.data_item_size and item_counter < pkt.nb_items:
+            while len(remain) >= pkt.data_item_size and item_counter < pkt.nb_items:  # noqa: E501
                 current = remain[:length]
                 remain = remain[length:]
                 current_packet = self.m2i(pkt, current)
@@ -1637,7 +1637,7 @@ class NTPPrivateReqPacketListField(PacketListField):
         length = pkt.data_item_size
         if length > 0:
             item_counter = 0
-            while len(remain) >= pkt.data_item_size * pkt.nb_items and item_counter < pkt.nb_items:
+            while len(remain) >= pkt.data_item_size * pkt.nb_items and item_counter < pkt.nb_items:  # noqa: E501
                 current = remain[:length]
                 remain = remain[length:]
                 current_packet = self.m2i(pkt, current)
@@ -1740,8 +1740,8 @@ class NTPPrivate(NTP):
     #           0 - no error
     #           1 - incompatible implementation number
     #           2 - unimplemented request code
-    #           3 - format error (wrong data items, data size, packet size etc.)
-    #           4 - no data available (e.g. request for details on unknown peer)
+    #           3 - format error (wrong data items, data size, packet size etc.)  # noqa: E501
+    #           4 - no data available (e.g. request for details on unknown peer)  # noqa: E501
     #           5-6 I don"t know
     #           7 - authentication failure (i.e. permission denied)
     #
@@ -1759,7 +1759,7 @@ class NTPPrivate(NTP):
     #           data area may be any length between 0 and 500 octets
     #           inclusive.
     #
-    # Message Authentication Code: Same as NTP spec, in definition and function.
+    # Message Authentication Code: Same as NTP spec, in definition and function.  # noqa: E501
     #           May optionally be included in requests which require
     #           authentication, is never included in responses.
     #

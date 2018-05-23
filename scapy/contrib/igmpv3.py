@@ -30,10 +30,10 @@ from scapy.contrib.igmp import IGMP
 
 """
 
-# See RFC3376, Section 4. Message Formats for definitions of proper IGMPv3 message format
+# See RFC3376, Section 4. Message Formats for definitions of proper IGMPv3 message format  # noqa: E501
 #   http://www.faqs.org/rfcs/rfc3376.html
 #
-# See RFC4286, For definitions of proper messages for Multicast Router Discovery.
+# See RFC4286, For definitions of proper messages for Multicast Router Discovery.  # noqa: E501
 #   http://www.faqs.org/rfcs/rfc4286.html
 #
 
@@ -70,10 +70,10 @@ class IGMPv3(IGMP):
                    XShortField("chksum", None)]
 
     def encode_maxrespcode(self):
-        """Encode and replace the mrcode value to its IGMPv3 encoded time value if needed,
+        """Encode and replace the mrcode value to its IGMPv3 encoded time value if needed,  # noqa: E501
         as specified in rfc3376#section-4.1.1.
 
-        If value < 128, return the value specified. If >= 128, encode as a floating
+        If value < 128, return the value specified. If >= 128, encode as a floating  # noqa: E501
         point value. Value can be 0 - 31744.
         """
         value = self.mrcode
@@ -94,7 +94,7 @@ class IGMPv3(IGMP):
     def mysummary(self):
         """Display a summary of the IGMPv3 object."""
         if isinstance(self.underlayer, IP):
-            return self.underlayer.sprintf("IGMPv3: %IP.src% > %IP.dst% %IGMPv3.type%")
+            return self.underlayer.sprintf("IGMPv3: %IP.src% > %IP.dst% %IGMPv3.type%")  # noqa: E501
         else:
             return self.sprintf("IGMPv3 %IGMPv3.type%")
 
@@ -118,7 +118,7 @@ class IGMPv3mq(Packet):
                    BitField("qrv", 0, 3),
                    ByteField("qqic", 0),
                    FieldLenField("numsrc", None, count_of="srcaddrs"),
-                   FieldListField("srcaddrs", None, IPField("sa", "0.0.0.0"), count_from=lambda x: x.numsrc)]
+                   FieldListField("srcaddrs", None, IPField("sa", "0.0.0.0"), count_from=lambda x: x.numsrc)]  # noqa: E501
 
 
 class IGMPv3gr(Packet):
@@ -139,11 +139,11 @@ class IGMPv3gr(Packet):
                    ByteField("auxdlen", 0),
                    FieldLenField("numsrc", None, count_of="srcaddrs"),
                    IPField("maddr", "0.0.0.0"),
-                   FieldListField("srcaddrs", [], IPField("sa", "0.0.0.0"), count_from=lambda x: x.numsrc)]
+                   FieldListField("srcaddrs", [], IPField("sa", "0.0.0.0"), count_from=lambda x: x.numsrc)]  # noqa: E501
 
     def mysummary(self):
         """Display a summary of the IGMPv3 group record."""
-        return self.sprintf("IGMPv3 Group Record %IGMPv3gr.type% %IGMPv3gr.maddr%")
+        return self.sprintf("IGMPv3 Group Record %IGMPv3gr.type% %IGMPv3gr.maddr%")  # noqa: E501
 
     def default_payload_class(self, payload):
         return conf.padding_layer
@@ -155,7 +155,7 @@ class IGMPv3mr(Packet):
     name = "IGMPv3mr"
     fields_desc = [XShortField("res2", 0),
                    FieldLenField("numgrp", None, count_of="records"),
-                   PacketListField("records", [], IGMPv3gr, count_from=lambda x: x.numgrp)]
+                   PacketListField("records", [], IGMPv3gr, count_from=lambda x: x.numgrp)]  # noqa: E501
 
 
 class IGMPv3mra(Packet):

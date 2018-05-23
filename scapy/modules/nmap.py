@@ -32,7 +32,7 @@ import scapy.modules.six as six
 
 
 if WINDOWS:
-    conf.nmap_base = os.environ["ProgramFiles"] + "\\nmap\\nmap-os-fingerprints"
+    conf.nmap_base = os.environ["ProgramFiles"] + "\\nmap\\nmap-os-fingerprints"  # noqa: E501
 else:
     conf.nmap_base = "/usr/share/nmap/nmap-os-fingerprints"
 

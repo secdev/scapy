@@ -44,7 +44,7 @@ def getPPIType(id, default="default"):
 class PPIGenericFldHdr(Packet):
     name = "PPI Field Header"
     fields_desc = [LEShortField('pfh_type', 0),
-                   FieldLenField('pfh_length', None, length_of="value", fmt='<H', adjust=lambda p, x:x + 4),
+                   FieldLenField('pfh_length', None, length_of="value", fmt='<H', adjust=lambda p, x:x + 4),  # noqa: E501
                    StrLenField("value", "", length_from=lambda p:p.pfh_length)]
 
     def extract_padding(self, p):
@@ -84,12 +84,12 @@ class PPI(Packet):
     name = "Per-Packet Information header (PPI)"
     fields_desc = [ByteField('version', 0),
                    ByteField('flags', 0),
-                   FieldLenField('len', None, length_of="PPIFieldHeaders", fmt="<H", adjust=lambda p, x: x + 8),
+                   FieldLenField('len', None, length_of="PPIFieldHeaders", fmt="<H", adjust=lambda p, x: x + 8),  # noqa: E501
                    LEIntField('dlt', 1),
-                   PacketListField("PPIFieldHeaders", [], _PPIGuessPayloadClass, length_from=lambda p: p.len - 8,)]
+                   PacketListField("PPIFieldHeaders", [], _PPIGuessPayloadClass, length_from=lambda p: p.len - 8,)]  # noqa: E501
 
     def guess_payload_class(self, payload):
-        return conf.l2types.get(self.dlt, Packet.guess_payload_class(self, payload))
+        return conf.l2types.get(self.dlt, Packet.guess_payload_class(self, payload))  # noqa: E501
 
 
 # Register PPI

@@ -57,13 +57,13 @@ def _legacy_bpf_pointer(tcpdump_lines):
             int_type = int
         bpf += struct.pack("HBBI", *map(int_type, l.split()))
 
-    # Thanks to http://www.netprojects.de/scapy-with-pypy-solved/ for the pypy trick
+    # Thanks to http://www.netprojects.de/scapy-with-pypy-solved/ for the pypy trick  # noqa: E501
     if conf.use_pypy:
         str_buffer = ctypes.create_string_buffer(bpf)
         return struct.pack('HL', size, ctypes.addressof(str_buffer))
     else:
         # XXX. Argl! We need to give the kernel a pointer on the BPF,
-        # Python object header seems to be 20 bytes. 36 bytes for x86 64bits arch.
+        # Python object header seems to be 20 bytes. 36 bytes for x86 64bits arch.  # noqa: E501
         if X86_64:
             return struct.pack("HL", size, id(bpf) + 36)
         else:

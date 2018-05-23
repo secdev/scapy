@@ -17,7 +17,7 @@ import struct
 
 from scapy.compat import chb, orb, raw
 from scapy.config import conf
-from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, FieldLenField, FlagsField, IntEnumField, IntField, IPField, LongField, MACField, PacketField, PacketListField, ShortEnumField, ShortField, StrFixedLenField, X3BytesField, XBitField, XByteField, XIntField, XShortField
+from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, FieldLenField, FlagsField, IntEnumField, IntField, IPField, LongField, MACField, PacketField, PacketListField, ShortEnumField, ShortField, StrFixedLenField, X3BytesField, XBitField, XByteField, XIntField, XShortField  # noqa: E501
 from scapy.layers.l2 import Ether
 from scapy.layers.inet import TCP
 from scapy.packet import Packet, Raw
@@ -219,10 +219,10 @@ class OFPMatch(Packet):
 
         # In order to write OFPMatch compliant with the specifications,
         # if prereq_autocomplete has been set to True
-        # we assume ethertype=IP or nwproto=TCP when appropriate subfields are provided.
+        # we assume ethertype=IP or nwproto=TCP when appropriate subfields are provided.  # noqa: E501
         if conf.contribs['OPENFLOW']['prereq_autocomplete']:
             if self.dl_type is None:
-                if self.nw_src is not "0" or self.nw_dst is not "0" or self.nw_proto is not None or self.nw_tos is not None:
+                if self.nw_src is not "0" or self.nw_dst is not "0" or self.nw_proto is not None or self.nw_tos is not None:  # noqa: E501
                     p = p[:22] + struct.pack("!H", 0x0800) + p[24:]
                     l = l[:-5] + "0" + l[-4:]
             if self.nw_proto is None:
@@ -482,7 +482,7 @@ class OFPPacketQueue(Packet):
                    ShortField("len", None),
                    XShortField("pad", 0),
                    QueuePropertyPacketListField("properties", [], Packet,
-                                                length_from=lambda pkt:pkt.len - 8)]
+                                                length_from=lambda pkt:pkt.len - 8)]  # noqa: E501
 
 
 class QueuePacketListField(PacketListField):
@@ -650,7 +650,7 @@ class OFPETFlowModFailed(_ofp_header):
                    ShortEnumField("errcode", 0, {0: "OFPFMFC_ALL_TABLES_FULL",
                                                  1: "OFPFMFC_OVERLAP",
                                                  2: "OFPFMFC_EPERM",
-                                                 3: "OFPFMFC_BAD_EMERG_TIMEOUT",
+                                                 3: "OFPFMFC_BAD_EMERG_TIMEOUT",  # noqa: E501
                                                  4: "OFPFMFC_BAD_COMMAND",
                                                  5: "OFPFMFC_UNSUPPORTED"}),
                    OFPacketField("data", "", Raw)]
@@ -684,7 +684,7 @@ class OFPETQueueOpFailed(_ofp_header):
     overload_fields = {TCP: {"dport": 6653}}
 
 
-# ofp_error_cls allows generic method OpenFlow() to choose the right class for dissection
+# ofp_error_cls allows generic method OpenFlow() to choose the right class for dissection  # noqa: E501
 ofp_error_cls = {0: OFPETHelloFailed,
                  1: OFPETBadRequest,
                  2: OFPETBadAction,
@@ -732,7 +732,7 @@ class OFPTFeaturesRequest(_ofp_header):
     overload_fields = {TCP: {"sport": 6653}}
 
 
-ofp_action_types_flags = list(ofp_action_types.values())[:-1]  # no ofpat_vendor flag
+ofp_action_types_flags = list(ofp_action_types.values())[:-1]  # no ofpat_vendor flag  # noqa: E501
 
 
 class OFPTFeaturesReply(_ofp_header):
@@ -856,9 +856,9 @@ class OFPTPacketOut(_ofp_header):
                    IntField("xid", 0),
                    IntEnumField("buffer_id", "NO_BUFFER", ofp_buffer),
                    ShortEnumField("in_port", "NONE", ofp_port_no),
-                   FieldLenField("actions_len", None, fmt="H", length_of="actions"),
+                   FieldLenField("actions_len", None, fmt="H", length_of="actions"),  # noqa: E501
                    ActionPacketListField("actions", [], Packet,
-                                         length_from=lambda pkt:pkt.actions_len),
+                                         length_from=lambda pkt:pkt.actions_len),  # noqa: E501
                    PacketField("data", None, Ether)]
     overload_fields = {TCP: {"sport": 6653}}
 
@@ -982,7 +982,7 @@ class OFPFlowStats(Packet):
                    LongField("packet_count", 0),
                    LongField("byte_count", 0),
                    ActionPacketListField("actions", [], Packet,
-                                         length_from=lambda pkt:pkt.length - 88)]
+                                         length_from=lambda pkt:pkt.length - 88)]  # noqa: E501
 
 
 class FlowStatsPacketListField(PacketListField):
@@ -1014,7 +1014,7 @@ class OFPTStatsReplyFlow(_ofp_header):
                    ShortEnumField("stats_type", 1, ofp_stats_types),
                    FlagsField("flags", 0, 16, []),
                    FlowStatsPacketListField("flow_stats", [], Packet,
-                                            length_from=lambda pkt:pkt.len - 12)]
+                                            length_from=lambda pkt:pkt.len - 12)]  # noqa: E501
     overload_fields = {TCP: {"dport": 6653}}
 
 
@@ -1265,7 +1265,7 @@ class OFPTQueueGetConfigReply(_ofp_header):
     overload_fields = {TCP: {"dport": 6653}}
 
 
-# ofpt_cls allows generic method OpenFlow() to choose the right class for dissection
+# ofpt_cls allows generic method OpenFlow() to choose the right class for dissection  # noqa: E501
 ofpt_cls = {0: OFPTHello,
             # 1: OFPTError,
             2: OFPTEchoRequest,
@@ -1293,8 +1293,8 @@ TCP_guess_payload_class_copy = TCP.guess_payload_class
 
 
 def OpenFlow(self, payload):
-    if self is None or self.dport == 6653 or self.dport == 6633 or self.sport == 6653 or self.sport == 6633:
-        # port 6653 has been allocated by IANA, port 6633 should no longer be used
+    if self is None or self.dport == 6653 or self.dport == 6633 or self.sport == 6653 or self.sport == 6633:  # noqa: E501
+        # port 6653 has been allocated by IANA, port 6633 should no longer be used  # noqa: E501
         # OpenFlow function may be called with None self in OFPPacketField
         of_type = orb(payload[1])
         if of_type == 1:

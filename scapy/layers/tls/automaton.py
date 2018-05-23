@@ -117,7 +117,7 @@ class _TLSAutomaton(Automaton):
                         grablen = 2 + 0 + ((byte0 & 0x7f) << 8) + byte1
                     else:
                         grablen = 2 + 1 + ((byte0 & 0x3f) << 8) + byte1
-            elif not is_sslv2_msg and grablen == 5 and len(self.remain_in) >= 5:
+            elif not is_sslv2_msg and grablen == 5 and len(self.remain_in) >= 5:  # noqa: E501
                 grablen = struct.unpack('!H', self.remain_in[3:5])[0] + 5
 
             if grablen == len(self.remain_in):

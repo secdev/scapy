@@ -49,7 +49,7 @@ class PNIORealTimeIOxS(Packet):
     name = "PNIO RTC IOxS"
     fields_desc = [
         BitEnumField("dataState", 1, 1, ["bad", "good"]),
-        BitEnumField("instance", 0, 2, ["subslot", "slot", "device", "controller"]),
+        BitEnumField("instance", 0, 2, ["subslot", "slot", "device", "controller"]),  # noqa: E501
         XBitField("reserved", 0, 4),
         BitField("extension", 0, 1),
     ]
@@ -69,10 +69,10 @@ class PNIORealTimeRawData(Packet):
     __slots__ = ["_config"]
     name = "PNIO RTC Raw data"
     fields_desc = [
-        StrFixedLenField("load", "", length_from=lambda p: p[PNIORealTimeRawData].length()),
+        StrFixedLenField("load", "", length_from=lambda p: p[PNIORealTimeRawData].length()),  # noqa: E501
     ]
 
-    def __init__(self, _pkt="", post_transform=None, _internal=0, _underlayer=None, config=None, **fields):
+    def __init__(self, _pkt="", post_transform=None, _internal=0, _underlayer=None, config=None, **fields):  # noqa: E501
         """
         length=None means that the length must be managed by the user. If it's
         defined, the field will always be length-long (padded with b"\\x00" if
@@ -139,7 +139,7 @@ class NotionalLenField(Field):
 #  PNIORealTime Configuration #
 ###############################
 
-# conf.contribs["PNIO_RTC"] is a dict which contains data layout for each Ethernet
+# conf.contribs["PNIO_RTC"] is a dict which contains data layout for each Ethernet  # noqa: E501
 # communications. It must be formatted as such:
 # {(Ether.src, Ether.dst): [(start, type, config), ...]}
 # start: index of a data field from the END of the data buffer (-1, -2, ...)
@@ -166,7 +166,7 @@ def pnio_get_config(pkt):
     # get the config based on the tuple (Ether.src, Ether.dst)
     ether = _get_ethernet(pkt)
     config = None
-    if ether is not None and (ether.src, ether.dst) in conf.contribs["PNIO_RTC"]:
+    if ether is not None and (ether.src, ether.dst) in conf.contribs["PNIO_RTC"]:  # noqa: E501
         config = conf.contribs["PNIO_RTC"][(ether.src, ether.dst)]
 
     return config
@@ -216,9 +216,9 @@ class PNIORealTime(Packet):
     name = "PROFINET Real-Time"
     fields_desc = [
         NotionalLenField("len", None, length_from=lambda p, s: len(s)),
-        NotionalLenField("dataLen", None, length_from=lambda p, s: len(s[:-4].rstrip(b"\0"))),
-        LowerLayerBoundPacketListField("data", [], _pnio_rtc_guess_payload_class, length_from=lambda p: p.dataLen),
-        StrFixedLenField("padding", "", length_from=lambda p: p[PNIORealTime].padding_length()),
+        NotionalLenField("dataLen", None, length_from=lambda p, s: len(s[:-4].rstrip(b"\0"))),  # noqa: E501
+        LowerLayerBoundPacketListField("data", [], _pnio_rtc_guess_payload_class, length_from=lambda p: p.dataLen),  # noqa: E501
+        StrFixedLenField("padding", "", length_from=lambda p: p[PNIORealTime].padding_length()),  # noqa: E501
         ShortField("cycleCounter", 0),
         FlagsField("dataStatus", 0x35, 8, _PNIO_DS_FLAGS),
         ByteField("transferStatus", 0)
@@ -288,7 +288,7 @@ class PNIORealTime(Packet):
             loc = locations[comm] = []
             start = None
             for i in range(length):
-                if counts[i] > total // 2:   # Data if more than half is != 0x80
+                if counts[i] > total // 2:   # Data if more than half is != 0x80  # noqa: E501
                     if start is None:
                         start = i
                 else:
@@ -476,9 +476,9 @@ class Profisafe(PNIORealTimeRawData):
     """
     name = "PROFISafe"
     fields_desc = [
-        StrFixedLenField("load", "", length_from=lambda p: p[Profisafe].data_length()),
+        StrFixedLenField("load", "", length_from=lambda p: p[Profisafe].data_length()),  # noqa: E501
         XByteField("Control_Status", 0),
-        XVarBytesField("CRC", 0, length_from=lambda p: p[Profisafe].crc_length())
+        XVarBytesField("CRC", 0, length_from=lambda p: p[Profisafe].crc_length())  # noqa: E501
     ]
 
     def data_length(self):

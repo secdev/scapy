@@ -20,7 +20,7 @@ import scapy.modules.six as six
 
 
 def cmp_to_key(mycmp):
-    # TODO remove me once all 'key=cmp_to_key(..)' has been fixed in utils6.py, automaton.py
+    # TODO remove me once all 'key=cmp_to_key(..)' has been fixed in utils6.py, automaton.py  # noqa: E501
     """Convert a cmp= function into a key= function.
     To use with sort()
 

@@ -68,7 +68,7 @@ class DNSStrField(StrField):
                     if not s:
                         break
                 else:
-                    raise Scapy_Exception("DNS message can't be compressed at this point!")
+                    raise Scapy_Exception("DNS message can't be compressed at this point!")  # noqa: E501
             else:
                 n += s[:l] + b"."
                 s = s[l:]
@@ -156,7 +156,7 @@ class DNSRRField(StrField):
             rr.rdata = DNSgetstr(s, p)[0]
             del(rr.rdlen)
         elif type in DNSRR_DISPATCHER:
-            rr = DNSRR_DISPATCHER[type](b"\x00" + ret + s[p:p + rdlen], _orig_s=s, _orig_p=p)
+            rr = DNSRR_DISPATCHER[type](b"\x00" + ret + s[p:p + rdlen], _orig_s=s, _orig_p=p)  # noqa: E501
         else:
             del(rr.rdlen)
 
@@ -207,7 +207,7 @@ class RDataField(StrLenField):
             family = socket.AF_INET
         elif pkt.type in [2, 5, 12]:  # NS, CNAME, PTR
             l = orb(s[0])
-            if l & 0xc0 and hasattr(pkt, "_orig_s") and pkt._orig_s:  # Compression detected
+            if l & 0xc0 and hasattr(pkt, "_orig_s") and pkt._orig_s:  # Compression detected  # noqa: E501
                 p = ((l & ~0xc0) << 8) + orb(s[1]) - 12
                 s = DNSgetstr(pkt._orig_s, p)[0]
             else:  # No compression / Cannot decompress
@@ -223,7 +223,7 @@ class RDataField(StrLenField):
             while tmp_s:
                 tmp_len = orb(tmp_s[0]) + 1
                 if tmp_len > len(tmp_s):
-                    warning("DNS RR TXT prematured end of character-string (size=%i, remaining bytes=%i)" % (tmp_len, len(tmp_s)))
+                    warning("DNS RR TXT prematured end of character-string (size=%i, remaining bytes=%i)" % (tmp_len, len(tmp_s)))  # noqa: E501
                 ret_s.append(tmp_s[1:tmp_len])
                 tmp_s = tmp_s[tmp_len:]
             s = ret_s
@@ -335,13 +335,13 @@ dnstypes = {
     0: "ANY",
     1: "A", 2: "NS", 3: "MD", 4: "MF", 5: "CNAME", 6: "SOA", 7: "MB", 8: "MG",
     9: "MR", 10: "NULL", 11: "WKS", 12: "PTR", 13: "HINFO", 14: "MINFO",
-    15: "MX", 16: "TXT", 17: "RP", 18: "AFSDB", 19: "X25", 20: "ISDN", 21: "RT",
+    15: "MX", 16: "TXT", 17: "RP", 18: "AFSDB", 19: "X25", 20: "ISDN", 21: "RT",  # noqa: E501
     22: "NSAP", 23: "NSAP-PTR", 24: "SIG", 25: "KEY", 26: "PX", 27: "GPOS",
     28: "AAAA", 29: "LOC", 30: "NXT", 31: "EID", 32: "NIMLOC", 33: "SRV",
     34: "ATMA", 35: "NAPTR", 36: "KX", 37: "CERT", 38: "A6", 39: "DNAME",
     40: "SINK", 41: "OPT", 42: "APL", 43: "DS", 44: "SSHFP", 45: "IPSECKEY",
     46: "RRSIG", 47: "NSEC", 48: "DNSKEY", 49: "DHCID", 50: "NSEC3",
-    51: "NSEC3PARAM", 52: "TLSA", 53: "SMIMEA", 55: "HIP", 56: "NINFO", 57: "RKEY",
+    51: "NSEC3PARAM", 52: "TLSA", 53: "SMIMEA", 55: "HIP", 56: "NINFO", 57: "RKEY",  # noqa: E501
     58: "TALINK", 59: "CDS", 60: "CDNSKEY", 61: "OPENPGPKEY", 62: "CSYNC",
     99: "SPF", 100: "UINFO", 101: "UID", 102: "GID", 103: "UNSPEC", 104: "NID",
     105: "L32", 106: "L64", 107: "LP", 108: "EUI48", 109: "EUI64",
@@ -366,9 +366,9 @@ class DNSQR(InheritOriginDNSStrPacket):
 
 class EDNS0TLV(Packet):
     name = "DNS EDNS0 TLV"
-    fields_desc = [ShortEnumField("optcode", 0, {0: "Reserved", 1: "LLQ", 2: "UL", 3: "NSID", 4: "Reserved", 5: "PING"}),
+    fields_desc = [ShortEnumField("optcode", 0, {0: "Reserved", 1: "LLQ", 2: "UL", 3: "NSID", 4: "Reserved", 5: "PING"}),  # noqa: E501
                    FieldLenField("optlen", None, "optdata", fmt="H"),
-                   StrLenField("optdata", "", length_from=lambda pkt: pkt.optlen)]
+                   StrLenField("optdata", "", length_from=lambda pkt: pkt.optlen)]  # noqa: E501
 
     def extract_padding(self, p):
         return "", p
@@ -385,22 +385,22 @@ class DNSRROPT(InheritOriginDNSStrPacket):
                    BitEnumField("z", 32768, 16, {32768: "D0"}),
                    # D0 means DNSSEC OK from RFC 3225
                    FieldLenField("rdlen", None, length_of="rdata", fmt="H"),
-                   PacketListField("rdata", [], EDNS0TLV, length_from=lambda pkt: pkt.rdlen)]
+                   PacketListField("rdata", [], EDNS0TLV, length_from=lambda pkt: pkt.rdlen)]  # noqa: E501
 
 # RFC 4034 - Resource Records for the DNS Security Extensions
 
 
-# 09/2013 from http://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml
-dnssecalgotypes = {0: "Reserved", 1: "RSA/MD5", 2: "Diffie-Hellman", 3: "DSA/SHA-1",
+# 09/2013 from http://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml  # noqa: E501
+dnssecalgotypes = {0: "Reserved", 1: "RSA/MD5", 2: "Diffie-Hellman", 3: "DSA/SHA-1",  # noqa: E501
                    4: "Reserved", 5: "RSA/SHA-1", 6: "DSA-NSEC3-SHA1",
                    7: "RSASHA1-NSEC3-SHA1", 8: "RSA/SHA-256", 9: "Reserved",
                    10: "RSA/SHA-512", 11: "Reserved", 12: "GOST R 34.10-2001",
-                   13: "ECDSA Curve P-256 with SHA-256", 14: "ECDSA Curve P-384 with SHA-384",
-                   252: "Reserved for Indirect Keys", 253: "Private algorithms - domain name",
+                   13: "ECDSA Curve P-256 with SHA-256", 14: "ECDSA Curve P-384 with SHA-384",  # noqa: E501
+                   252: "Reserved for Indirect Keys", 253: "Private algorithms - domain name",  # noqa: E501
                    254: "Private algorithms - OID", 255: "Reserved"}
 
 # 09/2013 from http://www.iana.org/assignments/ds-rr-types/ds-rr-types.xhtml
-dnssecdigesttypes = {0: "Reserved", 1: "SHA-1", 2: "SHA-256", 3: "GOST R 34.11-94", 4: "SHA-384"}
+dnssecdigesttypes = {0: "Reserved", 1: "SHA-1", 2: "SHA-256", 3: "GOST R 34.11-94", 4: "SHA-384"}  # noqa: E501
 
 
 class TimeField(IntField):
@@ -640,8 +640,8 @@ class DNSRRNSEC3(_DNSRRdummy):
                    ShortField("iterations", 0),
                    FieldLenField("saltlength", 0, fmt="!B", length_of="salt"),
                    StrLenField("salt", "", length_from=lambda x: x.saltlength),
-                   FieldLenField("hashlength", 0, fmt="!B", length_of="nexthashedownername"),
-                   StrLenField("nexthashedownername", "", length_from=lambda x: x.hashlength),
+                   FieldLenField("hashlength", 0, fmt="!B", length_of="nexthashedownername"),  # noqa: E501
+                   StrLenField("nexthashedownername", "", length_from=lambda x: x.hashlength),  # noqa: E501
                    RRlistField("typebitmaps", "")
                    ]
 
@@ -657,7 +657,7 @@ class DNSRRNSEC3PARAM(_DNSRRdummy):
                    ByteField("flags", 0),
                    ShortField("iterations", 0),
                    FieldLenField("saltlength", 0, fmt="!B", length_of="salt"),
-                   StrLenField("salt", "", length_from=lambda pkt: pkt.saltlength)
+                   StrLenField("salt", "", length_from=lambda pkt: pkt.saltlength)  # noqa: E501
                    ]
 
 # RFC 2782 - A DNS RR for specifying the location of services (DNS SRV)
@@ -729,12 +729,12 @@ class DNSRRTSIG(_DNSRRdummy):
                    DNSStrField("algo_name", "hmac-sha1"),
                    TimeSignedField("time_signed", 0),
                    ShortField("fudge", 0),
-                   FieldLenField("mac_len", 20, fmt="!H", length_of="mac_data"),
-                   StrLenField("mac_data", "", length_from=lambda pkt: pkt.mac_len),
+                   FieldLenField("mac_len", 20, fmt="!H", length_of="mac_data"),  # noqa: E501
+                   StrLenField("mac_data", "", length_from=lambda pkt: pkt.mac_len),  # noqa: E501
                    ShortField("original_id", 0),
                    ShortField("error", 0),
-                   FieldLenField("other_len", 0, fmt="!H", length_of="other_data"),
-                   StrLenField("other_data", "", length_from=lambda pkt: pkt.other_len)
+                   FieldLenField("other_len", 0, fmt="!H", length_of="other_data"),  # noqa: E501
+                   StrLenField("other_data", "", length_from=lambda pkt: pkt.other_len)  # noqa: E501
                    ]
 
 
@@ -789,7 +789,7 @@ RFC2136
 """
     zone = name[name.find(".") + 1:]
     r = sr1(IP(dst=nameserver) / UDP() / DNS(opcode=5,
-                                             qd=[DNSQR(qname=zone, qtype="SOA")],
+                                             qd=[DNSQR(qname=zone, qtype="SOA")],  # noqa: E501
                                              ns=[DNSRR(rrname=name, type="A",
                                                        ttl=ttl, rdata=rdata)]),
             verbose=0, timeout=5)
@@ -809,9 +809,9 @@ RFC2136
 """
     zone = name[name.find(".") + 1:]
     r = sr1(IP(dst=nameserver) / UDP() / DNS(opcode=5,
-                                             qd=[DNSQR(qname=zone, qtype="SOA")],
+                                             qd=[DNSQR(qname=zone, qtype="SOA")],  # noqa: E501
                                              ns=[DNSRR(rrname=name, type=type,
-                                                       rclass="ANY", ttl=0, rdata="")]),
+                                                       rclass="ANY", ttl=0, rdata="")]),  # noqa: E501
             verbose=0, timeout=5)
     if r and r.haslayer(DNS):
         return r.getlayer(DNS).rcode

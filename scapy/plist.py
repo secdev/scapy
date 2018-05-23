@@ -18,8 +18,8 @@ from scapy.compat import lambda_tuple_converter
 from scapy.config import conf
 from scapy.consts import WINDOWS
 from scapy.base_classes import BasePacket, BasePacketList
-from scapy.utils import do_graph, hexdump, make_table, make_lined_table, make_tex_table, \
-    get_temp_file, issubtype, ContextManagerSubprocess
+from scapy.utils import do_graph, hexdump, make_table, make_lined_table, \
+    make_tex_table, get_temp_file, issubtype, ContextManagerSubprocess
 from scapy.extlib import plt, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
 from functools import reduce
 import scapy.modules.six as six
@@ -36,7 +36,7 @@ class PacketList(BasePacketList):
     def __init__(self, res=None, name="PacketList", stats=None):
         """create a packet list from a list of packets
            res: the list of packets
-           stats: a list of classes that will appear in the stats (defaults to [TCP,UDP,ICMP])"""
+           stats: a list of classes that will appear in the stats (defaults to [TCP,UDP,ICMP])"""  # noqa: E501
         if stats is None:
             stats = conf.stats_classic_protocols
         self.stats = stats
@@ -88,7 +88,7 @@ class PacketList(BasePacketList):
 
     def __getstate__(self):
         """
-        create a basic representation of the instance, used in conjunction with __setstate__() e.g. by pickle
+        create a basic representation of the instance, used in conjunction with __setstate__() e.g. by pickle  # noqa: E501
         :return: dict representing this instance
         """
         state = {
@@ -100,7 +100,7 @@ class PacketList(BasePacketList):
 
     def __setstate__(self, state):
         """
-        set instance attributes to values given by state, used in conjunction with __getstate__() e.g. by pickle
+        set instance attributes to values given by state, used in conjunction with __getstate__() e.g. by pickle  # noqa: E501
         :param state: dict representing this instance
         """
         self.res = state['res']
@@ -112,8 +112,8 @@ class PacketList(BasePacketList):
 
     def __getitem__(self, item):
         if issubtype(item, BasePacket):
-            return self.__class__([x for x in self.res if item in self._elt2pkt(x)],
-                                  name="%s from %s" % (item.__name__, self.listname))
+            return self.__class__([x for x in self.res if item in self._elt2pkt(x)],  # noqa: E501
+                                  name="%s from %s" % (item.__name__, self.listname))  # noqa: E501
         if isinstance(item, slice):
             return self.__class__(self.res.__getitem__(item),
                                   name="mod %s" % self.listname)
@@ -130,7 +130,7 @@ class PacketList(BasePacketList):
     def summary(self, prn=None, lfilter=None):
         """prints a summary of each packet
 prn:     function to apply to each packet instead of lambda x:x.summary()
-lfilter: truth function to apply to each packet to decide whether it will be displayed"""
+lfilter: truth function to apply to each packet to decide whether it will be displayed"""  # noqa: E501
         for r in self.res:
             if lfilter is not None:
                 if not lfilter(r):
@@ -143,7 +143,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
     def nsummary(self, prn=None, lfilter=None):
         """prints a summary of each packet with the packet's number
 prn:     function to apply to each packet instead of lambda x:x.summary()
-lfilter: truth function to apply to each packet to decide whether it will be displayed"""
+lfilter: truth function to apply to each packet to decide whether it will be displayed"""  # noqa: E501
         for i, res in enumerate(self.res):
             if lfilter is not None:
                 if not lfilter(res):
@@ -159,18 +159,18 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         self.show()
 
     def show(self, *args, **kargs):
-        """Best way to display the packet list. Defaults to nsummary() method"""
+        """Best way to display the packet list. Defaults to nsummary() method"""  # noqa: E501
         return self.nsummary(*args, **kargs)
 
     def filter(self, func):
         """Returns a packet list filtered by a truth function. This truth
-        function has to take a packet as the only argument and return a boolean value."""
+        function has to take a packet as the only argument and return a boolean value."""  # noqa: E501
         return self.__class__([x for x in self.res if func(x)],
                               name="filtered %s" % self.listname)
 
     def make_table(self, *args, **kargs):
-        """Prints a table using a function that returns for each packet its head column value, head row value and displayed value
-        ex: p.make_table(lambda x:(x[IP].dst, x[TCP].dport, x[TCP].sprintf("%flags%")) """
+        """Prints a table using a function that returns for each packet its head column value, head row value and displayed value  # noqa: E501
+        ex: p.make_table(lambda x:(x[IP].dst, x[TCP].dport, x[TCP].sprintf("%flags%")) """  # noqa: E501
         return make_table(self.res, *args, **kargs)
 
     def make_lined_table(self, *args, **kargs):
@@ -285,8 +285,8 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
             hexdump(self._elt2pkt(p))
 
     def hexraw(self, lfilter=None):
-        """Same as nsummary(), except that if a packet has a Raw layer, it will be hexdumped
-        lfilter: a truth function that decides whether a packet must be displayed"""
+        """Same as nsummary(), except that if a packet has a Raw layer, it will be hexdumped  # noqa: E501
+        lfilter: a truth function that decides whether a packet must be displayed"""  # noqa: E501
         for i, res in enumerate(self.res):
             p = self._elt2pkt(res)
             if lfilter is not None and not lfilter(p):
@@ -299,7 +299,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
 
     def hexdump(self, lfilter=None):
         """Same as nsummary(), except that packets are also hexdumped
-        lfilter: a truth function that decides whether a packet must be displayed"""
+        lfilter: a truth function that decides whether a packet must be displayed"""  # noqa: E501
         for i, res in enumerate(self.res):
             p = self._elt2pkt(res)
             if lfilter is not None and not lfilter(p):
@@ -341,8 +341,8 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
                    returns the source, the destination and optionally
                    a label. By default, returns the IP source and
                    destination from IP and ARP layers
-        type: output type (svg, ps, gif, jpg, etc.), passed to dot's "-T" option
-        target: filename or redirect. Defaults pipe to Imagemagick's display program
+        type: output type (svg, ps, gif, jpg, etc.), passed to dot's "-T" option  # noqa: E501
+        target: filename or redirect. Defaults pipe to Imagemagick's display program  # noqa: E501
         prog: which graphviz program to use"""
         if getsrcdst is None:
             def getsrcdst(pkt):
@@ -438,16 +438,16 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         for s in sl:
             n, l = sl[s]
             n = 1 + float(n - mins) / (maxs - mins)
-            gr += '"src.%s" [label = "%s", shape=box, fillcolor="#FF0000", style=filled, fixedsize=1, height=%.2f,width=%.2f];\n' % (repr(s), repr(s), n, n)
+            gr += '"src.%s" [label = "%s", shape=box, fillcolor="#FF0000", style=filled, fixedsize=1, height=%.2f,width=%.2f];\n' % (repr(s), repr(s), n, n)  # noqa: E501
         gr += "# event nodes\n"
         for e in el:
             n, l = el[e]
             n = n = 1 + float(n - mine) / (maxe - mine)
-            gr += '"evt.%s" [label = "%s", shape=circle, fillcolor="#00FFFF", style=filled, fixedsize=1, height=%.2f, width=%.2f];\n' % (repr(e), repr(e), n, n)
+            gr += '"evt.%s" [label = "%s", shape=circle, fillcolor="#00FFFF", style=filled, fixedsize=1, height=%.2f, width=%.2f];\n' % (repr(e), repr(e), n, n)  # noqa: E501
         for d in dl:
             n = dl[d]
             n = n = 1 + float(n - mind) / (maxd - mind)
-            gr += '"dst.%s" [label = "%s", shape=triangle, fillcolor="#0000ff", style=filled, fixedsize=1, height=%.2f, width=%.2f];\n' % (repr(d), repr(d), n, n)
+            gr += '"dst.%s" [label = "%s", shape=triangle, fillcolor="#0000ff", style=filled, fixedsize=1, height=%.2f, width=%.2f];\n' % (repr(d), repr(d), n, n)  # noqa: E501
 
         gr += "###\n"
         for s in sl:
@@ -469,17 +469,17 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         for i, res in enumerate(self.res):
             c = self._elt2pkt(res).canvas_dump(**kargs)
             cbb = c.bbox()
-            c.text(cbb.left(), cbb.top() + 1, r"\font\cmssfont=cmss12\cmssfont{Frame %i/%i}" % (i, l), [pyx.text.size.LARGE])
+            c.text(cbb.left(), cbb.top() + 1, r"\font\cmssfont=cmss12\cmssfont{Frame %i/%i}" % (i, l), [pyx.text.size.LARGE])  # noqa: E501
             if conf.verb >= 2:
                 os.write(1, b".")
-            d.append(pyx.document.page(c, paperformat=pyx.document.paperformat.A4,
+            d.append(pyx.document.page(c, paperformat=pyx.document.paperformat.A4,  # noqa: E501
                                        margin=1 * pyx.unit.t_cm,
                                        fittosize=1))
         return d
 
     def psdump(self, filename=None, **kargs):
         """Creates a multi-page postcript file with a psdump of every packet
-        filename: name of the file to write to. If empty, a temporary file is used and
+        filename: name of the file to write to. If empty, a temporary file is used and  # noqa: E501
                   conf.prog.psreader is called"""
         d = self._dump_document(**kargs)
         if filename is None:
@@ -496,7 +496,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
 
     def pdfdump(self, filename=None, **kargs):
         """Creates a PDF file with a psdump of every packet
-        filename: name of the file to write to. If empty, a temporary file is used and
+        filename: name of the file to write to. If empty, a temporary file is used and  # noqa: E501
                   conf.prog.pdfreader is called"""
         d = self._dump_document(**kargs)
         if filename is None:
@@ -505,7 +505,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
             if WINDOWS and conf.prog.pdfreader is None:
                 os.startfile(filename)
             else:
-                with ContextManagerSubprocess("pdfdump()", conf.prog.pdfreader):
+                with ContextManagerSubprocess("pdfdump()", conf.prog.pdfreader):  # noqa: E501
                     subprocess.Popen([conf.prog.pdfreader, filename])
         else:
             d.writePDFfile(filename)
@@ -513,7 +513,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
 
     def sr(self, multi=0):
         """sr([multi=1]) -> (SndRcvList, PacketList)
-        Matches packets in the list and return ( (matched couples), (unmatched packets) )"""
+        Matches packets in the list and return ( (matched couples), (unmatched packets) )"""  # noqa: E501
         remain = self.res[:]
         sr = []
         i = 0
@@ -596,7 +596,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
                 new = scheme[-1]
                 for o in fld.owners:
                     if o in p:
-                        if len(scheme) == 2 or p[o].getfieldval(fld.name) == old:
+                        if len(scheme) == 2 or p[o].getfieldval(fld.name) == old:  # noqa: E501
                             if not copied:
                                 p = p.copy()
                                 if delete_checksums:

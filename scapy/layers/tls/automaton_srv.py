@@ -126,7 +126,7 @@ class TLSServerAutomaton(_TLSAutomaton):
     def INITIAL(self):
         self.vprint("Starting TLS server automaton.")
         self.vprint("Receiving 'stop_server' will cause a graceful exit.")
-        self.vprint("Interrupting with Ctrl-Z might leave a loose socket hanging.")
+        self.vprint("Interrupting with Ctrl-Z might leave a loose socket hanging.")  # noqa: E501
         raise self.BIND()
 
     @ATMT.state()
@@ -540,7 +540,7 @@ class TLSServerAutomaton(_TLSAutomaton):
         try:
             self.flush_records()
         except:
-            self.vprint("Could not send termination Alert, maybe the client left?")
+            self.vprint("Could not send termination Alert, maybe the client left?")  # noqa: E501
             self.buffer_out = []
         self.socket.close()
         raise self.WAITING_CLIENT()
@@ -557,7 +557,7 @@ class TLSServerAutomaton(_TLSAutomaton):
         try:
             self.flush_records()
         except:
-            self.vprint("Could not send termination Alert, maybe the client left?")
+            self.vprint("Could not send termination Alert, maybe the client left?")  # noqa: E501
         # We might call shutdown, but unit tests with s_client fail with this.
         # self.socket.shutdown(1)
         self.socket.close()
@@ -841,7 +841,7 @@ class TLSServerAutomaton(_TLSAutomaton):
         try:
             self.flush_records()
         except:
-            self.vprint("Could not send our goodbye. The client probably left.")
+            self.vprint("Could not send our goodbye. The client probably left.")  # noqa: E501
             self.buffer_out = []
         self.socket.close()
         raise self.WAITING_CLIENT()
@@ -862,7 +862,7 @@ class TLSServerAutomaton(_TLSAutomaton):
         try:
             self.flush_records()
         except:
-            self.vprint("Could not send our goodbye. The client probably left.")
+            self.vprint("Could not send our goodbye. The client probably left.")  # noqa: E501
         self.socket.close()
         raise self.FINAL()
 

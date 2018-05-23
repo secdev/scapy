@@ -119,8 +119,8 @@ class TLS_Ext_PrettyPacketList(TLS_Ext_Unknown):
         s += "%s%s\n" % (begn, vcol(reprval))
         if self.payload:
             s += self.payload._show_or_dump(dump=dump, indent=indent,
-                                            lvl=lvl + (" " * indent * self.show_indent),
-                                            label_lvl=label_lvl, first_call=False)
+                                            lvl=lvl + (" " * indent * self.show_indent),  # noqa: E501
+                                            label_lvl=label_lvl, first_call=False)  # noqa: E501
 
         if first_call and not dump:
             print(s)
@@ -419,7 +419,7 @@ class TLS_Ext_SignatureAlgorithms(TLS_Ext_Unknown):                 # RFC 5246
                    SigAndHashAlgsField("sig_algs", [],
                                        EnumField("hash_sig", None,
                                                  _tls_hash_sig),
-                                       length_from=lambda pkt: pkt.sig_algs_len)]
+                                       length_from=lambda pkt: pkt.sig_algs_len)]  # noqa: E501
 
 
 class TLS_Ext_Heartbeat(TLS_Ext_Unknown):                           # RFC 6520
@@ -682,11 +682,11 @@ class _ExtensionsField(StrLenField):
             l = struct.unpack("!H", m[2:4])[0]
             cls = _tls_ext_cls.get(t, TLS_Ext_Unknown)
             if cls is TLS_Ext_KeyShare:
-                from scapy.layers.tls.keyexchange_tls13 import _tls_ext_keyshare_cls
+                from scapy.layers.tls.keyexchange_tls13 import _tls_ext_keyshare_cls  # noqa: E501
                 cls = _tls_ext_keyshare_cls.get(pkt.msgtype, TLS_Ext_Unknown)
             elif cls is TLS_Ext_PreSharedKey:
-                from scapy.layers.tls.keyexchange_tls13 import _tls_ext_presharedkey_cls
-                cls = _tls_ext_presharedkey_cls.get(pkt.msgtype, TLS_Ext_Unknown)
+                from scapy.layers.tls.keyexchange_tls13 import _tls_ext_presharedkey_cls  # noqa: E501
+                cls = _tls_ext_presharedkey_cls.get(pkt.msgtype, TLS_Ext_Unknown)  # noqa: E501
             res.append(cls(m[:l + 4], tls_session=pkt.tls_session))
             m = m[l + 4:]
         return res

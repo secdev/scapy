@@ -182,7 +182,7 @@ def _tls_aead_auth_encrypt(alg, p, write_seq_num):
     for block and stream ciphers, for which the authentication step is done
     separately, AEAD alg does it simultaneously: this is the reason why
     write_seq_num is passed to the function, to be incorporated in
-    authenticated data. Note that it is the caller's responsibility to increment
+    authenticated data. Note that it is the caller's responsibility to increment  # noqa: E501
     write_seq_num afterwards.
     """
     P = bytes(p)

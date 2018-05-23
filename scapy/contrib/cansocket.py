@@ -28,13 +28,13 @@ except KeyError:
 
 if PYTHON_CAN:
     from scapy.contrib.cansocket_python_can import (CANSocket,   # noqa: F401
-                                                    srcan, CANSocketTimeoutElapsed, CAN_FRAME_SIZE, CAN_INV_FILTER)
+                                                    srcan, CANSocketTimeoutElapsed, CAN_FRAME_SIZE, CAN_INV_FILTER)  # noqa: E501
 elif LINUX and six.PY3:
     log_loading.info("Use native CANSocket. Specify "
                      "'conf.contribs['CANSocket'] = "
                      "{'use-python-can': True}' to enable python-can.")
     from scapy.contrib.cansocket_native import (CANSocket,   # noqa: F401
-                                                srcan, CAN_FRAME_SIZE, CAN_INV_FILTER)
+                                                srcan, CAN_FRAME_SIZE, CAN_INV_FILTER)  # noqa: E501
 else:
     log_loading.info("No CAN support available. Install python-can or "
                      "use Linux and python3.")

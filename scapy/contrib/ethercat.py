@@ -50,15 +50,15 @@ import struct
 
 from scapy.compat import raw
 from scapy.error import log_runtime, Scapy_Exception
-from scapy.fields import BitField, ByteField, LEShortField, FieldListField, LEIntField, FieldLenField, _EnumField, \
-    EnumField
+from scapy.fields import BitField, ByteField, LEShortField, FieldListField, \
+    LEIntField, FieldLenField, _EnumField, EnumField
 from scapy.layers.l2 import Ether, Dot1Q
 from scapy.modules import six
 from scapy.packet import bind_layers, Packet, Padding
 
 '''
-EtherCat uses some little endian bitfields without alignment to any common boundaries.
-See https://github.com/secdev/scapy/pull/569#issuecomment-295419176 for a short explanation
+EtherCat uses some little endian bitfields without alignment to any common boundaries.  # noqa: E501
+See https://github.com/secdev/scapy/pull/569#issuecomment-295419176 for a short explanation  # noqa: E501
 why the following field definitions are necessary.
 '''
 
@@ -88,7 +88,7 @@ class LEBitField(BitField):
                next_field.__class__.__base__ is not LEBitField:
                 raise LEBitFieldSequenceException('field after field {} must '
                                                   'be of type LEBitField or '
-                                                  'derived classes'.format(self.name))
+                                                  'derived classes'.format(self.name))  # noqa: E501
         except IndexError:
             # no more fields -> error
             raise LEBitFieldSequenceException('Missing further LEBitField '
@@ -101,10 +101,10 @@ class LEBitField(BitField):
         :param pkt: packet instance the raw string s and field belongs to
         :param s:   raw string representing the frame
         :param val: value
-        :return: final raw string, tuple (s, bitsdone, data) if in between bit field
+        :return: final raw string, tuple (s, bitsdone, data) if in between bit field  # noqa: E501
 
-        as we don't know the final size of the full bitfield we need to accumulate the data.
-        if we reach a field that ends at a octet boundary, we build the whole string
+        as we don't know the final size of the full bitfield we need to accumulate the data.  # noqa: E501
+        if we reach a field that ends at a octet boundary, we build the whole string  # noqa: E501
 
         """
         if type(s) is tuple and len(s) == 4:
@@ -119,7 +119,7 @@ class LEBitField(BitField):
         data.append((self.size, self.i2m(pkt, val)))
 
         if bitsdone % 8:
-            # somewhere in between bit 0 .. 7 - next field should add more bits...
+            # somewhere in between bit 0 .. 7 - next field should add more bits...  # noqa: E501
             self._check_field_type(pkt, 1)
             return s, bitsdone, data, type(LEBitField)
         else:
@@ -144,7 +144,7 @@ class LEBitField(BitField):
                         octet = 0
                         remaining_len = 8
                         # delete all consumed bits
-                        # TODO: do we need to add a check for bitfields > 64 bits to catch overruns here?
+                        # TODO: do we need to add a check for bitfields > 64 bits to catch overruns here?  # noqa: E501
                         val &= ((2 ** size) - 1)
                         continue
                     else:
@@ -163,11 +163,11 @@ class LEBitField(BitField):
         extract data from raw str
 
         collect all instances belonging to the bit field set.
-        if we reach a field that ends at a octet boundary, dissect the whole bit field at once
+        if we reach a field that ends at a octet boundary, dissect the whole bit field at once  # noqa: E501
 
         :param pkt: packet instance the field belongs to
-        :param s: raw string representing the frame -or- tuple containing raw str, number of bits and array of fields
-        :return: tuple containing raw str, number of bits and array of fields -or- remaining raw str and value of this
+        :param s: raw string representing the frame -or- tuple containing raw str, number of bits and array of fields  # noqa: E501
+        :return: tuple containing raw str, number of bits and array of fields -or- remaining raw str and value of this  # noqa: E501
         """
 
         if type(s) is tuple and len(s) == 3:
@@ -206,18 +206,18 @@ class LEBitField(BitField):
 
                     if field_required_bits == octet_bits_left:
                         # whole field fits into remaining bits
-                        # as this also signals byte-alignment this should exit the inner and outer loop
+                        # as this also signals byte-alignment this should exit the inner and outer loop  # noqa: E501
                         cur_val |= octet << cur_val_bit_idx
                         pkt.fields[field.name] = cur_val
 
                         '''
-                        TODO: check if do_dessect() needs a non-None check for assignment to raw_packet_cache_fields
+                        TODO: check if do_dessect() needs a non-None check for assignment to raw_packet_cache_fields  # noqa: E501
 
-                        setfieldval() is evil as it sets raw_packet_cache_fields to None - but this attribute
-                        is accessed in do_dissect() without checking for None... exception is catched and the
+                        setfieldval() is evil as it sets raw_packet_cache_fields to None - but this attribute  # noqa: E501
+                        is accessed in do_dissect() without checking for None... exception is catched and the  # noqa: E501
                         user ends up with a layer decoded as raw...
 
-                        pkt.setfieldval(field.name, int(bit_str[:field.size], 2))
+                        pkt.setfieldval(field.name, int(bit_str[:field.size], 2))  # noqa: E501
                         '''
 
                         octet_bits_left = 0
@@ -226,7 +226,7 @@ class LEBitField(BitField):
 
                     elif field_required_bits < octet_bits_left:
                         # pick required bits
-                        cur_val |= (octet & ((2 ** field_required_bits) - 1)) << cur_val_bit_idx
+                        cur_val |= (octet & ((2 ** field_required_bits) - 1)) << cur_val_bit_idx  # noqa: E501
                         pkt.fields[field.name] = cur_val
 
                         # remove consumed bits
@@ -254,14 +254,14 @@ class LEBitField(BitField):
 class LEBitFieldLenField(LEBitField):
     __slots__ = ["length_of", "count_of", "adjust"]
 
-    def __init__(self, name, default, size, length_of=None, count_of=None, adjust=lambda pkt, x: x):
+    def __init__(self, name, default, size, length_of=None, count_of=None, adjust=lambda pkt, x: x):  # noqa: E501
         LEBitField.__init__(self, name, default, size)
         self.length_of = length_of
         self.count_of = count_of
         self.adjust = adjust
 
     def i2m(self, pkt, x):
-        return (FieldLenField.i2m.__func__ if six.PY2 else FieldLenField.i2m)(self, pkt, x)
+        return (FieldLenField.i2m.__func__ if six.PY2 else FieldLenField.i2m)(self, pkt, x)  # noqa: E501
 
 
 class LEBitEnumField(LEBitField, _EnumField):
@@ -605,7 +605,7 @@ class EtherCat(Packet):
 
         pad_len = EtherCat.ETHER_FRAME_MIN_LEN - (EtherCat.ETHER_HEADER_LEN +
                                                   vlan_headers_total_size +
-                                                  EtherCat.ETHERCAT_HEADER_LEN +
+                                                  EtherCat.ETHERCAT_HEADER_LEN +  # noqa: E501
                                                   payload_len +
                                                   EtherCat.ETHER_FSC_LEN)
 

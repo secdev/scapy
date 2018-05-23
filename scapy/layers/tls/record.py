@@ -294,8 +294,8 @@ class TLS(_GenericTLSSessionInheritance):
                         from scapy.layers.tls.record_tls13 import TLS13
                         return TLS13
         if _pkt and len(_pkt) < 5:
-                # Layer detected as TLS but too small to be a real packet (len<5).
-                # Those packets appear when sessions are interrupted or to flush buffers.
+                # Layer detected as TLS but too small to be a real packet (len<5).  # noqa: E501
+                # Those packets appear when sessions are interrupted or to flush buffers.  # noqa: E501
                 # Scapy should not try to decode them
             return conf.raw_layer
         return TLS
@@ -323,7 +323,7 @@ class TLS(_GenericTLSSessionInheritance):
             return e.args
         except AEADTagError as e:
             pkt_info = self.firstlayer().summary()
-            log_runtime.info("TLS: record integrity check failed [%s]", pkt_info)
+            log_runtime.info("TLS: record integrity check failed [%s]", pkt_info)  # noqa: E501
             return e.args
 
     def _tls_decrypt(self, s):
@@ -420,7 +420,7 @@ class TLS(_GenericTLSSessionInheritance):
                 # but the result is the same as with TLS 1.2 anyway.
                 # This leading *IV* has been decrypted by _tls_decrypt with a
                 # random IV, hence it does not correspond to anything.
-                # What actually matters is that we got the first encrypted block
+                # What actually matters is that we got the first encrypted block  # noqa: E501
                 # in order to decrypt the second block (first data block).
                 # if version >= 0x0302:
                 #    block_size = self.tls_session.rcs.cipher.block_size
@@ -445,7 +445,7 @@ class TLS(_GenericTLSSessionInheritance):
                 is_mac_ok = self._tls_hmac_verify(chdr, cfrag, mac)
                 if not is_mac_ok:
                     pkt_info = self.firstlayer().summary()
-                    log_runtime.info("TLS: record integrity check failed [%s]", pkt_info)
+                    log_runtime.info("TLS: record integrity check failed [%s]", pkt_info)  # noqa: E501
 
         elif cipher_type == 'stream':
             # Decrypt
@@ -470,13 +470,13 @@ class TLS(_GenericTLSSessionInheritance):
                 is_mac_ok = self._tls_hmac_verify(chdr, cfrag, mac)
                 if not is_mac_ok:
                     pkt_info = self.firstlayer().summary()
-                    log_runtime.info("TLS: record integrity check failed [%s]", pkt_info)
+                    log_runtime.info("TLS: record integrity check failed [%s]", pkt_info)  # noqa: E501
 
         elif cipher_type == 'aead':
             # Authenticated encryption
             # crypto/cipher_aead.py prints a warning for integrity failure
             if (conf.crypto_valid_advanced and
-                    isinstance(self.tls_session.rcs.cipher, Cipher_CHACHA20_POLY1305)):
+                    isinstance(self.tls_session.rcs.cipher, Cipher_CHACHA20_POLY1305)):  # noqa: E501
                 iv = b""
                 cfrag, mac = self._tls_auth_decrypt(hdr, efrag)
             else:

@@ -563,7 +563,7 @@ class ServerECDHNamedCurveParams(_GenericTLSSessionInheritance):
             curve = ec.SECP256R1()
             s.server_kx_privkey = ec.generate_private_key(curve,
                                                           default_backend())
-            self.named_curve = next((cid for cid, name in six.iteritems(_tls_named_curves)
+            self.named_curve = next((cid for cid, name in six.iteritems(_tls_named_curves)  # noqa: E501
                                      if name == curve.name), 0)
         else:
             curve_name = _tls_named_curves.get(self.named_curve)
@@ -698,7 +698,7 @@ class ServerPSKParams(Packet):
     fields_desc = [FieldLenField("psk_identity_hint_len", None,
                                  length_of="psk_identity_hint", fmt="!H"),
                    StrLenField("psk_identity_hint", "",
-                               length_from=lambda pkt: pkt.psk_identity_hint_len)]
+                               length_from=lambda pkt: pkt.psk_identity_hint_len)]  # noqa: E501
 
     def fill_missing(self):
         pass
@@ -842,7 +842,7 @@ class _UnEncryptedPreMasterSecret(Raw):
 
     def __init__(self, *args, **kargs):
         kargs.pop('tls_session', None)
-        return super(_UnEncryptedPreMasterSecret, self).__init__(*args, **kargs)
+        return super(_UnEncryptedPreMasterSecret, self).__init__(*args, **kargs)  # noqa: E501
 
 
 class EncryptedPreMasterSecret(_GenericTLSSessionInheritance):

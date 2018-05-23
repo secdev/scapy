@@ -42,7 +42,7 @@
 from scapy.compat import orb
 from scapy.data import ETHER_TYPES
 from scapy.error import Scapy_Exception
-from scapy.fields import IntField, ByteField, ByteEnumField, ShortField, BitField
+from scapy.fields import IntField, ByteField, ByteEnumField, ShortField, BitField  # noqa: E501
 from scapy.layers.dot11 import Packet
 from scapy.layers.l2 import Ether, Dot1Q, bind_layers
 
@@ -124,7 +124,7 @@ class MACControl(Packet):
         """
         add padding to the frame if required.
 
-        note that padding is only added if pay is None/empty. this allows us to add
+        note that padding is only added if pay is None/empty. this allows us to add  # noqa: E501
         any payload after the MACControl* PDU if needed (piggybacking).
         """
 
@@ -153,7 +153,7 @@ class MACControlPause(MACControl):
         """
         get pause time for given link speed in seconds
 
-        :param speed: select link speed to get the pause time for, must be ETHER_SPEED_MBIT_[10,100,1000]
+        :param speed: select link speed to get the pause time for, must be ETHER_SPEED_MBIT_[10,100,1000]  # noqa: E501
         :return: pause time in seconds
         :raises MACControlInvalidSpeedException: on invalid speed selector
         """
@@ -165,8 +165,8 @@ class MACControlPause(MACControl):
                 ETHER_SPEED_MBIT_1000: (0.000000001 * 512 * 2)
             }[speed]
         except KeyError:
-            raise MACControlInvalidSpeedException('Invalid speed selector given. '
-                                                  'Must be one of ETHER_SPEED_MBIT_[10,100,1000]')
+            raise MACControlInvalidSpeedException('Invalid speed selector given. '  # noqa: E501
+                                                  'Must be one of ETHER_SPEED_MBIT_[10,100,1000]')  # noqa: E501
 
 
 class MACControlGate(MACControl):
@@ -246,7 +246,7 @@ MAC_CTRL_CLASSES = {
     MACControl.OP_CODE_REGISTER_REQ: MACControlRegisterReq,
     MACControl.OP_CODE_REGISTER: MACControlRegister,
     MACControl.OP_CODE_REGISTER_ACK: MACControlRegisterAck,
-    MACControl.OP_CODE_CLASS_BASED_FLOW_CONTROL: MACControlClassBasedFlowControl
+    MACControl.OP_CODE_CLASS_BASED_FLOW_CONTROL: MACControlClassBasedFlowControl  # noqa: E501
 }
 
 bind_layers(Ether, MACControl, type=MAC_CONTROL_ETHER_TYPE)

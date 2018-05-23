@@ -29,7 +29,7 @@ from scapy.layers.tls.cert import Cert
 from scapy.layers.tls.basefields import (_tls_version, _TLSVersionField,
                                          _TLSClientVersionField)
 from scapy.layers.tls.extensions import (_ExtensionsLenField, _ExtensionsField,
-                                         _cert_status_type, TLS_Ext_SupportedVersions)
+                                         _cert_status_type, TLS_Ext_SupportedVersions)  # noqa: E501
 from scapy.layers.tls.keyexchange import (_TLSSignature, _TLSServerParamsField,
                                           _TLSSignatureField, ServerRSAParams,
                                           SigAndHashAlgsField, _tls_hash_sig,
@@ -247,14 +247,14 @@ class TLSClientHello(_TLSHandshake):
                    _CompressionMethodsField("comp", [0],
                                             _tls_compression_algs,
                                             itemfmt="B",
-                                            length_from=lambda pkt: pkt.complen),
+                                            length_from=lambda pkt: pkt.complen),  # noqa: E501
 
                    _ExtensionsLenField("extlen", None, length_of="ext"),
                    _ExtensionsField("ext", None,
                                     length_from=lambda pkt: (pkt.msglen -
-                                                             (pkt.sidlen or 0) -
-                                                             (pkt.cipherslen or 0) -
-                                                             (pkt.complen or 0) -
+                                                             (pkt.sidlen or 0) -  # noqa: E501
+                                                             (pkt.cipherslen or 0) -  # noqa: E501
+                                                             (pkt.complen or 0) -  # noqa: E501
                                                              40))]
 
     def post_build(self, p, pay):
@@ -334,7 +334,7 @@ class TLSServerHello(TLSClientHello):
                    _ExtensionsLenField("extlen", None, length_of="ext"),
                    _ExtensionsField("ext", None,
                                     length_from=lambda pkt: (pkt.msglen -
-                                                             (pkt.sidlen or 0) -
+                                                             (pkt.sidlen or 0) -  # noqa: E501
                                                              38))]
     # 40)) ]
 
@@ -482,7 +482,7 @@ class TLSEncryptedExtensions(_TLSHandshake):
 #   Certificate                                                               #
 ###############################################################################
 
-# XXX It might be appropriate to rewrite this mess with basic 3-byte FieldLenField.
+# XXX It might be appropriate to rewrite this mess with basic 3-byte FieldLenField.  # noqa: E501
 
 class _ASN1CertLenField(FieldLenField):
     """
@@ -506,7 +506,7 @@ class _ASN1CertLenField(FieldLenField):
         return s + struct.pack(self.fmt, self.i2m(pkt, val))[1:4]
 
     def getfield(self, pkt, s):
-        return s[3:], self.m2i(pkt, struct.unpack(self.fmt, b"\x00" + s[:3])[0])
+        return s[3:], self.m2i(pkt, struct.unpack(self.fmt, b"\x00" + s[:3])[0])  # noqa: E501
 
 
 class _ASN1CertListField(StrLenField):
@@ -658,7 +658,7 @@ class TLS13Certificate(_TLSHandshake):
                                length_from=lambda pkt: pkt.cert_req_ctxt_len),
                    _ASN1CertLenField("certslen", None, length_of="certs"),
                    _ASN1CertAndExtListField("certs", [], _ASN1CertAndExt,
-                                            length_from=lambda pkt: pkt.certslen)]
+                                            length_from=lambda pkt: pkt.certslen)]  # noqa: E501
 
     def post_dissection_tls_session_update(self, msg_str):
         self.tls_session_update(msg_str)
@@ -684,7 +684,7 @@ class TLSServerKeyExchange(_TLSHandshake):
                    _TLSServerParamsField("params", None,
                                          length_from=lambda pkt: pkt.msglen),
                    _TLSSignatureField("sig", None,
-                                      length_from=lambda pkt: pkt.msglen - len(pkt.params))]
+                                      length_from=lambda pkt: pkt.msglen - len(pkt.params))]  # noqa: E501
 
     def build(self, *args, **kargs):
         """
@@ -762,7 +762,7 @@ class TLSServerKeyExchange(_TLSHandshake):
             sig_test = self.sig._verify_sig(m, s.server_certs[0])
             if not sig_test:
                 pkt_info = pkt.firstlayer().summary()
-                log_runtime.info("TLS: invalid ServerKeyExchange signature [%s]", pkt_info)
+                log_runtime.info("TLS: invalid ServerKeyExchange signature [%s]", pkt_info)  # noqa: E501
 
 
 ###############################################################################
@@ -833,12 +833,12 @@ class TLSCertificateRequest(_TLSHandshake):
                    SigAndHashAlgsLenField("sig_algs_len", None,
                                           length_of="sig_algs"),
                    SigAndHashAlgsField("sig_algs", [0x0403, 0x0401, 0x0201],
-                                       EnumField("hash_sig", None, _tls_hash_sig),
-                                       length_from=lambda pkt: pkt.sig_algs_len),
+                                       EnumField("hash_sig", None, _tls_hash_sig),  # noqa: E501
+                                       length_from=lambda pkt: pkt.sig_algs_len),  # noqa: E501
                    FieldLenField("certauthlen", None, fmt="!H",
                                  length_of="certauth"),
                    _CertAuthoritiesField("certauth", [],
-                                         length_from=lambda pkt: pkt.certauthlen)]
+                                         length_from=lambda pkt: pkt.certauthlen)]  # noqa: E501
 
 
 ###############################################################################
@@ -872,7 +872,7 @@ class TLSCertificateVerify(_TLSHandshake):
                     context_string = "TLS 1.3, client CertificateVerify"
                 elif s.connection_end == "server":
                     context_string = "TLS 1.3, server CertificateVerify"
-                m = b"\x20" * 64 + context_string + b"\x00" + s.wcs.hash.digest(m)
+                m = b"\x20" * 64 + context_string + b"\x00" + s.wcs.hash.digest(m)  # noqa: E501
             self.sig = _TLSSignature(tls_session=s)
             if s.connection_end == "client":
                 self.sig._update_sig(m, s.client_key)
@@ -896,14 +896,14 @@ class TLSCertificateVerify(_TLSHandshake):
                 sig_test = self.sig._verify_sig(m, s.client_certs[0])
                 if not sig_test:
                     pkt_info = pkt.firstlayer().summary()
-                    log_runtime.info("TLS: invalid CertificateVerify signature [%s]", pkt_info)
+                    log_runtime.info("TLS: invalid CertificateVerify signature [%s]", pkt_info)  # noqa: E501
         elif s.connection_end == "client":
             # should be TLS 1.3 only
             if s.server_certs and len(s.server_certs) > 0:
                 sig_test = self.sig._verify_sig(m, s.server_certs[0])
                 if not sig_test:
                     pkt_info = pkt.firstlayer().summary()
-                    log_runtime.info("TLS: invalid CertificateVerify signature [%s]", pkt_info)
+                    log_runtime.info("TLS: invalid CertificateVerify signature [%s]", pkt_info)  # noqa: E501
 
 
 ###############################################################################
@@ -1009,13 +1009,13 @@ class TLSFinished(_TLSHandshake):
                                                             handshake_msg, ms)
                 if self.vdata != verify_data:
                     pkt_info = pkt.firstlayer().summary()
-                    log_runtime.info("TLS: invalid Finished received [%s]", pkt_info)
+                    log_runtime.info("TLS: invalid Finished received [%s]", pkt_info)  # noqa: E501
             elif s.tls_version >= 0x0304:
                 con_end = s.connection_end
                 verify_data = s.compute_tls13_verify_data(con_end, "read")
                 if self.vdata != verify_data:
                     pkt_info = pkt.firstlayer().summary()
-                    log_runtime.info("TLS: invalid Finished received [%s]", pkt_info)
+                    log_runtime.info("TLS: invalid Finished received [%s]", pkt_info)  # noqa: E501
 
     def post_build_tls_session_update(self, msg_str):
         self.tls_session_update(msg_str)
@@ -1080,7 +1080,7 @@ class URLAndOptionalHash(Packet):
                                length_from=lambda pkt: pkt.urllen),
                    FieldLenField("hash_present", None,
                                  fmt="B", length_of="hash",
-                                 adjust=lambda pkt, x: int(math.ceil(x / 20.))),
+                                 adjust=lambda pkt, x: int(math.ceil(x / 20.))),  # noqa: E501
                    StrLenField("hash", "",
                                length_from=lambda pkt: 20 * pkt.hash_present)]
 
@@ -1119,7 +1119,7 @@ class ThreeBytesLenField(FieldLenField):
         return s + struct.pack(self.fmt, self.i2m(pkt, val))[1:4]
 
     def getfield(self, pkt, s):
-        return s[3:], self.m2i(pkt, struct.unpack(self.fmt, b"\x00" + s[:3])[0])
+        return s[3:], self.m2i(pkt, struct.unpack(self.fmt, b"\x00" + s[:3])[0])  # noqa: E501
 
 
 _cert_status_cls = {1: OCSP_Response}
@@ -1237,7 +1237,7 @@ class TLS13NewSessionTicket(_TLSHandshake):
                    _ExtensionsLenField("extlen", None, length_of="ext"),
                    _ExtensionsField("ext", None,
                                     length_from=lambda pkt: (pkt.msglen -
-                                                             (pkt.ticketlen or 0) -
+                                                             (pkt.ticketlen or 0) -  # noqa: E501
                                                              12))]
 
     def post_dissection_tls_session_update(self, msg_str):

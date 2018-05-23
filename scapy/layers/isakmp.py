@@ -55,8 +55,8 @@ ISAKMPAttributeTypes = {"Encryption": (1, {"DES-CBC": 1,
                                                "XAUTHRespRSA": 65006,
                                                "XAUTHInitRSAEncryption": 65007,
                                                "XAUTHRespRSAEncryption": 65008,
-                                               "XAUTHInitRSARevisedEncryption": 65009,
-                                               "XAUTHRespRSARevisedEncryptio": 65010, }, 0),
+                                               "XAUTHInitRSARevisedEncryption": 65009,  # noqa: E501
+                                               "XAUTHRespRSARevisedEncryptio": 65010, }, 0),  # noqa: E501
                         "GroupDesc": (4, {"768MODPgr": 1,
                                           "1024MODPgr": 2,
                                           "EC2Ngr155": 3,
@@ -112,7 +112,7 @@ class ISAKMPTransformSetField(StrLenField):
         s = b""
         if (val & ~0xffff):
             if not tlv:
-                warning("%r should not be TLV but is too big => using TLV encoding" % typ)
+                warning("%r should not be TLV but is too big => using TLV encoding" % typ)  # noqa: E501
             n = 0
             while val:
                 s = chb(val & 0xff) + s
@@ -150,9 +150,9 @@ class ISAKMPTransformSetField(StrLenField):
                 # warning if we're given an TLV on a basic attribute.
                 value_len, = struct.unpack("!H", m[2:4])
                 if value_len + 4 > len(m):
-                    warning("Bad length for ISAKMP tranform type=%#6x" % trans_type)
+                    warning("Bad length for ISAKMP tranform type=%#6x" % trans_type)  # noqa: E501
                 value = m[4:4 + value_len]
-                value = reduce(lambda x, y: (x << 8) | y, struct.unpack("!%s" % ("B" * len(value),), value), 0)
+                value = reduce(lambda x, y: (x << 8) | y, struct.unpack("!%s" % ("B" * len(value),), value), 0)  # noqa: E501
             else:
                 trans_type &= 0x7fff
                 value_len = 0
@@ -164,7 +164,7 @@ class ISAKMPTransformSetField(StrLenField):
         return lst
 
 
-ISAKMP_payload_type = ["None", "SA", "Proposal", "Transform", "KE", "ID", "CERT", "CR", "Hash",
+ISAKMP_payload_type = ["None", "SA", "Proposal", "Transform", "KE", "ID", "CERT", "CR", "Hash",  # noqa: E501
                        "SIG", "Nonce", "Notification", "Delete", "VendorID"]
 
 ISAKMP_exchange_type = ["None", "base", "identity prot.",
@@ -191,7 +191,7 @@ class ISAKMP(ISAKMP_class):  # rfc2408
         ByteEnumField("next_payload", 0, ISAKMP_payload_type),
         XByteField("version", 0x10),
         ByteEnumField("exch_type", 0, ISAKMP_exchange_type),
-        FlagsField("flags", 0, 8, ["encryption", "commit", "auth_only", "res3", "res4", "res5", "res6", "res7"]),  # XXX use a Flag field
+        FlagsField("flags", 0, 8, ["encryption", "commit", "auth_only", "res3", "res4", "res5", "res6", "res7"]),  # XXX use a Flag field  # noqa: E501
         IntField("id", 0),
         IntField("length", None)
     ]
@@ -224,7 +224,7 @@ class ISAKMP_payload_Transform(ISAKMP_class):
         ByteField("num", None),
         ByteEnumField("id", 1, {1: "KEY_IKE"}),
         ShortField("res2", 0),
-        ISAKMPTransformSetField("transforms", None, length_from=lambda x: x.length - 8)
+        ISAKMPTransformSetField("transforms", None, length_from=lambda x: x.length - 8)  # noqa: E501
         #        XIntField("enc",0x80010005L),
         #        XIntField("hash",0x80020002L),
         #        XIntField("auth",0x80030001L),
@@ -248,13 +248,13 @@ class ISAKMP_payload_Proposal(ISAKMP_class):
     fields_desc = [
         ByteEnumField("next_payload", None, ISAKMP_payload_type),
         ByteField("res", 0),
-        FieldLenField("length", None, "trans", "H", adjust=lambda pkt, x:x + 8),
+        FieldLenField("length", None, "trans", "H", adjust=lambda pkt, x:x + 8),  # noqa: E501
         ByteField("proposal", 1),
         ByteEnumField("proto", 1, {1: "ISAKMP"}),
         FieldLenField("SPIsize", None, "SPI", "B"),
         ByteField("trans_nb", None),
         StrLenField("SPI", "", length_from=lambda x: x.SPIsize),
-        PacketLenField("trans", conf.raw_layer(), ISAKMP_payload_Transform, length_from=lambda x: x.length - 8),
+        PacketLenField("trans", conf.raw_layer(), ISAKMP_payload_Transform, length_from=lambda x: x.length - 8),  # noqa: E501
     ]
 
 
@@ -274,7 +274,7 @@ class ISAKMP_payload_VendorID(ISAKMP_class):
     fields_desc = [
         ByteEnumField("next_payload", None, ISAKMP_payload_type),
         ByteField("res", 0),
-        FieldLenField("length", None, "vendorID", "H", adjust=lambda pkt, x:x + 4),
+        FieldLenField("length", None, "vendorID", "H", adjust=lambda pkt, x:x + 4),  # noqa: E501
         StrLenField("vendorID", "", length_from=lambda x:x.length - 4),
     ]
 
@@ -285,10 +285,10 @@ class ISAKMP_payload_SA(ISAKMP_class):
     fields_desc = [
         ByteEnumField("next_payload", None, ISAKMP_payload_type),
         ByteField("res", 0),
-        FieldLenField("length", None, "prop", "H", adjust=lambda pkt, x:x + 12),
+        FieldLenField("length", None, "prop", "H", adjust=lambda pkt, x:x + 12),  # noqa: E501
         IntEnumField("DOI", 1, {1: "IPSEC"}),
         IntEnumField("situation", 1, {1: "identity"}),
-        PacketLenField("prop", conf.raw_layer(), ISAKMP_payload_Proposal, length_from=lambda x: x.length - 12),
+        PacketLenField("prop", conf.raw_layer(), ISAKMP_payload_Proposal, length_from=lambda x: x.length - 12),  # noqa: E501
     ]
 
 
@@ -357,4 +357,4 @@ bind_layers(UDP, ISAKMP, dport=500, sport=500)
 
 def ikescan(ip):
     return sr(IP(dst=ip) / UDP() / ISAKMP(init_cookie=RandString(8),
-                                          exch_type=2) / ISAKMP_payload_SA(prop=ISAKMP_payload_Proposal()))
+                                          exch_type=2) / ISAKMP_payload_SA(prop=ISAKMP_payload_Proposal()))  # noqa: E501

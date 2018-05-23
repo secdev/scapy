@@ -72,7 +72,7 @@ def der2pem(der_string, obj="UNKNOWN"):
     # Encode a byte string in PEM format. Header advertizes <obj> type.
     pem_string = ("-----BEGIN %s-----\n" % obj).encode()
     base64_string = base64.b64encode(der_string)
-    chunks = [base64_string[i:i + 64] for i in range(0, len(base64_string), 64)]
+    chunks = [base64_string[i:i + 64] for i in range(0, len(base64_string), 64)]  # noqa: E501
     pem_string += b'\n'.join(chunks)
     pem_string += ("\n-----END %s-----\n" % obj).encode()
     return pem_string
@@ -321,7 +321,7 @@ class PubKeyECDSA(PubKey):
     def import_from_der(self, pubkey):
         # No lib support for explicit curves nor compressed points.
         self.pubkey = serialization.load_der_public_key(pubkey,
-                                                        backend=default_backend())
+                                                        backend=default_backend())  # noqa: E501
 
     def encrypt(self, msg, h="sha256", **kwargs):
         # cryptography lib does not support ECDSA encryption
@@ -525,7 +525,7 @@ class PrivKeyECDSA(PrivKey):
     @crypto_validator
     def import_from_asn1pkt(self, privkey):
         self.key = serialization.load_der_private_key(raw(privkey), None,
-                                                      backend=default_backend())
+                                                      backend=default_backend())  # noqa: E501
         self.pubkey = self.key.public_key()
 
     @crypto_validator
@@ -695,7 +695,7 @@ class Cert(six.with_metaclass(_CertMaker, object)):
                 else:
                     now = time.strptime(now, '%b %d %H:%M:%S %Y %Z')
             except:
-                warning("Bad time string provided, will use localtime() instead.")
+                warning("Bad time string provided, will use localtime() instead.")  # noqa: E501
                 now = time.localtime()
 
         now = time.mktime(now)
@@ -746,7 +746,7 @@ class Cert(six.with_metaclass(_CertMaker, object)):
         print("Validity: %s to %s" % (self.notBefore_str, self.notAfter_str))
 
     def __repr__(self):
-        return "[X.509 Cert. Subject:%s, Issuer:%s]" % (self.subject_str, self.issuer_str)
+        return "[X.509 Cert. Subject:%s, Issuer:%s]" % (self.subject_str, self.issuer_str)  # noqa: E501
 
 
 ################################
@@ -960,7 +960,7 @@ class Chain(list):
         try:
             anchors = []
             for cafile in os.listdir(capath):
-                anchors.append(Cert(open(os.path.join(capath, cafile), "rb").read()))
+                anchors.append(Cert(open(os.path.join(capath, cafile), "rb").read()))  # noqa: E501
         except:
             raise Exception("capath provided is not a valid cert path")
 

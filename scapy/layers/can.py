@@ -20,7 +20,7 @@ from scapy.packet import Packet, bind_layers, RawVal
 from scapy.layers.l2 import CookedLinux
 
 
-# Mimics the Wireshark CAN dissector parameter 'Byte-swap the CAN ID/flags field'
+# Mimics the Wireshark CAN dissector parameter 'Byte-swap the CAN ID/flags field'  # noqa: E501
 #   set to True when working with PF_CAN sockets
 conf.contribs['CAN'] = {'swap-bytes': False}
 
@@ -31,7 +31,7 @@ class CAN(Packet):
 
     """
     fields_desc = [
-        FlagsField('flags', 0, 3, ['error', 'remote_transmission_request', 'extended']),
+        FlagsField('flags', 0, 3, ['error', 'remote_transmission_request', 'extended']),  # noqa: E501
         XBitField('identifier', 0, 29),
         FieldLenField('length', None, length_of='data', fmt='B'),
         ThreeBytesField('reserved', 0),
@@ -49,7 +49,7 @@ class CAN(Packet):
         :return: packet str with the first four bytes swapped
         """
         len_partial = len(pkt) - 4  # len of the packet, CAN ID excluded
-        return struct.pack('<I{}s'.format(len_partial), *struct.unpack('>I{}s'.format(len_partial), pkt))
+        return struct.pack('<I{}s'.format(len_partial), *struct.unpack('>I{}s'.format(len_partial), pkt))  # noqa: E501
 
     def pre_dissect(self, s):
         """ Implements the swap-bytes functionality when dissecting """
@@ -81,7 +81,7 @@ class CAN(Packet):
                 sval = raw(val)
                 p += sval
                 if field_pos_list is not None:
-                    field_pos_list.append((f.name, sval.encode('string_escape'), len(p), len(sval)))
+                    field_pos_list.append((f.name, sval.encode('string_escape'), len(p), len(sval)))  # noqa: E501
             else:
                 p = f.addfield(self, p, val)
         if conf.contribs['CAN']['swap-bytes']:

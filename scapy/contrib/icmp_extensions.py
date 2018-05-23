@@ -176,7 +176,7 @@ class ICMPExtensionInterfaceInformation(ICMPExtensionObject):
         if self.has_mtu and self.mtu is None:
             warning('has_mtu set but mtu is not set.')
 
-        return ICMPExtensionObject.self_build(self, field_pos_list=field_pos_list)
+        return ICMPExtensionObject.self_build(self, field_pos_list=field_pos_list)  # noqa: E501
 
 
 # Add the post_dissection() method to the existing ICMPv4 and
@@ -185,8 +185,8 @@ scapy.layers.inet.ICMPerror.post_dissection = ICMPExtension_post_dissection
 scapy.layers.inet.TCPerror.post_dissection = ICMPExtension_post_dissection
 scapy.layers.inet.UDPerror.post_dissection = ICMPExtension_post_dissection
 
-scapy.layers.inet6.ICMPv6DestUnreach.post_dissection = ICMPExtension_post_dissection
-scapy.layers.inet6.ICMPv6TimeExceeded.post_dissection = ICMPExtension_post_dissection
+scapy.layers.inet6.ICMPv6DestUnreach.post_dissection = ICMPExtension_post_dissection  # noqa: E501
+scapy.layers.inet6.ICMPv6TimeExceeded.post_dissection = ICMPExtension_post_dissection  # noqa: E501
 
 
 # ICMPExtensionHeader looks at fields from the upper layer object when
