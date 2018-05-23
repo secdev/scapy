@@ -15,8 +15,8 @@ import itertools
 import copy
 import subprocess
 
-from scapy.fields import StrField, ConditionalField, Emph, PacketListField, BitField, \
-    MultiEnumField, EnumField, FlagsField
+from scapy.fields import StrField, ConditionalField, Emph, PacketListField, \
+    BitField, MultiEnumField, EnumField, FlagsField
 from scapy.config import conf
 from scapy.consts import WINDOWS
 from scapy.compat import *
@@ -81,12 +81,12 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
     @classmethod
     def upper_bonds(self):
         for fval, upper in self.payload_guess:
-            print("%-20s  %s" % (upper.__name__, ", ".join("%-12s" % ("%s=%r" % i) for i in six.iteritems(fval))))
+            print("%-20s  %s" % (upper.__name__, ", ".join("%-12s" % ("%s=%r" % i) for i in six.iteritems(fval))))  # noqa: E501
 
     @classmethod
     def lower_bonds(self):
         for lower, fval in six.iteritems(self._overload_fields):
-            print("%-20s  %s" % (lower.__name__, ", ".join("%-12s" % ("%s=%r" % i) for i in six.iteritems(fval))))
+            print("%-20s  %s" % (lower.__name__, ", ".join("%-12s" % ("%s=%r" % i) for i in six.iteritems(fval))))  # noqa: E501
 
     def _unpickle(self, dlist):
         """Used to unpack pickling"""
@@ -113,7 +113,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         """Used by copy.deepcopy"""
         return self.copy()
 
-    def __init__(self, _pkt=b"", post_transform=None, _internal=0, _underlayer=None, **fields):
+    def __init__(self, _pkt=b"", post_transform=None, _internal=0, _underlayer=None, **fields):  # noqa: E501
         self.time = time.time()
         self.sent_time = None
         self.name = (self.__class__.__name__
@@ -191,7 +191,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             elif isinstance(payload, bytes):
                 self.payload = conf.raw_layer(load=payload)
             else:
-                raise TypeError("payload must be either 'Packet' or 'bytes', not [%s]" % repr(payload))
+                raise TypeError("payload must be either 'Packet' or 'bytes', not [%s]" % repr(payload))  # noqa: E501
 
     def remove_payload(self):
         self.payload.remove_underlayer(self)
@@ -421,7 +421,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
                 sval = raw(val)
                 p += sval
                 if field_pos_list is not None:
-                    field_pos_list.append((f.name, sval.encode("string_escape"), len(p), len(sval)))
+                    field_pos_list.append((f.name, sval.encode("string_escape"), len(p), len(sval)))  # noqa: E501
             else:
                 p = f.addfield(self, p, val)
         return p
@@ -548,7 +548,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             if WINDOWS and conf.prog.pdfreader is None:
                 os.startfile(fname)
             else:
-                with ContextManagerSubprocess("pdfdump()", conf.prog.pdfreader):
+                with ContextManagerSubprocess("pdfdump()", conf.prog.pdfreader):  # noqa: E501
                     subprocess.Popen([conf.prog.pdfreader, fname])
         else:
             canvas.writePDFfile(filename)
@@ -583,10 +583,10 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             return " ".join("%02x" % orb(c) for c in x)
 
         def make_dump_txt(x, y, txt):
-            return pyx.text.text(XDSTART + x * XMUL, (YDUMP - y) * YMUL, r"\tt{%s}" % hexstr(txt), [pyx.text.size.Large])
+            return pyx.text.text(XDSTART + x * XMUL, (YDUMP - y) * YMUL, r"\tt{%s}" % hexstr(txt), [pyx.text.size.Large])  # noqa: E501
 
         def make_box(o):
-            return pyx.box.rect(o.left(), o.bottom(), o.width(), o.height(), relcenter=(0.5, 0.5))
+            return pyx.box.rect(o.left(), o.bottom(), o.width(), o.height(), relcenter=(0.5, 0.5))  # noqa: E501
 
         def make_frame(lst):
             if len(lst) == 1:
@@ -601,12 +601,12 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
                 if len(lst) == 2 and fb.left() > lb.right():
                     return pyx.path.path(pyx.path.moveto(fb.right(), fb.top()),
                                          pyx.path.lineto(fb.left(), fb.top()),
-                                         pyx.path.lineto(fb.left(), fb.bottom()),
-                                         pyx.path.lineto(fb.right(), fb.bottom()),
+                                         pyx.path.lineto(fb.left(), fb.bottom()),  # noqa: E501
+                                         pyx.path.lineto(fb.right(), fb.bottom()),  # noqa: E501
                                          pyx.path.moveto(lb.left(), lb.top()),
                                          pyx.path.lineto(lb.right(), lb.top()),
-                                         pyx.path.lineto(lb.right(), lb.bottom()),
-                                         pyx.path.lineto(lb.left(), lb.bottom()))
+                                         pyx.path.lineto(lb.right(), lb.bottom()),  # noqa: E501
+                                         pyx.path.lineto(lb.left(), lb.bottom()))  # noqa: E501
                 else:
                     # XXX
                     gb = lst[1].bbox()
@@ -617,10 +617,10 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
                         kb.enlarge(pyx.unit.u_pt)
                     return pyx.path.path(pyx.path.moveto(fb.left(), fb.top()),
                                          pyx.path.lineto(fb.right(), fb.top()),
-                                         pyx.path.lineto(fb.right(), kb.bottom()),
-                                         pyx.path.lineto(lb.right(), kb.bottom()),
-                                         pyx.path.lineto(lb.right(), lb.bottom()),
-                                         pyx.path.lineto(lb.left(), lb.bottom()),
+                                         pyx.path.lineto(fb.right(), kb.bottom()),  # noqa: E501
+                                         pyx.path.lineto(lb.right(), kb.bottom()),  # noqa: E501
+                                         pyx.path.lineto(lb.right(), lb.bottom()),  # noqa: E501
+                                         pyx.path.lineto(lb.left(), lb.bottom()),  # noqa: E501
                                          pyx.path.lineto(lb.left(), gb.top()),
                                          pyx.path.lineto(fb.left(), gb.top()),
                                          pyx.path.closepath(),)
@@ -640,7 +640,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
                 col = pyx.color.rgb.red
             if bkcol is None:
                 col = pyx.color.rgb.white
-            c.stroke(make_frame(tlist), [col, pyx.deco.filled([bkcol]), pyx.style.linewidth.Thick])
+            c.stroke(make_frame(tlist), [col, pyx.deco.filled([bkcol]), pyx.style.linewidth.Thick])  # noqa: E501
             for txt in tlist:
                 c.insert(txt)
             return c, tlist[-1].bbox(), shift, y
@@ -650,24 +650,24 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             bkcol = next(backcolor)
             proto, fields = t.pop()
             y += 0.5
-            pt = pyx.text.text(XSTART, (YTXT - y) * YMUL, r"\font\cmssfont=cmss10\cmssfont{%s}" % proto.name, [pyx.text.size.Large])
+            pt = pyx.text.text(XSTART, (YTXT - y) * YMUL, r"\font\cmssfont=cmss10\cmssfont{%s}" % proto.name, [pyx.text.size.Large])  # noqa: E501
             y += 1
             ptbb = pt.bbox()
             ptbb.enlarge(pyx.unit.u_pt * 2)
-            canvas.stroke(ptbb.path(), [pyx.color.rgb.black, pyx.deco.filled([bkcol])])
+            canvas.stroke(ptbb.path(), [pyx.color.rgb.black, pyx.deco.filled([bkcol])])  # noqa: E501
             canvas.insert(pt)
             for fname, fval, fdump in fields:
                 col = next(forecolor)
-                ft = pyx.text.text(XSTART, (YTXT - y) * YMUL, r"\font\cmssfont=cmss10\cmssfont{%s}" % tex_escape(fname.name))
+                ft = pyx.text.text(XSTART, (YTXT - y) * YMUL, r"\font\cmssfont=cmss10\cmssfont{%s}" % tex_escape(fname.name))  # noqa: E501
                 if isinstance(fval, str):
                     if len(fval) > 18:
                         fval = fval[:18] + "[...]"
                 else:
                     fval = ""
-                vt = pyx.text.text(XSTART + 3, (YTXT - y) * YMUL, r"\font\cmssfont=cmss10\cmssfont{%s}" % tex_escape(fval))
+                vt = pyx.text.text(XSTART + 3, (YTXT - y) * YMUL, r"\font\cmssfont=cmss10\cmssfont{%s}" % tex_escape(fval))  # noqa: E501
                 y += 1.0
                 if fdump:
-                    dt, target, last_shift, last_y = make_dump(fdump, last_shift, last_y, col, bkcol)
+                    dt, target, last_shift, last_y = make_dump(fdump, last_shift, last_y, col, bkcol)  # noqa: E501
 
                     dtb = dt.bbox()
                     dtb = target
@@ -677,13 +677,13 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
                     dtb.enlarge(pyx.unit.u_pt)
                     try:
                         if yd < 0:
-                            cnx = pyx.connector.curve(bxvt, bxdt, absangle1=0, absangle2=-90)
+                            cnx = pyx.connector.curve(bxvt, bxdt, absangle1=0, absangle2=-90)  # noqa: E501
                         else:
-                            cnx = pyx.connector.curve(bxvt, bxdt, absangle1=0, absangle2=90)
+                            cnx = pyx.connector.curve(bxvt, bxdt, absangle1=0, absangle2=90)  # noqa: E501
                     except:
                         pass
                     else:
-                        canvas.stroke(cnx, [pyx.style.linewidth.thin, pyx.deco.earrow.small, col])
+                        canvas.stroke(cnx, [pyx.style.linewidth.thin, pyx.deco.earrow.small, col])  # noqa: E501
 
                     canvas.insert(dt)
 
@@ -714,7 +714,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         s = raw(s)
         _raw = s
         self.raw_packet_cache_fields = {}
-        # Temporary value, used by getfield() in some advanced cases (eg: dot11)
+        # Temporary value, used by getfield() in some advanced cases (eg: dot11)  # noqa: E501
         _lr = len(_raw)
         self._tmp_dissect_pos = 0  # How many bytes have already been dissected
         for f in self.fields_desc:
@@ -750,7 +750,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
                     if issubtype(cls, Packet):
                         log_runtime.error("%s dissector failed" % cls.__name__)
                     else:
-                        log_runtime.error("%s.guess_payload_class() returned [%s]" % (self.__class__.__name__, repr(cls)))
+                        log_runtime.error("%s.guess_payload_class() returned [%s]" % (self.__class__.__name__, repr(cls)))  # noqa: E501
                     if cls is not None:
                         raise
                 p = conf.raw_layer(s, _internal=1, _underlayer=self)
@@ -795,7 +795,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
 
     def hide_defaults(self):
         """Removes fields' values that are the same as default values."""
-        for k, v in list(self.fields.items()):  # use list(): self.fields is modified in the loop
+        for k, v in list(self.fields.items()):  # use list(): self.fields is modified in the loop  # noqa: E501
             v = self.fields[k]
             if k in self.default_fields:
                 if self.default_fields[k] == v:
@@ -851,15 +851,15 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             todo = []
             done = self.fields
         else:
-            todo = [k for (k, v) in itertools.chain(six.iteritems(self.default_fields),
-                                                    six.iteritems(self.overloaded_fields))
+            todo = [k for (k, v) in itertools.chain(six.iteritems(self.default_fields),  # noqa: E501
+                                                    six.iteritems(self.overloaded_fields))  # noqa: E501
                     if isinstance(v, VolatileValue)] + list(self.fields.keys())
             done = {}
         return loop(todo, done)
 
     def __iterlen__(self):
         """Predict the total length of the iterator"""
-        fields = [key for (key, val) in itertools.chain(six.iteritems(self.default_fields),
+        fields = [key for (key, val) in itertools.chain(six.iteritems(self.default_fields),  # noqa: E501
                   six.iteritems(self.overloaded_fields))
                   if isinstance(val, VolatileValue)] + list(self.fields.keys())
         length = 1
@@ -867,14 +867,14 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             val = self.getfieldval(field)
             if hasattr(val, "__iterlen__"):
                 length *= val.__iterlen__()
-            elif isinstance(val, tuple) and len(val) == 2 and all(hasattr(z, "__int__") for z in val):
+            elif isinstance(val, tuple) and len(val) == 2 and all(hasattr(z, "__int__") for z in val):  # noqa: E501
                 length *= (val[1] - val[0])
             elif isinstance(val, list):
                 len2 = 0
                 for x in val:
                     if hasattr(x, "__iterlen__"):
                         len2 += x.__iterlen__()
-                    elif isinstance(x, tuple) and len(x) == 2 and all(hasattr(z, "__int__") for z in x):
+                    elif isinstance(x, tuple) and len(x) == 2 and all(hasattr(z, "__int__") for z in x):  # noqa: E501
                         len2 += (x[1] - x[0])
                     elif isinstance(x, list):
                         len2 += len(x)
@@ -917,7 +917,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         return not self.__eq__(other)
 
     def hashret(self):
-        """DEV: returns a string that has the same value for a request and its answer."""
+        """DEV: returns a string that has the same value for a request and its answer."""  # noqa: E501
         return self.payload.hashret()
 
     def answers(self, other):
@@ -927,7 +927,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         return 0
 
     def haslayer(self, cls):
-        """true if self has a layer that is an instance of cls. Superseded by "cls in self" syntax."""
+        """true if self has a layer that is an instance of cls. Superseded by "cls in self" syntax."""  # noqa: E501
         if self.__class__ == cls or cls in [self.__class__.__name__,
                                             self._name]:
             return True
@@ -1019,7 +1019,7 @@ values.
         self[cls].underlayer.payload = val
 
     def __contains__(self, cls):
-        """"cls in self" returns true if self has a layer which is an instance of cls."""
+        """"cls in self" returns true if self has a layer which is an instance of cls."""  # noqa: E501
         return self.haslayer(cls)
 
     def route(self):
@@ -1032,7 +1032,7 @@ values.
         """Deprecated. Use show() method."""
         self.show(*args, **kargs)
 
-    def _show_or_dump(self, dump=False, indent=3, lvl="", label_lvl="", first_call=True):
+    def _show_or_dump(self, dump=False, indent=3, lvl="", label_lvl="", first_call=True):  # noqa: E501
         """
         Internal method that shows or dumps a hierarchical view of a packet.
         Called by show.
@@ -1064,24 +1064,24 @@ values.
                 ncol = ct.field_name
                 vcol = ct.field_value
             fvalue = self.getfieldval(f.name)
-            if isinstance(fvalue, Packet) or (f.islist and f.holds_packets and isinstance(fvalue, list)):
+            if isinstance(fvalue, Packet) or (f.islist and f.holds_packets and isinstance(fvalue, list)):  # noqa: E501
                 s += "%s  \\%-10s\\\n" % (label_lvl + lvl, ncol(f.name))
                 fvalue_gen = SetGen(fvalue, _iterpacket=0)
                 for fvalue in fvalue_gen:
-                    s += fvalue._show_or_dump(dump=dump, indent=indent, label_lvl=label_lvl + lvl + "   |", first_call=False)
+                    s += fvalue._show_or_dump(dump=dump, indent=indent, label_lvl=label_lvl + lvl + "   |", first_call=False)  # noqa: E501
             else:
                 begn = "%s  %-10s%s " % (label_lvl + lvl,
                                          ncol(f.name),
                                          ct.punct("="),)
                 reprval = f.i2repr(self, fvalue)
                 if isinstance(reprval, str):
-                    reprval = reprval.replace("\n", "\n" + " " * (len(label_lvl)
+                    reprval = reprval.replace("\n", "\n" + " " * (len(label_lvl)  # noqa: E501
                                                                   + len(lvl)
                                                                   + len(f.name)
                                                                   + 4))
                 s += "%s%s\n" % (begn, vcol(reprval))
         if self.payload:
-            s += self.payload._show_or_dump(dump=dump, indent=indent, lvl=lvl + (" " * indent * self.show_indent), label_lvl=label_lvl, first_call=False)
+            s += self.payload._show_or_dump(dump=dump, indent=indent, lvl=lvl + (" " * indent * self.show_indent), label_lvl=label_lvl, first_call=False)  # noqa: E501
 
         if first_call and not dump:
             print(s)
@@ -1150,7 +1150,7 @@ A side effect is that, to obtain "{" and "}" characters, you must use
             cond = fmt[i + 1:i + j + 1]
             k = cond.find(":")
             if k < 0:
-                raise Scapy_Exception("Bad condition in format string: [%s] (read sprintf doc!)" % cond)
+                raise Scapy_Exception("Bad condition in format string: [%s] (read sprintf doc!)" % cond)  # noqa: E501
             cond, format = cond[:k], cond[k + 1:]
             res = False
             if cond[0] == "!":
@@ -1194,13 +1194,13 @@ A side effect is that, to obtain "{" and "}" characters, you must use
                     num = int(num)
                 fmt = fmt[i + 1:]
             except:
-                raise Scapy_Exception("Bad format string [%%%s%s]" % (fmt[:25], fmt[25:] and "..."))
+                raise Scapy_Exception("Bad format string [%%%s%s]" % (fmt[:25], fmt[25:] and "..."))  # noqa: E501
             else:
                 if fld == "time":
-                    val = time.strftime("%H:%M:%S.%%06i", time.localtime(self.time)) % int((self.time - int(self.time)) * 1000000)
+                    val = time.strftime("%H:%M:%S.%%06i", time.localtime(self.time)) % int((self.time - int(self.time)) * 1000000)  # noqa: E501
                 elif cls == self.__class__.__name__ and hasattr(self, fld):
                     if num > 1:
-                        val = self.payload.sprintf("%%%s,%s:%s.%s%%" % (f, cls, num - 1, fld), relax)
+                        val = self.payload.sprintf("%%%s,%s:%s.%s%%" % (f, cls, num - 1, fld), relax)  # noqa: E501
                         f = "s"
                     elif f[-1] == "r":  # Raw field value
                         val = getattr(self, fld)
@@ -1221,8 +1221,8 @@ A side effect is that, to obtain "{" and "}" characters, you must use
 
     def mysummary(self):
         """DEV: can be overloaded to return a string that summarizes the layer.
-           Only one mysummary() is used in a whole packet summary: the one of the upper layer,
-           except if a mysummary() also returns (as a couple) a list of layers whose
+           Only one mysummary() is used in a whole packet summary: the one of the upper layer,  # noqa: E501
+           except if a mysummary() also returns (as a couple) a list of layers whose  # noqa: E501
            mysummary() must be called if they are present."""
         return ""
 
@@ -1242,7 +1242,7 @@ A side effect is that, to obtain "{" and "}" characters, you must use
             impf = []
             for f in self.fields_desc:
                 if f in conf.emph:
-                    impf.append("%s=%s" % (f.name, f.i2repr(self, self.getfieldval(f.name))))
+                    impf.append("%s=%s" % (f.name, f.i2repr(self, self.getfieldval(f.name))))  # noqa: E501
             ret = "%s [%s]" % (ret, " ".join(impf))
         if ret and s:
             ret = "%s / %s" % (ret, s)
@@ -1269,7 +1269,7 @@ A side effect is that, to obtain "{" and "}" characters, you must use
         self.payload.dissection_done(pp)
 
     def command(self):
-        """Returns a string representing the command you have to type to obtain the same packet"""
+        """Returns a string representing the command you have to type to obtain the same packet"""  # noqa: E501
         f = []
         for fn, fv in self.fields.items():
             fld = self.get_field(fn)
@@ -1373,7 +1373,7 @@ class NoPayload(Packet):
         return b""
 
     def answers(self, other):
-        return isinstance(other, NoPayload) or isinstance(other, conf.padding_layer)
+        return isinstance(other, NoPayload) or isinstance(other, conf.padding_layer)  # noqa: E501
 
     def haslayer(self, cls):
         return 0
@@ -1454,13 +1454,13 @@ if conf.default_l2 is None:
 def bind_bottom_up(lower, upper, __fval=None, **fval):
     """Bind 2 layers for dissection.
     The upper layer will be chosen for dissection on top of the lower layer, if
-    ALL the passed arguments are validated. If multiple calls are made with the same
+    ALL the passed arguments are validated. If multiple calls are made with the same  # noqa: E501
     layers, the last one will be used as default.
 
     ex:
         >>> bind_bottom_up(Ether, SNAP, type=0x1234)
-        >>> Ether(b'\xff\xff\xff\xff\xff\xff\xd0P\x99V\xdd\xf9\x124\x00\x00\x00\x00\x00')
-        <Ether  dst=ff:ff:ff:ff:ff:ff src=d0:50:99:56:dd:f9 type=0x1234 |<SNAP  OUI=0x0 code=0x0 |>>
+        >>> Ether(b'\xff\xff\xff\xff\xff\xff\xd0P\x99V\xdd\xf9\x124\x00\x00\x00\x00\x00')  # noqa: E501
+        <Ether  dst=ff:ff:ff:ff:ff:ff src=d0:50:99:56:dd:f9 type=0x1234 |<SNAP  OUI=0x0 code=0x0 |>>  # noqa: E501
     """
     if __fval is not None:
         fval.update(__fval)
@@ -1470,7 +1470,7 @@ def bind_bottom_up(lower, upper, __fval=None, **fval):
 
 def bind_top_down(lower, upper, __fval=None, **fval):
     """Bind 2 layers for building.
-    When the upper layer is added as a payload of the lower layer, all the arguments
+    When the upper layer is added as a payload of the lower layer, all the arguments  # noqa: E501
     will be applied to them.
 
     ex:
@@ -1486,10 +1486,10 @@ def bind_top_down(lower, upper, __fval=None, **fval):
 
 @conf.commands.register
 def bind_layers(lower, upper, __fval=None, **fval):
-    """Bind 2 layers on some specific fields' values. It makes the packet beeing built
+    """Bind 2 layers on some specific fields' values. It makes the packet beeing built  # noqa: E501
     and dissected when the arguments are present.
 
-    This functions calls both bind_bottom_up and bind_top_down, with all passed arguments.
+    This functions calls both bind_bottom_up and bind_top_down, with all passed arguments.  # noqa: E501
     Please have a look at their docs:
      - help(bind_bottom_up)
      - help(bind_top_down)
@@ -1509,7 +1509,7 @@ def split_bottom_up(lower, upper, __fval=None, **fval):
 
     def do_filter(xxx_todo_changeme, upper=upper, fval=fval):
         (f, u) = xxx_todo_changeme
-        return u != upper or any(k not in f or f[k] != v for k, v in six.iteritems(fval))
+        return u != upper or any(k not in f or f[k] != v for k, v in six.iteritems(fval))  # noqa: E501
     lower.payload_guess = [x for x in lower.payload_guess if do_filter(x)]
 
 
@@ -1521,7 +1521,7 @@ def split_top_down(lower, upper, __fval=None, **fval):
         fval.update(__fval)
     if lower in upper._overload_fields:
         ofval = upper._overload_fields[lower]
-        if any(k not in ofval or ofval[k] != v for k, v in six.iteritems(fval)):
+        if any(k not in ofval or ofval[k] != v for k, v in six.iteritems(fval)):  # noqa: E501
             return
         upper._overload_fields = upper._overload_fields.copy()
         del(upper._overload_fields[lower])
@@ -1530,7 +1530,7 @@ def split_top_down(lower, upper, __fval=None, **fval):
 @conf.commands.register
 def split_layers(lower, upper, __fval=None, **fval):
     """Split 2 layers previously bound.
-    This call un-links calls bind_top_down and bind_bottom_up. It is the opposite of
+    This call un-links calls bind_top_down and bind_bottom_up. It is the opposite of  # noqa: E501
     bind_layers.
 
     Please have a look at their docs:
@@ -1614,7 +1614,7 @@ def ls(obj=None, case_sensitive=False, verbose=False):
                 ls(obj.payload)
 
         else:
-            print("Not a packet class or name. Type 'ls()' to list packet classes.")
+            print("Not a packet class or name. Type 'ls()' to list packet classes.")  # noqa: E501
 
 
 #############
@@ -1623,7 +1623,7 @@ def ls(obj=None, case_sensitive=False, verbose=False):
 
 @conf.commands.register
 def fuzz(p, _inplace=0):
-    """Transform a layer into a fuzzy layer by replacing some default values by random objects"""
+    """Transform a layer into a fuzzy layer by replacing some default values by random objects"""  # noqa: E501
     if not _inplace:
         p = p.copy()
     q = p

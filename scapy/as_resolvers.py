@@ -85,7 +85,7 @@ class AS_resolver_cymru(AS_resolver):
     def resolve(self, *ips):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.connect((self.server, self.port))
-        s.send(b"begin\r\n" + b"\r\n".join(ip.encode("utf8") for ip in ips) + b"\r\nend\r\n")
+        s.send(b"begin\r\n" + b"\r\n".join(ip.encode("utf8") for ip in ips) + b"\r\nend\r\n")  # noqa: E501
         r = b""
         while True:
             l = s.recv(8192)
@@ -113,7 +113,7 @@ class AS_resolver_cymru(AS_resolver):
 
 
 class AS_resolver_multi(AS_resolver):
-    resolvers_list = (AS_resolver_riswhois(), AS_resolver_radb(), AS_resolver_cymru())
+    resolvers_list = (AS_resolver_riswhois(), AS_resolver_radb(), AS_resolver_cymru())  # noqa: E501
 
     def __init__(self, *reslist):
         if reslist:
@@ -126,7 +126,7 @@ class AS_resolver_multi(AS_resolver):
             try:
                 res = ASres.resolve(*todo)
             except socket.error as e:
-                if e[0] in [errno.ECONNREFUSED, errno.ETIMEDOUT, errno.ECONNRESET]:
+                if e[0] in [errno.ECONNREFUSED, errno.ETIMEDOUT, errno.ECONNRESET]:  # noqa: E501
                     continue
             resolved = [ip for ip, asn, desc in res]
             todo = [ip for ip in todo if ip not in resolved]

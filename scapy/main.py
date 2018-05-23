@@ -23,7 +23,7 @@ from random import choice
 import types
 import io
 
-# Never add any global import, in main.py, that would trigger a warning messsage
+# Never add any global import, in main.py, that would trigger a warning messsage  # noqa: E501
 # before the console handlers gets added in interact()
 from scapy.error import log_interactive, log_loading, log_scapy, warning
 import scapy.modules.six as six
@@ -44,10 +44,10 @@ QUOTES = [
     ("Craft packets like I craft my beer.", "Jean De Clerck"),
     ("Craft packets before they craft you.", "Socrate"),
     ("Craft me if you can.", "IPv6 layer"),
-    ("To craft a packet, you have to be a packet, and learn how to swim in the "
+    ("To craft a packet, you have to be a packet, and learn how to swim in the "  # noqa: E501
      "wires and in the waves.", "Jean-Claude Van Damme"),
     ("We are in France, we say Skappee. OK? Merci.", "Sebastien Chabal"),
-    ("Wanna support scapy? Rate it on sectools! http://sectools.org/tool/scapy/", "Satoshi Nakamoto"),
+    ("Wanna support scapy? Rate it on sectools! http://sectools.org/tool/scapy/", "Satoshi Nakamoto"),  # noqa: E501
 ]
 
 
@@ -61,18 +61,18 @@ def _probe_config_file(cf):
         return cf_path
 
 
-def _read_config_file(cf, _globals=globals(), _locals=locals(), interactive=True):
-    """Read a config file: execute a python file while loading scapy, that may contain
+def _read_config_file(cf, _globals=globals(), _locals=locals(), interactive=True):  # noqa: E501
+    """Read a config file: execute a python file while loading scapy, that may contain  # noqa: E501
     some pre-configured values.
 
-    If _globals or _locals are specified, they will be updated with the loaded vars.
-    This allows an external program to use the function. Otherwise, vars are only available
+    If _globals or _locals are specified, they will be updated with the loaded vars.  # noqa: E501
+    This allows an external program to use the function. Otherwise, vars are only available  # noqa: E501
     from inside the scapy console.
 
     params:
     - _globals: the globals() vars
     - _locals: the locals() vars
-    - interactive: specified whether or not errors should be printed using the scapy console or
+    - interactive: specified whether or not errors should be printed using the scapy console or  # noqa: E501
     raised.
 
     ex, content of a config.py file:
@@ -92,7 +92,7 @@ def _read_config_file(cf, _globals=globals(), _locals=locals(), interactive=True
     except Exception as e:
         if interactive:
             raise
-        log_loading.exception("Error during evaluation of config file [%s]", cf)
+        log_loading.exception("Error during evaluation of config file [%s]", cf)  # noqa: E501
 
 
 def _validate_local(x):
@@ -109,7 +109,7 @@ SESSION = None
 
 
 def _usage():
-    print("""Usage: scapy.py [-s sessionfile] [-c new_startup_file] [-p new_prestart_file] [-C] [-P]
+    print("""Usage: scapy.py [-s sessionfile] [-c new_startup_file] [-p new_prestart_file] [-C] [-P]  # noqa: E501
     -C: do not read startup file
     -P: do not read pre-startup file""")
     sys.exit(0)
@@ -245,13 +245,13 @@ def save_session(fname=None, session=None, pickleProto=-1):
 
     for k in list(to_be_saved):
         i = to_be_saved[k]
-        if hasattr(i, "__module__") and (k[0] == "_" or i.__module__.startswith("IPython")):
+        if hasattr(i, "__module__") and (k[0] == "_" or i.__module__.startswith("IPython")):  # noqa: E501
             del(to_be_saved[k])
         if isinstance(i, ConfClass):
             del(to_be_saved[k])
         elif isinstance(i, (type, type, types.ModuleType)):
             if k[0] != "_":
-                log_interactive.error("[%s] (%s) can't be saved.", k, type(to_be_saved[k]))
+                log_interactive.error("[%s] (%s) can't be saved.", k, type(to_be_saved[k]))  # noqa: E501
             del(to_be_saved[k])
 
     try:
@@ -310,7 +310,7 @@ def init_session(session_name, mydict=None):
     global SESSION
     global GLOBKEYS
 
-    scapy_builtins = {k: v for k, v in six.iteritems(importlib.import_module(".all", "scapy").__dict__) if _validate_local(k)}
+    scapy_builtins = {k: v for k, v in six.iteritems(importlib.import_module(".all", "scapy").__dict__) if _validate_local(k)}  # noqa: E501
     six.moves.builtins.__dict__.update(scapy_builtins)
     GLOBKEYS.extend(scapy_builtins)
     GLOBKEYS.append("scapy_session")
@@ -324,14 +324,14 @@ def init_session(session_name, mydict=None):
         else:
             try:
                 try:
-                    SESSION = six.moves.cPickle.load(gzip.open(session_name, "rb"))
+                    SESSION = six.moves.cPickle.load(gzip.open(session_name, "rb"))  # noqa: E501
                 except IOError:
                     SESSION = six.moves.cPickle.load(open(session_name, "rb"))
                 log_loading.info("Using session [%s]" % session_name)
             except EOFError:
                 log_loading.error("Error opening session [%s]" % session_name)
             except AttributeError:
-                log_loading.error("Error opening session [%s]. Attribute missing" % session_name)
+                log_loading.error("Error opening session [%s]. Attribute missing" % session_name)  # noqa: E501
 
         if SESSION:
             if "conf" in SESSION:
@@ -397,7 +397,7 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=20):
     global GLOBKEYS
 
     console_handler = logging.StreamHandler()
-    console_handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
+    console_handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))  # noqa: E501
     log_scapy.addHandler(console_handler)
 
     from scapy.config import conf
@@ -433,7 +433,7 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=20):
                 conf.logLevel = max(1, conf.logLevel - 10)
 
         if len(opts[1]) > 0:
-            raise getopt.GetoptError("Too many parameters : [%s]" % " ".join(opts[1]))
+            raise getopt.GetoptError("Too many parameters : [%s]" % " ".join(opts[1]))  # noqa: E501
 
     except getopt.GetoptError as msg:
         log_loading.error(msg)
@@ -458,7 +458,7 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=20):
                 "instead.\nAutoCompletion, History are disabled."
             )
             if WINDOWS:
-                log_loading.warning("IPython not available. On Windows, colors are disabled")
+                log_loading.warning("IPython not available. On Windows, colors are disabled")  # noqa: E501
                 conf.color_theme = BlackAndWhite()
             IPYTHON = False
         else:
@@ -541,13 +541,13 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=20):
             try:
                 get_ipython
             except NameError:
-                # Set "classic" prompt style when launched from run_scapy(.bat) files
+                # Set "classic" prompt style when launched from run_scapy(.bat) files  # noqa: E501
                 # Register and apply scapy color+prompt style
                 apply_ipython_style(shell=cfg.TerminalInteractiveShell)
                 cfg.TerminalInteractiveShell.confirm_exit = False
                 cfg.TerminalInteractiveShell.separate_in = u''
             if int(IPython.__version__[0]) >= 6:
-                cfg.TerminalInteractiveShell.term_title_format = "Scapy v" + conf.version
+                cfg.TerminalInteractiveShell.term_title_format = "Scapy v" + conf.version  # noqa: E501
             else:
                 cfg.TerminalInteractiveShell.term_title = False
             cfg.HistoryAccessor.hist_file = conf.histfile

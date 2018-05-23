@@ -53,7 +53,7 @@ class CARP(Packet):
 
     def build_hmac_sha1(self, pw=b'\x00' * 20, ip4l=[], ip6l=[]):
         h = hmac.new(pw, digestmod=hashlib.sha1)
-        # XXX: this is a dirty hack. it needs to pack version and type into a single 8bit field
+        # XXX: this is a dirty hack. it needs to pack version and type into a single 8bit field  # noqa: E501
         h.update(b'\x21')
         # XXX: mac addy if different from special link layer. comes before vhid
         h.update(struct.pack('!B', self.vhid))

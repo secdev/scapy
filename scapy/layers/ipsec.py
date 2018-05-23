@@ -25,15 +25,15 @@ Example of use:
 >>> p /= Raw('testdata')
 >>> p = IP(raw(p))
 >>> p
-<IP  version=4L ihl=5L tos=0x0 len=48 id=1 flags= frag=0L ttl=64 proto=tcp chksum=0x74c2 src=1.1.1.1 dst=2.2.2.2 options=[] |<TCP  sport=45012 dport=http seq=0 ack=0 dataofs=5L reserved=0L flags=S window=8192 chksum=0x1914 urgptr=0 options=[] |<Raw  load='testdata' |>>>
+<IP  version=4L ihl=5L tos=0x0 len=48 id=1 flags= frag=0L ttl=64 proto=tcp chksum=0x74c2 src=1.1.1.1 dst=2.2.2.2 options=[] |<TCP  sport=45012 dport=http seq=0 ack=0 dataofs=5L reserved=0L flags=S window=8192 chksum=0x1914 urgptr=0 options=[] |<Raw  load='testdata' |>>>  # noqa: E501
 >>>
 >>> e = sa.encrypt(p)
 >>> e
-<IP  version=4L ihl=5L tos=0x0 len=76 id=1 flags= frag=0L ttl=64 proto=esp chksum=0x747a src=1.1.1.1 dst=2.2.2.2 |<ESP  spi=0xdeadbeef seq=1 data=b'\xf8\xdb\x1e\x83[T\xab\\\xd2\x1b\xed\xd1\xe5\xc8Y\xc2\xa5d\x92\xc1\x05\x17\xa6\x92\x831\xe6\xc1]\x9a\xd6K}W\x8bFfd\xa5B*+\xde\xc8\x89\xbf{\xa9' |>>
+<IP  version=4L ihl=5L tos=0x0 len=76 id=1 flags= frag=0L ttl=64 proto=esp chksum=0x747a src=1.1.1.1 dst=2.2.2.2 |<ESP  spi=0xdeadbeef seq=1 data=b'\xf8\xdb\x1e\x83[T\xab\\\xd2\x1b\xed\xd1\xe5\xc8Y\xc2\xa5d\x92\xc1\x05\x17\xa6\x92\x831\xe6\xc1]\x9a\xd6K}W\x8bFfd\xa5B*+\xde\xc8\x89\xbf{\xa9' |>>  # noqa: E501
 >>>
 >>> d = sa.decrypt(e)
 >>> d
-<IP  version=4L ihl=5L tos=0x0 len=48 id=1 flags= frag=0L ttl=64 proto=tcp chksum=0x74c2 src=1.1.1.1 dst=2.2.2.2 |<TCP  sport=45012 dport=http seq=0 ack=0 dataofs=5L reserved=0L flags=S window=8192 chksum=0x1914 urgptr=0 options=[] |<Raw  load='testdata' |>>>
+<IP  version=4L ihl=5L tos=0x0 len=48 id=1 flags= frag=0L ttl=64 proto=tcp chksum=0x74c2 src=1.1.1.1 dst=2.2.2.2 |<TCP  sport=45012 dport=http seq=0 ack=0 dataofs=5L reserved=0L flags=S window=8192 chksum=0x1914 urgptr=0 options=[] |<Raw  load='testdata' |>>>  # noqa: E501
 >>>
 >>> d == p
 True
@@ -73,7 +73,7 @@ class AH(Packet):
     def __get_icv_len(self):
         """
         Compute the size of the ICV based on the payloadlen field.
-        Padding size is included as it can only be known from the authentication
+        Padding size is included as it can only be known from the authentication  # noqa: E501
         algorithm provided by the Security Association.
         """
         # payloadlen = length of AH in 32-bit words (4-byte units), minus "2"
@@ -160,7 +160,7 @@ class _ESPPlain(Packet):
     ]
 
     def data_for_encryption(self):
-        return raw(self.data) + self.padding + struct.pack("BB", self.padlen, self.nh)
+        return raw(self.data) + self.padding + struct.pack("BB", self.padlen, self.nh)  # noqa: E501
 
 
 ###############################################################################
@@ -197,7 +197,7 @@ class CryptAlgo(object):
     """
 
     def __init__(self, name, cipher, mode, block_size=None, iv_size=None,
-                 key_size=None, icv_size=None, salt_size=None, format_mode_iv=None):
+                 key_size=None, icv_size=None, salt_size=None, format_mode_iv=None):  # noqa: E501
         """
         @param name: the name of this encryption algorithm
         @param cipher: a Cipher module
@@ -263,7 +263,7 @@ class CryptAlgo(object):
 
         @param key:    a byte string
         """
-        if self.key_size and not (len(key) == self.key_size or len(key) in self.key_size):
+        if self.key_size and not (len(key) == self.key_size or len(key) in self.key_size):  # noqa: E501
             raise TypeError('invalid key size %s, must be %s' %
                             (len(key), self.key_size))
 
@@ -323,7 +323,7 @@ class CryptAlgo(object):
         # pad for block size
         esp.padlen = -data_len % align
 
-        # Still according to the RFC, the default value for padding *MUST* be an
+        # Still according to the RFC, the default value for padding *MUST* be an  # noqa: E501
         # array of bytes starting from 1 to padlen
         # TODO: Handle padding function according to the encryption algo
         esp.padding = struct.pack("B" * esp.padlen, *range(1, esp.padlen + 1))
@@ -332,7 +332,7 @@ class CryptAlgo(object):
         # with the RFC
         payload_len = len(esp.iv) + len(esp.data) + len(esp.padding) + 2
         if payload_len % 4 != 0:
-            raise ValueError('The size of the ESP data is not aligned to 32 bits after padding.')
+            raise ValueError('The size of the ESP data is not aligned to 32 bits after padding.')  # noqa: E501
 
         return esp
 
@@ -367,7 +367,7 @@ class CryptAlgo(object):
         """
         Decrypt an ESP packet
 
-        @param sa:         the SecurityAssociation associated with the ESP packet.
+        @param sa:         the SecurityAssociation associated with the ESP packet.  # noqa: E501
         @param esp:        an encrypted ESP packet
         @param key:        the secret key used for encryption
         @param icv_size:   the length of the icv used for integrity check
@@ -417,7 +417,7 @@ class CryptAlgo(object):
                          icv=icv)
 
 ###############################################################################
-# The names of the encryption algorithms are the same than in scapy.contrib.ikev2
+# The names of the encryption algorithms are the same than in scapy.contrib.ikev2  # noqa: E501
 # see http://www.iana.org/assignments/ikev2-parameters/ikev2-parameters.xhtml
 
 
@@ -429,7 +429,7 @@ if algorithms:
     CRYPT_ALGOS['AES-CBC'] = CryptAlgo('AES-CBC',
                                        cipher=algorithms.AES,
                                        mode=modes.CBC)
-    _aes_ctr_format_mode_iv = lambda sa, iv, **kw: sa.crypt_salt + iv + b'\x00\x00\x00\x01'
+    _aes_ctr_format_mode_iv = lambda sa, iv, **kw: sa.crypt_salt + iv + b'\x00\x00\x00\x01'  # noqa: E501
     CRYPT_ALGOS['AES-CTR'] = CryptAlgo('AES-CTR',
                                        cipher=algorithms.AES,
                                        mode=modes.CTR,
@@ -477,7 +477,7 @@ if conf.crypto_valid:
     from cryptography.hazmat.primitives.cmac import CMAC
     from cryptography.hazmat.primitives import hashes
 else:
-    # no error if cryptography is not available but authentication won't be supported
+    # no error if cryptography is not available but authentication won't be supported  # noqa: E501
     HMAC = CMAC = hashes = None
 
 ###############################################################################
@@ -596,7 +596,7 @@ class AuthAlgo(object):
                                       (pkt_icv, computed_icv))
 
 ###############################################################################
-# The names of the integrity algorithms are the same than in scapy.contrib.ikev2
+# The names of the integrity algorithms are the same than in scapy.contrib.ikev2  # noqa: E501
 # see http://www.iana.org/assignments/ikev2-parameters/ikev2-parameters.xhtml
 
 
@@ -667,7 +667,7 @@ def split_for_transport(orig_pkt, transport_proto):
 
         # Since the RFC 4302 is vague about where the ESP/AH headers should be
         # inserted in IPv6, I chose to follow the linux implementation.
-        while isinstance(next_hdr, (IPv6ExtHdrHopByHop, IPv6ExtHdrRouting, IPv6ExtHdrDestOpt)):
+        while isinstance(next_hdr, (IPv6ExtHdrHopByHop, IPv6ExtHdrRouting, IPv6ExtHdrDestOpt)):  # noqa: E501
             if isinstance(next_hdr, IPv6ExtHdrHopByHop):
                 pass
             if isinstance(next_hdr, IPv6ExtHdrRouting):
@@ -747,7 +747,7 @@ def zero_mutable_fields(pkt, sending=False):
 
         next_hdr = pkt.payload
 
-        while isinstance(next_hdr, (IPv6ExtHdrHopByHop, IPv6ExtHdrRouting, IPv6ExtHdrDestOpt)):
+        while isinstance(next_hdr, (IPv6ExtHdrHopByHop, IPv6ExtHdrRouting, IPv6ExtHdrDestOpt)):  # noqa: E501
             if isinstance(next_hdr, (IPv6ExtHdrHopByHop, IPv6ExtHdrDestOpt)):
                 for opt in next_hdr.options:
                     if opt.otype & 0x20:
@@ -755,7 +755,7 @@ def zero_mutable_fields(pkt, sending=False):
                         opt.optdata = b"\x00" * opt.optlen
             elif isinstance(next_hdr, IPv6ExtHdrRouting) and sending:
                 # The sender must order the field so that it appears as it
-                # will at the receiver, prior to performing the ICV computation.
+                # will at the receiver, prior to performing the ICV computation.  # noqa: E501
                 next_hdr.segleft = 0
                 if next_hdr.addresses:
                     final = next_hdr.addresses.pop()
@@ -773,13 +773,13 @@ def zero_mutable_fields(pkt, sending=False):
 
 class SecurityAssociation(object):
     """
-    This class is responsible of "encryption" and "decryption" of IPsec packets.
+    This class is responsible of "encryption" and "decryption" of IPsec packets.  # noqa: E501
     """
 
     SUPPORTED_PROTOS = (IP, IPv6)
 
     def __init__(self, proto, spi, seq_num=1, crypt_algo=None, crypt_key=None,
-                 auth_algo=None, auth_key=None, tunnel_header=None, nat_t_header=None):
+                 auth_algo=None, auth_key=None, tunnel_header=None, nat_t_header=None):  # noqa: E501
         """
         @param proto: the IPsec proto to use (ESP or AH)
         @param spi: the Security Parameters Index of this SA
@@ -834,7 +834,7 @@ class SecurityAssociation(object):
             self.auth_key = None
 
         if tunnel_header and not isinstance(tunnel_header, (IP, IPv6)):
-            raise TypeError('tunnel_header must be %s or %s' % (IP.name, IPv6.name))
+            raise TypeError('tunnel_header must be %s or %s' % (IP.name, IPv6.name))  # noqa: E501
         self.tunnel_header = tunnel_header
 
         if nat_t_header:
@@ -855,7 +855,7 @@ class SecurityAssociation(object):
             iv = self.crypt_algo.generate_iv()
         else:
             if len(iv) != self.crypt_algo.iv_size:
-                raise TypeError('iv length must be %s' % self.crypt_algo.iv_size)
+                raise TypeError('iv length must be %s' % self.crypt_algo.iv_size)  # noqa: E501
 
         esp = _ESPPlain(spi=self.spi, seq=seq_num or self.seq_num, iv=iv)
 
@@ -946,7 +946,7 @@ class SecurityAssociation(object):
         else:
             ip_header.plen = len(ip_header.payload) + len(ah) + len(payload)
 
-        signed_pkt = self.auth_algo.sign(ip_header / ah / payload, self.auth_key)
+        signed_pkt = self.auth_algo.sign(ip_header / ah / payload, self.auth_key)  # noqa: E501
 
         # sequence number must always change, unless specified by the user
         if seq_num is None:

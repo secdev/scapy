@@ -88,7 +88,7 @@ class connState(object):
         self.ciphersuite = ciphersuite(tls_version=tls_version)
 
         if not self.ciphersuite.usable:
-            warning("TLS ciphersuite not useable. Is the cryptography Python module installed ?")
+            warning("TLS ciphersuite not useable. Is the cryptography Python module installed ?")  # noqa: E501
             return
 
         self.compression = compression_alg()
@@ -166,7 +166,7 @@ class connState(object):
             cipher_secret = self.prf.postprocess_key_for_export(cipher_secret,
                                                                 client_random,
                                                                 server_random,
-                                                                self.connection_end,
+                                                                self.connection_end,  # noqa: E501
                                                                 self.row,
                                                                 reqLen)
         self.debug_repr("cipher_secret", cipher_secret)
@@ -419,7 +419,7 @@ class tlsSession(object):
         # The agreed-upon TLS version found in the ServerHello.
         self.tls_version = None
 
-        # These attributes should eventually be known to both sides (SSLv3-TLS 1.2).
+        # These attributes should eventually be known to both sides (SSLv3-TLS 1.2).  # noqa: E501
         self.client_random = None
         self.server_random = None
         self.pre_master_secret = None
@@ -555,7 +555,7 @@ class tlsSession(object):
                                             2 * self.pwcs.cipher.key_len)
         self.sslv2_key_material = km
         if conf.debug_tls:
-            log_runtime.debug("TLS: master secret: %s", repr_hex(self.master_secret))
+            log_runtime.debug("TLS: master secret: %s", repr_hex(self.master_secret))  # noqa: E501
             log_runtime.debug("TLS: key material: %s", repr_hex(km))
 
     def compute_sslv2_km_and_derive_keys(self):

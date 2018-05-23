@@ -60,14 +60,14 @@ class _L2bpfSocket(SuperSocket):
 
         # Set the BPF buffer length
         try:
-            fcntl.ioctl(self.ins, BIOCSBLEN, struct.pack('I', BPF_BUFFER_LENGTH))
+            fcntl.ioctl(self.ins, BIOCSBLEN, struct.pack('I', BPF_BUFFER_LENGTH))  # noqa: E501
         except IOError:
             raise Scapy_Exception("BIOCSBLEN failed on /dev/bpf%i" %
                                   self.dev_bpf)
 
         # Assign the network interface to the BPF handle
         try:
-            fcntl.ioctl(self.ins, BIOCSETIF, struct.pack("16s16x", self.iface.encode()))
+            fcntl.ioctl(self.ins, BIOCSETIF, struct.pack("16s16x", self.iface.encode()))  # noqa: E501
         except IOError:
             raise Scapy_Exception("BIOCSETIF failed on %s" % self.iface)
         self.assigned_interface = self.iface
@@ -237,7 +237,7 @@ class L2bpfListenSocket(_L2bpfSocket):
         return ((bh_h + bh_c) + (BPF_ALIGNMENT - 1)) & ~(BPF_ALIGNMENT - 1)
 
     def extract_frames(self, bpf_buffer):
-        """Extract all frames from the buffer and stored them in the received list."""
+        """Extract all frames from the buffer and stored them in the received list."""  # noqa: E501
 
         # Ensure that the BPF buffer contains at least the header
         len_bb = len(bpf_buffer)
@@ -253,11 +253,11 @@ class L2bpfListenSocket(_L2bpfSocket):
             bh_tstamp_offset = 8
 
         # Parse the BPF header
-        bh_caplen = struct.unpack('I', bpf_buffer[bh_tstamp_offset:bh_tstamp_offset + 4])[0]
+        bh_caplen = struct.unpack('I', bpf_buffer[bh_tstamp_offset:bh_tstamp_offset + 4])[0]  # noqa: E501
         next_offset = bh_tstamp_offset + 4
-        bh_datalen = struct.unpack('I', bpf_buffer[next_offset:next_offset + 4])[0]
+        bh_datalen = struct.unpack('I', bpf_buffer[next_offset:next_offset + 4])[0]  # noqa: E501
         next_offset += 4
-        bh_hdrlen = struct.unpack('H', bpf_buffer[next_offset:next_offset + 2])[0]
+        bh_hdrlen = struct.unpack('H', bpf_buffer[next_offset:next_offset + 2])[0]  # noqa: E501
         if bh_datalen == 0:
             return
 
@@ -336,7 +336,7 @@ class L3bpfSocket(L2bpfSocket):
         # Assign the network interface to the BPF handle
         if self.assigned_interface != iff:
             try:
-                fcntl.ioctl(self.outs, BIOCSETIF, struct.pack("16s16x", iff.encode()))
+                fcntl.ioctl(self.outs, BIOCSETIF, struct.pack("16s16x", iff.encode()))  # noqa: E501
             except IOError:
                 raise Scapy_Exception("BIOCSETIF failed on %s" % iff)
             self.assigned_interface = iff
@@ -353,7 +353,7 @@ class L3bpfSocket(L2bpfSocket):
 
 def isBPFSocket(obj):
     """Return True is obj is a BPF Super Socket"""
-    return isinstance(obj, L2bpfListenSocket) or isinstance(obj, L2bpfListenSocket) or isinstance(obj, L3bpfSocket)
+    return isinstance(obj, L2bpfListenSocket) or isinstance(obj, L2bpfListenSocket) or isinstance(obj, L3bpfSocket)  # noqa: E501
 
 
 def bpf_select(fds_list, timeout=None):

@@ -59,7 +59,7 @@ class BOOTP(Packet):
 
     def extract_padding(self, s):
         if self.options[:len(dhcpmagic)] == dhcpmagic:
-            # set BOOTP options to DHCP magic cookie and make rest a payload of DHCP options
+            # set BOOTP options to DHCP magic cookie and make rest a payload of DHCP options  # noqa: E501
             payload = self.options[len(dhcpmagic):]
             self.options = self.options[:len(dhcpmagic)]
             return payload, None
@@ -138,7 +138,7 @@ DHCPOptions = {
     51: IntField("lease_time", 43200),
     53: ByteEnumField("message-type", 1, DHCPTypes),
     54: IPField("server_id", "0.0.0.0"),
-    55: _DHCPParamReqFieldListField("param_req_list", [], ByteField("opcode", 0), length_from=lambda x: 1),
+    55: _DHCPParamReqFieldListField("param_req_list", [], ByteField("opcode", 0), length_from=lambda x: 1),  # noqa: E501
     56: "error_message",
     57: ShortField("max_dhcp_size", 1500),
     58: IntField("renewal_time", 21600),
@@ -204,7 +204,7 @@ class DHCPOptionsField(StrField):
         s = []
         for v in x:
             if isinstance(v, tuple) and len(v) >= 2:
-                if v[0] in DHCPRevOptions and isinstance(DHCPRevOptions[v[0]][1], Field):
+                if v[0] in DHCPRevOptions and isinstance(DHCPRevOptions[v[0]][1], Field):  # noqa: E501
                     f = DHCPRevOptions[v[0]][1]
                     vv = ",".join(f.i2repr(pkt, val) for val in v[1:])
                 else:
@@ -275,7 +275,7 @@ class DHCPOptionsField(StrField):
                 elif name in DHCPRevOptions:
                     onum, f = DHCPRevOptions[name]
                     if f is not None:
-                        lval = [f.addfield(pkt, b"", f.any2i(pkt, val)) for val in lval]
+                        lval = [f.addfield(pkt, b"", f.any2i(pkt, val)) for val in lval]  # noqa: E501
                     oval = b"".join(lval)
                 else:
                     warning("Unknown field option %s", name)
@@ -311,12 +311,12 @@ bind_layers(BOOTP, DHCP, options=b'c\x82Sc')
 @conf.commands.register
 def dhcp_request(iface=None, **kargs):
     if conf.checkIPaddr != 0:
-        warning("conf.checkIPaddr is not 0, I may not be able to match the answer")
+        warning("conf.checkIPaddr is not 0, I may not be able to match the answer")  # noqa: E501
     if iface is None:
         iface = conf.iface
     fam, hw = get_if_raw_hwaddr(iface)
-    return srp1(Ether(dst="ff:ff:ff:ff:ff:ff") / IP(src="0.0.0.0", dst="255.255.255.255") / UDP(sport=68, dport=67)
-                / BOOTP(chaddr=hw) / DHCP(options=[("message-type", "discover"), "end"]), iface=iface, **kargs)
+    return srp1(Ether(dst="ff:ff:ff:ff:ff:ff") / IP(src="0.0.0.0", dst="255.255.255.255") / UDP(sport=68, dport=67)  # noqa: E501
+                / BOOTP(chaddr=hw) / DHCP(options=[("message-type", "discover"), "end"]), iface=iface, **kargs)  # noqa: E501
 
 
 class BOOTP_am(AnsweringMachine):
@@ -324,7 +324,7 @@ class BOOTP_am(AnsweringMachine):
     filter = "udp and port 68 and port 67"
     send_function = staticmethod(sendp)
 
-    def parse_options(self, pool=Net("192.168.1.128/25"), network="192.168.1.0/24", gw="192.168.1.1",
+    def parse_options(self, pool=Net("192.168.1.128/25"), network="192.168.1.0/24", gw="192.168.1.1",  # noqa: E501
                       domain="localnet", renewal_time=60, lease_time=1800):
         self.domain = domain
         netw, msk = (network.split("/") + ["32"])[:2]
@@ -336,7 +336,7 @@ class BOOTP_am(AnsweringMachine):
         if isinstance(pool, six.string_types):
             pool = Net(pool)
         if isinstance(pool, Iterable):
-            pool = [k for k in pool if k not in [gw, self.network, self.broadcast]]
+            pool = [k for k in pool if k not in [gw, self.network, self.broadcast]]  # noqa: E501
             pool.reverse()
         if len(pool) == 1:
             pool, = pool
@@ -372,7 +372,7 @@ class BOOTP_am(AnsweringMachine):
         repb.ciaddr = self.gw
         repb.giaddr = self.gw
         del(repb.payload)
-        rep = Ether(dst=mac) / IP(dst=ip) / UDP(sport=req.dport, dport=req.sport) / repb
+        rep = Ether(dst=mac) / IP(dst=ip) / UDP(sport=req.dport, dport=req.sport) / repb  # noqa: E501
         return rep
 
 
@@ -384,7 +384,7 @@ class DHCP_am(BOOTP_am):
         if DHCP in req:
             dhcp_options = [(op[0], {1: 2, 3: 5}.get(op[1], op[1]))
                             for op in req[DHCP].options
-                            if isinstance(op, tuple) and op[0] == "message-type"]
+                            if isinstance(op, tuple) and op[0] == "message-type"]  # noqa: E501
             dhcp_options += [("server_id", self.gw),
                              ("domain", self.domain),
                              ("router", self.gw),

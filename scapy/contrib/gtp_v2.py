@@ -604,7 +604,7 @@ class PCO_PPP_Challenge(PCO_Option):
                        lambda pkt: pkt.value_size),
                    ConditionalField(StrFixedLenField(
                        "name", "",
-                       length_from=lambda pkt: pkt.length - pkt.value_size - 5),
+                       length_from=lambda pkt: pkt.length - pkt.value_size - 5),  # noqa: E501
                        lambda pkt: pkt.length)]
 
 

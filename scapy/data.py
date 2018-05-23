@@ -88,7 +88,7 @@ DLT_IEEE802_11_RADIO = 127
 DLT_LINUX_IRDA = 144
 DLT_IEEE802_11_RADIO_AVS = 163
 DLT_BLUETOOTH_HCI_H4 = 187
-DLT_BLUETOOTH_HCI_H4_WITH_PHDR = 201  # TODO: IMPLEMENT (currently unimplemented)
+DLT_BLUETOOTH_HCI_H4_WITH_PHDR = 201  # TODO: IMPLEMENT (currently unimplemented)  # noqa: E501
 DLT_PPI = 192
 DLT_CAN_SOCKETCAN = 227
 DLT_IPV4 = 228
@@ -106,7 +106,7 @@ IPV6_ADDR_SITELOCAL = 0x40     # deprecated since Sept. 2004 by RFC 3879
 IPV6_ADDR_SCOPE_MASK = 0xF0
 # IPV6_ADDR_COMPATv4   = 0x80     # deprecated; i.e. ::/96
 # IPV6_ADDR_MAPPED     = 0x1000   # i.e.; ::ffff:0.0.0.0/96
-IPV6_ADDR_6TO4 = 0x0100   # Added to have more specific info (should be 0x0101 ?)
+IPV6_ADDR_6TO4 = 0x0100   # Added to have more specific info (should be 0x0101 ?)  # noqa: E501
 IPV6_ADDR_UNSPECIFIED = 0x10000
 
 
@@ -135,7 +135,7 @@ def load_protocols(filename):
                     continue
                 dct[lt[0]] = int(lt[1])
             except Exception as e:
-                log_loading.info("Couldn't parse file [%s]: line [%r] (%s)", filename, l, e)
+                log_loading.info("Couldn't parse file [%s]: line [%r] (%s)", filename, l, e)  # noqa: E501
     except IOError:
         log_loading.info("Can't open %s file", filename)
     return dct
@@ -159,7 +159,7 @@ def load_ethertypes(filename):
                     continue
                 dct[lt[0]] = int(lt[1], 16)
             except Exception as e:
-                log_loading.info("Couldn't parse file [%s]: line [%r] (%s)", filename, l, e)
+                log_loading.info("Couldn't parse file [%s]: line [%r] (%s)", filename, l, e)  # noqa: E501
         f.close()
     except IOError:
         pass
@@ -188,7 +188,7 @@ def load_services(filename):
                 elif lt[1].endswith(b"/udp"):
                     udct[lt[0]] = int(lt[1].split(b'/')[0])
             except Exception as e:
-                log_loading.warning("Couldn't parse file [%s]: line [%r] (%s)", filename, l, e)
+                log_loading.warning("Couldn't parse file [%s]: line [%r] (%s)", filename, l, e)  # noqa: E501
         f.close()
     except IOError:
         log_loading.info("Can't open /etc/services file")
@@ -216,7 +216,7 @@ class ManufDA(DADict):
         return mac
 
     def __repr__(self):
-        return "\n".join("<%s %s, %s>" % (i[0], i[1][0], i[1][1]) for i in self.__dict__.items())
+        return "\n".join("<%s %s, %s>" % (i[0], i[1][0], i[1][1]) for i in self.__dict__.items())  # noqa: E501
 
 
 def load_manuf(filename):
@@ -242,12 +242,12 @@ def load_manuf(filename):
 
 if WINDOWS:
     ETHER_TYPES = load_ethertypes("ethertypes")
-    IP_PROTOS = load_protocols(os.environ["SystemRoot"] + "\system32\drivers\etc\protocol")
-    TCP_SERVICES, UDP_SERVICES = load_services(os.environ["SystemRoot"] + "\system32\drivers\etc\services")
+    IP_PROTOS = load_protocols(os.environ["SystemRoot"] + "\system32\drivers\etc\protocol")  # noqa: E501
+    TCP_SERVICES, UDP_SERVICES = load_services(os.environ["SystemRoot"] + "\system32\drivers\etc\services")  # noqa: E501
     # Default value, will be updated by arch.windows
     try:
         MANUFDB = load_manuf(os.environ["ProgramFiles"] + "\\wireshark\\manuf")
-    except (IOError, OSError):  # FileNotFoundError not available on Py2 - using OSError
+    except (IOError, OSError):  # FileNotFoundError not available on Py2 - using OSError  # noqa: E501
         MANUFDB = None
 else:
     IP_PROTOS = load_protocols("/etc/protocols")

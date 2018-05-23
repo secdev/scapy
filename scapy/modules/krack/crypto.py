@@ -173,11 +173,11 @@ def gen_TKIP_RC4_key(TSC, TA, TK):
     # Phase 1 - Step 2
     for i in range(PHASE1_LOOP_CNT):
         j = 2 * (i & 1)
-        TTAK[0] = _CAST16(TTAK[0] + _SBOX16(TTAK[4] ^ _MK16(TK[1 + j], TK[0 + j])))
-        TTAK[1] = _CAST16(TTAK[1] + _SBOX16(TTAK[0] ^ _MK16(TK[5 + j], TK[4 + j])))
-        TTAK[2] = _CAST16(TTAK[2] + _SBOX16(TTAK[1] ^ _MK16(TK[9 + j], TK[8 + j])))
-        TTAK[3] = _CAST16(TTAK[3] + _SBOX16(TTAK[2] ^ _MK16(TK[13 + j], TK[12 + j])))
-        TTAK[4] = _CAST16(TTAK[4] + _SBOX16(TTAK[3] ^ _MK16(TK[1 + j], TK[0 + j])) + i)
+        TTAK[0] = _CAST16(TTAK[0] + _SBOX16(TTAK[4] ^ _MK16(TK[1 + j], TK[0 + j])))  # noqa: E501
+        TTAK[1] = _CAST16(TTAK[1] + _SBOX16(TTAK[0] ^ _MK16(TK[5 + j], TK[4 + j])))  # noqa: E501
+        TTAK[2] = _CAST16(TTAK[2] + _SBOX16(TTAK[1] ^ _MK16(TK[9 + j], TK[8 + j])))  # noqa: E501
+        TTAK[3] = _CAST16(TTAK[3] + _SBOX16(TTAK[2] ^ _MK16(TK[13 + j], TK[12 + j])))  # noqa: E501
+        TTAK[4] = _CAST16(TTAK[4] + _SBOX16(TTAK[3] ^ _MK16(TK[1 + j], TK[0 + j])) + i)  # noqa: E501
 
     # Phase 2
     # 802.11i p.56
@@ -303,7 +303,7 @@ def build_TKIP_payload(data, iv, mac, tk):
         iv & 0xFF
     )
     bitfield = 1 << 5  # Extended IV
-    TKIP_hdr = chr(TSC1) + chr((TSC1 | 0x20) & 0x7f) + chr(TSC0) + chr(bitfield)
+    TKIP_hdr = chr(TSC1) + chr((TSC1 | 0x20) & 0x7f) + chr(TSC0) + chr(bitfield)  # noqa: E501
     TKIP_hdr += chr(TSC2) + chr(TSC3) + chr(TSC4) + chr(TSC5)
 
     TA = [orb(e) for e in hex_bytes(mac.replace(':', ''))]

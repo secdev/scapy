@@ -22,7 +22,7 @@ from scapy.utils import strxor
 import scapy.modules.six as six
 
 if conf.crypto_valid:
-    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+    from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes  # noqa: E501
     from cryptography.hazmat.backends import default_backend
     from cryptography.exceptions import InvalidTag
 if conf.crypto_valid_advanced:
@@ -69,7 +69,7 @@ class _AEADCipher(six.with_metaclass(_AEADCipherMetaclass, object)):
 
     def __init__(self, key=None, fixed_iv=None, nonce_explicit=None):
         """
-        'key' and 'fixed_iv' are to be provided as strings, whereas the internal
+        'key' and 'fixed_iv' are to be provided as strings, whereas the internal  # noqa: E501
         'nonce_explicit' is an integer (it is simpler for incrementation).
         /!\ The whole 'nonce' may be called IV in certain RFCs.
         """
@@ -352,13 +352,13 @@ class _AEADCipher_TLS13(six.with_metaclass(_AEADCipherMetaclass, object)):
             try:
                 if (conf.crypto_valid_advanced and
                         isinstance(self._cipher, AESCCM)):
-                    P = self._cipher.decrypt(self._get_nonce(seq_num), C + mac, A,
+                    P = self._cipher.decrypt(self._get_nonce(seq_num), C + mac, A,  # noqa: E501
                                              tag_length=self.tag_len)
                 else:
                     if (conf.crypto_valid_advanced and
                             isinstance(self, Cipher_CHACHA20_POLY1305)):
                         A += struct.pack("!H", len(C))
-                    P = self._cipher.decrypt(self._get_nonce(seq_num), C + mac, A)
+                    P = self._cipher.decrypt(self._get_nonce(seq_num), C + mac, A)  # noqa: E501
             except InvalidTag:
                 raise AEADTagError("<unauthenticated data>", mac)
         return P, mac

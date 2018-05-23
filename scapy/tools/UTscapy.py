@@ -73,7 +73,7 @@ class File:
 # Embed a base64 encoded bziped version of js and css files
 # to work if you can't reach Internet.
 class External_Files:
-    UTscapy_js = File("UTscapy.js", "http://www.secdev.org/projects/UTscapy/UTscapy.js",
+    UTscapy_js = File("UTscapy.js", "http://www.secdev.org/projects/UTscapy/UTscapy.js",  # noqa: E501
                       """QlpoOTFBWSZTWWVijKQAAXxfgERUYOvAChIhBAC/79+qQAH8AFA0poANAMjQAAAG
 ABo0NGEZNBo00BhgAaNDRhGTQaNNAYFURJinplGaKbRkJiekzSenqmpA0Gm1LFMp
 RUklVQlK9WUTZYpNFI1IiEWEFT09Sfj5uO+qO6S5DQwKIxM92+Zku94wL6V/1KTK
@@ -83,7 +83,7 @@ GZyMgoOude3NJ1pQy8eo+X96IYZw+ynehsiPj73m0rnvQ3QXZ9BJQiZQYQ5/uNcl
 gueXo3kcYi94K6hSO3ldD2O/qJXOFqJ8o3TE2aQahxtQpCVUKQMvODHwu2YkaORY
 ZC6gihEallcHDIAtRPScBACAJnUggYhLDX6DEko7nC9GvAw5OcEkiyDUbLdiGCzD
 aXWMC2DuQ2Y6sGf6NcRuON7QSbhHsPc4KKmZ/xdyRThQkGVijKQ=""")
-    UTscapy_css = File("UTscapy.css", "http://www.secdev.org/projects/UTscapy/UTscapy.css",
+    UTscapy_css = File("UTscapy.css", "http://www.secdev.org/projects/UTscapy/UTscapy.css",  # noqa: E501
                        """QlpoOTFBWSZTWTbBCNEAAE7fgHxwSB//+Cpj2QC//9/6UAR+63dxbNzO3ccmtGEk
 pM0m1I9E/Qp6g9Q09TNQ9QDR6gMgAkiBFG9U9TEGRkGgABoABoBmpJkRAaAxD1AN
 Gh6gNADQBzAATJgATCYJhDAEYAEiQkwIyJk0n6qenpqeoaMUeo9RgIxp6pX78kfx
@@ -209,7 +209,7 @@ class UnitTest(TestClass):
         self.test = ""
         self.comments = ""
         self.result = ""
-        self.res = True  # must be True at init to have a different truth value than None
+        self.res = True  # must be True at init to have a different truth value than None  # noqa: E501
         self.output = ""
         self.num = -1
         self.keywords = set()
@@ -329,7 +329,7 @@ def dump_campaign(test_campaign):
     print()
     for ts in test_campaign:
         if ts.crc:
-            print("+--[%s]%s(%s)--" % (ts.name, "-" * max(2, 80 - len(ts.name) - 18), ts.crc))
+            print("+--[%s]%s(%s)--" % (ts.name, "-" * max(2, 80 - len(ts.name) - 18), ts.crc))  # noqa: E501
         else:
             print("+--[%s]%s" % (ts.name, "-" * max(2, 80 - len(ts.name) - 6)))
         if ts.keywords:
@@ -414,20 +414,20 @@ def remove_empty_testsets(test_campaign):
 
 #    RUN CAMPAIGN     #
 
-def run_campaign(test_campaign, get_interactive_session, verb=3, ignore_globals=None):
+def run_campaign(test_campaign, get_interactive_session, verb=3, ignore_globals=None):  # noqa: E501
     passed = failed = 0
     if test_campaign.preexec:
-        test_campaign.preexec_output = get_interactive_session(test_campaign.preexec.strip(), ignore_globals=ignore_globals)[0]
+        test_campaign.preexec_output = get_interactive_session(test_campaign.preexec.strip(), ignore_globals=ignore_globals)[0]  # noqa: E501
     for testset in test_campaign:
         for t in testset:
-            t.output, res = get_interactive_session(t.test.strip(), ignore_globals=ignore_globals)
+            t.output, res = get_interactive_session(t.test.strip(), ignore_globals=ignore_globals)  # noqa: E501
             the_res = False
             try:
                 if res is None or res:
                     the_res = True
             except Exception:
                 t.output += "UTscapy: Error during result interpretation:\n"
-                t.output += "".join(traceback.format_exception(sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2],))
+                t.output += "".join(traceback.format_exception(sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2],))  # noqa: E501
             if the_res:
                 t.res = True
                 res = "passed"
@@ -443,7 +443,7 @@ def run_campaign(test_campaign, get_interactive_session, verb=3, ignore_globals=
     test_campaign.passed = passed
     test_campaign.failed = failed
     if verb:
-        print("Campaign CRC=%(crc)s  SHA=%(sha)s" % test_campaign, file=sys.stderr)
+        print("Campaign CRC=%(crc)s  SHA=%(sha)s" % test_campaign, file=sys.stderr)  # noqa: E501
         print("PASSED=%i FAILED=%i" % (passed, failed), file=sys.stderr)
     return failed
 
@@ -461,9 +461,9 @@ def info_line(test_campaign):
 def html_info_line(test_campaign):
     filename = test_campaign.filename
     if filename is None:
-        return """Run %s by <a href="http://www.secdev.org/projects/UTscapy/">UTscapy</a><br>""" % time.ctime()
+        return """Run %s by <a href="http://www.secdev.org/projects/UTscapy/">UTscapy</a><br>""" % time.ctime()  # noqa: E501
     else:
-        return """Run %s from [%s] by <a href="http://www.secdev.org/projects/UTscapy/">UTscapy</a><br>""" % (time.ctime(), filename)
+        return """Run %s from [%s] by <a href="http://www.secdev.org/projects/UTscapy/">UTscapy</a><br>""" % (time.ctime(), filename)  # noqa: E501
 
 
 #    CAMPAIGN TO something    #
@@ -471,14 +471,14 @@ def html_info_line(test_campaign):
 def campaign_to_TEXT(test_campaign):
     output = "%(title)s\n" % test_campaign
     output += "-- " + info_line(test_campaign) + "\n\n"
-    output += "Passed=%(passed)i\nFailed=%(failed)i\n\n%(headcomments)s\n" % test_campaign
+    output += "Passed=%(passed)i\nFailed=%(failed)i\n\n%(headcomments)s\n" % test_campaign  # noqa: E501
 
     for testset in test_campaign:
         if any(t.expand for t in testset):
             output += "######\n## %(name)s\n######\n%(comments)s\n\n" % testset
             for t in testset:
                 if t.expand:
-                    output += "###(%(num)03i)=[%(result)s] %(name)s\n%(comments)s\n%(output)s\n\n" % t
+                    output += "###(%(num)03i)=[%(result)s] %(name)s\n%(comments)s\n%(output)s\n\n" % t  # noqa: E501
 
     return output
 
@@ -486,14 +486,14 @@ def campaign_to_TEXT(test_campaign):
 def campaign_to_ANSI(test_campaign):
     output = "%(title)s\n" % test_campaign
     output += "-- " + info_line(test_campaign) + "\n\n"
-    output += "Passed=%(passed)i\nFailed=%(failed)i\n\n%(headcomments)s\n" % test_campaign
+    output += "Passed=%(passed)i\nFailed=%(failed)i\n\n%(headcomments)s\n" % test_campaign  # noqa: E501
 
     for testset in test_campaign:
         if any(t.expand for t in testset):
             output += "######\n## %(name)s\n######\n%(comments)s\n\n" % testset
             for t in testset:
                 if t.expand:
-                    output += "###(%(num)03i)=[%(result)s] %(name)s\n%(comments)s\n%(output)s\n\n" % t
+                    output += "###(%(num)03i)=[%(result)s] %(name)s\n%(comments)s\n%(output)s\n\n" % t  # noqa: E501
 
     return output
 
@@ -502,8 +502,8 @@ def campaign_to_xUNIT(test_campaign):
     output = '<?xml version="1.0" encoding="UTF-8" ?>\n<testsuite>\n'
     for testset in test_campaign:
         for t in testset:
-            output += ' <testcase classname="%s"\n' % testset.name.encode("string_escape").replace('"', ' ')
-            output += '           name="%s"\n' % t.name.encode("string_escape").replace('"', ' ')
+            output += ' <testcase classname="%s"\n' % testset.name.encode("string_escape").replace('"', ' ')  # noqa: E501
+            output += '           name="%s"\n' % t.name.encode("string_escape").replace('"', ' ')  # noqa: E501
             output += '           duration="0">\n' % t
             if not t.res:
                 output += '<error><![CDATA[%(output)s]]></error>\n' % t
@@ -520,9 +520,9 @@ def campaign_to_HTML(test_campaign):
 """ % test_campaign
 
     if test_campaign.crc is not None and test_campaign.sha is not None:
-        output += "CRC=<span class=crc>%(crc)s</span> SHA=<span class=crc>%(sha)s</span><br>" % test_campaign
+        output += "CRC=<span class=crc>%(crc)s</span> SHA=<span class=crc>%(sha)s</span><br>" % test_campaign  # noqa: E501
     output += "<small><em>" + html_info_line(test_campaign) + "</em></small>"
-    output += test_campaign.headcomments + "\n<p>PASSED=%(passed)i FAILED=%(failed)i<p>\n\n" % test_campaign
+    output += test_campaign.headcomments + "\n<p>PASSED=%(passed)i FAILED=%(failed)i<p>\n\n" % test_campaign  # noqa: E501
 
     for testset in test_campaign:
         output += "<h2>" % testset
@@ -533,19 +533,19 @@ def campaign_to_HTML(test_campaign):
             output += """<li class=%(result)s id="tst%(num)il">\n""" % t
             if t.expand == 2:
                 output += """
-<span id="tst%(num)i+" class="button%(result)s" onClick="show('tst%(num)i')" style="POSITION: absolute; VISIBILITY: hidden;">+%(num)03i+</span>
-<span id="tst%(num)i-" class="button%(result)s" onClick="hide('tst%(num)i')">-%(num)03i-</span>
+<span id="tst%(num)i+" class="button%(result)s" onClick="show('tst%(num)i')" style="POSITION: absolute; VISIBILITY: hidden;">+%(num)03i+</span>  # noqa: E501
+<span id="tst%(num)i-" class="button%(result)s" onClick="hide('tst%(num)i')">-%(num)03i-</span>  # noqa: E501
 """ % t
             else:
                 output += """
-<span id="tst%(num)i+" class="button%(result)s" onClick="show('tst%(num)i')">+%(num)03i+</span>
-<span id="tst%(num)i-" class="button%(result)s" onClick="hide('tst%(num)i')" style="POSITION: absolute; VISIBILITY: hidden;">-%(num)03i-</span>
+<span id="tst%(num)i+" class="button%(result)s" onClick="show('tst%(num)i')">+%(num)03i+</span>  # noqa: E501
+<span id="tst%(num)i-" class="button%(result)s" onClick="hide('tst%(num)i')" style="POSITION: absolute; VISIBILITY: hidden;">-%(num)03i-</span>  # noqa: E501
 """ % t
             if t.crc is not None:
                 output += "<span class=crc>%(crc)s</span>\n" % t
-            output += """%(name)s\n<span class="comment %(result)s" id="tst%(num)i" """ % t
+            output += """%(name)s\n<span class="comment %(result)s" id="tst%(num)i" """ % t  # noqa: E501
             if t.expand < 2:
-                output += """ style="POSITION: absolute; VISIBILITY: hidden;" """
+                output += """ style="POSITION: absolute; VISIBILITY: hidden;" """  # noqa: E501
             output += """><br>%(comments)s
 <pre>
 %(output)s</pre></span>
@@ -571,11 +571,11 @@ def pack_html_campaigns(runned_campaigns, data, local=0, title=None):
     for test_campaign in runned_campaigns:
         for ts in test_campaign:
             for t in ts:
-                output += """<span class=button%(result)s onClick="goto_id('tst%(num)il')">%(num)03i</span>\n""" % t
+                output += """<span class=button%(result)s onClick="goto_id('tst%(num)il')">%(num)03i</span>\n""" % t  # noqa: E501
 
     output += """</p>\n\n
 <link rel="stylesheet" href="%(UTscapy_css)s" type="text/css">
-<script language="JavaScript" src="%(UTscapy_js)s" type="text/javascript"></script>
+<script language="JavaScript" src="%(UTscapy_js)s" type="text/javascript"></script>  # noqa: E501
 </head>
 <body>
 %(data)s
@@ -583,8 +583,8 @@ def pack_html_campaigns(runned_campaigns, data, local=0, title=None):
 """
     out_dict = {'data': data, 'title': title if title else "UTScapy tests"}
     if local:
-        External_Files.UTscapy_js.write(os.path.dirname(test_campaign.output_file.name))
-        External_Files.UTscapy_css.write(os.path.dirname(test_campaign.output_file.name))
+        External_Files.UTscapy_js.write(os.path.dirname(test_campaign.output_file.name))  # noqa: E501
+        External_Files.UTscapy_css.write(os.path.dirname(test_campaign.output_file.name))  # noqa: E501
         out_dict.update(External_Files.get_local_dict())
     else:
         out_dict.update(External_Files.get_URL_dict())
@@ -640,7 +640,7 @@ def campaign_to_LATEX(test_campaign):
 
 def usage():
     print("""Usage: UTscapy [-m module] [-f {text|ansi|HTML|LaTeX}] [-o output_file]
-               [-t testfile] [-T testfile] [-k keywords [-k ...]] [-K keywords [-K ...]]
+               [-t testfile] [-T testfile] [-k keywords [-k ...]] [-K keywords [-K ...]]  # noqa: E501
                [-l] [-d|-D] [-F] [-q[q]] [-P preexecute_python_code]
                [-s /path/to/scapy] [-c configfile]
 -t\t\t: provide test files (can be used many times)
@@ -656,8 +656,8 @@ def usage():
 -qq\t\t: [silent mode]
 -n <testnum>\t: only tests whose numbers are given (eg. 1,3-7,12)
 -m <module>\t: additional module to put in the namespace
--k <kw1>,<kw2>,...\t: include only tests with one of those keywords (can be used many times)
--K <kw1>,<kw2>,...\t: remove tests with one of those keywords (can be used many times)
+-k <kw1>,<kw2>,...\t: include only tests with one of those keywords (can be used many times)  # noqa: E501
+-K <kw1>,<kw2>,...\t: remove tests with one of those keywords (can be used many times)  # noqa: E501
 -P <preexecute_python_code>
 """, file=sys.stderr)
     raise SystemExit
@@ -666,7 +666,7 @@ def usage():
 #    MAIN    #
 
 def execute_campaign(TESTFILE, OUTPUTFILE, PREEXEC, NUM, KW_OK, KW_KO, DUMP,
-                     FORMAT, VERB, ONLYFAILED, CRC, autorun_func, pos_begin=0, ignore_globals=None):
+                     FORMAT, VERB, ONLYFAILED, CRC, autorun_func, pos_begin=0, ignore_globals=None):  # noqa: E501
     # Parse test file
     test_campaign = parse_campaign_file(TESTFILE)
 
@@ -695,7 +695,7 @@ def execute_campaign(TESTFILE, OUTPUTFILE, PREEXEC, NUM, KW_OK, KW_KO, DUMP,
 
     # Run tests
     test_campaign.output_file = OUTPUTFILE
-    result = run_campaign(test_campaign, autorun_func[FORMAT], verb=VERB, ignore_globals=None)
+    result = run_campaign(test_campaign, autorun_func[FORMAT], verb=VERB, ignore_globals=None)  # noqa: E501
 
     # Shrink passed
     if ONLYFAILED:
@@ -870,7 +870,7 @@ def main(argv):
             pycode = PREEXEC_DICT[prex]
             del PREEXEC_DICT[prex]
             for gl in glob.iglob(prex):
-                _pycode = pycode.replace("%name%", os.path.splitext(os.path.split(gl)[1])[0])
+                _pycode = pycode.replace("%name%", os.path.splitext(os.path.split(gl)[1])[0])  # noqa: E501
                 PREEXEC_DICT[gl] = _pycode
 
     pos_begin = 0
@@ -880,11 +880,11 @@ def main(argv):
     for TESTFILE in TESTFILES:
         if VERB > 2:
             print("### Loading:", TESTFILE, file=sys.stderr)
-        PREEXEC = PREEXEC_DICT[TESTFILE] if TESTFILE in PREEXEC_DICT else GLOB_PREEXEC
+        PREEXEC = PREEXEC_DICT[TESTFILE] if TESTFILE in PREEXEC_DICT else GLOB_PREEXEC  # noqa: E501
         output, result, campaign = execute_campaign(open(TESTFILE), OUTPUTFILE,
                                                     PREEXEC, NUM, KW_OK, KW_KO,
-                                                    DUMP, FORMAT, VERB, ONLYFAILED,
-                                                    CRC, autorun_func, pos_begin, ignore_globals)
+                                                    DUMP, FORMAT, VERB, ONLYFAILED,  # noqa: E501
+                                                    CRC, autorun_func, pos_begin, ignore_globals)  # noqa: E501
         runned_campaigns.append(campaign)
         pos_begin = campaign.end_pos
         if UNIQUE:
@@ -898,7 +898,7 @@ def main(argv):
         print("### Writing output...", file=sys.stderr)
     # Concenate outputs
     if FORMAT == Format.HTML:
-        glob_output = pack_html_campaigns(runned_campaigns, glob_output, LOCAL, glob_title)
+        glob_output = pack_html_campaigns(runned_campaigns, glob_output, LOCAL, glob_title)  # noqa: E501
 
     OUTPUTFILE.write(glob_output.encode("utf8", "ignore")
                      if 'b' in OUTPUTFILE.mode else glob_output)

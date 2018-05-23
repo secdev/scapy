@@ -41,7 +41,7 @@ def _test_pyx():
     """Returns if PyX is correctly installed or not"""
     try:
         with open(os.devnull, 'wb') as devnull:
-            r = subprocess.check_call(["pdflatex", "--version"], stdout=devnull, stderr=subprocess.STDOUT)
+            r = subprocess.check_call(["pdflatex", "--version"], stdout=devnull, stderr=subprocess.STDOUT)  # noqa: E501
     except:
         return False
     else:
@@ -53,8 +53,8 @@ try:
     if _test_pyx():
         PYX = 1
     else:
-        log_loading.warning("PyX dependencies are not installed ! Please install TexLive or MikTeX.")
+        log_loading.warning("PyX dependencies are not installed ! Please install TexLive or MikTeX.")  # noqa: E501
         PYX = 0
 except ImportError:
-    log_loading.info("Can't import PyX. Won't be able to use psdump() or pdfdump().")
+    log_loading.info("Can't import PyX. Won't be able to use psdump() or pdfdump().")  # noqa: E501
     PYX = 0

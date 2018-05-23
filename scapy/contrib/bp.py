@@ -101,7 +101,7 @@ class BP(Packet):
 
         tmp += " ) len(%BlockLen%) "
         if self.DL == 0:
-            tmp += "CBHE: d[%DSO%,%DSSO%] s[%SSO%, %SSSO%] r[%RTSO%, %RTSSO%] c[%CSO%, %CSSO%] "
+            tmp += "CBHE: d[%DSO%,%DSSO%] s[%SSO%, %SSSO%] r[%RTSO%, %RTSSO%] c[%CSO%, %CSSO%] "  # noqa: E501
         else:
             tmp += "dl[%DL%] "
         tmp += "ct[%CT%] ctsn[%CTSN%] lt[%LT%] "
@@ -122,7 +122,7 @@ class BPBLOCK(Packet):
                    ]
 
     def mysummary(self):
-        return self.sprintf("BPBLOCK(%Type%) Flags: %ProcFlags% Len: %BlockLen%")
+        return self.sprintf("BPBLOCK(%Type%) Flags: %ProcFlags% Len: %BlockLen%")  # noqa: E501
 
 
 ltp_bind_payload(BP, lambda pkt: pkt.DATA_ClientServiceID == 1)

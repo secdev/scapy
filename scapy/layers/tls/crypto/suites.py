@@ -126,7 +126,7 @@ class _GenericCipherSuiteMetaclass(type):
         return the_class
 
 
-class _GenericCipherSuite(six.with_metaclass(_GenericCipherSuiteMetaclass, object)):
+class _GenericCipherSuite(six.with_metaclass(_GenericCipherSuiteMetaclass, object)):  # noqa: E501
     def __init__(self, tls_version=0x0303):
         """
         Most of the attributes are fixed and have already been set by the

@@ -73,7 +73,7 @@ class SetGen(Gen):
 class Net(Gen):
     """Generate a list of IPs from a network address or a name"""
     name = "ip"
-    ip_regex = re.compile(r"^(\*|[0-2]?[0-9]?[0-9](-[0-2]?[0-9]?[0-9])?)\.(\*|[0-2]?[0-9]?[0-9](-[0-2]?[0-9]?[0-9])?)\.(\*|[0-2]?[0-9]?[0-9](-[0-2]?[0-9]?[0-9])?)\.(\*|[0-2]?[0-9]?[0-9](-[0-2]?[0-9]?[0-9])?)(/[0-3]?[0-9])?$")
+    ip_regex = re.compile(r"^(\*|[0-2]?[0-9]?[0-9](-[0-2]?[0-9]?[0-9])?)\.(\*|[0-2]?[0-9]?[0-9](-[0-2]?[0-9]?[0-9])?)\.(\*|[0-2]?[0-9]?[0-9](-[0-2]?[0-9]?[0-9])?)\.(\*|[0-2]?[0-9]?[0-9](-[0-2]?[0-9]?[0-9])?)(/[0-3]?[0-9])?$")  # noqa: E501
 
     @staticmethod
     def _parse_digit(a, netmask):
@@ -84,9 +84,9 @@ class Net(Gen):
             x, y = [int(d) for d in a.split('-')]
             if x > y:
                 y = x
-            a = (x & (0xff << netmask), max(y, (x | (0xff >> (8 - netmask)))) + 1)
+            a = (x & (0xff << netmask), max(y, (x | (0xff >> (8 - netmask)))) + 1)  # noqa: E501
         else:
-            a = (int(a) & (0xff << netmask), (int(a) | (0xff >> (8 - netmask))) + 1)
+            a = (int(a) & (0xff << netmask), (int(a) | (0xff >> (8 - netmask))) + 1)  # noqa: E501
         return a
 
     @classmethod
@@ -95,7 +95,7 @@ class Net(Gen):
         if not cls.ip_regex.match(net):
             tmp[0] = socket.gethostbyname(tmp[0])
         netmask = int(tmp[1])
-        ret_list = [cls._parse_digit(x, y - netmask) for (x, y) in zip(tmp[0].split('.'), [8, 16, 24, 32])]
+        ret_list = [cls._parse_digit(x, y - netmask) for (x, y) in zip(tmp[0].split('.'), [8, 16, 24, 32])]  # noqa: E501
         return ret_list, netmask
 
     def __init__(self, net):
@@ -116,7 +116,7 @@ class Net(Gen):
         return reduce(operator.mul, ((y - x) for (x, y) in self.parsed), 1)
 
     def choice(self):
-        return ".".join(str(random.randint(v[0], v[1] - 1)) for v in self.parsed)
+        return ".".join(str(random.randint(v[0], v[1] - 1)) for v in self.parsed)  # noqa: E501
 
     def __repr__(self):
         return "Net(%r)" % self.repr
@@ -133,7 +133,7 @@ class Net(Gen):
             p2 = other.parsed
         else:
             p2, nm2 = self._parse_net(other)
-        return all(a1 <= a2 and b1 >= b2 for (a1, b1), (a2, b2) in zip(self.parsed, p2))
+        return all(a1 <= a2 and b1 >= b2 for (a1, b1), (a2, b2) in zip(self.parsed, p2))  # noqa: E501
 
     def __rcontains__(self, other):
         return self in self.__class__(other)
@@ -173,7 +173,7 @@ class OID(Gen):
                 i += 1
 
     def __iterlen__(self):
-        return reduce(operator.mul, (max(y - x, 0) + 1 for (x, y) in self.cmpt), 1)
+        return reduce(operator.mul, (max(y - x, 0) + 1 for (x, y) in self.cmpt), 1)  # noqa: E501
 
 
 ######################################
@@ -182,11 +182,11 @@ class OID(Gen):
 
 class Packet_metaclass(type):
     def __new__(cls, name, bases, dct):
-        if "fields_desc" in dct:  # perform resolution of references to other packets
+        if "fields_desc" in dct:  # perform resolution of references to other packets  # noqa: E501
             current_fld = dct["fields_desc"]
             resolved_fld = []
             for f in current_fld:
-                if isinstance(f, Packet_metaclass):  # reference to another fields_desc
+                if isinstance(f, Packet_metaclass):  # reference to another fields_desc  # noqa: E501
                     for f2 in f.fields_desc:
                         resolved_fld.append(f2)
                 else:
@@ -278,7 +278,7 @@ class NewDefaultValues(Packet_metaclass):
         except:
             f, l = "??", -1
             raise
-        log_loading.warning("Deprecated (no more needed) use of NewDefaultValues  (%s l. %i).", f, l)
+        log_loading.warning("Deprecated (no more needed) use of NewDefaultValues  (%s l. %i).", f, l)  # noqa: E501
 
         return super(NewDefaultValues, cls).__new__(cls, name, bases, dct)
 

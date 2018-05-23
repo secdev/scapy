@@ -64,7 +64,7 @@ class BTLEChanMapField(XByteField):
         return s + struct.pack(self.fmt, self.i2m(pkt, val))[:5]
 
     def getfield(self, pkt, s):
-        return s[5:], self.m2i(pkt, struct.unpack(self.fmt, s[:5] + b"\x00\x00\x00")[0])
+        return s[5:], self.m2i(pkt, struct.unpack(self.fmt, s[:5] + b"\x00\x00\x00")[0])  # noqa: E501
 
 
 class BTLE(Packet):
@@ -96,7 +96,7 @@ class BTLE(Packet):
                 v |= 0x80
             return v
 
-        state = swapbits(init & 0xff) + (swapbits((init >> 8) & 0xff) << 8) + (swapbits((init >> 16) & 0xff) << 16)
+        state = swapbits(init & 0xff) + (swapbits((init >> 8) & 0xff) << 8) + (swapbits((init >> 16) & 0xff) << 16)  # noqa: E501
         lfsr_mask = 0x5a6000
         for i in (orb(x) for x in pdu):
             for j in range(8):
@@ -136,8 +136,8 @@ class BTLE_ADV(Packet):
         BitEnumField("RxAdd", 0, 1, {0: "public", 1: "random"}),
         BitEnumField("TxAdd", 0, 1, {0: "public", 1: "random"}),
         BitField("RFU", 0, 2),  # Unused
-        BitEnumField("PDU_type", 0, 4, {0: "ADV_IND", 1: "ADV_DIRECT_IND", 2: "ADV_NONCONN_IND", 3: "SCAN_REQ",
-                                        4: "SCAN_RSP", 5: "CONNECT_REQ", 6: "ADV_SCAN_IND"}),
+        BitEnumField("PDU_type", 0, 4, {0: "ADV_IND", 1: "ADV_DIRECT_IND", 2: "ADV_NONCONN_IND", 3: "SCAN_REQ",  # noqa: E501
+                                        4: "SCAN_RSP", 5: "CONNECT_REQ", 6: "ADV_SCAN_IND"}),  # noqa: E501
         BitField("unused", 0, 2),  # Unused
         XBitField("Length", None, 6),
     ]

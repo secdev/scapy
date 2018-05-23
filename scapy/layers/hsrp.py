@@ -29,7 +29,7 @@
 # Cleanup code
 
 """
-HSRP (Hot Standby Router Protocol): proprietary redundancy protocol for Cisco routers.
+HSRP (Hot Standby Router Protocol): proprietary redundancy protocol for Cisco routers.  # noqa: E501
 """
 
 from scapy.fields import *
@@ -42,8 +42,8 @@ class HSRP(Packet):
     name = "HSRP"
     fields_desc = [
         ByteField("version", 0),
-        ByteEnumField("opcode", 0, {0: "Hello", 1: "Coup", 2: "Resign", 3: "Advertise"}),
-        ByteEnumField("state", 16, {0: "Initial", 1: "Learn", 2: "Listen", 4: "Speak", 8: "Standby", 16: "Active"}),
+        ByteEnumField("opcode", 0, {0: "Hello", 1: "Coup", 2: "Resign", 3: "Advertise"}),  # noqa: E501
+        ByteEnumField("state", 16, {0: "Initial", 1: "Learn", 2: "Listen", 4: "Speak", 8: "Standby", 16: "Active"}),  # noqa: E501
         ByteField("hellotime", 3),
         ByteField("holdtime", 10),
         ByteField("priority", 120),

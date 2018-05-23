@@ -115,9 +115,9 @@ def read_routes():
                     guessed_netif = _guess_iface_name(netif)
                     if guessed_netif is not None:
                         ifaddr = get_if_addr(guessed_netif)
-                        routes.append((dest, netmask, gw, guessed_netif, ifaddr, metric))
+                        routes.append((dest, netmask, gw, guessed_netif, ifaddr, metric))  # noqa: E501
                     else:
-                        warning("Could not guess partial interface name: %s", netif)
+                        warning("Could not guess partial interface name: %s", netif)  # noqa: E501
                 else:
                     raise
         else:
@@ -166,7 +166,7 @@ def _in6_getifaddr(ifname):
     ret = []
     for line in f:
         if "inet6" in line:
-            addr = line.rstrip().split(None, 2)[1]  # The second element is the IPv6 address
+            addr = line.rstrip().split(None, 2)[1]  # The second element is the IPv6 address  # noqa: E501
         else:
             continue
         if '%' in line:  # Remove the interface identifier if present
@@ -334,10 +334,10 @@ def read_routes6():
         else:
             # Get possible IPv6 source addresses
             devaddrs = (x for x in lifaddr if x[2] == dev)
-            cset = construct_source_candidate_set(destination, destination_plen, devaddrs)
+            cset = construct_source_candidate_set(destination, destination_plen, devaddrs)  # noqa: E501
 
         if len(cset):
-            routes.append((destination, destination_plen, next_hop, dev, cset, metric))
+            routes.append((destination, destination_plen, next_hop, dev, cset, metric))  # noqa: E501
 
     fd_netstat.close()
     return routes

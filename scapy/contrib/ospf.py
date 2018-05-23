@@ -78,13 +78,13 @@ class OSPF_Hdr(Packet):
         XShortField("chksum", None),
         ShortEnumField("authtype", 0, {0: "Null", 1: "Simple", 2: "Crypto"}),
         # Null or Simple Authentication
-        ConditionalField(XLongField("authdata", 0), lambda pkt: pkt.authtype != 2),
+        ConditionalField(XLongField("authdata", 0), lambda pkt: pkt.authtype != 2),  # noqa: E501
         # Crypto Authentication
-        ConditionalField(XShortField("reserved", 0), lambda pkt: pkt.authtype == 2),
+        ConditionalField(XShortField("reserved", 0), lambda pkt: pkt.authtype == 2),  # noqa: E501
         ConditionalField(ByteField("keyid", 1), lambda pkt: pkt.authtype == 2),
-        ConditionalField(ByteField("authdatalen", 0), lambda pkt: pkt.authtype == 2),
+        ConditionalField(ByteField("authdatalen", 0), lambda pkt: pkt.authtype == 2),  # noqa: E501
         ConditionalField(XIntField("seq", 0), lambda pkt: pkt.authtype == 2),
-        # TODO: Support authdata (which is appended to the packets as if it were padding)
+        # TODO: Support authdata (which is appended to the packets as if it were padding)  # noqa: E501
     ]
 
     def post_build(self, p, pay):
@@ -121,7 +121,7 @@ class OSPF_Hello(Packet):
                    IntField("deadinterval", 40),
                    IPField("router", "0.0.0.0"),
                    IPField("backup", "0.0.0.0"),
-                   FieldListField("neighbors", [], IPField("", "0.0.0.0"), length_from=lambda pkt: (pkt.underlayer.len - 44) if pkt.underlayer else None)]
+                   FieldListField("neighbors", [], IPField("", "0.0.0.0"), length_from=lambda pkt: (pkt.underlayer.len - 44) if pkt.underlayer else None)]  # noqa: E501
 
     def guess_payload_class(self, payload):
         # check presence of LLS data block flag
@@ -146,15 +146,15 @@ class LLS_Extended_Options(LLS_Generic_TLV):
     fields_desc = [ShortField("type", 1),
                    FieldLenField("len", None, fmt="!H", length_of="options"),
                    StrLenField("options", "", length_from=lambda x: x.len)]
-    # TODO: FlagsField("options", 0, names=["LR", "RS"], size) with dynamic size
+    # TODO: FlagsField("options", 0, names=["LR", "RS"], size) with dynamic size  # noqa: E501
 
 
 class LLS_Crypto_Auth(LLS_Generic_TLV):
     name = "LLS Cryptographic Authentication"
     fields_desc = [ShortField("type", 2),
-                   FieldLenField("len", 20, fmt="B", length_of=lambda x: x.authdata + 4),
+                   FieldLenField("len", 20, fmt="B", length_of=lambda x: x.authdata + 4),  # noqa: E501
                    XIntField("sequence", 0),
-                   StrLenField("authdata", b"\x00" * 16, length_from=lambda x: x.len - 4)]
+                   StrLenField("authdata", b"\x00" * 16, length_from=lambda x: x.len - 4)]  # noqa: E501
 
 
 _OSPF_LLSclasses = {1: "LLS_Extended_Options",
@@ -174,14 +174,14 @@ def _LLSGuessPayloadClass(p, **kargs):
 
 class FieldLenField32Bits(FieldLenField):
     def i2repr(self, pkt, x):
-        return repr(x) if not x else str(FieldLenField.i2h(self, pkt, x) << 2) + " bytes"
+        return repr(x) if not x else str(FieldLenField.i2h(self, pkt, x) << 2) + " bytes"  # noqa: E501
 
 
 class OSPF_LLS_Hdr(Packet):
     name = "OSPF Link-local signaling"
     fields_desc = [XShortField("chksum", None),
-                   FieldLenField32Bits("len", None, length_of="llstlv", adjust=lambda pkt, x: (x + 4) >> 2),
-                   PacketListField("llstlv", [], _LLSGuessPayloadClass, length_from=lambda x: (x.len << 2) - 4)]
+                   FieldLenField32Bits("len", None, length_of="llstlv", adjust=lambda pkt, x: (x + 4) >> 2),  # noqa: E501
+                   PacketListField("llstlv", [], _LLSGuessPayloadClass, length_from=lambda x: (x.len << 2) - 4)]  # noqa: E501
 
     def post_build(self, p, pay):
         p += pay
@@ -240,8 +240,8 @@ class OSPF_Link(Packet):
                    ShortField("metric", 10),
                    # TODO: define correct conditions
                    ConditionalField(ByteField("tos", 0), lambda pkt: False),
-                   ConditionalField(ByteField("reserved", 0), lambda pkt: False),
-                   ConditionalField(ShortField("tosmetric", 0), lambda pkt: False)]
+                   ConditionalField(ByteField("reserved", 0), lambda pkt: False),  # noqa: E501
+                   ConditionalField(ShortField("tosmetric", 0), lambda pkt: False)]  # noqa: E501
 
     def extract_padding(self, s):
         return "", s
@@ -249,7 +249,7 @@ class OSPF_Link(Packet):
 
 def _LSAGuessPayloadClass(p, **kargs):
     """ Guess the correct LSA class for a given payload """
-    # This is heavily based on scapy-cdp.py by Nicolas Bareil and Arnaud Ebalard
+    # This is heavily based on scapy-cdp.py by Nicolas Bareil and Arnaud Ebalard  # noqa: E501
 
     cls = conf.raw_layer
     if len(p) >= 4:
@@ -324,7 +324,7 @@ class OSPF_SummaryIP_LSA(OSPF_BaseLSA):
                    X3BytesField("metric", 10),
                    # TODO: Define correct conditions
                    ConditionalField(ByteField("tos", 0), lambda pkt:False),
-                   ConditionalField(X3BytesField("tosmetric", 0), lambda pkt:False)]
+                   ConditionalField(X3BytesField("tosmetric", 0), lambda pkt:False)]  # noqa: E501
 
 
 class OSPF_SummaryASBR_LSA(OSPF_SummaryIP_LSA):
@@ -353,7 +353,7 @@ class OSPF_External_LSA(OSPF_BaseLSA):
                    XIntField("tag", 0),
                    # TODO: Define correct conditions
                    ConditionalField(ByteField("tos", 0), lambda pkt:False),
-                   ConditionalField(X3BytesField("tosmetric", 0), lambda pkt:False)]
+                   ConditionalField(X3BytesField("tosmetric", 0), lambda pkt:False)]  # noqa: E501
 
 
 class OSPF_NSSA_External_LSA(OSPF_External_LSA):
@@ -365,11 +365,11 @@ class OSPF_DBDesc(Packet):
     name = "OSPF Database Description"
     fields_desc = [ShortField("mtu", 1500),
                    OSPFOptionsField(),
-                   FlagsField("dbdescr", 0, 8, ["MS", "M", "I", "R", "4", "3", "2", "1"]),
+                   FlagsField("dbdescr", 0, 8, ["MS", "M", "I", "R", "4", "3", "2", "1"]),  # noqa: E501
                    IntField("ddseq", 1),
                    PacketListField("lsaheaders", None, OSPF_LSA_Hdr,
                                    count_from=lambda pkt: None,
-                                   length_from=lambda pkt: pkt.underlayer.len - 24 - 8)]
+                                   length_from=lambda pkt: pkt.underlayer.len - 24 - 8)]  # noqa: E501
 
     def guess_payload_class(self, payload):
         # check presence of LLS data block flag
@@ -393,22 +393,22 @@ class OSPF_LSReq(Packet):
     name = "OSPF Link State Request (container)"
     fields_desc = [PacketListField("requests", None, OSPF_LSReq_Item,
                                    count_from=lambda pkt:None,
-                                   length_from=lambda pkt:pkt.underlayer.len - 24)]
+                                   length_from=lambda pkt:pkt.underlayer.len - 24)]  # noqa: E501
 
 
 class OSPF_LSUpd(Packet):
     name = "OSPF Link State Update"
-    fields_desc = [FieldLenField("lsacount", None, fmt="!I", count_of="lsalist"),
+    fields_desc = [FieldLenField("lsacount", None, fmt="!I", count_of="lsalist"),  # noqa: E501
                    PacketListField("lsalist", None, _LSAGuessPayloadClass,
                                    count_from=lambda pkt: pkt.lsacount,
-                                   length_from=lambda pkt: pkt.underlayer.len - 24)]
+                                   length_from=lambda pkt: pkt.underlayer.len - 24)]  # noqa: E501
 
 
 class OSPF_LSAck(Packet):
     name = "OSPF Link State Acknowledgement"
     fields_desc = [PacketListField("lsaheaders", None, OSPF_LSA_Hdr,
                                    count_from=lambda pkt: None,
-                                   length_from=lambda pkt: pkt.underlayer.len - 24)]
+                                   length_from=lambda pkt: pkt.underlayer.len - 24)]  # noqa: E501
 
     def answers(self, other):
         if isinstance(other, OSPF_LSUpd):
@@ -468,7 +468,7 @@ class OSPFv3_Hello(Packet):
                    IPField("router", "0.0.0.0"),
                    IPField("backup", "0.0.0.0"),
                    FieldListField("neighbors", [], IPField("", "0.0.0.0"),
-                                  length_from=lambda pkt: (pkt.underlayer.len - 36))]
+                                  length_from=lambda pkt: (pkt.underlayer.len - 36))]  # noqa: E501
 
 
 _OSPFv3_LStypes = {0x2001: "router",
@@ -586,10 +586,10 @@ class OSPFv3_Inter_Area_Prefix_LSA(OSPF_BaseLSA):
                    ShortField("len", None),
                    ByteField("reserved", 0),
                    X3BytesField("metric", 10),
-                   FieldLenField("prefixlen", None, length_of="prefix", fmt="B"),
+                   FieldLenField("prefixlen", None, length_of="prefix", fmt="B"),  # noqa: E501
                    OSPFv3PrefixOptionsField(),
                    ShortField("reserved2", 0),
-                   IP6PrefixField("prefix", "2001:db8:0:42::/64", wordbytes=4, length_from=lambda pkt: pkt.prefixlen)]
+                   IP6PrefixField("prefix", "2001:db8:0:42::/64", wordbytes=4, length_from=lambda pkt: pkt.prefixlen)]  # noqa: E501
 
 
 class OSPFv3_Inter_Area_Router_LSA(OSPF_BaseLSA):
@@ -619,13 +619,13 @@ class OSPFv3_AS_External_LSA(OSPF_BaseLSA):
                    ShortField("len", None),
                    FlagsField("flags", 0, 8, ["T", "F", "E"]),
                    X3BytesField("metric", 20),
-                   FieldLenField("prefixlen", None, length_of="prefix", fmt="B"),
+                   FieldLenField("prefixlen", None, length_of="prefix", fmt="B"),  # noqa: E501
                    OSPFv3PrefixOptionsField(),
                    ShortEnumField("reflstype", 0, _OSPFv3_LStypes),
-                   IP6PrefixField("prefix", "2001:db8:0:42::/64", wordbytes=4, length_from=lambda pkt: pkt.prefixlen),
-                   ConditionalField(IP6Field("fwaddr", "::"), lambda pkt: pkt.flags & 0x02 == 0x02),
-                   ConditionalField(IntField("tag", 0), lambda pkt: pkt.flags & 0x01 == 0x01),
-                   ConditionalField(IPField("reflsid", 0), lambda pkt: pkt.reflstype != 0)]
+                   IP6PrefixField("prefix", "2001:db8:0:42::/64", wordbytes=4, length_from=lambda pkt: pkt.prefixlen),  # noqa: E501
+                   ConditionalField(IP6Field("fwaddr", "::"), lambda pkt: pkt.flags & 0x02 == 0x02),  # noqa: E501
+                   ConditionalField(IntField("tag", 0), lambda pkt: pkt.flags & 0x01 == 0x01),  # noqa: E501
+                   ConditionalField(IPField("reflsid", 0), lambda pkt: pkt.reflstype != 0)]  # noqa: E501
 
 
 class OSPFv3_Type_7_LSA(OSPFv3_AS_External_LSA):
@@ -635,10 +635,10 @@ class OSPFv3_Type_7_LSA(OSPFv3_AS_External_LSA):
 
 class OSPFv3_Prefix_Item(Packet):
     name = "OSPFv3 Link Prefix Item"
-    fields_desc = [FieldLenField("prefixlen", None, length_of="prefix", fmt="B"),
+    fields_desc = [FieldLenField("prefixlen", None, length_of="prefix", fmt="B"),  # noqa: E501
                    OSPFv3PrefixOptionsField(),
                    ShortField("metric", 10),
-                   IP6PrefixField("prefix", "2001:db8:0:42::/64", wordbytes=4, length_from=lambda pkt: pkt.prefixlen)]
+                   IP6PrefixField("prefix", "2001:db8:0:42::/64", wordbytes=4, length_from=lambda pkt: pkt.prefixlen)]  # noqa: E501
 
     def extract_padding(self, s):
         return "", s
@@ -656,7 +656,7 @@ class OSPFv3_Link_LSA(OSPF_BaseLSA):
                    ByteField("prio", 1),
                    OSPFv3OptionsField(),
                    IP6Field("lladdr", "fe80::"),
-                   FieldLenField("prefixes", None, count_of="prefixlist", fmt="I"),
+                   FieldLenField("prefixes", None, count_of="prefixlist", fmt="I"),  # noqa: E501
                    PacketListField("prefixlist", None, OSPFv3_Prefix_Item,
                                    count_from=lambda pkt: pkt.prefixes)]
 
@@ -670,7 +670,7 @@ class OSPFv3_Intra_Area_Prefix_LSA(OSPF_BaseLSA):
                    XIntField("seq", 0x80000001),
                    XShortField("chksum", None),
                    ShortField("len", None),
-                   FieldLenField("prefixes", None, count_of="prefixlist", fmt="H"),
+                   FieldLenField("prefixes", None, count_of="prefixlist", fmt="H"),  # noqa: E501
                    ShortEnumField("reflstype", 0, _OSPFv3_LStypes),
                    IPField("reflsid", "0.0.0.0"),
                    IPField("refadrouter", "0.0.0.0"),
@@ -688,7 +688,7 @@ class OSPFv3_DBDesc(Packet):
                    IntField("ddseq", 1),
                    PacketListField("lsaheaders", None, OSPFv3_LSA_Hdr,
                                    count_from=lambda pkt:None,
-                                   length_from=lambda pkt:pkt.underlayer.len - 28)]
+                                   length_from=lambda pkt:pkt.underlayer.len - 28)]  # noqa: E501
 
 
 class OSPFv3_LSReq_Item(Packet):
@@ -706,22 +706,22 @@ class OSPFv3_LSReq(Packet):
     name = "OSPFv3 Link State Request (container)"
     fields_desc = [PacketListField("requests", None, OSPFv3_LSReq_Item,
                                    count_from=lambda pkt:None,
-                                   length_from=lambda pkt:pkt.underlayer.len - 16)]
+                                   length_from=lambda pkt:pkt.underlayer.len - 16)]  # noqa: E501
 
 
 class OSPFv3_LSUpd(Packet):
     name = "OSPFv3 Link State Update"
-    fields_desc = [FieldLenField("lsacount", None, fmt="!I", count_of="lsalist"),
+    fields_desc = [FieldLenField("lsacount", None, fmt="!I", count_of="lsalist"),  # noqa: E501
                    PacketListField("lsalist", [], _OSPFv3_LSAGuessPayloadClass,
                                    count_from=lambda pkt:pkt.lsacount,
-                                   length_from=lambda pkt:pkt.underlayer.len - 16)]
+                                   length_from=lambda pkt:pkt.underlayer.len - 16)]  # noqa: E501
 
 
 class OSPFv3_LSAck(Packet):
     name = "OSPFv3 Link State Acknowledgement"
     fields_desc = [PacketListField("lsaheaders", None, OSPFv3_LSA_Hdr,
                                    count_from=lambda pkt:None,
-                                   length_from=lambda pkt:pkt.underlayer.len - 16)]
+                                   length_from=lambda pkt:pkt.underlayer.len - 16)]  # noqa: E501
 
 
 bind_layers(IP, OSPF_Hdr, proto=89)

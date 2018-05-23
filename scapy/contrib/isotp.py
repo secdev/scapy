@@ -311,7 +311,7 @@ class ISOTPSocket(SuperSocket):
         self.basecls = basecls
 
     def recv_raw(self, x=0xffff):
-        """Receives a packet, then returns a tuple containing (cls, pkt_data, time)"""
+        """Receives a packet, then returns a tuple containing (cls, pkt_data, time)"""  # noqa: E501
         try:
             pkt = self.ins.recvfrom(x)[0]
         except BlockingIOError:         # noqa: F821

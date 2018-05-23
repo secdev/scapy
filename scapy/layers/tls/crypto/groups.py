@@ -32,7 +32,7 @@ if conf.crypto_valid:
     from cryptography.hazmat.primitives.asymmetric.dh import DHParameterNumbers
 
     try:
-        # We test with dummy values whether the size limitation has been removed.
+        # We test with dummy values whether the size limitation has been removed.  # noqa: E501
         pn_test = DHParameterNumbers(2, 7)
     except ValueError:
         # We get rid of the limitation through the cryptography v1.9 __init__.
@@ -512,17 +512,17 @@ _tls_named_groups.update(_tls_named_curves)
 #            # perform the y coordinate computation with self.tls_ec
 #            y_square = (x*x*x + curve.a()*x + curve.b()) % p
 #            y = square_root_mod_prime(y_square, p)
-#            y_parity = ord(point_format) % 2    # \x02 means even, \x03 means odd
+#            y_parity = ord(point_format) % 2    # \x02 means even, \x03 means odd  # noqa: E501
 #            if y % 2 != y_parity:
 #                y = -y % p
 #        else:
 #            raise Exception("Point starts with %s. This encoding "
 #                            "is not recognized." % repr(point_format))
 #        if not curve.contains_point(x, y):
-#            raise Exception("The point we extracted does not belong on the curve!")
+#            raise Exception("The point we extracted does not belong on the curve!")  # noqa: E501
 #        return x, y
 #
-#    def import_curve(p, a, b, g, r, name="dummyName", oid=(1, 3, 132, 0, 0xff)):
+#    def import_curve(p, a, b, g, r, name="dummyName", oid=(1, 3, 132, 0, 0xff)):  # noqa: E501
 #        """
 #        Create an ecdsa.curves.Curve from the usual parameters.
 #        Arguments may be either octet strings or integers,

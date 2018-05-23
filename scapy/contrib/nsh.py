@@ -63,7 +63,7 @@ class NSH(Packet):
         BitField('Reserved', 0, 6),
         BitFieldLenField('Len', None, 6,
                          count_of='ContextHeaders',
-                         adjust=lambda pkt, x: 6 if pkt.MDType == 1 else x + 2),
+                         adjust=lambda pkt, x: 6 if pkt.MDType == 1 else x + 2),  # noqa: E501
         ByteEnumField('MDType', 1, {1: 'Fixed Length',
                                     2: 'Variable Length'}),
         ByteEnumField('NextProto', 3, {1: 'IPv4',

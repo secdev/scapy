@@ -179,7 +179,7 @@ class CDPMsgAddr(CDPMsgGeneric):
     fields_desc = [XShortEnumField("type", 0x0002, _cdp_tlv_types),
                    ShortField("len", None),
                    FieldLenField("naddr", None, "addr", "!I"),
-                   PacketListField("addr", [], _CDPGuessAddrRecord, count_from=lambda x:x.naddr)]
+                   PacketListField("addr", [], _CDPGuessAddrRecord, count_from=lambda x:x.naddr)]  # noqa: E501
 
     def post_build(self, pkt, pay):
         if self.len is None:
@@ -193,7 +193,7 @@ class CDPMsgPortID(CDPMsgGeneric):
     name = "Port ID"
     fields_desc = [XShortEnumField("type", 0x0003, _cdp_tlv_types),
                    FieldLenField("len", None, "iface", "!H"),
-                   StrLenField("iface", "Port 1", length_from=lambda x:x.len - 4)]
+                   StrLenField("iface", "Port 1", length_from=lambda x:x.len - 4)]  # noqa: E501
 
 
 _cdp_capabilities = ["Router",
@@ -282,7 +282,7 @@ class CDPMsgVoIPVLANQuery(CDPMsgGeneric):
                                  adjust=lambda pkt, x: x + 7),
                    XByteField("unknown1", 0),
                    ShortField("vlan", 1),
-                   # TLV length (len) - 2 (type) - 2 (len) - 1 (unknown1) - 2 (vlan)
+                   # TLV length (len) - 2 (type) - 2 (len) - 1 (unknown1) - 2 (vlan)  # noqa: E501
                    StrLenField("unknown2", "", length_from=lambda p: p.len - 7,
                                max_length=65528)]
 

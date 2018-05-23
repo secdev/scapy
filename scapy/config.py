@@ -108,7 +108,7 @@ class ConfigFieldList:
         return elt in self.fields
 
     def __repr__(self):
-        return "<%s [%s]>" % (self.__class__.__name__, " ".join(str(x) for x in self.fields))
+        return "<%s [%s]>" % (self.__class__.__name__, " ".join(str(x) for x in self.fields))  # noqa: E501
 
 
 class Emphasize(ConfigFieldList):
@@ -237,13 +237,13 @@ class CacheInstance(dict, object):
         if self.timeout is None:
             return six.iteritems(self.__dict__)
         t0 = time.time()
-        return ((k, v) for (k, v) in six.iteritems(self.__dict__) if t0 - self._timetable[k] < self.timeout)
+        return ((k, v) for (k, v) in six.iteritems(self.__dict__) if t0 - self._timetable[k] < self.timeout)  # noqa: E501
 
     def iterkeys(self):
         if self.timeout is None:
             return six.iterkeys(self.__dict__)
         t0 = time.time()
-        return (k for k in six.iterkeys(self.__dict__) if t0 - self._timetable[k] < self.timeout)
+        return (k for k in six.iterkeys(self.__dict__) if t0 - self._timetable[k] < self.timeout)  # noqa: E501
 
     def __iter__(self):
         return six.iterkeys(self.__dict__)
@@ -252,25 +252,25 @@ class CacheInstance(dict, object):
         if self.timeout is None:
             return six.itervalues(self.__dict__)
         t0 = time.time()
-        return (v for (k, v) in six.iteritems(self.__dict__) if t0 - self._timetable[k] < self.timeout)
+        return (v for (k, v) in six.iteritems(self.__dict__) if t0 - self._timetable[k] < self.timeout)  # noqa: E501
 
     def items(self):
         if self.timeout is None:
             return dict.items(self)
         t0 = time.time()
-        return [(k, v) for (k, v) in six.iteritems(self.__dict__) if t0 - self._timetable[k] < self.timeout]
+        return [(k, v) for (k, v) in six.iteritems(self.__dict__) if t0 - self._timetable[k] < self.timeout]  # noqa: E501
 
     def keys(self):
         if self.timeout is None:
             return dict.keys(self)
         t0 = time.time()
-        return [k for k in six.iterkeys(self.__dict__) if t0 - self._timetable[k] < self.timeout]
+        return [k for k in six.iterkeys(self.__dict__) if t0 - self._timetable[k] < self.timeout]  # noqa: E501
 
     def values(self):
         if self.timeout is None:
             return list(six.itervalues(self))
         t0 = time.time()
-        return [v for (k, v) in six.iteritems(self.__dict__) if t0 - self._timetable[k] < self.timeout]
+        return [v for (k, v) in six.iteritems(self.__dict__) if t0 - self._timetable[k] < self.timeout]  # noqa: E501
 
     def __len__(self):
         if self.timeout is None:
@@ -278,7 +278,7 @@ class CacheInstance(dict, object):
         return len(self.keys())
 
     def summary(self):
-        return "%s: %i valid items. Timeout=%rs" % (self.name, len(self), self.timeout)
+        return "%s: %i valid items. Timeout=%rs" % (self.name, len(self), self.timeout)  # noqa: E501
 
     def __repr__(self):
         s = []
@@ -357,7 +357,7 @@ def isCryptographyAdvanced():
         return False
 
     try:
-        from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
+        from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey  # noqa: E501
         X25519PrivateKey.generate()
     except:
         return False
@@ -391,31 +391,31 @@ class Conf(ConfClass):
 session  : filename where the session will be saved
 interactive_shell : can be "ipython", "python" or "auto". Default: Auto
 stealth  : if 1, prevents any unwanted packet to go out (ARP, DNS, ...)
-checkIPID: if 0, doesn't check that IPID matches between IP sent and ICMP IP citation received
-           if 1, checks that they either are equal or byte swapped equals (bug in some IP stacks)
+checkIPID: if 0, doesn't check that IPID matches between IP sent and ICMP IP citation received  # noqa: E501
+           if 1, checks that they either are equal or byte swapped equals (bug in some IP stacks)  # noqa: E501
            if 2, strictly checks that they are equals
-checkIPsrc: if 1, checks IP src in IP and ICMP IP citation match (bug in some NAT stacks)
+checkIPsrc: if 1, checks IP src in IP and ICMP IP citation match (bug in some NAT stacks)  # noqa: E501
 checkIPinIP: if True, checks that IP-in-IP layers match. If False, do not
              check IP layers that encapsulates another IP layer
-check_TCPerror_seqack: if 1, also check that TCP seq and ack match the ones in ICMP citation
-iff      : selects the default output interface for srp() and sendp(). default:"eth0")
+check_TCPerror_seqack: if 1, also check that TCP seq and ack match the ones in ICMP citation  # noqa: E501
+iff      : selects the default output interface for srp() and sendp(). default:"eth0")  # noqa: E501
 verb     : level of verbosity, from 0 (almost mute) to 3 (verbose)
-promisc  : default mode for listening socket (to get answers if you spoof on a lan)
+promisc  : default mode for listening socket (to get answers if you spoof on a lan)  # noqa: E501
 sniff_promisc : default mode for sniff()
-filter   : bpf filter added to every sniffing socket to exclude traffic from analysis
+filter   : bpf filter added to every sniffing socket to exclude traffic from analysis  # noqa: E501
 histfile : history file
 padding  : includes padding in disassembled packets
 except_filter : BPF filter for packets to ignore
-debug_match : when 1, store received packet that are not matched into debug.recv
+debug_match : when 1, store received packet that are not matched into debug.recv  # noqa: E501
 route    : holds the Scapy routing table and provides methods to manipulate it
 warning_threshold : how much time between warnings from the same place
 ASN1_default_codec: Codec used by default for ASN1 objects
 mib      : holds MIB direct access dictionary
 resolve  : holds list of fields for which resolution should be done
-noenum   : holds list of enum fields for which conversion to string should NOT be done
+noenum   : holds list of enum fields for which conversion to string should NOT be done  # noqa: E501
 AS_resolver: choose the AS resolver class to use
 extensions_paths: path or list of paths where extensions are to be looked for
-contribs : a dict which can be used by contrib layers to store local configuration
+contribs : a dict which can be used by contrib layers to store local configuration  # noqa: E501
 debug_tls:When 1, print some TLS session secrets when they are computed.
 """
     version = VERSION
@@ -500,7 +500,7 @@ debug_tls:When 1, print some TLS session secrets when they are computed.
 
 
 if not Conf.ipv6_enabled:
-    log_scapy.warning("IPv6 support disabled in Python. Cannot load Scapy IPv6 layers.")
+    log_scapy.warning("IPv6 support disabled in Python. Cannot load Scapy IPv6 layers.")  # noqa: E501
     for m in ["inet6", "dhcp6"]:
         if m in Conf.load_layers:
             Conf.load_layers.remove(m)
@@ -511,12 +511,12 @@ conf.logLevel = 30  # 30=Warning
 
 def crypto_validator(func):
     """
-    This a decorator to be used for any method relying on the cryptography library.
+    This a decorator to be used for any method relying on the cryptography library.  # noqa: E501
     Its behaviour depends on the 'crypto_valid' attribute of the global 'conf'.
     """
     def func_in(*args, **kwargs):
         if not conf.crypto_valid:
             raise ImportError("Cannot execute crypto-related method! "
-                              "Please install python-cryptography v1.7 or later.")
+                              "Please install python-cryptography v1.7 or later.")  # noqa: E501
         return func(*args, **kwargs)
     return func_in

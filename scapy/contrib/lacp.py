@@ -16,7 +16,7 @@
 # scapy.contrib.status = loads
 
 from scapy.packet import Packet, bind_layers
-from scapy.fields import ByteField, MACField, ShortField, Field, ByteEnumField, IntField, XStrFixedLenField
+from scapy.fields import ByteField, MACField, ShortField, Field, ByteEnumField, IntField, XStrFixedLenField  # noqa: E501
 from scapy.layers.l2 import Ether
 from scapy.utils import lhex
 from scapy.data import ETHER_TYPES

@@ -19,7 +19,7 @@ from scapy.fields import *
 from scapy.packet import *
 from scapy.layers.tls.session import _GenericTLSSessionInheritance
 from scapy.layers.tls.basefields import (_TLSVersionField, _tls_version,
-                                         _TLSMACField, _TLSLengthField, _tls_type)
+                                         _TLSMACField, _TLSLengthField, _tls_type)  # noqa: E501
 from scapy.layers.tls.record import _TLSMsgListField
 from scapy.layers.tls.crypto.cipher_aead import AEADTagError
 from scapy.layers.tls.crypto.cipher_stream import Cipher_NULL
@@ -74,7 +74,7 @@ class _TLSInnerPlaintextField(PacketField):
         if frag_len < 1:
             warning("InnerPlaintext should at least contain a byte type!")
             return s, None
-        remain, i = super(_TLSInnerPlaintextField, self).getfield(pkt, s[:frag_len])
+        remain, i = super(_TLSInnerPlaintextField, self).getfield(pkt, s[:frag_len])  # noqa: E501
         # remain should be empty here
         return remain + s[frag_len:], i
 
@@ -118,7 +118,7 @@ class TLS13(_GenericTLSSessionInheritance):
             return e.args
         except AEADTagError as e:
             pkt_info = self.firstlayer().summary()
-            log_runtime.info("TLS: record integrity check failed [%s]", pkt_info)
+            log_runtime.info("TLS: record integrity check failed [%s]", pkt_info)  # noqa: E501
             return e.args
 
     def pre_dissect(self, s):

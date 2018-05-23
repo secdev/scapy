@@ -23,7 +23,7 @@ class ReferenceAM(type):
     def __new__(cls, name, bases, dct):
         o = super(ReferenceAM, cls).__new__(cls, name, bases, dct)
         if o.function_name:
-            globals()[o.function_name] = lambda o=o, *args, **kargs: o(*args, **kargs)()
+            globals()[o.function_name] = lambda o=o, *args, **kargs: o(*args, **kargs)()  # noqa: E501
         return o
 
 
@@ -31,7 +31,7 @@ class AnsweringMachine(six.with_metaclass(ReferenceAM, object)):
     function_name = ""
     filter = None
     sniff_options = {"store": 0}
-    sniff_options_list = ["store", "iface", "count", "promisc", "filter", "type", "prn", "stop_filter"]
+    sniff_options_list = ["store", "iface", "count", "promisc", "filter", "type", "prn", "stop_filter"]  # noqa: E501
     send_options = {"verbose": 0}
     send_options_list = ["iface", "inter", "loop", "verbose"]
     send_function = staticmethod(send)
@@ -112,7 +112,7 @@ class AnsweringMachine(six.with_metaclass(ReferenceAM, object)):
             self.print_reply(pkt, reply)
 
     def run(self, *args, **kargs):
-        log_interactive.warning("run() method deprecated. The instance is now callable")
+        log_interactive.warning("run() method deprecated. The instance is now callable")  # noqa: E501
         self(*args, **kargs)
 
     def __call__(self, *args, **kargs):

@@ -7,7 +7,7 @@
 # copies of the Software, and to permit persons to whom the Software is
 # furnished to do so, subject to the following conditions:
 #
-# The above copyright notice and this permission notice shall be included in all
+# The above copyright notice and this permission notice shall be included in all  # noqa: E501
 # copies or substantial portions of the Software.
 #
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
@@ -240,7 +240,7 @@ class _MovedItems(_LazyModule):
 _moved_attributes = [
     MovedAttribute("cStringIO", "cStringIO", "io", "StringIO"),
     MovedAttribute("filter", "itertools", "builtins", "ifilter", "filter"),
-    MovedAttribute("filterfalse", "itertools", "itertools", "ifilterfalse", "filterfalse"),
+    MovedAttribute("filterfalse", "itertools", "itertools", "ifilterfalse", "filterfalse"),  # noqa: E501
     MovedAttribute("input", "__builtin__", "builtins", "raw_input", "input"),
     MovedAttribute("intern", "__builtin__", "sys"),
     MovedAttribute("map", "itertools", "builtins", "imap", "map"),
@@ -249,7 +249,7 @@ _moved_attributes = [
     MovedAttribute("getstatusoutput", "commands", "subprocess"),
     MovedAttribute("getoutput", "commands", "subprocess"),
     MovedAttribute("range", "__builtin__", "builtins", "xrange", "range"),
-    MovedAttribute("reload_module", "__builtin__", "importlib" if PY34 else "imp", "reload"),
+    MovedAttribute("reload_module", "__builtin__", "importlib" if PY34 else "imp", "reload"),  # noqa: E501
     MovedAttribute("reduce", "__builtin__", "functools"),
     MovedAttribute("shlex_quote", "pipes", "shlex", "quote"),
     MovedAttribute("StringIO", "StringIO", "io"),
@@ -258,7 +258,7 @@ _moved_attributes = [
     MovedAttribute("UserString", "UserString", "collections"),
     MovedAttribute("xrange", "__builtin__", "builtins", "xrange", "range"),
     MovedAttribute("zip", "itertools", "builtins", "izip", "zip"),
-    MovedAttribute("zip_longest", "itertools", "itertools", "izip_longest", "zip_longest"),
+    MovedAttribute("zip_longest", "itertools", "itertools", "izip_longest", "zip_longest"),  # noqa: E501
     MovedModule("builtins", "__builtin__"),
     MovedModule("configparser", "ConfigParser"),
     MovedModule("copyreg", "copy_reg"),
@@ -271,8 +271,8 @@ _moved_attributes = [
     MovedModule("http_client", "httplib", "http.client"),
     MovedModule("email_mime_base", "email.MIMEBase", "email.mime.base"),
     MovedModule("email_mime_image", "email.MIMEImage", "email.mime.image"),
-    MovedModule("email_mime_multipart", "email.MIMEMultipart", "email.mime.multipart"),
-    MovedModule("email_mime_nonmultipart", "email.MIMENonMultipart", "email.mime.nonmultipart"),
+    MovedModule("email_mime_multipart", "email.MIMEMultipart", "email.mime.multipart"),  # noqa: E501
+    MovedModule("email_mime_nonmultipart", "email.MIMENonMultipart", "email.mime.nonmultipart"),  # noqa: E501
     MovedModule("email_mime_text", "email.MIMEText", "email.mime.text"),
     MovedModule("BaseHTTPServer", "BaseHTTPServer", "http.server"),
     MovedModule("CGIHTTPServer", "CGIHTTPServer", "http.server"),
@@ -285,8 +285,8 @@ _moved_attributes = [
     MovedModule("tkinter", "Tkinter"),
     MovedModule("tkinter_dialog", "Dialog", "tkinter.dialog"),
     MovedModule("tkinter_filedialog", "FileDialog", "tkinter.filedialog"),
-    MovedModule("tkinter_scrolledtext", "ScrolledText", "tkinter.scrolledtext"),
-    MovedModule("tkinter_simpledialog", "SimpleDialog", "tkinter.simpledialog"),
+    MovedModule("tkinter_scrolledtext", "ScrolledText", "tkinter.scrolledtext"),  # noqa: E501
+    MovedModule("tkinter_simpledialog", "SimpleDialog", "tkinter.simpledialog"),  # noqa: E501
     MovedModule("tkinter_tix", "Tix", "tkinter.tix"),
     MovedModule("tkinter_ttk", "ttk", "tkinter.ttk"),
     MovedModule("tkinter_constants", "Tkconstants", "tkinter.constants"),
@@ -300,9 +300,9 @@ _moved_attributes = [
     MovedModule("tkinter_messagebox", "tkMessageBox", "tkinter.messagebox"),
     MovedModule("tkinter_tksimpledialog", "tkSimpleDialog",
                 "tkinter.simpledialog"),
-    MovedModule("urllib_parse", __name__ + ".moves.urllib_parse", "urllib.parse"),
-    MovedModule("urllib_error", __name__ + ".moves.urllib_error", "urllib.error"),
-    MovedModule("urllib", __name__ + ".moves.urllib", __name__ + ".moves.urllib"),
+    MovedModule("urllib_parse", __name__ + ".moves.urllib_parse", "urllib.parse"),  # noqa: E501
+    MovedModule("urllib_error", __name__ + ".moves.urllib_error", "urllib.error"),  # noqa: E501
+    MovedModule("urllib", __name__ + ".moves.urllib", __name__ + ".moves.urllib"),  # noqa: E501
     MovedModule("urllib_robotparser", "robotparser", "urllib.robotparser"),
     MovedModule("xmlrpc_client", "xmlrpclib", "xmlrpc.client"),
     MovedModule("xmlrpc_server", "SimpleXMLRPCServer", "xmlrpc.server"),
@@ -345,7 +345,7 @@ _urllib_parse_moved_attributes = [
     MovedAttribute("quote_plus", "urllib", "urllib.parse"),
     MovedAttribute("unquote", "urllib", "urllib.parse"),
     MovedAttribute("unquote_plus", "urllib", "urllib.parse"),
-    MovedAttribute("unquote_to_bytes", "urllib", "urllib.parse", "unquote", "unquote_to_bytes"),
+    MovedAttribute("unquote_to_bytes", "urllib", "urllib.parse", "unquote", "unquote_to_bytes"),  # noqa: E501
     MovedAttribute("urlencode", "urllib", "urllib.parse"),
     MovedAttribute("splitquery", "urllib", "urllib.parse"),
     MovedAttribute("splittag", "urllib", "urllib.parse"),
@@ -361,9 +361,9 @@ for attr in _urllib_parse_moved_attributes:
     setattr(Module_six_moves_urllib_parse, attr.name, attr)
 del attr
 
-Module_six_moves_urllib_parse._moved_attributes = _urllib_parse_moved_attributes
+Module_six_moves_urllib_parse._moved_attributes = _urllib_parse_moved_attributes  # noqa: E501
 
-_importer._add_module(Module_six_moves_urllib_parse(__name__ + ".moves.urllib_parse"),
+_importer._add_module(Module_six_moves_urllib_parse(__name__ + ".moves.urllib_parse"),  # noqa: E501
                       "moves.urllib_parse", "moves.urllib.parse")
 
 
@@ -381,9 +381,9 @@ for attr in _urllib_error_moved_attributes:
     setattr(Module_six_moves_urllib_error, attr.name, attr)
 del attr
 
-Module_six_moves_urllib_error._moved_attributes = _urllib_error_moved_attributes
+Module_six_moves_urllib_error._moved_attributes = _urllib_error_moved_attributes  # noqa: E501
 
-_importer._add_module(Module_six_moves_urllib_error(__name__ + ".moves.urllib.error"),
+_importer._add_module(Module_six_moves_urllib_error(__name__ + ".moves.urllib.error"),  # noqa: E501
                       "moves.urllib_error", "moves.urllib.error")
 
 
@@ -407,7 +407,7 @@ _urllib_request_moved_attributes = [
     MovedAttribute("ProxyHandler", "urllib2", "urllib.request"),
     MovedAttribute("BaseHandler", "urllib2", "urllib.request"),
     MovedAttribute("HTTPPasswordMgr", "urllib2", "urllib.request"),
-    MovedAttribute("HTTPPasswordMgrWithDefaultRealm", "urllib2", "urllib.request"),
+    MovedAttribute("HTTPPasswordMgrWithDefaultRealm", "urllib2", "urllib.request"),  # noqa: E501
     MovedAttribute("AbstractBasicAuthHandler", "urllib2", "urllib.request"),
     MovedAttribute("HTTPBasicAuthHandler", "urllib2", "urllib.request"),
     MovedAttribute("ProxyBasicAuthHandler", "urllib2", "urllib.request"),
@@ -431,9 +431,9 @@ for attr in _urllib_request_moved_attributes:
     setattr(Module_six_moves_urllib_request, attr.name, attr)
 del attr
 
-Module_six_moves_urllib_request._moved_attributes = _urllib_request_moved_attributes
+Module_six_moves_urllib_request._moved_attributes = _urllib_request_moved_attributes  # noqa: E501
 
-_importer._add_module(Module_six_moves_urllib_request(__name__ + ".moves.urllib.request"),
+_importer._add_module(Module_six_moves_urllib_request(__name__ + ".moves.urllib.request"),  # noqa: E501
                       "moves.urllib_request", "moves.urllib.request")
 
 
@@ -452,9 +452,9 @@ for attr in _urllib_response_moved_attributes:
     setattr(Module_six_moves_urllib_response, attr.name, attr)
 del attr
 
-Module_six_moves_urllib_response._moved_attributes = _urllib_response_moved_attributes
+Module_six_moves_urllib_response._moved_attributes = _urllib_response_moved_attributes  # noqa: E501
 
-_importer._add_module(Module_six_moves_urllib_response(__name__ + ".moves.urllib.response"),
+_importer._add_module(Module_six_moves_urllib_response(__name__ + ".moves.urllib.response"),  # noqa: E501
                       "moves.urllib_response", "moves.urllib.response")
 
 
@@ -470,15 +470,15 @@ for attr in _urllib_robotparser_moved_attributes:
     setattr(Module_six_moves_urllib_robotparser, attr.name, attr)
 del attr
 
-Module_six_moves_urllib_robotparser._moved_attributes = _urllib_robotparser_moved_attributes
+Module_six_moves_urllib_robotparser._moved_attributes = _urllib_robotparser_moved_attributes  # noqa: E501
 
-_importer._add_module(Module_six_moves_urllib_robotparser(__name__ + ".moves.urllib.robotparser"),
+_importer._add_module(Module_six_moves_urllib_robotparser(__name__ + ".moves.urllib.robotparser"),  # noqa: E501
                       "moves.urllib_robotparser", "moves.urllib.robotparser")
 
 
 class Module_six_moves_urllib(types.ModuleType):
 
-    """Create a scapy.modules.six.urllib namespace that resembles the Python 3 namespace"""
+    """Create a scapy.modules.six.urllib namespace that resembles the Python 3 namespace"""  # noqa: E501
     __path__ = []  # mark as package
     parse = _importer._get_module("moves.urllib_parse")
     error = _importer._get_module("moves.urllib_error")
@@ -878,7 +878,7 @@ if globals().get("__spec__") is not None:
 # this for some reason.)
 if sys.meta_path:
     for i, importer in enumerate(sys.meta_path):
-        # Here's some real nastiness: Another "instance" of the six module might
+        # Here's some real nastiness: Another "instance" of the six module might  # noqa: E501
         # be floating around. Therefore, we can't use isinstance() to check for
         # the six meta path importer, since the other six instance will have
         # inserted an importer with different class.

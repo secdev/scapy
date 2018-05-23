@@ -125,7 +125,7 @@ CauseValues = {0: "Request IMSI",
                220: "Unknown PDP address or PDP type",
                221: "PDP context without TFT already activated",
                222: "APN access denied : no subscription",
-               223: "APN Restriction type incompatibility with currently active PDP Contexts",
+               223: "APN Restriction type incompatibility with currently active PDP Contexts",  # noqa: E501
                224: "MS MBMS Capabilities Insufficient",
                225: "Invalid Correlation : ID",
                226: "MBMS Bearer Context Superseded",
@@ -166,7 +166,7 @@ class TBCDByteField(StrFixedLenField):
             if left == 0xf:
                 ret.append(TBCD_TO_ASCII[right:right + 1])
             else:
-                ret += [TBCD_TO_ASCII[right:right + 1], TBCD_TO_ASCII[left:left + 1]]
+                ret += [TBCD_TO_ASCII[right:right + 1], TBCD_TO_ASCII[left:left + 1]]  # noqa: E501
         return b"".join(ret)
 
     def i2m(self, pkt, val):
@@ -216,9 +216,9 @@ class GTPHeader(Packet):
                    ByteEnumField("gtp_type", None, GTPmessageType),
                    ShortField("length", None),
                    IntField("teid", 0),
-                   ConditionalField(XBitField("seq", 0, 16), lambda pkt:pkt.E == 1 or pkt.S == 1 or pkt.PN == 1),
-                   ConditionalField(ByteField("npdu", 0), lambda pkt:pkt.E == 1 or pkt.S == 1 or pkt.PN == 1),
-                   ConditionalField(ByteEnumField("next_ex", 0, ExtensionHeadersTypes), lambda pkt:pkt.E == 1 or pkt.S == 1 or pkt.PN == 1), ]
+                   ConditionalField(XBitField("seq", 0, 16), lambda pkt:pkt.E == 1 or pkt.S == 1 or pkt.PN == 1),  # noqa: E501
+                   ConditionalField(ByteField("npdu", 0), lambda pkt:pkt.E == 1 or pkt.S == 1 or pkt.PN == 1),  # noqa: E501
+                   ConditionalField(ByteEnumField("next_ex", 0, ExtensionHeadersTypes), lambda pkt:pkt.E == 1 or pkt.S == 1 or pkt.PN == 1), ]  # noqa: E501
 
     def post_build(self, p, pay):
         p += pay
@@ -250,9 +250,9 @@ class GTPHeader(Packet):
 class GTP_U_Header(GTPHeader):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
     name = "GTP-U Header"
-    # GTP-U protocol is used to transmit T-PDUs between GSN pairs (or between an SGSN and an RNC in UMTS),
-    # encapsulated in G-PDUs. A G-PDU is a packet including a GTP-U header and a T-PDU. The Path Protocol
-    # defines the path and the GTP-U header defines the tunnel. Several tunnels may be multiplexed on a single path.
+    # GTP-U protocol is used to transmit T-PDUs between GSN pairs (or between an SGSN and an RNC in UMTS),  # noqa: E501
+    # encapsulated in G-PDUs. A G-PDU is a packet including a GTP-U header and a T-PDU. The Path Protocol  # noqa: E501
+    # defines the path and the GTP-U header defines the tunnel. Several tunnels may be multiplexed on a single path.  # noqa: E501
 
 
 # Some gtp_types have to be associated with a certain type of header
@@ -346,7 +346,7 @@ class IE_Teardown(IE_Base):
 
 
 class IE_NSAPI(IE_Base):
-    # Identifies a PDP context in a mobility management context specified by TEICP
+    # Identifies a PDP context in a mobility management context specified by TEICP  # noqa: E501
     name = "NSAPI"
     fields_desc = [ByteEnumField("ietype", 20, IEType),
                    XBitField("sparebits", 0x0000, 4),
@@ -357,7 +357,7 @@ class IE_ChargingCharacteristics(IE_Base):
     # Way of informing both the SGSN and GGSN of the rules for
     name = "Charging Characteristics"
     fields_desc = [ByteEnumField("ietype", 26, IEType),
-                   # producing charging information based on operator configured triggers.
+                   # producing charging information based on operator configured triggers.  # noqa: E501
                    #    0000 .... .... .... : spare
                    #    .... 1... .... .... : normal charging
                    #    .... .0.. .... .... : prepaid charging
@@ -409,9 +409,9 @@ class IE_EndUserAddress(IE_Base):
                    BitField("PDPTypeOrganization", 1, 4),
                    XByteField("PDPTypeNumber", None),
                    ConditionalField(IPField("PDPAddress", RandIP()),
-                                    lambda pkt: pkt.length == 6 or pkt.length == 22),
+                                    lambda pkt: pkt.length == 6 or pkt.length == 22),  # noqa: E501
                    ConditionalField(IP6Field("IPv6_PDPAddress", '::1'),
-                                    lambda pkt: pkt.length == 18 or pkt.length == 22)]
+                                    lambda pkt: pkt.length == 18 or pkt.length == 22)]  # noqa: E501
 
 
 class APNStrLenField(StrLenField):
@@ -422,7 +422,7 @@ class APNStrLenField(StrLenField):
         while tmp_s:
             tmp_len = orb(tmp_s[0]) + 1
             if tmp_len > len(tmp_s):
-                warning("APN prematured end of character-string (size=%i, remaining bytes=%i)" % (tmp_len, len(tmp_s)))
+                warning("APN prematured end of character-string (size=%i, remaining bytes=%i)" % (tmp_len, len(tmp_s)))  # noqa: E501
             ret_s += tmp_s[1:tmp_len]
             tmp_s = tmp_s[tmp_len:]
             if len(tmp_s):
@@ -440,7 +440,7 @@ class IE_AccessPointName(IE_Base):
     name = "Access Point Name"
     fields_desc = [ByteEnumField("ietype", 131, IEType),
                    ShortField("length", None),
-                   APNStrLenField("APN", "nternet", length_from=lambda x: x.length)]
+                   APNStrLenField("APN", "nternet", length_from=lambda x: x.length)]  # noqa: E501
 
     def post_build(self, p, pay):
         if self.length is None:
@@ -468,8 +468,8 @@ class IE_MSInternationalNumber(IE_Base):
     name = "MS International Number"
     fields_desc = [ByteEnumField("ietype", 134, IEType),
                    ShortField("length", None),
-                   FlagsField("flags", 0x91, 8, ["Extension", "", "", "International Number", "", "", "", "ISDN numbering"]),
-                   TBCDByteField("digits", "33607080910", length_from=lambda x: x.length - 1)]
+                   FlagsField("flags", 0x91, 8, ["Extension", "", "", "International Number", "", "", "", "ISDN numbering"]),  # noqa: E501
+                   TBCDByteField("digits", "33607080910", length_from=lambda x: x.length - 1)]  # noqa: E501
 
 
 class QoS_Profile(IE_Base):
@@ -618,7 +618,7 @@ class IE_UserLocationInformation(IE_Base):
                    ByteField("type", 1),
                    # Only type 1 is currently supported
                    TBCDByteField("MCC", "", 2),
-                   # MNC: if the third digit of MCC is 0xf, then the length of MNC is 1 byte
+                   # MNC: if the third digit of MCC is 0xf, then the length of MNC is 1 byte  # noqa: E501
                    TBCDByteField("MNC", "", 1),
                    ShortField("LAC", None),
                    ShortField("SAC", None)]
@@ -707,8 +707,8 @@ class IE_PrivateExtension(IE_Base):
 class IE_ExtensionHeaderList(IE_Base):
     name = "Extension Header List"
     fields_desc = [ByteEnumField("ietype", 141, IEType),
-                   FieldLenField("length", None, length_of="extension_headers"),
-                   FieldListField("extension_headers", [64, 192], ByteField("", 0))]
+                   FieldLenField("length", None, length_of="extension_headers"),  # noqa: E501
+                   FieldListField("extension_headers", [64, 192], ByteField("", 0))]  # noqa: E501
 
 
 class IE_NotImplementedTLV(Packet):
@@ -785,9 +785,9 @@ class GTPEchoResponse(Packet):
 class GTPCreatePDPContextRequest(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
     name = "GTP Create PDP Context Request"
-    fields_desc = [PacketListField("IE_list", [IE_TEIDI(), IE_NSAPI(), IE_GSNAddress(),
+    fields_desc = [PacketListField("IE_list", [IE_TEIDI(), IE_NSAPI(), IE_GSNAddress(),  # noqa: E501
                                                IE_GSNAddress(),
-                                               IE_NotImplementedTLV(ietype=135, length=15, data=RandString(15))],
+                                               IE_NotImplementedTLV(ietype=135, length=15, data=RandString(15))],  # noqa: E501
                                    IE_Dispatcher)]
 
     def hashret(self):
@@ -867,9 +867,9 @@ class GTPPDUNotificationRequest(Packet):
     name = "GTP PDU Notification Request"
     fields_desc = [PacketListField("IE_list", [IE_IMSI(),
                                                IE_TEICP(TEICI=RandInt()),
-                                               IE_EndUserAddress(PDPTypeNumber=0x21),
+                                               IE_EndUserAddress(PDPTypeNumber=0x21),  # noqa: E501
                                                IE_AccessPointName(),
-                                               IE_GSNAddress(address="127.0.0.1"),
+                                               IE_GSNAddress(address="127.0.0.1"),  # noqa: E501
                                                ], IE_Dispatcher)]
 
 
@@ -903,7 +903,7 @@ bind_layers(GTPHeader, GTPUpdatePDPContextResponse, gtp_type=19)
 bind_layers(GTPHeader, GTPDeletePDPContextRequest, gtp_type=20)
 bind_layers(GTPHeader, GTPDeletePDPContextResponse, gtp_type=21)
 bind_layers(GTPHeader, GTPPDUNotificationRequest, gtp_type=27)
-bind_layers(GTPHeader, GTPSupportedExtensionHeadersNotification, gtp_type=31, S=1)
+bind_layers(GTPHeader, GTPSupportedExtensionHeadersNotification, gtp_type=31, S=1)  # noqa: E501
 bind_layers(GTPHeader, GTP_UDPPort_ExtensionHeader, next_ex=64, E=1)
 bind_layers(GTPHeader, GTP_PDCP_PDU_ExtensionHeader, next_ex=192, E=1)
 

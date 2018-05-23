@@ -256,7 +256,7 @@ class dot15d4AddressField(Field):
             return hex(self.i2m(pkt, x))
         else:  # long address
             x = "%016x" % self.i2m(pkt, x)
-            return ":".join(["%s%s" % (x[i], x[i + 1]) for i in range(0, len(x), 2)])
+            return ":".join(["%s%s" % (x[i], x[i + 1]) for i in range(0, len(x), 2)])  # noqa: E501
 
     def addfield(self, pkt, s, val):
         """Add an internal value to a string"""
@@ -269,9 +269,9 @@ class dot15d4AddressField(Field):
 
     def getfield(self, pkt, s):
         if self.adjust(pkt, self.length_of) == 2:
-            return s[2:], self.m2i(pkt, struct.unpack(self.fmt[0] + "H", s[:2])[0])
+            return s[2:], self.m2i(pkt, struct.unpack(self.fmt[0] + "H", s[:2])[0])  # noqa: E501
         elif self.adjust(pkt, self.length_of) == 8:
-            return s[8:], self.m2i(pkt, struct.unpack(self.fmt[0] + "Q", s[:8])[0])
+            return s[8:], self.m2i(pkt, struct.unpack(self.fmt[0] + "Q", s[:8])[0])  # noqa: E501
         else:
             raise Exception('impossible case')
 
@@ -313,16 +313,16 @@ class Dot15d4(Packet):
         BitEnumField("fcf_ackreq", 0, 1, [False, True]),
         BitEnumField("fcf_pending", 0, 1, [False, True]),
         BitEnumField("fcf_security", 0, 1, [False, True]),  # fcf p1 b2
-        Emph(BitEnumField("fcf_frametype", 0, 3, {0: "Beacon", 1: "Data", 2: "Ack", 3: "Command"})),
-        BitEnumField("fcf_srcaddrmode", 0, 2, {0: "None", 1: "Reserved", 2: "Short", 3: "Long"}),  # fcf p2 b1
-        BitField("fcf_framever", 0, 2),  # 00 compatibility with 2003 version; 01 compatible with 2006 version
-        BitEnumField("fcf_destaddrmode", 2, 2, {0: "None", 1: "Reserved", 2: "Short", 3: "Long"}),  # fcf p2 b2
+        Emph(BitEnumField("fcf_frametype", 0, 3, {0: "Beacon", 1: "Data", 2: "Ack", 3: "Command"})),  # noqa: E501
+        BitEnumField("fcf_srcaddrmode", 0, 2, {0: "None", 1: "Reserved", 2: "Short", 3: "Long"}),  # fcf p2 b1  # noqa: E501
+        BitField("fcf_framever", 0, 2),  # 00 compatibility with 2003 version; 01 compatible with 2006 version  # noqa: E501
+        BitEnumField("fcf_destaddrmode", 2, 2, {0: "None", 1: "Reserved", 2: "Short", 3: "Long"}),  # fcf p2 b2  # noqa: E501
         BitField("fcf_reserved_2", 0, 2),
         Emph(ByteField("seqnum", 1))  # sequence number
     ]
 
     def mysummary(self):
-        return self.sprintf("802.15.4 %Dot15d4.fcf_frametype% ackreq(%Dot15d4.fcf_ackreq%) ( %Dot15d4.fcf_destaddrmode% -> %Dot15d4.fcf_srcaddrmode% ) Seq#%Dot15d4.seqnum%")
+        return self.sprintf("802.15.4 %Dot15d4.fcf_frametype% ackreq(%Dot15d4.fcf_ackreq%) ( %Dot15d4.fcf_destaddrmode% -> %Dot15d4.fcf_srcaddrmode% ) Seq#%Dot15d4.seqnum%")  # noqa: E501
 
     def guess_payload_class(self, payload):
         if self.fcf_frametype == 0x00:
@@ -341,7 +341,7 @@ class Dot15d4(Packet):
             if self.fcf_frametype == 2:  # ack
                 if self.seqnum != other.seqnum:  # check for seqnum matching
                     return 0
-                elif other.fcf_ackreq == 1:  # check that an ack was indeed requested
+                elif other.fcf_ackreq == 1:  # check that an ack was indeed requested  # noqa: E501
                     return 1
         return 0
 
@@ -359,14 +359,14 @@ class Dot15d4FCS(Dot15d4, Packet):
     '''
     This class is a drop-in replacement for the Dot15d4 class above, except
     it expects a FCS/checksum in the input, and produces one in the output.
-    This provides the user flexibility, as many 802.15.4 interfaces will have an AUTO_CRC setting
-    that will validate the FCS/CRC in firmware, and add it automatically when transmitting.
+    This provides the user flexibility, as many 802.15.4 interfaces will have an AUTO_CRC setting  # noqa: E501
+    that will validate the FCS/CRC in firmware, and add it automatically when transmitting.  # noqa: E501
     '''
 
     def pre_dissect(self, s):
         """Called right before the current layer is dissected"""
         if (makeFCS(s[:-2]) != s[-2:]):  # validate the FCS given
-            warning("FCS on this packet is invalid or is not present in provided bytes.")
+            warning("FCS on this packet is invalid or is not present in provided bytes.")  # noqa: E501
             return s  # if not valid, pretend there was no FCS present
         return s[:-2]  # otherwise just disect the non-FCS section of the pkt
 
@@ -377,7 +377,7 @@ class Dot15d4FCS(Dot15d4, Packet):
             self.fcf_destaddrmode = 0
             return raw(self)
         else:
-            return p + pay + makeFCS(p + pay)  # construct the packet with the FCS at the end
+            return p + pay + makeFCS(p + pay)  # construct the packet with the FCS at the end  # noqa: E501
 
 
 class Dot15d4Ack(Packet):
@@ -390,25 +390,24 @@ class Dot15d4AuxSecurityHeader(Packet):
     fields_desc = [
         BitField("sec_sc_reserved", 0, 3),
         # Key Identifier Mode
-        # 0: Key is determined implicitly from the originator and receipient(s) of the frame
-        # 1: Key is determined explicitly from the the 1-octet Key Index subfield of the Key Identifier field
-        # 2: Key is determined explicitly from the 4-octet Key Source and the 1-octet Key Index
-        # 3: Key is determined explicitly from the 8-octet Key Source and the 1-octet Key Index
+        # 0: Key is determined implicitly from the originator and receipient(s) of the frame  # noqa: E501
+        # 1: Key is determined explicitly from the the 1-octet Key Index subfield of the Key Identifier field  # noqa: E501
+        # 2: Key is determined explicitly from the 4-octet Key Source and the 1-octet Key Index  # noqa: E501
+        # 3: Key is determined explicitly from the 8-octet Key Source and the 1-octet Key Index  # noqa: E501
         BitEnumField("sec_sc_keyidmode", 0, 2, {
-            0: "Implicit", 1: "1oKeyIndex", 2: "4o-KeySource-1oKeyIndex", 3: "8o-KeySource-1oKeyIndex"}
+            0: "Implicit", 1: "1oKeyIndex", 2: "4o-KeySource-1oKeyIndex", 3: "8o-KeySource-1oKeyIndex"}  # noqa: E501
         ),
-        BitEnumField("sec_sc_seclevel", 0, 3, {0: "None", 1: "MIC-32", 2: "MIC-64", 3: "MIC-128",          \
-                                               4: "ENC", 5: "ENC-MIC-32", 6: "ENC-MIC-64", 7: "ENC-MIC-128"}),
+        BitEnumField("sec_sc_seclevel", 0, 3, {0: "None", 1: "MIC-32", 2: "MIC-64", 3: "MIC-128", 4: "ENC", 5: "ENC-MIC-32", 6: "ENC-MIC-64", 7: "ENC-MIC-128"}),  # noqa: E501
         XLEIntField("sec_framecounter", 0x00000000),  # 4 octets
-        # Key Identifier (variable length): identifies the key that is used for cryptographic protection
-        # Key Source : length of sec_keyid_keysource varies btwn 0, 4, and 8 bytes depending on sec_sc_keyidmode
+        # Key Identifier (variable length): identifies the key that is used for cryptographic protection  # noqa: E501
+        # Key Source : length of sec_keyid_keysource varies btwn 0, 4, and 8 bytes depending on sec_sc_keyidmode  # noqa: E501
         # 4 octets when sec_sc_keyidmode == 2
         ConditionalField(XLEIntField("sec_keyid_keysource", 0x00000000),
                          lambda pkt: pkt.getfieldval("sec_sc_keyidmode") == 2),
         # 8 octets when sec_sc_keyidmode == 3
-        ConditionalField(LELongField("sec_keyid_keysource", 0x0000000000000000),
+        ConditionalField(LELongField("sec_keyid_keysource", 0x0000000000000000),  # noqa: E501
                          lambda pkt: pkt.getfieldval("sec_sc_keyidmode") == 3),
-        # Key Index (1 octet): allows unique identification of different keys with the same originator
+        # Key Index (1 octet): allows unique identification of different keys with the same originator  # noqa: E501
         ConditionalField(XByteField("sec_keyid_keyindex", 0xFF),
                          lambda pkt: pkt.getfieldval("sec_sc_keyidmode") != 0),
     ]
@@ -421,15 +420,15 @@ class Dot15d4Data(Packet):
         dot15d4AddressField("dest_addr", 0xFFFF, length_of="fcf_destaddrmode"),
         ConditionalField(XLEShortField("src_panid", 0x0),
                          lambda pkt:util_srcpanid_present(pkt)),
-        ConditionalField(dot15d4AddressField("src_addr", None, length_of="fcf_srcaddrmode"),
-                         lambda pkt:pkt.underlayer.getfieldval("fcf_srcaddrmode") != 0),
+        ConditionalField(dot15d4AddressField("src_addr", None, length_of="fcf_srcaddrmode"),  # noqa: E501
+                         lambda pkt:pkt.underlayer.getfieldval("fcf_srcaddrmode") != 0),  # noqa: E501
         # Security field present if fcf_security == True
-        ConditionalField(PacketField("aux_sec_header", Dot15d4AuxSecurityHeader(), Dot15d4AuxSecurityHeader),
-                         lambda pkt:pkt.underlayer.getfieldval("fcf_security") is True),
+        ConditionalField(PacketField("aux_sec_header", Dot15d4AuxSecurityHeader(), Dot15d4AuxSecurityHeader),  # noqa: E501
+                         lambda pkt:pkt.underlayer.getfieldval("fcf_security") is True),  # noqa: E501
     ]
 
     def mysummary(self):
-        return self.sprintf("802.15.4 Data ( %Dot15d4Data.src_panid%:%Dot15d4Data.src_addr% -> %Dot15d4Data.dest_panid%:%Dot15d4Data.dest_addr% )")
+        return self.sprintf("802.15.4 Data ( %Dot15d4Data.src_panid%:%Dot15d4Data.src_addr% -> %Dot15d4Data.dest_panid%:%Dot15d4Data.dest_addr% )")  # noqa: E501
 
 
 class Dot15d4Beacon(Packet):
@@ -438,8 +437,8 @@ class Dot15d4Beacon(Packet):
         XLEShortField("src_panid", 0x0),
         dot15d4AddressField("src_addr", None, length_of="fcf_srcaddrmode"),
         # Security field present if fcf_security == True
-        ConditionalField(PacketField("aux_sec_header", Dot15d4AuxSecurityHeader(), Dot15d4AuxSecurityHeader),
-                         lambda pkt:pkt.underlayer.getfieldval("fcf_security") is True),
+        ConditionalField(PacketField("aux_sec_header", Dot15d4AuxSecurityHeader(), Dot15d4AuxSecurityHeader),  # noqa: E501
+                         lambda pkt:pkt.underlayer.getfieldval("fcf_security") is True),  # noqa: E501
 
         # Superframe spec field:
         BitField("sf_sforder", 15, 4),  # not used by ZigBee
@@ -447,19 +446,19 @@ class Dot15d4Beacon(Packet):
         BitEnumField("sf_assocpermit", 0, 1, [False, True]),
         BitEnumField("sf_pancoord", 0, 1, [False, True]),
         BitField("sf_reserved", 0, 1),  # not used by ZigBee
-        BitEnumField("sf_battlifeextend", 0, 1, [False, True]),  # not used by ZigBee
+        BitEnumField("sf_battlifeextend", 0, 1, [False, True]),  # not used by ZigBee  # noqa: E501
         BitField("sf_finalcapslot", 15, 4),  # not used by ZigBee
 
         # GTS Fields
         #  GTS Specification (1 byte)
-        BitEnumField("gts_spec_permit", 1, 1, [False, True]),  # GTS spec bit 7, true=1 iff PAN cord is accepting GTS requests
+        BitEnumField("gts_spec_permit", 1, 1, [False, True]),  # GTS spec bit 7, true=1 iff PAN cord is accepting GTS requests  # noqa: E501
         BitField("gts_spec_reserved", 0, 4),  # GTS spec bits 3-6
         BitField("gts_spec_desccount", 0, 3),  # GTS spec bits 0-2
         #  GTS Directions (0 or 1 byte)
-        ConditionalField(BitField("gts_dir_reserved", 0, 1), lambda pkt:pkt.getfieldval("gts_spec_desccount") != 0),
-        ConditionalField(BitField("gts_dir_mask", 0, 7), lambda pkt:pkt.getfieldval("gts_spec_desccount") != 0),
+        ConditionalField(BitField("gts_dir_reserved", 0, 1), lambda pkt:pkt.getfieldval("gts_spec_desccount") != 0),  # noqa: E501
+        ConditionalField(BitField("gts_dir_mask", 0, 7), lambda pkt:pkt.getfieldval("gts_spec_desccount") != 0),  # noqa: E501
         #  GTS List (variable size)
-        # TODO add a Packet/FieldListField tied to 3bytes per count in gts_spec_desccount
+        # TODO add a Packet/FieldListField tied to 3bytes per count in gts_spec_desccount  # noqa: E501
 
         # Pending Address Fields:
         #  Pending Address Specification (1 byte)
@@ -468,27 +467,28 @@ class Dot15d4Beacon(Packet):
         BitField("pa_num_long", 0, 3),  # number of long addresses pending
         BitField("pa_reserved_2", 0, 1),
         #  Address List (var length)
-        # TODO add a FieldListField of the pending short addresses, followed by the pending long addresses, with max 7 addresses
+        # TODO add a FieldListField of the pending short addresses, followed by the pending long addresses, with max 7 addresses  # noqa: E501
         # TODO beacon payload
     ]
 
     def mysummary(self):
-        return self.sprintf("802.15.4 Beacon ( %Dot15d4Beacon.src_panid%:%Dot15d4Beacon.src_addr% ) assocPermit(%Dot15d4Beacon.sf_assocpermit%) panCoord(%Dot15d4Beacon.sf_pancoord%)")
+        return self.sprintf("802.15.4 Beacon ( %Dot15d4Beacon.src_panid%:%Dot15d4Beacon.src_addr% ) assocPermit(%Dot15d4Beacon.sf_assocpermit%) panCoord(%Dot15d4Beacon.sf_pancoord%)")  # noqa: E501
 
 
 class Dot15d4Cmd(Packet):
     name = "802.15.4 Command"
     fields_desc = [
         XLEShortField("dest_panid", 0xFFFF),
-        # Users should correctly set the dest_addr field. By default is 0x0 for construction to work.
+        # Users should correctly set the dest_addr field. By default is 0x0 for construction to work.  # noqa: E501
         dot15d4AddressField("dest_addr", 0x0, length_of="fcf_destaddrmode"),
         ConditionalField(XLEShortField("src_panid", 0x0), \
                          lambda pkt:util_srcpanid_present(pkt)),
-        ConditionalField(dot15d4AddressField("src_addr", None, length_of="fcf_srcaddrmode"), \
-                         lambda pkt:pkt.underlayer.getfieldval("fcf_srcaddrmode") != 0),
+        ConditionalField(dot15d4AddressField("src_addr", None,
+                         length_of="fcf_srcaddrmode"),
+                         lambda pkt:pkt.underlayer.getfieldval("fcf_srcaddrmode") != 0),  # noqa: E501
         # Security field present if fcf_security == True
-        ConditionalField(PacketField("aux_sec_header", Dot15d4AuxSecurityHeader(), Dot15d4AuxSecurityHeader),
-                         lambda pkt:pkt.underlayer.getfieldval("fcf_security") is True),
+        ConditionalField(PacketField("aux_sec_header", Dot15d4AuxSecurityHeader(), Dot15d4AuxSecurityHeader),  # noqa: E501
+                         lambda pkt:pkt.underlayer.getfieldval("fcf_security") is True),  # noqa: E501
         ByteEnumField("cmd_id", 0, {
             1: "AssocReq",  # Association request
             2: "AssocResp",  # Association response
@@ -505,10 +505,10 @@ class Dot15d4Cmd(Packet):
     ]
 
     def mysummary(self):
-        return self.sprintf("802.15.4 Command %Dot15d4Cmd.cmd_id% ( %Dot15dCmd.src_panid%:%Dot15d4Cmd.src_addr% -> %Dot15d4Cmd.dest_panid%:%Dot15d4Cmd.dest_addr% )")
+        return self.sprintf("802.15.4 Command %Dot15d4Cmd.cmd_id% ( %Dot15dCmd.src_panid%:%Dot15d4Cmd.src_addr% -> %Dot15d4Cmd.dest_panid%:%Dot15d4Cmd.dest_addr% )")  # noqa: E501
 
-    # command frame payloads are complete: DataReq, PANIDConflictNotify, OrphanNotify, BeaconReq don't have any payload
-    # Although BeaconReq can have an optional ZigBee Beacon payload (implemented in ZigBeeBeacon)
+    # command frame payloads are complete: DataReq, PANIDConflictNotify, OrphanNotify, BeaconReq don't have any payload  # noqa: E501
+    # Although BeaconReq can have an optional ZigBee Beacon payload (implemented in ZigBeeBeacon)  # noqa: E501
     def guess_payload_class(self, payload):
         if self.cmd_id == 1:
             return Dot15d4CmdAssocReq
@@ -531,7 +531,7 @@ class Dot15d4CmdCoordRealign(Packet):
         XLEShortField("panid", 0xFFFF),
         # Coordinator Short Address (2 octets)
         XLEShortField("coord_address", 0x0000),
-        # Logical Channel (1 octet): the logical channel that the coordinator intends to use for all future communications
+        # Logical Channel (1 octet): the logical channel that the coordinator intends to use for all future communications  # noqa: E501
         ByteField("channel", 0),
         # Short Address (2 octets)
         XLEShortField("dev_address", 0xFFFF),
@@ -540,7 +540,7 @@ class Dot15d4CmdCoordRealign(Packet):
     ]
 
     def mysummary(self):
-        return self.sprintf("802.15.4 Coordinator Realign Payload ( PAN ID: %Dot15dCmdCoordRealign.pan_id% : channel %Dot15d4CmdCoordRealign.channel% )")
+        return self.sprintf("802.15.4 Coordinator Realign Payload ( PAN ID: %Dot15dCmdCoordRealign.pan_id% : channel %Dot15d4CmdCoordRealign.channel% )")  # noqa: E501
 
 
 # ZigBee #
@@ -551,20 +551,20 @@ class ZigbeeNWK(Packet):
         BitField("discover_route", 0, 2),
         BitField("proto_version", 2, 4),
         BitEnumField("frametype", 0, 2, {0: 'data', 1: 'command'}),
-        FlagsField("flags", 0, 8, ['multicast', 'security', 'source_route', 'extended_dst', 'extended_src', 'reserved1', 'reserved2', 'reserved3']),
+        FlagsField("flags", 0, 8, ['multicast', 'security', 'source_route', 'extended_dst', 'extended_src', 'reserved1', 'reserved2', 'reserved3']),  # noqa: E501
         XLEShortField("destination", 0),
         XLEShortField("source", 0),
         ByteField("radius", 0),
         ByteField("seqnum", 1),
 
-        ConditionalField(ByteField("relay_count", 1), lambda pkt:pkt.flags & 0x04),
-        ConditionalField(ByteField("relay_index", 0), lambda pkt:pkt.flags & 0x04),
-        ConditionalField(FieldListField("relays", [], XLEShortField("", 0x0000), count_from=lambda pkt:pkt.relay_count), lambda pkt:pkt.flags & 0x04),
+        ConditionalField(ByteField("relay_count", 1), lambda pkt:pkt.flags & 0x04),  # noqa: E501
+        ConditionalField(ByteField("relay_index", 0), lambda pkt:pkt.flags & 0x04),  # noqa: E501
+        ConditionalField(FieldListField("relays", [], XLEShortField("", 0x0000), count_from=lambda pkt:pkt.relay_count), lambda pkt:pkt.flags & 0x04),  # noqa: E501
 
         # ConditionalField(XLongField("ext_dst", 0), lambda pkt:pkt.flags & 8),
-        ConditionalField(dot15d4AddressField("ext_dst", 0, adjust=lambda pkt, x: 8), lambda pkt:pkt.flags & 8),
-        # ConditionalField(XLongField("ext_src", 0), lambda pkt:pkt.flags & 16),
-        ConditionalField(dot15d4AddressField("ext_src", 0, adjust=lambda pkt, x: 8), lambda pkt:pkt.flags & 16),
+        ConditionalField(dot15d4AddressField("ext_dst", 0, adjust=lambda pkt, x: 8), lambda pkt:pkt.flags & 8),  # noqa: E501
+        # ConditionalField(XLongField("ext_src", 0), lambda pkt:pkt.flags & 16),  # noqa: E501
+        ConditionalField(dot15d4AddressField("ext_src", 0, adjust=lambda pkt, x: 8), lambda pkt:pkt.flags & 16),  # noqa: E501
     ]
 
     def guess_payload_class(self, payload):
@@ -610,45 +610,45 @@ class ZigbeeNWKCommandPayload(Packet):
 
         # - Route Request Command - #
         # Command options (1 octet)
-        ConditionalField(BitField("reserved", 0, 1), lambda pkt: pkt.cmd_identifier == 1),
-        ConditionalField(BitField("multicast", 0, 1), lambda pkt: pkt.cmd_identifier == 1),
-        ConditionalField(BitField("dest_addr_bit", 0, 1), lambda pkt: pkt.cmd_identifier == 1),
+        ConditionalField(BitField("reserved", 0, 1), lambda pkt: pkt.cmd_identifier == 1),  # noqa: E501
+        ConditionalField(BitField("multicast", 0, 1), lambda pkt: pkt.cmd_identifier == 1),  # noqa: E501
+        ConditionalField(BitField("dest_addr_bit", 0, 1), lambda pkt: pkt.cmd_identifier == 1),  # noqa: E501
         ConditionalField(
             BitEnumField("many_to_one", 0, 2, {
-                0: "not_m2one", 1: "m2one_support_rrt", 2: "m2one_no_support_rrt", 3: "reserved"}
+                0: "not_m2one", 1: "m2one_support_rrt", 2: "m2one_no_support_rrt", 3: "reserved"}  # noqa: E501
             ), lambda pkt: pkt.cmd_identifier == 1),
-        ConditionalField(BitField("reserved", 0, 3), lambda pkt: pkt.cmd_identifier == 1),
+        ConditionalField(BitField("reserved", 0, 3), lambda pkt: pkt.cmd_identifier == 1),  # noqa: E501
         # Route request identifier (1 octet)
-        ConditionalField(ByteField("route_request_identifier", 0), lambda pkt: pkt.cmd_identifier == 1),
+        ConditionalField(ByteField("route_request_identifier", 0), lambda pkt: pkt.cmd_identifier == 1),  # noqa: E501
         # Destination address (2 octets)
-        ConditionalField(XLEShortField("destination_address", 0x0000), lambda pkt: pkt.cmd_identifier == 1),
+        ConditionalField(XLEShortField("destination_address", 0x0000), lambda pkt: pkt.cmd_identifier == 1),  # noqa: E501
         # Path cost (1 octet)
-        ConditionalField(ByteField("path_cost", 0), lambda pkt: pkt.cmd_identifier == 1),
-        # Destination IEEE Address (0/8 octets), only present when dest_addr_bit has a value of 1
-        ConditionalField(dot15d4AddressField("ext_dst", 0, adjust=lambda pkt, x: 8),
-                         lambda pkt: (pkt.cmd_identifier == 1 and pkt.dest_addr_bit == 1)),
+        ConditionalField(ByteField("path_cost", 0), lambda pkt: pkt.cmd_identifier == 1),  # noqa: E501
+        # Destination IEEE Address (0/8 octets), only present when dest_addr_bit has a value of 1  # noqa: E501
+        ConditionalField(dot15d4AddressField("ext_dst", 0, adjust=lambda pkt, x: 8),  # noqa: E501
+                         lambda pkt: (pkt.cmd_identifier == 1 and pkt.dest_addr_bit == 1)),  # noqa: E501
 
         # - Route Reply Command - #
         # Command options (1 octet)
-        ConditionalField(BitField("reserved", 0, 1), lambda pkt: pkt.cmd_identifier == 2),
-        ConditionalField(BitField("multicast", 0, 1), lambda pkt: pkt.cmd_identifier == 2),
-        ConditionalField(BitField("responder_addr_bit", 0, 1), lambda pkt: pkt.cmd_identifier == 2),
-        ConditionalField(BitField("originator_addr_bit", 0, 1), lambda pkt: pkt.cmd_identifier == 2),
-        ConditionalField(BitField("reserved", 0, 4), lambda pkt: pkt.cmd_identifier == 2),
+        ConditionalField(BitField("reserved", 0, 1), lambda pkt: pkt.cmd_identifier == 2),  # noqa: E501
+        ConditionalField(BitField("multicast", 0, 1), lambda pkt: pkt.cmd_identifier == 2),  # noqa: E501
+        ConditionalField(BitField("responder_addr_bit", 0, 1), lambda pkt: pkt.cmd_identifier == 2),  # noqa: E501
+        ConditionalField(BitField("originator_addr_bit", 0, 1), lambda pkt: pkt.cmd_identifier == 2),  # noqa: E501
+        ConditionalField(BitField("reserved", 0, 4), lambda pkt: pkt.cmd_identifier == 2),  # noqa: E501
         # Route request identifier (1 octet)
-        ConditionalField(ByteField("route_request_identifier", 0), lambda pkt: pkt.cmd_identifier == 2),
+        ConditionalField(ByteField("route_request_identifier", 0), lambda pkt: pkt.cmd_identifier == 2),  # noqa: E501
         # Originator address (2 octets)
-        ConditionalField(XLEShortField("originator_address", 0x0000), lambda pkt: pkt.cmd_identifier == 2),
+        ConditionalField(XLEShortField("originator_address", 0x0000), lambda pkt: pkt.cmd_identifier == 2),  # noqa: E501
         # Responder address (2 octets)
-        ConditionalField(XLEShortField("responder_address", 0x0000), lambda pkt: pkt.cmd_identifier == 2),
+        ConditionalField(XLEShortField("responder_address", 0x0000), lambda pkt: pkt.cmd_identifier == 2),  # noqa: E501
         # Path cost (1 octet)
-        ConditionalField(ByteField("path_cost", 0), lambda pkt: pkt.cmd_identifier == 2),
+        ConditionalField(ByteField("path_cost", 0), lambda pkt: pkt.cmd_identifier == 2),  # noqa: E501
         # Originator IEEE address (0/8 octets)
-        ConditionalField(dot15d4AddressField("originator_addr", 0, adjust=lambda pkt, x: 8),
-                         lambda pkt: (pkt.cmd_identifier == 2 and pkt.originator_addr_bit == 1)),
+        ConditionalField(dot15d4AddressField("originator_addr", 0, adjust=lambda pkt, x: 8),  # noqa: E501
+                         lambda pkt: (pkt.cmd_identifier == 2 and pkt.originator_addr_bit == 1)),  # noqa: E501
         # Responder IEEE address (0/8 octets)
-        ConditionalField(dot15d4AddressField("responder_addr", 0, adjust=lambda pkt, x: 8),
-                         lambda pkt: (pkt.cmd_identifier == 2 and pkt.responder_addr_bit == 1)),
+        ConditionalField(dot15d4AddressField("responder_addr", 0, adjust=lambda pkt, x: 8),  # noqa: E501
+                         lambda pkt: (pkt.cmd_identifier == 2 and pkt.responder_addr_bit == 1)),  # noqa: E501
 
         # - Network Status Command - #
         # Status code (1 octet)
@@ -675,86 +675,86 @@ class ZigbeeNWKCommandPayload(Packet):
             # 0x13 - 0xff Reserved
         }), lambda pkt: pkt.cmd_identifier == 3),
         # Destination address (2 octets)
-        ConditionalField(XLEShortField("destination_address", 0x0000), lambda pkt: pkt.cmd_identifier == 3),
+        ConditionalField(XLEShortField("destination_address", 0x0000), lambda pkt: pkt.cmd_identifier == 3),  # noqa: E501
 
         # - Leave Command - #
         # Command options (1 octet)
         # Bit 7: Remove children
-        ConditionalField(BitField("remove_children", 0, 1), lambda pkt: pkt.cmd_identifier == 4),
+        ConditionalField(BitField("remove_children", 0, 1), lambda pkt: pkt.cmd_identifier == 4),  # noqa: E501
         # Bit 6: Request
-        ConditionalField(BitField("request", 0, 1), lambda pkt: pkt.cmd_identifier == 4),
+        ConditionalField(BitField("request", 0, 1), lambda pkt: pkt.cmd_identifier == 4),  # noqa: E501
         # Bit 5: Rejoin
-        ConditionalField(BitField("rejoin", 0, 1), lambda pkt: pkt.cmd_identifier == 4),
+        ConditionalField(BitField("rejoin", 0, 1), lambda pkt: pkt.cmd_identifier == 4),  # noqa: E501
         # Bit 0 - 4: Reserved
-        ConditionalField(BitField("reserved", 0, 5), lambda pkt: pkt.cmd_identifier == 4),
+        ConditionalField(BitField("reserved", 0, 5), lambda pkt: pkt.cmd_identifier == 4),  # noqa: E501
 
         # - Route Record Command - #
         # Relay count (1 octet)
-        ConditionalField(ByteField("rr_relay_count", 0), lambda pkt: pkt.cmd_identifier == 5),
+        ConditionalField(ByteField("rr_relay_count", 0), lambda pkt: pkt.cmd_identifier == 5),  # noqa: E501
         # Relay list (variable in length)
         ConditionalField(
-            FieldListField("rr_relay_list", [], XLEShortField("", 0x0000), count_from=lambda pkt:pkt.rr_relay_count),
+            FieldListField("rr_relay_list", [], XLEShortField("", 0x0000), count_from=lambda pkt:pkt.rr_relay_count),  # noqa: E501
             lambda pkt:pkt.cmd_identifier == 5),
 
         # - Rejoin Request Command - #
         # Capability Information (1 octet)
-        ConditionalField(BitField("allocate_address", 0, 1), lambda pkt:pkt.cmd_identifier == 6),  # Allocate Address
-        ConditionalField(BitField("security_capability", 0, 1), lambda pkt:pkt.cmd_identifier == 6),  # Security Capability
-        ConditionalField(BitField("reserved2", 0, 1), lambda pkt:pkt.cmd_identifier == 6),  # bit 5 is reserved
-        ConditionalField(BitField("reserved1", 0, 1), lambda pkt:pkt.cmd_identifier == 6),  # bit 4 is reserved
-        ConditionalField(BitField("receiver_on_when_idle", 0, 1), lambda pkt:pkt.cmd_identifier == 6),  # Receiver On When Idle
-        ConditionalField(BitField("power_source", 0, 1), lambda pkt:pkt.cmd_identifier == 6),  # Power Source
-        ConditionalField(BitField("device_type", 0, 1), lambda pkt:pkt.cmd_identifier == 6),  # Device Type
-        ConditionalField(BitField("alternate_pan_coordinator", 0, 1), lambda pkt:pkt.cmd_identifier == 6),  # Alternate PAN Coordinator
+        ConditionalField(BitField("allocate_address", 0, 1), lambda pkt:pkt.cmd_identifier == 6),  # Allocate Address  # noqa: E501
+        ConditionalField(BitField("security_capability", 0, 1), lambda pkt:pkt.cmd_identifier == 6),  # Security Capability  # noqa: E501
+        ConditionalField(BitField("reserved2", 0, 1), lambda pkt:pkt.cmd_identifier == 6),  # bit 5 is reserved  # noqa: E501
+        ConditionalField(BitField("reserved1", 0, 1), lambda pkt:pkt.cmd_identifier == 6),  # bit 4 is reserved  # noqa: E501
+        ConditionalField(BitField("receiver_on_when_idle", 0, 1), lambda pkt:pkt.cmd_identifier == 6),  # Receiver On When Idle  # noqa: E501
+        ConditionalField(BitField("power_source", 0, 1), lambda pkt:pkt.cmd_identifier == 6),  # Power Source  # noqa: E501
+        ConditionalField(BitField("device_type", 0, 1), lambda pkt:pkt.cmd_identifier == 6),  # Device Type  # noqa: E501
+        ConditionalField(BitField("alternate_pan_coordinator", 0, 1), lambda pkt:pkt.cmd_identifier == 6),  # Alternate PAN Coordinator  # noqa: E501
 
         # - Rejoin Response Command - #
         # Network address (2 octets)
-        ConditionalField(XLEShortField("network_address", 0xFFFF), lambda pkt:pkt.cmd_identifier == 7),
+        ConditionalField(XLEShortField("network_address", 0xFFFF), lambda pkt:pkt.cmd_identifier == 7),  # noqa: E501
         # Rejoin status (1 octet)
-        ConditionalField(ByteField("rejoin_status", 0), lambda pkt:pkt.cmd_identifier == 7),
+        ConditionalField(ByteField("rejoin_status", 0), lambda pkt:pkt.cmd_identifier == 7),  # noqa: E501
 
         # - Link Status Command - #
         # Command options (1 octet)
-        ConditionalField(BitField("reserved", 0, 1), lambda pkt:pkt.cmd_identifier == 8),  # Reserved
-        ConditionalField(BitField("last_frame", 0, 1), lambda pkt:pkt.cmd_identifier == 8),  # Last frame
-        ConditionalField(BitField("first_frame", 0, 1), lambda pkt:pkt.cmd_identifier == 8),  # First frame
-        ConditionalField(BitField("entry_count", 0, 5), lambda pkt:pkt.cmd_identifier == 8),  # Entry count
+        ConditionalField(BitField("reserved", 0, 1), lambda pkt:pkt.cmd_identifier == 8),  # Reserved  # noqa: E501
+        ConditionalField(BitField("last_frame", 0, 1), lambda pkt:pkt.cmd_identifier == 8),  # Last frame  # noqa: E501
+        ConditionalField(BitField("first_frame", 0, 1), lambda pkt:pkt.cmd_identifier == 8),  # First frame  # noqa: E501
+        ConditionalField(BitField("entry_count", 0, 5), lambda pkt:pkt.cmd_identifier == 8),  # Entry count  # noqa: E501
         # Link status list (variable size)
         ConditionalField(
-            PacketListField("link_status_list", [], LinkStatusEntry, count_from=lambda pkt:pkt.entry_count),
+            PacketListField("link_status_list", [], LinkStatusEntry, count_from=lambda pkt:pkt.entry_count),  # noqa: E501
             lambda pkt:pkt.cmd_identifier == 8),
 
         # - Network Report Command - #
         # Command options (1 octet)
         ConditionalField(
-            BitEnumField("report_command_identifier", 0, 3, {0: "PAN identifier conflict"}),  # 0x01 - 0x07 Reserved
+            BitEnumField("report_command_identifier", 0, 3, {0: "PAN identifier conflict"}),  # 0x01 - 0x07 Reserved  # noqa: E501
             lambda pkt: pkt.cmd_identifier == 9),
-        ConditionalField(BitField("report_information_count", 0, 5), lambda pkt: pkt.cmd_identifier == 9),
+        ConditionalField(BitField("report_information_count", 0, 5), lambda pkt: pkt.cmd_identifier == 9),  # noqa: E501
         # EPID: Extended PAN ID (8 octets)
-        ConditionalField(dot15d4AddressField("epid", 0, adjust=lambda pkt, x: 8), lambda pkt: pkt.cmd_identifier == 9),
+        ConditionalField(dot15d4AddressField("epid", 0, adjust=lambda pkt, x: 8), lambda pkt: pkt.cmd_identifier == 9),  # noqa: E501
         # Report information (variable length)
         # Only present if we have a PAN Identifier Conflict Report
         ConditionalField(
-            FieldListField("PAN_ID_conflict_report", [], XLEShortField("", 0x0000),
+            FieldListField("PAN_ID_conflict_report", [], XLEShortField("", 0x0000),  # noqa: E501
                            count_from=lambda pkt:pkt.report_information_count),
-            lambda pkt:(pkt.cmd_identifier == 9 and pkt.report_command_identifier == 0)
+            lambda pkt:(pkt.cmd_identifier == 9 and pkt.report_command_identifier == 0)  # noqa: E501
         ),
 
         # - Network Update Command - #
         # Command options (1 octet)
         ConditionalField(
-            BitEnumField("update_command_identifier", 0, 3, {0: "PAN Identifier Update"}),  # 0x01 - 0x07 Reserved
+            BitEnumField("update_command_identifier", 0, 3, {0: "PAN Identifier Update"}),  # 0x01 - 0x07 Reserved  # noqa: E501
             lambda pkt: pkt.cmd_identifier == 10),
-        ConditionalField(BitField("update_information_count", 0, 5), lambda pkt: pkt.cmd_identifier == 10),
+        ConditionalField(BitField("update_information_count", 0, 5), lambda pkt: pkt.cmd_identifier == 10),  # noqa: E501
         # EPID: Extended PAN ID (8 octets)
-        ConditionalField(dot15d4AddressField("epid", 0, adjust=lambda pkt, x: 8), lambda pkt: pkt.cmd_identifier == 10),
+        ConditionalField(dot15d4AddressField("epid", 0, adjust=lambda pkt, x: 8), lambda pkt: pkt.cmd_identifier == 10),  # noqa: E501
         # Update Id (1 octet)
-        ConditionalField(ByteField("update_id", 0), lambda pkt: pkt.cmd_identifier == 10),
+        ConditionalField(ByteField("update_id", 0), lambda pkt: pkt.cmd_identifier == 10),  # noqa: E501
         # Update Information (Variable)
         # Only present if we have a PAN Identifier Update
         # New PAN ID (2 octets)
         ConditionalField(XLEShortField("new_PAN_ID", 0x0000),
-                         lambda pkt: (pkt.cmd_identifier == 10 and pkt.update_command_identifier == 0)),
+                         lambda pkt: (pkt.cmd_identifier == 10 and pkt.update_command_identifier == 0)),  # noqa: E501
 
         # StrLenField("data", "", length_from=lambda pkt, s:len(s)),
     ]
@@ -787,7 +787,7 @@ class ZigbeeSecurityHeader(Packet):
     fields_desc = [
         # Security control (1 octet)
         FlagsField("reserved1", 0, 2, ['reserved1', 'reserved2']),
-        BitField("extended_nonce", 1, 1),  # set to 1 if the sender address field is present (source)
+        BitField("extended_nonce", 1, 1),  # set to 1 if the sender address field is present (source)  # noqa: E501
         # Key identifier
         BitEnumField("key_type", 1, 2, {
             0: 'data_key',
@@ -807,15 +807,15 @@ class ZigbeeSecurityHeader(Packet):
             7: "ENC-MIC-128"
         }),
         # Frame counter (4 octets)
-        XLEIntField("fc", 0),  # provide frame freshness and prevent duplicate frames
+        XLEIntField("fc", 0),  # provide frame freshness and prevent duplicate frames  # noqa: E501
         # Source address (0/8 octets)
-        ConditionalField(dot15d4AddressField("source", 0, adjust=lambda pkt, x: 8), lambda pkt: pkt.extended_nonce),
-        # Key sequence number (0/1 octet): only present when key identifier is 1 (network key)
-        ConditionalField(ByteField("key_seqnum", 0), lambda pkt: pkt.getfieldval("key_type") == 1),
+        ConditionalField(dot15d4AddressField("source", 0, adjust=lambda pkt, x: 8), lambda pkt: pkt.extended_nonce),  # noqa: E501
+        # Key sequence number (0/1 octet): only present when key identifier is 1 (network key)  # noqa: E501
+        ConditionalField(ByteField("key_seqnum", 0), lambda pkt: pkt.getfieldval("key_type") == 1),  # noqa: E501
         # Payload
         # the length of the encrypted data is the payload length minus the MIC
-        StrLenField("data", "", length_from=lambda pkt, s: len(s) - util_mic_len(pkt)),
-        # Message Integrity Code (0/variable in size), length depends on nwk_seclevel
+        StrLenField("data", "", length_from=lambda pkt, s: len(s) - util_mic_len(pkt)),  # noqa: E501
+        # Message Integrity Code (0/variable in size), length depends on nwk_seclevel  # noqa: E501
         StrLenField("mic", "", length_from=lambda pkt: util_mic_len(pkt)),
     ]
 
@@ -824,27 +824,27 @@ class ZigbeeAppDataPayload(Packet):
     name = "Zigbee Application Layer Data Payload (General APS Frame Format)"
     fields_desc = [
         # Frame control (1 octet)
-        FlagsField("frame_control", 2, 4, ['reserved1', 'security', 'ack_req', 'extended_hdr']),
-        BitEnumField("delivery_mode", 0, 2, {0: 'unicast', 1: 'indirect', 2: 'broadcast', 3: 'group_addressing'}),
-        BitEnumField("aps_frametype", 0, 2, {0: 'data', 1: 'command', 2: 'ack'}),
+        FlagsField("frame_control", 2, 4, ['reserved1', 'security', 'ack_req', 'extended_hdr']),  # noqa: E501
+        BitEnumField("delivery_mode", 0, 2, {0: 'unicast', 1: 'indirect', 2: 'broadcast', 3: 'group_addressing'}),  # noqa: E501
+        BitEnumField("aps_frametype", 0, 2, {0: 'data', 1: 'command', 2: 'ack'}),  # noqa: E501
         # Destination endpoint (0/1 octet)
-        ConditionalField(ByteField("dst_endpoint", 10), lambda pkt: (pkt.frame_control & 0x04 or pkt.aps_frametype == 2)),
+        ConditionalField(ByteField("dst_endpoint", 10), lambda pkt: (pkt.frame_control & 0x04 or pkt.aps_frametype == 2)),  # noqa: E501
         # Group address (0/2 octets) TODO
         # Cluster identifier (0/2 octets)
-        ConditionalField(EnumField("cluster", 0, _zcl_cluster_identifier, fmt="<H"),  # unsigned short (little-endian)
-                         lambda pkt: (pkt.frame_control & 0x04 or pkt.aps_frametype == 2)
+        ConditionalField(EnumField("cluster", 0, _zcl_cluster_identifier, fmt="<H"),  # unsigned short (little-endian)  # noqa: E501
+                         lambda pkt: (pkt.frame_control & 0x04 or pkt.aps_frametype == 2)  # noqa: E501
                          ),
         # Profile identifier (0/2 octets)
-        ConditionalField(EnumField("profile", 0, _zcl_profile_identifier, fmt="<H"),
-                         lambda pkt: (pkt.frame_control & 0x04 or pkt.aps_frametype == 2)
+        ConditionalField(EnumField("profile", 0, _zcl_profile_identifier, fmt="<H"),  # noqa: E501
+                         lambda pkt: (pkt.frame_control & 0x04 or pkt.aps_frametype == 2)  # noqa: E501
                          ),
         # Source endpoint (0/1 octets)
-        ConditionalField(ByteField("src_endpoint", 10), lambda pkt: (pkt.frame_control & 0x04 or pkt.aps_frametype == 2)),
+        ConditionalField(ByteField("src_endpoint", 10), lambda pkt: (pkt.frame_control & 0x04 or pkt.aps_frametype == 2)),  # noqa: E501
         # APS counter (1 octet)
         ByteField("counter", 0),
         # optional extended header
-        # variable length frame payload: 3 frame types: data, APS command, and acknowledgement
-        # ConditionalField(StrLenField("data", "", length_from=lambda pkt, s:len(s)), lambda pkt:pkt.aps_frametype == 0),
+        # variable length frame payload: 3 frame types: data, APS command, and acknowledgement  # noqa: E501
+        # ConditionalField(StrLenField("data", "", length_from=lambda pkt, s:len(s)), lambda pkt:pkt.aps_frametype == 0),  # noqa: E501
     ]
 
     def guess_payload_class(self, payload):
@@ -884,8 +884,8 @@ class ZigbeeAppCommandPayload(Packet):
 
 
 def util_srcpanid_present(pkt):
-    '''A source PAN ID is included if and only if both src addr mode != 0 and PAN ID Compression in FCF == 0'''
-    if (pkt.underlayer.getfieldval("fcf_srcaddrmode") != 0) and (pkt.underlayer.getfieldval("fcf_panidcompress") == 0):
+    '''A source PAN ID is included if and only if both src addr mode != 0 and PAN ID Compression in FCF == 0'''  # noqa: E501
+    if (pkt.underlayer.getfieldval("fcf_srcaddrmode") != 0) and (pkt.underlayer.getfieldval("fcf_panidcompress") == 0):  # noqa: E501
         return True
     else:
         return False
@@ -917,28 +917,28 @@ class Dot15d4CmdAssocReq(Packet):
         BitField("receiver_on_when_idle", 0, 1),  # Receiver On When Idle
         BitField("power_source", 0, 1),  # Power Source
         BitField("device_type", 0, 1),  # Device Type
-        BitField("alternate_pan_coordinator", 0, 1),  # Alternate PAN Coordinator
+        BitField("alternate_pan_coordinator", 0, 1),  # Alternate PAN Coordinator  # noqa: E501
     ]
 
     def mysummary(self):
-        return self.sprintf("802.15.4 Association Request Payload ( Alt PAN Coord: %Dot15d4CmdAssocReq.alternate_pan_coordinator% Device Type: %Dot15d4CmdAssocReq.device_type% )")
+        return self.sprintf("802.15.4 Association Request Payload ( Alt PAN Coord: %Dot15d4CmdAssocReq.alternate_pan_coordinator% Device Type: %Dot15d4CmdAssocReq.device_type% )")  # noqa: E501
 
 
 class Dot15d4CmdAssocResp(Packet):
     name = "802.15.4 Association Response Payload"
     fields_desc = [
-        XLEShortField("short_address", 0xFFFF),  # Address assigned to device from coordinator (0xFFFF == none)
+        XLEShortField("short_address", 0xFFFF),  # Address assigned to device from coordinator (0xFFFF == none)  # noqa: E501
         # Association Status
         # 0x00 == successful
         # 0x01 == PAN at capacity
         # 0x02 == PAN access denied
         # 0x03 - 0x7f == Reserved
         # 0x80 - 0xff == Reserved for MAC primitive enumeration values
-        ByteEnumField("association_status", 0x00, {0: 'successful', 1: 'PAN_at_capacity', 2: 'PAN_access_denied'}),
+        ByteEnumField("association_status", 0x00, {0: 'successful', 1: 'PAN_at_capacity', 2: 'PAN_access_denied'}),  # noqa: E501
     ]
 
     def mysummary(self):
-        return self.sprintf("802.15.4 Association Response Payload ( Association Status: %Dot15d4CmdAssocResp.association_status% Assigned Address: %Dot15d4CmdAssocResp.short_address% )")
+        return self.sprintf("802.15.4 Association Response Payload ( Association Status: %Dot15d4CmdAssocResp.association_status% Assigned Address: %Dot15d4CmdAssocResp.short_address% )")  # noqa: E501
 
 
 class Dot15d4CmdDisassociation(Packet):
@@ -950,11 +950,11 @@ class Dot15d4CmdDisassociation(Packet):
         # 0x02 == The device wishes to leave the PAN
         # 0x03 - 0x7f == Reserved
         # 0x80 - 0xff == Reserved for MAC primitive enumeration values
-        ByteEnumField("disassociation_reason", 0x02, {1: 'coord_wishes_device_to_leave', 2: 'device_wishes_to_leave'}),
+        ByteEnumField("disassociation_reason", 0x02, {1: 'coord_wishes_device_to_leave', 2: 'device_wishes_to_leave'}),  # noqa: E501
     ]
 
     def mysummary(self):
-        return self.sprintf("802.15.4 Disassociation Notification Payload ( Disassociation Reason %Dot15d4CmdDisassociation.disassociation_reason% )")
+        return self.sprintf("802.15.4 Disassociation Notification Payload ( Disassociation Reason %Dot15d4CmdDisassociation.disassociation_reason% )")  # noqa: E501
 
 
 class Dot15d4CmdGTSReq(Packet):
@@ -972,10 +972,10 @@ class Dot15d4CmdGTSReq(Packet):
     ]
 
     def mysummary(self):
-        return self.sprintf("802.15.4 GTS Request Command ( %Dot15d4CmdGTSReq.gts_len% : %Dot15d4CmdGTSReq.gts_dir% )")
+        return self.sprintf("802.15.4 GTS Request Command ( %Dot15d4CmdGTSReq.gts_len% : %Dot15d4CmdGTSReq.gts_dir% )")  # noqa: E501
 
-# PAN ID conflict notification command frame is not necessary, only Dot15d4Cmd with cmd_id = 5 ("PANIDConflictNotify")
-# Orphan notification command not necessary, only Dot15d4Cmd with cmd_id = 6 ("OrphanNotify")
+# PAN ID conflict notification command frame is not necessary, only Dot15d4Cmd with cmd_id = 5 ("PANIDConflictNotify")  # noqa: E501
+# Orphan notification command not necessary, only Dot15d4Cmd with cmd_id = 6 ("OrphanNotify")  # noqa: E501
 
 
 class ZigBeeBeacon(Packet):
@@ -998,7 +998,7 @@ class ZigBeeBeacon(Packet):
         # Extended PAN ID (8 octets)
         dot15d4AddressField("extended_pan_id", 0, adjust=lambda pkt, x: 8),
         # Tx offset (3 bytes)
-        # In ZigBee 2006 the Tx-Offset is optional, while in the 2007 and later versions, the Tx-Offset is a required value.
+        # In ZigBee 2006 the Tx-Offset is optional, while in the 2007 and later versions, the Tx-Offset is a required value.  # noqa: E501
         BitField("tx_offset", 0, 24),
         # Update ID (1 octet)
         ByteField("update_id", 0),
@@ -1010,10 +1010,10 @@ class ZigbeeNWKStub(Packet):
     name = "Zigbee Network Layer for Inter-PAN Transmission"
     fields_desc = [
         # NWK frame control
-        BitField("reserved", 0, 2),  # remaining subfields shall have a value of 0
+        BitField("reserved", 0, 2),  # remaining subfields shall have a value of 0  # noqa: E501
         BitField("proto_version", 2, 4),
         BitField("frametype", 0b11, 2),  # 0b11 (3) is a reserved frame type
-        BitField("reserved", 0, 8),  # remaining subfields shall have a value of 0
+        BitField("reserved", 0, 8),  # remaining subfields shall have a value of 0  # noqa: E501
     ]
 
     def guess_payload_class(self, payload):
@@ -1026,16 +1026,16 @@ class ZigbeeNWKStub(Packet):
 class ZigbeeAppDataPayloadStub(Packet):
     name = "Zigbee Application Layer Data Payload for Inter-PAN Transmission"
     fields_desc = [
-        FlagsField("frame_control", 0, 4, ['reserved1', 'security', 'ack_req', 'extended_hdr']),
-        BitEnumField("delivery_mode", 0, 2, {0: 'unicast', 2: 'broadcast', 3: 'group'}),
+        FlagsField("frame_control", 0, 4, ['reserved1', 'security', 'ack_req', 'extended_hdr']),  # noqa: E501
+        BitEnumField("delivery_mode", 0, 2, {0: 'unicast', 2: 'broadcast', 3: 'group'}),  # noqa: E501
         BitField("frametype", 3, 2),  # value 0b11 (3) is a reserved frame type
-        # Group Address present only when delivery mode field has a value of 0b11 (group delivery mode)
+        # Group Address present only when delivery mode field has a value of 0b11 (group delivery mode)  # noqa: E501
         ConditionalField(
             XLEShortField("group_addr", 0x0),  # 16-bit identifier of the group
             lambda pkt: pkt.getfieldval("delivery_mode") == 0b11
         ),
         # Cluster identifier
-        EnumField("cluster", 0, _zcl_cluster_identifier, fmt="<H"),  # unsigned short (little-endian)
+        EnumField("cluster", 0, _zcl_cluster_identifier, fmt="<H"),  # unsigned short (little-endian)  # noqa: E501
         # Profile identifier
         EnumField("profile", 0, _zcl_profile_identifier, fmt="<H"),
         # ZigBee Payload
@@ -1166,14 +1166,14 @@ class ZCLReadAttributeStatusRecord(Packet):
         XLEShortField("attribute_identifier", 0),
         # Status
         ByteEnumField("status", 0, _zcl_enumerated_status_values),
-        # Attribute data type (0/1 octet), only included if status == 0x00 (SUCCESS)
+        # Attribute data type (0/1 octet), only included if status == 0x00 (SUCCESS)  # noqa: E501
         ConditionalField(
             ByteEnumField("attribute_data_type", 0, _zcl_attribute_data_types),
             lambda pkt:pkt.status == 0x00
         ),
-        # Attribute data (0/variable in size), only included if status == 0x00 (SUCCESS)
+        # Attribute data (0/variable in size), only included if status == 0x00 (SUCCESS)  # noqa: E501
         ConditionalField(
-            StrLenField("attribute_value", "", length_from=lambda pkt:util_zcl_attribute_value_len(pkt)),
+            StrLenField("attribute_value", "", length_from=lambda pkt:util_zcl_attribute_value_len(pkt)),  # noqa: E501
             lambda pkt:pkt.status == 0x00
         ),
     ]
@@ -1189,7 +1189,7 @@ class ZCLGeneralReadAttributes(Packet):
 class ZCLGeneralReadAttributesResponse(Packet):
     name = "General Domain: Command Frame Payload: read_attributes_response"
     fields_desc = [
-        PacketListField("read_attribute_status_record", [], ZCLReadAttributeStatusRecord),
+        PacketListField("read_attribute_status_record", [], ZCLReadAttributeStatusRecord),  # noqa: E501
     ]
 
 
@@ -1197,11 +1197,11 @@ class ZCLMeteringGetProfile(Packet):
     name = "Metering Cluster: Get Profile Command (Server: Received)"
     fields_desc = [
         # Interval Channel (8-bit Enumeration): 1 octet
-        ByteField("Interval_Channel", 0),  # 0 == Consumption Delivered ; 1 == Consumption Received
+        ByteField("Interval_Channel", 0),  # 0 == Consumption Delivered ; 1 == Consumption Received  # noqa: E501
         # End Time (UTCTime): 4 octets
         XLEIntField("End_Time", 0x00000000),
         # NumberOfPeriods (Unsigned 8-bit Integer): 1 octet
-        ByteField("NumberOfPeriods", 1),  # Represents the number of intervals being requested.
+        ByteField("NumberOfPeriods", 1),  # Represents the number of intervals being requested.  # noqa: E501
     ]
 
 
@@ -1224,24 +1224,24 @@ class ZCLPriceGetScheduledPrices(Packet):
 class ZCLPricePublishPrice(Packet):
     name = "Price Cluster: Publish Price Command (Server: Generated)"
     fields_desc = [
-        XLEIntField("provider_id", 0x00000000),  # Unsigned 32-bit Integer (4 octets)
-        # Rate Label is a UTF-8 encoded Octet String (0-12 octets). The first Octet indicates the length.
-        StrLenField("rate_label", "", length_from=lambda pkt:int(pkt.rate_label[0])),  # TODO verify
-        XLEIntField("issuer_event_id", 0x00000000),  # Unsigned 32-bit Integer (4 octets)
+        XLEIntField("provider_id", 0x00000000),  # Unsigned 32-bit Integer (4 octets)  # noqa: E501
+        # Rate Label is a UTF-8 encoded Octet String (0-12 octets). The first Octet indicates the length.  # noqa: E501
+        StrLenField("rate_label", "", length_from=lambda pkt:int(pkt.rate_label[0])),  # TODO verify  # noqa: E501
+        XLEIntField("issuer_event_id", 0x00000000),  # Unsigned 32-bit Integer (4 octets)  # noqa: E501
         XLEIntField("current_time", 0x00000000),  # UTCTime (4 octets)
         ByteField("unit_of_measure", 0),  # 8 bits enumeration (1 octet)
-        XLEShortField("currency", 0x0000),  # Unsigned 16-bit Integer (2 octets)
+        XLEShortField("currency", 0x0000),  # Unsigned 16-bit Integer (2 octets)  # noqa: E501
         ByteField("price_trailing_digit", 0),  # 8-bit BitMap (1 octet)
         ByteField("number_of_price_tiers", 0),  # 8-bit BitMap (1 octet)
         XLEIntField("start_time", 0x00000000),  # UTCTime (4 octets)
-        XLEShortField("duration_in_minutes", 0x0000),  # Unsigned 16-bit Integer (2 octets)
+        XLEShortField("duration_in_minutes", 0x0000),  # Unsigned 16-bit Integer (2 octets)  # noqa: E501
         XLEIntField("price", 0x00000000),  # Unsigned 32-bit Integer (4 octets)
         ByteField("price_ratio", 0),  # Unsigned 8-bit Integer (1 octet)
-        XLEIntField("generation_price", 0x00000000),  # Unsigned 32-bit Integer (4 octets)
-        ByteField("generation_price_ratio", 0),  # Unsigned 8-bit Integer (1 octet)
-        XLEIntField("alternate_cost_delivered", 0x00000000),  # Unsigned 32-bit Integer (4 octets)
+        XLEIntField("generation_price", 0x00000000),  # Unsigned 32-bit Integer (4 octets)  # noqa: E501
+        ByteField("generation_price_ratio", 0),  # Unsigned 8-bit Integer (1 octet)  # noqa: E501
+        XLEIntField("alternate_cost_delivered", 0x00000000),  # Unsigned 32-bit Integer (4 octets)  # noqa: E501
         ByteField("alternate_cost_unit", 0),  # 8-bit enumeration (1 octet)
-        ByteField("alternate_cost_trailing_digit", 0),  # 8-bit BitMap (1 octet)
+        ByteField("alternate_cost_trailing_digit", 0),  # 8-bit BitMap (1 octet)  # noqa: E501
         ByteField("number_of_block_thresholds", 0),  # 8-bit BitMap (1 octet)
         ByteField("price_control", 0),  # 8-bit BitMap (1 octet)
     ]
@@ -1252,17 +1252,17 @@ class ZigbeeClusterLibrary(Packet):
     fields_desc = [
         # Frame control (8 bits)
         BitField("reserved", 0, 3),
-        BitField("disable_default_response", 0, 1),  # 0 default response command will be returned
-        BitField("direction", 0, 1),  # 0 command sent from client to server; 1 command sent from server to client
-        BitField("manufacturer_specific", 0, 1),  # 0 manufacturer code shall not be included in the ZCL frame
+        BitField("disable_default_response", 0, 1),  # 0 default response command will be returned  # noqa: E501
+        BitField("direction", 0, 1),  # 0 command sent from client to server; 1 command sent from server to client  # noqa: E501
+        BitField("manufacturer_specific", 0, 1),  # 0 manufacturer code shall not be included in the ZCL frame  # noqa: E501
         # Frame Type
         # 0b00 command acts across the entire profile
         # 0b01 command is specific to a cluster
         # 0b10 - 0b11 reserved
-        BitEnumField("zcl_frametype", 0, 2, {0: 'profile-wide', 1: 'cluster-specific', 2: 'reserved2', 3: 'reserved3'}),
-        # Manufacturer code (0/16 bits) only present then manufacturer_specific field is set to 1
+        BitEnumField("zcl_frametype", 0, 2, {0: 'profile-wide', 1: 'cluster-specific', 2: 'reserved2', 3: 'reserved3'}),  # noqa: E501
+        # Manufacturer code (0/16 bits) only present then manufacturer_specific field is set to 1  # noqa: E501
         ConditionalField(XLEShortField("manufacturer_code", 0x0),
-                         lambda pkt: pkt.getfieldval("manufacturer_specific") == 1
+                         lambda pkt: pkt.getfieldval("manufacturer_specific") == 1  # noqa: E501
                          ),
         # Transaction sequence number (8 bits)
         ByteField("transaction_sequence", 0),
@@ -1277,11 +1277,11 @@ class ZigbeeClusterLibrary(Packet):
         elif self.zcl_frametype == 0x00 and self.command_identifier == 0x01:
             return ZCLGeneralReadAttributesResponse
         # Cluster-specific commands
-        elif self.zcl_frametype == 0x01 and self.command_identifier == 0x00 and self.direction == 0 and self.underlayer.cluster == 0x0700:  # "price"
+        elif self.zcl_frametype == 0x01 and self.command_identifier == 0x00 and self.direction == 0 and self.underlayer.cluster == 0x0700:  # "price"  # noqa: E501
             return ZCLPriceGetCurrentPrice
-        elif self.zcl_frametype == 0x01 and self.command_identifier == 0x01 and self.direction == 0 and self.underlayer.cluster == 0x0700:  # "price"
+        elif self.zcl_frametype == 0x01 and self.command_identifier == 0x01 and self.direction == 0 and self.underlayer.cluster == 0x0700:  # "price"  # noqa: E501
             return ZCLPriceGetScheduledPrices
-        elif self.zcl_frametype == 0x01 and self.command_identifier == 0x00 and self.direction == 1 and self.underlayer.cluster == 0x0700:  # "price"
+        elif self.zcl_frametype == 0x01 and self.command_identifier == 0x00 and self.direction == 1 and self.underlayer.cluster == 0x0700:  # "price"  # noqa: E501
             return ZCLPricePublishPrice
         else:
             return Packet.guess_payload_class(self, payload)

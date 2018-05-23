@@ -12,9 +12,9 @@ PPTP (Point to Point Tunneling Protocol)
 from scapy.packet import Packet, bind_layers
 from scapy.layers.inet import TCP
 from scapy.compat import *
-from scapy.fields import ByteEnumField, FieldLenField, FlagsField, IntField, IntEnumField,\
-    LenField, XIntField, ShortField, ShortEnumField, StrFixedLenField,\
-    StrLenField, XShortField, XByteField
+from scapy.fields import ByteEnumField, FieldLenField, FlagsField, IntField, \
+    IntEnumField, LenField, XIntField, ShortField, ShortEnumField, \
+    StrFixedLenField, StrLenField, XShortField, XByteField
 
 _PPTP_MAGIC_COOKIE = 0x1a2b3c4d
 
@@ -196,7 +196,7 @@ class PPTPEchoReply(PPTP):
                    XShortField("reserved_1", 0x0000)]
 
     def answers(self, other):
-        return isinstance(other, PPTPEchoRequest) and other.identifier == self.identifier
+        return isinstance(other, PPTPEchoRequest) and other.identifier == self.identifier  # noqa: E501
 
 
 _PPTP_bearer_type = {1: "Analog channel",
@@ -256,7 +256,7 @@ class PPTPOutgoingCallReply(PPTP):
                    IntField("channel_id", 0)]
 
     def answers(self, other):
-        return isinstance(other, PPTPOutgoingCallRequest) and other.call_id == self.peer_call_id
+        return isinstance(other, PPTPOutgoingCallRequest) and other.call_id == self.peer_call_id  # noqa: E501
 
 
 class PPTPIncomingCallRequest(PPTP):
@@ -293,7 +293,7 @@ class PPTPIncomingCallReply(PPTP):
                    XShortField("reserved_1", 0x0000)]
 
     def answers(self, other):
-        return isinstance(other, PPTPIncomingCallRequest) and other.call_id == self.peer_call_id
+        return isinstance(other, PPTPIncomingCallRequest) and other.call_id == self.peer_call_id  # noqa: E501
 
 
 class PPTPIncomingCallConnected(PPTP):
@@ -311,7 +311,7 @@ class PPTPIncomingCallConnected(PPTP):
                    IntEnumField("framing_type", 1, _PPTP_framing_type)]
 
     def answers(self, other):
-        return isinstance(other, PPTPIncomingCallReply) and other.call_id == self.peer_call_id
+        return isinstance(other, PPTPIncomingCallReply) and other.call_id == self.peer_call_id  # noqa: E501
 
 
 class PPTPCallClearRequest(PPTP):

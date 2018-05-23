@@ -206,7 +206,7 @@ class SkinnyDateTimeField(StrFixedLenField):
         StrFixedLenField.__init__(self, name, default, 32)
 
     def m2i(self, pkt, s):
-        year, month, dow, day, hour, min, sec, milisecond = struct.unpack('<8I', s)
+        year, month, dow, day, hour, min, sec, milisecond = struct.unpack('<8I', s)  # noqa: E501
         return (year, month, day, hour, min, sec)
 
     def i2m(self, pkt, val):
@@ -231,7 +231,7 @@ class SkinnyDateTimeField(StrFixedLenField):
             t = t[:2] + t[2:-3]
         else:
             if not s:
-                y, m, d, h, min, sec, rest, rest, rest = time.gmtime(time.time())
+                y, m, d, h, min, sec, rest, rest, rest = time.gmtime(time.time())  # noqa: E501
                 t = (y, m, d, h, min, sec)
             else:
                 t = s
@@ -371,7 +371,7 @@ class SkinnyMessageDialedNumber(Packet):
                    LEIntField("callid", 0)]
 
 
-_skinny_message_callinfo_restrictions = ['CallerName', 'CallerNumber', 'CalledName', 'CalledNumber', 'OriginalCalledName', 'OriginalCalledNumber', 'LastRedirectName', 'LastRedirectNumber'] + ['Bit%d' % i for i in range(8, 15)]
+_skinny_message_callinfo_restrictions = ['CallerName', 'CallerNumber', 'CalledName', 'CalledNumber', 'OriginalCalledName', 'OriginalCalledNumber', 'LastRedirectName', 'LastRedirectNumber'] + ['Bit%d' % i for i in range(8, 15)]  # noqa: E501
 
 
 class SkinnyMessageCallInfo(Packet):
@@ -393,7 +393,7 @@ class SkinnyMessageCallInfo(Packet):
                    StrFixedLenField('originalvoicemailboxD', b'\0' * 24, 24),
                    StrFixedLenField('lastvoicemailboxD', b'\0' * 24, 24),
                    LEIntField('security', 0),
-                   FlagsField('restriction', 0, 16, _skinny_message_callinfo_restrictions),
+                   FlagsField('restriction', 0, 16, _skinny_message_callinfo_restrictions),  # noqa: E501
                    LEIntField('unknown', 0)]
 
 
@@ -506,7 +506,7 @@ class Skinny(Packet):
 
     def post_build(self, pkt, p):
         if self.len is None:
-            l = len(p) + len(pkt) - 8  # on compte pas les headers len et reserved
+            l = len(p) + len(pkt) - 8  # on compte pas les headers len et reserved  # noqa: E501
             pkt = struct.pack('@I', l) + pkt[4:]
         return pkt + p
 

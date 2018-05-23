@@ -21,7 +21,7 @@ from scapy.compat import raw
 from scapy.layers.inet import IP, TCP, TCPOptions
 from scapy.packet import NoPayload, Packet
 from scapy.error import warning, Scapy_Exception, log_runtime
-from scapy.volatile import RandInt, RandByte, RandChoice, RandNum, RandShort, RandString
+from scapy.volatile import RandInt, RandByte, RandChoice, RandNum, RandShort, RandString  # noqa: E501
 from scapy.sendrecv import sniff
 from scapy.modules import six
 from scapy.modules.six.moves import map, range
@@ -80,7 +80,7 @@ class p0fKnowledgeBase(KnowledgeBase):
                 # if li[0] not in self.ttl_range:
                 #    self.ttl_range.append(li[0])
                 #    self.ttl_range.sort()
-                self.base.append((l[0], li[0], li[1], li[2], l[4], l[5], l[6], l[7][:-1]))
+                self.base.append((l[0], li[0], li[1], li[2], l[4], l[5], l[6], l[7][:-1]))  # noqa: E501
         except:
             warning("Can't parse p0f database (new p0f version ?)")
             self.base = None
@@ -264,7 +264,7 @@ def p0f_correl(x, y):
     d = 0
     # wwww can be "*" or "%nn". "Tnn" and "Snn" should work fine with
     # the x[0] == y[0] test.
-    d += (x[0] == y[0] or y[0] == "*" or (y[0][0] == "%" and x[0].isdigit() and (int(x[0]) % int(y[0][1:])) == 0))
+    d += (x[0] == y[0] or y[0] == "*" or (y[0][0] == "%" and x[0].isdigit() and (int(x[0]) % int(y[0][1:])) == 0))  # noqa: E501
     # ttl
     d += (y[1] >= x[1] and y[1] - x[1] < 32)
     for i in [2, 5]:
@@ -320,7 +320,7 @@ def prnp0f(pkt):
     except:
         return
     if r == []:
-        r = ("UNKNOWN", "[" + ":".join(map(str, packet2p0f(pkt)[1])) + ":?:?]", None)
+        r = ("UNKNOWN", "[" + ":".join(map(str, packet2p0f(pkt)[1])) + ":?:?]", None)  # noqa: E501
     else:
         r = r[0]
     uptime = None
@@ -332,7 +332,7 @@ def prnp0f(pkt):
         uptime = None
     res = pkt.sprintf("%IP.src%:%TCP.sport% - " + r[0] + " " + r[1])
     if uptime is not None:
-        res += pkt.sprintf(" (up: " + str(uptime / 3600) + " hrs)\n  -> %IP.dst%:%TCP.dport% (%TCP.flags%)")
+        res += pkt.sprintf(" (up: " + str(uptime / 3600) + " hrs)\n  -> %IP.dst%:%TCP.dport% (%TCP.flags%)")  # noqa: E501
     else:
         res += pkt.sprintf("\n  -> %IP.dst%:%TCP.dport% (%TCP.flags%)")
     if r[2] is not None:
@@ -342,7 +342,7 @@ def prnp0f(pkt):
 
 @conf.commands.register
 def pkt2uptime(pkt, HZ=100):
-    """Calculate the date the machine which emitted the packet booted using TCP timestamp
+    """Calculate the date the machine which emitted the packet booted using TCP timestamp  # noqa: E501
 pkt2uptime(pkt, [HZ=100])"""
     if not isinstance(pkt, Packet):
         raise TypeError("Not a TCP packet")
@@ -457,7 +457,7 @@ Some specifications of the p0f.fp file are not (yet) implemented."""
                         options.append(('WScale', wscale_hint))
                     else:
                         options.append((
-                            'WScale', coef * RandNum(min=1, max=(2**8 - 1) // coef)))
+                            'WScale', coef * RandNum(min=1, max=(2**8 - 1) // coef)))  # noqa: E501
                 else:
                     options.append(('WScale', int(opt[1:])))
             elif opt == 'T0':
@@ -498,7 +498,7 @@ Some specifications of the p0f.fp file are not (yet) implemented."""
                     optstruct = TCPOptions[0][int(opt[1:])][1]
                     options.append((optname,
                                     struct.unpack(optstruct,
-                                                  RandString(struct.calcsize(optstruct))._fix())))
+                                                  RandString(struct.calcsize(optstruct))._fix())))  # noqa: E501
                 else:
                     options.append((int(opt[1:]), ''))
             # FIXME: qqP not handled
@@ -520,7 +520,7 @@ Some specifications of the p0f.fp file are not (yet) implemented."""
         # needs MSS set
         mss = [x for x in options if x[0] == 'MSS']
         if not mss:
-            raise Scapy_Exception("TCP window value requires MSS, and MSS option not set")
+            raise Scapy_Exception("TCP window value requires MSS, and MSS option not set")  # noqa: E501
         pkt.payload.window = mss[0][1] * int(pers[0][1:])
     else:
         raise Scapy_Exception('Unhandled window size specification')
@@ -548,7 +548,7 @@ Some specifications of the p0f.fp file are not (yet) implemented."""
                 else:
                     pkt.payload.flags |= random.choice([8, 32, 40])  # P/U/PU
             elif qq == 'D' and db != p0fo_kdb:
-                pkt /= conf.raw_layer(load=RandString(random.randint(1, 10)))  # XXX p0fo.fp
+                pkt /= conf.raw_layer(load=RandString(random.randint(1, 10)))  # XXX p0fo.fp  # noqa: E501
             elif qq == 'Q':
                 pkt.payload.seq = pkt.payload.ack
             # elif qq == '0': pkt.payload.seq = 0
@@ -594,7 +594,7 @@ interface and may (are likely to) be different than those generated on
         # each packet is seen twice: S + RA, S + SA + A + FA + A
         # XXX are the packets also seen twice on non Linux systems ?
         count = 14
-        pl = sniff(iface=iface, filter='tcp and port ' + str(port), count=count, timeout=3)
+        pl = sniff(iface=iface, filter='tcp and port ' + str(port), count=count, timeout=3)  # noqa: E501
         for pkt in pl:
             for elt in packet2p0f(pkt):
                 addresult(elt)

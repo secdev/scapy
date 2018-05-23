@@ -17,7 +17,7 @@
 # scapy.contrib.description = ModBus Protocol
 # scapy.contrib.status = loads
 
-# Copyright (C) 2017 Arthur Gervais, Ken LE PRADO, Sébastien Mainand, Thomas Aurel
+# Copyright (C) 2017 Arthur Gervais, Ken LE PRADO, Sébastien Mainand, Thomas Aurel  # noqa: E501
 
 from scapy.packet import *
 from scapy.fields import *
@@ -49,8 +49,8 @@ class ModbusPDU01ReadCoilsRequest(Packet):
 class ModbusPDU01ReadCoilsResponse(Packet):
     name = "Read Coils Response"
     fields_desc = [XByteField("funcCode", 0x01),
-                   BitFieldLenField("byteCount", None, 8, count_of="coilStatus"),
-                   FieldListField("coilStatus", [0x00], ByteField("", 0x00), count_from=lambda pkt: pkt.byteCount)]
+                   BitFieldLenField("byteCount", None, 8, count_of="coilStatus"),  # noqa: E501
+                   FieldListField("coilStatus", [0x00], ByteField("", 0x00), count_from=lambda pkt: pkt.byteCount)]  # noqa: E501
 
     def extract_padding(self, s):
         return b"", None
@@ -82,8 +82,8 @@ class ModbusPDU02ReadDiscreteInputsResponse(Packet):
     """
     name = "Read Discrete Inputs Response"
     fields_desc = [XByteField("funcCode", 0x02),
-                   BitFieldLenField("byteCount", None, 8, count_of="inputStatus"),
-                   FieldListField("inputStatus", [0x00], ByteField("", 0x00), count_from=lambda pkt: pkt.byteCount)]
+                   BitFieldLenField("byteCount", None, 8, count_of="inputStatus"),  # noqa: E501
+                   FieldListField("inputStatus", [0x00], ByteField("", 0x00), count_from=lambda pkt: pkt.byteCount)]  # noqa: E501
 
 
 class ModbusPDU02ReadDiscreteInputsError(Packet):
@@ -105,8 +105,8 @@ class ModbusPDU03ReadHoldingRegistersRequest(Packet):
 class ModbusPDU03ReadHoldingRegistersResponse(Packet):
     name = "Read Holding Registers Response"
     fields_desc = [XByteField("funcCode", 0x03),
-                   BitFieldLenField("byteCount", None, 8, count_of="registerVal", adjust=lambda pkt, x: x * 2),
-                   FieldListField("registerVal", [0x0000], ShortField("", 0x0000),
+                   BitFieldLenField("byteCount", None, 8, count_of="registerVal", adjust=lambda pkt, x: x * 2),  # noqa: E501
+                   FieldListField("registerVal", [0x0000], ShortField("", 0x0000),  # noqa: E501
                                   count_from=lambda pkt: pkt.byteCount)]
 
 
@@ -129,8 +129,8 @@ class ModbusPDU04ReadInputRegistersRequest(Packet):
 class ModbusPDU04ReadInputRegistersResponse(Packet):
     name = "Read Input Registers Response"
     fields_desc = [XByteField("funcCode", 0x04),
-                   BitFieldLenField("byteCount", None, 8, count_of="registerVal", adjust=lambda pkt, x: x * 2),
-                   FieldListField("registerVal", [0x0000], ShortField("", 0x0000),
+                   BitFieldLenField("byteCount", None, 8, count_of="registerVal", adjust=lambda pkt, x: x * 2),  # noqa: E501
+                   FieldListField("registerVal", [0x0000], ShortField("", 0x0000),  # noqa: E501
                                   count_from=lambda pkt: pkt.byteCount)]
 
 
@@ -144,14 +144,14 @@ class ModbusPDU05WriteSingleCoilRequest(Packet):
     name = "Write Single Coil"
     fields_desc = [XByteField("funcCode", 0x05),
                    XShortField("outputAddr", 0x0000),  # from 0x0000 to 0xFFFF
-                   XShortField("outputValue", 0x0000)]  # 0x0000 == Off, 0xFF00 == On
+                   XShortField("outputValue", 0x0000)]  # 0x0000 == Off, 0xFF00 == On  # noqa: E501
 
 
-class ModbusPDU05WriteSingleCoilResponse(Packet):  # The answer is the same as the request if successful
+class ModbusPDU05WriteSingleCoilResponse(Packet):  # The answer is the same as the request if successful  # noqa: E501
     name = "Write Single Coil"
     fields_desc = [XByteField("funcCode", 0x05),
                    XShortField("outputAddr", 0x0000),  # from 0x0000 to 0xFFFF
-                   XShortField("outputValue", 0x0000)]  # 0x0000 == Off, 0xFF00 == On
+                   XShortField("outputValue", 0x0000)]  # 0x0000 == Off, 0xFF00 == On  # noqa: E501
 
 
 class ModbusPDU05WriteSingleCoilError(Packet):
@@ -208,8 +208,8 @@ class ModbusPDU0FWriteMultipleCoilsRequest(Packet):
     fields_desc = [XByteField("funcCode", 0x0F),
                    XShortField("startingAddr", 0x0000),
                    XShortField("quantityOutput", 0x0001),
-                   BitFieldLenField("byteCount", None, 8, count_of="outputsValue"),
-                   FieldListField("outputsValue", [0x00], XByteField("", 0x00), count_from=lambda pkt: pkt.byteCount)]
+                   BitFieldLenField("byteCount", None, 8, count_of="outputsValue"),  # noqa: E501
+                   FieldListField("outputsValue", [0x00], XByteField("", 0x00), count_from=lambda pkt: pkt.byteCount)]  # noqa: E501
 
     def extract_padding(self, s):
         return b"", None
@@ -232,9 +232,9 @@ class ModbusPDU10WriteMultipleRegistersRequest(Packet):
     name = "Write Multiple Registers"
     fields_desc = [XByteField("funcCode", 0x10),
                    XShortField("startingAddr", 0x0000),
-                   BitFieldLenField("quantityRegisters", None, 16, count_of="outputsValue",),
-                   BitFieldLenField("byteCount", None, 8, count_of="outputsValue", adjust=lambda pkt, x: x * 2),
-                   FieldListField("outputsValue", [0x0000], XShortField("", 0x0000),
+                   BitFieldLenField("quantityRegisters", None, 16, count_of="outputsValue",),  # noqa: E501
+                   BitFieldLenField("byteCount", None, 8, count_of="outputsValue", adjust=lambda pkt, x: x * 2),  # noqa: E501
+                   FieldListField("outputsValue", [0x0000], XShortField("", 0x0000),  # noqa: E501
                                   count_from=lambda pkt: pkt.byteCount)]
 
 
@@ -263,9 +263,9 @@ class ModbusPDU11ReportSlaveIdResponse(Packet):
     name = "Report Slave Id Response"
     fields_desc = [XByteField("funcCode", 0x11),
                    BitFieldLenField("byteCount", None, 8, length_of="slaveId"),
-                   ConditionalField(StrLenField("slaveId", "", length_from=lambda pkt: pkt.byteCount),
+                   ConditionalField(StrLenField("slaveId", "", length_from=lambda pkt: pkt.byteCount),  # noqa: E501
                                     lambda pkt: pkt.byteCount > 0),
-                   ConditionalField(XByteField("runIdicatorStatus", 0x00), lambda pkt: pkt.byteCount > 0)]
+                   ConditionalField(XByteField("runIdicatorStatus", 0x00), lambda pkt: pkt.byteCount > 0)]  # noqa: E501
 
 
 class ModbusPDU11ReportSlaveIdError(Packet):
@@ -305,10 +305,10 @@ class ModbusPDU14ReadFileRecordRequest(Packet):
 
 class ModbusReadFileSubResponse(Packet):
     name = "Sub-response"
-    fields_desc = [BitFieldLenField("respLength", None, 8, count_of="recData", adjust=lambda pkt, p: p * 2 + 1),
+    fields_desc = [BitFieldLenField("respLength", None, 8, count_of="recData", adjust=lambda pkt, p: p * 2 + 1),  # noqa: E501
                    ByteField("refType", 0x06),
                    FieldListField("recData", [0x0000], XShortField("", 0x0000),
-                                  count_from=lambda pkt: (pkt.respLength - 1) // 2)]
+                                  count_from=lambda pkt: (pkt.respLength - 1) // 2)]  # noqa: E501
 
     def guess_payload_class(self, payload):
         return ModbusReadFileSubResponse
@@ -344,9 +344,9 @@ class ModbusWriteFileSubRequest(Packet):
     fields_desc = [ByteField("refType", 0x06),
                    ShortField("fileNumber", 0x0001),
                    ShortField("recordNumber", 0x0000),
-                   BitFieldLenField("recordLength", None, 16, length_of="recordData", adjust=lambda pkt, p: p // 2),
-                   FieldListField("recordData", [0x0000], ShortField("", 0x0000),
-                                  length_from=lambda pkt: pkt.recordLength * 2)]
+                   BitFieldLenField("recordLength", None, 16, length_of="recordData", adjust=lambda pkt, p: p // 2),  # noqa: E501
+                   FieldListField("recordData", [0x0000], ShortField("", 0x0000),  # noqa: E501
+                                  length_from=lambda pkt: pkt.recordLength * 2)]  # noqa: E501
 
     def guess_payload_class(self, payload):
         if payload:
@@ -424,17 +424,17 @@ class ModbusPDU17ReadWriteMultipleRegistersRequest(Packet):
                    XShortField("readStartingAddr", 0x0000),
                    XShortField("readQuantityRegisters", 0x0001),
                    XShortField("writeStartingAddr", 0x0000),
-                   BitFieldLenField("writeQuantityRegisters", None, 16, count_of="writeRegistersValue"),
-                   BitFieldLenField("byteCount", None, 8, count_of="writeRegistersValue", adjust=lambda pkt, x: x * 2),
-                   FieldListField("writeRegistersValue", [0x0000], XShortField("", 0x0000),
+                   BitFieldLenField("writeQuantityRegisters", None, 16, count_of="writeRegistersValue"),  # noqa: E501
+                   BitFieldLenField("byteCount", None, 8, count_of="writeRegistersValue", adjust=lambda pkt, x: x * 2),  # noqa: E501
+                   FieldListField("writeRegistersValue", [0x0000], XShortField("", 0x0000),  # noqa: E501
                                   count_from=lambda pkt: pkt.byteCount)]
 
 
 class ModbusPDU17ReadWriteMultipleRegistersResponse(Packet):
     name = "Read Write Multiple Registers Response"
     fields_desc = [XByteField("funcCode", 0x17),
-                   BitFieldLenField("byteCount", None, 8, count_of="registerVal", adjust=lambda pkt, x: x * 2),
-                   FieldListField("registerVal", [0x0000], ShortField("", 0x0000),
+                   BitFieldLenField("byteCount", None, 8, count_of="registerVal", adjust=lambda pkt, x: x * 2),  # noqa: E501
+                   FieldListField("registerVal", [0x0000], ShortField("", 0x0000),  # noqa: E501
                                   count_from=lambda pkt: pkt.byteCount)]
 
 
@@ -454,9 +454,9 @@ class ModbusPDU18ReadFIFOQueueResponse(Packet):
     name = "Read FIFO Queue Response"
     fields_desc = [XByteField("funcCode", 0x18),
                    # TODO: ByteCount must includes size of FIFOCount
-                   BitFieldLenField("byteCount", None, 16, count_of="FIFOVal", adjust=lambda pkt, p: p * 2 + 2),
+                   BitFieldLenField("byteCount", None, 16, count_of="FIFOVal", adjust=lambda pkt, p: p * 2 + 2),  # noqa: E501
                    BitFieldLenField("FIFOCount", None, 16, count_of="FIFOVal"),
-                   FieldListField("FIFOVal", [], ShortField("", 0x0000), count_from=lambda pkt: pkt.byteCount)]
+                   FieldListField("FIFOVal", [], ShortField("", 0x0000), count_from=lambda pkt: pkt.byteCount)]  # noqa: E501
 
 
 class ModbusPDU18ReadFIFOQueueError(Packet):
@@ -499,10 +499,10 @@ _read_device_id_object_id = {0x00: "VendorName",
                              0x06: "UserApplicationName"}
 _read_device_id_conformity_lvl = {0x01: "Basic Identification (stream only)",
                                   0x02: "Regular Identification (stream only)",
-                                  0x03: "Extended Identification (stream only)",
-                                  0x81: "Basic Identification (stream and individual access)",
-                                  0x82: "Regular Identification (stream and individual access)",
-                                  0x83: "Extended Identification (stream and individual access)"}
+                                  0x03: "Extended Identification (stream only)",  # noqa: E501
+                                  0x81: "Basic Identification (stream and individual access)",  # noqa: E501
+                                  0x82: "Regular Identification (stream and individual access)",  # noqa: E501
+                                  0x83: "Extended Identification (stream and individual access)"}  # noqa: E501
 _read_device_id_more_follow = {0x00: "No",
                                0x01: "Yes"}
 
@@ -520,7 +520,7 @@ class ModbusPDU2B0EReadDeviceIdentificationResponse(Packet):
     fields_desc = [XByteField("funcCode", 0x2B),
                    XByteField("MEIType", 0x0E),
                    ByteEnumField("readCode", 4, _read_device_id_codes),
-                   ByteEnumField("conformityLevel", 0x01, _read_device_id_conformity_lvl),
+                   ByteEnumField("conformityLevel", 0x01, _read_device_id_conformity_lvl),  # noqa: E501
                    ByteEnumField("more", 0x00, _read_device_id_more_follow),
                    ByteEnumField("nextObjId", 0x00, _read_device_id_object_id),
                    ByteField("objCount", 0x00)]
@@ -697,7 +697,7 @@ class ModbusObjectId(Packet):
     name = "Object"
     fields_desc = [ByteEnumField("id", 0x00, _read_device_id_object_id),
                    BitFieldLenField("length", None, 8, length_of="value"),
-                   StrLenField("value", "", length_from=lambda pkt: pkt.length)]
+                   StrLenField("value", "", length_from=lambda pkt: pkt.length)]  # noqa: E501
 
     def guess_payload_class(self, payload):
         return ModbusObjectId
@@ -770,7 +770,7 @@ class ModbusADURequest(Packet):
     fields_desc = [XShortField("transId", 0x0000),  # needs to be unique
                    XShortField("protoId", 0x0000),  # needs to be zero (Modbus)
                    ShortField("len", None),  # is calculated with payload
-                   XByteField("unitId", 0xff)]  # 0xFF (recommended as non-significant value) or 0x00
+                   XByteField("unitId", 0xff)]  # 0xFF (recommended as non-significant value) or 0x00  # noqa: E501
 
     def guess_payload_class(self, payload):
         function_code = orb(payload[0])
@@ -801,7 +801,7 @@ class ModbusADUResponse(Packet):
     fields_desc = [XShortField("transId", 0x0000),  # needs to be unique
                    XShortField("protoId", 0x0000),  # needs to be zero (Modbus)
                    ShortField("len", None),  # is calculated with payload
-                   XByteField("unitId", 0xff)]  # 0xFF or 0x00 should be used for Modbus over TCP/IP
+                   XByteField("unitId", 0xff)]  # 0xFF or 0x00 should be used for Modbus over TCP/IP  # noqa: E501
 
     def guess_payload_class(self, payload):
         function_code = orb(payload[0])

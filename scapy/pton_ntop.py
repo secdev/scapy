@@ -102,7 +102,7 @@ used when socket.inet_pton is not available.
         raise ValueError("invalid length of packed IP address string")
 
     # Decode to hex representation
-    address = ":".join(plain_str(bytes_hex(addr[idx:idx + 2])).lstrip('0') or '0'
+    address = ":".join(plain_str(bytes_hex(addr[idx:idx + 2])).lstrip('0') or '0'  # noqa: E501
                        for idx in range(0, 16, 2))
 
     try:

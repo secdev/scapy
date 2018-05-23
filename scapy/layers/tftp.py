@@ -17,7 +17,7 @@ from scapy.layers.inet import UDP, IP
 from scapy.modules.six.moves import range
 
 
-TFTP_operations = {1: "RRQ", 2: "WRQ", 3: "DATA", 4: "ACK", 5: "ERROR", 6: "OACK"}
+TFTP_operations = {1: "RRQ", 2: "WRQ", 3: "DATA", 4: "ACK", 5: "ERROR", 6: "OACK"}  # noqa: E501
 
 
 class TFTP(Packet):
@@ -69,7 +69,7 @@ class TFTP_Option(Packet):
 
 
 class TFTP_Options(Packet):
-    fields_desc = [PacketListField("options", [], TFTP_Option, length_from=lambda x:None)]
+    fields_desc = [PacketListField("options", [], TFTP_Option, length_from=lambda x:None)]  # noqa: E501
 
 
 class TFTP_ACK(Packet):
@@ -79,7 +79,7 @@ class TFTP_ACK(Packet):
     def answers(self, other):
         if isinstance(other, TFTP_DATA):
             return self.block == other.block
-        elif isinstance(other, TFTP_RRQ) or isinstance(other, TFTP_WRQ) or isinstance(other, TFTP_OACK):
+        elif isinstance(other, TFTP_RRQ) or isinstance(other, TFTP_WRQ) or isinstance(other, TFTP_OACK):  # noqa: E501
             return self.block == 0
         return 0
 
@@ -145,7 +145,7 @@ class TFTP_read(Automaton):
     def master_filter(self, pkt):
         return (IP in pkt and pkt[IP].src == self.server and UDP in pkt
                 and pkt[UDP].dport == self.my_tid
-                and (self.server_tid is None or pkt[UDP].sport == self.server_tid))
+                and (self.server_tid is None or pkt[UDP].sport == self.server_tid))  # noqa: E501
 
     # BEGIN
     @ATMT.state(initial=1)
@@ -156,8 +156,8 @@ class TFTP_read(Automaton):
         self.server_tid = None
         self.res = ""
 
-        self.l3 = IP(dst=self.server) / UDP(sport=self.my_tid, dport=self.port) / TFTP()
-        self.last_packet = self.l3 / TFTP_RRQ(filename=self.filename, mode="octet")
+        self.l3 = IP(dst=self.server) / UDP(sport=self.my_tid, dport=self.port) / TFTP()  # noqa: E501
+        self.last_packet = self.l3 / TFTP_RRQ(filename=self.filename, mode="octet")  # noqa: E501
         self.send(self.last_packet)
         self.awaiting = 1
 
@@ -234,7 +234,7 @@ class TFTP_write(Automaton):
     def master_filter(self, pkt):
         return (IP in pkt and pkt[IP].src == self.server and UDP in pkt
                 and pkt[UDP].dport == self.my_tid
-                and (self.server_tid is None or pkt[UDP].sport == self.server_tid))
+                and (self.server_tid is None or pkt[UDP].sport == self.server_tid))  # noqa: E501
 
     # BEGIN
     @ATMT.state(initial=1)
@@ -245,8 +245,8 @@ class TFTP_write(Automaton):
         bind_bottom_up(UDP, TFTP, dport=self.my_tid)
         self.server_tid = None
 
-        self.l3 = IP(dst=self.server) / UDP(sport=self.my_tid, dport=self.port) / TFTP()
-        self.last_packet = self.l3 / TFTP_WRQ(filename=self.filename, mode="octet")
+        self.l3 = IP(dst=self.server) / UDP(sport=self.my_tid, dport=self.port) / TFTP()  # noqa: E501
+        self.last_packet = self.l3 / TFTP_WRQ(filename=self.filename, mode="octet")  # noqa: E501
         self.send(self.last_packet)
         self.res = ""
         self.awaiting = 0
@@ -283,7 +283,7 @@ class TFTP_write(Automaton):
     @ATMT.state()
     def SEND_DATA(self):
         self.awaiting += 1
-        self.last_packet = self.l3 / TFTP_DATA(block=self.awaiting) / self.data.pop(0)
+        self.last_packet = self.l3 / TFTP_DATA(block=self.awaiting) / self.data.pop(0)  # noqa: E501
         self.send(self.last_packet)
         if self.data:
             raise self.WAITING_ACK()
@@ -331,7 +331,7 @@ class TFTP_WRQ_server(Automaton):
         self.dst = ip.src
         self.filename = pkt[TFTP_WRQ].filename
         options = pkt.getlayer(TFTP_Options)
-        self.l3 = IP(src=ip.dst, dst=ip.src) / UDP(sport=self.my_tid, dport=pkt.sport) / TFTP()
+        self.l3 = IP(src=ip.dst, dst=ip.src) / UDP(sport=self.my_tid, dport=pkt.sport) / TFTP()  # noqa: E501
         if options is None:
             self.last_packet = self.l3 / TFTP_ACK(block=0)
             self.send(self.last_packet)
@@ -340,7 +340,7 @@ class TFTP_WRQ_server(Automaton):
             if opt:
                 self.blksize = int(opt[0].value)
                 self.debug(2, "Negotiated new blksize at %i" % self.blksize)
-            self.last_packet = self.l3 / TFTP_OACK() / TFTP_Options(options=opt)
+            self.last_packet = self.l3 / TFTP_OACK() / TFTP_Options(options=opt)  # noqa: E501
             self.send(self.last_packet)
 
     @ATMT.state()
@@ -379,7 +379,7 @@ class TFTP_WRQ_server(Automaton):
 
 
 class TFTP_RRQ_server(Automaton):
-    def parse_args(self, store=None, joker=None, dir=None, ip=None, sport=None, serve_one=False, **kargs):
+    def parse_args(self, store=None, joker=None, dir=None, ip=None, sport=None, serve_one=False, **kargs):  # noqa: E501
         Automaton.parse_args(self, **kargs)
         if store is None:
             store = {}
@@ -412,7 +412,7 @@ class TFTP_RRQ_server(Automaton):
     def RECEIVED_RRQ(self, pkt):
         ip = pkt[IP]
         options = pkt[TFTP_Options]
-        self.l3 = IP(src=ip.dst, dst=ip.src) / UDP(sport=self.my_tid, dport=ip.sport) / TFTP()
+        self.l3 = IP(src=ip.dst, dst=ip.src) / UDP(sport=self.my_tid, dport=ip.sport) / TFTP()  # noqa: E501
         self.filename = pkt[TFTP_RRQ].filename
         self.blk = 1
         self.data = None
@@ -420,7 +420,7 @@ class TFTP_RRQ_server(Automaton):
             self.data = self.store[self.filename]
         elif self.dir is not None:
             fn = os.path.abspath(os.path.join(self.dir, self.filename))
-            if fn.startswith(self.dir):  # Check we're still in the server's directory
+            if fn.startswith(self.dir):  # Check we're still in the server's directory  # noqa: E501
                 try:
                     self.data = open(fn).read()
                 except IOError:
@@ -433,7 +433,7 @@ class TFTP_RRQ_server(Automaton):
             if opt:
                 self.blksize = int(opt[0].value)
                 self.debug(2, "Negotiated new blksize at %i" % self.blksize)
-            self.last_packet = self.l3 / TFTP_OACK() / TFTP_Options(options=opt)
+            self.last_packet = self.l3 / TFTP_OACK() / TFTP_Options(options=opt)  # noqa: E501
             self.send(self.last_packet)
 
     @ATMT.condition(RECEIVED_RRQ)
@@ -449,11 +449,11 @@ class TFTP_RRQ_server(Automaton):
 
     @ATMT.action(file_not_found)
     def send_error(self):
-        self.send(self.l3 / TFTP_ERROR(errorcode=1, errormsg=TFTP_Error_Codes[1]))
+        self.send(self.l3 / TFTP_ERROR(errorcode=1, errormsg=TFTP_Error_Codes[1]))  # noqa: E501
 
     @ATMT.state()
     def SEND_FILE(self):
-        self.send(self.l3 / TFTP_DATA(block=self.blk) / self.data[(self.blk - 1) * self.blksize:self.blk * self.blksize])
+        self.send(self.l3 / TFTP_DATA(block=self.blk) / self.data[(self.blk - 1) * self.blksize:self.blk * self.blksize])  # noqa: E501
 
     @ATMT.timeout(SEND_FILE, 3)
     def timeout_waiting_ack(self):

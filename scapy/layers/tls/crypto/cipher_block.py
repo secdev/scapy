@@ -15,7 +15,7 @@ import scapy.modules.six as six
 
 if conf.crypto_valid:
     from cryptography.utils import register_interface
-    from cryptography.hazmat.primitives.ciphers import (Cipher, algorithms, modes,
+    from cryptography.hazmat.primitives.ciphers import (Cipher, algorithms, modes,  # noqa: E501
                                                         BlockCipherAlgorithm,
                                                         CipherAlgorithm)
     from cryptography.hazmat.backends.openssl.backend import (backend,

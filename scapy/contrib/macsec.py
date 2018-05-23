@@ -44,7 +44,7 @@ class MACsecSA(object):
     Provides encapsulation, decapsulation, encryption, and decryption
     of MACsec frames
     """
-    def __init__(self, sci, an, pn, key, icvlen, encrypt, send_sci, xpn_en=False, ssci=None, salt=None):
+    def __init__(self, sci, an, pn, key, icvlen, encrypt, send_sci, xpn_en=False, ssci=None, salt=None):  # noqa: E501
         if isinstance(sci, six.integer_types):
             self.sci = struct.pack('!Q', sci)
         elif isinstance(sci, bytes):
@@ -75,9 +75,9 @@ class MACsecSA(object):
     def make_iv(self, pkt):
         """generate an IV for the packet"""
         if self.xpn_en:
-            tmp_pn = (self.pn & 0xFFFFFFFF00000000) | (pkt[MACsec].pn & 0xFFFFFFFF)
+            tmp_pn = (self.pn & 0xFFFFFFFF00000000) | (pkt[MACsec].pn & 0xFFFFFFFF)  # noqa: E501
             tmp_iv = self.ssci + struct.pack('!Q', tmp_pn)
-            return bytes(bytearray([a ^ b for a, b in zip(bytearray(tmp_iv), bytearray(self.salt))]))
+            return bytes(bytearray([a ^ b for a, b in zip(bytearray(tmp_iv), bytearray(self.salt))]))  # noqa: E501
         else:
             return self.sci + struct.pack('!I', pkt[MACsec].pn)
 
@@ -116,7 +116,7 @@ class MACsecSA(object):
     def encap(self, pkt):
         """encapsulate a frame using this Secure Association"""
         if pkt.name != Ether().name:
-            raise TypeError('cannot encapsulate packet in MACsec, must be Ethernet')
+            raise TypeError('cannot encapsulate packet in MACsec, must be Ethernet')  # noqa: E501
         hdr = copy.deepcopy(pkt)
         payload = hdr.payload
         del hdr.payload
@@ -132,8 +132,8 @@ class MACsecSA(object):
     # encap(), it is
     def decap(self, orig_pkt):
         """decapsulate a MACsec frame"""
-        if orig_pkt.name != Ether().name or orig_pkt.payload.name != MACsec().name:
-            raise TypeError('cannot decapsulate MACsec packet, must be Ethernet/MACsec')
+        if orig_pkt.name != Ether().name or orig_pkt.payload.name != MACsec().name:  # noqa: E501
+            raise TypeError('cannot decapsulate MACsec packet, must be Ethernet/MACsec')  # noqa: E501
         packet = copy.deepcopy(orig_pkt)
         prev_layer = packet[MACsec].underlayer
         prev_layer.type = packet[MACsec].type
@@ -213,7 +213,7 @@ class MACsec(Packet):
                    BitField('reserved', 0, 2),
                    BitField('shortlen', 0, 6),
                    IntField("pn", 1),
-                   ConditionalField(PacketField("sci", None, MACsecSCI), lambda pkt: pkt.SC),
+                   ConditionalField(PacketField("sci", None, MACsecSCI), lambda pkt: pkt.SC),  # noqa: E501
                    ConditionalField(XShortEnumField("type", None, ETHER_TYPES),
                                     lambda pkt: pkt.type is not None)]
 

@@ -38,7 +38,7 @@
 
     :Thanks:
 
-    - TLV code derived from the CDP implementation of scapy. (Thanks to Nicolas Bareil and Arnaud Ebalard)
+    - TLV code derived from the CDP implementation of scapy. (Thanks to Nicolas Bareil and Arnaud Ebalard)  # noqa: E501
         http://trac.secdev.org/scapy/ticket/18
     - IOS / EIGRP Version Representation FIX by Dirk Loss
 """
@@ -53,10 +53,10 @@ from scapy.compat import chb, raw
 
 class EigrpIPField(StrField, IPField):
     """
-    This is a special field type for handling ip addresses of destination networks in internal and
+    This is a special field type for handling ip addresses of destination networks in internal and  # noqa: E501
     external route updates.
 
-    EIGRP removes zeros from the host portion of the ip address if the netmask is 8, 16 or 24 bits.
+    EIGRP removes zeros from the host portion of the ip address if the netmask is 8, 16 or 24 bits.  # noqa: E501
     """
 
     __slots__ = ["length_from"]
@@ -123,7 +123,7 @@ class EigrpIPField(StrField, IPField):
 
 class EigrpIP6Field(StrField, IP6Field):
     """
-    This is a special field type for handling ip addresses of destination networks in internal and
+    This is a special field type for handling ip addresses of destination networks in internal and  # noqa: E501
     external route updates.
 
     """
@@ -157,7 +157,7 @@ class EigrpIP6Field(StrField, IP6Field):
 
         prefixlen = self.prefixlen_to_bytelen(l)
         if l > 128:
-            warning("EigrpIP6Field: Prefix length is > 128. Dissection of this packet will fail")
+            warning("EigrpIP6Field: Prefix length is > 128. Dissection of this packet will fail")  # noqa: E501
         else:
             pad = b"\x00" * (16 - prefixlen)
             x += pad
@@ -189,8 +189,8 @@ class EigrpIP6Field(StrField, IP6Field):
 class EIGRPGeneric(Packet):
     name = "EIGRP Generic TLV"
     fields_desc = [XShortField("type", 0x0000),
-                   FieldLenField("len", None, "value", "!H", adjust=lambda pkt, x: x + 4),
-                   StrLenField("value", b"\x00", length_from=lambda pkt: pkt.len - 4)]
+                   FieldLenField("len", None, "value", "!H", adjust=lambda pkt, x: x + 4),  # noqa: E501
+                   StrLenField("value", b"\x00", length_from=lambda pkt: pkt.len - 4)]  # noqa: E501
 
     def guess_payload_class(self, p):
         return conf.padding_layer
@@ -218,12 +218,12 @@ class EIGRPParam(EIGRPGeneric):
 class EIGRPAuthData(EIGRPGeneric):
     name = "EIGRP Authentication Data"
     fields_desc = [XShortField("type", 0x0002),
-                   FieldLenField("len", None, "authdata", "!H", adjust=lambda pkt, x: x + 24),
+                   FieldLenField("len", None, "authdata", "!H", adjust=lambda pkt, x: x + 24),  # noqa: E501
                    ShortEnumField("authtype", 2, {2: "MD5"}),
                    ShortField("keysize", None),
                    IntField("keyid", 1),
                    StrFixedLenField("nullpad", b"\x00" * 12, 12),
-                   StrLenField("authdata", RandString(16), length_from=lambda pkt: pkt.keysize)
+                   StrLenField("authdata", RandString(16), length_from=lambda pkt: pkt.keysize)  # noqa: E501
                    ]
 
     def post_build(self, p, pay):
@@ -231,7 +231,7 @@ class EIGRPAuthData(EIGRPGeneric):
 
         if self.keysize is None:
             keysize = len(self.authdata)
-            p = p[:6] + chb((keysize >> 8) & 0xff) + chb(keysize & 0xff) + p[8:]
+            p = p[:6] + chb((keysize >> 8) & 0xff) + chb(keysize & 0xff) + p[8:]  # noqa: E501
 
         return p
 
@@ -265,12 +265,12 @@ class ShortVersionField(ShortField):
         except TypeError:
             return "unknown"
         else:
-            # We print a leading 'v' so that these values don't look like floats
+            # We print a leading 'v' so that these values don't look like floats  # noqa: E501
             return "v%s.%s" % (major, minor)
 
     def h2i(self, pkt, x):
         """The field accepts string values like v12.1, v1.1 or integer values.
-           String values have to start with a "v" folled by a floating point number.
+           String values have to start with a "v" folled by a floating point number.  # noqa: E501
            Valid numbers are between 0 and 255.
         """
 
@@ -310,9 +310,9 @@ class EIGRPNms(EIGRPGeneric):
                    ]
 
 
-# Don't get confused by the term "receive-only". This flag is always set, when you configure
-# one of the stub options. It's also the only flag set, when you configure "eigrp stub receive-only".
-_EIGRP_STUB_FLAGS = ["connected", "static", "summary", "receive-only", "redistributed", "leak-map"]
+# Don't get confused by the term "receive-only". This flag is always set, when you configure  # noqa: E501
+# one of the stub options. It's also the only flag set, when you configure "eigrp stub receive-only".  # noqa: E501
+_EIGRP_STUB_FLAGS = ["connected", "static", "summary", "receive-only", "redistributed", "leak-map"]  # noqa: E501
 
 
 class EIGRPStub(EIGRPGeneric):
@@ -327,7 +327,7 @@ class EIGRPStub(EIGRPGeneric):
 class EIGRPIntRoute(EIGRPGeneric):
     name = "EIGRP Internal Route"
     fields_desc = [XShortField("type", 0x0102),
-                   FieldLenField("len", None, "dst", "!H", adjust=lambda pkt, x: x + 25),
+                   FieldLenField("len", None, "dst", "!H", adjust=lambda pkt, x: x + 25),  # noqa: E501
                    IPField("nexthop", "192.168.0.0"),
                    IntField("delay", 128000),
                    IntField("bandwidth", 256),
@@ -337,7 +337,7 @@ class EIGRPIntRoute(EIGRPGeneric):
                    ByteField("load", 0),
                    XShortField("reserved", 0),
                    ByteField("prefixlen", 24),
-                   EigrpIPField("dst", "192.168.1.0", length_from=lambda pkt: pkt.prefixlen),
+                   EigrpIPField("dst", "192.168.1.0", length_from=lambda pkt: pkt.prefixlen),  # noqa: E501
                    ]
 
 
@@ -361,14 +361,14 @@ _EIGRP_EXTROUTE_FLAGS = ["external", "candidate-default"]
 class EIGRPExtRoute(EIGRPGeneric):
     name = "EIGRP External Route"
     fields_desc = [XShortField("type", 0x0103),
-                   FieldLenField("len", None, "dst", "!H", adjust=lambda pkt, x: x + 45),
+                   FieldLenField("len", None, "dst", "!H", adjust=lambda pkt, x: x + 45),  # noqa: E501
                    IPField("nexthop", "192.168.0.0"),
                    IPField("originrouter", "192.168.0.1"),
                    IntField("originasn", 0),
                    IntField("tag", 0),
                    IntField("externalmetric", 0),
                    ShortField("reserved", 0),
-                   ByteEnumField("extprotocolid", 3, _EIGRP_EXTERNAL_PROTOCOL_ID),
+                   ByteEnumField("extprotocolid", 3, _EIGRP_EXTERNAL_PROTOCOL_ID),  # noqa: E501
                    FlagsField("flags", 0, 8, _EIGRP_EXTROUTE_FLAGS),
                    IntField("delay", 0),
                    IntField("bandwidth", 256),
@@ -378,14 +378,14 @@ class EIGRPExtRoute(EIGRPGeneric):
                    ByteField("load", 0),
                    XShortField("reserved2", 0),
                    ByteField("prefixlen", 24),
-                   EigrpIPField("dst", "192.168.1.0", length_from=lambda pkt: pkt.prefixlen)
+                   EigrpIPField("dst", "192.168.1.0", length_from=lambda pkt: pkt.prefixlen)  # noqa: E501
                    ]
 
 
 class EIGRPv6IntRoute(EIGRPGeneric):
     name = "EIGRP for IPv6 Internal Route"
     fields_desc = [XShortField("type", 0x0402),
-                   FieldLenField("len", None, "dst", "!H", adjust=lambda pkt, x: x + 37),
+                   FieldLenField("len", None, "dst", "!H", adjust=lambda pkt, x: x + 37),  # noqa: E501
                    IP6Field("nexthop", "::"),
                    IntField("delay", 128000),
                    IntField("bandwidth", 256000),
@@ -395,21 +395,21 @@ class EIGRPv6IntRoute(EIGRPGeneric):
                    ByteField("load", 0),
                    XShortField("reserved", 0),
                    ByteField("prefixlen", 16),
-                   EigrpIP6Field("dst", "2001::", length_from=lambda pkt: pkt.prefixlen)
+                   EigrpIP6Field("dst", "2001::", length_from=lambda pkt: pkt.prefixlen)  # noqa: E501
                    ]
 
 
 class EIGRPv6ExtRoute(EIGRPGeneric):
     name = "EIGRP for IPv6 External Route"
     fields_desc = [XShortField("type", 0x0403),
-                   FieldLenField("len", None, "dst", "!H", adjust=lambda pkt, x: x + 57),
+                   FieldLenField("len", None, "dst", "!H", adjust=lambda pkt, x: x + 57),  # noqa: E501
                    IP6Field("nexthop", "::"),
                    IPField("originrouter", "192.168.0.1"),
                    IntField("originasn", 0),
                    IntField("tag", 0),
                    IntField("externalmetric", 0),
                    ShortField("reserved", 0),
-                   ByteEnumField("extprotocolid", 3, _EIGRP_EXTERNAL_PROTOCOL_ID),
+                   ByteEnumField("extprotocolid", 3, _EIGRP_EXTERNAL_PROTOCOL_ID),  # noqa: E501
                    FlagsField("flags", 0, 8, _EIGRP_EXTROUTE_FLAGS),
                    IntField("delay", 0),
                    IntField("bandwidth", 256000),
@@ -419,7 +419,7 @@ class EIGRPv6ExtRoute(EIGRPGeneric):
                    ByteField("load", 1),
                    XShortField("reserved2", 0),
                    ByteField("prefixlen", 8),
-                   EigrpIP6Field("dst", "::", length_from=lambda pkt: pkt.prefixlen)
+                   EigrpIP6Field("dst", "::", length_from=lambda pkt: pkt.prefixlen)  # noqa: E501
                    ]
 
 

@@ -72,7 +72,7 @@ class VRRPv3(Packet):
             elif isinstance(self.underlayer, IPv6):
                 ck = in6_chksum(112, self.underlayer, p)
             else:
-                warning("No IP(v6) layer to compute checksum on VRRP. Leaving null")
+                warning("No IP(v6) layer to compute checksum on VRRP. Leaving null")  # noqa: E501
                 ck = 0
             p = p[:6] + chb(ck >> 8) + chb(ck & 0xff) + p[8:]
         return p

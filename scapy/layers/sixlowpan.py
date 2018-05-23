@@ -22,7 +22,7 @@ Transport                   |   UDP      |   TCP    |
                             |-----------------------|
 Network                     |          IPv6         | (Only IPv6)
                             |-----------------------|
-                            |         LoWPAN        | (in the middle between network and data link layer)
+                            |         LoWPAN        | (in the middle between network and data link layer)  # noqa: E501
                             |-----------------------|
 Data Link Layer             |   IEEE 802.15.4 MAC   |
                             |-----------------------|
@@ -53,11 +53,12 @@ import struct
 from scapy.compat import chb, orb, raw
 
 from scapy.packet import Packet, bind_layers
-from scapy.fields import BitField, ByteField, XBitField, LEShortField, LEIntField, StrLenField, \
-    BitEnumField, Field, ShortField, BitFieldLenField, XShortField,\
-    FlagsField, StrField, ConditionalField, FieldLenField
+from scapy.fields import BitField, ByteField, XBitField, LEShortField, \
+    LEIntField, StrLenField, BitEnumField, Field, ShortField, \
+    BitFieldLenField, XShortField, FlagsField, StrField, ConditionalField, \
+    FieldLenField
 
-from scapy.layers.dot15d4 import Dot15d4, Dot15d4Data, Dot15d4FCS, dot15d4AddressField
+from scapy.layers.dot15d4 import Dot15d4, Dot15d4Data, Dot15d4FCS, dot15d4AddressField  # noqa: E501
 from scapy.layers.inet6 import IPv6, IP6Field, ICMPv6EchoRequest
 from scapy.layers.inet import UDP
 from scapy.utils6 import in6_or, in6_and, in6_xor
@@ -70,7 +71,7 @@ from scapy.packet import Raw
 from scapy.pton_ntop import *
 from scapy.volatile import RandShort
 
-LINK_LOCAL_PREFIX = b"\xfe\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+LINK_LOCAL_PREFIX = b"\xfe\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"  # noqa: E501
 
 
 class IP6FieldLenField(IP6Field):
@@ -143,17 +144,17 @@ class SixLoWPANAddrField(FieldLenField):
 
     def getfield(self, pkt, s):
         if self.length_of(pkt) == 8:
-            return s[1:], self.m2i(pkt, struct.unpack(self.fmt[0] + "B", s[:1])[0])
+            return s[1:], self.m2i(pkt, struct.unpack(self.fmt[0] + "B", s[:1])[0])  # noqa: E501
         elif self.length_of(pkt) == 16:
-            return s[2:], self.m2i(pkt, struct.unpack(self.fmt[0] + "H", s[:2])[0])
+            return s[2:], self.m2i(pkt, struct.unpack(self.fmt[0] + "H", s[:2])[0])  # noqa: E501
         elif self.length_of(pkt) == 32:
-            return s[4:], self.m2i(pkt, struct.unpack(self.fmt[0] + "2H", s[:2], s[2:4])[0])
+            return s[4:], self.m2i(pkt, struct.unpack(self.fmt[0] + "2H", s[:2], s[2:4])[0])  # noqa: E501
         elif self.length_of(pkt) == 48:
-            return s[6:], self.m2i(pkt, struct.unpack(self.fmt[0] + "3H", s[:2], s[2:4], s[4:6])[0])
+            return s[6:], self.m2i(pkt, struct.unpack(self.fmt[0] + "3H", s[:2], s[2:4], s[4:6])[0])  # noqa: E501
         elif self.length_of(pkt) == 64:
-            return s[8:], self.m2i(pkt, struct.unpack(self.fmt[0] + "Q", s[:8])[0])
+            return s[8:], self.m2i(pkt, struct.unpack(self.fmt[0] + "Q", s[:8])[0])  # noqa: E501
         elif self.length_of(pkt) == 128:
-            return s[16:], self.m2i(pkt, struct.unpack(self.fmt[0] + "16s", s[:16])[0])
+            return s[16:], self.m2i(pkt, struct.unpack(self.fmt[0] + "16s", s[:16])[0])  # noqa: E501
 
 
 class LoWPANUncompressedIPv6(Packet):
@@ -173,8 +174,8 @@ class LoWPANMesh(Packet):
         BitEnumField("_v", 0x0, 1, [False, True]),
         BitEnumField("_f", 0x0, 1, [False, True]),
         BitField("_hopsLeft", 0x0, 4),
-        SixLoWPANAddrField("_sourceAddr", 0x0, length_of=lambda pkt: pkt._v and 2 or 8),
-        SixLoWPANAddrField("_destinyAddr", 0x0, length_of=lambda pkt: pkt._f and 2 or 8),
+        SixLoWPANAddrField("_sourceAddr", 0x0, length_of=lambda pkt: pkt._v and 2 or 8),  # noqa: E501
+        SixLoWPANAddrField("_destinyAddr", 0x0, length_of=lambda pkt: pkt._f and 2 or 8),  # noqa: E501
     ]
 
     def guess_payload_class(self, payload):
@@ -206,7 +207,7 @@ class LoWPANFragmentationSubsequent(Packet):
         BitField("reserved", 0x1C, 5),
         BitField("datagramSize", 0x0, 11),
         XShortField("datagramTag", RandShort()),
-        ByteField("datagramOffset", 0x0),  # VALUE PRINTED IN OCTETS, wireshark does in bits (128 bits == 16 octets)
+        ByteField("datagramOffset", 0x0),  # VALUE PRINTED IN OCTETS, wireshark does in bits (128 bits == 16 octets)  # noqa: E501
     ]
 
     def guess_payload_class(self, payload):
@@ -389,10 +390,10 @@ class LoWPAN_IPHC(Packet):
             lambda pkt: pkt.cid == 0x1
         ),
         # TODO: THIS IS WRONG!!!!!
-        BitVarSizeField("tc_ecn", 0, calculate_length=lambda pkt: tf_last_attempt(pkt)[0]),
-        BitVarSizeField("tc_dscp", 0, calculate_length=lambda pkt: tf_last_attempt(pkt)[1]),
-        BitVarSizeField("_padd", 0, calculate_length=lambda pkt: tf_last_attempt(pkt)[2]),
-        BitVarSizeField("flowlabel", 0, calculate_length=lambda pkt: tf_last_attempt(pkt)[3]),
+        BitVarSizeField("tc_ecn", 0, calculate_length=lambda pkt: tf_last_attempt(pkt)[0]),  # noqa: E501
+        BitVarSizeField("tc_dscp", 0, calculate_length=lambda pkt: tf_last_attempt(pkt)[1]),  # noqa: E501
+        BitVarSizeField("_padd", 0, calculate_length=lambda pkt: tf_last_attempt(pkt)[2]),  # noqa: E501
+        BitVarSizeField("flowlabel", 0, calculate_length=lambda pkt: tf_last_attempt(pkt)[3]),  # noqa: E501
 
         # NH
         ConditionalField(
@@ -405,21 +406,21 @@ class LoWPAN_IPHC(Packet):
             lambda pkt: pkt.hlim == 0x0
         ),
         IP6FieldLenField("sourceAddr", "::", 0, length_of=source_addr_mode2),
-        IP6FieldLenField("destinyAddr", "::", 0, length_of=destiny_addr_mode),  # problem when it's 0
+        IP6FieldLenField("destinyAddr", "::", 0, length_of=destiny_addr_mode),  # problem when it's 0  # noqa: E501
 
-        # LoWPAN_UDP Header Compression ########################################
+        # LoWPAN_UDP Header Compression ########################################  # noqa: E501
         # TODO: IMPROVE!!!!!
         ConditionalField(
-            FlagsField("header_compression", 0, 8, ["A", "B", "C", "D", "E", "C", "PS", "PD"]),
+            FlagsField("header_compression", 0, 8, ["A", "B", "C", "D", "E", "C", "PS", "PD"]),  # noqa: E501
             lambda pkt: pkt.nh
         ),
         ConditionalField(
-            BitFieldLenField("udpSourcePort", 0x0, 16, length_of=lambda pkt: nhc_port(pkt)[0]),
+            BitFieldLenField("udpSourcePort", 0x0, 16, length_of=lambda pkt: nhc_port(pkt)[0]),  # noqa: E501
             # ShortField("udpSourcePort", 0x0),
             lambda pkt: pkt.nh and pkt.header_compression & 0x2 == 0x0
         ),
         ConditionalField(
-            BitFieldLenField("udpDestinyPort", 0x0, 16, length_of=lambda pkt: nhc_port(pkt)[1]),
+            BitFieldLenField("udpDestinyPort", 0x0, 16, length_of=lambda pkt: nhc_port(pkt)[1]),  # noqa: E501
             lambda pkt: pkt.nh and pkt.header_compression & 0x1 == 0x0
         ),
         ConditionalField(
@@ -451,7 +452,7 @@ class LoWPAN_IPHC(Packet):
             packet.hlim = 64
         else:
             packet.hlim = 255
-        # TODO: Payload length can be inferred from lower layers from either the
+        # TODO: Payload length can be inferred from lower layers from either the  # noqa: E501
         # 6LoWPAN Fragmentation header or the IEEE802.15.4 header
 
         packet.src = self.decompressSourceAddr(packet)
@@ -483,8 +484,8 @@ class LoWPAN_IPHC(Packet):
             packet.payload = udp / data
             data = raw(packet)
         # else self.nh == 0 not necesary
-        elif self._nhField & 0xE0 == 0xE0:  # IPv6 Extension Header Decompression
-            raise Exception('Unimplemented: IPv6 Extension Header decompression')
+        elif self._nhField & 0xE0 == 0xE0:  # IPv6 Extension Header Decompression  # noqa: E501
+            raise Exception('Unimplemented: IPv6 Extension Header decompression')  # noqa: E501
         else:
             packet.payload = conf.raw_layer(data)
             data = raw(packet)
@@ -503,7 +504,7 @@ class LoWPAN_IPHC(Packet):
             elif self.dam == 1:
                 tmp_ip = LINK_LOCAL_PREFIX[0:8] + tmp_ip[-8:]
             elif self.dam == 2:
-                tmp_ip = LINK_LOCAL_PREFIX[0:8] + b"\x00\x00\x00\xff\xfe\x00" + tmp_ip[-2:]
+                tmp_ip = LINK_LOCAL_PREFIX[0:8] + b"\x00\x00\x00\xff\xfe\x00" + tmp_ip[-2:]  # noqa: E501
             """else: #self.dam == 3
                 raise Exception('Unimplemented')"""
 
@@ -512,36 +513,36 @@ class LoWPAN_IPHC(Packet):
                 raise Exception('Reserved')
             elif self.dam == 0x3:
                 underlayer = self.underlayer
-                while underlayer is not None and not isinstance(underlayer, Dot15d4Data):
+                while underlayer is not None and not isinstance(underlayer, Dot15d4Data):  # noqa: E501
                     underlayer = underlayer.underlayer
                 if type(underlayer) == Dot15d4Data:
                     if underlayer.underlayer.fcf_destaddrmode == 3:
-                        tmp_ip = LINK_LOCAL_PREFIX[0:8] + struct.pack(">Q", underlayer.dest_addr)
+                        tmp_ip = LINK_LOCAL_PREFIX[0:8] + struct.pack(">Q", underlayer.dest_addr)  # noqa: E501
                         # Turn off the bit 7.
-                        tmp_ip = tmp_ip[0:8] + struct.pack("B", (orb(tmp_ip[8]) ^ 0x2)) + tmp_ip[9:16]
+                        tmp_ip = tmp_ip[0:8] + struct.pack("B", (orb(tmp_ip[8]) ^ 0x2)) + tmp_ip[9:16]  # noqa: E501
                     elif underlayer.underlayer.fcf_destaddrmode == 2:
                         tmp_ip = LINK_LOCAL_PREFIX[0:8] + \
                             b"\x00\x00\x00\xff\xfe\x00" + \
                             struct.pack(">Q", underlayer.dest_addr)[6:]
                 else:
-                    # Most of the times, it's necessary the IEEE 802.15.4 data to extract this address
-                    raise Exception('Unimplemented: IP Header is contained into IEEE 802.15.4 frame, in this case it\'s not available.')
+                    # Most of the times, it's necessary the IEEE 802.15.4 data to extract this address  # noqa: E501
+                    raise Exception('Unimplemented: IP Header is contained into IEEE 802.15.4 frame, in this case it\'s not available.')  # noqa: E501
             elif self.dam not in [0x1, 0x2]:
                 warning("Unknown destiny address compression mode !")
         elif self.m == 1 and self.dac == 0:
             if self.dam == 0:
                 raise Exception("unimplemented")
             elif self.dam == 1:
-                tmp_ip = b"\xff" + chb(tmp_ip[16 - destiny_addr_mode(self)]) + \
-                    b"\x00" * 9 + tmp_ip[-5:]
+                tmp = b"\xff" + chb(tmp_ip[16 - destiny_addr_mode(self)])
+                tmp_ip = tmp + b"\x00" * 9 + tmp_ip[-5:]
             elif self.dam == 2:
-                tmp_ip = b"\xff" + chb(tmp_ip[16 - destiny_addr_mode(self)]) + \
-                    b"\x00" * 11 + tmp_ip[-3:]
+                tmp = b"\xff" + chb(tmp_ip[16 - destiny_addr_mode(self)])
+                tmp_ip = tmp + b"\x00" * 11 + tmp_ip[-3:]
             else:  # self.dam == 3:
                 tmp_ip = b"\xff\x02" + b"\x00" * 13 + tmp_ip[-1:]
         elif self.m == 1 and self.dac == 1:
             if self.dam == 0x0:
-                raise Exception("Unimplemented: I didnt understand the 6lowpan specification")
+                raise Exception("Unimplemented: I didnt understand the 6lowpan specification")  # noqa: E501
             else:  # all the others values
                 raise Exception("Reserved value by specification.")
 
@@ -568,7 +569,7 @@ class LoWPAN_IPHC(Packet):
             elif self.sam == 0x2:
                 tmp_ip = tmp_ip[14:16]
 
-        self.sourceAddr = inet_ntop(socket.AF_INET6, b"\x00" * (16 - len(tmp_ip)) + tmp_ip)
+        self.sourceAddr = inet_ntop(socket.AF_INET6, b"\x00" * (16 - len(tmp_ip)) + tmp_ip)  # noqa: E501
         return self.sourceAddr
 
     def compressDestinyAddr(self, ipv6):
@@ -608,27 +609,27 @@ class LoWPAN_IPHC(Packet):
             if self.sam == 0x0:
                 pass
             elif self.sam == 0x1:
-                tmp_ip = LINK_LOCAL_PREFIX[0:8] + tmp_ip[16 - source_addr_mode2(self):16]
+                tmp_ip = LINK_LOCAL_PREFIX[0:8] + tmp_ip[16 - source_addr_mode2(self):16]  # noqa: E501
             elif self.sam == 0x2:
-                tmp_ip = LINK_LOCAL_PREFIX[0:8] + b"\x00\x00\x00\xff\xfe\x00" + \
-                    tmp_ip[16 - source_addr_mode2(self):16]
+                tmp = LINK_LOCAL_PREFIX[0:8] + b"\x00\x00\x00\xff\xfe\x00"
+                tmp_ip = tmp + tmp_ip[16 - source_addr_mode2(self):16]
             elif self.sam == 0x3:  # EXTRACT ADDRESS FROM Dot15d4
                 underlayer = self.underlayer
                 if underlayer is not None:
-                    while underlayer is not None and not isinstance(underlayer, Dot15d4Data):
+                    while underlayer is not None and not isinstance(underlayer, Dot15d4Data):  # noqa: E501
                         underlayer = underlayer.underlayer
                     assert type(underlayer) == Dot15d4Data
                     if underlayer.underlayer.fcf_srcaddrmode == 3:
-                        tmp_ip = LINK_LOCAL_PREFIX[0:8] + struct.pack(">Q", underlayer.src_addr)
+                        tmp_ip = LINK_LOCAL_PREFIX[0:8] + struct.pack(">Q", underlayer.src_addr)  # noqa: E501
                         # Turn off the bit 7.
-                        tmp_ip = tmp_ip[0:8] + struct.pack("B", (orb(tmp_ip[8]) ^ 0x2)) + tmp_ip[9:16]
+                        tmp_ip = tmp_ip[0:8] + struct.pack("B", (orb(tmp_ip[8]) ^ 0x2)) + tmp_ip[9:16]  # noqa: E501
                     elif underlayer.underlayer.fcf_srcaddrmode == 2:
                         tmp_ip = LINK_LOCAL_PREFIX[0:8] + \
                             b"\x00\x00\x00\xff\xfe\x00" + \
                             struct.pack(">Q", underlayer.src_addr)[6:]
                 else:
-                    # Most of the times, it's necessary the IEEE 802.15.4 data to extract this address
-                    raise Exception('Unimplemented: IP Header is contained into IEEE 802.15.4 frame, in this case it\'s not available.')
+                    # Most of the times, it's necessary the IEEE 802.15.4 data to extract this address  # noqa: E501
+                    raise Exception('Unimplemented: IP Header is contained into IEEE 802.15.4 frame, in this case it\'s not available.')  # noqa: E501
             else:
                 warning("Unknown source address compression mode !")
         else:  # self.sac == 1:
@@ -636,10 +637,10 @@ class LoWPAN_IPHC(Packet):
                 pass
             elif self.sam == 0x2:
                 # TODO: take context IID
-                tmp_ip = LINK_LOCAL_PREFIX[0:8] + b"\x00\x00\x00\xff\xfe\x00" + \
-                    tmp_ip[16 - source_addr_mode2(self):16]
+                tmp = LINK_LOCAL_PREFIX[0:8] + b"\x00\x00\x00\xff\xfe\x00"
+                tmp_ip = tmp + tmp_ip[16 - source_addr_mode2(self):16]
             elif self.sam == 0x3:
-                tmp_ip = LINK_LOCAL_PREFIX[0:8] + b"\x00" * 8  # TODO: CONTEXT ID
+                tmp_ip = LINK_LOCAL_PREFIX[0:8] + b"\x00" * 8  # TODO: CONTEXT ID  # noqa: E501
             else:
                 print(self.sam)
                 raise Exception('Unimplemented')
@@ -647,7 +648,7 @@ class LoWPAN_IPHC(Packet):
         return self.sourceAddr
 
     def guess_payload_class(self, payload):
-        if self.underlayer and isinstance(self.underlayer, (LoWPANFragmentationFirst, LoWPANFragmentationSubsequent)):
+        if self.underlayer and isinstance(self.underlayer, (LoWPANFragmentationFirst, LoWPANFragmentationSubsequent)):  # noqa: E501
             return Raw
         return IPv6
 
@@ -680,8 +681,8 @@ class LoWPAN_IPHC(Packet):
             self.nh = 0  # ipv6.nh
         elif self.nh == 0x1:
             self.nh = 0  # disable compression
-            # The Next Header field is compressed and the next header is encoded using LOWPAN_NHC, which is discussed in Section 4.1.
-            warning('Next header compression is not implemented yet ! Will be ignored')
+            # The Next Header field is compressed and the next header is encoded using LOWPAN_NHC, which is discussed in Section 4.1.  # noqa: E501
+            warning('Next header compression is not implemented yet ! Will be ignored')  # noqa: E501
 
         # 3. HLim
         if self.hlim == 0x0:
@@ -732,7 +733,7 @@ class SixLoWPAN(Packet):
 
     @classmethod
     def dispatch_hook(cls, _pkt=b"", *args, **kargs):
-        """Depending on the payload content, the frame type we should interpretate"""
+        """Depending on the payload content, the frame type we should interpretate"""  # noqa: E501
         if _pkt and len(_pkt) >= 1:
             if orb(_pkt[0]) == 0x41:
                 return LoWPANUncompressedIPv6
@@ -776,10 +777,10 @@ def sixlowpan_fragment(packet, datagram_tag=1):
 
     new_packet = chunks(str_packet, MAX_SIZE)
 
-    new_packet[0] = LoWPANFragmentationFirst(datagramTag=datagram_tag, datagramSize=len(str_packet)) / LoWPAN_IPHC(sourceAddr=src, destinyAddr=dst) / new_packet[0]
+    new_packet[0] = LoWPANFragmentationFirst(datagramTag=datagram_tag, datagramSize=len(str_packet)) / LoWPAN_IPHC(sourceAddr=src, destinyAddr=dst) / new_packet[0]  # noqa: E501
     i = 1
     while i < len(new_packet):
-        new_packet[i] = LoWPANFragmentationSubsequent(datagramTag=datagram_tag, datagramSize=len(str_packet), datagramOffset=MAX_SIZE // 8 * i) / LoWPAN_IPHC(sourceAddr=src, destinyAddr=dst) / new_packet[i]
+        new_packet[i] = LoWPANFragmentationSubsequent(datagramTag=datagram_tag, datagramSize=len(str_packet), datagramOffset=MAX_SIZE // 8 * i) / LoWPAN_IPHC(sourceAddr=src, destinyAddr=dst) / new_packet[i]  # noqa: E501
         i += 1
 
     return new_packet
@@ -795,7 +796,7 @@ def sixlowpan_defragment(packet_list):
             cls = LoWPANFragmentationSubsequent
         if cls:
             tag = p[cls].datagramTag
-            results[tag] = results.get(tag, b"") + raw(p[cls][LoWPAN_IPHC].payload)
+            results[tag] = results.get(tag, b"") + raw(p[cls][LoWPAN_IPHC].payload)  # noqa: E501
     return {tag: IPv6(x) for tag, x in results.items()}
 
 

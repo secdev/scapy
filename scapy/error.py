@@ -56,8 +56,8 @@ log_scapy = logging.getLogger("scapy")
 log_scapy.addHandler(logging.NullHandler())
 log_runtime = logging.getLogger("scapy.runtime")          # logs at runtime
 log_runtime.addFilter(ScapyFreqFilter())
-log_interactive = logging.getLogger("scapy.interactive")  # logs in interactive functions
-log_loading = logging.getLogger("scapy.loading")          # logs when loading Scapy
+log_interactive = logging.getLogger("scapy.interactive")  # logs in interactive functions  # noqa: E501
+log_loading = logging.getLogger("scapy.loading")          # logs when loading Scapy  # noqa: E501
 
 
 def warning(x, *args, **kargs):

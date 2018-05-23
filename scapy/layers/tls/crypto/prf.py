@@ -104,8 +104,8 @@ def _ssl_PRF(secret, seed, req_len):
         warning("_ssl_PRF() is not expected to provide more than 416 bytes")
         return ""
 
-    d = [b"A", b"B", b"C", b"D", b"E", b"F", b"G", b"H", b"I", b"J", b"K", b"L",
-         b"M", b"N", b"O", b"P", b"Q", b"R", b"S", b"T", b"U", b"V", b"W", b"X",
+    d = [b"A", b"B", b"C", b"D", b"E", b"F", b"G", b"H", b"I", b"J", b"K", b"L",  # noqa: E501
+         b"M", b"N", b"O", b"P", b"Q", b"R", b"S", b"T", b"U", b"V", b"W", b"X",  # noqa: E501
          b"Y", b"Z"]
     res = b""
     hash_sha1 = _tls_hash_algs["SHA"]()
@@ -267,7 +267,7 @@ class PRF(object):
                                              master_secret + sslv3_md5_pad1))
             sha1_hash = sha1.digest(master_secret + sslv3_sha1_pad2 +
                                     sha1.digest(handshake_msg + label +
-                                                master_secret + sslv3_sha1_pad1))
+                                                master_secret + sslv3_sha1_pad1))  # noqa: E501
             verify_data = md5_hash + sha1_hash
 
         else:

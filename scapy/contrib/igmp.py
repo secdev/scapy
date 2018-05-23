@@ -67,7 +67,7 @@ IGMPv2 message format   http://www.faqs.org/rfcs/rfc2236.html
                    IPField("gaddr", "0.0.0.0")]
 
     def post_build(self, p, pay):
-        """Called implicitly before a packet is sent to compute and place IGMP checksum.
+        """Called implicitly before a packet is sent to compute and place IGMP checksum.  # noqa: E501
 
         Parameters:
           self    The instantiation of an IGMP class
@@ -95,14 +95,14 @@ IGMPv2 message format   http://www.faqs.org/rfcs/rfc2236.html
 
         The rules are:
         General:
-            1.  the Max Response time is meaningful only in Membership Queries and should be zero
+            1.  the Max Response time is meaningful only in Membership Queries and should be zero  # noqa: E501
         IP:
             1. Send General Group Query to 224.0.0.1 (all systems)
             2. Send Leave Group to 224.0.0.2 (all routers)
             3a.Otherwise send the packet to the group address
             3b.Send reports/joins to the group address
             4. ttl = 1 (RFC 2236, section 2)
-            5. send the packet with the router alert IP option (RFC 2236, section 2)
+            5. send the packet with the router alert IP option (RFC 2236, section 2)  # noqa: E501
         Ether:
             1. Recalculate destination
 
@@ -113,36 +113,36 @@ IGMPv2 message format   http://www.faqs.org/rfcs/rfc2236.html
                     were adjusted.
 
         The function will examine the IGMP message to assure proper format.
-        Corrections will be attempted if possible. The IP header is then properly
-        adjusted to ensure correct formatting and assignment. The Ethernet header
+        Corrections will be attempted if possible. The IP header is then properly  # noqa: E501
+        adjusted to ensure correct formatting and assignment. The Ethernet header  # noqa: E501
         is then adjusted to the proper IGMP packet format.
         """
-        gaddr = self.gaddr if hasattr(self, "gaddr") and self.gaddr else "0.0.0.0"
+        gaddr = self.gaddr if hasattr(self, "gaddr") and self.gaddr else "0.0.0.0"  # noqa: E501
         underlayer = self.underlayer
-        if self.type not in [0x11, 0x30]:                               # General Rule 1
+        if self.type not in [0x11, 0x30]:                               # General Rule 1  # noqa: E501
             self.mrcode = 0
         if isinstance(underlayer, IP):
             if (self.type == 0x11):
                 if (gaddr == "0.0.0.0"):
-                    underlayer.dst = "224.0.0.1"                        # IP rule 1
+                    underlayer.dst = "224.0.0.1"                        # IP rule 1  # noqa: E501
                 elif isValidMCAddr(gaddr):
-                    underlayer.dst = gaddr                              # IP rule 3a
+                    underlayer.dst = gaddr                              # IP rule 3a  # noqa: E501
                 else:
                     warning("Invalid IGMP Group Address detected !")
                     return False
             elif ((self.type == 0x17) and isValidMCAddr(gaddr)):
-                underlayer.dst = "224.0.0.2"                           # IP rule 2
-            elif ((self.type == 0x12) or (self.type == 0x16)) and (isValidMCAddr(gaddr)):
-                underlayer.dst = gaddr                                 # IP rule 3b
+                underlayer.dst = "224.0.0.2"                           # IP rule 2  # noqa: E501
+            elif ((self.type == 0x12) or (self.type == 0x16)) and (isValidMCAddr(gaddr)):  # noqa: E501
+                underlayer.dst = gaddr                                 # IP rule 3b  # noqa: E501
             else:
                 warning("Invalid IGMP Type detected !")
                 return False
-            if not any(isinstance(x, IPOption_Router_Alert) for x in underlayer.options):
+            if not any(isinstance(x, IPOption_Router_Alert) for x in underlayer.options):  # noqa: E501
                 underlayer.options.append(IPOption_Router_Alert())
             _root = self.firstlayer()
             if _root.haslayer(Ether):
                 # Force recalculate Ether dst
-                _root[Ether].dst = getmacbyip(underlayer.dst)          # Ether rule 1
+                _root[Ether].dst = getmacbyip(underlayer.dst)          # Ether rule 1  # noqa: E501
         from scapy.contrib.igmpv3 import IGMPv3
         if isinstance(self, IGMPv3):
             self.encode_maxrespcode()
@@ -151,7 +151,7 @@ IGMPv2 message format   http://www.faqs.org/rfcs/rfc2236.html
     def mysummary(self):
         """Display a summary of the IGMP object."""
         if isinstance(self.underlayer, IP):
-            return self.underlayer.sprintf("IGMP: %IP.src% > %IP.dst% %IGMP.type% %IGMP.gaddr%")
+            return self.underlayer.sprintf("IGMP: %IP.src% > %IP.dst% %IGMP.type% %IGMP.gaddr%")  # noqa: E501
         else:
             return self.sprintf("IGMP %IGMP.type% %IGMP.gaddr%")
 

@@ -275,7 +275,7 @@ class ShortOrInt(IntField):
         return Field.getfield(self, pkt, x)
 
 
-NetflowV9TemplateFieldDecoders = {  # Only contains fields that have a fixed length
+NetflowV9TemplateFieldDecoders = {  # Only contains fields that have a fixed length  # noqa: E501
     4: (ByteEnumField, [IP_PROTOS]),  # PROTOCOL
     5: XByteField,  # TOS
     6: ByteField,  # TCP_FLAGS
@@ -304,7 +304,7 @@ NetflowV9TemplateFieldDecoders = {  # Only contains fields that have a fixed len
     37: ShortField,  # FLOW_ACTIVE_TIMEOUT
     38: ByteField,  # ENGINE_TYPE
     39: ByteField,  # ENGINE_ID
-    46: (ByteEnumField, [{0x00: "UNKNOWN", 0x01: "TE-MIDPT", 0x02: "ATOM", 0x03: "VPN", 0x04: "BGP", 0x05: "LDP"}]),  # MPLS_TOP_LABEL_TYPE
+    46: (ByteEnumField, [{0x00: "UNKNOWN", 0x01: "TE-MIDPT", 0x02: "ATOM", 0x03: "VPN", 0x04: "BGP", 0x05: "LDP"}]),  # MPLS_TOP_LABEL_TYPE  # noqa: E501
     47: IPField,  # MPLS_TOP_LABEL_IP_ADDR
     48: ByteField,  # FLOW_SAMPLER_ID
     49: ByteField,  # FLOW_SAMPLER_MODE
@@ -315,7 +315,7 @@ NetflowV9TemplateFieldDecoders = {  # Only contains fields that have a fixed len
     58: ShortField,  # SRC_VLAN
     59: ShortField,  # DST_VLAN
     60: ByteField,  # IP_PROTOCOL_VERSION
-    61: (ByteEnumField, [{0x00: "Ingress flow", 0x01: "Egress flow"}]),  # DIRECTION
+    61: (ByteEnumField, [{0x00: "Ingress flow", 0x01: "Egress flow"}]),  # DIRECTION  # noqa: E501
     62: IP6Field,  # IPV6_NEXT_HOP
     63: IP6Field,  # BGP_IPV6_NEXT_HOP
 }
@@ -332,13 +332,13 @@ class NetflowHeaderV9(Packet):
 
 class NetflowTemplateFieldV9(Packet):
     name = "Netflow Flowset Template Field V9"
-    fields_desc = [ShortEnumField("fieldType", None, NetflowV9TemplateFieldTypes),
+    fields_desc = [ShortEnumField("fieldType", None, NetflowV9TemplateFieldTypes),  # noqa: E501
                    ShortField("fieldLength", 0)]
 
     def __init__(self, *args, **kwargs):
         Packet.__init__(self, *args, **kwargs)
-        if self.fieldType is not None and not self.fieldLength and self.fieldType in NetflowV9TemplateFieldDefaultLengths:
-            self.fieldLength = NetflowV9TemplateFieldDefaultLengths[self.fieldType]
+        if self.fieldType is not None and not self.fieldLength and self.fieldType in NetflowV9TemplateFieldDefaultLengths:  # noqa: E501
+            self.fieldLength = NetflowV9TemplateFieldDefaultLengths[self.fieldType]  # noqa: E501
 
     def default_payload_class(self, p):
         return conf.padding_layer
@@ -347,8 +347,8 @@ class NetflowTemplateFieldV9(Packet):
 class NetflowTemplateV9(Packet):
     name = "Netflow Flowset Template V9"
     fields_desc = [ShortField("templateID", 255),
-                   FieldLenField("fieldCount", None, count_of="template_fields"),
-                   PacketListField("template_fields", [], NetflowTemplateFieldV9,
+                   FieldLenField("fieldCount", None, count_of="template_fields"),  # noqa: E501
+                   PacketListField("template_fields", [], NetflowTemplateFieldV9,  # noqa: E501
                                    count_from=lambda pkt: pkt.fieldCount)]
 
     def default_payload_class(self, p):
@@ -358,7 +358,7 @@ class NetflowTemplateV9(Packet):
 class NetflowFlowsetV9(Packet):
     name = "Netflow FlowSet V9"
     fields_desc = [ShortField("flowSetID", 0),
-                   FieldLenField("length", None, length_of="templates", adjust=lambda pkt, x:x + 4),
+                   FieldLenField("length", None, length_of="templates", adjust=lambda pkt, x:x + 4),  # noqa: E501
                    PacketListField("templates", [], NetflowTemplateV9,
                                    length_from=lambda pkt: pkt.length - 4)]
 
@@ -372,11 +372,11 @@ def _GenNetflowRecordV9(cls, lengths_list):
     _fields_desc = []
     for j, k in lengths_list:
         _f_data = NetflowV9TemplateFieldDecoders.get(k, None)
-        _f_type, _f_args = (_f_data) if isinstance(_f_data, tuple) else (_f_data, [])
+        _f_type, _f_args = (_f_data) if isinstance(_f_data, tuple) else (_f_data, [])  # noqa: E501
         if _f_type:
-            _fields_desc.append(_f_type(NetflowV9TemplateFieldTypes.get(k, "unknown_data"), 0, *_f_args))
+            _fields_desc.append(_f_type(NetflowV9TemplateFieldTypes.get(k, "unknown_data"), 0, *_f_args))  # noqa: E501
         else:
-            _fields_desc.append(_CustomStrFixedLenField(NetflowV9TemplateFieldTypes.get(k, "unknown_data"), b"", length=j))
+            _fields_desc.append(_CustomStrFixedLenField(NetflowV9TemplateFieldTypes.get(k, "unknown_data"), b"", length=j))  # noqa: E501
 
     class NetflowRecordV9I(cls):
         fields_desc = _fields_desc
@@ -394,9 +394,9 @@ class NetflowRecordV9(Packet):
 class NetflowDataflowsetV9(Packet):
     name = "Netflow DataFlowSet V9"
     fields_desc = [ShortField("templateID", 255),
-                   FieldLenField("length", None, length_of="records", adjust=lambda pkt, x:x + 4),
+                   FieldLenField("length", None, length_of="records", adjust=lambda pkt, x:x + 4),  # noqa: E501
                    PadField(PacketListField("records", [], NetflowRecordV9,
-                                            length_from=lambda pkt: pkt.length - 4),
+                                            length_from=lambda pkt: pkt.length - 4),  # noqa: E501
                             4, padwith=b"\x00")]
 
     @classmethod
@@ -410,10 +410,10 @@ class NetflowDataflowsetV9(Packet):
 
 
 def netflowv9_defragment(plist):
-    """Process all NetflowV9 Packets to match IDs of the DataFlowsets with the Headers.
+    """Process all NetflowV9 Packets to match IDs of the DataFlowsets with the Headers.  # noqa: E501
     plist: the list of mixed NetflowV9 packets."""
-    # We need the whole packet to be dissected to access field def in NetflowFlowsetV9 or NetflowOptionsFlowsetV9
-    packet_list = [pkt for pkt in plist if (NetflowFlowsetV9 in pkt or NetflowOptionsFlowsetV9 in pkt)]
+    # We need the whole packet to be dissected to access field def in NetflowFlowsetV9 or NetflowOptionsFlowsetV9  # noqa: E501
+    packet_list = [pkt for pkt in plist if (NetflowFlowsetV9 in pkt or NetflowOptionsFlowsetV9 in pkt)]  # noqa: E501
     # Iterate through initial list
     for pkt in (x for x in plist if NetflowDataflowsetV9 in x):
         root = pkt.firstlayer()
@@ -422,25 +422,25 @@ def netflowv9_defragment(plist):
             if NetflowFlowsetV9 in p:  # STEP 1 - NetflowFlowsetV9
                 current = p[NetflowFlowsetV9]
                 for ntv9 in current.templates:
-                    current_ftl = root.getlayer(NetflowDataflowsetV9, templateID=ntv9.templateID)
+                    current_ftl = root.getlayer(NetflowDataflowsetV9, templateID=ntv9.templateID)  # noqa: E501
                     if current_ftl:
                         # Matched
                         try:
                             assert(len(current_ftl.records) > 0)
-                            # All data is stored in one record, awaiting to be splitted
+                            # All data is stored in one record, awaiting to be splitted  # noqa: E501
                             data = current_ftl.records[0].fieldValue
-                            # If fieldValue is available, the record has not been defragmented: pop it
+                            # If fieldValue is available, the record has not been defragmented: pop it  # noqa: E501
                             current_ftl.records.pop(0)
                         except (AssertionError, AttributeError):
                             continue
                         res = []
-                        # Now, according to the NetflowFlowsetV9 data, re-dissect NetflowDataflowsetV9
+                        # Now, according to the NetflowFlowsetV9 data, re-dissect NetflowDataflowsetV9  # noqa: E501
                         lengths_list = []
                         for template in ntv9.template_fields:
-                            lengths_list.append((template.fieldLength, template.fieldType))
+                            lengths_list.append((template.fieldLength, template.fieldType))  # noqa: E501
                         if lengths_list:
                             tot_len = sum(x for x, y in lengths_list)
-                            cls = _GenNetflowRecordV9(NetflowRecordV9, lengths_list)
+                            cls = _GenNetflowRecordV9(NetflowRecordV9, lengths_list)  # noqa: E501
                             while len(data) >= tot_len:
                                 res.append(cls(data[:tot_len]))
                                 data = data[tot_len:]
@@ -448,36 +448,36 @@ def netflowv9_defragment(plist):
                         current_ftl.records = res
                         current_ftl.do_dissect_payload(data)
                         break
-            if NetflowOptionsFlowsetV9 in p:  # STEP 2 - NetflowOptionsFlowsetV9
+            if NetflowOptionsFlowsetV9 in p:  # STEP 2 - NetflowOptionsFlowsetV9  # noqa: E501
                 current = p[NetflowOptionsFlowsetV9]
-                current_ftl = root.getlayer(NetflowDataflowsetV9, templateID=current.templateID)
+                current_ftl = root.getlayer(NetflowDataflowsetV9, templateID=current.templateID)  # noqa: E501
                 if current_ftl:
                     # Matched
                     try:
                         assert(len(current_ftl.records) > 0)
-                        # All data is stored in one record, awaiting to be splitted
+                        # All data is stored in one record, awaiting to be splitted  # noqa: E501
                         data = current_ftl.records.pop(0).fieldValue
                     except (AssertionError, AttributeError):
                         continue
                     res = []
-                    # Now, according to the NetflowOptionsFlowsetV9 data, re-dissect NetflowDataflowsetV9
+                    # Now, according to the NetflowOptionsFlowsetV9 data, re-dissect NetflowDataflowsetV9  # noqa: E501
                     # A - Decode scopes
                     lengths_list = []
                     for scope in current.scopes:
-                        lengths_list.append((scope.scopeFieldlength, scope.scopeFieldType))
+                        lengths_list.append((scope.scopeFieldlength, scope.scopeFieldType))  # noqa: E501
                     if lengths_list:
                         tot_len = sum(x for x, y in lengths_list)
-                        cls = _GenNetflowRecordV9(NetflowOptionsRecordScopeV9, lengths_list)
+                        cls = _GenNetflowRecordV9(NetflowOptionsRecordScopeV9, lengths_list)  # noqa: E501
                         while len(data) >= tot_len:
                             res.append(cls(data[:tot_len]))
                             data = data[tot_len:]
                     # B - Decode options
                     lengths_list = []
                     for option in current.options:
-                        lengths_list.append((option.optionFieldlength, option.optionFieldType))
+                        lengths_list.append((option.optionFieldlength, option.optionFieldType))  # noqa: E501
                     if lengths_list:
                         tot_len = sum(x for x, y in lengths_list)
-                        cls = _GenNetflowRecordV9(NetflowOptionsRecordOptionV9, lengths_list)
+                        cls = _GenNetflowRecordV9(NetflowOptionsRecordOptionV9, lengths_list)  # noqa: E501
                         while len(data) >= tot_len:
                             res.append(cls(data[:tot_len]))
                             data = data[tot_len:]
@@ -500,7 +500,7 @@ class NetflowOptionsRecordOptionV9(NetflowRecordV9):
 
 class NetflowOptionsFlowsetOptionV9(Packet):
     name = "Netflow Options Template FlowSet V9 - Option"
-    fields_desc = [ShortEnumField("optionFieldType", None, NetflowV9TemplateFieldTypes),
+    fields_desc = [ShortEnumField("optionFieldType", None, NetflowV9TemplateFieldTypes),  # noqa: E501
                    ShortField("optionFieldlength", 0)]
 
     def default_payload_class(self, p):
@@ -521,12 +521,12 @@ class NetflowOptionsFlowsetV9(Packet):
     fields_desc = [ShortField("flowSetID", 1),
                    LenField("length", None),
                    ShortField("templateID", 255),
-                   FieldLenField("option_scope_length", None, length_of="scopes"),
-                   FieldLenField("option_field_length", None, length_of="options"),
+                   FieldLenField("option_scope_length", None, length_of="scopes"),  # noqa: E501
+                   FieldLenField("option_field_length", None, length_of="options"),  # noqa: E501
                    PacketListField("scopes", [], NetflowOptionsFlowsetScopeV9,
-                                   length_from=lambda pkt: pkt.option_scope_length),
-                   PadField(PacketListField("options", [], NetflowOptionsFlowsetOptionV9,
-                                            length_from=lambda pkt: pkt.option_field_length),
+                                   length_from=lambda pkt: pkt.option_scope_length),  # noqa: E501
+                   PadField(PacketListField("options", [], NetflowOptionsFlowsetOptionV9,  # noqa: E501
+                                            length_from=lambda pkt: pkt.option_field_length),  # noqa: E501
                             4, padwith=b"\x00")]
 
 

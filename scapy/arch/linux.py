@@ -94,7 +94,7 @@ PACKET_FASTROUTE = 6  # Fastrouted frame
 
 with os.popen("%s -V 2> /dev/null" % conf.prog.tcpdump) as _f:
     if _f.close() >> 8 == 0x7f:
-        log_loading.warning("Failed to execute tcpdump. Check it is installed and in the PATH")
+        log_loading.warning("Failed to execute tcpdump. Check it is installed and in the PATH")  # noqa: E501
         TCPDUMP = 0
     else:
         TCPDUMP = 1
@@ -198,7 +198,7 @@ def get_alias_address(iface_name, ip_mask, gw_str, metric):
     # Extract interfaces names
     out = struct.unpack("iL", ifreq)[0]
     names = names.tostring()
-    names = [names[i:i + offset].split(b'\0', 1)[0] for i in range(0, out, name_len)]
+    names = [names[i:i + offset].split(b'\0', 1)[0] for i in range(0, out, name_len)]  # noqa: E501
 
     # Look for the IP address
     for ifname in names:
@@ -238,21 +238,21 @@ def read_routes():
     routes = []
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
-        ifreq = ioctl(s, SIOCGIFADDR, struct.pack("16s16x", scapy.consts.LOOPBACK_NAME.encode("utf8")))
+        ifreq = ioctl(s, SIOCGIFADDR, struct.pack("16s16x", scapy.consts.LOOPBACK_NAME.encode("utf8")))  # noqa: E501
         addrfamily = struct.unpack("h", ifreq[16:18])[0]
         if addrfamily == socket.AF_INET:
-            ifreq2 = ioctl(s, SIOCGIFNETMASK, struct.pack("16s16x", scapy.consts.LOOPBACK_NAME.encode("utf8")))
+            ifreq2 = ioctl(s, SIOCGIFNETMASK, struct.pack("16s16x", scapy.consts.LOOPBACK_NAME.encode("utf8")))  # noqa: E501
             msk = socket.ntohl(struct.unpack("I", ifreq2[20:24])[0])
             dst = socket.ntohl(struct.unpack("I", ifreq[20:24])[0]) & msk
             ifaddr = scapy.utils.inet_ntoa(ifreq[20:24])
-            routes.append((dst, msk, "0.0.0.0", scapy.consts.LOOPBACK_NAME, ifaddr, 1))
+            routes.append((dst, msk, "0.0.0.0", scapy.consts.LOOPBACK_NAME, ifaddr, 1))  # noqa: E501
         else:
-            warning("Interface %s: unknown address family (%i)" % (scapy.consts.LOOPBACK_NAME, addrfamily))
+            warning("Interface %s: unknown address family (%i)" % (scapy.consts.LOOPBACK_NAME, addrfamily))  # noqa: E501
     except IOError as err:
         if err.errno == 99:
-            warning("Interface %s: no address assigned" % scapy.consts.LOOPBACK_NAME)
+            warning("Interface %s: no address assigned" % scapy.consts.LOOPBACK_NAME)  # noqa: E501
         else:
-            warning("Interface %s: failed to get address config (%s)" % (scapy.consts.LOOPBACK_NAME, str(err)))
+            warning("Interface %s: failed to get address config (%s)" % (scapy.consts.LOOPBACK_NAME, str(err)))  # noqa: E501
 
     for l in f.readlines()[1:]:
         l = plain_str(l)
@@ -263,18 +263,18 @@ def read_routes():
         if flags & RTF_REJECT:
             continue
         try:
-            ifreq = ioctl(s, SIOCGIFADDR, struct.pack("16s16x", iff.encode("utf8")))
-        except IOError:  # interface is present in routing tables but does not have any assigned IP
+            ifreq = ioctl(s, SIOCGIFADDR, struct.pack("16s16x", iff.encode("utf8")))  # noqa: E501
+        except IOError:  # interface is present in routing tables but does not have any assigned IP  # noqa: E501
             ifaddr = "0.0.0.0"
         else:
             addrfamily = struct.unpack("h", ifreq[16:18])[0]
             if addrfamily == socket.AF_INET:
                 ifaddr = scapy.utils.inet_ntoa(ifreq[20:24])
             else:
-                warning("Interface %s: unkown address family (%i)", iff, addrfamily)
+                warning("Interface %s: unkown address family (%i)", iff, addrfamily)  # noqa: E501
                 continue
 
-        # Attempt to detect an interface alias based on addresses inconsistencies
+        # Attempt to detect an interface alias based on addresses inconsistencies  # noqa: E501
         dst_int = socket.htonl(int(dst, 16)) & 0xffffffff
         msk_int = socket.htonl(int(msk, 16)) & 0xffffffff
         ifaddr_int = struct.unpack("!I", ifreq[20:24])[0]
@@ -411,9 +411,9 @@ def _flush_fd(fd):
 class L3PacketSocket(SuperSocket):
     desc = "read/write packets at layer 3 using Linux PF_PACKET sockets"
 
-    def __init__(self, type=ETH_P_ALL, filter=None, promisc=None, iface=None, nofilter=0):
+    def __init__(self, type=ETH_P_ALL, filter=None, promisc=None, iface=None, nofilter=0):  # noqa: E501
         self.type = type
-        self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
+        self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))  # noqa: E501
         self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 0)
         if iface:
             self.ins.bind((iface, type))
@@ -427,7 +427,7 @@ class L3PacketSocket(SuperSocket):
                 attach_filter(self.ins, filter, iface)
         _flush_fd(self.ins)
         self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2**30)
-        self.outs = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
+        self.outs = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))  # noqa: E501
         self.outs.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 2**30)
         self.promisc = conf.promisc if promisc is None else promisc
         if self.promisc:
@@ -450,7 +450,7 @@ class L3PacketSocket(SuperSocket):
         SuperSocket.close(self)
 
     def recv_raw(self, x=MTU):
-        """Receives a packet, then returns a tuple containing (cls, pkt_data, time)"""
+        """Receives a packet, then returns a tuple containing (cls, pkt_data, time)"""  # noqa: E501
         pkt, sa_ll = self.ins.recvfrom(x)
         if sa_ll[2] == socket.PACKET_OUTGOING:
             return None, None, None
@@ -462,7 +462,7 @@ class L3PacketSocket(SuperSocket):
             self.lvl = 3
         else:
             cls = conf.default_l2
-            warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using %s", sa_ll[0], sa_ll[1], sa_ll[3], cls.name)
+            warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using %s", sa_ll[0], sa_ll[1], sa_ll[3], cls.name)  # noqa: E501
             self.lvl = 2
         ts = get_last_packet_timestamp(self.ins)
         return cls, pkt, ts
@@ -502,9 +502,9 @@ class L3PacketSocket(SuperSocket):
 class L2Socket(SuperSocket):
     desc = "read/write packets at layer 2 using Linux PF_PACKET sockets"
 
-    def __init__(self, iface=None, type=ETH_P_ALL, promisc=None, filter=None, nofilter=0):
+    def __init__(self, iface=None, type=ETH_P_ALL, promisc=None, filter=None, nofilter=0):  # noqa: E501
         self.iface = conf.iface if iface is None else iface
-        self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
+        self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))  # noqa: E501
         self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 0)
         if not nofilter:
             if conf.except_filter:
@@ -529,7 +529,7 @@ class L2Socket(SuperSocket):
             self.LL = conf.l3types[sa_ll[1]]
         else:
             self.LL = conf.default_l2
-            warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using %s", sa_ll[0], sa_ll[1], sa_ll[3], self.LL.name)
+            warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using %s", sa_ll[0], sa_ll[1], sa_ll[3], self.LL.name)  # noqa: E501
 
     def close(self):
         if self.closed:
@@ -540,7 +540,7 @@ class L2Socket(SuperSocket):
         SuperSocket.close(self)
 
     def recv_raw(self, x=MTU):
-        """Receives a packet, then returns a tuple containing (cls, pkt_data, time)"""
+        """Receives a packet, then returns a tuple containing (cls, pkt_data, time)"""  # noqa: E501
         pkt, sa_ll = self.ins.recvfrom(x)
         if sa_ll[2] == socket.PACKET_OUTGOING:
             return None, None, None
@@ -563,10 +563,10 @@ class L2Socket(SuperSocket):
 class L2ListenSocket(SuperSocket):
     desc = "read packets at layer 2 using Linux PF_PACKET sockets"
 
-    def __init__(self, iface=None, type=ETH_P_ALL, promisc=None, filter=None, nofilter=0):
+    def __init__(self, iface=None, type=ETH_P_ALL, promisc=None, filter=None, nofilter=0):  # noqa: E501
         self.type = type
         self.outs = None
-        self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
+        self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))  # noqa: E501
         self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 0)
         if iface is not None:
             self.ins.bind((iface, type))
@@ -600,7 +600,7 @@ class L2ListenSocket(SuperSocket):
         SuperSocket.close(self)
 
     def recv_raw(self, x=MTU):
-        """Receives a packet, then returns a tuple containing (cls, pkt_data, time)"""
+        """Receives a packet, then returns a tuple containing (cls, pkt_data, time)"""  # noqa: E501
         pkt, sa_ll = self.ins.recvfrom(x)
         if sa_ll[3] in conf.l2types:
             cls = conf.l2types[sa_ll[3]]
@@ -645,7 +645,7 @@ class VEthPair(object):
 
         if not LINUX:
             # ToDo: do we need a kernel version check here?
-            raise ScapyInvalidPlatformException('virtual Ethernet interface pair only available on Linux')
+            raise ScapyInvalidPlatformException('virtual Ethernet interface pair only available on Linux')  # noqa: E501
 
         self.ifaces = [iface_name, peer_name]
 
@@ -660,7 +660,7 @@ class VEthPair(object):
         create veth pair links
         :raises subprocess.CalledProcessError if operation fails
         """
-        subprocess.check_call(['ip', 'link', 'add', self.ifaces[0], 'type', 'veth', 'peer', 'name', self.ifaces[1]])
+        subprocess.check_call(['ip', 'link', 'add', self.ifaces[0], 'type', 'veth', 'peer', 'name', self.ifaces[1]])  # noqa: E501
 
     def destroy(self):
         """
@@ -675,7 +675,7 @@ class VEthPair(object):
         :raises subprocess.CalledProcessError if operation failes
         """
         for idx in [0, 1]:
-            subprocess.check_call(["ip", "link", "set", self.ifaces[idx], "up"])
+            subprocess.check_call(["ip", "link", "set", self.ifaces[idx], "up"])  # noqa: E501
 
     def down(self):
         """
@@ -683,7 +683,7 @@ class VEthPair(object):
         :raises subprocess.CalledProcessError if operation failes
         """
         for idx in [0, 1]:
-            subprocess.check_call(["ip", "link", "set", self.ifaces[idx], "down"])
+            subprocess.check_call(["ip", "link", "set", self.ifaces[idx], "down"])  # noqa: E501
 
     def __enter__(self):
         self.setup()

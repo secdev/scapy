@@ -50,16 +50,16 @@ class Route6:
         rtlst = []
 
         for net, msk, gw, iface, cset, metric in self.routes:
-            rtlst.append(('%s/%i' % (net, msk), gw, (iface if isinstance(iface, six.string_types) else iface.name), ", ".join(cset) if len(cset) > 0 else "", str(metric)))
+            rtlst.append(('%s/%i' % (net, msk), gw, (iface if isinstance(iface, six.string_types) else iface.name), ", ".join(cset) if len(cset) > 0 else "", str(metric)))  # noqa: E501
 
         return pretty_list(rtlst,
-                           [('Destination', 'Next Hop', "Iface", "Src candidates", "Metric")],
+                           [('Destination', 'Next Hop', "Iface", "Src candidates", "Metric")],  # noqa: E501
                            sortBy=1)
 
-    # Unlike Scapy's Route.make_route() function, we do not have 'host' and 'net'
+    # Unlike Scapy's Route.make_route() function, we do not have 'host' and 'net'  # noqa: E501
     # parameters. We only have a 'dst' parameter that accepts 'prefix' and
     # 'prefix/prefixlen' values.
-    # WARNING: Providing a specific device will at the moment not work correctly.
+    # WARNING: Providing a specific device will at the moment not work correctly.  # noqa: E501
     def make_route(self, dst, gw=None, dev=None):
         """Internal function : create a route for 'dst' via 'gw'.
         """
@@ -124,7 +124,7 @@ class Route6:
             if iface != iff:
                 continue
             if gw == '::':
-                self.routes[i] = (the_net, the_plen, gw, iface, [the_addr], metric)
+                self.routes[i] = (the_net, the_plen, gw, iface, [the_addr], metric)  # noqa: E501
             else:
                 self.routes[i] = (net, plen, gw, iface, [the_addr], metric)
         self.invalidate_cache()
@@ -143,7 +143,7 @@ class Route6:
         """
         Add an interface 'iff' with provided address into routing table.
 
-        Ex: ifadd('eth0', '2001:bd8:cafe:1::1/64') will add following entry into
+        Ex: ifadd('eth0', '2001:bd8:cafe:1::1/64') will add following entry into  # noqa: E501
             Scapy6 internal routing table:
 
             Destination           Next Hop  iface  Def src @           Metric
@@ -199,7 +199,7 @@ class Route6:
         # Deal with dev-specific request for cache search
         k = dst
         if dev is not None:
-            k = dst + "%%" + (dev if isinstance(dev, six.string_types) else dev.pcap_name)
+            k = dst + "%%" + (dev if isinstance(dev, six.string_types) else dev.pcap_name)  # noqa: E501
         if k in self.cache:
             return self.cache[k]
 
@@ -214,11 +214,11 @@ class Route6:
                 continue
             if in6_isincluded(dst, p, plen):
                 pathes.append((plen, me, (iface, cset, gw)))
-            elif (in6_ismlladdr(dst) and in6_islladdr(p) and in6_islladdr(cset[0])):
+            elif (in6_ismlladdr(dst) and in6_islladdr(p) and in6_islladdr(cset[0])):  # noqa: E501
                 pathes.append((plen, me, (iface, cset, gw)))
 
         if not pathes:
-            warning("No route found for IPv6 destination %s (no default route?)", dst)
+            warning("No route found for IPv6 destination %s (no default route?)", dst)  # noqa: E501
             return (scapy.consts.LOOPBACK_INTERFACE, "::", "::")
 
         # Sort with longest prefix first
@@ -235,7 +235,7 @@ class Route6:
                 res.append((p[0], p[1], (tmp[0], srcaddr, tmp[2])))
 
         if res == []:
-            warning("Found a route for IPv6 destination '%s', but no possible source address.", dst)
+            warning("Found a route for IPv6 destination '%s', but no possible source address.", dst)  # noqa: E501
             return (scapy.consts.LOOPBACK_INTERFACE, "::", "::")
 
         # Tie-breaker: Metrics
@@ -267,7 +267,7 @@ class Route6:
         # Fill the cache (including dev-specific request)
         k = dst
         if dev is not None:
-            k = dst + "%%" + (dev if isinstance(dev, six.string_types) else dev.pcap_name)
+            k = dst + "%%" + (dev if isinstance(dev, six.string_types) else dev.pcap_name)  # noqa: E501
         self.cache[k] = res[0][2]
 
         return res[0][2]
