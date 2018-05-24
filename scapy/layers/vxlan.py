@@ -75,6 +75,7 @@ class VXLAN(Packet):
 
 bind_layers(UDP, VXLAN, dport=4789)  # RFC standard vxlan port
 bind_layers(UDP, VXLAN, dport=4790)  # RFC standard vxlan-gpe port
+bind_layers(UDP, VXLAN, dport=250)   # currently we need this one to be able to identify VXLAN-GPE by Alibaba
 bind_layers(UDP, VXLAN, dport=6633)  # New IANA assigned port for use with NSH
 bind_layers(UDP, VXLAN, dport=8472)  # Linux implementation port
 bind_layers(UDP, VXLAN, dport=48879)  # Cisco ACI
