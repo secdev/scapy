@@ -11,8 +11,6 @@ import scapy.modules.six as six
 from scapy.modules.six.moves import range
 from scapy.compat import hex_bytes, orb
 from scapy.packet import Raw
-from scapy.modules.six.moves import range
-import scapy.modules.six as six
 
 # ARC4
 

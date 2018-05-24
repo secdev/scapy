@@ -118,7 +118,7 @@ if conf.use_winpcapy:
     # BIOCIMMEDIATE=0x80044270
     BIOCIMMEDIATE = -2147204496
 
-    def get_if_raw_addr(iff):
+    def get_if_raw_addr(iff):  # noqa: F811
         """Returns the raw ip address corresponding to the NetworkInterface."""
         if conf.cache_ipaddrs:
             return conf.cache_ipaddrs.get(iff.pcap_name, None)
@@ -181,7 +181,7 @@ if conf.use_winpcapy:
 
     from ctypes import POINTER, byref, create_string_buffer
 
-    class _PcapWrapper_pypcap:
+    class _PcapWrapper_pypcap:  # noqa: F811
         """Wrapper for the WinPcap calls"""
 
         def __init__(self, device, snaplen, promisc, to_ms, monitor=None):
@@ -272,7 +272,7 @@ if conf.use_pcap:
         BIOCIMMEDIATE = -2147204496
 
         if _PCAP_MODE == "pypcap":  # python-pypcap
-            class _PcapWrapper_pypcap:
+            class _PcapWrapper_pypcap:  # noqa: F811
                 def __init__(self, device, snaplen, promisc, to_ms, monitor=False):  # noqa: E501
                     try:
                         self.pcap = pcap.pcap(device, snaplen, promisc, immediate=1, timeout_ms=to_ms, rfmon=monitor)  # noqa: E501
@@ -543,7 +543,7 @@ if conf.use_dnet:
                 "dummy"
                 return (0, b"\0\0\0\0\0\0")
 
-            def get_if_raw_addr(iff):
+            def get_if_raw_addr(iff):  # noqa: F811
                 "dummy"
                 return b"\0\0\0\0"
 
@@ -582,7 +582,7 @@ if conf.use_dnet:
 
                 return (l["type"], mac)
 
-        def get_if_raw_addr(ifname):
+        def get_if_raw_addr(ifname):  # noqa: F811
             i = dnet.intf()
             try:
                 return i.get(ifname)["addr"].data

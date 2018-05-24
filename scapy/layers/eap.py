@@ -12,7 +12,7 @@ from __future__ import print_function
 
 import struct
 
-from scapy.fields import BitField, ByteField, XByteField, ByteEnumField,\
+from scapy.fields import BitField, ByteField, XByteField,\
     ShortField, IntField, XIntField, ByteEnumField, StrLenField, XStrField,\
     XStrLenField, XStrFixedLenField, LenField, FieldLenField, PacketField,\
     PacketListField, ConditionalField, PadField

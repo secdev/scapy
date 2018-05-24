@@ -122,7 +122,7 @@ skinny_messages_cls = {
     0x0107: "SkinnyMessageConnectionStatisticsReq",
     0x0108: "SkinnyMessageSoftKeyTemplateRes",
     0x0109: "SkinnyMessageSoftKeySetRes",
-    0x0110: "SkinnyMessageSoftKeyEvent",
+    0x0110: "SkinnyMessageStationSelectSoftKeysMessage",
     0x0111: "SkinnyMessageCallState",
     0x0112: "SkinnyMessagePromptStatus",
     0x0113: "SkinnyMessageClearPromptStatus",
@@ -324,8 +324,8 @@ class SkinnyMessageSetLamp(Packet):
                    LEIntEnumField("mode", 2, skinny_lamp_mode)]
 
 
-class SkinnyMessageSoftKeyEvent(Packet):
-    name = ' Call state message'
+class SkinnyMessageStationSelectSoftKeysMessage(Packet):
+    name = 'Station Select Soft Keys Message'
     fields_desc = [LEIntField("instance", 1),
                    LEIntField("callid", 0),
                    LEIntField("set", 0),

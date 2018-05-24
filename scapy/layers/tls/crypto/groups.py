@@ -22,13 +22,11 @@ if conf.crypto_valid:
 import scapy.modules.six as six
 
 from scapy.config import conf
-from scapy.utils import long_converter
 
 # We have to start by a dirty hack in order to allow long generators,
 # which some versions of openssl love to use...
 
 if conf.crypto_valid:
-    from cryptography.hazmat.backends import default_backend
     from cryptography.hazmat.primitives.asymmetric.dh import DHParameterNumbers
 
     try:
@@ -36,7 +34,6 @@ if conf.crypto_valid:
         pn_test = DHParameterNumbers(2, 7)
     except ValueError:
         # We get rid of the limitation through the cryptography v1.9 __init__.
-        import six
 
         def DHParameterNumbers__init__hack(self, p, g, q=None):
             if (
