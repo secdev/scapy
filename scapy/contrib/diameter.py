@@ -239,10 +239,6 @@ class Float64 (IEEEDoubleField):
     pass
 
 
-class Grouped (Field):
-    pass
-
-
 ###########################################################
 # Definition of additional fields contained in section 4.3
 # of RFC6733 for AVPs payloads

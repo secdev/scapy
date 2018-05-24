@@ -54,7 +54,6 @@ conf.use_winpcapy = True
 WINDOWS = (os.name == 'nt')
 
 # hot-patching socket for missing variables on Windows
-import socket
 if not hasattr(socket, 'IPPROTO_IPIP'):
     socket.IPPROTO_IPIP = 4
 if not hasattr(socket, 'IPPROTO_AH'):

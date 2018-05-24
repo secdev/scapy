@@ -879,11 +879,6 @@ class GTPSupportedExtensionHeadersNotification(Packet):
                                                ], IE_Dispatcher)]
 
 
-class GTPErrorIndication(Packet):
-    name = "GTP Error Indication"
-    fields_desc = [PacketListField("IE_list", [], IE_Dispatcher)]
-
-
 class GTPmorethan1500(Packet):
     # 3GPP TS 29.060 V9.1.0 (2009-12)
     name = "GTP More than 1500"

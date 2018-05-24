@@ -1688,11 +1688,6 @@ class IntEnumKeysField(IntEnumField):
         return RandEnumKeys(self.i2s)
 
 
-# Little endian long field
-class LELongField(Field):
-    def __init__(self, name, default):
-        Field.__init__(self, name, default, "<Q")
-
 # Little endian fixed length field
 
 

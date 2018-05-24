@@ -44,7 +44,7 @@
 from scapy.config import conf
 from scapy.error import log_runtime, Scapy_Exception
 from scapy.layers.l2 import Ether, Dot1Q
-from scapy.fields import MACField, IPField, BitField, ByteField, \
+from scapy.fields import MACField, IPField, BitField, \
     StrLenField, ByteEnumField, BitEnumField, \
     EnumField, ThreeBytesField, BitFieldLenField, \
     ShortField, XStrLenField, ByteField

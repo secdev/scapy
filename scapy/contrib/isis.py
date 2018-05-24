@@ -71,7 +71,6 @@ from scapy.layers.clns import network_layer_protocol_ids, register_cln_protocol
 from scapy.layers.inet6 import IP6ListField, IP6Field
 from scapy.utils import fletcher16_checkbytes
 from scapy.volatile import RandString, RandByte
-import random
 from scapy.modules.six.moves import range
 from scapy.compat import raw
 
