@@ -1,3 +1,15 @@
+### @hsluoyz has suddenly disapeared from github. Hoping he's been hacked, and has not vanished magically forever, and will get back soon.
+### In the mean-time, install the latest published windump version working with nmap (0.3), that I
+### had a copy of
+
+Copy-Item -Force $PSScriptRoot"\Windump0.3.exe" "C:\Windows\System32\windump.exe"
+Exit
+
+###
+### BELOW IS THE ORIGINAL INSTALLER
+###
+
+
 # Config
 $urlPath = "https://github.com/hsluoyz/WinDump/releases/download/v0.2/WinDump-for-Npcap-0.2.zip"
 $checksum = "9182934bb822511236b4112ddaa006c95c86c864ecc5c2e3c355228463e43bf2"
