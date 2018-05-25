@@ -206,10 +206,9 @@ class RadioTap(Packet):
                    StrLenField('notdecoded', "", length_from=lambda pkt: pkt.len - pkt._tmp_dissect_pos)]  # noqa: E501
 
     def guess_payload_class(self, payload):
-        if self.Flags.FCS:
+        if self.present and self.present.Flags and self.Flags.FCS:
             return Dot11FCS
-        else:
-            return Dot11
+        return Dot11
 
     def post_build(self, p, pay):
         if self.len is None:
