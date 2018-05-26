@@ -1,6 +1,6 @@
 # Config
-$urlPath = "https://github.com/hsluoyz/WinDump/releases/download/v0.2/WinDump-for-Npcap-0.2.zip"
-$checksum = "9182934bb822511236b4112ddaa006c95c86c864ecc5c2e3c355228463e43bf2"
+$urlPath = "https://github.com/hsluoyz/WinDump/releases/download/v0.3/WinDump-for-Npcap-0.3.zip"
+$checksum = "4253cbc494416c4917920e1f2424cdf039af8bc39f839a47aa4337bd28f4eb7e"
 
 ############
 ############

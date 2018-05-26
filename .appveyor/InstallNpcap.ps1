@@ -1,7 +1,7 @@
 # Install Npcap on the machine.
 
 # Config:
-$npcap_oem_file = "npcap-0.99-r3-oem.exe"
+$npcap_oem_file = "npcap-0.99-r5-oem.exe"
 
 # Note: because we need the /S option (silent), this script has two cases:
 #  - The script is runned from a master build, then use the secure variable 'npcap_oem_key' which will be available
