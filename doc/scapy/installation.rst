@@ -173,8 +173,6 @@ Here are the topics involved and some examples that you can use to try if your i
      Received 19 packets, got 4 answers, remaining 4 packets
      (0.88749999999999996, ['Draytek Vigor 2000 ISDN router'])
 
-* Queso is used withing the queso module: `queso-980922.tar.gz <http://www.packetstormsecurity.org/UNIX/scanners/queso-980922.tar.gz>`_. Extract the tar.gz file (e.g. using `7-Zip <http://www.7-zip.org/>`_) and put ``queso.conf`` into your Scapy directory
-
 .. index::
    single: VOIP
  
