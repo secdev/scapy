@@ -1,0 +1,26 @@
++ DoIP Contrib tests
+
+= Load Contrib Layer
+
+load_contrib("automotive.bmw.doip")
+
+= Basic Test 1
+
+pkt = DoIP(type=1, src=0xf4, dst=0x10)/Raw(b'\x11\x22\x33')
+assert bytes(pkt) == b'\x00\x00\x00\x05\x00\x01\xf4\x10\x11"3'
+
+= Basic Test 2
+
+pkt = DoIP(type=1, src=0xf4, dst=0x10)/Raw(b'\x11\x22\x33\x11\x11\x11\x11\x11')
+assert bytes(pkt) == b'\x00\x00\x00\x0a\x00\x01\xf4\x10\x11"3\x11\x11\x11\x11\x11'
+
+= Basic Dissect Test
+
+pkt = DoIP(b'\x00\x00\x00\x0a\x00\x01\xf4\x10\x11"3\x11\x11\x11\x11\x11')
+assert pkt.length == 10
+assert pkt.src == 0xf4
+assert pkt.dst == 0x10
+assert pkt.type == 1
+assert pkt[1].service == 17
+assert pkt[2].resetType == 34
+
