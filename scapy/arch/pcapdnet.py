@@ -16,6 +16,7 @@ import socket
 from scapy.data import *
 from scapy.compat import *
 from scapy.config import conf
+from scapy.consts import WINDOWS
 from scapy.utils import mac2str
 from scapy.supersocket import SuperSocket
 from scapy.error import Scapy_Exception, log_loading, warning
@@ -198,6 +199,11 @@ if conf.use_winpcapy:
                     raise OSError("Could not activate the pcap handler")
             else:
                 self.pcap = pcap_open_live(self.iface, snaplen, promisc, to_ms, self.errbuf)  # noqa: E501
+
+            # Winpcap exclusive: make every packet to be instantly
+            # returned, and not buffered withing Winpcap
+            pcap_setmintocopy(self.pcap, 0)
+
             self.header = POINTER(pcap_pkthdr)()
             self.pkt_data = POINTER(c_ubyte)()
             self.bpf_program = bpf_program()
@@ -215,7 +221,7 @@ if conf.use_winpcapy:
             return pcap_datalink(self.pcap)
 
         def fileno(self):
-            if sys.platform.startswith("win"):
+            if WINDOWS:
                 log_loading.error("Cannot get selectable PCAP fd on Windows")
                 return 0
             return pcap_get_selectable_fd(self.pcap)
