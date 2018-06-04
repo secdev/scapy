@@ -197,9 +197,6 @@ class LoWPANFragmentationFirst(Packet):
         XShortField("datagramTag", 0x0),
     ]
 
-    def guess_payload_class(self, payload):
-        return LoWPAN_IPHC
-
 
 class LoWPANFragmentationSubsequent(Packet):
     name = "6LoWPAN Subsequent Fragmentation Packet"
@@ -209,9 +206,6 @@ class LoWPANFragmentationSubsequent(Packet):
         XShortField("datagramTag", RandShort()),
         ByteField("datagramOffset", 0x0),  # VALUE PRINTED IN OCTETS, wireshark does in bits (128 bits == 16 octets)  # noqa: E501
     ]
-
-    def guess_payload_class(self, payload):
-        return LoWPAN_IPHC
 
 
 IPHC_DEFAULT_VERSION = 6
@@ -485,7 +479,9 @@ class LoWPAN_IPHC(Packet):
             data = raw(packet)
         # else self.nh == 0 not necesary
         elif self._nhField & 0xE0 == 0xE0:  # IPv6 Extension Header Decompression  # noqa: E501
-            raise Exception('Unimplemented: IPv6 Extension Header decompression')  # noqa: E501
+            warning('Unimplemented: IPv6 Extension Header decompression')  # noqa: E501
+            packet.payload = conf.raw_layer(data)
+            data = raw(packet)
         else:
             packet.payload = conf.raw_layer(data)
             data = raw(packet)
@@ -642,7 +638,6 @@ class LoWPAN_IPHC(Packet):
             elif self.sam == 0x3:
                 tmp_ip = LINK_LOCAL_PREFIX[0:8] + b"\x00" * 8  # TODO: CONTEXT ID  # noqa: E501
             else:
-                print(self.sam)
                 raise Exception('Unimplemented')
         self.sourceAddr = inet_ntop(socket.AF_INET6, tmp_ip)
         return self.sourceAddr
@@ -764,8 +759,6 @@ def sixlowpan_fragment(packet, datagram_tag=1):
     """
     if not packet.haslayer(IPv6):
         raise Exception("SixLoWPAN only fragments IPv6 packets !")
-    src = packet[IPv6].src
-    dst = packet[IPv6].dst
 
     str_packet = raw(packet[IPv6])
 
@@ -777,10 +770,10 @@ def sixlowpan_fragment(packet, datagram_tag=1):
 
     new_packet = chunks(str_packet, MAX_SIZE)
 
-    new_packet[0] = LoWPANFragmentationFirst(datagramTag=datagram_tag, datagramSize=len(str_packet)) / LoWPAN_IPHC(sourceAddr=src, destinyAddr=dst) / new_packet[0]  # noqa: E501
+    new_packet[0] = LoWPANFragmentationFirst(datagramTag=datagram_tag, datagramSize=len(str_packet)) / new_packet[0]  # noqa: E501
     i = 1
     while i < len(new_packet):
-        new_packet[i] = LoWPANFragmentationSubsequent(datagramTag=datagram_tag, datagramSize=len(str_packet), datagramOffset=MAX_SIZE // 8 * i) / LoWPAN_IPHC(sourceAddr=src, destinyAddr=dst) / new_packet[i]  # noqa: E501
+        new_packet[i] = LoWPANFragmentationSubsequent(datagramTag=datagram_tag, datagramSize=len(str_packet), datagramOffset=MAX_SIZE // 8 * i) / new_packet[i]  # noqa: E501
         i += 1
 
     return new_packet
@@ -796,8 +789,8 @@ def sixlowpan_defragment(packet_list):
             cls = LoWPANFragmentationSubsequent
         if cls:
             tag = p[cls].datagramTag
-            results[tag] = results.get(tag, b"") + raw(p[cls][LoWPAN_IPHC].payload)  # noqa: E501
-    return {tag: IPv6(x) for tag, x in results.items()}
+            results[tag] = results.get(tag, b"") + p[cls].payload.load  # noqa: E501
+    return {tag: SixLoWPAN(x) for tag, x in results.items()}
 
 
 bind_layers(SixLoWPAN, LoWPANFragmentationFirst,)
@@ -812,8 +805,7 @@ bind_layers(LoWPANMesh, LoWPANFragmentationSubsequent,)
 # bind_layers( LoWPANMesh,        LoWPANBroadcast,                    )
 # bind_layers( LoWPANBroadcast,   LoWPANFragmentationFirst,           )
 # bind_layers( LoWPANBroadcast,   LoWPANFragmentationSubsequent,      )
-bind_layers(LoWPANFragmentationFirst, LoWPAN_IPHC, )
-bind_layers(LoWPANFragmentationSubsequent, LoWPAN_IPHC)
 
-
-bind_layers(Dot15d4Data, SixLoWPAN)
+# TODO: find a way to chose between ZigbeeNWK and SixLoWPAN (cf. dot15d4.py)
+# Currently: use conf.dot15d4_protocol value
+# bind_layers(Dot15d4Data, SixLoWPAN)
