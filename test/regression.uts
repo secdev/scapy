@@ -1847,6 +1847,10 @@ raw(Ether(src="00:00:00:00:00:00", dst="ff:ff:ff:ff:ff:ff")/IPv6()/TCP()) == b'\
 a=Ether(raw(Ether()/IPv6()/TCP()))
 a.type == 0x86dd
 
+= IPv6 Class - summary
+a = Ether(src="aa:aa:aa:aa:aa:aa", dst="bb:bb:bb:bb:bb:bb")/IPv6(src='c266:a92d:0ed8:dc54:7d6f:9667:3743:a32f', dst='6406:c31f:d0b5:72fc:1700:2081:62e7:fae9')
+assert a.summary() == 'Ether / c266:a92d:ed8:dc54:7d6f:9667:3743:a32f > 6406:c31f:d0b5:72fc:1700:2081:62e7:fae9 (59)'
+
 = IPv6 Class binding with GRE - build
 s = raw(IP(src="127.0.0.1")/GRE()/Ether(dst="ff:ff:ff:ff:ff:ff", src="00:00:00:00:00:00")/IP()/GRE()/IPv6(src="::1"))
 s == b'E\x00\x00f\x00\x01\x00\x00@/|f\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x00eX\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x08\x00E\x00\x00@\x00\x01\x00\x00@/|\x8c\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x00\x86\xdd`\x00\x00\x00\x00\x00;@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
@@ -8796,6 +8800,9 @@ assert(radius_packet.attributes[16].type == 5)
 assert(type(radius_packet.attributes[16]) == RadiusAttr_NAS_Port)
 assert(radius_packet.attributes[16].len == 6)
 assert(radius_packet.attributes[16].value == 50118)
+
+f,v = radius_packet.getfield_and_val("authenticator")
+assert f.i2repr(None, v) == '3e6bd4c419560b2a3199c844eac2945a'
 
 = RADIUS - compute_message_authenticator()
 ram = radius_packet[RadiusAttr_Message_Authenticator]
