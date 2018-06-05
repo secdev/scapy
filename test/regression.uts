@@ -9801,7 +9801,7 @@ assert len(pmkids.pmkid_list) == 1
 assert pmkids.pmkid_list[0] == b'LD\xfe\xf2l\xdcV\xce\x0b7\xab\xc62\x02O\x11'
 
 = Dot11EltRSN
-assert bytes(Dot11EltRSN()) == b'0\x00\x01\x00\x00\x0f\xac\x04\x01\x00\x00\x0f\xac\x04\x01\x00\x00\x0f\xac\x01\x00\x00'
+assert bytes(Dot11EltRSN()) == b'0\x14\x01\x00\x00\x0f\xac\x04\x01\x00\x00\x0f\xac\x04\x01\x00\x00\x0f\xac\x01\x00\x00'
 rsn_ie = Dot11EltRSN(b'0\x14\x01\x00\x00\x0f\xac\x04\x01\x00\x00\x0f\xac\x04\x01\x00\x00\x0f\xac\x01\x01\x00')
 assert rsn_ie.group_cipher_suite.cipher == 0x04
 assert rsn_ie.nb_pairwise_cipher_suites == 0x01
@@ -9812,7 +9812,7 @@ assert rsn_ie.mfp_capable
 assert Dot11Elt in rsn_ie
 
 = Dot11EltMicrosoftWPA
-assert bytes(Dot11EltMicrosoftWPA()) == b'\xdd\x00\x00P\xf2\x01\x01\x00\x00\x0f\xac\x04\x01\x00\x00\x0f\xac\x04\x01\x00\x00\x0f\xac\x01'
+assert bytes(Dot11EltMicrosoftWPA()) == b'\xdd\x16\x00P\xf2\x01\x01\x00\x00\x0f\xac\x04\x01\x00\x00\x0f\xac\x04\x01\x00\x00\x0f\xac\x01'
 ms_wpa_ie = Dot11EltMicrosoftWPA(b'\xdd\x1a\x00P\xf2\x01\x01\x00\x00P\xf2\x02\x02\x00\x00P\xf2\x04\x00P\xf2\x02\x01\x00\x00P\xf2\x01')
 assert ms_wpa_ie[Dot11EltMicrosoftWPA].type == 0x01
 assert ms_wpa_ie[Dot11EltMicrosoftWPA].version == 0x01
@@ -9825,7 +9825,7 @@ assert ms_wpa_ie[Dot11EltMicrosoftWPA].akm_suites[0].suite == 0x01
 assert Dot11Elt in ms_wpa_ie
 
 = Dot11EltVendorSpecific
-assert bytes(Dot11EltVendorSpecific()) == b'\xdd\x00\x00\x00\x00'
+assert bytes(Dot11EltVendorSpecific()) == b'\xdd\x03\x00\x00\x00'
 vendor_specific_ie = Dot11EltVendorSpecific(b'\xdd\t\x00\x03\x7f\x01\x01\x00\x00\xff\x7f')
 assert vendor_specific_ie.oui == 0x00037f
 assert Dot11Elt in vendor_specific_ie

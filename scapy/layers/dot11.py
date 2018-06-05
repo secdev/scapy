@@ -212,7 +212,7 @@ class RadioTap(Packet):
 
     def post_build(self, p, pay):
         if self.len is None:
-            p = p[:2] + struct.pack("!H", len(p))[::-1] + p[3:]
+            p = p[:2] + struct.pack("!H", len(p))[::-1] + p[4:]
         return p + pay
 
 
@@ -437,6 +437,11 @@ class Dot11Elt(Packet):
         return super(Dot11Elt, self).getlayer(cls, nb=nb, _track=_track,
                                               _subclass=True, **flt)
 
+    def post_build(self, p, pay):
+        if self.len is None:
+            p = p[:1] + chb(len(p) - 2) + p[2:]
+        return p + pay
+
 
 class RSNCipherSuite(Packet):
     name = "Cipher suite"
@@ -491,7 +496,7 @@ class Dot11EltRSN(Dot11Elt):
     name = "RSN information"
     fields_desc = [
         ByteField("ID", 48),
-        FieldLenField("len", 0, "info", "B"),
+        ByteField("len", None),
         LEShortField("version", 1),
         PacketField("group_cipher_suite", RSNCipherSuite(), RSNCipherSuite),
         LEFieldLenField(
@@ -525,8 +530,10 @@ class Dot11EltRSN(Dot11Elt):
         BitField("reserved", 0, 8),
         ConditionalField(
             PacketField("pmkids", None, PMKIDListPacket),
-            lambda pkt: pkt.len - (12 + (pkt.nb_pairwise_cipher_suites * 4) +
-                                   (pkt.nb_akm_suites * 4)) >= 18
+            lambda pkt: (
+                0 if pkt.len is None else
+                pkt.len - (12 + (pkt.nb_pairwise_cipher_suites * 4) +
+                                (pkt.nb_akm_suites * 4)) >= 18)
         )
     ]
 
@@ -535,7 +542,7 @@ class Dot11EltMicrosoftWPA(Dot11Elt):
     name = "Microsoft WPA"
     fields_desc = [
         ByteField("ID", 221),
-        FieldLenField("len", 0, "info", "B"),
+        ByteField("len", None),
         X3BytesField("oui", 0x0050f2),
         XByteField("type", 0x01),
         LEShortField("version", 1),
@@ -565,11 +572,25 @@ class Dot11EltMicrosoftWPA(Dot11Elt):
     ]
 
 
+class Dot11EltRates(Dot11Elt):
+    name = "Rates"
+    fields_desc = [
+        ByteField("ID", 1),
+        ByteField("len", None),
+        FieldListField(
+            "rates",
+            [],
+            XByteField("", 0),
+            count_from=lambda p: p.len
+        )
+    ]
+
+
 class Dot11EltVendorSpecific(Dot11Elt):
     name = "Vendor Specific"
     fields_desc = [
         ByteField("ID", 221),
-        FieldLenField("len", 0, "info", "B"),
+        ByteField("len", None),
         X3BytesField("oui", 0x000000),
         StrLenField("info", "", length_from=lambda x: x.len - 3)
     ]

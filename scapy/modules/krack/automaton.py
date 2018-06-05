@@ -15,7 +15,8 @@ from scapy.compat import raw, hex_bytes, chb
 from scapy.consts import WINDOWS
 from scapy.error import log_runtime, Scapy_Exception
 from scapy.layers.dot11 import RadioTap, Dot11, Dot11AssoReq, Dot11AssoResp, \
-    Dot11Auth, Dot11Beacon, Dot11Elt, Dot11ProbeReq, Dot11ProbeResp
+    Dot11Auth, Dot11Beacon, Dot11Elt, Dot11EltRates, Dot11EltRSN, \
+    Dot11ProbeReq, Dot11ProbeResp, RSNCipherSuite, AKMSuite
 from scapy.layers.eap import EAPOL
 from scapy.layers.l2 import ARP, LLC, SNAP, Ether
 from scapy.layers.dhcp import DHCP_am
@@ -223,13 +224,11 @@ class KrackAP(Automaton):
             / layer_cls(timestamp=0, beacon_interval=100,
                         cap='ESS+privacy') \
             / Dot11Elt(ID="SSID", info=self.ssid) \
-            / Dot11Elt(ID="Rates", info=b'\x82\x84\x8b\x96\x0c\x12\x18$') \
+            / Dot11EltRates(rates=[130, 132, 139, 150, 12, 18, 24, 36]) \
             / Dot11Elt(ID="DSset", info=chb(self.channel)) \
-            / Dot11Elt(
-            ID="RSNinfo",
-            info=b'\x01\x00\x00\x0f\xac\x02\x01\x00\x00\x0f\xac\x02'
-            b'\x01\x00\x00\x0f\xac\x02\x00\x00'
-        )
+            / Dot11EltRSN(group_cipher_suite=RSNCipherSuite(cipher=0x2),
+                          pairwise_cipher_suites=[RSNCipherSuite(cipher=0x2)],
+                          akm_suites=[AKMSuite(suite=0x2)])
 
     @staticmethod
     def build_EAPOL_Key_8021X2004(
@@ -514,7 +513,7 @@ class KrackAP(Automaton):
         rep = RadioTap()
         rep /= Dot11(addr1=self.client, addr2=self.mac, addr3=self.mac)
         rep /= Dot11AssoResp()
-        rep /= Dot11Elt(ID="Rates", info='\x82\x84\x8b\x96\x0c\x12\x18$')
+        rep /= Dot11EltRates(rates=[130, 132, 139, 150, 12, 18, 24, 36])
 
         self.send(rep)
 
