@@ -249,14 +249,14 @@ class ZigbeeNWK(Packet):
         ByteField("radius", 0),
         ByteField("seqnum", 1),
 
-        ConditionalField(ByteField("relay_count", 1), lambda pkt:pkt.flags & 0x04),  # noqa: E501
-        ConditionalField(ByteField("relay_index", 0), lambda pkt:pkt.flags & 0x04),  # noqa: E501
-        ConditionalField(FieldListField("relays", [], XLEShortField("", 0x0000), count_from=lambda pkt:pkt.relay_count), lambda pkt:pkt.flags & 0x04),  # noqa: E501
-
         # ConditionalField(XLongField("ext_dst", 0), lambda pkt:pkt.flags & 8),
 
         ConditionalField(dot15d4AddressField("ext_dst", 0, adjust=lambda pkt, x: 8), lambda pkt:pkt.flags & 8),  # noqa: E501
         ConditionalField(dot15d4AddressField("ext_src", 0, adjust=lambda pkt, x: 8), lambda pkt:pkt.flags & 16),  # noqa: E501
+
+        ConditionalField(ByteField("relay_count", 1), lambda pkt:pkt.flags & 0x04),  # noqa: E501
+        ConditionalField(ByteField("relay_index", 0), lambda pkt:pkt.flags & 0x04),  # noqa: E501
+        ConditionalField(FieldListField("relays", [], XLEShortField("", 0x0000), count_from=lambda pkt:pkt.relay_count), lambda pkt:pkt.flags & 0x04),  # noqa: E501
     ]
 
     def guess_payload_class(self, payload):
@@ -542,7 +542,10 @@ class ZigbeeAppDataPayload(Packet):
         ConditionalField(ByteField("src_endpoint", 10), lambda pkt: (pkt.frame_control & 0x04 or pkt.aps_frametype == 2)),  # noqa: E501
         # APS counter (1 octet)
         ByteField("counter", 0),
-        # optional extended header
+        # Extended header (0/1/2 octets)
+        # cribbed from https://github.com/wireshark/wireshark/blob/master/epan/dissectors/packet-zbee-aps.c  # noqa: E501
+        ConditionalField(ByteEnumField("fragmentation", 0, {0: "none", 1: "first_block", 2: "middle_block"}), lambda pkt: (pkt.frame_control & 0x08)),  # noqa: E501
+        ConditionalField(ByteField("block_number", 0), lambda pkt: pkt.fragmentation != 0),  # noqa: E501
         # variable length frame payload: 3 frame types: data, APS command, and acknowledgement  # noqa: E501
         # ConditionalField(StrField("data", ""), lambda pkt:pkt.aps_frametype == 0),  # noqa: E501
     ]
@@ -870,7 +873,7 @@ class ZigbeeClusterLibrary(Packet):
         # Transaction sequence number (8 bits)
         ByteField("transaction_sequence", 0),
         # Command identifier (8 bits): the cluster command
-        ByteField("command_identifier", 0),
+        ByteEnumField("command_identifier", 0, _zcl_command_frames),
     ]
 
     def guess_payload_class(self, payload):
