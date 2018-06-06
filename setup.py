@@ -43,7 +43,7 @@ archive_util.ARCHIVE_FORMATS["ezip"] = (
 
 def get_long_description():
     try:
-        with io.open("README.md", encoding="utf-8") as f:
+        with io.open(os.path.join(os.path.dirname(__file__), "README.md"), encoding="utf-8") as f:
             return f.read().partition("[//]: # (stop_pypi_description)")[0]
     except IOError:
         return None
@@ -84,7 +84,11 @@ setup(
     long_description=get_long_description(),
     long_description_content_type='text/markdown',
     license='GPLv2',
-    url='http://www.secdev.org/projects/scapy',
+    url='https://scapy.net',
+    project_urls={
+        'Documentation': 'https://scapy.readthedocs.io',
+        'Source Code': 'https://github.com/secdev/scapy/',
+    },
     download_url='https://github.com/secdev/scapy/tarball/master',
     keywords=["network"],
     classifiers=[
