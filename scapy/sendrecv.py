@@ -645,7 +645,7 @@ srloop(pkts, [prn], [inter], [count], ...) --> None"""
 # SEND/RECV FLOOD METHODS
 
 
-def sndrcvflood(pks, pkt, inter=0, verbose=None, chainCC=False, store_unanswered=True, process=None):  # noqa: E501
+def sndrcvflood(pks, pkt, inter=0, verbose=None, chainCC=False, store_unanswered=True, process=None, timeout=None):  # noqa: E501
     if not verbose:
         verbose = conf.verb
     listable = (isinstance(pkt, Packet) and pkt.__iterlen__() == 1) or isinstance(pkt, list)  # noqa: E501
@@ -673,11 +673,23 @@ def sndrcvflood(pks, pkt, inter=0, verbose=None, chainCC=False, store_unanswered
 
     infinite_gen = send_in_loop(tobesent, stopevent)
 
+    def _timeout(timeout):
+        stopevent.wait(timeout)
+        stopevent.set()
+
+    timeout_thread = threading.Thread(
+        target=_timeout,
+        args=(timeout,)
+    )
+    timeout_thread.setDaemon(True)
+    timeout_thread.start()
+
     # We don't use _sndrcv_snd verbose (it messes the logs up as in a thread that ends after recieving)  # noqa: E501
     thread = threading.Thread(
         target=_sndrcv_snd,
         args=(pks, None, inter, False, infinite_gen, hsent, timessent, stopevent),  # noqa: E501
     )
+    thread.setDaemon(True)
     thread.start()
 
     hsent, ans, nbrecv, notans = _sndrcv_rcv(
