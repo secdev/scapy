@@ -60,10 +60,32 @@ raw(tlv) == b'\x00\x05\x00\x04\x00\x11"3'
 tlv = EDNS0TLV(optcode=2, optdata="")
 raw(tlv) == b'\x00\x02\x00\x00'
 
+= Util - setup retry_test()
+
+def retry_test(func):
+    success = False
+    ex = Exception("Unknown")
+    for i in six.moves.range(3):
+        try:
+            result = func()
+        except Exception as e:
+            time.sleep(1)
+            ex = e
+        else:
+            success = True
+            break
+    if not success:
+        raise ex
+    assert success
+    return result
+
 = NSID - Live test
 ~ netaccess
-old_debug_dissector = conf.debug_dissector
-conf.debug_dissector = False
-r = sr1(IP(dst="l.root-servers.net")/UDP()/DNS(qd=[DNSQR(qtype="SOA", qname=".")], ar=[DNSRROPT(z=0, rdata=[EDNS0TLV(optcode="NSID")])]), timeout=1)
-conf.debug_dissector = old_debug_dissector
-len(r.ar) and DNSRROPT in r.ar and len(r.ar[DNSRROPT].rdata) and len([x for x in r.ar[DNSRROPT].rdata if x.optcode == 3])
+def _test():
+    old_debug_dissector = conf.debug_dissector
+    conf.debug_dissector = False
+    r = sr1(IP(dst="l.root-servers.net")/UDP()/DNS(qd=[DNSQR(qtype="SOA", qname=".")], ar=[DNSRROPT(z=0, rdata=[EDNS0TLV(optcode="NSID")])]), timeout=1)
+    conf.debug_dissector = old_debug_dissector
+    len(r.ar) and DNSRROPT in r.ar and len(r.ar[DNSRROPT].rdata) and len([x for x in r.ar[DNSRROPT].rdata if x.optcode == 3])
+
+retry_test(_test)
