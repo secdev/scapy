@@ -119,6 +119,9 @@ else:
 
 = Test ifchange()
 conf.route6.ifchange(LOOPBACK_NAME, "::1/128")
+if WINDOWS:
+    conf.netcache.in6_neighbor["::1"] = "ff:ff:ff:ff:ff:ff"  # Restore fake cache
+
 True
 
 
