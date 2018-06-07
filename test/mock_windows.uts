@@ -368,13 +368,13 @@ assert status[0] in ["npcap", "npf"]
 assert status[2] == True
 
 = test pcap_service_stop
-~ appveyor_only
+~ appveyor_only require_gui
 
 pcap_service_stop()
 assert pcap_service_status()[2] == False
 
 = test pcap_service_start
-~ appveyor_only
+~ appveyor_only require_gui
 
 pcap_service_start()
 assert pcap_service_status()[2] == True
