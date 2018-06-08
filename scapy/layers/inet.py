@@ -339,8 +339,8 @@ class TCPOptionsField(StrField):
                     continue
             else:
                 onum = oname
-                if not isinstance(oval, str):
-                    warning("option [%i] is not string." % onum)
+                if not isinstance(oval, (str, bytes)):
+                    warning("option [%i] is not bytes." % onum)
                     continue
             opt += chb(onum) + chb(2 + len(oval)) + raw(oval)
         return opt + b"\x00" * (3 - ((len(opt) + 3) % 4))
