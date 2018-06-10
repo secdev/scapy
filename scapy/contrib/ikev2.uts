@@ -26,6 +26,28 @@ a[IKEv2_payload_Transform].show()
 a = IKEv2(init_SPI="MySPI",exch_type=34)/IKEv2_payload_SA(prop=IKEv2_payload_Proposal())
 assert raw(a) == b'MySPI\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00! "\x00\x00\x00\x00\x00\x00\x00\x00(\x00\x00\x00\x0c\x00\x00\x00\x08\x01\x01\x00\x00'
 
+= Build advanced IKEv2
+
+import binascii
+
+key_exchange = binascii.unhexlify('bb41bb41cfaf34e3b3209672aef1c51b9d52919f1781d0b4cd889d4aafe261688776000c3d9031505aefc0186967eaf5a7663725fb102c59c39b7a70d8d9161c3bd0eb445888b5028ea063ba0ae01f5b3f30808a6b6710dc9bab601e4116157d7f58cf835cb633c64abcb3a5c61c223e9332538bfc9f282cb62d1f00f4ee8802')
+nonce = binascii.unhexlify('8dfcf8384c5c32f1b294c64eab69f98e9d8cf7e7f352971a91ff6777d47dffed')
+nat_detection_source_ip = binascii.unhexlify('e64c81c4152ad83bd6e035009fbb900406be371f')
+nat_detection_destination_ip = binascii.unhexlify('28cd99b9fa1267654b53f60887c9c35bcf67a8ff')
+transform_1 = IKEv2_payload_Transform(next_payload = 'Transform', transform_type = 'Encryption', transform_id = 12, length = 12, key_length = 0x80)
+transform_2 = IKEv2_payload_Transform(next_payload = 'Transform', transform_type = 'PRF', transform_id = 2)
+transform_3 = IKEv2_payload_Transform(next_payload = 'Transform', transform_type = 'Integrity', transform_id = 2)
+transform_4 = IKEv2_payload_Transform(next_payload = 'last', transform_type = 'GroupDesc', transform_id = 2)
+packet = IP(dst = '192.168.1.10', src = '192.168.1.130') /\
+       UDP(dport = 500) /\
+       IKEv2(init_SPI = b'KWdxMhjA', next_payload = 'SA', exch_type = 'IKE_SA_INIT', flags='Initiator') /\
+       IKEv2_payload_SA(next_payload = 'KE', prop = IKEv2_payload_Proposal(trans_nb = 4, trans = transform_1 / transform_2 / transform_3 / transform_4, )) /\
+       IKEv2_payload_KE(next_payload = 'Nonce', group = '1024MODPgr', load = key_exchange) /\
+       IKEv2_payload_Nonce(next_payload = 'Notify', load = nonce) /\
+       IKEv2_payload_Notify(next_payload = 'Notify', type = 16388, load = nat_detection_source_ip) /\
+       IKEv2_payload_Notify(next_payload = 'None', type = 16389, load = nat_detection_destination_ip)
+
+assert raw(packet) == b'E\x00\x01L\x00\x01\x00\x00@\x11\xf5\xc3\xc0\xa8\x01\x82\xc0\xa8\x01\n\x11\x94\x01\xf4\x018\x97 KWdxMhjA\x00\x00\x00\x00\x00\x00\x00\x00! "\x08\x00\x00\x00\x00\x00\x00\x010"\x00\x000\x00\x00\x00,\x01\x01\x00\x04\x03\x00\x00\x0c\x01\x00\x00\x0c\x80\x0e\x00\x80\x03\x00\x00\x08\x02\x00\x00\x02\x03\x00\x00\x08\x03\x00\x00\x02\x00\x00\x00\x08\x04\x00\x00\x02(\x00\x00\x88\x00\x02\x00\x00\xbbA\xbbA\xcf\xaf4\xe3\xb3 \x96r\xae\xf1\xc5\x1b\x9dR\x91\x9f\x17\x81\xd0\xb4\xcd\x88\x9dJ\xaf\xe2ah\x87v\x00\x0c=\x901PZ\xef\xc0\x18ig\xea\xf5\xa7f7%\xfb\x10,Y\xc3\x9bzp\xd8\xd9\x16\x1c;\xd0\xebDX\x88\xb5\x02\x8e\xa0c\xba\n\xe0\x1f[?0\x80\x8akg\x10\xdc\x9b\xab`\x1eA\x16\x15}\x7fX\xcf\x83\\\xb63\xc6J\xbc\xb3\xa5\xc6\x1c">\x932S\x8b\xfc\x9f(,\xb6-\x1f\x00\xf4\xee\x88\x02)\x00\x00$\x8d\xfc\xf88L\\2\xf1\xb2\x94\xc6N\xabi\xf9\x8e\x9d\x8c\xf7\xe7\xf3R\x97\x1a\x91\xffgw\xd4}\xff\xed)\x00\x00\x1c\x00\x00@\x04\xe6L\x81\xc4\x15*\xd8;\xd6\xe05\x00\x9f\xbb\x90\x04\x06\xbe7\x1f\x00\x00\x00\x1c\x00\x00@\x05(\xcd\x99\xb9\xfa\x12geKS\xf6\x08\x87\xc9\xc3[\xcfg\xa8\xff'
 
 ## packets taken from
 ## https://github.com/wireshark/wireshark/blob/master/test/captures/ikev2-decrypt-aes128ccm12.pcap
