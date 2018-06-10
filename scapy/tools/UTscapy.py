@@ -3,6 +3,8 @@
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # This program is published under a GPLv2 license
 
+# flake8: noqa: E501
+
 """
 Unit testing infrastructure for Scapy
 """
@@ -533,13 +535,13 @@ def campaign_to_HTML(test_campaign):
             output += """<li class=%(result)s id="tst%(num)il">\n""" % t
             if t.expand == 2:
                 output += """
-<span id="tst%(num)i+" class="button%(result)s" onClick="show('tst%(num)i')" style="POSITION: absolute; VISIBILITY: hidden;">+%(num)03i+</span>  # noqa: E501
-<span id="tst%(num)i-" class="button%(result)s" onClick="hide('tst%(num)i')">-%(num)03i-</span>  # noqa: E501
+<span id="tst%(num)i+" class="button%(result)s" onClick="show('tst%(num)i')" style="POSITION: absolute; VISIBILITY: hidden;">+%(num)03i+</span>
+<span id="tst%(num)i-" class="button%(result)s" onClick="hide('tst%(num)i')">-%(num)03i-</span>
 """ % t
             else:
                 output += """
-<span id="tst%(num)i+" class="button%(result)s" onClick="show('tst%(num)i')">+%(num)03i+</span>  # noqa: E501
-<span id="tst%(num)i-" class="button%(result)s" onClick="hide('tst%(num)i')" style="POSITION: absolute; VISIBILITY: hidden;">-%(num)03i-</span>  # noqa: E501
+<span id="tst%(num)i+" class="button%(result)s" onClick="show('tst%(num)i')">+%(num)03i+</span>
+<span id="tst%(num)i-" class="button%(result)s" onClick="hide('tst%(num)i')" style="POSITION: absolute; VISIBILITY: hidden;">-%(num)03i-</span>
 """ % t
             if t.crc is not None:
                 output += "<span class=crc>%(crc)s</span>\n" % t
@@ -575,7 +577,7 @@ def pack_html_campaigns(runned_campaigns, data, local=0, title=None):
 
     output += """</p>\n\n
 <link rel="stylesheet" href="%(UTscapy_css)s" type="text/css">
-<script language="JavaScript" src="%(UTscapy_js)s" type="text/javascript"></script>  # noqa: E501
+<script language="JavaScript" src="%(UTscapy_js)s" type="text/javascript"></script>
 </head>
 <body>
 %(data)s
@@ -640,7 +642,7 @@ def campaign_to_LATEX(test_campaign):
 
 def usage():
     print("""Usage: UTscapy [-m module] [-f {text|ansi|HTML|LaTeX}] [-o output_file]
-               [-t testfile] [-T testfile] [-k keywords [-k ...]] [-K keywords [-K ...]]  # noqa: E501
+               [-t testfile] [-T testfile] [-k keywords [-k ...]] [-K keywords [-K ...]]
                [-l] [-d|-D] [-F] [-q[q]] [-P preexecute_python_code]
                [-s /path/to/scapy] [-c configfile]
 -t\t\t: provide test files (can be used many times)
@@ -656,8 +658,8 @@ def usage():
 -qq\t\t: [silent mode]
 -n <testnum>\t: only tests whose numbers are given (eg. 1,3-7,12)
 -m <module>\t: additional module to put in the namespace
--k <kw1>,<kw2>,...\t: include only tests with one of those keywords (can be used many times)  # noqa: E501
--K <kw1>,<kw2>,...\t: remove tests with one of those keywords (can be used many times)  # noqa: E501
+-k <kw1>,<kw2>,...\t: include only tests with one of those keywords (can be used many times)
+-K <kw1>,<kw2>,...\t: remove tests with one of those keywords (can be used many times)
 -P <preexecute_python_code>
 """, file=sys.stderr)
     raise SystemExit
