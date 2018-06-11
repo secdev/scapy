@@ -31,21 +31,42 @@ f.i2repr(None, 3072) == "v12.0" and f.i2repr(None, 258) == "v1.2"
 f = ShortVersionField("ver", 0)
 f.h2i(None, 3073) == f.h2i(None, "v12.1")
 
+= ShortVersionField error
+try:
+    f = ShortVersionField("ver", None)
+    f.h2i(None, "Error")
+    assert False
+except Scapy_Exception:
+    assert True
+
+f = ShortVersionField("ver", "default")
+assert f.h2i(None, "Error") == "default"
+assert f.i2repr(None, "Error") == "unknown"
+assert f.randval() <= 65535
+
 = EigrpIPField length with prefix length of 8 bit
 f = EigrpIPField("ipaddr", "192.168.1.0", length=8)
-f.i2len(None, "") == 1
+assert f.m2i(None, b"\x01") == '1.0.0.0'
+assert f.i2m(None, "1.0.0.0") == b"\x01"
+assert f.i2len(None, "") == 1
 
 = EigrpIPField length with prefix length of 12 bit
 f = EigrpIPField("ipaddr", "192.168.1.0", length=12)
-f.i2len(None, "") == 2
+assert f.m2i(None, b"\x01\x02") == '1.2.0.0'
+assert f.i2len(None, "") == 2
 
 = EigrpIPField length with prefix length of 24 bit
 f = EigrpIPField("ipaddr", "192.168.1.0", length=24)
-f.i2len(None, "") == 3
+assert f.m2i(None, b"\x01\x02\x03") == '1.2.3.0'
+assert f.i2len(None, "") == 3
 
 = EigrpIPField length with prefix length of 28 bit
 f = EigrpIPField("ipaddr", "192.168.1.0", length=28)
-f.i2len(None, "") == 4
+assert f.m2i(None, b"\x01\x02\x03\x04") == '1.2.3.4'
+assert f.i2len(None, "") == 4
+
+= EigrpIPField randval
+assert inet_pton(socket.AF_INET, f.randval())
 
 = EigrpIP6Field length with prefix length of 8 bit
 f = EigrpIP6Field("ipaddr", "2000::", length=8)
@@ -58,6 +79,9 @@ f.i2len(None, "") == 13
 = EigrpIP6Field length with prefix length of 128 bit
 f = EigrpIP6Field("ipaddr", "2000::", length=128)
 f.i2len(None, "") == 16
+
+= EigrpIP6Field randval
+assert inet_pton(socket.AF_INET6, f.randval())
 
 = EIGRPGuessPayloadClass function: Return Parameters TLV
 from scapy.contrib.eigrp import _EIGRPGuessPayloadClass
@@ -100,9 +124,25 @@ p = IP()/EIGRP(tlvlist=[EIGRPParam()/EIGRPSwVer()])
 s = b'\x45\x00\x00\x3C\x00\x01\x00\x00\x40\x58\x7C\x67\x7F\x00\x00\x01\x7F\x00\x00\x01\x02\x05\xEE\x6C\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x64\x00\x01\x00\x0C\x01\x00\x01\x00\x00\x00\x00\x0F\x00\x04\x00\x08\x0C\x00\x01\x02'
 raw(p) == s
 
+= EIGRP Sequence
+p = EIGRP(tlvlist=[EIGRPSeq(addrlen=16, ip6addr="45e4:0ecf:cff3:7be2:6059:771e:a221:3342")])
+assert raw(p) == b'\x02\x05\x881\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00d\x00\x03\x00\x15\x10E\xe4\x0e\xcf\xcf\xf3{\xe2`Yw\x1e\xa2!3B'
+p = EIGRP(raw(p))
+assert p.tlvlist[0].ip6addr == "45e4:ecf:cff3:7be2:6059:771e:a221:3342"
+
+= EIGRP Generic
+p = EIGRP(opcode=5, ack=1, flags="init", tlvlist=[EIGRPGeneric(value=b"data"), EIGRPGeneric(value=b"doto")])
+p = EIGRP(raw(p))
+assert p.tlvlist[1].value == b"doto"
+assert p.tlvlist[1].len == 8
+assert p.summary() == 'EIGRP (AS=100 Opcode=Hello (ACK) Flags=init)'
+
 = EIGRP internal route length field
 p = IP()/EIGRP(tlvlist=[EIGRPIntRoute(prefixlen=24, dst="192.168.1.0")])
 struct.unpack("!H", p[EIGRPIntRoute].build()[2:4])[0] == 28
+p = IP(raw(p))
+assert p.tlvlist[0].prefixlen == 24
+assert p.tlvlist[0].dst == "192.168.1.0"
 
 = EIGRP external route length field
 p = IP()/EIGRP(tlvlist=[EIGRPExtRoute(prefixlen=16, dst="10.1.0.0")])
@@ -111,6 +151,9 @@ struct.unpack("!H", p[EIGRPExtRoute].build()[2:4])[0] == 47
 = EIGRPv6 internal route length field
 p = IP()/EIGRP(tlvlist=[EIGRPv6IntRoute(prefixlen=64, dst="2000::")])
 struct.unpack("!H", p[EIGRPv6IntRoute].build()[2:4])[0] == 46
+p = IP(raw(p))
+assert p.tlvlist[0].prefixlen == 64
+assert p.tlvlist[0].dst == "2000::"
 
 = EIGRPv6 external route length field
 p = IP()/EIGRP(tlvlist=[EIGRPv6ExtRoute(prefixlen=99, dst="2000::")])

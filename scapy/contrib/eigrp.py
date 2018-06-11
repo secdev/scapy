@@ -283,6 +283,8 @@ class ShortVersionField(ShortField):
         elif isinstance(x, int) and 0 <= x <= 65535:
             return x
         else:
+            if not hasattr(self, "default"):
+                return x
             if self.default is not None:
                 warning("set value to default. Format of %r is invalid" % x)
                 return self.default
@@ -514,7 +516,3 @@ class EIGRP(Packet):
 
 bind_layers(IP, EIGRP, proto=88)
 bind_layers(IPv6, EIGRP, nh=88)
-
-if __name__ == "__main__":
-    from scapy.main import interact
-    interact(mydict=globals(), mybanner="EIGRP")
