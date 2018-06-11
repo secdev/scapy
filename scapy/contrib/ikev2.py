@@ -444,7 +444,7 @@ class IKEv2_Key_Length_Attribute(IntField):
         return IntField.i2h(self, pkt, x & 0xFFFF)
 
     def h2i(self, pkt, x):
-        return IntField.h2i(self, pkt, x if x is not None else 0 | 0x800E0000)
+        return IntField.h2i(self, pkt, (x if x is not None else 0) | 0x800E0000)  # noqa: E501
 
 
 class IKEv2_payload_Transform(IKEv2_class):
