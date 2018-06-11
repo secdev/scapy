@@ -84,14 +84,9 @@ class UDS(Packet):
         return 0
 
     def hashret(self):
-        """DEV: returns a string that has the same value for
-        a request and its answer."""
-        if 'PositiveResponse' in self.services[self.service]:
-            return struct.pack('B', self.service - 0x40)
-        elif self.service == 0x7f:
+        if self.service == 0x7f:
             return struct.pack('B', self.requestServiceId)
-        else:
-            return struct.pack('B', self.service)
+        return struct.pack('B', self.service & ~0x40)
 
 
 # ########################DSC###################################
