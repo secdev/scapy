@@ -938,24 +938,8 @@ raw(RandASN1Object())
 
 * Those tests need network access
 
-= Util - setup retry_test()
-
-def retry_test(func):
-    success = False
-    ex = Exception("Unknown")
-    for i in six.moves.range(3):
-        try:
-            result = func()
-        except Exception as e:
-            time.sleep(1)
-            ex = e
-        else:
-            success = True
-            break
-    if not success:
-        raise ex
-    assert success
-    return result
+= Import retry_test()
+from scapy.tools.UTscapy import retry_test
 
 = Sending and receiving an ICMP
 ~ netaccess IP ICMP

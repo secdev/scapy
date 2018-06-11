@@ -34,6 +34,24 @@ from scapy.modules.six.moves import range
 class Bunch:
     __init__ = lambda self, **kw: setattr(self, '__dict__', kw)
 
+def retry_test(func):
+    """Retries the passed function 3 times before failing"""
+    success = False
+    ex = Exception("Unknown")
+    for i in six.moves.range(3):
+        try:
+            result = func()
+        except Exception as e:
+            time.sleep(1)
+            ex = e
+        else:
+            success = True
+            break
+    if not success:
+        raise ex
+    assert success
+    return result
+
 #    Import tool    #
 
 
@@ -946,6 +964,9 @@ def main(argv):
         with open(OUTPUTFILE, "wb") as f:
             f.write(glob_output.encode("utf8", "ignore")
                     if 'b' in f.mode else glob_output)
+
+    # Delete scapy's test environment vars
+    del os.environ['SCAPY_ROOT_DIR']
 
     # Return state
     return glob_result

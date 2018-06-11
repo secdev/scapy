@@ -60,27 +60,9 @@ raw(tlv) == b'\x00\x05\x00\x04\x00\x11"3'
 tlv = EDNS0TLV(optcode=2, optdata="")
 raw(tlv) == b'\x00\x02\x00\x00'
 
-= Util - setup retry_test()
-
-def retry_test(func):
-    success = False
-    ex = Exception("Unknown")
-    for i in six.moves.range(3):
-        try:
-            result = func()
-        except Exception as e:
-            time.sleep(1)
-            ex = e
-        else:
-            success = True
-            break
-    if not success:
-        raise ex
-    assert success
-    return result
-
 = NSID - Live test
 ~ netaccess
+from scapy.tools.UTscapy import retry_test
 def _test():
     old_debug_dissector = conf.debug_dissector
     conf.debug_dissector = False
