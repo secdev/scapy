@@ -3313,7 +3313,7 @@ class TracerouteResult6(TracerouteResult):
 
         for k in six.itervalues(trace):
             try:
-                m = min(x for x, y in six.itervalues(k) if y)
+                m = min(x for x, y in six.iteritems(k) if y[1])
             except ValueError:
                 continue
             for l in list(k):  # use list(): k is modified in the loop
