@@ -1058,7 +1058,7 @@ Arguments:
       See help(sniff) for more.
 
     """
-    for arg in ['opened_socket', 'offline', 'iface']:
+    for arg in ['opened_socket', 'offline', 'iface', 'mthread']:
         if arg in kargs:
             log_runtime.warning("Argument %s cannot be used in "
                                 "bridge_and_sniff() -- ignoring it.", arg)
@@ -1115,7 +1115,7 @@ Arguments:
             return prn_orig(pkt)
 
     return sniff(opened_socket={sckt1: if1, sckt2: if2}, prn=prn,
-                 *args, **kargs)
+                 mthread=False, *args, **kargs)
 
 
 @conf.commands.register
