@@ -18,11 +18,29 @@ DSC = UDS(b'\x10')
 DSCPR = UDS(b'\x50')
 assert DSCPR.answers(DSC)
 
+= Check hashret
+DSC.hashret() == DSCPR.hashret()
+
 = Check if negative response answers
 
 DSC = UDS(b'\x10')
 NEG = UDS(b'\x7f\x10')
 assert NEG.answers(DSC)
+
+= CHECK hashret NEG
+DSC.hashret() == NEG.hashret()
+
+= Check if negative response answers not
+
+DSC = UDS(b'\x10')
+NEG = UDS(b'\x7f\x11')
+assert not NEG.answers(DSC)
+
+= Check if positive response answers not
+
+DSC = UDS(b'\x10')
+somePacket = UDS(b'\x49')
+assert not somePacket.answers(DSC)
 
 = Check UDS_DSC
 
