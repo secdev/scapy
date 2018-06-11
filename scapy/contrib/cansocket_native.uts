@@ -14,6 +14,7 @@
 load_layer("can")
 conf.contribs['CANSocket'] = {'use-python-can': False}
 from scapy.contrib.cansocket_native import *
+conf.contribs['CAN'] = {'swap-bytes': False}
 
 = Setup string for vcan
 ~ conf command

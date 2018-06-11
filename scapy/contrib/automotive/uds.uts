@@ -10,7 +10,7 @@
 
 = Load module
 
-load_contrib("uds")
+load_contrib("automotive.uds")
 
 = Check if positive response answers
 
