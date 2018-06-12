@@ -7,7 +7,7 @@
 
 import struct
 from scapy.fields import ByteEnumField, StrField, ConditionalField, \
-    BitEnumField, BitField, XByteField, \
+    BitEnumField, BitField, XByteField, FieldListField, \
     XShortField, X3BytesField, XIntField, ByteField, \
     ShortField, ObservableDict, XShortEnumField, XByteEnumField
 from scapy.packet import Packet, bind_layers
@@ -398,12 +398,13 @@ bind_layers(UDS, UDS_LCPR, service=0xC7)
 
 
 # #########################RDBI###################################
-# TODO: Multiple dataIdentifier in one packet are not supported yet.
 class UDS_RDBI(Packet):
     dataIdentifiers = ObservableDict()
     name = 'ReadDataByIdentifier'
     fields_desc = [
-        XShortEnumField('dataIdentifier', 0, dataIdentifiers)
+        FieldListField("identifiers", [],
+                       XShortEnumField('dataIdentifier', 0,
+                                       dataIdentifiers))
     ]
 
 
