@@ -32,6 +32,7 @@ from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.inet import *
 from scapy.layers.inet6 import *
+from scapy.utils import fletcher16_checkbytes
 from scapy.compat import orb
 
 EXT_VERSION = "v0.9.2"
