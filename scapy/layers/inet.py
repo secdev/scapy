@@ -1161,7 +1161,8 @@ class TracerouteResult(SndRcvList):
         shift-left button: move the scene
         left button on a ball: toggle IP displaying
         double-click button on a ball: scan ports 21,22,23,25,80 and 443 and display the result"""  # noqa: E501
-        # When not ran from a notebook, vpython pooly closes itself once finished.
+        # When not ran from a notebook, vpython pooly closes itself
+        # using os._exit once finished. We pack it into a Process
         import multiprocessing
         p = multiprocessing.Process(target=self.trace3D_notebook)
         p.start()
@@ -1225,7 +1226,7 @@ class TracerouteResult(SndRcvList):
                     self.unfull()
 
         vpython.scene = vpython.canvas()
-        vpython.scene.title = "<center><u><b>%s</b></u></center>" % self.listname
+        vpython.scene.title = "<center><u><b>%s</b></u></center>" % self.listname  # noqa: E501
         vpython.scene.append_to_caption(
             re.sub(
                 r'\%(.*)\%',
@@ -1234,7 +1235,7 @@ class TracerouteResult(SndRcvList):
                     r'\`(.*)\`',
                     r'<span style="color: #3399ff">\1</span>',
                     """<u><b>Commands:</b></u>
-%Click% to toggle informations about a node.
+%Click% to toggle information about a node.
 %Double click% to perform a quick web scan on this node.
 <u><b>Camera usage:</b></u>
 `Right button drag or Ctrl-drag` to rotate "camera" to view scene.
@@ -1294,12 +1295,12 @@ Touch screen: pinch/extend to zoom, swipe or two-finger rotate."""
         # Keys handling
         # TODO: there is currently no way of closing vpython correctly
         # https://github.com/BruceSherwood/vpython-jupyter/issues/36
-        #def keyboard_press(ev):
-        #    k = ev.key
-        #    if k == "esc" or k == "q":
-        #        pass  # TODO: close
+        # def keyboard_press(ev):
+        #     k = ev.key
+        #     if k == "esc" or k == "q":
+        #         pass  # TODO: close
         #
-        #vpython.scene.bind('keydown', keyboard_press)
+        # vpython.scene.bind('keydown', keyboard_press)
 
         # Mouse handling
         def mouse_click(ev):
