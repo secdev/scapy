@@ -6,8 +6,8 @@
   "remove_testfiles": [
     "test/linux.uts",
     "test/mock_windows.uts",
-    "test/cansocket_native.uts",
-    "test/cansocket_python_can.uts"
+    "scapy/contrib/cansocket_native.uts",
+    "scapy/contrib/cansocket_python_can.uts"
   ],
   "onlyfailed": true,
   "preexec": {

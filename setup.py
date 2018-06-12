@@ -62,6 +62,8 @@ setup(
         'scapy/arch/bpf',
         'scapy/arch/windows',
         'scapy/contrib',
+        'scapy/contrib/automotive',
+        'scapy/contrib/automotive/bmw',
         'scapy/layers',
         'scapy/layers/tls',
         'scapy/layers/tls/crypto',
