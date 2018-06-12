@@ -127,11 +127,14 @@ p = Dot3(dst="09:00:2b:00:00:05",src="00:00:00:aa:00:8c")/LLC()/ISIS_CommonHdr()
                         ISIS_TEDefaultMetricSubTlv(temetric=16777214)
                      ])
                  ]
+             ),
+             ISIS_ExternalIpReachabilityTlv(
+                 type=130
              )
          ])
 p = p.__class__(raw(p))
-assert(p[ISIS_L2_LSP].pdulength == 276)
-assert(p[ISIS_L2_LSP].checksum == 0xca22)
+assert(p[ISIS_L2_LSP].pdulength == 278)
+assert(p[ISIS_L2_LSP].checksum == 0xc0a9)
 assert(p[ISIS_ExtendedIpReachabilityTlv].pfxs[1].subtlvs[1].tags[0]==54321)
 assert(p[ISIS_Ipv6ReachabilityTlv].pfxs[1].subtlvs[0].len==8)
 assert(p[ISIS_ExtendedIsReachabilityTlv].neighbours[0].subtlvs[0].address=='172.16.8.4')
@@ -139,3 +142,4 @@ assert(p[ISIS_ExtendedIsReachabilityTlv].neighbours[0].subtlvs[1].localid==418)
 assert(p[ISIS_ExtendedIsReachabilityTlv].neighbours[0].subtlvs[3].maxbw==125000000)
 assert(p[ISIS_ExtendedIsReachabilityTlv].neighbours[0].subtlvs[4].unrsvbw[0]==125000000)
 assert(p[ISIS_ExtendedIsReachabilityTlv].neighbours[0].subtlvs[5].temetric==16777214)
+assert(p[ISIS_ExternalIpReachabilityTlv].type==130)

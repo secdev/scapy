@@ -702,7 +702,7 @@ class ISIS_InternalIpReachabilityTlv(ISIS_GenericTlv):
     ]
 
 
-class ISIS_ExternalIpReachabilityTLV(ISIS_GenericTlv):
+class ISIS_ExternalIpReachabilityTlv(ISIS_GenericTlv):
     name = "ISIS External IP Reachability TLV"
     fields_desc = [
         ByteEnumField("type", 130, _isis_tlv_names),
