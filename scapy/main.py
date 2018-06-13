@@ -149,12 +149,13 @@ symbols to the global symbol table.
         log_interactive.error("Loading module %s", module, exc_info=True)
 
 
-def load_module(name):
+def load_module(name, globals_dict=None, symb_list=None):
     """Loads a Scapy module to make variables, objects and functions
     available globally.
 
     """
-    _load("scapy.modules." + name)
+    _load("scapy.modules." + name,
+          globals_dict=globals_dict, symb_list=symb_list)
 
 
 def load_layer(name, globals_dict=None, symb_list=None):
@@ -166,7 +167,7 @@ def load_layer(name, globals_dict=None, symb_list=None):
           globals_dict=globals_dict, symb_list=symb_list)
 
 
-def load_contrib(name):
+def load_contrib(name, globals_dict=None, symb_list=None):
     """Loads a Scapy contrib module to make variables, objects and
     functions available globally.
 
@@ -176,10 +177,12 @@ def load_contrib(name):
     """
     try:
         importlib.import_module("scapy.contrib." + name)
-        _load("scapy.contrib." + name)
+        _load("scapy.contrib." + name,
+              globals_dict=globals_dict, symb_list=symb_list)
     except ImportError:
         # if layer not found in contrib, try in layers
-        load_layer(name)
+        load_layer(name,
+                   globals_dict=globals_dict, symb_list=symb_list)
 
 
 def list_contrib(name=None):
