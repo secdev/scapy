@@ -765,6 +765,7 @@ def main(argv):
 
     FORMAT = Format.ANSI
     OUTPUTFILE = sys.stdout
+    LOCAL = 0
     NUM = None
     KW_OK = []
     KW_KO = []
@@ -835,8 +836,8 @@ def main(argv):
                     TESTFILES.remove(testfile)
             elif opt == "-o":
                 OUTPUTFILE = optarg
-                if not os.access(os.path.abspath(OUTPUTFILE), os.W_OK):
-                    raise getopt.GetoptError("Cannot write to file %s" % os.path.abspath(OUTPUTFILE))
+                if not os.access(os.path.dirname(os.path.abspath(OUTPUTFILE)), os.W_OK):
+                    raise getopt.GetoptError("Cannot write to file %s" % OUTPUTFILE)
             elif opt == "-l":
                 LOCAL = 1
             elif opt == "-n":
