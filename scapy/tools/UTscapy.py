@@ -669,11 +669,11 @@ def campaign_to_LATEX(test_campaign):
 def usage():
     print("""Usage: UTscapy [-m module] [-f {text|ansi|HTML|LaTeX}] [-o output_file]
                [-t testfile] [-T testfile] [-k keywords [-k ...]] [-K keywords [-K ...]]
-               [-b] [-d|-D] [-F] [-q[q]] [-P preexecute_python_code]
+               [-l] [-b] [-d|-D] [-F] [-q[q]] [-P preexecute_python_code]
                [-s /path/to/scapy] [-c configfile]
 -t\t\t: provide test files (can be used many times)
 -T\t\t: if -t is used with *, remove a specific file (can be used many times)
--l\t\t: generate local files
+-l\t\t: generate local .js and .css files
 -F\t\t: expand only failed tests
 -b\t\t: stop at first failed campaign
 -d\t\t: dump campaign
