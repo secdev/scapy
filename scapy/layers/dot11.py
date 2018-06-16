@@ -134,6 +134,40 @@ _vht_bandwidth = {0: "20MHz", 1: "40MHz", 2: "40MHz", 3: "40MHz", 4: "80MHz", 5:
                   24: "160MHz", 25: "160MHz"}
 
 
+def _next_radiotap_extpm(pkt, lst, cur, s):
+    """Generates the next RadioTapExtendedPresenceMask"""
+    if cur is None or (cur.present and cur.present.Ext):
+        st = len(lst) + (cur is not None)
+        return lambda *args: RadioTapExtendedPresenceMask(*args, index=st)
+    return None
+
+
+class RadioTapExtendedPresenceMask(Packet):
+    """RadioTapExtendedPresenceMask should be instantiated by passing an
+    `index=` kwarg, stating which place the item has in the list.
+
+    Passing index will update the b[x] fields accordingly to the index.
+      e.g.
+       >>> a = RadioTapExtendedPresenceMask(present="b0+b12+b29+Ext")
+       >>> b = RadioTapExtendedPresenceMask(index=1, present="b33+b45+b59+b62")
+       >>> pkt = RadioTap(present="Ext", Ext=[a, b])
+    """
+    name = "RadioTap Extended presence mask"
+    fields_desc = [FlagsField('present', None, -32,
+                              ["b%s" % i for i in range(0, 31)] + ["Ext"])]
+
+    def __init__(self, _pkt=None, index=0, **kwargs):
+        self._restart_indentation(index)
+        Packet.__init__(self, _pkt, **kwargs)
+
+    def _restart_indentation(self, index):
+        st = index * 32
+        self.fields_desc[0].names = ["b%s" % (i + st) for i in range(0, 31)] + ["Ext"]  # noqa: E501
+
+    def guess_payload_class(self, pay):
+        return conf.padding_layer
+
+
 class RadioTap(Packet):
     name = "RadioTap dummy"
     fields_desc = [ByteField('version', 0),
@@ -145,6 +179,9 @@ class RadioTap(Packet):
                                                      'RXFlags', 'b16', 'b17', 'b18', 'ChannelPlus', 'MCS', 'A_MPDU',  # noqa: E501
                                                      'VHT', 'timestamp', 'b24', 'b25', 'b26', 'b27', 'b28', 'b29',  # noqa: E501
                                                      'RadiotapNS', 'VendorNS', 'Ext']),  # noqa: E501
+                   # Extended presence mask
+                   ConditionalField(PacketListField("Ext", [], next_cls_cb=_next_radiotap_extpm), lambda pkt: pkt.present and pkt.present.Ext),  # noqa: E501
+                   # Default fields
                    ConditionalField(_RadiotapReversePadField(BitField("mac_timestamp", 0, -64)), lambda pkt: pkt.present and pkt.present.TSFT),  # noqa: E501
                    ConditionalField(
                        _RadiotapReversePadField(
