@@ -342,20 +342,23 @@ def isCryptographyValid():
     return LooseVersion(cryptography.__version__) >= LooseVersion("1.7")
 
 
-def isCryptographyAdvanced():
+def isCryptographyRecent():
     """
-    Check if the cryptography library is present, and if it supports X25519,
-    ChaCha20Poly1305 and such (v2.0 or later).
+    Check if the cryptography library is recent (2.0 and later)
     """
     try:
         import cryptography
     except ImportError:
         return False
     from distutils.version import LooseVersion
-    lib_valid = LooseVersion(cryptography.__version__) >= LooseVersion("2.0")
-    if not lib_valid:
-        return False
+    return LooseVersion(cryptography.__version__) >= LooseVersion("2.0")
 
+
+def isCryptographyAdvanced():
+    """
+    Check if the cryptography library is present, and if it supports X25519,
+    ChaCha20Poly1305 and such (v2.0 or later).
+    """
     try:
         from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey  # noqa: E501
         X25519PrivateKey.generate()
@@ -494,7 +497,8 @@ debug_tls:When 1, print some TLS session secrets when they are computed.
                    'tftp', 'vrrp', 'vxlan', 'x509']
     contribs = dict()
     crypto_valid = isCryptographyValid()
-    crypto_valid_advanced = isCryptographyAdvanced()
+    crypto_valid_recent = isCryptographyRecent()
+    crypto_valid_advanced = crypto_valid_recent and isCryptographyAdvanced()
     fancy_prompt = True
     auto_crop_tables = True
 

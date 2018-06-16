@@ -37,7 +37,7 @@ if conf.crypto_valid:
     from cryptography.hazmat.backends import default_backend
     from cryptography.hazmat.primitives import serialization
     from cryptography.hazmat.primitives.asymmetric import rsa
-if conf.crypto_valid_advanced:
+if conf.crypto_valid_recent:
     from cryptography.hazmat.backends.openssl.ec import InvalidSignature
 
 from scapy.error import warning
@@ -330,7 +330,7 @@ class PubKeyECDSA(PubKey):
     @crypto_validator
     def verify(self, msg, sig, h="sha256", **kwargs):
         # 'sig' should be a DER-encoded signature, as per RFC 3279
-        if conf.crypto_valid_advanced:
+        if conf.crypto_valid_recent:
             try:
                 self.pubkey.verify(sig, msg, ec.ECDSA(_get_hash(h)))
                 return True
@@ -531,7 +531,7 @@ class PrivKeyECDSA(PrivKey):
     @crypto_validator
     def verify(self, msg, sig, h="sha256", **kwargs):
         # 'sig' should be a DER-encoded signature, as per RFC 3279
-        if conf.crypto_valid_advanced:
+        if conf.crypto_valid_recent:
             try:
                 self.pubkey.verify(sig, msg, ec.ECDSA(_get_hash(h)))
                 return True
@@ -544,7 +544,7 @@ class PrivKeyECDSA(PrivKey):
 
     @crypto_validator
     def sign(self, data, h="sha256", **kwargs):
-        if conf.crypto_valid_advanced:
+        if conf.crypto_valid_recent:
             return self.key.sign(data, ec.ECDSA(_get_hash(h)))
         else:
             signer = self.key.signer(ec.ECDSA(_get_hash(h)))
