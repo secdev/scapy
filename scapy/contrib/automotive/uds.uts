@@ -14,721 +14,729 @@ load_contrib("automotive.uds")
 
 = Check if positive response answers
 
-DSC = UDS(b'\x10')
-DSCPR = UDS(b'\x50')
-assert DSCPR.answers(DSC)
+dsc = UDS(b'\x10')
+dscpr = UDS(b'\x50')
+assert dscpr.answers(dsc)
 
 = Check hashret
-DSC.hashret() == DSCPR.hashret()
+dsc.hashret() == dscpr.hashret()
 
 = Check if negative response answers
 
-DSC = UDS(b'\x10')
-NEG = UDS(b'\x7f\x10')
-assert NEG.answers(DSC)
+dsc = UDS(b'\x10')
+neg = UDS(b'\x7f\x10')
+assert neg.answers(dsc)
 
 = CHECK hashret NEG
-DSC.hashret() == NEG.hashret()
+dsc.hashret() == neg.hashret()
 
 = Check if negative response answers not
 
-DSC = UDS(b'\x10')
-NEG = UDS(b'\x7f\x11')
-assert not NEG.answers(DSC)
+dsc = UDS(b'\x10')
+neg = UDS(b'\x7f\x11')
+assert not neg.answers(dsc)
 
 = Check if positive response answers not
 
-DSC = UDS(b'\x10')
+dsc = UDS(b'\x10')
 somePacket = UDS(b'\x49')
-assert not somePacket.answers(DSC)
+assert not somePacket.answers(dsc)
 
 = Check UDS_DSC
 
-DSC = UDS(b'\x10\x01')
-assert DSC.service == 0x10
-assert DSC.diagnosticSessionType == 0x01
+dsc = UDS(b'\x10\x01')
+assert dsc.service == 0x10
+assert dsc.diagnosticSessionType == 0x01
 
 = Check UDS_DSC
 
-DSC = UDS()/UDS_DSC(b'\x01')
-assert DSC.service == 0x10
-assert DSC.diagnosticSessionType == 0x01
+dsc = UDS()/UDS_DSC(b'\x01')
+assert dsc.service == 0x10
+assert dsc.diagnosticSessionType == 0x01
 
 = Check UDS_DSCPR
 
-DSCPR = UDS(b'\x50\x02beef')
-assert DSCPR.service == 0x50
-assert DSCPR.diagnosticSessionType == 0x02
+dscpr = UDS(b'\x50\x02beef')
+assert dscpr.service == 0x50
+assert dscpr.diagnosticSessionType == 0x02
 
 = Check UDS_DSCPR
 
-DSCPR = UDS()/UDS_DSCPR(b'\x02beef')
-assert DSCPR.service == 0x50
-assert DSCPR.diagnosticSessionType == 0x02
-assert DSCPR.sessionParameterRecord == b"beef"
+dscpr = UDS()/UDS_DSCPR(b'\x02beef')
+assert dscpr.service == 0x50
+assert dscpr.diagnosticSessionType == 0x02
+assert dscpr.sessionParameterRecord == b"beef"
 
 = Check UDS_ER
 
-ER = UDS(b'\x11\x01')
-assert ER.service == 0x11
-assert ER.resetType == 0x01
+er = UDS(b'\x11\x01')
+assert er.service == 0x11
+assert er.resetType == 0x01
 
 = Check UDS_ER
 
-ER = UDS()/UDS_ER(resetType="hardReset")
-assert ER.service == 0x11
-assert ER.resetType == 0x01
+er = UDS()/UDS_ER(resetType="hardReset")
+assert er.service == 0x11
+assert er.resetType == 0x01
 
 = Check UDS_ERPR
 
-ERPR = UDS(b'\x51\x01')
-assert ERPR.service == 0x51
-assert ERPR.resetType == 0x01
+erpr = UDS(b'\x51\x01')
+assert erpr.service == 0x51
+assert erpr.resetType == 0x01
 
 = Check UDS_ERPR
 
-ERPR = UDS(b'\x51\x04\x10')
-assert ERPR.service == 0x51
-assert ERPR.resetType == 0x04
-assert ERPR.powerDownTime == 0x10
+erpr = UDS(b'\x51\x04\x10')
+assert erpr.service == 0x51
+assert erpr.resetType == 0x04
+assert erpr.powerDownTime == 0x10
 
 = Check UDS_SA
 
-SA = UDS(b'\x27\x00c0ffee')
-assert SA.service == 0x27
-assert SA.securityAccessType == 0x0
-assert SA.securityKey == b'c0ffee'
+sa = UDS(b'\x27\x00c0ffee')
+assert sa.service == 0x27
+assert sa.securityAccessType == 0x0
+assert sa.securityKey == b'c0ffee'
 
 = Check UDS_SA
 
-SA = UDS(b'\x27\x01c0ffee')
-assert SA.service == 0x27
-assert SA.securityAccessType == 0x1
-assert SA.securityAccessDataRecord == b'c0ffee'
+sa = UDS(b'\x27\x01c0ffee')
+assert sa.service == 0x27
+assert sa.securityAccessType == 0x1
+assert sa.securityAccessDataRecord == b'c0ffee'
 
 = Check UDS_SAPR
 
-SAPR = UDS(b'\x67\x01c0ffee')
-assert SAPR.service == 0x67
-assert SAPR.securityAccessType == 0x1
-assert SAPR.securitySeed == b'c0ffee'
+sapr = UDS(b'\x67\x01c0ffee')
+assert sapr.service == 0x67
+assert sapr.securityAccessType == 0x1
+assert sapr.securitySeed == b'c0ffee'
 
 = Check UDS_SAPR
 
-SAPR = UDS(b'\x67\x00')
-assert SAPR.service == 0x67
-assert SAPR.securityAccessType == 0x0
+sapr = UDS(b'\x67\x00')
+assert sapr.service == 0x67
+assert sapr.securityAccessType == 0x0
 
 = Check UDS_CC
 
-CC = UDS(b'\x28\x01\xff')
-assert CC.service == 0x28
-assert CC.controlType == 0x1
-assert CC.communicationType0 == 0x3
-assert CC.communicationType1 == 0x3
-assert CC.communicationType2 == 0xf
+cc = UDS(b'\x28\x01\xff')
+assert cc.service == 0x28
+assert cc.controlType == 0x1
+assert cc.communicationType0 == 0x3
+assert cc.communicationType1 == 0x3
+assert cc.communicationType2 == 0xf
 
 = Check UDS_CCPR
 
-CCPR = UDS(b'\x68\x01')
-assert CCPR.service == 0x68
-assert CCPR.controlType == 0x1
+ccpr = UDS(b'\x68\x01')
+assert ccpr.service == 0x68
+assert ccpr.controlType == 0x1
 
 = Check UDS_TP
 
-TP = UDS(b'\x3E\x01')
-assert TP.service == 0x3e
-assert TP.subFunction == 0x1
+tp = UDS(b'\x3E\x01')
+assert tp.service == 0x3e
+assert tp.subFunction == 0x1
 
 = Check UDS_TPPR
 
-TPPR = UDS(b'\x7E\x01')
-assert TPPR.service == 0x7e
-assert TPPR.zeroSubFunction == 0x1
+tppr = UDS(b'\x7E\x01')
+assert tppr.service == 0x7e
+assert tppr.zeroSubFunction == 0x1
 
 = Check UDS_ATP
 
-ATP = UDS(b'\x83\x01')
-assert ATP.service == 0x83
-assert ATP.timingParameterAccessType == 0x1
+atp = UDS(b'\x83\x01')
+assert atp.service == 0x83
+assert atp.timingParameterAccessType == 0x1
 
 = Check UDS_ATP
 
-ATP = UDS(b'\x83\x04coffee')
-assert ATP.service == 0x83
-assert ATP.timingParameterAccessType == 0x4
-assert ATP.timingParameterRequestRecord == b'coffee'
+atp = UDS(b'\x83\x04coffee')
+assert atp.service == 0x83
+assert atp.timingParameterAccessType == 0x4
+assert atp.timingParameterRequestRecord == b'coffee'
 
 = Check UDS_ATPPR
 
-ATPPR = UDS(b'\xc3\x01')
-assert ATPPR.service == 0xc3
-assert ATPPR.timingParameterAccessType == 0x1
+atppr = UDS(b'\xc3\x01')
+assert atppr.service == 0xc3
+assert atppr.timingParameterAccessType == 0x1
 
 = Check UDS_ATPPR
 
-ATPPR = UDS(b'\xc3\x03coffee')
-assert ATPPR.service == 0xc3
-assert ATPPR.timingParameterAccessType == 0x3
-assert ATPPR.timingParameterResponseRecord == b'coffee'
+atppr = UDS(b'\xc3\x03coffee')
+assert atppr.service == 0xc3
+assert atppr.timingParameterAccessType == 0x3
+assert atppr.timingParameterResponseRecord == b'coffee'
 
 = Check UDS_SDT
 
-SDT = UDS(b'\x84coffee')
-assert SDT.service == 0x84
-assert SDT.securityDataRequestRecord == b'coffee'
+sdt = UDS(b'\x84coffee')
+assert sdt.service == 0x84
+assert sdt.securityDataRequestRecord == b'coffee'
 
 = Check UDS_SDTPR
 
-SDTPR = UDS(b'\xC4coffee')
-assert SDTPR.service == 0xC4
-assert SDTPR.securityDataResponseRecord == b'coffee'
+sdtpr = UDS(b'\xC4coffee')
+assert sdtpr.service == 0xC4
+assert sdtpr.securityDataResponseRecord == b'coffee'
 
 = Check UDS_CDTCS
 
-CDTCS = UDS(b'\x85\x00coffee')
-assert CDTCS.service == 0x85
-assert CDTCS.DTCSettingType == 0
-assert CDTCS.DTCSettingControlOptionRecord == b'coffee'
+cdtcs = UDS(b'\x85\x00coffee')
+assert cdtcs.service == 0x85
+assert cdtcs.DTCSettingType == 0
+assert cdtcs.DTCSettingControlOptionRecord == b'coffee'
 
 = Check UDS_CDTCSPR
 
-CDTCSPR = UDS(b'\xC5\x00')
-assert CDTCSPR.service == 0xC5
-assert CDTCSPR.DTCSettingType == 0
+cdtcspr = UDS(b'\xC5\x00')
+assert cdtcspr.service == 0xC5
+assert cdtcspr.DTCSettingType == 0
 
 = Check UDS_ROE
 
-ROE = UDS(b'\x86\x00\x10coffee')
-assert ROE.service == 0x86
-assert ROE.eventType == 0
-assert ROE.eventWindowTime == 16
-assert ROE.eventTypeRecord == b'coffee'
+roe = UDS(b'\x86\x00\x10coffee')
+assert roe.service == 0x86
+assert roe.eventType == 0
+assert roe.eventWindowTime == 16
+assert roe.eventTypeRecord == b'coffee'
 
 = Check UDS_ROEPR
 
-ROEPR = UDS(b'\xC6\x00\x01\x10coffee')
-assert ROEPR.service == 0xC6
-assert ROEPR.eventType == 0
-assert ROEPR.numberOfIdentifiedEvents == 1
-assert ROEPR.eventWindowTime == 16
-assert ROEPR.eventTypeRecord == b'coffee'
+roepr = UDS(b'\xC6\x00\x01\x10coffee')
+assert roepr.service == 0xC6
+assert roepr.eventType == 0
+assert roepr.numberOfIdentifiedEvents == 1
+assert roepr.eventWindowTime == 16
+assert roepr.eventTypeRecord == b'coffee'
 
 = Check UDS_LC
 
-LC = UDS(b'\x87\x01\x02')
-assert LC.service == 0x87
-assert LC.linkControlType == 0x01
-assert LC.baudrateIdentifier == 0x02
+lc = UDS(b'\x87\x01\x02')
+assert lc.service == 0x87
+assert lc.linkControlType == 0x01
+assert lc.baudrateIdentifier == 0x02
 
 = Check UDS_LC
 
-LC = UDS(b'\x87\x02\x02\x03\x04')
-assert LC.service == 0x87
-assert LC.linkControlType == 0x02
-assert LC.baudrateHighByte == 0x02
-assert LC.baudrateMiddleByte == 0x03
-assert LC.baudrateLowByte == 0x04
+lc = UDS(b'\x87\x02\x02\x03\x04')
+assert lc.service == 0x87
+assert lc.linkControlType == 0x02
+assert lc.baudrateHighByte == 0x02
+assert lc.baudrateMiddleByte == 0x03
+assert lc.baudrateLowByte == 0x04
 
 = Check UDS_LCPR
 
-LCPR = UDS(b'\xC7\x01')
-assert LCPR.service == 0xC7
-assert LCPR.linkControlType == 0x01
+lcpr = UDS(b'\xC7\x01')
+assert lcpr.service == 0xC7
+assert lcpr.linkControlType == 0x01
 
 = Check UDS_RDBI
 
-RDBI = UDS(b'\x22\x01\x02')
-assert RDBI.service == 0x22
-assert RDBI.dataIdentifier == 0x0102
+rdbi = UDS(b'\x22\x01\x02')
+assert rdbi.service == 0x22
+assert rdbi.identifiers[0] == 0x0102
+
+= Check UDS_RDBI
+
+rdbi = UDS(b'\x22\x01\x02\x03\x04')
+assert rdbi.service == 0x22
+assert rdbi.identifiers[0] == 0x0102
+assert rdbi.identifiers[1] == 0x0304
+assert raw(rdbi) == b'\x22\x01\x02\x03\x04'
 
 = Check UDS_RDBIPR
 
-RDBIPR = UDS(b'\x62\x01\x02')
-assert RDBIPR.service == 0x62
-assert RDBIPR.dataIdentifier == 0x0102
+rdbipr = UDS(b'\x62\x01\x02')
+assert rdbipr.service == 0x62
+assert rdbipr.dataIdentifier == 0x0102
 
 = Check UDS_RMBA
 
-RMBA = UDS(b'\x23\x11\x02\x02')
-assert RMBA.service == 0x23
-assert RMBA.memorySizeLen == 1
-assert RMBA.memoryAddressLen == 1
-assert RMBA.memoryAddress1 == 2
-assert RMBA.memorySize1 == 2
+rmba = UDS(b'\x23\x11\x02\x02')
+assert rmba.service == 0x23
+assert rmba.memorySizeLen == 1
+assert rmba.memoryAddressLen == 1
+assert rmba.memoryAddress1 == 2
+assert rmba.memorySize1 == 2
 
 = Check UDS_RMBA
 
-RMBA = UDS(b'\x23\x22\x02\x02\x03\x03')
-assert RMBA.service == 0x23
-assert RMBA.memorySizeLen == 2
-assert RMBA.memoryAddressLen == 2
-assert RMBA.memoryAddress2 == 0x202
-assert RMBA.memorySize2 == 0x303
+rmba = UDS(b'\x23\x22\x02\x02\x03\x03')
+assert rmba.service == 0x23
+assert rmba.memorySizeLen == 2
+assert rmba.memoryAddressLen == 2
+assert rmba.memoryAddress2 == 0x202
+assert rmba.memorySize2 == 0x303
 
 = Check UDS_RMBA
 
-RMBA = UDS(b'\x23\x33\x02\x02\x02\x03\x03\x03')
-assert RMBA.service == 0x23
-assert RMBA.memorySizeLen == 3
-assert RMBA.memoryAddressLen == 3
-assert RMBA.memoryAddress3 == 0x20202
-assert RMBA.memorySize3 == 0x30303
+rmba = UDS(b'\x23\x33\x02\x02\x02\x03\x03\x03')
+assert rmba.service == 0x23
+assert rmba.memorySizeLen == 3
+assert rmba.memoryAddressLen == 3
+assert rmba.memoryAddress3 == 0x20202
+assert rmba.memorySize3 == 0x30303
 
 = Check UDS_RMBA
 
-RMBA = UDS(b'\x23\x44\x02\x02\x02\x02\x03\x03\x03\x03')
-assert RMBA.service == 0x23
-assert RMBA.memorySizeLen == 4
-assert RMBA.memoryAddressLen == 4
-assert RMBA.memoryAddress4 == 0x2020202
-assert RMBA.memorySize4 == 0x3030303
+rmba = UDS(b'\x23\x44\x02\x02\x02\x02\x03\x03\x03\x03')
+assert rmba.service == 0x23
+assert rmba.memorySizeLen == 4
+assert rmba.memoryAddressLen == 4
+assert rmba.memoryAddress4 == 0x2020202
+assert rmba.memorySize4 == 0x3030303
 
 = Check UDS_RMBAPR
 
-RMBAPR = UDS(b'\x63muchData')
-assert RMBAPR.service == 0x63
-assert RMBAPR.dataRecord == b'muchData'
+rmbapr = UDS(b'\x63muchData')
+assert rmbapr.service == 0x63
+assert rmbapr.dataRecord == b'muchData'
 
 = Check UDS_RSDBI
 
-RSDBI = UDS(b'\x24\x12\x34')
-assert RSDBI.service == 0x24
-assert RSDBI.dataIdentifier == 0x1234
+rsdbi = UDS(b'\x24\x12\x34')
+assert rsdbi.service == 0x24
+assert rsdbi.dataIdentifier == 0x1234
 
 = Check UDS_RSDBIPR
 
-RSDBIPR = UDS(b'\x64\x12\x34\xffmuchData')
-assert RSDBIPR.service == 0x64
-assert RSDBIPR.dataIdentifier == 0x1234
-assert RSDBIPR.scalingByte == 255
-assert RSDBIPR.dataRecord == b'muchData'
+rsdbipr = UDS(b'\x64\x12\x34\xffmuchData')
+assert rsdbipr.service == 0x64
+assert rsdbipr.dataIdentifier == 0x1234
+assert rsdbipr.scalingByte == 255
+assert rsdbipr.dataRecord == b'muchData'
 
 = Check UDS_RSDBPI
 
-RSDBPI = UDS(b'\x2a\x12\x34coffee')
-assert RSDBPI.service == 0x2a
-assert RSDBPI.transmissionMode == 0x12
-assert RSDBPI.periodicDataIdentifier == 0x34
-assert RSDBPI.furtherPeriodicDataIdentifier == b'coffee'
+rsdbpi = UDS(b'\x2a\x12\x34coffee')
+assert rsdbpi.service == 0x2a
+assert rsdbpi.transmissionMode == 0x12
+assert rsdbpi.periodicDataIdentifier == 0x34
+assert rsdbpi.furtherPeriodicDataIdentifier == b'coffee'
 
 = Check UDS_RSDBPIPR
 
-RSDBPIPR = UDS(b'\x6a\xff\x12\x34')
-assert RSDBPIPR.service == 0x6a
-assert RSDBPIPR.periodicDataIdentifier == 255
-assert RSDBPIPR.dataRecord == b'\x12\x34'
+rsdbpipr = UDS(b'\x6a\xff\x12\x34')
+assert rsdbpipr.service == 0x6a
+assert rsdbpipr.periodicDataIdentifier == 255
+assert rsdbpipr.dataRecord == b'\x12\x34'
 
 = Check UDS_DDDI
 
-DDDI = UDS(b'\x2c\x12coffee')
-assert DDDI.service == 0x2c
-assert DDDI.definitionMode == 0x12
-assert DDDI.dataRecord == b'coffee'
+dddi = UDS(b'\x2c\x12coffee')
+assert dddi.service == 0x2c
+assert dddi.definitionMode == 0x12
+assert dddi.dataRecord == b'coffee'
 
 = Check UDS_DDDIPR
 
-DDDIPR = UDS(b'\x6c\x12\x44\x55')
-assert DDDIPR.service == 0x6c
-assert DDDIPR.definitionMode == 0x12
-assert DDDIPR.dynamicallyDefinedDataIdentifier == 0x4455
+dddipr = UDS(b'\x6c\x12\x44\x55')
+assert dddipr.service == 0x6c
+assert dddipr.definitionMode == 0x12
+assert dddipr.dynamicallyDefinedDataIdentifier == 0x4455
 
 = Check UDS_WDBI
 
-WDBI = UDS(b'\x2e\x01\x02dieselgate')
-assert WDBI.service == 0x2e
-assert WDBI.dataIdentifier == 0x0102
-assert WDBI.dataRecord == b'dieselgate'
+wdbi = UDS(b'\x2e\x01\x02dieselgate')
+assert wdbi.service == 0x2e
+assert wdbi.dataIdentifier == 0x0102
+assert wdbi.dataRecord == b'dieselgate'
 
 = Check UDS_WDBIPR
 
-WDBIPR = UDS(b'\x6e\x01\x02')
-assert WDBIPR.service == 0x6e
-assert WDBIPR.dataIdentifier == 0x0102
+wdbipr = UDS(b'\x6e\x01\x02')
+assert wdbipr.service == 0x6e
+assert wdbipr.dataIdentifier == 0x0102
 
 = Check UDS_WMBA
 
-WMBA = UDS(b'\x3d\x11\x02\x02muchData')
-assert WMBA.service == 0x3d
-assert WMBA.memorySizeLen == 1
-assert WMBA.memoryAddressLen == 1
-assert WMBA.memoryAddress1 == 2
-assert WMBA.memorySize1 == 2
-assert WMBA.dataRecord == b'muchData'
+wmba = UDS(b'\x3d\x11\x02\x02muchData')
+assert wmba.service == 0x3d
+assert wmba.memorySizeLen == 1
+assert wmba.memoryAddressLen == 1
+assert wmba.memoryAddress1 == 2
+assert wmba.memorySize1 == 2
+assert wmba.dataRecord == b'muchData'
 
 = Check UDS_WMBA
 
-WMBA = UDS(b'\x3d\x22\x02\x02\x03\x03muchData')
-assert WMBA.service == 0x3d
-assert WMBA.memorySizeLen == 2
-assert WMBA.memoryAddressLen == 2
-assert WMBA.memoryAddress2 == 0x202
-assert WMBA.memorySize2 == 0x303
-assert WMBA.dataRecord == b'muchData'
+wmba = UDS(b'\x3d\x22\x02\x02\x03\x03muchData')
+assert wmba.service == 0x3d
+assert wmba.memorySizeLen == 2
+assert wmba.memoryAddressLen == 2
+assert wmba.memoryAddress2 == 0x202
+assert wmba.memorySize2 == 0x303
+assert wmba.dataRecord == b'muchData'
 
 = Check UDS_WMBA
 
-WMBA = UDS(b'\x3d\x33\x02\x02\x02\x03\x03\x03muchData')
-assert WMBA.service == 0x3d
-assert WMBA.memorySizeLen == 3
-assert WMBA.memoryAddressLen == 3
-assert WMBA.memoryAddress3 == 0x20202
-assert WMBA.memorySize3 == 0x30303
-assert WMBA.dataRecord == b'muchData'
+wmba = UDS(b'\x3d\x33\x02\x02\x02\x03\x03\x03muchData')
+assert wmba.service == 0x3d
+assert wmba.memorySizeLen == 3
+assert wmba.memoryAddressLen == 3
+assert wmba.memoryAddress3 == 0x20202
+assert wmba.memorySize3 == 0x30303
+assert wmba.dataRecord == b'muchData'
 
 = Check UDS_WMBA
 
-WMBA = UDS(b'\x3d\x44\x02\x02\x02\x02\x03\x03\x03\x03muchData')
-assert WMBA.service == 0x3d
-assert WMBA.memorySizeLen == 4
-assert WMBA.memoryAddressLen == 4
-assert WMBA.memoryAddress4 == 0x2020202
-assert WMBA.memorySize4 == 0x3030303
-assert WMBA.dataRecord == b'muchData'
+wmba = UDS(b'\x3d\x44\x02\x02\x02\x02\x03\x03\x03\x03muchData')
+assert wmba.service == 0x3d
+assert wmba.memorySizeLen == 4
+assert wmba.memoryAddressLen == 4
+assert wmba.memoryAddress4 == 0x2020202
+assert wmba.memorySize4 == 0x3030303
+assert wmba.dataRecord == b'muchData'
 
 = Check UDS_WMBAPR
 
-WMBAPR = UDS(b'\x7d\x11\x02\x02')
-assert WMBAPR.service == 0x7d
-assert WMBAPR.memorySizeLen == 1
-assert WMBAPR.memoryAddressLen == 1
-assert WMBAPR.memoryAddress1 == 2
-assert WMBAPR.memorySize1 == 2
+wmbapr = UDS(b'\x7d\x11\x02\x02')
+assert wmbapr.service == 0x7d
+assert wmbapr.memorySizeLen == 1
+assert wmbapr.memoryAddressLen == 1
+assert wmbapr.memoryAddress1 == 2
+assert wmbapr.memorySize1 == 2
 
 = Check UDS_WMBAPR
 
-WMBAPR = UDS(b'\x7d\x22\x02\x02\x03\x03')
-assert WMBAPR.service == 0x7d
-assert WMBAPR.memorySizeLen == 2
-assert WMBAPR.memoryAddressLen == 2
-assert WMBAPR.memoryAddress2 == 0x202
-assert WMBAPR.memorySize2 == 0x303
+wmbapr = UDS(b'\x7d\x22\x02\x02\x03\x03')
+assert wmbapr.service == 0x7d
+assert wmbapr.memorySizeLen == 2
+assert wmbapr.memoryAddressLen == 2
+assert wmbapr.memoryAddress2 == 0x202
+assert wmbapr.memorySize2 == 0x303
 
 = Check UDS_WMBAPR
 
-WMBAPR = UDS(b'\x7d\x33\x02\x02\x02\x03\x03\x03')
-assert WMBAPR.service == 0x7d
-assert WMBAPR.memorySizeLen == 3
-assert WMBAPR.memoryAddressLen == 3
-assert WMBAPR.memoryAddress3 == 0x20202
-assert WMBAPR.memorySize3 == 0x30303
+wmbapr = UDS(b'\x7d\x33\x02\x02\x02\x03\x03\x03')
+assert wmbapr.service == 0x7d
+assert wmbapr.memorySizeLen == 3
+assert wmbapr.memoryAddressLen == 3
+assert wmbapr.memoryAddress3 == 0x20202
+assert wmbapr.memorySize3 == 0x30303
 
 = Check UDS_WMBAPR
 
-WMBAPR = UDS(b'\x7d\x44\x02\x02\x02\x02\x03\x03\x03\x03')
-assert WMBAPR.service == 0x7d
-assert WMBAPR.memorySizeLen == 4
-assert WMBAPR.memoryAddressLen == 4
-assert WMBAPR.memoryAddress4 == 0x2020202
-assert WMBAPR.memorySize4 == 0x3030303
+wmbapr = UDS(b'\x7d\x44\x02\x02\x02\x02\x03\x03\x03\x03')
+assert wmbapr.service == 0x7d
+assert wmbapr.memorySizeLen == 4
+assert wmbapr.memoryAddressLen == 4
+assert wmbapr.memoryAddress4 == 0x2020202
+assert wmbapr.memorySize4 == 0x3030303
 
 = Check UDS_CDTCI
 
-CDTCI = UDS(b'\x14\x44\x02\x03')
-assert CDTCI.service == 0x14
-assert CDTCI.groupOfDTCHighByte == 0x44
-assert CDTCI.groupOfDTCMiddleByte == 0x02
-assert CDTCI.groupOfDTCLowByte == 0x3
+cdtci = UDS(b'\x14\x44\x02\x03')
+assert cdtci.service == 0x14
+assert cdtci.groupOfDTCHighByte == 0x44
+assert cdtci.groupOfDTCMiddleByte == 0x02
+assert cdtci.groupOfDTCLowByte == 0x3
 
 = Check UDS_RDTCI
 
-RDTCI = UDS(b'\x19\x44')
-assert RDTCI.service == 0x19
-assert RDTCI.reportType == 0x44
+rdtci = UDS(b'\x19\x44')
+assert rdtci.service == 0x19
+assert rdtci.reportType == 0x44
 
 = Check UDS_RDTCI
 
-RDTCI = UDS(b'\x19\x01\xff')
-assert RDTCI.service == 0x19
-assert RDTCI.reportType == 0x01
-assert RDTCI.DTCStatusMask == 0xff
+rdtci = UDS(b'\x19\x01\xff')
+assert rdtci.service == 0x19
+assert rdtci.reportType == 0x01
+assert rdtci.DTCStatusMask == 0xff
 
 = Check UDS_RDTCI
 
-RDTCI = UDS(b'\x19\x02\xff')
-assert RDTCI.service == 0x19
-assert RDTCI.reportType == 0x02
-assert RDTCI.DTCStatusMask == 0xff
+rdtci = UDS(b'\x19\x02\xff')
+assert rdtci.service == 0x19
+assert rdtci.reportType == 0x02
+assert rdtci.DTCStatusMask == 0xff
 
 = Check UDS_RDTCI
 
-RDTCI = UDS(b'\x19\x0f\xff')
-assert RDTCI.service == 0x19
-assert RDTCI.reportType == 0x0f
-assert RDTCI.DTCStatusMask == 0xff
+rdtci = UDS(b'\x19\x0f\xff')
+assert rdtci.service == 0x19
+assert rdtci.reportType == 0x0f
+assert rdtci.DTCStatusMask == 0xff
 
 = Check UDS_RDTCI
 
-RDTCI = UDS(b'\x19\x11\xff')
-assert RDTCI.service == 0x19
-assert RDTCI.reportType == 0x11
-assert RDTCI.DTCStatusMask == 0xff
+rdtci = UDS(b'\x19\x11\xff')
+assert rdtci.service == 0x19
+assert rdtci.reportType == 0x11
+assert rdtci.DTCStatusMask == 0xff
 
 = Check UDS_RDTCI
 
-RDTCI = UDS(b'\x19\x12\xff')
-assert RDTCI.service == 0x19
-assert RDTCI.reportType == 0x12
-assert RDTCI.DTCStatusMask == 0xff
+rdtci = UDS(b'\x19\x12\xff')
+assert rdtci.service == 0x19
+assert rdtci.reportType == 0x12
+assert rdtci.DTCStatusMask == 0xff
 
 = Check UDS_RDTCI
 
-RDTCI = UDS(b'\x19\x13\xff')
-assert RDTCI.service == 0x19
-assert RDTCI.reportType == 0x13
-assert RDTCI.DTCStatusMask == 0xff
+rdtci = UDS(b'\x19\x13\xff')
+assert rdtci.service == 0x19
+assert rdtci.reportType == 0x13
+assert rdtci.DTCStatusMask == 0xff
 
 = Check UDS_RDTCI
 
-RDTCI = UDS(b'\x19\x03\xff\xee\xdd\xaa')
-assert RDTCI.service == 0x19
-assert RDTCI.reportType == 0x03
-assert RDTCI.DTCHighByte == 0xff
-assert RDTCI.DTCMiddleByte == 0xee
-assert RDTCI.DTCLowByte == 0xdd
-assert RDTCI.DTCSnapshotRecordNumber == 0xaa
+rdtci = UDS(b'\x19\x03\xff\xee\xdd\xaa')
+assert rdtci.service == 0x19
+assert rdtci.reportType == 0x03
+assert rdtci.DTCHighByte == 0xff
+assert rdtci.DTCMiddleByte == 0xee
+assert rdtci.DTCLowByte == 0xdd
+assert rdtci.DTCSnapshotRecordNumber == 0xaa
 
 = Check UDS_RDTCI
 
-RDTCI = UDS(b'\x19\x04\xff\xee\xdd\xaa')
-assert RDTCI.service == 0x19
-assert RDTCI.reportType == 0x04
-assert RDTCI.DTCHighByte == 0xff
-assert RDTCI.DTCMiddleByte == 0xee
-assert RDTCI.DTCLowByte == 0xdd
-assert RDTCI.DTCSnapshotRecordNumber == 0xaa
+rdtci = UDS(b'\x19\x04\xff\xee\xdd\xaa')
+assert rdtci.service == 0x19
+assert rdtci.reportType == 0x04
+assert rdtci.DTCHighByte == 0xff
+assert rdtci.DTCMiddleByte == 0xee
+assert rdtci.DTCLowByte == 0xdd
+assert rdtci.DTCSnapshotRecordNumber == 0xaa
 
 = Check UDS_RDTCI
 
-RDTCI = UDS(b'\x19\x05\xaa')
-assert RDTCI.service == 0x19
-assert RDTCI.reportType == 0x05
-assert RDTCI.DTCSnapshotRecordNumber == 0xaa
+rdtci = UDS(b'\x19\x05\xaa')
+assert rdtci.service == 0x19
+assert rdtci.reportType == 0x05
+assert rdtci.DTCSnapshotRecordNumber == 0xaa
 
 = Check UDS_RDTCI
 
-RDTCI = UDS(b'\x19\x06\xff\xee\xdd\xaa')
-assert RDTCI.service == 0x19
-assert RDTCI.reportType == 0x06
-assert RDTCI.DTCHighByte == 0xff
-assert RDTCI.DTCMiddleByte == 0xee
-assert RDTCI.DTCLowByte == 0xdd
-assert RDTCI.DTCExtendedDataRecordNumber == 0xaa
+rdtci = UDS(b'\x19\x06\xff\xee\xdd\xaa')
+assert rdtci.service == 0x19
+assert rdtci.reportType == 0x06
+assert rdtci.DTCHighByte == 0xff
+assert rdtci.DTCMiddleByte == 0xee
+assert rdtci.DTCLowByte == 0xdd
+assert rdtci.DTCExtendedDataRecordNumber == 0xaa
 
 = Check UDS_RDTCI
 
-RDTCI = UDS(b'\x19\x07\xaa\xbb')
-assert RDTCI.service == 0x19
-assert RDTCI.reportType == 0x07
-assert RDTCI.DTCSeverityMask == 0xaa
-assert RDTCI.DTCStatusMask == 0xbb
+rdtci = UDS(b'\x19\x07\xaa\xbb')
+assert rdtci.service == 0x19
+assert rdtci.reportType == 0x07
+assert rdtci.DTCSeverityMask == 0xaa
+assert rdtci.DTCStatusMask == 0xbb
 
 = Check UDS_RDTCI
 
-RDTCI = UDS(b'\x19\x08\xaa\xbb')
-assert RDTCI.service == 0x19
-assert RDTCI.reportType == 0x08
-assert RDTCI.DTCSeverityMask == 0xaa
-assert RDTCI.DTCStatusMask == 0xbb
+rdtci = UDS(b'\x19\x08\xaa\xbb')
+assert rdtci.service == 0x19
+assert rdtci.reportType == 0x08
+assert rdtci.DTCSeverityMask == 0xaa
+assert rdtci.DTCStatusMask == 0xbb
 
 = Check UDS_RDTCI
 
-RDTCI = UDS(b'\x19\x09\xff\xee\xdd')
-assert RDTCI.service == 0x19
-assert RDTCI.reportType == 0x09
-assert RDTCI.DTCHighByte == 0xff
-assert RDTCI.DTCMiddleByte == 0xee
-assert RDTCI.DTCLowByte == 0xdd
+rdtci = UDS(b'\x19\x09\xff\xee\xdd')
+assert rdtci.service == 0x19
+assert rdtci.reportType == 0x09
+assert rdtci.DTCHighByte == 0xff
+assert rdtci.DTCMiddleByte == 0xee
+assert rdtci.DTCLowByte == 0xdd
 
 = Check UDS_RDTCI
 
-RDTCI = UDS(b'\x19\x10\xff\xee\xdd\xaa')
-assert RDTCI.service == 0x19
-assert RDTCI.reportType == 0x10
-assert RDTCI.DTCHighByte == 0xff
-assert RDTCI.DTCMiddleByte == 0xee
-assert RDTCI.DTCLowByte == 0xdd
-assert RDTCI.DTCExtendedDataRecordNumber == 0xaa
+rdtci = UDS(b'\x19\x10\xff\xee\xdd\xaa')
+assert rdtci.service == 0x19
+assert rdtci.reportType == 0x10
+assert rdtci.DTCHighByte == 0xff
+assert rdtci.DTCMiddleByte == 0xee
+assert rdtci.DTCLowByte == 0xdd
+assert rdtci.DTCExtendedDataRecordNumber == 0xaa
 
 = Check UDS_RDTCIPR
 
-RDTCIPR = UDS(b'\x59\x01\xff\xee\xdd\xaa')
-assert RDTCIPR.service == 0x59
-assert RDTCIPR.reportType == 1
-assert RDTCIPR.DTCStatusAvailabilityMask == 0xff
-assert RDTCIPR.DTCFormatIdentifier == 0xee
-assert RDTCIPR.DTCCount == 0xddaa
+rdtcipr = UDS(b'\x59\x01\xff\xee\xdd\xaa')
+assert rdtcipr.service == 0x59
+assert rdtcipr.reportType == 1
+assert rdtcipr.DTCStatusAvailabilityMask == 0xff
+assert rdtcipr.DTCFormatIdentifier == 0xee
+assert rdtcipr.DTCCount == 0xddaa
 
 = Check UDS_RDTCIPR
 
-RDTCIPR = UDS(b'\x59\x02\xff\xee\xdd\xaa')
-assert RDTCIPR.service == 0x59
-assert RDTCIPR.reportType == 2
-assert RDTCIPR.DTCStatusAvailabilityMask == 0xff
-assert RDTCIPR.DTCAndStatusRecord == b'\xee\xdd\xaa'
+rdtcipr = UDS(b'\x59\x02\xff\xee\xdd\xaa')
+assert rdtcipr.service == 0x59
+assert rdtcipr.reportType == 2
+assert rdtcipr.DTCStatusAvailabilityMask == 0xff
+assert rdtcipr.DTCAndStatusRecord == b'\xee\xdd\xaa'
 
 = Check UDS_RDTCIPR
 
-RDTCIPR = UDS(b'\x59\x03\xff\xee\xdd\xaa')
-assert RDTCIPR.service == 0x59
-assert RDTCIPR.reportType == 3
-assert RDTCIPR.dataRecord == b'\xff\xee\xdd\xaa'
+rdtcipr = UDS(b'\x59\x03\xff\xee\xdd\xaa')
+assert rdtcipr.service == 0x59
+assert rdtcipr.reportType == 3
+assert rdtcipr.dataRecord == b'\xff\xee\xdd\xaa'
 
 = Check UDS_RC
 
-RC = UDS(b'\x31\x03\xff\xee\xdd\xaa')
-assert RC.service == 0x31
-assert RC.routineControlType == 3
-assert RC.routineIdentifier == 0xffee
-assert RC.routineControlOptionRecord == b'\xdd\xaa'
+rc = UDS(b'\x31\x03\xff\xee\xdd\xaa')
+assert rc.service == 0x31
+assert rc.routineControlType == 3
+assert rc.routineIdentifier == 0xffee
+assert rc.routineControlOptionRecord == b'\xdd\xaa'
 
 = Check UDS_RCPR
 
-RCPR = UDS(b'\x71\x03\xff\xee\xdd\xaa')
-assert RCPR.service == 0x71
-assert RCPR.routineControlType == 3
-assert RCPR.routineIdentifier == 0xffee
-assert RCPR.routineStatusRecord == b'\xdd\xaa'
+rcpr = UDS(b'\x71\x03\xff\xee\xdd\xaa')
+assert rcpr.service == 0x71
+assert rcpr.routineControlType == 3
+assert rcpr.routineIdentifier == 0xffee
+assert rcpr.routineStatusRecord == b'\xdd\xaa'
 
 = Check UDS_RD
 
-RD = UDS(b'\x34\xaa\x11\x02\x02')
-assert RD.service == 0x34
-assert RD.dataFormatIdentifier == 0xaa
-assert RD.memorySizeLen == 1
-assert RD.memoryAddressLen == 1
-assert RD.memoryAddress1 == 2
-assert RD.memorySize1 == 2
+rd = UDS(b'\x34\xaa\x11\x02\x02')
+assert rd.service == 0x34
+assert rd.dataFormatIdentifier == 0xaa
+assert rd.memorySizeLen == 1
+assert rd.memoryAddressLen == 1
+assert rd.memoryAddress1 == 2
+assert rd.memorySize1 == 2
 
 = Check UDS_RD
 
-RD = UDS(b'\x34\xaa\x22\x02\x02\x03\x03')
-assert RD.service == 0x34
-assert RD.dataFormatIdentifier == 0xaa
-assert RD.memorySizeLen == 2
-assert RD.memoryAddressLen == 2
-assert RD.memoryAddress2 == 0x202
-assert RD.memorySize2 == 0x303
+rd = UDS(b'\x34\xaa\x22\x02\x02\x03\x03')
+assert rd.service == 0x34
+assert rd.dataFormatIdentifier == 0xaa
+assert rd.memorySizeLen == 2
+assert rd.memoryAddressLen == 2
+assert rd.memoryAddress2 == 0x202
+assert rd.memorySize2 == 0x303
 
 = Check UDS_RD
 
-RD = UDS(b'\x34\xaa\x33\x02\x02\x02\x03\x03\x03')
-assert RD.service == 0x34
-assert RD.dataFormatIdentifier == 0xaa
-assert RD.memorySizeLen == 3
-assert RD.memoryAddressLen == 3
-assert RD.memoryAddress3 == 0x20202
-assert RD.memorySize3 == 0x30303
+rd = UDS(b'\x34\xaa\x33\x02\x02\x02\x03\x03\x03')
+assert rd.service == 0x34
+assert rd.dataFormatIdentifier == 0xaa
+assert rd.memorySizeLen == 3
+assert rd.memoryAddressLen == 3
+assert rd.memoryAddress3 == 0x20202
+assert rd.memorySize3 == 0x30303
 
 = Check UDS_RD
 
-RD = UDS(b'\x34\xaa\x44\x02\x02\x02\x02\x03\x03\x03\x03')
-assert RD.service == 0x34
-assert RD.dataFormatIdentifier == 0xaa
-assert RD.memorySizeLen == 4
-assert RD.memoryAddressLen == 4
-assert RD.memoryAddress4 == 0x2020202
-assert RD.memorySize4 == 0x3030303
+rd = UDS(b'\x34\xaa\x44\x02\x02\x02\x02\x03\x03\x03\x03')
+assert rd.service == 0x34
+assert rd.dataFormatIdentifier == 0xaa
+assert rd.memorySizeLen == 4
+assert rd.memoryAddressLen == 4
+assert rd.memoryAddress4 == 0x2020202
+assert rd.memorySize4 == 0x3030303
 
 = Check UDS_RDPR
 
-RDPR = UDS(b'\x74\xaa\x44\x02\x02\x02\x02\x03\x03\x03\x03')
-assert RDPR.service == 0x74
-assert RDPR.routineControlType == 0xaa
-assert RDPR.memorySizeLen == 4
-assert RDPR.memoryAddressLen == 4
-assert RDPR.maxNumberOfBlockLength == b'\x02\x02\x02\x02\x03\x03\x03\x03'
+rdpr = UDS(b'\x74\xaa\x44\x02\x02\x02\x02\x03\x03\x03\x03')
+assert rdpr.service == 0x74
+assert rdpr.routineControlType == 0xaa
+assert rdpr.memorySizeLen == 4
+assert rdpr.memoryAddressLen == 4
+assert rdpr.maxNumberOfBlockLength == b'\x02\x02\x02\x02\x03\x03\x03\x03'
 
 = Check UDS_RU
 
-RU = UDS(b'\x35\xaa\x11\x02\x02')
-assert RU.service == 0x35
-assert RU.dataFormatIdentifier == 0xaa
-assert RU.memorySizeLen == 1
-assert RU.memoryAddressLen == 1
-assert RU.memoryAddress1 == 2
-assert RU.memorySize1 == 2
+ru = UDS(b'\x35\xaa\x11\x02\x02')
+assert ru.service == 0x35
+assert ru.dataFormatIdentifier == 0xaa
+assert ru.memorySizeLen == 1
+assert ru.memoryAddressLen == 1
+assert ru.memoryAddress1 == 2
+assert ru.memorySize1 == 2
 
 = Check UDS_RU
 
-RU = UDS(b'\x35\xaa\x22\x02\x02\x03\x03')
-assert RU.service == 0x35
-assert RU.dataFormatIdentifier == 0xaa
-assert RU.memorySizeLen == 2
-assert RU.memoryAddressLen == 2
-assert RU.memoryAddress2 == 0x202
-assert RU.memorySize2 == 0x303
+ru = UDS(b'\x35\xaa\x22\x02\x02\x03\x03')
+assert ru.service == 0x35
+assert ru.dataFormatIdentifier == 0xaa
+assert ru.memorySizeLen == 2
+assert ru.memoryAddressLen == 2
+assert ru.memoryAddress2 == 0x202
+assert ru.memorySize2 == 0x303
 
 = Check UDS_RU
 
-RU = UDS(b'\x35\xaa\x33\x02\x02\x02\x03\x03\x03')
-assert RU.service == 0x35
-assert RU.dataFormatIdentifier == 0xaa
-assert RU.memorySizeLen == 3
-assert RU.memoryAddressLen == 3
-assert RU.memoryAddress3 == 0x20202
-assert RU.memorySize3 == 0x30303
+ru = UDS(b'\x35\xaa\x33\x02\x02\x02\x03\x03\x03')
+assert ru.service == 0x35
+assert ru.dataFormatIdentifier == 0xaa
+assert ru.memorySizeLen == 3
+assert ru.memoryAddressLen == 3
+assert ru.memoryAddress3 == 0x20202
+assert ru.memorySize3 == 0x30303
 
 = Check UDS_RU
 
-RU = UDS(b'\x35\xaa\x44\x02\x02\x02\x02\x03\x03\x03\x03')
-assert RU.service == 0x35
-assert RU.dataFormatIdentifier == 0xaa
-assert RU.memorySizeLen == 4
-assert RU.memoryAddressLen == 4
-assert RU.memoryAddress4 == 0x2020202
-assert RU.memorySize4 == 0x3030303
+ru = UDS(b'\x35\xaa\x44\x02\x02\x02\x02\x03\x03\x03\x03')
+assert ru.service == 0x35
+assert ru.dataFormatIdentifier == 0xaa
+assert ru.memorySizeLen == 4
+assert ru.memoryAddressLen == 4
+assert ru.memoryAddress4 == 0x2020202
+assert ru.memorySize4 == 0x3030303
 
 = Check UDS_RUPR
 
-RUPR = UDS(b'\x75\xaa\x44\x02\x02\x02\x02\x03\x03\x03\x03')
-assert RUPR.service == 0x75
-assert RUPR.routineControlType == 0xaa
-assert RUPR.memorySizeLen == 4
-assert RUPR.memoryAddressLen == 4
-assert RUPR.maxNumberOfBlockLength == b'\x02\x02\x02\x02\x03\x03\x03\x03'
+rupr = UDS(b'\x75\xaa\x44\x02\x02\x02\x02\x03\x03\x03\x03')
+assert rupr.service == 0x75
+assert rupr.routineControlType == 0xaa
+assert rupr.memorySizeLen == 4
+assert rupr.memoryAddressLen == 4
+assert rupr.maxNumberOfBlockLength == b'\x02\x02\x02\x02\x03\x03\x03\x03'
 
 = Check UDS_TD
 
-TD = UDS(b'\x36\xaapayload')
-assert TD.service == 0x36
-assert TD.blockSequenceCounter == 0xaa
-assert TD.transferRequestParameterRecord == b'payload'
+td = UDS(b'\x36\xaapayload')
+assert td.service == 0x36
+assert td.blockSequenceCounter == 0xaa
+assert td.transferRequestParameterRecord == b'payload'
 
 = Check UDS_TDPR
 
-TDPR = UDS(b'\x76\xaapayload')
-assert TDPR.service == 0x76
-assert TDPR.blockSequenceCounter == 0xaa
-assert TDPR.transferResponseParameterRecord == b'payload'
+tdpr = UDS(b'\x76\xaapayload')
+assert tdpr.service == 0x76
+assert tdpr.blockSequenceCounter == 0xaa
+assert tdpr.transferResponseParameterRecord == b'payload'
 
 = Check UDS_RTE
 
-RTE = UDS(b'\x37payload')
-assert RTE.service == 0x37
-assert RTE.transferRequestParameterRecord == b'payload'
+rte = UDS(b'\x37payload')
+assert rte.service == 0x37
+assert rte.transferRequestParameterRecord == b'payload'
 
 = Check UDS_RTEPR
 
-RTEPR = UDS(b'\x77payload')
-assert RTEPR.service == 0x77
-assert RTEPR.transferResponseParameterRecord == b'payload'
+rtepr = UDS(b'\x77payload')
+assert rtepr.service == 0x77
+assert rtepr.transferResponseParameterRecord == b'payload'
 
 = Check UDS_IOCBI
 
-IOCBI = UDS(b'\x2f\x23\x34\xffcoffee')
-assert IOCBI.service == 0x2f
-assert IOCBI.dataIdentifier == 0x2334
-assert IOCBI.controlOptionRecord == 255
-assert IOCBI.controlEnableMaskRecord == b'coffee'
+iocbi = UDS(b'\x2f\x23\x34\xffcoffee')
+assert iocbi.service == 0x2f
+assert iocbi.dataIdentifier == 0x2334
+assert iocbi.controlOptionRecord == 255
+assert iocbi.controlEnableMaskRecord == b'coffee'
 
 
 = Check UDS_NRC
 
-NRC = UDS(b'\x7f\x22\x33')
-assert NRC.service == 0x7f
-assert NRC.requestServiceId == 0x22
-assert NRC.negativeResponseCode == 0x33
+nrc = UDS(b'\x7f\x22\x33')
+assert nrc.service == 0x7f
+assert nrc.requestServiceId == 0x22
+assert nrc.negativeResponseCode == 0x33
 
 
 
