@@ -620,6 +620,7 @@ def do_graph(graph, prog=None, format=None, target=None, type=None, string=None,
                             shell=True, stdin=subprocess.PIPE, stdout=target)
     proc.stdin.write(raw(graph))
     proc.stdin.close()
+    proc.wait()
     try:
         target.close()
     except:

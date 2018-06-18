@@ -3,6 +3,7 @@
     "*.uts",
     "../scapy/contrib/*.uts"
   ],
+  "breakfailed": true,
   "onlyfailed": true,
   "preexec": {
     "../scapy/contrib/*.uts": "load_contrib(\"%name%\")",
