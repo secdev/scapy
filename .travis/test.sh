@@ -10,8 +10,7 @@ then
   # pypy
   if python --version 2>&1 | grep -q PyPy
   then
-    # cryptography requires PyPy >= 2.6, Travis CI uses 2.5.0
-    UT_FLAGS+=" -K crypto -K not_pypy"
+    UT_FLAGS+=" -K not_pypy"
   fi
 elif [ "$TRAVIS_OS_NAME" = "osx" ]
 then
