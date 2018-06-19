@@ -430,6 +430,7 @@ debug_tls:When 1, print some TLS session secrets when they are computed.
     iface6 = None
     layers = LayersList()
     commands = CommandsList()
+    dot15d4_protocol = None  # Used in dot15d4.py
     logLevel = LogLevel()
     checkIPID = 0
     checkIPsrc = 1
@@ -494,7 +495,7 @@ debug_tls:When 1, print some TLS session secrets when they are computed.
                    'llmnr', 'lltd', 'mgcp', 'mobileip', 'netbios',
                    'netflow', 'ntp', 'ppp', 'pptp', 'radius', 'rip',
                    'rtp', 'sctp', 'sixlowpan', 'skinny', 'smb', 'snmp',
-                   'tftp', 'vrrp', 'vxlan', 'x509']
+                   'tftp', 'vrrp', 'vxlan', 'x509', 'zigbee']
     contribs = dict()
     crypto_valid = isCryptographyValid()
     crypto_valid_recent = isCryptographyRecent()

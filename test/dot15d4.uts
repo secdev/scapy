@@ -1,10 +1,14 @@
-% Regression tests for the Dot15D4 and SixLoWPAN layers
+% Regression tests for the Dot15D4, SixLoWPAN and Zigbee layers
 
 ###################
 #### SixLoWPAN ####
 ###################
 
 + SixLoWPAN tests
+
+= Set SixLoWPAN
+
+conf.dot15d4_protocol = "sixlowpan"
 
 = Default dissection
 
@@ -13,10 +17,7 @@
 lowpan_frag_first = b'\xc29\x00\x17`\x00\x00\x00\x00\x00\x00\x00 \x02\r\xb8\x00\x00\x00\x00\x00\x00\x00\xff\xfe\x00\x00\x01 \x02\r\xb8\x00\x00\x00\x00\x00\x11"\xff\xfe3DU\xc4\xf9\x00Pw\x9b\x18\x9d\x00\x00\x01\xa2P\x18\x13X\x08\x10\x00\x00GET / HTTP/1.1\r\nHost: [aaaa::11:22ff'
 lowpan_frag_first_packet = SixLoWPAN(lowpan_frag_first)
 
-assert lowpan_frag_first_packet.load == b'`\x00\x00\x00\x008\x00\x00 \x02\r\xb8\x00\x00\x00\x00\x00\x00\x00\xff\xfe\x00\x00\x01 \x02\r\xb8\x00\x00\x00\x00\x00\x11"\xff\xfe3DU\xc4\xf9\x00Pw\x9b\x18\x9d\x00\x00\x01\xa2P\x18\x13X\x08\x10\x00\x00GET / HTTP/1.1\r\nHost: [aaaa::11:22ff'
-assert lowpan_frag_first_packet[LoWPAN_IPHC].sam == 0
-assert lowpan_frag_first_packet[LoWPAN_IPHC].sourceAddr == '2002:db8::ff:fe00:1'
-assert lowpan_frag_first_packet[LoWPAN_IPHC].destinyAddr == '2002:db8::11:22ff:fe33:4455'
+assert lowpan_frag_first_packet.load == b'`\x00\x00\x00\x00\x00\x00\x00 \x02\r\xb8\x00\x00\x00\x00\x00\x00\x00\xff\xfe\x00\x00\x01 \x02\r\xb8\x00\x00\x00\x00\x00\x11"\xff\xfe3DU\xc4\xf9\x00Pw\x9b\x18\x9d\x00\x00\x01\xa2P\x18\x13X\x08\x10\x00\x00GET / HTTP/1.1\r\nHost: [aaaa::11:22ff'
 
 = Frag second dissection
 
@@ -278,3 +279,54 @@ assert packet.dam == 0x03
 assert packet._nhField == 0x06
 assert packet._hopLimit == 128
 packet.show2()
+
+
+###################
+#### Zigbee ####
+###################
+
++ Zigbee tests
+
+= Set zigbee
+
+conf.dot15d4_protocol = "zigbee"
+
+= Zigbee - advanced dissection
+
+import os
+tmp = "/test/pcaps/zigbee-join-authenticate.pcap"
+filename = os.path.abspath(os.path.join(os.path.dirname(__file__),"../")) + tmp
+filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else filename
+a = rdpcap(filename)
+
+pkt1 = a[0]  # Data
+pkt2 = a[1]  # Command
+pkt3 = a[2]  # Beacon
+pkt4 = a[38]  # ack
+
+assert Dot15d4 in pkt1
+assert ZigbeeNWK in pkt1
+assert ZigbeeSecurityHeader in pkt1
+assert pkt1[ZigbeeNWK].flags == 18
+assert pkt1[ZigbeeNWK].ext_src == 3781220488824152
+f,v = pkt1[ZigbeeNWK].getfield_and_val("ext_src")
+assert f.i2repr(None, v) == "00:0d:6f:00:00:0d:c5:58"
+assert pkt1[ZigbeeSecurityHeader].source == 3781220488824152
+assert pkt1[ZigbeeSecurityHeader].key_type == 1
+assert pkt1[ZigbeeSecurityHeader].extended_nonce == 1
+
+assert Dot15d4 in pkt2
+assert Dot15d4Cmd in pkt2
+assert pkt2[Dot15d4Cmd].dest_addr == 0xffff
+assert pkt2[Dot15d4Cmd].dest_panid == 0xffff
+assert pkt2[Dot15d4Cmd].cmd_id == 7
+
+assert Dot15d4 in pkt3
+assert Dot15d4Beacon in pkt3
+assert ZigBeeBeacon in pkt3
+assert pkt3[Dot15d4Beacon].src_panid == 0x1ff
+assert pkt3[ZigBeeBeacon].nwkc_protocol_version== 2
+assert pkt3[ZigBeeBeacon].extended_pan_id == 125823003551091
+f,v = pkt3[ZigBeeBeacon].getfield_and_val("extended_pan_id")
+assert f.i2repr(None, v) == "00:00:72:6f:73:6e:65:73"
+assert pkt3[ZigBeeBeacon].tx_offset == 16777215
