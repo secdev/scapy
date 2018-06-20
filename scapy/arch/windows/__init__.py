@@ -550,7 +550,6 @@ class NetworkInterface(object):
         self.mac = None
         self.pcap_name = None
         self.description = None
-        self.data = data
         self.invalid = False
         self.raw80211 = None
         if data is not None:
@@ -558,6 +557,7 @@ class NetworkInterface(object):
 
     def update(self, data):
         """Update info about network interface according to given dnet dictionary"""  # noqa: E501
+        self.data = data
         if 'netid' in data and data['netid'] == scapy.consts.LOOPBACK_NAME:
             # Force LOOPBACK_NAME: Some Windows systems overwrite 'name'
             self.name = scapy.consts.LOOPBACK_NAME
@@ -601,7 +601,7 @@ class NetworkInterface(object):
         if self.is_invalid():
             return
         for i in get_if_list():
-            if i.endswith(self.data['guid']):
+            if i.endswith(self.guid):
                 self.pcap_name = i
                 return
 
@@ -1263,12 +1263,14 @@ def route_add_loopback(routes=None, ipv6=False, iflist=None):
         'name': scapy.consts.LOOPBACK_NAME,
         'description': "Loopback",
         'win_index': -1,
-        'guid': _get_valid_guid(),
-        'invalid': False,
+        'guid': "{0XX00000-X000-0X0X-X00X-00XXXX000XXX}",
+        'invalid': True,
         'mac': '00:00:00:00:00:00',
     }
-    data['pcap_name'] = six.text_type("\\Device\\NPF_" + data['guid'])
-    adapter = NetworkInterface(data)
+    adapter = NetworkInterface()
+    adapter.pcap_name = "\\Device\\NPF_{0XX00000-X000-0X0X-X00X-00XXXX000XXX}"
+    adapter.update(data)
+    adapter.invalid = False
     adapter.ip = "127.0.0.1"
     if iflist:
         iflist.append(adapter.pcap_name)
@@ -1291,6 +1293,8 @@ def route_add_loopback(routes=None, ipv6=False, iflist=None):
     if isinstance(conf.iface6, NetworkInterface):
         if conf.iface6.name == LOOPBACK_NAME:
             conf.iface6 = adapter
+    conf.netcache.arp_cache["127.0.0.1"] = "ff:ff:ff:ff:ff:ff"
+    conf.netcache.in6_neighbor["::1"] = "ff:ff:ff:ff:ff:ff"
     # Build the packed network addresses
     loop_net = struct.unpack("!I", socket.inet_aton("127.0.0.0"))[0]
     loop_mask = struct.unpack("!I", socket.inet_aton("255.0.0.0"))[0]

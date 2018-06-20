@@ -1,11 +1,14 @@
 {
   "testfiles": [
     "test\\*.uts",
+    "test\\tls\\tests_tls_netaccess.uts",
     "scapy\\contrib\\*.uts"
   ],
   "remove_testfiles": [
     "scapy\\contrib\\cansocket_native.uts",
-    "scapy\\contrib\\cansocket_python_can.uts"
+    "scapy\\contrib\\cansocket_python_can.uts",
+    "test\\bpf.uts",
+    "test\\linux.uts"
   ],
   "breakfailed": true,
   "onlyfailed": true,
@@ -18,6 +21,9 @@
   "format": "text",
   "kw_ko": [
     "crypto_advanced",
+    "mock_read_routes_bsd",
+    "require_gui",
+    "open_ssl_client",
     "ipv6",
     "osx",
     "linux"

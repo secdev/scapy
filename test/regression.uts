@@ -119,6 +119,9 @@ else:
 
 = Test ifchange()
 conf.route6.ifchange(LOOPBACK_NAME, "::1/128")
+if WINDOWS:
+    conf.netcache.in6_neighbor["::1"] = "ff:ff:ff:ff:ff:ff"  # Restore fake cache
+
 True
 
 
@@ -935,32 +938,44 @@ raw(RandASN1Object())
 
 * Those tests need network access
 
+= Import retry_test()
+from scapy.tools.UTscapy import retry_test
+
 = Sending and receiving an ICMP
 ~ netaccess IP ICMP
-old_debug_dissector = conf.debug_dissector
-conf.debug_dissector = False
-x = sr1(IP(dst="www.google.com")/ICMP(),timeout=3)
-conf.debug_dissector = old_debug_dissector
-x
-assert x[IP].ottl() in [32, 64, 128, 255]
-assert 0 <= x[IP].hops() <= 126
-x is not None and ICMP in x and x[ICMP].type == 0
+def _test():
+    old_debug_dissector = conf.debug_dissector
+    conf.debug_dissector = False
+    x = sr1(IP(dst="www.google.com")/ICMP(),timeout=3)
+    conf.debug_dissector = old_debug_dissector
+    x
+    assert x[IP].ottl() in [32, 64, 128, 255]
+    assert 0 <= x[IP].hops() <= 126
+    x is not None and ICMP in x and x[ICMP].type == 0
+
+retry_test(_test)
 
 = Sending an ICMP message at layer 2 and layer 3
 ~ netaccess IP ICMP
-tmp = send(IP(dst="8.8.8.8")/ICMP(), return_packets=True, realtime=True)
-assert(len(tmp) == 1)
+def _test():
+    tmp = send(IP(dst="8.8.8.8")/ICMP(), return_packets=True, realtime=True)
+    assert(len(tmp) == 1)
+    
+    tmp = sendp(Ether()/IP(dst="8.8.8.8")/ICMP(), return_packets=True, realtime=True)
+    assert(len(tmp) == 1)
 
-tmp = sendp(Ether()/IP(dst="8.8.8.8")/ICMP(), return_packets=True, realtime=True)
-assert(len(tmp) == 1)
+retry_test(_test)
 
 = Sending an ICMP message 'forever' at layer 2 and layer 3
 ~ netaccess IP ICMP
-tmp = srloop(IP(dst="8.8.8.8")/ICMP(), count=1)
-assert(type(tmp) == tuple and len(tmp[0]) == 1)
+def _test():
+    tmp = srloop(IP(dst="8.8.8.8")/ICMP(), count=1)
+    assert(type(tmp) == tuple and len(tmp[0]) == 1)
+    
+    tmp = srploop(Ether()/IP(dst="8.8.8.8")/ICMP(), count=1)
+    assert(type(tmp) == tuple and len(tmp[0]) == 1)
 
-tmp = srploop(Ether()/IP(dst="8.8.8.8")/ICMP(), count=1)
-assert(type(tmp) == tuple and len(tmp[0]) == 1)
+retry_test(_test)
 
 = Sending and receiving an ICMP with flooding methods
 ~ netaccess IP ICMP
@@ -972,7 +987,7 @@ def _test_flood(flood_function, add_ether=False):
     p = IP(dst="www.google.com")/ICMP()
     if add_ether:
         p = Ether()/p
-    x = flood_function(p)
+    x = flood_function(p, timeout=2)
     conf.debug_dissector = old_debug_dissector
     if type(x) == tuple:
         x = x[0][0][1]
@@ -982,114 +997,78 @@ def _test_flood(flood_function, add_ether=False):
     x is not None and ICMP in x and x[ICMP].type == 0
 
 _test_srflood = partial(_test_flood, srflood)
-t = Thread(target=_test_srflood)
-t.start()
-t.join(3)
-assert not t.is_alive()
+retry_test(_test_srflood)
 
 _test_sr1flood = partial(_test_flood, sr1flood)
-t = Thread(target=_test_sr1flood)
-t.start()
-t.join(3)
-assert not t.is_alive()
+retry_test(_test_sr1flood)
 
 _test_srpflood = partial(_test_flood, srpflood, True)
-t = Thread(target=_test_sr1flood)
-t.start()
-t.join(3)
-assert not t.is_alive()
+retry_test(_test_srpflood)
 
 _test_srp1flood = partial(_test_flood, srp1flood, True)
-t = Thread(target=_test_sr1flood)
-t.start()
-t.join(3)
-assert not t.is_alive()
+retry_test(_test_srp1flood)
 
 = Sending and receiving an ICMPv6EchoRequest
 ~ netaccess ipv6
-old_debug_dissector = conf.debug_dissector
-conf.debug_dissector = False
-x = sr1(IPv6(dst="www.google.com")/ICMPv6EchoRequest(),timeout=3)
-conf.debug_dissector = old_debug_dissector
-x
-assert x[IPv6].ottl() in [32, 64, 128, 255]
-assert 0 <= x[IPv6].hops() <= 126
-x is not None and ICMPv6EchoReply in x and x[ICMPv6EchoReply].type == 129
+def _test():
+    old_debug_dissector = conf.debug_dissector
+    conf.debug_dissector = False
+    x = sr1(IPv6(dst="www.google.com")/ICMPv6EchoRequest(),timeout=3)
+    conf.debug_dissector = old_debug_dissector
+    x
+    assert x[IPv6].ottl() in [32, 64, 128, 255]
+    assert 0 <= x[IPv6].hops() <= 126
+    x is not None and ICMPv6EchoReply in x and x[ICMPv6EchoReply].type == 129
+
+retry_test(_test)
 
 = DNS request
 ~ netaccess IP UDP DNS
 * A possible cause of failure could be that the open DNS (resolver1.opendns.com)
 * is not reachable or down.
-old_debug_dissector = conf.debug_dissector
-conf.debug_dissector = False
-dns_ans = sr1(IP(dst="resolver1.opendns.com")/UDP()/DNS(rd=1,qd=DNSQR(qname="www.slashdot.com")),timeout=5)
-conf.debug_dissector = old_debug_dissector
-DNS in dns_ans
+def _test():
+    old_debug_dissector = conf.debug_dissector
+    conf.debug_dissector = False
+    dns_ans = sr1(IP(dst="resolver1.opendns.com")/UDP()/DNS(rd=1,qd=DNSQR(qname="www.slashdot.com")),timeout=5)
+    conf.debug_dissector = old_debug_dissector
+    DNS in dns_ans
+    return dns_ans
+
+dns_ans = retry_test(_test)
 
 = Whois request
 ~ netaccess IP
 * This test retries on failure because it often fails
-import time
-import socket
-success = False
-for i in six.moves.range(5):
-    try:
-        IP(src="8.8.8.8").whois()
-    except socket.error:
-        time.sleep(2)
-    else:
-        success = True
-        break
+def _test():
+    IP(src="8.8.8.8").whois()
 
-assert success
+retry_test(_test)
 
 = AS resolvers
 ~ netaccess IP
 * This test retries on failure because it often fails
 
-ret = list()
-success = False
-for i in six.moves.range(5):
-    try:
-        ret = conf.AS_resolver.resolve("8.8.8.8", "8.8.4.4")
-    except RuntimeError:
-        time.sleep(2)
-    else:
-        success = True
-        break
+def _test():
+    ret = conf.AS_resolver.resolve("8.8.8.8", "8.8.4.4")
+    assert (len(ret) == 2)
+    all(x[1] == "AS15169" for x in ret)
 
-assert (len(ret) == 2)
-all(x[1] == "AS15169" for x in ret)
+retry_test(_test)
 
-ret = list()
-success = False
-for i in six.moves.range(5):
-    try:
-        ret = AS_resolver_riswhois().resolve("8.8.8.8")
-    except socket.error:
-        time.sleep(2)
-    else:
-        success = True
-        break
+def _test():
+    ret = AS_resolver_riswhois().resolve("8.8.8.8")
+    assert (len(ret) == 1)
+    assert all(x[1] == "AS15169" for x in ret)
 
-assert (len(ret) == 1)
-assert all(x[1] == "AS15169" for x in ret)
+retry_test(_test)
 
 # This test is too buggy, and is simulated below
-#ret = list()
-#success = False
-#for i in six.moves.range(5):
-#    try:
-#        ret = AS_resolver_cymru().resolve("8.8.8.8")
-#    except socket.error:
-#        time.sleep(2)
-#    else:
-#        success = True
-#        break
+#def _test():
+#    ret = AS_resolver_cymru().resolve("8.8.8.8")
+#    assert (len(ret) == 1)
+#    all(x[1] == "AS15169" for x in ret)
 #
-#assert (len(ret) == 1)
-#
-#all(x[1] == "AS15169" for x in ret)
+#retry_test(_test)
 
 cymru_bulk_data = """
 Bulk mode; whois.cymru.com [2017-10-03 08:38:08 +0000]
@@ -1105,20 +1084,13 @@ assert([l[1] for l in tmp] == ['AS24776', 'AS36459', 'AS26496'])
 ~ netaccess IP
 * This test retries on failure because it often fails
 
-ret = list()
-success = False
-as_resolver6 = AS_resolver6()
-for i in six.moves.range(5):
-    try:
-        ret = as_resolver6.resolve("2001:4860:4860::8888", "2001:4860:4860::4444")
-    except socket.error:
-        time.sleep(2)
-    else:
-        success = True
-        break
+def _test():
+    as_resolver6 = AS_resolver6()
+    ret = as_resolver6.resolve("2001:4860:4860::8888", "2001:4860:4860::4444")
+    assert (len(ret) == 2)
+    assert all(x[1] == 15169 for x in ret)
 
-assert (len(ret) == 2)
-assert all(x[1] == 15169 for x in ret)
+retry_test(_test)
 
 = sendpfast
 
@@ -1160,43 +1132,55 @@ len(l) == 7
 
 = Port scan
 ~ netaccess IP TCP
-old_debug_dissector = conf.debug_dissector
-conf.debug_dissector = False
-ans,unans=sr(IP(dst="www.google.com/30")/TCP(dport=[80,443]),timeout=2)
-conf.debug_dissector = old_debug_dissector
+def _test():
+    old_debug_dissector = conf.debug_dissector
+    conf.debug_dissector = False
+    ans,unans=sr(IP(dst="www.google.com/30")/TCP(dport=[80,443]),timeout=2)
+    conf.debug_dissector = old_debug_dissector
+    
+    # Backward compatibility: Python 2 only
+    if six.PY2:
+        exec("""ans.make_table(lambda (s, r): (s.dst, s.dport, r.sprintf("{TCP:%TCP.flags%}{ICMP:%ICMP.code%}")))""")
+    
+    # New format: all Python versions
+    ans.make_table(lambda s, r: (s.dst, s.dport, r.sprintf("{TCP:%TCP.flags%}{ICMP:%ICMP.code%}")))
 
-# Backward compatibility: Python 2 only
-if six.PY2:
-    exec("""ans.make_table(lambda (s, r): (s.dst, s.dport, r.sprintf("{TCP:%TCP.flags%}{ICMP:%ICMP.code%}")))""")
-
-# New format: all Python versions
-ans.make_table(lambda s, r: (s.dst, s.dport, r.sprintf("{TCP:%TCP.flags%}{ICMP:%ICMP.code%}")))
+retry_test(_test)
 
 = Send & receive with retry
 ~ netaccess IP ICMP
-old_debug_dissector = conf.debug_dissector
-conf.debug_dissector = False
-ans, unans = sr(IP(dst=["8.8.8.8", "1.2.3.4"]) / ICMP(), timeout=2, retry=1)
-conf.debug_dissector = old_debug_dissector
-len(ans) == 1 and len(unans) == 1
+def _test():
+    old_debug_dissector = conf.debug_dissector
+    conf.debug_dissector = False
+    ans, unans = sr(IP(dst=["8.8.8.8", "1.2.3.4"]) / ICMP(), timeout=2, retry=1)
+    conf.debug_dissector = old_debug_dissector
+    len(ans) == 1 and len(unans) == 1
+
+retry_test(_test)
 
 = Send & receive with process
 ~ netaccess IP ICMP
-old_debug_dissector = conf.debug_dissector
-conf.debug_dissector = False
-ans, unans = sr(IP(dst=["www.google.fr", "www.google.com", "www.google.co.uk"])/ICMP(), process=lambda x, y: (x[IP].dst, y[IP].src), timeout=2)
-conf.debug_dissector = old_debug_dissector
-assert all(x == y for x, y in ans)
-assert isinstance(unans, list)
+def _test():
+    old_debug_dissector = conf.debug_dissector
+    conf.debug_dissector = False
+    ans, unans = sr(IP(dst=["www.google.fr", "www.google.com", "www.google.co.uk"])/ICMP(), process=lambda x, y: (x[IP].dst, y[IP].src), timeout=2)
+    conf.debug_dissector = old_debug_dissector
+    assert all(x == y for x, y in ans)
+    assert isinstance(unans, list)
+
+retry_test(_test)
 
 = Send & receive with store_unanswered=False
 ~ netaccess IP ICMP
-old_debug_dissector = conf.debug_dissector
-conf.debug_dissector = False
-ans, unans = sr(IP(dst=["www.google.fr", "www.google.com", "www.google.co.uk"])/ICMP(), store_unanswered=False, timeout=2)
-conf.debug_dissector = old_debug_dissector
-assert isinstance(ans, PacketList)
-assert unans == None
+def _test():
+    old_debug_dissector = conf.debug_dissector
+    conf.debug_dissector = False
+    ans, unans = sr(IP(dst=["www.google.fr", "www.google.com", "www.google.co.uk"])/ICMP(), store_unanswered=False, timeout=2)
+    conf.debug_dissector = old_debug_dissector
+    assert isinstance(ans, PacketList)
+    assert unans == None
+
+retry_test(_test)
 
 = Traceroute function
 ~ netaccess
@@ -1231,9 +1215,12 @@ assert raw(DNSRR(type='A', rdata='1.2.3.4')) == b'\x00\x00\x01\x00\x01\x00\x00\x
 = Arping
 ~ netaccess
 * This test assumes the local network is a /24. This is bad.
-ip_address = conf.route.route("0.0.0.0")[2]
-ip_address
-arping(ip_address+"/24")
+def _test():
+    ip_address = conf.route.route("0.0.0.0")[2]
+    ip_address
+    arping(ip_address+"/24")
+
+retry_test(_test)
 
 = send() and sniff()
 ~ netaccess
@@ -1315,31 +1302,43 @@ True
 
 = Test set of sent_time by sr
 ~ netaccess IP ICMP
-packet = IP(dst="8.8.8.8")/ICMP()
-r = sr(packet)
-assert packet.sent_time is not None
+def _test():
+    packet = IP(dst="8.8.8.8")/ICMP()
+    r = sr(packet, timeout=2)
+    assert packet.sent_time is not None
+
+retry_test(_test)
 
 = Test set of sent_time by sr (multiple packets)
 ~ netaccess IP ICMP
-packet1 = IP(dst="8.8.8.8")/ICMP()
-packet2 = IP(dst="8.8.4.4")/ICMP()
-r = sr([packet1, packet2])
-assert packet1.sent_time is not None
-assert packet2.sent_time is not None
+def _test():
+    packet1 = IP(dst="8.8.8.8")/ICMP()
+    packet2 = IP(dst="8.8.4.4")/ICMP()
+    r = sr([packet1, packet2], timeout=2)
+    assert packet1.sent_time is not None
+    assert packet2.sent_time is not None
+
+retry_test(_test)
 
 = Test set of sent_time by srflood
 ~ netaccess IP ICMP
-packet = IP(dst="8.8.8.8")/ICMP()
-r = srflood(packet)
-assert packet.sent_time is not None
+def _test():
+    packet = IP(dst="8.8.8.8")/ICMP()
+    r = srflood(packet, timeout=2)
+    assert packet.sent_time is not None
+
+retry_test(_test)
 
 = Test set of sent_time by srflood (multiple packets)
 ~ netaccess IP ICMP
-packet1 = IP(dst="8.8.8.8")/ICMP()
-packet2 = IP(dst="8.8.4.4")/ICMP()
-r = srflood([packet1, packet2])
-assert packet1.sent_time is not None
-assert packet2.sent_time is not None
+def _test():
+    packet1 = IP(dst="8.8.8.8")/ICMP()
+    packet2 = IP(dst="8.8.4.4")/ICMP()
+    r = srflood([packet1, packet2], timeout=2)
+    assert packet1.sent_time is not None
+    assert packet2.sent_time is not None
+
+retry_test(_test)
 
 ############
 ############
