@@ -463,7 +463,7 @@ class ConsoleSink(Sink):
 
 
 class RawConsoleSink(Sink):
-    """Print messages on low and high entries
+    """Print messages on low and high entries, using os.write
      +-------+
   >>-|--.    |->>
      | write |

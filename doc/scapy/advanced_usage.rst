@@ -790,6 +790,285 @@ Two methods are hooks to be overloaded:
 
 * The ``master_filter()`` method is called each time a packet is sniffed and decides if it is interesting for the automaton. When working on a specific protocol, this is where you will ensure the packet belongs to the connection you are being part of, so that you do not need to make all the sanity checks in each transition.
 
+
+PipeTools
+=========
+
+Pipetool is a smart piping system allowing to perform complex stream data management.
+
+.. note:: Pipetool default objects are located inside ``scapy.pipetool``
+
+Class Types
+-----------
+
+There are 3 different class of objects used for data management:
+
+- ``Sources``
+- ``Drains``
+- ``Sinks``
+
+They are executed and handled by a ``PipeEngine`` object.
+
+When running, a pipetool engine waits for any available data from the Source, and send it in the Drains linked to it.
+The data then goes from Drains to Drains until it arrives to a Sink, the final state of this data.
+
+Here is a basic demo of what the PipeTool system can do
+
+.. image:: graphics/pipetool_engine.png
+
+For instance, this engine was generated with this code:
+
+>>> s = CLIFeeder()
+>>> s2 = CLIHighFeeder()
+>>> d1 = Drain()
+>>> d2 = TransformDrain(lambda x: x[::-1])
+>>> si1 = ConsoleSink()
+>>> si2 = QueueSink()
+>>> 
+>>> s > d1
+>>> d1 > si1
+>>> d1 > si2
+>>> 
+>>> s2 >> d1
+>>> d1 >> d2
+>>> d2 >> si1
+>>> 
+>>> p = PipeEngine()
+>>> p.add(s)
+>>> p.add(s2)
+>>> p.graph(target="> the_above_image.png")
+
+Let's start our PipeEngine:
+
+>>> p.start()
+
+Now, let's play with it:
+
+>>> s.send("foo")
+>'foo'
+>>> s2.send("bar")
+>>'rab'
+>>> s.send("i like potato")
+>'i like potato'
+>>> print(si2.recv(), ":", si2.recv())
+foo : i like potato
+
+Let's study what happens here:
+
+- there are two canals in PipeEngine, a low one and a high one. Some sources write on the lower one, some on the higher one and some on both.
+- most sources can be linked to any drain, on both lower and higher canals. The use of `>` indicates a link on the low canal, and `>>` on the higher one.
+- when we send some data in `s`, which is on the lower canal, as shown above, it goes through the `Drain` then is sent to the `QueueSink` and to the `ConsoleSink`
+- when we send some data in `s2`, in goes through the Drain, then the TransformDrain where the data is reversed (see the lambda), before being sent to `ConsoleSink` only. This explains why we only have the data of the lower sources inside the QueueSink: the higher one has not been linked.
+
+Most of the sinks receive from both lower and upper canals. This is verifiable using the `help(ConsoleSink)`
+
+>>> help(ConsoleSink)
+Help on class ConsoleSink in module scapy.pipetool:
+class ConsoleSink(Sink)
+ |  Print messages on low and high entries
+ |     +-------+
+ |  >>-|--.    |->>
+ |     | print |
+ |   >-|--'    |->
+ |     +-------+
+ |
+ [...]
+
+
+Sources
+^^^^^^^
+
+A Source is a class that generates some data. They are several source types integrated with scapy, usable as-is, but you may also create yours.
+
+Default Source classes
+~~~~~~~~~~~~~~~~~~~~~~
+
+For any of those class, have a look at ``help([theclass])`` to get more information, or the required parameters.
+
+- CLIFeeder : a source especially used in interactive software. its ``send(data)`` generates the event data on the lower canal
+- CLIHighFeeder : same than CLIFeeder, but writes on the higher canal
+- PeriodicSource : Generage messages periodically on low canal.
+- AutoSource: the default source, that must be extended to create custom sources. 
+
+Create a custom Source
+~~~~~~~~~~~~~~~~~~~~~~
+
+To create a custom source, one must extend the ``AutoSource`` class.
+
+Do NOT use the default ``Source`` class except if you are really sure of what you are doing: it is only used internally, and is missing some implementation. The ``AutoSource`` is made to be used.
+
+
+To send data through it, the object must call its ``self._gen_data(msg)`` or ``self._gen_high_data(msg)`` functions, which send the data into the PipeEngine.
+
+The Source should also (if possible), set ``self.is_exhausted`` to ``True`` when empty, to allow the clean stop of the ``PipeEngine``. If the source is infinite, it will need a force-stop (see PipeEngine below)
+
+For instance, here is how CLIHighFeeder is implemented:
+
+    class CLIFeeder(CLIFeeder):
+        def send(self, msg):
+            self._gen_high_data(msg)
+        def close(self):
+            self.is_exhausted = True
+
+Drains
+^^^^^^
+
+Default Drain classes
+~~~~~~~~~~~~~~~~~~~~~
+
+Drains need to be linked on the entry that you are using. It can be either on the lower one (using ``>``) or the upper one (using ``>>``).
+See the basic example above.
+
+- Drain : the most basic Drain possible. Will pass on both low and high entry if linked properly.
+- TransformDrain : Apply a function to messages on low and high entry
+- UpDrain : Repeat messages from low entry to high exit
+- DownDrain : Repeat messages from high entry to low exit
+
+Create a custom Drain
+~~~~~~~~~~~~~~~~~~~~~
+
+To create a custom drain, one must extend the ``Drain`` class.
+
+A ``Drain`` object will receive data from the lower canal in its ``push`` method, and from the higher canal from its ``high_push`` method.
+
+To send the data back into the next linked Drain / Sink, it must calls the ``self._send(msg)`` or ``self._high_send(msg)`` methods.
+
+For instance, here is how TransformDrain is implemented:
+
+    class TransformDrain(Drain):
+        def __init__(self, f, name=None):
+            Drain.__init__(self, name=name)
+            self.f = f
+        def push(self, msg):
+            self._send(self.f(msg))
+        def high_push(self, msg):
+            self._high_send(self.f(msg))
+
+Sinks
+^^^^^
+
+Default Sink classes
+~~~~~~~~~~~~~~~~~~~~
+
+- Sink : does not do anything. This must be extended to create custom sinks
+- ConsoleSink : Print messages on low and high entries
+- RawConsoleSink : Print messages on low and high entries, using os.write
+- TermSink : Print messages on low and high entries on a separate terminal
+- QueueSink: Collect messages from high and low entries and queue them. Messages are unqueued with the .recv() method.
+
+Create a custom Sink
+~~~~~~~~~~~~~~~~~~~~
+
+To create a custom sink, one must extend the ``Sink`` class.
+
+A ``Sink`` class receives data like a ``Drain``, from the lower canal in its ``push`` method, and from the higher canal from its ``high_push`` method.
+
+A ``Sink`` is the dead end of data, it won't be send anywhere after it.
+
+For instance, here is how ConsoleSink is implemented:
+
+    class ConsoleSink(Sink):
+        def push(self, msg):
+            print(">%r" % msg)
+        def high_push(self, msg):
+            print(">>%r" % msg)
+
+Link objects
+------------
+
+As shown in the example, most sources can be linked to any drain, on both lower and higher canals.
+
+The use of `>` indicates a link on the low canal, and `>>` on the higher one.
+
+For instance
+
+>>> a = CLIFeeder()
+>>> b = Drain()
+>>> c = ConsoleSink()
+>>> a > b > c
+>>> p = PipeEngine()
+>>> p.add(a)
+
+This links a, b, and c on the lower canal. If you tried to send anything on the higher canal, for instance by adding
+
+>>> a2 = CLIHighFeeder()
+>>> a2 >> b
+>>> a2.send("hello")
+
+It would not do anything as the Drain is not linked to the Sink on the upper canal. However, one could do
+
+>>> a2 = CLIHighFeeder()
+>>> b2 = DownDrain()
+>>> a2 >> b2
+>>> b2 > b
+>>> a2.send("hello")
+
+The PipeEngine class
+--------------------
+
+The ``PipeEngine`` class is the core class of the Pipetool system. It must be initialized and passed the list of all Sources.
+
+There are two ways of passing the sources:
+
+- during initialization: ``p = PipeEngine(source1, source2, ...)``
+- using the ``add(source)`` method
+
+A ``PipeEngine`` class must be started with ``.start()`` function. It may be force-stopped with the ``.stop()``, or cleanly stopped with ``.wait_and_stop()``
+
+A clean stop only works if the Sources is exhausted (has no data to send left).
+
+It can be printed into a graph using ``.graph()`` methods. see ``help(do_graph)`` for the list of possible kwarguments.
+
+Scapy advanced PipeTool objects
+-------------------------------
+
+.. note:: Unlike the previous objects, those are not located in ``scapy.pipetool`` but in ``scapy.scapypipes``
+
+Know that you know the default PipeTool objects, here are more advanced ones, based on packet functionnalities.
+
+- SniffSource : Read packets from an interface and send them to low exit.
+- RdpcapSource : Read packets from a PCAP file send them to low exit.
+- InjectSink : Packets received on low input are injected (sent) to an interface
+- WrpcapSink : Packets received on low input are written to PCAP file
+- UDPDrain : UDP payloads received on high entry are sent over UDP (complicated, have a look at ``help(UDPDrain)``)
+- FDSourceSink : Use a file descriptor as source and sink
+- TCPConnectPipe : TCP connect to addr:port and use it as source and sink
+- TCPListenPipe : TCP listen on [addr:]port and use first connection as source and sink (complicated, have a look at ``help(TCPListenPipe)``)
+
+Triggering
+----------
+
+Some special sort of Drains exist: the Trigger Drains.
+
+Trigger Drains are special drains, that on receiving data not only pass it by, but also send a "Trigger" input, that is received and handled by the next triggered drain (if it exists).
+
+For example, here is a basic TriggerDrain usage:
+
+>>> a = CLIFeeder()
+>>> d = TriggerDrain(lambda msg: True) # Pass messages and trigger when a condition is met
+>>> d2 = TriggeredValve()
+>>> s = ConsoleSink()
+>>> a > d > d2 > s
+>>> d ^ d2 # Link the triggers
+>>> p = PipeEngine(s)
+>>> p.start()
+INFO: Pipe engine thread started.
+>>> 
+>>> a.send("this will be printed")
+>'this will be printed'
+>>> a.send("this won't, because the valve was switched")
+>>> a.send("this will, because the valve was switched again")
+>'this will, because the valve was switched again'
+>>> p.stop()
+
+Several triggering Drains exist, they are pretty explicit. It is highly recommended to check the doc using ``help([the class])``
+
+- TriggeredMessage : Send a preloaded message when triggered and trigger in chain
+- TriggerDrain : Pass messages and trigger when a condition is met
+- TriggeredValve : Let messages alternatively pass or not, changing on trigger
+- TriggeredQueueingValve : Let messages alternatively pass or queued, changing on trigger
+- TriggeredSwitch : Let messages alternatively high or low, changing on trigger
+
 PROFINET IO RTC
 ===============
 
