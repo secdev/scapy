@@ -1,6 +1,6 @@
 + Tacacs+ header
 
-= default instanciation
+= default instantiation
 
 from scapy.consts import WINDOWS
 if WINDOWS:
@@ -26,7 +26,7 @@ pkt.session_id == 5878755
 
 + Tacacs+ Authentication Start 
 
-= default instanciation
+= default instantiation
 
 pkt = IP()/TCP(dport=49)/TacacsHeader()/TacacsAuthenticationStart()
 raw(pkt) == b'E\x00\x00<\x00\x01\x00\x00@\x06|\xb9\x7f\x00\x00\x01\x7f\x00\x00\x01\x001\x001\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\xce\xfb\x00\x00\xc0\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x08R\x0f\x9e\xe7\xe0\xd1/\x9c'
@@ -48,7 +48,7 @@ pkt.user == b'scapy' and pkt.port == b'tty3'
 
 + Tacacs+ Authentication Reply
 
-= default instanciation
+= default instantiation
 
 pkt = IP()/TCP(dport=49)/TacacsHeader()/TacacsAuthenticationReply()
 raw(pkt) == b'E\x00\x00:\x00\x01\x00\x00@\x06|\xbb\x7f\x00\x00\x01\x7f\x00\x00\x01\x001\x001\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\xfd\x9d\x00\x00\xc0\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x06R\x0e\x9f\xe6\xe0\xd1'
@@ -70,7 +70,7 @@ pkt.server_msg == b'Password: '
 
 + Tacacs+ Authentication Continue
 
-= default instanciation
+= default instantiation
 
 pkt = IP()/TCP(dport=49)/TacacsHeader()/TacacsAuthenticationContinue()
 raw(pkt) == b'E\x00\x009\x00\x01\x00\x00@\x06|\xbc\x7f\x00\x00\x01\x7f\x00\x00\x01\x001\x001\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\xfcp\x00\x00\xc0\x01\x01\x00\x00\x00\x00\x00\x00\x00\x00\x05S\x0e\x9f\xe6\xe1'
@@ -92,7 +92,7 @@ pkt.user_msg == b'password'
 
 + Tacacs+ Authorization Request
 
-= default instanciation
+= default instantiation
 
 pkt = IP()/TCP()/TacacsHeader(type=2)/TacacsAuthorizationRequest()
 raw(pkt) == b'E\x00\x00<\x00\x01\x00\x00@\x06|\xb9\x7f\x00\x00\x01\x7f\x00\x00\x01\x001\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\xcd\xdb\x00\x00\xc0\x02\x01\x00\x00\x00\x00\x00\x00\x00\x00\x08S\x0f\x9e\xe7\xe0\xd1/\x9c'
@@ -114,7 +114,7 @@ pkt.port == b'tty9'
 
 + Tacacs+ Authorization Reply
 
-= default instanciation
+= default instantiation
 
 pkt = IP()/TCP()/TacacsHeader(type=2)/TacacsAuthorizationReply()
 raw(pkt) == b'E\x00\x00:\x00\x01\x00\x00@\x06|\xbb\x7f\x00\x00\x01\x7f\x00\x00\x01\x001\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\xfc}\x00\x00\xc0\x02\x01\x00\x00\x00\x00\x00\x00\x00\x00\x06S\x0e\x9f\xe6\xe0\xd1'
@@ -136,7 +136,7 @@ pkt.status == 1
 
 + Tacacs+ Accounting Request
 
-= default instanciation
+= default instantiation
 
 pkt = IP()/TCP()/TacacsHeader(type=3)/TacacsAccountingRequest()
 raw(pkt) == b'E\x00\x00=\x00\x01\x00\x00@\x06|\xb8\x7f\x00\x00\x01\x7f\x00\x00\x01\x001\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\xb3\xd9\x00\x00\xc0\x03\x01\x00\x00\x00\x00\x00\x00\x00\x00\tS\x0e\x9e\xe7\xe1\xd1/\x9c\x19'
@@ -158,7 +158,7 @@ pkt.rem_addr == b'192.10.10.1'
 
 + Tacacs+ Accounting Reply
 
-= default instanciation
+= default instantiation
 
 pkt = IP()/TCP(dport=49)/TacacsHeader(seq=2, type=3)/TacacsAccountingReply()
 raw(pkt) == b'E\x00\x009\x00\x01\x00\x00@\x06|\xbc\x7f\x00\x00\x01\x7f\x00\x00\x01\x001\x001\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00,\x07\x00\x00\xc0\x03\x02\x00\x00\x00\x00\x00\x00\x00\x00\x05B\xd2A\x8b\x1f'
@@ -179,7 +179,7 @@ pkt.status == 1
 
 + Changing secret to foobar
 
-= instanciation
+= instantiation
 
 scapy.contrib.tacacs.SECRET = 'foobar'
 pkt = Ether()/IP()/TCP(dport=49)/TacacsHeader(session_id=441255181, type=3, seq=2, length=5)/TacacsAccountingReply(status=1, server_msg_len=0, data_len=0)

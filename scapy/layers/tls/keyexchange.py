@@ -307,7 +307,7 @@ class ServerDHParams(_GenericTLSSessionInheritance):
     def fill_missing(self):
         """
         We do not want TLSServerKeyExchange.build() to overload and recompute
-        things everytime it is called. This method can be called specifically
+        things every time it is called. This method can be called specifically
         to have things filled in a smart fashion.
 
         Note that we do not expect default_params.g to be more than 0xff.
@@ -549,7 +549,7 @@ class ServerECDHNamedCurveParams(_GenericTLSSessionInheritance):
     def fill_missing(self):
         """
         We do not want TLSServerKeyExchange.build() to overload and recompute
-        things everytime it is called. This method can be called specifically
+        things every time it is called. This method can be called specifically
         to have things filled in a smart fashion.
 
         XXX We should account for the point_format (before 'point' filling).

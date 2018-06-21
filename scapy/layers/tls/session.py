@@ -22,7 +22,7 @@ from scapy.layers.tls.crypto.hkdf import TLS13_HKDF
 from scapy.layers.tls.crypto.prf import PRF
 
 # Note the following import may happen inside connState.__init__()
-# in order to avoid to avoid cyclical dependancies.
+# in order to avoid to avoid cyclical dependencies.
 # from scapy.layers.tls.crypto.suites import TLS_NULL_WITH_NULL_NULL
 
 
@@ -88,7 +88,7 @@ class connState(object):
         self.ciphersuite = ciphersuite(tls_version=tls_version)
 
         if not self.ciphersuite.usable:
-            warning("TLS ciphersuite not useable. Is the cryptography Python module installed ?")  # noqa: E501
+            warning("TLS ciphersuite not usable. Is the cryptography Python module installed ?")  # noqa: E501
             return
 
         self.compression = compression_alg()

@@ -206,7 +206,7 @@ class SkinnyDateTimeField(StrFixedLenField):
         StrFixedLenField.__init__(self, name, default, 32)
 
     def m2i(self, pkt, s):
-        year, month, dow, day, hour, min, sec, milisecond = struct.unpack('<8I', s)  # noqa: E501
+        year, month, dow, day, hour, min, sec, millisecond = struct.unpack('<8I', s)  # noqa: E501
         return (year, month, day, hour, min, sec)
 
     def i2m(self, pkt, val):
@@ -341,7 +341,7 @@ class SkinnyMessagePromptStatus(Packet):
 
 
 class SkinnyMessageCallPlane(Packet):
-    name = 'Activate/Desactivate Call Plane Message'
+    name = 'Activate/Deactivate Call Plane Message'
     fields_desc = [LEIntField("instance", 1)]
 
 

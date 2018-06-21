@@ -203,7 +203,7 @@ class TrivialPacket(Packet):
 f = h2.FieldUVarLenField('value', None, 8, length_of='data', adjust=lambda x: x-1)
 assert(f.i2m(TrivialPacket(data='a'*5), None) == b'\x04')
 assert(f.i2m(TrivialPacket(data='a'*255), None).lower() == b'\xfe')
-#Adjustement does not affect non-None value!
+#Adjustment does not affect non-None value!
 assert(f.i2m(TrivialPacket(data='a'*3), 2) == b'\x02')
 
 + HTTP/2 HPackZString Test Suite

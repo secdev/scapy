@@ -214,7 +214,7 @@ class LEBitField(BitField):
                         TODO: check if do_dessect() needs a non-None check for assignment to raw_packet_cache_fields  # noqa: E501
 
                         setfieldval() is evil as it sets raw_packet_cache_fields to None - but this attribute  # noqa: E501
-                        is accessed in do_dissect() without checking for None... exception is catched and the  # noqa: E501
+                        is accessed in do_dissect() without checking for None... exception is caught and the  # noqa: E501
                         user ends up with a layer decoded as raw...
 
                         pkt.setfieldval(field.name, int(bit_str[:field.size], 2))  # noqa: E501

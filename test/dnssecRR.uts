@@ -44,7 +44,7 @@ RRlist2bitmap(bitmap2RRlist(b)) == b
 
 + Test NSEC RR
 
-= DNSRRNSEC(), basic instanciation
+= DNSRRNSEC(), basic instantiation
 t = DNSRRNSEC()
 raw(t) == b'\x00\x00/\x00\x01\x00\x00\x00\x00\x00\x01\x00'
 
@@ -54,7 +54,7 @@ raw(t) == b'\x05scapy\x06secdev\x03org\x00\x00/\x00*\x00\x00\x00\x1c\x000\x03www
 
 + Test NSEC3 RR
 
-= DNSRRNSEC3(), basic instanciation
+= DNSRRNSEC3(), basic instantiation
 t = DNSRRNSEC3()
 raw(t) == b'\x00\x002\x00\x01\x00\x00\x00\x00\x00\x06\x00\x00\x00\x00\x00\x00'
 
@@ -64,7 +64,7 @@ raw(t) == b'\x05scapy\x06secdev\x03org\x00\x002\x00*\x00\x00\x00\x1c\x00<\x07\x0
 
 + Test NSEC3PARAM RR
 
-= DNSRRNSEC3PARAM(), basic instanciation
+= DNSRRNSEC3PARAM(), basic instantiation
 t = DNSRRNSEC3PARAM()
 raw(t) == b'\x00\x003\x00\x01\x00\x00\x00\x00\x00\x05\x00\x00\x00\x00\x00'
 
@@ -74,7 +74,7 @@ raw(t) == b'\x05scapy\x06secdev\x03org\x00\x002\x00*\x00\x00\x00\x1c\x00\x08\x07
 
 + Test RRSIG RR
 
-= DNSRRRSIG(), basic instanciation
+= DNSRRRSIG(), basic instantiation
 t = DNSRRRSIG()
 raw(t) == b'\x00\x00.\x00\x01\x00\x00\x00\x00\x00\x13\x00\x01\x05\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 
@@ -89,7 +89,7 @@ t.rrname == b'isc.org.' and t.labels == 2 and t.keytag == 60726 and t.signature[
 
 + Test DNSKEY RR
 
-= DNSRRDNSKEY(), basic instanciation
+= DNSRRDNSKEY(), basic instantiation
 t = DNSRRDNSKEY()
 raw(t) == b'\x00\x000\x00\x01\x00\x00\x00\x00\x00\x04\x01\x00\x03\x05' and t.sprintf("%flags%") == 'Z'
 
@@ -114,7 +114,7 @@ t.rrname == b'isc.org.' and t.keytag == 12892 and t.algorithm == 5 and t.digestt
 
 + Test TXT RR
 
-= DNSRR(type="TXT") instanciation
+= DNSRR(type="TXT") instantiation
 t = DNSRR(type="TXT", rdata="test")
 assert t.rdata == b"test"
 assert raw(DNSRR(type="TXT", rdata=["hello", "DNS", "!"])) == b'\x00\x00\x10\x00\x01\x00\x00\x00\x00\x00\x0c\x05hello\x03DNS\x01!'
@@ -125,12 +125,12 @@ an = DNSRR(raw(an))
 assert an.rdata == '2001::1'
 
 = DNSRRR(), check parameters
-t = DNSRR(b'\x04test\x00\x00\x10\x00\x01\x00\x00\x00\x00\x018\xffScapy is an interactive packet manipulation program that enables you to sniff, mangle, send network packets ; test equipments ; probe and discover networks ; quickly develop new protocols. It can easily handle most classical tasks like scanning, tracerout7ing, probing, unit tests, attacks or network discovery.')
+t = DNSRR(b'\x04test\x00\x00\x10\x00\x01\x00\x00\x00\x00\x018\xffScapy is an interactive packet manipulation program that enables you to sniff, mangle, send network packets ; test equipment ; probe and discover networks ; quickly develop new protocols. It can easily handle most classical tasks like scanning, tracerout7ing, probing, unit tests, attacks or network discovery.')
 t.type == 16 and t.rdlen == 312 and t.rdata[0][:5] == b"Scapy" and t.rdata[1][-10:] == b"discovery."
 
 + Test DNSRRTSIG RR
 
-= DNSRRTSIG basic instanciation
+= DNSRRTSIG basic instantiation
 t = DNSRRTSIG()
 raw(t) == b"\x00\x00\xfa\x00\x01\x00\x00\x00\x00\x00\x1b\thmac-sha1\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x14\x00\x00\x00\x00\x00\x00"
 

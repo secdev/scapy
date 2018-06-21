@@ -271,7 +271,7 @@ def read_routes():
             if addrfamily == socket.AF_INET:
                 ifaddr = scapy.utils.inet_ntoa(ifreq[20:24])
             else:
-                warning("Interface %s: unkown address family (%i)", iff, addrfamily)  # noqa: E501
+                warning("Interface %s: unknown address family (%i)", iff, addrfamily)  # noqa: E501
                 continue
 
         # Attempt to detect an interface alias based on addresses inconsistencies  # noqa: E501

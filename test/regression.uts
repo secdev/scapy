@@ -7476,7 +7476,7 @@ assert(p.association_id == 64655)
 assert(p.data == b'')
 
 
-= NTP Control (mode 6) - CTL_OP_READVAR (2) - reponse (1st packet)
+= NTP Control (mode 6) - CTL_OP_READVAR (2) - response (1st packet)
 s = b'\xd6\xa2\x00\x12\xc0\x11\xfc\x8f\x00\x00\x01\xd4srcadr=192.168.122.1, srcport=123, dstadr=192.168.122.100, dstport=123,\r\nleap=3, stratum=16, precision=-24, rootdelay=0.000, rootdisp=0.000,\r\nrefid=INIT, reftime=0x00000000.00000000, rec=0x00000000.00000000,\r\nreach=0x0, unreach=5, hmode=1, pmode=0, hpoll=6, ppoll=10, headway=62,\r\nflash=0x1200, keyid=1, offset=0.000, delay=0.000, dispersion=15937.500,\r\njitter=0.000, xleave=0.240,\r\nfiltdelay= 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00,\r\nfiltoffset= 0.00 0.00 0.00 0.00 '
 p = NTP(s)
 assert(isinstance(p, NTPControl))
@@ -7501,7 +7501,7 @@ assert(p.count == 468)
 assert(p.data.load == b'srcadr=192.168.122.1, srcport=123, dstadr=192.168.122.100, dstport=123,\r\nleap=3, stratum=16, precision=-24, rootdelay=0.000, rootdisp=0.000,\r\nrefid=INIT, reftime=0x00000000.00000000, rec=0x00000000.00000000,\r\nreach=0x0, unreach=5, hmode=1, pmode=0, hpoll=6, ppoll=10, headway=62,\r\nflash=0x1200, keyid=1, offset=0.000, delay=0.000, dispersion=15937.500,\r\njitter=0.000, xleave=0.240,\r\nfiltdelay= 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00,\r\nfiltoffset= 0.00 0.00 0.00 0.00 ')
  
 
-= NTP Control (mode 6) - CTL_OP_READVAR (3) - reponse (2nd packet)
+= NTP Control (mode 6) - CTL_OP_READVAR (3) - response (2nd packet)
 s = b'\xd6\x82\x00\x12\xc0\x11\xfc\x8f\x01\xd4\x00i0.00 0.00 0.00 0.00,\r\nfiltdisp= 16000.00 16000.00 16000.00 16000.00 16000.00 16000.00 16000.00 16000.00\r\n\x00\x00\x00'
 p = NTP(s)
 assert(isinstance(p, NTPControl))

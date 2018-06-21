@@ -466,7 +466,7 @@ if not conf.prog.os_access:
 
 if conf.prog.tcpdump and conf.use_npcap and conf.prog.os_access:
     def test_windump_npcap():
-        """Return wether windump version is correct or not"""
+        """Return whether windump version is correct or not"""
         try:
             p_test_windump = sp.Popen([conf.prog.tcpdump, "-help"], stdout=sp.PIPE, stderr=sp.STDOUT)  # noqa: E501
             stdout, err = p_test_windump.communicate()
@@ -507,7 +507,7 @@ def get_windows_if_list():
         # Careful: this is weird, but Get-NetAdaptater works like: (Name isn't the interface name)  # noqa: E501
         # Name                      InterfaceDescription                    ifIndex Status       MacAddress             LinkSpeed  # noqa: E501
         # ----                      --------------------                    ------- ------       ----------             ---------  # noqa: E501
-        # Ethernet                  Killer E2200 Gigabit Ethernet Contro...      13 Up           D0-50-99-56-DD-F9         1 Gbps  # noqa: E501
+        # Ethernet                  Killer E2200 Gigabit Ethernet Control...      13 Up           D0-50-99-56-DD-F9         1 Gbps  # noqa: E501
         query = exec_query(['Get-NetAdapter'],
                            ['InterfaceDescription', 'InterfaceIndex', 'Name',
                             'InterfaceGuid', 'MacAddress', 'InterfaceAlias'])  # It is normal that it is in this order  # noqa: E501
@@ -638,7 +638,7 @@ class NetworkInterface(object):
 
     def setmonitor(self, enable=True):
         """Alias for setmode('monitor') or setmode('managed')
-        Only availble with Npcap"""
+        Only available with Npcap"""
         if enable:
             return self.setmode('monitor')
         else:
@@ -1251,7 +1251,7 @@ def route_add_loopback(routes=None, ipv6=False, iflist=None):
     if not WINDOWS:
         warning("Not available")
         return
-    warning("This will completly mess up the routes. Testing purpose only !")
+    warning("This will completely mess up the routes. Testing purpose only !")
     # Add only if some adpaters already exist
     if ipv6:
         if not conf.route6.routes:

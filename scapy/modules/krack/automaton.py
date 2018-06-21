@@ -265,7 +265,7 @@ class KrackAP(Automaton):
 
         if data is None and key_mic is None and key_data_encrypt is None:
             # If key is unknown and there is no data, no MIC is needed
-            # Exemple: handshake 1/4
+            # Example: handshake 1/4
             payload += b'\x00' * 2  # Length
             return pkt / Raw(load=payload)
 
@@ -357,7 +357,7 @@ class KrackAP(Automaton):
 
     def send_ether_over_wpa(self, pkt, **kwargs):
         """Send an Ethernet packet using the WPA channel
-        Extra arguments will be ignored, and are just left for compatibiliy
+        Extra arguments will be ignored, and are just left for compatibility
         """
 
         payload = LLC() / SNAP() / pkt[Ether].payload

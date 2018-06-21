@@ -92,12 +92,12 @@ class HCI_Hdr(Packet):
 class HCI_ACL_Hdr(Packet):
     name = "HCI ACL header"
     fields_desc = [BitField("handle", 0, 12),    # TODO: Create and use LEBitField  # noqa: E501
-                   BitField("PB", 0, 2),      # They are recieved as a **combined** LE Short  # noqa: E501
-                   BitField("BC", 0, 2),      # Handle is 12 bits, eacg flag is 2 bits.  # noqa: E501
+                   BitField("PB", 0, 2),      # They are received as a **combined** LE Short  # noqa: E501
+                   BitField("BC", 0, 2),      # Handle is 12 bits, each flag is 2 bits.  # noqa: E501
                    LEShortField("len", None), ]
 
     def pre_dissect(self, s):
-        # Recieve data as LE stored as
+        # Receive data as LE stored as
         # .... 1111 0100 1100 = handle
         # 1010 .... .... .... = flags
         # And turn it into
@@ -278,7 +278,7 @@ class ATT_Find_Information_Request(Packet):
 
 
 class ATT_Find_Information_Response(Packet):
-    name = "Find Information Reponse"
+    name = "Find Information Response"
     fields_desc = [XByteField("format", 1),
                    StrField("data", "")]
 
@@ -493,7 +493,7 @@ class EIR_Element(Packet):
         if not pkt.underlayer:
             warning("Missing an upper-layer")
             return 0
-        # 'type' byte is included in the length, so substract 1:
+        # 'type' byte is included in the length, so subtract 1:
         return pkt.underlayer.len - 1
 
 

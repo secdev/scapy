@@ -149,30 +149,30 @@ class Route:
             dst = dst[:l] + dst[l + m:]
 
         dst = atol(dst)
-        pathes = []
+        paths = []
         for d, m, gw, i, a, me in self.routes:
             if not a:  # some interfaces may not currently be connected
                 continue
             aa = atol(a)
             if aa == dst:
-                pathes.append(
+                paths.append(
                     (0xffffffff, 1, (scapy.consts.LOOPBACK_INTERFACE, a, "0.0.0.0"))  # noqa: E501
                 )
             if (dst & m) == (d & m):
-                pathes.append((m, me, (i, a, gw)))
-        if not pathes:
+                paths.append((m, me, (i, a, gw)))
+        if not paths:
             if verbose:
                 warning("No route found (no default route?)")
             return scapy.consts.LOOPBACK_INTERFACE, "0.0.0.0", "0.0.0.0"
         # Choose the more specific route
         # Sort by greatest netmask
-        pathes.sort(key=lambda x: x[0], reverse=True)
-        # Get all pathes having the (same) greatest mask
-        pathes = [i for i in pathes if i[0] == pathes[0][0]]
+        paths.sort(key=lambda x: x[0], reverse=True)
+        # Get all paths having the (same) greatest mask
+        paths = [i for i in paths if i[0] == paths[0][0]]
         # Tie-breaker: Metrics
-        pathes.sort(key=lambda x: x[1])
+        paths.sort(key=lambda x: x[1])
         # Return interface
-        ret = pathes[0][2]
+        ret = paths[0][2]
         self.cache[dest] = ret
         return ret
 

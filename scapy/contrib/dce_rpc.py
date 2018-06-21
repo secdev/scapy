@@ -34,7 +34,7 @@ import scapy.modules.six
 
 # Fields
 class EndiannessField(object):
-    """Field which change the endianess of a sub-field"""
+    """Field which change the endianness of a sub-field"""
     __slots__ = ["fld", "endianess_from"]
 
     def __init__(self, fld, endianess_from):
@@ -42,19 +42,19 @@ class EndiannessField(object):
         self.endianess_from = endianess_from
 
     def set_endianess(self, pkt):
-        """Add the endianess to the format"""
+        """Add the endianness to the format"""
         end = self.endianess_from(pkt)
         if isinstance(end, str) and len(end) > 0:
             # fld.fmt should always start with a order specifier, cf field init
             self.fld.fmt = end[0] + self.fld.fmt[1:]
 
     def getfield(self, pkt, buf):
-        """retrieve the field with endianess"""
+        """retrieve the field with endianness"""
         self.set_endianess(pkt)
         return self.fld.getfield(pkt, buf)
 
     def addfield(self, pkt, buf, val):
-        """add the field with endianess to the buffer"""
+        """add the field with endianness to the buffer"""
         self.set_endianess(pkt)
         return self.fld.addfield(pkt, buf, val)
 
@@ -155,10 +155,10 @@ DCE_RPC_FLAGS2 = ["reserved_0", "cancel_pending", "reserved_2", "reserved_3",
 
 
 def dce_rpc_endianess(pkt):
-    """Determine the right endianess sign for a given DCE/RPC packet"""
-    if pkt.endianess == 0:  # big endian
+    """Determine the right endianness sign for a given DCE/RPC packet"""
+    if pkt.endianness == 0:  # big endian
         return ">"
-    elif pkt.endianess == 1:  # little endian
+    elif pkt.endianness == 1:  # little endian
         return "<"
     else:
         return "!"
@@ -172,7 +172,7 @@ class DceRpc(Packet):
         ByteEnumField("type", 0, DCE_RPC_TYPE),
         FlagsField("flags1", 0, 8, DCE_RPC_FLAGS1),
         FlagsField("flags2", 0, 8, DCE_RPC_FLAGS2),
-        BitEnumField("endianess", 0, 4, ["big", "little"]),
+        BitEnumField("endianness", 0, 4, ["big", "little"]),
         BitEnumField("encoding", 0, 4, ["ASCII", "EBCDIC"]),
         ByteEnumField("float", 0, ["IEEE", "VAX", "CRAY", "IBM"]),
         ByteField("DataRepr_reserved", 0),

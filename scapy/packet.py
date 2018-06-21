@@ -557,7 +557,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
 
     def canvas_dump(self, layer_shift=0, rebuild=1):
         if PYX == 0:
-            raise ImportError("PyX and its depedencies must be installed")
+            raise ImportError("PyX and its dependencies must be installed")
         canvas = pyx.canvas.canvas()
         if rebuild:
             p, t = self.__class__(raw(self)).build_ps()
@@ -626,11 +626,11 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
                                          pyx.path.lineto(fb.left(), gb.top()),
                                          pyx.path.closepath(),)
 
-        def make_dump(s, shift=0, y=0, col=None, bkcol=None, larg=16):
+        def make_dump(s, shift=0, y=0, col=None, bkcol=None, large=16):
             c = pyx.canvas.canvas()
             tlist = []
             while s:
-                dmp, s = s[:larg - shift], s[larg - shift:]
+                dmp, s = s[:large - shift], s[large - shift:]
                 txt = make_dump_txt(shift, y, dmp)
                 tlist.append(txt)
                 shift += len(dmp)
@@ -1487,7 +1487,7 @@ def bind_top_down(lower, upper, __fval=None, **fval):
 
 @conf.commands.register
 def bind_layers(lower, upper, __fval=None, **fval):
-    """Bind 2 layers on some specific fields' values. It makes the packet beeing built  # noqa: E501
+    """Bind 2 layers on some specific fields' values. It makes the packet being built  # noqa: E501
     and dissected when the arguments are present.
 
     This functions calls both bind_bottom_up and bind_top_down, with all passed arguments.  # noqa: E501

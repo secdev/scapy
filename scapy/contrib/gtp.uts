@@ -5,7 +5,7 @@
 
 + GTPv1
 
-= GTPHeader, basic instanciation
+= GTPHeader, basic instantiation
 
 a = GTPHeader()
 assert a.version == 1
@@ -16,7 +16,7 @@ assert a.E == a.S == a.PN == 0
 a = GTPHeader(raw(GTP_U_Header()/GTPErrorIndication()))
 assert isinstance(a, GTP_U_Header)
 
-= GTPCreatePDPContextRequest(), basic instanciation
+= GTPCreatePDPContextRequest(), basic instantiation
 gtp = IP(src="127.0.0.1")/UDP(dport=2123)/GTPHeader(teid=2807)/GTPCreatePDPContextRequest()
 gtp.dport == 2123 and gtp.teid == 2807 and len(gtp.IE_list) == 5
 

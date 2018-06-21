@@ -733,7 +733,7 @@ class ModulePIB(Packet):
     __slots__ = ["_ModulePIB__offset", "_ModulePIB__length"]
     fields_desc = [
         ConditionalField(XByteField("FirmwareMajorVersion", 0x00),
-                         lambda pkt:(0x0 == pkt.__offset and 0x1 <= pkt.__offset + pkt.__length)),  # The following conditional fiels just check if the current field fits in the data range  # noqa: E501
+                         lambda pkt:(0x0 == pkt.__offset and 0x1 <= pkt.__offset + pkt.__length)),  # The following conditional fields just check if the current field fits in the data range  # noqa: E501
         ConditionalField(XByteField("PIBMinorVersion", 0x00),
                          lambda pkt:(0x1 >= pkt.__offset and 0x2 <= pkt.__offset + pkt.__length)),  # noqa: E501
         ConditionalField(XShortField("reserved_1", 0x0000),

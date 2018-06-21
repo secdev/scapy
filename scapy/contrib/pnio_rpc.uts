@@ -428,12 +428,12 @@ p == ExpectedSubmoduleBlockReq(block_length=38,
 + Check PNIOServiceReqPDU
 
 = PNIOServiceReqPDU basic example
-* PNIOServiceReqPDU must always be placed above a DCE/RPC layer as it requires the endianess field
+* PNIOServiceReqPDU must always be placed above a DCE/RPC layer as it requires the endianness field
 p = DceRpc() / PNIOServiceReqPDU(blocks=[
   Block(load=b'\x01\x02')
   ])
 s = bytes(p)
-# Remove the random UUID part before comparaison
+# Remove the random UUID part before comparison
 s[:18] + s[24:] == \
   bytearray.fromhex('0400000000000000dea000006c9711d18271' + 'dea000016c9711d1827100a02442df7d000000000000000000000000000000000000000000000001000000000000ffffffff001c00000000' + \
     '0000000800000008000000080000000000000008' +
@@ -458,12 +458,12 @@ bytes(p.payload) == bytes(PNIOServiceReqPDU(args_length=8, args_max=15, max_coun
 + Check PNIOServiceResPDU
 
 = PNIOServiceResPDU basic example
-* PNIOServiceResPDU must always be placed above a DCE/RPC layer as it requires the endianess field
+* PNIOServiceResPDU must always be placed above a DCE/RPC layer as it requires the endianness field
 p = DceRpc() / PNIOServiceResPDU(blocks=[
   Block(load=b'\x01\x02')
   ])
 s = bytes(p)
-# Remove the random UUID part before comparaison
+# Remove the random UUID part before comparison
 s[:18] + s[24:] == \
   bytearray.fromhex('0402000000000000dea000006c9711d18271' + 'dea000026c9711d1827100a02442df7d000000000000000000000000000000000000000000000001000000000000ffffffff001c00000000' + \
     '0000000000000008000000080000000000000008' + \
@@ -490,7 +490,7 @@ bytes(p.payload) == bytes(PNIOServiceResPDU(status=0x1234, args_length=8, max_co
 #### Connect Request
 = A PNIO RPC Connect Request
 p = DceRpc(
-  endianess='little', opnum=0, sequence_num=0,
+  endianness='little', opnum=0, sequence_num=0,
   object_uuid='dea00000-6c97-11d1-8271-010203040506',
   activity='01234567-89ab-cdef-0123-456789abcdef'
   ) / PNIOServiceReqPDU(
@@ -599,7 +599,7 @@ bytes(p) == bytearray.fromhex(
 #### Write Request
 = A PNIO RPC Write Request
 p = DceRpc(
-  endianess='little', opnum=2, sequence_num=1,
+  endianness='little', opnum=2, sequence_num=1,
   object_uuid='dea00000-6c97-11d1-8271-010203040506',
   activity='01234567-89ab-cdef-0123-456789abcdef'
   ) / PNIOServiceReqPDU(
@@ -634,7 +634,7 @@ bytes(p) == bytearray.fromhex(
 #### PrmEnd control Request
 = A PNIO RPC PrmEnd Control Request
 p = DceRpc(
-  endianess='little', opnum=0, sequence_num=2,
+  endianness='little', opnum=0, sequence_num=2,
   object_uuid='dea00000-6c97-11d1-8271-010203040506',
   activity='01234567-89ab-cdef-0123-456789abcdef'
   ) / PNIOServiceReqPDU(
@@ -650,7 +650,7 @@ bytes(p) == bytearray.fromhex(
 #### ApplicationReady control Request
 = A PNIO RPC PrmEnd Control Request
 p = DceRpc(
-  endianess='little', opnum=0, sequence_num=0,
+  endianness='little', opnum=0, sequence_num=0,
   object_uuid='dea00000-6c97-11d1-8271-060504030201',
   activity='01020304-0506-0708-090a-0b0c0d0e0f00',
   interface_uuid=RPC_INTERFACE_UUID['UUID_IO_ControllerInterface'],

@@ -143,7 +143,7 @@ class NotionalLenField(Field):
 # communications. It must be formatted as such:
 # {(Ether.src, Ether.dst): [(start, type, config), ...]}
 # start: index of a data field from the END of the data buffer (-1, -2, ...)
-# type: class to be instanciated to represent these data
+# type: class to be instantiated to represent these data
 # config: a config dict, given to the type class constructor
 conf.contribs["PNIO_RTC"] = {}
 
@@ -178,7 +178,7 @@ def pnio_get_config(pkt):
 
 def _pnio_rtc_guess_payload_class(_pkt, _underlayer=None, *args, **kargs):
     """A dispatcher for the packet list field which manage the configuration
-    to fin dthe appropriate class"""
+    to fin the appropriate class"""
     config = pnio_get_config(_underlayer)
 
     if isinstance(config, list):
@@ -260,7 +260,7 @@ class PNIORealTime(Packet):
         heuristic = {}
 
         # Counts possible data locations
-        # 0x80 are mainly IOxS and trailling 0x00s are just padding
+        # 0x80 are mainly IOxS and trailing 0x00s are just padding
         for pkt in packets:
             if PNIORealTime in pkt:
                 pdu = bytes(pkt[PNIORealTime])[:-4].rstrip(b"\0")

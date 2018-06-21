@@ -184,7 +184,7 @@ class Dot15d4AuxSecurityHeader(Packet):
     fields_desc = [
         BitField("sec_sc_reserved", 0, 3),
         # Key Identifier Mode
-        # 0: Key is determined implicitly from the originator and receipient(s) of the frame  # noqa: E501
+        # 0: Key is determined implicitly from the originator and recipient(s) of the frame  # noqa: E501
         # 1: Key is determined explicitly from the the 1-octet Key Index subfield of the Key Identifier field  # noqa: E501
         # 2: Key is determined explicitly from the 4-octet Key Source and the 1-octet Key Index  # noqa: E501
         # 3: Key is determined explicitly from the 8-octet Key Source and the 1-octet Key Index  # noqa: E501

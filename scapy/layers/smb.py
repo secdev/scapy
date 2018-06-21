@@ -138,11 +138,11 @@ class SMBNegociate_Protocol_Request_Header(Packet):
                    ByteField("WordCount", 0),
                    LEShortField("ByteCount", 12)]
 
-# SMB Negociate Protocol Request Tail
+# SMB Negotiate Protocol Request Tail
 
 
 class SMBNegociate_Protocol_Request_Tail(Packet):
-    name = "SMB Negociate Protocol Request Tail"
+    name = "SMB Negotiate Protocol Request Tail"
     fields_desc = [ByteField("BufferFormat", 0x02),
                    StrNullField("BufferData", "NT LM 0.12")]
 

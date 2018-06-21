@@ -31,7 +31,7 @@ assert GPSTime_Field("GPSTime", None).delta == 0.0
 = Define local_to_utc
 
 def local_to_utc(local_time):
-    # BUG workaroung: on some Python 2 systems, summer time is ignored while converting time to UTC.
+    # BUG workaround: on some Python 2 systems, summer time is ignored while converting time to UTC.
     # This function converts it properly. That was fixed on Python 3
     if six.PY3:
         return local_time

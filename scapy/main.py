@@ -23,7 +23,7 @@ from random import choice
 import types
 import io
 
-# Never add any global import, in main.py, that would trigger a warning messsage  # noqa: E501
+# Never add any global import, in main.py, that would trigger a warning message  # noqa: E501
 # before the console handlers gets added in interact()
 from scapy.error import log_interactive, log_loading, log_scapy, warning
 import scapy.modules.six as six

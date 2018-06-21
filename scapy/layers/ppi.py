@@ -55,7 +55,7 @@ def _PPIGuessPayloadClass(p, **kargs):
     """ This function tells the PacketListField how it should extract the
         TLVs from the payload.  We pass cls only the length string
         pfh_len says it needs.  If a payload is returned, that means
-        part of the sting was unused.  This converts to a Raw layer, and
+        part of the string was unused.  This converts to a Raw layer, and
         the remainder of p is added as Raw's payload.  If there is no
         payload, the remainder of p is added as out's payload.
     """

@@ -203,7 +203,7 @@ class Route6:
         if k in self.cache:
             return self.cache[k]
 
-        pathes = []
+        paths = []
 
         # TODO : review all kinds of addresses (scope and *cast) to see
         #        if we are able to cope with everything possible. I'm convinced
@@ -213,22 +213,22 @@ class Route6:
             if dev is not None and iface != dev:
                 continue
             if in6_isincluded(dst, p, plen):
-                pathes.append((plen, me, (iface, cset, gw)))
+                paths.append((plen, me, (iface, cset, gw)))
             elif (in6_ismlladdr(dst) and in6_islladdr(p) and in6_islladdr(cset[0])):  # noqa: E501
-                pathes.append((plen, me, (iface, cset, gw)))
+                paths.append((plen, me, (iface, cset, gw)))
 
-        if not pathes:
+        if not paths:
             warning("No route found for IPv6 destination %s (no default route?)", dst)  # noqa: E501
             return (scapy.consts.LOOPBACK_INTERFACE, "::", "::")
 
         # Sort with longest prefix first
-        pathes.sort(reverse=True, key=lambda x: x[0])
+        paths.sort(reverse=True, key=lambda x: x[0])
 
-        best_plen = pathes[0][0]
-        pathes = [x for x in pathes if x[0] == best_plen]
+        best_plen = paths[0][0]
+        paths = [x for x in paths if x[0] == best_plen]
 
         res = []
-        for p in pathes:  # Here we select best source address for every route
+        for p in paths:  # Here we select best source address for every route
             tmp = p[2]
             srcaddr = get_source_addr_from_candidate_set(dst, tmp[1])
             if srcaddr is not None:
@@ -239,8 +239,8 @@ class Route6:
             return (scapy.consts.LOOPBACK_INTERFACE, "::", "::")
 
         # Tie-breaker: Metrics
-        pathes.sort(key=lambda x: x[1])
-        pathes = [i for i in pathes if i[1] == pathes[0][1]]
+        paths.sort(key=lambda x: x[1])
+        paths = [i for i in paths if i[1] == paths[0][1]]
 
         # Symptom  : 2 routes with same weight (our weight is plen)
         # Solution :

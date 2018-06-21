@@ -67,7 +67,7 @@ def _tls_mac_add(alg, c, write_seq_num):
     Compute the MAC using provided MAC alg instance over TLSCiphertext c using
     current write sequence number write_seq_num. Computed MAC is then appended
     to c.data and c.len is updated to reflect that change. It is the
-    caller responsability to increment the sequence number after the operation.
+    caller responsibility to increment the sequence number after the operation.
     The function has no return value.
     """
     write_seq_num = struct.pack("!Q", write_seq_num)

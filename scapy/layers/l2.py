@@ -569,7 +569,7 @@ conf.l2types.register_num2layer(DLT_NULL, Loopback)
 conf.l3types.register(ETH_P_ARP, ARP)
 
 
-# Technics
+# Techniques
 
 
 @conf.commands.register

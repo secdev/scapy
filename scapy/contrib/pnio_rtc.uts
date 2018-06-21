@@ -32,7 +32,7 @@ raw(PNIORealTimeRawData(load='ABCDEF', config={'length': 5})) == b'ABCDE'
 p = PNIORealTimeRawData(b'ABCDE\x80\x01\x02', config={'length': 5})
 p == PNIORealTimeRawData(load=b'ABCDE', config={'length': 5}) / PNIORealTimeIOxS() / conf.padding_layer(b'\x01\x02')
 
-= PNIORealTimeRawData is capable of dissected uncomplete packets
+= PNIORealTimeRawData is capable of dissected incomplete packets
 p = PNIORealTimeRawData('ABC', config={'length': 5})
 p == PNIORealTimeRawData(load=b'ABC', config={'length': 5})
 
@@ -55,7 +55,7 @@ p == Profisafe(load=b'ABC', Control_Status=0x20, CRC=0x123456, config={'length':
 = Profisafe with a CRC-32
 raw(Profisafe(load=b'ABC', Control_Status=0x33, CRC=0x12345678, config={'length': 8, 'CRC': 4})) == b'ABC\x33\x12\x34\x56\x78'
 
-= Profisafe is capable of dissected uncomplete packets
+= Profisafe is capable of dissected incomplete packets
 p = Profisafe('AB', config={'length': 7, 'CRC': 3})
 p == Profisafe(load=b'AB', Control_Status=0, CRC=0)
 
