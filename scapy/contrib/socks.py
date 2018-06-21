@@ -1,12 +1,16 @@
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more informations
+# See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # This program is published under a GPLv2 license
 
 # scapy.contrib.description = Socket Secure (SOCKS)
 # scapy.contrib.status = loads
 
-"""SOCKS4/5 Protocol"""
+"""SOCKS4/5 Protocol
+
+You can change the server ports that are used in the SOCKS layer by editing.
+conf.contribs['socks']['serverports']
+"""
 
 from scapy.config import conf
 from scapy.error import warning
@@ -17,10 +21,13 @@ from scapy.fields import ByteField, ByteEnumField, ConditionalField,\
     ShortField, IPField, StrField, MultipleTypeField
 from scapy.packet import Packet, bind_layers, bind_bottom_up
 
-# TODO: support the 3 different authentification exchange procedures for SOCKS5  # noqa: E501
+# TODO: support the 3 different authentication exchange procedures for SOCKS5  # noqa: E501
 # 1 - Plain (https://tools.ietf.org/html/rfc1928 - 3.Procedure for TCP-based clients)  # noqa: E501
 # 2 - Username/password (https://tools.ietf.org/html/rfc1929)
 # 3 - GSS-API (https://tools.ietf.org/html/rfc1961)
+
+conf.contribs.setdefault('socks', {})
+conf.contribs['socks'].setdefault('serverports', [1080])
 
 
 class SOCKS(Packet):
@@ -30,20 +37,25 @@ class SOCKS(Packet):
     ]
 
     def guess_payload_class(self, pkt):
+        d_port = s_port = True
         if self.underlayer and isinstance(self.underlayer, TCP):
-            if self.vn == 0x5:
-                if self.underlayer.dport == 1080:
-                    return SOCKS5Request
-                elif self.underlayer.sport == 1080:
-                    return SOCKS5Reply
-            elif self.vn == 0x4:
-                if self.underlayer.dport == 1080:
-                    return SOCKS4Request
-            elif self.vn == 0x0:
-                if self.underlayer.sport == 1080:
-                    return SOCKS4Reply
-            return SOCKS5Request
-        warning("No TCP underlayer, assuming a SOCKS v5 request layer")
+            ports = conf.contribs['socks']['serverports']
+            d_port = self.underlayer.dport in ports
+            s_port = self.underlayer.sport in ports
+        if self.vn == 0x5:
+            if d_port:
+                return SOCKS5Request
+            elif s_port:
+                return SOCKS5Reply
+        elif self.vn == 0x4:
+            if d_port:
+                return SOCKS4Request
+        elif self.vn == 0x0:
+            if s_port:
+                return SOCKS4Reply
+        warning("No TCP underlayer, or dport/sport not in "
+                "conf.contribs['socks']['serverports']. "
+                "Assuming a SOCKS v5 request layer")
         return SOCKS5Request
 
     def add_payload(self, payload):
