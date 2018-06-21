@@ -1125,7 +1125,7 @@ class TracerouteResult(SndRcvList):
     def __init__(self, res=None, name="Traceroute", stats=None):
         PacketList.__init__(self, res, name, stats)
         self.graphdef = None
-        self.graphASres = 0
+        self.graphASres = None
         self.padding = 0
         self.hloc = None
         self.nloc = None
@@ -1383,8 +1383,6 @@ class TracerouteResult(SndRcvList):
         return lines
 
     def make_graph(self, ASres=None, padding=0):
-        if ASres is None:
-            ASres = conf.AS_resolver
         self.graphASres = ASres
         self.graphpadding = padding
         ips = {}
@@ -1527,7 +1525,7 @@ class TracerouteResult(SndRcvList):
         s += "}\n"
         self.graphdef = s
 
-    def graph(self, ASres=None, padding=0, **kargs):
+    def graph(self, ASres=conf.AS_resolver, padding=0, **kargs):
         """x.graph(ASres=conf.AS_resolver, other args):
         ASres=None          : no AS resolver => no clustering
         ASres=AS_resolver() : default whois AS resolver (riswhois.ripe.net)
@@ -1536,8 +1534,6 @@ class TracerouteResult(SndRcvList):
         type: output type (svg, ps, gif, jpg, etc.), passed to dot's "-T" option  # noqa: E501
         target: filename or redirect. Defaults pipe to Imagemagick's display program  # noqa: E501
         prog: which graphviz program to use"""
-        if ASres is None:
-            ASres = conf.AS_resolver
         if (self.graphdef is None or
             self.graphASres != ASres or
                 self.graphpadding != padding):
