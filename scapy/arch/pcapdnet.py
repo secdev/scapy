@@ -32,6 +32,10 @@ if not scapy.consts.WINDOWS:
 #  COMMON  #
 ############
 
+# From BSD net/bpf.h
+# BIOCIMMEDIATE = 0x80044270
+BIOCIMMEDIATE = -2147204496
+
 
 class PcapTimeoutElapsed(Scapy_Exception):
     pass
@@ -82,18 +86,40 @@ if conf.use_winpcapy:
     try:
         from scapy.modules.winpcapy import *
 
-        def winpcapy_get_if_list():
+        def load_winpcapy():
             err = create_string_buffer(PCAP_ERRBUF_SIZE)
             devs = POINTER(pcap_if_t)()
-            ret = []
+            if_list = []
+            ip_addresses = {}
+            ip6_addresses = []
             if pcap_findalldevs(byref(devs), err) < 0:
                 return ret
             try:
                 p = devs
+                # Iterate through the different interfaces
                 while p:
-                    ret.append(plain_str(p.contents.name))
+                    if_list.append(plain_str(p.contents.name))
+                    a = p.contents.addresses
+                    while a:
+                        # IPv4 address
+                        if a.contents.addr.contents.sa_family == socket.AF_INET:  # noqa: E501
+                            ap = a.contents.addr
+                            val = cast(ap, POINTER(sockaddr_in))
+                            if_raw_addr = b"".join(chb(x) for x in val.contents.sin_addr[:4])  # noqa: E501
+                            if if_raw_addr != b'\x00\x00\x00\x00':
+                                ip_addresses[plain_str(p.contents.name)] = if_raw_addr  # noqa: E501
+                        # IPv6 address
+                        if a.contents.addr.contents.sa_family == socket.AF_INET6:  # noqa: E501
+                            ap = a.contents.addr
+                            val = cast(ap, POINTER(sockaddr_in6))
+                            addr = inet_ntop(socket.AF_INET6, b"".join(chb(x) for x in val.contents.sin6_addr[:]))  # noqa: E501
+                            scope = scapy.utils6.in6_getscope(addr)
+                            ip6_addresses.append((addr, scope, plain_str(p.contents.name)))  # noqa: E501
+                        a = a.contents.next
                     p = p.contents.next
-                return ret
+                conf.cache_iflist = if_list
+                conf.cache_ipaddrs = ip_addresses
+                conf.cache_in6_getifaddr = ip6_addresses
             except:
                 raise
             finally:
@@ -109,76 +135,32 @@ if conf.use_winpcapy:
             conf.use_npcap = True
             LOOPBACK_NAME = scapy.consts.LOOPBACK_NAME = "Npcap Loopback Adapter"  # noqa: E501
     except OSError as e:
-        def winpcapy_get_if_list():
-            return []
         conf.use_winpcapy = False
         if conf.interactive:
             log_loading.warning("wpcap.dll is not installed. You won't be able to send/recieve packets. Visit the scapy's doc to install it")  # noqa: E501
 
-    # From BSD net/bpf.h
-    # BIOCIMMEDIATE=0x80044270
-    BIOCIMMEDIATE = -2147204496
-
-    def get_if_raw_addr(iff):  # noqa: F811
-        """Returns the raw ip address corresponding to the NetworkInterface."""
-        if conf.cache_ipaddrs:
-            return conf.cache_ipaddrs.get(iff.pcap_name, None)
-        err = create_string_buffer(PCAP_ERRBUF_SIZE)
-        devs = POINTER(pcap_if_t)()
-
-        if pcap_findalldevs(byref(devs), err) < 0:
-            return None
-        try:
-            p = devs
-            while p:
-                a = p.contents.addresses
-                while a:
-                    if a.contents.addr.contents.sa_family == socket.AF_INET:
-                        ap = a.contents.addr
-                        val = cast(ap, POINTER(sockaddr_in))
-                        if_raw_addr = b"".join(chb(x) for x in val.contents.sin_addr[:4])  # noqa: E501
-                        if if_raw_addr != b'\x00\x00\x00\x00':
-                            conf.cache_ipaddrs[plain_str(p.contents.name)] = if_raw_addr  # noqa: E501
-                    a = a.contents.next
-                p = p.contents.next
-            return conf.cache_ipaddrs.get(iff.pcap_name, None)
-        finally:
-            pcap_freealldevs(devs)
     if conf.use_winpcapy:
+        def get_if_raw_addr(iff):  # noqa: F811
+            """Returns the raw ip address corresponding to the NetworkInterface."""  # noqa: E501
+            if not conf.cache_ipaddrs:
+                load_winpcapy()
+            return conf.cache_ipaddrs.get(iff.pcap_name, None)
+
         def get_if_list():
             """Returns all pcap names"""
-            if conf.cache_iflist:
-                return conf.cache_iflist
-            iflist = winpcapy_get_if_list()
-            conf.cache_iflist = iflist
-            return iflist
-    else:
-        get_if_list = winpcapy_get_if_list
+            if not conf.cache_iflist:
+                load_winpcapy()
+            return conf.cache_iflist
 
-    def in6_getifaddr_raw():
-        """Returns all available IPv6 on the computer, read from winpcap."""
-        err = create_string_buffer(PCAP_ERRBUF_SIZE)
-        devs = POINTER(pcap_if_t)()
-        ret = []
-        if pcap_findalldevs(byref(devs), err) < 0:
-            return ret
-        try:
-            p = devs
-            ret = []
-            while p:
-                a = p.contents.addresses
-                while a:
-                    if a.contents.addr.contents.sa_family == socket.AF_INET6:
-                        ap = a.contents.addr
-                        val = cast(ap, POINTER(sockaddr_in6))
-                        addr = inet_ntop(socket.AF_INET6, b"".join(chb(x) for x in val.contents.sin6_addr[:]))  # noqa: E501
-                        scope = scapy.utils6.in6_getscope(addr)
-                        ret.append((addr, scope, plain_str(p.contents.name)))
-                    a = a.contents.next
-                p = p.contents.next
-            return ret
-        finally:
-            pcap_freealldevs(devs)
+        def in6_getifaddr_raw():
+            """Returns all available IPv6 on the computer, read from winpcap."""  # noqa: E501
+            if not conf.cache_in6_getifaddr:
+                load_winpcapy()
+            return conf.cache_in6_getifaddr
+    else:
+        get_if_raw_addr = lambda x: None
+        get_if_list = lambda: []
+        in6_getifaddr_raw = lambda: []
 
     from ctypes import POINTER, byref, create_string_buffer
 
@@ -272,10 +254,6 @@ if conf.use_pcap:
                 else:
                     raise
     if conf.use_pcap:
-
-        # From BSD net/bpf.h
-        # BIOCIMMEDIATE=0x80044270
-        BIOCIMMEDIATE = -2147204496
 
         if _PCAP_MODE == "pypcap":  # python-pypcap
             class _PcapWrapper_pypcap:  # noqa: F811
