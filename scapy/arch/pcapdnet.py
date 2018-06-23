@@ -336,8 +336,20 @@ if conf.use_pcap:
             class _PcapWrapper_pcapy:
                 def __init__(self, device, snaplen, promisc, to_ms, monitor=False):  # noqa: E501
                     if monitor:
-                        warning("pcapy does not support monitor mode ! Use pypcap or libpcap instead !")  # noqa: E501
-                    self.pcap = pcap.open_live(device, snaplen, promisc, to_ms)
+                        try:
+                            self.pcap = pcap.create(device)
+                            self.pcap.set_snaplen(snaplen)
+                            self.pcap.set_promisc(promisc)
+                            self.pcap.set_timeout(to_ms)
+                            if self.pcap.set_rfmon(1) != 0:
+                                warning("Could not set monitor mode")
+                            if self.pcap.activate() != 0:
+                                raise OSError("Could not activate the pcap handler")   # noqa: E501
+                        except AttributeError:
+                            raise OSError("Your pcapy version does not support"
+                                          "monitor mode ! Use pcapy 0.11.4+")
+                    else:
+                        self.pcap = pcap.open_live(device, snaplen, promisc, to_ms)   # noqa: E501
 
                 def next(self):
                     try:
