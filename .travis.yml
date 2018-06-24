@@ -2,11 +2,11 @@ language: python
 
 matrix:
     include:
-        # PEP 8 checks & build doc
+        # PEP 8 checks, build doc and grammar spelling check
         - os: linux
           python: 2.7
           env:
-            - TOXENV=flake8,docs
+            - TOXENV=flake8,docs,spell
        
         # Run as a regular user
         - os: linux
