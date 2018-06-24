@@ -2,7 +2,7 @@
 #                                                                           #
 #  http2.py --- HTTP/2 support for Scapy                                    #
 #               see RFC7540 and RFC7541                                     #
-#               for more informations                                       #
+#               for more information                                        #
 #                                                                           #
 #  Copyright (C) 2016  Florian Maury <florian.maury@ssi.gouv.fr>            #
 #                                                                           #

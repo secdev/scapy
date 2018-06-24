@@ -191,7 +191,7 @@ class NetworkInformationRequest(Packet):
     fields_desc = []
 
 ###############################################################################
-#   Networks & Stations informations for MAC Management V1.0
+#   Networks & Stations information for MAC Management V1.0
 ###############################################################################
 
 
@@ -226,7 +226,7 @@ class StationInfoV10(Packet):
         return b"", p
 
 ###############################################################################
-#   Networks & Stations informations for MAC Management V1.1
+#   Networks & Stations information for MAC Management V1.1
 ###############################################################################
 
 
@@ -1275,7 +1275,7 @@ class WriteModuleData2NVMConfirmation(Packet):
 
 class HomePlugAV(Packet):
     """
-        HomePlugAV Packet - by default => gets devices informations
+        HomePlugAV Packet - by default => gets devices information
     """
     name = "HomePlugAV "
     fields_desc = [MACManagementHeader,

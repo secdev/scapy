@@ -1,5 +1,5 @@
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more informations
+# See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Santiago Hernandez Ramos <shramos@protonmail.com>
 # This program is published under GPLv2 license
 

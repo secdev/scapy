@@ -1,5 +1,5 @@
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more informations
+# See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Cesar A. Bernardini <mesarpe@gmail.com>
 # Copyright (C) Gabriel Potter <gabriel@potter.fr>
 # Intern at INRIA Grand Nancy Est

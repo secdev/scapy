@@ -3,7 +3,7 @@
 #                                                                           #
 #  inet6.py --- IPv6 support for Scapy                                      #
 #               see http://natisbad.org/IPv6/                               #
-#               for more informations                                       #
+#               for more information                                        #
 #                                                                           #
 #  Copyright (C) 2005  Guillaume Valadon <guedou@hongo.wide.ad.jp>          #
 #                      Arnaud Ebalard <arnaud.ebalard@eads.net>             #
