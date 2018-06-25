@@ -1,5 +1,5 @@
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more informations
+# See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # This program is published under a GPLv2 license
 
@@ -422,7 +422,7 @@ conf.neighbor.register_l3(Ether, ARP, l2_register_l3_arp)
 
 
 class GRErouting(Packet):
-    name = "GRE routing informations"
+    name = "GRE routing information"
     fields_desc = [ShortField("address_family", 0),
                    ByteField("SRE_offset", 0),
                    FieldLenField("SRE_len", None, "routing_info", "B"),
@@ -569,7 +569,7 @@ conf.l2types.register_num2layer(DLT_NULL, Loopback)
 conf.l3types.register(ETH_P_ARP, ARP)
 
 
-# Technics
+# Techniques
 
 
 @conf.commands.register

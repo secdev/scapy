@@ -83,7 +83,7 @@ bug you are fixing. This will prevent a regression from being
 unnoticed. Do not use the variable `_`  in your tests, as it could break them.
 
 If you find yourself in a situation where your tests locally succeed  but 
-fail if executed on the CI, try to enable the debuging option for the 
+fail if executed on the CI, try to enable the debugging option for the 
 dissector by setting `conf.debug_dissector = 1`.
 
 ### New protocols

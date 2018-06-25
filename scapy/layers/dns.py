@@ -1,5 +1,5 @@
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more informations
+# See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # This program is published under a GPLv2 license
 
@@ -244,7 +244,7 @@ class RDataField(StrLenField):
         elif pkt.type == 16:  # TXT
             ret_s = b""
             for text in s:
-                # The initial string must be splitted into a list of strings
+                # The initial string must be split into a list of strings
                 # prepended with theirs sizes.
                 while len(text) >= 255:
                     ret_s += b"\xff" + text[:255]

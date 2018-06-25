@@ -1,5 +1,5 @@
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more informations
+# See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # This program is published under a GPLv2 license
 
@@ -150,7 +150,7 @@ class ISAKMPTransformSetField(StrLenField):
                 # warning if we're given an TLV on a basic attribute.
                 value_len, = struct.unpack("!H", m[2:4])
                 if value_len + 4 > len(m):
-                    warning("Bad length for ISAKMP tranform type=%#6x" % trans_type)  # noqa: E501
+                    warning("Bad length for ISAKMP transform type=%#6x" % trans_type)  # noqa: E501
                 value = m[4:4 + value_len]
                 value = reduce(lambda x, y: (x << 8) | y, struct.unpack("!%s" % ("B" * len(value),), value), 0)  # noqa: E501
             else:

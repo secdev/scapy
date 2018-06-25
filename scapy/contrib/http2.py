@@ -2,7 +2,7 @@
 #                                                                           #
 #  http2.py --- HTTP/2 support for Scapy                                    #
 #               see RFC7540 and RFC7541                                     #
-#               for more informations                                       #
+#               for more information                                        #
 #                                                                           #
 #  Copyright (C) 2016  Florian Maury <florian.maury@ssi.gouv.fr>            #
 #                                                                           #
@@ -1497,7 +1497,7 @@ class H2AbstractHeadersFrame(H2FramePayload):
 
 class H2HeadersFrame(H2AbstractHeadersFrame):
     """ H2HeadersFrame implements RFC 7540 par6.2 Headers Frame
-    when there is no padding and no priority informations
+    when there is no padding and no priority information
 
     The choice of decomposing into four classes is probably preferable to having  # noqa: E501
     numerous conditional fields based on the underlayer :/
@@ -2115,7 +2115,7 @@ class HPackHdrEntry(Sized):
     """ HPackHdrEntry is an entry of the HPackHdrTable helper
 
     Each HPackHdrEntry instance is a header line (name and value). Names are
-    normalized (lowercased), according to RFC 7540 par8.1.2
+    normalized (lowercase), according to RFC 7540 par8.1.2
     """
     __slots__ = ['_name', '_len', '_value']
 
@@ -2151,7 +2151,7 @@ class HPackHdrEntry(Sized):
 
     def __str__(self):
         # type: () -> str
-        """ __str__ returns the header as it would be formated in textual format
+        """ __str__ returns the header as it would be formatted in textual format
         """
         if self._name.startswith(':'):
             return "{} {}".format(self._name, self._value)
@@ -2641,7 +2641,7 @@ class HPackHdrTable(Sized):
         @param int stream_id: the stream id to use in the generated H2Frames
         @param str|None body: the eventual body of the request, that is added to the generated frames  # noqa: E501
         @param int max_frm_sz: the maximum frame size. This is used to split the headers and data frames according to  # noqa: E501
-        the maximum frame size negociated for this connection
+        the maximum frame size negotiated for this connection
         @param int max_hdr_lst_sz: the maximum size of a "header fragment" as defined in RFC7540  # noqa: E501
         @param callable is_sensitive: callback that returns True if the provided header is sensible and must be stored  # noqa: E501
         in a header packet requesting this header never to be indexed

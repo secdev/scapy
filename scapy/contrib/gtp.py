@@ -394,7 +394,7 @@ class IE_ChargingId(IE_Base):
 
 class IE_EndUserAddress(IE_Base):
     # Supply protocol specific information of the external packet
-    name = "End User Addresss"
+    name = "End User Address"
     fields_desc = [ByteEnumField("ietype", 128, IEType),
                    #         data network accessed by the GGPRS subscribers.
                    #            - Request

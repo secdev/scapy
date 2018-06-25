@@ -196,7 +196,7 @@ class RSVP_SenderTSPEC(Packet):
 
 
 class RSVP_LabelReq(Packet):
-    name = "Lable Req"
+    name = "Label Req"
     overload_fields = {RSVP_Object: {"Class": 0x13}}
     fields_desc = [ShortField("reserve", 1),
                    ShortField("L3PID", 1)]

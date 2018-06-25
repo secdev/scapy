@@ -95,7 +95,7 @@ class DRFlags (FlagsField):
 
 class DRCode (I3BytesEnumField):
     def __init__(self, name, default, enum):
-        """enum is a dict of tupples, so conversion is required before calling the actual init method.  # noqa: E501
+        """enum is a dict of tuples, so conversion is required before calling the actual init method.  # noqa: E501
            Note: the conversion is done only once."""
         enumDict = {}
         for k, v in enum.items():
@@ -140,7 +140,7 @@ class AVPVendor (IntField):
         return "%s (%s)" % (vendor, str(x))
 
 
-# Note the dictionnary below is minimal (taken from scapy/layers/dhcp6.py
+# Note the dictionary below is minimal (taken from scapy/layers/dhcp6.py
 # + added 3GPP and ETSI
 vendorList = {
     9: "ciscoSystems",
@@ -352,7 +352,7 @@ def GuessAvpType(p, **kargs):
         if vndCode in AvpDefDict:
             AvpVndDict = AvpDefDict[vndCode]
             if avpCode in AvpVndDict:
-                # Unpack only the first 4 tupple items at this point
+                # Unpack only the first 4 tuple items at this point
                 avpName, AVPClass, flags = AvpVndDict[avpCode][:3]
                 result = AVPClass(p, **kargs)
                 result.name = 'AVP ' + avpName
@@ -3464,7 +3464,7 @@ class AVP_10415_3442 (AVP_FL_V):
 class AVP_10415_3443 (AVP_FL_V):
     name = 'ProSe-Event-Type'
     avpLen = 16
-    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "Annoucing", 1: "Monitoring", 2: "Match Report", })]  # noqa: E501
+    fields_desc = [AVP_FL_V, Enumerated('val', None, {0: "Announcing", 1: "Monitoring", 2: "Match Report", })]  # noqa: E501
 
 
 class AVP_10415_3445 (AVP_FL_V):
@@ -3506,7 +3506,7 @@ class AVP_10415_3454 (AVP_FL_V):
 ##############################################################
 
 # In AvpDefDict dictionary, the first level key is the 'AVP vendor' and the second level key is the 'AVP code'  # noqa: E501
-# Each tupple then defines the AVP name, the Scapy class and the default flags
+# Each tuple then defines the AVP name, the Scapy class and the default flags
 AvpDefDict = {
     0: {
         1: ('User-Name', AVPNV_StrLenField, 64),
@@ -4648,8 +4648,8 @@ DR_Flags_List = ["x", "x", "x", "x", "T", "E", "P", "R"]
 
 # The Diameter commands definition fields meaning:
 # 2nd: the 2 letters prefix for both requests and answers
-# 3rd: dictionary of Request/Answer command flags for each supported application ID. Each dictionnary key is one of the  # noqa: E501
-# supported application ID and each value is a tupple defining the request
+# 3rd: dictionary of Request/Answer command flags for each supported application ID. Each dictionary key is one of the  # noqa: E501
+# supported application ID and each value is a tuple defining the request
 # flag and then the answer flag
 DR_cmd_def = {
     257: ('Capabilities-Exchange', 'CE', {0: (128, 0)}),
@@ -4767,7 +4767,7 @@ def getCmdParams(cmd, request, **fields):
                 'Diameter command with name %s not found in DR_cmd_def dictionary.' %  # noqa: E501
                 cmd)
             return (fields, 'Unknown')
-    # The drCode is set/overriden in any case
+    # The drCode is set/overridden in any case
     fields['drCode'] = drCode
     # Processing of drAppId
     if 'drAppId' in fields:

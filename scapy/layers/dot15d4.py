@@ -1,6 +1,6 @@
 # This program is published under a GPLv2 license
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more informations
+# See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Ryan Speers <ryan@rmspeers.com> 2011-2012
 # Copyright (C) Roger Meyer <roger.meyer@csus.edu>: 2012-03-10 Added frames
 # Copyright (C) Gabriel Potter <gabriel@potter.fr>: 2018
@@ -184,7 +184,7 @@ class Dot15d4AuxSecurityHeader(Packet):
     fields_desc = [
         BitField("sec_sc_reserved", 0, 3),
         # Key Identifier Mode
-        # 0: Key is determined implicitly from the originator and receipient(s) of the frame  # noqa: E501
+        # 0: Key is determined implicitly from the originator and recipient(s) of the frame  # noqa: E501
         # 1: Key is determined explicitly from the the 1-octet Key Index subfield of the Key Identifier field  # noqa: E501
         # 2: Key is determined explicitly from the 4-octet Key Source and the 1-octet Key Index  # noqa: E501
         # 3: Key is determined explicitly from the 8-octet Key Source and the 1-octet Key Index  # noqa: E501

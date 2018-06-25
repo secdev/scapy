@@ -56,7 +56,7 @@ f.addfield(None, b'', f.default) == bytearray.fromhex('0123456789abcdef012345678
 f = UUIDField('f', (0x01234567, 0x89ab, 0xcdef, 0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef))
 f.addfield(None, b'', f.default) == bytearray.fromhex('0123456789abcdef0123456789abcdef')
 
-= Handle None valuse
+= Handle None values
 f = UUIDField('f', None)
 f.addfield(None, b'', f.default) == bytearray.fromhex('00000000000000000000000000000000')
 
@@ -64,8 +64,8 @@ f.addfield(None, b'', f.default) == bytearray.fromhex('0000000000000000000000000
 f = UUIDField('f', None)
 f.getfield(None, bytearray.fromhex('0123456789abcdef0123456789abcdef01')) == (b'\x01', '01234567-89ab-cdef-0123-456789abcdef')
 
-= Verify little endianess of UUIDField
-* The endianess of a UUIDField should be apply by block on each block in parenthesis '(01234567)-(89ab)-(cdef)-(01)(23)-(45)(67)(89)(ab)(cd)(ef)'
+= Verify little endianness of UUIDField
+* The endianness of a UUIDField should be apply by block on each block in parenthesis '(01234567)-(89ab)-(cdef)-(01)(23)-(45)(67)(89)(ab)(cd)(ef)'
 f = EndiannessField(UUIDField('f', '01234567-89ab-cdef-0123-456789abcdef'), lambda p: '<')
 f.addfield(None, b'', f.default) == bytearray.fromhex('67452301ab89efcd0123456789abcdef')
 
@@ -115,7 +115,7 @@ p = DceRpc(bytearray.fromhex('04000000000000000000000000000000000000000000000000
 p.payload.__class__ == conf.raw_layer
 
 = DCE/RPC little-endian build
-bytes(DceRpc(type='response', endianess='little', opnum=3) / b'\x00\x01\x02\x03') == bytearray.fromhex('04020000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000300ffffffff04000000000000010203')
+bytes(DceRpc(type='response', endianness='little', opnum=3) / b'\x00\x01\x02\x03') == bytearray.fromhex('04020000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000300ffffffff04000000000000010203')
 
 = DCE/RPC little-endian dissection
 p = DceRpc(bytearray.fromhex('04020000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000300ffffffff04000000000000010203'))

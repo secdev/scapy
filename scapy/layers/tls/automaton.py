@@ -45,7 +45,7 @@ class _TLSAutomaton(Automaton):
     same flight, as with ClientFlight2.
 
     However, note that the flights from the opposite side may be spread wildly
-    accross TLS records and TCP packets. This is why we use a 'get_next_msg'
+    across TLS records and TCP packets. This is why we use a 'get_next_msg'
     method for feeding a list of received messages, 'buffer_in'. Raw data
     which has not yet been interpreted as a TLS record is kept in 'remain_in'.
     """

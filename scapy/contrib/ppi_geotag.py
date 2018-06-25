@@ -219,7 +219,7 @@ class GPSTime_Field(LETimeField):
 
 
 class VectorFlags_Field(XLEIntField):
-    """Represents te VectorFlags field. Handles the RelativeTo:sub-field"""
+    """Represents the VectorFlags field. Handles the RelativeTo:sub-field"""
     _fwdstr = "DefinesForward"
     _resmask = 0xfffffff8
     _relmask = 0x6

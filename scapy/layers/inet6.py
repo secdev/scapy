@@ -3,7 +3,7 @@
 #                                                                           #
 #  inet6.py --- IPv6 support for Scapy                                      #
 #               see http://natisbad.org/IPv6/                               #
-#               for more informations                                       #
+#               for more information                                        #
 #                                                                           #
 #  Copyright (C) 2005  Guillaume Valadon <guedou@hongo.wide.ad.jp>          #
 #                      Arnaud Ebalard <arnaud.ebalard@eads.net>             #
@@ -674,7 +674,7 @@ class HBHOptUnknown(Packet):  # IPv6 Hop-By-Hop Option
     def alignment_delta(self, curpos):  # By default, no alignment requirement
         """
         As specified in section 4.2 of RFC 2460, every options has
-        an alignment requirement ususally expressed xn+y, meaning
+        an alignment requirement usually expressed xn+y, meaning
         the Option Type must appear at an integer multiple of x octest
         from the start of the header, plus y octet.
 
@@ -1633,7 +1633,7 @@ icmp6ndopts = {1: "Source Link-Layer Address",
                22: "CARD Reply Option",   # RFC 4065/4066/4067
                23: "MAP Option",          # RFC 4140
                24: "Route Information Option",  # RFC 4191
-               25: "Recusive DNS Server Option",
+               25: "Recursive DNS Server Option",
                26: "IPv6 Router Advertisement Flags Option"
                }
 
@@ -2418,7 +2418,7 @@ _nireply_flags = {1: "Reply set incomplete",
                   32: "Global addresses"}
 
 # Internal repr is one of those :
-# (0, "some string") : unknow qtype value are mapped to that one
+# (0, "some string") : unknown qtype value are mapped to that one
 # (3, [ (ttl, ip6), ... ])
 # (4, [ (ttl, ip4), ... ])
 # (2, [ttl, dns_names]) : dns_names is one string that contains

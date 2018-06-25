@@ -53,7 +53,7 @@ class TLSClientAutomaton(_TLSAutomaton):
     _'client_hello' may hold a TLSClientHello or SSLv2ClientHello to be sent
     to the server. This is particularly useful for extensions tweaking.
     _'version' is a quicker way to advertise a protocol version ("sslv2",
-    "tls1", "tls12", etc.) It may be overriden by the previous 'client_hello'.
+    "tls1", "tls12", etc.) It may be overridden by the previous 'client_hello'.
     _'data' is a list of raw data to be sent to the server once the handshake
     has been completed. Both 'stop_server' and 'quit' will work this way.
     """

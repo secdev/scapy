@@ -82,7 +82,7 @@ def ltp_bind_payload(cls, lambd):
     params:
      - cls: the class to bind
      - lambd: lambda that will be called to check
-              wether or not the cls should be used
+              whether or not the cls should be used
 
               lambda pkt: ...
     """

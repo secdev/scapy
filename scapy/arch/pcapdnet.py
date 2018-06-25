@@ -1,5 +1,5 @@
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more informations
+# See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # This program is published under a GPLv2 license
 
@@ -137,7 +137,7 @@ if conf.use_winpcapy:
     except OSError as e:
         conf.use_winpcapy = False
         if conf.interactive:
-            log_loading.warning("wpcap.dll is not installed. You won't be able to send/recieve packets. Visit the scapy's doc to install it")  # noqa: E501
+            log_loading.warning("wpcap.dll is not installed. You won't be able to send/receive packets. Visit the scapy's doc to install it")  # noqa: E501
 
     if conf.use_winpcapy:
         def get_if_raw_addr(iff):  # noqa: F811
@@ -183,7 +183,7 @@ if conf.use_winpcapy:
                 self.pcap = pcap_open_live(self.iface, snaplen, promisc, to_ms, self.errbuf)  # noqa: E501
 
             # Winpcap exclusive: make every packet to be instantly
-            # returned, and not buffered withing Winpcap
+            # returned, and not buffered within Winpcap
             pcap_setmintocopy(self.pcap, 0)
 
             self.header = POINTER(pcap_pkthdr)()
@@ -411,7 +411,7 @@ if conf.use_pcap or conf.use_winpcapy:
             # set it to 0 ==> blocking pcap_next_ex.
             #   However, the way it is handled is very poor, and result in a jerky packet stream.  # noqa: E501
             # To fix this, we set 100 and the implementation under windows is slightly different, as  # noqa: E501
-            # everything is always recieved as non-blocking
+            # everything is always received as non-blocking
             self.ins = open_pcap(iface, MTU, self.promisc, 100, monitor=monitor)  # noqa: E501
             try:
                 ioctl(self.ins.fileno(), BIOCIMMEDIATE, struct.pack("I", 1))

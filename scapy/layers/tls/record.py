@@ -115,7 +115,7 @@ class _TLSMsgListField(PacketListField):
         notably important for several TLS handshake implementations, which
         may for instance pack a server_hello, a certificate, a
         server_key_exchange and a server_hello_done, all in one record.
-        Each parsed message may update the TLS context throught their method
+        Each parsed message may update the TLS context through their method
         .post_dissection_tls_session_update().
 
         If the decryption failed with a CipherError, presumably because we
@@ -241,7 +241,7 @@ class TLS(_GenericTLSSessionInheritance):
     will not be able to verify the signature of the server_key_exchange inside
     t2. However, it should be able to do so for t3, thanks to the tls_session.
     The consequence of not having a complete TLS context is even more obvious
-    when trying to parse ciphered content, as we decribed before.
+    when trying to parse ciphered content, as we described before.
 
     Thus, in order to parse TLS-protected communications with Scapy:
     _either Scapy reads every message from one side of the TLS connection and

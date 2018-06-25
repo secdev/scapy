@@ -359,7 +359,7 @@ class TacacsClientPacket(Packet):
 
     '''
 
-    Super class for tacacs packet in order to get them uncrypted
+    Super class for tacacs packet in order to get them unencrypted
     Obfuscation methodology from section 3.7
     https://tools.ietf.org/html/draft-ietf-opsawg-tacacs-06#section-3.7
 

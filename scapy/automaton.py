@@ -1,5 +1,5 @@
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more informations
+# See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # Copyright (C) Gabriel Potter <gabriel@potter.fr>
 # This program is published under a GPLv2 license
@@ -35,7 +35,7 @@ if WINDOWS:
 else:
     recv_error = ()
 
-""" In Windows, select.select is not available for custom objects. Here's the implementation of scapy to re-create this functionnality  # noqa: E501
+""" In Windows, select.select is not available for custom objects. Here's the implementation of scapy to re-create this functionality  # noqa: E501
 # Passive way: using no-ressources locks
                +---------+             +---------------+      +-------------------------+  # noqa: E501
                |  Start  +------------->Select_objects +----->+Linux: call select.select|  # noqa: E501
@@ -77,13 +77,13 @@ class SelectableObject:
     - call "self.call_release" once you are ready to be read
 
     You can set the __selectable_force_select__ to True in the class, if you want to  # noqa: E501
-    force the handler to use fileno(). This may only be useable on sockets created using  # noqa: E501
+    force the handler to use fileno(). This may only be usable on sockets created using  # noqa: E501
     the builtin socket API."""
     __selectable_force_select__ = False
 
     def check_recv(self):
         """DEV: will be called only once (at beginning) to check if the object is ready."""  # noqa: E501
-        raise OSError("This method must be overwriten.")
+        raise OSError("This method must be overwritten.")
 
     def _wait_non_ressources(self, callback):
         """This get started as a thread, and waits for the data lock to be freed then advertise itself to the SelectableSelector using the callback"""  # noqa: E501
@@ -497,7 +497,7 @@ class Automaton_metaclass(type):
     def graph(self, **kargs):
         s = 'digraph "%s" {\n' % self.__class__.__name__
 
-        se = ""  # Keep initial nodes at the begining for better rendering
+        se = ""  # Keep initial nodes at the beginning for better rendering
         for st in six.itervalues(self.states):
             if st.atmt_initial:
                 se = ('\t"%s" [ style=filled, fillcolor=blue, shape=box, root=true];\n' % st.atmt_state) + se  # noqa: E501
@@ -668,7 +668,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
             elif cmd.type == _ATMT_Command.ACCEPT:
                 self.debug(3, "INTERCEPT: packet accepted")
             else:
-                raise self.AutomatonError("INTERCEPT: unkown verdict: %r" % cmd.type)  # noqa: E501
+                raise self.AutomatonError("INTERCEPT: unknown verdict: %r" % cmd.type)  # noqa: E501
         self.my_send(pkt)
         self.debug(3, "SENT : %s" % pkt.summary())
 
@@ -806,7 +806,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                 self.cmdout.send(c)
             except Exception as e:
                 exc_info = sys.exc_info()
-                self.debug(3, "Transfering exception from tid=%i:\n%s" % (self.threadid, traceback.format_exception(*exc_info)))  # noqa: E501
+                self.debug(3, "Transferring exception from tid=%i:\n%s" % (self.threadid, traceback.format_exception(*exc_info)))  # noqa: E501
                 m = Message(type=_ATMT_Command.EXCEPTION, exception=e, exc_info=exc_info)  # noqa: E501
                 self.cmdout.send(m)
             self.debug(3, "Stopping control thread (tid=%i)" % self.threadid)

@@ -14,7 +14,7 @@ a1 = AVP ('High-User-Priority', val=15)
 a1.show()
 raw(a1) == b'\x00\x00\x02/@\x00\x00\x0c\x00\x00\x00\x0f'
 
-= Same AVP identified by the beggining of the name
+= Same AVP identified by the beginning of the name
 a1b = AVP ('High-U', val=15)
 a1b.show()
 raw(a1b) == raw(a1)

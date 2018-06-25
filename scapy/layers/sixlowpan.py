@@ -1,5 +1,5 @@
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more informations
+# See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Cesar A. Bernardini <mesarpe@gmail.com>
 # Copyright (C) Gabriel Potter <gabriel@potter.fr>
 # Intern at INRIA Grand Nancy Est
@@ -428,7 +428,7 @@ class LoWPAN_IPHC(Packet):
         """dissect the IPv6 package compressed into this IPHC packet.
 
         The packet payload needs to be decompressed and depending on the
-        arguments, several convertions should be done.
+        arguments, several conversions should be done.
         """
 
         # uncompress payload
@@ -477,7 +477,7 @@ class LoWPAN_IPHC(Packet):
 
             packet.payload = udp / data
             data = raw(packet)
-        # else self.nh == 0 not necesary
+        # else self.nh == 0 not necessary
         elif self._nhField & 0xE0 == 0xE0:  # IPv6 Extension Header Decompression  # noqa: E501
             warning('Unimplemented: IPv6 Extension Header decompression')  # noqa: E501
             packet.payload = conf.raw_layer(data)
@@ -538,7 +538,7 @@ class LoWPAN_IPHC(Packet):
                 tmp_ip = b"\xff\x02" + b"\x00" * 13 + tmp_ip[-1:]
         elif self.m == 1 and self.dac == 1:
             if self.dam == 0x0:
-                raise Exception("Unimplemented: I didnt understand the 6lowpan specification")  # noqa: E501
+                raise Exception("Unimplemented: I didn't understand the 6lowpan specification")  # noqa: E501
             else:  # all the others values
                 raise Exception("Reserved value by specification.")
 

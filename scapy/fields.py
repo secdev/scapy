@@ -1,5 +1,5 @@
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more informations
+# See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # This program is published under a GPLv2 license
 
@@ -65,7 +65,7 @@ class ObservableDict(dict):
 ############
 
 class Field(six.with_metaclass(Field_metaclass, object)):
-    """For more informations on how this work, please refer to
+    """For more information on how this work, please refer to
        http://www.secdev.org/projects/scapy/files/scapydoc.pdf
        chapter ``Adding a New Field''"""
     __slots__ = ["name", "fmt", "default", "sz", "owners"]
@@ -1294,19 +1294,19 @@ class StrNullField(StrField):
 
 
 class StrStopField(StrField):
-    __slots__ = ["stop", "additionnal"]
+    __slots__ = ["stop", "additional"]
 
-    def __init__(self, name, default, stop, additionnal=0):
+    def __init__(self, name, default, stop, additional=0):
         Field.__init__(self, name, default)
         self.stop = stop
-        self.additionnal = additionnal
+        self.additional = additional
 
     def getfield(self, pkt, s):
         l = s.find(self.stop)
         if l < 0:
             return b"", s
 #            raise Scapy_Exception,"StrStopField: stop value [%s] not found" %stop  # noqa: E501
-        l += len(self.stop) + self.additionnal
+        l += len(self.stop) + self.additional
         return s[l:], s[:l]
 
     def randval(self):

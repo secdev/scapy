@@ -1,5 +1,5 @@
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more informations
+# See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # This program is published under a GPLv2 license
 # Netflow V5 appended by spaceB0x and Guillaume Valadon
@@ -427,7 +427,7 @@ def netflowv9_defragment(plist):
                         # Matched
                         try:
                             assert(len(current_ftl.records) > 0)
-                            # All data is stored in one record, awaiting to be splitted  # noqa: E501
+                            # All data is stored in one record, awaiting to be split  # noqa: E501
                             data = current_ftl.records[0].fieldValue
                             # If fieldValue is available, the record has not been defragmented: pop it  # noqa: E501
                             current_ftl.records.pop(0)
@@ -455,7 +455,7 @@ def netflowv9_defragment(plist):
                     # Matched
                     try:
                         assert(len(current_ftl.records) > 0)
-                        # All data is stored in one record, awaiting to be splitted  # noqa: E501
+                        # All data is stored in one record, awaiting to be split  # noqa: E501
                         data = current_ftl.records.pop(0).fieldValue
                     except (AssertionError, AttributeError):
                         continue

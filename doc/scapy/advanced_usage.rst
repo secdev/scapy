@@ -798,7 +798,7 @@ PROFINET IO is an industrial protocol composed of different layers such as the R
 RTC data packet
 ---------------
 
-The first thing to do when building the RTC ``data`` buffer is to instanciate each Scapy packet which represents a piece of data. Each one of them may require some specific piece of configuration, such as its length. All packets and their configuration are:
+The first thing to do when building the RTC ``data`` buffer is to instantiate each Scapy packet which represents a piece of data. Each one of them may require some specific piece of configuration, such as its length. All packets and their configuration are:
 
 * ``PNIORealTimeRawData``: a simple raw data like ``Raw``
 
@@ -813,7 +813,7 @@ The first thing to do when building the RTC ``data`` buffer is to instanciate ea
 
   * Doesn't require any configuration
 
-To instanciate one of these packets with its configuration, the ``config`` argument must be given. It is a ``dict()`` which contains all the required piece of configuration::
+To instantiate one of these packets with its configuration, the ``config`` argument must be given. It is a ``dict()`` which contains all the required piece of configuration::
 
     >>> load_contrib('pnio_rtc')
     >>> raw(PNIORealTimeRawData(load='AAA', config={'length': 4}))

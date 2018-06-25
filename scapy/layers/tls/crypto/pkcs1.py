@@ -136,7 +136,7 @@ if conf.crypto_valid:
 # Asymmetric Cryptography wrappers
 #####################################################################
 
-# Make sure that default values are consistent accross the whole TLS module,
+# Make sure that default values are consistent across the whole TLS module,
 # lest they be explicitly set to None between cert.py and pkcs1.py.
 
 class _EncryptAndVerifyRSA(object):

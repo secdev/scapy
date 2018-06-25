@@ -1,5 +1,5 @@
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more informations
+# See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Sabrina Dubroca <sd@queasysnail.net>
 # This program is published under a GPLv2 license
 

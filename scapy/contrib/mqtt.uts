@@ -11,7 +11,7 @@ from scapy.contrib.mqtt import *
 
 + MQTT protocol test
 
-= MQTTPublish, packet instanciation
+= MQTTPublish, packet instantiation
 p = MQTT()/MQTTPublish(topic='test1',value='test2')
 assert(p.type == 3)
 assert(p.topic == b'test1')
@@ -32,7 +32,7 @@ assert(publish[MQTTPublish].topic == b'test')
 assert(publish[MQTTPublish].value == b'test')
 
 
-= MQTTConnect, packet instanciation
+= MQTTConnect, packet instantiation
 c = MQTT()/MQTTConnect(clientIdlen=5, clientId='newid')
 assert(c.type == 1)
 assert(c.clientId == b'newid')
@@ -56,7 +56,7 @@ assert(connect.clientIdlen == 17)
 assert(connect.clientId == b'mosqpub/1440-kali')
 
 
-=MQTTConnack, packet instanciation
+=MQTTConnack, packet instantiation
 ck = MQTT()/MQTTConnack(sessPresentFlag=1,retcode=0)
 assert(ck.type == 2)
 assert(ck.sessPresentFlag == 1)
@@ -69,7 +69,7 @@ assert(connack.sessPresentFlag == 0)
 assert(connack.retcode == 0)
 
 
-= MQTTSubscribe, packet instanciation
+= MQTTSubscribe, packet instantiation
 sb = MQTT()/MQTTSubscribe(msgid=1,topic='newtopic',QOS=0,length=0)
 assert(sb.type == 8)
 assert(sb.msgid == 1)
@@ -86,7 +86,7 @@ assert(subscribe.topic == b'test')
 assert(subscribe.QOS == 1)
 
 
-= MQTTSuback, packet instanciation
+= MQTTSuback, packet instantiation
 sk = MQTT()/MQTTSuback(msgid=1, retcode=0)
 assert(sk.type == 9)
 assert(sk.msgid == 1)
@@ -99,7 +99,7 @@ assert(suback.msgid == 1)
 assert(suback.retcode == 0)
 
 
-= MQTTPubrec, packet instanciation
+= MQTTPubrec, packet instantiation
 pc = MQTT()/MQTTPubrec(msgid=1)
 assert(pc.type == 5)
 assert(pc.msgid == 1)

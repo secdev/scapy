@@ -11,7 +11,7 @@
 # Modified for scapy's usage - Mainly to support Npcap
 
 ## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more informations
+## See http://www.secdev.org/projects/scapy for more information
 ## This program is published under a GPLv2 license
 
 from ctypes import *
@@ -564,7 +564,7 @@ if not WINDOWS:
 ## Windows-specific Extensions
 ## The functions in this section extend libpcap to offer advanced functionalities  # noqa: E501
 ## (like remote packet capture, packet buffer size variation or high-precision packet injection).  # noqa: E501
-## Howerver, at the moment they can be used only in Windows.
+## However, at the moment they can be used only in Windows.
 ###########################################
 if WINDOWS:
     HANDLE = c_void_p
@@ -699,7 +699,7 @@ if WINDOWS:
     pcap_setmode.argtypes = [POINTER(pcap_t), c_int]
     
     #int pcap_setmintocopy (pcap_t *p, int size)
-    #   Set the minumum amount of data received by the kernel in a single call.
+    #   Set the minimum amount of data received by the kernel in a single call.
     pcap_setmintocopy = _lib.pcap_setmintocopy
     pcap_setmintocopy.restype = c_int
     pcap_setmintocopy.argtype = [POINTER(pcap_t), c_int]

@@ -1,5 +1,5 @@
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more informations
+# See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # This program is published under a GPLv2 license
 
@@ -1735,7 +1735,7 @@ class NTPPrivate(NTP):
     #
     # Err:      Must be 0 for a request.  For a response, holds an error
     #           code relating to the request.  If nonzero, the operation
-    #           requested wasn"t performed.
+    #           requested wasn't performed.
     #
     #           0 - no error
     #           1 - incompatible implementation number

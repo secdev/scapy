@@ -74,7 +74,7 @@ assert pkt[LLDPDUPortID]._length == 7
 
 conf.contribs['LLDP'].strict_mode_enable()
 
-# invalid lenght in LLDPDUEndOfLLDPDU
+# invalid length in LLDPDUEndOfLLDPDU
 try:
       frm = Ether()/LLDPDUChassisID(id='slartibart')/LLDPDUPortID(id='42')/LLDPDUTimeToLive()/LLDPDUEndOfLLDPDU(_length=8)
       frm.build()
@@ -118,7 +118,7 @@ try:
 except LLDPInvalidFrameStructure:
       pass
 
-# layer LLDPDUPortID occures twice
+# layer LLDPDUPortID occurs twice
 try:
       frm = Ether() / LLDPDUChassisID(id='slartibart') / LLDPDUPortID(id='42') / LLDPDUPortID(id='23')  / LLDPDUTimeToLive() / LLDPDUEndOfLLDPDU()
       Ether(frm.build())
@@ -150,7 +150,7 @@ try:
 except LLDPInvalidLengthField:
       pass
 
-# invalid lenght in LLDPDUEndOfLLDPDU
+# invalid length in LLDPDUEndOfLLDPDU
 try:
       frm = Ether()/LLDPDUChassisID(id='slartibart')/LLDPDUPortID(id='42')/LLDPDUTimeToLive()/LLDPDUEndOfLLDPDU(_length=8)
       Ether(frm.build())

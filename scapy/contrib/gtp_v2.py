@@ -464,7 +464,7 @@ PCO_PROTOCOL_TYPES = {
     0x000c: 'P-CSCF IPv4 Address Request',
     0x0010: 'IPv4 Link MTU Request',
     0x8021: 'IPCP',
-    0xc023: 'Password Authentification Protocol',
+    0xc023: 'Password Authentication Protocol',
     0xc223: 'Challenge Handshake Authentication Protocol',
 }
 
@@ -566,7 +566,7 @@ class PCO_IPCP(PCO_Option):
 
 
 class PCO_PPP_Auth(PCO_Option):
-    name = "PPP Password Authentification Protocol"
+    name = "PPP Password Authentication Protocol"
     fields_desc = [ByteField("Code", 0),
                    ByteField("Identifier", 0),
                    ShortField("length", 0),
@@ -586,14 +586,14 @@ class PCO_PPP_Auth(PCO_Option):
 
 
 class PCO_PasswordAuthentificationProtocol(PCO_Option):
-    name = "PCO Password Authentification Protocol"
+    name = "PCO Password Authentication Protocol"
     fields_desc = [ShortEnumField("type", None, PCO_PROTOCOL_TYPES),
                    ByteField("length", 0),
                    PacketField("PPP", None, PCO_PPP_Auth)]
 
 
 class PCO_PPP_Challenge(PCO_Option):
-    name = "PPP Password Authentification Protocol"
+    name = "PPP Password Authentication Protocol"
     fields_desc = [ByteField("Code", 0),
                    ByteField("Identifier", 0),
                    ShortField("length", 0),
@@ -609,7 +609,7 @@ class PCO_PPP_Challenge(PCO_Option):
 
 
 class PCO_ChallengeHandshakeAuthenticationProtocol(PCO_Option):
-    name = "PCO Password Authentification Protocol"
+    name = "PCO Password Authentication Protocol"
     fields_desc = [ShortEnumField("type", None, PCO_PROTOCOL_TYPES),
                    ByteField("length", 0),
                    PacketField("PPP", None, PCO_PPP_Challenge)]

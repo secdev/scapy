@@ -39,7 +39,7 @@
         - Join messages
         - RE MD5 hash calculation
         - Have a closer look at 8 byte padding in summary adv.
-            "debug sw-vlan vtp packets" sais the TLV length is invalid,
+            "debug sw-vlan vtp packets" says the TLV length is invalid,
             when I change the values
             b'\x00\x00\x00\x01\x06\x01\x00\x02'
                 * \x00\x00 ?

@@ -320,12 +320,12 @@ class Block(Packet):
 
     def extract_padding(self, s):
         # all fields after block_length are included in the length and must be
-        # substracted from the pdu length l
+        # subtracted from the pdu length l
         length = self.payload_length()
         return s[:length], s[length:]
 
     def payload_length(self):
-        """ A function for each block, to determine the lenght of
+        """ A function for each block, to determine the length of
         the payload """
         return 0  # default, no payload
 
@@ -377,7 +377,7 @@ class IODControlReq(Block):
 
     def get_response(self):
         """Generate the response block of this request.
-        Carefull: it only sets the fields which can be set from the request
+        Careful: it only sets the fields which can be set from the request
         """
         res = IODControlRes()
         for field in ["ARUUID", "SessionKey", "AlarmSequenceNumber"]:
@@ -437,7 +437,7 @@ class IODWriteReq(Block):
 
     def get_response(self):
         """Generate the response block of this request.
-        Carefull: it only sets the fields which can be set from the request
+        Careful: it only sets the fields which can be set from the request
         """
         res = IODWriteRes()
         for field in ["seqNum", "ARUUID", "API", "slotNumber",
@@ -572,7 +572,7 @@ class IODWriteMultipleReq(Block):
 
     def get_response(self):
         """Generate the response block of this request.
-        Carefull: it only sets the fields which can be set from the request
+        Careful: it only sets the fields which can be set from the request
         """
         res = IODWriteMultipleRes()
         for field in ["seqNum", "ARUUID", "API", "slotNumber",
@@ -657,7 +657,7 @@ class ARBlockReq(Block):
 
     def get_response(self):
         """Generate the response block of this request.
-        Carefull: it only sets the fields which can be set from the request
+        Careful: it only sets the fields which can be set from the request
         """
         res = ARBlockRes()
         for field in ["ARType", "ARUUID", "SessionKey"]:
@@ -749,7 +749,7 @@ class IOCRBlockReq(Block):
 
     def get_response(self):
         """Generate the response block of this request.
-        Carefull: it only sets the fields which can be set from the request
+        Careful: it only sets the fields which can be set from the request
         """
         res = IOCRBlockRes()
         for field in ["IOCRType", "IOCRReference", "FrameID"]:
@@ -840,7 +840,7 @@ class ExpectedSubmoduleBlockReq(Block):
 
     def get_response(self):
         """Generate the response block of this request.
-        Carefull: it only sets the fields which can be set from the request
+        Careful: it only sets the fields which can be set from the request
         """
         return None  # no response associated (should be modulediffblock)
 
@@ -900,24 +900,24 @@ def _guess_block_class(_pkt, *args, **kargs):
 
 
 def dce_rpc_endianess(pkt):
-    """determine the symbol for the endianess of a the DCE/RPC"""
+    """determine the symbol for the endianness of a the DCE/RPC"""
     try:
-        endianess = pkt.underlayer.endianess
+        endianness = pkt.underlayer.endianness
     except AttributeError:
         # handle the case where a PNIO class is
         # built without its DCE-RPC under-layer
-        # i.e there is no endianess indication
+        # i.e there is no endianness indication
         return "!"
-    if endianess == 0:  # big endian
+    if endianness == 0:  # big endian
         return ">"
-    elif endianess == 1:  # little endian
+    elif endianness == 1:  # little endian
         return "<"
     else:
         return "!"
 
 
 class NDRData(Packet):
-    """Base NDRData to centralize some fields. It can't be instanciated"""
+    """Base NDRData to centralize some fields. It can't be instantiated"""
     fields_desc = [
         EndiannessField(
             FieldLenField("args_length", None, fmt="I", length_of="blocks"),

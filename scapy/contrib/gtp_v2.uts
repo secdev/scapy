@@ -5,7 +5,7 @@
 
 + GTPv2
 
-= GTPHeader v2, basic instanciation
+= GTPHeader v2, basic instantiation
 gtp = IP()/UDP(dport=2123)/GTPHeader(gtp_type=1)
 gtp.dport == 2123 and gtp.gtp_type == 1
 

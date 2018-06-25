@@ -1,5 +1,5 @@
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more informations
+# See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # This program is published under a GPLv2 license
 
@@ -59,7 +59,7 @@ def _sndrcv_snd(pks, timeout, inter, verbose, tobesent, hsent, timessent, stopev
             print("Begin emission:")
         for p in tobesent:
             # Populate the dictionary of _sndrcv_rcv
-            # _sndrcv_rcv wont miss the answer of a packet that has not been sent  # noqa: E501
+            # _sndrcv_rcv won't miss the answer of a packet that has not been sent  # noqa: E501
             hsent.setdefault(p.hashret(), []).append(p)
             if stopevent.is_set():
                 break
@@ -92,7 +92,7 @@ loop
 
 def _sndrcv_rcv(pks, hsent, stopevent, nbrecv, notans, verbose, chainCC,
                 multi, _storage_policy=None):
-    """Function used to recieve packets and check their hashret"""
+    """Function used to receive packets and check their hashret"""
     if not _storage_policy:
         _storage_policy = lambda x, y: (x, y)
     ans = []
@@ -187,13 +187,13 @@ def _sndrcv_rcv(pks, hsent, stopevent, nbrecv, notans, verbose, chainCC,
 def sndrcv(pks, pkt, timeout=None, inter=0, verbose=None, chainCC=False,
            retry=0, multi=False, rcv_pks=None, store_unanswered=True,
            process=None, prebuild=False):
-    """Scapy raw function to send a packet and recieve its answer.
+    """Scapy raw function to send a packet and receive its answer.
     WARNING: This is an internal function. Using sr/srp/sr1/srp is
     more appropriate in many cases.
 
-    pks: SuperSocket instance to send/recieve packets
+    pks: SuperSocket instance to send/receive packets
     pkt: the packet to send
-    rcv_pks: if set, will be used instead of pks to recieve packets. packets will still  # noqa: E501
+    rcv_pks: if set, will be used instead of pks to receive packets. packets will still  # noqa: E501
              be sent through pks
     nofilter: put 1 to avoid use of BPF filters
     retry:    if positive, how many times to resend unanswered packets
@@ -206,8 +206,8 @@ def sndrcv(pks, pkt, timeout=None, inter=0, verbose=None, chainCC=False,
                       as the unans list.
     process:  if specified, only result from process(pkt) will be stored.
               the function should follow the following format:
-                lambda sent, recieved: (func(sent), func2(recieved))
-              if the packet is unanswered, `recieved` will be None.
+                lambda sent, received: (func(sent), func2(received))
+              if the packet is unanswered, `received` will be None.
               if `store_unanswered` is False, the function won't be called on un-answered packets.  # noqa: E501
     prebuild: pre-build the packets before starting to send them. Default to False. Automatically used  # noqa: E501
               when a generator is passed as the packet
@@ -484,8 +484,8 @@ store_unanswered: whether to store not-answered packets or not. Default True.
                   as the unans list.
 process:  if specified, only result from process(pkt) will be stored.
           the function should follow the following format:
-            lambda sent, recieved: (func(sent), func2(recieved))
-          if the packet is unanswered, `recieved` will be None.
+            lambda sent, received: (func(sent), func2(received))
+          if the packet is unanswered, `received` will be None.
           if `store_unanswered` is False, the function won't be called on un-answered packets."""  # noqa: E501
     s = conf.L3socket(promisc=promisc, filter=filter, iface=iface, nofilter=nofilter)  # noqa: E501
     result = sndrcv(s, x, *args, **kargs)
@@ -509,8 +509,8 @@ store_unanswered: whether to store not-answered packets or not. Default True.
                   as the unans list.
 process:  if specified, only result from process(pkt) will be stored.
           the function should follow the following format:
-            lambda sent, recieved: (func(sent), func2(recieved))
-          if the packet is unanswered, `recieved` will be None.
+            lambda sent, received: (func(sent), func2(received))
+          if the packet is unanswered, `received` will be None.
           if `store_unanswered` is False, the function won't be called on un-answered packets."""  # noqa: E501
     s = conf.L3socket(promisc=promisc, filter=filter, nofilter=nofilter, iface=iface)  # noqa: E501
     ans, _ = sndrcv(s, x, *args, **kargs)
@@ -537,8 +537,8 @@ store_unanswered: whether to store not-answered packets or not. Default True.
                   as the unans list.
 process:  if specified, only result from process(pkt) will be stored.
           the function should follow the following format:
-            lambda sent, recieved: (func(sent), func2(recieved))
-          if the packet is unanswered, `recieved` will be None.
+            lambda sent, received: (func(sent), func2(received))
+          if the packet is unanswered, `received` will be None.
           if `store_unanswered` is False, the function won't be called on un-answered packets."""  # noqa: E501
     if iface is None and iface_hint is not None:
         iface = conf.route.route(iface_hint)[0]
@@ -564,8 +564,8 @@ store_unanswered: whether to store not-answered packets or not. Default True.
                   as the unans list.
 process:  if specified, only result from process(pkt) will be stored.
           the function should follow the following format:
-            lambda sent, recieved: (func(sent), func2(recieved))
-          if the packet is unanswered, `recieved` will be None.
+            lambda sent, received: (func(sent), func2(received))
+          if the packet is unanswered, `received` will be None.
           if `store_unanswered` is False, the function won't be called on un-answered packets."""  # noqa: E501
     ans, _ = srp(*args, **kargs)
     if len(ans) > 0:
@@ -684,7 +684,7 @@ def sndrcvflood(pks, pkt, inter=0, verbose=None, chainCC=False, store_unanswered
     timeout_thread.setDaemon(True)
     timeout_thread.start()
 
-    # We don't use _sndrcv_snd verbose (it messes the logs up as in a thread that ends after recieving)  # noqa: E501
+    # We don't use _sndrcv_snd verbose (it messes the logs up as in a thread that ends after receiving)  # noqa: E501
     thread = threading.Thread(
         target=_sndrcv_snd,
         args=(pks, None, inter, False, infinite_gen, hsent, timessent, stopevent),  # noqa: E501

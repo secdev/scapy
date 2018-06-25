@@ -1,5 +1,5 @@
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more informations
+# See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # This program is published under a GPLv2 license
 
@@ -138,11 +138,11 @@ class SMBNegociate_Protocol_Request_Header(Packet):
                    ByteField("WordCount", 0),
                    LEShortField("ByteCount", 12)]
 
-# SMB Negociate Protocol Request Tail
+# SMB Negotiate Protocol Request Tail
 
 
 class SMBNegociate_Protocol_Request_Tail(Packet):
-    name = "SMB Negociate Protocol Request Tail"
+    name = "SMB Negotiate Protocol Request Tail"
     fields_desc = [ByteField("BufferFormat", 0x02),
                    StrNullField("BufferData", "NT LM 0.12")]
 
