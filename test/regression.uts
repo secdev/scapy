@@ -1,10 +1,10 @@
 % Regression tests for Scapy
 
-# More informations at http://www.secdev.org/projects/UTscapy/
+# More information at http://www.secdev.org/projects/UTscapy/
 
 ############
 ############
-+ Informations on Scapy
++ Information on Scapy
 
 = Get conf
 ~ conf command
@@ -6589,7 +6589,7 @@ Statistics for network device: mon0
         Retried packets (EAGAIN):  0"""
 
 stderr = """Warning in sendpacket.c:sendpacket_open_pf() line 669:
-Unsupported physical layer type 0x0323 on mon0.  Maybe it works, maybe it wont.  See tickets #123/318
+Unsupported physical layer type 0x0323 on mon0.  Maybe it works, maybe it won't.  See tickets #123/318
 sending out mon0
 processing file: replay-example.pcap"""
 

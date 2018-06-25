@@ -91,7 +91,7 @@ assert TCP in ipv6
 assert raw(ipv6_tcp_http) == raw(ipv6)
 
 = Mesh Header.
-# DOESNT WORK! (In wireshark it reports, malformed packet)
+# DOESN'T WORK! (In wireshark it reports, malformed packet)
 
 ######## TODO ########
 

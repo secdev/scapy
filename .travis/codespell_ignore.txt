@@ -7,3 +7,4 @@ te
 tim
 wan
 wanna
+doas

@@ -81,7 +81,7 @@ And here  is the  main "trick".  You do not  care about  packets, only
 about layers, stacked one after the other. 
 
 One can easily  access a layer by its name: ``p[TCP]`` returns the ``TCP``
-and followings layers. This is a shortcut for ``p.getlayer(TCP)``.
+and following layers. This is a shortcut for ``p.getlayer(TCP)``.
 
 .. note::
    There is  an optional argument (``nb``) which returns  the ``nb`` th  layer of required protocol.
@@ -763,7 +763,7 @@ gather the  values to set the fields  to the lower layer  (the left of
 specify the bindings in  both directions between two neighboring
 layers.
 
-Once again, these informations must be provided to ``bind_layers()``,
+Once again, these information must be provided to ``bind_layers()``,
 which  will   internally  call  ``bind_top_down()``   in  charge  to
 aggregate the fields to overload. In our case what we need to specify
 is::
