@@ -580,7 +580,11 @@ class ZigbeeAppCommandPayload(Packet):
             13: "APS_CMD_EA_RSP_MAC_DATA",
             14: "APS_CMD_TUNNEL"
         }),
-        StrField("data", ""),
+        ConditionalField(StrFixedLenField("key", None, 16), lambda pkt: pkt.cmd_identifier == 1),
+        ConditionalField(ByteField("key_seqnum", 0), lambda pkt: pkt.cmd_identifier == 1),
+        ConditionalField(dot15d4AddressField("dest_addr", 0, adjust=lambda pkt, x: 8), lambda pkt: pkt.cmd_identifier == 1),
+        ConditionalField(dot15d4AddressField("src_addr", 0, adjust=lambda pkt, x: 8), lambda pkt: pkt.cmd_identifier == 1),
+        ConditionalField(StrField("data", ""), lambda pkt: pkt.cmd_identifier != 1)
     ]
 
 
