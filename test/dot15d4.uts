@@ -352,6 +352,6 @@ assert pkt1[ZigbeeAppCommandPayload].key_seqnum == 0
 assert pkt1[ZigbeeAppCommandPayload].dest_addr == 4502500120025882
 f,v = pkt1[ZigbeeAppCommandPayload].getfield_and_val("dest_addr")
 assert f.i2repr(None, v) == "00:0f:ff:00:00:41:5b:1a"
-assert pkt1[ZigbeeAppCommandPayload].src_addr == 18446744073709551615L
+assert pkt1[ZigbeeAppCommandPayload].src_addr == 18446744073709551615
 f,v = pkt1[ZigbeeAppCommandPayload].getfield_and_val("src_addr")
 assert f.i2repr(None, v) == "ff:ff:ff:ff:ff:ff:ff:ff"
