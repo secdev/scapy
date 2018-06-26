@@ -330,3 +330,24 @@ assert pkt3[ZigBeeBeacon].extended_pan_id == 125823003551091
 f,v = pkt3[ZigBeeBeacon].getfield_and_val("extended_pan_id")
 assert f.i2repr(None, v) == "00:00:72:6f:73:6e:65:73"
 assert pkt3[ZigBeeBeacon].tx_offset == 16777215
+
+tmp = "/test/pcaps/zigbee-transport-key-skke_1.pcap"
+filename = os.path.abspath(os.path.join(os.path.dirname(__file__),"../")) + tmp
+filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else filename
+a = rdpcap(filename)
+
+pkt1 = a[0]  # AppCommandPayload with transport key
+
+assert Dot15d4FCS in pkt1
+assert ZigbeeNWK in pkt1
+assert ZigbeeAppDataPayload in pkt1
+assert ZigbeeAppCommandPayload in pkt1
+assert pkt1[ZigbeeAppCommandPayload].cmd_identifier == 1
+assert pkt1[ZigbeeAppCommandPayload].key == "&Tkr;9jr{]RqQ}9/"
+assert pkt1[ZigbeeAppCommandPayload].key_seqnum == 0
+assert pkt1[ZigbeeAppCommandPayload].dest_addr == 4502500120025882
+f,v = pkt1[ZigbeeAppCommandPayload].getfield_and_val("dest_addr")
+assert f.i2repr(None, v) == "00:0f:ff:00:00:41:5b:1a"
+assert pkt1[ZigbeeAppCommandPayload].src_addr == 18446744073709551615L
+f,v = pkt1[ZigbeeAppCommandPayload].getfield_and_val("src_addr")
+assert f.i2repr(None, v) == "ff:ff:ff:ff:ff:ff:ff:ff"
