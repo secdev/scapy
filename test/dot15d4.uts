@@ -347,7 +347,7 @@ assert ZigbeeAppCommandPayload in pkt1
 assert pkt1[ZigbeeAppCommandPayload].cmd_identifier == 1
 f,v = pkt1[ZigbeeAppCommandPayload].getfield_and_val("cmd_identifier")
 assert f.i2repr(None, v) == "APS_CMD_SKKE_1"
-assert pkt1[ZigbeeAppCommandPayload].key == "&Tkr;9jr{]RqQ}9/"
+assert pkt1[ZigbeeAppCommandPayload].key == b"&Tkr;9jr{]RqQ}9/"
 assert pkt1[ZigbeeAppCommandPayload].key_seqnum == 0
 assert pkt1[ZigbeeAppCommandPayload].dest_addr == 4502500120025882
 f,v = pkt1[ZigbeeAppCommandPayload].getfield_and_val("dest_addr")
