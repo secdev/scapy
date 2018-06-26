@@ -552,6 +552,7 @@ class NetworkInterface(object):
         self.description = None
         self.invalid = False
         self.raw80211 = None
+        self.cache_mode = None
         if data is not None:
             self.update(data)
 
@@ -631,8 +632,12 @@ class NetworkInterface(object):
     def ismonitor(self):
         """Returns True if the interface is in monitor mode.
         Only available with Npcap."""
+        if self.cache_mode is not None:
+            return self.cache_mode
         try:
-            return self.mode() == "monitor"
+            res = (self.mode() == "monitor")
+            self.cache_mode = res
+            return res
         except Scapy_Exception:
             return False
 
@@ -640,9 +645,12 @@ class NetworkInterface(object):
         """Alias for setmode('monitor') or setmode('managed')
         Only available with Npcap"""
         if enable:
-            return self.setmode('monitor')
+            res = self.setmode('monitor')
         else:
-            return self.setmode('managed')
+            res = self.setmode('managed')
+        # Reset monitor cache
+        self.cache_mode = res
+        return res
 
     def availablemodes(self):
         """Get all available interface modes.
