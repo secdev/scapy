@@ -644,12 +644,13 @@ class NetworkInterface(object):
     def setmonitor(self, enable=True):
         """Alias for setmode('monitor') or setmode('managed')
         Only available with Npcap"""
+        # We must reset the monitor cache
         if enable:
             res = self.setmode('monitor')
+            self.cache_mode = res
         else:
             res = self.setmode('managed')
-        # Reset monitor cache
-        self.cache_mode = res
+            self.cache_mode = not res
         return res
 
     def availablemodes(self):
