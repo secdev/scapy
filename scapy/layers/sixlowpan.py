@@ -501,8 +501,22 @@ class LoWPAN_IPHC(Packet):
                 tmp_ip = LINK_LOCAL_PREFIX[0:8] + tmp_ip[-8:]
             elif self.dam == 2:
                 tmp_ip = LINK_LOCAL_PREFIX[0:8] + b"\x00\x00\x00\xff\xfe\x00" + tmp_ip[-2:]  # noqa: E501
-            """else: #self.dam == 3
-                raise Exception('Unimplemented')"""
+            else:
+                underlayer = self.underlayer
+                while underlayer is not None and not isinstance(underlayer, Dot15d4Data):
+                    underlayer = underlayer.underlayer
+                if type(underlayer) == Dot15d4Data:
+                    if underlayer.underlayer.fcf_destaddrmode == 3:
+                        # 802.15.4 uses extended addressing
+                        tmp_ip = LINK_LOCAL_PREFIX[0:8] + struct.pack(">Q", underlayer.dest_addr)
+                        tmp_ip = tmp_ip[0:8] + struct.pack("B", (orb(tmp_ip[8]) ^ 0x2)) + tmp_ip[9:16]
+                    elif underlayer.underlayer.fcf_destaddrmode == 2:
+                        # 802.15.4 uses short addressing
+                        tmp_ip = LINK_LOCAL_PREFIX[0:8] + \
+                            b"\x00\x00\x00\xff\xfe\x00" + \
+                            struct.pack(">Q", underlayer.dest_addr)[6:]
+                else:
+                    raise Exception('Unimplemented: Rainbow Unicorns!')
 
         elif self.m == 0 and self.dac == 1:
             if self.dam == 0:
