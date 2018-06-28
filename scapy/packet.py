@@ -927,6 +927,15 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             return self.payload.answers(other.payload)
         return 0
 
+    def layers(self):
+        """returns a list of layers (including subclasses) in this packet"""
+        layers = [self.__class__]
+        q = self.getlayer(1, _subclass= True)
+        while q:
+            layers.append(q.__class__)
+            q = q.getlayer(1, _subclass= True)
+        return layers
+
     def haslayer(self, cls):
         """true if self has a layer that is an instance of cls. Superseded by "cls in self" syntax."""  # noqa: E501
         if self.__class__ == cls or cls in [self.__class__.__name__,
