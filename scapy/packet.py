@@ -929,11 +929,11 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
 
     def layers(self):
         """returns a list of layers (including subclasses) in this packet"""
-        layers = [self.__class__]
-        q = self.getlayer(1, _subclass= True)
+        layers = []
+        q = self
         while q:
             layers.append(q.__class__)
-            q = q.getlayer(1, _subclass= True)
+            q = q.getlayer(1, _subclass=True)
         return layers
 
     def haslayer(self, cls):
