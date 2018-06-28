@@ -116,7 +116,7 @@ class Inject3Sink(InjectSink):
 
 
 class WrpcapSink(Sink):
-    """Packets received on low input are written to PCA file
+    """Packets received on low input are written to PCAP file
      +----------+
   >>-|          |->>
      |          |
