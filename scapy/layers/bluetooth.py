@@ -378,7 +378,7 @@ class ATT_PrepareWriteReq(Packet):
     ]
 
 
-class ATT_PrepareWriteResp(PrepareWriteReq):
+class ATT_PrepareWriteResp(ATT_PrepareWriteReq):
     pass
 
 
