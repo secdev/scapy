@@ -15,7 +15,6 @@ from scapy.data import MTU, DLT_BLUETOOTH_LE_LL
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.ppi import PPI, addPPIType, PPIGenericFldHdr
-from scapy.layers import dot11
 
 from scapy.contrib.ppi_geotag import XLEIntField, XLEShortField
 from scapy.layers.bluetooth import EIR_Hdr, L2CAP_Hdr
@@ -144,7 +143,7 @@ class BTLE(Packet):
         return s[:4] + s[-3:] + s[4:-3]
 
     def post_dissection(self, pkt):
-        if isinstance(pkt, dot11.PPI):
+        if isinstance(pkt, PPI):
             pkt.notdecoded = PPIGenericFldHdr(pkt.notdecoded)
 
     def hashret(self):
@@ -277,5 +276,3 @@ conf.l2types.register(DLT_BLUETOOTH_LE_LL, BTLE)
 
 bind_layers(PPI, BTLE, dlt=147)
 addPPIType(30006, BTLE_PPI)
-
-bind_layers(dot11.PPI, BTLE, dlt=147)
