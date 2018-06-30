@@ -29,6 +29,7 @@ BTLE_Corp_IDs = {
     0xf: 'Broadcom Corporation'
 }
 
+
 class CtrlPDU(Packet):
     name = "CtrlPDU"
     fields_desc = [
@@ -122,7 +123,7 @@ class BTLE(Packet):
                     state ^= lfsr_mask
         return struct.pack("<L", state)[:-1]
 
-    #def do_build(self):
+    # def do_build(self):
     #    #make sure post build is called
     #    self.raw_packet_cache = None
     #    super(Packet, self).do_build()
@@ -139,7 +140,7 @@ class BTLE(Packet):
         return s
 
     def pre_dissect(self, s):
-        #move crc
+        # move crc
         return s[:4] + s[-3:] + s[4:-3]
 
     def post_dissection(self, pkt):
@@ -190,7 +191,6 @@ class BTLE_DATA(Packet):
         if self.len is None:
             p = p[:-1] + chb(len(pay))
         return p + pay
-
 
 
 class BTLE_ADV_IND(Packet):
@@ -268,7 +268,7 @@ bind_layers(BTLE_ADV, BTLE_SCAN_RSP, PDU_type=4)
 bind_layers(BTLE_ADV, BTLE_CONNECT_REQ, PDU_type=5)
 bind_layers(BTLE_ADV, BTLE_ADV_SCAN_IND, PDU_type=6)
 
-bind_layers(BTLE_DATA, L2CAP_Hdr, LLID=2) #BTLE_DATA / L2CAP_Hdr / ATT_Hdr
+bind_layers(BTLE_DATA, L2CAP_Hdr, LLID=2)  # BTLE_DATA / L2CAP_Hdr / ATT_Hdr
 # LLID=1 -> Continue
 bind_layers(BTLE_DATA, CtrlPDU, LLID=3)
 
