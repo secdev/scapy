@@ -928,12 +928,12 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         return 0
 
     def layers(self):
-        """returns a list of layers (including subclasses) in this packet"""
+        """returns a list of layer classes (including subclasses) in this packet"""  # noqa: E501
         layers = []
-        q = self
-        while q:
-            layers.append(q.__class__)
-            q = q.getlayer(1, _subclass=True)
+        l = self
+        while l:
+            layers.append(l.__class__)
+            l = l.payload.getlayer(0, _subclass=True)
         return layers
 
     def haslayer(self, cls):
@@ -1407,6 +1407,9 @@ class NoPayload(Packet):
 
     def _do_summary(self):
         return 0, "", []
+
+    def layers(self):
+        return []
 
     def lastlayer(self, layer):
         return layer

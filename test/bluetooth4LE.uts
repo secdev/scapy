@@ -23,3 +23,20 @@ a = BTLE(access_addr=0)/BTLE_DATA()/"toto"
 a = BTLE(raw(a))
 assert a[BTLE_DATA].len == 4
 assert a[Raw].load == b"toto"
+
+= BTLE layers
+
+# a crazy packet with all classes in it!
+pkt = BTLE()/BTLE_ADV()/BTLE_ADV_DIRECT_IND()/BTLE_ADV_IND()/BTLE_ADV_NONCONN_IND()/BTLE_ADV_SCAN_IND()/BTLE_AdvData()/BTLE_CONNECT_REQ()/BTLE_DATA()/BTLE_PPI()/BTLE_SCAN_REQ()/BTLE_SCAN_RSP()
+assert BTLE in pkt.layers()
+assert BTLE_ADV in pkt.layers()
+assert BTLE_ADV_DIRECT_IND in pkt.layers()
+assert BTLE_ADV_IND in pkt.layers()
+assert BTLE_ADV_NONCONN_IND in pkt.layers()
+assert BTLE_ADV_SCAN_IND in pkt.layers()
+assert BTLE_AdvData in pkt.layers()
+assert BTLE_CONNECT_REQ in pkt.layers()
+assert BTLE_DATA in pkt.layers()
+assert BTLE_PPI in pkt.layers()
+assert BTLE_SCAN_REQ in pkt.layers()
+assert BTLE_SCAN_RSP in pkt.layers()

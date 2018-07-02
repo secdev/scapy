@@ -1,6 +1,29 @@
 % Regression tests for the Dot15D4, SixLoWPAN and Zigbee layers
 
 ###################
+##### Dot15D4 #####
+###################
+
++ Dot15D4 tests
+
+= Dot15D4 layers
+
+# a crazy packet with all classes in it!
+pkt = Dot15d4()/Dot15d4Ack()/Dot15d4AuxSecurityHeader()/Dot15d4Beacon()/Dot15d4Cmd()/Dot15d4CmdAssocReq()/Dot15d4CmdAssocResp()/Dot15d4CmdCoordRealign()/Dot15d4CmdDisassociation()/Dot15d4CmdGTSReq()/Dot15d4Data()/Dot15d4FCS()
+assert Dot15d4 in pkt.layers()
+assert Dot15d4Ack in pkt.layers()
+assert Dot15d4AuxSecurityHeader in pkt.layers()
+assert Dot15d4Beacon in pkt.layers()
+assert Dot15d4Cmd in pkt.layers()
+assert Dot15d4CmdAssocReq in pkt.layers()
+assert Dot15d4CmdAssocResp in pkt.layers()
+assert Dot15d4CmdCoordRealign in pkt.layers()
+assert Dot15d4CmdDisassociation in pkt.layers()
+assert Dot15d4CmdGTSReq in pkt.layers()
+assert Dot15d4Data in pkt.layers()
+assert Dot15d4FCS in pkt.layers()
+
+###################
 #### SixLoWPAN ####
 ###################
 
@@ -9,6 +32,16 @@
 = Set SixLoWPAN
 
 conf.dot15d4_protocol = "sixlowpan"
+
+= SixLoWPAN layers
+
+# a crazy packet with all classes in it!
+pkt = SixLoWPAN()/LoWPANFragmentationFirst()/LoWPANFragmentationSubsequent()/LoWPANMesh()/LoWPANUncompressedIPv6()
+assert SixLoWPAN in pkt.layers()
+assert LoWPANFragmentationFirst in pkt.layers()
+assert LoWPANFragmentationSubsequent in pkt.layers()
+assert LoWPANMesh in pkt.layers()
+assert LoWPANUncompressedIPv6 in pkt.layers()
 
 = Default dissection
 
@@ -290,6 +323,20 @@ packet.show2()
 = Set zigbee
 
 conf.dot15d4_protocol = "zigbee"
+
+= Zigbee - layers
+
+# a crazy packet with all classes in it!
+pkt = ZigBeeBeacon()/ZigbeeAppCommandPayload()/ZigbeeAppDataPayload()/ZigbeeAppDataPayloadStub()/ZigbeeClusterLibrary()/ZigbeeNWK()/ZigbeeNWKCommandPayload()/ZigbeeNWKStub()/ZigbeeSecurityHeader()
+assert ZigBeeBeacon in pkt.layers()
+assert ZigbeeAppCommandPayload in pkt.layers()
+assert ZigbeeAppDataPayload in pkt.layers()
+assert ZigbeeAppDataPayloadStub in pkt.layers()
+assert ZigbeeClusterLibrary in pkt.layers()
+assert ZigbeeNWK in pkt.layers()
+assert ZigbeeNWKCommandPayload in pkt.layers()
+assert ZigbeeNWKStub in pkt.layers()
+assert ZigbeeSecurityHeader in pkt.layers()
 
 = Zigbee - advanced dissection
 
