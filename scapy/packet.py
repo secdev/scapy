@@ -930,10 +930,10 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
     def layers(self):
         """returns a list of layer classes (including subclasses) in this packet"""  # noqa: E501
         layers = []
-        l = self
-        while l:
-            layers.append(l.__class__)
-            l = l.payload.getlayer(0, _subclass=True)
+        lyr = self
+        while lyr:
+            layers.append(lyr.__class__)
+            lyr = lyr.payload.getlayer(0, _subclass=True)
         return layers
 
     def haslayer(self, cls):
