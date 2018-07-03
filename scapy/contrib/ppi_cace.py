@@ -14,7 +14,7 @@
 
 # author: <jellch@harris.com>
 
-# scapy.contrib.description = Parallel Peripheral Interface CACE Fields (PPI CACE)
+# scapy.contrib.description = Parallel Peripheral Interface CACE (PPI CACE)
 # scapy.contrib.status = loads
 
 """

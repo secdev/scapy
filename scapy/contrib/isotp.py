@@ -894,7 +894,7 @@ class ISOTPSocketImplementation:
                     load = self.ea_hdr
                     load += struct.pack("B", N_PCI_CF + self.tx_sn)
                     load += self.tx_buf[self.tx_idx:self.tx_idx + max_bytes]
-	assert (len(load) <= 8)
+                    assert (len(load) <= 8)
                     self.sendfunc(load)
 
                     self.tx_sn = (self.tx_sn + 1) % 16

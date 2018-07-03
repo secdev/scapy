@@ -14,6 +14,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Scapy. If not, see <http://www.gnu.org/licenses/>.
 
+# flake8: noqa: E501
+
 # scapy.contrib.description = Enhanced Interior Gateway Routing Protocol (EIGRP)
 # scapy.contrib.status = loads
 
@@ -38,7 +40,7 @@
 
     :Thanks:
 
-    - TLV code derived from the CDP implementation of scapy. (Thanks to Nicolas Bareil and Arnaud Ebalard)  # noqa: E501
+    - TLV code derived from the CDP implementation of scapy. (Thanks to Nicolas Bareil and Arnaud Ebalard)
         http://trac.secdev.org/scapy/ticket/18
     - IOS / EIGRP Version Representation FIX by Dirk Loss
 """
@@ -63,10 +65,10 @@ from scapy.volatile import RandShort, RandString
 
 class EigrpIPField(StrField, IPField):
     """
-    This is a special field type for handling ip addresses of destination networks in internal and  # noqa: E501
+    This is a special field type for handling ip addresses of destination networks in internal and
     external route updates.
 
-    EIGRP removes zeros from the host portion of the ip address if the netmask is 8, 16 or 24 bits.  # noqa: E501
+    EIGRP removes zeros from the host portion of the ip address if the netmask is 8, 16 or 24 bits.
     """
 
     __slots__ = ["length_from"]
@@ -133,7 +135,7 @@ class EigrpIPField(StrField, IPField):
 
 class EigrpIP6Field(StrField, IP6Field):
     """
-    This is a special field type for handling ip addresses of destination networks in internal and  # noqa: E501
+    This is a special field type for handling ip addresses of destination networks in internal and
     external route updates.
 
     """
@@ -281,7 +283,7 @@ class ShortVersionField(ShortField):
 
     def h2i(self, pkt, x):
         """The field accepts string values like v12.1, v1.1 or integer values.
-           String values have to start with a "v" folled by a floating point number.  # noqa: E501
+           String values have to start with a "v" folled by a floating point number.
            Valid numbers are between 0 and 255.
         """
 

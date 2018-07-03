@@ -177,7 +177,7 @@ class LayersList(list):
 
     def register(self, layer):
         self.append(layer)
-        if not layer.__module__ in self.ldict:
+        if layer.__module__ not in self.ldict:
             self.ldict[layer.__module__] = []
         self.ldict[layer.__module__].append(layer)
 

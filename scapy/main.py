@@ -188,7 +188,7 @@ def list_contrib(name=None, ret=False):
     """Show the list of all existing contribs.
     Params:
      - name: filter to search the contribs
-     - ret: wether or not the function should return a dict instead of printing
+     - ret: whether or not the function should return a dict instead of printing
     """
     if name is None:
         name = "*.py"

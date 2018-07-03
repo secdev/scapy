@@ -24,7 +24,7 @@ from scapy.compat import raw, orb
 from scapy.base_classes import BasePacket, Gen, SetGen, Packet_metaclass
 from scapy.volatile import VolatileValue
 from scapy.utils import import_hexcap, tex_escape, colgen, get_temp_file, \
-    issubtype, ContextManagerSubprocess
+    issubtype, ContextManagerSubprocess, pretty_list
 from scapy.error import Scapy_Exception, log_runtime
 from scapy.extlib import PYX
 import scapy.modules.six as six
@@ -1618,12 +1618,18 @@ def explore():
     if not int(prompt_toolkit.__version__.split(".")[0]) >= 2:
             raise ImportError("prompt_toolkit >= 2.0.0 is required !")
     # Only available with prompt_toolkit > 2.0, not released on PyPi yet
-    from prompt_toolkit.shortcuts.dialogs import radiolist_dialog, yes_no_dialog
+    from prompt_toolkit.shortcuts.dialogs import radiolist_dialog, \
+        yes_no_dialog
     from prompt_toolkit.formatted_text import HTML
     # 1 - Ask for layer or contrib
     is_layer = yes_no_dialog(
         title="Scapy v%s" % conf.version,
-        text=HTML(six.text_type('<style bg="white" fg="red">Chose the type of packets you want to explore:</style>')),
+        text=HTML(
+            six.text_type(
+                '<style bg="white" fg="red">Chose the type of packets'
+                ' you want to explore:</style>'
+            )
+        ),
         yes_text=six.text_type("Layers"),
         no_text=six.text_type("Contribs"))
     # 2 - Retrieve list of Packets
@@ -1643,12 +1649,18 @@ def explore():
         _radio_values = [x for x in _radio_values if not ("can" in x[0])]
     # Python 2 compat
     if six.PY2:
-        _radio_values = [(six.text_type(x),six.text_type(y)) for x,y in _radio_values]
+        _radio_values = [(six.text_type(x), six.text_type(y))
+                         for x, y in _radio_values]
     # 3 - Ask for the layer/contrib module to explore
     result = radiolist_dialog(
         values=_radio_values,
         title="Scapy v%s" % conf.version,
-        text=HTML(six.text_type('<style bg="white" fg="red">Please select a layer among the following, to see all packets contained in it:</style>')))
+        text=HTML(
+            six.text_type(
+                '<style bg="white" fg="red">Please select a layer among'
+                ' the following, to see all packets contained in it:</style>'
+            )
+        ))
     if result is None:
         return  # User pressed "Cancel"
     # 4 - (Contrib only): load contrib
@@ -1658,8 +1670,9 @@ def explore():
     # 5 - Get the list of all Packets contained in that module
     all_layers = conf.layers.ldict[result]
     # Print
-    for layer in all_layers:
-        print("%-10s : %s" % (layer.__name__, layer._name))
+    print(conf.color_theme.layer_name("Packets contained in %s:" % result))
+    rtlst = [(layer.__name__ or "", layer._name or "") for layer in all_layers]
+    print(pretty_list(rtlst, [("Class", "Name")], borders=True))
 
 
 @conf.commands.register
@@ -1673,7 +1686,9 @@ def ls(obj=None, case_sensitive=False, verbose=False):
     is_string = isinstance(obj, six.string_types)
 
     if obj is None or is_string:
+        tip = False
         if obj is None:
+            tip = True
             all_layers = sorted(conf.layers, key=lambda x: x.__name__)
         else:
             pattern = re.compile(obj, 0 if case_sensitive else re.I)
@@ -1685,9 +1700,9 @@ def ls(obj=None, case_sensitive=False, verbose=False):
                                 key=lambda x: x.__name__)
         for layer in all_layers:
             print("%-10s : %s" % (layer.__name__, layer._name))
-        if conf.interactive:
+        if tip and conf.interactive:
             print()
-            print("TIP: having troubles reading this text ?"
+            print("TIP: having troubles reading this text ? "
                   "Discover the new `explore()` function, with a fancy and"
                   " clear GUI !")
 
