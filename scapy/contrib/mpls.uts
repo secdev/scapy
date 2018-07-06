@@ -22,3 +22,12 @@ assert(s == b'\xff\xff\xff\xff\xff\xff\x00\x01\x02\x04\x05\x00\x88G\x00\x000\x00
 
 p = Ether(s)
 assert(IPv6 in p and isinstance(p[MPLS].payload, MPLS))
+
+= Association on IP and IPv6
+p = IP()/MPLS()
+p = IP(raw(p))
+assert p[IP].proto == 137
+
+p2 = IPv6()/MPLS()
+p2 = IPv6(raw(p2))
+assert p2[IPv6].nh == 137
