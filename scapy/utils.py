@@ -835,8 +835,11 @@ sync: do not bufferize writes to the capture file
 def rdpcap(filename, count=-1):
     """Read a pcap or pcapng file and return a packet list
 
-count: read only <count> packets
+    params:
+     - count: read only <count> packets
 
+    For a more efficient function, consider using `sniff(offline=...)`
+    See help(sniff) for more informations.
     """
     with PcapReader(filename) as fdesc:
         return fdesc.read_all(count=count)
