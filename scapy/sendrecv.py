@@ -103,7 +103,7 @@ def _sndrcv_rcv(pks, hsent, stopevent, nbrecv, notans, verbose, chainCC,
         def _get_pkt():
             from scapy.arch.pcapdnet import PcapTimeoutElapsed
             try:
-                return pks.recv(MTU)
+                return pks.recv(x=MTU)
             except PcapTimeoutElapsed:
                 return None
     elif conf.use_bpf:
@@ -927,7 +927,7 @@ def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
         """Used to interupt sniffing in multi-threading mode"""
         pass
 
-    def _process_pkt(p, sniff_sockets, c):
+    def _process_pkt(p, sniff_sockets, c, dissector=None):
         """Function to process a recieved packet"""
         if p is None:
             try:
@@ -961,19 +961,14 @@ def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
         try:
             while not stopevent.is_set():
                 try:
-                    pkt_a, sniff_sockets = q.get_nowait()
+                    pkt_a, dissector, sniff_sockets = q.get_nowait()
                 except queue.Empty:
                     continue
-                cls, val, ts = pkt_a
                 try:
-                    pkt = cls(val)
+                    pkt = dissector(raw_data=pkt_a)
                 except Exception:
-                    if conf.debug_dissector:
-                        log_runtime.error(exc_info=True)
-                        stopevent.set()
-                        break
-                    pkt = conf.raw_layer(val)
-                pkt.time = ts
+                    log_runtime.error(exc_info=True)
+                    stopevent.set()
                 try:
                     c = _process_pkt(pkt, sniff_sockets, c)
                 except _InteruptSniff:
@@ -989,8 +984,8 @@ def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
         q = queue.Queue()
         se = threading.Event()
 
-        def _append_pkt(p, sniff_sockets, c=None, q=q):
-            q.put((p, sniff_sockets))
+        def _append_pkt(p, sniff_sockets, c=None, q=q, dissector=None):
+            q.put((p, dissector, sniff_sockets))
             if se.is_set():
                 raise _InteruptSniff
         _action_pkt = _append_pkt
@@ -1017,7 +1012,7 @@ def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
                     p = _read_next(s)
                 except read_allowed_exceptions:
                     continue
-                c = _action_pkt(p, sniff_sockets, c)
+                c = _action_pkt(p, sniff_sockets, c, dissector=s.recv)
     except KeyboardInterrupt:
         pass
     except _InteruptSniff:

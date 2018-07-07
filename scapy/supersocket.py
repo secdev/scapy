@@ -47,8 +47,15 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
             x.sent_time = time.time()
         return self.outs.send(sx)
 
-    def recv(self, x=MTU):
-        cls, val, ts = self.recv_raw(x)
+    def recv(self, x=MTU, raw_data=None):
+        """Receive a packet, and process it.
+
+        params:
+         - x: maximum packet size (default: MTU)
+         - raw_data: data received from .recv_raw() (default: None)
+                     if None, will be automatically fetched.
+        """
+        cls, val, ts = raw_data if raw_data is not None else self.recv_raw(x)
         if not val or not cls:
             return
         try:

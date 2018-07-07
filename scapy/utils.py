@@ -1003,31 +1003,34 @@ class PcapReader(RawPcapReader):
             warning("PcapReader: unknown LL type [%i]/[%#x]. Using Raw packets" % (self.linktype, self.linktype))  # noqa: E501
             self.LLcls = conf.raw_layer
 
-    def read_packet(self, size=MTU):
-        rp = super(PcapReader, self).read_packet(size=size)
+    def recv_raw(self, x=MTU):
+        rp = super(PcapReader, self).read_packet(size=x)
         if rp is None:
             return None
         s, pkt_info = rp
-
-        try:
-            p = self.LLcls(s)
-        except KeyboardInterrupt:
-            raise
-        except:
-            if conf.debug_dissector:
-                raise
-            p = conf.raw_layer(s)
-        p.time = pkt_info.sec + (0.000000001 if self.nano else 0.000001) * pkt_info.usec  # noqa: E501
-        p.wirelen = pkt_info.wirelen
-        return p
+        ts = pkt_info.sec + (0.000000001 if self.nano else 0.000001) * pkt_info.usec  # noqa: E501
+        wirelen = pkt_info.wirelen
+        return self.LLcls, s, ts, wirelen
 
     def read_all(self, count=-1):
         res = RawPcapReader.read_all(self, count)
         from scapy import plist
         return plist.PacketList(res, name=os.path.basename(self.filename))
 
-    def recv(self, size=MTU):
-        return self.read_packet(size=size)
+    def recv(self, x=MTU, raw_data=None):
+        if raw_data is None:
+            raw_data = self.recv_raw(x)
+            if raw_data is None:
+                return None
+        cls, pkt, ts, wirelen = raw_data
+        from scapy.supersocket import SuperSocket
+        pkt = SuperSocket.recv(self, x=x, raw_data=(cls, pkt, ts))
+        if pkt is not None:
+            pkt.wirelen = wirelen
+        return pkt
+
+    def read_packet(self, x=MTU):
+        return self.recv(x=x)
 
 
 class RawPcapNgReader(RawPcapReader):
@@ -1169,31 +1172,39 @@ class PcapNgReader(RawPcapNgReader):
     def __init__(self, filename, fdesc, magic):
         RawPcapNgReader.__init__(self, filename, fdesc, magic)
 
-    def read_packet(self, size=MTU):
-        rp = super(PcapNgReader, self).read_packet(size=size)
+    def recv_raw(self, x=MTU):
+        rp = super(PcapNgReader, self).read_packet(size=x)
         if rp is None:
-            return None
+            return None, None, None, None
         s, (linktype, tsresol, tshigh, tslow, wirelen) = rp
-        try:
-            p = conf.l2types[linktype](s)
-        except KeyboardInterrupt:
-            raise
-        except:
-            if conf.debug_dissector:
-                raise
-            p = conf.raw_layer(s)
+        cls = conf.l2types.get(linktype, None)
+        ts = None
+        if cls is None:
+            warning("PcapNgReader: unknown LL type [%i]/[%#x]. Using Raw packets" % (linktype, linktype))  # noqa: E501
+            cls = conf.raw_layer
         if tshigh is not None:
-            p.time = float((tshigh << 32) + tslow) / tsresol
-        p.wirelen = wirelen
-        return p
+            ts = float((tshigh << 32) + tslow) / tsresol
+        return cls, s, ts, wirelen
 
     def read_all(self, count=-1):
         res = RawPcapNgReader.read_all(self, count)
         from scapy import plist
         return plist.PacketList(res, name=os.path.basename(self.filename))
 
-    def recv(self, size=MTU):
-        return self.read_packet()
+    def recv(self, x=MTU, raw_data=None):
+        if raw_data is None:
+            raw_data = self.recv_raw(x)
+            if raw_data is None:
+                return None
+        cls, pkt, ts, wirelen = raw_data
+        from scapy.supersocket import SuperSocket
+        pkt = SuperSocket.recv(self, x=x, raw_data=(cls, pkt, ts))
+        if pkt is not None:
+            pkt.wirelen = wirelen
+        return pkt
+
+    def read_packet(self, size=MTU):
+        return self.recv(x=size)
 
 
 class RawPcapWriter:
