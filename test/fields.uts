@@ -1158,10 +1158,10 @@ True
 = Raise exception - test data
 
 dnsf = DNSStrField("test", "")
-assert(dnsf.getfield("", b"\x01x\x00") == (b"", b"x."))
+assert(dnsf.getfield(None, b"\x01x\x00") == (b"", b"x."))
 
 try:
-    dnsf.getfield("", b"\xff")
+    dnsf.getfield(None, b"\xc0\xff")
     assert(False)
 except (Scapy_Exception, IndexError):
     pass

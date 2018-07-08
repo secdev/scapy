@@ -411,6 +411,14 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         return {fname: self.copy_field_value(fname, fval)
                 for fname, fval in six.iteritems(fields)}
 
+    def clear_cache(self):
+        """Clear the raw packet cache for the field and all its subfields"""
+        self.raw_packet_cache = None
+        for fname, fval in six.iteritems(self.fields):
+            if isinstance(fval, Packet):
+                fval.clear_cache()
+        self.payload.clear_cache()
+
     def self_build(self, field_pos_list=None):
         """
         Create the default layer regarding fields_desc dict
@@ -1338,6 +1346,9 @@ class NoPayload(Packet):
 
     def copy(self):
         return self
+
+    def clear_cache(self):
+        pass
 
     def __repr__(self):
         return ""
