@@ -427,6 +427,8 @@ class IP(Packet, IPTools):
 
     def extract_padding(self, s):
         l = self.len - (self.ihl << 2)
+        if l < 0:
+            return s, b""
         return s[:l], s[l:]
 
     def route(self):

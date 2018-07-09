@@ -6387,6 +6387,14 @@ pkt = IP(len=42, ihl=6, options=[IPOption_RR()]) / UDP() / ("A" * 10)
 bpkt = IP(raw(pkt))
 assert bpkt.chksum == 0x70bd and bpkt.payload.chksum == 0xbb17
 
+= TCP payload with IP Total Length 0
+data = b'1234567890abcdef123456789ABCDEF'
+pkt = IP()/TCP()/data
+pkt2 = IP(raw(pkt))
+pkt2.len = 0
+pkt3 = IP(raw(pkt2))
+assert pkt3.load == data
+
 = DNS
 
 * DNS over UDP
