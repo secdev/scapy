@@ -123,11 +123,6 @@ class BTLE(Packet):
                     state ^= lfsr_mask
         return struct.pack("<L", state)[:-1]
 
-    # def do_build(self):
-    #    #make sure post build is called
-    #    self.raw_packet_cache = None
-    #    super(Packet, self).do_build()
-
     def post_build(self, p, pay):
         # Switch payload and CRC
         crc = p[-3:]
