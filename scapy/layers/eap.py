@@ -14,8 +14,8 @@ import struct
 
 from scapy.fields import BitField, ByteField, XByteField,\
     ShortField, IntField, XIntField, ByteEnumField, StrLenField, XStrField,\
-    XStrLenField, XStrFixedLenField, LenField, FieldLenField, PacketField,\
-    PacketListField, ConditionalField, PadField
+    XStrLenField, XStrFixedLenField, LenField, FieldLenField, FieldListField,\
+    PacketField, PacketListField, ConditionalField, PadField
 from scapy.packet import Packet, Padding, bind_layers
 from scapy.layers.l2 import SourceMACField, Ether, CookedLinux, GRE, SNAP
 from scapy.utils import issubtype
@@ -199,7 +199,12 @@ class EAP(Packet):
         ConditionalField(ByteEnumField("type", 0, eap_types),
                          lambda pkt:pkt.code not in [
                              EAP.SUCCESS, EAP.FAILURE]),
-        ConditionalField(ByteEnumField("desired_auth_type", 0, eap_types),
+        ConditionalField(FieldListField(
+                            "desired_auth_types",
+                            [],
+                            ByteEnumField("auth_type", 0, eap_types),
+                            length_from=lambda pkt: pkt.len - 4
+                         ),
                          lambda pkt:pkt.code == EAP.RESPONSE and pkt.type == 3),  # noqa: E501
         ConditionalField(
             StrLenField("identity", '', length_from=lambda pkt: pkt.len - 5),
