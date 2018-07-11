@@ -23,6 +23,7 @@ import base64
 import os.path
 import time
 import traceback
+import warnings
 import zlib
 from scapy.consts import WINDOWS
 import scapy.modules.six as six
@@ -974,4 +975,15 @@ def main(argv):
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+    if sys.warnoptions:
+        with warnings.catch_warnings(record=True) as cw:
+            warnings.resetwarnings()
+            # Let's discover the garbage waste
+            warnings.simplefilter('error')
+            print("### Warning mode enabled ###")
+            res = main(sys.argv[1:])
+            if cw:
+                res = 1
+        sys.exit(res)
+    else:
+        sys.exit(main(sys.argv[1:]))

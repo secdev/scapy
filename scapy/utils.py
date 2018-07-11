@@ -24,10 +24,8 @@ import array
 import subprocess
 import tempfile
 
-import warnings
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
-warnings.filterwarnings("ignore", "tempnam", RuntimeWarning, __name__)
 
 from scapy.config import conf
 from scapy.consts import DARWIN, WINDOWS
