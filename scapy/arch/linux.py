@@ -33,6 +33,7 @@ from scapy.supersocket import SuperSocket
 import scapy.arch
 from scapy.error import warning, Scapy_Exception, log_interactive, log_loading
 from scapy.arch.common import get_if, get_bpf_pointer
+import scapy.modules.six as six
 from scapy.modules.six.moves import range
 
 
@@ -116,6 +117,7 @@ def get_if_list():
     try:
         f = open("/proc/net/dev", "rb")
     except IOError:
+        f.close()
         warning("Can't open /proc/net/dev !")
         return []
     lst = []
@@ -124,6 +126,7 @@ def get_if_list():
     for l in f:
         l = plain_str(l)
         lst.append(l.split(":")[0].strip())
+    f.close()
     return lst
 
 
@@ -197,7 +200,7 @@ def get_alias_address(iface_name, ip_mask, gw_str, metric):
 
     # Extract interfaces names
     out = struct.unpack("iL", ifreq)[0]
-    names = names.tostring()
+    names = names.tobytes() if six.PY3 else names.tostring()
     names = [names[i:i + offset].split(b'\0', 1)[0] for i in range(0, out, name_len)]  # noqa: E501
 
     # Look for the IP address
@@ -292,6 +295,7 @@ def read_routes():
             routes.append((dst_int, msk_int, gw_str, iff, ifaddr, metric))
 
     f.close()
+    s.close()
     return routes
 
 ############
@@ -323,6 +327,7 @@ def in6_getifaddr():
         )
         # (addr, scope, iface)
         ret.append((addr, int(tmp[3], 16), tmp[5]))
+    fdesc.close()
     return ret
 
 

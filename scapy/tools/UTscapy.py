@@ -81,7 +81,8 @@ class File:
     def write(self, dir):
         if dir:
             dir += "/"
-        open(dir + self.name, "wb").write(self.get_local())
+        with open(dir + self.name, "wb") as fdesc:
+            fdesc.write(self.get_local())
 
 
 # Embed a base64 encoded bziped version of js and css files
@@ -391,7 +392,8 @@ def compute_campaign_digests(test_campaign):
         ts.crc = crc32(dts)
         dc += "\0\x01" + dts
     test_campaign.crc = crc32(dc)
-    test_campaign.sha = sha1(open(test_campaign.filename).read())
+    with open(test_campaign.filename) as fdesc:
+        test_campaign.sha = sha1(fdesc.read())
 
 
 #    FILTER CAMPAIGN     #
