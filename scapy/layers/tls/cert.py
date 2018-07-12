@@ -989,7 +989,7 @@ class Chain(list):
         idx = 1
         while idx <= llen:
             c = self[idx]
-            s += "%s\_ %s" % (" " * idx * 2, c.subject_str)
+            s += "%s_ %s" % (" " * idx * 2, c.subject_str)
             if idx != llen:
                 s += "\n"
             idx += 1

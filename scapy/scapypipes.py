@@ -392,7 +392,7 @@ class TriggeredQueueingValve(Drain):
 
 
 class TriggeredSwitch(Drain):
-    """Let messages alternatively high or low, changing on trigger
+    r"""Let messages alternatively high or low, changing on trigger
      +------^------+
   >>-|-\    |    /-|->>
      |  [up/down]  |

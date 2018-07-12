@@ -727,7 +727,7 @@ class EventBlockArray(Packet):
 class ModulePIB(Packet):
     """
         Simple Module PIB Decoder.
-            /!\ A wrong slice would produce 'bad' results
+            /!/ A wrong slice would produce 'bad' results
     """
     name = "ModulePIB"
     __slots__ = ["_ModulePIB__offset", "_ModulePIB__length"]

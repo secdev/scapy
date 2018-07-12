@@ -99,7 +99,7 @@ def test_tls_server(suite="", version=""):
         th_.terminate()
         raise RuntimeError("OpenSSL returned with error code")
     else:
-        p = re.compile(b'verify return:(\d+)')
+        p = re.compile(rb'verify return:(\d+)')
         _failed = False
         _one_success = False
         for match in p.finditer(out):
