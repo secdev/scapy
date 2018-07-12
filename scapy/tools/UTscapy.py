@@ -13,7 +13,6 @@ from __future__ import absolute_import
 from __future__ import print_function
 import sys
 import getopt
-import imp
 import glob
 import importlib
 import hashlib
@@ -57,18 +56,12 @@ def retry_test(func):
 
 
 def import_module(name):
-    name = os.path.realpath(name)
-    thepath = os.path.dirname(name)
-    name = os.path.basename(name)
     if name.endswith(".py"):
         name = name[:-3]
-    f, path, desc = imp.find_module(name, [thepath])
-
     try:
-        return imp.load_module(name, f, path, desc)
-    finally:
-        if f:
-            f.close()
+        return importlib.import_module(name, package="scapy")
+    except:
+        return importlib.import_module(name)
 
 
 #    INTERNAL/EXTERNAL FILE EMBEDDING    #
