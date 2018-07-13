@@ -10122,7 +10122,7 @@ def test_report_ports(mock_sr):
                 (IP()/TCP(dport=65082, flags="S"), IP()/ICMP(type=3, code=1)),
                 (IP()/TCP(dport=65083, flags="S"), IP()/TCP(sport=65083, flags="R"))], [IP()/TCP(dport=65084, flags="S")]
     mock_sr.side_effect = sr
-    report = "\\begin{tabular}{|r|l|l|}\n\hline\n65081 & open & SA \\\\\n\hline\n?? & closed & ICMP type dest-unreach/host-unreachable from 127.0.0.1 \\\\\n65083 & closed & TCP R \\\\\n\hline\n65084 & ? & unanswered \\\\\n\hline\n\end{tabular}\n"
+    report = "\\begin{tabular}{|r|l|l|}\n\\hline\n65081 & open & SA \\\\\n\\hline\n?? & closed & ICMP type dest-unreach/host-unreachable from 127.0.0.1 \\\\\n65083 & closed & TCP R \\\\\n\\hline\n65084 & ? & unanswered \\\\\n\\hline\n\\end{tabular}\n"
     assert(report_ports("www.secdev.org", [65081,65082,65083,65084]) == report)
 
 test_report_ports()
