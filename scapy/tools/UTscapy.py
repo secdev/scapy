@@ -785,7 +785,7 @@ def main(argv):
     KW_KO = []
     DUMP = 0
     CRC = True
-    BREAKFAILED =  False
+    BREAKFAILED = True
     ONLYFAILED = False
     VERB = 3
     GLOB_PREEXEC = ""
