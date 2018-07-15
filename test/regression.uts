@@ -10460,7 +10460,7 @@ assert(pl[1][Ether].dst == '00:22:33:44:55:66')
 = _version()
 
 import os
-version_filename = os.path.join(scapy._SCAPY_PKG_DIR, "VERSION")
+version_filename = os.path.join(scapy._SCAPY_PKG_DIR, os.path.pardir, "VERSION")
 
 version = scapy._version()
 assert(os.path.exists(version_filename))
@@ -10470,7 +10470,7 @@ with mock.patch("scapy._version_from_git_describe") as version_mocked:
   version_mocked.side_effect = Exception()
   assert(scapy._version() == version)
   os.unlink(version_filename)
-  assert(scapy._version() == "git-archive.dev$Format:%h")
+  assert(scapy._version() == "git-archive.dev$Format:%h$")
 
 
 ############
