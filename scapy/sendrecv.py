@@ -819,8 +819,13 @@ def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
         iface: interface or list of interfaces (default: None for sniffing
                on all interfaces).
         monitor: use monitor mode. May not be available on all OS
-        started_callback: called as soon as the sniffer starts sniffing
+        started_callback: called as soon as the sniffer starts sniffing.
                           (default: None).
+                          must accept one argument: stop_callback.
+                          => stop_callback usage is optional
+                          => stop_callback is a function provided by sniff
+                          that once called, will stop sniff. May be used
+                          asynchronously.
 
     The iface, offline and opened_socket parameters can be either an
     element, a list of elements, or a dict object mapping an element to a
@@ -887,6 +892,7 @@ def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
     remain = None
     read_allowed_exceptions = ()
     is_python_can_socket = getattr(opened_socket, "is_python_can_socket", lambda: False)  # noqa: E501
+    from scapy.automaton import ObjectPipe, select_objects
     if conf.use_bpf:
         from scapy.arch.bpf.supersocket import bpf_select
 
@@ -897,7 +903,7 @@ def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
         read_allowed_exceptions = (PcapTimeoutElapsed,)
 
         def _select(sockets):
-            return sockets
+            return select_objects(sockets, remain=0)
     elif is_python_can_socket():
         from scapy.contrib.cansocket_python_can import CANSocketTimeoutElapsed
         read_allowed_exceptions = (CANSocketTimeoutElapsed,)
@@ -914,8 +920,13 @@ def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
                     return []
                 raise
     try:
+        objpipe = None
         if started_callback:
-            started_callback()
+            objpipe = ObjectPipe()
+            sniff_sockets[objpipe] = "control_socket"
+            def stop_callback():
+                objpipe.send(None)
+            started_callback(stop_callback)
         while sniff_sockets:
             if timeout is not None:
                 remain = stoptime - time.time()
@@ -923,6 +934,9 @@ def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
                     break
             ins = _select(sniff_sockets)
             for s in ins:
+                if s is objpipe:
+                    sniff_sockets = []
+                    break
                 try:
                     p = s.recv()
                 except read_allowed_exceptions:
@@ -945,10 +959,8 @@ def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
                     r = prn(p)
                     if r is not None:
                         print(r)
-                if stop_filter and stop_filter(p):
-                    sniff_sockets = []
-                    break
-                if 0 < count <= c:
+                if stop_filter and stop_filter(p) \
+                        or 0 < count <= c:
                     sniff_sockets = []
                     break
     except KeyboardInterrupt:
