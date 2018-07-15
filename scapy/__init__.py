@@ -61,7 +61,7 @@ def _version_from_git_describe():
 
 
 def _version():
-    version_file = os.path.join(_SCAPY_PKG_DIR, 'VERSION')
+    version_file = os.path.join(_SCAPY_PKG_DIR, os.path.pardir, 'VERSION')
     try:
         tag = _version_from_git_describe()
         # successfully read the tag from git, write it in VERSION for
