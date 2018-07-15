@@ -108,7 +108,7 @@ def lhex(x):
 
 @conf.commands.register
 def hexdump(x, dump=False):
-    """ Build a tcpdump like hexadecimal view
+    """Build a tcpdump like hexadecimal view
 
     :param x: a Packet
     :param dump: define if the result must be printed or returned in a variable
@@ -122,18 +122,13 @@ def hexdump(x, dump=False):
         s += "%04x  " % i
         for j in range(16):
             if i + j < l:
-                s += "%02X" % orb(x[i + j])
+                s += "%02X " % orb(x[i + j])
             else:
-                s += "  "
-            if j % 16 == 7:
-                s += ""
-        s += " "
-        s += sane_color(x[i:i + 16])
+                s += "   "
+        s += " %s\n" % sane_color(x[i:i + 16])
         i += 16
-        s += "\n"
     # remove trailing \n
-    if s.endswith("\n"):
-        s = s[:-1]
+    s = s[:-1] if s.endswith("\n") else s
     if dump:
         return s
     else:
@@ -142,7 +137,7 @@ def hexdump(x, dump=False):
 
 @conf.commands.register
 def linehexdump(x, onlyasc=0, onlyhex=0, dump=False):
-    """ Build an equivalent view of hexdump() on a single line
+    """Build an equivalent view of hexdump() on a single line
 
     Note that setting both onlyasc and onlyhex to 1 results in a empty output
 
@@ -153,15 +148,7 @@ def linehexdump(x, onlyasc=0, onlyhex=0, dump=False):
     :returns: a String only when dump=True
     """
     s = ""
-    x = raw(x)
-    l = len(x)
-    if not onlyasc:
-        for i in range(l):
-            s += "%02X" % orb(x[i])
-        if not onlyhex:  # separate asc & hex if both are displayed
-            s += " "
-    if not onlyhex:
-        s += sane_color(x)
+    s = hexstr(raw(x), onlyasc=onlyasc, onlyhex=onlyhex, color=dump)
     if dump:
         return s
     else:
@@ -170,7 +157,7 @@ def linehexdump(x, onlyasc=0, onlyhex=0, dump=False):
 
 @conf.commands.register
 def chexdump(x, dump=False):
-    """ Build a per byte hexadecimal representation
+    """Build a per byte hexadecimal representation
 
     Example:
         >>> chexdump(IP())
@@ -189,12 +176,14 @@ def chexdump(x, dump=False):
 
 
 @conf.commands.register
-def hexstr(x, onlyasc=0, onlyhex=0):
+def hexstr(x, onlyasc=0, onlyhex=0, color=False):
+    """Build a fancy tcpdump like hex from bytes."""
+    _sane_func = sane_color if color else sane
     s = []
     if not onlyasc:
         s.append(" ".join("%02x" % orb(b) for b in x))
     if not onlyhex:
-        s.append(sane(x))
+        s.append(_sane_func(x))
     return "  ".join(s)
 
 
@@ -342,11 +331,11 @@ def _fletcher16(charbuf):
 
 @conf.commands.register
 def fletcher16_checksum(binbuf):
-    """ Calculates Fletcher-16 checksum of the given buffer.
+    """Calculates Fletcher-16 checksum of the given buffer.
 
-        Note:
-        If the buffer contains the two checkbytes derived from the Fletcher-16 checksum  # noqa: E501
-        the result of this function has to be 0. Otherwise the buffer has been corrupted.  # noqa: E501
+       Note:
+       If the buffer contains the two checkbytes derived from the Fletcher-16 checksum  # noqa: E501
+       the result of this function has to be 0. Otherwise the buffer has been corrupted.  # noqa: E501
     """
     (c0, c1) = _fletcher16(binbuf)
     return (c1 << 8) | c0
@@ -354,13 +343,13 @@ def fletcher16_checksum(binbuf):
 
 @conf.commands.register
 def fletcher16_checkbytes(binbuf, offset):
-    """ Calculates the Fletcher-16 checkbytes returned as 2 byte binary-string.
+    """Calculates the Fletcher-16 checkbytes returned as 2 byte binary-string.
 
-        Including the bytes into the buffer (at the position marked by offset) the  # noqa: E501
-        global Fletcher-16 checksum of the buffer will be 0. Thus it is easy to verify  # noqa: E501
-        the integrity of the buffer on the receiver side.
+       Including the bytes into the buffer (at the position marked by offset) the  # noqa: E501
+       global Fletcher-16 checksum of the buffer will be 0. Thus it is easy to verify  # noqa: E501
+       the integrity of the buffer on the receiver side.
 
-        For details on the algorithm, see RFC 2328 chapter 12.1.7 and RFC 905 Annex B.  # noqa: E501
+       For details on the algorithm, see RFC 2328 chapter 12.1.7 and RFC 905 Annex B.  # noqa: E501
     """
 
     # This is based on the GPLed C implementation in Zebra <http://www.zebra.org/>  # noqa: E501
@@ -1338,17 +1327,21 @@ class PcapWriter(RawPcapWriter):
                                     wirelen=packet.wirelen or caplen)
 
 
-re_extract_hexcap = re.compile("^((0x)?[0-9a-fA-F]{2,}[ :\t]{,3}|) *(([0-9a-fA-F]{2} {,2}){,16})")  # noqa: E501
-
-
 @conf.commands.register
 def import_hexcap():
+    """Imports a tcpdump like hexadecimal view
+
+    e.g: exported via hexdump() or tcpdump
+    """
+    re_extract_hexcap = re.compile(r"^((0x)?[0-9a-fA-F]{2,}[ :\t]{,3}|) *(([0-9a-fA-F]{2} {,2}){,16})")  # noqa: E501
     p = ""
     try:
         while True:
-            l = input().strip()
+            line = input().strip()
+            if not line:
+                break
             try:
-                p += re_extract_hexcap.match(l).groups()[2]
+                p += re_extract_hexcap.match(line).groups()[2]
             except:
                 warning("Parsing error during hexcap")
                 continue
@@ -1356,7 +1349,7 @@ def import_hexcap():
         pass
 
     p = p.replace(" ", "")
-    return p.decode("hex")
+    return hex_bytes(p)
 
 
 @conf.commands.register
@@ -1482,15 +1475,15 @@ u'64'
 
 
 @conf.commands.register
-def hexedit(x):
-    x = str(x)
+def hexedit(pktlist):
+    """Run hexedit on a list of packets, then return the edited packets."""
     f = get_temp_file()
-    open(f, "wb").write(x)
+    wrpcap(f, pktlist)
     with ContextManagerSubprocess("hexedit()", conf.prog.hexedit):
         subprocess.call([conf.prog.hexedit, f])
-    x = open(f).read()
+    pktlist = rdpcap(f)
     os.unlink(f)
-    return x
+    return pktlist
 
 
 def get_terminal_width():

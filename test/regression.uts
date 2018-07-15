@@ -10347,6 +10347,25 @@ def test_hexdump():
 
 test_hexdump()
 
+= import_hexcap()
+
+@mock.patch("%s.input" % six.moves.builtins.__name__)
+def test_import_hexcap(mock_input):
+    data = """
+0000  FF FF FF FF FF FF AA AA AA AA AA AA 08 00 45 00  ..............E.
+0010  00 1C 00 01 00 00 40 01 7C DE 7F 00 00 01 7F 00  ......@.|.......
+0020  00 01 08 00 F7 FF 00 00 00 00                    ..........
+"""[1:].split("\n")
+    lines = iter(data)
+    mock_input.side_effect = lambda: next(lines)
+    return import_hexcap()
+
+pkt = test_import_hexcap()
+pkt = Ether(pkt)
+assert pkt[Ether].dst == "ff:ff:ff:ff:ff:ff"
+assert pkt[IP].dst == "127.0.0.1"
+assert ICMP in pkt
+
 = padding()
 
 def test_padding():

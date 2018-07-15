@@ -84,7 +84,10 @@ conf.netcache.new_cache("in6_neighbor", 120)
 
 @conf.commands.register
 def neighsol(addr, src, iface, timeout=1, chainCC=0):
-    """Sends an ICMPv6 Neighbor Solicitation message to get the MAC address of the neighbor with specified IPv6 address addr  # noqa: E501
+    """Sends and receive an ICMPv6 Neighbor Solicitation message
+
+    This function sends an ICMPv6 Neighbor Solicitation message
+    to get the MAC address of the neighbor with specified IPv6 address address.
 
     'src' address is used as source of the message. Message is sent on iface.
     By default, timeout waiting for an answer is 1 second.
