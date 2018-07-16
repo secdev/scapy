@@ -413,15 +413,15 @@ def _flush_fd(fd):
             break
 
 
-class L3PacketSocket(SuperSocket):
-    desc = "read/write packets at layer 3 using Linux PF_PACKET sockets"
+class L2Socket(SuperSocket):
+    desc = "read/write packets at layer 2 using Linux PF_PACKET sockets"
 
-    def __init__(self, type=ETH_P_ALL, filter=None, promisc=None, iface=None, nofilter=0):  # noqa: E501
+    def __init__(self, iface=None, type=ETH_P_ALL, promisc=None, filter=None,
+            nofilter=0):
+        self.iface = conf.iface if iface is None else iface
         self.type = type
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))  # noqa: E501
         self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 0)
-        if iface:
-            self.ins.bind((iface, type))
         if not nofilter:
             if conf.except_filter:
                 if filter:
@@ -430,28 +430,34 @@ class L3PacketSocket(SuperSocket):
                     filter = "not (%s)" % conf.except_filter
             if filter is not None:
                 attach_filter(self.ins, filter, iface)
+        self.promisc = conf.sniff_promisc if promisc is None else promisc
+        if self.promisc:
+            set_promisc(self.ins, self.iface)
+        self.ins.bind((self.iface, type))
         _flush_fd(self.ins)
         self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2**30)
-        self.outs = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))  # noqa: E501
-        self.outs.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 2**30)
-        self.promisc = conf.promisc if promisc is None else promisc
-        if self.promisc:
-            if iface is None:
-                self.iff = get_if_list()
-            elif isinstance(iface, list):
-                self.iff = iface
-            else:
-                self.iff = [iface]
-            for i in self.iff:
-                set_promisc(self.ins, i)
+        if isinstance(self, L2ListenSocket):
+            self.outs = None
+        else:
+            self.outs = self.ins
+            self.outs.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 2**30)
+        sa_ll = self.ins.getsockname()
+        if sa_ll[3] in conf.l2types:
+            self.LL = conf.l2types[sa_ll[3]]
+            self.lvl = 2
+        elif sa_ll[1] in conf.l3types:
+            self.LL = conf.l3types[sa_ll[1]]
+            self.lvl = 3
+        else:
+            self.LL = conf.default_l2
+            self.lvl = 2
+            warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using %s", sa_ll[0], sa_ll[1], sa_ll[3], self.LL.name)  # noqa: E501
 
     def close(self):
         if self.closed:
             return
-        self.closed = 1
         if self.promisc:
-            for i in self.iff:
-                set_promisc(self.ins, i, 0)
+            set_promisc(self.ins, self.iface, 0)
         SuperSocket.close(self)
 
     def recv_raw(self, x=MTU):
@@ -459,18 +465,31 @@ class L3PacketSocket(SuperSocket):
         pkt, sa_ll = self.ins.recvfrom(x)
         if sa_ll[2] == socket.PACKET_OUTGOING:
             return None, None, None
-        if sa_ll[3] in conf.l2types:
-            cls = conf.l2types[sa_ll[3]]
-            self.lvl = 2
-        elif sa_ll[1] in conf.l3types:
-            cls = conf.l3types[sa_ll[1]]
-            self.lvl = 3
-        else:
-            cls = conf.default_l2
-            warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using %s", sa_ll[0], sa_ll[1], sa_ll[3], cls.name)  # noqa: E501
-            self.lvl = 2
         ts = get_last_packet_timestamp(self.ins)
-        return cls, pkt, ts
+        return self.LL, pkt, ts
+
+    def send(self, x):
+        try:
+            return SuperSocket.send(self, x)
+        except socket.error as msg:
+            if msg[0] == 22 and len(x) < conf.min_pkt_size:
+                padding = b"\x00" * (conf.min_pkt_size - len(x))
+                if isinstance(x, Packet):
+                    return SuperSocket.send(self, x / Padding(load=padding))
+                else:
+                    return SuperSocket.send(self, raw(x) + padding)
+            raise
+
+
+class L2ListenSocket(L2Socket):
+    desc = "read packets at layer 2 using Linux PF_PACKET sockets"
+
+    def send(self, x):
+        raise Scapy_Exception("Can't send anything with L2ListenSocket")
+
+
+class L3PacketSocket(L2Socket):
+    desc = "read/write packets at layer 3 using Linux PF_PACKET sockets"
 
     def recv(self, x=MTU):
         pkt = SuperSocket.recv(self, x)
@@ -502,134 +521,6 @@ class L3PacketSocket(SuperSocket):
                     self.outs.sendto(raw(ll(p)), sdto)
             else:
                 raise
-
-
-class L2Socket(SuperSocket):
-    desc = "read/write packets at layer 2 using Linux PF_PACKET sockets"
-
-    def __init__(self, iface=None, type=ETH_P_ALL, promisc=None, filter=None, nofilter=0):  # noqa: E501
-        self.iface = conf.iface if iface is None else iface
-        self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))  # noqa: E501
-        self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 0)
-        if not nofilter:
-            if conf.except_filter:
-                if filter:
-                    filter = "(%s) and not (%s)" % (filter, conf.except_filter)
-                else:
-                    filter = "not (%s)" % conf.except_filter
-            if filter is not None:
-                attach_filter(self.ins, filter, iface)
-        self.promisc = conf.sniff_promisc if promisc is None else promisc
-        if self.promisc:
-            set_promisc(self.ins, self.iface)
-        self.ins.bind((self.iface, type))
-        _flush_fd(self.ins)
-        self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2**30)
-        self.outs = self.ins
-        self.outs.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 2**30)
-        sa_ll = self.outs.getsockname()
-        if sa_ll[3] in conf.l2types:
-            self.LL = conf.l2types[sa_ll[3]]
-        elif sa_ll[1] in conf.l3types:
-            self.LL = conf.l3types[sa_ll[1]]
-        else:
-            self.LL = conf.default_l2
-            warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using %s", sa_ll[0], sa_ll[1], sa_ll[3], self.LL.name)  # noqa: E501
-
-    def close(self):
-        if self.closed:
-            return
-        self.closed = 1
-        if self.promisc:
-            set_promisc(self.ins, self.iface, 0)
-        SuperSocket.close(self)
-
-    def recv_raw(self, x=MTU):
-        """Receives a packet, then returns a tuple containing (cls, pkt_data, time)"""  # noqa: E501
-        pkt, sa_ll = self.ins.recvfrom(x)
-        if sa_ll[2] == socket.PACKET_OUTGOING:
-            return None, None, None
-        ts = get_last_packet_timestamp(self.ins)
-        return self.LL, pkt, ts
-
-    def send(self, x):
-        try:
-            return SuperSocket.send(self, x)
-        except socket.error as msg:
-            if msg[0] == 22 and len(x) < conf.min_pkt_size:
-                padding = b"\x00" * (conf.min_pkt_size - len(x))
-                if isinstance(x, Packet):
-                    return SuperSocket.send(self, x / Padding(load=padding))
-                else:
-                    return SuperSocket.send(self, raw(x) + padding)
-            raise
-
-
-class L2ListenSocket(SuperSocket):
-    desc = "read packets at layer 2 using Linux PF_PACKET sockets"
-
-    def __init__(self, iface=None, type=ETH_P_ALL, promisc=None, filter=None, nofilter=0):  # noqa: E501
-        self.type = type
-        self.outs = None
-        self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))  # noqa: E501
-        self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 0)
-        if iface is not None:
-            self.ins.bind((iface, type))
-        if not nofilter:
-            if conf.except_filter:
-                if filter:
-                    filter = "(%s) and not (%s)" % (filter, conf.except_filter)
-                else:
-                    filter = "not (%s)" % conf.except_filter
-            if filter is not None:
-                attach_filter(self.ins, filter, iface)
-        if promisc is None:
-            promisc = conf.sniff_promisc
-        self.promisc = promisc
-        if iface is None:
-            self.iff = get_if_list()
-        elif isinstance(iface, list):
-            self.iff = iface
-        else:
-            self.iff = [iface]
-        if self.promisc:
-            for i in self.iff:
-                set_promisc(self.ins, i)
-        _flush_fd(self.ins)
-        self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2**30)
-
-    def close(self):
-        if self.promisc:
-            for i in self.iff:
-                set_promisc(self.ins, i, 0)
-        SuperSocket.close(self)
-
-    def recv_raw(self, x=MTU):
-        """Receives a packet, then returns a tuple containing (cls, pkt_data, time)"""  # noqa: E501
-        pkt, sa_ll = self.ins.recvfrom(x)
-        if sa_ll[3] in conf.l2types:
-            cls = conf.l2types[sa_ll[3]]
-        elif sa_ll[1] in conf.l3types:
-            cls = conf.l3types[sa_ll[1]]
-        else:
-            cls = conf.default_l2
-            warning("Unable to guess type (interface=%s protocol=%#x "
-                    "family=%i). Using %s", sa_ll[0], sa_ll[1], sa_ll[3],
-                    cls.name)
-
-        ts = get_last_packet_timestamp(self.ins)
-        # direction = sa_ll[2]
-        return cls, pkt, ts  # , direction
-
-    def recv(self, x=MTU):
-        # cls, pkt, ts, direction = self.recv_raw()
-        # [Dissection stuff]
-        pkt = SuperSocket.recv(self, x)
-        # pkt.direction = direction
-        return pkt
-
-    def send(self, x):
-        raise Scapy_Exception("Can't send anything with L2ListenSocket")
 
 
 conf.L3socket = L3PacketSocket
