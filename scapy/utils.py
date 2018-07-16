@@ -148,7 +148,7 @@ def linehexdump(x, onlyasc=0, onlyhex=0, dump=False):
     :returns: a String only when dump=True
     """
     s = ""
-    s = hexstr(raw(x), onlyasc=onlyasc, onlyhex=onlyhex, color=dump)
+    s = hexstr(raw(x), onlyasc=onlyasc, onlyhex=onlyhex, color=not dump)
     if dump:
         return s
     else:
@@ -181,7 +181,7 @@ def hexstr(x, onlyasc=0, onlyhex=0, color=False):
     _sane_func = sane_color if color else sane
     s = []
     if not onlyasc:
-        s.append(" ".join("%02x" % orb(b) for b in x))
+        s.append(" ".join("%02X" % orb(b) for b in x))
     if not onlyhex:
         s.append(_sane_func(x))
     return "  ".join(s)
