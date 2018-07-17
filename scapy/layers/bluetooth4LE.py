@@ -11,9 +11,10 @@ import struct
 
 from scapy.compat import orb, chb
 from scapy.config import conf
-from scapy.data import MTU, DLT_BLUETOOTH_LE_LL
+from scapy.data import MTU, DLT_BLUETOOTH_LE_LL, DLT_BLUETOOTH_LE_LL_WITH_PHDR
 from scapy.packet import *
 from scapy.fields import *
+from scapy.layers.dot11 import _dbmField
 from scapy.layers.ppi import PPI, addPPIType, PPIGenericFldHdr
 
 from scapy.contrib.ppi_geotag import XLEIntField, XLEShortField
@@ -21,23 +22,9 @@ from scapy.layers.bluetooth import EIR_Hdr, L2CAP_Hdr
 
 from scapy.modules.six.moves import range
 
-
-BTLE_Versions = {
-    7: '4.1'
-}
-BTLE_Corp_IDs = {
-    0xf: 'Broadcom Corporation'
-}
-
-
-class CtrlPDU(Packet):
-    name = "CtrlPDU"
-    fields_desc = [
-        XByteField("optcode", 0),
-        ByteEnumField("version", 0, BTLE_Versions),
-        LEShortEnumField("Company", 0, BTLE_Corp_IDs),
-        XShortField("subversion", 0)
-    ]
+####################
+# Transport Layers #
+####################
 
 
 class BTLE_PPI(Packet):
@@ -55,6 +42,28 @@ class BTLE_PPI(Packet):
         ByteField("rssi_count", None)
     ]
 
+
+class BTLE_RF(Packet):
+    name = "BTLE RF info header"
+    fields_desc = [
+        ByteField("rf_channel", 0),
+        _dbmField("signal", -256),
+        _dbmField("noise", -256),
+        ByteField("access_address_offenses", 0),
+        XLEIntField("reference_access_address", 0),
+        FlagsField("flags", 0, -16, [
+            "dewhitened", "sig_power_valid", "noise_power_valid",
+            "decrypted", "reference_access_address_valid",
+            "access_address_offenses_valid", "channel_aliased",
+            "res1", "res2", "res3", "crc_checked", "crc_valid",
+            "mic_checked", "mic_valid", "res4", "res5"
+        ])
+    ]
+
+
+##########
+# Fields #
+##########
 
 class BDAddrField(MACField):
     def __init__(self, name, default, resolve=False):
@@ -81,6 +90,10 @@ class BTLEChanMapField(XByteField):
     def getfield(self, pkt, s):
         return s[5:], self.m2i(pkt, struct.unpack(self.fmt, s[:5] + b"\x00\x00\x00")[0])  # noqa: E501
 
+
+##########
+# Layers #
+##########
 
 class BTLE(Packet):
     name = "BT4LE"
@@ -199,8 +212,8 @@ class BTLE_ADV_IND(Packet):
 class BTLE_ADV_DIRECT_IND(Packet):
     name = "BTLE ADV_DIRECT_IND"
     fields_desc = [
-        BDAddrField("AdvA", ""),
-        BDAddrField("InitA", "")
+        BDAddrField("AdvA", None),
+        BDAddrField("InitA", None)
     ]
 
 
@@ -215,8 +228,8 @@ class BTLE_ADV_SCAN_IND(BTLE_ADV_IND):
 class BTLE_SCAN_REQ(Packet):
     name = "BTLE scan request"
     fields_desc = [
-        BDAddrField("ScanA", ""),
-        BDAddrField("AdvA", "")
+        BDAddrField("ScanA", None),
+        BDAddrField("AdvA", None)
     ]
 
     def answers(self, other):
@@ -226,7 +239,7 @@ class BTLE_SCAN_REQ(Packet):
 class BTLE_SCAN_RSP(Packet):
     name = "BTLE scan response"
     fields_desc = [
-        BDAddrField("AdvA", ""),
+        BDAddrField("AdvA", None),
         PacketListField("data", None, EIR_Hdr)
     ]
 
@@ -237,8 +250,8 @@ class BTLE_SCAN_RSP(Packet):
 class BTLE_CONNECT_REQ(Packet):
     name = "BTLE connect request"
     fields_desc = [
-        BDAddrField("InitA", ""),
-        BDAddrField("AdvA", ""),
+        BDAddrField("InitA", None),
+        BDAddrField("AdvA", None),
         # LLDATA
         XIntField("AA", 0x00),
         X3BytesField("crc_init", 0x0),
@@ -250,6 +263,24 @@ class BTLE_CONNECT_REQ(Packet):
         BTLEChanMapField("chM", 0),
         BitField("SCA", 0, 3),
         BitField("hop", 0, 5),
+    ]
+
+
+BTLE_Versions = {
+    7: '4.1'
+}
+BTLE_Corp_IDs = {
+    0xf: 'Broadcom Corporation'
+}
+
+
+class CtrlPDU(Packet):
+    name = "CtrlPDU"
+    fields_desc = [
+        XByteField("optcode", 0),
+        ByteEnumField("version", 0, BTLE_Versions),
+        LEShortEnumField("Company", 0, BTLE_Corp_IDs),
+        XShortField("subversion", 0)
     ]
 
 
@@ -268,6 +299,9 @@ bind_layers(BTLE_DATA, L2CAP_Hdr, LLID=2)  # BTLE_DATA / L2CAP_Hdr / ATT_Hdr
 bind_layers(BTLE_DATA, CtrlPDU, LLID=3)
 
 conf.l2types.register(DLT_BLUETOOTH_LE_LL, BTLE)
+conf.l2types.register(DLT_BLUETOOTH_LE_LL_WITH_PHDR, BTLE_RF)
+
+bind_layers(BTLE_RF, BTLE)
 
 bind_layers(PPI, BTLE, dlt=147)
 addPPIType(30006, BTLE_PPI)

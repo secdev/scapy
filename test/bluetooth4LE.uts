@@ -24,19 +24,26 @@ a = BTLE(raw(a))
 assert a[BTLE_DATA].len == 4
 assert a[Raw].load == b"toto"
 
+= BTLE_DATA + EIR_ShortenedLocalName
+
 test1 = BTLE() / BTLE_ADV() / BTLE_ADV_IND() / EIR_Hdr() / EIR_ShortenedLocalName(local_name= 'wussa')
 test1e = BTLE(raw(test1))
 assert test1e[EIR_ShortenedLocalName].local_name == b"wussa"
 
+= BTLE_DATA + CtrlPDU
+
 test2 = BTLE(access_addr=1) / BTLE_DATA() / CtrlPDU(version=7)
 test2e = BTLE(raw(test2))
 assert test2e[CtrlPDU].version == 7
+
+= BTLE_DATA + ATT_PrepareWriteReq
 
 test3 = BTLE(access_addr=1) / BTLE_DATA() / L2CAP_Hdr() / ATT_Hdr() / ATT_PrepareWriteReq(handle = 0xa, value="test")
 test3e = BTLE(raw(test3))
 assert test3e[ATT_PrepareWriteReq].value == b"test"
 assert test3e[ATT_PrepareWriteReq].handle == 0xa
 assert test3e[ATT_Hdr].opcode == 0x16
+
 
 = BTLE layers
 # a crazy packet with all classes in it!
@@ -52,4 +59,24 @@ assert BTLE_DATA in pkt.layers()
 assert BTLE_PPI in pkt.layers()
 assert BTLE_SCAN_REQ in pkt.layers()
 assert BTLE_SCAN_RSP in pkt.layers()
+
+= BTLE_RF link
+
+a = BTLE_RF()/BTLE()/BTLE_ADV()/BTLE_SCAN_REQ()
+a.ScanA = "aa:aa:aa:aa:aa:aa"
+a.AdvA = "bb:bb:bb:bb:bb:bb"
+a.flags = 0x10
+a.reference_access_address = 0x8e89bed6
+a.noise = -90
+a.signal = -75
+a.rf_channel = 6
+a.access_address_offenses = 10
+assert raw(a) == b'\x06\xb5\xa6\n\xd6\xbe\x89\x8e\x10\x00\xd6\xbe\x89\x8e\x03\x0c\xaa\xaa\xaa\xaa\xaa\xaa\xbb\xbb\xbb\xbb\xbb\xbb\x07\xb2a'
+
+a = BTLE_RF(raw(a))
+
+assert a.noise == -90
+assert a.signal == -75
+assert a.flags == "reference_access_address_valid"
+assert a[BTLE_SCAN_REQ].ScanA == "aa:aa:aa:aa:aa:aa"
 

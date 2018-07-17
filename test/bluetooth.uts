@@ -41,6 +41,16 @@ assert HCI_LE_Meta_Connection_Complete in pkt.layers()
 assert HCI_LE_Meta_Connection_Update_Complete in pkt.layers()
 assert HCI_LE_Meta_Long_Term_Key_Request in pkt.layers()
 
++ Bluetooth Transport Layers
+= Test HCI_PHDR_Hdr
+
+pkt = HCI_PHDR_Hdr()/HCI_Hdr()/HCI_ACL_Hdr()/L2CAP_Hdr()/L2CAP_CmdHdr()/L2CAP_InfoReq()
+assert raw(pkt) == b'\x00\x00\x00\x00\x02\x00\x00\n\x00\x06\x00\x05\x00\n\x00\x02\x00\x00\x00'
+pkt = HCI_PHDR_Hdr(raw(pkt))
+
+assert HCI_Hdr in pkt
+assert L2CAP_InfoReq in pkt
+
 + HCI Commands
 
 = LE Create Connection Cancel
