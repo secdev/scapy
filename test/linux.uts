@@ -231,6 +231,7 @@ try:
         def _sniffer():
             sniffed = sniff(iface='veth_scapy_1',
                             store=True,
+                            mthread=False,
                             count=2,
                             lfilter=lambda p: Ether in p and p[Ether].type == 0xbeef,
                             started_callback=_sniffer_started)
@@ -287,6 +288,7 @@ frm_count = 0
 def _sniffer():
     sniffed = sniff(iface='veth_scapy_1',
                     store=True,
+                    mthread=False,
                     count=2,
                     lfilter=lambda p: Ether in p and p[Ether].type == 0xbeef,
                     started_callback=_sniffer_started)

@@ -467,8 +467,8 @@ class L3PacketSocket(SuperSocket):
         ts = get_last_packet_timestamp(self.ins)
         return cls, pkt, ts
 
-    def recv(self, x=MTU):
-        pkt = SuperSocket.recv(self, x)
+    def recv(self, **kwargs):
+        pkt = SuperSocket.recv(self, **kwargs)
         if pkt and self.lvl == 2:
             pkt = pkt.payload
         return pkt
@@ -613,14 +613,18 @@ class L2ListenSocket(SuperSocket):
                     cls.name)
 
         ts = get_last_packet_timestamp(self.ins)
-        # direction = sa_ll[2]
-        return cls, pkt, ts  # , direction
+        direction = sa_ll[2]
+        return cls, pkt, ts, direction
 
-    def recv(self, x=MTU):
-        # cls, pkt, ts, direction = self.recv_raw()
-        # [Dissection stuff]
-        pkt = SuperSocket.recv(self, x)
-        # pkt.direction = direction
+    def recv(self, x=MTU, raw_data=None):
+        if raw_data is None:
+            raw_data = self.recv_raw(x)
+            if raw_data is None:
+                return None
+        cls, pkt, ts, direction = raw_data
+        pkt = SuperSocket.recv(self, x=x, raw_data=(cls, pkt, ts))
+        if pkt is not None:
+            pkt.direction = direction
         return pkt
 
     def send(self, x):

@@ -42,19 +42,57 @@ class PcapTimeoutElapsed(Scapy_Exception):
 
 
 class _L2pcapdnetSocket(SuperSocket, SelectableObject):
+    def __init__(self, promisc=None, iface=None):
+        self.type = type
+        self.outs = None
+        if iface is None:
+            iface = conf.iface
+        self.iface = iface
+        if promisc is None:
+            promisc = conf.sniff_promisc
+        self.promisc = promisc
+
+    def _process_loaded_streams(self, type, filter, nofilter):
+        """This is an internal function, used while initializing pcap
+        sockets"""
+        # Guess cls
+        ll = self.ins.datalink()
+        if ll in conf.l2types:
+            self.cls = conf.l2types[ll]
+        else:
+            self.cls = conf.default_l2
+            warning("Unable to guess datalink type (interface=%s linktype=%i). Using %s",  # noqa: E501
+                    self.iface, ll, cls.name)
+        # Enable immediate mode: reads return immediately upon packet reception
+        try:
+            ioctl(self.ins.fileno(), BIOCIMMEDIATE, struct.pack("I", 1))
+        except:
+            pass
+        # Apply init filter & rules
+        if nofilter:
+            if type != ETH_P_ALL:  # PF_PACKET stuff. Need to emulate this for pcap  # noqa: E501
+                filter = "ether proto %i" % type
+            else:
+                filter = None
+        else:
+            if conf.except_filter:
+                if filter:
+                    filter = "(%s) and not (%s)" % (filter, conf.except_filter)  # noqa: E501
+                else:
+                    filter = "not (%s)" % conf.except_filter
+            if type != ETH_P_ALL:  # PF_PACKET stuff. Need to emulate this for pcap  # noqa: E501
+                if filter:
+                    filter = "(ether proto %i) and (%s)" % (type, filter)
+                else:
+                    filter = "ether proto %i" % type
+        if filter:
+            self.ins.setfilter(filter)
+
     def check_recv(self):
         return True
 
     def recv_raw(self, x=MTU):
         """Receives a packet, then returns a tuple containing (cls, pkt_data, time)"""  # noqa: E501
-        ll = self.ins.datalink()
-        if ll in conf.l2types:
-            cls = conf.l2types[ll]
-        else:
-            cls = conf.default_l2
-            warning("Unable to guess datalink type (interface=%s linktype=%i). Using %s",  # noqa: E501
-                    self.iface, ll, cls.name)
-
         pkt = None
         while pkt is None:
             pkt = self.ins.next()
@@ -64,7 +102,7 @@ class _L2pcapdnetSocket(SuperSocket, SelectableObject):
                 raise PcapTimeoutElapsed  # To understand this behavior, have a look at L2pcapListenSocket's note  # noqa: E501
             if pkt is None:
                 return None, None, None
-        return cls, pkt, ts
+        return self.cls, pkt, ts
 
     def nonblock_recv(self):
         """Receives and dissect a packet in non-blocking mode.
@@ -397,37 +435,22 @@ if conf.use_pcap or conf.use_winpcapy:
     class L2pcapListenSocket(_L2pcapdnetSocket):
         desc = "read packets at layer 2 using libpcap"
 
-        def __init__(self, iface=None, type=ETH_P_ALL, promisc=None, filter=None, monitor=None):  # noqa: E501
-            self.type = type
-            self.outs = None
-            self.iface = iface
-            if iface is None:
-                iface = conf.iface
-            if promisc is None:
-                promisc = conf.sniff_promisc
-            self.promisc = promisc
+        def __init__(self, iface=None, type=ETH_P_ALL, promisc=None, filter=None, nofilter=0,  # noqa: E501
+                     monitor=None):  # noqa: E501
+            _L2pcapdnetSocket.__init__(self, promisc=promisc, iface=iface)
             # Note: Timeout with Winpcap/Npcap
             #   The 4th argument of open_pcap corresponds to timeout. In an ideal world, we would  # noqa: E501
             # set it to 0 ==> blocking pcap_next_ex.
             #   However, the way it is handled is very poor, and result in a jerky packet stream.  # noqa: E501
             # To fix this, we set 100 and the implementation under windows is slightly different, as  # noqa: E501
             # everything is always received as non-blocking
-            self.ins = open_pcap(iface, MTU, self.promisc, 100, monitor=monitor)  # noqa: E501
-            try:
-                ioctl(self.ins.fileno(), BIOCIMMEDIATE, struct.pack("I", 1))
-            except:
-                pass
-            if type == ETH_P_ALL:  # Do not apply any filter if Ethernet type is given  # noqa: E501
-                if conf.except_filter:
-                    if filter:
-                        filter = "(%s) and not (%s)" % (filter, conf.except_filter)  # noqa: E501
-                    else:
-                        filter = "not (%s)" % conf.except_filter
-                if filter:
-                    self.ins.setfilter(filter)
+            self.ins = open_pcap(self.iface, MTU, self.promisc, 100, monitor=monitor)  # noqa: E501
+            # Post init routine
+            self._process_loaded_streams(type, filter, nofilter)
 
         def close(self):
             self.ins.close()
+            self.closed = True
 
         def send(self, x):
             raise Scapy_Exception("Can't send anything with L2pcapListenSocket")  # noqa: E501
@@ -439,40 +462,16 @@ if conf.use_pcap or conf.use_winpcapy:
 
         def __init__(self, iface=None, type=ETH_P_ALL, promisc=None, filter=None, nofilter=0,  # noqa: E501
                      monitor=None):
-            if iface is None:
-                iface = conf.iface
-            self.iface = iface
-            if promisc is None:
-                promisc = 0
-            self.promisc = promisc
+            _L2pcapdnetSocket.__init__(self, promisc=promisc, iface=iface)
             # See L2pcapListenSocket for infos about this line
-            self.ins = open_pcap(iface, MTU, self.promisc, 100, monitor=monitor)  # noqa: E501
+            self.ins = open_pcap(self.iface, MTU, self.promisc, 100, monitor=monitor)  # noqa: E501
             # We need to have a different interface open because of an
             # access violation in Npcap that occurs in multi-threading
             # (see https://github.com/nmap/nmap/issues/982)
-            self.outs = open_pcap(iface, MTU, self.promisc, 100)
-            try:
-                ioctl(self.ins.fileno(), BIOCIMMEDIATE, struct.pack("I", 1))
-            except:
-                pass
-            if nofilter:
-                if type != ETH_P_ALL:  # PF_PACKET stuff. Need to emulate this for pcap  # noqa: E501
-                    filter = "ether proto %i" % type
-                else:
-                    filter = None
-            else:
-                if conf.except_filter:
-                    if filter:
-                        filter = "(%s) and not (%s)" % (filter, conf.except_filter)  # noqa: E501
-                    else:
-                        filter = "not (%s)" % conf.except_filter
-                if type != ETH_P_ALL:  # PF_PACKET stuff. Need to emulate this for pcap  # noqa: E501
-                    if filter:
-                        filter = "(ether proto %i) and (%s)" % (type, filter)
-                    else:
-                        filter = "ether proto %i" % type
-            if filter:
-                self.ins.setfilter(filter)
+            self.outs = open_pcap(self.iface, MTU, self.promisc, 100, monitor=monitor)
+            # Post init routine
+            self._process_loaded_streams(type, filter, nofilter)
+
 
         def send(self, x):
             sx = raw(x)
@@ -493,8 +492,8 @@ if conf.use_pcap or conf.use_winpcapy:
         # def __init__(self, iface = None, type = ETH_P_ALL, filter=None, nofilter=0):  # noqa: E501
         #    L2pcapSocket.__init__(self, iface, type, filter, nofilter)
 
-        def recv(self, x=MTU):
-            r = L2pcapSocket.recv(self, x)
+        def recv(self, **kwargs):
+            r = L2pcapSocket.recv(self, **kwargs)
             if r:
                 return r.payload
             else:

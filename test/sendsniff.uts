@@ -27,7 +27,8 @@ else:
 t_sniff = Thread(
     target=sniff,
     kwargs={"iface": "tap1", "count": 5, "prn": Packet.summary,
-            "lfilter": lambda p: IP in p and p[IP].src == "1.2.3.4"}
+            "lfilter": lambda p: IP in p and p[IP].src == "1.2.3.4",
+            "mthread": False}
 )
 t_sniff.start()
 
@@ -52,7 +53,8 @@ t_sniff.join()
 t_sniff = Thread(
     target=sniff,
     kwargs={"iface": "tap1", "count": 5, "prn": Packet.summary,
-            "lfilter": lambda p: IP in p and p[IP].src == "2.3.4.5"}
+            "lfilter": lambda p: IP in p and p[IP].src == "2.3.4.5",
+            "mthread": False}
 )
 t_sniff.start()
 
@@ -114,7 +116,8 @@ else:
 t_sniff = Thread(
     target=sniff,
     kwargs={"iface": "tun1", "count": 5, "prn": Packet.summary,
-            "lfilter": lambda p: IP in p and p[IP].src == "1.2.3.4"}
+            "lfilter": lambda p: IP in p and p[IP].src == "1.2.3.4",
+            "mthread": False}
 )
 t_sniff.start()
 
@@ -141,7 +144,8 @@ t_sniff.join()
 t_sniff = Thread(
     target=sniff,
     kwargs={"iface": "tun1", "count": 5, "prn": Packet.summary,
-            "lfilter": lambda p: IP in p and p[IP].src == "2.3.4.5"}
+            "lfilter": lambda p: IP in p and p[IP].src == "2.3.4.5",
+            "mthread": False}
 )
 t_sniff.start()
 
@@ -273,7 +277,8 @@ def answer_arp_leak(pkt):
 t_answer = Thread(
     target=sniff,
     kwargs={"prn": answer_arp_leak, "timeout": 10, "store": False,
-            "opened_socket": tap0}
+            "opened_socket": tap0,
+            "mthread": False}
 )
 
 t_answer.start()

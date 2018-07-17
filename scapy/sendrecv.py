@@ -24,11 +24,11 @@ from scapy.config import conf
 from scapy.packet import Packet, Gen
 from scapy.utils import get_temp_file, PcapReader, tcpdump, wrpcap
 from scapy import plist
-from scapy.error import log_runtime, log_interactive
+from scapy.error import log_runtime, log_interactive, Scapy_Exception, warning
 from scapy.base_classes import SetGen
 from scapy.supersocket import StreamSocket, L3RawSocket, L2ListenTcpdump
 from scapy.modules import six
-from scapy.modules.six.moves import map
+from scapy.modules.six.moves import map, queue
 if conf.route is None:
     # unused import, only to initialize conf.route
     import scapy.route
@@ -103,7 +103,7 @@ def _sndrcv_rcv(pks, hsent, stopevent, nbrecv, notans, verbose, chainCC,
         def _get_pkt():
             from scapy.arch.pcapdnet import PcapTimeoutElapsed
             try:
-                return pks.recv(MTU)
+                return pks.recv(x=MTU)
             except PcapTimeoutElapsed:
                 return None
     elif conf.use_bpf:
@@ -793,7 +793,8 @@ iface:    listen answers only on the given interface"""
 @conf.commands.register
 def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
           L2socket=None, timeout=None, opened_socket=None,
-          stop_filter=None, iface=None, started_callback=None, *arg, **karg):
+          stop_filter=None, iface=None, started_callback=None,
+          mthread=None, *arg, **karg):
     """
     Sniff packets and return a list of packets.
 
@@ -818,6 +819,8 @@ def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
                      --Ex: stop_filter = lambda x: x.haslayer(TCP)
         iface: interface or list of interfaces (default: None for sniffing
                on all interfaces).
+        mthread: Use separate threads to recieve and dissect packets. Decrease
+                 packet drop rate.
         monitor: use monitor mode. May not be available on all OS
         started_callback: called as soon as the sniffer starts sniffing
                           (default: None).
@@ -881,6 +884,12 @@ def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
         else:
             sniff_sockets[L2socket(type=ETH_P_ALL, iface=iface,
                                    *arg, **karg)] = iface
+    if mthread is None:
+        mthread = (all(hasattr(x, "recv_raw") for x in sniff_sockets) and not conf.use_bpf)  # noqa: E501
+    elif mthread and (any(not hasattr(x, "recv_raw") for x in sniff_sockets)):
+        warning("Multi-threaded mode is not available on one of the provided "
+                "objects ! (recv_raw does not exist)")
+        mthread = False
     lst = []
     if timeout is not None:
         stoptime = time.time() + timeout
@@ -913,9 +922,85 @@ def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
                 if exc[0] == errno.EINTR:
                     return []
                 raise
+
+    class _InteruptSniff(Scapy_Exception):
+        """Used to interupt sniffing in multi-threading mode"""
+        pass
+
+    def _process_pkt(p, sniff_sockets, c, dissector=None):
+        """Function to process a recieved packet"""
+        if p is None:
+            try:
+                if s.promisc:
+                    return c
+            except AttributeError:
+                pass
+            del sniff_sockets[s]
+            raise _InteruptSniff
+        if lfilter and not lfilter(p):
+            return c
+        p.sniffed_on = sniff_sockets[s]
+        if store:
+            lst.append(p)
+        c += 1
+        if prn:
+            r = prn(p)
+            if r is not None:
+                print(r)
+        if stop_filter and stop_filter(p):
+            sniff_sockets = []
+            raise _InteruptSniff
+        if 0 < count <= c:
+            sniff_sockets = []
+            raise _InteruptSniff
+        return c
+
+    def _async_process(q, stopevent):
+        """Thread that dissects the packets when multi-threading is on"""
+        c = 0
+        try:
+            while not stopevent.is_set():
+                try:
+                    pkt_a, dissector, sniff_sockets = q.get_nowait()
+                except queue.Empty:
+                    continue
+                try:
+                    pkt = dissector(raw_data=pkt_a)
+                except Exception:
+                    log_runtime.error(exc_info=True)
+                    stopevent.set()
+                try:
+                    c = _process_pkt(pkt, sniff_sockets, c)
+                except _InteruptSniff:
+                    stopevent.set()
+        except KeyboardInterrupt:
+            stopevent.set()
+        del q
+    se = None
+    if mthread:
+        # When multithreading is enabled, the packets are
+        # recieved on the main thread, and dissected in
+        # another thread.
+        q = queue.Queue()
+        se = threading.Event()
+
+        def _append_pkt(p, sniff_sockets, c=None, q=q, dissector=None):
+            q.put((p, dissector, sniff_sockets))
+            if se.is_set():
+                raise _InteruptSniff
+        _action_pkt = _append_pkt
+        _read_next = lambda s: s.recv_raw()
+        t = threading.Thread(target=_async_process, args=(q, se))
+        t.deamon = True
+        t.start()
+    else:
+        # Multi-threading disabled
+        _action_pkt = _process_pkt
+        _read_next = lambda s: s.recv()
     try:
         if started_callback:
             started_callback()
+        c = 0
         while sniff_sockets:
             if timeout is not None:
                 remain = stoptime - time.time()
@@ -924,35 +1009,21 @@ def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
             ins = _select(sniff_sockets)
             for s in ins:
                 try:
-                    p = s.recv()
+                    p = _read_next(s)
                 except read_allowed_exceptions:
                     continue
-                if p is None:
-                    try:
-                        if s.promisc:
-                            continue
-                    except AttributeError:
-                        pass
-                    del sniff_sockets[s]
-                    break
-                if lfilter and not lfilter(p):
-                    continue
-                p.sniffed_on = sniff_sockets[s]
-                if store:
-                    lst.append(p)
-                c += 1
-                if prn:
-                    r = prn(p)
-                    if r is not None:
-                        print(r)
-                if stop_filter and stop_filter(p):
-                    sniff_sockets = []
-                    break
-                if 0 < count <= c:
-                    sniff_sockets = []
-                    break
+                c = _action_pkt(p, sniff_sockets, c, dissector=s.recv)
     except KeyboardInterrupt:
         pass
+    except _InteruptSniff:
+        pass
+    finally:
+        if mthread:
+            try:
+                se.set()
+            except:
+                pass
+            t.join()
     if opened_socket is None:
         for s in sniff_sockets:
             s.close()
@@ -982,7 +1053,7 @@ Arguments:
       See help(sniff) for more.
 
     """
-    for arg in ['opened_socket', 'offline', 'iface']:
+    for arg in ['opened_socket', 'offline', 'iface', 'mthread']:
         if arg in kargs:
             log_runtime.warning("Argument %s cannot be used in "
                                 "bridge_and_sniff() -- ignoring it.", arg)
@@ -1039,7 +1110,7 @@ Arguments:
             return prn_orig(pkt)
 
     return sniff(opened_socket={sckt1: if1, sckt2: if2}, prn=prn,
-                 *args, **kargs)
+                 mthread=False, *args, **kargs)
 
 
 @conf.commands.register
