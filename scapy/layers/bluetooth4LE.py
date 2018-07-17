@@ -14,14 +14,37 @@ from scapy.config import conf
 from scapy.data import MTU, DLT_BLUETOOTH_LE_LL
 from scapy.packet import *
 from scapy.fields import *
-from scapy.layers.ppi import PPI
+from scapy.layers.ppi import PPI, addPPIType, PPIGenericFldHdr
+
+from scapy.contrib.ppi_geotag import XLEIntField, XLEShortField
+from scapy.layers.bluetooth import EIR_Hdr, L2CAP_Hdr
 
 from scapy.modules.six.moves import range
+
+
+BTLE_Versions = {
+    7: '4.1'
+}
+BTLE_Corp_IDs = {
+    0xf: 'Broadcom Corporation'
+}
+
+
+class CtrlPDU(Packet):
+    name = "CtrlPDU"
+    fields_desc = [
+        XByteField("optcode", 0),
+        ByteEnumField("version", 0, BTLE_Versions),
+        LEShortEnumField("Company", 0, BTLE_Corp_IDs),
+        XShortField("subversion", 0)
+    ]
 
 
 class BTLE_PPI(Packet):
     name = "BTLE PPI header"
     fields_desc = [
+        LEShortField("pfh_type", 30006),
+        LEShortField("pfh_datalen", 24),
         ByteField("btle_version", 0),
         LEShortField("btle_channel", None),
         ByteField("btle_clkn_high", None),
@@ -30,14 +53,6 @@ class BTLE_PPI(Packet):
         Field("rssi_min", None, fmt="b"),
         Field("rssi_avg", None, fmt="b"),
         ByteField("rssi_count", None)
-    ]
-
-
-class PPI_FieldHeader(Packet):
-    name = "PPI Field header"
-    fields_desc = [
-        LEShortField("pfh_type", None),
-        LEShortField("pfh_datalen", None)
     ]
 
 
@@ -120,11 +135,12 @@ class BTLE(Packet):
         return s
 
     def pre_dissect(self, s):
+        # move crc
         return s[:4] + s[-3:] + s[4:-3]
 
     def post_dissection(self, pkt):
         if isinstance(pkt, PPI):
-            pkt.notdecoded = PPI_FieldHeader(pkt.notdecoded)
+            pkt.notdecoded = PPIGenericFldHdr(pkt.notdecoded)
 
     def hashret(self):
         return struct.pack("!L", self.access_addr)
@@ -162,7 +178,7 @@ class BTLE_DATA(Packet):
         BitField("MD", 0, 1),
         BitField("SN", 0, 1),
         BitField("NESN", 0, 1),
-        BitField("LLID", 0, 2),
+        BitEnumField("LLID", 0, 2, {1: "continue", 2: "start", 3: "control"}),
         ByteField("len", None),
     ]
 
@@ -172,23 +188,11 @@ class BTLE_DATA(Packet):
         return p + pay
 
 
-class BTLE_AdvData(Packet):
-    name = "BTLE advertising data"
-    fields_desc = [
-        FieldLenField("len", None, length_of="data", fmt="B"),
-        ByteField("type", 0),
-        StrLenField("data", None, length_from=lambda pkt: pkt.len)
-    ]
-
-    def extract_padding(self, s):
-        return b'', s
-
-
 class BTLE_ADV_IND(Packet):
     name = "BTLE ADV_IND"
     fields_desc = [
         BDAddrField("AdvA", None),
-        PacketListField("data", None, BTLE_AdvData)
+        PacketListField("data", None, EIR_Hdr)
     ]
 
 
@@ -223,7 +227,7 @@ class BTLE_SCAN_RSP(Packet):
     name = "BTLE scan response"
     fields_desc = [
         BDAddrField("AdvA", ""),
-        PacketListField("data", None, BTLE_AdvData)
+        PacketListField("data", None, EIR_Hdr)
     ]
 
     def answers(self, other):
@@ -259,7 +263,11 @@ bind_layers(BTLE_ADV, BTLE_SCAN_RSP, PDU_type=4)
 bind_layers(BTLE_ADV, BTLE_CONNECT_REQ, PDU_type=5)
 bind_layers(BTLE_ADV, BTLE_ADV_SCAN_IND, PDU_type=6)
 
+bind_layers(BTLE_DATA, L2CAP_Hdr, LLID=2)  # BTLE_DATA / L2CAP_Hdr / ATT_Hdr
+# LLID=1 -> Continue
+bind_layers(BTLE_DATA, CtrlPDU, LLID=3)
+
 conf.l2types.register(DLT_BLUETOOTH_LE_LL, BTLE)
 
 bind_layers(PPI, BTLE, dlt=147)
-bind_layers(PPI_FieldHeader, BTLE_PPI, pfh_type=30006)
+addPPIType(30006, BTLE_PPI)

@@ -23,3 +23,17 @@ a = BTLE(access_addr=0)/BTLE_DATA()/"toto"
 a = BTLE(raw(a))
 assert a[BTLE_DATA].len == 4
 assert a[Raw].load == b"toto"
+
+test1 = BTLE() / BTLE_ADV() / BTLE_ADV_IND() / EIR_Hdr() / EIR_ShortenedLocalName(local_name= 'wussa')
+test1e = BTLE(raw(test1))
+assert test1e[EIR_ShortenedLocalName].local_name == b"wussa"
+
+test2 = BTLE(access_addr=1) / BTLE_DATA() / CtrlPDU(version=7)
+test2e = BTLE(raw(test2))
+assert test2e[CtrlPDU].version == 7
+
+test3 = BTLE(access_addr=1) / BTLE_DATA() / L2CAP_Hdr() / ATT_Hdr() / ATT_PrepareWriteReq(handle = 0xa, value="test")
+test3e = BTLE(raw(test3))
+assert test3e[ATT_PrepareWriteReq].value == b"test"
+assert test3e[ATT_PrepareWriteReq].handle == 0xa
+assert test3e[ATT_Hdr].opcode == 0x16
