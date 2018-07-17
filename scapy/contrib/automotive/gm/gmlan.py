@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 # This file is part of Scapy
-# See http://www.secdev.org/projects/scapy for more informations
+# See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Nils Weiss <nils@we155.de>
 # Copyright (C) Enrico Pozzobon <enrico.pozzobon@gmail.com>
 # This program is published under a GPLv2 license
