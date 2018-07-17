@@ -975,7 +975,7 @@ if __name__ == "__main__":
             warnings.resetwarnings()
             # Let's discover the garbage waste
             warnings.simplefilter('error')
-            # TODO fix this: scapy has too many StopIteration (deprecated)
+            # TODO fix this: Scapy has too many StopIteration (deprecated)
             warnings.filterwarnings('ignore', message=r'.*generator.*', category=DeprecationWarning)
             print("### Warning mode enabled ###")
             res = main(sys.argv[1:])
