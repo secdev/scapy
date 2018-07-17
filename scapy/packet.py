@@ -1555,8 +1555,10 @@ def ls(obj=None, case_sensitive=False, verbose=False):
         else:
             pattern = re.compile(obj, 0 if case_sensitive else re.I)
             all_layers = sorted((layer for layer in conf.layers
-                                 if (pattern.search(layer.__name__ or '')
-                                     or pattern.search(layer.name or ''))),
+                                 if (isinstance(layer.name, str) and
+                                     pattern.search(layer.__name__))
+                                 or (isinstance(layer.name, str) and
+                                     pattern.search(layer.name))),
                                 key=lambda x: x.__name__)
         for layer in all_layers:
             print("%-10s : %s" % (layer.__name__, layer._name))
