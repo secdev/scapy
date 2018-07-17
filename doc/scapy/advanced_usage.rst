@@ -1743,6 +1743,13 @@ necessary steps for downloading and building this kernel module. The
 ISO-TP kernel module should also be added to the ``/etc/modules`` file,
 to load this module automatically at system boot of the BBB.
 
+::
+        #!/bin/bash
+        git clone https://github.com/hartkopp/can-isotp.git /tmp/can-isotp
+        cd /tmp/can-isotp
+        make
+        sudo make modules_install
+        
 CAN-Interface Setup
 ~~~~~~~~~~~~~~~~~~~
 

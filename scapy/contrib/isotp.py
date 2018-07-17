@@ -327,19 +327,3 @@ class ISOTPSocket(SuperSocket):
 
         ts = get_last_packet_timestamp(self.ins)
         return self.basecls, pkt, ts
-
-    def send(self, x):
-        if hasattr(x, "sent_time"):
-            x.sent_time = time.time()
-        return self.outs.send(bytes(x))
-
-    def sr(self, *args, **kargs):
-        return sndrcv(self, *args, **kargs)
-
-    def sr1(self, *args, **kargs):
-        data = sndrcv(self, *args, **kargs)
-        if data:
-            return data[0][0][1]
-
-    def sniff(self, *args, **kargs):
-        return sniff(opened_socket=self, *args, **kargs)

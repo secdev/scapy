@@ -8,7 +8,8 @@
     "scapy\\contrib\\cansocket_native.uts",
     "scapy\\contrib\\cansocket_python_can.uts",
     "test\\bpf.uts",
-    "test\\linux.uts"
+    "test\\linux.uts",
+    "test\\isotp.uts"
   ],
   "breakfailed": true,
   "onlyfailed": true,
