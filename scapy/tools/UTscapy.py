@@ -259,7 +259,7 @@ def parse_config_file(config_path, verb=3):
     Empty default json:
     {
       "testfiles": [],
-      "breakfailed": false,
+      "breakfailed": true,
       "onlyfailed": false,
       "verb": 2,
       "dump": 0,
@@ -287,7 +287,7 @@ def parse_config_file(config_path, verb=3):
     def get_if_exist(key, default):
         return data[key] if key in data else default
     return Bunch(testfiles=get_if_exist("testfiles", []),
-                 breakfailed=get_if_exist("breakfailed", False),
+                 breakfailed=get_if_exist("breakfailed", True),
                  remove_testfiles=get_if_exist("remove_testfiles", []),
                  onlyfailed=get_if_exist("onlyfailed", False),
                  verb=get_if_exist("verb", 3),
@@ -947,9 +947,10 @@ def main(argv):
         if UNIQUE:
             glob_title = campaign.title
         glob_output += output
-        if not result and BREAKFAILED:
+        if not result:
             glob_result = 1
-            break
+            if BREAKFAILED:
+                break
 
     if VERB > 2:
         print("### Writing output...", file=sys.stderr)
