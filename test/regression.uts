@@ -18,11 +18,22 @@ scapy.consts.LOOPBACK_INTERFACE
 ~ conf command
 ls()
 
+= List layers - advanced
+~ conf command
+
+with ContextManagerCaptureOutput() as cmco:
+    ls("IP")
+    result_ls = cmco.get_output().split("\n")
+
+assert all("IP" in x for x in result_ls if x.strip())
+assert len(result_ls) >= 3
+
 = List commands
 ~ conf command
 lsc()
 
 = List contribs
+~ command
 def test_list_contrib():
     with ContextManagerCaptureOutput() as cmco:
         list_contrib()
