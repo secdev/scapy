@@ -359,6 +359,14 @@ def _tf_last_attempt(pkt):
 
 
 def _extract_dot15d4address(pkt, source=True):
+    """This function extracts the source/destination address of a 6LoWPAN
+    from its upper Dot15d4Data (802.15.4 data) layer.
+
+    params:
+     - source: if True, the address is the source one. Otherwise, it is the
+               destination.
+    returns: the packed & processed address
+    """
     underlayer = pkt.underlayer
     while underlayer is not None and not isinstance(underlayer, Dot15d4Data):  # noqa: E501
         underlayer = underlayer.underlayer
