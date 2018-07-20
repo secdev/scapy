@@ -2,9 +2,7 @@
 
 + Test Request Packet
 = OpcDaRequest
-opcdaRequestPacket_Dissect = \
-'050000830000000000640000000000150000003c000600050000c41d0a9c0000d7028c7' \
-'61299f7bf000000004e6f6e65'.decode('hex')
+opcdaRequestPacket_Dissect = hex_bytes(b'050000830000000000640000000000150000003c000600050000c41d0a9c0000d7028c761299f7bf00000000')
 elem1 = raw(OpcDaMessage(opcdaRequestPacket_Dissect))
 
 opcdaRequestPacket_Build = OpcDaMessage(OpcDaMessage= \
@@ -20,10 +18,7 @@ elem2 = raw(opcdaRequestPacket_Build)
 assert( elem1 == elem2 )
 
 = OpcDaRequestLE
-opcdaRequestLEPacket_Dissect = \
-    '050000831000000064000000150000003c000000060005001dc400009c0a0000d702' \
-    '8c761299f7bf000000000000000000000000512d4e34ab431449a2cf7784b21b3ea1' \
-    '4e6f6e65'.decode('hex')
+opcdaRequestLEPacket_Dissect = hex_bytes(b'050000831000000064000000150000003c000000060005001dc400009c0a0000d7028c761299f7bf000000000000000000000000512d4e34ab431449a2cf7784b21b3ea1')
 elem1 = raw(OpcDaMessage(opcdaRequestLEPacket_Dissect))
 
 opcdaRequestLEPacket_Build = OpcDaMessage(OpcDaMessage= \
@@ -42,8 +37,7 @@ assert( elem1 == elem2 )
 
 + Test Ping Packet
 = OpcDaPing
-opcdaPingPacket_Dissect = \
-    '0500010310000000640000001500000000'.decode('hex')
+opcdaPingPacket_Dissect = hex_bytes(b'0500010310000000640000001500000000')
 elem1 = raw(OpcDaMessage(opcdaPingPacket_Dissect))
 
 opcdaPingPacket_Build = OpcDaMessage(OpcDaMessage= \
@@ -59,14 +53,7 @@ assert( elem1 == elem2 )
 
 + Test Response Packets
 = OpcDaResponse
-opcDaResponsePacket_Dissect = \
-    '050002030000000000d4000000000015000000bc0006000030303030303030303030' \
-    '30303030303030303030303030303030303030303030303030303030303030303030' \
-    '30303030303030303030303030303030303030303030303030303030303030303030' \
-    '30303030303030303030303030303030303030303030303030303030303030303030' \
-    '30303030303030303030303030303030303030303030303030303030303030303030' \
-    '30303030303030303030303030303030303030303030303030303030303030303030' \
-    '4e6f6e65'.decode('hex')
+opcDaResponsePacket_Dissect = hex_bytes(b'050002030000000000d4000000000015000000bc00060000303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030')
 elem1 = raw(OpcDaMessage(opcDaResponsePacket_Dissect))
 
 opcDaResponsePacket_Build = OpcDaMessage(OpcDaMessage= \
@@ -81,14 +68,7 @@ elem2 = raw(opcDaResponsePacket_Build)
 assert( elem1 == elem2 )
 
 = OpcDaResponseLE
-opcDaResponseLEPacket_Dissect = \
-    '0500020310000000d400000015000000bc0000000600000030303030303030303030' \
-    '30303030303030303030303030303030303030303030303030303030303030303030' \
-    '30303030303030303030303030303030303030303030303030303030303030303030' \
-    '30303030303030303030303030303030303030303030303030303030303030303030' \
-    '30303030303030303030303030303030303030303030303030303030303030303030' \
-    '30303030303030303030303030303030303030303030303030303030303030303030' \
-    '4e6f6e65'.decode('hex')
+opcDaResponseLEPacket_Dissect = hex_bytes(b'0500020310000000d400000015000000bc00000006000000303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030')
 elem1 = raw(OpcDaMessage(opcDaResponseLEPacket_Dissect))
 
 opcDaResponseLEPacket_Build = OpcDaMessage(OpcDaMessage= \
@@ -103,39 +83,39 @@ elem2 = raw(opcDaResponseLEPacket_Build)
 assert( elem1 == elem2 )
 
 # + Test Fault Packet
-# No exemple yet
+# No example yet
 # OpcDaFault
 # OpcDaFaultLE
 
 # + Test Working
-# No exemple yet
+# No example yet
 # OpcDaWorking
 
 # + Test No Call Packet
-# No exemple yet
+# No example yet
 # OpcDaNoCall
 # OpcDaNoCallLE
 
 # + Test Reject Packet
-# No exemple yet
+# No example yet
 # OpcDaReject
 # OpcDaRejectLE
 
 # + Test Ack Packet
-# No exemple yet
+# No example yet
 # OpcDaAck
 
 # + Test Cl_cancel Packet
-# No exemple yet
+# No example yet
 # OpcDaCl_cancel
 # OpcDaCl_cancelLE
 
 # + Test Fack Packet
-# No exemple yet
+# No example yet
 # OpcDaFack
 
 # + Test Cancel ack Packet
-# No exemple yet
+# No example yet
 # OpcDaCancel_ack
 # OpcDaCancel_ackLE
 
@@ -147,16 +127,13 @@ assert( elem1 == elem2 )
 # OpcDaBind_ack
 
 # + Test Bind no ack Packet
-# No exemple yet
+# No example yet
 # OpcDaBind_nack
 
 
 + Test Alter_context
 = OpcDaAlter_context
-opcDaAlter_contextPacket_Dissect = \
-    '05000e0300000000004800000000001716d016d000082945000000010700010001010000'\
-    '00000000c00000000000004600000000045d888aeb1cc9119fe808002b10486002000000'\
-    .decode('hex')
+opcDaAlter_contextPacket_Dissect = hex_bytes(b'05000e0300000000004800000000001716d016d00008294500000001070001000101000000000000c00000000000004600000000045d888aeb1cc9119fe808002b10486002000000')
 elem1 = raw(OpcDaMessage(opcDaAlter_contextPacket_Dissect))
 
 ocDaAlter_contextPacket_Build = OpcDaMessage(OpcDaMessage= \
@@ -172,10 +149,7 @@ ocDaAlter_contextPacket_Build = OpcDaMessage(OpcDaMessage= \
 elem2 = raw(ocDaAlter_contextPacket_Build)
 
 = OpcDaAlter_contextLE
-opcDaAlter_contextLEPacket_Dissect = \
-    '05000e03100000004800000017000000d016d01645290800010000000700010001010000'\
-    '00000000c00000000000004600000000045d888aeb1cc9119fe808002b10486002000000'\
-    .decode('hex')
+opcDaAlter_contextLEPacket_Dissect = hex_bytes(b'05000e03100000004800000017000000d016d0164529080001000000070001000101000000000000c00000000000004600000000045d888aeb1cc9119fe808002b10486002000000')
 elem1 = raw(OpcDaMessage(opcDaAlter_contextLEPacket_Dissect))
 
 ocDaAlter_contextLEPacket_Build = OpcDaMessage(OpcDaMessage= \
@@ -195,14 +169,14 @@ elem2 = raw(ocDaAlter_contextLEPacket_Build)
 = OpcDaAlter_Context_RespLE
 
 # + Test Shutdown Packet
-# No exemple yet
+# No example yet
 # OpcDaShutdown
 
 # + Test Co_cancel Packet
-# No exemple yet
+# No example yet
 # OpcDaCo_cancel
 # OpcDaCo_cancelLE
 
 # + Test Orphaned Packet
-# No exemple yet
+# No example yet
 # OpcDaOrphaned

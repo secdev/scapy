@@ -23,14 +23,6 @@
 # @Last modified time: 2016-12-08 11:16:27
 # @Last modified time: 2017-07-05
 
-from scapy.fields import Field, ByteField, ShortField, LEShortField, \
-    IntField, LEIntField, LongField, LELongField, StrField, StrLenField, \
-    StrFixedLenField, BitEnumField, ByteEnumField, ShortEnumField, \
-    LEShortEnumField, IntEnumField, LEIntEnumField, FieldLenField, \
-    LEFieldLenField, PacketField, PacketListField, PacketLenField, \
-    ConditionalField, FlagsField
-from scapy.packet import Packet
-import uuid
 """
 Opc Data Access.
 References: Data Access Custom Interface StanDard
@@ -41,12 +33,17 @@ References: Specifies Distributed Component Object Model (DCOM) Remote Protocol
 Using the website: https://msdn.microsoft.com/en-us/library/cc226801.aspx
 """
 
-# Global Variables
-auth_length = 0
-etat = 0
-interface_UUID = None
-pfc_flag_objectUuid = 0
-pdu_type = 0
+import uuid
+
+from scapy.compat import raw, plain_str
+from scapy.config import conf
+from scapy.fields import Field, ByteField, ShortField, LEShortField, \
+    IntField, LEIntField, LongField, LELongField, StrField, StrLenField, \
+    StrFixedLenField, BitEnumField, ByteEnumField, ShortEnumField, \
+    LEShortEnumField, IntEnumField, LEIntEnumField, FieldLenField, \
+    LEFieldLenField, PacketField, PacketListField, PacketLenField, \
+    ConditionalField, FlagsField
+from scapy.packet import Packet
 
 # Defined values
 _tagOPCDataSource = {
@@ -242,16 +239,17 @@ class AuthentificationProtocol(Packet):
     name = 'authentificationProtocol'
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
     def guess_payload_class(self, payload):
-        if auth_length != 0:
-            try:
-                return _authentification_protocol[auth_length]
-            except Exception:
-                pass
-        else:
-            return extract_padding(self, payload)
+        if self.underlayer and hasattr(self.underlayer, "auth_length"):
+            auth_length = self.underlayer.auth_length
+            if auth_length != 0:
+                try:
+                    return _authentification_protocol[auth_length]
+                except Exception:
+                    pass
+        return conf.raw_layer
 
 
 class OsfDcePrivateKeyAuthentification(Packet):
@@ -259,7 +257,7 @@ class OsfDcePrivateKeyAuthentification(Packet):
     # TODO
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 class OPCHandle(Packet):
@@ -267,7 +265,7 @@ class OPCHandle(Packet):
         Field.__init__(self, name, default, "16s")
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 class PUUID(Field):
@@ -280,10 +278,7 @@ class PUUID(Field):
 
     def h2i(self, pkt, x):
         """ Description: transform a string uuid in uuid type object """
-        if pkt is None:
-            self.default = uuid.UUID(x)
-        else:
-            self.default = uuid.UUID(x)
+        self.default = uuid.UUID(plain_str(x or ""))
         return self.default
 
     def i2h(self, pkt, x):
@@ -338,7 +333,7 @@ class LenStringPacket(Packet):
     ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 class LenStringPacketLE(Packet):
@@ -354,7 +349,7 @@ class LenStringPacketLE(Packet):
     ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 class SyntaxId(Packet):
@@ -366,10 +361,7 @@ class SyntaxId(Packet):
     ]
 
     def extract_padding(self, p):
-        global interface_UUID
-        if self.interfaceUUID in _standardDcomEndpoint:
-            interface_UUID = interfaceUUID
-        return "", p
+        return b"", p
 
 
 class SyntaxIdLE(Packet):
@@ -381,10 +373,7 @@ class SyntaxIdLE(Packet):
     ]
 
     def extract_padding(self, p):
-        global interface_UUID
-        if self.interfaceUUID in _standardDcomEndpoint:
-            interface_UUID = interfaceUUID
-        return "", p
+        return b"", p
 
 
 class ResultElement(Packet):
@@ -397,7 +386,7 @@ class ResultElement(Packet):
     ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 class ResultElementLE(Packet):
@@ -410,7 +399,7 @@ class ResultElementLE(Packet):
     ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 class ResultList(Packet):
@@ -424,7 +413,7 @@ class ResultList(Packet):
     ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 class ResultListLE(Packet):
@@ -438,7 +427,7 @@ class ResultListLE(Packet):
     ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 class ContextElment(Packet):
@@ -453,7 +442,7 @@ class ContextElment(Packet):
     ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 class ContextElmentLE(Packet):
@@ -468,7 +457,7 @@ class ContextElmentLE(Packet):
     ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 # Only in Little-Endian
@@ -487,7 +476,7 @@ class StringBinding(Packet):
     name = 'String Binding'
     fields_desc = [
         LEShortField('wTowerId', 0),
-        # Not enough informations to continue
+        # Not enough information to continue
     ]
 
 
@@ -657,7 +646,7 @@ _standardDcomEndpoint = {
     'CC603642-66D7-48f1-B69A-B625E73652D7': "CATID_OPCDAServer30",
     '39c13a4d-011e-11d0-9675-0020afd8adb3': "IOPCServer_IUnknown",
     '39c13a4e-011e-11d0-9675-0020afd8adb3': "IOPCServerPublicGroups_IUnknown",
-    '39c13a4f-011e-11d0-9675-0020afd8adb3': "IOPCBrowseServerAddrSpace_IUnknown",
+    '39c13a4f-011e-11d0-9675-0020afd8adb3': "IOPCBrowseServerAddrSpace_IUnknown",  # noqa: E501
     '39c13a50-011e-11d0-9675-0020afd8adb3': "IOPCGroupStateMgt_IUnknown",
     '39c13a51-011e-11d0-9675-0020afd8adb3': "IOPCPublicGroupStateMgt_IUnknown",
     '39c13a52-011e-11d0-9675-0020afd8adb3': "IOPCSyncIO_IUnknown",
@@ -673,7 +662,7 @@ _standardDcomEndpoint = {
     '85C0B427-2893-4cbc-BD78-E5FC5146F08F': "IOPCItemIO_IUnknown",
     '730F5F0F-55B1-4c81-9E18-FF8A0904E1FA': "IOPCSyncIO2_IOPCSyncIO",
     '0967B97B-36EF-423e-B6F8-6BFF1E40D39D': "IOPCAsyncIO3_IOPCAsyncIO2",
-    '8E368666-D72E-4f78-87ED-647611C61C9F': "IOPCGroupStateMgt2_IOPCGroupStateMgt",
+    '8E368666-D72E-4f78-87ED-647611C61C9F': "IOPCGroupStateMgt2_IOPCGroupStateMgt",  # noqa: E501
     '3B540B51-0378-4551-ADCC-EA9B104302BF': "library_OPCDA",
     # Other
     '000001a5-0000-0000-c000-000000000046': "ActivationContextInfo",
@@ -742,7 +731,7 @@ class AttributeName(Packet):
     ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 # Next version adapte the type with one PDU
@@ -756,7 +745,7 @@ class AttributeNameLE(Packet):
     ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 class NTLMSSP(Packet):
@@ -820,7 +809,7 @@ class NTLMSSP(Packet):
     ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 class NTLMSSPLE(Packet):
@@ -884,7 +873,7 @@ class NTLMSSPLE(Packet):
     ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 _opcDa_auth_classes = {
@@ -944,7 +933,7 @@ class RequestSubData(Packet):
     ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 class RequestSubDataLE(Packet):
@@ -959,7 +948,7 @@ class RequestSubDataLE(Packet):
     ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 class OpcDaRequest(Packet):
@@ -975,7 +964,7 @@ class OpcDaRequest(Packet):
     ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 class OpcDaRequestLE(Packet):
@@ -991,7 +980,7 @@ class OpcDaRequestLE(Packet):
     ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 # A client sends a ping PDU when it wants to inquire about an outstanding
@@ -1002,7 +991,7 @@ class OpcDaPing(Packet):
     fields_desc = []
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 # A server sends a response PDU if an operation invoked by an idempotent,
@@ -1023,7 +1012,7 @@ class OpcDaResponse(Packet):
     ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 class OpcDaResponseLE(Packet):
@@ -1039,7 +1028,7 @@ class OpcDaResponseLE(Packet):
     ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 # The fault PDU is used to indicate either an RPC run-time, RPC stub, or
@@ -1059,7 +1048,7 @@ class OpcDaFault(Packet):
     ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 class OpcDaFaultLE(Packet):
@@ -1077,7 +1066,7 @@ class OpcDaFaultLE(Packet):
     ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 # A server sends a working PDU in reply to a ping PDU. This reply indicates
@@ -1123,7 +1112,7 @@ class OpcDaReject(Packet):
     ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 class OpcDaRejectLE(Packet):
@@ -1140,7 +1129,7 @@ class OpcDaRejectLE(Packet):
     ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 # A client sends an ack PDU after it has received a response to
@@ -1153,7 +1142,7 @@ class OpcDaAck(Packet):
     name = "OpcDaAck"
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 # The cancel PDU is used to forward a cancel.
@@ -1166,7 +1155,7 @@ class OpcDaCl_cancel(Packet):
     ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 class OpcDaCl_cancelLE(Packet):
@@ -1178,7 +1167,7 @@ class OpcDaCl_cancelLE(Packet):
     ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 #  Both clients and servers send fack PDUs.
@@ -1203,7 +1192,7 @@ class OpcDaFack(Packet):
     ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 class OpcDaFackLE(Packet):
@@ -1221,7 +1210,7 @@ class OpcDaFackLE(Packet):
     ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 # A server sends a cancel_ack PDU after it has received a cancel PDU.
@@ -1243,7 +1232,7 @@ class OpcDaCancel_ack(Packet):
     ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 class OpcDaCancel_ackLE(Packet):
@@ -1255,7 +1244,7 @@ class OpcDaCancel_ackLE(Packet):
     ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 # The bind PDU is used to initiate the presentation negotiation for the body
@@ -1276,7 +1265,7 @@ class OpcDaBind(Packet):
     ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 class OpcDaBindLE(Packet):
@@ -1294,7 +1283,7 @@ class OpcDaBindLE(Packet):
     ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 # The bind_ack PDU is returned by the server when it accepts a bind request
@@ -1314,7 +1303,7 @@ class OpcDaBind_ack(Packet):
     ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 class OpcDaBind_ackLE(Packet):
@@ -1330,7 +1319,7 @@ class OpcDaBind_ackLE(Packet):
     ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 # The bind_nak PDU is returned by the server when it rejects an association
@@ -1345,7 +1334,7 @@ class OpcDaBind_nak(Packet):
     ]  # To complete
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 class OpcDaBind_nakLE(Packet):
@@ -1355,7 +1344,7 @@ class OpcDaBind_nakLE(Packet):
     ]  # To complete
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 # The alter_context PDU is used to request additional presentation negotiation
@@ -1371,7 +1360,7 @@ class OpcDaAlter_context(Packet):
     ]  # To complete
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 class OpcDaAlter_contextLE(Packet):
@@ -1384,7 +1373,7 @@ class OpcDaAlter_contextLE(Packet):
     ]  # To complete
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 class OpcDaAlter_Context_Resp(Packet):
@@ -1399,7 +1388,7 @@ class OpcDaAlter_Context_Resp(Packet):
     ]  # To complete
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 class OpcDaAlter_Context_RespLE(Packet):
@@ -1414,7 +1403,7 @@ class OpcDaAlter_Context_RespLE(Packet):
     ]  # To complete
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 # The shutdown PDU is sent by the server to request that a client terminate the
@@ -1425,7 +1414,7 @@ class OpcDaShutdown(Packet):
     name = "OpcDaShutdown"
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 # The cancel PDU is used to forward a cancel.
@@ -1438,7 +1427,7 @@ class OpcDaCo_cancel(Packet):
     ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 class OpcDaCo_cancelLE(Packet):
@@ -1450,21 +1439,14 @@ class OpcDaCo_cancelLE(Packet):
     ]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 
 # The orphaned PDU is used by a client to notify a server that it is aborting a
 #  request in progress that has not been entirely transmitted yet, or that it
 #  is aborting a (possibly lengthy) response in progress.
-class OpcDaOrphaned(Packet):
+class OpcDaOrphaned(AuthentificationProtocol):
     name = "OpcDaOrphaned"
-
-    def guess_payload_class(self, payload):
-        if auth_length != 0:
-            try:
-                return _authentification_protocol[auth_length]
-            except Exception:
-                pass
 
 
 _opcDa_pdu_classes = {
@@ -1501,29 +1483,21 @@ class OpcDaHeaderN(Packet):
     ]
 
     def guess_payload_class(self, payload):
-        global auth_length
-        auth_length = self.authLenght
-        try:
-            return _opcDa_pdu_classes[pdu_type][0]
-        except Exception:
-            pass
+        if self.underlayer:
+            try:
+                return _opcDa_pdu_classes[self.underlayer.pdu_type][1]
+            except AttributeError:
+                pass
+        return conf.raw_layer
 
 
-class OpcDaHeaderNLE(Packet):
+class OpcDaHeaderNLE(OpcDaHeaderN):
     name = "OpcDaHeaderNextLE"
     fields_desc = [
         LEShortField('fragLenght', 0),
         LEShortEnumField('authLenght', 0, _authentification_protocol),
         LEIntField('callID', 0)
     ]
-
-    def guess_payload_class(self, payload):
-        global auth_length
-        auth_length = self.authLenght
-        try:
-            return _opcDa_pdu_classes[pdu_type][1]
-        except Exception:
-            pass
 
 
 _opcda_next_header = {
@@ -1551,10 +1525,6 @@ class OpcDaHeaderMessage(Packet):
     ]
 
     def guess_payload_class(self, payload):
-        global pfc_flag_objectUuid
-        global pdu_type
-        pfc_flag_objectUuid = self.pfc_flags & 10000000
-        pdu_type = self.pduType
         try:
             return _opcda_next_header[self.integerRepresentation]
         except Exception:
