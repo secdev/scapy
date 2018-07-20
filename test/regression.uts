@@ -14,6 +14,23 @@ conf
 IP().src
 scapy.consts.LOOPBACK_INTERFACE
 
+= Test module version detection
+~ conf
+
+class FakeModule(object):
+    __version__ = "v1.12"
+
+class FakeModule2(object):
+    __version__ = "5.143.3.12"
+
+from scapy.config import _version_checker
+
+assert _version_checker(FakeModule, (1,11,5))
+assert not _version_checker(FakeModule, (1,13))
+
+assert _version_checker(FakeModule2, (5, 1))
+assert not _version_checker(FakeModule2, (5, 143, 4))
+
 = List layers
 ~ conf command
 ls()
