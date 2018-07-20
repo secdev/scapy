@@ -413,13 +413,64 @@ def _flush_fd(fd):
             break
 
 
+def get_iface_mode(iface):
+    """Return the interface mode.
+    params:
+     - iface: the iwconfig interface
+    """
+    p = subprocess.Popen(["iwconfig", iface], stdout=subprocess.PIPE,
+                         stderr=subprocess.STDOUT)
+    output, err = p.communicate()
+    match = re.search(br"mode:([a-zA-Z]*)", output.lower())
+    if match:
+        return plain_str(match.group(1))
+    return "unknown"
+
+
+def set_iface_monitor(iface, monitor):
+    """Sets the monitor mode (or remove it) from an interface.
+    params:
+     - iface: the iwconfig interface
+     - monitor: True if the interface should be set in monitor mode,
+                False if it should be in managed mode
+    """
+    mode = get_iface_mode(iface)
+    if mode == "unknown":
+        warning("Could not parse iwconfig !")
+    current_monitor = mode == "monitor"
+    if monitor == current_monitor:
+        # Already correct
+        return True
+    s_mode = "monitor" if monitor else "managed"
+
+    def _check_call(commands):
+        p = subprocess.Popen(commands,
+                             stderr=subprocess.PIPE,
+                             stdout=subprocess.PIPE)
+        stdout, stderr = p.communicate()
+        if p.returncode != 0:
+            warning("%s failed !" % " ".join(commands))
+            return False
+        return True
+    try:
+        assert _check_call(["ifconfig", iface, "down"])
+        assert _check_call(["iwconfig", iface, "mode", s_mode])
+        assert _check_call(["ifconfig", iface, "up"])
+        return True
+    except AssertionError:
+        return False
+
+
 class L2Socket(SuperSocket):
     desc = "read/write packets at layer 2 using Linux PF_PACKET sockets"
 
     def __init__(self, iface=None, type=ETH_P_ALL, promisc=None, filter=None,
-            nofilter=0):
+                 nofilter=0, monitor=None):
         self.iface = conf.iface if iface is None else iface
         self.type = type
+        if monitor is not None:
+            if not set_iface_monitor(iface, monitor):
+                warning("Could not change interface mode !")
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))  # noqa: E501
         self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 0)
         if not nofilter:
@@ -463,7 +514,7 @@ class L2Socket(SuperSocket):
     def recv_raw(self, x=MTU):
         """Receives a packet, then returns a tuple containing (cls, pkt_data, time)"""  # noqa: E501
         pkt, sa_ll = self.ins.recvfrom(x)
-        if sa_ll[2] == socket.PACKET_OUTGOING:
+        if self.outs and sa_ll[2] == socket.PACKET_OUTGOING:
             return None, None, None
         ts = get_last_packet_timestamp(self.ins)
         return self.LL, pkt, ts
@@ -482,7 +533,7 @@ class L2Socket(SuperSocket):
 
 
 class L2ListenSocket(L2Socket):
-    desc = "read packets at layer 2 using Linux PF_PACKET sockets"
+    desc = "read packets at layer 2 using Linux PF_PACKET sockets. Also receives the packets going OUT"  # noqa: E501
 
     def send(self, x):
         raise Scapy_Exception("Can't send anything with L2ListenSocket")
