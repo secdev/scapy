@@ -52,6 +52,7 @@ def sender():
     sleep(0.1)
     sock2 = CANSocket(iface="vcan0")
     sock2.send(CAN(identifier=0x7ff,length=1,data=b'\x01'))
+    sock2.close()
 
 thread = threading.Thread(target=sender)
 thread.start()
@@ -65,6 +66,7 @@ def sender():
     sleep(0.1)
     sock2 = CANSocket(iface="vcan0")
     sock2.send(CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+    sock2.close()
 
 thread = threading.Thread(target=sender)
 thread.start()
@@ -86,12 +88,15 @@ def sender():
     sleep(0.1)
     sock2 = CANSocket(iface="vcan0")
     sock2.send(tx)
+    sock2.close()
 
 thread = threading.Thread(target=sender)
 thread.start()
 rx = None
 rx = sock1.sr1(tx)
 rx == tx
+
+sock1.close()
 
 = CAN Socket sr1 time check
 ~ needs_root linux
@@ -112,6 +117,7 @@ def sender():
     sleep(0.1)
     sock2 = CANSocket(iface="vcan0")
     sock2.send(tx)
+    sock2.close()
 
 thread = threading.Thread(target=sender)
 thread.start()
@@ -139,11 +145,14 @@ def sender():
     sock2.send(CAN(identifier=0x200, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
     sock2.send(CAN(identifier=0x100, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
     sock2.send(CAN(identifier=0x200, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+    sock2.close()
 
 thread = threading.Thread(target=sender)
 thread.start()
 packets = sock1.sniff(timeout=0.3)
 len(packets) == 3
+
+sock1.close()
 
 = sniff with filtermask 0x700
 ~ needs_root linux
@@ -159,11 +168,14 @@ def sender():
     sock2.send(CAN(identifier=0x1ff, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
     sock2.send(CAN(identifier=0x200, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
     sock2.send(CAN(identifier=0x2aa, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+    sock2.close()
 
 thread = threading.Thread(target=sender)
 thread.start()
 packets = sock1.sniff(timeout=0.3)
 len(packets) == 4
+
+sock1.close()
 
 = sniff with filtermask 0x0ff
 ~ needs_root linux
@@ -179,11 +191,14 @@ def sender():
     sock2.send(CAN(identifier=0x1ff, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
     sock2.send(CAN(identifier=0x700, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
     sock2.send(CAN(identifier=0x100, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+    sock2.close()
 
 thread = threading.Thread(target=sender)
 thread.start()
 packets = sock1.sniff(timeout=0.3)
 len(packets) == 4
+
+sock1.close()
 
 = sniff with multiple filters
 ~ needs_root linux
@@ -200,11 +215,14 @@ def sender():
     sock2.send(CAN(identifier=0x600, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
     sock2.send(CAN(identifier=0x700, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
     sock2.send(CAN(identifier=0x7ff, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+    sock2.close()
 
 thread = threading.Thread(target=sender)
 thread.start()
 packets = sock1.sniff(timeout=0.3)
 len(packets) == 4
+
+sock1.close()
 
 = sniff with filtermask 0x7ff and inverse filter
 ~ needs_root linux
@@ -220,11 +238,14 @@ def sender():
     sock2.send(CAN(identifier=0x200, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
     sock2.send(CAN(identifier=0x100, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
     sock2.send(CAN(identifier=0x200, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+    sock2.close()
 
 thread = threading.Thread(target=sender)
 thread.start()
 packets = sock1.sniff(timeout=0.3)
 len(packets) == 2
+
+sock1.close()
 
 = sniff with filtermask 0x1FFFFFFF
 ~ needs_root linux
@@ -240,11 +261,14 @@ def sender():
     sock2.send(CAN(flags='extended', identifier=0x10030000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
     sock2.send(CAN(flags='extended', identifier=0x10040000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
     sock2.send(CAN(flags='extended', identifier=0x10000000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+    sock2.close()
 
 thread = threading.Thread(target=sender)
 thread.start()
 packets = sock1.sniff(timeout=0.3)
 len(packets) == 2
+
+sock1.close()
 
 = sniff with filtermask 0x1FFFFFFF and inverse filter
 ~ needs_root linux
@@ -257,6 +281,8 @@ if six.PY3:
     packets = sock1.sniff(timeout=0.3)
     len(packets) == 4
 
+sock1.close()
+
 = CAN Socket sr1 with receive own messages
 ~ needs_root linux
 
@@ -266,6 +292,8 @@ rx = None
 rx = sock1.sr1(tx)
 tx == rx
 tx.sent_time < rx.time and tx == rx and rx.time > 0
+
+sock1.close()
 
 = srcan
 ~ needs_root linux

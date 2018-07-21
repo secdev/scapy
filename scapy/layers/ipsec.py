@@ -40,7 +40,10 @@ True
 """
 
 from __future__ import absolute_import
-from fractions import gcd
+try:
+    from math import gcd
+except ImportError:
+    from fractions import gcd
 import os
 import socket
 import struct

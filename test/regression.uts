@@ -14,6 +14,23 @@ conf
 IP().src
 scapy.consts.LOOPBACK_INTERFACE
 
+= Test module version detection
+~ conf
+
+class FakeModule(object):
+    __version__ = "v1.12"
+
+class FakeModule2(object):
+    __version__ = "5.143.3.12"
+
+from scapy.config import _version_checker
+
+assert _version_checker(FakeModule, (1,11,5))
+assert not _version_checker(FakeModule, (1,13))
+
+assert _version_checker(FakeModule2, (5, 1))
+assert not _version_checker(FakeModule2, (5, 143, 4))
+
 = List layers
 ~ conf command
 ls()
@@ -10133,7 +10150,7 @@ def test_report_ports(mock_sr):
                 (IP()/TCP(dport=65082, flags="S"), IP()/ICMP(type=3, code=1)),
                 (IP()/TCP(dport=65083, flags="S"), IP()/TCP(sport=65083, flags="R"))], [IP()/TCP(dport=65084, flags="S")]
     mock_sr.side_effect = sr
-    report = "\\begin{tabular}{|r|l|l|}\n\hline\n65081 & open & SA \\\\\n\hline\n?? & closed & ICMP type dest-unreach/host-unreachable from 127.0.0.1 \\\\\n65083 & closed & TCP R \\\\\n\hline\n65084 & ? & unanswered \\\\\n\hline\n\end{tabular}\n"
+    report = "\\begin{tabular}{|r|l|l|}\n\\hline\n65081 & open & SA \\\\\n\\hline\n?? & closed & ICMP type dest-unreach/host-unreachable from 127.0.0.1 \\\\\n65083 & closed & TCP R \\\\\n\\hline\n65084 & ? & unanswered \\\\\n\\hline\n\\end{tabular}\n"
     assert(report_ports("www.secdev.org", [65081,65082,65083,65084]) == report)
 
 test_report_ports()

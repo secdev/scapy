@@ -2598,7 +2598,7 @@ class HPackHdrTable(Sized):
         # type: (str) -> Union[Tuple[None, None], Tuple[str, str]]
 
         if self._regexp is None:
-            self._regexp = re.compile(b'^(?::([a-z\-0-9]+)|([a-z\-0-9]+):)\s+(.+)$')  # noqa: E501
+            self._regexp = re.compile(br'^(?::([a-z\-0-9]+)|([a-z\-0-9]+):)\s+(.+)$')  # noqa: E501
 
         hdr_line = l.rstrip()
         grp = self._regexp.match(hdr_line)

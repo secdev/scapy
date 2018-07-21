@@ -21,11 +21,11 @@ from scapy.compat import *
 #  MIB parsing  #
 #################
 
-_mib_re_integer = re.compile("^[0-9]+$")
-_mib_re_both = re.compile("^([a-zA-Z_][a-zA-Z0-9_-]*)\(([0-9]+)\)$")
-_mib_re_oiddecl = re.compile("$\s*([a-zA-Z0-9_-]+)\s+OBJECT([^:\{\}]|\{[^:]+\})+::=\s*\{([^\}]+)\}", re.M)  # noqa: E501
-_mib_re_strings = re.compile('"[^"]*"')
-_mib_re_comments = re.compile('--.*(\r|\n)')
+_mib_re_integer = re.compile(r"^[0-9]+$")
+_mib_re_both = re.compile(r"^([a-zA-Z_][a-zA-Z0-9_-]*)\(([0-9]+)\)$")
+_mib_re_oiddecl = re.compile(r"$\s*([a-zA-Z0-9_-]+)\s+OBJECT([^:\{\}]|\{[^:]+\})+::=\s*\{([^\}]+)\}", re.M)  # noqa: E501
+_mib_re_strings = re.compile(r'"[^"]*"')
+_mib_re_comments = re.compile(r'--.*(\r|\n)')
 
 
 class MIBDict(DADict):

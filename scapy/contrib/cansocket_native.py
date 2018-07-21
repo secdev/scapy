@@ -101,6 +101,9 @@ class CANSocket(SuperSocket):
         except socket.error as msg:
             raise msg
 
+    def close(self):
+        self.ins.close()
+
     @staticmethod
     def is_python_can_socket():
         """Function used to determine if a socket is a python-can CANSocket.

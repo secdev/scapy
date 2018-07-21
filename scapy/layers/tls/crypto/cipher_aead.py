@@ -71,7 +71,7 @@ class _AEADCipher(six.with_metaclass(_AEADCipherMetaclass, object)):
         """
         'key' and 'fixed_iv' are to be provided as strings, whereas the internal  # noqa: E501
         'nonce_explicit' is an integer (it is simpler for incrementation).
-        /!\ The whole 'nonce' may be called IV in certain RFCs.
+        !! The whole 'nonce' may be called IV in certain RFCs.
         """
         self.ready = {"key": True, "fixed_iv": True, "nonce_explicit": True}
         if key is None:

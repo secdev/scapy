@@ -24,10 +24,8 @@ import array
 import subprocess
 import tempfile
 
-import warnings
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
-warnings.filterwarnings("ignore", "tempnam", RuntimeWarning, __name__)
 
 from scapy.config import conf
 from scapy.consts import DARWIN, WINDOWS
@@ -793,7 +791,7 @@ def corrupt_bytes(s, p=0.01, n=None):
         n = max(1, int(l * p))
     for i in random.sample(range(l), n):
         s[i] = (s[i] + random.randint(1, 255)) % 256
-    return s.tostring()
+    return s.tostring() if six.PY2 else s.tobytes()
 
 
 @conf.commands.register
@@ -805,7 +803,7 @@ def corrupt_bits(s, p=0.01, n=None):
         n = max(1, int(l * p))
     for i in random.sample(range(l), n):
         s[i // 8] ^= 1 << (i % 8)
-    return s.tostring()
+    return s.tostring() if six.PY2 else s.tobytes()
 
 
 #############################

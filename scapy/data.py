@@ -124,7 +124,8 @@ def load_protocols(filename):
     spaces = re.compile(b"[ \t]+|\n")
     dct = DADict(_name=filename)
     try:
-        for l in open(filename, "rb"):
+        f = open(filename, "rb")
+        for l in f:
             try:
                 shrp = l.find(b"#")
                 if shrp >= 0:
@@ -138,6 +139,7 @@ def load_protocols(filename):
                 dct[lt[0]] = int(lt[1])
             except Exception as e:
                 log_loading.info("Couldn't parse file [%s]: line [%r] (%s)", filename, l, e)  # noqa: E501
+        f.close()
     except IOError:
         log_loading.info("Can't open %s file", filename)
     return dct
@@ -244,8 +246,8 @@ def load_manuf(filename):
 
 if WINDOWS:
     ETHER_TYPES = load_ethertypes("ethertypes")
-    IP_PROTOS = load_protocols(os.environ["SystemRoot"] + "\system32\drivers\etc\protocol")  # noqa: E501
-    TCP_SERVICES, UDP_SERVICES = load_services(os.environ["SystemRoot"] + "\system32\drivers\etc\services")  # noqa: E501
+    IP_PROTOS = load_protocols(os.environ["SystemRoot"] + "\\system32\\drivers\\etc\\protocol")  # noqa: E501
+    TCP_SERVICES, UDP_SERVICES = load_services(os.environ["SystemRoot"] + "\\system32\\drivers\\etc\\services")  # noqa: E501
     # Default value, will be updated by arch.windows
     try:
         MANUFDB = load_manuf(os.environ["ProgramFiles"] + "\\wireshark\\manuf")
