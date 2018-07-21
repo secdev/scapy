@@ -43,6 +43,8 @@ class DNSStrField(StrField):
     def i2m(self, pkt, x):
         if x == b".":
             return b"\x00"
+        elif isinstance(x, str):
+            x = x.encode()
 
         # Truncate chunks that cannot be encoded (more than 63 bytes..)
         x = b"".join(chb(len(y)) + y for y in (k[:63] for k in x.split(b".")))

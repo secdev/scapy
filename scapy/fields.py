@@ -72,6 +72,9 @@ class Field(six.with_metaclass(Field_metaclass, object)):
     islist = 0
     ismutable = False
     holds_packets = 0
+    # If set to True, field.packet_post_init(self, pkt) (function) will be
+    # executed once the packet is built
+    post_init = False
 
     def __init__(self, name, default, fmt="H"):
         self.name = name
@@ -146,6 +149,11 @@ class Field(six.with_metaclass(Field_metaclass, object)):
 
     def copy(self):
         return copy.deepcopy(self)
+
+    def packet_post_init(self, pkt):
+        """If post_init=True, will be executed once the packet containing
+        the field is initialized"""
+        return
 
     def randval(self):
         """Return a volatile object whose value is both random and suitable for this field"""  # noqa: E501
@@ -248,12 +256,15 @@ use.
 
     """
 
-    __slots__ = ["flds", "dflt", "name"]
+    __slots__ = ["flds", "dflt", "name", "_init_raw"]
+
+    post_init = True
 
     def __init__(self, flds, dflt):
         self.flds = flds
         self.dflt = dflt
         self.name = self.dflt.name
+        self._init_raw = None
 
     def _find_fld_pkt(self, pkt):
         """Given a Packet instance `pkt`, returns the Field subclass to be
@@ -313,20 +324,41 @@ the value to set is also known) of ._find_fld_pkt() instead.
     def addfield(self, pkt, s, val):
         return self._find_fld_pkt_val(pkt, val).addfield(pkt, s, val)
 
-    def any2i(self, pkt, val):
-        return self._find_fld_pkt_val(pkt, val).any2i(pkt, val)
+    def _wrapper_fields_func(func):
+        def template(self, pkt, val):
+            return getattr(self._find_fld_pkt_val(pkt, val), func)(pkt, val)
+        return template
 
-    def h2i(self, pkt, val):
-        return self._find_fld_pkt_val(pkt, val).h2i(pkt, val)
+    # any2i is called when building a packet with Packet(stuff=value)
+    # In that case, the other fields are not yet builded when it gets called,
+    # meaning that the conditions cannot work yet. So the first inital value
+    # must not be field-specific.
+    #  e.g.: in SOCKS:
+    #        SOCKS5Request(atyp=0x3, addr="scapy.net")
+    #  we want addr to be handled by the DNS module, but started like so, if
+    #  any2i was called in the first place, it would return Net("scapy.net")
+    #  as the default field is an IP, which would have led to a crash later
 
-    def i2h(self, pkt, val):
-        return self._find_fld_pkt_val(pkt, val).i2h(pkt, val)
+    _any2i = _wrapper_fields_func("any2i")
 
-    def i2m(self, pkt, val):
-        return self._find_fld_pkt_val(pkt, val).i2m(pkt, val)
+    def any2i(self, pkt, x):
+        if pkt._init:  # This only happens on building
+            self._init_raw = x
+        return self._any2i(pkt, x)
 
-    def i2len(self, pkt, val):
-        return self._find_fld_pkt_val(pkt, val).i2len(pkt, val)
+    h2i = _wrapper_fields_func("h2i")
+    i2h = _wrapper_fields_func("i2h")
+    i2m = _wrapper_fields_func("i2m")
+    i2len = _wrapper_fields_func("i2len")
+    i2repr = _wrapper_fields_func("i2repr")
+    m2i = _wrapper_fields_func("m2i")
+
+    def packet_post_init(self, pkt):
+        if self._init_raw is not None:
+            # Re-calculate the value of MultipleTypeField once the packet
+            # is built, so that we know the conditions have been built too
+            pkt.setfieldval(self.name, self._init_raw)
+            self._init_raw = None
 
     def register_owner(self, cls):
         for fld, _ in self.flds:

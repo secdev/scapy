@@ -55,7 +55,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         "overload_fields", "overloaded_fields", "fields", "fieldtype",
         "packetfields",
         "original", "explicit", "raw_packet_cache",
-        "raw_packet_cache_fields", "_pkt", "post_transforms",
+        "raw_packet_cache_fields", "_pkt", "post_transforms", "post_inits",
         # then payload and underlayer
         "payload", "underlayer",
         "name",
@@ -67,6 +67,9 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         "wirelen",
         # used while performing advanced dissection to handle padding
         "_tmp_dissect_pos",
+        # used in some advanced building. (see MultipleTypeField)
+        # If True, then the packet is beeing initialized (__init__)
+        "_init",
     ]
     name = None
     fields_desc = []
@@ -116,6 +119,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
 
     def __init__(self, _pkt=b"", post_transform=None, _internal=0, _underlayer=None, **fields):  # noqa: E501
         self.time = time.time()
+        self._init = True
         self.sent_time = None
         self.name = (self.__class__.__name__
                      if self._name is None else
@@ -127,6 +131,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         self.fieldtype = {}
         self.packetfields = []
         self.payload = NoPayload()
+        self.post_inits = []
         self.init_fields()
         self.underlayer = _underlayer
         self.original = _pkt
@@ -146,6 +151,9 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             self.post_transforms = []
         else:
             self.post_transforms = [post_transform]
+        self._init = False
+        for func in self.post_inits:
+            func(self)
 
     def init_fields(self):
         """
@@ -160,6 +168,8 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         for f in flist:
             self.default_fields[f.name] = copy.deepcopy(f.default)
             self.fieldtype[f.name] = f
+            if f.post_init:
+                self.post_inits.append(f.packet_post_init)
             if f.holds_packets:
                 self.packetfields.append(f)
 

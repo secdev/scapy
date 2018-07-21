@@ -37,6 +37,7 @@ class ASN1F_element(object):
 class ASN1F_field(ASN1F_element):
     holds_packets = 0
     islist = 0
+    post_init = False
     ASN1_tag = ASN1_Class_UNIVERSAL.ANY
     context = ASN1_Class_UNIVERSAL
 
