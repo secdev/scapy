@@ -37,3 +37,19 @@ test3e = BTLE(raw(test3))
 assert test3e[ATT_PrepareWriteReq].value == b"test"
 assert test3e[ATT_PrepareWriteReq].handle == 0xa
 assert test3e[ATT_Hdr].opcode == 0x16
+
+= BTLE layers
+# a crazy packet with all classes in it!
+pkt = BTLE()/BTLE_ADV()/BTLE_ADV_DIRECT_IND()/BTLE_ADV_IND()/BTLE_ADV_NONCONN_IND()/BTLE_ADV_SCAN_IND()/BTLE_CONNECT_REQ()/BTLE_DATA()/BTLE_PPI()/BTLE_SCAN_REQ()/BTLE_SCAN_RSP()
+assert BTLE in pkt.layers()
+assert BTLE_ADV in pkt.layers()
+assert BTLE_ADV_DIRECT_IND in pkt.layers()
+assert BTLE_ADV_IND in pkt.layers()
+assert BTLE_ADV_NONCONN_IND in pkt.layers()
+assert BTLE_ADV_SCAN_IND in pkt.layers()
+assert BTLE_CONNECT_REQ in pkt.layers()
+assert BTLE_DATA in pkt.layers()
+assert BTLE_PPI in pkt.layers()
+assert BTLE_SCAN_REQ in pkt.layers()
+assert BTLE_SCAN_RSP in pkt.layers()
+
