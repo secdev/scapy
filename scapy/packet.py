@@ -865,12 +865,12 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
                   if isinstance(val, VolatileValue)] + list(self.fields.keys())
         length = 1
         for field in fields:
-            val = self.getfieldval(field)
+            fld, val = self.getfield_and_val(field)
             if hasattr(val, "__iterlen__"):
                 length *= val.__iterlen__()
             elif isinstance(val, tuple) and len(val) == 2 and all(hasattr(z, "__int__") for z in val):  # noqa: E501
                 length *= (val[1] - val[0])
-            elif isinstance(val, list):
+            elif isinstance(val, list) and not fld.islist:
                 len2 = 0
                 for x in val:
                     if hasattr(x, "__iterlen__"):

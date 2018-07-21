@@ -305,7 +305,7 @@ finally:
 = Test linehexdump function
 conf_color_theme = conf.color_theme
 conf.color_theme = BlackAndWhite()
-assert(linehexdump(Ether(src="00:01:02:03:04:05"), dump=True) == "FFFFFFFFFFFF0001020304059000 ..............")
+assert linehexdump(Ether(src="00:01:02:03:04:05"), dump=True) == 'FF FF FF FF FF FF 00 01 02 03 04 05 90 00  ..............'
 conf.color_theme = conf_color_theme
 
 = Test chexdump function
@@ -315,7 +315,7 @@ chexdump(Ether(src="00:01:02:02:04:05"), dump=True) == "0xff, 0xff, 0xff, 0xff, 
 repr_hex("scapy") == "7363617079"
 
 = Test hexstr function
-hexstr(b"A\x00\xFFB") == "41 00 ff 42  A..B"
+hexstr(b"A\x00\xFFB") == "41 00 FF 42  A..B"
 
 = Test fletcher16 functions
 assert(fletcher16_checksum(b"\x28\x07") == 22319)
@@ -10347,7 +10347,7 @@ def test_rawhexdump():
         p.rawhexdump()
         result_pl_rawhexdump = cmco.get_output()
     assert(len(result_pl_rawhexdump.split('\n')) == 7)
-    assert(result_pl_rawhexdump.startswith("0000  45000028"))
+    assert(result_pl_rawhexdump.startswith("0000  45 00 00 28"))
 
 test_rawhexdump()
 
@@ -10371,9 +10371,28 @@ def test_hexdump():
         p.hexdump()
         result_pl_hexdump = cmco.get_output()
     assert(len(result_pl_hexdump.split('\n')) == 7)
-    assert("0010  7F00000131" in result_pl_hexdump)
+    assert("0010  7F 00 00 01 31" in result_pl_hexdump)
 
 test_hexdump()
+
+= import_hexcap()
+
+@mock.patch("%s.input" % six.moves.builtins.__name__)
+def test_import_hexcap(mock_input):
+    data = """
+0000  FF FF FF FF FF FF AA AA AA AA AA AA 08 00 45 00  ..............E.
+0010  00 1C 00 01 00 00 40 01 7C DE 7F 00 00 01 7F 00  ......@.|.......
+0020  00 01 08 00 F7 FF 00 00 00 00                    ..........
+"""[1:].split("\n")
+    lines = iter(data)
+    mock_input.side_effect = lambda: next(lines)
+    return import_hexcap()
+
+pkt = test_import_hexcap()
+pkt = Ether(pkt)
+assert pkt[Ether].dst == "ff:ff:ff:ff:ff:ff"
+assert pkt[IP].dst == "127.0.0.1"
+assert ICMP in pkt
 
 = padding()
 
@@ -10395,7 +10414,7 @@ def test_nzpadding():
         p.nzpadding()
         result_pl_nzpadding = cmco.get_output()
     assert(len(result_pl_nzpadding.split('\n')) == 5)
-    assert("0000  4130" in result_pl_nzpadding)
+    assert("0000  41 30" in result_pl_nzpadding)
 
 test_nzpadding()
 
