@@ -36,7 +36,7 @@ if WINDOWS:
         cdll.LoadLibrary(npcap_folder + "\\Packet.dll")
         _lib = cdll.LoadLibrary(npcap_folder + "\\wpcap.dll")
     else:
-        _lib=WinDLL("wpcap.dll")
+        _lib=CDLL("wpcap.dll")
     del npcap_folder
 else:
     SOCKET = c_int

@@ -13,7 +13,6 @@ from __future__ import absolute_import
 from __future__ import print_function
 import sys
 import getopt
-import imp
 import glob
 import importlib
 import hashlib
@@ -23,6 +22,7 @@ import base64
 import os.path
 import time
 import traceback
+import warnings
 import zlib
 from scapy.consts import WINDOWS
 import scapy.modules.six as six
@@ -56,18 +56,12 @@ def retry_test(func):
 
 
 def import_module(name):
-    name = os.path.realpath(name)
-    thepath = os.path.dirname(name)
-    name = os.path.basename(name)
     if name.endswith(".py"):
         name = name[:-3]
-    f, path, desc = imp.find_module(name, [thepath])
-
     try:
-        return imp.load_module(name, f, path, desc)
-    finally:
-        if f:
-            f.close()
+        return importlib.import_module(name, package="scapy")
+    except:
+        return importlib.import_module(name)
 
 
 #    INTERNAL/EXTERNAL FILE EMBEDDING    #
@@ -87,7 +81,8 @@ class File:
     def write(self, dir):
         if dir:
             dir += "/"
-        open(dir + self.name, "wb").write(self.get_local())
+        with open(dir + self.name, "wb") as fdesc:
+            fdesc.write(self.get_local())
 
 
 # Embed a base64 encoded bziped version of js and css files
@@ -259,7 +254,7 @@ def parse_config_file(config_path, verb=3):
     Empty default json:
     {
       "testfiles": [],
-      "breakfailed": false,
+      "breakfailed": true,
       "onlyfailed": false,
       "verb": 2,
       "dump": 0,
@@ -287,7 +282,7 @@ def parse_config_file(config_path, verb=3):
     def get_if_exist(key, default):
         return data[key] if key in data else default
     return Bunch(testfiles=get_if_exist("testfiles", []),
-                 breakfailed=get_if_exist("breakfailed", False),
+                 breakfailed=get_if_exist("breakfailed", True),
                  remove_testfiles=get_if_exist("remove_testfiles", []),
                  onlyfailed=get_if_exist("onlyfailed", False),
                  verb=get_if_exist("verb", 3),
@@ -397,7 +392,8 @@ def compute_campaign_digests(test_campaign):
         ts.crc = crc32(dts)
         dc += "\0\x01" + dts
     test_campaign.crc = crc32(dc)
-    test_campaign.sha = sha1(open(test_campaign.filename).read())
+    with open(test_campaign.filename) as fdesc:
+        test_campaign.sha = sha1(fdesc.read())
 
 
 #    FILTER CAMPAIGN     #
@@ -789,7 +785,7 @@ def main(argv):
     KW_KO = []
     DUMP = 0
     CRC = True
-    BREAKFAILED =  False
+    BREAKFAILED = True
     ONLYFAILED = False
     VERB = 3
     GLOB_PREEXEC = ""
@@ -947,9 +943,10 @@ def main(argv):
         if UNIQUE:
             glob_title = campaign.title
         glob_output += output
-        if not result and BREAKFAILED:
+        if not result:
             glob_result = 1
-            break
+            if BREAKFAILED:
+                break
 
     if VERB > 2:
         print("### Writing output...", file=sys.stderr)
@@ -973,4 +970,17 @@ def main(argv):
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+    if sys.warnoptions:
+        with warnings.catch_warnings(record=True) as cw:
+            warnings.resetwarnings()
+            # Let's discover the garbage waste
+            warnings.simplefilter('error')
+            # TODO fix this: Scapy has too many StopIteration (deprecated)
+            warnings.filterwarnings('ignore', message=r'.*generator.*', category=DeprecationWarning)
+            print("### Warning mode enabled ###")
+            res = main(sys.argv[1:])
+            if cw:
+                res = 1
+        sys.exit(res)
+    else:
+        sys.exit(main(sys.argv[1:]))

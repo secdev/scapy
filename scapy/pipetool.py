@@ -701,7 +701,7 @@ class UpDrain(Drain):
 
 
 class DownDrain(Drain):
-    """Repeat messages from high entry to low exit
+    r"""Repeat messages from high entry to low exit
      +-------+
   >>-|--.    |->>
      |   \   |

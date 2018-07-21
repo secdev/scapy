@@ -42,9 +42,9 @@ p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x02\xff\x8a')
 assert(isinstance(p.payload, ModbusPDUReservedFunctionCodeError))
 
 = MBAP Guess Payload ModbusPDU02ReadDiscreteInputsResponse
-assert(raw(ModbusPDU02ReadDiscreteInputsResponse()), b'\x02\x01\x00')
+assert raw(ModbusPDU02ReadDiscreteInputsResponse()) == b'\x02\x01\x00'
 = MBAP Guess Payload ModbusPDU02ReadDiscreteInputsResponse minimal parameters
-assert(raw(ModbusPDU02ReadDiscreteInputsResponse(inputStatus=[0x02, 0x01])), b'\x02\x02\x02\x01')
+assert raw(ModbusPDU02ReadDiscreteInputsResponse(inputStatus=[0x02, 0x01])) == b'\x02\x02\x02\x01'
 = MBAP Guess Payload ModbusPDU02ReadDiscreteInputsRequest dissection
 p = ModbusPDU02ReadDiscreteInputsResponse(b'\x02\x02\x02\x01')
 p.byteCount == 2 and p.inputStatus == [0x02, 0x01]
@@ -54,13 +54,13 @@ raw(ModbusPDU02ReadDiscreteInputsError()) == b'\x82\x01'
 
 = MBAP Guess Payload User-Defined Function Request (Invalid payload)
 p = ModbusADURequest(b'\x00\x00\x00\x00\x00\x02\xff\x5b')
-assert(isinstance(p.payload, ModbusPDUReservedFunctionCodeRequest))
+assert isinstance(p.payload, ModbusPDUReservedFunctionCodeRequest)
 = MBAP Guess Payload User-Defined Function Response (Invalid payload)
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x02\xff\x7e')
-assert(isinstance(p.payload, ModbusPDUReservedFunctionCodeResponse))
+assert isinstance(p.payload, ModbusPDUReservedFunctionCodeResponse)
 = MBAP Guess Payload User-Defined Function Error (Invalid payload)
 p = ModbusADUResponse(b'\x00\x00\x00\x00\x00\x02\xff\x8a')
-assert(isinstance(p.payload, ModbusPDUReservedFunctionCodeError))
+assert isinstance(p.payload, ModbusPDUReservedFunctionCodeError)
 
 + Test layer binding
 = Destination port

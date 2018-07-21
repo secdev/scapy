@@ -10,6 +10,7 @@ Implementation of the configuration object.
 from __future__ import absolute_import
 from __future__ import print_function
 import os
+import re
 import time
 import socket
 import sys
@@ -329,6 +330,22 @@ class LogLevel(object):
         obj._logLevel = val
 
 
+def _version_checker(module, minver):
+    """Checks that module has a higher version that minver.
+
+    params:
+     - module: a module to test
+     - minver: a tuple of versions
+    """
+    # We could use LooseVersion, but distutils imports imp which is deprecated
+    version_tags = re.match(r'[a-z]?((?:\d|\.)+)', module.__version__)
+    if not version_tags:
+        return False
+    version_tags = version_tags.group(1).split(".")
+    version_tags = tuple(int(x) for x in version_tags)
+    return version_tags >= minver
+
+
 def isCryptographyValid():
     """
     Check if the cryptography library is present, and if it is recent enough
@@ -338,8 +355,7 @@ def isCryptographyValid():
         import cryptography
     except ImportError:
         return False
-    from distutils.version import LooseVersion
-    return LooseVersion(cryptography.__version__) >= LooseVersion("1.7")
+    return _version_checker(cryptography, (1, 7))
 
 
 def isCryptographyRecent():
@@ -350,8 +366,7 @@ def isCryptographyRecent():
         import cryptography
     except ImportError:
         return False
-    from distutils.version import LooseVersion
-    return LooseVersion(cryptography.__version__) >= LooseVersion("2.0")
+    return _version_checker(cryptography, (2, 0))
 
 
 def isCryptographyAdvanced():

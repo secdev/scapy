@@ -794,8 +794,7 @@ iface:    listen answers only on the given interface"""
 def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
           L2socket=None, timeout=None, opened_socket=None,
           stop_filter=None, iface=None, started_callback=None, *arg, **karg):
-    """
-    Sniff packets and return a list of packets.
+    """Sniff packets and return a list of packets.
 
     Args:
         count: number of packets to capture. 0 means infinity.

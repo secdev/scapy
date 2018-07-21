@@ -14,15 +14,43 @@ conf
 IP().src
 scapy.consts.LOOPBACK_INTERFACE
 
+= Test module version detection
+~ conf
+
+class FakeModule(object):
+    __version__ = "v1.12"
+
+class FakeModule2(object):
+    __version__ = "5.143.3.12"
+
+from scapy.config import _version_checker
+
+assert _version_checker(FakeModule, (1,11,5))
+assert not _version_checker(FakeModule, (1,13))
+
+assert _version_checker(FakeModule2, (5, 1))
+assert not _version_checker(FakeModule2, (5, 143, 4))
+
 = List layers
 ~ conf command
 ls()
+
+= List layers - advanced
+~ conf command
+
+with ContextManagerCaptureOutput() as cmco:
+    ls("IP")
+    result_ls = cmco.get_output().split("\n")
+
+assert all("IP" in x for x in result_ls if x.strip())
+assert len(result_ls) >= 3
 
 = List commands
 ~ conf command
 lsc()
 
 = List contribs
+~ command
 def test_list_contrib():
     with ContextManagerCaptureOutput() as cmco:
         list_contrib()
@@ -277,7 +305,7 @@ finally:
 = Test linehexdump function
 conf_color_theme = conf.color_theme
 conf.color_theme = BlackAndWhite()
-assert(linehexdump(Ether(src="00:01:02:03:04:05"), dump=True) == "FFFFFFFFFFFF0001020304059000 ..............")
+assert linehexdump(Ether(src="00:01:02:03:04:05"), dump=True) == 'FF FF FF FF FF FF 00 01 02 03 04 05 90 00  ..............'
 conf.color_theme = conf_color_theme
 
 = Test chexdump function
@@ -287,7 +315,7 @@ chexdump(Ether(src="00:01:02:02:04:05"), dump=True) == "0xff, 0xff, 0xff, 0xff, 
 repr_hex("scapy") == "7363617079"
 
 = Test hexstr function
-hexstr(b"A\x00\xFFB") == "41 00 ff 42  A..B"
+hexstr(b"A\x00\xFFB") == "41 00 FF 42  A..B"
 
 = Test fletcher16 functions
 assert(fletcher16_checksum(b"\x28\x07") == 22319)
@@ -7084,6 +7112,9 @@ raw(EAP()) == b'\x04\x00\x00\x04'
 = EAP - Instantiation with specific values
 raw(EAP(code = 1, id = 1, len = 5, type = 1)) == b'\x01\x01\x00\x05\x01'
 
+= EAP - Instantiation - Multiple desired authentication types
+raw(EAP(code=2, type=3, desired_auth_types=[13,21,25,43])) == b'\x02\x00\x00\t\x03\r\x15\x19+'
+
 = EAP - Dissection (1)
 s = b'\x01\x01\x00\x05\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 eap = EAP(s)
@@ -7154,14 +7185,14 @@ assert(eap[EAP_FAST].S == 0)
 assert(eap[EAP_FAST].version == 1)
 
 = EAP - Dissection (7)
-s = b'\x02\xf1\x00\x06\x03+'
+s = b'\x02\xf1\x00\t\x03\r\x15\x19+'
 eap = EAP(s)
 assert(eap.code == 2)
 assert(eap.id == 241)
-assert(eap.len == 6)
+assert(eap.len == 9)
 assert(eap.type == 3)
-assert(hasattr(eap, 'desired_auth_type'))
-assert(eap.desired_auth_type == 43)
+assert(hasattr(eap, 'desired_auth_types'))
+assert(eap.desired_auth_types == [13,21,25,43])
 
 = EAP - Dissection (8)
 s = b"\x02\x03\x01\x15\x15\x00\x16\x03\x01\x01\n\x01\x00\x01\x06\x03\x03\xd5\xd9\xd5rT\x9e\xb8\xbe,>\xcf!\xcf\xc7\x02\x8c\xb1\x1e^F\xf7\xc84\x8c\x01t4\x91[\x02\xc8/\x00\x00\x8c\xc00\xc0,\xc0(\xc0$\xc0\x14\xc0\n\x00\xa5\x00\xa3\x00\xa1\x00\x9f\x00k\x00j\x00i\x00h\x009\x008\x007\x006\x00\x88\x00\x87\x00\x86\x00\x85\xc02\xc0.\xc0*\xc0&\xc0\x0f\xc0\x05\x00\x9d\x00=\x005\x00\x84\xc0/\xc0+\xc0'\xc0#\xc0\x13\xc0\t\x00\xa4\x00\xa2\x00\xa0\x00\x9e\x00g\x00@\x00?\x00>\x003\x002\x001\x000\x00\x9a\x00\x99\x00\x98\x00\x97\x00E\x00D\x00C\x00B\xc01\xc0-\xc0)\xc0%\xc0\x0e\xc0\x04\x00\x9c\x00<\x00/\x00\x96\x00A\x00\xff\x01\x00\x00Q\x00\x0b\x00\x04\x03\x00\x01\x02\x00\n\x00\x1c\x00\x1a\x00\x17\x00\x19\x00\x1c\x00\x1b\x00\x18\x00\x1a\x00\x16\x00\x0e\x00\r\x00\x0b\x00\x0c\x00\t\x00\n\x00\r\x00 \x00\x1e\x06\x01\x06\x02\x06\x03\x05\x01\x05\x02\x05\x03\x04\x01\x04\x02\x04\x03\x03\x01\x03\x02\x03\x03\x02\x01\x02\x02\x02\x03\x00\x0f\x00\x01\x01"
@@ -10119,7 +10150,7 @@ def test_report_ports(mock_sr):
                 (IP()/TCP(dport=65082, flags="S"), IP()/ICMP(type=3, code=1)),
                 (IP()/TCP(dport=65083, flags="S"), IP()/TCP(sport=65083, flags="R"))], [IP()/TCP(dport=65084, flags="S")]
     mock_sr.side_effect = sr
-    report = "\\begin{tabular}{|r|l|l|}\n\hline\n65081 & open & SA \\\\\n\hline\n?? & closed & ICMP type dest-unreach/host-unreachable from 127.0.0.1 \\\\\n65083 & closed & TCP R \\\\\n\hline\n65084 & ? & unanswered \\\\\n\hline\n\end{tabular}\n"
+    report = "\\begin{tabular}{|r|l|l|}\n\\hline\n65081 & open & SA \\\\\n\\hline\n?? & closed & ICMP type dest-unreach/host-unreachable from 127.0.0.1 \\\\\n65083 & closed & TCP R \\\\\n\\hline\n65084 & ? & unanswered \\\\\n\\hline\n\\end{tabular}\n"
     assert(report_ports("www.secdev.org", [65081,65082,65083,65084]) == report)
 
 test_report_ports()
@@ -10316,7 +10347,7 @@ def test_rawhexdump():
         p.rawhexdump()
         result_pl_rawhexdump = cmco.get_output()
     assert(len(result_pl_rawhexdump.split('\n')) == 7)
-    assert(result_pl_rawhexdump.startswith("0000  45000028"))
+    assert(result_pl_rawhexdump.startswith("0000  45 00 00 28"))
 
 test_rawhexdump()
 
@@ -10340,9 +10371,28 @@ def test_hexdump():
         p.hexdump()
         result_pl_hexdump = cmco.get_output()
     assert(len(result_pl_hexdump.split('\n')) == 7)
-    assert("0010  7F00000131" in result_pl_hexdump)
+    assert("0010  7F 00 00 01 31" in result_pl_hexdump)
 
 test_hexdump()
+
+= import_hexcap()
+
+@mock.patch("%s.input" % six.moves.builtins.__name__)
+def test_import_hexcap(mock_input):
+    data = """
+0000  FF FF FF FF FF FF AA AA AA AA AA AA 08 00 45 00  ..............E.
+0010  00 1C 00 01 00 00 40 01 7C DE 7F 00 00 01 7F 00  ......@.|.......
+0020  00 01 08 00 F7 FF 00 00 00 00                    ..........
+"""[1:].split("\n")
+    lines = iter(data)
+    mock_input.side_effect = lambda: next(lines)
+    return import_hexcap()
+
+pkt = test_import_hexcap()
+pkt = Ether(pkt)
+assert pkt[Ether].dst == "ff:ff:ff:ff:ff:ff"
+assert pkt[IP].dst == "127.0.0.1"
+assert ICMP in pkt
 
 = padding()
 
@@ -10364,7 +10414,7 @@ def test_nzpadding():
         p.nzpadding()
         result_pl_nzpadding = cmco.get_output()
     assert(len(result_pl_nzpadding.split('\n')) == 5)
-    assert("0000  4130" in result_pl_nzpadding)
+    assert("0000  41 30" in result_pl_nzpadding)
 
 test_nzpadding()
 

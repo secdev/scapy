@@ -442,6 +442,9 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=20):
         log_loading.error(msg)
         sys.exit(1)
 
+    # Reset sys.argv, otherwise IPython thinks it is for him
+    sys.argv = sys.argv[:1]
+
     init_session(session_name, mydict)
 
     if STARTUP_FILE:

@@ -63,8 +63,12 @@ class MPLS(Packet):
 
 
 bind_layers(Ether, MPLS, type=0x8847)
+bind_layers(IP, MPLS, proto=137)
+bind_layers(IPv6, MPLS, nh=137)
 bind_layers(UDP, MPLS, dport=6635)
 bind_layers(GRE, MPLS, proto=0x8847)
 bind_layers(MPLS, MPLS, s=0)
+bind_layers(MPLS, IP, label=0)  # IPv4 Explicit NULL
+bind_layers(MPLS, IPv6, label=2)  # IPv6 Explicit NULL
 bind_layers(MPLS, EoMCW)
 bind_layers(EoMCW, Ether, zero=0, reserved=0)
