@@ -440,56 +440,39 @@ class ASN1_UTC_TIME(ASN1_STRING):
     tag = ASN1_Class_UNIVERSAL.UTC_TIME
 
     def __init__(self, val):
-        super(ASN1_UTC_TIME, self).__init__(val)
+        ASN1_STRING.__init__(self, val)
 
     def __setattr__(self, name, value):
         if isinstance(value, bytes):
             value = plain_str(value)
         if name == "val":
             pretty_time = None
+            if isinstance(self, ASN1_GENERALIZED_TIME):
+                _len = 15
+                _format = "%Y%m%d%H%M%S"
+            else:
+                _len = 13
+                _format = "%y%m%d%H%M%S"
+            _nam = self.tag._asn1_obj.__name__[4:].lower()
             if (isinstance(value, str) and
-                    len(value) == 13 and value[-1] == "Z"):
-                dt = datetime.strptime(value[:-1], "%y%m%d%H%M%S")
+                    len(value) == _len and value[-1] == "Z"):
+                dt = datetime.strptime(value[:-1], _format)
                 pretty_time = dt.strftime("%b %d %H:%M:%S %Y GMT")
             else:
-                pretty_time = "%s [invalid utc_time]" % value
-            super(ASN1_UTC_TIME, self).__setattr__("pretty_time", pretty_time)
-            super(ASN1_UTC_TIME, self).__setattr__(name, value)
+                pretty_time = "%s [invalid %s]" % (value, _nam)
+            ASN1_STRING.__setattr__(self, "pretty_time", pretty_time)
+            ASN1_STRING.__setattr__(self, name, value)
         elif name == "pretty_time":
             print("Invalid operation: pretty_time rewriting is not supported.")
         else:
-            super(ASN1_UTC_TIME, self).__setattr__(name, value)
+            ASN1_STRING.__setattr__(self, name, value)
 
     def __repr__(self):
         return "%s %s" % (self.pretty_time, ASN1_STRING.__repr__(self))
 
 
-class ASN1_GENERALIZED_TIME(ASN1_STRING):
+class ASN1_GENERALIZED_TIME(ASN1_UTC_TIME):
     tag = ASN1_Class_UNIVERSAL.GENERALIZED_TIME
-
-    def __init__(self, val):
-        super(ASN1_GENERALIZED_TIME, self).__init__(val)
-
-    def __setattr__(self, name, value):
-        if isinstance(value, bytes):
-            value = plain_str(value)
-        if name == "val":
-            pretty_time = None
-            if (isinstance(value, str) and
-                    len(value) == 15 and value[-1] == "Z"):
-                dt = datetime.strptime(value[:-1], "%Y%m%d%H%M%S")
-                pretty_time = dt.strftime("%b %d %H:%M:%S %Y GMT")
-            else:
-                pretty_time = "%s [invalid generalized_time]" % value
-            super(ASN1_GENERALIZED_TIME, self).__setattr__("pretty_time", pretty_time)  # noqa: E501
-            super(ASN1_GENERALIZED_TIME, self).__setattr__(name, value)
-        elif name == "pretty_time":
-            print("Invalid operation: pretty_time rewriting is not supported.")
-        else:
-            super(ASN1_GENERALIZED_TIME, self).__setattr__(name, value)
-
-    def __repr__(self):
-        return "%s %s" % (self.pretty_time, ASN1_STRING.__repr__(self))
 
 
 class ASN1_ISO646_STRING(ASN1_STRING):
