@@ -26,12 +26,11 @@ from __future__ import absolute_import
 import struct
 
 from scapy.packet import Packet
-from scapy.fields import ByteField, ConditionalField, Field, FlagsField, \
+from scapy.fields import ByteField, ConditionalField, FlagsField, \
     LEIntField, LEShortEnumField, LEShortField, StrFixedLenField, \
-    UTCTimeField, XIntField, XShortField
+    UTCTimeField, XLEIntField, SignedByteField, XLEShortField
 from scapy.layers.ppi import addPPIType
 from scapy.error import warning
-from scapy.volatile import RandSByte
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
 
@@ -41,30 +40,48 @@ PPI_GPS = 30002
 PPI_VECTOR = 30003
 PPI_SENSOR = 30004
 PPI_ANTENNA = 30005
-# The FixedX_Y Fields are used to store fixed point numbers in a variety of fields in the GEOLOCATION-TAGS specification  # noqa: E501
+
+# The FixedX_Y Fields are used to store fixed point numbers in a variety of
+# fields in the GEOLOCATION-TAGS specification
 
 
-class Fixed3_6Field(LEIntField):
+class _RMMLEIntField(LEIntField):
+    __slots__ = ["min_i2h", "max_i2h", "lambda_i2h",
+                 "min_h2i", "max_h2i", "lambda_h2i",
+                 "rname", "ffmt"]
+
+    def __init__(self, name, default, _min, _max, _min2, _max2, _lmb, _lmb2,
+                 fmt, *args, **kargs):
+        LEIntField.__init__(self, name, default, *args, **kargs)
+        self.min_i2h = _min
+        self.max_i2h = _max
+        self.lambda_i2h = _lmb
+        self.min_h2i = _min2
+        self.max_h2i = _max2
+        self.lambda_h2i = _lmb2
+        self.rname = self.__class__.__name__
+        self.ffmt = fmt
+
     def i2h(self, pkt, x):
         if x is not None:
-            if (x < 0):
-                warning("Fixed3_6: Internal value too negative: %d", x)
-                x = 0
-            elif (x > 999999999):
-                warning("Fixed3_6: Internal value too positive: %d", x)
-                x = 999999999
-            x = x * 1e-6
+            if (x < self.min_i2h):
+                warning("%s: Internal value too negative: %d", self.rname, x)
+                x = int(round(self.min_i2h))
+            elif (x > self.max_i2h):
+                warning("%s: Internal value too positive: %d", self.rname, x)
+                x = self.max_i2h
+            x = self.lambda_i2h(x)
         return x
 
     def h2i(self, pkt, x):
         if x is not None:
-            if (x <= -0.5e-6):
-                warning("Fixed3_6: Input value too negative: %.7f", x)
-                x = 0
-            elif (x >= 999.9999995):
-                warning("Fixed3_6: Input value too positive: %.7f", x)
-                x = 999.999999
-            x = int(round(x * 1e6))
+            if (x < self.min_h2i):
+                warning("%s: Input value too negative: %.10f", self.rname, x)
+                x = int(round(self.min_h2i))
+            elif (x >= self.max_h2i):
+                warning("%s: Input value too positive: %.10f", self.rname, x)
+                x = int(round(self.max_h2i))
+            x = self.lambda_h2i(x)
         return x
 
     def i2m(self, pkt, x):
@@ -79,116 +96,62 @@ class Fixed3_6Field(LEIntField):
             y = 0
         else:
             y = self.i2h(pkt, x)
-        return "%3.6f" % (y)
+        return ("%" + self.ffmt) % (y)
 
 
-class Fixed3_7Field(LEIntField):
-    def i2h(self, pkt, x):
-        if x is not None:
-            if (x < 0):
-                warning("Fixed3_7: Internal value too negative: %d", x)
-                x = 0
-            elif (x > 3600000000):
-                warning("Fixed3_7: Internal value too positive: %d", x)
-                x = 3600000000
-            x = (x - 1800000000) * 1e-7
-        return x
-
-    def h2i(self, pkt, x):
-        if x is not None:
-            if (x <= -180.00000005):
-                warning("Fixed3_7: Input value too negative: %.8f", x)
-                x = -180.0
-            elif (x >= 180.00000005):
-                warning("Fixed3_7: Input value too positive: %.8f", x)
-                x = 180.0
-            x = int(round((x + 180.0) * 1e7))
-        return x
-
-    def i2m(self, pkt, x):
-        """Convert internal value to machine value"""
-        if x is None:
-            # Try to return zero if undefined
-            x = self.h2i(pkt, 0)
-        return x
-
-    def i2repr(self, pkt, x):
-        if x is None:
-            y = 0
-        else:
-            y = self.i2h(pkt, x)
-        return "%3.7f" % (y)
+class Fixed3_6Field(_RMMLEIntField):
+    def __init__(self, name, default, *args, **kargs):
+        _RMMLEIntField.__init__(self,
+                                name, default,
+                                0,
+                                999999999,
+                                -0.5e-6,
+                                999.9999995,
+                                lambda x: x * 1e-6,
+                                lambda x: int(round(x * 1e6)),
+                                "3.6f")
 
 
-class Fixed6_4Field(LEIntField):
-    def i2h(self, pkt, x):
-        if x is not None:
-            if (x < 0):
-                warning("Fixed6_4: Internal value too negative: %d", x)
-                x = 0
-            elif (x > 3600000000):
-                warning("Fixed6_4: Internal value too positive: %d", x)
-                x = 3600000000
-            x = (x - 1800000000) * 1e-4
-        return x
+class Fixed3_7Field(_RMMLEIntField):
+    def __init__(self, name, default, *args, **kargs):
+        _RMMLEIntField.__init__(self,
+                                name, default,
+                                0,
+                                3600000000,
+                                -180.00000005,
+                                180.00000005,
+                                lambda x: (x - 1800000000) * 1e-7,
+                                lambda x: int(round((x + 180.0) * 1e7)),
+                                "3.7f")
 
-    def h2i(self, pkt, x):
-        if x is not None:
-            if (x <= -180000.00005):
-                warning("Fixed6_4: Input value too negative: %.5f", x)
-                x = -180000.0
-            elif (x >= 180000.00005):
-                warning("Fixed6_4: Input value too positive: %.5f", x)
-                x = 180000.0
-            x = int(round((x + 180000.0) * 1e4))
-        return x
 
-    def i2m(self, pkt, x):
-        """Convert internal value to machine value"""
-        if x is None:
-            # Try to return zero if undefined
-            x = self.h2i(pkt, 0)
-        return x
+class Fixed6_4Field(_RMMLEIntField):
+    def __init__(self, name, default, *args, **kargs):
+        _RMMLEIntField.__init__(self,
+                                name, default,
+                                0,
+                                3600000000,
+                                -180000.00005,
+                                180000.00005,
+                                lambda x: (x - 1800000000) * 1e-4,
+                                lambda x: int(round((x + 180000.0) * 1e4)),
+                                "6.4f")
 
-    def i2repr(self, pkt, x):
-        if x is None:
-            y = 0
-        else:
-            y = self.i2h(pkt, x)
-        return "%6.4f" % (y)
 # The GPS timestamps fractional time counter is stored in a 32-bit unsigned ns counter.  # noqa: E501
 # The ept field is as well,
 
 
-class NSCounter_Field(LEIntField):
-    def i2h(self, pkt, x):  # converts nano-seconds to seconds for output
-        if x is not None:
-            if (x < 0):
-                warning("NSCounter_Field: Internal value too negative: %d", x)
-                x = 0
-            elif (x >= 2**32):
-                warning("NSCounter_Field: Internal value too positive: %d", x)
-                x = 2**32 - 1
-            x = (x / 1e9)
-        return x
-
-    def h2i(self, pkt, x):  # converts input in seconds into nano-seconds for storage  # noqa: E501
-        if x is not None:
-            if (x < 0):
-                warning("NSCounter_Field: Input value too negative: %.10f", x)
-                x = 0
-            elif (x >= (2**32) / 1e9):
-                warning("NSCounter_Field: Input value too positive: %.10f", x)
-                x = (2**32 - 1) / 1e9
-            x = int(round((x * 1e9)))
-        return x
-
-    def i2repr(self, pkt, x):
-        if x is None:
-            y = 0
-        else:
-            y = self.i2h(pkt, x)
-        return "%1.9f" % (y)
+class NSCounter_Field(_RMMLEIntField):
+    def __init__(self, name, default):
+        _RMMLEIntField.__init__(self,
+                                name, default,
+                                0,
+                                2**32,
+                                0,
+                                (2**32 - 1) / 1e9,
+                                lambda x: (x / 1e9),
+                                lambda x: int(round(x * 1e9)),
+                                "1.9f")
 
 
 class LETimeField(UTCTimeField, LEIntField):
@@ -197,24 +160,6 @@ class LETimeField(UTCTimeField, LEIntField):
     def __init__(self, name, default, epoch=None, strf="%a, %d %b %Y %H:%M:%S +0000"):  # noqa: E501
         LEIntField.__init__(self, name, default)
         UTCTimeField.__init__(self, name, default, epoch=epoch, strf=strf)
-
-
-class SignedByteField(Field):
-    def __init__(self, name, default):
-        Field.__init__(self, name, default, "b")
-
-    def randval(self):
-        return RandSByte()
-
-
-class XLEShortField(LEShortField, XShortField):
-    def i2repr(self, pkt, x):
-        return XShortField.i2repr(self, pkt, x)
-
-
-class XLEIntField(LEIntField, XIntField):
-    def i2repr(self, pkt, x):
-        return XIntField.i2repr(self, pkt, x)
 
 
 class GPSTime_Field(LETimeField):
