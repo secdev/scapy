@@ -1,5 +1,9 @@
 % Tests for OpenFlow v1.3 with Scapy
 
++ Preparation
+= Be sure we have loaded OpenFlow v3
+load_contrib("openflow3")
+
 + Fields
 
 = GroupDescPacketListField(), check getfield
@@ -23,10 +27,10 @@ ofm = OFPMatch(oxm_fields=OFBEthType(eth_type=0x86dd))
 assert(len(raw(ofm))%8 == 0)
 raw(ofm) == b'\x00\x01\x00\x0a\x80\x00\x0a\x02\x86\xdd\x00\x00\x00\x00\x00\x00'
 
-= OpenFlow(), generic method test with OFPTEchoRequest()
+= OpenFlow3(), generic method test with OFPTEchoRequest()
 ofm = OFPTEchoRequest()
 s = raw(ofm)
-isinstance(OpenFlow(None,s)(s), OFPTEchoRequest)
+isinstance(OpenFlow3(s), OFPTEchoRequest)
 
 = OFPTFlowMod(), check codes and defaults values
 ofm = OFPTFlowMod(cmd='OFPFC_DELETE', out_group='ALL', flags='CHECK_OVERLAP+NO_PKT_COUNTS')

@@ -1,5 +1,9 @@
 % Tests for OpenFlow v1.0 with Scapy
 
++ Preparation
+= Be sure we have loaded OpenFlow v1
+load_contrib("openflow")
+
 + Usual OFv1.0 messages
 
 = OFPTHello(), simple hello message
@@ -19,7 +23,7 @@ ofm.wildcards2 == 0xee
 = OpenFlow(), generic method test with OFPTEchoRequest()
 ofm = OFPTEchoRequest()
 s = raw(ofm)
-isinstance(OpenFlow(None,s)(s), OFPTEchoRequest)
+isinstance(OpenFlow(s), OFPTEchoRequest)
 
 = OFPTFlowMod(), check codes and defaults values
 ofm = OFPTFlowMod(cmd='OFPFC_DELETE', out_port='CONTROLLER', flags='CHECK_OVERLAP+EMERG')
