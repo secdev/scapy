@@ -218,7 +218,7 @@ def in6_mactoifaceid(mac, ulbit=None):
     return eui64.upper()
 
 
-def in6_ifaceidtomac(ifaceid):  # TODO: finish commenting function behavior
+def in6_ifaceidtomac(ifaceid):
     """
     Extract the mac address from provided iface ID. Iface ID is provided
     in printable format ("XXXX:XXFF:FEXX:XXXX", eventually compressed). None
