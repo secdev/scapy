@@ -1274,13 +1274,13 @@ class TracerouteResult(SndRcvList):
             import geoip2.database
             import geoip2.errors
         except ImportError:
-            warning("Can't import geoip2. Won't be able to plot the world.")
+            warning("Cannot import geoip2. Won't be able to plot the world.")
             return []
         # Check availability of database
         if not conf.geoip_city:
-            warning("Cannot import the geolite2 CITY database !\n"
+            warning("Cannot import the geolite2 CITY database.\n"
                     "Download it from http://dev.maxmind.com/geoip/geoip2/geolite2/"  # noqa: E501
-                    "then set its path to conf.geoip_city")
+                    " then set its path to conf.geoip_city")
             return []
         # Check availability of plotting devices
         try:
@@ -1297,7 +1297,7 @@ class TracerouteResult(SndRcvList):
         try:
             db = geoip2.database.Reader(conf.geoip_city)
         except:
-            warning("Can't open geoip2 database at %s", conf.geoip_city)
+            warning("Cannot open geoip2 database at %s", conf.geoip_city)
             return []
 
         # Regroup results per trace
