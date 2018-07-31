@@ -6483,7 +6483,7 @@ assert pkt[DNSRRSRV].payload.rdata == '192.168.0.254'
 
 assert len(pkt) == 426
 
-z = DNScompress(pkt)
+z = pkt.compress()
 
 assert len(z) == 295
 assert z.an[0].rrname == b'_raop._tcp.local.'

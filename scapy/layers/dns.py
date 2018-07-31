@@ -25,7 +25,7 @@ import scapy.modules.six as six
 from scapy.modules.six.moves import range
 
 
-def DNSgetstr(s, p, pkt=None, _internal=False):
+def dns_get_str(s, p, pkt=None, _internal=False):
     """This function decompresses a string s, from the character p.
     params:
      - s: the string to decompress
@@ -59,7 +59,7 @@ def DNSgetstr(s, p, pkt=None, _internal=False):
                 break
             if pkt and hasattr(pkt, "_orig_s") and pkt._orig_s:
                 # There should not be a loop as pkt is None
-                name += DNSgetstr(pkt._orig_s, p, None, _internal=True)[0]
+                name += dns_get_str(pkt._orig_s, p, None, _internal=True)[0]
                 if burned == max_length:
                     break
             elif not _internal:
@@ -77,7 +77,13 @@ def DNSgetstr(s, p, pkt=None, _internal=False):
     return name, p, s[burned:]
 
 
-def DNScompress(pkt):
+def DNSgetstr(*args, **kwargs):
+    """Legacy function. Deprecated"""
+    raise DeprecationWarning("DNSgetstr deprecated. Use dns_get_str instead")
+    return dns_get_str(*args, **kwargs)
+
+
+def dns_compress(pkt):
     """This function compresses a DNS packet according to compression rules.
     """
     if DNS not in pkt:
@@ -192,7 +198,7 @@ class DNSStrField(StrField):
 
     def getfield(self, pkt, s):
         # Decode the compressed DNS message
-        decoded, index, left = DNSgetstr(s, 0, pkt)
+        decoded, index, left = dns_get_str(s, 0, pkt)
         # returns (left, decoded)
         return left, decoded
 
@@ -243,7 +249,7 @@ class DNSRRField(StrField):
         p += 10
         rr = DNSRR(b"\x00" + ret + s[p:p + rdlen], _orig_s=s, _orig_p=p)
         if type in [2, 3, 4, 5]:
-            rr.rdata = DNSgetstr(s, p, _internal=True)[0]
+            rr.rdata = dns_get_str(s, p, _internal=True)[0]
             del(rr.rdlen)
         elif type in DNSRR_DISPATCHER:
             rr = DNSRR_DISPATCHER[type](b"\x00" + ret + s[p:p + rdlen], _orig_s=s, _orig_p=p)  # noqa: E501
@@ -266,7 +272,7 @@ class DNSRRField(StrField):
             return s, b""
         while c:
             c -= 1
-            name, p, _ = DNSgetstr(s, p, _internal=True)
+            name, p, _ = dns_get_str(s, p, _internal=True)
             rr, p = self.decodeRR(name, s, p)
             if ret is None:
                 ret = rr
@@ -297,11 +303,11 @@ class RDataField(StrLenField):
         elif pkt.type in [2, 5, 12]:  # NS, CNAME, PTR
             if hasattr(pkt, "_orig_s") and pkt._orig_s:
                 if orb(s[0]) & 0xc0:
-                    s = DNSgetstr(s, 0, pkt)[0]
+                    s = dns_get_str(s, 0, pkt)[0]
                 else:
-                    s = DNSgetstr(pkt._orig_s, pkt._orig_p, _internal=True)[0]
+                    s = dns_get_str(pkt._orig_s, pkt._orig_p, _internal=True)[0]  # noqa: E501
             else:
-                s = DNSgetstr(s, 0)[0]
+                s = dns_get_str(s, 0)[0]
         elif pkt.type == 16:  # TXT
             ret_s = list()
             tmp_s = s
@@ -413,6 +419,10 @@ class DNS(Packet):
         if isinstance(self.underlayer, TCP) and self.length is None:
             pkt = struct.pack("!H", len(pkt) - 2) + pkt[2:]
         return pkt + pay
+
+    def compress(self):
+        """Return the compressed DNS packet (using `dns_compress()`"""
+        return dns_compress(self)
 
 
 # https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-4
