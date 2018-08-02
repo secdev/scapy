@@ -630,6 +630,22 @@ class ThreeBytesField(X3BytesField, ByteField):
         return ByteField.i2repr(self, pkt, x)
 
 
+class LEX3BytesField(XByteField):
+    def __init__(self, name, default):
+        Field.__init__(self, name, default, "<I")
+
+    def addfield(self, pkt, s, val):
+        return s + struct.pack(self.fmt, self.i2m(pkt, val))[:3]
+
+    def getfield(self, pkt, s):
+        return s[3:], self.m2i(pkt, struct.unpack(self.fmt, s[:3] + b"\x00")[0])  # noqa: E501
+
+
+class LEThreeBytesField(LEX3BytesField, ByteField):
+    def i2repr(self, pkt, x):
+        return ByteField.i2repr(self, pkt, x)
+
+
 class SignedByteField(Field):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "b")

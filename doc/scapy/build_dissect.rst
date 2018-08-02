@@ -868,7 +868,10 @@ Legend:
     LEShortField
     XShortField
     
-    X3BytesField        # three bytes (in hexad 
+    X3BytesField        # three bytes as hex
+    LEX3BytesField      # three bytes as decimal
+    ThreeBytesField     # little endian three bytes as hex
+    LEThreeBytesField   # little endian three bytes as decimal
     
     IntField
     SignedIntField
