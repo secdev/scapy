@@ -123,12 +123,12 @@ def _sndrcv_rcv(pks, hsent, stopevent, nbrecv, notans, verbose, chainCC,
         def _get_pkt():
             res = pks.nonblock_recv()
             if res is None:
-                time.sleep(0.05)
+                time.sleep(conf.recv_poll_rate)
             return res
     else:
         def _get_pkt():
             try:
-                inp, _, _ = select([pks], [], [], 0.05)
+                inp, _, _ = select([pks], [], [], conf.recv_poll_rate)
             except (IOError, select_error) as exc:
                 # select.error has no .errno attribute
                 if exc.args[0] != errno.EINTR:

@@ -435,6 +435,7 @@ AS_resolver: choose the AS resolver class to use
 extensions_paths: path or list of paths where extensions are to be looked for
 contribs : a dict which can be used by contrib layers to store local configuration  # noqa: E501
 debug_tls:When 1, print some TLS session secrets when they are computed.
+recv_poll_rate: how often to check for new packets. Defaults to 0.05s.
 """
     version = VERSION
     session = ""
@@ -518,6 +519,7 @@ debug_tls:When 1, print some TLS session secrets when they are computed.
     crypto_valid_advanced = crypto_valid_recent and isCryptographyAdvanced()
     fancy_prompt = True
     auto_crop_tables = True
+    recv_poll_rate = 0.05
 
 
 if not Conf.ipv6_enabled:
