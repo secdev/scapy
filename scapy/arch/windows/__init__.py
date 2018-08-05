@@ -441,6 +441,11 @@ class WinProgPath(ConfClass):
         self.hexedit = win_find_exe("hexer")
         self.sox = win_find_exe("sox")
         self.wireshark = win_find_exe("wireshark", "wireshark")
+        self.usbpcapcmd = win_find_exe(
+            "USBPcapCMD",
+            installsubdir="USBPcap",
+            env="programfiles"
+        )
         self.powershell = win_find_exe(
             "powershell",
             installsubdir="System32\\WindowsPowerShell\\v1.0",

@@ -853,6 +853,11 @@ class XLongField(LongField):
         return lhex(self.i2h(pkt, x))
 
 
+class XLELongField(LELongField, XLongField):
+    def i2repr(self, pkt, x):
+        return XLongField.i2repr(self, pkt, x)
+
+
 class IEEEFloatField(Field):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "f")
