@@ -614,7 +614,7 @@ class OByteField(ByteField):
         return "%03o" % self.i2h(pkt, x)
 
 
-class X3BytesField(XByteField):
+class ThreeBytesField(ByteField):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "!I")
 
@@ -625,12 +625,12 @@ class X3BytesField(XByteField):
         return s[3:], self.m2i(pkt, struct.unpack(self.fmt, b"\x00" + s[:3])[0])  # noqa: E501
 
 
-class ThreeBytesField(X3BytesField, ByteField):
+class X3BytesField(ThreeBytesField, XByteField):
     def i2repr(self, pkt, x):
-        return ByteField.i2repr(self, pkt, x)
+        return XByteField.i2repr(self, pkt, x)
 
 
-class LEX3BytesField(XByteField):
+class LEThreeBytesField(ByteField):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "<I")
 
@@ -641,9 +641,9 @@ class LEX3BytesField(XByteField):
         return s[3:], self.m2i(pkt, struct.unpack(self.fmt, s[:3] + b"\x00")[0])  # noqa: E501
 
 
-class LEThreeBytesField(LEX3BytesField, ByteField):
+class LEX3BytesField(LEThreeBytesField, XByteField):
     def i2repr(self, pkt, x):
-        return ByteField.i2repr(self, pkt, x)
+        return XByteField.i2repr(self, pkt, x)
 
 
 class SignedByteField(Field):
