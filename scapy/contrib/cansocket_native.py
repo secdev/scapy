@@ -59,7 +59,7 @@ class CANSocket(SuperSocket):
                             socket.CAN_RAW_FILTER,
                             struct.pack(can_filter_fmt, *filter_data))
 
-        self.ins.bind((iface,))
+        self.ins.bind((self.iface,))
         self.outs = self.ins
 
     def recv(self, x=CAN_FRAME_SIZE):
