@@ -1233,3 +1233,38 @@ except FieldValueRangeException:
 = FlasgField - Python incompatible name
 
 assert Dot11().FCfield.to_DS is False
+
+########
+########
++ MultipleTypeField
+
+= Test initialization order
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ByteEnumField("atyp", 0x1, {0x1: "IPv4", 0x3: "DNS", 0x4: "IPv6"}),
+        MultipleTypeField(
+            [
+                # IPv4
+                (IPField("addr", "0.0.0.0"), lambda pkt: pkt.atyp == 0x1),
+                # DNS
+                (DNSStrField("addr", ""), lambda pkt: pkt.atyp == 0x3),
+                # IPv6
+                (IP6Field("addr", "::"), lambda pkt: pkt.atyp == 0x4),
+            ],
+            StrField("addr", "")
+        ),
+    ]
+
+= Default order
+
+a = DebugPacket(atyp=0x3, addr="scapy.net")
+a = DebugPacket(raw(a))
+assert a.addr == b"scapy.net."
+
+= Reversed order
+
+a = DebugPacket(addr="scapy.net", atyp=0x3)
+a = DebugPacket(raw(a))
+assert a.addr == b"scapy.net."
+

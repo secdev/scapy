@@ -138,8 +138,19 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             self.dissect(_pkt)
             if not _internal:
                 self.dissection_done(self)
-        for f, v in six.iteritems(fields):
-            self.fields[f] = self.get_field(f).any2i(self, v)
+        # We use this strange initialization so that the fields
+        # are initialized in their declaration order.
+        # It is required to always support MultipleTypeField
+        for field in self.fields_desc:
+            fname = field.name
+            try:
+                value = fields.pop(fname)
+            except KeyError:
+                continue
+            self.fields[fname] = self.get_field(fname).any2i(self, value)
+        # The remaining fields are unknown
+        for fname, _ in fields:
+            raise AttributeError(fname)
         if isinstance(post_transform, list):
             self.post_transforms = post_transform
         elif post_transform is None:
