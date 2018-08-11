@@ -90,7 +90,7 @@ def _encapsulate_admin(cmd):
     """Encapsulate a command with an Administrator flag"""
     # To get admin access, we start a new powershell instance with admin
     # rights, which will execute the command
-    return "Start-Process PowerShell -windowstyle hidden -Wait -Verb RunAs -ArgumentList '-command &{%s}'" % cmd  # noqa: E501
+    return "Start-Process PowerShell -windowstyle hidden -Wait -PassThru -Verb RunAs -ArgumentList '-command &{%s}'" % cmd  # noqa: E501
 
 
 def _windows_title(title=None):
@@ -651,6 +651,8 @@ class NetworkInterface(object):
         else:
             res = self.setmode('managed')
             self.cache_mode = not res
+        if not res:
+            log_runtime.error("Npcap WlanHelper returned with an error code !")
         return res
 
     def availablemodes(self):
