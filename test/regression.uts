@@ -2114,6 +2114,29 @@ for a in six.moves.range(10):
     inet_pton(socket.AF_INET6, '::'+s2)
     res = res and ((orb(s1[0]) & 0x04) == 0x04)
 
+########### RFC 5156 related functions ##############################
+= Test inet6_pton() handles embedded ip4 addr
+from scapy.pton_ntop import _inet6_pton
+
+assert _inet6_pton('::1.2.3.4') == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x02\x03\x04'
+assert _inet6_pton('::ffff:1.2.3.4') == b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x01\x02\x03\x04'
+
+= Test _inet4_pton() raises for invalid ipv4 addrs
+from scapy.pton_ntop import _inet4_pton
+import socket
+
+res = True
+invalid_addrs = ['127.0.0.256', '192.168.1', '127.0.0.1/32', '::127.0.0.1']
+for invalid in invalid_addrs:
+
+  try:
+      _inet4_pton(invalid)
+  except socket.error:
+      continue
+  res = False
+
+assert res
+
 ########### RFC 1924 related function ###############################
 = Test RFC 1924 function - in6_ctop() basic test
 in6_ctop("4)+k&C#VzJ4br>0wv%Yp") == '1080::8:800:200c:417a'

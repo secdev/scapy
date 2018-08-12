@@ -18,7 +18,27 @@ from scapy.modules.six.moves import range
 from scapy.compat import *
 
 _IP6_ZEROS = re.compile('(?::|^)(0(?::0)+)(?::|$)')
+_INET4_PTON_EXC = socket.error("illegal IP address string passed to _inet4_pton")  # noqa: E501
 _INET6_PTON_EXC = socket.error("illegal IP address string passed to inet_pton")
+
+
+def _inet4_pton(addr):
+    """Convert an IPv4 address from text representation into binary form,
+used when socket.inet_pton is not available"""
+    parts = addr.split('.')
+    if len(parts) != 4:
+        raise _INET4_PTON_EXC
+
+    result = b''
+    for _, part in enumerate(parts):
+        try:
+            byte = chb(int(part))
+        except ValueError:
+            raise _INET4_PTON_EXC
+
+        result += byte
+
+    return result
 
 
 def _inet6_pton(addr):
@@ -47,12 +67,8 @@ used when socket.inet_pton is not available.
                 raise _INET6_PTON_EXC
         elif i + 1 == nparts and '.' in part:
             # The last part of an IPv6 address can be an IPv4 address
-            if part.count('.') != 3:
-                # we have to do this since socket.inet_aton('1.2') ==
-                # b'\x01\x00\x00\x02'
-                raise _INET6_PTON_EXC
             try:
-                result += socket.inet_aton(part)
+                result += _inet4_pton(part)
             except socket.error:
                 raise _INET6_PTON_EXC
         else:
@@ -73,7 +89,7 @@ used when socket.inet_pton is not available.
 
 
 _INET_PTON = {
-    socket.AF_INET: socket.inet_aton,
+    socket.AF_INET: _inet4_pton,
     socket.AF_INET6: _inet6_pton,
 }
 
