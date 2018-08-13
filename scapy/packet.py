@@ -557,7 +557,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
 
     def svgdump(self, filename=None, **kargs):
         """
-        psdump(filename=None, layer_shift=0, rebuild=1)
+        svgdump(filename=None, layer_shift=0, rebuild=1)
 
         Creates an SVG file describing a packet. If filename is not provided a
         temporary file is created and gs is called.
