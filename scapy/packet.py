@@ -555,6 +555,28 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             canvas.writePDFfile(filename)
         print()
 
+    def svgdump(self, filename=None, **kargs):
+        """
+        psdump(filename=None, layer_shift=0, rebuild=1)
+
+        Creates an SVG file describing a packet. If filename is not provided a
+        temporary file is created and gs is called.
+
+        :param filename: the file's filename
+        """
+        canvas = self.canvas_dump(**kargs)
+        if filename is None:
+            fname = get_temp_file(autoext=".svg")
+            canvas.writeSVGfile(fname)
+            if WINDOWS and conf.prog.svgreader is None:
+                os.startfile(fname)
+            else:
+                with ContextManagerSubprocess("svgdump()", conf.prog.svgreader):
+                    subprocess.Popen([conf.prog.svgreader, fname])
+        else:
+            canvas.writeSVGfile(filename)
+        print()
+
     def canvas_dump(self, layer_shift=0, rebuild=1):
         if PYX == 0:
             raise ImportError("PyX and its dependencies must be installed")

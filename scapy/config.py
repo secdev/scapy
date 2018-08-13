@@ -73,6 +73,7 @@ class Interceptor(object):
 class ProgPath(ConfClass):
     pdfreader = "open" if DARWIN else "xdg-open"
     psreader = "open" if DARWIN else "xdg-open"
+    svgreader = "open" if DARWIN else "xdg-open"
     dot = "dot"
     display = "display"
     tcpdump = "tcpdump"
