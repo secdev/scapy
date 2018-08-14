@@ -9722,25 +9722,30 @@ assert(param1.random != param2.random)
 + DHCP
 
 = BOOTP - misc
-BOOTP().answers(BOOTP()) == True
-BOOTP().hashret() == b"\x00\x00\x00\x00"
+assert BOOTP().answers(BOOTP())
+assert BOOTP().hashret() == b"\x00\x00\x00\x00"
 
 import random
 random.seed(0x2807)
-str(RandDHCPOptions()) == "[('WWW_server', '90.219.239.175')]"
+assert str(RandDHCPOptions(size=1)) in ["[('max_dhcp_size', 9227)]", "[('SMTP_server', '18.228.90.219')]"]
 
-value = ("hostname", "scapy")
-dof = DHCPOptionsField("options", value)
-dof.i2repr("", value) == '[hostname scapy]'
-dof.i2m("", value) == b'\x0cscapy'
+= DHCPOptionsField
+
+value = [("hostname", "scapy")]
+dof = DHCPOptionsField("options", "")
+assert dof.i2repr("", value) == "[hostname='scapy']"
+assert dof.i2repr("", ["opt", "opt2"]) == "[opt opt2]"
+assert dof.i2m("", value) == b'\x0c\x05scapy'
+assert dof.m2i("", b'\x0cunknown') == [b'\x0cunknown']
+assert dof.m2i("", b'\x0c\x05scapy') == [('hostname', b'scapy')]
 
 unknown_value_end = b"\xfe" + b"\xff"*257
 udof = DHCPOptionsField("options", unknown_value_end)
-udof.m2i("", unknown_value_end) == [(254, b'\xff'*255), 'end']
+assert udof.m2i("", unknown_value_end) == [(254, b'\xff'*255), 'end']
 
 unknown_value_pad = b"\xfe" + b"\xff"*256 + b"\x00"
 udof = DHCPOptionsField("options", unknown_value_pad)
-udof.m2i("", unknown_value_pad) == [(254, b'\xff'*255), 'pad']
+assert udof.m2i("", unknown_value_pad) == [(254, b'\xff'*255), 'pad']
 
 = DHCP - build
 s = raw(IP(src="127.0.0.1")/UDP()/BOOTP(chaddr="00:01:02:03:04:05")/DHCP(options=[("message-type","discover"),"end"]))

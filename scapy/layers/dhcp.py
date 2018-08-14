@@ -67,7 +67,7 @@ class BOOTP(Packet):
             return b"", None
 
     def hashret(self):
-        return struct.pack("L", self.xid)
+        return struct.pack("!I", self.xid)
 
     def answers(self, other):
         if not isinstance(other, BOOTP):
@@ -275,7 +275,9 @@ class DHCPOptionsField(StrField):
                 elif name in DHCPRevOptions:
                     onum, f = DHCPRevOptions[name]
                     if f is not None:
-                        lval = [f.addfield(pkt, b"", f.any2i(pkt, val)) for val in lval]  # noqa: E501
+                        lval = (f.addfield(pkt, b"", f.any2i(pkt, val)) for val in lval)  # noqa: E501
+                    else:
+                        lval = (raw(x) for x in lval)
                     oval = b"".join(lval)
                 else:
                     warning("Unknown field option %s", name)
