@@ -1154,21 +1154,51 @@ class TracerouteResult(SndRcvList):
                     del k[l]
         return trace
 
-    def trace3D(self):
+    def trace3D(self, join=True):
         """Give a 3D representation of the traceroute.
         right button: rotate the scene
         middle button: zoom
-        left button: move the scene
+        shift-left button: move the scene
         left button on a ball: toggle IP displaying
-        ctrl-left button on a ball: scan ports 21,22,23,25,80 and 443 and display the result"""  # noqa: E501
-        trace = self.get_trace()
-        import visual
+        double-click button on a ball: scan ports 21,22,23,25,80 and 443 and display the result"""  # noqa: E501
+        # When not ran from a notebook, vpython pooly closes itself
+        # using os._exit once finished. We pack it into a Process
+        import multiprocessing
+        p = multiprocessing.Process(target=self.trace3D_notebook)
+        p.start()
+        if join:
+            p.join()
 
-        class IPsphere(visual.sphere):
+    def trace3D_notebook(self):
+        """Same than trace3D, used when ran from Jupyther notebooks"""
+        trace = self.get_trace()
+        import vpython
+
+        class IPsphere(vpython.sphere):
             def __init__(self, ip, **kargs):
-                visual.sphere.__init__(self, **kargs)
+                vpython.sphere.__init__(self, **kargs)
                 self.ip = ip
                 self.label = None
+                self.setlabel(self.ip)
+                self.last_clicked = None
+                self.full = False
+                self.savcolor = vpython.vec(*self.color.value)
+
+            def fullinfos(self):
+                self.full = True
+                self.color = vpython.vec(1, 0, 0)
+                a, b = sr(IP(dst=self.ip) / TCP(dport=[21, 22, 23, 25, 80, 443], flags="S"), timeout=2, verbose=0)  # noqa: E501
+                if len(a) == 0:
+                    txt = "%s:\nno results" % self.ip
+                else:
+                    txt = "%s:\n" % self.ip
+                    for s, r in a:
+                        txt += r.sprintf("{TCP:%IP.src%:%TCP.sport% %TCP.flags%}{TCPerror:%IPerror.dst%:%TCPerror.dport% %IP.src% %ir,ICMP.type%}\n")  # noqa: E501
+                self.setlabel(txt, visible=1)
+
+            def unfull(self):
+                self.color = self.savcolor
+                self.full = False
                 self.setlabel(self.ip)
 
             def setlabel(self, txt, visible=None):
@@ -1178,14 +1208,46 @@ class TracerouteResult(SndRcvList):
                     self.label.visible = 0
                 elif visible is None:
                     visible = 0
-                self.label = visual.label(text=txt, pos=self.pos, space=self.radius, xoffset=10, yoffset=20, visible=visible)  # noqa: E501
+                self.label = vpython.label(text=txt, pos=self.pos, space=self.radius, xoffset=10, yoffset=20, visible=visible)  # noqa: E501
+
+            def check_double_click(self):
+                try:
+                    if self.full or not self.label.visible:
+                        return False
+                    if self.last_clicked is not None:
+                        return (time.time() - self.last_clicked) < 0.5
+                    return False
+                finally:
+                    self.last_clicked = time.time()
 
             def action(self):
                 self.label.visible ^= 1
+                if self.full:
+                    self.unfull()
 
-        visual.scene = visual.display()
-        visual.scene.exit = True
-        start = visual.box()
+        vpython.scene = vpython.canvas()
+        vpython.scene.title = "<center><u><b>%s</b></u></center>" % self.listname  # noqa: E501
+        vpython.scene.append_to_caption(
+            re.sub(
+                r'\%(.*)\%',
+                r'<span style="color: red">\1</span>',
+                re.sub(
+                    r'\`(.*)\`',
+                    r'<span style="color: #3399ff">\1</span>',
+                    """<u><b>Commands:</b></u>
+%Click% to toggle information about a node.
+%Double click% to perform a quick web scan on this node.
+<u><b>Camera usage:</b></u>
+`Right button drag or Ctrl-drag` to rotate "camera" to view scene.
+`Shift-drag` to move the object around.
+`Middle button or Alt-drag` to drag up or down to zoom in or out.
+  On a two-button mouse, `middle is wheel or left + right`.
+Touch screen: pinch/extend to zoom, swipe or two-finger rotate."""
+                )
+            )
+        )
+        vpython.scene.exit = True
+        start = vpython.box()
         rings = {}
         tr3d = {}
         for i in trace:
@@ -1201,18 +1263,19 @@ class TracerouteResult(SndRcvList):
                 else:
                     rings[t].append(("unk", -1))
                     tr3d[i].append(len(rings[t]) - 1)
+
         for t in rings:
             r = rings[t]
             l = len(r)
             for i in range(l):
                 if r[i][1] == -1:
-                    col = (0.75, 0.75, 0.75)
+                    col = vpython.vec(0.75, 0.75, 0.75)
                 elif r[i][1]:
-                    col = visual.color.green
+                    col = vpython.color.green
                 else:
-                    col = visual.color.blue
+                    col = vpython.color.blue
 
-                s = IPsphere(pos=((l - 1) * visual.cos(2 * i * visual.pi / l), (l - 1) * visual.sin(2 * i * visual.pi / l), 2 * t),  # noqa: E501
+                s = IPsphere(pos=vpython.vec((l - 1) * vpython.cos(2 * i * vpython.pi / l), (l - 1) * vpython.sin(2 * i * vpython.pi / l), 2 * t),  # noqa: E501
                              ip=r[i][0],
                              color=col)
                 for trlst in six.itervalues(tr3d):
@@ -1221,48 +1284,37 @@ class TracerouteResult(SndRcvList):
                             trlst[t - 1] = s
         forecol = colgen(0.625, 0.4375, 0.25, 0.125)
         for trlst in six.itervalues(tr3d):
-            col = next(forecol)
-            start = (0, 0, 0)
+            col = vpython.vec(*next(forecol))
+            start = vpython.vec(0, 0, 0)
             for ip in trlst:
-                visual.cylinder(pos=start, axis=ip.pos - start, color=col, radius=0.2)  # noqa: E501
+                vpython.cylinder(pos=start, axis=ip.pos - start, color=col, radius=0.2)  # noqa: E501
                 start = ip.pos
 
-        movcenter = None
-        while True:
-            visual.rate(50)
-            if visual.scene.kb.keys:
-                k = visual.scene.kb.getkey()
-                if k == "esc" or k == "q":
-                    break
-            if visual.scene.mouse.events:
-                ev = visual.scene.mouse.getevent()
-                if ev.press == "left":
-                    o = ev.pick
-                    if o:
-                        if ev.ctrl:
-                            if o.ip == "unk":
-                                continue
-                            savcolor = o.color
-                            o.color = (1, 0, 0)
-                            a, b = sr(IP(dst=o.ip) / TCP(dport=[21, 22, 23, 25, 80, 443]), timeout=2)  # noqa: E501
-                            o.color = savcolor
-                            if len(a) == 0:
-                                txt = "%s:\nno results" % o.ip
-                            else:
-                                txt = "%s:\n" % o.ip
-                                for s, r in a:
-                                    txt += r.sprintf("{TCP:%IP.src%:%TCP.sport% %TCP.flags%}{TCPerror:%IPerror.dst%:%TCPerror.dport% %IP.src% %ir,ICMP.type%}\n")  # noqa: E501
-                            o.setlabel(txt, visible=1)
-                        else:
-                            if hasattr(o, "action"):
-                                o.action()
-                elif ev.drag == "left":
-                    movcenter = ev.pos
-                elif ev.drop == "left":
-                    movcenter = None
-            if movcenter:
-                visual.scene.center -= visual.scene.mouse.pos - movcenter
-                movcenter = visual.scene.mouse.pos
+        vpython.rate(50)
+
+        # Keys handling
+        # TODO: there is currently no way of closing vpython correctly
+        # https://github.com/BruceSherwood/vpython-jupyter/issues/36
+        # def keyboard_press(ev):
+        #     k = ev.key
+        #     if k == "esc" or k == "q":
+        #         pass  # TODO: close
+        #
+        # vpython.scene.bind('keydown', keyboard_press)
+
+        # Mouse handling
+        def mouse_click(ev):
+            if ev.press == "left":
+                o = vpython.scene.mouse.pick
+                if o and isinstance(o, IPsphere):
+                    if o.check_double_click():
+                        if o.ip == "unk":
+                            return
+                        o.fullinfos()
+                    else:
+                        o.action()
+
+        vpython.scene.bind('mousedown', mouse_click)
 
     def world_trace(self):
         """Display traceroute results on a world map."""
@@ -1570,16 +1622,14 @@ traceroute(target, [maxttl=30,] [dport=80,] [sport=80,] [verbose=conf.verb]) -> 
 
 
 @conf.commands.register
-def traceroute_map(*args, **kargs):
+def traceroute_map(ips, **kargs):
     """Util function to call traceroute on multiple targets, then
     show the different paths on a map.
     params:
-     - *args: IPs on which traceroute will be called"""
+     - ips: a list of IPs on which traceroute will be called
+     - optional: kwargs, passed to traceroute"""
     kargs.setdefault("verbose", 0)
-    res = []
-    for target in args:
-        res += traceroute(target, **kargs)[0].res
-    return TracerouteResult(res).world_trace()
+    return traceroute(ips)[0].world_trace()
 
 #############################
 #  Simple TCP client stack  #

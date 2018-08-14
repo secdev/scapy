@@ -517,15 +517,13 @@ In this example, we used the `traceroute_map()` function to print the graphic. T
 It could have been done differently:
 
     >>> conf.geoip_city = "path/to/GeoLite2-City.mmdb"
-    >>> a = traceroute("www.google.co.uk", verbose=0)[0]
-    >>> b = traceroute("www.secdev.org", verbose=0)[0]
-    >>> a.res += b.res
+    >>> a = traceroute(["www.google.co.uk", "www.secdev.org"], verbose=0)
     >>> a.world_trace()
 
 or such as above:
 
     >>> conf.geoip_city = "path/to/GeoLite2-City.mmdb"
-    >>> traceroute_map("www.google.co.uk", "www.secdev.org")
+    >>> traceroute_map(["www.google.co.uk", "www.secdev.org"])
 
 To use those functions, it is required to have installed the `geoip2 <https://pypi.python.org/pypi/geoip2>`_ module, `its database <https://dev.maxmind.com/geoip/geoip2/geolite2/>`_ (`direct download <https://geolite.maxmind.com/download/geoip/database/GeoLite2-City.tar.gz>`_)
 but also the `cartopy <http://scitools.org.uk/cartopy/docs/latest/installing.html>`_ module.
