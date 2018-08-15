@@ -657,9 +657,13 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             ptbb.enlarge(pyx.unit.u_pt * 2)
             canvas.stroke(ptbb.path(), [pyx.color.rgb.black, pyx.deco.filled([bkcol])])  # noqa: E501
             canvas.insert(pt)
-            for fname, fval, fdump in fields:
+            for field, fval, fdump in fields:
                 col = next(forecolor)
-                ft = pyx.text.text(XSTART, (YTXT - y) * YMUL, r"\font\cmssfont=cmss10\cmssfont{%s}" % tex_escape(fname.name))  # noqa: E501
+                if isinstance(field, BitField):
+                    bits = int(field.i2len(None, 0) * 8)
+                    ft = pyx.text.text(XSTART, (YTXT - y) * YMUL, r"\font\cmssfont=cmss10\cmssfont{%s \scriptsize{%sb}}" % (tex_escape(field.name), bits))  # noqa: E501
+                else:
+                    ft = pyx.text.text(XSTART, (YTXT - y) * YMUL, r"\font\cmssfont=cmss10\cmssfont{%s}" % tex_escape(field.name))  # noqa: E501
                 if isinstance(fval, str):
                     if len(fval) > 18:
                         fval = fval[:18] + "[...]"
