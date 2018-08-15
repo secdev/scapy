@@ -124,11 +124,23 @@ class Field(six.with_metaclass(Field_metaclass, object)):
         return repr(self.i2h(pkt, x))
 
     def addfield(self, pkt, s, val):
-        """Add an internal value  to a string"""
+        """Add an internal value to a string
+
+        Copy the network representation of field `val` (belonging to layer
+        `pkt`) to the raw string packet `s`, and return the new string packet.
+        """
         return s + struct.pack(self.fmt, self.i2m(pkt, val))
 
     def getfield(self, pkt, s):
-        """Extract an internal value from a string"""
+        """Extract an internal value from a string
+
+        Extract from the raw packet `s` the field value belonging to layer
+        `pkt`.
+
+        Returns a two-element list,
+        first the raw packet string after having removed the extracted field,
+        second the extracted field itself in internal representation.
+        """
         return s[self.sz:], self.m2i(pkt, struct.unpack(self.fmt, s[:self.sz])[0])  # noqa: E501
 
     def do_copy(self, x):
