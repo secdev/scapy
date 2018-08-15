@@ -198,8 +198,8 @@ class RadioTap(Packet):
                                                                   'GFSK', 'GSM', 'StaticTurbo', '10MHz', '5MHz'])  # noqa: E501
                        ),
                        lambda pkt: pkt.present and pkt.present.Channel),
-                   ConditionalField(_RadiotapReversePadField(_dbmField("dBm_AntSignal", 0)), lambda pkt: pkt.present and pkt.present.dBm_AntSignal),  # noqa: E501
-                   ConditionalField(_RadiotapReversePadField(_dbmField("dBm_AntNoise", 0)), lambda pkt: pkt.present and pkt.present.dBm_AntNoise),  # noqa: E501
+                   ConditionalField(_RadiotapReversePadField(_dbmField("dBm_AntSignal", -256)), lambda pkt: pkt.present and pkt.present.dBm_AntSignal),  # noqa: E501
+                   ConditionalField(_RadiotapReversePadField(_dbmField("dBm_AntNoise", -256)), lambda pkt: pkt.present and pkt.present.dBm_AntNoise),  # noqa: E501
                    ConditionalField(_RadiotapReversePadField(ByteField("Antenna", 0)), lambda pkt: pkt.present and pkt.present.Antenna),  # noqa: E501
                    # ChannelPlus
                    ConditionalField(

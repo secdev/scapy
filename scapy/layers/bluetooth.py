@@ -8,14 +8,14 @@
 Bluetooth layers, sockets and send/receive functions.
 """
 
+import ctypes
 import socket
 import struct
 import array
-from ctypes import *
 from select import select
 
 from scapy.config import conf
-from scapy.data import DLT_BLUETOOTH_HCI_H4
+from scapy.data import DLT_BLUETOOTH_HCI_H4, DLT_BLUETOOTH_HCI_H4_WITH_PHDR
 from scapy.packet import *
 from scapy.fields import *
 from scapy.supersocket import SuperSocket
@@ -69,6 +69,19 @@ class LEMACField(Field):
         return RandMAC()
 
 
+##########
+# Layers #
+##########
+
+# Transport layers
+
+class HCI_PHDR_Hdr(Packet):
+    name = "HCI PHDR transport layer"
+    fields_desc = [IntField("direction", 0)]
+
+
+# Real layers
+
 _bluetooth_packet_types = {
     0: "Acknowledgement",
     1: "Command",
@@ -91,21 +104,16 @@ class HCI_Hdr(Packet):
 
 class HCI_ACL_Hdr(Packet):
     name = "HCI ACL header"
-    fields_desc = [BitField("handle", 0, 12),    # TODO: Create and use LEBitField  # noqa: E501
-                   BitField("PB", 0, 2),      # They are received as a **combined** LE Short  # noqa: E501
-                   BitField("BC", 0, 2),      # Handle is 12 bits, each flag is 2 bits.  # noqa: E501
+    # NOTE: the 2-bytes entity formed by the 2 flags + handle must be LE
+    # This means that we must reverse those two bytes manually (we don't have
+    # a field that can reverse a group of fields)
+    fields_desc = [BitField("BC", 0, 2),       # ]
+                   BitField("PB", 0, 2),       # ]=> 2 bytes
+                   BitField("handle", 0, 12),  # ]
                    LEShortField("len", None), ]
 
     def pre_dissect(self, s):
-        # Receive data as LE stored as
-        # .... 1111 0100 1100 = handle
-        # 1010 .... .... .... = flags
-        # And turn it into
-        # 1111 0100 1100 .... = handle
-        # .... .... .... 1010 = flags
-        hf = socket.ntohs(struct.unpack("!H", s[:2])[0])
-        r = ((hf & 0x0fff) << 4) + (hf >> 12)
-        return struct.pack("!H", r) + s[2:]
+        return s[:2][::-1] + s[2:]  # Reverse the 2 first bytes
 
     def post_dissect(self, s):
         self.raw_packet_cache = None  # Reset packet to allow post_build
@@ -116,9 +124,7 @@ class HCI_ACL_Hdr(Packet):
         if self.len is None:
             p = p[:2] + struct.pack("<H", len(pay)) + p[4:]
         # Reverse, opposite of pre_dissect
-        hf = struct.unpack("!H", p[:2])[0]
-        r = socket.ntohs(((hf & 0xf) << 12) + (hf >> 4))
-        return struct.pack("!H", r) + p[2:]
+        return p[:2][::-1] + p[2:]  # Reverse (again) the 2 first bytes
 
 
 class L2CAP_Hdr(Packet):
@@ -820,12 +826,15 @@ class HCI_LE_Meta_Long_Term_Key_Request(Packet):
                    XLEShortField("ediv", 0), ]
 
 
+bind_layers(HCI_PHDR_Hdr, HCI_Hdr)
+
 bind_layers(HCI_Hdr, HCI_Command_Hdr, type=1)
 bind_layers(HCI_Hdr, HCI_ACL_Hdr, type=2)
 bind_layers(HCI_Hdr, HCI_Event_Hdr, type=4)
 bind_layers(HCI_Hdr, conf.raw_layer,)
 
 conf.l2types.register(DLT_BLUETOOTH_HCI_H4, HCI_Hdr)
+conf.l2types.register(DLT_BLUETOOTH_HCI_H4_WITH_PHDR, HCI_PHDR_Hdr)
 
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Reset, opcode=0x0c03)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Set_Event_Mask, opcode=0x0c01)
@@ -926,6 +935,10 @@ bind_layers(SM_Hdr, SM_Identity_Address_Information, sm_command=9)
 bind_layers(SM_Hdr, SM_Signing_Information, sm_command=0x0a)
 
 
+###########
+# Sockets #
+###########
+
 class BluetoothSocketError(BaseException):
     pass
 
@@ -979,11 +992,11 @@ class BluetoothHCISocket(SuperSocket):
         return HCI_Hdr(self.ins.recv(x))
 
 
-class sockaddr_hci(Structure):
+class sockaddr_hci(ctypes.Structure):
     _fields_ = [
-        ("sin_family", c_ushort),
-        ("hci_dev", c_ushort),
-        ("hci_channel", c_ushort),
+        ("sin_family", ctypes.c_ushort),
+        ("hci_dev", ctypes.c_ushort),
+        ("hci_channel", ctypes.c_ushort),
     ]
 
 
@@ -1001,17 +1014,19 @@ class BluetoothUserSocket(SuperSocket):
         # thanks to Python's weak ass socket and bind implementations, we have
         # to call down into libc with ctypes
 
-        sockaddr_hcip = POINTER(sockaddr_hci)
-        cdll.LoadLibrary("libc.so.6")
-        libc = CDLL("libc.so.6")
+        sockaddr_hcip = ctypes.POINTER(sockaddr_hci)
+        ctypes.cdll.LoadLibrary("libc.so.6")
+        libc = ctypes.CDLL("libc.so.6")
 
         socket_c = libc.socket
-        socket_c.argtypes = (c_int, c_int, c_int)
-        socket_c.restype = c_int
+        socket_c.argtypes = (ctypes.c_int, ctypes.c_int, ctypes.c_int)
+        socket_c.restype = ctypes.c_int
 
         bind = libc.bind
-        bind.argtypes = (c_int, POINTER(sockaddr_hci), c_int)
-        bind.restype = c_int
+        bind.argtypes = (ctypes.c_int,
+                         ctypes.POINTER(sockaddr_hci),
+                         ctypes.c_int)
+        bind.restype = ctypes.c_int
 
         ########
         # actual code
