@@ -7,7 +7,7 @@
 
 import struct
 import socket
-from scapy.packet import Packet, bind_layers
+from scapy.packet import Packet, bind_layers, bind_bottom_up
 from scapy.fields import LenField, ShortEnumField, XByteField
 from scapy.layers.inet import TCP
 from scapy.supersocket import StreamSocket
@@ -45,6 +45,8 @@ class DoIP(Packet):
         return s[:8], s[8:]
 
 
+bind_bottom_up(TCP, DoIP, sport=6801)
+bind_bottom_up(TCP, DoIP, dport=6801)
 bind_layers(TCP, DoIP, sport=6801, dport=6801)
 bind_layers(DoIP, UDS)
 
