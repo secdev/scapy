@@ -20,12 +20,12 @@
   },
   "format": "text",
   "kw_ko": [
+    "osx",
+    "linux",
     "crypto_advanced",
     "mock_read_routes_bsd",
     "require_gui",
     "open_ssl_client",
-    "ipv6",
-    "osx",
-    "linux"
+    "ipv6"
   ]
 }
