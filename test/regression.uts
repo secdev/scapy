@@ -10486,6 +10486,18 @@ if PYX:
     assert(os.path.exists(filename))
     os.unlink(filename)
 
+= svgdump()
+
+print("PYX: %d" % PYX)
+if PYX:
+    import tempfile
+    import os
+    filename = tempfile.mktemp(suffix=".svg")
+    plist = PacketList([IP()/TCP()])
+    plist.svgdump(filename)
+    assert(os.path.exists(filename))
+    os.unlink(filename)
+
 = __getstate__ / __setstate__ (used by pickle)
 
 import pickle
