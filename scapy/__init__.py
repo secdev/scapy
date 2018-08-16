@@ -61,7 +61,7 @@ def _version_from_git_describe():
 
 
 def _version():
-    version_file = os.path.join(_SCAPY_PKG_DIR, os.path.pardir, 'VERSION')
+    version_file = os.path.join(_SCAPY_PKG_DIR, 'VERSION')
     try:
         tag = _version_from_git_describe()
         # successfully read the tag from git, write it in VERSION for
@@ -78,7 +78,7 @@ def _version():
         except:
             # Rely on git archive "export-subst" git attribute.
             # See 'man gitattributes' for more details.
-            git_archive_id = '$Format:%h$'
+            git_archive_id = '$Format:%h %d$'
             sha1 = git_archive_id.strip().split()[0]
             match = re.search('tag:(\\S+)', git_archive_id)
             if match:
