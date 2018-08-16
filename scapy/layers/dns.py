@@ -34,46 +34,53 @@ def dns_get_str(s, p, pkt=None, _internal=False):
 
     returns: (decoded_string, end_index, left_string)
     """
+    # The _internal parameter is reserved for scapy. It indicates
+    # that the string provided is the full dns packet, and thus
+    # will be the same than pkt._orig_str. The "Cannot decompress"
+    # error will not be prompted if True.
     max_length = len(s)
-    name = b""
-    burned = 0
-    q = 0
-    jpath = [p]
+    name = b""  # The result = the extracted name
+    burned = 0  # The "burned" data, used to determine the remaining bytes
+    q = None  # Will contain the index after the pointer, to be returned
+    processed_pointers = [p]  # Used to check for decompression loops
     while True:
-        if p >= max_length:
+        if abs(p) >= max_length:
             warning("DNS RR prematured end (ofs=%i, len=%i)" % (p, len(s)))
             break
-        l = orb(s[p])  # current value of the string at p
-        p += 1
+        cur = orb(s[p])  # current value of the string at p
+        p += 1  # p is now pointing to the value of the pointer
         burned += 1
-        if l & 0xc0:  # Label pointer
-            if not q:
+        if cur & 0xc0:  # Label pointer
+            if q is None:
+                # p will follow the pointer, whereas q will not
                 q = p + 1
             if p >= max_length:
                 warning("DNS incomplete jump token at (ofs=%i)" % p)
                 break
-            p = ((l & ~0xc0) << 8) + orb(s[p]) - 12
+            p = ((cur & ~0xc0) << 8) + orb(s[p]) - 12  # Follow the pointer
             burned += 1
-            if p in jpath:
-                warning("DNS decompression loop detected")
-                break
             if pkt and hasattr(pkt, "_orig_s") and pkt._orig_s:
                 # There should not be a loop as pkt is None
                 name += dns_get_str(pkt._orig_s, p, None, _internal=True)[0]
                 if burned == max_length:
                     break
+            elif p in processed_pointers:
+                warning("DNS decompression loop detected")
+                break
             elif not _internal:
                 raise Scapy_Exception("DNS message can't be compressed at this point!")  # noqa: E501
-            jpath.append(p)
+            processed_pointers.append(p)
             continue
-        elif l > 0:  # Label
-            name += s[p:p + l] + b"."
-            p += l
-            burned += l
+        elif cur > 0:  # Label
+            name += s[p:p + cur] + b"."
+            p += cur
+            burned += cur
         else:
             break
-    if q:
+    if q is not None:
+        # Return the real end index (not the one we followed)
         p = q
+    # name, end_index, remaining
     return name, p, s[burned:]
 
 
@@ -119,13 +126,13 @@ def dns_compress(pkt):
     dummy_dns = DNSStrField("", "")  # Used for its i2m method
     for current, name, dat in field_gen(dns_pkt):
         for part in possible_shortens(dat):
-            # Uncompress the data
-            decompressed = dummy_dns.i2m(None, part)
+            # Encode the data
+            encoded = dummy_dns.i2m(None, part)
             if part not in data:
                 # We have no occurrence of such data, let's store it as a
                 # possible pointer for future strings.
-                # We get the index of the uncompressed data
-                index = build_pkt.index(decompressed)
+                # We get the index of the encoded data
+                index = build_pkt.index(encoded)
                 index -= burned_data
                 # The following is used to build correctly the pointer
                 fb_index = ((index >> 8) | 0xc0)
@@ -137,7 +144,7 @@ def dns_compress(pkt):
                 # with it, so that it gets compressed
                 data[part].append((current, name))
                 # calculate spared space
-                burned_data += len(decompressed) - 2
+                burned_data += len(encoded) - 2
                 break
     # Apply compression rules
     for ck in data:
@@ -161,7 +168,7 @@ def dns_compress(pkt):
                 pass
     # End of the compression algorithm
     # Destroy the previous DNS layer if needed
-    if pkt.getlayer(DNS).underlayer:
+    if not isinstance(pkt, DNS) and pkt.getlayer(DNS).underlayer:
         pkt.getlayer(DNS).underlayer.remove_payload()
         return pkt / dns_pkt
     return dns_pkt

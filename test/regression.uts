@@ -6505,6 +6505,25 @@ recompressed.an[3].rdlen = None
 
 assert raw(recompressed) == raw(pkt)
 
+= Advanced dns_get_str tests
+~ dns
+
+assert dns_get_str(b"\x06cheese\x00blobofdata....\x06hamand\xc0\x0c", 22, _internal=True)[0] == b'hamand.cheese.'
+
+from scapy.tools.UTscapy import Bunch
+assert dns_get_str(b"\x06hamand\xc0\x0c", 0, pkt=Bunch(_orig_s=b"\x06cheese\x00blobofdata", _orig_p=22))[0] == b'hamand.cheese.'
+
+= Decompression loop in dns_get_str
+~ dns
+
+assert dns_get_str(b"\x04data\xc0\x0c", 0, _internal=True)[0] == b"data."
+
+= Prematured end in dns_get_str
+~ dns
+
+assert dns_get_str(b"\x06da", 0, _internal=True)[0] == b"da."
+assert dns_get_str(b"\x04data\xc0\x01", 0, _internal=True)[0] == b"data."
+
 = Layer binding
 
 * Test DestMACField & DestIPField
