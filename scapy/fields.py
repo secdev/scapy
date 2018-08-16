@@ -340,6 +340,9 @@ the value to set is also known) of ._find_fld_pkt() instead.
     def i2len(self, pkt, val):
         return self._find_fld_pkt_val(pkt, val).i2len(pkt, val)
 
+    def i2repr(self, pkt, val):
+        return self._find_fld_pkt_val(pkt, val).i2repr(pkt, val)
+
     def register_owner(self, cls):
         for fld, _ in self.flds:
             fld.owners.append(cls)
