@@ -328,7 +328,8 @@ class BOOTP_am(AnsweringMachine):
     send_function = staticmethod(sendp)
 
     def parse_options(self, pool=Net("192.168.1.128/25"), network="192.168.1.0/24", gw="192.168.1.1",  # noqa: E501
-                      name_server="192.168.1.1",domain="localnet", renewal_time=60, lease_time=1800):
+                      name_server="192.168.1.1", domain="localnet", 
+                      renewal_time=60, lease_time=1800):
         self.domain = domain
         netw, msk = (network.split("/") + ["32"])[:2]
         msk = itom(int(msk))
