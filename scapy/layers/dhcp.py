@@ -328,7 +328,8 @@ class BOOTP_am(AnsweringMachine):
     send_function = staticmethod(sendp)
 
     def parse_options(self, pool=Net("192.168.1.128/25"), network="192.168.1.0/24", gw="192.168.1.1",  # noqa: E501
-                      domain="localnet", renewal_time=60, lease_time=1800):
+                      name_server="192.168.1.1", domain="localnet", 
+                      renewal_time=60, lease_time=1800):
         self.domain = domain
         netw, msk = (network.split("/") + ["32"])[:2]
         msk = itom(int(msk))
@@ -336,6 +337,7 @@ class BOOTP_am(AnsweringMachine):
         self.network = ltoa(atol(netw) & msk)
         self.broadcast = ltoa(atol(self.network) | (0xffffffff & ~msk))
         self.gw = gw
+        self.name_server = name_server
         if isinstance(pool, six.string_types):
             pool = Net(pool)
         if isinstance(pool, Iterable):
@@ -391,7 +393,7 @@ class DHCP_am(BOOTP_am):
             dhcp_options += [("server_id", self.gw),
                              ("domain", self.domain),
                              ("router", self.gw),
-                             ("name_server", self.gw),
+                             ("name_server", self.name_server),
                              ("broadcast_address", self.broadcast),
                              ("subnet_mask", self.netmask),
                              ("renewal_time", self.renewal_time),
