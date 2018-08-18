@@ -4,8 +4,9 @@
 Scapy *BSD native support - constants
 """
 
-from ctypes import Structure, c_uint, c_void_p, sizeof
+from ctypes import sizeof
 
+from scapy.arch.common import bpf_program
 from scapy.data import MTU
 
 
@@ -13,12 +14,6 @@ SIOCGIFFLAGS = 0xc0206911
 BPF_BUFFER_LENGTH = MTU
 
 # From net/bpf.h
-
-
-class bpf_program(Structure):
-    _fields_ = [("bf_len", c_uint), ("bf_insns", c_void_p)]
-
-
 BIOCIMMEDIATE = 0x80044270
 BIOCGSTATS = 0x4008426f
 BIOCPROMISC = 0x20004269
