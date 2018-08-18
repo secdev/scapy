@@ -68,7 +68,8 @@ def dns_get_str(s, p, pkt=None, _internal=False):
                 warning("DNS decompression loop detected")
                 break
             elif not _internal:
-                raise Scapy_Exception("DNS message can't be compressed at this point!")  # noqa: E501
+                raise Scapy_Exception("DNS message can't be compressed" +
+                                      "at this point!")
             processed_pointers.append(p)
             continue
         elif cur > 0:  # Label
@@ -159,8 +160,8 @@ def dns_compress(pkt):
             # setfieldval edits the value of the field in the layer
             val = rep[0].getfieldval(rep[1])
             assert val.endswith(ck)
-            new_val = dummy_dns.i2m(None, val[:-len(ck)])[:-1] + \
-                replace_pointer  # pointer
+            kept_string = dummy_dns.i2m(None, val[:-len(ck)])[:-1]
+            new_val = kept_string + replace_pointer
             rep[0].setfieldval(rep[1], new_val)
             try:
                 del(rep[0].rdlen)
