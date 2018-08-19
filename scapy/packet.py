@@ -549,7 +549,8 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             if WINDOWS and conf.prog.pdfreader is None:
                 os.startfile(fname)
             else:
-                with ContextManagerSubprocess("pdfdump()", conf.prog.pdfreader):  # noqa: E501
+                with ContextManagerSubprocess("pdfdump()",
+                                              conf.prog.pdfreader):
                     subprocess.Popen([conf.prog.pdfreader, fname])
         else:
             canvas.writePDFfile(filename)
@@ -571,7 +572,8 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             if WINDOWS and conf.prog.svgreader is None:
                 os.startfile(fname)
             else:
-                with ContextManagerSubprocess("svgdump()", conf.prog.svgreader):  # noqa: E501
+                with ContextManagerSubprocess("svgdump()",
+                                              conf.prog.svgreader):
                     subprocess.Popen([conf.prog.svgreader, fname])
         else:
             canvas.writeSVGfile(filename)
