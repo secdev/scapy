@@ -664,7 +664,9 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
                     fsize = '%sb' % field.size
                 else:
                     fsize = '%sB' % len(fdump)
-                if 'LE' in field.__class__.__name__[:3]:
+                if (hasattr(field, 'field') and
+                        'LE' in field.field.__class__.__name__[:3] or
+                        'LE' in field.__class__.__name__[:3]):
                     fsize = r'$\scriptstyle\langle$' + fsize
                 st = pyx.text.text(XSTART + 3.4, (YTXT - y) * YMUL, r"\font\cmbxfont=cmssbx10 scaled 600\cmbxfont{%s}" % fsize, [pyx.text.halign.boxright])  # noqa: E501
                 if isinstance(fval, str):
