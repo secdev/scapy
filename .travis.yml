@@ -85,6 +85,12 @@ matrix:
 
         - os: linux
           sudo: required
+          python: 3.7
+          env:
+            - TOXENV=py37-linux_root,codecov
+
+        - os: linux
+          sudo: required
           python: 2.7
           virtualenv:
             system_site_packages: true
