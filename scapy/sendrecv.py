@@ -667,7 +667,7 @@ def sndrcvflood(pks, pkt, inter=0, verbose=None, chainCC=False, store_unanswered
         while True:
             for p in tobesent:
                 if stopevent.is_set():
-                    raise StopIteration()
+                    return
                 count_packets.put(0)
                 yield p
 

@@ -164,7 +164,7 @@ class OID(Gen):
             i = 0
             while True:
                 if i >= len(ii):
-                    raise StopIteration
+                    return
                 if ii[i] < self.cmpt[i][1]:
                     ii[i] += 1
                     break
