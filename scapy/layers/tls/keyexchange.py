@@ -743,7 +743,11 @@ class ClientDiffieHellmanPublic(_GenericTLSSessionInheritance):
         if s.client_kx_privkey and s.server_kx_pubkey:
             pms = s.client_kx_privkey.exchange(s.server_kx_pubkey)
             s.pre_master_secret = pms
-            s.compute_ms_and_derive_keys()
+            if not s.extms or s.session_hash:
+                # If extms is set (extended master secret), the key will
+                # need the session hash to be computed. This is provided
+                # by the TLSClientKeyExchange. Same in all occurrences
+                s.compute_ms_and_derive_keys()
 
     def post_build(self, pkt, pay):
         if not self.dh_Yc:
@@ -773,7 +777,8 @@ class ClientDiffieHellmanPublic(_GenericTLSSessionInheritance):
         if s.server_kx_privkey and s.client_kx_pubkey:
             ZZ = s.server_kx_privkey.exchange(s.client_kx_pubkey)
             s.pre_master_secret = ZZ
-            s.compute_ms_and_derive_keys()
+            if not s.extms or s.session_hash:
+                s.compute_ms_and_derive_keys()
 
     def guess_payload_class(self, p):
         return Padding
@@ -805,7 +810,8 @@ class ClientECDiffieHellmanPublic(_GenericTLSSessionInheritance):
         if s.client_kx_privkey and s.server_kx_pubkey:
             pms = s.client_kx_privkey.exchange(ec.ECDH(), s.server_kx_pubkey)
             s.pre_master_secret = pms
-            s.compute_ms_and_derive_keys()
+            if not s.extms or s.session_hash:
+                s.compute_ms_and_derive_keys()
 
     def post_build(self, pkt, pay):
         if not self.ecdh_Yc:
@@ -830,7 +836,8 @@ class ClientECDiffieHellmanPublic(_GenericTLSSessionInheritance):
         if s.server_kx_privkey and s.client_kx_pubkey:
             ZZ = s.server_kx_privkey.exchange(ec.ECDH(), s.client_kx_pubkey)
             s.pre_master_secret = ZZ
-            s.compute_ms_and_derive_keys()
+            if not s.extms or s.session_hash:
+                s.compute_ms_and_derive_keys()
 
 
 # RSA Encryption (standard & export)
@@ -893,7 +900,8 @@ class EncryptedPreMasterSecret(_GenericTLSSessionInheritance):
             warning(err)
 
         s.pre_master_secret = pms
-        s.compute_ms_and_derive_keys()
+        if not s.extms or s.session_hash:
+            s.compute_ms_and_derive_keys()
 
         return pms
 
@@ -908,7 +916,8 @@ class EncryptedPreMasterSecret(_GenericTLSSessionInheritance):
 
         s = self.tls_session
         s.pre_master_secret = enc
-        s.compute_ms_and_derive_keys()
+        if not s.extms or s.session_hash:
+            s.compute_ms_and_derive_keys()
 
         if s.server_tmp_rsa_key is not None:
             enc = s.server_tmp_rsa_key.encrypt(pkt, t="pkcs")

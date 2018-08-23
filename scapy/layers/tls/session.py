@@ -453,6 +453,10 @@ class tlsSession(object):
         self.handshake_messages = []
         self.handshake_messages_parsed = []
 
+        # Flag, whether we derive the secret as Extended MS or not
+        self.extms = False
+        self.session_hash = None
+
         # All exchanged TLS packets.
         # XXX no support for now
         # self.exchanged_pkts = []
@@ -526,10 +530,14 @@ class tlsSession(object):
             warning("Missing client_random while computing master_secret!")
         if self.server_random is None:
             warning("Missing server_random while computing master_secret!")
+        if self.extms and self.session_hash is None:
+            warning("Missing session hash while computing master secret!")
 
         ms = self.pwcs.prf.compute_master_secret(self.pre_master_secret,
                                                  self.client_random,
-                                                 self.server_random)
+                                                 self.server_random,
+                                                 self.extms,
+                                                 self.session_hash)
         self.master_secret = ms
         if conf.debug_tls:
             log_runtime.debug("TLS: master secret: %s", repr_hex(ms))

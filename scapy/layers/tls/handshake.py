@@ -48,7 +48,8 @@ from scapy.layers.tls.extensions import (_ExtensionsLenField, _ExtensionsField,
                                          TLS_Ext_SignatureAlgorithms,
                                          TLS_Ext_SupportedVersion_SH,
                                          TLS_Ext_EarlyDataIndication,
-                                         _tls_hello_retry_magic)
+                                         _tls_hello_retry_magic,
+                                         TLS_Ext_ExtendedMasterSecret)
 from scapy.layers.tls.keyexchange import (_TLSSignature, _TLSServerParamsField,
                                           _TLSSignatureField, ServerRSAParams,
                                           SigAndHashAlgsField, _tls_hash_sig,
@@ -111,6 +112,7 @@ class _TLSHandshake(_GenericTLSSessionInheritance):
         """
         Covers both post_build- and post_dissection- context updates.
         """
+
         self.tls_session.handshake_messages.append(msg_str)
         self.tls_session.handshake_messages_parsed.append(self)
 
@@ -539,6 +541,13 @@ class TLSServerHello(_TLSHandshake):
         else:
             s.server_random = self.random_bytes
         s.sid = self.sid
+
+        # EXTMS
+        if self.ext:
+            for e in self.ext:
+                if isinstance(e, TLS_Ext_ExtendedMasterSecret):
+                    self.tls_session.extms = True
+                    break
 
         cs_cls = None
         if self.cipher:
@@ -1295,6 +1304,26 @@ class TLSClientKeyExchange(_TLSHandshake):
                 cls = Raw()
             self.exchkeys = cls
         return _TLSHandshake.build(self, *args, **kargs)
+
+    def tls_session_update(self, msg_str):
+        """
+        Finalize the EXTMS messages and compute the hash
+        """
+        super(TLSClientKeyExchange, self).tls_session_update(msg_str)
+
+        if self.tls_session.extms:
+            to_hash = b''.join(self.tls_session.handshake_messages)
+            if self.tls_session.tls_version >= 0x303:
+                # TLS 1.2 uses the default hash from cipher suite
+                hash_object = self.tls_session.pwcs.hash
+                self.tls_session.session_hash = hash_object.digest(to_hash)
+            else:
+                # Previous TLS version use concatenation of MD5 & SHA1
+                from scapy.layers.tls.crypto.hash import Hash_MD5, Hash_SHA
+                self.tls_session.session_hash = (
+                    Hash_MD5().digest(to_hash) + Hash_SHA().digest(to_hash)
+                )
+            self.tls_session.compute_ms_and_derive_keys()
 
 
 ###############################################################################
