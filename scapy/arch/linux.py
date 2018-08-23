@@ -269,10 +269,12 @@ def read_routes():
             ifreq = ioctl(s, SIOCGIFADDR, struct.pack("16s16x", iff.encode("utf8")))  # noqa: E501
         except IOError:  # interface is present in routing tables but does not have any assigned IP  # noqa: E501
             ifaddr = "0.0.0.0"
+            ifaddr_int = 0
         else:
             addrfamily = struct.unpack("h", ifreq[16:18])[0]
             if addrfamily == socket.AF_INET:
                 ifaddr = scapy.utils.inet_ntoa(ifreq[20:24])
+                ifaddr_int = struct.unpack("!I", ifreq[20:24])[0]
             else:
                 warning("Interface %s: unknown address family (%i)", iff, addrfamily)  # noqa: E501
                 continue
@@ -280,7 +282,6 @@ def read_routes():
         # Attempt to detect an interface alias based on addresses inconsistencies  # noqa: E501
         dst_int = socket.htonl(int(dst, 16)) & 0xffffffff
         msk_int = socket.htonl(int(msk, 16)) & 0xffffffff
-        ifaddr_int = struct.unpack("!I", ifreq[20:24])[0]
         gw_str = scapy.utils.inet_ntoa(struct.pack("I", int(gw, 16)))
         metric = int(metric)
 
