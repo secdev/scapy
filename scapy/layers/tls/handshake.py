@@ -34,7 +34,9 @@ from scapy.layers.tls.extensions import (_ExtensionsLenField, _ExtensionsField,
                                          TLS_Ext_SignatureAlgorithms,
                                          TLS_Ext_SupportedVersion_SH,
                                          TLS_Ext_EarlyDataIndication,
-                                         _tls_hello_retry_magic)
+                                         _tls_hello_retry_magic,
+                                         TLS_Ext_SupportedVersions,
+                                         TLS_Ext_ExtendedMasterSecret)
 from scapy.layers.tls.keyexchange import (_TLSSignature, _TLSServerParamsField,
                                           _TLSSignatureField, ServerRSAParams,
                                           SigAndHashAlgsField, _tls_hash_sig,
@@ -96,6 +98,7 @@ class _TLSHandshake(_GenericTLSSessionInheritance):
         """
         Covers both post_build- and post_dissection- context updates.
         """
+
         self.tls_session.handshake_messages.append(msg_str)
         self.tls_session.handshake_messages_parsed.append(self)
 
@@ -446,6 +449,13 @@ class TLSServerHello(_TLSHandshake):
                                                       self.gmt_unix_time) +
                                           self.random_bytes)
         self.tls_session.sid = self.sid
+
+        # EXTMS
+        if self.ext:
+            for e in self.ext:
+                if isinstance(e, TLS_Ext_ExtendedMasterSecret):
+                    self.tls_session.extms = True
+                    break
 
         cs_cls = None
         if self.cipher:
@@ -1183,6 +1193,22 @@ class TLSClientKeyExchange(_TLSHandshake):
                 cls = Raw()
             self.exchkeys = cls
         return _TLSHandshake.build(self, *args, **kargs)
+
+    def tls_session_update(self, msg_str):
+        """
+        Finalize the EXTMS messages and compute the hash
+        """
+
+        self.tls_session.handshake_messages.append(msg_str)
+        self.tls_session.handshake_messages_parsed.append(self)
+
+        if self.tls_session.extms:
+            hash_object = self.tls_session.pwcs.hash
+            to_hash = b''.join(self.tls_session.handshake_messages)
+            self.tls_session.session_hash = hash_object.digest(to_hash)
+
+
+
 
 
 ###############################################################################
