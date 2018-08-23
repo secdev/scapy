@@ -522,7 +522,8 @@ class tlsSession(object):
             warning("Missing client_random while computing master_secret!")
         if self.server_random is None:
             warning("Missing server_random while computing master_secret!")
-
+        if self.extms and self.session_hash is None:
+            warning("Missing session hash while computing master secret!")
 
         ms = self.pwcs.prf.compute_master_secret(self.pre_master_secret,
                                                  self.client_random,
