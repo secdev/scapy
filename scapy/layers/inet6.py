@@ -1676,6 +1676,7 @@ icmp6ndraprefs = {0: "Medium (default)",
                   2: "Reserved",
                   3: "Low"}  # RFC 4191
 
+
 class _ICMPv6NDGuessPayload:
     name = "Dummy ND class that implements guess_payload_class()"
 
@@ -1728,7 +1729,9 @@ class ICMPv6NDOptPrefixInfo(_ICMPv6NDGuessPayload, Packet):
                    IP6Field("prefix", "::")]
 
     def mysummary(self):
-        return self.sprintf("%name% %prefix%/%prefixlen% On-link %L% Autonomous Address %A% Router Address %R%")
+        return self.sprintf("%name% %prefix%/%prefixlen% "
+                            "On-link %L% Autonomous Address %A% "
+                            "Router Address %R%")
 
 # TODO: We should also limit the size of included packet to something
 # like (initiallen - 40 - 2)
