@@ -2567,6 +2567,9 @@ a=IPv6(b'`\x00\x00\x00\x00\x10:\xff \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x
 b = IPv6(b"`\x00\x00\x00\x00\x10:\xff\xff\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x85\x00M\xff\x00\x00\x00\x00")
 assert a.answers(b)
 
+= ICMPv6ND_RA - Summary Output
+ICMPv6ND_RA(chlim=42, M=0, O=1, H=0, prf=1, P=0, routerlifetime=300).mysummary() == "ICMPv6 Neighbor Discovery - Router Advertisement Lifetime 300 Hop Limit 42 Preference High Managed 0 Other 1 Home 0"
+
 ############
 ############
 + ICMPv6ND_NS Class Test
@@ -2762,6 +2765,9 @@ a.type == 5 and a.len == 1 and a.res == 0 and a.mtu == 1280
 = ICMPv6NDOptMTU - Dissection with specific values
 a=ICMPv6NDOptMTU(b'\x05\x02\x11\x11\x00\x00\x05\xdc')
 a.type == 5 and a.len == 2 and a.res == 0x1111 and a.mtu == 1500
+
+= ICMPv6NDOptMTU - Summary Output
+ICMPv6NDOptMTU(b'\x05\x02\x11\x11\x00\x00\x05\xdc').mysummary() == "ICMPv6 Neighbor Discovery Option - MTU 1500"
 
 
 ############
@@ -2967,6 +2973,9 @@ a.type == 24 and a.len == 3 and a.plen == 0 and a.res1 == 0 and a.prf == 0 and a
 a=ICMPv6NDOptRouteInfo(b'\x18\x04\x119"""" \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01')
 a.plen == 0x11 and a.res1 == 1 and a.prf == 3 and a.res2 == 1 and a.rtlifetime == 0x22222222 and a.prefix == "2001:db8::1" 
 
+= ICMPv6NDOptRouteInfo - Summary Output
+ICMPv6NDOptRouteInfo(b'\x18\x04\x119"""" \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01').mysummary() == "ICMPv6 Neighbor Discovery Option - Route Information Option 2001:db8::1/17 Preference Low"
+
 
 ############
 ############
@@ -3015,6 +3024,10 @@ a.type==25 and a.len==3 and a.res ==0 and len(a.dns) == 1 and a.dns[0] == "2001:
 a=ICMPv6NDOptRDNSS(b'\x19\x05\xaa\xee\xff\xff\xff\xff \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02')
 a.type==25 and a.len==5 and a.res == 0xaaee and len(a.dns) == 2 and a.dns[0] == "2001:db8::1" and a.dns[1] == "2001:db8::2"
 
+= ICMPv6NDOptRDNSS - Summary Output
+a=ICMPv6NDOptRDNSS(b'\x19\x05\xaa\xee\xff\xff\xff\xff \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02')
+a.mysummary() == "ICMPv6 Neighbor Discovery Option - Recursive DNS Server Option 2001:db8::1, 2001:db8::2"
+
 
 ############
 ############
@@ -3039,6 +3052,9 @@ p.type == 31 and p.len == 1 and p.res == 0 and p.searchlist == []
 = ICMPv6NDOptDNSSL - Basic Dissection with specific values
 p = ICMPv6NDOptDNSSL(b'\x1f\x02\x00\x00\x00\x00\x00<\x04home\x00\x00\x00')
 p.type == 31 and p.len == 2 and p.res == 0 and p.lifetime == 60 and p.searchlist == ["home."]
+
+= ICMPv6NDOptDNSSL - Summary Output
+ICMPv6NDOptDNSSL(searchlist=["home.", "office."]).mysummary() == "ICMPv6 Neighbor Discovery Option - DNS Search List Option home., office."
 
 
 ############

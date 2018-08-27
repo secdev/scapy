@@ -1671,6 +1671,11 @@ icmp6ndoptscls = {1: "ICMPv6NDOptSrcLLAddr",
                   31: "ICMPv6NDOptDNSSL"
                   }
 
+icmp6ndraprefs = {0: "Medium (default)",
+                  1: "High",
+                  2: "Reserved",
+                  3: "Low"}  # RFC 4191
+
 
 class _ICMPv6NDGuessPayload:
     name = "Dummy ND class that implements guess_payload_class()"
@@ -1724,7 +1729,9 @@ class ICMPv6NDOptPrefixInfo(_ICMPv6NDGuessPayload, Packet):
                    IP6Field("prefix", "::")]
 
     def mysummary(self):
-        return self.sprintf("%name% %prefix%")
+        return self.sprintf("%name% %prefix%/%prefixlen% "
+                            "On-link %L% Autonomous Address %A% "
+                            "Router Address %R%")
 
 # TODO: We should also limit the size of included packet to something
 # like (initiallen - 40 - 2)
@@ -1780,6 +1787,9 @@ class ICMPv6NDOptMTU(_ICMPv6NDGuessPayload, Packet):
                    ByteField("len", 1),
                    XShortField("res", 0),
                    IntField("mtu", 1280)]
+
+    def mysummary(self):
+        return self.sprintf("%name% %mtu%")
 
 
 class ICMPv6NDOptShortcutLimit(_ICMPv6NDGuessPayload, Packet):  # RFC 2491
@@ -1916,10 +1926,13 @@ class ICMPv6NDOptRouteInfo(_ICMPv6NDGuessPayload, Packet):  # RFC 4191
                                  adjust=lambda pkt, x: x // 8 + 1),
                    ByteField("plen", None),
                    BitField("res1", 0, 3),
-                   BitField("prf", 0, 2),
+                   BitEnumField("prf", 0, 2, icmp6ndraprefs),
                    BitField("res2", 0, 3),
                    IntField("rtlifetime", 0xffffffff),
                    _IP6PrefixField("prefix", None)]
+
+    def mysummary(self):
+        return self.sprintf("%name% %prefix%/%plen% Preference %prf%")
 
 
 class ICMPv6NDOptRDNSS(_ICMPv6NDGuessPayload, Packet):  # RFC 5006
@@ -1931,6 +1944,9 @@ class ICMPv6NDOptRDNSS(_ICMPv6NDGuessPayload, Packet):  # RFC 5006
                    IntField("lifetime", 0xffffffff),
                    IP6ListField("dns", [],
                                 length_from=lambda pkt: 8 * (pkt.len - 1))]
+
+    def mysummary(self):
+        return self.sprintf("%name% " + ", ".join(self.dns))
 
 
 class ICMPv6NDOptEFA(_ICMPv6NDGuessPayload, Packet):  # RFC 5175 (prev. 5075)
@@ -2006,6 +2022,9 @@ class ICMPv6NDOptDNSSL(_ICMPv6NDGuessPayload, Packet):  # RFC 6106
                                        padded=True)
                    ]
 
+    def mysummary(self):
+        return self.sprintf("%name% " + ", ".join(self.searchlist))
+
 # End of ICMPv6 Neighbor Discovery Options.
 
 
@@ -2027,10 +2046,7 @@ class ICMPv6ND_RA(_ICMPv6NDGuessPayload, _ICMPv6):
                    BitField("M", 0, 1),
                    BitField("O", 0, 1),
                    BitField("H", 0, 1),
-                   BitEnumField("prf", 1, 2, {0: "Medium (default)",
-                                              1: "High",
-                                              2: "Reserved",
-                                              3: "Low"}),  # RFC 4191
+                   BitEnumField("prf", 1, 2, icmp6ndraprefs),  # RFC 4191
                    BitField("P", 0, 1),
                    BitField("res", 0, 2),
                    ShortField("routerlifetime", 1800),
@@ -2040,6 +2056,11 @@ class ICMPv6ND_RA(_ICMPv6NDGuessPayload, _ICMPv6):
 
     def answers(self, other):
         return isinstance(other, ICMPv6ND_RS)
+
+    def mysummary(self):
+        return self.sprintf("%name% Lifetime %routerlifetime% "
+                            "Hop Limit %chlim% Preference %prf% "
+                            "Managed %M% Other %O% Home %H%")
 
 
 class ICMPv6ND_NS(_ICMPv6NDGuessPayload, _ICMPv6, Packet):
