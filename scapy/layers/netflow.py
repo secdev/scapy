@@ -533,3 +533,5 @@ class NetflowOptionsFlowsetV9(Packet):
 bind_layers(NetflowHeader, NetflowHeaderV9, version=9)
 bind_layers(NetflowHeaderV9, NetflowDataflowsetV9)
 bind_layers(NetflowDataflowsetV9, NetflowDataflowsetV9)
+bind_layers(NetflowOptionsFlowsetV9, NetflowDataflowsetV9)
+bind_layers(NetflowFlowsetV9, NetflowDataflowsetV9)
