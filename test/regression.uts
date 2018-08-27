@@ -2974,7 +2974,7 @@ a=ICMPv6NDOptRouteInfo(b'\x18\x04\x119"""" \x01\r\xb8\x00\x00\x00\x00\x00\x00\x0
 a.plen == 0x11 and a.res1 == 1 and a.prf == 3 and a.res2 == 1 and a.rtlifetime == 0x22222222 and a.prefix == "2001:db8::1" 
 
 = ICMPv6NDOptRouteInfo - Summary Output
-ICMPv6NDOptRouteInfo(b'\x18\x04\x119"""" \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01').mysummary == "ICMPv6 Neighbor Discovery Option - Route Information Option 2001:db8::1/17 Preference Low"
+ICMPv6NDOptRouteInfo(b'\x18\x04\x119"""" \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01').mysummary() == "ICMPv6 Neighbor Discovery Option - Route Information Option 2001:db8::1/17 Preference Low"
 
 
 ############
