@@ -1946,7 +1946,7 @@ class ICMPv6NDOptRDNSS(_ICMPv6NDGuessPayload, Packet):  # RFC 5006
                                 length_from=lambda pkt: 8 * (pkt.len - 1))]
 
     def mysummary(self):
-        return self.sprintf("%name% %dns%")
+        return self.sprintf("%name% " + ", ".join(self.dns))
 
 
 class ICMPv6NDOptEFA(_ICMPv6NDGuessPayload, Packet):  # RFC 5175 (prev. 5075)
@@ -2023,7 +2023,7 @@ class ICMPv6NDOptDNSSL(_ICMPv6NDGuessPayload, Packet):  # RFC 6106
                    ]
 
     def mysummary(self):
-        return self.sprintf("%name% %searchlist%")
+        return self.sprintf("%name% " + ", ".join(self.searchlist))
 
 # End of ICMPv6 Neighbor Discovery Options.
 
