@@ -9,7 +9,7 @@ import struct
 from scapy.fields import ByteEnumField, StrField, ConditionalField, \
     BitEnumField, BitField, XByteField, FieldListField, \
     XShortField, X3BytesField, XIntField, ByteField, \
-    ShortField, ObservableDict, XShortEnumField, XByteEnumField
+    ShortField, XShortEnumField, XByteEnumField
 from scapy.packet import Packet, bind_layers
 
 """
@@ -18,58 +18,58 @@ UDS
 
 
 class UDS(Packet):
-    services = ObservableDict(
-        {0x10: 'DiagnosticSessionControl',
-         0x11: 'ECUReset',
-         0x14: 'ClearDiagnosticInformation',
-         0x19: 'ReadDTCInformation',
-         0x22: 'ReadDataByIdentifier',
-         0x23: 'ReadMemoryByAddress',
-         0x24: 'ReadScalingDataByIdentifier',
-         0x27: 'SecurityAccess',
-         0x28: 'CommunicationControl',
-         0x2A: 'ReadDataPeriodicIdentifier',
-         0x2C: 'DynamicallyDefineDataIdentifier',
-         0x2E: 'WriteDataByIdentifier',
-         0x2F: 'InputOutputControlByIdentifier',
-         0x31: 'RoutineControl',
-         0x34: 'RequestDownload',
-         0x35: 'RequestUpload',
-         0x36: 'TransferData',
-         0x37: 'RequestTransferExit',
-         0x3D: 'WriteMemoryByAddress',
-         0x3E: 'TesterPresent',
-         0x50: 'DiagnosticSessionControlPositiveResponse',
-         0x51: 'ECUResetPositiveResponse',
-         0x54: 'ClearDiagnosticInformationPositiveResponse',
-         0x59: 'ReadDTCInformationPositiveResponse',
-         0x62: 'ReadDataByIdentifierPositiveResponse',
-         0x63: 'ReadMemoryByAddressPositiveResponse',
-         0x64: 'ReadScalingDataByIdentifierPositiveResponse',
-         0x67: 'SecurityAccessPositiveResponse',
-         0x68: 'CommunicationControlPositiveResponse',
-         0x6A: 'ReadDataPeriodicIdentifierPositiveResponse',
-         0x6C: 'DynamicallyDefineDataIdentifierPositiveResponse',
-         0x6E: 'WriteDataByIdentifierPositiveResponse',
-         0x6F: 'InputOutputControlByIdentifierPositiveResponse',
-         0x71: 'RoutineControlPositiveResponse',
-         0x74: 'RequestDownloadPositiveResponse',
-         0x75: 'RequestUploadPositiveResponse',
-         0x76: 'TransferDataPositiveResponse',
-         0x77: 'RequestTransferExitPositiveResponse',
-         0x7D: 'WriteMemoryByAddressPositiveResponse',
-         0x7E: 'TesterPresentPositiveResponse',
-         0x83: 'AccessTimingParameter',
-         0x84: 'SecuredDataTransmission',
-         0x85: 'ControlDTCSetting',
-         0x86: 'ResponseOnEvent',
-         0x87: 'LinkControl',
-         0xC3: 'AccessTimingParameterPositiveResponse',
-         0xC4: 'SecuredDataTransmissionPositiveResponse',
-         0xC5: 'ControlDTCSettingPositiveResponse',
-         0xC6: 'ResponseOnEventPositiveResponse',
-         0xC7: 'LinkControlPositiveResponse',
-         0x7f: 'NegativeResponse'})
+    services = {
+        0x10: 'DiagnosticSessionControl',
+        0x11: 'ECUReset',
+        0x14: 'ClearDiagnosticInformation',
+        0x19: 'ReadDTCInformation',
+        0x22: 'ReadDataByIdentifier',
+        0x23: 'ReadMemoryByAddress',
+        0x24: 'ReadScalingDataByIdentifier',
+        0x27: 'SecurityAccess',
+        0x28: 'CommunicationControl',
+        0x2A: 'ReadDataPeriodicIdentifier',
+        0x2C: 'DynamicallyDefineDataIdentifier',
+        0x2E: 'WriteDataByIdentifier',
+        0x2F: 'InputOutputControlByIdentifier',
+        0x31: 'RoutineControl',
+        0x34: 'RequestDownload',
+        0x35: 'RequestUpload',
+        0x36: 'TransferData',
+        0x37: 'RequestTransferExit',
+        0x3D: 'WriteMemoryByAddress',
+        0x3E: 'TesterPresent',
+        0x50: 'DiagnosticSessionControlPositiveResponse',
+        0x51: 'ECUResetPositiveResponse',
+        0x54: 'ClearDiagnosticInformationPositiveResponse',
+        0x59: 'ReadDTCInformationPositiveResponse',
+        0x62: 'ReadDataByIdentifierPositiveResponse',
+        0x63: 'ReadMemoryByAddressPositiveResponse',
+        0x64: 'ReadScalingDataByIdentifierPositiveResponse',
+        0x67: 'SecurityAccessPositiveResponse',
+        0x68: 'CommunicationControlPositiveResponse',
+        0x6A: 'ReadDataPeriodicIdentifierPositiveResponse',
+        0x6C: 'DynamicallyDefineDataIdentifierPositiveResponse',
+        0x6E: 'WriteDataByIdentifierPositiveResponse',
+        0x6F: 'InputOutputControlByIdentifierPositiveResponse',
+        0x71: 'RoutineControlPositiveResponse',
+        0x74: 'RequestDownloadPositiveResponse',
+        0x75: 'RequestUploadPositiveResponse',
+        0x76: 'TransferDataPositiveResponse',
+        0x77: 'RequestTransferExitPositiveResponse',
+        0x7D: 'WriteMemoryByAddressPositiveResponse',
+        0x7E: 'TesterPresentPositiveResponse',
+        0x83: 'AccessTimingParameter',
+        0x84: 'SecuredDataTransmission',
+        0x85: 'ControlDTCSetting',
+        0x86: 'ResponseOnEvent',
+        0x87: 'LinkControl',
+        0xC3: 'AccessTimingParameterPositiveResponse',
+        0xC4: 'SecuredDataTransmissionPositiveResponse',
+        0xC5: 'ControlDTCSettingPositiveResponse',
+        0xC6: 'ResponseOnEventPositiveResponse',
+        0xC7: 'LinkControlPositiveResponse',
+        0x7f: 'NegativeResponse'}
     name = 'UDS'
     fields_desc = [
         XByteEnumField('service', 0, services)
@@ -399,7 +399,7 @@ bind_layers(UDS, UDS_LCPR, service=0xC7)
 
 # #########################RDBI###################################
 class UDS_RDBI(Packet):
-    dataIdentifiers = ObservableDict()
+    dataIdentifiers = {}
     name = 'ReadDataByIdentifier'
     fields_desc = [
         FieldListField("identifiers", [],
