@@ -14,14 +14,13 @@ import ctypes
 from ctypes.util import find_library
 import struct
 import socket
-import time
 
 import scapy.modules.six as six
 from scapy.error import Scapy_Exception, warning
 from scapy.packet import Packet
 from scapy.fields import StrField
 from scapy.supersocket import SuperSocket
-from scapy.sendrecv import sndrcv, sniff
+from scapy.sendrecv import sndrcv
 from scapy.arch.linux import get_last_packet_timestamp, SIOCGIFINDEX
 from scapy.config import conf
 from scapy.consts import WINDOWS
@@ -48,14 +47,6 @@ class ISOTP(Packet):
     fields_desc = [
         StrField('data', B"")
     ]
-
-    def hashret(self):
-        return self.payload.hashret()
-
-    def answers(self, other):
-        if other.__class__ == self.__class__:
-            return self.payload.answers(other.payload)
-        return 0
 
 
 CAN_MTU = 16
@@ -327,19 +318,3 @@ class ISOTPSocket(SuperSocket):
 
         ts = get_last_packet_timestamp(self.ins)
         return self.basecls, pkt, ts
-
-    def send(self, x):
-        if hasattr(x, "sent_time"):
-            x.sent_time = time.time()
-        return self.outs.send(bytes(x))
-
-    def sr(self, *args, **kargs):
-        return sndrcv(self, *args, **kargs)
-
-    def sr1(self, *args, **kargs):
-        data = sndrcv(self, *args, **kargs)
-        if data:
-            return data[0][0][1]
-
-    def sniff(self, *args, **kargs):
-        return sniff(opened_socket=self, *args, **kargs)
