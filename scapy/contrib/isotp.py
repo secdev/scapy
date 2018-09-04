@@ -318,8 +318,3 @@ class ISOTPSocket(SuperSocket):
 
         ts = get_last_packet_timestamp(self.ins)
         return self.basecls, pkt, ts
-
-    def sr1(self, *args, **kargs):
-        data = sndrcv(self, *args, **kargs)
-        if data:
-            return data[0][0][1]
