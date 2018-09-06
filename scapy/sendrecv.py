@@ -16,7 +16,7 @@ from select import select, error as select_error
 import subprocess
 import time
 import types
-
+import socket
 from scapy.consts import DARWIN, FREEBSD, OPENBSD, WINDOWS
 from scapy.compat import plain_str
 from scapy.data import ETH_P_ALL, MTU
@@ -924,6 +924,9 @@ def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
             for s in ins:
                 try:
                     p = s.recv()
+                except socket.error:
+                    del sniff_sockets[s]
+                    break
                 except read_allowed_exceptions:
                     continue
                 if p is None:
