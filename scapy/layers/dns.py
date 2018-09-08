@@ -19,10 +19,160 @@ from scapy.ansmachine import *
 from scapy.sendrecv import sr1
 from scapy.layers.inet import IP, DestIPField, UDP, TCP
 from scapy.layers.inet6 import DestIP6Field
-from scapy.error import warning
+from scapy.error import warning, Scapy_Exception
 from functools import reduce
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
+
+
+def dns_get_str(s, p, pkt=None, _internal=False):
+    """This function decompresses a string s, from the character p.
+    params:
+     - s: the string to decompress
+     - p: start index of the string
+     - pkt: (optional) an InheritOriginDNSStrPacket packet
+
+    returns: (decoded_string, end_index, left_string)
+    """
+    # The _internal parameter is reserved for scapy. It indicates
+    # that the string provided is the full dns packet, and thus
+    # will be the same than pkt._orig_str. The "Cannot decompress"
+    # error will not be prompted if True.
+    max_length = len(s)
+    name = b""  # The result = the extracted name
+    burned = 0  # The "burned" data, used to determine the remaining bytes
+    q = None  # Will contain the index after the pointer, to be returned
+    processed_pointers = [p]  # Used to check for decompression loops
+    while True:
+        if abs(p) >= max_length:
+            warning("DNS RR prematured end (ofs=%i, len=%i)" % (p, len(s)))
+            break
+        cur = orb(s[p])  # current value of the string at p
+        p += 1  # p is now pointing to the value of the pointer
+        burned += 1
+        if cur & 0xc0:  # Label pointer
+            if q is None:
+                # p will follow the pointer, whereas q will not
+                q = p + 1
+            if p >= max_length:
+                warning("DNS incomplete jump token at (ofs=%i)" % p)
+                break
+            p = ((cur & ~0xc0) << 8) + orb(s[p]) - 12  # Follow the pointer
+            burned += 1
+            if pkt and hasattr(pkt, "_orig_s") and pkt._orig_s:
+                # There should not be a loop as pkt is None
+                name += dns_get_str(pkt._orig_s, p, None, _internal=True)[0]
+                if burned == max_length:
+                    break
+            elif p in processed_pointers:
+                warning("DNS decompression loop detected")
+                break
+            elif not _internal:
+                raise Scapy_Exception("DNS message can't be compressed" +
+                                      "at this point!")
+            processed_pointers.append(p)
+            continue
+        elif cur > 0:  # Label
+            name += s[p:p + cur] + b"."
+            p += cur
+            burned += cur
+        else:
+            break
+    if q is not None:
+        # Return the real end index (not the one we followed)
+        p = q
+    # name, end_index, remaining
+    return name, p, s[burned:]
+
+
+def DNSgetstr(*args, **kwargs):
+    """Legacy function. Deprecated"""
+    raise DeprecationWarning("DNSgetstr deprecated. Use dns_get_str instead")
+    return dns_get_str(*args, **kwargs)
+
+
+def dns_compress(pkt):
+    """This function compresses a DNS packet according to compression rules.
+    """
+    if DNS not in pkt:
+        raise Scapy_Exception("Can only compress DNS layers")
+    pkt = pkt.copy()
+    dns_pkt = pkt.getlayer(DNS)
+    build_pkt = raw(dns_pkt)
+
+    def field_gen(dns_pkt):
+        """Iterates through all DNS strings that can be compressed"""
+        for lay in [dns_pkt.qd, dns_pkt.an, dns_pkt.ns, dns_pkt.ar]:
+            if lay is None:
+                continue
+            current = lay
+            while not isinstance(current, NoPayload):
+                if isinstance(current, InheritOriginDNSStrPacket):
+                    for field in current.fields_desc:
+                        if isinstance(field, DNSStrField) or \
+                           (isinstance(field, RDataField) and
+                           current.type in [2, 5, 12]):
+                                # Get the associated data and store it accordingly  # noqa: E501
+                                dat = current.getfieldval(field.name)
+                                yield current, field.name, dat
+                current = current.payload
+
+    def possible_shortens(dat):
+        """Iterates through all possible compression parts in a DNS string"""
+        yield dat
+        for x in range(1, dat.count(b".")):
+            yield dat.split(b".", x)[x]
+    data = {}
+    burned_data = 0
+    dummy_dns = DNSStrField("", "")  # Used for its i2m method
+    for current, name, dat in field_gen(dns_pkt):
+        for part in possible_shortens(dat):
+            # Encode the data
+            encoded = dummy_dns.i2m(None, part)
+            if part not in data:
+                # We have no occurrence of such data, let's store it as a
+                # possible pointer for future strings.
+                # We get the index of the encoded data
+                index = build_pkt.index(encoded)
+                index -= burned_data
+                # The following is used to build correctly the pointer
+                fb_index = ((index >> 8) | 0xc0)
+                sb_index = index - (256 * (fb_index - 0xc0))
+                pointer = chb(fb_index) + chb(sb_index)
+                data[part] = [(current, name, pointer)]
+            else:
+                # This string already exists, let's mark the current field
+                # with it, so that it gets compressed
+                data[part].append((current, name))
+                # calculate spared space
+                burned_data += len(encoded) - 2
+                break
+    # Apply compression rules
+    for ck in data:
+        # compression_key is a DNS string
+        replacements = data[ck]
+        # replacements is the list of all tuples (layer, field name)
+        # where this string was found
+        replace_pointer = replacements.pop(0)[2]
+        # replace_pointer is the packed pointer that should replace
+        # those strings. Note that pop remove it from the list
+        for rep in replacements:
+            # setfieldval edits the value of the field in the layer
+            val = rep[0].getfieldval(rep[1])
+            assert val.endswith(ck)
+            kept_string = dummy_dns.i2m(None, val[:-len(ck)])[:-1]
+            new_val = kept_string + replace_pointer
+            rep[0].setfieldval(rep[1], new_val)
+            try:
+                del(rep[0].rdlen)
+            except AttributeError:
+                pass
+    # End of the compression algorithm
+    # Destroy the previous DNS layer if needed
+    if not isinstance(pkt, DNS) and pkt.getlayer(DNS).underlayer:
+        pkt.getlayer(DNS).underlayer.remove_payload()
+        return pkt / dns_pkt
+    return dns_pkt
 
 
 class InheritOriginDNSStrPacket(Packet):
@@ -41,38 +191,24 @@ class DNSStrField(StrField):
         return x
 
     def i2m(self, pkt, x):
-        if x == b".":
+        if any((orb(y) >= 0xc0) for y in x):
+            # The value has already been processed. Do not process it again
+            return x
+
+        if not x or x == b".":
             return b"\x00"
 
         # Truncate chunks that cannot be encoded (more than 63 bytes..)
         x = b"".join(chb(len(y)) + y for y in (k[:63] for k in x.split(b".")))
-        if orb(x[-1]) != 0:
+        if orb(x[-1]) != 0 and (orb(x[-2]) < 0xc0):
             x += b"\x00"
         return x
 
     def getfield(self, pkt, s):
-        n = b""
-        if orb(s[0]) == 0:
-            return s[1:], b"."
-        while True:
-            l = orb(s[0])
-            s = s[1:]
-            if not l:
-                break
-            if l & 0xc0:
-                p = ((l & ~0xc0) << 8) + orb(s[0]) - 12
-                if hasattr(pkt, "_orig_s") and pkt._orig_s:
-                    ns = DNSgetstr(pkt._orig_s, p)[0]
-                    n += ns
-                    s = s[1:]
-                    if not s:
-                        break
-                else:
-                    raise Scapy_Exception("DNS message can't be compressed at this point!")  # noqa: E501
-            else:
-                n += s[:l] + b"."
-                s = s[l:]
-        return s, n
+        # Decode the compressed DNS message
+        decoded, index, left = dns_get_str(s, 0, pkt)
+        # returns (left, decoded)
+        return left, decoded
 
 
 class DNSRRCountField(ShortField):
@@ -101,38 +237,6 @@ class DNSRRCountField(ShortField):
         return x
 
 
-def DNSgetstr(s, p):
-    name = b""
-    q = 0
-    jpath = [p]
-    while True:
-        if p >= len(s):
-            warning("DNS RR prematured end (ofs=%i, len=%i)" % (p, len(s)))
-            break
-        l = orb(s[p])  # current value of the string at p
-        p += 1
-        if l & 0xc0:  # Pointer label
-            if not q:
-                q = p + 1
-            if p >= len(s):
-                warning("DNS incomplete jump token at (ofs=%i)" % p)
-                break
-            p = ((l & ~0xc0) << 8) + orb(s[p]) - 12
-            if p in jpath:
-                warning("DNS decompression loop detected")
-                break
-            jpath.append(p)
-            continue
-        elif l > 0:  # Label
-            name += s[p:p + l] + b"."
-            p += l
-            continue
-        break
-    if q:
-        p = q
-    return name, p
-
-
 class DNSRRField(StrField):
     __slots__ = ["countfld", "passon"]
     holds_packets = 1
@@ -153,16 +257,15 @@ class DNSRRField(StrField):
         p += 10
         rr = DNSRR(b"\x00" + ret + s[p:p + rdlen], _orig_s=s, _orig_p=p)
         if type in [2, 3, 4, 5]:
-            rr.rdata = DNSgetstr(s, p)[0]
+            rr.rdata = dns_get_str(s, p, _internal=True)[0]
             del(rr.rdlen)
         elif type in DNSRR_DISPATCHER:
             rr = DNSRR_DISPATCHER[type](b"\x00" + ret + s[p:p + rdlen], _orig_s=s, _orig_p=p)  # noqa: E501
         else:
             del(rr.rdlen)
+        rr.rrname = name
 
         p += rdlen
-
-        rr.rrname = name
         return rr, p
 
     def getfield(self, pkt, s):
@@ -177,7 +280,7 @@ class DNSRRField(StrField):
             return s, b""
         while c:
             c -= 1
-            name, p = DNSgetstr(s, p)
+            name, p, _ = dns_get_str(s, p, _internal=True)
             rr, p = self.decodeRR(name, s, p)
             if ret is None:
                 ret = rr
@@ -206,15 +309,13 @@ class RDataField(StrLenField):
         if pkt.type == 1:  # A
             family = socket.AF_INET
         elif pkt.type in [2, 5, 12]:  # NS, CNAME, PTR
-            l = orb(s[0])
-            if l & 0xc0 and hasattr(pkt, "_orig_s") and pkt._orig_s:  # Compression detected  # noqa: E501
-                p = ((l & ~0xc0) << 8) + orb(s[1]) - 12
-                s = DNSgetstr(pkt._orig_s, p)[0]
-            else:  # No compression / Cannot decompress
-                if hasattr(pkt, "_orig_s") and pkt._orig_s:
-                    s = DNSgetstr(pkt._orig_s, pkt._orig_p)[0]
+            if hasattr(pkt, "_orig_s") and pkt._orig_s:
+                if orb(s[0]) & 0xc0:
+                    s = dns_get_str(s, 0, pkt)[0]
                 else:
-                    s = DNSgetstr(s, 0)[0]
+                    s = dns_get_str(pkt._orig_s, pkt._orig_p, _internal=True)[0]  # noqa: E501
+            else:
+                s = dns_get_str(s, 0)[0]
         elif pkt.type == 16:  # TXT
             ret_s = list()
             tmp_s = s
@@ -238,9 +339,7 @@ class RDataField(StrLenField):
             if s:
                 s = inet_pton(socket.AF_INET, s)
         elif pkt.type in [2, 3, 4, 5, 12]:  # NS, MD, MF, CNAME, PTR
-            s = b"".join(chb(len(x)) + x for x in s.split(b'.'))
-            if orb(s[-1]):
-                s += b"\x00"
+            s = DNSStrField("", "").i2m(None, s)
         elif pkt.type == 16:  # TXT
             ret_s = b""
             for text in s:
@@ -328,6 +427,10 @@ class DNS(Packet):
         if isinstance(self.underlayer, TCP) and self.length is None:
             pkt = struct.pack("!H", len(pkt) - 2) + pkt[2:]
         return pkt + pay
+
+    def compress(self):
+        """Return the compressed DNS packet (using `dns_compress()`"""
+        return dns_compress(self)
 
 
 # https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-4
@@ -529,13 +632,13 @@ class _DNSRRdummy(InheritOriginDNSStrPacket):
 
     def post_build(self, pkt, pay):
         if self.rdlen is not None:
-            return pkt
+            return pkt + pay
 
         lrrname = len(self.fields_desc[0].i2m("", self.getfieldval("rrname")))
         l = len(pkt) - lrrname - 10
         pkt = pkt[:lrrname + 8] + struct.pack("!H", l) + pkt[lrrname + 8 + 2:]
 
-        return pkt
+        return pkt + pay
 
 
 class DNSRRSOA(_DNSRRdummy):
@@ -663,7 +766,7 @@ class DNSRRNSEC3PARAM(_DNSRRdummy):
 # RFC 2782 - A DNS RR for specifying the location of services (DNS SRV)
 
 
-class DNSRRSRV(InheritOriginDNSStrPacket):
+class DNSRRSRV(_DNSRRdummy):
     name = "DNS SRV Resource Record"
     fields_desc = [DNSStrField("rrname", ""),
                    ShortEnumField("type", 51, dnstypes),
