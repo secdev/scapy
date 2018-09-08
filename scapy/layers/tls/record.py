@@ -31,11 +31,11 @@ from scapy.layers.tls.basefields import (_TLSVersionField, _tls_version,
 from scapy.layers.tls.crypto.pkcs1 import randstring, pkcs_i2osp
 from scapy.layers.tls.crypto.compression import Comp_NULL
 from scapy.layers.tls.crypto.cipher_aead import AEADTagError
-if conf.crypto_valid_advanced:
-    from scapy.layers.tls.crypto.cipher_aead import Cipher_CHACHA20_POLY1305
 from scapy.layers.tls.crypto.cipher_stream import Cipher_NULL
 from scapy.layers.tls.crypto.ciphers import CipherError
 from scapy.layers.tls.crypto.h_mac import HMACError
+if conf.crypto_valid_advanced:
+    from scapy.layers.tls.crypto.cipher_aead import Cipher_CHACHA20_POLY1305
 
 # Util
 

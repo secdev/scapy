@@ -33,6 +33,7 @@ from scapy.data import MTU, DLT_EN10MB
 from scapy.compat import *
 from scapy.error import log_runtime, log_loading, log_interactive, Scapy_Exception, warning  # noqa: E501
 from scapy.base_classes import BasePacketList
+from scapy.pton_ntop import *
 
 ###########
 #  Tools  #
@@ -430,7 +431,6 @@ else:
     inet_aton = socket.inet_aton
 
 inet_ntoa = socket.inet_ntoa
-from scapy.pton_ntop import *
 
 
 def atol(x):

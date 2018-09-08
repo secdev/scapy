@@ -24,6 +24,7 @@ import tempfile
 from threading import Thread, Event
 
 import scapy
+import scapy.consts
 from scapy.config import conf, ConfClass
 from scapy.error import Scapy_Exception, log_loading, log_runtime, warning
 from scapy.utils import atol, itom, inet_aton, inet_ntoa, PcapReader, pretty_list  # noqa: E501
@@ -33,6 +34,7 @@ from scapy.data import MTU, ETHER_BROADCAST, ETH_P_ARP
 
 import scapy.modules.six as six
 from scapy.modules.six.moves import range, zip, input, winreg
+from scapy.modules.six.moves import UserDict
 from scapy.compat import plain_str
 
 _winapi_SetConsoleTitle = ctypes.windll.kernel32.SetConsoleTitleW
@@ -51,6 +53,10 @@ conf.use_pcap = False
 conf.use_dnet = False
 conf.use_winpcapy = True
 
+# These import must appear after setting conf.use_* variables
+from scapy.arch import pcapdnet  # noqa: E402
+from scapy.arch.pcapdnet import *  # noqa: E402
+
 WINDOWS = (os.name == 'nt')
 
 # hot-patching socket for missing variables on Windows
@@ -63,12 +69,7 @@ if not hasattr(socket, 'IPPROTO_ESP'):
 if not hasattr(socket, 'IPPROTO_GRE'):
     socket.IPPROTO_GRE = 47
 
-from scapy.arch import pcapdnet
-from scapy.arch.pcapdnet import *
-
 _WlanHelper = NPCAP_PATH + "\\WlanHelper.exe"
-
-import scapy.consts
 
 IS_WINDOWS_XP = platform.release() == "XP"
 
@@ -802,9 +803,6 @@ def pcap_service_start(askadmin=True):
 def pcap_service_stop(askadmin=True):
     """Stops the pcap adapter. Will ask for admin. Returns True if success"""
     return pcap_service_control('Stop-Service', askadmin=askadmin)
-
-
-from scapy.modules.six.moves import UserDict
 
 
 class NetworkInterfaceDict(UserDict):
