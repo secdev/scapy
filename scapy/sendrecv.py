@@ -13,10 +13,11 @@ import itertools
 import threading
 import os
 from select import select, error as select_error
+import socket
 import subprocess
 import time
 import types
-import socket
+
 from scapy.consts import DARWIN, FREEBSD, OPENBSD, WINDOWS
 from scapy.compat import plain_str
 from scapy.data import ETH_P_ALL, MTU
@@ -924,9 +925,10 @@ def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
             for s in ins:
                 try:
                     p = s.recv()
-                except socket.error:
+                except socket.error as ex:
+                    log_runtime.warning("Socket %s failed with '%s' and thus will be ignored" % (s, ex))
                     del sniff_sockets[s]
-                    break
+                    continue
                 except read_allowed_exceptions:
                     continue
                 if p is None:
