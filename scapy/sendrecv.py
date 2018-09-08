@@ -926,7 +926,8 @@ def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
                 try:
                     p = s.recv()
                 except socket.error as ex:
-                    log_runtime.warning("Socket %s failed with '%s' and thus will be ignored" % (s, ex))
+                    log_runtime.warning("Socket %s failed with '%s' and thus"
+                                        " will be ignored" % (s, ex))
                     del sniff_sockets[s]
                     continue
                 except read_allowed_exceptions:
