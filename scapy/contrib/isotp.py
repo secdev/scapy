@@ -420,6 +420,12 @@ class ISOTPSoftSocket(SuperSocket):
         :param basecls: base class of the packets emitted by this socket
         """
 
+        if six.PY3 and LINUX and isinstance(can_socket, six.string_types):
+            from scapy.contrib.cansocket import CANSocket
+            can_socket = CANSocket(can_socket)
+        elif isinstance(can_socket, six.string_types):
+            raise Scapy_Exception("Provide a CANSocket object instead")
+
         self.src = sid
         self.dst = did
         self.exsrc = extended_addr
