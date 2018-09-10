@@ -1415,7 +1415,7 @@ CAN Layer
 Setup
 -----
 
-This commands enable a virtual CAN interface on your machine::
+These commands enable a virtual CAN interface on your machine::
 
    from scapy.layers.can import *
    import os
@@ -1423,7 +1423,7 @@ This commands enable a virtual CAN interface on your machine::
    bashCommand = "/bin/bash -c 'sudo modprobe vcan; sudo ip link add name vcan0 type vcan; sudo ip link set dev vcan0 up'"
    os.system(bashCommand)
 
-If it's required, the CAN interface can be set into an listen-only or loop back mode with ip link set commands:
+If it's required, the CAN interface can be set into a listen-only or loop back mode with ip link set commands:
 
 ::
 
@@ -1493,7 +1493,7 @@ Ways of creating a python-can CANSocket::
 
 Creating a simple python-can CANSocket::
 
-   socket = CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0', bitrate=250000
+   socket = CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0', bitrate=250000))
 
 Creating a python-can CANSocket with multiple filters::
 
@@ -1825,8 +1825,85 @@ Stack it and send it::
 
 
 
-Test-Setup on a BeagleBone Black
---------------------------------
+
+OBD message
+-------------
+
+Structure of an OBD packet::
+
+   | SID | PID | data |
+
+The Service ID is the only field which is always present.
+The Parameter ID exists if one service contains multiple actions.
+Only responses contain data.
+
+The OBD protocol sits on top of the ISOTP protocol. Thus, an ``ISOTPSocket`` is required.
+
+Create a request::
+
+   # Create the socket. Padding has to be True for OBD
+   socket = ISOTPSocket('can0', 0x7DF, 0x7E8, basecls=OBD, padding=True)
+   # Create a request for the fuel type
+   req = OBD()/Service01(pid=0x51)
+   # Send request and wait for response
+   res = socket.sr1(req)
+
+The output of `resp.show()` might be::
+
+   ###[ On-board diagnostics ]###
+     service   = CurrentDataResponse
+   ###[ S1_CurrentData ]###
+        pid       = 0x51
+   ###[ PID_51_FuelType ]###
+        data      = '\x01'
+
+The value ``\x01`` indicates that the vehicle has a gasoline engine.
+See https://en.wikipedia.org/wiki/OBD-II_PIDs#Fuel_Type_Coding for more values.
+
+Create a response::
+
+   res = OBD()/Service01()/Pid51_S1AndS2(data=b'\x01')
+
+This would create the response from the former example.
+Sending responses makes sense if you want to create an ECU simulator.
+
+Note the difference between creating requests and responses::
+
+   req = OBD()/Service01(pid=0x51)
+   res = OBD()/Service01()/Pid51_S1AndS2(data=b'\x01')
+
+For a request, you do not add a `Pidxx` layer since the request does not contain any data,
+but only the Service ID and Parameter ID.
+Thus, we set the pid explicitly with an argument.
+
+Note that some Services do not have a a PID. Those are creatable in two ways.
+For example, `Service03` which requests Diagnostic Trouble Codes::
+
+   req = OBD()/Service03()
+   req = OBD(service=0x03)
+
+The difference is that the first one contains the `data` field, but it is empty by default.
+The second one doesn't even contain this field.
+If you do not modify `data` in the first solution, they create exactly the same bytes.
+
+
+Naming Convention for Services::
+
+   Service<ID>
+
+Examples: Service01, Service03, Service0A
+
+Naming Convention for PIDs::
+
+   Pid<ID>_<AvailableInServices>
+
+Examples: Pid07_S1AndS2, PidA5_S1AndS2, Pid02_S9
+
+
+
+
+Setup
+-----
 
 Hardware Setup
 ^^^^^^^^^^^^^^
@@ -2060,7 +2137,7 @@ ISO-TP Kernel Module Installation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 A Linux ISO-TP kernel module can be downloaded from this website:
-``https://github.com/ hartkopp/can-isotp.git``. The file
+``https://github.com/hartkopp/can-isotp.git``. The file
 ``README.isotp`` in this repository provides all information and
 necessary steps for downloading and building this kernel module. The
 ISO-TP kernel module should also be added to the ``/etc/modules`` file,
@@ -2077,8 +2154,6 @@ can be chosen to fit the bitrate of a CAN bus under test.
 
     ip link set can0 up type can bitrate 500000
     ip link set can1 up type can bitrate 500000
-    ifconfig can0 up
-    ifconfig can1 up
 
 Raspberry Pi SOME/IP setup
 ~~~~~~~~~~~~~~~~~~~~~~~~~~

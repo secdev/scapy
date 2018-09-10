@@ -2156,3 +2156,38 @@ class SecondsIntField(IntField):
         elif self.use_msec:
             x = x / 1e3
         return "%s sec" % x
+
+
+class ScalingField(Field):
+    __slots__ = ["scaling", "unit", "offset", "ndigits"]
+
+    def __init__(self, name, default, scaling=1, unit="",
+                 offset=0, ndigits=3, fmt="B"):
+        self.scaling = scaling
+        self.unit = unit
+        self.offset = offset
+        self.ndigits = ndigits
+        Field.__init__(self, name, default, fmt)
+
+    def i2m(self, pkt, x):
+        if x is None:
+            x = 0
+        x = (x - self.offset) / self.scaling
+        if isinstance(x, float):
+            x = int(round(x))
+        return x
+
+    def m2i(self, pkt, x):
+        x = x * self.scaling + self.offset
+        if isinstance(x, float):
+            x = round(x, self.ndigits)
+        return x
+
+    def any2i(self, pkt, x):
+        if isinstance(x, str) or isinstance(x, bytes):
+            x = struct.unpack(self.fmt, raw(x))[0]
+            x = self.m2i(pkt, x)
+        return x
+
+    def i2repr(self, pkt, x):
+        return "%s %s" % (self.i2h(pkt, x), self.unit)
