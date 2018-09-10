@@ -76,7 +76,7 @@ class CANSocket(SuperSocket):
         """This function is called during sendrecv() routine to select
         the available sockets.
         """
-        # pcap sockets aren't selectable, so we return all of them
+        # python-can sockets aren't selectable, so we return all of them
         # sockets, None (means use the socket's recv() )
         return sockets, None
 
