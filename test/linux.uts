@@ -313,3 +313,20 @@ except subprocess.CalledProcessError:
     assert False
 except Exception:
     assert False
+
+
+= Routing table, interface with no names
+~ linux
+
+from mock import patch
+
+@patch("scapy.arch.linux.ioctl")
+def test_read_routes(mock_ioctl):
+    def raise_ioerror(*args, **kwargs):
+        if args[1] == 0x8912:
+            return args[2]
+        raise IOError
+    mock_ioctl.side_effect = raise_ioerror
+    read_routes()
+
+test_read_routes()
