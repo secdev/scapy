@@ -122,7 +122,7 @@ if p.wait() == 0:
 = Import isotp
 conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': False}
 load_contrib("isotp")
-from scapy.contrib.isotp import ISOTP
+
 
 + ISOTP packet check
 
@@ -137,6 +137,192 @@ p = ISOTP(b"eee", src=0x241)
 assert(p.src == 0x241)
 assert(p.data == b"eee")
 assert(bytes(p) == b"eee")
+
++ ISOTPFrame related checks
+
+= Build a packet with extended addressing
+
+pkt = CAN(identifier=0x123, data=b'\x42\x10\xff\xde\xea\xdd\xaa\xaa')
+isotpex = ISOTPHeaderEA(bytes(pkt))
+assert(isotpex.type == 1)
+assert(isotpex.message_size == 0xff)
+assert(isotpex.extended_address == 0x42)
+assert(isotpex.identifier == 0x123)
+assert(isotpex.length == 8)
+
+
+= Build a packet with normal addressing
+
+pkt = CAN(identifier=0x123, data=b'\x10\xff\xde\xea\xdd\xaa\xaa')
+isotpno = ISOTPHeader(bytes(pkt))
+assert(isotpno.type == 1)
+assert(isotpno.message_size == 0xff)
+assert(isotpno.identifier == 0x123)
+assert(isotpno.length == 7)
+
+
+= Compare both isotp payloads
+
+assert(isotpno.data == isotpex.data)
+assert(isotpno.message_size == isotpex.message_size)
+
+
+= Dissect multiple packets
+
+frames = \
+    [b'\x00\x00\x00\x00\x08\x00\x00\x00\x10(\xde\xad\xbe\xef\xde\xad',
+    b'\x00\x00\x00\x00\x08\x00\x00\x00!\xbe\xef\xde\xad\xbe\xef\xde',
+    b'\x00\x00\x00\x00\x08\x00\x00\x00"\xad\xbe\xef\xde\xad\xbe\xef',
+    b'\x00\x00\x00\x00\x08\x00\x00\x00#\xde\xad\xbe\xef\xde\xad\xbe',
+    b'\x00\x00\x00\x00\x08\x00\x00\x00$\xef\xde\xad\xbe\xef\xde\xad',
+    b'\x00\x00\x00\x00\x07\x00\x00\x00%\xbe\xef\xde\xad\xbe\xef']
+
+isotpframes = [ISOTPHeader(x) for x in frames]
+
+assert(isotpframes[0].type == 1)
+assert(isotpframes[0].message_size == 40)
+assert(isotpframes[0].length == 8)
+assert(isotpframes[1].type == 2)
+assert(isotpframes[1].index == 1)
+assert(isotpframes[1].length == 8)
+assert(isotpframes[2].type == 2)
+assert(isotpframes[2].index == 2)
+assert(isotpframes[2].length == 8)
+assert(isotpframes[3].type == 2)
+assert(isotpframes[3].index == 3)
+assert(isotpframes[3].length == 8)
+assert(isotpframes[4].type == 2)
+assert(isotpframes[4].index == 4)
+assert(isotpframes[4].length == 8)
+assert(isotpframes[5].type == 2)
+assert(isotpframes[5].index == 5)
+assert(isotpframes[5].length == 7)
+
+= Build SF frame with constructor, check for correct length assignments
+
+p = ISOTPHeader(bytes(ISOTPHeader()/ISOTP_SF(data=b'\xad\xbe\xad\xff')))
+assert(p.length == 5)
+assert(p.message_size == 4)
+assert(len(p.data) == 4)
+assert(p.data == b'\xad\xbe\xad\xff')
+assert(p.type == 0)
+assert(p.identifier == 0)
+
+= Build SF frame EA with constructor, check for correct length assignments
+
+p = ISOTPHeaderEA(bytes(ISOTPHeaderEA()/ISOTP_SF(data=b'\xad\xbe\xad\xff')))
+assert(p.extended_address == 0)
+assert(p.length == 6)
+assert(p.message_size == 4)
+assert(len(p.data) == 4)
+assert(p.data == b'\xad\xbe\xad\xff')
+assert(p.type == 0)
+assert(p.identifier == 0)
+
+= Build FF frame with constructor, check for correct length assignments
+
+p = ISOTPHeader(bytes(ISOTPHeader()/ISOTP_FF(message_size=10, data=b'\xad\xbe\xad\xff')))
+assert(p.length == 6)
+assert(p.message_size == 10)
+assert(len(p.data) == 4)
+assert(p.data == b'\xad\xbe\xad\xff')
+assert(p.type == 1)
+assert(p.identifier == 0)
+
+= Build FF frame EA with constructor, check for correct length assignments
+
+p = ISOTPHeaderEA(bytes(ISOTPHeaderEA()/ISOTP_FF(message_size=10, data=b'\xad\xbe\xad\xff')))
+assert(p.extended_address == 0)
+assert(p.length == 7)
+assert(p.message_size == 10)
+assert(len(p.data) == 4)
+assert(p.data == b'\xad\xbe\xad\xff')
+assert(p.type == 1)
+assert(p.identifier == 0)
+
+= Build FF frame EA, extended size, with constructor, check for correct length assignments
+
+p = ISOTPHeaderEA(bytes(ISOTPHeaderEA()/ISOTP_FF(message_size=0,
+                                                 extended_message_size=2000,
+                                                 data=b'\xad')))
+assert(p.extended_address == 0)
+assert(p.length == 8)
+assert(p.message_size == 0)
+assert(p.extended_message_size == 2000)
+assert(len(p.data) == 1)
+assert(p.data == b'\xad')
+assert(p.type == 1)
+assert(p.identifier == 0)
+
+= Build FF frame, extended size, with constructor, check for correct length assignments
+
+p = ISOTPHeader(bytes(ISOTPHeader()/ISOTP_FF(message_size=0,
+                                             extended_message_size=2000,
+                                             data=b'\xad')))
+assert(p.length == 7)
+assert(p.message_size == 0)
+assert(p.extended_message_size == 2000)
+assert(len(p.data) == 1)
+assert(p.data == b'\xad')
+assert(p.type == 1)
+assert(p.identifier == 0)
+
+= Build CF frame with constructor, check for correct length assignments
+
+p = ISOTPHeader(bytes(ISOTPHeader()/ISOTP_CF(data=b'\xad')))
+assert(p.length == 2)
+assert(p.index == 0)
+assert(len(p.data) == 1)
+assert(p.data == b'\xad')
+assert(p.type == 2)
+assert(p.identifier == 0)
+
+= Build CF frame EA with constructor, check for correct length assignments
+
+p = ISOTPHeaderEA(bytes(ISOTPHeaderEA()/ISOTP_CF(data=b'\xad')))
+assert(p.length == 3)
+assert(p.index == 0)
+assert(len(p.data) == 1)
+assert(p.data == b'\xad')
+assert(p.type == 2)
+assert(p.identifier == 0)
+
+= Build FC frame EA with constructor, check for correct length assignments
+
+p = ISOTPHeaderEA(bytes(ISOTPHeaderEA()/ISOTP_FC()))
+assert(p.length == 4)
+assert(p.block_size == 0)
+assert(p.separation_time == 0)
+assert(p.type == 3)
+assert(p.identifier == 0)
+
+= Build FC frame with constructor, check for correct length assignments
+
+p = ISOTPHeader(bytes(ISOTPHeader()/ISOTP_FC()))
+assert(p.length == 3)
+assert(p.block_size == 0)
+assert(p.separation_time == 0)
+assert(p.type == 3)
+assert(p.identifier == 0)
+
+= Construct some single frames
+
+p = ISOTPHeader(identifier=0x123, length=5)/ISOTP_SF(message_size=4, data=b'abcd')
+assert(p.length == 5)
+assert(p.identifier == 0x123)
+assert(p.type == 0)
+assert(p.message_size == 4)
+assert(p.data == b'abcd')
+
+= Construct some single frames EA
+
+p = ISOTPHeaderEA(identifier=0x123, length=6, extended_address=42)/ISOTP_SF(message_size=4, data=b'abcd')
+assert(p.length == 6)
+assert(p.extended_address == 42)
+assert(p.identifier == 0x123)
+assert(p.type == 0)
+assert(p.message_size == 4)
+assert(p.data == b'abcd')
 
 
 + ISOTP fragment and defragment checks
