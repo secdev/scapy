@@ -11,7 +11,7 @@ from ctypes.util import find_library
 import struct
 import socket
 import time
-from threading import Thread, Event, Semaphore
+from threading import Thread, Event, RLock
 
 from scapy.packet import Packet
 from scapy.fields import StrField
@@ -550,6 +550,7 @@ class CANReceiverThread(Thread):
         self.exiting = False
 
         Thread.__init__(self)
+        self.name = "CANReceiver" + self.name
 
     def run(self):
         ins = self.socket
@@ -639,6 +640,7 @@ class ISOTPSocketImplementation:
                                       self, self._event, timeout,
                                       self._callback))
             self._completed = False
+            self._thread.name = "ISOTP Timer " + self._thread.name
             self._thread.start()
 
         def cancel(self):
@@ -727,7 +729,8 @@ class ISOTPSocketImplementation:
         self.rx_timer = ISOTPSocketImplementation.Timer(self._rx_timer_handler)
         self.tx_timer = ISOTPSocketImplementation.Timer(self._tx_timer_handler)
 
-        self.mutex = Semaphore(1)
+        self.mutex = RLock()
+        self.send_mutex = RLock()
 
         self.tx_callback = None
         self.rx_callback = None
@@ -1080,12 +1083,16 @@ class ISOTPSocketImplementation:
     def send(self, p):
         """Send an ISOTP frame and block until the message is sent or an error
         happens."""
-        block = ISOTPSocketImplementation.BlockingCallback()
-        self.tx_callback = block.callback
-        self.begin_send(p)
-        # Wait until the tx callback is called
-        block.wait()
-        return block.args[0]
+        self.send_mutex.acquire()
+        try:
+            block = ISOTPSocketImplementation.BlockingCallback()
+            self.tx_callback = block.callback
+            self.begin_send(p)
+            # Wait until the tx callback is called
+            block.wait()
+            return block.args[0]
+        finally:
+            self.send_mutex.release()
 
     def recv(self, timeout=1):
         """Receive an ISOTP frame, blocking if none is available in the buffer
