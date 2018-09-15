@@ -996,6 +996,7 @@ class ISOTPSocketImplementation:
 
         if self.rx_idx >= self.rx_len:
             # we are done
+            self.rx_buf = self.rx_buf[0:self.rx_len]
             self.rx_state = ISOTP_IDLE
             self.rx_messages.append(self.rx_buf)
             if self.rx_callback:
