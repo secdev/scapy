@@ -126,6 +126,8 @@ The project aims to provide code that works both on Python 2 and Python 3. There
 - use scapy.modules.six.itervalues(dict) instead of dict.values() or dict.itervalues()
 - use scapy.modules.six.string_types instead of basestring
 - `__bool__ = __nonzero__` must be used when declaring `__nonzero__` methods
+- `__next__ = next` must be used when declaring `next` methods in iterators
+- `StopIteration` must NOT be used in generators (but it can still be used in iterators)
 - `io.BytesIO` must be used instead of `StringIO` when using bytes
 - `__cmp__` must not be used.
 - UserDict should be imported via `six.UserDict`

@@ -802,7 +802,8 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                             self.cmdout.send(c)
                             break
             except StopIteration as e:
-                c = Message(type=_ATMT_Command.END, result=e.args[0])
+                c = Message(type=_ATMT_Command.END,
+                            result=self.final_state_output)
                 self.cmdout.send(c)
             except Exception as e:
                 exc_info = sys.exc_info()
@@ -828,7 +829,8 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                     raise self.ErrorState("Reached %s: [%r]" % (self.state.state, state_output),  # noqa: E501
                                           result=state_output, state=self.state.state)  # noqa: E501
                 if self.state.final:
-                    raise StopIteration(state_output)
+                    self.final_state_output = state_output
+                    return
 
                 if state_output is None:
                     state_output = ()
