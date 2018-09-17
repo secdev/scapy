@@ -75,6 +75,7 @@ bind_layers(UDP, VXLAN, sport=6633)
 bind_layers(UDP, VXLAN, sport=8472)
 # By default, set both ports to the RFC standard
 bind_layers(UDP, VXLAN, sport=4789, dport=4789)
+bind_layers(UDP, VXLAN, dport=48879) # Cisco ACI
 
 bind_layers(VXLAN, Ether)
 bind_layers(VXLAN, IP, NextProtocol=1)
