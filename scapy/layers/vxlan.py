@@ -69,13 +69,13 @@ bind_layers(UDP, VXLAN, dport=4789)  # RFC standard vxlan port
 bind_layers(UDP, VXLAN, dport=4790)  # RFC standard vxlan-gpe port
 bind_layers(UDP, VXLAN, dport=6633)  # New IANA assigned port for use with NSH
 bind_layers(UDP, VXLAN, dport=8472)  # Linux implementation port
+bind_layers(UDP, VXLAN, dport=48879) # Cisco ACI
 bind_layers(UDP, VXLAN, sport=4789)
 bind_layers(UDP, VXLAN, sport=4790)
 bind_layers(UDP, VXLAN, sport=6633)
 bind_layers(UDP, VXLAN, sport=8472)
 # By default, set both ports to the RFC standard
 bind_layers(UDP, VXLAN, sport=4789, dport=4789)
-bind_layers(UDP, VXLAN, dport=48879) # Cisco ACI
 
 bind_layers(VXLAN, Ether)
 bind_layers(VXLAN, IP, NextProtocol=1)
