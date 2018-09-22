@@ -1081,9 +1081,9 @@ def defragment6(packets):
 
 def fragment6(pkt, fragSize):
     """
-    Performs fragmentation of an IPv6 packet. Provided packet ('pkt') must already  # noqa: E501
-    contain an IPv6ExtHdrFragment() class. 'fragSize' argument is the expected
-    maximum size of fragments (MTU). The list of packets is returned.
+    Performs fragmentation of an IPv6 packet. Provided packet ('pkt') must
+    already contain an IPv6ExtHdrFragment() class. 'fragSize' argument is the
+    expected maximum size of fragments (MTU). The list of packets is returned.
 
     If packet does not contain an IPv6ExtHdrFragment class, it is returned in
     result list.
