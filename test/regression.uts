@@ -946,6 +946,9 @@ a = ASN1_INTEGER(int("1"*23))
 assert repr(a) in ["0x25a55a46e5da99c71c7 <ASN1_INTEGER[1111111111...1111111111]>",
                    "0x25a55a46e5da99c71c7 <ASN1_INTEGER[1111111111...111111111L]>"]
 
+= ASN1 - ASN1_OID
+assert raw(ASN1_OID("")) == b"\x06\x00"
+
 = RandASN1Object(), specific crashes
 
 import random
