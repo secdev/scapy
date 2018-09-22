@@ -1075,6 +1075,7 @@ def defragment6(packets):
     q[IPv6ExtHdrFragment].underlayer.nh = nh
     del q[IPv6ExtHdrFragment].underlayer.payload
     q /= conf.raw_layer(load=fragmentable)
+    del(q.plen)
 
     return IPv6(raw(q))
 
