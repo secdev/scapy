@@ -292,7 +292,7 @@ x.version == 3
 x.serial == 0xB45E7043E7090B71
 
 = Cert class : Checking signature algorithm
-x.sigAlg == 'sha1_with_rsa_signature'
+x.sigAlg == 'sha1-with-rsa-signature'
 
 = Cert class : Checking issuer extraction in basic format (/C=FR ...)
 x.issuer_str == '/C=FR/ST=Paris/L=Paris/O=Mushroom Corp./OU=Mushroom VPN Services/CN=IKEv2 X.509 Test certificate/emailAddress=ikev2-test@mushroom.corp'
@@ -413,7 +413,7 @@ assert cx.isRevoked([x])
 = CRL class : Test show
 awaited = """
 Version: 1
-sigAlg: sha1_with_rsa_signature
+sigAlg: sha1-with-rsa-signature
 Issuer: /C=US/O=VeriSign, Inc./OU=Class 1 Public Primary Certification Authority
 lastUpdate: Nov 02 00:00:00 2006 GMT
 nextUpdate: Feb 17 23:59:59 2007 GMT
