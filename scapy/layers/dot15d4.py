@@ -71,7 +71,7 @@ class dot15d4AddressField(Field):
             try:
                 addrmode = pkttop.getfieldval(x)
                 break
-            except:
+            except Exception:
                 if pkttop.underlayer is None:
                     break
                 pkttop = pkttop.underlayer

@@ -205,7 +205,7 @@ class ASN1_Object_metaclass(type):
         c = super(ASN1_Object_metaclass, cls).__new__(cls, name, bases, dct)
         try:
             c.tag.register_asn1_object(c)
-        except:
+        except Exception:
             warning("Error registering %r for %r" % (c.tag, c.codec))
         return c
 

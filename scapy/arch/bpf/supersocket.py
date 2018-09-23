@@ -171,7 +171,7 @@ class _L2bpfSocket(SuperSocket):
         try:
             fcntl.fcntl(self.ins, fcntl.F_SETFL, new_fd_flags)
             self.fd_flags = new_fd_flags
-        except:
+        except Exception:
             warning("Can't set flags on this file descriptor !")
 
     def get_stats(self):
@@ -265,7 +265,7 @@ class L2bpfListenSocket(_L2bpfSocket):
         frame_str = bpf_buffer[bh_hdrlen:bh_hdrlen + bh_caplen]
         try:
             pkt = self.guessed_cls(frame_str)
-        except:
+        except Exception:
             if conf.debug_dissector:
                 raise
             pkt = conf.raw_layer(frame_str)

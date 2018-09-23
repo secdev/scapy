@@ -276,5 +276,5 @@ class Route6:
 conf.route6 = Route6()
 try:
     conf.iface6 = conf.route6.route("::/0")[0]
-except:
+except Exception:
     pass

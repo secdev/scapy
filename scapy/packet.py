@@ -724,7 +724,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
                             cnx = pyx.connector.curve(bxvt, bxdt, absangle1=0, absangle2=-90)  # noqa: E501
                         else:
                             cnx = pyx.connector.curve(bxvt, bxdt, absangle1=0, absangle2=90)  # noqa: E501
-                    except:
+                    except Exception:
                         pass
                     else:
                         canvas.stroke(cnx, [pyx.style.linewidth.thin, pyx.deco.earrow.small, col])  # noqa: E501
@@ -789,7 +789,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
                 p = cls(s, _internal=1, _underlayer=self)
             except KeyboardInterrupt:
                 raise
-            except:
+            except Exception:
                 if conf.debug_dissector:
                     if issubtype(cls, Packet):
                         log_runtime.error("%s dissector failed" % cls.__name__)
@@ -1246,7 +1246,7 @@ A side effect is that, to obtain "{" and "}" characters, you must use
                     cls, num = cls.split(":")
                     num = int(num)
                 fmt = fmt[i + 1:]
-            except:
+            except Exception:
                 raise Scapy_Exception("Bad format string [%%%s%s]" % (fmt[:25], fmt[25:] and "..."))  # noqa: E501
             else:
                 if fld == "time":

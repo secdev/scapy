@@ -248,7 +248,7 @@ class DHCPOptionsField(StrField):
                         while left:
                             left, val = f.getfield(pkt, left)
                             lval.append(val)
-                    except:
+                    except Exception:
                         opt.append(x)
                         break
                     else:

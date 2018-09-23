@@ -174,7 +174,7 @@ def _in6_getifaddr(ifname):
         # Check if it is a valid IPv6 address
         try:
             socket.inet_pton(socket.AF_INET6, addr)
-        except:
+        except Exception:
             continue
 
         # Get the scope and keep the address
@@ -319,7 +319,7 @@ def read_routes6():
             continue
         try:
             destination_plen = int(destination_plen)
-        except:
+        except Exception:
             warning("Invalid IPv6 prefix length in route entry !")
             continue
         if in6_ismlladdr(destination) or in6_ismnladdr(destination):

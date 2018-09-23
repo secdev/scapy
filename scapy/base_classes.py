@@ -243,7 +243,7 @@ class Packet_metaclass(type):
         if "dispatch_hook" in cls.__dict__:
             try:
                 cls = cls.dispatch_hook(*args, **kargs)
-            except:
+            except Exception:
                 from scapy import config
                 if config.conf.debug_dissector:
                     raise
@@ -275,7 +275,7 @@ class NewDefaultValues(Packet_metaclass):
                 f, l, _, line = tb
                 if line.startswith("class"):
                     break
-        except:
+        except Exception:
             f, l = "??", -1
             raise
         log_loading.warning("Deprecated (no more needed) use of NewDefaultValues  (%s l. %i).", f, l)  # noqa: E501

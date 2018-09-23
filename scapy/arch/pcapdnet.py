@@ -120,7 +120,7 @@ if conf.use_winpcapy:
                 conf.cache_iflist = if_list
                 conf.cache_ipaddrs = ip_addresses
                 conf.cache_in6_getifaddr = ip6_addresses
-            except:
+            except Exception:
                 raise
             finally:
                 pcap_freealldevs(devs)
@@ -415,7 +415,7 @@ if conf.use_pcap or conf.use_winpcapy:
             self.ins = open_pcap(iface, MTU, self.promisc, 100, monitor=monitor)  # noqa: E501
             try:
                 ioctl(self.ins.fileno(), BIOCIMMEDIATE, struct.pack("I", 1))
-            except:
+            except Exception:
                 pass
             if type == ETH_P_ALL:  # Do not apply any filter if Ethernet type is given  # noqa: E501
                 if conf.except_filter:
@@ -453,7 +453,7 @@ if conf.use_pcap or conf.use_winpcapy:
             self.outs = open_pcap(iface, MTU, self.promisc, 100)
             try:
                 ioctl(self.ins.fileno(), BIOCIMMEDIATE, struct.pack("I", 1))
-            except:
+            except Exception:
                 pass
             if nofilter:
                 if type != ETH_P_ALL:  # PF_PACKET stuff. Need to emulate this for pcap  # noqa: E501
@@ -560,7 +560,7 @@ if conf.use_dnet:
             try:
                 l = dnet.intf().get(iff)
                 link_addr = l["link_addr"]
-            except:
+            except Exception:
                 raise Scapy_Exception("Error in attempting to get hw address"
                                       " for interface [%s]" % iff)
 

@@ -671,7 +671,7 @@ assert(raw(pkt) == b'\x00\x00\x04\x00\x00\x00\x00\x00\x01ABCD')
 try:
     pkt.show2(dump=True)
     assert(True)
-except:
+except Exception:
     assert(False)
 
 = HTTP/2 Dissect Data Frame: Simple data frame with padding
@@ -700,7 +700,7 @@ assert(raw(pkt) == b'\x00\x00\r\x00\x08\x00\x00\x00\x01\x08ABCD\x00\x00\x00\x00\
 try:
     pkt.show2(dump=True)
     assert(True)
-except:
+except Exception:
     assert(False)
 
 = HTTP/2 Dissect Data Frame: Simple data frame with padding and end stream flag
@@ -730,7 +730,7 @@ assert(raw(pkt) == b'\x00\x00\r\x00\t\x00\x00\x00\x01\x08ABCD\x00\x00\x00\x00\x0
 try:
     pkt.show2(dump=True)
     assert(True)
-except:
+except Exception:
     assert(False)
 
 + HTTP/2 Headers Frame Test Suite
@@ -1546,7 +1546,7 @@ assert(tbl[h2.HPackHdrTable._static_entries_last_idx+1].value() == hdrv2)
 try:
     tbl[h2.HPackHdrTable._static_entries_last_idx+2]
     ret = False
-except:
+except Exception:
     ret = True
 
 assert(ret)
@@ -1595,7 +1595,7 @@ assert(tbl[h2.HPackHdrTable._static_entries_last_idx+1].value() == hdrv2)
 try:
     tbl[h2.HPackHdrTable._static_entries_last_idx+2]
     ret = False
-except:
+except Exception:
     ret = True
 
 assert(ret)
@@ -1637,7 +1637,7 @@ assert(tbl[h2.HPackHdrTable._static_entries_last_idx+1].value() == hdrv2)
 try:
     tbl[h2.HPackHdrTable._static_entries_last_idx+2]
     ret = False
-except:
+except Exception:
     ret = True
 
 assert(ret)

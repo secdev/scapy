@@ -539,7 +539,7 @@ class ContextManagerCaptureOutput(object):
         self.result_export_object = ""
         try:
             import mock
-        except:
+        except Exception:
             raise ImportError("The mock module needs to be installed !")
 
     def __enter__(self):
@@ -610,7 +610,7 @@ def do_graph(graph, prog=None, format=None, target=None, type=None, string=None,
     proc.wait()
     try:
         target.close()
-    except:
+    except Exception:
         pass
     if start_viewer:
         # Workaround for file not found error: We wait until tempfile is written.  # noqa: E501
@@ -861,7 +861,7 @@ class PcapReader_metaclass(type):
                     raise
                     try:
                         i.f.seek(-4, 1)
-                    except:
+                    except Exception:
                         pass
                     raise Scapy_Exception("Not a supported capture file")
 
@@ -1000,7 +1000,7 @@ class PcapReader(RawPcapReader):
             p = self.LLcls(s)
         except KeyboardInterrupt:
             raise
-        except:
+        except Exception:
             if conf.debug_dissector:
                 raise
             p = conf.raw_layer(s)
@@ -1054,7 +1054,7 @@ class RawPcapNgReader(RawPcapReader):
             raise Scapy_Exception("Not a pcapng capture file (bad magic)")
         try:
             self.f.seek(0)
-        except:
+        except Exception:
             pass
 
     def read_packet(self, size=MTU):
@@ -1165,7 +1165,7 @@ class PcapNgReader(RawPcapNgReader):
             p = conf.l2types[linktype](s)
         except KeyboardInterrupt:
             raise
-        except:
+        except Exception:
             if conf.debug_dissector:
                 raise
             p = conf.raw_layer(s)
@@ -1340,7 +1340,7 @@ def import_hexcap():
                 break
             try:
                 p += re_extract_hexcap.match(line).groups()[2]
-            except:
+            except Exception:
                 warning("Parsing error during hexcap")
                 continue
     except EOFError:
@@ -1515,7 +1515,7 @@ def get_terminal_width():
         if not sizex:
             try:
                 sizex = int(os.environ['COLUMNS'])
-            except:
+            except Exception:
                 pass
         if sizex:
             return sizex
@@ -1589,20 +1589,20 @@ def __make_table(yfmtfunc, fmtfunc, endline, data, fxyz, sortx=None, sorty=None,
     else:
         try:
             vxk.sort(key=int)
-        except:
+        except Exception:
             try:
                 vxk.sort(key=atol)
-            except:
+            except Exception:
                 vxk.sort()
     if sorty:
         vyk.sort(key=sorty)
     else:
         try:
             vyk.sort(key=int)
-        except:
+        except Exception:
             try:
                 vyk.sort(key=atol)
-            except:
+            except Exception:
                 vyk.sort()
 
     if seplinefunc:
@@ -1649,7 +1649,7 @@ def whois(ip_address):
     whois_ip = str(ip_address)
     try:
         query = socket.gethostbyname(whois_ip)
-    except:
+    except Exception:
         query = whois_ip
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect(("whois.ripe.net", 43))

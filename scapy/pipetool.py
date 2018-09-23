@@ -176,7 +176,7 @@ class PipeEngine(SelectableObject):
                     self.thread.join()
                     try:
                         self.thread_lock.release()
-                    except:
+                    except Exception:
                         pass
                 else:
                     warning("Pipe engine thread not running")

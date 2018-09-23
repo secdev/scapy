@@ -75,7 +75,7 @@ def _sndrcv_snd(pks, timeout, inter, verbose, tobesent, hsent, timessent, stopev
         pass
     except KeyboardInterrupt:
         pass
-    except:
+    except Exception:
         log_runtime.info("--- Error sending packets", exc_info=True)
     if timeout is not None:
         stopevent.wait(timeout)
@@ -1009,7 +1009,7 @@ Arguments:
         if pkt.sniffed_on in xfrms:
             try:
                 newpkt = xfrms[pkt.sniffed_on](pkt)
-            except:
+            except Exception:
                 log_runtime.warning(
                     'Exception in transformation function for packet [%s] '
                     'received on %s -- dropping',
@@ -1025,7 +1025,7 @@ Arguments:
             newpkt = pkt.original
         try:
             sendsock.send(newpkt)
-        except:
+        except Exception:
             log_runtime.warning('Cannot forward packet [%s] received on %s',
                                 pkt.summary(), pkt.sniffed_on, exc_info=True)
     if prn is None:

@@ -129,7 +129,7 @@ class _TLSAutomaton(Automaton):
                     retry -= 1
                 else:
                     self.remain_in += tmp
-            except:
+            except Exception:
                 self.vprint("Could not join host ! Retrying...")
                 retry -= 1
 

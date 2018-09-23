@@ -217,7 +217,7 @@ class _PowershellManager(Thread):
         try:
             self.process.stdin.write("exit\n")
             self.process.terminate()
-        except:
+        except Exception:
             pass
 
 
@@ -474,7 +474,7 @@ if conf.prog.tcpdump and conf.use_npcap and conf.prog.os_access:
             _windows_title()
             _output = stdout.lower()
             return b"npcap" in _output and b"winpcap" not in _output
-        except:
+        except Exception:
             return False
     windump_ok = test_windump_npcap()
     if not windump_ok:
@@ -865,7 +865,7 @@ class NetworkInterfaceDict(UserDict):
                 scapy.consts.LOOPBACK_INTERFACE = self.dev_from_name(
                     scapy.consts.LOOPBACK_NAME,
                 )
-            except:
+            except Exception:
                 pass
 
     def dev_from_name(self, name):
@@ -1092,7 +1092,7 @@ def _read_routes_post2008():
             iface = dev_from_index(line[0])
             if iface.ip == "0.0.0.0":
                 continue
-        except:
+        except Exception:
             continue
         # try:
         #     intf = pcapdnet.dnet.intf().get_dst(pcapdnet.dnet.addr(type=2, addrtxt=dest))  # noqa: E501
@@ -1157,7 +1157,7 @@ def _read_routes6_post2008():
         try:
             if_index = line[0]
             iface = dev_from_index(if_index)
-        except:
+        except Exception:
             continue
 
         dpref, dp = line[1].split('/')
@@ -1198,7 +1198,7 @@ def _read_routes6_7():
                 try:
                     if_index = current_object[2]
                     iface = dev_from_index(if_index)
-                except:
+                except Exception:
                     current_object = []
                     index = 0
                     continue

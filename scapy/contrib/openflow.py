@@ -575,7 +575,7 @@ class OFPacketField(PacketField):
             ofload = s[:l]
             remain = s[l:]
             return remain, OpenFlow(None, ofload)(ofload)
-        except:
+        except Exception:
             return "", Raw(s)
 
 

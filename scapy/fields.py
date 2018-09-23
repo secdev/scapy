@@ -465,7 +465,7 @@ class IPField(Field):
         if self in conf.resolve:
             try:
                 ret = socket.gethostbyaddr(x)[0]
-            except:
+            except Exception:
                 pass
             else:
                 if ret:
@@ -1112,7 +1112,7 @@ class StrFixedLenField(StrField):
     def randval(self):
         try:
             l = self.length_from(None)
-        except:
+        except Exception:
             l = RandNum(0, 200)
         return RandBin(l)
 

@@ -74,7 +74,7 @@ class TLSClientAutomaton(_TLSAutomaton):
                 inet_pton(socket.AF_INET6, server)
             else:
                 inet_pton(socket.AF_INET, server)
-        except:
+        except Exception:
             self.remote_name = socket.getfqdn(server)
             if self.remote_name != server:
                 tmp = socket.getaddrinfo(self.remote_name, dport)
@@ -511,7 +511,7 @@ class TLSClientAutomaton(_TLSAutomaton):
         self.add_msg(TLSAlert(level=1, descr=0))
         try:
             self.flush_records()
-        except:
+        except Exception:
             self.vprint("Could not send termination Alert, maybe the server stopped?")  # noqa: E501
         raise self.FINAL()
 
@@ -800,7 +800,7 @@ class TLSClientAutomaton(_TLSAutomaton):
         self.add_msg(Raw('goodbye'))
         try:
             self.flush_records()
-        except:
+        except Exception:
             self.vprint("Could not send our goodbye. The server probably stopped.")  # noqa: E501
         self.socket.close()
         raise self.FINAL()
