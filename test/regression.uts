@@ -10056,6 +10056,7 @@ assert a.src == '00:00:00:00:00:00'
 + ASN.1
 
 = MIB
+~ mib
 
 import tempfile
 fd, fname = tempfile.mkstemp()
@@ -10063,7 +10064,7 @@ os.write(fd, b"-- MIB test\nscapy       OBJECT IDENTIFIER ::= {test 2807}\n")
 os.close(fd)
 
 load_mib(fname)
-assert(len([k for k in conf.mib.iterkeys() if "scapy" in k]) == 1)
+assert(len([k for k in conf.mib.__dict__.values() if "scapy" in k]) == 1)
 
 assert(len([oid for oid in conf.mib]) > 100)
 
@@ -10074,6 +10075,9 @@ assert(len(conf.mib._find("MIB", "keyUsage")))
 assert(len(conf.mib._recurs_find_all((), "MIB", "keyUsage")))
 
 = MIB - graph
+~ mib
+
+import mock
 
 @mock.patch("scapy.asn1.mib.do_graph")
 def get_mib_graph(do_graph):
