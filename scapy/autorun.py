@@ -65,9 +65,9 @@ def autorun_commands(cmds, my_globals=None, ignore_globals=None, verb=0):
                 else:
                     sys.stderr.write(str(sys.__dict__.get("ps1", sys.ps1)))
 
-                l = cmds.pop()
-                print(l)
-                cmd += "\n" + l
+                line = cmds.pop()
+                print(line)
+                cmd += "\n" + line
                 if interp.runsource(cmd):
                     continue
                 if interp.error:

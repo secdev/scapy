@@ -240,8 +240,8 @@ def in6_ifaceidtomac(ifaceid):
     oui = first + ifaceid[1:3]
     end = ifaceid[5:]
     # Convert and reconstruct into a MAC Address
-    l = ["%.02x" % orb(x) for x in list(oui + end)]
-    return ":".join(l)
+    mac_bytes = ["%.02x" % orb(x) for x in list(oui + end)]
+    return ":".join(mac_bytes)
 
 
 def in6_addrtomac(addr):

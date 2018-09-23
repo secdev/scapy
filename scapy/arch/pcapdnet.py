@@ -558,8 +558,8 @@ if conf.use_dnet:
 
             # Retrieve interface information
             try:
-                l = dnet.intf().get(iff)
-                link_addr = l["link_addr"]
+                tmp_intf = dnet.intf().get(iff)
+                link_addr = tmp_intf["link_addr"]
             except Exception:
                 raise Scapy_Exception("Error in attempting to get hw address"
                                       " for interface [%s]" % iff)

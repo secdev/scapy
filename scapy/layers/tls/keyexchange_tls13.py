@@ -242,8 +242,8 @@ class TicketField(PacketField):
         PacketField.__init__(self, name, default, Ticket, **kargs)
 
     def m2i(self, pkt, m):
-        l = self.length_from(pkt)
-        tbd, rem = m[:l], m[l:]
+        tmp_len = self.length_from(pkt)
+        tbd, rem = m[:tmp_len], m[tmp_len:]
         return self.cls(tbd) / Padding(rem)
 
 

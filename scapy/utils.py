@@ -114,12 +114,12 @@ def hexdump(x, dump=False):
     """
     s = ""
     x = raw(x)
-    l = len(x)
+    x_len = len(x)
     i = 0
-    while i < l:
+    while i < x_len:
         s += "%04x  " % i
         for j in range(16):
-            if i + j < l:
+            if i + j < x_len:
                 s += "%02X " % orb(x[i + j])
             else:
                 s += "   "
@@ -226,8 +226,8 @@ def hexdiff(x, y):
 
     dox = 1
     doy = 0
-    l = len(backtrackx)
-    while i < l:
+    btx_len = len(backtrackx)
+    while i < btx_len:
         linex = backtrackx[i:i + 16]
         liney = backtracky[i:i + 16]
         xx = sum(len(k) for k in linex)
@@ -265,7 +265,7 @@ def hexdiff(x, y):
 
         cl = ""
         for j in range(16):
-            if i + j < l:
+            if i + j < btx_len:
                 if line[j]:
                     col = colorize[(linex[j] != liney[j]) * (doy - dox)]
                     print(col("%02X" % orb(line[j])), end=' ')
@@ -775,10 +775,10 @@ def load_object(fname):
 def corrupt_bytes(s, p=0.01, n=None):
     """Corrupt a given percentage or number of bytes from a string"""
     s = array.array("B", raw(s))
-    l = len(s)
+    s_len = len(s)
     if n is None:
-        n = max(1, int(l * p))
-    for i in random.sample(range(l), n):
+        n = max(1, int(s_len * p))
+    for i in random.sample(range(s_len), n):
         s[i] = (s[i] + random.randint(1, 255)) % 256
     return s.tostring() if six.PY2 else s.tobytes()
 
@@ -787,10 +787,10 @@ def corrupt_bytes(s, p=0.01, n=None):
 def corrupt_bits(s, p=0.01, n=None):
     """Flip a given percentage or number of bits from a string"""
     s = array.array("B", raw(s))
-    l = len(s) * 8
+    s_len = len(s) * 8
     if n is None:
-        n = max(1, int(l * p))
-    for i in random.sample(range(l), n):
+        n = max(1, int(s_len * p))
+    for i in random.sample(range(s_len), n):
         s[i // 8] ^= 1 << (i % 8)
     return s.tostring() if six.PY2 else s.tobytes()
 
@@ -1574,10 +1574,10 @@ def __make_table(yfmtfunc, fmtfunc, endline, data, fxyz, sortx=None, sorty=None,
     # Python 2 backward compatibility
     fxyz = lambda_tuple_converter(fxyz)
 
-    l = 0
+    tmp_len = 0
     for e in data:
         xx, yy, zz = [str(s) for s in fxyz(*e)]
-        l = max(len(yy), l)
+        tmp_len = max(len(yy), tmp_len)
         vx[xx] = max(vx.get(xx, 0), len(xx), len(zz))
         vy[yy] = None
         vz[(xx, yy)] = zz
@@ -1606,10 +1606,10 @@ def __make_table(yfmtfunc, fmtfunc, endline, data, fxyz, sortx=None, sorty=None,
                 vyk.sort()
 
     if seplinefunc:
-        sepline = seplinefunc(l, [vx[x] for x in vxk])
+        sepline = seplinefunc(tmp_len, [vx[x] for x in vxk])
         print(sepline)
 
-    fmt = yfmtfunc(l)
+    fmt = yfmtfunc(tmp_len)
     print(fmt % "", end=' ')
     for x in vxk:
         vxf[x] = fmtfunc(vx[x])

@@ -83,18 +83,19 @@ class IP6FieldLenField(IP6Field):
 
     def addfield(self, pkt, s, val):
         """Add an internal value  to a string"""
-        l = self.length_of(pkt)
-        if l == 0:
+        tmp_len = self.length_of(pkt)
+        if tmp_len == 0:
             return s
-        internal = self.i2m(pkt, val)[-l:]
-        return s + struct.pack("!%ds" % l, internal)
+        internal = self.i2m(pkt, val)[-tmp_len:]
+        return s + struct.pack("!%ds" % tmp_len, internal)
 
     def getfield(self, pkt, s):
-        l = self.length_of(pkt)
-        assert l >= 0 and l <= 16
-        if l <= 0:
+        tmp_len = self.length_of(pkt)
+        assert tmp_len >= 0 and tmp_len <= 16
+        if tmp_len <= 0:
             return s, b""
-        return s[l:], self.m2i(pkt, b"\x00" * (16 - l) + s[:l])
+        return (s[tmp_len:],
+                self.m2i(pkt, b"\x00" * (16 - tmp_len) + s[:tmp_len]))
 
 
 class BitVarSizeField(BitField):

@@ -331,8 +331,8 @@ class _DUIDField(PacketField):
         return cls(x)
 
     def getfield(self, pkt, s):
-        l = self.length_from(pkt)
-        return s[l:], self.m2i(pkt, s[:l])
+        tmp_len = self.length_from(pkt)
+        return s[tmp_len:], self.m2i(pkt, s[:tmp_len])
 
 
 class DHCP6OptClientId(_DHCP6OptGuessPayload):     # RFC sect 22.2
@@ -374,9 +374,9 @@ class _IANAOptField(PacketListField):
         return sum(len(raw(x)) for x in z)
 
     def getfield(self, pkt, s):
-        l = self.length_from(pkt)
+        tmp_len = self.length_from(pkt)
         lst = []
-        remain, payl = s[:l], s[l:]
+        remain, payl = s[:tmp_len], s[tmp_len:]
         while len(remain) > 0:
             p = self.m2i(pkt, remain)
             if conf.padding_layer in p:
@@ -598,9 +598,9 @@ class _UserClassDataField(PacketListField):
         return sum(len(raw(x)) for x in z)
 
     def getfield(self, pkt, s):
-        l = self.length_from(pkt)
+        tmp_len = self.length_from(pkt)
         lst = []
-        remain, payl = s[:l], s[l:]
+        remain, payl = s[:tmp_len], s[tmp_len:]
         while len(remain) > 0:
             p = self.m2i(pkt, remain)
             if conf.padding_layer in p:
@@ -797,8 +797,8 @@ class DHCP6OptNISPServers(_DHCP6OptGuessPayload):  # RFC3898
 
 class DomainNameField(StrLenField):
     def getfield(self, pkt, s):
-        l = self.length_from(pkt)
-        return s[l:], self.m2i(pkt, s[:l])
+        tmp_len = self.length_from(pkt)
+        return s[tmp_len:], self.m2i(pkt, s[:tmp_len])
 
     def i2len(self, pkt, x):
         return len(self.i2m(pkt, x))
@@ -806,9 +806,9 @@ class DomainNameField(StrLenField):
     def m2i(self, pkt, x):
         cur = []
         while x:
-            l = orb(x[0])
-            cur.append(x[1:1 + l])
-            x = x[l + 1:]
+            tmp_len = orb(x[0])
+            cur.append(x[1:1 + tmp_len])
+            x = x[tmp_len + 1:]
         return b".".join(cur)
 
     def i2m(self, pkt, x):
@@ -1367,8 +1367,8 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
             if isinstance(val, list):
                 return val
             elif isinstance(val, str):
-                l = val.split(',')
-                return [x.strip() for x in l]
+                tmp_len = val.split(',')
+                return [x.strip() for x in tmp_len]
             else:
                 print("Bad '%s' parameter provided." % param_name)
                 self.usage()
@@ -1534,13 +1534,13 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
             it = p
             addrs = []
             while it:
-                l = []
+                lst = []
                 if isinstance(it, DHCP6OptIA_NA):
-                    l = it.ianaopts
+                    lst = it.ianaopts
                 elif isinstance(it, DHCP6OptIA_TA):
-                    l = it.iataopts
+                    lst = it.iataopts
 
-                addrs += [x.addr for x in l if isinstance(x, DHCP6OptIAAddress)]  # noqa: E501
+                addrs += [x.addr for x in lst if isinstance(x, DHCP6OptIAAddress)]  # noqa: E501
                 it = it.payload
 
             addrs = [bo + x + n for x in addrs]

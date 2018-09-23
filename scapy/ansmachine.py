@@ -13,7 +13,7 @@ Answering machines.
 
 from __future__ import absolute_import
 from __future__ import print_function
-from scapy.sendrecv import send, sendp, sniff
+from scapy.sendrecv import send, sniff
 from scapy.config import conf
 from scapy.error import log_interactive
 import scapy.modules.six as six
@@ -21,10 +21,10 @@ import scapy.modules.six as six
 
 class ReferenceAM(type):
     def __new__(cls, name, bases, dct):
-        o = super(ReferenceAM, cls).__new__(cls, name, bases, dct)
-        if o.function_name:
-            globals()[o.function_name] = lambda o=o, *args, **kargs: o(*args, **kargs)()  # noqa: E501
-        return o
+        obj = super(ReferenceAM, cls).__new__(cls, name, bases, dct)
+        if obj.function_name:
+            globals()[obj.function_name] = lambda obj=obj, *args, **kargs: obj(*args, **kargs)()  # noqa: E501
+        return obj
 
 
 class AnsweringMachine(six.with_metaclass(ReferenceAM, object)):
@@ -52,9 +52,9 @@ class AnsweringMachine(six.with_metaclass(ReferenceAM, object)):
         self.optsend, self.optsniff = [{}, {}]
 
     def __getattr__(self, attr):
-        for d in [self.optam2, self.optam1]:
-            if attr in d:
-                return d[attr]
+        for dct in [self.optam2, self.optam1]:
+            if attr in dct:
+                return dct[attr]
         raise AttributeError(attr)
 
     def __setattr__(self, attr, val):

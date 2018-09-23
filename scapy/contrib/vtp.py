@@ -112,13 +112,13 @@ class VTPVlanInfo(Packet):
         vlannamelen = 4 * ((len(self.vlanname) + 3) / 4)
 
         if self.len is None:
-            l = vlannamelen + 12
-            p = chr(l & 0xff) + p[1:]
+            tmp_len = vlannamelen + 12
+            p = chr(tmp_len & 0xff) + p[1:]
 
         # Pad vlan name with zeros if vlannamelen > len(vlanname)
-        l = vlannamelen - len(self.vlanname)
-        if l != 0:
-            p += b"\x00" * l
+        tmp_len = vlannamelen - len(self.vlanname)
+        if tmp_len != 0:
+            p += b"\x00" * tmp_len
 
         p += pay
 

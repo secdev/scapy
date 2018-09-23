@@ -276,7 +276,7 @@ class NewDefaultValues(Packet_metaclass):
                 if line.startswith("class"):
                     break
         except Exception:
-            f, l = "??", -1
+            f, l = "??", -1  # noqa: E741
             raise
         log_loading.warning("Deprecated (no more needed) use of NewDefaultValues  (%s l. %i).", f, l)  # noqa: E501
 

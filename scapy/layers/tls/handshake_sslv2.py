@@ -136,14 +136,14 @@ class SSLv2ClientHello(_SSLv2Handshake):
 
 class _SSLv2CertDataField(StrLenField):
     def getfield(self, pkt, s):
-        l = 0
+        tmp_len = 0
         if self.length_from is not None:
-            l = self.length_from(pkt)
+            tmp_len = self.length_from(pkt)
         try:
-            certdata = Cert(s[:l])
+            certdata = Cert(s[:tmp_len])
         except Exception:
-            certdata = s[:l]
-        return s[l:], certdata
+            certdata = s[:tmp_len]
+        return s[tmp_len:], certdata
 
     def i2len(self, pkt, i):
         if isinstance(i, Cert):

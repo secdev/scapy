@@ -257,7 +257,7 @@ class AbstractUVarIntField(fields.Field):
 
         assert(len(s) >= 2)
 
-        l = len(s)
+        tmp_len = len(s)
 
         value = 0
         i = 1
@@ -272,7 +272,7 @@ class AbstractUVarIntField(fields.Field):
                     'out-of-bound value: the string encodes a value that is too large (>2^{64}): {}'.format(value)  # noqa: E501
                 )
             i += 1
-            assert i < l, 'EINVAL: x: out-of-bound read: the string ends before the AbstractUVarIntField!'  # noqa: E501
+            assert i < tmp_len, 'EINVAL: x: out-of-bound read: the string ends before the AbstractUVarIntField!'  # noqa: E501
             byte = orb(s[i])
         value += byte << (7 * (i - 1))
         value += self._max_value
@@ -408,12 +408,12 @@ class AbstractUVarIntField(fields.Field):
         @raise AssertionError
         """
         assert(len(s) >= 2)
-        l = len(s)
+        tmp_len = len(s)
 
         i = 1
         while orb(s[i]) & 0x80 > 0:
             i += 1
-            assert i < l, 'EINVAL: s: out-of-bound read: unfinished AbstractUVarIntField detected'  # noqa: E501
+            assert i < tmp_len, 'EINVAL: s: out-of-bound read: unfinished AbstractUVarIntField detected'  # noqa: E501
         ret = i + 1
 
         assert(ret >= 0)
@@ -465,11 +465,11 @@ class AbstractUVarIntField(fields.Field):
             val = s
 
         if self._detect_multi_byte(val[0]):
-            l = self._detect_bytelen_from_str(val)
+            tmp_len = self._detect_bytelen_from_str(val)
         else:
-            l = 1
+            tmp_len = 1
 
-        ret = val[l:], self.m2i(pkt, s)
+        ret = val[tmp_len:], self.m2i(pkt, s)
         assert(ret[1] >= 0)
         return ret
 
@@ -686,7 +686,7 @@ class HuffmanNode(object):
     HPack compressed HTTP/2 headers
     """
 
-    __slots__ = ['l', 'r']
+    __slots__ = ['left', 'right']
     """@var l: the left branch of this node
     @var r: the right branch of this Node
 
@@ -695,21 +695,21 @@ class HuffmanNode(object):
      EOS)
     """
 
-    def __init__(self, l, r):
+    def __init__(self, left, right):
         # type: (Union[None, HuffmanNode, EOS, str], Union[None, HuffmanNode, EOS, str]) -> None  # noqa: E501
-        self.l = l
-        self.r = r
+        self.left = left
+        self.right = right
 
     def __getitem__(self, b):
         # type: (int) -> Union[None, HuffmanNode, EOS, str]
-        return self.r if b else self.l
+        return self.right if b else self.left
 
     def __setitem__(self, b, val):
         # type: (int, Union[None, HuffmanNode, EOS, str]) -> None
         if b:
-            self.r = val
+            self.right = val
         else:
-            self.l = val
+            self.left = val
 
     def __str__(self):
         # type: () -> str
@@ -717,7 +717,7 @@ class HuffmanNode(object):
 
     def __repr__(self):
         # type: () -> str
-        return '({}, {})'.format(self.l, self.r)
+        return '({}, {})'.format(self.left, self.right)
 
 
 class InvalidEncodingException(Exception):
@@ -1230,9 +1230,9 @@ class HPackStrLenField(fields.Field):
         @raise KeyError if "type_from" is not a field of pkt or its payloads.
         @raise InvalidEncodingException
         """
-        l = self._length_from(pkt)
+        tmp_len = self._length_from(pkt)
         t = pkt.getfieldval(self._type_from) == 1
-        return s[l:], self._parse(t, s[:l])
+        return s[tmp_len:], self._parse(t, s[:tmp_len])
 
     def i2h(self, pkt, x):
         # type: (Optional[packet.Packet], HPackStringsInterface) -> str
@@ -1258,11 +1258,11 @@ class HPackStrLenField(fields.Field):
         @raise KeyError if _type_from is not one of pkt fields.
         """
         t = pkt.getfieldval(self._type_from)
-        l = self._length_from(pkt)
+        tmp_len = self._length_from(pkt)
 
-        assert t is not None and l is not None, 'Conversion from string impossible: no type or length specified'  # noqa: E501
+        assert t is not None and tmp_len is not None, 'Conversion from string impossible: no type or length specified'  # noqa: E501
 
-        return self._parse(t == 1, x[:l])
+        return self._parse(t == 1, x[:tmp_len])
 
     def any2i(self, pkt, x):
         # type: (Optional[packet.Packet], Union[str, HPackStringsInterface]) -> HPackStringsInterface  # noqa: E501
@@ -2453,14 +2453,14 @@ class HPackHdrTable(Sized):
         @return str: the textual representation of the provided headers
         @raise AssertionError
         """
-        l = []
+        lst = []
         if isinstance(hdrs, H2Frame):
             hdrs = hdrs.payload.hdrs
 
         for hdr in hdrs:
             try:
                 if isinstance(hdr, HPackIndexedHdr):
-                    l.append('{}'.format(self[hdr.index]))
+                    lst.append('{}'.format(self[hdr.index]))
                 elif isinstance(hdr, (
                     HPackLitHdrFldWithIncrIndexing,
                     HPackLitHdrFldWithoutIndexing
@@ -2470,14 +2470,14 @@ class HPackHdrTable(Sized):
                     else:
                         name = hdr.hdr_name.getfieldval('data').origin()
                     if name.startswith(':'):
-                        l.append(
+                        lst.append(
                             '{} {}'.format(
                                 name,
                                 hdr.hdr_value.getfieldval('data').origin()
                             )
                         )
                     else:
-                        l.append(
+                        lst.append(
                             '{}: {}'.format(
                                 name,
                                 hdr.hdr_value.getfieldval('data').origin()
@@ -2488,7 +2488,7 @@ class HPackHdrTable(Sized):
             except KeyError as e:  # raised when an index is out-of-bound
                 print(e)
                 continue
-        return '\n'.join(l)
+        return '\n'.join(lst)
 
     @staticmethod
     def _optimize_header_length_and_packetify(s):

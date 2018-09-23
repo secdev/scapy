@@ -890,13 +890,13 @@ class Chain(list):
 
         if len(self) > 0:
             while certList:
-                l = len(self)
+                tmp_len = len(self)
                 for c in certList:
                     if c.isIssuerCert(self[-1]):
                         self.append(c)
                         certList.remove(c)
                         break
-                if len(self) == l:
+                if len(self) == tmp_len:
                     # no new certificate appended to self
                     break
 

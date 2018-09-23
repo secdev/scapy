@@ -45,8 +45,9 @@ class RSVP(Packet):
     def post_build(self, p, pay):
         p += pay
         if self.Length is None:
-            l = len(p)
-            p = p[:6] + chb((l >> 8) & 0xff) + chb(l & 0xff) + p[8:]
+            tmp_len = len(p)
+            tmp_p = p[:6] + chb((tmp_len >> 8) & 0xff) + chb(tmp_len & 0xff)
+            p = tmp_p + p[8:]
         if self.chksum is None:
             ck = checksum(p)
             p = p[:2] + chb(ck >> 8) + chb(ck & 0xff) + p[4:]

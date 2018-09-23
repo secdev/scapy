@@ -418,16 +418,16 @@ class IP(Packet, IPTools):
             ihl = len(p) // 4
             p = chb(((self.version & 0xf) << 4) | ihl & 0x0f) + p[1:]
         if self.len is None:
-            l = len(p) + len(pay)
-            p = p[:2] + struct.pack("!H", l) + p[4:]
+            tmp_len = len(p) + len(pay)
+            p = p[:2] + struct.pack("!H", tmp_len) + p[4:]
         if self.chksum is None:
             ck = checksum(p)
             p = p[:10] + chb(ck >> 8) + chb(ck & 0xff) + p[12:]
         return p + pay
 
     def extract_padding(self, s):
-        l = self.len - (self.ihl << 2)
-        return s[:l], s[l:]
+        tmp_len = self.len - (self.ihl << 2)
+        return s[:tmp_len], s[tmp_len:]
 
     def route(self):
         dst = self.dst
@@ -631,10 +631,10 @@ class UDP(Packet):
 
     def post_build(self, p, pay):
         p += pay
-        l = self.len
-        if l is None:
-            l = len(p)
-            p = p[:4] + struct.pack("!H", l) + p[6:]
+        tmp_len = self.len
+        if tmp_len is None:
+            tmp_len = len(p)
+            p = p[:4] + struct.pack("!H", tmp_len) + p[6:]
         if self.chksum is None:
             if isinstance(self.underlayer, IP):
                 ck = in4_chksum(socket.IPPROTO_UDP, self.underlayer, p)
@@ -653,8 +653,8 @@ class UDP(Packet):
         return p
 
     def extract_padding(self, s):
-        l = self.len - 8
-        return s[:l], s[l:]
+        tmp_len = self.len - 8
+        return s[:tmp_len], s[tmp_len:]
 
     def hashret(self):
         return self.payload.hashret()
@@ -1266,8 +1266,8 @@ Touch screen: pinch/extend to zoom, swipe or two-finger rotate."""
 
         for t in rings:
             r = rings[t]
-            l = len(r)
-            for i in range(l):
+            tmp_len = len(r)
+            for i in range(tmp_len):
                 if r[i][1] == -1:
                     col = vpython.vec(0.75, 0.75, 0.75)
                 elif r[i][1]:
@@ -1275,7 +1275,7 @@ Touch screen: pinch/extend to zoom, swipe or two-finger rotate."""
                 else:
                     col = vpython.color.blue
 
-                s = IPsphere(pos=vpython.vec((l - 1) * vpython.cos(2 * i * vpython.pi / l), (l - 1) * vpython.sin(2 * i * vpython.pi / l), 2 * t),  # noqa: E501
+                s = IPsphere(pos=vpython.vec((tmp_len - 1) * vpython.cos(2 * i * vpython.pi / tmp_len), (tmp_len - 1) * vpython.sin(2 * i * vpython.pi / tmp_len), 2 * t),  # noqa: E501
                              ip=r[i][0],
                              color=col)
                 for trlst in six.itervalues(tr3d):

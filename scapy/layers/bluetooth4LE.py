@@ -175,10 +175,10 @@ class BTLE_ADV(Packet):
         p += pay
         if self.Length is None:
             if len(pay) > 2:
-                l = len(pay)
+                l_pay = len(pay)
             else:
-                l = 0
-            p = p[:1] + chb(l & 0x3f) + p[2:]
+                l_pay = 0
+            p = p[:1] + chb(l_pay & 0x3f) + p[2:]
         if not isinstance(self.underlayer, BTLE):
             self.add_underlayer(BTLE)
         return p

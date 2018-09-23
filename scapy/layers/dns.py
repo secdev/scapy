@@ -635,10 +635,11 @@ class _DNSRRdummy(InheritOriginDNSStrPacket):
             return pkt + pay
 
         lrrname = len(self.fields_desc[0].i2m("", self.getfieldval("rrname")))
-        l = len(pkt) - lrrname - 10
-        pkt = pkt[:lrrname + 8] + struct.pack("!H", l) + pkt[lrrname + 8 + 2:]
+        tmp_len = len(pkt) - lrrname - 10
+        tmp_pkt = pkt[:lrrname + 8]
+        pkt = struct.pack("!H", tmp_len) + pkt[lrrname + 8 + 2:]
 
-        return pkt + pay
+        return tmp_pkt + pkt + pay
 
 
 class DNSRRSOA(_DNSRRdummy):

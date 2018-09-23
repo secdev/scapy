@@ -119,27 +119,26 @@ EPOCH = time.mktime((1970, 1, 2, 0, 0, 0, 3, 1, 0)) - 86400
 MTU = 0xffff  # a.k.a give me all you have
 
 
-# file parsing to get some values :
-
-def load_protocols(filename):
+def load_protocols(filename, _integer_base=10):
+    """"Parse /etc/protocols and return values as a dictionary."""
     spaces = re.compile(b"[ \t]+|\n")
     dct = DADict(_name=filename)
     try:
         f = open(filename, "rb")
-        for l in f:
+        for line in f:
             try:
-                shrp = l.find(b"#")
+                shrp = line.find(b"#")
                 if shrp >= 0:
-                    l = l[:shrp]
-                l = l.strip()
-                if not l:
+                    line = line[:shrp]
+                line = line.strip()
+                if not line:
                     continue
-                lt = tuple(re.split(spaces, l))
+                lt = tuple(re.split(spaces, line))
                 if len(lt) < 2 or not lt[0]:
                     continue
-                dct[lt[0]] = int(lt[1])
+                dct[lt[0]] = int(lt[1], _integer_base)
             except Exception as e:
-                log_loading.info("Couldn't parse file [%s]: line [%r] (%s)", filename, l, e)  # noqa: E501
+                log_loading.info("Couldn't parse file [%s]: line [%r] (%s)", filename, line, e)  # noqa: E501
         f.close()
     except IOError:
         log_loading.info("Can't open %s file", filename)
@@ -147,28 +146,8 @@ def load_protocols(filename):
 
 
 def load_ethertypes(filename):
-    spaces = re.compile(b"[ \t]+|\n")
-    dct = DADict(_name=filename)
-    try:
-        f = open(filename, "rb")
-        for l in f:
-            try:
-                shrp = l.find(b"#")
-                if shrp >= 0:
-                    l = l[:shrp]
-                l = l.strip()
-                if not l:
-                    continue
-                lt = tuple(re.split(spaces, l))
-                if len(lt) < 2 or not lt[0]:
-                    continue
-                dct[lt[0]] = int(lt[1], 16)
-            except Exception as e:
-                log_loading.info("Couldn't parse file [%s]: line [%r] (%s)", filename, l, e)  # noqa: E501
-        f.close()
-    except IOError:
-        pass
-    return dct
+    """"Parse /etc/ethertypes and return values as a dictionary."""
+    return load_protocols(filename, _integer_base=16)
 
 
 def load_services(filename):
@@ -177,15 +156,15 @@ def load_services(filename):
     udct = DADict(_name="%s-udp" % filename)
     try:
         f = open(filename, "rb")
-        for l in f:
+        for line in f:
             try:
-                shrp = l.find(b"#")
+                shrp = line.find(b"#")
                 if shrp >= 0:
-                    l = l[:shrp]
-                l = l.strip()
-                if not l:
+                    line = line[:shrp]
+                line = line.strip()
+                if not line:
                     continue
-                lt = tuple(re.split(spaces, l))
+                lt = tuple(re.split(spaces, line))
                 if len(lt) < 2 or not lt[0]:
                     continue
                 if lt[1].endswith(b"/tcp"):
@@ -193,7 +172,7 @@ def load_services(filename):
                 elif lt[1].endswith(b"/udp"):
                     udct[lt[0]] = int(lt[1].split(b'/')[0])
             except Exception as e:
-                log_loading.warning("Couldn't parse file [%s]: line [%r] (%s)", filename, l, e)  # noqa: E501
+                log_loading.warning("Couldn't parse file [%s]: line [%r] (%s)", filename, line, e)  # noqa: E501
         f.close()
     except IOError:
         log_loading.info("Can't open /etc/services file")
@@ -227,21 +206,21 @@ class ManufDA(DADict):
 def load_manuf(filename):
     manufdb = ManufDA(_name=filename)
     with open(filename, "rb") as fdesc:
-        for l in fdesc:
+        for line in fdesc:
             try:
-                l = l.strip()
-                if not l or l.startswith(b"#"):
+                line = line.strip()
+                if not line or line.startswith(b"#"):
                     continue
-                oui, shrt = l.split()[:2]
-                i = l.find(b"#")
+                oui, shrt = line.split()[:2]
+                i = line.find(b"#")
                 if i < 0:
                     lng = shrt
                 else:
-                    lng = l[i + 2:]
+                    lng = line[i + 2:]
                 manufdb[oui] = plain_str(shrt), plain_str(lng)
             except Exception:
                 log_loading.warning("Couldn't parse one line from [%s] [%r]",
-                                    filename, l, exc_info=True)
+                                    filename, line, exc_info=True)
     return manufdb
 
 

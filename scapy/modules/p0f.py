@@ -65,22 +65,23 @@ class p0fKnowledgeBase(KnowledgeBase):
             return
         try:
             self.base = []
-            for l in f:
-                if l[0] in ["#", "\n"]:
+            for line in f:
+                if line[0] in ["#", "\n"]:
                     continue
-                l = tuple(l.split(":"))
-                if len(l) < 8:
+                line = tuple(line.split(":"))
+                if len(line) < 8:
                     continue
 
                 def a2i(x):
                     if x.isdigit():
                         return int(x)
                     return x
-                li = [a2i(e) for e in l[1:4]]
+                li = [a2i(e) for e in line[1:4]]
                 # if li[0] not in self.ttl_range:
                 #    self.ttl_range.append(li[0])
                 #    self.ttl_range.sort()
-                self.base.append((l[0], li[0], li[1], li[2], l[4], l[5], l[6], l[7][:-1]))  # noqa: E501
+                self.base.append((line[0], li[0], li[1], li[2], line[4],
+                                  line[5], line[6], line[7][:-1]))
         except Exception:
             warning("Can't parse p0f database (new p0f version ?)")
             self.base = None

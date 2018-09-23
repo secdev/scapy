@@ -112,8 +112,8 @@ class GTPHeader(Packet):
     def post_build(self, p, pay):
         p += pay
         if self.length is None:
-            l = len(p) - 8
-            p = p[:2] + struct.pack("!H", l) + p[4:]
+            tmp_len = len(p) - 8
+            p = p[:2] + struct.pack("!H", tmp_len) + p[4:]
         return p
 
     def hashret(self):

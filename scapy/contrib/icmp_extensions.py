@@ -36,8 +36,8 @@ class ICMPExtensionObject(Packet):
 
     def post_build(self, p, pay):
         if self.len is None:
-            l = len(p) + len(pay)
-            p = struct.pack('!H', l) + p[2:]
+            tmp_len = len(p) + len(pay)
+            p = struct.pack('!H', tmp_len) + p[2:]
         return p + pay
 
 

@@ -183,8 +183,8 @@ class CDPMsgAddr(CDPMsgGeneric):
 
     def post_build(self, pkt, pay):
         if self.len is None:
-            l = 8 + len(self.addr) * 9
-            pkt = pkt[:2] + struct.pack("!H", l) + pkt[4:]
+            tmp_len = 8 + len(self.addr) * 9
+            pkt = pkt[:2] + struct.pack("!H", tmp_len) + pkt[4:]
         p = pkt + pay
         return p
 
