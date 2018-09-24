@@ -400,6 +400,7 @@ class ISOTPSoftSocket(SuperSocket):
                  timeout=1,
                  rx_block_size=0,
                  rx_separation_time_min=0,
+                 padding=False,
                  basecls=ISOTP):
         """
         Initialize an ISOTPSoftSocket using the provided underlying can socket
@@ -417,6 +418,9 @@ class ISOTPSoftSocket(SuperSocket):
         :param rx_block_size: block size sent in Flow Control ISOTP frames
         :param rx_separation_time_min: minimum desired separation time sent in
                                        Flow Control ISOTP frames
+        :param padding: If True, pads sending packets with 0x00 which not
+                        count to the payload.
+                        Does not affect receiving packets.
         :param basecls: base class of the packets emitted by this socket
         """
 
@@ -434,6 +438,8 @@ class ISOTPSoftSocket(SuperSocket):
         self.filter_warning_emitted = False
 
         def can_send(load):
+            if padding:
+                load += bytearray(CAN_MAX_DLEN - len(load))
             can_socket.send(CAN(identifier=sid, data=load))
 
         def can_on_recv(p):
@@ -1322,7 +1328,8 @@ if six.PY3 and LINUX:
 
         def __set_option_flags(self, sock, extended_addr=None,
                                extended_rx_addr=None,
-                               listen_only=False):
+                               listen_only=False,
+                               padding=False):
             option_flags = CAN_ISOTP_DEFAULT_FLAGS
             if extended_addr is not None:
                 option_flags = option_flags | CAN_ISOTP_EXTEND_ADDR
@@ -1336,6 +1343,10 @@ if six.PY3 and LINUX:
 
             if listen_only:
                 option_flags = option_flags | CAN_ISOTP_LISTEN_MODE
+
+            if padding:
+                option_flags = option_flags | CAN_ISOTP_TX_PADDING \
+                                            | CAN_ISOTP_RX_PADDING
 
             sock.setsockopt(SOL_CAN_ISOTP,
                             CAN_ISOTP_OPTS,
@@ -1351,6 +1362,7 @@ if six.PY3 and LINUX:
                      extended_addr=None,
                      extended_rx_addr=None,
                      listen_only=False,
+                     padding=False,
                      basecls=ISOTP):
             self.iface = conf.contribs['NativeCANSocket']['iface'] \
                 if iface is None else iface
@@ -1359,7 +1371,8 @@ if six.PY3 and LINUX:
             self.__set_option_flags(self.can_socket,
                                     extended_addr,
                                     extended_rx_addr,
-                                    listen_only)
+                                    listen_only,
+                                    padding)
 
             self.src = sid
             self.dst = did

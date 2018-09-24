@@ -791,6 +791,98 @@ with ISOTPSocket(new_can_socket(), sid=0x641, did=0x241) as s1, \
         assert (result.data == isotp.data)
 
 
+= Send a single frame ISOTP message with padding
+~ linux needs_root
+
+with ISOTPSocket(new_can_socket(), sid=0x641, did=0x241, padding=True) as s:
+    cans = new_can_socket()
+    s.send(ISOTP(data=dhex("01")))
+    res = cans.recv()
+    assert(res.length == 8)
+
+
+= Send a two-frame ISOTP message with padding
+~ linux needs_root
+
+cans = new_can_socket()
+acker_ready = threading.Event()
+def acker():
+    acks = new_can_socket()
+    acker_ready.set()
+    can = acks.recv()
+    acks.send(CAN(identifier = 0x241, data=dhex("30 00 00")))
+
+Thread(target=acker).start()
+acker_ready.wait()
+with ISOTPSocket(new_can_socket(), sid=0x641, did=0x241, padding=True) as s:
+    s.send(ISOTP(data=dhex("01 02 03 04 05 06 07 08")))
+
+can = cans.recv()
+assert(can.identifier == 0x641)
+assert(can.data == dhex("10 08 01 02 03 04 05 06"))
+can = cans.recv()
+assert(can.identifier == 0x241)
+assert(can.data == dhex("30 00 00"))
+can = cans.recv()
+assert(can.identifier == 0x641)
+assert(can.data == dhex("21 07 08 00 00 00 00 00"))
+
+
+= Receive a padded single frame ISOTP message with padding disabled
+~ linux needs_root
+
+with ISOTPSocket(new_can_socket(), sid=0x641, did=0x241, padding=False) as s:
+    cans = new_can_socket()
+    cans.send(CAN(identifier=0x241, data=dhex("02 05 06 00 00 00 00 00")))
+    res = s.recv()
+    assert(res.data == dhex("05 06"))
+
+
+= Receive a padded single frame ISOTP message with padding enabled
+~ linux needs_root
+
+with ISOTPSocket(new_can_socket(), sid=0x641, did=0x241, padding=True) as s:
+    cans = new_can_socket()
+    cans.send(CAN(identifier=0x241, data=dhex("02 05 06 00 00 00 00 00")))
+    res = s.recv()
+    assert(res.data == dhex("05 06"))
+
+
+= Receive a non-padded single frame ISOTP message with padding enabled
+~ linux needs_root
+
+with ISOTPSocket(new_can_socket(), sid=0x641, did=0x241, padding=True) as s:
+    cans = new_can_socket()
+    cans.send(CAN(identifier=0x241, data=dhex("02 05 06")))
+    res = s.recv()
+    assert(res.data == dhex("05 06"))
+
+
+= Receive a padded two-frame ISOTP message with padding enabled
+~ linux needs_root
+
+with ISOTPSocket(new_can_socket(), sid=0x641, did=0x241, padding=True) as s:
+    cans = new_can_socket()
+    cans.send(CAN(identifier=0x241, data=dhex("10 09 01 02 03 04 05 06")))
+    cans.send(CAN(identifier=0x241, data=dhex("21 07 08 09 00 00 00 00")))
+    res = s.recv()
+    assert(res.data == dhex("01 02 03 04 05 06 07 08 09"))
+
+
+= Receive a padded two-frame ISOTP message with padding disabled
+~ linux needs_root
+
+with ISOTPSocket(new_can_socket(), sid=0x641, did=0x241, padding=False) as s:
+    cans = new_can_socket()
+    cans.send(CAN(identifier=0x241, data=dhex("10 09 01 02 03 04 05 06")))
+    cans.send(CAN(identifier=0x241, data=dhex("21 07 08 09 00 00 00 00")))
+    res = s.recv()
+    res.show()
+    print(res.data)
+    print(raw(res))
+    assert(res.data == dhex("01 02 03 04 05 06 07 08 09"))
+
+
 + Compatibility with can-isotp linux kernel modules
 ~ linux needs_root
 
@@ -930,6 +1022,87 @@ assert(can.data == dhex("30 00 00"))
 can = cans.recv()
 assert(can.identifier == 0x641)
 assert(can.data == dhex("21 07 08"))
+
+
+= Send a single frame ISOTP message with padding
+exit_if_no_isotp_module()
+s = ISOTPNativeSocket(iface, sid=0x641, did=0x241, padding=True)
+cans = CANSocket(iface)
+s.send(ISOTP(data=dhex("01")))
+res = cans.recv()
+assert(res.length == 8)
+
+
+= Send a two-frame ISOTP message with padding
+exit_if_no_isotp_module()
+cans = CANSocket(iface)
+acker_ready = threading.Event()
+def acker():
+    acks = new_can_socket()
+    acker_ready.set()
+    can = acks.recv()
+    acks.send(CAN(identifier = 0x241, data=dhex("30 00 00")))
+
+Thread(target=acker).start()
+acker_ready.wait()
+s = ISOTPNativeSocket(iface, sid=0x641, did=0x241, padding=True)
+s.send(ISOTP(data=dhex("01 02 03 04 05 06 07 08")))
+can = cans.recv()
+assert(can.identifier == 0x641)
+assert(can.data == dhex("10 08 01 02 03 04 05 06"))
+can = cans.recv()
+assert(can.identifier == 0x241)
+assert(can.data == dhex("30 00 00"))
+can = cans.recv()
+assert(can.identifier == 0x641)
+assert(can.data == dhex("21 07 08 00 00 00 00 00"))
+
+
+= Receive a padded single frame ISOTP message with padding disabled
+exit_if_no_isotp_module()
+s = ISOTPNativeSocket(iface, sid=0x641, did=0x241, padding=False)
+cans = CANSocket(iface)
+cans.send(CAN(identifier=0x241, data=dhex("02 05 06 00 00 00 00 00")))
+res = s.recv()
+assert(res.data == dhex("05 06"))
+
+
+= Receive a padded single frame ISOTP message with padding enabled
+exit_if_no_isotp_module()
+s = ISOTPNativeSocket(iface, sid=0x641, did=0x241, padding=True)
+cans = CANSocket(iface)
+cans.send(CAN(identifier=0x241, data=dhex("02 05 06 00 00 00 00 00")))
+res = s.recv()
+assert(res.data == dhex("05 06"))
+
+
+= Receive a non-padded single frame ISOTP message with padding enabled
+exit_if_no_isotp_module()
+s = ISOTPNativeSocket(iface, sid=0x641, did=0x241, padding=True)
+cans = CANSocket(iface)
+cans.send(CAN(identifier=0x241, data=dhex("02 05 06")))
+res = s.recv()
+assert(res.data == dhex("05 06"))
+
+
+= Receive a padded two-frame ISOTP message with padding enabled
+exit_if_no_isotp_module()
+s = ISOTPNativeSocket(iface, sid=0x641, did=0x241, padding=True)
+cans = CANSocket(iface)
+cans.send(CAN(identifier=0x241, data=dhex("10 09 01 02 03 04 05 06")))
+cans.send(CAN(identifier=0x241, data=dhex("21 07 08 09 00 00 00 00")))
+res = s.recv()
+assert(res.data == dhex("01 02 03 04 05 06 07 08 09"))
+
+
+= Receive a padded two-frame ISOTP message with padding disabled
+exit_if_no_isotp_module()
+s = ISOTPNativeSocket(iface, sid=0x641, did=0x241, padding=False)
+cans = CANSocket(iface)
+cans.send(CAN(identifier=0x241, data=dhex("10 09 01 02 03 04 05 06")))
+cans.send(CAN(identifier=0x241, data=dhex("21 07 08 09 00 00 00 00")))
+res = s.recv()
+assert(res.data == dhex("01 02 03 04 05 06 07 08 09"))
 
 
 = Receive a single frame ISOTP message
