@@ -141,7 +141,7 @@ class _SSLv2CertDataField(StrLenField):
             l = self.length_from(pkt)
         try:
             certdata = Cert(s[:l])
-        except:
+        except Exception:
             certdata = s[:l]
         return s[l:], certdata
 

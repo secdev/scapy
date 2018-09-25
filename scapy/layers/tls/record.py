@@ -102,7 +102,7 @@ class _TLSMsgListField(PacketListField):
         else:
             try:
                 return cls(m, tls_session=pkt.tls_session)
-            except:
+            except Exception:
                 if conf.debug_dissector:
                     raise
                 return Raw(m)
@@ -526,7 +526,7 @@ class TLS(_GenericTLSSessionInheritance):
                         tls_session=self.tls_session)
             except KeyboardInterrupt:
                 raise
-            except:
+            except Exception:
                 p = conf.raw_layer(s, _internal=1, _underlayer=self)
             self.add_payload(p)
 

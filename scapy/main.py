@@ -218,7 +218,7 @@ def update_ipython_session(session):
     try:
         global get_ipython
         get_ipython().user_ns.update(session)
-    except:
+    except Exception:
         pass
 
 
@@ -239,7 +239,7 @@ def save_session(fname=None, session=None, pickleProto=-1):
     if session is None:
         try:
             session = get_ipython().user_ns
-        except:
+        except Exception:
             session = six.moves.builtins.__dict__["scapy_session"]
 
     to_be_saved = session.copy()
@@ -365,7 +365,7 @@ def scapy_delete_temp_files():
     for f in conf.temp_files:
         try:
             os.unlink(f)
-        except:
+        except Exception:
             pass
     del(conf.temp_files[:])
 
@@ -540,7 +540,7 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=20):
                     user_ns=SESSION,
                     exec_lines=["print(\"\"\"" + banner + "\"\"\")"]
                 )
-            except:
+            except Exception:
                 code.interact(banner=the_banner, local=SESSION)
         else:
             cfg = Config()
@@ -572,7 +572,7 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=20):
     for k in GLOBKEYS:
         try:
             del(six.moves.builtins.__dict__[k])
-        except:
+        except Exception:
             pass
 
 

@@ -42,7 +42,7 @@ def _test_pyx():
     try:
         with open(os.devnull, 'wb') as devnull:
             r = subprocess.check_call(["pdflatex", "--version"], stdout=devnull, stderr=subprocess.STDOUT)  # noqa: E501
-    except:
+    except Exception:
         return False
     else:
         return r == 0

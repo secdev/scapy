@@ -15,5 +15,5 @@ assert Dot11Auth in pkt
 
 try:
     os.remove(_filepath)
-except:
+except Exception:
     pass

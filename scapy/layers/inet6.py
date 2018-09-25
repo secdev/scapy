@@ -233,7 +233,7 @@ class IP6ListField(StrField):
         for y in x:
             try:
                 y = inet_pton(socket.AF_INET6, y)
-            except:
+            except Exception:
                 y = socket.getaddrinfo(y, None, socket.AF_INET6)[0][-1][0]
                 y = inet_pton(socket.AF_INET6, y)
             s += y
@@ -803,7 +803,7 @@ class _HopByHopOptionsField(PacketListField):
                 cls = _hbhoptcls[o]
             try:
                 op = cls(x)
-            except:
+            except Exception:
                 op = self.cls(x)
             opt.append(op)
             if isinstance(op.payload, conf.raw_layer):
@@ -817,7 +817,7 @@ class _HopByHopOptionsField(PacketListField):
         autopad = None
         try:
             autopad = getattr(pkt, "autopad")  # Hack : 'autopad' phantom field
-        except:
+        except Exception:
             autopad = 1
 
         if not autopad:
@@ -1754,7 +1754,7 @@ class TruncPktLenField(PacketLenField):
         s = None
         try:  # It can happen we have sth shorter than 40 bytes
             s = self.cls(m)
-        except:
+        except Exception:
             return conf.raw_layer(m)
         return s
 
@@ -2315,13 +2315,13 @@ class NIQueryDataField(StrField):
         try:
             inet_pton(socket.AF_INET6, x.decode())
             return (0, x.decode())
-        except:
+        except Exception:
             pass
         # Try IPv4
         try:
             inet_pton(socket.AF_INET, x.decode())
             return (2, x.decode())
-        except:
+        except Exception:
             pass
         # Try DNS
         if x is None:
@@ -3049,7 +3049,7 @@ class _MobilityOptionsField(PacketListField):
                 cls = moboptcls[o]
             try:
                 op = cls(x)
-            except:
+            except Exception:
                 op = self.cls(x)
             opt.append(op)
             if isinstance(op.payload, conf.raw_layer):
@@ -3063,7 +3063,7 @@ class _MobilityOptionsField(PacketListField):
         autopad = None
         try:
             autopad = getattr(pkt, "autopad")  # Hack : 'autopad' phantom field
-        except:
+        except Exception:
             autopad = 1
 
         if not autopad:

@@ -81,7 +81,7 @@ class p0fKnowledgeBase(KnowledgeBase):
                 #    self.ttl_range.append(li[0])
                 #    self.ttl_range.sort()
                 self.base.append((l[0], li[0], li[1], li[2], l[4], l[5], l[6], l[7][:-1]))  # noqa: E501
-        except:
+        except Exception:
             warning("Can't parse p0f database (new p0f version ?)")
             self.base = None
         f.close()
@@ -317,7 +317,7 @@ def prnp0f(pkt):
     # we should print which DB we use
     try:
         r = p0f(pkt)
-    except:
+    except Exception:
         return
     if r == []:
         r = ("UNKNOWN", "[" + ":".join(map(str, packet2p0f(pkt)[1])) + ":?:?]", None)  # noqa: E501
@@ -326,7 +326,7 @@ def prnp0f(pkt):
     uptime = None
     try:
         uptime = pkt2uptime(pkt)
-    except:
+    except Exception:
         pass
     if uptime == 0:
         uptime = None

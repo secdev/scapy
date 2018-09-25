@@ -378,7 +378,7 @@ def isCryptographyAdvanced():
     try:
         from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey  # noqa: E501
         X25519PrivateKey.generate()
-    except:
+    except Exception:
         return False
     else:
         return True
@@ -397,7 +397,7 @@ def _prompt_changer(attr, val):
     """Change the current prompt theme"""
     try:
         sys.ps1 = conf.color_theme.prompt(conf.prompt)
-    except:
+    except Exception:
         pass
     try:
         apply_ipython_style(get_ipython())

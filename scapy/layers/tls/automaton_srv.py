@@ -75,7 +75,7 @@ class TLSServerAutomaton(_TLSAutomaton):
             else:
                 inet_pton(socket.AF_INET, server)
             tmp = socket.getaddrinfo(server, sport)
-        except:
+        except Exception:
             tmp = socket.getaddrinfo(socket.getfqdn(server), sport)
 
         self.serversocket = None
@@ -137,7 +137,7 @@ class TLSServerAutomaton(_TLSAutomaton):
         try:
             s.bind((self.local_ip, self.local_port))
             s.listen(1)
-        except:
+        except Exception:
             m = "Unable to bind on %s:%d!" % (self.local_ip, self.local_port)
             self.vprint()
             self.vprint(m)
@@ -539,7 +539,7 @@ class TLSServerAutomaton(_TLSAutomaton):
         self.add_msg(TLSAlert(level=1, descr=0))
         try:
             self.flush_records()
-        except:
+        except Exception:
             self.vprint("Could not send termination Alert, maybe the client left?")  # noqa: E501
             self.buffer_out = []
         self.socket.close()
@@ -556,7 +556,7 @@ class TLSServerAutomaton(_TLSAutomaton):
         self.add_msg(TLSAlert(level=1, descr=0))
         try:
             self.flush_records()
-        except:
+        except Exception:
             self.vprint("Could not send termination Alert, maybe the client left?")  # noqa: E501
         # We might call shutdown, but unit tests with s_client fail with this.
         # self.socket.shutdown(1)
@@ -840,7 +840,7 @@ class TLSServerAutomaton(_TLSAutomaton):
         self.add_msg(Raw('goodbye'))
         try:
             self.flush_records()
-        except:
+        except Exception:
             self.vprint("Could not send our goodbye. The client probably left.")  # noqa: E501
             self.buffer_out = []
         self.socket.close()
@@ -861,7 +861,7 @@ class TLSServerAutomaton(_TLSAutomaton):
         self.add_msg(Raw('goodbye'))
         try:
             self.flush_records()
-        except:
+        except Exception:
             self.vprint("Could not send our goodbye. The client probably left.")  # noqa: E501
         self.socket.close()
         raise self.FINAL()

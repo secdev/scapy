@@ -808,7 +808,7 @@ class _GenericTLSSessionInheritance(Packet):
                  _underlayer=None, tls_session=None, **fields):
         try:
             setme = self.tls_session is None
-        except:
+        except Exception:
             setme = True
 
         if setme:

@@ -718,7 +718,7 @@ class TLSServerKeyExchange(_TLSHandshake):
                     cls = cls(tls_session=s)
                 try:
                     cls.fill_missing()
-                except:
+                except Exception:
                     pass
             else:
                 cls = Raw()

@@ -305,7 +305,7 @@ def apply_ipython_style(shell):
     the conf.color_theme scapy theme."""
     try:
         from IPython.terminal.prompts import Prompts, Token
-    except:
+    except Exception:
         from scapy.error import log_loading
         log_loading.warning(
             "IPython too old. Shell color won't be handled."

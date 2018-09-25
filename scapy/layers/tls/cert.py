@@ -144,7 +144,7 @@ class _PKIObjMaker(type):
                 f = open(obj_path, "rb")
                 _raw = f.read()
                 f.close()
-            except:
+            except Exception:
                 raise Exception(error_msg)
         else:
             _raw = obj_path
@@ -163,7 +163,7 @@ class _PKIObjMaker(type):
                     pem = der2pem(_raw, pem_marker)
                 # type identification may be needed for pem_marker
                 # in such case, the pem attribute has to be updated
-        except:
+        except Exception:
             raise Exception(error_msg)
 
         p = _PKIObj(frmt, der, pem)
@@ -223,13 +223,13 @@ class _PubKeyFactory(_PKIObjMaker):
             else:
                 raise
             marker = b"PUBLIC KEY"
-        except:
+        except Exception:
             try:
                 pubkey = RSAPublicKey(obj.der)
                 obj.__class__ = PubKeyRSA
                 obj.import_from_asn1pkt(pubkey)
                 marker = b"RSA PUBLIC KEY"
-            except:
+            except Exception:
                 # We cannot import an ECDSA public key without curve knowledge
                 raise Exception("Unable to import public key")
 
@@ -376,24 +376,24 @@ class _PrivKeyFactory(_PKIObjMaker):
             privkey = privkey.privateKey
             obj.__class__ = PrivKeyRSA
             marker = b"PRIVATE KEY"
-        except:
+        except Exception:
             try:
                 privkey = ECDSAPrivateKey_OpenSSL(obj.der)
                 privkey = privkey.privateKey
                 obj.__class__ = PrivKeyECDSA
                 marker = b"EC PRIVATE KEY"
                 multiPEM = True
-            except:
+            except Exception:
                 try:
                     privkey = RSAPrivateKey(obj.der)
                     obj.__class__ = PrivKeyRSA
                     marker = b"RSA PRIVATE KEY"
-                except:
+                except Exception:
                     try:
                         privkey = ECDSAPrivateKey(obj.der)
                         obj.__class__ = PrivKeyECDSA
                         marker = b"EC PRIVATE KEY"
-                    except:
+                    except Exception:
                         raise Exception("Unable to import private key")
         try:
             obj.import_from_asn1pkt(privkey)
@@ -567,7 +567,7 @@ class _CertMaker(_PKIObjMaker):
         obj.__class__ = Cert
         try:
             cert = X509_Cert(obj.der)
-        except:
+        except Exception:
             raise Exception("Unable to import certificate")
         obj.import_from_asn1pkt(cert)
         return obj
@@ -607,7 +607,7 @@ class Cert(six.with_metaclass(_CertMaker, object)):
             notBefore = notBefore[:-1]
         try:
             self.notBefore = time.strptime(notBefore, "%y%m%d%H%M%S")
-        except:
+        except Exception:
             raise Exception(error_msg)
         self.notBefore_str_simple = time.strftime("%x", self.notBefore)
 
@@ -617,7 +617,7 @@ class Cert(six.with_metaclass(_CertMaker, object)):
             notAfter = notAfter[:-1]
         try:
             self.notAfter = time.strptime(notAfter, "%y%m%d%H%M%S")
-        except:
+        except Exception:
             raise Exception(error_msg)
         self.notAfter_str_simple = time.strftime("%x", self.notAfter)
 
@@ -694,7 +694,7 @@ class Cert(six.with_metaclass(_CertMaker, object)):
                     now = time.strptime(now, '%m/%d/%y')
                 else:
                     now = time.strptime(now, '%b %d %H:%M:%S %Y %Z')
-            except:
+            except Exception:
                 warning("Bad time string provided, will use localtime() instead.")  # noqa: E501
                 now = time.localtime()
 
@@ -763,7 +763,7 @@ class _CRLMaker(_PKIObjMaker):
         obj.__class__ = CRL
         try:
             crl = X509_CRL(obj.der)
-        except:
+        except Exception:
             raise Exception("Unable to import CRL")
         obj.import_from_asn1pkt(crl)
         return obj
@@ -798,7 +798,7 @@ class CRL(six.with_metaclass(_CRLMaker, object)):
             lastUpdate = lastUpdate[:-1]
         try:
             self.lastUpdate = time.strptime(lastUpdate, "%y%m%d%H%M%S")
-        except:
+        except Exception:
             raise Exception(error_msg)
         self.lastUpdate_str_simple = time.strftime("%x", self.lastUpdate)
 
@@ -811,7 +811,7 @@ class CRL(six.with_metaclass(_CRLMaker, object)):
                 nextUpdate = nextUpdate[:-1]
             try:
                 self.nextUpdate = time.strptime(nextUpdate, "%y%m%d%H%M%S")
-            except:
+            except Exception:
                 raise Exception(error_msg)
             self.nextUpdate_str_simple = time.strftime("%x", self.nextUpdate)
 
@@ -829,7 +829,7 @@ class CRL(six.with_metaclass(_CRLMaker, object)):
                     date = date[:-1]
                 try:
                     time.strptime(date, "%y%m%d%H%M%S")
-                except:
+                except Exception:
                     raise Exception(error_msg)
                 revoked.append((serial, date))
         self.revoked_cert_serials = revoked
@@ -932,7 +932,7 @@ class Chain(list):
             f = open(cafile, "rb")
             ca_certs = f.read()
             f.close()
-        except:
+        except Exception:
             raise Exception("Could not read from cafile")
 
         anchors = [Cert(c) for c in split_pem(ca_certs)]
@@ -943,7 +943,7 @@ class Chain(list):
                 f = open(untrusted_file, "rb")
                 untrusted_certs = f.read()
                 f.close()
-            except:
+            except Exception:
                 raise Exception("Could not read from untrusted_file")
             untrusted = [Cert(c) for c in split_pem(untrusted_certs)]
 
@@ -961,7 +961,7 @@ class Chain(list):
             anchors = []
             for cafile in os.listdir(capath):
                 anchors.append(Cert(open(os.path.join(capath, cafile), "rb").read()))  # noqa: E501
-        except:
+        except Exception:
             raise Exception("capath provided is not a valid cert path")
 
         untrusted = None
@@ -970,7 +970,7 @@ class Chain(list):
                 f = open(untrusted_file, "rb")
                 untrusted_certs = f.read()
                 f.close()
-            except:
+            except Exception:
                 raise Exception("Could not read from untrusted_file")
             untrusted = [Cert(c) for c in split_pem(untrusted_certs)]
 

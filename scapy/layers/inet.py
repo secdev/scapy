@@ -1348,7 +1348,7 @@ Touch screen: pinch/extend to zoom, swipe or two-finger rotate."""
         # Open & read the GeoListIP2 database
         try:
             db = geoip2.database.Reader(conf.geoip_city)
-        except:
+        except Exception:
             warning("Cannot open geoip2 database at %s", conf.geoip_city)
             return []
 
@@ -1868,7 +1868,7 @@ def fragleak2(target, timeout=0.4, onlyasc=0):
                 if leak not in found:
                     found[leak] = None
                     linehexdump(leak, onlyasc=onlyasc)
-    except:
+    except Exception:
         pass
 
 

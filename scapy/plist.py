@@ -359,7 +359,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
             p = self._elt2pkt(p)
             try:
                 c = getsrcdst(p)
-            except:
+            except Exception:
                 # No warning here: it's OK that getsrcdst() raises an
                 # exception, since it might be, for example, a
                 # function that expects a specific layer in each
@@ -411,7 +411,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
                 else:
                     el[e] = (1, [d])
                 dl[d] = dl.get(d, 0) + 1
-            except:
+            except Exception:
                 continue
 
         import math

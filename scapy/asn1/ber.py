@@ -200,7 +200,7 @@ class BERcodec_metaclass(type):
         c = super(BERcodec_metaclass, cls).__new__(cls, name, bases, dct)
         try:
             c.tag.register(c.codec, c)
-        except:
+        except Exception:
             warning("Error registering %r for %r" % (c.tag, c.codec))
         return c
 

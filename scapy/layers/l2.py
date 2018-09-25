@@ -136,7 +136,7 @@ class SourceMACField(MACField):
             if iff:
                 try:
                     x = get_if_hwaddr(iff)
-                except:
+                except Exception:
                     pass
             if x is None:
                 x = "00:00:00:00:00:00"
@@ -682,7 +682,7 @@ class ARP_am(AnsweringMachine):
         if self.ARP_addr is None:
             try:
                 ARP_addr = get_if_hwaddr(iff)
-            except:
+            except Exception:
                 ARP_addr = "00:00:00:00:00:00"
                 pass
         else:

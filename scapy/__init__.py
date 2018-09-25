@@ -69,13 +69,13 @@ def _version():
         with open(version_file, 'w') as f:
             f.write(tag)
         return tag
-    except:
+    except Exception:
         # failed to read the tag from git, try to read it from a VERSION file
         try:
             with open(version_file, 'r') as f:
                 tag = f.read()
             return tag
-        except:
+        except Exception:
             # Rely on git archive "export-subst" git attribute.
             # See 'man gitattributes' for more details.
             git_archive_id = '$Format:%h %d$'

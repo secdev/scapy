@@ -60,7 +60,7 @@ def import_module(name):
         name = name[:-3]
     try:
         return importlib.import_module(name, package="scapy")
-    except:
+    except Exception:
         return importlib.import_module(name)
 
 

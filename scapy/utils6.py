@@ -227,7 +227,7 @@ def in6_ifaceidtomac(ifaceid):
     try:
         # Set ifaceid to a binary form
         ifaceid = inet_pton(socket.AF_INET6, "::" + ifaceid)[8:16]
-    except:
+    except Exception:
         return None
     if ifaceid[3:5] != b'\xff\xfe':  # Check for burned-in MAC address
         return None
@@ -302,7 +302,7 @@ def in6_getLinkScopedMcastAddr(addr, grpid=None, scope=2):
         if not in6_islladdr(addr):
             return None
         addr = inet_pton(socket.AF_INET6, addr)
-    except:
+    except Exception:
         warning("in6_getLinkScopedMcastPrefix(): Invalid address provided")
         return None
 
@@ -315,13 +315,13 @@ def in6_getLinkScopedMcastAddr(addr, grpid=None, scope=2):
             if len(grpid) == 8:
                 try:
                     grpid = int(grpid, 16) & 0xffffffff
-                except:
+                except Exception:
                     warning("in6_getLinkScopedMcastPrefix(): Invalid group id provided")  # noqa: E501
                     return None
             elif len(grpid) == 4:
                 try:
                     grpid = struct.unpack("!I", grpid)[0]
-                except:
+                except Exception:
                     warning("in6_getLinkScopedMcastPrefix(): Invalid group id provided")  # noqa: E501
                     return None
         grpid = struct.pack("!I", grpid)
@@ -343,7 +343,7 @@ def in6_get6to4Prefix(addr):
     try:
         addr = inet_pton(socket.AF_INET, addr)
         addr = inet_ntop(socket.AF_INET6, b'\x20\x02' + addr + b'\x00' * 10)
-    except:
+    except Exception:
         return None
     return addr
 
@@ -355,7 +355,7 @@ def in6_6to4ExtractAddr(addr):
     """
     try:
         addr = inet_pton(socket.AF_INET6, addr)
-    except:
+    except Exception:
         return None
     if addr[:2] != b" \x02":
         return None
@@ -463,7 +463,7 @@ def in6_ptoc(addr):
     """
     try:
         d = struct.unpack("!IIII", inet_pton(socket.AF_INET6, addr))
-    except:
+    except Exception:
         return None
     res = 0
     m = [2**96, 2**64, 2**32, 1]
@@ -831,7 +831,7 @@ def in6_isvalid(address):
     try:
         socket.inet_pton(socket.AF_INET6, address)
         return True
-    except:
+    except Exception:
         return False
 
 

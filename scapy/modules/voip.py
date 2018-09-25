@@ -159,5 +159,5 @@ def voip_play3(lst=None, **kargs):
         try:
             dsp.close()
             rd.close()
-        except:
+        except Exception:
             pass

@@ -267,7 +267,7 @@ class _TLSServerParamsField(PacketField):
                 if pkcs_os2ip(p.load[:2]) not in _tls_hash_sig:
                     raise Exception
                 return p
-            except:
+            except Exception:
                 cls = _tls_server_ecdh_cls_guess(m)
                 p = cls(m, tls_session=s)
                 if pkcs_os2ip(p.load[:2]) not in _tls_hash_sig:
@@ -453,7 +453,7 @@ class _ECBasisField(PacketField):
         val = 0
         try:
             val = x.val
-        except:
+        except Exception:
             pass
         return val
 
