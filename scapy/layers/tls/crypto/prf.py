@@ -137,9 +137,9 @@ def _tls_PRF(secret, label, seed, req_len):
     - seed: the seed used by the expansion functions.
     - req_len: amount of keystream to be generated
     """
-    l = (len(secret) + 1) // 2
-    S1 = secret[:l]
-    S2 = secret[-l:]
+    tmp_len = (len(secret) + 1) // 2
+    S1 = secret[:tmp_len]
+    S2 = secret[-tmp_len:]
 
     a1 = _tls_P_MD5(S1, label + seed, req_len)
     a2 = _tls_P_SHA1(S2, label + seed, req_len)

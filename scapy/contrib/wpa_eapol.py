@@ -36,8 +36,8 @@ class WPA_key(Packet):
                    StrLenField("wpa_key", "", length_from=lambda pkt:pkt.wpa_key_length)]  # noqa: E501
 
     def extract_padding(self, s):
-        l = self.len
-        return s[:l], s[l:]
+        tmp_len = self.len
+        return s[:tmp_len], s[tmp_len:]
 
     def hashret(self):
         return chr(self.type) + self.payload.hashret()

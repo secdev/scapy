@@ -122,12 +122,12 @@ class _TLSMsgListField(PacketListField):
         missed the session keys, we signal it by returning a
         _TLSEncryptedContent packet which simply contains the ciphered data.
         """
-        l = self.length_from(pkt)
+        tmp_len = self.length_from(pkt)
         lst = []
         ret = b""
         remain = s
-        if l is not None:
-            remain, ret = s[:l], s[l:]
+        if tmp_len is not None:
+            remain, ret = s[:tmp_len], s[tmp_len:]
 
         if remain == b"":
             if (((pkt.tls_session.tls_version or 0x0303) > 0x0200) and
@@ -434,9 +434,9 @@ class TLS(_GenericTLSSessionInheritance):
                 self.padlen = padlen
 
                 # Extract MAC
-                l = self.tls_session.rcs.mac_len
-                if l != 0:
-                    cfrag, mac = mfrag[:-l], mfrag[-l:]
+                tmp_len = self.tls_session.rcs.mac_len
+                if tmp_len != 0:
+                    cfrag, mac = mfrag[:-tmp_len], mfrag[-tmp_len:]
                 else:
                     cfrag, mac = mfrag, b""
 
@@ -459,9 +459,9 @@ class TLS(_GenericTLSSessionInheritance):
                 mfrag = pfrag
 
                 # Extract MAC
-                l = self.tls_session.rcs.mac_len
-                if l != 0:
-                    cfrag, mac = mfrag[:-l], mfrag[-l:]
+                tmp_len = self.tls_session.rcs.mac_len
+                if tmp_len != 0:
+                    cfrag, mac = mfrag[:-tmp_len], mfrag[-tmp_len:]
                 else:
                     cfrag, mac = mfrag, b""
 
@@ -610,13 +610,13 @@ class TLS(_GenericTLSSessionInheritance):
         """
         # Compute the length of TLSPlaintext fragment
         hdr, frag = pkt[:5], pkt[5:]
-        l = len(frag)
-        hdr = hdr[:3] + struct.pack("!H", l)
+        tmp_len = len(frag)
+        hdr = hdr[:3] + struct.pack("!H", tmp_len)
 
         # Compression
         cfrag = self._tls_compress(frag)
-        l = len(cfrag)      # Update the length as a result of compression
-        hdr = hdr[:3] + struct.pack("!H", l)
+        tmp_len = len(cfrag)  # Update the length as a result of compression
+        hdr = hdr[:3] + struct.pack("!H", tmp_len)
 
         cipher_type = self.tls_session.wcs.cipher.type
 
@@ -637,8 +637,8 @@ class TLS(_GenericTLSSessionInheritance):
             # Encryption
             if self.version >= 0x0302:
                 # Explicit IV for TLS 1.1 and 1.2
-                l = self.tls_session.wcs.cipher.block_size
-                iv = randstring(l)
+                tmp_len = self.tls_session.wcs.cipher.block_size
+                iv = randstring(tmp_len)
                 self.tls_session.wcs.cipher.iv = iv
                 efrag = self._tls_encrypt(pfrag)
                 efrag = iv + efrag

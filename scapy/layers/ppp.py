@@ -35,8 +35,8 @@ class PPPoE(Packet):
     def post_build(self, p, pay):
         p += pay
         if self.len is None:
-            l = len(p) - 6
-            p = p[:4] + struct.pack("!H", l) + p[6:]
+            tmp_len = len(p) - 6
+            p = p[:4] + struct.pack("!H", tmp_len) + p[6:]
         return p
 
 

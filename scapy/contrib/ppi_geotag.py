@@ -359,8 +359,8 @@ class HCSIPacket(Packet):
 
     def post_build(self, p, pay):
         if self.pfh_length is None:
-            l = len(p) - 4
-            sl = struct.pack('<H', l)
+            tmp_len = len(p) - 4
+            sl = struct.pack('<H', tmp_len)
             p = p[:2] + sl + p[4:]
         if self.geotag_len is None:
             l_g = len(p) - 4

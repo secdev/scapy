@@ -73,8 +73,8 @@ class HSRPmd5(Packet):
 
     def post_build(self, p, pay):
         if self.len is None and pay:
-            l = len(pay)
-            p = p[:1] + hex(l)[30:] + p[30:]
+            tmp_len = len(pay)
+            p = p[:1] + hex(tmp_len)[30:] + p[30:]
         return p
 
 

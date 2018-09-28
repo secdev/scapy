@@ -191,8 +191,8 @@ class Dot3(Packet):
                    LenField("len", None, "H")]
 
     def extract_padding(self, s):
-        l = self.len
-        return s[:l], s[l:]
+        tmp_len = self.len
+        return s[:tmp_len], s[tmp_len:]
 
     def answers(self, other):
         if isinstance(other, Dot3):

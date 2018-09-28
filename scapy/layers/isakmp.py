@@ -236,8 +236,9 @@ class ISAKMP_payload_Transform(ISAKMP_class):
 
     def post_build(self, p, pay):
         if self.length is None:
-            l = len(p)
-            p = p[:2] + chb((l >> 8) & 0xff) + chb(l & 0xff) + p[4:]
+            tmp_len = len(p)
+            tmp_pay = p[:2] + chb((tmp_len >> 8) & 0xff)
+            p = tmp_pay + chb(tmp_len & 0xff) + p[4:]
         p += pay
         return p
 

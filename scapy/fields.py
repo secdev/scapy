@@ -166,10 +166,10 @@ class Field(six.with_metaclass(Field_metaclass, object)):
             return {"B": RandByte, "H": RandShort, "I": RandInt, "Q": RandLong}[fmtt]()  # noqa: E501
         elif fmtt == "s":
             if self.fmt[0] in "0123456789":
-                l = int(self.fmt[:-1])
+                value = int(self.fmt[:-1])
             else:
-                l = int(self.fmt[1:-1])
-            return RandBin(l)
+                value = int(self.fmt[1:-1])
+            return RandBin(value)
         else:
             warning("no random class for [%s] (fmt=%s).", self.name, self.fmt)
 
@@ -938,14 +938,14 @@ class PacketLenField(PacketField):
         self.length_from = length_from
 
     def getfield(self, pkt, s):
-        l = self.length_from(pkt)
+        len_pkt = self.length_from(pkt)
         try:
-            i = self.m2i(pkt, s[:l])
+            i = self.m2i(pkt, s[:len_pkt])
         except Exception:
             if conf.debug_dissector:
                 raise
-            i = conf.raw_layer(load=s[:l])
-        return s[l:], i
+            i = conf.raw_layer(load=s[:len_pkt])
+        return s[len_pkt:], i
 
 
 class PacketListField(PacketField):
@@ -1040,9 +1040,9 @@ class PacketListField(PacketField):
             return [p if isinstance(p, six.string_types) else p.copy() for p in x]  # noqa: E501
 
     def getfield(self, pkt, s):
-        c = l = cls = None
+        c = len_pkt = cls = None
         if self.length_from is not None:
-            l = self.length_from(pkt)
+            len_pkt = self.length_from(pkt)
         elif self.count_from is not None:
             c = self.count_from(pkt)
         if self.next_cls_cb is not None:
@@ -1052,8 +1052,8 @@ class PacketListField(PacketField):
         lst = []
         ret = b""
         remain = s
-        if l is not None:
-            remain, ret = s[:l], s[l:]
+        if len_pkt is not None:
+            remain, ret = s[:len_pkt], s[len_pkt:]
         while remain:
             if c is not None:
                 if c <= 0:
@@ -1102,19 +1102,19 @@ class StrFixedLenField(StrField):
         return super(StrFixedLenField, self).i2repr(pkt, v)
 
     def getfield(self, pkt, s):
-        l = self.length_from(pkt)
-        return s[l:], self.m2i(pkt, s[:l])
+        len_pkt = self.length_from(pkt)
+        return s[len_pkt:], self.m2i(pkt, s[:len_pkt])
 
     def addfield(self, pkt, s, val):
-        l = self.length_from(pkt)
-        return s + struct.pack("%is" % l, self.i2m(pkt, val))
+        len_pkt = self.length_from(pkt)
+        return s + struct.pack("%is" % len_pkt, self.i2m(pkt, val))
 
     def randval(self):
         try:
-            l = self.length_from(None)
+            len_pkt = self.length_from(None)
         except Exception:
-            l = RandNum(0, 200)
-        return RandBin(l)
+            len_pkt = RandNum(0, 200)
+        return RandBin(len_pkt)
 
 
 class StrFixedLenEnumField(StrFixedLenField):
@@ -1139,12 +1139,12 @@ class NetBIOSNameField(StrFixedLenField):
         StrFixedLenField.__init__(self, name, default, length)
 
     def i2m(self, pkt, x):
-        l = self.length_from(pkt) // 2
+        len_pkt = self.length_from(pkt) // 2
         x = raw(x)
         if x is None:
             x = b""
-        x += b" " * (l)
-        x = x[:l]
+        x += b" " * len_pkt
+        x = x[:len_pkt]
         x = b"".join(chb(0x41 + (orb(b) >> 4)) + chb(0x41 + (orb(b) & 0xf)) for b in x)  # noqa: E501
         x = b" " + x
         return x
@@ -1163,8 +1163,8 @@ class StrLenField(StrField):
         self.max_length = max_length
 
     def getfield(self, pkt, s):
-        l = self.length_from(pkt)
-        return s[l:], self.m2i(pkt, s[:l])
+        len_pkt = self.length_from(pkt)
+        return s[len_pkt:], self.m2i(pkt, s[:len_pkt])
 
     def randval(self):
         return RandBin(RandNum(0, self.max_length or 1200))
@@ -1264,16 +1264,16 @@ class FieldListField(Field):
         return s
 
     def getfield(self, pkt, s):
-        c = l = None
+        c = len_pkt = None
         if self.length_from is not None:
-            l = self.length_from(pkt)
+            len_pkt = self.length_from(pkt)
         elif self.count_from is not None:
             c = self.count_from(pkt)
 
         val = []
         ret = b""
-        if l is not None:
-            s, ret = s[:l], s[l:]
+        if len_pkt is not None:
+            s, ret = s[:len_pkt], s[len_pkt:]
 
         while s:
             if c is not None:
@@ -1314,11 +1314,11 @@ class StrNullField(StrField):
         return s + self.i2m(pkt, val) + b"\x00"
 
     def getfield(self, pkt, s):
-        l = s.find(b"\x00")
-        if l < 0:
+        len_str = s.find(b"\x00")
+        if len_str < 0:
             # XXX \x00 not found
             return b"", s
-        return s[l + 1:], self.m2i(pkt, s[:l])
+        return s[len_str + 1:], self.m2i(pkt, s[:len_str])
 
     def randval(self):
         return RandTermString(RandNum(0, 1200), b"\x00")
@@ -1333,12 +1333,12 @@ class StrStopField(StrField):
         self.additional = additional
 
     def getfield(self, pkt, s):
-        l = s.find(self.stop)
-        if l < 0:
+        len_str = s.find(self.stop)
+        if len_str < 0:
             return b"", s
 #            raise Scapy_Exception,"StrStopField: stop value [%s] not found" %stop  # noqa: E501
-        l += len(self.stop) + self.additional
-        return s[l:], s[:l]
+        len_str += len(self.stop) + self.additional
+        return s[len_str:], s[:len_str]
 
     def randval(self):
         return RandTermString(RandNum(0, 1200), self.stop)

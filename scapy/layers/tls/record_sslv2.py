@@ -230,10 +230,10 @@ class SSLv2(TLS):
         efrag = self._tls_encrypt(mfrag)
 
         if self.len is not None:
-            l = self.len
+            tmp_len = self.len
             if not self.with_padding:
-                l |= 0x8000
-            hdr = struct.pack("!H", l) + hdr[2:]
+                tmp_len |= 0x8000
+            hdr = struct.pack("!H", tmp_len) + hdr[2:]
         else:
             # Update header with the length of TLSCiphertext.fragment
             msglen_new = len(efrag)

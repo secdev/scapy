@@ -40,8 +40,8 @@ class L2TP(Packet):
 
     def post_build(self, pkt, pay):
         if self.len is None:
-            l = len(pkt) + len(pay)
-            pkt = pkt[:2] + struct.pack("!H", l) + pkt[4:]
+            tmp_len = len(pkt) + len(pay)
+            pkt = pkt[:2] + struct.pack("!H", tmp_len) + pkt[4:]
         return pkt + pay
 
 

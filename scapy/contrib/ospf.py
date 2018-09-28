@@ -437,11 +437,11 @@ class OSPFv3_Hdr(Packet):
 
     def post_build(self, p, pay):
         p += pay
-        l = self.len
+        tmp_len = self.len
 
-        if l is None:
-            l = len(p)
-            p = p[:2] + struct.pack("!H", l) + p[4:]
+        if tmp_len is None:
+            tmp_len = len(p)
+            p = p[:2] + struct.pack("!H", tmp_len) + p[4:]
 
         if self.chksum is None:
             chksum = in6_chksum(89, self.underlayer, p)

@@ -98,16 +98,17 @@ class Route6:
         dst, plen = tmp.split('/')[:2]
         dst = in6_ptop(dst)
         plen = int(plen)
-        l = [x for x in self.routes if in6_ptop(x[0]) == dst and x[1] == plen]
+        to_del = [x for x in self.routes
+                  if in6_ptop(x[0]) == dst and x[1] == plen]
         if gw:
             gw = in6_ptop(gw)
-            l = [x for x in self.routes if in6_ptop(x[2]) == gw]
-        if len(l) == 0:
+            to_del = [x for x in self.routes if in6_ptop(x[2]) == gw]
+        if len(to_del) == 0:
             warning("No matching route found")
-        elif len(l) > 1:
+        elif len(to_del) > 1:
             warning("Found more than one match. Aborting.")
         else:
-            i = self.routes.index(l[0])
+            i = self.routes.index(to_del[0])
             self.invalidate_cache()
             del(self.routes[i])
 
@@ -180,11 +181,11 @@ class Route6:
         dst = dst.split("/")[0]
         savedst = dst  # In case following inet_pton() fails
         dst = dst.replace("*", "0")
-        l = dst.find("-")
-        while l >= 0:
-            m = (dst[l:] + ":").find(":")
-            dst = dst[:l] + dst[l + m:]
-            l = dst.find("-")
+        idx = dst.find("-")
+        while idx >= 0:
+            m = (dst[idx:] + ":").find(":")
+            dst = dst[:idx] + dst[idx + m:]
+            idx = dst.find("-")
 
         try:
             inet_pton(socket.AF_INET6, dst)

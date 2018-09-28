@@ -231,7 +231,7 @@ def _exec_query_ps(cmd, fields):
     query_cmd = cmd + ['|', 'select %s' % ', '.join(fields),  # select fields
                        '|', 'fl',  # print as a list
                        '|', 'out-string', '-Width', '4096']  # do not crop
-    l = []
+    lines = []
     # Ask the powershell manager to process the query
     stdout = POWERSHELL_PROCESS.query(query_cmd)
     # Process stdout
@@ -240,13 +240,13 @@ def _exec_query_ps(cmd, fields):
             continue
         sl = line.split(':', 1)
         if len(sl) == 1:
-            l[-1] += sl[0].strip()
+            lines[-1] += sl[0].strip()
             continue
         else:
-            l.append(sl[1].strip())
-        if len(l) == len(fields):
-            yield l
-            l = []
+            lines.append(sl[1].strip())
+        if len(lines) == len(fields):
+            yield lines
+            lines = []
 
 
 def _vbs_exec_code(code, split_tag="@"):

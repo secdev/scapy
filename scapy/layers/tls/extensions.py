@@ -67,8 +67,8 @@ class TLS_Ext_Unknown(_GenericTLSSessionInheritance):
 
     def post_build(self, p, pay):
         if self.len is None:
-            l = len(p) - 4
-            p = p[:2] + struct.pack("!H", l) + p[4:]
+            tmp_len = len(p) - 4
+            p = p[:2] + struct.pack("!H", tmp_len) + p[4:]
         return p + pay
 
 
@@ -367,8 +367,8 @@ def _TLS_Ext_CertTypeDispatcher(m, *args, **kargs):
     We need to select the correct one on dissection. We use the length for
     that, as 1 for client version would emply an empty list.
     """
-    l = struct.unpack("!H", m[2:4])[0]
-    if l == 1:
+    tmp_len = struct.unpack("!H", m[2:4])[0]
+    if tmp_len == 1:
         cls = TLS_Ext_ServerCertType
     else:
         cls = TLS_Ext_ClientCertType
@@ -613,8 +613,8 @@ class _ExtensionsLenField(FieldLenField):
         However, with TLS 1.3, zero lengths are always explicit.
         """
         ext = pkt.get_field(self.length_of)
-        l = ext.length_from(pkt)
-        if l is None or l <= 0:
+        tmp_len = ext.length_from(pkt)
+        if tmp_len is None or tmp_len <= 0:
             v = pkt.tls_session.tls_version
             if v is None or v < 0x0304:
                 return s, None
@@ -655,10 +655,10 @@ class _ExtensionsField(StrLenField):
         return len(self.i2m(pkt, i))
 
     def getfield(self, pkt, s):
-        l = self.length_from(pkt)
-        if l is None:
+        tmp_len = self.length_from(pkt)
+        if tmp_len is None:
             return s, []
-        return s[l:], self.m2i(pkt, s[:l])
+        return s[tmp_len:], self.m2i(pkt, s[:tmp_len])
 
     def i2m(self, pkt, i):
         if i is None:
@@ -679,7 +679,7 @@ class _ExtensionsField(StrLenField):
         res = []
         while m:
             t = struct.unpack("!H", m[:2])[0]
-            l = struct.unpack("!H", m[2:4])[0]
+            tmp_len = struct.unpack("!H", m[2:4])[0]
             cls = _tls_ext_cls.get(t, TLS_Ext_Unknown)
             if cls is TLS_Ext_KeyShare:
                 from scapy.layers.tls.keyexchange_tls13 import _tls_ext_keyshare_cls  # noqa: E501
@@ -687,6 +687,6 @@ class _ExtensionsField(StrLenField):
             elif cls is TLS_Ext_PreSharedKey:
                 from scapy.layers.tls.keyexchange_tls13 import _tls_ext_presharedkey_cls  # noqa: E501
                 cls = _tls_ext_presharedkey_cls.get(pkt.msgtype, TLS_Ext_Unknown)  # noqa: E501
-            res.append(cls(m[:l + 4], tls_session=pkt.tls_session))
-            m = m[l + 4:]
+            res.append(cls(m[:tmp_len + 4], tls_session=pkt.tls_session))
+            m = m[tmp_len + 4:]
         return res

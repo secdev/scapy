@@ -183,9 +183,9 @@ class ISIS_AreaIdField(Field):
     def i2len(self, pkt, x):
         if x is None:
             return 0
-        l = len(x)
+        tmp_len = len(x)
         # l/5 is the number of dots in the Area ID
-        return (l - (l // 5)) // 2
+        return (tmp_len - (tmp_len // 5)) // 2
 
     def addfield(self, pkt, s, val):
         sval = self.i2m(pkt, val)

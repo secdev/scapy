@@ -33,8 +33,8 @@ class NetBIOS_DS(Packet):
     def post_build(self, p, pay):
         p += pay
         if self.len is None:
-            l = len(p) - 14
-            p = p[:10] + struct.pack("!H", l) + p[12:]
+            tmp_len = len(p) - 14
+            p = p[:10] + struct.pack("!H", tmp_len) + p[12:]
         return p
 
 #        ShortField("length",0),

@@ -518,20 +518,20 @@ class Automaton_metaclass(type):
             for f in v:
                 for n in f.__code__.co_names + f.__code__.co_consts:
                     if n in self.states:
-                        l = f.atmt_condname
+                        line = f.atmt_condname
                         for x in self.actions[f.atmt_condname]:
-                            l += "\\l>[%s]" % x.__name__
-                        s += '\t"%s" -> "%s" [label="%s", color=%s];\n' % (k, n, l, c)  # noqa: E501
+                            line += "\\l>[%s]" % x.__name__
+                        s += '\t"%s" -> "%s" [label="%s", color=%s];\n' % (k, n, line, c)  # noqa: E501
         for k, v in six.iteritems(self.timeout):
             for t, f in v:
                 if f is None:
                     continue
                 for n in f.__code__.co_names + f.__code__.co_consts:
                     if n in self.states:
-                        l = "%s/%.1fs" % (f.atmt_condname, t)
+                        line = "%s/%.1fs" % (f.atmt_condname, t)
                         for x in self.actions[f.atmt_condname]:
-                            l += "\\l>[%s]" % x.__name__
-                        s += '\t"%s" -> "%s" [label="%s",color=blue];\n' % (k, n, l)  # noqa: E501
+                            line += "\\l>[%s]" % x.__name__
+                        s += '\t"%s" -> "%s" [label="%s",color=blue];\n' % (k, n, line)  # noqa: E501
         s += "}\n"
         return do_graph(s, **kargs)
 

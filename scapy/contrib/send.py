@@ -74,8 +74,9 @@ class ICMPv6NDOptCGA(_ICMPv6NDGuessPayload, Packet):
 
     def post_build(self, p, pay):
         l_ = len(self.CGA_PARAMS)
-        l = -(4 + l_) % 8  # Pad to 8 bytes
-        p = p[:1] + chb((4 + l_ + l) // 8) + chb(l) + p[3:4 + l_] + b"\x00" * l + pay  # noqa: E501
+        tmp_len = -(4 + l_) % 8  # Pad to 8 bytes
+        p = p[:1] + chb((4 + l_ + tmp_len) // 8) + chb(tmp_len) + p[3:4 + l_]
+        p += b"\x00" * tmp_len + pay
         return p
 
 

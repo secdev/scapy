@@ -62,8 +62,8 @@ class VQPEntry(Packet):
 
     def post_build(self, p, pay):
         if self.len is None:
-            l = len(p.data)
-            p = p[:2] + struct.pack("!H", l) + p[4:]
+            tmp_len = len(p.data)
+            p = p[:2] + struct.pack("!H", tmp_len) + p[4:]
         return p
 
 
