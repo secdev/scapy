@@ -71,6 +71,7 @@ setup(
         'scapy/contrib/automotive',
         'scapy/contrib/automotive/bmw',
         'scapy/contrib/automotive/gm',
+        'scapy/contrib/automotive/obd',
         'scapy/layers',
         'scapy/layers/tls',
         'scapy/layers/tls/crypto',
