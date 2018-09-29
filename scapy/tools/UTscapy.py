@@ -954,13 +954,16 @@ def main(argv):
     if FORMAT == Format.HTML:
         glob_output = pack_html_campaigns(runned_campaigns, glob_output, LOCAL, glob_title)
 
+    # Write the final output
+    # Note: on Python 2, we force-encode to ignore ascii errors
+    # on Python 3, we need to detect the type of stream
     if OUTPUTFILE == sys.stdout:
         OUTPUTFILE.write(glob_output.encode("utf8", "ignore")
-                         if 'b' in OUTPUTFILE.mode else glob_output)
+                         if 'b' in OUTPUTFILE.mode or six.PY2 else glob_output)
     else:
         with open(OUTPUTFILE, "wb") as f:
             f.write(glob_output.encode("utf8", "ignore")
-                    if 'b' in f.mode else glob_output)
+                    if 'b' in f.mode or six.PY2 else glob_output)
 
     # Delete scapy's test environment vars
     del os.environ['SCAPY_ROOT_DIR']
