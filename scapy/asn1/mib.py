@@ -30,9 +30,11 @@ _mib_re_comments = re.compile(r'--.*(\r|\n)')
 
 class MIBDict(DADict):
     def fixname(self, val):
+        # We overwrite DADict fixname method as we want to keep - in names
         return val
 
     def _findroot(self, x):
+        """Internal MIBDict function used to find a partial OID"""
         if x.startswith("."):
             x = x[1:]
         if not x.endswith("."):
@@ -49,10 +51,12 @@ class MIBDict(DADict):
         return root, root_key, x[max:-1]
 
     def _oidname(self, x):
+        """Deduce the OID name from its OID ID"""
         root, _, remainder = self._findroot(x)
         return root + remainder
 
     def _oid(self, x):
+        """Parse the OID id/OID generator, and return real OID"""
         xl = x.strip(".").split(".")
         p = len(xl) - 1
         while p >= 0 and _mib_re_integer.match(xl[p]):
@@ -84,7 +88,8 @@ class MIBDict(DADict):
         do_graph(s, **kargs)
 
 
-def mib_register(ident, value, the_mib, unresolved):
+def _mib_register(ident, value, the_mib, unresolved):
+    """Internal function used to register an OID and its name in a MIBDict"""
     if ident in the_mib or ident in unresolved:
         return ident in the_mib
     resval = []
@@ -113,7 +118,7 @@ def mib_register(ident, value, the_mib, unresolved):
         i = 0
         while i < len(keys):
             k = keys[i]
-            if mib_register(k, unresolved[k], the_mib, {}):
+            if _mib_register(k, unresolved[k], the_mib, {}):
                 del(unresolved[k])
                 del(keys[i])
                 i = 0
@@ -124,10 +129,11 @@ def mib_register(ident, value, the_mib, unresolved):
 
 
 def load_mib(filenames):
+    """Load the conf.mib dict from a list of filenames"""
     the_mib = {'iso': ['1']}
     unresolved = {}
     for k in six.iterkeys(conf.mib):
-        mib_register(conf.mib[k], k.split("."), the_mib, unresolved)
+        _mib_register(conf.mib[k], k.split("."), the_mib, unresolved)
 
     if isinstance(filenames, (str, bytes)):
         filenames = [filenames]
@@ -145,7 +151,7 @@ def load_mib(filenames):
                     m = _mib_re_both.match(elt)
                     if m:
                         oid[i] = m.groups()[1]
-                mib_register(ident, oid, the_mib, unresolved)
+                _mib_register(ident, oid, the_mib, unresolved)
 
     newmib = MIBDict(_name="MIB")
     for oid, key in six.iteritems(the_mib):
