@@ -449,7 +449,7 @@ Changing the default behavior
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 If you do not like Scapy's  behavior for a given layer, you can either
-change or disable it through  the call to ``split_layer()``. For instance,
+change or disable it through  the call to ``split_layers()``. For instance,
 if you do not want UDP/53 to be bound with ``DNS``, just add in your code::
 
     split_layers(UDP, DNS, sport=53)
