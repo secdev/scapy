@@ -8,26 +8,23 @@ Functions to send and receive packets.
 """
 
 from __future__ import absolute_import, print_function
-import errno
 import itertools
 import threading
 import os
-from select import select, error as select_error
 import socket
 import subprocess
 import time
 import types
 
-from scapy.consts import DARWIN, FREEBSD, OPENBSD, WINDOWS
 from scapy.compat import plain_str
-from scapy.data import ETH_P_ALL, MTU
+from scapy.data import ETH_P_ALL
 from scapy.config import conf
+from scapy.error import warning
 from scapy.packet import Packet, Gen
 from scapy.utils import get_temp_file, PcapReader, tcpdump, wrpcap
 from scapy import plist
 from scapy.error import log_runtime, log_interactive
 from scapy.base_classes import SetGen
-from scapy.supersocket import StreamSocket, L3RawSocket, L2ListenTcpdump
 from scapy.modules import six
 from scapy.modules.six.moves import map
 from scapy.supersocket import SuperSocket
@@ -83,14 +80,6 @@ def _sndrcv_snd(pks, timeout, inter, verbose, tobesent, hsent, timessent, stopev
         stopevent.set()
 
 
-class _BreakException(Exception):
-    """A dummy exception used in _get_pkt() to get out of the infinite
-loop
-
-    """
-    pass
-
-
 def _sndrcv_rcv(pks, hsent, stopevent, nbrecv, notans, verbose, chainCC,
                 multi, _storage_policy=None):
     """Function used to receive packets and check their hashret"""
@@ -98,88 +87,53 @@ def _sndrcv_rcv(pks, hsent, stopevent, nbrecv, notans, verbose, chainCC,
         _storage_policy = lambda x, y: (x, y)
     ans = []
 
-    is_python_can_socket = getattr(pks, "is_python_can_socket", lambda: False)
+    selected, read_func = pks.select([pks])
+    read_func = read_func or pks.__class__.recv
 
-    if WINDOWS and not is_python_can_socket():
-        def _get_pkt():
-            from scapy.arch.pcapdnet import PcapTimeoutElapsed
-            try:
-                return pks.recv(MTU)
-            except PcapTimeoutElapsed:
-                return None
-    elif conf.use_bpf:
-        from scapy.arch.bpf.supersocket import bpf_select
-
-        def _get_pkt():
-            if bpf_select([pks]):
-                return pks.recv()
-    elif is_python_can_socket():
-        def _get_pkt():
-            return pks.recv()
-    elif (conf.use_pcap and
-          not isinstance(pks,
-                         (StreamSocket, L3RawSocket, L2ListenTcpdump))) or \
-         (not isinstance(pks, (StreamSocket, L2ListenTcpdump)) and
-            (DARWIN or FREEBSD or OPENBSD)):
-        def _get_pkt():
-            res = pks.nonblock_recv()
-            if res is None:
-                time.sleep(conf.recv_poll_rate)
-            return res
-    else:
-        def _get_pkt():
-            try:
-                inp, _, _ = select([pks], [], [], conf.recv_poll_rate)
-            except (IOError, select_error) as exc:
-                # select.error has no .errno attribute
-                if exc.args[0] != errno.EINTR:
-                    raise
-            else:
-                if inp:
-                    return pks.recv(MTU)
-            if stopevent.is_set():
-                raise _BreakException()
+    def _get_pkt():
+        # SuperSocket.select() returns, according to each socket type,
+        # the selected sockets + the function to recv() the packets (or None)
+        # (when sockets aren't selectable, should be nonblock_recv)
+        if selected:
+            return read_func(selected[0])
 
     try:
-        try:
-            while True:
-                r = _get_pkt()
-                if stopevent.is_set():
-                    break
-                if r is None:
-                    continue
-                ok = False
-                h = r.hashret()
-                if h in hsent:
-                    hlst = hsent[h]
-                    for i, sentpkt in enumerate(hlst):
-                        if r.answers(sentpkt):
-                            ans.append(_storage_policy(sentpkt, r))
-                            if verbose > 1:
-                                os.write(1, b"*")
-                            ok = True
-                            if not multi:
-                                del hlst[i]
+        while True:
+            r = _get_pkt()
+            if stopevent.is_set():
+                break
+            if r is None:
+                continue
+            ok = False
+            h = r.hashret()
+            if h in hsent:
+                hlst = hsent[h]
+                for i, sentpkt in enumerate(hlst):
+                    if r.answers(sentpkt):
+                        ans.append(_storage_policy(sentpkt, r))
+                        if verbose > 1:
+                            os.write(1, b"*")
+                        ok = True
+                        if not multi:
+                            del hlst[i]
+                            notans -= 1
+                        else:
+                            if not hasattr(sentpkt, '_answered'):
                                 notans -= 1
-                            else:
-                                if not hasattr(sentpkt, '_answered'):
-                                    notans -= 1
-                                sentpkt._answered = 1
-                            break
-                del r
-                if notans == 0 and not multi:
-                    break
-                if not ok:
-                    if verbose > 1:
-                        os.write(1, b".")
-                    nbrecv += 1
-                    if conf.debug_match:
-                        debug.recv.append(r)
-        except KeyboardInterrupt:
-            if chainCC:
-                raise
-        except _BreakException:
-            pass
+                            sentpkt._answered = 1
+                        break
+            del r
+            if notans == 0 and not multi:
+                break
+            if not ok:
+                if verbose > 1:
+                    os.write(1, b".")
+                nbrecv += 1
+                if conf.debug_match:
+                    debug.recv.append(r)
+    except KeyboardInterrupt:
+        if chainCC:
+            raise
     finally:
         stopevent.set()
     return (hsent, ans, nbrecv, notans)
@@ -885,34 +839,18 @@ def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
     if timeout is not None:
         stoptime = time.time() + timeout
     remain = None
-    read_allowed_exceptions = ()
-    is_python_can_socket = getattr(opened_socket, "is_python_can_socket", lambda: False)  # noqa: E501
-    if conf.use_bpf:
-        from scapy.arch.bpf.supersocket import bpf_select
 
-        def _select(sockets):
-            return bpf_select(sockets, remain)
-    elif WINDOWS and not is_python_can_socket():
-        from scapy.arch.pcapdnet import PcapTimeoutElapsed
-        read_allowed_exceptions = (PcapTimeoutElapsed,)
+    # Get select information from the sockets
+    _main_socket = next(iter(sniff_sockets))
+    read_allowed_exceptions = _main_socket.read_allowed_exceptions
+    select_func = _main_socket.select
+    # We check that all sockets use the same select(), or raise a warning
+    if not all(select_func == sock.select for sock in sniff_sockets):
+        warning("Warning: inconsistent socket types ! The used select function"
+                "will be the one of the first socket")
+    # Now let's build the select function, used later on
+    _select = lambda sockets: select_func(sockets)[0]
 
-        def _select(sockets):
-            return sockets
-    elif is_python_can_socket():
-        from scapy.contrib.cansocket_python_can import CANSocketTimeoutElapsed
-        read_allowed_exceptions = (CANSocketTimeoutElapsed,)
-
-        def _select(sockets):
-            return sockets
-    else:
-        def _select(sockets):
-            try:
-                return select(sockets, [], [], remain)[0]
-            except select_error as exc:
-                # Catch 'Interrupted system call' errors
-                if exc[0] == errno.EINTR:
-                    return []
-                raise
     try:
         if started_callback:
             started_callback()

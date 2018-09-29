@@ -89,7 +89,7 @@ else:
     from scapy.contrib.cansocket_python_can import *
 
 
-if CANSocket.is_python_can_socket():
+if "python_can" in CANSocket.__module__:
     import can as python_can
     new_can_socket = lambda: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface, bitrate=250000))
 else:
