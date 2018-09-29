@@ -11,9 +11,11 @@ Basic Encoding Rules (BER) for ASN.1
 
 from __future__ import absolute_import
 from scapy.error import warning
-from scapy.compat import *
+from scapy.compat import chb, orb, raw
 from scapy.utils import binrepr, inet_aton, inet_ntoa
-from scapy.asn1.asn1 import ASN1_Decoding_Error, ASN1_Encoding_Error, ASN1_BadTag_Decoding_Error, ASN1_Codecs, ASN1_Class_UNIVERSAL, ASN1_Error, ASN1_DECODING_ERROR, ASN1_BADTAG  # noqa: E501
+from scapy.asn1.asn1 import ASN1_Decoding_Error, ASN1_Encoding_Error, \
+    ASN1_BadTag_Decoding_Error, ASN1_Codecs, ASN1_Class_UNIVERSAL, \
+    ASN1_Error, ASN1_DECODING_ERROR, ASN1_BADTAG
 import scapy.modules.six as six
 
 ##################

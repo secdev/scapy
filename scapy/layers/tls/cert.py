@@ -45,13 +45,14 @@ from scapy.layers.x509 import (X509_SubjectPublicKeyInfo,
 from scapy.layers.tls.crypto.pkcs1 import (pkcs_os2ip, pkcs_i2osp, _get_hash,
                                            _EncryptAndVerifyRSA,
                                            _DecryptAndSignRSA)
-from scapy.compat import *
+from scapy.compat import raw
 if conf.crypto_valid:
     from cryptography.hazmat.backends import default_backend
     from cryptography.hazmat.primitives import serialization
-    from cryptography.hazmat.primitives.asymmetric import rsa
+    from cryptography.hazmat.primitives.asymmetric import rsa, ec
 if conf.crypto_valid_recent:
     from cryptography.hazmat.backends.openssl.ec import InvalidSignature
+
 
 # Maximum allowed size in bytes for a certificate file, to avoid
 # loading huge file when importing a cert

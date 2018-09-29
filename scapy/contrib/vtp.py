@@ -54,9 +54,12 @@
         http://www.cisco.com/en/US/tech/tk389/tk689/technologies_tech_note09186a0080094c52.shtml
 """
 
-from scapy.packet import *
-from scapy.fields import *
-from scapy.layers.l2 import *
+from scapy.packet import Packet, bind_layers
+from scapy.fields import ByteEnumField, ByteField, ConditionalField, \
+    FieldLenField, IPField, PacketListField, ShortField, SignedIntField, \
+    StrFixedLenField, StrLenField, XIntField
+from scapy.layers.l2 import SNAP
+from scapy.config import conf
 
 _VTP_VLAN_TYPE = {
     1: 'Ethernet',

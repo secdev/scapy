@@ -25,7 +25,7 @@ def check_BOOTP_am_reply(packet):
     assert(packet[BOOTP].yiaddr == "192.168.1.128" and packet[BOOTP].giaddr == "192.168.1.1")
 
 test_am(BOOTP_am,
-        IP()/UDP()/BOOTP(op=1),
+        Ether()/IP()/UDP()/BOOTP(op=1),
         check_BOOTP_am_reply)
 
 
@@ -35,7 +35,7 @@ def check_DHCP_am_reply(packet):
     assert(("domain", "localnet") in packet[DHCP].options)
 
 test_am(DHCP_am,
-        IP()/UDP()/BOOTP(op=1)/DHCP(),
+        Ether()/IP()/UDP()/BOOTP(op=1)/DHCP(),
         check_DHCP_am_reply)
 
 

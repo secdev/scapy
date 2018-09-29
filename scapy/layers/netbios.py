@@ -10,8 +10,11 @@ NetBIOS over TCP/IP
 """
 
 import struct
-from scapy.packet import *
-from scapy.fields import *
+
+from scapy.packet import Packet, bind_layers
+from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
+    IPField, IntField, NetBIOSNameField, ShortEnumField, ShortField, \
+    StrFixedLenField, XShortField
 from scapy.layers.inet import UDP, TCP
 from scapy.layers.l2 import SourceMACField
 

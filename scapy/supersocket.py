@@ -16,8 +16,8 @@ import time
 
 from scapy.config import conf
 from scapy.consts import LINUX, OPENBSD, BSD, DARWIN, WINDOWS
-from scapy.data import *
-from scapy.compat import *
+from scapy.data import MTU, ETH_P_IP
+from scapy.compat import raw
 from scapy.error import warning, log_runtime
 import scapy.modules.six as six
 import scapy.packet

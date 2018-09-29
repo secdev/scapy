@@ -17,7 +17,7 @@ import time
 from scapy.dadict import DADict
 from scapy.consts import DARWIN, FREEBSD, NETBSD, OPENBSD, WINDOWS
 from scapy.error import log_loading
-from scapy.compat import *
+from scapy.compat import plain_str
 
 
 ############

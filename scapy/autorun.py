@@ -12,7 +12,7 @@ import code
 import sys
 import importlib
 from scapy.config import conf
-from scapy.themes import *
+from scapy.themes import NoTheme, DefaultTheme, HTMLTheme2, LatexTheme2
 from scapy.error import Scapy_Exception
 from scapy.utils import tex_escape
 import scapy.modules.six as six
@@ -79,7 +79,7 @@ def autorun_commands(cmds, my_globals=None, ignore_globals=None, verb=0):
             pass
     finally:
         conf.verb = sv
-    return _
+    return _  # noqa: F821
 
 
 def autorun_get_interactive_session(cmds, **kargs):

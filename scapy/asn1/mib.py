@@ -15,7 +15,7 @@ from scapy.dadict import DADict, fixname
 from scapy.config import conf
 from scapy.utils import do_graph
 import scapy.modules.six as six
-from scapy.compat import *
+from scapy.compat import plain_str
 
 #################
 #  MIB parsing  #

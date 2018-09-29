@@ -26,15 +26,23 @@ import struct
 from zlib import crc32
 
 from scapy.config import conf, crypto_validator
-from scapy.data import *
-from scapy.compat import *
-from scapy.packet import *
-from scapy.fields import *
-from scapy.ansmachine import *
+from scapy.data import ETHER_ANY, DLT_IEEE802_11, DLT_PRISM_HEADER, \
+    DLT_IEEE802_11_RADIO
+from scapy.compat import raw, orb, chb
+from scapy.packet import Packet, bind_layers, NoPayload
+from scapy.fields import ByteField, LEShortField, BitField, LEShortEnumField, \
+    ByteEnumField, X3BytesField, FlagsField, LELongField, StrField, \
+    StrLenField, IntField, XByteField, LEIntField, StrFixedLenField, \
+    LESignedIntField, ReversePadField, ConditionalField, PacketListField, \
+    ShortField, BitEnumField, XLEIntField, FieldLenField, LEFieldLenField, \
+    FieldListField, XStrFixedLenField, PacketField
+from scapy.ansmachine import AnsweringMachine
 from scapy.plist import PacketList
-from scapy.layers.l2 import *
+from scapy.layers.l2 import Ether, LLC, MACField
 from scapy.layers.inet import IP, TCP
-from scapy.error import warning
+from scapy.error import warning, log_loading
+from scapy.sendrecv import sniff, sendp
+from scapy.utils import issubtype
 
 
 if conf.crypto_valid:

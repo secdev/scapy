@@ -14,15 +14,16 @@ import time
 import datetime
 
 from scapy.packet import Packet, bind_layers
-from scapy.fields import (BitField, BitEnumField, ByteField, ByteEnumField,
-                          XByteField, SignedByteField, FlagsField, ShortField, LEShortField, IntField,  # noqa: E501
-                          LEIntField, FixedPointField, IPField, StrField, StrFixedLenField,  # noqa: E501
-                          StrFixedLenEnumField, XStrFixedLenField, PacketField, PacketLenField,  # noqa: E501
-                          PacketListField, FieldListField, ConditionalField, PadField)  # noqa: E501
+from scapy.fields import BitField, BitEnumField, ByteField, ByteEnumField, \
+    XByteField, SignedByteField, FlagsField, ShortField, LEShortField, \
+    IntField, LEIntField, FixedPointField, IPField, StrField, \
+    StrFixedLenField, StrFixedLenEnumField, XStrFixedLenField, PacketField, \
+    PacketLenField, PacketListField, FieldListField, ConditionalField, \
+    PadField
 from scapy.layers.inet6 import IP6Field
 from scapy.layers.inet import UDP
 from scapy.utils import issubtype, lhex
-from scapy.compat import *
+from scapy.compat import orb
 from scapy.config import conf
 import scapy.modules.six as six
 from scapy.modules.six.moves import range

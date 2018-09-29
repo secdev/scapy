@@ -8,9 +8,10 @@ import socket
 from scapy.modules.six.moves.queue import Queue, Empty
 from scapy.pipetool import Source, Drain, Sink
 from scapy.config import conf
-from scapy.compat import *
+from scapy.compat import raw
 from scapy.utils import PcapReader, PcapWriter
 from scapy.automaton import recv_error
+from scapy.consts import WINDOWS
 
 
 class SniffSource(Source):

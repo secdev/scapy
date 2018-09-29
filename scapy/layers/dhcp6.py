@@ -19,7 +19,7 @@ from scapy.ansmachine import AnsweringMachine
 from scapy.arch import get_if_raw_hwaddr, in6_getifaddr
 from scapy.config import conf
 from scapy.data import EPOCH, ETHER_ANY
-from scapy.compat import *
+from scapy.compat import raw, orb, chb
 from scapy.error import warning
 from scapy.fields import BitField, ByteEnumField, ByteField, FieldLenField, \
     FlagsField, IntEnumField, IntField, MACField, PacketField, \
@@ -27,12 +27,14 @@ from scapy.fields import BitField, ByteEnumField, ByteField, FieldLenField, \
     StrLenField, UTCTimeField, X3BytesField, XIntField, XShortEnumField, \
     PacketLenField
 from scapy.layers.inet import UDP
-from scapy.layers.inet6 import DomainNameListField, IP6Field, IP6ListField, IPv6  # noqa: E501
+from scapy.layers.inet6 import DomainNameListField, IP6Field, IP6ListField, \
+    IPv6
 from scapy.packet import Packet, bind_bottom_up
 from scapy.pton_ntop import inet_pton
 from scapy.sendrecv import send
 from scapy.themes import Color
 from scapy.utils6 import in6_addrtovendor, in6_islladdr
+import scapy.modules.six as six
 
 #############################################################################
 # Helpers                                                                  ##

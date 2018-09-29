@@ -18,8 +18,14 @@
 # scapy.contrib.status = loads
 
 from __future__ import absolute_import
-from scapy.packet import *
-from scapy.fields import *
+import struct
+
+from scapy.packet import Packet, bind_layers
+from scapy.fields import BitField, ByteEnumField, ByteField, \
+    ConditionalField, EnumField, FieldLenField, IntField, LEIntField, \
+    LELongField, LEShortField, MACField, PacketListField, ShortField, \
+    StrFixedLenField, StrLenField, X3BytesField, XByteField, XIntField, \
+    XLongField, XShortField
 from scapy.layers.l2 import Ether
 from scapy.modules.six.moves import range
 

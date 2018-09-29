@@ -10,9 +10,11 @@ Sebek: kernel module for data collection on honeypots.
 # scapy.contrib.description = Sebek
 # scapy.contrib.status = loads
 
-from scapy.fields import *
-from scapy.packet import *
+from scapy.fields import FieldLenField, IPField, IntField, ShortEnumField, \
+    ShortField, StrFixedLenField, StrLenField, XIntField, ByteEnumField
+from scapy.packet import Packet, bind_layers
 from scapy.layers.inet import UDP
+from scapy.data import IP_PROTOS
 
 
 # SEBEK

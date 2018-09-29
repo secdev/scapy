@@ -14,13 +14,14 @@ See the TLS class documentation for more information.
 import struct
 
 from scapy.config import conf
-from scapy.error import log_runtime
-from scapy.fields import *
+from scapy.error import log_runtime, warning
+from scapy.compat import raw
+from scapy.fields import ByteEnumField, PacketField, XStrField
 from scapy.packet import *
 from scapy.layers.tls.session import _GenericTLSSessionInheritance
-from scapy.layers.tls.basefields import (_TLSVersionField, _tls_version,
-                                         _TLSMACField, _TLSLengthField, _tls_type)  # noqa: E501
-from scapy.layers.tls.record import _TLSMsgListField
+from scapy.layers.tls.basefields import _TLSVersionField, _tls_version, \
+    _TLSMACField, _TLSLengthField, _tls_type
+from scapy.layers.tls.record import _TLSMsgListField, TLS
 from scapy.layers.tls.crypto.cipher_aead import AEADTagError
 from scapy.layers.tls.crypto.cipher_stream import Cipher_NULL
 from scapy.layers.tls.crypto.ciphers import CipherError

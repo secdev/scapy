@@ -7,9 +7,11 @@
 TLS base fields, used for record parsing/building. As several operations depend
 upon the TLS version or ciphersuite, the packet has to provide a TLS context.
 """
+import struct
 
-from scapy.fields import *
+from scapy.fields import ByteField, ShortEnumField, ShortField, StrField
 import scapy.modules.six as six
+from scapy.compat import orb
 
 _tls_type = {20: "change_cipher_spec",
              21: "alert",

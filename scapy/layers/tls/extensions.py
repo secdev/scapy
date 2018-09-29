@@ -8,7 +8,11 @@ TLS handshake extensions.
 
 from __future__ import print_function
 
-from scapy.fields import *
+import struct
+
+from scapy.fields import ByteEnumField, ByteField, EnumField, FieldLenField, \
+    FieldListField, IntField, PacketField, PacketListField, ShortEnumField, \
+    ShortField, StrFixedLenField, StrLenField, XStrLenField
 from scapy.packet import Packet, Raw, Padding
 from scapy.layers.x509 import X509_Extensions
 from scapy.layers.tls.basefields import _tls_version
@@ -16,6 +20,9 @@ from scapy.layers.tls.keyexchange import (SigAndHashAlgsLenField,
                                           SigAndHashAlgsField, _tls_hash_sig)
 from scapy.layers.tls.session import _GenericTLSSessionInheritance
 from scapy.layers.tls.crypto.groups import _tls_named_groups
+from scapy.themes import AnsiColorTheme
+from scapy.compat import raw
+from scapy.config import conf
 
 
 _tls_ext = {0: "server_name",             # RFC 4366

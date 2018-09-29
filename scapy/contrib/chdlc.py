@@ -18,11 +18,13 @@
 # This layer is based on information from http://www.nethelp.no/net/cisco-hdlc.txt  # noqa: E501
 
 from scapy.data import DLT_C_HDLC
-from scapy.packet import *
-from scapy.fields import *
-from scapy.layers.l2 import *
-from scapy.layers.inet import *
-from scapy.layers.inet6 import *
+from scapy.packet import Packet, bind_layers
+from scapy.fields import ByteEnumField, ByteField, ConditionalField, \
+    IntEnumField, IntField, IPField, XShortField
+from scapy.layers.l2 import Dot3, STP
+from scapy.layers.inet import IP
+from scapy.layers.inet6 import IPv6
+from scapy.config import conf
 
 
 class CHDLC(Packet):

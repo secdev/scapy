@@ -10,12 +10,14 @@ ISAKMP (Internet Security Association and Key Management Protocol).
 from __future__ import absolute_import
 import struct
 from scapy.config import conf
-from scapy.packet import *
-from scapy.compat import *
-from scapy.fields import *
-from scapy.ansmachine import *
+from scapy.packet import Packet, bind_bottom_up, bind_layers
+from scapy.compat import chb
+from scapy.fields import ByteEnumField, ByteField, FieldLenField, FlagsField, \
+    IntEnumField, IntField, PacketLenField, ShortEnumField, ShortField, \
+    StrFixedLenField, StrLenField, XByteField
 from scapy.layers.inet import IP, UDP
 from scapy.sendrecv import sr
+from scapy.volatile import RandString
 from scapy.error import warning
 from functools import reduce
 

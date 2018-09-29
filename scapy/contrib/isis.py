@@ -65,14 +65,18 @@ import struct
 import random
 
 from scapy.config import conf
-from scapy.fields import *
-from scapy.packet import *
+from scapy.fields import BitField, BitFieldLenField, BoundStrLenField, \
+    ByteEnumField, ByteField, ConditionalField, Field, FieldLenField, \
+    FieldListField, FlagsField, IEEEFloatField, IP6PrefixField, IPField, \
+    IPPrefixField, IntField, LongField, MACField, PacketListField, \
+    ShortField, ThreeBytesField, XIntField, XShortField
+from scapy.packet import bind_layers, Packet
 from scapy.layers.clns import network_layer_protocol_ids, register_cln_protocol
 from scapy.layers.inet6 import IP6ListField, IP6Field
 from scapy.utils import fletcher16_checkbytes
 from scapy.volatile import RandString, RandByte
 from scapy.modules.six.moves import range
-from scapy.compat import raw
+from scapy.compat import raw, orb, hex_bytes
 
 EXT_VERSION = "v0.0.2"
 

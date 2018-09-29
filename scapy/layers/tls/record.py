@@ -17,9 +17,9 @@ import traceback
 
 from scapy.config import conf
 from scapy.error import log_runtime
-from scapy.fields import *
-from scapy.compat import *
-from scapy.packet import *
+from scapy.fields import ByteEnumField, PacketListField, StrField
+from scapy.compat import raw, chb, orb
+from scapy.packet import Raw, Padding, bind_layers
 from scapy.layers.inet import TCP
 from scapy.layers.tls.session import _GenericTLSSessionInheritance
 from scapy.layers.tls.handshake import (_tls_handshake_cls, _TLSHandshake,
@@ -34,6 +34,7 @@ from scapy.layers.tls.crypto.cipher_aead import AEADTagError
 from scapy.layers.tls.crypto.cipher_stream import Cipher_NULL
 from scapy.layers.tls.crypto.ciphers import CipherError
 from scapy.layers.tls.crypto.h_mac import HMACError
+import scapy.modules.six as six
 if conf.crypto_valid_advanced:
     from scapy.layers.tls.crypto.cipher_aead import Cipher_CHACHA20_POLY1305
 

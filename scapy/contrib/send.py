@@ -24,10 +24,13 @@
 from __future__ import absolute_import
 import socket
 
-from scapy.packet import *
-from scapy.fields import *
+from scapy.packet import Packet
+from scapy.fields import BitField, ByteField, FieldLenField, PacketField, \
+    PacketLenField, ShortField, StrFixedLenField, StrLenField, UTCTimeField
 from scapy.layers.x509 import X509_SubjectPublicKeyInfo
 from scapy.layers.inet6 import icmp6ndoptscls, _ICMPv6NDGuessPayload
+from scapy.compat import chb
+from scapy.volatile import RandBin
 
 
 class ICMPv6NDOptNonce(_ICMPv6NDGuessPayload, Packet):

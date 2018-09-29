@@ -15,9 +15,9 @@
 # scapy.contrib.description = WPA EAPOL dissector
 # scapy.contrib.status = loads
 
-from scapy.packet import *
-from scapy.fields import *
-from scapy.layers.l2 import *
+from scapy.packet import Packet, bind_layers
+from scapy.fields import ByteField, LenField, ShortField, StrFixedLenField, \
+    StrLenField
 from scapy.layers.eap import EAPOL
 
 

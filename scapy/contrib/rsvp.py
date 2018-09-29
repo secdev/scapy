@@ -18,9 +18,10 @@
 # scapy.contrib.status = loads
 
 from scapy.compat import chb
-from scapy.packet import *
-from scapy.fields import *
-from scapy.layers.inet import IP
+from scapy.packet import Packet, bind_layers
+from scapy.fields import BitField, ByteEnumField, ByteField, FieldLenField, \
+    IPField, ShortField, StrLenField, XByteField, XShortField
+from scapy.layers.inet import IP, checksum
 
 rsvpmsgtypes = {0x01: "Path",
                 0x02: "Reservation request",

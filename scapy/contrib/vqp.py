@@ -15,8 +15,11 @@
 # scapy.contrib.description = VLAN Query Protocol
 # scapy.contrib.status = loads
 
-from scapy.packet import *
-from scapy.fields import *
+import struct
+
+from scapy.packet import Packet, bind_layers
+from scapy.fields import ByteEnumField, ByteField, ConditionalField, \
+    FieldLenField, IntEnumField, IntField, IPField, MACField, StrLenField
 from scapy.layers.inet import UDP
 
 

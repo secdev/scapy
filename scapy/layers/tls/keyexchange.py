@@ -9,10 +9,13 @@ TLS key exchange logic.
 
 from __future__ import absolute_import
 import math
+import struct
 
 from scapy.config import conf, crypto_validator
 from scapy.error import warning
-from scapy.fields import *
+from scapy.fields import ByteEnumField, ByteField, EnumField, FieldLenField, \
+    FieldListField, PacketField, ShortEnumField, ShortField, \
+    StrFixedLenField, StrLenField
 from scapy.compat import orb
 from scapy.packet import Packet, Raw, Padding
 from scapy.layers.tls.cert import PubKeyRSA, PrivKeyRSA
@@ -271,7 +274,7 @@ class _TLSServerParamsField(PacketField):
                 cls = _tls_server_ecdh_cls_guess(m)
                 p = cls(m, tls_session=s)
                 if pkcs_os2ip(p.load[:2]) not in _tls_hash_sig:
-                    return None, Raw(m[:l]) / Padding(m[l:])
+                    return None, Raw(m[:tmp_len]) / Padding(m[tmp_len:])
                 return p
 
 

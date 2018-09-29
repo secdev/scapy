@@ -32,8 +32,9 @@
 HSRP (Hot Standby Router Protocol): proprietary redundancy protocol for Cisco routers.  # noqa: E501
 """
 
-from scapy.fields import *
-from scapy.packet import *
+from scapy.fields import ByteEnumField, ByteField, IPField, SourceIPField, \
+    StrFixedLenField, XIntField, XShortField
+from scapy.packet import Packet, bind_layers, bind_bottom_up
 from scapy.layers.inet import DestIPField, UDP
 from scapy.layers.inet6 import DestIP6Field
 

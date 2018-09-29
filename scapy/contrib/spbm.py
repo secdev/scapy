@@ -37,7 +37,7 @@
 """
 
 from scapy.packet import Packet, bind_layers
-from scapy.fields import *
+from scapy.fields import BitField, ThreeBytesField
 from scapy.layers.l2 import Ether, Dot1Q
 
 

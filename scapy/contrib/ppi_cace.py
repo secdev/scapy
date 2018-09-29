@@ -23,8 +23,9 @@ CACE PPI types
 import logging
 import struct
 from scapy.config import conf
-from scapy.packet import *
-from scapy.fields import *
+from scapy.packet import Packet
+from scapy.fields import ByteField, Field, FlagsField, LELongField, \
+    LEShortField
 from scapy.layers.l2 import Ether
 from scapy.layers.ppi import addPPIType
 

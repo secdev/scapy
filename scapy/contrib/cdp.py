@@ -24,11 +24,17 @@
 #############################################################################
 
 from __future__ import absolute_import
-from scapy.packet import *
-from scapy.fields import *
-from scapy.layers.inet6 import *
-from scapy.compat import orb
+import struct
+
+from scapy.packet import Packet, bind_layers
+from scapy.fields import ByteEnumField, ByteField, FieldLenField, FlagsField, \
+    IP6Field, IPField, PacketListField, ShortField, StrLenField, \
+    X3BytesField, XByteField, XShortEnumField, XShortField
+from scapy.layers.inet import checksum
+from scapy.layers.l2 import SNAP
+from scapy.compat import orb, chb
 from scapy.modules.six.moves import range
+from scapy.config import conf
 
 
 #####################################################################
