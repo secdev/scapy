@@ -15,6 +15,8 @@ from __future__ import absolute_import
 from scapy.compat import *
 
 from scapy.config import conf, crypto_validator
+from scapy.utils import randstring, zerofree_randstring, strxor, strand
+from scapy.error import warning
 if conf.crypto_valid:
     from cryptography import utils
     from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
@@ -22,9 +24,6 @@ if conf.crypto_valid:
     from cryptography.hazmat.primitives import hashes
     from cryptography.hazmat.primitives.asymmetric import padding
     from cryptography.hazmat.primitives.hashes import HashAlgorithm
-
-from scapy.utils import randstring, zerofree_randstring, strxor, strand
-from scapy.error import warning
 
 
 #####################################################################

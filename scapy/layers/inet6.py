@@ -34,15 +34,6 @@ import socket
 import struct
 from time import gmtime, strftime
 
-if not socket.has_ipv6:
-    raise socket.error("can't use AF_INET6, IPv6 is disabled")
-if not hasattr(socket, "IPPROTO_IPV6"):
-    # Workaround for http://bugs.python.org/issue6926
-    socket.IPPROTO_IPV6 = 41
-if not hasattr(socket, "IPPROTO_IPIP"):
-    # Workaround for https://bitbucket.org/secdev/scapy/issue/5119
-    socket.IPPROTO_IPIP = 4
-
 from scapy.arch import get_if_hwaddr
 from scapy.as_resolvers import AS_resolver_riswhois
 from scapy.base_classes import Gen
@@ -70,6 +61,15 @@ from scapy.utils6 import in6_getnsma, in6_getnsmac, in6_isaddr6to4, \
     in6_isaddrllallnodes, in6_isaddrllallservers, in6_isaddrTeredo, \
     in6_isllsnmaddr, in6_ismaddr, Net6, teredoAddrExtractInfo
 from scapy.volatile import RandInt, RandShort
+
+if not socket.has_ipv6:
+    raise socket.error("can't use AF_INET6, IPv6 is disabled")
+if not hasattr(socket, "IPPROTO_IPV6"):
+    # Workaround for http://bugs.python.org/issue6926
+    socket.IPPROTO_IPV6 = 41
+if not hasattr(socket, "IPPROTO_IPIP"):
+    # Workaround for https://bitbucket.org/secdev/scapy/issue/5119
+    socket.IPPROTO_IPIP = 4
 
 if conf.route6 is None:
     # unused import, only to initialize conf.route6

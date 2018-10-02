@@ -29,10 +29,10 @@ from scapy.base_classes import SetGen
 from scapy.supersocket import StreamSocket, L3RawSocket, L2ListenTcpdump
 from scapy.modules import six
 from scapy.modules.six.moves import map
+from scapy.supersocket import SuperSocket
 if conf.route is None:
     # unused import, only to initialize conf.route
     import scapy.route
-from scapy.supersocket import SuperSocket
 
 #################
 #  Debug class  #

@@ -12,13 +12,13 @@ Logging subsystem and basic exception class.
 #############################
 
 
-class Scapy_Exception(Exception):
-    pass
-
-
 import logging
 import traceback
 import time
+
+
+class Scapy_Exception(Exception):
+    pass
 
 
 class ScapyFreqFilter(logging.Filter):

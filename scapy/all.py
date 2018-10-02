@@ -23,9 +23,6 @@ from scapy.asn1packet import *
 
 from scapy.utils import *
 from scapy.route import *
-if conf.ipv6_enabled:
-    from scapy.utils6 import *
-    from scapy.route6 import *
 from scapy.sendrecv import *
 from scapy.supersocket import *
 from scapy.volatile import *
@@ -47,3 +44,7 @@ from scapy.asn1.mib import *
 
 from scapy.pipetool import *
 from scapy.scapypipes import *
+
+if conf.ipv6_enabled:
+    from scapy.utils6 import *
+    from scapy.route6 import *

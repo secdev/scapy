@@ -11,9 +11,9 @@ from scapy.data import DLT_PFLOG
 from scapy.packet import *
 from scapy.fields import *
 from scapy.layers.inet import IP
+from scapy.config import conf
 if conf.ipv6_enabled:
     from scapy.layers.inet6 import IPv6
-from scapy.config import conf
 
 
 class PFLog(Packet):
