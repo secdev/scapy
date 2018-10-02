@@ -19,9 +19,16 @@
 
 # Copyright (C) 2017 Arthur Gervais, Ken LE PRADO, Sébastien Mainand, Thomas Aurel  # noqa: E501
 
-from scapy.packet import *
-from scapy.fields import *
-from scapy.layers.inet import *
+import struct
+
+from scapy.packet import Packet, bind_layers
+from scapy.fields import XByteField, XShortField, StrLenField, ByteEnumField, \
+    BitFieldLenField, ByteField, ConditionalField, EnumField, FieldListField, \
+    ShortField, StrFixedLenField
+from scapy.layers.inet import TCP
+from scapy.utils import orb
+from scapy.config import conf
+from scapy.volatile import VolatileValue
 
 # TODO: implement serial specific function codes
 

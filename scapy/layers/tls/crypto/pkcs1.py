@@ -12,7 +12,8 @@ Ubuntu or OSX. This is why we reluctantly keep some legacy crypto here.
 """
 
 from __future__ import absolute_import
-from scapy.compat import *
+from scapy.compat import raw, hex_bytes, bytes_hex
+import scapy.modules.six as six
 
 from scapy.config import conf, crypto_validator
 from scapy.utils import randstring, zerofree_randstring, strxor, strand

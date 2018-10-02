@@ -13,28 +13,36 @@ import os
 import time
 import struct
 import re
+import random
 import socket
 import types
 from select import select
 from collections import defaultdict
 
 from scapy.utils import checksum, do_graph, incremental_label, inet_aton, \
-    inet_ntoa, linehexdump, strxor
-from scapy.base_classes import Gen
-from scapy.data import *
-from scapy.layers.l2 import *
-from scapy.compat import *
+    inet_ntoa, linehexdump, strxor, whois, colgen
+from scapy.base_classes import Gen, Net
+from scapy.data import ETH_P_IP, ETH_P_ALL, DLT_RAW, DLT_RAW_ALT, DLT_IPV4, \
+    IP_PROTOS, TCP_SERVICES, UDP_SERVICES
+from scapy.layers.l2 import Ether, Dot3, getmacbyip, CookedLinux, GRE, SNAP, \
+    Loopback
+from scapy.compat import raw, chb, orb
 from scapy.config import conf
 from scapy.arch import WINDOWS
-from scapy.extlib import plt, MATPLOTLIB, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS  # noqa: E501
-from scapy.fields import *
-from scapy.packet import *
-from scapy.volatile import *
+from scapy.extlib import plt, MATPLOTLIB, MATPLOTLIB_INLINED, \
+    MATPLOTLIB_DEFAULT_PLOT_KARGS
+from scapy.fields import ConditionalField, IPField, BitField, BitEnumField, \
+    FieldLenField, StrLenField, ByteField, ShortField, ByteEnumField, \
+    DestField, FieldListField, FlagsField, IntField, MultiEnumField, \
+    PacketListField, ShortEnumField, SourceIPField, StrField, \
+    StrFixedLenField, XByteField, XShortField, Emph
+from scapy.packet import Packet, bind_layers, NoPayload
+from scapy.volatile import RandShort, RandInt
 from scapy.sendrecv import sr, sr1, srp1
 from scapy.plist import PacketList, SndRcvList
 from scapy.automaton import Automaton, ATMT
 from scapy.error import warning
-from scapy.utils import whois
+from scapy.pton_ntop import inet_pton
 
 import scapy.as_resolvers
 

@@ -19,11 +19,12 @@ import struct
 import hmac
 import hashlib
 
-from scapy.packet import *
+from scapy.packet import Packet, split_layers, bind_layers
 from scapy.layers.inet import IP
 from scapy.fields import BitField, ByteField, XShortField, IntField, XIntField
-from scapy.layers.vrrp import *
+from scapy.layers.vrrp import IPPROTO_VRRP, VRRP, VRRPv3
 from scapy.utils import checksum, inet_aton
+from scapy.error import warning
 
 
 class CARP(Packet):

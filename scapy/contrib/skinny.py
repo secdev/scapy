@@ -24,10 +24,16 @@
 #############################################################################
 
 from __future__ import absolute_import
-from scapy.packet import *
-from scapy.fields import *
+import time
+import struct
+
+from scapy.packet import Packet, bind_layers
+from scapy.fields import FlagsField, IPField, LEIntEnumField, LEIntField, \
+    StrFixedLenField
 from scapy.layers.inet import TCP
 from scapy.modules.six.moves import range
+from scapy.volatile import RandShort
+from scapy.config import conf
 
 #####################################################################
 # Helpers and constants

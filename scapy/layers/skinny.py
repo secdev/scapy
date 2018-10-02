@@ -7,8 +7,8 @@
 Cisco Skinny protocol.
 """
 
-from scapy.packet import *
-from scapy.fields import *
+from scapy.packet import Packet, bind_layers
+from scapy.fields import LEIntField, LEIntEnumField
 from scapy.layers.inet import TCP
 
 # shamelessly ripped from Ethereal dissector

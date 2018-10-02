@@ -64,11 +64,11 @@ from scapy.layers.inet import UDP
 from scapy.utils6 import in6_or, in6_and, in6_xor
 
 from scapy.utils import lhex, hexdump
-
-from scapy.route6 import *
+from scapy.config import conf
+from scapy.error import warning
 
 from scapy.packet import Raw
-from scapy.pton_ntop import *
+from scapy.pton_ntop import inet_pton, inet_ntop
 from scapy.volatile import RandShort
 
 LINK_LOCAL_PREFIX = b"\xfe\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"  # noqa: E501

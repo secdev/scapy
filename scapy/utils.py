@@ -30,10 +30,12 @@ from scapy.modules.six.moves import range
 from scapy.config import conf
 from scapy.consts import DARWIN, WINDOWS
 from scapy.data import MTU, DLT_EN10MB
-from scapy.compat import *
-from scapy.error import log_runtime, log_loading, log_interactive, Scapy_Exception, warning  # noqa: E501
+from scapy.compat import orb, raw, plain_str, chb, bytes_base64,\
+    base64_bytes, hex_bytes, lambda_tuple_converter
+from scapy.error import log_runtime, log_loading, log_interactive, \
+    Scapy_Exception, warning
 from scapy.base_classes import BasePacketList
-from scapy.pton_ntop import *
+from scapy.pton_ntop import inet_pton
 
 ###########
 #  Tools  #

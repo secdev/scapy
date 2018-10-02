@@ -19,16 +19,17 @@ import socket
 import struct
 import sys
 import time
+import re
 
 import subprocess
 
-from scapy.compat import *
+from scapy.compat import raw, plain_str
 from scapy.consts import LOOPBACK_NAME, IS_64BITS, LINUX
 import scapy.utils
 import scapy.utils6
 from scapy.packet import Packet, Padding
 from scapy.config import conf
-from scapy.data import *
+from scapy.data import MTU, ETH_P_ALL
 from scapy.supersocket import SuperSocket
 import scapy.arch
 from scapy.error import warning, Scapy_Exception, log_interactive, log_loading

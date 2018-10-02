@@ -33,7 +33,7 @@ import re
 from io import BytesIO
 import struct
 import scapy.modules.six as six
-from scapy.compat import *
+from scapy.compat import raw, plain_str, bytes_hex, orb, chb
 from scapy.modules.six.moves import range
 
 # Only required if using mypy-lang for static typing

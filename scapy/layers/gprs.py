@@ -7,8 +7,8 @@
 GPRS (General Packet Radio Service) for mobile data communication.
 """
 
-from scapy.fields import *
-from scapy.packet import *
+from scapy.fields import StrStopField
+from scapy.packet import Packet, bind_layers
 from scapy.layers.inet import IP
 
 

@@ -42,13 +42,24 @@
         http://trac.secdev.org/scapy/ticket/18
     - IOS / EIGRP Version Representation FIX by Dirk Loss
 """
-
 from __future__ import absolute_import
-from scapy.packet import *
+import socket
+import struct
+
+from scapy.packet import Packet
+from scapy.fields import StrField, IPField, XShortField, FieldLenField, \
+    StrLenField, IntField, ByteEnumField, ByteField, ConditionalField, \
+    FlagsField, IP6Field, PacketField, PacketListField, ShortEnumField, \
+    ShortField, StrFixedLenField, ThreeBytesField
 from scapy.fields import *
-from scapy.layers.inet import IP
-from scapy.layers.inet6 import *
+from scapy.layers.inet import IP, checksum, bind_layers
+from scapy.layers.inet6 import IPv6
 from scapy.compat import chb, raw
+from scapy.config import conf
+from scapy.utils import inet_aton, inet_ntoa
+from scapy.pton_ntop import inet_ntop, inet_pton
+from scapy.error import warning, Scapy_Exception
+from scapy.volatile import RandShort, RandString
 
 
 class EigrpIPField(StrField, IPField):

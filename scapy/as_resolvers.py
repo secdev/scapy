@@ -12,7 +12,7 @@ from __future__ import absolute_import
 import socket
 import errno
 from scapy.config import conf
-from scapy.compat import *
+from scapy.compat import plain_str
 
 
 class AS_resolver:

@@ -10,12 +10,16 @@ DNS: Domain Name System.
 from __future__ import absolute_import
 import socket
 import struct
+import time
 
 from scapy.config import conf
-from scapy.packet import *
-from scapy.fields import *
-from scapy.compat import *
-from scapy.ansmachine import *
+from scapy.packet import Packet, bind_layers, NoPayload
+from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
+    ConditionalField, Field, FieldLenField, FlagsField, IntField, \
+    PacketListField, ShortEnumField, ShortField, StrField, StrFixedLenField, \
+    StrLenField
+from scapy.compat import orb, raw, chb
+from scapy.ansmachine import AnsweringMachine
 from scapy.sendrecv import sr1
 from scapy.layers.inet import IP, DestIPField, UDP, TCP
 from scapy.layers.inet6 import DestIP6Field
@@ -23,6 +27,7 @@ from scapy.error import warning, Scapy_Exception
 from functools import reduce
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
+from scapy.pton_ntop import inet_ntop, inet_pton
 
 
 def dns_get_str(s, p, pkt=None, _internal=False):

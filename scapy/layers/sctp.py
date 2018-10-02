@@ -11,11 +11,14 @@ SCTP (Stream Control Transmission Protocol).
 from __future__ import absolute_import
 import struct
 
-from scapy.compat import *
+from scapy.compat import orb, raw
 from scapy.volatile import RandBin
 from scapy.config import conf
-from scapy.packet import *
-from scapy.fields import *
+from scapy.packet import Packet, bind_layers
+from scapy.fields import BitField, ByteEnumField, ConditionalField, Field, \
+    FieldLenField, FieldListField, IPField, IntEnumField, IntField, \
+    PacketListField, PadField, ShortEnumField, ShortField, StrLenField, \
+    XByteField, XIntField, XShortField
 from scapy.layers.inet import IP
 from scapy.layers.inet6 import IP6Field
 from scapy.layers.inet6 import IPv6

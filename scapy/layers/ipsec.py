@@ -51,7 +51,6 @@ import struct
 from scapy.config import conf, crypto_validator
 from scapy.compat import orb, raw
 from scapy.data import IP_PROTOS
-from scapy.compat import *
 from scapy.error import log_loading
 from scapy.fields import ByteEnumField, ByteField, IntField, PacketField, \
     ShortField, StrField, XIntField, XStrField, XStrLenField

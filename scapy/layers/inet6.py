@@ -56,7 +56,8 @@ from scapy.modules.six.moves import range
 from scapy.packet import bind_layers, Packet, Raw
 from scapy.sendrecv import sendp, sniff, sr, srp1
 from scapy.supersocket import SuperSocket, L3RawSocket
-from scapy.utils import checksum, inet_pton, inet_ntop, strxor
+from scapy.utils import checksum, strxor
+from scapy.pton_ntop import inet_pton, inet_ntop
 from scapy.utils6 import in6_getnsma, in6_getnsmac, in6_isaddr6to4, \
     in6_isaddrllallnodes, in6_isaddrllallservers, in6_isaddrTeredo, \
     in6_isllsnmaddr, in6_ismaddr, Net6, teredoAddrExtractInfo

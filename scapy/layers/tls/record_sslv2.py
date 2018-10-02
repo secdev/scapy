@@ -10,9 +10,8 @@ import struct
 
 from scapy.config import conf
 from scapy.error import log_runtime
-from scapy.compat import *
-from scapy.fields import *
-from scapy.packet import *
+from scapy.compat import orb, raw
+from scapy.packet import Raw
 from scapy.layers.tls.session import _GenericTLSSessionInheritance
 from scapy.layers.tls.record import _TLSMsgListField, TLS
 from scapy.layers.tls.handshake_sslv2 import _sslv2_handshake_cls

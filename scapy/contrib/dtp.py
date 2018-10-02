@@ -31,10 +31,15 @@
 
 from __future__ import absolute_import
 from __future__ import print_function
-from scapy.packet import *
-from scapy.fields import *
+import struct
+
+from scapy.packet import Packet, bind_layers
+from scapy.fields import ByteField, FieldLenField, MACField, PacketListField, \
+    ShortField, StrLenField, XShortField
 from scapy.layers.l2 import SNAP, Dot3, LLC
 from scapy.sendrecv import sendp
+from scapy.config import conf
+from scapy.volatile import RandMAC
 
 
 class DtpGenericTlv(Packet):

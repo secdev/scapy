@@ -12,10 +12,11 @@ import socket
 
 from scapy.consts import LINUX, OPENBSD, FREEBSD, NETBSD, DARWIN, \
     SOLARIS, WINDOWS, BSD, IS_64BITS, LOOPBACK_NAME
-from scapy.error import *
+from scapy.error import Scapy_Exception
 import scapy.config
 from scapy.pton_ntop import inet_pton, inet_ntop
-from scapy.data import *
+from scapy.data import ARPHDR_ETHER, ARPHDR_LOOPBACK, IPV6_ADDR_GLOBAL
+from scapy.compat import orb
 
 
 def str2mac(s):
@@ -32,7 +33,7 @@ def get_if_addr(iff):
 
 
 def get_if_hwaddr(iff):
-    addrfamily, mac = get_if_raw_hwaddr(iff)
+    addrfamily, mac = get_if_raw_hwaddr(iff)  # noqa: F405
     if addrfamily in [ARPHDR_ETHER, ARPHDR_LOOPBACK]:
         return str2mac(mac)
     else:

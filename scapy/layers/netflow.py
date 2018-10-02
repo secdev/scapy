@@ -15,12 +15,17 @@ Caution: this API might be updated
 """
 
 
-from scapy.fields import *
-from scapy.packet import *
+from scapy.fields import ByteEnumField, ByteField, Field, FieldLenField, \
+    FlagsField, IPField, IntField, LenField, LongField, MACField, \
+    PacketListField, PadField, SecondsIntField, ShortEnumField, ShortField, \
+    StrField, StrFixedLenField, ThreeBytesField, UTCTimeField, XByteField, \
+    XShortField
+from scapy.packet import Packet, bind_layers, bind_bottom_up, Raw
 from scapy.data import IP_PROTOS
 from scapy.layers.inet import UDP
 from scapy.layers.inet6 import IP6Field
 import scapy.modules.six as six
+from scapy.config import conf
 
 
 class NetflowHeader(Packet):

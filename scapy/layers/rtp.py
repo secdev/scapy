@@ -7,8 +7,9 @@
 RTP (Real-time Transport Protocol).
 """
 
-from scapy.packet import *
-from scapy.fields import *
+from scapy.packet import Packet, bind_layers
+from scapy.fields import BitEnumField, BitField, BitFieldLenField, \
+    FieldLenField, FieldListField, IntField, ShortField
 
 _rtp_payload_types = {
     # http://www.iana.org/assignments/rtp-parameters

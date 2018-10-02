@@ -19,6 +19,7 @@ In order to run a server listening on tcp/4433:
 from __future__ import print_function
 import socket
 
+from scapy.packet import Raw
 from scapy.pton_ntop import inet_pton
 from scapy.utils import randstring, repr_hex
 from scapy.automaton import ATMT
@@ -26,12 +27,17 @@ from scapy.layers.tls.automaton import _TLSAutomaton
 from scapy.layers.tls.cert import PrivKeyRSA, PrivKeyECDSA
 from scapy.layers.tls.basefields import _tls_version
 from scapy.layers.tls.session import tlsSession
-from scapy.layers.tls.handshake import *
-from scapy.layers.tls.handshake_sslv2 import *
-from scapy.layers.tls.record import (TLS, TLSAlert, TLSChangeCipherSpec,
-                                     TLSApplicationData)
-from scapy.layers.tls.crypto.suites import (_tls_cipher_suites_cls,
-                                            get_usable_ciphersuites)
+from scapy.layers.tls.handshake import TLSCertificate, TLSCertificateRequest, \
+    TLSCertificateVerify, TLSClientHello, TLSClientKeyExchange, TLSFinished, \
+    TLSServerHello, TLSServerHelloDone, TLSServerKeyExchange
+from scapy.layers.tls.handshake_sslv2 import SSLv2ClientCertificate, \
+    SSLv2ClientFinished, SSLv2ClientHello, SSLv2ClientMasterKey, \
+    SSLv2RequestCertificate, SSLv2ServerFinished, SSLv2ServerHello, \
+    SSLv2ServerVerify
+from scapy.layers.tls.record import TLS, TLSAlert, TLSChangeCipherSpec, \
+    TLSApplicationData
+from scapy.layers.tls.crypto.suites import _tls_cipher_suites_cls, \
+    get_usable_ciphersuites
 
 
 class TLSServerAutomaton(_TLSAutomaton):
@@ -735,7 +741,7 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def SSLv2_HANDLED_CLIENTCERTIFICATE(self):
-        selv.vprint("Received client certificate...")
+        self.vprint("Received client certificate...")
         # We could care about the client CA, but we don't.
         raise self.SSLv2_HANDLED_CLIENTFINISHED()
 
@@ -801,7 +807,7 @@ class TLSServerAutomaton(_TLSAutomaton):
         if cli_data.startswith(b"GET / HTTP/1.1"):
             p = Raw(self.http_sessioninfo())
 
-        if self.is_echo_server or recv_data.startswith(b"GET / HTTP/1.1"):
+        if self.is_echo_server or cli_data.startswith(b"GET / HTTP/1.1"):
             self.add_record(is_sslv2=True)
             self.add_msg(p)
             raise self.SSLv2_ADDED_SERVERDATA()

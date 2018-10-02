@@ -18,11 +18,15 @@ from __future__ import absolute_import
 import socket
 import scapy.consts
 from scapy.config import conf
-from scapy.utils6 import *
-from scapy.arch import *
-from scapy.pton_ntop import *
+from scapy.utils6 import in6_ptop, in6_cidr2mask, in6_and, \
+    in6_islladdr, in6_ismlladdr, in6_isincluded, in6_isgladdr, \
+    in6_isaddr6to4, in6_ismaddr, construct_source_candidate_set, \
+    get_source_addr_from_candidate_set
+from scapy.arch import read_routes6, in6_getifaddr
+from scapy.pton_ntop import inet_pton, inet_ntop
 from scapy.error import warning, log_loading
 import scapy.modules.six as six
+from scapy.utils import pretty_list
 
 
 class Route6:

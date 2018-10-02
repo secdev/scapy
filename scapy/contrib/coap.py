@@ -25,9 +25,12 @@
 RFC 7252 - Constrained Application Protocol (CoAP) layer for Scapy
 """
 
-from scapy.fields import *
+import struct
+
+from scapy.fields import BitEnumField, BitField, BitFieldLenField, \
+    ByteEnumField, ShortField, StrField, StrLenField
 from scapy.layers.inet import UDP
-from scapy.packet import *
+from scapy.packet import Packet, bind_layers
 from scapy.error import warning
 from scapy.compat import raw
 

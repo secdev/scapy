@@ -45,6 +45,6 @@ from scapy.asn1.mib import *
 from scapy.pipetool import *
 from scapy.scapypipes import *
 
-if conf.ipv6_enabled:
+if conf.ipv6_enabled:  # noqa: F405
     from scapy.utils6 import *
     from scapy.route6 import *

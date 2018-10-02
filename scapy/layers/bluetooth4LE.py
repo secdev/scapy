@@ -12,8 +12,11 @@ import struct
 from scapy.compat import orb, chb
 from scapy.config import conf
 from scapy.data import MTU, DLT_BLUETOOTH_LE_LL, DLT_BLUETOOTH_LE_LL_WITH_PHDR
-from scapy.packet import *
-from scapy.fields import *
+from scapy.packet import Packet, bind_layers
+from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
+    Field, FlagsField, LEIntField, LEShortEnumField, LEShortField, MACField, \
+    PacketListField, X3BytesField, XBitField, XByteField, XIntField, \
+    XShortField
 from scapy.layers.dot11 import _dbmField
 from scapy.layers.ppi import PPI, addPPIType, PPIGenericFldHdr
 
@@ -21,6 +24,7 @@ from scapy.contrib.ppi_geotag import XLEIntField, XLEShortField
 from scapy.layers.bluetooth import EIR_Hdr, L2CAP_Hdr
 
 from scapy.modules.six.moves import range
+from scapy.utils import mac2str, str2mac
 
 ####################
 # Transport Layers #

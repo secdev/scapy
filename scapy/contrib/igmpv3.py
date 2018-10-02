@@ -18,11 +18,13 @@
 # scapy.contrib.status = loads
 
 from __future__ import print_function
-from scapy.packet import *
-from scapy.fields import *
+from scapy.packet import Packet, bind_layers
+from scapy.fields import BitField, ByteEnumField, ByteField, FieldLenField, \
+    FieldListField, IPField, PacketListField, ShortField, XShortField
 from scapy.compat import orb
-from scapy.layers.inet import *
+from scapy.layers.inet import IP
 from scapy.contrib.igmp import IGMP
+from scapy.config import conf
 
 """ Based on the following references
  http://www.iana.org/assignments/igmp-type-numbers

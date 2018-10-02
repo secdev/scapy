@@ -13,16 +13,22 @@ import socket
 import struct
 import array
 from select import select
+from ctypes import sizeof
 
 from scapy.config import conf
 from scapy.data import DLT_BLUETOOTH_HCI_H4, DLT_BLUETOOTH_HCI_H4_WITH_PHDR
-from scapy.packet import *
-from scapy.fields import *
+from scapy.packet import bind_layers, Packet
+from scapy.fields import ByteEnumField, ByteField, Field, FieldLenField, \
+    FieldListField, FlagsField, IntField, LEShortEnumField, LEShortField, \
+    LenField, PacketListField, SignedByteField, StrField, StrFixedLenField, \
+    StrLenField, XByteField, BitField
 from scapy.supersocket import SuperSocket
 from scapy.sendrecv import sndrcv
 from scapy.data import MTU
 from scapy.consts import WINDOWS
 from scapy.error import warning, log_loading
+from scapy.utils import lhex, mac2str, str2mac
+from scapy.volatile import RandMAC
 
 
 ##########

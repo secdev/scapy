@@ -21,12 +21,12 @@ from collections import deque
 import threading
 from scapy.config import conf
 from scapy.utils import do_graph
-from scapy.error import log_interactive
+from scapy.error import log_interactive, warning
 from scapy.plist import PacketList
 from scapy.data import MTU
 from scapy.supersocket import SuperSocket
 from scapy.consts import WINDOWS
-from scapy.compat import *
+from scapy.compat import cmp_to_key, cmp
 import scapy.modules.six as six
 
 if WINDOWS:

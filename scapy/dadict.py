@@ -11,7 +11,7 @@ from __future__ import absolute_import
 from __future__ import print_function
 from scapy.error import Scapy_Exception
 import scapy.modules.six as six
-from scapy.compat import *
+from scapy.compat import plain_str
 
 ###############################
 #  Direct Access dictionary   #

@@ -22,15 +22,15 @@ from __future__ import absolute_import
 import struct
 
 from scapy.compat import orb
-from scapy.packet import *
-from scapy.fields import *
-from scapy.ansmachine import *
+from scapy.packet import Packet, bind_layers, bind_bottom_up
+from scapy.fields import BitField, IPField, IntField, ShortField, StrField, \
+    XBitField
 from scapy.layers.inet import UDP
 from scapy.layers.inet import TCP
 from scapy.base_classes import Net
 from scapy.modules.six.moves import range
-
-from scapy.contrib.mpls import *
+from scapy.config import conf
+from scapy.utils import inet_aton, inet_ntoa
 
 
 class _LDP_Packet(Packet):

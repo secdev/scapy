@@ -17,10 +17,9 @@
 # scapy.contrib.description = RIPng
 # scapy.contrib.status = loads
 
-from scapy.packet import *
-from scapy.fields import *
+from scapy.packet import Packet, bind_layers
+from scapy.fields import ByteEnumField, ByteField, IP6Field, ShortField
 from scapy.layers.inet import UDP
-from scapy.layers.inet6 import *
 
 
 class RIPng(Packet):

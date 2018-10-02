@@ -24,10 +24,13 @@ PPI-GEOLOCATION tags
 from __future__ import absolute_import
 import struct
 import time
-from scapy.packet import *
-from scapy.fields import *
+from scapy.packet import Packet
+from scapy.fields import ByteField, ConditionalField, Field, FlagsField, \
+    LEIntField, LEShortEnumField, LEShortField, StrFixedLenField, \
+    UTCTimeField, XIntField, XShortField
 from scapy.layers.ppi import addPPIType
 from scapy.error import warning
+from scapy.volatile import RandSByte
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
 
