@@ -11,7 +11,6 @@ Bluetooth layers, sockets and send/receive functions.
 import ctypes
 import socket
 import struct
-import array
 from select import select
 from ctypes import sizeof
 
@@ -26,7 +25,7 @@ from scapy.supersocket import SuperSocket
 from scapy.sendrecv import sndrcv
 from scapy.data import MTU
 from scapy.consts import WINDOWS
-from scapy.error import warning, log_loading
+from scapy.error import warning
 from scapy.utils import lhex, mac2str, str2mac
 from scapy.volatile import RandMAC
 
@@ -518,7 +517,7 @@ class EIR_Hdr(Packet):
             0x20: "svc_data_32_bit_uuid",
             0x21: "svc_data_128_bit_uuid",
             0x22: "sec_conn_confirm",
-            0x22: "sec_conn_rand",
+            0x23: "sec_conn_rand",
             0x24: "uri",
             0xff: "mfg_specific_data",
         }),

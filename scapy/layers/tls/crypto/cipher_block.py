@@ -9,7 +9,6 @@ Block ciphers.
 
 from __future__ import absolute_import
 from scapy.config import conf
-from scapy.utils import strxor
 from scapy.layers.tls.crypto.ciphers import CipherError
 import scapy.modules.six as six
 

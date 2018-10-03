@@ -31,9 +31,8 @@
 from scapy.packet import Packet, bind_layers
 from scapy.fields import ByteEnumField, ByteField, ConditionalField, \
     StrLenField
-from scapy.layers.inet import UDP
 from scapy.contrib.sdnv import SDNV2FieldLenField, SDNV2LenField, SDNV2
-from scapy.contrib.ltp import LTP, ltp_bind_payload, LTPex
+from scapy.contrib.ltp import LTP, ltp_bind_payload
 
 
 class BP(Packet):

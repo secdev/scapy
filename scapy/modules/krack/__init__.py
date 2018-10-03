@@ -25,4 +25,4 @@ For patched devices:
 - Client is likely not vulnerable to CVE-2017-13080
 """
 
-from scapy.modules.krack.automaton import KrackAP
+from scapy.modules.krack.automaton import KrackAP  # noqa: F401

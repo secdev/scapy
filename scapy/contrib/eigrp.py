@@ -51,7 +51,6 @@ from scapy.fields import StrField, IPField, XShortField, FieldLenField, \
     StrLenField, IntField, ByteEnumField, ByteField, ConditionalField, \
     FlagsField, IP6Field, PacketField, PacketListField, ShortEnumField, \
     ShortField, StrFixedLenField, ThreeBytesField
-from scapy.fields import *
 from scapy.layers.inet import IP, checksum, bind_layers
 from scapy.layers.inet6 import IPv6
 from scapy.compat import chb, raw

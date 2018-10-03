@@ -7,12 +7,8 @@
 Common customizations for all Unix-like operating systems other than Linux
 """
 
-import sys
 import os
-import struct
 import socket
-import time
-from fcntl import ioctl
 
 from scapy.error import warning, log_interactive
 import scapy.config

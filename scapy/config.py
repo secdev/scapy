@@ -387,7 +387,7 @@ def isCryptographyAdvanced():
 def isPyPy():
     """Returns either scapy is running under PyPy or not"""
     try:
-        import __pypy__
+        import __pypy__  # noqa: F401
         return True
     except ImportError:
         return False

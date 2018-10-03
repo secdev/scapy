@@ -17,7 +17,6 @@ from scapy.config import conf
 from scapy.error import log_runtime, warning
 from scapy.compat import raw
 from scapy.fields import ByteEnumField, PacketField, XStrField
-from scapy.packet import *
 from scapy.layers.tls.session import _GenericTLSSessionInheritance
 from scapy.layers.tls.basefields import _TLSVersionField, _tls_version, \
     _TLSMACField, _TLSLengthField, _tls_type

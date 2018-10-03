@@ -13,7 +13,6 @@ from __future__ import print_function
 import sys
 import os
 import getopt
-import re
 import code
 import gzip
 import glob
@@ -25,7 +24,7 @@ import io
 
 # Never add any global import, in main.py, that would trigger a warning message  # noqa: E501
 # before the console handlers gets added in interact()
-from scapy.error import log_interactive, log_loading, log_scapy, warning
+from scapy.error import log_interactive, log_loading, log_scapy
 import scapy.modules.six as six
 from scapy.themes import DefaultTheme, BlackAndWhite, apply_ipython_style
 from scapy.consts import WINDOWS

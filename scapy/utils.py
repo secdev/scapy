@@ -12,12 +12,10 @@ from __future__ import print_function
 import os
 import sys
 import socket
-import types
 import collections
 import random
 import time
 import gzip
-import zlib
 import re
 import struct
 import array
@@ -32,9 +30,7 @@ from scapy.consts import DARWIN, WINDOWS
 from scapy.data import MTU, DLT_EN10MB
 from scapy.compat import orb, raw, plain_str, chb, bytes_base64,\
     base64_bytes, hex_bytes, lambda_tuple_converter
-from scapy.error import log_runtime, log_loading, log_interactive, \
-    Scapy_Exception, warning
-from scapy.base_classes import BasePacketList
+from scapy.error import log_runtime, Scapy_Exception, warning
 from scapy.pton_ntop import inet_pton
 
 ###########
@@ -540,7 +536,7 @@ class ContextManagerCaptureOutput(object):
     def __init__(self):
         self.result_export_object = ""
         try:
-            import mock
+            import mock  # noqa: F401
         except Exception:
             raise ImportError("The mock module needs to be installed !")
 
@@ -637,7 +633,6 @@ _TEX_TR = {
     "^": "\\^{}",
     "$": "\\$",
     "#": "\\#",
-    "~": "\\~",
     "_": "\\_",
     "&": "\\&",
     "%": "\\%",

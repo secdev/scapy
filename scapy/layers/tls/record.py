@@ -13,12 +13,12 @@ See the TLS class documentation for more information.
 """
 
 import struct
-import traceback
 
 from scapy.config import conf
 from scapy.error import log_runtime
 from scapy.fields import ByteEnumField, PacketListField, StrField
 from scapy.compat import raw, chb, orb
+from scapy.utils import randstring
 from scapy.packet import Raw, Padding, bind_layers
 from scapy.layers.inet import TCP
 from scapy.layers.tls.session import _GenericTLSSessionInheritance
@@ -28,8 +28,7 @@ from scapy.layers.tls.basefields import (_TLSVersionField, _tls_version,
                                          _TLSIVField, _TLSMACField,
                                          _TLSPadField, _TLSPadLenField,
                                          _TLSLengthField, _tls_type)
-from scapy.layers.tls.crypto.pkcs1 import randstring, pkcs_i2osp
-from scapy.layers.tls.crypto.compression import Comp_NULL
+from scapy.layers.tls.crypto.pkcs1 import pkcs_i2osp
 from scapy.layers.tls.crypto.cipher_aead import AEADTagError
 from scapy.layers.tls.crypto.cipher_stream import Cipher_NULL
 from scapy.layers.tls.crypto.ciphers import CipherError

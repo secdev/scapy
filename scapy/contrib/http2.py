@@ -28,7 +28,6 @@ scapy.contrib.description=HTTP/2 (RFC 7540, RFC 7541)
 from __future__ import absolute_import
 from __future__ import print_function
 import abc
-import types
 import re
 from io import BytesIO
 import struct
@@ -40,7 +39,7 @@ from scapy.modules.six.moves import range
 # Most symbols are used in mypy-interpreted "comments".
 # Sized must be one of the superclasses of a class implementing __len__
 try:
-    from typing import Optional, List, Union, Callable, Any, Tuple, Sized
+    from typing import Optional, List, Union, Callable, Any, Tuple, Sized  # noqa: F401, E501
 except ImportError:
     class Sized(object):
         pass
@@ -48,7 +47,6 @@ except ImportError:
 import scapy.fields as fields
 import scapy.packet as packet
 import scapy.config as config
-import scapy.base_classes as base_classes
 import scapy.volatile as volatile
 import scapy.error as error
 

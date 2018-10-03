@@ -9,18 +9,16 @@ IPv4 (Internet Protocol v4).
 
 from __future__ import absolute_import
 from __future__ import print_function
-import os
 import time
 import struct
 import re
 import random
 import socket
-import types
 from select import select
 from collections import defaultdict
 
-from scapy.utils import checksum, do_graph, incremental_label, inet_aton, \
-    inet_ntoa, linehexdump, strxor, whois, colgen
+from scapy.utils import checksum, do_graph, incremental_label, \
+    linehexdump, strxor, whois, colgen
 from scapy.base_classes import Gen, Net
 from scapy.data import ETH_P_IP, ETH_P_ALL, DLT_RAW, DLT_RAW_ALT, DLT_IPV4, \
     IP_PROTOS, TCP_SERVICES, UDP_SERVICES
@@ -28,7 +26,6 @@ from scapy.layers.l2 import Ether, Dot3, getmacbyip, CookedLinux, GRE, SNAP, \
     Loopback
 from scapy.compat import raw, chb, orb
 from scapy.config import conf
-from scapy.arch import WINDOWS
 from scapy.extlib import plt, MATPLOTLIB, MATPLOTLIB_INLINED, \
     MATPLOTLIB_DEFAULT_PLOT_KARGS
 from scapy.fields import ConditionalField, IPField, BitField, BitEnumField, \
@@ -38,7 +35,7 @@ from scapy.fields import ConditionalField, IPField, BitField, BitEnumField, \
     StrFixedLenField, XByteField, XShortField, Emph
 from scapy.packet import Packet, bind_layers, NoPayload
 from scapy.volatile import RandShort, RandInt
-from scapy.sendrecv import sr, sr1, srp1
+from scapy.sendrecv import sr, sr1
 from scapy.plist import PacketList, SndRcvList
 from scapy.automaton import Automaton, ATMT
 from scapy.error import warning
@@ -443,7 +440,7 @@ class IP(Packet, IPTools):
             dst = next(iter(dst))
         if conf.route is None:
             # unused import, only to initialize conf.route
-            import scapy.route
+            import scapy.route  # noqa: F401
         return conf.route.route(dst)
 
     def hashret(self):

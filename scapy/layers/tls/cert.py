@@ -42,9 +42,8 @@ from scapy.layers.x509 import (X509_SubjectPublicKeyInfo,
                                ECDSAPublicKey, ECDSAPrivateKey,
                                RSAPrivateKey_OpenSSL, ECDSAPrivateKey_OpenSSL,
                                X509_Cert, X509_CRL)
-from scapy.layers.tls.crypto.pkcs1 import (pkcs_os2ip, pkcs_i2osp, _get_hash,
-                                           _EncryptAndVerifyRSA,
-                                           _DecryptAndSignRSA)
+from scapy.layers.tls.crypto.pkcs1 import pkcs_os2ip, _get_hash, \
+    _EncryptAndVerifyRSA, _DecryptAndSignRSA
 from scapy.compat import raw
 if conf.crypto_valid:
     from cryptography.hazmat.backends import default_backend

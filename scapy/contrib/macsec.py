@@ -26,7 +26,6 @@ from scapy.error import log_loading
 import scapy.modules.six as six
 
 if conf.crypto_valid:
-    from cryptography.exceptions import InvalidTag
     from cryptography.hazmat.backends import default_backend
     from cryptography.hazmat.primitives.ciphers import (
         Cipher,

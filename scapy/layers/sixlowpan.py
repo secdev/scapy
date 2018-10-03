@@ -53,17 +53,14 @@ import struct
 from scapy.compat import chb, orb, raw
 
 from scapy.packet import Packet, bind_layers
-from scapy.fields import BitField, ByteField, XBitField, LEShortField, \
-    LEIntField, StrLenField, BitEnumField, Field, ShortField, \
-    BitFieldLenField, XShortField, FlagsField, StrField, ConditionalField, \
-    FieldLenField
+from scapy.fields import BitField, ByteField, BitEnumField, BitFieldLenField, \
+    XShortField, FlagsField, ConditionalField, FieldLenField
 
-from scapy.layers.dot15d4 import Dot15d4, Dot15d4Data, Dot15d4FCS, dot15d4AddressField  # noqa: E501
-from scapy.layers.inet6 import IPv6, IP6Field, ICMPv6EchoRequest
+from scapy.layers.dot15d4 import Dot15d4Data
+from scapy.layers.inet6 import IPv6, IP6Field
 from scapy.layers.inet import UDP
-from scapy.utils6 import in6_or, in6_and, in6_xor
 
-from scapy.utils import lhex, hexdump
+from scapy.utils import lhex
 from scapy.config import conf
 from scapy.error import warning
 

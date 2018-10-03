@@ -17,8 +17,8 @@ from scapy.error import warning
 from scapy.layers.dns import DNSStrField
 from scapy.layers.inet import TCP, UDP
 from scapy.layers.inet6 import IP6Field
-from scapy.fields import ByteField, ByteEnumField, ConditionalField,\
-    ShortField, IPField, StrField, MultipleTypeField
+from scapy.fields import ByteField, ByteEnumField, ShortField, IPField, \
+    StrField, MultipleTypeField
 from scapy.packet import Packet, bind_layers, bind_bottom_up
 
 # TODO: support the 3 different authentication exchange procedures for SOCKS5  # noqa: E501

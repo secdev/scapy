@@ -20,7 +20,7 @@ from scapy.fields import BitField, ByteField, XLEIntField, ConditionalField, \
     StrLenField, XLEShortField, XStrField
 
 from scapy.layers.dot15d4 import dot15d4AddressField, Dot15d4Beacon, Dot15d4, \
-    Dot15d4FCS, Dot15d4Data
+    Dot15d4FCS
 from scapy.layers.inet import UDP
 from scapy.layers.ntp import TimeStampField
 

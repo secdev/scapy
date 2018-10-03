@@ -10,12 +10,11 @@ SuperSocket.
 from __future__ import absolute_import
 import os
 import socket
-import subprocess
 import struct
 import time
 
 from scapy.config import conf
-from scapy.consts import LINUX, OPENBSD, BSD, DARWIN, WINDOWS
+from scapy.consts import LINUX, DARWIN, WINDOWS
 from scapy.data import MTU, ETH_P_IP
 from scapy.compat import raw
 from scapy.error import warning, log_runtime

@@ -10,12 +10,11 @@ Global variables and functions for handling external data sets.
 
 import os
 import re
-import sys
 import time
 
 
 from scapy.dadict import DADict
-from scapy.consts import DARWIN, FREEBSD, NETBSD, OPENBSD, WINDOWS
+from scapy.consts import FREEBSD, NETBSD, OPENBSD, WINDOWS
 from scapy.error import log_loading
 from scapy.compat import plain_str
 

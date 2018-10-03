@@ -8,20 +8,16 @@
 from __future__ import print_function
 import os
 import subprocess
-import itertools
 import collections
 import time
 import scapy.modules.six as six
 from threading import Lock, Thread
-import scapy.utils
 
 from scapy.automaton import Message, select_objects, SelectableObject
 from scapy.consts import WINDOWS
 from scapy.error import log_interactive, warning
 from scapy.config import conf
 from scapy.utils import get_temp_file, do_graph
-
-import scapy.arch
 
 
 class PipeEngine(SelectableObject):
