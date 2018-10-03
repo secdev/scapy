@@ -162,7 +162,7 @@ EofPadList = [0xA000, 0xA038]  # TODO: The complete list of Padding can help to 
 
 def FragmentCond(pkt):
     """
-        A fragementation field condition
+        A fragmentation field condition
         TODO: To complete
     """
     fragTypeTable = [0xA038, 0xA039]

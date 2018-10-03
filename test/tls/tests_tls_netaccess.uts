@@ -172,7 +172,7 @@ def test_tls_client(suite, version, q):
     print("Syncrhonising...")
     assert q_.get() is True
     time.sleep(1)
-    print("Thread syncrhonised")
+    print("Thread synchronised")
     # Run client
     run_tls_test_client(msg, suite, version)
     # Wait for server
