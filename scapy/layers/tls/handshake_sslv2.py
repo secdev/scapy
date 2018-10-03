@@ -337,9 +337,9 @@ class SSLv2ClientMasterKey(_SSLv2Handshake):
             self.keyarglen = len(keyarg)
         keyarglen = struct.pack("!H", self.keyarglen)
 
-        s = (chb(pkt[0]) + cipher
-             + clearkeylen + encryptedkeylen + keyarglen
-             + clearkey + encryptedkey + keyarg)
+        s = (chb(pkt[0]) + cipher +
+             clearkeylen + encryptedkeylen + keyarglen +
+             clearkey + encryptedkey + keyarg)
         return s + pay
 
     def tls_session_update(self, msg_str):

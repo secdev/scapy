@@ -444,9 +444,9 @@ class IP(Packet, IPTools):
         return conf.route.route(dst)
 
     def hashret(self):
-        if ((self.proto == socket.IPPROTO_ICMP)
-            and (isinstance(self.payload, ICMP))
-                and (self.payload.type in [3, 4, 5, 11, 12])):
+        if ((self.proto == socket.IPPROTO_ICMP) and
+            (isinstance(self.payload, ICMP)) and
+                (self.payload.type in [3, 4, 5, 11, 12])):
             return self.payload.payload.hashret()
         if not conf.checkIPinIP and self.proto in [4, 41]:  # IP, IPv6
             return self.payload.hashret()
@@ -454,8 +454,8 @@ class IP(Packet, IPTools):
             return struct.pack("B", self.proto) + self.payload.hashret()
         if conf.checkIPsrc and conf.checkIPaddr:
             return (strxor(inet_pton(socket.AF_INET, self.src),
-                           inet_pton(socket.AF_INET, self.dst))
-                    + struct.pack("B", self.proto) + self.payload.hashret())
+                           inet_pton(socket.AF_INET, self.dst)) +
+                    struct.pack("B", self.proto) + self.payload.hashret())
         return struct.pack("B", self.proto) + self.payload.hashret()
 
     def answers(self, other):
@@ -784,9 +784,9 @@ class IPerror(IP):
             return 0
         if not (((conf.checkIPsrc == 0) or (self.dst == other.dst)) and
                 (self.src == other.src) and
-                (((conf.checkIPID == 0)
-                  or (self.id == other.id)
-                  or (conf.checkIPID == 1 and self.id == socket.htons(other.id)))) and  # noqa: E501
+                (((conf.checkIPID == 0) or
+                  (self.id == other.id) or
+                  (conf.checkIPID == 1 and self.id == socket.htons(other.id)))) and  # noqa: E501
                 (self.proto == other.proto)):
             return 0
         return self.payload.answers(other.payload)

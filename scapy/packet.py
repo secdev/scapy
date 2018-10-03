@@ -1128,10 +1128,10 @@ values.
                                          ct.punct("="),)
                 reprval = f.i2repr(self, fvalue)
                 if isinstance(reprval, str):
-                    reprval = reprval.replace("\n", "\n" + " " * (len(label_lvl)  # noqa: E501
-                                                                  + len(lvl)
-                                                                  + len(f.name)
-                                                                  + 4))
+                    reprval = reprval.replace("\n", "\n" + " " * (len(label_lvl) +  # noqa: E501
+                                                                  len(lvl) +
+                                                                  len(f.name) +
+                                                                  4))
                 s += "%s%s\n" % (begn, vcol(reprval))
         if self.payload:
             s += self.payload._show_or_dump(dump=dump, indent=indent, lvl=lvl + (" " * indent * self.show_indent), label_lvl=label_lvl, first_call=False)  # noqa: E501
@@ -1614,8 +1614,8 @@ def ls(obj=None, case_sensitive=False, verbose=False):
             pattern = re.compile(obj, 0 if case_sensitive else re.I)
             all_layers = sorted((layer for layer in conf.layers
                                  if (isinstance(layer.name, str) and
-                                     pattern.search(layer.__name__))
-                                 or (isinstance(layer.name, str) and
+                                     pattern.search(layer.__name__)) or
+                                 (isinstance(layer.name, str) and
                                      pattern.search(layer.name))),
                                 key=lambda x: x.__name__)
         for layer in all_layers:

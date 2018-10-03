@@ -147,9 +147,9 @@ class TFTP_read(Automaton):
         self.sport = sport
 
     def master_filter(self, pkt):
-        return (IP in pkt and pkt[IP].src == self.server and UDP in pkt
-                and pkt[UDP].dport == self.my_tid
-                and (self.server_tid is None or pkt[UDP].sport == self.server_tid))  # noqa: E501
+        return (IP in pkt and pkt[IP].src == self.server and UDP in pkt and
+                pkt[UDP].dport == self.my_tid and
+                (self.server_tid is None or pkt[UDP].sport == self.server_tid))
 
     # BEGIN
     @ATMT.state(initial=1)
@@ -236,9 +236,9 @@ class TFTP_write(Automaton):
         self.origdata = data
 
     def master_filter(self, pkt):
-        return (IP in pkt and pkt[IP].src == self.server and UDP in pkt
-                and pkt[UDP].dport == self.my_tid
-                and (self.server_tid is None or pkt[UDP].sport == self.server_tid))  # noqa: E501
+        return (IP in pkt and pkt[IP].src == self.server and UDP in pkt and
+                pkt[UDP].dport == self.my_tid
+                (self.server_tid is None or pkt[UDP].sport == self.server_tid))
 
     # BEGIN
     @ATMT.state(initial=1)
