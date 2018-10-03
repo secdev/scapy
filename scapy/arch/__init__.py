@@ -52,25 +52,25 @@ def get_if_hwaddr(iff):
 # def get_if_index(iff):
 
 if LINUX:
-    from scapy.arch.linux import *
+    from scapy.arch.linux import *  # noqa F403
     if scapy.config.conf.use_pcap or scapy.config.conf.use_dnet:
-        from scapy.arch.pcapdnet import *
+        from scapy.arch.pcapdnet import *  # noqa F403
 elif BSD:
     from scapy.arch.unix import read_routes, read_routes6, in6_getifaddr  # noqa: F401, E501
 
     if scapy.config.conf.use_pcap or scapy.config.conf.use_dnet:
-        from scapy.arch.pcapdnet import *
+        from scapy.arch.pcapdnet import *  # noqa F403
     else:
         from scapy.arch.bpf.supersocket import L2bpfListenSocket, L2bpfSocket, L3bpfSocket  # noqa: E501
-        from scapy.arch.bpf.core import *
+        from scapy.arch.bpf.core import *  # noqa F403
         scapy.config.conf.use_bpf = True
         scapy.config.conf.L2listen = L2bpfListenSocket
         scapy.config.conf.L2socket = L2bpfSocket
         scapy.config.conf.L3socket = L3bpfSocket
 elif SOLARIS:
-    from scapy.arch.solaris import *
+    from scapy.arch.solaris import *  # noqa F403
 elif WINDOWS:
-    from scapy.arch.windows import *
+    from scapy.arch.windows import *  # noqa F403
 
 if scapy.config.conf.iface is None:
     scapy.config.conf.iface = scapy.consts.LOOPBACK_INTERFACE
