@@ -32,7 +32,7 @@ from scapy.modules.six.moves import map
 from scapy.supersocket import SuperSocket
 if conf.route is None:
     # unused import, only to initialize conf.route
-    import scapy.route
+    import scapy.route  # noqa: F401
 
 #################
 #  Debug class  #

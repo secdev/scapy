@@ -24,7 +24,6 @@ from scapy.packet import Packet, bind_layers, bind_bottom_up, Raw
 from scapy.data import IP_PROTOS
 from scapy.layers.inet import UDP
 from scapy.layers.inet6 import IP6Field
-import scapy.modules.six as six
 from scapy.config import conf
 
 

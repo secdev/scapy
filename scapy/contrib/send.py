@@ -22,7 +22,6 @@
 # scapy.contrib.status = loads
 
 from __future__ import absolute_import
-import socket
 
 from scapy.packet import Packet
 from scapy.fields import BitField, ByteField, FieldLenField, PacketField, \

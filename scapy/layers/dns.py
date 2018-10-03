@@ -24,7 +24,6 @@ from scapy.sendrecv import sr1
 from scapy.layers.inet import IP, DestIPField, UDP, TCP
 from scapy.layers.inet6 import DestIP6Field
 from scapy.error import warning, Scapy_Exception
-from functools import reduce
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
 from scapy.pton_ntop import inet_ntop, inet_pton

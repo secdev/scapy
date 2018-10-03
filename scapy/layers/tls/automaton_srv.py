@@ -34,7 +34,7 @@ from scapy.layers.tls.handshake_sslv2 import SSLv2ClientCertificate, \
     SSLv2ClientFinished, SSLv2ClientHello, SSLv2ClientMasterKey, \
     SSLv2RequestCertificate, SSLv2ServerFinished, SSLv2ServerHello, \
     SSLv2ServerVerify
-from scapy.layers.tls.record import TLS, TLSAlert, TLSChangeCipherSpec, \
+from scapy.layers.tls.record import TLSAlert, TLSChangeCipherSpec, \
     TLSApplicationData
 from scapy.layers.tls.crypto.suites import _tls_cipher_suites_cls, \
     get_usable_ciphersuites

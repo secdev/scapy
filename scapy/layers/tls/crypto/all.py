@@ -7,4 +7,4 @@
 Aggregate some TLS crypto objects.
 """
 
-from scapy.layers.tls.crypto.suites import *
+from scapy.layers.tls.crypto.suites import *  # noqa: F401

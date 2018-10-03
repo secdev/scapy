@@ -35,7 +35,7 @@ Using the website: https://msdn.microsoft.com/en-us/library/cc226801.aspx
 
 import uuid
 
-from scapy.compat import raw, plain_str
+from scapy.compat import plain_str
 from scapy.config import conf
 from scapy.fields import Field, ByteField, ShortField, LEShortField, \
     IntField, LEIntField, LongField, LELongField, StrField, StrLenField, \

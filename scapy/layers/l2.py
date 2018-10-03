@@ -34,10 +34,10 @@ from scapy.packet import bind_layers, Packet
 from scapy.plist import PacketList, SndRcvList
 from scapy.sendrecv import sendp, srp, srp1
 from scapy.utils import checksum, hexdump, hexstr, inet_ntoa, inet_aton, \
-    mac2str, valid_mac, valid_ip, valid_net, valid_net6
+    mac2str, valid_mac, valid_net, valid_net6
 if conf.route is None:
     # unused import, only to initialize conf.route
-    import scapy.route
+    import scapy.route  # noqa: F401
 
 
 #################

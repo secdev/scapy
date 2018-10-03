@@ -18,7 +18,7 @@ import socket
 import fcntl
 import struct
 
-from ctypes import cdll, cast, pointer, POINTER, Structure
+from ctypes import cdll, cast, pointer
 from ctypes import c_int, c_ulong, c_char_p
 from ctypes.util import find_library
 from scapy.modules.six.moves import range

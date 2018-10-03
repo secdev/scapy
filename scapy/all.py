@@ -34,7 +34,7 @@ from scapy.autorun import *
 
 from scapy.main import *
 from scapy.consts import *
-from scapy.compat import raw
+from scapy.compat import raw  # noqa: F401
 
 from scapy.layers.all import *
 
@@ -46,5 +46,5 @@ from scapy.pipetool import *
 from scapy.scapypipes import *
 
 if conf.ipv6_enabled:  # noqa: F405
-    from scapy.utils6 import *
-    from scapy.route6 import *
+    from scapy.utils6 import *  # noqa: F401
+    from scapy.route6 import *  # noqa: F401

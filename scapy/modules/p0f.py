@@ -21,13 +21,13 @@ from scapy.compat import raw
 from scapy.layers.inet import IP, TCP, TCPOptions
 from scapy.packet import NoPayload, Packet
 from scapy.error import warning, Scapy_Exception, log_runtime
-from scapy.volatile import RandInt, RandByte, RandChoice, RandNum, RandShort, RandString  # noqa: E501
+from scapy.volatile import RandInt, RandByte, RandNum, RandShort, RandString
 from scapy.sendrecv import sniff
 from scapy.modules import six
 from scapy.modules.six.moves import map, range
 if conf.route is None:
     # unused import, only to initialize conf.route
-    import scapy.route
+    import scapy.route  # noqa: F401
 
 conf.p0f_base = "/etc/p0f/p0f.fp"
 conf.p0fa_base = "/etc/p0f/p0fa.fp"

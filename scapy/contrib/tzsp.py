@@ -51,7 +51,6 @@ from scapy.fields import ByteField, ShortEnumField, IntField, FieldLenField, Yes
 from scapy.layers.dot11 import Packet, Dot11, PrismHeader
 from scapy.layers.l2 import Ether
 from scapy.fields import StrLenField, ByteEnumField, ShortField, XStrLenField
-from scapy.modules.six.moves import range
 from scapy.packet import Raw
 
 

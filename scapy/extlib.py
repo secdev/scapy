@@ -49,7 +49,7 @@ def _test_pyx():
 
 
 try:
-    import pyx
+    import pyx  # noqa: F401
     if _test_pyx():
         PYX = 1
     else:

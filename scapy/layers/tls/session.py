@@ -7,7 +7,6 @@
 TLS session handler.
 """
 
-import random
 import socket
 import struct
 

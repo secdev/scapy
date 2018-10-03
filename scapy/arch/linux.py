@@ -11,20 +11,18 @@ from __future__ import absolute_import
 
 
 import array
-import ctypes
 from fcntl import ioctl
 import os
 from select import select
 import socket
 import struct
-import sys
 import time
 import re
 
 import subprocess
 
 from scapy.compat import raw, plain_str
-from scapy.consts import LOOPBACK_NAME, IS_64BITS, LINUX
+from scapy.consts import LOOPBACK_NAME, LINUX
 import scapy.utils
 import scapy.utils6
 from scapy.packet import Packet, Padding

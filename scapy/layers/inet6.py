@@ -27,7 +27,6 @@ IPv6 (Internet Protocol v6).
 from __future__ import absolute_import
 from __future__ import print_function
 
-from functools import reduce
 from hashlib import md5
 import random
 import socket
@@ -52,7 +51,6 @@ from scapy.layers.inet import IP, IPTools, TCP, TCPerror, TracerouteResult, \
     UDP, UDPerror
 from scapy.layers.l2 import CookedLinux, Ether, GRE, Loopback, SNAP
 import scapy.modules.six as six
-from scapy.modules.six.moves import range
 from scapy.packet import bind_layers, Packet, Raw
 from scapy.sendrecv import sendp, sniff, sr, srp1
 from scapy.supersocket import SuperSocket, L3RawSocket

@@ -4,7 +4,7 @@ from io import BytesIO
 from struct import unpack, pack
 from zlib import crc32
 
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
 from cryptography.hazmat.backends import default_backend
 
 import scapy.modules.six as six

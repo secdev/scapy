@@ -11,10 +11,9 @@
 Wireless MAC according to IEEE 802.15.4.
 """
 
-import re
 import struct
 
-from scapy.compat import orb, raw, chb
+from scapy.compat import orb, chb
 from scapy.error import warning
 from scapy.config import conf
 

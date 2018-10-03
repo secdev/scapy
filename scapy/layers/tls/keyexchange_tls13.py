@@ -6,20 +6,15 @@
 TLS 1.3 key exchange logic.
 """
 
-import math
 import struct
 
 from scapy.config import conf, crypto_validator
-from scapy.error import log_runtime, warning
+from scapy.error import log_runtime
 from scapy.fields import FieldLenField, IntField, PacketField, \
     PacketListField, ShortEnumField, ShortField, StrFixedLenField, \
     StrLenField
-from scapy.packet import Packet, Raw, Padding
-from scapy.layers.tls.cert import PubKeyRSA, PrivKeyRSA
-from scapy.layers.tls.session import _GenericTLSSessionInheritance
-from scapy.layers.tls.basefields import _tls_version, _TLSClientVersionField
+from scapy.packet import Packet, Padding
 from scapy.layers.tls.extensions import TLS_Ext_Unknown, _tls_ext
-from scapy.layers.tls.crypto.pkcs1 import pkcs_i2osp, pkcs_os2ip
 from scapy.layers.tls.crypto.groups import _tls_named_ffdh_groups, \
     _tls_named_curves, _ffdh_groups, \
     _tls_named_groups

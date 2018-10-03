@@ -7,14 +7,13 @@
 """
 Customizations needed to support Microsoft Windows.
 """
+
 from __future__ import absolute_import
 from __future__ import print_function
 import os
 import re
 import sys
 import socket
-import time
-import itertools
 import platform
 import subprocess as sp
 from glob import glob
@@ -28,15 +27,12 @@ import scapy
 import scapy.consts
 from scapy.config import conf, ConfClass
 from scapy.error import Scapy_Exception, log_loading, log_runtime, warning
-from scapy.utils import atol, itom, inet_aton, inet_ntoa, PcapReader, \
-    pretty_list, mac2str
+from scapy.utils import atol, itom, pretty_list, mac2str
 from scapy.utils6 import construct_source_candidate_set, in6_getifaddr_raw
-from scapy.base_classes import Gen, Net, SetGen
-from scapy.data import MTU, ETHER_BROADCAST, ETH_P_ARP, ARPHDR_ETHER, \
-    load_manuf
+from scapy.data import ARPHDR_ETHER, load_manuf
 import scapy.modules.six as six
 from scapy.modules.six.moves import range, zip, input, winreg, UserDict
-from scapy.compat import plain_str, raw
+from scapy.compat import raw
 from scapy.supersocket import SuperSocket
 
 _winapi_SetConsoleTitle = ctypes.windll.kernel32.SetConsoleTitleW

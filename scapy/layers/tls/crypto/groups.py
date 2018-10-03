@@ -19,7 +19,6 @@ from scapy.utils import long_converter
 import scapy.modules.six as six
 if conf.crypto_valid:
     from cryptography.hazmat.backends import default_backend
-    from cryptography.hazmat.primitives.asymmetric import dh
 
 # We have to start by a dirty hack in order to allow long generators,
 # which some versions of openssl love to use...

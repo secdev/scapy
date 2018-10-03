@@ -10,8 +10,7 @@ Operating system specific functionality.
 from __future__ import absolute_import
 import socket
 
-from scapy.consts import LINUX, OPENBSD, FREEBSD, NETBSD, DARWIN, \
-    SOLARIS, WINDOWS, BSD, IS_64BITS, LOOPBACK_NAME
+from scapy.consts import LINUX, SOLARIS, WINDOWS, BSD
 from scapy.error import Scapy_Exception
 import scapy.config
 from scapy.pton_ntop import inet_pton, inet_ntop
@@ -57,7 +56,7 @@ if LINUX:
     if scapy.config.conf.use_pcap or scapy.config.conf.use_dnet:
         from scapy.arch.pcapdnet import *
 elif BSD:
-    from scapy.arch.unix import read_routes, read_routes6, in6_getifaddr
+    from scapy.arch.unix import read_routes, read_routes6, in6_getifaddr  # noqa: F401, E501
 
     if scapy.config.conf.use_pcap or scapy.config.conf.use_dnet:
         from scapy.arch.pcapdnet import *

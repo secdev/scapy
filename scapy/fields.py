@@ -501,7 +501,7 @@ class SourceIPField(IPField):
     def __findaddr(self, pkt):
         if conf.route is None:
             # unused import, only to initialize conf.route
-            import scapy.route
+            import scapy.route  # noqa: F401
         dst = ("0.0.0.0" if self.dstname is None
                else getattr(pkt, self.dstname) or "0.0.0.0")
         if isinstance(dst, (Gen, list)):
@@ -584,7 +584,7 @@ class SourceIP6Field(IP6Field):
         if x is None:
             if conf.route6 is None:
                 # unused import, only to initialize conf.route6
-                import scapy.route6
+                import scapy.route6  # noqa: F401
             dst = ("::" if self.dstname is None else getattr(pkt, self.dstname))  # noqa: E501
             if isinstance(dst, (Gen, list)):
                 r = {conf.route6.route(str(daddr)) for daddr in dst}

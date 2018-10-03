@@ -11,13 +11,11 @@ import os
 import platform
 import socket
 import struct
-import sys
 import time
 from ctypes import c_ubyte, cast
 
 from scapy.data import MTU, ETH_P_ALL, ARPHDR_ETHER, ARPHDR_LOOPBACK
 from scapy.compat import raw, plain_str, chb
-from scapy.compat import *
 from scapy.config import conf
 from scapy.consts import WINDOWS
 from scapy.utils import mac2str

@@ -16,7 +16,6 @@ from scapy.compat import raw, hex_bytes, bytes_hex
 import scapy.modules.six as six
 
 from scapy.config import conf, crypto_validator
-from scapy.utils import randstring, zerofree_randstring, strxor, strand
 from scapy.error import warning
 if conf.crypto_valid:
     from cryptography import utils
