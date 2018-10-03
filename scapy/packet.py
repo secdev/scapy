@@ -1665,6 +1665,7 @@ def explore():
         return  # User pressed "Cancel"
     # 4 - (Contrib only): load contrib
     if not is_layer:
+        from scapy.main import load_contrib
         load_contrib(result)
         result = "scapy.contrib." + result
     # 5 - Get the list of all Packets contained in that module
@@ -1692,19 +1693,25 @@ def ls(obj=None, case_sensitive=False, verbose=False):
             all_layers = sorted(conf.layers, key=lambda x: x.__name__)
         else:
             pattern = re.compile(obj, 0 if case_sensitive else re.I)
+            # We first order by accuracy, then length
+            if case_sensitive:
+                sorter = lambda x: (x.__name__.index(obj), len(x.__name__))
+            else:
+                obj = obj.lower()
+                sorter = lambda x: (x.__name__.lower().index(obj),
+                                    len(x.__name__))
             all_layers = sorted((layer for layer in conf.layers
                                  if (isinstance(layer.__name__, str) and
                                      pattern.search(layer.__name__)) or
                                  (isinstance(layer.name, str) and
                                      pattern.search(layer.name))),
-                                key=lambda x: x.__name__)
+                                key=sorter)
         for layer in all_layers:
             print("%-10s : %s" % (layer.__name__, layer._name))
         if tip and conf.interactive:
             print()
-            print("TIP: having troubles reading this text ? "
-                  "Discover the new `explore()` function, with a fancy and"
-                  " clear GUI !")
+            print("TIP: You may use `explore()` to navigate through all "
+                  "layers using a clear GUI")
 
     else:
         is_pkt = isinstance(obj, Packet)

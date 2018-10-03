@@ -39,7 +39,7 @@ ls()
 ~ conf command
 
 with ContextManagerCaptureOutput() as cmco:
-    ls("IP")
+    ls("IP", case_sensitive=True)
     result_ls = cmco.get_output().split("\n")
 
 assert all("IP" in x for x in result_ls if x.strip())
