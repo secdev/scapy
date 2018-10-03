@@ -826,7 +826,7 @@ _radius_attrs_values = {
         38: "WIMAX-WIFI-IWK: WiMAX WIFI Interworking",
         39: "WIMAX-SFF: Signaling Forwarding Function for LTE/3GPP2",
         40: "WIMAX-HA-LMA: WiMAX HA and or LMA function",
-        41: "WIMAX-DHCP: WIMAX DCHP service",
+        41: "WIMAX-DHCP: WIMAX DHCP service",
         42: "WIMAX-LBS: WiMAX location based service",
         43: "WIMAX-WVS: WiMAX voice service"
     },

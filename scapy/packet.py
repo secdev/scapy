@@ -291,7 +291,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
     def delfieldval(self, attr):
         if attr in self.fields:
             del(self.fields[attr])
-            self.explicit = 0  # in case a default value must be explicited
+            self.explicit = 0  # in case a default value must be explicit
             self.raw_packet_cache = None
             self.raw_packet_cache_fields = None
             self.wirelen = None
