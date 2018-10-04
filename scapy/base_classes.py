@@ -40,8 +40,8 @@ def _get_values(value):
             all(hasattr(i, "__int__") for i in value)):
         # We use values[1] + 1 as stop value for (x)range to maintain
         # the behavior of using tuples as field `values`
-        return range(*((int(value[0]), int(value[1]) + 1)
-                       + tuple(int(v) for v in value[2:])))
+        return range(*((int(value[0]), int(value[1]) + 1) +
+                       tuple(int(v) for v in value[2:])))
     return value
 
 

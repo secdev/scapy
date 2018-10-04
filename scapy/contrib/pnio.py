@@ -203,11 +203,11 @@ class PNIORealTimeCyclicPDU(Packet):
     def get_padding_length(self):
         if hasattr(self, "_len"):
             pad_len = (
-                self._len
-                - sum(len(raw(pkt)) for pkt in self.getfieldval("data"))
-                - 2  # Cycle Counter size (ShortField)
-                - 1  # DataStatus size (FlagsField over 8 bits)
-                - 1  # TransferStatus (ByteField)
+                self._len -
+                sum(len(raw(pkt)) for pkt in self.getfieldval("data")) -
+                2 -  # Cycle Counter size (ShortField)
+                1 -  # DataStatus size (FlagsField over 8 bits)
+                1  # TransferStatus (ByteField)
             )
         else:
             pad_len = len(self.getfieldval("padding"))

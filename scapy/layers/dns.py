@@ -409,10 +409,10 @@ class DNS(Packet):
     ]
 
     def answers(self, other):
-        return (isinstance(other, DNS)
-                and self.id == other.id
-                and self.qr == 1
-                and other.qr == 0)
+        return (isinstance(other, DNS) and
+                self.id == other.id and
+                self.qr == 1 and
+                other.qr == 0)
 
     def mysummary(self):
         type = ["Qry", "Ans"][self.qr]

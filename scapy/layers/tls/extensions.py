@@ -107,10 +107,10 @@ class TLS_Ext_PrettyPacketList(TLS_Ext_Unknown):
                                      ct.punct("="),)
             reprval = f.i2repr(self, fvalue)
             if isinstance(reprval, str):
-                reprval = reprval.replace("\n", "\n" + " " * (len(label_lvl)
-                                                              + len(lvl)
-                                                              + len(f.name)
-                                                              + 4))
+                reprval = reprval.replace("\n", "\n" + " " * (len(label_lvl) +
+                                                              len(lvl) +
+                                                              len(f.name) +
+                                                              4))
             s += "%s%s\n" % (begn, vcol(reprval))
         f = self.fields_desc[-1]
         ncol = ct.field_name
@@ -119,10 +119,10 @@ class TLS_Ext_PrettyPacketList(TLS_Ext_Unknown):
         begn = "%s  %-10s%s " % (label_lvl + lvl, ncol(f.name), ct.punct("="),)
         reprval = f.i2repr(self, fvalue)
         if isinstance(reprval, str):
-            reprval = reprval.replace("\n", "\n" + " " * (len(label_lvl)
-                                                          + len(lvl)
-                                                          + len(f.name)
-                                                          + 4))
+            reprval = reprval.replace("\n", "\n" + " " * (len(label_lvl) +
+                                                          len(lvl) +
+                                                          len(f.name) +
+                                                          4))
         s += "%s%s\n" % (begn, vcol(reprval))
         if self.payload:
             s += self.payload._show_or_dump(dump=dump, indent=indent,

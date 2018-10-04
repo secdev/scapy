@@ -104,10 +104,10 @@ class ASN1F_field(ASN1F_element):
         if x is None:
             return b""
         if isinstance(x, ASN1_Object):
-            if (self.ASN1_tag == ASN1_Class_UNIVERSAL.ANY
-                or x.tag == ASN1_Class_UNIVERSAL.RAW
-                or x.tag == ASN1_Class_UNIVERSAL.ERROR
-                    or self.ASN1_tag == x.tag):
+            if (self.ASN1_tag == ASN1_Class_UNIVERSAL.ANY or
+                x.tag == ASN1_Class_UNIVERSAL.RAW or
+                x.tag == ASN1_Class_UNIVERSAL.ERROR or
+               self.ASN1_tag == x.tag):
                 s = x.enc(pkt.ASN1_codec)
             else:
                 raise ASN1_Error("Encoding Error: got %r instead of an %r for field [%s]" % (x, self.ASN1_tag, self.name))  # noqa: E501

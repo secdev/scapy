@@ -115,11 +115,11 @@ def _sndrcv_rcv(pks, hsent, stopevent, nbrecv, notans, verbose, chainCC,
     elif is_python_can_socket():
         def _get_pkt():
             return pks.recv()
-    elif (conf.use_pcap
-          and not isinstance(pks,
-                             (StreamSocket, L3RawSocket, L2ListenTcpdump))) \
-        or (not isinstance(pks, (StreamSocket, L2ListenTcpdump))
-            and (DARWIN or FREEBSD or OPENBSD)):
+    elif (conf.use_pcap and
+          not isinstance(pks,
+                         (StreamSocket, L3RawSocket, L2ListenTcpdump))) or \
+         (not isinstance(pks, (StreamSocket, L2ListenTcpdump)) and
+            (DARWIN or FREEBSD or OPENBSD)):
         def _get_pkt():
             res = pks.nonblock_recv()
             if res is None:
