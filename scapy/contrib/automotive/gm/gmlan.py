@@ -352,6 +352,12 @@ bind_layers(GMLAN, GMLAN_RMBA, service=0x23)
 class GMLAN_RMBAPR(Packet):
     name = 'ReadMemoryByAddressPositiveResponse'
     fields_desc = [
+        ConditionalField(XShortField('memoryAddress', 0),
+                         lambda pkt: GMLAN.determine_len(2)),
+        ConditionalField(X3BytesField('memoryAddress', 0),
+                         lambda pkt: GMLAN.determine_len(3)),
+        ConditionalField(XIntField('memoryAddress', 0),
+                         lambda pkt: GMLAN.determine_len(4)),
         StrField('dataRecord', None, fmt="B")
     ]
 
