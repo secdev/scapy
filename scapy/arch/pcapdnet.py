@@ -213,7 +213,10 @@ if conf.use_winpcapy:
             if WINDOWS:
                 log_loading.error("Cannot get selectable PCAP fd on Windows")
                 return 0
-            return pcap_get_selectable_fd(self.pcap)
+            else:
+                # This does not exist under Windows
+                from scapy.modules.winpcapy import pcap_get_selectable_fd
+                return pcap_get_selectable_fd(self.pcap)
 
         def setfilter(self, f):
             filter_exp = create_string_buffer(f.encode("utf8"))
