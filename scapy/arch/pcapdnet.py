@@ -23,7 +23,6 @@ from scapy.supersocket import SuperSocket
 from scapy.error import Scapy_Exception, log_loading, warning
 from scapy.pton_ntop import inet_ntop
 from scapy.automaton import SelectableObject
-from scapy.arch.bpf.common import bpf_program
 import scapy.consts
 
 if not scapy.consts.WINDOWS:
@@ -90,8 +89,9 @@ if conf.use_winpcapy:
             pcap_lib_version, pcap_create, pcap_close, pcap_set_snaplen, \
             pcap_set_promisc, pcap_set_timeout, pcap_set_rfmon, \
             pcap_activate, pcap_open_live, pcap_setmintocopy, pcap_pkthdr, \
-            pcap_next_ex, pcap_datalink, pcap_get_selectable_fd, \
-            pcap_compile, pcap_setfilter, pcap_setnonblock, pcap_sendpacket
+            pcap_next_ex, pcap_datalink, \
+            pcap_compile, pcap_setfilter, pcap_setnonblock, pcap_sendpacket, \
+            bpf_program as winpcapy_bpf_program
 
         def load_winpcapy():
             err = create_string_buffer(PCAP_ERRBUF_SIZE)
@@ -195,7 +195,7 @@ if conf.use_winpcapy:
 
             self.header = POINTER(pcap_pkthdr)()
             self.pkt_data = POINTER(c_ubyte)()
-            self.bpf_program = bpf_program()
+            self.bpf_program = winpcapy_bpf_program()
 
         def next(self):
             c = pcap_next_ex(self.pcap, byref(self.header), byref(self.pkt_data))  # noqa: E501
