@@ -877,8 +877,10 @@ def main(argv):
             print("### Booting scapy...", file=sys.stderr)
         try:
             from scapy import all as scapy
-        except ImportError as e:
-            raise getopt.GetoptError("cannot import [%s]: %s" % (SCAPY, e))
+        except Exception as e:
+            print("[CRITICAL]: Cannot import Scapy: %s" % e, file=sys.stderr)
+            traceback.print_exc()
+            sys.exit(1)  # Arbort the tests
 
         for m in MODULES:
             try:
