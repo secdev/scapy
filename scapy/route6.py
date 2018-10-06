@@ -166,9 +166,9 @@ class Route6:
         self.invalidate_cache()
         self.routes.append((prefix, plen, '::', iff, [addr], 1))
 
-    def route(self, dst, dev=None):
+    def route(self, dst=None, dev=None, verbose=conf.verb):
         """
-        Provide best route to IPv6 destination address, based on Scapy6
+        Provide best route to IPv6 destination address, based on Scapy
         internal routing table content.
 
         When a set of address is passed (e.g. 2001:db8:cafe:*::1-5) an address
@@ -181,6 +181,7 @@ class Route6:
         if optional 'dev' parameter is provided a specific interface, filtering
         is performed to limit search to route associated to that interface.
         """
+        dst = dst or "::/0"  # Enable route(None) to return default route
         # Transform "2001:db8:cafe:*::1-5:0/120" to one IPv6 address of the set
         dst = dst.split("/")[0]
         savedst = dst  # In case following inet_pton() fails
@@ -223,14 +224,16 @@ class Route6:
                 paths.append((plen, me, (iface, cset, gw)))
 
         if not paths:
-            warning("No route found for IPv6 destination %s (no default route?)", dst)  # noqa: E501
+            if verbose:
+                warning("No route found for IPv6 destination %s "
+                        "(no default route?)", dst)
             return (scapy.consts.LOOPBACK_INTERFACE, "::", "::")
 
-        # Sort with longest prefix first
-        paths.sort(reverse=True, key=lambda x: x[0])
+        # Sort with longest prefix first then use metrics as a tie-breaker
+        paths.sort(key=lambda x: (-x[0], x[1]))
 
-        best_plen = paths[0][0]
-        paths = [x for x in paths if x[0] == best_plen]
+        best_plen = (paths[0][0], paths[0][1])
+        paths = [x for x in paths if (x[0], x[1]) == best_plen]
 
         res = []
         for p in paths:  # Here we select best source address for every route
@@ -242,10 +245,6 @@ class Route6:
         if res == []:
             warning("Found a route for IPv6 destination '%s', but no possible source address.", dst)  # noqa: E501
             return (scapy.consts.LOOPBACK_INTERFACE, "::", "::")
-
-        # Tie-breaker: Metrics
-        paths.sort(key=lambda x: x[1])
-        paths = [i for i in paths if i[1] == paths[0][1]]
 
         # Symptom  : 2 routes with same weight (our weight is plen)
         # Solution :
@@ -280,6 +279,6 @@ class Route6:
 
 conf.route6 = Route6()
 try:
-    conf.iface6 = conf.route6.route("::/0")[0]
+    conf.iface6 = conf.route6.route(None)[0]
 except Exception:
     pass
