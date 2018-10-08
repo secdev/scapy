@@ -82,7 +82,8 @@ class _L2pcapdnetSocket(SuperSocket, SelectableObject):
 
 if conf.use_winpcapy:
     NPCAP_PATH = os.environ["WINDIR"] + "\\System32\\Npcap"
-    #  Part of the code from https://github.com/phaethon/scapy translated to python2.X  # noqa: E501
+    # Part of the Winpcapy integration was inspired by phaethon/scapy
+    # but he destroyed the commit history, so there is no link to that
     try:
         from scapy.modules.winpcapy import PCAP_ERRBUF_SIZE, pcap_if_t, \
             sockaddr_in, sockaddr_in6, pcap_findalldevs, pcap_freealldevs, \

@@ -880,7 +880,7 @@ def main(argv):
         except Exception as e:
             print("[CRITICAL]: Cannot import Scapy: %s" % e, file=sys.stderr)
             traceback.print_exc()
-            sys.exit(1)  # Arbort the tests
+            sys.exit(1)  # Abort the tests
 
         for m in MODULES:
             try:

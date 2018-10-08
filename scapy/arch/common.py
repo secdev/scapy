@@ -7,7 +7,7 @@
 Functions common to different architectures
 """
 
-# This file is not needed on Windows, and won't be loaded
+# Important Note: This file is not needed on Windows, and mustn't be loaded
 
 import socket
 from fcntl import ioctl
