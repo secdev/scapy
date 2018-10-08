@@ -31,6 +31,11 @@ x = GMLAN()/GMLAN_RMBA(b'\x11\x22\x44\x22')
 x.memoryAddress == 0x1122
 x.memorySize == 0x4422
 
+= Test Packet GMLAN_RMBAPR with ECU AddressingScheme2
+x = GMLAN()/GMLAN_RMBAPR(b'\x11\x22\x44\x22')
+x.memoryAddress == 0x1122
+x.dataRecord == b'\x44\x22'
+
 = Craft Packet with ECU AddressingScheme2
 y = GMLAN()/GMLAN_RMBA(memoryAddress=0x1122, memorySize=0x4422)
 bytes(x) == bytes(y)
@@ -41,6 +46,11 @@ x = GMLAN()/GMLAN_RMBA(b'\x11\x22\x44\x22\x11')
 x.memoryAddress == 0x112244
 x.memorySize == 0x2211
 
+= Test Packet GMLAN_RMBAPR with ECU AddressingScheme3
+x = GMLAN()/GMLAN_RMBAPR(b'\x11\x22\x44\x22\x11')
+x.memoryAddress == 0x112244
+x.dataRecord == b'\x22\x11'
+
 = Craft Packet with ECU AddressingScheme3
 y = GMLAN()/GMLAN_RMBA(memoryAddress=0x112244, memorySize=0x2211)
 bytes(x) == bytes(y)
@@ -50,6 +60,11 @@ conf.contribs['GMLAN']['GMLAN_ECU_AddressingScheme'] = 4
 x = GMLAN()/GMLAN_RMBA(b'\x11\x22\x44\x22\x11\x00')
 x.memoryAddress == 0x11224422
 x.memorySize == 0x1100
+
+= Test Packet GMLAN_RMBAPR with ECU AddressingScheme4
+x = GMLAN()/GMLAN_RMBAPR(b'\x11\x22\x44\x22\x11\x00')
+x.memoryAddress == 0x11224422
+x.dataRecord == b'\x11\x00'
 
 = Craft Packet with ECU AddressingScheme4
 y = GMLAN()/GMLAN_RMBA(memoryAddress=0x11224422, memorySize=0x1100)
