@@ -978,9 +978,9 @@ class IPv6ExtHdrSegmentRouting(_IPv6ExtHdr):
                    BitField("unused2", 0, 3),
                    ShortField("tag", 0),
                    IP6ListField("addresses", ["::1"],
-                                count_from=lambda pkt: pkt.lastentry),
+                                count_from=lambda pkt: (pkt.lastentry + 1)),
                    PacketListField("tlv_objects", [], IPv6ExtHdrSegmentRoutingTLV,  # noqa: E501
-                                   length_from=lambda pkt: 8 * pkt.len - 16 * pkt.lastentry)]  # noqa: E501
+                                   length_from=lambda pkt: 8 * pkt.len - 16 * (pkt.lastentry + 1))]  # noqa: E501
 
     overload_fields = {IPv6: {"nh": 43}}
 
