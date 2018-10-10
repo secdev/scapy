@@ -28,12 +28,19 @@ Copyright (c) 2010 Jochen Bartl  :  jochen.bartl gmail com
 """
 
 
-from scapy.packet import *
-from scapy.fields import *
-from scapy.layers.inet import *
-from scapy.layers.inet6 import *
-from scapy.utils import fletcher16_checkbytes
+import struct
+
+from scapy.packet import bind_layers, Packet
+from scapy.fields import BitField, ByteEnumField, ByteField, \
+    ConditionalField, DestIP6Field, FieldLenField, \
+    FieldListField, FlagsField, IP6Field, IP6PrefixField, IPField, \
+    IntEnumField, IntField, LenField, PacketListField, ShortEnumField, \
+    ShortField, StrLenField, X3BytesField, XIntField, XLongField, XShortField
+from scapy.layers.inet import IP, DestIPField
+from scapy.layers.inet6 import IPv6, in6_chksum
+from scapy.utils import fletcher16_checkbytes, checksum
 from scapy.compat import orb
+from scapy.config import conf
 
 EXT_VERSION = "v0.9.2"
 
@@ -437,11 +444,11 @@ class OSPFv3_Hdr(Packet):
 
     def post_build(self, p, pay):
         p += pay
-        l = self.len
+        tmp_len = self.len
 
-        if l is None:
-            l = len(p)
-            p = p[:2] + struct.pack("!H", l) + p[4:]
+        if tmp_len is None:
+            tmp_len = len(p)
+            p = p[:2] + struct.pack("!H", tmp_len) + p[4:]
 
         if self.chksum is None:
             chksum = in6_chksum(89, self.underlayer, p)

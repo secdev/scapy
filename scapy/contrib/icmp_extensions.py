@@ -18,14 +18,19 @@
 # scapy.contrib.status = loads
 
 from __future__ import absolute_import
+import struct
+
 import scapy
 from scapy.packet import Packet, bind_layers
-from scapy.fields import *
-from scapy.layers.inet import IP, ICMP
+from scapy.fields import BitField, ByteField, ConditionalField, \
+    FieldLenField, IPField, IntField, PacketListField, ShortField, \
+    StrLenField
+from scapy.layers.inet import IP, ICMP, checksum
 from scapy.layers.inet6 import IP6Field
 from scapy.error import warning
 from scapy.contrib.mpls import MPLS
 import scapy.modules.six as six
+from scapy.config import conf
 
 
 class ICMPExtensionObject(Packet):
@@ -36,8 +41,8 @@ class ICMPExtensionObject(Packet):
 
     def post_build(self, p, pay):
         if self.len is None:
-            l = len(p) + len(pay)
-            p = struct.pack('!H', l) + p[2:]
+            tmp_len = len(p) + len(pay)
+            p = struct.pack('!H', tmp_len) + p[2:]
         return p + pay
 
 

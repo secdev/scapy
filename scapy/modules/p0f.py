@@ -21,13 +21,13 @@ from scapy.compat import raw
 from scapy.layers.inet import IP, TCP, TCPOptions
 from scapy.packet import NoPayload, Packet
 from scapy.error import warning, Scapy_Exception, log_runtime
-from scapy.volatile import RandInt, RandByte, RandChoice, RandNum, RandShort, RandString  # noqa: E501
+from scapy.volatile import RandInt, RandByte, RandNum, RandShort, RandString
 from scapy.sendrecv import sniff
 from scapy.modules import six
 from scapy.modules.six.moves import map, range
 if conf.route is None:
     # unused import, only to initialize conf.route
-    import scapy.route
+    import scapy.route  # noqa: F401
 
 conf.p0f_base = "/etc/p0f/p0f.fp"
 conf.p0fa_base = "/etc/p0f/p0fa.fp"
@@ -65,23 +65,24 @@ class p0fKnowledgeBase(KnowledgeBase):
             return
         try:
             self.base = []
-            for l in f:
-                if l[0] in ["#", "\n"]:
+            for line in f:
+                if line[0] in ["#", "\n"]:
                     continue
-                l = tuple(l.split(":"))
-                if len(l) < 8:
+                line = tuple(line.split(":"))
+                if len(line) < 8:
                     continue
 
                 def a2i(x):
                     if x.isdigit():
                         return int(x)
                     return x
-                li = [a2i(e) for e in l[1:4]]
+                li = [a2i(e) for e in line[1:4]]
                 # if li[0] not in self.ttl_range:
                 #    self.ttl_range.append(li[0])
                 #    self.ttl_range.sort()
-                self.base.append((l[0], li[0], li[1], li[2], l[4], l[5], l[6], l[7][:-1]))  # noqa: E501
-        except:
+                self.base.append((line[0], li[0], li[1], li[2], line[4],
+                                  line[5], line[6], line[7][:-1]))
+        except Exception:
             warning("Can't parse p0f database (new p0f version ?)")
             self.base = None
         f.close()
@@ -317,7 +318,7 @@ def prnp0f(pkt):
     # we should print which DB we use
     try:
         r = p0f(pkt)
-    except:
+    except Exception:
         return
     if r == []:
         r = ("UNKNOWN", "[" + ":".join(map(str, packet2p0f(pkt)[1])) + ":?:?]", None)  # noqa: E501
@@ -326,7 +327,7 @@ def prnp0f(pkt):
     uptime = None
     try:
         uptime = pkt2uptime(pkt)
-    except:
+    except Exception:
         pass
     if uptime == 0:
         uptime = None

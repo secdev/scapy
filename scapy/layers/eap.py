@@ -14,8 +14,8 @@ import struct
 
 from scapy.fields import BitField, ByteField, XByteField,\
     ShortField, IntField, XIntField, ByteEnumField, StrLenField, XStrField,\
-    XStrLenField, XStrFixedLenField, LenField, FieldLenField, PacketField,\
-    PacketListField, ConditionalField, PadField
+    XStrLenField, XStrFixedLenField, LenField, FieldLenField, FieldListField,\
+    PacketField, PacketListField, ConditionalField, PadField
 from scapy.packet import Packet, Padding, bind_layers
 from scapy.layers.l2 import SourceMACField, Ether, CookedLinux, GRE, SNAP
 from scapy.utils import issubtype
@@ -78,8 +78,8 @@ class EAPOL(Packet):
     ASF = 4
 
     def extract_padding(self, s):
-        l = self.len
-        return s[:l], s[l:]
+        tmp_len = self.len
+        return s[:tmp_len], s[tmp_len:]
 
     def hashret(self):
         return chb(self.type) + self.payload.hashret()
@@ -199,7 +199,12 @@ class EAP(Packet):
         ConditionalField(ByteEnumField("type", 0, eap_types),
                          lambda pkt:pkt.code not in [
                              EAP.SUCCESS, EAP.FAILURE]),
-        ConditionalField(ByteEnumField("desired_auth_type", 0, eap_types),
+        ConditionalField(FieldListField(
+                            "desired_auth_types",
+                            [],
+                            ByteEnumField("auth_type", 0, eap_types),
+                            length_from=lambda pkt: pkt.len - 4
+                         ),
                          lambda pkt:pkt.code == EAP.RESPONSE and pkt.type == 3),  # noqa: E501
         ConditionalField(
             StrLenField("identity", '', length_from=lambda pkt: pkt.len - 5),
@@ -275,8 +280,9 @@ class EAP(Packet):
 
     def post_build(self, p, pay):
         if self.len is None:
-            l = len(p) + len(pay)
-            p = p[:2] + chb((l >> 8) & 0xff) + chb(l & 0xff) + p[4:]
+            tmp_len = len(p) + len(pay)
+            tmp_p = p[:2] + chb((tmp_len >> 8) & 0xff) + chb(tmp_len & 0xff)
+            p = tmp_p + p[4:]
         return p + pay
 
     def guess_payload_class(self, _):

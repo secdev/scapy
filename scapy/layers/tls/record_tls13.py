@@ -14,13 +14,13 @@ See the TLS class documentation for more information.
 import struct
 
 from scapy.config import conf
-from scapy.error import log_runtime
-from scapy.fields import *
-from scapy.packet import *
+from scapy.error import log_runtime, warning
+from scapy.compat import raw
+from scapy.fields import ByteEnumField, PacketField, XStrField
 from scapy.layers.tls.session import _GenericTLSSessionInheritance
-from scapy.layers.tls.basefields import (_TLSVersionField, _tls_version,
-                                         _TLSMACField, _TLSLengthField, _tls_type)  # noqa: E501
-from scapy.layers.tls.record import _TLSMsgListField
+from scapy.layers.tls.basefields import _TLSVersionField, _tls_version, \
+    _TLSMACField, _TLSLengthField, _tls_type
+from scapy.layers.tls.record import _TLSMsgListField, TLS
 from scapy.layers.tls.crypto.cipher_aead import AEADTagError
 from scapy.layers.tls.crypto.cipher_stream import Cipher_NULL
 from scapy.layers.tls.crypto.ciphers import CipherError
@@ -44,14 +44,14 @@ class TLSInnerPlaintext(_GenericTLSSessionInheritance):
         if len(s) < 1:
             raise Exception("Invalid InnerPlaintext (too short).")
 
-        l = len(s) - 1
+        tmp_len = len(s) - 1
         if s[-1] != b"\x00":
-            msg_len = l
+            msg_len = tmp_len
         else:
             n = 1
-            while s[-n] != b"\x00" and n < l:
+            while s[-n] != b"\x00" and n < tmp_len:
                 n += 1
-            msg_len = l - n
+            msg_len = tmp_len - n
         self.fields_desc[0].length_from = lambda pkt: msg_len
 
         self.type = struct.unpack("B", s[msg_len:msg_len + 1])[0]
@@ -163,7 +163,7 @@ class TLS13(_GenericTLSSessionInheritance):
                         tls_session=self.tls_session)
             except KeyboardInterrupt:
                 raise
-            except:
+            except Exception:
                 p = conf.raw_layer(s, _internal=1, _underlayer=self)
             self.add_payload(p)
 

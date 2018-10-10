@@ -7,8 +7,10 @@
 SMB (Server Message Block), also known as CIFS.
 """
 
-from scapy.packet import *
-from scapy.fields import *
+from scapy.packet import Packet, bind_layers
+from scapy.fields import BitField, ByteEnumField, ByteField, FlagsField, \
+    LEFieldLenField, LEIntField, LELongField, LEShortField, ShortField, \
+    StrFixedLenField, StrLenField, StrNullField
 from scapy.layers.netbios import NBTSession
 
 

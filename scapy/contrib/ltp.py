@@ -30,10 +30,11 @@
 
 import scapy.modules.six as six
 from scapy.packet import Packet, bind_layers, bind_top_down
-from scapy.fields import *
+from scapy.fields import BitEnumField, BitField, BitFieldLenField, \
+    ByteEnumField, ConditionalField, PacketListField, StrLenField
 from scapy.layers.inet import UDP
 from scapy.config import conf
-from scapy.contrib.sdnv import *
+from scapy.contrib.sdnv import SDNV2, SDNV2FieldLenField
 
 # LTP https://tools.ietf.org/html/rfc5326
 

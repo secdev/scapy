@@ -7,8 +7,8 @@
 Customization for the Solaris operation system.
 """
 
+from scapy.arch.unix import *  # noqa: F401,F403
+
 # IPPROTO_GRE is missing on Solaris
 import socket
 socket.IPPROTO_GRE = 47
-
-from scapy.arch.unix import *

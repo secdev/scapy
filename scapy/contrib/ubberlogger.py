@@ -17,8 +17,8 @@
 # scapy.contrib.description = Ubberlogger dissectors
 # scapy.contrib.status = loads
 
-from scapy.packet import *
-from scapy.fields import *
+from scapy.packet import Packet, bind_layers
+from scapy.fields import ByteEnumField, ByteField, IntField, ShortField
 
 # Syscalls known by Uberlogger
 uberlogger_sys_calls = {0: "READ_ID",

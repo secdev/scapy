@@ -51,10 +51,10 @@ class _StreamCipher(six.with_metaclass(_StreamCipherMetaclass, object)):
         if key is None:
             self.ready["key"] = False
             if hasattr(self, "expanded_key_len"):
-                l = self.expanded_key_len
+                tmp_len = self.expanded_key_len
             else:
-                l = self.key_len
-            key = b"\0" * l
+                tmp_len = self.key_len
+            key = b"\0" * tmp_len
 
         # we use super() in order to avoid any deadlock with __setattr__
         super(_StreamCipher, self).__setattr__("key", key)

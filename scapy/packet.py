@@ -20,7 +20,7 @@ from scapy.fields import StrField, ConditionalField, Emph, PacketListField, \
     BitField, MultiEnumField, EnumField, FlagsField
 from scapy.config import conf
 from scapy.consts import WINDOWS
-from scapy.compat import *
+from scapy.compat import raw, orb
 from scapy.base_classes import BasePacket, Gen, SetGen, Packet_metaclass
 from scapy.volatile import VolatileValue
 from scapy.utils import import_hexcap, tex_escape, colgen, get_temp_file, \
@@ -138,8 +138,19 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             self.dissect(_pkt)
             if not _internal:
                 self.dissection_done(self)
-        for f, v in six.iteritems(fields):
-            self.fields[f] = self.get_field(f).any2i(self, v)
+        # We use this strange initialization so that the fields
+        # are initialized in their declaration order.
+        # It is required to always support MultipleTypeField
+        for field in self.fields_desc:
+            fname = field.name
+            try:
+                value = fields.pop(fname)
+            except KeyError:
+                continue
+            self.fields[fname] = self.get_field(fname).any2i(self, value)
+        # The remaining fields are unknown
+        for fname, _ in fields:
+            raise AttributeError(fname)
         if isinstance(post_transform, list):
             self.post_transforms = post_transform
         elif post_transform is None:
@@ -280,7 +291,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
     def delfieldval(self, attr):
         if attr in self.fields:
             del(self.fields[attr])
-            self.explicit = 0  # in case a default value must be explicited
+            self.explicit = 0  # in case a default value must be explicit
             self.raw_packet_cache = None
             self.raw_packet_cache_fields = None
             self.wirelen = None
@@ -399,6 +410,14 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             return None
         return {fname: self.copy_field_value(fname, fval)
                 for fname, fval in six.iteritems(fields)}
+
+    def clear_cache(self):
+        """Clear the raw packet cache for the field and all its subfields"""
+        self.raw_packet_cache = None
+        for fname, fval in six.iteritems(self.fields):
+            if isinstance(fval, Packet):
+                fval.clear_cache()
+        self.payload.clear_cache()
 
     def self_build(self, field_pos_list=None):
         """
@@ -549,10 +568,34 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             if WINDOWS and conf.prog.pdfreader is None:
                 os.startfile(fname)
             else:
-                with ContextManagerSubprocess("pdfdump()", conf.prog.pdfreader):  # noqa: E501
+                with ContextManagerSubprocess("pdfdump()",
+                                              conf.prog.pdfreader):
                     subprocess.Popen([conf.prog.pdfreader, fname])
         else:
             canvas.writePDFfile(filename)
+        print()
+
+    def svgdump(self, filename=None, **kargs):
+        """
+        svgdump(filename=None, layer_shift=0, rebuild=1)
+
+        Creates an SVG file describing a packet. If filename is not provided a
+        temporary file is created and gs is called.
+
+        :param filename: the file's filename
+        """
+        canvas = self.canvas_dump(**kargs)
+        if filename is None:
+            fname = get_temp_file(autoext=".svg")
+            canvas.writeSVGfile(fname)
+            if WINDOWS and conf.prog.svgreader is None:
+                os.startfile(fname)
+            else:
+                with ContextManagerSubprocess("svgdump()",
+                                              conf.prog.svgreader):
+                    subprocess.Popen([conf.prog.svgreader, fname])
+        else:
+            canvas.writeSVGfile(filename)
         print()
 
     def canvas_dump(self, layer_shift=0, rebuild=1):
@@ -681,7 +724,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
                             cnx = pyx.connector.curve(bxvt, bxdt, absangle1=0, absangle2=-90)  # noqa: E501
                         else:
                             cnx = pyx.connector.curve(bxvt, bxdt, absangle1=0, absangle2=90)  # noqa: E501
-                    except:
+                    except Exception:
                         pass
                     else:
                         canvas.stroke(cnx, [pyx.style.linewidth.thin, pyx.deco.earrow.small, col])  # noqa: E501
@@ -746,7 +789,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
                 p = cls(s, _internal=1, _underlayer=self)
             except KeyboardInterrupt:
                 raise
-            except:
+            except Exception:
                 if conf.debug_dissector:
                     if issubtype(cls, Packet):
                         log_runtime.error("%s dissector failed" % cls.__name__)
@@ -865,12 +908,12 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
                   if isinstance(val, VolatileValue)] + list(self.fields.keys())
         length = 1
         for field in fields:
-            val = self.getfieldval(field)
+            fld, val = self.getfield_and_val(field)
             if hasattr(val, "__iterlen__"):
                 length *= val.__iterlen__()
             elif isinstance(val, tuple) and len(val) == 2 and all(hasattr(z, "__int__") for z in val):  # noqa: E501
                 length *= (val[1] - val[0])
-            elif isinstance(val, list):
+            elif isinstance(val, list) and not fld.islist:
                 len2 = 0
                 for x in val:
                     if hasattr(x, "__iterlen__"):
@@ -926,6 +969,15 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         if other.__class__ == self.__class__:
             return self.payload.answers(other.payload)
         return 0
+
+    def layers(self):
+        """returns a list of layer classes (including subclasses) in this packet"""  # noqa: E501
+        layers = []
+        lyr = self
+        while lyr:
+            layers.append(lyr.__class__)
+            lyr = lyr.payload.getlayer(0, _subclass=True)
+        return layers
 
     def haslayer(self, cls):
         """true if self has a layer that is an instance of cls. Superseded by "cls in self" syntax."""  # noqa: E501
@@ -1076,10 +1128,10 @@ values.
                                          ct.punct("="),)
                 reprval = f.i2repr(self, fvalue)
                 if isinstance(reprval, str):
-                    reprval = reprval.replace("\n", "\n" + " " * (len(label_lvl)  # noqa: E501
-                                                                  + len(lvl)
-                                                                  + len(f.name)
-                                                                  + 4))
+                    reprval = reprval.replace("\n", "\n" + " " * (len(label_lvl) +  # noqa: E501
+                                                                  len(lvl) +
+                                                                  len(f.name) +
+                                                                  4))
                 s += "%s%s\n" % (begn, vcol(reprval))
         if self.payload:
             s += self.payload._show_or_dump(dump=dump, indent=indent, lvl=lvl + (" " * indent * self.show_indent), label_lvl=label_lvl, first_call=False)  # noqa: E501
@@ -1194,7 +1246,7 @@ A side effect is that, to obtain "{" and "}" characters, you must use
                     cls, num = cls.split(":")
                     num = int(num)
                 fmt = fmt[i + 1:]
-            except:
+            except Exception:
                 raise Scapy_Exception("Bad format string [%%%s%s]" % (fmt[:25], fmt[25:] and "..."))  # noqa: E501
             else:
                 if fld == "time":
@@ -1319,6 +1371,9 @@ class NoPayload(Packet):
     def copy(self):
         return self
 
+    def clear_cache(self):
+        pass
+
     def __repr__(self):
         return ""
 
@@ -1398,6 +1453,9 @@ class NoPayload(Packet):
 
     def _do_summary(self):
         return 0, "", []
+
+    def layers(self):
+        return []
 
     def lastlayer(self, layer):
         return layer
@@ -1555,8 +1613,10 @@ def ls(obj=None, case_sensitive=False, verbose=False):
         else:
             pattern = re.compile(obj, 0 if case_sensitive else re.I)
             all_layers = sorted((layer for layer in conf.layers
-                                 if (pattern.search(layer.__name__ or '')
-                                     or pattern.search(layer.name or ''))),
+                                 if (isinstance(layer.name, str) and
+                                     pattern.search(layer.__name__)) or
+                                 (isinstance(layer.name, str) and
+                                     pattern.search(layer.name))),
                                 key=lambda x: x.__name__)
         for layer in all_layers:
             print("%-10s : %s" % (layer.__name__, layer._name))

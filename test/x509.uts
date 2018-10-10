@@ -7,6 +7,7 @@
 
 + General BER decoding tests
 = Decoding an ASN.1 SEQUENCE with an unknown, high-tag identifier
+from scapy.layers.x509 import ASN1P_PRIVSEQ
 s = b'\xff\x84\x92\xb9\x86H\x1e0\x1c\x16\x04BNCH\x04\x14\xb7\xca\x01wO\x9b\xbaz\xbb\xb5\x92\x87>T\xb2\xc3g\xc1]\xfb'
 p = ASN1P_PRIVSEQ(s)
 
@@ -15,6 +16,7 @@ p = ASN1P_PRIVSEQ(s)
 
 + Private RSA & ECDSA keys class tests
 = Key class : Importing DER encoded RSA private key
+from scapy.layers.x509 import RSAPrivateKey
 k = base64_bytes('MIIEowIBAAKCAQEAmFdqP+nTEZukS0lLP+yj1gNImsEIf7P2ySTunceYxwkm4VE5QReDbb2L5/HL\nA9pPmIeQLSq/BgO1meOcbOSJ2YVHQ28MQ56+8Crb6n28iycX4hp0H3AxRAjh0edX+q3yilvYJ4W9\n/NnIb/wAZwS0oJif/tTkVF77HybAfJde5Eqbp+bCKIvMWnambh9DRUyjrBBZo5dA1o32zpuFBrJd\nI8dmUpw9gtf0F0Ba8lGZm8Uqc0GyXeXOJUE2u7CiMu3M77BM6ZLLTcow5+bQImkmTL1SGhzwfinM\nE1e6p3Hm//pDjuJvFaY22k05LgLuyqc59vFiB3Toldz8+AbMNjvzAwIDAQABAoIBAH3KeJZL2hhI\n/1GXNMaU/PfDgFkgmYbxMA8JKusnm/SFjxAwBGnGI6UjBXpBgpQs2Nqm3ZseF9u8hmCKvGiCEX2G\nesCo2mSfmSQxD6RBrMTuQ99UXpxzBIscFnM/Zrs8lPBARGzmF2nI3qPxXtex4ABX5o0Cd4NfZlZj\npj96skUoO8+bd3I4OPUFYFFFuv81LoSQ6Hew0a8xtJXtKkDp9h1jTGGUOc189WACNoBLH0MGeVoS\nUfc1++RcC3cypUZ8fNP1OO6GBfv06f5oXES4ZbxGYpa+nCfNwb6V2gWbkvaYm7aFn0KWGNZXS1P3\nOcWv6IWdOmg2CI7MMBLJ0LyWVCECgYEAyMJYw195mvHl8VyxJ3HkxeQaaozWL4qhNQ0Kaw+mzD+j\nYdkbHb3aBYghsgEDZjnyOVblC7I+4smvAZJLWJaf6sZ5HAw3zmj1ibCkXx7deoRc/QVcOikl3dE/\nymO0KGJNiGzJZmxbRS3hTokmVPuxSWW4p5oSiMupFHKa18Uv8DECgYEAwkJ7iTOUL6b4e3lQuHQn\nJbsiQpd+P/bsIPP7kaaHObewfHpfOOtIdtN4asxVFf/PgW5uWmBllqAHZYR14DEYIdL+hdLrdvk5\nnYQ3YfhOnp+haHUPCdEiXrRZuGXjmMA4V0hL3HPF5ZM8H80fLnN8Pgn2rIC7CZQ46y4PnoV1nXMC\ngYBBwCUCF8rkDEWa/ximKo8aoNJmAypC98xEa7j1x3KBgnYoHcrbusok9ajTe7F5UZEbZnItmnsu\nG4/Nm/RBV1OYuNgBb573YzjHl6q93IX9EkzCMXc7NS7JrzaNOopOj6OFAtwTR3m89oHMDu8W9jfi\nKgaIHdXkJ4+AuugrstE4gQKBgFK0d1/8g7SeA+Cdz84YNaqMt5NeaDPXbsTA23QxUBU0rYDxoKTd\nFybv9a6SfA83sCLM31K/A8FTNJL2CDGA9WNBL3fOSs2GYg88AVBGpUJHeDK+0748OcPUSPaG+pVI\nETSn5RRgffq16r0nWYUvSdAn8cuTqw3y+yC1pZS6AU8dAoGBAL5QCi0dTWKN3kf3cXaCAnYiWe4Q\ng2S+SgLE+F1U4Xws2rqAuSvIiuT5i5+Mqk9ZCGdoReVbAovJFoRqe7Fj9yWM+b1awGjL0bOTtnqx\n0iljob6uFyhpl1xgW3a3ICJ/ZYLvkgb4IBEteOwWpp37fX57vzhW8EmUV2UX7ve1uNRI')
 x=RSAPrivateKey(k)
 
@@ -50,6 +52,7 @@ x.coefficient == ASN1_INTEGER(13364209135497709980522851534062695694375984073722
 
 + X509_Cert class tests
 = Cert class : Importing DER encoded X.509 Certificate with RSA public key
+from scapy.layers.x509 import X509_Cert
 c = base64_bytes('MIIFEjCCA/qgAwIBAgIJALRecEPnCQtxMA0GCSqGSIb3DQEBBQUAMIG2MQswCQYDVQQGEwJGUjEO\nMAwGA1UECBMFUGFyaXMxDjAMBgNVBAcTBVBhcmlzMRcwFQYDVQQKEw5NdXNocm9vbSBDb3JwLjEe\nMBwGA1UECxMVTXVzaHJvb20gVlBOIFNlcnZpY2VzMSUwIwYDVQQDExxJS0V2MiBYLjUwOSBUZXN0\nIGNlcnRpZmljYXRlMScwJQYJKoZIhvcNAQkBFhhpa2V2Mi10ZXN0QG11c2hyb29tLmNvcnAwHhcN\nMDYwNzEzMDczODU5WhcNMjYwMzMwMDczODU5WjCBtjELMAkGA1UEBhMCRlIxDjAMBgNVBAgTBVBh\ncmlzMQ4wDAYDVQQHEwVQYXJpczEXMBUGA1UEChMOTXVzaHJvb20gQ29ycC4xHjAcBgNVBAsTFU11\nc2hyb29tIFZQTiBTZXJ2aWNlczElMCMGA1UEAxMcSUtFdjIgWC41MDkgVGVzdCBjZXJ0aWZpY2F0\nZTEnMCUGCSqGSIb3DQEJARYYaWtldjItdGVzdEBtdXNocm9vbS5jb3JwMIIBIjANBgkqhkiG9w0B\nAQEFAAOCAQ8AMIIBCgKCAQEAmFdqP+nTEZukS0lLP+yj1gNImsEIf7P2ySTunceYxwkm4VE5QReD\nbb2L5/HLA9pPmIeQLSq/BgO1meOcbOSJ2YVHQ28MQ56+8Crb6n28iycX4hp0H3AxRAjh0edX+q3y\nilvYJ4W9/NnIb/wAZwS0oJif/tTkVF77HybAfJde5Eqbp+bCKIvMWnambh9DRUyjrBBZo5dA1o32\nzpuFBrJdI8dmUpw9gtf0F0Ba8lGZm8Uqc0GyXeXOJUE2u7CiMu3M77BM6ZLLTcow5+bQImkmTL1S\nGhzwfinME1e6p3Hm//pDjuJvFaY22k05LgLuyqc59vFiB3Toldz8+AbMNjvzAwIDAQABo4IBHzCC\nARswHQYDVR0OBBYEFPPYTt6Q9+Zd0s4zzVxWjG+XFDFLMIHrBgNVHSMEgeMwgeCAFPPYTt6Q9+Zd\n0s4zzVxWjG+XFDFLoYG8pIG5MIG2MQswCQYDVQQGEwJGUjEOMAwGA1UECBMFUGFyaXMxDjAMBgNV\nBAcTBVBhcmlzMRcwFQYDVQQKEw5NdXNocm9vbSBDb3JwLjEeMBwGA1UECxMVTXVzaHJvb20gVlBO\nIFNlcnZpY2VzMSUwIwYDVQQDExxJS0V2MiBYLjUwOSBUZXN0IGNlcnRpZmljYXRlMScwJQYJKoZI\nhvcNAQkBFhhpa2V2Mi10ZXN0QG11c2hyb29tLmNvcnCCCQC0XnBD5wkLcTAMBgNVHRMEBTADAQH/\nMA0GCSqGSIb3DQEBBQUAA4IBAQA2zt0BvXofiVvHMWlftZCstQaawej1SmxrAfDB4NUM24NsG+UZ\nI88XA5XM6QolmfyKnNromMLC1+6CaFxjq3jC/qdS7ifalFLQVo7ik/te0z6Olo0RkBNgyagWPX2L\nR5kHe9RvSDuoPIsbSHMmJA98AZwatbvEhmzMINJNUoHVzhPeHZnIaBgUBg02XULk/ElidO51Rf3g\nh8dR/kgFQSQT687vs1x9TWD00z0Q2bs2UF3Ob3+NYkEGEo5F9RePQm0mY94CT2xs6WpHo060Fo7f\nVpAFktMWx1vpu+wsEbQAhgGqV0fCR2QwKDIbTrPW/p9HJtJDYVjYdAFxr3s7V77y')
 x=X509_Cert(c)
 
@@ -64,10 +67,13 @@ tbs.version == ASN1_INTEGER(2)
 tbs.serialNumber == ASN1_INTEGER(0xb45e7043e7090b71)
 
 = Cert class : Signature algorithm (as advertised by TBSCertificate)
+from scapy.layers.x509 import X509_AlgorithmIdentifier
 assert(type(tbs.signature) is X509_AlgorithmIdentifier)
-tbs.signature.algorithm == ASN1_OID("sha1_with_rsa_signature")
+tbs.signature.algorithm == ASN1_OID("sha1-with-rsa-signature")
 
 = Cert class : Issuer structure
+from scapy.layers.x509 import X509_AttributeTypeAndValue
+from scapy.layers.x509 import X509_RDN
 assert(type(tbs.issuer) is list)
 assert(len(tbs.issuer) == 7)
 assert(type(tbs.issuer[0]) is X509_RDN)
@@ -81,6 +87,7 @@ tbs.issuer[0].rdn[0].type == ASN1_OID("countryName") and tbs.issuer[0].rdn[0].va
 tbs.get_issuer_str() == '/C=FR/ST=Paris/L=Paris/O=Mushroom Corp./OU=Mushroom VPN Services/CN=IKEv2 X.509 Test certificate/emailAddress=ikev2-test@mushroom.corp'
 
 = Cert class : Validity
+from scapy.layers.x509 import X509_Validity
 assert(type(tbs.validity) is X509_Validity)
 tbs.validity.not_before == ASN1_UTC_TIME("060713073859Z") and tbs.validity.not_after == ASN1_UTC_TIME("260330073859Z")
 
@@ -98,11 +105,13 @@ tbs.issuer[6].rdn[0].type == ASN1_OID("emailAddress") and tbs.issuer[6].rdn[0].v
 tbs.get_subject_str() == '/C=FR/ST=Paris/L=Paris/O=Mushroom Corp./OU=Mushroom VPN Services/CN=IKEv2 X.509 Test certificate/emailAddress=ikev2-test@mushroom.corp'
 
 = Cert class : SubjectPublicKey algorithm
+from scapy.layers.x509 import X509_SubjectPublicKeyInfo
 assert(type(tbs.subjectPublicKeyInfo) is X509_SubjectPublicKeyInfo)
 spki = tbs.subjectPublicKeyInfo
 spki.signatureAlgorithm.algorithm == ASN1_OID("rsaEncryption")
 
 = Cert class : SubjectPublicKey value
+from scapy.layers.x509 import RSAPublicKey
 assert(type(spki.subjectPublicKey) is RSAPublicKey)
 spki.subjectPublicKey.modulus == ASN1_INTEGER(19231328316532061413420367242571475005688288081144416166988378525696075445024135424022026378563116068168327239354659928492979285632474448448624869172454076124150405352043642781483254546569202103296262513098482624188672299255268092629150366527784294463900039290024710152521604731213565912934889752122898104556895316819303096201441834849255370122572613047779766933573375974464479123135292080801384304131606933504677232323037116557327478512106367095125103346134248056463878553619525193565824925835325216545121044922690971718737998420984924512388011040969150550056783451476150234324593710633552558175109683813482739004163) and spki.subjectPublicKey.publicExponent == ASN1_INTEGER(65537)
 
@@ -112,21 +121,25 @@ assert(type(ext) is list)
 assert(len(ext) == 3)
 
 = Cert class : Subject key identifier extension info
+from scapy.layers.x509 import X509_Extension
 assert(type(ext[0]) is X509_Extension)
 ext[0].extnID == ASN1_OID("subjectKeyIdentifier") and ext[0].critical == None
 
 = Cert class : Subject key identifier extension value
+from scapy.layers.x509 import X509_ExtSubjectKeyIdentifier
 assert(type(ext[0].extnValue) is X509_ExtSubjectKeyIdentifier)
 ext[0].extnValue.keyIdentifier == ASN1_STRING(b'\xf3\xd8N\xde\x90\xf7\xe6]\xd2\xce3\xcd\\V\x8co\x97\x141K')
 
 = Cert class : Signature algorithm
+from scapy.layers.x509 import X509_AlgorithmIdentifier
 assert(type(x.signatureAlgorithm) is X509_AlgorithmIdentifier)
-x.signatureAlgorithm.algorithm == ASN1_OID("sha1_with_rsa_signature")
+x.signatureAlgorithm.algorithm == ASN1_OID("sha1-with-rsa-signature")
 
 = Cert class : Signature value
 x.signatureValue == ASN1_BIT_STRING(b"6\xce\xdd\x01\xbdz\x1f\x89[\xc71i_\xb5\x90\xac\xb5\x06\x9a\xc1\xe8\xf5Jlk\x01\xf0\xc1\xe0\xd5\x0c\xdb\x83l\x1b\xe5\x19#\xcf\x17\x03\x95\xcc\xe9\n%\x99\xfc\x8a\x9c\xda\xe8\x98\xc2\xc2\xd7\xee\x82h\\c\xabx\xc2\xfe\xa7R\xee'\xda\x94R\xd0V\x8e\xe2\x93\xfb^\xd3>\x8e\x96\x8d\x11\x90\x13`\xc9\xa8\x16=}\x8bG\x99\x07{\xd4oH;\xa8<\x8b\x1bHs&$\x0f|\x01\x9c\x1a\xb5\xbb\xc4\x86l\xcc \xd2MR\x81\xd5\xce\x13\xde\x1d\x99\xc8h\x18\x14\x06\r6]B\xe4\xfcIbt\xeeuE\xfd\xe0\x87\xc7Q\xfeH\x05A$\x13\xeb\xce\xef\xb3\\}M`\xf4\xd3=\x10\xd9\xbb6P]\xceo\x7f\x8dbA\x06\x12\x8eE\xf5\x17\x8fBm&c\xde\x02Oll\xe9jG\xa3N\xb4\x16\x8e\xdfV\x90\x05\x92\xd3\x16\xc7[\xe9\xbb\xec,\x11\xb4\x00\x86\x01\xaaWG\xc2Gd0(2\x1bN\xb3\xd6\xfe\x9fG&\xd2CaX\xd8t\x01q\xaf{;W\xbe\xf2", readable=True)
 
 = Cert class : Default X509_Cert from scratch
+from scapy.layers.x509 import X509_Cert
 raw(X509_Cert(raw(X509_Cert()))) == raw(X509_Cert())
 
 = Cert class : Error
@@ -141,6 +154,7 @@ else:
 
 + X509_CRL class tests
 = CRL class : Importing DER encoded X.509 CRL
+from scapy.layers.x509 import X509_CRL
 c = base64_bytes('MIICHjCCAYcwDQYJKoZIhvcNAQEFBQAwXzELMAkGA1UEBhMCVVMxFzAVBgNVBAoTDlZlcmlTaWdu\nLCBJbmMuMTcwNQYDVQQLEy5DbGFzcyAxIFB1YmxpYyBQcmltYXJ5IENlcnRpZmljYXRpb24gQXV0\naG9yaXR5Fw0wNjExMDIwMDAwMDBaFw0wNzAyMTcyMzU5NTlaMIH2MCECECzSS2LEl6QXzW6jyJx6\nLcgXDTA0MDQwMTE3NTYxNVowIQIQOkXeVssCzdzcTndjIhvU1RcNMDEwNTA4MTkyMjM0WjAhAhBB\nXYg2gRUg1YCDRqhZkngsFw0wMTA3MDYxNjU3MjNaMCECEEc5gf/9hIHxlfnrGMJ8DfEXDTAzMDEw\nOTE4MDYxMlowIQIQcFR+auK62HZ/R6mZEEFeZxcNMDIwOTIzMTcwMDA4WjAhAhB+C13eGPI5ZoKm\nj2UiOCPIFw0wMTA1MDgxOTA4MjFaMCICEQDQVEhgGGfTrTXKLw1KJ5VeFw0wMTEyMTExODI2MjFa\nMA0GCSqGSIb3DQEBBQUAA4GBACLJ9rsdoaU9JMf/sCIRs3AGW8VV3TN2oJgiCGNEac9PRyV3mRKE\n0hmuIJTKLFSaa4HSAzimWpWNKuJhztsZzXUnWSZ8VuHkgHEaSbKqzUlb2g+o/848CvzJrcbeyEBk\nDCYJI5C3nLlQA49LGJ+w4GUPYBwaZ+WFxCX1C8kzglLm')
 x=X509_CRL(c)
 
@@ -153,7 +167,7 @@ tbs.version == None
 
 = CRL class : Signature algorithm (as advertised by TBSCertList)
 assert(type(tbs.signature) is X509_AlgorithmIdentifier)
-tbs.signature.algorithm == ASN1_OID("sha1_with_rsa_signature")
+tbs.signature.algorithm == ASN1_OID("sha1-with-rsa-signature")
 
 = CRL class : Issuer structure
 assert(type(tbs.issuer) is list)
@@ -175,6 +189,7 @@ tbs.this_update == ASN1_UTC_TIME("061102000000Z")
 tbs.next_update == ASN1_UTC_TIME("070217235959Z")
 
 = CRL class : Optional revoked_certificates structure
+from scapy.layers.x509 import X509_RevokedCertificate
 assert(type(tbs.revokedCertificates) is list)
 assert(len(tbs.revokedCertificates) == 7)
 assert(type(tbs.revokedCertificates[0]) is X509_RevokedCertificate)
@@ -187,7 +202,7 @@ tbs.crlExtensions == None
 
 = CRL class : Signature algorithm
 assert(type(x.signatureAlgorithm) is X509_AlgorithmIdentifier)
-x.signatureAlgorithm.algorithm == ASN1_OID("sha1_with_rsa_signature")
+x.signatureAlgorithm.algorithm == ASN1_OID("sha1-with-rsa-signature")
 
 = CRL class : Signature value
 x.signatureValue == ASN1_BIT_STRING(b'"\xc9\xf6\xbb\x1d\xa1\xa5=$\xc7\xff\xb0"\x11\xb3p\x06[\xc5U\xdd3v\xa0\x98"\x08cDi\xcfOG%w\x99\x12\x84\xd2\x19\xae \x94\xca,T\x9ak\x81\xd2\x038\xa6Z\x95\x8d*\xe2a\xce\xdb\x19\xcdu\'Y&|V\xe1\xe4\x80q\x1aI\xb2\xaa\xcdI[\xda\x0f\xa8\xff\xce<\n\xfc\xc9\xad\xc6\xde\xc8@d\x0c&\t#\x90\xb7\x9c\xb9P\x03\x8fK\x18\x9f\xb0\xe0e\x0f`\x1c\x1ag\xe5\x85\xc4%\xf5\x0b\xc93\x82R\xe6', readable=True)
@@ -200,6 +215,7 @@ raw(X509_CRL(s)) == s
 ############ Randval tests ###############################################
 
 = Randval tests : ASN1F_SEQUENCE_OF
+from scapy.layers.x509 import ASN1P_INTEGER, X509_OtherName
 random.seed(42)
 r = ASN1F_SEQUENCE_OF("test", [], ASN1P_INTEGER).randval().number
 assert(isinstance(r, RandNum))
@@ -215,20 +231,23 @@ str(r.type_id) == '171.184.10.271'
 ############ OCSP class ###############################################
 
 = OCSP class : OCSP Response import
+from scapy.layers.x509 import OCSP_Response
 s = b'0\x82\x01\xd3\n\x01\x00\xa0\x82\x01\xcc0\x82\x01\xc8\x06\t+\x06\x01\x05\x05\x070\x01\x01\x04\x82\x01\xb90\x82\x01\xb50\x81\x9e\xa2\x16\x04\x14Qh\xff\x90\xaf\x02\x07u<\xcc\xd9edb\xa2\x12\xb8Yr;\x18\x0f20160914121000Z0s0q0I0\t\x06\x05+\x0e\x03\x02\x1a\x05\x00\x04\x14\xcf&\xf5\x18\xfa\xc9~\x8f\x8c\xb3B\xe0\x1c/j\x10\x9e\x8e_\n\x04\x14Qh\xff\x90\xaf\x02\x07u<\xcc\xd9edb\xa2\x12\xb8Yr;\x02\x10\x07z]\xc36#\x01\xf9\x89\xfeT\xf7\xf8o>d\x80\x00\x18\x0f20160914121000Z\xa0\x11\x18\x0f20160921112500Z0\r\x06\t*\x86H\x86\xf7\r\x01\x01\x0b\x05\x00\x03\x82\x01\x01\x00\x90\xef\xf9\x15U\x88\xac@l\xf6n\x04C/\x1a\xf5\xbc[Xi\xd9U\xbe\'\xd3\xb7\xf5\xbb\t\xd8\xb1Tw\x9c2\xac\x7f\x88\xba\x98\xe4\xa13\xf4\xdc\xea\xf3\xacX\xe4,E\xf5\xa9\xc3\xf4B-N\xe0\x89D[\xbe\n\xc2h\x9ar\xfd\'.\xc8,\xed\x83\xc2\xf0\x89_\x8c\xc3\xe7\x8a\xad\xa4\x14\x03\x96\x02\xc4\xa8\xc8\x90\x96%X\x80\x95\x02\x9d_\xc82;m\xe9\x15\x00\xa8\x00\xb9\x01\xe3aN&\xe4\xd5\x8a\xc4w7\x0b\xc3~\xc5\xb1M\x10~T\x9e\x1d\xf6\x06\xf8\x12sTg\x14b_\xe7\xc04\xb4\xa3\xd2\x8f\xe6\xa6\xc4\x01q\x03j\xc8\xd4\xc7\x89\xdde\x99\x1a\xd9\x02\xe7\x17\xd1\xf40P\xef\xf6$\xee\xfad\xf4\xeb\xc8\xf7\x0bRL\x8b\xa5x\xe4R2\xe9\xc2\xfcB\nh\x93\xf7\x0ep4h\xeb\x17\x83\xc8\x88!\xc3W\x94WG\xfe3\x15C0qE&A\x99\xa8}\x1a\xda"\xa9O\xba\x90W_W\xado\x1c\xf0`g7\xbb$\x91o\xec\xdd\xbd\x9e\x8bb\xfc'
 response = OCSP_Response(s)
 
 = OCSP class : OCSP Response global checks
+from scapy.layers.x509 import OCSP_ResponseBytes
 assert(response.responseStatus.val == 0)
 assert(isinstance(response.responseBytes, OCSP_ResponseBytes))
 responseBytes = response.responseBytes
-assert(responseBytes.responseType == ASN1_OID("basic_response"))
+assert(responseBytes.responseType == ASN1_OID("basic-response"))
 assert(responseBytes.signatureAlgorithm.algorithm == ASN1_OID("sha256WithRSAEncryption"))
 assert(responseBytes.signatureAlgorithm.parameters == ASN1_NULL(0))
 assert(responseBytes.signature.val_readable[:3] == b"\x90\xef\xf9" and responseBytes.signature.val_readable[-3:] == b"\x8bb\xfc")
 responseBytes.certs is None
 
 = OCSP class : OCSP ResponseData checks
+from scapy.layers.x509 import OCSP_ByKey
 responseData = responseBytes.tbsResponseData
 assert(responseData.version is None)
 rID = responseData.responderID.responderID
@@ -239,6 +258,7 @@ assert(len(responseData.responses) == 1)
 responseData.responseExtensions is None
 
 = OCSP class : OCSP SingleResponse checks
+from scapy.layers.x509 import OCSP_GoodInfo
 singleResponse = responseData.responses[0]
 assert(singleResponse.certID.hashAlgorithm.algorithm == ASN1_OID("sha1"))
 assert(singleResponse.certID.hashAlgorithm.parameters == ASN1_NULL(0))

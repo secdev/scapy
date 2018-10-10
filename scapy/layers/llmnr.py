@@ -1,13 +1,17 @@
-from scapy.fields import *
-from scapy.packet import *
-from scapy.layers.inet import UDP
-from scapy.layers.dns import DNSQRField, DNSRRField, DNSRRCountField
-
 """
 LLMNR (Link Local Multicast Node Resolution).
 
 [RFC 4795]
 """
+
+import struct
+
+from scapy.fields import BitEnumField, BitField, ShortField
+from scapy.packet import Packet, bind_layers, bind_bottom_up
+from scapy.compat import orb
+from scapy.layers.inet import UDP
+from scapy.layers.dns import DNSQRField, DNSRRField, DNSRRCountField
+
 
 #############################################################################
 #                             LLMNR (RFC4795)                               #

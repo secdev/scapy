@@ -13,13 +13,13 @@ See the TLS class documentation for more information.
 """
 
 import struct
-import traceback
 
 from scapy.config import conf
 from scapy.error import log_runtime
-from scapy.fields import *
-from scapy.compat import *
-from scapy.packet import *
+from scapy.fields import ByteEnumField, PacketListField, StrField
+from scapy.compat import raw, chb, orb
+from scapy.utils import randstring
+from scapy.packet import Raw, Padding, bind_layers
 from scapy.layers.inet import TCP
 from scapy.layers.tls.session import _GenericTLSSessionInheritance
 from scapy.layers.tls.handshake import (_tls_handshake_cls, _TLSHandshake,
@@ -28,14 +28,14 @@ from scapy.layers.tls.basefields import (_TLSVersionField, _tls_version,
                                          _TLSIVField, _TLSMACField,
                                          _TLSPadField, _TLSPadLenField,
                                          _TLSLengthField, _tls_type)
-from scapy.layers.tls.crypto.pkcs1 import randstring, pkcs_i2osp
-from scapy.layers.tls.crypto.compression import Comp_NULL
+from scapy.layers.tls.crypto.pkcs1 import pkcs_i2osp
 from scapy.layers.tls.crypto.cipher_aead import AEADTagError
-if conf.crypto_valid_advanced:
-    from scapy.layers.tls.crypto.cipher_aead import Cipher_CHACHA20_POLY1305
 from scapy.layers.tls.crypto.cipher_stream import Cipher_NULL
 from scapy.layers.tls.crypto.ciphers import CipherError
 from scapy.layers.tls.crypto.h_mac import HMACError
+import scapy.modules.six as six
+if conf.crypto_valid_advanced:
+    from scapy.layers.tls.crypto.cipher_aead import Cipher_CHACHA20_POLY1305
 
 # Util
 
@@ -102,7 +102,7 @@ class _TLSMsgListField(PacketListField):
         else:
             try:
                 return cls(m, tls_session=pkt.tls_session)
-            except:
+            except Exception:
                 if conf.debug_dissector:
                     raise
                 return Raw(m)
@@ -122,12 +122,12 @@ class _TLSMsgListField(PacketListField):
         missed the session keys, we signal it by returning a
         _TLSEncryptedContent packet which simply contains the ciphered data.
         """
-        l = self.length_from(pkt)
+        tmp_len = self.length_from(pkt)
         lst = []
         ret = b""
         remain = s
-        if l is not None:
-            remain, ret = s[:l], s[l:]
+        if tmp_len is not None:
+            remain, ret = s[:tmp_len], s[tmp_len:]
 
         if remain == b"":
             if (((pkt.tls_session.tls_version or 0x0303) > 0x0200) and
@@ -434,9 +434,9 @@ class TLS(_GenericTLSSessionInheritance):
                 self.padlen = padlen
 
                 # Extract MAC
-                l = self.tls_session.rcs.mac_len
-                if l != 0:
-                    cfrag, mac = mfrag[:-l], mfrag[-l:]
+                tmp_len = self.tls_session.rcs.mac_len
+                if tmp_len != 0:
+                    cfrag, mac = mfrag[:-tmp_len], mfrag[-tmp_len:]
                 else:
                     cfrag, mac = mfrag, b""
 
@@ -459,9 +459,9 @@ class TLS(_GenericTLSSessionInheritance):
                 mfrag = pfrag
 
                 # Extract MAC
-                l = self.tls_session.rcs.mac_len
-                if l != 0:
-                    cfrag, mac = mfrag[:-l], mfrag[-l:]
+                tmp_len = self.tls_session.rcs.mac_len
+                if tmp_len != 0:
+                    cfrag, mac = mfrag[:-tmp_len], mfrag[-tmp_len:]
                 else:
                     cfrag, mac = mfrag, b""
 
@@ -526,7 +526,7 @@ class TLS(_GenericTLSSessionInheritance):
                         tls_session=self.tls_session)
             except KeyboardInterrupt:
                 raise
-            except:
+            except Exception:
                 p = conf.raw_layer(s, _internal=1, _underlayer=self)
             self.add_payload(p)
 
@@ -610,13 +610,13 @@ class TLS(_GenericTLSSessionInheritance):
         """
         # Compute the length of TLSPlaintext fragment
         hdr, frag = pkt[:5], pkt[5:]
-        l = len(frag)
-        hdr = hdr[:3] + struct.pack("!H", l)
+        tmp_len = len(frag)
+        hdr = hdr[:3] + struct.pack("!H", tmp_len)
 
         # Compression
         cfrag = self._tls_compress(frag)
-        l = len(cfrag)      # Update the length as a result of compression
-        hdr = hdr[:3] + struct.pack("!H", l)
+        tmp_len = len(cfrag)  # Update the length as a result of compression
+        hdr = hdr[:3] + struct.pack("!H", tmp_len)
 
         cipher_type = self.tls_session.wcs.cipher.type
 
@@ -637,8 +637,8 @@ class TLS(_GenericTLSSessionInheritance):
             # Encryption
             if self.version >= 0x0302:
                 # Explicit IV for TLS 1.1 and 1.2
-                l = self.tls_session.wcs.cipher.block_size
-                iv = randstring(l)
+                tmp_len = self.tls_session.wcs.cipher.block_size
+                iv = randstring(tmp_len)
                 self.tls_session.wcs.cipher.iv = iv
                 efrag = self._tls_encrypt(pfrag)
                 efrag = iv + efrag

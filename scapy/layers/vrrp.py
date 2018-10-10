@@ -8,11 +8,12 @@
 VRRP (Virtual Router Redundancy Protocol).
 """
 
-from scapy.packet import *
-from scapy.fields import *
-from scapy.compat import *
-from scapy.layers.inet import *
-from scapy.layers.inet6 import *
+from scapy.packet import Packet, bind_layers
+from scapy.fields import BitField, ByteField, FieldLenField, FieldListField, \
+    IPField, IntField, XShortField
+from scapy.compat import chb, orb
+from scapy.layers.inet import IP, in4_chksum, checksum
+from scapy.layers.inet6 import IPv6, in6_chksum
 from scapy.error import warning
 
 IPPROTO_VRRP = 112

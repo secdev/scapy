@@ -142,11 +142,11 @@ class Route:
         dst = dest.split("/")[0]
         dst = dst.replace("*", "0")
         while True:
-            l = dst.find("-")
-            if l < 0:
+            idx = dst.find("-")
+            if idx < 0:
                 break
-            m = (dst[l:] + ".").find(".")
-            dst = dst[:l] + dst[l + m:]
+            m = (dst[idx:] + ".").find(".")
+            dst = dst[:idx] + dst[idx + m:]
 
         dst = atol(dst)
         paths = []

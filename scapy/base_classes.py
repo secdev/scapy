@@ -40,8 +40,8 @@ def _get_values(value):
             all(hasattr(i, "__int__") for i in value)):
         # We use values[1] + 1 as stop value for (x)range to maintain
         # the behavior of using tuples as field `values`
-        return range(*((int(value[0]), int(value[1]) + 1)
-                       + tuple(int(v) for v in value[2:])))
+        return range(*((int(value[0]), int(value[1]) + 1) +
+                       tuple(int(v) for v in value[2:])))
     return value
 
 
@@ -164,7 +164,7 @@ class OID(Gen):
             i = 0
             while True:
                 if i >= len(ii):
-                    raise StopIteration
+                    return
                 if ii[i] < self.cmpt[i][1]:
                     ii[i] += 1
                     break
@@ -243,7 +243,7 @@ class Packet_metaclass(type):
         if "dispatch_hook" in cls.__dict__:
             try:
                 cls = cls.dispatch_hook(*args, **kargs)
-            except:
+            except Exception:
                 from scapy import config
                 if config.conf.debug_dissector:
                     raise
@@ -275,8 +275,8 @@ class NewDefaultValues(Packet_metaclass):
                 f, l, _, line = tb
                 if line.startswith("class"):
                     break
-        except:
-            f, l = "??", -1
+        except Exception:
+            f, l = "??", -1  # noqa: E741
             raise
         log_loading.warning("Deprecated (no more needed) use of NewDefaultValues  (%s l. %i).", f, l)  # noqa: E501
 

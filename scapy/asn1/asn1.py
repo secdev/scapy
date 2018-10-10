@@ -11,6 +11,7 @@ ASN.1 (Abstract Syntax Notation One)
 from __future__ import absolute_import
 from __future__ import print_function
 import random
+
 from datetime import datetime
 from scapy.config import conf
 from scapy.error import Scapy_Exception, warning
@@ -108,7 +109,7 @@ class ASN1Tag(EnumElement):
             codec = {}
         self._codec = codec
 
-    def clone(self):  # /!\ not a real deep copy. self.codec is shared
+    def clone(self):  # not a real deep copy. self.codec is shared
         return self.__class__(self._key, self._value, self._context, self._codec)  # noqa: E501
 
     def register_asn1_object(self, asn1obj):
@@ -205,7 +206,7 @@ class ASN1_Object_metaclass(type):
         c = super(ASN1_Object_metaclass, cls).__new__(cls, name, bases, dct)
         try:
             c.tag.register_asn1_object(c)
-        except:
+        except Exception:
             warning("Error registering %r for %r" % (c.tag, c.codec))
         return c
 
@@ -315,9 +316,9 @@ class ASN1_BOOLEAN(ASN1_INTEGER):
 
 class ASN1_BIT_STRING(ASN1_Object):
     """
-    /!\ ASN1_BIT_STRING values are bit strings like "011101".
-    /!\ A zero-bit padded readable string is provided nonetheless,
-    /!\ which is also output when __str__ is called.
+     ASN1_BIT_STRING values are bit strings like "011101".
+     A zero-bit padded readable string is provided nonetheless,
+     which is also output when __str__ is called.
     """
     tag = ASN1_Class_UNIVERSAL.BIT_STRING
 

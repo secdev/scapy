@@ -10,8 +10,11 @@ NetBIOS over TCP/IP
 """
 
 import struct
-from scapy.packet import *
-from scapy.fields import *
+
+from scapy.packet import Packet, bind_layers
+from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
+    IPField, IntField, NetBIOSNameField, ShortEnumField, ShortField, \
+    StrFixedLenField, XShortField
 from scapy.layers.inet import UDP, TCP
 from scapy.layers.l2 import SourceMACField
 
@@ -33,8 +36,8 @@ class NetBIOS_DS(Packet):
     def post_build(self, p, pay):
         p += pay
         if self.len is None:
-            l = len(p) - 14
-            p = p[:10] + struct.pack("!H", l) + p[12:]
+            tmp_len = len(p) - 14
+            p = p[:10] + struct.pack("!H", tmp_len) + p[12:]
         return p
 
 #        ShortField("length",0),

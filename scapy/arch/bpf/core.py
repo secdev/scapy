@@ -11,14 +11,14 @@ from scapy.data import ARPHDR_LOOPBACK, ARPHDR_ETHER
 from scapy.arch.common import get_if, get_bpf_pointer
 from scapy.consts import LOOPBACK_NAME
 
-from scapy.arch.bpf.consts import *
+from scapy.arch.bpf.consts import BIOCSETF, SIOCGIFFLAGS, BIOCSETIF
 
 import os
 import socket
 import fcntl
 import struct
 
-from ctypes import cdll, cast, pointer, POINTER, Structure
+from ctypes import cdll, cast, pointer
 from ctypes import c_int, c_ulong, c_char_p
 from ctypes.util import find_library
 from scapy.modules.six.moves import range

@@ -59,7 +59,7 @@ class CANSocket(SuperSocket):
                             socket.CAN_RAW_FILTER,
                             struct.pack(can_filter_fmt, *filter_data))
 
-        self.ins.bind((iface,))
+        self.ins.bind((self.iface,))
         self.outs = self.ins
 
     def recv(self, x=CAN_FRAME_SIZE):
@@ -77,7 +77,7 @@ class CANSocket(SuperSocket):
             return None
 
         # need to change the byteoder of the first four bytes,
-        # required by the underlaying Linux SocketCAN frame format
+        # required by the underlying Linux SocketCAN frame format
         pkt = struct.pack("<I12s", *struct.unpack(">I12s", pkt))
         len = pkt[4]
         canpkt = CAN(pkt[:len + 8])
@@ -93,13 +93,16 @@ class CANSocket(SuperSocket):
                 x.sent_time = time.time()
 
             # need to change the byteoder of the first four bytes,
-            # required by the underlaying Linux SocketCAN frame format
+            # required by the underlying Linux SocketCAN frame format
             bs = bytes(x)
             bs = bs + b'\x00' * (CAN_FRAME_SIZE - len(bs))
             bs = struct.pack("<I12s", *struct.unpack(">I12s", bs))
             return SuperSocket.send(self, bs)
         except socket.error as msg:
             raise msg
+
+    def close(self):
+        self.ins.close()
 
     @staticmethod
     def is_python_can_socket():

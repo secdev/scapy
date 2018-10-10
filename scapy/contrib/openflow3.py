@@ -18,7 +18,11 @@ import struct
 
 from scapy.compat import orb, raw
 from scapy.config import conf
-from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, FieldLenField, FlagsField, IntEnumField, IntField, IPField, LongField, MACField, PacketField, PacketListField, ShortEnumField, ShortField, StrFixedLenField, X3BytesField, XBitField, XByteField, XIntField, XShortField  # noqa: E501
+from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
+    FieldLenField, FlagsField, IntEnumField, IntField, IPField, \
+    LongField, MACField, PacketField, PacketListField, ShortEnumField, \
+    ShortField, StrFixedLenField, X3BytesField, XBitField, XByteField, \
+    XIntField, XShortField
 from scapy.layers.l2 import Ether
 from scapy.layers.inet import TCP
 from scapy.packet import Packet, Padding, Raw
@@ -76,8 +80,8 @@ class _ofp_hello_elem_header(Packet):
 
     def post_build(self, p, pay):
         if self.len is None:
-            l = len(p) + len(pay)
-            p = p[:2] + struct.pack("!H", l) + p[4:]
+            tmp_len = len(p) + len(pay)
+            p = p[:2] + struct.pack("!H", tmp_len) + p[4:]
         return p + pay
 
 
@@ -114,9 +118,9 @@ class HelloElemPacketListField(PacketListField):
         remain = s
 
         while remain:
-            l = HelloElemPacketListField._get_hello_elem_length(remain)
-            current = remain[:l]
-            remain = remain[l:]
+            tmp_len = HelloElemPacketListField._get_hello_elem_length(remain)
+            current = remain[:tmp_len]
+            remain = remain[tmp_len:]
             p = self.m2i(pkt, current)
             lst.append(p)
 
@@ -616,13 +620,13 @@ class OXMPacketListField(PacketListField):
         remain = s[:lim]
 
         while remain and len(remain) > 4:
-            l = OXMPacketListField._get_oxm_length(remain) + 4
+            tmp_len = OXMPacketListField._get_oxm_length(remain) + 4
             # this could also be done by parsing oxm_fields (fixed lengths)
-            if l <= 4 or len(remain) < l:
+            if tmp_len <= 4 or len(remain) < tmp_len:
                 # no incoherent length
                 break
-            current = remain[:l]
-            remain = remain[l:]
+            current = remain[:tmp_len]
+            remain = remain[tmp_len:]
             p = self.m2i(pkt, current)
             lst.append(p)
 
@@ -659,18 +663,18 @@ class OXMIDPacketListField(PacketListField):
 
 class OFPMatch(Packet):
     def post_build(self, p, pay):
-        l = self.length
-        if l is None:
-            l = len(p) + len(pay)
-            p = p[:2] + struct.pack("!H", l) + p[4:]
-            zero_bytes = (8 - l % 8) % 8
+        tmp_len = self.length
+        if tmp_len is None:
+            tmp_len = len(p) + len(pay)
+            p = p[:2] + struct.pack("!H", tmp_len) + p[4:]
+            zero_bytes = (8 - tmp_len % 8) % 8
             p += b"\x00" * zero_bytes
         # message with user-defined length will not be automatically padded
         return p + pay
 
     def extract_padding(self, s):
-        l = self.length
-        zero_bytes = (8 - l % 8) % 8
+        tmp_len = self.length
+        zero_bytes = (8 - tmp_len % 8) % 8
         return s[zero_bytes:], s[:zero_bytes]
 
     name = "OFP_MATCH"
@@ -713,8 +717,8 @@ class _ofp_action_header(Packet):
 
     def post_build(self, p, pay):
         if self.len is None:
-            l = len(p) + len(pay)
-            p = p[:2] + struct.pack("!H", l) + p[4:]
+            tmp_len = len(p) + len(pay)
+            p = p[:2] + struct.pack("!H", tmp_len) + p[4:]
         return p + pay
 
 
@@ -955,15 +959,15 @@ class OFPATDecNwTTL(_ofp_action_header):
 class OFPATSetField(_ofp_action_header):
 
     def post_build(self, p, pay):
-        l = self.len
+        tmp_len = self.len
         zero_bytes = 0
-        if l is None:
-            l = len(p) + len(pay)
-            zero_bytes = (8 - l % 8) % 8
-            l = l + zero_bytes    # add padding length
-            p = p[:2] + struct.pack("!H", l) + p[4:]
+        if tmp_len is None:
+            tmp_len = len(p) + len(pay)
+            zero_bytes = (8 - tmp_len % 8) % 8
+            tmp_len = tmp_len + zero_bytes    # add padding length
+            p = p[:2] + struct.pack("!H", tmp_len) + p[4:]
         else:
-            zero_bytes = (8 - l % 8) % 8
+            zero_bytes = (8 - tmp_len % 8) % 8
         # every message will be padded correctly
         p += b"\x00" * zero_bytes
         return p + pay
@@ -1049,13 +1053,13 @@ class ActionPacketListField(PacketListField):
         remain = s
 
         while remain and len(remain) >= 4:
-            l = ActionPacketListField._get_action_length(remain)
-            if l < 8 or len(remain) < l:
+            tmp_len = ActionPacketListField._get_action_length(remain)
+            if tmp_len < 8 or len(remain) < tmp_len:
                 # length should be at least 8 (non-zero, 64-bit aligned),
                 # and no incoherent length
                 break
-            current = remain[:l]
-            remain = remain[l:]
+            current = remain[:tmp_len]
+            remain = remain[tmp_len:]
             p = self.m2i(pkt, current)
             lst.append(p)
 
@@ -1296,13 +1300,13 @@ class ActionIDPacketListField(PacketListField):
         remain = s
 
         while remain and len(remain) >= 4:
-            l = ActionIDPacketListField._get_action_id_length(remain)
-            if l < 4 or len(remain) < l:
+            tmp_len = ActionIDPacketListField._get_action_id_length(remain)
+            if tmp_len < 4 or len(remain) < tmp_len:
                 # length is 4 (may be more for experimenter messages),
                 # and no incoherent length
                 break
-            current = remain[:l]
-            remain = remain[l:]
+            current = remain[:tmp_len]
+            remain = remain[tmp_len:]
             p = self.m2i(pkt, current)
             lst.append(p)
 
@@ -1316,8 +1320,8 @@ class _ofp_instruction_header(Packet):
 
     def post_build(self, p, pay):
         if self.len is None:
-            l = len(p) + len(pay)
-            p = p[:2] + struct.pack("!H", l) + p[4:]
+            tmp_len = len(p) + len(pay)
+            p = p[:2] + struct.pack("!H", tmp_len) + p[4:]
         return p + pay
 
 
@@ -1407,15 +1411,16 @@ class InstructionPacketListField(PacketListField):
     def getfield(self, pkt, s):
         lst = []
         remain = s
+        _IPLF = InstructionPacketListField
 
         while remain and len(remain) > 4:
-            l = InstructionPacketListField._get_instruction_length(remain)
-            if l < 8 or len(remain) < l:
+            tmp_len = _IPLF._get_instruction_length(remain)
+            if tmp_len < 8 or len(remain) < tmp_len:
                 # length should be at least 8 (non-zero, 64-bit aligned),
                 # and no incoherent length
                 break
-            current = remain[:l]
-            remain = remain[l:]
+            current = remain[:tmp_len]
+            remain = remain[tmp_len:]
             p = self.m2i(pkt, current)
             lst.append(p)
 
@@ -1490,15 +1495,16 @@ class InstructionIDPacketListField(PacketListField):
     def getfield(self, pkt, s):
         lst = []
         remain = s
+        _IIDPLF = InstructionIDPacketListField
 
         while remain and len(remain) >= 4:
-            l = InstructionIDPacketListField._get_instruction_id_length(remain)
-            if l < 4 or len(remain) < l:
+            tmp_len = _IIDPLF._get_instruction_id_length(remain)
+            if tmp_len < 4 or len(remain) < tmp_len:
                 # length is 4 (may be more for experimenter messages),
                 # and no incoherent length
                 break
-            current = remain[:l]
-            remain = remain[l:]
+            current = remain[:tmp_len]
+            remain = remain[tmp_len:]
             p = self.m2i(pkt, current)
             lst.append(p)
 
@@ -1514,8 +1520,8 @@ class OFPBucket(Packet):
 
     def post_build(self, p, pay):
         if self.len is None:
-            l = len(p) + len(pay)
-            p = struct.pack("!H", l) + p[2:]
+            tmp_len = len(p) + len(pay)
+            p = struct.pack("!H", tmp_len) + p[2:]
         return p + pay
 
     name = "OFP_BUCKET"
@@ -1539,9 +1545,9 @@ class BucketPacketListField(PacketListField):
         remain = s
 
         while remain:
-            l = BucketPacketListField._get_bucket_length(remain)
-            current = remain[:l]
-            remain = remain[l:]
+            tmp_len = BucketPacketListField._get_bucket_length(remain)
+            current = remain[:tmp_len]
+            remain = remain[tmp_len:]
             p = OFPBucket(current)
             lst.append(p)
 
@@ -1555,8 +1561,8 @@ class _ofp_queue_property_header(Packet):
 
     def post_build(self, p, pay):
         if self.len is None:
-            l = len(p) + len(pay)
-            p = p[:2] + struct.pack("!H", l) + p[4:]
+            tmp_len = len(p) + len(pay)
+            p = p[:2] + struct.pack("!H", tmp_len) + p[4:]
         return p + pay
 
 
@@ -1596,11 +1602,12 @@ class QueuePropertyPacketListField(PacketListField):
     def getfield(self, pkt, s):
         lst = []
         remain = s
+        _QPFLF = QueuePropertyPacketListField
 
         while remain:
-            l = QueuePropertyPacketListField._get_queue_property_length(remain)
-            current = remain[:l]
-            remain = remain[l:]
+            tmp_len = _QPFLF._get_queue_property_length(remain)
+            current = remain[:tmp_len]
+            remain = remain[tmp_len:]
             p = self.m2i(pkt, current)
             lst.append(p)
 
@@ -1616,8 +1623,8 @@ class OFPPacketQueue(Packet):
         if self.properties == []:
             p += raw(OFPQTNone())
         if self.len is None:
-            l = len(p) + len(pay)
-            p = p[:4] + struct.pack("!H", l) + p[6:]
+            tmp_len = len(p) + len(pay)
+            p = p[:4] + struct.pack("!H", tmp_len) + p[6:]
         return p + pay
 
     name = "OFP_PACKET_QUEUE"
@@ -1639,9 +1646,9 @@ class QueuePacketListField(PacketListField):
         remain = s
 
         while remain:
-            l = QueuePacketListField._get_queue_length(remain)
-            current = remain[:l]
-            remain = remain[l:]
+            tmp_len = QueuePacketListField._get_queue_length(remain)
+            current = remain[:tmp_len]
+            remain = remain[tmp_len:]
             p = OFPPacketQueue(current)
             lst.append(p)
 
@@ -1753,8 +1760,8 @@ class _ofp_header(Packet):
 
     def post_build(self, p, pay):
         if self.len is None:
-            l = len(p) + len(pay)
-            p = p[:2] + struct.pack("!H", l) + p[4:]
+            tmp_len = len(p) + len(pay)
+            p = p[:2] + struct.pack("!H", tmp_len) + p[4:]
         return p + pay
 
 
@@ -1779,12 +1786,12 @@ class OFPTHello(_ofp_header):
 class OFPacketField(PacketField):
     def getfield(self, pkt, s):
         try:
-            l = s[2:4]
-            l = struct.unpack("!H", l)[0]
-            ofload = s[:l]
-            remain = s[l:]
+            tmp_len = s[2:4]
+            tmp_len = struct.unpack("!H", tmp_len)[0]
+            ofload = s[:tmp_len]
+            remain = s[tmp_len:]
             return remain, OpenFlow(None, ofload)(ofload)
-        except:
+        except Exception:
             return b"", Raw(s)
 
 
@@ -2434,8 +2441,8 @@ class OFPMPRequestFlow(_ofp_header):
 class OFPFlowStats(Packet):
     def post_build(self, p, pay):
         if self.length is None:
-            l = len(p) + len(pay)
-            p = struct.pack("!H", l) + p[2:]
+            tmp_len = len(p) + len(pay)
+            p = struct.pack("!H", tmp_len) + p[2:]
         return p + pay
     name = "OFP_FLOW_STATS"
     fields_desc = [ShortField("length", None),
@@ -2471,9 +2478,9 @@ class FlowStatsPacketListField(PacketListField):
         remain = s
 
         while remain:
-            l = FlowStatsPacketListField._get_flow_stats_length(remain)
-            current = remain[:l]
-            remain = remain[l:]
+            tmp_len = FlowStatsPacketListField._get_flow_stats_length(remain)
+            current = remain[:tmp_len]
+            remain = remain[tmp_len:]
             p = OFPFlowStats(current)
             lst.append(p)
 
@@ -2683,8 +2690,8 @@ class OFPBucketStats(Packet):
 class OFPGroupStats(Packet):
     def post_build(self, p, pay):
         if self.length is None:
-            l = len(p) + len(pay)
-            p = struct.pack("!H", l) + p[2:]
+            tmp_len = len(p) + len(pay)
+            p = struct.pack("!H", tmp_len) + p[2:]
         return p + pay
     name = "OFP_GROUP_STATS"
     fields_desc = [ShortField("length", None),
@@ -2711,9 +2718,9 @@ class GroupStatsPacketListField(PacketListField):
         remain = s
 
         while remain:
-            l = GroupStatsPacketListField._get_group_stats_length(remain)
-            current = remain[:l]
-            remain = remain[l:]
+            tmp_len = GroupStatsPacketListField._get_group_stats_length(remain)
+            current = remain[:tmp_len]
+            remain = remain[tmp_len:]
             p = OFPGroupStats(current)
             lst.append(p)
 
@@ -2749,8 +2756,8 @@ class OFPMPRequestGroupDesc(_ofp_header):
 class OFPGroupDesc(Packet):
     def post_build(self, p, pay):
         if self.length is None:
-            l = len(p) + len(pay)
-            p = struct.pack("!H", l) + p[2:]
+            tmp_len = len(p) + len(pay)
+            p = struct.pack("!H", tmp_len) + p[2:]
         return p + pay
     name = "OFP_GROUP_DESC"
     fields_desc = [ShortField("length", None),
@@ -2775,9 +2782,9 @@ class GroupDescPacketListField(PacketListField):
         remain = s
 
         while remain:
-            l = GroupDescPacketListField._get_group_desc_length(remain)
-            current = remain[:l]
-            remain = remain[l:]
+            tmp_len = GroupDescPacketListField._get_group_desc_length(remain)
+            current = remain[:tmp_len]
+            remain = remain[tmp_len:]
             p = OFPGroupDesc(current)
             lst.append(p)
 
@@ -2867,8 +2874,8 @@ class OFPMeterBandStats(Packet):
 class OFPMeterStats(Packet):
     def post_build(self, p, pay):
         if self.len is None:
-            l = len(p) + len(pay)
-            p = p[:4] + struct.pack("!H", l) + p[6:]
+            tmp_len = len(p) + len(pay)
+            p = p[:4] + struct.pack("!H", tmp_len) + p[6:]
         return p + pay
     name = "OFP_GROUP_STATS"
     fields_desc = [IntEnumField("meter_id", 1, ofp_meter),
@@ -2891,14 +2898,14 @@ class MeterStatsPacketListField(PacketListField):
 
     def getfield(self, pkt, s):
         lst = []
-        l = 0
+        tmp_len = 0
         ret = b""
         remain = s
 
         while remain:
-            l = MeterStatsPacketListField._get_meter_stats_length(remain)
-            current = remain[:l]
-            remain = remain[l:]
+            tmp_len = MeterStatsPacketListField._get_meter_stats_length(remain)
+            current = remain[:tmp_len]
+            remain = remain[tmp_len:]
             p = OFPMeterStats(current)
             lst.append(p)
 
@@ -2936,8 +2943,8 @@ class OFPMPRequestMeterConfig(_ofp_header):
 class OFPMeterConfig(Packet):
     def post_build(self, p, pay):
         if self.length is None:
-            l = len(p) + len(pay)
-            p = struct.pack("!H", l) + p[2:]
+            tmp_len = len(p) + len(pay)
+            p = struct.pack("!H", tmp_len) + p[2:]
         return p + pay
     name = "OFP_METER_CONFIG"
     fields_desc = [ShortField("length", None),
@@ -2959,11 +2966,12 @@ class MeterConfigPacketListField(PacketListField):
     def getfield(self, pkt, s):
         lst = []
         remain = s
+        _MCPLF = MeterConfigPacketListField
 
         while remain:
-            l = MeterConfigPacketListField._get_meter_config_length(remain)
-            current = remain[:l]
-            remain = remain[l:]
+            tmp_len = _MCPLF._get_meter_config_length(remain)
+            current = remain[:tmp_len]
+            remain = remain[tmp_len:]
             p = OFPMeterConfig(current)
             lst.append(p)
 
@@ -3025,12 +3033,12 @@ class _ofp_table_features_prop_header(Packet):
     name = "Dummy OpenFlow Table Features Properties Header"
 
     def post_build(self, p, pay):
-        l = self.length
-        if l is None:
-            l = len(p) + len(pay)
-            p = p[:2] + struct.pack("!H", l) + p[4:]
+        tmp_len = self.length
+        if tmp_len is None:
+            tmp_len = len(p) + len(pay)
+            p = p[:2] + struct.pack("!H", tmp_len) + p[4:]
         # every message will be padded correctly
-        zero_bytes = (8 - l % 8) % 8
+        zero_bytes = (8 - tmp_len % 8) % 8
         p += b"\x00" * zero_bytes
         return p + pay
 
@@ -3226,10 +3234,10 @@ class TableFeaturesPropPacketListField(PacketListField):
         remain = s
 
         while remain and len(remain) >= 4:
-            l = TableFeaturesPropPacketListField._get_table_features_prop_length(remain)  # noqa: E501
+            tmp_len = TableFeaturesPropPacketListField._get_table_features_prop_length(remain)  # noqa: E501
             # add padding !
-            lpad = l + (8 - l % 8) % 8
-            if l < 4 or len(remain) < lpad:
+            lpad = tmp_len + (8 - tmp_len % 8) % 8
+            if tmp_len < 4 or len(remain) < lpad:
                 # no zero length nor incoherent length
                 break
             current = remain[:lpad]
@@ -3243,8 +3251,8 @@ class TableFeaturesPropPacketListField(PacketListField):
 class OFPTableFeatures(Packet):
     def post_build(self, p, pay):
         if self.length is None:
-            l = len(p) + len(pay)
-            p = struct.pack("!H", l) + p[2:]
+            tmp_len = len(p) + len(pay)
+            p = struct.pack("!H", tmp_len) + p[2:]
         return p + pay
     name = "OFP_TABLE_FEATURES"
     fields_desc = [ShortField("length", None),
@@ -3269,11 +3277,12 @@ class TableFeaturesPacketListField(PacketListField):
     def getfield(self, pkt, s):
         lst = []
         remain = s
+        _TFPLF = TableFeaturesPacketListField
 
         while remain:
-            l = TableFeaturesPacketListField._get_table_features_length(remain)
-            current = remain[:l]
-            remain = remain[l:]
+            tmp_len = _TFPLF._get_table_features_length(remain)
+            current = remain[:tmp_len]
+            remain = remain[tmp_len:]
             p = OFPTableFeatures(current)
             lst.append(p)
 

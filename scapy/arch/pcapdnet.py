@@ -7,14 +7,15 @@
 Packet sending and receiving with libdnet and libpcap/WinPcap.
 """
 
-import time
-import struct
-import sys
+import os
 import platform
 import socket
+import struct
+import time
+from ctypes import c_ubyte, cast
 
-from scapy.data import *
-from scapy.compat import *
+from scapy.data import MTU, ETH_P_ALL, ARPHDR_ETHER, ARPHDR_LOOPBACK
+from scapy.compat import raw, plain_str, chb
 from scapy.config import conf
 from scapy.consts import WINDOWS
 from scapy.utils import mac2str
@@ -22,7 +23,7 @@ from scapy.supersocket import SuperSocket
 from scapy.error import Scapy_Exception, log_loading, warning
 from scapy.pton_ntop import inet_ntop
 from scapy.automaton import SelectableObject
-import scapy.arch
+from scapy.arch.bpf.common import bpf_program
 import scapy.consts
 
 if not scapy.consts.WINDOWS:
@@ -84,7 +85,13 @@ if conf.use_winpcapy:
     NPCAP_PATH = os.environ["WINDIR"] + "\\System32\\Npcap"
     #  Part of the code from https://github.com/phaethon/scapy translated to python2.X  # noqa: E501
     try:
-        from scapy.modules.winpcapy import *
+        from scapy.modules.winpcapy import PCAP_ERRBUF_SIZE, pcap_if_t, \
+            sockaddr_in, sockaddr_in6, pcap_findalldevs, pcap_freealldevs, \
+            pcap_lib_version, pcap_create, pcap_close, pcap_set_snaplen, \
+            pcap_set_promisc, pcap_set_timeout, pcap_set_rfmon, \
+            pcap_activate, pcap_open_live, pcap_setmintocopy, pcap_pkthdr, \
+            pcap_next_ex, pcap_datalink, pcap_get_selectable_fd, \
+            pcap_compile, pcap_setfilter, pcap_setnonblock, pcap_sendpacket
 
         def load_winpcapy():
             err = create_string_buffer(PCAP_ERRBUF_SIZE)
@@ -93,7 +100,7 @@ if conf.use_winpcapy:
             ip_addresses = {}
             ip6_addresses = []
             if pcap_findalldevs(byref(devs), err) < 0:
-                return ret
+                return
             try:
                 p = devs
                 # Iterate through the different interfaces
@@ -120,7 +127,7 @@ if conf.use_winpcapy:
                 conf.cache_iflist = if_list
                 conf.cache_ipaddrs = ip_addresses
                 conf.cache_in6_getifaddr = ip6_addresses
-            except:
+            except Exception:
                 raise
             finally:
                 pcap_freealldevs(devs)
@@ -415,7 +422,7 @@ if conf.use_pcap or conf.use_winpcapy:
             self.ins = open_pcap(iface, MTU, self.promisc, 100, monitor=monitor)  # noqa: E501
             try:
                 ioctl(self.ins.fileno(), BIOCIMMEDIATE, struct.pack("I", 1))
-            except:
+            except Exception:
                 pass
             if type == ETH_P_ALL:  # Do not apply any filter if Ethernet type is given  # noqa: E501
                 if conf.except_filter:
@@ -453,7 +460,7 @@ if conf.use_pcap or conf.use_winpcapy:
             self.outs = open_pcap(iface, MTU, self.promisc, 100)
             try:
                 ioctl(self.ins.fileno(), BIOCIMMEDIATE, struct.pack("I", 1))
-            except:
+            except Exception:
                 pass
             if nofilter:
                 if type != ETH_P_ALL:  # PF_PACKET stuff. Need to emulate this for pcap  # noqa: E501
@@ -558,9 +565,9 @@ if conf.use_dnet:
 
             # Retrieve interface information
             try:
-                l = dnet.intf().get(iff)
-                link_addr = l["link_addr"]
-            except:
+                tmp_intf = dnet.intf().get(iff)
+                link_addr = tmp_intf["link_addr"]
+            except Exception:
                 raise Scapy_Exception("Error in attempting to get hw address"
                                       " for interface [%s]" % iff)
 
@@ -573,10 +580,10 @@ if conf.use_dnet:
                 mac = mac2str(str(link_addr))
 
                 # Adjust the link type
-                if l["type"] == 6:  # INTF_TYPE_ETH from dnet
+                if tmp_intf["type"] == 6:  # INTF_TYPE_ETH from dnet
                     return (ARPHDR_ETHER, mac)
 
-                return (l["type"], mac)
+                return (tmp_intf["type"], mac)
 
         def get_if_raw_addr(ifname):  # noqa: F811
             i = dnet.intf()

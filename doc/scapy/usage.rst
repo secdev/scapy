@@ -517,15 +517,13 @@ In this example, we used the `traceroute_map()` function to print the graphic. T
 It could have been done differently:
 
     >>> conf.geoip_city = "path/to/GeoLite2-City.mmdb"
-    >>> a = traceroute("www.google.co.uk", verbose=0)[0]
-    >>> b = traceroute("www.secdev.org", verbose=0)[0]
-    >>> a.res += b.res
+    >>> a = traceroute(["www.google.co.uk", "www.secdev.org"], verbose=0)
     >>> a.world_trace()
 
 or such as above:
 
     >>> conf.geoip_city = "path/to/GeoLite2-City.mmdb"
-    >>> traceroute_map("www.google.co.uk", "www.secdev.org")
+    >>> traceroute_map(["www.google.co.uk", "www.secdev.org"])
 
 To use those functions, it is required to have installed the `geoip2 <https://pypi.python.org/pypi/geoip2>`_ module, `its database <https://dev.maxmind.com/geoip/geoip2/geolite2/>`_ (`direct download <https://geolite.maxmind.com/download/geoip/database/GeoLite2-City.tar.gz>`_)
 but also the `cartopy <http://scitools.org.uk/cartopy/docs/latest/installing.html>`_ module.
@@ -1433,7 +1431,7 @@ Discussion
 ^^^^^^^^^^
 
 We specify ``multi=True`` to make Scapy wait for more answer packets after the first response is received.
-This is also the reason why we can't use the more convenient ``dhcp_request()`` function and have to construct the DCHP packet manually: ``dhcp_request()`` uses ``srp1()`` for sending and receiving and thus would immediately return after the first answer packet. 
+This is also the reason why we can't use the more convenient ``dhcp_request()`` function and have to construct the DHCP packet manually: ``dhcp_request()`` uses ``srp1()`` for sending and receiving and thus would immediately return after the first answer packet. 
 
 Moreover, Scapy normally makes sure that replies come from the same IP address the stimulus was sent to. But our DHCP packet is sent to the IP broadcast address (255.255.255.255) and any answer packet will have the IP address of the replying DHCP server as its source IP address (e.g. 192.168.1.1). Because these IP addresses don't match, we have to disable Scapy's check with ``conf.checkIPaddr = False`` before sending the stimulus.  
 

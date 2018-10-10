@@ -10,11 +10,15 @@ TFTP (Trivial File Transfer Protocol).
 from __future__ import absolute_import
 import os
 import random
-from scapy.packet import *
-from scapy.fields import *
-from scapy.automaton import *
+
+from scapy.packet import Packet, bind_layers, split_bottom_up, bind_bottom_up
+from scapy.fields import PacketListField, ShortEnumField, ShortField, \
+    StrNullField
+from scapy.automaton import ATMT, Automaton
 from scapy.layers.inet import UDP, IP
 from scapy.modules.six.moves import range
+from scapy.config import conf
+from scapy.volatile import RandShort
 
 
 TFTP_operations = {1: "RRQ", 2: "WRQ", 3: "DATA", 4: "ACK", 5: "ERROR", 6: "OACK"}  # noqa: E501
@@ -143,9 +147,9 @@ class TFTP_read(Automaton):
         self.sport = sport
 
     def master_filter(self, pkt):
-        return (IP in pkt and pkt[IP].src == self.server and UDP in pkt
-                and pkt[UDP].dport == self.my_tid
-                and (self.server_tid is None or pkt[UDP].sport == self.server_tid))  # noqa: E501
+        return (IP in pkt and pkt[IP].src == self.server and UDP in pkt and
+                pkt[UDP].dport == self.my_tid and
+                (self.server_tid is None or pkt[UDP].sport == self.server_tid))
 
     # BEGIN
     @ATMT.state(initial=1)
@@ -232,9 +236,9 @@ class TFTP_write(Automaton):
         self.origdata = data
 
     def master_filter(self, pkt):
-        return (IP in pkt and pkt[IP].src == self.server and UDP in pkt
-                and pkt[UDP].dport == self.my_tid
-                and (self.server_tid is None or pkt[UDP].sport == self.server_tid))  # noqa: E501
+        return (IP in pkt and pkt[IP].src == self.server and UDP in pkt and
+                pkt[UDP].dport == self.my_tid
+                (self.server_tid is None or pkt[UDP].sport == self.server_tid))
 
     # BEGIN
     @ATMT.state(initial=1)

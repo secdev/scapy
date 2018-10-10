@@ -37,7 +37,7 @@ from scapy.layers.inet import TCP
 from scapy.layers.inet6 import IP6Field
 from scapy.utils import issubtype
 from scapy.config import conf, ConfClass
-from scapy.compat import *
+from scapy.compat import orb, chb
 from scapy.error import log_runtime
 import scapy.modules.six as six
 

@@ -11,16 +11,17 @@
 Wireless MAC according to IEEE 802.15.4.
 """
 
-import re
 import struct
 
-from scapy.compat import orb, raw
+from scapy.compat import orb, chb
 from scapy.error import warning
+from scapy.config import conf
 
 from scapy.data import DLT_IEEE802_15_4_WITHFCS, DLT_IEEE802_15_4_NOFCS
-from scapy.packet import *
-from scapy.fields import *
-
+from scapy.packet import Packet, bind_layers
+from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
+    ConditionalField, Field, LELongField, PacketField, XByteField, \
+    XLEIntField, XLEShortField, Emph
 
 # Fields #
 
@@ -71,7 +72,7 @@ class dot15d4AddressField(Field):
             try:
                 addrmode = pkttop.getfieldval(x)
                 break
-            except:
+            except Exception:
                 if pkttop.underlayer is None:
                     break
                 pkttop = pkttop.underlayer

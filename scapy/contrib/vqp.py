@@ -15,8 +15,11 @@
 # scapy.contrib.description = VLAN Query Protocol
 # scapy.contrib.status = loads
 
-from scapy.packet import *
-from scapy.fields import *
+import struct
+
+from scapy.packet import Packet, bind_layers
+from scapy.fields import ByteEnumField, ByteField, ConditionalField, \
+    FieldLenField, IntEnumField, IntField, IPField, MACField, StrLenField
 from scapy.layers.inet import UDP
 
 
@@ -62,8 +65,8 @@ class VQPEntry(Packet):
 
     def post_build(self, p, pay):
         if self.len is None:
-            l = len(p.data)
-            p = p[:2] + struct.pack("!H", l) + p[4:]
+            tmp_len = len(p.data)
+            p = p[:2] + struct.pack("!H", tmp_len) + p[4:]
         return p
 
 

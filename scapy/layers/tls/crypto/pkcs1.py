@@ -12,9 +12,11 @@ Ubuntu or OSX. This is why we reluctantly keep some legacy crypto here.
 """
 
 from __future__ import absolute_import
-from scapy.compat import *
+from scapy.compat import raw, hex_bytes, bytes_hex
+import scapy.modules.six as six
 
 from scapy.config import conf, crypto_validator
+from scapy.error import warning
 if conf.crypto_valid:
     from cryptography import utils
     from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
@@ -22,9 +24,6 @@ if conf.crypto_valid:
     from cryptography.hazmat.primitives import hashes
     from cryptography.hazmat.primitives.asymmetric import padding
     from cryptography.hazmat.primitives.hashes import HashAlgorithm
-
-from scapy.utils import randstring, zerofree_randstring, strxor, strand
-from scapy.error import warning
 
 
 #####################################################################
@@ -173,8 +172,8 @@ class _EncryptAndVerifyRSA(object):
         s = pkcs_os2ip(S)
         n = self._modulus
         if isinstance(s, int) and six.PY2:
-            s = long(s)
-        if (six.PY2 and not isinstance(s, long)) or s > n - 1:
+            s = long(s)  # noqa: F821
+        if (six.PY2 and not isinstance(s, long)) or s > n - 1:  # noqa: F821
             warning("Key._rsaep() expects a long between 0 and n-1")
             return None
         m = pow(s, self._pubExp, n)
@@ -218,8 +217,8 @@ class _DecryptAndSignRSA(object):
         m = pkcs_os2ip(EM)
         n = self._modulus
         if isinstance(m, int) and six.PY2:
-            m = long(m)
-        if (six.PY2 and not isinstance(m, long)) or m > n - 1:
+            m = long(m)  # noqa: F821
+        if (six.PY2 and not isinstance(m, long)) or m > n - 1:  # noqa: F821
             warning("Key._rsaep() expects a long between 0 and n-1")
             return None
         privExp = self.key.private_numbers().d

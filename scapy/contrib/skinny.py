@@ -24,10 +24,16 @@
 #############################################################################
 
 from __future__ import absolute_import
-from scapy.packet import *
-from scapy.fields import *
+import time
+import struct
+
+from scapy.packet import Packet, bind_layers
+from scapy.fields import FlagsField, IPField, LEIntEnumField, LEIntField, \
+    StrFixedLenField
 from scapy.layers.inet import TCP
 from scapy.modules.six.moves import range
+from scapy.volatile import RandShort
+from scapy.config import conf
 
 #####################################################################
 # Helpers and constants
@@ -212,8 +218,8 @@ class SkinnyDateTimeField(StrFixedLenField):
     def i2m(self, pkt, val):
         if isinstance(val, str):
             val = self.h2i(pkt, val)
-        l = val[:2] + (0,) + val[2:7] + (0,)
-        return struct.pack('<8I', *l)
+        tmp_lst = val[:2] + (0,) + val[2:7] + (0,)
+        return struct.pack('<8I', *tmp_lst)
 
     def i2h(self, pkt, x):
         if isinstance(x, str):
@@ -506,8 +512,9 @@ class Skinny(Packet):
 
     def post_build(self, pkt, p):
         if self.len is None:
-            l = len(p) + len(pkt) - 8  # on compte pas les headers len et reserved  # noqa: E501
-            pkt = struct.pack('@I', l) + pkt[4:]
+            # on compte pas les headers len et reserved
+            tmp_len = len(p) + len(pkt) - 8
+            pkt = struct.pack('@I', tmp_len) + pkt[4:]
         return pkt + p
 
 # An helper

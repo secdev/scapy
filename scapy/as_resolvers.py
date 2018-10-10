@@ -12,7 +12,7 @@ from __future__ import absolute_import
 import socket
 import errno
 from scapy.config import conf
-from scapy.compat import *
+from scapy.compat import plain_str
 
 
 class AS_resolver:
@@ -38,13 +38,13 @@ class AS_resolver:
 
     def _parse_whois(self, txt):
         asn, desc = None, b""
-        for l in txt.splitlines():
-            if not asn and l.startswith(b"origin:"):
-                asn = plain_str(l[7:].strip())
-            if l.startswith(b"descr:"):
+        for line in txt.splitlines():
+            if not asn and line.startswith(b"origin:"):
+                asn = plain_str(line[7:].strip())
+            if line.startswith(b"descr:"):
                 if desc:
                     desc += r"\n"
-                desc += l[6:].strip()
+                desc += line[6:].strip()
             if asn is not None and desc:
                 break
         return asn, plain_str(desc.strip())
@@ -88,10 +88,10 @@ class AS_resolver_cymru(AS_resolver):
         s.send(b"begin\r\n" + b"\r\n".join(ip.encode("utf8") for ip in ips) + b"\r\nend\r\n")  # noqa: E501
         r = b""
         while True:
-            l = s.recv(8192)
-            if l == b"":
+            line = s.recv(8192)
+            if line == b"":
                 break
-            r += l
+            r += line
         s.close()
 
         return self.parse(r)
@@ -100,11 +100,11 @@ class AS_resolver_cymru(AS_resolver):
         """Parse bulk cymru data"""
 
         ASNlist = []
-        for l in data.splitlines()[1:]:
-            l = plain_str(l)
-            if "|" not in l:
+        for line in data.splitlines()[1:]:
+            line = plain_str(line)
+            if "|" not in line:
                 continue
-            asn, ip, desc = [elt.strip() for elt in l.split('|')]
+            asn, ip, desc = [elt.strip() for elt in line.split('|')]
             if asn == "NA":
                 continue
             asn = "AS%s" % asn

@@ -18,11 +18,15 @@ from __future__ import absolute_import
 import socket
 import scapy.consts
 from scapy.config import conf
-from scapy.utils6 import *
-from scapy.arch import *
-from scapy.pton_ntop import *
+from scapy.utils6 import in6_ptop, in6_cidr2mask, in6_and, \
+    in6_islladdr, in6_ismlladdr, in6_isincluded, in6_isgladdr, \
+    in6_isaddr6to4, in6_ismaddr, construct_source_candidate_set, \
+    get_source_addr_from_candidate_set
+from scapy.arch import read_routes6, in6_getifaddr
+from scapy.pton_ntop import inet_pton, inet_ntop
 from scapy.error import warning, log_loading
 import scapy.modules.six as six
+from scapy.utils import pretty_list
 
 
 class Route6:
@@ -98,16 +102,17 @@ class Route6:
         dst, plen = tmp.split('/')[:2]
         dst = in6_ptop(dst)
         plen = int(plen)
-        l = [x for x in self.routes if in6_ptop(x[0]) == dst and x[1] == plen]
+        to_del = [x for x in self.routes
+                  if in6_ptop(x[0]) == dst and x[1] == plen]
         if gw:
             gw = in6_ptop(gw)
-            l = [x for x in self.routes if in6_ptop(x[2]) == gw]
-        if len(l) == 0:
+            to_del = [x for x in self.routes if in6_ptop(x[2]) == gw]
+        if len(to_del) == 0:
             warning("No matching route found")
-        elif len(l) > 1:
+        elif len(to_del) > 1:
             warning("Found more than one match. Aborting.")
         else:
-            i = self.routes.index(l[0])
+            i = self.routes.index(to_del[0])
             self.invalidate_cache()
             del(self.routes[i])
 
@@ -180,11 +185,11 @@ class Route6:
         dst = dst.split("/")[0]
         savedst = dst  # In case following inet_pton() fails
         dst = dst.replace("*", "0")
-        l = dst.find("-")
-        while l >= 0:
-            m = (dst[l:] + ":").find(":")
-            dst = dst[:l] + dst[l + m:]
-            l = dst.find("-")
+        idx = dst.find("-")
+        while idx >= 0:
+            m = (dst[idx:] + ":").find(":")
+            dst = dst[:idx] + dst[idx + m:]
+            idx = dst.find("-")
 
         try:
             inet_pton(socket.AF_INET6, dst)
@@ -276,5 +281,5 @@ class Route6:
 conf.route6 = Route6()
 try:
     conf.iface6 = conf.route6.route("::/0")[0]
-except:
+except Exception:
     pass

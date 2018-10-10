@@ -7,9 +7,11 @@
 TLS base fields, used for record parsing/building. As several operations depend
 upon the TLS version or ciphersuite, the packet has to provide a TLS context.
 """
+import struct
 
-from scapy.fields import *
+from scapy.fields import ByteField, ShortEnumField, ShortField, StrField
 import scapy.modules.six as six
+from scapy.compat import orb
 
 _tls_type = {20: "change_cipher_spec",
              21: "alert",
@@ -120,14 +122,14 @@ class _TLSIVField(StrField):
     def i2len(self, pkt, i):
         if i is not None:
             return len(i)
-        l = 0
+        tmp_len = 0
         cipher_type = pkt.tls_session.rcs.cipher.type
         if cipher_type == "block":
             if pkt.tls_session.tls_version >= 0x0302:
-                l = pkt.tls_session.rcs.cipher.block_size
+                tmp_len = pkt.tls_session.rcs.cipher.block_size
         elif cipher_type == "aead":
-            l = pkt.tls_session.rcs.cipher.nonce_explicit_len
-        return l
+            tmp_len = pkt.tls_session.rcs.cipher.nonce_explicit_len
+        return tmp_len
 
     def i2m(self, pkt, x):
         return x or b""
@@ -136,14 +138,14 @@ class _TLSIVField(StrField):
         return s + self.i2m(pkt, val)
 
     def getfield(self, pkt, s):
-        l = 0
+        tmp_len = 0
         cipher_type = pkt.tls_session.rcs.cipher.type
         if cipher_type == "block":
             if pkt.tls_session.tls_version >= 0x0302:
-                l = pkt.tls_session.rcs.cipher.block_size
+                tmp_len = pkt.tls_session.rcs.cipher.block_size
         elif cipher_type == "aead":
-            l = pkt.tls_session.rcs.cipher.nonce_explicit_len
-        return s[l:], self.m2i(pkt, s[:l])
+            tmp_len = pkt.tls_session.rcs.cipher.nonce_explicit_len
+        return s[tmp_len:], self.m2i(pkt, s[:tmp_len])
 
     def i2repr(self, pkt, x):
         return repr(self.i2m(pkt, x))
@@ -169,8 +171,8 @@ class _TLSMACField(StrField):
                 False in six.itervalues(pkt.tls_session.rcs.cipher.ready)):
             # XXX Find a more proper way to handle the still-encrypted case
             return s, b""
-        l = pkt.tls_session.rcs.mac_len
-        return s[l:], self.m2i(pkt, s[:l])
+        tmp_len = pkt.tls_session.rcs.mac_len
+        return s[tmp_len:], self.m2i(pkt, s[:tmp_len])
 
     def i2repr(self, pkt, x):
         # XXX Provide status when dissection has been performed successfully?
@@ -199,8 +201,8 @@ class _TLSPadField(StrField):
             # because it's possible that the padding is followed by some data
             # from another TLS record (hence the last byte from s would not be
             # the last byte from the current record padding).
-            l = orb(s[pkt.padlen - 1])
-            return s[l:], self.m2i(pkt, s[:l])
+            tmp_len = orb(s[pkt.padlen - 1])
+            return s[tmp_len:], self.m2i(pkt, s[:tmp_len])
         return s, None
 
     def i2repr(self, pkt, x):
@@ -248,8 +250,8 @@ class _SSLv2MACField(_TLSMACField):
 class _SSLv2PadField(_TLSPadField):
     def getfield(self, pkt, s):
         if pkt.padlen is not None:
-            l = pkt.padlen
-            return s[l:], self.m2i(pkt, s[:l])
+            tmp_len = pkt.padlen
+            return s[tmp_len:], self.m2i(pkt, s[:tmp_len])
         return s, None
 
 

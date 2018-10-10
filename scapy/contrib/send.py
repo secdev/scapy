@@ -22,12 +22,14 @@
 # scapy.contrib.status = loads
 
 from __future__ import absolute_import
-import socket
 
-from scapy.packet import *
-from scapy.fields import *
+from scapy.packet import Packet
+from scapy.fields import BitField, ByteField, FieldLenField, PacketField, \
+    PacketLenField, ShortField, StrFixedLenField, StrLenField, UTCTimeField
 from scapy.layers.x509 import X509_SubjectPublicKeyInfo
 from scapy.layers.inet6 import icmp6ndoptscls, _ICMPv6NDGuessPayload
+from scapy.compat import chb
+from scapy.volatile import RandBin
 
 
 class ICMPv6NDOptNonce(_ICMPv6NDGuessPayload, Packet):
@@ -74,8 +76,9 @@ class ICMPv6NDOptCGA(_ICMPv6NDGuessPayload, Packet):
 
     def post_build(self, p, pay):
         l_ = len(self.CGA_PARAMS)
-        l = -(4 + l_) % 8  # Pad to 8 bytes
-        p = p[:1] + chb((4 + l_ + l) // 8) + chb(l) + p[3:4 + l_] + b"\x00" * l + pay  # noqa: E501
+        tmp_len = -(4 + l_) % 8  # Pad to 8 bytes
+        p = p[:1] + chb((4 + l_ + tmp_len) // 8) + chb(tmp_len) + p[3:4 + l_]
+        p += b"\x00" * tmp_len + pay
         return p
 
 

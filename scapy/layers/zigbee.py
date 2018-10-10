@@ -13,10 +13,14 @@ ZigBee bindings for IEEE 802.15.4.
 
 from scapy.compat import orb
 
-from scapy.packet import *
-from scapy.fields import *
+from scapy.packet import bind_layers, bind_bottom_up, Packet
+from scapy.fields import BitField, ByteField, XLEIntField, ConditionalField, \
+    ByteEnumField, EnumField, BitEnumField, FieldListField, FlagsField, \
+    IntField, PacketListField, ShortField, StrField, StrFixedLenField, \
+    StrLenField, XLEShortField, XStrField
 
-from scapy.layers.dot15d4 import *
+from scapy.layers.dot15d4 import dot15d4AddressField, Dot15d4Beacon, Dot15d4, \
+    Dot15d4FCS
 from scapy.layers.inet import UDP
 from scapy.layers.ntp import TimeStampField
 

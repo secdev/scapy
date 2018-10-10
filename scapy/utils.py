@@ -12,29 +12,26 @@ from __future__ import print_function
 import os
 import sys
 import socket
-import types
 import collections
 import random
 import time
 import gzip
-import zlib
 import re
 import struct
 import array
 import subprocess
 import tempfile
 
-import warnings
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
-warnings.filterwarnings("ignore", "tempnam", RuntimeWarning, __name__)
 
 from scapy.config import conf
 from scapy.consts import DARWIN, WINDOWS
 from scapy.data import MTU, DLT_EN10MB
-from scapy.compat import *
-from scapy.error import log_runtime, log_loading, log_interactive, Scapy_Exception, warning  # noqa: E501
-from scapy.base_classes import BasePacketList
+from scapy.compat import orb, raw, plain_str, chb, bytes_base64,\
+    base64_bytes, hex_bytes, lambda_tuple_converter
+from scapy.error import log_runtime, Scapy_Exception, warning
+from scapy.pton_ntop import inet_pton
 
 ###########
 #  Tools  #
@@ -108,7 +105,7 @@ def lhex(x):
 
 @conf.commands.register
 def hexdump(x, dump=False):
-    """ Build a tcpdump like hexadecimal view
+    """Build a tcpdump like hexadecimal view
 
     :param x: a Packet
     :param dump: define if the result must be printed or returned in a variable
@@ -116,24 +113,19 @@ def hexdump(x, dump=False):
     """
     s = ""
     x = raw(x)
-    l = len(x)
+    x_len = len(x)
     i = 0
-    while i < l:
+    while i < x_len:
         s += "%04x  " % i
         for j in range(16):
-            if i + j < l:
-                s += "%02X" % orb(x[i + j])
+            if i + j < x_len:
+                s += "%02X " % orb(x[i + j])
             else:
-                s += "  "
-            if j % 16 == 7:
-                s += ""
-        s += " "
-        s += sane_color(x[i:i + 16])
+                s += "   "
+        s += " %s\n" % sane_color(x[i:i + 16])
         i += 16
-        s += "\n"
     # remove trailing \n
-    if s.endswith("\n"):
-        s = s[:-1]
+    s = s[:-1] if s.endswith("\n") else s
     if dump:
         return s
     else:
@@ -142,7 +134,7 @@ def hexdump(x, dump=False):
 
 @conf.commands.register
 def linehexdump(x, onlyasc=0, onlyhex=0, dump=False):
-    """ Build an equivalent view of hexdump() on a single line
+    """Build an equivalent view of hexdump() on a single line
 
     Note that setting both onlyasc and onlyhex to 1 results in a empty output
 
@@ -153,15 +145,7 @@ def linehexdump(x, onlyasc=0, onlyhex=0, dump=False):
     :returns: a String only when dump=True
     """
     s = ""
-    x = raw(x)
-    l = len(x)
-    if not onlyasc:
-        for i in range(l):
-            s += "%02X" % orb(x[i])
-        if not onlyhex:  # separate asc & hex if both are displayed
-            s += " "
-    if not onlyhex:
-        s += sane_color(x)
+    s = hexstr(raw(x), onlyasc=onlyasc, onlyhex=onlyhex, color=not dump)
     if dump:
         return s
     else:
@@ -170,7 +154,7 @@ def linehexdump(x, onlyasc=0, onlyhex=0, dump=False):
 
 @conf.commands.register
 def chexdump(x, dump=False):
-    """ Build a per byte hexadecimal representation
+    """Build a per byte hexadecimal representation
 
     Example:
         >>> chexdump(IP())
@@ -189,12 +173,14 @@ def chexdump(x, dump=False):
 
 
 @conf.commands.register
-def hexstr(x, onlyasc=0, onlyhex=0):
+def hexstr(x, onlyasc=0, onlyhex=0, color=False):
+    """Build a fancy tcpdump like hex from bytes."""
+    _sane_func = sane_color if color else sane
     s = []
     if not onlyasc:
-        s.append(" ".join("%02x" % orb(b) for b in x))
+        s.append(" ".join("%02X" % orb(b) for b in x))
     if not onlyhex:
-        s.append(sane(x))
+        s.append(_sane_func(x))
     return "  ".join(s)
 
 
@@ -239,8 +225,8 @@ def hexdiff(x, y):
 
     dox = 1
     doy = 0
-    l = len(backtrackx)
-    while i < l:
+    btx_len = len(backtrackx)
+    while i < btx_len:
         linex = backtrackx[i:i + 16]
         liney = backtracky[i:i + 16]
         xx = sum(len(k) for k in linex)
@@ -278,7 +264,7 @@ def hexdiff(x, y):
 
         cl = ""
         for j in range(16):
-            if i + j < l:
+            if i + j < btx_len:
                 if line[j]:
                     col = colorize[(linex[j] != liney[j]) * (doy - dox)]
                     print(col("%02X" % orb(line[j])), end=' ')
@@ -342,11 +328,11 @@ def _fletcher16(charbuf):
 
 @conf.commands.register
 def fletcher16_checksum(binbuf):
-    """ Calculates Fletcher-16 checksum of the given buffer.
+    """Calculates Fletcher-16 checksum of the given buffer.
 
-        Note:
-        If the buffer contains the two checkbytes derived from the Fletcher-16 checksum  # noqa: E501
-        the result of this function has to be 0. Otherwise the buffer has been corrupted.  # noqa: E501
+       Note:
+       If the buffer contains the two checkbytes derived from the Fletcher-16 checksum  # noqa: E501
+       the result of this function has to be 0. Otherwise the buffer has been corrupted.  # noqa: E501
     """
     (c0, c1) = _fletcher16(binbuf)
     return (c1 << 8) | c0
@@ -354,13 +340,13 @@ def fletcher16_checksum(binbuf):
 
 @conf.commands.register
 def fletcher16_checkbytes(binbuf, offset):
-    """ Calculates the Fletcher-16 checkbytes returned as 2 byte binary-string.
+    """Calculates the Fletcher-16 checkbytes returned as 2 byte binary-string.
 
-        Including the bytes into the buffer (at the position marked by offset) the  # noqa: E501
-        global Fletcher-16 checksum of the buffer will be 0. Thus it is easy to verify  # noqa: E501
-        the integrity of the buffer on the receiver side.
+       Including the bytes into the buffer (at the position marked by offset) the  # noqa: E501
+       global Fletcher-16 checksum of the buffer will be 0. Thus it is easy to verify  # noqa: E501
+       the integrity of the buffer on the receiver side.
 
-        For details on the algorithm, see RFC 2328 chapter 12.1.7 and RFC 905 Annex B.  # noqa: E501
+       For details on the algorithm, see RFC 2328 chapter 12.1.7 and RFC 905 Annex B.  # noqa: E501
     """
 
     # This is based on the GPLed C implementation in Zebra <http://www.zebra.org/>  # noqa: E501
@@ -443,7 +429,6 @@ else:
     inet_aton = socket.inet_aton
 
 inet_ntoa = socket.inet_ntoa
-from scapy.pton_ntop import *
 
 
 def atol(x):
@@ -551,8 +536,8 @@ class ContextManagerCaptureOutput(object):
     def __init__(self):
         self.result_export_object = ""
         try:
-            import mock
-        except:
+            import mock  # noqa: F401
+        except Exception:
             raise ImportError("The mock module needs to be installed !")
 
     def __enter__(self):
@@ -623,7 +608,7 @@ def do_graph(graph, prog=None, format=None, target=None, type=None, string=None,
     proc.wait()
     try:
         target.close()
-    except:
+    except Exception:
         pass
     if start_viewer:
         # Workaround for file not found error: We wait until tempfile is written.  # noqa: E501
@@ -648,7 +633,6 @@ _TEX_TR = {
     "^": "\\^{}",
     "$": "\\$",
     "#": "\\#",
-    "~": "\\~",
     "_": "\\_",
     "&": "\\&",
     "%": "\\%",
@@ -788,24 +772,24 @@ def load_object(fname):
 def corrupt_bytes(s, p=0.01, n=None):
     """Corrupt a given percentage or number of bytes from a string"""
     s = array.array("B", raw(s))
-    l = len(s)
+    s_len = len(s)
     if n is None:
-        n = max(1, int(l * p))
-    for i in random.sample(range(l), n):
+        n = max(1, int(s_len * p))
+    for i in random.sample(range(s_len), n):
         s[i] = (s[i] + random.randint(1, 255)) % 256
-    return s.tostring()
+    return s.tostring() if six.PY2 else s.tobytes()
 
 
 @conf.commands.register
 def corrupt_bits(s, p=0.01, n=None):
     """Flip a given percentage or number of bits from a string"""
     s = array.array("B", raw(s))
-    l = len(s) * 8
+    s_len = len(s) * 8
     if n is None:
-        n = max(1, int(l * p))
-    for i in random.sample(range(l), n):
+        n = max(1, int(s_len * p))
+    for i in random.sample(range(s_len), n):
         s[i // 8] ^= 1 << (i % 8)
-    return s.tostring()
+    return s.tostring() if six.PY2 else s.tobytes()
 
 
 #############################
@@ -874,7 +858,7 @@ class PcapReader_metaclass(type):
                     raise
                     try:
                         i.f.seek(-4, 1)
-                    except:
+                    except Exception:
                         pass
                     raise Scapy_Exception("Not a supported capture file")
 
@@ -1013,7 +997,7 @@ class PcapReader(RawPcapReader):
             p = self.LLcls(s)
         except KeyboardInterrupt:
             raise
-        except:
+        except Exception:
             if conf.debug_dissector:
                 raise
             p = conf.raw_layer(s)
@@ -1067,7 +1051,7 @@ class RawPcapNgReader(RawPcapReader):
             raise Scapy_Exception("Not a pcapng capture file (bad magic)")
         try:
             self.f.seek(0)
-        except:
+        except Exception:
             pass
 
     def read_packet(self, size=MTU):
@@ -1117,8 +1101,8 @@ class RawPcapNgReader(RawPcapReader):
             if length % 4:
                 length += (4 - (length % 4))
             options = options[4 + length:]
-        self.interfaces.append(struct.unpack(self.endian + "HxxI", block[:8])
-                               + (tsresol,))
+        self.interfaces.append(struct.unpack(self.endian + "HxxI", block[:8]) +
+                               (tsresol,))
 
     def read_block_epb(self, block, size):
         """Enhanced Packet Block"""
@@ -1178,7 +1162,7 @@ class PcapNgReader(RawPcapNgReader):
             p = conf.l2types[linktype](s)
         except KeyboardInterrupt:
             raise
-        except:
+        except Exception:
             if conf.debug_dissector:
                 raise
             p = conf.raw_layer(s)
@@ -1338,25 +1322,29 @@ class PcapWriter(RawPcapWriter):
                                     wirelen=packet.wirelen or caplen)
 
 
-re_extract_hexcap = re.compile("^((0x)?[0-9a-fA-F]{2,}[ :\t]{,3}|) *(([0-9a-fA-F]{2} {,2}){,16})")  # noqa: E501
-
-
 @conf.commands.register
 def import_hexcap():
+    """Imports a tcpdump like hexadecimal view
+
+    e.g: exported via hexdump() or tcpdump
+    """
+    re_extract_hexcap = re.compile(r"^((0x)?[0-9a-fA-F]{2,}[ :\t]{,3}|) *(([0-9a-fA-F]{2} {,2}){,16})")  # noqa: E501
     p = ""
     try:
         while True:
-            l = input().strip()
+            line = input().strip()
+            if not line:
+                break
             try:
-                p += re_extract_hexcap.match(l).groups()[2]
-            except:
+                p += re_extract_hexcap.match(line).groups()[2]
+            except Exception:
                 warning("Parsing error during hexcap")
                 continue
     except EOFError:
         pass
 
     p = p.replace(" ", "")
-    return p.decode("hex")
+    return hex_bytes(p)
 
 
 @conf.commands.register
@@ -1482,15 +1470,15 @@ u'64'
 
 
 @conf.commands.register
-def hexedit(x):
-    x = str(x)
+def hexedit(pktlist):
+    """Run hexedit on a list of packets, then return the edited packets."""
     f = get_temp_file()
-    open(f, "wb").write(x)
+    wrpcap(f, pktlist)
     with ContextManagerSubprocess("hexedit()", conf.prog.hexedit):
         subprocess.call([conf.prog.hexedit, f])
-    x = open(f).read()
+    pktlist = rdpcap(f)
     os.unlink(f)
-    return x
+    return pktlist
 
 
 def get_terminal_width():
@@ -1524,7 +1512,7 @@ def get_terminal_width():
         if not sizex:
             try:
                 sizex = int(os.environ['COLUMNS'])
-            except:
+            except Exception:
                 pass
         if sizex:
             return sizex
@@ -1583,10 +1571,10 @@ def __make_table(yfmtfunc, fmtfunc, endline, data, fxyz, sortx=None, sorty=None,
     # Python 2 backward compatibility
     fxyz = lambda_tuple_converter(fxyz)
 
-    l = 0
+    tmp_len = 0
     for e in data:
         xx, yy, zz = [str(s) for s in fxyz(*e)]
-        l = max(len(yy), l)
+        tmp_len = max(len(yy), tmp_len)
         vx[xx] = max(vx.get(xx, 0), len(xx), len(zz))
         vy[yy] = None
         vz[(xx, yy)] = zz
@@ -1598,27 +1586,27 @@ def __make_table(yfmtfunc, fmtfunc, endline, data, fxyz, sortx=None, sorty=None,
     else:
         try:
             vxk.sort(key=int)
-        except:
+        except Exception:
             try:
                 vxk.sort(key=atol)
-            except:
+            except Exception:
                 vxk.sort()
     if sorty:
         vyk.sort(key=sorty)
     else:
         try:
             vyk.sort(key=int)
-        except:
+        except Exception:
             try:
                 vyk.sort(key=atol)
-            except:
+            except Exception:
                 vyk.sort()
 
     if seplinefunc:
-        sepline = seplinefunc(l, [vx[x] for x in vxk])
+        sepline = seplinefunc(tmp_len, [vx[x] for x in vxk])
         print(sepline)
 
-    fmt = yfmtfunc(l)
+    fmt = yfmtfunc(tmp_len)
     print(fmt % "", end=' ')
     for x in vxk:
         vxf[x] = fmtfunc(vx[x])
@@ -1658,7 +1646,7 @@ def whois(ip_address):
     whois_ip = str(ip_address)
     try:
         query = socket.gethostbyname(whois_ip)
-    except:
+    except Exception:
         query = whois_ip
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.connect(("whois.ripe.net", 43))

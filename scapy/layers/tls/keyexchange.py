@@ -9,10 +9,13 @@ TLS key exchange logic.
 
 from __future__ import absolute_import
 import math
+import struct
 
 from scapy.config import conf, crypto_validator
 from scapy.error import warning
-from scapy.fields import *
+from scapy.fields import ByteEnumField, ByteField, EnumField, FieldLenField, \
+    FieldListField, PacketField, ShortEnumField, ShortField, \
+    StrFixedLenField, StrLenField
 from scapy.compat import orb
 from scapy.packet import Packet, Raw, Padding
 from scapy.layers.tls.cert import PubKeyRSA, PrivKeyRSA
@@ -219,8 +222,8 @@ class _TLSSignatureField(PacketField):
         PacketField.__init__(self, name, default, _TLSSignature, remain=remain)
 
     def m2i(self, pkt, m):
-        l = self.length_from(pkt)
-        if l == 0:
+        tmp_len = self.length_from(pkt)
+        if tmp_len == 0:
             return None
         return _TLSSignature(m, tls_session=pkt.tls_session)
 
@@ -255,11 +258,11 @@ class _TLSServerParamsField(PacketField):
 
     def m2i(self, pkt, m):
         s = pkt.tls_session
-        l = self.length_from(pkt)
+        tmp_len = self.length_from(pkt)
         if s.prcs:
             cls = s.prcs.key_exchange.server_kx_msg_cls(m)
             if cls is None:
-                return None, Raw(m[:l]) / Padding(m[l:])
+                return None, Raw(m[:tmp_len]) / Padding(m[tmp_len:])
             return cls(m, tls_session=s)
         else:
             try:
@@ -267,11 +270,11 @@ class _TLSServerParamsField(PacketField):
                 if pkcs_os2ip(p.load[:2]) not in _tls_hash_sig:
                     raise Exception
                 return p
-            except:
+            except Exception:
                 cls = _tls_server_ecdh_cls_guess(m)
                 p = cls(m, tls_session=s)
                 if pkcs_os2ip(p.load[:2]) not in _tls_hash_sig:
-                    return None, Raw(m[:l]) / Padding(m[l:])
+                    return None, Raw(m[:tmp_len]) / Padding(m[tmp_len:])
                 return p
 
 
@@ -453,7 +456,7 @@ class _ECBasisField(PacketField):
         val = 0
         try:
             val = x.val
-        except:
+        except Exception:
             pass
         return val
 
@@ -868,8 +871,8 @@ class EncryptedPreMasterSecret(_GenericTLSSessionInheritance):
         if s.tls_version >= 0x0301:
             if len(m) < 2:      # Should not happen
                 return m
-            l = struct.unpack("!H", m[:2])[0]
-            if len(m) != l + 2:
+            tmp_len = struct.unpack("!H", m[:2])[0]
+            if len(m) != tmp_len + 2:
                 err = "TLS 1.0+, but RSA Encrypted PMS with no explicit length"
                 warning(err)
             else:
@@ -912,10 +915,10 @@ class EncryptedPreMasterSecret(_GenericTLSSessionInheritance):
         else:
             warning("No material to encrypt Pre Master Secret")
 
-        l = b""
+        tmp_len = b""
         if s.tls_version >= 0x0301:
-            l = struct.pack("!H", len(enc))
-        return l + enc + pay
+            tmp_len = struct.pack("!H", len(enc))
+        return tmp_len + enc + pay
 
     def guess_payload_class(self, p):
         return Padding

@@ -21,13 +21,17 @@
 """
 PPI-GEOLOCATION tags
 """
+
 from __future__ import absolute_import
 import struct
-import time
-from scapy.packet import *
-from scapy.fields import *
+
+from scapy.packet import Packet
+from scapy.fields import ByteField, ConditionalField, Field, FlagsField, \
+    LEIntField, LEShortEnumField, LEShortField, StrFixedLenField, \
+    UTCTimeField, XIntField, XShortField
 from scapy.layers.ppi import addPPIType
 from scapy.error import warning
+from scapy.volatile import RandSByte
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
 
@@ -359,8 +363,8 @@ class HCSIPacket(Packet):
 
     def post_build(self, p, pay):
         if self.pfh_length is None:
-            l = len(p) - 4
-            sl = struct.pack('<H', l)
+            tmp_len = len(p) - 4
+            sl = struct.pack('<H', tmp_len)
             p = p[:2] + sl + p[4:]
         if self.geotag_len is None:
             l_g = len(p) - 4

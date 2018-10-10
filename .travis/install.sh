@@ -1,10 +1,6 @@
-# Detect the pip version
-PIP=`which pip || (python --version 2>&1 | grep -q 'Python 2' && which pip2) || (python --version 2>&1 | grep -q 'Python 3' && which pip3)`
-
-# Install Python3 on osx
-if [ "$TRAVIS_OS_NAME" = "osx" ] && ! python3
+# Install on osx
+if [ "$TRAVIS_OS_NAME" = "osx" ]
 then
-  brew upgrade python
   pip3 install tox
   if [ ! -z $SCAPY_USE_PCAPDNET ]
   then
@@ -29,4 +25,4 @@ then
 fi
 
 # Make sure tox is installed and up to date
-$PIP install -U tox
+pip install -U tox

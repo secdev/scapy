@@ -21,16 +21,23 @@
 # scapy.contrib.description = Diameter
 # scapy.contrib.status = loads
 
-import sys
-import logging
-from scapy.packet import *
-from scapy.fields import *
-from scapy.layers.inet6 import *
-from scapy.layers.sctp import *
+import socket
+import struct
+from time import ctime
+
+from scapy.packet import Packet, bind_layers
+from scapy.fields import ConditionalField, EnumField, Field, FieldLenField, \
+    FlagsField, IEEEDoubleField, IEEEFloatField, IntEnumField, IntField, \
+    LongField, PacketListField, SignedIntField, StrLenField, X3BytesField, \
+    XByteField, XIntField
+from scapy.layers.inet import TCP
+from scapy.layers.sctp import SCTPChunkData
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
-from scapy.compat import chb, orb, raw, bytes_hex
-from time import ctime
+from scapy.compat import chb, orb, raw, bytes_hex, plain_str
+from scapy.error import warning
+from scapy.utils import inet_ntoa, inet_aton
+from scapy.pton_ntop import inet_pton, inet_ntop
 
 #####################################################################
 #####################################################################

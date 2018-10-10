@@ -9,32 +9,37 @@ IPv4 (Internet Protocol v4).
 
 from __future__ import absolute_import
 from __future__ import print_function
-import os
 import time
 import struct
 import re
+import random
 import socket
-import types
 from select import select
 from collections import defaultdict
 
-from scapy.utils import checksum, do_graph, incremental_label, inet_aton, \
-    inet_ntoa, linehexdump, strxor
-from scapy.base_classes import Gen
-from scapy.data import *
-from scapy.layers.l2 import *
-from scapy.compat import *
+from scapy.utils import checksum, do_graph, incremental_label, \
+    linehexdump, strxor, whois, colgen
+from scapy.base_classes import Gen, Net
+from scapy.data import ETH_P_IP, ETH_P_ALL, DLT_RAW, DLT_RAW_ALT, DLT_IPV4, \
+    IP_PROTOS, TCP_SERVICES, UDP_SERVICES
+from scapy.layers.l2 import Ether, Dot3, getmacbyip, CookedLinux, GRE, SNAP, \
+    Loopback
+from scapy.compat import raw, chb, orb
 from scapy.config import conf
-from scapy.arch import WINDOWS
-from scapy.extlib import plt, MATPLOTLIB, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS  # noqa: E501
-from scapy.fields import *
-from scapy.packet import *
-from scapy.volatile import *
-from scapy.sendrecv import sr, sr1, srp1
+from scapy.extlib import plt, MATPLOTLIB, MATPLOTLIB_INLINED, \
+    MATPLOTLIB_DEFAULT_PLOT_KARGS
+from scapy.fields import ConditionalField, IPField, BitField, BitEnumField, \
+    FieldLenField, StrLenField, ByteField, ShortField, ByteEnumField, \
+    DestField, FieldListField, FlagsField, IntField, MultiEnumField, \
+    PacketListField, ShortEnumField, SourceIPField, StrField, \
+    StrFixedLenField, XByteField, XShortField, Emph
+from scapy.packet import Packet, bind_layers, NoPayload
+from scapy.volatile import RandShort, RandInt
+from scapy.sendrecv import sr, sr1
 from scapy.plist import PacketList, SndRcvList
 from scapy.automaton import Automaton, ATMT
 from scapy.error import warning
-from scapy.utils import whois
+from scapy.pton_ntop import inet_pton
 
 import scapy.as_resolvers
 
@@ -418,18 +423,18 @@ class IP(Packet, IPTools):
             ihl = len(p) // 4
             p = chb(((self.version & 0xf) << 4) | ihl & 0x0f) + p[1:]
         if self.len is None:
-            l = len(p) + len(pay)
-            p = p[:2] + struct.pack("!H", l) + p[4:]
+            tmp_len = len(p) + len(pay)
+            p = p[:2] + struct.pack("!H", tmp_len) + p[4:]
         if self.chksum is None:
             ck = checksum(p)
             p = p[:10] + chb(ck >> 8) + chb(ck & 0xff) + p[12:]
         return p + pay
 
     def extract_padding(self, s):
-        l = self.len - (self.ihl << 2)
-        if l < 0:
+        tmp_len = self.len - (self.ihl << 2)
+        if tmp_len < 0:
             return s, b""
-        return s[:l], s[l:]
+        return s[:tmp_len], s[tmp_len:]
 
     def route(self):
         dst = self.dst
@@ -437,13 +442,13 @@ class IP(Packet, IPTools):
             dst = next(iter(dst))
         if conf.route is None:
             # unused import, only to initialize conf.route
-            import scapy.route
+            import scapy.route  # noqa: F401
         return conf.route.route(dst)
 
     def hashret(self):
-        if ((self.proto == socket.IPPROTO_ICMP)
-            and (isinstance(self.payload, ICMP))
-                and (self.payload.type in [3, 4, 5, 11, 12])):
+        if ((self.proto == socket.IPPROTO_ICMP) and
+            (isinstance(self.payload, ICMP)) and
+                (self.payload.type in [3, 4, 5, 11, 12])):
             return self.payload.payload.hashret()
         if not conf.checkIPinIP and self.proto in [4, 41]:  # IP, IPv6
             return self.payload.hashret()
@@ -451,8 +456,8 @@ class IP(Packet, IPTools):
             return struct.pack("B", self.proto) + self.payload.hashret()
         if conf.checkIPsrc and conf.checkIPaddr:
             return (strxor(inet_pton(socket.AF_INET, self.src),
-                           inet_pton(socket.AF_INET, self.dst))
-                    + struct.pack("B", self.proto) + self.payload.hashret())
+                           inet_pton(socket.AF_INET, self.dst)) +
+                    struct.pack("B", self.proto) + self.payload.hashret())
         return struct.pack("B", self.proto) + self.payload.hashret()
 
     def answers(self, other):
@@ -633,10 +638,10 @@ class UDP(Packet):
 
     def post_build(self, p, pay):
         p += pay
-        l = self.len
-        if l is None:
-            l = len(p)
-            p = p[:4] + struct.pack("!H", l) + p[6:]
+        tmp_len = self.len
+        if tmp_len is None:
+            tmp_len = len(p)
+            p = p[:4] + struct.pack("!H", tmp_len) + p[6:]
         if self.chksum is None:
             if isinstance(self.underlayer, IP):
                 ck = in4_chksum(socket.IPPROTO_UDP, self.underlayer, p)
@@ -655,8 +660,8 @@ class UDP(Packet):
         return p
 
     def extract_padding(self, s):
-        l = self.len - 8
-        return s[:l], s[l:]
+        tmp_len = self.len - 8
+        return s[:tmp_len], s[tmp_len:]
 
     def hashret(self):
         return self.payload.hashret()
@@ -781,9 +786,9 @@ class IPerror(IP):
             return 0
         if not (((conf.checkIPsrc == 0) or (self.dst == other.dst)) and
                 (self.src == other.src) and
-                (((conf.checkIPID == 0)
-                  or (self.id == other.id)
-                  or (conf.checkIPID == 1 and self.id == socket.htons(other.id)))) and  # noqa: E501
+                (((conf.checkIPID == 0) or
+                  (self.id == other.id) or
+                  (conf.checkIPID == 1 and self.id == socket.htons(other.id)))) and  # noqa: E501
                 (self.proto == other.proto)):
             return 0
         return self.payload.answers(other.payload)
@@ -1156,21 +1161,51 @@ class TracerouteResult(SndRcvList):
                     del k[l]
         return trace
 
-    def trace3D(self):
+    def trace3D(self, join=True):
         """Give a 3D representation of the traceroute.
         right button: rotate the scene
         middle button: zoom
-        left button: move the scene
+        shift-left button: move the scene
         left button on a ball: toggle IP displaying
-        ctrl-left button on a ball: scan ports 21,22,23,25,80 and 443 and display the result"""  # noqa: E501
-        trace = self.get_trace()
-        import visual
+        double-click button on a ball: scan ports 21,22,23,25,80 and 443 and display the result"""  # noqa: E501
+        # When not ran from a notebook, vpython pooly closes itself
+        # using os._exit once finished. We pack it into a Process
+        import multiprocessing
+        p = multiprocessing.Process(target=self.trace3D_notebook)
+        p.start()
+        if join:
+            p.join()
 
-        class IPsphere(visual.sphere):
+    def trace3D_notebook(self):
+        """Same than trace3D, used when ran from Jupyther notebooks"""
+        trace = self.get_trace()
+        import vpython
+
+        class IPsphere(vpython.sphere):
             def __init__(self, ip, **kargs):
-                visual.sphere.__init__(self, **kargs)
+                vpython.sphere.__init__(self, **kargs)
                 self.ip = ip
                 self.label = None
+                self.setlabel(self.ip)
+                self.last_clicked = None
+                self.full = False
+                self.savcolor = vpython.vec(*self.color.value)
+
+            def fullinfos(self):
+                self.full = True
+                self.color = vpython.vec(1, 0, 0)
+                a, b = sr(IP(dst=self.ip) / TCP(dport=[21, 22, 23, 25, 80, 443], flags="S"), timeout=2, verbose=0)  # noqa: E501
+                if len(a) == 0:
+                    txt = "%s:\nno results" % self.ip
+                else:
+                    txt = "%s:\n" % self.ip
+                    for s, r in a:
+                        txt += r.sprintf("{TCP:%IP.src%:%TCP.sport% %TCP.flags%}{TCPerror:%IPerror.dst%:%TCPerror.dport% %IP.src% %ir,ICMP.type%}\n")  # noqa: E501
+                self.setlabel(txt, visible=1)
+
+            def unfull(self):
+                self.color = self.savcolor
+                self.full = False
                 self.setlabel(self.ip)
 
             def setlabel(self, txt, visible=None):
@@ -1180,14 +1215,46 @@ class TracerouteResult(SndRcvList):
                     self.label.visible = 0
                 elif visible is None:
                     visible = 0
-                self.label = visual.label(text=txt, pos=self.pos, space=self.radius, xoffset=10, yoffset=20, visible=visible)  # noqa: E501
+                self.label = vpython.label(text=txt, pos=self.pos, space=self.radius, xoffset=10, yoffset=20, visible=visible)  # noqa: E501
+
+            def check_double_click(self):
+                try:
+                    if self.full or not self.label.visible:
+                        return False
+                    if self.last_clicked is not None:
+                        return (time.time() - self.last_clicked) < 0.5
+                    return False
+                finally:
+                    self.last_clicked = time.time()
 
             def action(self):
                 self.label.visible ^= 1
+                if self.full:
+                    self.unfull()
 
-        visual.scene = visual.display()
-        visual.scene.exit = True
-        start = visual.box()
+        vpython.scene = vpython.canvas()
+        vpython.scene.title = "<center><u><b>%s</b></u></center>" % self.listname  # noqa: E501
+        vpython.scene.append_to_caption(
+            re.sub(
+                r'\%(.*)\%',
+                r'<span style="color: red">\1</span>',
+                re.sub(
+                    r'\`(.*)\`',
+                    r'<span style="color: #3399ff">\1</span>',
+                    """<u><b>Commands:</b></u>
+%Click% to toggle information about a node.
+%Double click% to perform a quick web scan on this node.
+<u><b>Camera usage:</b></u>
+`Right button drag or Ctrl-drag` to rotate "camera" to view scene.
+`Shift-drag` to move the object around.
+`Middle button or Alt-drag` to drag up or down to zoom in or out.
+  On a two-button mouse, `middle is wheel or left + right`.
+Touch screen: pinch/extend to zoom, swipe or two-finger rotate."""
+                )
+            )
+        )
+        vpython.scene.exit = True
+        start = vpython.box()
         rings = {}
         tr3d = {}
         for i in trace:
@@ -1203,18 +1270,19 @@ class TracerouteResult(SndRcvList):
                 else:
                     rings[t].append(("unk", -1))
                     tr3d[i].append(len(rings[t]) - 1)
+
         for t in rings:
             r = rings[t]
-            l = len(r)
-            for i in range(l):
+            tmp_len = len(r)
+            for i in range(tmp_len):
                 if r[i][1] == -1:
-                    col = (0.75, 0.75, 0.75)
+                    col = vpython.vec(0.75, 0.75, 0.75)
                 elif r[i][1]:
-                    col = visual.color.green
+                    col = vpython.color.green
                 else:
-                    col = visual.color.blue
+                    col = vpython.color.blue
 
-                s = IPsphere(pos=((l - 1) * visual.cos(2 * i * visual.pi / l), (l - 1) * visual.sin(2 * i * visual.pi / l), 2 * t),  # noqa: E501
+                s = IPsphere(pos=vpython.vec((tmp_len - 1) * vpython.cos(2 * i * vpython.pi / tmp_len), (tmp_len - 1) * vpython.sin(2 * i * vpython.pi / tmp_len), 2 * t),  # noqa: E501
                              ip=r[i][0],
                              color=col)
                 for trlst in six.itervalues(tr3d):
@@ -1223,48 +1291,37 @@ class TracerouteResult(SndRcvList):
                             trlst[t - 1] = s
         forecol = colgen(0.625, 0.4375, 0.25, 0.125)
         for trlst in six.itervalues(tr3d):
-            col = next(forecol)
-            start = (0, 0, 0)
+            col = vpython.vec(*next(forecol))
+            start = vpython.vec(0, 0, 0)
             for ip in trlst:
-                visual.cylinder(pos=start, axis=ip.pos - start, color=col, radius=0.2)  # noqa: E501
+                vpython.cylinder(pos=start, axis=ip.pos - start, color=col, radius=0.2)  # noqa: E501
                 start = ip.pos
 
-        movcenter = None
-        while True:
-            visual.rate(50)
-            if visual.scene.kb.keys:
-                k = visual.scene.kb.getkey()
-                if k == "esc" or k == "q":
-                    break
-            if visual.scene.mouse.events:
-                ev = visual.scene.mouse.getevent()
-                if ev.press == "left":
-                    o = ev.pick
-                    if o:
-                        if ev.ctrl:
-                            if o.ip == "unk":
-                                continue
-                            savcolor = o.color
-                            o.color = (1, 0, 0)
-                            a, b = sr(IP(dst=o.ip) / TCP(dport=[21, 22, 23, 25, 80, 443]), timeout=2)  # noqa: E501
-                            o.color = savcolor
-                            if len(a) == 0:
-                                txt = "%s:\nno results" % o.ip
-                            else:
-                                txt = "%s:\n" % o.ip
-                                for s, r in a:
-                                    txt += r.sprintf("{TCP:%IP.src%:%TCP.sport% %TCP.flags%}{TCPerror:%IPerror.dst%:%TCPerror.dport% %IP.src% %ir,ICMP.type%}\n")  # noqa: E501
-                            o.setlabel(txt, visible=1)
-                        else:
-                            if hasattr(o, "action"):
-                                o.action()
-                elif ev.drag == "left":
-                    movcenter = ev.pos
-                elif ev.drop == "left":
-                    movcenter = None
-            if movcenter:
-                visual.scene.center -= visual.scene.mouse.pos - movcenter
-                movcenter = visual.scene.mouse.pos
+        vpython.rate(50)
+
+        # Keys handling
+        # TODO: there is currently no way of closing vpython correctly
+        # https://github.com/BruceSherwood/vpython-jupyter/issues/36
+        # def keyboard_press(ev):
+        #     k = ev.key
+        #     if k == "esc" or k == "q":
+        #         pass  # TODO: close
+        #
+        # vpython.scene.bind('keydown', keyboard_press)
+
+        # Mouse handling
+        def mouse_click(ev):
+            if ev.press == "left":
+                o = vpython.scene.mouse.pick
+                if o and isinstance(o, IPsphere):
+                    if o.check_double_click():
+                        if o.ip == "unk":
+                            return
+                        o.fullinfos()
+                    else:
+                        o.action()
+
+        vpython.scene.bind('mousedown', mouse_click)
 
     def world_trace(self):
         """Display traceroute results on a world map."""
@@ -1276,13 +1333,13 @@ class TracerouteResult(SndRcvList):
             import geoip2.database
             import geoip2.errors
         except ImportError:
-            warning("Can't import geoip2. Won't be able to plot the world.")
+            warning("Cannot import geoip2. Won't be able to plot the world.")
             return []
         # Check availability of database
         if not conf.geoip_city:
-            warning("Cannot import the geolite2 CITY database !\n"
+            warning("Cannot import the geolite2 CITY database.\n"
                     "Download it from http://dev.maxmind.com/geoip/geoip2/geolite2/"  # noqa: E501
-                    "then set its path to conf.geoip_city")
+                    " then set its path to conf.geoip_city")
             return []
         # Check availability of plotting devices
         try:
@@ -1298,8 +1355,8 @@ class TracerouteResult(SndRcvList):
         # Open & read the GeoListIP2 database
         try:
             db = geoip2.database.Reader(conf.geoip_city)
-        except:
-            warning("Can't open geoip2 database at %s", conf.geoip_city)
+        except Exception:
+            warning("Cannot open geoip2 database at %s", conf.geoip_city)
             return []
 
         # Regroup results per trace
@@ -1572,16 +1629,14 @@ traceroute(target, [maxttl=30,] [dport=80,] [sport=80,] [verbose=conf.verb]) -> 
 
 
 @conf.commands.register
-def traceroute_map(*args, **kargs):
+def traceroute_map(ips, **kargs):
     """Util function to call traceroute on multiple targets, then
     show the different paths on a map.
     params:
-     - *args: IPs on which traceroute will be called"""
+     - ips: a list of IPs on which traceroute will be called
+     - optional: kwargs, passed to traceroute"""
     kargs.setdefault("verbose", 0)
-    res = []
-    for target in args:
-        res += traceroute(target, **kargs)[0].res
-    return TracerouteResult(res).world_trace()
+    return traceroute(ips)[0].world_trace()
 
 #############################
 #  Simple TCP client stack  #
@@ -1820,7 +1875,7 @@ def fragleak2(target, timeout=0.4, onlyasc=0):
                 if leak not in found:
                     found[leak] = None
                     linehexdump(leak, onlyasc=onlyasc)
-    except:
+    except Exception:
         pass
 
 

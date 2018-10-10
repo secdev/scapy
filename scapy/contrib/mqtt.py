@@ -10,10 +10,10 @@ from scapy.fields import FieldLenField, BitEnumField, StrLenField, \
 from scapy.layers.inet import TCP
 from scapy.error import Scapy_Exception
 from scapy.compat import orb, chb
+from scapy.volatile import RandNum
 
 
 # CUSTOM FIELDS
-
 # source: http://stackoverflow.com/a/43717630
 class VariableFieldLenField(FieldLenField):
     def addfield(self, pkt, s, val):
@@ -32,6 +32,8 @@ class VariableFieldLenField(FieldLenField):
             if len(data) > 3:
                 raise Scapy_Exception("%s: malformed length field" %
                                       self.__class__.__name__)
+        # If val is None / 0
+        return s + b"\x00"
 
     def getfield(self, pkt, s):
         value = 0
@@ -44,9 +46,16 @@ class VariableFieldLenField(FieldLenField):
                 raise Scapy_Exception("%s: malformed length field" %
                                       self.__class__.__name__)
 
+    def randval(self):
+        return RandVariableFieldLen()
+
+
+class RandVariableFieldLen(RandNum):
+    def __init__(self):
+        RandNum.__init__(self, 0, 268435455)
+
 
 # LAYERS
-
 CONTROL_PACKET_TYPE = {1: 'CONNECT',
                        2: 'CONNACK',
                        3: 'PUBLISH',
@@ -158,8 +167,8 @@ class MQTTPublish(Packet):
         StrLenField("topic", "",
                     length_from=lambda pkt: pkt.length),
         ConditionalField(ShortField("msgid", None),
-                         lambda pkt: (pkt.underlayer.QOS == 1
-                                      or pkt.underlayer.QOS == 2)),
+                         lambda pkt: (pkt.underlayer.QOS == 1 or
+                                      pkt.underlayer.QOS == 2)),
         StrLenField("value", "",
                     length_from=lambda pkt: (pkt.underlayer.len -
                                              pkt.length - 2)),

@@ -21,12 +21,12 @@ from collections import deque
 import threading
 from scapy.config import conf
 from scapy.utils import do_graph
-from scapy.error import log_interactive
+from scapy.error import log_interactive, warning
 from scapy.plist import PacketList
 from scapy.data import MTU
 from scapy.supersocket import SuperSocket
 from scapy.consts import WINDOWS
-from scapy.compat import *
+from scapy.compat import cmp_to_key, cmp
 import scapy.modules.six as six
 
 if WINDOWS:
@@ -518,20 +518,20 @@ class Automaton_metaclass(type):
             for f in v:
                 for n in f.__code__.co_names + f.__code__.co_consts:
                     if n in self.states:
-                        l = f.atmt_condname
+                        line = f.atmt_condname
                         for x in self.actions[f.atmt_condname]:
-                            l += "\\l>[%s]" % x.__name__
-                        s += '\t"%s" -> "%s" [label="%s", color=%s];\n' % (k, n, l, c)  # noqa: E501
+                            line += "\\l>[%s]" % x.__name__
+                        s += '\t"%s" -> "%s" [label="%s", color=%s];\n' % (k, n, line, c)  # noqa: E501
         for k, v in six.iteritems(self.timeout):
             for t, f in v:
                 if f is None:
                     continue
                 for n in f.__code__.co_names + f.__code__.co_consts:
                     if n in self.states:
-                        l = "%s/%.1fs" % (f.atmt_condname, t)
+                        line = "%s/%.1fs" % (f.atmt_condname, t)
                         for x in self.actions[f.atmt_condname]:
-                            l += "\\l>[%s]" % x.__name__
-                        s += '\t"%s" -> "%s" [label="%s",color=blue];\n' % (k, n, l)  # noqa: E501
+                            line += "\\l>[%s]" % x.__name__
+                        s += '\t"%s" -> "%s" [label="%s",color=blue];\n' % (k, n, line)  # noqa: E501
         s += "}\n"
         return do_graph(s, **kargs)
 
@@ -802,7 +802,8 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                             self.cmdout.send(c)
                             break
             except StopIteration as e:
-                c = Message(type=_ATMT_Command.END, result=e.args[0])
+                c = Message(type=_ATMT_Command.END,
+                            result=self.final_state_output)
                 self.cmdout.send(c)
             except Exception as e:
                 exc_info = sys.exc_info()
@@ -828,7 +829,8 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                     raise self.ErrorState("Reached %s: [%r]" % (self.state.state, state_output),  # noqa: E501
                                           result=state_output, state=self.state.state)  # noqa: E501
                 if self.state.final:
-                    raise StopIteration(state_output)
+                    self.final_state_output = state_output
+                    return
 
                 if state_output is None:
                     state_output = ()

@@ -7,8 +7,9 @@
 IrDA infrared data communication.
 """
 
-from scapy.packet import *
-from scapy.fields import *
+from scapy.packet import Packet, bind_layers
+from scapy.fields import BitEnumField, ByteEnumField, StrField, XBitField, \
+    XByteField, XIntField, XShortField
 from scapy.layers.l2 import CookedLinux
 
 

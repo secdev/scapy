@@ -7,14 +7,13 @@
 """
 Customizations needed to support Microsoft Windows.
 """
+
 from __future__ import absolute_import
 from __future__ import print_function
 import os
 import re
 import sys
 import socket
-import time
-import itertools
 import platform
 import subprocess as sp
 from glob import glob
@@ -22,18 +21,19 @@ import ctypes
 from ctypes import wintypes
 import tempfile
 from threading import Thread, Event
+import struct
 
 import scapy
+import scapy.consts
 from scapy.config import conf, ConfClass
 from scapy.error import Scapy_Exception, log_loading, log_runtime, warning
-from scapy.utils import atol, itom, inet_aton, inet_ntoa, PcapReader, pretty_list  # noqa: E501
-from scapy.utils6 import construct_source_candidate_set
-from scapy.base_classes import Gen, Net, SetGen
-from scapy.data import MTU, ETHER_BROADCAST, ETH_P_ARP
-
+from scapy.utils import atol, itom, pretty_list, mac2str
+from scapy.utils6 import construct_source_candidate_set, in6_getifaddr_raw
+from scapy.data import ARPHDR_ETHER, load_manuf
 import scapy.modules.six as six
-from scapy.modules.six.moves import range, zip, input, winreg
-from scapy.compat import plain_str
+from scapy.modules.six.moves import range, zip, input, winreg, UserDict
+from scapy.compat import raw
+from scapy.supersocket import SuperSocket
 
 _winapi_SetConsoleTitle = ctypes.windll.kernel32.SetConsoleTitleW
 _winapi_SetConsoleTitle.restype = wintypes.BOOL
@@ -51,6 +51,11 @@ conf.use_pcap = False
 conf.use_dnet = False
 conf.use_winpcapy = True
 
+# These import must appear after setting conf.use_* variables
+from scapy.arch import pcapdnet  # noqa: E402
+from scapy.arch.pcapdnet import NPCAP_PATH, get_if_raw_addr, \
+    get_if_list  # noqa: E402
+
 WINDOWS = (os.name == 'nt')
 
 # hot-patching socket for missing variables on Windows
@@ -63,12 +68,7 @@ if not hasattr(socket, 'IPPROTO_ESP'):
 if not hasattr(socket, 'IPPROTO_GRE'):
     socket.IPPROTO_GRE = 47
 
-from scapy.arch import pcapdnet
-from scapy.arch.pcapdnet import *
-
 _WlanHelper = NPCAP_PATH + "\\WlanHelper.exe"
-
-import scapy.consts
 
 IS_WINDOWS_XP = platform.release() == "XP"
 
@@ -90,7 +90,7 @@ def _encapsulate_admin(cmd):
     """Encapsulate a command with an Administrator flag"""
     # To get admin access, we start a new powershell instance with admin
     # rights, which will execute the command
-    return "Start-Process PowerShell -windowstyle hidden -Wait -Verb RunAs -ArgumentList '-command &{%s}'" % cmd  # noqa: E501
+    return "Start-Process PowerShell -windowstyle hidden -Wait -PassThru -Verb RunAs -ArgumentList '-command &{%s}'" % cmd  # noqa: E501
 
 
 def _windows_title(title=None):
@@ -217,7 +217,7 @@ class _PowershellManager(Thread):
         try:
             self.process.stdin.write("exit\n")
             self.process.terminate()
-        except:
+        except Exception:
             pass
 
 
@@ -231,7 +231,7 @@ def _exec_query_ps(cmd, fields):
     query_cmd = cmd + ['|', 'select %s' % ', '.join(fields),  # select fields
                        '|', 'fl',  # print as a list
                        '|', 'out-string', '-Width', '4096']  # do not crop
-    l = []
+    lines = []
     # Ask the powershell manager to process the query
     stdout = POWERSHELL_PROCESS.query(query_cmd)
     # Process stdout
@@ -240,13 +240,13 @@ def _exec_query_ps(cmd, fields):
             continue
         sl = line.split(':', 1)
         if len(sl) == 1:
-            l[-1] += sl[0].strip()
+            lines[-1] += sl[0].strip()
             continue
         else:
-            l.append(sl[1].strip())
-        if len(l) == len(fields):
-            yield l
-            l = []
+            lines.append(sl[1].strip())
+        if len(lines) == len(fields):
+            yield lines
+            lines = []
 
 
 def _vbs_exec_code(code, split_tag="@"):
@@ -431,6 +431,7 @@ class WinProgPath(ConfClass):
     def _reload(self):
         self.pdfreader = None
         self.psreader = None
+        self.svgreader = None
         # We try some magic to find the appropriate executables
         self.dot = win_find_exe("dot")
         self.tcpdump = win_find_exe("windump")
@@ -473,7 +474,7 @@ if conf.prog.tcpdump and conf.use_npcap and conf.prog.os_access:
             _windows_title()
             _output = stdout.lower()
             return b"npcap" in _output and b"winpcap" not in _output
-        except:
+        except Exception:
             return False
     windump_ok = test_windump_npcap()
     if not windump_ok:
@@ -651,6 +652,8 @@ class NetworkInterface(object):
         else:
             res = self.setmode('managed')
             self.cache_mode = not res
+        if not res:
+            log_runtime.error("Npcap WlanHelper returned with an error code !")
         return res
 
     def availablemodes(self):
@@ -801,9 +804,6 @@ def pcap_service_stop(askadmin=True):
     return pcap_service_control('Stop-Service', askadmin=askadmin)
 
 
-from scapy.modules.six.moves import UserDict
-
-
 class NetworkInterfaceDict(UserDict):
     """Store information about network interfaces and convert between names"""
 
@@ -862,7 +862,7 @@ class NetworkInterfaceDict(UserDict):
                 scapy.consts.LOOPBACK_INTERFACE = self.dev_from_name(
                     scapy.consts.LOOPBACK_NAME,
                 )
-            except:
+            except Exception:
                 pass
 
     def dev_from_name(self, name):
@@ -1089,7 +1089,7 @@ def _read_routes_post2008():
             iface = dev_from_index(line[0])
             if iface.ip == "0.0.0.0":
                 continue
-        except:
+        except Exception:
             continue
         # try:
         #     intf = pcapdnet.dnet.intf().get_dst(pcapdnet.dnet.addr(type=2, addrtxt=dest))  # noqa: E501
@@ -1154,7 +1154,7 @@ def _read_routes6_post2008():
         try:
             if_index = line[0]
             iface = dev_from_index(if_index)
-        except:
+        except Exception:
             continue
 
         dpref, dp = line[1].split('/')
@@ -1195,7 +1195,7 @@ def _read_routes6_7():
                 try:
                     if_index = current_object[2]
                     iface = dev_from_index(if_index)
-                except:
+                except Exception:
                     current_object = []
                     index = 0
                     continue
@@ -1297,10 +1297,10 @@ def route_add_loopback(routes=None, ipv6=False, iflist=None):
     IFACES["{0XX00000-X000-0X0X-X00X-00XXXX000XXX}"] = adapter
     scapy.consts.LOOPBACK_INTERFACE = adapter
     if isinstance(conf.iface, NetworkInterface):
-        if conf.iface.name == LOOPBACK_NAME:
+        if conf.iface.name == scapy.consts.LOOPBACK_NAME:
             conf.iface = adapter
     if isinstance(conf.iface6, NetworkInterface):
-        if conf.iface6.name == LOOPBACK_NAME:
+        if conf.iface6.name == scapy.conts.LOOPBACK_NAME:
             conf.iface6 = adapter
     conf.netcache.arp_cache["127.0.0.1"] = "ff:ff:ff:ff:ff:ff"
     conf.netcache.in6_neighbor["::1"] = "ff:ff:ff:ff:ff:ff"

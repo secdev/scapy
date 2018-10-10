@@ -7,13 +7,16 @@
 PFLog: OpenBSD PF packet filter logging.
 """
 
+import socket
+
 from scapy.data import DLT_PFLOG
-from scapy.packet import *
-from scapy.fields import *
+from scapy.packet import Packet, bind_layers
+from scapy.fields import ByteEnumField, ByteField, IntField, SignedIntField, \
+    StrFixedLenField
 from scapy.layers.inet import IP
+from scapy.config import conf
 if conf.ipv6_enabled:
     from scapy.layers.inet6 import IPv6
-from scapy.config import conf
 
 
 class PFLog(Packet):

@@ -7,12 +7,8 @@
 Common customizations for all Unix-like operating systems other than Linux
 """
 
-import sys
 import os
-import struct
 import socket
-import time
-from fcntl import ioctl
 
 from scapy.error import warning, log_interactive
 import scapy.config
@@ -56,30 +52,30 @@ def read_routes():
     prio_present = False
     routes = []
     pending_if = []
-    for l in f.readlines():
-        if not l:
+    for line in f.readlines():
+        if not line:
             break
-        l = l.strip()
-        if l.find("----") >= 0:  # a separation line
+        line = line.strip()
+        if line.find("----") >= 0:  # a separation line
             continue
         if not ok:
-            if l.find("Destination") >= 0:
+            if line.find("Destination") >= 0:
                 ok = 1
-                mtu_present = "Mtu" in l
-                prio_present = "Prio" in l
-                refs_present = "Refs" in l
+                mtu_present = "Mtu" in line
+                prio_present = "Prio" in line
+                refs_present = "Refs" in line
             continue
-        if not l:
+        if not line:
             break
         if SOLARIS:
-            lspl = l.split()
+            lspl = line.split()
             if len(lspl) == 10:
                 dest, mask, gw, netif, mxfrg, rtt, ref, flg = lspl[:8]
             else:  # missing interface
                 dest, mask, gw, mxfrg, rtt, ref, flg = lspl[:7]
                 netif = None
         else:
-            rt = l.split()
+            rt = line.split()
             dest, gw, flg = rt[:3]
             locked = OPENBSD and rt[6] == "L"
             netif = rt[4 + mtu_present + prio_present + refs_present + locked]
@@ -174,7 +170,7 @@ def _in6_getifaddr(ifname):
         # Check if it is a valid IPv6 address
         try:
             socket.inet_pton(socket.AF_INET6, addr)
-        except:
+        except Exception:
             continue
 
         # Get the scope and keep the address
@@ -319,7 +315,7 @@ def read_routes6():
             continue
         try:
             destination_plen = int(destination_plen)
-        except:
+        except Exception:
             warning("Invalid IPv6 prefix length in route entry !")
             continue
         if in6_ismlladdr(destination) or in6_ismnladdr(destination):

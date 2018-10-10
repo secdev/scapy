@@ -63,17 +63,19 @@ do not run startup file
 Only the vital commands to begin are listed here for the moment.
 .TP
 \fBls()\fR
-lists supported protocol layers. If a protocol layer is given as parameter, lists its fields and types of fields.
+lists supported protocol layers.
+If a protocol layer is given as parameter, lists its fields and types of fields.
+If a string is given as parameter, it is used to filter the layers.
 .TP
 \fBlsc()\fR
-lists some user commands. If a command is given as parameter, its documentation is displayed.
+lists scapy's main user commands.
 .TP
 \fBconf\fR
 this object contains the configuration. 
 
 .SH FILES
 \fB$HOME/.scapy_prestart.py\fR
-This file is run before Scapy core is loaded. Only the \fb\conf\fP object 
+This file is run before Scapy core is loaded. Only the \fBconf\fP object
 is available. This file can be used to manipulate \fBconf.load_layers\fP 
 list to choose which layers will be loaded:
 
@@ -87,20 +89,20 @@ This file is run after Scapy is loaded. It can be used to configure
 some of the Scapy behaviors:
 
 .nf
-conf.prog.pdfreader="xpdf"
+conf.prog.pdfreader = "xpdf"
 split_layers(UDP,DNS)
 .fi
 
 .SH EXAMPLES
 
 More verbose examples are available at
-http://www.secdev.org/projects/scapy/demo.html
+https://scapy.net/demo/
 Just run \fBscapy\fP and try the following commands in the interpreter.
 
 .LP
 Test the robustness of a network stack with invalid packets:
 .nf
-sr(IP(dst="172.16.1.1", ihl=2, options="\verb$\x02$", version=3)/ICMP())
+sr(IP(dst="172.16.1.1", ihl=2, options="\everb$\ex02$", version=3)/ICMP())
 .fi
 
 .LP
@@ -175,15 +177,15 @@ report_ports("192.168.2.34", (20,30))
 .SH SEE ALSO
 
 .nf
-https://scapy.net/
-https://github.com/secdev/scapy/
-https://scapy.readthedocs.io/en/latest/
+The official website: \fIhttps://scapy.net/\fP
+The GitHub Development repository: \fIhttps://github.com/secdev/scapy/\fP
+The official documentation: \fIhttps://scapy.readthedocs.io/en/latest/\fP
 .fi
 
 .SH BUGS
 Does not give the right source IP for routes that use interface aliases.
 
-May miss packets under heavy load.
+May miss packets under heavy load. This is a restriction from python itself
 
 Session saving is limited by Python ability to marshal objects. As a 
 consequence, lambda functions and generators can't be saved, which seriously

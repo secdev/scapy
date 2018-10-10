@@ -13,7 +13,6 @@ from __future__ import print_function
 import sys
 import os
 import getopt
-import re
 import code
 import gzip
 import glob
@@ -25,7 +24,7 @@ import io
 
 # Never add any global import, in main.py, that would trigger a warning message  # noqa: E501
 # before the console handlers gets added in interact()
-from scapy.error import log_interactive, log_loading, log_scapy, warning
+from scapy.error import log_interactive, log_loading, log_scapy
 import scapy.modules.six as six
 from scapy.themes import DefaultTheme, BlackAndWhite, apply_ipython_style
 from scapy.consts import WINDOWS
@@ -218,7 +217,7 @@ def update_ipython_session(session):
     try:
         global get_ipython
         get_ipython().user_ns.update(session)
-    except:
+    except Exception:
         pass
 
 
@@ -239,7 +238,7 @@ def save_session(fname=None, session=None, pickleProto=-1):
     if session is None:
         try:
             session = get_ipython().user_ns
-        except:
+        except Exception:
             session = six.moves.builtins.__dict__["scapy_session"]
 
     to_be_saved = session.copy()
@@ -365,7 +364,7 @@ def scapy_delete_temp_files():
     for f in conf.temp_files:
         try:
             os.unlink(f)
-        except:
+        except Exception:
             pass
     del(conf.temp_files[:])
 
@@ -441,6 +440,9 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=20):
     except getopt.GetoptError as msg:
         log_loading.error(msg)
         sys.exit(1)
+
+    # Reset sys.argv, otherwise IPython thinks it is for him
+    sys.argv = sys.argv[:1]
 
     init_session(session_name, mydict)
 
@@ -537,7 +539,7 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=20):
                     user_ns=SESSION,
                     exec_lines=["print(\"\"\"" + banner + "\"\"\")"]
                 )
-            except:
+            except Exception:
                 code.interact(banner=the_banner, local=SESSION)
         else:
             cfg = Config()
@@ -569,7 +571,7 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=20):
     for k in GLOBKEYS:
         try:
             del(six.moves.builtins.__dict__[k])
-        except:
+        except Exception:
             pass
 
 

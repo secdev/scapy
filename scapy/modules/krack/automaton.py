@@ -66,6 +66,7 @@ class KrackAP(Automaton):
 
     def __init__(self, *args, **kargs):
         kargs.setdefault("ll", conf.L2socket)
+        kargs.setdefault("monitor", True)
         super(KrackAP, self).__init__(*args, **kargs)
 
     def parse_args(self, ap_mac, ssid, passphrase,

@@ -15,20 +15,21 @@ import struct
 
 from scapy.ansmachine import AnsweringMachine
 from scapy.base_classes import Net
-from scapy.data import chb, orb, raw
+from scapy.compat import chb, orb, raw
 from scapy.fields import ByteEnumField, ByteField, Field, FieldListField, \
     FlagsField, IntField, IPField, ShortField, StrField
 from scapy.layers.inet import UDP, IP
 from scapy.layers.l2 import Ether
-from scapy.packet import bind_layers, bind_bottom_up
+from scapy.packet import bind_layers, bind_bottom_up, Packet
 from scapy.utils import atol, itom, ltoa, sane
 from scapy.volatile import RandBin, RandField, RandNum, RandNumExpo
 
 from scapy.arch import get_if_raw_hwaddr
-from scapy.sendrecv import *
+from scapy.sendrecv import srp1, sendp
 from scapy.error import warning
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
+from scapy.config import conf
 
 dhcpmagic = b"c\x82Sc"
 
@@ -67,7 +68,7 @@ class BOOTP(Packet):
             return b"", None
 
     def hashret(self):
-        return struct.pack("L", self.xid)
+        return struct.pack("!I", self.xid)
 
     def answers(self, other):
         if not isinstance(other, BOOTP):
@@ -248,7 +249,7 @@ class DHCPOptionsField(StrField):
                         while left:
                             left, val = f.getfield(pkt, left)
                             lval.append(val)
-                    except:
+                    except Exception:
                         opt.append(x)
                         break
                     else:
@@ -275,7 +276,9 @@ class DHCPOptionsField(StrField):
                 elif name in DHCPRevOptions:
                     onum, f = DHCPRevOptions[name]
                     if f is not None:
-                        lval = [f.addfield(pkt, b"", f.any2i(pkt, val)) for val in lval]  # noqa: E501
+                        lval = (f.addfield(pkt, b"", f.any2i(pkt, val)) for val in lval)  # noqa: E501
+                    else:
+                        lval = (raw(x) for x in lval)
                     oval = b"".join(lval)
                 else:
                     warning("Unknown field option %s", name)
@@ -310,13 +313,14 @@ bind_layers(BOOTP, DHCP, options=b'c\x82Sc')
 
 @conf.commands.register
 def dhcp_request(iface=None, **kargs):
+    """Send a DHCP discover request and return the answer"""
     if conf.checkIPaddr != 0:
         warning("conf.checkIPaddr is not 0, I may not be able to match the answer")  # noqa: E501
     if iface is None:
         iface = conf.iface
     fam, hw = get_if_raw_hwaddr(iface)
-    return srp1(Ether(dst="ff:ff:ff:ff:ff:ff") / IP(src="0.0.0.0", dst="255.255.255.255") / UDP(sport=68, dport=67)  # noqa: E501
-                / BOOTP(chaddr=hw) / DHCP(options=[("message-type", "discover"), "end"]), iface=iface, **kargs)  # noqa: E501
+    return srp1(Ether(dst="ff:ff:ff:ff:ff:ff") / IP(src="0.0.0.0", dst="255.255.255.255") / UDP(sport=68, dport=67) /  # noqa: E501
+                BOOTP(chaddr=hw) / DHCP(options=[("message-type", "discover"), "end"]), iface=iface, **kargs)  # noqa: E501
 
 
 class BOOTP_am(AnsweringMachine):
@@ -357,7 +361,7 @@ class BOOTP_am(AnsweringMachine):
         print("Reply %s to %s" % (reply.getlayer(IP).dst, reply.dst))
 
     def make_reply(self, req):
-        mac = req.src
+        mac = req[Ether].src
         if isinstance(self.pool, list):
             if mac not in self.leases:
                 self.leases[mac] = self.pool.pop()

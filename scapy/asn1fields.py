@@ -9,11 +9,13 @@ Classes that implement ASN.1 data structures.
 """
 
 from __future__ import absolute_import
-from scapy.asn1.asn1 import *
-from scapy.asn1.ber import *
-from scapy.asn1.mib import *
-from scapy.volatile import *
-from scapy.compat import *
+from scapy.asn1.asn1 import ASN1_Class_UNIVERSAL, ASN1_NULL, ASN1_Error, \
+    ASN1_Object, ASN1_INTEGER
+from scapy.asn1.ber import BER_tagging_dec, BER_Decoding_Error, BER_id_dec, \
+    BER_tagging_enc
+from scapy.volatile import RandInt, RandChoice, RandNum, RandString, RandOID, \
+    GeneralizedTime
+from scapy.compat import orb, raw
 from scapy.base_classes import BasePacket
 from scapy.utils import binrepr
 from scapy import packet
@@ -102,10 +104,10 @@ class ASN1F_field(ASN1F_element):
         if x is None:
             return b""
         if isinstance(x, ASN1_Object):
-            if (self.ASN1_tag == ASN1_Class_UNIVERSAL.ANY
-                or x.tag == ASN1_Class_UNIVERSAL.RAW
-                or x.tag == ASN1_Class_UNIVERSAL.ERROR
-                    or self.ASN1_tag == x.tag):
+            if (self.ASN1_tag == ASN1_Class_UNIVERSAL.ANY or
+                x.tag == ASN1_Class_UNIVERSAL.RAW or
+                x.tag == ASN1_Class_UNIVERSAL.ERROR or
+               self.ASN1_tag == x.tag):
                 s = x.enc(pkt.ASN1_codec)
             else:
                 raise ASN1_Error("Encoding Error: got %r instead of an %r for field [%s]" % (x, self.ASN1_tag, self.name))  # noqa: E501

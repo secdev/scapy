@@ -118,3 +118,11 @@ assert(p.value == b'a'*200)
 assert(p.len == None)
 assert(p.length == None)
 
+= MQTT without payload
+p = MQTT()
+assert(bytes(p) == b'\x10\x00')
+
+= MQTT RandVariableFieldLen
+assert(type(MQTT().fieldtype['len'].randval()) == RandVariableFieldLen)
+assert(type(MQTT().fieldtype['len'].randval() + 0) == int)
+

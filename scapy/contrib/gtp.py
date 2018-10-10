@@ -223,8 +223,8 @@ class GTPHeader(Packet):
     def post_build(self, p, pay):
         p += pay
         if self.length is None:
-            l = len(p) - 8
-            p = p[:2] + struct.pack("!H", l) + p[4:]
+            tmp_len = len(p) - 8
+            p = p[:2] + struct.pack("!H", tmp_len) + p[4:]
         return p
 
     def hashret(self):
@@ -444,8 +444,8 @@ class IE_AccessPointName(IE_Base):
 
     def post_build(self, p, pay):
         if self.length is None:
-            l = len(p) - 3
-            p = p[:2] + struct.pack("!B", l) + p[3:]
+            tmp_len = len(p) - 3
+            p = p[:2] + struct.pack("!B", tmp_len) + p[3:]
         return p
 
 

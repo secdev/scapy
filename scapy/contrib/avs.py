@@ -17,10 +17,11 @@
 # scapy.contrib.description = AVS WLAN Monitor Header
 # scapy.contrib.status = loads
 
-from scapy.packet import *
-from scapy.fields import *
-from scapy.layers.dot11 import *
+from scapy.packet import Packet, bind_layers
+from scapy.fields import IntEnumField, IntField, LongField, SignedIntField
+from scapy.layers.dot11 import Dot11
 from scapy.data import DLT_IEEE802_11_RADIO_AVS
+from scapy.config import conf
 
 AVSWLANPhyType = {0: "Unknown",
                   1: "FHSS 802.11 '97",

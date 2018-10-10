@@ -12,8 +12,8 @@ from scapy.config import conf
 from scapy.error import log_loading
 from scapy.main import load_layer
 import logging
-import importlib
 import scapy.modules.six as six
+
 ignored = list(six.moves.builtins.__dict__) + ["sys"]
 log = logging.getLogger("scapy.loading")
 

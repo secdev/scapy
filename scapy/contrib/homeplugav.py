@@ -18,8 +18,14 @@
 # scapy.contrib.status = loads
 
 from __future__ import absolute_import
-from scapy.packet import *
-from scapy.fields import *
+import struct
+
+from scapy.packet import Packet, bind_layers
+from scapy.fields import BitField, ByteEnumField, ByteField, \
+    ConditionalField, EnumField, FieldLenField, IntField, LEIntField, \
+    LELongField, LEShortField, MACField, PacketListField, ShortField, \
+    StrFixedLenField, StrLenField, X3BytesField, XByteField, XIntField, \
+    XLongField, XShortField
 from scapy.layers.l2 import Ether
 from scapy.modules.six.moves import range
 
@@ -45,7 +51,7 @@ HPAVTypeList = {0xA000: "'Get Device/sw version Request'",
                 0xA024: "'Read Module Data Request'",
                 0xA025: "'Read Module Data Confirmation'",
                 0xA028: "'Write Module Data to NVM Request'",
-                0xA028: "'Write Module Data to NVM Confirmation'",
+                0xA029: "'Write Module Data to NVM Confirmation'",
                 0xA034: "'Sniffer Request'",
                 0xA035: "'Sniffer Confirmation'",
                 0xA036: "'Sniffer Indicates'",
@@ -56,7 +62,7 @@ HPAVTypeList = {0xA000: "'Get Device/sw version Request'",
                 0xA050: "'Set Encryption Key Request'",
                 0xA051: "'Set Encryption Key Request Confirmation'",
                 0xA058: "'Read Configuration Block Request'",
-                0xA058: "'Read Configuration Block Confirmation'",
+                0xA059: "'Read Configuration Block Confirmation'",
                 0xA062: "'Embedded Host Action Required Indication'"}
 
 HPAVversionList = {0x00: "1.0",
@@ -156,7 +162,7 @@ EofPadList = [0xA000, 0xA038]  # TODO: The complete list of Padding can help to 
 
 def FragmentCond(pkt):
     """
-        A fragementation field condition
+        A fragmentation field condition
         TODO: To complete
     """
     fragTypeTable = [0xA038, 0xA039]
@@ -727,7 +733,7 @@ class EventBlockArray(Packet):
 class ModulePIB(Packet):
     """
         Simple Module PIB Decoder.
-            /!\ A wrong slice would produce 'bad' results
+            /!/ A wrong slice would produce 'bad' results
     """
     name = "ModulePIB"
     __slots__ = ["_ModulePIB__offset", "_ModulePIB__length"]

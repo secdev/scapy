@@ -8,13 +8,24 @@
 X.509 certificates.
 """
 
-from scapy.asn1.asn1 import *
-from scapy.asn1.ber import *
-from scapy.asn1packet import *
-from scapy.asn1fields import *
+from scapy.asn1.asn1 import ASN1_Codecs, ASN1_OID, \
+    ASN1_IA5_STRING, ASN1_NULL, ASN1_PRINTABLE_STRING, \
+    ASN1_UTC_TIME, ASN1_UTF8_STRING
+from scapy.asn1.ber import BER_tagging_dec, BER_Decoding_Error
+from scapy.asn1packet import ASN1_Packet
+from scapy.asn1fields import ASN1F_BIT_STRING, ASN1F_BIT_STRING_ENCAPS, \
+    ASN1F_BMP_STRING, ASN1F_BOOLEAN, ASN1F_CHOICE, ASN1F_ENUMERATED, \
+    ASN1F_FLAGS, ASN1F_GENERALIZED_TIME, ASN1F_IA5_STRING, ASN1F_INTEGER, \
+    ASN1F_ISO646_STRING, ASN1F_NULL, ASN1F_OID, ASN1F_PACKET, \
+    ASN1F_PRINTABLE_STRING, ASN1F_SEQUENCE, ASN1F_SEQUENCE_OF, ASN1F_SET_OF, \
+    ASN1F_STRING, ASN1F_T61_STRING, ASN1F_UNIVERSAL_STRING, ASN1F_UTC_TIME, \
+    ASN1F_UTF8_STRING, ASN1F_badsequence, ASN1F_enum_INTEGER, ASN1F_field, \
+    ASN1F_optional
 from scapy.packet import Packet
 from scapy.fields import PacketField
-from scapy.volatile import *
+from scapy.volatile import ZuluTime, GeneralizedTime
+from scapy.config import conf
+from scapy.compat import plain_str
 
 
 class ASN1P_OID(ASN1_Packet):

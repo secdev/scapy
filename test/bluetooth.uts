@@ -1,6 +1,58 @@
 % Scapy Bluetooth layer tests
 
++ Bluetooth tests
+
+= HCI layers
+# a crazy packet with all classes in it!
+pkt = HCI_ACL_Hdr()/HCI_Cmd_Complete_Read_BD_Addr()/HCI_Cmd_Connect_Accept_Timeout()/HCI_Cmd_Disconnect()/HCI_Cmd_LE_Connection_Update()/HCI_Cmd_LE_Create_Connection()/HCI_Cmd_LE_Create_Connection_Cancel()/HCI_Cmd_LE_Host_Supported()/HCI_Cmd_LE_Long_Term_Key_Request_Negative_Reply()/HCI_Cmd_LE_Long_Term_Key_Request_Reply()/HCI_Cmd_LE_Read_Buffer_Size()/HCI_Cmd_LE_Set_Advertise_Enable()/HCI_Cmd_LE_Set_Advertising_Data()/HCI_Cmd_LE_Set_Advertising_Parameters()/HCI_Cmd_LE_Set_Random_Address()/HCI_Cmd_LE_Set_Scan_Enable()/HCI_Cmd_LE_Set_Scan_Parameters()/HCI_Cmd_LE_Start_Encryption_Request()/HCI_Cmd_Read_BD_Addr()/HCI_Cmd_Reset()/HCI_Cmd_Set_Event_Filter()/HCI_Cmd_Set_Event_Mask()/HCI_Command_Hdr()/HCI_Event_Command_Complete()/HCI_Event_Command_Status()/HCI_Event_Disconnection_Complete()/HCI_Event_Encryption_Change()/HCI_Event_Hdr()/HCI_Event_LE_Meta()/HCI_Event_Number_Of_Completed_Packets()/HCI_Hdr()/HCI_LE_Meta_Advertising_Report()/HCI_LE_Meta_Connection_Complete()/HCI_LE_Meta_Connection_Update_Complete()/HCI_LE_Meta_Long_Term_Key_Request()
+assert HCI_ACL_Hdr in pkt.layers()
+assert HCI_Cmd_Complete_Read_BD_Addr in pkt.layers()
+assert HCI_Cmd_Connect_Accept_Timeout in pkt.layers()
+assert HCI_Cmd_Disconnect in pkt.layers()
+assert HCI_Cmd_LE_Connection_Update in pkt.layers()
+assert HCI_Cmd_LE_Create_Connection in pkt.layers()
+assert HCI_Cmd_LE_Create_Connection_Cancel in pkt.layers()
+assert HCI_Cmd_LE_Host_Supported in pkt.layers()
+assert HCI_Cmd_LE_Long_Term_Key_Request_Negative_Reply in pkt.layers()
+assert HCI_Cmd_LE_Long_Term_Key_Request_Reply in pkt.layers()
+assert HCI_Cmd_LE_Read_Buffer_Size in pkt.layers()
+assert HCI_Cmd_LE_Set_Advertise_Enable in pkt.layers()
+assert HCI_Cmd_LE_Set_Advertising_Data in pkt.layers()
+assert HCI_Cmd_LE_Set_Advertising_Parameters in pkt.layers()
+assert HCI_Cmd_LE_Set_Random_Address in pkt.layers()
+assert HCI_Cmd_LE_Set_Scan_Enable in pkt.layers()
+assert HCI_Cmd_LE_Set_Scan_Parameters in pkt.layers()
+assert HCI_Cmd_LE_Start_Encryption_Request in pkt.layers()
+assert HCI_Cmd_Read_BD_Addr in pkt.layers()
+assert HCI_Cmd_Reset in pkt.layers()
+assert HCI_Cmd_Set_Event_Filter in pkt.layers()
+assert HCI_Cmd_Set_Event_Mask in pkt.layers()
+assert HCI_Command_Hdr in pkt.layers()
+assert HCI_Event_Command_Complete in pkt.layers()
+assert HCI_Event_Command_Status in pkt.layers()
+assert HCI_Event_Disconnection_Complete in pkt.layers()
+assert HCI_Event_Encryption_Change in pkt.layers()
+assert HCI_Event_Hdr in pkt.layers()
+assert HCI_Event_LE_Meta in pkt.layers()
+assert HCI_Event_Number_Of_Completed_Packets in pkt.layers()
+assert HCI_Hdr in pkt.layers()
+assert HCI_LE_Meta_Advertising_Report in pkt.layers()
+assert HCI_LE_Meta_Connection_Complete in pkt.layers()
+assert HCI_LE_Meta_Connection_Update_Complete in pkt.layers()
+assert HCI_LE_Meta_Long_Term_Key_Request in pkt.layers()
+
++ Bluetooth Transport Layers
+= Test HCI_PHDR_Hdr
+
+pkt = HCI_PHDR_Hdr()/HCI_Hdr()/HCI_ACL_Hdr()/L2CAP_Hdr()/L2CAP_CmdHdr()/L2CAP_InfoReq()
+assert raw(pkt) == b'\x00\x00\x00\x00\x02\x00\x00\n\x00\x06\x00\x05\x00\n\x00\x02\x00\x00\x00'
+pkt = HCI_PHDR_Hdr(raw(pkt))
+
+assert HCI_Hdr in pkt
+assert L2CAP_InfoReq in pkt
+
 + HCI Commands
+
 = LE Create Connection Cancel
 
 expected_cmd_raw_data = hex_bytes("010e2000")
@@ -110,3 +162,21 @@ b.show()
 b.mysummary()
 assert ATT_Read_By_Type_Request in b
 assert not Raw in b
+
+= L2CAP layers
+
+# a crazy packet with all classes in it!
+pkt = L2CAP_CmdHdr()/L2CAP_CmdRej()/L2CAP_ConfReq()/L2CAP_ConfResp()/L2CAP_ConnReq()/L2CAP_ConnResp()/L2CAP_Connection_Parameter_Update_Request()/L2CAP_Connection_Parameter_Update_Response()/L2CAP_DisconnReq()/L2CAP_DisconnResp()/L2CAP_Hdr()/L2CAP_InfoReq()/L2CAP_InfoResp()
+assert L2CAP_CmdHdr in pkt.layers()
+assert L2CAP_CmdRej in pkt.layers()
+assert L2CAP_ConfReq in pkt.layers()
+assert L2CAP_ConfResp in pkt.layers()
+assert L2CAP_ConnReq in pkt.layers()
+assert L2CAP_ConnResp in pkt.layers()
+assert L2CAP_Connection_Parameter_Update_Request in pkt.layers()
+assert L2CAP_Connection_Parameter_Update_Response in pkt.layers()
+assert L2CAP_DisconnReq in pkt.layers()
+assert L2CAP_DisconnResp in pkt.layers()
+assert L2CAP_Hdr in pkt.layers()
+assert L2CAP_InfoReq in pkt.layers()
+assert L2CAP_InfoResp in pkt.layers()

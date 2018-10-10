@@ -9,7 +9,7 @@ External link to programs
 
 import os
 import subprocess
-from scapy.error import *
+from scapy.error import log_loading
 
 # Notice: this file must not be called before main.py, if started
 # in interactive mode, because it needs to be called after the
@@ -42,14 +42,14 @@ def _test_pyx():
     try:
         with open(os.devnull, 'wb') as devnull:
             r = subprocess.check_call(["pdflatex", "--version"], stdout=devnull, stderr=subprocess.STDOUT)  # noqa: E501
-    except:
+    except Exception:
         return False
     else:
         return r == 0
 
 
 try:
-    import pyx
+    import pyx  # noqa: F401
     if _test_pyx():
         PYX = 1
     else:

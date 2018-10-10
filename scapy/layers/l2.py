@@ -34,10 +34,10 @@ from scapy.packet import bind_layers, Packet
 from scapy.plist import PacketList, SndRcvList
 from scapy.sendrecv import sendp, srp, srp1
 from scapy.utils import checksum, hexdump, hexstr, inet_ntoa, inet_aton, \
-    mac2str, valid_mac, valid_ip, valid_net, valid_net6
+    mac2str, valid_mac, valid_net, valid_net6
 if conf.route is None:
     # unused import, only to initialize conf.route
-    import scapy.route
+    import scapy.route  # noqa: F401
 
 
 #################
@@ -136,7 +136,7 @@ class SourceMACField(MACField):
             if iff:
                 try:
                     x = get_if_hwaddr(iff)
-                except:
+                except Exception:
                     pass
             if x is None:
                 x = "00:00:00:00:00:00"
@@ -191,8 +191,8 @@ class Dot3(Packet):
                    LenField("len", None, "H")]
 
     def extract_padding(self, s):
-        l = self.len
-        return s[:l], s[l:]
+        tmp_len = self.len
+        return s[:tmp_len], s[tmp_len:]
 
     def answers(self, other):
         if isinstance(other, Dot3):
@@ -682,7 +682,7 @@ class ARP_am(AnsweringMachine):
         if self.ARP_addr is None:
             try:
                 ARP_addr = get_if_hwaddr(iff)
-            except:
+            except Exception:
                 ARP_addr = "00:00:00:00:00:00"
                 pass
         else:

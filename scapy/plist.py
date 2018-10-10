@@ -194,17 +194,17 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
 
         # Get the list of packets
         if lfilter is None:
-            l = [f(*e) for e in self.res]
+            lst_pkts = [f(*e) for e in self.res]
         else:
-            l = [f(*e) for e in self.res if lfilter(*e)]
+            lst_pkts = [f(*e) for e in self.res if lfilter(*e)]
 
         # Mimic the default gnuplot output
         if kargs == {}:
             kargs = MATPLOTLIB_DEFAULT_PLOT_KARGS
         if plot_xy:
-            lines = plt.plot(*zip(*l), **kargs)
+            lines = plt.plot(*zip(*lst_pkts), **kargs)
         else:
-            lines = plt.plot(l, **kargs)
+            lines = plt.plot(lst_pkts, **kargs)
 
         # Call show() if matplotlib is not inlined
         if not MATPLOTLIB_INLINED:
@@ -221,17 +221,17 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
 
         # Get the list of packets
         if lfilter is None:
-            l = [f(self.res[i], self.res[i + 1])
-                 for i in range(len(self.res) - delay)]
+            lst_pkts = [f(self.res[i], self.res[i + 1])
+                        for i in range(len(self.res) - delay)]
         else:
-            l = [f(self.res[i], self.res[i + 1])
-                 for i in range(len(self.res) - delay)
-                 if lfilter(self.res[i])]
+            lst_pkts = [f(self.res[i], self.res[i + 1])
+                        for i in range(len(self.res) - delay)
+                        if lfilter(self.res[i])]
 
         # Mimic the default gnuplot output
         if kargs == {}:
             kargs = MATPLOTLIB_DEFAULT_PLOT_KARGS
-        lines = plt.plot(l, **kargs)
+        lines = plt.plot(lst_pkts, **kargs)
 
         # Call show() if matplotlib is not inlined
         if not MATPLOTLIB_INLINED:
@@ -252,13 +252,13 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
 
         # Get the list of packets
         if lfilter is None:
-            l = (f(*e) for e in self.res)
+            lst_pkts = (f(*e) for e in self.res)
         else:
-            l = (f(*e) for e in self.res if lfilter(*e))
+            lst_pkts = (f(*e) for e in self.res if lfilter(*e))
 
         # Apply the function f to the packets
         d = {}
-        for k, v in l:
+        for k, v in lst_pkts:
             d.setdefault(k, []).append(v)
 
         # Mimic the default gnuplot output
@@ -359,7 +359,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
             p = self._elt2pkt(p)
             try:
                 c = getsrcdst(p)
-            except:
+            except Exception:
                 # No warning here: it's OK that getsrcdst() raises an
                 # exception, since it might be, for example, a
                 # function that expects a specific layer in each
@@ -395,23 +395,23 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
             try:
                 s, e, d = src(i), event(i), dst(i)
                 if s in sl:
-                    n, l = sl[s]
+                    n, lst = sl[s]
                     n += 1
-                    if e not in l:
-                        l.append(e)
-                    sl[s] = (n, l)
+                    if e not in lst:
+                        lst.append(e)
+                    sl[s] = (n, lst)
                 else:
                     sl[s] = (1, [e])
                 if e in el:
-                    n, l = el[e]
+                    n, lst = el[e]
                     n += 1
-                    if d not in l:
-                        l.append(d)
-                    el[e] = (n, l)
+                    if d not in lst:
+                        lst.append(d)
+                    el[e] = (n, lst)
                 else:
                     el[e] = (1, [d])
                 dl[d] = dl.get(d, 0) + 1
-            except:
+            except Exception:
                 continue
 
         import math
@@ -436,12 +436,12 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
 
         gr += "# src nodes\n"
         for s in sl:
-            n, l = sl[s]
+            n, _ = sl[s]
             n = 1 + float(n - mins) / (maxs - mins)
             gr += '"src.%s" [label = "%s", shape=box, fillcolor="#FF0000", style=filled, fixedsize=1, height=%.2f,width=%.2f];\n' % (repr(s), repr(s), n, n)  # noqa: E501
         gr += "# event nodes\n"
         for e in el:
-            n, l = el[e]
+            n, _ = el[e]
             n = n = 1 + float(n - mine) / (maxe - mine)
             gr += '"evt.%s" [label = "%s", shape=circle, fillcolor="#00FFFF", style=filled, fixedsize=1, height=%.2f, width=%.2f];\n' % (repr(e), repr(e), n, n)  # noqa: E501
         for d in dl:
@@ -451,12 +451,12 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
 
         gr += "###\n"
         for s in sl:
-            n, l = sl[s]
-            for e in l:
+            n, lst = sl[s]
+            for e in lst:
                 gr += ' "src.%s" -> "evt.%s";\n' % (repr(s), repr(e))
         for e in el:
-            n, l = el[e]
-            for d in l:
+            n, lst = el[e]
+            for d in lst:
                 gr += ' "evt.%s" -> "dst.%s";\n' % (repr(e), repr(d))
 
         gr += "}"
@@ -465,11 +465,11 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
     def _dump_document(self, **kargs):
         import pyx
         d = pyx.document.document()
-        l = len(self.res)
+        len_res = len(self.res)
         for i, res in enumerate(self.res):
             c = self._elt2pkt(res).canvas_dump(**kargs)
             cbb = c.bbox()
-            c.text(cbb.left(), cbb.top() + 1, r"\font\cmssfont=cmss12\cmssfont{Frame %i/%i}" % (i, l), [pyx.text.size.LARGE])  # noqa: E501
+            c.text(cbb.left(), cbb.top() + 1, r"\font\cmssfont=cmss12\cmssfont{Frame %i/%i}" % (i, len_res), [pyx.text.size.LARGE])  # noqa: E501
             if conf.verb >= 2:
                 os.write(1, b".")
             d.append(pyx.document.page(c, paperformat=pyx.document.paperformat.A4,  # noqa: E501

@@ -11,10 +11,10 @@ Wireshark dissectors. See https://wiki.wireshark.org/CANopen
 
 import struct
 import scapy.modules.six as six
-from scapy.compat import *
+from scapy.compat import raw
 from scapy.config import conf
 from scapy.data import DLT_CAN_SOCKETCAN
-from scapy.fields import BitField, FieldLenField, FlagsField, StrLenField, \
+from scapy.fields import FieldLenField, FlagsField, StrLenField, \
     ThreeBytesField, XBitField
 from scapy.packet import Packet, bind_layers, RawVal
 from scapy.layers.l2 import CookedLinux

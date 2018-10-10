@@ -21,22 +21,28 @@ from __future__ import print_function
 import socket
 
 from scapy.pton_ntop import inet_pton
-from scapy.utils import randstring
+from scapy.utils import randstring, repr_hex
 from scapy.automaton import ATMT
 from scapy.layers.tls.automaton import _TLSAutomaton
 from scapy.layers.tls.basefields import _tls_version, _tls_version_options
 from scapy.layers.tls.session import tlsSession
-from scapy.layers.tls.extensions import (TLS_Ext_SupportedGroups,
-                                         TLS_Ext_SupportedVersions,
-                                         TLS_Ext_SignatureAlgorithms,
-                                         TLS_Ext_ServerName, ServerName)
-from scapy.layers.tls.handshake import *
-from scapy.layers.tls.handshake_sslv2 import *
-from scapy.layers.tls.keyexchange_tls13 import (TLS_Ext_KeyShare_CH,
-                                                KeyShareEntry)
-from scapy.layers.tls.record import (TLS, TLSAlert, TLSChangeCipherSpec,
-                                     TLSApplicationData)
+from scapy.layers.tls.extensions import TLS_Ext_SupportedGroups, \
+    TLS_Ext_SupportedVersions, TLS_Ext_SignatureAlgorithms
+from scapy.layers.tls.handshake import TLSCertificate, TLSCertificateRequest, \
+    TLSCertificateVerify, TLSClientHello, TLSClientKeyExchange, \
+    TLSEncryptedExtensions, TLSFinished, TLSServerHello, TLSServerHelloDone, \
+    TLSServerKeyExchange, TLS13Certificate, TLS13ServerHello
+from scapy.layers.tls.handshake_sslv2 import SSLv2ClientHello, \
+    SSLv2ServerHello, SSLv2ClientMasterKey, SSLv2ServerVerify, \
+    SSLv2ClientFinished, SSLv2ServerFinished, SSLv2ClientCertificate, \
+    SSLv2RequestCertificate
+from scapy.layers.tls.keyexchange_tls13 import TLS_Ext_KeyShare_CH, \
+    KeyShareEntry
+from scapy.layers.tls.record import TLSAlert, TLSChangeCipherSpec, \
+    TLSApplicationData
 from scapy.modules import six
+from scapy.packet import Raw
+from scapy.compat import raw
 
 
 class TLSClientAutomaton(_TLSAutomaton):
@@ -74,7 +80,7 @@ class TLSClientAutomaton(_TLSAutomaton):
                 inet_pton(socket.AF_INET6, server)
             else:
                 inet_pton(socket.AF_INET, server)
-        except:
+        except Exception:
             self.remote_name = socket.getfqdn(server)
             if self.remote_name != server:
                 tmp = socket.getaddrinfo(self.remote_name, dport)
@@ -511,7 +517,7 @@ class TLSClientAutomaton(_TLSAutomaton):
         self.add_msg(TLSAlert(level=1, descr=0))
         try:
             self.flush_records()
-        except:
+        except Exception:
             self.vprint("Could not send termination Alert, maybe the server stopped?")  # noqa: E501
         raise self.FINAL()
 
@@ -800,7 +806,7 @@ class TLSClientAutomaton(_TLSAutomaton):
         self.add_msg(Raw('goodbye'))
         try:
             self.flush_records()
-        except:
+        except Exception:
             self.vprint("Could not send our goodbye. The server probably stopped.")  # noqa: E501
         self.socket.close()
         raise self.FINAL()

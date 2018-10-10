@@ -7,12 +7,11 @@
 TLS session handler.
 """
 
-import random
 import socket
 import struct
 
 from scapy.config import conf
-from scapy.compat import *
+from scapy.compat import raw
 import scapy.modules.six as six
 from scapy.error import log_runtime, warning
 from scapy.packet import Packet
@@ -808,7 +807,7 @@ class _GenericTLSSessionInheritance(Packet):
                  _underlayer=None, tls_session=None, **fields):
         try:
             setme = self.tls_session is None
-        except:
+        except Exception:
             setme = True
 
         if setme:

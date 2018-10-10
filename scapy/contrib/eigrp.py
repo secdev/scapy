@@ -42,13 +42,23 @@
         http://trac.secdev.org/scapy/ticket/18
     - IOS / EIGRP Version Representation FIX by Dirk Loss
 """
-
 from __future__ import absolute_import
-from scapy.packet import *
-from scapy.fields import *
-from scapy.layers.inet import IP
-from scapy.layers.inet6 import *
+import socket
+import struct
+
+from scapy.packet import Packet
+from scapy.fields import StrField, IPField, XShortField, FieldLenField, \
+    StrLenField, IntField, ByteEnumField, ByteField, ConditionalField, \
+    FlagsField, IP6Field, PacketField, PacketListField, ShortEnumField, \
+    ShortField, StrFixedLenField, ThreeBytesField
+from scapy.layers.inet import IP, checksum, bind_layers
+from scapy.layers.inet6 import IPv6
 from scapy.compat import chb, raw
+from scapy.config import conf
+from scapy.utils import inet_aton, inet_ntoa
+from scapy.pton_ntop import inet_ntop, inet_pton
+from scapy.error import warning, Scapy_Exception
+from scapy.volatile import RandShort, RandString
 
 
 class EigrpIPField(StrField, IPField):
@@ -72,50 +82,50 @@ class EigrpIPField(StrField, IPField):
 
     def i2m(self, pkt, x):
         x = inet_aton(x)
-        l = self.length_from(pkt)
+        tmp_len = self.length_from(pkt)
 
-        if l <= 8:
+        if tmp_len <= 8:
             return x[:1]
-        elif l <= 16:
+        elif tmp_len <= 16:
             return x[:2]
-        elif l <= 24:
+        elif tmp_len <= 24:
             return x[:3]
         else:
             return x
 
     def m2i(self, pkt, x):
-        l = self.length_from(pkt)
+        tmp_len = self.length_from(pkt)
 
-        if l <= 8:
+        if tmp_len <= 8:
             x += b"\x00\x00\x00"
-        elif l <= 16:
+        elif tmp_len <= 16:
             x += b"\x00\x00"
-        elif l <= 24:
+        elif tmp_len <= 24:
             x += b"\x00"
 
         return inet_ntoa(x)
 
-    def prefixlen_to_bytelen(self, l):
-        if l <= 8:
-            l = 1
-        elif l <= 16:
-            l = 2
-        elif l <= 24:
-            l = 3
+    def prefixlen_to_bytelen(self, tmp_len):
+        if tmp_len <= 8:
+            tmp_len = 1
+        elif tmp_len <= 16:
+            tmp_len = 2
+        elif tmp_len <= 24:
+            tmp_len = 3
         else:
-            l = 4
+            tmp_len = 4
 
-        return l
+        return tmp_len
 
     def i2len(self, pkt, x):
-        l = self.length_from(pkt)
-        l = self.prefixlen_to_bytelen(l)
-        return l
+        tmp_len = self.length_from(pkt)
+        tmp_len = self.prefixlen_to_bytelen(tmp_len)
+        return tmp_len
 
     def getfield(self, pkt, s):
-        l = self.length_from(pkt)
-        l = self.prefixlen_to_bytelen(l)
-        return s[l:], self.m2i(pkt, s[:l])
+        tmp_len = self.length_from(pkt)
+        tmp_len = self.prefixlen_to_bytelen(tmp_len)
+        return s[tmp_len:], self.m2i(pkt, s[:tmp_len])
 
     def randval(self):
         return IPField.randval(self)
@@ -147,16 +157,16 @@ class EigrpIP6Field(StrField, IP6Field):
 
     def i2m(self, pkt, x):
         x = inet_pton(socket.AF_INET6, x)
-        l = self.length_from(pkt)
-        l = self.prefixlen_to_bytelen(l)
+        tmp_len = self.length_from(pkt)
+        tmp_len = self.prefixlen_to_bytelen(tmp_len)
 
-        return x[:l]
+        return x[:tmp_len]
 
     def m2i(self, pkt, x):
-        l = self.length_from(pkt)
+        tmp_len = self.length_from(pkt)
 
-        prefixlen = self.prefixlen_to_bytelen(l)
-        if l > 128:
+        prefixlen = self.prefixlen_to_bytelen(tmp_len)
+        if tmp_len > 128:
             warning("EigrpIP6Field: Prefix length is > 128. Dissection of this packet will fail")  # noqa: E501
         else:
             pad = b"\x00" * (16 - prefixlen)
@@ -164,23 +174,23 @@ class EigrpIP6Field(StrField, IP6Field):
 
         return inet_ntop(socket.AF_INET6, x)
 
-    def prefixlen_to_bytelen(self, l):
-        l = l // 8
+    def prefixlen_to_bytelen(self, plen):
+        plen = plen // 8
 
-        if l < 16:
-            l += 1
+        if plen < 16:
+            plen += 1
 
-        return l
+        return plen
 
     def i2len(self, pkt, x):
-        l = self.length_from(pkt)
-        l = self.prefixlen_to_bytelen(l)
-        return l
+        tmp_len = self.length_from(pkt)
+        tmp_len = self.prefixlen_to_bytelen(tmp_len)
+        return tmp_len
 
     def getfield(self, pkt, s):
-        l = self.length_from(pkt)
-        l = self.prefixlen_to_bytelen(l)
-        return s[l:], self.m2i(pkt, s[:l])
+        tmp_len = self.length_from(pkt)
+        tmp_len = self.prefixlen_to_bytelen(tmp_len)
+        return s[tmp_len:], self.m2i(pkt, s[:tmp_len])
 
     def randval(self):
         return IP6Field.randval(self)
@@ -251,8 +261,9 @@ class EIGRPSeq(EIGRPGeneric):
         p += pay
 
         if self.len is None:
-            l = len(p)
-            p = p[:2] + chb((l >> 8) & 0xff) + chb(l & 0xff) + p[4:]
+            tmp_len = len(p)
+            tmp_p = p[:2] + chb((tmp_len >> 8) & 0xff)
+            p = tmp_p + chb(tmp_len & 0xff) + p[4:]
 
         return p
 

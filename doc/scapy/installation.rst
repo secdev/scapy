@@ -136,8 +136,10 @@ Here are the topics involved and some examples that you can use to try if your i
      >>> p=readpcap("myfile.pcap")
      >>> p.conversations(type="jpg", target="> test.jpg")
  
-* 3D graphics. ``trace3D()`` needs `VPython <http://www.vpython.org/>`_.
- 
+* 3D graphics. ``trace3D()`` needs `VPython-Jupyter <https://github.com/BruceSherwood/vpython-jupyter/>`_.
+
+    Jupyter-IPython is installable via `pip install vpython`
+
   .. code-block:: python
 
      >>> a,u=traceroute(["www.python.org", "google.com","slashdot.org"])

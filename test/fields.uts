@@ -83,6 +83,21 @@ assert IP(raw(IP(dst="0.0.0.0/31"))).src == defaddr
 #b.i2m("
 #b.getfield
 
+= ThreeBytesField
+~ field threebytesfield
+
+class TestThreeBytesField(Packet):
+    fields_desc = [ 
+        X3BytesField('test1', None),
+        ThreeBytesField('test2', None),
+        LEX3BytesField('test3', None),
+        LEThreeBytesField('test4', None),
+    ]
+
+p = TestThreeBytesField(test1=0x123456, test2=123456, test3=0xfedbca, test4=567890)
+assert(raw(p) == b'\x12\x34\x56\x01\xe2\x40\xca\xdb\xfe\x52\xaa\x08')
+print(p.sprintf('%test1% %test2% %test3% %test4%'))
+assert(p.sprintf('%test1% %test2% %test3% %test4%') == '0x123456 123456 0xfedbca 567890')
 
 ############
 ############
@@ -1143,10 +1158,10 @@ True
 = Raise exception - test data
 
 dnsf = DNSStrField("test", "")
-assert(dnsf.getfield("", b"\x01x\x00") == (b"", b"x."))
+assert(dnsf.getfield(None, b"\x01x\x00") == (b"", b"x."))
 
 try:
-    dnsf.getfield("", b"\xff")
+    dnsf.getfield(None, b"\xc0\xff")
     assert(False)
 except (Scapy_Exception, IndexError):
     pass
@@ -1233,3 +1248,38 @@ except FieldValueRangeException:
 = FlasgField - Python incompatible name
 
 assert Dot11().FCfield.to_DS is False
+
+########
+########
++ MultipleTypeField
+
+= Test initialization order
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ByteEnumField("atyp", 0x1, {0x1: "IPv4", 0x3: "DNS", 0x4: "IPv6"}),
+        MultipleTypeField(
+            [
+                # IPv4
+                (IPField("addr", "0.0.0.0"), lambda pkt: pkt.atyp == 0x1),
+                # DNS
+                (DNSStrField("addr", ""), lambda pkt: pkt.atyp == 0x3),
+                # IPv6
+                (IP6Field("addr", "::"), lambda pkt: pkt.atyp == 0x4),
+            ],
+            StrField("addr", "")
+        ),
+    ]
+
+= Default order
+
+a = DebugPacket(atyp=0x3, addr="scapy.net")
+a = DebugPacket(raw(a))
+assert a.addr == b"scapy.net."
+
+= Reversed order
+
+a = DebugPacket(addr="scapy.net", atyp=0x3)
+a = DebugPacket(raw(a))
+assert a.addr == b"scapy.net."
+

@@ -73,9 +73,9 @@ class _TLSHandshake(_GenericTLSSessionInheritance):
                                length_from=lambda pkt: pkt.msglen)]
 
     def post_build(self, p, pay):
-        l = len(p)
+        tmp_len = len(p)
         if self.msglen is None:
-            l2 = l - 4
+            l2 = tmp_len - 4
             p = struct.pack("!I", (orb(p[0]) << 24) | l2) + p[4:]
         return p + pay
 
@@ -173,12 +173,12 @@ class _CipherSuitesField(StrLenField):
     def i2repr(self, pkt, x):
         if x is None:
             return "None"
-        l = [self.i2repr_one(pkt, z) for z in x]
-        if len(l) == 1:
-            l = l[0]
+        tmp_len = [self.i2repr_one(pkt, z) for z in x]
+        if len(tmp_len) == 1:
+            tmp_len = tmp_len[0]
         else:
-            l = "[%s]" % ", ".join(l)
-        return l
+            tmp_len = "[%s]" % ", ".join(tmp_len)
+        return tmp_len
 
     def i2m(self, pkt, val):
         if val is None:
@@ -522,15 +522,15 @@ class _ASN1CertListField(StrLenField):
         Extract Certs in a loop.
         XXX We should provide safeguards when trying to parse a Cert.
         """
-        l = None
+        tmp_len = None
         if self.length_from is not None:
-            l = self.length_from(pkt)
+            tmp_len = self.length_from(pkt)
 
         lst = []
         ret = b""
         m = s
-        if l is not None:
-            m, ret = s[:l], s[l:]
+        if tmp_len is not None:
+            m, ret = s[:tmp_len], s[tmp_len:]
         while m:
             clen = struct.unpack("!I", b'\x00' + m[:3])[0]
             lst.append((clen, Cert(m[3:3 + clen])))
@@ -543,13 +543,13 @@ class _ASN1CertListField(StrLenField):
                 return i
             if isinstance(i, Cert):
                 s = i.der
-                l = struct.pack("!I", len(s))[1:4]
-                return l + s
+                tmp_len = struct.pack("!I", len(s))[1:4]
+                return tmp_len + s
 
-            (l, s) = i
+            (tmp_len, s) = i
             if isinstance(s, Cert):
                 s = s.der
-            return struct.pack("!I", l)[1:4] + s
+            return struct.pack("!I", tmp_len)[1:4] + s
 
         if i is None:
             return b""
@@ -570,13 +570,13 @@ class _ASN1CertField(StrLenField):
         return len(self.i2m(pkt, i))
 
     def getfield(self, pkt, s):
-        l = None
+        tmp_len = None
         if self.length_from is not None:
-            l = self.length_from(pkt)
+            tmp_len = self.length_from(pkt)
         ret = b""
         m = s
-        if l is not None:
-            m, ret = s[:l], s[l:]
+        if tmp_len is not None:
+            m, ret = s[:tmp_len], s[tmp_len:]
         clen = struct.unpack("!I", b'\x00' + m[:3])[0]
         len_cert = (clen, Cert(m[3:3 + clen]))
         m = m[3 + clen:]
@@ -588,13 +588,13 @@ class _ASN1CertField(StrLenField):
                 return i
             if isinstance(i, Cert):
                 s = i.der
-                l = struct.pack("!I", len(s))[1:4]
-                return l + s
+                tmp_len = struct.pack("!I", len(s))[1:4]
+                return tmp_len + s
 
-            (l, s) = i
+            (tmp_len, s) = i
             if isinstance(s, Cert):
                 s = s.der
-            return struct.pack("!I", l)[1:4] + s
+            return struct.pack("!I", tmp_len)[1:4] + s
 
         if i is None:
             return b""
@@ -718,7 +718,7 @@ class TLSServerKeyExchange(_TLSHandshake):
                     cls = cls(tls_session=s)
                 try:
                     cls.fill_missing()
-                except:
+                except Exception:
                     pass
             else:
                 cls = Raw()
@@ -792,19 +792,19 @@ class _CertAuthoritiesField(StrLenField):
     islist = 1
 
     def getfield(self, pkt, s):
-        l = self.length_from(pkt)
-        return s[l:], self.m2i(pkt, s[:l])
+        tmp_len = self.length_from(pkt)
+        return s[tmp_len:], self.m2i(pkt, s[:tmp_len])
 
     def m2i(self, pkt, m):
         res = []
         while len(m) > 1:
-            l = struct.unpack("!H", m[:2])[0]
-            if len(m) < l + 2:
-                res.append((l, m[2:]))
+            tmp_len = struct.unpack("!H", m[:2])[0]
+            if len(m) < tmp_len + 2:
+                res.append((tmp_len, m[2:]))
                 break
-            dn = m[2:2 + l]
-            res.append((l, dn))
-            m = m[2 + l:]
+            dn = m[2:2 + tmp_len]
+            res.append((tmp_len, dn))
+            m = m[2 + tmp_len:]
         return res
 
     def i2m(self, pkt, i):
@@ -925,8 +925,8 @@ class _TLSCKExchKeysField(PacketField):
         or ClientECDiffieHellmanPublic. When either one of them gets
         dissected, the session context is updated accordingly.
         """
-        l = self.length_from(pkt)
-        tbd, rem = m[:l], m[l:]
+        tmp_len = self.length_from(pkt)
+        tbd, rem = m[:tmp_len], m[tmp_len:]
 
         s = pkt.tls_session
         cls = None

@@ -11,28 +11,28 @@ from __future__ import absolute_import
 
 
 import array
-import ctypes
 from fcntl import ioctl
 import os
 from select import select
 import socket
 import struct
-import sys
 import time
+import re
 
 import subprocess
 
-from scapy.compat import *
-from scapy.consts import LOOPBACK_NAME, IS_64BITS, LINUX
+from scapy.compat import raw, plain_str
+from scapy.consts import LOOPBACK_NAME, LINUX
 import scapy.utils
 import scapy.utils6
 from scapy.packet import Packet, Padding
 from scapy.config import conf
-from scapy.data import *
+from scapy.data import MTU, ETH_P_ALL
 from scapy.supersocket import SuperSocket
 import scapy.arch
 from scapy.error import warning, Scapy_Exception, log_interactive, log_loading
 from scapy.arch.common import get_if, get_bpf_pointer
+import scapy.modules.six as six
 from scapy.modules.six.moves import range
 
 
@@ -116,14 +116,16 @@ def get_if_list():
     try:
         f = open("/proc/net/dev", "rb")
     except IOError:
+        f.close()
         warning("Can't open /proc/net/dev !")
         return []
     lst = []
     f.readline()
     f.readline()
-    for l in f:
-        l = plain_str(l)
-        lst.append(l.split(":")[0].strip())
+    for line in f:
+        line = plain_str(line)
+        lst.append(line.split(":")[0].strip())
+    f.close()
     return lst
 
 
@@ -197,7 +199,7 @@ def get_alias_address(iface_name, ip_mask, gw_str, metric):
 
     # Extract interfaces names
     out = struct.unpack("iL", ifreq)[0]
-    names = names.tostring()
+    names = names.tobytes() if six.PY3 else names.tostring()
     names = [names[i:i + offset].split(b'\0', 1)[0] for i in range(0, out, name_len)]  # noqa: E501
 
     # Look for the IP address
@@ -254,9 +256,9 @@ def read_routes():
         else:
             warning("Interface %s: failed to get address config (%s)" % (scapy.consts.LOOPBACK_NAME, str(err)))  # noqa: E501
 
-    for l in f.readlines()[1:]:
-        l = plain_str(l)
-        iff, dst, gw, flags, x, x, metric, msk, x, x, x = l.split()
+    for line in f.readlines()[1:]:
+        line = plain_str(line)
+        iff, dst, gw, flags, _, _, metric, msk, _, _, _ = line.split()
         flags = int(flags, 16)
         if flags & RTF_UP == 0:
             continue
@@ -266,10 +268,12 @@ def read_routes():
             ifreq = ioctl(s, SIOCGIFADDR, struct.pack("16s16x", iff.encode("utf8")))  # noqa: E501
         except IOError:  # interface is present in routing tables but does not have any assigned IP  # noqa: E501
             ifaddr = "0.0.0.0"
+            ifaddr_int = 0
         else:
             addrfamily = struct.unpack("h", ifreq[16:18])[0]
             if addrfamily == socket.AF_INET:
                 ifaddr = scapy.utils.inet_ntoa(ifreq[20:24])
+                ifaddr_int = struct.unpack("!I", ifreq[20:24])[0]
             else:
                 warning("Interface %s: unknown address family (%i)", iff, addrfamily)  # noqa: E501
                 continue
@@ -277,7 +281,6 @@ def read_routes():
         # Attempt to detect an interface alias based on addresses inconsistencies  # noqa: E501
         dst_int = socket.htonl(int(dst, 16)) & 0xffffffff
         msk_int = socket.htonl(int(msk, 16)) & 0xffffffff
-        ifaddr_int = struct.unpack("!I", ifreq[20:24])[0]
         gw_str = scapy.utils.inet_ntoa(struct.pack("I", int(gw, 16)))
         metric = int(metric)
 
@@ -292,6 +295,7 @@ def read_routes():
             routes.append((dst_int, msk_int, gw_str, iff, ifaddr, metric))
 
     f.close()
+    s.close()
     return routes
 
 ############
@@ -323,6 +327,7 @@ def in6_getifaddr():
         )
         # (addr, scope, iface)
         ret.append((addr, int(tmp[3], 16), tmp[5]))
+    fdesc.close()
     return ret
 
 
@@ -349,9 +354,9 @@ def read_routes6():
         return scapy.utils6.in6_ptop(ret)
 
     lifaddr = in6_getifaddr()
-    for l in f.readlines():
-        l = plain_str(l)
-        d, dp, s, sp, nh, metric, rc, us, fl, dev = l.split()
+    for line in f.readlines():
+        line = plain_str(line)
+        d, dp, s, sp, nh, metric, rc, us, fl, dev = line.split()
         metric = int(metric, 16)
         fl = int(fl, 16)
 
@@ -408,15 +413,66 @@ def _flush_fd(fd):
             break
 
 
-class L3PacketSocket(SuperSocket):
-    desc = "read/write packets at layer 3 using Linux PF_PACKET sockets"
+def get_iface_mode(iface):
+    """Return the interface mode.
+    params:
+     - iface: the iwconfig interface
+    """
+    p = subprocess.Popen(["iwconfig", iface], stdout=subprocess.PIPE,
+                         stderr=subprocess.STDOUT)
+    output, err = p.communicate()
+    match = re.search(br"mode:([a-zA-Z]*)", output.lower())
+    if match:
+        return plain_str(match.group(1))
+    return "unknown"
 
-    def __init__(self, type=ETH_P_ALL, filter=None, promisc=None, iface=None, nofilter=0):  # noqa: E501
+
+def set_iface_monitor(iface, monitor):
+    """Sets the monitor mode (or remove it) from an interface.
+    params:
+     - iface: the iwconfig interface
+     - monitor: True if the interface should be set in monitor mode,
+                False if it should be in managed mode
+    """
+    mode = get_iface_mode(iface)
+    if mode == "unknown":
+        warning("Could not parse iwconfig !")
+    current_monitor = mode == "monitor"
+    if monitor == current_monitor:
+        # Already correct
+        return True
+    s_mode = "monitor" if monitor else "managed"
+
+    def _check_call(commands):
+        p = subprocess.Popen(commands,
+                             stderr=subprocess.PIPE,
+                             stdout=subprocess.PIPE)
+        stdout, stderr = p.communicate()
+        if p.returncode != 0:
+            warning("%s failed !" % " ".join(commands))
+            return False
+        return True
+    try:
+        assert _check_call(["ifconfig", iface, "down"])
+        assert _check_call(["iwconfig", iface, "mode", s_mode])
+        assert _check_call(["ifconfig", iface, "up"])
+        return True
+    except AssertionError:
+        return False
+
+
+class L2Socket(SuperSocket):
+    desc = "read/write packets at layer 2 using Linux PF_PACKET sockets"
+
+    def __init__(self, iface=None, type=ETH_P_ALL, promisc=None, filter=None,
+                 nofilter=0, monitor=None):
+        self.iface = conf.iface if iface is None else iface
         self.type = type
+        if monitor is not None:
+            if not set_iface_monitor(iface, monitor):
+                warning("Could not change interface mode !")
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))  # noqa: E501
         self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 0)
-        if iface:
-            self.ins.bind((iface, type))
         if not nofilter:
             if conf.except_filter:
                 if filter:
@@ -425,47 +481,66 @@ class L3PacketSocket(SuperSocket):
                     filter = "not (%s)" % conf.except_filter
             if filter is not None:
                 attach_filter(self.ins, filter, iface)
+        self.promisc = conf.sniff_promisc if promisc is None else promisc
+        if self.promisc:
+            set_promisc(self.ins, self.iface)
+        self.ins.bind((self.iface, type))
         _flush_fd(self.ins)
         self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2**30)
-        self.outs = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))  # noqa: E501
-        self.outs.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 2**30)
-        self.promisc = conf.promisc if promisc is None else promisc
-        if self.promisc:
-            if iface is None:
-                self.iff = get_if_list()
-            elif isinstance(iface, list):
-                self.iff = iface
-            else:
-                self.iff = [iface]
-            for i in self.iff:
-                set_promisc(self.ins, i)
+        if isinstance(self, L2ListenSocket):
+            self.outs = None
+        else:
+            self.outs = self.ins
+            self.outs.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 2**30)
+        sa_ll = self.ins.getsockname()
+        if sa_ll[3] in conf.l2types:
+            self.LL = conf.l2types[sa_ll[3]]
+            self.lvl = 2
+        elif sa_ll[1] in conf.l3types:
+            self.LL = conf.l3types[sa_ll[1]]
+            self.lvl = 3
+        else:
+            self.LL = conf.default_l2
+            self.lvl = 2
+            warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using %s", sa_ll[0], sa_ll[1], sa_ll[3], self.LL.name)  # noqa: E501
 
     def close(self):
         if self.closed:
             return
-        self.closed = 1
         if self.promisc:
-            for i in self.iff:
-                set_promisc(self.ins, i, 0)
+            set_promisc(self.ins, self.iface, 0)
         SuperSocket.close(self)
 
     def recv_raw(self, x=MTU):
         """Receives a packet, then returns a tuple containing (cls, pkt_data, time)"""  # noqa: E501
         pkt, sa_ll = self.ins.recvfrom(x)
-        if sa_ll[2] == socket.PACKET_OUTGOING:
+        if self.outs and sa_ll[2] == socket.PACKET_OUTGOING:
             return None, None, None
-        if sa_ll[3] in conf.l2types:
-            cls = conf.l2types[sa_ll[3]]
-            self.lvl = 2
-        elif sa_ll[1] in conf.l3types:
-            cls = conf.l3types[sa_ll[1]]
-            self.lvl = 3
-        else:
-            cls = conf.default_l2
-            warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using %s", sa_ll[0], sa_ll[1], sa_ll[3], cls.name)  # noqa: E501
-            self.lvl = 2
         ts = get_last_packet_timestamp(self.ins)
-        return cls, pkt, ts
+        return self.LL, pkt, ts
+
+    def send(self, x):
+        try:
+            return SuperSocket.send(self, x)
+        except socket.error as msg:
+            if msg[0] == 22 and len(x) < conf.min_pkt_size:
+                padding = b"\x00" * (conf.min_pkt_size - len(x))
+                if isinstance(x, Packet):
+                    return SuperSocket.send(self, x / Padding(load=padding))
+                else:
+                    return SuperSocket.send(self, raw(x) + padding)
+            raise
+
+
+class L2ListenSocket(L2Socket):
+    desc = "read packets at layer 2 using Linux PF_PACKET sockets. Also receives the packets going OUT"  # noqa: E501
+
+    def send(self, x):
+        raise Scapy_Exception("Can't send anything with L2ListenSocket")
+
+
+class L3PacketSocket(L2Socket):
+    desc = "read/write packets at layer 3 using Linux PF_PACKET sockets"
 
     def recv(self, x=MTU):
         pkt = SuperSocket.recv(self, x)
@@ -497,134 +572,6 @@ class L3PacketSocket(SuperSocket):
                     self.outs.sendto(raw(ll(p)), sdto)
             else:
                 raise
-
-
-class L2Socket(SuperSocket):
-    desc = "read/write packets at layer 2 using Linux PF_PACKET sockets"
-
-    def __init__(self, iface=None, type=ETH_P_ALL, promisc=None, filter=None, nofilter=0):  # noqa: E501
-        self.iface = conf.iface if iface is None else iface
-        self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))  # noqa: E501
-        self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 0)
-        if not nofilter:
-            if conf.except_filter:
-                if filter:
-                    filter = "(%s) and not (%s)" % (filter, conf.except_filter)
-                else:
-                    filter = "not (%s)" % conf.except_filter
-            if filter is not None:
-                attach_filter(self.ins, filter, iface)
-        self.promisc = conf.sniff_promisc if promisc is None else promisc
-        if self.promisc:
-            set_promisc(self.ins, self.iface)
-        self.ins.bind((self.iface, type))
-        _flush_fd(self.ins)
-        self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2**30)
-        self.outs = self.ins
-        self.outs.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 2**30)
-        sa_ll = self.outs.getsockname()
-        if sa_ll[3] in conf.l2types:
-            self.LL = conf.l2types[sa_ll[3]]
-        elif sa_ll[1] in conf.l3types:
-            self.LL = conf.l3types[sa_ll[1]]
-        else:
-            self.LL = conf.default_l2
-            warning("Unable to guess type (interface=%s protocol=%#x family=%i). Using %s", sa_ll[0], sa_ll[1], sa_ll[3], self.LL.name)  # noqa: E501
-
-    def close(self):
-        if self.closed:
-            return
-        self.closed = 1
-        if self.promisc:
-            set_promisc(self.ins, self.iface, 0)
-        SuperSocket.close(self)
-
-    def recv_raw(self, x=MTU):
-        """Receives a packet, then returns a tuple containing (cls, pkt_data, time)"""  # noqa: E501
-        pkt, sa_ll = self.ins.recvfrom(x)
-        if sa_ll[2] == socket.PACKET_OUTGOING:
-            return None, None, None
-        ts = get_last_packet_timestamp(self.ins)
-        return self.LL, pkt, ts
-
-    def send(self, x):
-        try:
-            return SuperSocket.send(self, x)
-        except socket.error as msg:
-            if msg[0] == 22 and len(x) < conf.min_pkt_size:
-                padding = b"\x00" * (conf.min_pkt_size - len(x))
-                if isinstance(x, Packet):
-                    return SuperSocket.send(self, x / Padding(load=padding))
-                else:
-                    return SuperSocket.send(self, raw(x) + padding)
-            raise
-
-
-class L2ListenSocket(SuperSocket):
-    desc = "read packets at layer 2 using Linux PF_PACKET sockets"
-
-    def __init__(self, iface=None, type=ETH_P_ALL, promisc=None, filter=None, nofilter=0):  # noqa: E501
-        self.type = type
-        self.outs = None
-        self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))  # noqa: E501
-        self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 0)
-        if iface is not None:
-            self.ins.bind((iface, type))
-        if not nofilter:
-            if conf.except_filter:
-                if filter:
-                    filter = "(%s) and not (%s)" % (filter, conf.except_filter)
-                else:
-                    filter = "not (%s)" % conf.except_filter
-            if filter is not None:
-                attach_filter(self.ins, filter, iface)
-        if promisc is None:
-            promisc = conf.sniff_promisc
-        self.promisc = promisc
-        if iface is None:
-            self.iff = get_if_list()
-        elif isinstance(iface, list):
-            self.iff = iface
-        else:
-            self.iff = [iface]
-        if self.promisc:
-            for i in self.iff:
-                set_promisc(self.ins, i)
-        _flush_fd(self.ins)
-        self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2**30)
-
-    def close(self):
-        if self.promisc:
-            for i in self.iff:
-                set_promisc(self.ins, i, 0)
-        SuperSocket.close(self)
-
-    def recv_raw(self, x=MTU):
-        """Receives a packet, then returns a tuple containing (cls, pkt_data, time)"""  # noqa: E501
-        pkt, sa_ll = self.ins.recvfrom(x)
-        if sa_ll[3] in conf.l2types:
-            cls = conf.l2types[sa_ll[3]]
-        elif sa_ll[1] in conf.l3types:
-            cls = conf.l3types[sa_ll[1]]
-        else:
-            cls = conf.default_l2
-            warning("Unable to guess type (interface=%s protocol=%#x "
-                    "family=%i). Using %s", sa_ll[0], sa_ll[1], sa_ll[3],
-                    cls.name)
-
-        ts = get_last_packet_timestamp(self.ins)
-        # direction = sa_ll[2]
-        return cls, pkt, ts  # , direction
-
-    def recv(self, x=MTU):
-        # cls, pkt, ts, direction = self.recv_raw()
-        # [Dissection stuff]
-        pkt = SuperSocket.recv(self, x)
-        # pkt.direction = direction
-        return pkt
-
-    def send(self, x):
-        raise Scapy_Exception("Can't send anything with L2ListenSocket")
 
 
 conf.L3socket = L3PacketSocket

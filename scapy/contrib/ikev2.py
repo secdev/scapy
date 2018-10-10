@@ -23,14 +23,17 @@ import struct
 
 # Modified from the original ISAKMP code by Yaron Sheffer <yaronf.ietf@gmail.com>, June 2010.  # noqa: E501
 
-from scapy.packet import *
-from scapy.fields import *
-from scapy.layers.inet6 import *
+from scapy.packet import Packet, bind_layers, split_layers, Raw
+from scapy.fields import ByteEnumField, ByteField, ConditionalField, \
+    FieldLenField, FlagsField, IP6Field, IPField, IntField, MultiEnumField, \
+    PacketField, PacketLenField, PacketListField, ShortEnumField, ShortField, \
+    StrFixedLenField, StrLenField, X3BytesField, XByteField
 from scapy.layers.x509 import X509_Cert, X509_CRL
-from scapy.ansmachine import *
 from scapy.layers.inet import IP, UDP
 from scapy.layers.isakmp import ISAKMP
 from scapy.sendrecv import sr
+from scapy.config import conf
+from scapy.volatile import RandString
 
 # see http://www.iana.org/assignments/ikev2-parameters for details
 IKEv2AttributeTypes = {"Encryption": (1, {"DES-IV64": 1,

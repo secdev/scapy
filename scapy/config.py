@@ -10,6 +10,7 @@ Implementation of the configuration object.
 from __future__ import absolute_import
 from __future__ import print_function
 import os
+import re
 import time
 import socket
 import sys
@@ -72,6 +73,7 @@ class Interceptor(object):
 class ProgPath(ConfClass):
     pdfreader = "open" if DARWIN else "xdg-open"
     psreader = "open" if DARWIN else "xdg-open"
+    svgreader = "open" if DARWIN else "xdg-open"
     dot = "dot"
     display = "display"
     tcpdump = "tcpdump"
@@ -329,6 +331,22 @@ class LogLevel(object):
         obj._logLevel = val
 
 
+def _version_checker(module, minver):
+    """Checks that module has a higher version that minver.
+
+    params:
+     - module: a module to test
+     - minver: a tuple of versions
+    """
+    # We could use LooseVersion, but distutils imports imp which is deprecated
+    version_tags = re.match(r'[a-z]?((?:\d|\.)+)', module.__version__)
+    if not version_tags:
+        return False
+    version_tags = version_tags.group(1).split(".")
+    version_tags = tuple(int(x) for x in version_tags)
+    return version_tags >= minver
+
+
 def isCryptographyValid():
     """
     Check if the cryptography library is present, and if it is recent enough
@@ -338,8 +356,7 @@ def isCryptographyValid():
         import cryptography
     except ImportError:
         return False
-    from distutils.version import LooseVersion
-    return LooseVersion(cryptography.__version__) >= LooseVersion("1.7")
+    return _version_checker(cryptography, (1, 7))
 
 
 def isCryptographyRecent():
@@ -350,8 +367,7 @@ def isCryptographyRecent():
         import cryptography
     except ImportError:
         return False
-    from distutils.version import LooseVersion
-    return LooseVersion(cryptography.__version__) >= LooseVersion("2.0")
+    return _version_checker(cryptography, (2, 0))
 
 
 def isCryptographyAdvanced():
@@ -362,7 +378,7 @@ def isCryptographyAdvanced():
     try:
         from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey  # noqa: E501
         X25519PrivateKey.generate()
-    except:
+    except Exception:
         return False
     else:
         return True
@@ -371,7 +387,7 @@ def isCryptographyAdvanced():
 def isPyPy():
     """Returns either scapy is running under PyPy or not"""
     try:
-        import __pypy__
+        import __pypy__  # noqa: F401
         return True
     except ImportError:
         return False
@@ -381,7 +397,7 @@ def _prompt_changer(attr, val):
     """Change the current prompt theme"""
     try:
         sys.ps1 = conf.color_theme.prompt(conf.prompt)
-    except:
+    except Exception:
         pass
     try:
         apply_ipython_style(get_ipython())
@@ -420,6 +436,7 @@ AS_resolver: choose the AS resolver class to use
 extensions_paths: path or list of paths where extensions are to be looked for
 contribs : a dict which can be used by contrib layers to store local configuration  # noqa: E501
 debug_tls:When 1, print some TLS session secrets when they are computed.
+recv_poll_rate: how often to check for new packets. Defaults to 0.05s.
 """
     version = VERSION
     session = ""
@@ -503,6 +520,7 @@ debug_tls:When 1, print some TLS session secrets when they are computed.
     crypto_valid_advanced = crypto_valid_recent and isCryptographyAdvanced()
     fancy_prompt = True
     auto_crop_tables = True
+    recv_poll_rate = 0.05
 
 
 if not Conf.ipv6_enabled:

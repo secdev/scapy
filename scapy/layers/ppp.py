@@ -12,7 +12,7 @@ PPP (Point to Point Protocol)
 import struct
 from scapy.config import conf
 from scapy.data import DLT_PPP, DLT_PPP_SERIAL, DLT_PPP_ETHER
-from scapy.compat import *
+from scapy.compat import orb
 from scapy.packet import Packet, bind_layers
 from scapy.layers.eap import EAP
 from scapy.layers.l2 import Ether, CookedLinux, GRE_PPTP
@@ -22,6 +22,7 @@ from scapy.fields import BitField, ByteEnumField, ByteField, \
     ConditionalField, FieldLenField, IntField, IPField, \
     PacketListField, PacketField, ShortEnumField, ShortField, \
     StrFixedLenField, StrLenField, XByteField, XShortField, XStrLenField
+import scapy.modules.six as six
 
 
 class PPPoE(Packet):
@@ -35,8 +36,8 @@ class PPPoE(Packet):
     def post_build(self, p, pay):
         p += pay
         if self.len is None:
-            l = len(p) - 6
-            p = p[:4] + struct.pack("!H", l) + p[6:]
+            tmp_len = len(p) - 6
+            p = p[:4] + struct.pack("!H", tmp_len) + p[6:]
         return p
 
 

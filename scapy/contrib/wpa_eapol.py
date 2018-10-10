@@ -15,9 +15,9 @@
 # scapy.contrib.description = WPA EAPOL dissector
 # scapy.contrib.status = loads
 
-from scapy.packet import *
-from scapy.fields import *
-from scapy.layers.l2 import *
+from scapy.packet import Packet, bind_layers
+from scapy.fields import ByteField, LenField, ShortField, StrFixedLenField, \
+    StrLenField
 from scapy.layers.eap import EAPOL
 
 
@@ -36,8 +36,8 @@ class WPA_key(Packet):
                    StrLenField("wpa_key", "", length_from=lambda pkt:pkt.wpa_key_length)]  # noqa: E501
 
     def extract_padding(self, s):
-        l = self.len
-        return s[:l], s[l:]
+        tmp_len = self.len
+        return s[:tmp_len], s[tmp_len:]
 
     def hashret(self):
         return chr(self.type) + self.payload.hashret()

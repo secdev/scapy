@@ -48,7 +48,7 @@ from scapy.fields import MACField, IPField, BitField, \
     StrLenField, ByteEnumField, BitEnumField, \
     EnumField, ThreeBytesField, BitFieldLenField, \
     ShortField, XStrLenField, ByteField
-from scapy.packet import Packet, Padding, bind_layers
+from scapy.packet import Packet, bind_layers
 from scapy.modules.six.moves import range
 import scapy.modules.six as six
 from scapy.data import ETHER_TYPES
@@ -311,7 +311,7 @@ class _LLDPidField(StrLenField):
         cls = self.subtypes_dict.get(pkt.subtype, StrLenField)
         try:
             return (cls.m2i.__func__ if six.PY2 else cls.m2i)(self, pkt, x)
-        except:
+        except Exception:
             log_runtime.exception("Failed to dissect " + self.name + " ! ")
             return StrLenField.m2i(self, pkt, x)
 
@@ -319,7 +319,7 @@ class _LLDPidField(StrLenField):
         cls = self.subtypes_dict.get(pkt.subtype, StrLenField)
         try:
             return (cls.i2m.__func__ if six.PY2 else cls.i2m)(self, pkt, x)
-        except:
+        except Exception:
             log_runtime.exception("Failed to build " + self.name + " ! ")
             return StrLenField.i2m(self, pkt, x)
 

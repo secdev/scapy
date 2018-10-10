@@ -22,15 +22,14 @@ from __future__ import absolute_import
 import struct
 
 from scapy.compat import orb
-from scapy.packet import *
-from scapy.fields import *
-from scapy.ansmachine import *
+from scapy.packet import Packet, bind_layers, bind_bottom_up
+from scapy.fields import BitField, IPField, IntField, ShortField, StrField, \
+    XBitField
 from scapy.layers.inet import UDP
 from scapy.layers.inet import TCP
-from scapy.base_classes import Net
 from scapy.modules.six.moves import range
-
-from scapy.contrib.mpls import *
+from scapy.config import conf
+from scapy.utils import inet_aton, inet_ntoa
 
 
 class _LDP_Packet(Packet):
@@ -60,8 +59,8 @@ class _LDP_Packet(Packet):
 
     def post_build(self, p, pay):
         if self.len is None:
-            l = len(p) - 4
-            p = p[:2] + struct.pack("!H", l) + p[4:]
+            tmp_len = len(p) - 4
+            p = p[:2] + struct.pack("!H", tmp_len) + p[4:]
         return p + pay
 
 #  Fields  #
@@ -98,7 +97,7 @@ class FecTLVField(StrField):
         if isinstance(x, bytes):
             return x
         s = b"\x01\x00"
-        l = 0
+        tmp_len = 0
         fec = b""
         for o in x:
             fec += b"\x02\x00\x01"
@@ -106,19 +105,19 @@ class FecTLVField(StrField):
             fec += struct.pack("!B", o[1])
             # Prefix
             fec += inet_aton(o[0])
-            l += 8
-        s += struct.pack("!H", l)
+            tmp_len += 8
+        s += struct.pack("!H", tmp_len)
         s += fec
         return s
 
     def size(self, s):
         """Get the size of this field"""
-        l = 4 + struct.unpack("!H", s[2:4])[0]
-        return l
+        tmp_len = 4 + struct.unpack("!H", s[2:4])[0]
+        return tmp_len
 
     def getfield(self, pkt, s):
-        l = self.size(s)
-        return s[l:], self.m2i(pkt, s[:l])
+        tmp_len = self.size(s)
+        return s[tmp_len:], self.m2i(pkt, s[:tmp_len])
 
 
 # 3.4.2.1. Generic Label TLV
@@ -136,12 +135,12 @@ class LabelTLVField(StrField):
 
     def size(self, s):
         """Get the size of this field"""
-        l = 4 + struct.unpack("!H", s[2:4])[0]
-        return l
+        tmp_len = 4 + struct.unpack("!H", s[2:4])[0]
+        return tmp_len
 
     def getfield(self, pkt, s):
-        l = self.size(s)
-        return s[l:], self.m2i(pkt, s[:l])
+        tmp_len = self.size(s)
+        return s[tmp_len:], self.m2i(pkt, s[:tmp_len])
 
 
 # 3.4.3. Address List TLV
@@ -164,20 +163,20 @@ class AddressTLVField(StrField):
             return b""
         if isinstance(x, bytes):
             return x
-        l = 2 + len(x) * 4
-        s = b"\x01\x01" + struct.pack("!H", l) + b"\x00\x01"
+        tmp_len = 2 + len(x) * 4
+        s = b"\x01\x01" + struct.pack("!H", tmp_len) + b"\x00\x01"
         for o in x:
             s += inet_aton(o)
         return s
 
     def size(self, s):
         """Get the size of this field"""
-        l = 4 + struct.unpack("!H", s[2:4])[0]
-        return l
+        tmp_len = 4 + struct.unpack("!H", s[2:4])[0]
+        return tmp_len
 
     def getfield(self, pkt, s):
-        l = self.size(s)
-        return s[l:], self.m2i(pkt, s[:l])
+        tmp_len = self.size(s)
+        return s[tmp_len:], self.m2i(pkt, s[:tmp_len])
 
 
 # 3.4.6. Status TLV
@@ -186,14 +185,14 @@ class StatusTLVField(StrField):
     islist = 1
 
     def m2i(self, pkt, x):
-        l = []
+        lst = []
         statuscode = struct.unpack("!I", x[4:8])[0]
-        l.append((statuscode & 2**31) >> 31)
-        l.append((statuscode & 2**30) >> 30)
-        l.append(statuscode & 0x3FFFFFFF)
-        l.append(struct.unpack("!I", x[8:12])[0])
-        l.append(struct.unpack("!H", x[12:14])[0])
-        return l
+        lst.append((statuscode & 2**31) >> 31)
+        lst.append((statuscode & 2**30) >> 30)
+        lst.append(statuscode & 0x3FFFFFFF)
+        lst.append(struct.unpack("!I", x[8:12])[0])
+        lst.append(struct.unpack("!H", x[12:14])[0])
+        return lst
 
     def i2m(self, pkt, x):
         if isinstance(x, bytes):
@@ -217,8 +216,8 @@ class StatusTLVField(StrField):
         return s
 
     def getfield(self, pkt, s):
-        l = 14
-        return s[l:], self.m2i(pkt, s[:l])
+        tmp_len = 14
+        return s[tmp_len:], self.m2i(pkt, s[:tmp_len])
 
 
 # 3.5.2 Common Hello Parameters TLV
@@ -251,8 +250,8 @@ class CommonHelloTLVField(StrField):
         return s
 
     def getfield(self, pkt, s):
-        l = 8
-        return s[l:], self.m2i(pkt, s[:l])
+        tmp_len = 8
+        return s[tmp_len:], self.m2i(pkt, s[:tmp_len])
 
 
 # 3.5.3 Common Session Parameters TLV
@@ -260,15 +259,15 @@ class CommonSessionTLVField(StrField):
     islist = 1
 
     def m2i(self, pkt, x):
-        l = [struct.unpack("!H", x[6:8])[0]]
+        lst = [struct.unpack("!H", x[6:8])[0]]
         octet = struct.unpack("B", x[8:9])[0]
-        l.append((octet & 2**7) >> 7)
-        l.append((octet & 2**6) >> 6)
-        l.append(struct.unpack("B", x[9:10])[0])
-        l.append(struct.unpack("!H", x[10:12])[0])
-        l.append(inet_ntoa(x[12:16]))
-        l.append(struct.unpack("!H", x[16:18])[0])
-        return l
+        lst.append((octet & 2**7) >> 7)
+        lst.append((octet & 2**6) >> 6)
+        lst.append(struct.unpack("B", x[9:10])[0])
+        lst.append(struct.unpack("!H", x[10:12])[0])
+        lst.append(inet_ntoa(x[12:16]))
+        lst.append(struct.unpack("!H", x[16:18])[0])
+        return lst
 
     def i2m(self, pkt, x):
         if isinstance(x, bytes):
@@ -288,8 +287,8 @@ class CommonSessionTLVField(StrField):
         return s
 
     def getfield(self, pkt, s):
-        l = 18
-        return s[l:], self.m2i(pkt, s[:l])
+        tmp_len = 18
+        return s[tmp_len:], self.m2i(pkt, s[:tmp_len])
 
 
 #  Messages  #
@@ -429,8 +428,8 @@ class LDP(_LDP_Packet):
     def post_build(self, p, pay):
         pay = pay or b""
         if self.len is None:
-            l = len(p) + len(pay) - 4
-            p = p[:2] + struct.pack("!H", l) + p[4:]
+            tmp_len = len(p) + len(pay) - 4
+            p = p[:2] + struct.pack("!H", tmp_len) + p[4:]
         return p + pay
 
 

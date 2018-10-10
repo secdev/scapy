@@ -11,9 +11,11 @@ Basic Encoding Rules (BER) for ASN.1
 
 from __future__ import absolute_import
 from scapy.error import warning
-from scapy.compat import *
+from scapy.compat import chb, orb, raw
 from scapy.utils import binrepr, inet_aton, inet_ntoa
-from scapy.asn1.asn1 import ASN1_Decoding_Error, ASN1_Encoding_Error, ASN1_BadTag_Decoding_Error, ASN1_Codecs, ASN1_Class_UNIVERSAL, ASN1_Error, ASN1_DECODING_ERROR, ASN1_BADTAG  # noqa: E501
+from scapy.asn1.asn1 import ASN1_Decoding_Error, ASN1_Encoding_Error, \
+    ASN1_BadTag_Decoding_Error, ASN1_Codecs, ASN1_Class_UNIVERSAL, \
+    ASN1_Error, ASN1_DECODING_ERROR, ASN1_BADTAG
 import scapy.modules.six as six
 
 ##################
@@ -64,13 +66,13 @@ class BER_BadTag_Decoding_Error(BER_Decoding_Error, ASN1_BadTag_Decoding_Error):
     pass
 
 
-def BER_len_enc(l, size=0):
-    if l <= 127 and size == 0:
-        return chb(l)
+def BER_len_enc(ll, size=0):
+    if ll <= 127 and size == 0:
+        return chb(ll)
     s = b""
-    while l or size > 0:
-        s = chb(l & 0xff) + s
-        l >>= 8
+    while ll or size > 0:
+        s = chb(ll & 0xff) + s
+        ll >>= 8
         size -= 1
     if len(s) > 127:
         raise BER_Exception("BER_len_enc: Length too long (%i) to be encoded [%r]" % (len(s), s))  # noqa: E501
@@ -78,26 +80,26 @@ def BER_len_enc(l, size=0):
 
 
 def BER_len_dec(s):
-    l = orb(s[0])
-    if not l & 0x80:
-        return l, s[1:]
-    l &= 0x7f
-    if len(s) <= l:
-        raise BER_Decoding_Error("BER_len_dec: Got %i bytes while expecting %i" % (len(s) - 1, l), remaining=s)  # noqa: E501
+    tmp_len = orb(s[0])
+    if not tmp_len & 0x80:
+        return tmp_len, s[1:]
+    tmp_len &= 0x7f
+    if len(s) <= tmp_len:
+        raise BER_Decoding_Error("BER_len_dec: Got %i bytes while expecting %i" % (len(s) - 1, tmp_len), remaining=s)  # noqa: E501
     ll = 0
-    for c in s[1:l + 1]:
+    for c in s[1:tmp_len + 1]:
         ll <<= 8
         ll |= orb(c)
-    return ll, s[l + 1:]
+    return ll, s[tmp_len + 1:]
 
 
-def BER_num_enc(l, size=1):
+def BER_num_enc(ll, size=1):
     x = []
-    while l or size > 0:
-        x.insert(0, l & 0x7f)
+    while ll or size > 0:
+        x.insert(0, ll & 0x7f)
         if len(x) > 1:
             x[0] |= 0x80
-        l >>= 7
+        ll >>= 7
         size -= 1
     return b"".join(chb(k) for k in x)
 
@@ -200,7 +202,7 @@ class BERcodec_metaclass(type):
         c = super(BERcodec_metaclass, cls).__new__(cls, name, bases, dct)
         try:
             c.tag.register(c.codec, c)
-        except:
+        except Exception:
             warning("Error registering %r for %r" % (c.tag, c.codec))
         return c
 
@@ -392,7 +394,10 @@ class BERcodec_OID(BERcodec_Object):
     @classmethod
     def enc(cls, oid):
         oid = raw(oid)
-        lst = [int(x) for x in oid.strip(b".").split(b".")]
+        if oid:
+            lst = [int(x) for x in oid.strip(b".").split(b".")]
+        else:
+            lst = list()
         if len(lst) >= 2:
             lst[1] += 40 * lst[0]
             del(lst[0])
@@ -464,17 +469,17 @@ class BERcodec_SEQUENCE(BERcodec_Object):
     tag = ASN1_Class_UNIVERSAL.SEQUENCE
 
     @classmethod
-    def enc(cls, l):
-        if not isinstance(l, bytes):
-            l = b"".join(x.enc(cls.codec) for x in l)
-        return chb(hash(cls.tag)) + BER_len_enc(len(l)) + l
+    def enc(cls, ll):
+        if not isinstance(ll, bytes):
+            ll = b"".join(x.enc(cls.codec) for x in ll)
+        return chb(hash(cls.tag)) + BER_len_enc(len(ll)) + ll
 
     @classmethod
     def do_dec(cls, s, context=None, safe=False):
         if context is None:
             context = cls.tag.context
-        l, st = cls.check_type_get_len(s)  # we may have len(s) < l
-        s, t = st[:l], st[l:]
+        ll, st = cls.check_type_get_len(s)  # we may have len(s) < ll
+        s, t = st[:ll], st[ll:]
         obj = []
         while s:
             try:
@@ -486,7 +491,7 @@ class BERcodec_SEQUENCE(BERcodec_Object):
                 err.decoded = obj
                 raise
             obj.append(o)
-        if len(st) < l:
+        if len(st) < ll:
             raise BER_Decoding_Error("Not enough bytes to decode sequence", decoded=obj)  # noqa: E501
         return cls.asn1_object(obj), t
 

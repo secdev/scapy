@@ -19,9 +19,16 @@
 
 # Copyright (C) 2017 Arthur Gervais, Ken LE PRADO, Sébastien Mainand, Thomas Aurel  # noqa: E501
 
-from scapy.packet import *
-from scapy.fields import *
-from scapy.layers.inet import *
+import struct
+
+from scapy.packet import Packet, bind_layers
+from scapy.fields import XByteField, XShortField, StrLenField, ByteEnumField, \
+    BitFieldLenField, ByteField, ConditionalField, EnumField, FieldListField, \
+    ShortField, StrFixedLenField
+from scapy.layers.inet import TCP
+from scapy.utils import orb
+from scapy.config import conf
+from scapy.volatile import VolatileValue
 
 # TODO: implement serial specific function codes
 
@@ -298,8 +305,8 @@ class ModbusPDU14ReadFileRecordRequest(Packet):
 
     def post_build(self, p, pay):
         if self.byteCount is None:
-            l = len(pay)
-            p = p[:1] + struct.pack("!B", l) + p[3:]
+            tmp_len = len(pay)
+            p = p[:1] + struct.pack("!B", tmp_len) + p[3:]
         return p + pay
 
 
@@ -321,8 +328,8 @@ class ModbusPDU14ReadFileRecordResponse(Packet):
 
     def post_build(self, p, pay):
         if self.dataLength is None:
-            l = len(pay)
-            p = p[:1] + struct.pack("!B", l) + p[3:]
+            tmp_len = len(pay)
+            p = p[:1] + struct.pack("!B", tmp_len) + p[3:]
         return p + pay
 
     def guess_payload_class(self, payload):
@@ -360,8 +367,8 @@ class ModbusPDU15WriteFileRecordRequest(Packet):
 
     def post_build(self, p, pay):
         if self.dataLength is None:
-            l = len(pay)
-            p = p[:1] + struct.pack("!B", l) + p[3:]
+            tmp_len = len(pay)
+            p = p[:1] + struct.pack("!B", tmp_len) + p[3:]
             return p + pay
 
     def guess_payload_class(self, payload):
@@ -791,8 +798,8 @@ class ModbusADURequest(Packet):
 
     def post_build(self, p, pay):
         if self.len is None:
-            l = len(pay) + 1  # +len(p)
-            p = p[:4] + struct.pack("!H", l) + p[6:]
+            tmp_len = len(pay) + 1  # +len(p)
+            p = p[:4] + struct.pack("!H", tmp_len) + p[6:]
         return p + pay
 
 
@@ -830,8 +837,8 @@ class ModbusADUResponse(Packet):
 
     def post_build(self, p, pay):
         if self.len is None:
-            l = len(pay) + 1  # +len(p)
-            p = p[:4] + struct.pack("!H", l) + p[6:]
+            tmp_len = len(pay) + 1  # +len(p)
+            p = p[:4] + struct.pack("!H", tmp_len) + p[6:]
         return p + pay
 
 

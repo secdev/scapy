@@ -12,7 +12,7 @@ import random
 import time
 import math
 from scapy.base_classes import Net
-from scapy.compat import *
+from scapy.compat import raw, chb, plain_str
 from scapy.utils import corrupt_bits, corrupt_bytes
 from scapy.modules.six.moves import range
 

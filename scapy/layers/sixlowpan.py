@@ -53,22 +53,19 @@ import struct
 from scapy.compat import chb, orb, raw
 
 from scapy.packet import Packet, bind_layers
-from scapy.fields import BitField, ByteField, XBitField, LEShortField, \
-    LEIntField, StrLenField, BitEnumField, Field, ShortField, \
-    BitFieldLenField, XShortField, FlagsField, StrField, ConditionalField, \
-    FieldLenField
+from scapy.fields import BitField, ByteField, BitEnumField, BitFieldLenField, \
+    XShortField, FlagsField, ConditionalField, FieldLenField
 
-from scapy.layers.dot15d4 import Dot15d4, Dot15d4Data, Dot15d4FCS, dot15d4AddressField  # noqa: E501
-from scapy.layers.inet6 import IPv6, IP6Field, ICMPv6EchoRequest
+from scapy.layers.dot15d4 import Dot15d4Data
+from scapy.layers.inet6 import IPv6, IP6Field
 from scapy.layers.inet import UDP
-from scapy.utils6 import in6_or, in6_and, in6_xor
 
-from scapy.utils import lhex, hexdump
-
-from scapy.route6 import *
+from scapy.utils import lhex
+from scapy.config import conf
+from scapy.error import warning
 
 from scapy.packet import Raw
-from scapy.pton_ntop import *
+from scapy.pton_ntop import inet_pton, inet_ntop
 from scapy.volatile import RandShort
 
 LINK_LOCAL_PREFIX = b"\xfe\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"  # noqa: E501
@@ -83,18 +80,19 @@ class IP6FieldLenField(IP6Field):
 
     def addfield(self, pkt, s, val):
         """Add an internal value  to a string"""
-        l = self.length_of(pkt)
-        if l == 0:
+        tmp_len = self.length_of(pkt)
+        if tmp_len == 0:
             return s
-        internal = self.i2m(pkt, val)[-l:]
-        return s + struct.pack("!%ds" % l, internal)
+        internal = self.i2m(pkt, val)[-tmp_len:]
+        return s + struct.pack("!%ds" % tmp_len, internal)
 
     def getfield(self, pkt, s):
-        l = self.length_of(pkt)
-        assert l >= 0 and l <= 16
-        if l <= 0:
+        tmp_len = self.length_of(pkt)
+        assert tmp_len >= 0 and tmp_len <= 16
+        if tmp_len <= 0:
             return s, b""
-        return s[l:], self.m2i(pkt, b"\x00" * (16 - l) + s[:l])
+        return (s[tmp_len:],
+                self.m2i(pkt, b"\x00" * (16 - tmp_len) + s[:tmp_len]))
 
 
 class BitVarSizeField(BitField):
@@ -336,7 +334,7 @@ def flowlabel_len(pkt):
         return 0
 
 
-def tf_lowpan(pkt):
+def _tf_lowpan(pkt):
     if pkt.tf == 0:
         return 32
     elif pkt.tf == 1:
@@ -347,7 +345,7 @@ def tf_lowpan(pkt):
         return 0
 
 
-def tf_last_attempt(pkt):
+def _tf_last_attempt(pkt):
     if pkt.tf == 0:
         return 2, 6, 4, 20
     elif pkt.tf == 1:
@@ -356,6 +354,34 @@ def tf_last_attempt(pkt):
         return 2, 6, 0, 0
     else:
         return 0, 0, 0, 0
+
+
+def _extract_dot15d4address(pkt, source=True):
+    """This function extracts the source/destination address of a 6LoWPAN
+    from its upper Dot15d4Data (802.15.4 data) layer.
+
+    params:
+     - source: if True, the address is the source one. Otherwise, it is the
+               destination.
+    returns: the packed & processed address
+    """
+    underlayer = pkt.underlayer
+    while underlayer is not None and not isinstance(underlayer, Dot15d4Data):  # noqa: E501
+        underlayer = underlayer.underlayer
+    if type(underlayer) == Dot15d4Data:
+        addr = underlayer.src_addr if source else underlayer.dest_addr
+        if underlayer.underlayer.fcf_destaddrmode == 3:
+            tmp_ip = LINK_LOCAL_PREFIX[0:8] + struct.pack(">Q", addr)  # noqa: E501
+            # Turn off the bit 7.
+            tmp_ip = tmp_ip[0:8] + struct.pack("B", (orb(tmp_ip[8]) ^ 0x2)) + tmp_ip[9:16]  # noqa: E501
+        elif underlayer.underlayer.fcf_destaddrmode == 2:
+            tmp_ip = LINK_LOCAL_PREFIX[0:8] + \
+                b"\x00\x00\x00\xff\xfe\x00" + \
+                struct.pack(">Q", addr)[6:]
+        return tmp_ip
+    else:
+        # Most of the times, it's necessary the IEEE 802.15.4 data to extract this address  # noqa: E501
+        raise Exception('Unimplemented: IP Header is contained into IEEE 802.15.4 frame, in this case it\'s not available.')  # noqa: E501
 
 
 class LoWPAN_IPHC(Packet):
@@ -384,10 +410,10 @@ class LoWPAN_IPHC(Packet):
             lambda pkt: pkt.cid == 0x1
         ),
         # TODO: THIS IS WRONG!!!!!
-        BitVarSizeField("tc_ecn", 0, calculate_length=lambda pkt: tf_last_attempt(pkt)[0]),  # noqa: E501
-        BitVarSizeField("tc_dscp", 0, calculate_length=lambda pkt: tf_last_attempt(pkt)[1]),  # noqa: E501
-        BitVarSizeField("_padd", 0, calculate_length=lambda pkt: tf_last_attempt(pkt)[2]),  # noqa: E501
-        BitVarSizeField("flowlabel", 0, calculate_length=lambda pkt: tf_last_attempt(pkt)[3]),  # noqa: E501
+        BitVarSizeField("tc_ecn", 0, calculate_length=lambda pkt: _tf_last_attempt(pkt)[0]),  # noqa: E501
+        BitVarSizeField("tc_dscp", 0, calculate_length=lambda pkt: _tf_last_attempt(pkt)[1]),  # noqa: E501
+        BitVarSizeField("_padd", 0, calculate_length=lambda pkt: _tf_last_attempt(pkt)[2]),  # noqa: E501
+        BitVarSizeField("flowlabel", 0, calculate_length=lambda pkt: _tf_last_attempt(pkt)[3]),  # noqa: E501
 
         # NH
         ConditionalField(
@@ -501,28 +527,16 @@ class LoWPAN_IPHC(Packet):
                 tmp_ip = LINK_LOCAL_PREFIX[0:8] + tmp_ip[-8:]
             elif self.dam == 2:
                 tmp_ip = LINK_LOCAL_PREFIX[0:8] + b"\x00\x00\x00\xff\xfe\x00" + tmp_ip[-2:]  # noqa: E501
-            """else: #self.dam == 3
-                raise Exception('Unimplemented')"""
+            elif self.dam == 3:
+                # TODO May need some extra changes, we are copying
+                # (self.m == 0 and self.dac == 1)
+                tmp_ip = _extract_dot15d4address(self, source=False)
 
         elif self.m == 0 and self.dac == 1:
             if self.dam == 0:
                 raise Exception('Reserved')
             elif self.dam == 0x3:
-                underlayer = self.underlayer
-                while underlayer is not None and not isinstance(underlayer, Dot15d4Data):  # noqa: E501
-                    underlayer = underlayer.underlayer
-                if type(underlayer) == Dot15d4Data:
-                    if underlayer.underlayer.fcf_destaddrmode == 3:
-                        tmp_ip = LINK_LOCAL_PREFIX[0:8] + struct.pack(">Q", underlayer.dest_addr)  # noqa: E501
-                        # Turn off the bit 7.
-                        tmp_ip = tmp_ip[0:8] + struct.pack("B", (orb(tmp_ip[8]) ^ 0x2)) + tmp_ip[9:16]  # noqa: E501
-                    elif underlayer.underlayer.fcf_destaddrmode == 2:
-                        tmp_ip = LINK_LOCAL_PREFIX[0:8] + \
-                            b"\x00\x00\x00\xff\xfe\x00" + \
-                            struct.pack(">Q", underlayer.dest_addr)[6:]
-                else:
-                    # Most of the times, it's necessary the IEEE 802.15.4 data to extract this address  # noqa: E501
-                    raise Exception('Unimplemented: IP Header is contained into IEEE 802.15.4 frame, in this case it\'s not available.')  # noqa: E501
+                tmp_ip = _extract_dot15d4address(self, source=False)
             elif self.dam not in [0x1, 0x2]:
                 warning("Unknown destiny address compression mode !")
         elif self.m == 1 and self.dac == 0:
@@ -610,22 +624,7 @@ class LoWPAN_IPHC(Packet):
                 tmp = LINK_LOCAL_PREFIX[0:8] + b"\x00\x00\x00\xff\xfe\x00"
                 tmp_ip = tmp + tmp_ip[16 - source_addr_mode2(self):16]
             elif self.sam == 0x3:  # EXTRACT ADDRESS FROM Dot15d4
-                underlayer = self.underlayer
-                if underlayer is not None:
-                    while underlayer is not None and not isinstance(underlayer, Dot15d4Data):  # noqa: E501
-                        underlayer = underlayer.underlayer
-                    assert type(underlayer) == Dot15d4Data
-                    if underlayer.underlayer.fcf_srcaddrmode == 3:
-                        tmp_ip = LINK_LOCAL_PREFIX[0:8] + struct.pack(">Q", underlayer.src_addr)  # noqa: E501
-                        # Turn off the bit 7.
-                        tmp_ip = tmp_ip[0:8] + struct.pack("B", (orb(tmp_ip[8]) ^ 0x2)) + tmp_ip[9:16]  # noqa: E501
-                    elif underlayer.underlayer.fcf_srcaddrmode == 2:
-                        tmp_ip = LINK_LOCAL_PREFIX[0:8] + \
-                            b"\x00\x00\x00\xff\xfe\x00" + \
-                            struct.pack(">Q", underlayer.src_addr)[6:]
-                else:
-                    # Most of the times, it's necessary the IEEE 802.15.4 data to extract this address  # noqa: E501
-                    raise Exception('Unimplemented: IP Header is contained into IEEE 802.15.4 frame, in this case it\'s not available.')  # noqa: E501
+                tmp_ip = _extract_dot15d4address(self, source=True)
             else:
                 warning("Unknown source address compression mode !")
         else:  # self.sac == 1:

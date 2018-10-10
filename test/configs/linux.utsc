@@ -8,6 +8,7 @@
     "test/mock_windows.uts",
     "test/bpf.uts"
   ],
+  "breakfailed": true,
   "onlyfailed": true,
   "preexec": {
     "scapy/contrib/*.uts": "load_contrib(\"%name%\")",
@@ -17,8 +18,9 @@
   },
   "format": "text",
   "kw_ko": [
+    "osx",
+    "windows",
     "crypto_advanced",
-    "ipv6",
-    "osx"
+    "ipv6"
   ]
 }

@@ -29,10 +29,10 @@ from scapy.base_classes import SetGen
 from scapy.supersocket import StreamSocket, L3RawSocket, L2ListenTcpdump
 from scapy.modules import six
 from scapy.modules.six.moves import map
+from scapy.supersocket import SuperSocket
 if conf.route is None:
     # unused import, only to initialize conf.route
-    import scapy.route
-from scapy.supersocket import SuperSocket
+    import scapy.route  # noqa: F401
 
 #################
 #  Debug class  #
@@ -75,7 +75,7 @@ def _sndrcv_snd(pks, timeout, inter, verbose, tobesent, hsent, timessent, stopev
         pass
     except KeyboardInterrupt:
         pass
-    except:
+    except Exception:
         log_runtime.info("--- Error sending packets", exc_info=True)
     if timeout is not None:
         stopevent.wait(timeout)
@@ -115,20 +115,20 @@ def _sndrcv_rcv(pks, hsent, stopevent, nbrecv, notans, verbose, chainCC,
     elif is_python_can_socket():
         def _get_pkt():
             return pks.recv()
-    elif (conf.use_pcap
-          and not isinstance(pks,
-                             (StreamSocket, L3RawSocket, L2ListenTcpdump))) \
-        or (not isinstance(pks, (StreamSocket, L2ListenTcpdump))
-            and (DARWIN or FREEBSD or OPENBSD)):
+    elif (conf.use_pcap and
+          not isinstance(pks,
+                         (StreamSocket, L3RawSocket, L2ListenTcpdump))) or \
+         (not isinstance(pks, (StreamSocket, L2ListenTcpdump)) and
+            (DARWIN or FREEBSD or OPENBSD)):
         def _get_pkt():
             res = pks.nonblock_recv()
             if res is None:
-                time.sleep(0.05)
+                time.sleep(conf.recv_poll_rate)
             return res
     else:
         def _get_pkt():
             try:
-                inp, _, _ = select([pks], [], [], 0.05)
+                inp, _, _ = select([pks], [], [], conf.recv_poll_rate)
             except (IOError, select_error) as exc:
                 # select.error has no .errno attribute
                 if exc.args[0] != errno.EINTR:
@@ -667,7 +667,7 @@ def sndrcvflood(pks, pkt, inter=0, verbose=None, chainCC=False, store_unanswered
         while True:
             for p in tobesent:
                 if stopevent.is_set():
-                    raise StopIteration()
+                    return
                 count_packets.put(0)
                 yield p
 
@@ -794,8 +794,7 @@ iface:    listen answers only on the given interface"""
 def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
           L2socket=None, timeout=None, opened_socket=None,
           stop_filter=None, iface=None, started_callback=None, *arg, **karg):
-    """
-    Sniff packets and return a list of packets.
+    """Sniff packets and return a list of packets.
 
     Args:
         count: number of packets to capture. 0 means infinity.
@@ -1010,7 +1009,7 @@ Arguments:
         if pkt.sniffed_on in xfrms:
             try:
                 newpkt = xfrms[pkt.sniffed_on](pkt)
-            except:
+            except Exception:
                 log_runtime.warning(
                     'Exception in transformation function for packet [%s] '
                     'received on %s -- dropping',
@@ -1026,7 +1025,7 @@ Arguments:
             newpkt = pkt.original
         try:
             sendsock.send(newpkt)
-        except:
+        except Exception:
             log_runtime.warning('Cannot forward packet [%s] received on %s',
                                 pkt.summary(), pkt.sniffed_on, exc_info=True)
     if prn is None:

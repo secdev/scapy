@@ -14,15 +14,43 @@ conf
 IP().src
 scapy.consts.LOOPBACK_INTERFACE
 
+= Test module version detection
+~ conf
+
+class FakeModule(object):
+    __version__ = "v1.12"
+
+class FakeModule2(object):
+    __version__ = "5.143.3.12"
+
+from scapy.config import _version_checker
+
+assert _version_checker(FakeModule, (1,11,5))
+assert not _version_checker(FakeModule, (1,13))
+
+assert _version_checker(FakeModule2, (5, 1))
+assert not _version_checker(FakeModule2, (5, 143, 4))
+
 = List layers
 ~ conf command
 ls()
+
+= List layers - advanced
+~ conf command
+
+with ContextManagerCaptureOutput() as cmco:
+    ls("IP")
+    result_ls = cmco.get_output().split("\n")
+
+assert all("IP" in x for x in result_ls if x.strip())
+assert len(result_ls) >= 3
 
 = List commands
 ~ conf command
 lsc()
 
 = List contribs
+~ command
 def test_list_contrib():
     with ContextManagerCaptureOutput() as cmco:
         list_contrib()
@@ -277,7 +305,7 @@ finally:
 = Test linehexdump function
 conf_color_theme = conf.color_theme
 conf.color_theme = BlackAndWhite()
-assert(linehexdump(Ether(src="00:01:02:03:04:05"), dump=True) == "FFFFFFFFFFFF0001020304059000 ..............")
+assert linehexdump(Ether(src="00:01:02:03:04:05"), dump=True) == 'FF FF FF FF FF FF 00 01 02 03 04 05 90 00  ..............'
 conf.color_theme = conf_color_theme
 
 = Test chexdump function
@@ -287,7 +315,7 @@ chexdump(Ether(src="00:01:02:02:04:05"), dump=True) == "0xff, 0xff, 0xff, 0xff, 
 repr_hex("scapy") == "7363617079"
 
 = Test hexstr function
-hexstr(b"A\x00\xFFB") == "41 00 ff 42  A..B"
+hexstr(b"A\x00\xFFB") == "41 00 FF 42  A..B"
 
 = Test fletcher16 functions
 assert(fletcher16_checksum(b"\x28\x07") == 22319)
@@ -466,6 +494,9 @@ x = IP(dst="8.8.8.8")/fuzz(UDP()/NTP(version=4))
 x.show2()
 x = IP(raw(x))
 assert NTP in x
+
+= fuzz on packets with FlagsField
+assert isinstance(fuzz(TCP()).flags, VolatileValue)
 
 = Building some packets
 ~ basic IP TCP UDP NTP LLC SNAP Dot11
@@ -914,6 +945,9 @@ assert repr(b) == "<ASN1_DECODING_ERROR['error']{{<ASN1_BIT_STRING[0] (7 unused 
 a = ASN1_INTEGER(int("1"*23))
 assert repr(a) in ["0x25a55a46e5da99c71c7 <ASN1_INTEGER[1111111111...1111111111]>",
                    "0x25a55a46e5da99c71c7 <ASN1_INTEGER[1111111111...111111111L]>"]
+
+= ASN1 - ASN1_OID
+assert raw(ASN1_OID("")) == b"\x06\x00"
 
 = RandASN1Object(), specific crashes
 
@@ -2539,6 +2573,9 @@ a=IPv6(b'`\x00\x00\x00\x00\x10:\xff \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x
 b = IPv6(b"`\x00\x00\x00\x00\x10:\xff\xff\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x85\x00M\xff\x00\x00\x00\x00")
 assert a.answers(b)
 
+= ICMPv6ND_RA - Summary Output
+ICMPv6ND_RA(chlim=42, M=0, O=1, H=0, prf=1, P=0, routerlifetime=300).mysummary() == "ICMPv6 Neighbor Discovery - Router Advertisement Lifetime 300 Hop Limit 42 Preference High Managed 0 Other 1 Home 0"
+
 ############
 ############
 + ICMPv6ND_NS Class Test
@@ -2734,6 +2771,9 @@ a.type == 5 and a.len == 1 and a.res == 0 and a.mtu == 1280
 = ICMPv6NDOptMTU - Dissection with specific values
 a=ICMPv6NDOptMTU(b'\x05\x02\x11\x11\x00\x00\x05\xdc')
 a.type == 5 and a.len == 2 and a.res == 0x1111 and a.mtu == 1500
+
+= ICMPv6NDOptMTU - Summary Output
+ICMPv6NDOptMTU(b'\x05\x02\x11\x11\x00\x00\x05\xdc').mysummary() == "ICMPv6 Neighbor Discovery Option - MTU 1500"
 
 
 ############
@@ -2939,6 +2979,9 @@ a.type == 24 and a.len == 3 and a.plen == 0 and a.res1 == 0 and a.prf == 0 and a
 a=ICMPv6NDOptRouteInfo(b'\x18\x04\x119"""" \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01')
 a.plen == 0x11 and a.res1 == 1 and a.prf == 3 and a.res2 == 1 and a.rtlifetime == 0x22222222 and a.prefix == "2001:db8::1" 
 
+= ICMPv6NDOptRouteInfo - Summary Output
+ICMPv6NDOptRouteInfo(b'\x18\x04\x119"""" \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01').mysummary() == "ICMPv6 Neighbor Discovery Option - Route Information Option 2001:db8::1/17 Preference Low"
+
 
 ############
 ############
@@ -2987,6 +3030,10 @@ a.type==25 and a.len==3 and a.res ==0 and len(a.dns) == 1 and a.dns[0] == "2001:
 a=ICMPv6NDOptRDNSS(b'\x19\x05\xaa\xee\xff\xff\xff\xff \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02')
 a.type==25 and a.len==5 and a.res == 0xaaee and len(a.dns) == 2 and a.dns[0] == "2001:db8::1" and a.dns[1] == "2001:db8::2"
 
+= ICMPv6NDOptRDNSS - Summary Output
+a=ICMPv6NDOptRDNSS(b'\x19\x05\xaa\xee\xff\xff\xff\xff \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02')
+a.mysummary() == "ICMPv6 Neighbor Discovery Option - Recursive DNS Server Option 2001:db8::1, 2001:db8::2"
+
 
 ############
 ############
@@ -3011,6 +3058,9 @@ p.type == 31 and p.len == 1 and p.res == 0 and p.searchlist == []
 = ICMPv6NDOptDNSSL - Basic Dissection with specific values
 p = ICMPv6NDOptDNSSL(b'\x1f\x02\x00\x00\x00\x00\x00<\x04home\x00\x00\x00')
 p.type == 31 and p.len == 2 and p.res == 0 and p.lifetime == 60 and p.searchlist == ["home."]
+
+= ICMPv6NDOptDNSSL - Summary Output
+ICMPv6NDOptDNSSL(searchlist=["home.", "office."]).mysummary() == "ICMPv6 Neighbor Discovery Option - DNS Search List Option home., office."
 
 
 ############
@@ -3576,6 +3626,11 @@ l=fragment6(IPv6()/IPv6ExtHdrFragment()/TCP()/Raw(load="A"*4000), 800)
 del(l[4])
 del(l[2])
 raw(defragment6(l)) == b'`\x00\x00\x00\x0f\xb4\x06@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\xb2\x0f\x00\x00AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA'
+
+= defragment6 - test the packet length
+pkts = fragment6(IPv6()/IPv6ExtHdrFragment()/UDP(dport=42, sport=42)/Raw(load="A"*1500), 1280)
+pkts = [IPv6(raw(p)) for p in pkts]
+assert defragment6(pkts).plen == 1508
 
 
 ############
@@ -5893,6 +5948,16 @@ nfv9_options_ds = a[255]
 assert NetflowDataflowsetV9 in nfv9_options_ds
 assert isinstance(nfv9_options_ds.records[0], NetflowOptionsRecordScopeV9)
 
+= NetflowV9 - Multiple FlowSets in one packet
+
+nfv9_multiple_flowsets = NetflowHeader(b'\x00\t\x00\x03\x00\x00K [F\x17\x97\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00H\x04\x00\x00\x10\x00\x08\x00\x04\x00\x0c\x00\x04\x00\x15\x00\x04\x00\x16\x00\x04\x00\x01\x00\x08\x00\x02\x00\x08\x00\n\x00\x04\x00\x0e\x00\x04\x00\x07\x00\x02\x00\x0b\x00\x02\x00\x04\x00\x01\x00\x06\x00\x01\x00<\x00\x01\x00\x05\x00\x01\x00 \x00\x02\x00:\x00\x02\x00\x00\x00L\x08\x00\x00\x11\x00\x1b\x00\x10\x00\x1c\x00\x10\x00\x1f\x00\x04\x00\x15\x00\x04\x00\x16\x00\x04\x00\x01\x00\x08\x00\x02\x00\x08\x00\n\x00\x04\x00\x0e\x00\x04\x00\x07\x00\x02\x00\x0b\x00\x02\x00\x04\x00\x01\x00\x06\x00\x01\x00<\x00\x01\x00\x05\x00\x01\x00 \x00\x02\x00:\x00\x02\x04\x00\x008\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x00\x10\xac\x00\x00\x10\x83\x00\x00\x00\x00\x00\x00\x0b\xb8\x00\x00\x00\x00\x00\x00\x002\x00\x00\x00\x00\x00\x00\x00\x01\x005\x005\x11\x00\x04\x00\x00\x00\x00e')
+assert nfv9_multiple_flowsets.haslayer(NetflowFlowsetV9)
+assert nfv9_multiple_flowsets.haslayer(NetflowDataflowsetV9)
+nfv9_defrag = netflowv9_defragment(list(nfv9_multiple_flowsets))
+assert nfv9_defrag[0].records[0].IP_PROTOCOL_VERSION == 4
+assert nfv9_defrag[0].records[0].PROTOCOL == 17
+assert nfv9_defrag[0].records[0].IPV4_SRC_ADDR == "127.0.0.1"
+
 ############
 ############
 + pcap / pcapng format support
@@ -6396,6 +6461,7 @@ pkt3 = IP(raw(pkt2))
 assert pkt3.load == data
 
 = DNS
+~ dns
 
 * DNS over UDP
 pkt = IP(raw(IP(src="10.0.0.1", dst="8.8.8.8")/UDP(sport=RandShort(), dport=53)/DNS(qd=DNSQR(qname="secdev.org."))))
@@ -6410,6 +6476,7 @@ assert pkt[TCP].dport == 53 and pkt[DNS].length is not None
 assert pkt[DNS].qdcount == 1 and pkt[DNS].qd.qname == b"secdev.org."
 
 = DNS frame with advanced decompression
+~ dns
 
 a = b'\x01\x00^\x00\x00\xfb$\xa2\xe1\x90\xa9]\x08\x00E\x00\x01P\\\xdd\x00\x00\xff\x11\xbb\x93\xc0\xa8\x00\x88\xe0\x00\x00\xfb\x14\xe9\x14\xe9\x01<*\x81\x00\x00\x84\x00\x00\x00\x00\x03\x00\x00\x00\x04\x01B\x019\x015\x019\x013\x014\x017\x013\x016\x017\x010\x012\x010\x01D\x018\x011\x010\x010\x010\x010\x010\x010\x010\x010\x010\x010\x010\x010\x010\x018\x01E\x01F\x03ip6\x04arpa\x00\x00\x0c\x80\x01\x00\x00\x00x\x00\x0f\x07Zalmoid\x05local\x00\x011\x01A\x019\x014\x017\x01E\x01A\x014\x01B\x01A\x01F\x01B\x012\x011\x014\x010\x010\x016\x01E\x01F\x017\x011\x01F\x012\x015\x013\x01E\x010\x011\x010\x01A\x012\xc0L\x00\x0c\x80\x01\x00\x00\x00x\x00\x02\xc0`\x03136\x010\x03168\x03192\x07in-addr\xc0P\x00\x0c\x80\x01\x00\x00\x00x\x00\x02\xc0`\xc0\x0c\x00/\x80\x01\x00\x00\x00x\x00\x06\xc0\x0c\x00\x02\x00\x08\xc0o\x00/\x80\x01\x00\x00\x00x\x00\x06\xc0o\x00\x02\x00\x08\xc0\xbd\x00/\x80\x01\x00\x00\x00x\x00\x06\xc0\xbd\x00\x02\x00\x08\x00\x00)\x05\xa0\x00\x00\x11\x94\x00\x12\x00\x04\x00\x0e\x00\xc1&\xa2\xe1\x90\xa9]$\xa2\xe1\x90\xa9]'
 pkt = Ether(a)
@@ -6422,6 +6489,7 @@ assert pkt.ar[2].nextname == b'136.0.168.192.in-addr.arpa.'
 pkt.show()
 
 = DNS frame with DNSRRSRV
+~ dns
 
 b = Ether(b'33\x00\x00\x00\xfb$\xe3\x14M\x84\xc0\x86\xdd`\t\xc0f\x02b\x11\xff\xfe\x80\x00\x00\x00\x00\x00\x00\x04*,\x03\xab+/\x14\xff\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xfb\x14\xe9\x14\xe9\x02b_\xd8\x00\x00\x84\x00\x00\x00\x00\x0b\x00\x00\x00\x06\x014\x011\x01F\x012\x01B\x012\x01B\x01A\x013\x010\x01C\x012\x01A\x012\x014\x010\x010\x010\x010\x010\x010\x010\x010\x010\x010\x010\x010\x010\x010\x018\x01E\x01F\x03ip6\x04arpa\x00\x00\x0c\x80\x01\x00\x00\x00x\x00\x14\x0csCapys-fLuff\x05local\x00\x03177\x010\x03168\x03192\x07in-addr\xc0P\x00\x0c\x80\x01\x00\x00\x00x\x00\x02\xc0`\x01E\x01F\x017\x01D\x01B\x018\x014\x01C\x014\x01B\x016\x01E\x015\x017\x018\x010\x010\x016\x01E\x01F\x017\x011\x01F\x012\x015\x013\x01E\x010\x011\x010\x01A\x012\xc0L\x00\x0c\x80\x01\x00\x00\x00x\x00\x02\xc0`+24:e3:14:4d:84:c0@fe80::26e3:14ff:fe4d:84c0\x0e_apple-mobdev2\x04_tcp\xc0m\x00\x10\x80\x01\x00\x00\x11\x94\x00\x01\x00\t_services\x07_dns-sd\x04_udp\xc0m\x00\x0c\x00\x01\x00\x00\x11\x94\x00\x02\xc1\x12\x08521805b3\x04_sub\xc1\x12\x00\x0c\x00\x01\x00\x00\x11\x94\x00\x02\xc0\xe6\xc1\x12\x00\x0c\x00\x01\x00\x00\x11\x94\x00\x02\xc0\xe6\xc0\xe6\x00!\x80\x01\x00\x00\x00x\x00\x08\x00\x00\x00\x00~\xf2\xc0`\xc0`\x00\x1c\x80\x01\x00\x00\x00x\x00\x10\xfe\x80\x00\x00\x00\x00\x00\x00\x04*,\x03\xab+/\x14\xc0`\x00\x01\x80\x01\x00\x00\x00x\x00\x04\xc0\xa8\x00\xb1\xc0`\x00\x1c\x80\x01\x00\x00\x00x\x00\x10*\x01\x0e5/\x17\xfe`\x08u\xe6\xb4\xc4\x8b\xd7\xfe\xc0\x0c\x00/\x80\x01\x00\x00\x00x\x00\x06\xc0\x0c\x00\x02\x00\x08\xc0t\x00/\x80\x01\x00\x00\x00x\x00\x06\xc0t\x00\x02\x00\x08\xc0\x98\x00/\x80\x01\x00\x00\x00x\x00\x06\xc0\x98\x00\x02\x00\x08\xc0\xe6\x00/\x80\x01\x00\x00\x11\x94\x00\t\xc0\xe6\x00\x05\x00\x00\x80\x00@\xc0`\x00/\x80\x01\x00\x00\x00x\x00\x08\xc0`\x00\x04@\x00\x00\x08\x00\x00)\x05\xa0\x00\x00\x11\x94\x00\x12\x00\x04\x00\x0e\x00\xcf&\xe3\x14M\x84\xc0$\xe3\x14M\x84\xc0')
 assert isinstance(b.an[7], DNSRRSRV)
@@ -6430,6 +6498,7 @@ assert b.an[6].rrname == b'_apple-mobdev2._tcp.local.'
 assert b.an[6].rdata == b'24:e3:14:4d:84:c0@fe80::26e3:14ff:fe4d:84c0._apple-mobdev2._tcp.local.'
 
 = DNS frame with decompression hidden args
+~ dns
 
 c = b'\x01\x00^\x00\x00\xfb\x14\x0cv\x8f\xfe(\x08\x00E\x00\x01C\xe3\x91@\x00\xff\x11\xf4u\xc0\xa8\x00\xfe\xe0\x00\x00\xfb\x14\xe9\x14\xe9\x01/L \x00\x00\x84\x00\x00\x00\x00\x04\x00\x00\x00\x00\x05_raop\x04_tcp\x05local\x00\x00\x0c\x00\x01\x00\x00\x11\x94\x00\x1e\x1b140C768FFE28@Freebox Server\xc0\x0c\xc0(\x00\x10\x80\x01\x00\x00\x11\x94\x00\xa0\ttxtvers=1\x08vs=190.9\x04ch=2\x08sr=44100\x05ss=16\x08pw=false\x06et=0,1\x04ek=1\ntp=TCP,UDP\x13am=FreeboxServer1,2\ncn=0,1,2,3\x06md=0,2\x07sf=0x44\x0bft=0xBF0A00\x08sv=false\x07da=true\x08vn=65537\x04vv=2\xc0(\x00!\x80\x01\x00\x00\x00x\x00\x19\x00\x00\x00\x00\x13\x88\x10Freebox-Server-3\xc0\x17\xc1\x04\x00\x01\x80\x01\x00\x00\x00x\x00\x04\xc0\xa8\x00\xfe'
 pkt = Ether(c)
@@ -6437,6 +6506,68 @@ assert DNS in pkt
 assert pkt.an.rdata == b'140C768FFE28@Freebox Server._raop._tcp.local.'
 assert pkt.an.getlayer(DNSRR, type=1).rrname == b'Freebox-Server-3.local.'
 assert pkt.an.getlayer(DNSRR, type=1).rdata == '192.168.0.254'
+assert pkt.an.getlayer(DNSRR, type=16).rdata == [b'txtvers=1', b'vs=190.9', b'ch=2', b'sr=44100', b'ss=16', b'pw=false', b'et=0,1', b'ek=1', b'tp=TCP,UDP', b'am=FreeboxServer1,2', b'cn=0,1,2,3', b'md=0,2', b'sf=0x44', b'ft=0xBF0A00', b'sv=false', b'da=true', b'vn=65537', b'vv=2']
+
+= DNS advanced building
+~ dns
+
+pkt = DNS(qr=1, aa=1, rd=1)
+pkt.an = DNSRR(type=12, rrname='_raop._tcp.local.', rdata='140C768FFE28@Freebox Server._raop._tcp.local.')/DNSRR(rrname='140C768FFE28@Freebox Server._raop._tcp.local.', type=16, rdata=[b'txtvers=1', b'vs=190.9', b'ch=2', b'sr=44100', b'ss=16', b'pw=false', b'et=0,1', b'ek=1', b'tp=TCP,UDP', b'am=FreeboxServer1,2', b'cn=0,1,2,3', b'md=0,2', b'sf=0x44', b'ft=0xBF0A00', b'sv=false', b'da=true', b'vn=65537', b'vv=2'])/DNSRRSRV(rrname='140C768FFE28@Freebox Server._raop._tcp.local.', target='Freebox-Server-3.local.', port=5000, type=33, rclass=32769)/DNSRR(rrname='Freebox-Server-3.local.', rdata='192.168.0.254', rclass=32769, type=1, ttl=120)
+
+pkt = DNS(raw(pkt))
+
+assert DNSRRSRV in pkt.an
+assert pkt[DNSRRSRV].target == b'Freebox-Server-3.local.'
+assert pkt[DNSRRSRV].rrname == b'140C768FFE28@Freebox Server._raop._tcp.local.'
+assert isinstance(pkt[DNSRRSRV].payload, DNSRR)
+assert pkt[DNSRRSRV].payload.rrname == b'Freebox-Server-3.local.'
+assert pkt[DNSRRSRV].payload.rdata == '192.168.0.254'
+
+= Basic DNS Compression
+~ dns
+
+assert len(pkt) == 426
+
+z = pkt.compress()
+
+assert len(z) == 295
+assert z.an[0].rrname == b'_raop._tcp.local.'
+assert z.an[0].rdata == b'\x1b140C768FFE28@Freebox Server\xc0\x0c'
+assert z.an[1].rrname == z.an[2].rrname == b'\xc0('
+assert z.an[2].target == b'\x10Freebox-Server-3\xc0\x17'
+assert z.an[3].rrname == b'\xc1\x04'
+
+raw(z)
+
+assert raw(z) == b'\x00\x00\x85\x00\x00\x00\x00\x04\x00\x00\x00\x00\x05_raop\x04_tcp\x05local\x00\x00\x0c\x00\x01\x00\x00\x00\x00\x00\x1e\x1b140C768FFE28@Freebox Server\xc0\x0c\xc0(\x00\x10\x00\x01\x00\x00\x00\x00\x00\xa0\ttxtvers=1\x08vs=190.9\x04ch=2\x08sr=44100\x05ss=16\x08pw=false\x06et=0,1\x04ek=1\ntp=TCP,UDP\x13am=FreeboxServer1,2\ncn=0,1,2,3\x06md=0,2\x07sf=0x44\x0bft=0xBF0A00\x08sv=false\x07da=true\x08vn=65537\x04vv=2\xc0(\x00!\x80\x01\x00\x00\x00\x00\x00\x19\x00\x00\x00\x00\x13\x88\x10Freebox-Server-3\xc0\x17\xc1\x04\x00\x01\x80\x01\x00\x00\x00x\x00\x04\xc0\xa8\x00\xfe'
+
+recompressed = DNS(raw(z))
+recompressed.clear_cache()
+recompressed.an[0].rdlen = None
+recompressed.an[1].rdlen = None
+recompressed.an[2].rdlen = None
+recompressed.an[3].rdlen = None
+
+assert raw(recompressed) == raw(pkt)
+
+= Advanced dns_get_str tests
+~ dns
+
+assert dns_get_str(b"\x06cheese\x00blobofdata....\x06hamand\xc0\x0c", 22, _internal=True)[0] == b'hamand.cheese.'
+
+from scapy.tools.UTscapy import Bunch
+assert dns_get_str(b"\x06hamand\xc0\x0c", 0, pkt=Bunch(_orig_s=b"\x06cheese\x00blobofdata", _orig_p=22))[0] == b'hamand.cheese.'
+
+= Decompression loop in dns_get_str
+~ dns
+
+assert dns_get_str(b"\x04data\xc0\x0c", 0, _internal=True)[0] == b"data."
+
+= Prematured end in dns_get_str
+~ dns
+
+assert dns_get_str(b"\x06da", 0, _internal=True)[0] == b"da."
+assert dns_get_str(b"\x04data\xc0\x01", 0, _internal=True)[0] == b"data."
 
 = Layer binding
 
@@ -7092,6 +7223,9 @@ raw(EAP()) == b'\x04\x00\x00\x04'
 = EAP - Instantiation with specific values
 raw(EAP(code = 1, id = 1, len = 5, type = 1)) == b'\x01\x01\x00\x05\x01'
 
+= EAP - Instantiation - Multiple desired authentication types
+raw(EAP(code=2, type=3, desired_auth_types=[13,21,25,43])) == b'\x02\x00\x00\t\x03\r\x15\x19+'
+
 = EAP - Dissection (1)
 s = b'\x01\x01\x00\x05\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 eap = EAP(s)
@@ -7162,14 +7296,14 @@ assert(eap[EAP_FAST].S == 0)
 assert(eap[EAP_FAST].version == 1)
 
 = EAP - Dissection (7)
-s = b'\x02\xf1\x00\x06\x03+'
+s = b'\x02\xf1\x00\t\x03\r\x15\x19+'
 eap = EAP(s)
 assert(eap.code == 2)
 assert(eap.id == 241)
-assert(eap.len == 6)
+assert(eap.len == 9)
 assert(eap.type == 3)
-assert(hasattr(eap, 'desired_auth_type'))
-assert(eap.desired_auth_type == 43)
+assert(hasattr(eap, 'desired_auth_types'))
+assert(eap.desired_auth_types == [13,21,25,43])
 
 = EAP - Dissection (8)
 s = b"\x02\x03\x01\x15\x15\x00\x16\x03\x01\x01\n\x01\x00\x01\x06\x03\x03\xd5\xd9\xd5rT\x9e\xb8\xbe,>\xcf!\xcf\xc7\x02\x8c\xb1\x1e^F\xf7\xc84\x8c\x01t4\x91[\x02\xc8/\x00\x00\x8c\xc00\xc0,\xc0(\xc0$\xc0\x14\xc0\n\x00\xa5\x00\xa3\x00\xa1\x00\x9f\x00k\x00j\x00i\x00h\x009\x008\x007\x006\x00\x88\x00\x87\x00\x86\x00\x85\xc02\xc0.\xc0*\xc0&\xc0\x0f\xc0\x05\x00\x9d\x00=\x005\x00\x84\xc0/\xc0+\xc0'\xc0#\xc0\x13\xc0\t\x00\xa4\x00\xa2\x00\xa0\x00\x9e\x00g\x00@\x00?\x00>\x003\x002\x001\x000\x00\x9a\x00\x99\x00\x98\x00\x97\x00E\x00D\x00C\x00B\xc01\xc0-\xc0)\xc0%\xc0\x0e\xc0\x04\x00\x9c\x00<\x00/\x00\x96\x00A\x00\xff\x01\x00\x00Q\x00\x0b\x00\x04\x03\x00\x01\x02\x00\n\x00\x1c\x00\x1a\x00\x17\x00\x19\x00\x1c\x00\x1b\x00\x18\x00\x1a\x00\x16\x00\x0e\x00\r\x00\x0b\x00\x0c\x00\t\x00\n\x00\r\x00 \x00\x1e\x06\x01\x06\x02\x06\x03\x05\x01\x05\x02\x05\x03\x04\x01\x04\x02\x04\x03\x03\x01\x03\x02\x03\x03\x02\x01\x02\x02\x02\x03\x00\x0f\x00\x01\x01"
@@ -9699,25 +9833,30 @@ assert(param1.random != param2.random)
 + DHCP
 
 = BOOTP - misc
-BOOTP().answers(BOOTP()) == True
-BOOTP().hashret() == b"\x00\x00\x00\x00"
+assert BOOTP().answers(BOOTP())
+assert BOOTP().hashret() == b"\x00\x00\x00\x00"
 
 import random
 random.seed(0x2807)
-str(RandDHCPOptions()) == "[('WWW_server', '90.219.239.175')]"
+assert str(RandDHCPOptions(size=1)) in ["[('max_dhcp_size', 9227)]", "[('SMTP_server', '18.228.90.219')]"]
 
-value = ("hostname", "scapy")
-dof = DHCPOptionsField("options", value)
-dof.i2repr("", value) == '[hostname scapy]'
-dof.i2m("", value) == b'\x0cscapy'
+= DHCPOptionsField
+
+value = [("hostname", "scapy")]
+dof = DHCPOptionsField("options", "")
+assert dof.i2repr("", value) == "[hostname='scapy']"
+assert dof.i2repr("", ["opt", "opt2"]) == "[opt opt2]"
+assert dof.i2m("", value) == b'\x0c\x05scapy'
+assert dof.m2i("", b'\x0cunknown') == [b'\x0cunknown']
+assert dof.m2i("", b'\x0c\x05scapy') == [('hostname', b'scapy')]
 
 unknown_value_end = b"\xfe" + b"\xff"*257
 udof = DHCPOptionsField("options", unknown_value_end)
-udof.m2i("", unknown_value_end) == [(254, b'\xff'*255), 'end']
+assert udof.m2i("", unknown_value_end) == [(254, b'\xff'*255), 'end']
 
 unknown_value_pad = b"\xfe" + b"\xff"*256 + b"\x00"
 udof = DHCPOptionsField("options", unknown_value_pad)
-udof.m2i("", unknown_value_pad) == [(254, b'\xff'*255), 'pad']
+assert udof.m2i("", unknown_value_pad) == [(254, b'\xff'*255), 'pad']
 
 = DHCP - build
 s = raw(IP(src="127.0.0.1")/UDP()/BOOTP(chaddr="00:01:02:03:04:05")/DHCP(options=[("message-type","discover"),"end"]))
@@ -9925,6 +10064,7 @@ assert a.src == '00:00:00:00:00:00'
 + ASN.1
 
 = MIB
+~ mib
 
 import tempfile
 fd, fname = tempfile.mkstemp()
@@ -9932,7 +10072,7 @@ os.write(fd, b"-- MIB test\nscapy       OBJECT IDENTIFIER ::= {test 2807}\n")
 os.close(fd)
 
 load_mib(fname)
-assert(len([k for k in conf.mib.iterkeys() if "scapy" in k]) == 1)
+assert(len([k for k in conf.mib.__dict__.values() if "scapy" in k]) == 1)
 
 assert(len([oid for oid in conf.mib]) > 100)
 
@@ -9943,6 +10083,9 @@ assert(len(conf.mib._find("MIB", "keyUsage")))
 assert(len(conf.mib._recurs_find_all((), "MIB", "keyUsage")))
 
 = MIB - graph
+~ mib
+
+import mock
 
 @mock.patch("scapy.asn1.mib.do_graph")
 def get_mib_graph(do_graph):
@@ -10127,7 +10270,7 @@ def test_report_ports(mock_sr):
                 (IP()/TCP(dport=65082, flags="S"), IP()/ICMP(type=3, code=1)),
                 (IP()/TCP(dport=65083, flags="S"), IP()/TCP(sport=65083, flags="R"))], [IP()/TCP(dport=65084, flags="S")]
     mock_sr.side_effect = sr
-    report = "\\begin{tabular}{|r|l|l|}\n\hline\n65081 & open & SA \\\\\n\hline\n?? & closed & ICMP type dest-unreach/host-unreachable from 127.0.0.1 \\\\\n65083 & closed & TCP R \\\\\n\hline\n65084 & ? & unanswered \\\\\n\hline\n\end{tabular}\n"
+    report = "\\begin{tabular}{|r|l|l|}\n\\hline\n65081 & open & SA \\\\\n\\hline\n?? & closed & ICMP type dest-unreach/host-unreachable from 127.0.0.1 \\\\\n65083 & closed & TCP R \\\\\n\\hline\n65084 & ? & unanswered \\\\\n\\hline\n\\end{tabular}\n"
     assert(report_ports("www.secdev.org", [65081,65082,65083,65084]) == report)
 
 test_report_ports()
@@ -10324,7 +10467,7 @@ def test_rawhexdump():
         p.rawhexdump()
         result_pl_rawhexdump = cmco.get_output()
     assert(len(result_pl_rawhexdump.split('\n')) == 7)
-    assert(result_pl_rawhexdump.startswith("0000  45000028"))
+    assert(result_pl_rawhexdump.startswith("0000  45 00 00 28"))
 
 test_rawhexdump()
 
@@ -10348,9 +10491,28 @@ def test_hexdump():
         p.hexdump()
         result_pl_hexdump = cmco.get_output()
     assert(len(result_pl_hexdump.split('\n')) == 7)
-    assert("0010  7F00000131" in result_pl_hexdump)
+    assert("0010  7F 00 00 01 31" in result_pl_hexdump)
 
 test_hexdump()
+
+= import_hexcap()
+
+@mock.patch("%s.input" % six.moves.builtins.__name__)
+def test_import_hexcap(mock_input):
+    data = """
+0000  FF FF FF FF FF FF AA AA AA AA AA AA 08 00 45 00  ..............E.
+0010  00 1C 00 01 00 00 40 01 7C DE 7F 00 00 01 7F 00  ......@.|.......
+0020  00 01 08 00 F7 FF 00 00 00 00                    ..........
+"""[1:].split("\n")
+    lines = iter(data)
+    mock_input.side_effect = lambda: next(lines)
+    return import_hexcap()
+
+pkt = test_import_hexcap()
+pkt = Ether(pkt)
+assert pkt[Ether].dst == "ff:ff:ff:ff:ff:ff"
+assert pkt[IP].dst == "127.0.0.1"
+assert ICMP in pkt
 
 = padding()
 
@@ -10372,7 +10534,7 @@ def test_nzpadding():
         p.nzpadding()
         result_pl_nzpadding = cmco.get_output()
     assert(len(result_pl_nzpadding.split('\n')) == 5)
-    assert("0000  4130" in result_pl_nzpadding)
+    assert("0000  41 30" in result_pl_nzpadding)
 
 test_nzpadding()
 
@@ -10441,6 +10603,18 @@ if PYX:
     filename = tempfile.mktemp(suffix=".pdf")
     plist = PacketList([IP()/TCP()])
     plist.pdfdump(filename)
+    assert(os.path.exists(filename))
+    os.unlink(filename)
+
+= svgdump()
+
+print("PYX: %d" % PYX)
+if PYX:
+    import tempfile
+    import os
+    filename = tempfile.mktemp(suffix=".svg")
+    plist = PacketList([IP()/TCP()])
+    plist.svgdump(filename)
     assert(os.path.exists(filename))
     os.unlink(filename)
 

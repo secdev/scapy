@@ -12,7 +12,7 @@ import hmac
 
 from scapy.layers.tls.crypto.hash import _tls_hash_algs
 import scapy.modules.six as six
-from scapy.compat import *
+from scapy.compat import raw
 
 _SSLv3_PAD1_MD5 = b"\x36" * 48
 _SSLv3_PAD1_SHA1 = b"\x36" * 40

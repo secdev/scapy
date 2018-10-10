@@ -9,7 +9,6 @@ Block ciphers.
 
 from __future__ import absolute_import
 from scapy.config import conf
-from scapy.utils import strxor
 from scapy.layers.tls.crypto.ciphers import CipherError
 import scapy.modules.six as six
 
@@ -48,10 +47,10 @@ class _BlockCipher(six.with_metaclass(_BlockCipherMetaclass, object)):
         if key is None:
             self.ready["key"] = False
             if hasattr(self, "expanded_key_len"):
-                l = self.expanded_key_len
+                key_len = self.expanded_key_len
             else:
-                l = self.key_len
-            key = b"\0" * l
+                key_len = self.key_len
+            key = b"\0" * key_len
         if not iv:
             self.ready["iv"] = False
             iv = b"\0" * self.block_size

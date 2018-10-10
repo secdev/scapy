@@ -1387,25 +1387,25 @@ Hands-On
 
 Send a message over Linux SocketCAN::
 
-    load_contrib('cansocket')
-    socket = CANSocket(iface='can0')
-    packet = CAN(identifier=0x123, data=b'01020304')
+   load_contrib('cansocket')
+   socket = CANSocket(iface='can0')
+   packet = CAN(identifier=0x123, data=b'01020304')
 
-    socket.sr1(packet, timeout=1)
+   socket.sr1(packet, timeout=1)
 
-    srcan(packet, 'can0', timeout=1)
+   srcan(packet, 'can0', timeout=1)
 
 Send a message over a Vector-Interface::
 
-    import can
-    conf.contribs['CANSocket'] = {'use-python-can' : True}
-    load_contrib('cansocket')
-    from can.interfaces.vector import VectorBus
-    socket = CANSocket(iface=VectorBus(0, bitrate=1000000))
-    packet = CAN(identifier=0x123, data=b'01020304')
-    socket.sr1(packet)
+   import can
+   conf.contribs['CANSocket'] = {'use-python-can' : True}
+   load_contrib('cansocket')
+   from can.interfaces.vector import VectorBus
+   socket = CANSocket(iface=VectorBus(0, bitrate=1000000))
+   packet = CAN(identifier=0x123, data=b'01020304')
+   socket.sr1(packet)
 
-    srcan(packet, VectorBus(0, bitrate=1000000))
+   srcan(packet, VectorBus(0, bitrate=1000000))
 
 
 
@@ -1417,90 +1417,114 @@ Setup
 
 This commands enable a virtual CAN interface on your machine::
 
-    from scapy.layers.can import *
-    import os
+   from scapy.layers.can import *
+   import os
 
-    bashCommand = "/bin/bash -c 'sudo modprobe vcan; sudo ip link add name vcan0 type vcan; sudo ip link set dev vcan0 up'"
-    os.system(bashCommand)
+   bashCommand = "/bin/bash -c 'sudo modprobe vcan; sudo ip link add name vcan0 type vcan; sudo ip link set dev vcan0 up'"
+   os.system(bashCommand)
 
-If it's required, the CAN interface can be set into an listen-only or loop back mode with ip link set commands::
+If it's required, the CAN interface can be set into an listen-only or loop back mode with ip link set commands:
 
-    ip link set vcan0 type can help  # shows additional information
+::
+
+   ip link set vcan0 type can help  # shows additional information
+
 
 CAN Frame
 ---------
 
 Creating a standard CAN frame::
 
-    frame = CAN(identifier=0x200, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
+   frame = CAN(identifier=0x200, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
 
 Creating an extended CAN frame::
 
-    frame = CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
+   frame = CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
 
 Writing and reading to pcap files::
 
-    x = CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
-    wrpcap('/tmp/scapyPcapTest.pcap', x, append=False)
-    y = rdpcap('/tmp/scapyPcapTest.pcap', 1)
+   x = CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
+   wrpcap('/tmp/scapyPcapTest.pcap', x, append=False)
+   y = rdpcap('/tmp/scapyPcapTest.pcap', 1)
 
-Native CANSocket
+CANSocket native
 ----------------
 
 Creating a simple native CANSocket::
 
-    conf.contribs['CANSocket'] = {'use-python-can': False} #(default)
-    load_contrib('cansocket')
+   conf.contribs['CANSocket'] = {'use-python-can': False} #(default)
+   load_contrib('cansocket')
 
-    # Simple Socket
-    socket = CANSocket(iface="vcan0")
+   # Simple Socket
+   socket = CANSocket(iface="vcan0")
 
- Creating a native CANSocket only listen for messages with Id == 0x200::
+Creating a native CANSocket only listen for messages with Id == 0x200::
 
-    socket = CANSocket(iface="vcan0", canfilters=[{'can_id': 0x200, 'can_mask': 0x7FF}])
+   socket = CANSocket(iface="vcan0", can_filters=[{'can_id': 0x200, 'can_mask': 0x7FF}])
 
 Creating a native CANSocket only listen for messages with Id >= 0x200 and Id <= 0x2ff::
 
-    socket = CANSocket(iface="vcan0", canfilters=[{'can_id': 0x200, 'can_mask': 0x700}])
+   socket = CANSocket(iface="vcan0", can_filters=[{'can_id': 0x200, 'can_mask': 0x700}])
 
 Creating a native CANSocket only listen for messages with Id != 0x200::
 
-    socket = CANSocket(iface="vcan0", canfilters=[{'can_id': 0x200 | CAN_INV_FILTER, 'can_mask': 0x7FF}])
+   socket = CANSocket(iface="vcan0", can_filters=[{'can_id': 0x200 | CAN_INV_FILTER, 'can_mask': 0x7FF}])
 
-Creating a native CANSocket with multiple canfilters::
+Creating a native CANSocket with multiple can_filters::
 
-    socket = CANSocket(iface='vcan0', canfilters=[{'can_id': 0x200, 'can_mask': 0x7ff},
-                                                     {'can_id': 0x400, 'can_mask': 0x7ff},
-                                                     {'can_id': 0x600, 'can_mask': 0x7ff},
-                                                     {'can_id': 0x7ff, 'can_mask': 0x7ff}])
+   socket = CANSocket(iface='vcan0', can_filters=[{'can_id': 0x200, 'can_mask': 0x7ff},
+                                                  {'can_id': 0x400, 'can_mask': 0x7ff},
+                                                  {'can_id': 0x600, 'can_mask': 0x7ff},
+                                                  {'can_id': 0x7ff, 'can_mask': 0x7ff}])
 
 Creating a native CANSocket which also receives its own messages::
 
-    socket = CANSocket(iface="vcan0", receive_own_messages=True)
+   socket = CANSocket(iface="vcan0", receive_own_messages=True)
 
 
-python-can CANSocket
+CANSocket python-can
 --------------------
 
 Ways of creating a python-can CANSocket::
 
-    conf.contribs['CANSocket'] = {'use-python-can': True}
-    load_contrib('cansocket')
-    import can
+   conf.contribs['CANSocket'] = {'use-python-can': True}
+   load_contrib('cansocket')
+   import can
 
 Creating a simple python-can CANSocket::
 
-    socket = CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0', bitrate=250000
+   socket = CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0', bitrate=250000
 
 Creating a python-can CANSocket with multiple filters::
 
-    socket = CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0', bitrate=250000,
-                    canfilters=[{'can_id': 0x200, 'can_mask': 0x7ff},
-                                {'can_id': 0x400, 'can_mask': 0x7ff},
-                                {'can_id': 0x600, 'can_mask': 0x7ff},
-                                {'can_id': 0x7ff, 'can_mask': 0x7ff}]))
+   socket = CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0', bitrate=250000,
+                   can_filters=[{'can_id': 0x200, 'can_mask': 0x7ff},
+                               {'can_id': 0x400, 'can_mask': 0x7ff},
+                               {'can_id': 0x600, 'can_mask': 0x7ff},
+                               {'can_id': 0x7ff, 'can_mask': 0x7ff}]))
 
-For further details on python-can check: https://python-can.readthedocs.io/en/2.1.0/
+For further details on python-can check: https://python-can.readthedocs.io/en/2.2.0/
+
+ISOTP message
+-------------
+
+Creating an ISOTP message::
+
+   load_contrib('isotp')
+   ISOTP(src=0x241, dst=0x641, data=b"\x3eabc")
+
+Creating an ISOTP message with extended addressing::
+
+   ISOTP(src=0x241, dst=0x641, exdst=0x41, data=b"\x3eabc")
+
+Creating an ISOTP message with extended addressing::
+
+   ISOTP(src=0x241, dst=0x641, exdst=0x41, exsrc=0x41, data=b"\x3eabc")
+
+Create CAN-frames from an ISOTP message::
+
+   ISOTP(src=0x241, dst=0x641, exdst=0x41, exsrc=0x55, data=b"\x3eabc" * 10).fragment()
+
 
 Setup
 -----

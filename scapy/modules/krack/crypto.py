@@ -4,7 +4,7 @@ from io import BytesIO
 from struct import unpack, pack
 from zlib import crc32
 
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
 from cryptography.hazmat.backends import default_backend
 
 import scapy.modules.six as six
@@ -230,17 +230,17 @@ def _XSWAP(value):
     return ((value & 0xFF00FF00) >> 8) | ((value & 0x00FF00FF) << 8)
 
 
-def _michael_b(l, r):
+def _michael_b(m_l, m_r):
     """Defined in 802.11i p.49"""
-    r = r ^ _rotate_left32(l, 17)
-    l = (l + r) % 2**32
-    r = r ^ _XSWAP(l)
-    l = (l + r) % 2**32
-    r = r ^ _rotate_left32(l, 3)
-    l = (l + r) % 2**32
-    r = r ^ _rotate_right32(l, 2)
-    l = (l + r) % 2**32
-    return l, r
+    m_r = m_r ^ _rotate_left32(m_l, 17)
+    m_l = (m_l + m_r) % 2**32
+    m_r = m_r ^ _XSWAP(m_l)
+    m_l = (m_l + m_r) % 2**32
+    m_r = m_r ^ _rotate_left32(m_l, 3)
+    m_l = (m_l + m_r) % 2**32
+    m_r = m_r ^ _rotate_right32(m_l, 2)
+    m_l = (m_l + m_r) % 2**32
+    return m_l, m_r
 
 
 def michael(key, to_hash):
@@ -252,13 +252,13 @@ def michael(key, to_hash):
     data = to_hash + chr(0x5a) + "\x00" * (7 - nb_extra_bytes)
 
     # Hash
-    l, r = unpack('<II', key)
+    m_l, m_r = unpack('<II', key)
     for i in range(nb_block + 2):
         # Convert i-th block to int
         block_i = unpack('<I', data[i * 4:i * 4 + 4])[0]
-        l ^= block_i
-        l, r = _michael_b(l, r)
-    return pack('<II', l, r)
+        m_l ^= block_i
+        m_l, m_r = _michael_b(m_l, m_r)
+    return pack('<II', m_l, m_r)
 
 # TKIP packet utils
 

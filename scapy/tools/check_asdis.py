@@ -47,7 +47,7 @@ def main(argv):
 
     from scapy.config import conf
     from scapy.utils import RawPcapReader, RawPcapWriter, hexdiff
-    from scapy.layers import all
+    from scapy.layers import all  # noqa: F401
 
     pcap = RawPcapReader(PCAP_IN)
     pcap_out = None
