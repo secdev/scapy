@@ -83,8 +83,7 @@ matrix:
           env:
             - TOXENV=py36-linux_root,codecov
 
-        # Temporary Python 3.7 trick https://github.com/travis-ci/travis-ci/issues/9815
-        - os: linux
+        - language: python
           sudo: required
           dist: xenial
           python: 3.7
