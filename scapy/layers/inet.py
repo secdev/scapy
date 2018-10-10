@@ -432,6 +432,8 @@ class IP(Packet, IPTools):
 
     def extract_padding(self, s):
         tmp_len = self.len - (self.ihl << 2)
+        if tmp_len < 0:
+            return s, b""
         return s[:tmp_len], s[tmp_len:]
 
     def route(self):
