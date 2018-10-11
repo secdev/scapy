@@ -10,6 +10,7 @@ Wireshark dissectors. See https://wiki.wireshark.org/CANopen
 """
 
 import struct
+import binascii
 import scapy.modules.six as six
 from scapy.compat import raw
 from scapy.config import conf
@@ -19,6 +20,7 @@ from scapy.fields import FieldLenField, FlagsField, StrLenField, \
 from scapy.packet import Packet, bind_layers, RawVal
 from scapy.layers.l2 import CookedLinux
 
+__all__ = ["CAN", "rdcandump"]
 
 # Mimics the Wireshark CAN dissector parameter 'Byte-swap the CAN ID/flags field'  # noqa: E501
 #   set to True when working with PF_CAN sockets
@@ -31,7 +33,9 @@ class CAN(Packet):
 
     """
     fields_desc = [
-        FlagsField('flags', 0, 3, ['error', 'remote_transmission_request', 'extended']),  # noqa: E501
+        FlagsField('flags', 0, 3, ['error',
+                                   'remote_transmission_request',
+                                   'extended']),
         XBitField('identifier', 0, 29),
         FieldLenField('length', None, length_of='data', fmt='B'),
         ThreeBytesField('reserved', 0),
@@ -49,7 +53,8 @@ class CAN(Packet):
         :return: packet str with the first four bytes swapped
         """
         len_partial = len(pkt) - 4  # len of the packet, CAN ID excluded
-        return struct.pack('<I{}s'.format(len_partial), *struct.unpack('>I{}s'.format(len_partial), pkt))  # noqa: E501
+        return struct.pack('<I{}s'.format(len_partial),
+                           *struct.unpack('>I{}s'.format(len_partial), pkt))
 
     def pre_dissect(self, s):
         """ Implements the swap-bytes functionality when dissecting """
@@ -81,7 +86,9 @@ class CAN(Packet):
                 sval = raw(val)
                 p += sval
                 if field_pos_list is not None:
-                    field_pos_list.append((f.name, sval.encode('string_escape'), len(p), len(sval)))  # noqa: E501
+                    field_pos_list.append((f.name,
+                                           sval.encode('string_escape'),
+                                           len(p), len(sval)))
             else:
                 p = f.addfield(self, p, val)
         if conf.contribs['CAN']['swap-bytes']:
@@ -94,3 +101,66 @@ class CAN(Packet):
 
 conf.l2types.register(DLT_CAN_SOCKETCAN, CAN)
 bind_layers(CookedLinux, CAN, proto=12)
+
+
+def rdcandump(filename, count=None,
+              is_not_log_file_format=False,
+              interface=None):
+    """Read a candump log file and return a packet list
+
+count: read only <count> packets
+is_not_log_file_format: read input with candumps stdout format
+interfaces: return only packets from a specified interface
+
+    """
+    try:
+        if isinstance(filename, six.string_types):
+            file = open(filename, "rb")
+        else:
+            file = filename
+
+        pkts = list()
+        ifilter = None
+        if interface is not None:
+            if isinstance(interface, six.string_types):
+                ifilter = [interface]
+            else:
+                ifilter = interface
+
+        for l in file.readlines():
+            if is_not_log_file_format:
+                h, data = l.split(b']')
+                intf, idn, le = h.split()
+                t = None
+            else:
+                t, intf, f = l.split()
+                idn, data = f.split(b'#')
+                le = None
+                t = float(t[1:-1])
+
+            if ifilter is not None and intf.decode('ASCII') not in ifilter:
+                continue
+
+            data = data.replace(b' ', b'')
+            data = data.strip()
+
+            pkt = CAN(identifier=int(idn, 16), data=binascii.unhexlify(data))
+            if le is not None:
+                pkt.length = int(le[1:])
+            else:
+                pkt.length = len(pkt.data)
+
+            if pkt.identifier > 0x7ff:
+                pkt.flags = 0b100
+
+            if t is not None:
+                pkt.time = t
+
+            pkts.append(pkt)
+            if count is not None and len(pkts) >= count:
+                break
+
+    finally:
+        file.close()
+
+    return pkts
