@@ -77,10 +77,10 @@ p[TCP].sport == 502
 = ModbusPDU01ReadCoilsRequest
 raw(ModbusPDU01ReadCoilsRequest()) == b'\x01\x00\x00\x00\x01'
 = ModbusPDU01ReadCoilsRequest minimal parameters
-raw(ModbusPDU01ReadCoilsRequest(startAddr=16, quantity=2)) == b'\x01\x00\x10\x00\x02'
+raw(ModbusPDU01ReadCoilsRequest(startingAddr=16, quantity=2)) == b'\x01\x00\x10\x00\x02'
 = ModbusPDU01ReadCoilsRequest dissection
 p = ModbusPDU01ReadCoilsRequest(b'\x01\x00\x10\x00\x02')
-assert(p.startAddr == 16)
+assert(p.startingAddr == 16)
 assert(p.quantity == 2)
 
 = ModbusPDU01ReadCoilsResponse
@@ -105,7 +105,7 @@ assert(p.exceptCode == 2)
 = ModbusPDU02ReadDiscreteInputsRequest
 raw(ModbusPDU02ReadDiscreteInputsRequest()) == b'\x02\x00\x00\x00\x01'
 = ModbusPDU02ReadDiscreteInputsRequest minimal parameters
-raw(ModbusPDU02ReadDiscreteInputsRequest(startAddr=8, quantity=128)) == b'\x02\x00\x08\x00\x80'
+raw(ModbusPDU02ReadDiscreteInputsRequest(startingAddr=8, quantity=128)) == b'\x02\x00\x08\x00\x80'
 
 = ModbusPDU02ReadDiscreteInputsResponse
 raw(ModbusPDU02ReadDiscreteInputsResponse()) == b'\x02\x01\x00'
@@ -123,7 +123,7 @@ raw(ModbusPDU02ReadDiscreteInputsError()) == b'\x82\x01'
 = ModbusPDU03ReadHoldingRegistersRequest
 raw(ModbusPDU03ReadHoldingRegistersRequest()) == b'\x03\x00\x00\x00\x01'
 = ModbusPDU03ReadHoldingRegistersRequest minimal parameters
-raw(ModbusPDU03ReadHoldingRegistersRequest(startAddr=2048, quantity=16)) == b'\x03\x08\x00\x00\x10'
+raw(ModbusPDU03ReadHoldingRegistersRequest(startingAddr=2048, quantity=16)) == b'\x03\x08\x00\x00\x10'
 
 = ModbusPDU03ReadHoldingRegistersResponse
 raw(ModbusPDU03ReadHoldingRegistersResponse()) == b'\x03\x02\x00\x00'

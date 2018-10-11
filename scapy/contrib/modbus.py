@@ -46,7 +46,7 @@ _modbus_exceptions = {1: "Illegal Function Code",
 class ModbusPDU01ReadCoilsRequest(Packet):
     name = "Read Coils Request"
     fields_desc = [XByteField("funcCode", 0x01),
-                   XShortField("startAddr", 0x0000),  # 0x0000 to 0xFFFF
+                   XShortField("startingAddr", 0x0000),  # 0x0000 to 0xFFFF
                    XShortField("quantity", 0x0001)]
 
     def extract_padding(self, s):
@@ -75,7 +75,7 @@ class ModbusPDU01ReadCoilsError(Packet):
 class ModbusPDU02ReadDiscreteInputsRequest(Packet):
     name = "Read Discrete Inputs"
     fields_desc = [XByteField("funcCode", 0x02),
-                   XShortField("startAddr", 0x0000),
+                   XShortField("startingAddr", 0x0000),
                    XShortField("quantity", 0x0001)]
 
     def extract_padding(self, s):
@@ -102,7 +102,7 @@ class ModbusPDU02ReadDiscreteInputsError(Packet):
 class ModbusPDU03ReadHoldingRegistersRequest(Packet):
     name = "Read Holding Registers"
     fields_desc = [XByteField("funcCode", 0x03),
-                   XShortField("startAddr", 0x0000),
+                   XShortField("startingAddr", 0x0000),
                    XShortField("quantity", 0x0001)]
 
     def extract_padding(self, s):
@@ -126,7 +126,7 @@ class ModbusPDU03ReadHoldingRegistersError(Packet):
 class ModbusPDU04ReadInputRegistersRequest(Packet):
     name = "Read Input Registers"
     fields_desc = [XByteField("funcCode", 0x04),
-                   XShortField("startAddr", 0x0000),
+                   XShortField("startingAddr", 0x0000),
                    XShortField("quantity", 0x0001)]
 
     def extract_padding(self, s):
