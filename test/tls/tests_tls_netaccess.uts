@@ -89,7 +89,7 @@ def test_tls_server(suite="", version=""):
     filename = os.getenv("SCAPY_ROOT_DIR")+filename if not os.path.exists(filename) else filename
     CA_f = os.path.abspath(filename)
     p = subprocess.Popen(
-        ["openssl", "s_client", "-debug", "-cipher", suite, version, "-CAfile", CA_f],
+        ["openssl", "s_client", "-connect", "127.0.0.1:4433", "-debug", "-cipher", suite, version, "-CAfile", CA_f],
         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
     )
     msg += b"\nstop_server\n"

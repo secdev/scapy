@@ -140,8 +140,13 @@ else:
 if len(routes6):
     assert(len([r for r in routes6 if r[0] == "::1" and r[4] == ["::1"]]) >= 1)
     if len(iflist) >= 2:
-        assert(len([r for r in routes6 if r[0] == "fe80::" and r[1] == 64]) >= 1)
-        len([r for r in routes6 if in6_islladdr(r[0]) and r[1] == 128 and r[4] == ["::1"]]) >= 1
+        assert len([r for r in routes6 if r[0] == "fe80::" and r[1] == 64]) >= 1
+        try:
+            assert len([r for r in routes6 if in6_islladdr(r[0]) and r[1] == 128 and r[4] == ["::1"]]) >= 1
+        except:
+            # IPv6 is not available, but we still check the loopback
+            assert conf.route6.route("::/0") == (scapy.consts.LOOPBACK_NAME, "::", "::")
+            assert len([r for r in routes6 if r[1] == 128 and r[4] == ["::1"]]) >= 1
 else:
     True
 
