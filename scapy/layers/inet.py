@@ -937,22 +937,24 @@ overlap_fragsize: the fragment size of the overlapping packet"""
     return qfrag + fragment(p, fragsize)
 
 
-@conf.commands.register
-def defrag(plist):
-    """defrag(plist) -> ([not fragmented], [defragmented],
-                  [ [bad fragments], [bad fragments], ... ])"""
-    frags = defaultdict(PacketList)
-    nofrag = PacketList()
+def _defrag_logic(plist, complete=False):
+    """Internal function used to defragment a list of packets.
+    It contains the logic behind the defrag() and defragment() functions
+    """
+    frags = defaultdict(lambda: [])
+    final = []
+    pos = 0
     for p in plist:
-        if IP not in p:
-            nofrag.append(p)
-            continue
-        ip = p[IP]
-        if ip.frag == 0 and ip.flags & 1 == 0:
-            nofrag.append(p)
-            continue
-        uniq = (ip.id, ip.src, ip.dst, ip.proto)
-        frags[uniq].append(p)
+        p._defrag_pos = pos
+        pos += 1
+        if IP in p:
+            ip = p[IP]
+            if ip.frag != 0 or ip.flags & 1:
+                uniq = (ip.id, ip.src, ip.dst, ip.proto)
+                frags[uniq].append(p)
+                continue
+        final.append(p)
+
     defrag = []
     missfrag = []
     for lst in six.itervalues(frags):
@@ -989,68 +991,6 @@ def defrag(plist):
             del(ip.chksum)
             del(ip.len)
             p = p / txt
-            defrag.append(p)
-    defrag2 = PacketList()
-    for p in defrag:
-        defrag2.append(p.__class__(raw(p)))
-    return nofrag, defrag2, missfrag
-
-
-@conf.commands.register
-def defragment(plist):
-    """defrag(plist) -> plist defragmented as much as possible """
-    frags = defaultdict(lambda: [])
-    final = []
-
-    pos = 0
-    for p in plist:
-        p._defrag_pos = pos
-        pos += 1
-        if IP in p:
-            ip = p[IP]
-            if ip.frag != 0 or ip.flags & 1:
-                ip = p[IP]
-                uniq = (ip.id, ip.src, ip.dst, ip.proto)
-                frags[uniq].append(p)
-                continue
-        final.append(p)
-
-    defrag = []
-    missfrag = []
-    for lst in six.itervalues(frags):
-        lst.sort(key=lambda x: x.frag)
-        p = lst[0]
-        lastp = lst[-1]
-        if p.frag > 0 or lastp.flags & 1 != 0:  # first or last fragment missing  # noqa: E501
-            missfrag += lst
-            continue
-        p = p.copy()
-        if conf.padding_layer in p:
-            del(p[conf.padding_layer].underlayer.payload)
-        ip = p[IP]
-        if ip.len is None or ip.ihl is None:
-            clen = len(ip.payload)
-        else:
-            clen = ip.len - (ip.ihl << 2)
-        txt = conf.raw_layer()
-        for q in lst[1:]:
-            if clen != q.frag << 3:  # Wrong fragmentation offset
-                if clen > q.frag << 3:
-                    warning("Fragment overlap (%i > %i) %r || %r ||  %r" % (clen, q.frag << 3, p, txt, q))  # noqa: E501
-                missfrag += lst
-                break
-            if q[IP].len is None or q[IP].ihl is None:
-                clen += len(q[IP].payload)
-            else:
-                clen += q[IP].len - (q[IP].ihl << 2)
-            if conf.padding_layer in q:
-                del(q[conf.padding_layer].underlayer.payload)
-            txt.add_payload(q[IP].payload.copy())
-        else:
-            ip.flags &= ~1  # !MF
-            del(ip.chksum)
-            del(ip.len)
-            p = p / txt
             p._defrag_pos = max(x._defrag_pos for x in lst)
             defrag.append(p)
     defrag2 = []
@@ -1058,18 +998,30 @@ def defragment(plist):
         q = p.__class__(raw(p))
         q._defrag_pos = p._defrag_pos
         defrag2.append(q)
-    final += defrag2
-    final += missfrag
-    final.sort(key=lambda x: x._defrag_pos)
-    for p in final:
-        del(p._defrag_pos)
-
-    if hasattr(plist, "listname"):
-        name = "Defragmented %s" % plist.listname
+    if complete:
+        final.extend(defrag2)
+        final.extend(missfrag)
+        final.sort(key=lambda x: x._defrag_pos)
+        if hasattr(plist, "listname"):
+            name = "Defragmented %s" % plist.listname
+        else:
+            name = "Defragmented"
+        return PacketList(final, name=name)
     else:
-        name = "Defragmented"
+        return PacketList(final), PacketList(defrag2), PacketList(missfrag)
 
-    return PacketList(final, name=name)
+
+@conf.commands.register
+def defrag(plist):
+    """defrag(plist) -> ([not fragmented], [defragmented],
+                  [ [bad fragments], [bad fragments], ... ])"""
+    return _defrag_logic(plist, complete=False)
+
+
+@conf.commands.register
+def defragment(plist):
+    """defragment(plist) -> plist defragmented as much as possible """
+    return _defrag_logic(plist, complete=True)
 
 
 # Add timeskew_graph() method to PacketList
