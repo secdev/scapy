@@ -28,10 +28,10 @@ import scapy.consts
 from scapy.config import conf, ConfClass
 from scapy.error import Scapy_Exception, log_loading, log_runtime, warning
 from scapy.utils import atol, itom, pretty_list, mac2str
-from scapy.utils6 import construct_source_candidate_set, in6_getifaddr_raw
+from scapy.utils6 import construct_source_candidate_set
 from scapy.data import ARPHDR_ETHER, load_manuf
 import scapy.modules.six as six
-from scapy.modules.six.moves import range, zip, input, winreg, UserDict
+from scapy.modules.six.moves import input, winreg, UserDict
 from scapy.compat import raw
 from scapy.supersocket import SuperSocket
 
@@ -54,7 +54,7 @@ conf.use_winpcapy = True
 # These import must appear after setting conf.use_* variables
 from scapy.arch import pcapdnet  # noqa: E402
 from scapy.arch.pcapdnet import NPCAP_PATH, get_if_raw_addr, \
-    get_if_list  # noqa: E402
+    get_if_list, in6_getifaddr_raw  # noqa: E402
 
 WINDOWS = (os.name == 'nt')
 
@@ -1300,7 +1300,7 @@ def route_add_loopback(routes=None, ipv6=False, iflist=None):
         if conf.iface.name == scapy.consts.LOOPBACK_NAME:
             conf.iface = adapter
     if isinstance(conf.iface6, NetworkInterface):
-        if conf.iface6.name == scapy.conts.LOOPBACK_NAME:
+        if conf.iface6.name == scapy.consts.LOOPBACK_NAME:
             conf.iface6 = adapter
     conf.netcache.arp_cache["127.0.0.1"] = "ff:ff:ff:ff:ff:ff"
     conf.netcache.in6_neighbor["::1"] = "ff:ff:ff:ff:ff:ff"

@@ -1458,6 +1458,8 @@ u'64'
             proc.stdin.writelines(iter(lambda: pktlist.read(1048576), b""))
         except AttributeError:
             wrpcap(proc.stdin, pktlist)
+        except UnboundLocalError:
+            raise IOError("%s died unexpectedly !" % prog)
         else:
             proc.stdin.close()
     if dump:

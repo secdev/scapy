@@ -23,7 +23,6 @@ from scapy.supersocket import SuperSocket
 from scapy.error import Scapy_Exception, log_loading, warning
 from scapy.pton_ntop import inet_ntop
 from scapy.automaton import SelectableObject
-from scapy.arch.bpf.common import bpf_program
 import scapy.consts
 
 if not scapy.consts.WINDOWS:
@@ -83,15 +82,17 @@ class _L2pcapdnetSocket(SuperSocket, SelectableObject):
 
 if conf.use_winpcapy:
     NPCAP_PATH = os.environ["WINDIR"] + "\\System32\\Npcap"
-    #  Part of the code from https://github.com/phaethon/scapy translated to python2.X  # noqa: E501
+    # Part of the Winpcapy integration was inspired by phaethon/scapy
+    # but he destroyed the commit history, so there is no link to that
     try:
         from scapy.modules.winpcapy import PCAP_ERRBUF_SIZE, pcap_if_t, \
             sockaddr_in, sockaddr_in6, pcap_findalldevs, pcap_freealldevs, \
             pcap_lib_version, pcap_create, pcap_close, pcap_set_snaplen, \
             pcap_set_promisc, pcap_set_timeout, pcap_set_rfmon, \
             pcap_activate, pcap_open_live, pcap_setmintocopy, pcap_pkthdr, \
-            pcap_next_ex, pcap_datalink, pcap_get_selectable_fd, \
-            pcap_compile, pcap_setfilter, pcap_setnonblock, pcap_sendpacket
+            pcap_next_ex, pcap_datalink, \
+            pcap_compile, pcap_setfilter, pcap_setnonblock, pcap_sendpacket, \
+            bpf_program as winpcapy_bpf_program
 
         def load_winpcapy():
             err = create_string_buffer(PCAP_ERRBUF_SIZE)
@@ -195,7 +196,7 @@ if conf.use_winpcapy:
 
             self.header = POINTER(pcap_pkthdr)()
             self.pkt_data = POINTER(c_ubyte)()
-            self.bpf_program = bpf_program()
+            self.bpf_program = winpcapy_bpf_program()
 
         def next(self):
             c = pcap_next_ex(self.pcap, byref(self.header), byref(self.pkt_data))  # noqa: E501
@@ -213,7 +214,10 @@ if conf.use_winpcapy:
             if WINDOWS:
                 log_loading.error("Cannot get selectable PCAP fd on Windows")
                 return 0
-            return pcap_get_selectable_fd(self.pcap)
+            else:
+                # This does not exist under Windows
+                from scapy.modules.winpcapy import pcap_get_selectable_fd
+                return pcap_get_selectable_fd(self.pcap)
 
         def setfilter(self, f):
             filter_exp = create_string_buffer(f.encode("utf8"))
