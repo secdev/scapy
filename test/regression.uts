@@ -4922,10 +4922,14 @@ a.optcode == 43 and a.optlen == 8 and a.reqopts == [1,2,3,4]
 
 = Basic build & dissect
 s = raw(DHCP6OptClientLinkLayerAddr())
-assert(s == b"\x00O\x00\x07\x00\x01\x00\x00\x00\x00\x00\x00")
+assert(s == b"\x00O\x00\x08\x00\x01\x00\x00\x00\x00\x00\x00")
 
 p = DHCP6OptClientLinkLayerAddr(s)
 assert(p.clladdr == "00:00:00:00:00:00")
+
+r = b"\x00O\x00\x08\x00\x01\x00\x01\x02\x03\x04\x05"
+p = DHCP6OptClientLinkLayerAddr(r)
+assert(p.clladdr == "00:01:02:03:04:05")
 
 
 ############
