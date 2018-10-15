@@ -931,7 +931,7 @@ class DHCP6OptClientLinkLayerAddr(_DHCP6OptGuessPayload):  # RFC6939
     name = "DHCP6 Option - Client Link Layer address"
     fields_desc = [ShortEnumField("optcode", 79, dhcp6opts),
                    FieldLenField("optlen", None, length_of="clladdr",
-                                 adjust=lambda pkt, x: x + 1),
+                                 adjust=lambda pkt, x: x + 2),
                    ShortField("lltype", 1),  # ethernet
                    _LLAddrField("clladdr", ETHER_ANY)]
 
