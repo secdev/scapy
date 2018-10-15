@@ -1329,7 +1329,8 @@ if six.PY3 and LINUX:
         def __set_option_flags(self, sock, extended_addr=None,
                                extended_rx_addr=None,
                                listen_only=False,
-                               padding=False):
+                               padding=False,
+                               transmit_time=100):
             option_flags = CAN_ISOTP_DEFAULT_FLAGS
             if extended_addr is not None:
                 option_flags = option_flags | CAN_ISOTP_EXTEND_ADDR
@@ -1351,6 +1352,7 @@ if six.PY3 and LINUX:
             sock.setsockopt(SOL_CAN_ISOTP,
                             CAN_ISOTP_OPTS,
                             self.__build_can_isotp_options(
+                                frame_txtime=transmit_time,
                                 flags=option_flags,
                                 ext_address=extended_addr,
                                 rx_ext_address=extended_rx_addr))
@@ -1363,6 +1365,7 @@ if six.PY3 and LINUX:
                      extended_rx_addr=None,
                      listen_only=False,
                      padding=False,
+                     transmit_time=100,
                      basecls=ISOTP):
             self.iface = conf.contribs['NativeCANSocket']['iface'] \
                 if iface is None else iface
@@ -1372,7 +1375,8 @@ if six.PY3 and LINUX:
                                     extended_addr,
                                     extended_rx_addr,
                                     listen_only,
-                                    padding)
+                                    padding,
+                                    transmit_time)
 
             self.src = sid
             self.dst = did
