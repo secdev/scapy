@@ -225,7 +225,7 @@ class BERcodec_Object(six.with_metaclass(BERcodec_metaclass)):
     def check_type(cls, s):
         cls.check_string(s)
         tag, remainder = BER_id_dec(s)
-        if cls.tag != tag:
+        if type(tag) is not int or cls.tag != tag:
             raise BER_BadTag_Decoding_Error("%s: Got tag [%i/%#x] while expecting %r" %  # noqa: E501
                                             (cls.__name__, tag, tag, cls.tag), remaining=s)  # noqa: E501
         return remainder
