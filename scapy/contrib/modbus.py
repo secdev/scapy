@@ -201,7 +201,7 @@ class ModbusPDU07ReadExceptionStatusRequest(Packet):
 class ModbusPDU07ReadExceptionStatusResponse(Packet):
     name = "Read Exception Status Response"
     fields_desc = [XByteField("funcCode", 0x07),
-                   XByteField("startingAddr", 0x00)]
+                   XByteField("startAddr", 0x00)]
 
 
 class ModbusPDU07ReadExceptionStatusError(Packet):
@@ -213,7 +213,7 @@ class ModbusPDU07ReadExceptionStatusError(Packet):
 class ModbusPDU0FWriteMultipleCoilsRequest(Packet):
     name = "Write Multiple Coils"
     fields_desc = [XByteField("funcCode", 0x0F),
-                   XShortField("startingAddr", 0x0000),
+                   XShortField("startAddr", 0x0000),
                    XShortField("quantityOutput", 0x0001),
                    BitFieldLenField("byteCount", None, 8, count_of="outputsValue"),  # noqa: E501
                    FieldListField("outputsValue", [0x00], XByteField("", 0x00), count_from=lambda pkt: pkt.byteCount)]  # noqa: E501
@@ -225,7 +225,7 @@ class ModbusPDU0FWriteMultipleCoilsRequest(Packet):
 class ModbusPDU0FWriteMultipleCoilsResponse(Packet):
     name = "Write Multiple Coils Response"
     fields_desc = [XByteField("funcCode", 0x0F),
-                   XShortField("startingAddr", 0x0000),
+                   XShortField("startAddr", 0x0000),
                    XShortField("quantityOutput", 0x0001)]
 
 
@@ -238,7 +238,7 @@ class ModbusPDU0FWriteMultipleCoilsError(Packet):
 class ModbusPDU10WriteMultipleRegistersRequest(Packet):
     name = "Write Multiple Registers"
     fields_desc = [XByteField("funcCode", 0x10),
-                   XShortField("startingAddr", 0x0000),
+                   XShortField("startAddr", 0x0000),
                    BitFieldLenField("quantityRegisters", None, 16, count_of="outputsValue",),  # noqa: E501
                    BitFieldLenField("byteCount", None, 8, count_of="outputsValue", adjust=lambda pkt, x: x * 2),  # noqa: E501
                    FieldListField("outputsValue", [0x0000], XShortField("", 0x0000),  # noqa: E501
@@ -248,7 +248,7 @@ class ModbusPDU10WriteMultipleRegistersRequest(Packet):
 class ModbusPDU10WriteMultipleRegistersResponse(Packet):
     name = "Write Multiple Registers Response"
     fields_desc = [XByteField("funcCode", 0x10),
-                   XShortField("startingAddr", 0x0000),
+                   XShortField("startAddr", 0x0000),
                    XShortField("quantityRegisters", 0x0001)]
 
 
