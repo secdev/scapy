@@ -607,7 +607,7 @@ if conf.use_dnet:
 
             try:
                 intf = next(if_iter)
-            except StopIteration:
+            except StopIteration or RuntimeError:
                 return scapy.consts.LOOPBACK_NAME
 
             return intf.get("name", scapy.consts.LOOPBACK_NAME)
