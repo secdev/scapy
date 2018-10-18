@@ -14,7 +14,10 @@ import time
 from threading import Thread, Event, RLock
 
 from scapy.packet import Packet
-from scapy.fields import StrField
+from scapy.fields import BitField, FlagsField, StrLenField, \
+    ThreeBytesField, XBitField, ConditionalField, \
+    BitEnumField, ByteField, XByteField, BitFieldLenField, StrField
+from scapy.compat import chb, orb
 from scapy.layers.can import CAN
 import scapy.modules.six as six
 from scapy.error import Scapy_Exception, warning, log_loading
@@ -22,8 +25,9 @@ from scapy.supersocket import SuperSocket
 from scapy.config import conf
 from scapy.consts import LINUX
 
-__all__ = ["ISOTP", "ISOTPSniffer", "ISOTPSoftSocket", "ISOTPSocket",
-           "ISOTPSocketImplementation", "ISOTPMessageBuilder"]
+__all__ = ["ISOTP", "ISOTPHeader", "ISOTPHeaderEA", "ISOTP_SF", "ISOTP_FF",
+           "ISOTP_CF", "ISOTP_FC", "ISOTPSniffer", "ISOTPSoftSocket",
+           "ISOTPSocket", "ISOTPSocketImplementation", "ISOTPMessageBuilder"]
 
 USE_CAN_ISOTP_KERNEL_MODULE = False
 if six.PY3 and LINUX:
@@ -166,6 +170,107 @@ class ISOTP(Packet):
                     "provided CAN frames, returning the first one.")
 
         return results[0]
+
+
+class ISOTPHeader(CAN):
+    name = 'ISOTPHeader'
+    fields_desc = [
+        FlagsField('flags', 0, 3, ['error',
+                                   'remote_transmission_request',
+                                   'extended']),
+        XBitField('identifier', 0, 29),
+        ByteField('length', None),
+        ThreeBytesField('reserved', 0),
+    ]
+
+    def extract_padding(self, p):
+        return p, None
+
+    def post_build(self, p, pay):
+        """
+        This will set the ByteField 'length' to the correct value.
+        """
+        if self.length is None:
+            p = p[:4] + chb(len(pay)) + p[5:]
+        return p + pay
+
+    def guess_payload_class(self, payload):
+        """
+        ISOTP encodes the frame type in the first nibble of a frame.
+        """
+        t = (orb(payload[0]) & 0xf0) >> 4
+        if t == 0:
+            return ISOTP_SF
+        elif t == 1:
+            return ISOTP_FF
+        elif t == 2:
+            return ISOTP_CF
+        else:
+            return ISOTP_FC
+
+
+class ISOTPHeaderEA(ISOTPHeader):
+    name = 'ISOTPHeaderExtendedAddress'
+    fields_desc = ISOTPHeader.fields_desc + [
+        XByteField('extended_address', 0),
+    ]
+
+    def post_build(self, p, pay):
+        """
+        This will set the ByteField 'length' to the correct value.
+        'chb(len(pay) + 1)' is required, because the field 'extended_address'
+        is counted as payload on the CAN layer
+        """
+        if self.length is None:
+            p = p[:4] + chb(len(pay) + 1) + p[5:]
+        return p + pay
+
+
+ISOTP_TYPE = {0: 'single',
+              1: 'first',
+              2: 'consecutive',
+              3: 'flow_control'}
+
+
+class ISOTP_SF(Packet):
+    name = 'ISOTPSingleFrame'
+    fields_desc = [
+        BitEnumField('type', 0, 4, ISOTP_TYPE),
+        BitFieldLenField('message_size', None, 4, length_of='data'),
+        StrLenField('data', '', length_from=lambda pkt: pkt.message_size)
+    ]
+
+
+class ISOTP_FF(Packet):
+    name = 'ISOTPFirstFrame'
+    fields_desc = [
+        BitEnumField('type', 1, 4, ISOTP_TYPE),
+        BitField('message_size', 0, 12),
+        ConditionalField(BitField('extended_message_size', 0, 32),
+                         lambda pkt: pkt.message_size == 0),
+        StrField('data', '', fmt="B")
+    ]
+
+
+class ISOTP_CF(Packet):
+    name = 'ISOTPConsecutiveFrame'
+    fields_desc = [
+        BitEnumField('type', 2, 4, ISOTP_TYPE),
+        BitField('index', 0, 4),
+        StrField('data', '', fmt="B")
+    ]
+
+
+class ISOTP_FC(Packet):
+    name = 'ISOTPFlowControlFrame'
+    fields_desc = [
+        BitEnumField('type', 3, 4, ISOTP_TYPE),
+        BitEnumField('fc_flag', 0, 4, {0: 'continue',
+                                       1: 'wait',
+                                       2: 'abort'}),
+        ByteField('block_size', 0),
+        ByteField('separation_time', 0),
+    ]
 
 
 class ISOTPMessageBuilder:
