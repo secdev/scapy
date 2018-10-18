@@ -243,6 +243,7 @@ if LINUX:
 else:
     assert subprocess.check_call(["ifconfig", "tap0", "up"]) == 0
 
+
 def answer_arp_leak(pkt):
     mymac = b"\x00\x01\x02\x03\x04\x06"
     myip = b"\x01\x02\x03\x02"
@@ -298,7 +299,10 @@ ans, unans = test_arpleak(plen=4)
 assert len(ans) == 1
 assert len(unans) == 1
 
-t_answer.join()
+t_answer.join(15)
+
+if t_answer.isAlive():
+    raise Exception("Test timed out")
 
 if conf.use_pypy:
     # See https://pypy.readthedocs.io/en/latest/cpython_differences.html

@@ -87,13 +87,12 @@ def _sndrcv_rcv(pks, hsent, stopevent, nbrecv, notans, verbose, chainCC,
         _storage_policy = lambda x, y: (x, y)
     ans = []
 
-    selected, read_func = pks.select([pks])
-    read_func = read_func or pks.__class__.recv
-
     def _get_pkt():
         # SuperSocket.select() returns, according to each socket type,
         # the selected sockets + the function to recv() the packets (or None)
         # (when sockets aren't selectable, should be nonblock_recv)
+        selected, read_func = pks.select([pks])
+        read_func = read_func or pks.__class__.recv
         if selected:
             return read_func(selected[0])
 
@@ -849,7 +848,7 @@ def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
         warning("Warning: inconsistent socket types ! The used select function"
                 "will be the one of the first socket")
     # Now let's build the select function, used later on
-    _select = lambda sockets: select_func(sockets)[0]
+    _select = lambda sockets, remain: select_func(sockets, remain)[0]
 
     try:
         if started_callback:
@@ -859,8 +858,7 @@ def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
                 remain = stoptime - time.time()
                 if remain <= 0:
                     break
-            ins = _select(sniff_sockets)
-            for s in ins:
+            for s in _select(sniff_sockets, remain):
                 try:
                     p = s.recv()
                 except socket.error as ex:
