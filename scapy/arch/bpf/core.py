@@ -102,7 +102,8 @@ def attach_filter(fd, iface, bpf_filter_string):
     """Attach a BPF filter to the BPF file descriptor"""
 
     # Retrieve the BPF byte code in decimal
-    command = "%s -i %s -ddd -s 1600 '%s'" % (conf.prog.tcpdump, iface, bpf_filter_string)  # noqa: E501
+    cmd_fmt = "%s -p -i %s -ddd -s 1600 '%s'"
+    command = cmd_fmt % (conf.prog.tcpdump, iface, bpf_filter_string)
     try:
         f = os.popen(command)
     except OSError as msg:
