@@ -4,14 +4,6 @@
 = Be sure we have loaded OpenFlow v3
 load_contrib("openflow3")
 
-+ Fields
-
-= GroupDescPacketListField(), check getfield
-remain, lst = GroupDescPacketListField(None, None, None).getfield(None, b'\x00\x10')
-not remain
-all([OFPGroupDesc in gd for gd in lst])
-lst[0].length == 0x0010
-
 + Usual OFv1.3 messages
 
 = OFPTHello(), hello without version bitmap
@@ -80,7 +72,6 @@ fpti = OFPTFPTInstructions(instruction_ids=[OFPITGotoTableID(), OFPITClearAction
 fpti = OFPTFPTInstructions(raw(fpti))
 assert len(fpti) == 16
 assert fpti.instruction_ids[0].type == 1
-assert fpti.instruction_ids[0].table_id == 0
 assert fpti.instruction_ids[1].type == 5
 
 = OFPTPacketIn() containing an Ethernet frame
@@ -171,7 +162,7 @@ e[OFPTFeaturesRequest].xid == 23
 pkt = TCP()/OFPMPRequestTableFeatures(table_features=[OFPTableFeatures(properties=[OFPTFPTMatch(oxm_ids=[OFBUDPSrcID()])])])
 assert raw(pkt) == b'\x19\xfd\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x00\x00\x00\x00\x04\x12\x00X\x00\x00\x00\x00\x00\x0c\x00\x00\x00\x00\x00\x00\x00H\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x08\x00\x08\x80\x00\x1e\x02'
 pkt = TCP(raw(pkt))
-assert pkt.table_features[0].properties[0].oxm_ids[0].fields == {'class': 32768, 'field': 15, 'hasmask': 0, 'length': 2}
+assert pkt.table_features[0].properties[0].oxm_ids[0].fields == {'class': 32768, 'field': 15, 'hasmask': 0, 'len': 2}
 
 = Test OFBTCPSrc Autocompletion
 
