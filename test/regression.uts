@@ -7074,6 +7074,83 @@ ff02::%lo0/32                      ::1                            UC          - 
 
 test_netbsd_7_0()
 
+
+############
+############
++ Mocked route() calls
+
+= Mocked IPv4 routes calls
+
+import scapy
+
+old_routes = conf.route.routes
+old_iface = conf.iface
+old_loopback = scapy.consts.LOOPBACK_INTERFACE
+try:
+    conf.iface = 'enp3s0'
+    scapy.consts.LOOPBACK_INTERFACE = 'lo'
+    conf.route.invalidate_cache()
+    conf.route.routes = [
+        (4294967295, 4294967295, '0.0.0.0', 'wlan0', '', 281),
+        (4294967295, 4294967295, '0.0.0.0', 'lo', '', 291),
+        (4294967295, 4294967295, '0.0.0.0', 'enp3s0', '192.168.0.119', 281),
+        (3758096384, 4026531840, '0.0.0.0', 'lo', '', 291),
+        (3758096384, 4026531840, '0.0.0.0', 'wlan0', '', 281),
+        (3758096384, 4026531840, '0.0.0.0', 'enp3s0', '1.1.1.1', 281),
+        (3232235775, 4294967295, '0.0.0.0', 'enp3s0', '2.2.2.2', 281),
+        (3232235639, 4294967295, '0.0.0.0', 'enp3s0', '3.3.3.3', 281),
+        (3232235520, 4294967040, '0.0.0.0', 'enp3s0', '4.4.4.4', 281),
+        (0, 0, '192.168.0.254', 'enp3s0', '192.168.0.119', 25)
+    ]
+    assert conf.route.route("192.168.0.0-10") == ('enp3s0', '4.4.4.4', '0.0.0.0')
+    assert conf.route.route("192.168.0.119") == ('lo', '192.168.0.119', '0.0.0.0')
+    assert conf.route.route("224.0.0.0") == ('enp3s0', '1.1.1.1', '0.0.0.0')
+    assert conf.route.route("255.255.255.255") == ('enp3s0', '192.168.0.119', '0.0.0.0')
+    assert conf.route.route("*") == ('enp3s0', '192.168.0.119', '192.168.0.254')
+finally:
+    scapy.consts.LOOPBACK_INTERFACE = old_loopback
+    conf.iface = old_iface
+    conf.route.routes = old_routes
+    conf.route.invalidate_cache()
+
+
+= Mocked IPv6 routes calls
+
+old_routes = conf.route6.routes
+old_iface = conf.iface
+old_loopback = scapy.consts.LOOPBACK_INTERFACE
+try:
+    conf.iface = 'enp3s0'
+    scapy.consts.LOOPBACK_INTERFACE = 'lo'
+    conf.route6.invalidate_cache()
+    conf.route6.routes = [
+        ('fe80::dd17:1fa6:a123:ab4', 128, '::', 'lo', ['fe80::dd17:1fa6:a123:ab4'], 291),
+        ('fe80::7101:5678:1234:da65', 128, '::', 'enp3s0', ['fe80::7101:5678:1234:da65'], 281),
+        ('fe80::1f:ae12:4d2c:abff', 128, '::', 'wlan0', ['fe80::1f:ae12:4d2c:abff'], 281),
+        ('fe80::', 64, '::', 'wlan0', ['fe80::1f:ae12:4d2c:abff'], 281),
+        ('fe80::', 64, '::', 'lo', ['fe80::dd17:1fa6:a123:ab4'], 291),
+        ('fe80::', 64, '::', 'enp3s0', ['fe80::7101:5678:1234:da65'], 281),
+        ('2a01:e35:1e06:ab56:7010:6548:9646:fa77', 128, '::', 'enp3s0', ['2a01:e35:1e06:ab56:7010:6548:9646:fa77', '2a01:e35:1e06:ab56:512:8bb7:8ab8:14a8'], 281),
+        ('2a01:e35:1e06:ab56:512:8bb7:8ab8:14a8', 128, '::', 'enp3s0', ['2a01:e35:1e06:ab56:7010:6548:9646:fa77', '2a01:e35:1e06:ab56:512:8bb7:8ab8:14a8'], 281),
+        ('2a01:e35:1e06:ab56::', 64, '::', 'enp3s0', ['2a01:e35:1e06:ab56:7010:6548:9646:fa77', '2a01:e35:1e06:ab56:512:8bb7:8ab8:14a8'], 281),
+        ('::', 0, 'fe80::160c:64aa:ef6f:fe14', 'enp3s0', ['2a01:e35:1e06:ab56:7010:6548:9646:fa77', '2a01:e35:1e06:ab56:512:8bb7:8ab8:14a8'], 281)
+    ]
+    assert conf.route6.route("2a01:e35:1e06:ab56:512:8bb7:8ab8:14a8") == ('enp3s0', '2a01:e35:1e06:ab56:7010:6548:9646:fa77', '::')
+    assert conf.route6.route("::1") == ('enp3s0', '2a01:e35:1e06:ab56:7010:6548:9646:fa77', 'fe80::160c:64aa:ef6f:fe14')
+    assert conf.route6.route("ff02::1") == ('enp3s0', 'fe80::7101:5678:1234:da65', '::')
+    assert conf.route6.route("fe80::1") == ('enp3s0', 'fe80::7101:5678:1234:da65', '::')
+    assert conf.route6.route("fe80::1", dev='lo') == ('lo', 'fe80::dd17:1fa6:a123:ab4', '::')
+finally:
+    scapy.consts.LOOPBACK_INTERFACE = old_loopback
+    conf.iface = old_iface
+    conf.route6.routes = old_routes
+    conf.route6.invalidate_cache()
+
+= Windows: reset routes properly
+
+if WINDOWS:
+    route_add_loopback()
+
 ############
 ############
 + STP tests
