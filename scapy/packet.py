@@ -18,7 +18,7 @@ import subprocess
 
 from scapy.fields import StrField, ConditionalField, Emph, PacketListField, \
     BitField, MultiEnumField, EnumField, FlagsField
-from scapy.config import conf
+from scapy.config import conf, _version_checker
 from scapy.consts import WINDOWS
 from scapy.compat import raw, orb
 from scapy.base_classes import BasePacket, Gen, SetGen, Packet_metaclass
@@ -1604,7 +1604,7 @@ def split_layers(lower, upper, __fval=None, **fval):
 
 @conf.commands.register
 def explore():
-    """Pretty GUI function used to discover the scapy layers and protocols.
+    """Pretty GUI function used to discover the Scapy layers and protocols.
     It helps to see which packets exists in contrib or layer files.
     """
     if not conf.interactive:
@@ -1615,8 +1615,8 @@ def explore():
         raise ImportError("prompt_toolkit is not installed ! "
                           "You may install IPython, which contains it, via"
                           " `pip install ipython`")
-    if not int(prompt_toolkit.__version__.split(".")[0]) >= 2:
-            raise ImportError("prompt_toolkit >= 2.0.0 is required !")
+    if not _version_checker(prompt_toolkit, (2, 0)):
+        raise ImportError("prompt_toolkit >= 2.0.0 is required !")
     # Only available with prompt_toolkit > 2.0, not released on PyPi yet
     from prompt_toolkit.shortcuts.dialogs import radiolist_dialog, \
         yes_no_dialog
@@ -1633,20 +1633,23 @@ def explore():
         yes_text=six.text_type("Layers"),
         no_text=six.text_type("Contribs"))
     # 2 - Retrieve list of Packets
-    if is_layer:
+    if is_layer is True:
         # Get all loaded layers
         _radio_values = conf.layers.layers()
         # Restrict to layers-only (not contribs) + packet.py and asn1*.py
         _radio_values = [x for x in _radio_values if ("layers" in x[0] or
                                                       "packet" in x[0] or
                                                       "asn1" in x[0])]
-    else:
+    elif is_layer is False:
         # Get all existing contribs
         from scapy.main import list_contrib
         _radio_values = list_contrib(ret=True)
         _radio_values = [(x['name'], x['description']) for x in _radio_values]
         # Remove very specific modules
         _radio_values = [x for x in _radio_values if not ("can" in x[0])]
+    else:
+        # Escape was pressed
+        return
     # Python 2 compat
     if six.PY2:
         _radio_values = [(six.text_type(x), six.text_type(y))
@@ -1710,7 +1713,7 @@ def ls(obj=None, case_sensitive=False, verbose=False):
             print("%-10s : %s" % (layer.__name__, layer._name))
         if tip and conf.interactive:
             print()
-            print("TIP: You may use `explore()` to navigate through all "
+            print("TIP: You may use explore() to navigate through all "
                   "layers using a clear GUI")
 
     else:
