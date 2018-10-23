@@ -292,7 +292,6 @@ def test_explore_gui(is_layer, layer):
                                        formatted_text=Bunch(HTML=lambda x: x),
                                        __version__="2.0.0"
                                    )
-
     # a mock.patch isn't enough to mock a module. Let's roll sys.modules
     modules_patched = {
         "prompt_toolkit": prompt_toolkit_mocked_module,

@@ -1614,8 +1614,9 @@ def explore(layer=None):
     """
     if layer is None:  # GUI MODE
         if not conf.interactive:
-            raise Scapy_Exception("explore() GUI-mode cannot be run in interactive mode. "
-                          "Please provide a 'layer' parameter !")
+            raise Scapy_Exception("explore() GUI-mode cannot be run in "
+                                  "interactive mode. Please provide a "
+                                  "'layer' parameter !")
         # 0 - Imports
         try:
             import prompt_toolkit
@@ -1652,7 +1653,8 @@ def explore(layer=None):
             # Get all existing contribs
             from scapy.main import list_contrib
             _radio_values = list_contrib(ret=True)
-            _radio_values = [(x['name'], x['description']) for x in _radio_values]
+            _radio_values = [(x['name'], x['description'])
+                             for x in _radio_values]
             # Remove very specific modules
             _radio_values = [x for x in _radio_values if not ("can" in x[0])]
         else:
@@ -1669,7 +1671,8 @@ def explore(layer=None):
             text=HTML(
                 six.text_type(
                     '<style bg="white" fg="red">Please select a layer among'
-                    ' the following, to see all packets contained in it:</style>'
+                    ' the following, to see all packets contained in'
+                    ' it:</style>'
                 )
             ))
         if result is None:
@@ -1680,7 +1683,8 @@ def explore(layer=None):
             load_contrib(result)
             result = "scapy.contrib." + result
     else:  # NON-GUI MODE
-        # We handle layer as a short layer name, full layer name or the module itself
+        # We handle layer as a short layer name, full layer name
+        # or the module itself
         if isinstance(layer, types.ModuleType):
             layer = layer.__name__
         if isinstance(layer, str):
@@ -1707,7 +1711,7 @@ def explore(layer=None):
         raise Scapy_Exception("Unknown scapy module '%s'" % layer)
     # Print
     print(conf.color_theme.layer_name("Packets contained in %s:" % result))
-    rtlst = [(layer.__name__ or "", layer._name or "") for layer in all_layers]
+    rtlst = [(lay.__name__ or "", lay._name or "") for lay in all_layers]
     print(pretty_list(rtlst, [("Class", "Name")], borders=True))
 
 

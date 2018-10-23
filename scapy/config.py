@@ -184,6 +184,8 @@ class LayersList(list):
     def layers(self):
         layers = self.ldict.keys()
         result = []
+        # This import may feel useless, but it is required for the eval below
+        import scapy  # noqa: F401
         for lay in layers:
             doc = eval(lay).__doc__
             result.append((lay, doc.strip().split("\n")[0] if doc else lay))
