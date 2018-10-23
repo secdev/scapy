@@ -402,7 +402,7 @@ def _where(filename, dirs=None, env="PATH"):
                     for path in paths
                     for match in glob(os.path.join(path, filename))
                     if match)
-    except StopIteration or RuntimeError:
+    except (StopIteration, RuntimeError):
         raise IOError("File not found: %s" % filename)
 
 
@@ -872,7 +872,7 @@ class NetworkInterfaceDict(UserDict):
         try:
             return next(iface for iface in six.itervalues(self)
                         if iface.name == name)
-        except StopIteration or RuntimeError:
+        except (StopIteration, RuntimeError):
             raise ValueError("Unknown network interface %r" % name)
 
     def dev_from_pcapname(self, pcap_name):
@@ -880,7 +880,7 @@ class NetworkInterfaceDict(UserDict):
         try:
             return next(iface for iface in six.itervalues(self)
                         if iface.pcap_name == pcap_name)
-        except StopIteration or RuntimeError:
+        except (StopIteration, RuntimeError):
             raise ValueError("Unknown pypcap network interface %r" % pcap_name)
 
     def dev_from_index(self, if_index):
@@ -888,7 +888,7 @@ class NetworkInterfaceDict(UserDict):
         try:
             return next(iface for iface in six.itervalues(self)
                         if iface.win_index == str(if_index))
-        except StopIteration or RuntimeError:
+        except (StopIteration, RuntimeError):
             if str(if_index) == "1":
                 # Test if the loopback interface is set up
                 if isinstance(scapy.consts.LOOPBACK_INTERFACE, NetworkInterface):  # noqa: E501

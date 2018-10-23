@@ -1249,7 +1249,7 @@ nano:       use nanosecond-precision (requires libpcap >= 1.5.0)
             if not self.header_present:
                 try:
                     p = next(pkt)
-                except StopIteration or RuntimeError:
+                except (StopIteration, RuntimeError):
                     self._write_header(None)
                     return
                 self._write_header(p)

@@ -801,7 +801,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                             c = Message(type=_ATMT_Command.SINGLESTEP, state=state)  # noqa: E501
                             self.cmdout.send(c)
                             break
-            except StopIteration or RuntimeError as e:
+            except (StopIteration, RuntimeError) as e:
                 c = Message(type=_ATMT_Command.END,
                             result=self.final_state_output)
                 self.cmdout.send(c)

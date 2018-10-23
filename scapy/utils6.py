@@ -891,7 +891,7 @@ class Net6(Gen):  # syntax ex. fec0::/126
     def __str__(self):
         try:
             return next(self.__iter__())
-        except StopIteration or RuntimeError:
+        except (StopIteration, RuntimeError):
             return None
 
     def __eq__(self, other):
