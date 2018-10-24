@@ -25,7 +25,6 @@ from scapy.utils import atol, ltoa, itom, plain_str, pretty_list
 class Route:
     def __init__(self):
         self.resync()
-        self.invalidate_cache()
 
     def invalidate_cache(self):
         self.cache = {}
@@ -126,54 +125,56 @@ class Route:
         the_net = the_rawaddr & the_msk
         self.routes.append((the_net, the_msk, '0.0.0.0', iff, the_addr, 1))
 
-    def route(self, dest, verbose=None):
-        if dest is None:
-            dest = "0.0.0.0"
-        elif isinstance(dest, bytes):
+    def route(self, dst=None, verbose=conf.verb):
+        """Returns the IPv4 routes to a host.
+        parameters:
+         - dst: the IPv4 of the destination host
+
+        returns: (iface, output_ip, gateway_ip)
+         - iface: the interface used to connect to the host
+         - output_ip: the outgoing IP that will be used
+         - gateway_ip: the gateway IP that will be used
+        """
+        dst = dst or "0.0.0.0"  # Enable route(None) to return default route
+        if isinstance(dst, bytes):
             try:
-                dest = plain_str(dest)
+                dst = plain_str(dst)
             except UnicodeDecodeError:
-                dest = "0.0.0.0"
-        if dest in self.cache:
-            return self.cache[dest]
-        if verbose is None:
-            verbose = conf.verb
+                raise TypeError("Unknown IP address input (bytes)")
+        if dst in self.cache:
+            return self.cache[dst]
         # Transform "192.168.*.1-5" to one IP of the set
-        dst = dest.split("/")[0]
-        dst = dst.replace("*", "0")
+        _dst = dst.split("/")[0].replace("*", "0")
         while True:
-            idx = dst.find("-")
+            idx = _dst.find("-")
             if idx < 0:
                 break
-            m = (dst[idx:] + ".").find(".")
-            dst = dst[:idx] + dst[idx + m:]
+            m = (_dst[idx:] + ".").find(".")
+            _dst = _dst[:idx] + _dst[idx + m:]
 
-        dst = atol(dst)
+        atol_dst = atol(_dst)
         paths = []
         for d, m, gw, i, a, me in self.routes:
             if not a:  # some interfaces may not currently be connected
                 continue
             aa = atol(a)
-            if aa == dst:
+            if aa == atol_dst:
                 paths.append(
                     (0xffffffff, 1, (scapy.consts.LOOPBACK_INTERFACE, a, "0.0.0.0"))  # noqa: E501
                 )
-            if (dst & m) == (d & m):
+            if (atol_dst & m) == (d & m):
                 paths.append((m, me, (i, a, gw)))
+
         if not paths:
             if verbose:
                 warning("No route found (no default route?)")
             return scapy.consts.LOOPBACK_INTERFACE, "0.0.0.0", "0.0.0.0"
         # Choose the more specific route
-        # Sort by greatest netmask
-        paths.sort(key=lambda x: x[0], reverse=True)
-        # Get all paths having the (same) greatest mask
-        paths = [i for i in paths if i[0] == paths[0][0]]
-        # Tie-breaker: Metrics
-        paths.sort(key=lambda x: x[1])
+        # Sort by greatest netmask and use metrics as a tie-breaker
+        paths.sort(key=lambda x: (-x[0], x[1]))
         # Return interface
         ret = paths[0][2]
-        self.cache[dest] = ret
+        self.cache[dst] = ret
         return ret
 
     def get_if_bcast(self, iff):
@@ -192,7 +193,7 @@ class Route:
 
 conf.route = Route()
 
-iface = conf.route.route("0.0.0.0", verbose=0)[0]
+iface = conf.route.route(None, verbose=0)[0]
 
 # Warning: scapy.consts.LOOPBACK_INTERFACE must always be used statically, because it  # noqa: E501
 # may be changed by scapy/arch/windows during execution
