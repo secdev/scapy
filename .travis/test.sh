@@ -25,6 +25,12 @@ then
   UT_FLAGS+=" -K FIXME_py3"
 fi
 
+if [[ ${TRAVIS_DIST:=trusty} == xenial ]]
+then
+  # The vcan module is currently unavailable on Travis-CI xenial builds
+  UT_FLAGS+=" -K vcan_socket"
+fi
+
 # Dump Environment (so that we can check PATH, UT_FLAGS, etc.)
 set
 
