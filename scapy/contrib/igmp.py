@@ -14,7 +14,9 @@
 # You should have received a copy of the GNU General Public License
 # along with Scapy. If not, see <http://www.gnu.org/licenses/>.
 
-# scapy.contrib.description = IGMP/IGMPv2
+# flake8: noqa: E501
+
+# scapy.contrib.description = Internet Group Management Protocol v1/v2 (IGMP/IGMPv2)
 # scapy.contrib.status = loads
 
 from __future__ import print_function
@@ -67,7 +69,7 @@ IGMPv2 message format   http://www.faqs.org/rfcs/rfc2236.html
                    IPField("gaddr", "0.0.0.0")]
 
     def post_build(self, p, pay):
-        """Called implicitly before a packet is sent to compute and place IGMP checksum.  # noqa: E501
+        """Called implicitly before a packet is sent to compute and place IGMP checksum.
 
         Parameters:
           self    The instantiation of an IGMP class
@@ -95,14 +97,14 @@ IGMPv2 message format   http://www.faqs.org/rfcs/rfc2236.html
 
         The rules are:
         General:
-            1.  the Max Response time is meaningful only in Membership Queries and should be zero  # noqa: E501
+            1.  the Max Response time is meaningful only in Membership Queries and should be zero
         IP:
             1. Send General Group Query to 224.0.0.1 (all systems)
             2. Send Leave Group to 224.0.0.2 (all routers)
             3a.Otherwise send the packet to the group address
             3b.Send reports/joins to the group address
             4. ttl = 1 (RFC 2236, section 2)
-            5. send the packet with the router alert IP option (RFC 2236, section 2)  # noqa: E501
+            5. send the packet with the router alert IP option (RFC 2236, section 2)
         Ether:
             1. Recalculate destination
 
@@ -113,8 +115,8 @@ IGMPv2 message format   http://www.faqs.org/rfcs/rfc2236.html
                     were adjusted.
 
         The function will examine the IGMP message to assure proper format.
-        Corrections will be attempted if possible. The IP header is then properly  # noqa: E501
-        adjusted to ensure correct formatting and assignment. The Ethernet header  # noqa: E501
+        Corrections will be attempted if possible. The IP header is then properly
+        adjusted to ensure correct formatting and assignment. The Ethernet header
         is then adjusted to the proper IGMP packet format.
         """
         gaddr = self.gaddr if hasattr(self, "gaddr") and self.gaddr else "0.0.0.0"  # noqa: E501

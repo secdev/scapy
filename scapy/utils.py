@@ -1522,9 +1522,12 @@ def get_terminal_width():
             return None
 
 
-def pretty_list(rtlst, header, sortBy=0):
+def pretty_list(rtlst, header, sortBy=0, borders=False):
     """Pretty list to fit the terminal, and add header"""
-    _space = "  "
+    if borders:
+        _space = "|"
+    else:
+        _space = "  "
     # Windows has a fat terminal border
     _spacelen = len(_space) * (len(header) - 1) + (10 if WINDOWS else 0)
     _croped = False
@@ -1558,6 +1561,9 @@ def pretty_list(rtlst, header, sortBy=0):
         log_runtime.info("Table cropped to fit the terminal (conf.auto_crop_tables==True)")  # noqa: E501
     # Generate padding scheme
     fmt = _space.join(["%%-%ds" % x for x in colwidth])
+    # Append separation line if needed
+    if borders:
+        rtlst.insert(1, tuple("-" * x for x in colwidth))
     # Compile
     rt = "\n".join(((fmt % x).strip() for x in rtlst))
     return rt

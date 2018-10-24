@@ -6,6 +6,14 @@
 # Copyright (C) Enrico Pozzobon <enricopozzobon@gmail.com>
 # This program is published under a GPLv2 license
 
+# scapy.contrib.description = ISO-TP (ISO 15765-2)
+# scapy.contrib.status = loads
+
+"""
+ISOTPSocket.
+"""
+
+
 import ctypes
 from ctypes.util import find_library
 import struct

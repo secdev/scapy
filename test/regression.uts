@@ -39,7 +39,7 @@ ls()
 ~ conf command
 
 with ContextManagerCaptureOutput() as cmco:
-    ls("IP")
+    ls("IP", case_sensitive=True)
     result_ls = cmco.get_output().split("\n")
 
 assert all("IP" in x for x in result_ls if x.strip())
@@ -274,6 +274,74 @@ def interact_emulator(code_int, extra_args=[]):
 assert interact_emulator()  # Default
 assert not interact_emulator(extra_args=["-?"])  # Failing
 assert interact_emulator(extra_args=["-d"])  # Extended
+
+= Test explore() with GUI mode
+~ command
+
+import mock
+from scapy.tools.UTscapy import Bunch
+
+def test_explore_gui(is_layer, layer):
+    prompt_toolkit_mocked_module = Bunch(
+                                       shortcuts=Bunch(
+                                           dialogs=Bunch(
+                                               radiolist_dialog=(lambda *args, **kargs: layer),
+                                               yes_no_dialog=(lambda *args, **kargs: is_layer)
+                                           )
+                                       ),
+                                       formatted_text=Bunch(HTML=lambda x: x),
+                                       __version__="2.0.0"
+                                   )
+    # a mock.patch isn't enough to mock a module. Let's roll sys.modules
+    modules_patched = {
+        "prompt_toolkit": prompt_toolkit_mocked_module,
+        "prompt_toolkit.shortcuts": prompt_toolkit_mocked_module.shortcuts,
+        "prompt_toolkit.shortcuts.dialogs": prompt_toolkit_mocked_module.shortcuts.dialogs,
+        "prompt_toolkit.formatted_text": prompt_toolkit_mocked_module.formatted_text,
+    }
+    with mock.patch.dict("sys.modules", modules_patched):
+        with ContextManagerCaptureOutput() as cmco:
+            explore()
+            result_explore = cmco.get_output()
+        return result_explore
+
+explore_dns = test_explore_gui(True, "scapy.layers.dns")
+assert "DNS" in explore_dns
+assert "DNS Question Record" in explore_dns
+assert "DNSRRNSEC3" in explore_dns
+assert "DNS TSIG Resource Record" in explore_dns
+
+explore_avs = test_explore_gui(False, "avs")
+assert "AVSWLANHeader" in explore_avs
+assert "AVS WLAN Monitor Header" in explore_avs
+
+= Test explore() with non-GUI mode
+~ command
+
+def test_explore_non_gui(layer):
+    with ContextManagerCaptureOutput() as cmco:
+        explore(layer)
+        result_explore = cmco.get_output()
+    return result_explore
+
+explore_dns = test_explore_non_gui("scapy.layers.dns")
+assert "DNS" in explore_dns
+assert "DNS Question Record" in explore_dns
+assert "DNSRRNSEC3" in explore_dns
+assert "DNS TSIG Resource Record" in explore_dns
+
+explore_avs = test_explore_non_gui("avs")
+assert "AVSWLANHeader" in explore_avs
+assert "AVS WLAN Monitor Header" in explore_avs
+
+assert test_explore_non_gui("scapy.layers.dns") == test_explore_non_gui("dns")
+assert test_explore_non_gui("scapy.contrib.avs") == test_explore_non_gui("avs")
+
+try:
+    explore("unknown_module")
+    assert False  # The previous should have raised an exception
+except Scapy_Exception:
+    pass
 
 = Test sane function
 sane("A\x00\xFFB") == "A..B"

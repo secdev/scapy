@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Scapy. If not, see <http://www.gnu.org/licenses/>.
 
-# scapy.contrib.description = IGMPv3
+# scapy.contrib.description = Internet Group Management Protocol v3 (IGMPv3)
 # scapy.contrib.status = loads
 
 from __future__ import print_function

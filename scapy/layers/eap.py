@@ -4,7 +4,7 @@
 # This program is published under a GPLv2 license
 
 """
-Classes related to the EAP protocol.
+Extensible Authentication Protocol (EAP)
 """
 
 from __future__ import absolute_import

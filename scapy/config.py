@@ -168,11 +168,28 @@ class Num2Layer:
 
 class LayersList(list):
 
+    def __init__(self):
+        list.__init__(self)
+        self.ldict = {}
+
     def __repr__(self):
         return "\n".join("%-20s: %s" % (l.__name__, l.name) for l in self)
 
     def register(self, layer):
         self.append(layer)
+        if layer.__module__ not in self.ldict:
+            self.ldict[layer.__module__] = []
+        self.ldict[layer.__module__].append(layer)
+
+    def layers(self):
+        layers = self.ldict.keys()
+        result = []
+        # This import may feel useless, but it is required for the eval below
+        import scapy  # noqa: F401
+        for lay in layers:
+            doc = eval(lay).__doc__
+            result.append((lay, doc.strip().split("\n")[0] if doc else lay))
+        return result
 
 
 class CommandsList(list):

@@ -1,6 +1,6 @@
 #! /usr/bin/env python
 
-# scapy.contrib.description = Cisco Discovery Protocol
+# scapy.contrib.description = Cisco Discovery Protocol (CDP)
 # scapy.contrib.status = loads
 
 #############################################################################

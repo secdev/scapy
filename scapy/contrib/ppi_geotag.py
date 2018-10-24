@@ -14,7 +14,7 @@
 
 # author: <jellch@harris.com>
 
-# scapy.contrib.description = PPI GEOLOCATION
+# scapy.contrib.description = Parallel Peripheral Interface (PPI) Geolocation
 # scapy.contrib.status = loads
 
 

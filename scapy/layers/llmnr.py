@@ -1,7 +1,15 @@
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more information
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
+
 """
 LLMNR (Link Local Multicast Node Resolution).
 
 [RFC 4795]
+
+LLMNR is based on the DNS packet format (RFC1035 Section 4)
+RFC also envisions LLMNR over TCP. Like vista, we don't support it -- arno
 """
 
 import struct
@@ -12,12 +20,6 @@ from scapy.compat import orb
 from scapy.layers.inet import UDP
 from scapy.layers.dns import DNSQRField, DNSRRField, DNSRRCountField
 
-
-#############################################################################
-#                             LLMNR (RFC4795)                               #
-#############################################################################
-# LLMNR is based on the DNS packet format (RFC1035 Section 4)
-# RFC also envisions LLMNR over TCP. Like vista, we don't support it -- arno
 
 _LLMNR_IPv6_mcast_Addr = "FF02:0:0:0:0:0:1:3"
 _LLMNR_IPv4_mcast_addr = "224.0.0.252"

@@ -17,7 +17,7 @@
 # https://en.wikipedia.org/wiki/IEEE_802.1aq
 # Modeled after the scapy VXLAN contribution
 
-# scapy.contrib.description = SBPM
+# scapy.contrib.description = Shorest Path Bridging Mac-in-mac (SBPM)
 # scapy.contrib.status = loads
 
 """

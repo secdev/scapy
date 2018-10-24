@@ -12,7 +12,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Scapy. If not, see <http://www.gnu.org/licenses/>.
 
-# scapy.contrib.description = LACP
+# scapy.contrib.description = Link Aggregation Control Protocol (LACP)
 # scapy.contrib.status = loads
 
 from scapy.packet import Packet, bind_layers

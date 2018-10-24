@@ -184,12 +184,18 @@ def load_contrib(name, globals_dict=None, symb_list=None):
                    globals_dict=globals_dict, symb_list=symb_list)
 
 
-def list_contrib(name=None):
+def list_contrib(name=None, ret=False):
+    """Show the list of all existing contribs.
+    Params:
+     - name: filter to search the contribs
+     - ret: whether the function should return a dict instead of printing it
+    """
     if name is None:
         name = "*.py"
     elif "*" not in name and "?" not in name and not name.endswith(".py"):
         name += ".py"
     name = os.path.join(os.path.dirname(__file__), "contrib", name)
+    results = []
     for f in sorted(glob.glob(name)):
         mod = os.path.basename(f)
         if mod.startswith("__"):
@@ -205,7 +211,12 @@ def list_contrib(name=None):
                 key = l[p:q].strip()
                 value = l[q + 1:].strip()
                 desc[key] = value
-        print("%(name)-20s: %(description)-40s status=%(status)s" % desc)
+        results.append(desc)
+    if ret:
+        return results
+    else:
+        for desc in results:
+            print("%(name)-20s: %(description)-40s status=%(status)s" % desc)
 
 
 ##############################
@@ -552,7 +563,7 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=20):
                 cfg.TerminalInteractiveShell.confirm_exit = False
                 cfg.TerminalInteractiveShell.separate_in = u''
             if int(IPython.__version__[0]) >= 6:
-                cfg.TerminalInteractiveShell.term_title_format = "Scapy v" + conf.version  # noqa: E501
+                cfg.TerminalInteractiveShell.term_title_format = "Scapy v%s" % conf.version  # noqa: E501
             else:
                 cfg.TerminalInteractiveShell.term_title = False
             cfg.HistoryAccessor.hist_file = conf.histfile

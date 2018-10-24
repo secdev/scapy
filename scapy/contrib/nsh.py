@@ -12,7 +12,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Scapy. If not, see <http://www.gnu.org/licenses/>.
 
-# scapy.contrib.description = NSH Protocol
+# scapy.contrib.description = Network Services Headers (NSH)
 # scapy.contrib.status = loads
 
 from scapy.all import bind_layers

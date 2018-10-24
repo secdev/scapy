@@ -3,6 +3,8 @@
 # Copyright (C) Nils Weiss <nils@we155.de>
 # This program is published under a GPLv2 license
 
+# scapy.contrib.description = Python-Can CANSocket
+# scapy.contrib.status = loads
 
 """
 Python-CAN CANSocket Wrapper.

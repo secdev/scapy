@@ -15,16 +15,17 @@ import time
 import itertools
 import copy
 import subprocess
+import types
 
 from scapy.fields import StrField, ConditionalField, Emph, PacketListField, \
     BitField, MultiEnumField, EnumField, FlagsField
-from scapy.config import conf
+from scapy.config import conf, _version_checker
 from scapy.consts import WINDOWS
 from scapy.compat import raw, orb
 from scapy.base_classes import BasePacket, Gen, SetGen, Packet_metaclass
 from scapy.volatile import VolatileValue
 from scapy.utils import import_hexcap, tex_escape, colgen, get_temp_file, \
-    issubtype, ContextManagerSubprocess
+    issubtype, ContextManagerSubprocess, pretty_list
 from scapy.error import Scapy_Exception, log_runtime
 from scapy.extlib import PYX
 import scapy.modules.six as six
@@ -1603,23 +1604,153 @@ def split_layers(lower, upper, __fval=None, **fval):
 
 
 @conf.commands.register
+def explore(layer=None):
+    """Function used to discover the Scapy layers and protocols.
+    It helps to see which packets exists in contrib or layer files.
+
+    params:
+     - layer: If specified, the function will explore the layer. If not,
+              the GUI mode will be activated, to browse the available layers
+    """
+    if layer is None:  # GUI MODE
+        if not conf.interactive:
+            raise Scapy_Exception("explore() GUI-mode cannot be run in "
+                                  "interactive mode. Please provide a "
+                                  "'layer' parameter !")
+        # 0 - Imports
+        try:
+            import prompt_toolkit
+        except ImportError:
+            raise ImportError("prompt_toolkit is not installed ! "
+                              "You may install IPython, which contains it, via"
+                              " `pip install ipython`")
+        if not _version_checker(prompt_toolkit, (2, 0)):
+            raise ImportError("prompt_toolkit >= 2.0.0 is required !")
+        # Only available with prompt_toolkit > 2.0, not released on PyPi yet
+        from prompt_toolkit.shortcuts.dialogs import radiolist_dialog, \
+            yes_no_dialog
+        from prompt_toolkit.formatted_text import HTML
+        # 1 - Ask for layer or contrib
+        is_layer = yes_no_dialog(
+            title="Scapy v%s" % conf.version,
+            text=HTML(
+                six.text_type(
+                    '<style bg="white" fg="red">Chose the type of packets'
+                    ' you want to explore:</style>'
+                )
+            ),
+            yes_text=six.text_type("Layers"),
+            no_text=six.text_type("Contribs"))
+        # 2 - Retrieve list of Packets
+        if is_layer is True:
+            # Get all loaded layers
+            _radio_values = conf.layers.layers()
+            # Restrict to layers-only (not contribs) + packet.py and asn1*.py
+            _radio_values = [x for x in _radio_values if ("layers" in x[0] or
+                                                          "packet" in x[0] or
+                                                          "asn1" in x[0])]
+        elif is_layer is False:
+            # Get all existing contribs
+            from scapy.main import list_contrib
+            _radio_values = list_contrib(ret=True)
+            _radio_values = [(x['name'], x['description'])
+                             for x in _radio_values]
+            # Remove very specific modules
+            _radio_values = [x for x in _radio_values if not ("can" in x[0])]
+        else:
+            # Escape was pressed
+            return
+        # Python 2 compat
+        if six.PY2:
+            _radio_values = [(six.text_type(x), six.text_type(y))
+                             for x, y in _radio_values]
+        # 3 - Ask for the layer/contrib module to explore
+        result = radiolist_dialog(
+            values=_radio_values,
+            title="Scapy v%s" % conf.version,
+            text=HTML(
+                six.text_type(
+                    '<style bg="white" fg="red">Please select a layer among'
+                    ' the following, to see all packets contained in'
+                    ' it:</style>'
+                )
+            ))
+        if result is None:
+            return  # User pressed "Cancel"
+        # 4 - (Contrib only): load contrib
+        if not is_layer:
+            from scapy.main import load_contrib
+            load_contrib(result)
+            result = "scapy.contrib." + result
+    else:  # NON-GUI MODE
+        # We handle layer as a short layer name, full layer name
+        # or the module itself
+        if isinstance(layer, types.ModuleType):
+            layer = layer.__name__
+        if isinstance(layer, str):
+            if layer.startswith("scapy.layers."):
+                result = layer
+            else:
+                if layer.startswith("scapy.contrib."):
+                    layer = layer.replace("scapy.contrib.", "")
+                from scapy.main import load_contrib
+                load_contrib(layer)
+                result_layer, result_contrib = (("scapy.layers.%s" % layer),
+                                                ("scapy.contrib.%s" % layer))
+                if result_layer in conf.layers.ldict:
+                    result = result_layer
+                elif result_contrib in conf.layers.ldict:
+                    result = result_contrib
+                else:
+                    raise Scapy_Exception("Unknown scapy module '%s'" % layer)
+    # COMMON PART
+    # Get the list of all Packets contained in that module
+    try:
+        all_layers = conf.layers.ldict[result]
+    except KeyError:
+        raise Scapy_Exception("Unknown scapy module '%s'" % layer)
+    # Print
+    print(conf.color_theme.layer_name("Packets contained in %s:" % result))
+    rtlst = [(lay.__name__ or "", lay._name or "") for lay in all_layers]
+    print(pretty_list(rtlst, [("Class", "Name")], borders=True))
+
+
+@conf.commands.register
 def ls(obj=None, case_sensitive=False, verbose=False):
-    """List  available layers, or infos on a given layer class or name"""
+    """List  available layers, or infos on a given layer class or name.
+    params:
+     - obj: Packet / packet name to use
+     - case_sensitive: if obj is a string, is it case sensitive?
+     - verbose
+    """
     is_string = isinstance(obj, six.string_types)
 
     if obj is None or is_string:
+        tip = False
         if obj is None:
+            tip = True
             all_layers = sorted(conf.layers, key=lambda x: x.__name__)
         else:
             pattern = re.compile(obj, 0 if case_sensitive else re.I)
+            # We first order by accuracy, then length
+            if case_sensitive:
+                sorter = lambda x: (x.__name__.index(obj), len(x.__name__))
+            else:
+                obj = obj.lower()
+                sorter = lambda x: (x.__name__.lower().index(obj),
+                                    len(x.__name__))
             all_layers = sorted((layer for layer in conf.layers
-                                 if (isinstance(layer.name, str) and
+                                 if (isinstance(layer.__name__, str) and
                                      pattern.search(layer.__name__)) or
                                  (isinstance(layer.name, str) and
                                      pattern.search(layer.name))),
-                                key=lambda x: x.__name__)
+                                key=sorter)
         for layer in all_layers:
             print("%-10s : %s" % (layer.__name__, layer._name))
+        if tip and conf.interactive:
+            print()
+            print("TIP: You may use explore() to navigate through all "
+                  "layers using a clear GUI")
 
     else:
         is_pkt = isinstance(obj, Packet)
