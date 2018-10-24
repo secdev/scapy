@@ -29,11 +29,11 @@ from __future__ import absolute_import
 from __future__ import print_function
 import abc
 import re
+import sys
 from io import BytesIO
 import struct
 import scapy.modules.six as six
 from scapy.compat import raw, plain_str, bytes_hex, orb, chb
-from scapy.modules.six.moves import range
 
 # Only required if using mypy-lang for static typing
 # Most symbols are used in mypy-interpreted "comments".
@@ -632,8 +632,17 @@ class FieldUVarLenField(AbstractUVarIntField):
 #                                                HPACK String Fields          #
 ###############################################################################
 
+# Welcome the magic of Python inconsistencies !
+# https://stackoverflow.com/a/41622155
 
-class HPackStringsInterface(six.with_metaclass(abc.ABCMeta, Sized)):
+
+if sys.version_info >= (3, 4):
+    ABC = abc.ABC
+else:
+    ABC = abc.ABCMeta('ABC', (), {})
+
+
+class HPackStringsInterface(ABC, Sized):
     @abc.abstractmethod
     def __str__(self):
         pass
