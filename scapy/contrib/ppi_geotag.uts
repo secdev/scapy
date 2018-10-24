@@ -31,10 +31,7 @@ assert GPSTime_Field("GPSTime", None).delta == 0.0
 = Define local_to_utc
 
 def local_to_utc(local_time):
-    # BUG workaround: on some Python 2 systems, summer time is ignored while converting time to UTC.
-    # This function converts it properly. That was fixed on Python 3
-    if six.PY3:
-        return local_time
+    # Let's handle all cases, even with summer time not matching UTC...
     utc_time_clock = time.gmtime(time.mktime(local_time))
     utc_time_clock = list(utc_time_clock.__reduce__()[1][0])
     if local_time.tm_isdst:
@@ -51,7 +48,11 @@ strft_time = time.strftime("%a, %d %b %Y %H:%M:%S +0000", local_time)
 strft_time_sum = time.strftime("%a, %d %b %Y %H:%M:%S +0000", local_to_utc(local_time))
 
 # Backup: also test summer time bug
-assert utc_time.i2repr(None, None) in [(strft_time + " (" + str(int(utc_time.delta)) + ")"), (strft_time_sum + " (" + str(int(utc_time.delta)) + ")")]
+expected = [(strft_time + " (" + str(int(utc_time.delta)) + ")"), (strft_time_sum + " (" + str(int(utc_time.delta)) + ")")]
+result = utc_time.i2repr(None, None)
+result
+expected
+assert result in expected
 
 = Test LETimeField with time values
 
@@ -63,4 +64,8 @@ strft_time = time.strftime("%a, %d %b %Y %H:%M:%S +0000", local_time)
 strft_time_sum = time.strftime("%a, %d %b %Y %H:%M:%S +0000", local_to_utc(local_time))
 
 # Backup: also test summer time bug
-assert lme_time.i2repr(None, None) in [(strft_time + " (" + str(int(lme_time.delta)) + ")"), (strft_time_sum + " (" + str(int(lme_time.delta)) + ")")]
+expected = [(strft_time + " (" + str(int(lme_time.delta)) + ")"), (strft_time_sum + " (" + str(int(lme_time.delta)) + ")")]
+result = lme_time.i2repr(None, None)
+result
+expected
+assert result in expected

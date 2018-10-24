@@ -296,6 +296,10 @@ ps_ip
 assert get_ip_from_name(conf.iface.name) == ps_ip
 
 = Test get_windows_if_list with VBS
+~ appveyor_only
+
+# This test is slightly unstable locally, especially on Windows 7
+
 ps_if_list
 
 def is_in_if_list(i, list):
@@ -331,7 +335,7 @@ def is_in_route_list(i, list):
     return False
 
 vbs_read_routes = read_routes()
-vbs_if_list
+vbs_read_routes
 _correct = True
 for i in vbs_read_routes:
     if not is_in_route_list(i, ps_read_routes):

@@ -1389,9 +1389,9 @@ def send_and_sniff(pkt, timeout=2, flt=None, opened_socket=None):
         while not results.empty():
             assert results.get()
 
-send_and_sniff(IP(dst="secdev.org")/ICMP())
-send_and_sniff(IP(dst="secdev.org")/ICMP(), flt="icmp")
-send_and_sniff(Ether()/IP(dst="secdev.org")/ICMP())
+retry_test(lambda: send_and_sniff(IP(dst="secdev.org")/ICMP()))
+retry_test(lambda: send_and_sniff(IP(dst="secdev.org")/ICMP(), flt="icmp"))
+retry_test(lambda: send_and_sniff(Ether()/IP(dst="secdev.org")/ICMP()))
 
 = Test L2ListenTcpdump socket
 ~ netaccess FIXME_py3
