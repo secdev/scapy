@@ -1,3 +1,4 @@
+#!/bin/bash
 # Install on osx
 if [ "$TRAVIS_OS_NAME" = "osx" ]
 then
