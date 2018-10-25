@@ -1067,7 +1067,7 @@ def _get_metrics(ipv6=False):
     stdout = POWERSHELL_PROCESS.query([query_cmd])
     res = {}
     _buffer = []
-    _pattern = re.compile(".*:\s+(\d+)")
+    _pattern = re.compile(r".*:\s+(\d+)")
     for _line in stdout:
         if not _line.strip() and len(_buffer) > 0:
             if_index = re.search(_pattern, _buffer[3]).group(1)
@@ -1179,9 +1179,9 @@ def _read_routes6_7():
     lifaddr = in6_getifaddr()
     if6_metrics = _get_metrics(ipv6=True)
     # Define regexes
-    r_int = [".*:\s+(\d+)"]
-    r_all = ["(.*)"]
-    r_ipv6 = [".*:\s+([A-z|0-9|:]+(\/\d+)?)"]
+    r_int = [r".*:\s+(\d+)"]
+    r_all = [r"(.*)"]
+    r_ipv6 = [r".*:\s+([A-z|0-9|:]+(\/\d+)?)"]
     # Build regex list for each object
     regex_list = r_ipv6 * 2 + r_int + r_all * 3 + r_int + r_all * 3
     current_object = []
