@@ -976,6 +976,10 @@ assert(len(y[TFTP_Options].options) == 2 and y[TFTP_Option].oname == b"blksize")
 ############
 + Dot11 tests
 
+= Dot11FCS parent matching
+
+pkt = Ether()/IP()/Dot11FCS()
+assert pkt[Dot11]
 
 = WEP tests
 ~ wifi crypto Dot11 LLC SNAP IP TCP
