@@ -17,10 +17,11 @@ import struct
 
 from scapy.compat import chb, orb, raw
 from scapy.config import conf
+from scapy.error import warning
 from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, FieldLenField, FlagsField, IntEnumField, IntField, IPField, LongField, MACField, PacketField, PacketListField, ShortEnumField, ShortField, StrFixedLenField, X3BytesField, XBitField, XByteField, XIntField, XShortField  # noqa: E501
 from scapy.layers.l2 import Ether
 from scapy.layers.inet import TCP
-from scapy.packet import Packet, Raw
+from scapy.packet import Packet, Raw, bind_bottom_up
 from scapy.utils import binrepr
 
 
@@ -237,16 +238,70 @@ class OFPMatch(Packet):
         return p + pay
 
 
-#                      Actions                      #
-
-class _ofp_action_header(Packet):
-    name = "Dummy OpenFlow Action Header"
+class _ofp_header(Packet):
+    name = "Dummy OpenFlow Header for some lower layers"
 
     def post_build(self, p, pay):
         if self.len is None:
             tmp_len = len(p) + len(pay)
             p = p[:2] + struct.pack("!H", tmp_len) + p[4:]
         return p + pay
+
+
+class _ofp_header_item(Packet):
+    name = "Dummy OpenFlow Header for items layers"
+
+    def post_build(self, p, pay):
+        if self.len is None:
+            tmp_len = len(p) + len(pay)
+            p = struct.pack("!H", tmp_len) + p[2:]
+        return p + pay
+
+
+#                      Actions                      #
+
+
+class _UnknownOpenFlow(Raw):
+    name = "Unknown OpenFlow packet"
+
+
+class OpenFlow(_ofp_header):
+    name = "OpenFlow dissector"
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt and len(_pkt) >= 2:
+            version = orb(_pkt[0])
+            if version == 0x04:  # OpenFlow 1.3
+                from scapy.contrib.openflow3 import OpenFlow3
+                return OpenFlow3.dispatch_hook(_pkt, *args, **kargs)
+            elif version == 0x01:  # OpenFlow 1.0
+                # port 6653 has been allocated by IANA, port 6633 should no
+                # longer be used
+                # OpenFlow function may be called with a None
+                # self in OFPPacketField
+                of_type = orb(_pkt[1])
+                if of_type == 1:
+                    err_type = orb(_pkt[9])
+                    # err_type is a short int, but last byte is enough
+                    if err_type == 255:
+                        err_type = 65535
+                    return ofp_error_cls[err_type]
+                elif of_type == 16:
+                    mp_type = orb(_pkt[9])
+                    if mp_type == 255:
+                        mp_type = 65535
+                    return ofp_stats_request_cls[mp_type]
+                elif of_type == 17:
+                    mp_type = orb(_pkt[9])
+                    if mp_type == 255:
+                        mp_type = 65535
+                    return ofp_stats_reply_cls[mp_type]
+                else:
+                    return ofpt_cls[of_type]
+            else:
+                warning("Unknown OpenFlow packet")
+        return _UnknownOpenFlow
 
 
 ofp_action_types = {0: "OFPAT_OUTPUT",
@@ -264,7 +319,7 @@ ofp_action_types = {0: "OFPAT_OUTPUT",
                     65535: "OFPAT_VENDOR"}
 
 
-class OFPATOutput(_ofp_action_header):
+class OFPATOutput(OpenFlow):
     name = "OFPAT_OUTPUT"
     fields_desc = [ShortEnumField("type", 0, ofp_action_types),
                    ShortField("len", 8),
@@ -272,7 +327,7 @@ class OFPATOutput(_ofp_action_header):
                    ShortEnumField("max_len", "NO_BUFFER", ofp_max_len)]
 
 
-class OFPATSetVLANVID(_ofp_action_header):
+class OFPATSetVLANVID(OpenFlow):
     name = "OFPAT_SET_VLAN_VID"
     fields_desc = [ShortEnumField("type", 1, ofp_action_types),
                    ShortField("len", 8),
@@ -280,7 +335,7 @@ class OFPATSetVLANVID(_ofp_action_header):
                    XShortField("pad", 0)]
 
 
-class OFPATSetVLANPCP(_ofp_action_header):
+class OFPATSetVLANPCP(OpenFlow):
     name = "OFPAT_SET_VLAN_PCP"
     fields_desc = [ShortEnumField("type", 2, ofp_action_types),
                    ShortField("len", 8),
@@ -288,14 +343,14 @@ class OFPATSetVLANPCP(_ofp_action_header):
                    X3BytesField("pad", 0)]
 
 
-class OFPATStripVLAN(_ofp_action_header):
+class OFPATStripVLAN(OpenFlow):
     name = "OFPAT_STRIP_VLAN"
     fields_desc = [ShortEnumField("type", 3, ofp_action_types),
                    ShortField("len", 8),
                    XIntField("pad", 0)]
 
 
-class OFPATSetDlSrc(_ofp_action_header):
+class OFPATSetDlSrc(OpenFlow):
     name = "OFPAT_SET_DL_SRC"
     fields_desc = [ShortEnumField("type", 4, ofp_action_types),
                    ShortField("len", 16),
@@ -303,7 +358,7 @@ class OFPATSetDlSrc(_ofp_action_header):
                    XBitField("pad", 0, 48)]
 
 
-class OFPATSetDlDst(_ofp_action_header):
+class OFPATSetDlDst(OpenFlow):
     name = "OFPAT_SET_DL_DST"
     fields_desc = [ShortEnumField("type", 5, ofp_action_types),
                    ShortField("len", 16),
@@ -311,21 +366,21 @@ class OFPATSetDlDst(_ofp_action_header):
                    XBitField("pad", 0, 48)]
 
 
-class OFPATSetNwSrc(_ofp_action_header):
+class OFPATSetNwSrc(OpenFlow):
     name = "OFPAT_SET_NW_SRC"
     fields_desc = [ShortEnumField("type", 6, ofp_action_types),
                    ShortField("len", 8),
                    IPField("nw_addr", "0")]
 
 
-class OFPATSetNwDst(_ofp_action_header):
+class OFPATSetNwDst(OpenFlow):
     name = "OFPAT_SET_NW_DST"
     fields_desc = [ShortEnumField("type", 7, ofp_action_types),
                    ShortField("len", 8),
                    IPField("nw_addr", "0")]
 
 
-class OFPATSetNwToS(_ofp_action_header):
+class OFPATSetNwToS(OpenFlow):
     name = "OFPAT_SET_TP_TOS"
     fields_desc = [ShortEnumField("type", 8, ofp_action_types),
                    ShortField("len", 8),
@@ -333,7 +388,7 @@ class OFPATSetNwToS(_ofp_action_header):
                    X3BytesField("pad", 0)]
 
 
-class OFPATSetTpSrc(_ofp_action_header):
+class OFPATSetTpSrc(OpenFlow):
     name = "OFPAT_SET_TP_SRC"
     fields_desc = [ShortEnumField("type", 9, ofp_action_types),
                    ShortField("len", 8),
@@ -341,7 +396,7 @@ class OFPATSetTpSrc(_ofp_action_header):
                    XShortField("pad", 0)]
 
 
-class OFPATSetTpDst(_ofp_action_header):
+class OFPATSetTpDst(OpenFlow):
     name = "OFPAT_SET_TP_DST"
     fields_desc = [ShortEnumField("type", 10, ofp_action_types),
                    ShortField("len", 8),
@@ -349,7 +404,7 @@ class OFPATSetTpDst(_ofp_action_header):
                    XShortField("pad", 0)]
 
 
-class OFPATEnqueue(_ofp_action_header):
+class OFPATEnqueue(OpenFlow):
     name = "OFPAT_ENQUEUE"
     fields_desc = [ShortEnumField("type", 11, ofp_action_types),
                    ShortField("len", 16),
@@ -358,7 +413,7 @@ class OFPATEnqueue(_ofp_action_header):
                    IntField("queue_id", 0)]
 
 
-class OFPATVendor(_ofp_action_header):
+class OFPATVendor(OpenFlow):
     name = "OFPAT_VENDOR"
     fields_desc = [ShortEnumField("type", 65535, ofp_action_types),
                    ShortField("len", 8),
@@ -380,53 +435,33 @@ ofp_action_cls = {0: OFPATOutput,
                   65535: OFPATVendor}
 
 
-class ActionPacketListField(PacketListField):
-    def m2i(self, pkt, s):
-        t = struct.unpack("!H", s[:2])[0]
-        return ofp_action_cls.get(t, Raw)(s)
+class OFPAT(Packet):
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt and len(_pkt) >= 2:
+            t = struct.unpack("!H", _pkt[:2])[0]
+            return ofp_action_cls.get(t, Raw)
+        return Raw
 
-    @staticmethod
-    def _get_action_length(s):
-        return struct.unpack("!H", s[2:4])[0]
-
-    def getfield(self, pkt, s):
-        lst = []
-        remain = s
-
-        while remain:
-            tmp_len = ActionPacketListField._get_action_length(remain)
-            current = remain[:tmp_len]
-            remain = remain[tmp_len:]
-            p = self.m2i(pkt, current)
-            lst.append(p)
-
-        return remain, lst
+    def extract_padding(self, s):
+        return b"", s
 
 
 #                       Queues                      #
-
-class _ofp_queue_property_header(Packet):
-    name = "Dummy OpenFlow Queue Property Header"
-
-    def post_build(self, p, pay):
-        if self.len is None:
-            tmp_len = len(p) + len(pay)
-            p = p[:2] + struct.pack("!H", tmp_len) + p[4:]
-        return p + pay
 
 
 ofp_queue_property_types = {0: "OFPQT_NONE",
                             1: "OFPQT_MIN_RATE"}
 
 
-class OFPQTNone(_ofp_queue_property_header):
+class OFPQTNone(_ofp_header):
     name = "OFPQT_NONE"
     fields_desc = [ShortEnumField("type", 0, ofp_queue_property_types),
                    ShortField("len", 8),
                    XIntField("pad", 0)]
 
 
-class OFPQTMinRate(_ofp_queue_property_header):
+class OFPQTMinRate(_ofp_header):
     name = "OFPQT_MIN_RATE"
     fields_desc = [ShortEnumField("type", 1, ofp_queue_property_types),
                    ShortField("len", 16),
@@ -439,32 +474,25 @@ ofp_queue_property_cls = {0: OFPQTNone,
                           1: OFPQTMinRate}
 
 
-class QueuePropertyPacketListField(PacketListField):
-    def m2i(self, pkt, s):
-        t = struct.unpack("!H", s[:2])[0]
-        return ofp_queue_property_cls.get(t, Raw)(s)
+class OFPQT(Packet):
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt and len(_pkt) >= 2:
+            t = struct.unpack("!H", _pkt[:2])[0]
+            return ofp_queue_property_cls.get(t, Raw)
+        return Raw
 
-    @staticmethod
-    def _get_queue_property_length(s):
-        return struct.unpack("!H", s[2:4])[0]
-
-    def getfield(self, pkt, s):
-        lst = []
-        tmp_len = 0
-        ret = b""
-        remain = s
-
-        while remain:
-            tmp_len = QueuePropertyPacketListField._get_queue_property_length(remain)  # noqa: E501
-            current = remain[:tmp_len]
-            remain = remain[tmp_len:]
-            p = self.m2i(pkt, current)
-            lst.append(p)
-
-        return remain + ret, lst
+    def extract_padding(self, s):
+        return b"", s
 
 
 class OFPPacketQueue(Packet):
+    name = "OFP_PACKET_QUEUE"
+    fields_desc = [IntField("queue_id", 0),
+                   ShortField("len", None),
+                   XShortField("pad", 0),
+                   PacketListField("properties", [], OFPQT,
+                                    length_from=lambda pkt:pkt.len - 8)]  # noqa: E501
 
     def extract_padding(self, s):
         return b"", s
@@ -477,48 +505,10 @@ class OFPPacketQueue(Packet):
             p = p[:4] + struct.pack("!H", tmp_len) + p[6:]
         return p + pay
 
-    name = "OFP_PACKET_QUEUE"
-    fields_desc = [IntField("queue_id", 0),
-                   ShortField("len", None),
-                   XShortField("pad", 0),
-                   QueuePropertyPacketListField("properties", [], Packet,
-                                                length_from=lambda pkt:pkt.len - 8)]  # noqa: E501
-
-
-class QueuePacketListField(PacketListField):
-
-    @staticmethod
-    def _get_queue_length(s):
-        return struct.unpack("!H", s[4:6])[0]
-
-    def getfield(self, pkt, s):
-        lst = []
-        tmp_len = 0
-        ret = b""
-        remain = s
-
-        while remain:
-            tmp_len = QueuePacketListField._get_queue_length(remain)
-            current = remain[:tmp_len]
-            remain = remain[tmp_len:]
-            p = OFPPacketQueue(current)
-            lst.append(p)
-
-        return remain + ret, lst
-
 
 #####################################################
 #              OpenFlow 1.0 Messages                #
 #####################################################
-
-class _ofp_header(Packet):
-    name = "Dummy OpenFlow Header"
-
-    def post_build(self, p, pay):
-        if self.len is None:
-            tmp_len = len(p) + len(pay)
-            p = p[:2] + struct.pack("!H", tmp_len) + p[4:]
-        return p + pay
 
 
 ofp_version = {0x01: "OpenFlow 1.0",
@@ -574,7 +564,7 @@ class OFPacketField(PacketField):
             tmp_len = struct.unpack("!H", tmp_len)[0]
             ofload = s[:tmp_len]
             remain = s[tmp_len:]
-            return remain, OpenFlow(None, ofload)(ofload)
+            return remain, OpenFlow(ofload)
         except Exception:
             return "", Raw(s)
 
@@ -754,7 +744,7 @@ class OFPTFeaturesReply(_ofp_header):
                                                       "QUEUE_STATS",
                                                       "ARP_MATCH_IP"]),
                    FlagsField("actions", 0, 32, ofp_action_types_flags),
-                   PacketListField("ports", None, OFPPhyPort,
+                   PacketListField("ports", [], OFPPhyPort,
                                    length_from=lambda pkt:pkt.len - 32)]
     overload_fields = {TCP: {"dport": 6653}}
 
@@ -857,8 +847,9 @@ class OFPTPacketOut(_ofp_header):
                    IntEnumField("buffer_id", "NO_BUFFER", ofp_buffer),
                    ShortEnumField("in_port", "NONE", ofp_port_no),
                    FieldLenField("actions_len", None, fmt="H", length_of="actions"),  # noqa: E501
-                   ActionPacketListField("actions", [], Packet,
-                                         length_from=lambda pkt:pkt.actions_len),  # noqa: E501
+                   PacketListField("actions", [], OFPAT,
+                                   ofp_action_cls,
+                                   length_from=lambda pkt:pkt.actions_len),  # noqa: E501
                    PacketField("data", None, Ether)]
     overload_fields = {TCP: {"sport": 6653}}
 
@@ -884,8 +875,9 @@ class OFPTFlowMod(_ofp_header):
                    FlagsField("flags", 0, 16, ["SEND_FLOW_REM",
                                                "CHECK_OVERLAP",
                                                "EMERG"]),
-                   ActionPacketListField("actions", [], Packet,
-                                         length_from=lambda pkt:pkt.len - 72)]
+                   PacketListField("actions", [], OFPAT,
+                                   ofp_action_cls,
+                                   length_from=lambda pkt:pkt.len - 72)]
     overload_fields = {TCP: {"sport": 6653}}
 
 
@@ -960,13 +952,6 @@ class OFPTStatsRequestFlow(_ofp_header):
 
 
 class OFPFlowStats(Packet):
-
-    def post_build(self, p, pay):
-        if self.length is None:
-            tmp_len = len(p) + len(pay)
-            p = struct.pack("!H", tmp_len) + p[2:]
-        return p + pay
-
     name = "OFP_FLOW_STATS"
     fields_desc = [ShortField("length", None),
                    ByteField("table_id", 0),
@@ -981,28 +966,18 @@ class OFPFlowStats(Packet):
                    LongField("cookie", 0),
                    LongField("packet_count", 0),
                    LongField("byte_count", 0),
-                   ActionPacketListField("actions", [], Packet,
-                                         length_from=lambda pkt:pkt.length - 88)]  # noqa: E501
+                   PacketListField("actions", [], OFPAT,
+                                   ofp_action_cls,
+                                   length_from=lambda pkt:pkt.length - 88)]
 
+    def post_build(self, p, pay):
+        if self.length is None:
+            tmp_len = len(p) + len(pay)
+            p = struct.pack("!H", tmp_len) + p[2:]
+        return p + pay
 
-class FlowStatsPacketListField(PacketListField):
-
-    @staticmethod
-    def _get_flow_stats_length(s):
-        return struct.unpack("!H", s[:2])[0]
-
-    def getfield(self, pkt, s):
-        lst = []
-        remain = s
-
-        while remain:
-            tmp_len = FlowStatsPacketListField._get_flow_stats_length(remain)
-            current = remain[:tmp_len]
-            remain = remain[tmp_len:]
-            p = OFPFlowStats(current)
-            lst.append(p)
-
-        return remain, lst
+    def extract_padding(self, s):
+        return b"", s
 
 
 class OFPTStatsReplyFlow(_ofp_header):
@@ -1013,8 +988,8 @@ class OFPTStatsReplyFlow(_ofp_header):
                    IntField("xid", 0),
                    ShortEnumField("stats_type", 1, ofp_stats_types),
                    FlagsField("flags", 0, 16, []),
-                   FlowStatsPacketListField("flow_stats", [], Packet,
-                                            length_from=lambda pkt:pkt.len - 12)]  # noqa: E501
+                   PacketListField("flow_stats", [], OFPFlowStats,
+                                   length_from=lambda pkt:pkt.len - 12)]  # noqa: E501
     overload_fields = {TCP: {"dport": 6653}}
 
 
@@ -1094,7 +1069,7 @@ class OFPTStatsReplyTable(_ofp_header):
                    IntField("xid", 0),
                    ShortEnumField("stats_type", 3, ofp_stats_types),
                    FlagsField("flags", 0, 16, []),
-                   PacketListField("table_stats", None, OFPTableStats,
+                   PacketListField("table_stats", [], OFPTableStats,
                                    length_from=lambda pkt:pkt.len - 12)]
     overload_fields = {TCP: {"dport": 6653}}
 
@@ -1142,7 +1117,7 @@ class OFPTStatsReplyPort(_ofp_header):
                    IntField("xid", 0),
                    ShortEnumField("stats_type", 4, ofp_stats_types),
                    FlagsField("flags", 0, 16, []),
-                   PacketListField("port_stats", None, OFPPortStats,
+                   PacketListField("port_stats", [], OFPPortStats,
                                    length_from=lambda pkt:pkt.len - 12)]
     overload_fields = {TCP: {"dport": 6653}}
 
@@ -1260,8 +1235,8 @@ class OFPTQueueGetConfigReply(_ofp_header):
                    IntField("xid", 0),
                    ShortEnumField("port", 0, ofp_port_no),
                    XBitField("pad", 0, 48),
-                   QueuePacketListField("queues", [], Packet,
-                                        length_from=lambda pkt:pkt.len - 16)]
+                   PacketListField("queues", [], OFPPacketQueue,
+                                   length_from=lambda pkt:pkt.len - 16)]
     overload_fields = {TCP: {"dport": 6653}}
 
 
@@ -1289,34 +1264,8 @@ ofpt_cls = {0: OFPTHello,
             20: OFPTQueueGetConfigRequest,
             21: OFPTQueueGetConfigReply}
 
-TCP_guess_payload_class_copy = TCP.guess_payload_class
 
-
-def OpenFlow(self, payload):
-    if self is None or self.dport == 6653 or self.dport == 6633 or self.sport == 6653 or self.sport == 6633:  # noqa: E501
-        # port 6653 has been allocated by IANA, port 6633 should no longer be used  # noqa: E501
-        # OpenFlow function may be called with None self in OFPPacketField
-        of_type = orb(payload[1])
-        if of_type == 1:
-            err_type = orb(payload[9])
-            # err_type is a short int, but last byte is enough
-            if err_type == 255:
-                err_type = 65535
-            return ofp_error_cls[err_type]
-        elif of_type == 16:
-            mp_type = orb(payload[9])
-            if mp_type == 255:
-                mp_type = 65535
-            return ofp_stats_request_cls[mp_type]
-        elif of_type == 17:
-            mp_type = orb(payload[9])
-            if mp_type == 255:
-                mp_type = 65535
-            return ofp_stats_reply_cls[mp_type]
-        else:
-            return ofpt_cls[of_type]
-    else:
-        return TCP_guess_payload_class_copy(self, payload)
-
-
-TCP.guess_payload_class = OpenFlow
+bind_bottom_up(TCP, OpenFlow, dport=6653)
+bind_bottom_up(TCP, OpenFlow, sport=6653)
+bind_bottom_up(TCP, OpenFlow, dport=6633)
+bind_bottom_up(TCP, OpenFlow, sport=6633)

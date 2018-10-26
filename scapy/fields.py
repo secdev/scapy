@@ -18,7 +18,9 @@ import time
 
 from scapy.config import conf
 from scapy.dadict import DADict
-from scapy.volatile import RandBin, RandByte, RandEnumKeys, RandInt, RandIP, RandIP6, RandLong, RandMAC, RandNum, RandShort, RandSInt, RandTermString, VolatileValue  # noqa: E501
+from scapy.volatile import RandBin, RandByte, RandEnumKeys, RandInt, \
+    RandIP, RandIP6, RandLong, RandMAC, RandNum, RandShort, RandSInt, \
+    RandSByte, RandTermString, VolatileValue
 from scapy.data import EPOCH
 from scapy.error import log_runtime, Scapy_Exception
 from scapy.compat import bytes_hex, chb, orb, plain_str, raw
@@ -664,6 +666,9 @@ class LEX3BytesField(LEThreeBytesField, XByteField):
 class SignedByteField(Field):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "b")
+
+    def randval(self):
+        return RandSByte()
 
 
 class FieldValueRangeException(Scapy_Exception):

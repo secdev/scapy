@@ -685,6 +685,17 @@ class HBHOptUnknown(Packet):  # IPv6 Hop-By-Hop Option
         """
         return 0
 
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt:
+            o = orb(_pkt[0])  # Option type
+            if o in _hbhoptcls:
+                return _hbhoptcls[o]
+        return cls
+
+    def extract_padding(self, p):
+        return b"", p
+
 
 class Pad1(Packet):  # IPv6 Hop-By-Hop Option
     name = "Pad1"
@@ -692,6 +703,9 @@ class Pad1(Packet):  # IPv6 Hop-By-Hop Option
 
     def alignment_delta(self, curpos):  # No alignment requirement
         return 0
+
+    def extract_padding(self, p):
+        return b"", p
 
 
 class PadN(Packet):  # IPv6 Hop-By-Hop Option
@@ -703,6 +717,9 @@ class PadN(Packet):  # IPv6 Hop-By-Hop Option
 
     def alignment_delta(self, curpos):  # No alignment requirement
         return 0
+
+    def extract_padding(self, p):
+        return b"", p
 
 
 class RouterAlert(Packet):  # RFC 2711 - IPv6 Hop-By-Hop Option
@@ -727,6 +744,9 @@ class RouterAlert(Packet):  # RFC 2711 - IPv6 Hop-By-Hop Option
         delta = x * ((curpos - y + x - 1) // x) + y - curpos
         return delta
 
+    def extract_padding(self, p):
+        return b"", p
+
 
 class Jumbo(Packet):  # IPv6 Hop-By-Hop Option
     name = "Jumbo Payload"
@@ -739,6 +759,9 @@ class Jumbo(Packet):  # IPv6 Hop-By-Hop Option
         y = 2
         delta = x * ((curpos - y + x - 1) // x) + y - curpos
         return delta
+
+    def extract_padding(self, p):
+        return b"", p
 
 
 class HAO(Packet):  # IPv6 Destination Options Header Option
@@ -753,6 +776,9 @@ class HAO(Packet):  # IPv6 Destination Options Header Option
         delta = x * ((curpos - y + x - 1) // x) + y - curpos
         return delta
 
+    def extract_padding(self, p):
+        return b"", p
+
 
 _hbhoptcls = {0x00: Pad1,
               0x01: PadN,
@@ -763,53 +789,15 @@ _hbhoptcls = {0x00: Pad1,
 
 #                         Hop-by-Hop Extension Header                       #
 
-class _HopByHopOptionsField(PacketListField):
+class _OptionsField(PacketListField):
     __slots__ = ["curpos"]
 
-    def __init__(self, name, default, cls, curpos, count_from=None, length_from=None):  # noqa: E501
+    def __init__(self, name, default, cls, curpos, *args, **kargs):
         self.curpos = curpos
-        PacketListField.__init__(self, name, default, cls, count_from=count_from, length_from=length_from)  # noqa: E501
+        PacketListField.__init__(self, name, default, cls, *args, **kargs)
 
     def i2len(self, pkt, i):
         return len(self.i2m(pkt, i))
-
-    def i2count(self, pkt, i):
-        if isinstance(i, list):
-            return len(i)
-        return 0
-
-    def getfield(self, pkt, s):
-        c = tmp_len = None
-        if self.length_from is not None:
-            tmp_len = self.length_from(pkt)
-        elif self.count_from is not None:
-            c = self.count_from(pkt)
-
-        opt = []
-        ret = b""
-        x = s
-        if tmp_len is not None:
-            x, ret = s[:tmp_len], s[tmp_len:]
-        while x:
-            if c is not None:
-                if c <= 0:
-                    break
-                c -= 1
-            o = orb(x[0])  # Option type
-            cls = self.cls
-            if o in _hbhoptcls:
-                cls = _hbhoptcls[o]
-            try:
-                op = cls(x)
-            except Exception:
-                op = self.cls(x)
-            opt.append(op)
-            if isinstance(op.payload, conf.raw_layer):
-                x = op.payload.load
-                del(op.payload)
-            else:
-                x = b""
-        return x + ret, opt
 
     def i2m(self, pkt, x):
         autopad = None
@@ -870,7 +858,7 @@ class IPv6ExtHdrHopByHop(_IPv6ExtHdr):
                    FieldLenField("len", None, length_of="options", fmt="B",
                                  adjust=lambda pkt, x: (x + 2 + 7) // 8 - 1),
                    _PhantomAutoPadField("autopad", 1),  # autopad activated by default  # noqa: E501
-                   _HopByHopOptionsField("options", [], HBHOptUnknown, 2,
+                   _OptionsField("options", [], HBHOptUnknown, 2,
                                          length_from=lambda pkt: (8 * (pkt.len + 1)) - 2)]  # noqa: E501
     overload_fields = {IPv6: {"nh": 0}}
 
@@ -883,7 +871,7 @@ class IPv6ExtHdrDestOpt(_IPv6ExtHdr):
                    FieldLenField("len", None, length_of="options", fmt="B",
                                  adjust=lambda pkt, x: (x + 2 + 7) // 8 - 1),
                    _PhantomAutoPadField("autopad", 1),  # autopad activated by default  # noqa: E501
-                   _HopByHopOptionsField("options", [], HBHOptUnknown, 2,
+                   _OptionsField("options", [], HBHOptUnknown, 2,
                                          length_from=lambda pkt: (8 * (pkt.len + 1)) - 2)]  # noqa: E501
     overload_fields = {IPv6: {"nh": 60}}
 
@@ -2729,12 +2717,14 @@ _mobopttypes = {2: "Binding Refresh Advice",
                 16: "Care-of Test (RFC4866)"}
 
 
-class _MIP6OptAlign:
+class _MIP6OptAlign(Packet):
     """ Mobile IPv6 options have alignment requirements of the form x*n+y.
     This class is inherited by all MIPv6 options to help in computing the
     required Padding for that option, i.e. the need for a Pad1 or PadN
     option before it. They only need to provide x and y as class
     parameters. (x=0 and y=0 are used when no alignment is required)"""
+
+    __slots__ = ["x", "y"]
 
     def alignment_delta(self, curpos):
         x = self.x
@@ -2744,8 +2734,11 @@ class _MIP6OptAlign:
         delta = x * ((curpos - y + x - 1) // x) + y - curpos
         return delta
 
+    def extract_padding(self, p):
+        return b"", p
 
-class MIP6OptBRAdvice(_MIP6OptAlign, Packet):
+
+class MIP6OptBRAdvice(_MIP6OptAlign):
     name = 'Mobile IPv6 Option - Binding Refresh Advice'
     fields_desc = [ByteEnumField('otype', 2, _mobopttypes),
                    ByteField('olen', 2),
@@ -2754,7 +2747,7 @@ class MIP6OptBRAdvice(_MIP6OptAlign, Packet):
     y = 0  # alignment requirement: 2n
 
 
-class MIP6OptAltCoA(_MIP6OptAlign, Packet):
+class MIP6OptAltCoA(_MIP6OptAlign):
     name = 'MIPv6 Option - Alternate Care-of Address'
     fields_desc = [ByteEnumField('otype', 3, _mobopttypes),
                    ByteField('olen', 16),
@@ -2763,7 +2756,7 @@ class MIP6OptAltCoA(_MIP6OptAlign, Packet):
     y = 6  # alignment requirement: 8n+6
 
 
-class MIP6OptNonceIndices(_MIP6OptAlign, Packet):
+class MIP6OptNonceIndices(_MIP6OptAlign):
     name = 'MIPv6 Option - Nonce Indices'
     fields_desc = [ByteEnumField('otype', 4, _mobopttypes),
                    ByteField('olen', 16),
@@ -2773,7 +2766,7 @@ class MIP6OptNonceIndices(_MIP6OptAlign, Packet):
     y = 0  # alignment requirement: 2n
 
 
-class MIP6OptBindingAuthData(_MIP6OptAlign, Packet):
+class MIP6OptBindingAuthData(_MIP6OptAlign):
     name = 'MIPv6 Option - Binding Authorization Data'
     fields_desc = [ByteEnumField('otype', 5, _mobopttypes),
                    ByteField('olen', 16),
@@ -2782,7 +2775,7 @@ class MIP6OptBindingAuthData(_MIP6OptAlign, Packet):
     y = 2  # alignment requirement: 8n+2
 
 
-class MIP6OptMobNetPrefix(_MIP6OptAlign, Packet):  # NEMO - RFC 3963
+class MIP6OptMobNetPrefix(_MIP6OptAlign):  # NEMO - RFC 3963
     name = 'NEMO Option - Mobile Network Prefix'
     fields_desc = [ByteEnumField("otype", 6, _mobopttypes),
                    ByteField("olen", 18),
@@ -2793,7 +2786,7 @@ class MIP6OptMobNetPrefix(_MIP6OptAlign, Packet):  # NEMO - RFC 3963
     y = 4  # alignment requirement: 8n+4
 
 
-class MIP6OptLLAddr(_MIP6OptAlign, Packet):  # Sect 6.4.4 of RFC 4068
+class MIP6OptLLAddr(_MIP6OptAlign):  # Sect 6.4.4 of RFC 4068
     name = "MIPv6 Option - Link-Layer Address (MH-LLA)"
     fields_desc = [ByteEnumField("otype", 7, _mobopttypes),
                    ByteField("olen", 7),
@@ -2804,7 +2797,7 @@ class MIP6OptLLAddr(_MIP6OptAlign, Packet):  # Sect 6.4.4 of RFC 4068
     y = 0  # alignment requirement: none
 
 
-class MIP6OptMNID(_MIP6OptAlign, Packet):  # RFC 4283
+class MIP6OptMNID(_MIP6OptAlign):  # RFC 4283
     name = "MIPv6 Option - Mobile Node Identifier"
     fields_desc = [ByteEnumField("otype", 8, _mobopttypes),
                    FieldLenField("olen", None, length_of="id", fmt="B",
@@ -2820,7 +2813,7 @@ class MIP6OptMNID(_MIP6OptAlign, Packet):  # RFC 4283
 # you). --arno
 
 
-class MIP6OptMsgAuth(_MIP6OptAlign, Packet):  # RFC 4285 (Sect. 5)
+class MIP6OptMsgAuth(_MIP6OptAlign):  # RFC 4285 (Sect. 5)
     name = "MIPv6 Option - Mobility Message Authentication"
     fields_desc = [ByteEnumField("otype", 9, _mobopttypes),
                    FieldLenField("olen", None, length_of="authdata", fmt="B",
@@ -2855,7 +2848,7 @@ class NTPTimestampField(LongField):
         return "%s (%d)" % (t, x)
 
 
-class MIP6OptReplayProtection(_MIP6OptAlign, Packet):  # RFC 4285 (Sect. 6)
+class MIP6OptReplayProtection(_MIP6OptAlign):  # RFC 4285 (Sect. 6)
     name = "MIPv6 option - Replay Protection"
     fields_desc = [ByteEnumField("otype", 10, _mobopttypes),
                    ByteField("olen", 8),
@@ -2864,7 +2857,7 @@ class MIP6OptReplayProtection(_MIP6OptAlign, Packet):  # RFC 4285 (Sect. 6)
     y = 2  # alignment requirement: 8n+2
 
 
-class MIP6OptCGAParamsReq(_MIP6OptAlign, Packet):  # RFC 4866 (Sect. 5.6)
+class MIP6OptCGAParamsReq(_MIP6OptAlign):  # RFC 4866 (Sect. 5.6)
     name = "MIPv6 option - CGA Parameters Request"
     fields_desc = [ByteEnumField("otype", 11, _mobopttypes),
                    ByteField("olen", 0)]
@@ -2876,7 +2869,7 @@ class MIP6OptCGAParamsReq(_MIP6OptAlign, Packet):  # RFC 4866 (Sect. 5.6)
 # XXX       simplified. Make it hold packets, by the way  --arno
 
 
-class MIP6OptCGAParams(_MIP6OptAlign, Packet):  # RFC 4866 (Sect. 5.1)
+class MIP6OptCGAParams(_MIP6OptAlign):  # RFC 4866 (Sect. 5.1)
     name = "MIPv6 option - CGA Parameters"
     fields_desc = [ByteEnumField("otype", 12, _mobopttypes),
                    FieldLenField("olen", None, length_of="cgaparams", fmt="B"),
@@ -2886,7 +2879,7 @@ class MIP6OptCGAParams(_MIP6OptAlign, Packet):  # RFC 4866 (Sect. 5.1)
     y = 0  # alignment requirement: none
 
 
-class MIP6OptSignature(_MIP6OptAlign, Packet):  # RFC 4866 (Sect. 5.2)
+class MIP6OptSignature(_MIP6OptAlign):  # RFC 4866 (Sect. 5.2)
     name = "MIPv6 option - Signature"
     fields_desc = [ByteEnumField("otype", 13, _mobopttypes),
                    FieldLenField("olen", None, length_of="sig", fmt="B"),
@@ -2896,7 +2889,7 @@ class MIP6OptSignature(_MIP6OptAlign, Packet):  # RFC 4866 (Sect. 5.2)
     y = 0  # alignment requirement: none
 
 
-class MIP6OptHomeKeygenToken(_MIP6OptAlign, Packet):  # RFC 4866 (Sect. 5.3)
+class MIP6OptHomeKeygenToken(_MIP6OptAlign):  # RFC 4866 (Sect. 5.3)
     name = "MIPv6 option - Home Keygen Token"
     fields_desc = [ByteEnumField("otype", 14, _mobopttypes),
                    FieldLenField("olen", None, length_of="hkt", fmt="B"),
@@ -2906,7 +2899,7 @@ class MIP6OptHomeKeygenToken(_MIP6OptAlign, Packet):  # RFC 4866 (Sect. 5.3)
     y = 0  # alignment requirement: none
 
 
-class MIP6OptCareOfTestInit(_MIP6OptAlign, Packet):  # RFC 4866 (Sect. 5.4)
+class MIP6OptCareOfTestInit(_MIP6OptAlign):  # RFC 4866 (Sect. 5.4)
     name = "MIPv6 option - Care-of Test Init"
     fields_desc = [ByteEnumField("otype", 15, _mobopttypes),
                    ByteField("olen", 0)]
@@ -2914,7 +2907,7 @@ class MIP6OptCareOfTestInit(_MIP6OptAlign, Packet):  # RFC 4866 (Sect. 5.4)
     y = 0  # alignment requirement: none
 
 
-class MIP6OptCareOfTest(_MIP6OptAlign, Packet):  # RFC 4866 (Sect. 5.5)
+class MIP6OptCareOfTest(_MIP6OptAlign):  # RFC 4866 (Sect. 5.5)
     name = "MIPv6 option - Care-of Test"
     fields_desc = [ByteEnumField("otype", 16, _mobopttypes),
                    FieldLenField("olen", None, length_of="cokt", fmt="B"),
@@ -2924,7 +2917,7 @@ class MIP6OptCareOfTest(_MIP6OptAlign, Packet):  # RFC 4866 (Sect. 5.5)
     y = 0  # alignment requirement: none
 
 
-class MIP6OptUnknown(_MIP6OptAlign, Packet):
+class MIP6OptUnknown(_MIP6OptAlign):
     name = 'Scapy6 - Unknown Mobility Option'
     fields_desc = [ByteEnumField("otype", 6, _mobopttypes),
                    FieldLenField("olen", None, length_of="odata", fmt="B"),
@@ -2932,6 +2925,14 @@ class MIP6OptUnknown(_MIP6OptAlign, Packet):
                                length_from=lambda pkt: pkt.olen)]
     x = 0
     y = 0  # alignment requirement: none
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *_, **kargs):
+        if _pkt:
+            o = orb(_pkt[0])  # Option type
+            if o in moboptcls:
+                return moboptcls[o]
+        return cls
 
 
 moboptcls = {0: Pad1,
@@ -3024,80 +3025,6 @@ class MIP6MH_Generic(_MobilityHeader):  # Mainly for decoding of unknown msg
                                length_from=lambda pkt: 8 * pkt.len - 6)]
 
 
-# TODO: make a generic _OptionsField
-class _MobilityOptionsField(PacketListField):
-    __slots__ = ["curpos"]
-
-    def __init__(self, name, default, cls, curpos, count_from=None, length_from=None):  # noqa: E501
-        self.curpos = curpos
-        PacketListField.__init__(self, name, default, cls, count_from=count_from, length_from=length_from)  # noqa: E501
-
-    def getfield(self, pkt, s):
-        tmp_len = self.length_from(pkt)
-        return s[tmp_len:], self.m2i(pkt, s[:tmp_len])
-
-    def i2len(self, pkt, i):
-        return len(self.i2m(pkt, i))
-
-    def m2i(self, pkt, x):
-        opt = []
-        while x:
-            o = orb(x[0])  # Option type
-            cls = self.cls
-            if o in moboptcls:
-                cls = moboptcls[o]
-            try:
-                op = cls(x)
-            except Exception:
-                op = self.cls(x)
-            opt.append(op)
-            if isinstance(op.payload, conf.raw_layer):
-                x = op.payload.load
-                del(op.payload)
-            else:
-                x = b""
-        return opt
-
-    def i2m(self, pkt, x):
-        autopad = None
-        try:
-            autopad = getattr(pkt, "autopad")  # Hack : 'autopad' phantom field
-        except Exception:
-            autopad = 1
-
-        if not autopad:
-            return b"".join(map(str, x))
-
-        curpos = self.curpos
-        s = b""
-        for p in x:
-            d = p.alignment_delta(curpos)
-            curpos += d
-            if d == 1:
-                s += raw(Pad1())
-            elif d != 0:
-                s += raw(PadN(optdata=b'\x00' * (d - 2)))
-            pstr = raw(p)
-            curpos += len(pstr)
-            s += pstr
-
-        # Let's make the class including our option field
-        # a multiple of 8 octets long
-        d = curpos % 8
-        if d == 0:
-            return s
-        d = 8 - d
-        if d == 1:
-            s += raw(Pad1())
-        elif d != 0:
-            s += raw(PadN(optdata=b'\x00' * (d - 2)))
-
-        return s
-
-    def addfield(self, pkt, s, val):
-        return s + self.i2m(pkt, val)
-
-
 class MIP6MH_BRR(_MobilityHeader):
     name = "IPv6 Mobility Header - Binding Refresh Request"
     fields_desc = [ByteEnumField("nh", 59, ipv6nh),
@@ -3107,8 +3034,8 @@ class MIP6MH_BRR(_MobilityHeader):
                    XShortField("cksum", None),
                    ShortField("res2", None),
                    _PhantomAutoPadField("autopad", 1),  # autopad activated by default  # noqa: E501
-                   _MobilityOptionsField("options", [], MIP6OptUnknown, 8,
-                                         length_from=lambda pkt: 8 * pkt.len)]
+                   _OptionsField("options", [], MIP6OptUnknown, 8,
+                                   length_from=lambda pkt: 8 * pkt.len)]
     overload_fields = {IPv6: {"nh": 135}}
 
     def hashret(self):
@@ -3128,8 +3055,8 @@ class MIP6MH_HoTI(_MobilityHeader):
                    StrFixedLenField("reserved", b"\x00" * 2, 2),
                    StrFixedLenField("cookie", b"\x00" * 8, 8),
                    _PhantomAutoPadField("autopad", 1),  # autopad activated by default  # noqa: E501
-                   _MobilityOptionsField("options", [], MIP6OptUnknown, 16,
-                                         length_from=lambda pkt: 8 * (pkt.len - 1))]  # noqa: E501
+                   _OptionsField("options", [], MIP6OptUnknown, 16,
+                                 length_from=lambda pkt: 8 * (pkt.len - 1))]  # noqa: E501
     overload_fields = {IPv6: {"nh": 135}}
 
     def hashret(self):
@@ -3155,8 +3082,8 @@ class MIP6MH_HoT(_MobilityHeader):
                    StrFixedLenField("cookie", b"\x00" * 8, 8),
                    StrFixedLenField("token", b"\x00" * 8, 8),
                    _PhantomAutoPadField("autopad", 1),  # autopad activated by default  # noqa: E501
-                   _MobilityOptionsField("options", [], MIP6OptUnknown, 24,
-                                         length_from=lambda pkt: 8 * (pkt.len - 2))]  # noqa: E501
+                   _OptionsField("options", [], MIP6OptUnknown, 24,
+                                   length_from=lambda pkt: 8 * (pkt.len - 2))]  # noqa: E501
     overload_fields = {IPv6: {"nh": 135}}
 
     def hashret(self):
@@ -3200,8 +3127,8 @@ class MIP6MH_BU(_MobilityHeader):
                    XBitField("reserved", 0, 9),
                    LifetimeField("mhtime", 3),  # unit == 4 seconds
                    _PhantomAutoPadField("autopad", 1),  # autopad activated by default  # noqa: E501
-                   _MobilityOptionsField("options", [], MIP6OptUnknown, 12,
-                                         length_from=lambda pkt: 8 * pkt.len - 4)]  # noqa: E501
+                   _OptionsField("options", [], MIP6OptUnknown, 12,
+                                   length_from=lambda pkt: 8 * pkt.len - 4)]  # noqa: E501
     overload_fields = {IPv6: {"nh": 135}}
 
     def hashret(self):  # Hack: see comment in MIP6MH_BRR.hashret()
@@ -3226,8 +3153,8 @@ class MIP6MH_BA(_MobilityHeader):
                    XShortField("seq", None),  # TODO: ShortNonceField
                    XShortField("mhtime", 0),  # unit == 4 seconds
                    _PhantomAutoPadField("autopad", 1),  # autopad activated by default  # noqa: E501
-                   _MobilityOptionsField("options", [], MIP6OptUnknown, 12,
-                                         length_from=lambda pkt: 8 * pkt.len - 4)]  # noqa: E501
+                   _OptionsField("options", [], MIP6OptUnknown, 12,
+                                   length_from=lambda pkt: 8 * pkt.len - 4)]  # noqa: E501
     overload_fields = {IPv6: {"nh": 135}}
 
     def hashret(self):  # Hack: see comment in MIP6MH_BRR.hashret()
@@ -3259,8 +3186,8 @@ class MIP6MH_BE(_MobilityHeader):
                    ByteEnumField("status", 0, _bestatus),
                    ByteField("reserved", 0),
                    IP6Field("ha", "::"),
-                   _MobilityOptionsField("options", [], MIP6OptUnknown, 24,
-                                         length_from=lambda pkt: 8 * (pkt.len - 2))]  # noqa: E501
+                   _OptionsField("options", [], MIP6OptUnknown, 24,
+                                  length_from=lambda pkt: 8 * (pkt.len - 2))]  # noqa: E501
     overload_fields = {IPv6: {"nh": 135}}
 
 

@@ -248,7 +248,6 @@ scapy_delete_temp_files()
 assert(len(conf.temp_files) == 0)
 
 = Emulate interact()
-
 import mock, sys
 from scapy.main import interact
 # Detect IPython
@@ -257,7 +256,7 @@ try:
 except:
     code_interact_import = "scapy.main.code.interact"
 else:
-    code_interact_import = "IPython.terminal.embed.InteractiveShellEmbed"
+    code_interact_import = "IPython.start_ipython"
 
 @mock.patch(code_interact_import)
 def interact_emulator(code_int, extra_args=[]):
@@ -266,7 +265,6 @@ def interact_emulator(code_int, extra_args=[]):
         interact(argv=["-s scapy1"] + extra_args, mybanner="What a test")
         return True
     except:
-        raise
         return False
     finally:
         sys.ps1 = ">>> "
@@ -342,6 +340,16 @@ try:
     assert False  # The previous should have raised an exception
 except Scapy_Exception:
     pass
+
+= Test load_contrib overwrite
+load_contrib("gtp")
+assert GTPHeader.__module__ == "scapy.contrib.gtp"
+
+load_contrib("gtp_v2")
+assert GTPHeader.__module__ == "scapy.contrib.gtp_v2"
+
+load_contrib("gtp")
+assert GTPHeader.__module__ == "scapy.contrib.gtp"
 
 = Test sane function
 sane("A\x00\xFFB") == "A..B"
@@ -10773,7 +10781,7 @@ if PYX:
 = svgdump()
 
 print("PYX: %d" % PYX)
-if PYX:
+if PYX and not six.PY2:
     import tempfile
     import os
     filename = tempfile.mktemp(suffix=".svg")

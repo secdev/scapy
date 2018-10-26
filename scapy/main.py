@@ -178,10 +178,13 @@ def load_contrib(name, globals_dict=None, symb_list=None):
         importlib.import_module("scapy.contrib." + name)
         _load("scapy.contrib." + name,
               globals_dict=globals_dict, symb_list=symb_list)
-    except ImportError:
+    except ImportError as e:
         # if layer not found in contrib, try in layers
-        load_layer(name,
-                   globals_dict=globals_dict, symb_list=symb_list)
+        try:
+            load_layer(name,
+                       globals_dict=globals_dict, symb_list=symb_list)
+        except ImportError:
+            raise e  # Let's raise the original error to avoid confusion
 
 
 def list_contrib(name=None, ret=False):
@@ -327,7 +330,7 @@ def init_session(session_name, mydict=None):
     six.moves.builtins.__dict__.update(scapy_builtins)
     GLOBKEYS.extend(scapy_builtins)
     GLOBKEYS.append("scapy_session")
-    scapy_builtins = None  # XXX replace with "with" statement
+    scapy_builtins = None
 
     if session_name:
         try:

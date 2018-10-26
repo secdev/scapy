@@ -1,12 +1,8 @@
 % Tests for OpenFlow v1.3 with Scapy
 
-+ Fields
-
-= GroupDescPacketListField(), check getfield
-remain, lst = GroupDescPacketListField(None, None, None).getfield(None, b'\x00\x10')
-not remain
-all([OFPGroupDesc in gd for gd in lst])
-lst[0].length == 0x0010
++ Preparation
+= Be sure we have loaded OpenFlow v3
+load_contrib("openflow3")
 
 + Usual OFv1.3 messages
 
@@ -23,10 +19,10 @@ ofm = OFPMatch(oxm_fields=OFBEthType(eth_type=0x86dd))
 assert(len(raw(ofm))%8 == 0)
 raw(ofm) == b'\x00\x01\x00\x0a\x80\x00\x0a\x02\x86\xdd\x00\x00\x00\x00\x00\x00'
 
-= OpenFlow(), generic method test with OFPTEchoRequest()
+= OpenFlow3(), generic method test with OFPTEchoRequest()
 ofm = OFPTEchoRequest()
 s = raw(ofm)
-isinstance(OpenFlow(None,s)(s), OFPTEchoRequest)
+isinstance(OpenFlow3(s), OFPTEchoRequest)
 
 = OFPTFlowMod(), check codes and defaults values
 ofm = OFPTFlowMod(cmd='OFPFC_DELETE', out_group='ALL', flags='CHECK_OVERLAP+NO_PKT_COUNTS')
@@ -76,7 +72,6 @@ fpti = OFPTFPTInstructions(instruction_ids=[OFPITGotoTableID(), OFPITClearAction
 fpti = OFPTFPTInstructions(raw(fpti))
 assert len(fpti) == 16
 assert fpti.instruction_ids[0].type == 1
-assert fpti.instruction_ids[0].table_id == 0
 assert fpti.instruction_ids[1].type == 5
 
 = OFPTPacketIn() containing an Ethernet frame
@@ -167,7 +162,7 @@ e[OFPTFeaturesRequest].xid == 23
 pkt = TCP()/OFPMPRequestTableFeatures(table_features=[OFPTableFeatures(properties=[OFPTFPTMatch(oxm_ids=[OFBUDPSrcID()])])])
 assert raw(pkt) == b'\x19\xfd\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x00\x00\x00\x00\x04\x12\x00X\x00\x00\x00\x00\x00\x0c\x00\x00\x00\x00\x00\x00\x00H\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x08\x00\x08\x80\x00\x1e\x02'
 pkt = TCP(raw(pkt))
-assert pkt.table_features[0].properties[0].oxm_ids[0].fields == {'class': 32768, 'field': 15, 'hasmask': 0, 'length': 2}
+assert pkt.table_features[0].properties[0].oxm_ids[0].fields == {'class': 32768, 'field': 15, 'hasmask': 0, 'len': 2}
 
 = Test OFBTCPSrc Autocompletion
 
