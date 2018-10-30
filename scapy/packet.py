@@ -695,21 +695,30 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             bkcol = next(backcolor)
             proto, fields = t.pop()
             y += 0.5
-            pt = pyx.text.text(XSTART, (YTXT - y) * YMUL, r"\font\cmssfont=cmss10\cmssfont{%s}" % proto.name, [pyx.text.size.Large])  # noqa: E501
+            pt = pyx.text.text(XSTART, (YTXT - y) * YMUL, r"\font\cmssfont=cmss10\cmssfont{%s}" % tex_escape(proto.name), [pyx.text.size.Large])  # noqa: E501
             y += 1
             ptbb = pt.bbox()
             ptbb.enlarge(pyx.unit.u_pt * 2)
             canvas.stroke(ptbb.path(), [pyx.color.rgb.black, pyx.deco.filled([bkcol])])  # noqa: E501
             canvas.insert(pt)
-            for fname, fval, fdump in fields:
+            for field, fval, fdump in fields:
                 col = next(forecolor)
-                ft = pyx.text.text(XSTART, (YTXT - y) * YMUL, r"\font\cmssfont=cmss10\cmssfont{%s}" % tex_escape(fname.name))  # noqa: E501
+                ft = pyx.text.text(XSTART, (YTXT - y) * YMUL, r"\font\cmssfont=cmss10\cmssfont{%s}" % tex_escape(field.name))  # noqa: E501
+                if isinstance(field, BitField):
+                    fsize = '%sb' % field.size
+                else:
+                    fsize = '%sB' % len(fdump)
+                if (hasattr(field, 'field') and
+                        'LE' in field.field.__class__.__name__[:3] or
+                        'LE' in field.__class__.__name__[:3]):
+                    fsize = r'$\scriptstyle\langle$' + fsize
+                st = pyx.text.text(XSTART + 3.4, (YTXT - y) * YMUL, r"\font\cmbxfont=cmssbx10 scaled 600\cmbxfont{%s}" % fsize, [pyx.text.halign.boxright])  # noqa: E501
                 if isinstance(fval, str):
                     if len(fval) > 18:
                         fval = fval[:18] + "[...]"
                 else:
                     fval = ""
-                vt = pyx.text.text(XSTART + 3, (YTXT - y) * YMUL, r"\font\cmssfont=cmss10\cmssfont{%s}" % tex_escape(fval))  # noqa: E501
+                vt = pyx.text.text(XSTART + 3.5, (YTXT - y) * YMUL, r"\font\cmssfont=cmss10\cmssfont{%s}" % tex_escape(fval))  # noqa: E501
                 y += 1.0
                 if fdump:
                     dt, target, last_shift, last_y = make_dump(fdump, last_shift, last_y, col, bkcol)  # noqa: E501
@@ -733,6 +742,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
                     canvas.insert(dt)
 
                 canvas.insert(ft)
+                canvas.insert(st)
                 canvas.insert(vt)
             last_y += layer_shift
 
