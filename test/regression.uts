@@ -10514,6 +10514,19 @@ pkt = Test(raw(Test(Values=[0, 0, 0, 0, 1, 1, 1, 1])))
 assert(pkt.BitCount == 8)
 assert(pkt.ByteCount == 1)
 
+= PacketListField
+
+class TestPacket(Packet):
+  name = 'TestPacket'
+  fields_desc = [ PacketListField('list', [], 0) ]
+
+a = TestPacket()
+a.list.append(1)
+assert(len(a.list) == 1)
+
+b = TestPacket()
+assert(len(b.list) == 0)
+
 ############
 ############
 + MPLS tests
