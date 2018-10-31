@@ -697,7 +697,19 @@ icmptypes = {0: "echo-reply",
              15: "information-request",
              16: "information-response",
              17: "address-mask-request",
-             18: "address-mask-reply"}
+             18: "address-mask-reply",
+             30: "traceroute",
+             31: "datagram-conversion-error",
+             32: "mobile-host-redirect",
+             33: "ipv6-where-are-you",
+             34: "ipv6-i-am-here",
+             35: "mobile-registration-request",
+             36: "mobile-registration-reply",
+             37: "domain-name-request",
+             38: "domain-name-reply",
+             39: "skip",
+             40: "photuris"}
+
 
 icmpcodes = {3: {0: "network-unreachable",
                     1: "host-unreachable",
@@ -721,7 +733,13 @@ icmpcodes = {3: {0: "network-unreachable",
              11: {0: "ttl-zero-during-transit",
                   1: "ttl-zero-during-reassembly", },
              12: {0: "ip-header-bad",
-                  1: "required-option-missing", }, }
+                  1: "required-option-missing", },
+             40: {0: "bad-spi",
+                  1: "authentication-failed",
+                  2: "decompression-failed",
+                  3: "decryption-failed",
+                  4: "need-authentification",
+                  5: "need-authorization", }, }
 
 
 class ICMP(Packet):
@@ -752,14 +770,14 @@ class ICMP(Packet):
         return p
 
     def hashret(self):
-        if self.type in [0, 8, 13, 14, 15, 16, 17, 18]:
+        if self.type in [0, 8, 13, 14, 15, 16, 17, 18, 33, 34, 35, 36, 37, 38]:
             return struct.pack("HH", self.id, self.seq) + self.payload.hashret()  # noqa: E501
         return self.payload.hashret()
 
     def answers(self, other):
         if not isinstance(other, ICMP):
             return 0
-        if ((other.type, self.type) in [(8, 0), (13, 14), (15, 16), (17, 18)] and  # noqa: E501
+        if ((other.type, self.type) in [(8, 0), (13, 14), (15, 16), (17, 18), (33, 34), (35, 36), (37, 38)] and  # noqa: E501
             self.id == other.id and
                 self.seq == other.seq):
             return 1
