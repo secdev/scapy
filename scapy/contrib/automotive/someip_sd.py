@@ -308,17 +308,18 @@ class SD(_SDPacketBase):
     def get_flag(self, name):
         name = name.upper()
         if (name in self.FLAGSDEF):
-            return ((self.flags & self.FLAGSDEF[name].mask) >>
-                    self.FLAGSDEF[name].offset)
+            masked_flags = self.flags & self.FLAGSDEF[name].mask
+            return masked_flags >> self.FLAGSDEF[name].offset
         else:
             return None
 
     def set_flag(self, name, value):
         name = name.upper()
         if (name in self.FLAGSDEF):
-            self.flags = (self.flags &
-                          (ctypes.c_ubyte(~self.FLAGSDEF[name].mask).value)) \
-                | ((value & 0x01) << self.FLAGSDEF[name].offset)
+            tmp_value = ctypes.c_ubyte(~self.FLAGSDEF[name].mask).value
+            masked_flags = self.flags & tmp_value
+            shifted_value = (value & 0x01) << self.FLAGSDEF[name].offset
+            self.flags = masked_flags | shifted_value
 
     def set_entryArray(self, entry_list):
         if (isinstance(entry_list, list)):

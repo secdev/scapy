@@ -71,8 +71,8 @@ def dns_get_str(s, p, pkt=None, _internal=False):
                 if burned == max_length:
                     break
             elif not _internal:
-                raise Scapy_Exception("DNS message can't be compressed" +
-                                      "at this point!")
+                msg = "DNS message can't be compressed at this point!"
+                raise Scapy_Exception(msg)
             processed_pointers.append(p)
             continue
         elif cur > 0:  # Label
@@ -112,10 +112,12 @@ def dns_compress(pkt):
             while not isinstance(current, NoPayload):
                 if isinstance(current, InheritOriginDNSStrPacket):
                     for field in current.fields_desc:
-                        if isinstance(field, DNSStrField) or \
-                           (isinstance(field, RDataField) and
-                           current.type in [2, 5, 12]):
-                                # Get the associated data and store it accordingly  # noqa: E501
+                        is_dnsstrfield = isinstance(field, DNSStrField)
+                        is_dnsstring = isinstance(field, RDataField)
+                        is_dnsstring &= current.type in [2, 5, 12]
+                        if is_dnsstrfield or is_dnsstring:
+                                # Get the associated data and store it
+                                # accordingly
                                 dat = current.getfieldval(field.name)
                                 yield current, field.name, dat
                 current = current.payload
@@ -408,10 +410,9 @@ class DNS(Packet):
     ]
 
     def answers(self, other):
-        return (isinstance(other, DNS) and
-                self.id == other.id and
-                self.qr == 1 and
-                other.qr == 0)
+        is_dns = isinstance(other, DNS)
+        same_id = self.id == other.id
+        return is_dns and same_id and self.qr == 1 and other.qr == 0
 
     def mysummary(self):
         type = ["Qry", "Ans"][self.qr]

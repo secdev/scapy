@@ -4720,9 +4720,7 @@ class DiamG (Packet):
             "drLen",
             None,
             length_of="avpList",
-            adjust=lambda p,
-            x:x +
-            DR_Header_Length),
+            adjust=lambda p, x:x + DR_Header_Length),
         DRFlags("drFlags", None, 8, DR_Flags_List),
         # Command Code, 3 bytes, no default
         DRCode("drCode", None, DR_cmd_def),
@@ -4736,8 +4734,7 @@ class DiamG (Packet):
             "avpList",
             [],
             GuessAvpType,
-            length_from=lambda pkt:pkt.drLen -
-            DR_Header_Length),
+            length_from=lambda pkt:pkt.drLen - DR_Header_Length)
     ]
 
 

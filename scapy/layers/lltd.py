@@ -94,11 +94,10 @@ class LLTD(Packet):
            isinstance(self.underlayer, Ether):
             eth = self.underlayer
             if self.real_dst is None:
-                pkt = (pkt[:4] + eth.fields_desc[0].i2m(eth, eth.dst) +
-                       pkt[10:])
+                pkt = pkt[:4] + eth.fields_desc[0].i2m(eth, eth.dst) + pkt[10:]
             if self.real_src is None:
-                pkt = (pkt[:10] + eth.fields_desc[1].i2m(eth, eth.src) +
-                       pkt[16:])
+                pkt = pkt[:10] + eth.fields_desc[1].i2m(eth, eth.src) + \
+                    pkt[16:]
         return pkt + pay
 
     def mysummary(self):

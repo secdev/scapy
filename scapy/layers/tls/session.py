@@ -135,8 +135,8 @@ class connState(object):
 
         # When slicing the key_block, keep the right half of the material
         skip_first = False
-        if ((self.connection_end == "client" and self.row == "read") or
-                (self.connection_end == "server" and self.row == "write")):
+        if (self.connection_end == "client" and self.row == "read") or \
+           (self.connection_end == "server" and self.row == "write"):
             skip_first = True
 
         pos = 0
@@ -225,8 +225,8 @@ class connState(object):
         Also, if needed, the IV should be set elsewhere.
         """
         skip_first = True
-        if ((self.connection_end == "client" and self.row == "read") or
-                (self.connection_end == "server" and self.row == "write")):
+        if (self.connection_end == "client" and self.row == "read") or \
+           (self.connection_end == "server" and self.row == "write"):
             skip_first = False
 
         cipher_alg = self.ciphersuite.cipher_alg
@@ -735,8 +735,8 @@ class tlsSession(object):
 
     def consider_read_padding(self):
         # Return True if padding is needed. Used by TLSPadField.
-        return (self.rcs.cipher.type == "block" and
-                not (False in six.itervalues(self.rcs.cipher.ready)))
+        return self.rcs.cipher.type == "block" and \
+            False not in six.itervalues(self.rcs.cipher.ready)
 
     def consider_write_padding(self):
         # Return True if padding is needed. Used by TLSPadField.
@@ -763,13 +763,13 @@ class tlsSession(object):
 
     def eq(self, other):
         ok = False
-        if (self.sport == other.sport and self.dport == other.dport and
-                self.ipsrc == other.ipsrc and self.ipdst == other.ipdst):
+        if self.sport == other.sport and self.dport == other.dport and \
+           self.ipsrc == other.ipsrc and self.ipdst == other.ipdst:
             ok = True
 
-        if (not ok and
-            self.dport == other.sport and self.sport == other.dport and
-                self.ipdst == other.ipsrc and self.ipsrc == other.ipdst):
+        if not ok and self.dport == other.sport and \
+           self.sport == other.dport and self.ipdst == other.ipsrc and \
+           self.ipsrc == other.ipdst:
             ok = True
 
         if ok:

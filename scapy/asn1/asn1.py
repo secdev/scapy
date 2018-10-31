@@ -454,8 +454,8 @@ class ASN1_UTC_TIME(ASN1_STRING):
                 _len = 13
                 _format = "%y%m%d%H%M%S"
             _nam = self.tag._asn1_obj.__name__[4:].lower()
-            if (isinstance(value, str) and
-                    len(value) == _len and value[-1] == "Z"):
+            if isinstance(value, str) and \
+               len(value) == _len and value[-1] == "Z":
                 dt = datetime.strptime(value[:-1], _format)
                 pretty_time = dt.strftime("%b %d %H:%M:%S %Y GMT")
             else:

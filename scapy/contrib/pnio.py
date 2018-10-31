@@ -106,10 +106,8 @@ class ProfinetIO(Packet):
 
     def guess_payload_class(self, payload):
         # For frameID in the RT_CLASS_* range, use the RTC packet as payload
-        if (
-                (0x0100 <= self.frameID < 0x1000) or
-                (0x8000 <= self.frameID < 0xFC00)
-        ):
+        if (0x0100 <= self.frameID < 0x1000) or \
+           (0x8000 <= self.frameID < 0xFC00):
             return PNIORealTimeCyclicPDU
         return super(ProfinetIO, self).guess_payload_class(payload)
 
@@ -202,13 +200,11 @@ class PNIORealTimeCyclicPDU(Packet):
 
     def get_padding_length(self):
         if hasattr(self, "_len"):
-            pad_len = (
-                self._len -
-                sum(len(raw(pkt)) for pkt in self.getfieldval("data")) -
-                2 -  # Cycle Counter size (ShortField)
-                1 -  # DataStatus size (FlagsField over 8 bits)
-                1  # TransferStatus (ByteField)
-            )
+            pad_len = self._len
+            pad_len -= sum(len(raw(pkt)) for pkt in self.getfieldval("data"))
+            pad_len -= 2  # Cycle Counter size (ShortField)
+            pad_len -= 1  # DataStatus size (FlagsField over 8 bits)
+            pad_len -= 1  # TransferStatus (ByteField)
         else:
             pad_len = len(self.getfieldval("padding"))
 
@@ -244,10 +240,8 @@ class PNIORealTimeCyclicPDU(Packet):
             pnio_layer = q
 
         self._layout = [PNIORealTimeCyclicDefaultRawData]
-        if (
-                not isinstance(ether_layer, type(None)) and
-                not isinstance(pnio_layer, type(None))
-        ):
+        if not isinstance(ether_layer, type(None)) and \
+           not isinstance(pnio_layer, type(None)):
             # Get from config the layout for these hosts and frameid
             layout = type(self).get_layout_from_config(
                 ether_layer.src,

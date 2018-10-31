@@ -65,8 +65,8 @@ used when socket.inet_pton is not available.
     if joker_pos is not None:
         if len(result) == 16:
             raise _INET6_PTON_EXC
-        result = (result[:joker_pos] + b"\x00" * (16 - len(result)) +
-                  result[joker_pos:])
+        padding = b"\x00" * (16 - len(result))
+        result = result[:joker_pos] + padding + result[joker_pos:]
     if len(result) != 16:
         raise _INET6_PTON_EXC
     return result

@@ -238,9 +238,8 @@ class Dot15d4Data(Packet):
                        "802.15.4 protocol. Values must be in the list: "
             else:
                 _msg = "Unknown conf.dot15d4_protocol value: must be in "
-            warning(_msg +
-                    "['sixlowpan', 'zigbee']" +
-                    " Defaulting to SixLoWPAN")
+            _msg += "['sixlowpan', 'zigbee'] Defaulting to SixLoWPAN"
+            warning(_msg)
             return SixLoWPAN
 
     def mysummary(self):

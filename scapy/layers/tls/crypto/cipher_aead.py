@@ -116,8 +116,9 @@ class _AEADCipher(six.with_metaclass(_AEADCipherMetaclass, object)):
         super(_AEADCipher, self).__setattr__(name, val)
 
     def _get_nonce(self):
-        return (self.fixed_iv +
-                pkcs_i2osp(self.nonce_explicit, self.nonce_explicit_len))
+        nonce = self.fixed_iv
+        nonce += pkcs_i2osp(self.nonce_explicit, self.nonce_explicit_len)
+        return nonce
 
     def _update_nonce_explicit(self):
         """
@@ -318,8 +319,7 @@ class _AEADCipher_TLS13(six.with_metaclass(_AEADCipherMetaclass, object)):
             res = encryptor.update(P) + encryptor.finalize()
             res += encryptor.tag
         else:
-            if (conf.crypto_valid_advanced and
-                    isinstance(self._cipher, AESCCM)):
+            if conf.crypto_valid_advanced and isinstance(self._cipher, AESCCM):
                 res = self._cipher.encrypt(self._get_nonce(seq_num), P, A,
                                            tag_length=self.tag_len)
             else:
@@ -350,13 +350,13 @@ class _AEADCipher_TLS13(six.with_metaclass(_AEADCipherMetaclass, object)):
                 raise AEADTagError(P, mac)
         else:
             try:
-                if (conf.crypto_valid_advanced and
-                        isinstance(self._cipher, AESCCM)):
+                if conf.crypto_valid_advanced and \
+                   isinstance(self._cipher, AESCCM):
                     P = self._cipher.decrypt(self._get_nonce(seq_num), C + mac, A,  # noqa: E501
                                              tag_length=self.tag_len)
                 else:
-                    if (conf.crypto_valid_advanced and
-                            isinstance(self, Cipher_CHACHA20_POLY1305)):
+                    if conf.crypto_valid_advanced and \
+                       isinstance(self, Cipher_CHACHA20_POLY1305):
                         A += struct.pack("!H", len(C))
                     P = self._cipher.decrypt(self._get_nonce(seq_num), C + mac, A)  # noqa: E501
             except InvalidTag:

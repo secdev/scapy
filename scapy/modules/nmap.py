@@ -122,10 +122,11 @@ def nmap_udppacket_sig(snd, rcv):
             "0" if rcv[UDPerror].chksum == 0 else "F"
         )
         res["ULEN"] = "%X" % rcv[UDPerror].len
-        res["DAT"] = "E" if (
-            isinstance(rcv[UDPerror].payload, NoPayload) or
-            raw(rcv[UDPerror].payload) == raw(snd[UDP].payload)
-        ) else "F"
+        if isinstance(rcv[UDPerror].payload, NoPayload) or \
+           raw(rcv[UDPerror].payload) == raw(snd[UDP].payload):
+            res["DAT"] = "E"
+        else:
+            res["DAT"] = "F"
     return res
 
 
@@ -145,7 +146,7 @@ def nmap_sig(target, oport=80, cport=81, ucport=1):
               ("MSS", 256),
               ("Timestamp", (123, 0))]
     tests = [
-        IP(dst=target, id=1) /
+        IP(dst=target, id=1) /  # noqa: W504
         TCP(seq=1, sport=5001 + i, dport=oport if i < 4 else cport,
             options=tcpopt, flags=flags)
         for i, flags in enumerate(["CS", "", "SFUP", "A", "S", "A", "FPU"])

@@ -13,6 +13,7 @@ from __future__ import absolute_import
 import operator
 import random
 import socket
+from socket import AF_INET6
 import struct
 import time
 import re
@@ -767,8 +768,7 @@ def in6_isaddrllallnodes(str):
     Returns True if address is the link-local all-nodes multicast
     address (ff02::1).
     """
-    return (inet_pton(socket.AF_INET6, "ff02::1") ==
-            inet_pton(socket.AF_INET6, str))
+    return inet_pton(AF_INET6, "ff02::1") == inet_pton(AF_INET6, str)
 
 
 def in6_isaddrllallservers(str):
@@ -776,8 +776,7 @@ def in6_isaddrllallservers(str):
     Returns True if address is the link-local all-servers multicast
     address (ff02::2).
     """
-    return (inet_pton(socket.AF_INET6, "ff02::2") ==
-            inet_pton(socket.AF_INET6, str))
+    return inet_pton(AF_INET6, "ff02::2") == inet_pton(AF_INET6, str)
 
 
 def in6_getscope(addr):

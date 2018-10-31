@@ -268,11 +268,11 @@ class SNMP(ASN1_Packet):
     )
 
     def answers(self, other):
-        return (isinstance(self.PDU, SNMPresponse) and
-                (isinstance(other.PDU, SNMPget) or
-                 isinstance(other.PDU, SNMPnext) or
-                 isinstance(other.PDU, SNMPset)) and
-                self.PDU.id == other.PDU.id)
+        return isinstance(self.PDU, SNMPresponse) and \
+            (isinstance(other.PDU, SNMPget) or  # noqa: W504
+             isinstance(other.PDU, SNMPnext) or  # noqa: W504
+             isinstance(other.PDU, SNMPset)) and \
+            self.PDU.id == other.PDU.id
 
 
 bind_bottom_up(UDP, SNMP, sport=161)

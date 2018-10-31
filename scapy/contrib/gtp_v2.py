@@ -116,9 +116,9 @@ class GTPHeader(Packet):
         return struct.pack("B", self.version) + self.payload.hashret()
 
     def answers(self, other):
-        return (isinstance(other, GTPHeader) and
-                self.version == other.version and
-                self.payload.answers(other.payload))
+        return isinstance(other, GTPHeader) and \
+            self.version == other.version and \
+            self.payload.answers(other.payload)
 
 
 class IE_IPv4(gtp.IE_Base):

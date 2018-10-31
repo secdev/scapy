@@ -169,10 +169,10 @@ class MQTTPublish(Packet):
         StrLenField("topic", "",
                     length_from=lambda pkt: pkt.length),
         ConditionalField(ShortField("msgid", None),
-                         lambda pkt: (pkt.underlayer.QOS == 1 or
-                                      pkt.underlayer.QOS == 2)),
+                         lambda pkt: pkt.underlayer.QOS == 1 or  # noqa: W504
+                                      pkt.underlayer.QOS == 2),
         StrLenField("value", "",
-                    length_from=lambda pkt: (pkt.underlayer.len -
+                    length_from=lambda pkt: (pkt.underlayer.len -  # noqa: E501, W504
                                              pkt.length - 2)),
     ]
 

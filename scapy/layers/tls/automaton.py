@@ -173,8 +173,7 @@ class _TLSAutomaton(Automaton):
         # Maybe we already parsed the expected packet, maybe not.
         if get_next_msg:
             self.get_next_msg()
-        if (not self.buffer_in or
-                not isinstance(self.buffer_in[0], pkt_cls)):
+        if not self.buffer_in or not isinstance(self.buffer_in[0], pkt_cls):
             return
         self.cur_pkt = self.buffer_in[0]
         self.buffer_in = self.buffer_in[1:]
@@ -185,8 +184,8 @@ class _TLSAutomaton(Automaton):
         Add a new TLS or SSLv2 or TLS 1.3 record to the packets buffered out.
         """
         if is_sslv2 is None and is_tls13 is None:
-            v = (self.cur_session.tls_version or
-                 self.cur_session.advertised_tls_version)
+            v = self.cur_session.tls_version or \
+                self.cur_session.advertised_tls_version
             if v in [0x0200, 0x0002]:
                 is_sslv2 = True
             elif v >= 0x0304:

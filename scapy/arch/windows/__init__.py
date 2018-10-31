@@ -634,11 +634,13 @@ class NetworkInterface(object):
         if not conf.use_npcap:
             raise OSError("This operation requires Npcap.")
         if self.raw80211 is None:
-            # This checks if npcap has Dot11 enabled and if the interface is compatible,  # noqa: E501
-            # by looking for the npcap/Parameters/Dot11Adapters key in the registry.  # noqa: E501
+            # This checks if npcap has Dot11 enabled and if the interface is
+            # compatible, by looking for the npcap/Parameters/Dot11Adapters
+            # key in the registry.
             dot11adapters = _get_npcap_dot11_adapters()
-            self.raw80211 = (dot11adapters is not None and
-                             (("\\Device\\" + self.guid).lower() in dot11adapters.lower()))  # noqa: E501
+            self.raw80211 = dot11adapters is not None
+            tmp_adapter = ("\\Device\\" + self.guid).lower()
+            self.raw80211 &= tmp_adapter in dot11adapters.lower()
         if not self.raw80211:
             raise Scapy_Exception("This interface does not support raw 802.11")
 
@@ -868,10 +870,11 @@ class NetworkInterfaceDict(UserDict):
                         self.load_from_powershell()
                         return
                 _error_msg = "Could not start the pcap service ! "
-            warning(_error_msg +
-                    "You probably won't be able to send packets. "
-                    "Deactivating unneeded interfaces and restarting Scapy might help. "  # noqa: E501
-                    "Check your winpcap and powershell installation, and access rights.")  # noqa: E501
+            _error_msg += "You probably won't be able to send packets. "
+            _error_msg += "Deactivating unneeded interfaces and restarting "
+            _error_msg += "Scapy might help. Check your winpcap and "
+            _error_msg += "powershell installation, and access rights."
+            warning(_error_msg)
         else:
             # Loading state: remove invalid interfaces
             self.remove_invalid_ifaces()

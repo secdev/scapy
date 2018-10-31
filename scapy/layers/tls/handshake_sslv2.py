@@ -302,8 +302,8 @@ class SSLv2ClientMasterKey(_SSLv2Handshake):
                 cs_cls = _tls_cipher_suites_cls[cs_val]
 
         if cs_cls:
-            if (self.encryptedkey == b"" and
-                    len(self.tls_session.server_certs) > 0):
+            if self.encryptedkey == b"" and \
+                    len(self.tls_session.server_certs) > 0:
                 # else, the user is responsible for export slicing & encryption
                 key = randstring(cs_cls.cipher_alg.key_len)
 
@@ -337,9 +337,8 @@ class SSLv2ClientMasterKey(_SSLv2Handshake):
             self.keyarglen = len(keyarg)
         keyarglen = struct.pack("!H", self.keyarglen)
 
-        s = (chb(pkt[0]) + cipher +
-             clearkeylen + encryptedkeylen + keyarglen +
-             clearkey + encryptedkey + keyarg)
+        s = chb(pkt[0]) + cipher + clearkeylen + encryptedkeylen + keyarglen
+        s += clearkey + encryptedkey + keyarg
         return s + pay
 
     def tls_session_update(self, msg_str):
@@ -450,15 +449,14 @@ class SSLv2ClientCertificate(_SSLv2Handshake):
     def build(self, *args, **kargs):
         s = self.tls_session
         sig = self.getfieldval("responsedata")
-        test = (sig is None and
-                s.sslv2_key_material is not None and
-                s.sslv2_challenge_clientcert is not None and
-                len(s.server_certs) > 0)
+        test = sig is None and \
+            s.sslv2_key_material is not None and \
+            s.sslv2_challenge_clientcert is not None and \
+            len(s.server_certs) > 0
         if test:
             s = self.tls_session
-            m = (s.sslv2_key_material +
-                 s.sslv2_challenge_clientcert +
-                 s.server_certs[0].der)
+            m = s.sslv2_key_material + s.sslv2_challenge_clientcert
+            m += s.server_certs[0].der
             self.responsedata = _TLSSignature(tls_session=s)
             self.responsedata._update_sig(m, s.client_key)
         else:
@@ -469,14 +467,13 @@ class SSLv2ClientCertificate(_SSLv2Handshake):
         self.tls_session_update(msg_str)
 
         s = self.tls_session
-        test = (len(s.client_certs) > 0 and
-                s.sslv2_key_material is not None and
-                s.sslv2_challenge_clientcert is not None and
-                len(s.server_certs) > 0)
+        test = len(s.client_certs) > 0 and \
+            s.sslv2_key_material is not None and \
+            s.sslv2_challenge_clientcert is not None and \
+            len(s.server_certs) > 0
         if test:
-            m = (s.sslv2_key_material +
-                 s.sslv2_challenge_clientcert +
-                 s.server_certs[0].der)
+            m = s.sslv2_key_material + s.sslv2_challenge_clientcert
+            m += s.server_certs[0].der
             sig_test = self.responsedata._verify_sig(m, s.client_certs[0])
             if not sig_test:
                 pkt_info = self.firstlayer().summary()

@@ -104,8 +104,8 @@ class HPackMagicBitField(fields.BitField):
         """
         r = super(HPackMagicBitField, self).getfield(pkt, s)
         assert (
-            isinstance(r, tuple) and
-            len(r) == 2 and
+            isinstance(r, tuple) and  # noqa: W504
+            len(r) == 2 and  # noqa: W504
             isinstance(r[1], six.integer_types)
         ), 'Second element of BitField.getfield return value expected to be an int or a long; API change detected'  # noqa: E501
         assert r[1] == self._magic, 'Invalid value parsed from s; error in class guessing detected!'  # noqa: E501
@@ -1631,12 +1631,9 @@ class H2PaddedPriorityHeadersFrame(H2AbstractHeadersFrame):
         bit_cnt += self.get_field('stream_dependency').size
         fld, fval = self.getfield_and_val('weight')
         weight_len = fld.i2len(self, fval)
-        ret = int(self.s_len -
-                  padding_len_len -
-                  padding_len -
-                  (bit_cnt / 8) -
-                  weight_len
-                  )
+        ret = self.s_len - padding_len_len - padding_len - (bit_cnt / 8)
+        ret -= weight_len
+        ret = int(ret)
         assert(ret >= 0)
         return ret
 
@@ -1780,7 +1777,7 @@ class H2SettingsFrame(H2FramePayload):
         # RFC7540 par6.5 p36
         assert(
             len(args) == 0 or (
-                isinstance(args[0], bytes) and
+                isinstance(args[0], bytes) and  # noqa: W504
                 len(args[0]) % 6 == 0
             )
         ), 'Invalid settings frame; length is not a multiple of 6'
@@ -1843,11 +1840,7 @@ class H2PaddedPushPromiseFrame(H2PushPromiseFrame):
         bit_len = self.get_field('reserved').size
         bit_len += self.get_field('stream_id').size
 
-        ret = int(self.s_len -
-                  padding_len_len -
-                  padding_len -
-                  (bit_len / 8)
-                  )
+        ret = int(self.s_len - padding_len_len - padding_len - (bit_len / 8))
         assert(ret >= 0)
         return ret
 
@@ -1887,8 +1880,8 @@ class H2PingFrame(H2FramePayload):
         # RFC7540 par6.7 p42
         assert(
             len(args) == 0 or (
-                (isinstance(args[0], bytes) or
-                 isinstance(args[0], str)) and
+                (isinstance(args[0], bytes) or  # noqa: W504
+                isinstance(args[0], str)) and  # noqa: W504
                 len(args[0]) == 8
             )
         ), 'Invalid ping frame; length is not 8'
@@ -1931,8 +1924,8 @@ class H2WindowUpdateFrame(H2FramePayload):
         # RFC7540 par6.9 p46
         assert(
             len(args) == 0 or (
-                (isinstance(args[0], bytes) or
-                 isinstance(args[0], str)) and
+                (isinstance(args[0], bytes) or  # noqa: W504
+                 isinstance(args[0], str)) and  # noqa: W504
                 len(args[0]) == 4
             )
         ), 'Invalid window update frame; length is not 4'
@@ -2685,13 +2678,13 @@ class HPackHdrTable(Sized):
             # header entry length (as specified in RFC7540 par6.5.2) must not
             # exceed the maximum length of a header fragment or it will just
             # never fit
-            if (new_hdr_bin_len + base_frm_len > max_frm_sz or
+            if (new_hdr_bin_len + base_frm_len > max_frm_sz or  # noqa: W504
                     (max_hdr_lst_sz != 0 and new_hdr_len > max_hdr_lst_sz)):
                 raise Exception('Header too long: {}'.format(hdr_name))
 
-            if (max_frm_sz < len(raw(cur_frm)) + base_frm_len + new_hdr_len or
+            if (max_frm_sz < len(raw(cur_frm)) + base_frm_len + new_hdr_len or  # noqa: W504, E501
                 (
-                    max_hdr_lst_sz != 0 and
+                    max_hdr_lst_sz != 0 and  # noqa: W504
                     max_hdr_lst_sz < cur_hdr_sz + new_hdr_len
             )
             ):

@@ -492,18 +492,18 @@ class IP(Packet, IPTools):
         return conf.route.route(dst)
 
     def hashret(self):
-        if ((self.proto == socket.IPPROTO_ICMP) and
-            (isinstance(self.payload, ICMP)) and
-                (self.payload.type in [3, 4, 5, 11, 12])):
+        if self.proto == socket.IPPROTO_ICMP and \
+            isinstance(self.payload, ICMP) and \
+                self.payload.type in [3, 4, 5, 11, 12]:
             return self.payload.payload.hashret()
         if not conf.checkIPinIP and self.proto in [4, 41]:  # IP, IPv6
             return self.payload.hashret()
         if self.dst == "224.0.0.251":  # mDNS
             return struct.pack("B", self.proto) + self.payload.hashret()
         if conf.checkIPsrc and conf.checkIPaddr:
-            return (strxor(inet_pton(socket.AF_INET, self.src),
-                           inet_pton(socket.AF_INET, self.dst)) +
-                    struct.pack("B", self.proto) + self.payload.hashret())
+            return strxor(inet_pton(socket.AF_INET, self.src),
+                          inet_pton(socket.AF_INET, self.dst)) + \
+                struct.pack("B", self.proto) + self.payload.hashret()
         return struct.pack("B", self.proto) + self.payload.hashret()
 
     def answers(self, other):
@@ -523,15 +523,15 @@ class IP(Packet, IPTools):
                 return self.payload.answers(other.payload)
             elif (self.dst != other.src):
                 return 0
-        if ((self.proto == socket.IPPROTO_ICMP) and
-            (isinstance(self.payload, ICMP)) and
-                (self.payload.type in [3, 4, 5, 11, 12])):
+        if self.proto == socket.IPPROTO_ICMP and \
+            isinstance(self.payload, ICMP) and \
+                self.payload.type in [3, 4, 5, 11, 12]:
             # ICMP error message
             return self.payload.payload.answers(other)
 
         else:
-            if ((conf.checkIPaddr and (self.src != other.dst)) or
-                    (self.proto != other.proto)):
+            if conf.checkIPaddr and (self.src != other.dst) or \
+                    (self.proto != other.proto):
                 return 0
             return self.payload.answers(other.payload)
 
@@ -652,7 +652,7 @@ class TCP(Packet):
             if not other.flags.S:
                 return 0
         if conf.checkIPsrc:
-            if not ((self.sport == other.dport) and
+            if not ((self.sport == other.dport) and  # noqa: W504
                     (self.dport == other.sport)):
                 return 0
         # Do not check ack value for SYN packets without ACK
@@ -823,9 +823,9 @@ class ICMP(Packet):
     def answers(self, other):
         if not isinstance(other, ICMP):
             return 0
-        if ((other.type, self.type) in [(8, 0), (13, 14), (15, 16), (17, 18), (33, 34), (35, 36), (37, 38)] and  # noqa: E501
-            self.id == other.id and
-                self.seq == other.seq):
+        if (other.type, self.type) in [(8, 0), (13, 14), (15, 16), (17, 18), (33, 34), (35, 36), (37, 38)]:  # noqa: E501
+            if self.id == other.id and self.seq == other.seq:
+                return 1
             return 1
         return 0
 
@@ -848,11 +848,11 @@ class IPerror(IP):
     def answers(self, other):
         if not isinstance(other, IP):
             return 0
-        if not (((conf.checkIPsrc == 0) or (self.dst == other.dst)) and
-                (self.src == other.src) and
-                (((conf.checkIPID == 0) or
-                  (self.id == other.id) or
-                  (conf.checkIPID == 1 and self.id == socket.htons(other.id)))) and  # noqa: E501
+        if not (((conf.checkIPsrc == 0) or (self.dst == other.dst)) and  # noqa: W504, E501
+                (self.src == other.src) and  # noqa: W504
+                (((conf.checkIPID == 0) or  # noqa: W504
+                (self.id == other.id) or  # noqa: W504
+                  (conf.checkIPID == 1 and self.id == socket.htons(other.id)))) and  # noqa: W504, E501
                 (self.proto == other.proto)):
             return 0
         return self.payload.answers(other.payload)
@@ -868,7 +868,7 @@ class TCPerror(TCP):
         if not isinstance(other, TCP):
             return 0
         if conf.checkIPsrc:
-            if not ((self.sport == other.sport) and
+            if not ((self.sport == other.sport) and  # noqa: W504
                     (self.dport == other.dport)):
                 return 0
         if conf.check_TCPerror_seqack:
@@ -891,7 +891,7 @@ class UDPerror(UDP):
         if not isinstance(other, UDP):
             return 0
         if conf.checkIPsrc:
-            if not ((self.sport == other.sport) and
+            if not ((self.sport == other.sport) and  # noqa: W504
                     (self.dport == other.dport)):
                 return 0
         return 1
@@ -906,11 +906,11 @@ class ICMPerror(ICMP):
     def answers(self, other):
         if not isinstance(other, ICMP):
             return 0
-        if not ((self.type == other.type) and
+        if not ((self.type == other.type) and  # noqa: W504
                 (self.code == other.code)):
             return 0
         if self.code in [0, 8, 13, 14, 17, 18]:
-            if (self.id == other.id and
+            if (self.id == other.id and  # noqa: W504
                     self.seq == other.seq):
                 return 1
             else:
@@ -1612,9 +1612,9 @@ Touch screen: pinch/extend to zoom, swipe or two-finger rotate."""
         type: output type (svg, ps, gif, jpg, etc.), passed to dot's "-T" option  # noqa: E501
         target: filename or redirect. Defaults pipe to Imagemagick's display program  # noqa: E501
         prog: which graphviz program to use"""
-        if (self.graphdef is None or
-            self.graphASres != ASres or
-                self.graphpadding != padding):
+        if self.graphdef is None or \
+            self.graphASres != ASres or \
+                self.graphpadding != padding:
             self.make_graph(ASres, padding)
 
         return do_graph(self.graphdef, **kargs)
@@ -1683,14 +1683,15 @@ class TCP_client(Automaton):
         Automaton.parse_args(self, filter=bpf, **kargs)
 
     def master_filter(self, pkt):
-        return (IP in pkt and
-                pkt[IP].src == self.dst and
-                pkt[IP].dst == self.src and
-                TCP in pkt and
-                pkt[TCP].sport == self.dport and
-                pkt[TCP].dport == self.sport and
-                self.l4[TCP].seq >= pkt[TCP].ack and  # XXX: seq/ack 2^32 wrap up  # noqa: E501
-                ((self.l4[TCP].ack == 0) or (self.l4[TCP].ack <= pkt[TCP].seq <= self.l4[TCP].ack + self.swin)))  # noqa: E501
+        # XXX: seq/ack 2^32 wrap up
+        return IP in pkt and \
+                pkt[IP].src == self.dst and \
+                pkt[IP].dst == self.src and \
+                TCP in pkt and \
+                pkt[TCP].sport == self.dport and \
+                pkt[TCP].dport == self.sport and \
+                self.l4[TCP].seq >= pkt[TCP].ack and \
+                ((self.l4[TCP].ack == 0) or (self.l4[TCP].ack <= pkt[TCP].seq <= self.l4[TCP].ack + self.swin))  # noqa: E501
 
     @ATMT.state(initial=1)
     def START(self):

@@ -1053,9 +1053,8 @@ class DHCP6_Advertise(DHCP6):
     overload_fields = {UDP: {"sport": 547, "dport": 546}}
 
     def answers(self, other):
-        return (isinstance(other, DHCP6_Solicit) and
-                other.msgtype == 1 and
-                self.trid == other.trid)
+        return isinstance(other, DHCP6_Solicit) and other.msgtype == 1 and \
+            self.trid == other.trid
 
 #####################################################################
 # Request Message
@@ -1157,10 +1156,9 @@ class DHCP6_Reply(DHCP6):
 
     def answers(self, other):
 
-        types = (DHCP6_InfoRequest, DHCP6_Confirm, DHCP6_Rebind, DHCP6_Decline, DHCP6_Request, DHCP6_Release, DHCP6_Renew)  # noqa: E501
-
-        return (isinstance(other, types) and
-                self.trid == other.trid)
+        types = (DHCP6_InfoRequest, DHCP6_Confirm, DHCP6_Rebind,
+                 DHCP6_Decline, DHCP6_Request, DHCP6_Release, DHCP6_Renew)
+        return isinstance(other, types) and self.trid == other.trid
 
 #####################################################################
 # Release Message
@@ -1276,10 +1274,10 @@ class DHCP6_RelayReply(DHCP6_RelayForward):
         return inet_pton(socket.AF_INET6, self.peeraddr)
 
     def answers(self, other):
-        return (isinstance(other, DHCP6_RelayForward) and
-                self.hopcount == other.hopcount and
-                self.linkaddr == other.linkaddr and
-                self.peeraddr == other.peeraddr)
+        return isinstance(other, DHCP6_RelayForward) and \
+            self.hopcount == other.hopcount and \
+            self.linkaddr == other.linkaddr and \
+            self.peeraddr == other.peeraddr
 
 
 bind_bottom_up(UDP, _dhcp6_dispatcher, {"dport": 547})
@@ -1481,26 +1479,19 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
 
         # Message validation following section 15 of RFC 3315
 
-        if ((p.msgtype == 1) or  # Solicit
-            (p.msgtype == 6) or  # Rebind
-                (p.msgtype == 4)):  # Confirm
-            if ((DHCP6OptClientId not in p) or
-                    DHCP6OptServerId in p):
+        if p.msgtype == 1 or p.msgtype == 6 or p.msgtype == 4:
+            if DHCP6OptClientId not in p or DHCP6OptServerId in p:
                 return False
 
-            if (p.msgtype == 6 or  # Rebind
-                    p.msgtype == 4):  # Confirm
+            if p.msgtype == 6 or p.msgtype == 4:
                 # XXX We do not reply to Confirm or Rebind as we
                 # XXX do not support address assignment
                 return False
 
-        elif (p.msgtype == 3 or  # Request
-              p.msgtype == 5 or  # Renew
-              p.msgtype == 8):  # Release
+        elif p.msgtype == 3 or p.msgtype == 5 or p.msgtype == 8:
 
             # Both options must be present
-            if ((DHCP6OptServerId not in p) or
-                    (DHCP6OptClientId not in p)):
+            if DHCP6OptServerId not in p or DHCP6OptClientId not in p:
                 return False
             # provided server DUID must match ours
             duid = p[DHCP6OptServerId].duid
@@ -1509,8 +1500,7 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
             if raw(duid) != raw(self.duid):
                 return False
 
-            if (p.msgtype == 5 or  # Renew
-                    p.msgtype == 8):  # Release
+            if p.msgtype == 5 or p.msgtype == 8:
                 # XXX We do not reply to Renew or Release as we
                 # XXX do not support address assignment
                 return False
@@ -1573,9 +1563,7 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
                     return False
                 if raw(duid) != raw(self.duid):
                     return False
-            if ((DHCP6OptIA_NA in p) or
-                (DHCP6OptIA_TA in p) or
-                    (DHCP6OptIA_PD in p)):
+            if DHCP6OptIA_NA in p or DHCP6OptIA_TA in p or DHCP6OptIA_PD in p:
                 return False
         else:
             return False
@@ -1636,8 +1624,7 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
 
             else:  # No Rapid Commit in the packet. Reply with an Advertise
 
-                if (p.haslayer(DHCP6OptIA_NA) or
-                        p.haslayer(DHCP6OptIA_TA)):
+                if p.haslayer(DHCP6OptIA_NA) or p.haslayer(DHCP6OptIA_TA):
                     # XXX We don't assign addresses at the moment
                     msg = "Scapy6 dhcp6d does not support address assignment"
                     resp /= DHCP6_Advertise(trid=trid)

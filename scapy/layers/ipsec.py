@@ -985,9 +985,9 @@ class SecurityAssociation(object):
             self.check_spi(pkt)
             self.auth_algo.verify(encrypted, self.auth_key)
 
+        crytp_or_auth = self.crypt_algo.icv_size or self.auth_algo.icv_size
         esp = self.crypt_algo.decrypt(self, encrypted, self.crypt_key,
-                                      self.crypt_algo.icv_size or
-                                      self.auth_algo.icv_size)
+                                      crytp_or_auth)
 
         if self.tunnel_header:
             # drop the tunnel header and return the payload untouched

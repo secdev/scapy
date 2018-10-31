@@ -78,9 +78,10 @@ class UDS(Packet):
     def answers(self, other):
         """DEV: true if self is an answer from other"""
         if other.__class__ == self.__class__:
-            return (other.service + 0x40) == self.service or \
-                   (self.service == 0x7f and
-                    self.requestServiceId == other.service)
+            test_1 = (other.service + 0x40) == self.service
+            test_2 = self.service == 0x7f and \
+                self.requestServiceId == other.service
+            return test_1 or test_2
         return 0
 
     def hashret(self):

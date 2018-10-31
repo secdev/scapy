@@ -1112,8 +1112,9 @@ class RawPcapNgReader(RawPcapReader):
             if length % 4:
                 length += (4 - (length % 4))
             options = options[4 + length:]
-        self.interfaces.append(struct.unpack(self.endian + "HxxI", block[:8]) +
-                               (tsresol,))
+        iface_descr = struct.unpack(self.endian + "HxxI", block[:8])
+        iface_descr += (tsresol,)
+        self.interfaces.append(iface_descr)
 
     def read_block_epb(self, block, size):
         """Enhanced Packet Block"""

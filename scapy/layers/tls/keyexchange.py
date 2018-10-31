@@ -162,9 +162,9 @@ class _TLSSignature(_GenericTLSSessionInheritance):
 
     def __init__(self, *args, **kargs):
         super(_TLSSignature, self).__init__(*args, **kargs)
-        if (self.tls_session and
-            self.tls_session.tls_version and
-                self.tls_session.tls_version < 0x0303):
+        if self.tls_session and \
+           self.tls_session.tls_version and \
+           self.tls_session.tls_version < 0x0303:
             self.sig_alg = None
 
     def _update_sig(self, m, key):
@@ -800,9 +800,8 @@ class ClientECDiffieHellmanPublic(_GenericTLSSessionInheritance):
         pubkey = s.client_kx_privkey.public_key()
         x = pubkey.public_numbers().x
         y = pubkey.public_numbers().y
-        self.ecdh_Yc = (b"\x04" +
-                        pkcs_i2osp(x, params.key_size // 8) +
-                        pkcs_i2osp(y, params.key_size // 8))
+        self.ecdh_Yc = b"\x04" + pkcs_i2osp(x, params.key_size // 8)
+        self.ecdh_Yc += pkcs_i2osp(y, params.key_size // 8)
 
         if s.client_kx_privkey and s.server_kx_pubkey:
             pms = s.client_kx_privkey.exchange(ec.ECDH(), s.server_kx_pubkey)

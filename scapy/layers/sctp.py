@@ -237,8 +237,7 @@ class SCTP(_SCTPChunkGuessPayload, Packet):
         if not isinstance(other, SCTP):
             return 0
         if conf.checkIPsrc:
-            if not ((self.sport == other.dport) and
-                    (self.dport == other.sport)):
+            if not self.sport == other.dport and self.dport == other.sport:
                 return 0
         return 1
 

@@ -70,9 +70,8 @@ def get_if_raw_hwaddr(ifname):
         raise Scapy_Exception("Failed to execute ifconfig: (%s)" % msg)
 
     # Get MAC addresses
-    addresses = [l for l in fd.readlines() if l.find("ether") >= 0 or
-                 l.find("lladdr") >= 0 or
-                 l.find("address") >= 0]
+    addresses = [l for l in fd.readlines()
+                 if "ether" in l or "lladdr" in l or "address" in l]
     if not addresses:
         raise Scapy_Exception("No MAC address found on %s !" % ifname)
 

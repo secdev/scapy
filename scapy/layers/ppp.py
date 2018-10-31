@@ -655,19 +655,16 @@ class PPP_LCP_Configure(PPP_LCP):
     ]
 
     def answers(self, other):
-        return (
-            isinstance(other, PPP_LCP_Configure) and self.code in [2, 3, 4] and
+        return isinstance(other, PPP_LCP_Configure) and \
+            self.code in [2, 3, 4] and \
             other.code == 1 and other.id == self.id
-        )
 
 
 class PPP_LCP_Terminate(PPP_LCP):
 
     def answers(self, other):
-        return (
-            isinstance(other, PPP_LCP_Terminate) and self.code == 6 and
+        return isinstance(other, PPP_LCP_Terminate) and self.code == 6 and \
             other.code == 5 and other.id == self.id
-        )
 
 
 class PPP_LCP_Code_Reject(PPP_LCP):
@@ -702,10 +699,8 @@ class PPP_LCP_Echo(PPP_LCP):
     ]
 
     def answers(self, other):
-        return (
-            isinstance(other, PPP_LCP_Echo) and self.code == 10 and
+        return isinstance(other, PPP_LCP_Echo) and self.code == 10 and \
             other.code == 9 and self.id == other.id
-        )
 
 
 class PPP_LCP_Discard_Request(PPP_LCP):
@@ -770,8 +765,9 @@ class PPP_PAP_Request(PPP_PAP):
     ]
 
     def mysummary(self):
-        return self.sprintf("PAP-Request username=%PPP_PAP_Request.username%"
-                            " password=%PPP_PAP_Request.password%")
+        tmp_fmt = "PAP-Request username=%PPP_PAP_Request.username%"
+        tmp_fmt += " password=%PPP_PAP_Request.password%"
+        return self.sprintf(tmp_fmt)
 
 
 class PPP_PAP_Response(PPP_PAP):
@@ -861,16 +857,13 @@ class PPP_CHAP_ChallengeResponse(PPP_CHAP):
             and other.code == 1 and self.code == 2 and self.id == other.id
 
     def mysummary(self):
+        tmp_fmt2 = "optional_name=%PPP_CHAP_ChallengeResponse.optional_name%"
         if self.code == 1:
-            return self.sprintf(
-                "CHAP challenge=0x%PPP_CHAP_ChallengeResponse.value% "
-                "optional_name=%PPP_CHAP_ChallengeResponse.optional_name%"
-            )
+            tmp_fmt1 = "CHAP challenge=0x%PPP_CHAP_ChallengeResponse.value% "
+            return self.sprintf(tmp_fmt1 + tmp_fmt2)
         elif self.code == 2:
-            return self.sprintf(
-                "CHAP response=0x%PPP_CHAP_ChallengeResponse.value% "
-                "optional_name=%PPP_CHAP_ChallengeResponse.optional_name%"
-            )
+            tmp_fmt1 = "CHAP response=0x%PPP_CHAP_ChallengeResponse.value% "
+            return self.sprintf(tmp_fmt1 + tmp_fmt2)
         else:
             return super(PPP_CHAP_ChallengeResponse, self).mysummary()
 

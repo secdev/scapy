@@ -860,8 +860,8 @@ class ISOTPSocketImplementation:
 
         self.mutex.acquire()
         try:
-            if (self.tx_state == ISOTP_WAIT_FC or
-                    self.tx_state == ISOTP_WAIT_FIRST_FC):
+            if self.tx_state == ISOTP_WAIT_FC or \
+                    self.tx_state == ISOTP_WAIT_FIRST_FC:
                 # we did not get any flow control frame in time
                 # reset tx state
                 self.tx_state = ISOTP_IDLE
@@ -941,8 +941,8 @@ class ISOTPSocketImplementation:
 
     def _recv_fc(self, data):
         """Process a received 'Flow Control' frame"""
-        if (self.tx_state != ISOTP_WAIT_FC and
-                self.tx_state != ISOTP_WAIT_FIRST_FC):
+        if self.tx_state != ISOTP_WAIT_FC and \
+                self.tx_state != ISOTP_WAIT_FIRST_FC:
             return 0
 
         self.tx_timer.cancel()
@@ -959,8 +959,8 @@ class ISOTPSocketImplementation:
             self.txfc_bs = six.indexbytes(data, 1)
             self.txfc_stmin = six.indexbytes(data, 2)
 
-        if ((self.txfc_stmin > 0x7F) and
-                ((self.txfc_stmin < 0xF1) or (self.txfc_stmin > 0xF9))):
+        if (self.txfc_stmin > 0x7F) and \
+                ((self.txfc_stmin < 0xF1) or (self.txfc_stmin > 0xF9)):
             self.txfc_stmin = 0x7F
 
         if six.indexbytes(data, 2) <= 127:

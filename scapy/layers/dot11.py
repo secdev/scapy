@@ -287,7 +287,7 @@ class Dot11(Packet):
         MACField("addr1", ETHER_ANY),
         ConditionalField(
             MACField("addr2", ETHER_ANY),
-            lambda pkt: (pkt.type != 1 or
+            lambda pkt: (pkt.type != 1 or  # noqa: W504
                          pkt.subtype in [0x8, 0x9, 0xa, 0xb, 0xe, 0xf]),
         ),
         ConditionalField(
@@ -297,7 +297,7 @@ class Dot11(Packet):
         ConditionalField(LEShortField("SC", 0), lambda pkt: pkt.type != 1),
         ConditionalField(
             MACField("addr4", ETHER_ANY),
-            lambda pkt: (pkt.type == 2 and
+            lambda pkt: (pkt.type == 2 and  # noqa: W504
                          pkt.FCfield & 3 == 3),  # from-DS+to-DS
         )
     ]
@@ -619,7 +619,7 @@ class Dot11EltRSN(Dot11Elt):
             PacketField("pmkids", None, PMKIDListPacket),
             lambda pkt: (
                 0 if pkt.len is None else
-                pkt.len - (12 + (pkt.nb_pairwise_cipher_suites * 4) +
+                pkt.len - (12 + (pkt.nb_pairwise_cipher_suites * 4) +  # noqa: W504, E501
                                 (pkt.nb_akm_suites * 4)) >= 18)
         )
     ]

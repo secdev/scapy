@@ -193,8 +193,7 @@ class PRF(object):
             self.prf = _sslv2_PRF
         elif tls_version == 0x0300:         # SSLv3
             self.prf = _ssl_PRF
-        elif (tls_version == 0x0301 or      # TLS 1.0
-              tls_version == 0x0302):       # TLS 1.1
+        elif (tls_version == 0x0301 or tls_version == 0x0302):  # TLS 1.0/1.1
             self.prf = _tls_PRF
         elif tls_version == 0x0303:         # TLS 1.2
             if hash_name == "SHA384":
@@ -262,12 +261,16 @@ class PRF(object):
             md5 = _tls_hash_algs["MD5"]()
             sha1 = _tls_hash_algs["SHA"]()
 
-            md5_hash = md5.digest(master_secret + sslv3_md5_pad2 +
-                                  md5.digest(handshake_msg + label +
-                                             master_secret + sslv3_md5_pad1))
-            sha1_hash = sha1.digest(master_secret + sslv3_sha1_pad2 +
-                                    sha1.digest(handshake_msg + label +
-                                                master_secret + sslv3_sha1_pad1))  # noqa: E501
+            md5_outer = master_secret + sslv3_md5_pad2
+            md5_inner = handshake_msg + label + master_secret
+            md5_inner += sslv3_md5_pad1
+            md5_hash = md5.digest(md5_outer + md5.digest(md5_inner))
+
+            sha1_outer = master_secret + sslv3_sha1_pad2
+            sha1_inner = handshake_msg + label + master_secret
+            sha1_inner += sslv3_sha1_pad1
+            sha1_hash = sha1.digest(sha1_outer + sha1.digest(sha1_inner))
+
             verify_data = md5_hash + sha1_hash
 
         else:

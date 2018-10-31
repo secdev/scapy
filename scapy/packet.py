@@ -712,9 +712,9 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
                     fsize = '%sb' % field.size
                 else:
                     fsize = '%sB' % len(fdump)
-                if (hasattr(field, 'field') and
-                        'LE' in field.field.__class__.__name__[:3] or
-                        'LE' in field.__class__.__name__[:3]):
+                if hasattr(field, 'field') and \
+                        'LE' in field.field.__class__.__name__[:3] or \
+                        'LE' in field.__class__.__name__[:3]:
                     fsize = r'$\scriptstyle\langle$' + fsize
                 st = pyx.text.text(XSTART + 3.4, (YTXT - y) * YMUL, r"\font\cmbxfont=cmssbx10 scaled 600\cmbxfont{%s}" % fsize, [pyx.text.halign.boxright])  # noqa: E501
                 if isinstance(fval, str):
@@ -1142,10 +1142,8 @@ values.
                                          ct.punct("="),)
                 reprval = f.i2repr(self, fvalue)
                 if isinstance(reprval, str):
-                    reprval = reprval.replace("\n", "\n" + " " * (len(label_lvl) +  # noqa: E501
-                                                                  len(lvl) +
-                                                                  len(f.name) +
-                                                                  4))
+                    spaces_len = len(label_lvl) + len(lvl) + len(f.name) + 4
+                    reprval = reprval.replace("\n", "\n" + " " * spaces_len)
                 s += "%s%s\n" % (begn, vcol(reprval))
         if self.payload:
             s += self.payload._show_or_dump(dump=dump, indent=indent, lvl=lvl + (" " * indent * self.show_indent), label_lvl=label_lvl, first_call=False)  # noqa: E501
@@ -1665,8 +1663,8 @@ def explore(layer=None):
             # Get all loaded layers
             _radio_values = conf.layers.layers()
             # Restrict to layers-only (not contribs) + packet.py and asn1*.py
-            _radio_values = [x for x in _radio_values if ("layers" in x[0] or
-                                                          "packet" in x[0] or
+            _radio_values = [x for x in _radio_values if ("layers" in x[0] or  # noqa: W504, E501
+                                                          "packet" in x[0] or  # noqa: W504, E501
                                                           "asn1" in x[0])]
         elif is_layer is False:
             # Get all existing contribs
@@ -1759,9 +1757,9 @@ def ls(obj=None, case_sensitive=False, verbose=False):
                 sorter = lambda x: (x.__name__.lower().index(obj),
                                     len(x.__name__))
             all_layers = sorted((layer for layer in conf.layers
-                                 if (isinstance(layer.__name__, str) and
-                                     pattern.search(layer.__name__)) or
-                                 (isinstance(layer.name, str) and
+                                 if (isinstance(layer.__name__, str) and  # noqa: W504, E501
+                                     pattern.search(layer.__name__)) or  # noqa: W504, E501
+                                 (isinstance(layer.name, str) and  # noqa: W504
                                      pattern.search(layer.name))),
                                 key=sorter)
         for layer in all_layers:

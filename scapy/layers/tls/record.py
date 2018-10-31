@@ -130,8 +130,8 @@ class _TLSMsgListField(PacketListField):
             remain, ret = s[:tmp_len], s[tmp_len:]
 
         if remain == b"":
-            if (((pkt.tls_session.tls_version or 0x0303) > 0x0200) and
-                    hasattr(pkt, "type") and pkt.type == 23):
+            if ((pkt.tls_session.tls_version or 0x0303) > 0x0200) and \
+               hasattr(pkt, "type") and pkt.type == 23:
                 return ret, [TLSApplicationData(data=b"")]
             else:
                 return ret, [Raw(load=b"")]
@@ -193,9 +193,9 @@ class _TLSMsgListField(PacketListField):
         res = b""
         for p in val:
             res += self.i2m(pkt, p)
-        if (isinstance(pkt, _GenericTLSSessionInheritance) and
-            _tls_version_check(pkt.tls_session.tls_version, 0x0304) and
-                not isinstance(pkt, TLS13ServerHello)):
+        if isinstance(pkt, _GenericTLSSessionInheritance) and \
+           _tls_version_check(pkt.tls_session.tls_version, 0x0304) and \
+           not isinstance(pkt, TLS13ServerHello):
             return s + res
         if not pkt.type:
             pkt.type = 0
@@ -475,8 +475,8 @@ class TLS(_GenericTLSSessionInheritance):
         elif cipher_type == 'aead':
             # Authenticated encryption
             # crypto/cipher_aead.py prints a warning for integrity failure
-            if (conf.crypto_valid_advanced and
-                    isinstance(self.tls_session.rcs.cipher, Cipher_CHACHA20_POLY1305)):  # noqa: E501
+            if conf.crypto_valid_advanced and \
+               isinstance(self.tls_session.rcs.cipher, Cipher_CHACHA20_POLY1305):  # noqa: E501
                 iv = b""
                 cfrag, mac = self._tls_auth_decrypt(hdr, efrag)
             else:
@@ -485,8 +485,8 @@ class TLS(_GenericTLSSessionInheritance):
 
         frag = self._tls_decompress(cfrag)
 
-        if (decryption_success and
-                not isinstance(self.tls_session.rcs.cipher, Cipher_NULL)):
+        if decryption_success and \
+           not isinstance(self.tls_session.rcs.cipher, Cipher_NULL):
             self.deciphered_len = len(frag)
         else:
             self.deciphered_len = None
@@ -547,10 +547,8 @@ class TLS(_GenericTLSSessionInheritance):
         """
         write_seq_num = struct.pack("!Q", self.tls_session.wcs.seq_num)
         self.tls_session.wcs.seq_num += 1
-        add_data = (write_seq_num +
-                    pkcs_i2osp(self.type, 1) +
-                    pkcs_i2osp(self.version, 2) +
-                    pkcs_i2osp(len(s), 2))
+        add_data = write_seq_num + pkcs_i2osp(self.type, 1)
+        add_data += pkcs_i2osp(self.version, 2) + pkcs_i2osp(len(s), 2)
         return self.tls_session.wcs.cipher.auth_encrypt(s, add_data,
                                                         write_seq_num)
 

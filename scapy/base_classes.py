@@ -41,12 +41,12 @@ def _get_values(value):
     return value.
 
     """
-    if (isinstance(value, tuple) and (2 <= len(value) <= 3) and
-            all(hasattr(i, "__int__") for i in value)):
+    if isinstance(value, tuple) and (2 <= len(value) <= 3) and \
+       all(hasattr(i, "__int__") for i in value):
         # We use values[1] + 1 as stop value for (x)range to maintain
         # the behavior of using tuples as field `values`
-        return range(*((int(value[0]), int(value[1]) + 1) +
-                       tuple(int(v) for v in value[2:])))
+        tmp_tuples = tuple(int(v) for v in value[2:])
+        return range(*((int(value[0]), int(value[1]) + 1) + tmp_tuples))
     return value
 
 
@@ -63,7 +63,7 @@ class SetGen(Gen):
 
     def __iter__(self):
         for i in self.values:
-            if (isinstance(i, Gen) and
+            if (isinstance(i, Gen) and  # noqa: W504
                 (self._iterpacket or not isinstance(i, BasePacket))) or (
                     isinstance(i, (range, types.GeneratorType))):
                 for j in i:

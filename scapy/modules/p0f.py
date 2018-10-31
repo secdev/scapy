@@ -277,11 +277,11 @@ def p0f_correl(x, y):
     if len(xopt) == len(yopt):
         same = True
         for i in range(len(xopt)):
-            if not (xopt[i] == yopt[i] or
-                    (len(yopt[i]) == 2 and len(xopt[i]) > 1 and
-                     yopt[i][1] == "*" and xopt[i][0] == yopt[i][0]) or
-                    (len(yopt[i]) > 2 and len(xopt[i]) > 1 and
-                     yopt[i][1] == "%" and xopt[i][0] == yopt[i][0] and
+            if not (xopt[i] == yopt[i] or  # noqa: W504
+                    (len(yopt[i]) == 2 and len(xopt[i]) > 1 and  # noqa: W504
+                     yopt[i][1] == "*" and xopt[i][0] == yopt[i][0]) or  # noqa: W504, E501
+                    (len(yopt[i]) > 2 and len(xopt[i]) > 1 and  # noqa: W504
+                     yopt[i][1] == "%" and xopt[i][0] == yopt[i][0] and  # noqa: W504, E501
                      int(xopt[i][1:]) % int(yopt[i][2:]) == 0)):
                 same = False
                 break

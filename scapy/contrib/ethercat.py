@@ -603,11 +603,10 @@ class EtherCat(Packet):
         if not isinstance(upper_layer, Ether):
             raise Exception('missing Ether layer')
 
-        pad_len = EtherCat.ETHER_FRAME_MIN_LEN - (EtherCat.ETHER_HEADER_LEN +
-                                                  vlan_headers_total_size +
-                                                  EtherCat.ETHERCAT_HEADER_LEN +  # noqa: E501
-                                                  payload_len +
-                                                  EtherCat.ETHER_FSC_LEN)
+        tmp_len = EtherCat.ETHER_HEADER_LEN + vlan_headers_total_size
+        tmp_len += EtherCat.ETHERCAT_HEADER_LEN + payload_len
+        tmp_len += EtherCat.ETHER_FSC_LEN
+        pad_len = EtherCat.ETHER_FRAME_MIN_LEN - tmp_len
 
         if pad_len > 0:
             pad = Padding()

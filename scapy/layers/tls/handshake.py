@@ -152,8 +152,8 @@ class _CipherSuitesField(StrLenField):
             s2i[dico[k]] = k
 
     def any2i_one(self, pkt, x):
-        if (isinstance(x, _GenericCipherSuite) or
-                isinstance(x, _GenericCipherSuiteMetaclass)):
+        if isinstance(x, _GenericCipherSuite) or \
+           isinstance(x, _GenericCipherSuiteMetaclass):
             x = x.val
         if isinstance(x, bytes):
             x = self.s2i[x]
@@ -202,8 +202,8 @@ class _CipherSuitesField(StrLenField):
 class _CompressionMethodsField(_CipherSuitesField):
 
     def any2i_one(self, pkt, x):
-        if (isinstance(x, _GenericComp) or
-                isinstance(x, _GenericCompMetaclass)):
+        if isinstance(x, _GenericComp) or \
+           isinstance(x, _GenericCompMetaclass):
             x = x.val
         if isinstance(x, str):
             x = self.s2i[x]
@@ -251,10 +251,10 @@ class TLSClientHello(_TLSHandshake):
 
                    _ExtensionsLenField("extlen", None, length_of="ext"),
                    _ExtensionsField("ext", None,
-                                    length_from=lambda pkt: (pkt.msglen -
-                                                             (pkt.sidlen or 0) -  # noqa: E501
-                                                             (pkt.cipherslen or 0) -  # noqa: E501
-                                                             (pkt.complen or 0) -  # noqa: E501
+                                    length_from=lambda pkt: (pkt.msglen -  # noqa: E501, W504
+                                                             (pkt.sidlen or 0) -  # noqa: E501, W504
+                                                             (pkt.cipherslen or 0) -  # noqa: E501, W504
+                                                             (pkt.complen or 0) -  # noqa: E501, W504
                                                              40))]
 
     def post_build(self, p, pay):
@@ -286,9 +286,9 @@ class TLSClientHello(_TLSHandshake):
 
         self.tls_session.advertised_tls_version = self.version
         self.random_bytes = msg_str[10:38]
-        self.tls_session.client_random = (struct.pack('!I',
-                                                      self.gmt_unix_time) +
-                                          self.random_bytes)
+        tmp_client_random = struct.pack('!I', self.gmt_unix_time)
+        tmp_client_random += self.random_bytes
+        self.tls_session.client_random = tmp_client_random
         if self.ext:
             for e in self.ext:
                 if isinstance(e, TLS_Ext_SupportedVersions):
@@ -333,9 +333,8 @@ class TLSServerHello(TLSClientHello):
 
                    _ExtensionsLenField("extlen", None, length_of="ext"),
                    _ExtensionsField("ext", None,
-                                    length_from=lambda pkt: (pkt.msglen -
-                                                             (pkt.sidlen or 0) -  # noqa: E501
-                                                             38))]
+                                     length_from=lambda pkt: (pkt.msglen -  # noqa: E501, W504
+                                                        (pkt.sidlen or 0) - 38))]  # noqa: E501, W504
     # 40)) ]
 
     @classmethod
@@ -365,9 +364,9 @@ class TLSServerHello(TLSClientHello):
 
         self.tls_session.tls_version = self.version
         self.random_bytes = msg_str[10:38]
-        self.tls_session.server_random = (struct.pack('!I',
-                                                      self.gmt_unix_time) +
-                                          self.random_bytes)
+        tmp_server_random = struct.pack('!I', self.gmt_unix_time)
+        tmp_server_random += self.random_bytes
+        self.tls_session.server_random = tmp_server_random
         self.tls_session.sid = self.sid
 
         cs_cls = None
@@ -409,8 +408,7 @@ class TLS13ServerHello(TLSClientHello):
                    EnumField("cipher", None, _tls_cipher_suites),
                    _ExtensionsLenField("extlen", None, length_of="ext"),
                    _ExtensionsField("ext", None,
-                                    length_from=lambda pkt: (pkt.msglen -
-                                                             38))]
+                                    length_from=lambda pkt: (pkt.msglen - 38))]
 
     def tls_session_update(self, msg_str):
         """
@@ -754,10 +752,10 @@ class TLSServerKeyExchange(_TLSHandshake):
         if s.prcs and s.prcs.key_exchange.no_ske:
             pkt_info = pkt.firstlayer().summary()
             log_runtime.info("TLS: useless ServerKeyExchange [%s]", pkt_info)
-        if (s.prcs and
-            not s.prcs.key_exchange.anonymous and
-            s.client_random and s.server_random and
-                s.server_certs and len(s.server_certs) > 0):
+        if s.prcs and \
+           not s.prcs.key_exchange.anonymous and \
+           s.client_random and s.server_random and \
+           s.server_certs and len(s.server_certs) > 0:
             m = s.client_random + s.server_random + raw(self.params)
             sig_test = self.sig._verify_sig(m, s.server_certs[0])
             if not sig_test:
@@ -1236,8 +1234,8 @@ class TLS13NewSessionTicket(_TLSHandshake):
                                length_from=lambda pkt: pkt.ticketlen),
                    _ExtensionsLenField("extlen", None, length_of="ext"),
                    _ExtensionsField("ext", None,
-                                    length_from=lambda pkt: (pkt.msglen -
-                                                             (pkt.ticketlen or 0) -  # noqa: E501
+                                    length_from=lambda pkt: (pkt.msglen -  # noqa: E501, W504
+                                                             (pkt.ticketlen or 0) -  # noqa: E501, W504
                                                              12))]
 
     def post_dissection_tls_session_update(self, msg_str):

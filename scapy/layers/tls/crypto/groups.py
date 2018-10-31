@@ -33,10 +33,8 @@ if conf.crypto_valid:
         # We get rid of the limitation through the cryptography v1.9 __init__.
 
         def DHParameterNumbers__init__hack(self, p, g, q=None):
-            if (
-                not isinstance(p, six.integer_types) or
-                not isinstance(g, six.integer_types)
-            ):
+            if not isinstance(p, six.integer_types) or \
+               not isinstance(g, six.integer_types):
                 raise TypeError("p and g must be integers")
             if q is not None and not isinstance(q, six.integer_types):
                 raise TypeError("q must be integer or None")

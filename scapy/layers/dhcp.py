@@ -320,8 +320,8 @@ class DHCPOptionsField(StrField):
                 s += chb(len(oval))
                 s += oval
 
-            elif (isinstance(o, str) and o in DHCPRevOptions and
-                  DHCPRevOptions[o][1] is None):
+            elif isinstance(o, str) and o in DHCPRevOptions and \
+                    DHCPRevOptions[o][1] is None:
                 s += chb(DHCPRevOptions[o][0])
             elif isinstance(o, int):
                 s += chb(o) + b"\0"
@@ -351,8 +351,12 @@ def dhcp_request(iface=None, **kargs):
     if iface is None:
         iface = conf.iface
     fam, hw = get_if_raw_hwaddr(iface)
-    return srp1(Ether(dst="ff:ff:ff:ff:ff:ff") / IP(src="0.0.0.0", dst="255.255.255.255") / UDP(sport=68, dport=67) /  # noqa: E501
-                BOOTP(chaddr=hw) / DHCP(options=[("message-type", "discover"), "end"]), iface=iface, **kargs)  # noqa: E501
+    request = Ether(dst="ff:ff:ff:ff:ff:ff")
+    request /= IP(src="0.0.0.0", dst="255.255.255.255")
+    request /= UDP(sport=68, dport=67)
+    request /= BOOTP(chaddr=hw)
+    request /= DHCP(options=[("message-type", "discover"), "end"])
+    return srp1(request, iface=iface, **kargs)
 
 
 class BOOTP_am(AnsweringMachine):

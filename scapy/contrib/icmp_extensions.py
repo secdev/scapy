@@ -26,7 +26,7 @@ from scapy.fields import BitField, ByteField, ConditionalField, \
     FieldLenField, IPField, IntField, PacketListField, ShortField, \
     StrLenField
 from scapy.layers.inet import IP, ICMP, checksum
-from scapy.layers.inet6 import IP6Field
+from scapy.layers.inet6 import IP6Field, ICMPv6TimeExceeded, ICMPv6DestUnreach
 from scapy.error import warning
 from scapy.contrib.mpls import MPLS
 import scapy.modules.six as six
@@ -86,17 +86,14 @@ def ICMPExtension_post_dissection(self, pkt):
         return
 
     if IP in pkt:
-        if (ICMP in pkt and
-            pkt[ICMP].type in [3, 11, 12] and
-                pkt.len > 144):
+        if ICMP in pkt and pkt[ICMP].type in [3, 11, 12] and pkt.len > 144:
             bytes = pkt[ICMP].build()[136:]
         else:
             return
     elif scapy.layers.inet6.IPv6 in pkt:
-        if ((scapy.layers.inet6.ICMPv6TimeExceeded in pkt or
-             scapy.layers.inet6.ICMPv6DestUnreach in pkt) and
-                pkt.plen > 144):
-            bytes = pkt[scapy.layers.inet6.ICMPv6TimeExceeded].build()[136:]
+        if ICMPv6TimeExceeded in pkt or ICMPv6DestUnreach in pkt:
+            if pkt.plen > 144:
+                bytes = pkt[ICMPv6TimeExceeded].build()[136:]
         else:
             return
     else:

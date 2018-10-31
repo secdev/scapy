@@ -86,8 +86,7 @@ class EAPOL(Packet):
 
     def answers(self, other):
         if isinstance(other, EAPOL):
-            if ((self.type == self.EAP_PACKET) and
-                    (other.type == self.EAP_PACKET)):
+            if self.type == self.EAP_PACKET and other.type == self.EAP_PACKET:
                 return self.payload.answers(other.payload)
         return 0
 
@@ -261,8 +260,7 @@ class EAP(Packet):
             if self.code == self.REQUEST:
                 return 0
             elif self.code == self.RESPONSE:
-                if ((other.code == self.REQUEST) and
-                        (other.type == self.type)):
+                if other.code == self.REQUEST and other.type == self.type:
                     return 1
             elif other.code == self.RESPONSE:
                 return 1

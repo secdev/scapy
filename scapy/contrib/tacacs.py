@@ -437,10 +437,10 @@ class TacacsHeader(TacacsClientPacket):
         return struct.pack('I', self.session_id)
 
     def answers(self, other):
-        return (isinstance(other, TacacsHeader) and
-                self.seq == other.seq + 1 and
-                self.type == other.type and
-                self.session_id == other.session_id)
+        return isinstance(other, TacacsHeader) and \
+            self.seq == other.seq + 1 and \
+            self.type == other.type and \
+            self.session_id == other.session_id
 
 
 bind_layers(TCP, TacacsHeader, dport=49)

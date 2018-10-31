@@ -2034,7 +2034,7 @@ class BGPPathAttr(Packet):
         ByteEnumField("type_code", 0, path_attributes),
         ConditionalField(
             ShortField("attr_ext_len", None),
-            lambda x: x.type_flags is not None and
+            lambda x: x.type_flags is not None and  # noqa: W504
             has_extended_length(x.type_flags)
         ),
         ConditionalField(

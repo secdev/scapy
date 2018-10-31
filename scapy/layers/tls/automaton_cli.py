@@ -357,9 +357,9 @@ class TLSClientAutomaton(_TLSAutomaton):
         the case when the Certificate message was empty.
         """
         hs_msg = [type(m) for m in self.cur_session.handshake_messages_parsed]
-        if (TLSCertificateRequest not in hs_msg or
-            self.mycert is None or
-                self.mykey is None):
+        if TLSCertificateRequest not in hs_msg or \
+           self.mycert is None or \
+           self.mykey is None:
             return
         self.add_msg(TLSCertificateVerify())
         raise self.ADDED_CERTIFICATEVERIFY()

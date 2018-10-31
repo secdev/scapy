@@ -75,8 +75,8 @@ class _GenericHMAC(six.with_metaclass(_GenericHMACMetaclass, object)):
         else:
             raise HMACError("Provided hash does not work with SSLv3.")
 
-        return h.digest(self.key + pad2 +
-                        h.digest(self.key + pad1 + tbd))
+        tmp_digest = self.key + pad2 + h.digest(self.key + pad1 + tbd)
+        return h.digest(tmp_digest)
 
 
 class Hmac_NULL(_GenericHMAC):

@@ -409,8 +409,8 @@ class IPv6(_IPv6GuessPayload, Packet, IPTools):
             # XXX test mcast scope matching ?
             if in6_ismaddr(other.dst):
                 if in6_ismaddr(self.dst):
-                    if ((od == sd) or
-                            (in6_isaddrllallnodes(self.dst) and in6_isaddrllallservers(other.dst))):  # noqa: E501
+                    if (od == sd) or \
+                            (in6_isaddrllallnodes(self.dst) and in6_isaddrllallservers(other.dst)):  # noqa: E501
                         return self.payload.answers(other.payload)
                     return False
                 if (os == sd):
@@ -493,14 +493,15 @@ class IPerror6(IPv6):
                     request_has_rh = True
                 otherup = otherup.payload
 
-            if ((ss == os and sd == od) or      # <- Basic case
-                    (ss == os and request_has_rh)):  # <- Request has a RH :
-                                                #    don't check dst address
+            # Test #1: basic case
+            # Test #2: request has a RH: don't check dst address
+            if (ss == os and sd == od) or \
+               (ss == os and request_has_rh):
 
                 # Let's deal with possible MSS Clamping
-                if (isinstance(selfup, TCP) and
-                    isinstance(otherup, TCP) and
-                        selfup.options != otherup.options):  # seems clamped
+                if isinstance(selfup, TCP) and \
+                    isinstance(otherup, TCP) and \
+                        selfup.options != otherup.options:  # seems clamped
 
                     # Save fields modified by MSS clamping
                     old_otherup_opts = otherup.options
@@ -589,18 +590,18 @@ def in6_chksum(nh, u, p):
     hahdr = 0
     final_dest_addr_found = 0
     while u is not None and not isinstance(u, IPv6):
-        if (isinstance(u, IPv6ExtHdrRouting) and
-            u.segleft != 0 and len(u.addresses) != 0 and
-                final_dest_addr_found == 0):
+        if isinstance(u, IPv6ExtHdrRouting) and \
+                u.segleft != 0 and len(u.addresses) != 0 and \
+                final_dest_addr_found == 0:
             rthdr = u.addresses[-1]
             final_dest_addr_found = 1
-        elif (isinstance(u, IPv6ExtHdrSegmentRouting) and
-              u.segleft != 0 and len(u.addresses) != 0 and
-              final_dest_addr_found == 0):
+        elif isinstance(u, IPv6ExtHdrSegmentRouting) and \
+                u.segleft != 0 and len(u.addresses) != 0 and \
+                final_dest_addr_found == 0:
             rthdr = u.addresses[0]
             final_dest_addr_found = 1
-        elif (isinstance(u, IPv6ExtHdrDestOpt) and (len(u.options) == 1) and
-              isinstance(u.options[0], HAO)):
+        elif isinstance(u, IPv6ExtHdrDestOpt) and (len(u.options) == 1) and \
+                isinstance(u.options[0], HAO):
             hahdr = u.options[0].hoa
         u = u.underlayer
     if u is None:
@@ -1131,8 +1132,9 @@ def fragment6(pkt, fragSize):
     innerFragSize = lastFragSize - (lastFragSize % 8)
 
     if lastFragSize <= 0 or innerFragSize == 0:
-        warning("Provided fragment size value is too low. " +
-                "Should be more than %d" % (unfragPartLen + 8))
+        msg = "Provided fragment size value is too low. "
+        msg += "Should be more than %d" % (unfragPartLen + 8)
+        warning(msg)
         return [unfragPart / fragHeader / fragPart]
 
     remain = fragPartStr
@@ -1326,10 +1328,10 @@ class _ICMPv6(Packet):
 
     def answers(self, other):
         # isinstance(self.underlayer, _IPv6ExtHdr) may introduce a bug ...
-        if (isinstance(self.underlayer, IPerror6) or
-            isinstance(self.underlayer, _IPv6ExtHdr) and
-                isinstance(other, _ICMPv6)):
-            if not ((self.type == other.type) and
+        if isinstance(self.underlayer, IPerror6) or \
+                isinstance(self.underlayer, _IPv6ExtHdr) and \
+                isinstance(other, _ICMPv6):
+            if not ((self.type == other.type) and  # noqa: W504
                     (self.code == other.code)):
                 return 0
             return 1
@@ -1419,9 +1421,9 @@ class ICMPv6EchoReply(ICMPv6EchoRequest):
 
     def answers(self, other):
         # We could match data content between request and reply.
-        return (isinstance(other, ICMPv6EchoRequest) and
-                self.id == other.id and self.seq == other.seq and
-                self.data == other.data)
+        return isinstance(other, ICMPv6EchoRequest) and \
+            self.id == other.id and self.seq == other.seq and \
+            self.data == other.data
 
 
 #            ICMPv6 Multicast Listener Discovery (RFC2710)                  #
@@ -2359,8 +2361,7 @@ class NIQueryDataField(StrField):
                 return b"", (1, s)
 
     def addfield(self, pkt, s, val):
-        if ((isinstance(val, tuple) and val[1] is None) or
-                val is None):
+        if (isinstance(val, tuple) and val[1] is None) or val is None:
             val = (1, b"")
         t = val[0]
         if t == 1:
@@ -3100,8 +3101,7 @@ class MIP6MH_HoT(_MobilityHeader):
         return raw(self.cookie)
 
     def answers(self, other):
-        if (isinstance(other, MIP6MH_HoTI) and
-                self.cookie == other.cookie):
+        if isinstance(other, MIP6MH_HoTI) and self.cookie == other.cookie:
             return 1
         return 0
 
@@ -3114,8 +3114,7 @@ class MIP6MH_CoT(MIP6MH_HoT):
         return raw(self.cookie)
 
     def answers(self, other):
-        if (isinstance(other, MIP6MH_CoTI) and
-                self.cookie == other.cookie):
+        if isinstance(other, MIP6MH_CoTI) and self.cookie == other.cookie:
             return 1
         return 0
 
@@ -3171,11 +3170,12 @@ class MIP6MH_BA(_MobilityHeader):
         return b"\x00\x08\x09"
 
     def answers(self, other):
-        if (isinstance(other, MIP6MH_BU) and
-            other.mhtype == 5 and
-            self.mhtype == 6 and
-            other.flags & 0x1 and  # Ack request flags is set
-                self.seq == other.seq):
+        # Ack request flags is set
+        if isinstance(other, MIP6MH_BU) and \
+           other.mhtype == 5 and \
+           self.mhtype == 6 and \
+           other.flags & 0x1 and \
+           self.seq == other.seq:
             return 1
         return 0
 
@@ -3250,9 +3250,9 @@ class TracerouteResult6(TracerouteResult):
     def show(self):
         return self.make_table(lambda s, r: (s.sprintf("%-42s,IPv6.dst%:{TCP:tcp%TCP.dport%}{UDP:udp%UDP.dport%}{ICMPv6EchoRequest:IER}"),  # TODO: ICMPv6 !  # noqa: E501
                                              s.hlim,
-                                             r.sprintf("%-42s,IPv6.src% {TCP:%TCP.flags%}" +  # noqa: E501
-                                                       "{ICMPv6DestUnreach:%ir,type%}{ICMPv6PacketTooBig:%ir,type%}" +  # noqa: E501
-                                                       "{ICMPv6TimeExceeded:%ir,type%}{ICMPv6ParamProblem:%ir,type%}" +  # noqa: E501
+                                             r.sprintf("%-42s,IPv6.src% {TCP:%TCP.flags%}" +  # noqa: E501, W504
+                                                       "{ICMPv6DestUnreach:%ir,type%}{ICMPv6PacketTooBig:%ir,type%}" +  # noqa: E501, W504
+                                                       "{ICMPv6TimeExceeded:%ir,type%}{ICMPv6ParamProblem:%ir,type%}" +  # noqa: E501, W504
                                                        "{ICMPv6EchoReply:%ir,type%}")))  # noqa: E501
 
     def get_trace(self):
@@ -3265,10 +3265,11 @@ class TracerouteResult6(TracerouteResult):
             if d not in trace:
                 trace[d] = {}
 
-            t = not (ICMPv6TimeExceeded in r or
-                     ICMPv6DestUnreach in r or
-                     ICMPv6PacketTooBig in r or
-                     ICMPv6ParamProblem in r)
+            t = ICMPv6TimeExceeded in r or \
+                ICMPv6DestUnreach in r or \
+                ICMPv6PacketTooBig in r or \
+                ICMPv6ParamProblem in r
+            t = not t
 
             trace[d][s[IPv6].hlim] = r[IPv6].src, t
 

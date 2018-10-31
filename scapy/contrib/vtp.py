@@ -161,8 +161,7 @@ class VTP(Packet):
         ByteField("domnamelen", None),
         StrFixedLenField("domname", "manbearpig", 32),
         ConditionalField(SignedIntField("rev", 0),
-                         lambda pkt:pkt.code == 1 or
-                         pkt.code == 2),
+                         lambda pkt:pkt.code == 1 or pkt.code == 2),
         # updater identity
         ConditionalField(IPField("uid", "192.168.0.1"),
                          lambda pkt:pkt.code == 1),

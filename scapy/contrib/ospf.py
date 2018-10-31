@@ -113,9 +113,9 @@ class OSPF_Hdr(Packet):
         return struct.pack("H", self.area) + self.payload.hashret()
 
     def answers(self, other):
-        if (isinstance(other, OSPF_Hdr) and
-            self.area == other.area and
-                self.type == 5):  # Only acknowledgements answer other packets
+        if isinstance(other, OSPF_Hdr) and \
+           self.area == other.area and \
+           self.type == 5:  # Only acknowledgements answer other packets
             return self.payload.answers(other.payload)
         return 0
 
@@ -422,8 +422,8 @@ class OSPF_LSAck(Packet):
         if isinstance(other, OSPF_LSUpd):
             for reqLSA in other.lsalist:
                 for ackLSA in self.lsaheaders:
-                    if (reqLSA.type == ackLSA.type and
-                            reqLSA.seq == ackLSA.seq):
+                    if reqLSA.type == ackLSA.type and \
+                       reqLSA.seq == ackLSA.seq:
                         return 1
         return 0
 

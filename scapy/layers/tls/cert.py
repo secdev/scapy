@@ -718,9 +718,9 @@ class Cert(six.with_metaclass(_CertMaker, object)):
         Cert. Otherwise, the issuers are simply compared.
         """
         for c in crl_list:
-            if (self.authorityKeyID is not None and
-                c.authorityKeyID is not None and
-                    self.authorityKeyID == c.authorityKeyID):
+            if self.authorityKeyID is not None and \
+               c.authorityKeyID is not None and \
+               self.authorityKeyID == c.authorityKeyID:
                 return self.serial in (x[0] for x in c.revoked_cert_serials)
             elif self.issuer == c.issuer:
                 return self.serial in (x[0] for x in c.revoked_cert_serials)

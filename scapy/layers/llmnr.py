@@ -53,10 +53,10 @@ class LLMNRResponse(LLMNRQuery):
     qr = 1
 
     def answers(self, other):
-        return (isinstance(other, LLMNRQuery) and
-                self.id == other.id and
-                self.qr == 1 and
-                other.qr == 0)
+        return isinstance(other, LLMNRQuery) and \
+            self.id == other.id and \
+            self.qr == 1 and \
+            other.qr == 0
 
 
 class _LLMNR(Packet):

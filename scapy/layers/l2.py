@@ -262,8 +262,7 @@ class Dot1Q(Packet):
 
     def answers(self, other):
         if isinstance(other, Dot1Q):
-            if ((self.type == other.type) and
-                    (self.vlan == other.vlan)):
+            if self.type == other.type and self.vlan == other.vlan:
                 return self.payload.answers(other.payload)
         else:
             return self.payload.answers(other)
@@ -330,8 +329,8 @@ class ARP(Packet):
                 (ARPSourceMACField("hwsrc"),
                  (lambda pkt: pkt.hwtype == 1 and pkt.hwlen == 6,
                   lambda pkt, val: pkt.hwtype == 1 and (
-                      pkt.hwlen == 6 or (pkt.hwlen is None and
-                                         (val is None or len(val) == 6 or
+                      pkt.hwlen == 6 or (pkt.hwlen is None and  # noqa: W504
+                                         (val is None or len(val) == 6 or  # noqa: W504, E501
                                           valid_mac(val)))
                   ))),
             ],
@@ -342,13 +341,13 @@ class ARP(Packet):
                 (SourceIPField("psrc", "pdst"),
                  (lambda pkt: pkt.ptype == 0x0800 and pkt.plen == 4,
                   lambda pkt, val: pkt.ptype == 0x0800 and (
-                      pkt.plen == 4 or (pkt.plen is None and
+                      pkt.plen == 4 or (pkt.plen is None and  # noqa: W504
                                         (val is None or valid_net(val)))
                   ))),
                 (SourceIP6Field("psrc", "pdst"),
                  (lambda pkt: pkt.ptype == 0x86dd and pkt.plen == 16,
                   lambda pkt, val: pkt.ptype == 0x86dd and (
-                      pkt.plen == 16 or (pkt.plen is None and
+                      pkt.plen == 16 or (pkt.plen is None and  # noqa: W504
                                          (val is None or valid_net6(val)))
                   ))),
             ],
@@ -359,8 +358,8 @@ class ARP(Packet):
                 (MACField("hwdst", ETHER_ANY),
                  (lambda pkt: pkt.hwtype == 1 and pkt.hwlen == 6,
                   lambda pkt, val: pkt.hwtype == 1 and (
-                      pkt.hwlen == 6 or (pkt.hwlen is None and
-                                         (val is None or len(val) == 6 or
+                      pkt.hwlen == 6 or (pkt.hwlen is None and  # noqa: W504
+                                         (val is None or len(val) == 6 or  # noqa: W504, E501
                                           valid_mac(val)))
                   ))),
             ],
@@ -371,13 +370,13 @@ class ARP(Packet):
                 (IPField("pdst", "0.0.0.0"),
                  (lambda pkt: pkt.ptype == 0x0800 and pkt.plen == 4,
                   lambda pkt, val: pkt.ptype == 0x0800 and (
-                      pkt.plen == 4 or (pkt.plen is None and
+                      pkt.plen == 4 or (pkt.plen is None and  # noqa: W504
                                         (val is None or valid_net(val)))
                   ))),
                 (IP6Field("pdst", "::"),
                  (lambda pkt: pkt.ptype == 0x86dd and pkt.plen == 16,
                   lambda pkt, val: pkt.ptype == 0x86dd and (
-                      pkt.plen == 16 or (pkt.plen is None and
+                      pkt.plen == 16 or (pkt.plen is None and  # noqa: W504
                                          (val is None or valid_net6(val)))
                   ))),
             ],
@@ -669,9 +668,11 @@ class ARP_am(AnsweringMachine):
         self.ARP_addr = ARP_addr
 
     def is_request(self, req):
-        return (req.haslayer(ARP) and
-                req.getlayer(ARP).op == 1 and
-                (self.IP_addr is None or self.IP_addr == req.getlayer(ARP).pdst))  # noqa: E501
+        has_ARP = req.haslayer(ARP)
+        is_whohas = req.getlayer(ARP).op == 1
+        is_goodIP = self.IP_addr is None
+        is_whohas |= self.IP_addr == req.getlayer(ARP).pdst
+        return has_ARP and is_whohas and is_goodIP
 
     def make_reply(self, req):
         ether = req.getlayer(Ether)

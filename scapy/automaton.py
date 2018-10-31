@@ -512,9 +512,10 @@ class Automaton_metaclass(type):
                 if n in self.states:
                     s += '\t"%s" -> "%s" [ color=green ];\n' % (st.atmt_state, n)  # noqa: E501
 
-        for c, k, v in ([("purple", k, v) for k, v in self.conditions.items()] +  # noqa: E501
-                        [("red", k, v) for k, v in self.recv_conditions.items()] +  # noqa: E501
-                        [("orange", k, v) for k, v in self.ioevents.items()]):
+        purple_list = [("purple", k, v) for k, v in self.conditions.items()]
+        red_list = [("red", k, v) for k, v in self.recv_conditions.items()]
+        orange_list = [("orange", k, v) for k, v in self.ioevents.items()]
+        for c, k, v in (purple_list + red_list + orange_list):
             for f in v:
                 for n in f.__code__.co_names + f.__code__.co_consts:
                     if n in self.states:
@@ -842,9 +843,9 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                     self._run_condition(cond, *state_output)
 
                 # If still there and no conditions left, we are stuck!
-                if (len(self.recv_conditions[self.state.state]) == 0 and
-                    len(self.ioevents[self.state.state]) == 0 and
-                        len(self.timeout[self.state.state]) == 1):
+                if len(self.recv_conditions[self.state.state]) == 0 and \
+                   len(self.ioevents[self.state.state]) == 0 and \
+                   len(self.timeout[self.state.state]) == 1:
                     raise self.Stuck("stuck in [%s]" % self.state.state,
                                      state=self.state.state, result=state_output)  # noqa: E501
 
