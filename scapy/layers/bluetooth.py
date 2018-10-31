@@ -20,7 +20,7 @@ from scapy.packet import bind_layers, Packet
 from scapy.fields import ByteEnumField, ByteField, Field, FieldLenField, \
     FieldListField, FlagsField, IntField, LEShortEnumField, LEShortField, \
     LenField, PacketListField, SignedByteField, StrField, StrFixedLenField, \
-    StrLenField, XByteField, BitField
+    StrLenField, XByteField, BitField, XLELongField
 from scapy.supersocket import SuperSocket
 from scapy.sendrecv import sndrcv
 from scapy.data import MTU
@@ -35,14 +35,6 @@ from scapy.volatile import RandMAC
 ##########
 
 class XLEShortField(LEShortField):
-    def i2repr(self, pkt, x):
-        return lhex(self.i2h(pkt, x))
-
-
-class XLELongField(LEShortField):
-    def __init__(self, name, default):
-        Field.__init__(self, name, default, "<Q")
-
     def i2repr(self, pkt, x):
         return lhex(self.i2h(pkt, x))
 
