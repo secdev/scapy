@@ -1736,6 +1736,8 @@ class FlagValue(object):
     __slots__ = ["value", "names", "multi"]
 
     def _fixvalue(self, value):
+        if value is None or value == "":
+            return 0
         if isinstance(value, six.string_types):
             value = value.split('+') if self.multi else list(value)
         if isinstance(value, list):
@@ -1743,7 +1745,7 @@ class FlagValue(object):
             for i in value:
                 y |= 1 << self.names.index(i)
             value = y
-        return None if value is None else int(value)
+        return int(value)
 
     def __init__(self, value, names):
         self.multi = isinstance(names, list)
