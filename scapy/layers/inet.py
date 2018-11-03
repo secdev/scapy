@@ -541,7 +541,7 @@ def in4_chksum(proto, u, p):
             ihl = 5 + olen // 4 + (1 if olen % 4 else 0)
         else:
             ihl = u.ihl
-        ln = u.len - 4 * ihl
+        ln = max(u.len - 4 * ihl, 0)
     else:
         ln = len(p)
     psdhdr = struct.pack("!4s4sHH",

@@ -6537,6 +6537,13 @@ pkt = IP(len=42, ihl=6, options=[IPOption_RR()]) / UDP() / ("A" * 10)
 bpkt = IP(raw(pkt))
 assert bpkt.chksum == 0x70bd and bpkt.payload.chksum == 0xbb17
 
+= IP with forced-length 0
+p = IP()/TCP()
+p[IP].len = 0
+p = IP(raw(p))
+
+assert p.len == 0
+
 = TCP payload with IP Total Length 0
 data = b'1234567890abcdef123456789ABCDEF'
 pkt = IP()/TCP()/data
@@ -9645,6 +9652,10 @@ assert pkt.flags.evil
 assert repr(pkt.flags) == '<Flag 6 (DF+evil)>'
 
 assert len({IP().flags, IP().flags}) == 1
+
+pkt = IP()
+pkt.flags = ""
+assert pkt.flags == 0
 
 = TCP flags
 ~ TCP
