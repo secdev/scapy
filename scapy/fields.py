@@ -1284,6 +1284,12 @@ class FieldListField(Field):
         ret = b""
         if len_pkt is not None:
             s, ret = s[:len_pkt], s[len_pkt:]
+            if len_pkt > len(s):  # len_pkt is bigger than s, so we truncate
+                return b'' + ret, [b'Error/Malformed: Vector length '
+                                   + str(len_pkt).encode()
+                                   + b' is too large, truncating it to '
+                                   + str(len(s)).encode()
+                                   + b'original is : "' + s + b'"']
 
         while s:
             if c is not None:
