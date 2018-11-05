@@ -32,8 +32,8 @@ class QueryConfigInformation(Packet):
 			ByteField("sector_count", 0),
 			BitField("aoe", 0, 4),
 			BitEnumField("ccmd", 0, 4, {0:"Read config string", 1:"Test config string", 2:"Test config string prefix", 3:"Set config string", 4:"Force set config string"}),
-			ShortField("config_length", 0),
-			StrLenField("config", "", length_from = lambda x: x.config_length)
+			FieldLenField("config_length", None, length_of="config"),
+			StrLenField("config", None, length_from = lambda x: x.config_length)
 		    ]
     def extract_padding(self, p):
         return "", p
@@ -76,10 +76,10 @@ class AOE(Packet):
 			XByteField("minor", 0xFF),
 			ByteEnumField("cmd", 1, {0:"Issue ATA Command", 1:"Query Config Information", 2:"Mac Mask List", 3:"Reserve / Release"}),
 			XIntField("tag", 0),
-                        ConditionalField(PacketField("i_ata_cmd", IssueATACommand(), IssueATACommand), lambda x: x.cmd == 0),
-                        ConditionalField(PacketField("q_conf_inf", QueryConfigInformation(), QueryConfigInformation), lambda x: x.cmd == 1),
-                        ConditionalField(PacketField("mac_m_list", MacMaskList(), MacMaskList), lambda x: x.cmd == 2),
-                        ConditionalField(PacketField("res_rel", ReserveRelease(), ReserveRelease), lambda x: x.cmd == 3)
+                        ConditionalField(PacketField("arg", IssueATACommand(), IssueATACommand), lambda x: x.cmd == 0),
+                        ConditionalField(PacketField("arg", QueryConfigInformation(), QueryConfigInformation), lambda x: x.cmd == 1),
+                        ConditionalField(PacketField("arg", MacMaskList(), MacMaskList), lambda x: x.cmd == 2),
+                        ConditionalField(PacketField("arg", ReserveRelease(), ReserveRelease), lambda x: x.cmd == 3)
                     ]
     
     def extract_padding(self, p):
@@ -90,10 +90,3 @@ bind_layers(AOE, IssueATACommand, cmd=0)
 bind_layers(AOE, QueryConfigInformation, cmd=1)
 bind_layers(AOE, MacMaskList, cmd=2)
 bind_layers(AOE, ReserveRelease, cmd=3)
-
-if __name__ == "__main__":
-        p1 = AOE() 
-        p1.cmd = 0
-        p1.show()
-        sr1(p1)
-

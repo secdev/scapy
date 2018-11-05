@@ -1,0 +1,44 @@
+% Regression tests for aoe module
+############
+############
++  Basic tests
+
+= Build - Check Ethertype
+
+a = Ether(src="00:01:02:03:04:05")
+b = AOE()
+c = a / b
+assert(c[Ether].type == 0x88a2)
+
+= Build - Check default
+
+p = AOE()
+assert(isinstance(p.arg, "QueryConfigInformation"))
+
+= Build - Check Issue ATA command
+
+p = AOE()
+p.cmd = 0
+
+assert(isinstance(p.arg, "IssueATACommand"))
+
+= Build - Check Issue ATA command
+
+p = AOE()
+p.cmd = 1
+
+assert(isinstance(p.arg, "QueryConfigInformation"))
+
+= Build - Check Mac Mask List
+
+p = AOE()
+p.cmd = 2
+
+assert(isinstance(p.arg, "MacMaskList"))
+
+= Build - Check ReserveRelease
+
+p = AOE()
+p.cmd = 3
+
+assert(isinstance(p.arg, "ReserveRelease"))
