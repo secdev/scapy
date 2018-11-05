@@ -76,10 +76,10 @@ class AOE(Packet):
 			XByteField("minor", 0xFF),
 			ByteEnumField("cmd", 1, {0:"Issue ATA Command", 1:"Query Config Information", 2:"Mac Mask List", 3:"Reserve / Release"}),
 			XIntField("tag", 0),
-                        ConditionalField(PacketField("arg", IssueATACommand(), IssueATACommand), lambda x: x.cmd == 0),
-                        ConditionalField(PacketField("arg", QueryConfigInformation(), QueryConfigInformation), lambda x: x.cmd == 1),
-                        ConditionalField(PacketField("arg", MacMaskList(), MacMaskList), lambda x: x.cmd == 2),
-                        ConditionalField(PacketField("arg", ReserveRelease(), ReserveRelease), lambda x: x.cmd == 3)
+                        ConditionalField(PacketField("i_ata_cmd", IssueATACommand(), IssueATACommand), lambda x: x.cmd == 0),
+                        ConditionalField(PacketField("q_conf_info", QueryConfigInformation(), QueryConfigInformation), lambda x: x.cmd == 1),
+                        ConditionalField(PacketField("mac_m_list", MacMaskList(), MacMaskList), lambda x: x.cmd == 2),
+                        ConditionalField(PacketField("res_rel", ReserveRelease(), ReserveRelease), lambda x: x.cmd == 3),
                     ]
     
     def extract_padding(self, p):
