@@ -42,6 +42,8 @@ class PcapTimeoutElapsed(Scapy_Exception):
 
 
 class _L2pcapdnetSocket(SuperSocket, SelectableObject):
+    read_allowed_exceptions = (PcapTimeoutElapsed,)
+
     def check_recv(self):
         return True
 
@@ -74,6 +76,23 @@ class _L2pcapdnetSocket(SuperSocket, SelectableObject):
         self.ins.setnonblock(0)
         return p
 
+    @staticmethod
+    def select(sockets, remain=None):
+        """This function is called during sendrecv() routine to select
+        the available sockets.
+        """
+        # pcap sockets aren't selectable, so we return all of them
+        # and ask the selecting functions to use nonblock_recv instead of recv
+        def _sleep_nonblock_recv(self):
+            try:
+                res = self.nonblock_recv()
+                if res is None:
+                    time.sleep(conf.recv_poll_rate)
+                return res
+            except PcapTimeoutElapsed:
+                return None
+        return sockets, _sleep_nonblock_recv
+
 
 ###################
 #  WINPCAP/NPCAP  #
@@ -95,6 +114,16 @@ if conf.use_winpcapy:
             bpf_program as winpcapy_bpf_program
 
         def load_winpcapy():
+            """This functions calls Winpcap/Npcap pcap_findalldevs function,
+            and extracts and parse all the data scapy will need to use it:
+             - the Interface List
+             - the IPv4 addresses
+             - the IPv6 addresses
+            This data is stored in their respective conf.cache_* subfields:
+                conf.cache_iflist
+                conf.cache_ipaddrs
+                conf.cache_in6_getifaddr
+            """
             err = create_string_buffer(PCAP_ERRBUF_SIZE)
             devs = POINTER(pcap_if_t)()
             if_list = []
@@ -190,8 +219,8 @@ if conf.use_winpcapy:
             else:
                 self.pcap = pcap_open_live(self.iface, snaplen, promisc, to_ms, self.errbuf)  # noqa: E501
 
-            # Winpcap exclusive: make every packet to be instantly
-            # returned, and not buffered within Winpcap
+            # Winpcap/Npcap exclusive: make every packet to be instantly
+            # returned, and not buffered within Winpcap/Npcap
             pcap_setmintocopy(self.pcap, 0)
 
             self.header = POINTER(pcap_pkthdr)()

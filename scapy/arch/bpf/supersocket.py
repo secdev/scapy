@@ -214,6 +214,14 @@ class _L2bpfSocket(SuperSocket):
         """Dummy recv method"""
         raise Exception("Can't recv anything with %s" % self.__name__)
 
+    @staticmethod
+    def select(sockets, remain=None):
+        """This function is called during sendrecv() routine to select
+        the available sockets.
+        """
+        # sockets, None (means use the socket's recv() )
+        return bpf_select(sockets, remain), None
+
 
 class L2bpfListenSocket(_L2bpfSocket):
     """"Scapy L2 BPF Listen Super Socket"""

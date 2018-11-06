@@ -8,6 +8,8 @@ SuperSocket.
 """
 
 from __future__ import absolute_import
+from select import select, error as select_error
+import errno
 import os
 import socket
 import struct
@@ -34,6 +36,7 @@ class _SuperSocket_metaclass(type):
 class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
     desc = None
     closed = 0
+    read_allowed_exceptions = ()
 
     def __init__(self, family=socket.AF_INET, type=socket.SOCK_STREAM, proto=0):  # noqa: E501
         self.ins = socket.socket(family, type, proto)
@@ -95,6 +98,25 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
     def sniff(self, *args, **kargs):
         from scapy import sendrecv
         return sendrecv.sniff(opened_socket=self, *args, **kargs)
+
+    @staticmethod
+    def select(sockets, remain=conf.recv_poll_rate):
+        """This function is called during sendrecv() routine to select
+        the available sockets.
+
+        params:
+         - sockets: an array of sockets that need to be selected
+        returns:
+         - an array of sockets that were selected
+         - the function to be called next to get the packets (i.g. recv)
+        """
+        try:
+            inp, _, _ = select(sockets, [], [], remain)
+        except (IOError, select_error) as exc:
+            # select.error has no .errno attribute
+            if exc.args[0] != errno.EINTR:
+                raise
+        return inp, None
 
 
 class L3RawSocket(SuperSocket):

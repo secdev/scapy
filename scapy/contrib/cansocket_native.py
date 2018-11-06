@@ -106,13 +106,6 @@ class CANSocket(SuperSocket):
     def close(self):
         self.ins.close()
 
-    @staticmethod
-    def is_python_can_socket():
-        """Function used to determine if a socket is a python-can CANSocket.
-        This is used from sendrecv, to determine if a non standard _get_pkt()
-        and _select() function needs to be used."""
-        return False
-
 
 @conf.commands.register
 def srcan(pkt, iface=None, receive_own_messages=False,

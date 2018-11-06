@@ -88,7 +88,12 @@ def restart():
     if not conf.interactive or not os.path.isfile(sys.argv[0]):
         raise OSError("Scapy was not started from console")
     if WINDOWS:
-        os._exit(subprocess.call([sys.executable] + sys.argv))
+        try:
+            res_code = subprocess.call([sys.executable] + sys.argv)
+        except KeyboardInterrupt:
+            res_code = 1
+        finally:
+            os._exit(res_code)
     os.execv(sys.executable, [sys.executable] + sys.argv)
 
 
@@ -884,6 +889,7 @@ class PcapReader_metaclass(type):
 class RawPcapReader(six.with_metaclass(PcapReader_metaclass)):
     """A stateful pcap reader. Each packet is returned as a string"""
 
+    read_allowed_exceptions = ()  # emulate SuperSocket
     PacketMetadata = collections.namedtuple("PacketMetadata",
                                             ["sec", "usec", "wirelen", "caplen"])  # noqa: E501
 
@@ -976,6 +982,11 @@ class RawPcapReader(six.with_metaclass(PcapReader_metaclass)):
 
     def __exit__(self, exc_type, exc_value, tracback):
         self.close()
+
+    # emulate SuperSocket
+    @staticmethod
+    def select(sockets, remain=None):
+        return sockets, None
 
 
 class PcapReader(RawPcapReader):
