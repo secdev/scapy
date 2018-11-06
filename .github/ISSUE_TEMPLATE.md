@@ -2,7 +2,7 @@
 
 1.  Please check that you are using the latest scapy version, e.g. installed via:
 
-    `pip install https://github.com/secdev/scapy`
+    `pip install --upgrade git+git://github.com/secdev/scapy`
 
 2.  If you are here to ask a question - please check previous issues and online resources, and consider using gitter instead: <https://gitter.im/secdev/scapy>
 
