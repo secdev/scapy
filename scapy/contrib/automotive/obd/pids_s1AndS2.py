@@ -1,6 +1,6 @@
 #! /usr/bin/env python
 
-from scapy.fields import StrFixedLenField
+from scapy.fields import StrFixedLenField, ByteEnumField
 from scapy.packet import Packet
 
 
@@ -576,8 +576,35 @@ class Pid50_S1AndS2(Packet):
 
 class Pid51_S1AndS2(Packet):
     name = "PID_51_FuelType"
+
+    fuelTypes = {
+        0: 'Not available',
+        1: 'Gasoline',
+        2: 'Methanol',
+        3: 'Ethanol',
+        4: 'Diesel',
+        5: 'LPG',
+        6: 'CNG',
+        7: 'Propane',
+        8: 'Electric',
+        9: 'Bifuel running Gasoline',
+        10: 'Bifuel running Methanol',
+        11: 'Bifuel running Ethanol',
+        12: 'Bifuel running LPG',
+        13: 'Bifuel running CNG',
+        14: 'Bifuel running Propane',
+        15: 'Bifuel running Electricity',
+        16: 'Bifuel running electric and combustion engine',
+        17: 'Hybrid gasoline',
+        18: 'Hybrid Ethanol',
+        19: 'Hybrid Diesel',
+        20: 'Hybrid Electric',
+        21: 'Hybrid running electric and combustion engine',
+        22: 'Hybrid Regenerative',
+        23: 'Bifuel running diesel'}
+
     fields_desc = [
-        StrFixedLenField('data', b'', 1)
+        ByteEnumField('data', b'', fuelTypes)
     ]
 
 
