@@ -88,7 +88,11 @@ class Pid09_S9(Packet):
 class Pid0A_S9(Packet):
     name = "PID_0A_EcuName"
     fields_desc = [
-        StrFixedLenField('data', b'', 20)
+        FieldLenField('count', None, count_of='data', fmt='B'),
+        # 20 = Length of ECU-name
+        FieldListField('data', None,
+                       StrFixedLenField('', 0, 20),
+                       count_from=lambda pkt: pkt.count)
     ]
 
 

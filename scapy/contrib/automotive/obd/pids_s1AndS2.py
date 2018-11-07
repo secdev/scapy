@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 
-from scapy.fields import StrFixedLenField, ByteEnumField
+from scapy.fields import StrFixedLenField, ByteEnumField, BitEnumField, BitField, ConditionalField, FlagsField, \
+    XByteEnumField, XByteField, XShortField
 from scapy.packet import Packet
 
 
@@ -9,15 +10,131 @@ from scapy.packet import Packet
 
 class Pid00_S1AndS2(Packet):
     name = "PID_00_PidsSupported"
+
     fields_desc = [
-        StrFixedLenField('data', b'', 4)
+        FlagsField('supportedPids', b'', 32, [
+            'Pid20',
+            'Pid1F',
+            'Pid1E',
+            'Pid1D',
+            'Pid1C',
+            'Pid1B',
+            'Pid1A',
+            'Pid19',
+            'Pid18',
+            'Pid17',
+            'Pid16',
+            'Pid15',
+            'Pid14',
+            'Pid13',
+            'Pid12',
+            'Pid11',
+            'Pid10',
+            'Pid0F',
+            'Pid0E',
+            'Pid0D',
+            'Pid0C',
+            'Pid0B',
+            'Pid0A',
+            'Pid09',
+            'Pid08',
+            'Pid07',
+            'Pid06',
+            'Pid05',
+            'Pid04',
+            'Pid03',
+            'Pid02',
+            'Pid01'
+        ])
     ]
 
 
 class Pid01_S1AndS2(Packet):
     name = "PID_01_MonitorStatusSinceDtcsCleared"
+
+    onOff = {
+        0: 'off',
+        1: 'on'
+    }
+
+    availability = {
+        0: 'unavailable',
+        1: 'available'
+    }
+
+    completeness = {
+        0: 'complete',
+        1: 'uncomplete'
+    }
+
+    ignitionTypes = {
+        0: 'spark ignition',
+        1: 'compression ignition'
+    }
+
+    @staticmethod
+    def isspark(pkt):
+        return pkt.ignitionType == 0
+
+    @staticmethod
+    def iscompression(pkt):
+        return pkt.ignitionType == 1
+
     fields_desc = [
-        StrFixedLenField('data', b'', 4)
+        BitEnumField('MIL', b'', 1, onOff),
+        BitField('DTC_Count', b'', 7),
+
+        BitField('reserved', b'', 1),
+        BitEnumField('componentsCompleteness', b'', 1, completeness),
+        BitEnumField('fuelSystemCompleteness', b'', 1, completeness),
+        BitEnumField('misfireCompleteness', b'', 1, completeness),
+
+        BitEnumField('componentsAvailability', b'', 1, availability),
+        BitEnumField('ignitionType', b'', 1, ignitionTypes),
+        BitEnumField('fuelSystemAvailability', b'', 1, availability),
+        BitEnumField('misfireAvailability', b'', 1, availability),
+
+        # Spark
+        # Availability
+        ConditionalField(BitEnumField('egrSystemAvailability', b'', 1, availability), lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('oxygenSensorHeaterAvailability', b'', 1, availability), lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('oxygenSensorAvailability', b'', 1, availability), lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('acRefrigerantAvailability', b'', 1, availability), lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('secondaryAirSystemAvailability', b'', 1, availability), lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('evaporativeSystemAvailability', b'', 1, availability), lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('heatedCatalystAvailability', b'', 1, availability), lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('catalystAvailability', b'', 1, availability), lambda pkt: pkt.ignitionType == 0),
+
+        # Completeness
+        ConditionalField(BitEnumField('egrSystemCompleteness', b'', 1, completeness), lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('oxygenSensorHeaterCompleteness', b'', 1, completeness), lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('oxygenSensorCompleteness', b'', 1, completeness), lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('acRefrigerantCompleteness', b'', 1, completeness), lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('secondaryAirSystemCompleteness', b'', 1, completeness), lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('evaporativeSystemCompleteness', b'', 1, completeness), lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('heatedCatalystCompleteness', b'', 1, completeness), lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('catalystCompleteness', b'', 1, completeness), lambda pkt: pkt.ignitionType == 0),
+
+        # Compression
+        # Availability
+        ConditionalField(BitEnumField('egrVvtSystemAvailability', b'', 1, availability), lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('pmFilterMonitoringAvailability', b'', 1, availability), lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('exhaustGasSensorAvailability', b'', 1, availability), lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('Reserved1', b'', 1, availability), lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('boostPressureAvailability', b'', 1, availability), lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('Reserved2', b'', 1, availability), lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('noxScrMonitorAvailability', b'', 1, availability), lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('nmhcCatalystAvailability', b'', 1, availability), lambda pkt: pkt.ignitionType == 1),
+
+        # Completeness
+        ConditionalField(BitEnumField('egrVvtSystemCompleteness', b'', 1, completeness), lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('pmFilterMonitoringCompleteness', b'', 1, completeness), lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('exhaustGasSensorCompleteness', b'', 1, completeness), lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('Reserved1', b'', 1, completeness), lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('boostPressureCompleteness', b'', 1, completeness), lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('Reserved2', b'', 1, completeness), lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('noxScrMonitorCompleteness', b'', 1, completeness), lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('nmhcCatalystCompleteness', b'', 1, completeness), lambda pkt: pkt.ignitionType == 1),
     ]
 
 
@@ -30,8 +147,18 @@ class Pid02_S1AndS2(Packet):
 
 class Pid03_S1AndS2(Packet):
     name = "PID_03_FuelSystemStatus"
+
+    loopStates = {
+        0x00: 'OpenLoopInsufficientEngineTemperature',
+        0x02: 'ClosedLoop',
+        0x04: 'OpenLoopEngineLoadOrFuelCut',
+        0x08: 'OpenLoopDueSystemFailure',
+        0x10: 'ClosedLoopWithFault'
+    }
+
     fields_desc = [
-        StrFixedLenField('data', b'', 2)
+        XByteEnumField('fuelSystem1', b'', loopStates),
+        XByteEnumField('fuelSystem2', b'', loopStates)
     ]
 
 
@@ -135,8 +262,16 @@ class Pid11_S1AndS2(Packet):
 
 class Pid12_S1AndS2(Packet):
     name = "PID_12_CommandedSecondaryAirStatus"
+
+    states = {
+        0x00: 'Upstream',
+        0x02: 'downstreamCatalyticConverter',
+        0x04: 'outsideAtmosphereOrOff',
+        0x08: 'pumpCommanded'
+    }
+
     fields_desc = [
-        StrFixedLenField('data', b'', 1)
+        XByteEnumField('data', b'', states)
     ]
 
 
@@ -205,8 +340,45 @@ class Pid1B_S1AndS2(Packet):
 
 class Pid1C_S1AndS2(Packet):
     name = "PID_1C_ObdStandardsThisVehicleConformsTo"
+
+    obdStandards = {
+        0x01: 'OBD-II as defined by the CARB',
+        0x02: 'OBD as defined by the EPA',
+        0x03: 'OBD and OBD-II ',
+        0x04: 'OBD-I ',
+        0x05: 'Not OBD compliant',
+        0x06: 'EOBD (Europe) ',
+        0x07: 'EOBD and OBD-II ',
+        0x08: 'EOBD and OBD',
+        0x09: 'EOBD, OBD and OBD II ',
+        0x0A: 'JOBD (Japan)',
+        0x0B: 'JOBD and OBD II ',
+        0x0C: 'JOBD and EOBD',
+        0x0D: 'JOBD, EOBD, and OBD II',
+        0x0E: 'Reserved',
+        0x0F: 'Reserved',
+        0x10: 'Reserved',
+        0x11: 'Engine Manufacturer Diagnostics (EMD)',
+        0x12: 'Engine Manufacturer Diagnostics Enhanced (EMD+)',
+        0x13: 'Heavy Duty On-Board Diagnostics (Child/Partial) (HD OBD-C)',
+        0x14: 'Heavy Duty On-Board Diagnostics (HD OBD)',
+        0x15: 'World Wide Harmonized OBD (WWH OBD)',
+        0x16: 'Reserved',
+        0x17: 'Heavy Duty Euro OBD Stage I without NOx control (HD EOBD-I)',
+        0x18: 'Heavy Duty Euro OBD Stage I with NOx control (HD EOBD-I N)',
+        0x19: 'Heavy Duty Euro OBD Stage II without NOx control (HD EOBD-II)',
+        0x1A: 'Heavy Duty Euro OBD Stage II with NOx control (HD EOBD-II N)',
+        0x1B: 'Reserved',
+        0x1C: 'Brazil OBD Phase 1 (OBDBr-1)',
+        0x1D: 'Brazil OBD Phase 2 (OBDBr-2)',
+        0x1E: 'Korean OBD (KOBD)',
+        0x1F: 'India OBD I (IOBD I)',
+        0x20: 'India OBD II (IOBD II)',
+        0x21: 'Heavy Duty Euro OBD Stage VI (HD EOBD-IV)',
+    }
+
     fields_desc = [
-        StrFixedLenField('data', b'', 1)
+        XByteEnumField('data', b'', obdStandards)
     ]
 
 
@@ -234,7 +406,40 @@ class Pid1F_S1AndS2(Packet):
 class Pid20_S1AndS2(Packet):
     name = "PID_20_PidsSupported"
     fields_desc = [
-        StrFixedLenField('data', b'', 4)
+        FlagsField('supportedPids', b'', 32, [
+            'Pid40',
+            'Pid3F',
+            'Pid3E',
+            'Pid3D',
+            'Pid3C',
+            'Pid3B',
+            'Pid3A',
+            'Pid39',
+            'Pid38',
+            'Pid37',
+            'Pid36',
+            'Pid35',
+            'Pid34',
+            'Pid33',
+            'Pid32',
+            'Pid31',
+            'Pid30',
+            'Pid2F',
+            'Pid2E',
+            'Pid2D',
+            'Pid2C',
+            'Pid2B',
+            'Pid2A',
+            'Pid29',
+            'Pid28',
+            'Pid27',
+            'Pid26',
+            'Pid25',
+            'Pid24',
+            'Pid23',
+            'Pid22',
+            'Pid21'
+        ])
     ]
 
 
@@ -458,14 +663,128 @@ class Pid3F_S1AndS2(Packet):
 class Pid40_S1AndS2(Packet):
     name = "PID_40_PidsSupported"
     fields_desc = [
-        StrFixedLenField('data', b'', 4)
+        FlagsField('supportedPids', b'', 32, [
+            'Pid60',
+            'Pid5F',
+            'Pid5E',
+            'Pid5D',
+            'Pid5C',
+            'Pid5B',
+            'Pid5A',
+            'Pid59',
+            'Pid58',
+            'Pid57',
+            'Pid56',
+            'Pid55',
+            'Pid54',
+            'Pid53',
+            'Pid52',
+            'Pid51',
+            'Pid50',
+            'Pid4F',
+            'Pid4E',
+            'Pid4D',
+            'Pid4C',
+            'Pid4B',
+            'Pid4A',
+            'Pid49',
+            'Pid48',
+            'Pid47',
+            'Pid46',
+            'Pid45',
+            'Pid44',
+            'Pid43',
+            'Pid42',
+            'Pid41'
+        ])
     ]
 
 
 class Pid41_S1AndS2(Packet):
     name = "PID_41_MonitorStatusThisDriveCycle"
+    onOff = {
+        0: 'off',
+        1: 'on'
+    }
+
+    availability = {
+        0: 'unavailable',
+        1: 'available'
+    }
+
+    completeness = {
+        0: 'complete',
+        1: 'uncomplete'
+    }
+
+    ignitionTypes = {
+        0: 'Spark ignition',
+        1: 'Compression ignition'
+    }
+
+    @staticmethod
+    def isspark(pkt):
+        return pkt.ignitionType == 0
+
+    @staticmethod
+    def iscompression(pkt):
+        return pkt.ignitionType == 1
+
     fields_desc = [
-        StrFixedLenField('data', b'', 4)
+        # always zero
+        XByteField('reserved', b''),
+
+        BitField('reserved', b'', 1),
+        BitEnumField('componentsCompleteness', b'', 1, completeness),
+        BitEnumField('fuelSystemCompleteness', b'', 1, completeness),
+        BitEnumField('misfireCompleteness', b'', 1, completeness),
+
+        BitEnumField('componentsAvailability', b'', 1, availability),
+        BitEnumField('ignitionType', b'', 1, ignitionTypes),
+        BitEnumField('fuelSystemAvailability', b'', 1, availability),
+        BitEnumField('misfireAvailability', b'', 1, availability),
+
+        # Spark
+        # Availability
+        ConditionalField(BitEnumField('egrSystemAvailability', b'', 1, availability), isspark),
+        ConditionalField(BitEnumField('oxygenSensorHeaterAvailability', b'', 1, availability), isspark),
+        ConditionalField(BitEnumField('oxygenSensorAvailability', b'', 1, availability), isspark),
+        ConditionalField(BitEnumField('acRefrigerantAvailability', b'', 1, availability), isspark),
+        ConditionalField(BitEnumField('secondaryAirSystemAvailability', b'', 1, availability), isspark),
+        ConditionalField(BitEnumField('evaporativeSystemAvailability', b'', 1, availability), isspark),
+        ConditionalField(BitEnumField('heatedCatalystAvailability', b'', 1, availability), isspark),
+        ConditionalField(BitEnumField('catalystAvailability', b'', 1, availability), isspark),
+
+        # Completeness
+        ConditionalField(BitEnumField('egrSystemCompleteness', b'', 1, completeness), isspark),
+        ConditionalField(BitEnumField('oxygenSensorHeaterCompleteness', b'', 1, completeness), isspark),
+        ConditionalField(BitEnumField('oxygenSensorCompleteness', b'', 1, completeness), isspark),
+        ConditionalField(BitEnumField('acRefrigerantCompleteness', b'', 1, completeness), isspark),
+        ConditionalField(BitEnumField('secondaryAirSystemCompleteness', b'', 1, completeness), isspark),
+        ConditionalField(BitEnumField('evaporativeSystemCompleteness', b'', 1, completeness), isspark),
+        ConditionalField(BitEnumField('heatedCatalystCompleteness', b'', 1, completeness), isspark),
+        ConditionalField(BitEnumField('catalystCompleteness', b'', 1, completeness), isspark),
+
+        # Compression
+        # Availability
+        ConditionalField(BitEnumField('egrVvtSystemAvailability', b'', 1, availability), iscompression),
+        ConditionalField(BitEnumField('pmFilterMonitoringAvailability', b'', 1, availability), iscompression),
+        ConditionalField(BitEnumField('exhaustGasSensorAvailability', b'', 1, availability), iscompression),
+        ConditionalField(BitEnumField('Reserved1', b'', 1, availability), iscompression),
+        ConditionalField(BitEnumField('boostPressureAvailability', b'', 1, availability), iscompression),
+        ConditionalField(BitEnumField('Reserved2', b'', 1, availability), iscompression),
+        ConditionalField(BitEnumField('noxScrMonitorAvailability', b'', 1, availability), iscompression),
+        ConditionalField(BitEnumField('nmhcCatalystAvailability', b'', 1, availability), iscompression),
+
+        # Completeness
+        ConditionalField(BitEnumField('egrVvtSystemCompleteness', b'', 1, completeness), iscompression),
+        ConditionalField(BitEnumField('pmFilterMonitoringCompleteness', b'', 1, completeness), iscompression),
+        ConditionalField(BitEnumField('exhaustGasSensorCompleteness', b'', 1, completeness), iscompression),
+        ConditionalField(BitEnumField('Reserved1', b'', 1, completeness), iscompression),
+        ConditionalField(BitEnumField('boostPressureCompleteness', b'', 1, completeness), iscompression),
+        ConditionalField(BitEnumField('Reserved2', b'', 1, completeness), iscompression),
+        ConditionalField(BitEnumField('noxScrMonitorCompleteness', b'', 1, completeness), iscompression),
+        ConditionalField(BitEnumField('nmhcCatalystCompleteness', b'', 1, completeness), iscompression),
     ]
 
 
@@ -709,7 +1028,40 @@ class Pid5F_S1AndS2(Packet):
 class Pid60_S1AndS2(Packet):
     name = "PID_60_PidsSupported"
     fields_desc = [
-        StrFixedLenField('data', b'', 4)
+        FlagsField('supportedPids', b'', 32, [
+            'Pid80',
+            'Pid7F',
+            'Pid7E',
+            'Pid7D',
+            'Pid7C',
+            'Pid7B',
+            'Pid7A',
+            'Pid79',
+            'Pid78',
+            'Pid77',
+            'Pid76',
+            'Pid75',
+            'Pid74',
+            'Pid73',
+            'Pid72',
+            'Pid71',
+            'Pid70',
+            'Pid6F',
+            'Pid6E',
+            'Pid6D',
+            'Pid6C',
+            'Pid6B',
+            'Pid6A',
+            'Pid69',
+            'Pid68',
+            'Pid67',
+            'Pid66',
+            'Pid65',
+            'Pid64',
+            'Pid63',
+            'Pid62',
+            'Pid61'
+        ])
     ]
 
 
@@ -878,14 +1230,24 @@ class Pid77_S1AndS2(Packet):
 class Pid78_S1AndS2(Packet):
     name = "PID_78_ExhaustGasTemperatureBank1"
     fields_desc = [
-        StrFixedLenField('data', b'', 9)
+        BitField('reserved', b'', 4),
+        FlagsField('supportedSensors', b'', 4, ['Sensor1', 'Sensor2', 'Sensor3', 'Sensor4']),
+        XShortField('temperature1', b''),
+        XShortField('temperature2', b''),
+        XShortField('temperature3', b''),
+        XShortField('temperature4', b'')
     ]
 
 
 class Pid79_S1AndS2(Packet):
     name = "PID_79_ExhaustGasTemperatureBank2"
     fields_desc = [
-        StrFixedLenField('data', b'', 9)
+        BitField('reserved', b'', 4),
+        FlagsField('supportedSensors', b'', 4, ['Sensor1', 'Sensor2', 'Sensor3', 'Sensor4']),
+        XShortField('temperature1', b''),
+        XShortField('temperature2', b''),
+        XShortField('temperature3', b''),
+        XShortField('temperature4', b'')
     ]
 
 
@@ -934,7 +1296,40 @@ class Pid7F_S1AndS2(Packet):
 class Pid80_S1AndS2(Packet):
     name = "PID_80_PidsSupported"
     fields_desc = [
-        StrFixedLenField('data', b'', 4)
+        FlagsField('supportedPids', b'', 32, [
+            'PidA0',
+            'Pid9F',
+            'Pid9E',
+            'Pid9D',
+            'Pid9C',
+            'Pid9B',
+            'Pid9A',
+            'Pid99',
+            'Pid98',
+            'Pid97',
+            'Pid96',
+            'Pid95',
+            'Pid94',
+            'Pid93',
+            'Pid92',
+            'Pid91',
+            'Pid90',
+            'Pid8F',
+            'Pid8E',
+            'Pid8D',
+            'Pid8C',
+            'Pid8B',
+            'Pid8A',
+            'Pid89',
+            'Pid88',
+            'Pid87',
+            'Pid86',
+            'Pid85',
+            'Pid84',
+            'Pid83',
+            'Pid82',
+            'Pid81'
+        ])
     ]
 
 
@@ -1139,7 +1534,40 @@ class Pid9F_S1AndS2(Packet):
 class PidA0_S1AndS2(Packet):
     name = "PID_A0_PidsSupported"
     fields_desc = [
-        StrFixedLenField('data', b'', 4)
+        FlagsField('supportedPids', b'', 32, [
+            'PidC0',
+            'PidBF',
+            'PidBE',
+            'PidBD',
+            'PidBC',
+            'PidBB',
+            'PidBA',
+            'PidB9',
+            'PidB8',
+            'PidB7',
+            'PidB6',
+            'PidB5',
+            'PidB4',
+            'PidB3',
+            'PidB2',
+            'PidB1',
+            'PidB0',
+            'PidAF',
+            'PidAE',
+            'PidAD',
+            'PidAC',
+            'PidAB',
+            'PidAA',
+            'PidA9',
+            'PidA8',
+            'PidA7',
+            'PidA6',
+            'PidA5',
+            'PidA4',
+            'PidA3',
+            'PidA2',
+            'PidA1'
+        ])
     ]
 
 
@@ -1188,5 +1616,38 @@ class PidA6_S1AndS2(Packet):
 class PidC0_S1AndS2(Packet):
     name = "PID_C0_PidsSupported"
     fields_desc = [
-        StrFixedLenField('data', b'', 4)
+        FlagsField('supportedPids', b'', 32, [
+            'PidE0',
+            'PidDF',
+            'PidDE',
+            'PidDD',
+            'PidDC',
+            'PidDB',
+            'PidDA',
+            'PidD9',
+            'PidD8',
+            'PidD7',
+            'PidD6',
+            'PidD5',
+            'PidD4',
+            'PidD3',
+            'PidD2',
+            'PidD1',
+            'PidD0',
+            'PidCF',
+            'PidCE',
+            'PidCD',
+            'PidCC',
+            'PidCB',
+            'PidCA',
+            'PidC9',
+            'PidC8',
+            'PidC7',
+            'PidC6',
+            'PidC5',
+            'PidC4',
+            'PidC3',
+            'PidC2',
+            'PidC1'
+        ])
     ]

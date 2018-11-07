@@ -67,6 +67,7 @@ bind_layers(OBD, Service06, service=0x06)
 bind_layers(OBD, Service07, service=0x07)
 bind_layers(OBD, Service09, service=0x09)
 bind_layers(OBD, Service0A, service=0x0A)
+bind_layers(OBD, NegativeResponseOBD, service=0x7F)
 
 bind_bottom_up(OBD, Service01, service=0x41)
 bind_bottom_up(OBD, Service02, service=0x42)
