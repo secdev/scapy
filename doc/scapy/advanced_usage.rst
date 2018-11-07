@@ -1505,6 +1505,61 @@ Creating a python-can CANSocket with multiple filters::
 
 For further details on python-can check: https://python-can.readthedocs.io/en/2.2.0/
 
+CANSocket man in the middle attack with bridge and sniff
+--------------------------------------------------------
+
+Set up two vcans on linux terminal::
+
+   sudo modprobe vcan
+   sudo ip link add name vcan0 type vcan
+   sudo ip link add name vcan1 type vcan
+   sudo ip link set dev vcan0 up
+   sudo ip link set dev vcan1 up
+
+Import modules::
+
+   import threading
+   load_contrib('cansocket')
+   load_layer("can")
+
+Create sockets to send and sniff packets::
+
+   socket0 = CANSocket(iface='vcan0')
+   socket1 = CANSocket(iface='vcan1')
+
+Create function to send Packet with threading::
+
+   def sendPacket():
+       socket0.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+
+Create function for forwarding or change packets::
+
+   def forwarding(pkt):
+       return pkt
+
+Create function to bridge and sniff between to sockets::
+
+   def bridge():
+       bSocket0 = CANSocket(iface='vcan0')
+       bSocket1 = CANSocket(iface='vcan1')       
+       bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding)
+       bSocket0.close()
+       bSocket1.close()
+
+Create threads for sending packet and to bridge and sniff::
+
+   threadBridge = threading.Thread(target=bridge)
+   threadSender = threading.Thread(target=sendMessage)
+
+Start threads::
+   
+   threadBridge.start()
+   threadSender.start()
+
+Sniff packets::
+
+   packets = socket1.sniff(timeout=0.3)
+
 ISOTP message
 -------------
 
