@@ -563,15 +563,17 @@ class ISOTPSoftSocket(SuperSocket):
                             "CAN socket" % did)
                     self.filter_warning_emitted = True
             else:
-                self.impl.on_recv(p)
+                self.ins.on_recv(p)
 
-        self.impl = ISOTPSocketImplementation(
+        self.ins = ISOTPSocketImplementation(
             can_send,
             extended_addr=extended_addr,
             extended_rx_addr=extended_rx_addr,
             rx_block_size=rx_block_size,
             rx_separation_time_min=rx_separation_time_min
         )
+
+        self.outs = self.ins
 
         self.can_socket = can_socket
         self.rx_thread = CANReceiverThread(can_socket, can_on_recv)
@@ -599,6 +601,8 @@ class ISOTPSoftSocket(SuperSocket):
         """Close the socket and stop the receiving thread"""
         self.can_socket.close()
         self.rx_thread.stop()
+        self.outs = None
+        self.ins = None
         SuperSocket.close(self)
 
     def begin_send(self, p):
@@ -609,24 +613,14 @@ class ISOTPSoftSocket(SuperSocket):
         if hasattr(p, "sent_time"):
             p.sent_time = time.time()
 
-        return self.impl.begin_send(bytes(p))
-
-    def send(self, p):
-        """Send ISOTP message p, blocking until either the transmission is
-        successful or it fails.
-        Returns None if the transmission fails, or the number of bytes sent
-        if it succeeds."""
-        if hasattr(p, "sent_time"):
-            p.sent_time = time.time()
-
-        return self.impl.send(bytes(p))
+        return self.outs.begin_send(bytes(p))
 
     def recv_raw(self, x=0xffff):
         """Receive a complete ISOTP message, blocking until a message is
         received or the specified timeout is reached.
         If self.timeout is 0, then this function doesn't block and returns the
         first frame in the receive buffer or None if there isn't any."""
-        return self.basecls, self.impl.recv(self.timeout), time.time()
+        return self.basecls, self.ins.recv(self.timeout), time.time()
 
     def recv(self, x=0xffff):
         msg = SuperSocket.recv(self, x)
@@ -640,6 +634,15 @@ class ISOTPSoftSocket(SuperSocket):
         if hasattr(msg, "exdst"):
             msg.exdst = self.exdst
         return msg
+
+    @staticmethod
+    def select(sockets, remain=None):
+        """This function is called during sendrecv() routine to select
+        the available sockets.
+        """
+        # ISOTPSoftSockets aren't selectable, so we return all of them
+        # sockets, None (means use the socket's recv() )
+        return sockets, None
 
 
 ISOTPSocket = ISOTPSoftSocket
@@ -1504,6 +1507,7 @@ if six.PY3 and LINUX:
                                        self.__build_can_isotp_ll_options())
 
             self.__bind_socket(self.can_socket, iface, sid, did)
+            self.ins = self.can_socket
             self.outs = self.can_socket
             if basecls is None:
                 warning('Provide a basecls ')

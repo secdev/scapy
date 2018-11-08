@@ -609,10 +609,8 @@ test_frames = [
 ]
 
 def sender(args=None):
-    tx = new_can_socket()
     for f in test_frames:
         call("cansend %s %3x#%s" % (iface, f[0], "".join(f[1].split())), shell=True)
-        #tx.send(CAN(identifier=f[0], data=dhex(f[1])))
 
 s = new_can_socket()
 thread = threading.Thread(target=sender)
@@ -694,28 +692,28 @@ with ISOTPSocket(MockCANSocket(), sid=0x641, did=0x241) as s:
 
 = Test on_recv function with single frame
 with ISOTPSocket(MockCANSocket(), sid=0x641, did=0x241) as s:
-    s.impl.on_recv(CAN(identifier=0x241, data=dhex("05 01 02 03 04 05")))
-    msg = s.impl.rx_messages.pop()
+    s.ins.on_recv(CAN(identifier=0x241, data=dhex("05 01 02 03 04 05")))
+    msg = s.ins.rx_messages.pop()
     assert(msg == dhex("01 02 03 04 05"))
 
 
 = Test on_recv function with empty frame
 with ISOTPSocket(MockCANSocket(), sid=0x641, did=0x241) as s:
-    s.impl.on_recv(CAN(identifier=0x241, data=b""))
-    assert(len(s.impl.rx_messages) == 0)
+    s.ins.on_recv(CAN(identifier=0x241, data=b""))
+    assert(len(s.ins.rx_messages) == 0)
 
 
 = Test on_recv function with single frame and extended addressing
 with ISOTPSocket(MockCANSocket(), sid=0x641, did=0x241, extended_rx_addr=0xea) as s:
-    s.impl.on_recv(CAN(identifier=0x241, data=dhex("EA 05 01 02 03 04 05")))
-    msg = s.impl.rx_messages.pop()
+    s.ins.on_recv(CAN(identifier=0x241, data=dhex("EA 05 01 02 03 04 05")))
+    msg = s.ins.rx_messages.pop()
     assert(msg == dhex("01 02 03 04 05"))
 
 
 = CF is sent when first frame is received
 cans = MockCANSocket()
 with ISOTPSocket(cans, sid=0x641, did=0x241) as s:
-    s.impl.on_recv(CAN(identifier=0x241, data=dhex("10 20 01 02 03 04 05 06")))
+    s.ins.on_recv(CAN(identifier=0x241, data=dhex("10 20 01 02 03 04 05 06")))
     can = cans.sent_queue.pop(0)
     assert(can.identifier == 0x641)
     assert(can.data == dhex("30 00 00"))
@@ -861,7 +859,7 @@ with ISOTPSocket(new_can_socket(), sid=0x641, did=0x241) as s:
 with ISOTPSocket(new_can_socket(), sid=0x641, did=0x241) as s:
     cans = new_can_socket()
     cans.send(CAN(identifier = 0x141, data = dhex("05 01 02 03 04 05")))
-    assert(len(s.impl.rx_messages) == 0)
+    assert(len(s.ins.rx_messages) == 0)
 
 
 + Testing ISOTPSocket timeouts
@@ -941,9 +939,96 @@ with ISOTPSocket(new_can_socket(), sid=0x641, did=0x241) as s:
 with ISOTPSocket(new_can_socket(), sid=0x641, did=0x241) as s:
     s.close()
 
-
-
 + More complex operations
+
+= ISOTPSoftSocket sr1
+~ needs_root linux
+
+msg = ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33')
+def sender():
+    time.sleep(0.1)
+    with ISOTPSoftSocket(new_can_socket(), 0x123, 0x321) as sock:
+        rx = sock.sr1(msg, timeout=1, verbose=True)
+        assert(rx is not None)
+        assert(rx == msg)
+
+def receiver():
+    txThread = threading.Thread(target=sender)
+    with ISOTPSoftSocket(new_can_socket(), 0x321, 0x123) as sock:
+        txThread.start()
+        rx = sock.recv()
+        assert(rx == msg)
+        assert(sock.send(msg))
+        txThread.join()
+
+receiver()
+
+= ISOTPSoftSocket sr1 and ISOTP test vice versa
+~ needs_root linux
+msg = ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33')
+
+def receiver():
+    with ISOTPSoftSocket(new_can_socket(), 0x321, 0x123) as sock:
+        rx = sock.sniff(count=1, timeout=1)
+        print(rx)
+        assert(len(rx) == 1)
+        rx.show()
+        msg.show()
+        assert(rx[0] == msg)
+        assert(sock.send(msg))
+
+def sender():
+    rxThread = threading.Thread(target=receiver)
+    rxThread.start()
+    with ISOTPSoftSocket(new_can_socket(), 0x123, 0x321) as sock:
+        rx = sock.sr1(msg, timeout=1,verbose=True)
+        assert(rx == msg)
+        rxThread.join()
+
+sender()
+
+= ISOTPSoftSocket sniff
+~ needs_root linux
+
+received_pkts = False
+
+def receiver():
+    with ISOTPSoftSocket(new_can_socket(), 0x321, 0x123) as sock:
+        rx = sock.sniff(count=5, timeout=1)
+        msg = ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33')
+        msg.data += b'0'
+        assert(rx[0] == msg)
+        msg.data += b'1'
+        assert(rx[1] == msg)
+        msg.data += b'2'
+        assert(rx[2] == msg)
+        msg.data += b'3'
+        assert(rx[3] == msg)
+        msg.data += b'4'
+        assert(rx[4] == msg)
+        global received_pkts
+        received_pkts = True
+
+def sender():
+    rxThread = threading.Thread(target=receiver)
+    rxThread.start()
+    time.sleep(0.1)
+    with ISOTPSoftSocket(new_can_socket(), 0x123, 0x321) as sock:
+        msg = ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33')
+        msg.data += b'0'
+        assert(sock.send(msg))
+        msg.data += b'1'
+        assert(sock.send(msg))
+        msg.data += b'2'
+        assert(sock.send(msg))
+        msg.data += b'3'
+        assert(sock.send(msg))
+        msg.data += b'4'
+        assert(sock.send(msg))
+        rxThread.join()
+        assert(received_pkts == True)
+
+sender()
 
 
 = Two ISOTPSockets at the same time, sending and receiving
@@ -1326,6 +1411,116 @@ cans.send(CAN(identifier = 0x241, data = dhex("21 07 08 09 10 11")))
 isotp = s.recv()
 assert(isotp.data == dhex("01 02 03 04 05 06 07 08 09 10 11"))
 
+
+= ISOTP Socket sr1 test
+~ needs_root linux
+exit_if_no_isotp_module()
+def sender():
+    time.sleep(0.1)
+    sock = ISOTPNativeSocket(iface, sid=0x123, did=0x321)
+    txmsg = ISOTP(b'\x11\x22\x33')
+    rx = sock.sr1(txmsg, timeout=1, verbose=True)
+    assert(rx is not None)
+    assert(rx == ISOTP(b'\x7f\x22\x33'))
+    assert(rx.answers(txmsg))
+
+def receiver():
+    txThread = threading.Thread(target=sender)
+    sock = CANSocket(iface)
+    dump = sock.sniff(timeout=0.5)
+    txThread.start()
+    rx = sock.recv()
+    sock.send(CAN(identifier=0x321, length=4, data=b'\x03\x7f\x22\x33'))
+    expectedrx = CAN(identifier=0x123, length=4, data=b'\x03\x11\x22\x33')
+    assert(rx.length == expectedrx.length)
+    assert(rx.data == expectedrx.data)
+    assert(rx.identifier == expectedrx.identifier)
+    txThread.join()
+
+receiver()
+
+= ISOTP Socket sr1 and ISOTP test
+~ needs_root linux
+exit_if_no_isotp_module()
+msg = ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33')
+def sender():
+    time.sleep(0.1)
+    sock = ISOTPNativeSocket(iface, 0x123, 0x321)
+    rx = sock.sr1(msg, timeout=1, verbose=True)
+    assert(rx is not None)
+    assert(rx == msg) 
+
+def receiver():
+    txThread = threading.Thread(target=sender)
+    sock = ISOTPNativeSocket(iface, 0x321, 0x123)
+    txThread.start()
+    rx = sock.recv()
+    assert(rx == msg)
+    assert(sock.send(msg))
+    txThread.join()
+
+receiver()
+
+= ISOTP Socket sr1 and ISOTP test vice versa
+~ needs_root linux
+exit_if_no_isotp_module()
+
+msg = ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33')
+def receiver():
+    sock = ISOTPNativeSocket(iface, 0x321, 0x123)
+    rx = sock.sniff(count=1, timeout=1)
+    assert(rx[0] == msg)
+    assert(sock.send(msg))
+
+def sender():
+    rxThread = threading.Thread(target=receiver)
+    rxThread.start()
+    time.sleep(0.1)
+    sock = ISOTPNativeSocket(iface, 0x123, 0x321)
+    rx = sock.sr1(msg, timeout=1,verbose=True)
+    assert(rx == msg) 
+    rxThread.join()
+
+sender()
+
+= ISOTP Socket sniff
+~ needs_root linux
+exit_if_no_isotp_module()
+
+def receiver():
+    sock = ISOTPNativeSocket(iface, 0x321, 0x123)
+    rx = sock.sniff(count=5, timeout=1)
+    msg = ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33')
+    msg.data += b'0'
+    assert(rx[0] == msg)
+    msg.data += b'1'
+    assert(rx[1] == msg)
+    msg.data += b'2'
+    assert(rx[2] == msg)
+    msg.data += b'3'
+    assert(rx[3] == msg)
+    msg.data += b'4'
+    assert(rx[4] == msg)
+
+def sender():
+    rxThread = threading.Thread(target=receiver)
+    rxThread.start()
+    time.sleep(0.1)
+    sock = ISOTPNativeSocket(iface, 0x123, 0x321)
+    msg = ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33')
+    msg.data += b'0'
+    assert(sock.send(msg))
+    msg.data += b'1'
+    assert(sock.send(msg))
+    msg.data += b'2'
+    assert(sock.send(msg))
+    msg.data += b'3'
+    assert(sock.send(msg))
+    msg.data += b'4'
+    assert(sock.send(msg))
+    rxThread.join()
+
+sender()
 
 + Cleanup
 
