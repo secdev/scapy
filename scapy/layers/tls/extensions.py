@@ -517,12 +517,10 @@ class TLS_Ext_SupportedVersions(TLS_Ext_Unknown):
     name = "TLS Extension - Supported Versions"
     fields_desc = [ShortEnumField("type", 0x2b, _tls_ext),
                    ShortField("len", None),
-                   FieldLenField("versionslen", None, fmt='B',
-                                 length_of="versions"),
                    FieldListField("versions", [],
                                   ShortEnumField("version", None,
                                                  _tls_version),
-                                  length_from=lambda pkt: pkt.versionslen)]
+                                  length_from=lambda pkt: pkt.len)]
 
 
 class TLS_Ext_Cookie(TLS_Ext_Unknown):
