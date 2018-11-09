@@ -302,3 +302,389 @@ tx = CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
 rx = None
 rx = srcan(tx, iface="vcan0", receive_own_messages=True, timeout=1)
 tx == rx[0][0][1]
+
+
+= bridge and sniff setup vcan1 package forwarding
+~ needs_root linux
+
+bashCommand = "/bin/bash -c 'sudo ip link add name vcan1 type vcan; sudo ip link set dev vcan1 up'"
+0 == os.system(bashCommand)
+
+sock0 = CANSocket(iface='vcan0')
+sock1 = CANSocket(iface='vcan1')
+
+def senderVCan0():
+    sleep(0.1)
+    sock0.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+    sock0.send(CAN(flags='extended', identifier=0x10020000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+    sock0.send(CAN(flags='extended', identifier=0x10000000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+    sock0.send(CAN(flags='extended', identifier=0x10030000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+    sock0.send(CAN(flags='extended', identifier=0x10040000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+    sock0.send(CAN(flags='extended', identifier=0x10000000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+
+def bridge():
+    bSock0 = CANSocket(iface="vcan0")
+    bSock1 = CANSocket(iface='vcan1')
+    def pnr(pkt):
+        return pkt
+    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm12=pnr, xfrm21=pnr, timeout=0.5)
+    bSock0.close()
+    bSock1.close()
+
+threadBridge = threading.Thread(target=bridge)
+threadBridge.start()
+threadSender = threading.Thread(target=senderVCan0)
+threadSender.start()
+
+packetsVCan0 = sock0.sniff(timeout=0.3)
+packetsVCan1 = sock1.sniff(timeout=0.3)
+len(packetsVCan0) == 0
+len(packetsVCan1) == 6
+
+sock1.close()
+sock0.close()
+
+= bridge and sniff setup vcan0 package forwarding
+~ needs_root linux
+
+sock0 = CANSocket(iface='vcan0')
+sock1 = CANSocket(iface='vcan1')
+
+def senderVCan1():
+    sleep(0.1)
+    sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+    sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+    sock1.send(CAN(flags='extended', identifier=0x80, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+    sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+
+def bridge():
+    bSock0 = CANSocket(iface="vcan0")
+    bSock1 = CANSocket(iface='vcan1')
+    def pnr(pkt):
+        return pkt
+    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm12=pnr, xfrm21=pnr, timeout=0.5)
+    bSock0.close()
+    bSock1.close()
+
+threadBridge.join()
+threadBridge = threading.Thread(target=bridge)
+threadBridge.start()
+threadSender.join()
+threadSender = threading.Thread(target=senderVCan1)
+threadSender.start()
+
+packetsVCan0 = sock0.sniff(timeout=0.3)
+packetsVCan1 = sock1.sniff(timeout=0.3)
+len(packetsVCan0) == 4
+len(packetsVCan1) == 0
+
+sock0.close()
+sock1.close()
+
+=bridge and sniff setup vcan0 vcan1 package forwarding both directions
+~ needs_root linux
+
+sock0 = CANSocket(iface='vcan0')
+sock1 = CANSocket(iface='vcan1')
+
+def senderBothVCans():
+    sleep(0.2)
+    sock0.send(CAN(flags='extended', identifier=0x25, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+    sock0.send(CAN(flags='extended', identifier=0x20, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+    sock0.send(CAN(flags='extended', identifier=0x25, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+    sock0.send(CAN(flags='extended', identifier=0x25, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+    sock0.send(CAN(flags='extended', identifier=0x20, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+    sock0.send(CAN(flags='extended', identifier=0x30, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+    sock1.send(CAN(flags='extended', identifier=0x40, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+    sock1.send(CAN(flags='extended', identifier=0x40, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+    sock1.send(CAN(flags='extended', identifier=0x80, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+    sock1.send(CAN(flags='extended', identifier=0x40, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+
+def bridge():
+    bSock0 = CANSocket(iface="vcan0")
+    bSock1 = CANSocket(iface='vcan1')
+    def pnr(pkt):
+        return pkt
+    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm12=pnr, xfrm21=pnr, timeout=0.5)
+    bSock0.close()
+    bSock1.close()
+
+threadBridge.join()
+threadBridge = threading.Thread(target=bridge)
+threadBridge.start()
+threadSender.join()
+threadSender = threading.Thread(target=senderBothVCans)
+threadSender.start()
+
+packetsVCan0 = sock0.sniff(timeout=0.3)
+packetsVCan1 = sock1.sniff(timeout=0.3)
+len(packetsVCan0) == 4
+len(packetsVCan1) == 6
+
+sock0.close()
+sock1.close()
+
+=bridge and sniff setup vcan1 package change
+~ needs_root linux
+
+sock0 = CANSocket(iface='vcan0')
+sock1 = CANSocket(iface='vcan1', can_filters=[{'can_id': 0x10010000, 'can_mask': 0x1fffffff}])
+
+def senderVCan0():
+    sleep(0.1)
+    sock0.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+    sock0.send(CAN(flags='extended', identifier=0x10020000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+    sock0.send(CAN(flags='extended', identifier=0x10000000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+    sock0.send(CAN(flags='extended', identifier=0x10030000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+    sock0.send(CAN(flags='extended', identifier=0x10040000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+    sock0.send(CAN(flags='extended', identifier=0x10000000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+
+def bridgeWithPackageChangeVCan0ToVCan1():
+    bSock0 = CANSocket(iface="vcan0")
+    bSock1 = CANSocket(iface="vcan1")
+    def pnr(pkt):
+        pkt.data = b'\x08\x07\x06\x05\x04\x03\x02\x01'
+        pkt.identifier = 0x10010000
+        return pkt
+    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm12=pnr, timeout=0.5)
+    bSock0.close()
+    bSock1.close()
+
+threadBridge.join()
+threadBridge = threading.Thread(target=bridgeWithPackageChangeVCan0ToVCan1)
+threadBridge.start()
+threadSender.join()
+threadSender = threading.Thread(target=senderVCan0)
+threadSender.start()
+
+packetsVCan0 = sock0.sniff(timeout=0.3)
+packetsVCan1 = sock1.sniff(timeout=0.3)
+len(packetsVCan0) == 0
+len(packetsVCan1) == 6
+
+sock0.close()
+sock1.close()
+
+=bridge and sniff setup vcan0 package change
+~ needs_root linux
+
+sock0 = CANSocket(iface='vcan0',  can_filters=[{'can_id': 0x10010000, 'can_mask': 0x1fffffff}])
+sock1 = CANSocket(iface='vcan1')
+
+def senderVCan1():
+    sleep(0.1)
+    sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+    sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+    sock1.send(CAN(flags='extended', identifier=0x10050000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+    sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+
+def bridgeWithPackageChangeVCan1ToVCan0():
+    bSock0 = CANSocket(iface="vcan0")
+    bSock1 = CANSocket(iface="vcan1")
+    def pnr(pkt):
+        pkt.data = b'\x08\x07\x06\x05\x04\x03\x02\x01'
+        pkt.identifier = 0x10010000
+        return pkt
+    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm21=pnr, timeout=0.5)
+    bSock0.close()
+    bSock1.close()
+
+threadBridge.join()
+threadBridge = threading.Thread(target=bridgeWithPackageChangeVCan1ToVCan0)
+threadBridge.start()
+threadSender.join()
+threadSender = threading.Thread(target=senderVCan1)
+threadSender.start()
+
+packetsVCan0 = sock0.sniff(timeout=0.3)
+packetsVCan1 = sock1.sniff(timeout=0.3)
+len(packetsVCan0) == 4
+len(packetsVCan1) == 0
+
+sock0.close()
+sock1.close()
+
+=bridge and sniff setup vcan0 and vcan1 package change in both directions
+~ needs_root linux
+
+sock0 = CANSocket(iface='vcan0',  can_filters=[{'can_id': 0x10010000, 'can_mask': 0x1fffffff}])
+sock1 = CANSocket(iface='vcan1', can_filters=[{'can_id': 0x10010000, 'can_mask': 0x1fffffff}])
+
+def senderBothVCans():
+    sleep(0.2)
+    sock0.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+    sock0.send(CAN(flags='extended', identifier=0x10020000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+    sock0.send(CAN(flags='extended', identifier=0x10000000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+    sock0.send(CAN(flags='extended', identifier=0x10030000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+    sock0.send(CAN(flags='extended', identifier=0x10040000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+    sock0.send(CAN(flags='extended', identifier=0x10000000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+    sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+    sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+    sock1.send(CAN(flags='extended', identifier=0x10050000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+    sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+
+def bridgeWithPackageChangeBothDirections():
+    bSock0 = CANSocket(iface="vcan0")
+    bSock1 = CANSocket(iface="vcan1")
+    def pnr(pkt):
+        pkt.data = b'\x08\x07\x06\x05\x04\x03\x02\x01'
+        pkt.identifier = 0x10010000
+        return pkt
+    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm12=pnr, xfrm21=pnr, timeout=0.5)
+    bSock0.close()
+    bSock1.close()
+
+threadBridge.join()
+threadBridge = threading.Thread(target=bridgeWithPackageChangeBothDirections)
+threadBridge.start()
+threadSender.join()
+threadSender = threading.Thread(target=senderBothVCans)
+threadSender.start()
+
+packetsVCan0 = sock0.sniff(timeout=0.3)
+packetsVCan1 = sock1.sniff(timeout=0.3)
+len(packetsVCan0) == 4
+len(packetsVCan1) == 6
+
+sock0.close()
+sock1.close()
+
+=bridge and sniff setup vcan0 package remove
+~ needs_root linux
+
+sock0 = CANSocket(iface='vcan0')
+sock1 = CANSocket(iface='vcan1')
+
+def senderVCan0():
+    sleep(0.1)
+    sock0.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+    sock0.send(CAN(flags='extended', identifier=0x10020000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+    sock0.send(CAN(flags='extended', identifier=0x10000000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+    sock0.send(CAN(flags='extended', identifier=0x10030000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+    sock0.send(CAN(flags='extended', identifier=0x10040000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+    sock0.send(CAN(flags='extended', identifier=0x10000000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+
+def bridgeWithRemovePackageFromVCan0ToVCan1():
+    bSock0 = CANSocket(iface="vcan0")
+    bSock1 = CANSocket(iface="vcan1")
+    def pnr(pkt):
+        if(pkt.identifier == 0x10020000):
+            pkt = None
+        else:
+            pkt = pkt
+        return pkt
+    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm12=pnr, timeout=0.5)
+    bSock0.close()
+    bSock1.close()
+
+threadBridge.join()
+threadBridge = threading.Thread(target=bridgeWithRemovePackageFromVCan0ToVCan1)
+threadBridge.start()
+threadSender.join()
+threadSender = threading.Thread(target=senderVCan0)
+threadSender.start()
+
+packetsVCan0 = sock0.sniff(timeout=0.3)
+packetsVCan1 = sock1.sniff(timeout=0.3)
+
+len(packetsVCan0) == 0
+len(packetsVCan1) == 5
+
+sock0.close()
+sock1.close()
+
+=bridge and sniff setup vcan1 package remove
+~ needs_root linux
+
+sock0 = CANSocket(iface='vcan0')
+sock1 = CANSocket(iface='vcan1')
+
+def senderVCan1():
+    sleep(0.1)
+    sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+    sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+    sock1.send(CAN(flags='extended', identifier=0x10050000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+    sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+
+def bridgeWithRemovePackageFromVCan1ToVCan0():
+    bSock0 = CANSocket(iface="vcan0")
+    bSock1 = CANSocket(iface="vcan1")
+    def pnr(pkt):
+        if(pkt.identifier == 0x10050000):
+            pkt = None
+        else:
+            pkt = pkt
+        return pkt
+    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm21=pnr, timeout=0.5)
+    bSock0.close()
+    bSock1.close()
+
+threadBridge.join()
+threadBridge = threading.Thread(target=bridgeWithRemovePackageFromVCan1ToVCan0)
+threadBridge.start()
+threadSender.join()
+threadSender = threading.Thread(target=senderVCan1)
+threadSender.start()
+
+packetsVCan0 = sock0.sniff(timeout=0.3)
+packetsVCan1 = sock1.sniff(timeout=0.3)
+
+len(packetsVCan0) == 3
+len(packetsVCan1) == 0
+
+sock0.close()
+sock1.close()
+
+=bridge and sniff setup vcan0 and vcan1 package remove both directions
+~ needs_root linux
+
+sock0 = CANSocket(iface="vcan0")
+sock1 = CANSocket(iface="vcan1")
+
+def senderBothVCans():
+    sleep(0.2)
+    sock0.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+    sock0.send(CAN(flags='extended', identifier=0x10020000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+    sock0.send(CAN(flags='extended', identifier=0x10000000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+    sock0.send(CAN(flags='extended', identifier=0x10030000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+    sock0.send(CAN(flags='extended', identifier=0x10040000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+    sock0.send(CAN(flags='extended', identifier=0x10000000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+    sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+    sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+    sock1.send(CAN(flags='extended', identifier=0x10050000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+    sock1.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x04\x05\x06'))
+
+def bridgeWithRemovePackageInBothDirections():
+    bSock0 = CANSocket(iface="vcan0")
+    bSock1 = CANSocket(iface="vcan1")
+    def pnrA(pkt):
+        if(pkt.identifier == 0x10020000):
+            pkt = None
+        else:
+            pkt = pkt
+        return pkt
+    def pnrB(pkt):
+        if (pkt.identifier == 0x10050000):
+            pkt = None
+        else:
+            pkt = pkt
+        return pkt
+    bridge_and_sniff(if1=bSock0, if2=bSock1, xfrm12=pnrA, xfrm21=pnrB, timeout=0.5)
+    bSock0.close()
+    bSock1.close()
+
+threadBridge.join()
+threadBridge = threading.Thread(target=bridgeWithRemovePackageInBothDirections)
+threadBridge.start()
+threadSender.join()
+threadSender = threading.Thread(target=senderBothVCans)
+threadSender.start()
+
+packetsVCan0 = sock0.sniff(timeout=0.3)
+packetsVCan1 = sock1.sniff(timeout=0.3)
+
+len(packetsVCan0) == 3
+len(packetsVCan1) == 5
+
+sock0.close()
+sock1.close()
