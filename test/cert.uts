@@ -319,6 +319,8 @@ assert(x_pubNum.n == 19231328316532061413420367242571475005688288081144416166988
 x_pubNum.e == 0x10001
 
 = Cert class : Checking extensions
+x.show()
+x.tbsCertificate.show()
 assert(x.cA)
 assert(x.authorityKeyID == b'\xf3\xd8N\xde\x90\xf7\xe6]\xd2\xce3\xcd\\V\x8co\x97\x141K')
 not hasattr(x, "keyUsage")
