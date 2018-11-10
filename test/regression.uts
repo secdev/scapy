@@ -6435,28 +6435,28 @@ uto = TCP(b"\x00\x14\x00\x50\x00\x00\x00\x00\x00\x00\x00\x00\x60\x02\x20\x00\x00
 uto[TCP].options[0][0] == "UTO" and uto[TCP].options[0][1] == 0xffff
 
 = TCP options: SAck - basic build
-raw(TCP(options=[(5, "abcdefgh")])) == b"\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00\x80\x02 \x00\x00\x00\x00\x00\x05\nabcdefgh\x00\x00"
+raw(TCP(options=[(5, b"abcdefgh")])) == b"\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00\x80\x02 \x00\x00\x00\x00\x00\x05\nabcdefgh\x00\x00"
 
 = TCP options: SAck - basic dissection
 sack = TCP(b"\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00\x80\x02 \x00\x00\x00\x00\x00\x05\nabcdefgh\x00\x00")
 sack[TCP].options[0][0] == "SAck" and sack[TCP].options[0][1] == (1633837924, 1701209960)
 
 = TCP options: SAckOK - basic build
-raw(TCP(options=[('SAckOK', '')])) == b"\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00`\x02 \x00\x00\x00\x00\x00\x04\x02\x00\x00"
+raw(TCP(options=[('SAckOK', b'')])) == b"\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00`\x02 \x00\x00\x00\x00\x00\x04\x02\x00\x00"
 
 = TCP options: SAckOK - basic dissection
 sackok = TCP(b"\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00`\x02 \x00\x00\x00\x00\x00\x04\x02\x00\x00")
 sackok[TCP].options[0][0] == "SAckOK" and sackok[TCP].options[0][1] == b''
 
 = TCP options: EOL - basic build
-raw(TCP(options=[(0, '')])) == b"\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00`\x02 \x00\x00\x00\x00\x00\x00\x02\x00\x00"
+raw(TCP(options=[(0, '')])) == b"\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00`\x02 \x00\x00\x00\x00\x00\x00\x00\x00\x00"
 
 = TCP options: EOL - basic dissection
 eol = TCP(b"\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00`\x02 \x00\x00\x00\x00\x00\x00\x02\x00\x00")
 eol[TCP].options[0][0] == "EOL" and eol[TCP].options[0][1] == None
 
 = TCP options: malformed - build
-raw(TCP(options=[('unknown', '')])) == raw(TCP())
+raw(TCP(options=[('unknown', b'')])) == raw(TCP())
 
 = TCP options: malformed - dissection
 raw(TCP(b"\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00`\x02 \x00\x00\x00\x00\x00\x03\x00\x00\x00")) == b"\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00`\x02 \x00\x00\x00\x00\x00\x03\x00\x00\x00"
@@ -6473,8 +6473,7 @@ options
 if six.PY2:
     assert options == [('WScale', (32,)), ('NOP', ''), ('WScale', (145,)), ('WScale', (165,))]
 else:
-    assert options == [('TFO', (725644109, 3830853589)), ('Timestamp', (2604802746, 4137267106)), ('WScale', (227,)), ('Timestamp', (38044154, 828782501)), ('AltChkSum', (126, 40603))]
-
+    assert options in [[('TFO', (1822729092, 2707522527)), ('Mood', (b'\x19',)), ('WScale', (117,))], [('TFO', (725644109, 3830853589)), ('Timestamp', (2604802746, 4137267106)), ('WScale', (227,)), ('Timestamp', (38044154, 828782501)), ('AltChkSum', (126, 40603))]]
 
 = IP, TCP & UDP checksums (these tests highly depend on default values)
 pkt = IP() / TCP()

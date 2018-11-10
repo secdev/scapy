@@ -390,7 +390,7 @@ class TCPOptionsField(StrField):
                 if not isinstance(onum, int):
                     warning("Invalid option number [%i]" % onum)
                     continue
-                if not isinstance(oval, bytes):
+                if not isinstance(oval, (bytes, str)):
                     warning("option [%i] is not bytes." % onum)
                     continue
             opt += chb(onum) + chb(2 + len(oval)) + raw(oval)
