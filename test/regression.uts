@@ -6464,6 +6464,18 @@ raw(TCP(b"\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00`\x02 \x00\x00\x00\x00\x0
 = TCP options: MPTCP - basic build using bytes
 raw(TCP(options=[(30, b"\x10\x03\xc1\x1c\x95\x9b\x81R_1")])) == b"\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00\x80\x02 \x00\x00\x00\x00\x00\x1e\x0c\x10\x03\xc1\x1c\x95\x9b\x81R_1"
 
+= TCP random options
+pkt = TCP()
+random.seed(0x2807)
+pkt = fuzz(pkt)
+options = pkt.options._fix()
+options
+if six.PY2:
+    assert options == [('WScale', (32,)), ('NOP', ''), ('WScale', (145,)), ('WScale', (165,))]
+else:
+    assert options == [('TFO', (725644109, 3830853589)), ('Timestamp', (2604802746, 4137267106)), ('WScale', (227,)), ('Timestamp', (38044154, 828782501)), ('AltChkSum', (126, 40603))]
+
+
 = IP, TCP & UDP checksums (these tests highly depend on default values)
 pkt = IP() / TCP()
 bpkt = IP(raw(pkt))

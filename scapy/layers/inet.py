@@ -34,7 +34,7 @@ from scapy.fields import ConditionalField, IPField, BitField, BitEnumField, \
     PacketListField, ShortEnumField, SourceIPField, StrField, \
     StrFixedLenField, XByteField, XShortField, Emph
 from scapy.packet import Packet, bind_layers, NoPayload
-from scapy.volatile import RandShort, RandInt
+from scapy.volatile import RandShort, RandInt, RandBin, RandNum, VolatileValue
 from scapy.sendrecv import sr, sr1
 from scapy.plist import PacketList, SndRcvList
 from scapy.automaton import Automaton, ATMT
@@ -261,8 +261,8 @@ TCPOptions = (
      28: ("UTO", "!H"),
      34: ("TFO", "!II"),
      # RFC 3692
-     253: ("Experiment", "!HHHH"),
-     254: ("Experiment", "!HHHH"),
+     # 253: ("Experiment", "!HHHH"),
+     # 254: ("Experiment", "!HHHH"),
      },
     {"EOL": 0,
      "NOP": 1,
@@ -277,6 +277,42 @@ TCPOptions = (
      "UTO": 28,
      "TFO": 34,
      })
+
+
+class RandTCPOptions(VolatileValue):
+    def __init__(self, size=None):
+        if size is None:
+            size = RandNum(1, 5)
+        self.size = size
+
+    def _fix(self):
+        # Pseudo-Random amount of options
+        # Random ("NAME", fmt)
+        rand_patterns = [
+            random.choice(list(TCPOptions[0].values())[1:])
+            for _ in range(self.size)
+        ]
+        rand_vals = []
+        for oname, fmt in rand_patterns:
+            if fmt is None:
+                rand_vals.append((oname, b''))
+            else:
+                # Process the fmt arguments 1 by 1
+                structs = fmt[1:] if fmt[0] == "!" else fmt
+                rval = []
+                for stru in structs:
+                    stru = "!" + stru
+                    if "s" in stru or "p" in stru:  # str / chr
+                        v = bytes(RandBin(struct.calcsize(stru)))
+                    else:  # int
+                        _size = struct.calcsize(stru)
+                        v = random.randint(0, 2 ** (8 * _size) - 1)
+                    rval.append(v)
+                rand_vals.append((oname, tuple(rval)))
+        return rand_vals
+
+    def __bytes__(self):
+        return TCPOptionsField.i2m(None, None, self._fix())
 
 
 class TCPOptionsField(StrField):
@@ -320,9 +356,16 @@ class TCPOptionsField(StrField):
             x = x[olen:]
         return opt
 
+    def i2h(self, pkt, x):
+        if not x:
+            return []
+        return x
+
     def i2m(self, pkt, x):
         opt = b""
         for oname, oval in x:
+            # We check for a (0, b'') or (1, b'') option first
+            oname = {0: "EOL", 1: "NOP"}.get(oname, oname)
             if isinstance(oname, str):
                 if oname == "NOP":
                     opt += b"\x01"
@@ -344,14 +387,17 @@ class TCPOptionsField(StrField):
                     continue
             else:
                 onum = oname
-                if not isinstance(oval, (str, bytes)):
+                if not isinstance(onum, int):
+                    warning("Invalid option number [%i]" % onum)
+                    continue
+                if not isinstance(oval, bytes):
                     warning("option [%i] is not bytes." % onum)
                     continue
             opt += chb(onum) + chb(2 + len(oval)) + raw(oval)
-        return opt + b"\x00" * (3 - ((len(opt) + 3) % 4))
+        return opt + b"\x00" * (3 - ((len(opt) + 3) % 4))  # Padding
 
     def randval(self):
-        return []  # XXX
+        return RandTCPOptions()
 
 
 class ICMPTimeStampField(IntField):
@@ -564,7 +610,7 @@ class TCP(Packet):
                    ShortField("window", 8192),
                    XShortField("chksum", None),
                    ShortField("urgptr", 0),
-                   TCPOptionsField("options", [])]
+                   TCPOptionsField("options", "")]
 
     def post_build(self, p, pay):
         p += pay
