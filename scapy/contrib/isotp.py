@@ -583,20 +583,6 @@ class ISOTPSoftSocket(SuperSocket):
             warning('Provide a basecls ')
         self.basecls = basecls
 
-    def __del__(self):
-        """Close the socket and stop the receiving thread"""
-        self.can_socket.close()
-        self.rx_thread.stop()
-
-    def __enter__(self):
-        """Using the with statement is useful in unit tests executed on an
-        interactive shell, to make sure the receiver thread is stopped"""
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        """Close the socket and stop the receiving thread"""
-        self.rx_thread.stop()
-
     def close(self):
         """Close the socket and stop the receiving thread"""
         self.can_socket.close()

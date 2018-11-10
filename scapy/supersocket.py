@@ -118,6 +118,17 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
                 raise
         return inp, None
 
+    def __del__(self):
+        """Close the socket"""
+        self.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        """Close the socket"""
+        self.close()
+
 
 class L3RawSocket(SuperSocket):
     desc = "Layer 3 using Raw sockets (PF_INET/SOCK_RAW)"
