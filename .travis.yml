@@ -103,6 +103,12 @@ matrix:
             system_site_packages: true
           env:
             - SCAPY_SUDO=sudo SCAPY_USE_PCAPDNET=yes TOXENV=py27-pcapdnet_root,codecov
+        
+        - os: linux
+          sudo: required
+          python: 3.6
+          env:
+            - SCAPY_SUDO=sudo TOXENV=py36-isotp_kernel_module,codecov
 
         - os: osx
           language: generic
