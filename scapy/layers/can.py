@@ -12,12 +12,11 @@ Wireshark dissectors. See https://wiki.wireshark.org/CANopen
 import struct
 import binascii
 import scapy.modules.six as six
-from scapy.compat import raw
 from scapy.config import conf
 from scapy.data import DLT_CAN_SOCKETCAN
 from scapy.fields import FieldLenField, FlagsField, StrLenField, \
     ThreeBytesField, XBitField
-from scapy.packet import Packet, bind_layers, RawVal
+from scapy.packet import Packet, bind_layers
 from scapy.layers.l2 import CookedLinux
 
 __all__ = ["CAN", "rdcandump"]
@@ -62,38 +61,20 @@ class CAN(Packet):
             return CAN.inv_endianness(s)
         return s
 
-    def self_build(self, field_pos_list=None):
+    def post_dissect(self, s):
+        self.raw_packet_cache = None  # Reset packet to allow post_build
+        return s
+
+    def post_build(self, pkt, pay):
         """ Implements the swap-bytes functionality when building
 
         this is based on a copy of the Packet.self_build default method.
         The goal is to affect only the CAN layer data and keep
         under layers (e.g LinuxCooked) unchanged
         """
-        if self.raw_packet_cache is not None:
-            for fname, fval in six.iteritems(self.raw_packet_cache_fields):
-                if self.getfieldval(fname) != fval:
-                    self.raw_packet_cache = None
-                    self.raw_packet_cache_fields = None
-                    break
-            if self.raw_packet_cache is not None:
-                if conf.contribs['CAN']['swap-bytes']:
-                    return CAN.inv_endianness(self.raw_packet_cache)
-                return self.raw_packet_cache
-        p = b""
-        for f in self.fields_desc:
-            val = self.getfieldval(f.name)
-            if isinstance(val, RawVal):
-                sval = raw(val)
-                p += sval
-                if field_pos_list is not None:
-                    field_pos_list.append((f.name,
-                                           sval.encode('string_escape'),
-                                           len(p), len(sval)))
-            else:
-                p = f.addfield(self, p, val)
         if conf.contribs['CAN']['swap-bytes']:
-            return CAN.inv_endianness(p)
-        return p
+            return CAN.inv_endianness(pkt) + pay
+        return pkt + pay
 
     def extract_padding(self, p):
         return b'', p

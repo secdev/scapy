@@ -136,8 +136,8 @@ class SourceMACField(MACField):
             if iff:
                 try:
                     x = get_if_hwaddr(iff)
-                except Exception:
-                    pass
+                except Exception as e:
+                    warning("Could not get the source MAC: %s" % e)
             if x is None:
                 x = "00:00:00:00:00:00"
         return MACField.i2h(self, pkt, x)
