@@ -371,11 +371,14 @@ Set line = wmi.Get("Win32_Service.Name='" & serviceName & "'")
 """ % (cmd[1], parsed_command), "@")
 
     while True:
-        yield [None if fld is None else
-               _VBS_WMI_OUTPUT.get(cmd[1], {}).get(fld, lambda x: x)(
-                   next(values).strip()
-               )
-               for fld in fields]
+        try:
+            yield [None if fld is None else
+                   _VBS_WMI_OUTPUT.get(cmd[1], {}).get(fld, lambda x: x)(
+                       next(values).strip()
+                   )
+                   for fld in fields]
+        except (StopIteration, RuntimeError):
+            return
 
 
 def exec_query(cmd, fields):
@@ -514,16 +517,19 @@ def get_windows_if_list():
         # Name                      InterfaceDescription                    ifIndex Status       MacAddress             LinkSpeed  # noqa: E501
         # ----                      --------------------                    ------- ------       ----------             ---------  # noqa: E501
         # Ethernet                  Killer E2200 Gigabit Ethernet Control...      13 Up           D0-50-99-56-DD-F9         1 Gbps  # noqa: E501
+        # It is normal that it is in this order
         query = exec_query(['Get-NetAdapter'],
                            ['InterfaceDescription', 'InterfaceIndex', 'Name',
-                            'InterfaceGuid', 'MacAddress', 'InterfaceAlias'])  # It is normal that it is in this order  # noqa: E501
+                            'InterfaceGuid', 'MacAddress', 'InterfaceAlias'])
     else:
         query = exec_query(['Get-WmiObject', 'Win32_NetworkAdapter'],
                            ['Name', 'InterfaceIndex', 'InterfaceDescription',
                             'GUID', 'MacAddress', 'NetConnectionID'])
     return [
         iface for iface in
-        (dict(zip(['name', 'win_index', 'description', 'guid', 'mac', 'netid'], line))  # noqa: E501
+        (dict(
+            zip(['name', 'win_index', 'description', 'guid', 'mac', 'netid'],
+                line))
          for line in query)
         if _validate_interface(iface)
     ]

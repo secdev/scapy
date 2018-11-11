@@ -30,6 +30,12 @@ matrix:
             - TOXENV=py36-linux_non_root,codecov
 
         - os: linux
+          dist: xenial
+          python: 3.7
+          env:
+            - TOXENV=py37-linux_non_root,codecov
+
+        - os: linux
           python: pypy
           env:
             - TOXENV=pypy-linux_non_root,codecov
@@ -82,6 +88,13 @@ matrix:
           python: 3.6
           env:
             - TOXENV=py36-linux_root,codecov
+
+        - language: python
+          sudo: required
+          dist: xenial
+          python: 3.7
+          env:
+            - TOXENV=py37-linux_root,codecov
 
         - os: linux
           sudo: required

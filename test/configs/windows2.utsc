@@ -26,6 +26,9 @@
     "mock_read_routes_bsd",
     "appveyor_only",
     "open_ssl_client",
-    "ipv6"
+    "ipv6",
+    "manufdb",
+    "tcpdump",
+    "tshark"
   ]
 }

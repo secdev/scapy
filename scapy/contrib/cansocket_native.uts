@@ -1,5 +1,5 @@
 % Regression tests for nativecansocket
-~ python3_only
+~ python3_only vcan_socket
 
 # More information at http://www.secdev.org/projects/UTscapy/
 
