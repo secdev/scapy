@@ -16,6 +16,7 @@ conf.contribs['CANSocket'] = {'use-python-can': False}
 from scapy.contrib.cansocket_native import *
 conf.contribs['CAN'] = {'swap-bytes': False}
 
+
 = Setup string for vcan
 ~ conf command
     bashCommand = "/bin/bash -c 'sudo modprobe vcan; sudo ip link add name vcan0 type vcan; sudo ip link set dev vcan0 up'"
@@ -303,6 +304,7 @@ rx = None
 rx = srcan(tx, iface="vcan0", receive_own_messages=True, timeout=1)
 tx == rx[0][0][1]
 
++ bridge and sniff tests
 
 = bridge and sniff setup vcan1 package forwarding
 ~ needs_root linux
