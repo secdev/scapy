@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
 from scapy.fields import ByteField, XByteField, XShortField, StrField, BitEnumField, PacketListField, \
-    XBitField, XByteEnumField
+    XBitField, XByteEnumField, PacketLenField
 from scapy.packet import Packet
 
 
@@ -73,8 +73,8 @@ class Service02(Packet):
 class Service03(Packet):
     name = "S3_RequestDTCs"
     fields_desc = [
-        PacketListField('DTCs', [], DTC, count_from=lambda pkt: len(pkt.original))
-        # StrField('data', b'')
+        ByteField('count', b''),
+        PacketListField('DTCs', [], DTC, count_from=lambda pkt: pkt.count)
     ]
 
 
@@ -99,8 +99,8 @@ class Service06(Packet):
 class Service07(Packet):
     name = "S7_RequestPendingDTCs"
     fields_desc = [
-        PacketListField('DTCs', [], DTC, count_from=lambda pkt: len(pkt.original))
-        # StrField('data', b'')
+        ByteField('count', b''),
+        PacketListField('DTCs', [], DTC, count_from=lambda pkt: pkt.count)
     ]
 
 

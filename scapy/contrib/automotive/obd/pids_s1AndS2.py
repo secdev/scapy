@@ -285,56 +285,64 @@ class Pid13_S1AndS2(Packet):
 class Pid14_S1AndS2(Packet):
     name = "PID_14_OxygenSensor1"
     fields_desc = [
-        StrFixedLenField('data', b'', 2)
+        XByteField('oxygenSensorOutputVoltage', b''),
+        XByteField('shortTermFuelTrim', b'')
     ]
 
 
 class Pid15_S1AndS2(Packet):
     name = "PID_15_OxygenSensor2"
     fields_desc = [
-        StrFixedLenField('data', b'', 2)
+        XByteField('oxygenSensorOutputVoltage', b''),
+        XByteField('shortTermFuelTrim', b'')
     ]
 
 
 class Pid16_S1AndS2(Packet):
     name = "PID_16_OxygenSensor3"
     fields_desc = [
-        StrFixedLenField('data', b'', 2)
+        XByteField('oxygenSensorOutputVoltage', b''),
+        XByteField('shortTermFuelTrim', b'')
     ]
 
 
 class Pid17_S1AndS2(Packet):
     name = "PID_17_OxygenSensor4"
     fields_desc = [
-        StrFixedLenField('data', b'', 2)
+        XByteField('oxygenSensorOutputVoltage', b''),
+        XByteField('shortTermFuelTrim', b'')
     ]
 
 
 class Pid18_S1AndS2(Packet):
     name = "PID_18_OxygenSensor5"
     fields_desc = [
-        StrFixedLenField('data', b'', 2)
+        XByteField('oxygenSensorOutputVoltage', b''),
+        XByteField('shortTermFuelTrim', b'')
     ]
 
 
 class Pid19_S1AndS2(Packet):
     name = "PID_19_OxygenSensor6"
     fields_desc = [
-        StrFixedLenField('data', b'', 2)
+        XByteField('oxygenSensorOutputVoltage', b''),
+        XByteField('shortTermFuelTrim', b'')
     ]
 
 
 class Pid1A_S1AndS2(Packet):
     name = "PID_1A_OxygenSensor7"
     fields_desc = [
-        StrFixedLenField('data', b'', 2)
+        XByteField('oxygenSensorOutputVoltage', b''),
+        XByteField('shortTermFuelTrim', b'')
     ]
 
 
 class Pid1B_S1AndS2(Packet):
     name = "PID_1B_OxygenSensor8"
     fields_desc = [
-        StrFixedLenField('data', b'', 2)
+        XByteField('oxygenSensorOutputVoltage', b''),
+        XByteField('shortTermFuelTrim', b'')
     ]
 
 
