@@ -38,21 +38,26 @@ class OBD(Packet):
     ]
 
     def hashret(self):
-        val = self.service & ~0x40
-        if hasattr(self, 'pid'):
-            val += self.pid
+        # Negative response
+        if self.service == 0x7f:
+            return self.requestedService
 
-        return val
+        return self.service & ~0x40
 
     def answers(self, other):
         """DEV: true if self is an answer from other"""
         if other.__class__ == self.__class__:
             if hasattr(other, 'pid') and hasattr(self, 'pid'):
                 if other.pid != self.pid:
-                    return 0
+                    return False
+
+            # Negative response
+            if self.service == 0x7F and self.requestedService == other.service:
+                return True
 
             return (other.service + 0x40) == self.service
-        return 0
+
+        return True
 
 
 # Service Bindings
@@ -418,6 +423,8 @@ bind_layers(Service02, PidA5_S1AndS2, pid=0xA5)
 bind_layers(Service02, PidA6_S1AndS2, pid=0xA6)
 bind_layers(Service02, PidC0_S1AndS2, pid=0xC0)
 
+
+# Service 09
 
 bind_layers(Service09, Pid00_S9, pid=0x00)
 bind_layers(Service09, Pid01_S9, pid=0x01)
