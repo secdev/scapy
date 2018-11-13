@@ -525,6 +525,16 @@ class TLS_Ext_SupportedVersions(TLS_Ext_Unknown):
                                   length_from=lambda pkt: pkt.versionslen)]
 
 
+class TLS_Ext_SupportedVersions_Server(TLS_Ext_Unknown):
+    name = "TLS Extension - Supported Versions"
+    fields_desc = [ShortEnumField("type", 0x2b, _tls_ext),
+                   ShortField("len", None),
+                   FieldListField("versions", [],
+                                  ShortEnumField("version", None,
+                                                 _tls_version),
+                                  length_from=lambda pkt: 2)]
+
+
 class TLS_Ext_Cookie(TLS_Ext_Unknown):
     name = "TLS Extension - Cookie"
     fields_desc = [ShortEnumField("type", 0x2c, _tls_ext),
@@ -688,12 +698,15 @@ class _ExtensionsField(StrLenField):
             t = struct.unpack("!H", m[:2])[0]
             tmp_len = struct.unpack("!H", m[2:4])[0]
             cls = _tls_ext_cls.get(t, TLS_Ext_Unknown)
+            from scapy.layers.tls.handshake import TLSServerHello
             if cls is TLS_Ext_KeyShare:
                 from scapy.layers.tls.keyexchange_tls13 import _tls_ext_keyshare_cls  # noqa: E501
                 cls = _tls_ext_keyshare_cls.get(pkt.msgtype, TLS_Ext_Unknown)
             elif cls is TLS_Ext_PreSharedKey:
                 from scapy.layers.tls.keyexchange_tls13 import _tls_ext_presharedkey_cls  # noqa: E501
                 cls = _tls_ext_presharedkey_cls.get(pkt.msgtype, TLS_Ext_Unknown)  # noqa: E501
+            elif self.owners[0] is TLSServerHello and cls is TLS_Ext_SupportedVersions:  # noqa: E501
+                cls = TLS_Ext_SupportedVersions_Server
             res.append(cls(m[:tmp_len + 4], tls_session=pkt.tls_session))
             m = m[tmp_len + 4:]
         return res
