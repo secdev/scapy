@@ -1,6 +1,11 @@
 #! /usr/bin/env python
 
-from .pids_s1AndS2 import *
+from .pids_s1AndS2.pids_00_1F import *
+from .pids_s1AndS2.pids_20_3F import *
+from .pids_s1AndS2.pids_40_5F import *
+from .pids_s1AndS2.pids_60_7F import *
+from .pids_s1AndS2.pids_80_9F import *
+from .pids_s1AndS2.pids_A0_C0 import *
 from .pids_s9 import *
 from .services import *
 from scapy.packet import Packet, bind_layers, bind_bottom_up
