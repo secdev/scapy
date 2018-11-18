@@ -206,7 +206,7 @@ class _AEADCipher(six.with_metaclass(_AEADCipherMetaclass, object)):
                 P = self._cipher.decrypt(self._get_nonce(), C + mac, A)
             except InvalidTag:
                 raise AEADTagError(nonce_explicit_str,
-                                   "<unauthenticated data>",
+                                   b"<unauthenticated data>",
                                    mac)
         return nonce_explicit_str, P, mac
 
@@ -366,7 +366,7 @@ class _AEADCipher_TLS13(six.with_metaclass(_AEADCipherMetaclass, object)):
                         A += struct.pack("!H", len(C))
                     P = self._cipher.decrypt(self._get_nonce(seq_num), C + mac, A)  # noqa: E501
             except InvalidTag:
-                raise AEADTagError("<unauthenticated data>", mac)
+                raise AEADTagError(b"<unauthenticated data>", mac)
         return P, mac
 
     def snapshot(self):
@@ -400,8 +400,8 @@ if conf.crypto_valid:
         pc_cls = algorithms.AES
         pc_cls_mode = modes.GCM
         key_len = 16
-        fixed_iv_len = 12
         tag_len = 16
+        fixed_iv_len = 12
 
     class Cipher_AES_256_GCM_TLS13(Cipher_AES_128_GCM_TLS13):
         key_len = 32

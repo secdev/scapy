@@ -23,11 +23,12 @@ from scapy.packet import Raw, Padding, bind_layers
 from scapy.layers.inet import TCP
 from scapy.layers.tls.session import _GenericTLSSessionInheritance
 from scapy.layers.tls.handshake import (_tls_handshake_cls, _TLSHandshake,
-                                        TLS13ServerHello)
+                                        TLSServerHello)
 from scapy.layers.tls.basefields import (_TLSVersionField, _tls_version,
                                          _TLSIVField, _TLSMACField,
                                          _TLSPadField, _TLSPadLenField,
-                                         _TLSLengthField, _tls_type)
+                                         _TLSLengthField, _tls_type,
+                                         _tls_type_13)
 from scapy.layers.tls.crypto.pkcs1 import pkcs_i2osp
 from scapy.layers.tls.crypto.cipher_aead import AEADTagError
 from scapy.layers.tls.crypto.cipher_stream import Cipher_NULL
@@ -195,7 +196,7 @@ class _TLSMsgListField(PacketListField):
             res += self.i2m(pkt, p)
         if (isinstance(pkt, _GenericTLSSessionInheritance) and
             _tls_version_check(pkt.tls_session.tls_version, 0x0304) and
-                not isinstance(pkt, TLS13ServerHello)):
+                not isinstance(pkt, TLSServerHello)):
             return s + res
         if not pkt.type:
             pkt.type = 0
@@ -282,12 +283,12 @@ class TLS(_GenericTLSSessionInheritance):
         responsible for low-minded extensibility choices.
         """
         if _pkt and len(_pkt) >= 2:
-            byte0 = orb(_pkt[0])
-            byte1 = orb(_pkt[1])
-            if (byte0 not in _tls_type) or (byte1 != 3):
+            type_ = orb(_pkt[0])
+            version_ = orb(_pkt[1])
+            if (type_ not in _tls_type) or (version_ != 3):
                 from scapy.layers.tls.record_sslv2 import SSLv2
                 return SSLv2
-            else:
+            elif type_ in _tls_type_13:
                 s = kargs.get("tls_session", None)
                 if s and _tls_version_check(s.tls_version, 0x0304):
                     if s.rcs and not isinstance(s.rcs.cipher, Cipher_NULL):
@@ -476,7 +477,8 @@ class TLS(_GenericTLSSessionInheritance):
             # Authenticated encryption
             # crypto/cipher_aead.py prints a warning for integrity failure
             if (conf.crypto_valid_advanced and
-                    isinstance(self.tls_session.rcs.cipher, Cipher_CHACHA20_POLY1305)):  # noqa: E501
+                isinstance(self.tls_session.rcs.cipher,
+                           Cipher_CHACHA20_POLY1305)):
                 iv = b""
                 cfrag, mac = self._tls_auth_decrypt(hdr, efrag)
             else:

@@ -90,7 +90,7 @@ class TLS13(_GenericTLSSessionInheritance):
     __slots__ = ["deciphered_len"]
     name = "TLS 1.3"
     fields_desc = [ByteEnumField("type", 0x17, _tls_type),
-                   _TLSVersionField("version", 0x0301, _tls_version),
+                   _TLSVersionField("version", 0x0303, _tls_version),
                    _TLSLengthField("len", None),
                    _TLSInnerPlaintextField("inner", TLSInnerPlaintext()),
                    _TLSMACField("auth_tag", None)]
