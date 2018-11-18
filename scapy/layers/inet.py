@@ -414,7 +414,9 @@ class IP(Packet, IPTools):
                    # IPField("src", "127.0.0.1"),
                    Emph(SourceIPField("src", "dst")),
                    Emph(DestIPField("dst", "127.0.0.1")),
-                   PacketListField("options", [], IPOption, length_from=lambda p:p.ihl * 4 - 20)]  # noqa: E501
+                   PacketListField("options", [], IPOption, length_from=(
+                                   lambda p: max(0, p.ihl * 4 - 20)))
+                   ]
 
     def post_build(self, p, pay):
         ihl = self.ihl

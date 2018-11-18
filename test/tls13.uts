@@ -1,15 +1,19 @@
-% Tests for TLS 1.3
+% Read a TLS 1.3 session
 #
 # Try me with :
 # bash test/run_tests -t test/tls13.uts -F
 
 
-+ Read a TLS 1.3 session
 # /!\ These tests will not catch our 'INTEGRITY CHECK FAILED's. /!\
 # We deem the knowledge of the plaintext sufficient for passing...
 
-= Reading TLS 1.3 test session (vectors 5 from draft-ietf-tls-tls13-vectors-00)
+# https://tools.ietf.org/html/draft-ietf-tls-tls13-vectors-07#section-5
+
++ Reading TLS 1.3 test session (vectors 5 from draft-ietf-tls-tls13-vectors-07)
 ~ crypto
+
+= Load utils
+
 import binascii
 from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePrivateNumbers
 from cryptography.hazmat.backends import default_backend
@@ -17,250 +21,330 @@ from cryptography.hazmat.backends import default_backend
 def clean(s):
     return binascii.unhexlify(''.join(c for c in s if c.isalnum()))
 
-clientHello1 = clean("""
-         16030100ae010000 aa0303d9e9898df6
-         3d43adbe64a2634f 0b63bcdc4019a3e5 26bc013a6042e05b
-         14555c0000061301 130313020100007b 0000000b00090000
-         06736572766572ff 01000100000a0008 0006001d00170018
-         002800260024001d 002005efa94d13f5 adcd14219379d5a3
-         7dbce4721d9294e5 72c6651aeb761838 815b002b0003027f
-         12000d0020001e04 0305030603020308 0408050806040105
-         0106010201040205 0206020202002d00 020101
-         """)
-t = TLS(clientHello1)
+= Dissect ClientHello : The client initiates a handshake with an X25519
 
-helloRetryRequest = clean("""
-         160301000e060000 0a7f120006002800 020017
+clientHello1 = clean("""
+         16 03 01 00 b4 01 00 00 b0 03 03 b0
+         b1 c5 a5 aa 37 c5 91 9f 2e d1 d5 c6 ff f7 fc b7 84 97 16 94 5a
+         2b 8c ee 92 58 a3 46 67 7b 6f 00 00 06 13 01 13 03 13 02 01 00
+         00 81 00 00 00 0b 00 09 00 00 06 73 65 72 76 65 72 ff 01 00 01
+         00 00 0a 00 08 00 06 00 1d 00 17 00 18 00 33 00 26 00 24 00 1d
+         00 20 e8 e8 e3 f3 b9 3a 25 ed 97 a1 4a 7d ca cb 8a 27 2c 62 88
+         e5 85 c6 48 4d 05 26 2f ca d0 62 ad 1f 00 2b 00 03 02 03 04 00
+         0d 00 20 00 1e 04 03 05 03 06 03 02 03 08 04 08 05 08 06 04 01
+         05 01 06 01 02 01 04 02 05 02 06 02 02 02 00 2d 00 02 01 01 00
+         1c 00 02 40 01
          """)
-t = TLS(helloRetryRequest, tls_session=t.tls_session.mirror())
+t1 = TLS(clientHello1)
+
+= Dissect ServerHello: The server however prefers P-256 [FIPS186] and sends a HelloRetryRequest
+
+# Note:  The HelloRetryRequest uses the same handshake message type as
+# a ServerHello and so is labeled as ServerHello here.
+helloRetryRequest = clean("""
+         16 03 03 00 b0 02 00 00 ac 03 03 cf
+         21 ad 74 e5 9a 61 11 be 1d 8c 02 1e 65 b8 91 c2 a2 11 16 7a bb
+         8c 5e 07 9e 09 e2 c8 a8 33 9c 00 13 01 00 00 84 00 33 00 02 00
+         17 00 2c 00 74 00 72 71 dc d0 4b b8 8b c3 18 91 19 39 8a 00 00
+         00 00 ee fa fc 76 c1 46 b8 23 b0 96 f8 aa ca d3 65 dd 00 30 95
+         3f 4e df 62 56 36 e5 f2 1b b2 e2 3f cc 65 4b 1b 5b 40 31 8d 10
+         d1 37 ab cb b8 75 74 e3 6e 8a 1f 02 5f 7d fa 5d 6e 50 78 1b 5e
+         da 4a a1 5b 0c 8b e7 78 25 7d 16 aa 30 30 e9 e7 84 1d d9 e4 c0
+         34 22 67 e8 ca 0c af 57 1f b2 b7 cf f0 f9 34 b0 00 2b 00 02 03
+         04
+         """)
+t2 = TLS(helloRetryRequest, tls_session=t1.tls_session.mirror())
+
+= Dissect ClientHello again, this time using P-256
 
 secp256r1_client_privkey = clean("""
-         11fa48d153c917ff d89dff13140760a1
-         36265d399fa9f10e 2d766d42a6c84e90
+         ab 54 73 46 7e 19 34 6c eb 0a 04 14 e4
+         1d a2 1d 4d 24 45 bc 30 25 af e9 7c 4e 8d c8 d5 13 da 39
          """)
 clientHello2 = clean("""
-         16030100cf010000 cb0303d9e9898df6
-         3d43adbe64a2634f 0b63bcdc4019a3e5 26bc013a6042e05b
-         14555c0000061301 130313020100009c 0000000b00090000
-         06736572766572ff 01000100000a0008 0006001d00170018
-         0028004700450017 0041041e5a785f54 17fb18db42938435
-         34a5c0ba6e744baa 6846d0b32f4e9ea3 922724a08f2adb09
-         f071f81402e7fd8c a33b76abe1cd556f d3e8fe20e0fd2e82
-         02f969002b000302 7f12000d0020001e 0403050306030203
-         0804080508060401 0501060102010402 050206020202002d 00020101
+         16 03 03 02 00 01 00 01 fc 03 03 b0
+         b1 c5 a5 aa 37 c5 91 9f 2e d1 d5 c6 ff f7 fc b7 84 97 16 94 5a
+         2b 8c ee 92 58 a3 46 67 7b 6f 00 00 06 13 01 13 03 13 02 01 00
+         01 cd 00 00 00 0b 00 09 00 00 06 73 65 72 76 65 72 ff 01 00 01
+         00 00 0a 00 08 00 06 00 1d 00 17 00 18 00 33 00 47 00 45 00 17
+         00 41 04 a6 da 73 92 ec 59 1e 17 ab fd 53 59 64 b9 98 94 d1 3b
+         ef b2 21 b3 de f2 eb e3 83 0e ac 8f 01 51 81 26 77 c4 d6 d2 23
+         7e 85 cf 01 d6 91 0c fb 83 95 4e 76 ba 73 52 83 05 34 15 98 97
+         e8 06 57 80 00 2b 00 03 02 03 04 00 0d 00 20 00 1e 04 03 05 03
+         06 03 02 03 08 04 08 05 08 06 04 01 05 01 06 01 02 01 04 02 05
+         02 06 02 02 02 00 2c 00 74 00 72 71 dc d0 4b b8 8b c3 18 91 19
+         39 8a 00 00 00 00 ee fa fc 76 c1 46 b8 23 b0 96 f8 aa ca d3 65
+         dd 00 30 95 3f 4e df 62 56 36 e5 f2 1b b2 e2 3f cc 65 4b 1b 5b
+         40 31 8d 10 d1 37 ab cb b8 75 74 e3 6e 8a 1f 02 5f 7d fa 5d 6e
+         50 78 1b 5e da 4a a1 5b 0c 8b e7 78 25 7d 16 aa 30 30 e9 e7 84
+         1d d9 e4 c0 34 22 67 e8 ca 0c af 57 1f b2 b7 cf f0 f9 34 b0 00
+         2d 00 02 01 01 00 1c 00 02 40 01 00 15 00 af 00 00 00 00 00 00
+         00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+         00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+         00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+         00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+         00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+         00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+         00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+         00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+         00
          """)
-t = TLS(clientHello2, tls_session=t.tls_session.mirror())
-pubnum = t.tls_session.tls13_client_pubshares["secp256r1"].public_numbers()
+t3 = TLS(clientHello2)
+pubnum = t3.tls_session.tls13_client_pubshares["secp256r1"].public_numbers()
 privnum = EllipticCurvePrivateNumbers(pkcs_os2ip(secp256r1_client_privkey), pubnum)
 privkey = privnum.private_key(default_backend())
-t.tls_session.tls13_client_privshares["secp256r1"] = privkey
+t3.tls_session.tls13_client_privshares["secp256r1"] = privkey
+
+= Dissect ServerHello answer
 
 #secp256r1_server_privkey = clean("""
-#         ff265d2062c70725 ca22513e1e6841ff
-#         475e8a00421f0818 186edd1c0080cc6a
+#        11 31 54 5d 0b af 79 dd ce 9b 87 f0 69 45 78 1a
+#        57 dd 18 ef 37 8d cd 20 60 f8 f9 a5 69 02 7e d8
 #         """)
 serverHello = clean("""
-         1603010073020000 6f7f1296ff693075
-         d8465651a9c28773 f5496542206ba390 199b9c997545d9a1
-         2666151301004900 2800450017004104 8a4d09cde58dbc04
-         1955b9a41a43c169 6dc5429ffa96f9cd 194a863ac782f181
-         59f072b4f610215d 86407dd7368b754a b2e64f2c1b3f9d45
-         7c264e2b1781a36b
+         16 03 03 00 7b 02 00 00 77 03 03 bb
+         34 1d 84 7f d7 89 c4 7c 38 71 72 dc 0c 9b f1 47 fc ca cb 50 43
+         d8 6c a4 c5 98 d3 ff 57 1b 98 00 13 01 00 00 4f 00 33 00 45 00
+         17 00 41 04 58 3e 05 4b 7a 66 67 2a e0 20 ad 9d 26 86 fc c8 5b
+         5a d4 1a 13 4a 0f 03 ee 72 b8 93 05 2b d8 5b 4c 8d e6 77 6f 5b
+         04 ac 07 d8 35 40 ea b3 e3 d9 c5 47 bc 65 28 c4 31 7d 29 46 86
+         09 3a 6c ad 7d 00 2b 00 02 03 04
          """)
-t = TLS(serverHello, tls_session=t.tls_session.mirror())
+t4 = TLS(serverHello, tls_session=t3.tls_session.mirror())
+
+= Dissect Server Encoded certificate
 
 serverEncHS = clean("""
-         170301029081de4f cfd700da4573d570
-         5942f14a11e569aa 9aacc95260520102 6f74f2b2ad6abe08
-         7b53a4940ff94208 9e02d3159b1c6f11 75d7fcb51abad6fd
-         d4f7ff4af6590b47 16c1d90e1031e1a1 e32079f531108c6b
-         9f79d6120319e0a3 73010e82d780a8f9 c3fdf8474840cdb6
-         7e4943d3808a27cd 5d9375c766a95ef4 8393c235d83ad26a
-         20628671793f75df aa0be78b11fed206 6506d19a769d9d32
-         adc0437784994359 ef5e452609353670 1c46004cf6fc252e
-         546e797238c73b94 b073461158301f78 1498917c32dc0ece
-         658a53790c667397 f7744775c2bef907 b5f7d5677b2e57fe
-         7c4bfd43c7ad1ee4 6fd400c3d3c3c05f e8775f055263e98a
-         692b49a818d0f698 4400c1db2f429fa8 9fb61d523398e1d0
-         2bc5c393027146c0 f326032d18cb8283 473f2b6d554df942
-         c7b1a0050694c7b2 bf31a816f7ff77f1 d7db873dbb6e4646
-         acabfa73c317a34c e6212a3469f549e6 cde71ab229a6f220
-         acda60832b510663 02a23d02c734bd5e 71b04fb248ca47ba
-         0c7b1fd28fee9b5d 86e6b1a6a2a1a43e 3831210519f54134
-         c96486d11ef3125f 74969785690487e0 aa5c0a310ebf9d31
-         95ec5543af8a6ffb 710eb0a90285960d c1ccdc10ecee9669
-         9171e97eae526a17 205012ab6f262e44 31ae9a70ff2ed7bd
-         966ef6bd4563f56a 7a14970dcabf97ae 7e4354db1ea27548
-         c55c11542ad07bcd 6f47a7143b86c4e6 678ce7dc6d51a1b7
-         75687644d6526efa 3c864f592819e7b7 f9f1bbc02ed8821a
-         e66019b240b41f5e ebf9475069700030 7122f7c8a8d6c0da
-         a264c63183238d72 0eacb86879fab9ba 8a673c51a52c8284
-         75e3211223cd2238 bd8b8a934af3e4dd e10e788df23ad6d8
-         51d68b78082ac667 a854356415e7858b e526307332990d8c
-         c38a5dc4cfc22a2c a2bdd9126a2ce13d 7015264921
+         17 03 03 02 96 99 be e2 0b af 5b 7f
+         c7 27 bf ab 62 23 92 8a 38 1e 6d 0c f9 c4 da 65 3f 9d 2a 7b 23
+         f7 de 11 cc e8 42 d5 cf 75 63 17 63 45 0f fb 8b 0c c1 d2 38 e6
+         58 af 7a 12 ad c8 62 43 11 4a b1 4a 1d a2 fa e4 26 21 ce 48 3f
+         b6 24 2e ab fa ad 52 56 6b 02 b3 1d 2e dd ed ef eb 80 e6 6a 99
+         00 d5 f9 73 b4 0c 4f df 74 71 9e cf 1b 68 d7 f9 c3 b6 ce b9 03
+         ca 13 dd 1b b8 f8 18 7a e3 34 17 e1 d1 52 52 2c 58 22 a1 a0 3a
+         d5 2c 83 8c 55 95 3d 61 02 22 87 4c ce 8e 17 90 b2 29 a2 aa 0b
+         53 c8 d3 77 ee 72 01 82 95 1d c6 18 1d c5 d9 0b d1 f0 10 5e d1
+         e8 4a a5 f7 59 57 c6 66 18 97 07 9e 5e a5 00 74 49 e3 19 7b dc
+         7c 9b ee ed dd ea fd d8 44 af a5 c3 15 ec fe 65 e5 76 af e9 09
+         81 28 80 62 0e c7 04 8b 42 d7 f5 c7 8d 76 f2 99 d6 d8 25 34 bd
+         d8 f5 12 fe bc 0e d3 81 4a ca 47 0c d8 00 0d 3e 1c b9 96 2b 05
+         2f bb 95 0d f6 83 a5 2c 2b a7 7e d3 71 3b 12 29 37 a6 e5 17 09
+         64 e2 ab 79 69 dc d9 80 b3 db 9b 45 8d a7 60 31 24 d6 dc 00 5e
+         4d 6e 04 b4 d0 c4 ba f3 27 5d b8 27 db ba 0a 6d b0 96 72 17 1f
+         c0 57 b3 85 1d 7e 02 68 41 e2 97 8f bd 23 46 bb ef dd 03 76 bb
+         11 08 fe 9a cc 92 18 9f 56 50 aa 5e 85 d8 e8 c7 b6 7a c5 10 db
+         a0 03 d3 d7 e1 63 50 bb 66 d4 50 13 ef d4 4c 9b 60 7c 0d 31 8c
+         4c 7d 1a 1f 5c bc 57 e2 06 11 80 4e 37 87 d7 b4 a4 b5 f0 8e d8
+         fd 70 bd ae ad e0 22 60 b1 2a b8 42 ef 69 0b 4a 3e e7 91 1e 84
+         1b 37 4e cd 5e bb bc 2a 54 d0 47 b6 00 33 6d d7 d0 c8 8b 4b c1
+         0e 58 ee 6c b6 56 de 72 47 fa 20 d8 e9 1d eb 84 62 86 08 cf 80
+         61 5b 62 e9 6c 14 91 c7 ac 37 55 eb 69 01 40 5d 34 74 fe 1a c7
+         9d 10 6a 0c ee 56 c2 57 7f c8 84 80 f9 6c b6 b8 c6 81 b7 b6 8b
+         53 c1 46 09 39 08 f3 50 88 81 75 bd fb 0b 1e 31 ad 61 e3 0b a0
+         ad fe 6d 22 3a a0 3c 07 83 b5 00 1a 57 58 7c 32 8a 9a fc fc fb
+         97 8d 1c d4 32 8f 7d 9d 60 53 0e 63 0b ef d9 6c 0c 81 6e e2 0b
+         01 00 76 8a e2 a6 df 51 fc 68 f1 72 74 0a 79 af 11 39 8e e3 be
+         12 52 49 1f a9 c6 93 47 9e 87 7f 94 ab 7c 5f 8c ad 48 02 03 e6
+         ab 7b 87 dd 71 e8 a0 72 91 13 df 17 f5 ee e8 6c e1 08 d1 d7 20
+         07 ec 1c d1 3c 85 a6 c1 49 62 1e 77 b7 d7 8d 80 5a 30 f0 be 03
+         0c 31 5e 54
          """)
-t = TLS(serverEncHS, tls_session=t.tls_session)
+t5 = TLS(serverEncHS, tls_session=t4.tls_session)
+
+= Dissect Client Finished
 
 clientFinished = clean("""
-         170301003543adad e592362412fb77d7
-         28b181c01b77cd62 a661e4125e6f9851 826e418f4c292ec6
-         3254e8b0342d65db 8a7f074eed527ea6 98a6
+         17 03 03 00 35 d7 4f 19 23 c6 62 fd
+         34 13 7c 6f 50 2f 3d d2 b9 3d 95 1d 1b 3b c9 7e 42 af e2 3c 31
+         ab ea 92 fe 91 b4 74 99 9e 85 e3 b7 91 ce 25 2f e8 c3 e9 f9 39
+         a4 12 0c b2
          """)
-t = TLS(clientFinished, tls_session=t.tls_session.mirror())
+t6 = TLS(clientFinished, tls_session=t5.tls_session.mirror())
+
+= Dissect Client alert record
 
 clientRecord = clean("""
-         17030100131ef5c9 e7205f31a1edf9b1
-         3600fec1271e4f5d
+         17 03 03 00 13 2e a6 cd f7 49 19 60
+         23 e2 b3 a4 94 91 69 55 36 42 60 47
          """)
-t = TLS(clientRecord, tls_session=t.tls_session)
+t7 = TLS(clientRecord, tls_session=t6.tls_session)
+
+= Dissect Server alert record
 
 serverRecord = clean("""
-         170301001350ff6e 907c508b6b191ff6
-         094faf4c0b32d6a8
+         17 03 03 00 13 51 9f c5 07 5c b0 88
+         43 49 75 9f f9 ef 6f 01 1b b4 c6 f2
          """)
-t = TLS(serverRecord, tls_session=t.tls_session.mirror())
+t8 = TLS(serverRecord, tls_session=t7.tls_session.mirror())
 
-alert = t.inner.msg[0]
+alert = t8.inner.msg[0]
 assert(isinstance(alert, TLSAlert))
 alert.level == 1 and alert.descr == 0
 
 
-= Reading TLS 1.3 test session (vectors 3 from draft-ietf-tls-tls13-vectors-00)
++ Reading TLS 1.3 test session (vectors 3 from draft-ietf-tls-tls13-vectors-00)
 ~ crypto_advanced
+
+= Dissect ClientHello handshake message
+
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
 
 x25519_client_privkey = clean("""
-         00b4198a84ed6a7c 218702891735239d
-         40b7c66505330364 3d3c67f7458ecbc9
+         49 af 42 ba 7f 79 94 85 2d 71 3e f2 78
+         4b cb ca a7 91 1d e2 6a dc 56 42 cb 63 45 40 e7 ea 50 05
          """)
 clientHello = clean("""
-         1603010200010001 fc03039a464db650
-         dcc81fed6f1fea63 5f15861574c0ed0b fb5778de7724fb92
-         7c5ef100003e1301 13031302c02bc02f cca9cca8c00ac009
-         c013c023c027c014 009eccaa00330032 006700390038006b
-         00160013009c002f 003c0035003d000a 0005000401000195
-         001500fc00000000 0000000000000000 0000000000000000
-         0000000000000000 0000000000000000 0000000000000000
-         0000000000000000 0000000000000000 0000000000000000
-         0000000000000000 0000000000000000 0000000000000000
-         0000000000000000 0000000000000000 0000000000000000
-         0000000000000000 0000000000000000 0000000000000000
-         0000000000000000 0000000000000000 0000000000000000
-         0000000000000000 0000000000000000 0000000000000000
-         0000000000000000 0000000000000000 0000000000000000
-         0000000000000000 0000000000000000 0000000000000000
-         0000000000000000 0000000000000000 0000000b00090000
-         06736572766572ff 01000100000a0014 0012001d00170018
-         0019010001010102 01030104000b0002 0100002300000028
-         00260024001d0020 35e58b160db6124f 01a1d2475a22b72a
-         bd6896701eed4c7e fd6124ee231ba458 002b0007067f1203
-         030302000d002000 1e04030503060302 0308040805080604
-         0105010601020104 0205020602020200 2d00020101
+         16 03 01 00 c4 01 00 00 c0 03 03 cb
+         34 ec b1 e7 81 63 ba 1c 38 c6 da cb 19 6a 6d ff a2 1a 8d 99 12
+         ec 18 a2 ef 62 83 02 4d ec e7 00 00 06 13 01 13 03 13 02 01 00
+         00 91 00 00 00 0b 00 09 00 00 06 73 65 72 76 65 72 ff 01 00 01
+         00 00 0a 00 14 00 12 00 1d 00 17 00 18 00 19 01 00 01 01 01 02
+         01 03 01 04 00 23 00 00 00 33 00 26 00 24 00 1d 00 20 99 38 1d
+         e5 60 e4 bd 43 d2 3d 8e 43 5a 7d ba fe b3 c0 6e 51 c1 3c ae 4d
+         54 13 69 1e 52 9a af 2c 00 2b 00 03 02 03 04 00 0d 00 20 00 1e
+         04 03 05 03 06 03 02 03 08 04 08 05 08 06 04 01 05 01 06 01 02
+         01 04 02 05 02 06 02 02 02 00 2d 00 02 01 01 00 1c 00 02 40 01
          """)
-t = TLS(clientHello)
+t1 = TLS(clientHello)
 privkey = X25519PrivateKey._from_private_bytes(x25519_client_privkey)
-t.tls_session.tls13_client_privshares["x25519"] = privkey
+t1.tls_session.tls13_client_privshares["x25519"] = privkey
+
+= Dissect ServerHello handshake message
 
 x25519_server_privkey = clean("""
-         03d43f48ed52076f 4ce9bab73d1f39ec
-         689cf304075829f5 2b90f9f13bea6f34
+         b1 58 0e ea df 6d d5 89 b8 ef 4f 2d 56
+         52 57 8c c8 10 e9 98 01 91 ec 8d 05 83 08 ce a2 16 a2 1e
          """)
 serverHello = clean("""
-         1603010052020000 4e7f1298e3436403
-         8683391cbec1039a a0fba2f496d8c8e6 327151cc94bbc5ef
-         7390751301002800 280024001d0020a2 0ed1b7f2d96a7f12
-         568f0e460bb0fc86 dc8d1db6c07d6b10 d4dc74aaac9219
+         16 03 03 00 5a 02 00 00 56 03 03 a6
+         af 06 a4 12 18 60 dc 5e 6e 60 24 9c d3 4c 95 93 0c 8a c5 cb 14
+         34 da c1 55 77 2e d3 e2 69 28 00 13 01 00 00 2e 00 33 00 24 00
+         1d 00 20 c9 82 88 76 11 20 95 fe 66 76 2b db f7 c6 72 e1 56 d6
+         cc 25 3b 83 3d f1 dd 69 b1 b0 4e 75 1f 0f 00 2b 00 02 03 04
          """)
-t = TLS(serverHello, tls_session=t.tls_session.mirror())
+t2 = TLS(serverHello, tls_session=t1.tls_session.mirror())
+
+= Dissect Certificate Handshake message
 
 serverEncHS = clean("""
-         170301029c4e1f34 2dba17a54a09f7a1
-         8ffb2c6a29df17a6 db843044c52861bf 78988527ce366159
-         e6a24871b704d2b9 fade56488921796d 719173a753bdfec8
-         0554c8c15e128695 450ccfdde1204ffd 2fb1ecdcd87b8070
-         644eb5a6b86ec951 aba3ed314754a2f3 14d4d2620b92da1f
-         28f24b9559d76b67 a7b35c17cc231ba5 77a94fb2be59c74f
-         84c8c78bf5faf4cb b2f8a37091580743 3c67d9f4e1b1923a
-         3969b85a2ae9064e 34e84363aae43aa9 f58717836a017b9c
-         33c3ad733c2fd3ce 288ae362764403d0 102a371047d9e49d
-         f9b30596262b1704 f0e9839fff5641ba a7041a4bcf9e4d46
-         7108922fc0ea0bc1 48dab2ebdd155f51 76c632be04a7c610
-         3fbc92754dba7962 4f8a09f8e8d65c17 eee87f98636fbc93
-         bb734674b80d183c da904200a20d8f15 0a214902b6953209
-         aa2431c3973bda3b d92a33878baca7b9 0507f433a55f2fe8
-         f0db81898ebacf31 b68eaabfa27c39b6 a2453a322c005030
-         4e60bf53f0402b38 65b43fe5a7454c13 17a2dc76d1323fb1
-         aa553996876a0dfe 8e789d6adf3dc85b 0636bb58a96e6aad
-         851e7a6fc1dfa796 ec65e33bf9e3c05d 6de35f11e1f32731
-         fb9550a60cb75e90 9345eb0edb81f99f cad883cb41d4a3ef
-         7cbe671b92a8176b 472772be401b83a4 99b06b7ab0a1d9cd
-         795e5ba0b67ce2d6 5c45565028824aa2 08797f405bbcf243
-         27dd69a1d986032f 544b15d110e4d8c4 681cb85c09960adb
-         57fb9723eef0e0bb 275552af25fbdfc1 a4215adf14a9dba2
-         4462dd095f1a78f5 6ed6db3de139936f 14b091ab7f4adc81
-         c277e68bfb6fd925 d92c06c0a4ddd105 9c071073a8a2e987
-         f98948599f27bf6d 1f4369ac6c5a3323 2932fb8aa52ec4e1
-         85790dff0ef5eee0 13b4e90b5bc1cd4a c42b7ce82d856cc0
-         f5d1c80400e68d61 b434cec56d437141 1e31849d4cf88862
-         8ba288548df6a19e c4
+17 03 03 02 a2 d1 ff 33 4a 56 f5 bf
+         f6 59 4a 07 cc 87 b5 80 23 3f 50 0f 45 e4 89 e7 f3 3a f3 5e df
+         78 69 fc f4 0a a4 0a a2 b8 ea 73 f8 48 a7 ca 07 61 2e f9 f9 45
+         cb 96 0b 40 68 90 51 23 ea 78 b1 11 b4 29 ba 91 91 cd 05 d2 a3
+         89 28 0f 52 61 34 aa dc 7f c7 8c 4b 72 9d f8 28 b5 ec f7 b1 3b
+         d9 ae fb 0e 57 f2 71 58 5b 8e a9 bb 35 5c 7c 79 02 07 16 cf b9
+         b1 18 3e f3 ab 20 e3 7d 57 a6 b9 d7 47 76 09 ae e6 e1 22 a4 cf
+         51 42 73 25 25 0c 7d 0e 50 92 89 44 4c 9b 3a 64 8f 1d 71 03 5d
+         2e d6 5b 0e 3c dd 0c ba e8 bf 2d 0b 22 78 12 cb b3 60 98 72 55
+         cc 74 41 10 c4 53 ba a4 fc d6 10 92 8d 80 98 10 e4 b7 ed 1a 8f
+         d9 91 f0 6a a6 24 82 04 79 7e 36 a6 a7 3b 70 a2 55 9c 09 ea d6
+         86 94 5b a2 46 ab 66 e5 ed d8 04 4b 4c 6d e3 fc f2 a8 94 41 ac
+         66 27 2f d8 fb 33 0e f8 19 05 79 b3 68 45 96 c9 60 bd 59 6e ea
+         52 0a 56 a8 d6 50 f5 63 aa d2 74 09 96 0d ca 63 d3 e6 88 61 1e
+         a5 e2 2f 44 15 cf 95 38 d5 1a 20 0c 27 03 42 72 96 8a 26 4e d6
+         54 0c 84 83 8d 89 f7 2c 24 46 1a ad 6d 26 f5 9e ca ba 9a cb bb
+         31 7b 66 d9 02 f4 f2 92 a3 6a c1 b6 39 c6 37 ce 34 31 17 b6 59
+         62 22 45 31 7b 49 ee da 0c 62 58 f1 00 d7 d9 61 ff b1 38 64 7e
+         92 ea 33 0f ae ea 6d fa 31 c7 a8 4d c3 bd 7e 1b 7a 6c 71 78 af
+         36 87 90 18 e3 f2 52 10 7f 24 3d 24 3d c7 33 9d 56 84 c8 b0 37
+         8b f3 02 44 da 8c 87 c8 43 f5 e5 6e b4 c5 e8 28 0a 2b 48 05 2c
+         f9 3b 16 49 9a 66 db 7c ca 71 e4 59 94 26 f7 d4 61 e6 6f 99 88
+         2b d8 9f c5 08 00 be cc a6 2d 6c 74 11 6d bd 29 72 fd a1 fa 80
+         f8 5d f8 81 ed be 5a 37 66 89 36 b3 35 58 3b 59 91 86 dc 5c 69
+         18 a3 96 fa 48 a1 81 d6 b6 fa 4f 9d 62 d5 13 af bb 99 2f 2b 99
+         2f 67 f8 af e6 7f 76 91 3f a3 88 cb 56 30 c8 ca 01 e0 c6 5d 11
+         c6 6a 1e 2a c4 c8 59 77 b7 c7 a6 99 9b bf 10 dc 35 ae 69 f5 51
+         56 14 63 6c 0b 9b 68 c1 9e d2 e3 1c 0b 3b 66 76 30 38 eb ba 42
+         f3 b3 8e dc 03 99 f3 a9 f2 3f aa 63 97 8c 31 7f c9 fa 66 a7 3f
+         60 f0 50 4d e9 3b 5b 84 5e 27 55 92 c1 23 35 ee 34 0b bc 4f dd
+         d5 02 78 40 16 e4 b3 be 7e f0 4d da 49 f4 b4 40 a3 0c b5 d2 af
+         93 98 28 fd 4a e3 79 4e 44 f9 4d f5 a6 31 ed e4 2c 17 19 bf da
+         bf 02 53 fe 51 75 be 89 8e 75 0e dc 53 37 0d 2b
          """)
-t = TLS(serverEncHS, tls_session=t.tls_session)
+t3 = TLS(serverEncHS, tls_session=t2.tls_session)
+
+= Dissect client Handshake Record
 
 clientFinished = clean("""
-         1703010035161e94 818226d7bd618063
-         0804644debc52bdd 661034243217ac45 a084228c82086baa
-         4893ecfc969624d6 8e19d88c3e67ccb4 8bdf
+         17 03 03 00 35 75 ec 4d c2 38 cc e6
+         0b 29 80 44 a7 1e 21 9c 56 cc 77 b0 51 7f e9 b9 3c 7a 4b fc 44
+         d8 7f 38 f8 03 38 ac 98 fc 46 de b3 84 bd 1c ae ac ab 68 67 d7
+         26 c4 05 46
          """)
-t = TLS(clientFinished, tls_session=t.tls_session.mirror())
+t4 = TLS(clientFinished, tls_session=t3.tls_session.mirror())
+
+= Dissect HandshakeRecord (NewSessionTicket)
 
 serverRecord1 = clean("""
-         17030100bbe6b3e9 89df694688f29f5d
-         a42d9f56053fc6d2 f73ee23accad26f9 599ee4dcf4e0cf9e
-         de80128b48156a65 e5e47dee679a8401 1234862b6728fb12
-         be5198d5c023d6f2 0c355fc417a5eade 1aff0bf9ecba14c8
-         7277ea7aeb30055e a4d9b37bc12f7517 27ca7a1efc9285f8
-         ed5e9e3be42ff475 30f2b7347a90618b 6f7f4eba9b8b6564
-         f2159fcfcf09e4b6 2b4b09bb129e7c76 5c877966ca66e5cd
-         a84cdb6087a07fc0 50c97f275568623c 5d0f459d2b1133d1
-         d5d37cd441192da7
+         17 03 03 00 de 3a 6b 8f 90 41 4a 97
+         d6 95 9c 34 87 68 0d e5 13 4a 2b 24 0e 6c ff ac 11 6e 95 d4 1d
+         6a f8 f6 b5 80 dc f3 d1 1d 63 c7 58 db 28 9a 01 59 40 25 2f 55
+         71 3e 06 1d c1 3e 07 88 91 a3 8e fb cf 57 53 ad 8e f1 70 ad 3c
+         73 53 d1 6d 9d a7 73 b9 ca 7f 2b 9f a1 b6 c0 d4 a3 d0 3f 75 e0
+         9c 30 ba 1e 62 97 2a c4 6f 75 f7 b9 81 be 63 43 9b 29 99 ce 13
+         06 46 15 13 98 91 d5 e4 c5 b4 06 f1 6e 3f c1 81 a7 7c a4 75 84
+         00 25 db 2f 0a 77 f8 1b 5a b0 5b 94 c0 13 46 75 5f 69 23 2c 86
+         51 9d 86 cb ee ac 87 aa c3 47 d1 43 f9 60 5d 64 f6 50 db 4d 02
+         3e 70 e9 52 ca 49 fe 51 37 12 1c 74 bc 26 97 68 7e 24 87 46 d6
+         df 35 30 05 f3 bc e1 86 96 12 9c 81 53 55 6b 3b 6c 67 79 b3 7b
+         f1 59 85 68 4f
          """)
-t = TLS(serverRecord1, tls_session=t.tls_session.mirror())
+t5 = TLS(serverRecord1, tls_session=t4.tls_session.mirror())
+
+= Dissect client application_data record
 
 clientRecord1 = clean("""
-         170301004341b540 bf5adeaf9d209001
-         9f0733e281964724 526678a1946852cf 6f586dffacf1151d
-         bf7c9262ef6ae960 4a423fff339fd7e4 0cc3e7604ae661f0
-         afa2f775c3668867
+         17 03 03 00 43 a2 3f 70 54 b6 2c 94
+         d0 af fa fe 82 28 ba 55 cb ef ac ea 42 f9 14 aa 66 bc ab 3f 2b
+         98 19 a8 a5 b4 6b 39 5b d5 4a 9a 20 44 1e 2b 62 97 4e 1f 5a 62
+         92 a2 97 70 14 bd 1e 3d ea e6 3a ee bb 21 69 49 15 e4
          """)
-t = TLS(clientRecord1, tls_session=t.tls_session.mirror())
-app_data = t.inner.msg[0]
-assert(app_data.data == b'\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&\'()*+,-./01')
+t6 = TLS(clientRecord1, tls_session=t5.tls_session.mirror())
+app_data = t6.inner.msg[0]
+data = clean("""
+         00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e
+         0f 10 11 12 13 14 15 16 17 18 19 1a 1b 1c 1d 1e 1f 20 21 22 23
+         24 25 26 27 28 29 2a 2b 2c 2d 2e 2f 30 31
+         """)
+assert(app_data.data == data)
+
+= Dissect server application_data record
 
 serverRecord2 = clean("""
-         17030100438c3168 1fb21f820ef0603c
-         dc3b9d3deedeb2bb 615aa418fb2590a0 9b0dec00c2299feb
-         17c4206f89ab28d2 7a605e288ac9bd69 657593addd1046be
-         51b23940f8746634
+         17 03 03 00 43 2e 93 7e 11 ef 4a c7
+         40 e5 38 ad 36 00 5f c4 a4 69 32 fc 32 25 d0 5f 82 aa 1b 36 e3
+         0e fa f9 7d 90 e6 df fc 60 2d cb 50 1a 59 a8 fc c4 9c 4b f2 e5
+         f0 a2 1c 00 47 c2 ab f3 32 54 0d d0 32 e1 67 c2 95 5d
          """)
-t = TLS(serverRecord2, tls_session=t.tls_session.mirror())
-app_data = t.inner.msg[0]
-assert(app_data.data == b'\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&\'()*+,-./01')
+t7 = TLS(serverRecord2, tls_session=t6.tls_session.mirror())
+app_data = t7.inner.msg[0]
+data = clean("""
+         00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e
+         0f 10 11 12 13 14 15 16 17 18 19 1a 1b 1c 1d 1e 1f 20 21 22 23
+         24 25 26 27 28 29 2a 2b 2c 2d 2e 2f 30 31
+         """)
+assert(app_data.data == data)
+
+= Dissect client alert record
 
 clientRecord2 = clean("""
-         17030100131ce9b1 f21ba236bca94455
-         ab2aad71c666534a
+         17 03 03 00 13 c9 87 27 60 65 56 66
+         b7 4d 7f f1 15 3e fd 6d b6 d0 b0 e3
          """)
-t = TLS(clientRecord2, tls_session=t.tls_session.mirror())
-alert = t.inner.msg[0]
+t8 = TLS(clientRecord2, tls_session=t7.tls_session.mirror())
+alert = t8.inner.msg[0]
 assert(isinstance(alert, TLSAlert))
 assert(alert.level == 1 and alert.descr == 0)
 
+= Dissect server alert record
+
 serverRecord3 = clean("""
-         1703010013aabcdb 9d293d23fb00deb7
-         11b562afeddffeed
+         17 03 03 00 13 b5 8f d6 71 66 eb f5
+         99 d2 47 20 cf be 7e fa 7a 88 64 a9
+
          """)
-t = TLS(serverRecord3, tls_session=t.tls_session.mirror())
-alert = t.inner.msg[0]
+t9 = TLS(serverRecord3, tls_session=t8.tls_session.mirror())
+alert = t9.inner.msg[0]
 assert(isinstance(alert, TLSAlert))
 alert.level == 1 and alert.descr == 0
 

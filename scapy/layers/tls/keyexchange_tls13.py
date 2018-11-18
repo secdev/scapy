@@ -126,7 +126,7 @@ class KeyShareEntry(Packet):
 
 class TLS_Ext_KeyShare_CH(TLS_Ext_Unknown):
     name = "TLS Extension - Key Share (for ClientHello)"
-    fields_desc = [ShortEnumField("type", 0x28, _tls_ext),
+    fields_desc = [ShortEnumField("type", 0x33, _tls_ext),
                    ShortField("len", None),
                    FieldLenField("client_shares_len", None,
                                  length_of="client_shares"),
@@ -160,14 +160,14 @@ class TLS_Ext_KeyShare_CH(TLS_Ext_Unknown):
 
 class TLS_Ext_KeyShare_HRR(TLS_Ext_Unknown):
     name = "TLS Extension - Key Share (for HelloRetryRequest)"
-    fields_desc = [ShortEnumField("type", 0x28, _tls_ext),
+    fields_desc = [ShortEnumField("type", 0x33, _tls_ext),
                    ShortField("len", None),
                    ShortEnumField("selected_group", None, _tls_named_groups)]
 
 
 class TLS_Ext_KeyShare_SH(TLS_Ext_Unknown):
     name = "TLS Extension - Key Share (for ServerHello)"
-    fields_desc = [ShortEnumField("type", 0x28, _tls_ext),
+    fields_desc = [ShortEnumField("type", 0x33, _tls_ext),
                    ShortField("len", None),
                    PacketField("server_share", None, KeyShareEntry)]
 
@@ -266,7 +266,7 @@ class PSKBinderEntry(Packet):
 class TLS_Ext_PreSharedKey_CH(TLS_Ext_Unknown):
     # XXX define post_build and post_dissection methods
     name = "TLS Extension - Pre Shared Key (for ClientHello)"
-    fields_desc = [ShortEnumField("type", 0x28, _tls_ext),
+    fields_desc = [ShortEnumField("type", 0x33, _tls_ext),
                    ShortField("len", None),
                    FieldLenField("identities_len", None,
                                  length_of="identities"),

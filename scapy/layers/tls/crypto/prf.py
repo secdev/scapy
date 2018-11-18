@@ -207,7 +207,8 @@ class PRF(object):
             warning("Unknown TLS version")
 
     def compute_master_secret(self, pre_master_secret,
-                              client_random, server_random, extms=False, handshake_hash=None):
+                              client_random, server_random,
+                              extms=False, handshake_hash=None):
         """
         Return the 48-byte master_secret, computed from pre_master_secret,
         client_random and server_random. See RFC 5246, section 6.3.

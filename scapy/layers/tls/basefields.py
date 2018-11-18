@@ -18,6 +18,9 @@ _tls_type = {20: "change_cipher_spec",
              22: "handshake",
              23: "application_data"}
 
+# Types that will redirect to a TLS13 record if available
+_tls_type_13 = [23]
+
 _tls_version = {0x0002: "SSLv2",
                 0x0200: "SSLv2",
                 0x0300: "SSLv3",
@@ -72,27 +75,27 @@ class _TLSClientVersionField(ShortEnumField):
 class _TLSVersionField(ShortEnumField):
     """
     We use the tls_version if it has been defined, else the advertised version.
-    Also, the legacy 0x0301 is used for TLS 1.3 packets.
+    Also, the legacy 0x0303 is used for TLS 1.3 packets.
     """
 
     def i2h(self, pkt, x):
         if x is None:
             v = pkt.tls_session.tls_version
             if v:
-                return _tls13_version_filter(v, 0x0301)
+                return _tls13_version_filter(v, 0x0303)
             else:
                 adv_v = pkt.tls_session.advertised_tls_version
-                return _tls13_version_filter(adv_v, 0x0301)
+                return _tls13_version_filter(adv_v, 0x0303)
         return x
 
     def i2m(self, pkt, x):
         if x is None:
             v = pkt.tls_session.tls_version
             if v:
-                return _tls13_version_filter(v, 0x0301)
+                return _tls13_version_filter(v, 0x0303)
             else:
                 adv_v = pkt.tls_session.advertised_tls_version
-                return _tls13_version_filter(adv_v, 0x0301)
+                return _tls13_version_filter(adv_v, 0x0303)
         return x
 
 

@@ -31,7 +31,7 @@ from scapy.layers.tls.extensions import TLS_Ext_SupportedGroups, \
 from scapy.layers.tls.handshake import TLSCertificate, TLSCertificateRequest, \
     TLSCertificateVerify, TLSClientHello, TLSClientKeyExchange, \
     TLSEncryptedExtensions, TLSFinished, TLSServerHello, TLSServerHelloDone, \
-    TLSServerKeyExchange, TLS13Certificate, TLS13ServerHello
+    TLSServerKeyExchange, TLS13Certificate
 from scapy.layers.tls.handshake_sslv2 import SSLv2ClientHello, \
     SSLv2ServerHello, SSLv2ClientMasterKey, SSLv2ServerVerify, \
     SSLv2ClientFinished, SSLv2ServerFinished, SSLv2ClientCertificate, \
@@ -856,7 +856,7 @@ class TLSClientAutomaton(_TLSAutomaton):
 
     @ATMT.condition(TLS13_WAITING_SERVERHELLO)
     def tls13_should_handle_ServerHello(self):
-        self.raise_on_packet(TLS13ServerHello,
+        self.raise_on_packet(TLSServerHello,
                              self.TLS13_WAITING_ENCRYPTEDEXTENSIONS)
 
     @ATMT.state()

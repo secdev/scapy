@@ -15,9 +15,10 @@ import math
 import struct
 
 from scapy.error import log_runtime, warning
-from scapy.fields import ByteEnumField, ByteField, EnumField, Field, \
+from scapy.fields import ByteEnumField, ByteField, Field, \
     FieldLenField, IntField, PacketField, PacketListField, ShortField, \
-    StrFixedLenField, StrLenField, ThreeBytesField, UTCTimeField
+    StrFixedLenField, StrLenField, ThreeBytesField, UTCTimeField, \
+    ShortEnumField
 
 from scapy.compat import bytes_hex, orb, raw
 from scapy.config import conf
@@ -29,8 +30,9 @@ from scapy.layers.tls.cert import Cert
 from scapy.layers.tls.basefields import (_tls_version, _TLSVersionField,
                                          _TLSClientVersionField)
 from scapy.layers.tls.extensions import (_ExtensionsLenField, _ExtensionsField,
-                                         _cert_status_type, TLS_Ext_SupportedVersions,
-                                         TLS_Ext_ExtendedMasterSecret)  # noqa: E501
+                                         _cert_status_type,
+                                         TLS_Ext_SupportedVersions,
+                                         TLS_Ext_ExtendedMasterSecret)
 from scapy.layers.tls.keyexchange import (_TLSSignature, _TLSServerParamsField,
                                           _TLSSignatureField, ServerRSAParams,
                                           SigAndHashAlgsField, _tls_hash_sig,
@@ -136,7 +138,10 @@ class _SessionIDField(StrLenField):
     """
     opaque SessionID<0..32>; section 7.4.1.2 of RFC 4346
     """
-    pass
+    def i2repr(self, pkt, x):
+        if x is None:
+            return repr(x)
+        return repr_hex(self.i2h(pkt, x))
 
 
 class _CipherSuitesField(StrLenField):
@@ -294,14 +299,24 @@ class TLSClientHello(_TLSHandshake):
         if self.ext:
             for e in self.ext:
                 if isinstance(e, TLS_Ext_SupportedVersions):
-                    if self.tls_session.tls13_early_secret is None:
-                        # this is not recomputed if there was a TLS 1.3 HRR
-                        self.tls_session.compute_tls13_early_secrets()
-                    break
+                    if 0x0304 in e.versions:
+                        if self.tls_session.tls13_early_secret is None:
+                            # this is not recomputed if there was a TLS 1.3 HRR
+                            self.tls_session.compute_tls13_early_secrets()
+                        break
 
 ###############################################################################
 #   ServerHello                                                               #
 ###############################################################################
+
+
+# https://tools.ietf.org/html/rfc8446#section-4.1.3
+_TLS_RetryRequestMagic = b'\xcf!\xadt\xe5\x9aa\x11\xbe\x1d\x8c\x02\x1ee' + \
+                         b'\xb8\x91\xc2\xa2\x11\x16z\xbb\x8c^\x07\x9e\t' + \
+                         b'\xe2\xc8\xa83\x9c'
+# Tricky old trick (see the TODO in TLSServerHello)
+_TLS_RetryRequestMagic_GMT = struct.unpack("!I", _TLS_RetryRequestMagic[:4])[0]
+_TLS_RetryRequestMagic_RDM = _TLS_RetryRequestMagic[4:]
 
 
 class TLSServerHello(TLSClientHello):
@@ -320,14 +335,16 @@ class TLSServerHello(TLSClientHello):
                    _TLSVersionField("version", None, _tls_version),
 
                    # _TLSRandomBytesField("random_bytes", None, 32),
-                   _GMTUnixTimeField("gmt_unix_time", None),
-                   _TLSRandomBytesField("random_bytes", None, 28),
+                   # TODO: improve those two (same in ClientHello), so that
+                   # are only one single random_bytes when TLS 1.3
+                   _GMTUnixTimeField("gmt_unix_time", None),  # XXX
+                   _TLSRandomBytesField("random_bytes", None, 28),  # XXX
 
                    FieldLenField("sidlen", None, length_of="sid", fmt="B"),
                    _SessionIDField("sid", "",
                                    length_from=lambda pkt: pkt.sidlen),
 
-                   EnumField("cipher", None, _tls_cipher_suites),
+                   ShortEnumField("cipher", None, _tls_cipher_suites),
                    _CompressionMethodsField("comp", [0],
                                             _tls_compression_algs,
                                             itemfmt="B",
@@ -337,16 +354,17 @@ class TLSServerHello(TLSClientHello):
                    _ExtensionsField("ext", None,
                                     length_from=lambda pkt: (pkt.msglen -
                                                              (pkt.sidlen or 0) -  # noqa: E501
-                                                             38))]
+                                                             38),
+                                    msg_type=(
+                                        lambda pkt: 6 if (
+                                            pkt.gmt_unix_time == \
+                                            _TLS_RetryRequestMagic_GMT and \
+                                            pkt.random_bytes == \
+                                            _TLS_RetryRequestMagic_RDM
+                                            ) else 2
+                                        )
+                                    )]
     # 40)) ]
-
-    @classmethod
-    def dispatch_hook(cls, _pkt=None, *args, **kargs):
-        if _pkt and len(_pkt) >= 6:
-            version = struct.unpack("!H", _pkt[4:6])[0]
-            if version == 0x0304 or version > 0x7f00:
-                return TLS13ServerHello
-        return TLSServerHello
 
     def post_build(self, p, pay):
         if self.random_bytes is None:
@@ -365,74 +383,28 @@ class TLSServerHello(TLSClientHello):
         """
         super(TLSClientHello, self).tls_session_update(msg_str)
 
-        self.tls_session.tls_version = self.version
-        self.random_bytes = msg_str[10:38]
-        self.tls_session.server_random = (struct.pack('!I',
-                                                      self.gmt_unix_time) +
-                                          self.random_bytes)
-        self.tls_session.sid = self.sid
+        s = self.tls_session
+        s.tls_version = self.version
+        s.server_random = (struct.pack('!I',
+                                       self.gmt_unix_time or 0) +
+                           self.random_bytes or b"")
+        s.sid = self.sid
 
-        # EXTMS
+        # EXT process
         if self.ext:
             for e in self.ext:
                 if isinstance(e, TLS_Ext_ExtendedMasterSecret):
-                    self.tls_session.extms = True
-                    break
+                    s.extms = True
+                    continue
+                if isinstance(e, TLS_Ext_SupportedVersions):
+                    if 0x0304 in e.versions:
+                        s.tls_version = 0x0304
+                        self.name = "TLS 1.3 Handshake - Server Hello"
+                        continue
 
-        cs_cls = None
-        if self.cipher:
-            cs_val = self.cipher
-            if cs_val not in _tls_cipher_suites_cls:
-                warning("Unknown cipher suite %d from ServerHello" % cs_val)
-                # we do not try to set a default nor stop the execution
-            else:
-                cs_cls = _tls_cipher_suites_cls[cs_val]
-
-        comp_cls = Comp_NULL
-        if self.comp:
-            comp_val = self.comp[0]
-            if comp_val not in _tls_compression_algs_cls:
-                err = "Unknown compression alg %d from ServerHello" % comp_val
-                warning(err)
-                comp_val = 0
-            comp_cls = _tls_compression_algs_cls[comp_val]
-
-        connection_end = self.tls_session.connection_end
-        self.tls_session.pwcs = writeConnState(ciphersuite=cs_cls,
-                                               compression_alg=comp_cls,
-                                               connection_end=connection_end,
-                                               tls_version=self.version)
-        self.tls_session.prcs = readConnState(ciphersuite=cs_cls,
-                                              compression_alg=comp_cls,
-                                              connection_end=connection_end,
-                                              tls_version=self.version)
-
-
-class TLS13ServerHello(TLSClientHello):
-    """ TLS 1.3 ServerHello """
-    name = "TLS 1.3 Handshake - Server Hello"
-    fields_desc = [ByteEnumField("msgtype", 2, _tls_handshake_type),
-                   ThreeBytesField("msglen", None),
-                   _TLSVersionField("version", None, _tls_version),
-                   _TLSRandomBytesField("random_bytes", None, 32),
-                   EnumField("cipher", None, _tls_cipher_suites),
-                   _ExtensionsLenField("extlen", None, length_of="ext"),
-                   _ExtensionsField("ext", None,
-                                    length_from=lambda pkt: (pkt.msglen -
-                                                             38))]
-
-    def tls_session_update(self, msg_str):
-        """
-        Either for parsing or building, we store the server_random along with
-        the raw string representing this handshake message. We also store the
-        cipher suite (if recognized), and finally we instantiate the write and
-        read connection states.
-        """
-        super(TLSClientHello, self).tls_session_update(msg_str)
-
-        s = self.tls_session
-        s.tls_version = self.version
-        s.server_random = self.random_bytes
+        is_tls13 = s.tls_version >= 0x0304
+        if is_tls13 and s.server_random == _TLS_RetryRequestMagic:
+            self.name = "TLS 1.3 Handshake - Hello Retry Request"
 
         cs_cls = None
         if self.cipher:
@@ -444,20 +416,40 @@ class TLS13ServerHello(TLSClientHello):
                 cs_cls = _tls_cipher_suites_cls[cs_val]
 
         connection_end = s.connection_end
-        s.pwcs = writeConnState(ciphersuite=cs_cls,
-                                connection_end=connection_end,
-                                tls_version=self.version)
-        s.triggered_pwcs_commit = True
-        s.prcs = readConnState(ciphersuite=cs_cls,
-                               connection_end=connection_end,
-                               tls_version=self.version)
-        s.triggered_prcs_commit = True
-
-        if self.tls_session.tls13_early_secret is None:
-            # In case the connState was not pre-initialized, we could not
-            # compute the early secrets at the ClientHello, so we do it here.
-            self.tls_session.compute_tls13_early_secrets()
-        s.compute_tls13_handshake_secrets()
+        if is_tls13:  # TLS 1.3
+            # comp is ignored in TLS 1.3
+            s.pwcs = writeConnState(ciphersuite=cs_cls,
+                                    connection_end=connection_end,
+                                    tls_version=s.tls_version)
+            s.triggered_pwcs_commit = True
+            s.prcs = readConnState(ciphersuite=cs_cls,
+                                   connection_end=connection_end,
+                                   tls_version=s.tls_version)
+            s.triggered_prcs_commit = True
+            if self.tls_session.tls13_early_secret is None:
+                # In case the connState was not pre-initialized, we could not
+                # compute the early secrets at the ClientHello, so we do it
+                # here.
+                self.tls_session.compute_tls13_early_secrets()
+            s.compute_tls13_handshake_secrets()
+        else:  # TLS 1.2
+            comp_cls = Comp_NULL
+            if self.comp:
+                comp_val = self.comp[0]
+                if comp_val not in _tls_compression_algs_cls:
+                    err = ("Unknown compression alg %d from" +
+                           "ServerHello" % comp_val)
+                    warning(err)
+                    comp_val = 0
+                comp_cls = _tls_compression_algs_cls[comp_val]
+            s.pwcs = writeConnState(ciphersuite=cs_cls,
+                                    compression_alg=comp_cls,
+                                    connection_end=connection_end,
+                                    tls_version=s.tls_version)
+            s.prcs = readConnState(ciphersuite=cs_cls,
+                                   compression_alg=comp_cls,
+                                   connection_end=connection_end,
+                                   tls_version=s.tls_version)
 
 
 ###############################################################################
@@ -842,7 +834,7 @@ class TLSCertificateRequest(_TLSHandshake):
                    SigAndHashAlgsLenField("sig_algs_len", None,
                                           length_of="sig_algs"),
                    SigAndHashAlgsField("sig_algs", [0x0403, 0x0401, 0x0201],
-                                       EnumField("hash_sig", None, _tls_hash_sig),  # noqa: E501
+                                       ByteEnumField("hash_sig", None, _tls_hash_sig),  # noqa: E501
                                        length_from=lambda pkt: pkt.sig_algs_len),  # noqa: E501
                    FieldLenField("certauthlen", None, fmt="!H",
                                  length_of="certauth"),
@@ -983,9 +975,6 @@ class TLSClientKeyExchange(_TLSHandshake):
             hash_object = self.tls_session.pwcs.hash
             to_hash = b''.join(self.tls_session.handshake_messages)
             self.tls_session.session_hash = hash_object.digest(to_hash)
-
-
-
 
 
 ###############################################################################
@@ -1277,7 +1266,7 @@ class TLS13NewSessionTicket(_TLSHandshake):
 
 _tls_handshake_cls = {0: TLSHelloRequest, 1: TLSClientHello,
                       2: TLSServerHello, 3: TLSHelloVerifyRequest,
-                      4: TLSNewSessionTicket, 6: TLSHelloRetryRequest,
+                      4: TLSNewSessionTicket,
                       8: TLSEncryptedExtensions, 11: TLSCertificate,
                       12: TLSServerKeyExchange, 13: TLSCertificateRequest,
                       14: TLSServerHelloDone, 15: TLSCertificateVerify,
