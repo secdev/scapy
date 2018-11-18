@@ -286,6 +286,22 @@ class Dot1Q(Packet):
 conf.neighbor.register_l3(Ether, Dot1Q, l2_register_l3)
 
 
+class Dot1QITag(Packet):
+    name = "802.1Q I-Tag"
+    aliastypes = [Ether]
+    fields_desc = [BitField("prio", 0, 3),
+                   BitField("dei", 0, 1),
+                   BitField("uca", 0, 1),
+                   BitField("res", 0, 3),
+                   BitField("sid", 0, 24)]
+
+    def default_payload_class(self, pay):
+        return Ether
+
+    def mysummary(self):
+        return self.sprintf("802.1Q I-Tag %Dot1QITag.sid%")
+
+
 class STP(Packet):
     name = "Spanning Tree Protocol"
     fields_desc = [ShortField("proto", 0),
@@ -531,6 +547,7 @@ bind_layers(Ether, LLC, type=122)
 bind_layers(Ether, LLC, type=34928)
 bind_layers(Ether, Dot1Q, type=33024)
 bind_layers(Ether, Dot1AD, type=0x88a8)
+bind_layers(Ether, Dot1QITag, type=0x88e7)
 bind_layers(Dot1AD, Dot1AD, type=0x88a8)
 bind_layers(Dot1AD, Dot1Q, type=0x8100)
 bind_layers(Dot1Q, Dot1AD, type=0x88a8)
