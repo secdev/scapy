@@ -9,7 +9,11 @@ DHCP (Dynamic Host Configuration Protocol) and BOOTP
 
 from __future__ import absolute_import
 from __future__ import print_function
-from collections import Iterable
+try:
+    from collections.abc import Iterable
+except ImportError:
+    # For backwards compatibility.  This was removed in Python 3.8
+    from collections import Iterable
 import random
 import struct
 
