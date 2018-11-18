@@ -126,22 +126,21 @@ def load_protocols(filename, _integer_base=10):
     spaces = re.compile(b"[ \t]+|\n")
     dct = DADict(_name=filename)
     try:
-        f = open(filename, "rb")
-        for line in f:
-            try:
-                shrp = line.find(b"#")
-                if shrp >= 0:
-                    line = line[:shrp]
-                line = line.strip()
-                if not line:
-                    continue
-                lt = tuple(re.split(spaces, line))
-                if len(lt) < 2 or not lt[0]:
-                    continue
-                dct[lt[0]] = int(lt[1], _integer_base)
-            except Exception as e:
-                log_loading.info("Couldn't parse file [%s]: line [%r] (%s)", filename, line, e)  # noqa: E501
-        f.close()
+        with open(filename, "rb") as f:
+            for line in f:
+                try:
+                    shrp = line.find(b"#")
+                    if shrp >= 0:
+                        line = line[:shrp]
+                    line = line.strip()
+                    if not line:
+                        continue
+                    lt = tuple(re.split(spaces, line))
+                    if len(lt) < 2 or not lt[0]:
+                        continue
+                    dct[lt[0]] = int(lt[1], _integer_base)
+                except Exception as e:
+                    log_loading.info("Couldn't parse file [%s]: line [%r] (%s)", filename, line, e)  # noqa: E501
     except IOError:
         log_loading.info("Can't open %s file", filename)
     return dct
@@ -157,25 +156,24 @@ def load_services(filename):
     tdct = DADict(_name="%s-tcp" % filename)
     udct = DADict(_name="%s-udp" % filename)
     try:
-        f = open(filename, "rb")
-        for line in f:
-            try:
-                shrp = line.find(b"#")
-                if shrp >= 0:
-                    line = line[:shrp]
-                line = line.strip()
-                if not line:
-                    continue
-                lt = tuple(re.split(spaces, line))
-                if len(lt) < 2 or not lt[0]:
-                    continue
-                if lt[1].endswith(b"/tcp"):
-                    tdct[lt[0]] = int(lt[1].split(b'/')[0])
-                elif lt[1].endswith(b"/udp"):
-                    udct[lt[0]] = int(lt[1].split(b'/')[0])
-            except Exception as e:
-                log_loading.warning("Couldn't parse file [%s]: line [%r] (%s)", filename, line, e)  # noqa: E501
-        f.close()
+        with open(filename, "rb") as f:
+            for line in f:
+                try:
+                    shrp = line.find(b"#")
+                    if shrp >= 0:
+                        line = line[:shrp]
+                    line = line.strip()
+                    if not line:
+                        continue
+                    lt = tuple(re.split(spaces, line))
+                    if len(lt) < 2 or not lt[0]:
+                        continue
+                    if lt[1].endswith(b"/tcp"):
+                        tdct[lt[0]] = int(lt[1].split(b'/')[0])
+                    elif lt[1].endswith(b"/udp"):
+                        udct[lt[0]] = int(lt[1].split(b'/')[0])
+                except Exception as e:
+                    log_loading.warning("Couldn't parse file [%s]: line [%r] (%s)", filename, line, e)  # noqa: E501
     except IOError:
         log_loading.info("Can't open /etc/services file")
     return tdct, udct
