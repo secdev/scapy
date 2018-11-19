@@ -140,7 +140,12 @@ def load_protocols(filename, _integer_base=10):
                         continue
                     dct[lt[0]] = int(lt[1], _integer_base)
                 except Exception as e:
-                    log_loading.info("Couldn't parse file [%s]: line [%r] (%s)", filename, line, e)  # noqa: E501
+                    log_loading.info(
+                        "Couldn't parse file [%s]: line [%r] (%s)",
+                        filename,
+                        line,
+                        e,
+                    )
     except IOError:
         log_loading.info("Can't open %s file", filename)
     return dct
@@ -173,7 +178,12 @@ def load_services(filename):
                     elif lt[1].endswith(b"/udp"):
                         udct[lt[0]] = int(lt[1].split(b'/')[0])
                 except Exception as e:
-                    log_loading.warning("Couldn't parse file [%s]: line [%r] (%s)", filename, line, e)  # noqa: E501
+                    log_loading.warning(
+                        "Couldn't parse file [%s]: line [%r] (%s)",
+                        filename,
+                        line,
+                        e,
+                    )
     except IOError:
         log_loading.info("Can't open /etc/services file")
     return tdct, udct
