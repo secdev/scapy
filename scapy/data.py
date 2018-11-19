@@ -126,8 +126,8 @@ def load_protocols(filename, _integer_base=10):
     spaces = re.compile(b"[ \t]+|\n")
     dct = DADict(_name=filename)
     try:
-        with open(filename, "rb") as f:
-            for line in f:
+        with open(filename, "rb") as fdesc:
+            for line in fdesc:
                 try:
                     shrp = line.find(b"#")
                     if shrp >= 0:
@@ -161,8 +161,8 @@ def load_services(filename):
     tdct = DADict(_name="%s-tcp" % filename)
     udct = DADict(_name="%s-udp" % filename)
     try:
-        with open(filename, "rb") as f:
-            for line in f:
+        with open(filename, "rb") as fdesc:
+            for line in fdesc:
                 try:
                     shrp = line.find(b"#")
                     if shrp >= 0:
