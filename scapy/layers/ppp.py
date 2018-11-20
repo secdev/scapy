@@ -298,10 +298,7 @@ class PPP_IPCP_Option_IPAddress(PPP_IPCP_Option):
         FieldLenField("len", None, length_of="data", fmt="B",
                       adjust=lambda _, val: val + 2),
         IPField("data", "0.0.0.0"),
-        ConditionalField(
-            StrLenField("garbage", "", length_from=lambda pkt: pkt.len - 6),
-            lambda pkt: pkt.len != 6,
-        )
+        StrLenField("garbage", "", length_from=lambda pkt: pkt.len - 6),
     ]
 
 
@@ -312,10 +309,7 @@ class PPP_IPCP_Option_DNS1(PPP_IPCP_Option):
         FieldLenField("len", None, length_of="data", fmt="B",
                       adjust=lambda _, val: val + 2),
         IPField("data", "0.0.0.0"),
-        ConditionalField(
-            StrLenField("garbage", "", length_from=lambda pkt: pkt.len - 6),
-            lambda pkt: pkt.len != 6,
-        ),
+        StrLenField("garbage", "", length_from=lambda pkt: pkt.len - 6),
     ]
 
 
@@ -326,10 +320,7 @@ class PPP_IPCP_Option_DNS2(PPP_IPCP_Option):
         FieldLenField("len", None, length_of="data", fmt="B",
                       adjust=lambda _, val: val + 2),
         IPField("data", "0.0.0.0"),
-        ConditionalField(
-            StrLenField("garbage", "", length_from=lambda pkt: pkt.len - 6),
-            lambda pkt: pkt.len != 6,
-        ),
+        StrLenField("garbage", "", length_from=lambda pkt: pkt.len - 6),
     ]
 
 
@@ -340,10 +331,7 @@ class PPP_IPCP_Option_NBNS1(PPP_IPCP_Option):
         FieldLenField("len", None, length_of="data", fmt="B",
                       adjust=lambda _, val: val + 2),
         IPField("data", "0.0.0.0"),
-        ConditionalField(
-            StrLenField("garbage", "", length_from=lambda pkt: pkt.len - 6),
-            lambda pkt: pkt.len != 6,
-        ),
+        StrLenField("garbage", "", length_from=lambda pkt: pkt.len - 6),
     ]
 
 
@@ -354,10 +342,7 @@ class PPP_IPCP_Option_NBNS2(PPP_IPCP_Option):
         FieldLenField("len", None, length_of="data", fmt="B",
                       adjust=lambda _, val: val + 2),
         IPField("data", "0.0.0.0"),
-        ConditionalField(
-            StrLenField("garbage", "", length_from=lambda pkt: pkt.len - 6),
-            lambda pkt: pkt.len != 6,
-        ),
+        StrLenField("garbage", "", length_from=lambda pkt: pkt.len - 6),
     ]
 
 
