@@ -45,7 +45,9 @@ class PPPoED(PPPoE):
     name = "PPP over Ethernet Discovery"
     fields_desc = [BitField("version", 1, 4),
                    BitField("type", 1, 4),
-                   ByteEnumField("code", 0x09, {0x09: "PADI", 0x07: "PADO", 0x19: "PADR", 0x65: "PADS", 0xa7: "PADT"}),  # noqa: E501
+                   ByteEnumField("code", 0x09, {0x09: "PADI", 0x07: "PADO",
+                                                0x19: "PADR", 0x65: "PADS",
+                                                0xa7: "PADT"}),
                    XShortField("sessionid", 0x0),
                    ShortField("len", None)]
 
@@ -162,7 +164,7 @@ _PPP_PROTOCOLS = {
     0x8055: "Individual Link Encryption Control Protocol [Meyer]",
     0x8057: "IPv6 Control Protovol [Hinden]",
     0x8059: "PPP Muxing Control Protocol [RFC3153]",
-    0x805b: "Vendor-Specific Network Control Protocol (VSNCP) [RFC3772]",  # noqa: E501
+    0x805b: "Vendor-Specific Network Control Protocol (VSNCP) [RFC3772]",
     0x806f: "Stampede Bridging Control Protocol",
     0x8073: "MP+ Control Protocol [Smith]",
     0x8071: "Reserved [Fox]",
@@ -177,7 +179,7 @@ _PPP_PROTOCOLS = {
     0x8207: "Cisco Discovery Protocol Control [Sastry]",
     0x8209: "Netcs Twin Routing [Korfmacher]",
     0x820b: "STP - Control Protocol [Segal]",
-    0x820d: "EDPCP - Extreme Discovery Protocol Ctrl Prtcl [Grosser]",  # noqa: E501
+    0x820d: "EDPCP - Extreme Discovery Protocol Ctrl Prtcl [Grosser]",
     0x8235: "Apple Client Server Protocol Control [Ridenour]",
     0x8281: "MPLSCP [RFC3032]",
     0x8285: "IEEE p1284.4 standard - Protocol Control [Batchelder]",
@@ -190,7 +192,7 @@ _PPP_PROTOCOLS = {
     0xc029: "CallBack Control Protocol (CBCP)",
     0xc02b: "BACP Bandwidth Allocation Control Protocol [RFC2125]",
     0xc02d: "BAP [RFC2125]",
-    0xc05b: "Vendor-Specific Authentication Protocol (VSAP) [RFC3772]",  # noqa: E501
+    0xc05b: "Vendor-Specific Authentication Protocol (VSAP) [RFC3772]",
     0xc081: "Container Control Protocol [KEN]",
     0xc223: "Challenge Handshake Authentication Protocol",
     0xc225: "RSA Authentication Protocol [Narayana]",
@@ -255,7 +257,8 @@ _PPP_conftypes = {1: "Configure-Request",
 _PPP_ipcpopttypes = {1: "IP-Addresses (Deprecated)",
                      2: "IP-Compression-Protocol",
                      3: "IP-Address",
-                     4: "Mobile-IPv4",  # not implemented, present for completeness  # noqa: E501
+                     # not implemented, present for completeness
+                     4: "Mobile-IPv4",
                      129: "Primary-DNS-Address",
                      130: "Primary-NBNS-Address",
                      131: "Secondary-DNS-Address",
@@ -264,9 +267,12 @@ _PPP_ipcpopttypes = {1: "IP-Addresses (Deprecated)",
 
 class PPP_IPCP_Option(Packet):
     name = "PPP IPCP Option"
-    fields_desc = [ByteEnumField("type", None, _PPP_ipcpopttypes),
-                   FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p, x:x + 2),  # noqa: E501
-                   StrLenField("data", "", length_from=lambda p:max(0, p.len - 2))]  # noqa: E501
+    fields_desc = [
+        ByteEnumField("type", None, _PPP_ipcpopttypes),
+        FieldLenField("len", None, length_of="data", fmt="B",
+                      adjust=lambda _, val: val + 2),
+        StrLenField("data", "", length_from=lambda pkt: max(0, pkt.len - 2)),
+    ]
 
     def extract_padding(self, pay):
         return b"", pay
@@ -287,49 +293,83 @@ class PPP_IPCP_Option(Packet):
 
 class PPP_IPCP_Option_IPAddress(PPP_IPCP_Option):
     name = "PPP IPCP Option: IP Address"
-    fields_desc = [ByteEnumField("type", 3, _PPP_ipcpopttypes),
-                   FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p, x:x + 2),  # noqa: E501
-                   IPField("data", "0.0.0.0"),
-                   ConditionalField(StrLenField("garbage", "", length_from=lambda pkt:pkt.len - 6), lambda p:p.len != 6)]  # noqa: E501
+    fields_desc = [
+        ByteEnumField("type", 3, _PPP_ipcpopttypes),
+        FieldLenField("len", None, length_of="data", fmt="B",
+                      adjust=lambda _, val: val + 2),
+        IPField("data", "0.0.0.0"),
+        ConditionalField(
+            StrLenField("garbage", "", length_from=lambda pkt: pkt.len - 6),
+            lambda pkt: pkt.len != 6,
+        )
+    ]
 
 
 class PPP_IPCP_Option_DNS1(PPP_IPCP_Option):
     name = "PPP IPCP Option: DNS1 Address"
-    fields_desc = [ByteEnumField("type", 129, _PPP_ipcpopttypes),
-                   FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p, x:x + 2),  # noqa: E501
-                   IPField("data", "0.0.0.0"),
-                   ConditionalField(StrLenField("garbage", "", length_from=lambda pkt:pkt.len - 6), lambda p:p.len != 6)]  # noqa: E501
+    fields_desc = [
+        ByteEnumField("type", 129, _PPP_ipcpopttypes),
+        FieldLenField("len", None, length_of="data", fmt="B",
+                      adjust=lambda _, val: val + 2),
+        IPField("data", "0.0.0.0"),
+        ConditionalField(
+            StrLenField("garbage", "", length_from=lambda pkt: pkt.len - 6),
+            lambda pkt: pkt.len != 6,
+        ),
+    ]
 
 
 class PPP_IPCP_Option_DNS2(PPP_IPCP_Option):
     name = "PPP IPCP Option: DNS2 Address"
-    fields_desc = [ByteEnumField("type", 131, _PPP_ipcpopttypes),
-                   FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p, x:x + 2),  # noqa: E501
-                   IPField("data", "0.0.0.0"),
-                   ConditionalField(StrLenField("garbage", "", length_from=lambda pkt:pkt.len - 6), lambda p:p.len != 6)]  # noqa: E501
+    fields_desc = [
+        ByteEnumField("type", 131, _PPP_ipcpopttypes),
+        FieldLenField("len", None, length_of="data", fmt="B",
+                      adjust=lambda _, val: val + 2),
+        IPField("data", "0.0.0.0"),
+        ConditionalField(
+            StrLenField("garbage", "", length_from=lambda pkt: pkt.len - 6),
+            lambda pkt: pkt.len != 6,
+        ),
+    ]
 
 
 class PPP_IPCP_Option_NBNS1(PPP_IPCP_Option):
     name = "PPP IPCP Option: NBNS1 Address"
-    fields_desc = [ByteEnumField("type", 130, _PPP_ipcpopttypes),
-                   FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p, x:x + 2),  # noqa: E501
-                   IPField("data", "0.0.0.0"),
-                   ConditionalField(StrLenField("garbage", "", length_from=lambda pkt:pkt.len - 6), lambda p:p.len != 6)]  # noqa: E501
+    fields_desc = [
+        ByteEnumField("type", 130, _PPP_ipcpopttypes),
+        FieldLenField("len", None, length_of="data", fmt="B",
+                      adjust=lambda _, val: val + 2),
+        IPField("data", "0.0.0.0"),
+        ConditionalField(
+            StrLenField("garbage", "", length_from=lambda pkt: pkt.len - 6),
+            lambda pkt: pkt.len != 6,
+        ),
+    ]
 
 
 class PPP_IPCP_Option_NBNS2(PPP_IPCP_Option):
     name = "PPP IPCP Option: NBNS2 Address"
-    fields_desc = [ByteEnumField("type", 132, _PPP_ipcpopttypes),
-                   FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p, x:x + 2),  # noqa: E501
-                   IPField("data", "0.0.0.0"),
-                   ConditionalField(StrLenField("garbage", "", length_from=lambda pkt:pkt.len - 6), lambda p:p.len != 6)]  # noqa: E501
+    fields_desc = [
+        ByteEnumField("type", 132, _PPP_ipcpopttypes),
+        FieldLenField("len", None, length_of="data", fmt="B",
+                      adjust=lambda _, val: val + 2),
+        IPField("data", "0.0.0.0"),
+        ConditionalField(
+            StrLenField("garbage", "", length_from=lambda pkt: pkt.len - 6),
+            lambda pkt: pkt.len != 6,
+        ),
+    ]
 
 
 class PPP_IPCP(Packet):
-    fields_desc = [ByteEnumField("code", 1, _PPP_conftypes),
-                   XByteField("id", 0),
-                   FieldLenField("len", None, fmt="H", length_of="options", adjust=lambda p, x:x + 4),  # noqa: E501
-                   PacketListField("options", [], PPP_IPCP_Option, length_from=lambda p:p.len - 4,)]  # noqa: E501
+    fields_desc = [
+        ByteEnumField("code", 1, _PPP_conftypes),
+        XByteField("id", 0),
+        FieldLenField("len", None, fmt="H", length_of="options",
+                      adjust=lambda _, val: val + 4),
+        PacketListField("options", [], PPP_IPCP_Option,
+                        length_from=lambda pkt: pkt.len - 4)
+    ]
 
 
 # ECP
@@ -340,9 +380,12 @@ _PPP_ecpopttypes = {0: "OUI",
 
 class PPP_ECP_Option(Packet):
     name = "PPP ECP Option"
-    fields_desc = [ByteEnumField("type", None, _PPP_ecpopttypes),
-                   FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p, x:x + 2),  # noqa: E501
-                   StrLenField("data", "", length_from=lambda p:max(0, p.len - 2))]  # noqa: E501
+    fields_desc = [
+        ByteEnumField("type", None, _PPP_ecpopttypes),
+        FieldLenField("len", None, length_of="data", fmt="B",
+                      adjust=lambda _, val: val + 2),
+        StrLenField("data", "", length_from=lambda pkt: max(0, pkt.len - 2)),
+    ]
 
     def extract_padding(self, pay):
         return b"", pay
@@ -362,18 +405,25 @@ class PPP_ECP_Option(Packet):
 
 
 class PPP_ECP_Option_OUI(PPP_ECP_Option):
-    fields_desc = [ByteEnumField("type", 0, _PPP_ecpopttypes),
-                   FieldLenField("len", None, length_of="data", fmt="B", adjust=lambda p, x:x + 6),  # noqa: E501
-                   StrFixedLenField("oui", "", 3),
-                   ByteField("subtype", 0),
-                   StrLenField("data", "", length_from=lambda p:p.len - 6)]
+    fields_desc = [
+        ByteEnumField("type", 0, _PPP_ecpopttypes),
+        FieldLenField("len", None, length_of="data", fmt="B",
+                      adjust=lambda _, val: val + 6),
+        StrFixedLenField("oui", "", 3),
+        ByteField("subtype", 0),
+        StrLenField("data", "", length_from=lambda pkt: pkt.len - 6),
+    ]
 
 
 class PPP_ECP(Packet):
-    fields_desc = [ByteEnumField("code", 1, _PPP_conftypes),
-                   XByteField("id", 0),
-                   FieldLenField("len", None, fmt="H", length_of="options", adjust=lambda p, x:x + 4),  # noqa: E501
-                   PacketListField("options", [], PPP_ECP_Option, length_from=lambda p:p.len - 4,)]  # noqa: E501
+    fields_desc = [
+        ByteEnumField("code", 1, _PPP_conftypes),
+        XByteField("id", 0),
+        FieldLenField("len", None, fmt="H", length_of="options",
+                      adjust=lambda _, val: val + 4),
+        PacketListField("options", [], PPP_ECP_Option,
+                        length_from=lambda pkt: pkt.len - 4),
+    ]
 
 # Link Control Protocol (RFC 1661)
 
@@ -393,12 +443,13 @@ _PPP_lcptypes = {1: "Configure-Request",
 
 class PPP_LCP(Packet):
     name = "PPP Link Control Protocol"
-    fields_desc = [ByteEnumField("code", 5, _PPP_lcptypes),
-                   XByteField("id", 0),
-                   FieldLenField("len", None, fmt="H", length_of="data",
-                                 adjust=lambda p, x: x + 4),
-                   StrLenField("data", "",
-                               length_from=lambda p:p.len - 4)]
+    fields_desc = [
+        ByteEnumField("code", 5, _PPP_lcptypes),
+        XByteField("id", 0),
+        FieldLenField("len", None, fmt="H", length_of="data",
+                      adjust=lambda _, val: val + 4),
+        StrLenField("data", "", length_from=lambda pkt: pkt.len - 4),
+    ]
 
     def mysummary(self):
         return self.sprintf('LCP %code%')
@@ -439,10 +490,12 @@ _PPP_lcp_optiontypes = {1: "Maximum-Receive-Unit",
 
 class PPP_LCP_Option(Packet):
     name = "PPP LCP Option"
-    fields_desc = [ByteEnumField("type", None, _PPP_lcp_optiontypes),
-                   FieldLenField("len", None, fmt="B", length_of="data",
-                                 adjust=lambda p, x:x + 2),
-                   StrLenField("data", None, length_from=lambda p:p.len - 2)]
+    fields_desc = [
+        ByteEnumField("type", None, _PPP_lcp_optiontypes),
+        FieldLenField("len", None, fmt="B", length_of="data",
+                      adjust=lambda _, val: val + 2),
+        StrLenField("data", None, length_from=lambda pkt: pkt.len - 2),
+    ]
 
     def extract_padding(self, pay):
         return b"", pay
@@ -463,24 +516,30 @@ class PPP_LCP_Option(Packet):
 
 class PPP_LCP_MRU_Option(PPP_LCP_Option):
     fields_desc = [ByteEnumField("type", 1, _PPP_lcp_optiontypes),
-                   FieldLenField("len", 4, fmt="B", adjust=lambda p, x:4),
+                   ByteField("len", 4),
                    ShortField("max_recv_unit", 1500)]
 
 
-_PPP_LCP_auth_protocols = {0xc023: "Password authentication protocol",
-                           0xc223: "Challenge-response authentication protocol",  # noqa: E501
-                           0xc227: "PPP Extensible authentication protocol"}
+_PPP_LCP_auth_protocols = {
+    0xc023: "Password authentication protocol",
+    0xc223: "Challenge-response authentication protocol",
+    0xc227: "PPP Extensible authentication protocol",
+}
 
-_PPP_LCP_CHAP_algorithms = {5: "MD5",
-                            6: "SHA1",
-                            128: "MS-CHAP",
-                            129: "MS-CHAP-v2"}
+_PPP_LCP_CHAP_algorithms = {
+    5: "MD5",
+    6: "SHA1",
+    128: "MS-CHAP",
+    129: "MS-CHAP-v2",
+}
 
 
 class PPP_LCP_ACCM_Option(PPP_LCP_Option):
-    fields_desc = [ByteEnumField("type", 2, _PPP_lcp_optiontypes),
-                   FieldLenField("len", 6, fmt="B"),
-                   BitField("accm", 0x00000000, 32)]
+    fields_desc = [
+        ByteEnumField("type", 2, _PPP_lcp_optiontypes),
+        ByteField("len", 6),
+        BitField("accm", 0x00000000, 32),
+    ]
 
 
 def adjust_auth_len(pkt, x):
@@ -493,105 +552,135 @@ def adjust_auth_len(pkt, x):
 
 
 class PPP_LCP_Auth_Protocol_Option(PPP_LCP_Option):
-    fields_desc = [ByteEnumField("type", 3, _PPP_lcp_optiontypes),
-                   FieldLenField("len", None, fmt="B", length_of="data",
-                                 adjust=adjust_auth_len),
-                   ShortEnumField("auth_protocol", 0xc023, _PPP_LCP_auth_protocols),  # noqa: E501
-                   ConditionalField(StrLenField("data", '', length_from=lambda p:p.len - 4),  # noqa: E501
-                                    lambda p:p.auth_protocol != 0xc223),
-                   ConditionalField(ByteEnumField("algorithm", 5, _PPP_LCP_CHAP_algorithms),  # noqa: E501
-                                    lambda p:p.auth_protocol == 0xc223)]
+    fields_desc = [
+        ByteEnumField("type", 3, _PPP_lcp_optiontypes),
+        FieldLenField("len", None, fmt="B", length_of="data",
+                      adjust=adjust_auth_len),
+        ShortEnumField("auth_protocol", 0xc023, _PPP_LCP_auth_protocols),
+        ConditionalField(
+            StrLenField("data", '', length_from=lambda pkt: pkt.len - 4),
+            lambda pkt: pkt.auth_protocol != 0xc223
+        ),
+        ConditionalField(
+            ByteEnumField("algorithm", 5, _PPP_LCP_CHAP_algorithms),
+            lambda pkt: pkt.auth_protocol == 0xc223
+        ),
+    ]
 
 
 _PPP_LCP_quality_protocols = {0xc025: "Link Quality Report"}
 
 
 class PPP_LCP_Quality_Protocol_Option(PPP_LCP_Option):
-    fields_desc = [ByteEnumField("type", 4, _PPP_lcp_optiontypes),
-                   FieldLenField("len", None, fmt="B", length_of="data",
-                                 adjust=lambda p, x:x + 4),
-                   ShortEnumField("quality_protocol", 0xc025, _PPP_LCP_quality_protocols),  # noqa: E501
-                   StrLenField("data", "", length_from=lambda p:p.len - 4)]
+    fields_desc = [
+        ByteEnumField("type", 4, _PPP_lcp_optiontypes),
+        FieldLenField("len", None, fmt="B", length_of="data",
+                      adjust=lambda _, val: val + 4),
+        ShortEnumField("quality_protocol", 0xc025, _PPP_LCP_quality_protocols),
+        StrLenField("data", "", length_from=lambda pkt: pkt.len - 4),
+    ]
 
 
 class PPP_LCP_Magic_Number_Option(PPP_LCP_Option):
-    fields_desc = [ByteEnumField("type", 5, _PPP_lcp_optiontypes),
-                   FieldLenField("len", 6, fmt="B", adjust=lambda p, x:6),
-                   IntField("magic_number", None)]
+    fields_desc = [
+        ByteEnumField("type", 5, _PPP_lcp_optiontypes),
+        ByteField("len", 6),
+        IntField("magic_number", None),
+    ]
 
 
-_PPP_lcp_callback_operations = {0: "Location determined by user authentication",  # noqa: E501
-                                1: "Dialing string",
-                                2: "Location identifier",
-                                3: "E.164 number",
-                                4: "Distinguished name"}
+_PPP_lcp_callback_operations = {
+    0: "Location determined by user authentication",
+    1: "Dialing string",
+    2: "Location identifier",
+    3: "E.164 number",
+    4: "Distinguished name",
+}
 
 
 class PPP_LCP_Callback_Option(PPP_LCP_Option):
-    fields_desc = [ByteEnumField("type", 13, _PPP_lcp_optiontypes),
-                   FieldLenField("len", None, fmt="B", length_of="message",
-                                 adjust=lambda p, x:x + 3),
-                   ByteEnumField("operation", 0, _PPP_lcp_callback_operations),
-                   StrLenField("message", "", length_from=lambda p:p.len - 3)]
+    fields_desc = [
+        ByteEnumField("type", 13, _PPP_lcp_optiontypes),
+        FieldLenField("len", None, fmt="B", length_of="message",
+                      adjust=lambda _, val: val + 3),
+        ByteEnumField("operation", 0, _PPP_lcp_callback_operations),
+        StrLenField("message", "", length_from=lambda pkt: pkt.len - 3)
+    ]
 
 
 class PPP_LCP_Configure(PPP_LCP):
-    fields_desc = [ByteEnumField("code", 1, _PPP_lcptypes),
-                   XByteField("id", 0),
-                   FieldLenField("len", None, fmt="H", length_of="options",
-                                 adjust=lambda p, x:x + 4),
-                   PacketListField("options", [], PPP_LCP_Option,
-                                   length_from=lambda p:p.len - 4)]
+    fields_desc = [
+        ByteEnumField("code", 1, _PPP_lcptypes),
+        XByteField("id", 0),
+        FieldLenField("len", None, fmt="H", length_of="options",
+                      adjust=lambda _, val: val + 4),
+        PacketListField("options", [], PPP_LCP_Option,
+                        length_from=lambda pkt: pkt.len - 4),
+    ]
 
     def answers(self, other):
-        return isinstance(other, PPP_LCP_Configure) and self.code in [2, 3, 4]\
-            and other.code == 1 and other.id == self.id
+        return (
+            isinstance(other, PPP_LCP_Configure) and self.code in [2, 3, 4] and
+            other.code == 1 and other.id == self.id
+        )
 
 
 class PPP_LCP_Terminate(PPP_LCP):
 
     def answers(self, other):
-        return isinstance(other, PPP_LCP_Terminate) and self.code == 6\
-            and other.code == 5 and other.id == self.id
+        return (
+            isinstance(other, PPP_LCP_Terminate) and self.code == 6 and
+            other.code == 5 and other.id == self.id
+        )
 
 
 class PPP_LCP_Code_Reject(PPP_LCP):
-    fields_desc = [ByteEnumField("code", 7, _PPP_lcptypes),
-                   XByteField("id", 0),
-                   FieldLenField("len", None, fmt="H", length_of="rejected_packet",  # noqa: E501
-                                 adjust=lambda p, x:x + 4),
-                   PacketField("rejected_packet", None, PPP_LCP)]
+    fields_desc = [
+        ByteEnumField("code", 7, _PPP_lcptypes),
+        XByteField("id", 0),
+        FieldLenField("len", None, fmt="H", length_of="rejected_packet",
+                      adjust=lambda _, val: val + 4),
+        PacketField("rejected_packet", None, PPP_LCP),
+    ]
 
 
 class PPP_LCP_Protocol_Reject(PPP_LCP):
-    fields_desc = [ByteEnumField("code", 8, _PPP_lcptypes),
-                   XByteField("id", 0),
-                   FieldLenField("len", None, fmt="H", length_of="rejected_information",  # noqa: E501
-                                 adjust=lambda p, x:x + 6),
-                   ShortEnumField("rejected_protocol", None, _PPP_PROTOCOLS),
-                   PacketField("rejected_information", None, Packet)]
+    fields_desc = [
+        ByteEnumField("code", 8, _PPP_lcptypes),
+        XByteField("id", 0),
+        FieldLenField("len", None, fmt="H", length_of="rejected_information",
+                      adjust=lambda _, val: val + 6),
+        ShortEnumField("rejected_protocol", None, _PPP_PROTOCOLS),
+        PacketField("rejected_information", None, Packet),
+    ]
 
 
 class PPP_LCP_Echo(PPP_LCP):
-    fields_desc = [ByteEnumField("code", 9, _PPP_lcptypes),
-                   XByteField("id", 0),
-                   FieldLenField("len", None, fmt="H", length_of="data",
-                                 adjust=lambda p, x:x + 8),
-                   IntField("magic_number", None),
-                   StrLenField("data", "", length_from=lambda p:p.len - 8)]
+    fields_desc = [
+        ByteEnumField("code", 9, _PPP_lcptypes),
+        XByteField("id", 0),
+        FieldLenField("len", None, fmt="H", length_of="data",
+                      adjust=lambda _, val: val + 8),
+        IntField("magic_number", None),
+        StrLenField("data", "", length_from=lambda pkt: pkt.len - 8),
+    ]
 
     def answers(self, other):
-        return isinstance(other, PPP_LCP_Echo) and self.code == 10\
-            and other.code == 9 and self.id == other.id
+        return (
+            isinstance(other, PPP_LCP_Echo) and self.code == 10 and
+            other.code == 9 and self.id == other.id
+        )
 
 
 class PPP_LCP_Discard_Request(PPP_LCP):
-    fields_desc = [ByteEnumField("code", 11, _PPP_lcptypes),
-                   XByteField("id", 0),
-                   FieldLenField("len", None, fmt="H", length_of="data",
-                                 adjust=lambda p, x:x + 8),
-                   IntField("magic_number", None),
-                   StrLenField("data", "", length_from=lambda p:p.len - 8)]
+    fields_desc = [
+        ByteEnumField("code", 11, _PPP_lcptypes),
+        XByteField("id", 0),
+        FieldLenField("len", None, fmt="H", length_of="data",
+                      adjust=lambda _, val: val + 8),
+        IntField("magic_number", None),
+        StrLenField("data", "", length_from=lambda pkt: pkt.len - 8),
+    ]
 
 # Password authentication protocol (RFC 1334)
 
@@ -603,11 +692,13 @@ _PPP_paptypes = {1: "Authenticate-Request",
 
 class PPP_PAP(Packet):
     name = "PPP Password Authentication Protocol"
-    fields_desc = [ByteEnumField("code", 1, _PPP_paptypes),
-                   XByteField("id", 0),
-                   FieldLenField("len", None, fmt="!H", length_of="data",
-                                 adjust=lambda _, x: x + 4),
-                   StrLenField("data", "", length_from=lambda p: p.len - 4)]
+    fields_desc = [
+        ByteEnumField("code", 1, _PPP_paptypes),
+        XByteField("id", 0),
+        FieldLenField("len", None, fmt="!H", length_of="data",
+                      adjust=lambda _, val: val + 4),
+        StrLenField("data", "", length_from=lambda pkt: pkt.len - 4),
+    ]
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *_, **kargs):
@@ -630,27 +721,32 @@ class PPP_PAP(Packet):
 
 
 class PPP_PAP_Request(PPP_PAP):
-    fields_desc = [ByteEnumField("code", 1, _PPP_paptypes),
-                   XByteField("id", 0),
-                   FieldLenField("len", None, fmt="!H", length_of="username",
-                                 adjust=lambda p, x: x + 6 + len(p.password)),
-                   FieldLenField("username_len", None, fmt="B", length_of="username"),  # noqa: E501
-                   StrLenField("username", None, length_from=lambda p: p.username_len),  # noqa: E501
-                   FieldLenField("passwd_len", None, fmt="B", length_of="password"),  # noqa: E501
-                   StrLenField("password", None, length_from=lambda p: p.passwd_len)]  # noqa: E501
+    fields_desc = [
+        ByteEnumField("code", 1, _PPP_paptypes),
+        XByteField("id", 0),
+        FieldLenField("len", None, fmt="!H", length_of="username",
+                      adjust=lambda pkt, val: val + 6 + len(pkt.password)),
+        FieldLenField("username_len", None, fmt="B", length_of="username"),
+        StrLenField("username", None,
+                    length_from=lambda pkt: pkt.username_len),
+        FieldLenField("passwd_len", None, fmt="B", length_of="password"),
+        StrLenField("password", None, length_from=lambda pkt: pkt.passwd_len),
+    ]
 
     def mysummary(self):
-        return self.sprintf("PAP-Request username=%PPP_PAP_Request.username%" +
+        return self.sprintf("PAP-Request username=%PPP_PAP_Request.username%"
                             " password=%PPP_PAP_Request.password%")
 
 
 class PPP_PAP_Response(PPP_PAP):
-    fields_desc = [ByteEnumField("code", 2, _PPP_paptypes),
-                   XByteField("id", 0),
-                   FieldLenField("len", None, fmt="!H", length_of="message",
-                                 adjust=lambda _, x: x + 5),
-                   FieldLenField("msg_len", None, fmt="B", length_of="message"),  # noqa: E501
-                   StrLenField("message", "", length_from=lambda p: p.msg_len)]
+    fields_desc = [
+        ByteEnumField("code", 2, _PPP_paptypes),
+        XByteField("id", 0),
+        FieldLenField("len", None, fmt="!H", length_of="message",
+                      adjust=lambda _, val: val + 5),
+        FieldLenField("msg_len", None, fmt="B", length_of="message"),
+        StrLenField("message", "", length_from=lambda pkt: pkt.msg_len),
+    ]
 
     def answers(self, other):
         return isinstance(other, PPP_PAP_Request) and other.id == self.id
@@ -672,11 +768,13 @@ _PPP_chaptypes = {1: "Challenge",
 
 class PPP_CHAP(Packet):
     name = "PPP Challenge Handshake Authentication Protocol"
-    fields_desc = [ByteEnumField("code", 1, _PPP_chaptypes),
-                   XByteField("id", 0),
-                   FieldLenField("len", None, fmt="!H", length_of="data",
-                                 adjust=lambda _, x: x + 4),
-                   StrLenField("data", "", length_from=lambda p: p.len - 4)]
+    fields_desc = [
+        ByteEnumField("code", 1, _PPP_chaptypes),
+        XByteField("id", 0),
+        FieldLenField("len", None, fmt="!H", length_of="data",
+                      adjust=lambda _, val: val + 4),
+        StrLenField("data", "", length_from=lambda pkt: pkt.len - 4),
+    ]
 
     def answers(self, other):
         return isinstance(other, PPP_CHAP_ChallengeResponse) \
@@ -708,13 +806,19 @@ class PPP_CHAP(Packet):
 
 
 class PPP_CHAP_ChallengeResponse(PPP_CHAP):
-    fields_desc = [ByteEnumField("code", 1, _PPP_chaptypes),
-                   XByteField("id", 0),
-                   FieldLenField("len", None, fmt="!H", length_of="value",
-                                 adjust=lambda p, x: x + len(p.optional_name) + 5),  # noqa: E501
-                   FieldLenField("value_size", None, fmt="B", length_of="value"),  # noqa: E501
-                   XStrLenField("value", b"\0" * 8, length_from=lambda p: p.value_size),  # noqa: E501
-                   StrLenField("optional_name", "", length_from=lambda p: p.len - p.value_size - 5)]  # noqa: E501
+    fields_desc = [
+        ByteEnumField("code", 1, _PPP_chaptypes),
+        XByteField("id", 0),
+        FieldLenField(
+            "len", None, fmt="!H", length_of="value",
+            adjust=lambda pkt, val: val + len(pkt.optional_name) + 5,
+        ),
+        FieldLenField("value_size", None, fmt="B", length_of="value"),
+        XStrLenField("value", b'\x00\x00\x00\x00\x00\x00\x00\x00',
+                     length_from=lambda pkt: pkt.value_size),
+        StrLenField("optional_name", "",
+                    length_from=lambda pkt: pkt.len - pkt.value_size - 5),
+    ]
 
     def answers(self, other):
         return isinstance(other, PPP_CHAP_ChallengeResponse) \
@@ -722,13 +826,17 @@ class PPP_CHAP_ChallengeResponse(PPP_CHAP):
 
     def mysummary(self):
         if self.code == 1:
-            return self.sprintf("CHAP challenge=0x%PPP_CHAP_ChallengeResponse.value% " +  # noqa: E501
-                                "optional_name=%PPP_CHAP_ChallengeResponse.optional_name%")  # noqa: E501
+            return self.sprintf(
+                "CHAP challenge=0x%PPP_CHAP_ChallengeResponse.value% "
+                "optional_name=%PPP_CHAP_ChallengeResponse.optional_name%"
+            )
         elif self.code == 2:
-            return self.sprintf("CHAP response=0x%PPP_CHAP_ChallengeResponse.value% " +  # noqa: E501
-                                "optional_name=%PPP_CHAP_ChallengeResponse.optional_name%")  # noqa: E501
+            return self.sprintf(
+                "CHAP response=0x%PPP_CHAP_ChallengeResponse.value% "
+                "optional_name=%PPP_CHAP_ChallengeResponse.optional_name%"
+            )
         else:
-            return PPP_CHAP.mysummary(self)
+            return super(PPP_CHAP_ChallengeResponse, self).mysummary()
 
 
 bind_layers(Ether, PPPoED, type=0x8863)
