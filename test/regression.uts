@@ -8737,7 +8737,7 @@ pkt.flags.NextProtocol and pkt.NextProtocol == 3
 = Verify UDP dport overloading
 p = Ether(dst="11:11:11:11:11:11", src="22:22:22:22:22:22")
 p /= IP(src="1.1.1.1", dst="2.2.2.2") / UDP(sport=1111)
-p /= VXLAN(flags=0x8, vni=42) / Ether() / IP()
+p /= VXLAN(flags=0xC, vni=42, NextProtocol=0) / Ether() / IP()
 p = Ether(raw(p))
 assert(p[UDP].dport == 4789)
 assert(p[Ether:2].type == 0x800)
@@ -8755,21 +8755,51 @@ assert(p[Ether:2].type == 0x800)
 = Build a VXLAN packet with no group policy ID
 p = Ether(dst="11:11:11:11:11:11", src="22:22:22:22:22:22")
 p /= IP(src="1.1.1.1", dst="2.2.2.2") / UDP(sport=1111)
-p /= VXLAN(flags=0x8, vni=42) / Ether() / IP()
+p /= VXLAN(flags=0xC, vni=42) / Ether() / IP()
 p = Ether(raw(p))
-assert(p[VXLAN].reserved1 == 0x0)
+assert(p[VXLAN].reserved2 == 0x0)
 assert(p[VXLAN].gpid is None)
 assert(p[Ether:2].type == 0x800)
 
 = Build a VXLAN packet with group policy ID = 42
 p = Ether(dst="11:11:11:11:11:11", src="22:22:22:22:22:22")
 p /= IP(src="1.1.1.1", dst="2.2.2.2") / UDP(sport=1111)
-p /= VXLAN(flags=0x88, gpid=42, vni=42) / Ether() / IP()
+p /= VXLAN(flags=0x8C, gpid=42, vni=42) / Ether() / IP()
 p = Ether(raw(p))
 assert(p[VXLAN].gpid == 42)
 assert(p[VXLAN].reserved1 is None)
 assert(p[Ether:2].type == 0x800)
 
+= Build a VXLAN packet followed by and IP or IPv6 layer
+etherproto = 0x0
+ipproto = 0x1
+ipv6proto = 0x2
+iptest = "192.168.20.20"
+ipv6test = "659f:2c23:565:3fab:32d5:bb95:a0ed:2e3b"
+
+expkt = UDP() / VXLAN() / IP(dst=iptest) / "testing"
+expkt = UDP(bytes(expkt))
+assert(expkt[VXLAN].NextProtocol == ipproto)
+assert(IP in expkt)
+assert(expkt[IP].dst == iptest)
+
+expkt = UDP() / VXLAN() / IPv6(dst=ipv6test) / "testing"
+expkt = UDP(bytes(expkt))
+assert(expkt[VXLAN].NextProtocol == ipv6proto)
+assert(IPv6 in expkt)
+assert(expkt[IPv6].dst == ipv6test)
+
+expkt = UDP() / VXLAN(flags=0x4, NextProtocol=ipproto) / "0xfffffffffffffffffffffffffffffffffffffffffffff"
+expkt = UDP(bytes(expkt))
+assert(IP in expkt)
+
+expkt = UDP() / VXLAN(flags=0x4, NextProtocol=ipv6proto) / "0xfffffffffffffffffffffffffffffffffffffffffffff"
+expkt = UDP(bytes(expkt))
+assert(IPv6 in expkt)
+
+expkt = UDP() / VXLAN(flags=0x4, NextProtocol=etherproto) / "0xfffffffffffffffffffffffffffffffffffffffffffff"
+expkt = UDP(bytes(expkt))
+assert(Ether in expkt)
 
 ############
 ############

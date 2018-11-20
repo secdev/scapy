@@ -85,9 +85,10 @@ bind_layers(UDP, VXLAN, sport=8472)
 # By default, set both ports to the RFC standard
 bind_layers(UDP, VXLAN, sport=4789, dport=4789)
 
-bind_layers(VXLAN, Ether)
+bind_layers(VXLAN, Ether, NextProtocol=0)
 bind_layers(VXLAN, IP, NextProtocol=1)
 bind_layers(VXLAN, IPv6, NextProtocol=2)
+bind_layers(VXLAN, Ether, NextProtocol=3)
 bind_layers(VXLAN, Ether, flags=4, NextProtocol=0)
 bind_layers(VXLAN, IP, flags=4, NextProtocol=1)
 bind_layers(VXLAN, IPv6, flags=4, NextProtocol=2)
