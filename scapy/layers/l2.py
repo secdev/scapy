@@ -286,6 +286,7 @@ class Dot1Q(Packet):
 conf.neighbor.register_l3(Ether, Dot1Q, l2_register_l3)
 
 # 802.1ah Provider Backbone Bridging (PBB) is now part of 802.1Q
+
 class Dot1QITag(Packet):
     name = "802.1Q I-Tag"
     aliastypes = [Ether]
