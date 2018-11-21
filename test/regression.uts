@@ -9032,6 +9032,19 @@ L2TP in p and len(p[L2TP]) == 6 and p.tunnel_id == 0 and p.session_id == 0 and p
 
 ############
 ############
++ 802.1Q I-Tag Provider Backbone Bridging tests
+
+= Dot1QITag - build
+s = raw(Ether(src='00:00:5e:00:53:78',dst='00:00:5e:00:53:24')/Dot1Q(vlan=4052)/Dot1QITag(sid=100502)/Ether(src='fe:e1:ba:d0:71:ef', dst='fe:e1:ba:d0:79:40')/Dot1Q(vlan=502)/IP()/ICMP())
+s == b'\x00\x00^\x00S$\x00\x00^\x00Sx\x81\x00\x0f\xd4\x88\xe7\x00\x01\x88\x96\xfe\xe1\xba\xd0y@\xfe\xe1\xba\xd0q\xef\x81\x00\x01\xf6\x08\x00E\x00\x00\x1c\x00\x01\x00\x00@\x01|\xde\x7f\x00\x00\x01\x7f\x00\x00\x01\x08\x00\xf7\xff\x00\x00\x00\x00'
+
+= Dot1QITag - dissection
+p = Ether(s)
+Dot1QITag in p and p[Dot1QITag].sid == 100502 and p[Dot1QITag].prio == 0 and p[Dot1QITag].dei == 0 and p[Dot1QITag].uca == 0
+
+
+############
+############
 + MGCP tests
 
 = MGCP - build
