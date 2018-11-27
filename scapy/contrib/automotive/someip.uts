@@ -30,6 +30,7 @@
 ##########
 ##########
 
+import binascii
 + Test MessageId
 
 = Load module
@@ -54,7 +55,10 @@ assert((struct.unpack("!H", bytes(p)[2:4])[0] & ~0x8000) == 0x0222)
 
 assert(bytes(p) == b"\x11\x11\x02\x22")
 
+del(p)
+
 = Dissect MessageId with method_id
+
 
 p = SOMEIP(b'\x22\x22\x03\x33')
 
@@ -64,7 +68,10 @@ assert(p.msg_id.method_id == 0x0333)
 
 assert(p.msg_id.sub_id == 0)
 
+del(p)
+
 = Build MessageId with event_id
+
 
 p = SOMEIP().msg_id
 p.srv_id = 0x1111
@@ -80,7 +87,10 @@ assert((struct.unpack("!H", bytes(p)[2:4])[0] & ~0x8000) == 0x0333)
 
 assert(bytes(p) == b"\x11\x11\x83\x33")
 
+del(p)
+
 = Dissect MessageId with event_id
+
 
 p = SOMEIP(b'\x33\x33\x82\x22')
 
@@ -90,9 +100,12 @@ assert(p.msg_id.event_id == 0x0222)
 
 assert(p.msg_id.sub_id == 1)
 
+del(p)
+
 + Test RequestId
 
 = Request Id
+
 
 p = SOMEIP().req_id
 p.client_id = 0x1111
@@ -104,7 +117,10 @@ assert(struct.unpack("!H", bytes(p)[2:4])[0] == 0x2222)
 
 assert(bytes(p) == b"\x11\x11\x22\x22")
 
+del(p)
+
 = Dissect RequestId
+
 
 methId = b'\x22\x22\x03\x33'
 pktLen = b'\x11\x11\x11\x11'
@@ -115,13 +131,22 @@ assert(p.req_id.client_id == 0x2222)
 
 assert(p.req_id.session_id == 0x3333)
 
+p.show()
+
+del(p)
+
 + Test SOMEIP
 
 = Check SomeIp
 
 p = SOMEIP()
-pstr = bytes(p)
-binstr = b"\x00\x00\x00\x00\x00\x00\x00\x08\x00\x00\x00\x00\x01\x01\x00\x00"
+p.show()
+print(p.msg_id.srv_id)
+pstr = binascii.hexlify(bytes(p))
+binstr = binascii.hexlify(
+    b"\x00\x00\x00\x00\x00\x00\x00\x08\x00\x00\x00\x00\x01\x01\x00\x00")
+print(pstr)
+print(binstr)
 assert(pstr == binstr)
 
 p.payload = Raw(binascii.unhexlify("DEADBEEF"))
@@ -133,6 +158,8 @@ p.payload = Raw('')
 pstr = bytes(p)
 binstr = b"\x00\x00\x00\x00\x00\x00\x00\x08\x00\x00\x00\x00\x01\x01\x00\x00"
 assert(pstr == binstr)
+
+del(p)
 
 = Dissect SomeIP packet
 
@@ -155,6 +182,8 @@ assert(p.msg_type == 0x04)
 
 assert(p.retcode == 0x05)
 
+del(p)
+
 + Test SOMEIP_SubPackages
 
 = Check MessageId subpackage
@@ -174,9 +203,11 @@ pstr = bytes(p)
 binstr = b"\x11\x11\x83\x33\x00\x00\x00\x08\x00\x00\x00\x00\x01\x01\x00\x00"
 assert(pstr == binstr)
 
+del(p)
+
 = Check RequestId subpackage
 
-del(p)
+
 p = SOMEIP()
 p.req_id.client_id = 0x1111
 p.req_id.session_id = 0x2222

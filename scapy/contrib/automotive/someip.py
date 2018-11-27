@@ -27,13 +27,11 @@
 # Copyright (C) Sebastian Baar <sebastian.baar@gmx.de>
 # This program is published under a GPLv2 license
 
-from scapy.packet import *
-from scapy.fields import *
-import ctypes
-from scapy.all import *
-from scapy.layers.inet6 import IP6Field
-from scapy.layers.inet import UDP
-from scapy.layers.inet import TCP
+from scapy.layers.inet import TCP, UDP
+from scapy.all import struct, bind_layers
+from scapy.packet import Packet
+from scapy.fields import ShortField, BitEnumField, ConditionalField, \
+    BitField, PacketField, IntField, ByteField, ByteEnumField
 
 
 class _SOMEIP_MessageId(Packet):
@@ -131,19 +129,15 @@ class SOMEIP(Packet):
     ]
 
     def post_build(self, p, pay):
-        l = self.len
-        if (l is None):
-            l = self.LEN_OFFSET + len(pay)
-            p = p[:4] + struct.pack("!I", l) + p[8:]
+        length = self.len
+        if (length is None):
+            length = self.LEN_OFFSET + len(pay)
+            p = p[:4] + struct.pack("!I", length) + p[8:]
         return p + pay
 
     def answers(self, other):
         if other.__class__ == self.__class__:
-            if (REQUEST_NO_RETURN or REQUEST_NO_RETURN_ACK) \
-                    not in self.msg_type:
-                return self.payload.answers(other.payload)
-            else:
-                return 0
+            return self.payload.answers(other.payload)
         return 0
 
 

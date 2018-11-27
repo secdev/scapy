@@ -130,7 +130,7 @@ assert(p.type == 0x01)
 assert(len(bytes(p)) == 4)
 
 = Check add payload and check length
-
+import binascii
 p.cfg_str = binascii.hexlify(b"5abc=x7def=1230")
 
 assert(bytes(p) == b"\x00\x1f\x01\x00" +

@@ -30,7 +30,10 @@
 import ctypes
 import collections
 
-from scapy.all import *
+from scapy.all import Packet, struct
+from scapy.fields import ByteField, BitField, ShortField, \
+    X3BytesField, IntField, ByteEnumField, StrField, IPField, \
+    FieldLenField, PacketListField
 from scapy.contrib.automotive.someip import SOMEIP
 from scapy.layers.inet6 import IP6Field
 from scapy.compat import orb
@@ -205,10 +208,10 @@ class SDOption_Config(_SDOption):
         StrField("cfg_str", "")]
 
     def post_build(self, p, pay):
-        l = self.len
-        if (l is None):
-            l = len(self.cfg_str) + self.LEN_OFFSET
-            p = struct.pack("!H", l) + p[2:]
+        length = self.len
+        if (length is None):
+            length = len(self.cfg_str) + self.LEN_OFFSET
+            p = struct.pack("!H", length) + p[2:]
         return (p + pay)
 
 
@@ -265,8 +268,8 @@ class SD(_SDPacketBase):
     """
     SD Packet
 
-    NOTE :   when adding 'entries' or 'options', do not use list.append() 
-    method but create a new list
+    NOTE :   when adding 'entries' or 'options', do not use list.append()
+        method but create a new list
     e.g. :  p = SD()
             p.option_array = [SDOption_Config(),SDOption_IP6_EndPoint()]
     """
@@ -309,8 +312,8 @@ class SD(_SDPacketBase):
         name = name.upper()
         if (name in self.FLAGSDEF):
             self.flags = (self.flags &
-                          (ctypes.c_ubyte(~self.FLAGSDEF[name].mask).value)) | (
-                (value & 0x01) << self.FLAGSDEF[name].offset)
+                          (ctypes.c_ubyte(~self.FLAGSDEF[name].mask).value)) \
+                | ((value & 0x01) << self.FLAGSDEF[name].offset)
 
     def setEntryArray(self, entry_list):
         if (isinstance(entry_list, list)):

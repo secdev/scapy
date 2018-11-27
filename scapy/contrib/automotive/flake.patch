@@ -1,0 +1,244 @@
+diff --git a/scapy/contrib/automotive/someip.py b/scapy/contrib/automotive/someip.py
+index 925b1411..11b05468 100644
+--- a/scapy/contrib/automotive/someip.py
++++ b/scapy/contrib/automotive/someip.py
+@@ -27,13 +27,11 @@
+ # Copyright (C) Sebastian Baar <sebastian.baar@gmx.de>
+ # This program is published under a GPLv2 license
+ 
+-from scapy.packet import *
+-from scapy.fields import *
+-import ctypes
+-from scapy.all import *
+-from scapy.layers.inet6 import IP6Field
+-from scapy.layers.inet import UDP
+-from scapy.layers.inet import TCP
++from scapy.layers.inet import TCP, UDP
++from scapy.all import struct, bind_layers
++from scapy.packet import Packet
++from scapy.fields import ShortField, BitEnumField, ConditionalField, \
++    BitField, PacketField, IntField, ByteField, ByteEnumField
+ 
+ 
+ class _SOMEIP_MessageId(Packet):
+@@ -131,19 +129,15 @@ class SOMEIP(Packet):
+     ]
+ 
+     def post_build(self, p, pay):
+-        l = self.len
+-        if (l is None):
+-            l = self.LEN_OFFSET + len(pay)
+-            p = p[:4] + struct.pack("!I", l) + p[8:]
++        length = self.len
++        if (length is None):
++            length = self.LEN_OFFSET + len(pay)
++            p = p[:4] + struct.pack("!I", length) + p[8:]
+         return p + pay
+ 
+     def answers(self, other):
+         if other.__class__ == self.__class__:
+-            if (REQUEST_NO_RETURN or REQUEST_NO_RETURN_ACK) \
+-                    not in self.msg_type:
+-                return self.payload.answers(other.payload)
+-            else:
+-                return 0
++            return self.payload.answers(other.payload)
+         return 0
+ 
+ 
+diff --git a/scapy/contrib/automotive/someip.uts b/scapy/contrib/automotive/someip.uts
+index d4d14c7e..49b84209 100644
+--- a/scapy/contrib/automotive/someip.uts
++++ b/scapy/contrib/automotive/someip.uts
+@@ -30,6 +30,7 @@
+ ##########
+ ##########
+ 
++import binascii
+ + Test MessageId
+ 
+ = Load module
+@@ -54,8 +55,11 @@ assert((struct.unpack("!H", bytes(p)[2:4])[0] & ~0x8000) == 0x0222)
+ 
+ assert(bytes(p) == b"\x11\x11\x02\x22")
+ 
++del(p)
++
+ = Dissect MessageId with method_id
+ 
++
+ p = SOMEIP(b'\x22\x22\x03\x33')
+ 
+ assert(p.msg_id.srv_id == 0x2222)
+@@ -64,8 +68,11 @@ assert(p.msg_id.method_id == 0x0333)
+ 
+ assert(p.msg_id.sub_id == 0)
+ 
++del(p)
++
+ = Build MessageId with event_id
+ 
++
+ p = SOMEIP().msg_id
+ p.srv_id = 0x1111
+ p.method_id = 0x0222
+@@ -80,8 +87,11 @@ assert((struct.unpack("!H", bytes(p)[2:4])[0] & ~0x8000) == 0x0333)
+ 
+ assert(bytes(p) == b"\x11\x11\x83\x33")
+ 
++del(p)
++
+ = Dissect MessageId with event_id
+ 
++
+ p = SOMEIP(b'\x33\x33\x82\x22')
+ 
+ assert(p.msg_id.srv_id == 0x3333)
+@@ -90,10 +100,13 @@ assert(p.msg_id.event_id == 0x0222)
+ 
+ assert(p.msg_id.sub_id == 1)
+ 
++del(p)
++
+ + Test RequestId
+ 
+ = Request Id
+ 
++
+ p = SOMEIP().req_id
+ p.client_id = 0x1111
+ p.session_id = 0x2222
+@@ -104,8 +117,11 @@ assert(struct.unpack("!H", bytes(p)[2:4])[0] == 0x2222)
+ 
+ assert(bytes(p) == b"\x11\x11\x22\x22")
+ 
++del(p)
++
+ = Dissect RequestId
+ 
++
+ methId = b'\x22\x22\x03\x33'
+ pktLen = b'\x11\x11\x11\x11'
+ reqId = b'\x22\x22\x33\x33'
+@@ -115,13 +131,22 @@ assert(p.req_id.client_id == 0x2222)
+ 
+ assert(p.req_id.session_id == 0x3333)
+ 
++p.show()
++
++del(p)
++
+ + Test SOMEIP
+ 
+ = Check SomeIp
+ 
+ p = SOMEIP()
+-pstr = bytes(p)
+-binstr = b"\x00\x00\x00\x00\x00\x00\x00\x08\x00\x00\x00\x00\x01\x01\x00\x00"
++p.show()
++print(p.msg_id.srv_id)
++pstr = binascii.hexlify(bytes(p))
++binstr = binascii.hexlify(
++    b"\x00\x00\x00\x00\x00\x00\x00\x08\x00\x00\x00\x00\x01\x01\x00\x00")
++print(pstr)
++print(binstr)
+ assert(pstr == binstr)
+ 
+ p.payload = Raw(binascii.unhexlify("DEADBEEF"))
+@@ -134,6 +159,8 @@ pstr = bytes(p)
+ binstr = b"\x00\x00\x00\x00\x00\x00\x00\x08\x00\x00\x00\x00\x01\x01\x00\x00"
+ assert(pstr == binstr)
+ 
++del(p)
++
+ = Dissect SomeIP packet
+ 
+ p = SOMEIP(
+@@ -155,6 +182,8 @@ assert(p.msg_type == 0x04)
+ 
+ assert(p.retcode == 0x05)
+ 
++del(p)
++
+ + Test SOMEIP_SubPackages
+ 
+ = Check MessageId subpackage
+@@ -174,9 +203,11 @@ pstr = bytes(p)
+ binstr = b"\x11\x11\x83\x33\x00\x00\x00\x08\x00\x00\x00\x00\x01\x01\x00\x00"
+ assert(pstr == binstr)
+ 
++del(p)
++
+ = Check RequestId subpackage
+ 
+-del(p)
++
+ p = SOMEIP()
+ p.req_id.client_id = 0x1111
+ p.req_id.session_id = 0x2222
+diff --git a/scapy/contrib/automotive/someip_sd.py b/scapy/contrib/automotive/someip_sd.py
+index 5fe02d24..e4ba8fa0 100644
+--- a/scapy/contrib/automotive/someip_sd.py
++++ b/scapy/contrib/automotive/someip_sd.py
+@@ -30,7 +30,10 @@
+ import ctypes
+ import collections
+ 
+-from scapy.all import *
++from scapy.all import Packet, struct
++from scapy.fields import ByteField, BitField, ShortField, \
++    X3BytesField, IntField, ByteEnumField, StrField, IPField, \
++    FieldLenField, PacketListField
+ from scapy.contrib.automotive.someip import SOMEIP
+ from scapy.layers.inet6 import IP6Field
+ from scapy.compat import orb
+@@ -205,10 +208,10 @@ class SDOption_Config(_SDOption):
+         StrField("cfg_str", "")]
+ 
+     def post_build(self, p, pay):
+-        l = self.len
+-        if (l is None):
+-            l = len(self.cfg_str) + self.LEN_OFFSET
+-            p = struct.pack("!H", l) + p[2:]
++        length = self.len
++        if (length is None):
++            length = len(self.cfg_str) + self.LEN_OFFSET
++            p = struct.pack("!H", length) + p[2:]
+         return (p + pay)
+ 
+ 
+@@ -265,8 +268,8 @@ class SD(_SDPacketBase):
+     """
+     SD Packet
+ 
+-    NOTE :   when adding 'entries' or 'options', do not use list.append() 
+-    method but create a new list
++    NOTE :   when adding 'entries' or 'options', do not use list.append()
++        method but create a new list
+     e.g. :  p = SD()
+             p.option_array = [SDOption_Config(),SDOption_IP6_EndPoint()]
+     """
+@@ -309,8 +312,8 @@ class SD(_SDPacketBase):
+         name = name.upper()
+         if (name in self.FLAGSDEF):
+             self.flags = (self.flags &
+-                          (ctypes.c_ubyte(~self.FLAGSDEF[name].mask).value)) | (
+-                (value & 0x01) << self.FLAGSDEF[name].offset)
++                          (ctypes.c_ubyte(~self.FLAGSDEF[name].mask).value)) \
++                | ((value & 0x01) << self.FLAGSDEF[name].offset)
+ 
+     def setEntryArray(self, entry_list):
+         if (isinstance(entry_list, list)):
+diff --git a/scapy/contrib/automotive/someip_sd.uts b/scapy/contrib/automotive/someip_sd.uts
+index 26d9857d..56894e64 100644
+--- a/scapy/contrib/automotive/someip_sd.uts
++++ b/scapy/contrib/automotive/someip_sd.uts
+@@ -130,7 +130,7 @@ assert(p.type == 0x01)
+ assert(len(bytes(p)) == 4)
+ 
+ = Check add payload and check length
+-
++import binascii
+ p.cfg_str = binascii.hexlify(b"5abc=x7def=1230")
+ 
+ assert(bytes(p) == b"\x00\x1f\x01\x00" +
