@@ -1412,6 +1412,15 @@ cans.send(CAN(identifier = 0x241, data = dhex("21 07 08 09 10 11")))
 isotp = s.recv()
 assert(isotp.data == dhex("01 02 03 04 05 06 07 08 09 10 11"))
 
+= Receive a two-frame ISOTP message and test python with statement
+exit_if_no_isotp_module()
+with ISOTPNativeSocket(iface, sid=0x641, did=0x241) as s:
+    cans = CANSocket(iface)
+    cans.send(CAN(identifier = 0x241, data = dhex("10 0B 01 02 03 04 05 06")))
+    cans.send(CAN(identifier = 0x241, data = dhex("21 07 08 09 10 11")))
+    isotp = s.recv()
+    assert(isotp.data == dhex("01 02 03 04 05 06 07 08 09 10 11"))
+
 
 = ISOTP Socket sr1 test
 ~ needs_root linux
