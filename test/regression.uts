@@ -10588,6 +10588,25 @@ assert(len(a.list) == 1)
 b = TestPacket()
 assert(len(b.list) == 0)
 
+= PacketField
+
+class InnerPacket(Packet):
+    fields_desc = [ StrField("f_name", "test") ]
+
+class TestPacket(Packet):
+    fields_desc = [ PacketField("inner", InnerPacket(), InnerPacket) ]
+
+p = TestPacket()
+print(p.inner.f_name)
+assert p.inner.f_name == b"test"
+
+p = TestPacket()
+p.inner.f_name = b"scapy"
+assert p.inner.f_name == b"scapy"
+
+p = TestPacket()
+assert p.inner.f_name == b"test"
+
 ############
 ############
 + MPLS tests

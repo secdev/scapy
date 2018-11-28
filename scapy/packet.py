@@ -239,8 +239,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
                 Packet.class_packetfields[cls_name].append(f)
 
             # Remember references
-            if isinstance(f.default, (list, dict, set)) or \
-                    isinstance(f.default, RandField):
+            if isinstance(f.default, (list, dict, set, RandField, Packet)):
                 Packet.class_default_fields_ref[cls_name].append(f.name)
 
     def dissection_done(self, pkt):
