@@ -330,3 +330,17 @@ def test_read_routes(mock_ioctl):
     read_routes()
 
 test_read_routes()
+
+
+= L3PacketSocket sendto exception
+~ linux needs_root
+
+if six.PY3:
+    import mock, six, socket
+    @mock.patch("scapy.arch.linux.socket.socket.sendto")
+    def test_L3PacketSocket_sendto_python3(mock_sendto):
+        mock_sendto.side_effect = OSError(22, 2807)
+        l3ps = L3PacketSocket()
+        l3ps.send(IP(dst="8.8.8.8")/ICMP())
+        return True
+    assert test_L3PacketSocket_sendto_python3()

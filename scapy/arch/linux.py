@@ -523,7 +523,7 @@ class L2Socket(SuperSocket):
         try:
             return SuperSocket.send(self, x)
         except socket.error as msg:
-            if msg[0] == 22 and len(x) < conf.min_pkt_size:
+            if msg.errno == 22 and len(x) < conf.min_pkt_size:
                 padding = b"\x00" * (conf.min_pkt_size - len(x))
                 if isinstance(x, Packet):
                     return SuperSocket.send(self, x / Padding(load=padding))
@@ -565,9 +565,9 @@ class L3PacketSocket(L2Socket):
         try:
             self.outs.sendto(sx, sdto)
         except socket.error as msg:
-            if msg[0] == 22 and len(sx) < conf.min_pkt_size:
+            if msg.errno == 22 and len(sx) < conf.min_pkt_size:
                 self.outs.send(sx + b"\x00" * (conf.min_pkt_size - len(sx)))
-            elif conf.auto_fragment and msg[0] == 90:
+            elif conf.auto_fragment and msg.errno == 90:
                 for p in x.fragment():
                     self.outs.sendto(raw(ll(p)), sdto)
             else:

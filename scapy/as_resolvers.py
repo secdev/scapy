@@ -126,7 +126,8 @@ class AS_resolver_multi(AS_resolver):
             try:
                 res = ASres.resolve(*todo)
             except socket.error as e:
-                if e[0] in [errno.ECONNREFUSED, errno.ETIMEDOUT, errno.ECONNRESET]:  # noqa: E501
+                if e.errno in [errno.ECONNREFUSED, errno.ETIMEDOUT,
+                   errno.ECONNRESET]:
                     continue
             resolved = [ip for ip, asn, desc in res]
             todo = [ip for ip in todo if ip not in resolved]
