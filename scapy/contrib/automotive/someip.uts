@@ -30,12 +30,13 @@
 ##########
 ##########
 
-import binascii
+
 + Test MessageId
 
 = Load module
 
 load_contrib("automotive.someip")
+import binascii
 
 = Check MessageId with method_id
 
@@ -45,7 +46,6 @@ p.method_id = 0x0222
 p.event_id = 0x0333
 
 p.sub_id = 0
-
 
 assert(struct.unpack("!H", bytes(p)[:2])[0] == 0x1111)
 
@@ -72,7 +72,6 @@ del(p)
 
 = Build MessageId with event_id
 
-
 p = SOMEIP().msg_id
 p.srv_id = 0x1111
 p.method_id = 0x0222
@@ -91,7 +90,6 @@ del(p)
 
 = Dissect MessageId with event_id
 
-
 p = SOMEIP(b'\x33\x33\x82\x22')
 
 assert(p.msg_id.srv_id == 0x3333)
@@ -105,7 +103,6 @@ del(p)
 + Test RequestId
 
 = Request Id
-
 
 p = SOMEIP().req_id
 p.client_id = 0x1111
@@ -121,7 +118,6 @@ del(p)
 
 = Dissect RequestId
 
-
 methId = b'\x22\x22\x03\x33'
 pktLen = b'\x11\x11\x11\x11'
 reqId = b'\x22\x22\x33\x33'
@@ -131,8 +127,6 @@ assert(p.req_id.client_id == 0x2222)
 
 assert(p.req_id.session_id == 0x3333)
 
-p.show()
-
 del(p)
 
 + Test SOMEIP
@@ -140,13 +134,8 @@ del(p)
 = Check SomeIp
 
 p = SOMEIP()
-p.show()
-print(p.msg_id.srv_id)
 pstr = binascii.hexlify(bytes(p))
-binstr = binascii.hexlify(
-    b"\x00\x00\x00\x00\x00\x00\x00\x08\x00\x00\x00\x00\x01\x01\x00\x00")
-print(pstr)
-print(binstr)
+binstr = binascii.hexlify(b"\x00\x00\x00\x00\x00\x00\x00\x08\x00\x00\x00\x00\x01\x01\x00\x00")
 assert(pstr == binstr)
 
 p.payload = Raw(binascii.unhexlify("DEADBEEF"))
@@ -165,7 +154,7 @@ del(p)
 
 p = SOMEIP(
     b"\x11\x11\x81\x11\x00\x00\x00\x04\x33\x33\x44\x44\x02\x03\x04\x05")
-p.show()
+
 assert(p.msg_id.srv_id == 0x1111)
 
 assert(p.msg_id.event_id == 0x0111)
@@ -206,7 +195,6 @@ assert(pstr == binstr)
 del(p)
 
 = Check RequestId subpackage
-
 
 p = SOMEIP()
 p.req_id.client_id = 0x1111
