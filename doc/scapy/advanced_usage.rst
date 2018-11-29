@@ -49,7 +49,7 @@ Scapy ASN.1 engine provides classes to link objects and their tags. They inherit
         PDU_GET = 0xa0
         PDU_NEXT = 0xa1
         PDU_RESPONSE = 0xa2
-    
+
     class ASN1_Class_X509(ASN1_Class_UNIVERSAL):
         name="X509"
         CONT0 = 0xa0
@@ -60,10 +60,10 @@ All ASN.1 objects are represented by simple Python instances that act as nutshel
 
     class ASN1_INTEGER(ASN1_Object):
         tag = ASN1_Class_UNIVERSAL.INTEGER
-    
+
     class ASN1_STRING(ASN1_Object):
         tag = ASN1_Class_UNIVERSAL.STRING
-    
+
     class ASN1_BIT_STRING(ASN1_STRING):
         tag = ASN1_Class_UNIVERSAL.BIT_STRING
 
@@ -202,7 +202,7 @@ By default, decoding is done using the ``Universal`` class, which means objects 
     [[]]
     ### Remaining ###
     '\xa0\x03\x02\x01\x02\x02\x01\x010\r\x06\t*\x86H\x86\xf7\r\x01\x01\x05\x05\x000\x81\x831\x0b0\t\x06\x03U\x04\x06\x13\x02US1\x1d0\x1b\x06\x03U\x04\n\x13\x14AOL Time Warner Inc.1\x1c0\x1a\x06\x03U\x04\x0b\x13\x13America Online Inc.1705\x06\x03U\x04\x03\x13.AOL Time Warner Root Certification Authority 20\x1e\x17\r020529060000Z\x17\r370928234300Z0\x81\x831\x0b0\t\x06\x03U\x04\x06\x13\x02US1\x1d0\x1b\x06\x03U\x04\n\x13\x14AOL Time Warner Inc.1\x1c0\x1a\x06\x03U\x04\x0b\x13\x13America Online Inc.1705\x06\x03U\x04\x03\x13.AOL Time Warner Root Certification Authority 20\x82\x02"0\r\x06\t*\x86H\x86\xf7\r\x01\x01\x01\x05\x00\x03\x82\x02\x0f\x000\x82\x02\n\x02\x82\x02\x01\x00\xb47Z\x08\x16\x99\x14\xe8U\xb1\x1b$k\xfc\xc7\x8b\xe6\x87\xa9\x89\xee\x8b\x99\xcdO@\x86\xa4\xb6M\xc9\xd9\xb1\xdc<M\r\x85L\x15lF\x8bRx\x9f\xf8#\xfdg\xf5$:h]\xd0\xf7daAT\xa3\x8b\xa5\x08\xd2)[\x9b`O&\x83\xd1c\x12VIv\xa4\x16\xc2\xa5\x9dE\xac\x8b\x84\x95\xa8\x16\xb1\xec\x9f\xea$\x1a\xef\xb9W\\\x9a$!,M\x0eq\x1f\xa6\xac]Et\x03\x98\xc4T\x8c\x16JAw\x86\x95u\x0cG\x01f`\xfc\x15\xf1\x0f\xea\xf5\x14x\xc7\x0e\xd7n\x81\x1c^\xbf^\xe7:*\xd8\x97\x170|\x00\xad\x08\x9d3\xaf\xb8\x99a\x80\x8b\xa8\x95~\x14\xdc\x12l\xa4\xd0\xd8\xef@I\x026\xf9n\xa9\xd6\x1d\x96V\x04\xb2\xb3-\x16V\x86\x8f\xd9 W\x80\xcdg\x10m\xb0L\xf0\xdaF\xb6\xea%.F\xaf\x8d\xb0\x8584\x8b\x14&\x82+\xac\xae\x99\x0b\x8e\x14\xd7R\xbd\x9ei\xc3\x86\x02\x0b\xeavu1\t\xce3\x19!\x85C\xe6\x89-\x9f%7g\xf1#j\xd2\x00m\x97\xf9\x9f\xe7)\xca\xdd\x1f\xd7\x06\xea\xb8\xc9\xb9\t!\x9f\xc8?\x06\xc5\xd2\xe9\x12F\x00N{\x08\xebB=+Hn\x9dg\xddK\x02\xe4D\xf3\x93\x19\xa5\'\xceiz\xbeg\xd3\xfcP\xa4,\xab\xc3k\xb9\xe3\x80L\xcf\x05aK+\xdc\x1b\xb9\xa6\xd2\xd0\xaa\xf5+s\xfb\xce\x905\x9f\x0cR\x1c\xbf\\!a\x11[\x15K\xa9$Q\xfc\xa4\\\xf7\x17\x9d\xb0\xd2\xfa\x07\xe9\x8fV\xe4\x1a\x8ch\x8a\x04\xd3|Z\xe3\x9e\xa2\xa1\xcaq[\xa2\xd4\xa0\xe7)\x85]\x03h*O\xd2\x06\xd7=\xf9\xc3\x03/?e\xf9g\x1eG@\xd3c\x0f\xe3\xd5\x8e\xf9\x85\xab\x97L\xb3\xd7&\xeb\x96\n\x94\xde\x856\x9c\xc8\x7f\x81\t\x02I*\x0e\xf5d2\x0c\x82\xd1\xbaj\x82\x1b\xb3Kt\x11\xf3\x8cw\xd6\x9f\xbf\xdc7\xa4\xa7U\x04/\xd41\xe8\xd3F\xb9\x03|\xda\x12NYd\xb7Q11P\xa0\xca\x1c\'\xd9\x10.\xad\xd6\xbd\x10f+\xc3\xb0"J\x12[\x02\x03\x01\x00\x01\xa3c0a0\x0f\x06\x03U\x1d\x13\x01\x01\xff\x04\x050\x03\x01\x01\xff0\x1d\x06\x03U\x1d\x0e\x04\x16\x04\x14Oim\x03~\x9d\x9f\x07\x18C\xbc\xb7\x10N\xd5\xbf\xa9\xc4 (0\x1f\x06\x03U\x1d#\x04\x180\x16\x80\x14Oim\x03~\x9d\x9f\x07\x18C\xbc\xb7\x10N\xd5\xbf\xa9\xc4 (0\x0e\x06\x03U\x1d\x0f\x01\x01\xff\x04\x04\x03\x02\x01\x860\r\x06\t*\x86H\x86\xf7\r\x01\x01\x05\x05\x00\x03\x82\x02\x01\x00;\xf3\xae\xca\xe8.\x87\x85\xfbeY\xe7\xad\x11\x14\xa5W\xbcX\x9f$\x12W\xbb\xfb?4\xda\xee\xadz*4rp1k\xc7\x19\x98\x80\xc9\x82\xde7w^T\x8b\x8e\xf2\xeagO\xc9t\x84\x91V\t\xd5\xe5z\x9a\x81\xb6\x81\xc2\xad6\xe4\xf1T\x11S\xf34E\x01&\xc8\xe5\x1a\xbc4D!\xde\xad%\xfcv\x16w!\x90\x80\x98W\x9dN\xea\xec/\xaa<\x14{W\xc1~\x18\x14g\xee$\xc6\xbd\xba\x15\xb0\xd2\x18\xbd\xb7U\x81\xacS\xc0\xe8\xddi\x12\x13B\xb7\x02\xb5\x05A\xcayPn\x82\x0eqr\x93F\xe8\x9d\r]\xbd\xae\xce)\xadc\xd5U\x16\x800\'\xffv\xba\xf7\xb8\xd6J\xe3\xd9\xb5\xf9R\xd0N@\xa9\xc7\xe5\xc22\xc7\xaav$\xe1k\x05P\xeb\xc5\xbf\nT\xe5\xb9B<$\xfb\xb7\x07\x9c0\x9fyZ\xe6\xe0@R\x15\xf4\xfc\xaa\xf4V\xf9D\x97\x87\xed\x0eer^\xbe&\xfbM\xa4-\x08\x07\xde\xd8\\\xa0\xdc\x813\x99\x18%\x11w\xa7\xeb\xfdX\t,\x99k\x1b\x8a\xf3R?\x1aMH`\xf1\xa0\xf63\x02S\x8b\xed%\t\xb8\r-\xed\x97s\xec\xd7\x96\x1f\x8e`\x0e\xda\x10\x9b/\x18$\xf6\xa6M\n\xf9;\xcbu\xc2\xcc/\xce$i\xc9\n"\x8eY\xa7\xf7\x82\x0c\xd7\xd7k5\x9cC\x00j\xc4\x95g\xba\x9cE\xcb\xb8\x0e7\xf7\xdcN\x01O\xbe\n\xb6\x03\xd3\xad\x8aE\xf7\xda\'M)\xb1H\xdf\xe4\x11\xe4\x96F\xbdl\x02>\xd6Q\xc8\x95\x17\x01\x15\xa9\xf2\xaa\xaa\xf2\xbf/e\x1bo\xd0\xb9\x1a\x93\xf5\x8e5\xc4\x80\x87>\x94/f\xe4\xe9\xa8\xffA\x9cp*O*9\x18\x95\x1e~\xfba\x01<Q\x08.(\x18\xa4\x16\x0f1\xfd:l#\x93 v\xe1\xfd\x07\x85\xd1[?\xd2\x1cs2\xdd\xfa\xb9\xf8\x8c\xcf\x02\x87z\x9a\x96\xe4\xedO\x89\x8dSC\xab\x0e\x13\xc0\x01\x15\xb4y8\xdb\xfcn=\x9eQ\xb6\xb8\x13\x8bg\xcf\xf9|\xd9"\x1d\xf6]\xc5\x1c\x01/\x98\xe8z$\x18\xbc\x84\xd7\xfa\xdcr[\xf7\xc1:h'
-    
+
 The ``Context`` class must be specified::
 
     >>> (dcert,remain) = BERcodec_Object.dec(cert, context=ASN1_Class_X509)
@@ -316,30 +316,30 @@ These objects are PDU, and are in fact new names for a sequence container (this 
 
     class ASN1_SNMP_PDU_GET(ASN1_SEQUENCE):
         tag = ASN1_Class_SNMP.PDU_GET
-    
+
     class ASN1_SNMP_PDU_NEXT(ASN1_SEQUENCE):
         tag = ASN1_Class_SNMP.PDU_NEXT
-    
+
     # [...]
-    
+
     class BERcodec_SNMP_PDU_GET(BERcodec_SEQUENCE):
         tag = ASN1_Class_SNMP.PDU_GET
-    
+
     class BERcodec_SNMP_PDU_NEXT(BERcodec_SEQUENCE):
         tag = ASN1_Class_SNMP.PDU_NEXT
-    
+
     # [...]
 
 Metaclasses provide the magic behind the fact that everything is automatically registered and that ASN.1 objects and BER codecs can find each other.
 
 The ASN.1 fields are also trivial::
-    
+
     class ASN1F_SNMP_PDU_GET(ASN1F_SEQUENCE):
         ASN1_tag = ASN1_Class_SNMP.PDU_GET
-    
+
     class ASN1F_SNMP_PDU_NEXT(ASN1F_SEQUENCE):
         ASN1_tag = ASN1_Class_SNMP.PDU_NEXT
-    
+
     # [...]
 
 Now, the hard part, the ASN.1 packet::
@@ -348,19 +348,19 @@ Now, the hard part, the ASN.1 packet::
                    1: "too_big",
     # [...]
                  }
-    
+
     SNMP_trap_types = { 0: "cold_start",
                         1: "warm_start",
     # [...]
                       }
-    
+
     class SNMPvarbind(ASN1_Packet):
         ASN1_codec = ASN1_Codecs.BER
         ASN1_root = ASN1F_SEQUENCE( ASN1F_OID("oid","1.3"),
                                     ASN1F_field("value",ASN1_NULL(0))
                                     )
-    
-    
+
+
     class SNMPget(ASN1_Packet):
         ASN1_codec = ASN1_Codecs.BER
         ASN1_root = ASN1F_SNMP_PDU_GET( ASN1F_INTEGER("id",0),
@@ -368,7 +368,7 @@ Now, the hard part, the ASN.1 packet::
                                         ASN1F_INTEGER("error_index",0),
                                         ASN1F_SEQUENCE_OF("varbindlist", [], SNMPvarbind)
                                         )
-    
+
     class SNMPnext(ASN1_Packet):
         ASN1_codec = ASN1_Codecs.BER
         ASN1_root = ASN1F_SNMP_PDU_NEXT( ASN1F_INTEGER("id",0),
@@ -377,7 +377,7 @@ Now, the hard part, the ASN.1 packet::
                                          ASN1F_SEQUENCE_OF("varbindlist", [], SNMPvarbind)
                                          )
     # [...]
-    
+
     class SNMP(ASN1_Packet):
         ASN1_codec = ASN1_Codecs.BER
         ASN1_root = ASN1F_SEQUENCE(
@@ -442,8 +442,8 @@ Now, how to use it? As usual::
        |   |###[ SNMPvarbind ]###
        |   |  oid= <ASN1_OID['.3.2.1']>
        |   |  value= <ASN1_STRING['hello']>
-       
-       
+
+
 
 Resolving OID from a MIB
 ------------------------
@@ -489,7 +489,7 @@ It is even possible to graph it::
     >>> conf.mib._make_graph()
 
 
-    
+
 Automata
 ========
 
@@ -510,16 +510,16 @@ Let's begin with a simple example. I take the convention to write states with ca
         @ATMT.state(initial=1)
         def BEGIN(self):
             print "State=BEGIN"
-    
+
         @ATMT.condition(BEGIN)
         def wait_for_nothing(self):
             print "Wait for nothing..."
             raise self.END()
-    
+
         @ATMT.action(wait_for_nothing)
         def on_nothing(self):
             print "Action on 'nothing' condition"
-    
+
         @ATMT.state(final=1)
         def END(self):
             print "State=END"
@@ -528,9 +528,9 @@ In this example, we can see 3 decorators:
 
 * ``ATMT.state`` that is used to indicate that a method is a state, and that can
   have initial, final and error optional arguments set to non-zero for special states.
-* ``ATMT.condition`` that indicate a method to be run when the automaton state 
+* ``ATMT.condition`` that indicate a method to be run when the automaton state
   reaches the indicated state. The argument is the name of the method representing that state
-* ``ATMT.action`` binds a method to a transition and is run when the transition is taken. 
+* ``ATMT.action`` binds a method to a transition and is run when the transition is taken.
 
 Running this example gives the following result::
 
@@ -596,12 +596,12 @@ Here is a real example take from Scapy. It implements a TFTP client that can iss
             self.server = server
             self.port = port
             self.sport = sport
-    
+
         def master_filter(self, pkt):
             return ( IP in pkt and pkt[IP].src == self.server and UDP in pkt
                      and pkt[UDP].dport == self.my_tid
                      and (self.server_tid is None or pkt[UDP].sport == self.server_tid) )
-            
+
         # BEGIN
         @ATMT.state(initial=1)
         def BEGIN(self):
@@ -610,19 +610,19 @@ Here is a real example take from Scapy. It implements a TFTP client that can iss
             bind_bottom_up(UDP, TFTP, dport=self.my_tid)
             self.server_tid = None
             self.res = ""
-    
+
             self.l3 = IP(dst=self.server)/UDP(sport=self.my_tid, dport=self.port)/TFTP()
             self.last_packet = self.l3/TFTP_RRQ(filename=self.filename, mode="octet")
             self.send(self.last_packet)
             self.awaiting=1
-            
+
             raise self.WAITING()
-            
+
         # WAITING
         @ATMT.state()
         def WAITING(self):
             pass
-    
+
         @ATMT.receive_condition(WAITING)
         def receive_data(self, pkt):
             if TFTP_DATA in pkt and pkt[TFTP_DATA].block == self.awaiting:
@@ -634,19 +634,19 @@ Here is a real example take from Scapy. It implements a TFTP client that can iss
         def send_ack(self):
             self.last_packet = self.l3 / TFTP_ACK(block = self.awaiting)
             self.send(self.last_packet)
-    
+
         @ATMT.receive_condition(WAITING, prio=1)
         def receive_error(self, pkt):
             if TFTP_ERROR in pkt:
                 raise self.ERROR(pkt)
-    
+
         @ATMT.timeout(WAITING, 3)
         def timeout_waiting(self):
             raise self.WAITING()
         @ATMT.action(timeout_waiting)
         def retransmit_last_packet(self):
             self.send(self.last_packet)
-    
+
         # RECEIVED
         @ATMT.state()
         def RECEIVING(self, pkt):
@@ -656,13 +656,13 @@ Here is a real example take from Scapy. It implements a TFTP client that can iss
             if len(recvd) == self.blocksize:
                 raise self.WAITING()
             raise self.END()
-    
+
         # ERROR
         @ATMT.state(error=1)
         def ERROR(self,pkt):
             split_bottom_up(UDP, TFTP, dport=self.my_tid)
             return pkt[TFTP_ERROR].summary()
-        
+
         #END
         @ATMT.state(final=1)
         def END(self):
@@ -689,15 +689,15 @@ States are methods decorated by the result of the ``ATMT.state`` function. It ca
         @ATMT.state(initial=1)
         def BEGIN(self):
             pass
-    
+
         @ATMT.state()
         def SOME_STATE(self):
             pass
-    
+
         @ATMT.state(final=1)
         def END(self):
             return "Result of the automaton: 42"
-    
+
         @ATMT.state(error=1)
         def ERROR(self):
             return "Partial result, or explanation"
@@ -716,22 +716,22 @@ When the automaton switches to a given state, the state's method is executed. Th
         @ATMT.state()
         def WAITING(self):
             pass
-    
+
         @ATMT.condition(WAITING)
         def it_is_raining(self):
             if not self.have_umbrella:
                 raise self.ERROR_WET()
-    
+
         @ATMT.receive_condition(WAITING, prio=1)
         def it_is_ICMP(self, pkt):
             if ICMP in pkt:
                 raise self.RECEIVED_ICMP(pkt)
-                
+
         @ATMT.receive_condition(WAITING, prio=2)
         def it_is_IP(self, pkt):
             if IP in pkt:
                 raise self.RECEIVED_IP(pkt)
-        
+
         @ATMT.timeout(WAITING, 10.0)
         def waiting_timeout(self):
             raise self.ERROR_TIMEOUT()
@@ -747,11 +747,11 @@ Actions are methods that are decorated by the return of ``ATMT.action`` function
         @ATMT.state(initial=1)
         def BEGIN(self):
             pass
-    
+
         @ATMT.state(final=1)
         def END(self):
             pass
-    
+
         @ATMT.condition(BEGIN, prio=1)
         def maybe_go_to_end(self):
             if random() > 0.5:
@@ -759,7 +759,7 @@ Actions are methods that are decorated by the return of ``ATMT.action`` function
         @ATMT.condition(BEGIN, prio=2)
         def certainly_go_to_end(self):
             raise self.END()
-    
+
         @ATMT.action(maybe_go_to_end)
         def maybe_action(self):
             print "We are lucky..."
@@ -824,15 +824,15 @@ For instance, this engine was generated with this code:
 >>> d2 = TransformDrain(lambda x: x[::-1])
 >>> si1 = ConsoleSink()
 >>> si2 = QueueSink()
->>> 
+>>>
 >>> s > d1
 >>> d1 > si1
 >>> d1 > si2
->>> 
+>>>
 >>> s2 >> d1
 >>> d1 >> d2
 >>> d2 >> si1
->>> 
+>>>
 >>> p = PipeEngine()
 >>> p.add(s)
 >>> p.add(s2)
@@ -888,7 +888,7 @@ For any of those class, have a look at ``help([theclass])`` to get more informat
 - CLIFeeder : a source especially used in interactive software. its ``send(data)`` generates the event data on the lower canal
 - CLIHighFeeder : same than CLIFeeder, but writes on the higher canal
 - PeriodicSource : Generage messages periodically on low canal.
-- AutoSource: the default source, that must be extended to create custom sources. 
+- AutoSource: the default source, that must be extended to create custom sources.
 
 Create a custom Source
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -1053,7 +1053,7 @@ For example, here is a basic TriggerDrain usage:
 >>> p = PipeEngine(s)
 >>> p.start()
 INFO: Pipe engine thread started.
->>> 
+>>>
 >>> a.send("this will be printed")
 >'this will be printed'
 >>> a.send("this won't, because the valve was switched")
@@ -1116,27 +1116,27 @@ able to dissect it::
     ... Profisafe(load='AAA', Control_Status=0x20, CRC=0x424242, config={'length': 8, 'CRC': 3}) / PNIORealTimeIOxS(),
     ... ])
     >>> p.show()
-    ###[ PROFINET Real-Time ]### 
+    ###[ PROFINET Real-Time ]###
       len= None
       dataLen= None
       \data\
-       |###[ PNIO RTC IOxS ]### 
+       |###[ PNIO RTC IOxS ]###
        |  dataState= good
        |  instance= subslot
        |  reserved= 0x0
        |  extension= 0
-       |###[ PNIO RTC Raw data ]### 
+       |###[ PNIO RTC Raw data ]###
        |  load= 'AAA'
-       |###[ PNIO RTC IOxS ]### 
+       |###[ PNIO RTC IOxS ]###
        |     dataState= good
        |     instance= subslot
        |     reserved= 0x0
        |     extension= 0
-       |###[ PROFISafe ]### 
+       |###[ PROFISafe ]###
        |  load= 'AAA'
        |  Control_Status= 0x20
        |  CRC= 0x424242
-       |###[ PNIO RTC IOxS ]### 
+       |###[ PNIO RTC IOxS ]###
        |     dataState= good
        |     instance= subslot
        |     reserved= 0x0
@@ -1145,13 +1145,13 @@ able to dissect it::
       cycleCounter= 1024
       dataStatus= primary+validData+run+no_problem
       transferStatus= 0
-    
+
     >>> p.show2()
-    ###[ PROFINET Real-Time ]### 
+    ###[ PROFINET Real-Time ]###
       len= 44
       dataLen= 15
       \data\
-       |###[ PNIO RTC Raw data ]### 
+       |###[ PNIO RTC Raw data ]###
        |  load= '\x80AAA\x00\x80AAA\x00 BBB\x80'
       padding= ''
       cycleCounter= 1024
@@ -1163,17 +1163,17 @@ For Scapy to be able to dissect it correctly, one must also configure the layer 
     >>> load_contrib("pnio")
     >>> e=Ether(src='00:01:02:03:04:05', dst='06:07:08:09:0a:0b') / ProfinetIO() / p
     >>> e.show2()
-    ###[ Ethernet ]### 
+    ###[ Ethernet ]###
       dst= 06:07:08:09:0a:0b
       src= 00:01:02:03:04:05
       type= 0x8892
-    ###[ ProfinetIO ]### 
+    ###[ ProfinetIO ]###
          frameID= RT_CLASS_1
-    ###[ PROFINET Real-Time ]### 
+    ###[ PROFINET Real-Time ]###
       len= 44
       dataLen= 15
       \data\
-       |###[ PNIO RTC Raw data ]### 
+       |###[ PNIO RTC Raw data ]###
        |  load= '\x80AAA\x00\x80AAA\x00 BBB\x80'
       padding= ''
       cycleCounter= 1024
@@ -1184,33 +1184,33 @@ For Scapy to be able to dissect it correctly, one must also configure the layer 
     ... (-9 - 5, PNIORealTimeRawData, {'length':4}),
     ... ]})
     >>> e.show2()
-    ###[ Ethernet ]### 
+    ###[ Ethernet ]###
       dst= 06:07:08:09:0a:0b
       src= 00:01:02:03:04:05
       type= 0x8892
-    ###[ ProfinetIO ]### 
+    ###[ ProfinetIO ]###
          frameID= RT_CLASS_1
-    ###[ PROFINET Real-Time ]### 
+    ###[ PROFINET Real-Time ]###
             len= 44
             dataLen= 15
             \data\
-             |###[ PNIO RTC IOxS ]### 
+             |###[ PNIO RTC IOxS ]###
              |  dataState= good
              |  instance= subslot
              |  reserved= 0x0L
              |  extension= 0L
-             |###[ PNIO RTC Raw data ]### 
+             |###[ PNIO RTC Raw data ]###
              |  load= 'AAA'
-             |###[ PNIO RTC IOxS ]### 
+             |###[ PNIO RTC IOxS ]###
              |     dataState= good
              |     instance= subslot
              |     reserved= 0x0L
              |     extension= 0L
-             |###[ PROFISafe ]### 
+             |###[ PROFISafe ]###
              |  load= 'AAA'
              |  Control_Status= 0x20
              |  CRC= 0x424242L
-             |###[ PNIO RTC IOxS ]### 
+             |###[ PNIO RTC IOxS ]###
              |     dataState= good
              |     instance= subslot
              |     reserved= 0x0L
@@ -1255,7 +1255,7 @@ If no data packets are configured for a given offset, it defaults to a ``PNIORea
                cycleCounter= 6208
                dataStatus= primary+validData+run+no_problem
                transferStatus= 0
-    
+
     >>> t[100].show2()
     ###[ Ethernet ]###
       dst= 06:07:08:09:0a:0b
@@ -1323,7 +1323,7 @@ If no data packets are configured for a given offset, it defaults to a ``PNIORea
                cycleCounter= 6208
                dataStatus= primary+validData+run+no_problem
                transferStatus= 0
-    
+
 In addition, one can see, when displaying a ``PNIORealTime`` packet, the field ``len``. This is a computed field which is not added in the final packet build. It is mainly useful for dissection and reconstruction, but it can also be used to modify the behaviour of the packet. In fact, RTC packet must always be long enough for an Ethernet frame and to do so, a padding must be added right after the ``data`` buffer. The default behaviour is to add ``padding`` whose size is computed during the ``build`` process::
 
     >>> raw(PNIORealTime(cycleCounter=0x4242, data=[PNIORealTimeIOxS()]))
@@ -1542,7 +1542,7 @@ Create function to bridge and sniff between two sockets::
 
    def bridge():
        bSocket0 = CANSocket(iface='vcan0')
-       bSocket1 = CANSocket(iface='vcan1')       
+       bSocket1 = CANSocket(iface='vcan1')
        bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding, timeout=1)
        bSocket0.close()
        bSocket1.close()
@@ -1553,7 +1553,7 @@ Create threads for sending packet and to bridge and sniff::
    threadSender = threading.Thread(target=sendMessage)
 
 Start threads::
-   
+
    threadBridge.start()
    threadSender.start()
 
@@ -1611,10 +1611,14 @@ Set up two vcans on linux terminal::
 Set up ISOTP::
 
 .. note::
+
     First make sure you build an iso-tp kernel module.
-    When the vcan core module is loaded with "sudo modprobe vcan" the iso-tp module can be loaded to the kernel.
-    Therefore navigate to isotp directory, and load module with "sudo insmod ./net/can/can-isotp.ko". (Tested on Kernel 4.9.135-1-MANJARO)
-    Detailed instructions you find in https://github.com/hartkopp/can-isotp.
+
+When the vcan core module is loaded with "sudo modprobe vcan" the iso-tp module can be loaded to the kernel.
+
+Therefore navigate to isotp directory, and load module with "sudo insmod ./net/can/can-isotp.ko". (Tested on Kernel 4.9.135-1-MANJARO)
+
+Detailed instructions you find in https://github.com/hartkopp/can-isotp.
 
 Import modules::
 
@@ -1654,7 +1658,7 @@ Create threads for sending packet and to bridge and sniff::
    threadBridge = threading.Thread(target=bridge)
    threadSender = threading.Thread(target=sendPacketWithISOTPSocket)
 
-Start threads::
+Start threads::are based on Linux kernel modules. The python-can project is used to support CAN and CANSockets on other systems, besides Linux. This guide explains the hardware setup on a BeagleBone Black. The BeagleBone Black was chosen because of its two CAN interfaces on the main processor. The presence of two CAN interfaces in one device gives the possibility of CAN MITM attacks and session hijacking. The Cannelloni framework turns a BeagleBone Black into a CAN-to-UDP interface, which gives you the freedom to run Scapy on a more powerful machine.
 
    threadBridge.start()
    threadSender.start()
@@ -2140,5 +2144,3 @@ setup of virtual CAN interfaces.
 
     cannelloni -I vcan0 -R <remote-IP> -r 20000 -l 20000 &
     cannelloni -I vcan1 -R <remote-IP> -r 20001 -l 20001 &
-
-
