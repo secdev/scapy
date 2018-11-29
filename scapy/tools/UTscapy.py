@@ -24,9 +24,11 @@ import time
 import traceback
 import warnings
 import zlib
+
 from scapy.consts import WINDOWS
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
+from scapy.compat import base64_bytes
 
 
 #   Util class   #
@@ -73,7 +75,7 @@ class File:
         self.URL = URL
 
     def get_local(self):
-        return bz2.decompress(base64.decodestring(self.local))
+        return bz2.decompress(base64_bytes(self.local))
 
     def get_URL(self):
         return self.URL
@@ -625,8 +627,9 @@ def pack_html_campaigns(runned_campaigns, data, local=False, title=None):
 """
     out_dict = {'data': data, 'title': title if title else "UTScapy tests"}
     if local:
-        External_Files.UTscapy_js.write(os.path.dirname(test_campaign.output_file.name))  # noqa: E501
-        External_Files.UTscapy_css.write(os.path.dirname(test_campaign.output_file.name))  # noqa: E501
+        dirname = os.path.dirname(test_campaign.output_file)
+        External_Files.UTscapy_js.write(dirname)
+        External_Files.UTscapy_css.write(dirname)
         out_dict.update(External_Files.get_local_dict())
     else:
         out_dict.update(External_Files.get_URL_dict())

@@ -10960,6 +10960,21 @@ parsed = RTP(raw(created))
 assert parsed.sourcesync == 0xabcdef01
 assert "RTPExtension" not in parsed
 
+= UTscapy HTML output
+
+import tempfile, os
+from scapy.tools.UTscapy import TestCampaign, pack_html_campaigns
+test_campaign = TestCampaign("test")
+test_campaign.output_file = tempfile.mktemp()
+html = pack_html_campaigns([test_campaign], None, local=True)
+dirname = os.path.dirname(test_campaign.output_file)
+filename_js = "%s/UTscapy.js" % dirname
+filename_css = "%s/UTscapy.css" % dirname
+assert os.path.isfile(filename_js)
+assert os.path.isfile(filename_css)
+os.remove(filename_js)
+os.remove(filename_css)
+
 #= Test snmpwalk()
 #
 #~ netaccess
