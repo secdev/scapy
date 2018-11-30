@@ -118,10 +118,10 @@ del(p)
 
 = Dissect RequestId
 
-methId = b'\x22\x22\x03\x33'
+method_id = b'\x22\x22\x03\x33'
 pktLen = b'\x11\x11\x11\x11'
 reqId = b'\x22\x22\x33\x33'
-p = SOMEIP(methId + pktLen + reqId)
+p = SOMEIP(method_id + pktLen + reqId)
 
 assert(p.req_id.client_id == 0x2222)
 
