@@ -1,5 +1,3 @@
-#! /usr/bin/env python
-
 # MIT License
 
 # Copyright (c) 2018 Jose Amores

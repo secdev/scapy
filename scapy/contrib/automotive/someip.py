@@ -137,7 +137,12 @@ class SOMEIP(Packet):
 
     def answers(self, other):
         if other.__class__ == self.__class__:
-            return self.payload.answers(other.payload)
+            if (self.msg_type == SOMEIP.TYPE_REQUEST_NO_RET):
+                return 0
+            elif (self.msg_type == SOMEIP.TYPE_REQUEST_NORET_ACK):
+                return 0
+            else:
+                return self.payload.answers(other.payload)
         return 0
 
 
