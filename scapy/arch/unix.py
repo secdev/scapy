@@ -10,14 +10,15 @@ Common customizations for all Unix-like operating systems other than Linux
 import os
 import socket
 
-from scapy.error import warning, log_interactive
 import scapy.config
 import scapy.utils
-from scapy.utils6 import in6_getscope, construct_source_candidate_set
-from scapy.utils6 import in6_isvalid, in6_ismlladdr, in6_ismnladdr
-from scapy.consts import FREEBSD, NETBSD, OPENBSD, SOLARIS, LOOPBACK_NAME
 from scapy.arch import get_if_addr
 from scapy.config import conf
+from scapy.consts import FREEBSD, NETBSD, OPENBSD, SOLARIS, LOOPBACK_NAME
+from scapy.error import warning, log_interactive
+from scapy.pton_ntop import inet_pton
+from scapy.utils6 import in6_getscope, construct_source_candidate_set
+from scapy.utils6 import in6_isvalid, in6_ismlladdr, in6_ismnladdr
 
 
 ##################
@@ -169,8 +170,8 @@ def _in6_getifaddr(ifname):
 
         # Check if it is a valid IPv6 address
         try:
-            socket.inet_pton(socket.AF_INET6, addr)
-        except Exception:
+            inet_pton(socket.AF_INET6, addr)
+        except (socket.error, ValueError):
             continue
 
         # Get the scope and keep the address

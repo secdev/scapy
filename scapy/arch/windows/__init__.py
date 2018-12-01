@@ -216,9 +216,10 @@ class _PowershellManager(Thread):
         self.running = False
         try:
             self.process.stdin.write("exit\n")
-            self.process.terminate()
-        except Exception:
+        except (ValueError, IOError):
             pass
+        finally:
+            self.process.terminate()
 
 
 def _exec_query_ps(cmd, fields):
@@ -873,7 +874,7 @@ class NetworkInterfaceDict(UserDict):
                 scapy.consts.LOOPBACK_INTERFACE = self.dev_from_name(
                     scapy.consts.LOOPBACK_NAME,
                 )
-            except Exception:
+            except ValueError:
                 pass
 
     def dev_from_name(self, name):
@@ -1100,7 +1101,7 @@ def _read_routes_post2008():
             iface = dev_from_index(line[0])
             if iface.ip == "0.0.0.0":
                 continue
-        except Exception:
+        except ValueError:
             continue
         # try:
         #     intf = pcapdnet.dnet.intf().get_dst(pcapdnet.dnet.addr(type=2, addrtxt=dest))  # noqa: E501
@@ -1165,7 +1166,7 @@ def _read_routes6_post2008():
         try:
             if_index = line[0]
             iface = dev_from_index(if_index)
-        except Exception:
+        except ValueError:
             continue
 
         dpref, dp = line[1].split('/')
@@ -1206,7 +1207,7 @@ def _read_routes6_7():
                 try:
                     if_index = current_object[2]
                     iface = dev_from_index(if_index)
-                except Exception:
+                except ValueError:
                     current_object = []
                     index = 0
                     continue

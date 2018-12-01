@@ -488,7 +488,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
     def clear_cache(self):
         """Clear the raw packet cache for the field and all its subfields"""
         self.raw_packet_cache = None
-        for fname, fval in six.iteritems(self.fields):
+        for _, fval in six.iteritems(self.fields):
             if isinstance(fval, Packet):
                 fval.clear_cache()
         self.payload.clear_cache()
@@ -677,11 +677,11 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             raise ImportError("PyX and its dependencies must be installed")
         canvas = pyx.canvas.canvas()
         if rebuild:
-            p, t = self.__class__(raw(self)).build_ps()
+            _, t = self.__class__(raw(self)).build_ps()
         else:
-            p, t = self.build_ps()
+            _, t = self.build_ps()
         YTXT = len(t)
-        for n, l in t:
+        for _, l in t:
             YTXT += len(l)
         YTXT = float(YTXT)
         YDUMP = YTXT
@@ -1084,7 +1084,6 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
     def getlayer(self, cls, nb=1, _track=None, _subclass=False, **flt):
         """Return the nb^th layer that is an instance of cls, matching flt
 values.
-
         """
         if _subclass:
             match = lambda cls1, cls2: issubclass(cls1, cls2)
@@ -1288,7 +1287,7 @@ A side effect is that, to obtain "{" and "}" characters, you must use
             k = cond.find(":")
             if k < 0:
                 raise Scapy_Exception("Bad condition in format string: [%s] (read sprintf doc!)" % cond)  # noqa: E501
-            cond, format = cond[:k], cond[k + 1:]
+            cond, format_ = cond[:k], cond[k + 1:]
             res = False
             if cond[0] == "!":
                 res = True
@@ -1296,8 +1295,8 @@ A side effect is that, to obtain "{" and "}" characters, you must use
             if self.haslayer(cond):
                 res = not res
             if not res:
-                format = ""
-            fmt = fmt[:i] + format + fmt[i + j + 2:]
+                format_ = ""
+            fmt = fmt[:i] + format_ + fmt[i + j + 2:]
 
         # Evaluate directives
         s = ""
@@ -1389,8 +1388,7 @@ A side effect is that, to obtain "{" and "}" characters, you must use
 
     def summary(self, intern=0):
         """Prints a one line summary of a packet."""
-        found, s, needed = self._do_summary()
-        return s
+        return self._do_summary()[1]
 
     def lastlayer(self, layer=None):
         """Returns the uppest layer of the packet"""
@@ -1655,10 +1653,12 @@ def split_bottom_up(lower, upper, __fval=None, **fval):
     if __fval is not None:
         fval.update(__fval)
 
-    def do_filter(xxx_todo_changeme, upper=upper, fval=fval):
-        (f, u) = xxx_todo_changeme
-        return u != upper or any(k not in f or f[k] != v for k, v in six.iteritems(fval))  # noqa: E501
-    lower.payload_guess = [x for x in lower.payload_guess if do_filter(x)]
+    def do_filter(params, cls):
+        params_is_invalid = any(
+            k not in params or params[k] != v for k, v in six.iteritems(fval)
+        )
+        return cls != upper or params_is_invalid
+    lower.payload_guess = [x for x in lower.payload_guess if do_filter(*x)]
 
 
 def split_top_down(lower, upper, __fval=None, **fval):
