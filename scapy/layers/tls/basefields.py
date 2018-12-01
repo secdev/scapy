@@ -18,9 +18,6 @@ _tls_type = {20: "change_cipher_spec",
              22: "handshake",
              23: "application_data"}
 
-# Types that will redirect to a TLS13 record if available
-_tls_type_13 = [23]
-
 _tls_version = {0x0002: "SSLv2",
                 0x0200: "SSLv2",
                 0x0300: "SSLv3",

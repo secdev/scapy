@@ -342,7 +342,7 @@ class _AEADCipher_TLS13(six.with_metaclass(_AEADCipherMetaclass, object)):
         """
         C, mac = C[:-self.tag_len], C[-self.tag_len:]
         if False in six.itervalues(self.ready):
-            raise CipherError(C, mac)
+            raise CipherError(b"", C, mac)
 
         if hasattr(self, "pc_cls"):
             self._cipher.mode._initialization_vector = self._get_nonce(seq_num)
@@ -353,7 +353,7 @@ class _AEADCipher_TLS13(six.with_metaclass(_AEADCipherMetaclass, object)):
             try:
                 decryptor.finalize()
             except InvalidTag:
-                raise AEADTagError(P, mac)
+                raise AEADTagError(b"", P, mac)
         else:
             try:
                 if (conf.crypto_valid_advanced and
@@ -366,8 +366,8 @@ class _AEADCipher_TLS13(six.with_metaclass(_AEADCipherMetaclass, object)):
                         A += struct.pack("!H", len(C))
                     P = self._cipher.decrypt(self._get_nonce(seq_num), C + mac, A)  # noqa: E501
             except InvalidTag:
-                raise AEADTagError(b"<unauthenticated data>", mac)
-        return P, mac
+                raise AEADTagError(b"", b"<unauthenticated data>", mac)
+        return b"", P, mac
 
     def snapshot(self):
         c = self.__class__(self.key, self.fixed_iv)

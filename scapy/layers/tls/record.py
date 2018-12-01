@@ -27,16 +27,13 @@ from scapy.layers.tls.handshake import (_tls_handshake_cls, _TLSHandshake,
 from scapy.layers.tls.basefields import (_TLSVersionField, _tls_version,
                                          _TLSIVField, _TLSMACField,
                                          _TLSPadField, _TLSPadLenField,
-                                         _TLSLengthField, _tls_type,
-                                         _tls_type_13)
+                                         _TLSLengthField, _tls_type)
 from scapy.layers.tls.crypto.pkcs1 import pkcs_i2osp
 from scapy.layers.tls.crypto.cipher_aead import AEADTagError
 from scapy.layers.tls.crypto.cipher_stream import Cipher_NULL
 from scapy.layers.tls.crypto.common import CipherError
 from scapy.layers.tls.crypto.h_mac import HMACError
 import scapy.modules.six as six
-if conf.crypto_valid_advanced:
-    from scapy.layers.tls.crypto.cipher_aead import Cipher_CHACHA20_POLY1305
 
 # Util
 
@@ -285,12 +282,12 @@ class TLS(_GenericTLSSessionInheritance):
         if _pkt and len(_pkt) >= 2:
             type_ = orb(_pkt[0])
             version_ = orb(_pkt[1])
+            s = kargs.get("tls_session", None)
             if (type_ not in _tls_type) or (version_ != 3):
                 from scapy.layers.tls.record_sslv2 import SSLv2
                 return SSLv2
-            elif type_ in _tls_type_13:
-                s = kargs.get("tls_session", None)
-                if s and _tls_version_check(s.tls_version, 0x0304):
+            elif s and _tls_version_check(s.tls_version, 0x0304):
+                if type_ == 23:
                     if s.rcs and not isinstance(s.rcs.cipher, Cipher_NULL):
                         from scapy.layers.tls.record_tls13 import TLS13
                         return TLS13
@@ -476,13 +473,8 @@ class TLS(_GenericTLSSessionInheritance):
         elif cipher_type == 'aead':
             # Authenticated encryption
             # crypto/cipher_aead.py prints a warning for integrity failure
-            if (conf.crypto_valid_advanced and
-                isinstance(self.tls_session.rcs.cipher,
-                           Cipher_CHACHA20_POLY1305)):
-                iv = b""
-                cfrag, mac = self._tls_auth_decrypt(hdr, efrag)
-            else:
-                iv, cfrag, mac = self._tls_auth_decrypt(hdr, efrag)
+            print(self.__class__)
+            iv, cfrag, mac = self._tls_auth_decrypt(hdr, efrag)
             decryption_success = True       # see XXX above
 
         frag = self._tls_decompress(cfrag)

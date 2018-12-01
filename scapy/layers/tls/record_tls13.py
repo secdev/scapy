@@ -113,6 +113,8 @@ class TLS13(_GenericTLSSessionInheritance):
         read_seq_num = struct.pack("!Q", rcs.seq_num)
         rcs.seq_num += 1
         try:
+            print(read_seq_num)
+            print(s)
             return rcs.cipher.auth_decrypt(b"", s, read_seq_num)
         except CipherError as e:
             return e.args
@@ -134,7 +136,7 @@ class TLS13(_GenericTLSSessionInheritance):
         else:
             msglen = struct.unpack('!H', s[3:5])[0]
             hdr, efrag, r = s[:5], s[5:5 + msglen], s[msglen + 5:]
-            frag, auth_tag = self._tls_auth_decrypt(efrag)
+            _, frag, auth_tag = self._tls_auth_decrypt(efrag)
             self.deciphered_len = len(frag)
             return hdr + frag + auth_tag + r
 

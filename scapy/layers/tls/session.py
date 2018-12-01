@@ -72,6 +72,7 @@ class connState(object):
                  tls_version=0x0303):
 
         self.tls_version = tls_version
+        print(tls_version)
 
         # It is the user's responsibility to keep the record seq_num
         # under 2**64-1. If this value gets maxed out, the TLS class in

@@ -21,7 +21,7 @@ from cryptography.hazmat.backends import default_backend
 def clean(s):
     return binascii.unhexlify(''.join(c for c in s if c.isalnum()))
 
-= Dissect ClientHello : The client initiates a handshake with an X25519
+#= Dissect ClientHello : The client initiates a handshake with an X25519
 
 clientHello1 = clean("""
          16 03 01 00 b4 01 00 00 b0 03 03 b0
@@ -37,7 +37,7 @@ clientHello1 = clean("""
          """)
 t1 = TLS(clientHello1)
 
-= Dissect ServerHello: The server however prefers P-256 [FIPS186] and sends a HelloRetryRequest
+#= Dissect ServerHello: The server however prefers P-256 [FIPS186] and sends a HelloRetryRequest
 
 # Note:  The HelloRetryRequest uses the same handshake message type as
 # a ServerHello and so is labeled as ServerHello here.
@@ -55,7 +55,7 @@ helloRetryRequest = clean("""
          """)
 t2 = TLS(helloRetryRequest, tls_session=t1.tls_session.mirror())
 
-= Dissect ClientHello again, this time using P-256
+#= Dissect ClientHello again, this time using P-256
 
 secp256r1_client_privkey = clean("""
          ab 54 73 46 7e 19 34 6c eb 0a 04 14 e4
@@ -89,7 +89,7 @@ clientHello2 = clean("""
          00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
          00
          """)
-t3 = TLS(clientHello2)
+t3 = TLS(clientHello2, tls_session=t2.tls_session.mirror())
 pubnum = t3.tls_session.tls13_client_pubshares["secp256r1"].public_numbers()
 privnum = EllipticCurvePrivateNumbers(pkcs_os2ip(secp256r1_client_privkey), pubnum)
 privkey = privnum.private_key(default_backend())
