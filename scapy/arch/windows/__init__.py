@@ -518,7 +518,7 @@ def get_windows_if_list():
         # ----                      --------------------                    ------- ------       ----------             ---------  # noqa: E501
         # Ethernet                  Killer E2200 Gigabit Ethernet Control...      13 Up           D0-50-99-56-DD-F9         1 Gbps  # noqa: E501
         # It is normal that it is in this order
-        query = exec_query(['Get-NetAdapter'],
+        query = exec_query(['Get-NetAdapter -IncludeHidden'],
                            ['InterfaceDescription', 'InterfaceIndex', 'Name',
                             'InterfaceGuid', 'MacAddress', 'InterfaceAlias'])
     else:
