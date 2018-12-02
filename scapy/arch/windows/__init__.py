@@ -240,14 +240,18 @@ def _exec_query_ps(cmd, fields):
         if not line.strip():  # skip empty lines
             continue
         sl = line.split(':', 1)
-        if len(sl) == 1:
-            lines[-1] += sl[0].strip()
+        if sl[0].strip() not in fields:
+            # The previous line was cropped. Let's add the missing part
+            lines[-1] += line.strip()
             continue
         else:
+            # We put it here to ensure we never return too early,
+            # missing some cropped lines
+            if len(lines) == len(fields):
+                yield lines
+                lines = []
             lines.append(sl[1].strip())
-        if len(lines) == len(fields):
-            yield lines
-            lines = []
+    yield lines  # Last buffer won't be returned in the if
 
 
 def _vbs_exec_code(code, split_tag="@"):
@@ -544,14 +548,16 @@ def get_ips(v6=False):
                                      'Win32_NetworkAdapterConfiguration'],
                                     ['Description', 'IPAddress']):
         if ipaddr.strip():
-            res[descr] = ipaddr.split(",", 1)[v6].strip('{}').strip()
+            # This requires lots of stripping
+            ip_string = ipaddr.split(",", 1)[v6].strip('{}').strip()
+            res[descr] = [ip.strip() for ip in ip_string.split(",")]
     return res
 
 
 def get_ip_from_name(ifname, v6=False):
     """Backward compatibility: indirectly calls get_ips
     Deprecated."""
-    return get_ips(v6=v6).get(ifname, "")
+    return get_ips(v6=v6).get(ifname, "")[0]
 
 
 class NetworkInterface(object):
@@ -834,7 +840,7 @@ class NetworkInterfaceDict(UserDict):
                     if not ifaces_ips:  # ifaces_ips is used as a cache
                         ifaces_ips = get_ips()
                     # If it exists, retrieve the interface's IP from the cache
-                    interface.ip = ifaces_ips.get(interface.name, "")
+                    interface.ip = ifaces_ips.get(interface.name, "")[0]
             except (KeyError, PcapNameNotFoundError):
                 pass
 
