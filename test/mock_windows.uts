@@ -271,6 +271,38 @@ ECN capability : application
 
 test_get_metrics()
 
+= Test _get_ips with weird cropped lines
+
+from scapy.arch.windows import get_ips
+
+@mock.patch("scapy.arch.windows.POWERSHELL_PROCESS.query")
+def test_cropped_ips(mock_exec_query):
+    exc_query_output = """
+Description : Realtek PCIe GBE Family Controller
+IPAddress   : {10.0.0.2, fe80::1875:454e:9e92:b547, 2601:223:2010:3e62:abf7:b78
+3:e5f4:f0ea, 2601:243:2000:3e62:1878:435e:9e92:b547, 2601:243:2000:3f62::2c8d}
+
+Description : WAN Miniport (IP)
+IPAddress   :
+
+Description : VMware Virtual Ethernet Adapter for VMnet1
+IPAddress   : {192.168.234.1, fe80::7cda:6c44:d6c9:17cd}
+"""
+    mock_exec_query.side_effect = lambda *args, **kargs: exc_query_output.split("\n")
+    ipv4_ips = get_ips(v6=False)
+    ipv6_ips = get_ips(v6=True)
+    return ipv4_ips, ipv6_ips
+
+ipv4_ips, ipv6_ips = test_cropped_ips()
+
+assert len(ipv4_ips) == 2
+assert ipv4_ips['Realtek PCIe GBE Family Controller'] == ['10.0.0.2']
+assert ipv4_ips['VMware Virtual Ethernet Adapter for VMnet1'] == ['192.168.234.1']
+
+assert len(ipv6_ips) == 2
+assert ipv6_ips['Realtek PCIe GBE Family Controller'] == ['fe80::1875:454e:9e92:b547', '2601:223:2010:3e62:abf7:b783:e5f4:f0ea', '2601:243:2000:3e62:1878:435e:9e92:b547', '2601:243:2000:3f62::2c8d']
+assert ipv6_ips['VMware Virtual Ethernet Adapter for VMnet1'] == ['fe80::7cda:6c44:d6c9:17cd']
+
 ############
 ############
 + Windows arch unit tests
