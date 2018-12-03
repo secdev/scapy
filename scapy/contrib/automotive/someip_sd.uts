@@ -308,24 +308,24 @@ assert(p.len == 0x0015)
 
 p = SD()
 
-p.setFlag("REBOOT", 1)
+p.set_flag("REBOOT", 1)
 
 assert(p.flags == 0x80)
 
-p.setFlag("REBOOT", 0)
+p.set_flag("REBOOT", 0)
 
 assert(p.flags == 0x00)
 
-p.setFlag("UNICAST", 1)
+p.set_flag("UNICAST", 1)
 
 assert(p.flags == 0x40)
 
-p.setFlag("UNICAST", 0)
+p.set_flag("UNICAST", 0)
 
 assert(p.flags == 0x00)
 
-p.setFlag("REBOOT", 1)
-p.setFlag("UNICAST", 1)
+p.set_flag("REBOOT", 1)
+p.set_flag("UNICAST", 1)
 
 assert(p.flags == 0xc0)
 
@@ -336,11 +336,11 @@ assert(p.flags == 0xc0)
 p_sd = SD()
 sd_len = bytes(p_sd)
 
-p_someip = p_sd.getSomeip()
+p_someip = p_sd.get_someip()
 
 assert(len(bytes(p_someip)) == SOMEIP._OVERALL_LEN_NOPAYLOAD)
 
-p = p_sd.getSomeip(stacked=True)
+p = p_sd.get_someip(stacked=True)
 
 assert(len(bytes(p)) == SOMEIP._OVERALL_LEN_NOPAYLOAD + 12)
 
@@ -354,28 +354,28 @@ assert(len(bytes(p)) == 12)
 
 = Check entries to array and size check
 
-p.setEntryArray([SDEntry_Service(), SDEntry_EventGroup()])
+p.set_entryArray([SDEntry_Service(), SDEntry_EventGroup()])
 
 assert(struct.unpack("!L", bytes(p)[4:8])[0] == 32)
 
-p.setEntryArray([])
+p.set_entryArray([])
 
 assert(struct.unpack("!L", bytes(p)[4:8])[0] == 0)
 
 = Check Options to array and size check
 
-p.setOptionArray([SDOption_IP4_EndPoint(), SDOption_IP4_EndPoint()])
+p.set_optionArray([SDOption_IP4_EndPoint(), SDOption_IP4_EndPoint()])
 
 assert(struct.unpack("!L", bytes(p)[8:12])[0] == 24)
 
-p.setOptionArray([])
+p.set_optionArray([])
 
 assert(struct.unpack("!L", bytes(p)[8:12])[0] == 0)
 
 = Check Entries & Options to array and size check
 
-p.setEntryArray([SDEntry_Service(), SDEntry_EventGroup()])
-p.setOptionArray([SDOption_IP4_EndPoint(), SDOption_IP4_EndPoint()])
+p.set_entryArray([SDEntry_Service(), SDEntry_EventGroup()])
+p.set_optionArray([SDOption_IP4_EndPoint(), SDOption_IP4_EndPoint()])
 
 assert(struct.unpack("!L", bytes(p)[4:8])[0] == 32)
 assert(struct.unpack("!L", bytes(p)[40:44])[0] == 24)

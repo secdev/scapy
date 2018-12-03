@@ -29,8 +29,9 @@
 
 import ctypes
 import collections
+import struct
 
-from scapy.all import Packet, struct
+from scapy.packet import Packet, Raw
 from scapy.fields import ByteField, BitField, ShortField, \
     X3BytesField, IntField, ByteEnumField, StrField, IPField, \
     FieldLenField, PacketListField
@@ -60,7 +61,7 @@ class _SDPacketBase(Packet):
                 self.setfieldval(key, self._defaults[key])
 
     def init_fields(self):
-        Packet.init_fields(self)
+        super(_SDPacketBase, self).init_fields()
         self._set_defaults()
 
 
@@ -87,7 +88,8 @@ class _SDEntry(_SDPacketBase):
         ShortField("srv_id", 0),
         ShortField("inst_id", 0),
         ByteField("major_ver", 0),
-        X3BytesField("ttl", 0)]
+        X3BytesField("ttl", 0)
+    ]
 
     def guess_payload_class(self, payload):
         pl_type = orb(payload[_SDEntry.TYPE_PAYLOAD_I])
@@ -104,7 +106,8 @@ class SDEntry_Service(_SDEntry):
     name = "Service Entry"
     fields_desc = [
         _SDEntry,
-        IntField("minor_ver", 0)]
+        IntField("minor_ver", 0)
+    ]
 
 
 class SDEntry_EventGroup(_SDEntry):
@@ -115,7 +118,8 @@ class SDEntry_EventGroup(_SDEntry):
         _SDEntry,
         BitField("res", 0, 12),
         BitField("cnt", 0, 4),
-        ShortField("eventgroup_id", 0)]
+        ShortField("eventgroup_id", 0)
+    ]
 
 
 # SD Option
@@ -152,50 +156,48 @@ class _SDOption(_SDPacketBase):
     def guess_payload_class(self, payload):
         pl_type = orb(payload[2])
 
-        if (pl_type == _SDOption.CFG_TYPE):
-            return (SDOption_Config)
-        elif (pl_type == self.LOADBALANCE_TYPE):
-            return (SDOption_LoadBalance)
-        elif (pl_type == self.IP4_ENDPOINT_TYPE):
-            return (SDOption_IP4_EndPoint)
-        elif (pl_type == self.IP4_MCAST_TYPE):
-            return (SDOption_IP4_Multicast)
-        elif (pl_type == self.IP4_SDENDPOINT_TYPE):
-            return (SDOption_IP4_SD_EndPoint)
-        elif (pl_type == self.IP6_ENDPOINT_TYPE):
-            return (SDOption_IP6_EndPoint)
-        elif (pl_type == self.IP6_MCAST_TYPE):
-            return (SDOption_IP6_Multicast)
-        elif (pl_type == self.IP6_SDENDPOINT_TYPE):
-            return (SDOption_IP6_SD_EndPoint)
+        return {
+            _SDOption.CFG_TYPE: SDOption_Config,
+            self.LOADBALANCE_TYPE: SDOption_LoadBalance,
+            self.IP4_ENDPOINT_TYPE: SDOption_IP4_EndPoint,
+            self.IP4_MCAST_TYPE: SDOption_IP4_Multicast,
+            self.IP4_SDENDPOINT_TYPE: SDOption_IP4_SD_EndPoint,
+            self.IP6_ENDPOINT_TYPE: SDOption_IP6_EndPoint,
+            self.IP6_MCAST_TYPE: SDOption_IP6_Multicast,
+            self.IP6_SDENDPOINT_TYPE: SDOption_IP6_SD_EndPoint
+        }.get(pl_type, Raw)
 
 
 class _SDOption_Header(_SDOption):
     fields_desc = [
         ShortField("len", None),
         ByteField("type", 0),
-        ByteField("res_hdr", 0)]
+        ByteField("res_hdr", 0)
+    ]
 
 
 class _SDOption_Tail(_SDOption):
     fields_desc = [
         ByteField("res_tail", 0),
         ByteEnumField("l4_proto", 0x06, {0x06: "TCP", 0x11: "UDP"}),
-        ShortField("port", 0)]
+        ShortField("port", 0)
+    ]
 
 
 class _SDOption_IP4(_SDOption):
     fields_desc = [
         _SDOption_Header,
         IPField("addr", "0.0.0.0"),
-        _SDOption_Tail]
+        _SDOption_Tail
+    ]
 
 
 class _SDOption_IP6(_SDOption):
     fields_desc = [
         _SDOption_Header,
         IP6Field("addr", "2001:cdba:0000:0000:0000:0000:3257:9652"),
-        _SDOption_Tail]
+        _SDOption_Tail
+    ]
 
 
 class SDOption_Config(_SDOption):
@@ -205,14 +207,15 @@ class SDOption_Config(_SDOption):
     _defaults = {'type': _SDOption.CFG_TYPE}
     fields_desc = [
         _SDOption_Header,
-        StrField("cfg_str", "")]
+        StrField("cfg_str", "")
+    ]
 
-    def post_build(self, p, pay):
+    def post_build(self, pkt, pay):
         length = self.len
         if (length is None):
             length = len(self.cfg_str) + self.LEN_OFFSET
-            p = struct.pack("!H", length) + p[2:]
-        return (p + pay)
+            pkt = struct.pack("!H", length) + pkt[2:]
+        return (pkt + pay)
 
 
 class SDOption_LoadBalance(_SDOption):
@@ -222,7 +225,8 @@ class SDOption_LoadBalance(_SDOption):
     fields_desc = [
         _SDOption_Header,
         ShortField("priority", 0),
-        ShortField("weight", 0)]
+        ShortField("weight", 0)
+    ]
 
 
 class SDOption_IP4_EndPoint(_SDOption_IP4):
@@ -298,9 +302,10 @@ class SD(_SDPacketBase):
         FieldLenField("len_option_array", None,
                       length_of="option_array", fmt="!I"),
         PacketListField("option_array", None, cls=_SDOption,
-                        length_from=lambda pkt: pkt.len_option_array)]
+                        length_from=lambda pkt: pkt.len_option_array)
+    ]
 
-    def getFlag(self, name):
+    def get_flag(self, name):
         name = name.upper()
         if (name in self.FLAGSDEF):
             return ((self.flags & self.FLAGSDEF[name].mask) >>
@@ -308,26 +313,26 @@ class SD(_SDPacketBase):
         else:
             return None
 
-    def setFlag(self, name, value):
+    def set_flag(self, name, value):
         name = name.upper()
         if (name in self.FLAGSDEF):
             self.flags = (self.flags &
                           (ctypes.c_ubyte(~self.FLAGSDEF[name].mask).value)) \
                 | ((value & 0x01) << self.FLAGSDEF[name].offset)
 
-    def setEntryArray(self, entry_list):
+    def set_entryArray(self, entry_list):
         if (isinstance(entry_list, list)):
             self.entry_array = entry_list
         else:
             self.entry_array = [entry_list]
 
-    def setOptionArray(self, option_list):
+    def set_optionArray(self, option_list):
         if (isinstance(option_list, list)):
             self.option_array = option_list
         else:
             self.option_array = [option_list]
 
-    def getSomeip(self, stacked=False):
+    def get_someip(self, stacked=False):
         p = SOMEIP()
         p.msg_id.srv_id = SD.SOMEIP_MSGID_SRVID
         p.msg_id.sub_id = SD.SOMEIP_MSGID_SUBID

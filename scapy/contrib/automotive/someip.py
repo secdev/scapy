@@ -27,9 +27,11 @@
 # Copyright (C) Sebastian Baar <sebastian.baar@gmx.de>
 # This program is published under a GPLv2 license
 
+import struct
+
 from scapy.layers.inet import TCP, UDP
-from scapy.all import struct, bind_layers
-from scapy.packet import Packet
+from scapy.modules.six.moves import range
+from scapy.packet import Packet, bind_layers
 from scapy.fields import ShortField, BitEnumField, ConditionalField, \
     BitField, PacketField, IntField, ByteField, ByteEnumField
 
@@ -55,10 +57,11 @@ class _SOMEIP_RequestId(Packet):
     name = "RequestId"
     fields_desc = [
         ShortField("client_id", 0),
-        ShortField("session_id", 0)]
+        ShortField("session_id", 0)
+    ]
 
-    def extract_padding(self, p):
-        return "", p
+    def extract_padding(self, s):
+        return "", s
 
 
 class SOMEIP(Packet):
@@ -128,24 +131,26 @@ class SOMEIP(Packet):
         }),
     ]
 
-    def post_build(self, p, pay):
+    def post_build(self, pkt, pay):
         length = self.len
         if (length is None):
             length = self.LEN_OFFSET + len(pay)
-            p = p[:4] + struct.pack("!I", length) + p[8:]
-        return p + pay
+            pkt = pkt[:4] + struct.pack("!I", length) + pkt[8:]
+        return pkt + pay
 
     def answers(self, other):
         if other.__class__ == self.__class__:
-            if (self.msg_type == SOMEIP.TYPE_REQUEST_NO_RET):
+            if self.msg_type in [SOMEIP.TYPE_REQUEST_NO_RET,
+                                 SOMEIP.TYPE_REQUEST_NORET_ACK]:
                 return 0
-            elif (self.msg_type == SOMEIP.TYPE_REQUEST_NORET_ACK):
-                return 0
-            else:
-                return self.payload.answers(other.payload)
+            return self.payload.answers(other.payload)
         return 0
 
 
-for i in range(15):
-    bind_layers(UDP, SOMEIP, sport=30490 + i)
-    bind_layers(TCP, SOMEIP, sport=30490 + i)
+def _bind_someip_layers():
+    for i in range(15):
+        bind_layers(UDP, SOMEIP, sport=30490 + i)
+        bind_layers(TCP, SOMEIP, sport=30490 + i)
+
+
+_bind_someip_layers()
