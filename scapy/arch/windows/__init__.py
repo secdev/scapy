@@ -557,7 +557,7 @@ def get_ips(v6=False):
 def get_ip_from_name(ifname, v6=False):
     """Backward compatibility: indirectly calls get_ips
     Deprecated."""
-    return get_ips(v6=v6).get(ifname, "")[0]
+    return get_ips(v6=v6).get(ifname, [""])[0]
 
 
 class NetworkInterface(object):
@@ -840,7 +840,7 @@ class NetworkInterfaceDict(UserDict):
                     if not ifaces_ips:  # ifaces_ips is used as a cache
                         ifaces_ips = get_ips()
                     # If it exists, retrieve the interface's IP from the cache
-                    interface.ip = ifaces_ips.get(interface.name, "")[0]
+                    interface.ip = ifaces_ips.get(interface.name, [""])[0]
             except (KeyError, PcapNameNotFoundError):
                 pass
 
