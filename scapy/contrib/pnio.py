@@ -18,7 +18,6 @@
 # scapy.contrib.description = ProfinetIO RTC (+Profisafe) layer
 # scapy.contrib.status = loads
 import copy
-from scapy.compat import raw
 from scapy.error import Scapy_Exception
 from scapy.config import conf
 from scapy.packet import Packet, bind_layers
@@ -204,7 +203,7 @@ class PNIORealTimeCyclicPDU(Packet):
         if hasattr(self, "_len"):
             pad_len = (
                 self._len -
-                sum(len(raw(pkt)) for pkt in self.getfieldval("data")) -
+                sum(len(bytes(pkt)) for pkt in self.getfieldval("data")) -
                 2 -  # Cycle Counter size (ShortField)
                 1 -  # DataStatus size (FlagsField over 8 bits)
                 1  # TransferStatus (ByteField)

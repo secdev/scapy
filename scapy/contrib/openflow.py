@@ -15,7 +15,7 @@ from __future__ import absolute_import
 import struct
 
 
-from scapy.compat import chb, orb, raw
+from scapy.compat import chb, orb
 from scapy.config import conf
 from scapy.error import warning
 from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, FieldLenField, FlagsField, IntEnumField, IntField, IPField, LongField, MACField, PacketField, PacketListField, ShortEnumField, ShortField, StrFixedLenField, X3BytesField, XBitField, XByteField, XIntField, XShortField  # noqa: E501
@@ -499,7 +499,7 @@ class OFPPacketQueue(Packet):
 
     def post_build(self, p, pay):
         if self.properties == []:
-            p += raw(OFPQTNone())
+            p += bytes(OFPQTNone())
         if self.len is None:
             tmp_len = len(p) + len(pay)
             p = p[:4] + struct.pack("!H", tmp_len) + p[6:]

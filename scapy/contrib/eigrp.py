@@ -55,7 +55,7 @@ from scapy.fields import StrField, IPField, XShortField, FieldLenField, \
     ShortField, StrFixedLenField, ThreeBytesField
 from scapy.layers.inet import IP, checksum, bind_layers
 from scapy.layers.inet6 import IPv6
-from scapy.compat import chb, raw
+from scapy.compat import chb
 from scapy.config import conf
 from scapy.utils import inet_aton, inet_ntoa
 from scapy.pton_ntop import inet_ntop, inet_pton
@@ -471,7 +471,7 @@ class RepeatedTlvListField(PacketListField):
         return remain, lst
 
     def addfield(self, pkt, s, val):
-        return s + b"".join(raw(v) for v in val)
+        return s + b"".join(bytes(v) for v in val)
 
 
 def _EIGRPGuessPayloadClass(p, **kargs):

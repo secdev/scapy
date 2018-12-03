@@ -293,8 +293,8 @@ p.wait_and_stop()
 
 results = rdpcap("t2.pcap")
 
-assert raw(results[0]) == raw(req)
-assert raw(results[1]) == raw(rpy)
+assert bytes(results[0]) == bytes(req)
+assert bytes(results[1]) == bytes(rpy)
 
 os.unlink("t.pcap")
 os.unlink("t2.pcap")

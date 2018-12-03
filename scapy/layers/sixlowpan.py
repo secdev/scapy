@@ -49,7 +49,7 @@ Known Issues:
 import socket
 import struct
 
-from scapy.compat import chb, orb, raw
+from scapy.compat import chb, orb
 
 from scapy.packet import Packet, bind_layers
 from scapy.fields import BitField, ByteField, BitEnumField, BitFieldLenField, \
@@ -135,7 +135,8 @@ class SixLoWPANAddrField(FieldLenField):
             return s + struct.pack(self.fmt[0] + "Q", val)
         elif self.length_of(pkt) == 128:
             # TODO: FIX THE PACKING!!
-            return s + struct.pack(self.fmt[0] + "16s", raw(val))
+            val = val.encode() if not isinstance(val, bytes) else val
+            return s + struct.pack(self.fmt[0] + "16s", val)
         else:
             return s
 
@@ -501,15 +502,15 @@ class LoWPAN_IPHC(Packet):
                 udp.dport = 0xF0B0 + d
 
             packet.payload = udp / data
-            data = raw(packet)
+            data = bytes(packet)
         # else self.nh == 0 not necessary
         elif self._nhField & 0xE0 == 0xE0:  # IPv6 Extension Header Decompression  # noqa: E501
             warning('Unimplemented: IPv6 Extension Header decompression')  # noqa: E501
             packet.payload = conf.raw_layer(data)
-            data = raw(packet)
+            data = bytes(packet)
         else:
             packet.payload = conf.raw_layer(data)
-            data = raw(packet)
+            data = bytes(packet)
 
         return Packet.post_dissect(self, data)
 
@@ -699,9 +700,9 @@ class LoWPAN_IPHC(Packet):
     def do_build_payload(self):
         if self.header_compression and\
            self.header_compression & 240 == 240:  # TODO: UDP header IMPROVE
-            return raw(self.payload)[40 + 16:]
+            return bytes(self.payload)[40 + 16:]
         else:
-            return raw(self.payload)[40:]
+            return bytes(self.payload)[40:]
 
     def _getTrafficClassAndFlowLabel(self):
         """Page 6, draft feb 2011 """
@@ -758,7 +759,7 @@ def sixlowpan_fragment(packet, datagram_tag=1):
     if not packet.haslayer(IPv6):
         raise Exception("SixLoWPAN only fragments IPv6 packets !")
 
-    str_packet = raw(packet[IPv6])
+    str_packet = bytes(packet[IPv6])
 
     if len(str_packet) <= MAX_SIZE:
         return [packet]

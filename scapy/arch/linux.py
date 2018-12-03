@@ -21,7 +21,7 @@ import re
 
 import subprocess
 
-from scapy.compat import raw, plain_str
+from scapy.compat import plain_str
 from scapy.consts import LOOPBACK_NAME, LINUX
 import scapy.utils
 import scapy.utils6
@@ -349,13 +349,12 @@ def read_routes6():
     routes = []
 
     def proc2r(p):
-        ret = struct.unpack('4s4s4s4s4s4s4s4s', raw(p))
+        ret = struct.unpack('4s4s4s4s4s4s4s4s', p)
         ret = b':'.join(ret).decode()
         return scapy.utils6.in6_ptop(ret)
 
     lifaddr = in6_getifaddr()
     for line in f.readlines():
-        line = plain_str(line)
         d, dp, s, sp, nh, metric, rc, us, fl, dev = line.split()
         metric = int(metric, 16)
         fl = int(fl, 16)
@@ -370,6 +369,8 @@ def read_routes6():
         s = proc2r(s)
         sp = int(sp, 16)
         nh = proc2r(nh)
+
+        dev = plain_str(dev)
 
         cset = []  # candidate set (possible source addresses)
         if dev == LOOPBACK_NAME:
@@ -528,7 +529,7 @@ class L2Socket(SuperSocket):
                 if isinstance(x, Packet):
                     return SuperSocket.send(self, x / Padding(load=padding))
                 else:
-                    return SuperSocket.send(self, raw(x) + padding)
+                    return SuperSocket.send(self, bytes(x) + padding)
             raise
 
 
@@ -560,7 +561,7 @@ class L3PacketSocket(L2Socket):
             sdto = (iff, conf.l3types[type(x)])
         if sn[3] in conf.l2types:
             ll = lambda x: conf.l2types[sn[3]]() / x
-        sx = raw(ll(x))
+        sx = bytes(ll(x))
         x.sent_time = time.time()
         try:
             self.outs.sendto(sx, sdto)
@@ -569,7 +570,7 @@ class L3PacketSocket(L2Socket):
                 self.outs.send(sx + b"\x00" * (conf.min_pkt_size - len(sx)))
             elif conf.auto_fragment and msg.errno == 90:
                 for p in x.fragment():
-                    self.outs.sendto(raw(ll(p)), sdto)
+                    self.outs.sendto(bytes(ll(p)), sdto)
             else:
                 raise
 

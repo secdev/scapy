@@ -36,7 +36,7 @@ from time import gmtime, strftime
 from scapy.arch import get_if_hwaddr
 from scapy.as_resolvers import AS_resolver_riswhois
 from scapy.base_classes import Gen
-from scapy.compat import chb, orb, raw, plain_str
+from scapy.compat import chb, orb, plain_str
 from scapy.config import conf
 import scapy.consts
 from scapy.data import DLT_IPV6, DLT_RAW, DLT_RAW_ALT, ETHER_ANY, ETH_P_IPV6, \
@@ -519,8 +519,8 @@ class IPerror6(IPv6):
                     selfup.dataofs = 0
 
                     # Test it and save result
-                    s1 = raw(selfup)
-                    s2 = raw(otherup)
+                    s1 = bytes(selfup)
+                    s2 = bytes(otherup)
                     tmp_len = min(len(s1), len(s2))
                     res = s1[:tmp_len] == s2[:tmp_len]
 
@@ -534,8 +534,8 @@ class IPerror6(IPv6):
 
                     return res
 
-                s1 = raw(selfup)
-                s2 = raw(otherup)
+                s1 = bytes(selfup)
+                s2 = bytes(otherup)
                 tmp_len = min(len(s1), len(s2))
                 return s1[:tmp_len] == s2[:tmp_len]
 
@@ -615,7 +615,7 @@ def in6_chksum(nh, u, p):
     else:
         ph6.dst = u.dst
     ph6.uplen = len(p)
-    ph6s = raw(ph6)
+    ph6s = bytes(ph6)
     return checksum(ph6s + p)
 
 
@@ -815,10 +815,10 @@ class _OptionsField(PacketListField):
             d = p.alignment_delta(curpos)
             curpos += d
             if d == 1:
-                s += raw(Pad1())
+                s += bytes(Pad1())
             elif d != 0:
-                s += raw(PadN(optdata=b'\x00' * (d - 2)))
-            pstr = raw(p)
+                s += bytes(PadN(optdata=b'\x00' * (d - 2)))
+            pstr = bytes(p)
             curpos += len(pstr)
             s += pstr
 
@@ -829,9 +829,9 @@ class _OptionsField(PacketListField):
             return s
         d = 8 - d
         if d == 1:
-            s += raw(Pad1())
+            s += bytes(Pad1())
         elif d != 0:
-            s += raw(PadN(optdata=b'\x00' * (d - 2)))
+            s += bytes(PadN(optdata=b'\x00' * (d - 2)))
 
         return s
 
@@ -984,7 +984,7 @@ class IPv6ExtHdrSegmentRouting(_IPv6ExtHdr):
                 # Add the padding extension
                 tmp_pad = b"\x00" * (tmp_mod - 2)
                 tlv = IPv6ExtHdrSegmentRoutingTLVPadding(padding=tmp_pad)
-                pkt += raw(tlv)
+                pkt += bytes(tlv)
 
             tmp_len = (len(pkt) - 8) // 8
             pkt = pkt[:1] + struct.pack("B", tmp_len) + pkt[2:]
@@ -1054,7 +1054,7 @@ def defragment6(packets):
         if offset != len(fragmentable):
             warning("Expected an offset of %d. Found %d. Padding with XXXX" % (len(fragmentable), offset))  # noqa: E501
         fragmentable += b"X" * (offset - len(fragmentable))
-        fragmentable += raw(q.payload)
+        fragmentable += bytes(q.payload)
 
     # Regenerate the unfragmentable part.
     q = res[0]
@@ -1064,7 +1064,7 @@ def defragment6(packets):
     q /= conf.raw_layer(load=fragmentable)
     del(q.plen)
 
-    return IPv6(raw(q))
+    return IPv6(bytes(q))
 
 
 def fragment6(pkt, fragSize):
@@ -1087,18 +1087,18 @@ def fragment6(pkt, fragSize):
 
     # If the payload is bigger than 65535, a Jumbo payload must be used, as
     # an IPv6 packet can't be bigger than 65535 bytes.
-    if len(raw(pkt[IPv6ExtHdrFragment])) > 65535:
+    if len(bytes(pkt[IPv6ExtHdrFragment])) > 65535:
         warning("An IPv6 packet can'be bigger than 65535, please use a Jumbo payload.")  # noqa: E501
         return []
 
-    s = raw(pkt)  # for instantiation to get upper layer checksum right
+    s = bytes(pkt)  # for instantiation to get upper layer checksum right
 
     if len(s) <= fragSize:
         return [pkt]
 
     # Fragmentable part : fake IPv6 for Fragmentable part length computation
     fragPart = pkt[IPv6ExtHdrFragment].payload
-    tmp = raw(IPv6(src="::1", dst="::1") / fragPart)
+    tmp = bytes(IPv6(src="::1", dst="::1") / fragPart)
     fragPartLen = len(tmp) - 40  # basic IPv6 header length
     fragPartStr = s[-fragPartLen:]
 
@@ -1746,7 +1746,7 @@ class TruncPktLenField(PacketLenField):
         return s
 
     def i2m(self, pkt, x):
-        s = raw(x)
+        s = bytes(x)
         tmp_len = len(s)
         r = (tmp_len + self.cur_shift) % 8
         tmp_len = tmp_len - r
@@ -2064,7 +2064,7 @@ class ICMPv6ND_NS(_ICMPv6NDGuessPayload, _ICMPv6, Packet):
         return self.sprintf("%name% (tgt: %tgt%)")
 
     def hashret(self):
-        return raw(self.tgt) + self.payload.hashret()
+        return self.tgt.encode() + self.payload.hashret()
 
 
 class ICMPv6ND_NA(_ICMPv6NDGuessPayload, _ICMPv6, Packet):
@@ -2083,7 +2083,7 @@ class ICMPv6ND_NA(_ICMPv6NDGuessPayload, _ICMPv6, Packet):
         return self.sprintf("%name% (tgt: %tgt%)")
 
     def hashret(self):
-        return raw(self.tgt) + self.payload.hashret()
+        return self.tgt.encode() + self.payload.hashret()
 
     def answers(self, other):
         return isinstance(other, ICMPv6ND_NS) and self.tgt == other.tgt
@@ -2178,7 +2178,7 @@ icmp6_niqtypes = {0: "NOOP",
 
 class _ICMPv6NIHashret:
     def hashret(self):
-        return raw(self.nonce)
+        return self.nonce
 
 
 class _ICMPv6NIAnswers:
@@ -3060,15 +3060,12 @@ class MIP6MH_HoTI(_MobilityHeader):
     overload_fields = {IPv6: {"nh": 135}}
 
     def hashret(self):
-        return raw(self.cookie)
+        return self.cookie
 
 
 class MIP6MH_CoTI(MIP6MH_HoTI):
     name = "IPv6 Mobility Header - Care-of Test Init"
     mhtype = 2
-
-    def hashret(self):
-        return raw(self.cookie)
 
 
 class MIP6MH_HoT(_MobilityHeader):
@@ -3087,7 +3084,7 @@ class MIP6MH_HoT(_MobilityHeader):
     overload_fields = {IPv6: {"nh": 135}}
 
     def hashret(self):
-        return raw(self.cookie)
+        return self.cookie
 
     def answers(self, other):
         if (isinstance(other, MIP6MH_HoTI) and
@@ -3101,7 +3098,7 @@ class MIP6MH_CoT(MIP6MH_HoT):
     mhtype = 4
 
     def hashret(self):
-        return raw(self.cookie)
+        return self.cookie
 
     def answers(self, other):
         if (isinstance(other, MIP6MH_CoTI) and

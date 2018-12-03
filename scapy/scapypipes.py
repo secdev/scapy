@@ -8,7 +8,6 @@ import socket
 from scapy.modules.six.moves.queue import Queue, Empty
 from scapy.pipetool import Source, Drain, Sink
 from scapy.config import conf
-from scapy.compat import raw
 from scapy.utils import PcapReader, PcapWriter
 from scapy.automaton import recv_error
 from scapy.consts import WINDOWS
@@ -155,7 +154,7 @@ class UDPDrain(Drain):
         from scapy.layers.inet import IP, UDP
         if IP in msg and msg[IP].proto == 17 and UDP in msg:
             payload = msg[UDP].payload
-            self._high_send(raw(payload))
+            self._high_send(bytes(payload))
 
     def high_push(self, msg):
         from scapy.layers.inet import IP, UDP

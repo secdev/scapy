@@ -23,7 +23,6 @@ from scapy.layers.l2 import Ether, Dot1AD, Dot1Q
 from scapy.layers.eap import MACsecSCI
 from scapy.layers.inet import IP
 from scapy.layers.inet6 import IPv6
-from scapy.compat import raw
 from scapy.data import ETH_P_MACSEC, ETHER_TYPES, ETH_P_IP, ETH_P_IPV6
 from scapy.error import log_loading
 import scapy.modules.six as six
@@ -94,7 +93,7 @@ class MACsecSA(object):
         split the packet into associated data, plaintext or ciphertext, and
         optional ICV
         """
-        data = raw(pkt)
+        data = bytes(pkt)
         assoc = data[:assoclen]
         if icvlen:
             icv = data[-icvlen:]
@@ -147,7 +146,7 @@ class MACsecSA(object):
         next_layer = packet[MACsec].payload
         del prev_layer.payload
         if prev_layer.name == Ether().name:
-            return Ether(raw(prev_layer / next_layer))
+            return Ether(bytes(prev_layer / next_layer))
         return prev_layer / next_layer
 
     def encrypt(self, orig_pkt, assoclen=None):

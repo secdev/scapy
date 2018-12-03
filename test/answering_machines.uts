@@ -117,7 +117,7 @@ def test_WiFi_am(packet_query, check_reply, mock_sniff, **kargs):
 
 def check_WiFi_am_reply(packet):
     assert(isinstance(packet, list) and len(packet) == 2)
-    assert(TCP in packet[0] and Raw in packet[0] and raw(packet[0][Raw]) == b"5c4pY")
+    assert(TCP in packet[0] and Raw in packet[0] and bytes(packet[0][Raw]) == b"5c4pY")
 
 test_WiFi_am(Dot11(FCfield="to-DS")/IP()/TCP()/"Scapy",
              check_WiFi_am_reply,

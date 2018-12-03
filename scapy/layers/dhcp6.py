@@ -19,7 +19,7 @@ from scapy.ansmachine import AnsweringMachine
 from scapy.arch import get_if_raw_hwaddr, in6_getifaddr
 from scapy.config import conf
 from scapy.data import EPOCH, ETHER_ANY
-from scapy.compat import raw, orb, chb
+from scapy.compat import orb, chb
 from scapy.error import warning
 from scapy.fields import BitField, ByteEnumField, ByteField, FieldLenField, \
     FlagsField, IntEnumField, IntField, MACField, PacketField, \
@@ -323,7 +323,7 @@ class _DUIDField(PacketField):
         self.length_from = length_from
 
     def i2m(self, pkt, i):
-        return raw(i)
+        return bytes(i)
 
     def m2i(self, pkt, x):
         cls = conf.raw_layer
@@ -373,7 +373,7 @@ class _IANAOptField(PacketListField):
     def i2len(self, pkt, z):
         if z is None or z == []:
             return 0
-        return sum(len(raw(x)) for x in z)
+        return sum(len(bytes(x)) for x in z)
 
     def getfield(self, pkt, s):
         tmp_len = self.length_from(pkt)
@@ -597,7 +597,7 @@ class _UserClassDataField(PacketListField):
     def i2len(self, pkt, z):
         if z is None or z == []:
             return 0
-        return sum(len(raw(x)) for x in z)
+        return sum(len(bytes(x)) for x in z)
 
     def getfield(self, pkt, s):
         tmp_len = self.length_from(pkt)
@@ -1506,7 +1506,7 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
             duid = p[DHCP6OptServerId].duid
             if not isinstance(duid, type(self.duid)):
                 return False
-            if raw(duid) != raw(self.duid):
+            if bytes(duid) != bytes(self.duid):
                 return False
 
             if (p.msgtype == 5 or  # Renew
@@ -1571,7 +1571,7 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
                 duid = p[DHCP6OptServerId].duid
                 if not isinstance(duid, type(self.duid)):
                     return False
-                if raw(duid) != raw(self.duid):
+                if bytes(duid) != bytes(self.duid):
                     return False
             if ((DHCP6OptIA_NA in p) or
                 (DHCP6OptIA_TA in p) or

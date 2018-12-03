@@ -70,6 +70,18 @@ def lambda_tuple_converter(func):
         return func
 
 
+def raw(pkt):
+    """Builds a packet.
+
+    params:
+     - pkt: the Packet instance to build
+    returns: bytes (or string on Python 2) of the built packet
+
+    This function is and will always remain cross-version compatible
+    """
+    return bytes(pkt)
+
+
 if six.PY2:
     def orb(x):
         """Return ord(x) when necessary."""
@@ -85,17 +97,6 @@ else:
 
 
 if six.PY2:
-    def raw(x):
-        """Convert a str, a packet to bytes"""
-        if x is None:
-            return None
-        if hasattr(x, "__bytes__"):
-            return x.__bytes__()
-        try:
-            return chr(x)
-        except (ValueError, TypeError):
-            return str(x)
-
     def plain_str(x):
         """Convert basic byte objects to str"""
         return x if isinstance(x, basestring) else str(x)  # noqa: F821
@@ -111,13 +112,6 @@ if six.PY2:
                 return bytes(chr(int(x)))
             return bytes(chr(x))
 else:
-    def raw(x):
-        """Convert a str, an int, a list of ints, a packet to bytes"""
-        try:
-            return bytes(x)
-        except TypeError:
-            return bytes(x, encoding="utf8")
-
     def plain_str(x):
         """Convert basic byte objects to str"""
         if isinstance(x, bytes):
@@ -138,23 +132,27 @@ else:
 
 def bytes_hex(x):
     """Hexify a str or a bytes object"""
-    return binascii.b2a_hex(raw(x))
+    x = x.encode() if not isinstance(x, bytes) else x
+    return binascii.b2a_hex(x)
 
 
 def hex_bytes(x):
     """De-hexify a str or a byte object"""
-    return binascii.a2b_hex(raw(x))
+    x = x.encode() if not isinstance(x, bytes) else x
+    return binascii.a2b_hex(x)
 
 
 def base64_bytes(x):
     """Turn base64 into bytes"""
     if six.PY2:
         return base64.decodestring(x)
-    return base64.decodebytes(raw(x))
+    x = x.encode() if not isinstance(x, bytes) else x
+    return base64.decodebytes(x)
 
 
 def bytes_base64(x):
     """Turn bytes into base64"""
     if six.PY2:
         return base64.encodestring(x).replace('\n', '')
-    return base64.encodebytes(raw(x)).replace(b'\n', b'')
+    x = x.encode() if not isinstance(x, bytes) else x
+    return base64.encodebytes(x).replace(b'\n', b'')

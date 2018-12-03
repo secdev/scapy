@@ -19,7 +19,7 @@ from scapy.fields import ByteEnumField, ByteField, EnumField, Field, \
     FieldLenField, IntField, PacketField, PacketListField, ShortField, \
     StrFixedLenField, StrLenField, ThreeBytesField, UTCTimeField
 
-from scapy.compat import bytes_hex, orb, raw
+from scapy.compat import bytes_hex, orb
 from scapy.config import conf
 from scapy.modules import six
 from scapy.packet import Packet, Raw, Padding
@@ -732,7 +732,9 @@ class TLSServerKeyExchange(_TLSHandshake):
                     p = self.params
                     if p is None:
                         p = b""
-                    m = s.client_random + s.server_random + raw(p)
+                    elif not isinstance(p, bytes):
+                        p.encode()
+                    m = s.client_random + s.server_random + p
                     cls = _TLSSignature(tls_session=s)
                     cls._update_sig(m, s.server_key)
                 else:
@@ -758,7 +760,9 @@ class TLSServerKeyExchange(_TLSHandshake):
             not s.prcs.key_exchange.anonymous and
             s.client_random and s.server_random and
                 s.server_certs and len(s.server_certs) > 0):
-            m = s.client_random + s.server_random + raw(self.params)
+            if not isinstance(self.params, bytes):
+                self.params = self.params.encode()
+            m = s.client_random + s.server_random + self.params
             sig_test = self.sig._verify_sig(m, s.server_certs[0])
             if not sig_test:
                 pkt_info = pkt.firstlayer().summary()

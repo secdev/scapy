@@ -48,7 +48,6 @@
 import struct
 
 
-from scapy.compat import raw
 from scapy.error import log_runtime, Scapy_Exception
 from scapy.fields import BitField, ByteField, LEShortField, FieldListField, \
     LEIntField, FieldLenField, _EnumField, EnumField
@@ -612,11 +611,12 @@ class EtherCat(Packet):
         if pad_len > 0:
             pad = Padding()
             pad.load = b'\x00' * pad_len
+            pad = bytes(pad)
 
-            return raw(_EtherCatLengthCalc(length=self.length,
-                                           type=self.type)) + pay + raw(pad)
-        return raw(_EtherCatLengthCalc(length=self.length,
-                                       type=self.type)) + pay
+            return bytes(_EtherCatLengthCalc(length=self.length,
+                                             type=self.type)) + pay + pad
+        return bytes(_EtherCatLengthCalc(length=self.length,
+                                         type=self.type)) + pay
 
     def guess_payload_class(self, payload):
         try:

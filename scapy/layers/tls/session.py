@@ -11,7 +11,6 @@ import socket
 import struct
 
 from scapy.config import conf
-from scapy.compat import raw
 import scapy.modules.six as six
 from scapy.error import log_runtime, warning
 from scapy.packet import Packet
@@ -908,7 +907,7 @@ class _GenericTLSSessionInheritance(Packet):
 
         s.rcs = self.rcs_snap_init
 
-        built_packet = raw(self)
+        built_packet = bytes(self)
         s.frozen = True
         self.__class__(built_packet, tls_session=s).show()
         s.frozen = False

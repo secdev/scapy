@@ -11,7 +11,7 @@ Basic Encoding Rules (BER) for ASN.1
 
 from __future__ import absolute_import
 from scapy.error import warning
-from scapy.compat import chb, orb, raw
+from scapy.compat import chb, orb
 from scapy.utils import binrepr, inet_aton, inet_ntoa
 from scapy.asn1.asn1 import ASN1_Decoding_Error, ASN1_Encoding_Error, \
     ASN1_BadTag_Decoding_Error, ASN1_Codecs, ASN1_Class_UNIVERSAL, \
@@ -373,7 +373,7 @@ class BERcodec_BIT_STRING(BERcodec_Object):
     @classmethod
     def enc(cls, s):
         # /!\ this is DER encoding (bit strings are only zero-bit padded)
-        s = raw(s)
+        s = s.encode() if not isinstance(s, bytes) else s
         if len(s) % 8 == 0:
             unused_bits = 0
         else:
@@ -390,7 +390,7 @@ class BERcodec_STRING(BERcodec_Object):
 
     @classmethod
     def enc(cls, s):
-        s = raw(s)
+        s = s.encode() if not isinstance(s, bytes) else s
         # Be sure we are encoding bytes
         return chb(hash(cls.tag)) + BER_len_enc(len(s)) + s
 
@@ -416,7 +416,8 @@ class BERcodec_OID(BERcodec_Object):
 
     @classmethod
     def enc(cls, oid):
-        oid = raw(oid)
+        if not isinstance(oid, bytes):
+            oid = oid.encode()
         if oid:
             lst = [int(x) for x in oid.strip(b".").split(b".")]
         else:
@@ -438,7 +439,7 @@ class BERcodec_OID(BERcodec_Object):
             lst.insert(0, lst[0] // 40)
             lst[1] %= 40
         return (
-            cls.asn1_object(b".".join(str(k).encode('ascii') for k in lst)),
+            cls.asn1_object(b".".join(str(k).encode() for k in lst)),
             t,
         )
 

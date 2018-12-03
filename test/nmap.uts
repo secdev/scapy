@@ -11,7 +11,7 @@ load_module('nmap')
 
 = Test functions
 
-d = nmap_udppacket_sig(IP()/UDP(), IP(raw(IP()/ICMP(type=3, code=2)/IPerror()/UDPerror())))
+d = nmap_udppacket_sig(IP()/UDP(), IP(bytes(IP()/ICMP(type=3, code=2)/IPerror()/UDPerror())))
 assert len(d) == 9
 
 d = nmap_tcppacket_sig(IP()/TCP())

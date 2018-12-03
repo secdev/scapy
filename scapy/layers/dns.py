@@ -18,7 +18,7 @@ from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
     ConditionalField, Field, FieldLenField, FlagsField, IntField, \
     PacketListField, ShortEnumField, ShortField, StrField, StrFixedLenField, \
     StrLenField
-from scapy.compat import orb, raw, chb
+from scapy.compat import orb, chb
 from scapy.ansmachine import AnsweringMachine
 from scapy.sendrecv import sr1
 from scapy.layers.inet import IP, DestIPField, UDP, TCP
@@ -102,7 +102,7 @@ def dns_compress(pkt):
         raise Scapy_Exception("Can only compress DNS layers")
     pkt = pkt.copy()
     dns_pkt = pkt.getlayer(DNS)
-    build_pkt = raw(dns_pkt)
+    build_pkt = bytes(dns_pkt)
 
     def field_gen(dns_pkt):
         """Iterates through all DNS strings that can be compressed"""
@@ -253,7 +253,7 @@ class DNSRRField(StrField):
     def i2m(self, pkt, x):
         if x is None:
             return b""
-        return raw(x)
+        return bytes(x)
 
     def decodeRR(self, name, s, p):
         ret = s[p:p + 10]
@@ -354,7 +354,7 @@ class RDataField(StrLenField):
                     text = text[255:]
                 # The remaining string is less than 255 bytes long
                 if len(text):
-                    ret_s += struct.pack("!B", len(text)) + raw(text)
+                    ret_s += struct.pack("!B", len(text)) + text
             s = ret_s
         elif pkt.type == 28:  # AAAA
             if s:

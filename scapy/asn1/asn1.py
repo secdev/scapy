@@ -17,7 +17,7 @@ from scapy.config import conf
 from scapy.error import Scapy_Exception, warning
 from scapy.volatile import RandField, RandIP, GeneralizedTime
 from scapy.utils import Enum_metaclass, EnumElement, binrepr
-from scapy.compat import plain_str, chb, raw, orb
+from scapy.compat import plain_str, chb, orb
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
 
@@ -332,7 +332,7 @@ class ASN1_BIT_STRING(ASN1_Object):
         str_value = None
         if isinstance(value, str):
             str_value = value
-            value = raw(value)
+            value = value.encode() if not isinstance(value, bytes) else value
         if name == "val_readable":
             if isinstance(value, bytes):
                 val = b"".join(binrepr(orb(x)).zfill(8).encode("utf8") for x in value)  # noqa: E501

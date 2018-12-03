@@ -28,7 +28,7 @@ from zlib import crc32
 from scapy.config import conf, crypto_validator
 from scapy.data import ETHER_ANY, DLT_IEEE802_11, DLT_PRISM_HEADER, \
     DLT_IEEE802_11_RADIO
-from scapy.compat import raw, orb, chb
+from scapy.compat import orb, chb
 from scapy.packet import Packet, bind_layers, NoPayload
 from scapy.fields import ByteField, LEShortField, BitField, LEShortEnumField, \
     ByteEnumField, X3BytesField, FlagsField, LELongField, StrField, \
@@ -751,7 +751,7 @@ class Dot11WEP(Packet):
 
     def post_build(self, p, pay):
         if self.wepdata is None:
-            p = self.encrypt(p, raw(pay))
+            p = self.encrypt(p, bytes(pay))
         return p
 
 
@@ -829,7 +829,7 @@ iwconfig wlan0 mode managed
         if not pkt.haslayer(TCP):
             return 0
         tcp = pkt.getlayer(TCP)
-        pay = raw(tcp.payload)
+        pay = bytes(tcp.payload)
         if not self.ptrn.match(pay):
             return 0
         if self.iptrn.match(pay) is True:
@@ -839,7 +839,7 @@ iwconfig wlan0 mode managed
     def make_reply(self, p):
         ip = p.getlayer(IP)
         tcp = p.getlayer(TCP)
-        pay = raw(tcp.payload)
+        pay = bytes(tcp.payload)
         del(p.payload.payload.payload)
         p.FCfield = "from-DS"
         p.addr1, p.addr2 = p.addr2, p.addr1

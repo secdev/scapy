@@ -44,7 +44,6 @@ from scapy.layers.x509 import (X509_SubjectPublicKeyInfo,
                                X509_Cert, X509_CRL)
 from scapy.layers.tls.crypto.pkcs1 import pkcs_os2ip, _get_hash, \
     _EncryptAndVerifyRSA, _DecryptAndSignRSA
-from scapy.compat import raw
 if conf.crypto_valid:
     from cryptography.hazmat.backends import default_backend
     from cryptography.hazmat.primitives import serialization
@@ -132,7 +131,8 @@ class _PKIObjMaker(type):
 
         if obj_path is None:
             raise Exception(error_msg)
-        obj_path = raw(obj_path)
+        if not isinstance(obj_path, bytes):
+            obj_path = obj_path.encode()
 
         if (b'\x00' not in obj_path) and os.path.isfile(obj_path):
             _size = os.path.getsize(obj_path)
@@ -247,8 +247,8 @@ class PubKey(six.with_metaclass(_PubKeyFactory, object)):
         tbsCert = cert.tbsCertificate
         sigAlg = tbsCert.signature
         h = hash_by_oid[sigAlg.algorithm.val]
-        sigVal = raw(cert.signatureValue)
-        return self.verify(raw(tbsCert), sigVal, h=h, t='pkcs')
+        sigVal = bytes(cert.signatureValue)
+        return self.verify(bytes(tbsCert), sigVal, h=h, t='pkcs')
 
 
 class PubKeyRSA(PubKey, _EncryptAndVerifyRSA):
@@ -401,7 +401,7 @@ class _PrivKeyFactory(_PKIObjMaker):
         if obj.frmt == "DER":
             if multiPEM:
                 # this does not restore the EC PARAMETERS header
-                obj.pem = der2pem(raw(privkey), marker)
+                obj.pem = der2pem(bytes(privkey), marker)
             else:
                 obj.pem = der2pem(obj.der, marker)
         return obj
@@ -429,7 +429,7 @@ class PrivKey(six.with_metaclass(_PrivKeyFactory, object)):
         """
         sigAlg = tbsCert.signature
         h = h or hash_by_oid[sigAlg.algorithm.val]
-        sigVal = self.sign(raw(tbsCert), h=h, t='pkcs')
+        sigVal = self.sign(bytes(tbsCert), h=h, t='pkcs')
         c = X509_Cert()
         c.tbsCertificate = tbsCert
         c.signatureAlgorithm = sigAlg
@@ -445,8 +445,8 @@ class PrivKey(six.with_metaclass(_PrivKeyFactory, object)):
         tbsCert = cert.tbsCertificate
         sigAlg = tbsCert.signature
         h = hash_by_oid[sigAlg.algorithm.val]
-        sigVal = raw(cert.signatureValue)
-        return self.verify(raw(tbsCert), sigVal, h=h, t='pkcs')
+        sigVal = bytes(cert.signatureValue)
+        return self.verify(bytes(tbsCert), sigVal, h=h, t='pkcs')
 
 
 class PrivKeyRSA(PrivKey, _EncryptAndVerifyRSA, _DecryptAndSignRSA):
@@ -522,7 +522,7 @@ class PrivKeyECDSA(PrivKey):
 
     @crypto_validator
     def import_from_asn1pkt(self, privkey):
-        self.key = serialization.load_der_private_key(raw(privkey), None,
+        self.key = serialization.load_der_private_key(bytes(privkey), None,
                                                       backend=default_backend())  # noqa: E501
         self.pubkey = self.key.public_key()
 
@@ -619,7 +619,7 @@ class Cert(six.with_metaclass(_CertMaker, object)):
             raise Exception(error_msg)
         self.notAfter_str_simple = time.strftime("%x", self.notAfter)
 
-        self.pubKey = PubKey(raw(tbsCert.subjectPublicKeyInfo))
+        self.pubKey = PubKey(bytes(tbsCert.subjectPublicKeyInfo))
 
         if tbsCert.extensions:
             for extn in tbsCert.extensions:
@@ -634,7 +634,7 @@ class Cert(six.with_metaclass(_CertMaker, object)):
                 elif extn.extnID.oidname == "authorityKeyIdentifier":
                     self.authorityKeyID = extn.extnValue.keyIdentifier.val
 
-        self.signatureValue = raw(cert.signatureValue)
+        self.signatureValue = bytes(cert.signatureValue)
         self.signatureLen = len(self.signatureValue)
 
     def isIssuerCert(self, other):
@@ -779,7 +779,7 @@ class CRL(six.with_metaclass(_CRLMaker, object)):
         self.x509CRL = crl
 
         tbsCertList = crl.tbsCertList
-        self.tbsCertList = raw(tbsCertList)
+        self.tbsCertList = bytes(tbsCertList)
 
         if tbsCertList.version:
             self.version = tbsCertList.version.val + 1
@@ -832,7 +832,7 @@ class CRL(six.with_metaclass(_CRLMaker, object)):
                 revoked.append((serial, date))
         self.revoked_cert_serials = revoked
 
-        self.signatureValue = raw(crl.signatureValue)
+        self.signatureValue = bytes(crl.signatureValue)
         self.signatureLen = len(self.signatureValue)
 
     def isIssuerCert(self, other):

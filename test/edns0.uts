@@ -7,15 +7,15 @@
 
 = EDNS0TLV(), basic instantiation
 tlv = EDNS0TLV()
-raw(tlv) == b'\x00\x00\x00\x00'
+bytes(tlv) == b'\x00\x00\x00\x00'
 
 = EDNS0TLV(), check parameters
 tlv = EDNS0TLV(optcode=42, optlen=12, optdata="edns0tlv")
-raw(tlv) == b'\x00*\x00\x0cedns0tlv'
+bytes(tlv) == b'\x00*\x00\x0cedns0tlv'
 
 = EDNS0TLV(), check computed optlen
 tlv = EDNS0TLV(optdata="edns0tlv")
-raw(tlv) == b'\x00\x00\x00\x08edns0tlv'
+bytes(tlv) == b'\x00\x00\x00\x08edns0tlv'
 
 = EDNS0TLV(), dissection
 tlv = EDNS0TLV(b'\x00*\x00\x08edns0tlv')
@@ -25,15 +25,15 @@ tlv.optcode == 42 and tlv.optlen == 8 and tlv.optdata == b"edns0tlv"
 
 = DNSRROPT(), basic instantiation
 opt = DNSRROPT()
-raw(opt) == b'\x00\x00)\x10\x00\x00\x00\x80\x00\x00\x00'
+bytes(opt) == b'\x00\x00)\x10\x00\x00\x00\x80\x00\x00\x00'
 
 = DNSRROPT(), check parameters
 opt = DNSRROPT(rrname="rropt", type=42, rclass=123, extrcode=1, version=2, z=3, rdlen=4, rdata=[EDNS0TLV()])
-raw(opt) == b'\x05rropt\x00\x00*\x00{\x01\x02\x00\x03\x00\x04\x00\x00\x00\x00'
+bytes(opt) == b'\x05rropt\x00\x00*\x00{\x01\x02\x00\x03\x00\x04\x00\x00\x00\x00'
 
 = DNSRROPT() & EDN0TLV(), check parameters
 opt = DNSRROPT(rrname="rropt", type=42, rclass=123, extrcode=1, version=2, z=3, rdlen=4, rdata=[EDNS0TLV(optcode=42, optlen=12, optdata="edns0tlv")])
-raw(opt) == b'\x05rropt\x00\x00*\x00{\x01\x02\x00\x03\x00\x04\x00*\x00\x0cedns0tlv'
+bytes(opt) == b'\x05rropt\x00\x00*\x00{\x01\x02\x00\x03\x00\x04\x00*\x00\x0cedns0tlv'
 
 = DNSRROP(), dissection
 opt = DNSRROPT(b'\x05rropt\x00\x00*\x00{\x01\x02\x00\x03\x00\x0c\x00*\x00\x0cedns0tlv')
@@ -43,7 +43,7 @@ opt.rrname == b"rropt." and opt.rdlen == 12 and opt.rdata[0].optcode == 42 and o
 
 = EDNS-PING - basic instantiation
 tlv = EDNS0TLV(optcode=5, optdata=b"\x00\x11\x22\x33")
-raw(tlv) == b'\x00\x05\x00\x04\x00\x11"3'
+bytes(tlv) == b'\x00\x05\x00\x04\x00\x11"3'
 
 #= EDNS-PING - Live test
 #~ netaccess
@@ -58,7 +58,7 @@ raw(tlv) == b'\x00\x05\x00\x04\x00\x11"3'
 
 = NSID- basic instantiation
 tlv = EDNS0TLV(optcode=2, optdata="")
-raw(tlv) == b'\x00\x02\x00\x00'
+bytes(tlv) == b'\x00\x02\x00\x00'
 
 = NSID - Live test
 ~ netaccess

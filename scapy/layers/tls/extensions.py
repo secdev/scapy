@@ -21,7 +21,6 @@ from scapy.layers.tls.keyexchange import (SigAndHashAlgsLenField,
 from scapy.layers.tls.session import _GenericTLSSessionInheritance
 from scapy.layers.tls.crypto.groups import _tls_named_groups
 from scapy.themes import AnsiColorTheme
-from scapy.compat import raw
 from scapy.config import conf
 
 
@@ -678,9 +677,9 @@ class _ExtensionsField(StrLenField):
                         ext.tls_session = pkt.tls_session
                         s += ext.raw_stateful()
                     else:
-                        s += raw(ext)
+                        s += bytes(ext)
                 return s
-        return b"".join(map(raw, i))
+        return b"".join(map(bytes, i))
 
     def m2i(self, pkt, m):
         res = []

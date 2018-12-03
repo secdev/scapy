@@ -34,7 +34,7 @@ from scapy.layers.inet import TCP
 from scapy.layers.sctp import SCTPChunkData
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
-from scapy.compat import chb, orb, raw, bytes_hex, plain_str
+from scapy.compat import chb, orb, bytes_hex, plain_str
 from scapy.error import warning
 from scapy.utils import inet_ntoa, inet_aton
 from scapy.pton_ntop import inet_pton, inet_ntop
@@ -385,7 +385,7 @@ class AVP_Generic (Packet):
         return p + pay
 
     def show2(self):
-        self.__class__(raw(self), name=self.name).show()
+        self.__class__(bytes(self), name=self.name).show()
 
 
 def AVP(avpId, **fields):

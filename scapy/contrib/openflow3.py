@@ -16,7 +16,7 @@ import copy
 import struct
 
 
-from scapy.compat import orb, raw
+from scapy.compat import orb
 from scapy.config import conf
 from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
     FieldLenField, FlagsField, IntEnumField, IntField, IPField, \
@@ -588,7 +588,7 @@ class OXMPacketListField(PacketListField):
         return orb(s[3])
 
     def addfield(self, pkt, s, val):
-        return s + b"".join(raw(x) for x in self.i2m(pkt, val))
+        return s + b"".join(bytes(x) for x in self.i2m(pkt, val))
 
     def getfield(self, pkt, s):
         lst = []
@@ -666,7 +666,7 @@ class MatchField(PacketField):
         # i can be <OFPMatch> or <OFPMatch <Padding>>
         # or <OFPMatch <Raw>> or <OFPMatch <Raw <Padding>>>
         # and we want to return "", <OFPMatch> or "", <OFPMatch <Padding>>
-        # or raw(<Raw>), <OFPMatch> or raw(<Raw>), <OFPMatch <Padding>>
+        # or bytes(<Raw>), <OFPMatch> or bytes(<Raw>), <OFPMatch <Padding>>
         if Raw in i:
             r = i[Raw]
             if Padding in r:
@@ -1498,7 +1498,7 @@ class OFPPacketQueue(Packet):
 
     def post_build(self, p, pay):
         if self.properties == []:
-            p += raw(OFPQTNone())
+            p += bytes(OFPQTNone())
         if self.len is None:
             tmp_len = len(p) + len(pay)
             p = p[:4] + struct.pack("!H", tmp_len) + p[6:]

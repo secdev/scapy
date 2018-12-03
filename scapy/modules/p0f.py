@@ -17,7 +17,6 @@ import random
 
 from scapy.data import KnowledgeBase
 from scapy.config import conf
-from scapy.compat import raw
 from scapy.layers.inet import IP, TCP, TCPOptions
 from scapy.packet import NoPayload, Packet
 from scapy.error import warning, Scapy_Exception, log_runtime
@@ -122,7 +121,7 @@ def p0f_selectdb(flags):
 
 def packet2p0f(pkt):
     pkt = pkt.copy()
-    pkt = pkt.__class__(raw(pkt))
+    pkt = pkt.__class__(bytes(pkt))
     while pkt.haslayer(IP) and pkt.haslayer(TCP):
         pkt = pkt.getlayer(IP)
         if isinstance(pkt.payload, TCP):
@@ -371,7 +370,7 @@ specified (as a tuple), we use the signature.
 For now, only TCP Syn packets are supported.
 Some specifications of the p0f.fp file are not (yet) implemented."""
     pkt = pkt.copy()
-    # pkt = pkt.__class__(raw(pkt))
+    # pkt = pkt.__class__(bytes(pkt))
     while pkt.haslayer(IP) and pkt.haslayer(TCP):
         pkt = pkt.getlayer(IP)
         if isinstance(pkt.payload, TCP):

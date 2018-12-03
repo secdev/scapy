@@ -12,7 +12,6 @@ import hmac
 
 from scapy.layers.tls.crypto.hash import _tls_hash_algs
 import scapy.modules.six as six
-from scapy.compat import raw
 
 _SSLv3_PAD1_MD5 = b"\x36" * 48
 _SSLv3_PAD1_SHA1 = b"\x36" * 40
@@ -57,9 +56,14 @@ class _GenericHMAC(six.with_metaclass(_GenericHMACMetaclass, object)):
         self.key = key
 
     def digest(self, tbd):
-        if self.key is None:
+        key = self.key
+        if key is None:
             raise HMACError
-        return hmac.new(raw(self.key), raw(tbd), self.hash_alg.hash_cls).digest()  # noqa: E501
+        elif not isinstance(key, bytes):
+            key = key.encode()
+        if not isinstance(tbd, bytes):
+            tbd = tbd.encode()
+        return hmac.new(key, tbd, self.hash_alg.hash_cls).digest()  # noqa: E501
 
     def digest_sslv3(self, tbd):
         if self.key is None:

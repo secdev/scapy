@@ -24,7 +24,7 @@ from scapy.data import ETH_P_IP, ETH_P_ALL, DLT_RAW, DLT_RAW_ALT, DLT_IPV4, \
     IP_PROTOS, TCP_SERVICES, UDP_SERVICES
 from scapy.layers.l2 import Ether, Dot3, getmacbyip, CookedLinux, GRE, SNAP, \
     Loopback
-from scapy.compat import raw, chb, orb
+from scapy.compat import chb, orb
 from scapy.config import conf
 from scapy.extlib import plt, MATPLOTLIB, MATPLOTLIB_INLINED, \
     MATPLOTLIB_DEFAULT_PLOT_KARGS
@@ -390,10 +390,13 @@ class TCPOptionsField(StrField):
                 if not isinstance(onum, int):
                     warning("Invalid option number [%i]" % onum)
                     continue
-                if not isinstance(oval, (bytes, str)):
-                    warning("option [%i] is not bytes." % onum)
-                    continue
-            opt += chb(onum) + chb(2 + len(oval)) + raw(oval)
+                if not isinstance(oval, (bytes)):
+                    if isinstance(oval, str):
+                        oval = oval.encode()
+                    else:
+                        warning("option [%i] is not bytes." % onum)
+                        continue
+            opt += chb(onum) + chb(2 + len(oval)) + oval
         return opt + b"\x00" * (3 - ((len(opt) + 3) % 4))  # Padding
 
     def randval(self):
@@ -552,7 +555,7 @@ class IP(Packet, IPTools):
             fl = fl.underlayer
 
         for p in fl:
-            s = raw(p[fnb].payload)
+            s = bytes(p[fnb].payload)
             nb = (len(s) + fragsize - 1) // fragsize
             for i in range(nb):
                 q = p.copy()
@@ -964,7 +967,7 @@ def fragment(pkt, fragsize=1480):
     fragsize = (fragsize + 7) // 8 * 8
     lst = []
     for p in pkt:
-        s = raw(p[IP].payload)
+        s = bytes(p[IP].payload)
         nb = (len(s) + fragsize - 1) // fragsize
         for i in range(nb):
             q = p.copy()
@@ -1059,7 +1062,7 @@ def _defrag_logic(plist, complete=False):
             defrag.append(p)
     defrag2 = []
     for p in defrag:
-        q = p.__class__(raw(p))
+        q = p.__class__(bytes(p))
         q._defrag_pos = p._defrag_pos
         defrag2.append(q)
     if complete:
@@ -1737,7 +1740,7 @@ class TCP_client(Automaton):
 
     @ATMT.action(incoming_data_received)
     def receive_data(self, pkt):
-        data = raw(pkt[TCP].payload)
+        data = bytes(pkt[TCP].payload)
         if data and self.l4[TCP].ack == pkt[TCP].seq:
             self.l4[TCP].ack += len(data)
             self.l4[TCP].flags = "A"

@@ -11,7 +11,7 @@ RADIUS (Remote Authentication Dial In User Service)
 import struct
 import hashlib
 import hmac
-from scapy.compat import orb, raw
+from scapy.compat import orb
 from scapy.packet import Packet, Padding, bind_layers
 from scapy.fields import ByteField, ByteEnumField, IntField, StrLenField,\
     XStrLenField, XStrFixedLenField, FieldLenField, PacketField,\
@@ -542,7 +542,7 @@ def prepare_packed_data(radius_packet, packed_req_authenticator):
 
     packed_attrs = b''
     for attr in radius_packet.attributes:
-        packed_attrs += raw(attr)
+        packed_attrs += bytes(attr)
 
     return packed_hdr + packed_req_authenticator + packed_attrs
 

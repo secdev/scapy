@@ -107,7 +107,7 @@ class TZSP(Packet):
             return TZSP.ENCAPSULATED_PROTOCOL_CLASSES[self.encapsulated_protocol]  # noqa: E501
         except KeyError:
             warning(
-                'unknown or invalid encapsulation type (%i) - returning payload as raw()' % self.encapsulated_protocol)  # noqa: E501
+                'unknown or invalid encapsulation type (%i) - returning payload as Raw()' % self.encapsulated_protocol)  # noqa: E501
             return Raw
 
     def guess_payload_class(self, payload):

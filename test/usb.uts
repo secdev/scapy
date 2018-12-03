@@ -12,28 +12,28 @@ data = b"\xd4\xc3\xb2\xa1\x02\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xf
 pcap = rdpcap(six.BytesIO(data))
 
 pkt1 = USBpcap(function=9, info=1, endpoint=129, res=0, transfer=1, usbd_status=0, dataLength=12, bus=1, device=4, irpId=18446628669245765632, headerLen=27)/Raw(load=b'\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
-assert raw(pcap[0]) == raw(pkt1)
+assert bytes(pcap[0]) == bytes(pkt1)
 assert isinstance(pcap[0], USBpcap)
 
 pkt2 = USBpcap(function=11, info=0, endpoint=0, res=0, transfer=2, usbd_status=0, dataLength=8, bus=1, device=5, irpId=18446628669200033584, headerLen=28)/USBpcapTransferControl(stage=0)/Raw(load=b'\x80\x06\x00\x01\x00\x00\x12\x00')
-assert raw(pcap[1]) == raw(pkt2)
+assert bytes(pcap[1]) == bytes(pkt2)
 assert USBpcap in pcap[1]
 assert USBpcapTransferControl in pcap[1]
 
 = USBpcapTransferIsochronous
 
 pkt = USBpcap(irpId=0x359275, function=0x1235, info=10, bus=35)/USBpcapTransferIsochronous(usbd_status=0x40000000)
-assert raw(pkt) == b"'\x00u\x925\x00\x00\x00\x00\x00\x00\x00\x00\x005\x12\n#\x00\x00\x00\x00\x00\x0c\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00@"
+assert bytes(pkt) == b"'\x00u\x925\x00\x00\x00\x00\x00\x00\x00\x00\x005\x12\n#\x00\x00\x00\x00\x00\x0c\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00@"
 
 = USBpcapTransferInterrupt
 
 pkt = USBpcap(irpId=0x359275, function=0x1235, info=10, bus=35)/USBpcapTransferInterrupt(startFrame=0x40000000, numberOfPackets=0x80000000, errorCount=2)
-assert raw(pkt) == b"'\x00u\x925\x00\x00\x00\x00\x00\x00\x00\x00\x005\x12\n#\x00\x00\x00\x00\x01\x0c\x00\x00\x00\x00\x00\x00@\x00\x00\x00\x80\x02\x00\x00\x00"
+assert bytes(pkt) == b"'\x00u\x925\x00\x00\x00\x00\x00\x00\x00\x00\x005\x12\n#\x00\x00\x00\x00\x01\x0c\x00\x00\x00\x00\x00\x00@\x00\x00\x00\x80\x02\x00\x00\x00"
 
 = USBpcapTransferControl
 
 pkt = USBpcap(irpId=0x359275, function=0x1235, info=10, bus=35)/USBpcapTransferControl(stage=11)
-assert raw(pkt) == b'\x1c\x00u\x925\x00\x00\x00\x00\x00\x00\x00\x00\x005\x12\n#\x00\x00\x00\x00\x02\x01\x00\x00\x00\x0b'
+assert bytes(pkt) == b'\x1c\x00u\x925\x00\x00\x00\x00\x00\x00\x00\x00\x005\x12\n#\x00\x00\x00\x00\x02\x01\x00\x00\x00\x0b'
 
 = mocked get_usbpcap_interfaces()
 ~ mock windows

@@ -45,8 +45,8 @@ assert HCI_LE_Meta_Long_Term_Key_Request in pkt.layers()
 = Test HCI_PHDR_Hdr
 
 pkt = HCI_PHDR_Hdr()/HCI_Hdr()/HCI_ACL_Hdr()/L2CAP_Hdr()/L2CAP_CmdHdr()/L2CAP_InfoReq()
-assert raw(pkt) == b'\x00\x00\x00\x00\x02\x00\x00\n\x00\x06\x00\x05\x00\n\x00\x02\x00\x00\x00'
-pkt = HCI_PHDR_Hdr(raw(pkt))
+assert bytes(pkt) == b'\x00\x00\x00\x00\x02\x00\x00\n\x00\x06\x00\x05\x00\n\x00\x02\x00\x00\x00'
+pkt = HCI_PHDR_Hdr(bytes(pkt))
 
 assert HCI_Hdr in pkt
 assert L2CAP_InfoReq in pkt
@@ -56,17 +56,17 @@ assert L2CAP_InfoReq in pkt
 = LE Create Connection Cancel
 
 expected_cmd_raw_data = hex_bytes("010e2000")
-cmd_raw_data = raw(HCI_Hdr() / HCI_Command_Hdr() / HCI_Cmd_LE_Create_Connection_Cancel())
+cmd_raw_data = bytes(HCI_Hdr() / HCI_Command_Hdr() / HCI_Cmd_LE_Create_Connection_Cancel())
 assert(expected_cmd_raw_data == cmd_raw_data)
 
 = Disconnect
 expected_cmd_raw_data = hex_bytes("01060403341213")
-cmd_raw_data = raw(HCI_Hdr() / HCI_Command_Hdr() / HCI_Cmd_Disconnect(handle=0x1234))
+cmd_raw_data = bytes(HCI_Hdr() / HCI_Command_Hdr() / HCI_Cmd_Disconnect(handle=0x1234))
 assert(expected_cmd_raw_data == cmd_raw_data)
 
 = LE Connection Update Command
 expected_cmd_raw_data = hex_bytes("0113200e47000a00140001003c000100ffff")
-cmd_raw_data = raw(
+cmd_raw_data = bytes(
     HCI_Hdr() / HCI_Command_Hdr() / HCI_Cmd_LE_Connection_Update(
         handle=0x47, min_interval=10, max_interval=20, latency=1, timeout=60,
         min_ce=1, max_ce=0xffff))
@@ -113,14 +113,14 @@ assert a[SM_Identity_Address_Information].atype == 0
 a.show()
 
 = Basic HCI_ACL_Hdr build & dissect
-a = HCI_Hdr()/HCI_ACL_Hdr(handle=0xf4c, PB=2, BC=2, len=20)/L2CAP_Hdr(len=16)/L2CAP_CmdHdr(code=8, len=12)/Raw("A"*12)
-assert raw(a) == b'\x02L\xaf\x14\x00\x10\x00\x05\x00\x08\x00\x0c\x00AAAAAAAAAAAA'
-b = HCI_Hdr(raw(a))
+a = HCI_Hdr()/HCI_ACL_Hdr(handle=0xf4c, PB=2, BC=2, len=20)/L2CAP_Hdr(len=16)/L2CAP_CmdHdr(code=8, len=12)/Raw(b"A"*12)
+assert bytes(a) == b'\x02L\xaf\x14\x00\x10\x00\x05\x00\x08\x00\x0c\x00AAAAAAAAAAAA'
+b = HCI_Hdr(bytes(a))
 assert a == b
 
 = Complex HCI - L2CAP build
 a = HCI_Hdr()/HCI_ACL_Hdr()/L2CAP_Hdr()/L2CAP_CmdHdr()/L2CAP_ConnReq(scid=1)
-assert raw(a) == b'\x02\x00\x00\x0c\x00\x08\x00\x05\x00\x02\x00\x04\x00\x00\x00\x01\x00'
+assert bytes(a) == b'\x02\x00\x00\x0c\x00\x08\x00\x05\x00\x02\x00\x04\x00\x00\x00\x01\x00'
 a.show()
 
 = Complex HCI - L2CAP dissect
@@ -141,8 +141,8 @@ assert not a.answers(b)
 
 = EIR_Hdr - misc
 a = HCI_Hdr()/HCI_Event_Hdr()/HCI_Event_LE_Meta()/HCI_LE_Meta_Advertising_Report(addr = "a1:b2:c3:d4:e5:f6", data=EIR_Hdr()/EIR_CompleteLocalName(local_name="scapy"))
-assert raw(a) == b'\x04>\x00\x02\x00\x00\x00\xf6\xe5\xd4\xc3\xb2\xa1\x07\x06\tscapy\x00'
-b = HCI_Hdr(raw(a))
+assert bytes(a) == b'\x04>\x00\x02\x00\x00\x00\xf6\xe5\xd4\xc3\xb2\xa1\x07\x06\tscapy\x00'
+b = HCI_Hdr(bytes(a))
 assert b.data[0][EIR_CompleteLocalName].local_name == b"scapy"
 assert b[HCI_LE_Meta_Advertising_Report].addr == "a1:b2:c3:d4:e5:f6"
 
@@ -150,14 +150,14 @@ assert a.summary() == "HCI Event / HCI_Event_Hdr / HCI_Event_LE_Meta / HCI_LE_Me
 
 = ATT_Hdr - misc
 a = HCI_Hdr()/HCI_ACL_Hdr()/L2CAP_Hdr()/ATT_Hdr()/ATT_Read_By_Type_Request_128bit(uuid1=0xa14, uuid2=0xa24)
-a = HCI_Hdr(raw(a))
+a = HCI_Hdr(bytes(a))
 a.show()
 a.mysummary()
 assert ATT_Read_By_Type_Request_128bit in a
 assert not Raw in a
 
 b = HCI_Hdr()/HCI_ACL_Hdr()/L2CAP_Hdr()/ATT_Hdr()/ATT_Read_By_Type_Request(uuid=0xa14)
-b = HCI_Hdr(raw(b))
+b = HCI_Hdr(bytes(b))
 b.show()
 b.mysummary()
 assert ATT_Read_By_Type_Request in b

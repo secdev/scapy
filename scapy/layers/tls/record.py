@@ -17,7 +17,7 @@ import struct
 from scapy.config import conf
 from scapy.error import log_runtime
 from scapy.fields import ByteEnumField, PacketListField, StrField
-from scapy.compat import raw, chb, orb
+from scapy.compat import chb, orb
 from scapy.utils import randstring
 from scapy.packet import Raw, Padding, bind_layers
 from scapy.layers.inet import TCP
@@ -179,10 +179,10 @@ class _TLSMsgListField(PacketListField):
                 cur = p.raw_stateful()
                 p.post_build_tls_session_update(cur)
             else:
-                cur = raw(p)
+                cur = bytes(p)
         else:
             pkt.type = 23
-            cur = raw(p)
+            cur = bytes(p)
         return cur
 
     def addfield(self, pkt, s, val):

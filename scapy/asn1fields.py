@@ -15,7 +15,7 @@ from scapy.asn1.ber import BER_tagging_dec, BER_Decoding_Error, BER_id_dec, \
     BER_tagging_enc
 from scapy.volatile import RandInt, RandChoice, RandNum, RandString, RandOID, \
     GeneralizedTime
-from scapy.compat import orb, raw
+from scapy.compat import orb
 from scapy.base_classes import BasePacket
 from scapy.utils import binrepr
 from scapy import packet
@@ -429,7 +429,7 @@ class ASN1F_SEQUENCE_OF(ASN1F_field):
         elif val is None:
             s = b""
         else:
-            s = b"".join(raw(i) for i in val)
+            s = b"".join(bytes(i) for i in val)
         return self.i2m(pkt, s)
 
     def randval(self):
@@ -558,7 +558,7 @@ class ASN1F_CHOICE(ASN1F_field):
         if x is None:
             s = b""
         else:
-            s = raw(x)
+            s = bytes(x)
             if hash(type(x)) in self.pktchoices:
                 imp, exp = self.pktchoices[hash(type(x))]
                 s = BER_tagging_enc(s, implicit_tag=imp,
@@ -608,7 +608,7 @@ class ASN1F_PACKET(ASN1F_field):
         if x is None:
             s = b""
         else:
-            s = raw(x)
+            s = bytes(x)
         return BER_tagging_enc(s, implicit_tag=self.implicit_tag,
                                explicit_tag=self.explicit_tag)
 
@@ -640,8 +640,8 @@ class ASN1F_BIT_STRING_ENCAPS(ASN1F_BIT_STRING):
             raise BER_Decoding_Error("unexpected remainder", remaining=s)
         return p, remain
 
-    def i2m(self, pkt, x):
-        s = b"" if x is None else raw(x)
+    def i2m(self, pkt, s):
+        s = b"" if s is None else bytes(s)
         s = b"".join(binrepr(orb(x)).zfill(8).encode("utf8") for x in s)
         return ASN1F_BIT_STRING.i2m(self, pkt, s)
 

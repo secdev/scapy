@@ -18,7 +18,6 @@ import time
 from scapy.config import conf
 from scapy.consts import LINUX, DARWIN, WINDOWS
 from scapy.data import MTU, ETH_P_IP
-from scapy.compat import raw
 from scapy.error import warning, log_runtime
 import scapy.modules.six as six
 import scapy.packet
@@ -44,7 +43,7 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
         self.promisc = None
 
     def send(self, x):
-        sx = raw(x)
+        sx = bytes(x)
         if hasattr(x, "sent_time"):
             x.sent_time = time.time()
         return self.outs.send(sx)
@@ -173,7 +172,7 @@ class L3RawSocket(SuperSocket):
 
     def send(self, x):
         try:
-            sx = raw(x)
+            sx = bytes(x)
             x.sent_time = time.time()
             self.outs.sendto(sx, (x.dst, 0))
         except socket.error as msg:
@@ -324,7 +323,8 @@ class TunTapInterface(SuperSocket):
             # IFF_TAP = 0x0002
             # IFF_NO_PI = 0x1000
             ioctl(self.ins, 0x400454ca, struct.pack(
-                "16sH", raw(self.iface), 0x0001 if self.mode_tun else 0x1002,
+                "16sH", self.iface.encode(),
+                0x0001 if self.mode_tun else 0x1002,
             ))
         self.closed = False
 
@@ -345,7 +345,7 @@ conf.L2listen, conf.L2socket or conf.L3socket.
         )
 
     def send(self, x):
-        sx = raw(x)
+        sx = bytes(x)
         if hasattr(x, "sent_time"):
             x.sent_time = time.time()
         if self.mode_tun:

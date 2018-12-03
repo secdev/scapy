@@ -15,7 +15,7 @@ import time
 from ctypes import c_ubyte, cast
 
 from scapy.data import MTU, ETH_P_ALL, ARPHDR_ETHER, ARPHDR_LOOPBACK
-from scapy.compat import raw, plain_str, chb
+from scapy.compat import plain_str, chb
 from scapy.config import conf
 from scapy.consts import WINDOWS
 from scapy.utils import mac2str
@@ -330,7 +330,7 @@ if conf.use_pcap:
                     if c is None:
                         return
                     ts, pkt = c
-                    return ts, raw(pkt)
+                    return ts, bytes(pkt)
                 __next__ = next
             open_pcap = lambda *args, **kargs: _PcapWrapper_pypcap(*args, **kargs)  # noqa: E501
         elif _PCAP_MODE == "libpcap":  # python-libpcap
@@ -515,7 +515,7 @@ if conf.use_pcap or conf.use_winpcapy:
                 self.ins.setfilter(filter)
 
         def send(self, x):
-            sx = raw(x)
+            sx = bytes(x)
             if hasattr(x, "sent_time"):
                 x.sent_time = time.time()
             return self.outs.send(sx)
@@ -548,7 +548,7 @@ if conf.use_pcap or conf.use_winpcapy:
             else:
                 cls = conf.default_l2
                 warning("Unable to guess datalink type (interface=%s linktype=%i). Using %s", self.iface, ll, cls.name)  # noqa: E501
-            sx = raw(cls() / x)
+            sx = bytes(cls() / x)
             if hasattr(x, "sent_time"):
                 x.sent_time = time.time()
             return self.ins.send(sx)

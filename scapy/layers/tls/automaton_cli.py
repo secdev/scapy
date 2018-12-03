@@ -42,7 +42,6 @@ from scapy.layers.tls.record import TLSAlert, TLSChangeCipherSpec, \
     TLSApplicationData
 from scapy.modules import six
 from scapy.packet import Raw
-from scapy.compat import raw
 
 
 class TLSClientAutomaton(_TLSAutomaton):
@@ -107,9 +106,14 @@ class TLSClientAutomaton(_TLSAutomaton):
         if isinstance(data, bytes):
             self.data_to_send = [data]
         elif isinstance(data, six.string_types):
-            self.data_to_send = [raw(data)]
+            self.data_to_send = [
+                data.encode() if not isinstance(data, bytes) else data
+            ]
         elif isinstance(data, list):
-            self.data_to_send = list(raw(d) for d in reversed(data))
+            self.data_to_send = list(
+                d.encode() if not isinstance(d, bytes) else d
+                for d in reversed(data)
+            )
         else:
             self.data_to_send = []
 

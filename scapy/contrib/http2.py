@@ -33,7 +33,7 @@ import sys
 from io import BytesIO
 import struct
 import scapy.modules.six as six
-from scapy.compat import raw, plain_str, bytes_hex, orb, chb
+from scapy.compat import plain_str, bytes_hex, orb, chb
 
 # Only required if using mypy-lang for static typing
 # Most symbols are used in mypy-interpreted "comments".
@@ -649,7 +649,7 @@ class HPackStringsInterface(ABC, Sized):
 
     def __bytes__(self):
         r = self.__str__()
-        return r if isinstance(r, bytes) else raw(r)
+        return r if isinstance(r, bytes) else r.encode()
 
     @abc.abstractmethod
     def origin(self):
@@ -1287,7 +1287,7 @@ class HPackStrLenField(fields.Field):
 
     def i2m(self, pkt, x):
         # type: (Optional[packet.Packet], HPackStringsInterface) -> str
-        return raw(x)
+        return bytes(x)
 
     def i2len(self, pkt, x):
         # type: (Optional[packet.Packet], HPackStringsInterface) -> int
@@ -2166,7 +2166,7 @@ class HPackHdrEntry(Sized):
             return "{}: {}".format(self._name, self._value)
 
     def __bytes__(self):
-        return raw(self.__str__())
+        return bytes(self.__str__())
 
 
 class HPackHdrTable(Sized):
@@ -2660,7 +2660,7 @@ class HPackHdrTable(Sized):
 
         sio = BytesIO(s)
 
-        base_frm_len = len(raw(H2Frame()))
+        base_frm_len = len(bytes(H2Frame()))
 
         ret = H2Seq()
         cur_frm = H2HeadersFrame()  # type: Union[H2HeadersFrame, H2ContinuationFrame]  # noqa: E501
@@ -2675,7 +2675,7 @@ class HPackHdrTable(Sized):
             new_hdr, new_hdr_len = self._convert_a_header_to_a_h2_header(
                 hdr_name, hdr_value, is_sensitive, should_index
             )
-            new_hdr_bin_len = len(raw(new_hdr))
+            new_hdr_bin_len = len(bytes(new_hdr))
 
             if register and isinstance(new_hdr, HPackLitHdrFldWithIncrIndexing):  # noqa: E501
                 self.register(new_hdr)
@@ -2689,12 +2689,12 @@ class HPackHdrTable(Sized):
                     (max_hdr_lst_sz != 0 and new_hdr_len > max_hdr_lst_sz)):
                 raise Exception('Header too long: {}'.format(hdr_name))
 
-            if (max_frm_sz < len(raw(cur_frm)) + base_frm_len + new_hdr_len or
+            cur_frm_len = len(bytes(cur_frm))
+            if (max_frm_sz < cur_frm_len + base_frm_len + new_hdr_len or
                 (
                     max_hdr_lst_sz != 0 and
                     max_hdr_lst_sz < cur_hdr_sz + new_hdr_len
-            )
-            ):
+                )):
                 flags = set()
                 if isinstance(cur_frm, H2HeadersFrame) and not body:
                     flags.add('ES')
@@ -2712,7 +2712,7 @@ class HPackHdrTable(Sized):
         ret.frames.append(H2Frame(stream_id=stream_id, flags=flags) / cur_frm)
 
         if body:
-            base_data_frm_len = len(raw(H2DataFrame()))
+            base_data_frm_len = len(bytes(H2DataFrame()))
             sio = BytesIO(body)
             frgmt = sio.read(max_frm_sz - base_data_frm_len - base_frm_len)
             while frgmt:

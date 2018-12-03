@@ -250,7 +250,7 @@ def answer_arp_leak(pkt):
     if not ARP in pkt:
         return
     e_src = pkt.src
-    pkt = raw(pkt[ARP])
+    pkt = bytes(pkt[ARP])
     if pkt[:4] != b'\x00\x01\x08\x00':
         print("Invalid ARP")
         return

@@ -184,17 +184,17 @@ t2.tls_session.rcs.seq_num == 6 and t2.tls_session.wcs.seq_num == 4
 
 + Check TLS-related scapy internals
 
-= Check TLS-related scapy internals - Checking raw() harmlessness (with RC4)
+= Check TLS-related scapy internals - Checking bytes() harmlessness (with RC4)
 t1.show()
 assert(t1.msg[0].load == b'These are horrendous parameters for a TLS session.\n')
 assert(t1.tls_session.rcs.seq_num == 6 and t1.tls_session.wcs.seq_num == 4)
-d1 == raw(t1)
+d1 == bytes(t1)
 
 = Check TLS-related scapy internals - Checking show2() harmlessness (with RC4)
 t2.show2()
 assert(t2.msg[0].load == b'*nothing to do here*\n')
 assert(t2.tls_session.rcs.seq_num == 6 and t2.tls_session.wcs.seq_num == 4)
-d2 == raw(t2)
+d2 == bytes(t2)
 
 = Check TLS-related scapy internals - Checking show2() harmlessness (with 3DES)
 # These are also taken from a s_client/s_server session.
@@ -238,20 +238,20 @@ t.msg[0].challenge == challenge
 + Build SSLv2 packets
 
 = Building SSLv2 packets - Various default messages
-raw(SSLv2())
-raw(SSLv2Error())
-raw(SSLv2ClientHello())
-raw(SSLv2ServerHello())
-raw(SSLv2ClientMasterKey())
-raw(SSLv2ServerVerify())
-raw(SSLv2ClientFinished())
-raw(SSLv2RequestCertificate())
-raw(SSLv2ClientCertificate())
-raw(SSLv2ServerFinished())
+bytes(SSLv2())
+bytes(SSLv2Error())
+bytes(SSLv2ClientHello())
+bytes(SSLv2ServerHello())
+bytes(SSLv2ClientMasterKey())
+bytes(SSLv2ServerVerify())
+bytes(SSLv2ClientFinished())
+bytes(SSLv2RequestCertificate())
+bytes(SSLv2ClientCertificate())
+bytes(SSLv2ServerFinished())
 
 = Building SSLv2 packets - Error within clear record
 t = SSLv2(msg=SSLv2Error(code='no_cipher'))
-raw(t) == b'\x80\x03\x00\x00\x01'
+bytes(t) == b'\x80\x03\x00\x00\x01'
 
 = Building SSLv2 packets - ClientHello with automatic length computation
 ch_pkt = SSLv2ClientHello()
@@ -260,7 +260,7 @@ ch_pkt.version = 0x0002
 ch_pkt.ciphers = [SSL_CK_DES_192_EDE3_CBC_WITH_MD5, SSL_CK_IDEA_128_CBC_WITH_MD5, SSL_CK_RC2_128_CBC_WITH_MD5, SSL_CK_RC4_128_WITH_MD5, SSL_CK_DES_64_CBC_WITH_MD5, SSL_CK_RC2_128_CBC_EXPORT40_WITH_MD5, SSL_CK_RC4_128_EXPORT40_WITH_MD5]
 ch_pkt.challenge = b'!2bc\x97^\xa3\r9\x14*\xe4\xd6\xd4\n\x1e'
 t = SSLv2(msg=ch_pkt)
-raw(t) == ch
+bytes(t) == ch
 
 = Building SSLv2 packets - ClientMasterKey context linking
 mk = SSLv2ClientMasterKey(cipher='SSL_CK_DES_192_EDE3_CBC_WITH_MD5', clearkey=b'\xff'*19, encryptedkey=b'\0'*256, decryptedkey=b'\xaa'*5, keyarg=b'\x01'*8)

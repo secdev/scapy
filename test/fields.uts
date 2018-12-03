@@ -69,12 +69,12 @@ defaddr = conf.route.route('0.0.0.0')[1]
 class Test(Packet): fields_desc = [SourceIPField("sourceip", None)]
 
 assert Test().sourceip == defaddr
-assert Test(raw(Test())).sourceip == defaddr
+assert Test(bytes(Test())).sourceip == defaddr
 
 assert IP(dst="0.0.0.0").src == defaddr
-assert IP(raw(IP(dst="0.0.0.0"))).src == defaddr
+assert IP(bytes(IP(dst="0.0.0.0"))).src == defaddr
 assert IP(dst="0.0.0.0/31").src == defaddr
-assert IP(raw(IP(dst="0.0.0.0/31"))).src == defaddr
+assert IP(bytes(IP(dst="0.0.0.0/31"))).src == defaddr
 
 
 #= ByteField
@@ -95,7 +95,7 @@ class TestThreeBytesField(Packet):
     ]
 
 p = TestThreeBytesField(test1=0x123456, test2=123456, test3=0xfedbca, test4=567890)
-assert(raw(p) == b'\x12\x34\x56\x01\xe2\x40\xca\xdb\xfe\x52\xaa\x08')
+assert(bytes(p) == b'\x12\x34\x56\x01\xe2\x40\xca\xdb\xfe\x52\xaa\x08')
 print(p.sprintf('%test1% %test2% %test3% %test4%'))
 assert(p.sprintf('%test1% %test2% %test3% %test4%') == '0x123456 123456 0xfedbca 567890')
 
@@ -144,7 +144,7 @@ class TestFLenF(Packet):
 ~ field
 p = TestFLenF()
 p
-r = raw(p)
+r = bytes(p)
 r
 r == b"\x08default"
 
@@ -152,7 +152,7 @@ r == b"\x08default"
 ~ field
 p = TestFLenF(str="123")
 p
-r = raw(p)
+r = bytes(p)
 r
 r == b"\x04123"
 
@@ -171,12 +171,12 @@ class TestBFLenF(Packet):
                     StrLenField("str", "default", length_from=lambda pkt:pkt.len-1, ) ]
 
 a=TestBFLenF()
-r = raw(a)
+r = bytes(a)
 r
 assert r == b"\x8f\xffdefault"
 
 a.str=""
-r = raw(a)
+r = bytes(a)
 r
 assert r == b"\x1f\xff"
 
@@ -205,14 +205,14 @@ class TestFLF(Packet):
 = Assembly of an empty packet
 ~ field
 a = TestFLF()
-raw(a)
+bytes(a)
 
 = Assembly of a non-empty packet
 ~ field
 a = TestFLF()
 a.lst = [7,65539]
 ls(a)
-r = raw(a)
+r = bytes(a)
 r
 import struct
 r == struct.pack("!BII", 2,7,65539)
@@ -230,18 +230,18 @@ assert p.len == 3 and p.lst == [1234,2345,12345678]
 = Manipulate
 ~ field
 a = TestFLF(lst=[4])
-r = raw(a)
+r = bytes(a)
 r
 assert r == b"\x01\x00\x00\x00\x04"
 a.lst.append(1234)
-TestFLF(raw(a))
+TestFLF(bytes(a))
 a.show2()
 a.len=7
-r = raw(a)
+r = bytes(a)
 assert r == b"\x07\x00\x00\x00\x04\x00\x00\x04\xd2"
 a.len=2
 a.lst=[1,2,3,4,5]
-p = TestFLF(raw(a))
+p = TestFLF(bytes(a))
 p
 assert Raw in p and p[Raw].load == b'\x00\x00\x00\x03\x00\x00\x00\x04\x00\x00\x00\x05'
 
@@ -260,7 +260,7 @@ class TestPLF(Packet):
 = Test the PacketListField assembly
 ~ field lengthfield
 x=TestPLF()
-r = raw(x)
+r = bytes(x)
 r
 r == b"\x00\x00"
 
@@ -268,14 +268,14 @@ r == b"\x00\x00"
 ~ field lengthfield
 x=TestPLF()
 x.plist=[IP()/TCP(), IP()/UDP()]
-r = raw(x)
+r = bytes(x)
 r
 r.startswith(b'\x00\x02E')
 
 = Test disassembly
 ~ field lengthfield
 x=TestPLF(plist=[IP()/TCP(seq=1234567), IP()/UDP()])
-p = TestPLF(raw(x))
+p = TestPLF(bytes(x))
 p
 p.show()
 IP in p and TCP in p and UDP in p and p[TCP].seq == 1234567
@@ -302,7 +302,7 @@ class TestPLF(Packet):
 = Test the PacketListField assembly
 ~ field lengthfield
 x=TestPLF()
-r = raw(x)
+r = bytes(x)
 r
 r == b"\x00\x00"
 
@@ -310,14 +310,14 @@ r == b"\x00\x00"
 ~ field lengthfield
 x=TestPLF()
 x.plist=[IP()/TCP(), IP()/UDP()]
-r = raw(x)
+r = bytes(x)
 r
 r.startswith(b'\x00\x02E')
 
 = Test disassembly
 ~ field lengthfield
 x=TestPLF(plist=[IP()/TCP(seq=1234567), IP()/UDP()])
-p = TestPLF(raw(x))
+p = TestPLF(bytes(x))
 p
 p.show()
 IP in p and TCP in p and UDP in p and p[TCP].seq == 1234567
@@ -347,17 +347,17 @@ class TestPLF2(Packet):
                                     length_from=lambda x: (x.len2 * 2) // 3 * 3) ]
 
 a=TestPLF2()
-r = raw(a)
+r = bytes(a)
 r
 assert r == b"\x00\x02\x00\x00\x00\x00"
 
 a.plist=[TestPkt(),TestPkt(f1=100)] 
-r = raw(a)
+r = bytes(a)
 r
 assert r == b'\x00\x04\x00\x00\x00\x03ABDdBD'
 
 a /= "123456"
-b = TestPLF2(raw(a))
+b = TestPLF2(bytes(a))
 b.show()
 assert(b.len1 == 4 and b.len2 == 3)
 assert(b[TestPkt].f1 == 65 and b[TestPkt].f2 == 0x4244)
@@ -365,7 +365,7 @@ assert(b[TestPkt:2].f1 == 100)
 assert(Raw in b and b[Raw].load == b"123456")
 
 a.plist.append(TestPkt(f1=200))
-b = TestPLF2(raw(a))
+b = TestPLF2(bytes(a))
 b.show()
 assert(b.len1 == 5 and b.len2 == 5)
 assert(b[TestPkt].f1 == 65 and b[TestPkt].f2 == 0x4244)
@@ -374,7 +374,7 @@ assert(b[TestPkt:3].f1 == 200)
 assert(b.getlayer(TestPkt,4) is None)
 assert(Raw in b and b[Raw].load == b"123456")
 hexdiff(a,b)
-assert( raw(a) == raw(b) )
+assert( bytes(a) == bytes(b) )
 
 ############
 ############
@@ -399,7 +399,7 @@ class TestPLF(Packet):
 = Test the PacketListField assembly
 ~ field lengthfield
 x=TestPLF()
-r = raw(x)
+r = bytes(x)
 r
 r == b"\x00\x00"
 
@@ -407,14 +407,14 @@ r == b"\x00\x00"
 ~ field lengthfield
 x=TestPLF()
 x.plist=[IP()/TCP(), IP()/UDP()]
-r = raw(x)
+r = bytes(x)
 r
 r.startswith(b'\x00\x02E')
 
 = Test disassembly
 ~ field lengthfield
 x=TestPLF(plist=[IP()/TCP(seq=1234567), IP()/UDP()])
-p = TestPLF(raw(x))
+p = TestPLF(bytes(x))
 p
 p.show()
 IP in p and TCP in p and UDP in p and p[TCP].seq == 1234567
@@ -444,17 +444,17 @@ class TestPLF2(Packet):
                                     length_from=lambda x: (x.len2 * 2) // 3 *3) ]
 
 a=TestPLF2()
-r = raw(a)
+r = bytes(a)
 r
 assert r == b"\x00\x02\x00\x00\x00\x00"
 
 a.plist=[TestPkt(),TestPkt(f1=100)] 
-r = raw(a)
+r = bytes(a)
 r
 assert r == b'\x00\x04\x00\x00\x00\x03ABDdBD'
 
 a /= "123456"
-b = TestPLF2(raw(a))
+b = TestPLF2(bytes(a))
 b.show()
 assert(b.len1 == 4 and b.len2 == 3)
 assert(b[TestPkt].f1 == 65 and b[TestPkt].f2 == 0x4244)
@@ -462,7 +462,7 @@ assert(b[TestPkt:2].f1 == 100)
 assert(Raw in b and b[Raw].load == b"123456")
 
 a.plist.append(TestPkt(f1=200))
-b = TestPLF2(raw(a))
+b = TestPLF2(bytes(a))
 b.show()
 assert(b.len1 == 5 and b.len2 == 5)
 assert(b[TestPkt].f1 == 65 and b[TestPkt].f2 == 0x4244)
@@ -471,7 +471,7 @@ assert(b[TestPkt:3].f1 == 200)
 assert(b.getlayer(TestPkt,4) is None)
 assert(Raw in b and b[Raw].load == b"123456")
 hexdiff(a,b)
-assert( raw(a) == raw(b) )
+assert( bytes(a) == bytes(b) )
 
 = Create layers for heterogeneous PacketListField
 ~ field lengthfield
@@ -1274,12 +1274,12 @@ class DebugPacket(Packet):
 = Default order
 
 a = DebugPacket(atyp=0x3, addr="scapy.net")
-a = DebugPacket(raw(a))
+a = DebugPacket(bytes(a))
 assert a.addr == b"scapy.net."
 
 = Reversed order
 
 a = DebugPacket(addr="scapy.net", atyp=0x3)
-a = DebugPacket(raw(a))
+a = DebugPacket(bytes(a))
 assert a.addr == b"scapy.net."
 

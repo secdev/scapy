@@ -21,7 +21,7 @@ from scapy.fields import StrField, ConditionalField, Emph, PacketListField, \
     BitField, MultiEnumField, EnumField, FlagsField, MultipleTypeField
 from scapy.config import conf, _version_checker
 from scapy.consts import WINDOWS
-from scapy.compat import raw, orb
+from scapy.compat import orb
 from scapy.base_classes import BasePacket, Gen, SetGen, Packet_metaclass
 from scapy.volatile import VolatileValue, RandField
 from scapy.utils import import_hexcap, tex_escape, colgen, get_temp_file, \
@@ -44,7 +44,10 @@ class RawVal:
         return str(self.val)
 
     def __bytes__(self):
-        return raw(self.val)
+        try:
+            return bytes(self.val)
+        except TypeError:
+            return bytes(self.val, encoding="utf8")
 
     def __repr__(self):
         return "<RawVal [%r]>" % self.val
@@ -512,7 +515,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         for f in self.fields_desc:
             val = self.getfieldval(f.name)
             if isinstance(val, RawVal):
-                sval = raw(val)
+                sval = bytes(val)
                 p += sval
                 if field_pos_list is not None:
                     field_pos_list.append((f.name, sval.encode("string_escape"), len(p), len(sval)))  # noqa: E501
@@ -677,7 +680,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             raise ImportError("PyX and its dependencies must be installed")
         canvas = pyx.canvas.canvas()
         if rebuild:
-            _, t = self.__class__(raw(self)).build_ps()
+            _, t = self.__class__(bytes(self)).build_ps()
         else:
             _, t = self.build_ps()
         YTXT = len(t)
@@ -839,7 +842,8 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
         return s
 
     def do_dissect(self, s):
-        s = raw(s)
+        if not isinstance(s, bytes):
+            raise ValueError("Cannot dissect non-bytes value")
         _raw = s
         self.raw_packet_cache_fields = {}
         # Temporary value, used by getfield() in some advanced cases (eg: dot11)  # noqa: E501
@@ -855,7 +859,6 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
             if f.islist or f.holds_packets or f.ismutable:
                 self.raw_packet_cache_fields[f.name] = f.do_copy(fval)
             self.fields[f.name] = fval
-        assert(_raw.endswith(raw(s)))
         del self._tmp_dissect_pos
         self.raw_packet_cache = _raw[:-len(s)] if s else _raw
         self.explicit = 1
@@ -1249,7 +1252,7 @@ values.
         :param str label_lvl: additional information about the layer fields
         :return: return a hierarchical view if dump, else print it
         """
-        return self.__class__(raw(self)).show(dump, indent, lvl, label_lvl)
+        return self.__class__(bytes(self)).show(dump, indent, lvl, label_lvl)
 
     def sprintf(self, fmt, relax=1):
         """sprintf(format, [relax=1]) -> str
@@ -1396,7 +1399,7 @@ A side effect is that, to obtain "{" and "}" characters, you must use
 
     def decode_payload_as(self, cls):
         """Reassembles the payload and decode it using another packet class"""
-        s = raw(self.payload)
+        s = bytes(self.payload)
         self.payload = cls(s, _internal=1, _underlayer=self)
         pp = self
         while pp.underlayer is not None:
@@ -1561,7 +1564,7 @@ class Raw(Packet):
 
     def answers(self, other):
         return 1
-#        s = raw(other)
+#        s = bytes(other)
 #        t = self.load
 #        l = min(len(s), len(t))
 #        return  s[:l] == t[:l]
@@ -1583,7 +1586,7 @@ class Padding(Raw):
         return b""
 
     def build_padding(self):
-        return (raw(self.load) if self.raw_packet_cache is None
+        return (bytes(self.load) if self.raw_packet_cache is None
                 else self.raw_packet_cache) + self.payload.build_padding()
 
 

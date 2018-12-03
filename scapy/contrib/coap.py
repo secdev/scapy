@@ -32,7 +32,6 @@ from scapy.fields import BitEnumField, BitField, BitFieldLenField, \
 from scapy.layers.inet import UDP
 from scapy.packet import Packet, bind_layers
 from scapy.error import warning
-from scapy.compat import raw
 
 coap_codes = {
     0: "Empty",
@@ -203,7 +202,7 @@ class _CoAPOptsField(StrField):
             opts = opts / _CoAPOpt(delta=o[0] - high_opt, opt_val=o[1])
             high_opt = o[0]
 
-        return raw(opts)
+        return bytes(opts)
 
 
 class _CoAPPaymark(StrField):

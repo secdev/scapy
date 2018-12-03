@@ -10,7 +10,7 @@ import struct
 
 from scapy.config import conf
 from scapy.error import log_runtime
-from scapy.compat import orb, raw
+from scapy.compat import orb
 from scapy.packet import Raw
 from scapy.layers.tls.session import _GenericTLSSessionInheritance
 from scapy.layers.tls.record import _TLSMsgListField, TLS
@@ -50,9 +50,9 @@ class _SSLv2MsgListField(_TLSMsgListField):
                 cur = p.raw_stateful()
                 p.post_build_tls_session_update(cur)
             else:
-                cur = raw(p)
+                cur = bytes(p)
         else:
-            cur = raw(p)
+            cur = bytes(p)
         return cur
 
     def addfield(self, pkt, s, val):

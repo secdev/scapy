@@ -27,7 +27,7 @@ from scapy.error import warning
 from scapy.layers.inet import IP, TCP, UDP, ICMP, UDPerror, IPerror
 from scapy.packet import NoPayload
 from scapy.sendrecv import sr
-from scapy.compat import plain_str, raw
+from scapy.compat import plain_str
 import scapy.modules.six as six
 
 
@@ -124,7 +124,7 @@ def nmap_udppacket_sig(snd, rcv):
         res["ULEN"] = "%X" % rcv[UDPerror].len
         res["DAT"] = "E" if (
             isinstance(rcv[UDPerror].payload, NoPayload) or
-            raw(rcv[UDPerror].payload) == raw(snd[UDP].payload)
+            bytes(rcv[UDPerror].payload) == bytes(snd[UDP].payload)
         ) else "F"
     return res
 

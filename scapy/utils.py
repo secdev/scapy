@@ -28,7 +28,7 @@ from scapy.modules.six.moves import range
 from scapy.config import conf
 from scapy.consts import DARWIN, WINDOWS
 from scapy.data import MTU, DLT_EN10MB
-from scapy.compat import orb, raw, plain_str, chb, bytes_base64,\
+from scapy.compat import orb, plain_str, chb, bytes_base64,\
     base64_bytes, hex_bytes, lambda_tuple_converter
 from scapy.error import log_runtime, Scapy_Exception, warning
 from scapy.pton_ntop import inet_pton
@@ -117,7 +117,7 @@ def hexdump(x, dump=False):
     :returns: a String only when dump=True
     """
     s = ""
-    x = raw(x)
+    x = bytes(x)
     x_len = len(x)
     i = 0
     while i < x_len:
@@ -150,7 +150,7 @@ def linehexdump(x, onlyasc=0, onlyhex=0, dump=False):
     :returns: a String only when dump=True
     """
     s = ""
-    s = hexstr(raw(x), onlyasc=onlyasc, onlyhex=onlyhex, color=not dump)
+    s = hexstr(bytes(x), onlyasc=onlyasc, onlyhex=onlyhex, color=not dump)
     if dump:
         return s
     else:
@@ -169,7 +169,7 @@ def chexdump(x, dump=False):
     :param dump: print the view if False
     :returns: a String only if dump=True
     """
-    x = raw(x)
+    x = bytes(x)
     s = ", ".join("%#04x" % orb(x) for x in x)
     if dump:
         return s
@@ -197,8 +197,8 @@ def repr_hex(s):
 @conf.commands.register
 def hexdiff(x, y):
     """Show differences between 2 binary strings"""
-    x = raw(x)[::-1]
-    y = raw(y)[::-1]
+    x = bytes(x)[::-1]
+    y = bytes(y)[::-1]
     SUBST = 1
     INSERT = 1
     d = {(-1, -1): (0, (-1, -1))}
@@ -608,7 +608,7 @@ def do_graph(graph, prog=None, format=None, target=None, type=None, string=None,
             target = open(os.path.abspath(target), "wb")
     proc = subprocess.Popen("\"%s\" %s %s" % (prog, options or "", format or ""),  # noqa: E501
                             shell=True, stdin=subprocess.PIPE, stdout=target)
-    proc.stdin.write(raw(graph))
+    proc.stdin.write(graph.encode())
     proc.stdin.close()
     proc.wait()
     try:
@@ -704,7 +704,7 @@ class EnumElement:
         return self._key
 
     def __bytes__(self):
-        return raw(self.__str__())
+        return self.__str__().encode()
 
     def __hash__(self):
         return self._value
@@ -776,7 +776,8 @@ def load_object(fname):
 @conf.commands.register
 def corrupt_bytes(s, p=0.01, n=None):
     """Corrupt a given percentage or number of bytes from a string"""
-    s = array.array("B", raw(s))
+    s = s.encode() if not isinstance(s, bytes) else s
+    s = array.array("B", s)
     s_len = len(s)
     if n is None:
         n = max(1, int(s_len * p))
@@ -788,7 +789,8 @@ def corrupt_bytes(s, p=0.01, n=None):
 @conf.commands.register
 def corrupt_bits(s, p=0.01, n=None):
     """Flip a given percentage or number of bits from a string"""
-    s = array.array("B", raw(s))
+    s = s.encode() if not isinstance(s, bytes) else s
+    s = array.array("B", s)
     s_len = len(s) * 8
     if n is None:
         n = max(1, int(s_len * p))
@@ -1327,7 +1329,7 @@ class PcapWriter(RawPcapWriter):
             return
         sec = int(packet.time)
         usec = int(round((packet.time - sec) * (1000000000 if self.nano else 1000000)))  # noqa: E501
-        rawpkt = raw(packet)
+        rawpkt = bytes(packet)
         caplen = len(rawpkt)
         RawPcapWriter._write_packet(self, rawpkt, sec=sec, usec=usec, caplen=caplen,  # noqa: E501
                                     wirelen=packet.wirelen or caplen)
