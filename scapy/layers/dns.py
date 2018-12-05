@@ -63,14 +63,13 @@ def dns_get_str(s, p, pkt=None, _internal=False):
                 break
             p = ((cur & ~0xc0) << 8) + orb(s[p]) - 12  # Follow the pointer
             burned += 1
+            if p in processed_pointers:
+                warning("DNS decompression loop detected")
+                break
             if pkt and hasattr(pkt, "_orig_s") and pkt._orig_s:
-                # There should not be a loop as pkt is None
                 name += dns_get_str(pkt._orig_s, p, None, _internal=True)[0]
                 if burned == max_length:
                     break
-            elif p in processed_pointers:
-                warning("DNS decompression loop detected")
-                break
             elif not _internal:
                 raise Scapy_Exception("DNS message can't be compressed" +
                                       "at this point!")
