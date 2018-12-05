@@ -1,0 +1,381 @@
+# MIT License
+
+# Copyright (c) 2018 Jose Amores
+
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more information
+# Copyright (C) Sebastian Baar <sebastian.baar@gmx.de>
+# This program is published under a GPLv2 license
+
+#########
+#########
+
++ SD Entry Service
+
+=load module
+
+load_contrib("automotive.someip_sd")
+
+= Check packet length
+
+p = SDEntry_Service()
+assert(len(bytes(p)) == SDEntry_Service.OVERALL_LEN)
+
+= Check fields setting
+
+p.type = SDEntry_Service.TYPE_SRV_OFFERSERVICE
+p.index_1 = 0x11
+p.index_2 = 0x22
+p.srv_id = 0x3333
+p.inst_id = 0x4444
+p.major_ver = 0x55
+p.ttl = 0x666666
+p.minor_ver = 0xdeadbeef
+p_str = bytes(p)
+bin_str = b"\x01\x11\x22\x00\x33\x33\x44\x44\x55\x66\x66\x66\xde\xad\xbe\xef"
+
+assert(p_str == bin_str)
+
+= Check fields setting2
+
+p = SDEntry_Service()
+p.n_opt_1 = 0xf1
+p.n_opt_2 = 0xf2
+p_str = bytes(p)
+bin_str = b"\x00\x00\x00\x12\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+
+assert(p_str == bin_str)
+assert(len(p_str) == SDEntry_Service.OVERALL_LEN)
+
+= Check payload guess
+
+p_entry_srv = SDEntry_Service()
+
+assert(SDEntry_Service().guess_payload_class(bytes(p_entry_srv)) ==
+       SDEntry_Service)
+
+= Check SDEntry_Service
+
+p = SDEntry_Service(
+    b"\x01\x22\x33\x00\x44\x44\x55\x55\x66\x77\x77\x77\xde\xad\xbe\xef")
+
+assert(p.type == SDEntry_Service.TYPE_SRV_OFFERSERVICE)
+assert(p.index_1 == 0x22)
+assert(p.index_2 == 0x33)
+assert(p.srv_id == 0x4444)
+assert(p.inst_id == 0x5555)
+assert(p.major_ver == 0x66)
+assert(p.ttl == 0x777777)
+assert(p.minor_ver == 0xdeadbeef)
+
++ SD Entry Eventgroup
+
+= Check packet length
+
+p = SDEntry_EventGroup()
+
+assert(len(bytes(p)) == SDEntry_EventGroup.OVERALL_LEN)
+
+= Check fields setting
+
+p.index_1 = 0x11
+p.index_2 = 0x22
+p.srv_id = 0x3333
+p.inst_id = 0x4444
+p.major_ver = 0x55
+p.ttl = 0x666666
+p.cnt = 0x7
+p.eventgroup_id = 0x8888
+p_str = bytes(p)
+bin_str = b"\x06\x11\x22\x00\x33\x33\x44\x44\x55\x66\x66\x66\x00\x07\x88\x88"
+
+assert(p_str == bin_str)
+
+= Check payload guess
+p_entry_evtgrp = SDEntry_EventGroup()
+
+assert(SDEntry_EventGroup().guess_payload_class(
+    bytes(p_entry_evtgrp)) == SDEntry_EventGroup)
+
++ SD Option Config
+
+= Check pkg type
+
+p = SDOption_Config()
+
+assert(p.type == 0x01)
+
+= Check length without payload
+
+assert(len(bytes(p)) == 4)
+
+= Check add payload and check length
+import binascii
+p.cfg_str = binascii.hexlify(b"5abc=x7def=1230")
+
+assert(bytes(p) == b"\x00\x1f\x01\x00" +
+       binascii.hexlify(b"5abc=x7def=1230"))
+
+= Check payload guess
+
+assert(SDOption_Config().guess_payload_class(bytes(p)) == SDOption_Config)
+
+= Check SDEntry_EventGroup
+
+p = SDEntry_EventGroup(
+    b"\x06\x11\x22\x00\x33\x33\x44\x44\x55\x66\x66\x66\x00\x07\x88\x88")
+
+assert(p.index_1 == 0x11)
+assert(p.index_2 == 0x22)
+assert(p.srv_id == 0x3333)
+assert(p.inst_id == 0x4444)
+assert(p.major_ver == 0x55)
+assert(p.ttl == 0x666666)
+assert(p.cnt == 0x7)
+assert(p.eventgroup_id == 0x8888)
+
++ SD Option Load Balance
+
+= Check pkg type & lengths(static and overall)
+
+p = SDOption_LoadBalance()
+
+assert(p.type == 0x02)
+assert(p.len == 0x05)
+assert(len(bytes(p)) == 8)
+
+= Check payload guess
+
+assert(SDOption_LoadBalance().guess_payload_class(
+    bytes(p)) == SDOption_LoadBalance)
+
+= Check SDOption_LoadBalance
+
+p = SDOption_LoadBalance(b'\x00\x05\x02\x01\x00\x02\x00\x03')
+
+assert(p.type == 0x02)
+assert(p.len == 0x05)
+assert(p.res_hdr == 0x01)
+assert(p.priority == 0x02)
+assert(p.weight == 0x03)
+
++SD Option IP4 Endpoint
+
+= Check pkg type & length
+
+p = SDOption_IP4_EndPoint()
+
+assert(p.type == 0x04)
+assert(p.len == 0x0009)
+
+= Check payload guess
+
+assert(SDOption_IP4_EndPoint().guess_payload_class(
+    bytes(p)) == SDOption_IP4_EndPoint)
+
+= Check SDOption_IP4_EndPoint
+
+p = SDOption_IP4_EndPoint(b'\x00\x09\x04')
+
+assert(p.type == 0x04)
+assert(p.len == 0x0009)
+
++SD Option IP4 Multicast
+
+= Check pkg type & length
+
+p = SDOption_IP4_Multicast()
+
+assert(p.type == 0x14)
+assert(p.len == 0x0009)
+
+= Payload guess
+
+assert(SDOption_IP4_Multicast().guess_payload_class(
+    bytes(p)) == SDOption_IP4_Multicast)
+
+= Check SDOption_IP4_Multicast
+
+p = SDOption_IP4_Multicast(b'\x00\x09\x14')
+
+assert(p.type == 0x14)
+assert(p.len == 0x0009)
+
++SD OPTION IP4 SD EndPoint
+
+= Check pkg type & length
+
+p = SDOption_IP4_SD_EndPoint()
+
+assert(p.type == 0x24)
+assert(p.len == 0x0009)
+
+= Check payload guess
+
+assert(SDOption_IP4_SD_EndPoint().guess_payload_class(
+    bytes(p)) == SDOption_IP4_SD_EndPoint)
+
+= Check SDOption_IP4_SD_EndPoint
+
+p = SDOption_IP4_SD_EndPoint(b'\x00\x09\x24')
+
+assert(p.type == 0x24)
+assert(p.len == 0x0009)
+
++SD Option IP6 End Point
+
+= Check pkg type & length
+
+p = SDOption_IP6_EndPoint()
+
+assert(p.type == 0x06)
+assert(p.len == 0x0015)
+
+= Check payload guess
+
+assert(SDOption_IP6_EndPoint().guess_payload_class(
+    bytes(p)) == SDOption_IP6_EndPoint)
+
+= Check SDOption_IP6_EndPoint
+
+p = SDOption_IP6_EndPoint(b'\x00\x15\x06')
+
+assert(p.type == 0x06)
+assert(p.len == 0x0015)
+
++SD Option IP6 Multicast
+
+= Check pkg type & length
+
+p = SDOption_IP6_Multicast()
+
+assert(p.type == 0x16)
+assert(p.len == 0x0015)
+
+= Check payload guess
+
+assert(SDOption_IP6_Multicast().guess_payload_class(
+    bytes(p)) == SDOption_IP6_Multicast)
+
+= Check SDOption_IP6_Multicast
+p = SDOption_IP6_Multicast(b'\x00\x15\x16')
+
+assert(p.type == 0x16)
+assert(p.len == 0x0015)
+
++SD OPTION IP6 SD EndPoint
+
+= Check pkg type & length
+
+p = SDOption_IP6_SD_EndPoint()
+
+assert(p.type == 0x26)
+assert(p.len == 0x015)
+
+= Check payload guess
+
+assert(SDOption_IP6_SD_EndPoint().guess_payload_class(
+    bytes(p)) == SDOption_IP6_SD_EndPoint)
+
+= Check SDOption_IP6_SD_EndPoint
+
+p = SDOption_IP6_SD_EndPoint(b'\x00\x15\x26')
+
+assert(p.type == 0x26)
+assert(p.len == 0x0015)
+
++ SD Flags
+
+= Check the flags
+
+p = SD()
+
+p.set_flag("REBOOT", 1)
+
+assert(p.flags == 0x80)
+
+p.set_flag("REBOOT", 0)
+
+assert(p.flags == 0x00)
+
+p.set_flag("UNICAST", 1)
+
+assert(p.flags == 0x40)
+
+p.set_flag("UNICAST", 0)
+
+assert(p.flags == 0x00)
+
+p.set_flag("REBOOT", 1)
+p.set_flag("UNICAST", 1)
+
+assert(p.flags == 0xc0)
+
++SD Get Someip Packet
+
+= Check someip packet
+
+p_sd = SD()
+sd_len = bytes(p_sd)
+
+p_someip = p_sd.get_someip()
+
+assert(len(bytes(p_someip)) == SOMEIP._OVERALL_LEN_NOPAYLOAD)
+
+p = p_sd.get_someip(stacked=True)
+
+assert(len(bytes(p)) == SOMEIP._OVERALL_LEN_NOPAYLOAD + 12)
+
++ SD
+
+= Check length of package without entries nor options
+
+p = SD()
+
+assert(len(bytes(p)) == 12)
+
+= Check entries to array and size check
+
+p.set_entryArray([SDEntry_Service(), SDEntry_EventGroup()])
+
+assert(struct.unpack("!L", bytes(p)[4:8])[0] == 32)
+
+p.set_entryArray([])
+
+assert(struct.unpack("!L", bytes(p)[4:8])[0] == 0)
+
+= Check Options to array and size check
+
+p.set_optionArray([SDOption_IP4_EndPoint(), SDOption_IP4_EndPoint()])
+
+assert(struct.unpack("!L", bytes(p)[8:12])[0] == 24)
+
+p.set_optionArray([])
+
+assert(struct.unpack("!L", bytes(p)[8:12])[0] == 0)
+
+= Check Entries & Options to array and size check
+
+p.set_entryArray([SDEntry_Service(), SDEntry_EventGroup()])
+p.set_optionArray([SDOption_IP4_EndPoint(), SDOption_IP4_EndPoint()])
+
+assert(struct.unpack("!L", bytes(p)[4:8])[0] == 32)
+assert(struct.unpack("!L", bytes(p)[40:44])[0] == 24)
