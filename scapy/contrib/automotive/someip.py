@@ -48,8 +48,8 @@ class _SOMEIP_MessageId(Packet):
                          lambda pkt: pkt.sub_id == 1)
     ]
 
-    def extract_padding(self, p):
-        return "", p
+    def extract_padding(self, s):
+        return "", s
 
 
 class _SOMEIP_RequestId(Packet):
