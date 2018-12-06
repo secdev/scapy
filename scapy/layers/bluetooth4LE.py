@@ -17,7 +17,7 @@ from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
     PacketListField, X3BytesField, XBitField, XByteField, XIntField, \
     XShortField, XLEIntField, XLEShortField
 from scapy.layers.dot11 import _dbmField
-from scapy.layers.ppi import PPI, addPPIType, PPIGenericFldHdr
+from scapy.layers.ppi import PPI, addPPIType
 
 from scapy.layers.bluetooth import EIR_Hdr, L2CAP_Hdr
 
@@ -152,10 +152,6 @@ class BTLE(Packet):
     def pre_dissect(self, s):
         # move crc
         return s[:4] + s[-3:] + s[4:-3]
-
-    def post_dissection(self, pkt):
-        if isinstance(pkt, PPI):
-            pkt.notdecoded = PPIGenericFldHdr(pkt.notdecoded)
 
     def hashret(self):
         return struct.pack("!L", self.access_addr)
