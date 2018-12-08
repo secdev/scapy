@@ -11,7 +11,7 @@ OpcDaHeaderMessage (versionMajor=5,versionMinor=0,pduType=0, \
     characterRepresentation='ascii',floatingPointRepresentation='ieee',\
     reservedForFutur=0)/ OpcDaHeaderN(fragLenght=100,authLenght=0,callID=21)\
     / OpcDaRequest(allocHint=60,contextId=6,opNum=5,\
-    uuid=raw('0000c41d-0a9c-0000-d702-8c761299f7bf'),subData=RequestSubData(\
+    uuid=b'0000c41d-0a9c-0000-d702-8c761299f7bf',subData=RequestSubData(\
     versionMajor=0,versionMinor=0,subdata='')))
 elem2 = raw(opcdaRequestPacket_Build)
 
@@ -27,9 +27,9 @@ OpcDaHeaderMessage (versionMajor=5,versionMinor=0,pduType=0, \
     characterRepresentation='ascii',floatingPointRepresentation='ieee',\
     reservedForFutur=0)/ OpcDaHeaderNLE(fragLenght=100,authLenght=0,callID=21)\
     / OpcDaRequestLE (allocHint=60,contextId=6,opNum=5,\
-    uuid=raw('0000c41d-0a9c-0000-d702-8c761299f7bf'),\
+    uuid=b'0000c41d-0a9c-0000-d702-8c761299f7bf',\
     subData=RequestSubDataLE(versionMajor=0,versionMinor=0,flags=0,reserved=0,\
-    subUuid=raw('344e2d51-43ab-4914-a2cf-7784b21b3ea1'),subdata='')))
+    subUuid=b'344e2d51-43ab-4914-a2cf-7784b21b3ea1',subdata='')))
 elem2 = raw(opcdaRequestLEPacket_Build)
 
 assert( elem1 == elem2 )
@@ -62,7 +62,7 @@ opcDaResponsePacket_Build = OpcDaMessage(OpcDaMessage= \
     characterRepresentation='ascii',floatingPointRepresentation='ieee',\
     reservedForFutur=0)/ OpcDaHeaderN(fragLenght=212,authLenght=0,callID=21)\
     / OpcDaResponse(allocHint=188,contextId=6,cancelCount=0,reserved=0,\
-        subData=raw('0'*(212-32))))
+        subData=b'0'*(212-32)))
 elem2 = raw(opcDaResponsePacket_Build)
 
 assert( elem1 == elem2 )
@@ -77,7 +77,7 @@ opcDaResponseLEPacket_Build = OpcDaMessage(OpcDaMessage= \
     characterRepresentation='ascii',floatingPointRepresentation='ieee',\
     reservedForFutur=0)/ OpcDaHeaderNLE(fragLenght=212,authLenght=0,callID=21)\
     / OpcDaResponseLE(allocHint=188,contextId=6,cancelCount=0,reserved=0,\
-        subData=raw('0'*(212-32))))
+        subData=b'0'*(212-32)))
 elem2 = raw(opcDaResponseLEPacket_Build)
 
 assert( elem1 == elem2 )

@@ -23,7 +23,7 @@ from scapy.volatile import RandBin, RandByte, RandEnumKeys, RandInt, \
     RandSByte, RandTermString, VolatileValue
 from scapy.data import EPOCH
 from scapy.error import log_runtime, Scapy_Exception
-from scapy.compat import bytes_hex, chb, orb, plain_str, raw
+from scapy.compat import bytes_hex, chb, orb, plain_str, raw, bytes_encode
 from scapy.pton_ntop import inet_ntop, inet_pton
 from scapy.utils import inet_aton, inet_ntoa, lhex, mac2str, str2mac
 from scapy.utils6 import in6_6to4ExtractAddr, in6_isaddr6to4, \
@@ -114,7 +114,7 @@ class Field(six.with_metaclass(Field_metaclass, object)):
         if x is None:
             x = 0
         elif isinstance(x, str):
-            return raw(x)
+            return bytes_encode(x)
         return x
 
     def any2i(self, pkt, x):
@@ -886,7 +886,7 @@ class StrField(Field):
 
     def any2i(self, pkt, x):
         if isinstance(x, six.text_type):
-            x = raw(x)
+            x = bytes_encode(x)
         return super(StrField, self).any2i(pkt, x)
 
     def i2repr(self, pkt, x):
@@ -899,7 +899,7 @@ class StrField(Field):
         if x is None:
             return b""
         if not isinstance(x, bytes):
-            return raw(x)
+            return bytes_encode(x)
         return x
 
     def addfield(self, pkt, s, val):
@@ -1151,7 +1151,7 @@ class NetBIOSNameField(StrFixedLenField):
 
     def i2m(self, pkt, x):
         len_pkt = self.length_from(pkt) // 2
-        x = raw(x)
+        x = bytes_encode(x)
         if x is None:
             x = b""
         x += b" " * len_pkt

@@ -23,7 +23,7 @@ from scapy.layers.tls.basefields import _TLSVersionField, _tls_version, \
 from scapy.layers.tls.record import _TLSMsgListField, TLS
 from scapy.layers.tls.crypto.cipher_aead import AEADTagError
 from scapy.layers.tls.crypto.cipher_stream import Cipher_NULL
-from scapy.layers.tls.crypto.ciphers import CipherError
+from scapy.layers.tls.crypto.common import CipherError
 
 
 ###############################################################################

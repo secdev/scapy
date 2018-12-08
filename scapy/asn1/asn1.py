@@ -17,7 +17,7 @@ from scapy.config import conf
 from scapy.error import Scapy_Exception, warning
 from scapy.volatile import RandField, RandIP, GeneralizedTime
 from scapy.utils import Enum_metaclass, EnumElement, binrepr
-from scapy.compat import plain_str, chb, raw, orb
+from scapy.compat import plain_str, chb, orb, bytes_encode
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
 
@@ -329,10 +329,8 @@ class ASN1_BIT_STRING(ASN1_Object):
             self.val_readable = val
 
     def __setattr__(self, name, value):
-        str_value = None
         if isinstance(value, str):
-            str_value = value
-            value = raw(value)
+            value = bytes_encode(value)
         if name == "val_readable":
             if isinstance(value, bytes):
                 val = b"".join(binrepr(orb(x)).zfill(8).encode("utf8") for x in value)  # noqa: E501
@@ -342,10 +340,9 @@ class ASN1_BIT_STRING(ASN1_Object):
             super(ASN1_Object, self).__setattr__(name, value)
             super(ASN1_Object, self).__setattr__("unused_bits", 0)
         elif name == "val":
-            if not str_value:
-                str_value = plain_str(value)
             if isinstance(value, bytes):
-                if any(c for c in str_value if c not in ["0", "1"]):
+                if any(True for x in range(len(value))
+                       if value[x:x + 1] not in [b"0", b"1"]):
                     print("Invalid operation: 'val' is not a valid bit string.")  # noqa: E501
                     return
                 else:
@@ -353,9 +350,11 @@ class ASN1_BIT_STRING(ASN1_Object):
                         unused_bits = 0
                     else:
                         unused_bits = 8 - (len(value) % 8)
-                    padded_value = str_value + ("0" * unused_bits)
-                    bytes_arr = zip(*[iter(padded_value)] * 8)
-                    val_readable = b"".join(chb(int("".join(x), 2)) for x in bytes_arr)  # noqa: E501
+                    padded_value = value + (b"0" * unused_bits)
+                    bytes_arr = zip(*[(padded_value[i:i + 1]
+                                       for i in range(len(padded_value)))] * 8)
+                    val_readable = b"".join(chb(int(b"".join(x), 2))
+                                            for x in bytes_arr)
             else:
                 val_readable = "<invalid val>"
                 unused_bits = 0

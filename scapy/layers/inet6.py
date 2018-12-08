@@ -36,7 +36,7 @@ from time import gmtime, strftime
 from scapy.arch import get_if_hwaddr
 from scapy.as_resolvers import AS_resolver_riswhois
 from scapy.base_classes import Gen
-from scapy.compat import chb, orb, raw, plain_str
+from scapy.compat import chb, orb, raw, plain_str, bytes_encode
 from scapy.config import conf
 import scapy.consts
 from scapy.data import DLT_IPV6, DLT_RAW, DLT_RAW_ALT, ETHER_ANY, ETH_P_IPV6, \
@@ -2074,7 +2074,7 @@ class ICMPv6ND_NS(_ICMPv6NDGuessPayload, _ICMPv6, Packet):
         return self.sprintf("%name% (tgt: %tgt%)")
 
     def hashret(self):
-        return raw(self.tgt) + self.payload.hashret()
+        return bytes_encode(self.tgt) + self.payload.hashret()
 
 
 class ICMPv6ND_NA(_ICMPv6NDGuessPayload, _ICMPv6, Packet):
@@ -2093,7 +2093,7 @@ class ICMPv6ND_NA(_ICMPv6NDGuessPayload, _ICMPv6, Packet):
         return self.sprintf("%name% (tgt: %tgt%)")
 
     def hashret(self):
-        return raw(self.tgt) + self.payload.hashret()
+        return bytes_encode(self.tgt) + self.payload.hashret()
 
     def answers(self, other):
         return isinstance(other, ICMPv6ND_NS) and self.tgt == other.tgt
@@ -2188,7 +2188,7 @@ icmp6_niqtypes = {0: "NOOP",
 
 class _ICMPv6NIHashret:
     def hashret(self):
-        return raw(self.nonce)
+        return bytes_encode(self.nonce)
 
 
 class _ICMPv6NIAnswers:
@@ -3070,7 +3070,7 @@ class MIP6MH_HoTI(_MobilityHeader):
     overload_fields = {IPv6: {"nh": 135}}
 
     def hashret(self):
-        return raw(self.cookie)
+        return bytes_encode(self.cookie)
 
 
 class MIP6MH_CoTI(MIP6MH_HoTI):
@@ -3078,7 +3078,7 @@ class MIP6MH_CoTI(MIP6MH_HoTI):
     mhtype = 2
 
     def hashret(self):
-        return raw(self.cookie)
+        return bytes_encode(self.cookie)
 
 
 class MIP6MH_HoT(_MobilityHeader):
@@ -3097,7 +3097,7 @@ class MIP6MH_HoT(_MobilityHeader):
     overload_fields = {IPv6: {"nh": 135}}
 
     def hashret(self):
-        return raw(self.cookie)
+        return bytes_encode(self.cookie)
 
     def answers(self, other):
         if (isinstance(other, MIP6MH_HoTI) and
@@ -3111,7 +3111,7 @@ class MIP6MH_CoT(MIP6MH_HoT):
     mhtype = 4
 
     def hashret(self):
-        return raw(self.cookie)
+        return bytes_encode(self.cookie)
 
     def answers(self, other):
         if (isinstance(other, MIP6MH_CoTI) and

@@ -18,7 +18,7 @@ import time
 from scapy.config import conf
 from scapy.consts import LINUX, DARWIN, WINDOWS
 from scapy.data import MTU, ETH_P_IP
-from scapy.compat import raw
+from scapy.compat import raw, bytes_encode
 from scapy.error import warning, log_runtime
 import scapy.modules.six as six
 import scapy.packet
@@ -319,7 +319,8 @@ class TunTapInterface(SuperSocket):
             # IFF_TAP = 0x0002
             # IFF_NO_PI = 0x1000
             ioctl(self.ins, 0x400454ca, struct.pack(
-                "16sH", raw(self.iface), 0x0001 if self.mode_tun else 0x1002,
+                "16sH", bytes_encode(self.iface),
+                0x0001 if self.mode_tun else 0x1002,
             ))
         self.closed = False
 

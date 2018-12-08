@@ -12,7 +12,7 @@ import random
 import time
 import math
 from scapy.base_classes import Net
-from scapy.compat import raw, chb, plain_str
+from scapy.compat import bytes_encode, chb, plain_str
 from scapy.utils import corrupt_bits, corrupt_bytes
 from scapy.modules.six.moves import range
 
@@ -94,7 +94,7 @@ class VolatileValue(object):
         return str(self._fix())
 
     def __bytes__(self):
-        return raw(self._fix())
+        return bytes_encode(self._fix())
 
     def __len__(self):
         return len(self._fix())
@@ -344,7 +344,7 @@ class RandString(RandField):
         return plain_str(self._fix())
 
     def __bytes__(self):
-        return raw(self._fix())
+        return bytes_encode(self._fix())
 
     def __mul__(self, n):
         return self._fix() * n
@@ -357,7 +357,7 @@ class RandBin(RandString):
 
 class RandTermString(RandBin):
     def __init__(self, size, term):
-        self.term = raw(term)
+        self.term = bytes_encode(term)
         super(RandTermString, self).__init__(size=size)
 
     def _fix(self):
@@ -765,7 +765,7 @@ class RandSingString(RandSingularity):
         return str(self._fix())
 
     def __bytes__(self):
-        return raw(self._fix())
+        return bytes_encode(self._fix())
 
 
 class RandPool(RandField):

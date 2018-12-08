@@ -876,6 +876,7 @@ class _GenericTLSSessionInheritance(Packet):
         rcs_snap = s.rcs.snapshot()
         wcs_snap = s.wcs.snapshot()
         rpc_snap = self.raw_packet_cache
+        rpcf_snap = self.raw_packet_cache_fields
 
         s.wcs = self.rcs_snap_init
 
@@ -888,6 +889,7 @@ class _GenericTLSSessionInheritance(Packet):
         s.rcs = rcs_snap
         s.wcs = wcs_snap
         self.raw_packet_cache = rpc_snap
+        self.raw_packet_cache_fields = rpcf_snap
 
         return built_packet
     __str__ = __bytes__

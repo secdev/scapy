@@ -33,7 +33,7 @@ import sys
 from io import BytesIO
 import struct
 import scapy.modules.six as six
-from scapy.compat import raw, plain_str, bytes_hex, orb, chb
+from scapy.compat import raw, plain_str, bytes_hex, orb, chb, bytes_encode
 
 # Only required if using mypy-lang for static typing
 # Most symbols are used in mypy-interpreted "comments".
@@ -649,7 +649,7 @@ class HPackStringsInterface(ABC, Sized):
 
     def __bytes__(self):
         r = self.__str__()
-        return r if isinstance(r, bytes) else raw(r)
+        return bytes_encode(r)
 
     @abc.abstractmethod
     def origin(self):
@@ -2166,7 +2166,7 @@ class HPackHdrEntry(Sized):
             return "{}: {}".format(self._name, self._value)
 
     def __bytes__(self):
-        return raw(self.__str__())
+        return bytes_encode(self.__str__())
 
 
 class HPackHdrTable(Sized):

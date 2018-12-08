@@ -18,7 +18,7 @@ import types
 from scapy.fields import StrField, ConditionalField, Emph, PacketListField, \
     BitField, MultiEnumField, EnumField, FlagsField, MultipleTypeField
 from scapy.config import conf, _version_checker
-from scapy.compat import raw, orb
+from scapy.compat import raw, orb, bytes_encode
 from scapy.base_classes import BasePacket, Gen, SetGen, Packet_metaclass, \
     _CanvasDumpExtended
 from scapy.volatile import VolatileValue, RandField
@@ -770,7 +770,8 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
         return s
 
     def do_dissect(self, s):
-        s = raw(s)
+        if not isinstance(s, bytes):
+            s = bytes_encode(s)
         _raw = s
         self.raw_packet_cache_fields = {}
         # Temporary value, used by getfield() in some advanced cases (eg: dot11)  # noqa: E501
@@ -786,7 +787,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
             if f.islist or f.holds_packets or f.ismutable:
                 self.raw_packet_cache_fields[f.name] = f.do_copy(fval)
             self.fields[f.name] = fval
-        assert(_raw.endswith(raw(s)))
+        # assert(_raw.endswith(raw(s)))
         del self._tmp_dissect_pos
         self.raw_packet_cache = _raw[:-len(s)] if s else _raw
         self.explicit = 1
