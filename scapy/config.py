@@ -422,6 +422,21 @@ def _prompt_changer(attr, val):
         pass
 
 
+def _socket_changer(attr, val):
+    if not isinstance(val, bool):
+        raise TypeError("This argument should be a boolean")
+    if val:  # Only if True
+        depedencies = {
+            "use_pcap": ["use_bpf", "use_winpcapy"],
+            "use_bpf": ["use_pcap"],
+            "use_winpcapy": ["use_pcap", "use_dnet"],
+        }
+        for param in depedencies[attr]:
+            setattr(conf, param, False)
+    from scapy.arch import _set_conf_sockets
+    _set_conf_sockets()
+
+
 class Conf(ConfClass):
     """This object contains the configuration of Scapy.
 session  : filename where the session will be saved
@@ -508,10 +523,13 @@ recv_poll_rate: how often to check for new packets. Defaults to 0.05s.
     noenum = Resolve()
     emph = Emphasize()
     use_pypy = isPyPy()
-    use_pcap = os.getenv("SCAPY_USE_PCAPDNET", "").lower().startswith("y")
+    use_pcap = Interceptor("use_pcap",
+            os.getenv("SCAPY_USE_PCAPDNET", "").lower().startswith("y"),
+            _socket_changer)
+    # XXX use_dnet is deprecated
     use_dnet = os.getenv("SCAPY_USE_PCAPDNET", "").lower().startswith("y")
-    use_bpf = False
-    use_winpcapy = False
+    use_bpf = Interceptor("use_bpf", False, _socket_changer)
+    use_winpcapy = Interceptor("use_winpcapy", False, _socket_changer)
     use_npcap = False
     ipv6_enabled = socket.has_ipv6
     ethertypes = ETHER_TYPES

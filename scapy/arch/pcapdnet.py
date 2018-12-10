@@ -472,7 +472,6 @@ if conf.use_pcap or conf.use_winpcapy:
         def send(self, x):
             raise Scapy_Exception("Can't send anything with L2pcapListenSocket")  # noqa: E501
 
-    conf.L2listen = L2pcapListenSocket
 
     class L2pcapSocket(_L2pcapdnetSocket):
         desc = "read/write packets at layer 2 using only libpcap"
@@ -552,8 +551,7 @@ if conf.use_pcap or conf.use_winpcapy:
             if hasattr(x, "sent_time"):
                 x.sent_time = time.time()
             return self.ins.send(sx)
-    conf.L2socket = L2pcapSocket
-    conf.L3socket = L3pcapSocket
+
 
 ##########
 #  DNET  #

@@ -574,15 +574,6 @@ class L3PacketSocket(L2Socket):
                 raise
 
 
-conf.L3socket = L3PacketSocket
-conf.L2socket = L2Socket
-conf.L2listen = L2ListenSocket
-
-
-class ScapyInvalidPlatformException(Scapy_Exception):
-    pass
-
-
 class VEthPair(object):
     """
     encapsulates a virtual Ethernet interface pair
@@ -592,7 +583,8 @@ class VEthPair(object):
 
         if not LINUX:
             # ToDo: do we need a kernel version check here?
-            raise ScapyInvalidPlatformException('virtual Ethernet interface pair only available on Linux')  # noqa: E501
+            raise scapy.arch.ScapyInvalidPlatformException('virtual Ethernet'
+            'interface pair only available on Linux')
 
         self.ifaces = [iface_name, peer_name]
 
