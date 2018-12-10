@@ -201,7 +201,7 @@ if conf.use_winpcapy:
 
     from ctypes import POINTER, byref, create_string_buffer
 
-    class _PcapWrapper_pypcap:  # noqa: F811
+    class _PcapWrapper_winpcap:  # noqa: F811
         """Wrapper for the WinPcap calls"""
 
         def __init__(self, device, snaplen, promisc, to_ms, monitor=None):
@@ -268,7 +268,7 @@ if conf.use_winpcapy:
         def close(self):
             pcap_close(self.pcap)
 
-    open_pcap = lambda *args, **kargs: _PcapWrapper_pypcap(*args, **kargs)
+    open_pcap = lambda *args, **kargs: _PcapWrapper_winpcap(*args, **kargs)
 
 ################
 #  PCAP/PCAPY  #
@@ -276,25 +276,30 @@ if conf.use_winpcapy:
 
 
 if conf.use_pcap:
+    # We try from most to less tested/used
     try:
-        import pcap  # python-pypcap
-        _PCAP_MODE = "pypcap"
+        import pcapy as pcap  # python-pcapy
+        _PCAP_MODE = "pcapy"
     except ImportError as e:
         try:
-            import libpcap as pcap  # python-libpcap
-            _PCAP_MODE = "libpcap"
+            import pcap  # python-pypcap
+            _PCAP_MODE = "pypcap"
         except ImportError as e2:
             try:
-                import pcapy as pcap  # python-pcapy
-                _PCAP_MODE = "pcapy"
+                # This is our last chance, but we dont really
+                # recommand it as very little tested
+                import libpcap as pcap  # python-libpcap
+                _PCAP_MODE = "libpcap"
             except ImportError as e3:
                 if conf.interactive:
-                    log_loading.error("Unable to import pcap module: %s/%s", e, e2)  # noqa: E501
+                    log_loading.error(
+                        "Unable to import any of the pcap "
+                        "modules: %s/%s", e, e2
+                    )
                     conf.use_pcap = False
                 else:
                     raise
     if conf.use_pcap:
-
         if _PCAP_MODE == "pypcap":  # python-pypcap
             class _PcapWrapper_pypcap:  # noqa: F811
                 def __init__(self, device, snaplen, promisc, to_ms, monitor=False):  # noqa: E501
