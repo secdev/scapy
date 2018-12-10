@@ -354,4 +354,3 @@ conf.L2listen, conf.L2socket or conf.L3socket.
             os.write(self.outs.fileno(), sx)
         except socket.error:
             log_runtime.error("%s send", self.__class__.__name__, exc_info=True)  # noqa: E501
-

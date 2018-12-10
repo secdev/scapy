@@ -171,7 +171,7 @@ if conf.use_winpcapy:
         elif b"npcap" in version.lower():
             conf.use_npcap = True
             LOOPBACK_NAME = scapy.consts.LOOPBACK_NAME = "Npcap Loopback Adapter"  # noqa: E501
-    except OSError as e:
+    except OSError:
         conf.use_winpcapy = False
         if conf.interactive:
             log_loading.warning("wpcap.dll is not installed. You won't be able to send/receive packets. Visit the scapy's doc to install it")  # noqa: E501
@@ -286,11 +286,11 @@ if conf.use_pcap:
             _PCAP_MODE = "pypcap"
         except ImportError as e2:
             try:
-                # This is our last chance, but we dont really
+                # This is our last chance, but we don't really
                 # recommand it as very little tested
                 import libpcap as pcap  # python-libpcap
                 _PCAP_MODE = "libpcap"
-            except ImportError as e3:
+            except ImportError:
                 if conf.interactive:
                     log_loading.error(
                         "Unable to import any of the pcap "
@@ -303,7 +303,7 @@ if conf.use_pcap:
         if _PCAP_MODE == "pypcap":  # python-pypcap
             class _PcapWrapper_pypcap:  # noqa: F811
                 def __init__(self, device, snaplen, promisc,
-                        to_ms, monitor=False):
+                             to_ms, monitor=False):
                     try:
                         self.pcap = pcap.pcap(device, snaplen, promisc, immediate=1, timeout_ms=to_ms, rfmon=monitor)  # noqa: E501
                     except TypeError:
@@ -474,7 +474,6 @@ if conf.use_pcap or conf.use_winpcapy:
 
         def send(self, x):
             raise Scapy_Exception("Can't send anything with L2pcapListenSocket")  # noqa: E501
-
 
     class L2pcapSocket(_L2pcapdnetSocket):
         desc = "read/write packets at layer 2 using only libpcap"

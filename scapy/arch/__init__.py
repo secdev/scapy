@@ -10,9 +10,10 @@ Operating system specific functionality.
 from __future__ import absolute_import
 import socket
 
+import scapy.consts
 from scapy.consts import LINUX, SOLARIS, WINDOWS, BSD
 from scapy.error import Scapy_Exception
-import scapy.config
+from scapy.config import conf, _set_conf_sockets
 from scapy.pton_ntop import inet_pton, inet_ntop
 from scapy.data import ARPHDR_ETHER, ARPHDR_LOOPBACK, IPV6_ADDR_GLOBAL
 from scapy.compat import orb
@@ -22,12 +23,8 @@ def str2mac(s):
     return ("%02x:" * 6)[:-1] % tuple(orb(x) for x in s)
 
 
-class ScapyInvalidPlatformException(Scapy_Exception):
-    pass
-
-
 if not WINDOWS:
-    if not scapy.config.conf.use_pcap and not scapy.config.conf.use_dnet:
+    if not conf.use_pcap and not conf.use_dnet:
         from scapy.arch.bpf.core import get_if_raw_addr
 
 
@@ -60,65 +57,20 @@ if LINUX:
 elif BSD:
     from scapy.arch.unix import read_routes, read_routes6, in6_getifaddr  # noqa: F401, E501
 
-    if not scapy.config.conf.use_pcap or scapy.config.conf.use_dnet:
-        from scapy.arch.bpf.supersocket import L2bpfListenSocket, L2bpfSocket, L3bpfSocket  # noqa: E501
+    if not conf.use_pcap or conf.use_dnet:
         from scapy.arch.bpf.core import *  # noqa F403
-        scapy.config.conf.use_bpf = True
+        from scapy.arch.bpf.supersocket import * # noqa F403
+        conf.use_bpf = True
 elif SOLARIS:
     from scapy.arch.solaris import *  # noqa F403
 elif WINDOWS:
     from scapy.arch.windows import *  # noqa F403
 
-if scapy.config.conf.iface is None:
-    scapy.config.conf.iface = scapy.consts.LOOPBACK_INTERFACE
-
-
-def _set_conf_sockets():
-    """Populate the conf.L2Socket and conf.L3Socket
-    according to the various use_* parameters
-    """
-    # Caution: Use setattr on conf.use_* to avoid circular calls
-    if conf.use_pcap or conf.use_dnet or conf.use_winpcapy:
-        if conf.use_winpcapy and not WINDOWS:
-            setattr(conf, "use_winpcapy", False)
-            raise ScapyInvalidPlatformException
-        import scapy.arch.pcapdnet
-        try:
-            from scapy.arch.pcapdnet import L2pcapListenSocket, L2pcapSocket, \
-                    L3pcapSocket
-        except ImportError:
-            warning("No pcap provider available ! pcap wont be used")
-            setattr(conf, "use_pcap", False)
-            setattr(conf, "use_winpcapy", False)
-        else:
-            conf.L2listen = L2pcapListenSocket
-            conf.L2socket = L2pcapSocket
-            conf.L3socket = L3pcapSocket
-            return
-    if conf.use_bpf:
-        if not DARWIN:
-            setattr(conf, "use_bpf", False)
-            raise ScapyInvalidPlatformException
-        conf.L2listen = L2bpfListenSocket
-        conf.L2socket = L2bpfSocket
-        conf.L3socket = L3bpfSocket
-        return
-    if LINUX:
-        conf.L3socket = L3PacketSocket
-        conf.L2socket = L2Socket
-        conf.L2listen = L2ListenSocket
-        return
-    if WINDOWS:  # Should have been conf.use_winpcapy
-        from scapy.arch.windows import _NotAvailableSocket
-        conf.L2socket = _NotAvailableSocket
-        conf.L2listen = _NotAvailableSocket
-        conf.L3socket = _NotAvailableSocket
-        return
-    from scapy.supersocket import L3RawSocket
-    conf.L3socket = L3RawSocket
-
+if conf.iface is None:
+    conf.iface = scapy.consts.LOOPBACK_INTERFACE
 
 _set_conf_sockets()  # Apply config
+
 
 def get_if_addr6(iff):
     """

@@ -47,9 +47,9 @@ _winapi_SetHandleInformation = ctypes.windll.kernel32.SetHandleInformation
 _winapi_SetHandleInformation.restype = wintypes.BOOL
 _winapi_SetHandleInformation.argtypes = [wintypes.HANDLE, wintypes.DWORD, wintypes.DWORD]  # noqa: E501
 
-setattr(conf, "use_winpcapy", True)
-setattr(conf, "use_pcap", False)
-setattr(conf, "use_dnet", False)
+conf.use_winpcapy = True
+conf.use_pcap = False
+conf.use_dnet = False
 
 # These import must appear after setting conf.use_* variables
 from scapy.arch import pcapdnet  # noqa: E402
@@ -1351,4 +1351,3 @@ class _NotAvailableSocket(SuperSocket):
     def __init__(self, *args, **kargs):
         raise RuntimeError("Sniffing and sending packets is not available: "  # noqa: E501
                            "winpcap is not installed")
-
