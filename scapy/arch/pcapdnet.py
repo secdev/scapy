@@ -302,7 +302,8 @@ if conf.use_pcap:
     if conf.use_pcap:
         if _PCAP_MODE == "pypcap":  # python-pypcap
             class _PcapWrapper_pypcap:  # noqa: F811
-                def __init__(self, device, snaplen, promisc, to_ms, monitor=False):  # noqa: E501
+                def __init__(self, device, snaplen, promisc,
+                        to_ms, monitor=False):
                     try:
                         self.pcap = pcap.pcap(device, snaplen, promisc, immediate=1, timeout_ms=to_ms, rfmon=monitor)  # noqa: E501
                     except TypeError:
@@ -320,11 +321,11 @@ if conf.use_pcap:
                 def setnonblock(self, i):
                     self.pcap.setnonblock(i)
 
-                def __del__(self):
+                def close(self):
                     try:
                         self.pcap.close()
                     except AttributeError:
-                        warning("__del__: don't know how to close the file "
+                        warning("close(): don't know how to close the file "
                                 "descriptor. Bugs ahead! Please use python-pypcap 1.2.1+")  # noqa: E501
 
                 def send(self, x):
@@ -374,7 +375,7 @@ if conf.use_pcap:
                 def send(self, x):
                     pcap.pcap_sendpacket(self.pcap, x, len(x))
 
-                def __del__(self):
+                def close(self):
                     pcap.close(self.pcap)
             open_pcap = lambda *args, **kargs: _PcapWrapper_libpcap(*args, **kargs)  # noqa: E501
         elif _PCAP_MODE == "pcapy":  # python-pcapy
@@ -425,11 +426,11 @@ if conf.use_pcap:
                 def send(self, x):
                     self.pcap.sendpacket(x)
 
-                def __del__(self):
+                def close(self):
                     try:
                         self.pcap.close()
                     except AttributeError:
-                        warning("__del__: don't know how to close the file "
+                        warning("close(): don't know how to close the file "
                                 "descriptor. Bugs ahead! Please update pcapy!")
             open_pcap = lambda *args, **kargs: _PcapWrapper_pcapy(*args, **kargs)  # noqa: E501
 
@@ -470,9 +471,6 @@ if conf.use_pcap or conf.use_winpcapy:
                         filter = "not (%s)" % conf.except_filter
                 if filter:
                     self.ins.setfilter(filter)
-
-        def close(self):
-            self.ins.close()
 
         def send(self, x):
             raise Scapy_Exception("Can't send anything with L2pcapListenSocket")  # noqa: E501
@@ -526,9 +524,11 @@ if conf.use_pcap or conf.use_winpcapy:
 
         def close(self):
             if not self.closed:
-                if hasattr(self, "ins"):
+                ins = getattr(self, "ins", None)
+                out = getattr(self, "out", None)
+                if ins:
                     self.ins.close()
-                if hasattr(self, "outs"):
+                if out and out != ins:
                     self.outs.close()
             self.closed = True
 

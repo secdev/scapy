@@ -300,15 +300,6 @@ class TunTapInterface(SuperSocket):
         self.closed = True
         self.open()
 
-    def __enter__(self):
-        return self
-
-    def __del__(self):
-        self.close()
-
-    def __exit__(self, *_):
-        self.close()
-
     def open(self):
         """Open the TUN or TAP device."""
         if not self.closed:
@@ -364,6 +355,3 @@ conf.L2listen, conf.L2socket or conf.L3socket.
         except socket.error:
             log_runtime.error("%s send", self.__class__.__name__, exc_info=True)  # noqa: E501
 
-
-if conf.L3socket is None:
-    conf.L3socket = L3RawSocket

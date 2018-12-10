@@ -47,7 +47,9 @@ _winapi_SetHandleInformation = ctypes.windll.kernel32.SetHandleInformation
 _winapi_SetHandleInformation.restype = wintypes.BOOL
 _winapi_SetHandleInformation.argtypes = [wintypes.HANDLE, wintypes.DWORD, wintypes.DWORD]  # noqa: E501
 
-conf.use_winpcapy = True
+setattr(conf, "use_winpcapy", True)
+setattr(conf, "use_pcap", False)
+setattr(conf, "use_dnet", False)
 
 # These import must appear after setting conf.use_* variables
 from scapy.arch import pcapdnet  # noqa: E402

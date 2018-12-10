@@ -114,6 +114,8 @@ def _set_conf_sockets():
         conf.L2listen = _NotAvailableSocket
         conf.L3socket = _NotAvailableSocket
         return
+    from scapy.supersocket import L3RawSocket
+    conf.L3socket = L3RawSocket
 
 
 _set_conf_sockets()  # Apply config
