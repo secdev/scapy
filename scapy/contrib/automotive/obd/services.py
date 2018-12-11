@@ -5,7 +5,7 @@ from scapy.fields import ByteField, XByteField, XShortField, StrField, BitEnumFi
 from scapy.packet import Packet
 
 
-class DTC(Packet):
+class OBD_DTC(Packet):
     name = "DiagnosticTroubleCode"
 
     locations = {
@@ -45,14 +45,14 @@ class OBD_NR(Packet):
     ]
 
 
-class Service01(Packet):
+class OBD_S01(Packet):
     name = "S1_CurrentData"
     fields_desc = [
         XByteField('pid', 0)
     ]
 
 
-class Service02(Packet):
+class OBD_S02(Packet):
     name = "S2_FreezeFrameData"
     fields_desc = [
         XByteField('pid', 0),
@@ -60,48 +60,48 @@ class Service02(Packet):
     ]
 
 
-class Service03(Packet):
+class OBD_S03(Packet):
     name = "S3_RequestDTCs"
     fields_desc = [
         ByteField('count', b''),
-        PacketListField('DTCs', [], DTC, count_from=lambda pkt: pkt.count)
+        PacketListField('DTCs', [], OBD_DTC, count_from=lambda pkt: pkt.count)
     ]
 
 
-class Service04(Packet):
+class OBD_S04(Packet):
     name = "S4_ClearDTCs"
 
 
-class Service05(Packet):
+class OBD_S05(Packet):
     name = "S5_OxygenSensorMonitoring_NonCAN"
     fields_desc = [
         XShortField('pid', 0)
     ]
 
 
-class Service06(Packet):
+class OBD_S06(Packet):
     name = "S6_OxygenSensorMonitoring_CAN"
     fields_desc = [
         XShortField('pid', 0)
     ]
 
 
-class Service07(Packet):
+class OBD_S07(Packet):
     name = "S7_RequestPendingDTCs"
     fields_desc = [
         ByteField('count', b''),
-        PacketListField('DTCs', [], DTC, count_from=lambda pkt: pkt.count)
+        PacketListField('DTCs', [], OBD_DTC, count_from=lambda pkt: pkt.count)
     ]
 
 
-class Service09(Packet):
+class OBD_S09(Packet):
     name = "S9_VehicleInformation"
     fields_desc = [
         XByteField('pid', 0)
     ]
 
 
-class Service0A(Packet):
+class OBD_S0A(Packet):
     name = "S0A_RequestPermanentDTCs"
     fields_desc = [
         StrField('data', b'')
