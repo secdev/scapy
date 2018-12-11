@@ -10,9 +10,10 @@ Operating system specific functionality.
 from __future__ import absolute_import
 import socket
 
+import scapy.consts
 from scapy.consts import LINUX, SOLARIS, WINDOWS, BSD
 from scapy.error import Scapy_Exception
-import scapy.config
+from scapy.config import conf, _set_conf_sockets
 from scapy.pton_ntop import inet_pton, inet_ntop
 from scapy.data import ARPHDR_ETHER, ARPHDR_LOOPBACK, IPV6_ADDR_GLOBAL
 from scapy.compat import orb
@@ -23,7 +24,7 @@ def str2mac(s):
 
 
 if not WINDOWS:
-    if not scapy.config.conf.use_pcap and not scapy.config.conf.use_dnet:
+    if not conf.use_pcap and not conf.use_dnet:
         from scapy.arch.bpf.core import get_if_raw_addr
 
 
@@ -53,27 +54,22 @@ def get_if_hwaddr(iff):
 
 if LINUX:
     from scapy.arch.linux import *  # noqa F403
-    if scapy.config.conf.use_pcap or scapy.config.conf.use_dnet:
-        from scapy.arch.pcapdnet import *  # noqa F403
 elif BSD:
     from scapy.arch.unix import read_routes, read_routes6, in6_getifaddr  # noqa: F401, E501
 
-    if scapy.config.conf.use_pcap or scapy.config.conf.use_dnet:
-        from scapy.arch.pcapdnet import *  # noqa F403
-    else:
-        from scapy.arch.bpf.supersocket import L2bpfListenSocket, L2bpfSocket, L3bpfSocket  # noqa: E501
+    if not conf.use_pcap or conf.use_dnet:
         from scapy.arch.bpf.core import *  # noqa F403
-        scapy.config.conf.use_bpf = True
-        scapy.config.conf.L2listen = L2bpfListenSocket
-        scapy.config.conf.L2socket = L2bpfSocket
-        scapy.config.conf.L3socket = L3bpfSocket
+        from scapy.arch.bpf.supersocket import * # noqa F403
+        conf.use_bpf = True
 elif SOLARIS:
     from scapy.arch.solaris import *  # noqa F403
 elif WINDOWS:
     from scapy.arch.windows import *  # noqa F403
 
-if scapy.config.conf.iface is None:
-    scapy.config.conf.iface = scapy.consts.LOOPBACK_INTERFACE
+if conf.iface is None:
+    conf.iface = scapy.consts.LOOPBACK_INTERFACE
+
+_set_conf_sockets()  # Apply config
 
 
 def get_if_addr6(iff):

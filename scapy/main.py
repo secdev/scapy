@@ -88,7 +88,7 @@ def _read_config_file(cf, _globals=globals(), _locals=locals(), interactive=True
         if interactive:
             raise
         log_loading.warning("Cannot read config file [%s] [%s]", cf, e)
-    except Exception as e:
+    except Exception:
         if interactive:
             raise
         log_loading.exception("Error during evaluation of config file [%s]", cf)  # noqa: E501

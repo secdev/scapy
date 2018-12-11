@@ -47,9 +47,9 @@ _winapi_SetHandleInformation = ctypes.windll.kernel32.SetHandleInformation
 _winapi_SetHandleInformation.restype = wintypes.BOOL
 _winapi_SetHandleInformation.argtypes = [wintypes.HANDLE, wintypes.DWORD, wintypes.DWORD]  # noqa: E501
 
+conf.use_winpcapy = True
 conf.use_pcap = False
 conf.use_dnet = False
-conf.use_winpcapy = True
 
 # These import must appear after setting conf.use_* variables
 from scapy.arch import pcapdnet  # noqa: E402
@@ -1345,15 +1345,9 @@ def route_add_loopback(routes=None, ipv6=False, iflist=None):
             routes.append(loopback_route)
 
 
-if not conf.use_winpcapy:
+class _NotAvailableSocket(SuperSocket):
+    desc = "wpcap.dll missing"
 
-    class NotAvailableSocket(SuperSocket):
-        desc = "wpcap.dll missing"
-
-        def __init__(self, *args, **kargs):
-            raise RuntimeError("Sniffing and sending packets is not available: "  # noqa: E501
-                               "winpcap is not installed")
-
-    conf.L2socket = NotAvailableSocket
-    conf.L2listen = NotAvailableSocket
-    conf.L3socket = NotAvailableSocket
+    def __init__(self, *args, **kargs):
+        raise RuntimeError("Sniffing and sending packets is not available: "  # noqa: E501
+                           "winpcap is not installed")

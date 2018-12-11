@@ -29,8 +29,8 @@ from scapy.packet import Packet, Padding
 from scapy.config import conf
 from scapy.data import MTU, ETH_P_ALL
 from scapy.supersocket import SuperSocket
-import scapy.arch
-from scapy.error import warning, Scapy_Exception, log_interactive, log_loading
+from scapy.error import warning, Scapy_Exception, log_interactive, \
+    log_loading, ScapyInvalidPlatformException
 from scapy.arch.common import get_if, get_bpf_pointer
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
@@ -574,15 +574,6 @@ class L3PacketSocket(L2Socket):
                 raise
 
 
-conf.L3socket = L3PacketSocket
-conf.L2socket = L2Socket
-conf.L2listen = L2ListenSocket
-
-
-class ScapyInvalidPlatformException(Scapy_Exception):
-    pass
-
-
 class VEthPair(object):
     """
     encapsulates a virtual Ethernet interface pair
@@ -592,7 +583,9 @@ class VEthPair(object):
 
         if not LINUX:
             # ToDo: do we need a kernel version check here?
-            raise ScapyInvalidPlatformException('virtual Ethernet interface pair only available on Linux')  # noqa: E501
+            raise ScapyInvalidPlatformException(
+                'Virtual Ethernet interface pair only available on Linux'
+            )
 
         self.ifaces = [iface_name, peer_name]
 

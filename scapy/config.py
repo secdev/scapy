@@ -16,10 +16,10 @@ import socket
 import sys
 
 from scapy import VERSION, base_classes
-from scapy.consts import DARWIN
+from scapy.consts import DARWIN, WINDOWS, LINUX
 from scapy.data import ETHER_TYPES, IP_PROTOS, TCP_SERVICES, UDP_SERVICES, \
     MANUFDB
-from scapy.error import log_scapy
+from scapy.error import log_scapy, warning, ScapyInvalidPlatformException
 from scapy.modules import six
 from scapy.themes import NoTheme, apply_ipython_style
 
@@ -59,6 +59,7 @@ class Interceptor(object):
         self.hook = hook
         self.args = args if args is not None else []
         self.kargs = kargs if kargs is not None else {}
+        self.locked = False
 
     def __get__(self, obj, typ=None):
         if not hasattr(obj, self.intname):
@@ -67,7 +68,11 @@ class Interceptor(object):
 
     def __set__(self, obj, val):
         setattr(obj, self.intname, val)
-        self.hook(self.name, val, *self.args, **self.kargs)
+        if not self.locked:
+            # We allow the hook to edit the field
+            self.locked = True
+            self.hook(self.name, val, *self.args, **self.kargs)
+            self.locked = False
 
 
 class ProgPath(ConfClass):
@@ -422,6 +427,66 @@ def _prompt_changer(attr, val):
         pass
 
 
+def _set_conf_sockets():
+    """Populate the conf.L2Socket and conf.L3Socket
+    according to the various use_* parameters
+    """
+    if conf.use_pcap or conf.use_dnet or conf.use_winpcapy:
+        if conf.use_winpcapy and not WINDOWS:
+            conf.use_winpcapy = False
+            raise ScapyInvalidPlatformException
+        try:
+            from scapy.arch.pcapdnet import L2pcapListenSocket, L2pcapSocket, \
+                L3pcapSocket
+        except ImportError:
+            warning("No pcap provider available ! pcap won't be used")
+            conf.use_pcap = False
+            conf.use_winpcapy = False
+        else:
+            conf.L2listen = L2pcapListenSocket
+            conf.L2socket = L2pcapSocket
+            conf.L3socket = L3pcapSocket
+            return
+    if conf.use_bpf:
+        if not DARWIN:
+            conf.use_bpf = False
+            raise ScapyInvalidPlatformException
+        from scapy.arch.bpf.supersocket import L2bpfListenSocket, \
+            L2bpfSocket, L3bpfSocket
+        conf.L2listen = L2bpfListenSocket
+        conf.L2socket = L2bpfSocket
+        conf.L3socket = L3bpfSocket
+        return
+    if LINUX:
+        from scapy.arch.linux import L3PacketSocket, L2Socket, L2ListenSocket
+        conf.L3socket = L3PacketSocket
+        conf.L2socket = L2Socket
+        conf.L2listen = L2ListenSocket
+        return
+    if WINDOWS:  # Should have been conf.use_winpcapy
+        from scapy.arch.windows import _NotAvailableSocket
+        conf.L2socket = _NotAvailableSocket
+        conf.L2listen = _NotAvailableSocket
+        conf.L3socket = _NotAvailableSocket
+        return
+    from scapy.supersocket import L3RawSocket
+    conf.L3socket = L3RawSocket
+
+
+def _socket_changer(attr, val):
+    if not isinstance(val, bool):
+        raise TypeError("This argument should be a boolean")
+    if val:  # Only if True
+        dependencies = {
+            "use_pcap": ["use_bpf", "use_winpcapy"],
+            "use_bpf": ["use_pcap"],
+            "use_winpcapy": ["use_pcap", "use_dnet"],
+        }
+        for param in dependencies[attr]:
+            setattr(conf, param, False)
+    _set_conf_sockets()
+
+
 class Conf(ConfClass):
     """This object contains the configuration of Scapy.
 session  : filename where the session will be saved
@@ -508,10 +573,15 @@ recv_poll_rate: how often to check for new packets. Defaults to 0.05s.
     noenum = Resolve()
     emph = Emphasize()
     use_pypy = isPyPy()
-    use_pcap = os.getenv("SCAPY_USE_PCAPDNET", "").lower().startswith("y")
+    use_pcap = Interceptor(
+        "use_pcap",
+        os.getenv("SCAPY_USE_PCAPDNET", "").lower().startswith("y"),
+        _socket_changer
+    )
+    # XXX use_dnet is deprecated
     use_dnet = os.getenv("SCAPY_USE_PCAPDNET", "").lower().startswith("y")
-    use_bpf = False
-    use_winpcapy = False
+    use_bpf = Interceptor("use_bpf", False, _socket_changer)
+    use_winpcapy = Interceptor("use_winpcapy", False, _socket_changer)
     use_npcap = False
     ipv6_enabled = socket.has_ipv6
     ethertypes = ETHER_TYPES

@@ -71,7 +71,7 @@ def main(argv):
         except KeyboardInterrupt:
             raise
         except Exception as e:
-            print("Dissection error on packet %i" % i)
+            print("Dissection error on packet %i: %s" % (i, e))
             failed += 1
         else:
             if p1 == p2:
