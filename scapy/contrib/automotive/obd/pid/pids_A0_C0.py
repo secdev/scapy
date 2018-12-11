@@ -11,7 +11,7 @@ from scapy.packet import Packet
 # See https://en.wikipedia.org/wiki/OBD-II_PIDs for further information
 # PID = Parameter IDentification
 
-class PidA0_S1AndS2(Packet):
+class OBD_PIDA0(Packet):
     name = "PID_A0_PidsSupported"
     fields_desc = [
         FlagsField('supportedPids', 0, 32, [
@@ -51,49 +51,49 @@ class PidA0_S1AndS2(Packet):
     ]
 
 
-class PidA1_S1AndS2(Packet):
+class OBD_PIDA1(Packet):
     name = "PID_A1_NoxSensorCorrectedData"
     fields_desc = [
         StrFixedLenField('data', b'', 9)
     ]
 
 
-class PidA2_S1AndS2(Packet):
+class OBD_PIDA2(Packet):
     name = "PID_A2_CylinderFuelRate"
     fields_desc = [
         StrFixedLenField('data', b'', 2)
     ]
 
 
-class PidA3_S1AndS2(Packet):
+class OBD_PIDA3(Packet):
     name = "PID_A3_EvapSystemVaporPressure"
     fields_desc = [
         StrFixedLenField('data', b'', 9)
     ]
 
 
-class PidA4_S1AndS2(Packet):
+class OBD_PIDA4(Packet):
     name = "PID_A4_TransmissionActualGear"
     fields_desc = [
         StrFixedLenField('data', b'', 4)
     ]
 
 
-class PidA5_S1AndS2(Packet):
+class OBD_PIDA5(Packet):
     name = "PID_A5_DieselExhaustFluidDosing"
     fields_desc = [
         StrFixedLenField('data', b'', 4)
     ]
 
 
-class PidA6_S1AndS2(Packet):
+class OBD_PIDA6(Packet):
     name = "PID_A6_Odometer"
     fields_desc = [
         StrFixedLenField('data', b'', 4)
     ]
 
 
-class PidC0_S1AndS2(Packet):
+class OBD_PIDC0(Packet):
     name = "PID_C0_PidsSupported"
     fields_desc = [
         FlagsField('supportedPids', 0, 32, [

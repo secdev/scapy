@@ -8,25 +8,25 @@ from scapy.fields import FieldLenField, FieldListField, StrFixedLenField
 from scapy.packet import Packet
 
 
-# See https://en.wikipedia.org/wiki/OBD-II_PIDs for further information
-# PID = Parameter IDentification
+# See https://en.wikipedia.org/wiki/OBD-II_IIDs for further information
+# IID = Information IDentification
 
-class Pid00_S9(Packet):
-    name = "PID_00_Service9SupportedPids"
+class OBD_IID00(Packet):
+    name = "IID_00_Service9SupportedInformationTypes"
     fields_desc = [
         StrFixedLenField('data', b'', 4)
     ]
 
 
-class Pid01_S9(Packet):
-    name = "PID_01_VinMessageCount"
+class OBD_IID01(Packet):
+    name = "IID_01_VinMessageCount"
     fields_desc = [
         StrFixedLenField('data', b'', 1)
     ]
 
 
-class Pid02_S9(Packet):
-    name = "PID_02_VehicleIdentificationNumber"
+class OBD_IID02(Packet):
+    name = "IID_02_VehicleIdentificationNumber"
     fields_desc = [
         FieldLenField('count', None, count_of='data', fmt='B'),
         # 17 = Length of VIN
@@ -36,15 +36,15 @@ class Pid02_S9(Packet):
     ]
 
 
-class Pid03_S9(Packet):
-    name = "PID_03_CalibrationIdMessageCount"
+class OBD_IID03(Packet):
+    name = "IID_03_CalibrationIdMessageCount"
     fields_desc = [
         StrFixedLenField('data', b'', 1)
     ]
 
 
-class Pid04_S9(Packet):
-    name = "PID_04_CalibrationId"
+class OBD_IID04(Packet):
+    name = "IID_04_CalibrationId"
     fields_desc = [
         FieldLenField('count', None, count_of='data', fmt='B'),
         # 16 = Length of CID
@@ -54,43 +54,43 @@ class Pid04_S9(Packet):
     ]
 
 
-class Pid05_S9(Packet):
-    name = "PID_05_CalibrationVerificationNumbersMessageCount"
+class OBD_IID05(Packet):
+    name = "IID_05_CalibrationVerificationNumbersMessageCount"
     fields_desc = [
         StrFixedLenField('data', b'', 1)
     ]
 
 
-class Pid06_S9(Packet):
-    name = "PID_06_CalibrationVerificationNumbers"
+class OBD_IID06(Packet):
+    name = "IID_06_CalibrationVerificationNumbers"
     fields_desc = [
         StrFixedLenField('data', b'', 4)
     ]
 
 
-class Pid07_S9(Packet):
-    name = "PID_07_InUsePerformanceTrackingMessageCount"
+class OBD_IID07(Packet):
+    name = "IID_07_InUsePerformanceTrackingMessageCount"
     fields_desc = [
         StrFixedLenField('data', b'', 1)
     ]
 
 
-class Pid08_S9(Packet):
-    name = "PID_08_InUsePerformanceTracking"
+class OBD_IID08(Packet):
+    name = "IID_08_InUsePerformanceTracking"
     fields_desc = [
         StrFixedLenField('data', b'', 4)
     ]
 
 
-class Pid09_S9(Packet):
-    name = "PID_09_EcuNameMessageCount"
+class OBD_IID09(Packet):
+    name = "IID_09_EcuNameMessageCount"
     fields_desc = [
         StrFixedLenField('data', b'', 1)
     ]
 
 
-class Pid0A_S9(Packet):
-    name = "PID_0A_EcuName"
+class OBD_IID0A(Packet):
+    name = "IID_0A_EcuName"
     fields_desc = [
         FieldLenField('count', None, count_of='data', fmt='B'),
         # 20 = Length of ECU-name
@@ -100,8 +100,8 @@ class Pid0A_S9(Packet):
     ]
 
 
-class Pid0B_S9(Packet):
-    name = "PID_0B_InUsePerformanceTrackingForCompressionIgnitionVehicles"
+class OBD_IID0B(Packet):
+    name = "IID_0B_InUsePerformanceTrackingForCompressionIgnitionVehicles"
     fields_desc = [
         StrFixedLenField('data', b'', 4)
     ]
