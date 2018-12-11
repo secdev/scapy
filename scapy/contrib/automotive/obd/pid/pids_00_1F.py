@@ -81,60 +81,60 @@ class Pid01_S1AndS2(Packet):
         return pkt.ignitionType == 1
 
     fields_desc = [
-        BitEnumField('MIL', b'', 1, onOff),
-        BitField('DTC_Count', b'', 7),
+        BitEnumField('MIL', 0, 1, onOff),
+        BitField('DTC_Count', 0, 7),
 
-        BitField('reserved', b'', 1),
-        BitEnumField('componentsCompleteness', b'', 1, completeness),
-        BitEnumField('fuelSystemCompleteness', b'', 1, completeness),
-        BitEnumField('misfireCompleteness', b'', 1, completeness),
+        BitField('reserved', 0, 1),
+        BitEnumField('componentsCompleteness', 0, 1, completeness),
+        BitEnumField('fuelSystemCompleteness', 0, 1, completeness),
+        BitEnumField('misfireCompleteness', 0, 1, completeness),
 
-        BitEnumField('componentsAvailability', b'', 1, availability),
-        BitEnumField('ignitionType', b'', 1, ignitionTypes),
-        BitEnumField('fuelSystemAvailability', b'', 1, availability),
-        BitEnumField('misfireAvailability', b'', 1, availability),
+        BitEnumField('componentsAvailability', 0, 1, availability),
+        BitEnumField('ignitionType', 0, 1, ignitionTypes),
+        BitEnumField('fuelSystemAvailability', 0, 1, availability),
+        BitEnumField('misfireAvailability', 0, 1, availability),
 
         # Spark
         # Availability
-        ConditionalField(BitEnumField('egrSystemAvailability', b'', 1, availability), lambda pkt: pkt.ignitionType == 0),
-        ConditionalField(BitEnumField('oxygenSensorHeaterAvailability', b'', 1, availability), lambda pkt: pkt.ignitionType == 0),
-        ConditionalField(BitEnumField('oxygenSensorAvailability', b'', 1, availability), lambda pkt: pkt.ignitionType == 0),
-        ConditionalField(BitEnumField('acRefrigerantAvailability', b'', 1, availability), lambda pkt: pkt.ignitionType == 0),
-        ConditionalField(BitEnumField('secondaryAirSystemAvailability', b'', 1, availability), lambda pkt: pkt.ignitionType == 0),
-        ConditionalField(BitEnumField('evaporativeSystemAvailability', b'', 1, availability), lambda pkt: pkt.ignitionType == 0),
-        ConditionalField(BitEnumField('heatedCatalystAvailability', b'', 1, availability), lambda pkt: pkt.ignitionType == 0),
-        ConditionalField(BitEnumField('catalystAvailability', b'', 1, availability), lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('egrSystemAvailability', 0, 1, availability), lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('oxygenSensorHeaterAvailability', 0, 1, availability), lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('oxygenSensorAvailability', 0, 1, availability), lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('acRefrigerantAvailability', 0, 1, availability), lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('secondaryAirSystemAvailability', 0, 1, availability), lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('evaporativeSystemAvailability', 0, 1, availability), lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('heatedCatalystAvailability', 0, 1, availability), lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('catalystAvailability', 0, 1, availability), lambda pkt: pkt.ignitionType == 0),
 
         # Completeness
-        ConditionalField(BitEnumField('egrSystemCompleteness', b'', 1, completeness), lambda pkt: pkt.ignitionType == 0),
-        ConditionalField(BitEnumField('oxygenSensorHeaterCompleteness', b'', 1, completeness), lambda pkt: pkt.ignitionType == 0),
-        ConditionalField(BitEnumField('oxygenSensorCompleteness', b'', 1, completeness), lambda pkt: pkt.ignitionType == 0),
-        ConditionalField(BitEnumField('acRefrigerantCompleteness', b'', 1, completeness), lambda pkt: pkt.ignitionType == 0),
-        ConditionalField(BitEnumField('secondaryAirSystemCompleteness', b'', 1, completeness), lambda pkt: pkt.ignitionType == 0),
-        ConditionalField(BitEnumField('evaporativeSystemCompleteness', b'', 1, completeness), lambda pkt: pkt.ignitionType == 0),
-        ConditionalField(BitEnumField('heatedCatalystCompleteness', b'', 1, completeness), lambda pkt: pkt.ignitionType == 0),
-        ConditionalField(BitEnumField('catalystCompleteness', b'', 1, completeness), lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('egrSystemCompleteness', 0, 1, completeness), lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('oxygenSensorHeaterCompleteness', 0, 1, completeness), lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('oxygenSensorCompleteness', 0, 1, completeness), lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('acRefrigerantCompleteness', 0, 1, completeness), lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('secondaryAirSystemCompleteness', 0, 1, completeness), lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('evaporativeSystemCompleteness', 0, 1, completeness), lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('heatedCatalystCompleteness', 0, 1, completeness), lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('catalystCompleteness', 0, 1, completeness), lambda pkt: pkt.ignitionType == 0),
 
         # Compression
         # Availability
-        ConditionalField(BitEnumField('egrVvtSystemAvailability', b'', 1, availability), lambda pkt: pkt.ignitionType == 1),
-        ConditionalField(BitEnumField('pmFilterMonitoringAvailability', b'', 1, availability), lambda pkt: pkt.ignitionType == 1),
-        ConditionalField(BitEnumField('exhaustGasSensorAvailability', b'', 1, availability), lambda pkt: pkt.ignitionType == 1),
-        ConditionalField(BitEnumField('Reserved1', b'', 1, availability), lambda pkt: pkt.ignitionType == 1),
-        ConditionalField(BitEnumField('boostPressureAvailability', b'', 1, availability), lambda pkt: pkt.ignitionType == 1),
-        ConditionalField(BitEnumField('Reserved2', b'', 1, availability), lambda pkt: pkt.ignitionType == 1),
-        ConditionalField(BitEnumField('noxScrMonitorAvailability', b'', 1, availability), lambda pkt: pkt.ignitionType == 1),
-        ConditionalField(BitEnumField('nmhcCatalystAvailability', b'', 1, availability), lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('egrVvtSystemAvailability', 0, 1, availability), lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('pmFilterMonitoringAvailability', 0, 1, availability), lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('exhaustGasSensorAvailability', 0, 1, availability), lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('Reserved1', 0, 1, availability), lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('boostPressureAvailability', 0, 1, availability), lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('Reserved2', 0, 1, availability), lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('noxScrMonitorAvailability', 0, 1, availability), lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('nmhcCatalystAvailability', 0, 1, availability), lambda pkt: pkt.ignitionType == 1),
 
         # Completeness
-        ConditionalField(BitEnumField('egrVvtSystemCompleteness', b'', 1, completeness), lambda pkt: pkt.ignitionType == 1),
-        ConditionalField(BitEnumField('pmFilterMonitoringCompleteness', b'', 1, completeness), lambda pkt: pkt.ignitionType == 1),
-        ConditionalField(BitEnumField('exhaustGasSensorCompleteness', b'', 1, completeness), lambda pkt: pkt.ignitionType == 1),
-        ConditionalField(BitEnumField('Reserved1', b'', 1, completeness), lambda pkt: pkt.ignitionType == 1),
-        ConditionalField(BitEnumField('boostPressureCompleteness', b'', 1, completeness), lambda pkt: pkt.ignitionType == 1),
-        ConditionalField(BitEnumField('Reserved2', b'', 1, completeness), lambda pkt: pkt.ignitionType == 1),
-        ConditionalField(BitEnumField('noxScrMonitorCompleteness', b'', 1, completeness), lambda pkt: pkt.ignitionType == 1),
-        ConditionalField(BitEnumField('nmhcCatalystCompleteness', b'', 1, completeness), lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('egrVvtSystemCompleteness', 0, 1, completeness), lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('pmFilterMonitoringCompleteness', 0, 1, completeness), lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('exhaustGasSensorCompleteness', 0, 1, completeness), lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('Reserved1', 0, 1, completeness), lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('boostPressureCompleteness', 0, 1, completeness), lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('Reserved2', 0, 1, completeness), lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('noxScrMonitorCompleteness', 0, 1, completeness), lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('nmhcCatalystCompleteness', 0, 1, completeness), lambda pkt: pkt.ignitionType == 1),
     ]
 
 
@@ -157,8 +157,8 @@ class Pid03_S1AndS2(Packet):
     }
 
     fields_desc = [
-        XByteEnumField('fuelSystem1', b'', loopStates),
-        XByteEnumField('fuelSystem2', b'', loopStates)
+        XByteEnumField('fuelSystem1', 0, loopStates),
+        XByteEnumField('fuelSystem2', 0, loopStates)
     ]
 
 
@@ -271,7 +271,7 @@ class Pid12_S1AndS2(Packet):
     }
 
     fields_desc = [
-        XByteEnumField('data', b'', states)
+        XByteEnumField('data', 0, states)
     ]
 
 
@@ -386,7 +386,7 @@ class Pid1C_S1AndS2(Packet):
     }
 
     fields_desc = [
-        XByteEnumField('data', b'', obdStandards)
+        XByteEnumField('data', 0, obdStandards)
     ]
 
 

@@ -41,7 +41,7 @@ class NegativeResponseOBD(Packet):
 
     fields_desc = [
         XByteField('requestedService', 0),
-        XByteEnumField('responseCode', b'', responses)
+        XByteEnumField('responseCode', 0, responses)
     ]
 
     def hashret(self):

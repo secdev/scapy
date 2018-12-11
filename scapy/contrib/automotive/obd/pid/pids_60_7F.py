@@ -10,7 +10,7 @@ from scapy.packet import Packet
 class Pid60_S1AndS2(Packet):
     name = "PID_60_PidsSupported"
     fields_desc = [
-        FlagsField('supportedPids', b'', 32, [
+        FlagsField('supportedPids', 0, 32, [
             'Pid80',
             'Pid7F',
             'Pid7E',
@@ -212,8 +212,8 @@ class Pid77_S1AndS2(Packet):
 class Pid78_S1AndS2(Packet):
     name = "PID_78_ExhaustGasTemperatureBank1"
     fields_desc = [
-        BitField('reserved', b'', 4),
-        FlagsField('supportedSensors', b'', 4, ['Sensor1', 'Sensor2', 'Sensor3', 'Sensor4']),
+        BitField('reserved', 0, 4),
+        FlagsField('supportedSensors', 0, 4, ['Sensor1', 'Sensor2', 'Sensor3', 'Sensor4']),
         XShortField('temperature1', b''),
         XShortField('temperature2', b''),
         XShortField('temperature3', b''),
@@ -224,8 +224,8 @@ class Pid78_S1AndS2(Packet):
 class Pid79_S1AndS2(Packet):
     name = "PID_79_ExhaustGasTemperatureBank2"
     fields_desc = [
-        BitField('reserved', b'', 4),
-        FlagsField('supportedSensors', b'', 4, ['Sensor1', 'Sensor2', 'Sensor3', 'Sensor4']),
+        BitField('reserved', 0, 4),
+        FlagsField('supportedSensors', 0, 4, ['Sensor1', 'Sensor2', 'Sensor3', 'Sensor4']),
         XShortField('temperature1', b''),
         XShortField('temperature2', b''),
         XShortField('temperature3', b''),
