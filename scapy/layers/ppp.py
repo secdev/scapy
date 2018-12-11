@@ -41,15 +41,60 @@ class PPPoE(Packet):
         return p
 
 
+# PPPoE Active Discovery Code fields (RFC2516, RFC5578)
 class PPPoED(PPPoE):
     name = "PPP over Ethernet Discovery"
+
+    code_list = {0x00: "PPP Session Stage",
+                 0x09: "PPPoE Active Discovery Initiation (PADI)",
+                 0x07: "PPPoE Active Discovery Offer (PADO)",
+                 0x0a: "PPPoE Active Discovery Session-Grant (PADG)",
+                 0x0b: "PPPoE Active Discovery Session-Credit Response (PADC)",
+                 0x0c: "PPPoE Active Discovery Quality (PADQ)",
+                 0x19: "PPPoE Active Discovery Request (PADR)",
+                 0x65: "PPPoE Active Discovery Session-confirmation (PADS)",
+                 0xa7: "PPPoE Active Discovery Terminate (PADT)"}
+
     fields_desc = [BitField("version", 1, 4),
                    BitField("type", 1, 4),
-                   ByteEnumField("code", 0x09, {0x09: "PADI", 0x07: "PADO",
-                                                0x19: "PADR", 0x65: "PADS",
-                                                0xa7: "PADT"}),
+                   ByteEnumField("code", 0x09, code_list),
                    XShortField("sessionid", 0x0),
                    ShortField("len", None)]
+
+
+# PPPoE Tag types (RFC2516, RFC4638, RFC5578)
+class PPPoETag(Packet):
+    name = "PPPoE Tag"
+
+    tag_list = {0x0000: 'End-Of-List',
+                0x0101: 'Service-Name',
+                0x0102: 'AC-Name',
+                0x0103: 'Host-Uniq',
+                0x0104: 'AC-Cookie',
+                0x0105: 'Vendor-Specific',
+                0x0106: 'Credits',
+                0x0107: 'Metrics',
+                0x0108: 'Sequence Number',
+                0x0109: 'Credit Scale Factor',
+                0x0110: 'Relay-Session-Id',
+                0x0120: 'PPP-Max-Payload',
+                0x0201: 'Service-Name-Error',
+                0x0202: 'AC-System-Error',
+                0x0203: 'Generic-Error'}
+
+    fields_desc = [
+        ShortEnumField('tag_type', None, tag_list),
+        FieldLenField('tag_len', None, length_of='tag_value', fmt='H'),
+        StrLenField('tag_value', '', length_from=lambda pkt:pkt.tag_len)
+    ]
+
+    def extract_padding(self, s):
+        return '', s
+
+
+class PPPoED_Tags(Packet):
+    name = "PPPoE Tag List"
+    fields_desc = [PacketListField('tag_list', None, PPPoETag)]
 
 
 _PPP_PROTOCOLS = {
@@ -824,6 +869,7 @@ class PPP_CHAP_ChallengeResponse(PPP_CHAP):
             return super(PPP_CHAP_ChallengeResponse, self).mysummary()
 
 
+bind_layers(PPPoED, PPPoED_Tags, type=1)
 bind_layers(Ether, PPPoED, type=0x8863)
 bind_layers(Ether, PPPoE, type=0x8864)
 bind_layers(CookedLinux, PPPoED, proto=0x8863)
