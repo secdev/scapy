@@ -395,7 +395,7 @@ assert b[1:2] == b'\x0A'
 
 = Check building a response for Service 01 Pid 75
 
-p = OBD(service=0x41)/OBD_S01()/Pid75_S1AndS2(data=b'ABCDEFG')
+p = OBD(service=0x41)/OBD_S01()/OBD_PID75(data=b'ABCDEFG')
 b = bytes(p)
 assert b[0:1] == b'\x41'
 assert b[1:2] == b'\x75'
@@ -405,7 +405,7 @@ assert b[2:] == b'ABCDEFG'
 # fixme
 #= Check building a response for Service 01 Pid 78
 
-#p = OBD(service=0x41)/OBD_S01()/Pid78_S1AndS2(data=b'ABCDEFGHI')
+#p = OBD(service=0x41)/OBD_S01()/OBD_PID78(data=b'ABCDEFGHI')
 #b = bytes(p)
 #assert b[0:1] == b'\x41'
 #assert b[1:2] == b'\x78'
@@ -414,7 +414,7 @@ assert b[2:] == b'ABCDEFG'
 
 = Check building a response for Service 01 Pid 7F
 
-p = OBD(service=0x41)/OBD_S01()/Pid7F_S1AndS2(data=b'ABCDEFGHIKLMN')
+p = OBD(service=0x41)/OBD_S01()/OBD_PID7F(data=b'ABCDEFGHIKLMN')
 b = bytes(p)
 assert b[0:1] == b'\x41'
 assert b[1:2] == b'\x7F'
@@ -423,7 +423,7 @@ assert b[2:] == b'ABCDEFGHIKLMN'
 
 = Check building a response for Service 01 Pid 89
 
-p = OBD(service=0x41)/OBD_S01()/Pid89_S1AndS2(data=b'ABCDEFGHIKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOP')
+p = OBD(service=0x41)/OBD_S01()/OBD_PID89(data=b'ABCDEFGHIKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOP')
 b = bytes(p)
 assert b[0:1] == b'\x41'
 assert b[1:2] == b'\x89'
@@ -432,7 +432,7 @@ assert b[2:] == b'ABCDEFGHIKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOP'
 
 = Check building a response for Service 02 Pid 75
 
-p = OBD(service=0x42)/OBD_S02(frameNo=0x01)/Pid75_S1AndS2(data=b'ABCDEFG')
+p = OBD(service=0x42)/OBD_S02(frameNo=0x01)/OBD_PID75(data=b'ABCDEFG')
 b = bytes(p)
 assert b[0:1] == b'\x42'
 assert b[1:2] == b'\x75'
@@ -443,7 +443,7 @@ assert b[3:] == b'ABCDEFG'
 # fixme
 #= Check building a response for Service 02 Pid 78
 #
-#p = OBD(service=0x42)/OBD_S02(frameNo=0x01)/Pid78_S1AndS2(data=b'ABCDEFGHI')
+#p = OBD(service=0x42)/OBD_S02(frameNo=0x01)/OBD_PID78(data=b'ABCDEFGHI')
 #b = bytes(p)
 #assert b[0:1] == b'\x42'
 #assert b[1:2] == b'\x78'
@@ -453,7 +453,7 @@ assert b[3:] == b'ABCDEFG'
 
 = Check building a response for Service 02 Pid 7F
 
-p = OBD(service=0x42)/OBD_S02(frameNo=0x01)/Pid7F_S1AndS2(data=b'ABCDEFGHIKLMN')
+p = OBD(service=0x42)/OBD_S02(frameNo=0x01)/OBD_PID7F(data=b'ABCDEFGHIKLMN')
 b = bytes(p)
 assert b[0:1] == b'\x42'
 assert b[1:2] == b'\x7F'
@@ -463,7 +463,7 @@ assert b[3:] == b'ABCDEFGHIKLMN'
 
 = Check building a response for Service 02 Pid 89
 
-p = OBD(service=0x42)/OBD_S02(frameNo=0x01)/Pid89_S1AndS2(data=b'ABCDEFGHIKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOP')
+p = OBD(service=0x42)/OBD_S02(frameNo=0x01)/OBD_PID89(data=b'ABCDEFGHIKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOP')
 b = bytes(p)
 assert b[0:1] == b'\x42'
 assert b[1:2] == b'\x89'
@@ -481,7 +481,7 @@ assert b[3:] == b'ABCDEFGHIKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOP'
 
 = Check building a response for Service 09 Pid 00
 
-p = OBD(service=0x49)/OBD_S09()/Pid00_S9(data=b'ABCD')
+p = OBD(service=0x49)/OBD_S09()/OBD_IID00(data=b'ABCD')
 b = bytes(p)
 assert b[0:1] == b'\x49'
 assert b[1:2] == b'\x00'
@@ -490,7 +490,7 @@ assert b[2:] == b'ABCD'
 
 = Check building a response for Service 09 Pid 02 with one VIN
 
-p = OBD(service=0x49)/OBD_S09()/Pid02_S9(data=b'W0L000051T2123456')
+p = OBD(service=0x49)/OBD_S09()/OBD_IID02(data=b'W0L000051T2123456')
 b = bytes(p)
 assert b[0:1] == b'\x49'
 assert b[1:2] == b'\x02'
@@ -500,7 +500,7 @@ assert b[3:] == b'W0L000051T2123456'
 
 = Check building a response for Service 09 Pid 02 with two VINs
 
-p = OBD(service=0x49)/OBD_S09()/Pid02_S9(data=[b'W0L000051T2123456', b'W0L000051T2123456'])
+p = OBD(service=0x49)/OBD_S09()/OBD_IID02(data=[b'W0L000051T2123456', b'W0L000051T2123456'])
 b = bytes(p)
 assert b[0:1] == b'\x49'
 assert b[1:2] == b'\x02'
@@ -511,7 +511,7 @@ assert b[20:] == b'W0L000051T2123456'
 
 = Check building a response for Service 09 Pid 04 with one CID
 
-p = OBD(service=0x49)/OBD_S09()/Pid04_S9(data=b'ABCDEFGHIJKLMNOP')
+p = OBD(service=0x49)/OBD_S09()/OBD_IID04(data=b'ABCDEFGHIJKLMNOP')
 b = bytes(p)
 assert b[0:1] == b'\x49'
 assert b[1:2] == b'\x04'
@@ -521,7 +521,7 @@ assert b[3:] == b'ABCDEFGHIJKLMNOP'
 
 = Check building a response for Service 09 Pid 04 with two CID
 
-p = OBD(service=0x49)/OBD_S09()/Pid04_S9(data=[b'ABCDEFGHIJKLMNOP', b'ABCDEFGHIJKLMNOP'])
+p = OBD(service=0x49)/OBD_S09()/OBD_IID04(data=[b'ABCDEFGHIJKLMNOP', b'ABCDEFGHIJKLMNOP'])
 b = bytes(p)
 assert b[0:1] == b'\x49'
 assert b[1:2] == b'\x04'
@@ -532,7 +532,7 @@ assert b[19:] == b'ABCDEFGHIJKLMNOP'
 
 = Check building a response for Service 09 Pid 0A
 
-p = OBD(service=0x49)/OBD_S09()/Pid0A_S9(data=b'ABCDEFGHIJKLMNOPQRST')
+p = OBD(service=0x49)/OBD_S09()/OBD_IID0A(data=b'ABCDEFGHIJKLMNOPQRST')
 b = bytes(p)
 assert b[0:1] == b'\x49'
 assert b[1:2] == b'\x0A'
