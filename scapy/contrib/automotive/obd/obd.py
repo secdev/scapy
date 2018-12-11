@@ -1,5 +1,7 @@
 #! /usr/bin/env python
 
+import struct
+
 # TODO Refactor imports for flake
 from scapy.contrib.automotive.obd.pid.pids_00_1F import *
 from scapy.contrib.automotive.obd.pid.pids_20_3F import *
@@ -25,7 +27,6 @@ class OBD(Packet):
         0x08: 'ControlOperationRequest',
         0x09: 'VehicleInformationRequest',
         0x0A: 'PermanentDiagnosticTroubleCodesRequest',
-
         0x41: 'CurrentDataResponse',
         0x42: 'FreezeFrameDataResponse',
         0x43: 'DiagnosticTroubleCodesResponse',
@@ -35,7 +36,8 @@ class OBD(Packet):
         0x47: 'PendingDiagnosticTroubleCodesResponse',
         0x48: 'ControlOperationResponse',
         0x49: 'VehicleInformationResponse',
-        0x4A: 'PermanentDiagnosticTroubleCodesResponse'}
+        0x4A: 'PermanentDiagnosticTroubleCodesResponse',
+        0x7f: 'NegativeResponse'}
 
     name = "On-board diagnostics"
 
@@ -44,31 +46,20 @@ class OBD(Packet):
     ]
 
     def hashret(self):
-        # Negative response
         if self.service == 0x7f:
-            return self.requestedService
-
-        return self.service & ~0x40
+            return struct.pack('B', self.requestServiceId)
+        return struct.pack('B', self.service & ~0x40)
 
     def answers(self, other):
         """DEV: true if self is an answer from other"""
         if other.__class__ == self.__class__:
-            if hasattr(other, 'pid') and hasattr(self, 'pid'):
-                if other.pid != self.pid:
-                    return False
-
-            # Negative response
-            if self.service == 0x7F and self.requestedService == other.service:
-                return True
-
-            return (other.service + 0x40) == self.service
-
-        return True
+            return (other.service + 0x40) == self.service or \
+                   (self.service == 0x7f and
+                    self.requestServiceId == other.service)
+        return False
 
 
 # Service Bindings
-
-
 bind_layers(OBD, Service01, service=0x01)
 bind_layers(OBD, Service02, service=0x02)
 bind_layers(OBD, Service03, service=0x03)
@@ -78,7 +69,7 @@ bind_layers(OBD, Service06, service=0x06)
 bind_layers(OBD, Service07, service=0x07)
 bind_layers(OBD, Service09, service=0x09)
 bind_layers(OBD, Service0A, service=0x0A)
-bind_layers(OBD, NegativeResponseOBD, service=0x7F)
+bind_layers(OBD, OBD_NR, service=0x7F)
 
 bind_bottom_up(OBD, Service01, service=0x41)
 bind_bottom_up(OBD, Service02, service=0x42)
