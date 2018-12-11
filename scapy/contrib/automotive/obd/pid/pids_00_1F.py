@@ -4,8 +4,8 @@
 # Copyright (C) Nils Weiss <nils@we155.de>
 # This program is published under a GPLv2 license
 
-from scapy.fields import StrFixedLenField, BitEnumField, BitField, ConditionalField, FlagsField, \
-    XByteEnumField, XByteField
+from scapy.fields import StrFixedLenField, BitEnumField, BitField, \
+    ConditionalField, FlagsField, XByteEnumField, XByteField
 from scapy.packet import Packet
 
 
