@@ -1,13 +1,14 @@
 #! /usr/bin/env python
 
-from .pids_s1AndS2.pids_00_1F import *
-from .pids_s1AndS2.pids_20_3F import *
-from .pids_s1AndS2.pids_40_5F import *
-from .pids_s1AndS2.pids_60_7F import *
-from .pids_s1AndS2.pids_80_9F import *
-from .pids_s1AndS2.pids_A0_C0 import *
-from .pids_s9 import *
-from .services import *
+# TODO Refactor imports for flake
+from scapy.contrib.automotive.obd.pid.pids_00_1F import *
+from scapy.contrib.automotive.obd.pid.pids_20_3F import *
+from scapy.contrib.automotive.obd.pid.pids_40_5F import *
+from scapy.contrib.automotive.obd.pid.pids_60_7F import *
+from scapy.contrib.automotive.obd.pid.pids_80_9F import *
+from scapy.contrib.automotive.obd.pid.pids_A0_C0 import *
+from scapy.contrib.automotive.obd.pid.pids_s9 import *
+from scapy.contrib.automotive.obd.services import *
 from scapy.packet import Packet, bind_layers, bind_bottom_up
 from scapy.fields import XByteEnumField
 
