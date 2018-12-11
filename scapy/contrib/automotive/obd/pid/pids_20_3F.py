@@ -10,7 +10,7 @@ from scapy.packet import Packet
 class Pid20_S1AndS2(Packet):
     name = "PID_20_PidsSupported"
     fields_desc = [
-        FlagsField('supportedPids', b'', 32, [
+        FlagsField('supportedPids', 0, 32, [
             'Pid40',
             'Pid3F',
             'Pid3E',
