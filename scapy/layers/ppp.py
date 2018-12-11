@@ -49,8 +49,8 @@ class PPPoED(PPPoE):
                  0x09: "PPPoE Active Discovery Initiation (PADI)",
                  0x07: "PPPoE Active Discovery Offer (PADO)",
                  0x0a: "PPPoE Active Discovery Session-Grant (PADG)",
-                 0x0b: "PPPoE Active Discovery Session-Credit Response (PADC)", 
-                 0x0c: "PPPoE Active Discovery Quality (PADQ)", 
+                 0x0b: "PPPoE Active Discovery Session-Credit Response (PADC)",
+                 0x0c: "PPPoE Active Discovery Quality (PADQ)",
                  0x19: "PPPoE Active Discovery Request (PADR)",
                  0x65: "PPPoE Active Discovery Session-confirmation (PADS)",
                  0xa7: "PPPoE Active Discovery Terminate (PADT)"}
@@ -82,9 +82,11 @@ class PPPoETag(Packet):
                 0x0202: 'AC-System-Error',
                 0x0203: 'Generic-Error'}
 
-    fields_desc = [ ShortEnumField('tag_type', None, tag_list),
-                    FieldLenField('tag_len', None, length_of='tag_value', fmt='H'),
-                    StrLenField('tag_value', '', length_from=lambda pkt:pkt.tag_len)]
+    fields_desc = [
+        ShortEnumField('tag_type', None, tag_list),
+        FieldLenField('tag_len', None, length_of='tag_value', fmt='H'),
+        StrLenField('tag_value', '', length_from=lambda pkt:pkt.tag_len)
+    ]
 
     def extract_padding(self, s):
         return '', s
@@ -92,7 +94,7 @@ class PPPoETag(Packet):
 
 class PPPoED_Tags(Packet):
     name = "PPPoE Tag List"
-    fields_desc = [ PacketListField('tag_list', None, PPPoETag) ]
+    fields_desc = [PacketListField('tag_list', None, PPPoETag)]
 
 
 _PPP_PROTOCOLS = {
@@ -865,6 +867,7 @@ class PPP_CHAP_ChallengeResponse(PPP_CHAP):
             )
         else:
             return super(PPP_CHAP_ChallengeResponse, self).mysummary()
+
 
 bind_layers(PPPoED, PPPoED_Tags, type=1)
 bind_layers(Ether, PPPoED, type=0x8863)

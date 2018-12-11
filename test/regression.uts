@@ -1887,6 +1887,26 @@ assert(q[TCP].flags == 2)
 ############
 + Test PPP
 
+= PPPoE
+~ ppp pppoe
+p=Ether(b'\xff\xff\xff\xff\xff\xff\x08\x00\x27\xf3<5\x88c\x11\x09\x00\x00\x00\x0c\x01\x01\x00\x00\x01\x03\x00\x04\x01\x02\x03\x04\x00\x00\x00\x00')
+p
+assert(p[Ether].type==0x8863)
+assert(PPPoED in p)
+assert(p[PPPoED].version==1)
+assert(p[PPPoED].type==1)
+assert(p[PPPoED].code==0x09)
+assert(PPPoED_Tags in p)
+q=p[PPPoED_Tags]
+assert(q.tag_list is not None)
+r=q.tag_list
+assert(r[0].tag_type==0x0101)
+assert(r[1].tag_type==0x0103)
+assert(r[1].tag_len==4)
+assert(r[1].tag_value==b'\x01\x02\x03\x04')
+assert(r[2].tag_type==0x0000)
+
+
 = PPP/HDLC
 ~ ppp hdlc
 p = HDLC()/PPP()/PPP_IPCP()
