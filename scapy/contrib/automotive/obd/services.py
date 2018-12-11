@@ -101,7 +101,7 @@ class OBD_S07(Packet):
 class OBD_S09(Packet):
     name = "S9_VehicleInformation"
     fields_desc = [
-        XByteField('pid', 0)
+        XByteField('iid', 0)
     ]
 
 
