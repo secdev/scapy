@@ -27,7 +27,7 @@ class DTC(Packet):
         return '', s
 
 
-class NegativeResponseOBD(Packet):
+class OBD_NR(Packet):
     name = "NegativeResponse"
 
     responses = {
@@ -40,19 +40,9 @@ class NegativeResponseOBD(Packet):
     }
 
     fields_desc = [
-        XByteField('requestedService', 0),
+        XByteField('requestServiceId', 0),
         XByteEnumField('responseCode', 0, responses)
     ]
-
-    def hashret(self):
-        return self.requestedService
-
-    def answers(self, other):
-        """DEV: true if self is an answer from other"""
-        if other.__class__ == self.__class__:
-            return other.service == self.requestedService
-
-        return False
 
 
 class Service01(Packet):
