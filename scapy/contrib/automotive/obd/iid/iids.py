@@ -4,12 +4,12 @@
 # Copyright (C) Nils Weiss <nils@we155.de>
 # This program is published under a GPLv2 license
 
-from scapy.fields import FieldLenField, FieldListField, StrFixedLenField, \
-    ByteField, ShortField
+from scapy.fields import FieldListField, StrFixedLenField, ByteField, \
+    ShortField
 from scapy.packet import Packet
 
 
-# See https://en.wikipedia.org/wiki/OBD-II_IIDs for further information
+# See https://en.wikipedia.org/wiki/OBD-II_PIDs#Service_09 for further information
 # IID = Information IDentification
 
 class OBD_IID00(Packet):
