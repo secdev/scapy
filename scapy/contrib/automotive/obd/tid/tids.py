@@ -4,62 +4,37 @@
 # Copyright (C) Nils Weiss <nils@we155.de>
 # This program is published under a GPLv2 license
 
-from scapy.fields import StrFixedLenField, ByteField
+from scapy.fields import StrFixedLenField, ByteField, ScalingField
 from scapy.packet import Packet
-
-
-class OBD_ScalingField(ByteField):
-    __slots__ = ["scaling", "unit"]
-
-    def __init__(self, name, default, scaling, unit):
-        self.scaling = scaling
-        self.unit = unit
-        ByteField.__init__(self, name, default)
-
-    def i2m(self, pkt, x):
-        if x is None:
-            return b"\0"
-        return round(x / self.scaling)
-
-    def m2i(self, pkt, x):
-        return round(x * self.scaling, 3)
-
-    def any2i(self, pkt, x):
-        if isinstance(x, int):
-            x = self.m2i(pkt, x)
-        return x
-
-    def i2repr(self, pkt, x):
-        return "%s %s" % (self.i2h(pkt, x), self.unit)
 
 
 class _OBD_TID_Voltage(Packet):
     fields_desc = [
-        OBD_ScalingField('data_A', 0, 0.005, "V"),
-        OBD_ScalingField('data_B', 0, 0.005, "V"),
-        OBD_ScalingField('data_C', 0, 0.005, "V"),
-        OBD_ScalingField('data_D', 0, 0.005, "V"),
-        OBD_ScalingField('data_E', 0, 0.005, "V"),
+        ScalingField('data_A', 0, 0.005, "V"),
+        ScalingField('data_B', 0, 0.005, "V"),
+        ScalingField('data_C', 0, 0.005, "V"),
+        ScalingField('data_D', 0, 0.005, "V"),
+        ScalingField('data_E', 0, 0.005, "V"),
     ]
 
 
 class _OBD_TID_Time(Packet):
     fields_desc = [
-        OBD_ScalingField('data_A', 0, 0.004, "s"),
-        OBD_ScalingField('data_B', 0, 0.004, "s"),
-        OBD_ScalingField('data_C', 0, 0.004, "s"),
-        OBD_ScalingField('data_D', 0, 0.004, "s"),
-        OBD_ScalingField('data_E', 0, 0.004, "s"),
+        ScalingField('data_A', 0, 0.004, "s"),
+        ScalingField('data_B', 0, 0.004, "s"),
+        ScalingField('data_C', 0, 0.004, "s"),
+        ScalingField('data_D', 0, 0.004, "s"),
+        ScalingField('data_E', 0, 0.004, "s"),
     ]
 
 
 class _OBD_TID_Period(Packet):
     fields_desc = [
-        OBD_ScalingField('data_A', 0, 0.04, "s"),
-        OBD_ScalingField('data_B', 0, 0.04, "s"),
-        OBD_ScalingField('data_C', 0, 0.04, "s"),
-        OBD_ScalingField('data_D', 0, 0.04, "s"),
-        OBD_ScalingField('data_E', 0, 0.04, "s"),
+        ScalingField('data_A', 0, 0.04, "s"),
+        ScalingField('data_B', 0, 0.04, "s"),
+        ScalingField('data_C', 0, 0.04, "s"),
+        ScalingField('data_D', 0, 0.04, "s"),
+        ScalingField('data_E', 0, 0.04, "s"),
     ]
 
 

@@ -2155,3 +2155,28 @@ class SecondsIntField(IntField):
         elif self.use_msec:
             x = x / 1e3
         return "%s sec" % x
+
+
+class ScalingField(ByteField):
+    __slots__ = ["scaling", "unit"]
+
+    def __init__(self, name, default, scaling, unit):
+        self.scaling = scaling
+        self.unit = unit
+        ByteField.__init__(self, name, default)
+
+    def i2m(self, pkt, x):
+        if x is None:
+            return b"\0"
+        return round(x / self.scaling)
+
+    def m2i(self, pkt, x):
+        return round(x * self.scaling, 3)
+
+    def any2i(self, pkt, x):
+        if isinstance(x, int):
+            x = self.m2i(pkt, x)
+        return x
+
+    def i2repr(self, pkt, x):
+        return "%s %s" % (self.i2h(pkt, x), self.unit)
