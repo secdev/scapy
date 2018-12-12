@@ -67,6 +67,7 @@ setup(
         'scapy/contrib/automotive/gm',
         'scapy/contrib/automotive/obd',
         'scapy/contrib/automotive/obd/pid',
+        'scapy/contrib/automotive/obd/iid',
         'scapy/layers',
         'scapy/layers/tls',
         'scapy/layers/tls/crypto',
