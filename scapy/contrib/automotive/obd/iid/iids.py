@@ -48,61 +48,54 @@ class OBD_IID09(_OBD_IID_MessageCount):
 class OBD_IID02(Packet):
     name = "IID_02_VehicleIdentificationNumber"
     fields_desc = [
-        FieldLenField('count', None, count_of='vehicleIdentificationNumbers',
-                      fmt='B'),
-        FieldListField('vehicleIdentificationNumbers', None,
-                       StrFixedLenField(b'', 0, 17),
-                       count_from=lambda pkt: pkt.count)
+        ByteField('messageCount', None),
+        StrFixedLenField('vehicleIdentificationNumber', b'', 17)
     ]
 
 
 class OBD_IID04(Packet):
     name = "IID_04_CalibrationId"
     fields_desc = [
-        FieldLenField('count', None, count_of='calibrationIdentifications',
-                      fmt='B'),
+        ByteField('messageCount', 1),
         FieldListField('calibrationIdentifications', None,
                        StrFixedLenField(b'', 0, 16),
-                       count_from=lambda pkt: pkt.count)
+                       count_from=lambda pkt: len(pkt.original) / 16)
     ]
 
 
 class OBD_IID06(Packet):
     name = "IID_06_CalibrationVerificationNumbers"
     fields_desc = [
-        FieldLenField('count', None, count_of='calibrationVerificationNumbers',
-                      fmt='B'),
+        ByteField('messageCount', 1),
         FieldListField('calibrationVerificationNumbers', None,
                        StrFixedLenField(b'', 0, 4),
-                       count_from=lambda pkt: pkt.count)
+                       count_from=lambda pkt: len(pkt.original) / 4)
     ]
 
 
 class OBD_IID08(Packet):
     name = "IID_08_InUsePerformanceTracking"
     fields_desc = [
-        FieldLenField('count', None, count_of='data', fmt='B'),
+        ByteField('messageCount', 1),
         FieldListField('data', None,
                        ShortField(b'', 0),
-                       count_from=lambda pkt: pkt.count)
+                       count_from=lambda pkt: len(pkt.original) / 2)
     ]
 
 
 class OBD_IID0A(Packet):
     name = "IID_0A_EcuName"
     fields_desc = [
-        FieldLenField('count', None, count_of='ecuNames', fmt='B'),
-        FieldListField('ecuNames', None,
-                       StrFixedLenField('', 0, 20),
-                       count_from=lambda pkt: pkt.count)
+        ByteField('messageCount', 1),
+        StrFixedLenField('ecuName', b'', 20)
     ]
 
 
 class OBD_IID0B(Packet):
     name = "IID_0B_InUsePerformanceTrackingForCompressionIgnitionVehicles"
     fields_desc = [
-        FieldLenField('count', None, count_of='data', fmt='B'),
+        ByteField('messageCount', 1),
         FieldListField('data', None,
                        ShortField(b'', 0),
-                       count_from=lambda pkt: pkt.count)
+                       count_from=lambda pkt: len(pkt.original) / 2)
     ]

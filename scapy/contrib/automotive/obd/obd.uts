@@ -258,23 +258,13 @@ assert p.iid == 0x00
 assert p.data == b'ABCD'
 
 
-= Check dissecting a response for Service 09 Pid 02 with one VIN
+= Check dissecting a response for Service 09 Pid 02
 
 p = OBD(b'\x49\x02\x01W0L000051T2123456')
 assert p.service == 0x49
 assert p.iid == 0x02
-assert p.count == 0x01
-assert p.vehicleIdentificationNumbers[0] == b'W0L000051T2123456'
-
-
-= Check dissecting a response for Service 09 Pid 02 with two VINs
-
-p = OBD(b'\x49\x02\x02W0L000051T2123456W0L000051T2123456')
-assert p.service == 0x49
-assert p.iid == 0x02
-assert p.count == 0x02
-assert p.vehicleIdentificationNumbers[0] == b'W0L000051T2123456'
-assert p.vehicleIdentificationNumbers[1] == b'W0L000051T2123456'
+assert p.messageCount == 0x01
+assert p.vehicleIdentificationNumber == b'W0L000051T2123456'
 
 
 = Check dissecting a response for Service 09 Pid 04 with one CID
@@ -282,40 +272,45 @@ assert p.vehicleIdentificationNumbers[1] == b'W0L000051T2123456'
 p = OBD(b'\x49\x04\x01ABCDEFGHIJKLMNOP')
 assert p.service == 0x49
 assert p.iid == 0x04
-assert p.count == 0x01
+assert p.messageCount == 0x01
 assert p.calibrationIdentifications[0] == b'ABCDEFGHIJKLMNOP'
 
 
 = Check dissecting a response for Service 09 Pid 04 with two CID
 
-p = OBD(b'\x49\x04\x02ABCDEFGHIJKLMNOPABCDEFGHIJKLMNOP')
+p = OBD(b'\x49\x04\x01ABCDEFGHIJKLMNOPABCDEFGHIJKLMNOP')
 assert p.service == 0x49
 assert p.iid == 0x04
-assert p.count == 0x02
+assert p.messageCount == 0x01
 assert p.calibrationIdentifications[0] == b'ABCDEFGHIJKLMNOP'
 assert p.calibrationIdentifications[1] == b'ABCDEFGHIJKLMNOP'
 
 
 = Check dissecting a response for Service 09 Pid 06
 
-p = OBD(b'\x49\x06\x02ABCDEFGH')
+p = OBD(b'\x49\x06\x01ABCDEFGH')
 assert p.service == 0x49
 assert p.iid == 0x06
-assert p.count == 0x02
+assert p.messageCount == 0x01
 assert p.calibrationVerificationNumbers[0] == b'ABCD'
 assert p.calibrationVerificationNumbers[1] == b'EFGH'
 
 
 = Check dissecting a response for Service 09 Pid 08
 
-p = OBD(b'\x49\x08\x04\x00\x01\x00\x02\x00\x03\x00\x04')
+p = OBD(b'\x49\x08\x01\x00\x01\x00\x02\x00\x03\x00\x04\x00\x05\x00\x06\x00\x07\x00\x08\xFF\xFF')
 assert p.service == 0x49
 assert p.iid == 0x08
-assert p.count == 0x04
+assert p.messageCount == 0x01
 assert p.data[0] == 1
 assert p.data[1] == 2
 assert p.data[2] == 3
 assert p.data[3] == 4
+assert p.data[4] == 5
+assert p.data[5] == 6
+assert p.data[6] == 7
+assert p.data[7] == 8
+assert p.data[8] == 65535
 
 
 = Check dissecting a response for Service 09 Pid 0A
@@ -323,16 +318,16 @@ assert p.data[3] == 4
 p = OBD(b'\x49\x0A\x01ECM\x00-Engine Control\x00')
 assert p.service == 0x49
 assert p.iid == 0x0A
-assert p.count == 0x01
-assert p.ecuNames[0] == b'ECM\x00-Engine Control\x00'
+assert p.messageCount == 0x01
+assert p.ecuName == b'ECM\x00-Engine Control\x00'
 
 
 = Check dissecting a response for Service 09 Pid 0B
 
-p = OBD(b'\x49\x0B\x05\x00\x01\x00\x02\x00\x03\x00\x04\xFF\xFF')
+p = OBD(b'\x49\x0B\x01\x00\x01\x00\x02\x00\x03\x00\x04\xFF\xFF')
 assert p.service == 0x49
 assert p.iid == 0x0B
-assert p.count == 0x05
+assert p.messageCount == 0x01
 assert p.data[0] == 1
 assert p.data[1] == 2
 assert p.data[2] == 3
@@ -560,25 +555,14 @@ assert b[1:2] == b'\x00'
 assert b[2:] == b'ABCD'
 
 
-= Check building a response for Service 09 Pid 02 with one VIN
+= Check building a response for Service 09 Pid 02
 
-p = OBD(service=0x49)/OBD_S09()/OBD_IID02(vehicleIdentificationNumbers=b'W0L000051T2123456')
+p = OBD(service=0x49)/OBD_S09()/OBD_IID02(vehicleIdentificationNumber=b'W0L000051T2123456')
 b = bytes(p)
 assert b[0:1] == b'\x49'
 assert b[1:2] == b'\x02'
 assert b[2:3] == b'\x01'
 assert b[3:] == b'W0L000051T2123456'
-
-
-= Check building a response for Service 09 Pid 02 with two VINs
-
-p = OBD(service=0x49)/OBD_S09()/OBD_IID02(vehicleIdentificationNumbers=[b'W0L000051T2123456', b'W0L000051T2123456'])
-b = bytes(p)
-assert b[0:1] == b'\x49'
-assert b[1:2] == b'\x02'
-assert b[2:3] == b'\x02'
-assert b[3:20] == b'W0L000051T2123456'
-assert b[20:] == b'W0L000051T2123456'
 
 
 = Check building a response for Service 09 Pid 04 with one CID
@@ -597,16 +581,16 @@ p = OBD(service=0x49)/OBD_S09()/OBD_IID04(calibrationIdentifications=[b'ABCDEFGH
 b = bytes(p)
 assert b[0:1] == b'\x49'
 assert b[1:2] == b'\x04'
-assert b[2:3] == b'\x02'
+assert b[2:3] == b'\x01'
 assert b[3:19] == b'ABCDEFGHIJKLMNOP'
 assert b[19:] == b'ABCDEFGHIJKLMNOP'
 
 
 = Check building a response for Service 09 Pid 0A
 
-p = OBD(service=0x49)/OBD_S09()/OBD_IID0A(ecuNames=b'ABCDEFGHIJKLMNOPQRST')
+p = OBD(service=0x49)/OBD_S09()/OBD_IID0A(ecuName=b'ABCDEFGHIJKLMNOPQRST')
 b = bytes(p)
 assert b[0:1] == b'\x49'
 assert b[1:2] == b'\x0A'
-# fixme
-#assert b[2:] == b'ABCDEFGHIJKLMNOPQRST'
+assert b[2:3] == b'\x01'
+assert b[3:] == b'ABCDEFGHIJKLMNOPQRST'
