@@ -64,6 +64,46 @@ test_list_contrib()
 ~ conf
 conf.debug_dissector = True
 
+= Configuration conf.use_* LINUX
+~ linux
+
+try:
+    conf.use_winpcapy = True
+    assert False
+except:
+    True
+
+try:
+    conf.use_bpf = True
+    assert False
+except:
+    True
+
+assert not conf.use_winpcapy
+assert not conf.use_bpf
+
+= Configuration conf.use_* WINDOWS
+~ windows
+
+try:
+    conf.use_bpf = True
+    assert False
+except:
+    True
+
+assert not conf.use_bpf
+
+= Configuration conf.use_* OSX
+~ osx
+
+try:
+    conf.use_winpcapy = True
+    assert False
+except:
+    True
+
+assert not conf.use_winpcapy
+
 
 ###########
 ###########
