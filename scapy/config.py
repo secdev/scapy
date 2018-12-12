@@ -59,20 +59,20 @@ class Interceptor(object):
         self.hook = hook
         self.args = args if args is not None else []
         self.kargs = kargs if kargs is not None else {}
-        self.locked = False
 
     def __get__(self, obj, typ=None):
         if not hasattr(obj, self.intname):
             setattr(obj, self.intname, self.default)
         return getattr(obj, self.intname)
 
+    @staticmethod
+    def set_from_hook(obj, name, val):
+        int_name = "_intercepted_%s" % name
+        setattr(obj, int_name, val)
+
     def __set__(self, obj, val):
         setattr(obj, self.intname, val)
-        if not self.locked:
-            # We allow the hook to edit the field
-            self.locked = True
-            self.hook(self.name, val, *self.args, **self.kargs)
-            self.locked = False
+        self.hook(self.name, val, *self.args, **self.kargs)
 
 
 class ProgPath(ConfClass):
@@ -431,26 +431,27 @@ def _set_conf_sockets():
     """Populate the conf.L2Socket and conf.L3Socket
     according to the various use_* parameters
     """
+    if conf.use_bpf and not DARWIN:
+        Interceptor.set_from_hook(conf, "use_bpf", False)
+        raise ScapyInvalidPlatformException("Darwin (OSX) only !")
+    if conf.use_winpcapy and not WINDOWS:
+        Interceptor.set_from_hook(conf, "use_winpcapy", False)
+        raise ScapyInvalidPlatformException("Windows only !")
+    # we are already in an Interceptor hook, use Interceptor.set_from_hook
     if conf.use_pcap or conf.use_dnet or conf.use_winpcapy:
-        if conf.use_winpcapy and not WINDOWS:
-            conf.use_winpcapy = False
-            raise ScapyInvalidPlatformException
         try:
             from scapy.arch.pcapdnet import L2pcapListenSocket, L2pcapSocket, \
                 L3pcapSocket
         except ImportError:
             warning("No pcap provider available ! pcap won't be used")
-            conf.use_pcap = False
-            conf.use_winpcapy = False
+            Interceptor.set_from_hook(conf, "use_winpcapy", False)
+            Interceptor.set_from_hook(conf, "use_pcap", False)
         else:
             conf.L2listen = L2pcapListenSocket
             conf.L2socket = L2pcapSocket
             conf.L3socket = L3pcapSocket
             return
     if conf.use_bpf:
-        if not DARWIN:
-            conf.use_bpf = False
-            raise ScapyInvalidPlatformException
         from scapy.arch.bpf.supersocket import L2bpfListenSocket, \
             L2bpfSocket, L3bpfSocket
         conf.L2listen = L2bpfListenSocket
@@ -476,15 +477,23 @@ def _set_conf_sockets():
 def _socket_changer(attr, val):
     if not isinstance(val, bool):
         raise TypeError("This argument should be a boolean")
+    dependencies = {  # Things that will be turned off
+        "use_pcap": ["use_bpf", "use_winpcapy"],
+        "use_bpf": ["use_pcap"],
+        "use_winpcapy": ["use_pcap", "use_dnet"],
+    }
+    restore = {k: getattr(conf, k) for k in dependencies}
+    del restore[attr]  # This is handled directly by _set_conf_sockets
     if val:  # Only if True
-        dependencies = {
-            "use_pcap": ["use_bpf", "use_winpcapy"],
-            "use_bpf": ["use_pcap"],
-            "use_winpcapy": ["use_pcap", "use_dnet"],
-        }
         for param in dependencies[attr]:
-            setattr(conf, param, False)
-    _set_conf_sockets()
+            Interceptor.set_from_hook(conf, param, False)
+    try:
+        _set_conf_sockets()
+    except (ScapyInvalidPlatformException, ImportError) as e:
+        for key, value in restore.items():
+            Interceptor.set_from_hook(conf, key, value)
+        if isinstance(e, ScapyInvalidPlatformException):
+            raise
 
 
 class Conf(ConfClass):
