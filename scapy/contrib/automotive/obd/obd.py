@@ -14,6 +14,7 @@ from scapy.contrib.automotive.obd.pid.pids_60_7F import *
 from scapy.contrib.automotive.obd.pid.pids_80_9F import *
 from scapy.contrib.automotive.obd.pid.pids_A0_C0 import *
 from scapy.contrib.automotive.obd.iid.iids import *
+from scapy.contrib.automotive.obd.tid.tids import *
 from scapy.contrib.automotive.obd.services import *
 from scapy.packet import Packet, bind_layers, bind_bottom_up
 from scapy.fields import XByteEnumField
@@ -71,6 +72,7 @@ bind_layers(OBD, OBD_S04, service=0x04)
 bind_layers(OBD, OBD_S05, service=0x05)
 bind_layers(OBD, OBD_S06, service=0x06)
 bind_layers(OBD, OBD_S07, service=0x07)
+bind_layers(OBD, OBD_S08, service=0x08)
 bind_layers(OBD, OBD_S09, service=0x09)
 bind_layers(OBD, OBD_S0A, service=0x0A)
 
@@ -81,6 +83,7 @@ bind_bottom_up(OBD, OBD_S04, service=0x44)
 bind_bottom_up(OBD, OBD_S05, service=0x45)
 bind_bottom_up(OBD, OBD_S06, service=0x46)
 bind_bottom_up(OBD, OBD_S07, service=0x47)
+bind_bottom_up(OBD, OBD_S08, service=0x48)
 bind_bottom_up(OBD, OBD_S09, service=0x49)
 bind_bottom_up(OBD, OBD_S0A, service=0x4A)
 bind_layers(OBD, OBD_NR, service=0x7F)
@@ -423,6 +426,21 @@ bind_layers(OBD_S02, OBD_PIDA4, pid=0xA4)
 bind_layers(OBD_S02, OBD_PIDA5, pid=0xA5)
 bind_layers(OBD_S02, OBD_PIDA6, pid=0xA6)
 bind_layers(OBD_S02, OBD_PIDC0, pid=0xC0)
+
+
+# Service 08
+
+bind_layers(OBD_S08, OBD_TID00, tid=0x00)
+bind_layers(OBD_S08, OBD_TID01, tid=0x01)
+bind_layers(OBD_S08, OBD_TID02, tid=0x02)
+bind_layers(OBD_S08, OBD_TID03, tid=0x03)
+bind_layers(OBD_S08, OBD_TID04, tid=0x04)
+bind_layers(OBD_S08, OBD_TID05, tid=0x05)
+bind_layers(OBD_S08, OBD_TID06, tid=0x06)
+bind_layers(OBD_S08, OBD_TID07, tid=0x07)
+bind_layers(OBD_S08, OBD_TID08, tid=0x08)
+bind_layers(OBD_S08, OBD_TID09, tid=0x09)
+bind_layers(OBD_S08, OBD_TID0A, tid=0x0A)
 
 
 # Service 09
