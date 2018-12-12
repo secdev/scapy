@@ -25,7 +25,7 @@ assert res.answers(req)
 assert req.hashret() == res.hashret()
 
 
-= Check dissecting a a request for Service 01 Pid 00
+= Check dissecting a request for Service 01 Pid 00
 
 p = OBD(b'\x01\x00')
 assert p.service == 0x01
