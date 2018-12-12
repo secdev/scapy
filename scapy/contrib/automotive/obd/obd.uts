@@ -259,13 +259,48 @@ assert p.calibrationIdentifications[0] == b'ABCDEFGHIJKLMNOP'
 assert p.calibrationIdentifications[1] == b'ABCDEFGHIJKLMNOP'
 
 
+= Check dissecting a response for Service 09 Pid 06
+
+p = OBD(b'\x49\x06\x02ABCDEFGH')
+assert p.service == 0x49
+assert p.iid == 0x06
+assert p.count == 0x02
+assert p.calibrationVerificationNumbers[0] == b'ABCD'
+assert p.calibrationVerificationNumbers[1] == b'EFGH'
+
+
+= Check dissecting a response for Service 09 Pid 08
+
+p = OBD(b'\x49\x08\x04\x00\x01\x00\x02\x00\x03\x00\x04')
+assert p.service == 0x49
+assert p.iid == 0x08
+assert p.count == 0x04
+assert p.data[0] == 1
+assert p.data[1] == 2
+assert p.data[2] == 3
+assert p.data[3] == 4
+
+
 = Check dissecting a response for Service 09 Pid 0A
 
-p = OBD(b'\x49\x0AABCDEFGHIJKLMNOPQRST')
+p = OBD(b'\x49\x0A\x01ECM\x00-Engine Control\x00')
 assert p.service == 0x49
 assert p.iid == 0x0A
-#fixme
-#assert p.data == b'ABCDEFGHIJKLMNOPQRST'
+assert p.count == 0x01
+assert p.ecuNames[0] == b'ECM\x00-Engine Control\x00'
+
+
+= Check dissecting a response for Service 09 Pid 0B
+
+p = OBD(b'\x49\x0B\x05\x00\x01\x00\x02\x00\x03\x00\x04\xFF\xFF')
+assert p.service == 0x49
+assert p.iid == 0x0B
+assert p.count == 0x05
+assert p.data[0] == 1
+assert p.data[1] == 2
+assert p.data[2] == 3
+assert p.data[3] == 4
+assert p.data[4] == 65535
 
 
 = Check building a request for Service 01 Pid 00

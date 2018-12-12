@@ -5,7 +5,7 @@
 # This program is published under a GPLv2 license
 
 from scapy.fields import FieldLenField, FieldListField, StrFixedLenField, \
-    ByteField
+    ByteField, ShortField
 from scapy.packet import Packet
 
 
@@ -83,7 +83,7 @@ class OBD_IID08(Packet):
     fields_desc = [
         FieldLenField('count', None, count_of='data', fmt='B'),
         FieldListField('data', None,
-                       StrFixedLenField(b'', 0, 2),
+                       ShortField(b'', 0),
                        count_from=lambda pkt: pkt.count)
     ]
 
@@ -101,5 +101,8 @@ class OBD_IID0A(Packet):
 class OBD_IID0B(Packet):
     name = "IID_0B_InUsePerformanceTrackingForCompressionIgnitionVehicles"
     fields_desc = [
-        StrFixedLenField('data', b'', 4)
+        FieldLenField('count', None, count_of='data', fmt='B'),
+        FieldListField('data', None,
+                       ShortField(b'', 0),
+                       count_from=lambda pkt: pkt.count)
     ]
