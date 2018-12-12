@@ -48,7 +48,7 @@ class OBD_IID09(_OBD_IID_MessageCount):
 class OBD_IID02(Packet):
     name = "IID_02_VehicleIdentificationNumber"
     fields_desc = [
-        ByteField('messageCount', None),
+        ByteField('messageCount', 1),
         StrFixedLenField('vehicleIdentificationNumber', b'', 17)
     ]
 
