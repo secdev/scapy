@@ -213,6 +213,43 @@ assert p.service == 0x43
 #assert p.data == b'0123456789'
 
 
+= Check dissecting a response for Service 08 Tid 01
+
+p = OBD(b'\x48\x01\x00\x00"\xffd')
+assert p.service == 0x48
+assert p.tid == 0x01
+assert p.data_A == 0.0
+assert p.data_B == 0.0
+assert p.data_C == 0.17
+assert p.data_D == 1.275
+assert p.data_E == 0.5
+
+
+= Check dissecting a response for Service 08 Tid 05
+
+p = OBD(b'\x48\x05\x00\x00\x2b\xff\x7d')
+assert p.service == 0x48
+assert p.tid == 0x05
+assert p.data_A == 0.0
+assert p.data_B == 0.0
+assert p.data_C == 0.172
+assert p.data_D == 1.02
+assert p.data_E == 0.5
+
+
+= Check dissecting a response for Service 08 Tid 09
+
+p = OBD(b'\x48\x09\x00\x00\x04\x1a\x0c')
+assert p.service == 0x48
+assert p.tid == 0x09
+assert p.data_A == 0.0
+assert p.data_B == 0.0
+assert p.data_C == 0.16
+assert p.data_D == 1.04
+assert p.data_E == 0.48
+
+
+
 = Check dissecting a response for Service 09 Pid 00
 
 p = OBD(b'\x49\x00ABCD')

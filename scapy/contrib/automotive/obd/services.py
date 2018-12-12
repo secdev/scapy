@@ -98,6 +98,13 @@ class OBD_S07(Packet):
     ]
 
 
+class OBD_S08(Packet):
+    name = "S8_RequestControlOfSystem"
+    fields_desc = [
+        XByteField('tid', 0)
+    ]
+
+
 class OBD_S09(Packet):
     name = "S9_VehicleInformation"
     fields_desc = [
