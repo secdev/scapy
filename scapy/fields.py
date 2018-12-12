@@ -2158,20 +2158,23 @@ class SecondsIntField(IntField):
 
 
 class ScalingField(ByteField):
-    __slots__ = ["scaling", "unit"]
+    __slots__ = ["scaling", "unit", "offset", "ndigits"]
 
-    def __init__(self, name, default, scaling, unit):
+    def __init__(self, name, default, scaling=1.0, unit="",
+                 offset=0.0, ndigits=3):
         self.scaling = scaling
         self.unit = unit
+        self.offset = offset
+        self.ndigits = ndigits
         ByteField.__init__(self, name, default)
 
     def i2m(self, pkt, x):
         if x is None:
             return b"\0"
-        return round(x / self.scaling)
+        return round((x - self.offset) / self.scaling)
 
     def m2i(self, pkt, x):
-        return round(x * self.scaling, 3)
+        return round(x * self.scaling + self.offset, self.ndigits)
 
     def any2i(self, pkt, x):
         if isinstance(x, int):
