@@ -28,7 +28,7 @@ from zlib import crc32
 from scapy.config import conf, crypto_validator
 from scapy.data import ETHER_ANY, DLT_IEEE802_11, DLT_PRISM_HEADER, \
     DLT_IEEE802_11_RADIO
-from scapy.compat import raw, orb, chb
+from scapy.compat import raw, plain_str, orb, chb
 from scapy.packet import Packet, bind_layers, NoPayload
 from scapy.fields import ByteField, LEShortField, BitField, LEShortEnumField, \
     ByteEnumField, X3BytesField, FlagsField, LELongField, StrField, \
@@ -395,6 +395,35 @@ class Dot11Beacon(Packet):
     fields_desc = [LELongField("timestamp", 0),
                    LEShortField("beacon_interval", 0x0064),
                    FlagsField("cap", 0, 16, capability_list)]
+
+    def network_stats(self):
+        """Return a dictionary containing a summary of the Dot11
+        elements fields
+        """
+        summary = {}
+        crypto = set()
+        p = self.payload
+        while isinstance(p, Dot11Elt):
+            if p.ID == 0:
+                summary["ssid"] = plain_str(p.info)
+            elif p.ID == 3:
+                summary["channel"] = ord(p.info)
+            elif isinstance(p, Dot11EltRates):
+                summary["rates"] = p.rates
+            elif isinstance(p, Dot11EltRSN):
+                crypto.add("WPA2")
+            elif p.ID == 221:
+                if isinstance(p, Dot11EltMicrosoftWPA) or \
+                        p.info.startswith('\x00P\xf2\x01\x01\x00'):
+                    crypto.add("WPA")
+            p = p.payload
+        if not crypto:
+            if self.cap.privacy:
+                crypto.add("WEP")
+            else:
+                crypto.add("OPN")
+        summary["crypto"] = crypto
+        return summary
 
 
 _dot11_info_elts_ids = {
