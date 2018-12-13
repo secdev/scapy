@@ -15,14 +15,14 @@ from scapy.contrib.automotive.uds import UDS
 
 
 """
-BMW specific diagnostic over IP protocol implementation
+BMW specific diagnostic over IP protocol implementation ENET
 """
 
 # #########################DoIP###################################
 
 
-class DoIP(Packet):
-    name = 'DoIP'
+class ENET(Packet):
+    name = 'ENET'
     fields_desc = [
         LenField('length', None, fmt='I', adjust=lambda x: x + 2),
         ShortEnumField('type', 1, {0x01: "message",
@@ -45,10 +45,10 @@ class DoIP(Packet):
         return s[:8], s[8:]
 
 
-bind_bottom_up(TCP, DoIP, sport=6801)
-bind_bottom_up(TCP, DoIP, dport=6801)
-bind_layers(TCP, DoIP, sport=6801, dport=6801)
-bind_layers(DoIP, UDS)
+bind_bottom_up(TCP, ENET, sport=6801)
+bind_bottom_up(TCP, ENET, dport=6801)
+bind_layers(TCP, ENET, sport=6801, dport=6801)
+bind_layers(ENET, UDS)
 
 
 # ########################DoIPSocket###################################
@@ -57,4 +57,4 @@ class DoIPSocket(StreamSocket):
     def __init__(self, ip='127.0.0.1', port=6801):
         s = socket.socket()
         s.connect((ip, port))
-        StreamSocket.__init__(self, s, DoIP)
+        StreamSocket.__init__(self, s, ENET)
