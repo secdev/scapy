@@ -15,7 +15,40 @@ from scapy.packet import Packet
 class OBD_IID00(Packet):
     name = "IID_00_Service9SupportedInformationTypes"
     fields_desc = [
-        StrFixedLenField('data', b'', 4)
+        FlagsField('supportedIIDs', b'', 32, [
+            'IID20',
+            'IID1F',
+            'IID1E',
+            'IID1D',
+            'IID1C',
+            'IID1B',
+            'IID1A',
+            'IID19',
+            'IID18',
+            'IID17',
+            'IID16',
+            'IID15',
+            'IID14',
+            'IID13',
+            'IID12',
+            'IID11',
+            'IID10',
+            'IID0F',
+            'IID0E',
+            'IID0D',
+            'IID0C',
+            'IID0B',
+            'IID0A',
+            'IID09',
+            'IID08',
+            'IID07',
+            'IID06',
+            'IID05',
+            'IID04',
+            'IID03',
+            'IID02',
+            'IID01'
+        ])
     ]
 
 

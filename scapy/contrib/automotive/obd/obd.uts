@@ -249,13 +249,12 @@ assert p.data_D == 1.04
 assert p.data_E == 0.48
 
 
-
 = Check dissecting a response for Service 09 Pid 00
 
 p = OBD(b'\x49\x00ABCD')
 assert p.service == 0x49
 assert p.iid == 0x00
-assert p.data == b'ABCD'
+assert p.supportedIIDs == "IID1E+IID1A+IID18+IID17+IID12+IID0F+IID0A+IID08+IID02"
 
 
 = Check dissecting a response for Service 09 Pid 02
@@ -548,7 +547,7 @@ assert b[3:] == b'ABCDEFGHIKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOP'
 
 = Check building a response for Service 09 Pid 00
 
-p = OBD(service=0x49)/OBD_S09()/OBD_IID00(data=b'ABCD')
+p = OBD(service=0x49)/OBD_S09()/OBD_IID00(b'ABCD')
 b = bytes(p)
 assert b[0:1] == b'\x49'
 assert b[1:2] == b'\x00'
