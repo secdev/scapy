@@ -14,42 +14,42 @@ from scapy.packet import Packet
 # PID = Parameter IDentification
 
 class OBD_PID00(Packet):
-    name = "PID_00_PidsSupported"
+    name = "PID_00_PIDsSupported"
 
     fields_desc = [
-        FlagsField('supportedPids', b'', 32, [
-            'Pid20',
-            'Pid1F',
-            'Pid1E',
-            'Pid1D',
-            'Pid1C',
-            'Pid1B',
-            'Pid1A',
-            'Pid19',
-            'Pid18',
-            'Pid17',
-            'Pid16',
-            'Pid15',
-            'Pid14',
-            'Pid13',
-            'Pid12',
-            'Pid11',
-            'Pid10',
-            'Pid0F',
-            'Pid0E',
-            'Pid0D',
-            'Pid0C',
-            'Pid0B',
-            'Pid0A',
-            'Pid09',
-            'Pid08',
-            'Pid07',
-            'Pid06',
-            'Pid05',
-            'Pid04',
-            'Pid03',
-            'Pid02',
-            'Pid01'
+        FlagsField('supportedPIDs', b'', 32, [
+            'PID20',
+            'PID1F',
+            'PID1E',
+            'PID1D',
+            'PID1C',
+            'PID1B',
+            'PID1A',
+            'PID19',
+            'PID18',
+            'PID17',
+            'PID16',
+            'PID15',
+            'PID14',
+            'PID13',
+            'PID12',
+            'PID11',
+            'PID10',
+            'PID0F',
+            'PID0E',
+            'PID0D',
+            'PID0C',
+            'PID0B',
+            'PID0A',
+            'PID09',
+            'PID08',
+            'PID07',
+            'PID06',
+            'PID05',
+            'PID04',
+            'PID03',
+            'PID02',
+            'PID01'
         ])
     ]
 
