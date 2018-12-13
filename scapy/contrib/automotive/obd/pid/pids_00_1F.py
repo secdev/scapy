@@ -5,8 +5,7 @@
 # This program is published under a GPLv2 license
 
 from scapy.fields import StrFixedLenField, BitEnumField, BitField, \
-    ScalingField, ConditionalField, FlagsField, XByteEnumField, XByteField, \
-    ShortField
+    ScalingField, ConditionalField, FlagsField, XByteEnumField, ShortField
 from scapy.packet import Packet
 
 
@@ -170,7 +169,7 @@ class OBD_PID03(Packet):
 class OBD_PID04(Packet):
     name = "PID_04_CalculatedEngineLoad"
     fields_desc = [
-        ScalingField('data', 0, 100/255, "%")
+        ScalingField('data', 0, 100/float(255), "%")
     ]
 
 
@@ -184,28 +183,28 @@ class OBD_PID05(Packet):
 class OBD_PID06(Packet):
     name = "PID_06_ShortTermFuelTrimBank1"
     fields_desc = [
-        ScalingField('data', 0, scaling=100/128, unit="%", offset=-100.0)
+        ScalingField('data', 0, scaling=100/float(128), unit="%", offset=-100.0)
     ]
 
 
 class OBD_PID07(Packet):
     name = "PID_07_LongTermFuelTrimBank1"
     fields_desc = [
-        ScalingField('data', 0, scaling=100/128, unit="%", offset=-100.0)
+        ScalingField('data', 0, scaling=100/float(128), unit="%", offset=-100.0)
     ]
 
 
 class OBD_PID08(Packet):
     name = "PID_08_ShortTermFuelTrimBank2"
     fields_desc = [
-        ScalingField('data', 0, scaling=100/128, unit="%", offset=-100.0)
+        ScalingField('data', 0, scaling=100/float(128), unit="%", offset=-100.0)
     ]
 
 
 class OBD_PID09(Packet):
     name = "PID_09_LongTermFuelTrimBank2"
     fields_desc = [
-        ScalingField('data', 0, scaling=100/128, unit="%", offset=-100.0)
+        ScalingField('data', 0, scaling=100/float(128), unit="%", offset=-100.0)
     ]
 
 
@@ -226,7 +225,7 @@ class OBD_PID0B(Packet):
 class OBD_PID0C(Packet):
     name = "PID_0C_EngineRpm"
     fields_desc = [
-        ScalingField('data', 0, scaling=1/4, unit="min-1", fmt="H")
+        ScalingField('data', 0, scaling=1/float(4), unit="min-1", fmt="H")
     ]
 
 
@@ -240,7 +239,7 @@ class OBD_PID0D(Packet):
 class OBD_PID0E(Packet):
     name = "PID_0E_TimingAdvance"
     fields_desc = [
-        ScalingField('data', 0, scaling=1/2, unit="\xC2\xB0", offset=-64.0)
+        ScalingField('data', 0, scaling=1/float(2), unit="\xC2\xB0", offset=-64.0)
     ]
 
 
@@ -254,14 +253,14 @@ class OBD_PID0F(Packet):
 class OBD_PID10(Packet):
     name = "PID_10_MafAirFlowRate"
     fields_desc = [
-        ScalingField('data', 0, scaling=1/100, unit="g/s")
+        ScalingField('data', 0, scaling=1/float(100), unit="g/s")
     ]
 
 
 class OBD_PID11(Packet):
     name = "PID_11_ThrottlePosition"
     fields_desc = [
-        ScalingField('data', 0, scaling=100/255, unit="%")
+        ScalingField('data', 0, scaling=100/float(255), unit="%")
     ]
 
 
@@ -289,7 +288,7 @@ class OBD_PID13(Packet):
 class _OBD_PID14_1B(Packet):
     fields_desc = [
         ScalingField('outputVoltage', 0, scaling=0.005, unit="V"),
-        ScalingField('trim', 0, scaling=100/128, unit="%", offset=-100.0)
+        ScalingField('trim', 0, scaling=100/float(128), unit="%", offset=-100.0)
     ]
 
 
