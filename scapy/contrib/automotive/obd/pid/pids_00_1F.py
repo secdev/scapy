@@ -246,7 +246,8 @@ class OBD_PID0E(Packet):
 class OBD_PID0F(Packet):
     name = "PID_0F_IntakeAirTemperature"
     fields_desc = [
-        ScalingField('data', 0, scaling=1, unit="\xC2\xB0C", offset=-40.0)
+        ScalingField('data', 0, scaling=1, unit="\xC2\xB0C",
+                     offset=-40.0)
     ]
 
 
@@ -288,7 +289,7 @@ class OBD_PID13(Packet):
 class _OBD_PID14_1B(Packet):
     fields_desc = [
         ScalingField('outputVoltage', 0, scaling=0.005, unit="V"),
-        ScalingField('trim', 0, scaling=100/float(128), unit="%", offset=-100.0)
+        ScalingField('trim', 0, scaling=100/float(128), unit="%", offset=-100)
     ]
 
 
