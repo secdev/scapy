@@ -2177,7 +2177,9 @@ class ScalingField(Field):
         return round(x * self.scaling + self.offset, self.ndigits)
 
     def any2i(self, pkt, x):
-        if isinstance(x, int):
+        if isinstance(x, int) and x >= 0:
+            x = struct.unpack(self.fmt,
+                              struct.pack(self.fmt.upper(), x))[0]
             x = self.m2i(pkt, x)
         return x
 
