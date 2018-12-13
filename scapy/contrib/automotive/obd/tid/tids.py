@@ -4,7 +4,7 @@
 # Copyright (C) Nils Weiss <nils@we155.de>
 # This program is published under a GPLv2 license
 
-from scapy.fields import StrFixedLenField, ByteField, ScalingField
+from scapy.fields import FlagsField, ByteField, ScalingField
 from scapy.packet import Packet
 
 
@@ -42,7 +42,40 @@ class OBD_TID00(Packet):
     name = "TID_00_Service8SupportedTestIdentifiers"
     fields_desc = [
         ByteField('reserved', 0),
-        StrFixedLenField('data', b'', 4)
+        FlagsField('supportedTIDs', b'', 32, [
+            'TID20',
+            'TID1F',
+            'TID1E',
+            'TID1D',
+            'TID1C',
+            'TID1B',
+            'TID1A',
+            'TID19',
+            'TID18',
+            'TID17',
+            'TID16',
+            'TID15',
+            'TID14',
+            'TID13',
+            'TID12',
+            'TID11',
+            'TID10',
+            'TID0F',
+            'TID0E',
+            'TID0D',
+            'TID0C',
+            'TID0B',
+            'TID0A',
+            'TID09',
+            'TID08',
+            'TID07',
+            'TID06',
+            'TID05',
+            'TID04',
+            'TID03',
+            'TID02',
+            'TID01'
+        ])
     ]
 
 
