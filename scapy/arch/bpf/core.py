@@ -8,7 +8,7 @@ from __future__ import absolute_import
 from scapy.config import conf
 from scapy.error import Scapy_Exception, warning
 from scapy.data import ARPHDR_LOOPBACK, ARPHDR_ETHER
-from scapy.arch.common import get_if, get_bpf_pointer
+from scapy.arch.common import get_if, compile_filter
 from scapy.consts import LOOPBACK_NAME
 
 from scapy.arch.bpf.consts import BIOCSETF, SIOCGIFFLAGS, BIOCSETIF
@@ -98,23 +98,9 @@ def get_dev_bpf():
     raise Scapy_Exception("No /dev/bpf handle is available !")
 
 
-def attach_filter(fd, iface, bpf_filter_string):
+def attach_filter(fd, bpf_filter, iface):
     """Attach a BPF filter to the BPF file descriptor"""
-
-    # Retrieve the BPF byte code in decimal
-    cmd_fmt = "%s -p -i %s -ddd -s 1600 '%s'"
-    command = cmd_fmt % (conf.prog.tcpdump, iface, bpf_filter_string)
-    try:
-        f = os.popen(command)
-    except OSError as msg:
-        raise Scapy_Exception("Failed to execute tcpdump: (%s)" % msg)
-
-    # Convert the byte code to a BPF program structure
-    lines = f.readlines()
-    if lines == []:
-        raise Scapy_Exception("Got an empty BPF filter from tcpdump !")
-
-    bp = get_bpf_pointer(lines)
+    bp = compile_filter(bpf_filter, iface)
     # Assign the BPF program to the interface
     ret = LIBC.ioctl(c_int(fd), BIOCSETF, cast(pointer(bp), c_char_p))
     if ret < 0:
