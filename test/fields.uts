@@ -1388,7 +1388,7 @@ assert "f0" in flags
 ########
 + ScalingField
 
-= Test default behaviour
+= ScalingField Test default behaviour
 
 class DebugPacket(Packet):
     fields_desc = [
@@ -1402,7 +1402,7 @@ assert x.data == 0
 x.data = 1
 assert x.data == 1
 
-= Test scaling
+= ScalingField Test scaling
 
 class DebugPacket(Packet):
     fields_desc = [
@@ -1419,7 +1419,7 @@ assert bytes(x) == b"\x14"
 x.data = 0xff
 assert x.data == 25.5
 
-= Test scaling signed
+= ScalingField Test scaling signed
 
 class DebugPacket(Packet):
     fields_desc = [
@@ -1439,7 +1439,7 @@ x.data = -0.1
 assert x.data == -0.1
 assert bytes(x) == b"\xff"
 
-= Test scaling signed offset
+= ScalingField Test scaling signed offset
 
 class DebugPacket(Packet):
     fields_desc = [
@@ -1459,7 +1459,7 @@ x.data = -1.1
 assert x.data == -1.1
 assert bytes(x) == b"\xff"
 
-= Test scaling offset
+= ScalingField Test scaling offset
 
 class DebugPacket(Packet):
     fields_desc = [
@@ -1479,7 +1479,7 @@ x.data = 24.5
 assert x.data == 24.5
 assert bytes(x) == b"\xff"
 
-= Test unit
+= ScalingField Test unit
 
 class DebugPacket(Packet):
     fields_desc = [
@@ -1490,6 +1490,45 @@ x = DebugPacket()
 
 x.data = 0x01
 assert x.data == 1
+assert ScalingField.i2repr(x.fields_desc[0],x, x.data) == '1.0 V'
 
-p = ScalingField('data', 0, unit="V")
+= ScalingField Test unit and ndigits
 
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0, scaling=0.123456, unit="V", ndigits=1)
+    ]
+
+x = DebugPacket()
+
+x.data = 0x01
+assert x.data == 0.1
+assert ScalingField.i2repr(x.fields_desc[0],x, x.data) == '0.1 V'
+
+= ScalingField Test unit and ndigits 2
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0, scaling=0.123456, unit="V", ndigits=3)
+    ]
+
+x = DebugPacket()
+
+x.data = 0x01
+print(x.__repr__())
+assert x.data == 0.123
+assert ScalingField.i2repr(x.fields_desc[0],x, x.data) == '0.123 V'
+
+= ScalingField Test unit and ndigits 3
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0, scaling=0.123456, unit="V", ndigits=5)
+    ]
+
+x = DebugPacket()
+
+x.data = 0x01
+print(x.__repr__())
+assert x.data == 0.12346
+assert ScalingField.i2repr(x.fields_desc[0],x, x.data) == '0.12346 V'
