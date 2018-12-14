@@ -4,7 +4,7 @@
 # Copyright (C) Nils Weiss <nils@we155.de>
 # This program is published under a GPLv2 license
 
-from scapy.fields import StrFixedLenField, FlagsField, ScalingField
+from scapy.fields import FlagsField, ScalingField
 from scapy.packet import Packet
 
 
