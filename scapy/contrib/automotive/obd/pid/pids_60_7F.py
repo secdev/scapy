@@ -87,35 +87,82 @@ class OBD_PID64(Packet):
 class OBD_PID65(Packet):
     name = "PID_65_AuxiliaryInputOutputSupported"
     fields_desc = [
-        StrFixedLenField('data', b'', 2)
+        BitField('PowerTakeOffStatusSupported', 0, 1),
+        BitField('AutoTransNeutralDriveStatusSupported', 0, 1),
+        BitField('ManualTransNeutralDriveStatusSupported', 0, 1),
+        BitField('GlowPlugLampStatusSupported', 0, 1),
+        BitField('reserved1', 0, 4),
+        BitField('PowerTakeOffStatus', 0, 1),
+        BitField('AutoTransNeutralDriveStatus', 0, 1),
+        BitField('ManualTransNeutralDriveStatus', 0, 1),
+        BitField('GlowPlugLampStatus', 0, 1),
+        BitField('reserved2', 0, 4),
     ]
 
 
 class OBD_PID66(Packet):
     name = "PID_66_MassAirFlowSensor"
     fields_desc = [
-        StrFixedLenField('data', b'', 5)
+        BitField('SensorASupported', 0, 1),
+        BitField('SensorBSupported', 0, 1),
+        BitField('reserved', 0, 6),
+        ScalingField('SensorA', 0, scaling=0.03125, unit="g/s", fmt="H"),
+        ScalingField('SensorB', 0, scaling=0.03125, unit="g/s", fmt="H"),
     ]
 
 
 class OBD_PID67(Packet):
     name = "PID_67_EngineCoolantTemperature"
     fields_desc = [
-        StrFixedLenField('data', b'', 3)
+        BitField('Sensor1Supported', 0, 1),
+        BitField('Sensor2Supported', 0, 1),
+        BitField('reserved', 0, 6),
+        ScalingField('Sensor1', 0, unit="\xC2\xB0C", offset=-40.0),
+        ScalingField('Sensor2', 0, unit="\xC2\xB0C", offset=-40.0)
     ]
 
 
 class OBD_PID68(Packet):
     name = "PID_68_IntakeAirTemperatureSensor"
     fields_desc = [
-        StrFixedLenField('data', b'', 7)
+        BitField('Bank1Sensor1Supported', 0, 1),
+        BitField('Bank1Sensor2Supported', 0, 1),
+        BitField('Bank1Sensor3Supported', 0, 1),
+        BitField('Bank2Sensor1Supported', 0, 1),
+        BitField('Bank2Sensor2Supported', 0, 1),
+        BitField('Bank2Sensor3Supported', 0, 1),
+        BitField('reserved', 0, 2),
+        ScalingField('Bank1Sensor1', 0, unit="\xC2\xB0C", offset=-40.0),
+        ScalingField('Bank1Sensor2', 0, unit="\xC2\xB0C", offset=-40.0),
+        ScalingField('Bank1Sensor3', 0, unit="\xC2\xB0C", offset=-40.0),
+        ScalingField('Bank2Sensor1', 0, unit="\xC2\xB0C", offset=-40.0),
+        ScalingField('Bank2Sensor2', 0, unit="\xC2\xB0C", offset=-40.0),
+        ScalingField('Bank2Sensor3', 0, unit="\xC2\xB0C", offset=-40.0)
     ]
 
 
 class OBD_PID69(Packet):
     name = "PID_69_CommandedEgrAndEgrError"
     fields_desc = [
-        StrFixedLenField('data', b'', 7)
+        BitField('CommandedEGRADutyCycleSupported', 0, 1),
+        BitField('ActualEGRADutyCycleSupported', 0, 1),
+        BitField('EGRAErrorSupported', 0, 1),
+        BitField('CommandedEGRBDutyCycleSupported', 0, 1),
+        BitField('ActualEGRBDutyCycleSupported', 0, 1),
+        BitField('EGRBErrorSupported', 0, 1),
+        BitField('reserved', 0, 2),
+        ScalingField('CommandedEGRADutyCycle', 0, scaling=100/float(255),
+                     unit="%"),
+        ScalingField('ActualEGRADutyCycle', 0, scaling=100/float(255),
+                     unit="%"),
+        ScalingField('EGRAError', 0, scaling=100/float(128), unit="%",
+                     offset=-100),
+        ScalingField('CommandedEGRBDutyCycle', 0, scaling=100/float(255),
+                     unit="%"),
+        ScalingField('ActualEGRBDutyCycle', 0, scaling=100/float(255),
+                     unit="%"),
+        ScalingField('EGRBError', 0, scaling=100/float(128), unit="%",
+                     offset=-100),
     ]
 
 
