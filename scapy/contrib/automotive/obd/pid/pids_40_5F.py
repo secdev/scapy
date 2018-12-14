@@ -360,7 +360,7 @@ class OBD_PID5F(Packet):
 
     emissionRequirementTypes = {
         0xE: 'Heavy Duty Vehicles (EURO IV) B1',
-        0xF: 'Heavy Duty Vehicles (EURO IV) B2',
+        0xF: 'Heavy Duty Vehicles (EURO V) B2',
         0x10: 'Heavy Duty Vehicles (EURO EEV) C',
     }
 
