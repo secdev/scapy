@@ -4,7 +4,8 @@
 # Copyright (C) Nils Weiss <nils@we155.de>
 # This program is published under a GPLv2 license
 
-from scapy.fields import StrFixedLenField, BitField, FlagsField, XShortField
+from scapy.fields import StrFixedLenField, BitField, FlagsField, XShortField, \
+    ScalingField
 from scapy.packet import Packet
 
 
@@ -54,28 +55,32 @@ class OBD_PID60(Packet):
 class OBD_PID61(Packet):
     name = "PID_61_DriverSDemandEnginePercentTorque"
     fields_desc = [
-        StrFixedLenField('data', b'', 1)
+        ScalingField('data', 0, unit="%", offset=-125.0)
     ]
 
 
 class OBD_PID62(Packet):
     name = "PID_62_ActualEnginePercentTorque"
     fields_desc = [
-        StrFixedLenField('data', b'', 1)
+        ScalingField('data', 0, unit="%", offset=-125.0)
     ]
 
 
 class OBD_PID63(Packet):
     name = "PID_63_EngineReferenceTorque"
     fields_desc = [
-        StrFixedLenField('data', b'', 2)
+        ScalingField('data', 0, unit="Nm", fmt="H")
     ]
 
 
 class OBD_PID64(Packet):
     name = "PID_64_EnginePercentTorqueData"
     fields_desc = [
-        StrFixedLenField('data', b'', 5)
+        ScalingField('atPoint1', 0, unit="%", offset=-125.0),
+        ScalingField('atPoint2', 0, unit="%", offset=-125.0),
+        ScalingField('atPoint3', 0, unit="%", offset=-125.0),
+        ScalingField('atPoint4', 0, unit="%", offset=-125.0),
+        ScalingField('atPoint5', 0, unit="%", offset=-125.0)
     ]
 
 
