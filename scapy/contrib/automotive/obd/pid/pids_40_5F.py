@@ -5,7 +5,8 @@
 # This program is published under a GPLv2 license
 
 from scapy.fields import StrFixedLenField, ByteEnumField, BitEnumField, \
-    BitField, ConditionalField, FlagsField, XByteField
+    BitField, ConditionalField, FlagsField, XByteField, ScalingField, \
+    ThreeBytesField
 from scapy.packet import Packet
 
 
@@ -143,105 +144,95 @@ class OBD_PID41(Packet):
 class OBD_PID42(Packet):
     name = "PID_42_ControlModuleVoltage"
     fields_desc = [
-        StrFixedLenField('data', b'', 2)
+        ScalingField('data', 0, scaling=0.001, unit="V", fmt="H")
     ]
 
 
 class OBD_PID43(Packet):
     name = "PID_43_AbsoluteLoadValue"
     fields_desc = [
-        StrFixedLenField('data', b'', 2)
+        ScalingField('data', 0, scaling=100/float(255), unit="%", fmt="H")
     ]
 
 
 class OBD_PID44(Packet):
     name = "PID_44_FuelAirCommandedEquivalenceRatio"
     fields_desc = [
-        StrFixedLenField('data', b'', 2)
+        ScalingField('data', 0, scaling=0.0000305, fmt="H")
     ]
 
 
-class OBD_PID45(Packet):
-    name = "PID_45_RelativeThrottlePosition"
+class _OBD_PercentPacket(Packet):
     fields_desc = [
-        StrFixedLenField('data', b'', 1)
+        ScalingField('data', 0, scaling=100/float(255), unit="%")
     ]
+
+
+class OBD_PID45(_OBD_PercentPacket):
+    name = "PID_45_RelativeThrottlePosition"
 
 
 class OBD_PID46(Packet):
     name = "PID_46_AmbientAirTemperature"
     fields_desc = [
-        StrFixedLenField('data', b'', 1)
+        ScalingField('data', 0, unit="\xC2\xB0C", offset=-40.0)
     ]
 
 
-class OBD_PID47(Packet):
+class OBD_PID47(_OBD_PercentPacket):
     name = "PID_47_AbsoluteThrottlePositionB"
-    fields_desc = [
-        StrFixedLenField('data', b'', 1)
-    ]
 
 
-class OBD_PID48(Packet):
+class OBD_PID48(_OBD_PercentPacket):
     name = "PID_48_AbsoluteThrottlePositionC"
-    fields_desc = [
-        StrFixedLenField('data', b'', 1)
-    ]
 
 
-class OBD_PID49(Packet):
+class OBD_PID49(_OBD_PercentPacket):
     name = "PID_49_AcceleratorPedalPositionD"
-    fields_desc = [
-        StrFixedLenField('data', b'', 1)
-    ]
 
 
-class OBD_PID4A(Packet):
+class OBD_PID4A(_OBD_PercentPacket):
     name = "PID_4A_AcceleratorPedalPositionE"
-    fields_desc = [
-        StrFixedLenField('data', b'', 1)
-    ]
 
 
-class OBD_PID4B(Packet):
+class OBD_PID4B(_OBD_PercentPacket):
     name = "PID_4B_AcceleratorPedalPositionF"
-    fields_desc = [
-        StrFixedLenField('data', b'', 1)
-    ]
 
 
-class OBD_PID4C(Packet):
+class OBD_PID4C(_OBD_PercentPacket):
     name = "PID_4C_CommandedThrottleActuator"
-    fields_desc = [
-        StrFixedLenField('data', b'', 1)
-    ]
 
 
 class OBD_PID4D(Packet):
     name = "PID_4D_TimeRunWithMilOn"
     fields_desc = [
-        StrFixedLenField('data', b'', 2)
+        ScalingField('data', 0, unit="min", fmt="H")
     ]
 
 
 class OBD_PID4E(Packet):
     name = "PID_4E_TimeSinceTroubleCodesCleared"
     fields_desc = [
-        StrFixedLenField('data', b'', 2)
+        ScalingField('data', 0, unit="min", fmt="H")
     ]
 
 
 class OBD_PID4F(Packet):
     name = "PID_4F_VariousMaxValues"
     fields_desc = [
-        StrFixedLenField('data', b'', 4)
+        ScalingField('EquivalenceRatio', 0),
+        ScalingField('SensorVoltage', 0, unit="V"),
+        ScalingField('SensorCurrent', 0, unit="mA"),
+        ScalingField('IntakeManifoldAbsolutePressure', 0,
+                     scaling=10, unit="kPa")
     ]
 
 
 class OBD_PID50(Packet):
     name = "PID_50_MaximumValueForAirFlowRateFromMassAirFlowSensor"
     fields_desc = [
-        StrFixedLenField('data', b'', 4)
+        ScalingField('data', 0, scaling=10, unit="g/s"),
+        ThreeBytesField('reserved', 0)
     ]
 
 
@@ -279,99 +270,100 @@ class OBD_PID51(Packet):
     ]
 
 
-class OBD_PID52(Packet):
+class OBD_PID52(_OBD_PercentPacket):
     name = "PID_52_EthanolFuel"
-    fields_desc = [
-        StrFixedLenField('data', b'', 1)
-    ]
 
 
 class OBD_PID53(Packet):
     name = "PID_53_AbsoluteEvapSystemVaporPressure"
     fields_desc = [
-        StrFixedLenField('data', b'', 2)
+        ScalingField('data', 0, scaling=1/float(200), unit="kPa", fmt="H")
     ]
 
 
 class OBD_PID54(Packet):
     name = "PID_54_EvapSystemVaporPressure"
     fields_desc = [
-        StrFixedLenField('data', b'', 2)
+        ScalingField('data', 0, unit="Pa", fmt="h")
     ]
 
 
-class OBD_PID55(Packet):
-    name = "PID_55_ShortTermSecondaryOxygenSensorTrimABank1BBank3"
+class _OBD_SensorTrimPacket1(Packet):
     fields_desc = [
-        StrFixedLenField('data', b'', 2)
+        ScalingField('bank1', 0, scaling=1/float(128), offset=-100, unit="%"),
+        ScalingField('bank3', 0, scaling=1/float(128), offset=-100, unit="%")
     ]
 
 
-class OBD_PID56(Packet):
-    name = "PID_56_LongTermSecondaryOxygenSensorTrimABank1BBank3"
+class _OBD_SensorTrimPacket2(Packet):
     fields_desc = [
-        StrFixedLenField('data', b'', 2)
+        ScalingField('bank1', 0, scaling=1/float(128), offset=-100, unit="%"),
+        ScalingField('bank3', 0, scaling=1/float(128), offset=-100, unit="%")
     ]
 
 
-class OBD_PID57(Packet):
-    name = "PID_57_ShortTermSecondaryOxygenSensorTrimABank2BBank4"
-    fields_desc = [
-        StrFixedLenField('data', b'', 2)
-    ]
+class OBD_PID55(_OBD_SensorTrimPacket1):
+    name = "PID_55_ShortTermSecondaryOxygenSensorTrim"
 
 
-class OBD_PID58(Packet):
-    name = "PID_58_LongTermSecondaryOxygenSensorTrimABank2BBank4"
-    fields_desc = [
-        StrFixedLenField('data', b'', 2)
-    ]
+class OBD_PID56(_OBD_SensorTrimPacket1):
+    name = "PID_56_LongTermSecondaryOxygenSensorTrim"
+
+
+class OBD_PID57(_OBD_SensorTrimPacket2):
+    name = "PID_57_ShortTermSecondaryOxygenSensorTrim"
+
+
+class OBD_PID58(_OBD_SensorTrimPacket2):
+    name = "PID_58_LongTermSecondaryOxygenSensorTrim"
 
 
 class OBD_PID59(Packet):
     name = "PID_59_FuelRailAbsolutePressure"
     fields_desc = [
-        StrFixedLenField('data', b'', 2)
+        ScalingField('data', 0, scaling=10, unit="kPa", fmt="H")
     ]
 
 
-class OBD_PID5A(Packet):
+class OBD_PID5A(_OBD_PercentPacket):
     name = "PID_5A_RelativeAcceleratorPedalPosition"
-    fields_desc = [
-        StrFixedLenField('data', b'', 1)
-    ]
 
 
-class OBD_PID5B(Packet):
+class OBD_PID5B(_OBD_PercentPacket):
     name = "PID_5B_HybridBatteryPackRemainingLife"
-    fields_desc = [
-        StrFixedLenField('data', b'', 1)
-    ]
 
 
 class OBD_PID5C(Packet):
     name = "PID_5C_EngineOilTemperature"
     fields_desc = [
-        StrFixedLenField('data', b'', 1)
+        ScalingField('data', 0, unit="\xC2\xB0C", offset=-40.0)
     ]
 
 
 class OBD_PID5D(Packet):
     name = "PID_5D_FuelInjectionTiming"
     fields_desc = [
-        StrFixedLenField('data', b'', 2)
+        ScalingField('data', 0, scaling=1/float(128), offset=-210,
+                     unit="\xC2\xB0", fmt="H")
     ]
 
 
 class OBD_PID5E(Packet):
     name = "PID_5E_EngineFuelRate"
     fields_desc = [
-        StrFixedLenField('data', b'', 2)
+        ScalingField('data', 0, scaling=0.05, unit="L/h", fmt="H")
     ]
 
 
 class OBD_PID5F(Packet):
     name = "PID_5F_EmissionRequirementsToWhichVehicleIsDesigned"
+
+    emissionRequirementTypes = {
+        0xE: 'Heavy Duty Vehicles (EURO IV) B1',
+        0xF: 'Heavy Duty Vehicles (EURO IV) B2',
+        0x10: 'Heavy Duty Vehicles (EURO EEV) C',
+    }
+
     fields_desc = [
-        StrFixedLenField('data', b'', 1)
+        ByteEnumField('data', 0, emissionRequirementTypes)
     ]
