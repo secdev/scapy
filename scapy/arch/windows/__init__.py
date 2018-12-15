@@ -215,7 +215,7 @@ class _PowershellManager(Thread):
     def close(self):
         self.running = False
         try:
-            self.process.stdin.write("exit\n")
+            self.process.stdin.write(b"exit\n")
         except (ValueError, IOError):
             pass
         finally:
