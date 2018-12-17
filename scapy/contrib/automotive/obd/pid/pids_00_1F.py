@@ -100,45 +100,105 @@ class OBD_PID01(Packet):
 
         # Spark
         # Availability
-        ConditionalField(BitEnumField('egrSystemAvailability', 0, 1, availability), lambda pkt: pkt.ignitionType == 0),
-        ConditionalField(BitEnumField('oxygenSensorHeaterAvailability', 0, 1, availability), lambda pkt: pkt.ignitionType == 0),
-        ConditionalField(BitEnumField('oxygenSensorAvailability', 0, 1, availability), lambda pkt: pkt.ignitionType == 0),
-        ConditionalField(BitEnumField('acRefrigerantAvailability', 0, 1, availability), lambda pkt: pkt.ignitionType == 0),
-        ConditionalField(BitEnumField('secondaryAirSystemAvailability', 0, 1, availability), lambda pkt: pkt.ignitionType == 0),
-        ConditionalField(BitEnumField('evaporativeSystemAvailability', 0, 1, availability), lambda pkt: pkt.ignitionType == 0),
-        ConditionalField(BitEnumField('heatedCatalystAvailability', 0, 1, availability), lambda pkt: pkt.ignitionType == 0),
-        ConditionalField(BitEnumField('catalystAvailability', 0, 1, availability), lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('egrSystemAvailability', 0, 1,
+                                      availability),
+                         lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('oxygenSensorHeaterAvailability', 0, 1,
+                                      availability),
+                         lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('oxygenSensorAvailability', 0, 1,
+                                      availability),
+                         lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('acRefrigerantAvailability', 0, 1,
+                                      availability),
+                         lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('secondaryAirSystemAvailability', 0, 1,
+                                      availability),
+                         lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('evaporativeSystemAvailability', 0, 1,
+                                      availability),
+                         lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('heatedCatalystAvailability', 0, 1,
+                                      availability),
+                         lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('catalystAvailability', 0, 1,
+                                      availability),
+                         lambda pkt: pkt.ignitionType == 0),
 
         # Completeness
-        ConditionalField(BitEnumField('egrSystemCompleteness', 0, 1, completeness), lambda pkt: pkt.ignitionType == 0),
-        ConditionalField(BitEnumField('oxygenSensorHeaterCompleteness', 0, 1, completeness), lambda pkt: pkt.ignitionType == 0),
-        ConditionalField(BitEnumField('oxygenSensorCompleteness', 0, 1, completeness), lambda pkt: pkt.ignitionType == 0),
-        ConditionalField(BitEnumField('acRefrigerantCompleteness', 0, 1, completeness), lambda pkt: pkt.ignitionType == 0),
-        ConditionalField(BitEnumField('secondaryAirSystemCompleteness', 0, 1, completeness), lambda pkt: pkt.ignitionType == 0),
-        ConditionalField(BitEnumField('evaporativeSystemCompleteness', 0, 1, completeness), lambda pkt: pkt.ignitionType == 0),
-        ConditionalField(BitEnumField('heatedCatalystCompleteness', 0, 1, completeness), lambda pkt: pkt.ignitionType == 0),
-        ConditionalField(BitEnumField('catalystCompleteness', 0, 1, completeness), lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('egrSystemCompleteness', 0, 1,
+                                      completeness),
+                         lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('oxygenSensorHeaterCompleteness', 0, 1,
+                                      completeness),
+                         lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('oxygenSensorCompleteness', 0, 1,
+                                      completeness),
+                         lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('acRefrigerantCompleteness', 0, 1,
+                                      completeness),
+                         lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('secondaryAirSystemCompleteness', 0, 1,
+                                      completeness),
+                         lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('evaporativeSystemCompleteness', 0, 1,
+                                      completeness),
+                         lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('heatedCatalystCompleteness', 0, 1,
+                                      completeness),
+                         lambda pkt: pkt.ignitionType == 0),
+        ConditionalField(BitEnumField('catalystCompleteness', 0, 1,
+                                      completeness),
+                         lambda pkt: pkt.ignitionType == 0),
 
         # Compression
         # Availability
-        ConditionalField(BitEnumField('egrVvtSystemAvailability', 0, 1, availability), lambda pkt: pkt.ignitionType == 1),
-        ConditionalField(BitEnumField('pmFilterMonitoringAvailability', 0, 1, availability), lambda pkt: pkt.ignitionType == 1),
-        ConditionalField(BitEnumField('exhaustGasSensorAvailability', 0, 1, availability), lambda pkt: pkt.ignitionType == 1),
-        ConditionalField(BitEnumField('Reserved1', 0, 1, availability), lambda pkt: pkt.ignitionType == 1),
-        ConditionalField(BitEnumField('boostPressureAvailability', 0, 1, availability), lambda pkt: pkt.ignitionType == 1),
-        ConditionalField(BitEnumField('Reserved2', 0, 1, availability), lambda pkt: pkt.ignitionType == 1),
-        ConditionalField(BitEnumField('noxScrMonitorAvailability', 0, 1, availability), lambda pkt: pkt.ignitionType == 1),
-        ConditionalField(BitEnumField('nmhcCatalystAvailability', 0, 1, availability), lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('egrVvtSystemAvailability', 0, 1,
+                                      availability),
+                         lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('pmFilterMonitoringAvailability', 0, 1,
+                                      availability),
+                         lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('exhaustGasSensorAvailability', 0, 1,
+                                      availability),
+                         lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('Reserved1', 0, 1, availability),
+                         lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('boostPressureAvailability', 0, 1,
+                                      availability),
+                         lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('Reserved2', 0, 1, availability),
+                         lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('noxScrMonitorAvailability', 0, 1,
+                                      availability),
+                         lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('nmhcCatalystAvailability', 0, 1,
+                                      availability),
+                         lambda pkt: pkt.ignitionType == 1),
 
         # Completeness
-        ConditionalField(BitEnumField('egrVvtSystemCompleteness', 0, 1, completeness), lambda pkt: pkt.ignitionType == 1),
-        ConditionalField(BitEnumField('pmFilterMonitoringCompleteness', 0, 1, completeness), lambda pkt: pkt.ignitionType == 1),
-        ConditionalField(BitEnumField('exhaustGasSensorCompleteness', 0, 1, completeness), lambda pkt: pkt.ignitionType == 1),
-        ConditionalField(BitEnumField('Reserved1', 0, 1, completeness), lambda pkt: pkt.ignitionType == 1),
-        ConditionalField(BitEnumField('boostPressureCompleteness', 0, 1, completeness), lambda pkt: pkt.ignitionType == 1),
-        ConditionalField(BitEnumField('Reserved2', 0, 1, completeness), lambda pkt: pkt.ignitionType == 1),
-        ConditionalField(BitEnumField('noxScrMonitorCompleteness', 0, 1, completeness), lambda pkt: pkt.ignitionType == 1),
-        ConditionalField(BitEnumField('nmhcCatalystCompleteness', 0, 1, completeness), lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('egrVvtSystemCompleteness', 0, 1,
+                                      completeness),
+                         lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('pmFilterMonitoringCompleteness', 0, 1,
+                                      completeness),
+                         lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('exhaustGasSensorCompleteness', 0, 1,
+                                      completeness),
+                         lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('Reserved1', 0, 1, completeness),
+                         lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('boostPressureCompleteness', 0, 1,
+                                      completeness),
+                         lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('Reserved2', 0, 1, completeness),
+                         lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('noxScrMonitorCompleteness', 0, 1,
+                                      completeness),
+                         lambda pkt: pkt.ignitionType == 1),
+        ConditionalField(BitEnumField('nmhcCatalystCompleteness', 0, 1,
+                                      completeness),
+                         lambda pkt: pkt.ignitionType == 1),
     ]
 
 
@@ -169,7 +229,7 @@ class OBD_PID03(Packet):
 class OBD_PID04(Packet):
     name = "PID_04_CalculatedEngineLoad"
     fields_desc = [
-        ScalingField('data', 0, 100/float(255), "%")
+        ScalingField('data', 0, scaling=100 / float(255), unit="%")
     ]
 
 
@@ -183,28 +243,32 @@ class OBD_PID05(Packet):
 class OBD_PID06(Packet):
     name = "PID_06_ShortTermFuelTrimBank1"
     fields_desc = [
-        ScalingField('data', 0, scaling=100/float(128), unit="%", offset=-100.0)
+        ScalingField('data', 0, scaling=100 / float(128),
+                     unit="%", offset=-100.0)
     ]
 
 
 class OBD_PID07(Packet):
     name = "PID_07_LongTermFuelTrimBank1"
     fields_desc = [
-        ScalingField('data', 0, scaling=100/float(128), unit="%", offset=-100.0)
+        ScalingField('data', 0, scaling=100 / float(128),
+                     unit="%", offset=-100.0)
     ]
 
 
 class OBD_PID08(Packet):
     name = "PID_08_ShortTermFuelTrimBank2"
     fields_desc = [
-        ScalingField('data', 0, scaling=100/float(128), unit="%", offset=-100.0)
+        ScalingField('data', 0, scaling=100 / float(128),
+                     unit="%", offset=-100.0)
     ]
 
 
 class OBD_PID09(Packet):
     name = "PID_09_LongTermFuelTrimBank2"
     fields_desc = [
-        ScalingField('data', 0, scaling=100/float(128), unit="%", offset=-100.0)
+        ScalingField('data', 0, scaling=100 / float(128),
+                     unit="%", offset=-100.0)
     ]
 
 
@@ -225,7 +289,7 @@ class OBD_PID0B(Packet):
 class OBD_PID0C(Packet):
     name = "PID_0C_EngineRpm"
     fields_desc = [
-        ScalingField('data', 0, scaling=1/float(4), unit="min-1", fmt="H")
+        ScalingField('data', 0, scaling=1 / float(4), unit="min-1", fmt="H")
     ]
 
 
@@ -239,7 +303,8 @@ class OBD_PID0D(Packet):
 class OBD_PID0E(Packet):
     name = "PID_0E_TimingAdvance"
     fields_desc = [
-        ScalingField('data', 0, scaling=1/float(2), unit="\xC2\xB0", offset=-64.0)
+        ScalingField('data', 0, scaling=1 / float(2),
+                     unit="\xC2\xB0", offset=-64.0)
     ]
 
 
@@ -254,14 +319,14 @@ class OBD_PID0F(Packet):
 class OBD_PID10(Packet):
     name = "PID_10_MafAirFlowRate"
     fields_desc = [
-        ScalingField('data', 0, scaling=1/float(100), unit="g/s")
+        ScalingField('data', 0, scaling=1 / float(100), unit="g/s")
     ]
 
 
 class OBD_PID11(Packet):
     name = "PID_11_ThrottlePosition"
     fields_desc = [
-        ScalingField('data', 0, scaling=100/float(255), unit="%")
+        ScalingField('data', 0, scaling=100 / float(255), unit="%")
     ]
 
 
@@ -286,10 +351,12 @@ class OBD_PID13(Packet):
         StrFixedLenField('data', b'', 1)
     ]
 
+
 class _OBD_PID14_1B(Packet):
     fields_desc = [
         ScalingField('outputVoltage', 0, scaling=0.005, unit="V"),
-        ScalingField('trim', 0, scaling=100/float(128), unit="%", offset=-100)
+        ScalingField('trim', 0, scaling=100 / float(128),
+                     unit="%", offset=-100)
     ]
 
 

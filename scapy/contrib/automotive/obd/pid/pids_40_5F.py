@@ -4,9 +4,8 @@
 # Copyright (C) Nils Weiss <nils@we155.de>
 # This program is published under a GPLv2 license
 
-from scapy.fields import StrFixedLenField, ByteEnumField, BitEnumField, \
-    BitField, ConditionalField, FlagsField, XByteField, ScalingField, \
-    ThreeBytesField
+from scapy.fields import ByteEnumField, BitEnumField, BitField, \
+    ConditionalField, FlagsField, XByteField, ScalingField, ThreeBytesField
 from scapy.packet import Packet
 
 
@@ -99,45 +98,77 @@ class OBD_PID41(Packet):
 
         # Spark
         # Availability
-        ConditionalField(BitEnumField('egrSystemAvailability', 0, 1, availability), isspark),
-        ConditionalField(BitEnumField('oxygenSensorHeaterAvailability', 0, 1, availability), isspark),
-        ConditionalField(BitEnumField('oxygenSensorAvailability', 0, 1, availability), isspark),
-        ConditionalField(BitEnumField('acRefrigerantAvailability', 0, 1, availability), isspark),
-        ConditionalField(BitEnumField('secondaryAirSystemAvailability', 0, 1, availability), isspark),
-        ConditionalField(BitEnumField('evaporativeSystemAvailability', 0, 1, availability), isspark),
-        ConditionalField(BitEnumField('heatedCatalystAvailability', 0, 1, availability), isspark),
-        ConditionalField(BitEnumField('catalystAvailability', 0, 1, availability), isspark),
+        ConditionalField(BitEnumField('egrSystemAvailability', 0, 1,
+                                      availability), isspark),
+        ConditionalField(BitEnumField('oxygenSensorHeaterAvailability', 0, 1,
+                                      availability), isspark),
+        ConditionalField(BitEnumField('oxygenSensorAvailability', 0, 1,
+                                      availability), isspark),
+        ConditionalField(BitEnumField('acRefrigerantAvailability', 0, 1,
+                                      availability), isspark),
+        ConditionalField(BitEnumField('secondaryAirSystemAvailability', 0, 1,
+                                      availability), isspark),
+        ConditionalField(BitEnumField('evaporativeSystemAvailability', 0, 1,
+                                      availability), isspark),
+        ConditionalField(BitEnumField('heatedCatalystAvailability', 0, 1,
+                                      availability), isspark),
+        ConditionalField(BitEnumField('catalystAvailability', 0, 1,
+                                      availability), isspark),
 
         # Completeness
-        ConditionalField(BitEnumField('egrSystemCompleteness', 0, 1, completeness), isspark),
-        ConditionalField(BitEnumField('oxygenSensorHeaterCompleteness', 0, 1, completeness), isspark),
-        ConditionalField(BitEnumField('oxygenSensorCompleteness', 0, 1, completeness), isspark),
-        ConditionalField(BitEnumField('acRefrigerantCompleteness', 0, 1, completeness), isspark),
-        ConditionalField(BitEnumField('secondaryAirSystemCompleteness', 0, 1, completeness), isspark),
-        ConditionalField(BitEnumField('evaporativeSystemCompleteness', 0, 1, completeness), isspark),
-        ConditionalField(BitEnumField('heatedCatalystCompleteness', 0, 1, completeness), isspark),
-        ConditionalField(BitEnumField('catalystCompleteness', 0, 1, completeness), isspark),
+        ConditionalField(BitEnumField('egrSystemCompleteness', 0, 1,
+                                      completeness), isspark),
+        ConditionalField(BitEnumField('oxygenSensorHeaterCompleteness', 0, 1,
+                                      completeness), isspark),
+        ConditionalField(BitEnumField('oxygenSensorCompleteness', 0, 1,
+                                      completeness), isspark),
+        ConditionalField(BitEnumField('acRefrigerantCompleteness', 0, 1,
+                                      completeness), isspark),
+        ConditionalField(BitEnumField('secondaryAirSystemCompleteness', 0, 1,
+                                      completeness), isspark),
+        ConditionalField(BitEnumField('evaporativeSystemCompleteness', 0, 1,
+                                      completeness), isspark),
+        ConditionalField(BitEnumField('heatedCatalystCompleteness', 0, 1,
+                                      completeness), isspark),
+        ConditionalField(BitEnumField('catalystCompleteness', 0, 1,
+                                      completeness), isspark),
 
         # Compression
         # Availability
-        ConditionalField(BitEnumField('egrVvtSystemAvailability', 0, 1, availability), iscompression),
-        ConditionalField(BitEnumField('pmFilterMonitoringAvailability', 0, 1, availability), iscompression),
-        ConditionalField(BitEnumField('exhaustGasSensorAvailability', 0, 1, availability), iscompression),
-        ConditionalField(BitEnumField('Reserved1', 0, 1, availability), iscompression),
-        ConditionalField(BitEnumField('boostPressureAvailability', 0, 1, availability), iscompression),
-        ConditionalField(BitEnumField('Reserved2', 0, 1, availability), iscompression),
-        ConditionalField(BitEnumField('noxScrMonitorAvailability', 0, 1, availability), iscompression),
-        ConditionalField(BitEnumField('nmhcCatalystAvailability', 0, 1, availability), iscompression),
+        ConditionalField(BitEnumField('egrVvtSystemAvailability', 0, 1,
+                                      availability), iscompression),
+        ConditionalField(BitEnumField('pmFilterMonitoringAvailability', 0, 1,
+                                      availability), iscompression),
+        ConditionalField(BitEnumField('exhaustGasSensorAvailability', 0, 1,
+                                      availability), iscompression),
+        ConditionalField(BitEnumField('Reserved1', 0, 1,
+                                      availability), iscompression),
+        ConditionalField(BitEnumField('boostPressureAvailability', 0, 1,
+                                      availability), iscompression),
+        ConditionalField(BitEnumField('Reserved2', 0, 1,
+                                      availability), iscompression),
+        ConditionalField(BitEnumField('noxScrMonitorAvailability', 0, 1,
+                                      availability), iscompression),
+        ConditionalField(BitEnumField('nmhcCatalystAvailability', 0, 1,
+                                      availability), iscompression),
 
         # Completeness
-        ConditionalField(BitEnumField('egrVvtSystemCompleteness', 0, 1, completeness), iscompression),
-        ConditionalField(BitEnumField('pmFilterMonitoringCompleteness', 0, 1, completeness), iscompression),
-        ConditionalField(BitEnumField('exhaustGasSensorCompleteness', 0, 1, completeness), iscompression),
-        ConditionalField(BitEnumField('Reserved1', 0, 1, completeness), iscompression),
-        ConditionalField(BitEnumField('boostPressureCompleteness', 0, 1, completeness), iscompression),
-        ConditionalField(BitEnumField('Reserved2', 0, 1, completeness), iscompression),
-        ConditionalField(BitEnumField('noxScrMonitorCompleteness', 0, 1, completeness), iscompression),
-        ConditionalField(BitEnumField('nmhcCatalystCompleteness', 0, 1, completeness), iscompression),
+        ConditionalField(BitEnumField('egrVvtSystemCompleteness', 0, 1,
+                                      completeness), iscompression),
+        ConditionalField(BitEnumField('pmFilterMonitoringCompleteness', 0, 1,
+                                      completeness), iscompression),
+        ConditionalField(BitEnumField('exhaustGasSensorCompleteness', 0, 1,
+                                      completeness), iscompression),
+        ConditionalField(BitEnumField('Reserved1', 0, 1,
+                                      completeness), iscompression),
+        ConditionalField(BitEnumField('boostPressureCompleteness', 0, 1,
+                                      completeness), iscompression),
+        ConditionalField(BitEnumField('Reserved2', 0, 1,
+                                      completeness), iscompression),
+        ConditionalField(BitEnumField('noxScrMonitorCompleteness', 0, 1,
+                                      completeness), iscompression),
+        ConditionalField(BitEnumField('nmhcCatalystCompleteness', 0, 1,
+                                      completeness), iscompression),
     ]
 
 
@@ -151,7 +182,7 @@ class OBD_PID42(Packet):
 class OBD_PID43(Packet):
     name = "PID_43_AbsoluteLoadValue"
     fields_desc = [
-        ScalingField('data', 0, scaling=100/float(255), unit="%", fmt="H")
+        ScalingField('data', 0, scaling=100 / float(255), unit="%", fmt="H")
     ]
 
 
@@ -164,7 +195,7 @@ class OBD_PID44(Packet):
 
 class _OBD_PercentPacket(Packet):
     fields_desc = [
-        ScalingField('data', 0, scaling=100/float(255), unit="%")
+        ScalingField('data', 0, scaling=100 / float(255), unit="%")
     ]
 
 
@@ -277,7 +308,7 @@ class OBD_PID52(_OBD_PercentPacket):
 class OBD_PID53(Packet):
     name = "PID_53_AbsoluteEvapSystemVaporPressure"
     fields_desc = [
-        ScalingField('data', 0, scaling=1/float(200), unit="kPa", fmt="H")
+        ScalingField('data', 0, scaling=1 / float(200), unit="kPa", fmt="H")
     ]
 
 
@@ -290,15 +321,19 @@ class OBD_PID54(Packet):
 
 class _OBD_SensorTrimPacket1(Packet):
     fields_desc = [
-        ScalingField('bank1', 0, scaling=1/float(128), offset=-100, unit="%"),
-        ScalingField('bank3', 0, scaling=1/float(128), offset=-100, unit="%")
+        ScalingField('bank1', 0, scaling=1 / float(128),
+                     offset=-100, unit="%"),
+        ScalingField('bank3', 0, scaling=1 / float(128),
+                     offset=-100, unit="%")
     ]
 
 
 class _OBD_SensorTrimPacket2(Packet):
     fields_desc = [
-        ScalingField('bank1', 0, scaling=1/float(128), offset=-100, unit="%"),
-        ScalingField('bank3', 0, scaling=1/float(128), offset=-100, unit="%")
+        ScalingField('bank1', 0, scaling=1 / float(128),
+                     offset=-100, unit="%"),
+        ScalingField('bank3', 0, scaling=1 / float(128),
+                     offset=-100, unit="%")
     ]
 
 
@@ -343,7 +378,7 @@ class OBD_PID5C(Packet):
 class OBD_PID5D(Packet):
     name = "PID_5D_FuelInjectionTiming"
     fields_desc = [
-        ScalingField('data', 0, scaling=1/float(128), offset=-210,
+        ScalingField('data', 0, scaling=1 / float(128), offset=-210,
                      unit="\xC2\xB0", fmt="H")
     ]
 

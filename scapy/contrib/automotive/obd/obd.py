@@ -1,3 +1,5 @@
+# flake8: noqa: F405
+
 # This file is part of Scapy
 # See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Andreas Korb <andreas.d.korb@gmail.com>
@@ -6,7 +8,6 @@
 
 import struct
 
-# TODO Refactor imports for flake
 from scapy.contrib.automotive.obd.pid.pids_00_1F import *
 from scapy.contrib.automotive.obd.pid.pids_20_3F import *
 from scapy.contrib.automotive.obd.pid.pids_40_5F import *
