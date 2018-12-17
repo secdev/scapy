@@ -221,6 +221,19 @@ class RadioTap(Packet):
                        lambda pkt: pkt.present and pkt.present.ChannelPlus),
                    ConditionalField(_RadiotapReversePadField(LEShortField("ChannelFrequency", 0)), lambda pkt: pkt.present and pkt.present.ChannelPlus),  # noqa: E501
                    ConditionalField(_RadiotapReversePadField(ByteField("ChannelNumber", 0)), lambda pkt: pkt.present and pkt.present.ChannelPlus),  # noqa: E501
+                   # MCS
+                   ConditionalField(
+                       _RadiotapReversePadField(FlagsField("knownMCS", None, -8, ['bandwidth', 'MCS_index', 'guard_interval', 'HT_format',  # noqa: E501
+                                                                                  'FEC_type', 'STBC_streams', 'Ness', 'Ness_MSB'])),  # noqa: E501
+                       lambda pkt: pkt.present and pkt.present.MCS),
+                   ConditionalField(BitEnumField("bandwidth", 0, 2, {0: "20MHz", 1: "40MHz", 2: "ht40Mhz-", 3: "ht40MHz+"}),  # noqa: E501
+                                    lambda pkt: pkt.present and pkt.present.MCS),  # noqa: E501
+                   ConditionalField(BitEnumField("guard_interval", 0, 1, {0: "Long_GI", 1: "Short_GI"}), lambda pkt: pkt.present and pkt.present.MCS),  # noqa: E501
+                   ConditionalField(BitEnumField("HT_format", 0, 1, {0: "mixed", 1: "greenfield"}), lambda pkt: pkt.present and pkt.present.MCS),  # noqa: E501
+                   ConditionalField(BitEnumField("FEC_type", 0, 1, {0: "BCC", 1: "LDPC"}), lambda pkt: pkt.present and pkt.present.MCS),  # noqa: E501
+                   ConditionalField(BitField("STBC_streams", 0, 2), lambda pkt: pkt.present and pkt.present.MCS),  # noqa: E501
+                   ConditionalField(BitField("Ness_LSB", 0, 1), lambda pkt: pkt.present and pkt.present.MCS),  # noqa: E501
+                   ConditionalField(ByteField("MCS_index", 0), lambda pkt: pkt.present and pkt.present.MCS),  # noqa: E501
                    # A_MPDU
                    ConditionalField(_RadiotapReversePadField(LEIntField("A_MPDU_ref", 0)), lambda pkt: pkt.present and pkt.present.A_MPDU),  # noqa: E501
                    ConditionalField(

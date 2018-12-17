@@ -950,6 +950,24 @@ r = RadioTap(data)
 r.show()
 assert r.present == 18479
 
+= RadioTap MCS dissection
+data = b"\x00\x00\x0b\x00\x00\x00\x08\x00?,\x05"
+r = RadioTap(data)
+r.show()
+assert r.present.MCS
+assert r.knownMCS.bandwidth
+assert r.knownMCS.MCS_index
+assert r.knownMCS.guard_interval
+assert r.knownMCS.HT_format
+assert r.knownMCS.FEC_type
+assert r.knownMCS.STBC_streams
+assert r.bandwidth == 0
+assert r.guard_interval == 1
+assert r.HT_format == 0
+assert r.FEC_type == 1
+assert r.STBC_streams == 2
+assert r.MCS_index == 5
+
 = RadioTap - Dissection - guess_payload_class() test
 data = b'\x00\x00\r\x00\x04\x80\x02\x00\x02\x00\x00\x00\x00@\x00\x00\x00\xff\xff\xff\xff\xff\xff\xe8\x94\xf6\x1c\xdf\x8b\xff\xff\xff\xff\xff\xff\xa0\x01\x00\x10ciscosb-wpa2-eap\x01\x08\x02\x04\x0b\x16\x0c\x12\x18$2\x040H`l\x03\x01\x01-\x1an\x11\x1b\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 radiotap = RadioTap(data)
