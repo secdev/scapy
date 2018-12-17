@@ -151,17 +151,17 @@ class OBD_PID69(Packet):
         BitField('ActualEGRBDutyCycleSupported', 0, 1),
         BitField('EGRBErrorSupported', 0, 1),
         BitField('reserved', 0, 2),
-        ScalingField('CommandedEGRADutyCycle', 0, scaling=100/float(255),
+        ScalingField('CommandedEGRADutyCycle', 0, scaling=100 / float(255),
                      unit="%"),
-        ScalingField('ActualEGRADutyCycle', 0, scaling=100/float(255),
+        ScalingField('ActualEGRADutyCycle', 0, scaling=100 / float(255),
                      unit="%"),
-        ScalingField('EGRAError', 0, scaling=100/float(128), unit="%",
+        ScalingField('EGRAError', 0, scaling=100 / float(128), unit="%",
                      offset=-100),
-        ScalingField('CommandedEGRBDutyCycle', 0, scaling=100/float(255),
+        ScalingField('CommandedEGRBDutyCycle', 0, scaling=100 / float(255),
                      unit="%"),
-        ScalingField('ActualEGRBDutyCycle', 0, scaling=100/float(255),
+        ScalingField('ActualEGRBDutyCycle', 0, scaling=100 / float(255),
                      unit="%"),
-        ScalingField('EGRBError', 0, scaling=100/float(128), unit="%",
+        ScalingField('EGRBError', 0, scaling=100 / float(128), unit="%",
                      offset=-100),
     ]
 
@@ -269,7 +269,8 @@ class OBD_PID78(Packet):
     name = "PID_78_ExhaustGasTemperatureBank1"
     fields_desc = [
         BitField('reserved', 0, 4),
-        FlagsField('supportedSensors', 0, 4, ['Sensor1', 'Sensor2', 'Sensor3', 'Sensor4']),
+        FlagsField('supportedSensors', 0, 4, ['Sensor1', 'Sensor2',
+                                              'Sensor3', 'Sensor4']),
         XShortField('temperature1', b''),
         XShortField('temperature2', b''),
         XShortField('temperature3', b''),
@@ -281,7 +282,8 @@ class OBD_PID79(Packet):
     name = "PID_79_ExhaustGasTemperatureBank2"
     fields_desc = [
         BitField('reserved', 0, 4),
-        FlagsField('supportedSensors', 0, 4, ['Sensor1', 'Sensor2', 'Sensor3', 'Sensor4']),
+        FlagsField('supportedSensors', 0, 4, ['Sensor1', 'Sensor2',
+                                              'Sensor3', 'Sensor4']),
         XShortField('temperature1', b''),
         XShortField('temperature2', b''),
         XShortField('temperature3', b''),

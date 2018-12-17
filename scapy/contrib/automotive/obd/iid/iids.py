@@ -9,7 +9,8 @@ from scapy.fields import FieldListField, StrFixedLenField, ByteField, \
 from scapy.packet import Packet
 
 
-# See https://en.wikipedia.org/wiki/OBD-II_PIDs#Service_09 for further information
+# See https://en.wikipedia.org/wiki/OBD-II_PIDs#Service_09
+# for further information
 # IID = Information IDentification
 
 class OBD_IID00(Packet):

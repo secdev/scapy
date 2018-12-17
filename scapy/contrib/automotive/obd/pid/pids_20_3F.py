@@ -114,28 +114,29 @@ class OBD_PID2B(_OBD_PID24_2B):
 class OBD_PID2C(Packet):
     name = "PID_2C_CommandedEgr"
     fields_desc = [
-        ScalingField('data', 0, 100/float(255), "%")
+        ScalingField('data', 0, scaling=100 / float(255), unit="%")
     ]
 
 
 class OBD_PID2D(Packet):
     name = "PID_2D_EgrError"
     fields_desc = [
-        ScalingField('data', 0, scaling=100/float(128), unit="%", offset=-100.0)
+        ScalingField('data', 0, scaling=100 / float(128),
+                     unit="%", offset=-100.0)
     ]
 
 
 class OBD_PID2E(Packet):
     name = "PID_2E_CommandedEvaporativePurge"
     fields_desc = [
-        ScalingField('data', 0, 100/float(255), "%")
+        ScalingField('data', 0, scaling=100 / float(255), unit="%")
     ]
 
 
 class OBD_PID2F(Packet):
     name = "PID_2F_FuelTankLevelInput"
     fields_desc = [
-        ScalingField('data', 0, 100/float(255), "%")
+        ScalingField('data', 0, scaling=100 / float(255), unit="%")
     ]
 
 
