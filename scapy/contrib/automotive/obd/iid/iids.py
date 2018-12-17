@@ -93,7 +93,7 @@ class OBD_IID04(Packet):
         ByteField('messageCount', 1),
         FieldListField('calibrationIdentifications', None,
                        StrFixedLenField(b'', 0, 16),
-                       count_from=lambda pkt: len(pkt.original) / 16)
+                       count_from=lambda pkt: len(pkt.original) // 16)
     ]
 
 
@@ -103,7 +103,7 @@ class OBD_IID06(Packet):
         ByteField('messageCount', 1),
         FieldListField('calibrationVerificationNumbers', None,
                        StrFixedLenField(b'', 0, 4),
-                       count_from=lambda pkt: len(pkt.original) / 4)
+                       count_from=lambda pkt: len(pkt.original) // 4)
     ]
 
 
@@ -113,7 +113,7 @@ class OBD_IID08(Packet):
         ByteField('messageCount', 1),
         FieldListField('data', None,
                        ShortField(b'', 0),
-                       count_from=lambda pkt: len(pkt.original) / 2)
+                       count_from=lambda pkt: len(pkt.original) // 2)
     ]
 
 
@@ -131,5 +131,5 @@ class OBD_IID0B(Packet):
         ByteField('messageCount', 1),
         FieldListField('data', None,
                        ShortField(b'', 0),
-                       count_from=lambda pkt: len(pkt.original) / 2)
+                       count_from=lambda pkt: len(pkt.original) // 2)
     ]
