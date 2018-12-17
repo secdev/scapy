@@ -5,7 +5,7 @@
 # This program is published under a GPLv2 license
 
 from scapy.fields import FieldListField, StrFixedLenField, ByteField, \
-    ShortField
+    ShortField, FlagsField
 from scapy.packet import Packet
 
 
