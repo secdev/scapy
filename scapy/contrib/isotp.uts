@@ -1059,15 +1059,42 @@ def forwarding(pkt):
 def bridge():
     with ISOTPSoftSocket(new_can_socket0(), sid=0x641, did=0x241) as bSocket0, \
          ISOTPSoftSocket(new_can_socket1(), sid=0x241, did=0x641) as bSocket1:
-        bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding, timeout=0.5)
+        bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding, timeout=0.6)
 
+_ = new_can_socket0().sniff(timeout=0.1)
+_ = new_can_socket1().sniff(timeout=0.1)
 threadBridge = threading.Thread(target=bridge)
 threadBridge.start()
-time.sleep(0.1)
+time.sleep(0.4)
 
 with ISOTPSoftSocket(new_can_socket0(), sid=0x241, did=0x641) as isoTpSocket0, \
     ISOTPSoftSocket(new_can_socket1(), sid=0x641, did=0x241) as isoTpSocket1:
     packet = ISOTP('Request')
+    packetsVCan1 = isoTpSocket1.sniff(timeout=0.5, started_callback=lambda: isoTpSocket0.send(packet))
+    assert len(packetsVCan1) == 1
+
+threadBridge.join()
+
+= bridge and sniff with isotp soft sockets and long packet
+~ linux needs_root
+
+def forwarding(pkt):
+    return pkt
+
+def bridge():
+    with ISOTPSoftSocket(new_can_socket0(), sid=0x641, did=0x241) as bSocket0, \
+         ISOTPSoftSocket(new_can_socket1(), sid=0x241, did=0x641) as bSocket1:
+        bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding, timeout=0.6)
+
+_ = new_can_socket0().sniff(timeout=0.1)
+_ = new_can_socket1().sniff(timeout=0.1)
+threadBridge = threading.Thread(target=bridge)
+threadBridge.start()
+time.sleep(0.4)
+
+with ISOTPSoftSocket(new_can_socket0(), sid=0x241, did=0x641) as isoTpSocket0, \
+    ISOTPSoftSocket(new_can_socket1(), sid=0x641, did=0x241) as isoTpSocket1:
+    packet = ISOTP('RequestASDF1234567890')
     packetsVCan1 = isoTpSocket1.sniff(timeout=0.5, started_callback=lambda: isoTpSocket0.send(packet))
     assert len(packetsVCan1) == 1
 
@@ -1085,6 +1112,8 @@ def bridge():
          ISOTPSoftSocket(new_can_socket1(), sid=0x241, did=0x641) as bSocket1:
         bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding, timeout=0.5)
 
+_ = new_can_socket0().sniff(timeout=0.1)
+_ = new_can_socket1().sniff(timeout=0.1)
 threadBridge = threading.Thread(target=bridge)
 threadBridge.start()
 time.sleep(0.1)
