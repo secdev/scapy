@@ -10249,6 +10249,19 @@ assert not a.answers(b)
 assert not (Dot11()/Dot11Ack()).answers(Dot11())
 assert (Dot11()/LLC(dsap=2, ctrl=4)).answers(Dot11()/LLC(dsap=1, ctrl=5))
 
+= Dot11Beacon network_stats()
+
+data = b'\x00\x00\x12\x00.H\x00\x00\x00\x02\x8f\t\xa0\x00\x01\x01\x00\x00\x80\x00\x00\x00\xff\xff\xff\xff\xff\xffDH\xc1\xb7\xf0uDH\xc1\xb7\xf0u\x10\xb7\x00\x00\x00\x00\x00\x00\x00\x00\x90\x01\x11\x00\x00\x06SSID76\x01\n\x82\x84\x0c\x12\x18$0H`l\x03\x01\x080\x18\x01\x00\x00\x0f\xac\x04\x02\x00\x00\x0f\xac\x04\x00\x0f\xac\x02\x01\x00\x00\x0f\xac\x02\x0c\x00'
+pkt = RadioTap(data)
+nstats = pkt[Dot11Beacon].network_stats()
+nstats
+assert nstats == {
+   'channel': 8,
+   'crypto': {'WPA2'},
+   'rates': [130, 132, 12, 18, 24, 36, 48, 72, 96, 108],
+   'ssid': 'SSID76'
+}
+
 = RSNCipherSuite
 assert bytes(RSNCipherSuite()) == b'\x00\x0f\xac\x04'
 rsn =  RSNCipherSuite(b'\x00\x0f\xac\x04')
