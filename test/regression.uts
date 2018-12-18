@@ -6425,6 +6425,21 @@ assert len(defrags) == 1
 * which should be the same as pkt reconstructed
 assert defrags[0] == IP(raw(pkt))
 
+= defragment() uses timestamp of last fragment
+payloadlen, fragsize = 100, 8
+assert fragsize % 8 == 0
+packet = Ether()/IP()/("X" * payloadlen)
+frags = fragment(packet, fragsize)
+for i,fragment in enumerate(frags):
+    fragment.time -= 100 + i
+
+last_time = max(frag.time for frag in frags)
+defrags = defragment(frags)
+assert defrags[0].time == last_time
+nonfrag, defrags, badfrag = defrag(frags)
+assert defrags[0].time == last_time
+
+
 = defrag() / defragment() - Real DNS packets
 
 import base64
