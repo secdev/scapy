@@ -17,6 +17,7 @@ else:
 # See https://en.wikipedia.org/wiki/OBD-II_PIDs for further information
 # PID = Parameter IDentification
 
+
 class OBD_PID60(Packet):
     name = "PID_60_PIDsSupported"
     fields_desc = [

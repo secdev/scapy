@@ -16,6 +16,7 @@ else:
 # See https://en.wikipedia.org/wiki/OBD-II_PIDs for further information
 # PID = Parameter IDentification
 
+
 class OBD_PID20(Packet):
     name = "PID_20_PIDsSupported"
     fields_desc = [
