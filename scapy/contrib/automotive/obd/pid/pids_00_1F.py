@@ -7,6 +7,12 @@
 from scapy.fields import StrFixedLenField, BitEnumField, BitField, \
     ScalingField, ConditionalField, FlagsField, XByteEnumField, ShortField
 from scapy.packet import Packet
+import scapy.modules.six as six
+
+if six.PY2:
+    _temperature = "\xC2\xB0C"
+else:
+    _temperature = "\xB0C"
 
 
 # See https://en.wikipedia.org/wiki/OBD-II_PIDs for further information
@@ -236,7 +242,7 @@ class OBD_PID04(Packet):
 class OBD_PID05(Packet):
     name = "PID_05_EngineCoolantTemperature"
     fields_desc = [
-        ScalingField('data', 0, unit="\xC2\xB0C", offset=-40.0)
+        ScalingField('data', 0, unit=_temperature, offset=-40.0)
     ]
 
 
@@ -304,14 +310,14 @@ class OBD_PID0E(Packet):
     name = "PID_0E_TimingAdvance"
     fields_desc = [
         ScalingField('data', 0, scaling=1 / float(2),
-                     unit="\xC2\xB0", offset=-64.0)
+                     unit=_temperature, offset=-64.0)
     ]
 
 
 class OBD_PID0F(Packet):
     name = "PID_0F_IntakeAirTemperature"
     fields_desc = [
-        ScalingField('data', 0, scaling=1, unit="\xC2\xB0C",
+        ScalingField('data', 0, scaling=1, unit=_temperature,
                      offset=-40.0)
     ]
 

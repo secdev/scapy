@@ -7,7 +7,12 @@
 from scapy.fields import StrFixedLenField, BitField, FlagsField, XShortField, \
     ScalingField
 from scapy.packet import Packet
+import scapy.modules.six as six
 
+if six.PY2:
+    _temperature = "\xC2\xB0C"
+else:
+    _temperature = "\xB0C"
 
 # See https://en.wikipedia.org/wiki/OBD-II_PIDs for further information
 # PID = Parameter IDentification
@@ -117,8 +122,8 @@ class OBD_PID67(Packet):
         BitField('Sensor1Supported', 0, 1),
         BitField('Sensor2Supported', 0, 1),
         BitField('reserved', 0, 6),
-        ScalingField('Sensor1', 0, unit="\xC2\xB0C", offset=-40.0),
-        ScalingField('Sensor2', 0, unit="\xC2\xB0C", offset=-40.0)
+        ScalingField('Sensor1', 0, unit=_temperature, offset=-40.0),
+        ScalingField('Sensor2', 0, unit=_temperature, offset=-40.0)
     ]
 
 
@@ -132,12 +137,12 @@ class OBD_PID68(Packet):
         BitField('Bank2Sensor2Supported', 0, 1),
         BitField('Bank2Sensor3Supported', 0, 1),
         BitField('reserved', 0, 2),
-        ScalingField('Bank1Sensor1', 0, unit="\xC2\xB0C", offset=-40.0),
-        ScalingField('Bank1Sensor2', 0, unit="\xC2\xB0C", offset=-40.0),
-        ScalingField('Bank1Sensor3', 0, unit="\xC2\xB0C", offset=-40.0),
-        ScalingField('Bank2Sensor1', 0, unit="\xC2\xB0C", offset=-40.0),
-        ScalingField('Bank2Sensor2', 0, unit="\xC2\xB0C", offset=-40.0),
-        ScalingField('Bank2Sensor3', 0, unit="\xC2\xB0C", offset=-40.0)
+        ScalingField('Bank1Sensor1', 0, unit=_temperature, offset=-40.0),
+        ScalingField('Bank1Sensor2', 0, unit=_temperature, offset=-40.0),
+        ScalingField('Bank1Sensor3', 0, unit=_temperature, offset=-40.0),
+        ScalingField('Bank2Sensor1', 0, unit=_temperature, offset=-40.0),
+        ScalingField('Bank2Sensor2', 0, unit=_temperature, offset=-40.0),
+        ScalingField('Bank2Sensor3', 0, unit=_temperature, offset=-40.0)
     ]
 
 
