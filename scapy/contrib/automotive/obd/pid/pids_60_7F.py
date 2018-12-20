@@ -156,17 +156,17 @@ class OBD_PID69(Packet):
         BitField('ActualEGRBDutyCycleSupported', 0, 1),
         BitField('EGRBErrorSupported', 0, 1),
         BitField('reserved', 0, 2),
-        ScalingField('CommandedEGRADutyCycle', 0, scaling=100 / float(255),
+        ScalingField('CommandedEGRADutyCycle', 0, scaling=100 / 255.,
                      unit="%"),
-        ScalingField('ActualEGRADutyCycle', 0, scaling=100 / float(255),
+        ScalingField('ActualEGRADutyCycle', 0, scaling=100 / 255.,
                      unit="%"),
-        ScalingField('EGRAError', 0, scaling=100 / float(128), unit="%",
+        ScalingField('EGRAError', 0, scaling=100 / 128., unit="%",
                      offset=-100),
-        ScalingField('CommandedEGRBDutyCycle', 0, scaling=100 / float(255),
+        ScalingField('CommandedEGRBDutyCycle', 0, scaling=100 / 255.,
                      unit="%"),
-        ScalingField('ActualEGRBDutyCycle', 0, scaling=100 / float(255),
+        ScalingField('ActualEGRBDutyCycle', 0, scaling=100 / 255.,
                      unit="%"),
-        ScalingField('EGRBError', 0, scaling=100 / float(128), unit="%",
+        ScalingField('EGRBError', 0, scaling=100 / 128., unit="%",
                      offset=-100),
     ]
 
@@ -181,13 +181,13 @@ class OBD_PID6A(Packet):
         BitField('relative_intake_air_flow_b_position_supported', 0, 1),
         BitField('reserved', 0, 4),
         ScalingField('CommandedIntakeAirFlowAControl', 0,
-                     scaling=100 / float(255), unit="%"),
+                     scaling=100 / 255., unit="%"),
         ScalingField('relative_intake_air_flow_a_position', 0,
-                     scaling=100 / float(255), unit="%"),
+                     scaling=100 / 255., unit="%"),
         ScalingField('commanded_intake_air_flow_b_control', 0,
-                     scaling=100 / float(255), unit="%"),
+                     scaling=100 / 255., unit="%"),
         ScalingField('relative_intake_air_flow_b_position', 0,
-                     scaling=100 / float(255), unit="%"),
+                     scaling=100 / 255., unit="%"),
     ]
 
 
@@ -215,13 +215,13 @@ class OBD_PID6C(Packet):
         BitField('relative_throttle_b_position_supported', 0, 1),
         BitField('reserved', 0, 4),
         ScalingField('commanded_throttle_actuator_a_control', 0,
-                     scaling=100 / float(255), unit="%"),
+                     scaling=100 / 255., unit="%"),
         ScalingField('relative_throttle_a_position', 0,
-                     scaling=100 / float(255), unit="%"),
+                     scaling=100 / 255., unit="%"),
         ScalingField('commanded_throttle_actuator_b_control', 0,
-                     scaling=100 / float(255), unit="%"),
+                     scaling=100 / 255., unit="%"),
         ScalingField('relative_throttle_b_position', 0,
-                     scaling=100 / float(255), unit="%"),
+                     scaling=100 / 255., unit="%"),
     ]
 
 
@@ -293,13 +293,13 @@ class OBD_PID71(Packet):
         BitField('vgt_b_position_supported', 0, 1),
         BitField('reserved', 0, 4),
         ScalingField('commanded_variable_geometry_turbo_a_position', 0,
-                     scaling=100 / float(255), unit="%"),
+                     scaling=100 / 255., unit="%"),
         ScalingField('variable_geometry_turbo_a_position', 0,
-                     scaling=100 / float(255), unit="%"),
+                     scaling=100 / 255., unit="%"),
         ScalingField('commanded_variable_geometry_turbo_b_position', 0,
-                     scaling=100 / float(255), unit="%"),
+                     scaling=100 / 255., unit="%"),
         ScalingField('variable_geometry_turbo_b_position', 0,
-                     scaling=100 / float(255), unit="%"),
+                     scaling=100 / 255., unit="%"),
     ]
 
 
@@ -312,13 +312,13 @@ class OBD_PID72(Packet):
         BitField('wastegate_b_position_supported', 0, 1),
         BitField('reserved', 0, 4),
         ScalingField('commanded_wastegate_a_position', 0,
-                     scaling=100 / float(255), unit="%"),
+                     scaling=100 / 255., unit="%"),
         ScalingField('wastegate_a_position', 0,
-                     scaling=100 / float(255), unit="%"),
+                     scaling=100 / 255., unit="%"),
         ScalingField('commanded_wastegate_b_position', 0,
-                     scaling=100 / float(255), unit="%"),
+                     scaling=100 / 255., unit="%"),
         ScalingField('wastegate_b_position', 0,
-                     scaling=100 / float(255), unit="%"),
+                     scaling=100 / 255., unit="%"),
     ]
 
 
