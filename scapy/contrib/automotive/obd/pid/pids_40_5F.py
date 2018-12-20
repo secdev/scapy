@@ -188,7 +188,7 @@ class OBD_PID42(Packet):
 class OBD_PID43(Packet):
     name = "PID_43_AbsoluteLoadValue"
     fields_desc = [
-        ScalingField('data', 0, scaling=100 / float(255), unit="%", fmt="H")
+        ScalingField('data', 0, scaling=100 / 255., unit="%", fmt="H")
     ]
 
 
@@ -201,7 +201,7 @@ class OBD_PID44(Packet):
 
 class _OBD_PercentPacket(Packet):
     fields_desc = [
-        ScalingField('data', 0, scaling=100 / float(255), unit="%")
+        ScalingField('data', 0, scaling=100 / 255., unit="%")
     ]
 
 
@@ -314,7 +314,7 @@ class OBD_PID52(_OBD_PercentPacket):
 class OBD_PID53(Packet):
     name = "PID_53_AbsoluteEvapSystemVaporPressure"
     fields_desc = [
-        ScalingField('data', 0, scaling=1 / float(200), unit="kPa", fmt="H")
+        ScalingField('data', 0, scaling=1 / 200., unit="kPa", fmt="H")
     ]
 
 
@@ -327,18 +327,18 @@ class OBD_PID54(Packet):
 
 class _OBD_SensorTrimPacket1(Packet):
     fields_desc = [
-        ScalingField('bank1', 0, scaling=1 / float(128),
+        ScalingField('bank1', 0, scaling=1 / 128.,
                      offset=-100, unit="%"),
-        ScalingField('bank3', 0, scaling=1 / float(128),
+        ScalingField('bank3', 0, scaling=1 / 128.,
                      offset=-100, unit="%")
     ]
 
 
 class _OBD_SensorTrimPacket2(Packet):
     fields_desc = [
-        ScalingField('bank1', 0, scaling=1 / float(128),
+        ScalingField('bank1', 0, scaling=1 / 128.,
                      offset=-100, unit="%"),
-        ScalingField('bank3', 0, scaling=1 / float(128),
+        ScalingField('bank3', 0, scaling=1 / 128.,
                      offset=-100, unit="%")
     ]
 
@@ -384,7 +384,7 @@ class OBD_PID5C(Packet):
 class OBD_PID5D(Packet):
     name = "PID_5D_FuelInjectionTiming"
     fields_desc = [
-        ScalingField('data', 0, scaling=1 / float(128), offset=-210,
+        ScalingField('data', 0, scaling=1 / 128., offset=-210,
                      unit=_temperature, fmt="H")
     ]
 
