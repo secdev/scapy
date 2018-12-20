@@ -74,7 +74,7 @@ def _sndrcv_snd(pks, timeout, inter, verbose, tobesent, hsent, timessent, stopev
     except KeyboardInterrupt:
         pass
     except Exception:
-        log_runtime.info("--- Error sending packets", exc_info=True)
+        log_runtime.exception("--- Error sending packets")
     if timeout is not None:
         stopevent.wait(timeout)
         stopevent.set()
