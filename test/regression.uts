@@ -10149,7 +10149,8 @@ assert BOOTP().hashret() == b"\x00\x00\x00\x00"
 
 import random
 random.seed(0x2807)
-assert str(RandDHCPOptions(size=1)) in ["[('max_dhcp_size', 9227)]", "[('SMTP_server', '18.228.90.219')]"]
+assert str(RandDHCPOptions(size=1)) in [r"[('WWW_server', '36.35.181.183')]",
+                                        r"[('boot-file-name', '\xe4Z\xdb\xef\xaf\xf5\x10\x91\x9eD\x0c9. \x91\xa5*Ug\x9cl\xa1\xca\xe3\xa2\xf0:\xd7\x00\xc9g\x02f1\xbd?\xb3\xc4\xe10S7\x9d\x91\x84\xc9y\xb2V<\x7f\x87\x14\xde\xc2\xf4\x94\xabyk\xc1\xbcU\x14\xcb\xb8\xcf\x96\xfedU\x81Z\xff\t\xa6\xe0\xf5\x15p\x91\xf0\xec\x7f')]"]
 
 = DHCPOptionsField
 
