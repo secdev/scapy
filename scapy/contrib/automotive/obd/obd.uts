@@ -137,10 +137,20 @@ assert p.iid == 0x0A
 
 = Check dissecting a response for Service 01 Pid 75
 
-p = OBD(b'\x41\x75ABCDEFG')
+p = OBD(b'\x41\x75\xa0\x00\x11\x22\x33\x44\x55')
 assert p.service == 0x41
 assert p.pid == 0x75
-assert p.data == b'ABCDEFG'
+assert p.turbo_a_compressor_inlet_temperature_supported == 1
+assert p.turbo_a_compressor_outlet_temperature_supported == 0
+assert p.turbo_a_turbine_inlet_temperature_supported == 1
+assert p.turbo_a_turbine_outlet_temperature_supported == 0
+assert p.reserved == 0
+assert p.turbocharger_a_compressor_inlet_temperature == 0x00-40
+assert p.turbocharger_a_compressor_outlet_temperature == 0x11-40
+assert p.turbocharger_a_turbine_inlet_temperature == \
+       round((0x2233 * 0.1) - 40, 3)
+assert p.turbocharger_a_turbine_outlet_temperature == \
+       round((0x4455 * 0.1) - 40, 3)
 
 
 = Check dissecting a response for Service 01 Pid 78
@@ -154,10 +164,19 @@ assert p.pid == 0x78
 
 = Check dissecting a response for Service 01 Pid 7F
 
-p = OBD(b'\x41\x7FABCDEFGHIKLMN')
+p = OBD(b'\x41\x7F\xa0'
+        b'\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF'
+        b'\x01\x02\x03\x04\x05\x06\x07\x08'
+        b'\x00\x11\x22\x33\x44\x55\x66\x77')
 assert p.service == 0x41
 assert p.pid == 0x7F
-assert p.data == b'ABCDEFGHIKLMN'
+assert p.total_supported == 1
+assert p.total_idle_supported == 0
+assert p.total_with_pto_active_supported == 1
+assert p.reserved == 0
+assert p.total == 0xFFFFFFFFFFFFFFFF
+assert p.total_idle == 0x0102030405060708
+assert p.total_with_pto_active == 0x0011223344556677
 
 
 = Check dissecting a response for Service 01 Pid 89
@@ -170,11 +189,21 @@ assert p.data == b'ABCDEFGHIKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOP'
 
 = Check dissecting a response for Service 02 Pid 75
 
-p = OBD(b'\x42\x75\x01ABCDEFG')
+p = OBD(b'\x42\x75\x01\xa0\x00\x11\x22\x33\x44\x55')
 assert p.service == 0x42
 assert p.pid == 0x75
 assert p.frameNo == 0x01
-assert p.data == b'ABCDEFG'
+assert p.turbo_a_compressor_inlet_temperature_supported == 1
+assert p.turbo_a_compressor_outlet_temperature_supported == 0
+assert p.turbo_a_turbine_inlet_temperature_supported == 1
+assert p.turbo_a_turbine_outlet_temperature_supported == 0
+assert p.reserved == 0
+assert p.turbocharger_a_compressor_inlet_temperature == 0x00-40
+assert p.turbocharger_a_compressor_outlet_temperature == 0x11-40
+assert p.turbocharger_a_turbine_inlet_temperature == \
+       round((0x2233 * 0.1) - 40, 3)
+assert p.turbocharger_a_turbine_outlet_temperature == \
+       round((0x4455 * 0.1) - 40, 3)
 
 
 = Check dissecting a response for Service 02 Pid 78
@@ -189,11 +218,20 @@ assert p.frameNo == 0x01
 
 = Check dissecting a response for Service 02 Pid 7F
 
-p = OBD(b'\x42\x7F\x01ABCDEFGHIKLMN')
+p = OBD(b'\x42\x7F\x01\xa0'
+        b'\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF'
+        b'\x01\x02\x03\x04\x05\x06\x07\x08'
+        b'\x00\x11\x22\x33\x44\x55\x66\x77')
 assert p.service == 0x42
 assert p.pid == 0x7F
 assert p.frameNo == 0x01
-assert p.data == b'ABCDEFGHIKLMN'
+assert p.total_supported == 1
+assert p.total_idle_supported == 0
+assert p.total_with_pto_active_supported == 1
+assert p.reserved == 0
+assert p.total == 0xFFFFFFFFFFFFFFFF
+assert p.total_idle == 0x0102030405060708
+assert p.total_with_pto_active == 0x0011223344556677
 
 
 = Check dissecting a response for Service 02 Pid 89
@@ -469,13 +507,28 @@ assert b[0:1] == b'\x09'
 assert b[1:2] == b'\x0A'
 
 
-= Check building a response for Service 01 Pid 75
-
-p = OBD(service=0x41)/OBD_S01()/OBD_PID75(data=b'ABCDEFG')
-b = bytes(p)
-assert b[0:1] == b'\x41'
-assert b[1:2] == b'\x75'
-assert b[2:] == b'ABCDEFG'
+# fixme
+# = Check building a response for Service 01 Pid 75
+#
+# p = OBD(service=0x41)/OBD_S01()/OBD_PID75(
+#     turbo_a_compressor_inlet_temperature_supported=0,
+#     turbo_a_compressor_outlet_temperature_supported=1,
+#     turbo_a_turbine_inlet_temperature_supported=0,
+#     turbo_a_turbine_outlet_temperature_supported=1,
+#     reserved=0,
+#     turbocharger_a_compressor_inlet_temperature=25,
+#     turbocharger_a_compressor_outlet_temperature=45,
+#     turbochar# ger_a_turbine_inlet_temperature=40,
+#     turbocharger_a_turbine_outlet_temperature=100)
+#
+# b = bytes(p)
+# assert b[0:1] == b'\x41'
+# assert b[1:2] == b'\x75'
+# assert b[2:3] == 0b01010000
+# assert b[3:4] == 25 - 40
+# assert b[4:5] == 45 - 40
+# assert b[5:7] == round(40 * 0.1 - 40, 3)
+# assert b[7:9] == round(100 * 0.1 - 40, 3)
 
 
 # fixme
@@ -488,13 +541,24 @@ assert b[2:] == b'ABCDEFG'
 #assert b[2:] == b'ABCDEFGHI'
 
 
-= Check building a response for Service 01 Pid 7F
-
-p = OBD(service=0x41)/OBD_S01()/OBD_PID7F(data=b'ABCDEFGHIKLMN')
-b = bytes(p)
-assert b[0:1] == b'\x41'
-assert b[1:2] == b'\x7F'
-assert b[2:] == b'ABCDEFGHIKLMN'
+# fixme
+# = Check building a response for Service 01 Pid 7F
+#
+# p = OBD(service=0x41)/OBD_S01()/OBD_PID7F(
+#     total_supported=0,
+#     total_idle_supported=1,
+#     total_with_pto_active_supported=1,
+#     reserved=0,
+#     total=b'\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF',
+#     total_idle=0,
+#     total_with_pto_active=5)
+# b = bytes(p)
+# assert b[0:1] == b'\x41'
+# assert b[1:2] == b'\x7F'
+# assert b[2:3] == 0b01100000
+# assert b[3:11] == 0xFFFFFFFFFFFFFFFF
+# assert b[11:19] == 0
+# assert b[19:27] == 5
 
 
 = Check building a response for Service 01 Pid 89
@@ -506,35 +570,60 @@ assert b[1:2] == b'\x89'
 assert b[2:] == b'ABCDEFGHIKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOP'
 
 
-= Check building a response for Service 02 Pid 75
+# fixme
+# = Check building a response for Service 02 Pid 75
+#
+# p = OBD(service=0x42)/OBD_S02(frameNo=0x01)/OBD_PID75(
+#     turbo_a_compressor_inlet_temperature_supported=0,
+#     turbo_a_compressor_outlet_temperature_supported=1,
+#     turbo_a_turbine_inlet_temperature_supported=0,
+#     turbo_a_turbine_outlet_temperature_supported=1,
+#     reserved=0,
+#     turbocharger_a_compressor_inlet_temperature=25,
+#     turbocharger_a_compressor_outlet_temperature=45,
+#     turbocharger_a_turbine_inlet_temperature=40,
+#     turbocharger_a_turbine_outlet_temperature=100)
+#
+# b = bytes(p)
+# assert b[0:1] == b'\x42'
+# assert b[1:2] == b'\x75'
+# assert b[2:3] == b'\x01'
+# assert b[3:4] == 0b01010000
+# assert b[4:5] == 25 - 40
+# assert b[5:6] == 45 - 40
+# assert b[6:8] == round(40 * 0.1 - 40, 3)
+# assert b[8:10] == round(100 * 0.1 - 40, 3)
 
-p = OBD(service=0x42)/OBD_S02(frameNo=0x01)/OBD_PID75(data=b'ABCDEFG')
+
+= Check building a response for Service 02 Pid 78
+
+p = OBD(service=0x42)/OBD_S02(frameNo=0x01)/OBD_PID78(sensor_1_supported=1, sensor_3_supported=1, sensor_1=20, sensor_3=40)
 b = bytes(p)
 assert b[0:1] == b'\x42'
-assert b[1:2] == b'\x75'
+assert b[1:2] == b'\x78'
 assert b[2:3] == b'\x01'
-assert b[3:] == b'ABCDEFG'
+assert b[3:] == b'\xa0\x00\x14\x00\x00\x00\x28\x00\x00'
 
 
 # fixme
-#= Check building a response for Service 02 Pid 78
+# = Check building a response for Service 02 Pid 7F
 #
-#p = OBD(service=0x42)/OBD_S02(frameNo=0x01)/OBD_PID78(data=b'ABCDEFGHI')
-#b = bytes(p)
-#assert b[0:1] == b'\x42'
-#assert b[1:2] == b'\x78'
-#assert b[2:3] == b'\x01'
-#assert b[3:] == b'ABCDEFGHI'
-
-
-= Check building a response for Service 02 Pid 7F
-
-p = OBD(service=0x42)/OBD_S02(frameNo=0x01)/OBD_PID7F(data=b'ABCDEFGHIKLMN')
-b = bytes(p)
-assert b[0:1] == b'\x42'
-assert b[1:2] == b'\x7F'
-assert b[2:3] == b'\x01'
-assert b[3:] == b'ABCDEFGHIKLMN'
+# p = OBD(service=0x42)/OBD_S02(frameNo=1)/OBD_PID7F(
+#     total_supported=0,
+#     total_idle_supported=1,
+#     total_with_pto_active_supported=1,
+#     reserved=0,
+#     total=b'\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF',
+#     total_idle=0,
+#     total_with_pto_active=5)
+# b = bytes(p)
+# assert b[0:1] == b'\x42'
+# assert b[1:2] == b'\x7F'
+# assert b[2:3] == b'\x01'
+# assert b[3:4] == 0b01100000
+# assert b[4:12] == 0xFFFFFFFFFFFFFFFF
+# assert b[12:20] == 0
+# assert b[20:28] == 5
 
 
 = Check building a response for Service 02 Pid 89
