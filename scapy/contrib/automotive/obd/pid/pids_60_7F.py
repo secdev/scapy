@@ -4,7 +4,7 @@
 # Copyright (C) Nils Weiss <nils@we155.de>
 # This program is published under a GPLv2 license
 
-from scapy.fields import BitField, FlagsField, ScalingField
+from scapy.fields import BitField, FlagsField, ScalingField, ScalingIntField
 from scapy.packet import Packet
 import scapy.modules.six as six
 
@@ -490,11 +490,11 @@ class OBD_PID7E(Packet):
 class OBD_PID7F(Packet):
     name = "PID_7F_EngineRunTime"
     fields_desc = [
-        BitField('total__supported', 0, 1),
+        BitField('total_supported', 0, 1),
         BitField('total_idle_supported', 0, 1),
         BitField('total_with_pto_active_supported', 0, 1),
         BitField('reserved', 0, 5),
-        ScalingField('total', 0, unit='sec', fmt='L'),
-        ScalingField('total_idle', 0, unit='sec', fmt='L'),
-        ScalingField('total__with_pto_active', 0, unit='sec', fmt='L'),
+        ScalingIntField('total', 0, unit='sec', fmt='Q'),
+        ScalingIntField('total_idle', 0, unit='sec', fmt='Q'),
+        ScalingIntField('total_with_pto_active', 0, unit='sec', fmt='Q'),
     ]

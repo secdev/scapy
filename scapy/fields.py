@@ -2185,3 +2185,22 @@ class ScalingField(Field):
 
     def i2repr(self, pkt, x):
         return "%s %s" % (self.i2h(pkt, x), self.unit)
+
+
+class ScalingIntField(ScalingField):
+    # Avoid roundings to prevent precision loss
+    def __init__(self, name, default, scaling=1, unit="",
+                 offset=0, fmt="B"):
+        self.scaling = scaling
+        self.unit = unit
+        self.offset = offset
+        ScalingField.__init__(self, name, default, scaling=scaling, unit=unit,
+                              offset=offset, fmt=fmt)
+
+    def i2m(self, pkt, x):
+        if x is None:
+            x = 0
+        return (x - self.offset) // self.scaling
+
+    def m2i(self, pkt, x):
+        return x * self.scaling + self.offset
