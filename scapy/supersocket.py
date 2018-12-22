@@ -77,10 +77,10 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
         self.closed = True
         if hasattr(self, "outs"):
             if not hasattr(self, "ins") or self.ins != self.outs:
-                if self.outs and self.outs.fileno() != -1:
+                if self.outs and (WINDOWS or self.outs.fileno() != -1):
                     self.outs.close()
         if hasattr(self, "ins"):
-            if self.ins and self.ins.fileno() != -1:
+            if self.ins and (WINDOWS or self.ins.fileno() != -1):
                 self.ins.close()
 
     def sr(self, *args, **kargs):

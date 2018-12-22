@@ -11,15 +11,13 @@ PacketList: holds several packets and allows to do operations on them.
 from __future__ import absolute_import
 from __future__ import print_function
 import os
-import subprocess
 from collections import defaultdict
 
 from scapy.compat import lambda_tuple_converter
 from scapy.config import conf
-from scapy.consts import WINDOWS
-from scapy.base_classes import BasePacket, BasePacketList
+from scapy.base_classes import BasePacket, BasePacketList, _CanvasDumpExtended
 from scapy.utils import do_graph, hexdump, make_table, make_lined_table, \
-    make_tex_table, get_temp_file, issubtype, ContextManagerSubprocess
+    make_tex_table, issubtype
 from scapy.extlib import plt, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
 from functools import reduce
 import scapy.modules.six as six
@@ -30,7 +28,7 @@ from scapy.modules.six.moves import range, zip
 #  Results  #
 #############
 
-class PacketList(BasePacketList):
+class PacketList(BasePacketList, _CanvasDumpExtended):
     __slots__ = ["stats", "res", "listname"]
 
     def __init__(self, res=None, name="PacketList", stats=None):
@@ -462,7 +460,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         gr += "}"
         return do_graph(gr, **kargs)
 
-    def _dump_document(self, **kargs):
+    def canvas_dump(self, **kargs):
         import pyx
         d = pyx.document.document()
         len_res = len(self.res)
@@ -476,40 +474,6 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
                                        margin=1 * pyx.unit.t_cm,
                                        fittosize=1))
         return d
-
-    def psdump(self, filename=None, **kargs):
-        """Creates a multi-page postcript file with a psdump of every packet
-        filename: name of the file to write to. If empty, a temporary file is used and  # noqa: E501
-                  conf.prog.psreader is called"""
-        d = self._dump_document(**kargs)
-        if filename is None:
-            filename = get_temp_file(autoext=".ps")
-            d.writePSfile(filename)
-            if WINDOWS and conf.prog.psreader is None:
-                os.startfile(filename)
-            else:
-                with ContextManagerSubprocess("psdump()", conf.prog.psreader):
-                    subprocess.Popen([conf.prog.psreader, filename])
-        else:
-            d.writePSfile(filename)
-        print()
-
-    def pdfdump(self, filename=None, **kargs):
-        """Creates a PDF file with a psdump of every packet
-        filename: name of the file to write to. If empty, a temporary file is used and  # noqa: E501
-                  conf.prog.pdfreader is called"""
-        d = self._dump_document(**kargs)
-        if filename is None:
-            filename = get_temp_file(autoext=".pdf")
-            d.writePDFfile(filename)
-            if WINDOWS and conf.prog.pdfreader is None:
-                os.startfile(filename)
-            else:
-                with ContextManagerSubprocess("pdfdump()", conf.prog.pdfreader):  # noqa: E501
-                    subprocess.Popen([conf.prog.pdfreader, filename])
-        else:
-            d.writePDFfile(filename)
-        print()
 
     def sr(self, multi=0):
         """sr([multi=1]) -> (SndRcvList, PacketList)

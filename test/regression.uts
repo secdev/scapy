@@ -3379,8 +3379,8 @@ assert ICMPv6NIQueryIPv4 in p and p.data == b"freebsd"
 ~ not_pypy random_weird_py3
 random.seed(0x2807)
 p = IPv6()/ICMPv6NIQueryIPv4(data="freebsd")
-h_py2 = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00:\xe10S7\x9d\x91\x84\xc9'
-h_py3 = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00:\xa8\x19uE\x01\xcf\xe3\x04'
+h_py2 = '\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00:y\xb2V<\x7f\x87\x14\xde'
+h_py3 = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00:\x88\xccb\x19~\x9e\xe3a'
 assert p.hashret() in [h_py2, h_py3]
 
 
@@ -8938,6 +8938,9 @@ class MockSocket(object):
         if len(self.l) == 0:
             raise socket.error(100, 'EOF')
         return self.l.pop(0)
+    def fileno(self):
+        return -1
+
 
 class TestPacket(Packet):
     name = 'TestPacket'
@@ -8975,6 +8978,9 @@ class MockSocket(object):
         if len(self.l) == 0:
             raise socket.error(100, 'EOF')
         return self.l.pop(0)
+    def fileno(self):
+        return -1
+
 
 class TestPacket(Packet):
     name = 'TestPacket'
@@ -9014,6 +9020,9 @@ class MockSocket(object):
         if len(self.l) == 0:
             raise socket.error(100, 'EOF')
         return self.l.pop(0)
+    def fileno(self):
+        return -1
+
 
 class TestPacket(Packet):
     name = 'TestPacket'
