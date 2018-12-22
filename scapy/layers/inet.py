@@ -1050,6 +1050,8 @@ def _defrag_logic(plist, complete=False):
             if conf.padding_layer in q:
                 del(q[conf.padding_layer].underlayer.payload)
             txt.add_payload(q[IP].payload.copy())
+            if q.time > p.time:
+                p.time = q.time
         else:
             ip.flags &= ~1  # !MF
             del(ip.chksum)
@@ -1061,6 +1063,7 @@ def _defrag_logic(plist, complete=False):
     for p in defrag:
         q = p.__class__(raw(p))
         q._defrag_pos = p._defrag_pos
+        q.time = p.time
         defrag2.append(q)
     if complete:
         final.extend(defrag2)
