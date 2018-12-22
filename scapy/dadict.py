@@ -21,7 +21,13 @@ from scapy.compat import plain_str
 def fixname(x):
     if x and str(x[0]) in "0123456789":
         x = "n_" + x
-    return x.translate("________________________________________________0123456789_______ABCDEFGHIJKLMNOPQRSTUVWXYZ______abcdefghijklmnopqrstuvwxyz_____________________________________________________________________________________________________________________________________")  # noqa: E501
+    return x.translate(
+        "________________________________________________"
+        "0123456789_______ABCDEFGHIJKLMNOPQRSTUVWXYZ______"
+        "abcdefghijklmnopqrstuvwxyz____________________________"
+        "______________________________________________________"
+        "___________________________________________________"
+    )
 
 
 class DADict_Exception(Scapy_Exception):
@@ -55,7 +61,7 @@ class DADict:
                 print("%10s = %r" % (k, getattr(self, k)))
 
     def __repr__(self):
-        return "<%s/ %s>" % (self._name, " ".join(x for x in self.__dict__ if x and x[0] != "_"))  # noqa: E501
+        return "<%s - %s elements>" % (self._name, len(self.__dict__))
 
     def _branch(self, br, uniq=0):
         if uniq and br._name in self:

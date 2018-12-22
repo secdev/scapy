@@ -17,6 +17,7 @@ from scapy.dadict import DADict
 from scapy.consts import FREEBSD, NETBSD, OPENBSD, WINDOWS
 from scapy.error import log_loading
 from scapy.compat import plain_str
+import scapy.modules.six as six
 
 
 ############
@@ -193,6 +194,9 @@ class ManufDA(DADict):
     def fixname(self, val):
         return plain_str(val)
 
+    def __dir__(self):
+        return ["lookup", "reverse_lookup"]
+
     def _get_manuf_couple(self, mac):
         oui = ":".join(mac.split(":")[:3]).upper()
         return self.__dict__.get(oui, (mac, mac))
@@ -209,11 +213,31 @@ class ManufDA(DADict):
             return ":".join([self[oui][0]] + mac.split(":")[3:])
         return mac
 
-    def __repr__(self):
-        return "\n".join("<%s %s, %s>" % (i[0], i[1][0], i[1][1]) for i in self.__dict__.items())  # noqa: E501
+    def lookup(self, mac):
+        """Find OUI name matching to a MAC"""
+        oui = ":".join(mac.split(":")[:3]).upper()
+        return self[oui]
+
+    def reverse_lookup(self, name, case_sensitive=False):
+        """Find all MACs registered to a OUI
+        params:
+         - name: the OUI name
+         - case_sensitive: default to False
+        returns: a dict of mac:tuples (Name, Extended Name)
+        """
+        if case_sensitive:
+            filtr = lambda x, l: any(x == z for z in l)
+        else:
+            name = name.lower()
+            filtr = lambda x, l: any(x == z.lower() for z in l)
+        return {k: v for k, v in six.iteritems(self.__dict__)
+                if filtr(name, v)}
 
 
 def load_manuf(filename):
+    """Load manuf file from Wireshark.
+    param:
+     - filename: the file to load the manuf file from"""
     manufdb = ManufDA(_name=filename)
     with open(filename, "rb") as fdesc:
         for line in fdesc:
@@ -221,12 +245,10 @@ def load_manuf(filename):
                 line = line.strip()
                 if not line or line.startswith(b"#"):
                     continue
-                oui, shrt = line.split()[:2]
-                i = line.find(b"#")
-                if i < 0:
-                    lng = shrt
-                else:
-                    lng = line[i + 2:]
+                parts = line.split(None, 2)
+                oui, shrt = parts[:2]
+                lng = parts[2].lstrip(b"#").strip() if len(parts) > 2 else ""
+                lng = lng or shrt
                 manufdb[oui] = plain_str(shrt), plain_str(lng)
             except Exception:
                 log_loading.warning("Couldn't parse one line from [%s] [%r]",
