@@ -9,23 +9,21 @@ Packet class. Binding mechanism. fuzz() method.
 
 from __future__ import absolute_import
 from __future__ import print_function
-import os
 import re
 import time
 import itertools
 import copy
-import subprocess
 import types
 
 from scapy.fields import StrField, ConditionalField, Emph, PacketListField, \
     BitField, MultiEnumField, EnumField, FlagsField, MultipleTypeField
 from scapy.config import conf, _version_checker
-from scapy.consts import WINDOWS
 from scapy.compat import raw, orb
-from scapy.base_classes import BasePacket, Gen, SetGen, Packet_metaclass
+from scapy.base_classes import BasePacket, Gen, SetGen, Packet_metaclass, \
+    _CanvasDumpExtended
 from scapy.volatile import VolatileValue, RandField
-from scapy.utils import import_hexcap, tex_escape, colgen, get_temp_file, \
-    issubtype, ContextManagerSubprocess, pretty_list
+from scapy.utils import import_hexcap, tex_escape, colgen, issubtype, \
+    pretty_list
 from scapy.error import Scapy_Exception, log_runtime
 from scapy.extlib import PYX
 import scapy.modules.six as six
@@ -50,7 +48,8 @@ class RawVal:
         return "<RawVal [%r]>" % self.val
 
 
-class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
+class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
+                                _CanvasDumpExtended)):
     __slots__ = [
         "time", "sent_time", "name", "default_fields",
         "overload_fields", "overloaded_fields", "fields", "fieldtype",
@@ -603,74 +602,6 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket)):
 #                p += pkt.load
 #                pkt = pkt.payload
         return p, lst
-
-    def psdump(self, filename=None, **kargs):
-        """
-        psdump(filename=None, layer_shift=0, rebuild=1)
-
-        Creates an EPS file describing a packet. If filename is not provided a
-        temporary file is created and gs is called.
-
-        :param filename: the file's filename
-        """
-        canvas = self.canvas_dump(**kargs)
-        if filename is None:
-            fname = get_temp_file(autoext=".eps")
-            canvas.writeEPSfile(fname)
-            if WINDOWS and conf.prog.psreader is None:
-                os.startfile(fname)
-            else:
-                with ContextManagerSubprocess("psdump()", conf.prog.psreader):
-                    subprocess.Popen([conf.prog.psreader, fname])
-        else:
-            canvas.writeEPSfile(filename)
-        print()
-
-    def pdfdump(self, filename=None, **kargs):
-        """
-        pdfdump(filename=None, layer_shift=0, rebuild=1)
-
-        Creates a PDF file describing a packet. If filename is not provided a
-        temporary file is created and xpdf is called.
-
-        :param filename: the file's filename
-        """
-        canvas = self.canvas_dump(**kargs)
-        if filename is None:
-            fname = get_temp_file(autoext=".pdf")
-            canvas.writePDFfile(fname)
-            if WINDOWS and conf.prog.pdfreader is None:
-                os.startfile(fname)
-            else:
-                with ContextManagerSubprocess("pdfdump()",
-                                              conf.prog.pdfreader):
-                    subprocess.Popen([conf.prog.pdfreader, fname])
-        else:
-            canvas.writePDFfile(filename)
-        print()
-
-    def svgdump(self, filename=None, **kargs):
-        """
-        svgdump(filename=None, layer_shift=0, rebuild=1)
-
-        Creates an SVG file describing a packet. If filename is not provided a
-        temporary file is created and gs is called.
-
-        :param filename: the file's filename
-        """
-        canvas = self.canvas_dump(**kargs)
-        if filename is None:
-            fname = get_temp_file(autoext=".svg")
-            canvas.writeSVGfile(fname)
-            if WINDOWS and conf.prog.svgreader is None:
-                os.startfile(fname)
-            else:
-                with ContextManagerSubprocess("svgdump()",
-                                              conf.prog.svgreader):
-                    subprocess.Popen([conf.prog.svgreader, fname])
-        else:
-            canvas.writeSVGfile(filename)
-        print()
 
     def canvas_dump(self, layer_shift=0, rebuild=1):
         if PYX == 0:

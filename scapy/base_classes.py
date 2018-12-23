@@ -12,12 +12,17 @@ Generators and packet meta classes.
 ################
 
 from __future__ import absolute_import
+
+from functools import reduce
 import operator
+import os
 import re
 import random
 import socket
+import subprocess
 import types
-from functools import reduce
+
+from scapy.consts import WINDOWS
 from scapy.modules.six.moves import range
 
 
@@ -294,3 +299,79 @@ class BasePacket(Gen):
 
 class BasePacketList(object):
     __slots__ = []
+
+
+class _CanvasDumpExtended(object):
+    def psdump(self, filename=None, **kargs):
+        """
+        psdump(filename=None, layer_shift=0, rebuild=1)
+
+        Creates an EPS file describing a packet. If filename is not provided a
+        temporary file is created and gs is called.
+
+        :param filename: the file's filename
+        """
+        from scapy.config import conf
+        from scapy.utils import get_temp_file, ContextManagerSubprocess
+        canvas = self.canvas_dump(**kargs)
+        if filename is None:
+            fname = get_temp_file(autoext=".eps")
+            canvas.writeEPSfile(fname)
+            if WINDOWS and conf.prog.psreader is None:
+                os.startfile(fname)
+            else:
+                with ContextManagerSubprocess("psdump()", conf.prog.psreader):
+                    subprocess.Popen([conf.prog.psreader, fname])
+        else:
+            canvas.writeEPSfile(filename)
+        print()
+
+    def pdfdump(self, filename=None, **kargs):
+        """
+        pdfdump(filename=None, layer_shift=0, rebuild=1)
+
+        Creates a PDF file describing a packet. If filename is not provided a
+        temporary file is created and xpdf is called.
+
+        :param filename: the file's filename
+        """
+        from scapy.config import conf
+        from scapy.utils import get_temp_file, ContextManagerSubprocess
+        canvas = self.canvas_dump(**kargs)
+        if filename is None:
+            fname = get_temp_file(autoext=".pdf")
+            canvas.writePDFfile(fname)
+            if WINDOWS and conf.prog.pdfreader is None:
+                os.startfile(fname)
+            else:
+                with ContextManagerSubprocess("pdfdump()",
+                                              conf.prog.pdfreader):
+                    subprocess.Popen([conf.prog.pdfreader, fname])
+        else:
+            canvas.writePDFfile(filename)
+        print()
+
+    def svgdump(self, filename=None, **kargs):
+        """
+        svgdump(filename=None, layer_shift=0, rebuild=1)
+
+        Creates an SVG file describing a packet. If filename is not provided a
+        temporary file is created and gs is called.
+
+        :param filename: the file's filename
+        """
+        from scapy.config import conf
+        from scapy.utils import get_temp_file, ContextManagerSubprocess
+        canvas = self.canvas_dump(**kargs)
+        if filename is None:
+            fname = get_temp_file(autoext=".svg")
+            canvas.writeSVGfile(fname)
+            if WINDOWS and conf.prog.svgreader is None:
+                os.startfile(fname)
+            else:
+                with ContextManagerSubprocess("svgdump()",
+                                              conf.prog.svgreader):
+                    subprocess.Popen([conf.prog.svgreader, fname])
+        else:
+            canvas.writeSVGfile(filename)
+        print()

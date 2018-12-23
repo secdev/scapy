@@ -336,7 +336,8 @@ class RandString(RandField):
     def _fix(self):
         s = b""
         for _ in range(self.size):
-            s += chb(random.choice(self.chars))
+            rdm_chr = random.choice(self.chars)
+            s += rdm_chr if isinstance(rdm_chr, str) else chb(rdm_chr)
         return s
 
     def __str__(self):
