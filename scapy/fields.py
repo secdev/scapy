@@ -2171,13 +2171,19 @@ class ScalingField(Field):
     def i2m(self, pkt, x):
         if x is None:
             x = 0
-        return round((x - self.offset) / self.scaling)
+        if isinstance(self.scaling, int):
+            return (x - self.offset) / self.scaling
+        else:
+            return round((x - self.offset) / self.scaling)
 
     def m2i(self, pkt, x):
-        return round(x * self.scaling + self.offset, self.ndigits)
+        if isinstance(self.scaling, int):
+            return x * self.scaling + self.offset
+        else:
+            return round(x * self.scaling + self.offset, self.ndigits)
 
     def any2i(self, pkt, x):
-        if isinstance(x, int) and x >= 0:
+        if isinstance(x, int) and isinstance(self.scaling, float) and x >= 0:
             x = struct.unpack(self.fmt,
                               struct.pack(self.fmt.upper(), x))[0]
             x = self.m2i(pkt, x)
@@ -2185,22 +2191,3 @@ class ScalingField(Field):
 
     def i2repr(self, pkt, x):
         return "%s %s" % (self.i2h(pkt, x), self.unit)
-
-
-class ScalingIntField(ScalingField):
-    # Avoid roundings to prevent precision loss
-    def __init__(self, name, default, scaling=1, unit="",
-                 offset=0, fmt="B"):
-        self.scaling = scaling
-        self.unit = unit
-        self.offset = offset
-        ScalingField.__init__(self, name, default, scaling=scaling, unit=unit,
-                              offset=offset, fmt=fmt)
-
-    def i2m(self, pkt, x):
-        if x is None:
-            x = 0
-        return (x - self.offset) // self.scaling
-
-    def m2i(self, pkt, x):
-        return x * self.scaling + self.offset
