@@ -664,17 +664,11 @@ class CANReceiverThread(Thread):
         ins = self.socket
 
         while 1:
-            pkts = ins.sniff(timeout=1, count=1)
-            if len(pkts) == 1:
-                cf = pkts[0]
-            else:
-                cf = None
+            ins.sniff(store=False, timeout=1,
+                      stop_filter=lambda x: self.exiting,
+                      prn=self.callback)
             if self.exiting:
                 return
-            if cf is None:
-                continue
-
-            self.callback(cf)
 
     def stop(self):
         self.exiting = True
