@@ -8,7 +8,7 @@
 # Copyright:   (c) Massimo Ciani 2009
 #
 #-------------------------------------------------------------------------------  # noqa: E501
-# Modified for scapy's usage - Mainly to support Npcap
+# Modified for scapy's usage - Mainly to support Npcap/Monitor mode
 
 ## This file is part of Scapy
 ## See http://www.secdev.org/projects/scapy for more information

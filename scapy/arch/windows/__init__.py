@@ -12,19 +12,18 @@ from __future__ import absolute_import
 from __future__ import print_function
 import os
 import re
-import sys
 import socket
 import platform
 import subprocess as sp
 from glob import glob
-import ctypes
-from ctypes import wintypes
 import tempfile
 from threading import Thread, Event
 import struct
 
 import scapy
 import scapy.consts
+from scapy.arch.windows.structures import _windows_title, \
+    _suppress_file_handles_inheritance, _restore_file_handles_inheritance
 from scapy.config import conf, ConfClass
 from scapy.error import Scapy_Exception, log_loading, log_runtime, warning
 from scapy.utils import atol, itom, pretty_list, mac2str
@@ -34,18 +33,6 @@ import scapy.modules.six as six
 from scapy.modules.six.moves import input, winreg, UserDict
 from scapy.compat import raw
 from scapy.supersocket import SuperSocket
-
-_winapi_SetConsoleTitle = ctypes.windll.kernel32.SetConsoleTitleW
-_winapi_SetConsoleTitle.restype = wintypes.BOOL
-_winapi_SetConsoleTitle.argtypes = [wintypes.LPWSTR]
-
-_winapi_GetHandleInformation = ctypes.windll.kernel32.GetHandleInformation
-_winapi_GetHandleInformation.restype = wintypes.BOOL
-_winapi_GetHandleInformation.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]  # noqa: E501
-
-_winapi_SetHandleInformation = ctypes.windll.kernel32.SetHandleInformation
-_winapi_SetHandleInformation.restype = wintypes.BOOL
-_winapi_SetHandleInformation.argtypes = [wintypes.HANDLE, wintypes.DWORD, wintypes.DWORD]  # noqa: E501
 
 conf.use_winpcapy = True
 conf.use_pcap = False
@@ -61,12 +48,21 @@ WINDOWS = (os.name == 'nt')
 # hot-patching socket for missing variables on Windows
 if not hasattr(socket, 'IPPROTO_IPIP'):
     socket.IPPROTO_IPIP = 4
+if not hasattr(socket, 'IP_RECVTTL'):
+    socket.IP_RECVTTL = 12
+if not hasattr(socket, 'IPV6_HDRINCL'):
+    socket.IPV6_HDRINCL = 36
+# https://bugs.python.org/issue29515
+if not hasattr(socket, 'IPPROTO_IPV6'):
+    socket.SOL_IPV6 = 41
+if not hasattr(socket, 'SOL_IPV6'):
+    socket.SOL_IPV6 = socket.IPPROTO_IPV6
+if not hasattr(socket, 'IPPROTO_GRE'):
+    socket.IPPROTO_GRE = 47
 if not hasattr(socket, 'IPPROTO_AH'):
     socket.IPPROTO_AH = 51
 if not hasattr(socket, 'IPPROTO_ESP'):
     socket.IPPROTO_ESP = 50
-if not hasattr(socket, 'IPPROTO_GRE'):
-    socket.IPPROTO_GRE = 47
 
 _WlanHelper = NPCAP_PATH + "\\WlanHelper.exe"
 
@@ -91,68 +87,6 @@ def _encapsulate_admin(cmd):
     # To get admin access, we start a new powershell instance with admin
     # rights, which will execute the command
     return "Start-Process PowerShell -windowstyle hidden -Wait -PassThru -Verb RunAs -ArgumentList '-command &{%s}'" % cmd  # noqa: E501
-
-
-def _windows_title(title=None):
-    """Updates the terminal title with the default one or with `title`
-    if provided."""
-    if conf.interactive:
-        _winapi_SetConsoleTitle(title or "Scapy v{}".format(conf.version))
-
-
-def _suppress_file_handles_inheritance(r=1000):
-    """HACK: python 2.7 file descriptors.
-
-    This magic hack fixes https://bugs.python.org/issue19575
-    and https://github.com/secdev/scapy/issues/1136
-    by suppressing the HANDLE_FLAG_INHERIT flag to a range of
-    already opened file descriptors.
-    Bug was fixed on python 3.4+
-    """
-    if sys.version_info[0:2] >= (3, 4):
-        return []
-
-    import stat
-    from msvcrt import get_osfhandle
-
-    HANDLE_FLAG_INHERIT = 0x00000001
-
-    handles = []
-    for fd in range(r):
-        try:
-            s = os.fstat(fd)
-        except OSError:
-            continue
-        if stat.S_ISREG(s.st_mode):
-            osf_handle = get_osfhandle(fd)
-            flags = wintypes.DWORD()
-            _winapi_GetHandleInformation(osf_handle, flags)
-            if flags.value & HANDLE_FLAG_INHERIT:
-                _winapi_SetHandleInformation(osf_handle, HANDLE_FLAG_INHERIT, 0)  # noqa: E501
-                handles.append(osf_handle)
-
-    return handles
-
-
-def _restore_file_handles_inheritance(handles):
-    """HACK: python 2.7 file descriptors.
-
-    This magic hack fixes https://bugs.python.org/issue19575
-    and https://github.com/secdev/scapy/issues/1136
-    by suppressing the HANDLE_FLAG_INHERIT flag to a range of
-    already opened file descriptors.
-    Bug was fixed on python 3.4+
-    """
-    if sys.version_info[0:2] >= (3, 4):
-        return
-
-    HANDLE_FLAG_INHERIT = 0x00000001
-
-    for osf_handle in handles:
-        try:
-            _winapi_SetHandleInformation(osf_handle, HANDLE_FLAG_INHERIT, HANDLE_FLAG_INHERIT)  # noqa: E501
-        except (ctypes.WinError, WindowsError, OSError):
-            pass
 
 
 class _PowershellManager(Thread):
@@ -1349,5 +1283,8 @@ class _NotAvailableSocket(SuperSocket):
     desc = "wpcap.dll missing"
 
     def __init__(self, *args, **kargs):
-        raise RuntimeError("Sniffing and sending packets is not available: "  # noqa: E501
-                           "winpcap is not installed")
+        raise RuntimeError(
+            "Sniffing and sending packets is not available at layer 2: "
+            "winpcap is not installed. You may use conf.L3socket or"
+            "conf.L3socket6 to access layer 3"
+        )

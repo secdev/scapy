@@ -428,3 +428,39 @@ def _test_autostart_ui(mocked_getiflist):
 _test_autostart_ui()
 
 IFACES.data = old_ifaces
+
+######### Native mode ###########
+
++ Test Windows Native sockets
+
+= Set up native mode
+
+conf.use_winpcapy = False
+assert conf.use_winpcapy == False
+
+= Open firewall temporarily
+~ needs_root
+
+# Note: this method is complicated, but allow us to perform a real test
+# it is discouraged otherwise. Npcap/Winpcap does NOT require such mechanics
+
+rcode = open_icmp_firewall("www.google.com")
+assert rcode == 0
+
+= Get current seq number
+
+seq = get_current_icmp_seq()
+assert seq > 0
+
+= Ping
+~ netaccess needs_root
+
+with conf.L3socket() as a:
+    answer = a.sr1(IP(dst="www.google.com", ttl=128)/ICMP(id=1, seq=seq)/"abcdefghijklmnopqrstuvwabcdefghi", timeout=1)
+    answer.show()
+    assert ICMP in answer
+
+= Leave native mode
+
+conf.use_winpcapy = True
+assert conf.use_winpcapy == True

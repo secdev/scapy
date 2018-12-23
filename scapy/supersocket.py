@@ -99,6 +99,10 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
         from scapy import sendrecv
         return sendrecv.sniff(opened_socket=self, *args, **kargs)
 
+    def tshark(self, *args, **kargs):
+        from scapy import sendrecv
+        return sendrecv.tshark(opened_socket=self, *args, **kargs)
+
     @staticmethod
     def select(sockets, remain=conf.recv_poll_rate):
         """This function is called during sendrecv() routine to select

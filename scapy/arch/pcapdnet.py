@@ -14,15 +14,16 @@ import struct
 import time
 from ctypes import c_ubyte, cast
 
-from scapy.data import MTU, ETH_P_ALL, ARPHDR_ETHER, ARPHDR_LOOPBACK
+from scapy.automaton import SelectableObject
+from scapy.arch.common import _select_nonblock, TimeoutElapsed
 from scapy.compat import raw, plain_str, chb
 from scapy.config import conf
 from scapy.consts import WINDOWS
+from scapy.data import MTU, ETH_P_ALL, ARPHDR_ETHER, ARPHDR_LOOPBACK
 from scapy.utils import mac2str
 from scapy.supersocket import SuperSocket
 from scapy.error import Scapy_Exception, log_loading, warning
 from scapy.pton_ntop import inet_ntop
-from scapy.automaton import SelectableObject
 import scapy.consts
 
 if not scapy.consts.WINDOWS:
@@ -37,12 +38,8 @@ if not scapy.consts.WINDOWS:
 BIOCIMMEDIATE = -2147204496
 
 
-class PcapTimeoutElapsed(Scapy_Exception):
-    pass
-
-
 class _L2pcapdnetSocket(SuperSocket, SelectableObject):
-    read_allowed_exceptions = (PcapTimeoutElapsed,)
+    read_allowed_exceptions = (TimeoutElapsed,)
 
     def check_recv(self):
         return True
@@ -63,7 +60,7 @@ class _L2pcapdnetSocket(SuperSocket, SelectableObject):
             if pkt is not None:
                 ts, pkt = pkt
             if pkt is None and scapy.consts.WINDOWS:
-                raise PcapTimeoutElapsed  # To understand this behavior, have a look at L2pcapListenSocket's note  # noqa: E501
+                raise TimeoutElapsed  # To understand this behavior, have a look at L2pcapListenSocket's note  # noqa: E501
             if pkt is None:
                 return None, None, None
         return cls, pkt, ts
@@ -78,26 +75,12 @@ class _L2pcapdnetSocket(SuperSocket, SelectableObject):
 
     @staticmethod
     def select(sockets, remain=None):
-        """This function is called during sendrecv() routine to select
-        the available sockets.
-        """
-        # pcap sockets aren't selectable, so we return all of them
-        # and ask the selecting functions to use nonblock_recv instead of recv
-        def _sleep_nonblock_recv(self):
-            try:
-                res = self.nonblock_recv()
-                if res is None:
-                    time.sleep(conf.recv_poll_rate)
-                return res
-            except PcapTimeoutElapsed:
-                return None
-        return sockets, _sleep_nonblock_recv
+        return _select_nonblock(sockets, remain=None)
 
 
 ###################
 #  WINPCAP/NPCAP  #
 ###################
-
 
 if conf.use_winpcapy:
     NPCAP_PATH = os.environ["WINDIR"] + "\\System32\\Npcap"

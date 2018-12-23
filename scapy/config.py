@@ -9,6 +9,7 @@ Implementation of the configuration object.
 
 from __future__ import absolute_import
 from __future__ import print_function
+import functools
 import os
 import re
 import time
@@ -448,31 +449,38 @@ def _set_conf_sockets():
             Interceptor.set_from_hook(conf, "use_winpcapy", False)
             Interceptor.set_from_hook(conf, "use_pcap", False)
         else:
-            conf.L2listen = L2pcapListenSocket
-            conf.L2socket = L2pcapSocket
             conf.L3socket = L3pcapSocket
+            conf.L3socket6 = functools.partial(L3pcapSocket, filter="ip6")
+            conf.L2socket = L2pcapSocket
+            conf.L2listen = L2pcapListenSocket
             return
     if conf.use_bpf:
         from scapy.arch.bpf.supersocket import L2bpfListenSocket, \
             L2bpfSocket, L3bpfSocket
-        conf.L2listen = L2bpfListenSocket
-        conf.L2socket = L2bpfSocket
         conf.L3socket = L3bpfSocket
+        conf.L3socket6 = functools.partial(L3bpfSocket, filter="ip6")
+        conf.L2socket = L2bpfSocket
+        conf.L2listen = L2bpfListenSocket
         return
     if LINUX:
         from scapy.arch.linux import L3PacketSocket, L2Socket, L2ListenSocket
         conf.L3socket = L3PacketSocket
+        conf.L3socket6 = functools.partial(L3PacketSocket, filter="ip6")
         conf.L2socket = L2Socket
         conf.L2listen = L2ListenSocket
         return
-    if WINDOWS:  # Should have been conf.use_winpcapy
+    if WINDOWS:
         from scapy.arch.windows import _NotAvailableSocket
+        from scapy.arch.windows.native import L3WinSocket, L3WinSocket6
+        conf.L3socket = L3WinSocket
+        conf.L3socket6 = L3WinSocket6
         conf.L2socket = _NotAvailableSocket
         conf.L2listen = _NotAvailableSocket
-        conf.L3socket = _NotAvailableSocket
         return
     from scapy.supersocket import L3RawSocket
+    from scapy.layers.inet6 import L3RawSocket6
     conf.L3socket = L3RawSocket
+    conf.L3socket6 = L3RawSocket6
 
 
 def _socket_changer(attr, val):
@@ -556,6 +564,7 @@ recv_poll_rate: how often to check for new packets. Defaults to 0.05s.
     l2types = Num2Layer()
     l3types = Num2Layer()
     L3socket = None
+    L3socket6 = None
     L2socket = None
     L2listen = None
     BTsocket = None
