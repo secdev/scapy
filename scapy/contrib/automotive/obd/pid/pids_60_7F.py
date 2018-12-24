@@ -4,7 +4,7 @@
 # Copyright (C) Nils Weiss <nils@we155.de>
 # This program is published under a GPLv2 license
 
-from scapy.fields import BitField, FlagsField, ScalingField 
+from scapy.fields import BitField, FlagsField, ScalingField
 from scapy.packet import Packet
 import scapy.modules.six as six
 
@@ -496,5 +496,6 @@ class OBD_PID7F(Packet):
         BitField('reserved', 0, 5),
         ScalingField('total', 0, scaling=1, unit='sec', fmt='Q'),
         ScalingField('total_idle', 0, scaling=1, unit='sec', fmt='Q'),
-        ScalingField('total_with_pto_active', 0, scaling=1, unit='sec', fmt='Q'),
+        ScalingField('total_with_pto_active', 0,
+                     scaling=1, unit='sec', fmt='Q'),
     ]
