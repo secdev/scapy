@@ -11,7 +11,8 @@ PPP (Point to Point Protocol)
 
 import struct
 from scapy.config import conf
-from scapy.data import DLT_PPP, DLT_PPP_SERIAL, DLT_PPP_ETHER
+from scapy.data import DLT_PPP, DLT_PPP_SERIAL, DLT_PPP_ETHER, \
+    DLT_PPP_WITH_DIR
 from scapy.compat import orb
 from scapy.packet import Packet, bind_layers
 from scapy.layers.eap import EAP
@@ -253,6 +254,11 @@ _PPP_PROTOCOLS = {
 class HDLC(Packet):
     fields_desc = [XByteField("address", 0xff),
                    XByteField("control", 0x03)]
+
+
+# LINKTYPE_PPP_WITH_DIR
+class DIR_PPP(Packet):
+    fields_desc = [ByteEnumField("direction", 0, ["received", "sent"])]
 
 
 class PPP(Packet):
@@ -876,6 +882,7 @@ bind_layers(CookedLinux, PPPoED, proto=0x8863)
 bind_layers(CookedLinux, PPPoE, proto=0x8864)
 bind_layers(PPPoE, PPP, code=0)
 bind_layers(HDLC, PPP,)
+bind_layers(DIR_PPP, PPP)
 bind_layers(PPP, EAP, proto=0xc227)
 bind_layers(PPP, IP, proto=0x0021)
 bind_layers(PPP, IPv6, proto=0x0057)
@@ -892,3 +899,4 @@ bind_layers(GRE_PPTP, PPP, proto=0x880b)
 conf.l2types.register(DLT_PPP, PPP)
 conf.l2types.register(DLT_PPP_SERIAL, HDLC)
 conf.l2types.register(DLT_PPP_ETHER, PPPoE)
+conf.l2types.register(DLT_PPP_WITH_DIR, DIR_PPP)
