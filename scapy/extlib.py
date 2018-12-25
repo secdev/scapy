@@ -41,8 +41,9 @@ def _test_pyx():
     """Returns if PyX is correctly installed or not"""
     try:
         with open(os.devnull, 'wb') as devnull:
-            r = subprocess.check_call(["pdflatex", "--version"], stdout=devnull, stderr=subprocess.STDOUT)  # noqa: E501
-    except Exception:
+            r = subprocess.check_call(["pdflatex", "--version"],
+                                      stdout=devnull, stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError:
         return False
     else:
         return r == 0

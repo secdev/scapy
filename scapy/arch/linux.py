@@ -29,9 +29,9 @@ from scapy.packet import Packet, Padding
 from scapy.config import conf
 from scapy.data import MTU, ETH_P_ALL
 from scapy.supersocket import SuperSocket
-from scapy.error import warning, Scapy_Exception, log_interactive, \
-    log_loading, ScapyInvalidPlatformException
-from scapy.arch.common import get_if, get_bpf_pointer
+from scapy.error import warning, Scapy_Exception, \
+    ScapyInvalidPlatformException
+from scapy.arch.common import get_if, compile_filter
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
 
@@ -92,15 +92,6 @@ PACKET_FASTROUTE = 6  # Fastrouted frame
 # Unused, PACKET_FASTROUTE and PACKET_LOOPBACK are invisible to user space
 
 
-with os.popen("%s -V 2> /dev/null" % conf.prog.tcpdump) as _f:
-    if _f.close() >> 8 == 0x7f:
-        log_loading.warning("Failed to execute tcpdump. Check it is installed and in the PATH")  # noqa: E501
-        TCPDUMP = 0
-    else:
-        TCPDUMP = 1
-del(_f)
-
-
 def get_if_raw_hwaddr(iff):
     return struct.unpack("16xh6s8x", get_if(iff, SIOCGIFHWADDR))
 
@@ -139,36 +130,15 @@ def get_working_if():
     return LOOPBACK_NAME
 
 
-def attach_filter(s, bpf_filter, iface):
+def attach_filter(sock, bpf_filter, iface):
     # XXX We generate the filter on the interface conf.iface
     # because tcpdump open the "any" interface and ppp interfaces
     # in cooked mode. As we use them in raw mode, the filter will not
     # work... one solution could be to use "any" interface and translate
     # the filter from cooked mode to raw mode
     # mode
-    if not TCPDUMP:
-        return
-    try:
-        f = os.popen("%s -p -i %s -ddd -s %d '%s'" % (
-            conf.prog.tcpdump,
-            conf.iface if iface is None else iface,
-            MTU,
-            bpf_filter,
-        ))
-    except OSError:
-        log_interactive.warning("Failed to attach filter.",
-                                exc_info=True)
-        return
-    lines = f.readlines()
-    ret = f.close()
-    if ret:
-        log_interactive.warning(
-            "Failed to attach filter: tcpdump returned %d", ret
-        )
-        return
-
-    bp = get_bpf_pointer(lines)
-    s.setsockopt(socket.SOL_SOCKET, SO_ATTACH_FILTER, bp)
+    bp = compile_filter(bpf_filter, iface)
+    sock.setsockopt(socket.SOL_SOCKET, SO_ATTACH_FILTER, bp)
 
 
 def set_promisc(s, iff, val=1):
@@ -468,6 +438,7 @@ class L2Socket(SuperSocket):
                  nofilter=0, monitor=None):
         self.iface = conf.iface if iface is None else iface
         self.type = type
+        self.promisc = conf.sniff_promisc if promisc is None else promisc
         if monitor is not None:
             if not set_iface_monitor(iface, monitor):
                 warning("Could not change interface mode !")
@@ -481,7 +452,6 @@ class L2Socket(SuperSocket):
                     filter = "not (%s)" % conf.except_filter
             if filter is not None:
                 attach_filter(self.ins, filter, iface)
-        self.promisc = conf.sniff_promisc if promisc is None else promisc
         if self.promisc:
             set_promisc(self.ins, self.iface)
         self.ins.bind((self.iface, type))

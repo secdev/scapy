@@ -35,7 +35,7 @@ fd, _ = get_dev_bpf()
 ~ needs_root
 
 from scapy.arch.bpf.supersocket import attach_filter
-attach_filter(fd, conf.iface, "arp or icmp")
+attach_filter(fd, "arp or icmp", conf.iface)
 
 
 = Get network interfaces list
