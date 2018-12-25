@@ -7,9 +7,12 @@
 from scapy.fields import BitField, FlagsField, ScalingField
 from scapy.packet import Packet
 import scapy.modules.six as six
+from scapy.consts import LINUX
 
-if six.PY2:
+if six.PY2 and LINUX:
     _temperature = "\xC2\xB0C"
+elif six.PY2:
+    _temperature = u'\N{DEGREE SIGN}C'
 else:
     _temperature = "\xB0C"
 
