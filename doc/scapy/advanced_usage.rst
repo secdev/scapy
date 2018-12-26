@@ -1581,7 +1581,7 @@ Create CAN-frames from an ISOTP message::
    ISOTP(src=0x241, dst=0x641, exdst=0x41, exsrc=0x55, data=b"\x3eabc" * 10).fragment()
 
 SOME/IP and SOME/IP SD messages
---------------
+-------------------------------
 
 Creating a SOME/IP message
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
