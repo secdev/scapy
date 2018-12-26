@@ -1067,11 +1067,11 @@ assert raw(a) in [b'A\x02\x07q', b'C\x02\xfe\x92', b'\x1e\x023V']
 = ASN1 - ASN1_BIT_STRING
 a = ASN1_BIT_STRING("test", "value")
 a
-assert raw(a) == b'test'
+assert raw(a) == b'\x03\x05\x00' + b'test'
 
 a = ASN1_BIT_STRING(b"\xff"*16, "value")
 a
-assert raw(a) == b'\xff'*16
+assert raw(a) == b'\x03\x11\x00' + b'\xff'*16
 
 = ASN1 - ASN1_SEQUENCE
 a = ASN1_SEQUENCE([ASN1_Object(1), ASN1_Object(0)])
