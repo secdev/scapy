@@ -517,6 +517,52 @@ assert(conf.manufdb._resolve_MAC("00:00:0F:01:02:03") == "Next:01:02:03")
 assert(conf.manufdb._get_short_manuf("00:00:0F:01:02:03") == "Next")
 assert(in6_addrtovendor("fe80::0200:0fff:fe01:0203").lower().startswith("next"))
 
+assert conf.manufdb.lookup("00:00:0F:01:02:03") == ('Next', 'Next, Inc.')
+assert "00:00:0F" in conf.manufdb.reverse_lookup("Next")
+
+= Test multiple wireshark's manuf formats
+~ manufdb
+
+new_format = """
+# comment
+00:00:00    JokyIsland    Joky Insland Corp SA
+00:01:12    SecdevCorp    Secdev Corporation SA LLC
+EE:05:01    Scapy         Scapy CO LTD & CIE
+FF:00:11    NoName
+"""
+old_format = """
+# comment
+00:00:00    JokyIsland  #  Joky Insland Corp SA
+00:01:12    SecdevCorp  #  Secdev Corporation SA LLC
+EE:05:01    Scapy       #  Scapy CO LTD & CIE
+FF:00:11    NoName
+"""
+
+manuf1 = get_temp_file()
+manuf2 = get_temp_file()
+
+with open(manuf1, "w") as w:
+    w.write(old_format)
+
+with open(manuf2, "w") as w:
+    w.write(new_format)
+
+a = load_manuf(manuf1)
+b = load_manuf(manuf2)
+
+a.lookup("00:00:00") == ('JokyIsland', 'Joky Insland Corp SA'),
+a.lookup("FF:00:11:00:00:00") == ('NoName', 'NoName')
+a.reverse_lookup("Scapy") == {'EE:05:01': ('Scapy', 'Scapy CO LTD & CIE')}
+a.reverse_lookup("Secdevcorp") == {'00:01:12': ('SecdevCorp', 'Secdev Corporation SA LLC')}
+
+
+b.lookup("00:00:00") == ('JokyIsland', 'Joky Insland Corp SA'),
+b.lookup("FF:00:11:00:00:00") == ('NoName', 'NoName')
+b.reverse_lookup("Scapy") == {'EE:05:01': ('Scapy', 'Scapy CO LTD & CIE')}
+b.reverse_lookup("Secdevcorp") == {'00:01:12': ('SecdevCorp', 'Secdev Corporation SA LLC')}
+
+scapy_delete_temp_files()
+
 = Test utility functions - network related
 ~ netaccess
 
