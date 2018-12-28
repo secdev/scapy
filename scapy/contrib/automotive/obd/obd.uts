@@ -602,7 +602,7 @@ b = bytes(p)
 assert b[0:1] == b'\x42'
 assert b[1:2] == b'\x78'
 assert b[2:3] == b'\x01'
-assert b[3:] == b'\xa0\x00\x14\x00\x00\x00\x28\x00\x00'
+assert b[3:] == b'\xa0\x02X\x00\x00\x03 \x00\x00'
 
 
 # fixme

@@ -2160,8 +2160,8 @@ class SecondsIntField(IntField):
 class ScalingField(Field):
     __slots__ = ["scaling", "unit", "offset", "ndigits"]
 
-    def __init__(self, name, default, scaling=1.0, unit="",
-                 offset=0.0, ndigits=3, fmt="B"):
+    def __init__(self, name, default, scaling=1, unit="",
+                 offset=0, ndigits=3, fmt="B"):
         self.scaling = scaling
         self.unit = unit
         self.offset = offset
@@ -2171,15 +2171,20 @@ class ScalingField(Field):
     def i2m(self, pkt, x):
         if x is None:
             x = 0
-        return round((x - self.offset) / self.scaling)
+        x = (x - self.offset) / self.scaling
+        if isinstance(x, float):
+            x = int(round(x))
+        return x
 
     def m2i(self, pkt, x):
-        return round(x * self.scaling + self.offset, self.ndigits)
+        x = x * self.scaling + self.offset
+        if isinstance(x, float):
+            x = round(x, self.ndigits)
+        return x
 
     def any2i(self, pkt, x):
-        if isinstance(x, int) and x >= 0:
-            x = struct.unpack(self.fmt,
-                              struct.pack(self.fmt.upper(), x))[0]
+        if isinstance(x, str) or isinstance(x, bytes):
+            x = struct.unpack(self.fmt, raw(x))[0]
             x = self.m2i(pkt, x)
         return x
 
