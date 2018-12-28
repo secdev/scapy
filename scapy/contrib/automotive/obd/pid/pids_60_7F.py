@@ -407,13 +407,13 @@ class _OBD_PID_ExhaustGasTemperatureBank(Packet):
         BitField('sensor_3_supported', 0, 1),
         BitField('sensor_4_supported', 0, 1),
         BitField('reserved', 0, 4),
-        ScalingField('sensor_1', 0,
+        ScalingField('sensor_1', -40,
                      unit=_temperature, offset=-40, scaling=0.1, fmt='H'),
-        ScalingField('sensor_2', 0,
+        ScalingField('sensor_2', -40,
                      unit=_temperature, offset=-40, scaling=0.1, fmt='H'),
-        ScalingField('sensor_3', 0,
+        ScalingField('sensor_3', -40,
                      unit=_temperature, offset=-40, scaling=0.1, fmt='H'),
-        ScalingField('sensor_4', 0,
+        ScalingField('sensor_4', -40,
                      unit=_temperature, offset=-40, scaling=0.1, fmt='H'),
     ]
 
