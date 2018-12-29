@@ -8,12 +8,9 @@ from scapy.fields import ByteEnumField, BitEnumField, BitField, \
     ConditionalField, FlagsField, XByteField, ScalingField, ThreeBytesField
 from scapy.packet import Packet
 import scapy.modules.six as six
-from scapy.consts import LINUX
 
-if six.PY2 and LINUX:
+if six.PY2:
     _temperature = "\xC2\xB0C"
-elif six.PY2:
-    _temperature = u'\N{DEGREE SIGN}C'
 else:
     _temperature = "\xB0C"
 
