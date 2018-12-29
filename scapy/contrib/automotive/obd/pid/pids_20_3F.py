@@ -6,12 +6,7 @@
 
 from scapy.fields import FlagsField, ScalingField
 from scapy.packet import Packet
-import scapy.modules.six as six
-
-if six.PY2:
-    _temperature = "\xC2\xB0C"
-else:
-    _temperature = "\xB0C"
+from scapy.contrib.automotive.obd.pid import degree_celsius_repr
 
 # See https://en.wikipedia.org/wiki/OBD-II_PIDs for further information
 # PID = Parameter IDentification
@@ -216,7 +211,7 @@ class OBD_PID3B(_OBD_PID34_3B):
 class OBD_PID3C(Packet):
     name = "PID_3C_CatalystTemperatureBank1Sensor1"
     fields_desc = [
-        ScalingField('data', 0, scaling=0.1, unit=_temperature,
+        ScalingField('data', 0, scaling=0.1, unit=degree_celsius_repr,
                      offset=-40.0, fmt="H")
     ]
 
@@ -224,7 +219,7 @@ class OBD_PID3C(Packet):
 class OBD_PID3D(Packet):
     name = "PID_3D_CatalystTemperatureBank2Sensor1"
     fields_desc = [
-        ScalingField('data', 0, scaling=0.1, unit=_temperature,
+        ScalingField('data', 0, scaling=0.1, unit=degree_celsius_repr,
                      offset=-40.0, fmt="H")
     ]
 
@@ -232,7 +227,7 @@ class OBD_PID3D(Packet):
 class OBD_PID3E(Packet):
     name = "PID_3E_CatalystTemperatureBank1Sensor2"
     fields_desc = [
-        ScalingField('data', 0, scaling=0.1, unit=_temperature,
+        ScalingField('data', 0, scaling=0.1, unit=degree_celsius_repr,
                      offset=-40.0, fmt="H")
     ]
 
@@ -240,6 +235,6 @@ class OBD_PID3E(Packet):
 class OBD_PID3F(Packet):
     name = "PID_3F_CatalystTemperatureBank2Sensor2"
     fields_desc = [
-        ScalingField('data', 0, scaling=0.1, unit=_temperature,
+        ScalingField('data', 0, scaling=0.1, unit=degree_celsius_repr,
                      offset=-40.0, fmt="H")
     ]
