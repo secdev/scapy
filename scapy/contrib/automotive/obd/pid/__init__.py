@@ -8,3 +8,10 @@
 Package of contrib automotive obd specific modules
 that have to be loaded explicitly.
 """
+
+import scapy.modules.six as six
+
+if six.PY2:
+    degree_celsius_repr = "\xC2\xB0C"
+else:
+    degree_celsius_repr = "\xB0C"
