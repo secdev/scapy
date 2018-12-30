@@ -1580,6 +1580,102 @@ Create CAN-frames from an ISOTP message::
 
    ISOTP(src=0x241, dst=0x641, exdst=0x41, exsrc=0x55, data=b"\x3eabc" * 10).fragment()
 
+SOME/IP and SOME/IP SD messages
+-------------------------------
+
+Creating a SOME/IP message
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This example shows a SOME/IP message which requests a service 0x1234 with the method 0x421. Different types of SOME/IP messages follow the same procedure and their specifications can be seen here ``http://www.some-ip.com/papers/cache/AUTOSAR_TR_SomeIpExample_4.2.1.pdf``.
+
+
+Load the contribution::
+
+   load_contrib("automotive.someip")
+
+Create UDP package::
+
+   u = UDP(sport=30509, dport=30509)
+
+Create IP package::
+
+   i = IP(src="192.168.0.13", dst="192.168.0.10")
+
+Create SOME/IP package::
+
+   sip = SOMEIP()
+   sip.iface_ver = 0
+   sip.proto_ver = 1
+   sip.msg_type = "REQUEST"
+   sip.retcode = "E_OK"
+   sip.msg_id.srv_id = 0x1234
+   sip.msg_id.method_id = 0x421
+
+Add the payload::
+
+   sip.add_payload(Raw ("Hello"))
+
+Stack it and send it::
+
+   p = i/u/sip
+   send(p)
+
+Creating a SOME/IP SD message
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+In this example a SOME/IP SD offer service message is shown with an IPv4 endpoint. Different entries and options basically follow the same procedure as shown here and can be seen at ``https://www.autosar.org/fileadmin/user_upload/standards/classic/4-3/AUTOSAR_SWS_ServiceDiscovery.pdf``.
+
+Load the contribution::
+
+   load_contrib("automotive.someip_sd")
+
+Create UDP package::
+
+   u = UDP(sport=30490, dport=30490)
+
+The UDP port must be the one which was chosen for the SOME/IP SD transmission.
+
+Create IP package::
+
+   i = IP(src="192.168.0.13", dst="224.224.224.245")
+
+The IP source must be from the service and the destination address needs to be the chosen multicast address.
+
+Create the entry array input::
+
+   ea = SDEntry_Service()
+
+   ea.type = 0x01
+   ea.srv_id = 0x1234
+   ea.inst_id = 0x5678
+   ea.major_ver = 0x00
+   ea.ttl = 3
+
+Create the options array input::
+
+   oa = SDOption_IP4_Endpoint()
+   oa.addr = "192.168.0.13"
+   oa.l4_proto = 0x11
+   oa.port = 30509
+
+l4_proto defines the protocol for the communication with the endpoint, UDP in this case.
+
+Create the SD package and put in the inputs::
+
+   sd = SD()
+   sd.set_entryArray(ea)
+   sd.set_optionArray(oa)
+   spsd = sd.get_someip(True)
+
+The get_someip method stacks the SOMEIP/SD message on top of a SOME/IP message, which has the desired SOME/IP values prefilled for the SOME/IP SD package transmission.
+
+Stack it and send it::
+
+   p = i/u/spsd
+   send(p)
+
+
+
 
 Setup
 -----
@@ -1835,6 +1931,39 @@ can be chosen to fit the bitrate of a CAN bus under test.
     ip link set can1 up type can bitrate 500000
     ifconfig can0 up
     ifconfig can1 up
+
+Raspberry Pi SOME/IP setup
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+To build a small test environment in which you can send SOME/IP messages to and from server instances or disguise yourself as a server, one Raspberry Pi, your laptop and the vsomeip library are sufficient.
+
+#. | **Download image**
+
+   Download the latest raspbian image (``https://www.raspberrypi.org/downloads/raspbian/``) and install it on the Raspberry.
+
+#. | **Vsomeip setup**
+
+   Download the vsomeip library on the Rapsberry, apply the git patch so it can work with the newer boost libraries and then install it.
+
+   ::
+
+      git clone https://github.com/GENIVI/vsomeip.git
+      cd vsomeip
+      wget -O 0001-Support-boost-v1.66.patch.zip \
+      https://github.com/GENIVI/vsomeip/files/2244890/0001-Support-boost-v1.66.patch.zip
+      unzip 0001-Support-boost-v1.66.patch.zip
+      git apply 0001-Support-boost-v1.66.patch
+      mkdir build
+      cd build
+      cmake -DENABLE_SIGNAL_HANDLING=1 ..
+      make
+      make install
+
+#. | **Make applications**
+
+   Write some small applications which function as either a service or a client and use the scapy SOME/IP implementation to communicate with the client or the server. Examples for vsomeip applications are available on the vsomeip github wiki page (``https://github.com/GENIVI/vsomeip/wiki/vsomeip-in-10-minutes``).
+
+
 
 Software Setup
 ^^^^^^^^^^^^^^
