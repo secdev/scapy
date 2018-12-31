@@ -40,7 +40,7 @@ Example:
 PS: on computers where the firewall isn't open, Windows temporarily opens it
 when using the `ping` util from cmd.exe. One can first call a ping on cmd,
 then do custom calls through the socket using get_current_icmp_seq(). See
-the tests (mock_windows.uts) for an example.
+the tests (windows.uts) for an example.
 """
 
 import os
@@ -50,7 +50,7 @@ import time
 
 from scapy.automaton import SelectableObject
 from scapy.arch.common import _select_nonblock, TimeoutElapsed
-from scapy.arch.windows.structures import _GetIcmpStatistics
+from scapy.arch.windows.structures import GetIcmpStatistics
 from scapy.compat import raw
 from scapy.config import conf
 from scapy.data import MTU
@@ -97,8 +97,9 @@ class L3WinSocket(SuperSocket, SelectableObject):
                                       socket.IPPROTO_RAW)
         except OSError as e:
             if e.errno == 10013:
-                raise OSError("Windows L3 Raw sockets are only "
-                              "usable as administrator !")
+                raise OSError("Windows native L3 Raw sockets are only "
+                              "usable as administrator ! "
+                              "Install Winpcap/Npcap to workaround !")
             raise
         self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.outs.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -114,10 +115,19 @@ class L3WinSocket(SuperSocket, SelectableObject):
         self.ins.setblocking(False)
         # Get as much data as possible: reduce what is cropped
         if ipv6:
-            self.ins.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_RECVTCLASS, 1)
-            self.ins.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_HOPLIMIT, 1)
+            try:  # Not all Windows versions
+                self.ins.setsockopt(socket.IPPROTO_IPV6,
+                                    socket.IPV6_RECVTCLASS, 1)
+                self.ins.setsockopt(socket.IPPROTO_IPV6,
+                                    socket.IPV6_HOPLIMIT, 1)
+            except (OSError, socket.error):
+                pass
         else:
-            self.ins.setsockopt(socket.IPPROTO_IP, socket.IP_RECVDSTADDR, 1)
+            try:  # Not Windows XP
+                self.ins.setsockopt(socket.IPPROTO_IP,
+                                    socket.IP_RECVDSTADDR, 1)
+            except (OSError, socket.error):
+                pass
             try:  # Windows 10+ recent builds only
                 self.ins.setsockopt(socket.IPPROTO_IP, socket.IP_RECVTTL, 1)
             except (OSError, socket.error):
@@ -198,4 +208,4 @@ def open_icmp_firewall(host):
 def get_current_icmp_seq():
     """See help(scapy.arch.windows.native) for more information.
     Returns the current ICMP seq number."""
-    return _GetIcmpStatistics()['stats']['icmpOutStats']['dwEchos']
+    return GetIcmpStatistics()['stats']['icmpOutStats']['dwEchos']

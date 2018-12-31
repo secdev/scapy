@@ -1,0 +1,105 @@
+% Regression tests on Windows only for Scapy
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+############
+############
++ Mechanics tests
+
+= Automaton - SelectableSelector system timeout
+
+class TimeOutSelector(SelectableObject):
+    def check_recv(self):
+        return False
+
+assert select_objects([TimeOutSelector()], 0) == []
+assert select_objects([TimeOutSelector()], 1) == []
+
+############
+############
++ Windows arch unit tests
+
+= show_interfaces
+
+from scapy.arch import show_interfaces
+
+with ContextManagerCaptureOutput() as cmco:
+    show_interfaces()
+    lines = cmco.get_output().split("\n")[1:]
+    for l in lines:
+        if not l.strip():
+            continue
+        int(l[:2])
+
+= dev_from_pcapname
+
+from scapy.config import conf
+
+assert dev_from_pcapname(conf.iface.pcap_name).guid == conf.iface.guid
+
+= test pcap_service_status
+
+status = pcap_service_status()
+assert status
+
+= test pcap_service_stop
+~ appveyor_only require_gui
+
+pcap_service_stop()
+assert pcap_service_status()[2] == False
+
+= test pcap_service_start
+~ appveyor_only require_gui
+
+pcap_service_start()
+assert pcap_service_status()[2] == True
+
+= Test auto-pcap start UI
+
+old_ifaces = IFACES.data.copy()
+
+@mock.patch("scapy.arch.windows.get_windows_if_list")
+def _test_autostart_ui(mocked_getiflist):
+    mocked_getiflist.side_effect = lambda: []
+    IFACES.reload()
+    assert IFACES.data == {}
+
+_test_autostart_ui()
+
+IFACES.data = old_ifaces
+
+######### Native mode ###########
+
++ Test Windows Native sockets
+
+= Set up native mode
+
+conf.use_winpcapy = False
+assert conf.use_winpcapy == False
+
+= Open firewall temporarily
+~ needs_root
+
+# Note: this method is complicated, but allow us to perform a real test
+# it is discouraged otherwise. Npcap/Winpcap does NOT require such mechanics
+
+rcode = open_icmp_firewall("www.google.com")
+assert rcode == 0
+
+= Get current seq number
+
+seq = get_current_icmp_seq()
+assert seq > 0
+
+= Ping
+~ netaccess needs_root
+
+with conf.L3socket() as a:
+    answer = a.sr1(IP(dst="www.google.com", ttl=128)/ICMP(id=1, seq=seq)/"abcdefghijklmnopqrstuvwabcdefghi", timeout=1)
+    answer.show()
+    assert ICMP in answer
+
+= Leave native mode
+
+conf.use_winpcapy = True
+assert conf.use_winpcapy == True

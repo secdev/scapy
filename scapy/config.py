@@ -579,8 +579,6 @@ recv_poll_rate: how often to check for new packets. Defaults to 0.05s.
     debug_tls = 0
     wepkey = ""
     cache_iflist = {}
-    cache_ipaddrs = {}
-    cache_in6_getifaddr = []
     route = None  # Filed by route.py
     route6 = None  # Filed by route6.py
     auto_fragment = 1

@@ -5,7 +5,7 @@
   ],
   "remove_testfiles": [
     "test/linux.uts",
-    "test/mock_windows.uts",
+    "test/windows.uts",
     "scapy/contrib/cansocket_native.uts",
     "scapy/contrib/cansocket_python_can.uts"
   ],

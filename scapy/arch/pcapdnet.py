@@ -9,10 +9,9 @@ Packet sending and receiving with libdnet and libpcap/WinPcap.
 
 import os
 import platform
-import socket
 import struct
 import time
-from ctypes import c_ubyte, cast
+from ctypes import c_ubyte
 
 from scapy.automaton import SelectableObject
 from scapy.arch.common import _select_nonblock, TimeoutElapsed
@@ -23,7 +22,6 @@ from scapy.data import MTU, ETH_P_ALL, ARPHDR_ETHER, ARPHDR_LOOPBACK
 from scapy.utils import mac2str
 from scapy.supersocket import SuperSocket
 from scapy.error import Scapy_Exception, log_loading, warning
-from scapy.pton_ntop import inet_ntop
 import scapy.consts
 
 if not scapy.consts.WINDOWS:
@@ -88,7 +86,7 @@ if conf.use_winpcapy:
     # but he destroyed the commit history, so there is no link to that
     try:
         from scapy.modules.winpcapy import PCAP_ERRBUF_SIZE, pcap_if_t, \
-            sockaddr_in, sockaddr_in6, pcap_findalldevs, pcap_freealldevs, \
+            pcap_findalldevs, pcap_freealldevs, \
             pcap_lib_version, pcap_create, pcap_close, pcap_set_snaplen, \
             pcap_set_promisc, pcap_set_timeout, pcap_set_rfmon, \
             pcap_activate, pcap_open_live, pcap_setmintocopy, pcap_pkthdr, \
@@ -100,18 +98,12 @@ if conf.use_winpcapy:
             """This functions calls Winpcap/Npcap pcap_findalldevs function,
             and extracts and parse all the data scapy will need to use it:
              - the Interface List
-             - the IPv4 addresses
-             - the IPv6 addresses
             This data is stored in their respective conf.cache_* subfields:
                 conf.cache_iflist
-                conf.cache_ipaddrs
-                conf.cache_in6_getifaddr
             """
             err = create_string_buffer(PCAP_ERRBUF_SIZE)
             devs = POINTER(pcap_if_t)()
             if_list = []
-            ip_addresses = {}
-            ip6_addresses = []
             if pcap_findalldevs(byref(devs), err) < 0:
                 return
             try:
@@ -119,27 +111,8 @@ if conf.use_winpcapy:
                 # Iterate through the different interfaces
                 while p:
                     if_list.append(plain_str(p.contents.name))
-                    a = p.contents.addresses
-                    while a:
-                        # IPv4 address
-                        if a.contents.addr.contents.sa_family == socket.AF_INET:  # noqa: E501
-                            ap = a.contents.addr
-                            val = cast(ap, POINTER(sockaddr_in))
-                            if_raw_addr = b"".join(chb(x) for x in val.contents.sin_addr[:4])  # noqa: E501
-                            if if_raw_addr != b'\x00\x00\x00\x00':
-                                ip_addresses[plain_str(p.contents.name)] = if_raw_addr  # noqa: E501
-                        # IPv6 address
-                        if a.contents.addr.contents.sa_family == socket.AF_INET6:  # noqa: E501
-                            ap = a.contents.addr
-                            val = cast(ap, POINTER(sockaddr_in6))
-                            addr = inet_ntop(socket.AF_INET6, b"".join(chb(x) for x in val.contents.sin6_addr[:]))  # noqa: E501
-                            scope = scapy.utils6.in6_getscope(addr)
-                            ip6_addresses.append((addr, scope, plain_str(p.contents.name)))  # noqa: E501
-                        a = a.contents.next
                     p = p.contents.next
                 conf.cache_iflist = if_list
-                conf.cache_ipaddrs = ip_addresses
-                conf.cache_in6_getifaddr = ip6_addresses
             except Exception:
                 raise
             finally:
@@ -148,39 +121,30 @@ if conf.use_winpcapy:
         version = pcap_lib_version()
         if b"winpcap" in version.lower():
             if os.path.exists(NPCAP_PATH + "\\wpcap.dll"):
-                warning("Winpcap is installed over Npcap. Will use Winpcap (see 'Winpcap/Npcap conflicts' in scapy's docs)")  # noqa: E501
+                warning("Winpcap is installed over Npcap. "
+                        "Will use Winpcap (see 'Winpcap/Npcap conflicts' "
+                        "in scapy's docs)")
             elif platform.release() != "XP":
-                warning("WinPcap is now deprecated (not maintened). Please use Npcap instead")  # noqa: E501
+                warning("WinPcap is now deprecated (not maintened). "
+                        "Please use Npcap instead")
         elif b"npcap" in version.lower():
             conf.use_npcap = True
             LOOPBACK_NAME = scapy.consts.LOOPBACK_NAME = "Npcap Loopback Adapter"  # noqa: E501
     except OSError:
         conf.use_winpcapy = False
         if conf.interactive:
-            log_loading.warning("wpcap.dll is not installed. You won't be able to send/receive packets. Visit the scapy's doc to install it")  # noqa: E501
+            log_loading.warning("wpcap.dll is not installed. "
+                                "Restricted mode enabled ! "
+                                "Visit the scapy's doc to install it")
 
     if conf.use_winpcapy:
-        def get_if_raw_addr(iff):  # noqa: F811
-            """Returns the raw ip address corresponding to the NetworkInterface."""  # noqa: E501
-            if not conf.cache_ipaddrs:
-                load_winpcapy()
-            return conf.cache_ipaddrs.get(iff.pcap_name, None)
-
         def get_if_list():
             """Returns all pcap names"""
             if not conf.cache_iflist:
                 load_winpcapy()
             return conf.cache_iflist
-
-        def in6_getifaddr_raw():
-            """Returns all available IPv6 on the computer, read from winpcap."""  # noqa: E501
-            if not conf.cache_in6_getifaddr:
-                load_winpcapy()
-            return conf.cache_in6_getifaddr
     else:
-        get_if_raw_addr = lambda x: None
         get_if_list = lambda: []
-        in6_getifaddr_raw = lambda: []
 
     from ctypes import POINTER, byref, create_string_buffer
 
@@ -200,7 +164,9 @@ if conf.use_winpcapy:
                 if pcap_activate(self.pcap) != 0:
                     raise OSError("Could not activate the pcap handler")
             else:
-                self.pcap = pcap_open_live(self.iface, snaplen, promisc, to_ms, self.errbuf)  # noqa: E501
+                self.pcap = pcap_open_live(self.iface,
+                                           snaplen, promisc, to_ms,
+                                           self.errbuf)
 
             # Winpcap/Npcap exclusive: make every packet to be instantly
             # returned, and not buffered within Winpcap/Npcap
@@ -252,6 +218,9 @@ if conf.use_winpcapy:
             pcap_close(self.pcap)
 
     open_pcap = lambda *args, **kargs: _PcapWrapper_winpcap(*args, **kargs)
+else:
+    NPCAP_PATH = ""
+    get_if_list = lambda: []
 
 ################
 #  PCAP/PCAPY  #
