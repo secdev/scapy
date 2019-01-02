@@ -7,7 +7,6 @@
 from scapy.fields import StrFixedLenField, BitEnumField, BitField, \
     ScalingField, ConditionalField, FlagsField, XByteEnumField, ShortField
 from scapy.packet import Packet
-from scapy.contrib.automotive.obd.pid import degree_celsius_repr
 
 
 # See https://en.wikipedia.org/wiki/OBD-II_PIDs for further information
@@ -237,7 +236,7 @@ class OBD_PID04(Packet):
 class OBD_PID05(Packet):
     name = "PID_05_EngineCoolantTemperature"
     fields_desc = [
-        ScalingField('data', 0, unit=degree_celsius_repr, offset=-40.0)
+        ScalingField('data', 0, unit="deg. C", offset=-40.0)
     ]
 
 
@@ -304,16 +303,14 @@ class OBD_PID0D(Packet):
 class OBD_PID0E(Packet):
     name = "PID_0E_TimingAdvance"
     fields_desc = [
-        ScalingField('data', 0, scaling=1 / 2.,
-                     unit=degree_celsius_repr, offset=-64.0)
+        ScalingField('data', 0, scaling=1 / 2., unit="deg. C", offset=-64.0)
     ]
 
 
 class OBD_PID0F(Packet):
     name = "PID_0F_IntakeAirTemperature"
     fields_desc = [
-        ScalingField('data', 0, scaling=1, unit=degree_celsius_repr,
-                     offset=-40.0)
+        ScalingField('data', 0, scaling=1, unit="deg. C", offset=-40.0)
     ]
 
 

@@ -6,7 +6,7 @@
 
 from scapy.fields import BitField, FlagsField, ScalingField
 from scapy.packet import Packet
-from scapy.contrib.automotive.obd.pid import degree_celsius_repr
+
 
 # See https://en.wikipedia.org/wiki/OBD-II_PIDs for further information
 # PID = Parameter IDentification
@@ -117,8 +117,8 @@ class OBD_PID67(Packet):
         BitField('Sensor1Supported', 0, 1),
         BitField('Sensor2Supported', 0, 1),
         BitField('reserved', 0, 6),
-        ScalingField('Sensor1', 0, unit=degree_celsius_repr, offset=-40.0),
-        ScalingField('Sensor2', 0, unit=degree_celsius_repr, offset=-40.0)
+        ScalingField('Sensor1', 0, unit="deg. C", offset=-40.0),
+        ScalingField('Sensor2', 0, unit="deg. C", offset=-40.0)
     ]
 
 
@@ -132,12 +132,12 @@ class OBD_PID68(Packet):
         BitField('Bank2Sensor2Supported', 0, 1),
         BitField('Bank2Sensor3Supported', 0, 1),
         BitField('reserved', 0, 2),
-        ScalingField('Bank1Sensor1', 0, unit=degree_celsius_repr, offset=-40),
-        ScalingField('Bank1Sensor2', 0, unit=degree_celsius_repr, offset=-40),
-        ScalingField('Bank1Sensor3', 0, unit=degree_celsius_repr, offset=-40),
-        ScalingField('Bank2Sensor1', 0, unit=degree_celsius_repr, offset=-40),
-        ScalingField('Bank2Sensor2', 0, unit=degree_celsius_repr, offset=-40),
-        ScalingField('Bank2Sensor3', 0, unit=degree_celsius_repr, offset=-40)
+        ScalingField('Bank1Sensor1', 0, unit="deg. C", offset=-40),
+        ScalingField('Bank1Sensor2', 0, unit="deg. C", offset=-40),
+        ScalingField('Bank1Sensor3', 0, unit="deg. C", offset=-40),
+        ScalingField('Bank2Sensor1', 0, unit="deg. C", offset=-40),
+        ScalingField('Bank2Sensor2', 0, unit="deg. C", offset=-40),
+        ScalingField('Bank2Sensor3', 0, unit="deg. C", offset=-40)
     ]
 
 
@@ -194,14 +194,10 @@ class OBD_PID6B(Packet):
         BitField('bank_2_sensor_1_supported', 0, 1),
         BitField('bank_2_sensor_2_supported', 0, 1),
         BitField('reserved', 0, 4),
-        ScalingField('bank_1_sensor_1', 0, unit=degree_celsius_repr,
-                     offset=-40),
-        ScalingField('bank_1_sensor_2', 0, unit=degree_celsius_repr,
-                     offset=-40),
-        ScalingField('bank_2_sensor_1', 0, unit=degree_celsius_repr,
-                     offset=-40),
-        ScalingField('bank_2_sensor_2', 0, unit=degree_celsius_repr,
-                     offset=-40),
+        ScalingField('bank_1_sensor_1', 0, unit="deg. C", offset=-40),
+        ScalingField('bank_1_sensor_2', 0, unit="deg. C", offset=-40),
+        ScalingField('bank_2_sensor_1', 0, unit="deg. C", offset=-40),
+        ScalingField('bank_2_sensor_2', 0, unit="deg. C", offset=-40),
     ]
 
 
@@ -235,8 +231,7 @@ class OBD_PID6D(Packet):
                      fmt='H'),
         ScalingField('fuel_rail_pressure', 0, scaling=10, unit="kPa",
                      fmt='H'),
-        ScalingField('fuel_rail_temperature', 0, unit=degree_celsius_repr,
-                     offset=-40),
+        ScalingField('fuel_rail_temperature', 0, unit="deg. C",  offset=-40),
     ]
 
 
@@ -352,14 +347,14 @@ class OBD_PID75(Packet):
         BitField('turbo_a_turbine_outlet_temperature_supported', 0, 1),
         BitField('reserved', 0, 4),
         ScalingField('turbocharger_a_compressor_inlet_temperature', 0,
-                     unit=degree_celsius_repr, offset=-40),
+                     unit="deg. C", offset=-40),
         ScalingField('turbocharger_a_compressor_outlet_temperature', 0,
-                     unit=degree_celsius_repr, offset=-40),
+                     unit="deg. C", offset=-40),
         ScalingField('turbocharger_a_turbine_inlet_temperature', 0,
-                     unit=degree_celsius_repr, offset=-40, fmt='H',
+                     unit="deg. C", offset=-40, fmt='H',
                      scaling=0.1),
         ScalingField('turbocharger_a_turbine_outlet_temperature', 0,
-                     unit=degree_celsius_repr, offset=-40, fmt='H',
+                     unit="deg. C", offset=-40, fmt='H',
                      scaling=0.1),
     ]
 
@@ -373,14 +368,14 @@ class OBD_PID76(Packet):
         BitField('turbo_a_turbine_outlet_temperature_supported', 0, 1),
         BitField('reserved', 0, 4),
         ScalingField('turbocharger_a_compressor_inlet_temperature', 0,
-                     unit=degree_celsius_repr, offset=-40),
+                     unit="deg. C", offset=-40),
         ScalingField('turbocharger_a_compressor_outlet_temperature', 0,
-                     unit=degree_celsius_repr, offset=-40),
+                     unit="deg. C", offset=-40),
         ScalingField('turbocharger_a_turbine_inlet_temperature', 0,
-                     unit=degree_celsius_repr, offset=-40, fmt='H',
+                     unit="deg. C", offset=-40, fmt='H',
                      scaling=0.1),
         ScalingField('turbocharger_a_turbine_outlet_temperature', 0,
-                     unit=degree_celsius_repr, offset=-40, fmt='H',
+                     unit="deg. C", offset=-40, fmt='H',
                      scaling=0.1),
     ]
 
@@ -393,14 +388,10 @@ class OBD_PID77(Packet):
         BitField('bank_2_sensor_1_supported', 0, 1),
         BitField('bank_2_sensor_2_supported', 0, 1),
         BitField('reserved', 0, 4),
-        ScalingField('bank_1_sensor_1', 0, unit=degree_celsius_repr,
-                     offset=-40),
-        ScalingField('bank_1_sensor_2', 0, unit=degree_celsius_repr,
-                     offset=-40),
-        ScalingField('bank_2_sensor_1', 0, unit=degree_celsius_repr,
-                     offset=-40),
-        ScalingField('bank_2_sensor_2', 0, unit=degree_celsius_repr,
-                     offset=-40),
+        ScalingField('bank_1_sensor_1', 0, unit="deg. C", offset=-40),
+        ScalingField('bank_1_sensor_2', 0, unit="deg. C", offset=-40),
+        ScalingField('bank_2_sensor_1', 0, unit="deg. C", offset=-40),
+        ScalingField('bank_2_sensor_2', 0, unit="deg. C", offset=-40),
     ]
 
 
@@ -411,17 +402,13 @@ class _OBD_PID_ExhaustGasTemperatureBank(Packet):
         BitField('sensor_3_supported', 0, 1),
         BitField('sensor_4_supported', 0, 1),
         BitField('reserved', 0, 4),
-        ScalingField('sensor_1', -40,
-                     unit=degree_celsius_repr, offset=-40,
+        ScalingField('sensor_1', -40, unit="deg. C", offset=-40,
                      scaling=0.1, fmt='H'),
-        ScalingField('sensor_2', -40,
-                     unit=degree_celsius_repr, offset=-40,
+        ScalingField('sensor_2', -40, unit="deg. C", offset=-40,
                      scaling=0.1, fmt='H'),
-        ScalingField('sensor_3', -40,
-                     unit=degree_celsius_repr, offset=-40,
+        ScalingField('sensor_3', -40, unit="deg. C", offset=-40,
                      scaling=0.1, fmt='H'),
-        ScalingField('sensor_4', -40,
-                     unit=degree_celsius_repr, offset=-40,
+        ScalingField('sensor_4', -40, unit="deg. C", offset=-40,
                      scaling=0.1, fmt='H'),
     ]
 
@@ -466,17 +453,13 @@ class OBD_PID7C(Packet):
         BitField('bank_2_outlet_temperature_supported', 0, 1),
         BitField('reserved', 0, 4),
         ScalingField('bank_1_inlet_temperature_sensor', 0,
-                     unit=degree_celsius_repr, offset=-40,
-                     scaling=0.1, fmt='H'),
+                     unit="deg. C", offset=-40, scaling=0.1, fmt='H'),
         ScalingField('bank_1_outlet_temperature_sensor', 0,
-                     unit=degree_celsius_repr, offset=-40,
-                     scaling=0.1, fmt='H'),
+                     unit="deg. C", offset=-40, scaling=0.1, fmt='H'),
         ScalingField('bank_2_inlet_temperature_sensor', 0,
-                     unit=degree_celsius_repr, offset=-40,
-                     scaling=0.1, fmt='H'),
+                     unit="deg. C", offset=-40, scaling=0.1, fmt='H'),
         ScalingField('bank_2_outlet_temperature_sensor', 0,
-                     unit=degree_celsius_repr, offset=-40,
-                     scaling=0.1, fmt='H'),
+                     unit="deg. C", offset=-40, scaling=0.1, fmt='H'),
     ]
 
 
