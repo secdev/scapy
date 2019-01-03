@@ -107,6 +107,104 @@ p = OBD(b'\x03')
 assert p.service == 0x03
 
 
+= Check dissecting a request for Service 06
+
+p = OBD(b'\x06\x01')
+assert p.service == 0x06
+assert p.mid == 0x01
+
+
+= Check dissecting a request for Service 06 MID 00
+
+p = OBD(b'\x06\x00')
+assert p.service == 0x06
+assert p.mid == 0x00
+
+
+= Check dissecting a response for Service 06 MID 00
+
+p = OBD(b'\x46\x00\x00\x00\x00\x00')
+assert p.service == 0x46
+assert p.data_records[0].mid == 0x00
+assert p.data_records[0].supportedMIDs == ""
+
+
+= Check dissecting a response for Service 06 MID 00 and MID 20
+
+p = OBD(b'\x46\x00\x01\x02\x03\x04\x20\x01\x02\x03\x04')
+assert p.service == 0x46
+assert p.data_records[0].mid == 0x00
+assert p.data_records[0].supportedMIDs == "MID_1E+MID_18+MID_17+MID_0F+MID_08"
+assert p.data_records[1].mid == 0x20
+assert p.data_records[1].supportedMIDs == "MID_3E+MID_38+MID_37+MID_2F+MID_28"
+
+
+= Check dissecting a response for Service 06 MID 00, 20, 40, 60, 80, A0
+
+p = OBD(b'\x46\x00\x01\x02\x03\x04\x20\x01\x02\x03\x04\x40\x01\x02\x03\x04\x60\x01\x02\x03\x04\x80\x01\x02\x03\x04\xA0\x01\x02\x03\x04')
+assert p.service == 0x46
+assert p.data_records[0].mid == 0x00
+assert p.data_records[0].supportedMIDs == "MID_1E+MID_18+MID_17+MID_0F+MID_08"
+assert p.data_records[1].mid == 0x20
+assert p.data_records[1].supportedMIDs == "MID_3E+MID_38+MID_37+MID_2F+MID_28"
+assert p.data_records[2].mid == 0x40
+assert p.data_records[2].supportedMIDs == "MID_5E+MID_58+MID_57+MID_4F+MID_48"
+assert p.data_records[3].mid == 0x60
+assert p.data_records[3].supportedMIDs == "MID_7E+MID_78+MID_77+MID_6F+MID_68"
+assert p.data_records[4].mid == 0x80
+assert p.data_records[4].supportedMIDs == "MID_9E+MID_98+MID_97+MID_8F+MID_88"
+assert p.data_records[5].mid == 0xA0
+assert p.data_records[5].supportedMIDs == "MID_BE+MID_B8+MID_B7+MID_AF+MID_A8"
+assert len(p.data_records) == 6
+
+
+= Check dissecting a response for Service 06 MID 01
+
+p = OBD(b'\x46\x01\x01\x0A\x0B\xB0\x0B\xB0\x0B\xB0\x01\x05\x10\x00\x48\x00\x00\x00\x64\x01\x85\x24\x00\x96\x00\x4B\xFF\xFF')
+assert p.service == 0x46
+assert p.data_records[0].mid == 0x01
+assert p.data_records[0].standardized_test_id == 1
+assert p.data_records[0].unit_and_scaling_id == 10
+assert p.data_records[0].test_value == 365.024
+assert p.data_records[0].min_limit == 365.024
+assert p.data_records[0].max_limit == 365.024
+assert "Voltage" in p.data_records[0].__repr__()
+assert "365.024 mV" in p.data_records[0].__repr__()
+assert p.data_records[1].mid == 0x01
+assert p.data_records[1].standardized_test_id == 5
+assert p.data_records[1].unit_and_scaling_id == 16
+assert p.data_records[1].test_value == 72
+assert p.data_records[1].min_limit == 0
+assert p.data_records[1].max_limit == 100
+assert "Time" in p.data_records[1].__repr__()
+assert "72 ms" in p.data_records[1].__repr__()
+assert p.data_records[2].mid == 0x01
+assert p.data_records[2].standardized_test_id == 0x85
+assert p.data_records[2].unit_and_scaling_id == 0x24
+assert p.data_records[2].test_value == 150
+assert p.data_records[2].min_limit == 75
+assert p.data_records[2].max_limit == 65535
+assert "Counts" in p.data_records[2].__repr__()
+assert "150 counts" in p.data_records[2].__repr__()
+assert len(p.data_records) == 3
+
+
+= Check dissecting a response for Service 06 MID 21
+
+p = OBD(b'\x46\x21\x87\x2F\x00\x00\x00\x00\x00\x00')
+p.show()
+assert p.service == 0x46
+assert p.data_records[0].mid == 0x21
+assert p.data_records[0].standardized_test_id == 135
+assert p.data_records[0].unit_and_scaling_id == 0x2F
+assert p.data_records[0].test_value == 0
+assert p.data_records[0].min_limit == 0
+assert p.data_records[0].max_limit == 0
+assert "Percent" in p.data_records[0].__repr__()
+assert "0 %" in p.data_records[0].__repr__()
+assert len(p.data_records) == 1
+
+
 = Check dissecting a request for Service 09 Pid 00
 
 p = OBD(b'\x09\x00')

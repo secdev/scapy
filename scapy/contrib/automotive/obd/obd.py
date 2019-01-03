@@ -15,6 +15,7 @@ from scapy.contrib.automotive.obd.pid.pids_60_7F import *
 from scapy.contrib.automotive.obd.pid.pids_80_9F import *
 from scapy.contrib.automotive.obd.pid.pids_A0_C0 import *
 from scapy.contrib.automotive.obd.iid.iids import *
+from scapy.contrib.automotive.obd.mid.mids import *
 from scapy.contrib.automotive.obd.tid.tids import *
 from scapy.contrib.automotive.obd.services import *
 from scapy.packet import Packet, bind_layers, bind_bottom_up
@@ -82,7 +83,7 @@ bind_bottom_up(OBD, OBD_S02, service=0x42)
 bind_bottom_up(OBD, OBD_S03, service=0x43)
 bind_bottom_up(OBD, OBD_S04, service=0x44)
 bind_bottom_up(OBD, OBD_S05, service=0x45)
-bind_bottom_up(OBD, OBD_S06, service=0x46)
+bind_layers(OBD, OBD_MID, service=0x46)
 bind_bottom_up(OBD, OBD_S07, service=0x47)
 bind_bottom_up(OBD, OBD_S08, service=0x48)
 bind_bottom_up(OBD, OBD_S09, service=0x49)
