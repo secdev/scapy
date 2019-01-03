@@ -7,9 +7,10 @@
 from scapy.fields import ByteField, XByteField, StrField, \
     BitEnumField, PacketListField, XBitField, XByteEnumField, FieldListField
 from scapy.packet import Packet
+from scapy.contrib.automotive.obd.packet import OBD_Packet
 
 
-class OBD_DTC(Packet):
+class OBD_DTC(OBD_Packet):
     name = "DiagnosticTroubleCode"
 
     locations = {
@@ -26,9 +27,6 @@ class OBD_DTC(Packet):
         XBitField('code3', 0, 4),
         XBitField('code4', 0, 4),
     ]
-
-    def extract_padding(self, s):
-        return '', s
 
 
 class OBD_NR(Packet):

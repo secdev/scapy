@@ -6,14 +6,14 @@
 
 from scapy.fields import ByteEnumField, BitEnumField, BitField, \
     ConditionalField, FlagsField, XByteField, ScalingField, ThreeBytesField
-from scapy.packet import Packet
+from scapy.contrib.automotive.obd.packet import OBD_Packet
 
 
 # See https://en.wikipedia.org/wiki/OBD-II_PIDs for further information
 # PID = Parameter IDentification
 
 
-class OBD_PID40(Packet):
+class OBD_PID40(OBD_Packet):
     name = "PID_40_PIDsSupported"
     fields_desc = [
         FlagsField('supportedPIDs', 0, 32, [
@@ -53,7 +53,7 @@ class OBD_PID40(Packet):
     ]
 
 
-class OBD_PID41(Packet):
+class OBD_PID41(OBD_Packet):
     name = "PID_41_MonitorStatusThisDriveCycle"
     onOff = {
         0: 'off',
@@ -173,28 +173,28 @@ class OBD_PID41(Packet):
     ]
 
 
-class OBD_PID42(Packet):
+class OBD_PID42(OBD_Packet):
     name = "PID_42_ControlModuleVoltage"
     fields_desc = [
         ScalingField('data', 0, scaling=0.001, unit="V", fmt="H")
     ]
 
 
-class OBD_PID43(Packet):
+class OBD_PID43(OBD_Packet):
     name = "PID_43_AbsoluteLoadValue"
     fields_desc = [
         ScalingField('data', 0, scaling=100 / 255., unit="%", fmt="H")
     ]
 
 
-class OBD_PID44(Packet):
+class OBD_PID44(OBD_Packet):
     name = "PID_44_FuelAirCommandedEquivalenceRatio"
     fields_desc = [
         ScalingField('data', 0, scaling=0.0000305, fmt="H")
     ]
 
 
-class _OBD_PercentPacket(Packet):
+class _OBD_PercentPacket(OBD_Packet):
     fields_desc = [
         ScalingField('data', 0, scaling=100 / 255., unit="%")
     ]
@@ -204,7 +204,7 @@ class OBD_PID45(_OBD_PercentPacket):
     name = "PID_45_RelativeThrottlePosition"
 
 
-class OBD_PID46(Packet):
+class OBD_PID46(OBD_Packet):
     name = "PID_46_AmbientAirTemperature"
     fields_desc = [
         ScalingField('data', 0, unit="deg. C", offset=-40.0)
@@ -235,21 +235,21 @@ class OBD_PID4C(_OBD_PercentPacket):
     name = "PID_4C_CommandedThrottleActuator"
 
 
-class OBD_PID4D(Packet):
+class OBD_PID4D(OBD_Packet):
     name = "PID_4D_TimeRunWithMilOn"
     fields_desc = [
         ScalingField('data', 0, unit="min", fmt="H")
     ]
 
 
-class OBD_PID4E(Packet):
+class OBD_PID4E(OBD_Packet):
     name = "PID_4E_TimeSinceTroubleCodesCleared"
     fields_desc = [
         ScalingField('data', 0, unit="min", fmt="H")
     ]
 
 
-class OBD_PID4F(Packet):
+class OBD_PID4F(OBD_Packet):
     name = "PID_4F_VariousMaxValues"
     fields_desc = [
         ScalingField('EquivalenceRatio', 0),
@@ -260,7 +260,7 @@ class OBD_PID4F(Packet):
     ]
 
 
-class OBD_PID50(Packet):
+class OBD_PID50(OBD_Packet):
     name = "PID_50_MaximumValueForAirFlowRateFromMassAirFlowSensor"
     fields_desc = [
         ScalingField('data', 0, scaling=10, unit="g/s"),
@@ -268,7 +268,7 @@ class OBD_PID50(Packet):
     ]
 
 
-class OBD_PID51(Packet):
+class OBD_PID51(OBD_Packet):
     name = "PID_51_FuelType"
 
     fuelTypes = {
@@ -306,21 +306,21 @@ class OBD_PID52(_OBD_PercentPacket):
     name = "PID_52_EthanolFuel"
 
 
-class OBD_PID53(Packet):
+class OBD_PID53(OBD_Packet):
     name = "PID_53_AbsoluteEvapSystemVaporPressure"
     fields_desc = [
         ScalingField('data', 0, scaling=1 / 200., unit="kPa", fmt="H")
     ]
 
 
-class OBD_PID54(Packet):
+class OBD_PID54(OBD_Packet):
     name = "PID_54_EvapSystemVaporPressure"
     fields_desc = [
         ScalingField('data', 0, unit="Pa", fmt="h")
     ]
 
 
-class _OBD_SensorTrimPacket1(Packet):
+class _OBD_SensorTrimPacket1(OBD_Packet):
     fields_desc = [
         ScalingField('bank1', 0, scaling=1 / 128.,
                      offset=-100, unit="%"),
@@ -329,7 +329,7 @@ class _OBD_SensorTrimPacket1(Packet):
     ]
 
 
-class _OBD_SensorTrimPacket2(Packet):
+class _OBD_SensorTrimPacket2(OBD_Packet):
     fields_desc = [
         ScalingField('bank1', 0, scaling=1 / 128.,
                      offset=-100, unit="%"),
@@ -354,7 +354,7 @@ class OBD_PID58(_OBD_SensorTrimPacket2):
     name = "PID_58_LongTermSecondaryOxygenSensorTrim"
 
 
-class OBD_PID59(Packet):
+class OBD_PID59(OBD_Packet):
     name = "PID_59_FuelRailAbsolutePressure"
     fields_desc = [
         ScalingField('data', 0, scaling=10, unit="kPa", fmt="H")
@@ -369,14 +369,14 @@ class OBD_PID5B(_OBD_PercentPacket):
     name = "PID_5B_HybridBatteryPackRemainingLife"
 
 
-class OBD_PID5C(Packet):
+class OBD_PID5C(OBD_Packet):
     name = "PID_5C_EngineOilTemperature"
     fields_desc = [
         ScalingField('data', 0, unit="deg. C", offset=-40.0)
     ]
 
 
-class OBD_PID5D(Packet):
+class OBD_PID5D(OBD_Packet):
     name = "PID_5D_FuelInjectionTiming"
     fields_desc = [
         ScalingField('data', 0, scaling=1 / 128., offset=-210,
@@ -384,14 +384,14 @@ class OBD_PID5D(Packet):
     ]
 
 
-class OBD_PID5E(Packet):
+class OBD_PID5E(OBD_Packet):
     name = "PID_5E_EngineFuelRate"
     fields_desc = [
         ScalingField('data', 0, scaling=0.05, unit="L/h", fmt="H")
     ]
 
 
-class OBD_PID5F(Packet):
+class OBD_PID5F(OBD_Packet):
     name = "PID_5F_EmissionRequirementsToWhichVehicleIsDesigned"
 
     emissionRequirementTypes = {

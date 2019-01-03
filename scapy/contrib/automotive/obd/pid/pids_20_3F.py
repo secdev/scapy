@@ -5,14 +5,14 @@
 # This program is published under a GPLv2 license
 
 from scapy.fields import FlagsField, ScalingField
-from scapy.packet import Packet
+from scapy.contrib.automotive.obd.packet import OBD_Packet
 
 
 # See https://en.wikipedia.org/wiki/OBD-II_PIDs for further information
 # PID = Parameter IDentification
 
 
-class OBD_PID20(Packet):
+class OBD_PID20(OBD_Packet):
     name = "PID_20_PIDsSupported"
     fields_desc = [
         FlagsField('supportedPIDs', 0, 32, [
@@ -52,28 +52,28 @@ class OBD_PID20(Packet):
     ]
 
 
-class OBD_PID21(Packet):
+class OBD_PID21(OBD_Packet):
     name = "PID_21_DistanceTraveledWithMalfunctionIndicatorLampOn"
     fields_desc = [
         ScalingField('data', 0, scaling=1, unit="km", fmt="H")
     ]
 
 
-class OBD_PID22(Packet):
+class OBD_PID22(OBD_Packet):
     name = "PID_22_FuelRailPressure"
     fields_desc = [
         ScalingField('data', 0, scaling=0.079, unit="kPa", fmt="H")
     ]
 
 
-class OBD_PID23(Packet):
+class OBD_PID23(OBD_Packet):
     name = "PID_23_FuelRailGaugePressure"
     fields_desc = [
         ScalingField('data', 0, scaling=10, unit="kPa", fmt="H")
     ]
 
 
-class _OBD_PID24_2B(Packet):
+class _OBD_PID24_2B(OBD_Packet):
     fields_desc = [
         ScalingField('equivalenceRatio', 0, scaling=0.0000305, fmt="H"),
         ScalingField('voltage', 0, scaling=0.000122, unit="V", fmt="H")
@@ -112,14 +112,14 @@ class OBD_PID2B(_OBD_PID24_2B):
     name = "PID_2B_OxygenSensor8"
 
 
-class OBD_PID2C(Packet):
+class OBD_PID2C(OBD_Packet):
     name = "PID_2C_CommandedEgr"
     fields_desc = [
         ScalingField('data', 0, scaling=100 / 255., unit="%")
     ]
 
 
-class OBD_PID2D(Packet):
+class OBD_PID2D(OBD_Packet):
     name = "PID_2D_EgrError"
     fields_desc = [
         ScalingField('data', 0, scaling=100 / 128.,
@@ -127,49 +127,49 @@ class OBD_PID2D(Packet):
     ]
 
 
-class OBD_PID2E(Packet):
+class OBD_PID2E(OBD_Packet):
     name = "PID_2E_CommandedEvaporativePurge"
     fields_desc = [
         ScalingField('data', 0, scaling=100 / 255., unit="%")
     ]
 
 
-class OBD_PID2F(Packet):
+class OBD_PID2F(OBD_Packet):
     name = "PID_2F_FuelTankLevelInput"
     fields_desc = [
         ScalingField('data', 0, scaling=100 / 255., unit="%")
     ]
 
 
-class OBD_PID30(Packet):
+class OBD_PID30(OBD_Packet):
     name = "PID_30_WarmUpsSinceCodesCleared"
     fields_desc = [
         ScalingField('data', 0)
     ]
 
 
-class OBD_PID31(Packet):
+class OBD_PID31(OBD_Packet):
     name = "PID_31_DistanceTraveledSinceCodesCleared"
     fields_desc = [
         ScalingField('data', 0, scaling=1, unit="km", fmt="H")
     ]
 
 
-class OBD_PID32(Packet):
+class OBD_PID32(OBD_Packet):
     name = "PID_32_EvapSystemVaporPressure"
     fields_desc = [
         ScalingField('data', 0, scaling=0.25, unit="Pa", fmt="h")
     ]
 
 
-class OBD_PID33(Packet):
+class OBD_PID33(OBD_Packet):
     name = "PID_33_AbsoluteBarometricPressure"
     fields_desc = [
         ScalingField('data', 0, unit="kPa")
     ]
 
 
-class _OBD_PID34_3B(Packet):
+class _OBD_PID34_3B(OBD_Packet):
     fields_desc = [
         ScalingField('equivalenceRatio', 0, scaling=0.0000305, fmt="H"),
         ScalingField('current', 0, scaling=0.00390625, unit="mA", fmt="H")
@@ -208,7 +208,7 @@ class OBD_PID3B(_OBD_PID34_3B):
     name = "PID_3B_OxygenSensor8"
 
 
-class OBD_PID3C(Packet):
+class OBD_PID3C(OBD_Packet):
     name = "PID_3C_CatalystTemperatureBank1Sensor1"
     fields_desc = [
         ScalingField('data', 0, scaling=0.1, unit="deg. C",
@@ -216,7 +216,7 @@ class OBD_PID3C(Packet):
     ]
 
 
-class OBD_PID3D(Packet):
+class OBD_PID3D(OBD_Packet):
     name = "PID_3D_CatalystTemperatureBank2Sensor1"
     fields_desc = [
         ScalingField('data', 0, scaling=0.1, unit="deg. C",
@@ -224,7 +224,7 @@ class OBD_PID3D(Packet):
     ]
 
 
-class OBD_PID3E(Packet):
+class OBD_PID3E(OBD_Packet):
     name = "PID_3E_CatalystTemperatureBank1Sensor2"
     fields_desc = [
         ScalingField('data', 0, scaling=0.1, unit="deg. C",
@@ -232,7 +232,7 @@ class OBD_PID3E(Packet):
     ]
 
 
-class OBD_PID3F(Packet):
+class OBD_PID3F(OBD_Packet):
     name = "PID_3F_CatalystTemperatureBank2Sensor2"
     fields_desc = [
         ScalingField('data', 0, scaling=0.1, unit="deg. C",

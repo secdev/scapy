@@ -5,14 +5,14 @@
 # This program is published under a GPLv2 license
 
 from scapy.fields import BitField, FlagsField, ScalingField
-from scapy.packet import Packet
+from scapy.contrib.automotive.obd.packet import OBD_Packet
 
 
 # See https://en.wikipedia.org/wiki/OBD-II_PIDs for further information
 # PID = Parameter IDentification
 
 
-class OBD_PID60(Packet):
+class OBD_PID60(OBD_Packet):
     name = "PID_60_PIDsSupported"
     fields_desc = [
         FlagsField('supportedPIDs', 0, 32, [
@@ -52,28 +52,28 @@ class OBD_PID60(Packet):
     ]
 
 
-class OBD_PID61(Packet):
+class OBD_PID61(OBD_Packet):
     name = "PID_61_DriverSDemandEnginePercentTorque"
     fields_desc = [
         ScalingField('data', 0, unit="%", offset=-125.0)
     ]
 
 
-class OBD_PID62(Packet):
+class OBD_PID62(OBD_Packet):
     name = "PID_62_ActualEnginePercentTorque"
     fields_desc = [
         ScalingField('data', 0, unit="%", offset=-125.0)
     ]
 
 
-class OBD_PID63(Packet):
+class OBD_PID63(OBD_Packet):
     name = "PID_63_EngineReferenceTorque"
     fields_desc = [
         ScalingField('data', 0, unit="Nm", fmt="H")
     ]
 
 
-class OBD_PID64(Packet):
+class OBD_PID64(OBD_Packet):
     name = "PID_64_EnginePercentTorqueData"
     fields_desc = [
         ScalingField('atPoint1', 0, unit="%", offset=-125.0),
@@ -84,7 +84,7 @@ class OBD_PID64(Packet):
     ]
 
 
-class OBD_PID65(Packet):
+class OBD_PID65(OBD_Packet):
     name = "PID_65_AuxiliaryInputOutputSupported"
     fields_desc = [
         BitField('PowerTakeOffStatusSupported', 0, 1),
@@ -100,7 +100,7 @@ class OBD_PID65(Packet):
     ]
 
 
-class OBD_PID66(Packet):
+class OBD_PID66(OBD_Packet):
     name = "PID_66_MassAirFlowSensor"
     fields_desc = [
         BitField('SensorASupported', 0, 1),
@@ -111,7 +111,7 @@ class OBD_PID66(Packet):
     ]
 
 
-class OBD_PID67(Packet):
+class OBD_PID67(OBD_Packet):
     name = "PID_67_EngineCoolantTemperature"
     fields_desc = [
         BitField('Sensor1Supported', 0, 1),
@@ -122,7 +122,7 @@ class OBD_PID67(Packet):
     ]
 
 
-class OBD_PID68(Packet):
+class OBD_PID68(OBD_Packet):
     name = "PID_68_IntakeAirTemperatureSensor"
     fields_desc = [
         BitField('Bank1Sensor1Supported', 0, 1),
@@ -141,7 +141,7 @@ class OBD_PID68(Packet):
     ]
 
 
-class OBD_PID69(Packet):
+class OBD_PID69(OBD_Packet):
     name = "PID_69_CommandedEgrAndEgrError"
     fields_desc = [
         BitField('CommandedEGRADutyCycleSupported', 0, 1),
@@ -166,7 +166,7 @@ class OBD_PID69(Packet):
     ]
 
 
-class OBD_PID6A(Packet):
+class OBD_PID6A(OBD_Packet):
     name = "PID_6A_CommandedDieselIntakeAirFlowControl" \
            "AndRelativeIntakeAirFlowPosition"
     fields_desc = [
@@ -186,7 +186,7 @@ class OBD_PID6A(Packet):
     ]
 
 
-class OBD_PID6B(Packet):
+class OBD_PID6B(OBD_Packet):
     name = "PID_6B_ExhaustGasRecirculationTemperature"
     fields_desc = [
         BitField('bank_1_sensor_1_supported', 0, 1),
@@ -201,7 +201,7 @@ class OBD_PID6B(Packet):
     ]
 
 
-class OBD_PID6C(Packet):
+class OBD_PID6C(OBD_Packet):
     name = "PID_6C_CommandedThrottleActuatorControlAndRelativeThrottlePosition"
     fields_desc = [
         BitField('commanded_throttle_actuator_a_control_supported', 0, 1),
@@ -220,7 +220,7 @@ class OBD_PID6C(Packet):
     ]
 
 
-class OBD_PID6D(Packet):
+class OBD_PID6D(OBD_Packet):
     name = "PID_6D_FuelPressureControlSystem"
     fields_desc = [
         BitField('commanded_fuel_rail_pressure_supported', 0, 1),
@@ -235,7 +235,7 @@ class OBD_PID6D(Packet):
     ]
 
 
-class OBD_PID6E(Packet):
+class OBD_PID6E(OBD_Packet):
     name = "PID_6E_InjectionPressureControlSystem"
     fields_desc = [
         BitField('commanded_injection_control_pressure_supported', 0, 1),
@@ -248,7 +248,7 @@ class OBD_PID6E(Packet):
     ]
 
 
-class OBD_PID6F(Packet):
+class OBD_PID6F(OBD_Packet):
     name = "PID_6F_TurbochargerCompressorInletPressure"
     fields_desc = [
         BitField('sensor_a_supported', 0, 1),
@@ -259,7 +259,7 @@ class OBD_PID6F(Packet):
     ]
 
 
-class OBD_PID70(Packet):
+class OBD_PID70(OBD_Packet):
     name = "PID_70_BoostPressureControl"
     fields_desc = [
         BitField('commanded_boost_pressure_a_supported', 0, 1),
@@ -278,7 +278,7 @@ class OBD_PID70(Packet):
     ]
 
 
-class OBD_PID71(Packet):
+class OBD_PID71(OBD_Packet):
     name = "PID_71_VariableGeometryTurboControl"
     fields_desc = [
         BitField('commanded_vgt_a_position_supported', 0, 1),
@@ -297,7 +297,7 @@ class OBD_PID71(Packet):
     ]
 
 
-class OBD_PID72(Packet):
+class OBD_PID72(OBD_Packet):
     name = "PID_72_WastegateControl"
     fields_desc = [
         BitField('commanded_wastegate_a_position_supported', 0, 1),
@@ -316,7 +316,7 @@ class OBD_PID72(Packet):
     ]
 
 
-class OBD_PID73(Packet):
+class OBD_PID73(OBD_Packet):
     name = "PID_73_ExhaustPressure"
     fields_desc = [
         BitField('sensor_bank_1_supported', 0, 1),
@@ -327,7 +327,7 @@ class OBD_PID73(Packet):
     ]
 
 
-class OBD_PID74(Packet):
+class OBD_PID74(OBD_Packet):
     name = "PID_74_TurbochargerRpm"
     fields_desc = [
         BitField('a_supported', 0, 1),
@@ -338,7 +338,7 @@ class OBD_PID74(Packet):
     ]
 
 
-class OBD_PID75(Packet):
+class OBD_PID75(OBD_Packet):
     name = "PID_75_TurbochargerATemperature"
     fields_desc = [
         BitField('turbo_a_compressor_inlet_temperature_supported', 0, 1),
@@ -359,7 +359,7 @@ class OBD_PID75(Packet):
     ]
 
 
-class OBD_PID76(Packet):
+class OBD_PID76(OBD_Packet):
     name = "PID_76_TurbochargerBTemperature"
     fields_desc = [
         BitField('turbo_a_compressor_inlet_temperature_supported', 0, 1),
@@ -380,7 +380,7 @@ class OBD_PID76(Packet):
     ]
 
 
-class OBD_PID77(Packet):
+class OBD_PID77(OBD_Packet):
     name = "PID_77_ChargeAirCoolerTemperature"
     fields_desc = [
         BitField('bank_1_sensor_1_supported', 0, 1),
@@ -395,7 +395,7 @@ class OBD_PID77(Packet):
     ]
 
 
-class _OBD_PID_ExhaustGasTemperatureBank(Packet):
+class _OBD_PID_ExhaustGasTemperatureBank(OBD_Packet):
     fields_desc = [
         BitField('sensor_1_supported', 0, 1),
         BitField('sensor_2_supported', 0, 1),
@@ -421,7 +421,7 @@ class OBD_PID79(_OBD_PID_ExhaustGasTemperatureBank):
     name = "PID_79_ExhaustGasTemperatureBank2"
 
 
-class _OBD_PID_DieselParticulateFilter(Packet):
+class _OBD_PID_DieselParticulateFilter(OBD_Packet):
     fields_desc = [
         BitField('delta_pressure_supported', 0, 1),
         BitField('inlet_pressure_supported', 0, 1),
@@ -444,7 +444,7 @@ class OBD_PID7B(_OBD_PID_DieselParticulateFilter):
     name = "PID_7B_DieselParticulateFilter2"
 
 
-class OBD_PID7C(Packet):
+class OBD_PID7C(OBD_Packet):
     name = "PID_7C_DieselParticulateFilterTemperature"
     fields_desc = [
         BitField('bank_1_inlet_temperature_supported', 0, 1),
@@ -463,7 +463,7 @@ class OBD_PID7C(Packet):
     ]
 
 
-class OBD_PID7D(Packet):
+class OBD_PID7D(OBD_Packet):
     name = "PID_7D_NoxNteControlAreaStatus"
     fields_desc = [
         BitField('inside', 0, 1),
@@ -474,7 +474,7 @@ class OBD_PID7D(Packet):
     ]
 
 
-class OBD_PID7E(Packet):
+class OBD_PID7E(OBD_Packet):
     name = "PID_7E_PmNteControlAreaStatus"
     fields_desc = [
         BitField('inside', 0, 1),
@@ -485,7 +485,7 @@ class OBD_PID7E(Packet):
     ]
 
 
-class OBD_PID7F(Packet):
+class OBD_PID7F(OBD_Packet):
     name = "PID_7F_EngineRunTime"
     fields_desc = [
         BitField('total_supported', 0, 1),

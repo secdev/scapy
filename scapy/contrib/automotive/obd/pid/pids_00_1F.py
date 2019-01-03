@@ -6,13 +6,13 @@
 
 from scapy.fields import StrFixedLenField, BitEnumField, BitField, \
     ScalingField, ConditionalField, FlagsField, XByteEnumField, ShortField
-from scapy.packet import Packet
+from scapy.contrib.automotive.obd.packet import OBD_Packet
 
 
 # See https://en.wikipedia.org/wiki/OBD-II_PIDs for further information
 # PID = Parameter IDentification
 
-class OBD_PID00(Packet):
+class OBD_PID00(OBD_Packet):
     name = "PID_00_PIDsSupported"
 
     fields_desc = [
@@ -53,7 +53,7 @@ class OBD_PID00(Packet):
     ]
 
 
-class OBD_PID01(Packet):
+class OBD_PID01(OBD_Packet):
     name = "PID_01_MonitorStatusSinceDtcsCleared"
 
     onOff = {
@@ -202,14 +202,14 @@ class OBD_PID01(Packet):
     ]
 
 
-class OBD_PID02(Packet):
+class OBD_PID02(OBD_Packet):
     name = "PID_02_FreezeDtc"
     fields_desc = [
         ShortField('data', 0)
     ]
 
 
-class OBD_PID03(Packet):
+class OBD_PID03(OBD_Packet):
     name = "PID_03_FuelSystemStatus"
 
     loopStates = {
@@ -226,21 +226,21 @@ class OBD_PID03(Packet):
     ]
 
 
-class OBD_PID04(Packet):
+class OBD_PID04(OBD_Packet):
     name = "PID_04_CalculatedEngineLoad"
     fields_desc = [
         ScalingField('data', 0, scaling=100 / 255., unit="%")
     ]
 
 
-class OBD_PID05(Packet):
+class OBD_PID05(OBD_Packet):
     name = "PID_05_EngineCoolantTemperature"
     fields_desc = [
         ScalingField('data', 0, unit="deg. C", offset=-40.0)
     ]
 
 
-class OBD_PID06(Packet):
+class OBD_PID06(OBD_Packet):
     name = "PID_06_ShortTermFuelTrimBank1"
     fields_desc = [
         ScalingField('data', 0, scaling=100 / 128.,
@@ -248,7 +248,7 @@ class OBD_PID06(Packet):
     ]
 
 
-class OBD_PID07(Packet):
+class OBD_PID07(OBD_Packet):
     name = "PID_07_LongTermFuelTrimBank1"
     fields_desc = [
         ScalingField('data', 0, scaling=100 / 128.,
@@ -256,7 +256,7 @@ class OBD_PID07(Packet):
     ]
 
 
-class OBD_PID08(Packet):
+class OBD_PID08(OBD_Packet):
     name = "PID_08_ShortTermFuelTrimBank2"
     fields_desc = [
         ScalingField('data', 0, scaling=100 / 128.,
@@ -264,7 +264,7 @@ class OBD_PID08(Packet):
     ]
 
 
-class OBD_PID09(Packet):
+class OBD_PID09(OBD_Packet):
     name = "PID_09_LongTermFuelTrimBank2"
     fields_desc = [
         ScalingField('data', 0, scaling=100 / 128.,
@@ -272,63 +272,63 @@ class OBD_PID09(Packet):
     ]
 
 
-class OBD_PID0A(Packet):
+class OBD_PID0A(OBD_Packet):
     name = "PID_0A_FuelPressure"
     fields_desc = [
         ScalingField('data', 0, scaling=3, unit="kPa")
     ]
 
 
-class OBD_PID0B(Packet):
+class OBD_PID0B(OBD_Packet):
     name = "PID_0B_IntakeManifoldAbsolutePressure"
     fields_desc = [
         ScalingField('data', 0, scaling=1, unit="kPa")
     ]
 
 
-class OBD_PID0C(Packet):
+class OBD_PID0C(OBD_Packet):
     name = "PID_0C_EngineRpm"
     fields_desc = [
         ScalingField('data', 0, scaling=1 / 4., unit="min-1", fmt="H")
     ]
 
 
-class OBD_PID0D(Packet):
+class OBD_PID0D(OBD_Packet):
     name = "PID_0D_VehicleSpeed"
     fields_desc = [
         ScalingField('data', 0, unit="km/h")
     ]
 
 
-class OBD_PID0E(Packet):
+class OBD_PID0E(OBD_Packet):
     name = "PID_0E_TimingAdvance"
     fields_desc = [
         ScalingField('data', 0, scaling=1 / 2., unit="deg. C", offset=-64.0)
     ]
 
 
-class OBD_PID0F(Packet):
+class OBD_PID0F(OBD_Packet):
     name = "PID_0F_IntakeAirTemperature"
     fields_desc = [
         ScalingField('data', 0, scaling=1, unit="deg. C", offset=-40.0)
     ]
 
 
-class OBD_PID10(Packet):
+class OBD_PID10(OBD_Packet):
     name = "PID_10_MafAirFlowRate"
     fields_desc = [
         ScalingField('data', 0, scaling=1 / 100., unit="g/s")
     ]
 
 
-class OBD_PID11(Packet):
+class OBD_PID11(OBD_Packet):
     name = "PID_11_ThrottlePosition"
     fields_desc = [
         ScalingField('data', 0, scaling=100 / 255., unit="%")
     ]
 
 
-class OBD_PID12(Packet):
+class OBD_PID12(OBD_Packet):
     name = "PID_12_CommandedSecondaryAirStatus"
 
     states = {
@@ -343,14 +343,14 @@ class OBD_PID12(Packet):
     ]
 
 
-class OBD_PID13(Packet):
+class OBD_PID13(OBD_Packet):
     name = "PID_13_OxygenSensorsPresent"
     fields_desc = [
         StrFixedLenField('data', b'', 1)
     ]
 
 
-class _OBD_PID14_1B(Packet):
+class _OBD_PID14_1B(OBD_Packet):
     fields_desc = [
         ScalingField('outputVoltage', 0, scaling=0.005, unit="V"),
         ScalingField('trim', 0, scaling=100 / 128.,
@@ -390,7 +390,7 @@ class OBD_PID1B(_OBD_PID14_1B):
     name = "PID_1B_OxygenSensor8"
 
 
-class OBD_PID1C(Packet):
+class OBD_PID1C(OBD_Packet):
     name = "PID_1C_ObdStandardsThisVehicleConformsTo"
 
     obdStandards = {
@@ -434,21 +434,21 @@ class OBD_PID1C(Packet):
     ]
 
 
-class OBD_PID1D(Packet):
+class OBD_PID1D(OBD_Packet):
     name = "PID_1D_OxygenSensorsPresent"
     fields_desc = [
         StrFixedLenField('data', b'', 1)
     ]
 
 
-class OBD_PID1E(Packet):
+class OBD_PID1E(OBD_Packet):
     name = "PID_1E_AuxiliaryInputStatus"
     fields_desc = [
         StrFixedLenField('data', b'', 1)
     ]
 
 
-class OBD_PID1F(Packet):
+class OBD_PID1F(OBD_Packet):
     name = "PID_1F_RunTimeSinceEngineStart"
     fields_desc = [
         ScalingField('data', 0, scaling=1, unit="s", fmt="H")

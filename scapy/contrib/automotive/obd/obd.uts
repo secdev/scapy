@@ -254,7 +254,6 @@ assert p.data_records[0].turbocharger_a_turbine_outlet_temperature == \
 = Check dissecting a response for Service 01 Pid 78
 
 p = OBD(b'\x41\x78ABCDEFGHI')
-p.show()
 assert p.service == 0x41
 assert p.data_records[0].pid == 0x78
 assert p.data_records[0].sensor_1_supported == 0
