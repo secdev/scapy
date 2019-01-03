@@ -251,6 +251,45 @@ assert p.data_records[0].turbocharger_a_turbine_outlet_temperature == \
        round((0x4455 * 0.1) - 40, 3)
 
 
+= Check dissecting a response for Service 01 Pid 00 and Pid 20
+
+p = OBD(b'\x41\x00\xBF\xBF\xA8\x91\x20\x80\x00\x00\x00')
+assert p.service == 0x41
+assert p.data_records[0].pid == 0
+assert p.data_records[0].supportedPIDs == "PID20+PID1C+PID19+PID15+PID13+PID11+PID10+PID0F+PID0E+PID0D+PID0C+PID0B+PID09+PID08+PID07+PID06+PID05+PID04+PID03+PID01"
+assert p.data_records[1].pid == 0x20
+assert p.data_records[1].supportedPIDs == "PID21"
+assert len(p.data_records) == 2
+
+
+= Check dissecting a response for Service 01 Pid 05,01,15,0C,03
+
+p = OBD(b'\x41\x05\x6e\x01\x83\x33\xff\x63\x15\xa0\x78\x0c\x0a\x6b\x03\x02\x00')
+p.show()
+assert p.service == 0x41
+assert p.data_records[0].pid == 5
+assert p.data_records[0].data == 70.0
+assert p.data_records[1].pid == 0x1
+assert p.data_records[2].pid == 0x15
+assert p.data_records[2].outputVoltage == 0.8
+assert p.data_records[2].trim == -6.25
+assert p.data_records[3].pid == 12
+assert p.data_records[3].data == 666.75
+assert p.data_records[4].pid == 3
+assert p.data_records[4].fuelSystem1 == 0x02
+assert p.data_records[4].fuelSystem2 == 0
+assert len(p.data_records) == 5
+
+p = OBD(b'\x41\x00\xBF\xBF\xA8\x91\x20\x80\x00\x00\x00')
+p.show()
+assert p.service == 0x41
+assert p.data_records[0].pid == 0
+assert p.data_records[0].supportedPIDs == "PID20+PID1C+PID19+PID15+PID13+PID11+PID10+PID0F+PID0E+PID0D+PID0C+PID0B+PID09+PID08+PID07+PID06+PID05+PID04+PID03+PID01"
+assert p.data_records[1].pid == 0x20
+assert p.data_records[1].supportedPIDs == "PID21"
+assert len(p.data_records) == 2
+
+
 = Check dissecting a response for Service 01 Pid 78
 
 p = OBD(b'\x41\x78ABCDEFGHI')
