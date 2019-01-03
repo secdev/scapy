@@ -77,9 +77,10 @@ class OBD_S04(Packet):
 
 
 class OBD_S05(Packet):
-    name = "S5_OxygenSensorMonitoring_NonCAN"
+    name = "S5_OxygenSensorMonitoring"
     fields_desc = [
-        XShortField('pid', 0)
+        XByteField('tid', 0),
+        XByteField('O2_sensor', 0)
     ]
 
 
