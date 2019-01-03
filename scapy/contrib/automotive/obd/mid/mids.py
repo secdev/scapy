@@ -414,8 +414,8 @@ class _OBD_MID_data_record(Packet):
                           ShortField("max_limit", 0)),
     ]
 
-    def extract_padding(self, p):
-        return "", p
+    def extract_padding(self, s):
+        return "", s
 
 
 class _OBD_MIDs_supported_00(Packet):
@@ -424,8 +424,8 @@ class _OBD_MIDs_supported_00(Packet):
         FlagsField('supportedMIDs', b'', 32, _mid_flags(0x00)),
     ]
 
-    def extract_padding(self, p):
-        return "", p
+    def extract_padding(self, s):
+        return "", s
 
 
 class _OBD_MIDs_supported_20(Packet):
@@ -434,8 +434,8 @@ class _OBD_MIDs_supported_20(Packet):
         FlagsField('supportedMIDs', b'', 32, _mid_flags(0x20)),
     ]
 
-    def extract_padding(self, p):
-        return "", p
+    def extract_padding(self, s):
+        return "", s
 
 
 class _OBD_MIDs_supported_40(Packet):
@@ -444,8 +444,8 @@ class _OBD_MIDs_supported_40(Packet):
         FlagsField('supportedMIDs', b'', 32, _mid_flags(0x40)),
     ]
 
-    def extract_padding(self, p):
-        return "", p
+    def extract_padding(self, s):
+        return "", s
 
 
 class _OBD_MIDs_supported_60(Packet):
@@ -454,8 +454,8 @@ class _OBD_MIDs_supported_60(Packet):
         FlagsField('supportedMIDs', b'', 32, _mid_flags(0x60)),
     ]
 
-    def extract_padding(self, p):
-        return "", p
+    def extract_padding(self, s):
+        return "", s
 
 
 class _OBD_MIDs_supported_80(Packet):
@@ -464,8 +464,8 @@ class _OBD_MIDs_supported_80(Packet):
         FlagsField('supportedMIDs', b'', 32, _mid_flags(0x80)),
     ]
 
-    def extract_padding(self, p):
-        return "", p
+    def extract_padding(self, s):
+        return "", s
 
 
 class _OBD_MIDs_supported_A0(Packet):
@@ -474,8 +474,8 @@ class _OBD_MIDs_supported_A0(Packet):
         FlagsField('supportedMIDs', b'', 32, _mid_flags(0xA0)),
     ]
 
-    def extract_padding(self, p):
-        return "", p
+    def extract_padding(self, s):
+        return "", s
 
 
 class OBD_MID(Packet):
