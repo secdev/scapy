@@ -573,6 +573,15 @@ assert p.service == 0x03
 #assert p.data == b''
 
 
+= Check building a request for Service 06 MID 00
+
+p = OBD()/OBD_S02(pid=0x7F, frameNo=0x01)
+b = bytes(p)
+assert b[0:1] == b'\x02'
+assert b[1:2] == b'\x7F'
+assert b[2:3] == b'\x01'
+
+
 = Check building a request for Service 09 Pid 00
 
 p = OBD()/OBD_S09(iid=0x00)
