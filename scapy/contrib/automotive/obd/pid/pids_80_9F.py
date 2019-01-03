@@ -4,7 +4,7 @@
 # Copyright (C) Nils Weiss <nils@we155.de>
 # This program is published under a GPLv2 license
 
-from scapy.fields import StrFixedLenField, FlagsField
+from scapy.fields import StrFixedLenField, FlagsField, ScalingField, BitField
 from scapy.packet import Packet
 
 
@@ -54,21 +54,57 @@ class OBD_PID80(Packet):
 class OBD_PID81(Packet):
     name = "PID_81_EngineRunTimeForAuxiliaryEmissionsControlDevice"
     fields_desc = [
-        StrFixedLenField('data', b'', 21)
+        BitField('total_run_time_with_EI-AECD_1_supported', 0, 1),
+        BitField('total_run_time_with_EI-AECD_2_supported', 0, 1),
+        BitField('total_run_time_with_EI-AECD_3_supported', 0, 1),
+        BitField('total_run_time_with_EI-AECD_4_supported', 0, 1),
+        BitField('total_run_time_with_EI-AECD_5_supported', 0, 1),
+        BitField('reserved', 0, 3),
+        ScalingField('total_run_time_with_EI-AECD_1', 0, unit='sec',
+                     fmt='Q'),
+        ScalingField('total_run_time_with_EI-AECD_2', 0, unit='sec',
+                     fmt='Q'),
+        ScalingField('total_run_time_with_EI-AECD_3', 0, unit='sec',
+                     fmt='Q'),
+        ScalingField('total_run_time_with_EI-AECD_4', 0, unit='sec',
+                     fmt='Q'),
+        ScalingField('total_run_time_with_EI-AECD_5', 0, unit='sec',
+                     fmt='Q'),
     ]
 
 
 class OBD_PID82(Packet):
     name = "PID_82_EngineRunTimeForAuxiliaryEmissionsControlDevice"
     fields_desc = [
-        StrFixedLenField('data', b'', 21)
+        BitField('total_run_time_with_EI-AECD_6_supported', 0, 1),
+        BitField('total_run_time_with_EI-AECD_7_supported', 0, 1),
+        BitField('total_run_time_with_EI-AECD_8_supported', 0, 1),
+        BitField('total_run_time_with_EI-AECD_9_supported', 0, 1),
+        BitField('total_run_time_with_EI-AECD_10_supported', 0, 1),
+        BitField('reserved', 0, 3),
+        ScalingField('total_run_time_with_EI-AECD_6', 0, unit='sec',
+                     fmt='Q'),
+        ScalingField('total_run_time_with_EI-AECD_7', 0, unit='sec',
+                     fmt='Q'),
+        ScalingField('total_run_time_with_EI-AECD_8', 0, unit='sec',
+                     fmt='Q'),
+        ScalingField('total_run_time_with_EI-AECD_9', 0, unit='sec',
+                     fmt='Q'),
+        ScalingField('total_run_time_with_EI-AECD_10', 0, unit='sec',
+                     fmt='Q'),
     ]
 
 
 class OBD_PID83(Packet):
-    name = "PID_83_NoxSensor"
+    name = "PID_83_NOxSensor"
     fields_desc = [
-        StrFixedLenField('data', b'', 5)
+        BitField('NOx_sensor_concentration_bank_1_sensor_1_supported', 0, 1),
+        BitField('NOx_sensor_concentration_bank_2_sensor_1_supported', 0, 1),
+        BitField('reserved', 0, 6),
+        ScalingField('NOx_sensor_concentration_bank_1_sensor_1', 0, unit='ppm',
+                     fmt='H'),
+        ScalingField('NOx_sensor_concentration_bank_2_sensor_1', 0, unit='ppm',
+                     fmt='H'),
     ]
 
 
