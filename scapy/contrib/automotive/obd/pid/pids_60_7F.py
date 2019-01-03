@@ -231,7 +231,7 @@ class OBD_PID6D(Packet):
                      fmt='H'),
         ScalingField('fuel_rail_pressure', 0, scaling=10, unit="kPa",
                      fmt='H'),
-        ScalingField('fuel_rail_temperature', 0, unit="deg. C",  offset=-40),
+        ScalingField('fuel_rail_temperature', 0, unit="deg. C", offset=-40)
     ]
 
 
