@@ -5,7 +5,7 @@
 # This program is published under a GPLv2 license
 
 from scapy.fields import ByteField, XByteField, StrField, \
-    BitEnumField, PacketListField, XBitField, XByteEnumField
+    BitEnumField, PacketListField, XBitField, XByteEnumField, FieldListField
 from scapy.packet import Packet
 
 
@@ -52,7 +52,7 @@ class OBD_NR(Packet):
 class OBD_S01(Packet):
     name = "S1_CurrentData"
     fields_desc = [
-        XByteField('pid', 0)
+        FieldListField("pid", [0], XByteField('', 0))
     ]
 
 
