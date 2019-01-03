@@ -4,7 +4,7 @@
 # Copyright (C) Nils Weiss <nils@we155.de>
 # This program is published under a GPLv2 license
 
-from scapy.fields import ByteField, XByteField, XShortField, StrField, \
+from scapy.fields import ByteField, XByteField, StrField, \
     BitEnumField, PacketListField, XBitField, XByteEnumField
 from scapy.packet import Packet
 

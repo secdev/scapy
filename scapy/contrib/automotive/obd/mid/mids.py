@@ -176,39 +176,39 @@ def _unit_and_scaling_fields(name):
 
 def _mid_flags(basemid):
     return [
-            'MID_%02X' % (basemid + 0x20),
-            'MID_%02X' % (basemid + 0x1F),
-            'MID_%02X' % (basemid + 0x1E),
-            'MID_%02X' % (basemid + 0x1D),
-            'MID_%02X' % (basemid + 0x1C),
-            'MID_%02X' % (basemid + 0x1B),
-            'MID_%02X' % (basemid + 0x1A),
-            'MID_%02X' % (basemid + 0x19),
-            'MID_%02X' % (basemid + 0x18),
-            'MID_%02X' % (basemid + 0x17),
-            'MID_%02X' % (basemid + 0x16),
-            'MID_%02X' % (basemid + 0x15),
-            'MID_%02X' % (basemid + 0x14),
-            'MID_%02X' % (basemid + 0x13),
-            'MID_%02X' % (basemid + 0x12),
-            'MID_%02X' % (basemid + 0x11),
-            'MID_%02X' % (basemid + 0x10),
-            'MID_%02X' % (basemid + 0x0F),
-            'MID_%02X' % (basemid + 0x0E),
-            'MID_%02X' % (basemid + 0x0D),
-            'MID_%02X' % (basemid + 0x0C),
-            'MID_%02X' % (basemid + 0x0B),
-            'MID_%02X' % (basemid + 0x0A),
-            'MID_%02X' % (basemid + 0x09),
-            'MID_%02X' % (basemid + 0x08),
-            'MID_%02X' % (basemid + 0x07),
-            'MID_%02X' % (basemid + 0x06),
-            'MID_%02X' % (basemid + 0x05),
-            'MID_%02X' % (basemid + 0x04),
-            'MID_%02X' % (basemid + 0x03),
-            'MID_%02X' % (basemid + 0x02),
-            'MID_%02X' % (basemid + 0x01)
-        ]
+        'MID_%02X' % (basemid + 0x20),
+        'MID_%02X' % (basemid + 0x1F),
+        'MID_%02X' % (basemid + 0x1E),
+        'MID_%02X' % (basemid + 0x1D),
+        'MID_%02X' % (basemid + 0x1C),
+        'MID_%02X' % (basemid + 0x1B),
+        'MID_%02X' % (basemid + 0x1A),
+        'MID_%02X' % (basemid + 0x19),
+        'MID_%02X' % (basemid + 0x18),
+        'MID_%02X' % (basemid + 0x17),
+        'MID_%02X' % (basemid + 0x16),
+        'MID_%02X' % (basemid + 0x15),
+        'MID_%02X' % (basemid + 0x14),
+        'MID_%02X' % (basemid + 0x13),
+        'MID_%02X' % (basemid + 0x12),
+        'MID_%02X' % (basemid + 0x11),
+        'MID_%02X' % (basemid + 0x10),
+        'MID_%02X' % (basemid + 0x0F),
+        'MID_%02X' % (basemid + 0x0E),
+        'MID_%02X' % (basemid + 0x0D),
+        'MID_%02X' % (basemid + 0x0C),
+        'MID_%02X' % (basemid + 0x0B),
+        'MID_%02X' % (basemid + 0x0A),
+        'MID_%02X' % (basemid + 0x09),
+        'MID_%02X' % (basemid + 0x08),
+        'MID_%02X' % (basemid + 0x07),
+        'MID_%02X' % (basemid + 0x06),
+        'MID_%02X' % (basemid + 0x05),
+        'MID_%02X' % (basemid + 0x04),
+        'MID_%02X' % (basemid + 0x03),
+        'MID_%02X' % (basemid + 0x02),
+        'MID_%02X' % (basemid + 0x01)
+    ]
 
 
 class _OBD_MID(Packet):
@@ -421,7 +421,7 @@ class _OBD_MID_data_record(Packet):
 class _OBD_MIDs_supported_00(Packet):
     name = "OBD Monitor IDs supported"
     fields_desc = [
-            FlagsField('supportedMIDs', b'', 32, _mid_flags(0x00)),
+        FlagsField('supportedMIDs', b'', 32, _mid_flags(0x00)),
     ]
 
     def extract_padding(self, p):
@@ -431,7 +431,7 @@ class _OBD_MIDs_supported_00(Packet):
 class _OBD_MIDs_supported_20(Packet):
     name = "OBD Monitor IDs supported"
     fields_desc = [
-            FlagsField('supportedMIDs', b'', 32, _mid_flags(0x20)),
+        FlagsField('supportedMIDs', b'', 32, _mid_flags(0x20)),
     ]
 
     def extract_padding(self, p):
@@ -441,7 +441,7 @@ class _OBD_MIDs_supported_20(Packet):
 class _OBD_MIDs_supported_40(Packet):
     name = "OBD Monitor IDs supported"
     fields_desc = [
-            FlagsField('supportedMIDs', b'', 32, _mid_flags(0x40)),
+        FlagsField('supportedMIDs', b'', 32, _mid_flags(0x40)),
     ]
 
     def extract_padding(self, p):
@@ -451,7 +451,7 @@ class _OBD_MIDs_supported_40(Packet):
 class _OBD_MIDs_supported_60(Packet):
     name = "OBD Monitor IDs supported"
     fields_desc = [
-            FlagsField('supportedMIDs', b'', 32, _mid_flags(0x60)),
+        FlagsField('supportedMIDs', b'', 32, _mid_flags(0x60)),
     ]
 
     def extract_padding(self, p):
@@ -461,7 +461,7 @@ class _OBD_MIDs_supported_60(Packet):
 class _OBD_MIDs_supported_80(Packet):
     name = "OBD Monitor IDs supported"
     fields_desc = [
-            FlagsField('supportedMIDs', b'', 32, _mid_flags(0x80)),
+        FlagsField('supportedMIDs', b'', 32, _mid_flags(0x80)),
     ]
 
     def extract_padding(self, p):
@@ -471,7 +471,7 @@ class _OBD_MIDs_supported_80(Packet):
 class _OBD_MIDs_supported_A0(Packet):
     name = "OBD Monitor IDs supported"
     fields_desc = [
-            FlagsField('supportedMIDs', b'', 32, _mid_flags(0xA0)),
+        FlagsField('supportedMIDs', b'', 32, _mid_flags(0xA0)),
     ]
 
     def extract_padding(self, p):
@@ -572,4 +572,3 @@ bind_layers(_OBD_MID, _OBD_MID_data_record, mid=0xAC)
 bind_layers(_OBD_MID, _OBD_MID_data_record, mid=0xAD)
 bind_layers(_OBD_MID, _OBD_MID_data_record, mid=0xB0)
 bind_layers(_OBD_MID, _OBD_MID_data_record, mid=0xB1)
-
