@@ -134,9 +134,9 @@ assert p.data_records[0].supportedMIDs == ""
 p = OBD(b'\x46\x00\x01\x02\x03\x04\x20\x01\x02\x03\x04')
 assert p.service == 0x46
 assert p.data_records[0].mid == 0x00
-assert p.data_records[0].supportedMIDs == "MID_1E+MID_18+MID_17+MID_0F+MID_08"
+assert p.data_records[0].supportedMIDs == "MID1E+MID18+MID17+MID0F+MID08"
 assert p.data_records[1].mid == 0x20
-assert p.data_records[1].supportedMIDs == "MID_3E+MID_38+MID_37+MID_2F+MID_28"
+assert p.data_records[1].supportedMIDs == "MID3E+MID38+MID37+MID2F+MID28"
 
 
 = Check dissecting a response for Service 06 MID 00, 20, 40, 60, 80, A0
@@ -144,17 +144,17 @@ assert p.data_records[1].supportedMIDs == "MID_3E+MID_38+MID_37+MID_2F+MID_28"
 p = OBD(b'\x46\x00\x01\x02\x03\x04\x20\x01\x02\x03\x04\x40\x01\x02\x03\x04\x60\x01\x02\x03\x04\x80\x01\x02\x03\x04\xA0\x01\x02\x03\x04')
 assert p.service == 0x46
 assert p.data_records[0].mid == 0x00
-assert p.data_records[0].supportedMIDs == "MID_1E+MID_18+MID_17+MID_0F+MID_08"
+assert p.data_records[0].supportedMIDs == "MID1E+MID18+MID17+MID0F+MID08"
 assert p.data_records[1].mid == 0x20
-assert p.data_records[1].supportedMIDs == "MID_3E+MID_38+MID_37+MID_2F+MID_28"
+assert p.data_records[1].supportedMIDs == "MID3E+MID38+MID37+MID2F+MID28"
 assert p.data_records[2].mid == 0x40
-assert p.data_records[2].supportedMIDs == "MID_5E+MID_58+MID_57+MID_4F+MID_48"
+assert p.data_records[2].supportedMIDs == "MID5E+MID58+MID57+MID4F+MID48"
 assert p.data_records[3].mid == 0x60
-assert p.data_records[3].supportedMIDs == "MID_7E+MID_78+MID_77+MID_6F+MID_68"
+assert p.data_records[3].supportedMIDs == "MID7E+MID78+MID77+MID6F+MID68"
 assert p.data_records[4].mid == 0x80
-assert p.data_records[4].supportedMIDs == "MID_9E+MID_98+MID_97+MID_8F+MID_88"
+assert p.data_records[4].supportedMIDs == "MID9E+MID98+MID97+MID8F+MID88"
 assert p.data_records[5].mid == 0xA0
-assert p.data_records[5].supportedMIDs == "MID_BE+MID_B8+MID_B7+MID_AF+MID_A8"
+assert p.data_records[5].supportedMIDs == "MIDBE+MIDB8+MIDB7+MIDAF+MIDA8"
 assert len(p.data_records) == 6
 
 
