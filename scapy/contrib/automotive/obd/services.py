@@ -54,18 +54,24 @@ class OBD_S01(Packet):
     ]
 
 
-class OBD_S02(Packet):
-    name = "S2_FreezeFrameData"
+class OBD_S02_Req(OBD_Packet):
     fields_desc = [
         XByteField('pid', 0),
         ByteField('frameNo', 0)
     ]
 
 
+class OBD_S02(Packet):
+    name = "S2_FreezeFrameData"
+    fields_desc = [
+       PacketListField("requests", None, OBD_S02_Req)
+    ]
+
+
 class OBD_S03(Packet):
     name = "S3_RequestDTCs"
     fields_desc = [
-        ByteField('count', b''),
+        ByteField('count', 0),
         PacketListField('DTCs', [], OBD_DTC, count_from=lambda pkt: pkt.count)
     ]
 
