@@ -70,6 +70,10 @@ class OBD_S02(Packet):
 
 class OBD_S03(Packet):
     name = "S3_RequestDTCs"
+
+
+class OBD_S03_DTC(Packet):
+    name = "S3_ResponseDTCs"
     fields_desc = [
         ByteField('count', 0),
         PacketListField('DTCs', [], OBD_DTC, count_from=lambda pkt: pkt.count)
@@ -80,18 +84,14 @@ class OBD_S04(Packet):
     name = "S4_ClearDTCs"
 
 
-class OBD_S05(Packet):
-    name = "S5_OxygenSensorMonitoring"
-    fields_desc = [
-        XByteField('tid', 0),
-        XByteField('O2_sensor', 0)
-    ]
+class OBD_S04_PR(Packet):
+    name = "S4_ClearDTCsPositiveResponse"
 
 
 class OBD_S06(Packet):
-    name = "S6_OnBoardDiagnosticMonitoring_CAN"
+    name = "S6_OnBoardDiagnosticMonitoring"
     fields_desc = [
-        XByteField('mid', 0)
+        FieldListField("mid", [0], XByteField('', 0))
     ]
 
 
