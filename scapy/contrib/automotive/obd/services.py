@@ -97,8 +97,12 @@ class OBD_S06(Packet):
 
 class OBD_S07(Packet):
     name = "S7_RequestPendingDTCs"
+
+
+class OBD_S07_PR(Packet):
+    name = "S7_ResponsePendingDTCs"
     fields_desc = [
-        ByteField('count', b''),
+        ByteField('count', 0),
         PacketListField('DTCs', [], OBD_DTC, count_from=lambda pkt: pkt.count)
     ]
 
