@@ -121,6 +121,17 @@ assert p.service == 0x06
 assert p.mid[0] == 0x00
 
 
+= Check dissecting a request for Service 06 MID 00,01,02,03,04
+
+p = OBD(b'\x06\x00\x01\x02\x03\x04')
+assert p.service == 0x06
+assert p.mid[0] == 0x00
+assert p.mid[1] == 0x01
+assert p.mid[2] == 0x02
+assert p.mid[3] == 0x03
+assert p.mid[4] == 0x04
+
+
 = Check dissecting a response for Service 06 MID 00
 
 p = OBD(b'\x46\x00\x00\x00\x00\x00')
