@@ -65,40 +65,40 @@ assert p.pid[0] == 0x89
 
 p = OBD(b'\x02\x00\x01')
 assert p.service == 0x02
-assert p.pid == 0x00
-assert p.frameNo == 0x01
+assert p.requests[0].pid == 0x00
+assert p.requests[0].frameNo == 0x01
 
 
 = Check dissecting a request for Service 02 Pid 75
 
 p = OBD(b'\x02\x75\x01')
 assert p.service == 0x02
-assert p.pid == 0x75
-assert p.frameNo == 0x01
+assert p.requests[0].pid == 0x75
+assert p.requests[0].frameNo == 0x01
 
 
 = Check dissecting a request for Service 02 Pid 78
 
 p = OBD(b'\x02\x78\x01')
 assert p.service == 0x02
-assert p.pid == 0x78
-assert p.frameNo == 0x01
+assert p.requests[0].pid == 0x78
+assert p.requests[0].frameNo == 0x01
 
 
 = Check dissecting a request for Service 02 Pid 7F
 
 p = OBD(b'\x02\x7F\x01')
 assert p.service == 0x02
-assert p.pid == 0x7F
-assert p.frameNo == 0x01
+assert p.requests[0].pid == 0x7F
+assert p.requests[0].frameNo == 0x01
 
 
 = Check dissecting a request for Service 02 Pid 89
 
 p = OBD(b'\x02\x89\x01')
 assert p.service == 0x02
-assert p.pid == 0x89
-assert p.frameNo == 0x01
+assert p.requests[0].pid == 0x89
+assert p.requests[0].frameNo == 0x01
 
 
 = Check dissecting a request for Service 03
@@ -394,6 +394,21 @@ assert p.data_records[0].frameNo == 0x01
 assert p.data_records[0].data == b'ABCDEFGHIKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOP'
 
 
+= Check dissecting a response for Service 02 Pid 0C, 05, 04
+
+p = OBD(b'\x42\x0c\x00\x20\x80\x04\x00\x80\x05\x00\x28')
+assert p.service == 0x42
+assert p.data_records[0].pid == 0x0C
+assert p.data_records[0].frameNo == 0x0
+assert p.data_records[0].data == 2080
+assert p.data_records[1].pid == 0x04
+assert p.data_records[1].frameNo == 0x0
+assert p.data_records[1].data == 50.196
+assert p.data_records[2].pid == 0x05
+assert p.data_records[2].frameNo == 0x0
+assert p.data_records[2].data == 0.0
+
+
 = Check dissecting a response for Service 03
 
 p = OBD(b'\x430123456789')
@@ -575,7 +590,7 @@ assert b[1:2] == b'\x89'
 
 = Check building a request for Service 02 Pid 00
 
-p = OBD()/OBD_S02(pid=0x00, frameNo=0x01)
+p = OBD()/OBD_S02(requests=[OBD_S02_Req(pid=0x00, frameNo=0x01)])
 b = bytes(p)
 assert b[0:1] == b'\x02'
 assert b[1:2] == b'\x00'
@@ -584,7 +599,7 @@ assert b[2:3] == b'\x01'
 
 = Check building a request for Service 02 Pid 75
 
-p = OBD()/OBD_S02(pid=0x75, frameNo=0x01)
+p = OBD()/OBD_S02(requests=[OBD_S02_Req(pid=0x75, frameNo=0x01)])
 b = bytes(p)
 assert b[0:1] == b'\x02'
 assert b[1:2] == b'\x75'
@@ -593,7 +608,7 @@ assert b[2:3] == b'\x01'
 
 = Check building a request for Service 02 Pid 78
 
-p = OBD()/OBD_S02(pid=0x78, frameNo=0x01)
+p = OBD()/OBD_S02(requests=[OBD_S02_Req(pid=0x78, frameNo=0x01)])
 b = bytes(p)
 assert b[0:1] == b'\x02'
 assert b[1:2] == b'\x78'
@@ -602,7 +617,7 @@ assert b[2:3] == b'\x01'
 
 = Check building a request for Service 02 Pid 7F
 
-p = OBD()/OBD_S02(pid=0x7F, frameNo=0x01)
+p = OBD()/OBD_S02(requests=[OBD_S02_Req(pid=0x7F, frameNo=0x01)])
 b = bytes(p)
 assert b[0:1] == b'\x02'
 assert b[1:2] == b'\x7F'
@@ -611,7 +626,7 @@ assert b[2:3] == b'\x01'
 
 = Check building a request for Service 02 Pid 89
 
-p = OBD()/OBD_S02(pid=0x89, frameNo=0x01)
+p = OBD()/OBD_S02(requests=[OBD_S02_Req(pid=0x89, frameNo=0x01)])
 b = bytes(p)
 assert b[0:1] == b'\x02'
 assert b[1:2] == b'\x89'
@@ -626,9 +641,9 @@ assert p.service == 0x03
 #assert p.data == b''
 
 
-= Check building a request for Service 06 MID 00
+= Check building a request for Service 02 Pid 7F
 
-p = OBD()/OBD_S02(pid=0x7F, frameNo=0x01)
+p = OBD()/OBD_S02(requests=[OBD_S02_Req(pid=0x7F, frameNo=0x01)])
 b = bytes(p)
 assert b[0:1] == b'\x02'
 assert b[1:2] == b'\x7F'
