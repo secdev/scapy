@@ -13,7 +13,7 @@ from scapy.contrib.automotive.obd.mid.mids import *
 from scapy.contrib.automotive.obd.pid.pids import *
 from scapy.contrib.automotive.obd.tid.tids import *
 from scapy.contrib.automotive.obd.services import *
-from scapy.packet import Packet, bind_layers, bind_bottom_up
+from scapy.packet import Packet, bind_layers
 from scapy.fields import XByteEnumField
 
 
@@ -62,13 +62,14 @@ class OBD(Packet):
 
 
 # Service Bindings
+
 bind_layers(OBD, OBD_S01, service=0x01)
 bind_layers(OBD, OBD_S02, service=0x02)
 bind_layers(OBD, OBD_S03, service=0x03)
 bind_layers(OBD, OBD_S04, service=0x04)
 bind_layers(OBD, OBD_S06, service=0x06)
 bind_layers(OBD, OBD_S07, service=0x07)
-bind_layers(OBD, OBD_S08, service=0x08)
+bind_layers(OBD, OBD_TID_Record, service=0x08)
 bind_layers(OBD, OBD_S09, service=0x09)
 bind_layers(OBD, OBD_S0A, service=0x0A)
 
@@ -77,39 +78,24 @@ bind_layers(OBD, OBD_S02_PID, service=0x42)
 bind_layers(OBD, OBD_S03_DTC, service=0x43)
 bind_layers(OBD, OBD_S04_PR, service=0x44)
 bind_layers(OBD, OBD_MID, service=0x46)
-bind_layers(OBD, OBD_S07_PR, service=0x47)
-bind_bottom_up(OBD, OBD_S08, service=0x48)
-bind_bottom_up(OBD, OBD_S09, service=0x49)
-bind_bottom_up(OBD, OBD_S0A, service=0x4A)
+bind_layers(OBD, OBD_S07_DTC, service=0x47)
+bind_layers(OBD, OBD_TID, service=0x48)
+bind_layers(OBD, OBD_S09_PR, service=0x49)
+bind_layers(OBD, OBD_S0A_DTC, service=0x4A)
 bind_layers(OBD, OBD_NR, service=0x7F)
 
 
-# Service 08
+# Service 09 Bindings
 
-bind_layers(OBD_S08, OBD_TID00, tid=0x00)
-bind_layers(OBD_S08, OBD_TID01, tid=0x01)
-bind_layers(OBD_S08, OBD_TID02, tid=0x02)
-bind_layers(OBD_S08, OBD_TID03, tid=0x03)
-bind_layers(OBD_S08, OBD_TID04, tid=0x04)
-bind_layers(OBD_S08, OBD_TID05, tid=0x05)
-bind_layers(OBD_S08, OBD_TID06, tid=0x06)
-bind_layers(OBD_S08, OBD_TID07, tid=0x07)
-bind_layers(OBD_S08, OBD_TID08, tid=0x08)
-bind_layers(OBD_S08, OBD_TID09, tid=0x09)
-bind_layers(OBD_S08, OBD_TID0A, tid=0x0A)
-
-
-# Service 09
-
-bind_layers(OBD_S09, OBD_IID00, iid=0x00)
-bind_layers(OBD_S09, OBD_IID01, iid=0x01)
-bind_layers(OBD_S09, OBD_IID02, iid=0x02)
-bind_layers(OBD_S09, OBD_IID03, iid=0x03)
-bind_layers(OBD_S09, OBD_IID04, iid=0x04)
-bind_layers(OBD_S09, OBD_IID05, iid=0x05)
-bind_layers(OBD_S09, OBD_IID06, iid=0x06)
-bind_layers(OBD_S09, OBD_IID07, iid=0x07)
-bind_layers(OBD_S09, OBD_IID08, iid=0x08)
-bind_layers(OBD_S09, OBD_IID09, iid=0x09)
-bind_layers(OBD_S09, OBD_IID0A, iid=0x0A)
-bind_layers(OBD_S09, OBD_IID0B, iid=0x0B)
+bind_layers(OBD_S09_PR, OBD_IID00, iid=0x00)
+bind_layers(OBD_S09_PR, OBD_IID01, iid=0x01)
+bind_layers(OBD_S09_PR, OBD_IID02, iid=0x02)
+bind_layers(OBD_S09_PR, OBD_IID03, iid=0x03)
+bind_layers(OBD_S09_PR, OBD_IID04, iid=0x04)
+bind_layers(OBD_S09_PR, OBD_IID05, iid=0x05)
+bind_layers(OBD_S09_PR, OBD_IID06, iid=0x06)
+bind_layers(OBD_S09_PR, OBD_IID07, iid=0x07)
+bind_layers(OBD_S09_PR, OBD_IID08, iid=0x08)
+bind_layers(OBD_S09_PR, OBD_IID09, iid=0x09)
+bind_layers(OBD_S09_PR, OBD_IID0A, iid=0x0A)
+bind_layers(OBD_S09_PR, OBD_IID0B, iid=0x0B)
