@@ -1580,6 +1580,62 @@ Create CAN-frames from an ISOTP message::
 
    ISOTP(src=0x241, dst=0x641, exdst=0x41, exsrc=0x55, data=b"\x3eabc" * 10).fragment()
 
+An ISOTPSocket will not respect ``src, dst, exdst, exsrc`` of an ISOTP message object.
+
+ISOTP Sockets
+-------------
+
+Scapy provides two kind of ISOTP Sockets. One implementation, the ISOTPNativeSocket
+is using the Linux kernel module from Hartkopp. The other implementation, the ISOTPSoftSocket
+is completely implemented in Python. This implementation can be used on Linux,
+Windows and OSX.
+
+ISOTPNativeSocket
+^^^^^^^^^^^^^^^^^
+
+**Requires:**
+
+* Python3
+* Linux
+* Hartkopp's Linux kernel module: ``https://github.com/hartkopp/can-isotp.git``
+
+During pentests, the ISOTPNativeSockets do have a better performance and
+reliability, usually. If you are working on Linux, consider this implementation::
+
+   conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': True}
+   load_contrib('isotp')
+   sock = ISOTPSocket("can0", sid=0x641, did=0x241)
+
+Since this implementation is using a standard Linux socket, all Scapy functions
+like ``sniff, sr, sr1, bridge_and_sniff`` work out of the box.
+
+ISOTPSoftSocket
+^^^^^^^^^^^^^^^
+
+ISOTPSoftSockets can use any CANSocket. This gives the flexibility to use all
+python-can interfaces. Additionally, these sockets work on Python2 and Python3.
+Usage on Linux with native CANSockets::
+
+   conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': False}
+   load_contrib('isotp')
+   with ISOTPSocket("can0", sid=0x641, did=0x241) as sock:
+       sock.send(...)
+
+Usage with python-can CANSockets::
+
+   conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': False}
+   conf.contribs['CANSocket'] = {'use-python-can': True}
+   load_contrib('isotp')
+   with ISOTPSocket(CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel="can0", bitrate=250000)), sid=0x641, did=0x241) as sock:
+       sock.send(...)
+
+This second example allows the usage of any ``python_can.interface`` object.
+
+**Attention:** The internal implementation of ISOTPSoftSockets requires a background
+thread. In order to be able to close this thread properly, we suggest the use of
+Pythons ``with`` statement.
+
+
 SOME/IP and SOME/IP SD messages
 -------------------------------
 
@@ -1619,6 +1675,7 @@ Stack it and send it::
 
    p = i/u/sip
    send(p)
+
 
 Creating a SOME/IP SD message
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1676,9 +1733,8 @@ Stack it and send it::
 
 
 
-
-Setup
------
+Test-Setup on a BeagleBone Black
+--------------------------------
 
 Hardware Setup
 ^^^^^^^^^^^^^^
