@@ -4,8 +4,8 @@
 # Copyright (C) Nils Weiss <nils@we155.de>
 # This program is published under a GPLv2 license
 
-from scapy.fields import ByteField, XByteField, StrField, \
-    BitEnumField, PacketListField, XBitField, XByteEnumField, FieldListField
+from scapy.fields import ByteField, XByteField, BitEnumField, \
+    PacketListField, XBitField, XByteEnumField, FieldListField
 from scapy.packet import Packet
 from scapy.contrib.automotive.obd.packet import OBD_Packet
 
@@ -64,7 +64,7 @@ class OBD_S02_Req(OBD_Packet):
 class OBD_S02(Packet):
     name = "S2_FreezeFrameData"
     fields_desc = [
-       PacketListField("requests", None, OBD_S02_Req)
+        PacketListField("requests", None, OBD_S02_Req)
     ]
 
 
@@ -99,7 +99,7 @@ class OBD_S07(Packet):
     name = "S7_RequestPendingDTCs"
 
 
-class OBD_S07_PR(Packet):
+class OBD_S07_DTC(Packet):
     name = "S7_ResponsePendingDTCs"
     fields_desc = [
         ByteField('count', 0),
@@ -110,7 +110,7 @@ class OBD_S07_PR(Packet):
 class OBD_S08(Packet):
     name = "S8_RequestControlOfSystem"
     fields_desc = [
-        XByteField('tid', 0)
+        FieldListField("tid", [0], XByteField('', 0))
     ]
 
 
@@ -121,8 +121,20 @@ class OBD_S09(Packet):
     ]
 
 
+class OBD_S09_PR(Packet):
+    name = "S9_VehicleInformationPositiveResponse"
+    fields_desc = [
+        XByteField('iid', 0)
+    ]
+
+
 class OBD_S0A(Packet):
     name = "S0A_RequestPermanentDTCs"
+
+
+class OBD_S0A_DTC(Packet):
+    name = "S0A_ResponsePermanentDTCs"
     fields_desc = [
-        StrField('data', b'')
+        ByteField('count', 0),
+        PacketListField('DTCs', [], OBD_DTC, count_from=lambda pkt: pkt.count)
     ]

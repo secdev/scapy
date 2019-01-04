@@ -446,40 +446,48 @@ assert bytes(p.DTCs[4]) == b'\x03\x57'
 assert bytes(p.DTCs[5]) == b'\x0a\x24'
 
 
+= Check dissecting a response for Service 08 Tid 00
+
+p = OBD(b'\x48\x00ABCD')
+assert p.service == 0x48
+assert p.data_records[0].tid == 0x00
+assert p.data_records[0].supportedTIDs == "TID1E+TID1A+TID18+TID17+TID12+TID0F+TID0A+TID08+TID02"
+
+
 = Check dissecting a response for Service 08 Tid 01
 
 p = OBD(b'\x48\x01\x00\x00"\xffd')
 assert p.service == 0x48
-assert p.tid == 0x01
-assert p.data_A == 0.0
-assert p.data_B == 0.0
-assert p.data_C == 0.17
-assert p.data_D == 1.275
-assert p.data_E == 0.5
+assert p.data_records[0].tid == 0x01
+assert p.data_records[0].data_A == 0.0
+assert p.data_records[0].data_B == 0.0
+assert p.data_records[0].data_C == 0.17
+assert p.data_records[0].data_D == 1.275
+assert p.data_records[0].data_E == 0.5
 
 
 = Check dissecting a response for Service 08 Tid 05
 
 p = OBD(b'\x48\x05\x00\x00\x2b\xff\x7d')
 assert p.service == 0x48
-assert p.tid == 0x05
-assert p.data_A == 0.0
-assert p.data_B == 0.0
-assert p.data_C == 0.172
-assert p.data_D == 1.02
-assert p.data_E == 0.5
+assert p.data_records[0].tid == 0x05
+assert p.data_records[0].data_A == 0.0
+assert p.data_records[0].data_B == 0.0
+assert p.data_records[0].data_C == 0.172
+assert p.data_records[0].data_D == 1.02
+assert p.data_records[0].data_E == 0.5
 
 
 = Check dissecting a response for Service 08 Tid 09
 
 p = OBD(b'\x48\x09\x00\x00\x04\x1a\x0c')
 assert p.service == 0x48
-assert p.tid == 0x09
-assert p.data_A == 0.0
-assert p.data_B == 0.0
-assert p.data_C == 0.16
-assert p.data_D == 1.04
-assert p.data_E == 0.48
+assert p.data_records[0].tid == 0x09
+assert p.data_records[0].data_A == 0.0
+assert p.data_records[0].data_B == 0.0
+assert p.data_records[0].data_C == 0.16
+assert p.data_records[0].data_D == 1.04
+assert p.data_records[0].data_E == 0.48
 
 
 = Check dissecting a response for Service 09 Pid 00
@@ -850,7 +858,7 @@ assert b[1:2] == b'\x0A'
 
 = Check building a response for Service 09 Pid 00
 
-p = OBD(service=0x49)/OBD_S09()/OBD_IID00(b'ABCD')
+p = OBD(service=0x49)/OBD_S09_PR()/OBD_IID00(b'ABCD')
 b = bytes(p)
 assert b[0:1] == b'\x49'
 assert b[1:2] == b'\x00'
@@ -859,7 +867,7 @@ assert b[2:] == b'ABCD'
 
 = Check building a response for Service 09 Pid 02 with one VIN
 
-p = OBD(service=0x49)/OBD_S09()/OBD_IID02(vehicleIdentificationNumbers=b'W0L000051T2123456')
+p = OBD(service=0x49)/OBD_S09_PR()/OBD_IID02(vehicleIdentificationNumbers=b'W0L000051T2123456')
 b = bytes(p)
 assert b[0:1] == b'\x49'
 assert b[1:2] == b'\x02'
@@ -869,7 +877,7 @@ assert b[3:] == b'W0L000051T2123456'
 
 = Check building a response for Service 09 Pid 02 with two VINs
 
-p = OBD(service=0x49)/OBD_S09()/OBD_IID02(vehicleIdentificationNumbers=[b'W0L000051T2123456', b'W0L000051T2123456'])
+p = OBD(service=0x49)/OBD_S09_PR()/OBD_IID02(vehicleIdentificationNumbers=[b'W0L000051T2123456', b'W0L000051T2123456'])
 b = bytes(p)
 assert b[0:1] == b'\x49'
 assert b[1:2] == b'\x02'
@@ -880,7 +888,7 @@ assert b[20:] == b'W0L000051T2123456'
 
 = Check building a response for Service 09 Pid 04 with one CID
 
-p = OBD(service=0x49)/OBD_S09()/OBD_IID04(calibrationIdentifications=b'ABCDEFGHIJKLMNOP')
+p = OBD(service=0x49)/OBD_S09_PR()/OBD_IID04(calibrationIdentifications=b'ABCDEFGHIJKLMNOP')
 b = bytes(p)
 assert b[0:1] == b'\x49'
 assert b[1:2] == b'\x04'
@@ -890,7 +898,7 @@ assert b[3:] == b'ABCDEFGHIJKLMNOP'
 
 = Check building a response for Service 09 Pid 04 with two CID
 
-p = OBD(service=0x49)/OBD_S09()/OBD_IID04(calibrationIdentifications=[b'ABCDEFGHIJKLMNOP', b'ABCDEFGHIJKLMNOP'])
+p = OBD(service=0x49)/OBD_S09_PR()/OBD_IID04(calibrationIdentifications=[b'ABCDEFGHIJKLMNOP', b'ABCDEFGHIJKLMNOP'])
 b = bytes(p)
 assert b[0:1] == b'\x49'
 assert b[1:2] == b'\x04'
@@ -901,7 +909,7 @@ assert b[19:] == b'ABCDEFGHIJKLMNOP'
 
 = Check building a response for Service 09 Pid 0A
 
-p = OBD(service=0x49)/OBD_S09()/OBD_IID0A(ecuNames=b'ABCDEFGHIJKLMNOPQRST')
+p = OBD(service=0x49)/OBD_S09_PR()/OBD_IID0A(ecuNames=b'ABCDEFGHIJKLMNOPQRST')
 b = bytes(p)
 assert b[0:1] == b'\x49'
 assert b[1:2] == b'\x0A'
