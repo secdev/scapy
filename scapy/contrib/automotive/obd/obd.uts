@@ -411,10 +411,15 @@ assert p.data_records[2].data == 0.0
 
 = Check dissecting a response for Service 03
 
-p = OBD(b'\x430123456789')
+p = OBD(b'\x43\x06\x01\x43\x01\x96\x02\x34\x02\xcd\x03\x57\x0a\x24')
 assert p.service == 0x43
-#fixme
-#assert p.data == b'0123456789'
+assert p.count == 6
+assert bytes(p.DTCs[0]) == b'\x01\x43'
+assert bytes(p.DTCs[1]) == b'\x01\x96'
+assert bytes(p.DTCs[2]) == b'\x02\x34'
+assert bytes(p.DTCs[3]) == b'\x02\xcd'
+assert bytes(p.DTCs[4]) == b'\x03\x57'
+assert bytes(p.DTCs[5]) == b'\x0a\x24'
 
 
 = Check dissecting a response for Service 08 Tid 01
