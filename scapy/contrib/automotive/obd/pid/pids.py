@@ -28,8 +28,8 @@ class OBD_S01_PID(Packet):
     fields_desc = [
         PacketListField("data_records", None, OBD_S01_PID_Record)
     ]
-    
-    
+
+
 class OBD_S02_PID_Record(Packet):
     fields_desc = [
         XByteField("pid", 1),
