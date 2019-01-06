@@ -635,7 +635,7 @@ class ASN1F_BIT_STRING_ENCAPS(ASN1F_BIT_STRING):
         bit_string, remain = ASN1F_BIT_STRING.m2i(self, pkt, s)
         if len(bit_string.val) % 8 != 0:
             raise BER_Decoding_Error("wrong bit string", remaining=s)
-        p, s = self.extract_packet(self.cls, bit_string.val_readable)
+        p, s = self.extract_packet(self.cls, bytes(bit_string))
         if len(s) > 0:
             raise BER_Decoding_Error("unexpected remainder", remaining=s)
         return p, remain

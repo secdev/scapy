@@ -243,7 +243,7 @@ responseBytes = response.responseBytes
 assert(responseBytes.responseType == ASN1_OID("basic-response"))
 assert(responseBytes.signatureAlgorithm.algorithm == ASN1_OID("sha256WithRSAEncryption"))
 assert(responseBytes.signatureAlgorithm.parameters == ASN1_NULL(0))
-assert(responseBytes.signature.val_readable[:3] == b"\x90\xef\xf9" and responseBytes.signature.val_readable[-3:] == b"\x8bb\xfc")
+assert(bytes(responseBytes.signature)[:3] == b"\x90\xef\xf9" and bytes(responseBytes.signature)[-3:] == b"\x8bb\xfc")
 responseBytes.certs is None
 
 = OCSP class : OCSP ResponseData checks

@@ -323,21 +323,28 @@ class ASN1_BIT_STRING(ASN1_Object):
     tag = ASN1_Class_UNIVERSAL.BIT_STRING
 
     def __init__(self, val, readable=False):
-        if not readable:
+        """Initialize self.
+        params:
+         - readable: whether the given value is bytes or not. If True, the
+                     field expects a '\x01...' format, otherwise a '0101'
+        """
+        if readable is False:
             self.val = val
+        elif readable is True:
+            self.val_bytes = val
         else:
-            self.val_readable = val
+            raise TypeError("readable should be True or False")
 
     def __setattr__(self, name, value):
         str_value = None
         if isinstance(value, str):
             str_value = value
             value = raw(value)
-        if name == "val_readable":
+        if name == "val_bytes":
             if isinstance(value, bytes):
                 val = b"".join(binrepr(orb(x)).zfill(8).encode("utf8") for x in value)  # noqa: E501
             else:
-                val = "<invalid val_readable>"
+                val = "<invalid val_bytes>"
             super(ASN1_Object, self).__setattr__("val", val)
             super(ASN1_Object, self).__setattr__(name, value)
             super(ASN1_Object, self).__setattr__("unused_bits", 0)
@@ -355,11 +362,11 @@ class ASN1_BIT_STRING(ASN1_Object):
                         unused_bits = 8 - (len(value) % 8)
                     padded_value = str_value + ("0" * unused_bits)
                     bytes_arr = zip(*[iter(padded_value)] * 8)
-                    val_readable = b"".join(chb(int("".join(x), 2)) for x in bytes_arr)  # noqa: E501
+                    val_bytes = b"".join(chb(int("".join(x), 2)) for x in bytes_arr)  # noqa: E501
             else:
-                val_readable = "<invalid val>"
+                val_bytes = "<invalid val>"
                 unused_bits = 0
-            super(ASN1_Object, self).__setattr__("val_readable", val_readable)
+            super(ASN1_Object, self).__setattr__("val_bytes", val_bytes)
             super(ASN1_Object, self).__setattr__(name, value)
             super(ASN1_Object, self).__setattr__("unused_bits", unused_bits)
         elif name == "unused_bits":
@@ -372,17 +379,17 @@ class ASN1_BIT_STRING(ASN1_Object):
             v = plain_str(self.val)
             return "<%s[%s] (%d unused bit%s)>" % (self.__dict__.get("name", self.__class__.__name__), v, self.unused_bits, "s" if self.unused_bits > 1 else "")  # noqa: E501
         else:
-            s = self.val_readable
+            s = self.val_bytes
             if len(s) > 20:
                 s = s[:10] + b"..." + s[-10:]
             v = plain_str(self.val)
             return "<%s[%s] (%d unused bit%s)>" % (self.__dict__.get("name", self.__class__.__name__), v, self.unused_bits, "s" if self.unused_bits > 1 else "")  # noqa: E501
 
     def __str__(self):
-        return self.val_readable
+        return self.val_bytes
 
     def __bytes__(self):
-        return self.val_readable
+        return self.val_bytes
 
 
 class ASN1_STRING(ASN1_Object):
