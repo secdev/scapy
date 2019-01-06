@@ -1737,6 +1737,30 @@ class LEFieldLenField(FieldLenField):
         FieldLenField.__init__(self, name, default, length_of=length_of, fmt=fmt, count_of=count_of, fld=fld, adjust=adjust)  # noqa: E501
 
 
+class FlagValueIter(object):
+
+    slots = ["flagvalue", "cursor"]
+
+    def __init__(self, flagvalue):
+        self.flagvalue = flagvalue
+        self.cursor = 0
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        x = int(self.flagvalue)
+        x >>= self.cursor
+        while x:
+            self.cursor += 1
+            if x & 1:
+                return self.flagvalue.names[self.cursor - 1]
+            x >>= 1
+        raise StopIteration
+
+    next = __next__
+
+
 class FlagValue(object):
     __slots__ = ["value", "names", "multi"]
 
@@ -1813,6 +1837,9 @@ class FlagValue(object):
             i += 1
             x >>= 1
         return ("+" if self.multi else "").join(r)
+
+    def __iter__(self):
+        return FlagValueIter(self)
 
     def __repr__(self):
         return "<Flag %d (%s)>" % (self, self)
