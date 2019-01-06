@@ -126,7 +126,7 @@ class OBD_TID_Record(Packet):
     ]
 
 
-class OBD_TID(Packet):
+class OBD_S08_TID(Packet):
     name = "Control Operation IDs"
     fields_desc = [
         PacketListField("data_records", None, OBD_TID_Record)

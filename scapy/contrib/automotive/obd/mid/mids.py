@@ -451,7 +451,7 @@ class OBD_MID_Record(Packet):
     ]
 
 
-class OBD_MID(Packet):
+class OBD_S06_MID(Packet):
     name = "On-Board monitoring IDs"
     fields_desc = [
         PacketListField("data_records", None, OBD_MID_Record)
