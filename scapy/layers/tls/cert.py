@@ -407,6 +407,13 @@ class _PrivKeyFactory(_PKIObjMaker):
         return obj
 
 
+class _Raw_ASN1_BIT_STRING(ASN1_BIT_STRING):
+    """A ASN1_BIT_STRING that ignores BER encoding"""
+    def __bytes__(self):
+        return self.val_readable
+    __str__ = __bytes__
+
+
 class PrivKey(six.with_metaclass(_PrivKeyFactory, object)):
     """
     Parent class for both PrivKeyRSA and PrivKeyECDSA.
@@ -433,7 +440,7 @@ class PrivKey(six.with_metaclass(_PrivKeyFactory, object)):
         c = X509_Cert()
         c.tbsCertificate = tbsCert
         c.signatureAlgorithm = sigAlg
-        c.signatureValue = ASN1_BIT_STRING(sigVal, readable=True)
+        c.signatureValue = _Raw_ASN1_BIT_STRING(sigVal, readable=True)
         return c
 
     def resignCert(self, cert):

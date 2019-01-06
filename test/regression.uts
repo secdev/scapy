@@ -1133,13 +1133,15 @@ random.seed(0x2807)
 assert raw(a) in [b'A\x02\x07q', b'C\x02\xfe\x92', b'\x1e\x023V']
 
 = ASN1 - ASN1_BIT_STRING
-a = ASN1_BIT_STRING("test", "value")
+a = ASN1_BIT_STRING("test", readable=True)
 a
-assert raw(a) == b'test'
+assert a.val == '01110100011001010111001101110100'
+assert raw(a) == b'\x03\x05\x00test'
 
-a = ASN1_BIT_STRING(b"\xff"*16, "value")
+a = ASN1_BIT_STRING(b"\xff"*16, readable=True)
 a
-assert raw(a) == b'\xff'*16
+assert a.val == "1" * 128
+assert raw(a) == b'\x03\x11\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff'
 
 = ASN1 - ASN1_SEQUENCE
 a = ASN1_SEQUENCE([ASN1_Object(1), ASN1_Object(0)])
@@ -1149,7 +1151,8 @@ assert a.strshow() == '# ASN1_SEQUENCE:\n  <ASN1_Object[1]>\n  <ASN1_Object[0]>\
 a = ASN1_DECODING_ERROR("error", exc=OSError(1))
 assert repr(a) == "<ASN1_DECODING_ERROR['error']{{1}}>"
 b = ASN1_DECODING_ERROR("error", exc=OSError(ASN1_BIT_STRING("0")))
-assert repr(b) == "<ASN1_DECODING_ERROR['error']{{<ASN1_BIT_STRING[0] (7 unused bits)>}}>"
+assert repr(b) in ["<ASN1_DECODING_ERROR['error']{{<ASN1_BIT_STRING[0]=b'\\x00' (7 unused bits)>}}>",
+                   "<ASN1_DECODING_ERROR['error']{{<ASN1_BIT_STRING[0]=\x00 (7 unused bits)>}}>"]
 
 = ASN1 - ASN1_INTEGER
 a = ASN1_INTEGER(int("1"*23))
