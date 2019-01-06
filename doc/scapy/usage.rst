@@ -22,7 +22,7 @@ administrator privileges::
 If you do not have all optional packages installed, Scapy will inform you that 
 some features will not be available:: 
                                  
-    INFO: Can't import python gnuplot wrapper . Won't be able to plot.
+    INFO: Can't import python matplotlib wrapper. Won't be able to plot.
     INFO: Can't import PyX. Won't be able to use psdump() or pdfdump().
 
 The basic features of sending and receiving packets should still work, though. 
@@ -534,10 +534,22 @@ Configuring super sockets
 .. index::
    single: super socket
 
-The process of sending packets and receiving is quite complicated. As I wanted to use the PF_PACKET interface to go through netfilter, I also needed to implement an ARP stack and ARP cache, and a LL stack. Well it seems to work, on ethernet and PPP interfaces, but I don't guarantee anything. Anyway, the fact I used a kind of super-socket for that mean that you can switch your IO layer very easily, and use PF_INET/SOCK_RAW, or use PF_PACKET at level 2 (giving the LL header (ethernet,...) and giving yourself mac addresses, ...). I've just added a super socket which use libdnet and libpcap, so that it should be portable::
+Different super sockets are available in scapy: the native ones, and the ones that use a libpcap provider (that go through libpcap to send/receive packets).
+By default, scapy will try to use the native ones (except on Windows, where the winpcap/npcap ones are preffered). To manually use the libpcap ones, you must:
 
-    >>> conf.L3socket=L3dnetSocket
-    >>> conf.L3listen=L3pcapListenSocket
+* On Unix/OSX: be sure to have libpcap installed, and one of the following as libpcap python wrapper: `pcapy` or `pypcap`
+* On Windows: have Npcap/Winpcap installed. (default)
+
+Then use:
+
+    >>> conf.use_pcap = True
+
+This will automatically update the sockets pointing to `conf.L2socket` and `conf.L3socket`.
+
+If you want to manually set them, you have a bunch of sockets available, depending on your platform. For instance, you might want to use:
+
+    >>> conf.L3socket=L3pcapSocket  # Receive/send L3 packets through libpcap
+    >>> conf.L2listen=L2ListenTcpdump  # Receive L2 packets through TCPDump
 
 Sniffing
 --------
@@ -937,18 +949,18 @@ Now scapy has its own routing table, so that you can have your packets routed di
     192.168.8.0     255.255.255.0   0.0.0.0         eth0
     0.0.0.0         0.0.0.0         192.168.8.1     eth0
 
-Gnuplot
--------
+Matplotlib
+----------
 
 .. index::
-   single: Gnuplot, plot()
+   single: Matplotlib, plot()
 
-We can easily plot some harvested values using Gnuplot. (Make sure that you have Gnuplot-py and Gnuplot installed.)
+We can easily plot some harvested values using Matplotlib. (Make sure that you have matplotlib installed.)
 For example, we can observe the IP ID patterns to know how many distinct IP stacks are used behind a load balancer::
 
     >>> a, b = sr(IP(dst="www.target.com")/TCP(sport=[RandShort()]*1000))
     >>> a.plot(lambda x:x[1].id)
-    <Gnuplot._Gnuplot.Gnuplot instance at 0xb7d6a74c>
+    [<matplotlib.lines.Line2D at 0x2367b80d6a0>]
 
 .. image:: graphics/ipid.png
 
@@ -1084,8 +1096,8 @@ Provided that your wireless card and driver are correctly configured for frame i
 
 On Windows, if using Npcap, the equivalent would be to call
 
-    # Of course, conf.iface can be replaced by any interfaces accessed through IFACES
-    >>> conf.iface.setmonitor(True)
+    >>> # Of course, conf.iface can be replaced by any interfaces accessed through IFACES
+    ... conf.iface.setmonitor(True)
 
 you can have a kind of FakeAP::
 
@@ -1095,7 +1107,7 @@ you can have a kind of FakeAP::
                     addr3="00:01:02:03:04:05")/
               Dot11Beacon(cap="ESS", timestamp=1)/
               Dot11Elt(ID="SSID", info=RandString(RandNum(1,50)))/
-              Dot11Elt(ID="Rates", info='\x82\x84\x0b\x16')/
+              Dot11EltRates(rates=[130, 132, 11, 22])/
               Dot11Elt(ID="DSset", info="\x03")/
               Dot11Elt(ID="TIM", info="\x00\x01\x00\x00"),
               iface="mon0", loop=1)
@@ -1359,7 +1371,9 @@ Wireless sniffing
 
 The following command will display information similar to most wireless sniffers::
 
->>> sniff(iface="ath0",prn=lambda x:x.sprintf("{Dot11Beacon:%Dot11.addr3%\t%Dot11Beacon.info%\t%PrismHeader.channel%\t%Dot11Beacon.cap%}"))
+>>> sniff(iface="ath0", monitor=True, prn=lambda x:x.sprintf("{Dot11Beacon:%Dot11.addr3%\t%Dot11Beacon.info%\t%PrismHeader.channel%\t%Dot11Beacon.cap%}"))
+
+Note the `monitor=True` argument, which only work from scapy>2.4.0 (2.4.0dev+), that is cross-platform. It will in work in most cases (Windows, OSX), but might require you to manually toogle monitor mode.
 
 The above command will produce output similar to the one below::
 
