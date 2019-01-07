@@ -280,7 +280,7 @@ Here's how to install Scapy on OpenBSD 5.9+
 Optional packages (OpenBSD only)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-It is recommanded to install those packages through `pip` rather than the OS, as the versions tend to be more up-to-date.
+It is recommended to install those packages through `pip` rather than the OS, as the versions tend to be more up-to-date.
 
 py-cryptography
 

@@ -535,7 +535,7 @@ Configuring super sockets
    single: super socket
 
 Different super sockets are available in scapy: the native ones, and the ones that use a libpcap provider (that go through libpcap to send/receive packets).
-By default, scapy will try to use the native ones (except on Windows, where the winpcap/npcap ones are preffered). To manually use the libpcap ones, you must:
+By default, scapy will try to use the native ones (except on Windows, where the winpcap/npcap ones are preferred). To manually use the libpcap ones, you must:
 
 * On Unix/OSX: be sure to have libpcap installed, and one of the following as libpcap python wrapper: `pcapy` or `pypcap`
 * On Windows: have Npcap/Winpcap installed. (default)
@@ -1373,7 +1373,7 @@ The following command will display information similar to most wireless sniffers
 
 >>> sniff(iface="ath0", monitor=True, prn=lambda x:x.sprintf("{Dot11Beacon:%Dot11.addr3%\t%Dot11Beacon.info%\t%PrismHeader.channel%\t%Dot11Beacon.cap%}"))
 
-Note the `monitor=True` argument, which only work from scapy>2.4.0 (2.4.0dev+), that is cross-platform. It will in work in most cases (Windows, OSX), but might require you to manually toogle monitor mode.
+Note the `monitor=True` argument, which only work from scapy>2.4.0 (2.4.0dev+), that is cross-platform. It will in work in most cases (Windows, OSX), but might require you to manually toggle monitor mode.
 
 The above command will produce output similar to the one below::
 
