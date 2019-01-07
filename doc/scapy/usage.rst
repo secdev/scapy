@@ -30,7 +30,7 @@ The basic features of sending and receiving packets should still work, though.
 Screenshot
 ----------
 
-If you have installed IPython, scapy will hook to it and you will be able to use auto-completion using the TAB.
+If you have installed IPython, Scapy will hook to it and you will be able to use auto-completion using the TAB.
 
 .. image:: graphics/scapy-main-console.png
    :align: center
@@ -326,7 +326,7 @@ A DNS query (``rd`` = recursion desired). The host 192.168.5.1 is my DNS server.
      an=<DNSRR rrname='www.slashdot.org.' type=A rclass=IN ttl=3560L rdata='66.35.250.151' |>
      ns=0 ar=0 |<Padding load='\xc6\x94\xc7\xeb' |>>>>
 
-The "send'n'receive" functions family is the heart of scapy. They return a couple of two lists. The first element is a list of couples (packet sent, answer), and the second element is the list of unanswered packets. These two elements are lists, but they are wrapped by an object to present them better, and to provide them with some methods that do most frequently needed actions::
+The "send'n'receive" functions family is the heart of Scapy. They return a couple of two lists. The first element is a list of couples (packet sent, answer), and the second element is the list of unanswered packets. These two elements are lists, but they are wrapped by an object to present them better, and to provide them with some methods that do most frequently needed actions::
 
     >>> sr(IP(dst="192.168.8.1")/TCP(dport=[21,22,23]))
     Received 6 packets, got 3 answers, remaining 0 packets
@@ -337,7 +337,7 @@ The "send'n'receive" functions family is the heart of scapy. They return a coupl
     IP / TCP 192.168.8.14:20 > 192.168.8.1:22 S ==> Ether / IP / TCP 192.168.8.1:22 > 192.168.8.14:20 RA / Padding
     IP / TCP 192.168.8.14:20 > 192.168.8.1:23 S ==> Ether / IP / TCP 192.168.8.1:23 > 192.168.8.14:20 RA / Padding
     
-If there is a limited rate of answers, you can specify a time interval to wait between two packets with the inter parameter. If some packets are lost or if specifying an interval is not enough, you can resend all the unanswered packets, either by calling the function again, directly with the unanswered list, or by specifying a retry parameter. If retry is 3, scapy will try to resend unanswered packets 3 times. If retry is -3, scapy will resend unanswered packets until no more answer is given for the same set of unanswered packets 3 times in a row. The timeout parameter specify the time to wait after the last packet has been sent::
+If there is a limited rate of answers, you can specify a time interval to wait between two packets with the inter parameter. If some packets are lost or if specifying an interval is not enough, you can resend all the unanswered packets, either by calling the function again, directly with the unanswered list, or by specifying a retry parameter. If retry is 3, Scapy will try to resend unanswered packets 3 times. If retry is -3, Scapy will resend unanswered packets until no more answer is given for the same set of unanswered packets 3 times in a row. The timeout parameter specify the time to wait after the last packet has been sent::
 
     >>> sr(IP(dst="172.20.29.5/30")/TCP(dport=[21,22,23]),inter=0.5,retry=-2,timeout=1)
     Begin emission:
@@ -534,8 +534,8 @@ Configuring super sockets
 .. index::
    single: super socket
 
-Different super sockets are available in scapy: the native ones, and the ones that use a libpcap provider (that go through libpcap to send/receive packets).
-By default, scapy will try to use the native ones (except on Windows, where the winpcap/npcap ones are preferred). To manually use the libpcap ones, you must:
+Different super sockets are available in Scapy: the native ones, and the ones that use a libpcap provider (that go through libpcap to send/receive packets).
+By default, Scapy will try to use the native ones (except on Windows, where the winpcap/npcap ones are preferred). To manually use the libpcap ones, you must:
 
 * On Unix/OSX: be sure to have libpcap installed, and one of the following as libpcap python wrapper: `pcapy` or `pypcap`
 * On Windows: have Npcap/Winpcap installed. (default)
@@ -890,7 +890,7 @@ Making tables
 
 Now we have a demonstration of the ``make_table()`` presentation function. It takes a list as parameter, and a function who returns a 3-uple. The first element is the value on the x axis from an element of the list, the second is about the y value and the third is the value that we want to see at coordinates (x,y). The result is a table. This function has 2 variants, ``make_lined_table()`` and ``make_tex_table()`` to copy/paste into your LaTeX pentest report. Those functions are available as methods of a result object :
 
-Here we can see a multi-parallel traceroute (scapy already has a multi TCP traceroute function. See later)::
+Here we can see a multi-parallel traceroute (Scapy already has a multi TCP traceroute function. See later)::
 
     >>> ans, unans = sr(IP(dst="www.test.fr/30", ttl=(1,6))/TCP())
     Received 49 packets, got 24 answers, remaining 0 packets
@@ -926,7 +926,7 @@ Routing
 .. index::
    single: Routing, conf.route
 
-Now scapy has its own routing table, so that you can have your packets routed differently than the system::
+Now Scapy has its own routing table, so that you can have your packets routed differently than the system::
 
     >>> conf.route
     Network         Netmask         Gateway         Iface
@@ -971,7 +971,7 @@ TCP traceroute (2)
 .. index::
    single: traceroute(), Traceroute
 
-Scapy also has a powerful TCP traceroute function. Unlike other traceroute programs that wait for each node to reply before going to the next, scapy sends all the packets at the same time. This has the disadvantage that it can't know when to stop (thus the maxttl parameter) but the great advantage that it took less than 3 seconds to get this multi-target traceroute result::
+Scapy also has a powerful TCP traceroute function. Unlike other traceroute programs that wait for each node to reply before going to the next, Scapy sends all the packets at the same time. This has the disadvantage that it can't know when to stop (thus the maxttl parameter) but the great advantage that it took less than 3 seconds to get this multi-target traceroute result::
 
     >>> traceroute(["www.yahoo.com","www.altavista.com","www.wisenut.com","www.copernic.com"],maxttl=20)
     Received 80 packets, got 80 answers, remaining 0 packets
