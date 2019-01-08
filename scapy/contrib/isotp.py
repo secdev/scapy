@@ -555,6 +555,14 @@ class ISOTPSoftSocket(SuperSocket):
                 load += bytearray(CAN_MAX_DLEN - len(load))
             can_socket.send(CAN(identifier=sid, data=load))
 
+        impl = ISOTPSocketImplementation(
+            can_send,
+            extended_addr=extended_addr,
+            extended_rx_addr=extended_rx_addr,
+            rx_block_size=rx_block_size,
+            rx_separation_time_min=rx_separation_time_min
+        )
+
         def can_on_recv(p):
             assert(isinstance(p, CAN))
             if p.identifier != did:
@@ -563,17 +571,10 @@ class ISOTPSoftSocket(SuperSocket):
                             "CAN socket" % did)
                     self.filter_warning_emitted = True
             else:
-                self.ins.on_recv(p)
+                impl.on_recv(p)
 
-        self.ins = ISOTPSocketImplementation(
-            can_send,
-            extended_addr=extended_addr,
-            extended_rx_addr=extended_rx_addr,
-            rx_block_size=rx_block_size,
-            rx_separation_time_min=rx_separation_time_min
-        )
-
-        self.outs = self.ins
+        self.ins = impl
+        self.outs = impl
 
         self.can_socket = can_socket
         self.rx_thread = CANReceiverThread(can_socket, can_on_recv)
