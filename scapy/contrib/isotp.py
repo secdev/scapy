@@ -665,9 +665,13 @@ class CANReceiverThread(Thread):
         ins = self.socket
 
         while 1:
-            ins.sniff(store=False, timeout=1,
-                      stop_filter=lambda x: self.exiting,
-                      prn=self.callback)
+            try:
+                ins.sniff(store=False, timeout=1,
+                          stop_filter=lambda x: self.exiting,
+                          prn=self.callback)
+            except ValueError as ex:
+                if not self.exiting:
+                    raise ex
             if self.exiting:
                 return
 
