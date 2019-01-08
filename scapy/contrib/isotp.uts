@@ -626,14 +626,19 @@ test_frames = [
     (0x241, "EA 26 24 25 26 27 28"   ),
 ]
 
+succ = False
 def sender(args=None):
     for f in test_frames:
         call("cansend %s %3x#%s" % (iface0, f[0], "".join(f[1].split())), shell=True)
+    global succ
+    succ = True
 
 s = new_can_socket0()
 thread = threading.Thread(target=sender)
 sniffed = ISOTPSniffer.sniff(s, timeout=1, count=1, prn=lambda x: x.show2(), started_callback=thread.start)
 sniffed[0]['ISOTP'].data == bytearray(range(1, 0x29))
+thread.join()
+assert(succ)
 
 
 
@@ -973,9 +978,8 @@ msg = ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33')
 def sender():
     time.sleep(0.1)
     with ISOTPSoftSocket(new_can_socket0(), 0x123, 0x321) as sock:
-        rx = sock.sr1(msg, timeout=1, verbose=True)
-        assert(rx is not None)
-        assert(rx == msg)
+        global rx2
+        rx2 = sock.sr1(msg, timeout=1, verbose=True)
 
 def receiver():
     txThread = threading.Thread(target=sender)
@@ -986,7 +990,10 @@ def receiver():
         assert(sock.send(msg))
         txThread.join()
 
+rx2 = None
 receiver()
+assert(rx2 is not None)
+assert(rx2 == msg)
 
 = ISOTPSoftSocket sr1 and ISOTP test vice versa
 ~ needs_root linux
@@ -994,23 +1001,26 @@ msg = ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33')
 
 def receiver():
     with ISOTPSoftSocket(new_can_socket0(), 0x321, 0x123) as sock:
-        rx = sock.sniff(count=1, timeout=1)
-        print(rx)
-        assert(len(rx) == 1)
-        rx.show()
+        global rx2, sent
+        rx2 = sock.sniff(count=1, timeout=1)
+        rx2.show()
         msg.show()
-        assert(rx[0] == msg)
-        assert(sock.send(msg))
+        sent = sock.send(msg)
 
 def sender():
     rxThread = threading.Thread(target=receiver)
     rxThread.start()
     with ISOTPSoftSocket(new_can_socket0(), 0x123, 0x321) as sock:
         rx = sock.sr1(msg, timeout=1,verbose=True)
-        assert(rx == msg)
-        rxThread.join()
+    assert(rx == msg)
+    rxThread.join()
 
+rx2 = None
+sent = False
 sender()
+assert(len(rx2) == 1)
+assert(rx2[0] == msg)
+assert(sent)
 
 = ISOTPSoftSocket sniff
 ~ needs_root linux
@@ -1031,8 +1041,8 @@ def receiver():
         assert(rx[3] == msg)
         msg.data += b'4'
         assert(rx[4] == msg)
-        global received_pkts
-        received_pkts = True
+    global received_pkts
+    received_pkts = True
 
 def sender():
     rxThread = threading.Thread(target=receiver)
@@ -1050,8 +1060,8 @@ def sender():
         assert(sock.send(msg))
         msg.data += b'4'
         assert(sock.send(msg))
-        rxThread.join()
-        assert(received_pkts == True)
+    rxThread.join()
+    assert(received_pkts == True)
 
 sender()
 
@@ -1066,6 +1076,7 @@ _ = new_can_socket1().sniff(timeout=0.1)
 assert len(_) == 0
 
 packet = ISOTP('Request')
+succ = False
 with ISOTPSoftSocket(new_can_socket0(), sid=0x241, did=0x641) as isoTpSocket0, \
      ISOTPSoftSocket(new_can_socket1(), sid=0x641, did=0x241) as isoTpSocket1, \
      ISOTPSoftSocket(new_can_socket0(), sid=0x641, did=0x241, timeout=0) as bSocket0, \
@@ -1076,17 +1087,20 @@ with ISOTPSoftSocket(new_can_socket0(), sid=0x241, did=0x641) as isoTpSocket0, \
         forwarded += 1
         return pkt
     def bridge():
-        global forwarded
+        global forwarded, succ
         forwarded = 0
         bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding, timeout=0.5,
                          started_callback=evt.set)
+        succ = True
     threadBridge = threading.Thread(target=bridge)
     threadBridge.start()
     evt.wait()
     packetsVCan1 = isoTpSocket1.sniff(timeout=0.5, started_callback=lambda: isoTpSocket0.send(packet))
-    assert forwarded == 1
-    assert len(packetsVCan1) == 1
     threadBridge.join()
+
+assert forwarded == 1
+assert len(packetsVCan1) == 1
+assert succ
 
 = bridge and sniff with isotp soft sockets and long packet
 ~ linux needs_root
@@ -1097,6 +1111,7 @@ _ = new_can_socket1().sniff(timeout=0.1)
 assert len(_) == 0
 
 packet = ISOTP('RequestASDF1234567890')
+succ = False
 with ISOTPSoftSocket(new_can_socket0(), sid=0x241, did=0x641) as isoTpSocket0, \
      ISOTPSoftSocket(new_can_socket1(), sid=0x641, did=0x241) as isoTpSocket1, \
      ISOTPSoftSocket(new_can_socket0(), sid=0x641, did=0x241, timeout=0) as bSocket0, \
@@ -1107,19 +1122,22 @@ with ISOTPSoftSocket(new_can_socket0(), sid=0x241, did=0x641) as isoTpSocket0, \
         forwarded += 1
         return pkt
     def bridge():
-        global forwarded
+        global forwarded, succ
         forwarded = 0
         bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding, timeout=0.5,
                          started_callback=evt.set)
+        succ = True
     threadBridge = threading.Thread(target=bridge)
     threadBridge.start()
     evt.wait()
     packetsVCan1 = isoTpSocket1.sniff(timeout=0.5, started_callback=lambda: isoTpSocket0.send(packet))
     print("forwarded: %d" % forwarded)
     print("len(packetsVCan1): %d" % len(packetsVCan1))
-    assert forwarded == 1
-    assert len(packetsVCan1) == 1
     threadBridge.join()
+
+assert forwarded == 1
+assert len(packetsVCan1) == 1
+assert succ
 
 = bridge and sniff with isotp soft sockets set up vcan0 and vcan1 for package change vcan1
 ~ linux needs_root
@@ -1130,6 +1148,7 @@ _ = new_can_socket1().sniff(timeout=0.1)
 assert len(_) == 0
 
 packet = ISOTP('Request')
+succ = False
 with ISOTPSoftSocket(new_can_socket0(), sid=0x241, did=0x641) as isoTpSocket0, \
      ISOTPSoftSocket(new_can_socket1(), sid=0x641, did=0x241) as isoTpSocket1, \
      ISOTPSoftSocket(new_can_socket0(), sid=0x641, did=0x241, timeout=0) as bSocket0, \
@@ -1139,15 +1158,19 @@ with ISOTPSoftSocket(new_can_socket0(), sid=0x241, did=0x641) as isoTpSocket0, \
         pkt.data = 'changed'
         return pkt
     def bridge():
+        global succ
         bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding, timeout=0.5,
                          started_callback=evt.set)
+        succ = True
     threadBridge = threading.Thread(target=bridge)
     threadBridge.start()
     evt.wait()
     packetsVCan1 = isoTpSocket1.sniff(timeout=0.5, started_callback=lambda: isoTpSocket0.send(packet))
-    assert len(packetsVCan1) == 1
-    assert packetsVCan1[0].data == b'changed'
     threadBridge.join()
+
+assert len(packetsVCan1) == 1
+assert packetsVCan1[0].data == b'changed'
+assert succ
 
 
 = Two ISOTPSockets at the same time, sending and receiving
@@ -1160,9 +1183,10 @@ with ISOTPSocket(new_can_socket0(), sid=0x641, did=0x241) as s1, \
         s2.send(isotp)
     Thread(target=sender).start()
     result = s1.recv()
-    assert(result is not None)
-    result.show()
-    assert(result.data == isotp.data)
+
+assert(result is not None)
+result.show()
+assert(result.data == isotp.data)
 
 
 = Two ISOTPSockets at the same time, multiple sends/receives
@@ -1547,10 +1571,8 @@ def sender():
     time.sleep(0.1)
     sock = ISOTPNativeSocket(iface0, sid=0x123, did=0x321)
     txmsg = ISOTP(b'\x11\x22\x33')
-    rx = sock.sr1(txmsg, timeout=1, verbose=True)
-    assert(rx is not None)
-    assert(rx == ISOTP(b'\x7f\x22\x33'))
-    assert(rx.answers(txmsg))
+    global rx2
+    rx2 = sock.sr1(txmsg, timeout=1, verbose=True)
 
 def receiver():
     txThread = threading.Thread(target=sender)
@@ -1565,7 +1587,11 @@ def receiver():
     assert(rx.identifier == expectedrx.identifier)
     txThread.join()
 
+rx2 = None
 receiver()
+assert(rx2 is not None)
+assert(rx2 == ISOTP(b'\x7f\x22\x33'))
+assert(rx2.answers(txmsg))
 
 = ISOTP Socket sr1 and ISOTP test
 ~ needs_root linux
@@ -1574,9 +1600,8 @@ msg = ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33')
 def sender():
     time.sleep(0.1)
     sock = ISOTPNativeSocket(iface0, 0x123, 0x321)
-    rx = sock.sr1(msg, timeout=1, verbose=True)
-    assert(rx is not None)
-    assert(rx == msg) 
+    global rx2
+    rx2 = sock.sr1(msg, timeout=1, verbose=True)
 
 def receiver():
     txThread = threading.Thread(target=sender)
@@ -1587,7 +1612,10 @@ def receiver():
     assert(sock.send(msg))
     txThread.join()
 
+rx2 = None
 receiver()
+assert(rx2 is not None)
+assert(rx2 == msg)
 
 = ISOTP Socket sr1 and ISOTP test vice versa
 ~ needs_root linux
@@ -1596,9 +1624,9 @@ exit_if_no_isotp_module()
 msg = ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33')
 def receiver():
     sock = ISOTPNativeSocket(iface0, 0x321, 0x123)
-    rx = sock.sniff(count=1, timeout=1)
-    assert(rx[0] == msg)
-    assert(sock.send(msg))
+    global rx2, sent
+    rx2 = sock.sniff(count=1, timeout=1)
+    sent = sock.send(msg)
 
 def sender():
     rxThread = threading.Thread(target=receiver)
@@ -1609,7 +1637,11 @@ def sender():
     assert(rx == msg) 
     rxThread.join()
 
+rx2 = None
+sent = False
 sender()
+assert(rx2[0] == msg)
+assert(sent)
 
 = ISOTP Socket sniff
 ~ needs_root linux
@@ -1629,6 +1661,8 @@ def receiver():
     assert(rx[3] == msg)
     msg.data += b'4'
     assert(rx[4] == msg)
+    global succ
+    succ = True
 
 def sender():
     rxThread = threading.Thread(target=receiver)
@@ -1648,7 +1682,9 @@ def sender():
     assert(sock.send(msg))
     rxThread.join()
 
+succ = False
 sender()
+assert(succ)
 
 + ISOTPNativeSocket MITM attack tests
 
@@ -1667,11 +1703,18 @@ def bridge():
     bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding, timeout=0.5)
     bSocket0.close()
     bSocket1.close()
+    global bSucc
+    bSucc = True
 
 def RequestOnBus0():
     time.sleep(0.2)
     packet = ISOTP('Request')
     isoTpSocket0.send(packet)
+    global rSucc
+    rSucc = True
+
+bSucc = False
+rSucc = False
 
 threadBridge = threading.Thread(target=bridge)
 threadBridge.start()
@@ -1685,12 +1728,18 @@ len(packetsVCan1) == 1
 isoTpSocket0.close()
 isoTpSocket1.close()
 
+assert(bSucc)
+assert(rSucc)
+
 = bridge and sniff with isotp native sockets set up vcan0 and vcan1 for package change to vcan1
 ~ python3_only linux needs_root
 exit_if_no_isotp_module()
 
 isoTpSocket0 = ISOTPNativeSocket(iface0, sid=0x241, did=0x641)
 isoTpSocket1 = ISOTPNativeSocket(iface1, sid=0x641, did=0x241)
+
+bSucc = False
+rSucc = False
 
 def bridge():
     bSocket0 = ISOTPNativeSocket(iface0, sid=0x641, did=0x241)
@@ -1701,11 +1750,15 @@ def bridge():
     bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding, timeout=0.5)
     bSocket0.close()
     bSocket1.close()
+    global bSucc
+    bSucc = True
 
 def RequestOnBus0():
     time.sleep(0.2)
     packet = ISOTP('Request')
     isoTpSocket0.send(packet)
+    global rSucc
+    rSucc = True
 
 threadBridge.join()
 threadBridge = threading.Thread(target=bridge)
@@ -1722,9 +1775,15 @@ len(packetsVCan1) == 1
 isoTpSocket0.close()
 isoTpSocket1.close()
 
+assert(bSucc)
+assert(rSucc)
+
 = bridge and sniff with isotp native sockets set up vcan0 and vcan1 for package forwarding in both directions
 ~ python3_only linux needs_root
 exit_if_no_isotp_module()
+
+bSucc = False
+rSucc = False
 
 isoTpSocket0 = ISOTPNativeSocket(iface0, sid=0x241, did=0x641)
 isoTpSocket1 = ISOTPNativeSocket(iface1, sid=0x641, did=0x241)
@@ -1737,6 +1796,8 @@ def bridge():
     bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding, timeout=0.5)
     bSocket0.close()
     bSocket1.close()
+    global bSucc
+    bSucc = True
 
 def RequestBothVCans():
     time.sleep(0.2)
@@ -1744,6 +1805,8 @@ def RequestBothVCans():
     packetVcan1 = ISOTP('RequestVcan1')
     isoTpSocket0.send(packetVcan0)
     isoTpSocket1.send(packetVcan1)
+    global rSucc
+    rSucc = True
 
 threadBridge.join()
 threadBridge = threading.Thread(target=bridge)
@@ -1761,9 +1824,15 @@ len(packetsVCan1) == 1
 isoTpSocket0.close()
 isoTpSocket1.close()
 
+assert(bSucc)
+assert(rSucc)
+
 = bridge and sniff with isotp native sockets set up vcan0 and vcan1 for package change in both directions
 ~ python3_only linux needs_root
 exit_if_no_isotp_module()
+
+bSucc = False
+rSucc = False
 
 isoTpSocket0 = ISOTPNativeSocket(iface0, sid=0x241, did=0x641)
 isoTpSocket1 = ISOTPNativeSocket(iface1, sid=0x641, did=0x241)
@@ -1777,6 +1846,8 @@ def bridge():
     bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding, timeout=0.5)
     bSocket0.close()
     bSocket1.close()
+    global bSucc
+    bSucc = True
 
 def RequestBothVCans():
     time.sleep(0.2)
@@ -1784,6 +1855,8 @@ def RequestBothVCans():
     packetVcan1 = ISOTP('RequestVcan1')
     isoTpSocket0.send(packetVcan0)
     isoTpSocket1.send(packetVcan1)
+    global rSucc
+    rSucc = True
 
 threadBridge.join()
 threadBridge = threading.Thread(target=bridge)
@@ -1802,6 +1875,9 @@ len(packetsVCan1) == 1
 
 isoTpSocket0.close()
 isoTpSocket1.close()
+
+assert(bSucc)
+assert(rSucc)
 
 + Cleanup
 
