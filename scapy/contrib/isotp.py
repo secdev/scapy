@@ -35,7 +35,8 @@ from scapy.consts import LINUX
 
 __all__ = ["ISOTP", "ISOTPHeader", "ISOTPHeaderEA", "ISOTP_SF", "ISOTP_FF",
            "ISOTP_CF", "ISOTP_FC", "ISOTPSniffer", "ISOTPSoftSocket",
-           "ISOTPSocket", "ISOTPSocketImplementation", "ISOTPMessageBuilder"]
+           "ISOTPSocket", "ISOTPSocketImplementation", "ISOTPMessageBuilder",
+           "ISOTPSoftSocketTimeoutElapsed" ]
 
 USE_CAN_ISOTP_KERNEL_MODULE = False
 if six.PY3 and LINUX:
@@ -497,12 +498,18 @@ class ISOTPSniffer:
         return plist.PacketList(c.lst, "Sniffed")
 
 
+class ISOTPSoftSocketTimeoutElapsed(Scapy_Exception):
+    pass
+
+
 class ISOTPSoftSocket(SuperSocket):
     """
     Implements an ISOTP socket using a CAN socket. A thread is used to
     receive CAN frames and send Flow Control frames. The thread is stopped
     when calling the close() function or when this object is destructed.
     """
+
+    read_allowed_exceptions = (ISOTPSoftSocketTimeoutElapsed,)
 
     def __init__(self,
                  can_socket=None,
@@ -585,8 +592,6 @@ class ISOTPSoftSocket(SuperSocket):
         self.basecls = basecls
 
     def close(self):
-        """Close the socket and stop the receiving thread"""
-        self.can_socket.close()
         self.rx_thread.stop()
         self.outs = None
         self.ins = None
@@ -607,7 +612,11 @@ class ISOTPSoftSocket(SuperSocket):
         received or the specified timeout is reached.
         If self.timeout is 0, then this function doesn't block and returns the
         first frame in the receive buffer or None if there isn't any."""
-        return self.basecls, self.ins.recv(self.timeout), time.time()
+        t = time.time()
+        msg = self.ins.recv(self.timeout)
+        if msg is None:
+            raise ISOTPSoftSocketTimeoutElapsed()
+        return self.basecls, msg, t
 
     def recv(self, x=0xffff):
         msg = SuperSocket.recv(self, x)
@@ -627,8 +636,10 @@ class ISOTPSoftSocket(SuperSocket):
         """This function is called during sendrecv() routine to select
         the available sockets.
         """
-        # ISOTPSoftSockets aren't selectable, so we return all of them
-        # sockets, None (means use the socket's recv() )
+        ready = []
+        for s in sockets:
+            if len(s.ins.rx_messages) > 0:
+                ready.append(s)
         return sockets, None
 
 
@@ -664,11 +675,16 @@ class CANReceiverThread(Thread):
     def run(self):
         ins = self.socket
 
+        def prn(msg):
+            if not self.exiting:
+                print("self.callback(%s)" % msg.__repr__())
+                self.callback(msg)
+
         while 1:
             try:
-                ins.sniff(store=False, timeout=1,
+                ins.sniff(store=False, timeout=1, count=1,
                           stop_filter=lambda x: self.exiting,
-                          prn=self.callback)
+                          prn=prn)
             except ValueError as ex:
                 if not self.exiting:
                     raise ex
