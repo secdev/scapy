@@ -1053,19 +1053,26 @@ sender()
 = bridge and sniff with isotp soft sockets set up vcan0 and vcan1 for package forwarding vcan1
 ~ linux needs_root
 
+_ = new_can_socket0().sniff(timeout=0.1)
+assert len(_) == 0
+_ = new_can_socket1().sniff(timeout=0.1)
+assert len(_) == 0
+
+evt = threading.Event()
+
 def forwarding(pkt):
     return pkt
 
 def bridge():
     with ISOTPSoftSocket(new_can_socket0(), sid=0x641, did=0x241) as bSocket0, \
          ISOTPSoftSocket(new_can_socket1(), sid=0x241, did=0x641) as bSocket1:
-        bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding, timeout=0.6)
+        bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding, timeout=0.6,
+                         started_callback=evt.set)
 
-_ = new_can_socket0().sniff(timeout=0.1)
-_ = new_can_socket1().sniff(timeout=0.1)
 threadBridge = threading.Thread(target=bridge)
 threadBridge.start()
-time.sleep(0.4)
+
+evt.wait()
 
 with ISOTPSoftSocket(new_can_socket0(), sid=0x241, did=0x641) as isoTpSocket0, \
     ISOTPSoftSocket(new_can_socket1(), sid=0x641, did=0x241) as isoTpSocket1:
@@ -1078,19 +1085,26 @@ threadBridge.join()
 = bridge and sniff with isotp soft sockets and long packet
 ~ linux needs_root
 
+_ = new_can_socket0().sniff(timeout=0.1)
+assert len(_) == 0
+_ = new_can_socket1().sniff(timeout=0.1)
+assert len(_) == 0
+
+evt = threading.Event()
+
 def forwarding(pkt):
     return pkt
 
 def bridge():
     with ISOTPSoftSocket(new_can_socket0(), sid=0x641, did=0x241) as bSocket0, \
          ISOTPSoftSocket(new_can_socket1(), sid=0x241, did=0x641) as bSocket1:
-        bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding, timeout=0.6)
+        bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding, timeout=0.6,
+                         started_callback=evt.set)
 
-_ = new_can_socket0().sniff(timeout=0.1)
-_ = new_can_socket1().sniff(timeout=0.1)
 threadBridge = threading.Thread(target=bridge)
 threadBridge.start()
-time.sleep(0.4)
+
+evt.wait()
 
 with ISOTPSoftSocket(new_can_socket0(), sid=0x241, did=0x641) as isoTpSocket0, \
     ISOTPSoftSocket(new_can_socket1(), sid=0x641, did=0x241) as isoTpSocket1:
@@ -1103,6 +1117,13 @@ threadBridge.join()
 = bridge and sniff with isotp soft sockets set up vcan0 and vcan1 for package change vcan1
 ~ linux needs_root
 
+_ = new_can_socket0().sniff(timeout=0.1)
+assert len(_) == 0
+_ = new_can_socket1().sniff(timeout=0.1)
+assert len(_) == 0
+
+evt = threading.Event()
+
 def forwarding(pkt):
     pkt.data = 'changed'
     return pkt
@@ -1110,13 +1131,12 @@ def forwarding(pkt):
 def bridge():
     with ISOTPSoftSocket(new_can_socket0(), sid=0x641, did=0x241) as bSocket0, \
          ISOTPSoftSocket(new_can_socket1(), sid=0x241, did=0x641) as bSocket1:
-        bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding, timeout=0.5)
+        bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding, timeout=0.5, started_callback=evt.set)
 
-_ = new_can_socket0().sniff(timeout=0.1)
-_ = new_can_socket1().sniff(timeout=0.1)
 threadBridge = threading.Thread(target=bridge)
 threadBridge.start()
-time.sleep(0.1)
+
+evt.wait()
 
 with ISOTPSoftSocket(new_can_socket0(), sid=0x241, did=0x641) as isoTpSocket0, \
     ISOTPSoftSocket(new_can_socket1(), sid=0x641, did=0x241) as isoTpSocket1:
