@@ -198,7 +198,7 @@ Debian/Ubuntu
 
 Just use the standard packages::
 
-$ sudo apt-get install tcpdump graphviz imagemagick python-gnuplot python-cryptography python-pyx
+$ sudo apt-get install tcpdump graphviz imagemagick python-matplotlib python-cryptography python-pyx
 
 Scapy optionally uses python-cryptography v1.7 or later. It has not been packaged for ``apt`` in less recent OS versions (e.g. Debian Jessie). If you need the cryptography-related methods, you may install the library with:
 
@@ -223,12 +223,7 @@ Some optional packages:
 
 .. code-block:: text
 
-    # yum install graphviz python-cryptography sox PyX gnuplot numpy
-    # cd /tmp
-    # wget http://heanet.dl.sourceforge.net/sourceforge/gnuplot-py/gnuplot-py-1.8.tar.gz
-    # tar xvfz gnuplot-py-1.8.tar.gz
-    # cd gnuplot-py-1.8
-    # python setup.py install
+    # yum install graphviz python-cryptography sox PyX matplotlib numpy
 
 
 Mac OS X
@@ -285,17 +280,19 @@ Here's how to install Scapy on OpenBSD 5.9+
 Optional packages (OpenBSD only)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+It is recommended to install those packages through `pip` rather than the OS, as the versions tend to be more up-to-date.
+
 py-cryptography
 
 .. code-block:: text
 
  # pkg_add py-cryptography
 
-gnuplot and its Python binding: 
+matplotlib: 
 
 .. code-block:: text
 
- # pkg_add gnuplot py-gnuplot
+ # pkg_add matplotlib
 
 Graphviz (large download, will install several GNOME libraries)
 

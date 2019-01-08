@@ -46,7 +46,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'Scapy'
-copyright = '2008, 2018 Philippe Biondi and the Scapy community'
+copyright = '2008, 2019 Philippe Biondi and the Scapy community'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
