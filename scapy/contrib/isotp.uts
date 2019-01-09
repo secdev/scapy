@@ -1567,10 +1567,11 @@ with ISOTPNativeSocket(iface0, sid=0x641, did=0x241) as s:
 = ISOTP Socket sr1 test
 ~ needs_root linux
 exit_if_no_isotp_module()
+txmsg = ISOTP(b'\x11\x22\x33')
 def sender():
     time.sleep(0.1)
     sock = ISOTPNativeSocket(iface0, sid=0x123, did=0x321)
-    txmsg = ISOTP(b'\x11\x22\x33')
+    global txmsg
     global rx2
     rx2 = sock.sr1(txmsg, timeout=1, verbose=True)
 
