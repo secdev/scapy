@@ -982,48 +982,55 @@ with ISOTPSocket(new_can_socket0(), sid=0x641, did=0x241) as s:
 = ISOTPSoftSocket sr1
 ~ needs_root linux
 
+evt = threading.Event()
 msg = ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33')
+rx2 = None
+
 def sender():
-    time.sleep(0.1)
+    global evt, rx2, msg
     with ISOTPSoftSocket(new_can_socket0(), 0x123, 0x321) as sock:
-        global rx2
+        evt.wait()
         rx2 = sock.sr1(msg, timeout=1, verbose=True)
 
-def receiver():
-    txThread = threading.Thread(target=sender)
-    with ISOTPSoftSocket(new_can_socket0(), 0x321, 0x123) as sock:
-        txThread.start()
-        rx = sock.recv()
-        assert(rx == msg)
-        assert(sock.send(msg))
-        txThread.join()
+txThread = threading.Thread(target=sender)
+txThread.start()
 
-rx2 = None
-receiver()
+with ISOTPSoftSocket(new_can_socket0(), 0x321, 0x123) as sock:
+    evt.set()
+    rx = sock.recv()
+    sent = sock.send(msg)
+
+txThread.join()
+
+assert(rx == msg)
+assert(sent)
 assert(rx2 is not None)
 assert(rx2 == msg)
 
 = ISOTPSoftSocket sr1 and ISOTP test vice versa
 ~ needs_root linux
+
+rx2 = None
+sent = False
+evt = threading.Event()
 msg = ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33')
 
 def receiver():
     with ISOTPSoftSocket(new_can_socket0(), 0x321, 0x123) as sock:
-        global rx2, sent
+        global rx2, sent, evt
+        evt.set()
         rx2 = sock.sniff(count=1, timeout=1)
         sent = sock.send(msg)
 
-def sender():
-    rxThread = threading.Thread(target=receiver)
-    rxThread.start()
-    with ISOTPSoftSocket(new_can_socket0(), 0x123, 0x321) as sock:
-        rx = sock.sr1(msg, timeout=1,verbose=True)
-    assert(rx == msg)
-    rxThread.join()
+rxThread = threading.Thread(target=receiver)
+rxThread.start()
+with ISOTPSoftSocket(new_can_socket0(), 0x123, 0x321) as sock:
+    evt.wait()
+    rx = sock.sr1(msg, timeout=1,verbose=True)
 
-rx2 = None
-sent = False
-sender()
+rxThread.join()
+
+assert(rx == msg)
 assert(len(rx2) == 1)
 assert(rx2[0] == msg)
 assert(sent)
@@ -1031,10 +1038,13 @@ assert(sent)
 = ISOTPSoftSocket sniff
 ~ needs_root linux
 
-received_pkts = False
+evt = threading.Event()
+succ = False
 
 def receiver():
+    global evt, succ
     with ISOTPSoftSocket(new_can_socket0(), 0x321, 0x123) as sock:
+        evt.set()
         rx = sock.sniff(count=5, timeout=1)
         msg = ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33')
         msg.data += b'0'
@@ -1047,13 +1057,10 @@ def receiver():
         assert(rx[3] == msg)
         msg.data += b'4'
         assert(rx[4] == msg)
-    global received_pkts
-    received_pkts = True
+    succ = True
 
 def sender():
-    rxThread = threading.Thread(target=receiver)
-    rxThread.start()
-    time.sleep(0.1)
+    evt.wait()
     with ISOTPSoftSocket(new_can_socket0(), 0x123, 0x321) as sock:
         msg = ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33')
         msg.data += b'0'
@@ -1066,10 +1073,12 @@ def sender():
         assert(sock.send(msg))
         msg.data += b'4'
         assert(sock.send(msg))
-    rxThread.join()
-    assert(received_pkts == True)
 
+rxThread = threading.Thread(target=receiver)
+rxThread.start()
 sender()
+rxThread.join()
+assert(succ)
 
 + ISOTPSoftSocket MITM attack tests
 
