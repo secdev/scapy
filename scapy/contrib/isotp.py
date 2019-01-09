@@ -677,7 +677,6 @@ class CANReceiverThread(Thread):
 
         def prn(msg):
             if not self.exiting:
-                print("self.callback(%s)" % msg.__repr__())
                 self.callback(msg)
 
         while 1:
