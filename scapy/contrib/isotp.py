@@ -640,7 +640,7 @@ class ISOTPSoftSocket(SuperSocket):
         for s in sockets:
             if len(s.ins.rx_messages) > 0:
                 ready.append(s)
-        return sockets, None
+        return ready, None
 
 
 ISOTPSocket = ISOTPSoftSocket
