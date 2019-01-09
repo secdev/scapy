@@ -36,7 +36,7 @@ from scapy.consts import LINUX
 __all__ = ["ISOTP", "ISOTPHeader", "ISOTPHeaderEA", "ISOTP_SF", "ISOTP_FF",
            "ISOTP_CF", "ISOTP_FC", "ISOTPSniffer", "ISOTPSoftSocket",
            "ISOTPSocket", "ISOTPSocketImplementation", "ISOTPMessageBuilder",
-           "ISOTPSoftSocketTimeoutElapsed" ]
+           "ISOTPSoftSocketTimeoutElapsed"]
 
 USE_CAN_ISOTP_KERNEL_MODULE = False
 if six.PY3 and LINUX:
