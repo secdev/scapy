@@ -324,7 +324,8 @@ class GMLAN_RDBPKTI(Packet):
 
     fields_desc = [
         XByteEnumField('subfunction', 0, subfunctions),
-        ConditionalField(StrField('request_DPIDs', b''),
+        ConditionalField(FieldListField('request_DPIDs', [],
+                                        XByteField("", 0)),
                          lambda pkt: pkt.subfunction > 0x0)
     ]
 
