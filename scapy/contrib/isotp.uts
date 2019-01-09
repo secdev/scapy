@@ -51,7 +51,6 @@ def list_wait(l, n):
             old_len = len(l)
             c = 0
 
-
 # hexadecimal to bytes convenience function
 if six.PY2:
     dhex = lambda s: "".join(s.split()).decode('hex')
@@ -106,12 +105,21 @@ else:
 
 if "python_can" in CANSocket.__module__:
     import can as python_can
+    new_can_socket = lambda iface: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface, bitrate=250000))
     new_can_socket0 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface0, bitrate=250000))
     new_can_socket1 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface1, bitrate=250000))
 else:
+    new_can_socket = lambda iface: CANSocket(iface)
     new_can_socket0 = lambda: CANSocket(iface0)
     new_can_socket1 = lambda: CANSocket(iface1)
 
+# utility function for draining a can interface, asserting that no packets are there
+def drain_bus(iface=iface0, assert_empty=True):
+    s = new_can_socket(iface)
+    pkts = s.sniff(timeout=0.1)
+    if assert_empty:
+        assert len(pkts) == 0
+    s.close()
 
 print("CAN sockets should work now")
 
@@ -1003,8 +1011,6 @@ def receiver():
     with ISOTPSoftSocket(new_can_socket0(), 0x321, 0x123) as sock:
         global rx2, sent
         rx2 = sock.sniff(count=1, timeout=1)
-        rx2.show()
-        msg.show()
         sent = sock.send(msg)
 
 def sender():
@@ -1070,13 +1076,12 @@ sender()
 = bridge and sniff with isotp soft sockets set up vcan0 and vcan1 for package forwarding vcan1
 ~ linux needs_root
 
-_ = new_can_socket0().sniff(timeout=0.1)
-assert len(_) == 0
-_ = new_can_socket1().sniff(timeout=0.1)
-assert len(_) == 0
+drain_bus(iface0)
+drain_bus(iface1)
 
 packet = ISOTP('Request')
 succ = False
+
 with ISOTPSoftSocket(new_can_socket0(), sid=0x241, did=0x641) as isoTpSocket0, \
      ISOTPSoftSocket(new_can_socket1(), sid=0x641, did=0x241) as isoTpSocket1, \
      ISOTPSoftSocket(new_can_socket0(), sid=0x641, did=0x241, timeout=0) as bSocket0, \
@@ -1102,15 +1107,19 @@ assert forwarded == 1
 assert len(packetsVCan1) == 1
 assert succ
 
-= bridge and sniff with isotp soft sockets and long packet
+drain_bus(iface0)
+drain_bus(iface1)
+
+= bridge and sniff with isotp soft sockets and multiple long packets
 ~ linux needs_root
 
-_ = new_can_socket0().sniff(timeout=0.1)
-assert len(_) == 0
-_ = new_can_socket1().sniff(timeout=0.1)
-assert len(_) == 0
+drain_bus(iface0)
+drain_bus(iface1)
 
 packet = ISOTP('RequestASDF1234567890')
+N = 3
+T = 3
+
 succ = False
 with ISOTPSoftSocket(new_can_socket0(), sid=0x241, did=0x641) as isoTpSocket0, \
      ISOTPSoftSocket(new_can_socket1(), sid=0x641, did=0x241) as isoTpSocket1, \
@@ -1124,28 +1133,33 @@ with ISOTPSoftSocket(new_can_socket0(), sid=0x241, did=0x641) as isoTpSocket0, \
     def bridge():
         global forwarded, succ
         forwarded = 0
-        bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding, timeout=0.5,
-                         started_callback=evt.set)
+        bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding,
+                         timeout=T, count=N, started_callback=evt.set)
         succ = True
+    def sendpkts():
+        for i in range(N):
+            isoTpSocket0.send(packet)
     threadBridge = threading.Thread(target=bridge)
     threadBridge.start()
     evt.wait()
-    packetsVCan1 = isoTpSocket1.sniff(timeout=0.5, started_callback=lambda: isoTpSocket0.send(packet))
+    packetsVCan1 = isoTpSocket1.sniff(timeout=T, count=N, started_callback=sendpkts)
     print("forwarded: %d" % forwarded)
     print("len(packetsVCan1): %d" % len(packetsVCan1))
     threadBridge.join()
 
-assert forwarded == 1
-assert len(packetsVCan1) == 1
+assert forwarded == N
+assert len(packetsVCan1) == N
 assert succ
+
+drain_bus(iface0)
+drain_bus(iface1)
 
 = bridge and sniff with isotp soft sockets set up vcan0 and vcan1 for package change vcan1
 ~ linux needs_root
 
-_ = new_can_socket0().sniff(timeout=0.1)
-assert len(_) == 0
-_ = new_can_socket1().sniff(timeout=0.1)
-assert len(_) == 0
+
+drain_bus(iface0)
+drain_bus(iface1)
 
 packet = ISOTP('Request')
 succ = False
@@ -1171,6 +1185,9 @@ with ISOTPSoftSocket(new_can_socket0(), sid=0x241, did=0x641) as isoTpSocket0, \
 assert len(packetsVCan1) == 1
 assert packetsVCan1[0].data == b'changed'
 assert succ
+
+drain_bus(iface0)
+drain_bus(iface1)
 
 
 = Two ISOTPSockets at the same time, sending and receiving
@@ -1701,7 +1718,7 @@ def bridge():
     bSocket1 = ISOTPNativeSocket(iface1, sid=0x241, did=0x641)
     def forwarding(pkt):
         return pkt
-    bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding, timeout=0.5)
+    bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding, timeout=2, count=1)
     bSocket0.close()
     bSocket1.close()
     global bSucc
