@@ -20,7 +20,6 @@ import types
 from scapy.compat import plain_str
 from scapy.data import ETH_P_ALL
 from scapy.config import conf
-from scapy.error import warning
 from scapy.packet import Packet, Gen
 from scapy.utils import get_temp_file, tcpdump, wrpcap, \
     ContextManagerSubprocess, PcapReader
@@ -872,15 +871,22 @@ def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
     remain = None
 
     # Get select information from the sockets
-    _main_socket = next(iter(sniff_sockets))
-    read_allowed_exceptions = _main_socket.read_allowed_exceptions
-    select_func = _main_socket.select
-    # We check that all sockets use the same select(), or raise a warning
-    if not all(select_func == sock.select for sock in sniff_sockets):
-        warning("Warning: inconsistent socket types ! The used select function"
-                "will be the one of the first socket")
-    # Now let's build the select function, used later on
-    _select = lambda sockets, remain: select_func(sockets, remain)[0]
+    sniff_sockets_t = list(set([type(x) for x in sniff_sockets.keys()]))
+    group_sockets = lambda sockets: [[x for x in sockets.keys()
+                                      if type(x) == sniff_sockets_t[i]]
+                                     for i in range(len(sniff_sockets_t))]
+    select_funcs = [x[0].select for x in group_sockets(sniff_sockets)]
+
+    def _select(sockets, remain):
+        lists = list(select_funcs[i](group_sockets(sockets)[i], remain)[0]
+                     for i in range(len(select_funcs)))
+        return [sock for select_lists in lists for sock in select_lists]
+
+    read_allowed_exceptions = \
+        tuple([x for exceptions in
+               [s.read_allowed_exceptions for s in sniff_sockets.keys()
+                if len(s.read_allowed_exceptions)] for x in
+               exceptions])
 
     try:
         if started_callback:
