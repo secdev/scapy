@@ -32,16 +32,17 @@ class CANSocket(SuperSocket):
     desc = "read/write packets at a given CAN interface " \
            "using a python-can bus object"
 
-    def __init__(self, iface=None):
+    def __init__(self, iface=None, timeout=1):
         if issubclass(type(iface), can_BusABC):
             self.iface = iface
             self.ins = None
             self.outs = None
+            self.timeout = timeout
         else:
             warning("Provide a python-can interface")
 
     def recv(self):
-        msg = self.iface.recv(timeout=1)
+        msg = self.iface.recv(timeout=self.timeout)
         if msg is None:
             raise CANSocketTimeoutElapsed
         frame = CAN(identifier=msg.arbitration_id,
@@ -76,8 +77,12 @@ class CANSocket(SuperSocket):
         """This function is called during sendrecv() routine to select
         the available sockets.
         """
+        max_timeout = remain / len(sockets)
         # python-can sockets aren't selectable, so we return all of them
         # sockets, None (means use the socket's recv() )
+        for s in sockets:
+            if s.timeout > max_timeout:
+                s.timeout = max_timeout
         return sockets, None
 
 
