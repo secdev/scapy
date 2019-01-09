@@ -71,7 +71,7 @@ def getmacbyip(ip, chainCC=0):
     """Return MAC address corresponding to a given IP address"""
     if isinstance(ip, Net):
         ip = next(iter(ip))
-    ip = inet_ntoa(inet_aton(ip))
+    ip = inet_ntoa(inet_aton(ip or "0.0.0.0"))
     tmp = [orb(e) for e in inet_aton(ip)]
     if (tmp[0] & 0xf0) == 0xe0:  # mcast @
         return "01:00:5e:%.2x:%.2x:%.2x" % (tmp[1] & 0x7f, tmp[2], tmp[3])
@@ -85,13 +85,16 @@ def getmacbyip(ip, chainCC=0):
     if mac:
         return mac
 
-    res = srp1(Ether(dst=ETHER_BROADCAST) / ARP(op="who-has", pdst=ip),
-               type=ETH_P_ARP,
-               iface=iff,
-               timeout=2,
-               verbose=0,
-               chainCC=chainCC,
-               nofilter=1)
+    try:
+        res = srp1(Ether(dst=ETHER_BROADCAST) / ARP(op="who-has", pdst=ip),
+                   type=ETH_P_ARP,
+                   iface=iff,
+                   timeout=2,
+                   verbose=0,
+                   chainCC=chainCC,
+                   nofilter=1)
+    except Exception:
+        return None
     if res is not None:
         mac = res.payload.hwsrc
         conf.netcache.arp_cache[ip] = mac

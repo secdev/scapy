@@ -10697,6 +10697,9 @@ test_IPID_count()
 ############
 + ARP
 
+= Simple Ether() / ARP() show
+(Ether() / ARP()).show()
+
 = ARP for IPv4
 
 p = raw(ARP())
