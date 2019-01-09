@@ -1283,3 +1283,102 @@ a = DebugPacket(addr="scapy.net", atyp=0x3)
 a = DebugPacket(raw(a))
 assert a.addr == b"scapy.net."
 
+########
+########
++ FlagsField
+
+= Test Flags Field Iterator
+
+class FlagsTest(Packet):
+    fields_desc = [FlagsField("flags", 0, 8,
+                              ["f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7"])]
+
+= Test upper nibble
+
+a = FlagsTest(b"\xf0")
+flags = list(a.flags)
+
+assert len(flags) == 4
+assert "f4" in flags
+assert "f5" in flags
+assert "f6" in flags
+assert "f7" in flags
+
+= Test lower nibble
+
+a = FlagsTest(b"\x0f")
+flags = list(a.flags)
+
+assert len(flags) == 4
+assert "f3" in flags
+assert "f2" in flags
+assert "f1" in flags
+assert "f0" in flags
+
+= Test single flag 1
+
+a = FlagsTest(b"\x01")
+flags = list(a.flags)
+
+assert len(flags) == 1
+assert "f0" in flags
+
+= Test single flag 2
+
+a = FlagsTest(b"\x02")
+flags = list(a.flags)
+
+assert len(flags) == 1
+assert "f1" in flags
+
+= Test single flag 0x80
+
+a = FlagsTest(b"\x80")
+flags = list(a.flags)
+
+assert len(flags) == 1
+assert "f7" in flags
+
+= Test pattern 0x55
+
+a = FlagsTest(b"\x55")
+flags = list(a.flags)
+
+assert len(flags) == 4
+assert "f6" in flags
+assert "f2" in flags
+assert "f4" in flags
+assert "f0" in flags
+
+= Test pattern 0xAA
+
+a = FlagsTest(b"\xAA")
+flags = list(a.flags)
+
+assert len(flags) == 4
+assert "f7" in flags
+assert "f3" in flags
+assert "f5" in flags
+assert "f1" in flags
+
+= Test pattern 0x00
+
+a = FlagsTest(b"\x00")
+flags = list(a.flags)
+
+assert len(flags) == 0
+
+= Test pattern 0xFF
+
+a = FlagsTest(b"\xFF")
+flags = list(a.flags)
+
+assert len(flags) == 8
+assert "f7" in flags
+assert "f3" in flags
+assert "f5" in flags
+assert "f1" in flags
+assert "f6" in flags
+assert "f2" in flags
+assert "f4" in flags
+assert "f0" in flags
