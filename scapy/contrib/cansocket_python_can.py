@@ -77,12 +77,14 @@ class CANSocket(SuperSocket):
         """This function is called during sendrecv() routine to select
         the available sockets.
         """
-        max_timeout = remain / len(sockets)
+        if remain is not None:
+            max_timeout = remain / len(sockets)
+            for s in sockets:
+                if s.timeout > max_timeout:
+                    s.timeout = max_timeout
+
         # python-can sockets aren't selectable, so we return all of them
         # sockets, None (means use the socket's recv() )
-        for s in sockets:
-            if s.timeout > max_timeout:
-                s.timeout = max_timeout
         return sockets, None
 
 
