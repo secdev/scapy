@@ -82,7 +82,7 @@ setup(
     # Metadata
     author='Philippe BIONDI',
     author_email='phil(at)secdev.org',
-    maintainer='Pierre LALET, Guillaume VALADON',
+    maintainer='Pierre LALET, Gabriel POTTER, Guillaume VALADON',
     description='Scapy: interactive packet manipulation tool',
     long_description=get_long_description(),
     long_description_content_type='text/markdown',
