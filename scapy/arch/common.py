@@ -26,9 +26,15 @@ import scapy.modules.six as six
 
 
 def _check_tcpdump():
+    """
+    Return True if the tcpdump command can be started
+    """
     with open(os.devnull, 'wb') as devnull:
-        proc = subprocess.Popen([conf.prog.tcpdump, "--version"],
-                                stdout=devnull, stderr=subprocess.STDOUT)
+        try:
+            proc = subprocess.Popen([conf.prog.tcpdump, "--version"],
+                                    stdout=devnull, stderr=subprocess.STDOUT)
+        except OSError:
+            return False
     return proc.wait() == 0
 
 

@@ -344,3 +344,12 @@ if six.PY3:
         l3ps.send(IP(dst="8.8.8.8")/ICMP())
         return True
     assert test_L3PacketSocket_sendto_python3()
+
+= Test _check_tcpdump()
+
+from scapy.arch.common import _check_tcpdump
+
+saved_conf_prog_tcpdump = conf.prog.tcpdump
+conf.prog.tcpdump = "does_not_exist"
+assert _check_tcpdump() == False
+conf.prog.tcpdump = saved_conf_prog_tcpdump
