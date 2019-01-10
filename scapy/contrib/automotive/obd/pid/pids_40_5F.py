@@ -75,13 +75,11 @@ class OBD_PID41(OBD_Packet):
         1: 'Compression ignition'
     }
 
-    @staticmethod
-    def isspark(pkt):
-        return pkt.ignitionType == 0
+    def isspark(self):
+        return self.ignitionType == 0
 
-    @staticmethod
-    def iscompression(pkt):
-        return pkt.ignitionType == 1
+    def iscompression(self):
+        return self.ignitionType == 1
 
     fields_desc = [
         # always zero
