@@ -927,48 +927,80 @@ with ISOTPSocket(new_can_socket0(), sid=0x641, did=0x241) as s:
 = Check if not sending the first FC will make the socket timeout
 ~ linux needs_root
 
+exception = None
+isotp = ISOTP(data=dhex("01 02 03 04 05 06 07 08 09 0A"))
+
 with ISOTPSocket(new_can_socket0(), sid=0x641, did=0x241) as s:
-    isotp = ISOTP(data=dhex("01 02 03 04 05 06 07 08 09 0A"))
-    return_code = s.send(isotp)
-    assert(return_code is None)
+    try:
+        s.send(isotp)
+        assert(False)
+    except Scapy_Exception as ex:
+        exception = ex
+
+print(exception)
+assert(str(exception) == "TX state was reset due to timeout")
 
 
 = Check if not sending the second FC will make the socket timeout
 ~ linux needs_root
 
+exception = None
+isotp = ISOTP(data=b"\xa5" * 120)
+test_sem = threading.Semaphore(0)
+evt = threading.Event()
+
+def acker():
+    cans = new_can_socket0()
+    evt.set()
+    can = cans.recv()
+    cans.send(CAN(identifier = 0x241, data=dhex("30 04 00")))
+
+thread = Thread(target=acker)
+thread.start()
+evt.wait()
+
 with ISOTPSocket(new_can_socket0(), sid=0x641, did=0x241) as s:
-    isotp = ISOTP(data=b"\xa5" * 120)
-    test_sem = threading.Semaphore(0)
-    def acker():
-        cans = new_can_socket0()
-        test_sem.release()
-        can = cans.recv()
-        cans.send(CAN(identifier = 0x241, data=dhex("30 04 00")))
-        test_sem.release()
-    Thread(target=acker).start()
-    test_sem.acquire()
-    return_code = s.send(isotp)
-    test_sem.acquire()
-    assert(return_code is None)
+    try:
+        s.send(isotp)
+    except Scapy_Exception as ex:
+        exception = ex
+
+thread.join()
+
+assert(exception is not None)
+print(exception)
+assert(str(exception) == "TX state was reset due to timeout")
 
 
 = Check if reception of an overflow FC will make a send fail
 ~ linux needs_root
 
+exception = None
+isotp = ISOTP(data=b"\xa5" * 120)
+test_sem = threading.Semaphore(0)
+evt = threading.Event()
+
+def acker():
+    cans = new_can_socket0()
+    evt.set()
+    can = cans.recv()
+    cans.send(CAN(identifier = 0x241, data=dhex("32 00 00")))
+
+thread = Thread(target=acker)
+thread.start()
+evt.wait()
+
 with ISOTPSocket(new_can_socket0(), sid=0x641, did=0x241) as s:
-    isotp = ISOTP(data=b"\xa5" * 120)
-    test_sem = threading.Semaphore(0)
-    def acker():
-        cans = new_can_socket0()
-        test_sem.release()
-        can = cans.recv()
-        cans.send(CAN(identifier = 0x241, data=dhex("32 00 00")))
-        test_sem.release()
-    Thread(target=acker).start()
-    test_sem.acquire()
-    return_code = s.send(isotp)
-    test_sem.acquire()
-    assert(return_code is None)
+    try:
+        s.send(isotp)
+    except Scapy_Exception as ex:
+        exception = ex
+
+thread.join()
+
+assert(exception is not None)
+print(exception)
+assert(str(exception) == "Overflow happened at the receiver side")
 
 
 = Close the Socket
@@ -1015,21 +1047,20 @@ sent = False
 evt = threading.Event()
 msg = ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33')
 
-def receiver():
-    with ISOTPSoftSocket(new_can_socket0(), 0x321, 0x123) as sock:
-        global rx2, sent, evt
+with ISOTPSoftSocket(new_can_socket0(), 0x321, 0x123) as rxSock, \
+     ISOTPSoftSocket(new_can_socket0(), 0x123, 0x321) as txSock:
+    def receiver():
+        global rx2, sent
         evt.set()
-        rx2 = sock.sniff(count=1, timeout=1)
-        sent = sock.send(msg)
-
-rxThread = threading.Thread(target=receiver)
-rxThread.start()
-with ISOTPSoftSocket(new_can_socket0(), 0x123, 0x321) as sock:
+        rx2 = rxSock.sniff(count=1)
+        sent = rxSock.send(msg)
+    rxThread = threading.Thread(target=receiver, name="receiver")
+    rxThread.start()
     evt.wait()
-    rx = sock.sr1(msg, timeout=1,verbose=True)
+    rx = txSock.sr1(msg, timeout=1,verbose=True)
+    rxThread.join()
 
-rxThread.join()
-
+assert(rx is not None)
 assert(rx == msg)
 assert(len(rx2) == 1)
 assert(rx2[0] == msg)
@@ -1592,29 +1623,31 @@ with ISOTPNativeSocket(iface0, sid=0x641, did=0x241) as s:
 = ISOTP Socket sr1 test
 ~ needs_root linux
 exit_if_no_isotp_module()
+
+txSock = ISOTPNativeSocket(iface0, sid=0x123, did=0x321)
+rxSock = CANSocket(iface0)
 txmsg = ISOTP(b'\x11\x22\x33')
+rx2 = None
+
 def sender():
     time.sleep(0.1)
-    sock = ISOTPNativeSocket(iface0, sid=0x123, did=0x321)
     global txmsg
     global rx2
-    rx2 = sock.sr1(txmsg, timeout=1, verbose=True)
+    rx2 = txSock.sr1(txmsg, timeout=1, verbose=True)
 
 def receiver():
-    txThread = threading.Thread(target=sender)
-    sock = CANSocket(iface0)
-    dump = sock.sniff(timeout=0.5)
-    txThread.start()
-    rx = sock.recv()
-    sock.send(CAN(identifier=0x321, length=4, data=b'\x03\x7f\x22\x33'))
+    rx = rxSock.recv()
+    rxSock.send(CAN(identifier=0x321, length=4, data=b'\x03\x7f\x22\x33'))
     expectedrx = CAN(identifier=0x123, length=4, data=b'\x03\x11\x22\x33')
     assert(rx.length == expectedrx.length)
     assert(rx.data == expectedrx.data)
     assert(rx.identifier == expectedrx.identifier)
-    txThread.join()
 
-rx2 = None
+txThread = threading.Thread(target=sender)
+txThread.start()
 receiver()
+txThread.join()
+
 assert(rx2 is not None)
 assert(rx2 == ISOTP(b'\x7f\x22\x33'))
 assert(rx2.answers(txmsg))
@@ -1622,24 +1655,29 @@ assert(rx2.answers(txmsg))
 = ISOTP Socket sr1 and ISOTP test
 ~ needs_root linux
 exit_if_no_isotp_module()
+
+txSock = ISOTPNativeSocket(iface0, 0x123, 0x321)
+rxSock = ISOTPNativeSocket(iface0, 0x321, 0x123)
 msg = ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33')
+rx2 = None
+
 def sender():
     time.sleep(0.1)
-    sock = ISOTPNativeSocket(iface0, 0x123, 0x321)
     global rx2
-    rx2 = sock.sr1(msg, timeout=1, verbose=True)
+    rx2 = txSock.sr1(msg, timeout=1, verbose=True)
 
 def receiver():
-    txThread = threading.Thread(target=sender)
-    sock = ISOTPNativeSocket(iface0, 0x321, 0x123)
-    txThread.start()
-    rx = sock.recv()
-    assert(rx == msg)
-    assert(sock.send(msg))
-    txThread.join()
+    global rx
+    rx = rxSock.recv()
+    rxSock.send(msg)
 
-rx2 = None
+txThread = threading.Thread(target=sender)
+txThread.start()
 receiver()
+txThread.join()
+
+assert(rx == msg)
+assert(rxSock.send(msg))
 assert(rx2 is not None)
 assert(rx2 == msg)
 
@@ -1647,25 +1685,28 @@ assert(rx2 == msg)
 ~ needs_root linux
 exit_if_no_isotp_module()
 
+rxSock = ISOTPNativeSocket(iface0, 0x321, 0x123)
+txSock = ISOTPNativeSocket(iface0, 0x123, 0x321)
+
 msg = ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33')
 def receiver():
-    sock = ISOTPNativeSocket(iface0, 0x321, 0x123)
     global rx2, sent
-    rx2 = sock.sniff(count=1, timeout=1)
-    sent = sock.send(msg)
+    rx2 = rxSock.sniff(count=1, timeout=1)
+    sent = rxSock.send(msg)
 
 def sender():
-    rxThread = threading.Thread(target=receiver)
-    rxThread.start()
+    global rx
     time.sleep(0.1)
-    sock = ISOTPNativeSocket(iface0, 0x123, 0x321)
-    rx = sock.sr1(msg, timeout=1,verbose=True)
-    assert(rx == msg) 
-    rxThread.join()
+    rx = txSock.sr1(msg, timeout=1,verbose=True)
 
 rx2 = None
 sent = False
+rxThread = threading.Thread(target=receiver)
+rxThread.start()
 sender()
+rxThread.join()
+
+assert(rx == msg)
 assert(rx2[0] == msg)
 assert(sent)
 
@@ -1673,9 +1714,12 @@ assert(sent)
 ~ needs_root linux
 exit_if_no_isotp_module()
 
+rxSock = ISOTPNativeSocket(iface0, 0x321, 0x123)
+txSock = ISOTPNativeSocket(iface0, 0x123, 0x321)
+succ = False
+
 def receiver():
-    sock = ISOTPNativeSocket(iface0, 0x321, 0x123)
-    rx = sock.sniff(count=5, timeout=1)
+    rx = rxSock.sniff(count=5, timeout=1)
     msg = ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33')
     msg.data += b'0'
     assert(rx[0] == msg)
@@ -1691,25 +1735,24 @@ def receiver():
     succ = True
 
 def sender():
-    rxThread = threading.Thread(target=receiver)
-    rxThread.start()
     time.sleep(0.1)
-    sock = ISOTPNativeSocket(iface0, 0x123, 0x321)
     msg = ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33')
     msg.data += b'0'
-    assert(sock.send(msg))
+    assert(txSock.send(msg))
     msg.data += b'1'
-    assert(sock.send(msg))
+    assert(txSock.send(msg))
     msg.data += b'2'
-    assert(sock.send(msg))
+    assert(txSock.send(msg))
     msg.data += b'3'
-    assert(sock.send(msg))
+    assert(txSock.send(msg))
     msg.data += b'4'
-    assert(sock.send(msg))
-    rxThread.join()
+    assert(txSock.send(msg))
 
-succ = False
+rxThread = threading.Thread(target=receiver)
+rxThread.start()
 sender()
+rxThread.join()
+
 assert(succ)
 
 + ISOTPNativeSocket MITM attack tests
@@ -1720,10 +1763,10 @@ exit_if_no_isotp_module()
 
 isoTpSocket0 = ISOTPNativeSocket(iface0, sid=0x241, did=0x641)
 isoTpSocket1 = ISOTPNativeSocket(iface1, sid=0x641, did=0x241)
+bSocket0 = ISOTPNativeSocket(iface0, sid=0x641, did=0x241)
+bSocket1 = ISOTPNativeSocket(iface1, sid=0x241, did=0x641)
 
 def bridge():
-    bSocket0 = ISOTPNativeSocket(iface0, sid=0x641, did=0x241)
-    bSocket1 = ISOTPNativeSocket(iface1, sid=0x241, did=0x641)
     def forwarding(pkt):
         return pkt
     bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding, timeout=2, count=1)
@@ -1733,10 +1776,10 @@ def bridge():
     bSucc = True
 
 def RequestOnBus0():
+    global rSucc
     time.sleep(0.2)
     packet = ISOTP('Request')
     isoTpSocket0.send(packet)
-    global rSucc
     rSucc = True
 
 bSucc = False
@@ -1763,27 +1806,27 @@ exit_if_no_isotp_module()
 
 isoTpSocket0 = ISOTPNativeSocket(iface0, sid=0x241, did=0x641)
 isoTpSocket1 = ISOTPNativeSocket(iface1, sid=0x641, did=0x241)
+bSocket0 = ISOTPNativeSocket(iface0, sid=0x641, did=0x241)
+bSocket1 = ISOTPNativeSocket(iface1, sid=0x241, did=0x641)
 
 bSucc = False
 rSucc = False
 
 def bridge():
-    bSocket0 = ISOTPNativeSocket(iface0, sid=0x641, did=0x241)
-    bSocket1 = ISOTPNativeSocket(iface1, sid=0x241, did=0x641)
+    global bSucc
     def forwarding(pkt):
         pkt.data = 'changed'
         return pkt
     bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding, timeout=0.5)
     bSocket0.close()
     bSocket1.close()
-    global bSucc
     bSucc = True
 
 def RequestOnBus0():
+    global rSucc
     time.sleep(0.2)
     packet = ISOTP('Request')
     isoTpSocket0.send(packet)
-    global rSucc
     rSucc = True
 
 threadBridge.join()
@@ -1813,25 +1856,25 @@ rSucc = False
 
 isoTpSocket0 = ISOTPNativeSocket(iface0, sid=0x241, did=0x641)
 isoTpSocket1 = ISOTPNativeSocket(iface1, sid=0x641, did=0x241)
+bSocket0 = ISOTPNativeSocket(iface0, sid=0x641, did=0x241)
+bSocket1 = ISOTPNativeSocket(iface1, sid=0x241, did=0x641)
 
 def bridge():
-    bSocket0 = ISOTPNativeSocket(iface0, sid=0x641, did=0x241)
-    bSocket1 = ISOTPNativeSocket(iface1, sid=0x241, did=0x641)
+    global bSucc
     def forwarding(pkt):
         return pkt
     bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding, timeout=0.5)
     bSocket0.close()
     bSocket1.close()
-    global bSucc
     bSucc = True
 
 def RequestBothVCans():
+    global rSucc
     time.sleep(0.2)
     packetVcan0 = ISOTP('RequestVcan0')
     packetVcan1 = ISOTP('RequestVcan1')
     isoTpSocket0.send(packetVcan0)
     isoTpSocket1.send(packetVcan1)
-    global rSucc
     rSucc = True
 
 threadBridge.join()
@@ -1862,26 +1905,26 @@ rSucc = False
 
 isoTpSocket0 = ISOTPNativeSocket(iface0, sid=0x241, did=0x641)
 isoTpSocket1 = ISOTPNativeSocket(iface1, sid=0x641, did=0x241)
+bSocket0 = ISOTPNativeSocket(iface0, sid=0x641, did=0x241)
+bSocket1 = ISOTPNativeSocket(iface1, sid=0x241, did=0x641)
 
 def bridge():
-    bSocket0 = ISOTPNativeSocket(iface0, sid=0x641, did=0x241)
-    bSocket1 = ISOTPNativeSocket(iface1, sid=0x241, did=0x641)
+    global bSucc
     def forwarding(pkt):
         pkt.data = 'changed'
         return pkt
     bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding, timeout=0.5)
     bSocket0.close()
     bSocket1.close()
-    global bSucc
     bSucc = True
 
 def RequestBothVCans():
+    global rSucc
     time.sleep(0.2)
     packetVcan0 = ISOTP('RequestVcan0')
     packetVcan1 = ISOTP('RequestVcan1')
     isoTpSocket0.send(packetVcan0)
     isoTpSocket1.send(packetVcan1)
-    global rSucc
     rSucc = True
 
 threadBridge.join()

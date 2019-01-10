@@ -19,7 +19,7 @@ from ctypes.util import find_library
 import struct
 import socket
 import time
-from threading import Thread, Event, RLock
+from threading import Thread, Event, Lock
 
 from scapy.packet import Packet
 from scapy.fields import BitField, FlagsField, StrLenField, \
@@ -586,6 +586,7 @@ class ISOTPSoftSocket(SuperSocket):
         self.can_socket = can_socket
         self.rx_thread = CANReceiverThread(can_socket, can_on_recv)
         self.rx_thread.start()
+        self.rx_thread.started.wait()
 
         if basecls is None:
             warning('Provide a basecls ')
@@ -668,27 +669,33 @@ class CANReceiverThread(Thread):
         self.socket = can_socket
         self.callback = callback
         self.exiting = False
+        self.started = Event()
+        self.exception = None
 
         Thread.__init__(self)
         self.name = "CANReceiver" + self.name
 
     def run(self):
-        ins = self.socket
+        try:
+            self.started.set()
+            ins = self.socket
 
-        def prn(msg):
-            if not self.exiting:
-                self.callback(msg)
-
-        while 1:
-            try:
-                ins.sniff(store=False, timeout=1, count=1,
-                          stop_filter=lambda x: self.exiting,
-                          prn=prn)
-            except ValueError as ex:
+            def prn(msg):
                 if not self.exiting:
-                    raise ex
-            if self.exiting:
-                return
+                    self.callback(msg)
+
+            while 1:
+                try:
+                    ins.sniff(store=False, timeout=1, count=1,
+                              stop_filter=lambda x: self.exiting,
+                              prn=prn)
+                except ValueError as ex:
+                    if not self.exiting:
+                        raise ex
+                if self.exiting:
+                    return
+        except Exception as ex:
+            self.exception = ex
 
     def stop(self):
         self.exiting = True
@@ -851,8 +858,9 @@ class ISOTPSocketImplementation:
         self.rx_timer = ISOTPSocketImplementation.Timer(self._rx_timer_handler)
         self.tx_timer = ISOTPSocketImplementation.Timer(self._tx_timer_handler)
 
-        self.mutex = RLock()
-        self.send_mutex = RLock()
+        self.tx_mutex = Lock()
+        self.rx_mutex = Lock()
+        self.send_mutex = Lock()
 
         self.tx_callback = None
         self.rx_callback = None
@@ -861,33 +869,29 @@ class ISOTPSocketImplementation:
         """Method called every time the rx_timer times out, due to the peer not
         sending a consecutive frame within the expected time window"""
 
-        self.mutex.acquire()
-        try:
+        with self.rx_mutex:
             if self.rx_state == ISOTP_WAIT_DATA:
                 # we did not get new data frames in time.
                 # reset rx state
                 self.rx_state = ISOTP_IDLE
-                warning("RX state was reset due to timeout")
+                ex = Scapy_Exception("RX state was reset due to timeout")
                 if self.rx_callback:
-                    self.rx_callback(None)
-        finally:
-            self.mutex.release()
+                    self.rx_callback(ex)
 
     def _tx_timer_handler(self):
         """Method called every time the tx_timer times out, which can happen in
         two situations: either a Flow Control frame was not received in time,
         or the Separation Time Min is expired and a new frame must be sent."""
 
-        self.mutex.acquire()
-        try:
+        with self.tx_mutex:
             if (self.tx_state == ISOTP_WAIT_FC or
                     self.tx_state == ISOTP_WAIT_FIRST_FC):
                 # we did not get any flow control frame in time
                 # reset tx state
                 self.tx_state = ISOTP_IDLE
-                warning("TX state was reset due to timeout")
+                ex = Scapy_Exception("TX state was reset due to timeout")
                 if self.tx_callback:
-                    self.tx_callback(None)
+                    self.tx_callback(ex)
             elif self.tx_state == ISOTP_SENDING:
                 # push out the next segmented pdu
                 src_off = len(self.ea_hdr)
@@ -921,43 +925,40 @@ class ISOTPSocketImplementation:
                         continue
                     else:
                         self.tx_timer.start(self.tx_gap)
-        finally:
-            self.mutex.release()
 
     def on_recv(self, cf):
         """Function that must be called every time a CAN frame is received, to
         advance the state machine."""
 
-        self.mutex.acquire()
-        try:
-            data = bytes(cf.data)
+        data = bytes(cf.data)
 
-            if len(data) < 2:
+        if len(data) < 2:
+            return
+
+        ae = 0
+        if self.extended_rx_addr is not None:
+            ae = 1
+            if len(data) < 3:
+                return
+            if six.indexbytes(data, 0) != self.extended_rx_addr:
                 return
 
-            ae = 0
-            if self.extended_rx_addr is not None:
-                ae = 1
-                if len(data) < 3:
-                    return
-                if six.indexbytes(data, 0) != self.extended_rx_addr:
-                    return
+        n_pci = six.indexbytes(data, ae) & 0xf0
 
-            n_pci = six.indexbytes(data, ae) & 0xf0
-
-            if n_pci == N_PCI_FC:
+        if n_pci == N_PCI_FC:
+            with self.tx_mutex:
                 self._recv_fc(data[ae:])
-            elif n_pci == N_PCI_SF:
-                if len(cf.data) > 8:
-                    raise Scapy_Exception("CANFD not implemented")
+        elif n_pci == N_PCI_SF:
+            if len(cf.data) > 8:
+                raise Scapy_Exception("CANFD not implemented")
+            with self.rx_mutex:
                 self._recv_sf(data[ae:])
-            elif n_pci == N_PCI_FF:
+        elif n_pci == N_PCI_FF:
+            with self.rx_mutex:
                 self._recv_ff(data[ae:])
-            elif n_pci == N_PCI_CF:
+        elif n_pci == N_PCI_CF:
+            with self.rx_mutex:
                 self._recv_cf(data[ae:])
-
-        finally:
-            self.mutex.release()
 
     def _recv_fc(self, data):
         """Process a received 'Flow Control' frame"""
@@ -968,10 +969,10 @@ class ISOTPSocketImplementation:
         self.tx_timer.cancel()
 
         if len(data) < 3:
-            warning("CF frame discarded because it was too short")
+            ex = Scapy_Exception("CF frame discarded because it was too short")
             self.tx_state = ISOTP_IDLE
             if self.tx_callback:
-                self.tx_callback(None)
+                self.tx_callback(ex)
             return 1
 
         # get communication parameters only from the first FC frame
@@ -1006,15 +1007,15 @@ class ISOTPSocketImplementation:
             self.tx_timer.start(1)
         elif isotp_fc == ISOTP_FC_OVFLW:
             # overflow in receiver side
-            warning("Overflow happened at the receiver side")
+            ex = Scapy_Exception("Overflow happened at the receiver side")
             self.tx_state = ISOTP_IDLE
             if self.tx_callback:
-                self.tx_callback(None)
+                self.tx_callback(ex)
         else:
-            warning("Unknown CF frame type")
+            ex = Scapy_Exception("Unknown CF frame type")
             self.tx_state = ISOTP_IDLE
             if self.tx_callback:
-                self.tx_callback(None)
+                self.tx_callback(ex)
 
         return 0
 
@@ -1022,10 +1023,10 @@ class ISOTPSocketImplementation:
         """Process a received 'Single Frame' frame"""
         self.rx_timer.cancel()
         if self.rx_state != ISOTP_IDLE:
-            warning("RX state was reset because single frame was received")
+            ex = Scapy_Exception("RX state was reset because single frame was received")
             self.rx_state = ISOTP_IDLE
             if self.rx_callback:
-                self.rx_callback(None)
+                self.rx_callback(ex)
 
         length = six.indexbytes(data, 0) & 0xf
         if len(data) - 1 < length:
@@ -1042,10 +1043,10 @@ class ISOTPSocketImplementation:
         """Process a received 'First Frame' frame"""
         self.rx_timer.cancel()
         if self.rx_state != ISOTP_IDLE:
-            warning("RX state was reset because first frame was received")
+            ex = Scapy_Exception("RX state was reset because first frame was received")
             self.rx_state = ISOTP_IDLE
             if self.rx_callback:
-                self.rx_callback(None)
+                self.rx_callback(ex)
 
         if len(data) < 7:
             return 1
@@ -1108,11 +1109,11 @@ class ISOTPSocketImplementation:
 
         if six.indexbytes(data, 0) & 0x0f != self.rx_sn:
             # Wrong sequence number
-            warning("RX state was reset because wrong sequence number was "
+            ex = Scapy_Exception("RX state was reset because wrong sequence number was "
                     "received")
             self.rx_state = ISOTP_IDLE
             if self.rx_callback:
-                self.rx_callback(None)
+                self.rx_callback(ex)
             return 1
 
         self.rx_sn = (self.rx_sn + 1) % 16
@@ -1149,8 +1150,7 @@ class ISOTPSocketImplementation:
 
     def begin_send(self, x):
         """Begins sending an ISOTP message. This method does not block."""
-        self.mutex.acquire()
-        try:
+        with self.tx_mutex:
             if self.tx_state != ISOTP_IDLE:
                 raise Scapy_Exception("Socket is already sending, retry later")
 
@@ -1189,33 +1189,27 @@ class ISOTPSocketImplementation:
             self.tx_state = ISOTP_WAIT_FIRST_FC
             self.tx_timer.start(1)
 
-        finally:
-            self.mutex.release()
-
     def deque(self):
         """Extract a received ISOTP message from the receive buffer."""
-        self.mutex.acquire()
-        try:
+        with self.rx_mutex:
             if len(self.rx_messages) > 0:
                 return self.rx_messages.pop(0)
             else:
                 return None
-        finally:
-            self.mutex.release()
 
     def send(self, p):
         """Send an ISOTP frame and block until the message is sent or an error
         happens."""
-        self.send_mutex.acquire()
-        try:
+        with self.send_mutex:
             block = ISOTPSocketImplementation.BlockingCallback()
             self.tx_callback = block.callback
             self.begin_send(p)
             # Wait until the tx callback is called
             block.wait()
-            return block.args[0]
-        finally:
-            self.send_mutex.release()
+            result = block.args[0]
+            if isinstance(result, Scapy_Exception):
+                raise result
+            return result
 
     def recv(self, timeout=1):
         """Receive an ISOTP frame, blocking if none is available in the buffer
@@ -1226,15 +1220,15 @@ class ISOTPSocketImplementation:
             # Non-blocking receive: return a message that was already received
             return self.deque()
 
-        self.mutex.acquire()
-        try:
+        with self.rx_mutex:
             if len(self.rx_messages) > 0:
                 return self.rx_messages.pop(0)
             self.rx_callback = block.callback
-        finally:
-            self.mutex.release()
 
         if block.wait(timeout):
+            result = block.args[0]
+            if isinstance(result, Scapy_Exception):
+                raise result
             return self.deque()
         else:
             return None
