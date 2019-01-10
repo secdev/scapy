@@ -13,8 +13,10 @@ load_contrib('automotive.gm.gmlan')
 
 + Basic Packet Tests()
 = Set GMLAN ECU AddressingScheme
+
 conf.contribs['GMLAN']['GMLAN_ECU_AddressingScheme'] = 2
-conf.contribs['GMLAN']['GMLAN_ECU_AddressingScheme'] == 2
+
+assert conf.contribs['GMLAN']['GMLAN_ECU_AddressingScheme'] == 2
 
 = Craft Packet
 x = GMLAN(b'\x52\x02\x01\x16\x71\x00\x00\x0c\xaa\xbb')
@@ -37,6 +39,7 @@ x.memoryAddress == 0x1122
 x.dataRecord == b'\x44\x22'
 
 = Craft Packet with ECU AddressingScheme2
+x = GMLAN() / GMLAN_RMBA(b'\x11\x22\x44\x22')
 y = GMLAN()/GMLAN_RMBA(memoryAddress=0x1122, memorySize=0x4422)
 bytes(x) == bytes(y)
 
@@ -52,6 +55,7 @@ x.memoryAddress == 0x112244
 x.dataRecord == b'\x22\x11'
 
 = Craft Packet with ECU AddressingScheme3
+x = GMLAN() / GMLAN_RMBA(b'\x11\x22\x44\x22\x11')
 y = GMLAN()/GMLAN_RMBA(memoryAddress=0x112244, memorySize=0x2211)
 bytes(x) == bytes(y)
 
@@ -67,6 +71,7 @@ x.memoryAddress == 0x11224422
 x.dataRecord == b'\x11\x00'
 
 = Craft Packet with ECU AddressingScheme4
+x = GMLAN() / GMLAN_RMBA(b'\x11\x22\x44\x22\x11\x00')
 y = GMLAN()/GMLAN_RMBA(memoryAddress=0x11224422, memorySize=0x1100)
 bytes(x) == bytes(y)
 
@@ -189,12 +194,28 @@ x.load == b'deadbeef'
 x = GMLAN(b'\xAA\x01deadbeef')
 x.service == 0xAA
 x.subfunction == 0x01
-x.request_DPIDs == b'deadbeef'
+x.request_DPIDs == [0x64, 0x65, 0x61, 0x64, 0x62, 0x65, 0x65, 0x66]
+
+= Craft Packet for GMLAN_RDBPKTI3
+x = GMLAN(b'\xAA\x02deadbeef')
+x.service == 0xAA
+x.subfunction == 0x02
+x.request_DPIDs == [0x64, 0x65, 0x61, 0x64, 0x62, 0x65, 0x65, 0x66]
+
+= Craft Packet for GMLAN_RDBPKTI4
+x = GMLAN(b'\xAA\x03deadbeef')
+x.service == 0xAA
+x.subfunction == 0x03
+x.request_DPIDs == [0x64, 0x65, 0x61, 0x64, 0x62, 0x65, 0x65, 0x66]
 
 = Craft Packet for GMLAN_RDBPKTI2
 x = GMLAN(b'\xAA\x00')
 x.service == 0xAA
 x.subfunction == 0
+
+= Build GMLAN_RDBPKTI1
+x = GMLAN()/GMLAN_RDBPKTI(subfunction=1, request_DPIDs=[0x64, 0x65])
+assert b"\xaa\x01de" == bytes(x)
 
 = Craft Packet for GMLAN_SA1
 x = GMLAN(b'\x27\x01')
