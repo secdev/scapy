@@ -2,6 +2,8 @@
 <img src="doc/scapy_logo.png" width=200>
 </p>
 
+<!-- start_ppi_description -->
+
 # Scapy
 
 [![Travis Build Status](https://travis-ci.org/secdev/scapy.svg?branch=master)](https://travis-ci.org/secdev/scapy)
@@ -109,7 +111,7 @@ Python modules, such as `matplotlib` or `cryptography`. See the
 [documentation](http://scapy.readthedocs.io/en/latest/installation.html) and
 follow the instructions to install them.
 
-<!--- stop_ppi_description -->
+<!-- stop_ppi_description -->
 
 ## Contributing
 
