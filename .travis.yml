@@ -6,7 +6,7 @@ matrix:
         - os: linux
           python: 2.7
           env:
-            - TOXENV=flake8,docs,spell
+            - TOXENV=flake8,twine,docs,spell
        
         # Run as a regular user
         - os: linux
