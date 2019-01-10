@@ -1,13 +1,15 @@
 <p align="center">
-  <img src="doc/scapy_logo.png" width=200>
+<img src="doc/scapy_logo.png" width=200>
 </p>
+
+<!-- start_ppi_description -->
 
 # Scapy
 
 [![Travis Build Status](https://travis-ci.org/secdev/scapy.svg?branch=master)](https://travis-ci.org/secdev/scapy)
 [![AppVeyor Build Status](https://ci.appveyor.com/api/projects/status/github/secdev/scapy?svg=true)](https://ci.appveyor.com/project/secdev/scapy)
 [![Codecov Status](https://codecov.io/gh/secdev/scapy/branch/master/graph/badge.svg)](https://codecov.io/gh/secdev/scapy)
-[![Codacy Badge](https://api.codacy.com/project/badge/Grade/30ee6772bb264a689a2604f5cdb0437b)](https://www.codacy.com/app/secdev/scapy?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=secdev/scapy&amp;utm_campaign=Badge_Grade)
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/30ee6772bb264a689a2604f5cdb0437b)](https://www.codacy.com/app/secdev/scapy?utm_source=github.com&utm_medium=referral&utm_content=secdev/scapy&utm_campaign=Badge_Grade)
 [![PyPI Version](https://img.shields.io/pypi/v/scapy.svg)](https://pypi.python.org/pypi/scapy/)
 [![Python Versions](https://img.shields.io/pypi/pyversions/scapy.svg)](https://pypi.python.org/pypi/scapy/)
 [![License: GPL v2](https://img.shields.io/badge/License-GPL%20v2-blue.svg)](LICENSE)
@@ -57,13 +59,12 @@ Received 2 packets, got 1 answers, remaining 0 packets
 ### Python module
 
 It is straightforward to use Scapy as a regular Python module, for example to
-check if a TCP port is opened. First, save the following code in a file names
-`send_tcp_syn.py`
+check if a TCP port is opened.
+First, save the following code in a file names e.g. `send_tcp_syn.py`
 
 ```python
 from scapy.all import *
 conf.verb = 0
-
 p = IP(dst="github.com")/TCP()
 r = sr1(p)
 print(r.summary())
@@ -110,7 +111,7 @@ Python modules, such as `matplotlib` or `cryptography`. See the
 [documentation](http://scapy.readthedocs.io/en/latest/installation.html) and
 follow the instructions to install them.
 
-<!--- stop_ppi_description -->
+<!-- stop_ppi_description -->
 
 ## Contributing
 

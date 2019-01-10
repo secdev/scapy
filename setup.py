@@ -6,9 +6,10 @@ Distutils setup file for Scapy.
 
 
 from distutils import archive_util
-from distutils import sysconfig
-from distutils.core import setup
-from distutils.command.sdist import sdist
+try:
+    from setuptools import setup
+except ImportError:
+    from distutils.core import setup
 import io
 import os
 
@@ -41,12 +42,17 @@ def make_ezipfile(base_name, base_dir, verbose=0, dry_run=0, **kwargs):
 archive_util.ARCHIVE_FORMATS["ezip"] = (
     make_ezipfile, [], 'Executable ZIP file')
 
+
 def get_long_description():
     try:
         with io.open(os.path.join(os.path.dirname(__file__), "README.md"), encoding="utf-8") as f:
-            return f.read().partition("<!--- stop_ppi_description -->")[0]
+            readme = f.read()
+            desc = readme.partition("<!-- start_ppi_description -->")[2]
+            desc = desc.partition("<!-- stop_ppi_description -->")[0]
+            return desc.strip()
     except IOError:
         return None
+
 
 SCRIPTS = ['bin/scapy', 'bin/UTscapy']
 # On Windows we also need additional batch files to run the above scripts
