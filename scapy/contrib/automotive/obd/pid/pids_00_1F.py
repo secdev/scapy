@@ -303,7 +303,7 @@ class OBD_PID0D(OBD_Packet):
 class OBD_PID0E(OBD_Packet):
     name = "PID_0E_TimingAdvance"
     fields_desc = [
-        ScalingField('data', 0, scaling=1 / 2., unit="deg. C", offset=-64.0)
+        ScalingField('data', 0, scaling=1 / 2., unit="deg.", offset=-64.0)
     ]
 
 

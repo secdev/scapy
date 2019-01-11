@@ -380,7 +380,7 @@ class OBD_PID5D(OBD_Packet):
     name = "PID_5D_FuelInjectionTiming"
     fields_desc = [
         ScalingField('data', 0, scaling=1 / 128., offset=-210,
-                     unit="deg. C", fmt="H")
+                     unit="deg.", fmt="H")
     ]
 
 
