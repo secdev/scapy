@@ -1,7 +1,20 @@
+#! /usr/bin/env python
+
+# Copyright (C) 2018 antoine.torre <torreantoine1@gmail.com>
+##
+# This program is published under a GPLv2 license
+
+
 # scapy.contrib.description = ATA Over Internet
 # scapy.contrib.status = loads
 
-from scapy.all import *
+from scapy.packet import Packet, bind_layers
+from scapy.fields import FlagsField, XByteField, ByteField, XShortField, \
+    ShortField, StrLenField, BitField, BitEnumField, ByteEnumField, \
+    FieldLenField, PacketListField, FieldListField, MACField, PacketField, \
+    ConditionalField, XIntField
+from scapy.layers.l2 import Ether
+from scapy.data import ETHER_ANY
 
 
 class IssueATACommand(Packet):
@@ -77,7 +90,7 @@ class ReserveRelease(Packet):
                                              2: "Force Set Reserve List"}),
                    FieldLenField("nb_mac", None, count_of="mac_addrs"),
                    FieldListField("mac_addrs", None, MACField("", ETHER_ANY),
-                                  count_from=lambda pkt:  pkt.nb_mac)]
+                                  count_from=lambda pkt: pkt.nb_mac)]
 
     def extract_padding(self, p):
         return "", p
