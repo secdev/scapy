@@ -5,7 +5,7 @@
 # This program is published under a GPLv2 license
 
 from scapy.fields import StrFixedLenField, BitEnumField, BitField, \
-    ScalingField, ConditionalField, FlagsField, XByteEnumField, ShortField
+    ScalingField, FlagsField, XByteEnumField, ShortField
 from scapy.contrib.automotive.obd.packet import OBD_Packet
 
 
@@ -61,114 +61,43 @@ class OBD_PID01(OBD_Packet):
         1: 'on'
     }
 
-    availability = {
-        0: 'unavailable',
-        1: 'available'
-    }
-
-    completeness = {
-        0: 'complete',
-        1: 'uncomplete'
-    }
-
-    ignitionTypes = {
-        0: 'spark ignition',
-        1: 'compression ignition'
-    }
-
-    def isspark(self):
-        return self.ignitionType == 0
-
-    def iscompression(self):
-        return self.ignitionType == 1
-
     fields_desc = [
         BitEnumField('MIL', 0, 1, onOff),
         BitField('DTC_Count', 0, 7),
 
-        BitEnumField('misfireAvailability', 0, 1, availability),
-        BitEnumField('fuelSystemAvailability', 0, 1, availability),
-        BitEnumField('ignitionType', 0, 1, ignitionTypes),
-        BitEnumField('componentsAvailability', 0, 1, availability),
+        BitField('reserved1', 0, 1),
+        FlagsField('continuousTestsReady', b'', 3, [
+            'misfire',
+            'fuelSystem',
+            'components'
+        ]),
 
-        BitEnumField('misfireCompleteness', 0, 1, completeness),
-        BitEnumField('fuelSystemCompleteness', 0, 1, completeness),
-        BitEnumField('componentsCompleteness', 0, 1, completeness),
-        BitField('reserved', 0, 1),
+        BitField('reserved2', 0, 1),
+        FlagsField('continuousTestsSupported', b'', 3, [
+            'misfire',
+            'fuelSystem',
+            'components'
+        ]),
 
-        # Spark
-        # Availability
-        ConditionalField(BitEnumField('egrSystemAvailability', 0, 1,
-                                      availability), isspark),
-        ConditionalField(BitEnumField('oxygenSensorHeaterAvailability', 0, 1,
-                                      availability), isspark),
-        ConditionalField(BitEnumField('oxygenSensorAvailability', 0, 1,
-                                      availability), isspark),
-        ConditionalField(BitEnumField('acRefrigerantAvailability', 0, 1,
-                                      availability), isspark),
-        ConditionalField(BitEnumField('secondaryAirSystemAvailability', 0, 1,
-                                      availability), isspark),
-        ConditionalField(BitEnumField('evaporativeSystemAvailability', 0, 1,
-                                      availability), isspark),
-        ConditionalField(BitEnumField('heatedCatalystAvailability', 0, 1,
-                                      availability), isspark),
-        ConditionalField(BitEnumField('catalystAvailability', 0, 1,
-                                      availability), isspark),
+        FlagsField('oncePerTripTestsSupported', b'', 8, [
+            'egr',
+            'oxygenSensorHeater',
+            'acSystemRefrigerant',
+            'secondaryAirSystem',
+            'evaporativeSystem',
+            'heatedCatalyst',
+            'catalyst'
+        ]),
 
-        # Completeness
-        ConditionalField(BitEnumField('egrSystemCompleteness', 0, 1,
-                                      completeness), isspark),
-        ConditionalField(BitEnumField('oxygenSensorHeaterCompleteness', 0, 1,
-                                      completeness), isspark),
-        ConditionalField(BitEnumField('oxygenSensorCompleteness', 0, 1,
-                                      completeness), isspark),
-        ConditionalField(BitEnumField('acRefrigerantCompleteness', 0, 1,
-                                      completeness), isspark),
-        ConditionalField(BitEnumField('secondaryAirSystemCompleteness', 0, 1,
-                                      completeness), isspark),
-        ConditionalField(BitEnumField('evaporativeSystemCompleteness', 0, 1,
-                                      completeness), isspark),
-        ConditionalField(BitEnumField('heatedCatalystCompleteness', 0, 1,
-                                      completeness), isspark),
-        ConditionalField(BitEnumField('catalystCompleteness', 0, 1,
-                                      completeness), isspark),
-
-        # Compression
-        # Availability
-        ConditionalField(BitEnumField('egrVvtSystemAvailability', 0, 1,
-                                      availability), iscompression),
-        ConditionalField(BitEnumField('pmFilterMonitoringAvailability', 0, 1,
-                                      availability), iscompression),
-        ConditionalField(BitEnumField('exhaustGasSensorAvailability', 0, 1,
-                                      availability), iscompression),
-        ConditionalField(BitEnumField('Reserved1', 0, 1,
-                                      availability), iscompression),
-        ConditionalField(BitEnumField('boostPressureAvailability', 0, 1,
-                                      availability), iscompression),
-        ConditionalField(BitEnumField('Reserved2', 0, 1,
-                                      availability), iscompression),
-        ConditionalField(BitEnumField('noxScrMonitorAvailability', 0, 1,
-                                      availability), iscompression),
-        ConditionalField(BitEnumField('nmhcCatalystAvailability', 0, 1,
-                                      availability), iscompression),
-
-        # Completeness
-        ConditionalField(BitEnumField('egrVvtSystemCompleteness', 0, 1,
-                                      completeness), iscompression),
-        ConditionalField(BitEnumField('pmFilterMonitoringCompleteness', 0, 1,
-                                      completeness), iscompression),
-        ConditionalField(BitEnumField('exhaustGasSensorCompleteness', 0, 1,
-                                      completeness), iscompression),
-        ConditionalField(BitEnumField('Reserved1', 0, 1,
-                                      completeness), iscompression),
-        ConditionalField(BitEnumField('boostPressureCompleteness', 0, 1,
-                                      completeness), iscompression),
-        ConditionalField(BitEnumField('Reserved2', 0, 1,
-                                      completeness), iscompression),
-        ConditionalField(BitEnumField('noxScrMonitorCompleteness', 0, 1,
-                                      completeness), iscompression),
-        ConditionalField(BitEnumField('nmhcCatalystCompleteness', 0, 1,
-                                      completeness), iscompression),
+        FlagsField('oncePerTripTestsReady', b'', 8, [
+            'egr',
+            'oxygenSensorHeater',
+            'acSystemRefrigerant',
+            'secondaryAirSystem',
+            'evaporativeSystem',
+            'heatedCatalyst',
+            'catalyst'
+        ])
     ]
 
 
