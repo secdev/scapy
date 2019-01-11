@@ -86,15 +86,15 @@ class OBD_PID01(OBD_Packet):
         BitEnumField('MIL', 0, 1, onOff),
         BitField('DTC_Count', 0, 7),
 
-        BitField('reserved', 0, 1),
-        BitEnumField('componentsCompleteness', 0, 1, completeness),
-        BitEnumField('fuelSystemCompleteness', 0, 1, completeness),
-        BitEnumField('misfireCompleteness', 0, 1, completeness),
-
-        BitEnumField('componentsAvailability', 0, 1, availability),
-        BitEnumField('ignitionType', 0, 1, ignitionTypes),
-        BitEnumField('fuelSystemAvailability', 0, 1, availability),
         BitEnumField('misfireAvailability', 0, 1, availability),
+        BitEnumField('fuelSystemAvailability', 0, 1, availability),
+        BitEnumField('ignitionType', 0, 1, ignitionTypes),
+        BitEnumField('componentsAvailability', 0, 1, availability),
+
+        BitEnumField('misfireCompleteness', 0, 1, completeness),
+        BitEnumField('fuelSystemCompleteness', 0, 1, completeness),
+        BitEnumField('componentsCompleteness', 0, 1, completeness),
+        BitField('reserved', 0, 1),
 
         # Spark
         # Availability

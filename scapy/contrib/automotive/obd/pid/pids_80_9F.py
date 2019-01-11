@@ -54,12 +54,12 @@ class OBD_PID80(OBD_Packet):
 class OBD_PID81(OBD_Packet):
     name = "PID_81_EngineRunTimeForAuxiliaryEmissionsControlDevice"
     fields_desc = [
-        BitField('total_run_time_with_EI-AECD_1_supported', 0, 1),
-        BitField('total_run_time_with_EI-AECD_2_supported', 0, 1),
-        BitField('total_run_time_with_EI-AECD_3_supported', 0, 1),
-        BitField('total_run_time_with_EI-AECD_4_supported', 0, 1),
-        BitField('total_run_time_with_EI-AECD_5_supported', 0, 1),
         BitField('reserved', 0, 3),
+        BitField('total_run_time_with_EI-AECD_5_supported', 0, 1),
+        BitField('total_run_time_with_EI-AECD_4_supported', 0, 1),
+        BitField('total_run_time_with_EI-AECD_3_supported', 0, 1),
+        BitField('total_run_time_with_EI-AECD_2_supported', 0, 1),
+        BitField('total_run_time_with_EI-AECD_1_supported', 0, 1),
         ScalingField('total_run_time_with_EI-AECD_1', 0, unit='sec',
                      fmt='Q'),
         ScalingField('total_run_time_with_EI-AECD_2', 0, unit='sec',
@@ -76,12 +76,12 @@ class OBD_PID81(OBD_Packet):
 class OBD_PID82(OBD_Packet):
     name = "PID_82_EngineRunTimeForAuxiliaryEmissionsControlDevice"
     fields_desc = [
-        BitField('total_run_time_with_EI-AECD_6_supported', 0, 1),
-        BitField('total_run_time_with_EI-AECD_7_supported', 0, 1),
-        BitField('total_run_time_with_EI-AECD_8_supported', 0, 1),
-        BitField('total_run_time_with_EI-AECD_9_supported', 0, 1),
-        BitField('total_run_time_with_EI-AECD_10_supported', 0, 1),
         BitField('reserved', 0, 3),
+        BitField('total_run_time_with_EI-AECD_10_supported', 0, 1),
+        BitField('total_run_time_with_EI-AECD_9_supported', 0, 1),
+        BitField('total_run_time_with_EI-AECD_8_supported', 0, 1),
+        BitField('total_run_time_with_EI-AECD_7_supported', 0, 1),
+        BitField('total_run_time_with_EI-AECD_6_supported', 0, 1),
         ScalingField('total_run_time_with_EI-AECD_6', 0, unit='sec',
                      fmt='Q'),
         ScalingField('total_run_time_with_EI-AECD_7', 0, unit='sec',
@@ -98,9 +98,9 @@ class OBD_PID82(OBD_Packet):
 class OBD_PID83(OBD_Packet):
     name = "PID_83_NOxSensor"
     fields_desc = [
-        BitField('NOx_sensor_concentration_bank_1_sensor_1_supported', 0, 1),
-        BitField('NOx_sensor_concentration_bank_2_sensor_1_supported', 0, 1),
         BitField('reserved', 0, 6),
+        BitField('NOx_sensor_concentration_bank_2_sensor_1_supported', 0, 1),
+        BitField('NOx_sensor_concentration_bank_1_sensor_1_supported', 0, 1),
         ScalingField('NOx_sensor_concentration_bank_1_sensor_1', 0, unit='ppm',
                      fmt='H'),
         ScalingField('NOx_sensor_concentration_bank_2_sensor_1', 0, unit='ppm',

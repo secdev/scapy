@@ -85,15 +85,15 @@ class OBD_PID41(OBD_Packet):
         # always zero
         XByteField('reserved', b''),
 
-        BitField('reserved', 0, 1),
-        BitEnumField('componentsCompleteness', 0, 1, completeness),
-        BitEnumField('fuelSystemCompleteness', 0, 1, completeness),
-        BitEnumField('misfireCompleteness', 0, 1, completeness),
-
-        BitEnumField('componentsAvailability', 0, 1, availability),
-        BitEnumField('ignitionType', 0, 1, ignitionTypes),
-        BitEnumField('fuelSystemAvailability', 0, 1, availability),
         BitEnumField('misfireAvailability', 0, 1, availability),
+        BitEnumField('fuelSystemAvailability', 0, 1, availability),
+        BitEnumField('ignitionType', 0, 1, ignitionTypes),
+        BitEnumField('componentsAvailability', 0, 1, availability),
+
+        BitEnumField('misfireCompleteness', 0, 1, completeness),
+        BitEnumField('fuelSystemCompleteness', 0, 1, completeness),
+        BitEnumField('componentsCompleteness', 0, 1, completeness),
+        BitField('reserved', 0, 1),
 
         # Spark
         # Availability
