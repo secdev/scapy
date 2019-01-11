@@ -3015,12 +3015,12 @@ class _MobilityHeader(Packet):
         tmp_len = self.len
         if self.len is None:
             tmp_len = (len(p) - 8) // 8
-        p = chb(p[0]) + struct.pack("B", tmp_len) + chb(p[2:])
+        p = p[:1] + struct.pack("B", tmp_len) + p[2:]
         if self.cksum is None:
             cksum = in6_chksum(135, self.underlayer, p)
         else:
             cksum = self.cksum
-        p = chb(p[:4]) + struct.pack("!H", cksum) + chb(p[6:])
+        p = p[:4] + struct.pack("!H", cksum) + p[6:]
         return p
 
 

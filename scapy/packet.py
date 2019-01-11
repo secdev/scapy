@@ -787,7 +787,6 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
             if f.islist or f.holds_packets or f.ismutable:
                 self.raw_packet_cache_fields[f.name] = f.do_copy(fval)
             self.fields[f.name] = fval
-        # assert(_raw.endswith(raw(s)))
         del self._tmp_dissect_pos
         self.raw_packet_cache = _raw[:-len(s)] if s else _raw
         self.explicit = 1

@@ -11,6 +11,7 @@ Python 2 and 3 link classes.
 from __future__ import absolute_import
 import base64
 import binascii
+import struct
 
 import scapy.modules.six as six
 
@@ -32,17 +33,23 @@ def lambda_tuple_converter(func):
         return func
 
 
-def raw(x):
-    """Builds a packet and returns its bytes representation.
-    This functions is and always be cross-version compatible"""
-    return bytes(x)
-
-
 if six.PY2:
     bytes_encode = plain_str = str
     chb = lambda x: x if isinstance(x, str) else chr(x)
     orb = ord
+
+    def raw(x):
+        """Builds a packet and returns its bytes representation.
+        This function is and always be cross-version compatible"""
+        return bytes(x)
 else:
+    def raw(x):
+        """Builds a packet and returns its bytes representation.
+        This function is and always be cross-version compatible"""
+        if hasattr(x, "__bytes__"):
+            return x.__bytes__()
+        return bytes(x)
+
     def bytes_encode(x):
         """Ensure that the given object is bytes.
         If the parameter is a packet, raw() should be preferred.
@@ -59,13 +66,10 @@ else:
 
     def chb(x):
         """Same than chr() but encode as bytes."""
-        if isinstance(x, bytes):
-            return x
-        else:
-            return bytes([x])
+        return struct.pack("!B", x)
 
     def orb(x):
-        """Return ord(x) when necessary."""
+        """Return ord(x) when not already an int."""
         if isinstance(x, int):
             return x
         return ord(x)

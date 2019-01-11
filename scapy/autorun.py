@@ -84,6 +84,8 @@ def autorun_commands(cmds, my_globals=None, ignore_globals=None, verb=None):
 
 
 class StringWriter(object):
+    """Util to mock sys.stdout and sys.stderr, and
+    store their output in a 's' var."""
     def __init__(self):
         self.s = ""
 
@@ -95,6 +97,14 @@ class StringWriter(object):
 
 
 def autorun_get_interactive_session(cmds, **kargs):
+    """Create an interactive session and execute the
+    commands passed as "cmds" and return all output
+
+    params:
+      - cmds: a list of commands to run
+    returns: (output, returned)
+
+    The output contains both sys.stdout and sys.stderr logs"""
     sstdout, sstderr = sys.stdout, sys.stderr
     sw = StringWriter()
     try:

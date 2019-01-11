@@ -391,7 +391,7 @@ class AbstractUVarIntField(fields.Field):
             return s[0] + chb((s[2] << self.size) + self._max_value) + self.i2m(pkt, val)[1:]  # noqa: E501
         # This AbstractUVarIntField is only one byte long; setting the prefix value  # noqa: E501
         # and appending the resulting byte to the string
-        return chb(s[0]) + chb((s[2] << self.size) + orb(self.i2m(pkt, val)))
+        return s[0] + chb((s[2] << self.size) + orb(self.i2m(pkt, val)))
 
     @staticmethod
     def _detect_bytelen_from_str(s):
