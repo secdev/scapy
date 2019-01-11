@@ -47,15 +47,14 @@ else:
         """Ensure that the given object is bytes.
         If the parameter is a packet, raw() should be preferred.
         """
-        try:
-            return bytes(x)
-        except TypeError:
-            return bytes(x, encoding="utf8")
+        if isinstance(x, str):
+            return x.encode()
+        return bytes(x)
 
     def plain_str(x):
         """Convert basic byte objects to str"""
         if isinstance(x, bytes):
-            return x.decode('utf8')
+            return x.decode()
         return str(x)
 
     def chb(x):

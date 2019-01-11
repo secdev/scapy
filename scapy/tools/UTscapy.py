@@ -258,7 +258,7 @@ def parse_config_file(config_path, verb=3):
       "testfiles": [],
       "breakfailed": true,
       "onlyfailed": false,
-      "verb": 2,
+      "verb": 3,
       "dump": 0,
       "crc": true,
       "scapy": "scapy",
@@ -439,7 +439,7 @@ def remove_empty_testsets(test_campaign):
 #### RUN TEST #####
 
 def run_test(test, get_interactive_session, verb=3, ignore_globals=None):
-    test.output, res = get_interactive_session(test.test.strip(), ignore_globals=ignore_globals)
+    test.output, res = get_interactive_session(test.test.strip(), ignore_globals=ignore_globals, verb=verb)
     test.result = "failed"
     try:
         if res is None or res:

@@ -20,16 +20,22 @@ from ast import literal_eval
 import os
 import sys
 from contextlib import contextmanager
-from io import BytesIO, StringIO
+from scapy.autorun import StringWriter
 
 from scapy.modules import six
 
+from scapy.config import conf
 from scapy.layers.tls.automaton_srv import TLSServerAutomaton
+
+conf.verb = 4
+conf.debug_tls = True  
+conf.debug_dissector = True
+load_layer("tls")
 
 @contextmanager
 def captured_output():
-    new_out, new_err = (StringIO(), StringIO()) if six.PY3 else (BytesIO(), BytesIO())
     old_out, old_err = sys.stdout, sys.stderr
+    new_out, new_err = StringWriter(), StringWriter()
     try:
         sys.stdout, sys.stderr = new_out, new_err
         yield sys.stdout, sys.stderr
@@ -37,18 +43,20 @@ def captured_output():
         sys.stdout, sys.stderr = old_out, old_err
 
 def check_output_for_data(out, err, expected_data):
-    errored = err.getvalue()
+    errored = err.s.strip()
     if errored:
         return (False, errored)
-    output = out.getvalue().strip()
+    output = out.s.strip()
     if expected_data:
-        for data in output.split('> Received: ')[1:]:
-            for line in literal_eval(data).split(b'\n'):
-                if line == expected_data:
-                    return (True, output)
+        s = re.search("> Received: '([^']*)'", output)
+        if s:
+            data = s.group(1)
+            print("Test output: %s" % data)
+            if expected_data in data:
+                return (True, data)
         return (False, output)
     else:
-        return (True, None)
+        return (False, None)
 
 def run_tls_test_server(expected_data, q):
     correct = False
@@ -65,15 +73,16 @@ def run_tls_test_server(expected_data, q):
         assert os.path.exists(mycert)
         assert os.path.exists(mykey)
         t = TLSServerAutomaton(mycert=mycert,
-                               mykey=mykey)
+                               mykey=mykey,
+                               debug=5)
         # Sync threads
         q.put(True)
         # Run server automaton
         t.run()
         # Return correct answer
-        correct, out_e = check_output_for_data(out, err, expected_data)
+        res = check_output_for_data(out, err, expected_data)
     # Return data
-    q.put(out_e)
+    q.put(res)
 
 def test_tls_server(suite="", version=""):
     msg = ("TestS_%s_data" % suite).encode()
@@ -117,18 +126,20 @@ def test_tls_server(suite="", version=""):
         th_.terminate()
         raise RuntimeError("Test timed out")
     # Analyse values
+    if q_.empty():
+        raise RuntimeError("Missing return values")
     print(q_.get())
 
 
-= Testing TLS server with TLS 1.0 and TLS_RSA_WITH_RC4_128_SHA
+= Testing TLS server with TLS 1.0 and TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA
 ~ open_ssl_client
 
-test_tls_server("RC4-SHA", "-tls1")
+test_tls_server("ECDHE-RSA-AES128-SHA", "-tls1")
 
-= Testing TLS server with TLS 1.1 and TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA
+= Testing TLS server with TLS 1.1 and TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA
 ~ open_ssl_client
 
-test_tls_server("EDH-RSA-DES-CBC3-SHA", "-tls1_1")
+test_tls_server("ECDHE-RSA-AES128-SHA", "-tls1_1")
 
 = Testing TLS server with TLS 1.2 and TLS_DHE_RSA_WITH_AES_128_CBC_SHA256
 ~ open_ssl_client
@@ -154,17 +165,20 @@ from scapy.modules.six.moves.queue import Queue
 send_data = cipher_suite_code = version = None
 
 def run_tls_test_client(send_data=None, cipher_suite_code=None, version=None):
+    print("Loading client...")
     if version == "0002":
-        t = TLSClientAutomaton(data=[send_data, b"stop_server", b"quit"], version="sslv2")
+        t = TLSClientAutomaton(data=[send_data, b"stop_server", b"quit"], version="sslv2", debug=5)
     else:
         ch = TLSClientHello(version=int(version, 16), ciphers=int(cipher_suite_code, 16))
-        t = TLSClientAutomaton(client_hello=ch, data=[send_data, b"stop_server", b"quit"], debug=1)
+        t = TLSClientAutomaton(client_hello=ch, data=[send_data, b"stop_server", b"quit"], debug=5)
+    print("Running client...")
     t.run()
 
-def test_tls_client(suite, version, q):
+def test_tls_client(suite, version):
     msg = ("TestC_%s_data" % suite).encode()
     # Run server
     q_ = Queue()
+    print("Starting server...")
     th_ = threading.Thread(target=run_tls_test_server, args=(msg, q_))
     th_.setDaemon(True)
     th_.start()
@@ -181,44 +195,32 @@ def test_tls_client(suite, version, q):
     if th_.is_alive():
         raise RuntimeError("Test timed out")
     # Return values
-    q.put(q_.get())
+    if q_.empty():
+        raise RuntimeError("Missing return value")
+    return q_.get()
 
-def perform_tls_client_test(suite, version):
-    # Run test_tls_client in an other thread
-    q = Queue()
-    p = threading.Thread(target=test_tls_client, args=(suite, version, q))
-    p.setDaemon(True)
-    p.start()
-    # Wait for the function to end
-    p.join()
-    # Analyse data and return
-    if not q.empty():
-        print(q.get())
-    else:
-        print("ERROR: Missing one of the return value detected !")
-        assert False
 
 = Testing TLS server and client with SSLv2 and SSL_CK_DES_192_EDE3_CBC_WITH_MD5
 
-perform_tls_client_test("0700c0", "0002")
+test_tls_client("0700c0", "0002")
 
 = Testing TLS client with SSLv3 and TLS_RSA_EXPORT_WITH_RC4_40_MD5
 
-perform_tls_client_test("0003", "0300")
+test_tls_client("0003", "0300")
 
 = Testing TLS client with TLS 1.0 and TLS_DHE_RSA_WITH_CAMELLIA_256_CBC_SHA
 
-perform_tls_client_test("0088", "0301")
+test_tls_client("0088", "0301")
 
 = Testing TLS client with TLS 1.1 and TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA
 
-perform_tls_client_test("c013", "0302")
+test_tls_client("c013", "0302")
 
 = Testing TLS client with TLS 1.2 and TLS_DHE_RSA_WITH_AES_128_GCM_SHA256
 
-perform_tls_client_test("009e", "0303")
+test_tls_client("009e", "0303")
 
 = Testing TLS client with TLS 1.2 and TLS_ECDH_anon_WITH_RC4_128_SHA
 
-perform_tls_client_test("c016", "0303")
+test_tls_client("c016", "0303")
 

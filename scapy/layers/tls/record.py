@@ -315,7 +315,7 @@ class TLS(_GenericTLSSessionInheritance):
             self.tls_session.rcs.seq_num += 1
             # self.type and self.version have not been parsed yet,
             # this is why we need to look into the provided hdr.
-            add_data = read_seq_num + hdr[0:] + hdr[1:3]
+            add_data = read_seq_num + hdr[:3]
             # Last two bytes of add_data are appended by the return function
             return self.tls_session.rcs.cipher.auth_decrypt(add_data, s,
                                                             read_seq_num)

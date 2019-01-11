@@ -143,8 +143,12 @@ class TLSServerAutomaton(_TLSAutomaton):
         try:
             s.bind((self.local_ip, self.local_port))
             s.listen(1)
-        except Exception:
-            m = "Unable to bind on %s:%d!" % (self.local_ip, self.local_port)
+        except Exception as e:
+            m = "Unable to bind on %s:%d! (%s)" % (
+                self.local_ip,
+                self.local_port,
+                e
+            )
             self.vprint()
             self.vprint(m)
             self.vprint("Maybe some server is already listening there?")

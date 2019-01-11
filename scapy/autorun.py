@@ -43,7 +43,7 @@ class ScapyAutorunInterpreter(code.InteractiveInterpreter):
         return code.InteractiveInterpreter.showtraceback(self, *args, **kargs)
 
 
-def autorun_commands(cmds, my_globals=None, ignore_globals=None, verb=0):
+def autorun_commands(cmds, my_globals=None, ignore_globals=None, verb=None):
     sv = conf.verb
     try:
         try:
@@ -52,7 +52,8 @@ def autorun_commands(cmds, my_globals=None, ignore_globals=None, verb=0):
                 if ignore_globals:
                     for ig in ignore_globals:
                         my_globals.pop(ig, None)
-            conf.verb = verb
+            if verb is not None:
+                conf.verb = verb
             interp = ScapyAutorunInterpreter(my_globals)
             cmd = ""
             cmds = cmds.splitlines()
@@ -82,19 +83,20 @@ def autorun_commands(cmds, my_globals=None, ignore_globals=None, verb=0):
     return _  # noqa: F821
 
 
+class StringWriter(object):
+    def __init__(self):
+        self.s = ""
+
+    def write(self, x):
+        self.s += x
+
+    def flush(self):
+        pass
+
+
 def autorun_get_interactive_session(cmds, **kargs):
-    class StringWriter:
-        def __init__(self):
-            self.s = ""
-
-        def write(self, x):
-            self.s += x
-
-        def flush(self):
-            pass
-
-    sw = StringWriter()
     sstdout, sstderr = sys.stdout, sys.stderr
+    sw = StringWriter()
     try:
         try:
             sys.stdout = sys.stderr = sw

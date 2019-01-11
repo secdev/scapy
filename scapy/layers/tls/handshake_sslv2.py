@@ -339,7 +339,7 @@ class SSLv2ClientMasterKey(_SSLv2Handshake):
             self.keyarglen = len(keyarg)
         keyarglen = struct.pack("!H", self.keyarglen)
 
-        s = (pkt[0:] + cipher +
+        s = (pkt[:1] + cipher +
              clearkeylen + encryptedkeylen + keyarglen +
              clearkey + encryptedkey + keyarg)
         return s + pay
