@@ -967,8 +967,11 @@ class IPv6ExtHdrSegmentRouting(_IPv6ExtHdr):
                    ShortField("tag", 0),
                    IP6ListField("addresses", ["::1"],
                                 count_from=lambda pkt: (pkt.lastentry + 1)),
-                   PacketListField("tlv_objects", [], IPv6ExtHdrSegmentRoutingTLV,  # noqa: E501
-                                   length_from=lambda pkt: 8 * pkt.len - 16 * (pkt.lastentry + 1))]  # noqa: E501
+                   PacketListField("tlv_objects", [],
+                                   IPv6ExtHdrSegmentRoutingTLV,
+                                   length_from=lambda pkt: 8 * pkt.len - 16 * (
+                                       pkt.lastentry + 1
+                   ))]
 
     overload_fields = {IPv6: {"nh": 43}}
 
@@ -979,7 +982,7 @@ class IPv6ExtHdrSegmentRouting(_IPv6ExtHdr):
             # The extension must be align on 8 bytes
             tmp_mod = (len(pkt) - 8) % 8
             if tmp_mod == 1:
-                warning("IPv6ExtHdrSegmentRouting(): can't pad 1 byte !")
+                warning("IPv6ExtHdrSegmentRouting(): can't pad 1 byte!")
             elif tmp_mod >= 2:
                 # Add the padding extension
                 tmp_pad = b"\x00" * (tmp_mod - 2)
@@ -996,7 +999,14 @@ class IPv6ExtHdrSegmentRouting(_IPv6ExtHdr):
             pkt = pkt[:3] + struct.pack("B", tmp_len) + pkt[4:]
 
         if self.lastentry is None:
-            pkt = pkt[:4] + struct.pack("B", len(self.addresses)) + pkt[5:]
+            lastentry = len(self.addresses)
+            if lastentry == 0:
+                warning(
+                    "IPv6ExtHdrSegmentRouting(): the addresses list is empty!"
+                )
+            else:
+                lastentry -= 1
+            pkt = pkt[:4] + struct.pack("B", lastentry) + pkt[5:]
 
         return _IPv6ExtHdr.post_build(self, pkt, pay)
 
