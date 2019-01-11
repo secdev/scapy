@@ -246,14 +246,14 @@ assert p.iid == 0x0A
 
 = Check dissecting a response for Service 01 Pid 75
 
-p = OBD(b'\x41\x75\xa0\x00\x11\x22\x33\x44\x55')
+p = OBD(b'\x41\x75\x0a\x00\x11\x22\x33\x44\x55')
 assert p.service == 0x41
 assert p.data_records[0].pid == 0x75
-assert p.data_records[0].turbo_a_compressor_inlet_temperature_supported == 1
-assert p.data_records[0].turbo_a_compressor_outlet_temperature_supported == 0
-assert p.data_records[0].turbo_a_turbine_inlet_temperature_supported == 1
-assert p.data_records[0].turbo_a_turbine_outlet_temperature_supported == 0
 assert p.data_records[0].reserved == 0
+assert p.data_records[0].turbo_a_turbine_outlet_temperature_supported == 1
+assert p.data_records[0].turbo_a_turbine_inlet_temperature_supported == 0
+assert p.data_records[0].turbo_a_compressor_outlet_temperature_supported == 1
+assert p.data_records[0].turbo_a_compressor_inlet_temperature_supported == 0
 assert p.data_records[0].turbocharger_a_compressor_inlet_temperature == 0x00-40
 assert p.data_records[0].turbocharger_a_compressor_outlet_temperature == 0x11-40
 assert p.data_records[0].turbocharger_a_turbine_inlet_temperature == \
@@ -319,16 +319,16 @@ assert p.data_records[0].sensor_4 == 1810.5
 
 = Check dissecting a response for Service 01 Pid 7F
 
-p = OBD(b'\x41\x7F\xa0'
+p = OBD(b'\x41\x7F\x0a'
         b'\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF'
         b'\x01\x02\x03\x04\x05\x06\x07\x08'
         b'\x00\x11\x22\x33\x44\x55\x66\x77')
 assert p.service == 0x41
 assert p.data_records[0].pid == 0x7F
-assert p.data_records[0].total_supported == 1
-assert p.data_records[0].total_idle_supported == 0
-assert p.data_records[0].total_with_pto_active_supported == 1
-assert p.data_records[0].reserved == 0
+assert p.data_records[0].reserved == 1
+assert p.data_records[0].total_with_pto_active_supported == 0
+assert p.data_records[0].total_idle_supported == 1
+assert p.data_records[0].total_supported == 0
 assert p.data_records[0].total == 0xFFFFFFFFFFFFFFFF
 assert p.data_records[0].total_idle == 0x0102030405060708
 assert p.data_records[0].total_with_pto_active == 0x0011223344556677
@@ -344,17 +344,17 @@ assert p.data_records[0].data == b'ABCDEFGHIKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOP'
 
 = Check dissecting a response for Service 02 Pid 75
 
-p = OBD(b'\x42\x75\x01\xa0\x00\x11\x22\x33\x44\x55')
+p = OBD(b'\x42\x75\01\x0a\x00\x11\x22\x33\x44\x55')
 assert p.service == 0x42
 assert p.data_records[0].pid == 0x75
 assert p.data_records[0].frameNo == 0x01
-assert p.data_records[0].turbo_a_compressor_inlet_temperature_supported == 1
-assert p.data_records[0].turbo_a_compressor_outlet_temperature_supported == 0
-assert p.data_records[0].turbo_a_turbine_inlet_temperature_supported == 1
-assert p.data_records[0].turbo_a_turbine_outlet_temperature_supported == 0
 assert p.data_records[0].reserved == 0
-assert p.data_records[0].turbocharger_a_compressor_inlet_temperature == 0x00-40
-assert p.data_records[0].turbocharger_a_compressor_outlet_temperature == 0x11-40
+assert p.data_records[0].turbo_a_turbine_outlet_temperature_supported == 1
+assert p.data_records[0].turbo_a_turbine_inlet_temperature_supported == 0
+assert p.data_records[0].turbo_a_compressor_outlet_temperature_supported == 1
+assert p.data_records[0].turbo_a_compressor_inlet_temperature_supported == 0
+assert p.data_records[0].turbocharger_a_compressor_inlet_temperature == 0x00 - 40
+assert p.data_records[0].turbocharger_a_compressor_outlet_temperature == 0x11 - 40
 assert p.data_records[0].turbocharger_a_turbine_inlet_temperature == \
        round((0x2233 * 0.1) - 40, 3)
 assert p.data_records[0].turbocharger_a_turbine_outlet_temperature == \
@@ -380,17 +380,17 @@ assert p.data_records[0].sensor_4 == 1810.5
 
 = Check dissecting a response for Service 02 Pid 7F
 
-p = OBD(b'\x42\x7F\x01\xa0'
+p = OBD(b'\x42\x7F\x01\x03'
         b'\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF'
         b'\x01\x02\x03\x04\x05\x06\x07\x08'
         b'\x00\x11\x22\x33\x44\x55\x66\x77')
 assert p.service == 0x42
 assert p.data_records[0].pid == 0x7F
 assert p.data_records[0].frameNo == 0x01
-assert p.data_records[0].total_supported == 1
-assert p.data_records[0].total_idle_supported == 0
-assert p.data_records[0].total_with_pto_active_supported == 1
 assert p.data_records[0].reserved == 0
+assert p.data_records[0].total_with_pto_active_supported == 0
+assert p.data_records[0].total_idle_supported == 1
+assert p.data_records[0].total_supported == 1
 assert p.data_records[0].total == 0xFFFFFFFFFFFFFFFF
 assert p.data_records[0].total_idle == 0x0102030405060708
 assert p.data_records[0].total_with_pto_active == 0x0011223344556677

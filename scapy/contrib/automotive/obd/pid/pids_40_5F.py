@@ -80,6 +80,7 @@ class OBD_PID41(OBD_Packet):
         FlagsField('oncePerTripTestsSupported', b'', 8, [
             'egr',
             'oxygenSensorHeater',
+            'oxygenSensor',
             'acSystemRefrigerant',
             'secondaryAirSystem',
             'evaporativeSystem',
@@ -90,6 +91,7 @@ class OBD_PID41(OBD_Packet):
         FlagsField('oncePerTripTestsReady', b'', 8, [
             'egr',
             'oxygenSensorHeater',
+            'oxygenSensor',
             'acSystemRefrigerant',
             'secondaryAirSystem',
             'evaporativeSystem',
