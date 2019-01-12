@@ -66,7 +66,7 @@ assert p.pid[0] == 0x89
 p = OBD(b'\x02\x00\x01')
 assert p.service == 0x02
 assert p.requests[0].pid == 0x00
-assert p.requests[0].frameNo == 0x01
+assert p.requests[0].frame_no == 0x01
 
 
 = Check dissecting a request for Service 02 Pid 75
@@ -74,7 +74,7 @@ assert p.requests[0].frameNo == 0x01
 p = OBD(b'\x02\x75\x01')
 assert p.service == 0x02
 assert p.requests[0].pid == 0x75
-assert p.requests[0].frameNo == 0x01
+assert p.requests[0].frame_no == 0x01
 
 
 = Check dissecting a request for Service 02 Pid 78
@@ -82,7 +82,7 @@ assert p.requests[0].frameNo == 0x01
 p = OBD(b'\x02\x78\x01')
 assert p.service == 0x02
 assert p.requests[0].pid == 0x78
-assert p.requests[0].frameNo == 0x01
+assert p.requests[0].frame_no == 0x01
 
 
 = Check dissecting a request for Service 02 Pid 7F
@@ -90,7 +90,7 @@ assert p.requests[0].frameNo == 0x01
 p = OBD(b'\x02\x7F\x01')
 assert p.service == 0x02
 assert p.requests[0].pid == 0x7F
-assert p.requests[0].frameNo == 0x01
+assert p.requests[0].frame_no == 0x01
 
 
 = Check dissecting a request for Service 02 Pid 89
@@ -98,7 +98,7 @@ assert p.requests[0].frameNo == 0x01
 p = OBD(b'\x02\x89\x01')
 assert p.service == 0x02
 assert p.requests[0].pid == 0x89
-assert p.requests[0].frameNo == 0x01
+assert p.requests[0].frame_no == 0x01
 
 
 = Check dissecting a request for Service 03
@@ -137,7 +137,7 @@ assert p.mid[4] == 0x04
 p = OBD(b'\x46\x00\x00\x00\x00\x00')
 assert p.service == 0x46
 assert p.data_records[0].mid == 0x00
-assert p.data_records[0].supportedMIDs == ""
+assert p.data_records[0].supported_mids == ""
 
 
 = Check dissecting a response for Service 06 MID 00 and MID 20
@@ -145,9 +145,9 @@ assert p.data_records[0].supportedMIDs == ""
 p = OBD(b'\x46\x00\x01\x02\x03\x04\x20\x01\x02\x03\x04')
 assert p.service == 0x46
 assert p.data_records[0].mid == 0x00
-assert p.data_records[0].supportedMIDs == "MID1E+MID18+MID17+MID0F+MID08"
+assert p.data_records[0].supported_mids == "MID1E+MID18+MID17+MID0F+MID08"
 assert p.data_records[1].mid == 0x20
-assert p.data_records[1].supportedMIDs == "MID3E+MID38+MID37+MID2F+MID28"
+assert p.data_records[1].supported_mids == "MID3E+MID38+MID37+MID2F+MID28"
 
 
 = Check dissecting a response for Service 06 MID 00, 20, 40, 60, 80, A0
@@ -155,17 +155,17 @@ assert p.data_records[1].supportedMIDs == "MID3E+MID38+MID37+MID2F+MID28"
 p = OBD(b'\x46\x00\x01\x02\x03\x04\x20\x01\x02\x03\x04\x40\x01\x02\x03\x04\x60\x01\x02\x03\x04\x80\x01\x02\x03\x04\xA0\x01\x02\x03\x04')
 assert p.service == 0x46
 assert p.data_records[0].mid == 0x00
-assert p.data_records[0].supportedMIDs == "MID1E+MID18+MID17+MID0F+MID08"
+assert p.data_records[0].supported_mids == "MID1E+MID18+MID17+MID0F+MID08"
 assert p.data_records[1].mid == 0x20
-assert p.data_records[1].supportedMIDs == "MID3E+MID38+MID37+MID2F+MID28"
+assert p.data_records[1].supported_mids == "MID3E+MID38+MID37+MID2F+MID28"
 assert p.data_records[2].mid == 0x40
-assert p.data_records[2].supportedMIDs == "MID5E+MID58+MID57+MID4F+MID48"
+assert p.data_records[2].supported_mids == "MID5E+MID58+MID57+MID4F+MID48"
 assert p.data_records[3].mid == 0x60
-assert p.data_records[3].supportedMIDs == "MID7E+MID78+MID77+MID6F+MID68"
+assert p.data_records[3].supported_mids == "MID7E+MID78+MID77+MID6F+MID68"
 assert p.data_records[4].mid == 0x80
-assert p.data_records[4].supportedMIDs == "MID9E+MID98+MID97+MID8F+MID88"
+assert p.data_records[4].supported_mids == "MID9E+MID98+MID97+MID8F+MID88"
 assert p.data_records[5].mid == 0xA0
-assert p.data_records[5].supportedMIDs == "MIDBE+MIDB8+MIDB7+MIDAF+MIDA8"
+assert p.data_records[5].supported_mids == "MIDBE+MIDB8+MIDB7+MIDAF+MIDA8"
 assert len(p.data_records) == 6
 
 
@@ -267,9 +267,9 @@ assert p.data_records[0].turbocharger_a_turbine_outlet_temperature == \
 p = OBD(b'\x41\x00\xBF\xBF\xA8\x91\x20\x80\x00\x00\x00')
 assert p.service == 0x41
 assert p.data_records[0].pid == 0
-assert p.data_records[0].supportedPIDs == "PID20+PID1C+PID19+PID15+PID13+PID11+PID10+PID0F+PID0E+PID0D+PID0C+PID0B+PID09+PID08+PID07+PID06+PID05+PID04+PID03+PID01"
+assert p.data_records[0].supported_pids == "PID20+PID1C+PID19+PID15+PID13+PID11+PID10+PID0F+PID0E+PID0D+PID0C+PID0B+PID09+PID08+PID07+PID06+PID05+PID04+PID03+PID01"
 assert p.data_records[1].pid == 0x20
-assert p.data_records[1].supportedPIDs == "PID21"
+assert p.data_records[1].supported_pids == "PID21"
 assert len(p.data_records) == 2
 
 
@@ -287,17 +287,17 @@ assert p.data_records[2].trim == -6.25
 assert p.data_records[3].pid == 12
 assert p.data_records[3].data == 666.75
 assert p.data_records[4].pid == 3
-assert p.data_records[4].fuelSystem1 == 0x02
-assert p.data_records[4].fuelSystem2 == 0
+assert p.data_records[4].fuel_system1 == 0x02
+assert p.data_records[4].fuel_system2 == 0
 assert len(p.data_records) == 5
 
 p = OBD(b'\x41\x00\xBF\xBF\xA8\x91\x20\x80\x00\x00\x00')
 p.show()
 assert p.service == 0x41
 assert p.data_records[0].pid == 0
-assert p.data_records[0].supportedPIDs == "PID20+PID1C+PID19+PID15+PID13+PID11+PID10+PID0F+PID0E+PID0D+PID0C+PID0B+PID09+PID08+PID07+PID06+PID05+PID04+PID03+PID01"
+assert p.data_records[0].supported_pids == "PID20+PID1C+PID19+PID15+PID13+PID11+PID10+PID0F+PID0E+PID0D+PID0C+PID0B+PID09+PID08+PID07+PID06+PID05+PID04+PID03+PID01"
 assert p.data_records[1].pid == 0x20
-assert p.data_records[1].supportedPIDs == "PID21"
+assert p.data_records[1].supported_pids == "PID21"
 assert len(p.data_records) == 2
 
 
@@ -306,15 +306,15 @@ assert len(p.data_records) == 2
 p = OBD(b'\x41\x78ABCDEFGHI')
 assert p.service == 0x41
 assert p.data_records[0].pid == 0x78
-assert p.data_records[0].sensor_1_supported == 0
-assert p.data_records[0].sensor_2_supported == 1
-assert p.data_records[0].sensor_3_supported == 0
-assert p.data_records[0].sensor_4_supported == 0
+assert p.data_records[0].sensor1_supported == 0
+assert p.data_records[0].sensor2_supported == 1
+assert p.data_records[0].sensor3_supported == 0
+assert p.data_records[0].sensor4_supported == 0
 assert p.data_records[0].reserved == 1
-assert p.data_records[0].sensor_1 == 1656.3
-assert p.data_records[0].sensor_2 == 1707.7
-assert p.data_records[0].sensor_3 == 1759.1
-assert p.data_records[0].sensor_4 == 1810.5
+assert p.data_records[0].sensor1 == 1656.3
+assert p.data_records[0].sensor2 == 1707.7
+assert p.data_records[0].sensor3 == 1759.1
+assert p.data_records[0].sensor4 == 1810.5
 
 
 = Check dissecting a response for Service 01 Pid 7F
@@ -347,7 +347,7 @@ assert p.data_records[0].data == b'ABCDEFGHIKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOP'
 p = OBD(b'\x42\x75\01\x0a\x00\x11\x22\x33\x44\x55')
 assert p.service == 0x42
 assert p.data_records[0].pid == 0x75
-assert p.data_records[0].frameNo == 0x01
+assert p.data_records[0].frame_no == 0x01
 assert p.data_records[0].reserved == 0
 assert p.data_records[0].turbo_a_turbine_outlet_temperature_supported == 1
 assert p.data_records[0].turbo_a_turbine_inlet_temperature_supported == 0
@@ -366,16 +366,16 @@ assert p.data_records[0].turbocharger_a_turbine_outlet_temperature == \
 p = OBD(b'\x42\x78\x01ABCDEFGHI')
 assert p.service == 0x42
 assert p.data_records[0].pid == 0x78
-assert p.data_records[0].frameNo == 0x01
-assert p.data_records[0].sensor_1_supported == 0
-assert p.data_records[0].sensor_2_supported == 1
-assert p.data_records[0].sensor_3_supported == 0
-assert p.data_records[0].sensor_4_supported == 0
+assert p.data_records[0].frame_no == 0x01
+assert p.data_records[0].sensor1_supported == 0
+assert p.data_records[0].sensor2_supported == 1
+assert p.data_records[0].sensor3_supported == 0
+assert p.data_records[0].sensor4_supported == 0
 assert p.data_records[0].reserved == 1
-assert p.data_records[0].sensor_1 == 1656.3
-assert p.data_records[0].sensor_2 == 1707.7
-assert p.data_records[0].sensor_3 == 1759.1
-assert p.data_records[0].sensor_4 == 1810.5
+assert p.data_records[0].sensor1 == 1656.3
+assert p.data_records[0].sensor2 == 1707.7
+assert p.data_records[0].sensor3 == 1759.1
+assert p.data_records[0].sensor4 == 1810.5
 
 
 = Check dissecting a response for Service 02 Pid 7F
@@ -386,7 +386,7 @@ p = OBD(b'\x42\x7F\x01\x03'
         b'\x00\x11\x22\x33\x44\x55\x66\x77')
 assert p.service == 0x42
 assert p.data_records[0].pid == 0x7F
-assert p.data_records[0].frameNo == 0x01
+assert p.data_records[0].frame_no == 0x01
 assert p.data_records[0].reserved == 0
 assert p.data_records[0].total_with_pto_active_supported == 0
 assert p.data_records[0].total_idle_supported == 1
@@ -401,7 +401,7 @@ assert p.data_records[0].total_with_pto_active == 0x0011223344556677
 p = OBD(b'\x42\x89\x01ABCDEFGHIKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOP')
 assert p.service == 0x42
 assert p.data_records[0].pid == 0x89
-assert p.data_records[0].frameNo == 0x01
+assert p.data_records[0].frame_no == 0x01
 assert p.data_records[0].data == b'ABCDEFGHIKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOP'
 
 
@@ -410,13 +410,13 @@ assert p.data_records[0].data == b'ABCDEFGHIKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOP'
 p = OBD(b'\x42\x0c\x00\x20\x80\x04\x00\x80\x05\x00\x28')
 assert p.service == 0x42
 assert p.data_records[0].pid == 0x0C
-assert p.data_records[0].frameNo == 0x0
+assert p.data_records[0].frame_no == 0x0
 assert p.data_records[0].data == 2080
 assert p.data_records[1].pid == 0x04
-assert p.data_records[1].frameNo == 0x0
+assert p.data_records[1].frame_no == 0x0
 assert p.data_records[1].data == 50.196
 assert p.data_records[2].pid == 0x05
-assert p.data_records[2].frameNo == 0x0
+assert p.data_records[2].frame_no == 0x0
 assert p.data_records[2].data == 0.0
 
 
@@ -425,12 +425,12 @@ assert p.data_records[2].data == 0.0
 p = OBD(b'\x43\x06\x01\x43\x01\x96\x02\x34\x02\xcd\x03\x57\x0a\x24')
 assert p.service == 0x43
 assert p.count == 6
-assert bytes(p.DTCs[0]) == b'\x01\x43'
-assert bytes(p.DTCs[1]) == b'\x01\x96'
-assert bytes(p.DTCs[2]) == b'\x02\x34'
-assert bytes(p.DTCs[3]) == b'\x02\xcd'
-assert bytes(p.DTCs[4]) == b'\x03\x57'
-assert bytes(p.DTCs[5]) == b'\x0a\x24'
+assert bytes(p.dtcs[0]) == b'\x01\x43'
+assert bytes(p.dtcs[1]) == b'\x01\x96'
+assert bytes(p.dtcs[2]) == b'\x02\x34'
+assert bytes(p.dtcs[3]) == b'\x02\xcd'
+assert bytes(p.dtcs[4]) == b'\x03\x57'
+assert bytes(p.dtcs[5]) == b'\x0a\x24'
 
 
 = Check dissecting a response for Service 07
@@ -438,12 +438,12 @@ assert bytes(p.DTCs[5]) == b'\x0a\x24'
 p = OBD(b'\x47\x06\x01\x43\x01\x96\x02\x34\x02\xcd\x03\x57\x0a\x24')
 assert p.service == 0x47
 assert p.count == 6
-assert bytes(p.DTCs[0]) == b'\x01\x43'
-assert bytes(p.DTCs[1]) == b'\x01\x96'
-assert bytes(p.DTCs[2]) == b'\x02\x34'
-assert bytes(p.DTCs[3]) == b'\x02\xcd'
-assert bytes(p.DTCs[4]) == b'\x03\x57'
-assert bytes(p.DTCs[5]) == b'\x0a\x24'
+assert bytes(p.dtcs[0]) == b'\x01\x43'
+assert bytes(p.dtcs[1]) == b'\x01\x96'
+assert bytes(p.dtcs[2]) == b'\x02\x34'
+assert bytes(p.dtcs[3]) == b'\x02\xcd'
+assert bytes(p.dtcs[4]) == b'\x03\x57'
+assert bytes(p.dtcs[5]) == b'\x0a\x24'
 
 
 = Check dissecting a response for Service 08 Tid 00
@@ -451,7 +451,7 @@ assert bytes(p.DTCs[5]) == b'\x0a\x24'
 p = OBD(b'\x48\x00ABCD')
 assert p.service == 0x48
 assert p.data_records[0].tid == 0x00
-assert p.data_records[0].supportedTIDs == "TID1E+TID1A+TID18+TID17+TID12+TID0F+TID0A+TID08+TID02"
+assert p.data_records[0].supported_tids == "TID1E+TID1A+TID18+TID17+TID12+TID0F+TID0A+TID08+TID02"
 
 
 = Check dissecting a response for Service 08 Tid 01
@@ -459,11 +459,11 @@ assert p.data_records[0].supportedTIDs == "TID1E+TID1A+TID18+TID17+TID12+TID0F+T
 p = OBD(b'\x48\x01\x00\x00"\xffd')
 assert p.service == 0x48
 assert p.data_records[0].tid == 0x01
-assert p.data_records[0].data_A == 0.0
-assert p.data_records[0].data_B == 0.0
-assert p.data_records[0].data_C == 0.17
-assert p.data_records[0].data_D == 1.275
-assert p.data_records[0].data_E == 0.5
+assert p.data_records[0].data_a == 0.0
+assert p.data_records[0].data_b == 0.0
+assert p.data_records[0].data_c == 0.17
+assert p.data_records[0].data_d == 1.275
+assert p.data_records[0].data_e == 0.5
 
 
 = Check dissecting a response for Service 08 Tid 05
@@ -471,11 +471,11 @@ assert p.data_records[0].data_E == 0.5
 p = OBD(b'\x48\x05\x00\x00\x2b\xff\x7d')
 assert p.service == 0x48
 assert p.data_records[0].tid == 0x05
-assert p.data_records[0].data_A == 0.0
-assert p.data_records[0].data_B == 0.0
-assert p.data_records[0].data_C == 0.172
-assert p.data_records[0].data_D == 1.02
-assert p.data_records[0].data_E == 0.5
+assert p.data_records[0].data_a == 0.0
+assert p.data_records[0].data_b == 0.0
+assert p.data_records[0].data_c == 0.172
+assert p.data_records[0].data_d == 1.02
+assert p.data_records[0].data_e == 0.5
 
 
 = Check dissecting a response for Service 08 Tid 09
@@ -483,11 +483,11 @@ assert p.data_records[0].data_E == 0.5
 p = OBD(b'\x48\x09\x00\x00\x04\x1a\x0c')
 assert p.service == 0x48
 assert p.data_records[0].tid == 0x09
-assert p.data_records[0].data_A == 0.0
-assert p.data_records[0].data_B == 0.0
-assert p.data_records[0].data_C == 0.16
-assert p.data_records[0].data_D == 1.04
-assert p.data_records[0].data_E == 0.48
+assert p.data_records[0].data_a == 0.0
+assert p.data_records[0].data_b == 0.0
+assert p.data_records[0].data_c == 0.16
+assert p.data_records[0].data_d == 1.04
+assert p.data_records[0].data_e == 0.48
 
 
 = Check dissecting a response for Service 09 Pid 00
@@ -495,7 +495,7 @@ assert p.data_records[0].data_E == 0.48
 p = OBD(b'\x49\x00ABCD')
 assert p.service == 0x49
 assert p.iid == 0x00
-assert p.supportedIIDs == "IID1E+IID1A+IID18+IID17+IID12+IID0F+IID0A+IID08+IID02"
+assert p.supported_iids == "IID1E+IID1A+IID18+IID17+IID12+IID0F+IID0A+IID08+IID02"
 
 
 = Check dissecting a response for Service 09 Pid 02 with one VIN
@@ -504,7 +504,7 @@ p = OBD(b'\x49\x02\x01W0L000051T2123456')
 assert p.service == 0x49
 assert p.iid == 0x02
 assert p.count == 0x01
-assert p.vehicleIdentificationNumbers[0] == b'W0L000051T2123456'
+assert p.vehicle_identification_numbers[0] == b'W0L000051T2123456'
 
 
 = Check dissecting a response for Service 09 Pid 02 with two VINs
@@ -513,8 +513,8 @@ p = OBD(b'\x49\x02\x02W0L000051T2123456W0L000051T2123456')
 assert p.service == 0x49
 assert p.iid == 0x02
 assert p.count == 0x02
-assert p.vehicleIdentificationNumbers[0] == b'W0L000051T2123456'
-assert p.vehicleIdentificationNumbers[1] == b'W0L000051T2123456'
+assert p.vehicle_identification_numbers[0] == b'W0L000051T2123456'
+assert p.vehicle_identification_numbers[1] == b'W0L000051T2123456'
 
 
 = Check dissecting a response for Service 09 Pid 04 with one CID
@@ -523,7 +523,7 @@ p = OBD(b'\x49\x04\x01ABCDEFGHIJKLMNOP')
 assert p.service == 0x49
 assert p.iid == 0x04
 assert p.count == 0x01
-assert p.calibrationIdentifications[0] == b'ABCDEFGHIJKLMNOP'
+assert p.calibration_identifications[0] == b'ABCDEFGHIJKLMNOP'
 
 
 = Check dissecting a response for Service 09 Pid 04 with two CID
@@ -532,8 +532,8 @@ p = OBD(b'\x49\x04\x02ABCDEFGHIJKLMNOPABCDEFGHIJKLMNOP')
 assert p.service == 0x49
 assert p.iid == 0x04
 assert p.count == 0x02
-assert p.calibrationIdentifications[0] == b'ABCDEFGHIJKLMNOP'
-assert p.calibrationIdentifications[1] == b'ABCDEFGHIJKLMNOP'
+assert p.calibration_identifications[0] == b'ABCDEFGHIJKLMNOP'
+assert p.calibration_identifications[1] == b'ABCDEFGHIJKLMNOP'
 
 
 = Check dissecting a response for Service 09 Pid 06
@@ -542,8 +542,8 @@ p = OBD(b'\x49\x06\x02ABCDEFGH')
 assert p.service == 0x49
 assert p.iid == 0x06
 assert p.count == 0x02
-assert p.calibrationVerificationNumbers[0] == b'ABCD'
-assert p.calibrationVerificationNumbers[1] == b'EFGH'
+assert p.calibration_verification_numbers[0] == b'ABCD'
+assert p.calibration_verification_numbers[1] == b'EFGH'
 
 
 = Check dissecting a response for Service 09 Pid 08
@@ -569,7 +569,7 @@ p = OBD(b'\x49\x0A\x01ECM\x00-Engine Control\x00')
 assert p.service == 0x49
 assert p.iid == 0x0A
 assert p.count == 0x01
-assert p.ecuNames[0] == b'ECM\x00-Engine Control\x00'
+assert p.ecu_names[0] == b'ECM\x00-Engine Control\x00'
 
 
 = Check dissecting a response for Service 09 Pid 0B
@@ -627,7 +627,7 @@ assert b[1:2] == b'\x89'
 
 = Check building a request for Service 02 Pid 00
 
-p = OBD()/OBD_S02(requests=[OBD_S02_Req(pid=0x00, frameNo=0x01)])
+p = OBD()/OBD_S02(requests=[OBD_S02_Req(pid=0x00, frame_no=0x01)])
 b = bytes(p)
 assert b[0:1] == b'\x02'
 assert b[1:2] == b'\x00'
@@ -636,7 +636,7 @@ assert b[2:3] == b'\x01'
 
 = Check building a request for Service 02 Pid 75
 
-p = OBD()/OBD_S02(requests=[OBD_S02_Req(pid=0x75, frameNo=0x01)])
+p = OBD()/OBD_S02(requests=[OBD_S02_Req(pid=0x75, frame_no=0x01)])
 b = bytes(p)
 assert b[0:1] == b'\x02'
 assert b[1:2] == b'\x75'
@@ -645,7 +645,7 @@ assert b[2:3] == b'\x01'
 
 = Check building a request for Service 02 Pid 78
 
-p = OBD()/OBD_S02(requests=[OBD_S02_Req(pid=0x78, frameNo=0x01)])
+p = OBD()/OBD_S02(requests=[OBD_S02_Req(pid=0x78, frame_no=0x01)])
 b = bytes(p)
 assert b[0:1] == b'\x02'
 assert b[1:2] == b'\x78'
@@ -654,7 +654,7 @@ assert b[2:3] == b'\x01'
 
 = Check building a request for Service 02 Pid 7F
 
-p = OBD()/OBD_S02(requests=[OBD_S02_Req(pid=0x7F, frameNo=0x01)])
+p = OBD()/OBD_S02(requests=[OBD_S02_Req(pid=0x7F, frame_no=0x01)])
 b = bytes(p)
 assert b[0:1] == b'\x02'
 assert b[1:2] == b'\x7F'
@@ -663,7 +663,7 @@ assert b[2:3] == b'\x01'
 
 = Check building a request for Service 02 Pid 89
 
-p = OBD()/OBD_S02(requests=[OBD_S02_Req(pid=0x89, frameNo=0x01)])
+p = OBD()/OBD_S02(requests=[OBD_S02_Req(pid=0x89, frame_no=0x01)])
 b = bytes(p)
 assert b[0:1] == b'\x02'
 assert b[1:2] == b'\x89'
@@ -680,7 +680,7 @@ assert p.service == 0x03
 
 = Check building a request for Service 02 Pid 7F
 
-p = OBD()/OBD_S02(requests=[OBD_S02_Req(pid=0x7F, frameNo=0x01)])
+p = OBD()/OBD_S02(requests=[OBD_S02_Req(pid=0x7F, frame_no=0x01)])
 b = bytes(p)
 assert b[0:1] == b'\x02'
 assert b[1:2] == b'\x7F'
@@ -785,7 +785,7 @@ assert b[1:2] == b'\x0A'
 # fixme
 # = Check building a response for Service 02 Pid 75
 #
-# p = OBD(service=0x42)/OBD_S02(frameNo=0x01)/OBD_PID75(
+# p = OBD(service=0x42)/OBD_S02(frame_no=0x01)/OBD_PID75(
 #     turbo_a_compressor_inlet_temperature_supported=0,
 #     turbo_a_compressor_outlet_temperature_supported=1,
 #     turbo_a_turbine_inlet_temperature_supported=0,
@@ -809,7 +809,7 @@ assert b[1:2] == b'\x0A'
 # fixme
 # = Check building a response for Service 02 Pid 78
 #
-# p = OBD(service=0x42)/OBD_S02(frameNo=0x01)/OBD_PID78(sensor_1_supported=1, sensor_3_supported=1, sensor_1=20, sensor_3=40)
+# p = OBD(service=0x42)/OBD_S02(frame_no=0x01)/OBD_PID78(sensor1_supported=1, sensor3_supported=1, sensor1=20, sensor3=40)
 # b = bytes(p)
 # assert b[0:1] == b'\x42'
 # assert b[1:2] == b'\x78'
@@ -820,7 +820,7 @@ assert b[1:2] == b'\x0A'
 # fixme
 # = Check building a response for Service 02 Pid 7F
 #
-# p = OBD(service=0x42)/OBD_S02(frameNo=1)/OBD_PID7F(
+# p = OBD(service=0x42)/OBD_S02(frame_no=1)/OBD_PID7F(
 #     total_supported=0,
 #     total_idle_supported=1,
 #     total_with_pto_active_supported=1,
@@ -840,7 +840,7 @@ assert b[1:2] == b'\x0A'
 # fixme
 # = Check building a response for Service 02 Pid 89
 #
-# p = OBD(service=0x42)/OBD_S02(frameNo=0x01)/OBD_PID89(data=b'ABCDEFGHIKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOP')
+# p = OBD(service=0x42)/OBD_S02(frame_no=0x01)/OBD_PID89(data=b'ABCDEFGHIKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOP')
 # b = bytes(p)
 # assert b[0:1] == b'\x42'
 # assert b[1:2] == b'\x89'
@@ -867,7 +867,7 @@ assert b[2:] == b'ABCD'
 
 = Check building a response for Service 09 Pid 02 with one VIN
 
-p = OBD(service=0x49)/OBD_S09_PR()/OBD_IID02(vehicleIdentificationNumbers=b'W0L000051T2123456')
+p = OBD(service=0x49)/OBD_S09_PR()/OBD_IID02(vehicle_identification_numbers=b'W0L000051T2123456')
 b = bytes(p)
 assert b[0:1] == b'\x49'
 assert b[1:2] == b'\x02'
@@ -877,7 +877,7 @@ assert b[3:] == b'W0L000051T2123456'
 
 = Check building a response for Service 09 Pid 02 with two VINs
 
-p = OBD(service=0x49)/OBD_S09_PR()/OBD_IID02(vehicleIdentificationNumbers=[b'W0L000051T2123456', b'W0L000051T2123456'])
+p = OBD(service=0x49)/OBD_S09_PR()/OBD_IID02(vehicle_identification_numbers=[b'W0L000051T2123456', b'W0L000051T2123456'])
 b = bytes(p)
 assert b[0:1] == b'\x49'
 assert b[1:2] == b'\x02'
@@ -888,7 +888,7 @@ assert b[20:] == b'W0L000051T2123456'
 
 = Check building a response for Service 09 Pid 04 with one CID
 
-p = OBD(service=0x49)/OBD_S09_PR()/OBD_IID04(calibrationIdentifications=b'ABCDEFGHIJKLMNOP')
+p = OBD(service=0x49)/OBD_S09_PR()/OBD_IID04(calibration_identifications=b'ABCDEFGHIJKLMNOP')
 b = bytes(p)
 assert b[0:1] == b'\x49'
 assert b[1:2] == b'\x04'
@@ -898,7 +898,7 @@ assert b[3:] == b'ABCDEFGHIJKLMNOP'
 
 = Check building a response for Service 09 Pid 04 with two CID
 
-p = OBD(service=0x49)/OBD_S09_PR()/OBD_IID04(calibrationIdentifications=[b'ABCDEFGHIJKLMNOP', b'ABCDEFGHIJKLMNOP'])
+p = OBD(service=0x49)/OBD_S09_PR()/OBD_IID04(calibration_identifications=[b'ABCDEFGHIJKLMNOP', b'ABCDEFGHIJKLMNOP'])
 b = bytes(p)
 assert b[0:1] == b'\x49'
 assert b[1:2] == b'\x04'
@@ -909,7 +909,7 @@ assert b[19:] == b'ABCDEFGHIJKLMNOP'
 
 = Check building a response for Service 09 Pid 0A
 
-p = OBD(service=0x49)/OBD_S09_PR()/OBD_IID0A(ecuNames=b'ABCDEFGHIJKLMNOPQRST')
+p = OBD(service=0x49)/OBD_S09_PR()/OBD_IID0A(ecu_names=b'ABCDEFGHIJKLMNOPQRST')
 b = bytes(p)
 assert b[0:1] == b'\x49'
 assert b[1:2] == b'\x0A'

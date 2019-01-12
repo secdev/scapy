@@ -33,7 +33,7 @@ class OBD_S01_PID(Packet):
 class OBD_S02_PID_Record(Packet):
     fields_desc = [
         XByteField("pid", 1),
-        XByteField("frameNo", 2),
+        XByteField("frame_no", 2),
     ]
 
 

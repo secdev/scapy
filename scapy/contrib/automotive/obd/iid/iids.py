@@ -16,7 +16,7 @@ from scapy.packet import Packet
 class OBD_IID00(Packet):
     name = "IID_00_Service9SupportedInformationTypes"
     fields_desc = [
-        FlagsField('supportedIIDs', b'', 32, [
+        FlagsField('supported_iids', b'', 32, [
             'IID20',
             'IID1F',
             'IID1E',
@@ -55,7 +55,7 @@ class OBD_IID00(Packet):
 
 class _OBD_IID_MessageCount(Packet):
     fields_desc = [
-        ByteField('messageCount', 0)
+        ByteField('message_count', 0)
     ]
 
 
@@ -82,9 +82,9 @@ class OBD_IID09(_OBD_IID_MessageCount):
 class OBD_IID02(Packet):
     name = "IID_02_VehicleIdentificationNumber"
     fields_desc = [
-        FieldLenField('count', None, count_of='vehicleIdentificationNumbers',
+        FieldLenField('count', None, count_of='vehicle_identification_numbers',
                       fmt='B'),
-        FieldListField('vehicleIdentificationNumbers', None,
+        FieldListField('vehicle_identification_numbers', None,
                        StrFixedLenField(b'', 0, 17),
                        count_from=lambda pkt: pkt.count)
     ]
@@ -93,9 +93,9 @@ class OBD_IID02(Packet):
 class OBD_IID04(Packet):
     name = "IID_04_CalibrationId"
     fields_desc = [
-        FieldLenField('count', None, count_of='calibrationIdentifications',
+        FieldLenField('count', None, count_of='calibration_identifications',
                       fmt='B'),
-        FieldListField('calibrationIdentifications', None,
+        FieldListField('calibration_identifications', None,
                        StrFixedLenField(b'', 0, 16),
                        count_from=lambda pkt: pkt.count)
     ]
@@ -104,9 +104,9 @@ class OBD_IID04(Packet):
 class OBD_IID06(Packet):
     name = "IID_06_CalibrationVerificationNumbers"
     fields_desc = [
-        FieldLenField('count', None, count_of='calibrationVerificationNumbers',
-                      fmt='B'),
-        FieldListField('calibrationVerificationNumbers', None,
+        FieldLenField('count', None,
+                      count_of='calibration_verification_numbers', fmt='B'),
+        FieldListField('calibration_verification_numbers', None,
                        StrFixedLenField(b'', 0, 4),
                        count_from=lambda pkt: pkt.count)
     ]
@@ -125,8 +125,8 @@ class OBD_IID08(Packet):
 class OBD_IID0A(Packet):
     name = "IID_0A_EcuName"
     fields_desc = [
-        FieldLenField('count', None, count_of='ecuNames', fmt='B'),
-        FieldListField('ecuNames', None,
+        FieldLenField('count', None, count_of='ecu_names', fmt='B'),
+        FieldListField('ecu_names', None,
                        StrFixedLenField('', 0, 20),
                        count_from=lambda pkt: pkt.count)
     ]

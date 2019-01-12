@@ -16,7 +16,7 @@ from scapy.contrib.automotive.obd.packet import OBD_Packet
 class OBD_PID40(OBD_Packet):
     name = "PID_40_PIDsSupported"
     fields_desc = [
-        FlagsField('supportedPIDs', 0, 32, [
+        FlagsField('supported_pids', 0, 32, [
             'PID60',
             'PID5F',
             'PID5E',
@@ -64,20 +64,20 @@ class OBD_PID41(OBD_Packet):
         XByteField('reserved', b''),
 
         BitField('reserved1', 0, 1),
-        FlagsField('continuousTestsReady', b'', 3, [
+        FlagsField('continuous_tests_ready', b'', 3, [
             'misfire',
             'fuelSystem',
             'components'
         ]),
 
         BitField('reserved2', 0, 1),
-        FlagsField('continuousTestsSupported', b'', 3, [
+        FlagsField('continuous_tests_supported', b'', 3, [
             'misfire',
             'fuelSystem',
             'components'
         ]),
 
-        FlagsField('oncePerTripTestsSupported', b'', 8, [
+        FlagsField('once_per_trip_tests_supported', b'', 8, [
             'egr',
             'oxygenSensorHeater',
             'oxygenSensor',
@@ -88,7 +88,7 @@ class OBD_PID41(OBD_Packet):
             'catalyst'
         ]),
 
-        FlagsField('oncePerTripTestsReady', b'', 8, [
+        FlagsField('once_per_trip_tests_ready', b'', 8, [
             'egr',
             'oxygenSensorHeater',
             'oxygenSensor',
@@ -180,10 +180,10 @@ class OBD_PID4E(OBD_Packet):
 class OBD_PID4F(OBD_Packet):
     name = "PID_4F_VariousMaxValues"
     fields_desc = [
-        ScalingField('EquivalenceRatio', 0),
-        ScalingField('SensorVoltage', 0, unit="V"),
-        ScalingField('SensorCurrent', 0, unit="mA"),
-        ScalingField('IntakeManifoldAbsolutePressure', 0,
+        ScalingField('equivalence_ratio', 0),
+        ScalingField('sensor_voltage', 0, unit="V"),
+        ScalingField('sensor_current', 0, unit="mA"),
+        ScalingField('intake_manifold_absolute_pressure', 0,
                      scaling=10, unit="kPa")
     ]
 

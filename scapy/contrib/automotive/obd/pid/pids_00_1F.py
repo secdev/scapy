@@ -16,7 +16,7 @@ class OBD_PID00(OBD_Packet):
     name = "PID_00_PIDsSupported"
 
     fields_desc = [
-        FlagsField('supportedPIDs', b'', 32, [
+        FlagsField('supported_pids', b'', 32, [
             'PID20',
             'PID1F',
             'PID1E',
@@ -62,24 +62,24 @@ class OBD_PID01(OBD_Packet):
     }
 
     fields_desc = [
-        BitEnumField('MIL', 0, 1, onOff),
-        BitField('DTC_Count', 0, 7),
+        BitEnumField('mil', 0, 1, onOff),
+        BitField('dtc_count', 0, 7),
 
         BitField('reserved1', 0, 1),
-        FlagsField('continuousTestsReady', b'', 3, [
+        FlagsField('continuous_tests_ready', b'', 3, [
             'misfire',
             'fuelSystem',
             'components'
         ]),
 
         BitField('reserved2', 0, 1),
-        FlagsField('continuousTestsSupported', b'', 3, [
+        FlagsField('continuous_tests_supported', b'', 3, [
             'misfire',
-            'fuelSystem',
+            'fuel_system',
             'components'
         ]),
 
-        FlagsField('oncePerTripTestsSupported', b'', 8, [
+        FlagsField('once_per_trip_tests_supported', b'', 8, [
             'egr',
             'oxygenSensorHeater',
             'oxygenSensor',
@@ -90,7 +90,7 @@ class OBD_PID01(OBD_Packet):
             'catalyst'
         ]),
 
-        FlagsField('oncePerTripTestsReady', b'', 8, [
+        FlagsField('once_per_trip_tests_ready', b'', 8, [
             'egr',
             'oxygenSensorHeater',
             'oxygenSensor',
@@ -122,8 +122,8 @@ class OBD_PID03(OBD_Packet):
     }
 
     fields_desc = [
-        XByteEnumField('fuelSystem1', 0, loopStates),
-        XByteEnumField('fuelSystem2', 0, loopStates)
+        XByteEnumField('fuel_system1', 0, loopStates),
+        XByteEnumField('fuel_system2', 0, loopStates)
     ]
 
 

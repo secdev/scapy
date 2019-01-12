@@ -14,7 +14,7 @@ from scapy.contrib.automotive.obd.packet import OBD_Packet
 class OBD_PIDA0(OBD_Packet):
     name = "PID_A0_PIDsSupported"
     fields_desc = [
-        FlagsField('supportedPIDs', 0, 32, [
+        FlagsField('supported_pids', 0, 32, [
             'PIDC0',
             'PIDBF',
             'PIDBE',
@@ -96,7 +96,7 @@ class OBD_PIDA6(OBD_Packet):
 class OBD_PIDC0(OBD_Packet):
     name = "PID_C0_PIDsSupported"
     fields_desc = [
-        FlagsField('supportedPIDs', 0, 32, [
+        FlagsField('supported_pids', 0, 32, [
             'PIDE0',
             'PIDDF',
             'PIDDE',

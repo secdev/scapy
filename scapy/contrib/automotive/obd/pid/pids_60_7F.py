@@ -15,7 +15,7 @@ from scapy.contrib.automotive.obd.packet import OBD_Packet
 class OBD_PID60(OBD_Packet):
     name = "PID_60_PIDsSupported"
     fields_desc = [
-        FlagsField('supportedPIDs', 0, 32, [
+        FlagsField('supported_pids', 0, 32, [
             'PID80',
             'PID7F',
             'PID7E',
@@ -76,11 +76,11 @@ class OBD_PID63(OBD_Packet):
 class OBD_PID64(OBD_Packet):
     name = "PID_64_EnginePercentTorqueData"
     fields_desc = [
-        ScalingField('atPoint1', 0, unit="%", offset=-125.0),
-        ScalingField('atPoint2', 0, unit="%", offset=-125.0),
-        ScalingField('atPoint3', 0, unit="%", offset=-125.0),
-        ScalingField('atPoint4', 0, unit="%", offset=-125.0),
-        ScalingField('atPoint5', 0, unit="%", offset=-125.0)
+        ScalingField('at_point1', 0, unit="%", offset=-125.0),
+        ScalingField('at_point2', 0, unit="%", offset=-125.0),
+        ScalingField('at_point3', 0, unit="%", offset=-125.0),
+        ScalingField('at_point4', 0, unit="%", offset=-125.0),
+        ScalingField('at_point5', 0, unit="%", offset=-125.0)
     ]
 
 
@@ -88,16 +88,16 @@ class OBD_PID65(OBD_Packet):
     name = "PID_65_AuxiliaryInputOutputSupported"
     fields_desc = [
         BitField('reserved1', 0, 4),
-        BitField('GlowPlugLampStatusSupported', 0, 1),
-        BitField('ManualTransNeutralDriveStatusSupported', 0, 1),
-        BitField('AutoTransNeutralDriveStatusSupported', 0, 1),
-        BitField('PowerTakeOffStatusSupported', 0, 1),
+        BitField('glow_plug_lamp_status_supported', 0, 1),
+        BitField('manual_trans_neutral_drive_status_supported', 0, 1),
+        BitField('auto_trans_neutral_drive_status_supported', 0, 1),
+        BitField('power_take_off_status_supported', 0, 1),
 
         BitField('reserved2', 0, 4),
-        BitField('GlowPlugLampStatus', 0, 1),
-        BitField('ManualTransNeutralDriveStatus', 0, 1),
-        BitField('AutoTransNeutralDriveStatus', 0, 1),
-        BitField('PowerTakeOffStatus', 0, 1),
+        BitField('glow_plug_lamp_status', 0, 1),
+        BitField('manual_trans_neutral_drive_status', 0, 1),
+        BitField('auto_trans_neutral_drive_status', 0, 1),
+        BitField('power_take_off_status', 0, 1),
     ]
 
 
@@ -105,10 +105,10 @@ class OBD_PID66(OBD_Packet):
     name = "PID_66_MassAirFlowSensor"
     fields_desc = [
         BitField('reserved', 0, 6),
-        BitField('SensorBSupported', 0, 1),
-        BitField('SensorASupported', 0, 1),
-        ScalingField('SensorA', 0, scaling=0.03125, unit="g/s", fmt="H"),
-        ScalingField('SensorB', 0, scaling=0.03125, unit="g/s", fmt="H"),
+        BitField('sensor_b_supported', 0, 1),
+        BitField('sensor_a_supported', 0, 1),
+        ScalingField('sensor_a', 0, scaling=0.03125, unit="g/s", fmt="H"),
+        ScalingField('sensor_b', 0, scaling=0.03125, unit="g/s", fmt="H"),
     ]
 
 
@@ -116,10 +116,10 @@ class OBD_PID67(OBD_Packet):
     name = "PID_67_EngineCoolantTemperature"
     fields_desc = [
         BitField('reserved', 0, 6),
-        BitField('Sensor2Supported', 0, 1),
-        BitField('Sensor1Supported', 0, 1),
-        ScalingField('Sensor1', 0, unit="deg. C", offset=-40.0),
-        ScalingField('Sensor2', 0, unit="deg. C", offset=-40.0)
+        BitField('sensor2_supported', 0, 1),
+        BitField('sensor1_supported', 0, 1),
+        ScalingField('sensor1', 0, unit="deg. C", offset=-40.0),
+        ScalingField('sensor2', 0, unit="deg. C", offset=-40.0)
     ]
 
 
@@ -127,18 +127,18 @@ class OBD_PID68(OBD_Packet):
     name = "PID_68_IntakeAirTemperatureSensor"
     fields_desc = [
         BitField('reserved', 0, 2),
-        BitField('Bank2Sensor3Supported', 0, 1),
-        BitField('Bank2Sensor2Supported', 0, 1),
-        BitField('Bank2Sensor1Supported', 0, 1),
-        BitField('Bank1Sensor3Supported', 0, 1),
-        BitField('Bank1Sensor2Supported', 0, 1),
-        BitField('Bank1Sensor1Supported', 0, 1),
-        ScalingField('Bank1Sensor1', 0, unit="deg. C", offset=-40),
-        ScalingField('Bank1Sensor2', 0, unit="deg. C", offset=-40),
-        ScalingField('Bank1Sensor3', 0, unit="deg. C", offset=-40),
-        ScalingField('Bank2Sensor1', 0, unit="deg. C", offset=-40),
-        ScalingField('Bank2Sensor2', 0, unit="deg. C", offset=-40),
-        ScalingField('Bank2Sensor3', 0, unit="deg. C", offset=-40)
+        BitField('bank2_sensor3_supported', 0, 1),
+        BitField('bank2_sensor2_supported', 0, 1),
+        BitField('bank2_sensor1_supported', 0, 1),
+        BitField('bank1_sensor3_supported', 0, 1),
+        BitField('bank1_sensor2_supported', 0, 1),
+        BitField('bank1_sensor1_supported', 0, 1),
+        ScalingField('bank1_sensor1', 0, unit="deg. C", offset=-40),
+        ScalingField('bank1_sensor2', 0, unit="deg. C", offset=-40),
+        ScalingField('bank1_sensor3', 0, unit="deg. C", offset=-40),
+        ScalingField('bank2_sensor1', 0, unit="deg. C", offset=-40),
+        ScalingField('bank2_sensor2', 0, unit="deg. C", offset=-40),
+        ScalingField('bank2_sensor3', 0, unit="deg. C", offset=-40)
     ]
 
 
@@ -146,23 +146,23 @@ class OBD_PID69(OBD_Packet):
     name = "PID_69_CommandedEgrAndEgrError"
     fields_desc = [
         BitField('reserved', 0, 2),
-        BitField('EGRBErrorSupported', 0, 1),
-        BitField('ActualEGRBDutyCycleSupported', 0, 1),
-        BitField('CommandedEGRBDutyCycleSupported', 0, 1),
-        BitField('EGRAErrorSupported', 0, 1),
-        BitField('ActualEGRADutyCycleSupported', 0, 1),
-        BitField('CommandedEGRADutyCycleSupported', 0, 1),
-        ScalingField('CommandedEGRADutyCycle', 0, scaling=100 / 255.,
+        BitField('egr_b_error_supported', 0, 1),
+        BitField('actual_egr_b_duty_cycle_supported', 0, 1),
+        BitField('commanded_egr_b_duty_cycle_supported', 0, 1),
+        BitField('egr_a_error_supported', 0, 1),
+        BitField('actual_egr_a_duty_cycle_supported', 0, 1),
+        BitField('commanded_egr_a_duty_cycle_supported', 0, 1),
+        ScalingField('commanded_egr_a_duty_cycle', 0, scaling=100 / 255.,
                      unit="%"),
-        ScalingField('ActualEGRADutyCycle', 0, scaling=100 / 255.,
+        ScalingField('actual_egr_a_duty_cycle', 0, scaling=100 / 255.,
                      unit="%"),
         ScalingField('EGRAError', 0, scaling=100 / 128., unit="%",
                      offset=-100),
-        ScalingField('CommandedEGRBDutyCycle', 0, scaling=100 / 255.,
+        ScalingField('commanded_egr_b_duty_cycle', 0, scaling=100 / 255.,
                      unit="%"),
-        ScalingField('ActualEGRBDutyCycle', 0, scaling=100 / 255.,
+        ScalingField('actual_egr_b_duty_cycle', 0, scaling=100 / 255.,
                      unit="%"),
-        ScalingField('EGRBError', 0, scaling=100 / 128., unit="%",
+        ScalingField('egr_b_error', 0, scaling=100 / 128., unit="%",
                      offset=-100),
     ]
 
@@ -176,7 +176,7 @@ class OBD_PID6A(OBD_Packet):
         BitField('commanded_intake_air_flow_b_control_supported', 0, 1),
         BitField('relative_intake_air_flow_a_position_supported', 0, 1),
         BitField('commanded_intake_air_flow_a_control_supported', 0, 1),
-        ScalingField('CommandedIntakeAirFlowAControl', 0,
+        ScalingField('commanded_intake_air_flow_a_control', 0,
                      scaling=100 / 255., unit="%"),
         ScalingField('relative_intake_air_flow_a_position', 0,
                      scaling=100 / 255., unit="%"),
@@ -191,14 +191,14 @@ class OBD_PID6B(OBD_Packet):
     name = "PID_6B_ExhaustGasRecirculationTemperature"
     fields_desc = [
         BitField('reserved', 0, 4),
-        BitField('bank_2_sensor_2_supported', 0, 1),
-        BitField('bank_2_sensor_1_supported', 0, 1),
-        BitField('bank_1_sensor_2_supported', 0, 1),
-        BitField('bank_1_sensor_1_supported', 0, 1),
-        ScalingField('bank_1_sensor_1', 0, unit="deg. C", offset=-40),
-        ScalingField('bank_1_sensor_2', 0, unit="deg. C", offset=-40),
-        ScalingField('bank_2_sensor_1', 0, unit="deg. C", offset=-40),
-        ScalingField('bank_2_sensor_2', 0, unit="deg. C", offset=-40),
+        BitField('bank2_sensor2_supported', 0, 1),
+        BitField('bank2_sensor1_supported', 0, 1),
+        BitField('bank1_sensor2_supported', 0, 1),
+        BitField('bank1_sensor1_supported', 0, 1),
+        ScalingField('bank1_sensor1', 0, unit="deg. C", offset=-40),
+        ScalingField('bank1_sensor2', 0, unit="deg. C", offset=-40),
+        ScalingField('bank2_sensor1', 0, unit="deg. C", offset=-40),
+        ScalingField('bank2_sensor2', 0, unit="deg. C", offset=-40),
     ]
 
 
@@ -321,10 +321,10 @@ class OBD_PID73(OBD_Packet):
     name = "PID_73_ExhaustPressure"
     fields_desc = [
         BitField('reserved', 0, 6),
-        BitField('sensor_bank_2_supported', 0, 1),
-        BitField('sensor_bank_1_supported', 0, 1),
-        ScalingField('sensor_bank_1', 0, scaling=0.01, unit="kPa", fmt='H'),
-        ScalingField('sensor_bank_2', 0, scaling=0.01, unit="kPa", fmt='H'),
+        BitField('sensor_bank2_supported', 0, 1),
+        BitField('sensor_bank1_supported', 0, 1),
+        ScalingField('sensor_bank1', 0, scaling=0.01, unit="kPa", fmt='H'),
+        ScalingField('sensor_bank2', 0, scaling=0.01, unit="kPa", fmt='H'),
     ]
 
 
@@ -385,31 +385,31 @@ class OBD_PID77(OBD_Packet):
     name = "PID_77_ChargeAirCoolerTemperature"
     fields_desc = [
         BitField('reserved', 0, 4),
-        BitField('bank_2_sensor_2_supported', 0, 1),
-        BitField('bank_2_sensor_1_supported', 0, 1),
-        BitField('bank_1_sensor_2_supported', 0, 1),
-        BitField('bank_1_sensor_1_supported', 0, 1),
-        ScalingField('bank_1_sensor_1', 0, unit="deg. C", offset=-40),
-        ScalingField('bank_1_sensor_2', 0, unit="deg. C", offset=-40),
-        ScalingField('bank_2_sensor_1', 0, unit="deg. C", offset=-40),
-        ScalingField('bank_2_sensor_2', 0, unit="deg. C", offset=-40),
+        BitField('bank2_sensor2_supported', 0, 1),
+        BitField('bank2_sensor1_supported', 0, 1),
+        BitField('bank1_sensor2_supported', 0, 1),
+        BitField('bank1_sensor1_supported', 0, 1),
+        ScalingField('bank1_sensor1', 0, unit="deg. C", offset=-40),
+        ScalingField('bank1_sensor2', 0, unit="deg. C", offset=-40),
+        ScalingField('bank2_sensor1', 0, unit="deg. C", offset=-40),
+        ScalingField('bank2_sensor2', 0, unit="deg. C", offset=-40),
     ]
 
 
 class _OBD_PID_ExhaustGasTemperatureBank(OBD_Packet):
     fields_desc = [
-        BitField('sensor_1_supported', 0, 1),
-        BitField('sensor_2_supported', 0, 1),
-        BitField('sensor_3_supported', 0, 1),
-        BitField('sensor_4_supported', 0, 1),
+        BitField('sensor1_supported', 0, 1),
+        BitField('sensor2_supported', 0, 1),
+        BitField('sensor3_supported', 0, 1),
+        BitField('sensor4_supported', 0, 1),
         BitField('reserved', 0, 4),
-        ScalingField('sensor_1', -40, unit="deg. C", offset=-40,
+        ScalingField('sensor1', -40, unit="deg. C", offset=-40,
                      scaling=0.1, fmt='H'),
-        ScalingField('sensor_2', -40, unit="deg. C", offset=-40,
+        ScalingField('sensor2', -40, unit="deg. C", offset=-40,
                      scaling=0.1, fmt='H'),
-        ScalingField('sensor_3', -40, unit="deg. C", offset=-40,
+        ScalingField('sensor3', -40, unit="deg. C", offset=-40,
                      scaling=0.1, fmt='H'),
-        ScalingField('sensor_4', -40, unit="deg. C", offset=-40,
+        ScalingField('sensor4', -40, unit="deg. C", offset=-40,
                      scaling=0.1, fmt='H'),
     ]
 
@@ -449,17 +449,17 @@ class OBD_PID7C(OBD_Packet):
     name = "PID_7C_DieselParticulateFilterTemperature"
     fields_desc = [
         BitField('reserved', 0, 4),
-        BitField('bank_2_outlet_temperature_supported', 0, 1),
-        BitField('bank_2_inlet_temperature_supported', 0, 1),
-        BitField('bank_1_outlet_temperature_supported', 0, 1),
-        BitField('bank_1_inlet_temperature_supported', 0, 1),
-        ScalingField('bank_1_inlet_temperature_sensor', 0,
+        BitField('bank2_outlet_temperature_supported', 0, 1),
+        BitField('bank2_inlet_temperature_supported', 0, 1),
+        BitField('bank1_outlet_temperature_supported', 0, 1),
+        BitField('bank1_inlet_temperature_supported', 0, 1),
+        ScalingField('bank1_inlet_temperature_sensor', 0,
                      unit="deg. C", offset=-40, scaling=0.1, fmt='H'),
-        ScalingField('bank_1_outlet_temperature_sensor', 0,
+        ScalingField('bank1_outlet_temperature_sensor', 0,
                      unit="deg. C", offset=-40, scaling=0.1, fmt='H'),
-        ScalingField('bank_2_inlet_temperature_sensor', 0,
+        ScalingField('bank2_inlet_temperature_sensor', 0,
                      unit="deg. C", offset=-40, scaling=0.1, fmt='H'),
-        ScalingField('bank_2_outlet_temperature_sensor', 0,
+        ScalingField('bank2_outlet_temperature_sensor', 0,
                      unit="deg. C", offset=-40, scaling=0.1, fmt='H'),
     ]
 

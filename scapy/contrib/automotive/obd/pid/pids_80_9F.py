@@ -14,7 +14,7 @@ from scapy.contrib.automotive.obd.packet import OBD_Packet
 class OBD_PID80(OBD_Packet):
     name = "PID_80_PIDsSupported"
     fields_desc = [
-        FlagsField('supportedPIDs', 0, 32, [
+        FlagsField('supported_pids', 0, 32, [
             'PIDA0',
             'PID9F',
             'PID9E',
@@ -55,20 +55,20 @@ class OBD_PID81(OBD_Packet):
     name = "PID_81_EngineRunTimeForAuxiliaryEmissionsControlDevice"
     fields_desc = [
         BitField('reserved', 0, 3),
-        BitField('total_run_time_with_EI-AECD_5_supported', 0, 1),
-        BitField('total_run_time_with_EI-AECD_4_supported', 0, 1),
-        BitField('total_run_time_with_EI-AECD_3_supported', 0, 1),
-        BitField('total_run_time_with_EI-AECD_2_supported', 0, 1),
-        BitField('total_run_time_with_EI-AECD_1_supported', 0, 1),
-        ScalingField('total_run_time_with_EI-AECD_1', 0, unit='sec',
+        BitField('total_run_time_with_ei_aecd5_supported', 0, 1),
+        BitField('total_run_time_with_ei_aecd4_supported', 0, 1),
+        BitField('total_run_time_with_ei_aecd3_supported', 0, 1),
+        BitField('total_run_time_with_ei_aecd2_supported', 0, 1),
+        BitField('total_run_time_with_ei_aecd1_supported', 0, 1),
+        ScalingField('total_run_time_with_ei_aecd1', 0, unit='sec',
                      fmt='Q'),
-        ScalingField('total_run_time_with_EI-AECD_2', 0, unit='sec',
+        ScalingField('total_run_time_with_ei_aecd2', 0, unit='sec',
                      fmt='Q'),
-        ScalingField('total_run_time_with_EI-AECD_3', 0, unit='sec',
+        ScalingField('total_run_time_with_ei_aecd3', 0, unit='sec',
                      fmt='Q'),
-        ScalingField('total_run_time_with_EI-AECD_4', 0, unit='sec',
+        ScalingField('total_run_time_with_ei_aecd4', 0, unit='sec',
                      fmt='Q'),
-        ScalingField('total_run_time_with_EI-AECD_5', 0, unit='sec',
+        ScalingField('total_run_time_with_ei_aecd5', 0, unit='sec',
                      fmt='Q'),
     ]
 
@@ -77,20 +77,20 @@ class OBD_PID82(OBD_Packet):
     name = "PID_82_EngineRunTimeForAuxiliaryEmissionsControlDevice"
     fields_desc = [
         BitField('reserved', 0, 3),
-        BitField('total_run_time_with_EI-AECD_10_supported', 0, 1),
-        BitField('total_run_time_with_EI-AECD_9_supported', 0, 1),
-        BitField('total_run_time_with_EI-AECD_8_supported', 0, 1),
-        BitField('total_run_time_with_EI-AECD_7_supported', 0, 1),
-        BitField('total_run_time_with_EI-AECD_6_supported', 0, 1),
-        ScalingField('total_run_time_with_EI-AECD_6', 0, unit='sec',
+        BitField('total_run_time_with_ei_aecd10_supported', 0, 1),
+        BitField('total_run_time_with_ei_aecd9_supported', 0, 1),
+        BitField('total_run_time_with_ei_aecd8_supported', 0, 1),
+        BitField('total_run_time_with_ei_aecd7_supported', 0, 1),
+        BitField('total_run_time_with_ei_aecd6_supported', 0, 1),
+        ScalingField('total_run_time_with_ei_aecd6', 0, unit='sec',
                      fmt='Q'),
-        ScalingField('total_run_time_with_EI-AECD_7', 0, unit='sec',
+        ScalingField('total_run_time_with_ei_aecd7', 0, unit='sec',
                      fmt='Q'),
-        ScalingField('total_run_time_with_EI-AECD_8', 0, unit='sec',
+        ScalingField('total_run_time_with_ei_aecd8', 0, unit='sec',
                      fmt='Q'),
-        ScalingField('total_run_time_with_EI-AECD_9', 0, unit='sec',
+        ScalingField('total_run_time_with_ei_aecd9', 0, unit='sec',
                      fmt='Q'),
-        ScalingField('total_run_time_with_EI-AECD_10', 0, unit='sec',
+        ScalingField('total_run_time_with_ei_aecd10', 0, unit='sec',
                      fmt='Q'),
     ]
 
@@ -99,11 +99,11 @@ class OBD_PID83(OBD_Packet):
     name = "PID_83_NOxSensor"
     fields_desc = [
         BitField('reserved', 0, 6),
-        BitField('NOx_sensor_concentration_bank_2_sensor_1_supported', 0, 1),
-        BitField('NOx_sensor_concentration_bank_1_sensor_1_supported', 0, 1),
-        ScalingField('NOx_sensor_concentration_bank_1_sensor_1', 0, unit='ppm',
+        BitField('nox_sensor_concentration_bank2_sensor1_supported', 0, 1),
+        BitField('nox_sensor_concentration_bank1_sensor1_supported', 0, 1),
+        ScalingField('nox_sensor_concentration_bank1_sensor1', 0, unit='ppm',
                      fmt='H'),
-        ScalingField('NOx_sensor_concentration_bank_2_sensor_1', 0, unit='ppm',
+        ScalingField('nox_sensor_concentration_bank2_sensor1', 0, unit='ppm',
                      fmt='H'),
     ]
 

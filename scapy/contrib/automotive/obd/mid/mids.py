@@ -321,37 +321,37 @@ class OBD_MIDXX(OBD_Packet):
 
 class OBD_MID00(OBD_Packet):
     fields_desc = [
-        FlagsField('supportedMIDs', b'', 32, _mid_flags(0x00)),
+        FlagsField('supported_mids', b'', 32, _mid_flags(0x00)),
     ]
 
 
 class OBD_MID20(OBD_Packet):
     fields_desc = [
-        FlagsField('supportedMIDs', b'', 32, _mid_flags(0x20)),
+        FlagsField('supported_mids', b'', 32, _mid_flags(0x20)),
     ]
 
 
 class OBD_MID40(OBD_Packet):
     fields_desc = [
-        FlagsField('supportedMIDs', b'', 32, _mid_flags(0x40)),
+        FlagsField('supported_mids', b'', 32, _mid_flags(0x40)),
     ]
 
 
 class OBD_MID60(OBD_Packet):
     fields_desc = [
-        FlagsField('supportedMIDs', b'', 32, _mid_flags(0x60)),
+        FlagsField('supported_mids', b'', 32, _mid_flags(0x60)),
     ]
 
 
 class OBD_MID80(OBD_Packet):
     fields_desc = [
-        FlagsField('supportedMIDs', b'', 32, _mid_flags(0x80)),
+        FlagsField('supported_mids', b'', 32, _mid_flags(0x80)),
     ]
 
 
 class OBD_MIDA0(OBD_Packet):
     fields_desc = [
-        FlagsField('supportedMIDs', b'', 32, _mid_flags(0xA0)),
+        FlagsField('supported_mids', b'', 32, _mid_flags(0xA0)),
     ]
 
 

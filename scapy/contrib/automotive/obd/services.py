@@ -42,8 +42,8 @@ class OBD_NR(Packet):
     }
 
     fields_desc = [
-        XByteField('requestServiceId', 0),
-        XByteEnumField('responseCode', 0, responses)
+        XByteField('request_service_id', 0),
+        XByteEnumField('response_code', 0, responses)
     ]
 
 
@@ -57,7 +57,7 @@ class OBD_S01(Packet):
 class OBD_S02_Req(OBD_Packet):
     fields_desc = [
         XByteField('pid', 0),
-        ByteField('frameNo', 0)
+        ByteField('frame_no', 0)
     ]
 
 
@@ -76,7 +76,7 @@ class OBD_S03_DTC(Packet):
     name = "S3_ResponseDTCs"
     fields_desc = [
         ByteField('count', 0),
-        PacketListField('DTCs', [], OBD_DTC, count_from=lambda pkt: pkt.count)
+        PacketListField('dtcs', [], OBD_DTC, count_from=lambda pkt: pkt.count)
     ]
 
 
@@ -103,7 +103,7 @@ class OBD_S07_DTC(Packet):
     name = "S7_ResponsePendingDTCs"
     fields_desc = [
         ByteField('count', 0),
-        PacketListField('DTCs', [], OBD_DTC, count_from=lambda pkt: pkt.count)
+        PacketListField('dtcs', [], OBD_DTC, count_from=lambda pkt: pkt.count)
     ]
 
 
@@ -136,5 +136,5 @@ class OBD_S0A_DTC(Packet):
     name = "S0A_ResponsePermanentDTCs"
     fields_desc = [
         ByteField('count', 0),
-        PacketListField('DTCs', [], OBD_DTC, count_from=lambda pkt: pkt.count)
+        PacketListField('dtcs', [], OBD_DTC, count_from=lambda pkt: pkt.count)
     ]

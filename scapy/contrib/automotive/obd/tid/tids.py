@@ -11,38 +11,38 @@ from scapy.contrib.automotive.obd.packet import OBD_Packet
 
 class _OBD_TID_Voltage(OBD_Packet):
     fields_desc = [
-        ScalingField('data_A', 0, 0.005, "V"),
-        ScalingField('data_B', 0, 0.005, "V"),
-        ScalingField('data_C', 0, 0.005, "V"),
-        ScalingField('data_D', 0, 0.005, "V"),
-        ScalingField('data_E', 0, 0.005, "V"),
+        ScalingField('data_a', 0, 0.005, "V"),
+        ScalingField('data_b', 0, 0.005, "V"),
+        ScalingField('data_c', 0, 0.005, "V"),
+        ScalingField('data_d', 0, 0.005, "V"),
+        ScalingField('data_e', 0, 0.005, "V"),
     ]
 
 
 class _OBD_TID_Time(OBD_Packet):
     fields_desc = [
-        ScalingField('data_A', 0, 0.004, "s"),
-        ScalingField('data_B', 0, 0.004, "s"),
-        ScalingField('data_C', 0, 0.004, "s"),
-        ScalingField('data_D', 0, 0.004, "s"),
-        ScalingField('data_E', 0, 0.004, "s"),
+        ScalingField('data_a', 0, 0.004, "s"),
+        ScalingField('data_b', 0, 0.004, "s"),
+        ScalingField('data_c', 0, 0.004, "s"),
+        ScalingField('data_d', 0, 0.004, "s"),
+        ScalingField('data_e', 0, 0.004, "s"),
     ]
 
 
 class _OBD_TID_Period(OBD_Packet):
     fields_desc = [
-        ScalingField('data_A', 0, 0.04, "s"),
-        ScalingField('data_B', 0, 0.04, "s"),
-        ScalingField('data_C', 0, 0.04, "s"),
-        ScalingField('data_D', 0, 0.04, "s"),
-        ScalingField('data_E', 0, 0.04, "s"),
+        ScalingField('data_a', 0, 0.04, "s"),
+        ScalingField('data_b', 0, 0.04, "s"),
+        ScalingField('data_c', 0, 0.04, "s"),
+        ScalingField('data_d', 0, 0.04, "s"),
+        ScalingField('data_e', 0, 0.04, "s"),
     ]
 
 
 class OBD_TID00(OBD_Packet):
     name = "TID_00_Service8SupportedTestIdentifiers"
     fields_desc = [
-        FlagsField('supportedTIDs', b'', 32, [
+        FlagsField('supported_tids', b'', 32, [
             'TID20',
             'TID1F',
             'TID1E',

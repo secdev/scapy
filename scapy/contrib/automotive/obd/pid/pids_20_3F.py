@@ -15,7 +15,7 @@ from scapy.contrib.automotive.obd.packet import OBD_Packet
 class OBD_PID20(OBD_Packet):
     name = "PID_20_PIDsSupported"
     fields_desc = [
-        FlagsField('supportedPIDs', 0, 32, [
+        FlagsField('supported_pids', 0, 32, [
             'PID40',
             'PID3F',
             'PID3E',
@@ -75,7 +75,7 @@ class OBD_PID23(OBD_Packet):
 
 class _OBD_PID24_2B(OBD_Packet):
     fields_desc = [
-        ScalingField('equivalenceRatio', 0, scaling=0.0000305, fmt="H"),
+        ScalingField('equivalence_ratio', 0, scaling=0.0000305, fmt="H"),
         ScalingField('voltage', 0, scaling=0.000122, unit="V", fmt="H")
     ]
 
@@ -171,7 +171,7 @@ class OBD_PID33(OBD_Packet):
 
 class _OBD_PID34_3B(OBD_Packet):
     fields_desc = [
-        ScalingField('equivalenceRatio', 0, scaling=0.0000305, fmt="H"),
+        ScalingField('equivalence_ratio', 0, scaling=0.0000305, fmt="H"),
         ScalingField('current', 0, scaling=0.00390625, unit="mA", fmt="H")
     ]
 
