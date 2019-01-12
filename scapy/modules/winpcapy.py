@@ -21,8 +21,6 @@ from scapy.consts import WINDOWS
 
 HAVE_REMOTE=False
 
-# Notes: Npcap, DLL and Windows
-
 if WINDOWS:
     HAVE_REMOTE=True
     SOCKET = c_uint
@@ -86,7 +84,7 @@ timeval._fields_ = [('tv_sec', c_long),
 if WINDOWS:
     class sockaddr(Structure):
         _fields_ = [("sa_family", c_ushort),
-                    ("sa_data",c_ubyte * 14)]
+                    ("sa_data", c_ubyte * 14)]
 
     class sockaddr_in(Structure):
         _fields_ = [("sin_family", c_ushort),

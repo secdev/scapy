@@ -567,14 +567,14 @@ def pcap_service_stop(askadmin=True):
 class NetworkInterfaceDict(UserDict):
     """Store information about network interfaces and convert between names"""
 
-    def load_from_powershell(self):
+    def load(self):
         if not conf.prog.os_access:
             return
         for i in get_windows_if_list():
             try:
                 interface = NetworkInterface(i)
                 self.data[interface.guid] = interface
-            except (KeyError):
+            except KeyError:
                 pass
 
         if not self.data and conf.use_winpcapy:
@@ -598,7 +598,7 @@ class NetworkInterfaceDict(UserDict):
                     self.restarted_adapter = True
                     if succeed:
                         log_loading.info("Pcap service started !")
-                        self.load_from_powershell()
+                        self.load()
                         return
                 _error_msg = "Could not start the pcap service ! "
             warning(_error_msg +
@@ -613,6 +613,24 @@ class NetworkInterfaceDict(UserDict):
                 )
             except ValueError:
                 pass
+        # Support non-windows cards (e.g. Napatech)
+        for name, if_data in six.iteritems(conf.cache_iflist):
+            guid, ips = if_data
+            guid = guid.upper().replace("\\DEVICE\\NPF_", "")
+            if guid not in self.data:
+                dummy_data = {
+                    'name': name,
+                    'description': "[Unknown] %s" % name,
+                    'win_index': -1,
+                    'guid': guid,
+                    'invalid': False,
+                    'mac': '00:00:00:00:00:00',
+                    'ipv4_metric': 0,
+                    'ipv6_metric': 0,
+                    'ips': ips
+                }
+                # No KeyError will happen here, as we get it from cache
+                self.data[guid] = NetworkInterface(dummy_data)
 
     def dev_from_name(self, name):
         """Return the first pcap device name for a given Windows
@@ -653,7 +671,7 @@ class NetworkInterfaceDict(UserDict):
             # Reload from Winpcapy
             from scapy.arch.pcapdnet import load_winpcapy
             load_winpcapy()
-        self.load_from_powershell()
+        self.load()
 
     def show(self, resolve_mac=True, print_result=True):
         """Print list of available network interfaces in human readable form"""
@@ -677,7 +695,7 @@ class NetworkInterfaceDict(UserDict):
 
 
 IFACES = ifaces = NetworkInterfaceDict()
-IFACES.load_from_powershell()
+IFACES.load()
 
 
 def pcapname(dev):

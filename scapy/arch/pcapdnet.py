@@ -9,9 +9,9 @@ Packet sending and receiving with libdnet and libpcap/WinPcap.
 
 import os
 import platform
+import socket
 import struct
 import time
-from ctypes import c_ubyte
 
 from scapy.automaton import SelectableObject
 from scapy.arch.common import _select_nonblock, TimeoutElapsed
@@ -19,6 +19,7 @@ from scapy.compat import raw, plain_str, chb
 from scapy.config import conf
 from scapy.consts import WINDOWS
 from scapy.data import MTU, ETH_P_ALL, ARPHDR_ETHER, ARPHDR_LOOPBACK
+from scapy.pton_ntop import inet_ntop
 from scapy.utils import mac2str
 from scapy.supersocket import SuperSocket
 from scapy.error import Scapy_Exception, log_loading, warning
@@ -81,12 +82,14 @@ class _L2pcapdnetSocket(SuperSocket, SelectableObject):
 ###################
 
 if conf.use_winpcapy:
+    from ctypes import POINTER, byref, create_string_buffer, c_ubyte, cast
+
     NPCAP_PATH = os.environ["WINDIR"] + "\\System32\\Npcap"
     # Part of the Winpcapy integration was inspired by phaethon/scapy
     # but he destroyed the commit history, so there is no link to that
     try:
         from scapy.modules.winpcapy import PCAP_ERRBUF_SIZE, pcap_if_t, \
-            pcap_findalldevs, pcap_freealldevs, \
+            sockaddr_in, sockaddr_in6, pcap_findalldevs, pcap_freealldevs, \
             pcap_lib_version, pcap_create, pcap_close, pcap_set_snaplen, \
             pcap_set_promisc, pcap_set_timeout, pcap_set_rfmon, \
             pcap_activate, pcap_open_live, pcap_setmintocopy, pcap_pkthdr, \
@@ -103,14 +106,37 @@ if conf.use_winpcapy:
             """
             err = create_string_buffer(PCAP_ERRBUF_SIZE)
             devs = POINTER(pcap_if_t)()
-            if_list = []
+            if_list = {}
             if pcap_findalldevs(byref(devs), err) < 0:
                 return
             try:
                 p = devs
                 # Iterate through the different interfaces
                 while p:
-                    if_list.append(plain_str(p.contents.name))
+                    name = plain_str(p.contents.name)  # GUID
+                    description = plain_str(p.contents.description)  # NAME
+                    ips = []
+                    a = p.contents.addresses
+                    while a:
+                        # IPv4 address
+                        family = a.contents.addr.contents.sa_family
+                        ap = a.contents.addr
+                        if family == socket.AF_INET:
+                            val = cast(ap, POINTER(sockaddr_in))
+                            val = val.contents.sin_addr[:]
+                        elif family == socket.AF_INET6:
+                            val = cast(ap, POINTER(sockaddr_in6))
+                            val = val.contents.sin6_addr[:]
+                        else:
+                            # Unknown address family
+                            # (AF_LINK isn't a thing on Windows)
+                            a = a.contents.next
+                            continue
+                        addr = inet_ntop(family, bytes(bytearray(val)))
+                        if addr != "0.0.0.0":
+                            ips.append(addr)
+                        a = a.contents.next
+                    if_list[description] = (name, ips)
                     p = p.contents.next
                 conf.cache_iflist = if_list
             except Exception:
@@ -123,9 +149,9 @@ if conf.use_winpcapy:
             if os.path.exists(NPCAP_PATH + "\\wpcap.dll"):
                 warning("Winpcap is installed over Npcap. "
                         "Will use Winpcap (see 'Winpcap/Npcap conflicts' "
-                        "in scapy's docs)")
+                        "in Scapy's docs)")
             elif platform.release() != "XP":
-                warning("WinPcap is now deprecated (not maintened). "
+                warning("WinPcap is now deprecated (not maintained). "
                         "Please use Npcap instead")
         elif b"npcap" in version.lower():
             conf.use_npcap = True
@@ -135,18 +161,16 @@ if conf.use_winpcapy:
         if conf.interactive:
             log_loading.warning("wpcap.dll is not installed. "
                                 "Restricted mode enabled ! "
-                                "Visit the scapy's doc to install it")
+                                "Visit the Scapy's doc to install it")
 
     if conf.use_winpcapy:
         def get_if_list():
             """Returns all pcap names"""
             if not conf.cache_iflist:
                 load_winpcapy()
-            return conf.cache_iflist
+            return [x[0] for x in conf.cache_iflist.values()]
     else:
-        get_if_list = lambda: []
-
-    from ctypes import POINTER, byref, create_string_buffer
+        get_if_list = lambda: {}
 
     class _PcapWrapper_winpcap:  # noqa: F811
         """Wrapper for the WinPcap calls"""
@@ -220,7 +244,7 @@ if conf.use_winpcapy:
     open_pcap = lambda *args, **kargs: _PcapWrapper_winpcap(*args, **kargs)
 else:
     NPCAP_PATH = ""
-    get_if_list = lambda: []
+    get_if_list = lambda: {}
 
 ################
 #  PCAP/PCAPY  #
@@ -539,7 +563,7 @@ if conf.use_dnet:
 
             def get_if_list():
                 "dummy"
-                return []
+                return {}
         else:
             raise
     else:
@@ -581,7 +605,9 @@ if conf.use_dnet:
                 return b"\0\0\0\0"
 
         def get_if_list():
-            return [i.get("name", None) for i in dnet.intf()]
+            """Returns all dnet names"""
+            return {i.get("description", None): i.get("name", None)
+                    for i in dnet.intf()}
 
         def get_working_if():
             """Returns the first interface than can be used with dnet"""
