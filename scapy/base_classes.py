@@ -315,7 +315,7 @@ class _CanvasDumpExtended(object):
         from scapy.utils import get_temp_file, ContextManagerSubprocess
         canvas = self.canvas_dump(**kargs)
         if filename is None:
-            fname = get_temp_file(autoext=".eps")
+            fname = get_temp_file(autoext=kargs.get("suffix", ".eps"))
             canvas.writeEPSfile(fname)
             if WINDOWS and conf.prog.psreader is None:
                 os.startfile(fname)
@@ -339,7 +339,7 @@ class _CanvasDumpExtended(object):
         from scapy.utils import get_temp_file, ContextManagerSubprocess
         canvas = self.canvas_dump(**kargs)
         if filename is None:
-            fname = get_temp_file(autoext=".pdf")
+            fname = get_temp_file(autoext=kargs.get("suffix", ".pdf"))
             canvas.writePDFfile(fname)
             if WINDOWS and conf.prog.pdfreader is None:
                 os.startfile(fname)
@@ -364,7 +364,7 @@ class _CanvasDumpExtended(object):
         from scapy.utils import get_temp_file, ContextManagerSubprocess
         canvas = self.canvas_dump(**kargs)
         if filename is None:
-            fname = get_temp_file(autoext=".svg")
+            fname = get_temp_file(autoext=kargs.get("suffix", ".svg"))
             canvas.writeSVGfile(fname)
             if WINDOWS and conf.prog.svgreader is None:
                 os.startfile(fname)
