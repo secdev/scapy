@@ -72,6 +72,15 @@ class VXLAN(Packet):
         else:
             return self.sprintf("VXLAN (vni=%VXLAN.vni%)")
 
+    def guess_payload_class(self, payload):
+        if self.underlayer is not None and \
+                isinstance(self.underlayer, UDP) and \
+                self.underlayer.dport == 250 and \
+                self.flags == 8:
+            return IP
+
+        return Packet.guess_payload_class(self, payload)
+
 
 bind_layers(UDP, VXLAN, dport=4789)  # RFC standard vxlan port
 bind_layers(UDP, VXLAN, dport=4790)  # RFC standard vxlan-gpe port
@@ -94,3 +103,4 @@ bind_layers(VXLAN, Ether, flags=4, NextProtocol=0)
 bind_layers(VXLAN, IP, flags=4, NextProtocol=1)
 bind_layers(VXLAN, IPv6, flags=4, NextProtocol=2)
 bind_layers(VXLAN, Ether, flags=4, NextProtocol=3)
+bind_layers(VXLAN, Ether)
