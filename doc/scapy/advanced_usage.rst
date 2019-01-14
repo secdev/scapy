@@ -1829,77 +1829,73 @@ Stack it and send it::
 OBD message
 -------------
 
-Structure of an OBD packet::
+OBD is implemented on top of ISOTP. Use an ISOTPSocket for the communication with a ECU. 
+You should set the parameter `basecls=OBD` in your ISOTPSocket init call. 
 
-   | SID | PID | data |
+OBD is split into different service groups. Here are some example requests:
 
-The Service ID is the only field which is always present.
-The Parameter ID exists if one service contains multiple actions.
-Only responses contain data.
+Request supported PIDs of service 0x01::
 
-The OBD protocol sits on top of the ISOTP protocol. Thus, an ``ISOTPSocket`` is required.
+   req = OBD()/OBD_S01(pid=[0x00])
 
-Create a request::
+The response will contain a PacketListField, called `data_records`. This field contains the actual response::
 
-   # Create the socket. Padding has to be True for OBD
-   socket = ISOTPSocket('can0', 0x7DF, 0x7E8, basecls=OBD, padding=True)
-   # Create a request for the fuel type
-   req = OBD()/Service01(pid=0x51)
-   # Send request and wait for response
-   res = socket.sr1(req)
+   resp = OBD(service=65)/OBD_S01_PID(data_records=[OBD_S01_PID_Record(pid=0)/OBD_PID00(supported_pids=3196041235)])
+   resp.show()
+   ###[ On-board diagnostics ]### 
+     service= CurrentPowertrainDiagnosticDataResponse
+   ###[ Parameter IDs ]### 
+        \data_records\
+         |###[ OBD_S01_PID_Record ]### 
+         |  pid= 0x0
+         |###[ PID_00_PIDsSupported ]### 
+         |     supported_pids= PID20+PID1F+PID1C+PID15+PID14+PID13+PID11+PID10+PID0F+PID0E+PID0D+PID0C+PID0B+PID0A+PID07+PID06+PID05+PID04+PID03+PID01
 
-The output of `resp.show()` might be::
-
-   ###[ On-board diagnostics ]###
-     service   = CurrentDataResponse
-   ###[ S1_CurrentData ]###
-        pid       = 0x51
-   ###[ PID_51_FuelType ]###
-        data      = '\x01'
-
-The value ``\x01`` indicates that the vehicle has a gasoline engine.
-See https://en.wikipedia.org/wiki/OBD-II_PIDs#Fuel_Type_Coding for more values.
-
-Create a response::
-
-   res = OBD()/Service01()/Pid51_S1AndS2(data=b'\x01')
-
-This would create the response from the former example.
-Sending responses makes sense if you want to create an ECU simulator.
-
-Note the difference between creating requests and responses::
-
-   req = OBD()/Service01(pid=0x51)
-   res = OBD()/Service01()/Pid51_S1AndS2(data=b'\x01')
-
-For a request, you do not add a `Pidxx` layer since the request does not contain any data,
-but only the Service ID and Parameter ID.
-Thus, we set the pid explicitly with an argument.
-
-Note that some Services do not have a a PID. Those are creatable in two ways.
-For example, `Service03` which requests Diagnostic Trouble Codes::
-
-   req = OBD()/Service03()
-   req = OBD(service=0x03)
-
-The difference is that the first one contains the `data` field, but it is empty by default.
-The second one doesn't even contain this field.
-If you do not modify `data` in the first solution, they create exactly the same bytes.
+Lets assume our ECU under test supports the pid 0x15::
+   
+   req = OBD()/OBD_S01(pid=[0x15])
+   resp = sock.sr1(req)
+   resp.show()
+   ###[ On-board diagnostics ]### 
+     service= CurrentPowertrainDiagnosticDataResponse
+   ###[ Parameter IDs ]### 
+        \data_records\
+         |###[ OBD_S01_PID_Record ]### 
+         |  pid= 0x15
+         |###[ PID_15_OxygenSensor2 ]### 
+         |     outputVoltage= 1.275 V
+         |     trim= 0 %
 
 
-Naming Convention for Services::
+The different services in OBD support different kind of data. 
+Service 01 and Service 02 support Parameter Identifiers (pid).
+Service 03, 07 und 0A support Diagnostic Trouble codes (dtc).
+Service 04 doesn't require a payload.
+Service 05 is not implemented on OBD over CAN.
+Service 06 support Monitoring Identifiers (mid).
+Service 08 support Test Identifiers (tid).
+Service 09 support Information Identifiers (iid).
 
-   Service<ID>
+Examples:
 
-Examples: Service01, Service03, Service0A
+Request supported Information Identifiers::
 
-Naming Convention for PIDs::
+   req = OBD()/OBD_S09(iid=0x00)
 
-   Pid<ID>_<AvailableInServices>
+Request the Vehicle Identification Number (VIN)::
 
-Examples: Pid07_S1AndS2, PidA5_S1AndS2, Pid02_S9
+   req = OBD()/OBD_S09(iid=0x02)
+   resp = sock.sr1(req)
+   resp.show()
+   ###[ On-board diagnostics ]### 
+     service= VehicleInformationResponse
+   ###[ S9_VehicleInformationPositiveResponse ]### 
+        iid= 0x2
+   ###[ IID_02_VehicleIdentificationNumber ]### 
+           count= 1
+           vehicle_identification_numbers= ['W0L000051T2123456']
 
-
+   
 
 
 Test-Setup on a BeagleBone Black
