@@ -1902,8 +1902,8 @@ Examples: Pid07_S1AndS2, PidA5_S1AndS2, Pid02_S9
 
 
 
-Setup
------
+Test-Setup on a BeagleBone Black
+--------------------------------
 
 Hardware Setup
 ^^^^^^^^^^^^^^
