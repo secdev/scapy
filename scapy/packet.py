@@ -1359,6 +1359,12 @@ A side effect is that, to obtain "{" and "}" characters, you must use
             c += "/" + pc
         return c
 
+    def nextlayer(self):
+        pkt = self
+        yield pkt
+        while pkt.payload:
+            pkt = pkt.payload
+            yield pkt
 
 class NoPayload(Packet):
     def __new__(cls, *args, **kargs):
