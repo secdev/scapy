@@ -33,8 +33,8 @@ class IssueATACommand(Packet):
                    StrLenField("data", "",
                                length_from=lambda x: x.sector_count * 512)]
 
-    def extract_padding(self, p):
-        return "", p
+    def extract_padding(self, s):
+        return "", s
 
 
 class QueryConfigInformation(Packet):
@@ -52,8 +52,8 @@ class QueryConfigInformation(Packet):
                    StrLenField("config", None,
                                length_from=lambda x: x.config_length)]
 
-    def extract_padding(self, p):
-        return "", p
+    def extract_padding(self, s):
+        return "", s
 
 
 class Directive(Packet):
@@ -79,8 +79,8 @@ class MacMaskList(Packet):
                    PacketListField("directives", None, Directive,
                                    count_from=lambda pkt: pkt.dir_count)]
 
-    def extract_padding(self, p):
-        return "", p
+    def extract_padding(self, s):
+        return "", s
 
 
 class ReserveRelease(Packet):
@@ -92,8 +92,8 @@ class ReserveRelease(Packet):
                    FieldListField("mac_addrs", None, MACField("", ETHER_ANY),
                                   count_from=lambda pkt: pkt.nb_mac)]
 
-    def extract_padding(self, p):
-        return "", p
+    def extract_padding(self, s):
+        return "", s
 
 
 class AOE(Packet):
@@ -128,8 +128,8 @@ class AOE(Packet):
                                                 ReserveRelease),
                                     lambda x: x.cmd == 3)]
 
-    def extract_padding(self, p):
-        return "", p
+    def extract_padding(self, s):
+        return "", s
 
 
 bind_layers(Ether, AOE, type=0x88A2)
