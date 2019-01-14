@@ -80,7 +80,8 @@ IP / TCP 192.30.253.113:http > 192.168.46.10:ftp_data SA / Padding
 ### Resources
 
 To begin with Scapy, you should check [the notebook
-hands-on](doc/notebooks/Scapy%20in%2015%20minutes.ipynb) and the [interactive
+hands-on](https://github.com/secdev/scapy/blob/master/doc/notebooks/Scapy%20in%2015%20minutes.ipynb)
+and the [interactive
 tutorial](http://scapy.readthedocs.io/en/latest/usage.html#interactive-tutorial).
 If you want to learn more, see [the quick demo: an interactive
 session](http://scapy.readthedocs.io/en/latest/introduction.html#quick-demo)
