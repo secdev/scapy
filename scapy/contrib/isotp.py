@@ -1030,7 +1030,8 @@ class ISOTPSocketImplementation:
         """Process a received 'Single Frame' frame"""
         self.rx_timer.cancel()
         if self.rx_state != ISOTP_IDLE:
-            ex = Scapy_Exception("RX state was reset because single frame was received")
+            ex = Scapy_Exception("RX state was reset because single frame "
+                                 "was received")
             self.rx_state = ISOTP_IDLE
             if self.rx_callback:
                 self.rx_callback(ex)
@@ -1050,7 +1051,8 @@ class ISOTPSocketImplementation:
         """Process a received 'First Frame' frame"""
         self.rx_timer.cancel()
         if self.rx_state != ISOTP_IDLE:
-            ex = Scapy_Exception("RX state was reset because first frame was received")
+            ex = Scapy_Exception("RX state was reset because first frame was "
+                                 "received")
             self.rx_state = ISOTP_IDLE
             if self.rx_callback:
                 self.rx_callback(ex)
@@ -1116,8 +1118,8 @@ class ISOTPSocketImplementation:
 
         if six.indexbytes(data, 0) & 0x0f != self.rx_sn:
             # Wrong sequence number
-            ex = Scapy_Exception("RX state was reset because wrong sequence number was "
-                    "received")
+            ex = Scapy_Exception("RX state was reset because wrong sequence "
+                                 "number was received")
             self.rx_state = ISOTP_IDLE
             if self.rx_callback:
                 self.rx_callback(ex)
