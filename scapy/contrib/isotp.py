@@ -637,10 +637,17 @@ class ISOTPSoftSocket(SuperSocket):
         """This function is called during sendrecv() routine to select
         the available sockets.
         """
+        if len(sockets) == 1:
+            return sockets, None
+
         ready = []
         for s in sockets:
             if len(s.ins.rx_messages) > 0:
                 ready.append(s)
+
+        if len(ready) == 0:
+            return sockets, None
+
         return ready, None
 
 
