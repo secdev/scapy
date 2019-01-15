@@ -44,13 +44,13 @@ class ENET(Packet):
     def extract_padding(self, s):
         return s[:self.length - 2], s[self.length - 2:]
 
-    def post_build(self, p, pay):
+    def post_build(self, pkt, pay):
         """
         This will set the LenField 'length' to the correct value.
         """
         if self.length is None:
-            p = struct.pack("!I", len(pay) + 2) + p[4:]
-        return p + pay
+            pkt = struct.pack("!I", len(pay) + 2) + pkt[4:]
+        return pkt + pay
 
 
 bind_bottom_up(TCP, ENET, sport=6801)
