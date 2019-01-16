@@ -398,7 +398,8 @@ class NetflowRecordV9(Packet):
 class NetflowDataflowsetV9(Packet):
     name = "Netflow DataFlowSet V9"
     fields_desc = [ShortField("templateID", 255),
-                   FieldLenField("length", None, length_of="records", adjust=lambda pkt, x:x + 4),  # noqa: E501
+                   FieldLenField("length", None, length_of="records",
+                       adjust=lambda pkt, x: x + 4 + (-x % 4)),
                    PadField(PacketListField("records", [], NetflowRecordV9,
                                             length_from=lambda pkt: pkt.length - 4),  # noqa: E501
                             4, padwith=b"\x00")]
