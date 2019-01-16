@@ -41,13 +41,13 @@ if six.PY2:
     def raw(x):
         """Builds a packet and returns its bytes representation.
         This function is and always be cross-version compatible"""
+        if hasattr(x, "__bytes__"):
+            return x.__bytes__()
         return bytes(x)
 else:
     def raw(x):
         """Builds a packet and returns its bytes representation.
         This function is and always be cross-version compatible"""
-        if hasattr(x, "__bytes__"):
-            return x.__bytes__()
         return bytes(x)
 
     def bytes_encode(x):
