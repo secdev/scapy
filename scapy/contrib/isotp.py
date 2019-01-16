@@ -832,8 +832,8 @@ class ISOTPSocketImplementation:
                 self._busy_sem.release()
                 thread.join()
                 if not self._ready_sem.acquire(False):
-                    warning("ISOTP Timer thread may not have stopped correctly")
-
+                    warning("ISOTP Timer thread may not have stopped "
+                            "correctly")
 
     def __init__(self,
                  sendfunc,
@@ -844,9 +844,12 @@ class ISOTPSocketImplementation:
                  rx_block_size=0,
                  rx_separation_time_min=0):
         """
-
         :param sendfunc: Function that will be called whenever this object
                 decides that a CAN frame should be sent.
+        :param tx_timer: An ISOTPSocketImplementation.Timer object to be used
+                for the TX state machine
+        :param rx_timer: An ISOTPSocketImplementation.Timer object to be used
+                for the RX state machine
         :param extended_addr: Extended Address byte to be added at the
                 beginning of every CAN frame _sent_ by this object. Can be None
                 in order to disable extended addressing on sent frames.
@@ -928,7 +931,8 @@ class ISOTPSocketImplementation:
                 # we did not get any flow control frame in time
                 # reset tx state
                 self.tx_state = ISOTP_IDLE
-                self.tx_exception = Scapy_Exception("TX state was reset due to timeout")
+                self.tx_exception = Scapy_Exception("TX state was reset due "
+                                                    "to timeout")
                 self.tx_done.set()
                 raise self.tx_exception
             elif self.tx_state == ISOTP_SENDING:
@@ -963,7 +967,8 @@ class ISOTPSocketImplementation:
                     if self.tx_gap == 0:
                         continue
                     else:
-                        self.tx_timer.start(self.tx_gap, self._tx_timer_handler)
+                        self.tx_timer.start(self.tx_gap,
+                                            self._tx_timer_handler)
 
     def on_recv(self, cf):
         """Function that must be called every time a CAN frame is received, to
@@ -1007,7 +1012,8 @@ class ISOTPSocketImplementation:
 
         if len(data) < 3:
             self.tx_state = ISOTP_IDLE
-            self.tx_exception = Scapy_Exception("CF frame discarded because it was too short")
+            self.tx_exception = Scapy_Exception("CF frame discarded because "
+                                                "it was too short")
             self.tx_done.set()
             raise self.tx_exception
 
@@ -1044,7 +1050,8 @@ class ISOTPSocketImplementation:
         elif isotp_fc == ISOTP_FC_OVFLW:
             # overflow in receiver side
             self.tx_state = ISOTP_IDLE
-            self.tx_exception = Scapy_Exception("Overflow happened at the receiver side")
+            self.tx_exception = Scapy_Exception("Overflow happened at the "
+                                                "receiver side")
             self.tx_done.set()
             raise self.tx_exception
         else:
