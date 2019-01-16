@@ -23,6 +23,9 @@ class FakeModule(object):
 class FakeModule2(object):
     __version__ = "5.143.3.12"
 
+class FakeModule3(object):
+    __version__ = "v2.4.2.dev42"
+
 from scapy.config import _version_checker
 
 assert _version_checker(FakeModule, (1,11,5))
@@ -30,6 +33,8 @@ assert not _version_checker(FakeModule, (1,13))
 
 assert _version_checker(FakeModule2, (5, 1))
 assert not _version_checker(FakeModule2, (5, 143, 4))
+
+assert _version_checker(FakeModule3, (2, 4, 2))
 
 = List layers
 ~ conf command
