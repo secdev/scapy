@@ -715,6 +715,7 @@ assert(cans.rcvd_queue.empty())
 
 data = dhex("01 02 03 04 05")*4000
 cans = MockCANSocket()
+
 with ISOTPSoftSocket(cans, sid=0x641, did=0x241) as s:
     ready = threading.Event()
     exception = None
@@ -748,55 +749,79 @@ assert(msg.data == data)
 assert(cans.sent_queue.empty())
 assert(cans.rcvd_queue.empty())
 
-### = 20000 bytes send
-###
-### data = dhex("01 02 03 04 05")*4000
-### sent = []
-### impl = ISOTPSocketImplementation(sent.append)
-### impl.begin_send(data)
-### impl.on_recv(CAN(identifier=0x241, data=dhex("30 00 00")))
-### list_wait(sent, 2858)
-### can_frames = list(map(lambda x: CAN(data=x), sent))
-### defragmented = ISOTP.defragment(can_frames, False)
-### assert(defragmented.data == data)
-###
-###
-### = Create and close ISOTP soft socket
-### with ISOTPSocket(MockCANSocket(), sid=0x641, did=0x241) as s:
-###     assert(s.rx_thread.isAlive())
-###     s.close()
-###     s.rx_thread.join(1)
-###     assert(not s.rx_thread.isAlive())
-###
-###
-### = Test on_recv function with single frame
-### with ISOTPSocket(MockCANSocket(), sid=0x641, did=0x241) as s:
-###     s.ins.on_recv(CAN(identifier=0x241, data=dhex("05 01 02 03 04 05")))
-###     msg = s.ins.rx_messages.pop()
-###     assert(msg == dhex("01 02 03 04 05"))
-###
-###
-### = Test on_recv function with empty frame
-### with ISOTPSocket(MockCANSocket(), sid=0x641, did=0x241) as s:
-###     s.ins.on_recv(CAN(identifier=0x241, data=b""))
-###     assert(len(s.ins.rx_messages) == 0)
-###
-###
-### = Test on_recv function with single frame and extended addressing
-### with ISOTPSocket(MockCANSocket(), sid=0x641, did=0x241, extended_rx_addr=0xea) as s:
-###     s.ins.on_recv(CAN(identifier=0x241, data=dhex("EA 05 01 02 03 04 05")))
-###     msg = s.ins.rx_messages.pop()
-###     assert(msg == dhex("01 02 03 04 05"))
-###
-###
-### = CF is sent when first frame is received
-### cans = MockCANSocket()
-### with ISOTPSocket(cans, sid=0x641, did=0x241) as s:
-###     s.ins.on_recv(CAN(identifier=0x241, data=dhex("10 20 01 02 03 04 05 06")))
-###     can = cans.sent_queue.pop(0)
-###     assert(can.identifier == 0x641)
-###     assert(can.data == dhex("30 00 00"))
-###
+cans = MockCANSocket()
+with ISOTPSoftSocket(cans, sid=0x641, did=0x241) as s:
+    s.send(ISOTP(dhex("01 02 03 04 05")))
+
+
+= 20000 bytes send
+
+data = dhex("01 02 03 04 05")*4000
+cans = MockCANSocket()
+msg = ISOTP(data, dst=0x641)
+succ = threading.Event()
+ready = threading.Event()
+fragments = msg.fragment()
+ack = CAN(identifier=0x241, data=dhex("30 00 00"))
+
+def acker():
+    ready.set()
+    ff = cans.sent_queue.get(True, 2)
+    assert(ff == fragments[0])
+    cans.rcvd_queue.put(ack)
+    for fragment in fragments[1:]:
+        cf = cans.sent_queue.get(True, 2)
+        assert(fragment == cf)
+    succ.set()
+
+thread = threading.Thread(target=acker, name="acker")
+thread.start()
+ready.wait()
+
+with ISOTPSoftSocket(cans, sid=0x641, did=0x241) as s:
+    s.send(msg)
+
+thread.join()
+succ.wait(2)
+assert(succ.is_set())
+
+
+= Create and close ISOTP soft socket
+with ISOTPSocket(MockCANSocket(), sid=0x641, did=0x241) as s:
+    assert(s.rx_thread.isAlive())
+    s.close()
+    s.rx_thread.join(5)
+    assert(not s.rx_thread.isAlive())
+
+
+= Test on_recv function with single frame
+with ISOTPSocket(MockCANSocket(), sid=0x641, did=0x241) as s:
+    s.ins.on_recv(CAN(identifier=0x241, data=dhex("05 01 02 03 04 05")))
+    msg = s.ins.rx_queue.get(True, 1)
+    assert(msg == dhex("01 02 03 04 05"))
+
+
+= Test on_recv function with empty frame
+with ISOTPSocket(MockCANSocket(), sid=0x641, did=0x241) as s:
+    s.ins.on_recv(CAN(identifier=0x241, data=b""))
+    assert(s.ins.rx_queue.empty())
+
+
+= Test on_recv function with single frame and extended addressing
+with ISOTPSocket(MockCANSocket(), sid=0x641, did=0x241, extended_rx_addr=0xea) as s:
+    s.ins.on_recv(CAN(identifier=0x241, data=dhex("EA 05 01 02 03 04 05")))
+    msg = s.ins.rx_queue.get(True, 1)
+    assert(msg == dhex("01 02 03 04 05"))
+
+
+= CF is sent when first frame is received
+cans = MockCANSocket()
+with ISOTPSocket(cans, sid=0x641, did=0x241) as s:
+    s.ins.on_recv(CAN(identifier=0x241, data=dhex("10 20 01 02 03 04 05 06")))
+    can = cans.sent_queue.get(True, 1)
+    assert(can.identifier == 0x641)
+    assert(can.data == dhex("30 00 00"))
+
 
 + Testing ISOTPSocket with an actual CAN socket
 
