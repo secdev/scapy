@@ -2159,6 +2159,45 @@ class SecondsIntField(IntField):
 
 
 class ScalingField(Field):
+    """ Handle physical values which are scaled and/or offset for communication
+
+       Example:
+           >>> from scapy.packet import Packet
+           >>> class ScalingFieldTest(Packet):
+                   fields_desc = [ScalingField('data', 0, scaling=0.1, offset=-1, unit='mV')]  # noqa: E501
+           >>> ScalingFieldTest(data=10).show2()
+           ###[ ScalingFieldTest ]###
+             data= 10.0 mV
+           >>> hexdump(ScalingFieldTest(data=10))
+           0000  6E                                               n
+           >>> hexdump(ScalingFieldTest(data=b"\x6D"))
+           0000  6D                                               m
+           >>> ScalingFieldTest(data=b"\x6D").show2()
+           ###[ ScalingFieldTest ]###
+             data= 9.9 mV
+
+        bytes(ScalingFieldTest(...)) will produce 0x6E in this example.
+        0x6E is 110 (decimal). This is calculated through the scaling factor
+        and the offset. "data" was set to 10, which means, we want to transfer
+        the physical value 10 mV. To calculate the value, which has to be
+        sent on the bus, the offset has to subtracted and the scaling has to be
+        applied by division through the scaling factor.
+        bytes = (data - offset) / scaling
+        bytes = ( 10  -  (-1) ) /    0.1
+        bytes =  110 = 0x6E
+
+        If you want to force a certain internal value, you can assign a byte-
+        string to the field (data=b"\x6D"). If a string of a bytes object is
+        given to the field, no internal value conversion will be applied
+
+       :param name: field's name
+       :param default: default value for the field
+       :param scaling: scaling factor for the internal value conversion
+       :param unit: string for the unit representation of the internal value
+       :param offset: value to offset the internal value during conversion
+       :param ndigits: number of fractional digits for the internal conversion
+       :param fmt: struct.pack format used to parse and serialize the internal value from and to machine representation # noqa: E501
+       """
     __slots__ = ["scaling", "unit", "offset", "ndigits"]
 
     def __init__(self, name, default, scaling=1, unit="",
