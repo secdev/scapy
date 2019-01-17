@@ -788,10 +788,25 @@ assert(succ.is_set())
 
 = Create and close ISOTP soft socket
 with ISOTPSocket(MockCANSocket(), sid=0x641, did=0x241) as s:
-    assert(s.rx_thread.isAlive())
+    assert(s.impl.rx_thread.isAlive())
     s.close()
-    s.rx_thread.join(5)
-    assert(not s.rx_thread.isAlive())
+    s.impl.rx_thread.join(5)
+    assert(not s.impl.rx_thread.isAlive())
+    assert(not s.impl.rx_timer.isAlive())
+    assert(not s.impl.tx_timer.isAlive())
+
+
+= Verify that all threads will die when GC collects the socket
+import gc
+s = ISOTPSocket(MockCANSocket(), sid=0x641, did=0x241)
+assert(s.impl.rx_thread.isAlive())
+impl = s.impl
+s = None
+gc.collect()
+impl.rx_thread.join(10)  # hope that the GC has made a pass#
+assert(not impl.rx_thread.isAlive())
+assert(not impl.rx_timer.isAlive())
+assert(not impl.tx_timer.isAlive())
 
 
 = Test on_recv function with single frame
@@ -1194,8 +1209,8 @@ succ = False
 
 with ISOTPSoftSocket(new_can_socket0(), sid=0x241, did=0x641) as isoTpSocket0, \
      ISOTPSoftSocket(new_can_socket1(), sid=0x641, did=0x241) as isoTpSocket1, \
-     ISOTPSoftSocket(new_can_socket0(), sid=0x641, did=0x241, timeout=0) as bSocket0, \
-     ISOTPSoftSocket(new_can_socket1(), sid=0x241, did=0x641, timeout=0) as bSocket1:
+     ISOTPSoftSocket(new_can_socket0(), sid=0x641, did=0x241) as bSocket0, \
+     ISOTPSoftSocket(new_can_socket1(), sid=0x241, did=0x641) as bSocket1:
     evt = threading.Event()
     def forwarding(pkt):
         global forwarded
@@ -1233,8 +1248,8 @@ T = 3
 succ = False
 with ISOTPSoftSocket(new_can_socket0(), sid=0x241, did=0x641) as isoTpSocket0, \
      ISOTPSoftSocket(new_can_socket1(), sid=0x641, did=0x241) as isoTpSocket1, \
-     ISOTPSoftSocket(new_can_socket0(), sid=0x641, did=0x241, timeout=0) as bSocket0, \
-     ISOTPSoftSocket(new_can_socket1(), sid=0x241, did=0x641, timeout=0) as bSocket1:
+     ISOTPSoftSocket(new_can_socket0(), sid=0x641, did=0x241) as bSocket0, \
+     ISOTPSoftSocket(new_can_socket1(), sid=0x241, did=0x641) as bSocket1:
     evt = threading.Event()
     def forwarding(pkt):
         global forwarded
@@ -1275,8 +1290,8 @@ packet = ISOTP('Request')
 succ = False
 with ISOTPSoftSocket(new_can_socket0(), sid=0x241, did=0x641) as isoTpSocket0, \
      ISOTPSoftSocket(new_can_socket1(), sid=0x641, did=0x241) as isoTpSocket1, \
-     ISOTPSoftSocket(new_can_socket0(), sid=0x641, did=0x241, timeout=0) as bSocket0, \
-     ISOTPSoftSocket(new_can_socket1(), sid=0x241, did=0x641, timeout=0) as bSocket1:
+     ISOTPSoftSocket(new_can_socket0(), sid=0x641, did=0x241) as bSocket0, \
+     ISOTPSoftSocket(new_can_socket1(), sid=0x241, did=0x641) as bSocket1:
     evt = threading.Event()
     def forwarding(pkt):
         pkt.data = 'changed'
