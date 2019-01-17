@@ -500,9 +500,34 @@ class ISOTPSniffer:
 
 class ISOTPSoftSocket(SuperSocket):
     """
-    Implements an ISOTP socket using a CAN socket. A thread is used to
-    receive CAN frames and send Flow Control frames. The thread is stopped
-    when calling the close() function or when this object is destructed.
+    This class is a wrapper around the ISOTPSocketImplementation, for the
+    reasons described below.
+
+    The ISOTPSoftSocket aims to be fully compatible with the Linux ISOTP
+    sockets provided by the can-isotp kernel module, while being usable on any
+    operating system.
+    Therefore, this socket needs to be able to respond to an incoming FF frame
+    with a FC frame even before the recv() method is called.
+    A thread is needed for receiving CAN frames in the background, and since
+    the lower layer CAN implementation is not guaranteed to have a functioning
+    POSIX select(), each ISOTP socket needs its own CAN receiver thread.
+    Additionally, 2 timers are necessary to keep track of the timeouts and
+    frame separation times, and each timer is implemented in its own thread.
+    In total, each ISOTPSoftSocket spawns 3 background threads when
+    constructed, which must be terminated afterwards by calling the close()
+    method.
+    SuperSocket automatically calls the close() method when the GC destroys an
+    ISOTPSoftSocket. However, note that if any thread holds a reference to
+    an ISOTPSoftSocket object, it will not be collected by the GC.
+
+    The implementation of the ISOTP protocol, along with the necessary
+    threads, are stored in the ISOTPSocketImplementation class, and therefore:
+
+    * There no reference from ISOTPSocketImplementation to ISOTPSoftSocket
+    * ISOTPSoftSocket can be normally garbage collected
+    * Upon destruction, ISOTPSoftSocket.close() will be called
+    * ISOTPSoftSocket.close() will call ISOTPSocketImplementation.close()
+    * All background threads can be stopped by the garbage collector
     """
 
     def __init__(self,
@@ -715,8 +740,9 @@ class TimeoutThread(Thread):
     """
     Utility class implementing a timer, useful for both timeouts and
     waiting between sent CAN frames.
-    A timer is initialized with a callback function to call when the timer
-    expires.
+    Contrary to the threading.Timer implementation, this timer thread can be
+    reused for multiple timeouts. This avoids the overhead of creating a new
+    pthread every time a timeout is planned.
     """
 
     def __init__(self):
@@ -748,18 +774,19 @@ class TimeoutThread(Thread):
 
         except Exception as ex:
             self._exception = ex
-            warning("ISOTP Timer thread is now stopped")
+            warning(self.name + " is now stopped")
             raise ex
 
         finally:
             self._dead = True
 
     def start(self):
+        """Start the thread, and make sure it is running"""
         Thread.start(self)
         self._thread_started.wait()
 
     def set_timeout(self, timeout, callback):
-        """Starts the timer with the provided timeout, in seconds."""
+        """Call 'callback' in 'timeout' seconds, unless cancelled."""
         if not self._ready_sem.acquire(False):
             raise Scapy_Exception("Timer was already started")
 
@@ -769,15 +796,14 @@ class TimeoutThread(Thread):
         self._busy_sem.release()
 
     def cancel(self):
-        """This method can be used to stop the timer without executing the
-        callback."""
+        """Stop the timer without executing the callback."""
         self._cancelled.set()
         if not self._dead:
             self._ready_sem.acquire()
             self._ready_sem.release()
 
     def stop(self):
-        """This method can be used to stop the timer thread."""
+        """Stop the thread, making this object unusable."""
         if not self._dead:
             self._killed = True
             self._cancelled.set()
@@ -810,25 +836,28 @@ class ISOTPSocketImplementation:
     Most of the ISOTP logic was taken from
     https://github.com/hartkopp/can-isotp/blob/master/net/can/isotp.c
 
-    This class only contains logic and timing for receiving and sending ISOTP
-    messages, but doesn't implement the actual CAN input/output.
-
-    Received CAN frames should be provided to this object using the on_recv()
-    method.
-    A provided callback function will be called every time a CAN frame should
-    be sent for both data frames and flow control (e.g. ACK) frames.
+    This class is separated from ISOTPSoftSocket to make sure the background
+    threads can't hold a reference to ISOTPSoftSocket, allowing it to be
+    collected by the GC.
     """
 
     def __init__(self,
                  can_socket,
-                 src_id=None,
-                 dst_id=None,
+                 src_id,
+                 dst_id,
                  padding=False,
                  extended_addr=None,
                  extended_rx_addr=None,
                  rx_block_size=0,
                  rx_separation_time_min=0):
         """
+        :param can_socket: a CANSocket instance, preferably filtering only can
+                           frames with identifier equal to did
+        :param src_id: the CAN identifier of the sent CAN frames
+        :param dst_id: the CAN identifier of the received CAN frames
+        :param padding: If True, pads sending packets with 0x00 which not
+                        count to the payload.
+                        Does not affect receiving packets.
         :param extended_addr: Extended Address byte to be added at the
                 beginning of every CAN frame _sent_ by this object. Can be None
                 in order to disable extended addressing on sent frames.
@@ -849,6 +878,8 @@ class ISOTPSocketImplementation:
         self.dst_id = dst_id
         self.src_id = src_id
         self.padding = padding
+        self.fc_timeout = 1
+        self.cf_timeout = 1
 
         self.filter_warning_emitted = False
 
@@ -882,7 +913,7 @@ class ISOTPSocketImplementation:
 
         self.tx_timer = TimeoutThread()
         self.rx_timer = TimeoutThread()
-        self.rx_thread = CANReceiverThread(can_socket, self.can_on_recv)
+        self.rx_thread = CANReceiverThread(can_socket, self.on_can_recv)
 
         self.tx_mutex = Lock()
         self.rx_mutex = Lock()
@@ -901,12 +932,12 @@ class ISOTPSocketImplementation:
     def __del__(self):
         self.close()
 
-    def sendfunc(self, load):
+    def can_send(self, load):
         if self.padding:
             load += bytearray(CAN_MAX_DLEN - len(load))
         self.can_socket.send(CAN(identifier=self.src_id, data=load))
 
-    def can_on_recv(self, p):
+    def on_can_recv(self, p):
         assert(isinstance(p, CAN))
         if p.identifier != self.dst_id:
             if not self.filter_warning_emitted:
@@ -957,7 +988,7 @@ class ISOTPSocketImplementation:
                     load += struct.pack("B", N_PCI_CF + self.tx_sn)
                     load += self.tx_buf[self.tx_idx:self.tx_idx + max_bytes]
                     assert (len(load) <= 8)
-                    self.sendfunc(load)
+                    self.can_send(load)
 
                     self.tx_sn = (self.tx_sn + 1) % 16
                     self.tx_bs += 1
@@ -973,7 +1004,8 @@ class ISOTPSocketImplementation:
                     if self.txfc_bs != 0 and self.tx_bs >= self.txfc_bs:
                         # stop and wait for FC
                         self.tx_state = ISOTP_WAIT_FC
-                        self.tx_timer.set_timeout(1, self._tx_timer_handler)
+                        self.tx_timer.set_timeout(self.fc_timeout,
+                                                  self._tx_timer_handler)
                         return
 
                     if self.tx_gap == 0:
@@ -1058,7 +1090,7 @@ class ISOTPSocketImplementation:
         elif isotp_fc == ISOTP_FC_WT:
             # start timer to wait for next FC frame
             self.tx_state = ISOTP_WAIT_FC
-            self.tx_timer.set_timeout(1, self._tx_timer_handler)
+            self.tx_timer.set_timeout(self.fc_timeout, self._tx_timer_handler)
         elif isotp_fc == ISOTP_FC_OVFLW:
             # overflow in receiver side
             self.tx_state = ISOTP_IDLE
@@ -1126,16 +1158,15 @@ class ISOTPSocketImplementation:
         self.rx_state = ISOTP_WAIT_DATA
 
         # no creation of flow control frames
-        if self.listen_mode:
-            return 0
+        if not self.listen_mode:
+            # send our first FC frame
+            load = self.ea_hdr
+            load += struct.pack("BBB", N_PCI_FC, self.rxfc_bs, self.rxfc_stmin)
+            self.can_send(load)
 
-        # send our first FC frame
-        load = self.ea_hdr
-        load += struct.pack("BBB", N_PCI_FC, self.rxfc_bs, self.rxfc_stmin)
-        self.sendfunc(load)
-
+        # wait for a CF
         self.rx_bs = 0
-        self.rx_timer.set_timeout(1, self._rx_timer_handler)
+        self.rx_timer.set_timeout(self.cf_timeout, self._rx_timer_handler)
 
         return 0
 
@@ -1177,22 +1208,20 @@ class ISOTPSocketImplementation:
             self.rx_buf = None
             return 0
 
-        # no creation of flow control frames
-        if self.listen_mode:
-            return 0
-
         # perform blocksize handling, if enabled
         if self.rxfc_bs != 0:
             self.rx_bs += 1
-        if self.rxfc_bs == 0 or self.rx_bs < self.rxfc_bs:
-            self.rx_timer.set_timeout(1, self._rx_timer_handler)
-            return 0
 
-        # we reached the specified blocksize self.rxfc_bs
-        # send our FC frame
-        load = self.ea_hdr
-        load += struct.pack("BBB", N_PCI_FC, self.rxfc_bs, self.rxfc_stmin)
-        self.sendfunc(load)
+            # check if we reached the end of the block
+            if self.rx_bs >= self.rxfc_bs and not self.listen_mode:
+                # send our FC frame
+                load = self.ea_hdr
+                load += struct.pack("BBB", N_PCI_FC, self.rxfc_bs,
+                                    self.rxfc_stmin)
+                self.can_send(load)
+
+        # wait for another CF
+        self.rx_timer.set_timeout(self.cf_timeout, self._rx_timer_handler)
         return 0
 
     def begin_send(self, x):
@@ -1215,7 +1244,7 @@ class ISOTPSocketImplementation:
                 data += struct.pack("B", length)
                 data += x
                 self.tx_state = ISOTP_IDLE
-                self.sendfunc(data)
+                self.can_send(data)
                 self.tx_done.set()
                 [cb() for cb in self.tx_callbacks]
                 return
@@ -1228,7 +1257,7 @@ class ISOTPSocketImplementation:
                 data += struct.pack(">H", 0x1000 | length)
             load = x[0:8 - len(data)]
             data += load
-            self.sendfunc(data)
+            self.can_send(data)
 
             self.tx_buf = x
             self.tx_sn = 1
@@ -1236,7 +1265,7 @@ class ISOTPSocketImplementation:
             self.tx_idx = len(load)
 
             self.tx_state = ISOTP_WAIT_FIRST_FC
-            self.tx_timer.set_timeout(1, self._tx_timer_handler)
+            self.tx_timer.set_timeout(self.fc_timeout, self._tx_timer_handler)
 
     def send(self, p):
         """Send an ISOTP frame and block until the message is sent or an error
