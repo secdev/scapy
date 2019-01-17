@@ -548,8 +548,8 @@ class ISOTPSoftSocket(SuperSocket):
 
         impl = ISOTPSocketImplementation(
             can_socket,
-            src_id = sid,
-            dst_id = did,
+            src_id=sid,
+            dst_id=did,
             padding=padding,
             extended_addr=extended_addr,
             extended_rx_addr=extended_rx_addr,
@@ -980,7 +980,7 @@ class ISOTPSocketImplementation:
                         continue
                     else:
                         self.tx_timer.set_timeout(self.tx_gap,
-                                            self._tx_timer_handler)
+                                                  self._tx_timer_handler)
 
     def on_recv(self, cf):
         """Function that must be called every time a CAN frame is received, to

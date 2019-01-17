@@ -803,7 +803,7 @@ assert(s.impl.rx_thread.isAlive())
 impl = s.impl
 s = None
 gc.collect()
-impl.rx_thread.join(10)  # hope that the GC has made a pass#
+impl.rx_thread.join(10)  # hope that the GC has made a pass
 assert(not impl.rx_thread.isAlive())
 assert(not impl.rx_timer.isAlive())
 assert(not impl.tx_timer.isAlive())
