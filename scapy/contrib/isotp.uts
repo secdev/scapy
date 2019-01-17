@@ -1298,7 +1298,7 @@ with ISOTPSoftSocket(new_can_socket0(), sid=0x241, did=0x641) as isoTpSocket0, \
         return pkt
     def bridge():
         global succ
-        bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding, timeout=0.5,
+        bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding, timeout=1,
                          started_callback=evt.set)
         succ = True
     threadBridge = threading.Thread(target=bridge)

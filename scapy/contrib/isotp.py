@@ -28,6 +28,7 @@ from scapy.fields import BitField, FlagsField, StrLenField, \
 from scapy.compat import chb, orb
 from scapy.layers.can import CAN
 import scapy.modules.six as six
+import scapy.automaton as automaton
 import six.moves.queue as queue
 from scapy.error import Scapy_Exception, warning, log_loading
 from scapy.supersocket import SuperSocket
@@ -829,7 +830,7 @@ ISOTP_FC_WT = 1  # /* wait */
 ISOTP_FC_OVFLW = 2  # /* overflow */
 
 
-class ISOTPSocketImplementation:
+class ISOTPSocketImplementation(automaton.SelectableObject):
     """
     Implementation of an ISOTP "state machine".
 
@@ -1121,6 +1122,7 @@ class ISOTPSocketImplementation:
         assert (len(msg) == length)
         self.rx_queue.put(msg)
         [cb(msg) for cb in self.rx_callbacks]
+        self.call_release()
         return 0
 
     def _recv_ff(self, data):
@@ -1205,6 +1207,7 @@ class ISOTPSocketImplementation:
             self.rx_state = ISOTP_IDLE
             self.rx_queue.put(self.rx_buf)
             [cb(self.rx_buf) for cb in self.rx_callbacks]
+            self.call_release()
             self.rx_buf = None
             return 0
 
@@ -1287,6 +1290,10 @@ class ISOTPSocketImplementation:
             return self.rx_queue.get(timeout is None or timeout > 0, timeout)
         except queue.Empty:
             return None
+
+    def check_recv(self):
+        """Implementation for SelectableObject"""
+        return not self.rx_queue.empty()
 
 
 if six.PY3 and LINUX:
