@@ -19,6 +19,7 @@ from scapy.consts import WINDOWS
 from scapy.config import conf
 from scapy.data import MTU
 from scapy.error import Scapy_Exception
+from scapy.consts import OPENBSD
 import scapy.modules.six as six
 
 if not WINDOWS:
@@ -37,7 +38,12 @@ def _check_tcpdump():
                                     stdout=devnull, stderr=subprocess.STDOUT)
         except OSError:
             return False
-    return proc.wait() == 0
+
+    if OPENBSD:
+        # 'tcpdump --version' returns 1 on OpenBSD 6.4
+        return proc.wait() == 1
+    else:
+        return proc.wait() == 0
 
 
 # This won't be used on Windows
