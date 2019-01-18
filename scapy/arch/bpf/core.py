@@ -44,13 +44,15 @@ def get_if_raw_addr(ifname):
         return b"\0\0\0\0"
 
     # Get IPv4 addresses
-    addresses = [l for l in fd if l.find("netmask") >= 0]
+    addresses = [l for l in fd if l.find("inet ") >= 0]
     if not addresses:
         warning("No IPv4 address found on %s !", ifname)
         return b"\0\0\0\0"
 
     # Pack the first address
     address = addresses[0].split(' ')[1]
+    if '/' in address:  # NetBSD 8.0
+        address = address.split("/")[0]
     return socket.inet_pton(socket.AF_INET, address)
 
 
