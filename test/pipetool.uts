@@ -18,7 +18,7 @@ d1 > tf
 try:
   t = TermSink(name="PipeToolsPeriodicTest", keepterm=False)
   tf > t
-except FileNotFoundError:
+except (IOError, OSError):
   pass
 
 p = PipeEngine(s)
@@ -581,7 +581,7 @@ assert c.q.get(timeout=1) == "hello"
 p = PipeEngine()
 
 s = CLIFeeder()
-d1 = TCPConnectPipe(addr="www.google.fr", port=80)
+d1 = TCPConnectPipe(addr="www.secdev.org", port=80)
 c = QueueSink()
 
 s > d1 > c
@@ -589,8 +589,8 @@ s > d1 > c
 p.add(s)
 p.start()
 
-s.send(b"GET http://www.google.fr/search?q=scapy&start=1&num=1\n")
+s.send(b"GET / HTTP/1.1\nHost: www.secdev.org\n\n")
 result = c.q.get(timeout=10)
 p.stop()
 
-assert result.startswith(b"HTTP/1.0 200 OK")
+assert result.startswith(b"HTTP/1.1 200 OK")
