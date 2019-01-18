@@ -361,7 +361,8 @@ def _version_checker(module, minver):
      - minver: a tuple of versions
     """
     # We could use LooseVersion, but distutils imports imp which is deprecated
-    version_tags = re.match(r'[a-z]?((?:\d|\.)+)', module.__version__)
+    version_regexp = r'[a-z]?((?:\d|\.)+\d+)(?:\.dev[0-9]+)?'
+    version_tags = re.match(version_regexp, module.__version__)
     if not version_tags:
         return False
     version_tags = version_tags.group(1).split(".")
