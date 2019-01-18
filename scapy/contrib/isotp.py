@@ -999,7 +999,8 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
                         # we are done
                         self.tx_state = ISOTP_IDLE
                         self.tx_done.set()
-                        [cb() for cb in self.tx_callbacks]
+                        for cb in self.tx_callbacks:
+                            cb()
                         return
 
                     if self.txfc_bs != 0 and self.tx_bs >= self.txfc_bs:
@@ -1121,7 +1122,8 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
         msg = data[1:1 + length]
         assert (len(msg) == length)
         self.rx_queue.put(msg)
-        [cb(msg) for cb in self.rx_callbacks]
+        for cb in self.rx_callbacks:
+            cb(msg)
         self.call_release()
         return 0
 
@@ -1206,7 +1208,8 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
             self.rx_buf = self.rx_buf[0:self.rx_len]
             self.rx_state = ISOTP_IDLE
             self.rx_queue.put(self.rx_buf)
-            [cb(self.rx_buf) for cb in self.rx_callbacks]
+            for cb in self.rx_callbacks:
+                cb(self.rx_buf)
             self.call_release()
             self.rx_buf = None
             return 0
@@ -1249,7 +1252,8 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
                 self.tx_state = ISOTP_IDLE
                 self.can_send(data)
                 self.tx_done.set()
-                [cb() for cb in self.tx_callbacks]
+                for cb in self.tx_callbacks:
+                    cb()
                 return
 
             # send the first frame
@@ -1279,7 +1283,7 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
             # Wait until the tx callback is called
             self.tx_done.wait()
             if self.tx_exception is not None:
-                raise self.tx_exception
+                raise Scapy_Exception(self.tx_exception)
             return
 
     def recv(self, timeout=None):
