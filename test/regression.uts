@@ -6105,6 +6105,7 @@ p[MIP6MH_BE].cksum=0xba10 and p[MIP6MH_BE].len == 1 and len(p[MIP6MH_BE].options
 ############
 ############
 + Netflow v5
+~ netflow
 
 = NetflowHeaderV5 - basic building
 
@@ -6131,6 +6132,7 @@ nf5.version == 5 and nf5[NetflowHeaderV5].count == 2 and isinstance(nf5[NetflowR
 ############
 ############
 + Netflow v9
+~ netflow
 
 = NetflowV9 - advanced dissection
 
@@ -6144,6 +6146,7 @@ a = netflowv9_defragment(a)
 nfv9_fl = a[4]
 assert NetflowFlowsetV9 in nfv9_fl
 assert len(nfv9_fl.templates[0].template_fields) == 21
+assert nfv9_fl.templates[0].template_fields[1].fieldType == 12
 
 nfv9_ds = a[61]
 assert NetflowDataflowsetV9 in nfv9_ds
@@ -6161,6 +6164,9 @@ assert nfv9_options_fl[NetflowOptionsFlowsetV9].options[0].optionFieldType == 36
 nfv9_options_ds = a[255]
 assert NetflowDataflowsetV9 in nfv9_options_ds
 assert isinstance(nfv9_options_ds.records[0], NetflowOptionsRecordScopeV9)
+assert nfv9_options_ds.records[0].IN_BYTES == b'\x01\x00\x00\x00'
+assert nfv9_options_ds.records[1].SAMPLING_INTERVAL == 12
+assert nfv9_options_ds.records[1].SAMPLING_ALGORITHM == 0x2
 
 = NetflowV9 - Multiple FlowSets in one packet
 
@@ -6168,9 +6174,36 @@ nfv9_multiple_flowsets = NetflowHeader(b'\x00\t\x00\x03\x00\x00K [F\x17\x97\x00\
 assert nfv9_multiple_flowsets.haslayer(NetflowFlowsetV9)
 assert nfv9_multiple_flowsets.haslayer(NetflowDataflowsetV9)
 nfv9_defrag = netflowv9_defragment(list(nfv9_multiple_flowsets))
+flowset1 = nfv9_defrag[0].getlayer(NetflowFlowsetV9, 1)
+assert flowset1.templates[0].template_fields[0].fieldType == 8
+assert flowset1.templates[0].template_fields[0].fieldLength == 4
+assert flowset1.templates[0].template_fields[5].fieldType == 2
+assert flowset1.templates[0].template_fields[5].fieldLength == 8
+flowset2 = nfv9_defrag[0].getlayer(NetflowFlowsetV9, 2)
+assert flowset2.templates[0].template_fields[0].fieldType == 27
+assert flowset2.templates[0].template_fields[0].fieldLength == 16
+assert flowset2.templates[0].template_fields[5].fieldType == 1
+assert flowset2.templates[0].template_fields[5].fieldLength == 8
+assert nfv9_defrag[0].getlayer(NetflowFlowsetV9, 2)
 assert nfv9_defrag[0].records[0].IP_PROTOCOL_VERSION == 4
 assert nfv9_defrag[0].records[0].PROTOCOL == 17
 assert nfv9_defrag[0].records[0].IPV4_SRC_ADDR == "127.0.0.1"
+
+= NetflowV9 - advanced build
+~ netflow
+
+atm_time = 1547927349.328283
+
+header = Ether(src="00:00:00:00:00:00", dst="aa:aa:aa:aa:aa:aa")/IP(dst="127.0.0.1", src="127.0.0.1")/UDP()/NetflowHeader()/NetflowHeaderV9(unixSecs=atm_time)
+flowset = NetflowFlowsetV9(templates=[NetflowTemplateV9(template_fields=[NetflowTemplateFieldV9(fieldType=8, fieldLength=4),NetflowTemplateFieldV9(fieldType=12, fieldLength=4),NetflowTemplateFieldV9(fieldType=5, fieldLength=1),NetflowTemplateFieldV9(fieldType=4, fieldLength=1),NetflowTemplateFieldV9(fieldType=7, fieldLength=2),NetflowTemplateFieldV9(fieldType=11, fieldLength=2),NetflowTemplateFieldV9(fieldType=32, fieldLength=2),NetflowTemplateFieldV9(fieldType=10, fieldLength=4),NetflowTemplateFieldV9(fieldType=16, fieldLength=4),NetflowTemplateFieldV9(fieldType=17, fieldLength=4),NetflowTemplateFieldV9(fieldType=18, fieldLength=4),NetflowTemplateFieldV9(fieldType=14, fieldLength=4),NetflowTemplateFieldV9(fieldType=1, fieldLength=4),NetflowTemplateFieldV9(fieldType=2, fieldLength=4),NetflowTemplateFieldV9(fieldType=22, fieldLength=4),NetflowTemplateFieldV9(fieldType=21, fieldLength=4),NetflowTemplateFieldV9(fieldType=15, fieldLength=4),NetflowTemplateFieldV9(fieldType=9, fieldLength=1),NetflowTemplateFieldV9(fieldType=13, fieldLength=1),NetflowTemplateFieldV9(fieldType=6, fieldLength=1),NetflowTemplateFieldV9(fieldType=60, fieldLength=1)], templateID=424, fieldCount=21)], flowSetID=0, length=92)
+dataflowset = NetflowDataflowsetV9(records=[NetflowRecordV9(fieldValue=b'\x14\x00\x00\xfd\x1e\x00\x00\xfd\x00\xfd\x00\x00\x00\x00\x00\x00\x00\x00\x03 \x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x02\xfb\x00\x15a|\x00\x00\x07\x0f$\x95x\xed$\x99\x91<\ndg\x01  \x00\x04')], templateID=424)
+
+pkt = netflowv9_defragment(list(header/flowset/dataflowset))[0]
+assert pkt.records[0].IPV4_NEXT_HOP == "10.100.103.1"
+assert pkt.records[0].OUTPUT_SNMP == b'\x00\x00\x02\xfb'
+
+assert raw(pkt) == b'\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x00\x00\x00\x00\x08\x00E\x00\x00\xcc\x00\x01\x00\x00@\x11|\x1e\x7f\x00\x00\x01\x7f\x00\x00\x01\x08\x07\x08\x07\x00\xb8\x86\xe7\x00\t\x00\x02\x00\x00\x00\x00\\C\x7f5\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\\\x01\xa8\x00\x15\x00\x08\x00\x04\x00\x0c\x00\x04\x00\x05\x00\x01\x00\x04\x00\x01\x00\x07\x00\x02\x00\x0b\x00\x02\x00 \x00\x02\x00\n\x00\x04\x00\x10\x00\x04\x00\x11\x00\x04\x00\x12\x00\x04\x00\x0e\x00\x04\x00\x01\x00\x04\x00\x02\x00\x04\x00\x16\x00\x04\x00\x15\x00\x04\x00\x0f\x00\x04\x00\t\x00\x01\x00\r\x00\x01\x00\x06\x00\x01\x00<\x00\x01\x01\xa8\x00@\x14\x00\x00\xfd\x1e\x00\x00\xfd\x00\xfd\x00\x00\x00\x00\x00\x00\x00\x00\x03 \x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x02\xfb\x00\x15a|\x00\x00\x07\x0f$\x95x\xed$\x99\x91<\ndg\x01  \x00\x04'
+
 
 ############
 ############
