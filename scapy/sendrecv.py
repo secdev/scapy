@@ -21,7 +21,8 @@ from scapy.data import ETH_P_ALL
 from scapy.config import conf
 from scapy.error import warning
 from scapy.packet import Packet, Gen
-from scapy.utils import get_temp_file, PcapReader, tcpdump, wrpcap
+from scapy.utils import get_temp_file, tcpdump, wrpcap, \
+    ContextManagerSubprocess, PcapReader
 from scapy import plist
 from scapy.error import log_runtime, log_interactive
 from scapy.base_classes import SetGen
@@ -366,25 +367,24 @@ def sendpfast(x, pps=None, mbps=None, realtime=None, loop=0, file_cache=False, i
     argv.append(f)
     wrpcap(f, x)
     results = None
-    try:
-        log_runtime.info(argv)
-        with subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as cmd:  # noqa: E501
+    log_runtime.info(argv)
+    with ContextManagerSubprocess("sendpfast()", conf.prog.tcpreplay):
+        try:
+            cmd = subprocess.Popen(argv, stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE)
+        except KeyboardInterrupt:
+            log_interactive.info("Interrupted by user")
+        except Exception:
+            os.unlink(f)
+            raise
+        else:
             stdout, stderr = cmd.communicate()
-            log_runtime.info(stdout)
-            log_runtime.warning(stderr)
+            log_runtime.info(stdout.decode())
+            log_runtime.warning(stderr.decode())
             if parse_results:
                 results = _parse_tcpreplay_result(stdout, stderr, argv)
-
-    except KeyboardInterrupt:
-        log_interactive.info("Interrupted by user")
-    except Exception:
-        if conf.interactive:
-            log_interactive.error("Cannot execute [%s]", argv[0], exc_info=True)  # noqa: E501
-        else:
-            raise
-    finally:
-        os.unlink(f)
-        return results
+    os.unlink(f)
+    return results
 
 
 def _parse_tcpreplay_result(stdout, stderr, argv):
