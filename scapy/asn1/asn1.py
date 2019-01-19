@@ -17,7 +17,7 @@ from scapy.config import conf
 from scapy.error import Scapy_Exception, warning
 from scapy.volatile import RandField, RandIP, GeneralizedTime
 from scapy.utils import Enum_metaclass, EnumElement, binrepr
-from scapy.compat import plain_str, chb, orb, bytes_encode
+from scapy.compat import plain_str, chb, orb
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
 
@@ -331,7 +331,7 @@ class ASN1_BIT_STRING(ASN1_Object):
     def __setattr__(self, name, value):
         if name == "val_readable":
             if isinstance(value, (str, bytes)):
-                val = "".join(binrepr(orb(x)).zfill(8) for x in value)  # noqa: E501
+                val = "".join(binrepr(orb(x)).zfill(8) for x in value)
             else:
                 warning("Invalid val: should be bytes")
                 val = "<invalid val_readable>"
