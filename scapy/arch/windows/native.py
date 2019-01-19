@@ -103,6 +103,8 @@ class L3WinSocket(SuperSocket, SelectableObject):
             raise
         self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.outs.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2**30)
+        self.outs.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 2**30)
         # IOCTL Include IP headers
         self.ins.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
         self.outs.setsockopt(socket.IPPROTO_IP, socket.IP_HDRINCL, 1)
