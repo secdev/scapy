@@ -164,8 +164,6 @@ class WinProgPath(ConfClass):
                 manu_path = None
             scapy.data.MANUFDB = conf.manufdb = manu_path
 
-        self.os_access = (self.powershell is not None) or (self.cscript is not None)  # noqa: E501
-
 
 def _exec_cmd(command):
     """Call a CMD command and return the output"""
@@ -179,10 +177,8 @@ def _exec_cmd(command):
 
 
 conf.prog = WinProgPath()
-if not conf.prog.os_access:
-    warning("Scapy did not detect powershell and cscript ! Routes, interfaces and much more won't work !")  # noqa: E501
 
-if conf.prog.tcpdump and conf.use_npcap and conf.prog.os_access:
+if conf.prog.tcpdump and conf.use_npcap:
     def test_windump_npcap():
         """Return whether windump version is correct or not"""
         try:
@@ -547,8 +543,6 @@ def pcap_service_status():
 
 def _pcap_service_control(action, askadmin=True):
     """Internal util to run pcap control command"""
-    if not conf.prog.powershell:
-        return False
     command = action + ' ' + pcap_service_name()
     stdout = _exec_cmd(_encapsulate_admin(command) if askadmin else command)
     return b"error" not in stdout.lower()
@@ -567,9 +561,54 @@ def pcap_service_stop(askadmin=True):
 class NetworkInterfaceDict(UserDict):
     """Store information about network interfaces and convert between names"""
 
-    def load(self):
-        if not conf.prog.os_access:
+    @classmethod
+    def _pcap_check(cls):
+        """Performs checks/restart pcap adapter"""
+        _detect = pcap_service_status()
+
+        def _ask_user():
+            if not conf.interactive:
+                return False
+            msg = "Do you want to start it ? (yes/no) [y]: "
+            try:
+                # Better IPython compatibility
+                import IPython
+                return IPython.utils.io.ask_yes_no(msg, default='y')
+            except (NameError, ImportError):
+                while True:
+                    _confir = input(msg)
+                    _confir = _confir.lower().strip()
+                    if _confir in ["yes", "y", ""]:
+                        return True
+                    elif _confir in ["no", "n"]:
+                        return False
+                return False
+        _error_msg = ("No match between your pcap and windows "
+                      "network interfaces found. ")
+        if _detect:
+            # No action needed
             return
+        else:
+            warning(
+                "Scapy has detected that your pcap service is not running !"
+            )
+            if not conf.interactive or _ask_user():
+                succeed = pcap_service_start(askadmin=conf.interactive)
+                if succeed:
+                    log_loading.info("Pcap service started !")
+                    return
+            _error_msg = "Could not start the pcap service ! "
+        warning(_error_msg +
+                "You probably won't be able to send packets. "
+                "Deactivating unneeded interfaces and restarting "
+                "Scapy might help. Check your winpcap/npcap installation "
+                "and access rights.")
+
+    def load(self):
+        if not get_if_list():
+            # Try a restart
+            NetworkInterfaceDict._pcap_check()
+
         for i in get_windows_if_list():
             try:
                 interface = NetworkInterface(i)
@@ -577,42 +616,13 @@ class NetworkInterfaceDict(UserDict):
             except KeyError:
                 pass
 
-        if not self.data and conf.use_winpcapy:
-            _detect = pcap_service_status()
-
-            def _ask_user():
-                if not conf.interactive:
-                    return False
-                while True:
-                    _confir = input("Do you want to start it ? (yes/no) [y]: ").lower().strip()  # noqa: E501
-                    if _confir in ["yes", "y", ""]:
-                        return True
-                    elif _confir in ["no", "n"]:
-                        return False
-                return False
-            _error_msg = "No match between your pcap and windows network interfaces found. "  # noqa: E501
-            if not _detect and not (hasattr(self, "restarted_adapter") and self.restarted_adapter):  # noqa: E501
-                warning("Scapy has detected that your pcap service is not running !")  # noqa: E501
-                if not conf.interactive or _ask_user():
-                    succeed = pcap_service_start(askadmin=conf.interactive)
-                    self.restarted_adapter = True
-                    if succeed:
-                        log_loading.info("Pcap service started !")
-                        self.load()
-                        return
-                _error_msg = "Could not start the pcap service ! "
-            warning(_error_msg +
-                    "You probably won't be able to send packets. "
-                    "Deactivating unneeded interfaces and restarting Scapy might help. "  # noqa: E501
-                    "Check your winpcap and powershell installation, and access rights.")  # noqa: E501
-        else:
-            # Replace LOOPBACK_INTERFACE
-            try:
-                scapy.consts.LOOPBACK_INTERFACE = self.dev_from_name(
-                    scapy.consts.LOOPBACK_NAME,
-                )
-            except ValueError:
-                pass
+        # Replace LOOPBACK_INTERFACE
+        try:
+            scapy.consts.LOOPBACK_INTERFACE = self.dev_from_name(
+                scapy.consts.LOOPBACK_NAME,
+            )
+        except ValueError:
+            pass
         # Support non-windows cards (e.g. Napatech)
         for name, if_data in six.iteritems(conf.cache_iflist):
             guid, ips = if_data
@@ -743,6 +753,8 @@ def open_pcap(iface, *args, **kargs):
     iface_pcap_name = pcapname(iface)
     if not isinstance(iface, NetworkInterface) and iface_pcap_name is not None:
         iface = IFACES.dev_from_name(iface)
+    if iface.is_invalid():
+        raise Scapy_Exception("Interface is invalid (no pcap match found) !")
     if conf.use_npcap and isinstance(iface, NetworkInterface):
         monitored = iface.ismonitor()
         kw_monitor = kargs.get("monitor", None)
@@ -895,7 +907,6 @@ def read_routes6():
     if WINDOWS_XP:
         return routes6
     try:
-        # Interface metrics have been added to powershell in win10+
         routes6 = _read_routes_c(ipv6=True)
     except Exception as e:
         warning("Error building scapy IPv6 routing table : %s", e)
@@ -903,13 +914,21 @@ def read_routes6():
 
 
 def get_working_if():
+    """Return an interface that works"""
     try:
         # return the interface associated with the route with smallest
         # mask (route by default if it exists)
-        return min(conf.route.routes, key=lambda x: x[1])[3]
+        iface = min(conf.route.routes, key=lambda x: x[1])[3]
     except ValueError:
         # no route
-        return scapy.consts.LOOPBACK_INTERFACE
+        iface = scapy.consts.LOOPBACK_INTERFACE
+    if iface.is_invalid():
+        # Backup mode: try them all
+        for iface in IFACES.values():
+            if not iface.is_invalid():
+                return iface
+        return None
+    return iface
 
 
 def _get_valid_guid():
