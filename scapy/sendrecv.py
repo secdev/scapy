@@ -121,8 +121,8 @@ def _sndrcv_rcv(pks, hsent, stopevent, nbrecv, notans, verbose, chainCC,
                                 notans -= 1
                             sentpkt._answered = 1
                         break
-            del r
             if notans == 0 and not multi:
+                del r
                 break
             if not ok:
                 if verbose > 1:
@@ -130,6 +130,7 @@ def _sndrcv_rcv(pks, hsent, stopevent, nbrecv, notans, verbose, chainCC,
                 nbrecv += 1
                 if conf.debug_match:
                     debug.recv.append(r)
+            del r
     except KeyboardInterrupt:
         if chainCC:
             raise

@@ -1374,6 +1374,20 @@ def _test():
 
 retry_test(_test)
 
+= Send & receive with debug_match
+~ netaccess IP ICMP
+def _test():
+    old_debug_match = conf.debug_match
+    conf.debug_match = True
+    old_debug_dissector = conf.debug_dissector
+    conf.debug_dissector = False
+    ans, unans = sr(IP(dst="www.google.fr") / ICMP(), timeout=2)
+    conf.debug_match = old_debug_match
+    conf.debug_dissector = old_debug_dissector
+    assert ans and not unans
+
+retry_test(_test)
+
 = Send & receive with retry
 ~ netaccess IP ICMP
 def _test():
