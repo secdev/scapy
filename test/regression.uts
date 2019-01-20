@@ -6973,7 +6973,8 @@ test_openbsd_6_3()
 
 from scapy.sendrecv import _parse_tcpreplay_result
 
-stdout = """Actual: 1024 packets (198929 bytes) sent in 67.88 seconds.              Rated: 2930.6 bps, 0.02 Mbps, 15.09 pps
+stdout = """Actual: 1024 packets (198929 bytes) sent in 67.88 seconds.
+Rated: 2930.6 bps, 0.02 Mbps, 15.09 pps
 Statistics for network device: mon0
         Attempted packets:         1024
         Successful packets:        1024
@@ -6986,7 +6987,7 @@ Unsupported physical layer type 0x0323 on mon0.  Maybe it works, maybe it won't.
 sending out mon0
 processing file: replay-example.pcap"""
 
-argv = ['tcpreplay' '--intf1=mon0' '--multiplier=1.00' '--timer=nano' 'replay-example.pcap']
+argv = ['tcpreplay', '--intf1=mon0', '--multiplier=1.00', '--timer=nano', 'replay-example.pcap']
 results_dict = _parse_tcpreplay_result(stdout, stderr, argv)
 
 results_dict
@@ -7002,9 +7003,46 @@ assert(results_dict["successful"] == 1024)
 assert(results_dict["failed"] == 0)
 assert(results_dict["retried_enobufs"] == 0)
 assert(results_dict["retried_eagain"] == 0)
-assert(results_dict["command"] == str(argv))
+assert(results_dict["command"] == " ".join(argv))
 assert(len(results_dict["warnings"]) == 3)
 
+= Test more recent version with flows
+
+data = """Actual: 1 packets (42 bytes) sent in 0.000278 seconds
+Rated: 151079.1 Bps, 1.20 Mbps, 3597.12 pps
+Flows: 1 flows, 3597.12 fps, 1 flow packets, 0 non-flow
+Statistics for network device: enp0s3
+        Successful packets:        1
+        Failed packets:            0
+        Truncated packets:         0
+        Retried packets (ENOBUFS): 0
+        Retried packets (EAGAIN):  0
+"""
+
+results_dict = _parse_tcpreplay_result(data, "", [])
+results_dict
+
+expected = {
+    'bps': 151079.1,
+    'bytes': 42,
+    'command': '',
+    'failed': 0,
+    'flow_packets': 1,
+    'flows': 1,
+    'fps': 3597.12,
+    'mbps': 1.2,
+    'non_flow': 0,
+    'packets': 1,
+    'pps': 3597.12,
+    'retried_eagain': 0,
+    'retried_enobufs': 0,
+    'successful': 1,
+    'time': 0.000278,
+    'truncated': 0,
+    'warnings': []
+}
+
+assert results_dict == expected
 
 ############
 ############
