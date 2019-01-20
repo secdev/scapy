@@ -416,6 +416,7 @@ class UDS_RDBIPR(Packet):
     fields_desc = [
         XShortEnumField('dataIdentifier', 0,
                         UDS_RDBI.dataIdentifiers),
+        StrField('dataRecord', None, fmt="B")
     ]
 
 
