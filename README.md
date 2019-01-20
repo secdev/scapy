@@ -118,3 +118,7 @@ follow the instructions to install them.
 
 Want to contribute? Great! Please take a few minutes to
 [read this](CONTRIBUTING.md)!
+
+### Packaging tracker
+
+[![Packaging status](https://repology.org/badge/vertical-allrepos/scapy.svg)](https://repology.org/metapackage/scapy/versions)
