@@ -70,6 +70,7 @@ class SOMEIP(Packet):
     PROTOCOL_VERSION = 0x01
     INTERFACE_VERSION = 0x01
     LEN_OFFSET = 0x08
+    LEN_OFFSET_TP = 0x0c
     TYPE_REQUEST = 0x00
     TYPE_REQUEST_NO_RET = 0x01
     TYPE_NOTIFICATION = 0x02
@@ -80,6 +81,11 @@ class SOMEIP(Packet):
     TYPE_ERROR = 0x81
     TYPE_RESPONSE_ACK = 0xc0
     TYPE_ERROR_ACK = 0xc1
+    TYPE_TP_REQUEST = 0x20
+    TYPE_TP_REQUEST_NO_RET = 0x21
+    TYPE_TP_NOTIFICATION = 0x22
+    TYPE_TP_RESPONSE = 0x23
+    TYPE_TP_ERROR = 0x24
     RET_E_OK = 0x00
     RET_E_NOT_OK = 0x01
     RET_E_UNKNOWN_SERVICE = 0x02
@@ -115,6 +121,11 @@ class SOMEIP(Packet):
             TYPE_ERROR: "ERROR",
             TYPE_RESPONSE_ACK: "RESPONSE_ACK",
             TYPE_ERROR_ACK: "ERROR_ACK",
+            TYPE_TP_REQUEST: "TP_REQUEST",
+            TYPE_TP_REQUEST_NO_RET: "TP_REQUEST_NO_RETURN",
+            TYPE_TP_NOTIFICATION: "TP_NOTIFICATION",
+            TYPE_TP_RESPONSE: "TP_RESPONSE",
+            TYPE_TP_ERROR: "TP_ERROR",
         }),
         ByteEnumField("retcode", 0, {
             RET_E_OK: "E_OK",
@@ -129,11 +140,19 @@ class SOMEIP(Packet):
             RET_E_MALFORMED_MSG: "E_MALFORMED_MESSAGE",
             RET_E_WRONG_MESSAGE_TYPE: "E_WRONG_MESSAGE_TYPE",
         }),
+        ConditionalField(BitField("offset", 0, 28), \
+                         lambda pkt: pkt.msg_type >= 0x20 and pkt.msg_type <= 0x24),
+        ConditionalField(BitField("res", 0, 3), \
+                         lambda pkt: pkt.msg_type >= 0x20 and pkt.msg_type <= 0x24),
+        ConditionalField(BitField("more_seg", 0, 1), \
+                         lambda pkt: pkt.msg_type >= 0x20 and pkt.msg_type <= 0x24)
     ]
 
     def post_build(self, pkt, pay):
-        length = self.len
-        if (length is None):
+        if(self._is_tp(self)):
+            length = self.LEN_OFFSET_TP + len(pay)
+            pkt = pkt[:4] + struct.pack("!I", length) + pkt[8:]
+        else:
             length = self.LEN_OFFSET + len(pay)
             pkt = pkt[:4] + struct.pack("!I", length) + pkt[8:]
         return pkt + pay
@@ -141,10 +160,23 @@ class SOMEIP(Packet):
     def answers(self, other):
         if other.__class__ == self.__class__:
             if self.msg_type in [SOMEIP.TYPE_REQUEST_NO_RET,
-                                 SOMEIP.TYPE_REQUEST_NORET_ACK]:
+                                 SOMEIP.TYPE_REQUEST_NORET_ACK,
+                                 SOMEIP.TYPE_NOTIFICATION,
+                                 SOMEIP.TYPE_TP_REQUEST_NO_RET,
+                                 SOMEIP.TYPE_TP_NOTIFICATION]:
                 return 0
             return self.payload.answers(other.payload)
         return 0
+
+    def _is_tp(self, pkt):
+        """Returns true if pkt is using SOMEIP-TP, else returns false."""
+
+        tp = [self.TYPE_TP_REQUEST, self.TYPE_TP_REQUEST_NO_RET, \
+              self.TYPE_TP_NOTIFICATION, self.TYPE_TP_RESPONSE, \
+              self.TYPE_TP_ERROR]
+        if(pkt.msg_type in tp):
+            return True
+        return False
 
 
 def _bind_someip_layers():
