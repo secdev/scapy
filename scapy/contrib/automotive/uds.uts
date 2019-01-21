@@ -346,7 +346,7 @@ assert dddipr.dynamicallyDefinedDataIdentifier == 0x4455
 wdbi = UDS(b'\x2e\x01\x02dieselgate')
 assert wdbi.service == 0x2e
 assert wdbi.dataIdentifier == 0x0102
-assert wdbi.dataRecord == b'dieselgate'
+assert wdbi.load == b'dieselgate'
 
 = Check UDS_WDBIPR
 
