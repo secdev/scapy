@@ -196,13 +196,13 @@ class ISOTPHeader(CAN):
     def extract_padding(self, p):
         return p, None
 
-    def post_build(self, p, pay):
+    def post_build(self, pkt, pay):
         """
         This will set the ByteField 'length' to the correct value.
         """
         if self.length is None:
-            p = p[:4] + chb(len(pay)) + p[5:]
-        return p + pay
+            pkt = pkt[:4] + chb(len(pay)) + pkt[5:]
+        return pkt + pay
 
     def guess_payload_class(self, payload):
         """
@@ -975,10 +975,9 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
                 # we did not get any flow control frame in time
                 # reset tx state
                 self.tx_state = ISOTP_IDLE
-                self.tx_exception = Scapy_Exception("TX state was reset due "
-                                                    "to timeout")
+                self.tx_exception = "TX state was reset due to timeout"
                 self.tx_done.set()
-                raise self.tx_exception
+                raise Scapy_Exception(self.tx_exception)
             elif self.tx_state == ISOTP_SENDING:
                 # push out the next segmented pdu
                 src_off = len(self.ea_hdr)
@@ -1058,10 +1057,9 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
 
         if len(data) < 3:
             self.tx_state = ISOTP_IDLE
-            self.tx_exception = Scapy_Exception("CF frame discarded because "
-                                                "it was too short")
+            self.tx_exception = "CF frame discarded because it was too short"
             self.tx_done.set()
-            raise self.tx_exception
+            raise Scapy_Exception(self.tx_exception)
 
         # get communication parameters only from the first FC frame
         if self.tx_state == ISOTP_WAIT_FIRST_FC:
@@ -1096,15 +1094,14 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
         elif isotp_fc == ISOTP_FC_OVFLW:
             # overflow in receiver side
             self.tx_state = ISOTP_IDLE
-            self.tx_exception = Scapy_Exception("Overflow happened at the "
-                                                "receiver side")
+            self.tx_exception = "Overflow happened at the receiver side"
             self.tx_done.set()
-            raise self.tx_exception
+            raise Scapy_Exception(self.tx_exception)
         else:
             self.tx_state = ISOTP_IDLE
-            self.tx_exception = Scapy_Exception("Unknown FC frame type")
+            self.tx_exception = "Unknown FC frame type"
             self.tx_done.set()
-            raise self.tx_exception
+            raise Scapy_Exception(self.tx_exception)
 
         return 0
 
