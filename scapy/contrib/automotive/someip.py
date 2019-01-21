@@ -30,6 +30,8 @@
 import struct
 
 from scapy.layers.inet import TCP, UDP
+from scapy.compat import raw
+from scapy.config import conf
 from scapy.modules.six.moves import range
 from scapy.packet import Packet, bind_layers
 from scapy.fields import ShortField, BitEnumField, ConditionalField, \
@@ -140,21 +142,23 @@ class SOMEIP(Packet):
             RET_E_MALFORMED_MSG: "E_MALFORMED_MESSAGE",
             RET_E_WRONG_MESSAGE_TYPE: "E_WRONG_MESSAGE_TYPE",
         }),
-        ConditionalField(BitField("offset", 0, 28), \
-                         lambda pkt: pkt.msg_type >= 0x20 and pkt.msg_type <= 0x24),
-        ConditionalField(BitField("res", 0, 3), \
-                         lambda pkt: pkt.msg_type >= 0x20 and pkt.msg_type <= 0x24),
-        ConditionalField(BitField("more_seg", 0, 1), \
-                         lambda pkt: pkt.msg_type >= 0x20 and pkt.msg_type <= 0x24)
+        ConditionalField(BitField("offset", 0, 28),
+                         lambda pkt: SOMEIP._is_tp(pkt)),
+        ConditionalField(BitField("res", 0, 3),
+                         lambda pkt: SOMEIP._is_tp(pkt)),
+        ConditionalField(BitField("more_seg", 0, 1),
+                         lambda pkt: SOMEIP._is_tp(pkt))
     ]
 
     def post_build(self, pkt, pay):
-        if(self._is_tp(self)):
-            length = self.LEN_OFFSET_TP + len(pay)
-            pkt = pkt[:4] + struct.pack("!I", length) + pkt[8:]
-        else:
-            length = self.LEN_OFFSET + len(pay)
-            pkt = pkt[:4] + struct.pack("!I", length) + pkt[8:]
+        length = self.len
+        if length is None:
+            if SOMEIP._is_tp(self):
+                length = SOMEIP.LEN_OFFSET_TP + len(pay)
+                pkt = pkt[:4] + struct.pack("!I", length) + pkt[8:]
+            else:
+                length = SOMEIP.LEN_OFFSET + len(pay)
+                pkt = pkt[:4] + struct.pack("!I", length) + pkt[8:]
         return pkt + pay
 
     def answers(self, other):
@@ -168,15 +172,45 @@ class SOMEIP(Packet):
             return self.payload.answers(other.payload)
         return 0
 
-    def _is_tp(self, pkt):
+    @staticmethod
+    def _is_tp(pkt):
         """Returns true if pkt is using SOMEIP-TP, else returns false."""
 
-        tp = [self.TYPE_TP_REQUEST, self.TYPE_TP_REQUEST_NO_RET, \
-              self.TYPE_TP_NOTIFICATION, self.TYPE_TP_RESPONSE, \
-              self.TYPE_TP_ERROR]
-        if(pkt.msg_type in tp):
-            return True
-        return False
+        tp = [SOMEIP.TYPE_TP_REQUEST, SOMEIP.TYPE_TP_REQUEST_NO_RET,
+              SOMEIP.TYPE_TP_NOTIFICATION, SOMEIP.TYPE_TP_RESPONSE,
+              SOMEIP.TYPE_TP_ERROR]
+        if isinstance(pkt, Packet):
+            return pkt.msg_type in tp
+        else:
+            return pkt[15] in tp
+
+    def fragment(self, fragsize=1392):
+        """Fragment SOME/IP-TP"""
+        fnb = 0
+        fl = self
+        lst = list()
+        while fl.underlayer is not None:
+            fnb += 1
+            fl = fl.underlayer
+
+        for p in fl:
+            s = raw(p[fnb].payload)
+            nb = (len(s) + fragsize) // fragsize
+            for i in range(nb):
+                q = p.copy()
+                del q[fnb].payload
+                q[fnb].len = SOMEIP.LEN_OFFSET_TP + \
+                    len(s[i * fragsize:(i + 1) * fragsize])
+                q[fnb].more_seg = 1
+                if i == nb - 1:
+                    q[fnb].more_seg = 0
+                q[fnb].offset += i * fragsize // 16
+                r = conf.raw_layer(load=s[i * fragsize:(i + 1) * fragsize])
+                r.overload_fields = p[fnb].payload.overload_fields.copy()
+                q.add_payload(r)
+                lst.append(q)
+
+        return lst
 
 
 def _bind_someip_layers():
