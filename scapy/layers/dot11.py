@@ -184,7 +184,7 @@ class RadioTap(Packet):
                    FlagsField('present', None, -32, ['TSFT', 'Flags', 'Rate', 'Channel', 'FHSS', 'dBm_AntSignal',  # noqa: E501
                                                      'dBm_AntNoise', 'Lock_Quality', 'TX_Attenuation', 'dB_TX_Attenuation',  # noqa: E501
                                                      'dBm_TX_Power', 'Antenna', 'dB_AntSignal', 'dB_AntNoise',  # noqa: E501
-                                                     'RXFlags', 'b16', 'b17', 'b18', 'ChannelPlus', 'MCS', 'A_MPDU',  # noqa: E501
+                                                     'RXFlags', 'TXFlags', 'b17', 'b18', 'ChannelPlus', 'MCS', 'A_MPDU',  # noqa: E501
                                                      'VHT', 'timestamp', 'b24', 'b25', 'b26', 'b27', 'b28', 'b29',  # noqa: E501
                                                      'RadiotapNS', 'VendorNS', 'Ext']),  # noqa: E501
                    # Extended presence mask
@@ -209,6 +209,12 @@ class RadioTap(Packet):
                    ConditionalField(_RadiotapReversePadField(_dbmField("dBm_AntSignal", -256)), lambda pkt: pkt.present and pkt.present.dBm_AntSignal),  # noqa: E501
                    ConditionalField(_RadiotapReversePadField(_dbmField("dBm_AntNoise", -256)), lambda pkt: pkt.present and pkt.present.dBm_AntNoise),  # noqa: E501
                    ConditionalField(_RadiotapReversePadField(ByteField("Antenna", 0)), lambda pkt: pkt.present and pkt.present.Antenna),  # noqa: E501
+                   # RX Flags
+                   ConditionalField(_RadiotapReversePadField(FlagsField("RXFlags", None, -16, ["res1", "BAD_PLCP", "res2"])),   # noqa: E501
+                                    lambda pkt: pkt.present and pkt.present.RXFlags),  # noqa: E501#
+                   # TX Flags
+                   ConditionalField(_RadiotapReversePadField(FlagsField("TXFlags", None, -16, ["TX_FAIL", "CTS", "RTS", "NOACK", "NOSEQ"])),   # noqa: E501
+                                    lambda pkt: pkt.present and pkt.present.TXFlags),  # noqa: E501
                    # ChannelPlus
                    ConditionalField(
                        _RadiotapReversePadField(
