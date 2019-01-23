@@ -11,6 +11,7 @@ from __future__ import absolute_import, print_function
 import itertools
 import threading
 import os
+import re
 import socket
 import subprocess
 import time
@@ -21,7 +22,8 @@ from scapy.data import ETH_P_ALL
 from scapy.config import conf
 from scapy.error import warning
 from scapy.packet import Packet, Gen
-from scapy.utils import get_temp_file, PcapReader, tcpdump, wrpcap
+from scapy.utils import get_temp_file, tcpdump, wrpcap, \
+    ContextManagerSubprocess, PcapReader
 from scapy import plist
 from scapy.error import log_runtime, log_interactive
 from scapy.base_classes import SetGen
@@ -367,25 +369,25 @@ def sendpfast(x, pps=None, mbps=None, realtime=None, loop=0, file_cache=False, i
     argv.append(f)
     wrpcap(f, x)
     results = None
-    try:
-        log_runtime.info(argv)
-        with subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as cmd:  # noqa: E501
+    with ContextManagerSubprocess("sendpfast()", conf.prog.tcpreplay):
+        try:
+            cmd = subprocess.Popen(argv, stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE)
+        except KeyboardInterrupt:
+            log_interactive.info("Interrupted by user")
+        except Exception:
+            os.unlink(f)
+            raise
+        else:
             stdout, stderr = cmd.communicate()
-            log_runtime.info(stdout)
-            log_runtime.warning(stderr)
+            if stderr:
+                log_runtime.warning(stderr.decode())
             if parse_results:
                 results = _parse_tcpreplay_result(stdout, stderr, argv)
-
-    except KeyboardInterrupt:
-        log_interactive.info("Interrupted by user")
-    except Exception:
-        if conf.interactive:
-            log_interactive.error("Cannot execute [%s]", argv[0], exc_info=True)  # noqa: E501
-        else:
-            raise
-    finally:
-        os.unlink(f)
-        return results
+            elif conf.verb > 2:
+                log_runtime.info(stdout.decode())
+    os.unlink(f)
+    return results
 
 
 def _parse_tcpreplay_result(stdout, stderr, argv):
@@ -399,26 +401,46 @@ def _parse_tcpreplay_result(stdout, stderr, argv):
     :return: dictionary containing the results
     """
     try:
-        results_dict = {}
-        stdout = plain_str(stdout).replace("\nRated: ", "\t\tRated: ").replace("\t", "").split("\n")  # noqa: E501
-        stderr = plain_str(stderr).replace("\t", "").split("\n")
-        actual = [x for x in stdout[0].split(" ") if x]
-
-        results_dict["packets"] = int(actual[1])
-        results_dict["bytes"] = int(actual[3][1:])
-        results_dict["time"] = float(actual[7])
-        results_dict["bps"] = float(actual[10])
-        results_dict["mbps"] = float(actual[12])
-        results_dict["pps"] = float(actual[14])
-        results_dict["attempted"] = int(stdout[2].split(" ")[-1:][0])
-        results_dict["successful"] = int(stdout[3].split(" ")[-1:][0])
-        results_dict["failed"] = int(stdout[4].split(" ")[-1:][0])
-        results_dict["retried_enobufs"] = int(stdout[5].split(" ")[-1:][0])
-        results_dict["retried_eagain"] = int(stdout[6].split(" ")[-1][0])
-        results_dict["command"] = str(argv)
-        results_dict["warnings"] = stderr[:len(stderr) - 1]
-        return results_dict
+        results = {}
+        stdout = plain_str(stdout).lower()
+        stderr = plain_str(stderr).strip().split("\n")
+        elements = {
+            "actual": (int, int, float),
+            "rated": (float, float, float),
+            "flows": (int, float, int, int),
+            "attempted": (int,),
+            "successful": (int,),
+            "failed": (int,),
+            "truncated": (int,),
+            "retried packets (eno": (int,),
+            "retried packets (eag": (int,),
+        }
+        multi = {
+            "actual": ("packets", "bytes", "time"),
+            "rated": ("bps", "mbps", "pps"),
+            "flows": ("flows", "fps", "flow_packets", "non_flow"),
+            "retried packets (eno": ("retried_enobufs",),
+            "retried packets (eag": ("retried_eagain",),
+        }
+        float_reg = r"([0-9]*\.[0-9]+|[0-9]+)"
+        int_reg = r"([0-9]+)"
+        any_reg = r"[^0-9]*"
+        r_types = {int: int_reg, float: float_reg}
+        for line in stdout.split("\n"):
+            line = line.strip()
+            for elt, _types in elements.items():
+                if line.startswith(elt):
+                    regex = any_reg.join([r_types[x] for x in _types])
+                    matches = re.search(regex, line)
+                    for i, typ in enumerate(_types):
+                        name = multi.get(elt, [elt])[i]
+                        results[name] = typ(matches.group(i + 1))
+        results["command"] = " ".join(argv)
+        results["warnings"] = stderr[:-1]
+        return results
     except Exception as parse_exception:
+        if not conf.interactive:
+            raise
         log_runtime.error("Error parsing output: " + str(parse_exception))
         return {}
 
