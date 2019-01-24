@@ -153,7 +153,8 @@ class ISOTP(Packet):
 
     @staticmethod
     def defragment(can_frames, use_extended_addressing=None):
-        assert (len(can_frames) > 0)
+        if len(can_frames) == 0:
+            raise Scapy_Exception("ISOTP.defragment called with 0 frames")
 
         dst = can_frames[0].identifier
         for frame in can_frames:
@@ -327,7 +328,8 @@ class ISOTPMessageBuilder:
 
     def feed(self, can):
         """Attempt to feed an incoming CAN frame into the state machine"""
-        assert(isinstance(can, CAN))
+        if not isinstance(can, CAN):
+            raise Scapy_Exception("argument is not a CAN frame")
         identifier = can.identifier
         data = bytes(can.data)
 
@@ -939,7 +941,8 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
         self.can_socket.send(CAN(identifier=self.src_id, data=load))
 
     def on_can_recv(self, p):
-        assert(isinstance(p, CAN))
+        if not isinstance(p, CAN):
+            raise Scapy_Exception("argument is not a CAN frame")
         if p.identifier != self.dst_id:
             if not self.filter_warning_emitted:
                 warning("You should put a filter for identifier=%x on your"
@@ -987,7 +990,6 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
                     load = self.ea_hdr
                     load += struct.pack("B", N_PCI_CF + self.tx_sn)
                     load += self.tx_buf[self.tx_idx:self.tx_idx + max_bytes]
-                    assert (len(load) <= 8)
                     self.can_send(load)
 
                     self.tx_sn = (self.tx_sn + 1) % 16
@@ -1117,7 +1119,6 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
             return 1
 
         msg = data[1:1 + length]
-        assert (len(msg) == length)
         self.rx_queue.put(msg)
         for cb in self.rx_callbacks:
             cb(msg)
