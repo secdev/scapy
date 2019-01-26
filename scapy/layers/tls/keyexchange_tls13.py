@@ -22,6 +22,7 @@ import scapy.modules.six as six
 
 if conf.crypto_valid:
     from cryptography.hazmat.backends import default_backend
+    from cryptography.hazmat.primitives import serialization
     from cryptography.hazmat.primitives.asymmetric import dh, ec
 if conf.crypto_valid_advanced:
     from cryptography.hazmat.primitives.asymmetric import x25519
@@ -77,7 +78,15 @@ class KeyShareEntry(Packet):
                 privkey = ec.generate_private_key(curve, default_backend())
                 self.privkey = privkey
                 pubkey = privkey.public_key()
-                self.key_exchange = pubkey.public_numbers().encode_point()
+                try:
+                    # cryptography >= 2.5
+                    self.key_exchange = pubkey.public_bytes(
+                        serialization.Encoding.X962,
+                        serialization.PublicFormat.UncompressedPoint
+                    )
+                except TypeError:
+                    # older versions
+                    self.key_exchange = pubkey.public_numbers().encode_point()
 
     def post_build(self, pkt, pay):
         if self.group is None:

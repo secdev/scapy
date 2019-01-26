@@ -27,6 +27,7 @@ import scapy.modules.six as six
 
 if conf.crypto_valid:
     from cryptography.hazmat.backends import default_backend
+    from cryptography.hazmat.primitives import serialization
     from cryptography.hazmat.primitives.asymmetric import dh, ec
 
 
@@ -585,7 +586,15 @@ class ServerECDHNamedCurveParams(_GenericTLSSessionInheritance):
 
         if self.point is None:
             pubkey = s.server_kx_privkey.public_key()
-            self.point = pubkey.public_numbers().encode_point()
+            try:
+                # cryptography >= 2.5
+                self.point = pubkey.public_bytes(
+                    serialization.Encoding.X962,
+                    serialization.PublicFormat.UncompressedPoint
+                )
+            except TypeError:
+                # older versions
+                self.key_exchange = pubkey.public_numbers().encode_point()
         # else, we assume that the user wrote the server_kx_privkey by himself
         if self.pointlen is None:
             self.pointlen = len(self.point)
