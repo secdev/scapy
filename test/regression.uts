@@ -332,7 +332,7 @@ def test_explore_gui(is_layer, layer):
                                        shortcuts=Bunch(
                                            dialogs=Bunch(
                                                radiolist_dialog=(lambda *args, **kargs: layer),
-                                               yes_no_dialog=(lambda *args, **kargs: is_layer)
+                                               button_dialog=(lambda *args, **kargs: "layers" if is_layer else "contribs")
                                            )
                                        ),
                                        formatted_text=Bunch(HTML=lambda x: x),
