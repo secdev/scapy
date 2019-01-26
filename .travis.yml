@@ -126,13 +126,14 @@ matrix:
           env:
             - TOXENV=py36-osx_non_root,py36-osx_root,codecov
 
+    allow_failures:
         # Other root tests
-        # Test scapy garbage disposal
+        # Test scapy against all warnings
         - os: linux
           sudo: required
           python: 3.6
           env:
-            - TOXENV=linux_garbage
+            - TOXENV=linux_warnings
 
 install: bash .travis/install.sh
 
