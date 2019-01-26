@@ -35,7 +35,7 @@ load_layer("tls")
 @contextmanager
 def captured_output():
     old_out, old_err = sys.stdout, sys.stderr
-    new_out, new_err = StringWriter(), StringWriter()
+    new_out, new_err = StringWriter(debug=old_out), StringWriter(debug=old_out)
     try:
         sys.stdout, sys.stderr = new_out, new_err
         yield sys.stdout, sys.stderr
@@ -121,7 +121,7 @@ def test_tls_server(suite="", version=""):
             th_.terminate()
             raise RuntimeError("OpenSSL returned unexpected values")
     # Wait for server
-    th_.join(30)
+    th_.join(5)
     if th_.is_alive():
         th_.terminate()
         raise RuntimeError("Test timed out")
@@ -184,20 +184,20 @@ def test_tls_client(suite, version):
     th_.start()
     # Synchronise threads
     print("Syncrhonising...")
-    assert q_.get() is True
+    assert q_.get(timeout=5) is True
     time.sleep(1)
     print("Thread synchronised")
     # Run client
     run_tls_test_client(msg, suite, version)
     # Wait for server
     print("Client running, waiting...")
-    th_.join(60)
+    th_.join(5)
     if th_.is_alive():
         raise RuntimeError("Test timed out")
     # Return values
     if q_.empty():
         raise RuntimeError("Missing return value")
-    return q_.get()
+    return q_.get(timeout=5)
 
 
 = Testing TLS server and client with SSLv2 and SSL_CK_DES_192_EDE3_CBC_WITH_MD5

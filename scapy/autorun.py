@@ -86,14 +86,18 @@ def autorun_commands(cmds, my_globals=None, ignore_globals=None, verb=None):
 class StringWriter(object):
     """Util to mock sys.stdout and sys.stderr, and
     store their output in a 's' var."""
-    def __init__(self):
+    def __init__(self, debug=None):
         self.s = ""
+        self.debug = debug
 
     def write(self, x):
+        if self.debug:
+            self.debug.write(x)
         self.s += x
 
     def flush(self):
-        pass
+        if self.debug:
+            self.debug.flush()
 
 
 def autorun_get_interactive_session(cmds, **kargs):
