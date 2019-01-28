@@ -2222,16 +2222,15 @@ class ScalingField(Field):
             x = round(x, self.ndigits)
         return x
 
-    #TODO: remove me as soon as PR #1735 is merged
-    @staticmethod
-    def temporary_bytes_encode(x):
-        if isinstance(x, str):
-            return x.encode()
-        return bytes(x)
-
     def any2i(self, pkt, x):
-        if isinstance(x, str) or isinstance(x, bytes):
-            x = struct.unpack(self.fmt, self.temporary_bytes_encode(x))[0]
+        if isinstance(x, str):
+            if six.PY3:
+                x = struct.unpack(self.fmt, bytes(x, encoding="utf-8"))[0]
+            else:
+                x = struct.unpack(self.fmt, bytes(x))[0]
+            x = self.m2i(pkt, x)
+        elif isinstance(x, bytes):
+            x = struct.unpack(self.fmt, x)[0]
             x = self.m2i(pkt, x)
         return x
 
