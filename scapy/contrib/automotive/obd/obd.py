@@ -49,7 +49,7 @@ class OBD(Packet):
 
     def hashret(self):
         if self.service == 0x7f:
-            return struct.pack('B', self.requestServiceId)
+            return struct.pack('B', self.request_service_id)
         return struct.pack('B', self.service & ~0x40)
 
     def answers(self, other):
@@ -57,7 +57,7 @@ class OBD(Packet):
         if other.__class__ == self.__class__:
             return (other.service + 0x40) == self.service or \
                    (self.service == 0x7f and
-                    self.requestServiceId == other.service)
+                    self.request_service_id == other.service)
         return False
 
 
