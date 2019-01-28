@@ -177,6 +177,7 @@ class Field(six.with_metaclass(Field_metaclass, object)):
 
 
 class Emph(object):
+    """Empathize sub-layer for display"""
     __slots__ = ["fld"]
 
     def __init__(self, fld):

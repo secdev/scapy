@@ -14,17 +14,20 @@ HowTo debug NetflowV9 packets:
 Caution: this API might be updated
 """
 
+import struct
 
+from scapy.config import conf
+from scapy.data import IP_PROTOS
+from scapy.error import warning
 from scapy.fields import ByteEnumField, ByteField, Field, FieldLenField, \
-    FlagsField, IPField, IntField, LenField, LongField, MACField, \
+    FlagsField, IPField, IntField, MACField, \
     PacketListField, PadField, SecondsIntField, ShortEnumField, ShortField, \
     StrField, StrFixedLenField, ThreeBytesField, UTCTimeField, XByteField, \
     XShortField
-from scapy.packet import Packet, bind_layers, bind_bottom_up, Raw
-from scapy.data import IP_PROTOS
+from scapy.packet import Packet, bind_layers, bind_bottom_up
+
 from scapy.layers.inet import UDP
 from scapy.layers.inet6 import IP6Field
-from scapy.config import conf
 
 
 class NetflowHeader(Packet):
@@ -244,7 +247,7 @@ NetflowV9TemplateFieldDefaultLengths = {
     42: 4,
     46: 1,
     47: 4,
-    48: 1,
+    48: 4,  # from ERRATA
     49: 1,
     50: 4,
     55: 1,
@@ -302,7 +305,7 @@ NetflowV9TemplateFieldDecoders = {  # Only contains fields that have a fixed len
     31: ThreeBytesField,  # IPV6_FLOW_LABEL
     32: XShortField,  # ICMP_TYPE
     33: ByteField,  # MUL_IGMP_TYPE
-    34: LongField,  # SAMPLING_INTERVAL
+    34: IntField,  # SAMPLING_INTERVAL
     35: XByteField,  # SAMPLING_ALGORITHM
     36: ShortField,  # FLOW_ACTIVE_TIMEOUT
     37: ShortField,  # FLOW_ACTIVE_TIMEOUT
@@ -312,7 +315,7 @@ NetflowV9TemplateFieldDecoders = {  # Only contains fields that have a fixed len
     47: IPField,  # MPLS_TOP_LABEL_IP_ADDR
     48: ByteField,  # FLOW_SAMPLER_ID
     49: ByteField,  # FLOW_SAMPLER_MODE
-    50: LongField,  # FLOW_SAMPLER_RANDOM_INTERVAL
+    50: IntField,  # FLOW_SAMPLER_RANDOM_INTERVAL
     55: XByteField,  # DST_TOS
     56: MACField,  # SRC_MAC
     57: MACField,  # DST_MAC
@@ -327,16 +330,27 @@ NetflowV9TemplateFieldDecoders = {  # Only contains fields that have a fixed len
 
 class NetflowHeaderV9(Packet):
     name = "Netflow Header V9"
-    fields_desc = [ShortField("count", 0),
+    fields_desc = [ShortField("count", None),
                    IntField("sysUptime", 0),
-                   UTCTimeField("unixSecs", 0),
+                   UTCTimeField("unixSecs", None),
                    IntField("packageSequence", 0),
                    IntField("SourceID", 0)]
+
+    def post_build(self, pkt, pay):
+        if self.count is None:
+            count = sum(1 for x in self.layers() if x in [
+                NetflowFlowsetV9,
+                NetflowDataflowsetV9,
+                NetflowOptionsFlowsetV9]
+            )
+            pkt = struct.pack("!H", count) + pkt[2:]
+        return pkt + pay
 
 
 class NetflowTemplateFieldV9(Packet):
     name = "Netflow Flowset Template Field V9"
-    fields_desc = [ShortEnumField("fieldType", None, NetflowV9TemplateFieldTypes),  # noqa: E501
+    fields_desc = [ShortEnumField("fieldType", None,
+                                  NetflowV9TemplateFieldTypes),
                    ShortField("fieldLength", 0)]
 
     def __init__(self, *args, **kwargs):
@@ -398,10 +412,14 @@ class NetflowRecordV9(Packet):
 class NetflowDataflowsetV9(Packet):
     name = "Netflow DataFlowSet V9"
     fields_desc = [ShortField("templateID", 255),
-                   FieldLenField("length", None, length_of="records", adjust=lambda pkt, x:x + 4),  # noqa: E501
-                   PadField(PacketListField("records", [], NetflowRecordV9,
-                                            length_from=lambda pkt: pkt.length - 4),  # noqa: E501
-                            4, padwith=b"\x00")]
+                   FieldLenField("length", None, length_of="records",
+                                 adjust=lambda pkt, x: x + 4 + (-x % 4)),
+                   PadField(
+                       PacketListField(
+                           "records", [],
+                           NetflowRecordV9,
+                           length_from=lambda pkt: pkt.length - 4
+                       ), 4, padwith=b"\x00")]
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
@@ -413,84 +431,116 @@ class NetflowDataflowsetV9(Packet):
         return cls
 
 
-def netflowv9_defragment(plist):
-    """Process all NetflowV9 Packets to match IDs of the DataFlowsets with the Headers.  # noqa: E501
-    plist: the list of mixed NetflowV9 packets."""
+def netflowv9_defragment(plist, verb=1):
+    """Process all NetflowV9 Packets to match IDs of the DataFlowsets
+    with the Headers
+
+    params:
+     - plist: the list of mixed NetflowV9 packets.
+     - verb: verbose print (0/1)
+    """
     # We need the whole packet to be dissected to access field def in NetflowFlowsetV9 or NetflowOptionsFlowsetV9  # noqa: E501
-    packet_list = [pkt for pkt in plist if (NetflowFlowsetV9 in pkt or NetflowOptionsFlowsetV9 in pkt)]  # noqa: E501
+    definitions = {}
+    definitions_opts = {}
+    ignored = set()
     # Iterate through initial list
-    for pkt in (x for x in plist if NetflowDataflowsetV9 in x):
-        root = pkt.firstlayer()
-        # Get all linked NetflowFlowsetV9
-        for p in packet_list:
-            if NetflowFlowsetV9 in p:  # STEP 1 - NetflowFlowsetV9
-                current = p[NetflowFlowsetV9]
+    for pkt in plist:  # NetflowDataflowsetV9:
+        # Dataflowset definitions
+        if NetflowFlowsetV9 in pkt:
+            current = pkt
+            while NetflowFlowsetV9 in current:
+                current = current[NetflowFlowsetV9]
                 for ntv9 in current.templates:
-                    current_ftl = root.getlayer(NetflowDataflowsetV9, templateID=ntv9.templateID)  # noqa: E501
-                    if current_ftl:
-                        # Matched
-                        try:
-                            assert(len(current_ftl.records) > 0)
-                            # All data is stored in one record, awaiting to be split  # noqa: E501
-                            data = current_ftl.records[0].fieldValue
-                            # If fieldValue is available, the record has not been defragmented: pop it  # noqa: E501
-                            current_ftl.records.pop(0)
-                        except (AssertionError, AttributeError):
-                            continue
-                        res = []
-                        # Now, according to the NetflowFlowsetV9 data, re-dissect NetflowDataflowsetV9  # noqa: E501
-                        lengths_list = []
-                        for template in ntv9.template_fields:
-                            lengths_list.append((template.fieldLength, template.fieldType))  # noqa: E501
-                        if lengths_list:
-                            tot_len = sum(x for x, y in lengths_list)
-                            cls = _GenNetflowRecordV9(NetflowRecordV9, lengths_list)  # noqa: E501
-                            while len(data) >= tot_len:
-                                res.append(cls(data[:tot_len]))
-                                data = data[tot_len:]
-                        # Inject dissected data
-                        current_ftl.records = res
-                        current_ftl.do_dissect_payload(data)
-                        break
-            if NetflowOptionsFlowsetV9 in p:  # STEP 2 - NetflowOptionsFlowsetV9  # noqa: E501
-                current = p[NetflowOptionsFlowsetV9]
-                current_ftl = root.getlayer(NetflowDataflowsetV9, templateID=current.templateID)  # noqa: E501
-                if current_ftl:
-                    # Matched
-                    try:
-                        assert(len(current_ftl.records) > 0)
-                        # All data is stored in one record, awaiting to be split  # noqa: E501
-                        data = current_ftl.records.pop(0).fieldValue
-                    except (AssertionError, AttributeError):
-                        continue
-                    res = []
-                    # Now, according to the NetflowOptionsFlowsetV9 data, re-dissect NetflowDataflowsetV9  # noqa: E501
-                    # A - Decode scopes
-                    lengths_list = []
-                    for scope in current.scopes:
-                        lengths_list.append((scope.scopeFieldlength, scope.scopeFieldType))  # noqa: E501
-                    if lengths_list:
-                        tot_len = sum(x for x, y in lengths_list)
-                        cls = _GenNetflowRecordV9(NetflowOptionsRecordScopeV9, lengths_list)  # noqa: E501
-                        while len(data) >= tot_len:
-                            res.append(cls(data[:tot_len]))
-                            data = data[tot_len:]
-                    # B - Decode options
-                    lengths_list = []
-                    for option in current.options:
-                        lengths_list.append((option.optionFieldlength, option.optionFieldType))  # noqa: E501
-                    if lengths_list:
-                        tot_len = sum(x for x, y in lengths_list)
-                        cls = _GenNetflowRecordV9(NetflowOptionsRecordOptionV9, lengths_list)  # noqa: E501
-                        while len(data) >= tot_len:
-                            res.append(cls(data[:tot_len]))
-                            data = data[tot_len:]
-                    if data:
-                        res.append(Raw(data))
-                    # Inject dissected data
-                    current_ftl.records = res
-                    current_ftl.name = "Netflow DataFlowSet V9 - OPTIONS"
-                    break
+                    llist = []
+                    for tmpl in ntv9.template_fields:
+                        llist.append((tmpl.fieldLength, tmpl.fieldType))
+                    if llist:
+                        tot_len = sum(x[0] for x in llist)
+                        cls = _GenNetflowRecordV9(NetflowRecordV9, llist)
+                        definitions[ntv9.templateID] = (tot_len, cls)
+                current = current.payload
+        # Options definitions
+        if NetflowOptionsFlowsetV9 in pkt:
+            current = pkt
+            while NetflowOptionsFlowsetV9 in current:
+                current = current[NetflowOptionsFlowsetV9]
+                # Load scopes
+                llist = []
+                for scope in current.scopes:
+                    llist.append((
+                        scope.scopeFieldlength,
+                        scope.scopeFieldType
+                    ))
+                scope_tot_len = sum(x[0] for x in llist)
+                scope_cls = _GenNetflowRecordV9(
+                    NetflowOptionsRecordScopeV9,
+                    llist
+                )
+                # Load options
+                llist = []
+                for opt in current.options:
+                    llist.append((
+                        opt.optionFieldlength,
+                        opt.optionFieldType
+                    ))
+                option_tot_len = sum(x[0] for x in llist)
+                option_cls = _GenNetflowRecordV9(
+                    NetflowOptionsRecordOptionV9,
+                    llist
+                )
+                # Storage
+                definitions_opts[current.templateID] = (
+                    scope_tot_len, scope_cls,
+                    option_tot_len, option_cls
+                )
+                current = current.payload
+        # Dissect flowsets
+        if NetflowDataflowsetV9 in pkt:
+            datafl = pkt[NetflowDataflowsetV9]
+            tid = datafl.templateID
+            if tid not in definitions and tid not in definitions_opts:
+                ignored.add(tid)
+                continue
+            # All data is stored in one record, awaiting to be split
+            # If fieldValue is available, the record has not been
+            # defragmented: pop it
+            try:
+                data = datafl.records[0].fieldValue
+                datafl.records.pop(0)
+            except (IndexError, AttributeError):
+                continue
+            res = []
+            # Flowset record
+            # Now, according to the flow/option data,
+            # let's re-dissect NetflowDataflowsetV9
+            if tid in definitions:
+                tot_len, cls = definitions[tid]
+                while len(data) >= tot_len:
+                    res.append(cls(data[:tot_len]))
+                    data = data[tot_len:]
+                # Inject dissected data
+                datafl.records = res
+                datafl.do_dissect_payload(data)
+            # Options
+            elif tid in definitions_opts:
+                (scope_len, scope_cls,
+                    option_len, option_cls) = definitions_opts[tid]
+                # Dissect scopes
+                if scope_len:
+                    res.append(scope_cls(data[:scope_len]))
+                if option_len:
+                    res.append(
+                        option_cls(data[scope_len:scope_len + option_len])
+                    )
+                if len(data) > scope_len + option_len:
+                    res.append(
+                        conf.padding_layer(data[scope_len + option_len:])
+                    )
+                # Inject dissected data
+                datafl.records = res
+                datafl.name = "Netflow DataFlowSet V9 - OPTIONS"
+    if conf.verb >= 1 and ignored:
+        warning("Ignored templateIDs (missing): %s" % list(ignored))
     return plist
 
 
@@ -523,15 +573,39 @@ class NetflowOptionsFlowsetScopeV9(Packet):
 class NetflowOptionsFlowsetV9(Packet):
     name = "Netflow Options Template FlowSet V9"
     fields_desc = [ShortField("flowSetID", 1),
-                   LenField("length", None),
+                   ShortField("length", None),
                    ShortField("templateID", 255),
-                   FieldLenField("option_scope_length", None, length_of="scopes"),  # noqa: E501
-                   FieldLenField("option_field_length", None, length_of="options"),  # noqa: E501
-                   PacketListField("scopes", [], NetflowOptionsFlowsetScopeV9,
-                                   length_from=lambda pkt: pkt.option_scope_length),  # noqa: E501
-                   PadField(PacketListField("options", [], NetflowOptionsFlowsetOptionV9,  # noqa: E501
-                                            length_from=lambda pkt: pkt.option_field_length),  # noqa: E501
-                            4, padwith=b"\x00")]
+                   FieldLenField("option_scope_length", None,
+                                 length_of="scopes"),
+                   FieldLenField("option_field_length", None,
+                                 length_of="options"),
+                   # We can't use PadField as we have 2 PacketListField
+                   PacketListField(
+                       "scopes", [],
+                       NetflowOptionsFlowsetScopeV9,
+                       length_from=lambda pkt: pkt.option_scope_length),
+                   PacketListField(
+                       "options", [],
+                       NetflowOptionsFlowsetOptionV9,
+                       length_from=lambda pkt: pkt.option_field_length)]
+
+    def extract_padding(self, s):
+        if self.length is None:
+            return s, ""
+        # Calc pad length
+        pad_len = self.length - self.option_scope_length - \
+            self.option_field_length - 10
+        return s[pad_len:], s[:pad_len]
+
+    def default_payload_class(self, p):
+        return conf.padding_layer
+
+    def post_build(self, pkt, pay):
+        # Padding 4-bytes with b"\x00"
+        pkt += (-len(pkt) % 4) * b"\x00"
+        if self.length is None:
+            pkt = pkt[:2] + struct.pack("!H", len(pkt)) + pkt[4:]
+        return pkt + pay
 
 
 bind_layers(NetflowHeader, NetflowHeaderV9, version=9)
