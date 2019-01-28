@@ -486,6 +486,8 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=20):
         IPYTHON = False
 
     if conf.fancy_prompt:
+        from scapy.utils import get_terminal_width
+        mini_banner = (get_terminal_width() or 84) <= 75
 
         the_logo = [
             "                                      ",
@@ -509,6 +511,19 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=20):
             "                                      ",
         ]
 
+        # Used on mini screens
+        the_logo_mini = [
+            "      .SYPACCCSASYY  ",
+            "P /SCS/CCS        ACS",
+            "       /A          AC",
+            "     A/PS       /SPPS",
+            "        YP        (SC",
+            "       SPS/A.      SC",
+            "   Y/PACC          PP",
+            "    PY*AYC        CAA",
+            "         YYCY//SCYP  ",
+        ]
+
         the_banner = [
             "",
             "",
@@ -522,9 +537,14 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=20):
             "   |",
         ]
 
-        quote, author = choice(QUOTES)
-        the_banner.extend(_prepare_quote(quote, author, max_len=39))
-        the_banner.append("   |")
+        if mini_banner:
+            the_logo = the_logo_mini
+            the_banner = [x[2:] for x in the_banner[3:-1]]
+            the_banner = [""] + the_banner + [""]
+        else:
+            quote, author = choice(QUOTES)
+            the_banner.extend(_prepare_quote(quote, author, max_len=39))
+            the_banner.append("   |")
         the_banner = "\n".join(
             logo + banner for logo, banner in six.moves.zip_longest(
                 (conf.color_theme.logo(line) for line in the_logo),

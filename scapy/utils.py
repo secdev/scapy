@@ -1501,7 +1501,19 @@ def hexedit(pktlist):
 
 
 def get_terminal_width():
-    """Get terminal width if in a window"""
+    """Get terminal width (number of characters) if in a window.
+
+    Notice: this will try several methods in order to
+    support as many terminals and OS as possible.
+    """
+    # Let's first try using the official API
+    # (Python 3.3+)
+    if not six.PY2:
+        import shutil
+        sizex = shutil.get_terminal_size(fallback=(0, 0))[0]
+        if sizex != 0:
+            return sizex
+    # Backups / Python 2.7
     if WINDOWS:
         from ctypes import windll, create_string_buffer
         # http://code.activestate.com/recipes/440694-determine-size-of-console-window-on-windows/
@@ -1509,18 +1521,24 @@ def get_terminal_width():
         csbi = create_string_buffer(22)
         res = windll.kernel32.GetConsoleScreenBufferInfo(h, csbi)
         if res:
-            import struct
             (bufx, bufy, curx, cury, wattr,
              left, top, right, bottom, maxx, maxy) = struct.unpack("hhhhHhhhhhh", csbi.raw)  # noqa: E501
             sizex = right - left + 1
             # sizey = bottom - top + 1
             return sizex
-        else:
-            return None
+        return None
     else:
-        sizex = 0
+        # We have various methods
+        sizex = None
+        # COLUMNS is set on some terminals
         try:
-            import struct
+            sizex = int(os.environ['COLUMNS'])
+        except Exception:
+            pass
+        if sizex:
+            return sizex
+        # We can query TIOCGWINSZ
+        try:
             import fcntl
             import termios
             s = struct.pack('HHHH', 0, 0, 0, 0)
@@ -1528,15 +1546,7 @@ def get_terminal_width():
             sizex = struct.unpack('HHHH', x)[1]
         except IOError:
             pass
-        if not sizex:
-            try:
-                sizex = int(os.environ['COLUMNS'])
-            except Exception:
-                pass
-        if sizex:
-            return sizex
-        else:
-            return None
+        return sizex
 
 
 def pretty_list(rtlst, header, sortBy=0, borders=False):
