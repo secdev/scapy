@@ -2231,7 +2231,7 @@ class ScalingField(Field):
 
     def any2i(self, pkt, x):
         if isinstance(x, str) or isinstance(x, bytes):
-            x = struct.unpack(self.fmt, temporary_bytes_encode(x))[0]
+            x = struct.unpack(self.fmt, self.temporary_bytes_encode(x))[0]
             x = self.m2i(pkt, x)
         return x
 
