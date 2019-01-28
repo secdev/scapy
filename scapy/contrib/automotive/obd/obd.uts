@@ -24,6 +24,17 @@ assert res.answers(req)
 
 assert req.hashret() == res.hashret()
 
+= Check if negative response answers
+
+req = OBD(b'\x01\x2f')
+res = OBD(b'\x7f\x01\x11')
+assert res.answers(req)
+
+
+= Check hashret
+
+assert req.hashret() == res.hashret()
+
 
 = Check dissecting a request for Service 01 Pid 00
 
