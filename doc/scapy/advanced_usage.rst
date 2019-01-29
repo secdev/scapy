@@ -1505,7 +1505,7 @@ Creating a python-can CANSocket with multiple filters::
 
 For further details on python-can check: https://python-can.readthedocs.io/en/2.2.0/
 
-CANSocket man in the middle attack with bridge and sniff
+CANSocket MITM attack with bridge and sniff
 --------------------------------------------------------
 
 Set up two vcans on linux terminal::
@@ -1522,14 +1522,15 @@ Import modules::
    load_contrib('cansocket')
    load_layer("can")
 
-Create sockets to send and sniff packets::
+Create can sockets for attack::
 
    socket0 = CANSocket(iface='vcan0')
    socket1 = CANSocket(iface='vcan1')
 
-Create function to send Packet with threading::
+Create function to send packet with threading::
 
    def sendPacket():
+       sleep(0.2)
        socket0.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
 
 Create function for forwarding or change packets::
@@ -1537,12 +1538,12 @@ Create function for forwarding or change packets::
    def forwarding(pkt):
        return pkt
 
-Create function to bridge and sniff between to sockets::
+Create function to bridge and sniff between two sockets::
 
    def bridge():
        bSocket0 = CANSocket(iface='vcan0')
-       bSocket1 = CANSocket(iface='vcan1')       
-       bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding)
+       bSocket1 = CANSocket(iface='vcan1')
+       bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding, timeout=1)
        bSocket0.close()
        bSocket1.close()
 
@@ -1552,13 +1553,18 @@ Create threads for sending packet and to bridge and sniff::
    threadSender = threading.Thread(target=sendMessage)
 
 Start threads::
-   
+
    threadBridge.start()
    threadSender.start()
 
 Sniff packets::
 
    packets = socket1.sniff(timeout=0.3)
+
+Close sockets::
+
+   socket0.close()
+   socket1.close()
 
 ISOTP message
 -------------
@@ -1579,6 +1585,92 @@ Creating an ISOTP message with extended addressing::
 Create CAN-frames from an ISOTP message::
 
    ISOTP(src=0x241, dst=0x641, exdst=0x41, exsrc=0x55, data=b"\x3eabc" * 10).fragment()
+
+Send ISOTP message over ISOTP socket::
+
+   isoTpSocket = ISOTPSocket('vcan0', sid=0x241, did=0x641)
+   isoTpMessage = ISOTP('Message')
+   isoTpSocket.send(isoTpMessage)
+
+Sniff ISOTP message::
+
+   isoTpSocket = ISOTPSocket('vcan0', sid=0x641, did=0x241)
+   packets = isoTpSocket.sniff(timeout=0.5)
+
+ISOTP MITM attack with bridge and sniff
+---------------------------------------
+
+Set up two vcans on linux terminal::
+
+   sudo modprobe vcan
+   sudo ip link add name vcan0 type vcan
+   sudo ip link add name vcan1 type vcan
+   sudo ip link set dev vcan0 up
+   sudo ip link set dev vcan1 up
+
+Set up ISOTP::
+
+.. note::
+
+    First make sure you build an iso-tp kernel module.
+
+When the vcan core module is loaded with "sudo modprobe vcan" the iso-tp module can be loaded to the kernel.
+
+Therefore navigate to isotp directory, and load module with "sudo insmod ./net/can/can-isotp.ko". (Tested on Kernel 4.9.135-1-MANJARO)
+
+Detailed instructions you find in https://github.com/hartkopp/can-isotp.
+
+Import modules::
+
+   import threading
+   load_contrib('cansocket')
+   conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': True}
+   load_contrib('isotp')
+
+Create to ISOTP sockets for attack::
+
+   isoTpSocketVCan0 = ISOTPSocket('vcan0', sid=0x241, did=0x641)
+   isoTpSocketVCan1 = ISOTPSocket('vcan1', sid=0x641, did=0x241)
+
+Create function to send packet on vcan0 with threading::
+
+   def sendPacketWithISOTPSocket():
+       sleep(0.2)
+       packet = ISOTP('Request')
+       isoTpSocketVCan0.send(packet)
+
+Create function to forward packet::
+
+   def forwarding(pkt):
+       return pkt
+
+Create function to bridge and sniff between two buses::
+
+   def bridge():
+       bSocket0 = ISOTPSocket('vcan0', sid=0x641, did=0x241)
+       bSocket1 = ISOTPSocket('vcan1', sid=0x241, did=0x641)
+       bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding, timeout=1)
+       bSocket0.close()
+       bSocket1.close()
+
+Create threads for sending packet and to bridge and sniff::
+
+   threadBridge = threading.Thread(target=bridge)
+   threadSender = threading.Thread(target=sendPacketWithISOTPSocket)
+
+Start threads::are based on Linux kernel modules. The python-can project is used to support CAN and CANSockets on other systems, besides Linux. This guide explains the hardware setup on a BeagleBone Black. The BeagleBone Black was chosen because of its two CAN interfaces on the main processor. The presence of two CAN interfaces in one device gives the possibility of CAN MITM attacks and session hijacking. The Cannelloni framework turns a BeagleBone Black into a CAN-to-UDP interface, which gives you the freedom to run Scapy on a more powerful machine.
+
+   threadBridge.start()
+   threadSender.start()
+
+Sniff on vcan1::
+
+   receive = isoTpSocketVCan1.sniff(timeout=1)
+
+Close sockets::
+
+   isoTpSocketVCan0.close()
+   isoTpSocketVCan1.close()
 
 An ISOTPSocket will not respect ``src, dst, exdst, exsrc`` of an ISOTP message object.
 
