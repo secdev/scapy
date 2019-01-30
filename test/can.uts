@@ -342,3 +342,48 @@ assert packets[0].length == 4
 assert packets[-1].length == 8
 assert packets[0].data == b'\x11\x22\x33\x44'
 assert packets[-1].data == b'\x11\x22\x33\x44\x55\x66\x77\x88'
+
+= Check rdcandump default extended frames id < 0x7ff
+* default reading
+pcap_fd = BytesIO(b'''(1539191392.761779) vcan0 123#11223344
+                    (1539191470.820239) vcan0 123#11223344
+                    (1539191471.503168) vcan0 123#11223344
+                    (1539191471.891423) vcan0 123#11223344
+                    (1539191492.026403) vcan0 00000055#1122334455667788
+                    (1539191494.084177) vcan0 00000055#1122334455667788
+                    (1539191494.724228) vcan0 00000055#1122334455667788
+                    (1539191495.148182) vcan0 00000055#1122334455667788
+                    (1539191495.563320) vcan0 00000055#1122334455667788''')
+packets = rdcandump(pcap_fd)
+assert len(packets) == 9
+assert packets[0].identifier == 0x123
+assert packets[8].identifier == 0x55
+assert packets[8].flags == 0b100
+assert packets[0].length == 4
+assert packets[8].length == 8
+assert packets[0].data == b'\x11\x22\x33\x44'
+assert packets[8].data == b'\x11\x22\x33\x44\x55\x66\x77\x88'
+
+
+* interface not log file format
+pcap_fd = BytesIO(b'''  vcan0  00000055   [8]  11 22 33 44 55 66 77 88
+  vcan0       1F3   [8]  11 22 33 44 55 66 77 88
+  vcan0       1F3   [8]  11 22 33 44 55 66 77 88
+  vcan0  00000055   [8]  11 22 33 44 55 66 77 88
+  vcan0       1F3   [8]  11 22 33 44 55 66 77 88
+  vcan0  00000055   [8]  11 22 33 44 55 66 77 88
+  vcan0  00000055   [4]  11 22 33 44
+  vcan0       1F3   [4]  11 22 33 44''')
+packets = rdcandump(pcap_fd, is_not_log_file_format=True)
+assert len(packets) == 8
+packets[-1].show()
+assert packets[-1].identifier == 0x1F3
+assert packets[1].identifier == 0x1F3
+assert packets[0].identifier == 0x55
+assert packets[0].flags == 0b100
+assert packets[-1].length == 4
+assert packets[0].length == 8
+assert packets[1].length == 8
+assert packets[-1].data == b'\x11\x22\x33\x44'
+assert packets[0].data == b'\x11\x22\x33\x44\x55\x66\x77\x88'
+assert packets[1].data == b'\x11\x22\x33\x44\x55\x66\x77\x88'
