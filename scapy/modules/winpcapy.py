@@ -8,7 +8,7 @@
 # Copyright:   (c) Massimo Ciani 2009
 #
 #-------------------------------------------------------------------------------  # noqa: E501
-# Modified for scapy's usage - Mainly to support Npcap
+# Modified for scapy's usage - Mainly to support Npcap/Monitor mode
 
 ## This file is part of Scapy
 ## See http://www.secdev.org/projects/scapy for more information
@@ -20,8 +20,6 @@ import sys, os
 from scapy.consts import WINDOWS
 
 HAVE_REMOTE=False
-
-# Notes: Npcap, DLL and Windows
 
 if WINDOWS:
     HAVE_REMOTE=True
@@ -86,7 +84,7 @@ timeval._fields_ = [('tv_sec', c_long),
 if WINDOWS:
     class sockaddr(Structure):
         _fields_ = [("sa_family", c_ushort),
-                    ("sa_data",c_ubyte * 14)]
+                    ("sa_data", c_ubyte * 14)]
 
     class sockaddr_in(Structure):
         _fields_ = [("sin_family", c_ushort),

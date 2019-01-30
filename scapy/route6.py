@@ -54,7 +54,12 @@ class Route6:
         rtlst = []
 
         for net, msk, gw, iface, cset, metric in self.routes:
-            rtlst.append(('%s/%i' % (net, msk), gw, (iface if isinstance(iface, six.string_types) else iface.name), ", ".join(cset) if len(cset) > 0 else "", str(metric)))  # noqa: E501
+            rtlst.append(('%s/%i' % (net, msk),
+                          gw,
+                          (iface if isinstance(iface, six.string_types)
+                           else iface.description),
+                          ", ".join(cset) if len(cset) > 0 else "",
+                          str(metric)))
 
         return pretty_list(rtlst,
                            [('Destination', 'Next Hop', "Iface", "Src candidates", "Metric")],  # noqa: E501

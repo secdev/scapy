@@ -14,6 +14,7 @@ NETBSD = platform.startswith("netbsd")
 DARWIN = platform.startswith("darwin")
 SOLARIS = platform.startswith("sunos")
 WINDOWS = platform.startswith("win32")
+WINDOWS_XP = platform_lib.release() == "XP"
 BSD = DARWIN or FREEBSD or OPENBSD or NETBSD
 # See https://docs.python.org/3/library/platform.html#cross-platform
 IS_64BITS = maxsize > 2**32

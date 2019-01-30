@@ -298,7 +298,6 @@ def __gen_send(s, x, inter=0, loop=0, count=None, verbose=None, realtime=None, r
                 loop += 1
     except KeyboardInterrupt:
         pass
-    s.close()
     if verbose:
         print("\nSent %i packets." % n)
     if return_packets:
@@ -306,29 +305,39 @@ def __gen_send(s, x, inter=0, loop=0, count=None, verbose=None, realtime=None, r
 
 
 @conf.commands.register
-def send(x, inter=0, loop=0, count=None, verbose=None, realtime=None, return_packets=False, socket=None,  # noqa: E501
-         *args, **kargs):
+def send(x, inter=0, loop=0, count=None,
+         verbose=None, realtime=None,
+         return_packets=False, socket=None, *args, **kargs):
     """Send packets at layer 3
 send(packets, [inter=0], [loop=0], [count=None], [verbose=conf.verb], [realtime=None], [return_packets=False],  # noqa: E501
      [socket=None]) -> None"""
-    if socket is None:
-        socket = conf.L3socket(*args, **kargs)
-    return __gen_send(socket, x, inter=inter, loop=loop, count=count, verbose=verbose,  # noqa: E501
-                      realtime=realtime, return_packets=return_packets)
+    need_closing = socket is None
+    socket = socket or conf.L3socket(*args, **kargs)
+    results = __gen_send(socket, x, inter=inter, loop=loop,
+                         count=count, verbose=verbose,
+                         realtime=realtime, return_packets=return_packets)
+    if need_closing:
+        socket.close()
+    return results
 
 
 @conf.commands.register
-def sendp(x, inter=0, loop=0, iface=None, iface_hint=None, count=None, verbose=None, realtime=None,  # noqa: E501
+def sendp(x, inter=0, loop=0, iface=None, iface_hint=None, count=None,
+          verbose=None, realtime=None,
           return_packets=False, socket=None, *args, **kargs):
     """Send packets at layer 2
 sendp(packets, [inter=0], [loop=0], [iface=None], [iface_hint=None], [count=None], [verbose=conf.verb],  # noqa: E501
       [realtime=None], [return_packets=False], [socket=None]) -> None"""
     if iface is None and iface_hint is not None and socket is None:
         iface = conf.route.route(iface_hint)[0]
-    if socket is None:
-        socket = conf.L2socket(iface=iface, *args, **kargs)
-    return __gen_send(socket, x, inter=inter, loop=loop, count=count,
-                      verbose=verbose, realtime=realtime, return_packets=return_packets)  # noqa: E501
+    need_closing = socket is None
+    socket = socket or conf.L2socket(iface=iface, *args, **kargs)
+    results = __gen_send(socket, x, inter=inter, loop=loop,
+                         count=count, verbose=verbose,
+                         realtime=realtime, return_packets=return_packets)
+    if need_closing:
+        socket.close()
+    return results
 
 
 @conf.commands.register

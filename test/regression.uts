@@ -140,9 +140,12 @@ def get_dummy_interface():
         data["win_index"] = -1
         data["guid"] = "{1XX00000-X000-0X0X-X00X-00XXXX000XXX}"
         data["invalid"] = True
+        data["ipv4_metric"] = 1
+        data["ipv6_metric"] = 1
+        data["mac"] = "00:00:00:00:00:00"
+        data["ips"] = ["127.0.0.1", "::1"]
         dummy_int = NetworkInterface(data)
         dummy_int.pcap_name = "\\Device\\NPF_" + data["guid"]
-        conf.cache_ipaddrs[dummy_int.pcap_name] = b'\x7f\x00\x00\x01'
         return dummy_int
     else:
         return "dummy0"
@@ -182,7 +185,7 @@ else:
 
 = Test read_routes6() - check mandatory routes
 
-if len(routes6):
+if len(routes6) and not WINDOWS:
     assert(len([r for r in routes6 if r[0] == "::1" and r[4] == ["::1"]]) >= 1)
     if len(iflist) >= 2:
         assert len([r for r in routes6 if r[0] == "fe80::" and r[1] == 64]) >= 1
@@ -658,6 +661,7 @@ r
 assert r in [
     b'u\x14\x00\x1c\xc2\xf6\x80\x00\xde\x01k\xd3\x7f\x00\x00\x01\x7f\x00\x00\x01y\xc9>\xa6\x84\xd8\xc2\xb7',
     b'E\xa7\x00\x1c\xb0c\xc0\x00\xf6\x01U\xd3\x7f\x00\x00\x01\x7f\x00\x00\x01\xfex\xb3\x92B<\x0b\xb8',
+    '\x85\x7f\x00\x1c\xc2\xf6\x00\x00\xde\x01\xdbh\x7f\x00\x00\x01\x7f\x00\x00\x01y\xc9>\xa6\x84\xd8\xc2\xb7'
 ]
 
 = fuzz on packets with advanced RandNum
@@ -3942,6 +3946,11 @@ answer.answers(query) == True
 from scapy.layers.inet6 import _ICMPv6Error
 assert _ICMPv6Error().guess_payload_class(None) == IPerror6
 
+= Windows: reset routes properly
+
+if WINDOWS:
+    route_add_loopback()
+
 ############
 ############
 + ICMPv6ML
@@ -3953,7 +3962,7 @@ assert s == b"`\x00\x00\x00\x00\x18:\x01\xfe\x80\x00\x00\x00\x00\x00\x00\x00\x00
 p = IPv6(s)
 assert ICMPv6MLQuery in p and p[IPv6].dst == "ff02::1"
 
-= Check awnswers
+= Check answers
 
 q = IPv6()/IPv6ExtHdrHopByHop(options=[RouterAlert()])/ICMPv6MLQuery()
 a = IPv6()/IPv6ExtHdrHopByHop(options=[RouterAlert()])/ICMPv6MLReport()
@@ -11111,7 +11120,7 @@ print("PYX: %d" % PYX)
 if PYX:
     import tempfile
     import os
-    filename = tempfile.mktemp(suffix=".ps")
+    filename = tempfile.mktemp(suffix=".eps")
     plist = PacketList([IP()/TCP()])
     plist.psdump(filename)
     assert(os.path.exists(filename))

@@ -7,20 +7,22 @@
 Functions common to different architectures
 """
 
-# Important Note: This file is not needed on Windows, and mustn't be loaded
-
-import socket
-import subprocess
-from fcntl import ioctl
-import os
-import struct
 import ctypes
+import os
+import socket
+import struct
+import subprocess
+import time
 from ctypes import POINTER, Structure
 from ctypes import c_uint, c_uint32, c_ushort, c_ubyte
+from scapy.consts import WINDOWS
 from scapy.config import conf
 from scapy.data import MTU
 from scapy.error import Scapy_Exception
 import scapy.modules.six as six
+
+if not WINDOWS:
+    from fcntl import ioctl
 
 # BOOT
 
@@ -38,7 +40,8 @@ def _check_tcpdump():
     return proc.wait() == 0
 
 
-TCPDUMP = _check_tcpdump()
+# This won't be used on Windows
+TCPDUMP = WINDOWS or _check_tcpdump()
 
 # UTILS
 
@@ -50,6 +53,29 @@ def get_if(iff, cmd):
     ifreq = ioctl(sck, cmd, struct.pack("16s16x", iff.encode("utf8")))
     sck.close()
     return ifreq
+
+
+# SOCKET UTILS
+
+class TimeoutElapsed(Scapy_Exception):
+    pass
+
+
+def _select_nonblock(sockets, remain=None):
+    """This function is called during sendrecv() routine to select
+    the available sockets.
+    """
+    # pcap sockets aren't selectable, so we return all of them
+    # and ask the selecting functions to use nonblock_recv instead of recv
+    def _sleep_nonblock_recv(self):
+        try:
+            res = self.nonblock_recv()
+            if res is None:
+                time.sleep(conf.recv_poll_rate)
+            return res
+        except TimeoutElapsed:
+            return None
+    return sockets, _sleep_nonblock_recv
 
 # BPF HANDLERS
 

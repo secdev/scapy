@@ -40,7 +40,7 @@ class Route:
             rtlst.append((ltoa(net),
                           ltoa(msk),
                           gw,
-                          (iface.name if not isinstance(iface, six.string_types) else iface),  # noqa: E501
+                          (iface.description if not isinstance(iface, six.string_types) else iface),  # noqa: E501
                           addr,
                           str(metric)))
 

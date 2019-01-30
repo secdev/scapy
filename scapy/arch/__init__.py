@@ -65,6 +65,7 @@ elif SOLARIS:
     from scapy.arch.solaris import *  # noqa F403
 elif WINDOWS:
     from scapy.arch.windows import *  # noqa F403
+    from scapy.arch.windows.native import *  # noqa F403
 
 if conf.iface is None:
     conf.iface = scapy.consts.LOOPBACK_INTERFACE
