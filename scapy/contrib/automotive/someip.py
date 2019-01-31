@@ -155,10 +155,10 @@ class SOMEIP(Packet):
         if length is None:
             if SOMEIP._is_tp(self):
                 length = SOMEIP.LEN_OFFSET_TP + len(pay)
-                pkt = pkt[:4] + struct.pack("!I", length) + pkt[8:]
             else:
                 length = SOMEIP.LEN_OFFSET + len(pay)
-                pkt = pkt[:4] + struct.pack("!I", length) + pkt[8:]
+
+            pkt = pkt[:4] + struct.pack("!I", length) + pkt[8:]
         return pkt + pay
 
     def answers(self, other):
