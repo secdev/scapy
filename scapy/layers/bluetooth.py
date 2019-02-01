@@ -52,7 +52,7 @@ class LEMACField(Field):
         return str2mac(x[::-1])
 
     def any2i(self, pkt, x):
-        if isinstance(x, str) and len(x) is 6:
+        if isinstance(x, str) and len(x) == 6:
             x = self.m2i(pkt, x)
         return x
 

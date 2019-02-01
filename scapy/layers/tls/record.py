@@ -294,9 +294,9 @@ class TLS(_GenericTLSSessionInheritance):
                         from scapy.layers.tls.record_tls13 import TLS13
                         return TLS13
         if _pkt and len(_pkt) < 5:
-                # Layer detected as TLS but too small to be a real packet (len<5).  # noqa: E501
-                # Those packets appear when sessions are interrupted or to flush buffers.  # noqa: E501
-                # Scapy should not try to decode them
+            # Layer detected as TLS but too small to be a real packet (len<5).
+            # Those packets are usually customly implemented
+            # Scapy should not try to decode them
             return conf.raw_layer
         return TLS
 

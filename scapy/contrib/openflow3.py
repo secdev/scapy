@@ -548,9 +548,9 @@ class OXMPacketListField(PacketListField):
         self.index = []
 
     def i2m(self, pkt, val):
-            # this part makes for a faster writing of specs-compliant matches
-            # expect some unwanted behaviour if you try incoherent associations
-            # you might want to set autocomplete=False in __init__ method
+        # this part makes for a faster writing of specs-compliant matches
+        # expect some unwanted behaviour if you try incoherent associations
+        # you might want to set autocomplete=False in __init__ method
         if self.autocomplete or conf.contribs['OPENFLOW']['prereq_autocomplete']:  # noqa: E501
             # val might be modified during the loop so we need a fixed copy
             fix_val = copy.deepcopy(val)

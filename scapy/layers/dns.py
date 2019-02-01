@@ -115,9 +115,9 @@ def dns_compress(pkt):
                         if isinstance(field, DNSStrField) or \
                            (isinstance(field, RDataField) and
                            current.type in [2, 5, 12]):
-                                # Get the associated data and store it accordingly  # noqa: E501
-                                dat = current.getfieldval(field.name)
-                                yield current, field.name, dat
+                            # Get the associated data and store it accordingly  # noqa: E501
+                            dat = current.getfieldval(field.name)
+                            yield current, field.name, dat
                 current = current.payload
 
     def possible_shortens(dat):
