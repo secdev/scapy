@@ -308,6 +308,7 @@ PDU_CLASS_VERSION_1 = {0: RTRSerialNotify,
                        9: RTRRouterKey,
                        10: RTRErrorReport}
 
+
 class RTR(Packet):
 
     '''
