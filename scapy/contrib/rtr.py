@@ -30,6 +30,7 @@ from scapy.fields import IPField, IP6Field, StrLenField
 from scapy.fields import FieldLenField
 from scapy.fields import StrFixedLenField, ShortEnumField
 from scapy.layers.inet import TCP
+from scapy.compat import orb
 
 STATIC_SERIAL_NOTIFY_LENGTH = 12
 STATIC_SERIAL_QUERY_LENGTH = 12
@@ -313,13 +314,13 @@ class RTR(Packet):
           Attribution of correct type depending on version and pdu_type
         '''
         if _pkt and len(_pkt) >= 2:
-            version = _pkt[0]
-            pdu_type = _pkt[1]
+            version = orb(_pkt[0])
+            pdu_type = orb(_pkt[1])
             if version == 0:
                 return PDU_CLASS_VERSION_0[pdu_type]
             elif version == 1:
                 return PDU_CLASS_VERSION_1[pdu_type]
-        return None
+        return Raw
 
 bind_layers(TCP, RTR, dport=323)  # real reserved port
 bind_layers(TCP, RTR, sport=323)  # real reserved port
