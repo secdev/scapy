@@ -24,7 +24,7 @@
 
 import struct
 
-from scapy.packet import Packet, bind_layers
+from scapy.packet import Packet, bind_layers, Raw
 from scapy.fields import ByteEnumField, ByteField, IntField, ShortField
 from scapy.fields import IPField, IP6Field, StrLenField
 from scapy.fields import FieldLenField
@@ -84,6 +84,7 @@ class RTRSerialNotify(Packet):
                    IntField('length', STATIC_SERIAL_NOTIFY_LENGTH),
                    IntField('serial_number', 0)]
 
+
 class RTRSerialQuery(Packet):
 
     '''
@@ -98,6 +99,7 @@ class RTRSerialQuery(Packet):
                    ShortField('session_id', 0),
                    IntField('length', STATIC_SERIAL_QUERY_LENGTH),
                    IntField('serial_number', 0)]
+
 
 class RTRResetQuery(Packet):
 
@@ -131,6 +133,7 @@ class RTRCacheResponse(Packet):
     def guess_payload_class(self, payload):
         return RTR
 
+
 class RTRIPv4Prefix(Packet):
 
     '''
@@ -153,6 +156,7 @@ class RTRIPv4Prefix(Packet):
 
     def guess_payload_class(self, payload):
         return RTR
+
 
 class RTRIPv6Prefix(Packet):
 
@@ -177,6 +181,7 @@ class RTRIPv6Prefix(Packet):
     def guess_payload_class(self, payload):
         return RTR
 
+
 class RTREndofDatav0(Packet):
 
     '''
@@ -191,6 +196,7 @@ class RTREndofDatav0(Packet):
                    ShortField('session_id', 0),
                    IntField('length', STATIC_END_OF_DATA_V0_LENGTH),
                    IntField('serial_number', 0)]
+
 
 class RTREndofDatav1(Packet):
 
@@ -210,6 +216,7 @@ class RTREndofDatav1(Packet):
                    IntField('retry_interval', 0),
                    IntField('expire_interval', 0)]
 
+
 class RTRCacheReset(Packet):
 
     '''
@@ -223,6 +230,7 @@ class RTRCacheReset(Packet):
                    ByteEnumField('pdu_type', 8, PDU_TYPE),
                    ShortField('reserved', 0),
                    IntField('length', STATIC_CACHE_RESET_LENGTH)]
+
 
 class RTRRouterKey(Packet):
 
@@ -248,6 +256,7 @@ class RTRRouterKey(Packet):
         if not self.length:
             pkt = pkt[:2] + struct.pack('!I', temp_len) + pkt[6:]
         return pkt + pay
+
 
 class RTRErrorReport(Packet):
 
@@ -321,6 +330,7 @@ class RTR(Packet):
             elif version == 1:
                 return PDU_CLASS_VERSION_1[pdu_type]
         return Raw
+
 
 bind_layers(TCP, RTR, dport=323)  # real reserved port
 bind_layers(TCP, RTR, sport=323)  # real reserved port
