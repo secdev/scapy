@@ -608,12 +608,12 @@ class Dot11EltRSN(Dot11Elt):
             AKMSuite,
             count_from=lambda p: p.nb_akm_suites
         ),
-        BitField("pre_auth", 0, 1),
-        BitField("no_pairwise", 0, 1),
-        BitField("ptksa_replay_counter", 0, 2),
-        BitField("gtksa_replay_counter", 0, 2),
-        BitField("mfp_required", 0, 1),
         BitField("mfp_capable", 0, 1),
+        BitField("mfp_required", 0, 1),
+        BitField("gtksa_replay_counter", 0, 2),
+        BitField("ptksa_replay_counter", 0, 2),
+        BitField("no_pairwise", 0, 1),
+        BitField("pre_auth", 0, 1),
         BitField("reserved", 0, 8),
         ConditionalField(
             PacketField("pmkids", None, PMKIDListPacket),
