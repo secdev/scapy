@@ -10473,7 +10473,7 @@ assert rsn_ie.nb_pairwise_cipher_suites == 0x01
 assert rsn_ie.pairwise_cipher_suites[0].cipher == 0x04
 assert rsn_ie.nb_akm_suites == 0x01
 assert rsn_ie.akm_suites[0].suite == 0x01
-assert rsn_ie.mfp_capable
+assert rsn_ie.pre_auth
 assert Dot11Elt in rsn_ie
 
 = Dot11EltMicrosoftWPA
