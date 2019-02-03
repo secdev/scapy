@@ -14,6 +14,7 @@ import inspect
 import socket
 import struct
 import time
+from types import MethodType
 
 
 from scapy.config import conf
@@ -394,6 +395,30 @@ class ReversePadField(PadField):
     def addfield(self, pkt, s, val):
         sval = self._fld.addfield(pkt, b"", val)
         return s + struct.pack("%is" % (self.padlen(len(s))), self._padwith) + sval  # noqa: E501
+
+
+class FCSField(Field):
+    """Special Field that gets its value from the end of the *packet*
+    (Note: not layer, but packet).
+
+    Mostly used for FCS
+    """
+    def getfield(self, pkt, s):
+        val = self.m2i(pkt, struct.unpack(self.fmt, s[-self.sz:])[0])
+        return s[:-self.sz], val
+
+    def addfield(self, pkt, s, val):
+        previous_post_build = pkt.post_build
+        value = struct.pack(self.fmt, self.i2m(pkt, val))
+
+        def _post_build(self, p, pay):
+            pay += value
+            return previous_post_build(p, pay)
+        pkt.post_build = MethodType(_post_build, pkt)
+        return s
+
+    def i2repr(self, pkt, x):
+        return lhex(self.i2h(pkt, x))
 
 
 class DestField(Field):
