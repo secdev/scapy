@@ -115,6 +115,7 @@ if conf.use_winpcapy:
                 while p:
                     name = plain_str(p.contents.name)  # GUID
                     description = plain_str(p.contents.description)  # NAME
+                    flags = p.contents.flags  # FLAGS
                     ips = []
                     a = p.contents.addresses
                     while a:
@@ -136,7 +137,7 @@ if conf.use_winpcapy:
                         if addr != "0.0.0.0":
                             ips.append(addr)
                         a = a.contents.next
-                    if_list[description] = (name, ips)
+                    if_list[name] = (description, ips, flags)
                     p = p.contents.next
                 conf.cache_iflist = if_list
             except Exception:
@@ -168,9 +169,9 @@ if conf.use_winpcapy:
             """Returns all pcap names"""
             if not conf.cache_iflist:
                 load_winpcapy()
-            return [x[0] for x in conf.cache_iflist.values()]
+            return list(conf.cache_iflist.keys())
     else:
-        get_if_list = lambda: {}
+        get_if_list = lambda: []
 
     class _PcapWrapper_winpcap:  # noqa: F811
         """Wrapper for the WinPcap calls"""
@@ -606,8 +607,7 @@ if conf.use_dnet:
 
         def get_if_list():
             """Returns all dnet names"""
-            return {i.get("description", None): i.get("name", None)
-                    for i in dnet.intf()}
+            return [i.get("name", None) for i in dnet.intf()]
 
         def get_working_if():
             """Returns the first interface than can be used with dnet"""
