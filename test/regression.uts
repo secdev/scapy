@@ -1026,11 +1026,24 @@ assert r.STBC_streams == 2
 assert r.MCS_index == 5
 assert r.Ness_LSB == 0
 
+= RadioTap RX/TX Flags dissection
+data = b'\x00\x00\x0c\x00\x00\xc0\x00\x00\x02\x00\x1f\x00'
+r = RadioTap(data)
+r.show()
+assert r.present.TXFlags
+assert r.TXFlags.TX_FAIL
+assert r.TXFlags.CTS
+assert r.TXFlags.RTS
+assert r.TXFlags.NOACK
+assert r.TXFlags.NOSEQ
+assert r.present.RXFlags
+assert r.RXFlags.BAD_PLCP
+
 = RadioTap - Dissection - guess_payload_class() test
 data = b'\x00\x00\r\x00\x04\x80\x02\x00\x02\x00\x00\x00\x00@\x00\x00\x00\xff\xff\xff\xff\xff\xff\xe8\x94\xf6\x1c\xdf\x8b\xff\xff\xff\xff\xff\xff\xa0\x01\x00\x10ciscosb-wpa2-eap\x01\x08\x02\x04\x0b\x16\x0c\x12\x18$2\x040H`l\x03\x01\x01-\x1an\x11\x1b\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 radiotap = RadioTap(data)
 assert radiotap.present.Rate
-assert radiotap.present.b16
+assert radiotap.present.TXFlags
 assert radiotap.present.b18
 assert radiotap.present == 163844
 assert radiotap.guess_payload_class("")
