@@ -319,16 +319,16 @@ def read_routes6():
     routes = []
 
     def proc2r(p):
-        ret = struct.unpack('4s4s4s4s4s4s4s4s', raw(p))
+        ret = struct.unpack('4s4s4s4s4s4s4s4s', p)
         ret = b':'.join(ret).decode()
         return scapy.utils6.in6_ptop(ret)
 
     lifaddr = in6_getifaddr()
     for line in f.readlines():
-        line = plain_str(line)
         d, dp, s, sp, nh, metric, rc, us, fl, dev = line.split()
         metric = int(metric, 16)
         fl = int(fl, 16)
+        dev = plain_str(dev)
 
         if fl & RTF_UP == 0:
             continue

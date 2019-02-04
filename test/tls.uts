@@ -1139,7 +1139,7 @@ assert s.wcs.__repr__() == 'Connection end : SERVER\nCipher suite   : TLS_NULL_W
 = Test tls.tools
 def test_tls_tools():
     from scapy.layers.tls.crypto.compression import Comp_Deflate
-    from scapy.layers.tls.crypto.ciphers import CipherError
+    from scapy.layers.tls.crypto.common import CipherError
     from scapy.layers.tls.crypto.cipher_stream import Cipher_RC4_40
     from scapy.layers.tls.crypto.cipher_aead import (Cipher_AES_128_GCM,
                                                      Cipher_AES_128_GCM_TLS13)

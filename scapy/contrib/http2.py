@@ -36,7 +36,7 @@ import sys
 from io import BytesIO
 import struct
 import scapy.modules.six as six
-from scapy.compat import raw, plain_str, bytes_hex, orb, chb
+from scapy.compat import raw, plain_str, bytes_hex, orb, chb, bytes_encode
 
 # Only required if using mypy-lang for static typing
 # Most symbols are used in mypy-interpreted "comments".
@@ -394,7 +394,7 @@ class AbstractUVarIntField(fields.Field):
             return s[0] + chb((s[2] << self.size) + self._max_value) + self.i2m(pkt, val)[1:]  # noqa: E501
         # This AbstractUVarIntField is only one byte long; setting the prefix value  # noqa: E501
         # and appending the resulting byte to the string
-        return chb(s[0]) + chb((s[2] << self.size) + orb(self.i2m(pkt, val)))
+        return s[0] + chb((s[2] << self.size) + orb(self.i2m(pkt, val)))
 
     @staticmethod
     def _detect_bytelen_from_str(s):
@@ -652,7 +652,7 @@ class HPackStringsInterface(ABC, Sized):
 
     def __bytes__(self):
         r = self.__str__()
-        return r if isinstance(r, bytes) else raw(r)
+        return bytes_encode(r)
 
     @abc.abstractmethod
     def origin(self):
@@ -2169,7 +2169,7 @@ class HPackHdrEntry(Sized):
             return "{}: {}".format(self._name, self._value)
 
     def __bytes__(self):
-        return raw(self.__str__())
+        return bytes_encode(self.__str__())
 
 
 class HPackHdrTable(Sized):

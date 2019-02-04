@@ -625,7 +625,7 @@ class BGPCapability(six.with_metaclass(_BGPCapability_metaclass, Packet)):
             # capability packet length - capability code (1 byte) -
             # capability length (1 byte)
             length = len(p) - 2
-            p = chb(p[0]) + chb(length) + p[2:]
+            p = p[:1] + chb(length) + p[2:]
         return p + pay
 
 
@@ -910,7 +910,7 @@ class BGPOptParam(Packet):
             else:
                 length = len(p) - \
                     2  # parameter type (1 byte) - parameter length (1 byte)
-            packet = chb(p[0]) + chb(length)
+            packet = p[:1] + chb(length)
             if (self.param_type == 2 and self.param_value is not None) or\
                     (self.param_type == 1 and self.authentication_data is not None):  # noqa: E501
                 packet = packet + p[2:]
@@ -1160,7 +1160,7 @@ class BGPPAASPath(Packet):
             segment_len = self.segment_length
             if segment_len is None:
                 segment_len = len(self.segment_value)
-                p = chb(p[0]) + chb(segment_len) + p[2:]
+                p = p[:1] + chb(segment_len) + p[2:]
 
             return p + pay
 
@@ -1189,7 +1189,7 @@ class BGPPAAS4BytesPath(Packet):
             segment_len = self.segment_length
             if segment_len is None:
                 segment_len = len(self.segment_value)
-                p = chb(p[0]) + chb(segment_len) + p[2:]
+                p = p[:1] + chb(segment_len) + p[2:]
 
             return p + pay
 
@@ -1945,7 +1945,7 @@ class BGPPAAS4Path(Packet):
     def post_build(self, p, pay):
         if self.segment_length is None:
             segment_len = len(self.segment_value)
-            p = chb(p[0]) + chb(segment_len) + p[2:]
+            p = p[:1] + chb(segment_len) + p[2:]
 
         return p + pay
 

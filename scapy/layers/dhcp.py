@@ -19,7 +19,7 @@ import struct
 
 from scapy.ansmachine import AnsweringMachine
 from scapy.base_classes import Net
-from scapy.compat import chb, orb, raw
+from scapy.compat import chb, orb, bytes_encode
 from scapy.fields import ByteEnumField, ByteField, Field, FieldListField, \
     FlagsField, IntField, IPField, ShortField, StrField
 from scapy.layers.inet import UDP, IP
@@ -310,7 +310,7 @@ class DHCPOptionsField(StrField):
                     if f is not None:
                         lval = (f.addfield(pkt, b"", f.any2i(pkt, val)) for val in lval)  # noqa: E501
                     else:
-                        lval = (raw(x) for x in lval)
+                        lval = (bytes_encode(x) for x in lval)
                     oval = b"".join(lval)
                 else:
                     warning("Unknown field option %s", name)
@@ -326,7 +326,7 @@ class DHCPOptionsField(StrField):
             elif isinstance(o, int):
                 s += chb(o) + b"\0"
             elif isinstance(o, (str, bytes)):
-                s += raw(o)
+                s += bytes_encode(o)
             else:
                 warning("Malformed option %s", o)
         return s

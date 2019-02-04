@@ -719,6 +719,8 @@ class TLSServerKeyExchange(_TLSHandshake):
                 try:
                     cls.fill_missing()
                 except Exception:
+                    if conf.debug_dissector:
+                        raise
                     pass
             else:
                 cls = Raw()

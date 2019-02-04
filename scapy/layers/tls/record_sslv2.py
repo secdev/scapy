@@ -172,6 +172,8 @@ class SSLv2(TLS):
             except KeyboardInterrupt:
                 raise
             except Exception:
+                if conf.debug_dissect:
+                    raise
                 p = conf.raw_layer(s, _internal=1, _underlayer=self)
             self.add_payload(p)
 

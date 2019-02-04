@@ -24,11 +24,11 @@ from scapy.data import IPV6_ADDR_GLOBAL, IPV6_ADDR_LINKLOCAL, \
     IPV6_ADDR_SITELOCAL, IPV6_ADDR_LOOPBACK, IPV6_ADDR_UNICAST,\
     IPV6_ADDR_MULTICAST, IPV6_ADDR_6TO4, IPV6_ADDR_UNSPECIFIED
 from scapy.utils import strxor
-from scapy.compat import orb, chb, cmp_to_key
+from scapy.compat import orb, chb
 from scapy.pton_ntop import inet_pton, inet_ntop
 from scapy.volatile import RandMAC
 from scapy.error import warning, Scapy_Exception
-from functools import reduce
+from functools import reduce, cmp_to_key
 from scapy.modules.six.moves import range, zip
 
 

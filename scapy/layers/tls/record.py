@@ -31,7 +31,7 @@ from scapy.layers.tls.basefields import (_TLSVersionField, _tls_version,
 from scapy.layers.tls.crypto.pkcs1 import pkcs_i2osp
 from scapy.layers.tls.crypto.cipher_aead import AEADTagError
 from scapy.layers.tls.crypto.cipher_stream import Cipher_NULL
-from scapy.layers.tls.crypto.ciphers import CipherError
+from scapy.layers.tls.crypto.common import CipherError
 from scapy.layers.tls.crypto.h_mac import HMACError
 import scapy.modules.six as six
 if conf.crypto_valid_advanced:
@@ -315,7 +315,7 @@ class TLS(_GenericTLSSessionInheritance):
             self.tls_session.rcs.seq_num += 1
             # self.type and self.version have not been parsed yet,
             # this is why we need to look into the provided hdr.
-            add_data = read_seq_num + chb(hdr[0]) + hdr[1:3]
+            add_data = read_seq_num + hdr[:3]
             # Last two bytes of add_data are appended by the return function
             return self.tls_session.rcs.cipher.auth_decrypt(add_data, s,
                                                             read_seq_num)

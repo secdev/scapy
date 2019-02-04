@@ -8,7 +8,7 @@ SSLv2 handshake fields & logic.
 
 import struct
 
-from scapy.compat import chb
+from scapy.config import conf
 from scapy.error import log_runtime, warning
 from scapy.utils import randstring
 from scapy.fields import ByteEnumField, ByteField, EnumField, FieldLenField, \
@@ -142,6 +142,8 @@ class _SSLv2CertDataField(StrLenField):
         try:
             certdata = Cert(s[:tmp_len])
         except Exception:
+            if conf.debug_dissector:
+                raise
             certdata = s[:tmp_len]
         return s[tmp_len:], certdata
 
@@ -337,7 +339,7 @@ class SSLv2ClientMasterKey(_SSLv2Handshake):
             self.keyarglen = len(keyarg)
         keyarglen = struct.pack("!H", self.keyarglen)
 
-        s = (chb(pkt[0]) + cipher +
+        s = (pkt[:1] + cipher +
              clearkeylen + encryptedkeylen + keyarglen +
              clearkey + encryptedkey + keyarg)
         return s + pay

@@ -24,7 +24,7 @@ from scapy.data import ETH_P_IP, ETH_P_ALL, DLT_RAW, DLT_RAW_ALT, DLT_IPV4, \
     IP_PROTOS, TCP_SERVICES, UDP_SERVICES
 from scapy.layers.l2 import Ether, Dot3, getmacbyip, CookedLinux, GRE, SNAP, \
     Loopback
-from scapy.compat import raw, chb, orb
+from scapy.compat import raw, chb, orb, bytes_encode
 from scapy.config import conf
 from scapy.extlib import plt, MATPLOTLIB, MATPLOTLIB_INLINED, \
     MATPLOTLIB_DEFAULT_PLOT_KARGS
@@ -393,7 +393,9 @@ class TCPOptionsField(StrField):
                 if not isinstance(oval, (bytes, str)):
                     warning("option [%i] is not bytes." % onum)
                     continue
-            opt += chb(onum) + chb(2 + len(oval)) + raw(oval)
+            if isinstance(oval, str):
+                oval = bytes_encode(oval)
+            opt += chb(onum) + chb(2 + len(oval)) + oval
         return opt + b"\x00" * (3 - ((len(opt) + 3) % 4))  # Padding
 
     def randval(self):

@@ -43,7 +43,7 @@ class ScapyAutorunInterpreter(code.InteractiveInterpreter):
         return code.InteractiveInterpreter.showtraceback(self, *args, **kargs)
 
 
-def autorun_commands(cmds, my_globals=None, ignore_globals=None, verb=0):
+def autorun_commands(cmds, my_globals=None, ignore_globals=None, verb=None):
     sv = conf.verb
     try:
         try:
@@ -52,7 +52,8 @@ def autorun_commands(cmds, my_globals=None, ignore_globals=None, verb=0):
                 if ignore_globals:
                     for ig in ignore_globals:
                         my_globals.pop(ig, None)
-            conf.verb = verb
+            if verb is not None:
+                conf.verb = verb
             interp = ScapyAutorunInterpreter(my_globals)
             cmd = ""
             cmds = cmds.splitlines()
@@ -82,19 +83,34 @@ def autorun_commands(cmds, my_globals=None, ignore_globals=None, verb=0):
     return _  # noqa: F821
 
 
+class StringWriter(object):
+    """Util to mock sys.stdout and sys.stderr, and
+    store their output in a 's' var."""
+    def __init__(self, debug=None):
+        self.s = ""
+        self.debug = debug
+
+    def write(self, x):
+        if self.debug:
+            self.debug.write(x)
+        self.s += x
+
+    def flush(self):
+        if self.debug:
+            self.debug.flush()
+
+
 def autorun_get_interactive_session(cmds, **kargs):
-    class StringWriter:
-        def __init__(self):
-            self.s = ""
+    """Create an interactive session and execute the
+    commands passed as "cmds" and return all output
 
-        def write(self, x):
-            self.s += x
+    params:
+      - cmds: a list of commands to run
+    returns: (output, returned)
 
-        def flush(self):
-            pass
-
-    sw = StringWriter()
+    The output contains both sys.stdout and sys.stderr logs"""
     sstdout, sstderr = sys.stdout, sys.stderr
+    sw = StringWriter()
     try:
         try:
             sys.stdout = sys.stderr = sw
