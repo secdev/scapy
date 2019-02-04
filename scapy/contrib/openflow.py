@@ -160,7 +160,7 @@ class OFPMatch(Packet):
 
         # ip masks use 6 bits each
         if self.nw_dst_mask is None:
-            if self.nw_dst is "0":
+            if self.nw_dst == "0":
                 lst_bits += "111111"
             # 0x100000 would be ok too (32-bit IP mask)
             else:
@@ -170,7 +170,7 @@ class OFPMatch(Packet):
             lst_bits += "0" * (6 - len(m1))
             lst_bits += m1
         if self.nw_src_mask is None:
-            if self.nw_src is "0":
+            if self.nw_src == "0":
                 lst_bits += "111111"
             else:
                 lst_bits += "0" * 6
@@ -223,7 +223,8 @@ class OFPMatch(Packet):
         # we assume ethertype=IP or nwproto=TCP when appropriate subfields are provided.  # noqa: E501
         if conf.contribs['OPENFLOW']['prereq_autocomplete']:
             if self.dl_type is None:
-                if self.nw_src is not "0" or self.nw_dst is not "0" or self.nw_proto is not None or self.nw_tos is not None:  # noqa: E501
+                if self.nw_src != "0" or self.nw_dst != "0" or \
+                        self.nw_proto is not None or self.nw_tos is not None:
                     p = p[:22] + struct.pack("!H", 0x0800) + p[24:]
                     lst_bits = lst_bits[:-5] + "0" + lst_bits[-4:]
             if self.nw_proto is None:

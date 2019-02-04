@@ -25,6 +25,9 @@ scapy.contrib.status=loads
 scapy.contrib.description=HTTP/2 (RFC 7540, RFC 7541)
 """
 
+# base_classes triggers an unwanted import warning
+# flake8: noqa: F821
+
 from __future__ import absolute_import
 from __future__ import print_function
 import abc
@@ -2019,7 +2022,7 @@ class H2Frame(packet.Packet):
                 else:
                     return H2PaddedHeadersFrame
             elif H2HeadersFrame.flags[H2HeadersFrame.PRIORITY_FLAG].short in self.getfieldval('flags'):  # noqa: E501
-                    return H2PriorityHeadersFrame
+                return H2PriorityHeadersFrame
             return H2HeadersFrame
 
         if t == H2PriorityFrame.type_id:

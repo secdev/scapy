@@ -493,9 +493,9 @@ class IPerror6(IPv6):
                     request_has_rh = True
                 otherup = otherup.payload
 
-            if ((ss == os and sd == od) or      # <- Basic case
-                    (ss == os and request_has_rh)):  # <- Request has a RH :
-                                                #    don't check dst address
+            if ((ss == os and sd == od) or  # < Basic case
+                    (ss == os and request_has_rh)):
+                # ^ Request has a RH : don't check dst address
 
                 # Let's deal with possible MSS Clamping
                 if (isinstance(selfup, TCP) and
