@@ -266,7 +266,7 @@ def michael(key, to_hash):
 def parse_TKIP_hdr(pkt):
     """Extract TSCs, TA and encoded-data from a packet @pkt"""
     # Note: FCS bit is not handled
-    assert pkt.FCfield.wep
+    assert pkt.FCfield.protected
 
     # 802.11i - 8.3.2.2
     payload = BytesIO(pkt[Raw].load)

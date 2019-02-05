@@ -327,7 +327,7 @@ class KrackAP(Automaton):
             addr1=dest,
             addr2=self.mac,
             addr3=self.mac,
-            FCfield="+".join(['wep'] + additionnal_flag),
+            FCfield="+".join(['protected'] + additionnal_flag),
             SC=(next(self.seq_num) << 4),
             subtype=0,
             type="Data",
@@ -682,8 +682,8 @@ class KrackAP(Automaton):
         if pkt[Dot11].FCfield.retry:
             return
 
-        # Skip unencrypted frames (TKIP rely on WEP packet)
-        if not pkt[Dot11].FCfield.wep:
+        # Skip unencrypted frames (TKIP rely on encrypted packets)
+        if not pkt[Dot11].FCfield.protected:
             return
 
         # Dot11.type 2: Data
@@ -778,8 +778,8 @@ class KrackAP(Automaton):
         if pkt[Dot11].FCfield.retry:
             return
 
-        # Skip unencrypted frames (TKIP rely on WEP packet)
-        if not pkt[Dot11].FCfield.wep:
+        # Skip unencrypted frames (TKIP rely on encrypted packets)
+        if not pkt[Dot11].FCfield.protected:
             return
 
         # Normal decoding
@@ -853,8 +853,8 @@ class KrackAP(Automaton):
         if pkt[Dot11].FCfield.retry:
             return
 
-        # Skip unencrypted frames (TKIP rely on WEP packet)
-        if not pkt[Dot11].FCfield.wep:
+        # Skip unencrypted frames (TKIP rely on encrypted packets)
+        if not pkt[Dot11].FCfield.protected:
             return
 
         # Dot11.type 2: Data
