@@ -242,7 +242,14 @@ rdbi = UDS(b'\x22\x01\x02')
 assert rdbi.service == 0x22
 assert rdbi.identifiers[0] == 0x0102
 
-= Check UDS_RDBI
+= Build UDS_RDBI
+
+rdbi = UDS()/UDS_RDBI(identifiers=[0x102])
+assert rdbi.service == 0x22
+assert rdbi.identifiers[0] == 0x0102
+assert bytes(rdbi) == b'\x22\x01\x02'
+
+= Check UDS_RDBI2
 
 rdbi = UDS(b'\x22\x01\x02\x03\x04')
 assert rdbi.service == 0x22
@@ -250,11 +257,21 @@ assert rdbi.identifiers[0] == 0x0102
 assert rdbi.identifiers[1] == 0x0304
 assert raw(rdbi) == b'\x22\x01\x02\x03\x04'
 
+= Build UDS_RDBI2
+
+rdbi = UDS()/UDS_RDBI(identifiers=[0x102, 0x304])
+assert rdbi.service == 0x22
+assert rdbi.identifiers[0] == 0x0102
+assert rdbi.identifiers[1] == 0x0304
+assert raw(rdbi) == b'\x22\x01\x02\x03\x04'
+
+
 = Check UDS_RDBIPR
 
-rdbipr = UDS(b'\x62\x01\x02')
+rdbipr = UDS(b'\x62\x01\x02dieselgate')
 assert rdbipr.service == 0x62
 assert rdbipr.dataIdentifier == 0x0102
+assert rdbipr.load == b'dieselgate'
 
 = Check UDS_RMBA
 
@@ -346,7 +363,15 @@ assert dddipr.dynamicallyDefinedDataIdentifier == 0x4455
 wdbi = UDS(b'\x2e\x01\x02dieselgate')
 assert wdbi.service == 0x2e
 assert wdbi.dataIdentifier == 0x0102
-assert wdbi.dataRecord == b'dieselgate'
+assert wdbi.load == b'dieselgate'
+
+= Build UDS_WDBI
+
+wdbi = UDS()/UDS_WDBI(dataIdentifier=0x0102)/Raw(load=b'dieselgate')
+assert wdbi.service == 0x2e
+assert wdbi.dataIdentifier == 0x0102
+assert wdbi.load == b'dieselgate'
+assert bytes(wdbi) == b'\x2e\x01\x02dieselgate'
 
 = Check UDS_WDBIPR
 

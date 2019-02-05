@@ -1728,6 +1728,73 @@ thread. In order to be able to close this thread properly, we suggest the use of
 Pythons ``with`` statement.
 
 
+UDS
+---
+
+Customization of UDS_RDBI, UDS_WDBI
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+In real world use-cases, the UDS layer is heavily customized. OEMs define there own substructure of packets.
+Especially the packets ReadDataByIdentifier or WriteDataByIdentifier have a very OEM or even ECU specific
+substructure. Therefore a ``StrField`` ``dataRecord`` is not added to the ``field_desc``.
+The intended usage is to create ECU or OEM specific description files, which extend the general UDS layer of
+Scapy with further protocol implementations.
+
+Customization example::
+
+    cat scapy/contrib/automotive/OEM-XYZ/car-model-xyz.py
+    #! /usr/bin/env python
+
+    # Protocol customization for car model xyz of OEM XYZ
+    # This file contains further OEM car model specific UDS additions.
+
+    from scapy.packet import Packet
+    from scapy.contrib.automotive.uds import *
+
+    # Define a new packet substructure
+
+    class DBI_IP(Packet):
+    name = 'DataByIdentifier_IP_Packet'
+    fields_desc = [
+        ByteField('ADDRESS_FORMAT_ID', 0),
+        IPField('IP', ''),
+        IPField('SUBNETMASK', ''),
+        IPField('DEFAULT_GATEWAY', '')
+    ]
+
+    # Bind the new substructure onto the existing UDS packets
+
+    bind_layers(UDS_RDBIPR, DBI_IP, dataIdentifier=0x172b)
+    bind_layers(UDS_WDBI, DBI_IP, dataIdentifier=0x172b)
+
+    # Give add a nice name to dataIdentifiers enum
+
+    UDS_RDBI.dataIdentifiers[0x172b] = 'GatewayIP'
+
+If one wants to work with this custom additions, these can be loaded at runtime to the Scapy interpreter::
+
+    >>> load_contrib("automotive.uds")
+    >>> load_contrib("automotive.OEM-XYZ.car-model-xyz")
+
+    >>> pkt = UDS()/UDS_WDBI()/DBI_IP(IP='192.168.2.1', SUBNETMASK='255.255.255.0', DEFAULT_GATEWAY='192.168.2.1')
+
+    >>> pkt.show()
+    ###[ UDS ]###
+      service= WriteDataByIdentifier
+    ###[ WriteDataByIdentifier ]###
+         dataIdentifier= GatewayIP
+         dataRecord= 0
+    ###[ DataByIdentifier_IP_Packet ]###
+            ADDRESS_FORMAT_ID= 0
+            IP= 192.168.2.1
+            SUBNETMASK= 255.255.255.0
+            DEFAULT_GATEWAY= 192.168.2.1
+
+    >>> hexdump(pkt)
+    0000  2E 17 2B 00 C0 A8 02 01 FF FF FF 00 C0 A8 02 01  ..+.............
+
+
+
 SOME/IP and SOME/IP SD messages
 -------------------------------
 

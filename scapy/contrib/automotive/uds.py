@@ -546,8 +546,7 @@ class UDS_WDBI(Packet):
     name = 'WriteDataByIdentifier'
     fields_desc = [
         XShortEnumField('dataIdentifier', 0,
-                        UDS_RDBI.dataIdentifiers),
-        StrField('dataRecord', 0, fmt="B")
+                        UDS_RDBI.dataIdentifiers)
     ]
 
 
