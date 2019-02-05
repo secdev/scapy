@@ -355,6 +355,7 @@ class Dot11(Packet):
 
 class Dot11FCS(Dot11):
     name = "802.11-FCS"
+    match_subclass = True
     fields_desc = Dot11.fields_desc + [XLEIntField("fcs", None)]  # Automatically moved to the end of the packet  # noqa: E501
 
     def compute_fcs(self, s):

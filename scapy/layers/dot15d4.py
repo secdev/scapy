@@ -145,6 +145,7 @@ class Dot15d4FCS(Dot15d4):
     that will validate the FCS/CRC in firmware, and add it automatically when transmitting.  # noqa: E501
     '''
     name = "802.15.4 - FCS"
+    match_subclass = True
     fields_desc = Dot15d4.fields_desc + [XLEShortField("fcs", None)]  # Automatically moved to the end of the packet  # noqa: E501
 
     def compute_fcs(self, data):

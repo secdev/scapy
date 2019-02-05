@@ -74,6 +74,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
     payload_guess = []
     show_indent = 1
     show_summary = True
+    match_subclass = False
     class_dont_cache = dict()
     class_packetfields = dict()
     class_default_fields = dict()
@@ -1012,10 +1013,12 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
                         return ret
         return self.payload.haslayer(cls)
 
-    def getlayer(self, cls, nb=1, _track=None, _subclass=False, **flt):
+    def getlayer(self, cls, nb=1, _track=None, _subclass=None, **flt):
         """Return the nb^th layer that is an instance of cls, matching flt
 values.
         """
+        if _subclass is None:
+            _subclass = self.match_subclass or None
         if _subclass:
             match = lambda cls1, cls2: issubclass(cls1, cls2)
         else:

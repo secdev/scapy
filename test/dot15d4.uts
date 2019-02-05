@@ -23,6 +23,11 @@ assert Dot15d4CmdGTSReq in pkt.layers()
 assert Dot15d4Data in pkt.layers()
 assert Dot15d4FCS in pkt.layers()
 
+= Dot15d4FCS parent matching
+
+pkt = Ether()/IP()/Dot15d4FCS()
+assert pkt[Dot15d4]
+
 ###################
 #### SixLoWPAN ####
 ###################
