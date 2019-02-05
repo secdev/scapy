@@ -9066,6 +9066,13 @@ expkt = UDP() / VXLAN(flags=0x4, NextProtocol=etherproto) / "0xfffffffffffffffff
 expkt = UDP(bytes(expkt))
 assert(Ether in expkt)
 
+= Dissect VXLAN with no NextProtocol
+pkt = VXLAN(b'\x08\x00\x00\x00\x00"H\x00\xcaF\xae\x10\xed\x0f\x0c\x00\x00\x00\x00\x00\x08\x06\x00\x01\x08\x00\x06\x04\x00\x02\x0c\x00\x00\x00\x00\x00\x7f\xff\xff\xfe\x11"3DUf\x7f\x00\x00\x02')
+
+assert pkt.NextProtocol is None
+assert Ether in pkt
+assert ARP in pkt
+
 ############
 ############
 ############
