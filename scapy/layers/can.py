@@ -131,7 +131,7 @@ interfaces: return only packets from a specified interface
             else:
                 pkt.length = len(pkt.data)
 
-            if pkt.identifier > 0x7ff:
+            if len(idn) > 3:
                 pkt.flags = 0b100
 
             if t is not None:
