@@ -1336,6 +1336,17 @@ def _test():
 
 retry_test(_test)
 
+= AS resolver - socket error
+~ IP
+* This test checks that a failing resolver will not crash a script
+
+class MockAS_resolver(object):
+  def resolve(self, *ips):
+    raise socket.error
+
+asrm = AS_resolver_multi(MockAS_resolver())
+assert len(asrm.resolve(["8.8.8.8", "8.8.4.4"])) == 0
+
 = sendpfast
 
 old_interactive = conf.interactive
