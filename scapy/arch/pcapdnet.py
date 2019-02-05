@@ -90,12 +90,17 @@ if conf.use_winpcapy:
     try:
         from scapy.modules.winpcapy import PCAP_ERRBUF_SIZE, pcap_if_t, \
             sockaddr_in, sockaddr_in6, pcap_findalldevs, pcap_freealldevs, \
-            pcap_lib_version, pcap_create, pcap_close, pcap_set_snaplen, \
-            pcap_set_promisc, pcap_set_timeout, pcap_set_rfmon, \
-            pcap_activate, pcap_open_live, pcap_setmintocopy, pcap_pkthdr, \
+            pcap_lib_version, pcap_close, \
+            pcap_open_live, pcap_setmintocopy, pcap_pkthdr, \
             pcap_next_ex, pcap_datalink, \
             pcap_compile, pcap_setfilter, pcap_setnonblock, pcap_sendpacket, \
             bpf_program as winpcapy_bpf_program
+
+        if conf.use_npcap:
+            # Npcap-only functions
+            from scapy.modules.winpcapy import pcap_create, pcap_set_snaplen, \
+                pcap_set_promisc, pcap_set_timeout, pcap_set_rfmon, \
+                pcap_activate
 
         def load_winpcapy():
             """This functions calls Winpcap/Npcap pcap_findalldevs function,
