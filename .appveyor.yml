@@ -11,10 +11,17 @@ environment:
       PYTHON_VERSION: "2.7.x"
       PYTHON_ARCH: "64"
       TOXENV: "py27-windows"
-    - PYTHON: "C:\\Python36-x64"
-      PYTHON_VERSION: "3.6.x"
+      WINPCAP: "false"
+    - PYTHON: "C:\\Python37-x64"
+      PYTHON_VERSION: "3.7.x"
       PYTHON_ARCH: "64"
-      TOXENV: "py36-windows"
+      TOXENV: "py37-windows"
+      WINPCAP: "false"
+    - PYTHON: "C:\\Python37-x64"
+      PYTHON_VERSION: "3.7.x"
+      PYTHON_ARCH: "64"
+      TOXENV: "py37-windows"
+      WINPCAP: "true"
 
 # There is no build phase for Scapy
 build: off
@@ -27,6 +34,21 @@ install:
   # Install Python modules
   - "%PYTHON%\\python -m pip install tox"
   - set PATH=%PYTHON%\\Scripts\\;%PATH%
+
+# Compatibility run with Winpcap
+# XXX Remove me when wireshark stops using it as default
+for:
+  -
+    matrix:
+      only:
+        - WINPCAP: "true"
+    install:
+      # Install the winnpcap, windump and wireshark suites
+      - choco install -y winpcap
+      - choco install -y windump
+      - choco install -y wireshark
+      # Install Python modules
+      - "%PYTHON%\\python -m pip install tox"
 
 test_script:
   # Set environment variables
