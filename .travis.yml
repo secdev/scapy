@@ -48,7 +48,7 @@ matrix:
         - os: osx
           language: generic
           env:
-            - TOXENV=py27-osx_non_root,codecov
+            - TOXENV=py27-bsd_non_root,codecov
 
         # Run as root
         - os: linux
@@ -113,7 +113,7 @@ matrix:
         - os: osx
           language: generic
           env:
-            - TOXENV=py27-osx_root,codecov
+            - TOXENV=py27-bsd_root,codecov
 
         # FIXME - Networking with pcapdnet seem to be failing on OSX at the moment
         #- os: osx
@@ -124,7 +124,7 @@ matrix:
         - os: osx
           language: generic
           env:
-            - TOXENV=py36-osx_non_root,py36-osx_root,codecov
+            - TOXENV=py36-bsd_non_root,py36-bsd_root,codecov
 
     allow_failures:
         # Other root tests
