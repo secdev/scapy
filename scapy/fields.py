@@ -2223,14 +2223,8 @@ class ScalingField(Field):
         return x
 
     def any2i(self, pkt, x):
-        if isinstance(x, str):
-            if six.PY3:
-                x = struct.unpack(self.fmt, bytes(x, encoding="utf-8"))[0]
-            else:
-                x = struct.unpack(self.fmt, bytes(x))[0]
-            x = self.m2i(pkt, x)
-        elif isinstance(x, bytes):
-            x = struct.unpack(self.fmt, x)[0]
+        if isinstance(x, str) or isinstance(x, bytes):
+            x = struct.unpack(self.fmt, bytes_encode(x))[0]
             x = self.m2i(pkt, x)
         return x
 
