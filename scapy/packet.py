@@ -1633,6 +1633,14 @@ def explore(layer=None):
     params:
      - layer: If specified, the function will explore the layer. If not,
               the GUI mode will be activated, to browse the available layers
+
+    examples:
+      >>> explore()  # Launches the GUI
+      >>> explore("dns")  # Explore scapy.layers.dns
+      >>> explore("http2")  # Explore scapy.contrib.http2
+      >>> explore(scapy.layers.bluetooth4LE)
+
+    Note: to search a packet by name, use ls("name") rather than explore.
     """
     if layer is None:  # GUI MODE
         if not conf.interactive:
@@ -1728,6 +1736,9 @@ def explore(layer=None):
                     result = result_contrib
                 else:
                     raise Scapy_Exception("Unknown scapy module '%s'" % layer)
+        else:
+            raise Scapy_Exception("Wrong usage ! Check out help(explore)")
+
     # COMMON PART
     # Get the list of all Packets contained in that module
     try:
