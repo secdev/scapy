@@ -1415,7 +1415,7 @@ CAN Layer
 Setup
 -----
 
-This commands enable a virtual CAN interface on your machine::
+These commands enable a virtual CAN interface on your machine::
 
    from scapy.layers.can import *
    import os
@@ -1423,7 +1423,7 @@ This commands enable a virtual CAN interface on your machine::
    bashCommand = "/bin/bash -c 'sudo modprobe vcan; sudo ip link add name vcan0 type vcan; sudo ip link set dev vcan0 up'"
    os.system(bashCommand)
 
-If it's required, the CAN interface can be set into an listen-only or loop back mode with ip link set commands:
+If it's required, the CAN interface can be set into a listen-only or loop back mode with ip link set commands:
 
 ::
 
@@ -1493,7 +1493,7 @@ Ways of creating a python-can CANSocket::
 
 Creating a simple python-can CANSocket::
 
-   socket = CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0', bitrate=250000
+   socket = CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0', bitrate=250000))
 
 Creating a python-can CANSocket with multiple filters::
 
@@ -1892,6 +1892,79 @@ Stack it and send it::
 
 
 
+
+OBD message
+-------------
+
+OBD is implemented on top of ISOTP. Use an ISOTPSocket for the communication with a ECU. 
+You should set the parameter `basecls=OBD` in your ISOTPSocket init call. 
+
+OBD is split into different service groups. Here are some example requests:
+
+Request supported PIDs of service 0x01::
+
+   req = OBD()/OBD_S01(pid=[0x00])
+
+The response will contain a PacketListField, called `data_records`. This field contains the actual response::
+
+   resp = OBD(service=65)/OBD_S01_PID(data_records=[OBD_S01_PID_Record(pid=0)/OBD_PID00(supported_pids=3196041235)])
+   resp.show()
+   ###[ On-board diagnostics ]### 
+     service= CurrentPowertrainDiagnosticDataResponse
+   ###[ Parameter IDs ]### 
+        \data_records\
+         |###[ OBD_S01_PID_Record ]### 
+         |  pid= 0x0
+         |###[ PID_00_PIDsSupported ]### 
+         |     supported_pids= PID20+PID1F+PID1C+PID15+PID14+PID13+PID11+PID10+PID0F+PID0E+PID0D+PID0C+PID0B+PID0A+PID07+PID06+PID05+PID04+PID03+PID01
+
+Lets assume our ECU under test supports the pid 0x15::
+   
+   req = OBD()/OBD_S01(pid=[0x15])
+   resp = sock.sr1(req)
+   resp.show()
+   ###[ On-board diagnostics ]### 
+     service= CurrentPowertrainDiagnosticDataResponse
+   ###[ Parameter IDs ]### 
+        \data_records\
+         |###[ OBD_S01_PID_Record ]### 
+         |  pid= 0x15
+         |###[ PID_15_OxygenSensor2 ]### 
+         |     outputVoltage= 1.275 V
+         |     trim= 0 %
+
+
+The different services in OBD support different kind of data. 
+Service 01 and Service 02 support Parameter Identifiers (pid).
+Service 03, 07 und 0A support Diagnostic Trouble codes (dtc).
+Service 04 doesn't require a payload.
+Service 05 is not implemented on OBD over CAN.
+Service 06 support Monitoring Identifiers (mid).
+Service 08 support Test Identifiers (tid).
+Service 09 support Information Identifiers (iid).
+
+Examples:
+
+Request supported Information Identifiers::
+
+   req = OBD()/OBD_S09(iid=0x00)
+
+Request the Vehicle Identification Number (VIN)::
+
+   req = OBD()/OBD_S09(iid=0x02)
+   resp = sock.sr1(req)
+   resp.show()
+   ###[ On-board diagnostics ]### 
+     service= VehicleInformationResponse
+   ###[ S9_VehicleInformationPositiveResponse ]### 
+        iid= 0x2
+   ###[ IID_02_VehicleIdentificationNumber ]### 
+           count= 1
+           vehicle_identification_numbers= ['W0L000051T2123456']
+
+   
+
+
 Test-Setup on a BeagleBone Black
 --------------------------------
 
@@ -2127,7 +2200,7 @@ ISO-TP Kernel Module Installation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 A Linux ISO-TP kernel module can be downloaded from this website:
-``https://github.com/ hartkopp/can-isotp.git``. The file
+``https://github.com/hartkopp/can-isotp.git``. The file
 ``README.isotp`` in this repository provides all information and
 necessary steps for downloading and building this kernel module. The
 ISO-TP kernel module should also be added to the ``/etc/modules`` file,
@@ -2144,8 +2217,6 @@ can be chosen to fit the bitrate of a CAN bus under test.
 
     ip link set can0 up type can bitrate 500000
     ip link set can1 up type can bitrate 500000
-    ifconfig can0 up
-    ifconfig can1 up
 
 Raspberry Pi SOME/IP setup
 ~~~~~~~~~~~~~~~~~~~~~~~~~~

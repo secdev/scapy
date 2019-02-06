@@ -1382,3 +1382,173 @@ assert "f6" in flags
 assert "f2" in flags
 assert "f4" in flags
 assert "f0" in flags
+
+
+########
+########
++ ScalingField
+
+= ScalingField Test default behaviour
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0)
+    ]
+
+x = DebugPacket()
+assert len(x) == 1
+assert x.data == 0
+
+x.data = 1
+assert x.data == 1
+
+= ScalingField Test string assignment
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0, scaling=0.1)
+    ]
+
+x = DebugPacket()
+
+x.data = '\x01'
+assert x.data == 0.1
+x.data = 2.0
+assert x.data == 2.0
+assert bytes(x) == b"\x14"
+x.data = b'\xff'
+assert x.data == 25.5
+x.data = '\x7f'
+assert x.data == 12.7
+
+
+= ScalingField Test scaling
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0, scaling=0.1)
+    ]
+
+x = DebugPacket()
+
+x.data = b'\x01'
+assert x.data == 0.1
+x.data = 2.0
+assert x.data == 2.0
+assert bytes(x) == b"\x14"
+x.data = b'\xff'
+assert x.data == 25.5
+
+= ScalingField Test scaling signed
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0, scaling=0.1, fmt="b")
+    ]
+
+x = DebugPacket()
+
+x.data = b'\x01'
+assert x.data == 0.1
+x.data = 12.7
+assert x.data == 12.7
+assert bytes(x) == b"\x7f"
+x.data = b'\x80'
+assert x.data == -12.8
+x.data = -0.1
+assert x.data == -0.1
+assert bytes(x) == b"\xff"
+
+= ScalingField Test scaling signed offset
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0, scaling=0.1, offset=-1, fmt="b")
+    ]
+
+x = DebugPacket()
+
+x.data = b'\x01'
+assert x.data == -0.9
+x.data = 11.7
+assert x.data == 11.7
+assert bytes(x) == b"\x7f"
+x.data = b'\x80'
+assert x.data == -13.8
+x.data = -1.1
+assert x.data == -1.1
+assert bytes(x) == b"\xff"
+
+= ScalingField Test scaling offset
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0, scaling=0.1, offset=-1)
+    ]
+
+x = DebugPacket()
+
+x.data = b'\x01'
+assert x.data == -0.9
+x.data = 11.7
+assert x.data == 11.7
+assert bytes(x) == b"\x7f"
+x.data = b'\x80'
+assert x.data == 11.8
+x.data = 24.5
+assert x.data == 24.5
+assert bytes(x) == b"\xff"
+
+= ScalingField Test unit
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0, unit="V")
+    ]
+
+x = DebugPacket()
+
+x.data = b'\x01'
+assert x.data == 1
+assert ScalingField.i2repr(x.fields_desc[0],x, x.data) == '1 V'
+
+= ScalingField Test unit and ndigits
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0, scaling=0.123456, unit="V", ndigits=1)
+    ]
+
+x = DebugPacket()
+
+x.data = b'\x01'
+assert x.data == 0.1
+assert ScalingField.i2repr(x.fields_desc[0],x, x.data) == '0.1 V'
+
+= ScalingField Test unit and ndigits 2
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0, scaling=0.123456, unit="V", ndigits=3)
+    ]
+
+x = DebugPacket()
+
+x.data = b'\x01'
+print(x.__repr__())
+assert x.data == 0.123
+assert ScalingField.i2repr(x.fields_desc[0],x, x.data) == '0.123 V'
+
+= ScalingField Test unit and ndigits 3
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0, scaling=0.123456, unit="V", ndigits=5)
+    ]
+
+x = DebugPacket()
+
+x.data = b'\x01'
+print(x.__repr__())
+assert x.data == 0.12346
+assert ScalingField.i2repr(x.fields_desc[0],x, x.data) == '0.12346 V'
