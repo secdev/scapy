@@ -17,7 +17,7 @@ from scapy.config import conf
 from scapy.error import Scapy_Exception, warning
 from scapy.volatile import RandField, RandIP, GeneralizedTime
 from scapy.utils import Enum_metaclass, EnumElement, binrepr
-from scapy.compat import plain_str, chb, orb, bytes_encode
+from scapy.compat import plain_str, chb, orb
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
 
@@ -318,7 +318,7 @@ class ASN1_BIT_STRING(ASN1_Object):
     """
      ASN1_BIT_STRING values are bit strings like "011101".
      A zero-bit padded readable string is provided nonetheless,
-     which is also output when __str__ is called.
+     which is stored in val_readable
     """
     tag = ASN1_Class_UNIVERSAL.BIT_STRING
 
@@ -329,59 +329,56 @@ class ASN1_BIT_STRING(ASN1_Object):
             self.val_readable = val
 
     def __setattr__(self, name, value):
-        if isinstance(value, str):
-            value = bytes_encode(value)
         if name == "val_readable":
-            if isinstance(value, bytes):
-                val = b"".join(binrepr(orb(x)).zfill(8).encode("utf8") for x in value)  # noqa: E501
+            if isinstance(value, (str, bytes)):
+                val = "".join(binrepr(orb(x)).zfill(8) for x in value)
             else:
+                warning("Invalid val: should be bytes")
                 val = "<invalid val_readable>"
             super(ASN1_Object, self).__setattr__("val", val)
             super(ASN1_Object, self).__setattr__(name, value)
             super(ASN1_Object, self).__setattr__("unused_bits", 0)
         elif name == "val":
-            if isinstance(value, bytes):
-                if any(True for x in range(len(value))
-                       if value[x:x + 1] not in [b"0", b"1"]):
-                    print("Invalid operation: 'val' is not a valid bit string.")  # noqa: E501
+            value = plain_str(value)
+            if isinstance(value, str):
+                if any(c for c in value if c not in ["0", "1"]):
+                    warning("Invalid operation: 'val' is not a valid bit string.")  # noqa: E501
                     return
                 else:
                     if len(value) % 8 == 0:
                         unused_bits = 0
                     else:
                         unused_bits = 8 - (len(value) % 8)
-                    padded_value = value + (b"0" * unused_bits)
-                    bytes_arr = zip(*[(padded_value[i:i + 1]
-                                       for i in range(len(padded_value)))] * 8)
-                    val_readable = b"".join(chb(int(b"".join(x), 2))
-                                            for x in bytes_arr)
+                    padded_value = value + ("0" * unused_bits)
+                    bytes_arr = zip(*[iter(padded_value)] * 8)
+                    val_readable = b"".join(chb(int("".join(x), 2)) for x in bytes_arr)  # noqa: E501
             else:
-                val_readable = "<invalid val>"
+                warning("Invalid val: should be str")
+                val_readable = b"<invalid val>"
                 unused_bits = 0
             super(ASN1_Object, self).__setattr__("val_readable", val_readable)
             super(ASN1_Object, self).__setattr__(name, value)
             super(ASN1_Object, self).__setattr__("unused_bits", unused_bits)
         elif name == "unused_bits":
-            print("Invalid operation: unused_bits rewriting is not supported.")
+            warning("Invalid operation: unused_bits rewriting "
+                    "is not supported.")
         else:
             super(ASN1_Object, self).__setattr__(name, value)
 
     def __repr__(self):
-        if len(self.val) <= 16:
-            v = plain_str(self.val)
-            return "<%s[%s] (%d unused bit%s)>" % (self.__dict__.get("name", self.__class__.__name__), v, self.unused_bits, "s" if self.unused_bits > 1 else "")  # noqa: E501
-        else:
-            s = self.val_readable
-            if len(s) > 20:
-                s = s[:10] + b"..." + s[-10:]
-            v = plain_str(self.val)
-            return "<%s[%s] (%d unused bit%s)>" % (self.__dict__.get("name", self.__class__.__name__), v, self.unused_bits, "s" if self.unused_bits > 1 else "")  # noqa: E501
-
-    def __str__(self):
-        return self.val_readable
-
-    def __bytes__(self):
-        return self.val_readable
+        s = self.val_readable
+        if len(s) > 16:
+            s = s[:10] + b"..." + s[-10:]
+        v = self.val
+        if len(v) > 20:
+            v = v[:10] + "..." + v[-10:]
+        return "<%s[%s]=%s (%d unused bit%s)>" % (
+            self.__dict__.get("name", self.__class__.__name__),
+            v,
+            s,
+            self.unused_bits,
+            "s" if self.unused_bits > 1 else ""
+        )
 
 
 class ASN1_STRING(ASN1_Object):
