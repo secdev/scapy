@@ -19,6 +19,14 @@ assert select_objects([TimeOutSelector()], 1) == []
 ############
 + Windows arch unit tests
 
+= Test pcapname
+
+iface = conf.iface
+
+assert pcapname(iface.name) == iface.pcap_name
+assert pcapname(iface.description) == iface.pcap_name
+assert pcapname(iface.pcap_name) == iface.pcap_name
+
 = show_interfaces
 
 from scapy.arch import show_interfaces

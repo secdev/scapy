@@ -112,7 +112,9 @@ def _where(filename, dirs=None, env="PATH"):
 
 
 def win_find_exe(filename, installsubdir=None, env="ProgramFiles"):
-    """Find executable in current dir, system path or given ProgramFiles subdir"""  # noqa: E501
+    """Find executable in current dir, system path or in the
+    given ProgramFiles subdir, and retuen its absolute path.
+    """
     fns = [filename] if filename.endswith(".exe") else [filename + ".exe", filename]  # noqa: E501
     for fn in fns:
         try:
@@ -314,7 +316,9 @@ class NetworkInterface(object):
             self.update(data)
 
     def update(self, data):
-        """Update info about network interface according to given dnet dictionary"""  # noqa: E501
+        """Update info about a network interface according
+        to a given dictionary. Such data is provided by get_windows_if_list
+        """
         self.data = data
         self.name = data['name']
         self.description = data['description']
@@ -746,8 +750,7 @@ IFACES.load()
 
 
 def pcapname(dev):
-    """Return pypcap device name for given interface or libdnet/Scapy
-    device name.
+    """Get the device pcap name by device name or Scapy NetworkInterface
 
     """
     if isinstance(dev, NetworkInterface):
@@ -757,15 +760,11 @@ def pcapname(dev):
     try:
         return IFACES.dev_from_name(dev).pcap_name
     except ValueError:
-        if conf.use_pcap:
-            # pcap.pcap() will choose a sensible default for sniffing if
-            # iface=None
-            return None
-        raise
+        return IFACES.dev_from_pcapname(dev).pcap_name
 
 
 def dev_from_pcapname(pcap_name):
-    """Return libdnet/Scapy device name for given pypcap device name"""
+    """Return Scapy device name for given pcap device name"""
     return IFACES.dev_from_pcapname(pcap_name)
 
 
