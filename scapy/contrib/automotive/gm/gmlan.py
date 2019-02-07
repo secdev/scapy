@@ -6,6 +6,8 @@
 # Copyright (C) Enrico Pozzobon <enrico.pozzobon@gmail.com>
 # This program is published under a GPLv2 license
 
+# scapy.contrib.description = General Motors Local Area Network (GMLAN)
+# scapy.contrib.status = loads
 
 import struct
 from scapy.fields import ObservableDict, XByteEnumField, ByteEnumField, \

@@ -6,6 +6,9 @@
 # Copyright (C) Nils Weiss <nils@we155.de>
 # This program is published under a GPLv2 license
 
+# scapy.contrib.description = On Board Diagnostic Protocol (OBD-II)
+# scapy.contrib.status = loads
+
 import struct
 
 from scapy.contrib.automotive.obd.iid.iids import *

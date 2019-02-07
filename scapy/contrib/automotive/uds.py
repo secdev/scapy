@@ -5,6 +5,9 @@
 # Copyright (C) Nils Weiss <nils@we155.de>
 # This program is published under a GPLv2 license
 
+# scapy.contrib.description = Unified Diagnostic Service (UDS)
+# scapy.contrib.status = loads
+
 import struct
 from scapy.fields import ByteEnumField, StrField, ConditionalField, \
     BitEnumField, BitField, XByteField, FieldListField, \
