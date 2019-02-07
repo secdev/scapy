@@ -24,12 +24,13 @@
 
 import struct
 
-from scapy.packet import Packet, bind_layers
+from scapy.packet import Packet, bind_layers, Raw
 from scapy.fields import ByteEnumField, ByteField, IntField, ShortField
 from scapy.fields import IPField, IP6Field, StrLenField
 from scapy.fields import FieldLenField
 from scapy.fields import StrFixedLenField, ShortEnumField
 from scapy.layers.inet import TCP
+from scapy.compat import orb
 
 STATIC_SERIAL_NOTIFY_LENGTH = 12
 STATIC_SERIAL_QUERY_LENGTH = 12
@@ -77,7 +78,9 @@ class RTRSerialNotify(Packet):
     '''
 
     name = 'Serial Notify'
-    fields_desc = [ShortField('session_id', 0),
+    fields_desc = [ByteEnumField('rtr_version', 0, RTR_VERSION),
+                   ByteEnumField('pdu_type', 0, PDU_TYPE),
+                   ShortField('session_id', 0),
                    IntField('length', STATIC_SERIAL_NOTIFY_LENGTH),
                    IntField('serial_number', 0)]
 
@@ -91,7 +94,9 @@ class RTRSerialQuery(Packet):
 
     '''
     name = 'Serial Query'
-    fields_desc = [ShortField('session_id', 0),
+    fields_desc = [ByteEnumField('rtr_version', 0, RTR_VERSION),
+                   ByteEnumField('pdu_type', 1, PDU_TYPE),
+                   ShortField('session_id', 0),
                    IntField('length', STATIC_SERIAL_QUERY_LENGTH),
                    IntField('serial_number', 0)]
 
@@ -105,7 +110,9 @@ class RTRResetQuery(Packet):
 
     '''
     name = 'Reset Query'
-    fields_desc = [ShortField('reserved', 0),
+    fields_desc = [ByteEnumField('rtr_version', 0, RTR_VERSION),
+                   ByteEnumField('pdu_type', 2, PDU_TYPE),
+                   ShortField('reserved', 0),
                    IntField('length', STATIC_RESET_QUERY_LENGTH)]
 
 
@@ -118,11 +125,13 @@ class RTRCacheResponse(Packet):
 
     '''
     name = 'Cache Response'
-    fields_desc = [ShortField('session_id', 0),
+    fields_desc = [ByteEnumField('rtr_version', 0, RTR_VERSION),
+                   ByteEnumField('pdu_type', 3, PDU_TYPE),
+                   ShortField('session_id', 0),
                    IntField('length', STATIC_CACHE_RESPONSE_LENGTH)]
 
     def guess_payload_class(self, payload):
-        return RTRHeader
+        return RTR
 
 
 class RTRIPv4Prefix(Packet):
@@ -134,7 +143,9 @@ class RTRIPv4Prefix(Packet):
 
     '''
     name = 'IPv4 Prefix'
-    fields_desc = [ShortField('reserved', 0),
+    fields_desc = [ByteEnumField('rtr_version', 0, RTR_VERSION),
+                   ByteEnumField('pdu_type', 4, PDU_TYPE),
+                   ShortField('reserved', 0),
                    IntField('length', STATIC_IPV4_PREFIX_LENGTH),
                    ByteField('flags', 0),
                    ByteField('shortest_length', 0),
@@ -144,7 +155,7 @@ class RTRIPv4Prefix(Packet):
                    IntField('asn', 0)]
 
     def guess_payload_class(self, payload):
-        return RTRHeader
+        return RTR
 
 
 class RTRIPv6Prefix(Packet):
@@ -156,7 +167,9 @@ class RTRIPv6Prefix(Packet):
 
     '''
     name = 'IPv6 Prefix'
-    fields_desc = [ShortField('reserved', 0),
+    fields_desc = [ByteEnumField('rtr_version', 0, RTR_VERSION),
+                   ByteEnumField('pdu_type', 6, PDU_TYPE),
+                   ShortField('reserved', 0),
                    IntField('length', STATIC_IPV6_PREFIX_LENGTH),
                    ByteField('flags', 0),
                    ByteField('shortest_length', 0),
@@ -166,7 +179,7 @@ class RTRIPv6Prefix(Packet):
                    IntField('asn', 0)]
 
     def guess_payload_class(self, payload):
-        return RTRHeader
+        return RTR
 
 
 class RTREndofDatav0(Packet):
@@ -178,7 +191,9 @@ class RTREndofDatav0(Packet):
 
     '''
     name = 'End of Data - version 0'
-    fields_desc = [ShortField('session_id', 0),
+    fields_desc = [ByteEnumField('rtr_version', 0, RTR_VERSION),
+                   ByteEnumField('pdu_type', 7, PDU_TYPE),
+                   ShortField('session_id', 0),
                    IntField('length', STATIC_END_OF_DATA_V0_LENGTH),
                    IntField('serial_number', 0)]
 
@@ -192,7 +207,9 @@ class RTREndofDatav1(Packet):
 
     '''
     name = 'End of Data - version 1'
-    fields_desc = [ShortField('session_id', 0),
+    fields_desc = [ByteEnumField('rtr_version', 1, RTR_VERSION),
+                   ByteEnumField('pdu_type', 7, PDU_TYPE),
+                   ShortField('session_id', 0),
                    IntField('length', STATIC_END_OF_DATA_V1_LENGTH),
                    IntField('serial_number', 0),
                    IntField('refresh_interval', 0),
@@ -209,7 +226,9 @@ class RTRCacheReset(Packet):
 
     '''
     name = 'Reset Query'
-    fields_desc = [ShortField('reserved', 0),
+    fields_desc = [ByteEnumField('rtr_version', 0, RTR_VERSION),
+                   ByteEnumField('pdu_type', 8, PDU_TYPE),
+                   ShortField('reserved', 0),
                    IntField('length', STATIC_CACHE_RESET_LENGTH)]
 
 
@@ -222,7 +241,9 @@ class RTRRouterKey(Packet):
 
     '''
     name = 'Router Key'
-    fields_desc = [ByteField('flags', 0),
+    fields_desc = [ByteEnumField('rtr_version', 1, RTR_VERSION),
+                   ByteEnumField('pdu_type', 9, PDU_TYPE),
+                   ByteField('flags', 0),
                    ByteField('zeros', 0),
                    IntField('length', None),
                    StrFixedLenField('subject_key_identifier', '', 20),
@@ -246,7 +267,9 @@ class RTRErrorReport(Packet):
 
     '''
     name = 'Error Report'
-    fields_desc = [ShortEnumField('error_code', 0, ERROR_LIST),
+    fields_desc = [ByteEnumField('rtr_version', 0, RTR_VERSION),
+                   ByteEnumField('pdu_type', 10, PDU_TYPE),
+                   ShortEnumField('error_code', 0, ERROR_LIST),
                    IntField('length', None),
                    FieldLenField('length_of_encaps_PDU',
                                  None, fmt='!I', length_of='erroneous_PDU'),
@@ -264,49 +287,58 @@ class RTRErrorReport(Packet):
         return pkt + pay
 
 
-class RTRHeader(Packet):
+PDU_CLASS_VERSION_0 = {0: RTRSerialNotify,
+                       1: RTRSerialQuery,
+                       2: RTRResetQuery,
+                       3: RTRCacheResponse,
+                       4: RTRIPv4Prefix,
+                       6: RTRIPv6Prefix,
+                       7: RTREndofDatav0,
+                       8: RTRCacheReset,
+                       10: RTRErrorReport}
+
+PDU_CLASS_VERSION_1 = {0: RTRSerialNotify,
+                       1: RTRSerialQuery,
+                       2: RTRResetQuery,
+                       3: RTRCacheResponse,
+                       4: RTRIPv4Prefix,
+                       6: RTRIPv6Prefix,
+                       7: RTREndofDatav1,
+                       8: RTRCacheReset,
+                       9: RTRRouterKey,
+                       10: RTRErrorReport}
+
+
+class RTR(Packet):
 
     '''
-
-    RPKI to Router Header from every RTR packet
+    Dummy RPKI to Router generic packet for pre-sorting the packet type
     eg. https://tools.ietf.org/html/rfc6810#section-5.2
+
     '''
-    name = 'RTR Header'
-    fields_desc = [ByteEnumField('rtr_version', 0, RTR_VERSION),
-                   ByteEnumField('pdu_type', 0, PDU_TYPE)]
+    name = 'RTR dissector'
 
-    def guess_payload_class(self, payload):
-        if self.pdu_type == 0:
-            return RTRSerialNotify
-        elif self.pdu_type == 1:
-            return RTRSerialQuery
-        elif self.pdu_type == 2:
-            return RTRResetQuery
-        elif self.pdu_type == 3:
-            return RTRCacheResponse
-        elif self.pdu_type == 4:
-            return RTRIPv4Prefix
-        elif self.pdu_type == 6:
-            return RTRIPv6Prefix
-        elif self.pdu_type == 7:
-            if self.rtr_version == 0:
-                return RTREndofDatav0
-            elif self.rtr_version == 1:
-                return RTREndofDatav1
-        elif self.pdu_type == 8:
-            return RTRCacheReset
-        elif self.pdu_type == 9:
-            if self.rtr_version == 1:
-                return RTRRouterKey
-        elif self.pdu_type == 10:
-            return RTRErrorReport
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        '''
+          Attribution of correct type depending on version and pdu_type
+        '''
+        if _pkt and len(_pkt) >= 2:
+            version = orb(_pkt[0])
+            pdu_type = orb(_pkt[1])
+            if version == 0:
+                return PDU_CLASS_VERSION_0[pdu_type]
+            elif version == 1:
+                return PDU_CLASS_VERSION_1[pdu_type]
+        return Raw
 
 
-bind_layers(TCP, RTRHeader, dport=323)  # real reserved port
-bind_layers(TCP, RTRHeader, sport=323)  # real reserved port
-bind_layers(TCP, RTRHeader, dport=8282)  # RIPE implementation default port
-bind_layers(TCP, RTRHeader, sport=8282)  # RIPE implementation default port
-bind_layers(RTRHeader, RTRCacheResponse, pdu_type=3, dport=8282)
+bind_layers(TCP, RTR, dport=323)  # real reserved port
+bind_layers(TCP, RTR, sport=323)  # real reserved port
+bind_layers(TCP, RTR, dport=8282)  # RIPE implementation default port
+bind_layers(TCP, RTR, sport=8282)  # RIPE implementation default port
+bind_layers(TCP, RTR, dport=2222)  # gortr implementation default port
+bind_layers(TCP, RTR, sport=2222)  # gortr implementation default port
 
 if __name__ == '__main__':
     from scapy.main import interact
