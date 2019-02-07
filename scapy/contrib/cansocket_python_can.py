@@ -32,8 +32,10 @@ class CANSocket(SuperSocket):
     desc = "read/write packets at a given CAN interface " \
            "using a python-can bus object"
 
-    def __init__(self, iface=None, timeout=1):
+    def __init__(self, iface=None, timeout=1.0, basecls=CAN):
+
         if issubclass(type(iface), can_BusABC):
+            self.basecls = basecls
             self.iface = iface
             self.ins = None
             self.outs = None
@@ -54,6 +56,8 @@ class CANSocket(SuperSocket):
             frame.flags |= 0x2
         if msg.is_extended_id:
             frame.flags |= 0x4
+        if self.basecls is not CAN:
+            frame = self.basecls(bytes(frame))
         frame.time = msg.timestamp
         return frame
 
@@ -89,8 +93,8 @@ class CANSocket(SuperSocket):
 
 
 @conf.commands.register
-def srcan(pkt, iface=None, *args, **kargs):
-    s = CANSocket(iface)
+def srcan(pkt, iface=None, basecls=CAN, *args, **kargs):
+    s = CANSocket(iface, basecls=basecls)
     a, b = s.sr(pkt, *args, **kargs)
     s.close()
     return a, b

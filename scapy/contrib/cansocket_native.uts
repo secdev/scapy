@@ -74,6 +74,22 @@ thread.start()
 rx = sock1.recv()
 rx == CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
 
+= CAN Socket basecls test
+~ needs_root linux
+
+def sender():
+    sleep(0.1)
+    sock2 = CANSocket(iface="vcan0")
+    sock2.send(CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
+    sock2.close()
+
+sock1.basecls = Raw
+thread = threading.Thread(target=sender)
+thread.start()
+rx = sock1.recv()
+rx == Raw(bytes(CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08')))
+sock1.basecls = CAN
+
 + Advanced Socket Tests()
 = CAN Socket sr1
 ~ needs_root linux
@@ -112,7 +128,7 @@ tx = CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
 = srcan check init time
 ~ needs_root linux
 
-tx.sent_time == None
+assert tx.sent_time == None
 
 def sender():
     sleep(0.1)
@@ -126,6 +142,23 @@ rx = None
 rx = srcan(tx, "vcan0", timeout=1)
 rx = rx[0][0][1]
 tx == rx
+
+
+= srcan check init time basecls
+~ needs_root linux
+
+def sender():
+    sleep(0.1)
+    sock2 = CANSocket(iface="vcan0")
+    sock2.send(tx)
+    sock2.close()
+
+thread = threading.Thread(target=sender)
+thread.start()
+rx = None
+rx = srcan(tx, "vcan0", timeout=1, basecls=Raw)
+rx = rx[0][0][1]
+Raw(bytes(tx)) == rx
 
 = srcan check rx and tx
 ~ needs_root linux
