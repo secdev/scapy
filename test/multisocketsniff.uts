@@ -1,0 +1,212 @@
+% multisocket sniff tests for Scapy
+
+~ vcan_socket
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+
+############
+############
++ Configuration of CAN virtual sockets
+
+= Load module
+~ conf command needs_root linux
+import os
+import threading
+from time import sleep
+from subprocess import call
+
+conf.contribs['CAN'] = {'swap-bytes': False}
+load_layer("can")
+import scapy.contrib.cansocket_python_can as csp
+import scapy.contrib.cansocket_native as csn
+import can
+
+bashCommand = "/bin/bash -c 'sudo modprobe vcan; sudo ip link add name vcan0 type vcan; sudo ip link set dev vcan0 up'"
+
+= Setup vcan0
+~ conf command needs_root linux
+
+0 == os.system(bashCommand)
+
+= Basic Socket Tests python-can
+~ needs_root linux
+
+sock1 = csp.CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0', bitrate=250000))
+
+def sender():
+    sleep(0.1)
+    sock2 = csp.CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0', bitrate=250000))
+    sock2.send(CAN(identifier=0x7ff,length=1,data=b'\x01'))
+    sock2.close()
+
+thread = threading.Thread(target=sender)
+thread.start()
+
+rx = sniff(opened_socket=sock1, timeout=1, count=1)
+assert rx[0] == CAN(identifier=0x7ff,length=1,data=b'\x01')
+
+
+= Basic Socket Tests native can
+~ needs_root linux python3_only
+
+sock1 = csn.CANSocket(iface='vcan0')
+
+def sender():
+    sleep(0.1)
+    sock2 = csn.CANSocket(iface='vcan0')
+    sock2.send(CAN(identifier=0x7ff,length=1,data=b'\x01'))
+    sock2.close()
+
+thread = threading.Thread(target=sender)
+thread.start()
+
+rx = sniff(opened_socket=sock1, timeout=1, count=1)
+assert rx[0] == CAN(identifier=0x7ff,length=1,data=b'\x01')
+assert len(rx) == 1
+
+= Multi Socket sniff
+~ needs_root linux python3_only
+
+sock1 = csn.CANSocket(iface='vcan0')
+sock2 = csp.CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0', bitrate=250000))
+
+def sender():
+    sleep(0.1)
+    sock2 = csn.CANSocket(iface='vcan0')
+    sock2.send(CAN(identifier=0x7ff,length=1,data=b'\x01'))
+    sock2.close()
+
+thread = threading.Thread(target=sender)
+thread.start()
+
+rx = sniff(opened_socket=[sock1, sock2], timeout=1, count=2)
+assert rx[0] == CAN(identifier=0x7ff,length=1,data=b'\x01')
+assert rx[1] == CAN(identifier=0x7ff,length=1,data=b'\x01')
+assert len(rx) == 2
+
+
+
+= Multi Socket sniff with filters
+~ needs_root linux python3_only
+
+sock1 = csn.CANSocket(iface='vcan0', can_filters=[{'can_id': 0x200, 'can_mask': 0x7ff}])
+sock2 = csp.CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0',
+                                              bitrate=250000, can_filters=[{'can_id': 0x300, 'can_mask': 0x7ff}]))
+
+def sender():
+    sleep(0.1)
+    sock2 = csn.CANSocket(iface='vcan0')
+    sock2.send(CAN(identifier=0x200,length=1,data=b'\x01'))
+    sock2.send(CAN(identifier=0x300, length=1, data=b'\x01'))
+    sock2.close()
+
+thread = threading.Thread(target=sender)
+thread.start()
+
+rx = sniff(opened_socket=[sock1, sock2], timeout=1, count=2)
+assert rx[0] == CAN(identifier=0x200,length=1,data=b'\x01')
+assert rx[1] == CAN(identifier=0x300,length=1,data=b'\x01')
+assert len(rx) == 2
+
+
+= Multi Socket sniff with filters
+~ needs_root linux python3_only
+
+sock1 = csn.CANSocket(iface='vcan0', can_filters=[{'can_id': 0x200, 'can_mask': 0x7ff}])
+sock2 = csp.CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0',
+                                              bitrate=250000, can_filters=[{'can_id': 0x300, 'can_mask': 0x7ff}]))
+
+def sender():
+    sleep(0.1)
+    sock2 = csn.CANSocket(iface='vcan0')
+    sock2.send(CAN(identifier=0x200,length=1,data=b'\x01'))
+    sock2.send(CAN(identifier=0x300, length=1, data=b'\x01'))
+    sock2.close()
+
+thread = threading.Thread(target=sender)
+thread.start()
+
+rx = sniff(opened_socket=[sock1, sock2], timeout=1, count=2)
+assert CAN(identifier=0x200,length=1,data=b'\x01') in rx
+assert CAN(identifier=0x300,length=1,data=b'\x01') in rx
+assert len(rx) == 2
+
+
+
+= Definition of constants, utility functions for ISOTP
+~ conf
+# function to exit when the can-isotp kernel module is not available
+ISOTP_KERNEL_MODULE_AVAILABLE = False
+def exit_if_no_isotp_module():
+    if not ISOTP_KERNEL_MODULE_AVAILABLE:
+        err = "TEST SKIPPED: can-isotp not available"
+        subprocess.call("printf \"%s\r\n\" > /dev/stderr" % err, shell=True)
+        warning("Can't test ISOTP native socket because kernel module is not loaded")
+        exit(0)
+
+
+= Initialize a virtual CAN interface
+~ needs_root linux conf
+iface0 = "vcan0"
+if 0 != call("cansend %s 000#" % iface0, shell=True):
+    # vcan0 is not enabled
+    if 0 != call("sudo modprobe vcan", shell=True):
+        raise Exception("modprobe vcan failed")
+    if 0 != call("sudo ip link add name %s type vcan" % iface0, shell=True):
+        print("add %s failed: Maybe it was already up?" % iface0)
+    if 0 != call("sudo ip link set dev %s up" % iface0, shell=True):
+        raise Exception("could not bring up %s" % iface0)
+
+if 0 != call("cansend %s 000#" % iface0, shell=True):
+    raise Exception("cansend doesn't work")
+
+print("CAN should work now")
+
+
+= Check if can-isotp and can-utils are installed on this system
+~ linux
+p = subprocess.Popen('lsmod | grep "^can_isotp"', stdout = subprocess.PIPE, shell=True)
+if p.wait() == 0:
+    if b"can_isotp" in p.stdout.read():
+        p = subprocess.Popen("isotpsend -s1 -d0 %s" % "vcan0", stdin = subprocess.PIPE, shell=True)
+        p.stdin.write(b"01")
+        p.stdin.close()
+        r = p.wait()
+        if r == 0:
+            ISOTP_KERNEL_MODULE_AVAILABLE = True
+
+
+= Import isotp
+~ linux
+load_contrib("isotp")
+from scapy.contrib.isotp import ISOTPNativeSocket
+
+= ISOTP Socket
+~ needs_root linux python3_only
+exit_if_no_isotp_module()
+
+sock1 = csn.CANSocket(iface='vcan0', can_filters=[{'can_id': 0x7ff, 'can_mask': 0x7ff}])
+sock2 = csp.CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0', bitrate=250000, can_filters=[{'can_id': 0x6ff, 'can_mask': 0x7ff}]))
+sock3 = ISOTPNativeSocket("vcan0", sid=0x644, did=0x244)
+
+def sender():
+    sleep(0.1)
+    sock2 = csn.CANSocket(iface='vcan0')
+    sock2.send(CAN(identifier=0x7ff,length=1,data=b'\x01'))
+    sock2.send(CAN(identifier=0x6ff,length=1,data=b'\x01'))
+    sleep(0.1)
+    sock2.send(CAN(identifier=0x244,length=5,data=b'\x04ABCD'))
+    sock2.close()
+
+thread = threading.Thread(target=sender)
+thread.start()
+
+rx = sniff(opened_socket=[sock1, sock2, sock3], timeout=1, count=3)
+for x in rx:
+    print(x.__repr__())
+
+assert CAN(identifier=0x7ff,length=1,data=b'\x01') in rx
+assert CAN(identifier=0x6ff,length=1,data=b'\x01') in rx
+assert ISOTP(b"ABCD") in rx
+assert len(rx) == 3
