@@ -197,15 +197,21 @@ def list_contrib(name=None, ret=False):
         name = "*.py"
     elif "*" not in name and "?" not in name and not name.endswith(".py"):
         name += ".py"
-    name = os.path.join(os.path.dirname(__file__), "contrib", name)
     results = []
-    for f in sorted(glob.glob(name)):
-        mod = os.path.basename(f)
+    dir_path = os.path.join(os.path.dirname(__file__), "contrib")
+    if sys.version_info >= (3, 5):
+        name = os.path.join(dir_path, "**", name)
+        iterator = glob.iglob(name, recursive=True)
+    else:
+        name = os.path.join(dir_path, name)
+        iterator = glob.iglob(name)
+    for f in iterator:
+        mod = f.replace(os.path.sep, ".").partition("contrib.")[2]
         if mod.startswith("__"):
             continue
         if mod.endswith(".py"):
             mod = mod[:-3]
-        desc = {"description": "-", "status": "?", "name": mod}
+        desc = {"description": None, "status": None, "name": mod}
         for l in io.open(f, errors="replace"):
             p = l.find("scapy.contrib.")
             if p >= 0:
@@ -214,7 +220,10 @@ def list_contrib(name=None, ret=False):
                 key = l[p:q].strip()
                 value = l[q + 1:].strip()
                 desc[key] = value
-        results.append(desc)
+            if desc["description"] and desc["status"]:
+                results.append(desc)
+                break
+    results.sort(key=lambda x: x["name"])
     if ret:
         return results
     else:
