@@ -226,7 +226,9 @@ class _L2bpfSocket(SuperSocket):
 class L2bpfListenSocket(_L2bpfSocket):
     """"Scapy L2 BPF Listen Super Socket"""
 
-    received_frames = []
+    def __init__(self, *args, **kwargs):
+        self.received_frames = []
+        super(L2bpfListenSocket, self).__init__(*args, **kwargs)
 
     def buffered_frames(self):
         """Return the number of frames in the buffer"""
