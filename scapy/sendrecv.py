@@ -875,13 +875,13 @@ def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
     group_sockets = lambda sockets: [[x for x in sockets.keys()
                                       if isinstance(x, sock)]
                                      for sock in sniff_sockets_t]
-    socket_groups = group_sockets(sniff_sockets)
-    select_funcs = [group[0].select for group in socket_groups]
+    sniff_socket_groups = group_sockets(sniff_sockets)
+    select_funcs = [group[0].select for group in sniff_socket_groups]
 
     def _select(sockets, remain):
         socket_groups = group_sockets(sockets)
-        lists = list(select_funcs[i](socket_groups[i], remain)[0]
-                     for i in range(len(select_funcs)))
+        lists = list(sel(group, remain)[0]
+                     for sel, group in zip(select_funcs, socket_groups))
         return [sock for select_lists in lists for sock in select_lists]
 
     read_allowed_exceptions = \
