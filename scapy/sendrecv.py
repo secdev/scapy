@@ -876,10 +876,11 @@ def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
                                       if isinstance(x, sock)]
                                      for sock in sniff_sockets_t]
     socket_groups = group_sockets(sniff_sockets)
-    select_funcs = [x[0].select for x in socket_groups]
+    select_funcs = [group[0].select for group in socket_groups]
 
     def _select(sockets, remain):
-        lists = list(select_funcs[i](group_sockets(sockets)[i], remain)[0]
+        socket_groups = group_sockets(sockets)
+        lists = list(select_funcs[i](socket_groups[i], remain)[0]
                      for i in range(len(select_funcs)))
         return [sock for select_lists in lists for sock in select_lists]
 
