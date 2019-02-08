@@ -873,9 +873,10 @@ def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
     # Get select information from the sockets
     sniff_sockets_t = list(set([type(x) for x in sniff_sockets.keys()]))
     group_sockets = lambda sockets: [[x for x in sockets.keys()
-                                      if type(x) == sniff_sockets_t[i]]
-                                     for i in range(len(sniff_sockets_t))]
-    select_funcs = [x[0].select for x in group_sockets(sniff_sockets)]
+                                      if isinstance(x, sock)]
+                                     for sock in sniff_sockets_t]
+    socket_groups = group_sockets(sniff_sockets)
+    select_funcs = [x[0].select for x in socket_groups]
 
     def _select(sockets, remain):
         lists = list(select_funcs[i](group_sockets(sockets)[i], remain)[0]
