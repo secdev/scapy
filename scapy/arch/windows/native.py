@@ -55,9 +55,9 @@ from scapy.compat import raw
 from scapy.config import conf
 from scapy.data import MTU
 from scapy.error import Scapy_Exception, warning
-from scapy.layers.inet import IP
-from scapy.layers.inet6 import IPv6
 from scapy.supersocket import SuperSocket
+
+# Watch out for import loops (inet...)
 
 
 class L3WinSocket(SuperSocket, SelectableObject):
@@ -67,6 +67,8 @@ class L3WinSocket(SuperSocket, SelectableObject):
 
     def __init__(self, iface=None, proto=socket.IPPROTO_IP,
                  ttl=128, ipv6=False, promisc=True, **kwargs):
+        from scapy.layers.inet import IP
+        from scapy.layers.inet6 import IPv6
         for kwarg in kwargs:
             warning("Dropping unsupported option: %s" % kwarg)
         af = socket.AF_INET6 if ipv6 else socket.AF_INET
@@ -163,6 +165,8 @@ class L3WinSocket(SuperSocket, SelectableObject):
             data, address = self.ins.recvfrom(x)
         except IOError:  # BlockingIOError
             return None, None, None
+        from scapy.layers.inet import IP
+        from scapy.layers.inet6 import IPv6
         if self.ipv6:
             # AF_INET6 does not return the IPv6 header. Let's build it
             # (host, port, flowinfo, scopeid)

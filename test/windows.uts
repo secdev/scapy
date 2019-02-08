@@ -19,6 +19,14 @@ assert select_objects([TimeOutSelector()], 1) == []
 ############
 + Windows arch unit tests
 
+= Test pcapname
+
+iface = conf.iface
+
+assert pcapname(iface.name) == iface.pcap_name
+assert pcapname(iface.description) == iface.pcap_name
+assert pcapname(iface.pcap_name) == iface.pcap_name
+
 = show_interfaces
 
 from scapy.arch import show_interfaces
@@ -60,7 +68,7 @@ assert pcap_service_status()[2] == True
 def _test_autostart_ui(mocked_getiflist):
     mocked_getiflist.side_effect = lambda: []
     IFACES.reload()
-    assert all(x.win_index == -1 for x in IFACES.data.values())
+    assert all(x.win_index < 0 for x in IFACES.data.values())
 
 try:
     old_ifaces = IFACES.data.copy()
