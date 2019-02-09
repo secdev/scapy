@@ -24,7 +24,7 @@ from scapy.base_classes import BasePacket, Gen, SetGen, Packet_metaclass, \
 from scapy.volatile import VolatileValue, RandField
 from scapy.utils import import_hexcap, tex_escape, colgen, issubtype, \
     pretty_list
-from scapy.error import Scapy_Exception, log_runtime
+from scapy.error import Scapy_Exception, log_runtime, warning
 from scapy.extlib import PYX
 import scapy.modules.six as six
 
@@ -1737,7 +1737,8 @@ def explore(layer=None):
                 else:
                     raise Scapy_Exception("Unknown scapy module '%s'" % layer)
         else:
-            raise Scapy_Exception("Wrong usage ! Check out help(explore)")
+            warning("Wrong usage ! Check out help(explore)")
+            return
 
     # COMMON PART
     # Get the list of all Packets contained in that module
