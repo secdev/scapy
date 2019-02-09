@@ -92,7 +92,7 @@ assert len(rx) == 2
 
 sock1 = csn.CANSocket(iface='vcan0', can_filters=[{'can_id': 0x200, 'can_mask': 0x7ff}])
 sock2 = csp.CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0',
-                                              bitrate=250000, can_filters=[{'can_id': 0x300, 'can_mask': 0x7ff}]))
+                                              bitrate=250000, timeout=0.1, can_filters=[{'can_id': 0x300, 'can_mask': 0x7ff}]))
 
 def sender():
     sleep(0.1)
@@ -115,7 +115,7 @@ assert len(rx) == 2
 
 sock1 = csn.CANSocket(iface='vcan0', can_filters=[{'can_id': 0x200, 'can_mask': 0x7ff}])
 sock2 = csp.CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0',
-                                              bitrate=250000, can_filters=[{'can_id': 0x300, 'can_mask': 0x7ff}]))
+                                              bitrate=250000, timeout=0.1, can_filters=[{'can_id': 0x300, 'can_mask': 0x7ff}]))
 
 def sender():
     sleep(0.1)
@@ -171,7 +171,7 @@ else:
 
 if "python_can" in CANSocket.__module__:
     import can as python_can
-    new_can_socket = lambda iface: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface, bitrate=250000))
+    new_can_socket = lambda iface: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface, bitrate=250000, timeout=0.1))
 else:
     new_can_socket = lambda iface: CANSocket(iface)
 
@@ -189,19 +189,38 @@ if p.wait() == 0:
             ISOTP_KERNEL_MODULE_AVAILABLE = True
 
 
-= Import isotp
-~ linux
+= ISOTP Socket
+~ needs_root linux python3_only
 load_contrib("isotp")
 
 
-= ISOTP Socket
+sock1 = csn.CANSocket(iface='vcan0', can_filters=[{'can_id': 0x7ff, 'can_mask': 0x7ff}])
+sock2 = csp.CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0', bitrate=250000, timeout=0.1, can_filters=[{'can_id': 0x6ff, 'can_mask': 0x7ff}]))
+with ISOTPSocket(new_can_socket(iface0), sid=0x644, did=0x244) as sock3:
+    def sender():
+        sock2 = csn.CANSocket(iface='vcan0')
+        sock2.send(CAN(identifier=0x7ff, length=1, data=b'\x01'))
+        sock2.send(CAN(identifier=0x6ff, length=1, data=b'\x01'))
+        sock2.send(CAN(identifier=0x244, length=5, data=b'\x04ABCD'))
+        sock2.close()
+    thread = threading.Thread(target=sender)
+    thread.start()
+    rx = sniff(opened_socket=[sock1, sock2, sock3], timeout=1, count=3)
+    assert CAN(identifier=0x7ff,length=1,data=b'\x01') in rx
+    assert CAN(identifier=0x6ff,length=1,data=b'\x01') in rx
+    assert ISOTP(b"ABCD") in rx
+    assert len(rx) == 3
+
+
+= ISOTP Socket 2
 ~ needs_root linux python3_only
-
-
+exit_if_no_isotp_module()
+from scapy.contrib.isotp import ISOTPNativeSocket, ISOTPSoftSocket
 
 sock1 = csn.CANSocket(iface='vcan0', can_filters=[{'can_id': 0x7ff, 'can_mask': 0x7ff}])
-sock2 = csp.CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0', bitrate=250000, can_filters=[{'can_id': 0x6ff, 'can_mask': 0x7ff}]))
-with ISOTPSocket(new_can_socket(iface0), sid=0x644, did=0x244) as sock3:
+sock2 = csp.CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0', bitrate=250000, timeout=0.1, can_filters=[{'can_id': 0x6ff, 'can_mask': 0x7ff}]))
+sock4 = ISOTPNativeSocket("vcan0", sid=0x644, did=0x244, listen_only=True)
+with ISOTPSoftSocket(new_can_socket(iface0), sid=0x644, did=0x244) as sock3:
     def sender():
         sleep(0.1)
         sock2 = csn.CANSocket(iface='vcan0')
@@ -212,8 +231,351 @@ with ISOTPSocket(new_can_socket(iface0), sid=0x644, did=0x244) as sock3:
         sock2.close()
     thread = threading.Thread(target=sender)
     thread.start()
-    rx = sniff(opened_socket=[sock1, sock2, sock3], timeout=1, count=3)
+    rx = sniff(opened_socket=[sock1, sock2, sock3, sock4], timeout=1, count=4)
     assert CAN(identifier=0x7ff,length=1,data=b'\x01') in rx
     assert CAN(identifier=0x6ff,length=1,data=b'\x01') in rx
     assert ISOTP(b"ABCD") in rx
+    assert len(rx) == 4
+
+= ISOTP Socket 3 more packets send than count
+~ needs_root linux python3_only
+exit_if_no_isotp_module()
+from scapy.contrib.isotp import ISOTPNativeSocket, ISOTPSoftSocket
+
+sock1 = csn.CANSocket(iface='vcan0', can_filters=[{'can_id': 0x7ff, 'can_mask': 0x7ff}])
+sock2 = csp.CANSocket(iface=can.interface.Bus(bustype='socketcan',
+                                              channel='vcan0',
+                                              bitrate=250000, timeout=0.1,
+                                              can_filters=[{'can_id': 0x7ff, 'can_mask': 0x7ff}]))
+sock4 = ISOTPNativeSocket("vcan0", sid=0x644, did=0x244)
+with ISOTPSoftSocket(new_can_socket(iface0), sid=0x644, did=0x244) as sock3:
+    def sender():
+        sleep(0.1)
+        socktx = csn.CANSocket(iface='vcan0')
+        socktx.send(CAN(identifier=0x7ff, length=1, data=b'\x01'))
+        socktx.send(CAN(identifier=0x7ff, length=1, data=b'\x01'))
+        sleep(0.1)
+        socktx.send(CAN(identifier=0x244, length=5, data=b'\x04ABCD'))
+        socktx.send(CAN(identifier=0x244, length=5, data=b'\x04ABCD'))
+        socktx.close()
+    thread = threading.Thread(target=sender)
+    thread.start()
+    rx = sniff(opened_socket=[sock1, sock2, sock3, sock4], timeout=1, count=3)
+    assert CAN(identifier=0x7ff,length=1,data=b'\x01') in rx
+    assert ISOTP(b"ABCD") in rx
     assert len(rx) == 3
+
+
+= ISOTP Socket 4 more packets send than count
+~ needs_root linux python3_only
+exit_if_no_isotp_module()
+from scapy.contrib.isotp import ISOTPNativeSocket, ISOTPSoftSocket
+
+sock1 = csn.CANSocket(iface='vcan0', can_filters=[{'can_id': 0x7ff, 'can_mask': 0x7ff}])
+sock11 = csn.CANSocket(iface='vcan0', can_filters=[{'can_id': 0x7ff, 'can_mask': 0x7ff}])
+sock2 = csp.CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0',
+                                              bitrate=250000, timeout=0.1,
+                                              can_filters=[{'can_id': 0x7ff, 'can_mask': 0x7ff}]))
+sock21 = csp.CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0',
+                                              bitrate=250000, timeout=0.1,
+                                              can_filters=[{'can_id': 0x7ff, 'can_mask': 0x7ff}]))
+sock4 = ISOTPNativeSocket("vcan0", sid=0x644, did=0x244)
+sock41 = ISOTPNativeSocket("vcan0", sid=0x644, did=0x244)
+with ISOTPSoftSocket(new_can_socket(iface0), sid=0x644, did=0x244) as sock3, \
+     ISOTPSoftSocket(new_can_socket(iface0), sid=0x644, did=0x244) as sock31:
+    def sender():
+        sleep(0.1)
+        socktx = csn.CANSocket(iface='vcan0')
+        socktx.send(CAN(identifier=0x7ff, length=1, data=b'\x01'))
+        socktx.send(CAN(identifier=0x7ff, length=1, data=b'\x01'))
+        sleep(0.1)
+        socktx.send(CAN(identifier=0x244, length=5, data=b'\x04ABCD'))
+        socktx.send(CAN(identifier=0x244, length=5, data=b'\x04ABCD'))
+        socktx.close()
+    thread = threading.Thread(target=sender)
+    thread.start()
+    rx = sniff(opened_socket=[sock1, sock2, sock3, sock4, sock11, sock21, sock31, sock41], timeout=1, count=9)
+    assert CAN(identifier=0x7ff,length=1,data=b'\x01') in rx
+    assert ISOTP(b"ABCD") in rx
+    assert len(rx) == 9
+
+
+= ISOTP Socket 5 get everything
+~ needs_root linux python3_only
+exit_if_no_isotp_module()
+from scapy.contrib.isotp import ISOTPNativeSocket, ISOTPSoftSocket
+
+sock1 = csn.CANSocket(iface='vcan0', can_filters=[{'can_id': 0x7ff, 'can_mask': 0x7ff}])
+sock11 = csn.CANSocket(iface='vcan0', can_filters=[{'can_id': 0x7ff, 'can_mask': 0x7ff}])
+sock4 = ISOTPNativeSocket("vcan0", sid=0x644, did=0x244)
+sock41 = ISOTPNativeSocket("vcan0", sid=0x644, did=0x244)
+with ISOTPSoftSocket(new_can_socket(iface0), sid=0x644, did=0x244) as sock3, \
+     ISOTPSoftSocket(new_can_socket(iface0), sid=0x644, did=0x244) as sock31:
+    def sender():
+        socktx = csn.CANSocket(iface='vcan0')
+        socktx.send(CAN(identifier=0x7ff, length=1, data=b'\x01'))
+        sleep(0.1)
+        socktx.send(CAN(identifier=0x7ff, length=1, data=b'\x01'))
+        sleep(0.1)
+        socktx.send(CAN(identifier=0x244, length=5, data=b'\x04ABCD'))
+        sleep(0.1)
+        socktx.send(CAN(identifier=0x244, length=5, data=b'\x04ABCD'))
+        socktx.close()
+    thread = threading.Thread(target=sender)
+    rx = sniff(opened_socket=[sock1, sock3, sock4, sock11, sock31, sock41], timeout=1, count=12, started_callback=thread.start)
+    sniffed_l = list([p.sniffed_on for p in rx])
+    print(sniffed_l.sort())
+    print(len(rx))
+    assert CAN(identifier=0x7ff,length=1,data=b'\x01') in rx
+    assert ISOTP(b"ABCD") in rx
+    assert len(rx) == 12
+    thread.join()
+
+= ISOTP Socket 6 timeout
+~ needs_root linux python3_only
+exit_if_no_isotp_module()
+from scapy.contrib.isotp import ISOTPNativeSocket, ISOTPSoftSocket
+
+sock1 = csn.CANSocket(iface='vcan0', can_filters=[{'can_id': 0x7ff, 'can_mask': 0x7ff}])
+sock11 = csn.CANSocket(iface='vcan0', can_filters=[{'can_id': 0x7ff, 'can_mask': 0x7ff}])
+sock2 = csp.CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0',
+                                              bitrate=250000, timeout=0.1,
+                                              can_filters=[{'can_id': 0x7ff, 'can_mask': 0x7ff}]))
+sock4 = ISOTPNativeSocket("vcan0", sid=0x644, did=0x244)
+sock41 = ISOTPNativeSocket("vcan0", sid=0x644, did=0x244)
+with ISOTPSoftSocket(new_can_socket(iface0), sid=0x644, did=0x244) as sock3:
+    def sender():
+        socktx = csn.CANSocket(iface='vcan0')
+        socktx.send(CAN(identifier=0x7ff, length=1, data=b'\x01'))
+        socktx.send(CAN(identifier=0x7ff, length=1, data=b'\x01'))
+        socktx.send(CAN(identifier=0x244, length=5, data=b'\x04ABCD'))
+        socktx.send(CAN(identifier=0x244, length=5, data=b'\x04ABCD'))
+        socktx.close()
+    thread = threading.Thread(target=sender)
+    thread.start()
+    rx = sniff(opened_socket=[sock1, sock2, sock3, sock4, sock11, sock41], timeout=1, count=13)
+    for p in rx:
+        print(p.sniffed_on)
+    assert CAN(identifier=0x7ff,length=1,data=b'\x01') in rx
+    assert ISOTP(b"ABCD") in rx
+    print(len(rx))
+    assert len(rx) == 12
+
+
+= ISOTP Socket 7 get everything
+~ needs_root linux python3_only
+exit_if_no_isotp_module()
+from scapy.contrib.isotp import ISOTPNativeSocket, ISOTPSoftSocket
+
+sock1 = csn.CANSocket(iface='vcan0', can_filters=[{'can_id': 0x7ff, 'can_mask': 0x7ff}])
+sock11 = csn.CANSocket(iface='vcan0', can_filters=[{'can_id': 0x7ff, 'can_mask': 0x7ff}])
+sock2 = csp.CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0',
+                                              bitrate=250000, timeout=0.1,
+                                              can_filters=[{'can_id': 0x7ff, 'can_mask': 0x7ff}]))
+sock4 = ISOTPNativeSocket("vcan0", sid=0x644, did=0x244)
+sock41 = ISOTPNativeSocket("vcan0", sid=0x644, did=0x244)
+with ISOTPSoftSocket(new_can_socket(iface0), sid=0x644, did=0x244) as sock3:
+    def sender():
+        socktx = csn.CANSocket(iface='vcan0')
+        socktx.send(CAN(identifier=0x7ff, length=1, data=b'\x01'))
+        socktx.send(CAN(identifier=0x7ff, length=1, data=b'\x01'))
+        socktx.send(CAN(identifier=0x244, length=5, data=b'\x04ABCD'))
+        socktx.send(CAN(identifier=0x244, length=5, data=b'\x04ABCD'))
+        socktx.close()
+    thread = threading.Thread(target=sender)
+    thread.start()
+    rx = sniff(opened_socket=[sock1, sock2, sock3, sock4, sock11, sock41], timeout=1, count=12)
+    for p in rx:
+        print(p.sniffed_on)
+    assert CAN(identifier=0x7ff,length=1,data=b'\x01') in rx
+    assert ISOTP(b"ABCD") in rx
+    print(len(rx))
+    assert len(rx) == 12
+
+
+= CAN Socket many sockets 10 packets
+~ needs_root linux python3_only
+
+sock1 = csn.CANSocket(iface='vcan0')
+sock2 = csn.CANSocket(iface='vcan0')
+sock3 = csn.CANSocket(iface='vcan0')
+sock4 = csn.CANSocket(iface='vcan0')
+sock5 = csn.CANSocket(iface='vcan0')
+sock6 = csp.CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0',
+                                              bitrate=250000, timeout=0.1))
+sock7 = csp.CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0',
+                                              bitrate=250000, timeout=0.1))
+sock8 = csp.CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0',
+                                              bitrate=250000, timeout=0.1))
+sock9 = csp.CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0',
+                                              bitrate=250000, timeout=0.1))
+sock10 = csp.CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0',
+                                              bitrate=250000, timeout=0.1))
+
+def sender():
+    socktx = csn.CANSocket(iface='vcan0')
+    socktx.send(CAN(identifier=0x7ff, length=1, data=b'\x01'))
+    socktx.close()
+
+rx = sniff(opened_socket=[sock1, sock2, sock3, sock4, sock5, sock6, sock7, sock8, sock9, sock10], timeout=1, count=10, started_callback=sender)
+for p in rx:
+    print(p.sniffed_on)
+
+assert CAN(identifier=0x7ff,length=1,data=b'\x01') in rx
+print(len(rx))
+assert len(rx) == 10
+
+= CAN Socket many sockets 20 packets
+~ needs_root linux python3_only
+
+sock1 = csn.CANSocket(iface='vcan0')
+sock2 = csn.CANSocket(iface='vcan0')
+sock3 = csn.CANSocket(iface='vcan0')
+sock4 = csn.CANSocket(iface='vcan0')
+sock5 = csn.CANSocket(iface='vcan0')
+sock6 = csp.CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0',
+                                              bitrate=250000, timeout=0.1))
+sock7 = csp.CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0',
+                                              bitrate=250000, timeout=0.1))
+sock8 = csp.CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0',
+                                              bitrate=250000, timeout=0.1))
+sock9 = csp.CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0',
+                                              bitrate=250000, timeout=0.1))
+sock10 = csp.CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0',
+                                              bitrate=250000, timeout=0.1))
+
+def sender():
+    socktx = csn.CANSocket(iface='vcan0')
+    socktx.send(CAN(identifier=0x7ff, length=1, data=b'\x01'))
+    socktx.send(CAN(identifier=0x7ff, length=1, data=b'\x01'))
+    socktx.close()
+
+rx = sniff(opened_socket=[sock1, sock2, sock3, sock4, sock5, sock6, sock7, sock8, sock9, sock10], timeout=1, count=20, started_callback=sender)
+for p in rx:
+    print(p.sniffed_on)
+
+assert CAN(identifier=0x7ff,length=1,data=b'\x01') in rx
+print(len(rx))
+assert len(rx) == 20
+
+= CAN Socket high load with count
+~ needs_root linux python3_only
+
+sock1 = csn.CANSocket(iface='vcan0')
+sock2 = csn.CANSocket(iface='vcan0')
+sock3 = csn.CANSocket(iface='vcan0')
+sock4 = csn.CANSocket(iface='vcan0')
+sock5 = csn.CANSocket(iface='vcan0')
+sock6 = csp.CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0',
+                                              bitrate=250000, timeout=0.1))
+sock7 = csp.CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0',
+                                              bitrate=250000, timeout=0.1))
+sock8 = csp.CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0',
+                                              bitrate=250000, timeout=0.1))
+sock9 = csp.CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0',
+                                              bitrate=250000, timeout=0.1))
+sock10 = csp.CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0',
+                                              bitrate=250000, timeout=0.1))
+
+def sender():
+    socktx = csn.CANSocket(iface='vcan0')
+    socktx.send(CAN(identifier=0x7ff, length=1, data=b'\x01'))
+    sleep(0.1)
+    socktx.send(CAN(identifier=0x7ff, length=1, data=b'\x01'))
+    socktx.send(CAN(identifier=0x7ff, length=1, data=b'\x01'))
+    socktx.send(CAN(identifier=0x7ff, length=1, data=b'\x01'))
+    sleep(0.1)
+    socktx.send(CAN(identifier=0x7ff, length=1, data=b'\x01'))
+    socktx.close()
+
+thread = threading.Thread(target=sender)
+rx = sniff(opened_socket=[sock1, sock2, sock3, sock4, sock5, sock6, sock7, sock8, sock9, sock10], timeout=1, count=50, started_callback=thread.start)
+for p in rx:
+    print(p.sniffed_on)
+
+assert CAN(identifier=0x7ff,length=1,data=b'\x01') in rx
+print(len(rx))
+assert len(rx) == 50
+
+
+= CAN Socket high load with timeout
+~ needs_root linux python3_only
+
+sock1 = csn.CANSocket(iface='vcan0')
+sock2 = csn.CANSocket(iface='vcan0')
+sock3 = csn.CANSocket(iface='vcan0')
+sock4 = csn.CANSocket(iface='vcan0')
+sock5 = csn.CANSocket(iface='vcan0')
+sock6 = csp.CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0',
+                                              bitrate=250000, timeout=0.1))
+sock7 = csp.CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0',
+                                              bitrate=250000, timeout=0.1))
+sock8 = csp.CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0',
+                                              bitrate=250000, timeout=0.1))
+sock9 = csp.CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0',
+                                              bitrate=250000, timeout=0.1))
+sock10 = csp.CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0',
+                                              bitrate=250000, timeout=0.1))
+
+def sender():
+    socktx = csn.CANSocket(iface='vcan0')
+    socktx.send(CAN(identifier=0x7ff, length=1, data=b'\x01'))
+    sleep(0.1)
+    socktx.send(CAN(identifier=0x7ff, length=1, data=b'\x01'))
+    socktx.send(CAN(identifier=0x7ff, length=1, data=b'\x01'))
+    socktx.send(CAN(identifier=0x7ff, length=1, data=b'\x01'))
+    sleep(0.8)
+    socktx.send(CAN(identifier=0x7ff, length=1, data=b'\x01'))
+    socktx.send(CAN(identifier=0x7ff, length=1, data=b'\x01'))
+    socktx.send(CAN(identifier=0x7ff, length=1, data=b'\x01'))
+    socktx.send(CAN(identifier=0x7ff, length=1, data=b'\x01'))
+    socktx.close()
+
+thread = threading.Thread(target=sender)
+rx = sniff(opened_socket=[sock1, sock2, sock3, sock4, sock5, sock6, sock7, sock8, sock9, sock10], timeout=1, started_callback=thread.start)
+for p in rx:
+    print(p.sniffed_on)
+
+assert CAN(identifier=0x7ff,length=1,data=b'\x01') in rx
+print(len(rx))
+assert len(rx) == 80
+
+
+= CAN Socket just one packet
+~ needs_root linux python3_only
+
+sock1 = csn.CANSocket(iface='vcan0')
+sock2 = csn.CANSocket(iface='vcan0')
+sock3 = csn.CANSocket(iface='vcan0')
+sock4 = csn.CANSocket(iface='vcan0')
+sock5 = csn.CANSocket(iface='vcan0')
+sock6 = csp.CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0',
+                                              bitrate=250000, timeout=0.1))
+sock7 = csp.CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0',
+                                              bitrate=250000, timeout=0.1))
+sock8 = csp.CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0',
+                                              bitrate=250000, timeout=0.1))
+sock9 = csp.CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0',
+                                              bitrate=250000, timeout=0.1))
+sock10 = csp.CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0',
+                                              bitrate=250000, timeout=0.1))
+
+def sender():
+    socktx = csn.CANSocket(iface='vcan0')
+    socktx.send(CAN(identifier=0x7ff, length=1, data=b'\x01'))
+    sleep(0.1)
+    socktx.send(CAN(identifier=0x7ff, length=1, data=b'\x01'))
+    socktx.send(CAN(identifier=0x7ff, length=1, data=b'\x01'))
+    socktx.send(CAN(identifier=0x7ff, length=1, data=b'\x01'))
+    sleep(0.8)
+    socktx.send(CAN(identifier=0x7ff, length=1, data=b'\x01'))
+    socktx.send(CAN(identifier=0x7ff, length=1, data=b'\x01'))
+    socktx.send(CAN(identifier=0x7ff, length=1, data=b'\x01'))
+    socktx.send(CAN(identifier=0x7ff, length=1, data=b'\x01'))
+    socktx.close()
+
+thread = threading.Thread(target=sender)
+rx = sniff(opened_socket=[sock1, sock2, sock3, sock4, sock5, sock6, sock7, sock8, sock9, sock10], count=1, started_callback=thread.start)
+assert CAN(identifier=0x7ff,length=1,data=b'\x01') in rx
+assert len(rx) == 1
+thread.join()

@@ -890,6 +890,10 @@ def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
                 if len(s.read_allowed_exceptions)] for x in
                exceptions])
 
+    for s in sniff_sockets.keys():
+        if hasattr(s, "timeout"):
+            s.timeout = 0.001
+
     try:
         if started_callback:
             started_callback()
