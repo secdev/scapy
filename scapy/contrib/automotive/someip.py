@@ -27,6 +27,9 @@
 # Copyright (C) Sebastian Baar <sebastian.baar@gmx.de>
 # This program is published under a GPLv2 license
 
+# scapy.contrib.description = Scalable service-Oriented MiddlewarE/IP (SOME/IP)
+# scapy.contrib.status = loads
+
 import struct
 
 from scapy.layers.inet import TCP, UDP

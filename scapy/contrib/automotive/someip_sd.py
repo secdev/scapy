@@ -27,6 +27,9 @@
 # Copyright (C) Sebastian Baar <sebastian.baar@gmx.de>
 # This program is published under a GPLv2 license
 
+# scapy.contrib.description = SOME/IP Service Discovery
+# scapy.contrib.status = loads
+
 import ctypes
 import collections
 import struct
