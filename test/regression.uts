@@ -65,6 +65,10 @@ def test_list_contrib():
 
 test_list_contrib()
 
+= Check that all contrib modules are well-configured
+~ command
+list_contrib(_debug=True)
+
 = Configuration
 ~ conf
 conf.debug_dissector = True

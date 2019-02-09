@@ -20,10 +20,10 @@
 """http2 Module
 Implements packets and fields required to encode/decode HTTP/2 Frames
 and HPack encoded headers
-
-scapy.contrib.status=loads
-scapy.contrib.description=HTTP/2 (RFC 7540, RFC 7541)
 """
+
+# scapy.contrib.status=loads
+# scapy.contrib.description=HTTP/2 (RFC 7540, RFC 7541)
 
 # base_classes triggers an unwanted import warning
 # flake8: noqa: F821

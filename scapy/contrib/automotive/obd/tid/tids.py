@@ -4,6 +4,8 @@
 # Copyright (C) Nils Weiss <nils@we155.de>
 # This program is published under a GPLv2 license
 
+# scapy.contrib.status = skip
+
 from scapy.fields import FlagsField, ByteField, ScalingField, PacketListField
 from scapy.packet import bind_layers, Packet
 from scapy.contrib.automotive.obd.packet import OBD_Packet

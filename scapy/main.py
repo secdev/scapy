@@ -24,7 +24,8 @@ import io
 
 # Never add any global import, in main.py, that would trigger a warning message  # noqa: E501
 # before the console handlers gets added in interact()
-from scapy.error import log_interactive, log_loading, log_scapy
+from scapy.error import log_interactive, log_loading, log_scapy, \
+    Scapy_Exception
 import scapy.modules.six as six
 from scapy.themes import DefaultTheme, BlackAndWhite, apply_ipython_style
 from scapy.consts import WINDOWS
@@ -187,12 +188,19 @@ def load_contrib(name, globals_dict=None, symb_list=None):
             raise e  # Let's raise the original error to avoid confusion
 
 
-def list_contrib(name=None, ret=False):
+def list_contrib(name=None, ret=False, _debug=False):
     """Show the list of all existing contribs.
     Params:
      - name: filter to search the contribs
      - ret: whether the function should return a dict instead of printing it
     """
+    # _debug: checks that all contrib modules have correctly defined:
+    # # scapy.contrib.description = [...]
+    # # scapy.contrib.status = [...]
+    # # scapy.contrib.name = [...] (optional)
+    # or set the flag:
+    # # scapy.contrib.description = skip
+    # to skip the file
     if name is None:
         name = "*.py"
     elif "*" not in name and "?" not in name and not name.endswith(".py"):
@@ -213,6 +221,8 @@ def list_contrib(name=None, ret=False):
             mod = mod[:-3]
         desc = {"description": None, "status": None, "name": mod}
         for l in io.open(f, errors="replace"):
+            if l[0] != "#":
+                continue
             p = l.find("scapy.contrib.")
             if p >= 0:
                 p += 14
@@ -220,9 +230,17 @@ def list_contrib(name=None, ret=False):
                 key = l[p:q].strip()
                 value = l[q + 1:].strip()
                 desc[key] = value
+            if desc["status"] == "skip":
+                break
             if desc["description"] and desc["status"]:
                 results.append(desc)
                 break
+        if _debug:
+            if desc["status"] == "skip":
+                pass
+            elif not desc["description"] or not desc["status"]:
+                raise Scapy_Exception("Module %s is missing its "
+                                      "contrib infos !" % mod)
     results.sort(key=lambda x: x["name"])
     if ret:
         return results
