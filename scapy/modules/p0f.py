@@ -29,10 +29,34 @@ if conf.route is None:
     # unused import, only to initialize conf.route
     import scapy.route  # noqa: F401
 
-conf.p0f_base = "/etc/p0f/p0f.fp"
-conf.p0fa_base = "/etc/p0f/p0fa.fp"
-conf.p0fr_base = "/etc/p0f/p0fr.fp"
-conf.p0fo_base = "/etc/p0f/p0fo.fp"
+if os.path.exists("/opt/local/share/p0f/p0f.fp"):
+	conf.p0f_base = "/opt/local/share/p0f/p0f.fp"
+elif os.path.exists("/usr/share/p0f/p0f.fp"):
+	conf.p0f_base = "/usr/share/p0f/p0f.fp"
+else:
+	conf.p0f_base = "/etc/p0f/p0f.fp"
+
+if os.path.exists("/opt/local/share/p0f/p0f.fp"):
+	conf.p0fa_base = "/opt/local/share/p0f/p0fa.fp"
+elif os.path.exists("/usr/share/p0f/p0f.fp"):
+	conf.p0fa_base = "/usr/share/p0f/p0fa.fp"
+else:
+	conf.p0fa_base = "/etc/p0f/p0fa.fp"
+
+
+if os.path.exists("/opt/local/share/p0f/p0fr.fp"):
+	conf.p0fr_base = "/opt/local/share/p0f/p0fr.fp"
+elif os.path.exists("/usr/share/p0f/p0fr.fp"):
+	conf.p0fr_base = "/usr/share/p0f/p0fr.fp"
+else:
+	conf.p0fr_base = "/etc/p0f/p0fr.fp"
+
+if os.path.exists("/opt/local/share/p0f/p0fo.fp"):
+	conf.p0fo_base = "/opt/local/share/p0f/p0fo.fp"
+elif os.path.exists("/usr/share/p0f/p0fo.fp"):
+	conf.p0fo_base = "/usr/share/p0f/p0fo.fp"
+else:
+	conf.p0fo_base = "/etc/p0f/p0fo.fp"
 
 
 ###############
