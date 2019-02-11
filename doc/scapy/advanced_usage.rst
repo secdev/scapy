@@ -1570,6 +1570,53 @@ Close the sockets::
    socket0.close()
    socket1.close()
 
+CAN Calibration Protocol (CCP)
+------------------------------
+
+CCP is derived from CAN. The CAN-header is part of a CCP frame. CCP has to types
+of message objects. One is called Command Receive Object (CRO), the other is called
+Data Transmission Object (DTO). Usually CROs are sent to an ECU, and DTOs are received
+from an ECU. The information, if one DTO answers a CRO is implemented through a counter
+field (ctr). If both objects have the same counter value, the payload of a DTO object
+can be interpreted from the command of the associated CRO object.
+
+Creating a CRO message::
+
+    CCP(identifier=0x700)/CRO(ctr=1)/CONNECT(station_address=0x02)
+    CCP(identifier=0x711)/CRO(ctr=2)/GET_SEED(resource=2)
+    CCP(identifier=0x711)/CRO(ctr=3)/UNLOCK(key=b"123456")
+
+If we aren't interested in the DTO of an ECU, we can just send a CRO message like this:
+Sending a CRO message::
+
+    pkt = CCP(identifier=0x700)/CRO(ctr=1)/CONNECT(station_address=0x02)
+    sock = CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0', bitrate=250000))
+    sock.send(pkt)
+
+If we are interested in the DTO of an ECU, we need to set the basecls parameter of the
+CANSocket to CCP and we need to use sr1:
+Sending a CRO message::
+
+    cro = CCP(identifier=0x700)/CRO(ctr=0x53)/PROGRAM_6(data=b"\x10\x11\x12\x10\x11\x12")
+    sock = CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0', bitrate=250000), basecls=CCP)
+    dto = sock.sr1(cro)
+    dto.show()
+    ###[ CAN Calibration Protocol ]###
+      flags=
+      identifier= 0x700
+      length= 8
+      reserved= 0
+    ###[ DTO ]###
+         packet_id= 0xff
+         return_code= acknowledge / no error
+         ctr= 83
+    ###[ PROGRAM_6_DTO ]###
+            MTA0_extension= 2
+            MTA0_address= 0x34002006
+
+Since sr1 calls the answers function, our payload of the DTO objects gets interpreted with the
+command of our cro object.
+
 ISOTP message
 -------------
 
