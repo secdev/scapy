@@ -398,11 +398,11 @@ class OBD_PID77(OBD_Packet):
 
 class _OBD_PID_ExhaustGasTemperatureBank(OBD_Packet):
     fields_desc = [
-        BitField('sensor1_supported', 0, 1),
-        BitField('sensor2_supported', 0, 1),
-        BitField('sensor3_supported', 0, 1),
-        BitField('sensor4_supported', 0, 1),
         BitField('reserved', 0, 4),
+        BitField('sensor4_supported', 0, 1),
+        BitField('sensor3_supported', 0, 1),
+        BitField('sensor2_supported', 0, 1),
+        BitField('sensor1_supported', 0, 1),
         ScalingField('sensor1', -40, unit="deg. C", offset=-40,
                      scaling=0.1, fmt='H'),
         ScalingField('sensor2', -40, unit="deg. C", offset=-40,

@@ -317,11 +317,11 @@ assert len(p.data_records) == 2
 p = OBD(b'\x41\x78ABCDEFGHI')
 assert p.service == 0x41
 assert p.data_records[0].pid == 0x78
-assert p.data_records[0].sensor1_supported == 0
-assert p.data_records[0].sensor2_supported == 1
+assert p.data_records[0].reserved == 4
+assert p.data_records[0].sensor1_supported == 1
+assert p.data_records[0].sensor2_supported == 0
 assert p.data_records[0].sensor3_supported == 0
 assert p.data_records[0].sensor4_supported == 0
-assert p.data_records[0].reserved == 1
 assert p.data_records[0].sensor1 == 1656.3
 assert p.data_records[0].sensor2 == 1707.7
 assert p.data_records[0].sensor3 == 1759.1
@@ -374,15 +374,15 @@ assert p.data_records[0].turbocharger_a_turbine_outlet_temperature == \
 
 = Check dissecting a response for Service 02 Pid 78
 
-p = OBD(b'\x42\x78\x01ABCDEFGHI')
+p = OBD(b'\x42\x78\x05ABCDEFGHI')
 assert p.service == 0x42
 assert p.data_records[0].pid == 0x78
-assert p.data_records[0].frame_no == 0x01
-assert p.data_records[0].sensor1_supported == 0
-assert p.data_records[0].sensor2_supported == 1
+assert p.data_records[0].frame_no == 0x05
+assert p.data_records[0].reserved == 4
+assert p.data_records[0].sensor1_supported == 1
+assert p.data_records[0].sensor2_supported == 0
 assert p.data_records[0].sensor3_supported == 0
 assert p.data_records[0].sensor4_supported == 0
-assert p.data_records[0].reserved == 1
 assert p.data_records[0].sensor1 == 1656.3
 assert p.data_records[0].sensor2 == 1707.7
 assert p.data_records[0].sensor3 == 1759.1
