@@ -4,6 +4,8 @@
 # Copyright (C) Nils Weiss <nils@we155.de>
 # This program is published under a GPLv2 license
 
+# scapy.contrib.status = skip
+
 from scapy.fields import FlagsField, ScalingField, ByteEnumField, \
     MultipleTypeField, ShortField, ShortEnumField, PacketListField
 from scapy.packet import Packet, bind_layers

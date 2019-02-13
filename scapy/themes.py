@@ -83,7 +83,7 @@ class AnsiColorTheme(ColorTheme):
         if s in self.__class__.__dict__:
             before = getattr(self, s)
             after = self.style_normal
-        elif attr in Color.colors:
+        elif not isinstance(self, BlackAndWhite) and attr in Color.colors:
             before = Color.colors[attr][0]
             after = self.style_normal
         else:

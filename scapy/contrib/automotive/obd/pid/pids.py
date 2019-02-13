@@ -6,6 +6,8 @@
 # Copyright (C) Nils Weiss <nils@we155.de>
 # This program is published under a GPLv2 license
 
+# scapy.contrib.status = skip
+
 from scapy.packet import Packet, bind_layers
 from scapy.fields import PacketListField
 

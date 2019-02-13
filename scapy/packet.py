@@ -24,7 +24,7 @@ from scapy.base_classes import BasePacket, Gen, SetGen, Packet_metaclass, \
 from scapy.volatile import VolatileValue, RandField
 from scapy.utils import import_hexcap, tex_escape, colgen, issubtype, \
     pretty_list
-from scapy.error import Scapy_Exception, log_runtime
+from scapy.error import Scapy_Exception, log_runtime, warning
 from scapy.extlib import PYX
 import scapy.modules.six as six
 
@@ -1633,6 +1633,14 @@ def explore(layer=None):
     params:
      - layer: If specified, the function will explore the layer. If not,
               the GUI mode will be activated, to browse the available layers
+
+    examples:
+      >>> explore()  # Launches the GUI
+      >>> explore("dns")  # Explore scapy.layers.dns
+      >>> explore("http2")  # Explore scapy.contrib.http2
+      >>> explore(scapy.layers.bluetooth4LE)
+
+    Note: to search a packet by name, use ls("name") rather than explore.
     """
     if layer is None:  # GUI MODE
         if not conf.interactive:
@@ -1650,10 +1658,10 @@ def explore(layer=None):
             raise ImportError("prompt_toolkit >= 2.0.0 is required !")
         # Only available with prompt_toolkit > 2.0, not released on PyPi yet
         from prompt_toolkit.shortcuts.dialogs import radiolist_dialog, \
-            yes_no_dialog
+            button_dialog
         from prompt_toolkit.formatted_text import HTML
         # 1 - Ask for layer or contrib
-        is_layer = yes_no_dialog(
+        action = button_dialog(
             title="Scapy v%s" % conf.version,
             text=HTML(
                 six.text_type(
@@ -1661,17 +1669,20 @@ def explore(layer=None):
                     ' you want to explore:</style>'
                 )
             ),
-            yes_text=six.text_type("Layers"),
-            no_text=six.text_type("Contribs"))
+            buttons=[
+                (six.text_type("Layers"), "layers"),
+                (six.text_type("Contribs"), "contribs"),
+                (six.text_type("Cancel"), "cancel")
+            ])
         # 2 - Retrieve list of Packets
-        if is_layer is True:
+        if action == "layers":
             # Get all loaded layers
             _radio_values = conf.layers.layers()
             # Restrict to layers-only (not contribs) + packet.py and asn1*.py
             _radio_values = [x for x in _radio_values if ("layers" in x[0] or
                                                           "packet" in x[0] or
                                                           "asn1" in x[0])]
-        elif is_layer is False:
+        elif action == "contribs":
             # Get all existing contribs
             from scapy.main import list_contrib
             _radio_values = list_contrib(ret=True)
@@ -1680,7 +1691,7 @@ def explore(layer=None):
             # Remove very specific modules
             _radio_values = [x for x in _radio_values if not ("can" in x[0])]
         else:
-            # Escape was pressed
+            # Escape/Cancel was pressed
             return
         # Python 2 compat
         if six.PY2:
@@ -1700,7 +1711,7 @@ def explore(layer=None):
         if result is None:
             return  # User pressed "Cancel"
         # 4 - (Contrib only): load contrib
-        if not is_layer:
+        if action == "contribs":
             from scapy.main import load_contrib
             load_contrib(result)
             result = "scapy.contrib." + result
@@ -1725,6 +1736,10 @@ def explore(layer=None):
                     result = result_contrib
                 else:
                     raise Scapy_Exception("Unknown scapy module '%s'" % layer)
+        else:
+            warning("Wrong usage ! Check out help(explore)")
+            return
+
     # COMMON PART
     # Get the list of all Packets contained in that module
     try:
@@ -1770,10 +1785,8 @@ def ls(obj=None, case_sensitive=False, verbose=False):
         for layer in all_layers:
             print("%-10s : %s" % (layer.__name__, layer._name))
         if tip and conf.interactive:
-            print()
-            print("TIP: You may use explore() to navigate through all "
+            print("\nTIP: You may use explore() to navigate through all "
                   "layers using a clear GUI")
-
     else:
         is_pkt = isinstance(obj, Packet)
         if issubtype(obj, Packet) or is_pkt:

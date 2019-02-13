@@ -23,6 +23,9 @@
 # @Last modified time: 2016-12-08 11:16:27
 # @Last modified time: 2017-07-05
 
+# scapy.contrib.description = OPC Data Access
+# scapy.contrib.status = loads
+
 """
 Opc Data Access.
 References: Data Access Custom Interface StanDard

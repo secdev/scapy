@@ -65,6 +65,10 @@ def test_list_contrib():
 
 test_list_contrib()
 
+= Check that all contrib modules are well-configured
+~ command
+list_contrib(_debug=True)
+
 = Configuration
 ~ conf
 conf.debug_dissector = True
@@ -311,15 +315,18 @@ def interact_emulator(code_int, extra_args=[]):
     try:
         code_int.side_effect = lambda *args, **kwargs: lambda *args, **kwargs: None
         interact(argv=["-s scapy1"] + extra_args, mybanner="What a test")
-        return True
-    except:
-        return False
     finally:
         sys.ps1 = ">>> "
 
-assert interact_emulator()  # Default
-assert not interact_emulator(extra_args=["-?"])  # Failing
-assert interact_emulator(extra_args=["-d"])  # Extended
+interact_emulator()  # Default
+
+try:
+    interact_emulator(extra_args=["-?"])  # Failing
+    assert False
+except:
+    pass
+
+interact_emulator(extra_args=["-d"])  # Extended
 
 = Test explore() with GUI mode
 ~ command
@@ -332,7 +339,7 @@ def test_explore_gui(is_layer, layer):
                                        shortcuts=Bunch(
                                            dialogs=Bunch(
                                                radiolist_dialog=(lambda *args, **kargs: layer),
-                                               yes_no_dialog=(lambda *args, **kargs: is_layer)
+                                               button_dialog=(lambda *args, **kargs: "layers" if is_layer else "contribs")
                                            )
                                        ),
                                        formatted_text=Bunch(HTML=lambda x: x),

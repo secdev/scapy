@@ -24,7 +24,8 @@ import io
 
 # Never add any global import, in main.py, that would trigger a warning message  # noqa: E501
 # before the console handlers gets added in interact()
-from scapy.error import log_interactive, log_loading, log_scapy
+from scapy.error import log_interactive, log_loading, log_scapy, \
+    Scapy_Exception
 import scapy.modules.six as six
 from scapy.themes import DefaultTheme, BlackAndWhite, apply_ipython_style
 from scapy.consts import WINDOWS
@@ -187,26 +188,41 @@ def load_contrib(name, globals_dict=None, symb_list=None):
             raise e  # Let's raise the original error to avoid confusion
 
 
-def list_contrib(name=None, ret=False):
+def list_contrib(name=None, ret=False, _debug=False):
     """Show the list of all existing contribs.
     Params:
      - name: filter to search the contribs
      - ret: whether the function should return a dict instead of printing it
     """
+    # _debug: checks that all contrib modules have correctly defined:
+    # # scapy.contrib.description = [...]
+    # # scapy.contrib.status = [...]
+    # # scapy.contrib.name = [...] (optional)
+    # or set the flag:
+    # # scapy.contrib.description = skip
+    # to skip the file
     if name is None:
         name = "*.py"
     elif "*" not in name and "?" not in name and not name.endswith(".py"):
         name += ".py"
-    name = os.path.join(os.path.dirname(__file__), "contrib", name)
     results = []
-    for f in sorted(glob.glob(name)):
-        mod = os.path.basename(f)
+    dir_path = os.path.join(os.path.dirname(__file__), "contrib")
+    if sys.version_info >= (3, 5):
+        name = os.path.join(dir_path, "**", name)
+        iterator = glob.iglob(name, recursive=True)
+    else:
+        name = os.path.join(dir_path, name)
+        iterator = glob.iglob(name)
+    for f in iterator:
+        mod = f.replace(os.path.sep, ".").partition("contrib.")[2]
         if mod.startswith("__"):
             continue
         if mod.endswith(".py"):
             mod = mod[:-3]
-        desc = {"description": "-", "status": "?", "name": mod}
+        desc = {"description": None, "status": None, "name": mod}
         for l in io.open(f, errors="replace"):
+            if l[0] != "#":
+                continue
             p = l.find("scapy.contrib.")
             if p >= 0:
                 p += 14
@@ -214,7 +230,18 @@ def list_contrib(name=None, ret=False):
                 key = l[p:q].strip()
                 value = l[q + 1:].strip()
                 desc[key] = value
-        results.append(desc)
+            if desc["status"] == "skip":
+                break
+            if desc["description"] and desc["status"]:
+                results.append(desc)
+                break
+        if _debug:
+            if desc["status"] == "skip":
+                pass
+            elif not desc["description"] or not desc["status"]:
+                raise Scapy_Exception("Module %s is missing its "
+                                      "contrib infos !" % mod)
+    results.sort(key=lambda x: x["name"])
     if ret:
         return results
     else:
@@ -486,6 +513,8 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=20):
         IPYTHON = False
 
     if conf.fancy_prompt:
+        from scapy.utils import get_terminal_width
+        mini_banner = (get_terminal_width() or 84) <= 75
 
         the_logo = [
             "                                      ",
@@ -509,6 +538,19 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=20):
             "                                      ",
         ]
 
+        # Used on mini screens
+        the_logo_mini = [
+            "      .SYPACCCSASYY  ",
+            "P /SCS/CCS        ACS",
+            "       /A          AC",
+            "     A/PS       /SPPS",
+            "        YP        (SC",
+            "       SPS/A.      SC",
+            "   Y/PACC          PP",
+            "    PY*AYC        CAA",
+            "         YYCY//SCYP  ",
+        ]
+
         the_banner = [
             "",
             "",
@@ -522,9 +564,14 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=20):
             "   |",
         ]
 
-        quote, author = choice(QUOTES)
-        the_banner.extend(_prepare_quote(quote, author, max_len=39))
-        the_banner.append("   |")
+        if mini_banner:
+            the_logo = the_logo_mini
+            the_banner = [x[2:] for x in the_banner[3:-1]]
+            the_banner = [""] + the_banner + [""]
+        else:
+            quote, author = choice(QUOTES)
+            the_banner.extend(_prepare_quote(quote, author, max_len=39))
+            the_banner.append("   |")
         the_banner = "\n".join(
             logo + banner for logo, banner in six.moves.zip_longest(
                 (conf.color_theme.logo(line) for line in the_logo),
