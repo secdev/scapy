@@ -119,14 +119,7 @@ class OBD_S08(Packet):
 class OBD_S09(Packet):
     name = "S9_VehicleInformation"
     fields_desc = [
-        XByteField('iid', 0)
-    ]
-
-
-class OBD_S09_PR(Packet):
-    name = "S9_VehicleInformationPositiveResponse"
-    fields_desc = [
-        XByteField('iid', 0)
+        FieldListField("iid", [0], XByteField('', 0))
     ]
 
 

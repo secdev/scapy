@@ -83,22 +83,6 @@ bind_layers(OBD, OBD_S04_PR, service=0x44)
 bind_layers(OBD, OBD_S06_MID, service=0x46)
 bind_layers(OBD, OBD_S07_DTC, service=0x47)
 bind_layers(OBD, OBD_S08_TID, service=0x48)
-bind_layers(OBD, OBD_S09_PR, service=0x49)
+bind_layers(OBD, OBD_S09_IID, service=0x49)
 bind_layers(OBD, OBD_S0A_DTC, service=0x4A)
 bind_layers(OBD, OBD_NR, service=0x7F)
-
-
-# Service 09 Bindings
-
-bind_layers(OBD_S09_PR, OBD_IID00, iid=0x00)
-bind_layers(OBD_S09_PR, OBD_IID01, iid=0x01)
-bind_layers(OBD_S09_PR, OBD_IID02, iid=0x02)
-bind_layers(OBD_S09_PR, OBD_IID03, iid=0x03)
-bind_layers(OBD_S09_PR, OBD_IID04, iid=0x04)
-bind_layers(OBD_S09_PR, OBD_IID05, iid=0x05)
-bind_layers(OBD_S09_PR, OBD_IID06, iid=0x06)
-bind_layers(OBD_S09_PR, OBD_IID07, iid=0x07)
-bind_layers(OBD_S09_PR, OBD_IID08, iid=0x08)
-bind_layers(OBD_S09_PR, OBD_IID09, iid=0x09)
-bind_layers(OBD_S09_PR, OBD_IID0A, iid=0x0A)
-bind_layers(OBD_S09_PR, OBD_IID0B, iid=0x0B)
