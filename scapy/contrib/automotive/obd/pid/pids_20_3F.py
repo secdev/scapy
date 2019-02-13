@@ -57,7 +57,7 @@ class OBD_PID20(OBD_Packet):
 class OBD_PID21(OBD_Packet):
     name = "PID_21_DistanceTraveledWithMalfunctionIndicatorLampOn"
     fields_desc = [
-        ScalingField('data', 0, scaling=1, unit="km", fmt="H")
+        ScalingField('data', 0, unit="km", fmt="H")
     ]
 
 
@@ -153,7 +153,7 @@ class OBD_PID30(OBD_Packet):
 class OBD_PID31(OBD_Packet):
     name = "PID_31_DistanceTraveledSinceCodesCleared"
     fields_desc = [
-        ScalingField('data', 0, scaling=1, unit="km", fmt="H")
+        ScalingField('data', 0, unit="km", fmt="H")
     ]
 
 
