@@ -1552,3 +1552,16 @@ x.data = b'\x01'
 print(x.__repr__())
 assert x.data == 0.12346
 assert ScalingField.i2repr(x.fields_desc[0],x, x.data) == '0.12346 V'
+
+= ScalingField randval
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0, scaling=0.1, offset=-5)
+    ]
+
+x = DebugPacket()
+
+r = x.fields_desc[0].randval()
+assert r.min == -5
+assert r.max == 20

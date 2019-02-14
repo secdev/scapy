@@ -2230,3 +2230,15 @@ class ScalingField(Field):
 
     def i2repr(self, pkt, x):
         return "%s %s" % (self.i2h(pkt, x), self.unit)
+
+    def randval(self):
+        value = super(ScalingField, self).randval()
+        if value is not None:
+            barrier1 = self.m2i(None, value.max)
+            barrier2 = self.m2i(None, value.min)
+
+            from math import ceil
+            min_value = ceil(min(barrier1, barrier2))
+            max_value = int(max(barrier1, barrier2))
+
+            return RandNum(min_value, max_value)
