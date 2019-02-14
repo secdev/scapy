@@ -6,9 +6,10 @@
 
 # scapy.contrib.status = skip
 
-from scapy.fields import StrFixedLenField, BitEnumField, BitField, \
-    ScalingField, FlagsField, XByteEnumField, ShortField
+from scapy.fields import BitEnumField, BitField, ScalingField, \
+    FlagsField, XByteEnumField, PacketField
 from scapy.contrib.automotive.obd.packet import OBD_Packet
+from scapy.contrib.automotive.obd.services import OBD_DTC
 
 
 # See https://en.wikipedia.org/wiki/OBD-II_PIDs for further information
@@ -108,7 +109,7 @@ class OBD_PID01(OBD_Packet):
 class OBD_PID02(OBD_Packet):
     name = "PID_02_FreezeDtc"
     fields_desc = [
-        ShortField('data', 0)
+        PacketField('dtc', None, OBD_DTC)
     ]
 
 
@@ -185,7 +186,7 @@ class OBD_PID0A(OBD_Packet):
 class OBD_PID0B(OBD_Packet):
     name = "PID_0B_IntakeManifoldAbsolutePressure"
     fields_desc = [
-        ScalingField('data', 0, scaling=1, unit="kPa")
+        ScalingField('data', 0, unit="kPa")
     ]
 
 
@@ -213,7 +214,7 @@ class OBD_PID0E(OBD_Packet):
 class OBD_PID0F(OBD_Packet):
     name = "PID_0F_IntakeAirTemperature"
     fields_desc = [
-        ScalingField('data', 0, scaling=1, unit="deg. C", offset=-40.0)
+        ScalingField('data', 0, unit="deg. C", offset=-40.0)
     ]
 
 
@@ -249,7 +250,16 @@ class OBD_PID12(OBD_Packet):
 class OBD_PID13(OBD_Packet):
     name = "PID_13_OxygenSensorsPresent"
     fields_desc = [
-        StrFixedLenField('data', b'', 1)
+        FlagsField('sensors_present', b'', 8, [
+            'Bank1Sensor1'
+            'Bank1Sensor2',
+            'Bank1Sensor3',
+            'Bank1Sensor4',
+            'Bank2Sensor1',
+            'Bank2Sensor2',
+            'Bank2Sensor3',
+            'Bank2Sensor4',
+        ])
     ]
 
 
@@ -340,19 +350,29 @@ class OBD_PID1C(OBD_Packet):
 class OBD_PID1D(OBD_Packet):
     name = "PID_1D_OxygenSensorsPresent"
     fields_desc = [
-        StrFixedLenField('data', b'', 1)
+        FlagsField('sensors_present', b'', 8, [
+            'Bank1Sensor1'
+            'Bank1Sensor2',
+            'Bank2Sensor1',
+            'Bank2Sensor2',
+            'Bank3Sensor1',
+            'Bank3Sensor2',
+            'Bank4Sensor1',
+            'Bank4Sensor2',
+        ])
     ]
 
 
 class OBD_PID1E(OBD_Packet):
     name = "PID_1E_AuxiliaryInputStatus"
     fields_desc = [
-        StrFixedLenField('data', b'', 1)
+        BitField('reserved', 0, 7),
+        BitEnumField('pto_status', 0, 1, OBD_PID01.onOff)
     ]
 
 
 class OBD_PID1F(OBD_Packet):
     name = "PID_1F_RunTimeSinceEngineStart"
     fields_desc = [
-        ScalingField('data', 0, scaling=1, unit="s", fmt="H")
+        ScalingField('data', 0, unit="s", fmt="H")
     ]

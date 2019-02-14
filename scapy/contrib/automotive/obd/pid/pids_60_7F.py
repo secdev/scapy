@@ -495,8 +495,7 @@ class OBD_PID7F(OBD_Packet):
         BitField('total_with_pto_active_supported', 0, 1),
         BitField('total_idle_supported', 0, 1),
         BitField('total_supported', 0, 1),
-        ScalingField('total', 0, scaling=1, unit='sec', fmt='Q'),
-        ScalingField('total_idle', 0, scaling=1, unit='sec', fmt='Q'),
-        ScalingField('total_with_pto_active', 0,
-                     scaling=1, unit='sec', fmt='Q'),
+        ScalingField('total', 0, unit='sec', fmt='Q'),
+        ScalingField('total_idle', 0, unit='sec', fmt='Q'),
+        ScalingField('total_with_pto_active', 0, unit='sec', fmt='Q'),
     ]
