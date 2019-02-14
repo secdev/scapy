@@ -481,6 +481,7 @@ class LoWPAN_IPHC(Packet):
             # The Next Header field is compressed and the next header is
             # encoded using LOWPAN_NHC
 
+            packet.nh = 0x11  # UDP
             udp = UDP()
             if self.header_compression and \
                self.header_compression & 0x4 == 0x0:
