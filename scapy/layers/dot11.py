@@ -34,8 +34,8 @@ from scapy.fields import ByteField, LEShortField, BitField, LEShortEnumField, \
     ByteEnumField, X3BytesField, FlagsField, LELongField, StrField, \
     StrLenField, IntField, XByteField, LEIntField, StrFixedLenField, \
     LESignedIntField, ReversePadField, ConditionalField, PacketListField, \
-    ShortField, BitEnumField, XLEIntField, FieldLenField, LEFieldLenField, \
-    FieldListField, XStrFixedLenField, PacketField
+    ShortField, BitEnumField, FieldLenField, LEFieldLenField, \
+    FieldListField, XStrFixedLenField, PacketField, FCSField
 from scapy.ansmachine import AnsweringMachine
 from scapy.plist import PacketList
 from scapy.layers.l2 import Ether, LLC, MACField
@@ -288,7 +288,7 @@ class Dot11(Packet):
                                     "Reserved"]),
         BitField("proto", 0, 2),
         FlagsField("FCfield", 0, 8, ["to-DS", "from-DS", "MF", "retry",
-                                     "pw-mgt", "MD", "wep", "order"]),
+                                     "pw-mgt", "MD", "protected", "order"]),
         ShortField("ID", 0),
         MACField("addr1", ETHER_ANY),
         ConditionalField(
@@ -315,8 +315,11 @@ class Dot11(Packet):
     def guess_payload_class(self, payload):
         if self.type == 0x02 and (0x08 <= self.subtype <= 0xF and self.subtype != 0xD):  # noqa: E501
             return Dot11QoS
-        elif self.FCfield & 0x40:
-            return Dot11WEP
+        elif self.FCfield.protected:
+            # When a frame is handled by encryption, the Protected Frame bit
+            # (previously called WEP bit) is set to 1, and the Frame Body
+            # begins with the appropriate cryptographic header.
+            return Dot11Encrypted
         else:
             return Packet.guess_payload_class(self, payload)
 
@@ -356,26 +359,16 @@ class Dot11(Packet):
 class Dot11FCS(Dot11):
     name = "802.11-FCS"
     match_subclass = True
-    fields_desc = Dot11.fields_desc + [XLEIntField("fcs", None)]  # Automatically moved to the end of the packet  # noqa: E501
+    fields_desc = Dot11.fields_desc + [FCSField("fcs", None, fmt="<I")]
 
     def compute_fcs(self, s):
         return struct.pack("!I", crc32(s) & 0xffffffff)[::-1]
 
     def post_build(self, p, pay):
-        # Switch payload and frame check sequence
-        return p[:-4] + pay + (p[-4:] if self.fcs is not None else self.compute_fcs(p[:-4] + pay))  # noqa: E501
-
-    def post_dissect(self, s):
-        self.raw_packet_cache = None  # Reset packet to allow post_build
-        return s
-
-    def pre_dissect(self, s):
-        # Get the frame check sequence
-        sty = orb(s[0])
-        ty = orb(s[1]) >> 2
-        fc = struct.unpack("!H", s[2:4])[0]
-        length = 12 + 6 * ((ty != 1 or sty in [0x8, 0x9, 0xa, 0xb, 0xe, 0xf]) + (ty in [0, 2]) + (ty == 2 and fc & 3 == 3))  # noqa: E501
-        return s[:length] + s[-4:] + s[length:-4]
+        p += pay
+        if self.fcs is None:
+            p = p[:-4] + self.compute_fcs(p)
+        return p
 
 
 class Dot11QoS(Packet):
@@ -388,8 +381,8 @@ class Dot11QoS(Packet):
 
     def guess_payload_class(self, payload):
         if isinstance(self.underlayer, Dot11):
-            if self.underlayer.FCfield & 0x40:
-                return Dot11WEP
+            if self.underlayer.FCfield.protected:
+                return Dot11Encrypted
         return Packet.guess_payload_class(self, payload)
 
 
@@ -751,7 +744,31 @@ class Dot11Deauth(Packet):
     fields_desc = [LEShortEnumField("reason", 1, reason_code)]
 
 
-class Dot11WEP(Packet):
+class Dot11Encrypted(Packet):
+    name = "802.11 Encrypted (unknown algorithm)"
+    fields_desc = [StrField("data", None)]
+
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        # Extracted from
+        # https://github.com/boundary/wireshark/blob/master/epan/dissectors/packet-ieee80211.c  # noqa: E501
+        KEY_EXTIV = 0x20
+        EXTIV_LEN = 8
+        if _pkt and len(_pkt) >= 3:
+            if (orb(_pkt[3]) & KEY_EXTIV) and (len(_pkt) >= EXTIV_LEN):
+                if orb(_pkt[1]) == (orb(_pkt[0]) | 0x20) & 0x7f:
+                    return Dot11TKIP
+                elif orb(_pkt[2]) == 0:
+                    return Dot11CCMP
+                else:
+                    # Unknown encryption algorithm
+                    return Dot11Encrypted
+            else:
+                return Dot11WEP
+        return conf.raw_layer
+
+
+class Dot11WEP(Dot11Encrypted):
     name = "802.11 WEP packet"
     fields_desc = [StrFixedLenField("iv", b"\0\0\0", 3),
                    ByteField("keyid", 0),
@@ -802,6 +819,26 @@ class Dot11WEP(Packet):
         if self.wepdata is None:
             p = self.encrypt(p, raw(pay))
         return p
+
+
+class Dot11TKIP(Dot11Encrypted):
+    name = "802.11 TKIP packet"
+    fields_desc = [
+        StrFixedLenField("iv", b"\x00" * 4, 4),
+        StrFixedLenField("ext_iv", b"\x00" * 4, 4),
+        StrField("data", None, remain=12),
+        StrFixedLenField("mic", b"\x00" * 8, 8),
+        IntField("icv", 0),
+    ]
+
+
+class Dot11CCMP(Dot11Encrypted):
+    name = "802.11 TKIP packet"
+    fields_desc = [
+        StrFixedLenField("ext_iv", b"\x00" * 4, 8),
+        StrField("data", None, remain=8),
+        StrFixedLenField("mic", b"\x00" * 8, 8),
+    ]
 
 
 class Dot11Ack(Packet):
