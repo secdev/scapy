@@ -11,8 +11,9 @@
 ZigBee bindings for IEEE 802.15.4.
 """
 
-from scapy.compat import orb
+import struct
 
+from scapy.compat import orb
 from scapy.packet import bind_layers, bind_bottom_up, Packet
 from scapy.fields import BitField, ByteField, XLEIntField, ConditionalField, \
     ByteEnumField, EnumField, BitEnumField, FieldListField, FlagsField, \
@@ -528,29 +529,49 @@ class ZigbeeAppDataPayload(Packet):
     name = "Zigbee Application Layer Data Payload (General APS Frame Format)"
     fields_desc = [
         # Frame control (1 octet)
-        FlagsField("frame_control", 2, 4, ['reserved1', 'security', 'ack_req', 'extended_hdr']),  # noqa: E501
-        BitEnumField("delivery_mode", 0, 2, {0: 'unicast', 1: 'indirect', 2: 'broadcast', 3: 'group_addressing'}),  # noqa: E501
-        BitEnumField("aps_frametype", 0, 2, {0: 'data', 1: 'command', 2: 'ack'}),  # noqa: E501
+        FlagsField("frame_control", 2, 4,
+                   ['reserved1', 'security', 'ack_req', 'extended_hdr']),
+        BitEnumField("delivery_mode", 0, 2,
+                     {0: 'unicast', 1: 'indirect',
+                      2: 'broadcast', 3: 'group_addressing'}),
+        BitEnumField("aps_frametype", 0, 2,
+                     {0: 'data', 1: 'command', 2: 'ack'}),
         # Destination endpoint (0/1 octet)
-        ConditionalField(ByteField("dst_endpoint", 10), lambda pkt: (pkt.frame_control & 0x04 or pkt.aps_frametype == 2)),  # noqa: E501
+        ConditionalField(
+            ByteField("dst_endpoint", 10),
+            lambda pkt: (pkt.frame_control.ack_req or pkt.aps_frametype == 2)
+        ),
         # Group address (0/2 octets) TODO
         # Cluster identifier (0/2 octets)
-        ConditionalField(EnumField("cluster", 0, _zcl_cluster_identifier, fmt="<H"),  # unsigned short (little-endian)  # noqa: E501
-                         lambda pkt: (pkt.frame_control & 0x04 or pkt.aps_frametype == 2)  # noqa: E501
-                         ),
+        ConditionalField(
+            # unsigned short (little-endian)
+            EnumField("cluster", 0, _zcl_cluster_identifier, fmt="<H"),
+            lambda pkt: (pkt.frame_control.ack_req or pkt.aps_frametype == 2)
+        ),
         # Profile identifier (0/2 octets)
-        ConditionalField(EnumField("profile", 0, _zcl_profile_identifier, fmt="<H"),  # noqa: E501
-                         lambda pkt: (pkt.frame_control & 0x04 or pkt.aps_frametype == 2)  # noqa: E501
-                         ),
+        ConditionalField(
+            EnumField("profile", 0, _zcl_profile_identifier, fmt="<H"),
+            lambda pkt: (pkt.frame_control.ack_req or pkt.aps_frametype == 2)
+        ),
         # Source endpoint (0/1 octets)
-        ConditionalField(ByteField("src_endpoint", 10), lambda pkt: (pkt.frame_control & 0x04 or pkt.aps_frametype == 2)),  # noqa: E501
+        ConditionalField(
+            ByteField("src_endpoint", 10),
+            lambda pkt: (pkt.frame_control.ack_req or pkt.aps_frametype == 2)
+        ),
         # APS counter (1 octet)
         ByteField("counter", 0),
         # Extended header (0/1/2 octets)
         # cribbed from https://github.com/wireshark/wireshark/blob/master/epan/dissectors/packet-zbee-aps.c  # noqa: E501
-        ConditionalField(ByteEnumField("fragmentation", 0, {0: "none", 1: "first_block", 2: "middle_block"}), lambda pkt: (pkt.frame_control & 0x08)),  # noqa: E501
-        ConditionalField(ByteField("block_number", 0), lambda pkt: pkt.fragmentation != 0),  # noqa: E501
-        # variable length frame payload: 3 frame types: data, APS command, and acknowledgement  # noqa: E501
+        ConditionalField(
+            ByteEnumField(
+                "fragmentation", 0,
+                {0: "none", 1: "first_block", 2: "middle_block"}),
+            lambda pkt: pkt.frame_control.extended_hdr
+        ),
+        ConditionalField(ByteField("block_number", 0),
+                         lambda pkt: pkt.fragmentation),
+        # variable length frame payload:
+        # 3 frame types: data, APS command, and acknowledgement
         # ConditionalField(StrField("data", ""), lambda pkt:pkt.aps_frametype == 0),  # noqa: E501
     ]
 
@@ -563,6 +584,16 @@ class ZigbeeAppDataPayload(Packet):
             return ZigbeeAppCommandPayload
         else:
             return Packet.guess_payload_class(self, payload)
+
+
+_TransportKeyKeyTypes = {
+    0x00: "Trust Center Master Key",
+    0x01: "Standard Network Key",
+    0x02: "Application Master Key",
+    0x03: "Application Link Key",
+    0x04: "Trust Center Link Key",
+    0x05: "High-Security Network Key",
+}
 
 
 class ZigbeeAppCommandPayload(Packet):
@@ -578,17 +609,60 @@ class ZigbeeAppCommandPayload(Packet):
             7: "APS_CMD_REMOVE_DEVICE",
             8: "APS_CMD_REQUEST_KEY",
             9: "APS_CMD_SWITCH_KEY",
+            # TODO: implement 10 to 14
             10: "APS_CMD_EA_INIT_CHLNG",
             11: "APS_CMD_EA_RSP_CHLNG",
             12: "APS_CMD_EA_INIT_MAC_DATA",
             13: "APS_CMD_EA_RSP_MAC_DATA",
             14: "APS_CMD_TUNNEL"
         }),
-        ConditionalField(StrFixedLenField("key", None, 16), lambda pkt: pkt.cmd_identifier == 1),  # noqa: E501
-        ConditionalField(ByteField("key_seqnum", 0), lambda pkt: pkt.cmd_identifier == 1),  # noqa: E501
-        ConditionalField(dot15d4AddressField("dest_addr", 0, adjust=lambda pkt, x: 8), lambda pkt: pkt.cmd_identifier == 1),  # noqa: E501
-        ConditionalField(dot15d4AddressField("src_addr", 0, adjust=lambda pkt, x: 8), lambda pkt: pkt.cmd_identifier == 1),  # noqa: E501
-        ConditionalField(StrField("data", ""), lambda pkt: pkt.cmd_identifier != 1)  # noqa: E501
+        # SKKE Commands
+        ConditionalField(dot15d4AddressField("initiator", 0,
+                                             adjust=lambda pkt, x: 8),
+                         lambda pkt: pkt.cmd_identifier in [1, 2, 3, 4]),
+        ConditionalField(dot15d4AddressField("responder", 0,
+                                             adjust=lambda pkt, x: 8),
+                         lambda pkt: pkt.cmd_identifier in [1, 2, 3, 4]),
+        ConditionalField(StrFixedLenField("data", 0, length=16),
+                         lambda pkt: pkt.cmd_identifier in [1, 2, 3, 4]),
+        # Transport-key Command
+        ConditionalField(ByteEnumField("key_type", 0, _TransportKeyKeyTypes),
+                         lambda pkt: pkt.cmd_identifier == 5),
+        ConditionalField(StrFixedLenField("key", None, 16),
+                         lambda pkt: pkt.cmd_identifier == 5),
+        ConditionalField(ByteField("key_seqnum", 0),
+                         lambda pkt: (pkt.cmd_identifier == 5 and
+                                      pkt.key_type in [0x01, 0x05])),
+        ConditionalField(dot15d4AddressField("dest_addr", 0,
+                                             adjust=lambda pkt, x: 8),
+                         lambda pkt: pkt.cmd_identifier == 5),
+        ConditionalField(dot15d4AddressField("src_addr", 0,
+                                             adjust=lambda pkt, x: 8),
+                         lambda pkt: pkt.cmd_identifier == 5),
+        # Update-Device Command
+        ConditionalField(dot15d4AddressField("address", 0,
+                                             adjust=lambda pkt, x: 8),
+                         lambda pkt: pkt.cmd_identifier == 6),
+        ConditionalField(XLEShortField("short_address", 0),
+                         lambda pkt: pkt.cmd_identifier == 6),
+        ConditionalField(ByteField("status", 0),
+                         lambda pkt: pkt.cmd_identifier == 6),
+        # Remove-Device Command
+        ConditionalField(dot15d4AddressField("address", 0,
+                                             adjust=lambda pkt, x: 8),
+                         lambda pkt: pkt.cmd_identifier == 7),
+        # Request-Key Command
+        ConditionalField(ByteEnumField("key_type", 0, _TransportKeyKeyTypes),
+                         lambda pkt: pkt.cmd_identifier == 8),
+        ConditionalField(StrFixedLenField("key", None, 16),
+                         lambda pkt: pkt.cmd_identifier == 8),
+        # Switch-Key Command
+        ConditionalField(StrFixedLenField("seqnum", None, 8),
+                         lambda pkt: pkt.cmd_identifier == 9),
+        # Un-implemented: 10-14 (+?)
+        ConditionalField(StrField("data", ""),
+                         lambda pkt: (pkt.cmd_identifier < 0 or
+                                      pkt.cmd_identifier > 9))
     ]
 
 
@@ -662,115 +736,77 @@ class ZigbeeAppDataPayloadStub(Packet):
 # ZigBee Cluster Library #
 
 
-def util_zcl_attribute_value_len(pkt):
-    # Calculate the length of the attribute value field
-    if (pkt.attribute_data_type == 0x00):  # no data
-        return 0
-    elif (pkt.attribute_data_type == 0x08):  # 8-bit data
-        return 1
-    elif (pkt.attribute_data_type == 0x09):  # 16-bit data
-        return 2
-    elif (pkt.attribute_data_type == 0x0a):  # 24-bit data
-        return 3
-    elif (pkt.attribute_data_type == 0x0b):  # 32-bit data
-        return 4
-    elif (pkt.attribute_data_type == 0x0c):  # 40-bit data
-        return 5
-    elif (pkt.attribute_data_type == 0x0d):  # 48-bit data
-        return 6
-    elif (pkt.attribute_data_type == 0x0e):  # 56-bit data
-        return 7
-    elif (pkt.attribute_data_type == 0x0f):  # 64-bit data
-        return 8
-    elif (pkt.attribute_data_type == 0x10):  # boolean
-        return 1
-    elif (pkt.attribute_data_type == 0x18):  # 8-bit bitmap
-        return 1
-    elif (pkt.attribute_data_type == 0x19):  # 16-bit bitmap
-        return 2
-    elif (pkt.attribute_data_type == 0x1a):  # 24-bit bitmap
-        return 3
-    elif (pkt.attribute_data_type == 0x1b):  # 32-bit bitmap
-        return 4
-    elif (pkt.attribute_data_type == 0x1c):  # 40-bit bitmap
-        return 5
-    elif (pkt.attribute_data_type == 0x1d):  # 48-bit bitmap
-        return 6
-    elif (pkt.attribute_data_type == 0x1e):  # 46-bit bitmap
-        return 7
-    elif (pkt.attribute_data_type == 0x1f):  # 64-bit bitmap
-        return 8
-    elif (pkt.attribute_data_type == 0x20):  # Unsigned 8-bit integer
-        return 1
-    elif (pkt.attribute_data_type == 0x21):  # Unsigned 16-bit integer
-        return 2
-    elif (pkt.attribute_data_type == 0x22):  # Unsigned 24-bit integer
-        return 3
-    elif (pkt.attribute_data_type == 0x23):  # Unsigned 32-bit integer
-        return 4
-    elif (pkt.attribute_data_type == 0x24):  # Unsigned 40-bit integer
-        return 5
-    elif (pkt.attribute_data_type == 0x25):  # Unsigned 48-bit integer
-        return 6
-    elif (pkt.attribute_data_type == 0x26):  # Unsigned 56-bit integer
-        return 7
-    elif (pkt.attribute_data_type == 0x27):  # Unsigned 64-bit integer
-        return 8
-    elif (pkt.attribute_data_type == 0x28):  # Signed 8-bit integer
-        return 1
-    elif (pkt.attribute_data_type == 0x29):  # Signed 16-bit integer
-        return 2
-    elif (pkt.attribute_data_type == 0x2a):  # Signed 24-bit integer
-        return 3
-    elif (pkt.attribute_data_type == 0x2b):  # Signed 32-bit integer
-        return 4
-    elif (pkt.attribute_data_type == 0x2c):  # Signed 40-bit integer
-        return 5
-    elif (pkt.attribute_data_type == 0x2d):  # Signed 48-bit integer
-        return 6
-    elif (pkt.attribute_data_type == 0x2e):  # Signed 56-bit integer
-        return 7
-    elif (pkt.attribute_data_type == 0x2f):  # Signed 64-bit integer
-        return 8
-    elif (pkt.attribute_data_type == 0x30):  # 8-bit enumeration
-        return 1
-    elif (pkt.attribute_data_type == 0x31):  # 16-bit enumeration
-        return 2
-    elif (pkt.attribute_data_type == 0x38):  # Semi-precision
-        return 2
-    elif (pkt.attribute_data_type == 0x39):  # Single precision
-        return 4
-    elif (pkt.attribute_data_type == 0x3a):  # Double precision
-        return 8
-    elif (pkt.attribute_data_type == 0x41):  # Octet string
-        return int(pkt.attribute_value[0])  # defined in first octet
-    elif (pkt.attribute_data_type == 0x42):  # Character string
-        return int(pkt.attribute_value[0])  # defined in first octet
-    elif (pkt.attribute_data_type == 0x43):  # Long octet string
-        return int(pkt.attribute_value[0:2])  # defined in first two octets
-    elif (pkt.attribute_data_type == 0x44):  # Long character string
-        return int(pkt.attribute_value[0:2])  # defined in first two octets
-    # TODO implement Ordered sequence & collection
-    elif (pkt.attribute_data_type == 0xe0):  # Time of day
-        return 4
-    elif (pkt.attribute_data_type == 0xe1):  # Date
-        return 4
-    elif (pkt.attribute_data_type == 0xe2):  # UTCTime
-        return 4
-    elif (pkt.attribute_data_type == 0xe8):  # Cluster ID
-        return 2
-    elif (pkt.attribute_data_type == 0xe9):  # Attribute ID
-        return 2
-    elif (pkt.attribute_data_type == 0xea):  # BACnet OID
-        return 4
-    elif (pkt.attribute_data_type == 0xf0):  # IEEE address
-        return 8
-    elif (pkt.attribute_data_type == 0xf1):  # 128-bit security key
-        return 16
-    elif (pkt.attribute_data_type == 0xff):  # Unknown
-        return 0
-    else:
-        return 0
+_ZCL_attr_length = {
+    0x00: 0,  # no data
+    0x08: 1,  # 8-bit data
+    0x09: 2,  # 16-bit data
+    0x0a: 3,  # 24-bit data
+    0x0b: 4,  # 32-bit data
+    0x0c: 5,  # 40-bit data
+    0x0d: 6,  # 48-bit data
+    0x0e: 7,  # 56-bit data
+    0x0f: 8,  # 64-bit data
+    0x10: 1,  # boolean
+    0x18: 1,  # 8-bit bitmap
+    0x19: 2,  # 16-bit bitmap
+    0x1a: 3,  # 24-bit bitmap
+    0x1b: 4,  # 32-bit bitmap
+    0x1c: 5,  # 40-bit bitmap
+    0x1d: 6,  # 48-bit bitmap
+    0x1e: 7,  # 46-bit bitmap
+    0x1f: 8,  # 64-bit bitmap
+    0x20: 1,  # Unsigned 8-bit integer
+    0x21: 2,  # Unsigned 16-bit integer
+    0x22: 3,  # Unsigned 24-bit integer
+    0x23: 4,  # Unsigned 32-bit integer
+    0x24: 5,  # Unsigned 40-bit integer
+    0x25: 6,  # Unsigned 48-bit integer
+    0x26: 7,  # Unsigned 56-bit integer
+    0x27: 8,  # Unsigned 64-bit integer
+    0x28: 1,  # Signed 8-bit integer
+    0x29: 2,  # Signed 16-bit integer
+    0x2a: 3,  # Signed 24-bit integer
+    0x2b: 4,  # Signed 32-bit integer
+    0x2c: 5,  # Signed 40-bit integer
+    0x2d: 6,  # Signed 48-bit integer
+    0x2e: 7,  # Signed 56-bit integer
+    0x2f: 8,  # Signed 64-bit integer
+    0x30: 1,  # 8-bit enumeration
+    0x31: 2,  # 16-bit enumeration
+    0x38: 2,  # Semi-precision
+    0x39: 4,  # Single precision
+    0x3a: 8,  # Double precision
+    0x41: (1, "!B"),  # Octet string
+    0x42: (1, "!B"),  # Character string
+    0x43: (2, "!H"),  # Long octet string
+    0x44: (2, "!H"),  # Long character string
+    # TODO (implement Ordered sequence & collection
+    0xe0: 4,  # Time of day
+    0xe1: 4,  # Date
+    0xe2: 4,  # UTCTime
+    0xe8: 2,  # Cluster ID
+    0xe9: 2,  # Attribute ID
+    0xea: 4,  # BACnet OID
+    0xf0: 8,  # IEEE address
+    0xf1: 16,  # 128-bit security key
+    0xff: 0,  # Unknown
+}
+
+
+class _DiscreteString(StrLenField):
+    def getfield(self, pkt, s):
+        dtype = pkt.attribute_data_type
+        length = _ZCL_attr_length.get(dtype, None)
+        if length is None:
+            return b"", self.m2i(pkt, s)
+        elif isinstance(length, tuple):  # Variable length
+            size, fmt = length
+            # We add size as we include the length tag in the string
+            length = struct.unpack(fmt, s[:size])[0] + size
+        if isinstance(length, int):
+            self.length_from = lambda x: length
+            return StrLenField.getfield(self, pkt, s)
+        return s
 
 
 class ZCLReadAttributeStatusRecord(Packet):
@@ -780,17 +816,20 @@ class ZCLReadAttributeStatusRecord(Packet):
         XLEShortField("attribute_identifier", 0),
         # Status
         ByteEnumField("status", 0, _zcl_enumerated_status_values),
-        # Attribute data type (0/1 octet), only included if status == 0x00 (SUCCESS)  # noqa: E501
+        # Attribute data type (0/1 octet), and data (0/variable size)
+        # are only included if status == 0x00 (SUCCESS)
         ConditionalField(
             ByteEnumField("attribute_data_type", 0, _zcl_attribute_data_types),
             lambda pkt:pkt.status == 0x00
         ),
-        # Attribute data (0/variable in size), only included if status == 0x00 (SUCCESS)  # noqa: E501
         ConditionalField(
-            StrLenField("attribute_value", "", length_from=lambda pkt:util_zcl_attribute_value_len(pkt)),  # noqa: E501
+            _DiscreteString("attribute_value", ""),
             lambda pkt:pkt.status == 0x00
         ),
     ]
+
+    def extract_padding(self, s):
+        return "", s
 
 
 class ZCLGeneralReadAttributes(Packet):
@@ -887,9 +926,8 @@ class ZigbeeClusterLibrary(Packet):
     def guess_payload_class(self, payload):
         # Profile-wide commands
         if self.zcl_frametype == 0x00 and self.command_identifier == 0x00:
-            return ZCLGeneralReadAttributes
-        elif self.zcl_frametype == 0x00 and self.command_identifier == 0x01:
-            return ZCLGeneralReadAttributesResponse
+            # done in bind_layers
+            pass
         # Cluster-specific commands
         elif self.zcl_frametype == 0x01 and self.command_identifier == 0x00 and self.direction == 0 and self.underlayer.cluster == 0x0700:  # "price"  # noqa: E501
             return ZCLPriceGetCurrentPrice
@@ -897,8 +935,13 @@ class ZigbeeClusterLibrary(Packet):
             return ZCLPriceGetScheduledPrices
         elif self.zcl_frametype == 0x01 and self.command_identifier == 0x00 and self.direction == 1 and self.underlayer.cluster == 0x0700:  # "price"  # noqa: E501
             return ZCLPricePublishPrice
-        else:
-            return Packet.guess_payload_class(self, payload)
+        return Packet.guess_payload_class(self, payload)
+
+
+bind_layers(ZigbeeClusterLibrary, ZCLGeneralReadAttributes,
+            zcl_frametype=0x00, command_identifier=0x00)
+bind_layers(ZigbeeClusterLibrary, ZCLGeneralReadAttributesResponse,
+            zcl_frametype=0x00, command_identifier=0x01)
 
 # Zigbee Encapsulation Protocol
 

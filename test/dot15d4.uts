@@ -343,6 +343,32 @@ assert ZigbeeNWKCommandPayload in pkt.layers()
 assert ZigbeeNWKStub in pkt.layers()
 assert ZigbeeSecurityHeader in pkt.layers()
 
+= Zigbee - ZCLGeneralReadAttributesResponse 
+
+pkt = ZigbeeClusterLibrary()/ZCLGeneralReadAttributesResponse(read_attribute_status_record=[ZCLReadAttributeStatusRecord(attribute_data_type=0x08, attribute_value=b"\xee")])
+pkt = ZigbeeClusterLibrary(raw(pkt))
+assert ZCLGeneralReadAttributesResponse in pkt
+assert pkt.read_attribute_status_record[0].attribute_data_type == 0x08
+assert pkt.read_attribute_status_record[0].attribute_value == b'\xee'
+assert raw(pkt) == b'\x00\x00\x01\x00\x00\x00\x08\xee'
+
+= Zigbee - ZigbeeAppDataPayload
+
+pkt = ZigbeeAppDataPayload(b'@\x01\x00\x00\x04\x01\x01\r\x18 \x01\x00\x00\x00 \x01\x04\x00\x00B\x07sengled')
+
+assert ZigbeeClusterLibrary in pkt
+assert ZCLGeneralReadAttributesResponse in pkt
+assert pkt.command_identifier == 1
+assert len(pkt.read_attribute_status_record) == 2
+
+assert pkt.read_attribute_status_record[0].status == 0
+assert pkt.read_attribute_status_record[0].attribute_data_type == 0x20
+assert pkt.read_attribute_status_record[0].attribute_value == b'\x01'
+
+assert pkt.read_attribute_status_record[1].status == 0
+assert pkt.read_attribute_status_record[1].attribute_data_type == 0x42
+assert pkt.read_attribute_status_record[1].attribute_value == b'\x07sengled'
+
 = Zigbee - advanced dissection
 
 import os
@@ -396,9 +422,9 @@ assert Dot15d4FCS in pkt1
 assert ZigbeeNWK in pkt1
 assert ZigbeeAppDataPayload in pkt1
 assert ZigbeeAppCommandPayload in pkt1
-assert pkt1[ZigbeeAppCommandPayload].cmd_identifier == 1
+assert pkt1[ZigbeeAppCommandPayload].cmd_identifier == 5
 f,v = pkt1[ZigbeeAppCommandPayload].getfield_and_val("cmd_identifier")
-assert f.i2repr(None, v) == "APS_CMD_SKKE_1"
+assert f.i2repr(None, v) == "APS_CMD_TRANSPORT_KEY"
 assert pkt1[ZigbeeAppCommandPayload].key == b"&Tkr;9jr{]RqQ}9/"
 assert pkt1[ZigbeeAppCommandPayload].key_seqnum == 0
 assert pkt1[ZigbeeAppCommandPayload].dest_addr == 4502500120025882
