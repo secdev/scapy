@@ -29,7 +29,7 @@ from scapy.modules.six.moves import range
 from scapy.pton_ntop import inet_ntop, inet_pton
 
 
-def dns_get_str(s, p, pkt=None, _internal=False):
+def dns_get_str(s, p, pkt=None, _fullpacket=False):
     """This function decompresses a string s, from the character p.
     params:
      - s: the string to decompress
@@ -38,54 +38,65 @@ def dns_get_str(s, p, pkt=None, _internal=False):
 
     returns: (decoded_string, end_index, left_string)
     """
-    # The _internal parameter is reserved for scapy. It indicates
+    # The _fullpacket parameter is reserved for scapy. It indicates
     # that the string provided is the full dns packet, and thus
     # will be the same than pkt._orig_str. The "Cannot decompress"
     # error will not be prompted if True.
     max_length = len(s)
     name = b""  # The result = the extracted name
-    burned = 0  # The "burned" data, used to determine the remaining bytes
     q = None  # Will contain the index after the pointer, to be returned
-    processed_pointers = [p]  # Used to check for decompression loops
+    processed_pointers = []  # Used to check for decompression loops
+    # Analyse given pkt
+    if pkt and hasattr(pkt, "_orig_s") and pkt._orig_s:
+        s_full = pkt._orig_s
+    else:
+        s_full = None
+    bytes_left = None
     while True:
         if abs(p) >= max_length:
             warning("DNS RR prematured end (ofs=%i, len=%i)" % (p, len(s)))
             break
         cur = orb(s[p])  # current value of the string at p
         p += 1  # p is now pointing to the value of the pointer
-        burned += 1
         if cur & 0xc0:  # Label pointer
             if q is None:
-                # p will follow the pointer, whereas q will not
+                # p will follow the pointer, whereas q won't
+                # q is located just after the pointer. It gives us
+                # where the remaining bytes start
                 q = p + 1
             if p >= max_length:
                 warning("DNS incomplete jump token at (ofs=%i)" % p)
                 break
             p = ((cur & ~0xc0) << 8) + orb(s[p]) - 12  # Follow the pointer
-            burned += 1
             if p in processed_pointers:
                 warning("DNS decompression loop detected")
                 break
-            if pkt and hasattr(pkt, "_orig_s") and pkt._orig_s:
-                name += dns_get_str(pkt._orig_s, p, None, _internal=True)[0]
-                if burned == max_length:
-                    break
-            elif not _internal:
-                raise Scapy_Exception("DNS message can't be compressed" +
-                                      "at this point!")
+            if not _fullpacket:
+                # Do we have access to the whole packet ?
+                if s_full:
+                    # Yes -> use it to continue
+                    bytes_left = s[q:]
+                    s = s_full
+                    max_length = len(s)
+                    _fullpacket = True
+                else:
+                    # No -> abort
+                    raise Scapy_Exception("DNS message can't be compressed" +
+                                          "at this point!")
             processed_pointers.append(p)
             continue
         elif cur > 0:  # Label
             name += s[p:p + cur] + b"."
             p += cur
-            burned += cur
         else:
             break
     if q is not None:
         # Return the real end index (not the one we followed)
         p = q
+    if bytes_left is None:
+        bytes_left = s[p:]
     # name, end_index, remaining
-    return name, p, s[burned:]
+    return name, p, bytes_left
 
 
 def DNSgetstr(*args, **kwargs):
@@ -210,7 +221,6 @@ class DNSStrField(StrField):
     def getfield(self, pkt, s):
         # Decode the compressed DNS message
         decoded, index, left = dns_get_str(s, 0, pkt)
-        # returns (left, decoded)
         return left, decoded
 
 
@@ -260,7 +270,7 @@ class DNSRRField(StrField):
         p += 10
         rr = DNSRR(b"\x00" + ret + s[p:p + rdlen], _orig_s=s, _orig_p=p)
         if type in [2, 3, 4, 5]:
-            rr.rdata = dns_get_str(s, p, _internal=True)[0]
+            rr.rdata = dns_get_str(s, p, _fullpacket=True)[0]
             del(rr.rdlen)
         elif type in DNSRR_DISPATCHER:
             rr = DNSRR_DISPATCHER[type](b"\x00" + ret + s[p:p + rdlen], _orig_s=s, _orig_p=p)  # noqa: E501
@@ -283,7 +293,7 @@ class DNSRRField(StrField):
             return s, b""
         while c:
             c -= 1
-            name, p, _ = dns_get_str(s, p, _internal=True)
+            name, p, _ = dns_get_str(s, p, _fullpacket=True)
             rr, p = self.decodeRR(name, s, p)
             if ret is None:
                 ret = rr
@@ -312,13 +322,7 @@ class RDataField(StrLenField):
         if pkt.type == 1:  # A
             family = socket.AF_INET
         elif pkt.type in [2, 5, 12]:  # NS, CNAME, PTR
-            if hasattr(pkt, "_orig_s") and pkt._orig_s:
-                if orb(s[0]) & 0xc0:
-                    s = dns_get_str(s, 0, pkt)[0]
-                else:
-                    s = dns_get_str(pkt._orig_s, pkt._orig_p, _internal=True)[0]  # noqa: E501
-            else:
-                s = dns_get_str(s, 0)[0]
+            s = dns_get_str(s, 0, pkt)[0]
         elif pkt.type == 16:  # TXT
             ret_s = list()
             tmp_s = s
