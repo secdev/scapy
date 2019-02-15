@@ -38,7 +38,6 @@
           - multiplicity of TLVs (if given by the standard)
           - min sizes of strings used by the TLVs
         - conf.contribs['LLDP'].strict_mode_disable() -> disable strict mode
-        - strict mode = True => conf.debug_dissector = True
 
 """
 from scapy.config import conf
@@ -738,14 +737,12 @@ class LLDPConfiguration(object):
         enable strict mode and dissector debugging
         """
         self._strict_mode = True
-        conf.debug_dissector = True
 
     def strict_mode_disable(self):
         """
         disable strict mode and dissector debugging
         """
         self._strict_mode = False
-        conf.debug_dissector = False
 
     def strict_mode(self):
         """
