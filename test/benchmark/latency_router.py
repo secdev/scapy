@@ -1,11 +1,12 @@
 # This file is part of Scapy
 # See http://www.secdev.org/projects/scapy for more information
-# Copyright (C) Guillaume Valadon
+# Copyright (C) Gabriel Potter
 # This program is published under a GPLv2 license
+
 
 # https://github.com/secdev/scapy/issues/1791
 
-from scapy.all import *
+from common import *
 
 # Router IP
 dest = conf.route.route("0.0.0.0")[2]
@@ -22,7 +23,7 @@ for i in range(1,50):
     if send_icmp:
         pkts.append(b)
 
-ans, unans = sr(pkts, filter="host {0}".format(dest), inter=0, timeout=1)
+ans, unans = sr(pkts, filter="host {0}".format(dest), inter=0, timeout=1, prebuild=True, store_unanswered=False)
 
 print("scapy version: {}".format(conf.version))
 
