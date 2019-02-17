@@ -14,23 +14,23 @@ What is ASN.1?
 
 ASN.1 is a notation whose goal is to specify formats for data exchange. It is independent of the way data is encoded. Data encoding is specified in Encoding Rules.
 
-The most used encoding rules are BER (Basic Encoding Rules) and DER (Distinguished Encoding Rules). Both look the same, but the latter is specified to guarantee uniqueness of encoding. This property is quite interesting when speaking about cryptography, hashes and signatures.
+The most used encoding rules are BER (Basic Encoding Rules) and DER (Distinguished Encoding Rules). Both look the same, but the latter is specified to guarantee uniqueness of encoding. This property is quite interesting when speaking about cryptography, hashes, and signatures.
 
-ASN.1 provides basic objects: integers, many kinds of strings, floats, booleans, containers, etc. They are grouped in the so called Universal class. A given protocol can provide other objects which will be grouped in the Context class. For example, SNMP defines PDU_GET or PDU_SET objects. There are also the Application and Private classes.
+ASN.1 provides basic objects: integers, many kinds of strings, floats, booleans, containers, etc. They are grouped in the so-called Universal class. A given protocol can provide other objects which will be grouped in the Context class. For example, SNMP defines PDU_GET or PDU_SET objects. There are also the Application and Private classes.
 
-Each of theses objects is given a tag that will be used by the encoding rules. Tags from 1 are used for Universal class. 1 is boolean, 2 is integer, 3 is a bit string, 6 is an OID, 48 is for a sequence. Tags from the ``Context`` class begin at 0xa0. When encountering an object tagged by 0xa0, we'll need to know the context to be able to decode it. For example, in SNMP context, 0xa0 is a PDU_GET object, while in X509 context, it is a container for the certificate version.
+Each of these objects is given a tag that will be used by the encoding rules. Tags from 1 are used for Universal class. 1 is boolean, 2 is an integer, 3 is a bit string, 6 is an OID, 48 is for a sequence. Tags from the ``Context`` class begin at 0xa0. When encountering an object tagged by 0xa0, we'll need to know the context to be able to decode it. For example, in SNMP context, 0xa0 is a PDU_GET object, while in X509 context, it is a container for the certificate version.
 
 Other objects are created by assembling all those basic brick objects. The composition is done using sequences and arrays (sets) of previously defined or existing objects. The final object (an X509 certificate, a SNMP packet) is a tree whose non-leaf nodes are sequences and sets objects (or derived context objects), and whose leaf nodes are integers, strings, OID, etc.
 
 Scapy and ASN.1
 ---------------
 
-Scapy provides a way to easily encode or decode ASN.1 and also program those encoders/decoders. It is quite more lax than what an ASN.1 parser should be, and it kind of ignores constraints. It won't replace neither an ASN.1 parser nor an ASN.1 compiler. Actually, it has been written to be able to encode and decode broken ASN.1. It can handle corrupted encoded strings and can also create those.
+Scapy provides a way to easily encode or decode ASN.1 and also program those encoders/decoders. It is quite laxer than what an ASN.1 parser should be, and it kind of ignores constraints. It won't replace neither an ASN.1 parser nor an ASN.1 compiler. Actually, it has been written to be able to encode and decode broken ASN.1. It can handle corrupted encoded strings and can also create those.
 
 ASN.1 engine
 ^^^^^^^^^^^^
 
-Note: many of the classes definitions presented here use metaclasses. If you don't look precisely at the source code and you only rely on my captures, you may think they sometimes exhibit a kind of magic behaviour.
+Note: many of the classes definitions presented here use metaclasses. If you don't look precisely at the source code and you only rely on my captures, you may think they sometimes exhibit a kind of magic behavior.
 ``
 Scapy ASN.1 engine provides classes to link objects and their tags. They inherit from the ``ASN1_Class``. The first one is ``ASN1_Class_UNIVERSAL``, which provide tags for most Universal objects. Each new context (``SNMP``, ``X509``) will inherit from it and add its own objects.
 
@@ -397,7 +397,7 @@ Now, the hard part, the ASN.1 packet::
     bind_layers( UDP, SNMP, sport=161)
     bind_layers( UDP, SNMP, dport=161)
 
-That wasn't that much difficult. If you think that can't be that short to implement SNMP encoding/decoding and that I may may have cut too much, just look at the complete source code.
+That wasn't that much difficult. If you think that can't be that short to implement SNMP encoding/decoding and that I may have cut too much, just look at the complete source code.
 
 Now, how to use it? As usual::
 
@@ -493,9 +493,9 @@ It is even possible to graph it::
 Automata
 ========
 
-Scapy enables to create easily network automata. Scapy does not stick to a specific model like Moore or Mealy automata. It provides a flexible way for you to choose you way to go.
+Scapy enables to create easily network automata. Scapy does not stick to a specific model like Moore or Mealy automata. It provides a flexible way for you to choose your way to go.
 
-An automaton in Scapy is deterministic. It has different states. A start state and some end and error states. There are transitions from one state to another. Transitions can be transitions on a specific condition, transitions on the reception of a specific packet or transitions on a timeout. When a transition is taken, one or more actions can be run. An action can be bound to many transitions. Parameters can be passed from states to transitions and from transitions to states and actions.
+An automaton in Scapy is deterministic. It has different states. A start state and some end and error states. There are transitions from one state to another. Transitions can be transitions on a specific condition, transitions on the reception of a specific packet or transitions on a timeout. When a transition is taken, one or more actions can be run. An action can be bound to many transitions. Parameters can be passed from states to transitions, and from transitions to states and actions.
 
 From a programmer's point of view, states, transitions and actions are methods from an Automaton subclass. They are decorated to provide meta-information needed in order for the automaton to work.
 
@@ -681,7 +681,7 @@ Decorators
 Decorator for states
 ~~~~~~~~~~~~~~~~~~~~
 
-States are methods decorated by the result of the ``ATMT.state`` function. It can take 3 optional parameters, ``initial``, ``final`` and ``error``, that, when set to ``True``, indicate that the state is an initial, final or error state.
+States are methods decorated by the result of the ``ATMT.state`` function. It can take 3 optional parameters, ``initial``, ``final`` and ``error``, that, when set to ``True``, indicating that the state is an initial, final or error state.
 
 ::
 
@@ -706,7 +706,7 @@ States are methods decorated by the result of the ``ATMT.state`` function. It ca
 Decorators for transitions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Transitions are methods decorated by the result of one of ``ATMT.condition``, ``ATMT.receive_condition``, ``ATMT.timeout``. They all take as argument the state method they are related to. ``ATMT.timeout`` also have a mandatory ``timeout`` parameter to provide the timeout value in seconds. ``ATMT.condition`` and ``ATMT.receive_condition`` have an optional ``prio`` parameter so that the order in which conditions are evaluated can be forced. Default priority is 0. Transitions with the same priority level are called in an undetermined order.
+Transitions are methods decorated by the result of one of ``ATMT.condition``, ``ATMT.receive_condition``, ``ATMT.timeout``. They all take as argument the state method they are related to. ``ATMT.timeout`` also have a mandatory ``timeout`` parameter to provide the timeout value in seconds. ``ATMT.condition`` and ``ATMT.receive_condition`` have an optional ``prio`` parameter so that the order in which conditions are evaluated can be forced. The default priority is 0. Transitions with the same priority level are called in an undetermined order.
 
 When the automaton switches to a given state, the state's method is executed. Then transitions methods are called at specific moments until one triggers a new state (something like ``raise self.MY_NEW_STATE()``). First, right after the state's method returns, the ``ATMT.condition`` decorated methods are run by growing prio. Then each time a packet is received and accepted by the master filter all ``ATMT.receive_condition`` decorated hods are called by growing prio. When a timeout is reached since the time we entered into the current space, the corresponding ``ATMT.timeout`` decorated method is called.
 
@@ -739,7 +739,7 @@ When the automaton switches to a given state, the state's method is executed. Th
 Decorator for actions
 ~~~~~~~~~~~~~~~~~~~~~
 
-Actions are methods that are decorated by the return of ``ATMT.action`` function. This function takes the transition method it is bound to as first parameter and an optional priority ``prio`` as a second parameter. Default priority is 0. An action method can be decorated many times to be bound to many transitions.
+Actions are methods that are decorated by the return of ``ATMT.action`` function. This function takes the transition method it is bound to as first parameter and an optional priority ``prio`` as a second parameter. The default priority is 0. An action method can be decorated many times to be bound to many transitions.
 
 ::
 
@@ -786,7 +786,7 @@ Methods to overload
 
 Two methods are hooks to be overloaded:
 
-* The ``parse_args()`` method is called with arguments given at ``__init__()`` and ``run()``. Use that to parametrize the behaviour of your automaton.
+* The ``parse_args()`` method is called with arguments given at ``__init__()`` and ``run()``. Use that to parametrize the behavior of your automaton.
 
 * The ``master_filter()`` method is called each time a packet is sniffed and decides if it is interesting for the automaton. When working on a specific protocol, this is where you will ensure the packet belongs to the connection you are being part of, so that you do not need to make all the sanity checks in each transition.
 
@@ -797,8 +797,8 @@ PipeTools
 Pipetool is a smart piping system allowing to perform complex stream data management. There are various differences between PipeTools and Automatons:
 
 - PipeTools have no states: data is always sent following the same pattern
-- PipeTools are not based on sockets, but can handle more varied sources of data (and outputs) such as user input, pcap input (but also sniffing)
-- PipeTools are not class-based, but rather implemented by manually linking all their parts. That has inconvenients but allows to dynamically add a Source, Drain while running, and set multiple drains for the same source
+- PipeTools are not based on sockets but can handle more varied sources of data (and outputs) such as user input, pcap input (but also sniffing)
+- PipeTools are not class-based, but rather implemented by manually linking all their parts. That has drawbacks but allows to dynamically add a Source, Drain while running, and set multiple drains for the same source
 
 .. note:: Pipetool default objects are located inside ``scapy.pipetool``
 
@@ -814,7 +814,7 @@ There are 3 different class of objects used for data management:
 They are executed and handled by a ``PipeEngine`` object.
 
 When running, a pipetool engine waits for any available data from the Source, and send it in the Drains linked to it.
-The data then goes from Drains to Drains until it arrives to a Sink, the final state of this data.
+The data then goes from Drains to Drains until it arrives in a Sink, the final state of this data.
 
 Here is a basic demo of what the PipeTool system can do
 
@@ -862,7 +862,7 @@ Let's study what happens here:
 - there are two canals in a PipeEngine, a lower one and a higher one. Some Sources write on the lower one, some on the higher one and some on both.
 - most sources can be linked to any drain, on both lower and higher canals. The use of `>` indicates a link on the low canal, and `>>` on the higher one.
 - when we send some data in `s`, which is on the lower canal, as shown above, it goes through the `Drain` then is sent to the `QueueSink` and to the `ConsoleSink`
-- when we send some data in `s2`, in goes through the Drain, then the TransformDrain where the data is reversed (see the lambda), before being sent to `ConsoleSink` only. This explains why we only have the data of the lower sources inside the QueueSink: the higher one has not been linked.
+- when we send some data in `s2`, it goes through the Drain, then the TransformDrain where the data is reversed (see the lambda), before being sent to `ConsoleSink` only. This explains why we only have the data of the lower sources inside the QueueSink: the higher one has not been linked.
 
 Most of the sinks receive from both lower and upper canals. This is verifiable using the `help(ConsoleSink)`
 
@@ -882,16 +882,16 @@ class ConsoleSink(Sink)
 Sources
 ^^^^^^^
 
-A Source is a class that generates some data. They are several source types integrated with scapy, usable as-is, but you may also create yours.
+A Source is a class that generates some data. They are several source types integrated with Scapy, usable as-is, but you may also create yours.
 
 Default Source classes
 ~~~~~~~~~~~~~~~~~~~~~~
 
-For any of those class, have a look at ``help([theclass])`` to get more information, or the required parameters.
+For any of those class, have a look at ``help([theclass])`` to get more information or the required parameters.
 
 - CLIFeeder : a source especially used in interactive software. its ``send(data)`` generates the event data on the lower canal
 - CLIHighFeeder : same than CLIFeeder, but writes on the higher canal
-- PeriodicSource : Generage messages periodically on low canal.
+- PeriodicSource : Generate messages periodically on the low canal.
 - AutoSource: the default source, that must be extended to create custom sources. 
 
 Create a custom Source
@@ -935,7 +935,7 @@ To create a custom drain, one must extend the ``Drain`` class.
 
 A ``Drain`` object will receive data from the lower canal in its ``push`` method, and from the higher canal from its ``high_push`` method.
 
-To send the data back into the next linked Drain / Sink, it must calls the ``self._send(msg)`` or ``self._high_send(msg)`` methods.
+To send the data back into the next linked Drain / Sink, it must call the ``self._send(msg)`` or ``self._high_send(msg)`` methods.
 
 For instance, here is how TransformDrain is implemented:
 
@@ -967,7 +967,7 @@ To create a custom sink, one must extend the ``Sink`` class.
 
 A ``Sink`` class receives data like a ``Drain``, from the lower canal in its ``push`` method, and from the higher canal from its ``high_push`` method.
 
-A ``Sink`` is the dead end of data, it won't be send anywhere after it.
+A ``Sink`` is the dead end of data, it won't be sent anywhere after it.
 
 For instance, here is how ConsoleSink is implemented:
 
@@ -1012,7 +1012,7 @@ The PipeEngine class
 
 The ``PipeEngine`` class is the core class of the Pipetool system. It must be initialized and passed the list of all Sources.
 
-There are two ways of passing the sources:
+There are two ways of passing sources:
 
 - during initialization: ``p = PipeEngine(source1, source2, ...)``
 - using the ``add(source)`` method
@@ -1021,14 +1021,14 @@ A ``PipeEngine`` class must be started with ``.start()`` function. It may be for
 
 A clean stop only works if the Sources is exhausted (has no data to send left).
 
-It can be printed into a graph using ``.graph()`` methods. see ``help(do_graph)`` for the list of possible kwarguments.
+It can be printed into a graph using ``.graph()`` methods. see ``help(do_graph)`` for the list of available keyword arguments.
 
 Scapy advanced PipeTool objects
 -------------------------------
 
 .. note:: Unlike the previous objects, those are not located in ``scapy.pipetool`` but in ``scapy.scapypipes``
 
-Know that you know the default PipeTool objects, here are more advanced ones, based on packet functionnalities.
+Now that you know the default PipeTool objects, here are some more advanced ones, based on packet functionalities.
 
 - SniffSource : Read packets from an interface and send them to low exit.
 - RdpcapSource : Read packets from a PCAP file send them to low exit.
@@ -1037,14 +1037,14 @@ Know that you know the default PipeTool objects, here are more advanced ones, ba
 - UDPDrain : UDP payloads received on high entry are sent over UDP (complicated, have a look at ``help(UDPDrain)``)
 - FDSourceSink : Use a file descriptor as source and sink
 - TCPConnectPipe : TCP connect to addr:port and use it as source and sink
-- TCPListenPipe : TCP listen on [addr:]port and use first connection as source and sink (complicated, have a look at ``help(TCPListenPipe)``)
+- TCPListenPipe : TCP listen on [addr:]port and use the first connection as source and sink (complicated, have a look at ``help(TCPListenPipe)``)
 
 Triggering
 ----------
 
-Some special sort of Drains exist: the Trigger Drains.
+Some special sort of Drains exists: the Trigger Drains.
 
-Trigger Drains are special drains, that on receiving data not only pass it by, but also send a "Trigger" input, that is received and handled by the next triggered drain (if it exists).
+Trigger Drains are special drains, that on receiving data not only pass it by but also send a "Trigger" input, that is received and handled by the next triggered drain (if it exists).
 
 For example, here is a basic TriggerDrain usage:
 
@@ -1162,7 +1162,7 @@ able to dissect it::
       dataStatus= primary+validData+run+no_problem
       transferStatus= 0
 
-For Scapy to be able to dissect it correctly, one must also configure the layer for it to know the location of each data in the buffer. This configuration is saved in the dictionary ``conf.contribs["PNIO_RTC"]`` which can be updated with the ``pnio_update_config`` method. Each item in the dictionary uses the tuple ``(Ether.src, Ether.dst)`` as key, to be able to separate the configuration of each communication. Each value is then a list of a tuple which describes a data packet. It is composed of the negative index, from the end of the data buffer, of the packet position, the class of the packet as second item and the ``config`` dictionary to provide to the class as last. If we continue the previous example, here is the configuration to set::
+For Scapy to be able to dissect it correctly, one must also configure the layer for it to know the location of each data in the buffer. This configuration is saved in the dictionary ``conf.contribs["PNIO_RTC"]`` which can be updated with the ``pnio_update_config`` method. Each item in the dictionary uses the tuple ``(Ether.src, Ether.dst)`` as key, to be able to separate the configuration of each communication. Each value is then a list of a tuple which describes a data packet. It is composed of the negative index, from the end of the data buffer, of the packet position, the class of the packet as the second item and the ``config`` dictionary to provide to the class as last. If we continue the previous example, here is the configuration to set::
 
     >>> load_contrib("pnio")
     >>> e=Ether(src='00:01:02:03:04:05', dst='06:07:08:09:0a:0b') / ProfinetIO() / p
@@ -1427,7 +1427,7 @@ These commands enable a virtual CAN interface on your machine::
    bashCommand = "/bin/bash -c 'sudo modprobe vcan; sudo ip link add name vcan0 type vcan; sudo ip link set dev vcan0 up'"
    os.system(bashCommand)
 
-If it's required, the CAN interface can be set into a listen-only or loop back mode with ip link set commands:
+If it's required, the CAN interface can be set into a listen-only or loopback mode with ip link set commands:
 
 ::
 
@@ -1531,18 +1531,18 @@ Create can sockets for attack::
    socket0 = CANSocket(iface='vcan0')
    socket1 = CANSocket(iface='vcan1')
 
-Create function to send packet with threading::
+Create a function to send packet with threading::
 
    def sendPacket():
        sleep(0.2)
        socket0.send(CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08'))
 
-Create function for forwarding or change packets::
+Create a function for forwarding or change packets::
 
    def forwarding(pkt):
        return pkt
 
-Create function to bridge and sniff between two sockets::
+Create a function to bridge and sniff between two sockets::
 
    def bridge():
        bSocket0 = CANSocket(iface='vcan0')
@@ -1556,7 +1556,7 @@ Create threads for sending packet and to bridge and sniff::
    threadBridge = threading.Thread(target=bridge)
    threadSender = threading.Thread(target=sendMessage)
 
-Start threads::
+Start the threads::
 
    threadBridge.start()
    threadSender.start()
@@ -1565,7 +1565,7 @@ Sniff packets::
 
    packets = socket1.sniff(timeout=0.3)
 
-Close sockets::
+Close the sockets::
 
    socket0.close()
    socket1.close()
@@ -1662,7 +1662,7 @@ Create threads for sending packet and to bridge and sniff::
    threadBridge = threading.Thread(target=bridge)
    threadSender = threading.Thread(target=sendPacketWithISOTPSocket)
 
-Start threads::are based on Linux kernel modules. The python-can project is used to support CAN and CANSockets on other systems, besides Linux. This guide explains the hardware setup on a BeagleBone Black. The BeagleBone Black was chosen because of its two CAN interfaces on the main processor. The presence of two CAN interfaces in one device gives the possibility of CAN MITM attacks and session hijacking. The Cannelloni framework turns a BeagleBone Black into a CAN-to-UDP interface, which gives you the freedom to run Scapy on a more powerful machine.
+Start threads are based on Linux kernel modules. The python-can project is used to support CAN and CANSockets on other systems, besides Linux. This guide explains the hardware setup on a BeagleBone Black. The BeagleBone Black was chosen because of its two CAN interfaces on the main processor. The presence of two CAN interfaces in one device gives the possibility of CAN MITM attacks and session hijacking. The Cannelloni framework turns a BeagleBone Black into a CAN-to-UDP interface, which gives you the freedom to run Scapy on a more powerful machine.::
 
    threadBridge.start()
    threadSender.start()
@@ -1681,10 +1681,10 @@ An ISOTPSocket will not respect ``src, dst, exdst, exsrc`` of an ISOTP message o
 ISOTP Sockets
 -------------
 
-Scapy provides two kind of ISOTP Sockets. One implementation, the ISOTPNativeSocket
+Scapy provides two kinds of ISOTP Sockets. One implementation, the ISOTPNativeSocket
 is using the Linux kernel module from Hartkopp. The other implementation, the ISOTPSoftSocket
 is completely implemented in Python. This implementation can be used on Linux,
-Windows and OSX.
+Windows, and OSX.
 
 ISOTPNativeSocket
 ^^^^^^^^^^^^^^^^^
@@ -1738,7 +1738,7 @@ UDS
 Customization of UDS_RDBI, UDS_WDBI
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-In real world use-cases, the UDS layer is heavily customized. OEMs define there own substructure of packets.
+In real-world use-cases, the UDS layer is heavily customized. OEMs define there own substructure of packets.
 Especially the packets ReadDataByIdentifier or WriteDataByIdentifier have a very OEM or even ECU specific
 substructure. Therefore a ``StrField`` ``dataRecord`` is not added to the ``field_desc``.
 The intended usage is to create ECU or OEM specific description files, which extend the general UDS layer of
@@ -1938,9 +1938,9 @@ Lets assume our ECU under test supports the pid 0x15::
          |     trim= 0 %
 
 
-The different services in OBD support different kind of data. 
+The different services in OBD support different kinds of data. 
 Service 01 and Service 02 support Parameter Identifiers (pid).
-Service 03, 07 und 0A support Diagnostic Trouble codes (dtc).
+Service 03, 07 and 0A support Diagnostic Trouble codes (dtc).
 Service 04 doesn't require a payload.
 Service 05 is not implemented on OBD over CAN.
 Service 06 support Monitoring Identifiers (mid).
@@ -1989,7 +1989,7 @@ Beagle Bone Black Operating System Setup
        -iot-armhf-2017-03-19-4gb.img.xz
 
 
-   After the download, copy it to an SD-Card with minimum 4 GB storage.
+   After the download, copy it to an SD-Card with minimum of 4 GB storage.
 
    ::
 
@@ -2001,7 +2001,7 @@ Beagle Bone Black Operating System Setup
    | USB-WiFi dongles are well supported by Debian Linux. Login over SSH
      on the BBB and add the WiFi network credentials to the file
      ``/var/lib/connman/wifi.config``. If a USB-WiFi dongle is not
-     available, it is also possible to share the host’s internet
+     available, it is also possible to share the host's internet
      connection with the Ethernet connection of the BBB emulated over
      USB. A tutorial to share the host network connection can be found
      on this page:
@@ -2037,7 +2037,7 @@ Dual-CAN Setup
 ~~~~~~~~~~~~~~
 
 #. | **Device tree setup**
-   | You’ll need to follow this section only if you want to use two CAN
+   | You'll need to follow this section only if you want to use two CAN
     interfaces (DCAN0 and DCAN1). This will disable I2C2 from using pins
     P9.19 and P9.20, which are needed by DCAN0. You only need to perform the
     steps in this section once.
@@ -2045,7 +2045,7 @@ Dual-CAN Setup
    | Warning: The configuration in this section will disable BBB capes from
     working. Each cape has a small I2C EEPROM that stores info that the BBB
     needs to know in order to communicate with the cape. Disable I2C2, and
-    the BBB has no way to talk to cape EEPROMs. Of course, if you don’t use
+    the BBB has no way to talk to cape EEPROMs. Of course, if you don't use
     capes then this is not a problem.
 
    | Acquire DTS sources that matches your kernel version. Go
@@ -2186,7 +2186,7 @@ Dual-CAN Setup
        5: P-O-L-   1 Override Board Name,00A0,Override Manuf, BB-CAN1
 
 
-   If something went wrong, ``dmesg`` provides kernel messages to analyze the root of failure.
+   If something went wrong, ``dmesg`` provides kernel messages to analyse the root of failure.
 
 #. | **References**
 
@@ -2213,8 +2213,8 @@ to load this module automatically at system boot of the BBB.
 CAN-Interface Setup
 ~~~~~~~~~~~~~~~~~~~
 
-As final step to prepare the BBB’s CAN interfaces for usage, these
-interfaces have to be setup through some terminal commands. The bitrate
+As the final step to prepare the BBB's CAN interfaces for usage, these
+interfaces have to be set up through some terminal commands. The bitrate
 can be chosen to fit the bitrate of a CAN bus under test.
 
 ::
@@ -2251,7 +2251,7 @@ To build a small test environment in which you can send SOME/IP messages to and 
 
 #. | **Make applications**
 
-   Write some small applications which function as either a service or a client and use the scapy SOME/IP implementation to communicate with the client or the server. Examples for vsomeip applications are available on the vsomeip github wiki page (``https://github.com/GENIVI/vsomeip/wiki/vsomeip-in-10-minutes``).
+   Write some small applications which function as either a service or a client and use the Scapy SOME/IP implementation to communicate with the client or the server. Examples for vsomeip applications are available on the vsomeip github wiki page (``https://github.com/GENIVI/vsomeip/wiki/vsomeip-in-10-minutes``).
 
 
 
@@ -2268,7 +2268,7 @@ multiple remote CAN devices on his machine. The framework can be
 downloaded from this website:
 ``https://github.com/mguentner/cannelloni.git``. The ``README.md`` file
 explains the installation and usage in detail. Cannelloni needs virtual
-CAN interfaces on the operators machine. The next listing shows the
+CAN interfaces on the operator's machine. The next listing shows the
 setup of virtual CAN interfaces.
 
 ::
