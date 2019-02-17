@@ -794,7 +794,11 @@ Two methods are hooks to be overloaded:
 PipeTools
 =========
 
-Pipetool is a smart piping system allowing to perform complex stream data management.
+Pipetool is a smart piping system allowing to perform complex stream data management. There are various differences between PipeTools and Automatons:
+
+- PipeTools have no states: data is always sent following the same pattern
+- PipeTools are not based on sockets, but can handle more varied sources of data (and outputs) such as user input, pcap input (but also sniffing)
+- PipeTools are not class-based, but rather implemented by manually linking all their parts. That has inconvenients but allows to dynamically add a Source, Drain while running, and set multiple drains for the same source
 
 .. note:: Pipetool default objects are located inside ``scapy.pipetool``
 
@@ -855,7 +859,7 @@ foo : i like potato
 
 Let's study what happens here:
 
-- there are two canals in PipeEngine, a low one and a high one. Some sources write on the lower one, some on the higher one and some on both.
+- there are two canals in a PipeEngine, a lower one and a higher one. Some Sources write on the lower one, some on the higher one and some on both.
 - most sources can be linked to any drain, on both lower and higher canals. The use of `>` indicates a link on the low canal, and `>>` on the higher one.
 - when we send some data in `s`, which is on the lower canal, as shown above, it goes through the `Drain` then is sent to the `QueueSink` and to the `ConsoleSink`
 - when we send some data in `s2`, in goes through the Drain, then the TransformDrain where the data is reversed (see the lambda), before being sent to `ConsoleSink` only. This explains why we only have the data of the lower sources inside the QueueSink: the higher one has not been linked.
