@@ -80,8 +80,6 @@ from scapy.compat import orb, hex_bytes
 
 EXT_VERSION = "v0.0.2"
 
-conf.debug_dissector = True
-
 
 #######################################################################
 #   ISIS Utilities + Fields                                           #
