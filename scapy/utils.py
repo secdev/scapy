@@ -1343,7 +1343,7 @@ class PcapWriter(RawPcapWriter):
 def import_hexcap():
     """Imports a tcpdump like hexadecimal view
 
-    e.g: exported via hexdump() or tcpdump
+    e.g: exported via hexdump() or tcpdump or wireshark's "export as hex"
     """
     re_extract_hexcap = re.compile(r"^((0x)?[0-9a-fA-F]{2,}[ :\t]{,3}|) *(([0-9a-fA-F]{2} {,2}){,16})")  # noqa: E501
     p = ""
@@ -1374,21 +1374,27 @@ def wireshark(pktlist):
 
 
 @conf.commands.register
+def tdecode(pktlist):
+    """Run tshark -V on a list of packets"""
+    tcpdump(pktlist, prog=conf.prog.tshark, args=["-V"])
+
+
+@conf.commands.register
 def tcpdump(pktlist, dump=False, getfd=False, args=None,
             prog=None, getproc=False, quiet=False):
     """Run tcpdump or tshark on a list of packets
 
 pktlist: a Packet instance, a PacketList instance or a list of Packet
-         instances. Can also be a filename (as a string) or an open
+         instances. Can also be a filename (as a string), an open
          file-like object that must be a file format readable by
-         tshark (Pcap, PcapNg, etc.)
+         tshark (Pcap, PcapNg, etc.) or None (to sniff)
 
 dump:    when set to True, returns a string instead of displaying it.
 getfd:   when set to True, returns a file-like object to read data
          from tcpdump or tshark from.
 getproc: when set to True, the subprocess.Popen object is returned
 args:    arguments (as a list) to pass to tshark (example for tshark:
-         args=["-T", "json"]). Defaults to ["-n"].
+         args=["-T", "json"]).
 prog:    program to use (defaults to tcpdump, will work with tshark)
 quiet:   when set to True, the process stderr is discarded
 
@@ -1432,19 +1438,25 @@ u'64'
     elif isinstance(prog, six.string_types):
         prog = [prog]
     _prog_name = "windump()" if WINDOWS else "tcpdump()"
+    # Build Popen arguments
+    args = args if args is not None else []
+    stdout = subprocess.PIPE if dump or getfd else None
+    stderr = open(os.devnull) if quiet else None
     if pktlist is None:
+        # sniff
         with ContextManagerSubprocess(_prog_name, prog[0]):
             proc = subprocess.Popen(
-                prog + (args if args is not None else []),
-                stdout=subprocess.PIPE if dump or getfd else None,
-                stderr=open(os.devnull) if quiet else None,
+                prog + args,
+                stdout=stdout,
+                stderr=stderr,
             )
     elif isinstance(pktlist, six.string_types):
+        # file
         with ContextManagerSubprocess(_prog_name, prog[0]):
             proc = subprocess.Popen(
-                prog + ["-r", pktlist] + (args if args is not None else []),
-                stdout=subprocess.PIPE if dump or getfd else None,
-                stderr=open(os.devnull) if quiet else None,
+                prog + ["-r", pktlist] + args,
+                stdout=stdout,
+                stderr=stderr,
             )
     elif DARWIN:
         # Tcpdump cannot read from stdin, see
@@ -1458,18 +1470,19 @@ u'64'
             tmpfile.close()
         with ContextManagerSubprocess(_prog_name, prog[0]):
             proc = subprocess.Popen(
-                prog + ["-r", tmpfile.name] + (args if args is not None else []),  # noqa: E501
-                stdout=subprocess.PIPE if dump or getfd else None,
-                stderr=open(os.devnull) if quiet else None,
+                prog + ["-r", tmpfile.name] + args,
+                stdout=stdout,
+                stderr=stderr,
             )
         conf.temp_files.append(tmpfile.name)
     else:
+        # pass the packet stream
         with ContextManagerSubprocess(_prog_name, prog[0]):
             proc = subprocess.Popen(
-                prog + ["-r", "-"] + (args if args is not None else []),
+                prog + ["-r", "-"] + args,
                 stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE if dump or getfd else None,
-                stderr=open(os.devnull) if quiet else None,
+                stdout=stdout,
+                stderr=stderr,
             )
         try:
             proc.stdin.writelines(iter(lambda: pktlist.read(1048576), b""))
