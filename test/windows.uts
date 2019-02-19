@@ -85,19 +85,20 @@ finally:
 conf.use_winpcapy = False
 assert conf.use_winpcapy == False
 
-= Open firewall temporarily for ICMP
-~ needs_root
+= Prepare ping: open firewall & get current seq number
+~ netaccess needs_root
 
 # Note: this method is complicated, but allow us to perform a real test
 # it is discouraged otherwise. Npcap/Winpcap does NOT require such mechanics
 
-rcode = open_icmp_firewall("www.google.com")
-assert rcode == 0
-
-= Get current seq number
+# output of this may vary, but it doesn't matter:
+# if it fails the teat below won't work
+open_icmp_firewall("www.google.com")
 
 seq = get_current_icmp_seq()
 assert seq > 0
+
+True
 
 = Ping
 ~ netaccess needs_root
@@ -109,6 +110,7 @@ with conf.L3socket() as a:
 
 = DNS lookup
 ~ netaccess needs_root require_gui
+% XXX currently disabled
 
 from scapy.tools.UTscapy import retry_test
 
