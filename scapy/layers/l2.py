@@ -25,9 +25,9 @@ from scapy.data import ARPHDR_ETHER, ARPHDR_LOOPBACK, ARPHDR_METRICOM, \
     ETHER_BROADCAST, ETHER_TYPES, ETH_P_ARP, ETH_P_MACSEC
 from scapy.error import warning
 from scapy.fields import BCDFloatField, BitField, ByteField, \
-    ConditionalField, EnumField, FieldLenField, IntField, IP6Field, IPField, \
-    LenField, MACField, MultipleTypeField, ShortEnumField, ShortField, \
-    SourceIP6Field, SourceIPField, StrFixedLenField, StrLenField, \
+    ConditionalField, FieldLenField, IntEnumField, IntField, IP6Field, \
+    IPField, LenField, MACField, MultipleTypeField, ShortEnumField, \
+    ShortField, SourceIP6Field, SourceIPField, StrFixedLenField, StrLenField, \
     X3BytesField, XByteField, XIntField, XShortEnumField, XShortField
 from scapy.modules.six import viewitems
 from scapy.packet import bind_layers, Packet
@@ -510,9 +510,7 @@ class GRE_PPTP(GRE):
 
 # *BSD loopback layer
 
-class LoIntEnumField(EnumField):
-    def __init__(self, name, default, enum):
-        EnumField.__init__(self, name, default, enum, "!I")
+class LoIntEnumField(IntEnumField):
 
     def m2i(self, pkt, x):
         return x >> 24
@@ -534,7 +532,10 @@ class Loopback(Packet):
     """*BSD loopback layer"""
 
     name = "Loopback"
-    fields_desc = [LoIntEnumField("type", 0x2, LOOPBACK_TYPES)]
+    if consts.OPENBSD:
+        fields_desc = [IntEnumField("type", 0x2, LOOPBACK_TYPES)]
+    else:
+        fields_desc = [LoIntEnumField("type", 0x2, LOOPBACK_TYPES)]
     __slots__ = ["_defrag_pos"]
 
 
