@@ -90,7 +90,7 @@ def _version():
                 return 'unknown.version'
 
 
-VERSION = _version()
+VERSION = __version__ = _version()
 
 if __name__ == "__main__":
     from scapy.main import interact
