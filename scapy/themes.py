@@ -17,7 +17,7 @@ import sys
 
 class ColorTable:
     colors = {  # Format: (ansi, pygments)
-        "normal": ("\033[0m", "noinherit"),
+        # foreground
         "black": ("\033[30m", "#ansiblack"),
         "red": ("\033[31m", "#ansired"),
         "green": ("\033[32m", "#ansigreen"),
@@ -25,8 +25,20 @@ class ColorTable:
         "blue": ("\033[34m", "#ansiblue"),
         "purple": ("\033[35m", "#ansipurple"),
         "cyan": ("\033[36m", "#ansicyan"),
-        "grey": ("\033[37m", "#ansigrey"),
-
+        "grey": ("\033[37m", "#ansiwhite"),
+        "reset": ("\033[39m", "noinherit"),
+        # background
+        "bg_black": ("\033[40m", "bg:#ansiblack"),
+        "bg_red": ("\033[41m", "bg:#ansired"),
+        "bg_green": ("\033[42m", "bg:#ansigreen"),
+        "bg_yellow": ("\033[43m", "bg:#ansiyellow"),
+        "bg_blue": ("\033[44m", "bg:#ansiblue"),
+        "bg_purple": ("\033[45m", "bg:#ansipurple"),
+        "bg_cyan": ("\033[46m", "bg:#ansicyan"),
+        "bg_grey": ("\033[47m", "bg:#ansiwhite"),
+        "bg_reset": ("\033[49m", "noinherit"),
+        # specials
+        "normal": ("\033[0m", "noinherit"),  # color & brightness
         "bold": ("\033[1m", "bold"),
         "uline": ("\033[4m", "underline"),
         "blink": ("\033[5m", ""),
@@ -73,6 +85,10 @@ class ColorTheme:
             raise AttributeError()
         return create_styler()
 
+    def format(self, string, fmt):
+        for style in fmt.split("+"):
+            string = getattr(self, style)(string)
+        return string
 
 class NoTheme(ColorTheme):
     pass
@@ -88,7 +104,9 @@ class AnsiColorTheme(ColorTheme):
             after = self.style_normal
         elif not isinstance(self, BlackAndWhite) and attr in Color.colors:
             before = Color.colors[attr][0]
-            after = self.style_normal
+            after = "".join(Color.colors[x][0] for x in [
+                "normal", "reset", "bg_reset"
+            ])
         else:
             before = after = ""
 

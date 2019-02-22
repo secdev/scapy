@@ -593,6 +593,10 @@ class NetworkInterfaceDict(UserDict):
     @classmethod
     def _pcap_check(cls):
         """Performs checks/restart pcap adapter"""
+        if not conf.use_winpcapy:
+            # Winpcap/Npcap isn't installed
+            return
+
         _detect = pcap_service_status()
 
         def _ask_user():
