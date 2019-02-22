@@ -1901,7 +1901,7 @@ OBD message
 -------------
 
 OBD is implemented on top of ISOTP. Use an ISOTPSocket for the communication with a ECU. 
-You should set the parameter `basecls=OBD` in your ISOTPSocket init call. 
+You should set the parameters `basecls=OBD` and `padding=True` in your ISOTPSocket init call.
 
 OBD is split into different service groups. Here are some example requests:
 
@@ -1922,7 +1922,7 @@ The response will contain a PacketListField, called `data_records`. This field c
          |###[ PID_00_PIDsSupported ]### 
          |     supported_pids= PID20+PID1F+PID1C+PID15+PID14+PID13+PID11+PID10+PID0F+PID0E+PID0D+PID0C+PID0B+PID0A+PID07+PID06+PID05+PID04+PID03+PID01
 
-Lets assume our ECU under test supports the pid 0x15::
+Let's assume our ECU under test supports the pid 0x15::
    
    req = OBD()/OBD_S01(pid=[0x15])
    resp = sock.sr1(req)
@@ -1951,7 +1951,7 @@ Examples:
 
 Request supported Information Identifiers::
 
-   req = OBD()/OBD_S09(iid=0x00)
+   req = OBD()/OBD_S09(iid=[0x00])
 
 Request the Vehicle Identification Number (VIN)::
 
@@ -1960,11 +1960,13 @@ Request the Vehicle Identification Number (VIN)::
    resp.show()
    ###[ On-board diagnostics ]### 
      service= VehicleInformationResponse
-   ###[ S9_VehicleInformationPositiveResponse ]### 
-        iid= 0x2
-   ###[ IID_02_VehicleIdentificationNumber ]### 
-           count= 1
-           vehicle_identification_numbers= ['W0L000051T2123456']
+   ###[ Infotype IDs ]###
+        \data_records\
+         |###[ OBD_S09_IID_Record ]###
+         |  iid= 0x2
+         |###[ IID_02_VehicleIdentificationNumber ]###
+         |     count= 1
+         |     vehicle_identification_numbers= ['W0L000051T2123456']
 
    
 

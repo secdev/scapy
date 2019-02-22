@@ -7,15 +7,29 @@
 # scapy.contrib.status = skip
 
 from scapy.fields import FieldLenField, FieldListField, StrFixedLenField, \
-    ByteField, ShortField, FlagsField
-from scapy.packet import Packet
+    ByteField, ShortField, FlagsField, XByteField, PacketListField
+from scapy.contrib.automotive.obd.packet import OBD_Packet
+from scapy.packet import Packet, bind_layers
 
 
 # See https://en.wikipedia.org/wiki/OBD-II_PIDs#Service_09
 # for further information
 # IID = Information IDentification
 
-class OBD_IID00(Packet):
+class OBD_S09_IID_Record(Packet):
+    fields_desc = [
+        XByteField("iid", 1),
+    ]
+
+
+class OBD_S09_IID(Packet):
+    name = "Infotype IDs"
+    fields_desc = [
+        PacketListField("data_records", None, OBD_S09_IID_Record)
+    ]
+
+
+class OBD_IID00(OBD_Packet):
     name = "IID_00_Service9SupportedInformationTypes"
     fields_desc = [
         FlagsField('supported_iids', b'', 32, [
@@ -55,7 +69,7 @@ class OBD_IID00(Packet):
     ]
 
 
-class _OBD_IID_MessageCount(Packet):
+class _OBD_IID_MessageCount(OBD_Packet):
     fields_desc = [
         ByteField('message_count', 0)
     ]
@@ -81,7 +95,7 @@ class OBD_IID09(_OBD_IID_MessageCount):
     name = "IID_09_EcuNameMessageCount"
 
 
-class OBD_IID02(Packet):
+class OBD_IID02(OBD_Packet):
     name = "IID_02_VehicleIdentificationNumber"
     fields_desc = [
         FieldLenField('count', None, count_of='vehicle_identification_numbers',
@@ -92,7 +106,7 @@ class OBD_IID02(Packet):
     ]
 
 
-class OBD_IID04(Packet):
+class OBD_IID04(OBD_Packet):
     name = "IID_04_CalibrationId"
     fields_desc = [
         FieldLenField('count', None, count_of='calibration_identifications',
@@ -103,7 +117,7 @@ class OBD_IID04(Packet):
     ]
 
 
-class OBD_IID06(Packet):
+class OBD_IID06(OBD_Packet):
     name = "IID_06_CalibrationVerificationNumbers"
     fields_desc = [
         FieldLenField('count', None,
@@ -114,7 +128,7 @@ class OBD_IID06(Packet):
     ]
 
 
-class OBD_IID08(Packet):
+class OBD_IID08(OBD_Packet):
     name = "IID_08_InUsePerformanceTracking"
     fields_desc = [
         FieldLenField('count', None, count_of='data', fmt='B'),
@@ -124,7 +138,7 @@ class OBD_IID08(Packet):
     ]
 
 
-class OBD_IID0A(Packet):
+class OBD_IID0A(OBD_Packet):
     name = "IID_0A_EcuName"
     fields_desc = [
         FieldLenField('count', None, count_of='ecu_names', fmt='B'),
@@ -134,7 +148,7 @@ class OBD_IID0A(Packet):
     ]
 
 
-class OBD_IID0B(Packet):
+class OBD_IID0B(OBD_Packet):
     name = "IID_0B_InUsePerformanceTrackingForCompressionIgnitionVehicles"
     fields_desc = [
         FieldLenField('count', None, count_of='data', fmt='B'),
@@ -142,3 +156,17 @@ class OBD_IID0B(Packet):
                        ShortField(b'', 0),
                        count_from=lambda pkt: pkt.count)
     ]
+
+
+bind_layers(OBD_S09_IID_Record, OBD_IID00, iid=0x00)
+bind_layers(OBD_S09_IID_Record, OBD_IID01, iid=0x01)
+bind_layers(OBD_S09_IID_Record, OBD_IID02, iid=0x02)
+bind_layers(OBD_S09_IID_Record, OBD_IID03, iid=0x03)
+bind_layers(OBD_S09_IID_Record, OBD_IID04, iid=0x04)
+bind_layers(OBD_S09_IID_Record, OBD_IID05, iid=0x05)
+bind_layers(OBD_S09_IID_Record, OBD_IID06, iid=0x06)
+bind_layers(OBD_S09_IID_Record, OBD_IID07, iid=0x07)
+bind_layers(OBD_S09_IID_Record, OBD_IID08, iid=0x08)
+bind_layers(OBD_S09_IID_Record, OBD_IID09, iid=0x09)
+bind_layers(OBD_S09_IID_Record, OBD_IID0A, iid=0x0A)
+bind_layers(OBD_S09_IID_Record, OBD_IID0B, iid=0x0B)
