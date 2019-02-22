@@ -13,14 +13,12 @@ Overview
  3. (Optional): `Install additional software for special features <#optional-software-for-special-features>`_.
  4. Run Scapy with root privileges.
  
-Each of these steps can be done in a different way depending on your platform and on the version of Scapy you want to use. 
+Each of these steps can be done in a different way depending on your platform and on the version of Scapy you want to use.  Follow the platform-specific instructions for more detail.
 
-At the moment, there are two different versions of Scapy:
+Scapy versions
+==============
 
-* **Scapy v2.x**. The current up-to-date version. It consists of several files  packaged in the standard distutils way.
-  Scapy v2 <= 2.3.3 needs Python 2.5, Scapy v2 > 2.3.3 needs Python 2.7 or 3.4+.
-* **Scapy v1.x (deprecated)**. It does not support Python 3. It consists of only one file and works on Python 2.4, so it might be easier to install.
-  Moreover, your OS may already have specially prepared packages or ports for it. The last version is v1.2.2.
+.. image:: graphics/scapy_version_timeline.jpg
 
 .. note::
 
@@ -93,15 +91,6 @@ Then you can always update to the latest version::
 .. note::
 
    You can run scapy without installing it using the ``run_scapy`` (unix) or ``run_scapy.bat`` (Windows) script or running it directly from the executable zip file (see the previous section).
-
-Installing Scapy v1.2 (Deprecated)
-==================================
-
-As Scapy v1 consists only of one single Python file, installation is easy:
-Just download the last version and run it with your Python interpreter::
-
- $ wget https://raw.githubusercontent.com/secdev/scapy/v1.2.0.2/scapy.py
- $ sudo python scapy.py
 
 Optional software for special features
 ======================================
@@ -338,9 +327,6 @@ Windows
 .. sectionauthor:: Dirk Loss <mail at dirk-loss.de>
 
 Scapy is primarily being developed for Unix-like systems and works best on those platforms. But the latest version of Scapy supports Windows out-of-the-box. So you can use nearly all of Scapy's features on your Windows machine as well.
-
-.. note::
-   If you update from Scapy-win v1.2.0.2 to Scapy v2 remember to use ``from scapy.all import *`` instead of ``from scapy import *``.
 
 .. image:: graphics/scapy-win-screenshot1.png
    :scale: 80

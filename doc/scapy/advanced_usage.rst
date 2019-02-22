@@ -906,7 +906,7 @@ To send data through it, the object must call its ``self._gen_data(msg)`` or ``s
 
 The Source should also (if possible), set ``self.is_exhausted`` to ``True`` when empty, to allow the clean stop of the ``PipeEngine``. If the source is infinite, it will need a force-stop (see PipeEngine below)
 
-For instance, here is how CLIHighFeeder is implemented:
+For instance, here is how CLIHighFeeder is implemented::
 
     class CLIFeeder(CLIFeeder):
         def send(self, msg):
@@ -937,7 +937,7 @@ A ``Drain`` object will receive data from the lower canal in its ``push`` method
 
 To send the data back into the next linked Drain / Sink, it must call the ``self._send(msg)`` or ``self._high_send(msg)`` methods.
 
-For instance, here is how TransformDrain is implemented:
+For instance, here is how TransformDrain is implemented::
 
     class TransformDrain(Drain):
         def __init__(self, f, name=None):
@@ -969,7 +969,7 @@ A ``Sink`` class receives data like a ``Drain``, from the lower canal in its ``p
 
 A ``Sink`` is the dead end of data, it won't be sent anywhere after it.
 
-For instance, here is how ConsoleSink is implemented:
+For instance, here is how ConsoleSink is implemented::
 
     class ConsoleSink(Sink):
         def push(self, msg):
@@ -982,7 +982,7 @@ Link objects
 
 As shown in the example, most sources can be linked to any drain, on both lower and higher canals.
 
-The use of `>` indicates a link on the low canal, and `>>` on the higher one.
+The use of ``>`` indicates a link on the low canal, and ``>>`` on the higher one.
 
 For instance
 

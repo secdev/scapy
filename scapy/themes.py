@@ -90,6 +90,7 @@ class ColorTheme:
             string = getattr(self, style)(string)
         return string
 
+
 class NoTheme(ColorTheme):
     pass
 

@@ -97,6 +97,8 @@ To be precise, `scapy/layers` protocols should not be importing `scapy/contrib`
 protocols, whereas `scapy/contrib` protocols may import both `scapy/contrib` and
 `scapy/layers` protocols.
 
+The detailed requirements are explained in [Design patterns](https://scapy.readthedocs.io/en/latest/build_dissect.html#design-patterns) on Scapy's doc.
+
 ### Features
 
 Protocol-related features should be implemented within the same module
