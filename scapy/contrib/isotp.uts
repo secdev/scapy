@@ -107,9 +107,9 @@ else:
 
 if "python_can" in CANSocket.__module__:
     import can as python_can
-    new_can_socket = lambda iface: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface, bitrate=250000))
-    new_can_socket0 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface0, bitrate=250000))
-    new_can_socket1 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface1, bitrate=250000))
+    new_can_socket = lambda iface: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface, bitrate=250000), timeout=0.01)
+    new_can_socket0 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface0, bitrate=250000), timeout=0.01)
+    new_can_socket1 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface1, bitrate=250000), timeout=0.01)
 else:
     new_can_socket = lambda iface: CANSocket(iface)
     new_can_socket0 = lambda: CANSocket(iface0)
@@ -1852,10 +1852,12 @@ isoTpSocket1 = ISOTPNativeSocket(iface1, sid=0x641, did=0x241)
 bSocket0 = ISOTPNativeSocket(iface0, sid=0x641, did=0x241)
 bSocket1 = ISOTPNativeSocket(iface1, sid=0x241, did=0x641)
 
+bridgeStarted = threading.Event()
 def bridge():
+    global bridgeStarted
     def forwarding(pkt):
         return pkt
-    bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding, timeout=2, count=1)
+    bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding, timeout=2, count=1, started_callback=bridgeStarted.set)
     bSocket0.close()
     bSocket1.close()
     global bSucc
@@ -1874,14 +1876,17 @@ rSucc = False
 threadBridge = threading.Thread(target=bridge)
 threadBridge.start()
 threadSender = threading.Thread(target=RequestOnBus0)
-threadSender.start()
+bridgeStarted.wait()
 
-packetsVCan1 = isoTpSocket1.sniff(timeout=0.5)
+packetsVCan1 = isoTpSocket1.sniff(timeout=0.5, started_callback=threadSender.start)
 
 len(packetsVCan1) == 1
 
 isoTpSocket0.close()
 isoTpSocket1.close()
+
+threadSender.join()
+threadBridge.join()
 
 assert(bSucc)
 assert(rSucc)
@@ -1898,12 +1903,14 @@ bSocket1 = ISOTPNativeSocket(iface1, sid=0x241, did=0x641)
 bSucc = False
 rSucc = False
 
+bridgeStarted = threading.Event()
 def bridge():
+    global bridgeStarted
     global bSucc
     def forwarding(pkt):
         pkt.data = 'changed'
         return pkt
-    bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding, timeout=0.5)
+    bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding, timeout=0.5, started_callback=bridgeStarted.set)
     bSocket0.close()
     bSocket1.close()
     bSucc = True
@@ -1915,20 +1922,20 @@ def RequestOnBus0():
     isoTpSocket0.send(packet)
     rSucc = True
 
-threadBridge.join()
 threadBridge = threading.Thread(target=bridge)
 threadBridge.start()
-threadSender.join()
 threadSender = threading.Thread(target=RequestOnBus0)
-threadSender.start()
-
-packetsVCan1 = isoTpSocket1.sniff(timeout=0.5)
+bridgeStarted.wait()
+packetsVCan1 = isoTpSocket1.sniff(timeout=0.5, started_callback=threadSender.start)
 
 packetsVCan1[0].data = b'changed'
 len(packetsVCan1) == 1
 
 isoTpSocket0.close()
 isoTpSocket1.close()
+
+threadSender.join()
+threadBridge.join()
 
 assert(bSucc)
 assert(rSucc)
@@ -1945,11 +1952,13 @@ isoTpSocket1 = ISOTPNativeSocket(iface1, sid=0x641, did=0x241)
 bSocket0 = ISOTPNativeSocket(iface0, sid=0x641, did=0x241)
 bSocket1 = ISOTPNativeSocket(iface1, sid=0x241, did=0x641)
 
+bridgeStarted = threading.Event()
 def bridge():
+    global bridgeStarted
     global bSucc
     def forwarding(pkt):
         return pkt
-    bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding, timeout=0.5)
+    bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding, timeout=0.5, started_callback=bridgeStarted.set)
     bSocket0.close()
     bSocket1.close()
     bSucc = True
@@ -1963,14 +1972,12 @@ def RequestBothVCans():
     isoTpSocket1.send(packetVcan1)
     rSucc = True
 
-threadBridge.join()
 threadBridge = threading.Thread(target=bridge)
 threadBridge.start()
-threadSender.join()
 threadSender = threading.Thread(target=RequestOnBus0)
-threadSender.start()
+bridgeStarted.wait()
 
-packetsVCan0 = isoTpSocket0.sniff(timeout=0.5)
+packetsVCan0 = isoTpSocket0.sniff(timeout=0.5, started_callback=threadSender.start)
 packetsVCan1 = isoTpSocket1.sniff(timeout=0.5)
 
 len(packetsVCan0) == 1
@@ -1978,6 +1985,9 @@ len(packetsVCan1) == 1
 
 isoTpSocket0.close()
 isoTpSocket1.close()
+
+threadSender.join()
+threadBridge.join()
 
 assert(bSucc)
 assert(rSucc)
@@ -1994,12 +2004,14 @@ isoTpSocket1 = ISOTPNativeSocket(iface1, sid=0x641, did=0x241)
 bSocket0 = ISOTPNativeSocket(iface0, sid=0x641, did=0x241)
 bSocket1 = ISOTPNativeSocket(iface1, sid=0x241, did=0x641)
 
+bridgeStarted = threading.Event()
 def bridge():
+    global bridgeStarted
     global bSucc
     def forwarding(pkt):
         pkt.data = 'changed'
         return pkt
-    bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding, timeout=0.5)
+    bridge_and_sniff(if1=bSocket0, if2=bSocket1, xfrm12=forwarding, xfrm21=forwarding, timeout=0.5, started_callback=bridgeStarted.set)
     bSocket0.close()
     bSocket1.close()
     bSucc = True
@@ -2013,14 +2025,12 @@ def RequestBothVCans():
     isoTpSocket1.send(packetVcan1)
     rSucc = True
 
-threadBridge.join()
 threadBridge = threading.Thread(target=bridge)
 threadBridge.start()
-threadSender.join()
 threadSender = threading.Thread(target=RequestBothVCans)
-threadSender.start()
+bridgeStarted.wait()
 
-packetsVCan0 = isoTpSocket0.sniff(timeout=0.5)
+packetsVCan0 = isoTpSocket0.sniff(timeout=0.5, started_callback=threadSender.start)
 packetsVCan1 = isoTpSocket1.sniff(timeout=0.5)
 
 packetsVCan0[0].data = b'changed'
@@ -2030,6 +2040,9 @@ len(packetsVCan1) == 1
 
 isoTpSocket0.close()
 isoTpSocket1.close()
+
+threadSender.join()
+threadBridge.join()
 
 assert(bSucc)
 assert(rSucc)
