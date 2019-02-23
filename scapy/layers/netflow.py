@@ -8,10 +8,14 @@
 """
 Cisco NetFlow protocol v1, v5 and v9
 
-HowTo debug NetflowV9 packets:
+HowTo dissect NetflowV9 packets:
+
+# From a pcap
 - get a list of packets containing NetflowV9 packets
-- call netflowv9_defragment(plist) to defragment the list
-Caution: this API might be updated
+- call `netflowv9_defragment(plist)` to defragment the list
+
+# Live / on-the-flow:
+>>> sniff(session=NetflowSession, prn=[...])
 """
 
 import struct
@@ -25,6 +29,7 @@ from scapy.fields import ByteEnumField, ByteField, Field, FieldLenField, \
     StrField, StrFixedLenField, ThreeBytesField, UTCTimeField, XByteField, \
     XShortField
 from scapy.packet import Packet, bind_layers, bind_bottom_up
+from scapy.sessions import IPSession, DefaultSession
 
 from scapy.layers.inet import UDP
 from scapy.layers.inet6 import IP6Field
@@ -35,8 +40,10 @@ class NetflowHeader(Packet):
     fields_desc = [ShortField("version", 1)]
 
 
-bind_bottom_up(UDP, NetflowHeader, dport=2055)
-bind_bottom_up(UDP, NetflowHeader, sport=2055)
+for port in [2055, 2056, 9995, 9996, 6343]:  # Classic NetFlow ports
+    bind_bottom_up(UDP, NetflowHeader, dport=port)
+    bind_bottom_up(UDP, NetflowHeader, sport=port)
+# However, we'll default to 2055, classic among classics :)
 bind_layers(UDP, NetflowHeader, dport=2055, sport=2055)
 
 ###########################################
@@ -431,6 +438,104 @@ class NetflowDataflowsetV9(Packet):
         return cls
 
 
+def _netflowv9_defragment_packet(pkt, definitions, definitions_opts, ignored):
+    """Used internally to process a single packet during defragmenting"""
+    # Dataflowset definitions
+    if NetflowFlowsetV9 in pkt:
+        current = pkt
+        while NetflowFlowsetV9 in current:
+            current = current[NetflowFlowsetV9]
+            for ntv9 in current.templates:
+                llist = []
+                for tmpl in ntv9.template_fields:
+                    llist.append((tmpl.fieldLength, tmpl.fieldType))
+                if llist:
+                    tot_len = sum(x[0] for x in llist)
+                    cls = _GenNetflowRecordV9(NetflowRecordV9, llist)
+                    definitions[ntv9.templateID] = (tot_len, cls)
+            current = current.payload
+    # Options definitions
+    if NetflowOptionsFlowsetV9 in pkt:
+        current = pkt
+        while NetflowOptionsFlowsetV9 in current:
+            current = current[NetflowOptionsFlowsetV9]
+            # Load scopes
+            llist = []
+            for scope in current.scopes:
+                llist.append((
+                    scope.scopeFieldlength,
+                    scope.scopeFieldType
+                ))
+            scope_tot_len = sum(x[0] for x in llist)
+            scope_cls = _GenNetflowRecordV9(
+                NetflowOptionsRecordScopeV9,
+                llist
+            )
+            # Load options
+            llist = []
+            for opt in current.options:
+                llist.append((
+                    opt.optionFieldlength,
+                    opt.optionFieldType
+                ))
+            option_tot_len = sum(x[0] for x in llist)
+            option_cls = _GenNetflowRecordV9(
+                NetflowOptionsRecordOptionV9,
+                llist
+            )
+            # Storage
+            definitions_opts[current.templateID] = (
+                scope_tot_len, scope_cls,
+                option_tot_len, option_cls
+            )
+            current = current.payload
+    # Dissect flowsets
+    if NetflowDataflowsetV9 in pkt:
+        datafl = pkt[NetflowDataflowsetV9]
+        tid = datafl.templateID
+        if tid not in definitions and tid not in definitions_opts:
+            ignored.add(tid)
+            return
+        # All data is stored in one record, awaiting to be split
+        # If fieldValue is available, the record has not been
+        # defragmented: pop it
+        try:
+            data = datafl.records[0].fieldValue
+            datafl.records.pop(0)
+        except (IndexError, AttributeError):
+            return
+        res = []
+        # Flowset record
+        # Now, according to the flow/option data,
+        # let's re-dissect NetflowDataflowsetV9
+        if tid in definitions:
+            tot_len, cls = definitions[tid]
+            while len(data) >= tot_len:
+                res.append(cls(data[:tot_len]))
+                data = data[tot_len:]
+            # Inject dissected data
+            datafl.records = res
+            datafl.do_dissect_payload(data)
+        # Options
+        elif tid in definitions_opts:
+            (scope_len, scope_cls,
+                option_len, option_cls) = definitions_opts[tid]
+            # Dissect scopes
+            if scope_len:
+                res.append(scope_cls(data[:scope_len]))
+            if option_len:
+                res.append(
+                    option_cls(data[scope_len:scope_len + option_len])
+                )
+            if len(data) > scope_len + option_len:
+                res.append(
+                    conf.padding_layer(data[scope_len + option_len:])
+                )
+            # Inject dissected data
+            datafl.records = res
+            datafl.name = "Netflow DataFlowSet V9 - OPTIONS"
+
+
 def netflowv9_defragment(plist, verb=1):
     """Process all NetflowV9 Packets to match IDs of the DataFlowsets
     with the Headers
@@ -444,104 +549,36 @@ def netflowv9_defragment(plist, verb=1):
     definitions_opts = {}
     ignored = set()
     # Iterate through initial list
-    for pkt in plist:  # NetflowDataflowsetV9:
-        # Dataflowset definitions
-        if NetflowFlowsetV9 in pkt:
-            current = pkt
-            while NetflowFlowsetV9 in current:
-                current = current[NetflowFlowsetV9]
-                for ntv9 in current.templates:
-                    llist = []
-                    for tmpl in ntv9.template_fields:
-                        llist.append((tmpl.fieldLength, tmpl.fieldType))
-                    if llist:
-                        tot_len = sum(x[0] for x in llist)
-                        cls = _GenNetflowRecordV9(NetflowRecordV9, llist)
-                        definitions[ntv9.templateID] = (tot_len, cls)
-                current = current.payload
-        # Options definitions
-        if NetflowOptionsFlowsetV9 in pkt:
-            current = pkt
-            while NetflowOptionsFlowsetV9 in current:
-                current = current[NetflowOptionsFlowsetV9]
-                # Load scopes
-                llist = []
-                for scope in current.scopes:
-                    llist.append((
-                        scope.scopeFieldlength,
-                        scope.scopeFieldType
-                    ))
-                scope_tot_len = sum(x[0] for x in llist)
-                scope_cls = _GenNetflowRecordV9(
-                    NetflowOptionsRecordScopeV9,
-                    llist
-                )
-                # Load options
-                llist = []
-                for opt in current.options:
-                    llist.append((
-                        opt.optionFieldlength,
-                        opt.optionFieldType
-                    ))
-                option_tot_len = sum(x[0] for x in llist)
-                option_cls = _GenNetflowRecordV9(
-                    NetflowOptionsRecordOptionV9,
-                    llist
-                )
-                # Storage
-                definitions_opts[current.templateID] = (
-                    scope_tot_len, scope_cls,
-                    option_tot_len, option_cls
-                )
-                current = current.payload
-        # Dissect flowsets
-        if NetflowDataflowsetV9 in pkt:
-            datafl = pkt[NetflowDataflowsetV9]
-            tid = datafl.templateID
-            if tid not in definitions and tid not in definitions_opts:
-                ignored.add(tid)
-                continue
-            # All data is stored in one record, awaiting to be split
-            # If fieldValue is available, the record has not been
-            # defragmented: pop it
-            try:
-                data = datafl.records[0].fieldValue
-                datafl.records.pop(0)
-            except (IndexError, AttributeError):
-                continue
-            res = []
-            # Flowset record
-            # Now, according to the flow/option data,
-            # let's re-dissect NetflowDataflowsetV9
-            if tid in definitions:
-                tot_len, cls = definitions[tid]
-                while len(data) >= tot_len:
-                    res.append(cls(data[:tot_len]))
-                    data = data[tot_len:]
-                # Inject dissected data
-                datafl.records = res
-                datafl.do_dissect_payload(data)
-            # Options
-            elif tid in definitions_opts:
-                (scope_len, scope_cls,
-                    option_len, option_cls) = definitions_opts[tid]
-                # Dissect scopes
-                if scope_len:
-                    res.append(scope_cls(data[:scope_len]))
-                if option_len:
-                    res.append(
-                        option_cls(data[scope_len:scope_len + option_len])
-                    )
-                if len(data) > scope_len + option_len:
-                    res.append(
-                        conf.padding_layer(data[scope_len + option_len:])
-                    )
-                # Inject dissected data
-                datafl.records = res
-                datafl.name = "Netflow DataFlowSet V9 - OPTIONS"
+    for pkt in plist:
+        _netflowv9_defragment_packet(pkt,
+                                     definitions,
+                                     definitions_opts,
+                                     ignored)
     if conf.verb >= 1 and ignored:
         warning("Ignored templateIDs (missing): %s" % list(ignored))
     return plist
+
+
+class NetflowSession(IPSession):
+    def __init__(self, *args):
+        IPSession.__init__(self, *args)
+        self.definitions = {}
+        self.definitions_opts = {}
+        self.ignored = set()
+
+    def _process_packet(self, pkt):
+        _netflowv9_defragment_packet(pkt,
+                                     self.definitions,
+                                     self.definitions_opts,
+                                     self.ignored)
+        return pkt
+
+    def on_packet_received(self, pkt):
+        # First, defragment IP if necessary
+        pkt = self._ip_process_packet(pkt)
+        # Now handle NetflowV9 defragmentation
+        pkt = self._process_packet(pkt)
+        DefaultSession.on_packet_received(self, pkt)
 
 
 class NetflowOptionsRecordScopeV9(NetflowRecordV9):

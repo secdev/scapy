@@ -1003,6 +1003,46 @@ overlap_fragsize: the fragment size of the overlapping packet"""
     return qfrag + fragment(p, fragsize)
 
 
+def _defrag_list(lst, defrag, missfrag):
+    """Internal usage only. Part of the _defrag_logic"""
+    p = lst[0]
+    lastp = lst[-1]
+    if p.frag > 0 or lastp.flags & 1 != 0:  # first or last fragment missing  # noqa: E501
+        missfrag.append(lst)
+        return
+    p = p.copy()
+    if conf.padding_layer in p:
+        del(p[conf.padding_layer].underlayer.payload)
+    ip = p[IP]
+    if ip.len is None or ip.ihl is None:
+        clen = len(ip.payload)
+    else:
+        clen = ip.len - (ip.ihl << 2)
+    txt = conf.raw_layer()
+    for q in lst[1:]:
+        if clen != q.frag << 3:  # Wrong fragmentation offset
+            if clen > q.frag << 3:
+                warning("Fragment overlap (%i > %i) %r || %r ||  %r" % (clen, q.frag << 3, p, txt, q))  # noqa: E501
+            missfrag.append(lst)
+            break
+        if q[IP].len is None or q[IP].ihl is None:
+            clen += len(q[IP].payload)
+        else:
+            clen += q[IP].len - (q[IP].ihl << 2)
+        if conf.padding_layer in q:
+            del(q[conf.padding_layer].underlayer.payload)
+        txt.add_payload(q[IP].payload.copy())
+        if q.time > p.time:
+            p.time = q.time
+    else:
+        ip.flags &= ~1  # !MF
+        del(ip.chksum)
+        del(ip.len)
+        p = p / txt
+        p._defrag_pos = max(x._defrag_pos for x in lst)
+        defrag.append(p)
+
+
 def _defrag_logic(plist, complete=False):
     """Internal function used to defragment a list of packets.
     It contains the logic behind the defrag() and defragment() functions
@@ -1015,7 +1055,7 @@ def _defrag_logic(plist, complete=False):
         pos += 1
         if IP in p:
             ip = p[IP]
-            if ip.frag != 0 or ip.flags & 1:
+            if ip.frag != 0 or ip.flags.MF:
                 uniq = (ip.id, ip.src, ip.dst, ip.proto)
                 frags[uniq].append(p)
                 continue
@@ -1025,42 +1065,7 @@ def _defrag_logic(plist, complete=False):
     missfrag = []
     for lst in six.itervalues(frags):
         lst.sort(key=lambda x: x.frag)
-        p = lst[0]
-        lastp = lst[-1]
-        if p.frag > 0 or lastp.flags & 1 != 0:  # first or last fragment missing  # noqa: E501
-            missfrag.append(lst)
-            continue
-        p = p.copy()
-        if conf.padding_layer in p:
-            del(p[conf.padding_layer].underlayer.payload)
-        ip = p[IP]
-        if ip.len is None or ip.ihl is None:
-            clen = len(ip.payload)
-        else:
-            clen = ip.len - (ip.ihl << 2)
-        txt = conf.raw_layer()
-        for q in lst[1:]:
-            if clen != q.frag << 3:  # Wrong fragmentation offset
-                if clen > q.frag << 3:
-                    warning("Fragment overlap (%i > %i) %r || %r ||  %r" % (clen, q.frag << 3, p, txt, q))  # noqa: E501
-                missfrag.append(lst)
-                break
-            if q[IP].len is None or q[IP].ihl is None:
-                clen += len(q[IP].payload)
-            else:
-                clen += q[IP].len - (q[IP].ihl << 2)
-            if conf.padding_layer in q:
-                del(q[conf.padding_layer].underlayer.payload)
-            txt.add_payload(q[IP].payload.copy())
-            if q.time > p.time:
-                p.time = q.time
-        else:
-            ip.flags &= ~1  # !MF
-            del(ip.chksum)
-            del(ip.len)
-            p = p / txt
-            p._defrag_pos = max(x._defrag_pos for x in lst)
-            defrag.append(p)
+        _defrag_list(lst, defrag, missfrag)
     defrag2 = []
     for p in defrag:
         q = p.__class__(raw(p))
