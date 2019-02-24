@@ -35,7 +35,8 @@ from scapy.fields import ByteField, LEShortField, BitField, LEShortEnumField, \
     StrLenField, IntField, XByteField, LEIntField, StrFixedLenField, \
     LESignedIntField, ReversePadField, ConditionalField, PacketListField, \
     ShortField, BitEnumField, FieldLenField, LEFieldLenField, \
-    FieldListField, XStrFixedLenField, PacketField, PadField, FCSField
+    FieldListField, XStrFixedLenField, PacketField, FCSField, XLELongField, \
+    PadField
 from scapy.ansmachine import AnsweringMachine
 from scapy.plist import PacketList
 from scapy.layers.l2 import Ether, LLC, MACField
@@ -788,14 +789,14 @@ class Dot11Encrypted(Packet):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         # Extracted from
-        # https://github.com/boundary/wireshark/blob/master/epan/dissectors/packet-ieee80211.c  # noqa: E501
+        # https://github.com/wireshark/wireshark/blob/master/epan/dissectors/packet-ieee80211.c  # noqa: E501
         KEY_EXTIV = 0x20
         EXTIV_LEN = 8
         if _pkt and len(_pkt) >= 3:
             if (orb(_pkt[3]) & KEY_EXTIV) and (len(_pkt) >= EXTIV_LEN):
-                if orb(_pkt[1]) == (orb(_pkt[0]) | 0x20) & 0x7f:
+                if orb(_pkt[1]) == ((orb(_pkt[0]) | 0x20) & 0x7f):  # IS_TKIP
                     return Dot11TKIP
-                elif orb(_pkt[2]) == 0:
+                elif orb(_pkt[2]) == 0:  # IS_CCMP
                     return Dot11CCMP
                 else:
                     # Unknown encryption algorithm
@@ -857,24 +858,19 @@ class Dot11WEP(Dot11Encrypted):
             p = self.encrypt(p, raw(pay))
         return p
 
+# Dot11TKIP & Dot11CCMP follow wireshark: parse the ext_iv, nothing more
 
 class Dot11TKIP(Dot11Encrypted):
     name = "802.11 TKIP packet"
     fields_desc = [
-        StrFixedLenField("iv", b"\x00" * 4, 4),
-        StrFixedLenField("ext_iv", b"\x00" * 4, 4),
-        StrField("data", None, remain=12),
-        StrFixedLenField("mic", b"\x00" * 8, 8),
-        IntField("icv", 0),
+        XLELongField("ext_iv", 0),
     ]
 
 
 class Dot11CCMP(Dot11Encrypted):
     name = "802.11 TKIP packet"
     fields_desc = [
-        StrFixedLenField("ext_iv", b"\x00" * 4, 8),
-        StrField("data", None, remain=8),
-        StrFixedLenField("mic", b"\x00" * 8, 8),
+        XLELongField("ext_iv", 0),
     ]
 
 
@@ -906,6 +902,8 @@ bind_layers(Dot11ProbeReq, Dot11Elt,)
 bind_layers(Dot11ProbeResp, Dot11Elt,)
 bind_layers(Dot11Auth, Dot11Elt,)
 bind_layers(Dot11Elt, Dot11Elt,)
+bind_layers(Dot11TKIP, conf.raw_layer)
+bind_layers(Dot11CCMP, conf.raw_layer)
 
 
 conf.l2types.register(DLT_IEEE802_11, Dot11)

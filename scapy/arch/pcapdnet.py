@@ -96,12 +96,6 @@ if conf.use_winpcapy:
             pcap_compile, pcap_setfilter, pcap_setnonblock, pcap_sendpacket, \
             bpf_program as winpcapy_bpf_program
 
-        if conf.use_npcap:
-            # Npcap-only functions
-            from scapy.modules.winpcapy import pcap_create, pcap_set_snaplen, \
-                pcap_set_promisc, pcap_set_timeout, pcap_set_rfmon, \
-                pcap_activate
-
         def load_winpcapy():
             """This functions calls Winpcap/Npcap pcap_findalldevs function,
             and extracts and parse all the data scapy will need to use it:
@@ -185,6 +179,12 @@ if conf.use_winpcapy:
             self.errbuf = create_string_buffer(PCAP_ERRBUF_SIZE)
             self.iface = create_string_buffer(device.encode("utf8"))
             if monitor:
+                if not conf.use_npcap:
+                    raise OSError("This feature requires NPcap !")
+                # Npcap-only functions
+                from scapy.modules.winpcapy import pcap_create, \
+                    pcap_set_snaplen, pcap_set_promisc, \
+                    pcap_set_timeout, pcap_set_rfmon, pcap_activate
                 self.pcap = pcap_create(self.iface, self.errbuf)
                 pcap_set_snaplen(self.pcap, snaplen)
                 pcap_set_promisc(self.pcap, promisc)
