@@ -1,5 +1,4 @@
 #! /bin/sh
 DIR=$(dirname $0)
-PYTHONDONTWRITEBYTECODE=True
-PYTHON=${PYTHON:-python}
+PYTHON=${PYTHON:-python3}
 PYTHONPATH=$DIR exec $PYTHON -m scapy $@
