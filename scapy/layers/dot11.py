@@ -35,8 +35,7 @@ from scapy.fields import ByteField, LEShortField, BitField, LEShortEnumField, \
     StrLenField, IntField, XByteField, LEIntField, StrFixedLenField, \
     LESignedIntField, ReversePadField, ConditionalField, PacketListField, \
     ShortField, BitEnumField, FieldLenField, LEFieldLenField, \
-    FieldListField, XStrFixedLenField, PacketField, FCSField, XLELongField, \
-    PadField
+    FieldListField, XStrFixedLenField, PacketField, FCSField, PadField
 from scapy.ansmachine import AnsweringMachine
 from scapy.plist import PacketList
 from scapy.layers.l2 import Ether, LLC, MACField
@@ -858,19 +857,47 @@ class Dot11WEP(Dot11Encrypted):
             p = self.encrypt(p, raw(pay))
         return p
 
-# Dot11TKIP & Dot11CCMP follow wireshark: parse the ext_iv, nothing more
+# Dot11TKIP & Dot11CCMP
+
+# we can't dissect ICV / MIC here: they are encrypted
+
 
 class Dot11TKIP(Dot11Encrypted):
     name = "802.11 TKIP packet"
     fields_desc = [
-        XLELongField("ext_iv", 0),
+        # iv - 4 bytes
+        ByteField("TSC1", 0),
+        ByteField("WEPSeed", 0),
+        ByteField("TSC0", 0),
+        BitField("key_id", 0, 2),  #
+        BitField("ext_iv", 0, 1),  # => LE = reversed order
+        BitField("res", 0, 5),     #
+        # ext_iv - 4 bytes
+        ConditionalField(ByteField("TSC2", 0), lambda pkt: pkt.ext_iv),
+        ConditionalField(ByteField("TSC3", 0), lambda pkt: pkt.ext_iv),
+        ConditionalField(ByteField("TSC4", 0), lambda pkt: pkt.ext_iv),
+        ConditionalField(ByteField("TSC5", 0), lambda pkt: pkt.ext_iv),
+        # data
+        StrField("data", None),
     ]
 
 
 class Dot11CCMP(Dot11Encrypted):
     name = "802.11 TKIP packet"
     fields_desc = [
-        XLELongField("ext_iv", 0),
+        # iv - 8 bytes
+        ByteField("PN0", 0),
+        ByteField("PN1", 0),
+        ByteField("res0", 0),
+        BitField("key_id", 0, 2),  #
+        BitField("ext_iv", 0, 1),  # => LE = reversed order
+        BitField("res1", 0, 5),    #
+        ByteField("PN2", 0),
+        ByteField("PN3", 0),
+        ByteField("PN4", 0),
+        ByteField("PN5", 0),
+        # data
+        StrField("data", None),
     ]
 
 
