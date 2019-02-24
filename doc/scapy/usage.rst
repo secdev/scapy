@@ -667,7 +667,7 @@ For even more control over displayed information we can use the ``sprintf()`` fu
     en-us,en;q=0.5\r\nAccept-Encoding: gzip,deflate\r\nAccept-Charset:
     ISO-8859-1,utf-8;q=0.7,*;q=0.7\r\nKeep-Alive: 300\r\nConnection:
     keep-alive\r\nCache-Control: max-age=0\r\n\r\n'
-    
+
 We can sniff and do passive OS fingerprinting::
 
     >>> p
@@ -687,6 +687,29 @@ We can sniff and do passive OS fingerprinting::
     (1.0, ['Windows 2000 (9)'])
 
 The number before the OS guess is the accuracy of the guess.
+
+Advanced Sniffing - Sessions
+----------------------------
+
+.. note::
+   Sessions are only available since **Scapy 2.4.3**
+
+``sniff()`` also provides **Sessions**, that allows to dissect a flow of packets seamlessly. For instance, you may want your ``sniff(prn=...)`` function to automatically defragment IP packets, before executing the ``prn``.
+
+Scapy includes some basic Sessions, but it is possible to implement your own.
+Available by default:
+
+- ``IPSession`` -> *defragment IP packets* on-the-flow, to make a stream usable by ``prn``
+- ``NetflowSession`` -> *resolve Netflow V9 packets* from their NetflowFlowset information objects
+
+Those sessions can be used using the ``session=`` parameter of ``sniff()``::
+
+    >>> sniff(session=IPSession, prn=lambda x: x.summary())
+    >>> sniff(session=NetflowSession, prn=lambda x: x.summary())
+
+.. note::
+   To implement your own Session class, in order to support another flow-based protocol, start by copying a sample from `scapy/sessions.py <https://github.com/secdev/scapy/blob/master/scapy/sessions.py>`_
+   Your custom ``Session`` class only needs to extend the ``DefaultSession`` class, and implement a ``on_packet_received`` function, such as in the example.
 
 Filters
 -------
