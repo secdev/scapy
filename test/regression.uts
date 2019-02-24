@@ -6435,6 +6435,45 @@ fstat = os.stat(filename)
 assert fstat.st_size != 0
 os.remove(filename)
 
+
+############
+############
++ Sessions
+
+= IPSession - dissect fragmented IP packets on-the-flow
+~ tcpdump
+packet = IP()/("data"*1000)
+frags = fragment(packet)
+tmp_file = get_temp_file()
+wrpcap(tmp_file, frags)
+
+dissected_packets = []
+def callback(pkt):
+	dissected_packets.append(pkt)
+
+sniff(offline=tmp_file, session=IPSession, prn=callback)
+assert len(dissected_packets) == 1
+assert raw(dissected_packets[0]) == raw(packet)
+
+= NetflowSession - dissect packet NetflowV9 packets on-the-flow
+~ tcpdump
+
+import os
+tmp = "/test/pcaps/netflowv9.pcap"
+filename = os.path.abspath(os.path.join(os.path.dirname(__file__),"../")) + tmp
+filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else filename
+
+dissected_packets = []
+def callback(pkt):
+	dissected_packets.append(pkt)
+
+sniff(offline=filename, session=NetflowSession, prn=callback, count=50)
+records = dissected_packets[44][NetflowDataflowsetV9].records
+assert len(records) == 21
+assert records[0].IPV4_SRC_ADDR == '20.0.2.82'
+assert records[0].IPV4_NEXT_HOP == '10.100.103.1'
+
+
 ############
 ############
 + LLMNR protocol
