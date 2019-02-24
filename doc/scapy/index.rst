@@ -27,6 +27,8 @@ This document is under a `Creative Commons Attribution - Non-Commercial
    build_dissect
    functions
 
+   bluetooth
+
    troubleshooting
    development
    backmatter
