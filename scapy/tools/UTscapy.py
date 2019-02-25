@@ -775,7 +775,8 @@ def resolve_testfiles(TESTFILES):
     return TESTFILES
 
 
-def main(argv):
+def main():
+    argv = sys.argv[1:]
     ignore_globals = list(six.moves.builtins.__dict__.keys())
 
     # Parse arguments
@@ -984,9 +985,9 @@ if __name__ == "__main__":
             # Let's discover the garbage waste
             warnings.simplefilter('error')
             print("### Warning mode enabled ###")
-            res = main(sys.argv[1:])
+            res = main()
             if cw:
                 res = 1
         sys.exit(res)
     else:
-        sys.exit(main(sys.argv[1:]))
+        sys.exit(main())

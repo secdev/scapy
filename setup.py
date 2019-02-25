@@ -54,11 +54,6 @@ def get_long_description():
         return None
 
 
-SCRIPTS = ['bin/scapy', 'bin/UTscapy']
-# On Windows we also need additional batch files to run the above scripts
-if os.name == "nt":
-    SCRIPTS += ['bin/scapy.bat', 'bin/UTscapy.bat']
-
 setup(
     name='scapy',
     version=__import__('scapy').VERSION,
@@ -84,10 +79,16 @@ setup(
         'scapy/asn1',
         'scapy/tools',
     ],
-    scripts=SCRIPTS,
     data_files=[('share/man/man1', ["doc/scapy.1"])],
     package_data={
         'scapy': ['VERSION'],
+    },
+    # Build starting scripts automatically
+    entry_points={
+        'console_scripts': [
+            'scapy = scapy.main:interact',
+            'UTscapy = scapy.tools.UTscapy:main'
+        ]
     },
 
     # Metadata
