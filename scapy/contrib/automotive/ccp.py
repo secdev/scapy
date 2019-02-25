@@ -559,7 +559,13 @@ class DTO(Packet):
             else DEFAULT_DTO
 
     def answers(self, other):
-        """DEV: true if self is an answer from other"""
+        """In CCP, the payload of a DTO packet is dependant on the cmd field
+        of a corresponding CRO packet. Two packets correspond, if there
+        ctr field is equal. If answers detect the corresponding CRO, it will
+        interpret the payload of a DTO with the correct class. In CCP, there is
+        no other way, to determine the class of a DTO payload. Since answers is
+        called on sr and sr1, this modification of the original answers
+        implementation will give a better user experience. """
         if not hasattr(other, "ctr"):
             return 0
         if self.ctr != other.ctr:
