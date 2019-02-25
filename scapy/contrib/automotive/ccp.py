@@ -559,7 +559,7 @@ class DTO(Packet):
             else DEFAULT_DTO
 
     def answers(self, other):
-        """In CCP, the payload of a DTO packet is dependant on the cmd field
+        """In CCP, the payload of a DTO packet is dependent on the cmd field
         of a corresponding CRO packet. Two packets correspond, if there
         ctr field is equal. If answers detect the corresponding CRO, it will
         interpret the payload of a DTO with the correct class. In CCP, there is
