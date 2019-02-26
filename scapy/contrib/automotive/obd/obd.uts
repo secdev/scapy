@@ -36,6 +36,20 @@ assert res.answers(req)
 assert req.hashret() == res.hashret()
 
 
+= Check hashret for Service 0x40
+
+req = OBD(b'\x40')
+res = OBD(b'\x7F\x40\x11')
+assert req.hashret() == res.hashret()
+
+
+= Check hashret for Service 0x51
+
+req = OBD(b'\x51')
+res = OBD(b'\x7F\x51\x11')
+assert req.hashret() == res.hashret()
+
+
 = Check dissecting a request for Service 01 PID 00
 
 p = OBD(b'\x01\x00')
