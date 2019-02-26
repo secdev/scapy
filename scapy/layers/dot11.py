@@ -427,7 +427,7 @@ class Dot11Beacon(Packet):
                 crypto.add("WPA2")
             elif p.ID == 221:
                 if isinstance(p, Dot11EltMicrosoftWPA) or \
-                        p.info.startswith('\x00P\xf2\x01\x01\x00'):
+                        p.info.startswith(b'\x00P\xf2\x01\x01\x00'):
                     crypto.add("WPA")
             p = p.payload
         if not crypto:
