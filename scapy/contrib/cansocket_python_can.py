@@ -71,7 +71,7 @@ class CANSocket(SuperSocket):
                               is_error_frame=x.flags == 0x1,
                               arbitration_id=x.identifier,
                               dlc=x.length,
-                              data=x.data)
+                              data=bytes(x)[8:])
             return self.iface.send(msg)
         except can_Error as ex:
             raise ex
