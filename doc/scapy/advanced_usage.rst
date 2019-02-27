@@ -1573,7 +1573,7 @@ Close the sockets::
 CAN Calibration Protocol (CCP)
 ------------------------------
 
-CCP is derived from CAN. The CAN-header is part of a CCP frame. CCP has to types
+CCP is derived from CAN. The CAN-header is part of a CCP frame. CCP has two types
 of message objects. One is called Command Receive Object (CRO), the other is called
 Data Transmission Object (DTO). Usually CROs are sent to an ECU, and DTOs are received
 from an ECU. The information, if one DTO answers a CRO is implemented through a counter
@@ -1615,7 +1615,7 @@ Sending a CRO message::
             MTA0_address= 0x34002006
 
 Since sr1 calls the answers function, our payload of the DTO objects gets interpreted with the
-command of our cro object.
+command of our CRO object.
 
 ISOTP message
 -------------
