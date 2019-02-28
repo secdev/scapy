@@ -426,14 +426,14 @@ conf.neighbor.register_l3(Ether, ARP, l2_register_l3_arp)
 
 class ERSPAN(Packet):
     name = "ERSPAN"
-    fields_desc = [ BitField("ver",0,4),
-                    BitField("vlan",0,12),
-                    BitField("cos",0,3),
-                    BitField("en",0,2),
-                    BitField("t",0,1),
-                    BitField("session_id",0,10),
-                    BitField("reserved",0,12),
-                    BitField("index",0,20),
+    fields_desc = [ BitField("ver", 0, 4),
+                    BitField("vlan", 0, 12),
+                    BitField("cos", 0, 3),
+                    BitField("en", 0, 2),
+                    BitField("t",0, 1),
+                    BitField("session_id", 0, 10),
+                    BitField("reserved", 0, 12),
+                    BitField("index", 0, 20),
                     ]
 
 
