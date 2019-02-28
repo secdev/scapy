@@ -35,7 +35,7 @@ from scapy.fields import ByteField, LEShortField, BitField, LEShortEnumField, \
     StrLenField, IntField, XByteField, LEIntField, StrFixedLenField, \
     LESignedIntField, ReversePadField, ConditionalField, PacketListField, \
     ShortField, BitEnumField, FieldLenField, LEFieldLenField, \
-    FieldListField, XStrFixedLenField, PacketField, FCSField
+    FieldListField, XStrFixedLenField, PacketField, PadField, FCSField
 from scapy.ansmachine import AnsweringMachine
 from scapy.plist import PacketList
 from scapy.layers.l2 import Ether, LLC, MACField
@@ -403,8 +403,7 @@ status_code = {0: "success", 1: "failure", 10: "cannot-support-all-cap",
                16: "timeout", 17: "AP-full", 18: "rate-unsupported"}
 
 
-class Dot11Beacon(Packet):
-    name = "802.11 Beacon"
+class _Dot11NetStats(Packet):
     fields_desc = [LELongField("timestamp", 0),
                    LEShortField("beacon_interval", 0x0064),
                    FlagsField("cap", 0, 16, capability_list)]
@@ -421,6 +420,15 @@ class Dot11Beacon(Packet):
                 summary["ssid"] = plain_str(p.info)
             elif p.ID == 3:
                 summary["channel"] = ord(p.info)
+            elif isinstance(p, Dot11EltCountry):
+                summary["country"] = plain_str(p.country_string[:2])
+                country_descriptor_types = {
+                    b"I": "Indoor",
+                    b"O": "Outdoor"
+                }
+                summary["country_desc_type"] = country_descriptor_types.get(
+                    p.country_string[-1:]
+                )
             elif isinstance(p, Dot11EltRates):
                 summary["rates"] = p.rates
             elif isinstance(p, Dot11EltRSN):
@@ -437,6 +445,10 @@ class Dot11Beacon(Packet):
                 crypto.add("OPN")
         summary["crypto"] = crypto
         return summary
+
+
+class Dot11Beacon(_Dot11NetStats):
+    name = "802.11 Beacon"
 
 
 _dot11_info_elts_ids = {
@@ -580,7 +592,7 @@ class PMKIDListPacket(Packet):
 
 
 class Dot11EltRSN(Dot11Elt):
-    name = "RSN information"
+    name = "802.11 RSN information"
     fields_desc = [
         ByteField("ID", 48),
         ByteField("len", None),
@@ -625,8 +637,36 @@ class Dot11EltRSN(Dot11Elt):
     ]
 
 
+class Dot11EltCountryConstraintTriplet(Packet):
+    name = "802.11 Country Constraint Triplet"
+    fields_desc = [
+        ByteField("first_channel_number", 1),
+        ByteField("num_channels", 24),
+        _dbmField("mtp", -256)
+    ]
+
+    def extract_padding(self, s):
+        return b"", s
+
+
+class Dot11EltCountry(Dot11Elt):
+    name = "802.11 Country"
+    fields_desc = [
+        ByteField("ID", 7),
+        ByteField("len", None),
+        StrFixedLenField("country_string", b"\0\0\0", length=3),
+        PadField(
+            PacketListField("descriptors",
+                            [],
+                            Dot11EltCountryConstraintTriplet,
+                            length_from=lambda pkt: pkt.len - (pkt.len % 3)),
+            2, padwith=b"\x00"
+        )
+    ]
+
+
 class Dot11EltMicrosoftWPA(Dot11Elt):
-    name = "Microsoft WPA"
+    name = "802.11 Microsoft WPA"
     fields_desc = [
         ByteField("ID", 221),
         ByteField("len", None),
@@ -660,7 +700,7 @@ class Dot11EltMicrosoftWPA(Dot11Elt):
 
 
 class Dot11EltRates(Dot11Elt):
-    name = "Rates"
+    name = "802.11 Rates"
     fields_desc = [
         ByteField("ID", 1),
         ByteField("len", None),
@@ -674,7 +714,7 @@ class Dot11EltRates(Dot11Elt):
 
 
 class Dot11EltVendorSpecific(Dot11Elt):
-    name = "Vendor Specific"
+    name = "802.11 Vendor Specific"
     fields_desc = [
         ByteField("ID", 221),
         ByteField("len", None),
@@ -720,11 +760,8 @@ class Dot11ProbeReq(Packet):
     name = "802.11 Probe Request"
 
 
-class Dot11ProbeResp(Packet):
+class Dot11ProbeResp(_Dot11NetStats):
     name = "802.11 Probe Response"
-    fields_desc = [LELongField("timestamp", 0),
-                   LEShortField("beacon_interval", 0x0064),
-                   FlagsField("cap", 0, 16, capability_list)]
 
 
 class Dot11Auth(Packet):
