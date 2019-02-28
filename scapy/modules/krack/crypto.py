@@ -278,7 +278,7 @@ def parse_TKIP_hdr(pkt):
         raise ValueError("Extended IV must be set for TKIP")
     TSC0 = tkip_layer.TSC0
     TSC1 = tkip_layer.TSC1
-    WEPseed = tkip_layer.WEPseed
+    WEPseed = tkip_layer.WEPSeed
 
     # Extended IV
     TSC2 = tkip_layer.TSC2
