@@ -384,6 +384,8 @@ class ARP(Packet):
             StrFixedLenField("pdst", None, length_from=lambda pkt: pkt.plen),
         ),
     ]
+    who_has = 1
+    is_at = 2
 
     def hashret(self):
         return struct.pack(">HHH", self.hwtype, self.ptype,
