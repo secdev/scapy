@@ -1491,6 +1491,9 @@ If it's required, the CAN interface can be set into a `listen-only` or `loopback
    ip link set vcan0 type can help  # shows additional information
 
 
+:doc:`/graphics/animations/animation-cansend.svg`
+
+
 CAN Frame
 ^^^^^^^^^
 
