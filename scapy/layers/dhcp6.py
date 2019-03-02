@@ -25,7 +25,7 @@ from scapy.fields import BitField, ByteEnumField, ByteField, FieldLenField, \
     FlagsField, IntEnumField, IntField, MACField, PacketField, \
     PacketListField, ShortEnumField, ShortField, StrField, StrFixedLenField, \
     StrLenField, UTCTimeField, X3BytesField, XIntField, XShortEnumField, \
-    PacketLenField
+    PacketLenField, UUIDField
 from scapy.layers.inet import UDP
 from scapy.layers.inet6 import DomainNameListField, IP6Field, IP6ListField, \
     IPv6
@@ -285,7 +285,7 @@ class DUID_LL(Packet):  # sect 9.4 RFC 3315
 class DUID_UUID(Packet):  # RFC 6355
     name = "DUID - Based on UUID"
     fields_desc = [ShortEnumField("type", 4, duidtypes),
-                   StrFixedLenField("uuid", "", 16)]
+                   UUIDField("uuid", None, uuid_fmt=UUIDField.FORMAT_BE)]
 
 
 duid_cls = {1: "DUID_LLT",

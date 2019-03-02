@@ -1,6 +1,8 @@
+# -*- mode: python3; indent-tabs-mode: nil; tab-width: 4 -*-
 # This file is part of Scapy
 # See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
+# Copyright (C) Michael Farrell <micolous+git@gmail.com>
 # This program is published under a GPLv2 license
 
 """
@@ -15,13 +17,14 @@ import socket
 import struct
 import time
 from types import MethodType
+from uuid import UUID
 
 
 from scapy.config import conf
 from scapy.dadict import DADict
 from scapy.volatile import RandBin, RandByte, RandEnumKeys, RandInt, \
     RandIP, RandIP6, RandLong, RandMAC, RandNum, RandShort, RandSInt, \
-    RandSByte, RandTermString, VolatileValue
+    RandSByte, RandTermString, RandUUID, VolatileValue
 from scapy.data import EPOCH
 from scapy.error import log_runtime, Scapy_Exception
 from scapy.compat import bytes_hex, chb, orb, plain_str, raw, bytes_encode
@@ -2273,3 +2276,129 @@ class ScalingField(Field):
             max_value = int(max(barrier1, barrier2))
 
             return RandNum(min_value, max_value)
+
+
+class UUIDField(Field):
+    """Field for UUID storage, wrapping Python's uuid.UUID type.
+
+    The internal storage format of this field is ``uuid.UUID`` from the Python
+    standard library.
+
+    There are three formats (``uuid_fmt``) for this field type::
+
+    * ``FORMAT_BE`` (default): the UUID is six fields in big-endian byte order,
+      per RFC 4122.
+
+      This format is used by DHCPv6 (RFC 6355) and most network protocols.
+
+    * ``FORMAT_LE``: the UUID is six fields, with ``time_low``, ``time_mid``
+      and ``time_high_version`` in little-endian byte order. This _doesn't_
+      change the arrangement of the fields from RFC 4122.
+
+      This format is used by Microsoft's COM/OLE libraries.
+
+    * ``FORMAT_REV``: the UUID is a single 128-bit integer in little-endian
+      byte order. This _changes the arrangement_ of the fields.
+
+      This format is used by Bluetooth Low Energy.
+
+    Note: You should use the constants here.
+
+    The "human encoding" of this field supports a number of different input
+    formats, and wraps Python's ``uuid.UUID`` library appropriately::
+
+    * Given a bytearray, bytes or str of 16 bytes, this class decodes UUIDs in
+      wire format.
+
+    * Given a bytearray, bytes or str of other lengths, this delegates to
+      ``uuid.UUID`` the Python standard library. This supports a number of
+      different encoding options -- see the Python standard library
+      documentation for more details.
+
+    * Given an int or long, presumed to be a 128-bit integer to pass to
+      ``uuid.UUID``.
+
+    * Given a tuple:
+
+      * Tuples of 11 integers are treated as having the last 6 integers forming
+        the ``node`` field, and are merged before being passed as a tuple of 6
+        integers to ``uuid.UUID``.
+
+      * Otherwise, the tuple is passed as the ``fields`` parameter to
+        ``uuid.UUID`` directly without modification.
+
+        ``uuid.UUID`` expects a tuple of 6 integers.
+
+    Other types (such as ``uuid.UUID``) are passed through.
+    """
+
+    __slots__ = ["uuid_fmt"]
+
+    FORMAT_BE = 0
+    FORMAT_LE = 1
+    FORMAT_REV = 2
+
+    # Change this when we get new formats
+    FORMATS = (FORMAT_BE, FORMAT_LE, FORMAT_REV)
+
+    def __init__(self, name, default, uuid_fmt=FORMAT_BE):
+        self.uuid_fmt = uuid_fmt
+        self._check_uuid_fmt()
+        Field.__init__(self, name, default, "16s")
+
+    def _check_uuid_fmt(self):
+        """Checks .uuid_fmt, and raises an exception if it is not valid."""
+        if self.uuid_fmt not in UUIDField.FORMATS:
+            raise FieldValueRangeException(
+                "Unsupported uuid_fmt ({})".format(self.uuid_fmt))
+
+    def i2m(self, pkt, x):
+        self._check_uuid_fmt()
+        if x is None:
+            return b'\0' * 16
+        if self.uuid_fmt == UUIDField.FORMAT_BE:
+            return x.bytes
+        elif self.uuid_fmt == UUIDField.FORMAT_LE:
+            return x.bytes_le
+        elif self.uuid_fmt == UUIDField.FORMAT_REV:
+            return x.bytes[::-1]
+
+    def m2i(self, pkt, x):
+        self._check_uuid_fmt()
+        if self.uuid_fmt == UUIDField.FORMAT_BE:
+            return UUID(bytes=x)
+        elif self.uuid_fmt == UUIDField.FORMAT_LE:
+            return UUID(bytes_le=x)
+        elif self.uuid_fmt == UUIDField.FORMAT_REV:
+            return UUID(bytes=x[::-1])
+
+    def any2i(self, pkt, x):
+        # Python's uuid doesn't handle bytearray, so convert to an immutable
+        # type first.
+        if isinstance(x, bytearray):
+            x = bytes(x)
+
+        if isinstance(x, six.integer_types):
+            x = UUID(int=x)
+        elif isinstance(x, tuple):
+            if len(x) == 11:
+                # For compatibility with dce_rpc: this packs into a tuple where
+                # elements 7..10 are the 48-bit node ID.
+                node = 0
+                for i in x[5:]:
+                    node = (node << 8) | i
+
+                x = (x[0], x[1], x[2], x[3], x[4], node)
+
+            x = UUID(fields=x)
+        elif isinstance(x, (six.binary_type, six.text_type)):
+            if len(x) == 16:
+                # Raw bytes
+                x = self.m2i(pkt, x)
+            else:
+                x = UUID(plain_str(x))
+        return x
+
+    @staticmethod
+    def randval():
+        return RandUUID()

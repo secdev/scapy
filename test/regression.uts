@@ -6,6 +6,14 @@
 ############
 + Information on Scapy
 
+= Setup
+def expect_exception(e, c):
+    try:
+        c()
+        return False
+    except e:
+        return True
+
 = Get conf
 ~ conf command
 * Dump the current configuration
@@ -4374,6 +4382,29 @@ a.type == 3 and a.hwtype == 1 and a.lladdr == "00:00:00:00:00:00"
 = DUID_LL with specific values 
 a=DUID_LL(b'\x00\x03\x00\x01\xff\xff\xff\xff\xff\xff')
 a.hwtype == 1 and a.lladdr == "ff:ff:ff:ff:ff:ff"
+
+
+############
+############
++ Test DHCP6 DUID_UUID
+
+= DUID_UUID basic instantiation
+a=DUID_UUID() 
+
+= DUID_UUID basic build
+raw(DUID_UUID()) == b"\0\x04\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
+
+= DUID_UUID build with specific values
+raw(DUID_UUID(uuid="272adcca-138c-4e8d-b3f4-634e953128cf")) == \
+   b"\x00\x04'*\xdc\xca\x13\x8cN\x8d\xb3\xf4cN\x951(\xcf"
+
+= DUID_UUID basic dissection
+a=DUID_UUID(raw(DUID_UUID()))
+a.type == 4 and str(a.uuid) == "00000000-0000-0000-0000-000000000000"
+
+= DUID_UUID with specific values 
+a=DUID_UUID(b"\x00\x04'*\xdc\xca\x13\x8cN\x8d\xb3\xf4cN\x951(\xcf")
+a.type == 4 and str(a.uuid) == "272adcca-138c-4e8d-b3f4-634e953128cf"
 
 
 ############
@@ -9937,8 +9968,8 @@ len(r4.routes) == len_r4
 
 = RandomEnumeration
 
-re = RandomEnumeration(0, 7, seed=0x2807, forever=False)
-[x for x in re] == ([3, 4, 2, 5, 1, 6, 0, 7] if six.PY2 else [5, 0, 2, 7, 6, 3, 1, 4])
+ren = RandomEnumeration(0, 7, seed=0x2807, forever=False)
+[x for x in ren] == ([3, 4, 2, 5, 1, 6, 0, 7] if six.PY2 else [5, 0, 2, 7, 6, 3, 1, 4])
 
 = RandIP6
 
@@ -9979,8 +10010,8 @@ assert(ro == ("1.2.3.11" if six.PY2 else "1.2.3.12"))
 = RandRegExp
 
 random.seed(0x2807)
-re = RandRegExp("[g-v]* @? [0-9]{3} . (g|v)")
-bytes(re) == ('vmuvr @ 906 \x9e g' if six.PY2 else b'irrtv @ 517 \xc2\xb8 v')
+rex = RandRegExp("[g-v]* @? [0-9]{3} . (g|v)")
+bytes(rex) == ('vmuvr @ 906 \x9e g' if six.PY2 else b'irrtv @ 517 \xc2\xb8 v')
 
 = Corrupted(Bytes|Bits)
 
@@ -11010,6 +11041,166 @@ assert p.inner.f_name == b"scapy"
 
 p = TestPacket()
 assert p.inner.f_name == b"test"
+
++ UUIDField
+
+= Parsing a human-readable UUID
+f = UUIDField('f', '01234567-89ab-cdef-0123-456789abcdef')
+f.addfield(None, b'', f.default) == hex_bytes('0123456789abcdef0123456789abcdef')
+
+= Parsing a machine-encoded UUID
+f = UUIDField('f', bytearray.fromhex('0123456789abcdef0123456789abcdef'))
+f.addfield(None, b'', f.default) == hex_bytes('0123456789abcdef0123456789abcdef')
+
+= Parsing a tuple of values
+f = UUIDField('f', (0x01234567, 0x89ab, 0xcdef, 0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef))
+f.addfield(None, b'', f.default) == hex_bytes('0123456789abcdef0123456789abcdef')
+
+= Handle None values
+f = UUIDField('f', None)
+f.addfield(None, b'', f.default) == hex_bytes('00000000000000000000000000000000')
+
+= Get a UUID for dissection
+from uuid import UUID
+f = UUIDField('f', None)
+f.getfield(None, bytearray.fromhex('0123456789abcdef0123456789abcdef01')) == (b'\x01', UUID('01234567-89ab-cdef-0123-456789abcdef'))
+
+= Verify little endian UUIDField
+* The endianness of a UUIDField should be apply by block on each block in parenthesis '(01234567)-(89ab)-(cdef)-(01)(23)-(45)(67)(89)(ab)(cd)(ef)'
+f = UUIDField('f', '01234567-89ab-cdef-0123-456789abcdef', uuid_fmt=UUIDField.FORMAT_LE)
+f.addfield(None, b'', f.default) == hex_bytes('67452301ab89efcd0123456789abcdef')
+
+= Verify reversed UUIDField
+* This should reverse the entire value as 128-bits
+f = UUIDField('f', '01234567-89ab-cdef-0123-456789abcdef', uuid_fmt=UUIDField.FORMAT_REV)
+f.addfield(None, b'', f.default) == hex_bytes('efcdab8967452301efcdab8967452301')
+
++ RandUUID
+
+= RandUUID setup
+
+RANDUUID_TEMPLATE = '01234567-89ab-*-01*-*****ef'
+RANDUUID_FIXED = uuid.uuid4()
+
+= RandUUID default behaviour
+
+u = RandUUID()._fix()
+u.version == 4
+
+= RandUUID incorrect implicit args
+
+expect_exception(ValueError, lambda: RandUUID(node=0x1234, name="scapy"))
+expect_exception(ValueError, lambda: RandUUID(node=0x1234, namespace=uuid.uuid4()))
+expect_exception(ValueError, lambda: RandUUID(clock_seq=0x1234, name="scapy"))
+expect_exception(ValueError, lambda: RandUUID(clock_seq=0x1234, namespace=uuid.uuid4()))
+expect_exception(ValueError, lambda: RandUUID(name="scapy"))
+expect_exception(ValueError, lambda: RandUUID(namespace=uuid.uuid4()))
+
+= RandUUID v4 UUID (correct args)
+
+u = RandUUID(version=4)._fix()
+u.version == 4
+
+u2 = RandUUID(version=4)._fix()
+u2.version == 4
+
+str(u) != str(u2)
+
+= RandUUID v4 UUID (incorrect args)
+
+expect_exception(ValueError, lambda: RandUUID(version=4, template=RANDUUID_TEMPLATE))
+expect_exception(ValueError, lambda: RandUUID(version=4, node=0x1234))
+expect_exception(ValueError, lambda: RandUUID(version=4, clock_seq=0x1234))
+expect_exception(ValueError, lambda: RandUUID(version=4, namespace=uuid.uuid4()))
+expect_exception(ValueError, lambda: RandUUID(version=4, name="scapy"))
+
+= RandUUID v1 UUID
+
+u = RandUUID(version=1)._fix()
+u.version == 1
+
+u = RandUUID(version=1, node=0x1234)._fix()
+u.version == 1
+u.node == 0x1234
+
+u = RandUUID(version=1, clock_seq=0x1234)._fix()
+u.version == 1
+u.clock_seq == 0x1234
+
+u = RandUUID(version=1, node=0x1234, clock_seq=0x1bcd)._fix()
+u.version == 1
+u.node == 0x1234
+u.clock_seq == 0x1bcd
+
+= RandUUID v1 UUID (implicit version)
+
+u = RandUUID(node=0x1234)._fix()
+u.version == 1
+u.node == 0x1234
+
+u = RandUUID(clock_seq=0x1234)._fix()
+u.version == 1
+u.clock_seq == 0x1234
+
+u = RandUUID(node=0x1234, clock_seq=0x1bcd)._fix()
+u.version == 1
+u.node == 0x1234
+u.clock_seq == 0x1bcd
+
+= RandUUID v1 UUID (incorrect args)
+
+expect_exception(ValueError, lambda: RandUUID(version=1, template=RANDUUID_TEMPLATE))
+expect_exception(ValueError, lambda: RandUUID(version=1, namespace=uuid.uuid4()))
+expect_exception(ValueError, lambda: RandUUID(version=1, name="scapy"))
+
+= RandUUID v5 UUID
+
+u = RandUUID(version=5, namespace=RANDUUID_FIXED, name="scapy")._fix()
+u.version == 5
+
+u2 = RandUUID(version=5, namespace=RANDUUID_FIXED, name="scapy")._fix()
+u2.version == 5
+u.bytes == u2.bytes
+
+# implicit v5
+u2 = RandUUID(namespace=RANDUUID_FIXED, name="scapy")._fix()
+u.bytes == u2.bytes
+
+= RandUUID v5 UUID (incorrect args)
+
+expect_exception(ValueError, lambda: RandUUID(version=5, template=RANDUUID_TEMPLATE))
+expect_exception(ValueError, lambda: RandUUID(version=5, node=0x1234))
+expect_exception(ValueError, lambda: RandUUID(version=5, clock_seq=0x1234))
+
+= RandUUID v3 UUID
+
+u = RandUUID(version=3, namespace=RANDUUID_FIXED, name="scapy")._fix()
+u.version == 3
+
+u2 = RandUUID(version=3, namespace=RANDUUID_FIXED, name="scapy")._fix()
+u2.version == 3
+u.bytes == u2.bytes
+
+# implicit v5
+u2 = RandUUID(namespace=RANDUUID_FIXED, name="scapy")._fix()
+u.bytes != u2.bytes
+
+= RandUUID v3 UUID (incorrect args)
+
+expect_exception(ValueError, lambda: RandUUID(version=5, template=RANDUUID_TEMPLATE))
+expect_exception(ValueError, lambda: RandUUID(version=5, node=0x1234))
+expect_exception(ValueError, lambda: RandUUID(version=5, clock_seq=0x1234))
+
+= RandUUID looks like a UUID with str
+re.match(r'[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}', str(RandUUID()), re.I) is not None
+
+= RandUUID with a static part
+* RandUUID template can contain static part such a 01234567-89ab-*-01*-*****ef
+re.match(r'01234567-89ab-[0-9a-f]{4}-01[0-9a-f]{2}-[0-9a-f]{10}ef', str(RandUUID('01234567-89ab-*-01*-*****ef')), re.I) is not None
+
+= RandUUID with a range part
+* RandUUID template can contain a part with a range of values such a 01234567-89ab-*-01*-****c0:c9ef
+re.match(r'01234567-89ab-[0-9a-f]{4}-01[0-9a-f]{2}-[0-9a-f]{8}c[0-9]ef', str(RandUUID('01234567-89ab-*-01*-****c0:c9ef')), re.I) is not None
 
 ############
 ############
