@@ -5,6 +5,10 @@
 from scapy.contrib.dce_rpc import *
 from scapy.contrib.pnio_rpc import *
 
+= Check that we have UUIDs
+
+for v in RPC_INTERFACE_UUID.values():
+    assert(isinstance(v, UUID))
 
 + Check Block
 
