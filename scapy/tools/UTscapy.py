@@ -28,7 +28,7 @@ import zlib
 from scapy.consts import WINDOWS
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
-from scapy.compat import base64_bytes
+from scapy.compat import base64_bytes, bytes_hex, plain_str
 
 
 #   Util class   #
@@ -451,6 +451,13 @@ def run_test(test, get_interactive_session, verb=3, ignore_globals=None):
         test.output += "UTscapy: Error during result interpretation:\n"
         test.output += "".join(traceback.format_exception(sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2],))
     finally:
+        if test.result == "failed":
+            from scapy.sendrecv import debug
+            # Add optional debugging data to log
+            if debug.crashed_on:
+                cls, val = debug.crashed_on
+                test.output += "\n\nPACKET DISSECTION FAILED ON:\n %s(hex_bytes('%s'))" % (cls.__name__, plain_str(bytes_hex(val)))
+                debug.crashed_on = None
         test.decode()
         if verb > 1:
             print("%(result)6s %(crc)s %(name)s" % test, file=sys.stderr)
