@@ -4,6 +4,7 @@
 = Import the DCE/RPC layer
 import re
 from scapy.contrib.dce_rpc import *
+from uuid import UUID
 
 
 + Check EndiannessField
@@ -40,46 +41,24 @@ f.getfield(None, '0102030405') == (b'', '0102030405')
 f = EndiannessField(StrField('f', 0), lambda p: '>')
 f.addfield(None, b'01', '02030405') == b'0102030405'
 
+= Little Endian UUIDField getfield
+* The endianness of a UUIDField should be apply by block on each block in
+* parenthesis '(01234567)-(89ab)-(cdef)-(01)(23)-(45)(67)(89)(ab)(cd)(ef)'
 
+f = EndiannessField(UUIDField('f', None), lambda p: '<')
+f.getfield(None, hex_bytes('0123456789abcdef0123456789abcdef')) == (b'', UUID('67452301-ab89-efcd-0123-456789abcdef'))
 
-+ Check UUIDField
-
-= Parsing a human-readable UUID
-f = UUIDField('f', '01234567-89ab-cdef-0123-456789abcdef')
-f.addfield(None, b'', f.default) == bytearray.fromhex('0123456789abcdef0123456789abcdef')
-
-= Parsing a machine-encoded UUID
-f = UUIDField('f', bytearray.fromhex('0123456789abcdef0123456789abcdef'))
-f.addfield(None, b'', f.default) == bytearray.fromhex('0123456789abcdef0123456789abcdef')
-
-= Parsing a tuple of values
-f = UUIDField('f', (0x01234567, 0x89ab, 0xcdef, 0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef))
-f.addfield(None, b'', f.default) == bytearray.fromhex('0123456789abcdef0123456789abcdef')
-
-= Handle None values
-f = UUIDField('f', None)
-f.addfield(None, b'', f.default) == bytearray.fromhex('00000000000000000000000000000000')
-
-= Get a UUID for dissection
-f = UUIDField('f', None)
-f.getfield(None, bytearray.fromhex('0123456789abcdef0123456789abcdef01')) == (b'\x01', '01234567-89ab-cdef-0123-456789abcdef')
-
-= Verify little endianness of UUIDField
-* The endianness of a UUIDField should be apply by block on each block in parenthesis '(01234567)-(89ab)-(cdef)-(01)(23)-(45)(67)(89)(ab)(cd)(ef)'
+= Little Endian UUIDField addfield
 f = EndiannessField(UUIDField('f', '01234567-89ab-cdef-0123-456789abcdef'), lambda p: '<')
-f.addfield(None, b'', f.default) == bytearray.fromhex('67452301ab89efcd0123456789abcdef')
+f.addfield(None, b'', f.default) == hex_bytes('67452301ab89efcd0123456789abcdef')
 
-= Verify RandUUID
-re.match(r'[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}', str(RandUUID()), re.I) is not None
+= Big Endian UUIDField getfield
+f = EndiannessField(UUIDField('f', None), lambda p: '>')
+f.getfield(None, hex_bytes('0123456789abcdef0123456789abcdef')) == (b'', UUID('01234567-89ab-cdef-0123456789abcdef'))
 
-= Verify RandUUID with a static part
-* RandUUID template can contain static part such a 01234567-89ab-*-01*-*****ef
-re.match(r'01234567-89ab-[0-9a-f]{4}-01[0-9a-f]{2}-[0-9a-f]{10}ef', str(RandUUID('01234567-89ab-*-01*-*****ef')), re.I) is not None
-
-= Verify RandUUID with a range part
-* RandUUID template can contain a part with a range of values such a 01234567-89ab-*-01*-****c0:c9ef
-re.match(r'01234567-89ab-[0-9a-f]{4}-01[0-9a-f]{2}-[0-9a-f]{8}c[0-9]ef', str(RandUUID('01234567-89ab-*-01*-****c0:c9ef')), re.I) is not None
-
+= Big Endian UUIDField addfield
+f = EndiannessField(UUIDField('f', '01234567-89ab-cdef-0123-456789abcdef'), lambda p: '>')
+f.addfield(None, b'', f.default) == hex_bytes('0123456789abcdef0123456789abcdef')
 
 
 + Check DCE/RPC layer

@@ -14,7 +14,6 @@ import socket
 import struct
 from select import select
 from ctypes import sizeof
-from uuid import UUID
 
 from scapy.config import conf
 from scapy.data import DLT_BLUETOOTH_HCI_H4, DLT_BLUETOOTH_HCI_H4_WITH_PHDR
@@ -22,7 +21,7 @@ from scapy.packet import bind_layers, Packet
 from scapy.fields import ByteEnumField, ByteField, Field, FieldLenField, \
     FieldListField, FlagsField, IntField, LEShortEnumField, LEShortField, \
     LenField, PacketListField, SignedByteField, StrField, StrFixedLenField, \
-    StrLenField, XByteField, BitField, XLELongField, PadField
+    StrLenField, XByteField, BitField, XLELongField, PadField, UUIDField
 from scapy.supersocket import SuperSocket
 from scapy.sendrecv import sndrcv
 from scapy.data import MTU
@@ -31,7 +30,6 @@ from scapy.error import warning
 from scapy.utils import lhex, mac2str, str2mac
 from scapy.volatile import RandMAC
 from scapy.modules import six
-from scapy.compat import plain_str
 
 
 ##########
@@ -68,61 +66,6 @@ class LEMACField(Field):
 
     def randval(self):
         return RandMAC()
-
-
-class BTUUID128Field(Field):
-    """Field for Bluetooth UUID storage, wrapping Python's uuid.UUID type.
-
-    Bluetooth stores UUIDs as a 128-bit little-endian integer. This differs
-    from most other encodings, which only change the endianness of the first
-    three component integers (time_low, time_mid, time_high_version), but
-    otherwise emit the fields in a consistent order.
-
-    The internal storage format of this field is ``uuid.UUID`` from the Python
-    standard library.
-
-    The "human encoding" of this field supports a number of different input
-    formats, and wraps Python's ``uuid.UUID`` library appropriately:
-
-    * Given a bytearray or str of 16 bytes, this class decodes UUIDs in
-      Bluetooth wire format.
-
-    * Given a bytearray or str of other lengths, this delegates to
-      ``uuid.UUID`` the Python standard library. This supports a number of
-      different encoding options -- see the Python standard library
-      documentation for more details.
-
-    * Given an int or long, presumed to be a 128-bit integer to pass to
-      ``uuid.UUID``.
-
-    * Given a tuple, this is presumed to be a tuple of 6 integers to pass to
-      ``uuid.UUID``.
-
-    Other types (such as ``uuid.UUID``) are passed through.
-    """
-    def __init__(self, name, default):
-        Field.__init__(self, name, default, "16s")
-
-    def i2m(self, pkt, x):
-        if x is None:
-            return bytes(16)
-        return x.bytes[::-1]
-
-    def m2i(self, pkt, x):
-        return UUID(bytes=x[::-1])
-
-    def any2i(self, pkt, x):
-        if isinstance(x, six.integer_types):
-            x = UUID(int=x)
-        elif isinstance(x, tuple):
-            x = UUID(fields=x)
-        elif isinstance(x, (six.binary_type, six.text_type)):
-            if len(x) == 16:
-                # Raw bytes
-                x = self.m2i(pkt, x)
-            else:
-                x = UUID(plain_str(x))
-        return x
 
 
 ##########
@@ -644,7 +587,8 @@ class EIR_IncompleteList16BitServiceUUIDs(EIR_CompleteList16BitServiceUUIDs):
 class EIR_CompleteList128BitServiceUUIDs(EIR_Element):
     name = "Complete list of 128-bit service UUIDs"
     fields_desc = [
-        FieldListField("svc_uuids", None, BTUUID128Field("uuid", None),
+        FieldListField("svc_uuids", None,
+                       UUIDField("uuid", None, uuid_fmt=UUIDField.FORMAT_REV),
                        length_from=EIR_Element.length_from)
     ]
 

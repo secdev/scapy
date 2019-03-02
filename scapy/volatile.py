@@ -1,6 +1,8 @@
 # This file is part of Scapy
 # See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Philippe Biondi <phil@secdev.org>
+# Copyright (C) Michael Farrell <micolous+git@gmail.com>
+# Copyright (C) Gauthier Sebaux
 # This program is published under a GPLv2 license
 
 """
@@ -11,6 +13,9 @@ from __future__ import absolute_import
 import random
 import time
 import math
+import re
+import uuid
+
 from scapy.base_classes import Net
 from scapy.compat import bytes_encode, chb, plain_str
 from scapy.utils import corrupt_bits, corrupt_bytes
@@ -782,6 +787,130 @@ class RandPool(RandField):
     def _fix(self):
         r = random.choice(self._pool)
         return r._fix()
+
+
+class RandUUID(RandField):
+    """Generates a random UUID.
+
+    By default, this generates a RFC 4122 version 4 UUID (totally random).
+
+    See Python's ``uuid`` module documentation for more information.
+
+    Args:
+        template (optional): A template to build the UUID from. Not valid with
+                             any other option.
+        node (optional): A 48-bit Host ID. Only valid for version 1 (where it
+                         is optional).
+        clock_seq (optional): An integer of up to 14-bits for the sequence
+                              number. Only valid for version 1 (where it is
+                              optional).
+        namespace: A namespace identifier, which is also a UUID. Required for
+                   versions 3 and 5, must be omitted otherwise.
+        name: string, required for versions 3 and 5, must be omitted otherwise.
+        version: Version of UUID to use (1, 3, 4 or 5). If omitted, attempts to
+                 guess which version to generate, defaulting to version 4
+                 (totally random).
+
+    Raises:
+        ValueError: on invalid constructor arguments
+    """
+    # This was originally scapy.contrib.dce_rpc.RandUUID.
+
+    _BASE = "([0-9a-f]{{{0}}}|\\*|[0-9a-f]{{{0}}}:[0-9a-f]{{{0}}})"
+    _REG = re.compile(
+        r"^{0}-?{1}-?{1}-?{2}{2}-?{2}{2}{2}{2}{2}{2}$".format(
+            _BASE.format(8), _BASE.format(4), _BASE.format(2)
+        ),
+        re.I
+    )
+    VERSIONS = (1, 3, 4, 5)
+
+    def __init__(self, template=None, node=None, clock_seq=None,
+                 namespace=None, name=None, version=None):
+        self.uuid_template = None
+        self.node = None
+        self.clock_seq = None
+        self.namespace = None
+        self.node = None
+        self.version = None
+
+        if template:
+            if node or clock_seq or namespace or name or version:
+                raise ValueError("UUID template must be the only parameter, "
+                                 "if specified")
+            tmp = RandUUID._REG.match(template)
+            if tmp:
+                template = tmp.groups()
+            else:
+                # Invalid template
+                raise ValueError("UUID template is invalid")
+
+            rnd_f = [RandInt] + [RandShort] * 2 + [RandByte] * 8
+            uuid_template = []
+            for i, t in enumerate(template):
+                if t == "*":
+                    val = rnd_f[i]()
+                elif ":" in t:
+                    mini, maxi = t.split(":")
+                    val = RandNum(int(mini, 16), int(maxi, 16))
+                else:
+                    val = int(t, 16)
+                uuid_template.append(val)
+
+            self.uuid_template = tuple(uuid_template)
+        else:
+            if version:
+                if version not in RandUUID.VERSIONS:
+                    raise ValueError("version is not supported")
+                else:
+                    self.version = version
+            else:
+                # No version specified, try to guess...
+                # This could be wrong, and cause an error later!
+                if node or clock_seq:
+                    self.version = 1
+                elif namespace and name:
+                    self.version = 5
+                else:
+                    # Don't know, random!
+                    self.version = 4
+
+            # We have a version, now do things...
+            if self.version == 1:
+                if namespace or name:
+                    raise ValueError("namespace and name may not be used with "
+                                     "version 1")
+                self.node = node
+                self.clock_seq = clock_seq
+            elif self.version in (3, 5):
+                if node or clock_seq:
+                    raise ValueError("node and clock_seq may not be used with "
+                                     "version {}".format(self.version))
+
+                self.namespace = namespace
+                self.name = name
+            elif self.version == 4:
+                if namespace or name or node or clock_seq:
+                    raise ValueError("node, clock_seq, node and clock_seq may "
+                                     "not be used with version 4. If you "
+                                     "did not specify version, you need to "
+                                     "specify it explicitly.")
+
+    def _fix(self):
+        if self.uuid_template:
+            return uuid.UUID(("%08x%04x%04x" + ("%02x" * 8))
+                             % self.uuid_template)
+        elif self.version == 1:
+            return uuid.uuid1(self.node, self.clock_seq)
+        elif self.version == 3:
+            return uuid.uuid3(self.namespace, self.name)
+        elif self.version == 4:
+            return uuid.uuid4()
+        elif self.version == 5:
+            return uuid.uuid5(self.namespace, self.name)
+        else:
+            raise ValueError("Unhandled version")
+
 
 # Automatic timestamp
 
