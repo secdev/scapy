@@ -1386,8 +1386,8 @@ Protocols
 ---------
 
 The following table should give a brief overview about all automotive capabilities
-of Scapy. Most application layer protocols have many specialized `Packet` classes.
-These special purpose classes are not part of this overview. Use the `explore()`
+of Scapy. Most application layer protocols have many specialized ``Packet`` classes.
+These special purpose classes are not part of this overview. Use the ``explore()``
 function to get all information about one specific protocol.
 
 +---------------------+----------------------+--------------------------------------------------------+
@@ -1406,8 +1406,11 @@ function to get all information about one specific protocol.
 |                     | CCP                  | CCP, DTO, CRO                                          |
 +---------------------+----------------------+--------------------------------------------------------+
 | Transportaion Layer | ISO-TP (ISO 15765-2) | ISOTPSocket, ISOTPNativeSocket, ISOTPSoftSocket        |
+|                     |                      |                                                        |
 |                     |                      | ISOTPSniffer, ISOTPMessageBuilder                      |
+|                     |                      |                                                        |
 |                     |                      | ISOTPHeader, ISOTPHeaderEA,                            |
+|                     |                      |                                                        |
 |                     |                      | ISOTP, ISOTP_SF, ISOTP_FF, ISOTP_CF, ISOTP_FC          |
 +---------------------+----------------------+--------------------------------------------------------+
 | Data Link Layer     | CAN (ISO 11898)      | CAN, CANSocket, rdcandump                              |
@@ -1446,25 +1449,23 @@ System compatibilities
 
 Dependent on your setup, different implementations have to be used.
 
-+---------------------+----------------------+----------------------+--------------------------------------------------------+
-| Python \ OS         | Linux with can_isotp | Linux wo can_isotp   | Windows / OSX                                          |
-+=====================+======================+======================+========================================================+
-| Python 3            | ISOTPNativeSocket    | ISOTPSoftSocket      | ISOTPSoftSocket                                        |
-|                     +----------------------+----------------------+                                                        |
-|                     | conf.contribs['CANSocket'] = \              | conf.contribs['CANSocket'] = \                         |
-|                     | {'use-python-can': False}                   | {'use-python-can': True}                               |
-+---------------------+---------------------------------------------+--------------------------------------------------------+
-| Python 2            | ISOTPSoftSocket                             | ISOTPSoftSocket                                        |
-|                     |                                             |                                                        |
-|                     | conf.contribs['CANSocket'] = \              | conf.contribs['CANSocket'] = \                         |
-|                     | {'use-python-can': True}                    | {'use-python-can': True}                               |
-+---------------------+---------------------------------------------+--------------------------------------------------------+
++---------------------+----------------------+-------------------------------------+----------------------------------------------------------+
+| Python \ OS         | Linux with can_isotp | Linux wo can_isotp                  | Windows / OSX                                            |
++=====================+======================+=====================================+==========================================================+
+| Python 3            | ISOTPNativeSocket    | ISOTPSoftSocket                     | ISOTPSoftSocket                                          |
+|                     +----------------------+-------------------------------------+                                                          |
+|                     | ``conf.contribs['CANSocket'] = {'use-python-can': False}`` | ``conf.contribs['CANSocket'] = {'use-python-can': True}``|
++---------------------+------------------------------------------------------------+----------------------------------------------------------+
+| Python 2            | ISOTPSoftSocket                                            | ISOTPSoftSocket                                          |
+|                     |                                                            |                                                          |
+|                     | ``conf.contribs['CANSocket'] = {'use-python-can': True}``  | ``conf.contribs['CANSocket'] = {'use-python-can': True}``|
++---------------------+------------------------------------------------------------+----------------------------------------------------------+
 
-The class `ISOTPSocket` can be set to a `ISOTPNativeSocket` or a `ISOTPSoftSocket`.
-The decision is made dependent on the configuration `conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': True}` (to select `ISOTPNativeSocket`) or
-`conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': False}` (to select `ISOTPSoftSocket`).
+The class ``ISOTPSocket`` can be set to a ``ISOTPNativeSocket`` or a ``ISOTPSoftSocket``.
+The decision is made dependent on the configuration ``conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': True}`` (to select ``ISOTPNativeSocket``) or
+``conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': False}`` (to select ``ISOTPSoftSocket``).
 This will allow you to write platform independent code. Apply this configuration before loading the ISOTP layer
-with `load_contrib("isotp")`.
+with ``load_contrib("isotp")``.
 
 Another remark in respect to ISOTPSocket compatibility. Always use with for socket creation. Example::
 
@@ -1486,13 +1487,15 @@ These commands enable a virtual CAN interface on your machine::
    bashCommand = "/bin/bash -c 'sudo modprobe vcan; sudo ip link add name vcan0 type vcan; sudo ip link set dev vcan0 up'"
    os.system(bashCommand)
 
-If it's required, the CAN interface can be set into a `listen-only` or `loopback` mode with `ip link set` commands::
+If it's required, the CAN interface can be set into a ``listen-only`` or ``loopback`` mode with `ip link set` commands::
 
    ip link set vcan0 type can help  # shows additional information
 
 
-:doc:`/graphics/animations/animation-cansend.svg`
+This example shows a basic functions of Linux can-utils. These utilities are handy for
+quick checks or logging.
 
+.. image:: graphics/animations/animation-cansend.svg
 
 CAN Frame
 ^^^^^^^^^
@@ -1505,11 +1508,16 @@ Creating an extended CAN frame::
 
    frame = CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
 
+.. image:: graphics/animations/animation-scapy-canframe.svg
+
 Writing and reading to pcap files::
 
    x = CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
    wrpcap('/tmp/scapyPcapTest.pcap', x, append=False)
    y = rdpcap('/tmp/scapyPcapTest.pcap', 1)
+
+.. image:: graphics/animations/animation-scapy-rdpcap.svg
+.. image:: graphics/animations/animation-scapy-rdcandump.svg
 
 CANSocket native
 ^^^^^^^^^^^^^^^^
@@ -1545,6 +1553,12 @@ Creating a native CANSocket which also receives its own messages::
 
    socket = CANSocket(iface="vcan0", receive_own_messages=True)
 
+.. image:: graphics/animations/animation-scapy-native-cansocket.svg
+
+Sniff on a CANSocket:
+
+.. image:: graphics/animations/animation-scapy-cansockets-sniff.svg
+
 
 CANSocket python-can
 ^^^^^^^^^^^^^^^^^^^^
@@ -1566,6 +1580,8 @@ Creating a python-can CANSocket with multiple filters::
                                {'can_id': 0x400, 'can_mask': 0x7ff},
                                {'can_id': 0x600, 'can_mask': 0x7ff},
                                {'can_id': 0x7ff, 'can_mask': 0x7ff}]))
+
+.. image:: graphics/animations/animation-scapy-python-can-cansocket.svg
 
 For further details on python-can check: https://python-can.readthedocs.io/en/2.2.0/
 
@@ -1629,6 +1645,10 @@ Close the sockets::
 
    socket0.close()
    socket1.close()
+
+.. image:: graphics/animations/animation-scapy-cansockets-mitm.svg
+.. image:: graphics/animations/animation-scapy-cansockets-mitm2.svg
+
 
 CAN Calibration Protocol (CCP)
 ------------------------------
@@ -1845,6 +1865,19 @@ Pythons ``with`` statement.
 UDS
 ---
 
+The main usage of UDS is flashing and diagnostic of an ECU. UDS is an
+application layer protocol and can be used as a DoIP or ENET payload or a UDS packet
+can directly be sent over an ISOTPSocket. Every OEM has its own customization of UDS.
+This increases the difficulty of generic applications and OEM specific knowledge is
+required for penetration tests. RoutineControl jobs and ReadDataByIdentifier/WriteDataByIdentifier
+services are heavily customized.
+
+Here are two usage examples:
+
+.. image:: graphics/animations/animation-scapy-uds.svg
+.. image:: graphics/animations/animation-scapy-uds2.svg
+
+
 Customization of UDS_RDBI, UDS_WDBI
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -1907,6 +1940,14 @@ If one wants to work with this custom additions, these can be loaded at runtime 
     >>> hexdump(pkt)
     0000  2E 17 2B 00 C0 A8 02 01 FF FF FF 00 C0 A8 02 01  ..+.............
 
+.. image:: graphics/animations/animation-scapy-uds3.svg
+
+GMLAN
+-----
+
+Usage example:
+
+.. image:: graphics/animations/animation-scapy-gmlan.svg
 
 
 SOME/IP and SOME/IP SD messages
@@ -2080,6 +2121,7 @@ Request the Vehicle Identification Number (VIN)::
          |     vehicle_identification_numbers= ['W0L000051T2123456']
 
    
+.. image:: graphics/animations/animation-scapy-obd.svg
 
 
 Test-Setup Tutorials
