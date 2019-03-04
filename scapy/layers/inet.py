@@ -289,7 +289,10 @@ class RandTCPOptions(VolatileValue):
         # Pseudo-Random amount of options
         # Random ("NAME", fmt)
         rand_patterns = [
-            random.choice(list(TCPOptions[0].values())[1:])
+            random.choice(list(
+                (opt, fmt) for opt, fmt in six.itervalues(TCPOptions[0])
+                if opt != 'EOL'
+            ))
             for _ in range(self.size)
         ]
         rand_vals = []

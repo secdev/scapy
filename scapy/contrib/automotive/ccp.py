@@ -537,26 +537,27 @@ class DTO(Packet):
 
     @staticmethod
     def get_dto_cls(cmd):
-        dto_cls_mapping = {
-            0x03: DNLOAD_DTO,
-            0x04: UPLOAD_DTO,
-            0x09: GET_ACTIVE_CAL_PAGE_DTO,
-            0x0D: GET_S_STATUS_DTO,
-            0x0E: BUILD_CHKSUM_DTO,
-            0x0F: SHORT_UP_DTO,
-            0x12: GET_SEED_DTO,
-            0x13: UNLOCK_DTO,
-            0x14: GET_DAQ_SIZE_DTO,
-            0x17: EXCHANGE_ID_DTO,
-            0x18: PROGRAM_DTO,
-            0x1B: GET_CCP_VERSION_DTO,
-            0x20: DIAG_SERVICE_DTO,
-            0x21: ACTION_SERVICE_DTO,
-            0x22: PROGRAM_6_DTO,
-            0x23: DNLOAD_6_DTO
-        }
-        return dto_cls_mapping[cmd] if cmd in dto_cls_mapping.keys() \
-            else DEFAULT_DTO
+        try:
+            return {
+                0x03: DNLOAD_DTO,
+                0x04: UPLOAD_DTO,
+                0x09: GET_ACTIVE_CAL_PAGE_DTO,
+                0x0D: GET_S_STATUS_DTO,
+                0x0E: BUILD_CHKSUM_DTO,
+                0x0F: SHORT_UP_DTO,
+                0x12: GET_SEED_DTO,
+                0x13: UNLOCK_DTO,
+                0x14: GET_DAQ_SIZE_DTO,
+                0x17: EXCHANGE_ID_DTO,
+                0x18: PROGRAM_DTO,
+                0x1B: GET_CCP_VERSION_DTO,
+                0x20: DIAG_SERVICE_DTO,
+                0x21: ACTION_SERVICE_DTO,
+                0x22: PROGRAM_6_DTO,
+                0x23: DNLOAD_6_DTO
+            }[cmd]
+        except KeyError:
+            return DEFAULT_DTO
 
     def answers(self, other):
         """In CCP, the payload of a DTO packet is dependent on the cmd field

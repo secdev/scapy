@@ -255,7 +255,7 @@ for outer_dummy in range(10):
     frm = Ether()/EtherCat()
     layer_ids = []
     for inner_dummy in range(random.randint(1, 20)):
-        layer_id = random.choice(list(EtherCat.ETHERCAT_TYPE12_DLPDU_TYPES.keys()))
+        layer_id = random.choice(list(EtherCat.ETHERCAT_TYPE12_DLPDU_TYPES))
         layer_ids.append(layer_id)
         frm = frm / EtherCat.ETHERCAT_TYPE12_DLPDU_TYPES[layer_id]()
     # build frame and convert back

@@ -151,7 +151,7 @@ class ASN1_Class_metaclass(Enum_metaclass):
         dct["__rdict__"] = rdict
 
         cls = type.__new__(cls, name, bases, dct)
-        for v in cls.__dict__.values():
+        for v in six.itervalues(cls.__dict__):
             if isinstance(v, ASN1Tag):
                 v.context = cls  # overwrite ASN1Tag contexts, even cloned ones
         return cls

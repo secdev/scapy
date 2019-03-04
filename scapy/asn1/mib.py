@@ -61,7 +61,7 @@ class MIBDict(DADict):
         p = len(xl) - 1
         while p >= 0 and _mib_re_integer.match(xl[p]):
             p -= 1
-        if p != 0 or xl[p] not in self.__dict__.values():
+        if p != 0 or xl[p] not in six.itervalues(self.__dict__):
             return x
         xl[p] = next(k for k, v in six.iteritems(self.__dict__) if v == xl[p])
         return ".".join(xl[p:])
@@ -69,8 +69,8 @@ class MIBDict(DADict):
     def _make_graph(self, other_keys=None, **kargs):
         if other_keys is None:
             other_keys = []
-        nodes = [(self[k], k) for k in six.iterkeys(self)]
-        oids = self.keys()
+        nodes = [(self[key], key) for key in self.iterkeys()]
+        oids = set(self.iterkeys())
         for k in other_keys:
             if k not in oids:
                 nodes.append(self.oidname(k), k)

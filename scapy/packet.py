@@ -855,7 +855,8 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
 
     def hide_defaults(self):
         """Removes fields' values that are the same as default values."""
-        for k, v in list(self.fields.items()):  # use list(): self.fields is modified in the loop  # noqa: E501
+        # use list(): self.fields is modified in the loop
+        for k, v in list(six.iteritems(self.fields)):
             v = self.fields[k]
             if k in self.default_fields:
                 if self.default_fields[k] == v:
@@ -913,7 +914,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
         else:
             todo = [k for (k, v) in itertools.chain(six.iteritems(self.default_fields),  # noqa: E501
                                                     six.iteritems(self.overloaded_fields))  # noqa: E501
-                    if isinstance(v, VolatileValue)] + list(self.fields.keys())
+                    if isinstance(v, VolatileValue)] + list(self.fields)
             done = {}
         return loop(todo, done)
 
@@ -921,7 +922,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
         """Predict the total length of the iterator"""
         fields = [key for (key, val) in itertools.chain(six.iteritems(self.default_fields),  # noqa: E501
                   six.iteritems(self.overloaded_fields))
-                  if isinstance(val, VolatileValue)] + list(self.fields.keys())
+                  if isinstance(val, VolatileValue)] + list(self.fields)
         length = 1
         for field in fields:
             fld, val = self.getfield_and_val(field)
@@ -1343,7 +1344,7 @@ A side effect is that, to obtain "{" and "}" characters, you must use
         obtain the same packet
         """
         f = []
-        for fn, fv in self.fields.items():
+        for fn, fv in six.iteritems(self.fields):
             fld = self.get_field(fn)
             if isinstance(fv, (list, dict, set)) and len(fv) == 0:
                 continue

@@ -188,11 +188,10 @@ class LayersList(list):
         self.ldict[layer.__module__].append(layer)
 
     def layers(self):
-        layers = self.ldict.keys()
         result = []
         # This import may feel useless, but it is required for the eval below
         import scapy  # noqa: F401
-        for lay in layers:
+        for lay in self.ldict:
             doc = eval(lay).__doc__
             result.append((lay, doc.strip().split("\n")[0] if doc else lay))
         return result
@@ -251,7 +250,7 @@ class CacheInstance(dict, object):
         dict.__setitem__(self, item, v)
 
     def update(self, other):
-        for key, value in other.iteritems():
+        for key, value in six.iteritems(other):
             # We only update an element from `other` either if it does
             # not exist in `self` or if the entry in `self` is older.
             if key not in self or self._timetable[key] < other._timetable[key]:
