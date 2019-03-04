@@ -428,13 +428,13 @@ class NetworkInterface(object):
         # We must reset the monitor cache
         if enable:
             res = self.setmode('monitor')
-            self.cache_mode = res
         else:
             res = self.setmode('managed')
-            self.cache_mode = not res
         if not res:
             log_runtime.error("Npcap WlanHelper returned with an error code !")
-        return res
+        self.cache_mode = None
+        tmp = self.cache_mode = self.ismonitor()
+        return tmp if enable else (not tmp)
 
     def availablemodes(self):
         """Get all available interface modes.

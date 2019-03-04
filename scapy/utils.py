@@ -1365,10 +1365,10 @@ def import_hexcap():
 
 
 @conf.commands.register
-def wireshark(pktlist):
+def wireshark(pktlist, **kwargs):
     """Run wireshark on a list of packets"""
     f = get_temp_file()
-    wrpcap(f, pktlist)
+    wrpcap(f, pktlist, **kwargs)
     with ContextManagerSubprocess("wireshark()", conf.prog.wireshark):
         subprocess.Popen([conf.prog.wireshark, "-r", f])
 

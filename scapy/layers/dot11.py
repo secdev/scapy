@@ -29,13 +29,13 @@ from scapy.config import conf, crypto_validator
 from scapy.data import ETHER_ANY, DLT_IEEE802_11, DLT_PRISM_HEADER, \
     DLT_IEEE802_11_RADIO
 from scapy.compat import raw, plain_str, orb, chb
-from scapy.packet import Packet, bind_layers, NoPayload
+from scapy.packet import Packet, bind_layers, bind_top_down, NoPayload
 from scapy.fields import ByteField, LEShortField, BitField, LEShortEnumField, \
     ByteEnumField, X3BytesField, FlagsField, LELongField, StrField, \
     StrLenField, IntField, XByteField, LEIntField, StrFixedLenField, \
     LESignedIntField, ReversePadField, ConditionalField, PacketListField, \
     ShortField, BitEnumField, FieldLenField, LEFieldLenField, \
-    FieldListField, XStrFixedLenField, PacketField, PadField, FCSField
+    FieldListField, XStrFixedLenField, PacketField, FCSField, PadField
 from scapy.ansmachine import AnsweringMachine
 from scapy.plist import PacketList
 from scapy.layers.l2 import Ether, LLC, MACField
@@ -111,6 +111,8 @@ class PrismHeader(Packet):
             return self.payload.answers(other)
 
 
+# RadioTap
+
 class _RadiotapReversePadField(ReversePadField):
     def __init__(self, fld):
         self._fld = fld
@@ -133,13 +135,6 @@ class _dbmField(ByteField):
 
     def i2repr(self, pkt, x):
         return "%sdBm" % x
-
-
-_vht_bandwidth = {0: "20MHz", 1: "40MHz", 2: "40MHz", 3: "40MHz", 4: "80MHz", 5: "80MHz",  # noqa: E501
-                  6: "80MHz", 7: "80MHz", 8: "80MHz", 9: "80MHz", 10: "80MHz", 11: "160MHz",  # noqa: E501
-                  12: "160MHz", 13: "160MHz", 14: "160MHz", 15: "160MHz", 16: "160MHz", 17: "160MHz",  # noqa: E501
-                  18: "160MHz", 19: "160MHz", 20: "160MHz", 21: "160MHz", 22: "160MHz", 23: "160MHz",  # noqa: E501
-                  24: "160MHz", 25: "160MHz"}
 
 
 def _next_radiotap_extpm(pkt, lst, cur, s):
@@ -175,99 +170,312 @@ class RadioTapExtendedPresenceMask(Packet):
     def guess_payload_class(self, pay):
         return conf.padding_layer
 
+# RadioTap constants
+
+
+_rt_present = ['TSFT', 'Flags', 'Rate', 'Channel', 'FHSS', 'dBm_AntSignal',
+               'dBm_AntNoise', 'Lock_Quality', 'TX_Attenuation',
+               'dB_TX_Attenuation', 'dBm_TX_Power', 'Antenna',
+               'dB_AntSignal', 'dB_AntNoise', 'RXFlags', 'TXFlags',
+               'b17', 'b18', 'ChannelPlus', 'MCS', 'A_MPDU',
+               'VHT', 'timestamp', 'HE', 'HE_MU', 'HE_MU_other_user',
+               'zero_length_psdu', 'L_SIG', 'b28',
+               'RadiotapNS', 'VendorNS', 'Ext']
+
+# Note: Inconsistencies with wireshark
+# Wireshark ignores the suggested fields, whereas we implement some of them
+# (some are well-used even though not accepted)
+# However, flags that conflicts with Wireshark are not and MUST NOT be
+# implemented -> b17, b18
+
+_rt_flags = ['CFP', 'ShortPreamble', 'wep', 'fragment', 'FCS', 'pad',
+             'badFCS', 'ShortGI']
+
+_rt_channelflags = ['res1', 'res2', 'res3', 'res4', 'Turbo', 'CCK',
+                    'OFDM', '2GHz', '5GHz', 'Passive', 'Dynamic_CCK_OFDM',
+                    'GFSK', 'GSM', 'StaticTurbo', '10MHz', '5MHz']
+
+_rt_rxflags = ["res1", "BAD_PLCP", "res2"]
+
+_rt_txflags = ["TX_FAIL", "CTS", "RTS", "NOACK", "NOSEQ"]
+
+_rt_channelflags2 = ['res1', 'res2', 'res3', 'res4', 'Turbo', 'CCK',
+                     'OFDM', '2GHz', '5GHz', 'Passive', 'Dynamic_CCK_OFDM',
+                     'GFSK', 'GSM', 'StaticTurbo', '10MHz', '5MHz',
+                     '20MHz', '40MHz_ext_channel_above',
+                     '40MHz_ext_channel_below',
+                     'res5', 'res6', 'res7', 'res8', 'res9']
+
+_rt_knownmcs = ['bandwidth', 'MCS_index', 'guard_interval', 'HT_format',
+                'FEC_type', 'STBC_streams', 'Ness', 'Ness_MSB']
+
+_rt_bandwidth = {0: "20MHz", 1: "40MHz", 2: "ht40Mhz-", 3: "ht40MHz+"}
+
+_rt_a_mpdu_flags = ['Report0Subframe', 'Is0Subframe', 'KnownLastSubframe',
+                    'LastSubframe', 'CRCerror', 'EOFsubframe', 'KnownEOF',
+                    'res1', 'res2', 'res3', 'res4', 'res5', 'res6', 'res7',
+                    'res8']
+
+_rt_vhtbandwidth = {
+    0: "20MHz", 1: "40MHz", 2: "40MHz", 3: "40MHz", 4: "80MHz", 5: "80MHz",
+    6: "80MHz", 7: "80MHz", 8: "80MHz", 9: "80MHz", 10: "80MHz", 11: "160MHz",
+    12: "160MHz", 13: "160MHz", 14: "160MHz", 15: "160MHz", 16: "160MHz",
+    17: "160MHz", 18: "160MHz", 19: "160MHz", 20: "160MHz", 21: "160MHz",
+    22: "160MHz", 23: "160MHz", 24: "160MHz", 25: "160MHz"
+}
+
+_rt_knownvht = ['STBC', 'TXOP_PS_NOT_ALLOWED', 'GuardInterval', 'SGINsysmDis',
+                'LDPCextraOFDM', 'Beamformed', 'Bandwidth', 'GroupID',
+                'PartialAID',
+                'res1', 'res2', 'res3', 'res4', 'res5', 'res6', 'res7']
+
+_rt_presentvht = ['STBC', 'TXOP_PS_NOT_ALLOWED', 'GuardInterval',
+                  'SGINsysmDis', 'LDPCextraOFDM', 'Beamformed',
+                  'res1', 'res2']
+
+_rt_hemuother_per_user_known = {
+    'user field position',
+    'STA-ID',
+    'NSTS',
+    'Tx Beamforming',
+    'Spatial Configuration',
+    'MCS',
+    'DCM',
+    'Coding',
+}
+
 
 class RadioTap(Packet):
     name = "RadioTap dummy"
-    fields_desc = [ByteField('version', 0),
-                   ByteField('pad', 0),
-                   LEShortField('len', None),
-                   FlagsField('present', None, -32, ['TSFT', 'Flags', 'Rate', 'Channel', 'FHSS', 'dBm_AntSignal',  # noqa: E501
-                                                     'dBm_AntNoise', 'Lock_Quality', 'TX_Attenuation', 'dB_TX_Attenuation',  # noqa: E501
-                                                     'dBm_TX_Power', 'Antenna', 'dB_AntSignal', 'dB_AntNoise',  # noqa: E501
-                                                     'RXFlags', 'TXFlags', 'b17', 'b18', 'ChannelPlus', 'MCS', 'A_MPDU',  # noqa: E501
-                                                     'VHT', 'timestamp', 'b24', 'b25', 'b26', 'b27', 'b28', 'b29',  # noqa: E501
-                                                     'RadiotapNS', 'VendorNS', 'Ext']),  # noqa: E501
-                   # Extended presence mask
-                   ConditionalField(PacketListField("Ext", [], next_cls_cb=_next_radiotap_extpm), lambda pkt: pkt.present and pkt.present.Ext),  # noqa: E501
-                   # Default fields
-                   ConditionalField(_RadiotapReversePadField(BitField("mac_timestamp", 0, -64)), lambda pkt: pkt.present and pkt.present.TSFT),  # noqa: E501
-                   ConditionalField(
-                       _RadiotapReversePadField(
-                           FlagsField("Flags", None, -8, ['CFP', 'ShortPreamble', 'wep', 'fragment',  # noqa: E501
-                                                          'FCS', 'pad', 'badFCS', 'ShortGI'])  # noqa: E501
-                       ),
-                       lambda pkt: pkt.present and pkt.present.Flags),
-                   ConditionalField(_RadiotapReversePadField(ByteField("Rate", 0)), lambda pkt: pkt.present and pkt.present.Rate),  # noqa: E501
-                   ConditionalField(_RadiotapReversePadField(LEShortField("Channel", 0)), lambda pkt: pkt.present and pkt.present.Channel),  # noqa: E501
-                   ConditionalField(
-                       _RadiotapReversePadField(
-                           FlagsField("ChannelFlags", None, -16, ['res1', 'res2', 'res3', 'res4', 'Turbo', 'CCK',  # noqa: E501
-                                                                  'OFDM', '2GHz', '5GHz', 'Passive', 'Dynamic_CCK_OFDM',  # noqa: E501
-                                                                  'GFSK', 'GSM', 'StaticTurbo', '10MHz', '5MHz'])  # noqa: E501
-                       ),
-                       lambda pkt: pkt.present and pkt.present.Channel),
-                   ConditionalField(_RadiotapReversePadField(_dbmField("dBm_AntSignal", -256)), lambda pkt: pkt.present and pkt.present.dBm_AntSignal),  # noqa: E501
-                   ConditionalField(_RadiotapReversePadField(_dbmField("dBm_AntNoise", -256)), lambda pkt: pkt.present and pkt.present.dBm_AntNoise),  # noqa: E501
-                   ConditionalField(_RadiotapReversePadField(ByteField("Antenna", 0)), lambda pkt: pkt.present and pkt.present.Antenna),  # noqa: E501
-                   # RX Flags
-                   ConditionalField(_RadiotapReversePadField(FlagsField("RXFlags", None, -16, ["res1", "BAD_PLCP", "res2"])),   # noqa: E501
-                                    lambda pkt: pkt.present and pkt.present.RXFlags),  # noqa: E501#
-                   # TX Flags
-                   ConditionalField(_RadiotapReversePadField(FlagsField("TXFlags", None, -16, ["TX_FAIL", "CTS", "RTS", "NOACK", "NOSEQ"])),   # noqa: E501
-                                    lambda pkt: pkt.present and pkt.present.TXFlags),  # noqa: E501
-                   # ChannelPlus
-                   ConditionalField(
-                       _RadiotapReversePadField(
-                           FlagsField("ChannelFlags2", None, -32, ['res1', 'res2', 'res3', 'res4', 'Turbo', 'CCK',  # noqa: E501
-                                                                   'OFDM', '2GHz', '5GHz', 'Passive', 'Dynamic_CCK_OFDM',  # noqa: E501
-                                                                   'GFSK', 'GSM', 'StaticTurbo', '10MHz', '5MHz',  # noqa: E501
-                                                                   '20MHz', '40MHz_ext_channel_above', '40MHz_ext_channel_below',  # noqa: E501
-                                                                   'res5', 'res6', 'res7', 'res8', 'res9'])  # noqa: E501
-                       ),
-                       lambda pkt: pkt.present and pkt.present.ChannelPlus),
-                   ConditionalField(_RadiotapReversePadField(LEShortField("ChannelFrequency", 0)), lambda pkt: pkt.present and pkt.present.ChannelPlus),  # noqa: E501
-                   ConditionalField(_RadiotapReversePadField(ByteField("ChannelNumber", 0)), lambda pkt: pkt.present and pkt.present.ChannelPlus),  # noqa: E501
-                   # MCS
-                   ConditionalField(
-                       _RadiotapReversePadField(FlagsField("knownMCS", None, -8, ['bandwidth', 'MCS_index', 'guard_interval', 'HT_format',  # noqa: E501
-                                                                                  'FEC_type', 'STBC_streams', 'Ness', 'Ness_MSB'])),  # noqa: E501
-                       lambda pkt: pkt.present and pkt.present.MCS),
-                   ConditionalField(BitEnumField("bandwidth", 0, 2, {0: "20MHz", 1: "40MHz", 2: "ht40Mhz-", 3: "ht40MHz+"}),  # noqa: E501
-                                    lambda pkt: pkt.present and pkt.present.MCS),  # noqa: E501
-                   ConditionalField(BitEnumField("guard_interval", 0, 1, {0: "Long_GI", 1: "Short_GI"}), lambda pkt: pkt.present and pkt.present.MCS),  # noqa: E501
-                   ConditionalField(BitEnumField("HT_format", 0, 1, {0: "mixed", 1: "greenfield"}), lambda pkt: pkt.present and pkt.present.MCS),  # noqa: E501
-                   ConditionalField(BitEnumField("FEC_type", 0, 1, {0: "BCC", 1: "LDPC"}), lambda pkt: pkt.present and pkt.present.MCS),  # noqa: E501
-                   ConditionalField(BitField("STBC_streams", 0, 2), lambda pkt: pkt.present and pkt.present.MCS),  # noqa: E501
-                   ConditionalField(BitField("Ness_LSB", 0, 1), lambda pkt: pkt.present and pkt.present.MCS),  # noqa: E501
-                   ConditionalField(ByteField("MCS_index", 0), lambda pkt: pkt.present and pkt.present.MCS),  # noqa: E501
-                   # A_MPDU
-                   ConditionalField(_RadiotapReversePadField(LEIntField("A_MPDU_ref", 0)), lambda pkt: pkt.present and pkt.present.A_MPDU),  # noqa: E501
-                   ConditionalField(
-                       _RadiotapReversePadField(
-                           FlagsField("A_MPDU_flags", None, -32, ['Report0Subframe', 'Is0Subframe', 'KnownLastSubframe',  # noqa: E501
-                                                                  'LastSubframe', 'CRCerror', 'EOFsubframe', 'KnownEOF',  # noqa: E501
-                                                                  'res1', 'res2', 'res3', 'res4', 'res5', 'res6', 'res7', 'res8'])  # noqa: E501
-                       ),
-                       lambda pkt: pkt.present and pkt.present.A_MPDU),
-                   # VHT
-                   ConditionalField(
-                       _RadiotapReversePadField(
-                           FlagsField("KnownVHT", None, -16, ['STBC', 'TXOP_PS_NOT_ALLOWED', 'GuardInterval', 'SGINsysmDis',  # noqa: E501
-                                                              'LDPCextraOFDM', 'Beamformed', 'Bandwidth', 'GroupID', 'PartialAID',  # noqa: E501
-                                                              'res1', 'res2', 'res3', 'res4', 'res5', 'res6', 'res7'])  # noqa: E501
-                       ),
-                       lambda pkt: pkt.present and pkt.present.VHT),
-                   ConditionalField(
-                       _RadiotapReversePadField(
-                           FlagsField("PresentVHT", None, -8, ['STBC', 'TXOP_PS_NOT_ALLOWED', 'GuardInterval', 'SGINsysmDis',  # noqa: E501
-                                                               'LDPCextraOFDM', 'Beamformed', 'res1', 'res2'])  # noqa: E501
-                       ),
-                       lambda pkt: pkt.present and pkt.present.VHT),
-                   ConditionalField(_RadiotapReversePadField(ByteEnumField("bandwidth", 0, _vht_bandwidth)), lambda pkt: pkt.present and pkt.present.VHT),  # noqa: E501
-                   ConditionalField(_RadiotapReversePadField(StrFixedLenField("mcs_nss", 0, length=5)), lambda pkt: pkt.present and pkt.present.VHT),  # noqa: E501
-                   ConditionalField(_RadiotapReversePadField(ByteField("GroupID", 0)), lambda pkt: pkt.present and pkt.present.VHT),  # noqa: E501
-                   ConditionalField(_RadiotapReversePadField(ShortField("PartialAID", 0)), lambda pkt: pkt.present and pkt.present.VHT),  # noqa: E501
-                   StrLenField('notdecoded', "", length_from=lambda pkt: pkt.len - pkt._tmp_dissect_pos)]  # noqa: E501
+    fields_desc = [
+        ByteField('version', 0),
+        ByteField('pad', 0),
+        LEShortField('len', None),
+        FlagsField('present', None, -32, _rt_present),  # noqa: E501
+        # Extended presence mask
+        ConditionalField(PacketListField("Ext", [], next_cls_cb=_next_radiotap_extpm), lambda pkt: pkt.present and pkt.present.Ext),  # noqa: E501
+        # RadioTap fields - each starts with a _RadiotapReversePadField
+        # to handle padding
+
+        # TSFT
+        ConditionalField(
+            _RadiotapReversePadField(
+                BitField("mac_timestamp", 0, -64)
+            ),
+            lambda pkt: pkt.present and pkt.present.TSFT),
+        # Flags
+        ConditionalField(
+            _RadiotapReversePadField(
+                FlagsField("Flags", None, -8, _rt_flags)
+            ),
+            lambda pkt: pkt.present and pkt.present.Flags),
+        # Rate
+        ConditionalField(
+            _RadiotapReversePadField(
+                ByteField("Rate", 0)
+             ),
+            lambda pkt: pkt.present and pkt.present.Rate),
+        # Channel
+        ConditionalField(
+            _RadiotapReversePadField(
+                LEShortField("Channel", 0)
+             ),
+            lambda pkt: pkt.present and pkt.present.Channel),
+        ConditionalField(
+            FlagsField("ChannelFlags", None, -16, _rt_channelflags),
+            lambda pkt: pkt.present and pkt.present.Channel),
+        # dBm_AntSignal
+        ConditionalField(
+            _RadiotapReversePadField(
+                _dbmField("dBm_AntSignal", -256)
+             ),
+            lambda pkt: pkt.present and pkt.present.dBm_AntSignal),
+        # dBm_AntNoise
+        ConditionalField(
+            _RadiotapReversePadField(
+                _dbmField("dBm_AntNoise", -256)
+             ),
+            lambda pkt: pkt.present and pkt.present.dBm_AntNoise),
+        # Lock_Quality
+        ConditionalField(
+            _RadiotapReversePadField(
+                LEShortField("Lock_Quality", 0),
+             ),
+            lambda pkt: pkt.present and pkt.present.Lock_Quality),
+        # Antenna
+        ConditionalField(
+            _RadiotapReversePadField(
+                ByteField("Antenna", 0)
+             ),
+            lambda pkt: pkt.present and pkt.present.Antenna),
+        # RX Flags
+        ConditionalField(
+            _RadiotapReversePadField(
+                FlagsField("RXFlags", None, -16, _rt_rxflags)
+             ),
+             lambda pkt: pkt.present and pkt.present.RXFlags),
+        # TX Flags
+        ConditionalField(
+            _RadiotapReversePadField(
+                FlagsField("TXFlags", None, -16, _rt_txflags)
+             ),
+             lambda pkt: pkt.present and pkt.present.TXFlags),
+        # ChannelPlus
+        ConditionalField(
+            _RadiotapReversePadField(
+                FlagsField("ChannelFlags2", None, -32, _rt_channelflags2)
+            ),
+            lambda pkt: pkt.present and pkt.present.ChannelPlus),
+        ConditionalField(
+            LEShortField("ChannelFrequency", 0),
+            lambda pkt: pkt.present and pkt.present.ChannelPlus),
+        ConditionalField(
+            ByteField("ChannelNumber", 0),
+            lambda pkt: pkt.present and pkt.present.ChannelPlus),
+        # MCS
+        ConditionalField(
+            _RadiotapReversePadField(
+                FlagsField("knownMCS", None, -8, _rt_knownmcs)
+             ),
+            lambda pkt: pkt.present and pkt.present.MCS),
+        ConditionalField(
+            BitEnumField("bandwidth", 0, 2, _rt_bandwidth),
+            lambda pkt: pkt.present and pkt.present.MCS),
+        ConditionalField(
+            BitEnumField("guard_interval", 0, 1, {0: "Long_GI", 1: "Short_GI"}),  # noqa: E501
+            lambda pkt: pkt.present and pkt.present.MCS),
+        ConditionalField(
+            BitEnumField("HT_format", 0, 1, {0: "mixed", 1: "greenfield"}),
+            lambda pkt: pkt.present and pkt.present.MCS),
+        ConditionalField(
+            BitEnumField("FEC_type", 0, 1, {0: "BCC", 1: "LDPC"}),
+            lambda pkt: pkt.present and pkt.present.MCS),
+        ConditionalField(
+            BitField("STBC_streams", 0, 2),
+            lambda pkt: pkt.present and pkt.present.MCS),
+        ConditionalField(
+            BitField("Ness_LSB", 0, 1),
+            lambda pkt: pkt.present and pkt.present.MCS),
+        ConditionalField(
+            ByteField("MCS_index", 0),
+            lambda pkt: pkt.present and pkt.present.MCS),
+        # A_MPDU
+        ConditionalField(
+            _RadiotapReversePadField(
+                LEIntField("A_MPDU_ref", 0)
+             ),
+            lambda pkt: pkt.present and pkt.present.A_MPDU),
+        ConditionalField(
+            FlagsField("A_MPDU_flags", None, -32, _rt_a_mpdu_flags),
+            lambda pkt: pkt.present and pkt.present.A_MPDU),
+        # VHT
+        ConditionalField(
+            _RadiotapReversePadField(
+                FlagsField("KnownVHT", None, -16, _rt_knownvht)
+            ),
+            lambda pkt: pkt.present and pkt.present.VHT),
+        ConditionalField(
+            FlagsField("PresentVHT", None, -8, _rt_presentvht),
+            lambda pkt: pkt.present and pkt.present.VHT),
+        ConditionalField(
+            ByteEnumField("bandwidth", 0, _rt_vhtbandwidth),
+            lambda pkt: pkt.present and pkt.present.VHT),
+        ConditionalField(
+            StrFixedLenField("mcs_nss", 0, length=5),
+            lambda pkt: pkt.present and pkt.present.VHT),
+        ConditionalField(
+            ByteField("GroupID", 0),
+            lambda pkt: pkt.present and pkt.present.VHT),
+        ConditionalField(
+            ShortField("PartialAID", 0),
+            lambda pkt: pkt.present and pkt.present.VHT),
+        # timestamp
+        ConditionalField(
+            _RadiotapReversePadField(
+                LELongField("timestamp", 0)
+            ),
+            lambda pkt: pkt.present and pkt.present.timestamp),
+        ConditionalField(
+            LEShortField("ts_accuracy", 0),
+            lambda pkt: pkt.present and pkt.present.timestamp),
+        ConditionalField(
+            ByteField("ts_position", 0),
+            lambda pkt: pkt.present and pkt.present.timestamp),
+        ConditionalField(
+            ByteField("ts_flags", 0),
+            lambda pkt: pkt.present and pkt.present.timestamp),
+        # HE - XXX not complete
+        ConditionalField(
+            _RadiotapReversePadField(
+                ShortField("he_data1", 0)
+            ),
+            lambda pkt: pkt.present and pkt.present.HE),
+        ConditionalField(
+            ShortField("he_data2", 0),
+            lambda pkt: pkt.present and pkt.present.HE),
+        ConditionalField(
+            ShortField("he_data3", 0),
+            lambda pkt: pkt.present and pkt.present.HE),
+        ConditionalField(
+            ShortField("he_data4", 0),
+            lambda pkt: pkt.present and pkt.present.HE),
+        ConditionalField(
+            ShortField("he_data5", 0),
+            lambda pkt: pkt.present and pkt.present.HE),
+        ConditionalField(
+            ShortField("he_data6", 0),
+            lambda pkt: pkt.present and pkt.present.HE),
+        # HE_MU
+        ConditionalField(
+            _RadiotapReversePadField(
+                LEShortField("hemu_flags1", 0)
+            ),
+            lambda pkt: pkt.present and pkt.present.HE_MU),
+        ConditionalField(
+            LEShortField("hemu_flags2", 0),
+            lambda pkt: pkt.present and pkt.present.HE_MU),
+        ConditionalField(
+            FieldListField("RU_channel1", [], ByteField,
+                           count_from=lambda x: 4),
+            lambda pkt: pkt.present and pkt.present.HE_MU),
+        ConditionalField(
+            FieldListField("RU_channel2", [], ByteField,
+                           count_from=lambda x: 4),
+            lambda pkt: pkt.present and pkt.present.HE_MU),
+        # HE_MU_other_user
+        ConditionalField(
+            _RadiotapReversePadField(
+                LEShortField("hemuou_per_user_1", 0x7fff)
+            ),
+            lambda pkt: pkt.present and pkt.present.HE_MU_other_user),
+        ConditionalField(
+            LEShortField("hemuou_per_user_2", 0x003f),
+            lambda pkt: pkt.present and pkt.present.HE_MU_other_user),
+        ConditionalField(
+            ByteField("hemuou_per_user_position", 0),
+            lambda pkt: pkt.present and pkt.present.HE_MU_other_user),
+        ConditionalField(
+            FlagsField("hemuou_per_user_known", 0, -16,
+                       _rt_hemuother_per_user_known),
+            lambda pkt: pkt.present and pkt.present.HE_MU_other_user),
+        # L_SIG
+        ConditionalField(
+            _RadiotapReversePadField(
+                FlagsField("lsig_data1", 0, -16, ["rate", "length"])
+            ),
+            lambda pkt: pkt.present and pkt.present.L_SIG),
+        ConditionalField(
+            BitField("lsig_length", 0, 12),
+            lambda pkt: pkt.present and pkt.present.L_SIG),
+        ConditionalField(
+            BitField("lsig_rate", 0, 4),
+            lambda pkt: pkt.present and pkt.present.L_SIG),
+        # Remaining
+        StrLenField('notdecoded', "",
+                    length_from=lambda pkt: max(
+                        pkt.len - pkt._tmp_dissect_pos, 0
+                    ))
+    ]
 
     def guess_payload_class(self, payload):
         if self.present and self.present.Flags and self.Flags.FCS:
@@ -788,14 +996,14 @@ class Dot11Encrypted(Packet):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         # Extracted from
-        # https://github.com/boundary/wireshark/blob/master/epan/dissectors/packet-ieee80211.c  # noqa: E501
+        # https://github.com/wireshark/wireshark/blob/master/epan/dissectors/packet-ieee80211.c  # noqa: E501
         KEY_EXTIV = 0x20
         EXTIV_LEN = 8
         if _pkt and len(_pkt) >= 3:
             if (orb(_pkt[3]) & KEY_EXTIV) and (len(_pkt) >= EXTIV_LEN):
-                if orb(_pkt[1]) == (orb(_pkt[0]) | 0x20) & 0x7f:
+                if orb(_pkt[1]) == ((orb(_pkt[0]) | 0x20) & 0x7f):  # IS_TKIP
                     return Dot11TKIP
-                elif orb(_pkt[2]) == 0:
+                elif orb(_pkt[2]) == 0:  # IS_CCMP
                     return Dot11CCMP
                 else:
                     # Unknown encryption algorithm
@@ -857,30 +1065,55 @@ class Dot11WEP(Dot11Encrypted):
             p = self.encrypt(p, raw(pay))
         return p
 
+# Dot11TKIP & Dot11CCMP
+
+# we can't dissect ICV / MIC here: they are encrypted
+
 
 class Dot11TKIP(Dot11Encrypted):
     name = "802.11 TKIP packet"
     fields_desc = [
-        StrFixedLenField("iv", b"\x00" * 4, 4),
-        StrFixedLenField("ext_iv", b"\x00" * 4, 4),
-        StrField("data", None, remain=12),
-        StrFixedLenField("mic", b"\x00" * 8, 8),
-        IntField("icv", 0),
+        # iv - 4 bytes
+        ByteField("TSC1", 0),
+        ByteField("WEPSeed", 0),
+        ByteField("TSC0", 0),
+        BitField("key_id", 0, 2),  #
+        BitField("ext_iv", 0, 1),  # => LE = reversed order
+        BitField("res", 0, 5),     #
+        # ext_iv - 4 bytes
+        ConditionalField(ByteField("TSC2", 0), lambda pkt: pkt.ext_iv),
+        ConditionalField(ByteField("TSC3", 0), lambda pkt: pkt.ext_iv),
+        ConditionalField(ByteField("TSC4", 0), lambda pkt: pkt.ext_iv),
+        ConditionalField(ByteField("TSC5", 0), lambda pkt: pkt.ext_iv),
+        # data
+        StrField("data", None),
     ]
 
 
 class Dot11CCMP(Dot11Encrypted):
     name = "802.11 TKIP packet"
     fields_desc = [
-        StrFixedLenField("ext_iv", b"\x00" * 4, 8),
-        StrField("data", None, remain=8),
-        StrFixedLenField("mic", b"\x00" * 8, 8),
+        # iv - 8 bytes
+        ByteField("PN0", 0),
+        ByteField("PN1", 0),
+        ByteField("res0", 0),
+        BitField("key_id", 0, 2),  #
+        BitField("ext_iv", 0, 1),  # => LE = reversed order
+        BitField("res1", 0, 5),    #
+        ByteField("PN2", 0),
+        ByteField("PN3", 0),
+        ByteField("PN4", 0),
+        ByteField("PN5", 0),
+        # data
+        StrField("data", None),
     ]
 
 
 class Dot11Ack(Packet):
     name = "802.11 Ack packet"
 
+
+bind_top_down(RadioTap, Dot11FCS, present=2, Flags=16)
 
 bind_layers(PrismHeader, Dot11,)
 bind_layers(Dot11, LLC, type=2)
@@ -906,6 +1139,8 @@ bind_layers(Dot11ProbeReq, Dot11Elt,)
 bind_layers(Dot11ProbeResp, Dot11Elt,)
 bind_layers(Dot11Auth, Dot11Elt,)
 bind_layers(Dot11Elt, Dot11Elt,)
+bind_layers(Dot11TKIP, conf.raw_layer)
+bind_layers(Dot11CCMP, conf.raw_layer)
 
 
 conf.l2types.register(DLT_IEEE802_11, Dot11)
