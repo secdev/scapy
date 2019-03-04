@@ -990,6 +990,13 @@ assert(len(y[TFTP_Options].options) == 2 and y[TFTP_Option].oname == b"blksize")
 pkt = Ether()/IP()/Dot11FCS()
 assert pkt[Dot11]
 
+= Dot11FCS - test FCS with FCSField
+
+data = b'\x00\x00 \x00\xae@\x00\xa0 \x08\x00\xa0 \x08\x00\x00\x10\x02\x85\t\xa0\x00\xe2\x00d\x00\x00\x00\x00\x00\x00\x01\xa0@:\x01\x00\xc0\xca\xa4}PLfA\xac\xe4\xb3\x00\xc0\xca\xa4}P\x00\x03\x00 \x08 \x00\x00\x00\x00\x0f)\x1d\xd4\xd49\x1f>4\xeb'
+pkt = RadioTap(data)
+w_payload = hex_bytes('00002000ae4000a0200800a02008000010028509a000e2006400000000000001a0403a0100c0caa47d504c6641ace4b300c0caa47d50000300200820000000000f291dd4d4391f3e34eb')
+assert raw(pkt) == w_payload
+
 = WEP tests
 ~ wifi crypto Dot11 LLC SNAP IP TCP
 conf.wepkey = "Fobar"

@@ -404,7 +404,13 @@ class FCSField(Field):
     Mostly used for FCS
     """
     def getfield(self, pkt, s):
+        previous_post_dissect = pkt.post_dissect
         val = self.m2i(pkt, struct.unpack(self.fmt, s[-self.sz:])[0])
+
+        def _post_dissect(self, s):
+            self.raw_packet_cache = None  # Reset packet to allow post_build
+            return previous_post_dissect(s)
+        pkt.post_dissect = MethodType(_post_dissect, pkt)
         return s[:-self.sz], val
 
     def addfield(self, pkt, s, val):
