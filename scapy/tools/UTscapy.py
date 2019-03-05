@@ -777,7 +777,7 @@ def resolve_testfiles(TESTFILES):
 
 def main():
     argv = sys.argv[1:]
-    ignore_globals = list(six.moves.builtins.__dict__.keys())
+    ignore_globals = list(six.moves.builtins.__dict__)
 
     # Parse arguments
 

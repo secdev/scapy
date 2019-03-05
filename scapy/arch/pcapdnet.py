@@ -168,7 +168,7 @@ if conf.use_winpcapy:
             """Returns all pcap names"""
             if not conf.cache_iflist:
                 load_winpcapy()
-            return list(conf.cache_iflist.keys())
+            return list(conf.cache_iflist)
     else:
         get_if_list = lambda: []
 

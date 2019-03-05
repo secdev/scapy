@@ -966,7 +966,7 @@ class _tls_sessions(object):
 
     def __repr__(self):
         res = [("First endpoint", "Second endpoint", "Session ID")]
-        for l in self.sessions.values():
+        for l in six.itervalues(self.sessions):
             for s in l:
                 src = "%s[%d]" % (s.ipsrc, s.sport)
                 dst = "%s[%d]" % (s.ipdst, s.dport)

@@ -281,7 +281,7 @@ class PPP(Packet):
 class PPP_(PPP):
     fields_desc = [
         ByteEnumField("proto", 0x21,
-                      {k: v for k, v in six.viewitems(_PPP_PROTOCOLS)
+                      {k: v for k, v in six.iteritems(_PPP_PROTOCOLS)
                        if k < 0x100}),
     ]
 

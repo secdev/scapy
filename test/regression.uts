@@ -192,15 +192,15 @@ else:
 = Test read_routes6() - check mandatory routes
 
 if len(routes6) and not WINDOWS:
-    assert(len([r for r in routes6 if r[0] == "::1" and r[4] == ["::1"]]) >= 1)
+    assert(sum(1 for r in routes6 if r[0] == "::1" and r[4] == ["::1"]) >= 1)
     if len(iflist) >= 2:
-        assert len([r for r in routes6 if r[0] == "fe80::" and r[1] == 64]) >= 1
+        assert sum(1 for r in routes6 if r[0] == "fe80::" and r[1] == 64) >= 1
         try:
-            assert len([r for r in routes6 if in6_islladdr(r[0]) and r[1] == 128 and r[4] == ["::1"]]) >= 1
+            assert sum(1 for r in routes6 if in6_islladdr(r[0]) and r[1] == 128 and r[4] == ["::1"]) >= 1
         except:
             # IPv6 is not available, but we still check the loopback
             assert conf.route6.route("::/0") == (scapy.consts.LOOPBACK_NAME, "::", "::")
-            assert len([r for r in routes6 if r[1] == 128 and r[4] == ["::1"]]) >= 1
+            assert sum(1 for r in routes6 if r[1] == 128 and r[4] == ["::1"]) >= 1
 else:
     True
 
@@ -7179,12 +7179,12 @@ def valid_output_read_routes6(routes):
 
 def check_mandatory_ipv6_routes(routes6):
     """Ensure that mandatory IPv6 routes are present"""
-    if len([r for r in routes6 if r[0] == "::1" and r[4] == ["::1"]]) < 1:
+    if sum(1 for r in routes6 if r[0] == "::1" and r[4] == ["::1"]) < 1:
         return False
-    if len([r for r in routes6 if r[0] == "fe80::" and r[1] == 64]) < 1:
+    if sum(1 for r in routes6 if r[0] == "fe80::" and r[1] == 64) < 1:
         return False
-    if len([r for r in routes6 if in6_islladdr(r[0]) and r[1] == 128 and \
-            r[4] == ["::1"]]) < 1:
+    if sum(1 for r in routes6 if in6_islladdr(r[0]) and r[1] == 128 and \
+           r[4] == ["::1"]) < 1:
         return False
     return True
 
@@ -9659,11 +9659,11 @@ n1 = Net("192.168.0.0/31")
 [ip for ip in n1] == ["192.168.0.0", "192.168.0.1"]
 
 n2 = Net("192.168.0.*")
-len([ip for ip in n2]) == 256
+sum(1 for ip in n2) == 256
 assert n2.__iterlen__() == 256
 
 n3 = Net("192.168.0.1-5")
-len([ip for ip in n3]) == 5
+sum(1 for ip in n3) == 5
 assert n3.__iterlen__() == 5
 
 (n1 == n3) == False
@@ -9691,13 +9691,13 @@ assert isinstance(src, str)
 = OID
 
 oid = OID("1.2.3.4.5.6-8")
-len([ o for o in oid ]) == 3
+sum(1 for o in oid) == 3
 assert oid.__iterlen__() == 3
 
 = Net6
 
 n1 = Net6("2001:db8::/127")
-len([ip for ip in n1]) == 2
+sum(1 for ip in n1) == 2
 
 n2 = Net6("fec0::/110")
 #len([x for x in n2]) returns 262144 (very slow)
@@ -10650,9 +10650,9 @@ os.write(fd, b"-- MIB test\nscapy       OBJECT IDENTIFIER ::= {test 2807}\n")
 os.close(fd)
 
 load_mib(fname)
-assert(len([k for k in conf.mib.__dict__.values() if "scapy" in k]) == 1)
+assert(sum(1 for k in six.itervalues(conf.mib.__dict__) if "scapy" in k) == 1)
 
-assert(len([oid for oid in conf.mib]) > 100)
+assert(sum(1 for oid in conf.mib) > 100)
 
 assert(conf.mib._my_find("MIB", "keyUsage"))
 

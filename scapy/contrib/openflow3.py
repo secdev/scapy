@@ -26,6 +26,7 @@ from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
 from scapy.layers.l2 import Ether
 from scapy.layers.inet import TCP
 from scapy.packet import Packet, Padding, Raw
+from scapy.modules import six
 
 from scapy.contrib.openflow import _ofp_header, _ofp_header_item, \
     OFPacketField, OpenFlow, _UnknownOpenFlow
@@ -2574,7 +2575,8 @@ class OFPMPRequestGroupFeatures(_ofp_header):
     overload_fields = {TCP: {"sport": 6653}}
 
 
-ofp_action_types_flags = list(ofp_action_types.values())[:-1]  # no ofpat_experimenter flag  # noqa: E501
+ofp_action_types_flags = [v for v in six.itervalues(ofp_action_types)
+                          if v != 'OFPAT_EXPERIMENTER']
 
 
 class OFPMPReplyGroupFeatures(_ofp_header):

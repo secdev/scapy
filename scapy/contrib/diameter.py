@@ -4802,7 +4802,7 @@ def getCmdParams(cmd, request, **fields):
     name = request and params[0] + '-Request' or params[0] + '-Answer'
     # Processing of flags (only if not provided manually)
     if 'drFlags' not in fields:
-        if drAppId in params[2].keys():
+        if drAppId in params[2]:
             flags = params[2][drAppId]
             fields['drFlags'] = request and flags[0] or flags[1]
     return (fields, name)

@@ -23,6 +23,7 @@ from scapy.layers.l2 import Ether
 from scapy.layers.inet import TCP
 from scapy.packet import Packet, Raw, bind_bottom_up
 from scapy.utils import binrepr
+from scapy.modules import six
 
 
 # If prereq_autocomplete is True then match prerequisites will be
@@ -723,7 +724,8 @@ class OFPTFeaturesRequest(_ofp_header):
     overload_fields = {TCP: {"sport": 6653}}
 
 
-ofp_action_types_flags = list(ofp_action_types.values())[:-1]  # no ofpat_vendor flag  # noqa: E501
+ofp_action_types_flags = [v for v in six.itervalues(ofp_action_types)
+                          if v != 'OFPAT_VENDOR']
 
 
 class OFPTFeaturesReply(_ofp_header):

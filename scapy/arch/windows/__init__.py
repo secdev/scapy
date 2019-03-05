@@ -960,7 +960,7 @@ def get_working_if():
         iface = scapy.consts.LOOPBACK_INTERFACE
     if iface.is_invalid():
         # Backup mode: try them all
-        for iface in IFACES.values():
+        for iface in six.itervalues(IFACES):
             if not iface.is_invalid():
                 return iface
         return None
