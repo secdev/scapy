@@ -21,28 +21,28 @@ from scapy.contrib.automotive.obd.pid.pids_A0_C0 import *
 
 class OBD_S01_PID_Record(Packet):
     fields_desc = [
-        XByteField("pid", 1),
+        XByteField("pid", 0),
     ]
 
 
 class OBD_S01_PID(Packet):
     name = "Parameter IDs"
     fields_desc = [
-        PacketListField("data_records", None, OBD_S01_PID_Record)
+        PacketListField("data_records", [], OBD_S01_PID_Record)
     ]
 
 
 class OBD_S02_PID_Record(Packet):
     fields_desc = [
-        XByteField("pid", 1),
-        XByteField("frame_no", 2),
+        XByteField("pid", 0),
+        XByteField("frame_no", 0),
     ]
 
 
 class OBD_S02_PID(Packet):
     name = "Parameter IDs"
     fields_desc = [
-        PacketListField("data_records", None, OBD_S02_PID_Record)
+        PacketListField("data_records", [], OBD_S02_PID_Record)
     ]
 
 

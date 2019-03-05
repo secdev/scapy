@@ -69,20 +69,20 @@ class OBD_PID01(OBD_Packet):
         BitField('dtc_count', 0, 7),
 
         BitField('reserved1', 0, 1),
-        FlagsField('continuous_tests_ready', b'', 3, [
+        FlagsField('continuous_tests_ready', 0, 3, [
             'misfire',
             'fuelSystem',
             'components'
         ]),
 
         BitField('reserved2', 0, 1),
-        FlagsField('continuous_tests_supported', b'', 3, [
+        FlagsField('continuous_tests_supported', 0, 3, [
             'misfire',
             'fuel_system',
             'components'
         ]),
 
-        FlagsField('once_per_trip_tests_supported', b'', 8, [
+        FlagsField('once_per_trip_tests_supported', 0, 8, [
             'egr',
             'oxygenSensorHeater',
             'oxygenSensor',
@@ -93,7 +93,7 @@ class OBD_PID01(OBD_Packet):
             'catalyst'
         ]),
 
-        FlagsField('once_per_trip_tests_ready', b'', 8, [
+        FlagsField('once_per_trip_tests_ready', 0, 8, [
             'egr',
             'oxygenSensorHeater',
             'oxygenSensor',
@@ -109,7 +109,7 @@ class OBD_PID01(OBD_Packet):
 class OBD_PID02(OBD_Packet):
     name = "PID_02_FreezeDtc"
     fields_desc = [
-        PacketField('dtc', None, OBD_DTC)
+        PacketField('dtc', b'', OBD_DTC)
     ]
 
 
@@ -350,7 +350,7 @@ class OBD_PID1C(OBD_Packet):
 class OBD_PID1D(OBD_Packet):
     name = "PID_1D_OxygenSensorsPresent"
     fields_desc = [
-        FlagsField('sensors_present', b'', 8, [
+        FlagsField('sensors_present', 0, 8, [
             'Bank1Sensor1'
             'Bank1Sensor2',
             'Bank2Sensor1',
