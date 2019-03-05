@@ -60,4 +60,4 @@ assert not a.answers(c)
 a = GENEVE(proto=0x0800)/b'E\x00\x00\x1c\x00\x01\x00\x00@\x01\xfa$\xc0\xa8\x00w\xac\xd9\x12\xc3\x08\x00\xf7\xff\x00\x00\x00\x00'
 a = GENEVE(raw(a))
 assert a.summary() == 'GENEVE / IP / ICMP 192.168.0.119 > 172.217.18.195 echo-request 0'
-assert a.mysummary() == 'GENEVE (vni=0x0,optionlen=0,proto=0x800)'
+assert a.mysummary() in ['GENEVE (vni=0x0,optionlen=0,proto=0x800)', 'GENEVE (vni=0x0,optionlen=0,proto=IPv4)']
