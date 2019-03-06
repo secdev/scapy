@@ -24,11 +24,12 @@ from scapy.error import warning
 from scapy.packet import Packet, Gen
 from scapy.utils import get_temp_file, tcpdump, wrpcap, \
     ContextManagerSubprocess, PcapReader
-from scapy import plist
+from scapy.plist import PacketList, SndRcvList
 from scapy.error import log_runtime, log_interactive
 from scapy.base_classes import SetGen
 from scapy.modules import six
 from scapy.modules.six.moves import map
+from scapy.sessions import DefaultSession
 from scapy.supersocket import SuperSocket
 if conf.route is None:
     # unused import, only to initialize conf.route
@@ -176,9 +177,9 @@ def sndrcv(pks, pkt, timeout=None, inter=0, verbose=None, chainCC=False,
     if process is not None:
         use_prn_mode = True
         _storage_policy = lambda x, y: process(x, y)
-    debug.recv = plist.PacketList([], "Unanswered")
-    debug.sent = plist.PacketList([], "Sent")
-    debug.match = plist.SndRcvList([])
+    debug.recv = PacketList([], "Unanswered")
+    debug.sent = PacketList([], "Sent")
+    debug.match = SndRcvList([])
     nbrecv = 0
     ans = []
     listable = (isinstance(pkt, Packet) and pkt.__iterlen__() == 1) or isinstance(pkt, list)  # noqa: E501
@@ -241,8 +242,8 @@ def sndrcv(pks, pkt, timeout=None, inter=0, verbose=None, chainCC=False,
         retry -= 1
 
     if conf.debug_match:
-        debug.sent = plist.PacketList(remain[:], "Sent")
-        debug.match = plist.SndRcvList(ans[:])
+        debug.sent = PacketList(remain[:], "Sent")
+        debug.match = SndRcvList(ans[:])
 
     # Clean the ans list to delete the field _answered
     if multi:
@@ -256,8 +257,8 @@ def sndrcv(pks, pkt, timeout=None, inter=0, verbose=None, chainCC=False,
     if store_unanswered and use_prn_mode:
         remain = [process(x, None) for x in remain]
 
-    ans_result = ans if use_prn_mode else plist.SndRcvList(ans)
-    unans_result = remain if use_prn_mode else (None if not store_unanswered else plist.PacketList(remain, "Unanswered"))  # noqa: E501
+    ans_result = ans if use_prn_mode else SndRcvList(ans)
+    unans_result = remain if use_prn_mode else (None if not store_unanswered else PacketList(remain, "Unanswered"))  # noqa: E501
     return ans_result, unans_result
 
 
@@ -274,7 +275,7 @@ def __gen_send(s, x, inter=0, loop=0, count=None, verbose=None, realtime=None, r
     elif not loop:
         loop = -1
     if return_packets:
-        sent_packets = plist.PacketList()
+        sent_packets = PacketList()
     try:
         while loop:
             dt0 = None
@@ -612,7 +613,7 @@ def __sr_loop(srfunc, pkts, prn=lambda x: x[1].summary(), prnfail=lambda x: x.su
 
     if verbose and n > 0:
         print(ct.normal("\nSent %i packets, received %i packets. %3.1f%% hits." % (n, r, 100.0 * r / n)))  # noqa: E501
-    return plist.SndRcvList(ans), plist.PacketList(unans)
+    return SndRcvList(ans), PacketList(unans)
 
 
 @conf.commands.register
@@ -705,8 +706,8 @@ def sndrcvflood(pks, pkt, inter=0, verbose=None, chainCC=False, store_unanswered
     count_packets.empty()
     del count_packets
 
-    ans_result = ans if use_prn_mode else plist.SndRcvList(ans)
-    unans_result = remain if use_prn_mode else (None if not store_unanswered else plist.PacketList(remain, "Unanswered"))  # noqa: E501
+    ans_result = ans if use_prn_mode else SndRcvList(ans)
+    unans_result = remain if use_prn_mode else (None if not store_unanswered else PacketList(remain, "Unanswered"))  # noqa: E501
     return ans_result, unans_result
 
 
@@ -779,7 +780,8 @@ iface:    listen answers only on the given interface"""
 @conf.commands.register
 def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
           L2socket=None, timeout=None, opened_socket=None,
-          stop_filter=None, iface=None, started_callback=None, *arg, **karg):
+          stop_filter=None, iface=None, started_callback=None,
+          session=None, *arg, **karg):
     """Sniff packets and return a list of packets.
 
     Args:
@@ -788,6 +790,8 @@ def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
         prn: function to apply to each packet. If something is returned, it
              is displayed.
              --Ex: prn = lambda x: x.summary()
+        session: a session = a flow decoder used to handle stream of packets.
+                 e.g: IPSession (to defragment on-the-flow) or NetflowSession
         filter: BPF filter to apply.
         lfilter: Python function applied to each packet to determine if
                  further action may be done.
@@ -813,6 +817,9 @@ def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
 
     Examples:
       >>> sniff(filter="arp")
+      >>> sniff(filter="tcp",
+      ...       session=IPSession,  # defragment on-the-flow
+      ...       prn=lambda x: x.summary())
       >>> sniff(lfilter=lambda pkt: ARP in pkt)
       >>> sniff(iface="eth0", prn=Packet.summary)
       >>> sniff(iface=["eth0", "mon0"],
@@ -823,6 +830,8 @@ def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
       ...                                   pkt.summary()))
     """
     c = 0
+    session = session or DefaultSession
+    session = session(prn, store)  # instantiate session
     sniff_sockets = {}  # socket: label dict
     if opened_socket is not None:
         if isinstance(opened_socket, list):
@@ -866,7 +875,6 @@ def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
         else:
             sniff_sockets[L2socket(type=ETH_P_ALL, iface=iface,
                                    *arg, **karg)] = iface
-    lst = []
     if timeout is not None:
         stoptime = time.time() + timeout
     remain = None
@@ -911,13 +919,9 @@ def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
                 if lfilter and not lfilter(p):
                     continue
                 p.sniffed_on = sniff_sockets[s]
-                if store:
-                    lst.append(p)
                 c += 1
-                if prn:
-                    r = prn(p)
-                    if r is not None:
-                        print(r)
+                # on_packet_received handles the prn/storage
+                session.on_packet_received(p)
                 if stop_filter and stop_filter(p):
                     sniff_sockets = []
                     break
@@ -929,7 +933,7 @@ def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
     if opened_socket is None:
         for s in sniff_sockets:
             s.close()
-    return plist.PacketList(lst, "Sniffed")
+    return session.toPacketList()
 
 
 @conf.commands.register

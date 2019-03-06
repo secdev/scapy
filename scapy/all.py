@@ -26,6 +26,7 @@ from scapy.asn1packet import *
 from scapy.utils import *
 from scapy.route import *
 from scapy.sendrecv import *
+from scapy.sessions import *
 from scapy.supersocket import *
 from scapy.volatile import *
 from scapy.as_resolvers import *
