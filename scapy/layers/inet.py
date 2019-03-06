@@ -1007,7 +1007,7 @@ def _defrag_list(lst, defrag, missfrag):
     """Internal usage only. Part of the _defrag_logic"""
     p = lst[0]
     lastp = lst[-1]
-    if p.frag > 0 or lastp.flags & 1 != 0:  # first or last fragment missing  # noqa: E501
+    if p.frag > 0 or lastp.flags.MF:  # first or last fragment missing
         missfrag.append(lst)
         return
     p = p.copy()
@@ -1035,7 +1035,7 @@ def _defrag_list(lst, defrag, missfrag):
         if q.time > p.time:
             p.time = q.time
     else:
-        ip.flags &= ~1  # !MF
+        ip.flags.MF = False
         del(ip.chksum)
         del(ip.len)
         p = p / txt

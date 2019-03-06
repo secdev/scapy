@@ -56,7 +56,7 @@ class IPSession(DefaultSession):
         if ip.frag != 0 or ip.flags.MF:
             uniq = (ip.id, ip.src, ip.dst, ip.proto)
             self.fragments[uniq].append(packet)
-            if ip.flags.MF == 0:  # end of frag
+            if not ip.flags.MF:  # end of frag
                 try:
                     if self.fragments[uniq][0].frag == 0:
                         # Has first fragment (otherwise ignore)
