@@ -879,6 +879,8 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
                 time between sending frames.
         """
 
+        automaton.SelectableObject.__init__(self)
+
         self.can_socket = can_socket
         self.dst_id = dst_id
         self.src_id = src_id

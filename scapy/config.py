@@ -618,6 +618,7 @@ recv_poll_rate: how often to check for new packets. Defaults to 0.05s.
     temp_files = []
     netcache = NetCache()
     geoip_city = None
+    # can, tls, http are not loaded by default
     load_layers = ['bluetooth', 'bluetooth4LE', 'dhcp', 'dhcp6', 'dns',
                    'dot11', 'dot15d4', 'eap', 'gprs', 'hsrp', 'inet',
                    'inet6', 'ipsec', 'ir', 'isakmp', 'l2', 'l2tp',

@@ -1685,16 +1685,24 @@ def traceroute_map(ips, **kargs):
 
 
 class TCP_client(Automaton):
+    """
+    Creates a TCP Client Automaton.
+    This automaton will handle TCP 3-way handshake.
 
-    def parse_args(self, ip, port, *args, **kargs):
+    Usage: the easiest usage is to use it as a SuperSocket.
+        >>> a = TCP_client.tcplink("www.google.com", 80)
+        >>> a.send(b"HEAD / HTTP/1.0\r\n\r\n")
+        >>> a.recv()
+    """
+    def parse_args(self, ip, port, full_packets=False, *args, **kargs):
         self.dst = str(Net(ip))
         self.dport = port
         self.sport = random.randrange(0, 2**16)
         self.l4 = IP(dst=ip) / TCP(sport=self.sport, dport=self.dport, flags=0,
                                    seq=random.randrange(0, 2**32))
         self.src = self.l4.src
-        self.swin = self.l4[TCP].window
-        self.dwin = 1
+        self.sack = self.l4[TCP].ack
+        self.full_packets = full_packets
         self.rcvbuf = b""
         bpf = "host %s  and host %s and port %i and port %i" % (self.src,
                                                                 self.dst,
@@ -1712,7 +1720,7 @@ class TCP_client(Automaton):
                 pkt[TCP].sport == self.dport and
                 pkt[TCP].dport == self.sport and
                 self.l4[TCP].seq >= pkt[TCP].ack and  # XXX: seq/ack 2^32 wrap up  # noqa: E501
-                ((self.l4[TCP].ack == 0) or (self.l4[TCP].ack <= pkt[TCP].seq <= self.l4[TCP].ack + self.swin)))  # noqa: E501
+                ((self.l4[TCP].ack == 0) or (self.sack <= pkt[TCP].seq <= self.l4[TCP].ack + pkt[TCP].window)))  # noqa: E501
 
     @ATMT.state(initial=1)
     def START(self):
@@ -1746,7 +1754,7 @@ class TCP_client(Automaton):
 
     @ATMT.receive_condition(SYN_SENT)
     def synack_received(self, pkt):
-        if pkt[TCP].flags & 0x3f == 0x12:
+        if pkt[TCP].flags.SA:
             raise self.ESTABLISHED().action_parameters(pkt)
 
     @ATMT.action(synack_received)
@@ -1757,20 +1765,25 @@ class TCP_client(Automaton):
 
     @ATMT.receive_condition(ESTABLISHED)
     def incoming_data_received(self, pkt):
-        if not isinstance(pkt[TCP].payload, NoPayload) and not isinstance(pkt[TCP].payload, conf.padding_layer):  # noqa: E501
+        if not isinstance(pkt[TCP].payload, (NoPayload, conf.padding_layer)):
             raise self.ESTABLISHED().action_parameters(pkt)
 
     @ATMT.action(incoming_data_received)
     def receive_data(self, pkt):
         data = raw(pkt[TCP].payload)
         if data and self.l4[TCP].ack == pkt[TCP].seq:
+            self.sack = self.l4[TCP].ack
             self.l4[TCP].ack += len(data)
             self.l4[TCP].flags = "A"
+            # Answer with an Ack
             self.send(self.l4)
-            self.rcvbuf += data
-            if pkt[TCP].flags.P:
-                self.oi.tcp.send(self.rcvbuf)
-                self.rcvbuf = b""
+            if self.full_packets:
+                self.oi.tcp.send(pkt)
+            else:
+                self.rcvbuf += data
+                if pkt[TCP].flags.P:
+                    self.oi.tcp.send(self.rcvbuf)
+                    self.rcvbuf = b""
 
     @ATMT.ioevent(ESTABLISHED, name="tcp", as_supersocket="tcplink")
     def outgoing_data_received(self, fd):
@@ -1784,12 +1797,12 @@ class TCP_client(Automaton):
 
     @ATMT.receive_condition(ESTABLISHED)
     def reset_received(self, pkt):
-        if pkt[TCP].flags & 4 != 0:
+        if pkt[TCP].flags.R:
             raise self.CLOSED()
 
     @ATMT.receive_condition(ESTABLISHED)
     def fin_received(self, pkt):
-        if pkt[TCP].flags & 0x1 == 1:
+        if pkt[TCP].flags.F:
             raise self.LAST_ACK().action_parameters(pkt)
 
     @ATMT.action(fin_received)
@@ -1801,7 +1814,7 @@ class TCP_client(Automaton):
 
     @ATMT.receive_condition(LAST_ACK)
     def ack_of_fin_received(self, pkt):
-        if pkt[TCP].flags & 0x3f == 0x10:
+        if pkt[TCP].flags.A:
             raise self.CLOSED()
 
 

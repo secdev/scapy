@@ -744,8 +744,8 @@ Another example: using ``prn`` and ``store=False``
     >>> time.sleep(20)
     >>> t.stop()
 
-Advanced Sniffing - Sessions
-----------------------------
+Advanced Sniffing - Sniffing Sessions
+-------------------------------------
 
 .. note::
    Sessions are only available since **Scapy 2.4.3**
@@ -755,13 +755,15 @@ Advanced Sniffing - Sessions
 Scapy includes some basic Sessions, but it is possible to implement your own.
 Available by default:
 
-- ``IPSession`` -> *defragment IP packets* on-the-flow, to make a stream usable by ``prn``
+- ``IPSession`` -> *defragment IP packets* on-the-flow, to make a stream usable by ``prn``.
+- ``TCPSession`` -> *defragment certain TCP protocols**. Only **HTTP 1.0** currently uses this functionality.
 - ``NetflowSession`` -> *resolve Netflow V9 packets* from their NetflowFlowset information objects
 
-Those sessions can be used using the ``session=`` parameter of ``sniff()``::
+Those sessions can be used using the ``session=`` parameter of ``sniff()``. Examples::
 
-    >>> sniff(session=IPSession, prn=lambda x: x.summary())
-    >>> sniff(session=NetflowSession, prn=lambda x: x.summary())
+    >>> sniff(session=IPSession, iface="eth0")
+    >>> sniff(session=TCPSession, prn=lambda x: x.summary(), store=False)
+    >>> sniff(offline="file.pcap", session=NetflowSession)
 
 .. note::
    To implement your own Session class, in order to support another flow-based protocol, start by copying a sample from `scapy/sessions.py <https://github.com/secdev/scapy/blob/master/scapy/sessions.py>`_

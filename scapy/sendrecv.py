@@ -81,7 +81,8 @@ class SndRcvHandler(object):
                  timeout=None, inter=0, verbose=None,
                  chainCC=False,
                  retry=0, multi=False, rcv_pks=None,
-                 prebuild=False, _flood=None):
+                 prebuild=False, _flood=None,
+                 session=None):
         # Instantiate all arguments
         if verbose is None:
             verbose = conf.verb
@@ -98,6 +99,7 @@ class SndRcvHandler(object):
         self.chainCC = chainCC
         self.multi = multi
         self.timeout = timeout
+        self.session = session
         # Instantiate packet holders
         if _flood:
             self.tobesent = pkt
@@ -243,6 +245,7 @@ class SndRcvHandler(object):
                 timeout=self.timeout,
                 store=False,
                 opened_socket=self.pks,
+                session=self.session,
                 started_callback=callback
             )
         except KeyboardInterrupt:

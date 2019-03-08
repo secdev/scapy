@@ -14,7 +14,6 @@ import itertools
 import time
 import os
 import sys
-import socket
 import traceback
 from select import select
 from collections import deque
@@ -70,7 +69,7 @@ else:
 """
 
 
-class SelectableObject:
+class SelectableObject(object):
     """DEV: to implement one of those, you need to add 2 things to your object:
     - add "check_recv" function
     - call "self.call_release" once you are ready to be read
@@ -79,6 +78,9 @@ class SelectableObject:
     force the handler to use fileno(). This may only be usable on sockets created using  # noqa: E501
     the builtin socket API."""
     __selectable_force_select__ = False
+
+    def __init__(self):
+        self.hooks = []
 
     def check_recv(self):
         """DEV: will be called only once (at beginning) to check if the object is ready."""  # noqa: E501
@@ -101,6 +103,10 @@ class SelectableObject:
         _t.setDaemon(True)
         _t.start()
 
+    def register_hook(self, hook):
+        """DEV: When call_release() will be called, the hook will also"""
+        self.hooks.append(hook)
+
     def call_release(self, arborted=False):
         """DEV: Must be call when the object becomes ready to read.
            Relesases the lock of _wait_non_ressources"""
@@ -109,6 +115,9 @@ class SelectableObject:
             self.trigger.release()
         except (threading.ThreadError, AttributeError):
             pass
+        # Trigger hooks
+        for hook in self.hooks:
+            hook()
 
 
 class SelectableSelector(object):
@@ -196,8 +205,10 @@ class ObjectPipe(SelectableObject):
     read_allowed_exceptions = ()
 
     def __init__(self):
+        self.closed = False
         self.rd, self.wr = os.pipe()
         self.queue = deque()
+        SelectableObject.__init__(self)
 
     def fileno(self):
         return self.rd
@@ -214,6 +225,10 @@ class ObjectPipe(SelectableObject):
         self.send(obj)
 
     def recv(self, n=0):
+        if self.closed:
+            if self.check_recv():
+                return self.queue.popleft()
+            return None
         os.read(self.rd, 1)
         return self.queue.popleft()
 
@@ -221,9 +236,22 @@ class ObjectPipe(SelectableObject):
         return self.recv(n)
 
     def close(self):
-        os.close(self.rd)
-        os.close(self.wr)
-        self.queue.clear()
+        if not self.closed:
+            self.closed = True
+            os.close(self.rd)
+            os.close(self.wr)
+            self.queue.clear()
+
+    @staticmethod
+    def select(sockets, remain=conf.recv_poll_rate):
+        # Only handle ObjectPipes
+        results = []
+        for s in sockets:
+            if s.closed:
+                results.append(s)
+        if results:
+            return results, None
+        return select_objects(sockets, remain), None
 
 
 class Message:
@@ -387,13 +415,16 @@ class _ATMT_Command:
     REJECT = "REJECT"
 
 
-class _ATMT_supersocket(SuperSocket):
-    def __init__(self, name, ioevent, automaton, proto, args, kargs):
+class _ATMT_supersocket(SuperSocket, SelectableObject):
+    def __init__(self, name, ioevent, automaton, *args, **kargs):
+        SelectableObject.__init__(self)
         self.name = name
         self.ioevent = ioevent
-        self.proto = proto
-        self.spa, self.spb = socket.socketpair(socket.AF_UNIX, socket.SOCK_DGRAM)  # noqa: E501
-        kargs["external_fd"] = {ioevent: self.spb}
+        self.proto = kargs.pop("proto", None)
+        self.spa, self.spb = ObjectPipe(), ObjectPipe()
+        # Register recv hook
+        self.spb.register_hook(self.call_release)
+        kargs["external_fd"] = {ioevent: (self.spa, self.spb)}
         self.atmt = automaton(*args, **kargs)
         self.atmt.runbg()
 
@@ -405,19 +436,21 @@ class _ATMT_supersocket(SuperSocket):
             s = bytes(s)
         return self.spa.send(s)
 
+    def check_recv(self):
+        return self.spb.check_recv()
+
     def recv(self, n=MTU):
-        try:
-            r = self.spa.recv(n)
-        except recv_error:
-            if not WINDOWS:
-                raise
-            return None
+        r = self.spb.recv(n)
         if self.proto is not None:
             r = self.proto(r)
         return r
 
     def close(self):
         pass
+
+    @staticmethod
+    def select(sockets, remain=conf.recv_poll_rate):
+        return select_objects(sockets, remain), None
 
 
 class _ATMT_to_supersocket:
@@ -426,8 +459,8 @@ class _ATMT_to_supersocket:
         self.ioevent = ioevent
         self.automaton = automaton
 
-    def __call__(self, proto, *args, **kargs):
-        return _ATMT_supersocket(self.name, self.ioevent, self.automaton, proto, args, kargs)  # noqa: E501
+    def __call__(self, *args, **kargs):
+        return _ATMT_supersocket(self.name, self.ioevent, self.automaton, *args, **kargs)  # noqa: E501
 
 
 class Automaton_metaclass(type):
@@ -561,35 +594,32 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
     # Utility classes and exceptions
     class _IO_fdwrapper(SelectableObject):
         def __init__(self, rd, wr):
-            if WINDOWS:
-                # rd will be used for reading and sending
-                if isinstance(rd, ObjectPipe):
-                    self.rd = rd
-                else:
-                    raise OSError("On windows, only instances of ObjectPipe are externally available")  # noqa: E501
-            else:
-                if rd is not None and not isinstance(rd, int):
-                    rd = rd.fileno()
-                if wr is not None and not isinstance(wr, int):
-                    wr = wr.fileno()
-                self.rd = rd
-                self.wr = wr
+            if rd is not None and not isinstance(rd, (int, ObjectPipe)):
+                rd = rd.fileno()
+            if wr is not None and not isinstance(wr, (int, ObjectPipe)):
+                wr = wr.fileno()
+            self.rd = rd
+            self.wr = wr
+            SelectableObject.__init__(self)
 
         def fileno(self):
+            if isinstance(self.rd, ObjectPipe):
+                return self.rd.fileno()
             return self.rd
 
         def check_recv(self):
             return self.rd.check_recv()
 
         def read(self, n=65535):
-            if WINDOWS:
+            if isinstance(self.rd, ObjectPipe):
                 return self.rd.recv(n)
             return os.read(self.rd, n)
 
         def write(self, msg):
-            if WINDOWS:
-                self.rd.send(msg)
-                return self.call_release()
+            self.call_release()
+            if isinstance(self.wr, ObjectPipe):
+                self.wr.send(msg)
+                return
             return os.write(self.wr, msg)
 
         def recv(self, n=65535):
@@ -602,6 +632,7 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
         def __init__(self, rd, wr):
             self.rd = rd
             self.wr = wr
+            SelectableObject.__init__(self)
 
         def fileno(self):
             if isinstance(self.rd, int):
@@ -709,15 +740,13 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
             extfd = external_fd.get(n)
             if not isinstance(extfd, tuple):
                 extfd = (extfd, extfd)
-            elif WINDOWS:
-                raise OSError("Tuples are not allowed as external_fd on windows")  # noqa: E501
             ioin, ioout = extfd
             if ioin is None:
                 ioin = ObjectPipe()
             elif not isinstance(ioin, SelectableObject):
                 ioin = self._IO_fdwrapper(ioin, None)
             if ioout is None:
-                ioout = ioin if WINDOWS else ObjectPipe()
+                ioout = ObjectPipe()
             elif not isinstance(ioout, SelectableObject):
                 ioout = self._IO_fdwrapper(None, ioout)
 
