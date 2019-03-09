@@ -44,7 +44,7 @@ class _OBD_TID_Period(OBD_Packet):
 class OBD_TID00(OBD_Packet):
     name = "TID_00_Service8SupportedTestIdentifiers"
     fields_desc = [
-        FlagsField('supported_tids', b'', 32, [
+        FlagsField('supported_tids', 0, 32, [
             'TID20',
             'TID1F',
             'TID1E',
@@ -124,14 +124,14 @@ class OBD_TID0A(_OBD_TID_Period):
 class OBD_TID_Record(Packet):
     name = "Control Operation ID"
     fields_desc = [
-        ByteField("tid", 1),
+        ByteField("tid", 0),
     ]
 
 
 class OBD_S08_TID(Packet):
     name = "Control Operation IDs"
     fields_desc = [
-        PacketListField("data_records", None, OBD_TID_Record)
+        PacketListField("data_records", [], OBD_TID_Record)
     ]
 
 

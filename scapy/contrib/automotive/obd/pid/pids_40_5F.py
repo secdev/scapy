@@ -63,23 +63,23 @@ class OBD_PID41(OBD_Packet):
     }
 
     fields_desc = [
-        XByteField('reserved', b''),
+        XByteField('reserved', 0),
 
         BitField('reserved1', 0, 1),
-        FlagsField('continuous_tests_ready', b'', 3, [
+        FlagsField('continuous_tests_ready', 0, 3, [
             'misfire',
             'fuelSystem',
             'components'
         ]),
 
         BitField('reserved2', 0, 1),
-        FlagsField('continuous_tests_supported', b'', 3, [
+        FlagsField('continuous_tests_supported', 0, 3, [
             'misfire',
             'fuelSystem',
             'components'
         ]),
 
-        FlagsField('once_per_trip_tests_supported', b'', 8, [
+        FlagsField('once_per_trip_tests_supported', 0, 8, [
             'egr',
             'oxygenSensorHeater',
             'oxygenSensor',
@@ -90,7 +90,7 @@ class OBD_PID41(OBD_Packet):
             'catalyst'
         ]),
 
-        FlagsField('once_per_trip_tests_ready', b'', 8, [
+        FlagsField('once_per_trip_tests_ready', 0, 8, [
             'egr',
             'oxygenSensorHeater',
             'oxygenSensor',

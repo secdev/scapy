@@ -323,37 +323,37 @@ class OBD_MIDXX(OBD_Packet):
 
 class OBD_MID00(OBD_Packet):
     fields_desc = [
-        FlagsField('supported_mids', b'', 32, _mid_flags(0x00)),
+        FlagsField('supported_mids', 0, 32, _mid_flags(0x00)),
     ]
 
 
 class OBD_MID20(OBD_Packet):
     fields_desc = [
-        FlagsField('supported_mids', b'', 32, _mid_flags(0x20)),
+        FlagsField('supported_mids', 0, 32, _mid_flags(0x20)),
     ]
 
 
 class OBD_MID40(OBD_Packet):
     fields_desc = [
-        FlagsField('supported_mids', b'', 32, _mid_flags(0x40)),
+        FlagsField('supported_mids', 0, 32, _mid_flags(0x40)),
     ]
 
 
 class OBD_MID60(OBD_Packet):
     fields_desc = [
-        FlagsField('supported_mids', b'', 32, _mid_flags(0x60)),
+        FlagsField('supported_mids', 0, 32, _mid_flags(0x60)),
     ]
 
 
 class OBD_MID80(OBD_Packet):
     fields_desc = [
-        FlagsField('supported_mids', b'', 32, _mid_flags(0x80)),
+        FlagsField('supported_mids', 0, 32, _mid_flags(0x80)),
     ]
 
 
 class OBD_MIDA0(OBD_Packet):
     fields_desc = [
-        FlagsField('supported_mids', b'', 32, _mid_flags(0xA0)),
+        FlagsField('supported_mids', 0, 32, _mid_flags(0xA0)),
     ]
 
 
@@ -449,14 +449,14 @@ class OBD_MID_Record(Packet):
     }
     name = "On-Board diagnostic monitoring ID"
     fields_desc = [
-        ByteEnumField("mid", 1, on_board_monitoring_ids),
+        ByteEnumField("mid", 0, on_board_monitoring_ids),
     ]
 
 
 class OBD_S06_MID(Packet):
     name = "On-Board monitoring IDs"
     fields_desc = [
-        PacketListField("data_records", None, OBD_MID_Record)
+        PacketListField("data_records", [], OBD_MID_Record)
     ]
 
 
