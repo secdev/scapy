@@ -110,7 +110,8 @@ def _CDPGuessPayloadClass(p, **kargs):
 class CDPMsgGeneric(Packet):
     name = "CDP Generic Message"
     fields_desc = [XShortEnumField("type", None, _cdp_tlv_types),
-                   FieldLenField("len", None, "val", "!H"),
+                   FieldLenField("len", None, "val", "!H",
+                                 adjust=lambda pkt, x: x + 4),
                    StrLenField("val", "", length_from=lambda x:x.len - 4,
                                max_length=65531)]
 
@@ -198,7 +199,8 @@ class CDPMsgAddr(CDPMsgGeneric):
 class CDPMsgPortID(CDPMsgGeneric):
     name = "Port ID"
     fields_desc = [XShortEnumField("type", 0x0003, _cdp_tlv_types),
-                   FieldLenField("len", None, "iface", "!H"),
+                   FieldLenField("len", None, "iface", "!H",
+                                 adjust=lambda pkt, x: x + 4),
                    StrLenField("iface", "Port 1", length_from=lambda x:x.len - 4)]  # noqa: E501
 
 
