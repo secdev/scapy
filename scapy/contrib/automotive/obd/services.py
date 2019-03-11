@@ -56,7 +56,7 @@ class OBD_S01(Packet):
     ]
 
 
-class OBD_S02_Req(OBD_Packet):
+class OBD_S02_Record(OBD_Packet):
     fields_desc = [
         XByteField('pid', 0),
         ByteField('frame_no', 0)
@@ -66,7 +66,7 @@ class OBD_S02_Req(OBD_Packet):
 class OBD_S02(Packet):
     name = "S2_FreezeFrameData"
     fields_desc = [
-        PacketListField("requests", [], OBD_S02_Req)
+        PacketListField("requests", [], OBD_S02_Record)
     ]
 
 
@@ -74,7 +74,7 @@ class OBD_S03(Packet):
     name = "S3_RequestDTCs"
 
 
-class OBD_S03_DTC(Packet):
+class OBD_S03_PR(Packet):
     name = "S3_ResponseDTCs"
     fields_desc = [
         FieldLenField('count', None, count_of='dtcs', fmt='B'),
@@ -101,7 +101,7 @@ class OBD_S07(Packet):
     name = "S7_RequestPendingDTCs"
 
 
-class OBD_S07_DTC(Packet):
+class OBD_S07_PR(Packet):
     name = "S7_ResponsePendingDTCs"
     fields_desc = [
         FieldLenField('count', None, count_of='dtcs', fmt='B'),
@@ -127,7 +127,7 @@ class OBD_S0A(Packet):
     name = "S0A_RequestPermanentDTCs"
 
 
-class OBD_S0A_DTC(Packet):
+class OBD_S0A_PR(Packet):
     name = "S0A_ResponsePermanentDTCs"
     fields_desc = [
         FieldLenField('count', None, count_of='dtcs', fmt='B'),

@@ -16,16 +16,16 @@ from scapy.packet import Packet, bind_layers
 # for further information
 # IID = Information IDentification
 
-class OBD_S09_IID_Record(Packet):
+class OBD_S09_PR_Record(Packet):
     fields_desc = [
         XByteField("iid", 0),
     ]
 
 
-class OBD_S09_IID(Packet):
+class OBD_S09_PR(Packet):
     name = "Infotype IDs"
     fields_desc = [
-        PacketListField("data_records", [], OBD_S09_IID_Record)
+        PacketListField("data_records", [], OBD_S09_PR_Record)
     ]
 
 
@@ -158,15 +158,15 @@ class OBD_IID0B(OBD_Packet):
     ]
 
 
-bind_layers(OBD_S09_IID_Record, OBD_IID00, iid=0x00)
-bind_layers(OBD_S09_IID_Record, OBD_IID01, iid=0x01)
-bind_layers(OBD_S09_IID_Record, OBD_IID02, iid=0x02)
-bind_layers(OBD_S09_IID_Record, OBD_IID03, iid=0x03)
-bind_layers(OBD_S09_IID_Record, OBD_IID04, iid=0x04)
-bind_layers(OBD_S09_IID_Record, OBD_IID05, iid=0x05)
-bind_layers(OBD_S09_IID_Record, OBD_IID06, iid=0x06)
-bind_layers(OBD_S09_IID_Record, OBD_IID07, iid=0x07)
-bind_layers(OBD_S09_IID_Record, OBD_IID08, iid=0x08)
-bind_layers(OBD_S09_IID_Record, OBD_IID09, iid=0x09)
-bind_layers(OBD_S09_IID_Record, OBD_IID0A, iid=0x0A)
-bind_layers(OBD_S09_IID_Record, OBD_IID0B, iid=0x0B)
+bind_layers(OBD_S09_PR_Record, OBD_IID00, iid=0x00)
+bind_layers(OBD_S09_PR_Record, OBD_IID01, iid=0x01)
+bind_layers(OBD_S09_PR_Record, OBD_IID02, iid=0x02)
+bind_layers(OBD_S09_PR_Record, OBD_IID03, iid=0x03)
+bind_layers(OBD_S09_PR_Record, OBD_IID04, iid=0x04)
+bind_layers(OBD_S09_PR_Record, OBD_IID05, iid=0x05)
+bind_layers(OBD_S09_PR_Record, OBD_IID06, iid=0x06)
+bind_layers(OBD_S09_PR_Record, OBD_IID07, iid=0x07)
+bind_layers(OBD_S09_PR_Record, OBD_IID08, iid=0x08)
+bind_layers(OBD_S09_PR_Record, OBD_IID09, iid=0x09)
+bind_layers(OBD_S09_PR_Record, OBD_IID0A, iid=0x0A)
+bind_layers(OBD_S09_PR_Record, OBD_IID0B, iid=0x0B)
