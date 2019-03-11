@@ -784,6 +784,66 @@ assert b[0:1] == b'\x09'
 assert b[1:2] == b'\x0A'
 
 
+= Check building a response for Service 03
+
+p = OBD()/OBD_S03_DTC(dtcs=[OBD_DTC(), OBD_DTC(location='Powertrain', code1=1, code2=3, code3=0, code4=1)])
+b = bytes(p)
+assert b[0:1] == b'\x43'
+assert b[1:2] == b'\x02'
+assert b[2:4] == b'\x00\x00'
+assert b[4:6] == b'\x13\x01'
+
+
+= Check building a default response for Service 03
+
+p = OBD()/OBD_S03_DTC()
+b = bytes(p)
+assert len(p) == 2
+assert b[0:1] == b'\x43'
+assert b[1:2] == b'\x00'
+assert p.dtcs == []
+
+
+= Check building a response for Service 07
+
+p = OBD()/OBD_S07_DTC(dtcs=[OBD_DTC(location='Chassis', code1=0, code2=5, code3=1, code4=0)])
+b = bytes(p)
+assert b[0:1] == b'\x47'
+assert b[1:2] == b'\x01'
+assert b[2:4] == b'\x45\x10'
+
+
+= Check building a default response for Service 07
+
+p = OBD()/OBD_S07_DTC()
+b = bytes(p)
+assert len(p) == 2
+assert b[0:1] == b'\x47'
+assert b[1:2] == b'\x00'
+assert p.dtcs == []
+
+
+= Check building a response for Service 0A
+
+p = OBD()/OBD_S0A_DTC(dtcs=[OBD_DTC(), OBD_DTC(location='Body', code1=1, code2=7, code3=8, code4=2), OBD_DTC()])
+b = bytes(p)
+assert b[0:1] == b'\x4A'
+assert b[1:2] == b'\x03'
+assert b[2:4] == b'\x00\x00'
+assert b[4:6] == b'\x97\x82'
+assert b[6:8] == b'\x00\x00'
+
+
+= Check building a default response for Service 0A
+
+p = OBD()/OBD_S0A_DTC()
+b = bytes(p)
+assert len(p) == 2
+assert b[0:1] == b'\x4A'
+assert b[1:2] == b'\x00'
+assert p.dtcs == []
+
+
 = Check building a response for Service 09 IID 00
 
 p = OBD(service=0x49)/OBD_S09_IID(data_records=OBD_S09_IID_Record()/OBD_IID00(b'ABCD'))
