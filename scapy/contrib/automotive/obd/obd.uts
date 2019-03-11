@@ -684,7 +684,7 @@ assert b[1:2] == b'\x89'
 
 = Check building a request for Service 02 PID 00
 
-p = OBD()/OBD_S02(requests=[OBD_S02_Req(pid=0x00, frame_no=0x01)])
+p = OBD()/OBD_S02(requests=[OBD_S02_Record(pid=0x00, frame_no=0x01)])
 b = bytes(p)
 assert b[0:1] == b'\x02'
 assert b[1:2] == b'\x00'
@@ -693,7 +693,7 @@ assert b[2:3] == b'\x01'
 
 = Check building a request for Service 02 PID 75
 
-p = OBD()/OBD_S02(requests=[OBD_S02_Req(pid=0x75, frame_no=0x01)])
+p = OBD()/OBD_S02(requests=[OBD_S02_Record(pid=0x75, frame_no=0x01)])
 b = bytes(p)
 assert b[0:1] == b'\x02'
 assert b[1:2] == b'\x75'
@@ -702,7 +702,7 @@ assert b[2:3] == b'\x01'
 
 = Check building a request for Service 02 PID 78
 
-p = OBD()/OBD_S02(requests=[OBD_S02_Req(pid=0x78, frame_no=0x01)])
+p = OBD()/OBD_S02(requests=[OBD_S02_Record(pid=0x78, frame_no=0x01)])
 b = bytes(p)
 assert b[0:1] == b'\x02'
 assert b[1:2] == b'\x78'
@@ -711,7 +711,7 @@ assert b[2:3] == b'\x01'
 
 = Check building a request for Service 02 PID 7F
 
-p = OBD()/OBD_S02(requests=[OBD_S02_Req(pid=0x7F, frame_no=0x01)])
+p = OBD()/OBD_S02(requests=[OBD_S02_Record(pid=0x7F, frame_no=0x01)])
 b = bytes(p)
 assert b[0:1] == b'\x02'
 assert b[1:2] == b'\x7F'
@@ -720,7 +720,7 @@ assert b[2:3] == b'\x01'
 
 = Check building a request for Service 02 PID 89
 
-p = OBD()/OBD_S02(requests=[OBD_S02_Req(pid=0x89, frame_no=0x01)])
+p = OBD()/OBD_S02(requests=[OBD_S02_Record(pid=0x89, frame_no=0x01)])
 b = bytes(p)
 assert b[0:1] == b'\x02'
 assert b[1:2] == b'\x89'
@@ -735,7 +735,7 @@ assert p.service == 0x03
 
 = Check building a request for Service 02 PID 7F
 
-p = OBD()/OBD_S02(requests=[OBD_S02_Req(pid=0x7F, frame_no=0x01)])
+p = OBD()/OBD_S02(requests=[OBD_S02_Record(pid=0x7F, frame_no=0x01)])
 b = bytes(p)
 assert b[0:1] == b'\x02'
 assert b[1:2] == b'\x7F'
@@ -786,7 +786,7 @@ assert b[1:2] == b'\x0A'
 
 = Check building a response for Service 09 IID 00
 
-p = OBD(service=0x49)/OBD_S09_IID(data_records=OBD_S09_IID_Record()/OBD_IID00(b'ABCD'))
+p = OBD(service=0x49)/OBD_S02_PR(data_records=OBD_S09_PR_Record()/OBD_IID00(b'ABCD'))
 b = bytes(p)
 assert b[0:1] == b'\x49'
 assert b[1:2] == b'\x00'
@@ -795,7 +795,7 @@ assert b[2:] == b'ABCD'
 
 = Check building a response for Service 09 IID 02 with one VIN
 
-p = OBD(service=0x49)/OBD_S09_IID(data_records=OBD_S09_IID_Record()/OBD_IID02(vehicle_identification_numbers=b'W0L000051T2123456'))
+p = OBD(service=0x49)/OBD_S02_PR(data_records=OBD_S09_PR_Record()/OBD_IID02(vehicle_identification_numbers=b'W0L000051T2123456'))
 b = bytes(p)
 assert b[0:1] == b'\x49'
 assert b[1:2] == b'\x02'
@@ -805,7 +805,7 @@ assert b[3:] == b'W0L000051T2123456'
 
 = Check building a response for Service 09 IID 02 with two VINs
 
-p = OBD(service=0x49)/OBD_S09_IID(data_records=OBD_S09_IID_Record()/OBD_IID02(vehicle_identification_numbers=[b'W0L000051T2123456', b'W0L000051T2123456']))
+p = OBD(service=0x49)/OBD_S02_PR(data_records=OBD_S09_PR_Record()/OBD_IID02(vehicle_identification_numbers=[b'W0L000051T2123456', b'W0L000051T2123456']))
 b = bytes(p)
 assert b[0:1] == b'\x49'
 assert b[1:2] == b'\x02'
@@ -816,7 +816,7 @@ assert b[20:] == b'W0L000051T2123456'
 
 = Check building a response for Service 09 IID 04 with one CID
 
-p = OBD(service=0x49)/OBD_S09_IID(data_records=OBD_S09_IID_Record()/OBD_IID04(calibration_identifications=b'ABCDEFGHIJKLMNOP'))
+p = OBD(service=0x49)/OBD_S02_PR(data_records=OBD_S09_PR_Record()/OBD_IID04(calibration_identifications=b'ABCDEFGHIJKLMNOP'))
 b = bytes(p)
 assert b[0:1] == b'\x49'
 assert b[1:2] == b'\x04'
@@ -826,7 +826,7 @@ assert b[3:] == b'ABCDEFGHIJKLMNOP'
 
 = Check building a response for Service 09 IID 04 with two CID
 
-p = OBD(service=0x49)/OBD_S09_IID(data_records=OBD_S09_IID_Record()/OBD_IID04(calibration_identifications=[b'ABCDEFGHIJKLMNOP', b'ABCDEFGHIJKLMNOP']))
+p = OBD(service=0x49)/OBD_S02_PR(data_records=OBD_S09_PR_Record()/OBD_IID04(calibration_identifications=[b'ABCDEFGHIJKLMNOP', b'ABCDEFGHIJKLMNOP']))
 b = bytes(p)
 assert b[0:1] == b'\x49'
 assert b[1:2] == b'\x04'
@@ -837,7 +837,7 @@ assert b[19:] == b'ABCDEFGHIJKLMNOP'
 
 = Check building a response for Service 09 IID 0A
 
-p = OBD(service=0x49)/OBD_S09_IID(data_records=OBD_S09_IID_Record()/OBD_IID0A(ecu_names=b'ABCDEFGHIJKLMNOPQRST'))
+p = OBD(service=0x49)/OBD_S02_PR(data_records=OBD_S09_PR_Record()/OBD_IID0A(ecu_names=b'ABCDEFGHIJKLMNOPQRST'))
 b = bytes(p)
 assert b[0:1] == b'\x49'
 assert b[1:2] == b'\x0A'
@@ -847,9 +847,9 @@ assert b[3:] == b'ABCDEFGHIJKLMNOPQRST'
 
 = Check building a response for Service 09 IID 02 and IID 04
 
-p = OBD(service=0x49)/OBD_S09_IID(data_records=[
-    OBD_S09_IID_Record()/OBD_IID02(vehicle_identification_numbers=b'ABCDEFGHIJKLMNOPQ'),
-    OBD_S09_IID_Record()/OBD_IID04(calibration_identifications=b'ABCDEFGHIJKLMNOP')
+p = OBD(service=0x49)/OBD_S02_PR(data_records=[
+    OBD_S09_PR_Record()/OBD_IID02(vehicle_identification_numbers=b'ABCDEFGHIJKLMNOPQ'),
+    OBD_S09_PR_Record()/OBD_IID04(calibration_identifications=b'ABCDEFGHIJKLMNOP')
 ])
 b = bytes(p)
 assert b[0:1] == b'\x49'

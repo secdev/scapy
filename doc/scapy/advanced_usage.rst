@@ -2078,15 +2078,15 @@ Request supported PIDs of service 0x01::
 
 The response will contain a PacketListField, called `data_records`. This field contains the actual response::
 
-   resp = OBD(service=65)/OBD_S01_PID(data_records=[OBD_S01_PID_Record(pid=0)/OBD_PID00(supported_pids=3196041235)])
+   resp = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID00(supported_pids=3196041235)])
    resp.show()
-   ###[ On-board diagnostics ]### 
+   ###[ On-board diagnostics ]###
      service= CurrentPowertrainDiagnosticDataResponse
-   ###[ Parameter IDs ]### 
+   ###[ Parameter IDs ]###
         \data_records\
-         |###[ OBD_S01_PID_Record ]### 
+         |###[ OBD_S01_PR_Record ]###
          |  pid= 0x0
-         |###[ PID_00_PIDsSupported ]### 
+         |###[ PID_00_PIDsSupported ]###
          |     supported_pids= PID20+PID1F+PID1C+PID15+PID14+PID13+PID11+PID10+PID0F+PID0E+PID0D+PID0C+PID0B+PID0A+PID07+PID06+PID05+PID04+PID03+PID01
 
 Let's assume our ECU under test supports the pid 0x15::
@@ -2098,7 +2098,7 @@ Let's assume our ECU under test supports the pid 0x15::
      service= CurrentPowertrainDiagnosticDataResponse
    ###[ Parameter IDs ]### 
         \data_records\
-         |###[ OBD_S01_PID_Record ]### 
+         |###[ OBD_S01_PR_Record ]###
          |  pid= 0x15
          |###[ PID_15_OxygenSensor2 ]### 
          |     outputVoltage= 1.275 V
@@ -2130,7 +2130,7 @@ Request the Vehicle Identification Number (VIN)::
      service= VehicleInformationResponse
    ###[ Infotype IDs ]###
         \data_records\
-         |###[ OBD_S09_IID_Record ]###
+         |###[ OBD_S09_PR_Record ]###
          |  iid= 0x2
          |###[ IID_02_VehicleIdentificationNumber ]###
          |     count= 1
