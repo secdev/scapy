@@ -251,14 +251,14 @@ class OBD_PID13(OBD_Packet):
     name = "PID_13_OxygenSensorsPresent"
     fields_desc = [
         FlagsField('sensors_present', b'', 8, [
-            'Bank1Sensor1'
+            'Bank1Sensor1',
             'Bank1Sensor2',
             'Bank1Sensor3',
             'Bank1Sensor4',
             'Bank2Sensor1',
             'Bank2Sensor2',
             'Bank2Sensor3',
-            'Bank2Sensor4',
+            'Bank2Sensor4'
         ])
     ]
 
@@ -309,15 +309,15 @@ class OBD_PID1C(OBD_Packet):
     obdStandards = {
         0x01: 'OBD-II as defined by the CARB',
         0x02: 'OBD as defined by the EPA',
-        0x03: 'OBD and OBD-II ',
-        0x04: 'OBD-I ',
+        0x03: 'OBD and OBD-II',
+        0x04: 'OBD-I',
         0x05: 'Not OBD compliant',
-        0x06: 'EOBD (Europe) ',
-        0x07: 'EOBD and OBD-II ',
+        0x06: 'EOBD (Europe)',
+        0x07: 'EOBD and OBD-II',
         0x08: 'EOBD and OBD',
-        0x09: 'EOBD, OBD and OBD II ',
+        0x09: 'EOBD, OBD and OBD II',
         0x0A: 'JOBD (Japan)',
-        0x0B: 'JOBD and OBD II ',
+        0x0B: 'JOBD and OBD II',
         0x0C: 'JOBD and EOBD',
         0x0D: 'JOBD, EOBD, and OBD II',
         0x0E: 'Reserved',
@@ -351,14 +351,14 @@ class OBD_PID1D(OBD_Packet):
     name = "PID_1D_OxygenSensorsPresent"
     fields_desc = [
         FlagsField('sensors_present', 0, 8, [
-            'Bank1Sensor1'
+            'Bank1Sensor1',
             'Bank1Sensor2',
             'Bank2Sensor1',
             'Bank2Sensor2',
             'Bank3Sensor1',
             'Bank3Sensor2',
             'Bank4Sensor1',
-            'Bank4Sensor2',
+            'Bank4Sensor2'
         ])
     ]
 
