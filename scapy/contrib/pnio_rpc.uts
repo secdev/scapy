@@ -4,10 +4,11 @@
 = Import the PNIO RPC layer
 from scapy.contrib.dce_rpc import *
 from scapy.contrib.pnio_rpc import *
+from scapy.modules.six import itervalues
 
 = Check that we have UUIDs
 
-for v in RPC_INTERFACE_UUID.values():
+for v in itervalues(RPC_INTERFACE_UUID):
     assert(isinstance(v, UUID))
 
 + Check Block

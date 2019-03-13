@@ -41,7 +41,7 @@ class EndiannessField(object):
     def set_endianess(self, pkt):
         """Add the endianness to the format"""
         end = self.endianess_from(pkt)
-        if isinstance(end, str) and len(end) > 0:
+        if isinstance(end, str) and end:
             if isinstance(self.fld, UUIDField):
                 self.fld.uuid_fmt = (UUIDField.FORMAT_LE if end == '<'
                                      else UUIDField.FORMAT_BE)
