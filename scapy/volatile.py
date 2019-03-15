@@ -823,7 +823,7 @@ class RandUUID(RandField):
         ),
         re.I
     )
-    VERSIONS = (1, 3, 4, 5)
+    VERSIONS = [1, 3, 4, 5]
 
     def __init__(self, template=None, node=None, clock_seq=None,
                  namespace=None, name=None, version=None):
