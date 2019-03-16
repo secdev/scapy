@@ -252,18 +252,18 @@ class OBD_PID54(OBD_Packet):
 
 class _OBD_SensorTrimPacket1(OBD_Packet):
     fields_desc = [
-        ScalingField('bank1', 0, scaling=1 / 128.,
+        ScalingField('bank1', 0, scaling=100 / 128.,
                      offset=-100, unit="%"),
-        ScalingField('bank3', 0, scaling=1 / 128.,
+        ScalingField('bank3', 0, scaling=100 / 128.,
                      offset=-100, unit="%")
     ]
 
 
 class _OBD_SensorTrimPacket2(OBD_Packet):
     fields_desc = [
-        ScalingField('bank1', 0, scaling=1 / 128.,
+        ScalingField('bank2', 0, scaling=100 / 128.,
                      offset=-100, unit="%"),
-        ScalingField('bank3', 0, scaling=1 / 128.,
+        ScalingField('bank4', 0, scaling=100 / 128.,
                      offset=-100, unit="%")
     ]
 
