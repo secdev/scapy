@@ -7,10 +7,9 @@
 Global variables and functions for handling external data sets.
 """
 
-
+import calendar
 import os
 import re
-import time
 
 
 from scapy.dadict import DADict
@@ -116,9 +115,41 @@ IPV6_ADDR_SCOPE_MASK = 0xF0
 IPV6_ADDR_6TO4 = 0x0100   # Added to have more specific info (should be 0x0101 ?)  # noqa: E501
 IPV6_ADDR_UNSPECIFIED = 0x10000
 
+# Constants for PPI header types.
+PPI_DOT11COMMON = 2
+PPI_DOT11NMAC = 3
+PPI_DOT11NMACPHY = 4
+PPI_SPECTRUM_MAP = 5
+PPI_PROCESS_INFO = 6
+PPI_CAPTURE_INFO = 7
+PPI_AGGREGATION = 8
+PPI_DOT3 = 9
+PPI_GPS = 30002
+PPI_VECTOR = 30003
+PPI_SENSOR = 30004
+PPI_ANTENNA = 30005
+PPI_BTLE = 30006
+
+# Human-readable type names for PPI header types.
+PPI_TYPES = {
+    PPI_DOT11COMMON: 'dot11-common',
+    PPI_DOT11NMAC: 'dot11-nmac',
+    PPI_DOT11NMACPHY: 'dot11-nmacphy',
+    PPI_SPECTRUM_MAP: 'spectrum-map',
+    PPI_PROCESS_INFO: 'process-info',
+    PPI_CAPTURE_INFO: 'capture-info',
+    PPI_AGGREGATION: 'aggregation',
+    PPI_DOT3: 'dot3',
+    PPI_GPS: 'gps',
+    PPI_VECTOR: 'vector',
+    PPI_SENSOR: 'sensor',
+    PPI_ANTENNA: 'antenna',
+    PPI_BTLE: 'btle',
+}
+
 
 # On windows, epoch is 01/02/1970 at 00:00
-EPOCH = time.mktime((1970, 1, 2, 0, 0, 0, 3, 1, 0)) - 86400
+EPOCH = calendar.timegm((1970, 1, 2, 0, 0, 0, 3, 1, 0)) - 86400
 
 MTU = 0xffff  # a.k.a give me all you have
 
