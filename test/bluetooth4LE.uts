@@ -82,13 +82,24 @@ assert a[BTLE_SCAN_REQ].ScanA == "aa:aa:aa:aa:aa:aa"
 
 + Specific tests after issue GH#1673
 
-= With PPI
+= DLT_USER0 with PPI
 
 pkt = PPI(b'\x00\x00\x18\x00\x93\x00\x00\x006u\x0c\x00\x00b\t\x00\xe1\xcf\x01\x00\xf1\xe3\x92\x00\xd6\xbe\x89\x8e@\x14M\x95P\x16\xfev\x02\x01\x1a\n\xffL\x00\x10\x05\x0b\x1c\x0e\xa86Z\xf0\x04')
-assert BTLE_PPI in pkt.PPIFieldHeaders[0]
+assert BTLE_PPI in pkt.headers[0].payload
+
+# We MUST NOT detect the BLTE link-layer at this point. This is intentionally
+# counter to issue 1673 -- Ubertooth One emits incorrect PCAP files.
+assert BTLE not in pkt
+
+= DLT_BLUETOOTH_LE_LL with PPI
+
+pkt = PPI(b'\x00\x00\x18\x00\xfb\x00\x00\x006u\x0c\x00\x00b\t\x00\xe1\xcf\x01\x00\xf1\xe3\x92\x00\xd6\xbe\x89\x8e@\x14M\x95P\x16\xfev\x02\x01\x1a\n\xffL\x00\x10\x05\x0b\x1c\x0e\xa86Z\xf0\x04')
+assert BTLE_PPI in pkt.headers[0].payload
+
+# Only now must we detect BTLE.
 assert BTLE in pkt
 
-= Without PPI
+= DLT_BLUETOOTH_LE_LL without PPI
 
 pkt = BTLE_RF(b'\x00\xc6\x80\x00\xd6\xbe\x89\x8e7\x00\xd6\xbe\x89\x8e@\x14\x03g\xa6+\xcbi\x00\x01\x1a\n\xffL\x00\x12E\x03\x18y\x9e\x96\x07\xfa%')
 assert BTLE_RF in pkt

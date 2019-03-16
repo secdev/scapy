@@ -10,6 +10,7 @@ Fields: basic data structures that make up parts of packets.
 """
 
 from __future__ import absolute_import
+import calendar
 import collections
 import copy
 import inspect
@@ -2156,9 +2157,10 @@ class IP6PrefixField(_IPPrefixFieldBase):
 class UTCTimeField(IntField):
     __slots__ = ["epoch", "delta", "strf", "use_nano"]
 
-    def __init__(self, name, default, epoch=None, use_nano=False, strf="%a, %d %b %Y %H:%M:%S +0000"):  # noqa: E501
+    def __init__(self, name, default, epoch=None, use_nano=False,
+                 strf="%a, %d %b %Y %H:%M:%S %z"):
         IntField.__init__(self, name, default)
-        mk_epoch = EPOCH if epoch is None else time.mktime(epoch)
+        mk_epoch = EPOCH if epoch is None else calendar.timegm(epoch)
         self.epoch = mk_epoch
         self.delta = mk_epoch - EPOCH
         self.strf = strf
