@@ -1479,7 +1479,7 @@ CAN Layer
 Setup
 ^^^^^
 
-These commands enable a virtual CAN interface on your machine::
+These commands enable a virtual CAN interface on a Linux machine::
 
    from scapy.layers.can import *
    import os
@@ -1563,6 +1563,16 @@ Sniff on a CANSocket:
 CANSocket python-can
 ^^^^^^^^^^^^^^^^^^^^
 
+python-can is required to use various CAN-interfaces on Windows, OSX or Linux.
+The python-can library is used through a CANSocket object. To create a python-can
+CANSocket object, a python-can ``Bus`` object has to be used as interface.
+The ``timeout`` parameter can be used to increase the receive performance of a
+python-can CANSocket object. ``recv`` inside a python-can CANSocket object is
+implemented through busy wait, since there is no ``select`` functionality on
+Windows or on some proprietary CAN interfaces (like Vector interfaces). A small
+``timeout`` might be required, if a ``sniff`` or ``bridge_and_sniff`` on multiple
+interfaces is performed.
+
 Ways of creating a python-can CANSocket::
 
    conf.contribs['CANSocket'] = {'use-python-can': True}
@@ -1587,8 +1597,9 @@ For further details on python-can check: https://python-can.readthedocs.io/en/2.
 
 CANSocket MITM attack with bridge and sniff
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Set up two vcans on linux terminal::
+This example shows how to use bridge and sniff on virtual CAN interfaces.
+For real world applications, use real CAN interfaces.
+Set up two vcans on Linux terminal::
 
    sudo modprobe vcan
    sudo ip link add name vcan0 type vcan
@@ -1734,7 +1745,7 @@ Sniff ISOTP message::
 ISOTP MITM attack with bridge and sniff
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Set up two vcans on linux terminal::
+Set up two vcans on Linux terminal::
 
    sudo modprobe vcan
    sudo ip link add name vcan0 type vcan
@@ -1872,6 +1883,8 @@ This increases the difficulty of generic applications and OEM specific knowledge
 required for penetration tests. RoutineControl jobs and ReadDataByIdentifier/WriteDataByIdentifier
 services are heavily customized.
 
+Use the argument ``basecls=UDS`` on the ``init`` function of an ISOTPSocket.
+
 Here are two usage examples:
 
 .. image:: graphics/animations/animation-scapy-uds.svg
@@ -1944,6 +1957,9 @@ If one wants to work with this custom additions, these can be loaded at runtime 
 
 GMLAN
 -----
+GMLAN is very similar to UDS. It's GMs application layer protocol for
+flashing, calibration and diagnostic of their cars.
+Use the argument ``basecls=GMLAN`` on the ``init`` function of an ISOTPSocket.
 
 Usage example:
 
@@ -2052,7 +2068,7 @@ OBD message
 -------------
 
 OBD is implemented on top of ISOTP. Use an ISOTPSocket for the communication with a ECU. 
-You should set the parameters `basecls=OBD` and `padding=True` in your ISOTPSocket init call.
+You should set the parameters ``basecls=OBD`` and ``padding=True`` in your ISOTPSocket init call.
 
 OBD is split into different service groups. Here are some example requests:
 
