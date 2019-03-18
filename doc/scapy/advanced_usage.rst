@@ -1371,26 +1371,58 @@ You may also want to use the dynamic address reconfiguration without necessarily
     $ sudo echo 1 > /proc/sys/net/sctp/addip_noauth_enable
 
 
-Automotive usage
-================
+Automotive Penetration Testing with Scapy
+=========================================
 
 .. note::
-    All automotive related features work best on Linux systems. CAN and ISOTP sockets in Scapy are based on Linux kernel modules.
+    All automotive related features work best on Linux systems. CANSockets and ISOTPSockets in Scapy are based on Linux kernel modules.
     The python-can project is used to support CAN and CANSockets on other systems, besides Linux.
     This guide explains the hardware setup on a BeagleBone Black. The BeagleBone Black was chosen because of its two CAN interfaces on the main processor.
     The presence of two CAN interfaces in one device gives the possibility of CAN MITM attacks and session hijacking.
     The Cannelloni framework turns a BeagleBone Black into a CAN-to-UDP interface, which gives you the freedom to run Scapy
     on a more powerful machine.
 
-Examples
---------
+Protocols
+---------
+
+The following table should give a brief overview about all automotive capabilities
+of Scapy. Most application layer protocols have many specialized ``Packet`` classes.
+These special purpose classes are not part of this overview. Use the ``explore()``
+function to get all information about one specific protocol.
+
++---------------------+----------------------+--------------------------------------------------------+
+| OSI Layer           | Protocol             | Scapy Implementations                                  |
++=====================+======================+========================================================+
+| Application Layer   | UDS (ISO 14229)      | UDS, UDS_*                                             |
+|                     +----------------------+--------------------------------------------------------+
+|                     | GMLAN                | GMLAN, GMLAN_*                                         |
+|                     +----------------------+--------------------------------------------------------+
+|                     | SOME/IP              | SOMEIP, SD                                             |
+|                     +----------------------+--------------------------------------------------------+
+|                     | BMW ENET             | ENET, ENETSocket                                       |
+|                     +----------------------+--------------------------------------------------------+
+|                     | OBD                  | OBD, OBD_S0X                                           |
+|                     +----------------------+--------------------------------------------------------+
+|                     | CCP                  | CCP, DTO, CRO                                          |
++---------------------+----------------------+--------------------------------------------------------+
+| Transportaion Layer | ISO-TP (ISO 15765-2) | ISOTPSocket, ISOTPNativeSocket, ISOTPSoftSocket        |
+|                     |                      |                                                        |
+|                     |                      | ISOTPSniffer, ISOTPMessageBuilder                      |
+|                     |                      |                                                        |
+|                     |                      | ISOTPHeader, ISOTPHeaderEA,                            |
+|                     |                      |                                                        |
+|                     |                      | ISOTP, ISOTP_SF, ISOTP_FF, ISOTP_CF, ISOTP_FC          |
++---------------------+----------------------+--------------------------------------------------------+
+| Data Link Layer     | CAN (ISO 11898)      | CAN, CANSocket, rdcandump                              |
++---------------------+----------------------+--------------------------------------------------------+
 
 
 Hands-On
---------
+^^^^^^^^
 
 Send a message over Linux SocketCAN::
 
+   load_layer('can')
    load_contrib('cansocket')
    socket = CANSocket(iface='can0')
    packet = CAN(identifier=0x123, data=b'01020304')
@@ -1399,9 +1431,10 @@ Send a message over Linux SocketCAN::
 
    srcan(packet, 'can0', timeout=1)
 
-Send a message over a Vector-Interface::
+Send a message over a Vector CAN-Interface::
 
    import can
+   load_layer('can')
    conf.contribs['CANSocket'] = {'use-python-can' : True}
    load_contrib('cansocket')
    from can.interfaces.vector import VectorBus
@@ -1411,15 +1444,42 @@ Send a message over a Vector-Interface::
 
    srcan(packet, VectorBus(0, bitrate=1000000))
 
+System compatibilities
+----------------------
+
+Dependent on your setup, different implementations have to be used.
+
++---------------------+----------------------+-------------------------------------+----------------------------------------------------------+
+| Python \ OS         | Linux with can_isotp | Linux wo can_isotp                  | Windows / OSX                                            |
++=====================+======================+=====================================+==========================================================+
+| Python 3            | ISOTPNativeSocket    | ISOTPSoftSocket                     | ISOTPSoftSocket                                          |
+|                     +----------------------+-------------------------------------+                                                          |
+|                     | ``conf.contribs['CANSocket'] = {'use-python-can': False}`` | ``conf.contribs['CANSocket'] = {'use-python-can': True}``|
++---------------------+------------------------------------------------------------+----------------------------------------------------------+
+| Python 2            | ISOTPSoftSocket                                            | ISOTPSoftSocket                                          |
+|                     |                                                            |                                                          |
+|                     | ``conf.contribs['CANSocket'] = {'use-python-can': True}``  | ``conf.contribs['CANSocket'] = {'use-python-can': True}``|
++---------------------+------------------------------------------------------------+----------------------------------------------------------+
+
+The class ``ISOTPSocket`` can be set to a ``ISOTPNativeSocket`` or a ``ISOTPSoftSocket``.
+The decision is made dependent on the configuration ``conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': True}`` (to select ``ISOTPNativeSocket``) or
+``conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': False}`` (to select ``ISOTPSoftSocket``).
+This will allow you to write platform independent code. Apply this configuration before loading the ISOTP layer
+with ``load_contrib("isotp")``.
+
+Another remark in respect to ISOTPSocket compatibility. Always use with for socket creation. Example::
+
+    with ISOTPSocket("vcan0", did=0x241, sid=0x641) as sock:
+        sock.send(...)
 
 
 CAN Layer
 ---------
 
 Setup
------
+^^^^^
 
-These commands enable a virtual CAN interface on your machine::
+These commands enable a virtual CAN interface on a Linux machine::
 
    from scapy.layers.can import *
    import os
@@ -1427,15 +1487,18 @@ These commands enable a virtual CAN interface on your machine::
    bashCommand = "/bin/bash -c 'sudo modprobe vcan; sudo ip link add name vcan0 type vcan; sudo ip link set dev vcan0 up'"
    os.system(bashCommand)
 
-If it's required, the CAN interface can be set into a listen-only or loopback mode with ip link set commands:
-
-::
+If it's required, the CAN interface can be set into a ``listen-only`` or ``loopback`` mode with `ip link set` commands::
 
    ip link set vcan0 type can help  # shows additional information
 
 
+This example shows a basic functions of Linux can-utils. These utilities are handy for
+quick checks or logging.
+
+.. image:: graphics/animations/animation-cansend.svg
+
 CAN Frame
----------
+^^^^^^^^^
 
 Creating a standard CAN frame::
 
@@ -1445,14 +1508,19 @@ Creating an extended CAN frame::
 
    frame = CAN(flags='extended', identifier=0x10010000, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
 
+.. image:: graphics/animations/animation-scapy-canframe.svg
+
 Writing and reading to pcap files::
 
    x = CAN(identifier=0x7ff,length=8,data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
    wrpcap('/tmp/scapyPcapTest.pcap', x, append=False)
    y = rdpcap('/tmp/scapyPcapTest.pcap', 1)
 
+.. image:: graphics/animations/animation-scapy-rdpcap.svg
+.. image:: graphics/animations/animation-scapy-rdcandump.svg
+
 CANSocket native
-----------------
+^^^^^^^^^^^^^^^^
 
 Creating a simple native CANSocket::
 
@@ -1485,9 +1553,25 @@ Creating a native CANSocket which also receives its own messages::
 
    socket = CANSocket(iface="vcan0", receive_own_messages=True)
 
+.. image:: graphics/animations/animation-scapy-native-cansocket.svg
+
+Sniff on a CANSocket:
+
+.. image:: graphics/animations/animation-scapy-cansockets-sniff.svg
+
 
 CANSocket python-can
---------------------
+^^^^^^^^^^^^^^^^^^^^
+
+python-can is required to use various CAN-interfaces on Windows, OSX or Linux.
+The python-can library is used through a CANSocket object. To create a python-can
+CANSocket object, a python-can ``Bus`` object has to be used as interface.
+The ``timeout`` parameter can be used to increase the receive performance of a
+python-can CANSocket object. ``recv`` inside a python-can CANSocket object is
+implemented through busy wait, since there is no ``select`` functionality on
+Windows or on some proprietary CAN interfaces (like Vector interfaces). A small
+``timeout`` might be required, if a ``sniff`` or ``bridge_and_sniff`` on multiple
+interfaces is performed.
 
 Ways of creating a python-can CANSocket::
 
@@ -1507,12 +1591,15 @@ Creating a python-can CANSocket with multiple filters::
                                {'can_id': 0x600, 'can_mask': 0x7ff},
                                {'can_id': 0x7ff, 'can_mask': 0x7ff}]))
 
+.. image:: graphics/animations/animation-scapy-python-can-cansocket.svg
+
 For further details on python-can check: https://python-can.readthedocs.io/en/2.2.0/
 
 CANSocket MITM attack with bridge and sniff
---------------------------------------------------------
-
-Set up two vcans on linux terminal::
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+This example shows how to use bridge and sniff on virtual CAN interfaces.
+For real world applications, use real CAN interfaces.
+Set up two vcans on Linux terminal::
 
    sudo modprobe vcan
    sudo ip link add name vcan0 type vcan
@@ -1570,6 +1657,10 @@ Close the sockets::
    socket0.close()
    socket1.close()
 
+.. image:: graphics/animations/animation-scapy-cansockets-mitm.svg
+.. image:: graphics/animations/animation-scapy-cansockets-mitm2.svg
+
+
 CAN Calibration Protocol (CCP)
 ------------------------------
 
@@ -1617,8 +1708,11 @@ Sending a CRO message::
 Since sr1 calls the answers function, our payload of the DTO objects gets interpreted with the
 command of our CRO object.
 
+ISOTP
+-----
+
 ISOTP message
--------------
+^^^^^^^^^^^^^
 
 Creating an ISOTP message::
 
@@ -1649,9 +1743,9 @@ Sniff ISOTP message::
    packets = isoTpSocket.sniff(timeout=0.5)
 
 ISOTP MITM attack with bridge and sniff
----------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Set up two vcans on linux terminal::
+Set up two vcans on Linux terminal::
 
    sudo modprobe vcan
    sudo ip link add name vcan0 type vcan
@@ -1782,6 +1876,21 @@ Pythons ``with`` statement.
 UDS
 ---
 
+The main usage of UDS is flashing and diagnostic of an ECU. UDS is an
+application layer protocol and can be used as a DoIP or ENET payload or a UDS packet
+can directly be sent over an ISOTPSocket. Every OEM has its own customization of UDS.
+This increases the difficulty of generic applications and OEM specific knowledge is
+required for penetration tests. RoutineControl jobs and ReadDataByIdentifier/WriteDataByIdentifier
+services are heavily customized.
+
+Use the argument ``basecls=UDS`` on the ``init`` function of an ISOTPSocket.
+
+Here are two usage examples:
+
+.. image:: graphics/animations/animation-scapy-uds.svg
+.. image:: graphics/animations/animation-scapy-uds2.svg
+
+
 Customization of UDS_RDBI, UDS_WDBI
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -1844,6 +1953,17 @@ If one wants to work with this custom additions, these can be loaded at runtime 
     >>> hexdump(pkt)
     0000  2E 17 2B 00 C0 A8 02 01 FF FF FF 00 C0 A8 02 01  ..+.............
 
+.. image:: graphics/animations/animation-scapy-uds3.svg
+
+GMLAN
+-----
+GMLAN is very similar to UDS. It's GMs application layer protocol for
+flashing, calibration and diagnostic of their cars.
+Use the argument ``basecls=GMLAN`` on the ``init`` function of an ISOTPSocket.
+
+Usage example:
+
+.. image:: graphics/animations/animation-scapy-gmlan.svg
 
 
 SOME/IP and SOME/IP SD messages
@@ -1948,7 +2068,7 @@ OBD message
 -------------
 
 OBD is implemented on top of ISOTP. Use an ISOTPSocket for the communication with a ECU. 
-You should set the parameters `basecls=OBD` and `padding=True` in your ISOTPSocket init call.
+You should set the parameters ``basecls=OBD`` and ``padding=True`` in your ISOTPSocket init call.
 
 OBD is split into different service groups. Here are some example requests:
 
@@ -1995,6 +2115,7 @@ Service 08 support Test Identifiers (tid).
 Service 09 support Information Identifiers (iid).
 
 Examples:
+^^^^^^^^^
 
 Request supported Information Identifiers::
 
@@ -2016,10 +2137,11 @@ Request the Vehicle Identification Number (VIN)::
          |     vehicle_identification_numbers= ['W0L000051T2123456']
 
    
+.. image:: graphics/animations/animation-scapy-obd.svg
 
 
-Test-Setup on a BeagleBone Black
---------------------------------
+Test-Setup Tutorials
+--------------------
 
 Hardware Setup
 ^^^^^^^^^^^^^^
