@@ -271,7 +271,8 @@ else:
     ETHER_TYPES = load_ethertypes("/etc/ethertypes")
     TCP_SERVICES, UDP_SERVICES = load_services("/etc/services")
     MANUFDB = None
-    for prefix in ['/usr', '/usr/local', '/opt', '/opt/wireshark']:
+    for prefix in ['/usr', '/usr/local', '/opt', '/opt/wireshark',
+                   '/Applications/Wireshark.app/Contents/Resources']:
         try:
             MANUFDB = load_manuf(os.path.join(prefix, "share", "wireshark",
                                               "manuf"))
