@@ -622,6 +622,11 @@ class _Dot11NetStats(Packet):
         """
         summary = {}
         crypto = set()
+        akmsuite_types = {
+            0x00: "Reserved",
+            0x01: "802.1X",
+            0x02: "PSK"
+        }
         p = self.payload
         while isinstance(p, Dot11Elt):
             if p.ID == 0:
@@ -640,11 +645,19 @@ class _Dot11NetStats(Packet):
             elif isinstance(p, Dot11EltRates):
                 summary["rates"] = p.rates
             elif isinstance(p, Dot11EltRSN):
-                crypto.add("WPA2")
+                if p.akm_suites:
+                    auth = akmsuite_types.get(p.akm_suites[0].suite)
+                    crypto.add("WPA2/%s" % auth)
+                else:
+                    crypto.add("WPA2")
             elif p.ID == 221:
                 if isinstance(p, Dot11EltMicrosoftWPA) or \
                         p.info.startswith(b'\x00P\xf2\x01\x01\x00'):
-                    crypto.add("WPA")
+                    if p.akm_suites:
+                        auth = akmsuite_types.get(p.akm_suites[0].suite)
+                        crypto.add("WPA/%s" % auth)
+                    else:
+                        crypto.add("WPA")
             p = p.payload
         if not crypto:
             if self.cap.privacy:
