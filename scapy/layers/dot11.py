@@ -647,7 +647,7 @@ class _Dot11NetStats(Packet):
             elif isinstance(p, Dot11EltRSN):
                 if p.akm_suites:
                     auth = akmsuite_types.get(p.akm_suites[0].suite)
-                    crypto.add("WPA2/%s" % (auth))
+                    crypto.add("WPA2/%s" % auth)
                 else:
                     crypto.add("WPA2")
             elif p.ID == 221:
