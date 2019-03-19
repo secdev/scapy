@@ -655,7 +655,7 @@ class _Dot11NetStats(Packet):
                         p.info.startswith(b'\x00P\xf2\x01\x01\x00'):
                     if p.akm_suites:
                         auth = akmsuite_types.get(p.akm_suites[0].suite)
-                        crypto.add("WPA/%s" % (auth))
+                        crypto.add("WPA/%s" % auth)
                     else:
                         crypto.add("WPA")
             p = p.payload
