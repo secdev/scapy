@@ -477,7 +477,7 @@ class L2Socket(SuperSocket):
     def close(self):
         if self.closed:
             return
-        if self.promisc:
+        if self.promisc and self.ins:
             set_promisc(self.ins, self.iface, 0)
         SuperSocket.close(self)
 
