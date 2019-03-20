@@ -11,6 +11,8 @@ Color themes for the interactive console.
 #  Color themes  #
 ##################
 
+import cgi
+import sys
 
 class ColorTable:
     colors = {  # Format: (ansi, pygments)
@@ -116,7 +118,7 @@ class AnsiColorTheme(ColorTheme):
     style_logo = ""
 
 
-class BlackAndWhite(AnsiColorTheme):
+class BlackAndWhite(AnsiColorTheme, NoTheme):
     pass
 
 
@@ -315,19 +317,59 @@ def apply_ipython_style(shell):
         )
         return
     from scapy.config import conf
-    if isinstance(conf.prompt, Prompts):
-        shell.prompts_class = conf.prompt  # Set custom prompt style
+    scapy_style = {}
+    ### Overwrite colors ###
+    if isinstance(conf.color_theme, NoTheme):
+        shell.colors = 'nocolor'
+    elif isinstance(conf.color_theme, BrightTheme):
+        # lightbg is optimized for light backgrounds
+        shell.colors = 'lightbg'
+    elif isinstance(conf.color_theme, ColorOnBlackTheme):
+        # linux is optimised for dark backgrounds
+        shell.colors = 'linux'
     else:
+        # default
+        shell.colors = 'neutral'
+    try:
+        get_ipython()
+        # This function actually contains tons of hacks
+        color_magic = shell.magics_manager.magics["line"]["colors"]
+        color_magic(shell.colors)
+    except NameError:
+        pass
+    ### Prompt Style ###
+    if isinstance(conf.prompt, Prompts):
+        # Set custom prompt style
+        shell.prompts_class = conf.prompt
+    else:
+        if isinstance(conf.color_theme, (FormatTheme, NoTheme)):
+            # Formatable
+            if isinstance(conf.color_theme, HTMLTheme):
+                prompt = cgi.escape(conf.prompt)
+            elif isinstance(conf.color_theme, LatexTheme):
+                from scapy.utils import tex_escape
+                prompt = tex_escape(conf.prompt)
+            else:
+                prompt = conf.prompt
+            prompt = conf.color_theme.prompt(prompt)
+        else:
+            # Needs to be manually set
+            prompt = str(conf.prompt)
+            scapy_style[Token.Prompt] = Color.ansi_to_pygments(
+                conf.color_theme.style_prompt
+            )
         class ClassicPrompt(Prompts):
             def in_prompt_tokens(self, cli=None):
-                return [(Token.Prompt, str(conf.prompt)), ]
+                return [(Token.Prompt, prompt), ]
 
             def out_prompt_tokens(self):
                 return [(Token.OutPrompt, ''), ]
-        shell.prompts_class = ClassicPrompt  # Apply classic prompt style
-    shell.highlighting_style_overrides = {  # Register and apply scapy color style  # noqa: E501
-        Token.Prompt: Color.ansi_to_pygments(conf.color_theme.style_prompt),
-    }
+        # Apply classic prompt style
+        shell.prompts_class = ClassicPrompt
+        sys.ps1 = prompt
+    # Register scapy color style
+    shell.highlighting_style_overrides = scapy_style
+    ### Apply if Live ###
     try:
         get_ipython().refresh_style()
     except NameError:
