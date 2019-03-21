@@ -25,14 +25,12 @@ from scapy.volatile import RandInt, RandByte, RandNum, RandShort, RandString
 from scapy.sendrecv import sniff
 from scapy.modules import six
 from scapy.modules.six.moves import map, range
+
 if conf.route is None:
     # unused import, only to initialize conf.route
     import scapy.route  # noqa: F401
 
 conf.p0f_base = "/etc/p0f/p0f.fp"
-conf.p0fa_base = "/etc/p0f/p0fa.fp"
-conf.p0fr_base = "/etc/p0f/p0fr.fp"
-conf.p0fo_base = "/etc/p0f/p0fo.fp"
 
 
 ###############
@@ -88,37 +86,31 @@ class p0fKnowledgeBase(KnowledgeBase):
         f.close()
 
 
-p0f_kdb, p0fa_kdb, p0fr_kdb, p0fo_kdb = None, None, None, None
+p0f_kdb = None
 
 
-def p0f_load_knowledgebases():
-    global p0f_kdb, p0fa_kdb, p0fr_kdb, p0fo_kdb
+def p0f_load_knowledgebase():
+    global p0f_kdb
     p0f_kdb = p0fKnowledgeBase(conf.p0f_base)
-    p0fa_kdb = p0fKnowledgeBase(conf.p0fa_base)
-    p0fr_kdb = p0fKnowledgeBase(conf.p0fr_base)
-    p0fo_kdb = p0fKnowledgeBase(conf.p0fo_base)
 
 
-p0f_load_knowledgebases()
+p0f_load_knowledgebase()
 
 
 def p0f_selectdb(flags):
-    # tested flags: S, R, A
-    if flags & 0x16 == 0x2:
-        # SYN
+    if flags & 0x16 in [0x4, 0x14, 0x2, 0x12, 0x10]:
         return p0f_kdb
-    elif flags & 0x16 == 0x12:
-        # SYN/ACK
-        return p0fa_kdb
-    elif flags & 0x16 in [0x4, 0x14]:
-        # RST RST/ACK
-        return p0fr_kdb
-    elif flags & 0x16 == 0x10:
-        # ACK
-        return p0fo_kdb
     else:
         return None
 
+def packetIsA(pckt):
+    return pkt.payload.flags & 0x16 == 0x12
+
+def packetIsR(pckt):
+    return pkt.payload.flags & 0x16 in [0x4, 0x14]
+
+def packetIsO(pckt):
+    return pkt.payload.flags & 0x16 == 0x10
 
 def packet2p0f(pkt):
     pkt = pkt.copy()
@@ -145,14 +137,14 @@ def packet2p0f(pkt):
     ss = len(pkt)
     # from p0f/config.h : PACKET_BIG = 100
     if ss > 100:
-        if db == p0fr_kdb:
+        if packetIsR(pkt):
             # p0fr.fp: "Packet size may be wildcarded. The meaning of
             #           wildcard is, however, hardcoded as 'size >
             #           PACKET_BIG'"
             ss = '*'
         else:
             ss = 0
-    if db == p0fo_kdb:
+    if packetIsO(pkt):
         # p0fo.fp: "Packet size MUST be wildcarded."
         ss = '*'
 
@@ -165,8 +157,8 @@ def packet2p0f(pkt):
     for option in pkt.payload.options:
         ilen -= 1
         if option[0] == "MSS":
-            ooo += "M" + str(option[1]) + ","
             mss = option[1]
+            ooo += "M" + str(mss) + ","
             # FIXME: qqBroken
             ilen -= 3
         elif option[0] == "WScale":
@@ -210,7 +202,7 @@ def packet2p0f(pkt):
 
     qq = ""
 
-    if db == p0fr_kdb:
+    if packetIsR(pkt):
         if pkt.payload.flags & 0x10 == 0x10:
             # p0fr.fp: "A new quirk, 'K', is introduced to denote
             #           RST+ACK packets"
@@ -241,7 +233,7 @@ def packet2p0f(pkt):
         qq += "A"
     if qqT:
         qq += "T"
-    if db == p0fo_kdb:
+    if packetIsO(pkt):
         if pkt.payload.flags & 0x20 != 0:
             # U
             # p0fo.fp: "PUSH flag is excluded from 'F' quirk checks"
@@ -250,7 +242,7 @@ def packet2p0f(pkt):
         if pkt.payload.flags & 0x28 != 0:
             # U or P
             qq += "F"
-    if db != p0fo_kdb and not isinstance(pkt.payload.payload, NoPayload):
+    if not(packetIsO(pkt)) and not isinstance(pkt.payload.payload, NoPayload):
         # p0fo.fp: "'D' quirk is not checked for."
         qq += "D"
     # FIXME : "!" - broken options segment: not handled yet
@@ -295,6 +287,7 @@ def p0f(pkt):
     """Passive OS fingerprinting: which OS emitted this TCP packet ?
 p0f(packet) -> accuracy, [list of guesses]
 """
+    #Why the fuck would you even use these names for variables?!
     db, sig = packet2p0f(pkt)
     if db:
         pb = db.get_base()
@@ -393,7 +386,7 @@ Some specifications of the p0f.fp file are not (yet) implemented."""
         pb = [signature]
     else:
         pb = p0f_getlocalsigs()[db]
-    if db == p0fr_kdb:
+    if packetIsR(pkt):
         # 'K' quirk <=> RST+ACK
         if pkt.payload.flags & 0x4 == 0x4:
             pb = [x for x in pb if 'K' in x[5]]
@@ -544,11 +537,11 @@ Some specifications of the p0f.fp file are not (yet) implemented."""
             elif qq == 'A':
                 pkt.payload.ack = RandInt()
             elif qq == 'F':
-                if db == p0fo_kdb:
+                if packetIsO(pkt):
                     pkt.payload.flags |= 0x20  # U
                 else:
                     pkt.payload.flags |= random.choice([8, 32, 40])  # P/U/PU
-            elif qq == 'D' and db != p0fo_kdb:
+            elif qq == 'D' and not(packetIsO(pkt)):
                 pkt /= conf.raw_layer(load=RandString(random.randint(1, 10)))  # XXX p0fo.fp  # noqa: E501
             elif qq == 'Q':
                 pkt.payload.seq = pkt.payload.ack
