@@ -62,7 +62,6 @@ class p0fDatabase(KnowledgeBase):
         currlabel = 'classes'
 
         for line in file:
-            print(line)
             line = line.partition(';')[0]
 
             if not line:
@@ -108,7 +107,7 @@ def preprocessPacket4p0f(pkt):
     return pkt
 
 class Quirks_p0f:
-    """Enumeration of Quirks"""
+    """Nice namespace for p0f quirks"""
     df      = "don't fragment flag"
     idp     = "df set but IPID non-zero"
     idm     = "df not set but IPID zero"
