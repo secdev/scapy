@@ -33,7 +33,7 @@ from scapy.fields import ConditionalField, IPField, BitField, BitEnumField, \
     DestField, FieldListField, FlagsField, IntField, MultiEnumField, \
     PacketListField, ShortEnumField, SourceIPField, StrField, \
     StrFixedLenField, XByteField, XShortField, Emph
-from scapy.packet import Packet, bind_layers, NoPayload
+from scapy.packet import Packet, bind_layers, bind_bottom_up, NoPayload
 from scapy.volatile import RandShort, RandInt, RandBin, RandNum, VolatileValue
 from scapy.sendrecv import sr, sr1
 from scapy.plist import PacketList, SndRcvList
@@ -940,8 +940,8 @@ bind_layers(Ether, IP, type=2048)
 bind_layers(CookedLinux, IP, proto=2048)
 bind_layers(GRE, IP, proto=2048)
 bind_layers(SNAP, IP, code=2048)
-bind_layers(Loopback, IP, type=0)
-bind_layers(Loopback, IP, type=2)
+bind_bottom_up(Loopback, IP, type=0)
+bind_layers(Loopback, IP, type=socket.AF_INET)
 bind_layers(IPerror, IPerror, frag=0, proto=4)
 bind_layers(IPerror, ICMPerror, frag=0, proto=1)
 bind_layers(IPerror, TCPerror, frag=0, proto=6)
