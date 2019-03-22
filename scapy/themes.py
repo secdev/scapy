@@ -14,6 +14,7 @@ Color themes for the interactive console.
 import cgi
 import sys
 
+
 class ColorTable:
     colors = {  # Format: (ansi, pygments)
         "normal": ("\033[0m", "noinherit"),
@@ -318,7 +319,7 @@ def apply_ipython_style(shell):
         return
     from scapy.config import conf
     scapy_style = {}
-    ### Overwrite colors ###
+    # Overwrite colors
     if isinstance(conf.color_theme, NoTheme):
         shell.colors = 'nocolor'
     elif isinstance(conf.color_theme, BrightTheme):
@@ -337,7 +338,7 @@ def apply_ipython_style(shell):
         color_magic(shell.colors)
     except NameError:
         pass
-    ### Prompt Style ###
+    # Prompt Style
     if isinstance(conf.prompt, Prompts):
         # Set custom prompt style
         shell.prompts_class = conf.prompt
@@ -358,6 +359,7 @@ def apply_ipython_style(shell):
             scapy_style[Token.Prompt] = Color.ansi_to_pygments(
                 conf.color_theme.style_prompt
             )
+
         class ClassicPrompt(Prompts):
             def in_prompt_tokens(self, cli=None):
                 return [(Token.Prompt, prompt), ]
@@ -369,7 +371,7 @@ def apply_ipython_style(shell):
         sys.ps1 = prompt
     # Register scapy color style
     shell.highlighting_style_overrides = scapy_style
-    ### Apply if Live ###
+    # Apply if Live
     try:
         get_ipython().refresh_style()
     except NameError:
