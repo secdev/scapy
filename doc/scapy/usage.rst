@@ -255,7 +255,7 @@ Fuzzing
 .. index::
    single: fuzz(), fuzzing
 
-The function fuzz() is able to change any default value that is not to be calculated (like checksums) by an object whose value is random and whose type is adapted to the field. This enables to quickly built fuzzing templates and send them in a loop. In the following example, the IP layer is normal, and the UDP and NTP layers are fuzzed. The UDP checksum will be correct, the UDP destination port will be overloaded by NTP to be 123 and the NTP version will be forced to be 4. All the other ports will be randomized. Note: If you use fuzz() in IP layer, src and dst parameter won't be random so in order to do that use RandIP().::
+The function fuzz() is able to change any default value that is not to be calculated (like checksums) by an object whose value is random and whose type is adapted to the field. This enables quickly building fuzzing templates and sending them in a loop. In the following example, the IP layer is normal, and the UDP and NTP layers are fuzzed. The UDP checksum will be correct, the UDP destination port will be overloaded by NTP to be 123 and the NTP version will be forced to be 4. All the other ports will be randomized. Note: If you use fuzz() in IP layer, src and dst parameter won't be random so in order to do that use RandIP().::
 
     >>> send(IP(dst="target")/fuzz(UDP()/NTP(version=4)),loop=1)
     ................^C
@@ -927,7 +927,7 @@ Here we can see a multi-parallel traceroute (Scapy already has a multi TCP trace
     5 193.251.254.1   193.251.251.69  193.251.254.1   193.251.251.69  
     6 193.251.241.174 193.251.241.178 193.251.241.174 193.251.241.178 
 
-Here is a more complex example to identify machines from their IPID field. We can see that 172.20.80.200:22 is answered by the same IP stack than 172.20.80.201 and that 172.20.80.197:25 is not answered by the sape IP stack than other ports on the same IP.
+Here is a more complex example to distinguish machines or their IP stacks from their IPID field. We can see that 172.20.80.200:22 is answered by the same IP stack as 172.20.80.201 and that 172.20.80.197:25 is not answered by the same IP stack as other ports on the same IP.
 
 ::
 
@@ -1082,7 +1082,7 @@ Like any result object, traceroute objects can be added :
     19 195.101.94.25   SA 212.23.37.13    SA 216.109.118.72  SA 64.241.242.243  SA 66.94.229.254   SA 
     20 195.101.94.25   SA 212.23.37.13    SA 216.109.118.72  SA 64.241.242.243  SA 66.94.229.254   SA 
 
-Traceroute result object also have a very neat feature: they can make a directed graph from all the routes they got, and cluster them by AS. You will need graphviz. By default, ImageMagick is used to display the graph.
+Traceroute result object also have a very neat feature: they can make a directed graph from all the routes they got, and cluster them by SA. You will need graphviz. By default, ImageMagick is used to display the graph.
 
     >>> res, unans = traceroute(["www.microsoft.com","www.cisco.com","www.yahoo.com","www.wanadoo.fr","www.pacsec.com"],dport=[80,443],maxttl=20,retry=-2)
     Received 190 packets, got 190 answers, remaining 10 packets
