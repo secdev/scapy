@@ -18,6 +18,8 @@ d = nmap_tcppacket_sig(IP()/TCP())
 assert len(d) == 5
 
 = Fetch database
+~ netaccess
+
 from __future__ import print_function
 try:
     from urllib.request import urlopen
@@ -34,6 +36,8 @@ for i in range(10):
 conf.nmap_base = 'nmap-os-fingerprints'
 
 = Database loading
+~ netaccess
+
 assert len(nmap_kdb.get_base()) > 100
 
 = fingerprint test: www.secdev.org
