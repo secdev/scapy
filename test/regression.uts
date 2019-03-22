@@ -1490,12 +1490,9 @@ def _test():
 retry_test(_test)
 
 = Traceroute function
-~ netaccess
+~ netaccess tcpdump
 * Let's test traceroute
 ans, unans = traceroute("www.slashdot.org")
-
-= Result manipulation
-~ netaccess
 ans.nsummary()
 s,r=ans[0]
 s.show()
@@ -1520,7 +1517,7 @@ assert(DNS in IP(raw(dns_ans2)))
 assert raw(DNSRR(type='A', rdata='1.2.3.4')) == b'\x00\x00\x01\x00\x01\x00\x00\x00\x00\x00\x04\x01\x02\x03\x04'
 
 = Arping
-~ netaccess
+~ netaccess tcpdump
 * This test assumes the local network is a /24. This is bad.
 def _test():
     ip_address = conf.route.route("0.0.0.0")[2]
@@ -1530,7 +1527,7 @@ def _test():
 retry_test(_test)
 
 = send() and sniff()
-~ netaccess
+~ netaccess tcpdump
 import time
 import os
 

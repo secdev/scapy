@@ -226,7 +226,7 @@ with VEthPair('a_0', 'a_1') as veth_0:
 ############
 + Test arpleak() using a tap socket
 
-~ tap linux
+~ tap linux tcpdump
 
 = Create two tap interfaces
 
