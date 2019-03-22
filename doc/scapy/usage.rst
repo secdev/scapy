@@ -30,7 +30,7 @@ The basic features of sending and receiving packets should still work, though.
 Screenshot
 ----------
 
-If you have installed IPython (highly recommanded), Scapy will hook to it and you will be able to use auto-completion using the TAB.
+If you have installed IPython (highly recommended), Scapy will hook to it and you will be able to use auto-completion using the TAB.
 
 .. image:: graphics/scapy-main-console.png
    :align: center
