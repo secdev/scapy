@@ -76,7 +76,7 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
             return
         self.closed = True
         if getattr(self, "outs", None):
-            if getattr(self, "ins", self.outs) != self.outs:
+            if getattr(self, "ins", None) != self.outs:
                 if WINDOWS or self.outs.fileno() != -1:
                     self.outs.close()
         if getattr(self, "ins", None):
