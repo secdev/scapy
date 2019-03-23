@@ -52,6 +52,10 @@ x.gaddr = "224.3.2.4"
 x[IGMP].igmpize()
 assert x.dst == "01:00:5e:03:02:04"
 
+x.ttl = 64
+x[IGMP].igmpize()
+assert x.ttl == 1
+
 = Test mysummary
 
 x = Ether(src="00:01:02:03:04:05")/IP(src="192.168.0.1")/IGMP(gaddr="224.0.0.2", type=0x17)
