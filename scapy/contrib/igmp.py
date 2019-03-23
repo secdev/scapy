@@ -141,6 +141,7 @@ IGMPv2 message format   http://www.faqs.org/rfcs/rfc2236.html
                 return False
             if not any(isinstance(x, IPOption_Router_Alert) for x in underlayer.options):  # noqa: E501
                 underlayer.options.append(IPOption_Router_Alert())
+            underlayer.ttl = 1                                         # IP rule 4
             _root = self.firstlayer()
             if _root.haslayer(Ether):
                 # Force recalculate Ether dst
