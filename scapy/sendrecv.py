@@ -79,8 +79,14 @@ def _sndrcv_snd(pks, timeout, inter, verbose, tobesent, hsent, timessent, stopev
     except Exception:
         log_runtime.exception("--- Error sending packets")
     if timeout is not None:
-        stopevent.wait(timeout)
-        stopevent.set()
+        def _timeout(stopevent):
+            stopevent.wait(timeout)
+            stopevent.set()
+        thread = threading.Thread(
+            target=_timeout, args=(stopevent,)
+        )
+        thread.setDaemon(True)
+        thread.start()
 
 
 def _sndrcv_rcv(pks, hsent, stopevent, nbrecv, notans, verbose, chainCC,
@@ -142,33 +148,38 @@ def _sndrcv_rcv(pks, hsent, stopevent, nbrecv, notans, verbose, chainCC,
     return (hsent, ans, nbrecv, notans)
 
 
+_DOC_SNDRCV_PARAMS = """
+    pks: SuperSocket instance to send/receive packets
+    pkt: the packet to send
+    rcv_pks: if set, will be used instead of pks to receive packets.
+             packets will still be sent through pks
+    nofilter: put 1 to avoid use of BPF filters
+    retry:    if positive, how many times to resend unanswered packets
+              if negative, how many times to retry when no more packets
+              are answered
+    timeout:  how much time to wait after the last packet has been sent
+    verbose:  set verbosity level
+    multi:    whether to accept multiple answers for the same stimulus
+    store_unanswered: whether to store not-answered packets or not.
+                      setting it to False will increase speed, and will return
+                      None as the unans list.
+    process:  if specified, only result from process(pkt) will be stored.
+              the function should follow the following format:
+                lambda sent, received: (func(sent), func2(received))
+              if the packet is unanswered, `received` will be None.
+              if `store_unanswered` is False, the function won't be called on
+              un-answered packets.
+    prebuild: pre-build the packets before starting to send them. Automatically
+              enabled when a generator is passed as the packet
+    """
+
+
 def sndrcv(pks, pkt, timeout=None, inter=0, verbose=None, chainCC=False,
            retry=0, multi=False, rcv_pks=None, store_unanswered=True,
            process=None, prebuild=False):
     """Scapy raw function to send a packet and receive its answer.
     WARNING: This is an internal function. Using sr/srp/sr1/srp is
     more appropriate in many cases.
-
-    pks: SuperSocket instance to send/receive packets
-    pkt: the packet to send
-    rcv_pks: if set, will be used instead of pks to receive packets. packets will still  # noqa: E501
-             be sent through pks
-    nofilter: put 1 to avoid use of BPF filters
-    retry:    if positive, how many times to resend unanswered packets
-              if negative, how many times to retry when no more packets are answered  # noqa: E501
-    timeout:  how much time to wait after the last packet has been sent
-    verbose:  set verbosity level
-    multi:    whether to accept multiple answers for the same stimulus
-    store_unanswered: whether to store not-answered packets or not. Default True.  # noqa: E501
-                      setting it to False will increase speed, and will return None  # noqa: E501
-                      as the unans list.
-    process:  if specified, only result from process(pkt) will be stored.
-              the function should follow the following format:
-                lambda sent, received: (func(sent), func2(received))
-              if the packet is unanswered, `received` will be None.
-              if `store_unanswered` is False, the function won't be called on un-answered packets.  # noqa: E501
-    prebuild: pre-build the packets before starting to send them. Default to False. Automatically used  # noqa: E501
-              when a generator is passed as the packet
     """
     if verbose is None:
         verbose = conf.verb
@@ -204,18 +215,13 @@ def sndrcv(pks, pkt, timeout=None, inter=0, verbose=None, chainCC=False,
         hsent = {}
         timessent = {} if listable else None
 
-        thread = threading.Thread(
-            target=_sndrcv_snd,
-            args=(pks, timeout, inter, verbose, tobesent, hsent, timessent, stopevent),  # noqa: E501
-        )
-        thread.setDaemon(True)
-        thread.start()
+        _sndrcv_snd(pks, timeout, inter, verbose,
+                    tobesent, hsent, timessent, stopevent)
 
         hsent, newans, nbrecv, notans = _sndrcv_rcv(
-            (rcv_pks or pks), hsent, stopevent, nbrecv, notans, verbose, chainCC, multi,  # noqa: E501
-            _storage_policy=_storage_policy,
+            (rcv_pks or pks), hsent, stopevent, nbrecv, notans, verbose,
+            chainCC, multi, _storage_policy=_storage_policy,
         )
-        thread.join()
 
         ans.extend(newans)
 
@@ -457,24 +463,9 @@ def _parse_tcpreplay_result(stdout, stderr, argv):
 
 @conf.commands.register
 def sr(x, promisc=None, filter=None, iface=None, nofilter=0, *args, **kargs):
-    """Send and receive packets at layer 3
-nofilter: put 1 to avoid use of BPF filters
-retry:    if positive, how many times to resend unanswered packets
-          if negative, how many times to retry when no more packets are answered  # noqa: E501
-timeout:  how much time to wait after the last packet has been sent
-verbose:  set verbosity level
-multi:    whether to accept multiple answers for the same stimulus
-filter:   provide a BPF filter
-iface:    listen answers only on the given interface
-store_unanswered: whether to store not-answered packets or not. Default True.
-                  setting it to False will increase speed, and will return None
-                  as the unans list.
-process:  if specified, only result from process(pkt) will be stored.
-          the function should follow the following format:
-            lambda sent, received: (func(sent), func2(received))
-          if the packet is unanswered, `received` will be None.
-          if `store_unanswered` is False, the function won't be called on un-answered packets."""  # noqa: E501
-    s = conf.L3socket(promisc=promisc, filter=filter, iface=iface, nofilter=nofilter)  # noqa: E501
+    """Send and receive packets at layer 3"""
+    s = conf.L3socket(promisc=promisc, filter=filter,
+                      iface=iface, nofilter=nofilter)
     result = sndrcv(s, x, *args, **kargs)
     s.close()
     return result
@@ -482,24 +473,9 @@ process:  if specified, only result from process(pkt) will be stored.
 
 @conf.commands.register
 def sr1(x, promisc=None, filter=None, iface=None, nofilter=0, *args, **kargs):
-    """Send packets at layer 3 and return only the first answer
-nofilter: put 1 to avoid use of BPF filters
-retry:    if positive, how many times to resend unanswered packets
-          if negative, how many times to retry when no more packets are answered  # noqa: E501
-timeout:  how much time to wait after the last packet has been sent
-verbose:  set verbosity level
-multi:    whether to accept multiple answers for the same stimulus
-filter:   provide a BPF filter
-iface:    listen answers only on the given interface
-store_unanswered: whether to store not-answered packets or not. Default True.
-                  setting it to False will increase speed, and will return None
-                  as the unans list.
-process:  if specified, only result from process(pkt) will be stored.
-          the function should follow the following format:
-            lambda sent, received: (func(sent), func2(received))
-          if the packet is unanswered, `received` will be None.
-          if `store_unanswered` is False, the function won't be called on un-answered packets."""  # noqa: E501
-    s = conf.L3socket(promisc=promisc, filter=filter, nofilter=nofilter, iface=iface)  # noqa: E501
+    """Send packets at layer 3 and return only the first answer"""
+    s = conf.L3socket(promisc=promisc, filter=filter,
+                      nofilter=nofilter, iface=iface)
     ans, _ = sndrcv(s, x, *args, **kargs)
     s.close()
     if len(ans) > 0:
@@ -509,27 +485,13 @@ process:  if specified, only result from process(pkt) will be stored.
 
 
 @conf.commands.register
-def srp(x, promisc=None, iface=None, iface_hint=None, filter=None, nofilter=0, type=ETH_P_ALL, *args, **kargs):  # noqa: E501
-    """Send and receive packets at layer 2
-nofilter: put 1 to avoid use of BPF filters
-retry:    if positive, how many times to resend unanswered packets
-          if negative, how many times to retry when no more packets are answered  # noqa: E501
-timeout:  how much time to wait after the last packet has been sent
-verbose:  set verbosity level
-multi:    whether to accept multiple answers for the same stimulus
-filter:   provide a BPF filter
-iface:    work only on the given interface
-store_unanswered: whether to store not-answered packets or not. Default True.
-                  setting it to False will increase speed, and will return None
-                  as the unans list.
-process:  if specified, only result from process(pkt) will be stored.
-          the function should follow the following format:
-            lambda sent, received: (func(sent), func2(received))
-          if the packet is unanswered, `received` will be None.
-          if `store_unanswered` is False, the function won't be called on un-answered packets."""  # noqa: E501
+def srp(x, promisc=None, iface=None, iface_hint=None, filter=None,
+        nofilter=0, type=ETH_P_ALL, *args, **kargs):
+    """Send and receive packets at layer 2"""
     if iface is None and iface_hint is not None:
         iface = conf.route.route(iface_hint)[0]
-    s = conf.L2socket(promisc=promisc, iface=iface, filter=filter, nofilter=nofilter, type=type)  # noqa: E501
+    s = conf.L2socket(promisc=promisc, iface=iface,
+                      filter=filter, nofilter=nofilter, type=type)
     result = sndrcv(s, x, *args, **kargs)
     s.close()
     return result
@@ -537,33 +499,26 @@ process:  if specified, only result from process(pkt) will be stored.
 
 @conf.commands.register
 def srp1(*args, **kargs):
-    """Send and receive packets at layer 2 and return only the first answer
-nofilter: put 1 to avoid use of BPF filters
-retry:    if positive, how many times to resend unanswered packets
-          if negative, how many times to retry when no more packets are answered  # noqa: E501
-timeout:  how much time to wait after the last packet has been sent
-verbose:  set verbosity level
-multi:    whether to accept multiple answers for the same stimulus
-filter:   provide a BPF filter
-iface:    work only on the given interface
-store_unanswered: whether to store not-answered packets or not. Default True.
-                  setting it to False will increase speed, and will return None
-                  as the unans list.
-process:  if specified, only result from process(pkt) will be stored.
-          the function should follow the following format:
-            lambda sent, received: (func(sent), func2(received))
-          if the packet is unanswered, `received` will be None.
-          if `store_unanswered` is False, the function won't be called on un-answered packets."""  # noqa: E501
+    """Send and receive packets at layer 2 and return only the first answer"""
     ans, _ = srp(*args, **kargs)
     if len(ans) > 0:
         return ans[0][1]
     else:
         return None
 
+
+# Append doc
+for sr_func in [srp, srp1, sr, sr1]:
+    sr_func.__doc__ += _DOC_SNDRCV_PARAMS
+
+
 # SEND/RECV LOOP METHODS
 
 
-def __sr_loop(srfunc, pkts, prn=lambda x: x[1].summary(), prnfail=lambda x: x.summary(), inter=1, timeout=None, count=None, verbose=None, store=1, *args, **kargs):  # noqa: E501
+def __sr_loop(srfunc, pkts, prn=lambda x: x[1].summary(),
+              prnfail=lambda x: x.summary(),
+              inter=1, timeout=None, count=None, verbose=None, store=1,
+              *args, **kargs):
     n = 0
     r = 0
     ct = conf.color_theme
@@ -632,7 +587,8 @@ srloop(pkts, [prn], [inter], [count], ...) --> None"""
 # SEND/RECV FLOOD METHODS
 
 
-def sndrcvflood(pks, pkt, inter=0, verbose=None, chainCC=False, store_unanswered=True, process=None, timeout=None):  # noqa: E501
+def sndrcvflood(pks, pkt, inter=0, verbose=None, chainCC=False,
+                store_unanswered=True, process=None, timeout=None):
     if not verbose:
         verbose = conf.verb
     listable = (isinstance(pkt, Packet) and pkt.__iterlen__() == 1) or isinstance(pkt, list)  # noqa: E501
@@ -674,7 +630,8 @@ def sndrcvflood(pks, pkt, inter=0, verbose=None, chainCC=False, store_unanswered
     # We don't use _sndrcv_snd verbose (it messes the logs up as in a thread that ends after receiving)  # noqa: E501
     thread = threading.Thread(
         target=_sndrcv_snd,
-        args=(pks, None, inter, False, infinite_gen, hsent, timessent, stopevent),  # noqa: E501
+        args=(pks, None, inter, False,
+              infinite_gen, hsent, timessent, stopevent)
     )
     thread.setDaemon(True)
     thread.start()
@@ -893,7 +850,8 @@ def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
     try:
         if started_callback:
             started_callback()
-        while sniff_sockets:
+        continue_sniff = True
+        while sniff_sockets and continue_sniff:
             if timeout is not None:
                 remain = stoptime - time.time()
                 if remain <= 0:
@@ -923,10 +881,10 @@ def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
                 # on_packet_received handles the prn/storage
                 session.on_packet_received(p)
                 if stop_filter and stop_filter(p):
-                    sniff_sockets = []
+                    continue_sniff = False
                     break
                 if 0 < count <= c:
-                    sniff_sockets = []
+                    continue_sniff = False
                     break
     except KeyboardInterrupt:
         pass
