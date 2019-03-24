@@ -440,7 +440,8 @@ if conf.use_pcap or conf.use_winpcapy:
             #   However, the way it is handled is very poor, and result in a jerky packet stream.  # noqa: E501
             # To fix this, we set 100 and the implementation under windows is slightly different, as  # noqa: E501
             # everything is always received as non-blocking
-            self.ins = open_pcap(iface, MTU, self.promisc, 100, monitor=monitor)  # noqa: E501
+            self.ins = open_pcap(iface, MTU, self.promisc, 100,
+                                 monitor=monitor)
             try:
                 ioctl(self.ins.fileno(), BIOCIMMEDIATE, struct.pack("I", 1))
             except Exception:
@@ -469,11 +470,9 @@ if conf.use_pcap or conf.use_winpcapy:
                 promisc = 0
             self.promisc = promisc
             # See L2pcapListenSocket for infos about this line
-            self.ins = open_pcap(iface, MTU, self.promisc, 100, monitor=monitor)  # noqa: E501
-            # We need to have a different interface open because of an
-            # access violation in Npcap that occurs in multi-threading
-            # (see https://github.com/nmap/nmap/issues/982)
-            self.outs = open_pcap(iface, MTU, self.promisc, 100)
+            self.ins = open_pcap(iface, MTU, self.promisc, 100,
+                                 monitor=monitor)
+            self.outs = self.ins
             try:
                 ioctl(self.ins.fileno(), BIOCIMMEDIATE, struct.pack("I", 1))
             except Exception:
@@ -502,16 +501,6 @@ if conf.use_pcap or conf.use_winpcapy:
             if hasattr(x, "sent_time"):
                 x.sent_time = time.time()
             return self.outs.send(sx)
-
-        def close(self):
-            if not self.closed:
-                ins = getattr(self, "ins", None)
-                out = getattr(self, "out", None)
-                if ins:
-                    self.ins.close()
-                if out and out != ins:
-                    self.outs.close()
-            self.closed = True
 
     class L3pcapSocket(L2pcapSocket):
         desc = "read/write packets at layer 3 using only libpcap"
