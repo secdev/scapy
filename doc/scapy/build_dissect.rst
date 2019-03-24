@@ -1144,4 +1144,8 @@ Scapy provides an ``explore()`` function, to search through the available layer/
     # scapy.contrib.status = [...]
     # scapy.contrib.name = [...] (optional)
 
+- If the contrib module does not contain any packets, and should not be indexed in `explore()`, then you should instead set::
+
+    # scapy.contrib.status = skip 
+
 - A **layer** module must have a docstring, in which the first line shortly describes the module.
