@@ -850,7 +850,8 @@ def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
     try:
         if started_callback:
             started_callback()
-        while sniff_sockets:
+        continue_sniff = True
+        while sniff_sockets and continue_sniff:
             if timeout is not None:
                 remain = stoptime - time.time()
                 if remain <= 0:
@@ -880,10 +881,10 @@ def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
                 # on_packet_received handles the prn/storage
                 session.on_packet_received(p)
                 if stop_filter and stop_filter(p):
-                    sniff_sockets = []
+                    continue_sniff = False
                     break
                 if 0 < count <= c:
-                    sniff_sockets = []
+                    continue_sniff = False
                     break
     except KeyboardInterrupt:
         pass
