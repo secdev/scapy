@@ -30,10 +30,27 @@ The basic features of sending and receiving packets should still work, though.
 Screenshot
 ----------
 
-If you have installed IPython, Scapy will hook to it and you will be able to use auto-completion using the TAB.
+If you have installed IPython (highly recommended), Scapy will hook to it and you will be able to use auto-completion using the TAB.
 
 .. image:: graphics/scapy-main-console.png
    :align: center
+
+
+Customizing the Terminal
+------------------------
+
+Before you actually start using Scapy, you may want to configure Scapy to properly render colors on your terminal. To do so, set ``conf.color_theme`` to one of of the following themes::
+
+    DefaultTheme, BrightTheme, RastaTheme, ColorOnBlackTheme, BlackAndWhite, HTMLTheme, LatexTheme
+
+For instance::
+
+    conf.color_theme = BrightTheme()
+
+.. image:: graphics/animations/animation-scapy-themes-demo.gif
+   :align: center
+
+Other parameters such as ``conf.prompt`` can also provide some customization. Note Scapy will update the shell automatically as soon as the ``conf`` values are changed.
 
 
 Interactive tutorial
