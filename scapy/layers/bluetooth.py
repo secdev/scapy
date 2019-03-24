@@ -1193,6 +1193,61 @@ bind_layers(SM_Hdr, SM_Signing_Information, sm_command=0x0a)
 
 
 ###########
+# Helpers #
+###########
+
+class LowEnergyBeaconHelper:
+    """
+    Helpers for building packets for Bluetooth Low Energy Beacons.
+
+    Implementors provide a :meth:`build_eir` implementation.
+
+    This is designed to be used as a mix-in -- see
+    ``scapy.contrib.eddystone`` and ``scapy.contrib.ibeacon`` for examples.
+    """
+
+    # Basic flags that should be used by most beacons.
+    base_eir = [EIR_Hdr() / EIR_Flags(flags=[
+        "general_disc_mode", "br_edr_not_supported"]), ]
+
+    def build_eir(self):
+        """
+        Builds a list of EIR messages to wrap this frame.
+
+        Users of this helper must implement this method.
+
+        :returns: List of HCI_Hdr with payloads that describe this beacon type
+        :rtype: list[HCI_Hdr]
+        """
+        raise NotImplementedError("build_eir")
+
+    def build_advertising_report(self):
+        """
+        Builds a HCI_LE_Meta_Advertising_Report containing this frame.
+
+        :rtype: HCI_LE_Meta_Advertising_Report
+        """
+
+        return HCI_LE_Meta_Advertising_Report(
+            type=0,   # Undirected
+            atype=1,  # Random address
+            data=self.build_eir()
+        )
+
+    def build_set_advertising_data(self):
+        """Builds a HCI_Cmd_LE_Set_Advertising_Data containing this frame.
+
+        This includes the :class:`HCI_Hdr` and :class:`HCI_Command_Hdr` layers.
+
+        :rtype: HCI_Hdr
+        """
+
+        return HCI_Hdr() / HCI_Command_Hdr() / HCI_Cmd_LE_Set_Advertising_Data(
+            data=self.build_eir()
+        )
+
+
+###########
 # Sockets #
 ###########
 

@@ -13,13 +13,12 @@
 # scapy.contrib.status = loads
 
 from scapy.compat import orb
-from scapy.packet import bind_layers, Packet
 from scapy.fields import IntField, SignedByteField, StrField, BitField, \
     StrFixedLenField, ShortField, FixedPointField, ByteEnumField
 from scapy.layers.bluetooth import EIR_Hdr, EIR_ServiceData16BitUUID, \
-    EIR_Flags, EIR_CompleteList16BitServiceUUIDs, HCI_Hdr, HCI_Command_Hdr, \
-    HCI_Cmd_LE_Set_Advertising_Data, HCI_LE_Meta_Advertising_Report
+    EIR_CompleteList16BitServiceUUIDs, LowEnergyBeaconHelper
 from scapy.modules import six
+from scapy.packet import bind_layers, Packet
 
 EDDYSTONE_UUID = 0xfeaa
 
@@ -93,7 +92,7 @@ class EddystoneURLField(StrField):
         return x
 
 
-class Eddystone_Frame(Packet):
+class Eddystone_Frame(Packet, LowEnergyBeaconHelper):
     # https://github.com/google/eddystone/blob/master/protocol-specification.md
     name = "Eddystone Frame"
     fields_desc = [
@@ -104,32 +103,11 @@ class Eddystone_Frame(Packet):
     def build_eir(self):
         """Builds a list of EIR messages to wrap this frame."""
 
-        return [
-            EIR_Hdr() / EIR_Flags(flags=[
-                "general_disc_mode", "br_edr_not_supported"]),
+        return LowEnergyBeaconHelper.base_eir + [
             EIR_Hdr() / EIR_CompleteList16BitServiceUUIDs(svc_uuids=[
                 EDDYSTONE_UUID]),
             EIR_Hdr() / EIR_ServiceData16BitUUID() / self
         ]
-
-    def build_advertising_report(self):
-        """Builds HCI_LE_Meta_Advertising_Report containing this frame."""
-
-        return HCI_LE_Meta_Advertising_Report(
-            type=0,   # Undirected
-            atype=1,  # Random address
-            data=self.build_eir()
-        )
-
-    def build_set_advertising_data(self):
-        """Builds a HCI_Cmd_LE_Set_Advertising_Data containing this frame.
-
-        This includes the HCI_Hdr and HCI_Command_Hdr layers.
-        """
-
-        return HCI_Hdr() / HCI_Command_Hdr() / HCI_Cmd_LE_Set_Advertising_Data(
-            data=self.build_eir()
-        )
 
 
 class Eddystone_UID(Packet):
