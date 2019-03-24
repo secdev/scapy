@@ -264,7 +264,7 @@ class BERcodec_Object(six.with_metaclass(BERcodec_metaclass)):
         if context is None:
             context = cls.tag.context
         cls.check_string(s)
-        p, _ = BER_id_dec(s)
+        p, remainder = BER_id_dec(s)
         if p not in context:
             t = s
             if len(t) > 18:
@@ -272,6 +272,10 @@ class BERcodec_Object(six.with_metaclass(BERcodec_metaclass)):
             raise BER_Decoding_Error("Unknown prefix [%02x] for [%r]" %
                                      (p, t), remaining=s)
         codec = context[p].get_codec(ASN1_Codecs.BER)
+        if codec == BERcodec_Object:
+            # Value type defined as Unknown
+            l, s = BER_num_dec(remainder)
+            return ASN1_BADTAG(s[:l]), s[l:]
         return codec.dec(s, context, safe)
 
     @classmethod
@@ -294,7 +298,7 @@ class BERcodec_Object(six.with_metaclass(BERcodec_metaclass)):
 
     @classmethod
     def enc(cls, s):
-        if isinstance(s, six.string_types):
+        if isinstance(s, (str, bytes)):
             return BERcodec_STRING.enc(s)
         else:
             return BERcodec_INTEGER.enc(int(s))

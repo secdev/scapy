@@ -1155,6 +1155,20 @@ assert SNMP in z
 x = UDP()/SNMP()
 assert x.sport == x.dport == 161
 
+= Basic SNMPvarbind build
+~ SNMP ASN1
+x = SNMPvarbind(oid=ASN1_OID("1.3.6.1.2.1.1.4.0"), value=RandBin())
+x = SNMPvarbind(raw(x))
+assert isinstance(x.value, ASN1_STRING)
+
+= Failing SNMPvarbind dissection
+~ SNMP ASN1
+try:
+    SNMP('0a\x02\x01\x00\x04\x06public\xa3T\x02\x02D\xd0\x02\x01\x00\x02\x01\x000H0F\x06\x08+\x06\x01\x02\x01\x01\x05\x00\x00\x03\x01\x02D\x00\x03\x01\x02D\x00\x03\x01\x02D\x00\x03\x01\x02D\x00\x03\x01\x02D\x00\x03\x01\x02D\x00\x03\x01\x02D\x00\x03\x01\x02D\x00\x03\x01\x02D\x00\x03\x01\x02D\x00\x03\x01\x02D\x00\x03\x01\x02D')
+    assert False
+except BER_Decoding_Error:
+    pass
+
 = ASN1 - ASN1_Object
 assert ASN1_Object(1) == ASN1_Object(1)
 assert ASN1_Object(1) > ASN1_Object(0)
