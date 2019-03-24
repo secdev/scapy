@@ -701,6 +701,28 @@ class EIR_Manufacturer_Specific_Data(EIR_Element):
         XLEShortField("company_id", None),
     ]
 
+    registered_magic_payloads = {}
+
+    @classmethod
+    def register_magic_payload(cls, payload_cls, magic_check=None):
+        """Registers a class using magic data."""
+        if magic_check is None:
+            if hasattr(payload_cls, "magic_check"):
+                magic_check = payload_cls.magic_check
+            else:
+                raise TypeError("magic_check not specified, and {} has no "
+                                "attribute magic_check".format(payload_cls))
+
+        cls.registered_magic_payloads[payload_cls] = magic_check
+
+    def default_payload_class(self, payload):
+        for cls, check in six.iteritems(
+                EIR_Manufacturer_Specific_Data.registered_magic_payloads):
+            if check(payload):
+                return cls
+
+        return Packet.default_payload_class(self, payload)
+
     def extract_padding(self, s):
         # Needed to end each EIR_Element packet and make PacketListField work.
         plen = EIR_Element.length_from(self) - 2
