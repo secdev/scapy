@@ -219,6 +219,10 @@ if WINDOWS:
 
 True
 
+= Packet.route()
+assert (Ether() / ARP()).route()[0] is not None
+assert (Ether() / ARP()).payload.route()[0] is not None
+
 
 ############
 ############
