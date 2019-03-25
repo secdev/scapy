@@ -298,7 +298,7 @@ class BERcodec_Object(six.with_metaclass(BERcodec_metaclass)):
 
     @classmethod
     def enc(cls, s):
-        if isinstance(s, (str, bytes)):
+        if isinstance(s, six.string_types + (bytes,)):
             return BERcodec_STRING.enc(s)
         else:
             return BERcodec_INTEGER.enc(int(s))
