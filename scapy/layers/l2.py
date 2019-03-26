@@ -128,8 +128,7 @@ class SourceMACField(MACField):
 
     def __init__(self, name, getif=None):
         MACField.__init__(self, name, None)
-        self.getif = ((lambda pkt: pkt.payload.route()[0])
-                      if getif is None else getif)
+        self.getif = (lambda pkt: pkt.route()[0]) if getif is None else getif
 
     def i2h(self, pkt, x):
         if x is None:
