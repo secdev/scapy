@@ -1124,6 +1124,57 @@ assert(sent)
 assert(rx2 is not None)
 assert(rx2 == msg)
 
+
+= ISOTPSoftSocket sr1 timeout with short frame
+~ needs_root linux
+
+evt = threading.Event()
+msg = ISOTP(b'\x11\x22\x33')
+rx = None
+finished = False
+
+def sender():
+    global evt, rx, msg, finished
+    with ISOTPSoftSocket(new_can_socket(iface0), 0x123, 0x321) as sock:
+        evt.set()
+        rx = sock.sr1(msg, timeout=0.1, verbose=True)
+        finished = True
+
+txThread = threading.Thread(target=sender)
+txThread.start()
+
+evt.wait()
+txThread.join(5)
+
+assert(rx is None)
+assert(finished)
+
+
+
+= ISOTPSoftSocket sr1 timeout with long frame
+~ needs_root linux
+
+evt = threading.Event()
+msg = ISOTP(b'\x11\x22\x33\x11\x22\x33\x11\x22\x33\x11\x22\x33')
+rx = None
+finished = False
+
+def sender():
+    global evt, rx, msg, finished
+    with ISOTPSoftSocket(new_can_socket(iface0), 0x123, 0x321) as sock:
+        evt.set()
+        rx = sock.sr1(msg, timeout=0.1, verbose=True)
+        finished = True
+
+txThread = threading.Thread(target=sender)
+txThread.start()
+
+evt.wait()
+txThread.join(5)
+
+assert(rx is None)
+assert(finished)
+
 = ISOTPSoftSocket sr1 and ISOTP test vice versa
 ~ needs_root linux
 

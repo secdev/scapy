@@ -643,7 +643,7 @@ class ISOTPSoftSocket(SuperSocket):
         return msg
 
     @staticmethod
-    def select(sockets, remain=None):
+    def select(sockets, remain=conf.recv_poll_rate):
         """This function is called during sendrecv() routine to wait for
         sockets to be ready to receive
         """

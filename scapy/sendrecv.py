@@ -229,7 +229,8 @@ def sndrcv(pks, pkt, timeout=None, inter=0, verbose=None, chainCC=False,
         if listable:
             i = 0
             for p in (pkt if isinstance(pkt, list) else [pkt]):
-                p.sent_time = timessent[i]
+                if i in timessent:
+                    p.sent_time = timessent[i]
                 i += 1
 
         if store_unanswered:
