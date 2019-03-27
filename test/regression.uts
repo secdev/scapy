@@ -1825,7 +1825,6 @@ class ATMT5(Automaton):
     @ATMT.condition(BEGIN, prio=-1)
     def tr3(self):
         self.res += "u"
-
     @ATMT.action(tr1)
     def ac1(self):
         self.res += "e"
@@ -1835,7 +1834,6 @@ class ATMT5(Automaton):
     @ATMT.action(tr1, prio=1)
     def ac3(self):
         self.res += "r"
-
     @ATMT.state(final=1)
     def END(self):
         return self.res
