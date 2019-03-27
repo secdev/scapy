@@ -25,7 +25,7 @@ from scapy.fields import BitField, ByteEnumField, ByteField, FieldLenField, \
     FlagsField, IntEnumField, IntField, MACField, PacketField, \
     PacketListField, ShortEnumField, ShortField, StrField, StrFixedLenField, \
     StrLenField, UTCTimeField, X3BytesField, XIntField, XShortEnumField, \
-    PacketLenField, UUIDField, ShortField, FieldListField
+    PacketLenField, UUIDField, FieldListField
 from scapy.layers.inet import UDP
 from scapy.layers.inet6 import DomainNameListField, IP6Field, IP6ListField, \
     IPv6
@@ -163,7 +163,7 @@ dhcp6opts_by_code = {1: "DHCP6OptClientId",
                      37: "DHCP6OptRemoteID",  # RFC4649
                      38: "DHCP6OptSubscriberID",  # RFC4580
                      39: "DHCP6OptClientFQDN",  # RFC4704
-                     40: "DHCP6OptPanaAuthAgent",  # RFC-ietf-dhc-paa-option-05.txt
+                     40: "DHCP6OptPanaAuthAgent",  # RFC-ietf-dhc-paa-option-05.txt  # noqa: E501
                      41: "DHCP6OptNewPOSIXTimeZone",  # RFC4833
                      42: "DHCP6OptNewTZDBTimeZone",  # RFC4833
                      43: "DHCP6OptRelayAgentERO",  # RFC4994
@@ -314,24 +314,29 @@ duid_cls = {1: "DUID_LLT",
 #####################################################################
 
 
-def just_guess_payload_class(payload):
-    # try to guess what option is in the payload
-    cls = conf.raw_layer
-    if len(payload) > 2:
-        opt = struct.unpack("!H", payload[:2])[0]
-        cls = get_cls(dhcp6opts_by_code.get(opt, "DHCP6OptUnknown"), DHCP6OptUnknown)  # noqa: E501
-    return cls
-
 
 class _DHCP6OptGuessPayload(Packet):
-    def guess_payload_class(self, payload):
-        cls = just_guess_payload_class(payload)
+    @classmethod
+    def _just_guess_payload_class(cls, payload):
+        # try to guess what option is in the payload
+        cls = conf.raw_layer
+        if len(payload) > 2:
+            opt = struct.unpack("!H", payload[:2])[0]
+            cls = get_cls(dhcp6opts_by_code.get(opt, "DHCP6OptUnknown"), DHCP6OptUnknown)  # noqa: E501
         return cls
 
+    def guess_payload_class(self, payload):
+        # this method is used in case of all derived classes from _DHCP6OptGuessPayload
+        # in this file
+        cls = _DHCP6OptGuessPayload._just_guess_payload_class(payload)
+        return cls
 
-def guess_payload_class_and_make_instance(payload):
-    cls = just_guess_payload_class(payload)
-    return cls(payload)
+    @classmethod
+    def dispatch_hook(cls, payload=None, *args, **kargs):
+        # this classmethod is used in case of list of different suboptions
+        # e.g. in ianaopts in DHCP6OptIA_NA
+        cls_ = cls._just_guess_payload_class(payload)
+        return cls_
 
 
 class DHCP6OptUnknown(_DHCP6OptGuessPayload):  # A generic DHCPv6 Option
@@ -404,7 +409,7 @@ class DHCP6OptIA_NA(_DHCP6OptGuessPayload):         # RFC sect 22.4
                    XIntField("iaid", None),
                    IntField("T1", None),
                    IntField("T2", None),
-                   PacketListField("ianaopts", [], guess_payload_class_and_make_instance,
+                   PacketListField("ianaopts", [], _DHCP6OptGuessPayload,
                                    length_from=lambda pkt: pkt.optlen - 12)]
 
 
@@ -414,7 +419,7 @@ class DHCP6OptIA_TA(_DHCP6OptGuessPayload):         # RFC sect 22.5
                    FieldLenField("optlen", None, length_of="iataopts",
                                  fmt="!H", adjust=lambda pkt, x: x + 4),
                    XIntField("iaid", None),
-                   PacketListField("iataopts", [], guess_payload_class_and_make_instance,
+                   PacketListField("iataopts", [], _DHCP6OptGuessPayload,
                                    length_from=lambda pkt: pkt.optlen - 4)]
 
 
@@ -778,7 +783,7 @@ class DHCP6OptIA_PD(_DHCP6OptGuessPayload):  # RFC3633
                    XIntField("iaid", None),
                    IntField("T1", None),
                    IntField("T2", None),
-                   PacketListField("iapdopt", [], guess_payload_class_and_make_instance,
+                   PacketListField("iapdopt", [], _DHCP6OptGuessPayload,
                                    length_from=lambda pkt: pkt.optlen - 12)]
 
 
@@ -978,9 +983,9 @@ class DHCP6OptClientNetworkInterId(_DHCP6OptGuessPayload):  # RFC5970
     name = "DHCP6 Client Network Interface Identifier Option"
     fields_desc = [ShortEnumField("optcode", 62, dhcp6opts),
                    ShortField("optlen", 3),
-		   ByteField("iitype", 0),
-		   ByteField("iimajor", 0),
-		   ByteField("iiminor", 0)]
+                   ByteField("iitype", 0),
+                   ByteField("iimajor", 0),
+                   ByteField("iiminor", 0)]
 
 
 class DHCP6OptERPDomain(_DHCP6OptGuessPayload):  # RFC6440
@@ -994,9 +999,11 @@ class DHCP6OptERPDomain(_DHCP6OptGuessPayload):  # RFC6440
 class DHCP6OptRelaySuppliedOpt(_DHCP6OptGuessPayload):  # RFC6422
     name = "DHCP6 Relay-Supplied Options Option"
     fields_desc = [ShortEnumField("optcode", 66, dhcp6opts),
-                   FieldLenField("optlen", None, length_of="relaysupplied", fmt="!H"),
-                   PacketListField("relaysupplied", [], guess_payload_class_and_make_instance,
+                   FieldLenField("optlen", None, length_of="relaysupplied",
+                                 fmt="!H"),
+                   PacketListField("relaysupplied", [], _DHCP6OptGuessPayload,
                                    length_from=lambda pkt: pkt.optlen)]
+
 
 # Virtual Subnet selection
 class DHCP6OptVSS(_DHCP6OptGuessPayload):  # RFC6607
@@ -1018,6 +1025,7 @@ class DHCP6OptClientLinkLayerAddr(_DHCP6OptGuessPayload):  # RFC6939
                                  adjust=lambda pkt, x: x + 2),
                    ShortField("lltype", 1),  # ethernet
                    _LLAddrField("clladdr", ETHER_ANY)]
+
 
 #####################################################################
 #                          DHCPv6 messages                          #

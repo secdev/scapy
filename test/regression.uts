@@ -4393,7 +4393,7 @@ a.hwtype == 1 and a.lladdr == "ff:ff:ff:ff:ff:ff"
 + Test DHCP6 DUID_UUID
 
 = DUID_UUID basic instantiation
-a=DUID_UUID() 
+a=DUID_UUID()
 
 = DUID_UUID basic build
 raw(DUID_UUID()) == b"\0\x04\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
@@ -4406,7 +4406,7 @@ raw(DUID_UUID(uuid="272adcca-138c-4e8d-b3f4-634e953128cf")) == \
 a=DUID_UUID(raw(DUID_UUID()))
 a.type == 4 and str(a.uuid) == "00000000-0000-0000-0000-000000000000"
 
-= DUID_UUID with specific values 
+= DUID_UUID with specific values
 a=DUID_UUID(b"\x00\x04'*\xdc\xca\x13\x8cN\x8d\xb3\xf4cN\x951(\xcf")
 a.type == 4 and str(a.uuid) == "272adcca-138c-4e8d-b3f4-634e953128cf"
 
@@ -4570,7 +4570,7 @@ raw(DHCP6OptIA_NA(iaid=0x22222222, T1=0x33333333, T2=0x44444444, ianaopts=[DHCP6
 a = DHCP6OptIA_NA(b'\x00\x03\x00L""""3333DDDD\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
 a.optcode == 3 and a.optlen == 76 and a.iaid == 0x22222222 and a.T1 == 0x33333333 and a.T2==0x44444444 and len(a.ianaopts) == 2 and isinstance(a.ianaopts[0], DHCP6OptIAAddress) and isinstance(a.ianaopts[1], DHCP6OptIAAddress)
 
-= DHCP6OptIA_NA - Instantiation with a list of diferent opts: IA Address and Status Code (optlen automatic computation)
+= DHCP6OptIA_NA - Instantiation with a list of different opts: IA Address and Status Code (optlen automatic computation)
 raw(DHCP6OptIA_NA(iaid=0x22222222, T1=0x33333333, T2=0x44444444, ianaopts=[DHCP6OptIAAddress(), DHCP6OptStatusCode(statuscode=0xff, statusmsg="Hello")])) == b'\x00\x03\x003""""3333DDDD\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\r\x00\x07\x00\xffHello'
 
 
@@ -4592,7 +4592,7 @@ raw(DHCP6OptIA_TA(optlen=0x1111, iaid=0x22222222, iataopts=[DHCP6OptIAAddress(),
 a = DHCP6OptIA_TA(b'\x00\x04\x11\x11""""\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
 a.optcode == 4 and a.optlen == 0x1111 and a.iaid == 0x22222222 and len(a.iataopts) == 2 and isinstance(a.iataopts[0], DHCP6OptIAAddress) and isinstance(a.iataopts[1], DHCP6OptIAAddress)
 
-= DHCP6OptIA_TA - Instantiation with a list of diferent opts: IA Address and Status Code (optlen automatic computation)
+= DHCP6OptIA_TA - Instantiation with a list of different opts: IA Address and Status Code (optlen automatic computation)
 raw(DHCP6OptIA_TA(iaid=0x22222222, iataopts=[DHCP6OptIAAddress(), DHCP6OptStatusCode(statuscode=0xff, statusmsg="Hello")])) == b'\x00\x04\x00+""""\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\r\x00\x07\x00\xffHello'
 
 
@@ -4975,7 +4975,7 @@ raw(DHCP6OptIAPrefix()) == b'\x00\x1a\x00\x19\x00\x00\x00\x00\x00\x00\x00\x000 \
 = DHCP6OptIA_PD - Basic Instantiation
 raw(DHCP6OptIA_PD()) == b'\x00\x19\x00\x0c\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 
-= DHCP6OptIA_PD - Instantiation with a list of diferent opts: IA Address and Status Code (optlen automatic computation)
+= DHCP6OptIA_PD - Instantiation with a list of different opts: IA Address and Status Code (optlen automatic computation)
 raw(DHCP6OptIA_PD(iaid=0x22222222, T1=0x33333333, T2=0x44444444, iapdopt=[DHCP6OptIAAddress(), DHCP6OptStatusCode(statuscode=0xff, statusmsg="Hello")])) == b'\x00\x19\x003""""3333DDDD\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\r\x00\x07\x00\xffHello'
 
 #TODO : finish me
