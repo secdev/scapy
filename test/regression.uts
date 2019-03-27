@@ -1249,7 +1249,7 @@ retry_test(_test)
 def _test():
     tmp = send(IP(dst="8.8.8.8")/ICMP(), return_packets=True, realtime=True)
     assert(len(tmp) == 1)
-
+    
     tmp = sendp(Ether()/IP(dst="8.8.8.8")/ICMP(), return_packets=True, realtime=True)
     assert(len(tmp) == 1)
 
@@ -1260,7 +1260,7 @@ retry_test(_test)
 def _test():
     tmp = srloop(IP(dst="8.8.8.8")/ICMP(), count=1)
     assert(type(tmp) == tuple and len(tmp[0]) == 1)
-
+    
     tmp = srploop(Ether()/IP(dst="8.8.8.8")/ICMP(), count=1)
     assert(type(tmp) == tuple and len(tmp[0]) == 1)
 
