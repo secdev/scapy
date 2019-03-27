@@ -29,22 +29,25 @@ from scapy.modules.six.moves import range
 from scapy.pton_ntop import inet_ntop, inet_pton
 
 
-def dns_get_str(s, p, pkt=None, _fullpacket=False):
-    """This function decompresses a string s, from the character p.
-    params:
-     - s: the string to decompress
-     - p: start index of the string
-     - pkt: (optional) an InheritOriginDNSStrPacket packet
+def dns_get_str(s, pointer=0, pkt=None, _fullpacket=False):
+    """This function decompresses a string s, starting
+    from the given pointer.
 
-    returns: (decoded_string, end_index, left_string)
+    :param s: the string to decompress
+    :param pointer: first pointer on the string (default: 0)
+    :param pkt: (optional) an InheritOriginDNSStrPacket packet
+
+    :returns: (decoded_string, end_index, left_string)
     """
     # The _fullpacket parameter is reserved for scapy. It indicates
     # that the string provided is the full dns packet, and thus
     # will be the same than pkt._orig_str. The "Cannot decompress"
     # error will not be prompted if True.
     max_length = len(s)
-    name = b""  # The result = the extracted name
-    q = None  # Will contain the index after the pointer, to be returned
+    # The result = the extracted name
+    name = b""
+    # Will contain the index after the pointer, to be returned
+    after_pointer = None
     processed_pointers = []  # Used to check for decompression loops
     # Analyse given pkt
     if pkt and hasattr(pkt, "_orig_s") and pkt._orig_s:
@@ -53,29 +56,30 @@ def dns_get_str(s, p, pkt=None, _fullpacket=False):
         s_full = None
     bytes_left = None
     while True:
-        if abs(p) >= max_length:
-            warning("DNS RR prematured end (ofs=%i, len=%i)" % (p, len(s)))
+        if abs(pointer) >= max_length:
+            warning("DNS RR prematured end (ofs=%i, len=%i)" % (pointer,
+                                                                len(s)))
             break
-        cur = orb(s[p])  # current value of the string at p
-        p += 1  # p is now pointing to the value of the pointer
+        cur = orb(s[pointer])  # get pointer value
+        pointer += 1  # make pointer go forward
         if cur & 0xc0:  # Label pointer
-            if q is None:
-                # p will follow the pointer, whereas q won't
-                # q is located just after the pointer. It gives us
-                # where the remaining bytes start
-                q = p + 1
-            if p >= max_length:
-                warning("DNS incomplete jump token at (ofs=%i)" % p)
+            if after_pointer is None:
+                # after_pointer points to where the remaining bytes start,
+                # as pointer will follow the jump token
+                after_pointer = pointer + 1
+            if pointer >= max_length:
+                warning("DNS incomplete jump token at (ofs=%i)" % pointer)
                 break
-            p = ((cur & ~0xc0) << 8) + orb(s[p]) - 12  # Follow the pointer
-            if p in processed_pointers:
+            # Follow the pointer
+            pointer = ((cur & ~0xc0) << 8) + orb(s[pointer]) - 12
+            if pointer in processed_pointers:
                 warning("DNS decompression loop detected")
                 break
             if not _fullpacket:
                 # Do we have access to the whole packet ?
                 if s_full:
                     # Yes -> use it to continue
-                    bytes_left = s[q:]
+                    bytes_left = s[after_pointer:]
                     s = s_full
                     max_length = len(s)
                     _fullpacket = True
@@ -83,20 +87,21 @@ def dns_get_str(s, p, pkt=None, _fullpacket=False):
                     # No -> abort
                     raise Scapy_Exception("DNS message can't be compressed" +
                                           "at this point!")
-            processed_pointers.append(p)
+            processed_pointers.append(pointer)
             continue
         elif cur > 0:  # Label
-            name += s[p:p + cur] + b"."
-            p += cur
+            # cur = length of the string
+            name += s[pointer:pointer + cur] + b"."
+            pointer += cur
         else:
             break
-    if q is not None:
+    if after_pointer is not None:
         # Return the real end index (not the one we followed)
-        p = q
+        pointer = after_pointer
     if bytes_left is None:
-        bytes_left = s[p:]
+        bytes_left = s[pointer:]
     # name, end_index, remaining
-    return name, p, bytes_left
+    return name, pointer, bytes_left
 
 
 def DNSgetstr(*args, **kwargs):
