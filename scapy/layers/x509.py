@@ -8,6 +8,7 @@
 X.509 certificates.
 """
 
+from scapy.asn1.mib import conf
 from scapy.asn1.asn1 import ASN1_Codecs, ASN1_OID, \
     ASN1_IA5_STRING, ASN1_NULL, ASN1_PRINTABLE_STRING, \
     ASN1_UTC_TIME, ASN1_UTF8_STRING
