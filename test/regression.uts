@@ -7347,7 +7347,6 @@ default            10.0.1.254         UGS        0        0     -     8 bge0
     # Mocked file descriptor
     strio = StringIO(netstat_output)
     mock_os.popen = mock.MagicMock(return_value=strio)
-
     # Mocked OpenBSD parsing behavior
     mock_openbsd = True
     # Test the function
