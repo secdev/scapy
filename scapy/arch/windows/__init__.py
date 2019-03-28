@@ -337,12 +337,13 @@ class NetworkInterface(object):
             # Npcap loopback interface
             if conf.use_npcap:
                 pcap_name_loopback = _get_npcap_config("LoopbackAdapter")
-                guid = _pcapname_to_guid(pcap_name_loopback)
-                if self.guid == guid:
-                    # https://nmap.org/npcap/guide/npcap-devguide.html
-                    self.mac = "00:00:00:00:00:00"
-                    self.ip = "127.0.0.1"
-                    return
+                if pcap_name_loopback:  # May not be defined
+                    guid = _pcapname_to_guid(pcap_name_loopback)
+                    if self.guid == guid:
+                        # https://nmap.org/npcap/guide/npcap-devguide.html
+                        self.mac = "00:00:00:00:00:00"
+                        self.ip = "127.0.0.1"
+                        return
         except KeyError:
             pass
 
@@ -383,7 +384,7 @@ class NetworkInterface(object):
             # The Dot11Adapters is not officially supported anymore.
             # we just try/except, and check that it exists globally
             val = _get_npcap_config("Dot11Support")
-            self.raw80211 = bool(int(val))
+            self.raw80211 = bool(int(val)) if val else False
         if not self.raw80211:
             raise Scapy_Exception("This interface does not support raw 802.11")
 
