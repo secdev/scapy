@@ -314,7 +314,6 @@ duid_cls = {1: "DUID_LLT",
 #####################################################################
 
 
-
 class _DHCP6OptGuessPayload(Packet):
     @classmethod
     def _just_guess_payload_class(cls, payload):
@@ -322,12 +321,13 @@ class _DHCP6OptGuessPayload(Packet):
         cls = conf.raw_layer
         if len(payload) > 2:
             opt = struct.unpack("!H", payload[:2])[0]
-            cls = get_cls(dhcp6opts_by_code.get(opt, "DHCP6OptUnknown"), DHCP6OptUnknown)  # noqa: E501
+            cls = get_cls(dhcp6opts_by_code.get(opt, "DHCP6OptUnknown"),
+                          DHCP6OptUnknown)
         return cls
 
     def guess_payload_class(self, payload):
-        # this method is used in case of all derived classes from _DHCP6OptGuessPayload
-        # in this file
+        # this method is used in case of all derived classes
+        # from _DHCP6OptGuessPayload in this file
         cls = _DHCP6OptGuessPayload._just_guess_payload_class(payload)
         return cls
 
@@ -949,7 +949,8 @@ class DHCP6OptNewTZDBTimeZone(_DHCP6OptGuessPayload):  # RFC4833
 class DHCP6OptRelayAgentERO(_DHCP6OptGuessPayload):  # RFC4994
     name = "DHCP6 Option - RelayRequest Option"
     fields_desc = [ShortEnumField("optcode", 43, dhcp6opts),
-                   FieldLenField("optlen", None, length_of="reqopts", fmt="!H"),  # noqa: E501
+                   FieldLenField("optlen", None, length_of="reqopts",
+                                 fmt="!H"),
                    _OptReqListField("reqopts", [23, 24],
                                     length_from=lambda pkt: pkt.optlen)]
 
@@ -973,7 +974,8 @@ class DHCP6OptBootFileUrl(_DHCP6OptGuessPayload):  # RFC5970
 class DHCP6OptClientArchType(_DHCP6OptGuessPayload):  # RFC5970
     name = "DHCP6 Client System Architecture Type Option"
     fields_desc = [ShortEnumField("optcode", 61, dhcp6opts),
-                   FieldLenField("optlen", None, length_of="archtypes", fmt="!H"),
+                   FieldLenField("optlen", None, length_of="archtypes",
+                                 fmt="!H"),
                    FieldListField("archtypes", [],
                                   ShortField("archtype", 0),
                                   length_from=lambda pkt: pkt.optlen)]
