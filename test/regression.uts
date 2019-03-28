@@ -7694,7 +7694,6 @@ ff02::%lo0/32                      fe80::1%lo0                    UC         0  
     # Mocked file descriptor
     strio = StringIO(netstat_output)
     mock_os.popen = mock.MagicMock(return_value=strio)
-
     # Mocked in6_getifaddr() output
     mock_in6_getifaddr.return_value = [("::1", IPV6_ADDR_LOOPBACK, "lo0"),
                                        ("fe80::a00:27ff:fe04:59bf", IPV6_ADDR_LINKLOCAL, "em0")]
