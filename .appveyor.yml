@@ -33,6 +33,9 @@ install:
   # Install the npcap, windump and wireshark suites
   - ps: .\.appveyor\InstallNpcap.ps1
   - ps: .\.appveyor\InstallWindumpNpcap.ps1
+  # Installs Wireshark 3.0 (and its dependencies)
+  # https://github.com/mkevenaar/chocolatey-packages/issues/16
+  - choco install -n KB3033929 KB2919355 kb2999226
   - choco install -y wireshark
   # Install Python modules
   - "%PYTHON%\\python -m pip install tox"
@@ -47,6 +50,8 @@ for:
     install:
       # Install the winpcap and wireshark suites
       - choco install -y winpcap
+      # See above for explanations
+      - choco install -n KB3033929 KB2919355 kb2999226
       - choco install -y wireshark
       # Install Python modules
       - "%PYTHON%\\python -m pip install tox"
