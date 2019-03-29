@@ -536,6 +536,8 @@ save_object(fname, 2807)
 assert(load_object(fname) == 2807)
 
 = Test whois function
+~ netaccess
+
 if not WINDOWS:
     result = whois("193.0.6.139")
     assert(b"inetnum" in result and b"Amsterdam" in result)
@@ -849,6 +851,9 @@ assert all(p.hashret() == p2.hashret() for p in px)
 assert not any(p.answers(p2) for p in px)
 assert all(p2.answers(p) for p in px)
 conf.checkIPinIP = conf_back
+
+= answers - Net
+~ netaccess
 
 a1, a2 = Net("www.google.com"), Net("www.secdev.org")
 prt1, prt2 = 12345, 54321
@@ -1497,12 +1502,9 @@ def _test():
 retry_test(_test)
 
 = Traceroute function
-~ netaccess
+~ netaccess tcpdump
 * Let's test traceroute
 ans, unans = traceroute("www.slashdot.org")
-
-= Result manipulation
-~ netaccess
 ans.nsummary()
 s,r=ans[0]
 s.show()
@@ -1527,7 +1529,7 @@ assert(DNS in IP(raw(dns_ans2)))
 assert raw(DNSRR(type='A', rdata='1.2.3.4')) == b'\x00\x00\x01\x00\x01\x00\x00\x00\x00\x00\x04\x01\x02\x03\x04'
 
 = Arping
-~ netaccess
+~ netaccess tcpdump
 * This test assumes the local network is a /24. This is bad.
 def _test():
     ip_address = conf.route.route("0.0.0.0")[2]
@@ -1537,7 +1539,7 @@ def _test():
 retry_test(_test)
 
 = send() and sniff()
-~ netaccess
+~ netaccess tcpdump
 import time
 import os
 
@@ -9752,6 +9754,7 @@ assert n3.__iterlen__() == 5
 (n3 in n2) == True
 
 = Net using web address
+~ netaccess
 
 ip = IP(dst="www.google.com")
 n1 = ip.dst
@@ -10931,6 +10934,7 @@ new_pl = pl.replace(IP.src, "192.168.0.254", "192.168.0.42")
 assert("192.168.0.254" not in [p[IP].src for p in new_pl])
 
 = IPv4 - reporting
+~ netaccess
 
 @mock.patch("scapy.layers.inet.sr")
 def test_report_ports(mock_sr):
