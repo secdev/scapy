@@ -611,7 +611,8 @@ class Cert(six.with_metaclass(_CertMaker, object)):
         if notBefore[-1] == "Z":
             notBefore = notBefore[:-1]
         try:
-            self.notBefore = time.strptime(notBefore, "%y%m%d%H%M%S")
+            _format = tbsCert.validity.not_before._format
+            self.notBefore = time.strptime(notBefore, _format)
         except Exception:
             raise Exception(error_msg)
         self.notBefore_str_simple = time.strftime("%x", self.notBefore)
@@ -621,7 +622,8 @@ class Cert(six.with_metaclass(_CertMaker, object)):
         if notAfter[-1] == "Z":
             notAfter = notAfter[:-1]
         try:
-            self.notAfter = time.strptime(notAfter, "%y%m%d%H%M%S")
+            _format = tbsCert.validity.not_after._format
+            self.notAfter = time.strptime(notAfter, _format)
         except Exception:
             raise Exception(error_msg)
         self.notAfter_str_simple = time.strftime("%x", self.notAfter)

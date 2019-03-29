@@ -445,14 +445,14 @@ class ASN1_UTC_TIME(ASN1_STRING):
             pretty_time = None
             if isinstance(self, ASN1_GENERALIZED_TIME):
                 _len = 15
-                _format = "%Y%m%d%H%M%S"
+                self._format = "%Y%m%d%H%M%S"
             else:
                 _len = 13
-                _format = "%y%m%d%H%M%S"
+                self._format = "%y%m%d%H%M%S"
             _nam = self.tag._asn1_obj.__name__[4:].lower()
             if (isinstance(value, str) and
                     len(value) == _len and value[-1] == "Z"):
-                dt = datetime.strptime(value[:-1], _format)
+                dt = datetime.strptime(value[:-1], self._format)
                 pretty_time = dt.strftime("%b %d %H:%M:%S %Y GMT")
             else:
                 pretty_time = "%s [invalid %s]" % (value, _nam)
