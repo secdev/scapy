@@ -1047,7 +1047,7 @@ data = b"\x00\x00\x0b\x00\x00\x00\x08\x00?,\x05"
 r = RadioTap(data)
 r.show()
 assert r.present.MCS
-assert r.knownMCS.bandwidth
+assert r.knownMCS.MCS_bandwidth
 assert r.knownMCS.MCS_index
 assert r.knownMCS.guard_interval
 assert r.knownMCS.HT_format
@@ -1055,11 +1055,11 @@ assert r.knownMCS.FEC_type
 assert r.knownMCS.STBC_streams
 assert not r.knownMCS.Ness
 assert not r.knownMCS.Ness_MSB
-assert r.bandwidth == 0
+assert r.MCS_bandwidth == 0
 assert r.guard_interval == 1
-assert r.HT_format == 0
-assert r.FEC_type == 1
-assert r.STBC_streams == 2
+assert r.HT_format == 1
+assert r.FEC_type == 0
+assert r.STBC_streams == 1
 assert r.MCS_index == 5
 assert r.Ness_LSB == 0
 
