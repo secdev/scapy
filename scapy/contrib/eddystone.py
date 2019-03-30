@@ -6,11 +6,21 @@
 # Copyright (C) Michael Farrell <micolous+git@gmail.com>
 # This program is published under a GPLv2 (or later) license
 #
-# The Eddystone specification can be found at:
-# https://github.com/google/eddystone/blob/master/protocol-specification.md
-#
 # scapy.contrib.description = Eddystone BLE proximity beacon
 # scapy.contrib.status = loads
+"""
+scapy.contrib.eddystone - Google Eddystone Bluetooth LE proximity beacons.
+
+The Eddystone specification can be found at:
+https://github.com/google/eddystone/blob/master/protocol-specification.md
+
+These beacons are used as building blocks for other systems:
+
+* Google's Physical Web <https://google.github.io/physical-web/>
+* RuuviTag <https://github.com/ruuvi/ruuvi-sensor-protocols>
+* Waze Beacons <https://www.waze.com/beacons>
+
+"""
 
 from scapy.compat import orb
 from scapy.fields import IntField, SignedByteField, StrField, BitField, \
@@ -93,7 +103,11 @@ class EddystoneURLField(StrField):
 
 
 class Eddystone_Frame(Packet, LowEnergyBeaconHelper):
-    # https://github.com/google/eddystone/blob/master/protocol-specification.md
+    """
+    The base Eddystone frame on which all Eddystone messages are built.
+
+    https://github.com/google/eddystone/blob/master/protocol-specification.md
+    """
     name = "Eddystone Frame"
     fields_desc = [
         BitField("type", None, 4),
@@ -111,7 +125,11 @@ class Eddystone_Frame(Packet, LowEnergyBeaconHelper):
 
 
 class Eddystone_UID(Packet):
-    # https://github.com/google/eddystone/tree/master/eddystone-uid
+    """
+    An Eddystone type for transmitting a unique identifier.
+
+    https://github.com/google/eddystone/tree/master/eddystone-uid
+    """
     name = "Eddystone UID"
     fields_desc = [
         SignedByteField("tx_power", 0),
@@ -122,7 +140,11 @@ class Eddystone_UID(Packet):
 
 
 class Eddystone_URL(Packet):
-    # https://github.com/google/eddystone/tree/master/eddystone-url
+    """
+    An Eddystone type for transmitting a URL (to a web page).
+
+    https://github.com/google/eddystone/tree/master/eddystone-url
+    """
     name = "Eddystone URL"
     fields_desc = [
         SignedByteField("tx_power", 0),
@@ -152,7 +174,11 @@ class Eddystone_URL(Packet):
 
 
 class Eddystone_TLM(Packet):
-    # https://github.com/google/eddystone/tree/master/eddystone-tlm
+    """
+    An Eddystone type for transmitting beacon telemetry information.
+
+    https://github.com/google/eddystone/tree/master/eddystone-tlm
+    """
     name = "Eddystone TLM"
     fields_desc = [
         ByteEnumField("version", None, {
@@ -163,7 +189,11 @@ class Eddystone_TLM(Packet):
 
 
 class Eddystone_TLM_Unencrypted(Packet):
-    # https://github.com/google/eddystone/blob/master/eddystone-tlm/tlm-plain.md
+    """
+    A subtype of Eddystone-TLM for transmitting telemetry in unencrypted form.
+
+    https://github.com/google/eddystone/blob/master/eddystone-tlm/tlm-plain.md
+    """
     name = "Eddystone TLM (Unencrypted)"
     fields_desc = [
         ShortField("batt_mv", 0),
@@ -174,7 +204,13 @@ class Eddystone_TLM_Unencrypted(Packet):
 
 
 class Eddystone_TLM_Encrypted(Packet):
-    # https://github.com/google/eddystone/blob/master/eddystone-tlm/tlm-encrypted.md
+    """
+    A subtype of Eddystone-TLM for transmitting telemetry in encrypted form.
+
+    This implementation does not support decrypting this data.
+
+    https://github.com/google/eddystone/blob/master/eddystone-tlm/tlm-encrypted.md
+    """
     name = "Eddystone TLM (Encrypted)"
     fields_desc = [
         StrFixedLenField("etlm", None, 12),
@@ -184,7 +220,13 @@ class Eddystone_TLM_Encrypted(Packet):
 
 
 class Eddystone_EID(Packet):
-    # https://github.com/google/eddystone/tree/master/eddystone-eid
+    """
+    An Eddystone type for transmitting encrypted, ephemeral identifiers.
+
+    This implementation does not support decrypting this data.
+
+    https://github.com/google/eddystone/tree/master/eddystone-eid
+    """
     name = "Eddystone EID"
     fields_desc = [
         SignedByteField("tx_power", 0),
