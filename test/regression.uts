@@ -4595,6 +4595,9 @@ raw(DHCP6OptIA_NA(iaid=0x22222222, T1=0x33333333, T2=0x44444444, ianaopts=[DHCP6
 a = DHCP6OptIA_NA(b'\x00\x03\x00L""""3333DDDD\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
 a.optcode == 3 and a.optlen == 76 and a.iaid == 0x22222222 and a.T1 == 0x33333333 and a.T2==0x44444444 and len(a.ianaopts) == 2 and isinstance(a.ianaopts[0], DHCP6OptIAAddress) and isinstance(a.ianaopts[1], DHCP6OptIAAddress)
 
+= DHCP6OptIA_NA - Instantiation with a list of different opts: IA Address and Status Code (optlen automatic computation)
+raw(DHCP6OptIA_NA(iaid=0x22222222, T1=0x33333333, T2=0x44444444, ianaopts=[DHCP6OptIAAddress(), DHCP6OptStatusCode(statuscode=0xff, statusmsg="Hello")])) == b'\x00\x03\x003""""3333DDDD\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\r\x00\x07\x00\xffHello'
+
 
 ############
 ############
@@ -4613,6 +4616,9 @@ raw(DHCP6OptIA_TA(optlen=0x1111, iaid=0x22222222, iataopts=[DHCP6OptIAAddress(),
 = DHCP6OptIA_TA - Dissection with specific values
 a = DHCP6OptIA_TA(b'\x00\x04\x11\x11""""\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
 a.optcode == 4 and a.optlen == 0x1111 and a.iaid == 0x22222222 and len(a.iataopts) == 2 and isinstance(a.iataopts[0], DHCP6OptIAAddress) and isinstance(a.iataopts[1], DHCP6OptIAAddress)
+
+= DHCP6OptIA_TA - Instantiation with a list of different opts: IA Address and Status Code (optlen automatic computation)
+raw(DHCP6OptIA_TA(iaid=0x22222222, iataopts=[DHCP6OptIAAddress(), DHCP6OptStatusCode(statuscode=0xff, statusmsg="Hello")])) == b'\x00\x04\x00+""""\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\r\x00\x07\x00\xffHello'
 
 
 ############
@@ -4994,6 +5000,9 @@ raw(DHCP6OptIAPrefix()) == b'\x00\x1a\x00\x19\x00\x00\x00\x00\x00\x00\x00\x000 \
 = DHCP6OptIA_PD - Basic Instantiation
 raw(DHCP6OptIA_PD()) == b'\x00\x19\x00\x0c\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 
+= DHCP6OptIA_PD - Instantiation with a list of different opts: IA Address and Status Code (optlen automatic computation)
+raw(DHCP6OptIA_PD(iaid=0x22222222, T1=0x33333333, T2=0x44444444, iapdopt=[DHCP6OptIAAddress(), DHCP6OptStatusCode(statuscode=0xff, statusmsg="Hello")])) == b'\x00\x19\x003""""3333DDDD\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\r\x00\x07\x00\xffHello'
+
 #TODO : finish me
 
 
@@ -5246,6 +5255,70 @@ a.optcode == 39 and a.optlen == 18 and a.res == 0 and a.flags == 0 and a.fqdn ==
 
 ############
 ############
++ Test DHCP6 Option PANA Auth Agent
+
+= DHCP6OptPanaAuthAgent - Basic Instantiation
+raw(DHCP6OptPanaAuthAgent()) ==  b'\x00(\x00\x00'
+
+= DHCP6OptPanaAuthAgent - Basic Dissection
+a = DHCP6OptPanaAuthAgent(b"\x00(\x00\x00")
+a.optcode == 40 and a.optlen == 0 and a.paaaddr == []
+
+= DHCP6OptPanaAuthAgent - Instantiation with specific values (1 address)
+raw(DHCP6OptPanaAuthAgent(paaaddr=["2001:db8::1"])) == b'\x00(\x00\x10 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
+
+= DHCP6OptPanaAuthAgent - Dissection with specific values (1 address)
+a = DHCP6OptPanaAuthAgent(b'\x00(\x00\x10 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01')
+a.optcode == 40 and a.optlen == 16 and len(a.paaaddr) == 1 and a.paaaddr[0] == "2001:db8::1"
+
+= DHCP6OptPanaAuthAgent - Instantiation with specific values (2 addresses)
+raw(DHCP6OptPanaAuthAgent(paaaddr=["2001:db8::1", "2001:db8::2"])) == b'\x00(\x00  \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02'
+
+= DHCP6OptPanaAuthAgent - Dissection with specific values (2 addresses)
+a = DHCP6OptPanaAuthAgent(b'\x00(\x00  \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02')
+a.optcode == 40 and a.optlen == 32 and len(a.paaaddr) == 2 and a.paaaddr[0] == "2001:db8::1" and a.paaaddr[1] == "2001:db8::2"
+
+
+############
+############
++ Test DHCP6 Option - New POSIX Time Zone
+
+= DHCP6OptNewPOSIXTimeZone - Basic Instantiation
+raw(DHCP6OptNewPOSIXTimeZone()) == b'\x00)\x00\x00'
+
+= DHCP6OptNewPOSIXTimeZone - Basic Dissection
+a = DHCP6OptNewPOSIXTimeZone(b'\x00)\x00\x00')
+a.optcode == 41 and a.optlen == 0 and a.optdata == b""
+
+= DHCP6OptNewPOSIXTimeZone - Instantiation with specific values
+raw(DHCP6OptNewPOSIXTimeZone(optdata="EST5EDT4,M3.2.0/02:00,M11.1.0/02:00")) == b'\x00)\x00#EST5EDT4,M3.2.0/02:00,M11.1.0/02:00'
+
+= DHCP6OptNewPOSIXTimeZone - Dissection with specific values
+a = DHCP6OptNewPOSIXTimeZone(b'\x00)\x00#EST5EDT4,M3.2.0/02:00,M11.1.0/02:00')
+a.optcode == 41 and a.optlen == 35 and a.optdata == b"EST5EDT4,M3.2.0/02:00,M11.1.0/02:00"
+
+
+############
+############
++ Test DHCP6 Option - New TZDB Time Zone
+
+= DHCP6OptNewTZDBTimeZone - Basic Instantiation
+raw(DHCP6OptNewTZDBTimeZone()) == b'\x00*\x00\x00'
+
+= DHCP6OptNewTZDBTimeZone - Basic Dissection
+a = DHCP6OptNewTZDBTimeZone(b'\x00*\x00\x00')
+a.optcode == 42 and a.optlen == 0 and a.optdata == b""
+
+= DHCP6OptNewTZDBTimeZone - Instantiation with specific values
+raw(DHCP6OptNewTZDBTimeZone(optdata="Europe/Zurich")) == b'\x00*\x00\rEurope/Zurich'
+
+= DHCP6OptNewTZDBTimeZone - Dissection with specific values
+a = DHCP6OptNewTZDBTimeZone(b'\x00*\x00\rEurope/Zurich')
+a.optcode == 42 and a.optlen == 13 and a.optdata == b"Europe/Zurich"
+
+
+############
+############
 + Test DHCP6 Option Relay Agent Echo Request Option
 
 = DHCP6OptRelayAgentERO - Basic Instantiation
@@ -5264,6 +5337,145 @@ a.optcode == 43 and a.optlen == 0 and a.reqopts == [23,24]
 = DHCP6OptRelayAgentERO - Dissection with specific value
 a=DHCP6OptRelayAgentERO(b'\x00+\x00\x08\x00\x01\x00\x02\x00\x03\x00\x04')
 a.optcode == 43 and a.optlen == 8 and a.reqopts == [1,2,3,4]
+
+
+############
+############
++ Test DHCP6 Option LQ Client Link
+
+= DHCP6OptLQClientLink - Basic Instantiation
+raw(DHCP6OptLQClientLink()) ==  b'\x000\x00\x00'
+
+= DHCP6OptLQClientLink - Basic Dissection
+a = DHCP6OptLQClientLink(b"\x000\x00\x00")
+a.optcode == 48 and a.optlen == 0 and a.linkaddress == []
+
+= DHCP6OptLQClientLink - Instantiation with specific values (1 address)
+raw(DHCP6OptLQClientLink(linkaddress=["2001:db8::1"])) == b'\x000\x00\x10 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
+
+= DHCP6OptLQClientLink - Dissection with specific values (1 address)
+a = DHCP6OptLQClientLink(b'\x000\x00\x10 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01')
+a.optcode == 48 and a.optlen == 16 and len(a.linkaddress) == 1 and a.linkaddress[0] == "2001:db8::1"
+
+= DHCP6OptLQClientLink - Instantiation with specific values (2 addresses)
+raw(DHCP6OptLQClientLink(linkaddress=["2001:db8::1", "2001:db8::2"])) == b'\x000\x00  \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02'
+
+= DHCP6OptLQClientLink - Dissection with specific values (2 addresses)
+a = DHCP6OptLQClientLink(b'\x000\x00  \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02')
+a.optcode == 48 and a.optlen == 32 and len(a.linkaddress) == 2 and a.linkaddress[0] == "2001:db8::1" and a.linkaddress[1] == "2001:db8::2"
+
+############
+############
++ Test DHCP6 Option - Boot File URL
+
+= DHCP6OptBootFileUrl - Basic Instantiation
+raw(DHCP6OptBootFileUrl()) == b'\x00;\x00\x00'
+
+= DHCP6OptBootFileUrl - Basic Dissection
+a = DHCP6OptBootFileUrl(b'\x00;\x00\x00')
+a.optcode == 59 and a.optlen == 0 and a.optdata == b""
+
+= DHCP6OptBootFileUrl - Instantiation with specific values
+raw(DHCP6OptBootFileUrl(optdata="http://wp.pl/file")) == b'\x00;\x00\x11http://wp.pl/file'
+
+= DHCP6OptBootFileUrl - Dissection with specific values
+a = DHCP6OptBootFileUrl(b'\x00;\x00\x11http://wp.pl/file')
+a.optcode == 59 and a.optlen == 17 and a.optdata == b"http://wp.pl/file"
+
+
+############
+############
++ Test DHCP6 Option - Client Arch Type
+
+= DHCP6OptClientArchType - Basic Instantiation
+raw(DHCP6OptClientArchType())
+raw(DHCP6OptClientArchType()) == b'\x00=\x00\x00'
+
+= DHCP6OptClientArchType - Basic Dissection
+a = DHCP6OptClientArchType(b'\x00=\x00\x00')
+a.optcode == 61 and a.optlen == 0 and a.archtypes == []
+
+= DHCP6OptClientArchType - Instantiation with specific value as just int
+raw(DHCP6OptClientArchType(archtypes=7)) == b'\x00=\x00\x02\x00\x07'
+
+= DHCP6OptClientArchType - Instantiation with specific value as single item list of int
+raw(DHCP6OptClientArchType(archtypes=[7])) == b'\x00=\x00\x02\x00\x07'
+
+= DHCP6OptClientArchType - Dissection with specific 1 value list
+a = DHCP6OptClientArchType(b'\x00=\x00\x02\x00\x07')
+a.optcode == 61 and a.optlen == 2 and a.archtypes == [7]
+
+= DHCP6OptClientArchType - Instantiation with specific value as 2 item list of int
+raw(DHCP6OptClientArchType(archtypes=[7, 9])) == b'\x00=\x00\x04\x00\x07\x00\x09'
+
+= DHCP6OptClientArchType - Dissection with specific 2 values list
+a = DHCP6OptClientArchType(b'\x00=\x00\x04\x00\x07\x00\x09')
+a.optcode == 61 and a.optlen == 4 and a.archtypes == [7, 9]
+
+
+############
+############
++ Test DHCP6 Option - Client Network Inter Id
+
+= DHCP6OptClientNetworkInterId - Basic Instantiation
+raw(DHCP6OptClientNetworkInterId())
+raw(DHCP6OptClientNetworkInterId()) == b'\x00>\x00\x03\x00\x00\x00'
+
+= DHCP6OptClientNetworkInterId - Basic Dissection
+a = DHCP6OptClientNetworkInterId(b'\x00>\x00\x03\x00\x00\x00')
+a.optcode == 62 and a.optlen == 3 and a.iitype == 0 and a.iimajor == 0 and a.iiminor == 0
+
+= DHCP6OptClientNetworkInterId - Instantiation with specific values
+raw(DHCP6OptClientNetworkInterId(iitype=1, iimajor=2, iiminor=3)) == b'\x00>\x00\x03\x01\x02\x03'
+
+= DHCP6OptClientNetworkInterId - Dissection with specific values
+a = DHCP6OptClientNetworkInterId(b'\x00>\x00\x03\x01\x02\x03')
+a.optcode == 62 and a.optlen == 3 and a.iitype == 1 and a.iimajor == 2 and a.iiminor == 3
+
+
+############
+############
++ Test DHCP6 Option - ERP Domain
+
+= DHCP6OptERPDomain - Basic Instantiation
+raw(DHCP6OptERPDomain()) == b'\x00A\x00\x00'
+
+= DHCP6OptERPDomain - Basic Dissection
+a = DHCP6OptERPDomain(b'\x00A\x00\x00')
+a.optcode == 65 and a.optlen == 0 and a.erpdomain == []
+
+= DHCP6OptERPDomain - Instantiation with specific values (1 domain)
+raw(DHCP6OptERPDomain(erpdomain=["toto.example.com."])) == b'\x00A\x00\x12\x04toto\x07example\x03com\x00'
+
+= DHCP6OptERPDomain - Dissection with specific values (1 domain)
+a = DHCP6OptERPDomain(b'\x00A\x00\x12\x04toto\x07example\x03com\x00')
+a.optcode == 65 and a.optlen == 18 and len(a.erpdomain) == 1 and a.erpdomain[0] == "toto.example.com."
+
+= DHCP6OptERPDomain - Instantiation with specific values (2 domains)
+raw(DHCP6OptERPDomain(erpdomain=["toto.example.com.", "titi.example.com."])) == b'\x00A\x00$\x04toto\x07example\x03com\x00\x04titi\x07example\x03com\x00'
+
+= DHCP6OptERPDomain - Dissection with specific values (2 domains)
+a = DHCP6OptERPDomain(b'\x00A\x00$\x04toto\x07example\x03com\x00\x04titi\x07example\x03com\x00')
+a.optcode == 65 and a.optlen == 36 and len(a.erpdomain) == 2 and a.erpdomain[0] == "toto.example.com." and a.erpdomain[1] == "titi.example.com."
+
+
+############
+############
++ Test DHCP6 Option - Relay Supplied Option
+
+= DHCP6OptRelaySuppliedOpt - Basic Instantiation
+raw(DHCP6OptRelaySuppliedOpt()) == b'\x00B\x00\x00'
+
+= DHCP6OptRelaySuppliedOpt - Basic Dissection
+a = DHCP6OptRelaySuppliedOpt(b'\x00B\x00\x00')
+a.optcode == 66 and a.optlen == 0 and a.relaysupplied == []
+
+= DHCP6OptRelaySuppliedOpt - Instantiation with specific values
+raw(DHCP6OptRelaySuppliedOpt(relaysupplied=DHCP6OptERPDomain(erpdomain=["toto.example.com."]))) == b'\x00B\x00\x16\x00A\x00\x12\x04toto\x07example\x03com\x00'
+
+= DHCP6OptRelaySuppliedOpt - Dissection with specific values
+a = DHCP6OptRelaySuppliedOpt(b'\x00B\x00\x16\x00A\x00\x12\x04toto\x07example\x03com\x00')
+a.optcode == 66 and a.optlen == 22 and len(a.relaysupplied) == 1 and isinstance(a.relaysupplied[0], DHCP6OptERPDomain) and a.relaysupplied[0].erpdomain[0] == "toto.example.com."
 
 
 ############
@@ -5526,12 +5738,16 @@ assert DHCP6OptRelayMsg in p and isinstance(p.message, DHCP6_Solicit)
 raw(DHCP6OptRelayMsg(optcode=37)) == b'\x00%\x00\x04\x00\x00\x00\x00'
 
 = DHCP6OptRelayMsg - Basic Dissection
-a=DHCP6OptRelayMsg(b'\x00\r\x00\x00')
-assert a.optcode == 13
+a = DHCP6OptRelayMsg(b'\x00\r\x00\x00')
+a.optcode == 13 and a.optlen == 0 and isinstance(a.message, DHCP6)
 
-= DHCP6OptRelayMsg - Embedded DHCP6 packet
+= DHCP6OptRelayMsg - Embedded DHCP6 packet Instantiation
+raw(DHCP6OptRelayMsg(message=DHCP6_Solicit())) == b'\x00\t\x00\x04\x01\x00\x00\x00'
+
+= DHCP6OptRelayMsg - Embedded DHCP6 packet Dissection
 p = DHCP6OptRelayMsg(b'\x00\t\x00\x04\x01\x00\x00\x00')
 isinstance(p.message, DHCP6_Solicit)
+
 
 ############
 ############
