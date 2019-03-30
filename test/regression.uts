@@ -6701,11 +6701,30 @@ assert b'IP 127.0.0.1.20 > 127.0.0.1.80:' in data[0]
 assert b'IP 127.0.0.1.53 > 127.0.0.1.53:' in data[1]
 assert b'IP 127.0.0.1 > 127.0.0.1:' in data[2]
 
+# Also check with use_tempfile=True (for non-OSX platforms)
+pcapfile.seek(0) or None
+tempfile_count = len(conf.temp_files)
+data = tcpdump(pcapfile, dump=True, args=['-nn'], use_tempfile=True).split(b'\n')
+print(data)
+assert b'IP 127.0.0.1.20 > 127.0.0.1.80:' in data[0]
+assert b'IP 127.0.0.1.53 > 127.0.0.1.53:' in data[1]
+assert b'IP 127.0.0.1 > 127.0.0.1:' in data[2]
+# We should have another tempfile tracked.
+assert len(conf.temp_files) > tempfile_count
+
+# Check with a simple packet
+data = tcpdump([Ether()/IP()/ICMP()], dump=True, args=['-nn']).split(b'\n')
+print(data)
+assert b'IP 127.0.0.1 > 127.0.0.1: ICMP' in data[0]
+
 = Check tcpdump() command with tshark
 ~ tshark
 pcapfile = BytesIO(b'\xd4\xc3\xb2\xa1\x02\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x00\x00e\x00\x00\x00\xcf\xc5\xacVo*\n\x00(\x00\x00\x00(\x00\x00\x00E\x00\x00(\x00\x01\x00\x00@\x06|\xcd\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x91|\x00\x00\xcf\xc5\xacV_-\n\x00\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x11|\xce\x7f\x00\x00\x01\x7f\x00\x00\x01\x005\x005\x00\x08\x01r\xcf\xc5\xacV\xf90\n\x00\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x01|\xde\x7f\x00\x00\x01\x7f\x00\x00\x01\x08\x00\xf7\xff\x00\x00\x00\x00')
+# tshark doesn't need workarounds on OSX
+tempfile_count = len(conf.temp_files)
 values = [tuple(int(val) for val in line[:-1].split(b'\t')) for line in tcpdump(pcapfile, prog=conf.prog.tshark, getfd=True, args=['-T', 'fields', '-e', 'ip.ttl', '-e', 'ip.proto'])]
 assert values == [(64, 6), (64, 17), (64, 1)]
+assert len(conf.temp_files) == tempfile_count
 
 = Run scapy's tshark command
 ~ netaccess
@@ -11832,3 +11851,8 @@ os.remove(filename_css)
 #    assert(output == expected)
 #
 #test_snmpwalk("secdev.org")
+
+= test get_temp_dir
+
+dname = get_temp_dir()
+assert os.path.isdir(dname)
