@@ -115,6 +115,9 @@ information is lost in this operation.
 Quick demo
 ==========
 
+.. image:: graphics/animations/animation-scapy-demo.svg
+   :align: center
+
 First, we play a bit and create four IP packets at once. Let's see how it works. We first instantiate the IP class. Then, we instantiate it again and we provide a destination that is worth four IP addresses (/30 gives the netmask). Using a Python idiom, we develop this implicit packet in a set of explicit packets. Then, we quit the interpreter. As we provided a session file, the variables we were working on are saved, then reloaded:: 
 
     # ./run_scapy -s mysession
@@ -187,25 +190,5 @@ Learning Python
 Scapy uses the Python interpreter as a command board. That means that you can directly use the Python language (assign variables, use loops, define functions, etc.)
 
 If you are new to Python and you really don't understand a word because of that, or if you want to learn this language, take an hour to read the very good `Python tutorial <http://docs.python.org/tutorial/>`_  by Guido Van Rossum. After that, you'll know Python :) (really!). For a more in-depth tutorial `Dive Into Python <http://diveintopython.org/>`_ is a very good start too.
-
-For a quick start, here's an overview of Python's data types:
-
-* ``int`` (signed, 32bits) : ``42`` 
-* ``long`` (signed, infinite): ``42L`` 
-* ``str`` : ``"bell\x07\n"`` or ``’bell\x07\n’`` 
-
-* ``tuple`` (immutable): ``(1,4,"42")`` 
-* ``list`` (mutable): ``[4,2,"1"]`` 
-* ``dict`` (mutable): ``{ "one":1 , "two":2 }``
-
-There are no block delimiters in Python. Instead, indentation does matter::
-
-    if cond:
-        instr
-        instr
-    elif cond2:
-        instr
-    else:
-        instr
     
 

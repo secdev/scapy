@@ -5,7 +5,7 @@ Bluetooth
 .. note::
 
    If you're new to using Scapy, start with the :doc:`usage documentation
-   <usage>`, which describes how to use Scapy with Ethernet and IP.
+   <../usage>`, which describes how to use Scapy with Ethernet and IP.
 
 .. warning::
 
@@ -407,7 +407,7 @@ __ https://github.com/google/eddystone/tree/master/eddystone-url
 Once :ref:`advertising has been started <le-adv-start>`, the beacon may then be
 detected with the `Eddystone Validator`__ (Android):
 
-.. image:: graphics/ble_eddystone_url.png
+.. image:: ../graphics/ble_eddystone_url.png
 
 __ https://github.com/google/eddystone/tree/master/tools/eddystone-validator
 
