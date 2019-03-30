@@ -381,7 +381,8 @@ class TCPOptionsField(StrField):
                     ofmt = TCPOptions[0][onum][1]
                     if onum == 5:  # SAck
                         ofmt += "%iI" % len(oval)
-                    if ofmt is not None and (not isinstance(oval, str) or "s" in ofmt):  # noqa: E501
+                    _test_isinstance = not isinstance(oval, (bytes, str))
+                    if ofmt is not None and (_test_isinstance or "s" in ofmt):
                         if not isinstance(oval, tuple):
                             oval = (oval,)
                         oval = struct.pack(ofmt, *oval)
