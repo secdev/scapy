@@ -189,6 +189,6 @@ Learning Python
 
 Scapy uses the Python interpreter as a command board. That means that you can directly use the Python language (assign variables, use loops, define functions, etc.)
 
-If you are new to Python and you really don't understand a word because of that, or if you want to learn this language, take an hour to read the very good `Python tutorial <http://docs.python.org/tutorial/>`_  by Guido Van Rossum. After that, you'll know Python :) (really!). For a more in-depth tutorial `Dive Into Python <http://diveintopython.org/>`_ is a very good start too.
+If you are new to Python and you really don't understand a word because of that, or if you want to learn this language, take an hour to read the very good `Python tutorial <http://docs.python.org/tutorial/>`_  by Guido Van Rossum. After that, you'll know Python :) (really!). For a more in-depth tutorial `Dive Into Python <http://getpython3.com/diveintopython3/index.html>`_ is a very good start too.
     
 
