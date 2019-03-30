@@ -886,6 +886,15 @@ p1 = IP(src=a1, dst=a2)/TCP(flags='A', seq=s1+9, ack=s2+10, sport=prt1, dport=pr
 assert not p2.answers(p1)
 assert not p1.answers(p2)
 
+= conf.checkIPsrc
+
+conf_checkIPsrc = conf.checkIPsrc
+conf.checkIPsrc = 0
+query = IP(id=42676, src='10.128.0.7', dst='192.168.0.1')/ICMP(id=26)
+answer = IP(src='192.168.48.19', dst='10.128.0.7')/ICMP(type=11)/IPerror(id=42676, src='192.168.51.23', dst='192.168.0.1')/ICMPerror(id=26)
+assert answer.answers(query)
+conf.checkIPsrc = conf_checkIPsrc
+
 
 ############
 ############

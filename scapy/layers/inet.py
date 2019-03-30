@@ -854,13 +854,21 @@ class IPerror(IP):
     def answers(self, other):
         if not isinstance(other, IP):
             return 0
-        if not (((conf.checkIPsrc == 0) or (self.dst == other.dst)) and
-                (self.src == other.src) and
-                (((conf.checkIPID == 0) or
-                  (self.id == other.id) or
-                  (conf.checkIPID == 1 and self.id == socket.htons(other.id)))) and  # noqa: E501
-                (self.proto == other.proto)):
+
+        # Check if IP addresses match
+        test_IPsrc = not conf.checkIPsrc or self.src == other.src
+        test_IPdst = self.dst == other.dst
+
+        # Check if IP ids match
+        test_IPid = not conf.checkIPID or self.id == other.id
+        test_IPid |= conf.checkIPID and self.id == socket.htons(other.id)
+
+        # Check if IP protocols match
+        test_IPproto = self.proto == other.proto
+
+        if not (test_IPsrc and test_IPdst and test_IPid and test_IPproto):
             return 0
+
         return self.payload.answers(other.payload)
 
     def mysummary(self):
