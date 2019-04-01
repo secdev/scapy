@@ -631,7 +631,7 @@ class EIR_Element(Packet):
         if not pkt.underlayer:
             warning("Missing an upper-layer")
             return 0
-        # 'type' byte is included in the length, so substract 1:
+        # 'type' byte is included in the length, so subtract 1:
         return pkt.underlayer.len - 1
 
 
