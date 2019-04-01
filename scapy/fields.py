@@ -2404,3 +2404,120 @@ class UUIDField(Field):
     @staticmethod
     def randval():
         return RandUUID()
+
+
+class BitExtendedField(Field):
+    """
+    Bit Extended Field
+    ------------------
+
+    This type of field has a variable number of bytes. Each byte is defined
+    as follows:
+    - 7 bits of data
+    - 1 bit an an extension bit
+        * 0 means it is last byte of the field ("stopping bit")
+        * 1 means there is another byte after this one ("forwarding bit")
+
+    To get the actual data, it is necessary to hop the binary data byte per
+    byte and to check the extension bit until 0
+    """
+
+    __slots__ = ["extension_bit"]
+
+    def prepare_byte(self, x):
+        # Moves the forwarding bit to the LSB
+        x = int(x)
+        fx_bit = (x & 2**self.extension_bit) >> self.extension_bit
+        lsb_bits = x & 2**self.extension_bit - 1
+        msb_bits = x >> (self.extension_bit + 1)
+        x = (msb_bits << (self.extension_bit + 1)) + (lsb_bits << 1) + fx_bit
+        return x
+
+    def str2extended(self, x=""):
+        # For convenience, we reorder the byte so that the forwarding
+        # bit is always the LSB. We then apply the same algorithm
+        # whatever the real forwarding bit position
+
+        # First bit is the stopping bit at zero
+        bits = 0b0
+        end = None
+
+        # We retrieve 7 bits.
+        # If "forwarding bit" is 1 then we continue on another byte
+        i = 0
+        for c in bytearray(x):
+            c = self.prepare_byte(c)
+            bits = bits << 7 | (int(c) >> 1)
+            if not int(c) & 0b1:
+                end = x[i + 1:]
+                break
+            i = i + 1
+        if end is None:
+            # We reached the end of the data but there was no
+            # "ending bit". This is not normal.
+            return None, None
+        else:
+            return end, bits
+
+    def extended2str(self, x):
+        x = int(x)
+        s = []
+        LSByte = True
+        FX_Missing = True
+        bits = 0b0
+        i = 0
+        while (x > 0 or FX_Missing):
+            if i == 8:
+                # End of byte
+                i = 0
+                s.append(bits)
+                bits = 0b0
+                FX_Missing = True
+            else:
+                if i % 8 == self.extension_bit:
+                    # This is extension bit
+                    if LSByte:
+                        bits = bits | 0b0 << i
+                        LSByte = False
+                    else:
+                        bits = bits | 0b1 << i
+                    FX_Missing = False
+                else:
+                    bits = bits | (x & 0b1) << i
+                    x = x >> 1
+                # Still some bits
+                i = i + 1
+        s.append(bits)
+
+        result = "".encode()
+        for x in s[:: -1]:
+            result = result + struct.pack(">B", x)
+        return result
+
+    def __init__(self, name, default, extension_bit):
+        Field.__init__(self, name, default, "B")
+        self.extension_bit = extension_bit
+
+    def i2m(self, pkt, x):
+        return self.extended2str(x)
+
+    def m2i(self, pkt, x):
+        return self.str2extended(x)[1]
+
+    def addfield(self, pkt, s, val):
+        return s + self.i2m(pkt, val)
+
+    def getfield(self, pkt, s):
+        return self.str2extended(s)
+
+
+class LSBExtendedField(BitExtendedField):
+    # This is a BitExtendedField with the extension bit on LSB
+    def __init__(self, name, default):
+        BitExtendedField.__init__(self, name, default, extension_bit=0)
+
+
+class MSBExtendedField(BitExtendedField):
+    # This is a BitExtendedField with the extension bit on MSB
+    def __init__(self, name, default):
+        BitExtendedField.__init__(self, name, default, extension_bit=7)
