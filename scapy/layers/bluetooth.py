@@ -395,17 +395,17 @@ class ATT_Read_Request(Packet):
 
 class ATT_Read_Response(Packet):
     name = "Read Response"
-    fields_desc = [StrField("value", ""), ]
+    fields_desc = [StrField("value", "")]
 
 
 class ATT_Read_Multiple_Request(Packet):
     name = "Read Multiple Request"
-    fields_desc = [ StrField("handles", ""), ]
+    fields_desc = [StrField("handles", "")]
 
 
 class ATT_Read_Multiple_Response(Packet):
     name = "Read Multiple Response"
-    fields_desc = [ StrField("values", ""), ]
+    fields_desc = [StrField("values", "")]
 
 
 class ATT_Read_By_Group_Type_Request(Packet):
@@ -460,8 +460,8 @@ class ATT_Execute_Write_Request(Packet):
     name = "Execute Write Request"
     fields_desc = [
         ByteEnumField("flags", 1, {
-            0:"Cancel all prepared writes",
-            1:"Immediately write all pending prepared values",
+            0: "Cancel all prepared writes",
+            1: "Immediately write all pending prepared values",
         }),
     ]
 
@@ -710,9 +710,9 @@ class EIR_Manufacturer_Specific_Data(EIR_Element):
 class EIR_Device_ID(EIR_Element):
     name = "Device ID"
     fields_desc = [
-        XLEShortField("vendor_id_source", 0), 
+        XLEShortField("vendor_id_source", 0),
         XLEShortField("vendor_id", 0),
-        XLEShortField("product_id", 0), 
+        XLEShortField("product_id", 0),
         XLEShortField("version", 0),
     ]
 
@@ -781,9 +781,9 @@ class HCI_Cmd_Write_Local_Name(Packet):
 
 class HCI_Cmd_Write_Extended_Inquiry_Response(Packet):
     name = "Write Extended Inquiry Response"
-    fields_desc = [ ByteField("fec_required", 0),
-                    PacketListField("eir_data", [], EIR_Hdr, 
-                                    length_from=lambda pkt:pkt.len) ]
+    fields_desc = [ByteField("fec_required", 0),
+                   PacketListField("eir_data", [], EIR_Hdr,
+                                   length_from=lambda pkt:pkt.len)]
 
 
 class HCI_Cmd_LE_Set_Scan_Parameters(Packet):
@@ -792,7 +792,7 @@ class HCI_Cmd_LE_Set_Scan_Parameters(Packet):
                    XLEShortField("interval", 16),
                    XLEShortField("window", 16),
                    ByteEnumField("atype", 0, {0: "public"}),
-                   ByteEnumField("policy", 0, {0: "all", 1: "whitelist"}), ]
+                   ByteEnumField("policy", 0, {0: "all", 1: "whitelist"})]
 
 
 class HCI_Cmd_LE_Set_Scan_Enable(Packet):
@@ -862,7 +862,7 @@ class HCI_Cmd_LE_Read_Buffer_Size(Packet):
 
 class HCI_Cmd_LE_Read_Remote_Used_Features(Packet):
     name = "LE Read Remote Used Features"
-    fields_desc = [ LEShortField("handle", 64) ]
+    fields_desc = [LEShortField("handle", 64)]
 
 
 class HCI_Cmd_LE_Set_Random_Address(Packet):
@@ -893,8 +893,8 @@ class HCI_Cmd_LE_Set_Advertising_Data(Packet):
 
 class HCI_Cmd_LE_Set_Scan_Response_Data(Packet):
     name = "LE Set Scan Response Data"
-    fields_desc = [ FieldLenField("len", None, length_of="data", fmt="B"),
-                    StrLenField("data", "", length_from=lambda pkt:pkt.len), ]
+    fields_desc = [FieldLenField("len", None, length_of="data", fmt="B"),
+                   StrLenField("data", "", length_from=lambda pkt:pkt.len), ]
 
 
 class HCI_Cmd_LE_Set_Advertise_Enable(Packet):
@@ -952,7 +952,7 @@ class HCI_Event_Command_Complete(Packet):
     name = "Command Complete"
     fields_desc = [ByteField("number", 0),
                    XLEShortField("opcode", 0),
-                   ByteEnumField("status", 0, _bluetooth_error_codes),]
+                   ByteEnumField("status", 0, _bluetooth_error_codes)]
 
     def answers(self, other):
         if HCI_Command_Hdr not in other:
@@ -1080,7 +1080,7 @@ bind_layers(HCI_Command_Hdr, HCI_Cmd_Set_Event_Mask, opcode=0x0c01)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Set_Event_Filter, opcode=0x0c05)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Connect_Accept_Timeout, opcode=0x0c16)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Host_Supported, opcode=0x0c6d)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_Write_Extended_Inquiry_Response, opcode=0x0c52)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Write_Extended_Inquiry_Response, opcode=0x0c52)  # noqa: E501
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Read_BD_Addr, opcode=0x1009)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Write_Local_Name, opcode=0x0c13)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Read_Buffer_Size, opcode=0x2002)
@@ -1099,15 +1099,15 @@ bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Clear_White_List, opcode=0x2010)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Add_Device_To_White_List, opcode=0x2011)  # noqa: E501
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Remove_Device_From_White_List, opcode=0x2012)  # noqa: E501
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Connection_Update, opcode=0x2013)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Read_Remote_Used_Features, opcode=0x2016)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Read_Remote_Used_Features, opcode=0x2016)  # noqa: E501
 
 
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Start_Encryption_Request, opcode=0x2019)  # noqa: E501
 
-bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Start_Encryption_Request, opcode=0x2019)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Start_Encryption_Request, opcode=0x2019)  # noqa: E501
 
-bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Long_Term_Key_Request_Reply, opcode=0x201a)
-bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Long_Term_Key_Request_Negative_Reply, opcode=0x201b)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Long_Term_Key_Request_Reply, opcode=0x201a)  # noqa: E501
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Long_Term_Key_Request_Negative_Reply, opcode=0x201b)  # noqa: E501
 
 bind_layers(HCI_Event_Hdr, HCI_Event_Disconnection_Complete, code=0x5)
 bind_layers(HCI_Event_Hdr, HCI_Event_Encryption_Change, code=0x8)
@@ -1328,7 +1328,7 @@ class BluetoothUserSocket(SuperSocket):
         if self.closed:
             return
 
-        #Properly close socket so we can free the device
+        # Properly close socket so we can free the device
         ctypes.cdll.LoadLibrary("libc.so.6")
         libc = ctypes.CDLL("libc.so.6")
 
