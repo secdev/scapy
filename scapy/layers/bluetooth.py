@@ -341,6 +341,16 @@ class ATT_Read_Response(Packet):
     fields_desc = [StrField("value", ""), ]
 
 
+class ATT_Read_Multiple_Request(Packet):
+    name = "Read Multiple Request"
+    fields_desc = [ StrField("handles", ""), ]
+
+
+class ATT_Read_Multiple_Response(Packet):
+    name = "Read Multiple Response"
+    fields_desc = [ StrField("values", ""), ]
+
+
 class ATT_Read_By_Group_Type_Request(Packet):
     name = "Read By Group Type Request"
     fields_desc = [XLEShortField("start", 0),
@@ -368,47 +378,61 @@ class ATT_Write_Command(Packet):
 
 class ATT_Write_Response(Packet):
     name = "Write Response"
-    fields_desc = []
+
+
+class ATT_Prepare_Write_Request(Packet):
+    name = "Prepare Write Request"
+    fields_desc = [
+        XLEShortField("gatt_handle", 0),
+        LEShortField("offset", 0),
+        StrField("data", "")
+    ]
+
+
+class ATT_Prepare_Write_Response(ATT_Prepare_Write_Request):
+    name = "Prepare Write Response"
 
 
 class ATT_Handle_Value_Notification(Packet):
     name = "Handle Value Notification"
-    fields_desc = [XLEShortField("handle", 0),
+    fields_desc = [XLEShortField("gatt_handle", 0),
                    StrField("value", ""), ]
 
 
-class ATT_PrepareWriteReq(Packet):
+class ATT_Execute_Write_Request(Packet):
+    name = "Execute Write Request"
     fields_desc = [
-        XLEShortField("handle", 0),
-        LEShortField("offset", 0),
-        StrField("value", "")
+        ByteEnumField("flags", 1, {
+            0:"Cancel all prepared writes",
+            1:"Immediately write all pending prepared values",
+        }),
     ]
 
 
-class ATT_PrepareWriteResp(ATT_PrepareWriteReq):
-    pass
+class ATT_Execute_Write_Response(Packet):
+    name = "Execute Write Response"
 
 
-class ATT_ExecWriteReq(Packet):
+class ATT_Read_Blob_Request(Packet):
+    name = "Read Blob Request"
     fields_desc = [
-        ByteField("flags", 0)
-    ]
-
-
-class ATT_ExecWriteResp(Packet):
-    pass
-
-
-class ATT_ReadBlobReq(Packet):
-    fields_desc = [
-        XLEShortField("handle", 0),
+        XLEShortField("gatt_handle", 0),
         LEShortField("offset", 0)
     ]
 
 
-class ATT_ReadBlobResp(Packet):
+class ATT_Read_Blob_Response(Packet):
+    name = "Read Blob Response"
     fields_desc = [
         StrField("value", "")
+    ]
+
+
+class ATT_Handle_Value_Indication(Packet):
+    name = "Handle Value Indication"
+    fields_desc = [
+        XLEShortField("gatt_handle", 0),
+        StrField("value", ""),
     ]
 
 
@@ -550,7 +574,7 @@ class EIR_Element(Packet):
         if not pkt.underlayer:
             warning("Missing an upper-layer")
             return 0
-        # 'type' byte is included in the length, so subtract 1:
+        # 'type' byte is included in the length, so substract 1:
         return pkt.underlayer.len - 1
 
 
@@ -626,6 +650,16 @@ class EIR_Manufacturer_Specific_Data(EIR_Element):
         return s[:plen], s[plen:]
 
 
+class EIR_Device_ID(EIR_Element):
+    name = "Device ID"
+    fields_desc = [
+        XLEShortField("vendor_id_source", 0), 
+        XLEShortField("vendor_id", 0),
+        XLEShortField("product_id", 0), 
+        XLEShortField("version", 0),
+    ]
+
+
 class EIR_ServiceData16BitUUID(EIR_Element):
     name = "EIR Service Data - 16-bit UUID"
     fields_desc = [
@@ -646,6 +680,12 @@ class HCI_Command_Hdr(Packet):
 
     def answers(self, other):
         return False
+
+    def post_build(self, p, pay):
+        p += pay
+        if self.len is None:
+            p = p[:2] + struct.pack("B", len(pay)) + p[3:]
+        return p
 
 
 class HCI_Cmd_Reset(Packet):
@@ -675,6 +715,18 @@ class HCI_Cmd_Set_Event_Mask(Packet):
 
 class HCI_Cmd_Read_BD_Addr(Packet):
     name = "Read BD Addr"
+
+
+class HCI_Cmd_Write_Local_Name(Packet):
+    name = "Write Local Name"
+    fields_desc = [StrField("name", "")]
+
+
+class HCI_Cmd_Write_Extended_Inquiry_Response(Packet):
+    name = "Write Extended Inquiry Response"
+    fields_desc = [ ByteField("fec_required", 0),
+                    PacketListField("eir_data", [], EIR_Hdr, 
+                                    length_from=lambda pkt:pkt.len) ]
 
 
 class HCI_Cmd_LE_Set_Scan_Parameters(Packet):
@@ -751,6 +803,11 @@ class HCI_Cmd_LE_Read_Buffer_Size(Packet):
     name = "LE Read Buffer Size"
 
 
+class HCI_Cmd_LE_Read_Remote_Used_Features(Packet):
+    name = "LE Read Remote Used Features"
+    fields_desc = [ LEShortField("handle", 64) ]
+
+
 class HCI_Cmd_LE_Set_Random_Address(Packet):
     name = "LE Set Random Address"
     fields_desc = [LEMACField("address", None)]
@@ -775,6 +832,12 @@ class HCI_Cmd_LE_Set_Advertising_Data(Packet):
                        PacketListField("data", [], EIR_Hdr,
                                        length_from=lambda pkt:pkt.len),
                        align=31, padwith=b"\0"), ]
+
+
+class HCI_Cmd_LE_Set_Scan_Response_Data(Packet):
+    name = "LE Set Scan Response Data"
+    fields_desc = [ FieldLenField("len", None, length_of="data", fmt="B"),
+                    StrLenField("data", "", length_from=lambda pkt:pkt.len), ]
 
 
 class HCI_Cmd_LE_Set_Advertise_Enable(Packet):
@@ -960,11 +1023,14 @@ bind_layers(HCI_Command_Hdr, HCI_Cmd_Set_Event_Mask, opcode=0x0c01)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Set_Event_Filter, opcode=0x0c05)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Connect_Accept_Timeout, opcode=0x0c16)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Host_Supported, opcode=0x0c6d)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Write_Extended_Inquiry_Response, opcode=0x0c52)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Read_BD_Addr, opcode=0x1009)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Write_Local_Name, opcode=0x0c13)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Read_Buffer_Size, opcode=0x2002)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Random_Address, opcode=0x2005)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Advertising_Parameters, opcode=0x2006)  # noqa: E501
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Advertising_Data, opcode=0x2008)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Scan_Response_Data, opcode=0x2009)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Advertise_Enable, opcode=0x200a)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Scan_Parameters, opcode=0x200b)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Scan_Enable, opcode=0x200c)
@@ -976,12 +1042,15 @@ bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Clear_White_List, opcode=0x2010)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Add_Device_To_White_List, opcode=0x2011)  # noqa: E501
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Remove_Device_From_White_List, opcode=0x2012)  # noqa: E501
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Connection_Update, opcode=0x2013)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Read_Remote_Used_Features, opcode=0x2016)
 
 
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Start_Encryption_Request, opcode=0x2019)  # noqa: E501
 
-bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Long_Term_Key_Request_Reply, opcode=0x201a)  # noqa: E501
-bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Long_Term_Key_Request_Negative_Reply, opcode=0x201b)  # noqa: E501
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Start_Encryption_Request, opcode=0x2019)
+
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Long_Term_Key_Request_Reply, opcode=0x201a)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Long_Term_Key_Request_Negative_Reply, opcode=0x201b)
 
 bind_layers(HCI_Event_Hdr, HCI_Event_Disconnection_Complete, code=0x5)
 bind_layers(HCI_Event_Hdr, HCI_Event_Encryption_Change, code=0x8)
@@ -1005,6 +1074,7 @@ bind_layers(EIR_Hdr, EIR_IncompleteList128BitServiceUUIDs, type=0x06)
 bind_layers(EIR_Hdr, EIR_CompleteList128BitServiceUUIDs, type=0x07)
 bind_layers(EIR_Hdr, EIR_ShortenedLocalName, type=0x08)
 bind_layers(EIR_Hdr, EIR_CompleteLocalName, type=0x09)
+bind_layers(EIR_Hdr, EIR_Device_ID, type=0x10)
 bind_layers(EIR_Hdr, EIR_TX_Power_Level, type=0x0a)
 bind_layers(EIR_Hdr, EIR_ServiceData16BitUUID, type=0x16)
 bind_layers(EIR_Hdr, EIR_Manufacturer_Specific_Data, type=0xff)
@@ -1037,18 +1107,21 @@ bind_layers(ATT_Hdr, ATT_Read_By_Type_Request, opcode=0x8)
 bind_layers(ATT_Hdr, ATT_Read_By_Type_Response, opcode=0x9)
 bind_layers(ATT_Hdr, ATT_Read_Request, opcode=0xa)
 bind_layers(ATT_Hdr, ATT_Read_Response, opcode=0xb)
-bind_layers(ATT_Hdr, ATT_ReadBlobReq, opcode=0xc)
-bind_layers(ATT_Hdr, ATT_ReadBlobResp, opcode=0xd)
+bind_layers(ATT_Hdr, ATT_Read_Blob_Request, opcode=0xc)
+bind_layers(ATT_Hdr, ATT_Read_Blob_Response, opcode=0xd)
+bind_layers(ATT_Hdr, ATT_Read_Multiple_Request, opcode=0xe)
+bind_layers(ATT_Hdr, ATT_Read_Multiple_Response, opcode=0xf)
 bind_layers(ATT_Hdr, ATT_Read_By_Group_Type_Request, opcode=0x10)
 bind_layers(ATT_Hdr, ATT_Read_By_Group_Type_Response, opcode=0x11)
 bind_layers(ATT_Hdr, ATT_Write_Request, opcode=0x12)
 bind_layers(ATT_Hdr, ATT_Write_Response, opcode=0x13)
-bind_layers(ATT_Hdr, ATT_PrepareWriteReq, opcode=0x16)
-bind_layers(ATT_Hdr, ATT_PrepareWriteResp, opcode=0x17)
-bind_layers(ATT_Hdr, ATT_ExecWriteReq, opcode=0x18)
-bind_layers(ATT_Hdr, ATT_ExecWriteResp, opcode=0x19)
+bind_layers(ATT_Hdr, ATT_Prepare_Write_Request, opcode=0x16)
+bind_layers(ATT_Hdr, ATT_Prepare_Write_Response, opcode=0x17)
+bind_layers(ATT_Hdr, ATT_Execute_Write_Request, opcode=0x18)
+bind_layers(ATT_Hdr, ATT_Execute_Write_Response, opcode=0x19)
 bind_layers(ATT_Hdr, ATT_Write_Command, opcode=0x52)
 bind_layers(ATT_Hdr, ATT_Handle_Value_Notification, opcode=0x1b)
+bind_layers(ATT_Hdr, ATT_Handle_Value_Indication, opcode=0x1d)
 bind_layers(L2CAP_Hdr, SM_Hdr, cid=6)
 bind_layers(SM_Hdr, SM_Pairing_Request, sm_command=1)
 bind_layers(SM_Hdr, SM_Pairing_Response, sm_command=2)
@@ -1193,6 +1266,25 @@ class BluetoothUserSocket(SuperSocket):
     def flush(self):
         while self.readable():
             self.recv()
+
+    def close(self):
+        if self.closed:
+            return
+
+        #Properly close socket so we can free the device
+        ctypes.cdll.LoadLibrary("libc.so.6")
+        libc = ctypes.CDLL("libc.so.6")
+
+        close = libc.close
+        close.restype = ctypes.c_int
+        self.closed = True
+        if hasattr(self, "outs"):
+            if not hasattr(self, "ins") or self.ins != self.outs:
+                if self.outs and (WINDOWS or self.outs.fileno() != -1):
+                    close(self.outs.fileno())
+        if hasattr(self, "ins"):
+            if self.ins and (WINDOWS or self.ins.fileno() != -1):
+                close(self.ins.fileno())
 
 
 conf.BTsocket = BluetoothRFCommSocket
