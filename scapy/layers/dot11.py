@@ -206,7 +206,7 @@ _rt_channelflags2 = ['res1', 'res2', 'res3', 'res4', 'Turbo', 'CCK',
                      '40MHz_ext_channel_below',
                      'res5', 'res6', 'res7', 'res8', 'res9']
 
-_rt_knownmcs = ['bandwidth', 'MCS_index', 'guard_interval', 'HT_format',
+_rt_knownmcs = ['MCS_bandwidth', 'MCS_index', 'guard_interval', 'HT_format',
                 'FEC_type', 'STBC_streams', 'Ness', 'Ness_MSB']
 
 _rt_bandwidth = {0: "20MHz", 1: "40MHz", 2: "ht40Mhz-", 3: "ht40MHz+"}
@@ -260,7 +260,7 @@ class RadioTap(Packet):
         # TSFT
         ConditionalField(
             _RadiotapReversePadField(
-                BitField("mac_timestamp", 0, -64)
+                LELongField("mac_timestamp", 0)
             ),
             lambda pkt: pkt.present and pkt.present.TSFT),
         # Flags
@@ -339,22 +339,22 @@ class RadioTap(Packet):
              ),
             lambda pkt: pkt.present and pkt.present.MCS),
         ConditionalField(
-            BitEnumField("bandwidth", 0, 2, _rt_bandwidth),
-            lambda pkt: pkt.present and pkt.present.MCS),
-        ConditionalField(
-            BitEnumField("guard_interval", 0, 1, {0: "Long_GI", 1: "Short_GI"}),  # noqa: E501
-            lambda pkt: pkt.present and pkt.present.MCS),
-        ConditionalField(
-            BitEnumField("HT_format", 0, 1, {0: "mixed", 1: "greenfield"}),
-            lambda pkt: pkt.present and pkt.present.MCS),
-        ConditionalField(
-            BitEnumField("FEC_type", 0, 1, {0: "BCC", 1: "LDPC"}),
+            BitField("Ness_LSB", 0, 1),
             lambda pkt: pkt.present and pkt.present.MCS),
         ConditionalField(
             BitField("STBC_streams", 0, 2),
             lambda pkt: pkt.present and pkt.present.MCS),
         ConditionalField(
-            BitField("Ness_LSB", 0, 1),
+            BitEnumField("FEC_type", 0, 1, {0: "BCC", 1: "LDPC"}),
+            lambda pkt: pkt.present and pkt.present.MCS),
+        ConditionalField(
+            BitEnumField("HT_format", 0, 1, {0: "mixed", 1: "greenfield"}),
+            lambda pkt: pkt.present and pkt.present.MCS),
+        ConditionalField(
+            BitEnumField("guard_interval", 0, 1, {0: "Long_GI", 1: "Short_GI"}),  # noqa: E501
+            lambda pkt: pkt.present and pkt.present.MCS),
+        ConditionalField(
+            BitEnumField("MCS_bandwidth", 0, 2, _rt_bandwidth),
             lambda pkt: pkt.present and pkt.present.MCS),
         ConditionalField(
             ByteField("MCS_index", 0),
@@ -378,7 +378,7 @@ class RadioTap(Packet):
             FlagsField("PresentVHT", None, -8, _rt_presentvht),
             lambda pkt: pkt.present and pkt.present.VHT),
         ConditionalField(
-            ByteEnumField("bandwidth", 0, _rt_vhtbandwidth),
+            ByteEnumField("VHT_bandwidth", 0, _rt_vhtbandwidth),
             lambda pkt: pkt.present and pkt.present.VHT),
         ConditionalField(
             StrFixedLenField("mcs_nss", 0, length=5),
