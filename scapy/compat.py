@@ -62,6 +62,8 @@ else:
         """Ensure that the given object is bytes.
         If the parameter is a packet, raw() should be preferred.
         """
+        # Why not merge with the Python 2 one you say ?
+        # because x.encode('utf8') is 30% slower
         if isinstance(x, str):
             return x.encode()
         return bytes(x)
