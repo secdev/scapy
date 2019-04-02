@@ -104,6 +104,30 @@ def dns_get_str(s, pointer=0, pkt=None, _fullpacket=False):
     return name, pointer, bytes_left
 
 
+def dns_encode(x, check_built=False):
+    """Encodes a bytes string into the DNS format
+
+    :param x: the string
+    :param check_built: detect already-built strings and ignore them
+    :returns: the encoded bytes string
+    """
+    if not x or x == b".":
+        return b"\x00"
+
+    built = check_built
+    built &= b"." not in x
+    built &= ((x[-1] == b"\x00") or ((orb(x[-2]) & 0xc0)) == 0xc0)
+    if built:
+        # The value has already been processed. Do not process it again
+        return x
+
+    # Truncate chunks that cannot be encoded (more than 63 bytes..)
+    x = b"".join(chb(len(y)) + y for y in (k[:63] for k in x.split(b".")))
+    if x[-1:] != b"\x00":
+        x += b"\x00"
+    return x
+
+
 def DNSgetstr(*args, **kwargs):
     """Legacy function. Deprecated"""
     raise DeprecationWarning("DNSgetstr deprecated. Use dns_get_str instead")
@@ -143,11 +167,10 @@ def dns_compress(pkt):
             yield dat.split(b".", x)[x]
     data = {}
     burned_data = 0
-    dummy_dns = DNSStrField("", "")  # Used for its i2m method
     for current, name, dat in field_gen(dns_pkt):
         for part in possible_shortens(dat):
             # Encode the data
-            encoded = dummy_dns.i2m(None, part)
+            encoded = dns_encode(part, check_built=True)
             if part not in data:
                 # We have no occurrence of such data, let's store it as a
                 # possible pointer for future strings.
@@ -179,7 +202,7 @@ def dns_compress(pkt):
             # setfieldval edits the value of the field in the layer
             val = rep[0].getfieldval(rep[1])
             assert val.endswith(ck)
-            kept_string = dummy_dns.i2m(None, val[:-len(ck)])[:-1]
+            kept_string = dns_encode(val[:-len(ck)], check_built=True)[:-1]
             new_val = kept_string + replace_pointer
             rep[0].setfieldval(rep[1], new_val)
             try:
@@ -209,19 +232,14 @@ class DNSStrField(StrField):
             return b"."
         return x
 
+    def any2i(self, pkt, x):
+        if isinstance(x, six.text_type):
+            if x and x[-1] != u".":
+                x += u"."
+        return StrField.any2i(self, pkt, x)
+
     def i2m(self, pkt, x):
-        if any((orb(y) >= 0xc0) for y in x):
-            # The value has already been processed. Do not process it again
-            return x
-
-        if not x or x == b".":
-            return b"\x00"
-
-        # Truncate chunks that cannot be encoded (more than 63 bytes..)
-        x = b"".join(chb(len(y)) + y for y in (k[:63] for k in x.split(b".")))
-        if orb(x[-1]) != 0 and (orb(x[-2]) < 0xc0):
-            x += b"\x00"
-        return x
+        return dns_encode(x, check_built=True)
 
     def getfield(self, pkt, s):
         # Decode the compressed DNS message
@@ -351,7 +369,7 @@ class RDataField(StrLenField):
             if s:
                 s = inet_pton(socket.AF_INET, s)
         elif pkt.type in [2, 3, 4, 5, 12]:  # NS, MD, MF, CNAME, PTR
-            s = DNSStrField("", "").i2m(None, s)
+            s = dns_encode(x, check_built=True)
         elif pkt.type == 16:  # TXT
             ret_s = b""
             for text in s:
