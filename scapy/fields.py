@@ -412,7 +412,9 @@ class FCSField(Field):
         val = self.m2i(pkt, struct.unpack(self.fmt, s[-self.sz:])[0])
 
         def _post_dissect(self, s):
-            self.raw_packet_cache = None  # Reset packet to allow post_build
+            # Reset packet to allow post_build
+            self.raw_packet_cache = None
+            self.post_dissect = previous_post_dissect
             return previous_post_dissect(s)
         pkt.post_dissect = MethodType(_post_dissect, pkt)
         return s[:-self.sz], val
@@ -423,6 +425,7 @@ class FCSField(Field):
 
         def _post_build(self, p, pay):
             pay += value
+            self.post_build = previous_post_build
             return previous_post_build(p, pay)
         pkt.post_build = MethodType(_post_build, pkt)
         return s
