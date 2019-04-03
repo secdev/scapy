@@ -63,6 +63,8 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
             raise
         except Exception:
             if conf.debug_dissector:
+                from scapy.sendrecv import debug
+                debug.crashed_on = (cls, val)
                 raise
             pkt = conf.raw_layer(val)
         pkt.time = ts
