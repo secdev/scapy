@@ -14,9 +14,9 @@ import time
 from scapy.config import conf
 from scapy.packet import Packet, bind_layers, NoPayload
 from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
-    ConditionalField, Field, FieldLenField, FlagsField, IntField, \
+    ConditionalField, FieldLenField, FlagsField, IntField, \
     PacketListField, ShortEnumField, ShortField, StrField, StrFixedLenField, \
-    StrLenField, MultipleTypeField
+    StrLenField, MultipleTypeField, UTCTimeField
 from scapy.compat import orb, raw, chb, bytes_encode
 from scapy.ansmachine import AnsweringMachine
 from scapy.sendrecv import sr1
@@ -238,6 +238,9 @@ class DNSStrField(StrLenField):
     def i2m(self, pkt, x):
         return dns_encode(x, check_built=True)
 
+    def i2len(self, pkt, x):
+        return len(self.i2m(pkt, x))
+
     def getfield(self, pkt, s):
         remain = b""
         if self.length_from:
@@ -290,16 +293,12 @@ class DNSRRField(StrField):
 
     def decodeRR(self, name, s, p):
         ret = s[p:p + 10]
-        type, cls, ttl, rdlen = struct.unpack("!HHIH", ret)
+        typ, cls, ttl, rdlen = struct.unpack("!HHIH", ret)
         p += 10
-        rr = DNSRR(b"\x00" + ret + s[p:p + rdlen], _orig_s=s, _orig_p=p)
-        if type in [2, 3, 4, 5]:
-            rr.rdata = dns_get_str(s, p, _fullpacket=True)[0]
-            del(rr.rdlen)
-        elif type in DNSRR_DISPATCHER:
-            rr = DNSRR_DISPATCHER[type](b"\x00" + ret + s[p:p + rdlen], _orig_s=s, _orig_p=p)  # noqa: E501
-        else:
-            del(rr.rdlen)
+        cls = DNSRR_DISPATCHER.get(typ, DNSRR)
+        rr = cls(b"\x00" + ret + s[p:p + rdlen], _orig_s=s, _orig_p=p)
+        # Will have changed because of decompression
+        rr.rdlen = None
         rr.rrname = name
 
         p += rdlen
@@ -354,6 +353,9 @@ class DNSTextField(StrLenField):
             tmp_s = tmp_s[tmp_len:]
         return ret_s
 
+    def i2len(self, pkt, x):
+        return len(self.i2m(pkt, x))
+
     def i2m(self, pkt, s):
         ret_s = b""
         for text in s:
@@ -367,23 +369,6 @@ class DNSTextField(StrLenField):
             if len(text):
                 ret_s += struct.pack("!B", len(text)) + text
         return ret_s
-
-
-class RDLenField(Field):
-    def __init__(self, name):
-        Field.__init__(self, name, None, "H")
-
-    def i2m(self, pkt, x):
-        if x is None:
-            rdataf = pkt.get_field("rdata")
-            x = len(rdataf.i2m(pkt, pkt.rdata))
-        return x
-
-    def i2h(self, pkt, x):
-        if x is None:
-            rdataf = pkt.get_field("rdata")
-            x = len(rdataf.i2m(pkt, pkt.rdata))
-        return x
 
 
 class DNS(Packet):
@@ -515,23 +500,6 @@ dnssecalgotypes = {0: "Reserved", 1: "RSA/MD5", 2: "Diffie-Hellman", 3: "DSA/SHA
 
 # 09/2013 from http://www.iana.org/assignments/ds-rr-types/ds-rr-types.xhtml
 dnssecdigesttypes = {0: "Reserved", 1: "SHA-1", 2: "SHA-256", 3: "GOST R 34.11-94", 4: "SHA-384"}  # noqa: E501
-
-
-class TimeField(IntField):
-
-    def any2i(self, pkt, x):
-        if isinstance(x, str):
-            import time
-            import calendar
-            t = time.strptime(x, "%Y%m%d%H%M%S")
-            return int(calendar.timegm(t))
-        return x
-
-    def i2repr(self, pkt, x):
-        import time
-        x = self.i2h(pkt, x)
-        t = time.strftime("%Y%m%d%H%M%S", time.gmtime(x))
-        return "%s (%d)" % (t, x)
 
 
 def bitmap2RRlist(bitmap):
@@ -681,8 +649,8 @@ class DNSRRRSIG(_DNSRRdummy):
                    ByteEnumField("algorithm", 5, dnssecalgotypes),
                    ByteField("labels", 0),
                    IntField("originalttl", 0),
-                   TimeField("expiration", 0),
-                   TimeField("inception", 0),
+                   UTCTimeField("expiration", 0),
+                   UTCTimeField("inception", 0),
                    ShortField("keytag", 0),
                    DNSStrField("signersname", ""),
                    StrField("signature", "")
@@ -880,7 +848,7 @@ class DNSRR(InheritOriginDNSStrPacket):
                    ShortEnumField("type", 1, dnstypes),
                    ShortEnumField("rclass", 1, dnsclasses),
                    IntField("ttl", 0),
-                   RDLenField("rdlen"),
+                   FieldLenField("rdlen", None, length_of="rdata", fmt="H"),
                    MultipleTypeField(
                        [
                            # A
