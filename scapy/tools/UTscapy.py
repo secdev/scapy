@@ -162,8 +162,9 @@ class TestClass:
 
     def add_keywords(self, kws):
         if isinstance(kws, six.string_types):
-            kws = [kws]
+            kws = [kws.lower()]
         for kwd in kws:
+            kwd = kwd.lower()
             if kwd.startswith('-'):
                 try:
                     self.keywords.remove(kwd[1:])
@@ -408,28 +409,26 @@ def filter_tests_on_numbers(test_campaign, num):
                                   if ts.tests]
 
 
-def filter_tests_keep_on_keywords(test_campaign, kw):
+def _filter_tests_kw(test_campaign, kw, keep):
     def kw_match(lst, kw):
-        for k in lst:
-            if k in kw:
-                return True
-        return False
+        return any(k for k in lst if kw in k)
 
     if kw:
+        kw = kw.lower()
+        if keep:
+            cond = lambda x: x
+        else:
+            cond = lambda x: not x
         for ts in test_campaign:
-            ts.tests = [t for t in ts.tests if kw_match(t.keywords, kw)]
+            ts.tests = [t for t in ts.tests if cond(kw_match(t.keywords, kw))]
+
+
+def filter_tests_keep_on_keywords(test_campaign, kw):
+    return _filter_tests_kw(test_campaign, kw, True)
 
 
 def filter_tests_remove_on_keywords(test_campaign, kw):
-    def kw_match(lst, kw):
-        for k in kw:
-            if k in lst:
-                return True
-        return False
-
-    if kw:
-        for ts in test_campaign:
-            ts.tests = [t for t in ts.tests if not kw_match(t.keywords, kw)]
+    return _filter_tests_kw(test_campaign, kw, False)
 
 
 def remove_empty_testsets(test_campaign):
@@ -850,8 +849,8 @@ def main():
                 LOCAL = 1 if data.local else 0
                 NUM = data.num
                 MODULES = data.modules
-                KW_OK = [data.kw_ok]
-                KW_KO = [data.kw_ko]
+                KW_OK.extend(data.kw_ok)
+                KW_KO.extend(data.kw_ko)
                 try:
                     FORMAT = Format.from_string(data.format)
                 except KeyError as msg:
@@ -876,13 +875,13 @@ def main():
             elif opt == "-m":
                 MODULES.append(optarg)
             elif opt == "-k":
-                KW_OK.append(optarg.split(","))
+                KW_OK.extend(optarg.split(","))
             elif opt == "-K":
-                KW_KO.append(optarg.split(","))
+                KW_KO.extend(optarg.split(","))
 
         # Discard Python3 tests when using Python2
         if six.PY2:
-            KW_KO.append(["python3_only"])
+            KW_KO.append("python3_only")
 
         if VERB > 2:
             print("### Booting scapy...", file=sys.stderr)
