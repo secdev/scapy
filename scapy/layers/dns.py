@@ -8,7 +8,6 @@ DNS: Domain Name System.
 """
 
 from __future__ import absolute_import
-import socket
 import struct
 import time
 
@@ -17,16 +16,15 @@ from scapy.packet import Packet, bind_layers, NoPayload
 from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
     ConditionalField, Field, FieldLenField, FlagsField, IntField, \
     PacketListField, ShortEnumField, ShortField, StrField, StrFixedLenField, \
-    StrLenField
+    StrLenField, MultipleTypeField
 from scapy.compat import orb, raw, chb, bytes_encode
 from scapy.ansmachine import AnsweringMachine
 from scapy.sendrecv import sr1
-from scapy.layers.inet import IP, DestIPField, UDP, TCP
-from scapy.layers.inet6 import DestIP6Field
+from scapy.layers.inet import IP, DestIPField, IPField, UDP, TCP
+from scapy.layers.inet6 import DestIP6Field, IP6Field
 from scapy.error import warning, Scapy_Exception
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
-from scapy.pton_ntop import inet_ntop, inet_pton
 
 
 def dns_get_str(s, pointer=0, pkt=None, _fullpacket=False):
@@ -114,10 +112,9 @@ def dns_encode(x, check_built=False):
     if not x or x == b".":
         return b"\x00"
 
-    built = check_built
-    built &= b"." not in x
-    built &= ((x[-1] == b"\x00") or ((orb(x[-2]) & 0xc0)) == 0xc0)
-    if built:
+    if check_built and b"." not in x and (
+        orb(x[-1]) == 0 or (orb(x[-2]) & 0xc0) == 0xc0
+    ):
         # The value has already been processed. Do not process it again
         return x
 
@@ -153,7 +150,7 @@ def dns_compress(pkt):
                 if isinstance(current, InheritOriginDNSStrPacket):
                     for field in current.fields_desc:
                         if isinstance(field, DNSStrField) or \
-                           (isinstance(field, RDataField) and
+                           (isinstance(field, MultipleTypeField) and
                            current.type in [2, 5, 12]):
                             # Get the associated data and store it accordingly  # noqa: E501
                             dat = current.getfieldval(field.name)
@@ -226,7 +223,7 @@ class InheritOriginDNSStrPacket(Packet):
         Packet.__init__(self, _pkt=_pkt, *args, **kwargs)
 
 
-class DNSStrField(StrField):
+class DNSStrField(StrLenField):
     def h2i(self, pkt, x):
         if not x:
             return b"."
@@ -242,9 +239,13 @@ class DNSStrField(StrField):
         return dns_encode(x, check_built=True)
 
     def getfield(self, pkt, s):
+        remain = b""
+        if self.length_from:
+            remain, s = StrLenField.getfield(self, pkt, s)
         # Decode the compressed DNS message
-        decoded, index, left = dns_get_str(s, 0, pkt)
-        return left, decoded
+        decoded, _, left = dns_get_str(s, 0, pkt)
+        # returns (remaining, decoded)
+        return left + remain, decoded
 
 
 class DNSRRCountField(ShortField):
@@ -337,56 +338,35 @@ class DNSQRField(DNSRRField):
         return rr, p
 
 
-class RDataField(StrLenField):
+class DNSTextField(StrLenField):
     islist = 1
 
     def m2i(self, pkt, s):
-        family = None
-        if pkt.type == 1:  # A
-            family = socket.AF_INET
-        elif pkt.type in [2, 5, 12]:  # NS, CNAME, PTR
-            s = dns_get_str(s, 0, pkt)[0]
-        elif pkt.type == 16:  # TXT
-            ret_s = list()
-            tmp_s = s
-            # RDATA contains a list of strings, each are prepended with
-            # a byte containing the size of the following string.
-            while tmp_s:
-                tmp_len = orb(tmp_s[0]) + 1
-                if tmp_len > len(tmp_s):
-                    warning("DNS RR TXT prematured end of character-string (size=%i, remaining bytes=%i)" % (tmp_len, len(tmp_s)))  # noqa: E501
-                ret_s.append(tmp_s[1:tmp_len])
-                tmp_s = tmp_s[tmp_len:]
-            s = ret_s
-        elif pkt.type == 28:  # AAAA
-            family = socket.AF_INET6
-        if family is not None:
-            s = inet_ntop(family, s)
-        return s
+        ret_s = list()
+        tmp_s = s
+        # RDATA contains a list of strings, each are prepended with
+        # a byte containing the size of the following string.
+        while tmp_s:
+            tmp_len = orb(tmp_s[0]) + 1
+            if tmp_len > len(tmp_s):
+                warning("DNS RR TXT prematured end of character-string (size=%i, remaining bytes=%i)" % (tmp_len, len(tmp_s)))  # noqa: E501
+            ret_s.append(tmp_s[1:tmp_len])
+            tmp_s = tmp_s[tmp_len:]
+        return ret_s
 
     def i2m(self, pkt, s):
-        if pkt.type == 1:  # A
-            if s:
-                s = inet_pton(socket.AF_INET, s)
-        elif pkt.type in [2, 3, 4, 5, 12]:  # NS, MD, MF, CNAME, PTR
-            s = dns_encode(x, check_built=True)
-        elif pkt.type == 16:  # TXT
-            ret_s = b""
-            for text in s:
-                text = bytes_encode(text)
-                # The initial string must be split into a list of strings
-                # prepended with theirs sizes.
-                while len(text) >= 255:
-                    ret_s += b"\xff" + text[:255]
-                    text = text[255:]
-                # The remaining string is less than 255 bytes long
-                if len(text):
-                    ret_s += struct.pack("!B", len(text)) + text
-            s = ret_s
-        elif pkt.type == 28:  # AAAA
-            if s:
-                s = inet_pton(socket.AF_INET6, s)
-        return s
+        ret_s = b""
+        for text in s:
+            text = bytes_encode(text)
+            # The initial string must be split into a list of strings
+            # prepended with theirs sizes.
+            while len(text) >= 255:
+                ret_s += b"\xff" + text[:255]
+                text = text[255:]
+            # The remaining string is less than 255 bytes long
+            if len(text):
+                ret_s += struct.pack("!B", len(text)) + text
+        return ret_s
 
 
 class RDLenField(Field):
@@ -901,7 +881,26 @@ class DNSRR(InheritOriginDNSStrPacket):
                    ShortEnumField("rclass", 1, dnsclasses),
                    IntField("ttl", 0),
                    RDLenField("rdlen"),
-                   RDataField("rdata", "", length_from=lambda pkt:pkt.rdlen)]
+                   MultipleTypeField(
+                       [
+                           # A
+                           (IPField("rdata", "0.0.0.0"),
+                               lambda pkt: pkt.type == 1),
+                           # AAAA
+                           (IP6Field("rdata", "::"),
+                               lambda pkt: pkt.type == 28),
+                           # NS, MD, MF, CNAME, PTR
+                           (DNSStrField("rdata", "",
+                                        length_from=lambda pkt: pkt.rdlen),
+                               lambda pkt: pkt.type in [2, 3, 4, 5, 12]),
+                           # TEXT
+                           (DNSTextField("rdata", [],
+                                         length_from=lambda pkt: pkt.rdlen),
+                               lambda pkt: pkt.type == 16),
+                       ],
+                       StrLenField("rdata", "",
+                                   length_from=lambda pkt:pkt.rdlen)
+    )]
 
 
 bind_layers(UDP, DNS, dport=5353)
