@@ -71,6 +71,29 @@ rx.show()
 bytes(rx)
 rx == CAN(identifier=0x7ff,length=1,data=b'\x01')
 
+
+= CAN Socket send recv ISOTP_Packet
+~ needs_root
+~ linux
+
+from scapy.contrib.isotp import ISOTPHeader, ISOTP_FF
+
+def sender():
+    sock2 = CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0', bitrate=250000))
+    pkt = ISOTPHeader(identifier=0x7ff)/ISOTP_FF(message_size=100, data=b'abcdef')
+    pkt.show()
+    sock2.send(pkt)
+    sock2.close()
+
+thread = threading.Thread(target=sender)
+thread.start()
+
+rx = sock1.recv()
+rx.show()
+bytes(rx)
+rx == CAN(identifier=0x7ff,length=8,data=b'\x10\x64abcdef')
+
+
 = CAN Socket basecls test
 ~ needs_root linux
 
