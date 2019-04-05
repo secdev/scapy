@@ -235,12 +235,6 @@ class DNSStrField(StrLenField):
             return b"."
         return x
 
-    def any2i(self, pkt, x):
-        if isinstance(x, six.text_type):
-            if x and x[-1] != u".":
-                x += u"."
-        return StrField.any2i(self, pkt, x)
-
     def i2m(self, pkt, x):
         return dns_encode(x, check_built=True)
 
