@@ -411,7 +411,7 @@ def filter_tests_on_numbers(test_campaign, num):
 
 def _filter_tests_kw(test_campaign, kw, keep):
     def kw_match(lst, kw):
-        return any(k for k in lst if kw in k)
+        return any(k for k in lst if kw == k)
 
     if kw:
         kw = kw.lower()
@@ -437,8 +437,8 @@ def remove_empty_testsets(test_campaign):
 
 #### RUN TEST #####
 
-def run_test(test, get_interactive_session, verb=3, ignore_globals=None):
-    test.output, res = get_interactive_session(test.test.strip(), ignore_globals=ignore_globals, verb=verb)
+def run_test(test, get_interactive_session, verb=3, ignore_globals=None, my_globals=None):
+    test.output, res = get_interactive_session(test.test.strip(), ignore_globals=ignore_globals, verb=verb, my_globals=my_globals)
     test.result = "failed"
     try:
         if res is None or res:
@@ -465,14 +465,20 @@ def run_test(test, get_interactive_session, verb=3, ignore_globals=None):
 
 #### RUN CAMPAIGN #####
 
+def import_UTscapy_tools(ses):
+    ses["retry_test"] = retry_test
+    ses["Bunch"] = Bunch
+
 def run_campaign(test_campaign, get_interactive_session, verb=3, ignore_globals=None):  # noqa: E501
     passed = failed = 0
+    scapy_ses = importlib.import_module(".all", "scapy").__dict__
+    import_UTscapy_tools(scapy_ses)
     if test_campaign.preexec:
-        test_campaign.preexec_output = get_interactive_session(test_campaign.preexec.strip(), ignore_globals=ignore_globals)[0]
+        test_campaign.preexec_output = get_interactive_session(test_campaign.preexec.strip(), ignore_globals=ignore_globals, my_globals=scapy_ses)[0]
     try:
         for i, testset in enumerate(test_campaign):
             for j, t in enumerate(testset):
-                if run_test(t, get_interactive_session, verb):
+                if run_test(t, get_interactive_session, verb, my_globals=scapy_ses):
                     passed += 1
                 else:
                     failed += 1

@@ -112,8 +112,6 @@ with conf.L3socket() as a:
 ~ netaccess needs_root require_gui
 % XXX currently disabled
 
-from scapy.tools.UTscapy import retry_test
-
 def _test():
     answer = sr1(IP(dst="8.8.8.8")/UDP()/DNS(rd=1, qd=DNSQR(qname="www.google.com")), timeout=2)
     answer.show()
