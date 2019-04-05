@@ -919,8 +919,8 @@ class StrField(Field):
         Field.__init__(self, name, default, fmt)
         self.remain = remain
 
-    def i2len(self, pkt, i):
-        return len(i)
+    def i2len(self, pkt, x):
+        return len(x)
 
     def any2i(self, pkt, x):
         if isinstance(x, six.text_type):

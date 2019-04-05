@@ -224,6 +224,12 @@ class InheritOriginDNSStrPacket(Packet):
 
 
 class DNSStrField(StrLenField):
+    """
+    Special StrField that handles DNS encoding/decoding.
+    It will also handle DNS decompression.
+    (may be StrLenField if a length_from is passed),
+    """
+
     def h2i(self, pkt, x):
         if not x:
             return b"."
@@ -293,7 +299,8 @@ class DNSRRField(StrField):
 
     def decodeRR(self, name, s, p):
         ret = s[p:p + 10]
-        typ, cls, ttl, rdlen = struct.unpack("!HHIH", ret)
+        # type, cls, ttl, rdlen
+        typ, cls, _, rdlen = struct.unpack("!HHIH", ret)
         p += 10
         cls = DNSRR_DISPATCHER.get(typ, DNSRR)
         rr = cls(b"\x00" + ret + s[p:p + rdlen], _orig_s=s, _orig_p=p)
@@ -338,6 +345,10 @@ class DNSQRField(DNSRRField):
 
 
 class DNSTextField(StrLenField):
+    """
+    Special StrLenField that handles DNS TEXT data (16)
+    """
+
     islist = 1
 
     def m2i(self, pkt, s):
