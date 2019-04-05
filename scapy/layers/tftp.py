@@ -158,7 +158,7 @@ class TFTP_read(Automaton):
         self.my_tid = self.sport or RandShort()._fix()
         bind_bottom_up(UDP, TFTP, dport=self.my_tid)
         self.server_tid = None
-        self.res = ""
+        self.res = b""
 
         self.l3 = IP(dst=self.server) / UDP(sport=self.my_tid, dport=self.port) / TFTP()  # noqa: E501
         self.last_packet = self.l3 / TFTP_RRQ(filename=self.filename, mode="octet")  # noqa: E501
@@ -205,7 +205,7 @@ class TFTP_read(Automaton):
         if conf.raw_layer in pkt:
             recvd = pkt[conf.raw_layer].load
         else:
-            recvd = ""
+            recvd = b""
         self.res += recvd
         self.awaiting += 1
         if len(recvd) == self.blocksize:
