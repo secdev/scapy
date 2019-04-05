@@ -1230,26 +1230,23 @@ class XStrField(StrField):
         return bytes_hex(x).decode()
 
 
-class XStrLenField(StrLenField):
+class _XStrField:
+    def i2repr(self, pkt, x):
+        if not x:
+            return repr(x)
+        return bytes_hex(x[:self.length_from(pkt)]).decode()
+
+
+class XStrLenField(StrLenField, XStrField):
     """
     StrLenField which value is printed as hexadecimal.
     """
 
-    def i2repr(self, pkt, x):
-        if not x:
-            return repr(x)
-        return bytes_hex(x[:self.length_from(pkt)]).decode()
 
-
-class XStrFixedLenField(StrFixedLenField):
+class XStrFixedLenField(StrFixedLenField, XStrField):
     """
     StrFixedLenField which value is printed as hexadecimal.
     """
-
-    def i2repr(self, pkt, x):
-        if not x:
-            return repr(x)
-        return bytes_hex(x[:self.length_from(pkt)]).decode()
 
 
 class StrLenFieldUtf16(StrLenField):

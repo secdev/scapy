@@ -438,6 +438,7 @@ def remove_empty_testsets(test_campaign):
 #### RUN TEST #####
 
 def run_test(test, get_interactive_session, verb=3, ignore_globals=None, my_globals=None):
+    """An internal UTScapy function to run a single test"""
     test.output, res = get_interactive_session(test.test.strip(), ignore_globals=ignore_globals, verb=verb, my_globals=my_globals)
     test.result = "failed"
     try:
@@ -466,6 +467,7 @@ def run_test(test, get_interactive_session, verb=3, ignore_globals=None, my_glob
 #### RUN CAMPAIGN #####
 
 def import_UTscapy_tools(ses):
+    """Adds UTScapy tools directly to a session"""
     ses["retry_test"] = retry_test
     ses["Bunch"] = Bunch
 
