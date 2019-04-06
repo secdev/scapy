@@ -1016,6 +1016,8 @@ class PcapReader(RawPcapReader):
             raise
         except Exception:
             if conf.debug_dissector:
+                from scapy.sendrecv import debug
+                debug.crashed_on = (self.LLcls, s)
                 raise
             p = conf.raw_layer(s)
         p.time = pkt_info.sec + (0.000000001 if self.nano else 0.000001) * pkt_info.usec  # noqa: E501
