@@ -3,18 +3,25 @@
 # Copyright (C) Philippe Biondi <phil@secdev.org>
 # This program is published under a GPLv2 license
 # Netflow V5 appended by spaceB0x and Guillaume Valadon
-# Netflow V9 appended ny Gabriel Potter
+# Netflow V9/10 appended ny Gabriel Potter
 
 """
-Cisco NetFlow protocol v1, v5 and v9
+Cisco NetFlow protocol v1, v5, v9 and v10 (IPFix)
 
-HowTo dissect NetflowV9 packets:
+HowTo dissect NetflowV9/10 (IPFix) packets:
 
-# From a pcap
-- get a list of packets containing NetflowV9 packets
+# From a pcap / list of packets
+
+Using sniff and sessions:
+>>> sniff(offline=open("my_great_pcap.pcap", "rb"), session=NetflowSession)
+
+Using the netflowv9_defragment/ipfix_defragment commands:
+- get a list of packets containing NetflowV9/10 packets
 - call `netflowv9_defragment(plist)` to defragment the list
 
-# Live / on-the-flow:
+(ipfix_defragment is an alias for netflowv9_defragment)
+
+# Live / on-the-flow / other: use NetflowSession
 >>> sniff(session=NetflowSession, prn=[...])
 """
 
@@ -27,8 +34,9 @@ from scapy.fields import ByteEnumField, ByteField, Field, FieldLenField, \
     FlagsField, IPField, IntField, MACField, \
     PacketListField, PadField, SecondsIntField, ShortEnumField, ShortField, \
     StrField, StrFixedLenField, ThreeBytesField, UTCTimeField, XByteField, \
-    XShortField
+    XShortField, LongField
 from scapy.packet import Packet, bind_layers, bind_bottom_up
+from scapy.plist import PacketList
 from scapy.sessions import IPSession, DefaultSession
 
 from scapy.layers.inet import UDP
@@ -130,16 +138,21 @@ bind_layers(NetflowHeaderV5, NetflowRecordV5)
 bind_layers(NetflowRecordV5, NetflowRecordV5)
 
 #########################################
-# Netflow Version 9
+# Netflow Version 9/10
 #########################################
 
+# NetflowV9 RFC
 # https://www.ietf.org/rfc/rfc3954.txt
 
-# This is v9_v10_template_types (with names fro the rfc for the first 79)
+# IPFix RFC
+# https://tools.ietf.org/html/rfc5101
+# https://tools.ietf.org/html/rfc5655
+
+# This is v9_v10_template_types (with names from the rfc for the first 79)
 # https://github.com/wireshark/wireshark/blob/master/epan/dissectors/packet-netflow.c  # noqa: E501
 # (it has all values external to the RFC)
 NTOP_BASE = 57472
-NetflowV9TemplateFieldTypes = {
+NetflowV910TemplateFieldTypes = {
     1: "IN_BYTES",
     2: "IN_PKTS",
     3: "FLOWS",
@@ -1052,7 +1065,42 @@ class ShortOrInt(IntField):
         return Field.getfield(self, pkt, x)
 
 
+class _AdjustableNetflowField(IntField, LongField):
+    """Fields that can receive a length kwarg, even though they normally can't.
+    Netflow usage only."""
+    def __init__(self, name, default, length):
+        if length == 4:
+            IntField.__init__(self, name, default)
+            return
+        elif length == 8:
+            LongField.__init__(self, name, default)
+            return
+        LongField.__init__(self, name, default)
+
+
+class N9SecondsIntField(SecondsIntField, _AdjustableNetflowField):
+    """Defines dateTimeSeconds (without EPOCH: just seconds)"""
+    def __init__(self, name, default, *args, **kargs):
+        length = kargs.pop("length", 8)
+        SecondsIntField.__init__(self, name, default, *args, **kargs)
+        _AdjustableNetflowField.__init__(
+            self, name, default, length
+        )
+
+
+class N9UTCTimeField(UTCTimeField, _AdjustableNetflowField):
+    """Defines dateTimeSeconds (EPOCH)"""
+    def __init__(self, name, default, *args, **kargs):
+        length = kargs.pop("length", 8)
+        UTCTimeField.__init__(self, name, default, *args, **kargs)
+        _AdjustableNetflowField.__init__(
+            self, name, default, length
+        )
+
+
 # TODO: There are hundreds of entries to add to the following :(
+# https://tools.ietf.org/html/rfc5655
+# ==> feel free to contribute :D
 NetflowV9TemplateFieldDecoders = {
     # Only contains fields that have a fixed length
     # ID: Field,
@@ -1100,6 +1148,67 @@ NetflowV9TemplateFieldDecoders = {
     61: (ByteEnumField, [{0x00: "Ingress flow", 0x01: "Egress flow"}]),  # DIRECTION  # noqa: E501
     62: IP6Field,  # IPV6_NEXT_HOP
     63: IP6Field,  # BGP_IPV6_NEXT_HOP
+    130: IPField,  # exporterIPv4Address
+    131: IP6Field,  # exporterIPv6Address
+    150: N9UTCTimeField,  # flowStartSeconds
+    151: N9UTCTimeField,  # flowEndSeconds
+    152: (N9UTCTimeField, [True]),  # flowStartMilliseconds
+    153: (N9UTCTimeField, [True]),  # flowEndMilliseconds
+    154: (N9UTCTimeField, [False, True]),  # flowStartMicroseconds
+    155: (N9UTCTimeField, [False, True]),  # flowEndMicroseconds
+    156: (N9UTCTimeField, [False, False, True]),  # flowStartNanoseconds
+    157: (N9UTCTimeField, [False, False, True]),  # flowEndNanoseconds
+    158: (N9SecondsIntField, [False, True]),  # flowStartDeltaMicroseconds
+    159: (N9SecondsIntField, [False, True]),  # flowEndDeltaMicroseconds
+    160: (N9UTCTimeField, [True]),  # systemInitTimeMilliseconds
+    161: (N9SecondsIntField, [True]),  # flowDurationMilliseconds
+    162: (N9SecondsIntField, [False, True]),  # flowDurationMicroseconds
+    211: IPField,  # collectorIPv4Address
+    212: IP6Field,  # collectorIPv6Address
+    225: IPField,  # postNATSourceIPv4Address
+    226: IPField,  # postNATDestinationIPv4Address
+    258: (N9SecondsIntField, [True]),  # collectionTimeMilliseconds
+    260: N9SecondsIntField,  # maxExportSeconds
+    261: N9SecondsIntField,  # maxFlowEndSeconds
+    264: N9SecondsIntField,  # minExportSeconds
+    265: N9SecondsIntField,  # minFlowStartSeconds
+    268: (N9UTCTimeField, [False, True]),  # maxFlowEndMicroseconds
+    269: (N9UTCTimeField, [True]),  # maxFlowEndMilliseconds
+    270: (N9UTCTimeField, [False, False, True]),  # maxFlowEndNanoseconds
+    271: (N9UTCTimeField, [False, True]),  # minFlowStartMicroseconds
+    272: (N9UTCTimeField, [True]),  # minFlowStartMilliseconds
+    273: (N9UTCTimeField, [False, False, True]),  # minFlowStartNanoseconds
+    279: N9SecondsIntField,  # connectionSumDurationSeconds
+    281: IP6Field,  # postNATSourceIPv6Address
+    282: IP6Field,  # postNATDestinationIPv6Address
+    322: N9UTCTimeField,  # observationTimeSeconds
+    323: (N9UTCTimeField, [True]),  # observationTimeMilliseconds
+    324: (N9UTCTimeField, [False, True]),  # observationTimeMicroseconds
+    325: (N9UTCTimeField, [False, False, True]),  # observationTimeNanoseconds
+    365: MACField,  # staMacAddress
+    366: IPField,  # staIPv4Address
+    367: MACField,  # wtpMacAddress
+    380: IPField,  # distinctCountOfSourceIPv4Address
+    381: IPField,  # distinctCountOfDestinationIPv4Address
+    382: IP6Field,  # distinctCountOfSourceIPv6Address
+    383: IP6Field,  # distinctCountOfDestinationIPv6Address
+    403: IPField,  # originalExporterIPv4Address
+    404: IP6Field,  # originalExporterIPv6Address
+    414: MACField,  # dot1qCustomerSourceMacAddress
+    415: MACField,  # dot1qCustomerDestinationMacAddress
+    432: IPField,  # pseudoWireDestinationIPv4Address
+    24632: IPField,  # NAT_LOG_FIELD_IDX_IPV4_INT_ADDR
+    24633: IPField,  # NAT_LOG_FIELD_IDX_IPV4_EXT_ADDR
+    40001: IPField,  # XLATE_SRC_ADDR_IPV4
+    40002: IPField,  # XLATE_DST_ADDR_IPV4
+    114 + NTOP_BASE: IPField,  # UNTUNNELED_IPV4_SRC_ADDR
+    116 + NTOP_BASE: IPField,  # UNTUNNELED_IPV4_DST_ADDR
+    143 + NTOP_BASE: IPField,  # SIP_RTP_IPV4_SRC_ADDR
+    145 + NTOP_BASE: IPField,  # SIP_RTP_IPV4_DST_ADDR
+    353 + NTOP_BASE: MACField,  # DHCP_CLIENT_MAC
+    396 + NTOP_BASE: IP6Field,  # UNTUNNELED_IPV6_SRC_ADDR
+    397 + NTOP_BASE: IP6Field,  # UNTUNNELED_IPV6_DST_ADDR
+    471 + NTOP_BASE: IPField,  # NPROBE_IPV4_ADDRESS
 }
 
 
@@ -1122,10 +1231,19 @@ class NetflowHeaderV9(Packet):
         return pkt + pay
 
 
+# https://tools.ietf.org/html/rfc5655#appendix-B.1.1
+class NetflowHeaderV10(Packet):
+    name = "IPFix (Netflow V10) Header"
+    fields_desc = [ShortField("length", None),
+                   UTCTimeField("ExportTime", 0),
+                   IntField("flowSequence", 0),
+                   IntField("ObservationDomainID", 0)]
+
+
 class NetflowTemplateFieldV9(Packet):
     name = "Netflow Flowset Template Field V9"
     fields_desc = [ShortEnumField("fieldType", None,
-                                  NetflowV9TemplateFieldTypes),
+                                  NetflowV910TemplateFieldTypes),
                    ShortField("fieldLength", 0)]
 
     def __init__(self, *args, **kwargs):
@@ -1151,7 +1269,8 @@ class NetflowTemplateV9(Packet):
 class NetflowFlowsetV9(Packet):
     name = "Netflow FlowSet V9"
     fields_desc = [ShortField("flowSetID", 0),
-                   FieldLenField("length", None, length_of="templates", adjust=lambda pkt, x:x + 4),  # noqa: E501
+                   FieldLenField("length", None, length_of="templates",
+                                 adjust=lambda pkt, x:x + 4),
                    PacketListField("templates", [], NetflowTemplateV9,
                                    length_from=lambda pkt: pkt.length - 4)]
 
@@ -1162,18 +1281,39 @@ class _CustomStrFixedLenField(StrFixedLenField):
 
 
 def _GenNetflowRecordV9(cls, lengths_list):
+    """Internal function used to generate the Records from
+    their template.
+    """
     _fields_desc = []
     for j, k in lengths_list:
         _f_data = NetflowV9TemplateFieldDecoders.get(k, None)
-        _f_type, _f_args = (_f_data) if isinstance(_f_data, tuple) else (_f_data, [])  # noqa: E501
+        _f_type, _f_args = (
+            _f_data if isinstance(_f_data, tuple) else (_f_data, [])
+        )
+        _f_kwargs = {}
         if _f_type:
-            _fields_desc.append(_f_type(NetflowV9TemplateFieldTypes.get(k, "unknown_data"), 0, *_f_args))  # noqa: E501
+            if issubclass(_f_type, _AdjustableNetflowField):
+                _f_kwargs["length"] = j
+            _fields_desc.append(
+                _f_type(
+                    NetflowV910TemplateFieldTypes.get(k, "unknown_data"),
+                    0, *_f_args, **_f_kwargs
+                )
+            )
         else:
-            _fields_desc.append(_CustomStrFixedLenField(NetflowV9TemplateFieldTypes.get(k, "unknown_data"), b"", length=j))  # noqa: E501
+            _fields_desc.append(
+                _CustomStrFixedLenField(
+                    NetflowV910TemplateFieldTypes.get(k, "unknown_data"),
+                    b"", length=j
+                )
+            )
 
+    # This will act exactly like a NetflowRecordV9, but has custom fields
     class NetflowRecordV9I(cls):
         fields_desc = _fields_desc
         match_subclass = True
+    NetflowRecordV9I.name = cls.name
+    NetflowRecordV9I.__name__ = cls.__name__
     return NetflowRecordV9I
 
 
@@ -1200,10 +1340,17 @@ class NetflowDataflowsetV9(Packet):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
         if _pkt:
-            if _pkt[:2] == b"\x00\x01":
-                return NetflowOptionsFlowsetV9
+            # https://tools.ietf.org/html/rfc5655#appendix-B.1.2
+            # NetflowV9
             if _pkt[:2] == b"\x00\x00":
                 return NetflowFlowsetV9
+            if _pkt[:2] == b"\x00\x01":
+                return NetflowOptionsFlowsetV9
+            # IPFix
+            if _pkt[:2] == b"\x00\x02":
+                return NetflowFlowsetV9
+            if _pkt[:2] == b"\x00\x03":
+                return NetflowOptionsFlowset10
         return cls
 
 
@@ -1306,14 +1453,17 @@ def _netflowv9_defragment_packet(pkt, definitions, definitions_opts, ignored):
 
 
 def netflowv9_defragment(plist, verb=1):
-    """Process all NetflowV9 Packets to match IDs of the DataFlowsets
+    """Process all NetflowV9/10 Packets to match IDs of the DataFlowsets
     with the Headers
 
     params:
-     - plist: the list of mixed NetflowV9 packets.
+     - plist: the list of mixed NetflowV9/10 packets.
      - verb: verbose print (0/1)
     """
-    # We need the whole packet to be dissected to access field def in NetflowFlowsetV9 or NetflowOptionsFlowsetV9  # noqa: E501
+    if not isinstance(plist, (PacketList, list)):
+        plist = [plist]
+    # We need the whole packet to be dissected to access field def in
+    # NetflowFlowsetV9 or NetflowOptionsFlowsetV9/10
     definitions = {}
     definitions_opts = {}
     ignored = set()
@@ -1328,7 +1478,15 @@ def netflowv9_defragment(plist, verb=1):
     return plist
 
 
+def ipfix_defragment(*args, **kwargs):
+    """Alias for netflowv9_defragment"""
+    return netflowv9_defragment(*args, **kwargs)
+
+
 class NetflowSession(IPSession):
+    """Session used to defragment NetflowV9/10 packets on the flow.
+    See help(scapy.layers.netflow) for more infos.
+    """
     def __init__(self, *args):
         IPSession.__init__(self, *args)
         self.definitions = {}
@@ -1358,15 +1516,18 @@ class NetflowOptionsRecordOptionV9(NetflowRecordV9):
     name = "Netflow Options Template Record V9 - Option"
 
 
+# Aka Set
 class NetflowOptionsFlowsetOptionV9(Packet):
     name = "Netflow Options Template FlowSet V9 - Option"
-    fields_desc = [ShortEnumField("optionFieldType", None, NetflowV9TemplateFieldTypes),  # noqa: E501
+    fields_desc = [ShortEnumField("optionFieldType", None,
+                                  NetflowV910TemplateFieldTypes),
                    ShortField("optionFieldlength", 0)]
 
     def default_payload_class(self, p):
         return conf.padding_layer
 
 
+# Aka Set
 class NetflowOptionsFlowsetScopeV9(Packet):
     name = "Netflow Options Template FlowSet V9 - Scope"
     fields_desc = [ShortEnumField("scopeFieldType", None, ScopeFieldTypes),
@@ -1414,8 +1575,50 @@ class NetflowOptionsFlowsetV9(Packet):
         return pkt + pay
 
 
+# https://tools.ietf.org/html/rfc5101#section-3.4.2.2
+class NetflowOptionsFlowset10(NetflowOptionsFlowsetV9):
+    name = "Netflow V10 (IPFix) Options Template FlowSet"
+    fields_desc = [ShortField("flowSetID", 3),
+                   ShortField("length", None),
+                   ShortField("templateID", 255),
+                   # Slightly different counting than in its NetflowV9
+                   # counterpart: we count the total, and among them which
+                   # ones are scopes. Also, it's count, not length
+                   FieldLenField("field_count", None,
+                                 count_of="options",
+                                 adjust=lambda pkt, x: (
+                                     x + pkt.get_field(
+                                         "scope_field_count").i2m(pkt, None))),
+                   FieldLenField("scope_field_count", None,
+                                 count_of="scopes"),
+                   # We can't use PadField as we have 2 PacketListField
+                   PacketListField(
+                       "scopes", [],
+                       NetflowOptionsFlowsetScopeV9,
+                       count_from=lambda pkt: pkt.scope_field_count),
+                   PacketListField(
+                       "options", [],
+                       NetflowOptionsFlowsetOptionV9,
+                       count_from=lambda pkt: (
+                           pkt.field_count - pkt.scope_field_count
+                       ))]
+
+    def extract_padding(self, s):
+        if self.length is None:
+            return s, ""
+        # Calc pad length
+        pad_len = self.length - (self.scope_field_count * 4) - 10
+        return s[pad_len:], s[:pad_len]
+
+
 bind_layers(NetflowHeader, NetflowHeaderV9, version=9)
 bind_layers(NetflowHeaderV9, NetflowDataflowsetV9)
 bind_layers(NetflowDataflowsetV9, NetflowDataflowsetV9)
 bind_layers(NetflowOptionsFlowsetV9, NetflowDataflowsetV9)
 bind_layers(NetflowFlowsetV9, NetflowDataflowsetV9)
+
+# Apart from the first header, IPFix and NetflowV9 have the same format
+# (except the Options Template)
+# https://tools.ietf.org/html/rfc5655#appendix-B.1.2
+bind_layers(NetflowHeader, NetflowHeaderV10, version=10)
+bind_layers(NetflowHeaderV10, NetflowDataflowsetV9)

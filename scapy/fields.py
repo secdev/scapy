@@ -2158,20 +2158,33 @@ class IP6PrefixField(_IPPrefixFieldBase):
 
 
 class UTCTimeField(IntField):
-    __slots__ = ["epoch", "delta", "strf", "use_nano"]
+    __slots__ = ["epoch", "delta", "strf",
+                 "use_msec", "use_micro", "use_nano"]
 
-    def __init__(self, name, default, epoch=None, use_nano=False,
+    # Do not change the order of the keywords in here
+    # Netflow heavily rely on this
+    def __init__(self, name, default,
+                 use_msec=False,
+                 use_micro=False,
+                 use_nano=False,
+                 epoch=None,
                  strf="%a, %d %b %Y %H:%M:%S %z"):
         IntField.__init__(self, name, default)
         mk_epoch = EPOCH if epoch is None else calendar.timegm(epoch)
         self.epoch = mk_epoch
         self.delta = mk_epoch - EPOCH
         self.strf = strf
+        self.use_msec = use_msec
+        self.use_micro = use_micro
         self.use_nano = use_nano
 
     def i2repr(self, pkt, x):
         if x is None:
             x = 0
+        elif self.use_msec:
+            x = x / 1e3
+        elif self.use_micro:
+            x = x / 1e6
         elif self.use_nano:
             x = x / 1e9
         x = int(x) + self.delta
@@ -2183,17 +2196,28 @@ class UTCTimeField(IntField):
 
 
 class SecondsIntField(IntField):
-    __slots__ = ["use_msec"]
+    __slots__ = ["use_msec", "use_micro", "use_nano"]
 
-    def __init__(self, name, default, use_msec=False):
+    # Do not change the order of the keywords in here
+    # Netflow heavily rely on this
+    def __init__(self, name, default,
+                 use_msec=False,
+                 use_micro=False,
+                 use_nano=False):
         IntField.__init__(self, name, default)
         self.use_msec = use_msec
+        self.use_micro = use_micro
+        self.use_nano = use_nano
 
     def i2repr(self, pkt, x):
         if x is None:
             x = 0
         elif self.use_msec:
             x = x / 1e3
+        elif self.use_micro:
+            x = x / 1e6
+        elif self.use_nano:
+            x = x / 1e9
         return "%s sec" % x
 
 
