@@ -692,11 +692,12 @@ _dot11_info_elts_ids = {
     48: "RSNinfo",
     50: "ESRates",
     52: "PowerConstraint",
+    61: "HTinfo",
+    68: "reserved",
     107: "Interworking",
     127: "ExtendendCapatibilities",
     191: "VHTCapabilities",
-    221: "vendor",
-    68: "reserved"
+    221: "vendor"
 }
 
 
