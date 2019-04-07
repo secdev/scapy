@@ -609,7 +609,7 @@ Here is a real example take from Scapy. It implements a TFTP client that can iss
             self.my_tid = self.sport or RandShort()._fix()
             bind_bottom_up(UDP, TFTP, dport=self.my_tid)
             self.server_tid = None
-            self.res = ""
+            self.res = b""
     
             self.l3 = IP(dst=self.server)/UDP(sport=self.my_tid, dport=self.port)/TFTP()
             self.last_packet = self.l3/TFTP_RRQ(filename=self.filename, mode="octet")
