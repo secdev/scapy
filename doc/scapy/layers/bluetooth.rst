@@ -384,8 +384,46 @@ Setting up advertising
    Changing advertisements may not take effect until advertisements have first
    been :ref:`stopped <le-adv-stop>`.
 
-Eddystone URL beacon
-^^^^^^^^^^^^^^^^^^^^
+AltBeacon
+^^^^^^^^^
+
+`AltBeacon`__ is a proximity beacon protocol developed by Radius Networks.  This
+example sets up a virtual AltBeacon:
+
+__ https://github.com/AltBeacon/spec
+
+.. code-block:: python3
+
+    # Load the contrib module for AltBeacon
+    load_contrib('altbeacon')
+
+    ab = AltBeacon(
+        id1='2f234454-cf6d-4a0f-adf2-f4911ba9ffa6',
+        id2=1,
+        id3=2,
+        tx_power=-59,
+    )
+
+    bt.sr(ab.build_set_advertising_data())
+
+Once :ref:`advertising has been started <le-adv-start>`, the beacon may then be
+detected with `Beacon Locator`__ (Android).
+
+.. note::
+
+    Beacon Locator v1.2.2 `incorrectly reports the beacon as being an
+    iBeacon`__, but the values are otherwise correct.
+
+__ https://github.com/vitas/beaconloc
+__ https://github.com/vitas/beaconloc/issues/32
+
+Eddystone
+^^^^^^^^^
+
+`Eddystone`__ is a proximity beacon protocol developed by Google. This uses an
+Eddystone-specific service data field.
+
+__ https://github.com/google/eddystone/
 
 This example sets up a virtual `Eddystone URL`__ beacon:
 

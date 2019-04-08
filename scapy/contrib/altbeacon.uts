@@ -1,0 +1,94 @@
+% AltBeacon unit tests
+#
+# Type the following command to launch start the tests:
+# $ test/run_tests -P "load_contrib('altbeacon')" -t scapy/contrib/altbeacon.uts
+#
+# AltBeaconParser tests adapted from:
+# https://github.com/AltBeacon/android-beacon-library/blob/master/lib/src/test/java/org/altbeacon/beacon/AltBeaconParserTest.java
+
++ AltBeacon tests
+
+= Setup
+
+def next_eir(p):
+   return EIR_Hdr(p[Padding])
+
+= Presence check
+
+AltBeacon
+
+= AltBeaconParserTest.testRecognizeBeacon
+
+d = hex_bytes('02011a1bff1801beac2f234454cf6d4a0fadf2f4911ba9ffa600010002c509')
+p = EIR_Hdr(d)
+
+# First is a flags header
+assert EIR_Flags in p
+
+# Then the AltBeacon
+p = next_eir(p)
+assert p[EIR_Manufacturer_Specific_Data].company_id == RADIUS_NETWORKS_MFG
+assert p[AltBeacon].mfg_reserved == 9
+
+
+= AltBeaconParserTest.testDetectsDaveMHardwareBeacon
+
+d = hex_bytes('02011a1bff1801beac2f234454cf6d4a0fadf2f4911ba9ffa600050003be020e09526164426561636f6e20555342020a03000000000000000000000000')
+p = EIR_Hdr(d)
+
+# First is Flags
+assert EIR_Flags in p
+
+# Then the AltBeacon
+p = next_eir(p)
+assert p[EIR_Manufacturer_Specific_Data].company_id == RADIUS_NETWORKS_MFG
+assert AltBeacon in p
+
+# Then CompleteLocalName
+p = next_eir(p)
+assert p[EIR_CompleteLocalName].local_name == b'RadBeacon USB'
+
+# Then TX_Power_Level
+p = next_eir(p)
+assert p[EIR_TX_Power_Level].level == 3
+
+= AltBeaconParserTest.testParseWrongFormatReturnsNothing
+
+d = hex_bytes('02011a1aff1801ffff2f234454cf6d4a0fadf2f4911ba9ffa600010002c509')
+p = EIR_Hdr(d)
+
+# First is Flags
+assert EIR_Flags in p
+
+# Then the EIR_Manufacturer_Specific_Data
+p = next_eir(p)
+assert p[EIR_Manufacturer_Specific_Data].company_id == RADIUS_NETWORKS_MFG
+assert AltBeacon not in p
+
+= AltBeaconParserTest.testParsesBeaconMissingDataField
+
+d = hex_bytes('02011a1aff1801beac2f234454cf6d4a0fadf2f4911ba9ffa600010002c50000')
+p = EIR_Hdr(d)
+
+# First is Flags
+assert EIR_Flags in p
+
+# Then the EIR_Manufacturer_Specific_Data
+p = next_eir(p)
+assert p[EIR_Manufacturer_Specific_Data].company_id == RADIUS_NETWORKS_MFG
+assert p[AltBeacon].id1 == uuid.UUID('2f234454-cf6d-4a0f-adf2-f4911ba9ffa6')
+assert p[AltBeacon].id2 == 1
+assert p[AltBeacon].id3 == 2
+assert p[AltBeacon].tx_power == -59
+
+= Build EIR
+
+p = AltBeacon(
+    id1=uuid.UUID('2f234454-cf6d-4a0f-adf2-f4911ba9ffa6'),
+    id2=1,
+    id3=2,
+    tx_power=-59,
+)
+
+d = raw(p.build_eir()[-1])
+assert d == hex_bytes('1bff1801beac2f234454cf6d4a0fadf2f4911ba9ffa600010002c500')
