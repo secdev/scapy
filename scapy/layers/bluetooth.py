@@ -705,7 +705,35 @@ class EIR_Manufacturer_Specific_Data(EIR_Element):
 
     @classmethod
     def register_magic_payload(cls, payload_cls, magic_check=None):
-        """Registers a class using magic data."""
+        """
+        Registers a payload type that uses magic data.
+
+        Traditional payloads require registration of a Bluetooth Company ID
+        (requires company membership of the Bluetooth SIG), or a Bluetooth
+        Short UUID (requires a once-off payment).
+
+        There are alternatives which don't require registration (such as
+        128-bit UUIDs), but the biggest consumer of energy in a beacon is the
+        radio -- so the energy consumption of a beacon is proportional to the
+        number of bytes in a beacon frame.
+
+        Some beacon formats side-step this issue by using the Company ID of
+        their beacon hardware manufacturer, and adding a "magic data sequence"
+        at the start of the Manufacturer Specific Data field.
+
+        Examples of this are AltBeacon and GeoBeacon.
+
+        For an example of this method in use, see ``scapy.contrib.altbeacon``.
+
+        :param Type[Packet] payload_cls:
+            A reference to a Packet subclass to register as a payload.
+        :param Callable[[bytes], bool] magic_check:
+            (optional) callable to use to if a payload should be associated
+            with this type. If not supplied, ``payload_cls.magic_check`` is
+            used instead.
+        :raises TypeError: If ``magic_check`` is not specified,
+                           and ``payload_cls.magic_check`` is not implemented.
+        """
         if magic_check is None:
             if hasattr(payload_cls, "magic_check"):
                 magic_check = payload_cls.magic_check
