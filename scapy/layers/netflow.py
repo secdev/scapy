@@ -1233,6 +1233,7 @@ class NetflowHeaderV9(Packet):
 
 # https://tools.ietf.org/html/rfc5655#appendix-B.1.1
 class NetflowHeaderV10(Packet):
+    """IPFix (Netflow V10) Header"""
     name = "IPFix (Netflow V10) Header"
     fields_desc = [ShortField("length", None),
                    UTCTimeField("ExportTime", 0),
@@ -1241,7 +1242,7 @@ class NetflowHeaderV10(Packet):
 
 
 class NetflowTemplateFieldV9(Packet):
-    name = "Netflow Flowset Template Field V9"
+    name = "Netflow Flowset Template Field V9/10"
     fields_desc = [ShortEnumField("fieldType", None,
                                   NetflowV910TemplateFieldTypes),
                    ShortField("fieldLength", 0)]
@@ -1256,7 +1257,7 @@ class NetflowTemplateFieldV9(Packet):
 
 
 class NetflowTemplateV9(Packet):
-    name = "Netflow Flowset Template V9"
+    name = "Netflow Flowset Template V9/10"
     fields_desc = [ShortField("templateID", 255),
                    FieldLenField("fieldCount", None, count_of="template_fields"),  # noqa: E501
                    PacketListField("template_fields", [], NetflowTemplateFieldV9,  # noqa: E501
@@ -1267,7 +1268,7 @@ class NetflowTemplateV9(Packet):
 
 
 class NetflowFlowsetV9(Packet):
-    name = "Netflow FlowSet V9"
+    name = "Netflow FlowSet V9/10"
     fields_desc = [ShortField("flowSetID", 0),
                    FieldLenField("length", None, length_of="templates",
                                  adjust=lambda pkt, x:x + 4),
@@ -1318,7 +1319,7 @@ def _GenNetflowRecordV9(cls, lengths_list):
 
 
 class NetflowRecordV9(Packet):
-    name = "Netflow DataFlowset Record V9"
+    name = "Netflow DataFlowset Record V9/10"
     fields_desc = [StrField("fieldValue", "")]
 
     def default_payload_class(self, p):
@@ -1326,7 +1327,7 @@ class NetflowRecordV9(Packet):
 
 
 class NetflowDataflowsetV9(Packet):
-    name = "Netflow DataFlowSet V9"
+    name = "Netflow DataFlowSet V9/10"
     fields_desc = [ShortField("templateID", 255),
                    FieldLenField("length", None, length_of="records",
                                  adjust=lambda pkt, x: x + 4 + (-x % 4)),
@@ -1449,7 +1450,7 @@ def _netflowv9_defragment_packet(pkt, definitions, definitions_opts, ignored):
                 )
             # Inject dissected data
             datafl.records = res
-            datafl.name = "Netflow DataFlowSet V9 - OPTIONS"
+            datafl.name = "Netflow DataFlowSet V9/10 - OPTIONS"
 
 
 def netflowv9_defragment(plist, verb=1):
@@ -1509,16 +1510,16 @@ class NetflowSession(IPSession):
 
 
 class NetflowOptionsRecordScopeV9(NetflowRecordV9):
-    name = "Netflow Options Template Record V9 - Scope"
+    name = "Netflow Options Template Record V9/10 - Scope"
 
 
 class NetflowOptionsRecordOptionV9(NetflowRecordV9):
-    name = "Netflow Options Template Record V9 - Option"
+    name = "Netflow Options Template Record V9/10 - Option"
 
 
 # Aka Set
 class NetflowOptionsFlowsetOptionV9(Packet):
-    name = "Netflow Options Template FlowSet V9 - Option"
+    name = "Netflow Options Template FlowSet V9/10 - Option"
     fields_desc = [ShortEnumField("optionFieldType", None,
                                   NetflowV910TemplateFieldTypes),
                    ShortField("optionFieldlength", 0)]
@@ -1529,7 +1530,7 @@ class NetflowOptionsFlowsetOptionV9(Packet):
 
 # Aka Set
 class NetflowOptionsFlowsetScopeV9(Packet):
-    name = "Netflow Options Template FlowSet V9 - Scope"
+    name = "Netflow Options Template FlowSet V9/10 - Scope"
     fields_desc = [ShortEnumField("scopeFieldType", None, ScopeFieldTypes),
                    ShortField("scopeFieldlength", 0)]
 
@@ -1577,6 +1578,7 @@ class NetflowOptionsFlowsetV9(Packet):
 
 # https://tools.ietf.org/html/rfc5101#section-3.4.2.2
 class NetflowOptionsFlowset10(NetflowOptionsFlowsetV9):
+    """Netflow V10 (IPFix) Options Template FlowSet"""
     name = "Netflow V10 (IPFix) Options Template FlowSet"
     fields_desc = [ShortField("flowSetID", 3),
                    ShortField("length", None),

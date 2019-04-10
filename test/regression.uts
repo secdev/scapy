@@ -6571,6 +6571,8 @@ assert raw(pkt) == b'\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x00\x00\x00\x00\x08\x00E\x
 + Netflow v10 (aka IPFix)
 ~ netflow
 
+= IPFix dissection
+
 import os
 tmp = "/test/pcaps/ipfix.pcap"
 filename = os.path.abspath(os.path.join(os.path.dirname(__file__),"../")) + tmp
@@ -6584,7 +6586,7 @@ assert len(pkt1[NetflowFlowsetV9].templates) == 1
 assert len(pkt1[NetflowFlowsetV9].templates[0].template_fields) == 23
 flds = pkt1[NetflowFlowsetV9].templates[0].template_fields
 assert (flds[0].fieldType == 8 and flds[0].fieldLength == 4)
-assert (flds[4].fieldType == 7 and flds[0].fieldLength == 2)
+assert (flds[4].fieldType == 7 and flds[4].fieldLength == 2)
 
 # Data
 pkt2 = a[2]
