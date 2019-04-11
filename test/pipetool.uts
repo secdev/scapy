@@ -165,6 +165,7 @@ p.start()
 
 p.wait_and_stop()
 assert c.recv() == "hello"
+assert c.recv(block=False) is None
 
 = Test UpDrain
 
@@ -318,22 +319,76 @@ from io import BytesIO
 f = BytesIO()
 pkt = Ether()/IP()/ICMP()
 
-with mock.patch("subprocess.Popen", return_value=Bunch(stdin=f)):
+with mock.patch("subprocess.Popen", return_value=Bunch(stdin=f)) as popen:
     p = PipeEngine()
     src = CLIFeeder()
-    d = Drain()
     sink = WiresharkSink()
-    p.add(src > d > sink)
+    p.add(src > sink)
     p.start()
     src.send(pkt)
-    time.sleep(1)
-    # Prevent stop from closing us
-    sink.f = None
-    # Now stop
-    p.stop()
+    time.sleep(3)
+    # Prevent stop from closing the BytesIO
+    with mock.patch.object(f, 'close'):
+        p.stop()
 
-print(bytes_hex(f.getvalue()))
+popen.assert_called_once_with(
+    [conf.prog.wireshark, '-ki', '-'], stdin=subprocess.PIPE, stdout=None,
+    stderr=None)
+bytes_hex(f.getvalue())
+bytes_hex(raw(pkt))
 assert raw(pkt) in f.getvalue()
+
+= Test WiresharkSink with linktype
+
+f = BytesIO()
+pkt = Ether()/IP()/ICMP()
+linktype = scapy.data.DLT_EN3MB
+
+with mock.patch("subprocess.Popen", return_value=Bunch(stdin=f)) as popen:
+    p = PipeEngine()
+    src = CLIFeeder()
+    sink = WiresharkSink(linktype=linktype)
+    p.add(src > sink)
+    p.start()
+    src.send(pkt)
+    time.sleep(3)
+    # Prevent stop from closing the BytesIO
+    with mock.patch.object(f, 'close'):
+        p.stop()
+
+popen.assert_called_once_with(
+    [conf.prog.wireshark, '-ki', '-'],
+    stdin=subprocess.PIPE, stdout=None, stderr=None)
+
+bytes_hex(f.getvalue())
+bytes_hex(raw(pkt))
+assert raw(pkt) in f.getvalue()
+
+# Check that the linktype was also correct
+f.seek(0) or None
+r = PcapReader(f)
+assert r.linktype == DLT_EN3MB
+
+= Test WiresharkSink with args
+
+f = BytesIO()
+pkt = Ether()/IP()/ICMP()
+
+with mock.patch("subprocess.Popen", return_value=Bunch(stdin=f)) as popen:
+    p = PipeEngine()
+    src = CLIFeeder()
+    sink = WiresharkSink(args=['-c', '1'])
+    p.add(src > sink)
+    p.start()
+    src.send(pkt)
+    time.sleep(3)
+    # Prevent stop from closing the BytesIO
+    with mock.patch.object(f, 'close'):
+        p.stop()
+
+popen.assert_called_once_with(
+    [conf.prog.wireshark, '-ki', '-', '-c', '1'],
+    stdin=subprocess.PIPE, stdout=None, stderr=None)
 
 = Test RdpcapSource and WrpcapSink
 

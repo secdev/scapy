@@ -145,13 +145,14 @@ class WrpcapSink(Sink):
      +----------+
 """
 
-    def __init__(self, fname, name=None):
+    def __init__(self, fname, name=None, linktype=None):
         Sink.__init__(self, name=name)
         self.fname = fname
         self.f = None
+        self.linktype = linktype
 
     def start(self):
-        self.f = PcapWriter(self.fname)
+        self.f = PcapWriter(self.fname, linktype=self.linktype)
 
     def stop(self):
         if self.f:
@@ -173,15 +174,20 @@ class WiresharkSink(WrpcapSink):
          +----------+
     """
 
-    def __init__(self, name=None):
-        WrpcapSink.__init__(self, fname=None, name=name)
+    def __init__(self, name=None, linktype=None, args=None):
+        WrpcapSink.__init__(self, fname=None, name=name, linktype=linktype)
+        self.args = args
 
     def start(self):
         # Wireshark must be running first, because PcapWriter will block until
         # data has been read!
         with ContextManagerSubprocess("WiresharkSink", conf.prog.wireshark):
+            args = [conf.prog.wireshark, "-ki", "-"]
+            if self.args:
+                args.extend(self.args)
+
             proc = subprocess.Popen(
-                [conf.prog.wireshark, "-ki", "-"],
+                args,
                 stdin=subprocess.PIPE,
                 stdout=None,
                 stderr=None,
