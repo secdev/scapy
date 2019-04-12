@@ -17,10 +17,11 @@ import code
 import gzip
 import glob
 import importlib
-import logging
-from random import choice
-import types
 import io
+import logging
+import types
+import warnings
+from random import choice
 
 # Never add any global import, in main.py, that would trigger a warning message  # noqa: E501
 # before the console handlers gets added in interact()
@@ -83,7 +84,11 @@ def _read_config_file(cf, _globals=globals(), _locals=locals(), interactive=True
     """
     log_loading.debug("Loading config file [%s]", cf)
     try:
-        exec(compile(open(cf).read(), cf, 'exec'), _globals, _locals)
+        with open(cf) as cfgf:
+            exec(
+                compile(cfgf.read(), cf, 'exec'),
+                _globals, _locals
+            )
     except IOError as e:
         if interactive:
             raise
@@ -472,6 +477,9 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
             )
         )
     log_scapy.addHandler(console_handler)
+
+    # We're in interactive mode, let's throw the DeprecationWarnings
+    warnings.simplefilter("always")
 
     from scapy.config import conf
     conf.interactive = True

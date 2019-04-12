@@ -1811,6 +1811,33 @@ assert(r == data_129["extended"])
 
 ############
 ############
++ AliasField
+
+= AliasField: basic test
+
+class TestPacket(Packet):
+    fields_desc = [
+        ByteField("a", 0),
+        LEShortField("b", 15),
+        AliasField("B", "b"),
+        AliasField("dpr", "a", deprecated=True)
+    ]
+
+pkt = TestPacket(a=2, B=3)
+assert pkt.B == 3
+assert pkt.b == 3
+assert pkt.a == 2
+
+import warnings
+
+with warnings.catch_warnings(record=True) as w:
+    warnings.simplefilter("always")
+    assert pkt.dpr == 2
+    assert len(w) == 1
+    assert issubclass(w[-1].category, DeprecationWarning)
+
+############
+############
 + FCSField
 
 = FCSField: basic test
