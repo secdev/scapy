@@ -637,7 +637,9 @@ class _Dot11NetStats(Packet):
                 summary["country"] = plain_str(p.country_string[:2])
                 country_descriptor_types = {
                     b"I": "Indoor",
-                    b"O": "Outdoor"
+                    b"O": "Outdoor",
+                    b"X": "Non-country",
+                    b"\xff": "Ignored"
                 }
                 summary["country_desc_type"] = country_descriptor_types.get(
                     p.country_string[-1:]
@@ -702,11 +704,13 @@ _dot11_info_elts_ids = {
 
 
 class Dot11Elt(Packet):
+    __slots__ = ["info"]
     name = "802.11 Information Element"
     fields_desc = [ByteEnumField("ID", 0, _dot11_info_elts_ids),
                    FieldLenField("len", None, "info", "B"),
                    StrLenField("info", "", length_from=lambda x: x.len,
                                max_length=255)]
+    show_indent = 0
 
     def mysummary(self):
         if self.ID == 0:
@@ -757,6 +761,16 @@ class Dot11Elt(Packet):
     def getlayer(self, cls, nb=1, _track=None, _subclass=True, **flt):
         return super(Dot11Elt, self).getlayer(cls, nb=nb, _track=_track,
                                               _subclass=True, **flt)
+
+    def pre_dissect(self, s):
+        # Backward compatibility: add info to all elements
+        # This allows to introduce new Dot11Elt classes without breaking
+        # previous code
+        if len(s) >= 3:
+            length = orb(s[1])
+            if length > 0 and length <= 255:
+                self.info = s[2:2 + length]
+        return s
 
     def post_build(self, p, pay):
         if self.len is None:
@@ -864,7 +878,7 @@ class Dot11EltCountryConstraintTriplet(Packet):
     fields_desc = [
         ByteField("first_channel_number", 1),
         ByteField("num_channels", 24),
-        _dbmField("mtp", -256)
+        ByteField("mtp", 0)
     ]
 
     def extract_padding(self, s):
@@ -881,7 +895,9 @@ class Dot11EltCountry(Dot11Elt):
             PacketListField("descriptors",
                             [],
                             Dot11EltCountryConstraintTriplet,
-                            length_from=lambda pkt: pkt.len - (pkt.len % 3)),
+                            length_from=lambda pkt: (
+                                pkt.len - 3 - (pkt.len % 3)
+                            )),
             2, padwith=b"\x00"
         )
     ]
