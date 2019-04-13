@@ -298,10 +298,11 @@ class PubKeyRSA(PubKey, _EncryptAndVerifyRSA):
 
     def encrypt(self, msg, t="pkcs", h="sha256", mgf=None, L=None):
         # no ECDSA encryption support, hence no ECDSA specific keywords here
-        return _EncryptAndVerifyRSA.encrypt(self, msg, t, h, mgf, L)
+        return _EncryptAndVerifyRSA.encrypt(self, msg, t=t, h=h, mgf=mgf, L=L)
 
     def verify(self, msg, sig, t="pkcs", h="sha256", mgf=None, L=None):
-        return _EncryptAndVerifyRSA.verify(self, msg, sig, t, h, mgf, L)
+        return _EncryptAndVerifyRSA.verify(
+            self, msg, sig, t=t, h=h, mgf=mgf, L=L)
 
 
 class PubKeyECDSA(PubKey):
@@ -510,10 +511,11 @@ class PrivKeyRSA(PrivKey, _EncryptAndVerifyRSA, _DecryptAndSignRSA):
 
     def verify(self, msg, sig, t="pkcs", h="sha256", mgf=None, L=None):
         # Let's copy this from PubKeyRSA instead of adding another baseclass :)
-        return _EncryptAndVerifyRSA.verify(self, msg, sig, t, h, mgf, L)
+        return _EncryptAndVerifyRSA.verify(
+            self, msg, sig, t=t, h=h, mgf=mgf, L=L)
 
     def sign(self, data, t="pkcs", h="sha256", mgf=None, L=None):
-        return _DecryptAndSignRSA.sign(self, data, t, h, mgf, L)
+        return _DecryptAndSignRSA.sign(self, data, t=t, h=h, mgf=mgf, L=L)
 
 
 class PrivKeyECDSA(PrivKey):
@@ -668,10 +670,10 @@ class Cert(six.with_metaclass(_CertMaker, object)):
 
     def encrypt(self, msg, t="pkcs", h="sha256", mgf=None, L=None):
         # no ECDSA *encryption* support, hence only RSA specific keywords here
-        return self.pubKey.encrypt(msg, t, h, mgf, L)
+        return self.pubKey.encrypt(msg, t=t, h=h, mgf=mgf, L=L)
 
     def verify(self, msg, sig, t="pkcs", h="sha256", mgf=None, L=None):
-        return self.pubKey.verify(msg, sig, t, h, mgf, L)
+        return self.pubKey.verify(msg, sig, t=t, h=h, mgf=mgf, L=L)
 
     def remainingDays(self, now=None):
         """

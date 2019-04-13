@@ -485,8 +485,7 @@ class TLS(_GenericTLSSessionInheritance):
 
         frag = self._tls_decompress(cfrag)
 
-        if (decryption_success and
-                not isinstance(self.tls_session.rcs.cipher, Cipher_NULL)):
+        if decryption_success:
             self.deciphered_len = len(frag)
         else:
             self.deciphered_len = None
