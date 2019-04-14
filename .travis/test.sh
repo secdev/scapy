@@ -31,7 +31,7 @@ then
   UT_FLAGS+=" -K vcan_socket"
 fi
 
-# Dump Environment (so that we can check PATH, UT_FLAGS, etc.)
-set
+# Dump UT_FLAGS (the others were already dumped in install.sh)
+echo UT_FLAGS=$UT_FLAGS
 
 tox -- $UT_FLAGS
