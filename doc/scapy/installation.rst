@@ -137,7 +137,7 @@ Here are the topics involved and some examples that you can use to try if your i
 
 * 3D graphics. ``trace3D()`` needs `VPython-Jupyter <https://github.com/BruceSherwood/vpython-jupyter/>`_.
 
-  Jupyter-IPython is installable via ``pip install vpython``
+  VPython-Jupyter is installable via ``pip install vpython``
 
   .. code-block:: python
 
