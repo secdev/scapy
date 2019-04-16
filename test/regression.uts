@@ -6504,25 +6504,25 @@ filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else 
 a = rdpcap(filename)
 a = netflowv9_defragment(a)
 
-nfv9_fl = a[4]
+nfv9_fl = a[0]
 assert NetflowFlowsetV9 in nfv9_fl
 assert len(nfv9_fl.templates[0].template_fields) == 21
 assert nfv9_fl.templates[0].template_fields[1].fieldType == 12
 
-nfv9_ds = a[61]
+nfv9_ds = a[3]
 assert NetflowDataflowsetV9 in nfv9_ds
 assert len(nfv9_ds[NetflowDataflowsetV9].records) == 24
 assert nfv9_ds[NetflowDataflowsetV9].records[21].IP_PROTOCOL_VERSION == 4
 assert nfv9_ds.records[21].IPV4_SRC_ADDR == '20.0.0.248'
 assert nfv9_ds.records[21].IPV4_DST_ADDR == '30.0.0.248'
 
-nfv9_options_fl = a[5]
+nfv9_options_fl = a[1]
 assert NetflowOptionsFlowsetV9 in nfv9_options_fl
 assert isinstance(nfv9_options_fl[NetflowOptionsFlowsetV9].scopes[0], NetflowOptionsFlowsetScopeV9)
 assert isinstance(nfv9_options_fl[NetflowOptionsFlowsetV9].options[0], NetflowOptionsFlowsetOptionV9)
 assert nfv9_options_fl[NetflowOptionsFlowsetV9].options[0].optionFieldType == 36
 
-nfv9_options_ds = a[255]
+nfv9_options_ds = a[4]
 assert NetflowDataflowsetV9 in nfv9_options_ds
 assert isinstance(nfv9_options_ds.records[0], NetflowOptionsRecordScopeV9)
 assert nfv9_options_ds.records[0].IN_BYTES == b'\x01\x00\x00\x00'
@@ -6565,6 +6565,46 @@ assert pkt.records[0].OUTPUT_SNMP == b'\x00\x00\x02\xfb'
 
 assert raw(pkt) == b'\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x00\x00\x00\x00\x08\x00E\x00\x00\xcc\x00\x01\x00\x00@\x11|\x1e\x7f\x00\x00\x01\x7f\x00\x00\x01\x08\x07\x08\x07\x00\xb8\x86\xe7\x00\t\x00\x02\x00\x00\x00\x00\\C\x7f5\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\\\x01\xa8\x00\x15\x00\x08\x00\x04\x00\x0c\x00\x04\x00\x05\x00\x01\x00\x04\x00\x01\x00\x07\x00\x02\x00\x0b\x00\x02\x00 \x00\x02\x00\n\x00\x04\x00\x10\x00\x04\x00\x11\x00\x04\x00\x12\x00\x04\x00\x0e\x00\x04\x00\x01\x00\x04\x00\x02\x00\x04\x00\x16\x00\x04\x00\x15\x00\x04\x00\x0f\x00\x04\x00\t\x00\x01\x00\r\x00\x01\x00\x06\x00\x01\x00<\x00\x01\x01\xa8\x00@\x14\x00\x00\xfd\x1e\x00\x00\xfd\x00\xfd\x00\x00\x00\x00\x00\x00\x00\x00\x03 \x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x02\xfb\x00\x15a|\x00\x00\x07\x0f$\x95x\xed$\x99\x91<\ndg\x01  \x00\x04'
 
+
+############
+############
++ Netflow v10 (aka IPFix)
+~ netflow
+
+= IPFix dissection
+
+import os
+tmp = "/test/pcaps/ipfix.pcap"
+filename = os.path.abspath(os.path.join(os.path.dirname(__file__),"../")) + tmp
+filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else filename
+a = sniff(offline=filename, session=NetflowSession)
+
+# Templates
+pkt1 = a[0]
+assert NetflowHeaderV10 in pkt1
+assert len(pkt1[NetflowFlowsetV9].templates) == 1
+assert len(pkt1[NetflowFlowsetV9].templates[0].template_fields) == 23
+flds = pkt1[NetflowFlowsetV9].templates[0].template_fields
+assert (flds[0].fieldType == 8 and flds[0].fieldLength == 4)
+assert (flds[4].fieldType == 7 and flds[4].fieldLength == 2)
+
+# Data
+pkt2 = a[2]
+assert NetflowHeaderV10 in pkt2
+assert len(pkt2.records) == 1
+assert pkt2.records[0].IPV4_SRC_ADDR == "70.1.115.1"
+assert pkt2.records[0].flowStartMilliseconds == 1480449931519
+
+# Options
+pkt3 = a[1]
+assert NetflowOptionsFlowset10 in pkt3
+assert pkt3.scope_field_count == 1
+assert pkt3.field_count == 3
+assert len(pkt3[NetflowOptionsFlowset10].scopes) == 1
+assert len(pkt3[NetflowOptionsFlowset10].options) == 2
+assert pkt3.scopes[0].scopeFieldType == 5
+assert pkt3.scopes[0].scopeFieldlength == 2
+assert pkt3[NetflowOptionsFlowset10].options[0].optionFieldType == 36
 
 ############
 ############
@@ -6760,10 +6800,10 @@ dissected_packets = []
 def callback(pkt):
 	dissected_packets.append(pkt)
 
-sniff(offline=filename, session=NetflowSession, prn=callback, count=50)
-records = dissected_packets[44][NetflowDataflowsetV9].records
-assert len(records) == 21
-assert records[0].IPV4_SRC_ADDR == '20.0.2.82'
+sniff(offline=filename, session=NetflowSession, prn=callback)
+records = dissected_packets[3][NetflowDataflowsetV9].records
+assert len(records) == 24
+assert records[0].IPV4_SRC_ADDR == '20.0.1.174'
 assert records[0].IPV4_NEXT_HOP == '10.100.103.1'
 
 
