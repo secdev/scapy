@@ -14,9 +14,11 @@ import os
 import re
 import socket
 import struct
+import subprocess
 
 from scapy.arch.bpf.consts import BIOCSETF, SIOCGIFFLAGS, BIOCSETIF
 from scapy.arch.common import get_if, compile_filter
+from scapy.compat import plain_str
 from scapy.config import conf
 from scapy.consts import LOOPBACK_NAME
 from scapy.data import ARPHDR_LOOPBACK, ARPHDR_ETHER
@@ -37,14 +39,21 @@ def get_if_raw_addr(ifname):
     """Returns the IPv4 address configured on 'ifname', packed with inet_pton."""  # noqa: E501
 
     # Get ifconfig output
-    try:
-        fd = os.popen("%s %s" % (conf.prog.ifconfig, ifname))
-    except OSError as msg:
-        warning("Failed to execute ifconfig: (%s)", msg)
+    subproc = subprocess.Popen(
+        [conf.prog.ifconfig, ifname],
+        close_fds=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    stdout, stderr = subproc.communicate()
+    if subproc.returncode:
+        warning("Failed to execute ifconfig: (%s)", plain_str(stderr))
         return b"\0\0\0\0"
-
     # Get IPv4 addresses
-    addresses = [l for l in fd if l.find("inet ") >= 0]
+
+    addresses = [
+        line for line in plain_str(stdout).splitlines()
+        if "inet " in line
+    ]
+
     if not addresses:
         warning("No IPv4 address found on %s !", ifname)
         return b"\0\0\0\0"
@@ -66,15 +75,21 @@ def get_if_raw_hwaddr(ifname):
         return (ARPHDR_LOOPBACK, NULL_MAC_ADDRESS)
 
     # Get ifconfig output
-    try:
-        fd = os.popen("%s %s" % (conf.prog.ifconfig, ifname))
-    except OSError as msg:
-        raise Scapy_Exception("Failed to execute ifconfig: (%s)" % msg)
+    subproc = subprocess.Popen(
+        [conf.prog.ifconfig, ifname],
+        close_fds=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    stdout, stderr = subproc.communicate()
+    if subproc.returncode:
+        raise Scapy_Exception("Failed to execute ifconfig: (%s)" %
+                              (plain_str(stderr)))
 
     # Get MAC addresses
-    addresses = [l for l in fd.readlines() if l.find("ether") >= 0 or
-                 l.find("lladdr") >= 0 or
-                 l.find("address") >= 0]
+    addresses = [
+        line for line in plain_str(stdout).splitlines() if (
+            "ether" in line or "lladdr" in line or "address" in line
+        )
+    ]
     if not addresses:
         raise Scapy_Exception("No MAC address found on %s !" % ifname)
 
@@ -92,19 +107,20 @@ def get_dev_bpf():
     # Get the first available BPF handle
     for bpf in range(256):
         try:
-            fd = os.open("/dev/bpf%i" % bpf, os.O_RDWR)
-            return (fd, bpf)
+            file_desc = os.open("/dev/bpf%i" % bpf, os.O_RDWR)
+            return (file_desc, bpf)
         except OSError:
             continue
 
     raise Scapy_Exception("No /dev/bpf handle is available !")
 
 
-def attach_filter(fd, bpf_filter, iface):
+def attach_filter(file_desc, bpf_filter, iface):
     """Attach a BPF filter to the BPF file descriptor"""
-    bp = compile_filter(bpf_filter, iface)
+    bpf_prog = compile_filter(bpf_filter, iface)
     # Assign the BPF program to the interface
-    ret = LIBC.ioctl(c_int(fd), BIOCSETF, cast(pointer(bp), c_char_p))
+    ret = LIBC.ioctl(
+        c_int(file_desc), BIOCSETF, cast(pointer(bpf_prog), c_char_p))
     if ret < 0:
         raise Scapy_Exception("Can't attach the BPF filter !")
 
@@ -115,18 +131,23 @@ def get_if_list():
     """Returns a list containing all network interfaces."""
 
     # Get ifconfig output
-    try:
-        fd = os.popen("%s -a" % conf.prog.ifconfig)
-    except OSError as msg:
-        raise Scapy_Exception("Failed to execute ifconfig: (%s)" % msg)
+    subproc = subprocess.Popen(
+        [conf.prog.ifconfig],
+        close_fds=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    stdout, stderr = subproc.communicate()
+    if subproc.returncode:
+        raise Scapy_Exception("Failed to execute ifconfig: (%s)" %
+                              (plain_str(stderr)))
 
-    # Get interfaces
-    interfaces = [line[:line.find(':')] for line in fd.readlines()
-                  if ": flags" in line.lower()]
+    interfaces = [
+        line[:line.find(':')] for line in plain_str(stdout).splitlines()
+        if ": flags" in line.lower()
+    ]
     return interfaces
 
 
-_IFNUM = re.compile("([0-9]*)([ab]?)$")
+_IFNUM = re.compile(r"([0-9]*)([ab]?)$")
 
 
 def get_working_ifaces():
@@ -159,14 +180,16 @@ def get_working_ifaces():
         if ifflags & 0x1:  # IFF_UP
 
             # Get a BPF handle
-            fd = get_dev_bpf()[0]
-            if fd is None:
+            file_desc = get_dev_bpf()[0]
+            if file_desc is None:
                 raise Scapy_Exception("No /dev/bpf are available !")
 
             # Check if the interface can be used
             try:
-                fcntl.ioctl(fd, BIOCSETIF, struct.pack("16s16x",
-                                                       ifname.encode()))
+                fcntl.ioctl(
+                    file_desc, BIOCSETIF,
+                    struct.pack("16s16x", ifname.encode())
+                )
             except IOError:
                 pass
             else:
@@ -174,7 +197,7 @@ def get_working_ifaces():
                 interfaces.append((ifname, int(ifnum) if ifnum else -1, ifab))
             finally:
                 # Close the file descriptor
-                os.close(fd)
+                os.close(file_desc)
 
     # Sort to mimic pcap_findalldevs() order
     interfaces.sort(key=lambda elt: (elt[1], elt[2], elt[0]))
