@@ -4,7 +4,7 @@ matrix:
     include:
         # PEP 8 checks, build doc and grammar spelling check
         - os: linux
-          python: 2.7
+          python: 3.6
           env:
             - TOXENV=flake8,twine,docs,spell
        
