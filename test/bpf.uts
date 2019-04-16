@@ -47,12 +47,10 @@ len(iflist) > 0
 = Get working network interfaces
 ~ needs_root
 
-from scapy.arch.bpf.core import get_working_ifaces
+from scapy.arch.bpf.core import get_working_if, get_working_ifaces
 ifworking = get_working_ifaces()
 assert len(ifworking)
-            
-from scapy.arch.bpf.core import get_working_if
-assert len(ifworking) and get_working_if() == ifworking[0][0]
+assert get_working_if() == ifworking[0]
 
 
 = Misc functions
