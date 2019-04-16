@@ -163,7 +163,7 @@ def get_working_ifaces():
             # Check if the interface can be used
             try:
                 fcntl.ioctl(fd, BIOCSETIF, struct.pack("16s16x", ifname.encode()))  # noqa: E501
-                interfaces.append((ifname, int(ifname[-1])))
+                interfaces.append((ifname, ifname[-1]))
             except IOError:
                 pass
 
