@@ -8,6 +8,7 @@ from __future__ import absolute_import
 
 import fcntl
 import os
+import re
 import socket
 import struct
 
@@ -23,6 +24,10 @@ from scapy.arch.common import get_if, compile_filter
 from scapy.consts import LOOPBACK_NAME
 
 from scapy.arch.bpf.consts import BIOCSETF, SIOCGIFFLAGS, BIOCSETIF
+
+# Matches interfaces, like `epair0a` (FreeBSD), `eth0` (Linux),
+# and `igb0` (FreeBSD/Solaris).
+INTERFACE_RE = re.compile(r"(.+?)(\d+)([ab]?)")
 
 # ctypes definitions
 
@@ -170,7 +175,18 @@ def get_working_ifaces():
                     file_desc, BIOCSETIF,
                     struct.pack("16s16x", ifname.encode())
                 )
-                interfaces.append((ifname, int(ifname[-1])))
+                matches = INTERFACE_RE.match(ifname)
+                if matches is None:
+                    # A dummy set of values to use for comparison with logical
+                    # interfaces that don't match `INTERFACE_RE`, e.g.,
+                    # `bridge`.
+                    comparison_tuple = (ifname, -1, '')
+                else:
+                    comparison_tuple = (
+                        matches.group(1), int(matches.group(2)),
+                        matches.group(3)
+                    )
+                interfaces.append((ifname, comparison_tuple))
             except IOError:
                 pass
             finally:
