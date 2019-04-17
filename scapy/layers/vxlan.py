@@ -77,7 +77,18 @@ class VXLAN(Packet):
                 isinstance(self.underlayer, UDP) and \
                 self.underlayer.dport == 250 and \
                 self.flags == 8:
-            return IP
+            try:
+                first_byte = ord(payload[0])
+            except IndexError:
+                return IP
+
+            version = divmod(first_byte, 0x10)[0]
+            if version == 4:
+                return IP
+            elif version == 6:
+                return IPv6
+            else:
+                return IP
 
         return Packet.guess_payload_class(self, payload)
 
