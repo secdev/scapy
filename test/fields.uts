@@ -1811,19 +1811,19 @@ assert(r == data_129["extended"])
 
 ############
 ############
-+ Aliases in Packet
-~ alias
++ Deprecated fields in Packet
+~ deprecated
 
-= Aliases: Deprecation test
+= Field Deprecation test
 
 class TestPacket(Packet):
     fields_desc = [
         ByteField("a", 0),
         LEShortField("b", 15),
     ]
-    alias_fields = {
-        "dpr": ["a", True],
-        "B": ["b", False]
+    deprecated_fields = {
+        "dpr": "a",
+        "B": "b",
     }
 
 pkt = TestPacket(a=2, B=3)
