@@ -1811,17 +1811,20 @@ assert(r == data_129["extended"])
 
 ############
 ############
-+ AliasField
++ Aliases in Packet
+~ alias
 
-= AliasField: basic test
+= Aliases: Deprecation test
 
 class TestPacket(Packet):
     fields_desc = [
         ByteField("a", 0),
         LEShortField("b", 15),
-        AliasField("B", "b"),
-        AliasField("dpr", "a", deprecated=True)
     ]
+    alias_fields = {
+        "dpr": ["a", True],
+        "B": ["b", False]
+    }
 
 pkt = TestPacket(a=2, B=3)
 assert pkt.B == 3
@@ -1835,6 +1838,7 @@ with warnings.catch_warnings(record=True) as w:
     assert pkt.dpr == 2
     assert len(w) == 1
     assert issubclass(w[-1].category, DeprecationWarning)
+
 
 ############
 ############

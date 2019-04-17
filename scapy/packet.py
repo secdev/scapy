@@ -17,8 +17,7 @@ import types
 import warnings
 
 from scapy.fields import StrField, ConditionalField, Emph, PacketListField, \
-    BitField, MultiEnumField, EnumField, FlagsField, MultipleTypeField, \
-    AliasField
+    BitField, MultiEnumField, EnumField, FlagsField, MultipleTypeField
 from scapy.config import conf, _version_checker
 from scapy.compat import raw, orb, bytes_encode
 from scapy.base_classes import BasePacket, Gen, SetGen, Packet_metaclass, \
@@ -56,7 +55,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
         "time", "sent_time", "name",
         "default_fields", "fields", "fieldtype",
         "overload_fields", "overloaded_fields",
-        "packetfields", "alias_fields",
+        "packetfields",
         "original", "explicit", "raw_packet_cache",
         "raw_packet_cache_fields", "_pkt", "post_transforms",
         # then payload and underlayer
@@ -73,6 +72,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
     ]
     name = None
     fields_desc = []
+    alias_fields = None
     overload_fields = {}
     payload_guess = []
     show_indent = 1
@@ -83,7 +83,6 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
     class_default_fields = dict()
     class_default_fields_ref = dict()
     class_fieldtype = dict()
-    class_alias_fields = dict()
 
     @classmethod
     def from_hexcap(cls):
@@ -135,7 +134,6 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
         self.overloaded_fields = {}
         self.fields = {}
         self.fieldtype = {}
-        self.alias_fields = {}
         self.packetfields = []
         self.payload = NoPayload()
         self.init_fields()
@@ -158,11 +156,15 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
                 value = fields.pop(fname)
             except KeyError:
                 continue
-            if fname in self.alias_fields:
-                fname = self._resolve_alias(fname)
             self.fields[fname] = self.get_field(fname).any2i(self, value)
         # The remaining fields are unknown
-        for fname, _ in fields:
+        for fname in fields:
+            if self.alias_fields and fname in self.alias_fields:
+                # Resolve deprecated fields
+                value = fields[fname]
+                fname = self._resolve_alias(fname)
+                self.fields[fname] = self.get_field(fname).any2i(self, value)
+                continue
             raise AttributeError(fname)
         if isinstance(post_transform, list):
             self.post_transforms = post_transform
@@ -186,9 +188,6 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
         Initialize each fields of the fields_desc dict
         """
         for f in flist:
-            if isinstance(f, AliasField):
-                self.alias_fields[f.name] = (f.pointer, f.deprecated)
-                continue
             self.default_fields[f.name] = copy.deepcopy(f.default)
             self.fieldtype[f.name] = f
             if f.holds_packets:
@@ -211,7 +210,6 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
             self.default_fields = Packet.class_default_fields[cls_name]
             self.fieldtype = Packet.class_fieldtype[cls_name]
             self.packetfields = Packet.class_packetfields[cls_name]
-            self.alias_fields = Packet.class_alias_fields[cls_name]
 
             # Deepcopy default references
             for fname in Packet.class_default_fields_ref[cls_name]:
@@ -234,7 +232,6 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
             Packet.class_default_fields[cls_name] = dict()
             Packet.class_default_fields_ref[cls_name] = list()
             Packet.class_fieldtype[cls_name] = dict()
-            Packet.class_alias_fields[cls_name] = dict()
             Packet.class_packetfields[cls_name] = list()
 
         # Fields initialization
@@ -247,12 +244,6 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
                 self.class_dont_cache[cls_name] = True
                 self.do_init_fields(self.fields_desc)
                 break
-
-            if isinstance(f, AliasField):
-                self.class_alias_fields[cls_name][f.name] = (
-                    f.pointer, f.deprecated
-                )
-                continue
 
             tmp_copy = copy.deepcopy(f.default)
             Packet.class_default_fields[cls_name][f.name] = tmp_copy
@@ -335,7 +326,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
         return new_attr
 
     def getfieldval(self, attr):
-        if attr in self.alias_fields:
+        if self.alias_fields and attr in self.alias_fields:
             attr = self._resolve_alias(attr)
         if attr in self.fields:
             return self.fields[attr]
@@ -346,7 +337,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
         return self.payload.getfieldval(attr)
 
     def getfield_and_val(self, attr):
-        if attr in self.alias_fields:
+        if self.alias_fields and attr in self.alias_fields:
             attr = self._resolve_alias(attr)
         if attr in self.fields:
             return self.get_field(attr), self.fields[attr]
@@ -365,7 +356,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
         return v
 
     def setfieldval(self, attr, val):
-        if attr in self.alias_fields:
+        if self.alias_fields and attr in self.alias_fields:
             attr = self._resolve_alias(attr)
         if attr in self.default_fields:
             fld = self.get_field(attr)
@@ -1204,8 +1195,6 @@ values.
                                ct.punct("]###"))
         for f in self.fields_desc:
             if isinstance(f, ConditionalField) and not f._evalcond(self):
-                continue
-            if isinstance(f, AliasField):
                 continue
             if isinstance(f, Emph) or f in conf.emph:
                 ncol = ct.emph_field_name

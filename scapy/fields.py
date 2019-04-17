@@ -244,21 +244,6 @@ class ConditionalField(object):
         return getattr(self.fld, attr)
 
 
-class AliasField(Field):
-    __slots__ = ["pointer", "deprecated"]
-
-    def __init__(self, name, pointer, deprecated=False):
-        Field.__init__(self, name, 0, fmt="!")
-        self.pointer = pointer
-        self.deprecated = deprecated
-
-    def getfield(self, pkt, s):
-        return s, None
-
-    def addfield(self, pkt, s, val):
-        return s
-
-
 class MultipleTypeField(object):
     """MultipleTypeField are used for fields that can be implemented by
 various Field subclasses, depending on conditions on the packet.
