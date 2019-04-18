@@ -1230,20 +1230,20 @@ class XStrField(StrField):
         return bytes_hex(x).decode()
 
 
-class _XStrField:
+class _XStrLenField:
     def i2repr(self, pkt, x):
         if not x:
             return repr(x)
         return bytes_hex(x[:self.length_from(pkt)]).decode()
 
 
-class XStrLenField(StrLenField, XStrField):
+class XStrLenField(_XStrLenField, StrLenField):
     """
     StrLenField which value is printed as hexadecimal.
     """
 
 
-class XStrFixedLenField(StrFixedLenField, XStrField):
+class XStrFixedLenField(_XStrLenField, StrFixedLenField):
     """
     StrFixedLenField which value is printed as hexadecimal.
     """
