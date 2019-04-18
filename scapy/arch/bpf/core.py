@@ -5,22 +5,22 @@ Scapy *BSD native support - core
 """
 
 from __future__ import absolute_import
-from scapy.config import conf
-from scapy.error import Scapy_Exception, warning
-from scapy.data import ARPHDR_LOOPBACK, ARPHDR_ETHER
-from scapy.arch.common import get_if, compile_filter
-from scapy.consts import LOOPBACK_NAME
-
-from scapy.arch.bpf.consts import BIOCSETF, SIOCGIFFLAGS, BIOCSETIF
-
-import os
-import socket
-import fcntl
-import struct
 
 from ctypes import cdll, cast, pointer
 from ctypes import c_int, c_ulong, c_char_p
 from ctypes.util import find_library
+import fcntl
+import os
+import re
+import socket
+import struct
+
+from scapy.arch.bpf.consts import BIOCSETF, SIOCGIFFLAGS, BIOCSETIF
+from scapy.arch.common import get_if, compile_filter
+from scapy.config import conf
+from scapy.consts import LOOPBACK_NAME
+from scapy.data import ARPHDR_LOOPBACK, ARPHDR_ETHER
+from scapy.error import Scapy_Exception, warning
 from scapy.modules.six.moves import range
 
 
@@ -126,6 +126,9 @@ def get_if_list():
     return interfaces
 
 
+_IFNUM = re.compile("([0-9]*)([ab]?)$")
+
+
 def get_working_ifaces():
     """
     Returns an ordered list of interfaces that could be used with BPF.
@@ -156,24 +159,27 @@ def get_working_ifaces():
         if ifflags & 0x1:  # IFF_UP
 
             # Get a BPF handle
-            fd, _ = get_dev_bpf()
+            fd = get_dev_bpf()[0]
             if fd is None:
                 raise Scapy_Exception("No /dev/bpf are available !")
 
             # Check if the interface can be used
             try:
-                fcntl.ioctl(fd, BIOCSETIF, struct.pack("16s16x", ifname.encode()))  # noqa: E501
-                interfaces.append((ifname, int(ifname[-1])))
+                fcntl.ioctl(fd, BIOCSETIF, struct.pack("16s16x",
+                                                       ifname.encode()))
             except IOError:
                 pass
-
-            # Close the file descriptor
-            os.close(fd)
+            else:
+                ifnum, ifab = _IFNUM.search(ifname).groups()
+                interfaces.append((ifname, int(ifnum) if ifnum else -1, ifab))
+            finally:
+                # Close the file descriptor
+                os.close(fd)
 
     # Sort to mimic pcap_findalldevs() order
-    interfaces.sort(key=lambda elt: elt[1])
+    interfaces.sort(key=lambda elt: (elt[1], elt[2], elt[0]))
 
-    return interfaces
+    return [iface[0] for iface in interfaces]
 
 
 def get_working_if():
@@ -183,4 +189,4 @@ def get_working_if():
     if not ifaces:
         # A better interface will be selected later using the routing table
         return LOOPBACK_NAME
-    return ifaces[0][0]
+    return ifaces[0]
