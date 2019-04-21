@@ -19,7 +19,8 @@ import struct
 import scapy
 import scapy.consts
 from scapy.arch.windows.structures import _windows_title, \
-    GetAdaptersAddresses, GetIpForwardTable, GetIpForwardTable2
+    GetAdaptersAddresses, GetIpForwardTable, GetIpForwardTable2, \
+    get_service_status
 from scapy.consts import WINDOWS, WINDOWS_XP
 from scapy.config import conf, ConfClass
 from scapy.error import Scapy_Exception, log_loading, log_runtime, warning
@@ -176,10 +177,7 @@ def _exec_cmd(command):
     proc = sp.Popen(command,
                     stdout=sp.PIPE,
                     shell=True)
-    if six.PY2:
-        res = proc.communicate()[0]
-    else:
-        res = proc.communicate(timeout=5)[0]
+    res = proc.communicate()[0]
     return res, proc.returncode
 
 
@@ -565,8 +563,8 @@ def pcap_service_name():
 
 def pcap_service_status():
     """Returns whether the windows pcap adapter is running or not"""
-    outp, _ = _exec_cmd('sc query %s | findstr STATE' % pcap_service_name())
-    return b"running" in outp.lower()
+    status = get_service_status(pcap_service_name())
+    return status["dwCurrentState"] == 4
 
 
 def _pcap_service_control(action, askadmin=True):
