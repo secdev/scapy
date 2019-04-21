@@ -275,31 +275,41 @@ use.
         self.dflt = dflt
         self.name = self.dflt.name
 
+    def _iterate_fields_cond(self, pkt, val, use_val):
+        """Internal function used by _find_fld_pkt & _find_fld_pkt_val"""
+        # Iterate through the fields
+        for fld, cond in self.flds:
+            if isinstance(cond, tuple):
+                if use_val:
+                    if cond[1](pkt, val):
+                        return fld
+                    continue
+                else:
+                    cond = cond[0]
+            if cond(pkt):
+                return fld
+        return self.dflt
+
     def _find_fld_pkt(self, pkt):
         """Given a Packet instance `pkt`, returns the Field subclass to be
 used. If you know the value to be set (e.g., in .addfield()), use
 ._find_fld_pkt_val() instead.
 
         """
-        for fld, cond in self.flds:
-            if isinstance(cond, tuple):
-                cond = cond[0]
-            if cond(pkt):
-                return fld
-        return self.dflt
+        return self._iterate_fields_cond(pkt, None, False)
 
     def _find_fld_pkt_val(self, pkt, val):
         """Given a Packet instance `pkt` and the value `val` to be set,
-returns the Field subclass to be used.
+returns the Field subclass to be used, and the updated `val` if necessary.
 
         """
-        for fld, cond in self.flds:
-            if isinstance(cond, tuple):
-                if cond[1](pkt, val):
-                    return fld
-            elif cond(pkt):
-                return fld
-        return self.dflt
+        fld = self._iterate_fields_cond(pkt, val, True)
+        # Default ? (in this case, let's make sure it's up-do-date)
+        dflts_pkt = pkt.default_fields
+        if val == dflts_pkt[self.name] and self.name not in pkt.fields:
+            dflts_pkt[self.name] = fld.default
+            val = fld.default
+        return fld, val
 
     def _find_fld(self):
         """Returns the Field subclass to be used, depending on the Packet
@@ -331,25 +341,32 @@ the value to set is also known) of ._find_fld_pkt() instead.
         return self._find_fld_pkt(pkt).getfield(pkt, s)
 
     def addfield(self, pkt, s, val):
-        return self._find_fld_pkt_val(pkt, val).addfield(pkt, s, val)
+        fld, val = self._find_fld_pkt_val(pkt, val)
+        return fld.addfield(pkt, s, val)
 
     def any2i(self, pkt, val):
-        return self._find_fld_pkt_val(pkt, val).any2i(pkt, val)
+        fld, val = self._find_fld_pkt_val(pkt, val)
+        return fld.any2i(pkt, val)
 
     def h2i(self, pkt, val):
-        return self._find_fld_pkt_val(pkt, val).h2i(pkt, val)
+        fld, val = self._find_fld_pkt_val(pkt, val)
+        return fld.h2i(pkt, val)
 
     def i2h(self, pkt, val):
-        return self._find_fld_pkt_val(pkt, val).i2h(pkt, val)
+        fld, val = self._find_fld_pkt_val(pkt, val)
+        return fld.i2h(pkt, val)
 
     def i2m(self, pkt, val):
-        return self._find_fld_pkt_val(pkt, val).i2m(pkt, val)
+        fld, val = self._find_fld_pkt_val(pkt, val)
+        return fld.i2m(pkt, val)
 
     def i2len(self, pkt, val):
-        return self._find_fld_pkt_val(pkt, val).i2len(pkt, val)
+        fld, val = self._find_fld_pkt_val(pkt, val)
+        return fld.i2len(pkt, val)
 
     def i2repr(self, pkt, val):
-        return self._find_fld_pkt_val(pkt, val).i2repr(pkt, val)
+        fld, val = self._find_fld_pkt_val(pkt, val)
+        return fld.i2repr(pkt, val)
 
     def register_owner(self, cls):
         for fld, _ in self.flds:

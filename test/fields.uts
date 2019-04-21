@@ -1283,6 +1283,35 @@ a = DebugPacket(addr="scapy.net", atyp=0x3)
 a = DebugPacket(raw(a))
 assert a.addr == b"scapy.net."
 
+= Test default values auto-update
+
+class SweetPacket(Packet):
+    name = 'Sweet Celestian Packet'
+    fields_desc = [
+        IntField('switch', 0),
+        MultipleTypeField([
+            (XShortField('subfield', 0xDEAD), lambda pkt: pkt.switch == 1),
+            (XIntField('subfield',  0xBEEFBEEF), lambda pkt: pkt.switch == 2)],
+            XByteField('subfield', 0x88)
+        )
+    ]
+
+o = SweetPacket()
+assert o.subfield == 0x88
+
+o = SweetPacket(switch=1)
+assert o.subfield == 0xDEAD
+
+o = SweetPacket(switch=2)
+assert o.subfield == 0xBEEFBEEF
+
+o = SweetPacket()
+assert o.subfield == 0x88
+o.switch = 1
+assert o.subfield == 0xDEAD
+o.switch = 2
+assert o.subfield == 0xBEEFBEEF
+
 ########
 ########
 + FlagsField
