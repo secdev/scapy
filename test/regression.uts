@@ -9695,6 +9695,8 @@ class MockSocket(object):
         return self.l.pop(0)
     def fileno(self):
         return -1
+    def close(self):
+        return
 
 
 class TestPacket(Packet):
@@ -9735,6 +9737,8 @@ class MockSocket(object):
         return self.l.pop(0)
     def fileno(self):
         return -1
+    def close(self):
+        return
 
 
 class TestPacket(Packet):
@@ -9777,6 +9781,8 @@ class MockSocket(object):
         return self.l.pop(0)
     def fileno(self):
         return -1
+    def close(self):
+        return
 
 
 class TestPacket(Packet):
