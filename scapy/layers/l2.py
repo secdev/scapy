@@ -148,11 +148,6 @@ class SourceMACField(MACField):
         return MACField.i2m(self, pkt, self.i2h(pkt, x))
 
 
-class ARPSourceMACField(SourceMACField):
-    def __init__(self, name):
-        super(ARPSourceMACField, self).__init__(name)
-
-
 # Layers
 
 ETHER_TYPES['802_AD'] = 0x88a8
@@ -326,7 +321,7 @@ class ARP(Packet):
         }),
         MultipleTypeField(
             [
-                (ARPSourceMACField("hwsrc"),
+                (SourceMACField("hwsrc"),
                  (lambda pkt: pkt.hwtype == 1 and pkt.hwlen == 6,
                   lambda pkt, val: pkt.hwtype == 1 and (
                       pkt.hwlen == 6 or (pkt.hwlen is None and
@@ -400,10 +395,16 @@ class ARP(Packet):
         return self_psrc[:len(other_pdst)] == other_pdst[:len(self_psrc)]
 
     def route(self):
-        dst = self.pdst
+        fld, dst = self.getfield_and_val("pdst")
+        fld, dst = fld._find_fld_pkt_val(self, dst)
         if isinstance(dst, Gen):
             dst = next(iter(dst))
-        return conf.route.route(dst)
+        if isinstance(fld, IP6Field):
+            return conf.route6.route(dst)
+        elif isinstance(fld, IPField):
+            return conf.route.route(dst)
+        else:
+            return None
 
     def extract_padding(self, s):
         return "", s

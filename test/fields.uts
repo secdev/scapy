@@ -37,7 +37,7 @@ r = m.addfield(None, b"FOO", "c0:01:be:ef:ba:be")
 r
 assert(r == b"FOO\xc0\x01\xbe\xef\xba\xbe" )
 
-= SourceMACField, ARPSourceMACField
+= SourceMACField, SourceMACField
 conf.route.add(net="1.2.3.4/32", dev=conf.iface)
 p = Ether() / ARP(pdst="1.2.3.4")
 assert p.src == p.hwsrc == p[ARP].hwsrc == get_if_hwaddr(conf.iface)
