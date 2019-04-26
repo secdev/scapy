@@ -28,6 +28,7 @@ CAN_INV_FILTER = 0x20000000
 
 class CANSocket(SuperSocket):
     desc = "read/write packets at a given CAN interface using PF_CAN sockets"
+    async_select_unrequired = True
 
     def __init__(self, iface=None, receive_own_messages=False,
                  can_filters=None, remove_padding=True, basecls=CAN):

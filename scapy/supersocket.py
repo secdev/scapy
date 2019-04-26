@@ -10,6 +10,7 @@ SuperSocket.
 from __future__ import absolute_import
 from select import select, error as select_error
 import errno
+import io
 import os
 import socket
 import struct
@@ -18,6 +19,7 @@ import time
 from scapy.config import conf
 from scapy.consts import LINUX, DARWIN, WINDOWS
 from scapy.data import MTU, ETH_P_IP
+from scapy.error import Scapy_Exception
 from scapy.compat import raw, bytes_encode
 from scapy.error import warning, log_runtime
 import scapy.modules.six as six
@@ -36,6 +38,7 @@ class _SuperSocket_metaclass(type):
 class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
     desc = None
     closed = 0
+    async_select_unrequired = False
     read_allowed_exceptions = ()
 
     def __init__(self, family=socket.AF_INET, type=socket.SOCK_STREAM, proto=0):  # noqa: E501
@@ -196,15 +199,22 @@ class SimpleSocket(SuperSocket):
 
 class StreamSocket(SimpleSocket):
     desc = "transforms a stream socket into a layer 2"
+    async_select_unrequired = WINDOWS
+    read_allowed_exceptions = (Scapy_Exception,)
 
     def __init__(self, sock, basecls=None):
         if basecls is None:
             basecls = conf.raw_layer
         SimpleSocket.__init__(self, sock)
         self.basecls = basecls
+        if WINDOWS and hasattr(self.ins, "setblocking"):
+            self.ins.setblocking(0)
 
     def recv(self, x=MTU):
-        pkt = self.ins.recv(x, socket.MSG_PEEK)
+        try:
+            pkt = self.ins.recv(x, socket.MSG_PEEK)
+        except io.BlockingIOError:
+            raise Scapy_Exception()
         x = len(pkt)
         if x == 0:
             raise socket.error((100, "Underlying stream socket tore down"))
@@ -218,6 +228,13 @@ class StreamSocket(SimpleSocket):
             pad = pad.payload
         self.ins.recv(x)
         return pkt
+
+    @staticmethod
+    def select(sockets, remain=None):
+        if WINDOWS:
+            return sockets, None
+        else:
+            return SuperSocket.select(sockets, remain=remain)
 
 
 class SSLStreamSocket(StreamSocket):

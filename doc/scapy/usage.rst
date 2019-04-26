@@ -698,6 +698,52 @@ We can sniff and do passive OS fingerprinting::
 
 The number before the OS guess is the accuracy of the guess.
 
+Asynchronous Sniffing
+---------------------
+
+.. index::
+   single: AsyncSniffer()
+
+.. note::
+   Asynchronous sniffing is only available since **Scapy 2.4.3**
+
+It is possible to sniff asynchronously. This allows to stop the sniffer programmatically, rather than with ctrl^C.
+It provides ``start()``, ``stop()`` and ``join()`` utils.
+
+The basic usage would be:
+
+.. code-block:: python
+
+    >>> t = AsyncSniffer()
+    >>> t.start()
+    >>> print("hey")
+    hey
+    [...]
+    >>> results = t.stop()
+
+.. image:: graphics/animations/animation-scapy-asyncsniffer.svg
+
+The ``AsyncSniffer`` class has a few useful keys, such as ``results`` (the packets collected) or ``running``, that can be used.
+It accepts the same arguments than ``sniff()`` (in fact, their implementations are merged). For instance:
+
+.. code-block:: python
+
+    >>> t = AsyncSniffer(iface="enp0s3", count=200)
+    >>> t.start()
+    >>> t.join()  # this will hold until 200 packets are collected
+    >>> results = t.results
+    >>> print(len(results))
+    200
+
+Another example: using ``prn`` and ``store=False``
+
+.. code-block:: python
+
+    >>> t = AsyncSniffer(prn=lambda x: x.summary(), store=False, filter="tcp")
+    >>> t.start()
+    >>> time.sleep(20)
+    >>> t.stop()
+
 Advanced Sniffing - Sessions
 ----------------------------
 

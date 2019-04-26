@@ -921,6 +921,7 @@ class RawPcapReader(six.with_metaclass(PcapReader_metaclass)):
     """A stateful pcap reader. Each packet is returned as a string"""
 
     read_allowed_exceptions = ()  # emulate SuperSocket
+    async_select_unrequired = True
     PacketMetadata = collections.namedtuple("PacketMetadata",
                                             ["sec", "usec", "wirelen", "caplen"])  # noqa: E501
 

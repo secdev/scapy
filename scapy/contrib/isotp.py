@@ -533,6 +533,8 @@ class ISOTPSoftSocket(SuperSocket):
     * All background threads can be stopped by the garbage collector
     """
 
+    async_select_unrequired = True
+
     def __init__(self,
                  can_socket=None,
                  sid=0,

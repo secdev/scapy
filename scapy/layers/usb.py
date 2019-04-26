@@ -213,6 +213,11 @@ if WINDOWS:
         """
         Read packets at layer 2 using USBPcapCMD
         """
+        async_select_unrequired = True
+
+        @staticmethod
+        def select(sockets, remain=None):
+            return sockets, None
 
         def __init__(self, iface=None, *args, **karg):
             _usbpcap_check()
