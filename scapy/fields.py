@@ -936,8 +936,8 @@ class StrField(Field):
         Field.__init__(self, name, default, fmt)
         self.remain = remain
 
-    def i2len(self, pkt, i):
-        return len(i)
+    def i2len(self, pkt, x):
+        return len(x)
 
     def any2i(self, pkt, x):
         if isinstance(x, six.text_type):
@@ -1247,26 +1247,23 @@ class XStrField(StrField):
         return bytes_hex(x).decode()
 
 
-class XStrLenField(StrLenField):
+class _XStrLenField:
+    def i2repr(self, pkt, x):
+        if not x:
+            return repr(x)
+        return bytes_hex(x[:self.length_from(pkt)]).decode()
+
+
+class XStrLenField(_XStrLenField, StrLenField):
     """
     StrLenField which value is printed as hexadecimal.
     """
 
-    def i2repr(self, pkt, x):
-        if not x:
-            return repr(x)
-        return bytes_hex(x[:self.length_from(pkt)]).decode()
 
-
-class XStrFixedLenField(StrFixedLenField):
+class XStrFixedLenField(_XStrLenField, StrFixedLenField):
     """
     StrFixedLenField which value is printed as hexadecimal.
     """
-
-    def i2repr(self, pkt, x):
-        if not x:
-            return repr(x)
-        return bytes_hex(x[:self.length_from(pkt)]).decode()
 
 
 class StrLenFieldUtf16(StrLenField):

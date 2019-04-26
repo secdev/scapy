@@ -4,9 +4,6 @@
 
 + Basic tests
 
-= Import Bunch
-from scapy.tools.UTscapy import Bunch
-
 = Test default test case
 
 s = PeriodicSource("hello", 1, name="src")

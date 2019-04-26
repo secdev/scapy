@@ -54,7 +54,7 @@ test_am(ARP_am,
 = DNS_am
 def check_DNS_am_reply(packet):
     assert(DNS in packet and packet[DNS].ancount == 1)
-    assert(packet[DNS].an.rdata == b"192.168.1.1")
+    assert(packet[DNS].an.rdata == "192.168.1.1")
 
 test_am(DNS_am,
         IP()/UDP()/DNS(qd=DNSQR(qname="www.secdev.org")),

@@ -39,7 +39,6 @@ assert raw(pkt) == b'\x1c\x00u\x925\x00\x00\x00\x00\x00\x00\x00\x00\x005\x12\n#\
 ~ mock windows
 
 import mock
-from scapy.tools.UTscapy import Bunch
 
 @mock.patch("scapy.layers.usb.subprocess.Popen")
 def test_get_usbpcap_interfaces(mock_Popen):
@@ -57,7 +56,6 @@ test_get_usbpcap_interfaces()
 ~ mock windows
 
 import mock
-from scapy.tools.UTscapy import Bunch
 
 @mock.patch("scapy.layers.usb.subprocess.Popen")
 def test_get_usbpcap_devices(mock_Popen):

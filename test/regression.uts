@@ -346,7 +346,6 @@ interact_emulator(extra_args=["-d"])  # Extended
 ~ command
 
 import mock
-from scapy.tools.UTscapy import Bunch
 
 def test_explore_gui(is_layer, layer):
     prompt_toolkit_mocked_module = Bunch(
@@ -372,6 +371,7 @@ def test_explore_gui(is_layer, layer):
             result_explore = cmco.get_output()
         return result_explore
 
+conf.interactive = True
 explore_dns = test_explore_gui(True, "scapy.layers.dns")
 assert "DNS" in explore_dns
 assert "DNS Question Record" in explore_dns
@@ -1254,9 +1254,6 @@ raw(RandASN1Object())
 + Network tests
 
 * Those tests need network access
-
-= Import retry_test()
-from scapy.tools.UTscapy import retry_test
 
 = Sending and receiving an ICMP
 ~ netaccess IP ICMP
