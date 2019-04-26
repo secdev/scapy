@@ -1071,7 +1071,6 @@ TCP/IP
     MACField
     DestMACField(MACField)
     SourceMACField(MACField)
-    ARPSourceMACField(MACField)
     
     ICMPTimeStampField
 

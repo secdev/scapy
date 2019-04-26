@@ -723,6 +723,8 @@ class NetworkInterfaceDict(UserDict):
             from scapy.arch.pcapdnet import load_winpcapy
             load_winpcapy()
         self.load()
+        # Reload conf.iface
+        conf.iface = get_working_if()
 
     def show(self, resolve_mac=True, print_result=True):
         """Print list of available network interfaces in human readable form"""
