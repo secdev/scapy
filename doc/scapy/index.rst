@@ -9,7 +9,8 @@ Welcome to Scapy's documentation!
    :scale: 20
    :align: center
 
-:Release: |version|
+:Version: |version|
+:Release: |release|
 :Date: |today|
 
 This document is under a `Creative Commons Attribution - Non-Commercial 
