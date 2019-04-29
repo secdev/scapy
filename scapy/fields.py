@@ -1266,6 +1266,14 @@ class XStrFixedLenField(_XStrLenField, StrFixedLenField):
     """
 
 
+class XLEStrLenField(XStrLenField):
+    def i2m(self, pkt, x):
+        return x[:: -1]
+
+    def m2i(self, pkt, x):
+        return x[:: -1]
+
+
 class StrLenFieldUtf16(StrLenField):
     def h2i(self, pkt, x):
         return plain_str(x).encode('utf-16')[2:]
