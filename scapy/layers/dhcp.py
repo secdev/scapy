@@ -346,8 +346,10 @@ bind_layers(BOOTP, DHCP, options=b'c\x82Sc')
 @conf.commands.register
 def dhcp_request(iface=None, **kargs):
     """Send a DHCP discover request and return the answer"""
-    if conf.checkIPaddr != 0:
-        warning("conf.checkIPaddr is not 0, I may not be able to match the answer")  # noqa: E501
+    if conf.checkIPaddr:
+        warning(
+            "conf.checkIPaddr is enabled, may not be able to match the answer"
+        )
     if iface is None:
         iface = conf.iface
     fam, hw = get_if_raw_hwaddr(iface)

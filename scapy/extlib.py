@@ -54,7 +54,7 @@ try:
     if _test_pyx():
         PYX = 1
     else:
-        log_loading.warning("PyX dependencies are not installed ! Please install TexLive or MikTeX.")  # noqa: E501
+        log_loading.info("PyX dependencies are not installed ! Please install TexLive or MikTeX.")  # noqa: E501
         PYX = 0
 except ImportError:
     log_loading.info("Can't import PyX. Won't be able to use psdump() or pdfdump().")  # noqa: E501

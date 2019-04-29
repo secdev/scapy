@@ -10,6 +10,7 @@ Implementation of the configuration object.
 from __future__ import absolute_import
 from __future__ import print_function
 import functools
+import logging
 import os
 import re
 import time
@@ -18,8 +19,6 @@ import sys
 
 from scapy import VERSION, base_classes
 from scapy.consts import DARWIN, WINDOWS, LINUX, BSD
-from scapy.data import ETHER_TYPES, IP_PROTOS, TCP_SERVICES, UDP_SERVICES, \
-    MANUFDB
 from scapy.error import log_scapy, warning, ScapyInvalidPlatformException
 from scapy.modules import six
 from scapy.themes import NoTheme, apply_ipython_style
@@ -53,7 +52,8 @@ class ConfClass(object):
 
 
 class Interceptor(object):
-    def __init__(self, name, default, hook, args=None, kargs=None):
+    def __init__(self, name=None, default=None,
+                 hook=None, args=None, kargs=None):
         self.name = name
         self.intname = "_intercepted_%s" % name
         self.default = default
@@ -74,6 +74,19 @@ class Interceptor(object):
     def __set__(self, obj, val):
         setattr(obj, self.intname, val)
         self.hook(self.name, val, *self.args, **self.kargs)
+
+
+def _readonly(name):
+    default = Conf.__dict__[name].default
+    Interceptor.set_from_hook(conf, name, default)
+    raise ValueError("Read-only value !")
+
+
+ReadOnlyAttribute = functools.partial(
+    Interceptor,
+    hook=(lambda name, *args, **kwargs: _readonly(name))
+)
+ReadOnlyAttribute.__doc__ = "Read-only class attribute"
 
 
 class ProgPath(ConfClass):
@@ -211,6 +224,7 @@ class CommandsList(list):
 
 
 def lsc():
+    """Displays Scapy's default commands"""
     print(repr(conf.commands))
 
 
@@ -537,7 +551,7 @@ contribs : a dict which can be used by contrib layers to store local configurati
 debug_tls:When 1, print some TLS session secrets when they are computed.
 recv_poll_rate: how often to check for new packets. Defaults to 0.05s.
 """
-    version = VERSION
+    version = ReadOnlyAttribute("version", VERSION)
     session = ""
     interactive = False
     interactive_shell = ""
@@ -548,14 +562,14 @@ recv_poll_rate: how often to check for new packets. Defaults to 0.05s.
     commands = CommandsList()
     dot15d4_protocol = None  # Used in dot15d4.py
     logLevel = LogLevel()
-    checkIPID = 0
-    checkIPsrc = 1
-    checkIPaddr = 1
+    checkIPID = False
+    checkIPsrc = True
+    checkIPaddr = True
     checkIPinIP = True
-    check_TCPerror_seqack = 0
+    check_TCPerror_seqack = False
     verb = 2
     prompt = Interceptor("prompt", ">>> ", _prompt_changer)
-    promisc = 1
+    promisc = True
     sniff_promisc = 1
     raw_layer = None
     raw_summary = False
@@ -574,21 +588,21 @@ recv_poll_rate: how often to check for new packets. Defaults to 0.05s.
                                       ".scapy_history"))
     padding = 1
     except_filter = ""
-    debug_match = 0
-    debug_tls = 0
+    debug_match = False
+    debug_tls = False
     wepkey = ""
     cache_iflist = {}
     route = None  # Filed by route.py
     route6 = None  # Filed by route6.py
-    auto_fragment = 1
-    debug_dissector = 0
+    auto_fragment = True
+    debug_dissector = False
     color_theme = Interceptor("color_theme", NoTheme(), _prompt_changer)
     warning_threshold = 5
     prog = ProgPath()
     resolve = Resolve()
     noenum = Resolve()
     emph = Emphasize()
-    use_pypy = isPyPy()
+    use_pypy = ReadOnlyAttribute("use_pypy", isPyPy())
     use_pcap = Interceptor(
         "use_pcap",
         os.getenv("SCAPY_USE_PCAPDNET", "").lower().startswith("y"),
@@ -600,12 +614,7 @@ recv_poll_rate: how often to check for new packets. Defaults to 0.05s.
     use_winpcapy = Interceptor("use_winpcapy", False, _socket_changer)
     use_npcap = False
     ipv6_enabled = socket.has_ipv6
-    ethertypes = ETHER_TYPES
-    protocols = IP_PROTOS
-    services_tcp = TCP_SERVICES
-    services_udp = UDP_SERVICES
     extensions_paths = "."
-    manufdb = MANUFDB
     stats_classic_protocols = []
     stats_dot11_protocols = []
     temp_files = []
@@ -626,6 +635,25 @@ recv_poll_rate: how often to check for new packets. Defaults to 0.05s.
     auto_crop_tables = True
     recv_poll_rate = 0.05
 
+    def __getattr__(self, attr):
+        # Those are loded on runtime to avoid import loops
+        if attr == "manufdb":
+            from scapy.data import MANUFDB
+            return MANUFDB
+        if attr == "ethertypes":
+            from scapy.data import ETHER_TYPES
+            return ETHER_TYPES
+        if attr == "protocols":
+            from scapy.data import IP_PROTOS
+            return IP_PROTOS
+        if attr == "services_udp":
+            from scapy.data import UDP_SERVICES
+            return UDP_SERVICES
+        if attr == "services_tcp":
+            from scapy.data import TCP_SERVICES
+            return TCP_SERVICES
+        return object.__getattr__(self, attr)
+
 
 if not Conf.ipv6_enabled:
     log_scapy.warning("IPv6 support disabled in Python. Cannot load Scapy IPv6 layers.")  # noqa: E501
@@ -634,7 +662,7 @@ if not Conf.ipv6_enabled:
             Conf.load_layers.remove(m)
 
 conf = Conf()
-conf.logLevel = 30  # 30=Warning
+conf.logLevel = logging.WARNING
 
 
 def crypto_validator(func):

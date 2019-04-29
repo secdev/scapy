@@ -269,7 +269,7 @@ def in6_addrtovendor(addr):
     unknown.
     """
     mac = in6_addrtomac(addr)
-    if mac is None or conf.manufdb is None:
+    if mac is None or not conf.manufdb:
         return None
 
     res = conf.manufdb._get_manuf(mac)

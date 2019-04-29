@@ -159,11 +159,10 @@ if conf.use_winpcapy:
     except OSError:
         conf.use_winpcapy = False
         if conf.interactive:
-            log_loading.warning(conf.color_theme.format(
+            log_loading.critical(
                 "Npcap/Winpcap is not installed ! See "
-                "https://scapy.readthedocs.io/en/latest/installation.html#windows",  # noqa: E501
-                "black+bg_red"
-            ))
+                "https://scapy.readthedocs.io/en/latest/installation.html#windows"  # noqa: E501
+            )
 
     if conf.use_winpcapy:
         def get_if_list():
