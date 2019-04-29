@@ -790,6 +790,7 @@ Two methods are hooks to be overloaded:
 
 * The ``master_filter()`` method is called each time a packet is sniffed and decides if it is interesting for the automaton. When working on a specific protocol, this is where you will ensure the packet belongs to the connection you are being part of, so that you do not need to make all the sanity checks in each transition.
 
+.. _pipetools:
 
 PipeTools
 =========
@@ -882,7 +883,10 @@ class ConsoleSink(Sink)
 Sources
 ^^^^^^^
 
-A Source is a class that generates some data. They are several source types integrated with Scapy, usable as-is, but you may also create yours.
+A Source is a class that generates some data.
+
+There are several source types integrated with Scapy, usable as-is, but you may
+also create yours.
 
 Default Source classes
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -951,25 +955,165 @@ For instance, here is how TransformDrain is implemented::
 Sinks
 ^^^^^
 
+Sinks are destinations for messages.
+
+A :py:class:`Sink` receives data like a :py:class:`Drain`, but doesn't send any
+messages after it.
+
+Messages on the low entry come from :py:meth:`~Sink.push`, and messages on the
+high entry come from :py:meth:`~Sink.high_push`.
+
 Default Sink classes
 ~~~~~~~~~~~~~~~~~~~~
 
-- Sink : does not do anything. This must be extended to create custom sinks
-- ConsoleSink : Print messages on low and high entries
-- RawConsoleSink : Print messages on low and high entries, using os.write
-- TermSink : Print messages on low and high entries on a separate terminal
-- QueueSink: Collect messages from high and low entries and queue them. Messages are unqueued with the .recv() method.
+.. py:class:: Sink
+
+    Does nothing; interface to extend for custom sinks.
+
+    All sinks have the following constructor parameters:
+
+    :param name: a human-readable name for the element
+    :type name: str
+
+    All sinks should implement at least one of these methods:
+
+    .. py:method:: push
+
+        Called by :py:class:`PipeEngine` when there is a new message for the
+        low entry.
+
+        :param msg: The message data
+        :returns: None
+        :rtype: None
+
+    .. py:method:: high_push
+
+        Called by :py:class:`PipeEngine` when there is a new message for the
+        high entry.
+
+        :param msg: The message data
+        :returns: None
+        :rtype: None
+
+.. py:class:: ConsoleSink
+
+    Prints messages on the low and high entries to ``stdout``.
+
+.. py:class:: RawConsoleSink
+
+    Prints messages on the low and high entries, using :py:func:`os.write`.
+
+    :param newlines: Include a new-line character after printing each packet.
+                     Defaults to True.
+    :type newlines: bool
+
+.. py:class:: TermSink
+
+    Prints messages on the low and high entries, on a separate terminal (xterm
+    or cmd).
+
+    :param keepterm: Leaves the terminal window open after :py:meth:`~Pipe.stop`
+                     is called. Defaults to True.
+    :type keepterm: bool
+    :param newlines: Include a new-line character after printing each packet.
+                     Defaults to True.
+    :type newlines: bool
+    :param openearly: Automatically starts the terminal when the constructor is
+                      called, rather than waiting for :py:meth:`~Pipe.start`.
+                      Defaults to True.
+    :type openearly: bool
+
+.. py:class:: QueueSink
+
+    Collects messages on the low and high entries into a :py:class:`Queue`.
+
+    Messages are dequeued with :py:meth:`recv`.
+
+    Both high and low entries share the same :py:class:`Queue`.
+
+    .. py:method:: recv
+
+        Reads the next message from the queue.
+
+        If no message is available in the queue, returns None.
+
+        :param block: Blocks execution until a packet is available in the queue.
+                      Defaults to True.
+        :type block: bool
+        :param timeout: Controls how long to wait if ``block=True``. If None
+                        (the default), this method will wait forever. If a
+                        non-negative number, this is a number of seconds to
+                        wait before giving up (and returning None).
+        :type timeout: None, int or float
+
+.. py:class:: WiresharkSink
+
+    Streams :py:class:`Packet` from the low entry to Wireshark.
+
+    Packets are written into a ``pcap`` stream (like :py:class:`WrpcapSink`),
+    and streamed to a new Wireshark process on its ``stdin``.
+
+    Wireshark is run with the ``-ki -`` arguments, which cause it to treat
+    ``stdin`` as a capture device.  Arguments in :py:attr:`args` will be
+    appended after this.
+
+    Extends :py:mod:`WrpcapSink`.
+
+    :param linktype: See :py:attr:`WrpcapSink.linktype`.
+    :type linktype: None or int
+    :param args: See :py:attr:`args`.
+    :type args: None or list[str]
+
+    .. py:attribute:: args
+
+        Additional arguments for the Wireshark process.
+
+        This must be either ``None`` (the default), or a ``list`` of ``str``.
+
+        This attribute has no effect after calling :py:meth:`PipeEngine.start`.
+
+        See :manpage:`wireshark(1)` for more details.
+
+.. py:class:: WrpcapSink
+
+    Writes :py:class:`Packet` on the low entry to a ``pcap`` file.
+
+    Ignores all messages on the high entry.
+
+    .. note::
+
+        Due to limitations of the ``pcap`` format, all packets **must** be of
+        the same link type. This class will not mutate packets to conform with
+        the expected link type.
+
+    :param fname: Filename to write packets to.
+    :type fname: str
+    :param linktype: See :py:attr:`linktype`.
+    :type linktype: None or int
+
+    .. py:attribute:: linktype
+
+        Set an explicit link-type (``DLT_``) for packets.  This must be an
+        ``int`` or ``None``.
+
+        This is the same as the :py:func:`wrpcap` ``linktype`` parameter.
+
+        If ``None`` (the default), the linktype will be auto-detected on the
+        first packet. This field will *not* be updated with the result of this
+        auto-detection.
+
+        This attribute has no effect after calling :py:meth:`PipeEngine.start`.
+
 
 Create a custom Sink
 ~~~~~~~~~~~~~~~~~~~~
 
-To create a custom sink, one must extend the ``Sink`` class.
+To create a custom sink, one must extend :py:class:`Sink` and implement
+:py:meth:`~Sink.push` and/or :py:meth:`~Sink.high_push`.
 
-A ``Sink`` class receives data like a ``Drain``, from the lower canal in its ``push`` method, and from the higher canal from its ``high_push`` method.
+This is a simplified version of :py:class:`ConsoleSink`:
 
-A ``Sink`` is the dead end of data, it won't be sent anywhere after it.
-
-For instance, here is how ConsoleSink is implemented::
+.. code-block:: python3
 
     class ConsoleSink(Sink):
         def push(self, msg):
@@ -980,32 +1124,44 @@ For instance, here is how ConsoleSink is implemented::
 Link objects
 ------------
 
-As shown in the example, most sources can be linked to any drain, on both lower and higher canals.
+As shown in the example, most sources can be linked to any drain, on both low
+and high entry.
 
-The use of ``>`` indicates a link on the low canal, and ``>>`` on the higher one.
+The use of ``>`` indicates a link on the low entry, and ``>>`` on the high
+entry.
 
-For instance
+For example, to link ``a``, ``b`` and ``c`` on the low entries:
 
->>> a = CLIFeeder()
->>> b = Drain()
->>> c = ConsoleSink()
->>> a > b > c
->>> p = PipeEngine()
->>> p.add(a)
+.. code-block:: pycon
 
-This links a, b, and c on the lower canal. If you tried to send anything on the higher canal, for instance by adding
+    >>> a = CLIFeeder()
+    >>> b = Drain()
+    >>> c = ConsoleSink()
+    >>> a > b > c
+    >>> p = PipeEngine()
+    >>> p.add(a)
 
->>> a2 = CLIHighFeeder()
->>> a2 >> b
->>> a2.send("hello")
+This wouldn't link the high entries, so something like this would do nothing:
 
-It would not do anything as the Drain is not linked to the Sink on the upper canal. However, one could do
+.. code-block:: pycon
 
->>> a2 = CLIHighFeeder()
->>> b2 = DownDrain()
->>> a2 >> b2
->>> b2 > b
->>> a2.send("hello")
+    >>> a2 = CLIHighFeeder()
+    >>> a2 >> b
+    >>> a2.send("hello")
+
+Because ``b`` (:py:class:`Drain`) and ``c`` (:py:class:`ConsoleSink`) are not
+linked on the high entry.
+
+However, using a :py:class:`DownDrain` would bring the high messages from
+:py:class:`CLIHighFeeder` to the lower channel:
+
+.. code-block:: pycon
+
+    >>> a2 = CLIHighFeeder()
+    >>> b2 = DownDrain()
+    >>> a2 >> b2
+    >>> b2 > b
+    >>> a2.send("hello")
 
 The PipeEngine class
 --------------------

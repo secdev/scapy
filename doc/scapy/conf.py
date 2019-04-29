@@ -106,6 +106,8 @@ html_sidebars = {
     ]
 }
 
+# Make :manpage directive work on HTML output.
+manpages_url = 'https://manpages.debian.org/{path}'
 
 # -- Options for HTMLHelp output ------------------------------------------
 

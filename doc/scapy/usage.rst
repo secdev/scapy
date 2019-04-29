@@ -1533,28 +1533,76 @@ Viewing packets with Wireshark
 Problem
 ^^^^^^^
 
-You have generated or sniffed some packets with Scapy and want to view them with `Wireshark <http://www.wireshark.org>`_, because of its advanced packet dissection abilities.
+You have generated or sniffed some packets with Scapy.
+
+Now you want to view them with `Wireshark <https://www.wireshark.org>`_, because
+of its advanced packet dissection capabilities.
 
 Solution
 ^^^^^^^^
 
-That's what the ``wireshark()`` function is for:
+That's what :py:func:`wireshark` is for!
 
-    >>> packets = Ether()/IP(dst=Net("google.com/30"))/ICMP()     # first generate some packets
-    >>> wireshark(packets)                                        # show them with Wireshark
+.. code-block:: python3
 
-Wireshark will start in the background and show your packets.
+    # First, generate some packets...
+    packets = IP(src="192.0.2.9", dst=Net("192.0.2.10/30"))/ICMP()
+
+    # Show them with Wireshark
+    wireshark(packets)
+
+Wireshark will start in the background, and show your packets.
  
 Discussion
 ^^^^^^^^^^
 
-The ``wireshark()`` function generates a temporary pcap-file containing your packets, starts Wireshark in the background and makes it read the file on startup.   
+.. py:function:: wireshark(pktlist, ...)
 
-Please remember that Wireshark works with Layer 2 packets (usually called "frames"). So we had to add an ``Ether()`` header to our ICMP packets. Passing just IP packets (layer 3) to Wireshark will give strange results.
+    With a :py:class:`Packet` or :py:class:`PacketList`, serialises your
+    packets, and streams this into Wireshark via ``stdin`` as if it were a
+    capture device.
 
-You can tell Scapy where to find the Wireshark executable by changing the ``conf.prog.wireshark`` configuration setting.
+    Because this uses ``pcap`` format to serialise the packets, there are some
+    limitations:
 
+    * Packets must be all of the same ``linktype``.
 
+      For example, you can't mix :py:class:`Ether` and :py:class:`IP` at the
+      top layer.
+
+    * Packets must have an assigned (and supported) ``DLT_*`` constant for the
+      ``linktype``.  An unsupported ``linktype`` is replaced with ``DLT_EN10MB``
+      (Ethernet), and will display incorrectly in Wireshark.
+
+      For example, can't pass a bare :py:class:`ICMP` packet, but you can send
+      it as a payload of an :py:class:`IP` or :py:class:`IPv6` packet.
+
+    With a filename (passed as a string), this loads the given file in
+    Wireshark. This needs to be in a format that Wireshark supports.
+
+    You can tell Scapy where to find the Wireshark executable by changing the
+    ``conf.prog.wireshark`` configuration setting.
+
+    This accepts the same extra parameters as :py:func:`tcpdump`.
+
+.. seealso::
+
+    :py:class:`WiresharkSink`
+        A :ref:`PipeTools sink <pipetools>` for live-streaming packets.
+
+    :manpage:`wireshark(1)`
+        Additional description of Wireshark's functionality, and its
+        command-line arguments.
+
+    `Wireshark's website`__
+        For up-to-date releases of Wireshark.
+
+    `Wireshark Protocol Reference`__
+        Contains detailed information about Wireshark's protocol dissectors, and
+        reference documentation for various network protocols.
+
+__ https://www.wireshark.org
+__ https://wiki.wireshark.org/ProtocolReference
 
 OS Fingerprinting
 -----------------
