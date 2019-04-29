@@ -10,7 +10,6 @@ Implementation of the configuration object.
 from __future__ import absolute_import
 from __future__ import print_function
 import functools
-import logging
 import os
 import re
 import time
@@ -358,15 +357,6 @@ class NetCache:
         return "\n".join(c.summary() for c in self._caches_list)
 
 
-class LogLevel(object):
-    def __get__(self, obj, otype):
-        return obj._logLevel
-
-    def __set__(self, obj, val):
-        log_scapy.setLevel(val)
-        obj._logLevel = val
-
-
 def _version_checker(module, minver):
     """Checks that module has a higher version that minver.
 
@@ -518,6 +508,11 @@ def _socket_changer(attr, val):
             raise
 
 
+def _loglevel_changer(attr, val):
+    """Handle a change of conf.logLevel"""
+    log_scapy.setLevel(val)
+
+
 class Conf(ConfClass):
     """This object contains the configuration of Scapy.
 session  : filename where the session will be saved
@@ -561,7 +556,7 @@ recv_poll_rate: how often to check for new packets. Defaults to 0.05s.
     layers = LayersList()
     commands = CommandsList()
     dot15d4_protocol = None  # Used in dot15d4.py
-    logLevel = LogLevel()
+    logLevel = Interceptor("logLevel", log_scapy.level, _loglevel_changer)
     checkIPID = False
     checkIPsrc = True
     checkIPaddr = True
@@ -636,7 +631,7 @@ recv_poll_rate: how often to check for new packets. Defaults to 0.05s.
     recv_poll_rate = 0.05
 
     def __getattr__(self, attr):
-        # Those are loded on runtime to avoid import loops
+        # Those are loaded on runtime to avoid import loops
         if attr == "manufdb":
             from scapy.data import MANUFDB
             return MANUFDB
@@ -662,7 +657,6 @@ if not Conf.ipv6_enabled:
             Conf.load_layers.remove(m)
 
 conf = Conf()
-conf.logLevel = logging.WARNING
 
 
 def crypto_validator(func):

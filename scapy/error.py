@@ -78,6 +78,7 @@ class ScapyColoredFormatter(logging.Formatter):
 
 
 log_scapy = logging.getLogger("scapy")
+log_scapy.setLevel(logging.WARNING)
 log_scapy.addHandler(logging.NullHandler())
 # logs at runtime
 log_runtime = logging.getLogger("scapy.runtime")
