@@ -16,6 +16,21 @@ assert a.E == a.S == a.PN == 0
 a = GTPHeader(raw(GTP_U_Header()/GTPErrorIndication()))
 assert isinstance(a, GTP_U_Header)
 
+= GTP_U_Header sub layers
+
+a = IPv6(raw(IPv6()/UDP()/GTP_U_Header()/IPv6()))
+b = IPv6(raw(IPv6()/UDP()/GTP_U_Header()/IP()))
+c = IP(raw(IP()/UDP()/GTP_U_Header()/IPv6()))
+d = IP(raw(IP()/UDP()/GTP_U_Header()/IP()))
+
+assert isinstance(a[GTP_U_Header].payload, IPv6)
+assert isinstance(b[GTP_U_Header].payload, IP)
+assert isinstance(c[GTP_U_Header].payload, IPv6)
+assert isinstance(d[GTP_U_Header].payload, IP)
+
+a = IP(raw(IP()/UDP()/GTP_U_Header()/PPP()))
+assert isinstance(a[GTP_U_Header].payload, PPP)
+
 = GTPCreatePDPContextRequest(), basic instantiation
 gtp = IP(src="127.0.0.1")/UDP(dport=2123)/GTPHeader(teid=2807)/GTPCreatePDPContextRequest()
 gtp.dport == 2123 and gtp.teid == 2807 and len(gtp.IE_list) == 5
