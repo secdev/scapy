@@ -7,6 +7,7 @@ omit =
     # Scapy external modules
     scapy/modules/six.py
     scapy/modules/winpcapy.py
+    scapy/modules/ethertypes.py
     # .tox specific path
     .tox/*
     # OS specific paths

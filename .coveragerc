@@ -14,3 +14,4 @@ omit =
     # Libraries
     */scapy/modules/six.py
     */scapy/modules/winpcapy.py
+    */scapy/modules/ethertypes.py
