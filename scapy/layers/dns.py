@@ -358,6 +358,11 @@ class DNSTextField(StrLenField):
             tmp_s = tmp_s[tmp_len:]
         return ret_s
 
+    def any2i(self, pkt, x):
+        if isinstance(x, (str, bytes)):
+            return [x]
+        return x
+
     def i2len(self, pkt, x):
         return len(self.i2m(pkt, x))
 
