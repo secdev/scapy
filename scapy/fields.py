@@ -25,7 +25,7 @@ from scapy.config import conf
 from scapy.dadict import DADict
 from scapy.volatile import RandBin, RandByte, RandEnumKeys, RandInt, \
     RandIP, RandIP6, RandLong, RandMAC, RandNum, RandShort, RandSInt, \
-    RandSByte, RandTermString, RandUUID, VolatileValue
+    RandSByte, RandTermString, RandUUID, VolatileValue, RandSShort, RandSLong
 from scapy.data import EPOCH
 from scapy.error import log_runtime, Scapy_Exception
 from scapy.compat import bytes_hex, chb, orb, plain_str, raw, bytes_encode
@@ -169,8 +169,11 @@ class Field(six.with_metaclass(Field_metaclass, object)):
     def randval(self):
         """Return a volatile object whose value is both random and suitable for this field"""  # noqa: E501
         fmtt = self.fmt[-1]
-        if fmtt in "BHIQ":
-            return {"B": RandByte, "H": RandShort, "I": RandInt, "Q": RandLong}[fmtt]()  # noqa: E501
+        if fmtt in "BbHhIiQq":
+            return {"B": RandByte, "b": RandSByte,
+                    "H": RandShort, "h": RandSShort,
+                    "I": RandInt, "i": RandSInt,
+                    "Q": RandLong, "q": RandSLong}[fmtt]()
         elif fmtt == "s":
             if self.fmt[0] in "0123456789":
                 value = int(self.fmt[:-1])
@@ -723,9 +726,6 @@ class SignedByteField(Field):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "b")
 
-    def randval(self):
-        return RandSByte()
-
 
 class FieldValueRangeException(Scapy_Exception):
     pass
@@ -867,9 +867,6 @@ class SignedIntField(Field):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "i")
 
-    def randval(self):
-        return RandSInt()
-
 
 class LEIntField(Field):
     def __init__(self, name, default):
@@ -879,9 +876,6 @@ class LEIntField(Field):
 class LESignedIntField(Field):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "<i")
-
-    def randval(self):
-        return RandSInt()
 
 
 class XIntField(IntField):
@@ -1688,9 +1682,6 @@ class SignedIntEnumField(EnumField):
     def __init__(self, name, default, enum):
         EnumField.__init__(self, name, default, enum, "i")
 
-    def randval(self):
-        return RandSInt()
-
 
 class LEIntEnumField(EnumField):
     def __init__(self, name, default, enum):
@@ -2314,9 +2305,8 @@ class ScalingField(Field):
             barrier1 = self.m2i(None, value.max)
             barrier2 = self.m2i(None, value.min)
 
-            from math import ceil
-            min_value = ceil(min(barrier1, barrier2))
-            max_value = int(max(barrier1, barrier2))
+            min_value = min(barrier1, barrier2)
+            max_value = max(barrier1, barrier2)
 
             return RandNum(min_value, max_value)
 
