@@ -109,9 +109,12 @@ SESSION = None
 
 
 def _usage():
-    print("""Usage: scapy.py [-s sessionfile] [-c new_startup_file] [-p new_prestart_file] [-C] [-P]  # noqa: E501
-    -C: do not read startup file
-    -P: do not read pre-startup file""")
+    print(
+        "Usage: scapy.py [-s sessionfile] [-c new_startup_file] "
+        "[-p new_prestart_file] [-C] [-P]\n"
+        "\t-C: do not read startup file\n"
+        "\t-P: do not read pre-startup file\n"
+    )
     sys.exit(0)
 
 

@@ -1103,7 +1103,7 @@ class PacketListField(PacketField):
         if x is None:
             return None
         else:
-            return [p if isinstance(p, six.string_types) else p.copy() for p in x]  # noqa: E501
+            return [p if isinstance(p, (str, bytes)) else p.copy() for p in x]
 
     def getfield(self, pkt, s):
         c = len_pkt = cls = None
@@ -1150,7 +1150,7 @@ class PacketListField(PacketField):
         return remain + ret, lst
 
     def addfield(self, pkt, s, val):
-        return s + b"".join(raw(v) for v in val)
+        return s + b"".join(bytes_encode(v) for v in val)
 
 
 class StrFixedLenField(StrField):
