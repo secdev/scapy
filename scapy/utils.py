@@ -1473,14 +1473,14 @@ def _guess_linktype_name(value):
     import scapy.data
     return next(
         k[4:] for k, v in six.iteritems(scapy.data.__dict__)
-        if k[:3] == "DLT" and v == value
+        if k.startswith("DLT") and v == value
     )
 
 
 def _guess_linktype_value(name):
     """Guess the value of a DLT name."""
     import scapy.data
-    if name[:4] != "DLT_":
+    if not name.startswith("DLT_"):
         name = "DLT_" + name
     return scapy.data.__dict__[name]
 
@@ -1588,7 +1588,7 @@ u'64'
                 linktype = -1
         else:
             # Guess value from name
-            if linktype[:4] == "DLT_":
+            if linktype.startswith("DLT_"):
                 linktype = linktype[4:]
             linktype_name = linktype
             try:
