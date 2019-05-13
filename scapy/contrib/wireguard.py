@@ -35,7 +35,7 @@ class Wireguard(Packet):
 
     fields_desc = [
         ByteEnumField(
-            "type", 1,
+            "message_type", 1,
             {
                 1: "initiate",
                 2: "respond",
@@ -43,7 +43,7 @@ class Wireguard(Packet):
                 4: "transport"
             }
         ),
-        ThreeBytesField("reserved", 0)
+        ThreeBytesField("reserved_zero", 0)
     ]
 
 
@@ -51,10 +51,10 @@ class WireguardInitiation(Packet):
     name = "Wireguard Initiation"
 
     fields_desc = [
-        XIntField("sender", 0),
-        XStrFixedLenField("ephemeral", 0, 32),
-        XStrFixedLenField("static", 0, 48),
-        XStrFixedLenField("tstamp", 0, 28),
+        XIntField("sender_index", 0),
+        XStrFixedLenField("unencrypted_ephemeral", 0, 32),
+        XStrFixedLenField("encrypted_static", 0, 48),
+        XStrFixedLenField("encrypted_timestamp", 0, 28),
         XStrFixedLenField("mac1", 0, 16),
         XStrFixedLenField("mac2", 0, 16),
     ]
@@ -64,10 +64,10 @@ class WireguardResponse(Packet):
     name = "Wireguard Response"
 
     fields_desc = [
-        XIntField("sender", 0),
-        XIntField("receiver", 0),
-        XStrFixedLenField("ephemeral", 0, 32),
-        XStrFixedLenField("empty", 0, 16),
+        XIntField("sender_index", 0),
+        XIntField("receiver_index", 0),
+        XStrFixedLenField("unencrypted_ephemeral", 0, 32),
+        XStrFixedLenField("encrypted_nothing", 0, 16),
         XStrFixedLenField("mac1", 0, 16),
         XStrFixedLenField("mac2", 0, 16),
     ]
@@ -77,9 +77,9 @@ class WireguardTransport(Packet):
     name = "Wireguard Transport"
 
     fields_desc = [
-        XIntField("receiver", 0),
+        XIntField("receiver_index", 0),
         LongField("counter", 0),
-        XStrField("data", None)
+        XStrField("encrypted_encapsulated_packet", None)
     ]
 
 
@@ -87,16 +87,15 @@ class WireguardCookieReply(Packet):
     name = "Wireguard Cookie Reply"
 
     fields_desc = [
-        XIntField("receiver", 0),
+        XIntField("receiver_index", 0),
         XStrFixedLenField("nonce", 0, 24),
-        XStrFixedLenField("cookie", 0, 16),
-        XStrFixedLenField("cookie_tag", 0, 16)
+        XStrFixedLenField("encrypted_cookie", 0, 32),
     ]
 
 
-bind_layers(Wireguard, WireguardInitiation, type=1)
-bind_layers(Wireguard, WireguardResponse, type=2)
-bind_layers(Wireguard, WireguardCookieReply, type=3)
-bind_layers(Wireguard, WireguardTransport, type=4)
+bind_layers(Wireguard, WireguardInitiation, message_type=1)
+bind_layers(Wireguard, WireguardResponse, message_type=2)
+bind_layers(Wireguard, WireguardCookieReply, message_type=3)
+bind_layers(Wireguard, WireguardTransport, message_type=4)
 bind_layers(UDP, Wireguard, dport=51820)
 bind_layers(UDP, Wireguard, sport=51820)
