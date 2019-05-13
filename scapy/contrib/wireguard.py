@@ -46,24 +46,9 @@ class Wireguard(Packet):
         ThreeBytesField("reserved", 0)
     ]
 
-    def guess_payload_class(self, payload):
-        wireguard_types = {
-            1: WireguardInitiation,
-            2: WireguardResponse,
-            3: WireguardCookieReply,
-            4: WireguardTransport
-        }
-
-        try:
-            return wireguard_types[self.type]
-        except KeyError:
-            return Packet.guess_payload_class(self, payload)
-
 
 class WireguardInitiation(Packet):
     name = "Wireguard Initiation"
-
-    overload_fields = {Wireguard: {"type": 1}}
 
     fields_desc = [
         XIntField("sender", 0),
@@ -78,8 +63,6 @@ class WireguardInitiation(Packet):
 class WireguardResponse(Packet):
     name = "Wireguard Response"
 
-    overload_fields = {Wireguard: {"type": 2}}
-
     fields_desc = [
         XIntField("sender", 0),
         XIntField("receiver", 0),
@@ -93,8 +76,6 @@ class WireguardResponse(Packet):
 class WireguardTransport(Packet):
     name = "Wireguard Transport"
 
-    overload_fields = {Wireguard: {"type": 4}}
-
     fields_desc = [
         XIntField("receiver", 0),
         LongField("counter", 0),
@@ -105,8 +86,6 @@ class WireguardTransport(Packet):
 class WireguardCookieReply(Packet):
     name = "Wireguard Cookie Reply"
 
-    overload_fields = {Wireguard: {"type": 3}}
-
     fields_desc = [
         XIntField("receiver", 0),
         XStrFixedLenField("nonce", 0, 24),
@@ -115,5 +94,9 @@ class WireguardCookieReply(Packet):
     ]
 
 
+bind_layers(Wireguard, WireguardInitiation, type=1)
+bind_layers(Wireguard, WireguardResponse, type=2)
+bind_layers(Wireguard, WireguardCookieReply, type=3)
+bind_layers(Wireguard, WireguardTransport, type=4)
 bind_layers(UDP, Wireguard, dport=51820)
 bind_layers(UDP, Wireguard, sport=51820)
