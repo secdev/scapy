@@ -108,9 +108,8 @@ class ProfinetIO(Packet):
 
     def guess_payload_class(self, payload):
         # For frameID in the RT_CLASS_* range, use the RTC packet as payload
-        if self.frameID == 0xfefe or 0xfeff or 0xfefd:
+        if self.frameID in [0xfefe, 0xfeff, 0xfefd]:
             from scapy.contrib.pnio_dcp import ProfinetDCP
-            # from pnio_dcp import ProfinetDCP
             return ProfinetDCP
         elif (
                 (0x0100 <= self.frameID < 0x1000) or
