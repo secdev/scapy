@@ -955,7 +955,11 @@ class RawPcapReader(six.with_metaclass(PcapReader_metaclass)):
         return self
 
     def next(self):
-        """implement the iterator protocol on a set of packets in a pcap file"""  # noqa: E501
+        """implement the iterator protocol on a set of packets in a pcap file
+        pkt is a tuple (pkt_data, pkt_metadata) as defined in
+        RawPcapReader.read_packet()
+
+        """
         pkt = self.read_packet()
         if pkt is None:
             raise StopIteration
@@ -963,7 +967,8 @@ class RawPcapReader(six.with_metaclass(PcapReader_metaclass)):
     __next__ = next
 
     def read_packet(self, size=MTU):
-        """return a single packet read from the file
+        """return a single packet read from the file as a tuple containing
+        (pkt_data, pkt_metadata)
 
         returns None when no more packets are available
         """
