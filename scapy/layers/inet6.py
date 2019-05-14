@@ -1391,9 +1391,12 @@ class ICMPv6TimeExceeded(_ICMPv6Error):
 class ICMPv6ParamProblem(_ICMPv6Error):
     name = "ICMPv6 Parameter Problem"
     fields_desc = [ByteEnumField("type", 4, icmp6types),
-                   ByteEnumField("code", 0, {0: "erroneous header field encountered",  # noqa: E501
-                                             1: "unrecognized Next Header type encountered",  # noqa: E501
-                                             2: "unrecognized IPv6 option encountered"}),  # noqa: E501
+                   ByteEnumField(
+                       "code", 0,
+                       {0: "erroneous header field encountered",
+                        1: "unrecognized Next Header type encountered",
+                        2: "unrecognized IPv6 option encountered",
+                        3: "first fragment has incomplete header chain"}),
                    XShortField("cksum", None),
                    IntField("ptr", 6)]
 
