@@ -21,8 +21,7 @@ Implements the WireGuard network tunnel protocol.
 Based on the whitepaper: https://www.wireguard.com/papers/wireguard.pdf
 """
 
-from scapy.fields import ByteEnumField, ThreeBytesField, XIntField, \
-    XStrFixedLenField, LongField, XStrField
+import scapy.fields
 from scapy.layers.inet import UDP
 from scapy.packet import Packet, bind_layers
 
@@ -34,7 +33,7 @@ class Wireguard(Packet):
     name = "Wireguard"
 
     fields_desc = [
-        ByteEnumField(
+        scapy.fields.ByteEnumField(
             "message_type", 1,
             {
                 1: "initiate",
@@ -43,7 +42,7 @@ class Wireguard(Packet):
                 4: "transport"
             }
         ),
-        ThreeBytesField("reserved_zero", 0)
+        scapy.fields.ThreeBytesField("reserved_zero", 0)
     ]
 
 
@@ -51,12 +50,12 @@ class WireguardInitiation(Packet):
     name = "Wireguard Initiation"
 
     fields_desc = [
-        XIntField("sender_index", 0),
-        XStrFixedLenField("unencrypted_ephemeral", 0, 32),
-        XStrFixedLenField("encrypted_static", 0, 48),
-        XStrFixedLenField("encrypted_timestamp", 0, 28),
-        XStrFixedLenField("mac1", 0, 16),
-        XStrFixedLenField("mac2", 0, 16),
+        scapy.fields.XLEIntField("sender_index", 0),
+        scapy.fields.XStrFixedLenField("unencrypted_ephemeral", 0, 32),
+        scapy.fields.XStrFixedLenField("encrypted_static", 0, 48),
+        scapy.fields.XStrFixedLenField("encrypted_timestamp", 0, 28),
+        scapy.fields.XStrFixedLenField("mac1", 0, 16),
+        scapy.fields.XStrFixedLenField("mac2", 0, 16),
     ]
 
 
@@ -64,12 +63,12 @@ class WireguardResponse(Packet):
     name = "Wireguard Response"
 
     fields_desc = [
-        XIntField("sender_index", 0),
-        XIntField("receiver_index", 0),
-        XStrFixedLenField("unencrypted_ephemeral", 0, 32),
-        XStrFixedLenField("encrypted_nothing", 0, 16),
-        XStrFixedLenField("mac1", 0, 16),
-        XStrFixedLenField("mac2", 0, 16),
+        scapy.fields.XLEIntField("sender_index", 0),
+        scapy.fields.XLEIntField("receiver_index", 0),
+        scapy.fields.XStrFixedLenField("unencrypted_ephemeral", 0, 32),
+        scapy.fields.XStrFixedLenField("encrypted_nothing", 0, 16),
+        scapy.fields.XStrFixedLenField("mac1", 0, 16),
+        scapy.fields.XStrFixedLenField("mac2", 0, 16),
     ]
 
 
@@ -77,9 +76,9 @@ class WireguardTransport(Packet):
     name = "Wireguard Transport"
 
     fields_desc = [
-        XIntField("receiver_index", 0),
-        LongField("counter", 0),
-        XStrField("encrypted_encapsulated_packet", None)
+        scapy.fields.XLEIntField("receiver_index", 0),
+        scapy.fields.XLELongField("counter", 0),
+        scapy.fields.XStrField("encrypted_encapsulated_packet", None)
     ]
 
 
@@ -87,9 +86,9 @@ class WireguardCookieReply(Packet):
     name = "Wireguard Cookie Reply"
 
     fields_desc = [
-        XIntField("receiver_index", 0),
-        XStrFixedLenField("nonce", 0, 24),
-        XStrFixedLenField("encrypted_cookie", 0, 32),
+        scapy.fields.XLEIntField("receiver_index", 0),
+        scapy.fields.XStrFixedLenField("nonce", 0, 24),
+        scapy.fields.XStrFixedLenField("encrypted_cookie", 0, 32),
     ]
 
 
