@@ -107,20 +107,19 @@ def get_dev_bpf():
     # Get the first available BPF handle
     for bpf in range(256):
         try:
-            file_desc = os.open("/dev/bpf%i" % bpf, os.O_RDWR)
-            return (file_desc, bpf)
+            fd = os.open("/dev/bpf%i" % bpf, os.O_RDWR)
+            return (fd, bpf)
         except OSError:
             continue
 
     raise Scapy_Exception("No /dev/bpf handle is available !")
 
 
-def attach_filter(file_desc, bpf_filter, iface):
+def attach_filter(fd, bpf_filter, iface):
     """Attach a BPF filter to the BPF file descriptor"""
-    bpf_prog = compile_filter(bpf_filter, iface)
+    bp = compile_filter(bpf_filter, iface)
     # Assign the BPF program to the interface
-    ret = LIBC.ioctl(
-        c_int(file_desc), BIOCSETF, cast(pointer(bpf_prog), c_char_p))
+    ret = LIBC.ioctl(c_int(fd), BIOCSETF, cast(pointer(bp), c_char_p))
     if ret < 0:
         raise Scapy_Exception("Can't attach the BPF filter !")
 
@@ -180,16 +179,14 @@ def get_working_ifaces():
         if ifflags & 0x1:  # IFF_UP
 
             # Get a BPF handle
-            file_desc = get_dev_bpf()[0]
-            if file_desc is None:
+            fd = get_dev_bpf()[0]
+            if fd is None:
                 raise Scapy_Exception("No /dev/bpf are available !")
 
             # Check if the interface can be used
             try:
-                fcntl.ioctl(
-                    file_desc, BIOCSETIF,
-                    struct.pack("16s16x", ifname.encode())
-                )
+                fcntl.ioctl(fd, BIOCSETIF, struct.pack("16s16x",
+                                                       ifname.encode()))
             except IOError:
                 pass
             else:
@@ -197,7 +194,7 @@ def get_working_ifaces():
                 interfaces.append((ifname, int(ifnum) if ifnum else -1, ifab))
             finally:
                 # Close the file descriptor
-                os.close(file_desc)
+                os.close(fd)
 
     # Sort to mimic pcap_findalldevs() order
     interfaces.sort(key=lambda elt: (elt[1], elt[2], elt[0]))
