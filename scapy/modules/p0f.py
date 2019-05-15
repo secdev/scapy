@@ -10,7 +10,7 @@ from scapy.modules import six
 from scapy.modules.six.moves import map, range
 
 conf.p0f_base = '/etc/p0f/p0f.fp'
-mtu = 123231231
+mtu = float('inf')
 
 def lparse(line, n, default='', splitchar=':'):
     """Function for nice parcing of 'a:b:c:d:e' lines"""
@@ -115,20 +115,22 @@ class p0fDatabase(KnowledgeBase):
             hits += (int(sttl[:-1]) >= ttl) if sttl[-1] == '-' else int(sttl) == ttl
             hits += int(solen) == olen
             hits += (smss == '*') or (int(smss) == mss)
-            hits += (swsize == '*') or (type(eval(swsize)) == str) or (eval(swsize) >= wsize)
+            if swsize == '*' or type(eval(swsize) == str):
+                hits += 1
+            else:
+                evaled = eval(swsize)
+                if wsize <= evaled:
+                    hits += wsize / evaled
             hits += (sscale == '*') or (int(sscale) == wscale)
             hits += (spclass == '*') or (spclass == pclass == 0) or (spclass == '+' and pclass)
 
             # compares quirks
-            squirks = squirks.split(',')
-            if squirks[0]:
-                qhits = sum(quirks_correl(quirks, squirks))
-            else:
-                qhits = 0
-            # compares layaouts
+            squirks = set(squirks.split(','))
+            qhits = len(squirks & quirks)
+            # compares layouts
             # TODO
 
-            q_correl = qhits / len(squirks)
+            q_correl = qhits / len(quirks)
             h_correl = hits / 7
             l_correl = 1
 
@@ -173,9 +175,15 @@ Quirks_p0f = {
     'exws'   : 15, # excessive window scaling factor ( > 14)
     'bad'    : 16} # malformed tcp options
 
-Layouts_p0f = {
-        
-        
+Layouts_p0f = { 
+    'eol+n': 0, # explicit end of options, followed by n bytes of padding
+    'nop'  : 1, # no-op option
+    'mss'  : 2, # maximum segment size
+    'ws'   : 3, # window scaling
+    'sok'  : 4, # selective ACK permitted
+    'sack' : 5, # selective ACK (should not be seen)
+    'ts'   : 6, # timestamp
+    '?n'   : 7, # unknown option ID n
 }
 
 def quirks_correl(qint, quirks):
@@ -188,26 +196,97 @@ def packet2quirks(pkt):
         not done yet
     """
 
-    quirks = 0
+    quirks = {}
+    addq = lambda name: quirks.add(Quirks_p0f[name])
+    
+    # IPv4 only
+    if type(pkt) == scapy.layers.inet.IP:
+        
+        if pkt.flags == 2:
+            addq('df')
 
-    #df check
-    if pkt.flags == 2:
-        quirks += 1 << Quirks_p0f['df']
+            if pkt.id != 0:
+                addq('id+')
 
-        if pkt.id != 0:
-            quirks += 1 << Quirks_p0f['id+']
+        elif pkt.id == 0:
+            addq('id-')
+    
+        if pkt.flags.ECN:
+            addq('ecn')
 
-    elif pkt.id == 0:
-        quirks += 1 << Quirks_p0f['id-']
+        if pkt.seq == 0:
+            addq('seq-')
 
-    if pkt.flags.ECN:
-        quircks += 1 << Quirks_p0f['ecn']
+    # IPv6 only
+    elif type(pkt) == scapy.layers.inet6.IPv6:
+        
+        if pky.fl:
+            quirks.add(Quirks_p0f['flow'])
 
+    # TCP 
+    pkt = pkt.payload
+
+    if pkt.flags.A:        
+        if pkt.ack == 0:
+            addq('ack+')
+    else:            
+        if pkt.ack:
+            addq('ack-')
+
+    if pkt.flags.U:
+        addq('urgf+')
+        
+    else:
+        if pkt.urgptr:
+            addq('uptr+')
+        
+    if pkt.flags.P:
+        addq('pushf+')
+
+    for name, val in pkt.options:
+        
+        if name == 'Timestamp':
+            if val[0] == 0:
+                addq('ts1-')
+            if val[1] != 0:
+                addq('ts2+')
+
+        elif name == 'WScale' and value > 14:
+            addq('exws')
+
+    # TODO
+    # please help me with '0+' (must be zero field) in p0f
+    # and with 'opt+', 'bad' field  
+
+    return quirks
 
 def packet2olayout(pkt):
-    """requires preprocessed packet"""
-    pass
+    """
+        requires preprocessed packet (preprocessPacket4p0f)
+        returns set{layout: int, ...}
+    """
+        
+    # TODO
+    # please help me with 'eol+n', 'sok', 'sack', '?n'
 
+    layouts = {}
+    addl = lambda name: layouts.add(Layouts_p0f[name])
+
+    for name, val in pkt.payload.options:
+
+        if name == 'NOP':
+            addl('nop')
+
+        elif name == 'Timestamp':
+            addl('ts')
+
+        elif name == 'MSS':
+            addl('mss')
+        
+        elif name == 'WScale':
+            addl('ws')
+    
+    return layouts
 
 def packet2p0f(pkt):
     """requires preprocessed packet"""
@@ -236,11 +315,11 @@ def packet2p0f(pkt):
     wscale = '*'
 
     #TCP options acquiring
-    for option in pkt.payload.options:
-        if option[0] == 'MSS':
-            mss = option[1]
-        if option[0] == 'WScale':
-            wscale = option[1]
+    for name, value in pkt.payload.options:
+        if name == 'MSS':
+            mss = value
+        elif name == 'WScale':
+            wscale = value
 
     return (ver, ttl, olen, mss, wsize, wscale, pclass)
 
@@ -249,9 +328,16 @@ if __name__ == '__main__':
 
     pdb = p0fDatabase(conf.p0f_base)
     base = pdb.get_base()
+
     from time import time
     to = time()
-    packet = IP(version=4, ttl=64)/TCP(options=[], window=128)
-    gen = pdb.p0f_tcp_correl('request', packet2p0f(packet), [], 0)
+
+    packet = IP(version=4, ttl=128)/TCP(options=[], window=8192)
+    gen = pdb.p0f_tcp_correl('request', packet2p0f(packet), [], {0, 1})
     l = list(map(lambda x: (sum(x[:2]) / 3, x[3]), gen))
-    print(time() - to)
+    
+    
+    print(time() - to) #002 avg time
+
+    def gavg(lst, avg):
+        return set(map(lambda x: x[1], filter(lambda x: x[0] > avg, lst)))
