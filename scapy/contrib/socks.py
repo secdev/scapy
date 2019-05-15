@@ -62,8 +62,10 @@ class SOCKS(Packet):
         if self.underlayer and isinstance(self.underlayer, TCP):
             if isinstance(payload, (SOCKS5Request, SOCKS4Request)):
                 self.underlayer.dport = 1080
+                self.underlayer.sport = 1081
             elif isinstance(payload, (SOCKS5Reply, SOCKS4Reply)):
                 self.underlayer.sport = 1080
+                self.underlayer.dport = 1081
         Packet.add_payload(self, payload)
 
 

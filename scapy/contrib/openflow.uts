@@ -85,14 +85,14 @@ p = TCP()/OFPETHelloFailed()
 p[TCP].dport == 6653
 
 = TCP()/OFPTHello() dissection, check new TCP.guess_payload_class
-o = TCP()/OFPTHello()
+o = TCP(dport=6653)/OFPTHello()
 p = TCP(raw(o))
 p[TCP].sport == 6653
 isinstance(p[TCP].payload, OFPTHello)
 
 = complete Ether()/IP()/TCP()/OFPTFeaturesRequest()
-ofm = Ether(src='00:11:22:33:44:55',dst='01:23:45:67:89:ab')/IP(src='10.0.0.7',dst='192.168.0.42')/TCP(sport=6633)/OFPTFeaturesRequest(xid=23)
-s = b'\x01#Eg\x89\xab\x00\x11"3DU\x08\x00E\x00\x000\x00\x01\x00\x00@\x06\xaf\xee\n\x00\x00\x07\xc0\xa8\x00*\x19\xe9\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\xa9\xa4\x00\x00\x01\x05\x00\x08\x00\x00\x00\x17'
+ofm = Ether(src='00:11:22:33:44:55',dst='01:23:45:67:89:ab')/IP(src='10.0.0.7',dst='192.168.0.42')/TCP(sport=6633, dport=6633)/OFPTFeaturesRequest(xid=23)
+s = b'\x01#Eg\x89\xab\x00\x11"3DU\x08\x00E\x00\x000\x00\x01\x00\x00@\x06\xaf\xee\n\x00\x00\x07\xc0\xa8\x00*\x19\xe9\x19\xe9\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x90\x0b\x00\x00\x01\x05\x00\x08\x00\x00\x00\x17'
 assert(raw(ofm) == s)
 e = Ether(s)
 e.show2()

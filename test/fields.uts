@@ -1582,7 +1582,7 @@ print(x.__repr__())
 assert x.data == 0.12346
 assert ScalingField.i2repr(x.fields_desc[0],x, x.data) == '0.12346 V'
 
-= ScalingField randval
+= ScalingField randval byte
 
 class DebugPacket(Packet):
     fields_desc = [
@@ -1592,9 +1592,92 @@ class DebugPacket(Packet):
 x = DebugPacket()
 
 r = x.fields_desc[0].randval()
-assert r.min == -5
-assert r.max == 20
+assert r.min == -5.0
+assert r.max == 20.5
 
+
+= ScalingField randval byte 2
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0, scaling=-0.1, offset=-5)
+    ]
+
+x = DebugPacket()
+
+r = x.fields_desc[0].randval()
+assert r.min == -30.5
+assert r.max == -5
+
+
+= ScalingField signed randval byte
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0, scaling=-0.1, offset=-5, fmt="b")
+    ]
+
+x = DebugPacket()
+
+r = x.fields_desc[0].randval()
+assert r.min == -17.7
+assert r.max == 7.8
+
+
+= ScalingField signed randval byte 2
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0, scaling=0.1, offset=-5, fmt="b")
+    ]
+
+x = DebugPacket()
+
+r = x.fields_desc[0].randval()
+assert r.min == -17.8
+assert r.max == 7.7
+
+
+= ScalingField signed randval short
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0, scaling=0.1, offset=-5, fmt="h")
+    ]
+
+x = DebugPacket()
+
+r = x.fields_desc[0].randval()
+assert r.min == -3281.8
+assert r.max == 3271.7
+
+
+= ScalingField signed randval int
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0, scaling=0.1, offset=-5, fmt="i")
+    ]
+
+x = DebugPacket()
+
+r = x.fields_desc[0].randval()
+assert r.min == -214748369.8
+assert r.max == 214748359.7
+
+
+= ScalingField signed randval long
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ScalingField('data', 0, scaling=0.1, offset=-5, fmt="q")
+    ]
+
+x = DebugPacket()
+
+r = x.fields_desc[0].randval()
+assert r.min == -922337203685477585.8
+assert r.max == 922337203685477575.7
 
 ############
 ############
