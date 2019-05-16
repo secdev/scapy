@@ -25,7 +25,7 @@ class p0fDatabase(KnowledgeBase):
     nested dictionary structure
     self.base = {
         'module' (str): {
-            'moduledir' (str): {'sig' (str): labelnum (int)}
+            'moduledir' (str): {sig (tuple): labelnum (int)}
             }
         }
 
@@ -50,6 +50,7 @@ class p0fDatabase(KnowledgeBase):
         self.labels = []
         self.parse_file(f)
         self.labels = tuple(self.labels)
+        self.parse_tcp_base()
         #except Exception:
         #    warning("Can't parse p0f database (new p0f version ?)")
         #    self.base = None
@@ -57,7 +58,9 @@ class p0fDatabase(KnowledgeBase):
         f.close()
 
     def parse_file(self, file):
-        """Does actual parsing and stores it to self.base with described structure"""
+        """
+            Does actual parsing and stores it to self.base with described structure
+        """
         
         module = 'classes'
         moduledir = ''
@@ -95,6 +98,29 @@ class p0fDatabase(KnowledgeBase):
                 elif param == 'classes':
                     currdict[currlabel] = value
 
+    def parse_tcp_base(self):
+
+        for moduledir in 'response', 'request':
+            sigdict = self.base['tcp'][moduledir]
+            newsigdict = {}
+            for sig, numlabel in sigdict.items():
+
+                ver, ttl, olen, mss, wsize, olayout, quirks, pclass = lparse(sig, 8)
+                wsize, _, scale = wsize.partition(',')
+
+                quirks = frozenset(map(lambda x: Quirks_p0f.get(x), quirks.split(',')))
+
+                olayout = list(map(lambda x: Layouts_p0f.get(x, x), olayout.split(',')))
+                if type(olayout[-1]) == str:
+                    olayout[-1] = - int(olayout[-1][4:])
+                olayout = tuple(olayout)
+
+                newsigdict[(ver, ttl, olen, mss, wsize,
+                    scale, olayout, quirks, pclass)] = numlabel
+
+            self.base['tcp'][moduledir] = newsigdict
+
+
     def p0f_tcp_correl(self, moduledir, pkt2p0f_out, olayout, quirks):
         """corellates the tcp-packet with p0f database"""
         
@@ -102,13 +128,11 @@ class p0fDatabase(KnowledgeBase):
         ver, ttl, olen, mss, wsize, wscale, pclass = pkt2p0f_out
         sigdict = self.base['tcp'][moduledir]
 
-        for sig, numlabel in sigdict.items():
-            label = self.labels[numlabel]
-            hits = 0
+        # 's' stnds for signature
+        for (sver, sttl, solen, smss, swsize, sscale, 
+                solayout, squirks, spclass), numlabel in sigdict.items():
 
-            # 's' stands for 'signature_'
-            sver, sttl, solen, smss, swsize_sscale, solayout, squirks, spclass = lparse(sig, 8)
-            swsize, sscale = swsize_sscale.split(',')
+            hits = 0
 
             # compares main values
             hits += (sver == '*') or (int(sver) == ver)
@@ -122,19 +146,19 @@ class p0fDatabase(KnowledgeBase):
                 if wsize <= evaled:
                     hits += wsize / evaled
             hits += (sscale == '*') or (int(sscale) == wscale)
-            hits += (spclass == '*') or (spclass == pclass == 0) or (spclass == '+' and pclass)
+            hits += (spclass == '*') or (spclass == pclass == 0) or \
+                    (spclass == '+' and pclass)
+
+            h_correl = hits / 7
 
             # compares quirks
-            squirks = set(squirks.split(','))
-            qhits = len(squirks & quirks)
+            q_correl = len(squirks & quirks) / len(quirks)
+
             # compares layouts
-            # TODO
+            print(solayout, olayout)
+            l_correl = solayout == olayout
 
-            q_correl = qhits / len(quirks)
-            h_correl = hits / 7
-            l_correl = 1
-
-            yield q_correl, h_correl, l_correl, label
+            yield q_correl, h_correl, l_correl, self.labels[numlabel]
 
 p0fdb = p0fDatabase(conf.p0f_base)
 
@@ -173,18 +197,19 @@ Quirks_p0f = {
     'ts2+'   : 13, # non-zero peer timestamp on initial SYN
     'opt+'   : 14, # trailing non-zero data in options segment
     'exws'   : 15, # excessive window scaling factor ( > 14)
-    'bad'    : 16} # malformed tcp options
+    'bad'    : 16 # malformed tcp options
+}
 
 Layouts_p0f = { 
-    'eol+n': 0, # explicit end of options, followed by n bytes of padding
-    'nop'  : 1, # no-op option
-    'mss'  : 2, # maximum segment size
-    'ws'   : 3, # window scaling
-    'sok'  : 4, # selective ACK permitted
-    'sack' : 5, # selective ACK (should not be seen)
-    'ts'   : 6, # timestamp
-    '?n'   : 7, # unknown option ID n
+    'nop'  : 0, # no-op option
+    'mss'  : 1, # maximum segment size
+    'ws'   : 2, # window scaling
+    'sok'  : 3, # selective ACK permitted
+    'sack' : 4, # selective ACK (should not be seen)
+    'ts'   : 5, # timestamp
+    '?n'   : 6, # unknown option ID n
 }
+# eol+n will be stored as '-n' integer
 
 def quirks_correl(qint, quirks):
     for quirk in quirks:
@@ -269,8 +294,8 @@ def packet2olayout(pkt):
     # TODO
     # please help me with 'eol+n', 'sok', 'sack', '?n'
 
-    layouts = {}
-    addl = lambda name: layouts.add(Layouts_p0f[name])
+    olayout = []
+    addl = lambda name: olayout.append(Layouts_p0f[name])
 
     for name, val in pkt.payload.options:
 
@@ -286,7 +311,8 @@ def packet2olayout(pkt):
         elif name == 'WScale':
             addl('ws')
     
-    return layouts
+    return tuple(olayout)
+   
 
 def packet2p0f(pkt):
     """requires preprocessed packet"""
@@ -332,10 +358,13 @@ if __name__ == '__main__':
     from time import time
     to = time()
 
-    packet = IP(version=4, ttl=128)/TCP(options=[], window=8192)
-    gen = pdb.p0f_tcp_correl('request', packet2p0f(packet), [], {0, 1})
-    l = list(map(lambda x: (sum(x[:2]) / 3, x[3]), gen))
-    
+    packet = IP(version=4, ttl=64)/TCP(options=[('WScale', 10)], window=8192)
+    print(packet2p0f(packet))
+    gen = pdb.p0f_tcp_correl('request', packet2p0f(packet), (1, 3, 5, 0, 2), {0, 1})
+    l = sorted(list(gen), key = lambda x: (sum(x[:2]) / 3, x[3]))
+
+    for q, h, l, n in l:
+        print(f"{h, l ,q}   : {n}")
     
     print(time() - to) #002 avg time
 
