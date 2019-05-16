@@ -241,7 +241,7 @@ class L2CAP_ConnResp(Packet):
                    ]
 
     def answers(self, other):
-        return isinstance(other, L2CAP_ConnReq) and self.dcid == other.scid
+        return isinstance(other, L2CAP_ConnReq) and self.scid == other.scid
 
 
 class L2CAP_CmdRej(Packet):
