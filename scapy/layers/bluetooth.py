@@ -241,6 +241,7 @@ class L2CAP_ConnResp(Packet):
                    ]
 
     def answers(self, other):
+        # dcid Resp == scid Req. Therefore compare SCIDs
         return isinstance(other, L2CAP_ConnReq) and self.scid == other.scid
 
 
@@ -265,7 +266,8 @@ class L2CAP_ConfResp(Packet):
                    ]
 
     def answers(self, other):
-        return isinstance(other, L2CAP_ConfReq) and self.scid == other.dcid
+        # Req and Resp contain either the SCID or the DCID.
+        return isinstance(other, L2CAP_ConfReq)
 
 
 class L2CAP_DisconnReq(Packet):
