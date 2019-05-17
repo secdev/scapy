@@ -21,7 +21,8 @@ Implements the WireGuard network tunnel protocol.
 Based on the whitepaper: https://www.wireguard.com/papers/wireguard.pdf
 """
 
-from scapy.fields import ByteEnumField, ThreeBytesField, XLEIntField, XStrFixedLenField, XLELongField, XStrField
+from scapy.fields import ByteEnumField, ThreeBytesField, XLEIntField, \
+    XStrFixedLenField, XLELongField, XStrField
 from scapy.layers.inet import UDP
 from scapy.packet import Packet, bind_layers
 
