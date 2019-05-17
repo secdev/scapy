@@ -19,7 +19,8 @@ import struct
 import scapy
 import scapy.consts
 from scapy.arch.windows.structures import _windows_title, \
-    GetAdaptersAddresses, GetIpForwardTable, GetIpForwardTable2
+    GetAdaptersAddresses, GetIpForwardTable, GetIpForwardTable2, \
+    get_service_status
 from scapy.consts import WINDOWS, WINDOWS_XP
 from scapy.config import conf, ConfClass
 from scapy.error import Scapy_Exception, log_loading, log_runtime, warning
@@ -176,10 +177,7 @@ def _exec_cmd(command):
     proc = sp.Popen(command,
                     stdout=sp.PIPE,
                     shell=True)
-    if six.PY2:
-        res = proc.communicate()[0]
-    else:
-        res = proc.communicate(timeout=5)[0]
+    res = proc.communicate()[0]
     return res, proc.returncode
 
 
@@ -337,12 +335,13 @@ class NetworkInterface(object):
             # Npcap loopback interface
             if conf.use_npcap:
                 pcap_name_loopback = _get_npcap_config("LoopbackAdapter")
-                guid = _pcapname_to_guid(pcap_name_loopback)
-                if self.guid == guid:
-                    # https://nmap.org/npcap/guide/npcap-devguide.html
-                    self.mac = "00:00:00:00:00:00"
-                    self.ip = "127.0.0.1"
-                    return
+                if pcap_name_loopback:  # May not be defined
+                    guid = _pcapname_to_guid(pcap_name_loopback)
+                    if self.guid == guid:
+                        # https://nmap.org/npcap/guide/npcap-devguide.html
+                        self.mac = "00:00:00:00:00:00"
+                        self.ip = "127.0.0.1"
+                        return
         except KeyError:
             pass
 
@@ -383,7 +382,7 @@ class NetworkInterface(object):
             # The Dot11Adapters is not officially supported anymore.
             # we just try/except, and check that it exists globally
             val = _get_npcap_config("Dot11Support")
-            self.raw80211 = bool(int(val))
+            self.raw80211 = bool(int(val)) if val else False
         if not self.raw80211:
             raise Scapy_Exception("This interface does not support raw 802.11")
 
@@ -564,8 +563,8 @@ def pcap_service_name():
 
 def pcap_service_status():
     """Returns whether the windows pcap adapter is running or not"""
-    outp, _ = _exec_cmd('sc query %s | findstr STATE' % pcap_service_name())
-    return b"running" in outp.lower()
+    status = get_service_status(pcap_service_name())
+    return status["dwCurrentState"] == 4
 
 
 def _pcap_service_control(action, askadmin=True):
@@ -593,6 +592,10 @@ class NetworkInterfaceDict(UserDict):
     @classmethod
     def _pcap_check(cls):
         """Performs checks/restart pcap adapter"""
+        if not conf.use_winpcapy:
+            # Winpcap/Npcap isn't installed
+            return
+
         _detect = pcap_service_status()
 
         def _ask_user():
@@ -718,6 +721,8 @@ class NetworkInterfaceDict(UserDict):
             from scapy.arch.pcapdnet import load_winpcapy
             load_winpcapy()
         self.load()
+        # Reload conf.iface
+        conf.iface = get_working_if()
 
     def show(self, resolve_mac=True, print_result=True):
         """Print list of available network interfaces in human readable form"""

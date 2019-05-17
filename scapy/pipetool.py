@@ -652,12 +652,11 @@ class QueueSink(Sink):
     def high_push(self, msg):
         self.q.put(msg)
 
-    def recv(self):
-        while True:
-            try:
-                return self.q.get(True, timeout=0.1)
-            except six.moves.queue.Empty:
-                pass
+    def recv(self, block=True, timeout=None):
+        try:
+            return self.q.get(block=block, timeout=timeout)
+        except six.moves.queue.Empty:
+            pass
 
 
 class TransformDrain(Drain):

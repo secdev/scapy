@@ -25,7 +25,7 @@ from scapy.config import conf
 from scapy.dadict import DADict
 from scapy.volatile import RandBin, RandByte, RandEnumKeys, RandInt, \
     RandIP, RandIP6, RandLong, RandMAC, RandNum, RandShort, RandSInt, \
-    RandSByte, RandTermString, RandUUID, VolatileValue
+    RandSByte, RandTermString, RandUUID, VolatileValue, RandSShort, RandSLong
 from scapy.data import EPOCH
 from scapy.error import log_runtime, Scapy_Exception
 from scapy.compat import bytes_hex, chb, orb, plain_str, raw, bytes_encode
@@ -169,8 +169,11 @@ class Field(six.with_metaclass(Field_metaclass, object)):
     def randval(self):
         """Return a volatile object whose value is both random and suitable for this field"""  # noqa: E501
         fmtt = self.fmt[-1]
-        if fmtt in "BHIQ":
-            return {"B": RandByte, "H": RandShort, "I": RandInt, "Q": RandLong}[fmtt]()  # noqa: E501
+        if fmtt in "BbHhIiQq":
+            return {"B": RandByte, "b": RandSByte,
+                    "H": RandShort, "h": RandSShort,
+                    "I": RandInt, "i": RandSInt,
+                    "Q": RandLong, "q": RandSLong}[fmtt]()
         elif fmtt == "s":
             if self.fmt[0] in "0123456789":
                 value = int(self.fmt[:-1])
@@ -275,31 +278,41 @@ use.
         self.dflt = dflt
         self.name = self.dflt.name
 
+    def _iterate_fields_cond(self, pkt, val, use_val):
+        """Internal function used by _find_fld_pkt & _find_fld_pkt_val"""
+        # Iterate through the fields
+        for fld, cond in self.flds:
+            if isinstance(cond, tuple):
+                if use_val:
+                    if cond[1](pkt, val):
+                        return fld
+                    continue
+                else:
+                    cond = cond[0]
+            if cond(pkt):
+                return fld
+        return self.dflt
+
     def _find_fld_pkt(self, pkt):
         """Given a Packet instance `pkt`, returns the Field subclass to be
 used. If you know the value to be set (e.g., in .addfield()), use
 ._find_fld_pkt_val() instead.
 
         """
-        for fld, cond in self.flds:
-            if isinstance(cond, tuple):
-                cond = cond[0]
-            if cond(pkt):
-                return fld
-        return self.dflt
+        return self._iterate_fields_cond(pkt, None, False)
 
     def _find_fld_pkt_val(self, pkt, val):
         """Given a Packet instance `pkt` and the value `val` to be set,
-returns the Field subclass to be used.
+returns the Field subclass to be used, and the updated `val` if necessary.
 
         """
-        for fld, cond in self.flds:
-            if isinstance(cond, tuple):
-                if cond[1](pkt, val):
-                    return fld
-            elif cond(pkt):
-                return fld
-        return self.dflt
+        fld = self._iterate_fields_cond(pkt, val, True)
+        # Default ? (in this case, let's make sure it's up-do-date)
+        dflts_pkt = pkt.default_fields
+        if val == dflts_pkt[self.name] and self.name not in pkt.fields:
+            dflts_pkt[self.name] = fld.default
+            val = fld.default
+        return fld, val
 
     def _find_fld(self):
         """Returns the Field subclass to be used, depending on the Packet
@@ -331,25 +344,32 @@ the value to set is also known) of ._find_fld_pkt() instead.
         return self._find_fld_pkt(pkt).getfield(pkt, s)
 
     def addfield(self, pkt, s, val):
-        return self._find_fld_pkt_val(pkt, val).addfield(pkt, s, val)
+        fld, val = self._find_fld_pkt_val(pkt, val)
+        return fld.addfield(pkt, s, val)
 
     def any2i(self, pkt, val):
-        return self._find_fld_pkt_val(pkt, val).any2i(pkt, val)
+        fld, val = self._find_fld_pkt_val(pkt, val)
+        return fld.any2i(pkt, val)
 
     def h2i(self, pkt, val):
-        return self._find_fld_pkt_val(pkt, val).h2i(pkt, val)
+        fld, val = self._find_fld_pkt_val(pkt, val)
+        return fld.h2i(pkt, val)
 
     def i2h(self, pkt, val):
-        return self._find_fld_pkt_val(pkt, val).i2h(pkt, val)
+        fld, val = self._find_fld_pkt_val(pkt, val)
+        return fld.i2h(pkt, val)
 
     def i2m(self, pkt, val):
-        return self._find_fld_pkt_val(pkt, val).i2m(pkt, val)
+        fld, val = self._find_fld_pkt_val(pkt, val)
+        return fld.i2m(pkt, val)
 
     def i2len(self, pkt, val):
-        return self._find_fld_pkt_val(pkt, val).i2len(pkt, val)
+        fld, val = self._find_fld_pkt_val(pkt, val)
+        return fld.i2len(pkt, val)
 
     def i2repr(self, pkt, val):
-        return self._find_fld_pkt_val(pkt, val).i2repr(pkt, val)
+        fld, val = self._find_fld_pkt_val(pkt, val)
+        return fld.i2repr(pkt, val)
 
     def register_owner(self, cls):
         for fld, _ in self.flds:
@@ -412,7 +432,9 @@ class FCSField(Field):
         val = self.m2i(pkt, struct.unpack(self.fmt, s[-self.sz:])[0])
 
         def _post_dissect(self, s):
-            self.raw_packet_cache = None  # Reset packet to allow post_build
+            # Reset packet to allow post_build
+            self.raw_packet_cache = None
+            self.post_dissect = previous_post_dissect
             return previous_post_dissect(s)
         pkt.post_dissect = MethodType(_post_dissect, pkt)
         return s[:-self.sz], val
@@ -423,6 +445,7 @@ class FCSField(Field):
 
         def _post_build(self, p, pay):
             pay += value
+            self.post_build = previous_post_build
             return previous_post_build(p, pay)
         pkt.post_build = MethodType(_post_build, pkt)
         return s
@@ -703,9 +726,6 @@ class SignedByteField(Field):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "b")
 
-    def randval(self):
-        return RandSByte()
-
 
 class FieldValueRangeException(Scapy_Exception):
     pass
@@ -847,9 +867,6 @@ class SignedIntField(Field):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "i")
 
-    def randval(self):
-        return RandSInt()
-
 
 class LEIntField(Field):
     def __init__(self, name, default):
@@ -859,9 +876,6 @@ class LEIntField(Field):
 class LESignedIntField(Field):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "<i")
-
-    def randval(self):
-        return RandSInt()
 
 
 class XIntField(IntField):
@@ -916,8 +930,8 @@ class StrField(Field):
         Field.__init__(self, name, default, fmt)
         self.remain = remain
 
-    def i2len(self, pkt, i):
-        return len(i)
+    def i2len(self, pkt, x):
+        return len(x)
 
     def any2i(self, pkt, x):
         if isinstance(x, six.text_type):
@@ -1083,7 +1097,7 @@ class PacketListField(PacketField):
         if x is None:
             return None
         else:
-            return [p if isinstance(p, six.string_types) else p.copy() for p in x]  # noqa: E501
+            return [p if isinstance(p, (str, bytes)) else p.copy() for p in x]
 
     def getfield(self, pkt, s):
         c = len_pkt = cls = None
@@ -1130,7 +1144,7 @@ class PacketListField(PacketField):
         return remain + ret, lst
 
     def addfield(self, pkt, s, val):
-        return s + b"".join(raw(v) for v in val)
+        return s + b"".join(bytes_encode(v) for v in val)
 
 
 class StrFixedLenField(StrField):
@@ -1227,26 +1241,31 @@ class XStrField(StrField):
         return bytes_hex(x).decode()
 
 
-class XStrLenField(StrLenField):
+class _XStrLenField:
+    def i2repr(self, pkt, x):
+        if not x:
+            return repr(x)
+        return bytes_hex(x[:self.length_from(pkt)]).decode()
+
+
+class XStrLenField(_XStrLenField, StrLenField):
     """
     StrLenField which value is printed as hexadecimal.
     """
 
-    def i2repr(self, pkt, x):
-        if not x:
-            return repr(x)
-        return bytes_hex(x[:self.length_from(pkt)]).decode()
 
-
-class XStrFixedLenField(StrFixedLenField):
+class XStrFixedLenField(_XStrLenField, StrFixedLenField):
     """
     StrFixedLenField which value is printed as hexadecimal.
     """
 
-    def i2repr(self, pkt, x):
-        if not x:
-            return repr(x)
-        return bytes_hex(x[:self.length_from(pkt)]).decode()
+
+class XLEStrLenField(XStrLenField):
+    def i2m(self, pkt, x):
+        return x[:: -1]
+
+    def m2i(self, pkt, x):
+        return x[:: -1]
 
 
 class StrLenFieldUtf16(StrLenField):
@@ -1670,9 +1689,6 @@ class IntEnumField(EnumField):
 class SignedIntEnumField(EnumField):
     def __init__(self, name, default, enum):
         EnumField.__init__(self, name, default, enum, "i")
-
-    def randval(self):
-        return RandSInt()
 
 
 class LEIntEnumField(EnumField):
@@ -2155,20 +2171,33 @@ class IP6PrefixField(_IPPrefixFieldBase):
 
 
 class UTCTimeField(IntField):
-    __slots__ = ["epoch", "delta", "strf", "use_nano"]
+    __slots__ = ["epoch", "delta", "strf",
+                 "use_msec", "use_micro", "use_nano"]
 
-    def __init__(self, name, default, epoch=None, use_nano=False,
+    # Do not change the order of the keywords in here
+    # Netflow heavily rely on this
+    def __init__(self, name, default,
+                 use_msec=False,
+                 use_micro=False,
+                 use_nano=False,
+                 epoch=None,
                  strf="%a, %d %b %Y %H:%M:%S %z"):
         IntField.__init__(self, name, default)
         mk_epoch = EPOCH if epoch is None else calendar.timegm(epoch)
         self.epoch = mk_epoch
         self.delta = mk_epoch - EPOCH
         self.strf = strf
+        self.use_msec = use_msec
+        self.use_micro = use_micro
         self.use_nano = use_nano
 
     def i2repr(self, pkt, x):
         if x is None:
             x = 0
+        elif self.use_msec:
+            x = x / 1e3
+        elif self.use_micro:
+            x = x / 1e6
         elif self.use_nano:
             x = x / 1e9
         x = int(x) + self.delta
@@ -2180,17 +2209,28 @@ class UTCTimeField(IntField):
 
 
 class SecondsIntField(IntField):
-    __slots__ = ["use_msec"]
+    __slots__ = ["use_msec", "use_micro", "use_nano"]
 
-    def __init__(self, name, default, use_msec=False):
+    # Do not change the order of the keywords in here
+    # Netflow heavily rely on this
+    def __init__(self, name, default,
+                 use_msec=False,
+                 use_micro=False,
+                 use_nano=False):
         IntField.__init__(self, name, default)
         self.use_msec = use_msec
+        self.use_micro = use_micro
+        self.use_nano = use_nano
 
     def i2repr(self, pkt, x):
         if x is None:
             x = 0
         elif self.use_msec:
             x = x / 1e3
+        elif self.use_micro:
+            x = x / 1e6
+        elif self.use_nano:
+            x = x / 1e9
         return "%s sec" % x
 
 
@@ -2273,9 +2313,8 @@ class ScalingField(Field):
             barrier1 = self.m2i(None, value.max)
             barrier2 = self.m2i(None, value.min)
 
-            from math import ceil
-            min_value = ceil(min(barrier1, barrier2))
-            max_value = int(max(barrier1, barrier2))
+            min_value = min(barrier1, barrier2)
+            max_value = max(barrier1, barrier2)
 
             return RandNum(min_value, max_value)
 
@@ -2404,3 +2443,120 @@ class UUIDField(Field):
     @staticmethod
     def randval():
         return RandUUID()
+
+
+class BitExtendedField(Field):
+    """
+    Bit Extended Field
+    ------------------
+
+    This type of field has a variable number of bytes. Each byte is defined
+    as follows:
+    - 7 bits of data
+    - 1 bit an an extension bit
+        * 0 means it is last byte of the field ("stopping bit")
+        * 1 means there is another byte after this one ("forwarding bit")
+
+    To get the actual data, it is necessary to hop the binary data byte per
+    byte and to check the extension bit until 0
+    """
+
+    __slots__ = ["extension_bit"]
+
+    def prepare_byte(self, x):
+        # Moves the forwarding bit to the LSB
+        x = int(x)
+        fx_bit = (x & 2**self.extension_bit) >> self.extension_bit
+        lsb_bits = x & 2**self.extension_bit - 1
+        msb_bits = x >> (self.extension_bit + 1)
+        x = (msb_bits << (self.extension_bit + 1)) + (lsb_bits << 1) + fx_bit
+        return x
+
+    def str2extended(self, x=""):
+        # For convenience, we reorder the byte so that the forwarding
+        # bit is always the LSB. We then apply the same algorithm
+        # whatever the real forwarding bit position
+
+        # First bit is the stopping bit at zero
+        bits = 0b0
+        end = None
+
+        # We retrieve 7 bits.
+        # If "forwarding bit" is 1 then we continue on another byte
+        i = 0
+        for c in bytearray(x):
+            c = self.prepare_byte(c)
+            bits = bits << 7 | (int(c) >> 1)
+            if not int(c) & 0b1:
+                end = x[i + 1:]
+                break
+            i = i + 1
+        if end is None:
+            # We reached the end of the data but there was no
+            # "ending bit". This is not normal.
+            return None, None
+        else:
+            return end, bits
+
+    def extended2str(self, x):
+        x = int(x)
+        s = []
+        LSByte = True
+        FX_Missing = True
+        bits = 0b0
+        i = 0
+        while (x > 0 or FX_Missing):
+            if i == 8:
+                # End of byte
+                i = 0
+                s.append(bits)
+                bits = 0b0
+                FX_Missing = True
+            else:
+                if i % 8 == self.extension_bit:
+                    # This is extension bit
+                    if LSByte:
+                        bits = bits | 0b0 << i
+                        LSByte = False
+                    else:
+                        bits = bits | 0b1 << i
+                    FX_Missing = False
+                else:
+                    bits = bits | (x & 0b1) << i
+                    x = x >> 1
+                # Still some bits
+                i = i + 1
+        s.append(bits)
+
+        result = "".encode()
+        for x in s[:: -1]:
+            result = result + struct.pack(">B", x)
+        return result
+
+    def __init__(self, name, default, extension_bit):
+        Field.__init__(self, name, default, "B")
+        self.extension_bit = extension_bit
+
+    def i2m(self, pkt, x):
+        return self.extended2str(x)
+
+    def m2i(self, pkt, x):
+        return self.str2extended(x)[1]
+
+    def addfield(self, pkt, s, val):
+        return s + self.i2m(pkt, val)
+
+    def getfield(self, pkt, s):
+        return self.str2extended(s)
+
+
+class LSBExtendedField(BitExtendedField):
+    # This is a BitExtendedField with the extension bit on LSB
+    def __init__(self, name, default):
+        BitExtendedField.__init__(self, name, default, extension_bit=0)
+
+
+class MSBExtendedField(BitExtendedField):
+    # This is a BitExtendedField with the extension bit on MSB
+    def __init__(self, name, default):
+        BitExtendedField.__init__(self, name, default, extension_bit=7)

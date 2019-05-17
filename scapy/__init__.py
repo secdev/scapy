@@ -91,6 +91,7 @@ def _version():
 
 
 VERSION = __version__ = _version()
+VERSION_MAIN = re.search(r"[0-9.]+", VERSION).group()
 
 if __name__ == "__main__":
     from scapy.main import interact

@@ -33,7 +33,7 @@ from scapy.fields import ConditionalField, IPField, BitField, BitEnumField, \
     DestField, FieldListField, FlagsField, IntField, MultiEnumField, \
     PacketListField, ShortEnumField, SourceIPField, StrField, \
     StrFixedLenField, XByteField, XShortField, Emph
-from scapy.packet import Packet, bind_layers, NoPayload
+from scapy.packet import Packet, bind_layers, bind_bottom_up, NoPayload
 from scapy.volatile import RandShort, RandInt, RandBin, RandNum, VolatileValue
 from scapy.sendrecv import sr, sr1
 from scapy.plist import PacketList, SndRcvList
@@ -381,7 +381,8 @@ class TCPOptionsField(StrField):
                     ofmt = TCPOptions[0][onum][1]
                     if onum == 5:  # SAck
                         ofmt += "%iI" % len(oval)
-                    if ofmt is not None and (not isinstance(oval, str) or "s" in ofmt):  # noqa: E501
+                    _test_isinstance = not isinstance(oval, (bytes, str))
+                    if ofmt is not None and (_test_isinstance or "s" in ofmt):
                         if not isinstance(oval, tuple):
                             oval = (oval,)
                         oval = struct.pack(ofmt, *oval)
@@ -853,13 +854,21 @@ class IPerror(IP):
     def answers(self, other):
         if not isinstance(other, IP):
             return 0
-        if not (((conf.checkIPsrc == 0) or (self.dst == other.dst)) and
-                (self.src == other.src) and
-                (((conf.checkIPID == 0) or
-                  (self.id == other.id) or
-                  (conf.checkIPID == 1 and self.id == socket.htons(other.id)))) and  # noqa: E501
-                (self.proto == other.proto)):
+
+        # Check if IP addresses match
+        test_IPsrc = not conf.checkIPsrc or self.src == other.src
+        test_IPdst = self.dst == other.dst
+
+        # Check if IP ids match
+        test_IPid = not conf.checkIPID or self.id == other.id
+        test_IPid |= conf.checkIPID and self.id == socket.htons(other.id)
+
+        # Check if IP protocols match
+        test_IPproto = self.proto == other.proto
+
+        if not (test_IPsrc and test_IPdst and test_IPid and test_IPproto):
             return 0
+
         return self.payload.answers(other.payload)
 
     def mysummary(self):
@@ -931,8 +940,8 @@ bind_layers(Ether, IP, type=2048)
 bind_layers(CookedLinux, IP, proto=2048)
 bind_layers(GRE, IP, proto=2048)
 bind_layers(SNAP, IP, code=2048)
-bind_layers(Loopback, IP, type=0)
-bind_layers(Loopback, IP, type=2)
+bind_bottom_up(Loopback, IP, type=0)
+bind_layers(Loopback, IP, type=socket.AF_INET)
 bind_layers(IPerror, IPerror, frag=0, proto=4)
 bind_layers(IPerror, ICMPerror, frag=0, proto=1)
 bind_layers(IPerror, TCPerror, frag=0, proto=6)

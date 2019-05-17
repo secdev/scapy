@@ -159,9 +159,11 @@ if conf.use_winpcapy:
     except OSError:
         conf.use_winpcapy = False
         if conf.interactive:
-            log_loading.warning("wpcap.dll is not installed. "
-                                "Restricted mode enabled ! "
-                                "Visit the Scapy's doc to install it")
+            log_loading.warning(conf.color_theme.format(
+                "Npcap/Winpcap is not installed ! See "
+                "https://scapy.readthedocs.io/en/latest/installation.html#windows",  # noqa: E501
+                "black+bg_red"
+            ))
 
     if conf.use_winpcapy:
         def get_if_list():

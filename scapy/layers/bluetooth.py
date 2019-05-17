@@ -94,6 +94,63 @@ _bluetooth_packet_types = {
     15: "Link Control"
 }
 
+_bluetooth_error_codes = {
+    0x00: "success",
+    0x01: "unknown command",
+    0x02: "no connection",
+    0x03: "hardware failure",
+    0x04: "page timeout",
+    0x05: "authentication failure",
+    0x06: "pin or key missing",
+    0x07: "memory full",
+    0x08: "connection timeout",
+    0x09: "max number of connections",
+    0x0a: "max number of sco connections",
+    0x0b: "acl connection exists",
+    0x0c: "command disallowed",
+    0x0d: "rejected limited resources",
+    0x0e: "rejected security",
+    0x0f: "rejected personal",
+    0x10: "host timeout",
+    0x11: "unsupported feature",
+    0x12: "invalid parameters",
+    0x13: "oe user ended connection",
+    0x14: "oe low resources",
+    0x15: "oe power off",
+    0x16: "connection terminated",
+    0x17: "repeated attempts",
+    0x18: "pairing not allowed",
+    0x19: "unknown lmp pdu",
+    0x1a: "unsupported remote feature",
+    0x1b: "sco offset rejected",
+    0x1c: "sco interval rejected",
+    0x1d: "air mode rejected",
+    0x1e: "invalid lmp parameters",
+    0x1f: "unspecified error",
+    0x20: "unsupported lmp parameter value",
+    0x21: "role change not allowed",
+    0x22: "lmp response timeout",
+    0x23: "lmp error transaction collision",
+    0x24: "lmp pdu not allowed",
+    0x25: "encryption mode not accepted",
+    0x26: "unit link key used",
+    0x27: "qos not supported",
+    0x28: "instant passed",
+    0x29: "pairing not supported",
+    0x2a: "transaction collision",
+    0x2c: "qos unacceptable parameter",
+    0x2d: "qos rejected",
+    0x2e: "classification not supported",
+    0x2f: "insufficient security",
+    0x30: "parameter out of range",
+    0x32: "role switch pending",
+    0x34: "slot violation",
+    0x35: "role switch failed",
+    0x36: "eir too large",
+    0x37: "simple pairing not supported",
+    0x38: "host busy pairing"
+}
+
 
 class HCI_Hdr(Packet):
     name = "HCI header"
@@ -338,7 +395,17 @@ class ATT_Read_Request(Packet):
 
 class ATT_Read_Response(Packet):
     name = "Read Response"
-    fields_desc = [StrField("value", ""), ]
+    fields_desc = [StrField("value", "")]
+
+
+class ATT_Read_Multiple_Request(Packet):
+    name = "Read Multiple Request"
+    fields_desc = [StrField("handles", "")]
+
+
+class ATT_Read_Multiple_Response(Packet):
+    name = "Read Multiple Response"
+    fields_desc = [StrField("values", "")]
 
 
 class ATT_Read_By_Group_Type_Request(Packet):
@@ -368,47 +435,61 @@ class ATT_Write_Command(Packet):
 
 class ATT_Write_Response(Packet):
     name = "Write Response"
-    fields_desc = []
+
+
+class ATT_Prepare_Write_Request(Packet):
+    name = "Prepare Write Request"
+    fields_desc = [
+        XLEShortField("gatt_handle", 0),
+        LEShortField("offset", 0),
+        StrField("data", "")
+    ]
+
+
+class ATT_Prepare_Write_Response(ATT_Prepare_Write_Request):
+    name = "Prepare Write Response"
 
 
 class ATT_Handle_Value_Notification(Packet):
     name = "Handle Value Notification"
-    fields_desc = [XLEShortField("handle", 0),
+    fields_desc = [XLEShortField("gatt_handle", 0),
                    StrField("value", ""), ]
 
 
-class ATT_PrepareWriteReq(Packet):
+class ATT_Execute_Write_Request(Packet):
+    name = "Execute Write Request"
     fields_desc = [
-        XLEShortField("handle", 0),
-        LEShortField("offset", 0),
-        StrField("value", "")
+        ByteEnumField("flags", 1, {
+            0: "Cancel all prepared writes",
+            1: "Immediately write all pending prepared values",
+        }),
     ]
 
 
-class ATT_PrepareWriteResp(ATT_PrepareWriteReq):
-    pass
+class ATT_Execute_Write_Response(Packet):
+    name = "Execute Write Response"
 
 
-class ATT_ExecWriteReq(Packet):
+class ATT_Read_Blob_Request(Packet):
+    name = "Read Blob Request"
     fields_desc = [
-        ByteField("flags", 0)
-    ]
-
-
-class ATT_ExecWriteResp(Packet):
-    pass
-
-
-class ATT_ReadBlobReq(Packet):
-    fields_desc = [
-        XLEShortField("handle", 0),
+        XLEShortField("gatt_handle", 0),
         LEShortField("offset", 0)
     ]
 
 
-class ATT_ReadBlobResp(Packet):
+class ATT_Read_Blob_Response(Packet):
+    name = "Read Blob Response"
     fields_desc = [
         StrField("value", "")
+    ]
+
+
+class ATT_Handle_Value_Indication(Packet):
+    name = "Handle Value Indication"
+    fields_desc = [
+        XLEShortField("gatt_handle", 0),
+        StrField("value", ""),
     ]
 
 
@@ -620,10 +701,70 @@ class EIR_Manufacturer_Specific_Data(EIR_Element):
         XLEShortField("company_id", None),
     ]
 
+    registered_magic_payloads = {}
+
+    @classmethod
+    def register_magic_payload(cls, payload_cls, magic_check=None):
+        """
+        Registers a payload type that uses magic data.
+
+        Traditional payloads require registration of a Bluetooth Company ID
+        (requires company membership of the Bluetooth SIG), or a Bluetooth
+        Short UUID (requires a once-off payment).
+
+        There are alternatives which don't require registration (such as
+        128-bit UUIDs), but the biggest consumer of energy in a beacon is the
+        radio -- so the energy consumption of a beacon is proportional to the
+        number of bytes in a beacon frame.
+
+        Some beacon formats side-step this issue by using the Company ID of
+        their beacon hardware manufacturer, and adding a "magic data sequence"
+        at the start of the Manufacturer Specific Data field.
+
+        Examples of this are AltBeacon and GeoBeacon.
+
+        For an example of this method in use, see ``scapy.contrib.altbeacon``.
+
+        :param Type[Packet] payload_cls:
+            A reference to a Packet subclass to register as a payload.
+        :param Callable[[bytes], bool] magic_check:
+            (optional) callable to use to if a payload should be associated
+            with this type. If not supplied, ``payload_cls.magic_check`` is
+            used instead.
+        :raises TypeError: If ``magic_check`` is not specified,
+                           and ``payload_cls.magic_check`` is not implemented.
+        """
+        if magic_check is None:
+            if hasattr(payload_cls, "magic_check"):
+                magic_check = payload_cls.magic_check
+            else:
+                raise TypeError("magic_check not specified, and {} has no "
+                                "attribute magic_check".format(payload_cls))
+
+        cls.registered_magic_payloads[payload_cls] = magic_check
+
+    def default_payload_class(self, payload):
+        for cls, check in six.iteritems(
+                EIR_Manufacturer_Specific_Data.registered_magic_payloads):
+            if check(payload):
+                return cls
+
+        return Packet.default_payload_class(self, payload)
+
     def extract_padding(self, s):
         # Needed to end each EIR_Element packet and make PacketListField work.
         plen = EIR_Element.length_from(self) - 2
         return s[:plen], s[plen:]
+
+
+class EIR_Device_ID(EIR_Element):
+    name = "Device ID"
+    fields_desc = [
+        XLEShortField("vendor_id_source", 0),
+        XLEShortField("vendor_id", 0),
+        XLEShortField("product_id", 0),
+        XLEShortField("version", 0),
+    ]
 
 
 class EIR_ServiceData16BitUUID(EIR_Element):
@@ -646,6 +787,12 @@ class HCI_Command_Hdr(Packet):
 
     def answers(self, other):
         return False
+
+    def post_build(self, p, pay):
+        p += pay
+        if self.len is None:
+            p = p[:2] + struct.pack("B", len(pay)) + p[3:]
+        return p
 
 
 class HCI_Cmd_Reset(Packet):
@@ -677,13 +824,25 @@ class HCI_Cmd_Read_BD_Addr(Packet):
     name = "Read BD Addr"
 
 
+class HCI_Cmd_Write_Local_Name(Packet):
+    name = "Write Local Name"
+    fields_desc = [StrField("name", "")]
+
+
+class HCI_Cmd_Write_Extended_Inquiry_Response(Packet):
+    name = "Write Extended Inquiry Response"
+    fields_desc = [ByteField("fec_required", 0),
+                   PacketListField("eir_data", [], EIR_Hdr,
+                                   length_from=lambda pkt:pkt.len)]
+
+
 class HCI_Cmd_LE_Set_Scan_Parameters(Packet):
     name = "LE Set Scan Parameters"
     fields_desc = [ByteEnumField("type", 1, {1: "active"}),
                    XLEShortField("interval", 16),
                    XLEShortField("window", 16),
                    ByteEnumField("atype", 0, {0: "public"}),
-                   ByteEnumField("policy", 0, {0: "all", 1: "whitelist"}), ]
+                   ByteEnumField("policy", 0, {0: "all", 1: "whitelist"})]
 
 
 class HCI_Cmd_LE_Set_Scan_Enable(Packet):
@@ -751,6 +910,11 @@ class HCI_Cmd_LE_Read_Buffer_Size(Packet):
     name = "LE Read Buffer Size"
 
 
+class HCI_Cmd_LE_Read_Remote_Used_Features(Packet):
+    name = "LE Read Remote Used Features"
+    fields_desc = [LEShortField("handle", 64)]
+
+
 class HCI_Cmd_LE_Set_Random_Address(Packet):
     name = "LE Set Random Address"
     fields_desc = [LEMACField("address", None)]
@@ -775,6 +939,12 @@ class HCI_Cmd_LE_Set_Advertising_Data(Packet):
                        PacketListField("data", [], EIR_Hdr,
                                        length_from=lambda pkt:pkt.len),
                        align=31, padwith=b"\0"), ]
+
+
+class HCI_Cmd_LE_Set_Scan_Response_Data(Packet):
+    name = "LE Set Scan Response Data"
+    fields_desc = [FieldLenField("len", None, length_of="data", fmt="B"),
+                   StrLenField("data", "", length_from=lambda pkt:pkt.len), ]
 
 
 class HCI_Cmd_LE_Set_Advertise_Enable(Packet):
@@ -832,7 +1002,7 @@ class HCI_Event_Command_Complete(Packet):
     name = "Command Complete"
     fields_desc = [ByteField("number", 0),
                    XLEShortField("opcode", 0),
-                   ByteEnumField("status", 0, {0: "success"}), ]
+                   ByteEnumField("status", 0, _bluetooth_error_codes)]
 
     def answers(self, other):
         if HCI_Command_Hdr not in other:
@@ -960,11 +1130,14 @@ bind_layers(HCI_Command_Hdr, HCI_Cmd_Set_Event_Mask, opcode=0x0c01)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Set_Event_Filter, opcode=0x0c05)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Connect_Accept_Timeout, opcode=0x0c16)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Host_Supported, opcode=0x0c6d)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Write_Extended_Inquiry_Response, opcode=0x0c52)  # noqa: E501
 bind_layers(HCI_Command_Hdr, HCI_Cmd_Read_BD_Addr, opcode=0x1009)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_Write_Local_Name, opcode=0x0c13)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Read_Buffer_Size, opcode=0x2002)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Random_Address, opcode=0x2005)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Advertising_Parameters, opcode=0x2006)  # noqa: E501
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Advertising_Data, opcode=0x2008)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Scan_Response_Data, opcode=0x2009)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Advertise_Enable, opcode=0x200a)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Scan_Parameters, opcode=0x200b)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Set_Scan_Enable, opcode=0x200c)
@@ -976,7 +1149,10 @@ bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Clear_White_List, opcode=0x2010)
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Add_Device_To_White_List, opcode=0x2011)  # noqa: E501
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Remove_Device_From_White_List, opcode=0x2012)  # noqa: E501
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Connection_Update, opcode=0x2013)
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Read_Remote_Used_Features, opcode=0x2016)  # noqa: E501
 
+
+bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Start_Encryption_Request, opcode=0x2019)  # noqa: E501
 
 bind_layers(HCI_Command_Hdr, HCI_Cmd_LE_Start_Encryption_Request, opcode=0x2019)  # noqa: E501
 
@@ -1005,6 +1181,7 @@ bind_layers(EIR_Hdr, EIR_IncompleteList128BitServiceUUIDs, type=0x06)
 bind_layers(EIR_Hdr, EIR_CompleteList128BitServiceUUIDs, type=0x07)
 bind_layers(EIR_Hdr, EIR_ShortenedLocalName, type=0x08)
 bind_layers(EIR_Hdr, EIR_CompleteLocalName, type=0x09)
+bind_layers(EIR_Hdr, EIR_Device_ID, type=0x10)
 bind_layers(EIR_Hdr, EIR_TX_Power_Level, type=0x0a)
 bind_layers(EIR_Hdr, EIR_ServiceData16BitUUID, type=0x16)
 bind_layers(EIR_Hdr, EIR_Manufacturer_Specific_Data, type=0xff)
@@ -1037,18 +1214,21 @@ bind_layers(ATT_Hdr, ATT_Read_By_Type_Request, opcode=0x8)
 bind_layers(ATT_Hdr, ATT_Read_By_Type_Response, opcode=0x9)
 bind_layers(ATT_Hdr, ATT_Read_Request, opcode=0xa)
 bind_layers(ATT_Hdr, ATT_Read_Response, opcode=0xb)
-bind_layers(ATT_Hdr, ATT_ReadBlobReq, opcode=0xc)
-bind_layers(ATT_Hdr, ATT_ReadBlobResp, opcode=0xd)
+bind_layers(ATT_Hdr, ATT_Read_Blob_Request, opcode=0xc)
+bind_layers(ATT_Hdr, ATT_Read_Blob_Response, opcode=0xd)
+bind_layers(ATT_Hdr, ATT_Read_Multiple_Request, opcode=0xe)
+bind_layers(ATT_Hdr, ATT_Read_Multiple_Response, opcode=0xf)
 bind_layers(ATT_Hdr, ATT_Read_By_Group_Type_Request, opcode=0x10)
 bind_layers(ATT_Hdr, ATT_Read_By_Group_Type_Response, opcode=0x11)
 bind_layers(ATT_Hdr, ATT_Write_Request, opcode=0x12)
 bind_layers(ATT_Hdr, ATT_Write_Response, opcode=0x13)
-bind_layers(ATT_Hdr, ATT_PrepareWriteReq, opcode=0x16)
-bind_layers(ATT_Hdr, ATT_PrepareWriteResp, opcode=0x17)
-bind_layers(ATT_Hdr, ATT_ExecWriteReq, opcode=0x18)
-bind_layers(ATT_Hdr, ATT_ExecWriteResp, opcode=0x19)
+bind_layers(ATT_Hdr, ATT_Prepare_Write_Request, opcode=0x16)
+bind_layers(ATT_Hdr, ATT_Prepare_Write_Response, opcode=0x17)
+bind_layers(ATT_Hdr, ATT_Execute_Write_Request, opcode=0x18)
+bind_layers(ATT_Hdr, ATT_Execute_Write_Response, opcode=0x19)
 bind_layers(ATT_Hdr, ATT_Write_Command, opcode=0x52)
 bind_layers(ATT_Hdr, ATT_Handle_Value_Notification, opcode=0x1b)
+bind_layers(ATT_Hdr, ATT_Handle_Value_Indication, opcode=0x1d)
 bind_layers(L2CAP_Hdr, SM_Hdr, cid=6)
 bind_layers(SM_Hdr, SM_Pairing_Request, sm_command=1)
 bind_layers(SM_Hdr, SM_Pairing_Response, sm_command=2)
@@ -1060,6 +1240,61 @@ bind_layers(SM_Hdr, SM_Master_Identification, sm_command=7)
 bind_layers(SM_Hdr, SM_Identity_Information, sm_command=8)
 bind_layers(SM_Hdr, SM_Identity_Address_Information, sm_command=9)
 bind_layers(SM_Hdr, SM_Signing_Information, sm_command=0x0a)
+
+
+###########
+# Helpers #
+###########
+
+class LowEnergyBeaconHelper:
+    """
+    Helpers for building packets for Bluetooth Low Energy Beacons.
+
+    Implementors provide a :meth:`build_eir` implementation.
+
+    This is designed to be used as a mix-in -- see
+    ``scapy.contrib.eddystone`` and ``scapy.contrib.ibeacon`` for examples.
+    """
+
+    # Basic flags that should be used by most beacons.
+    base_eir = [EIR_Hdr() / EIR_Flags(flags=[
+        "general_disc_mode", "br_edr_not_supported"]), ]
+
+    def build_eir(self):
+        """
+        Builds a list of EIR messages to wrap this frame.
+
+        Users of this helper must implement this method.
+
+        :returns: List of HCI_Hdr with payloads that describe this beacon type
+        :rtype: list[HCI_Hdr]
+        """
+        raise NotImplementedError("build_eir")
+
+    def build_advertising_report(self):
+        """
+        Builds a HCI_LE_Meta_Advertising_Report containing this frame.
+
+        :rtype: HCI_LE_Meta_Advertising_Report
+        """
+
+        return HCI_LE_Meta_Advertising_Report(
+            type=0,   # Undirected
+            atype=1,  # Random address
+            data=self.build_eir()
+        )
+
+    def build_set_advertising_data(self):
+        """Builds a HCI_Cmd_LE_Set_Advertising_Data containing this frame.
+
+        This includes the :class:`HCI_Hdr` and :class:`HCI_Command_Hdr` layers.
+
+        :rtype: HCI_Hdr
+        """
+
+        return HCI_Hdr() / HCI_Command_Hdr() / HCI_Cmd_LE_Set_Advertising_Data(
+            data=self.build_eir()
+        )
 
 
 ###########
@@ -1193,6 +1428,25 @@ class BluetoothUserSocket(SuperSocket):
     def flush(self):
         while self.readable():
             self.recv()
+
+    def close(self):
+        if self.closed:
+            return
+
+        # Properly close socket so we can free the device
+        ctypes.cdll.LoadLibrary("libc.so.6")
+        libc = ctypes.CDLL("libc.so.6")
+
+        close = libc.close
+        close.restype = ctypes.c_int
+        self.closed = True
+        if hasattr(self, "outs"):
+            if not hasattr(self, "ins") or self.ins != self.outs:
+                if self.outs and (WINDOWS or self.outs.fileno() != -1):
+                    close(self.outs.fileno())
+        if hasattr(self, "ins"):
+            if self.ins and (WINDOWS or self.ins.fileno() != -1):
+                close(self.ins.fileno())
 
 
 conf.BTsocket = BluetoothRFCommSocket

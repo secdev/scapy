@@ -28,7 +28,7 @@ import zlib
 from scapy.consts import WINDOWS
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
-from scapy.compat import base64_bytes
+from scapy.compat import base64_bytes, bytes_hex, plain_str
 
 
 #   Util class   #
@@ -162,8 +162,9 @@ class TestClass:
 
     def add_keywords(self, kws):
         if isinstance(kws, six.string_types):
-            kws = [kws]
+            kws = [kws.lower()]
         for kwd in kws:
+            kwd = kwd.lower()
             if kwd.startswith('-'):
                 try:
                     self.keywords.remove(kwd[1:])
@@ -408,28 +409,26 @@ def filter_tests_on_numbers(test_campaign, num):
                                   if ts.tests]
 
 
-def filter_tests_keep_on_keywords(test_campaign, kw):
+def _filter_tests_kw(test_campaign, kw, keep):
     def kw_match(lst, kw):
-        for k in lst:
-            if k in kw:
-                return True
-        return False
+        return any(k for k in lst if kw == k)
 
     if kw:
+        kw = kw.lower()
+        if keep:
+            cond = lambda x: x
+        else:
+            cond = lambda x: not x
         for ts in test_campaign:
-            ts.tests = [t for t in ts.tests if kw_match(t.keywords, kw)]
+            ts.tests = [t for t in ts.tests if cond(kw_match(t.keywords, kw))]
+
+
+def filter_tests_keep_on_keywords(test_campaign, kw):
+    return _filter_tests_kw(test_campaign, kw, True)
 
 
 def filter_tests_remove_on_keywords(test_campaign, kw):
-    def kw_match(lst, kw):
-        for k in kw:
-            if k in lst:
-                return True
-        return False
-
-    if kw:
-        for ts in test_campaign:
-            ts.tests = [t for t in ts.tests if not kw_match(t.keywords, kw)]
+    return _filter_tests_kw(test_campaign, kw, False)
 
 
 def remove_empty_testsets(test_campaign):
@@ -438,8 +437,9 @@ def remove_empty_testsets(test_campaign):
 
 #### RUN TEST #####
 
-def run_test(test, get_interactive_session, verb=3, ignore_globals=None):
-    test.output, res = get_interactive_session(test.test.strip(), ignore_globals=ignore_globals, verb=verb)
+def run_test(test, get_interactive_session, verb=3, ignore_globals=None, my_globals=None):
+    """An internal UTScapy function to run a single test"""
+    test.output, res = get_interactive_session(test.test.strip(), ignore_globals=ignore_globals, verb=verb, my_globals=my_globals)
     test.result = "failed"
     try:
         if res is None or res:
@@ -451,6 +451,13 @@ def run_test(test, get_interactive_session, verb=3, ignore_globals=None):
         test.output += "UTscapy: Error during result interpretation:\n"
         test.output += "".join(traceback.format_exception(sys.exc_info()[0], sys.exc_info()[1], sys.exc_info()[2],))
     finally:
+        if test.result == "failed":
+            from scapy.sendrecv import debug
+            # Add optional debugging data to log
+            if debug.crashed_on:
+                cls, val = debug.crashed_on
+                test.output += "\n\nPACKET DISSECTION FAILED ON:\n %s(hex_bytes('%s'))" % (cls.__name__, plain_str(bytes_hex(val)))
+                debug.crashed_on = None
         test.decode()
         if verb > 1:
             print("%(result)6s %(crc)s %(name)s" % test, file=sys.stderr)
@@ -459,14 +466,21 @@ def run_test(test, get_interactive_session, verb=3, ignore_globals=None):
 
 #### RUN CAMPAIGN #####
 
+def import_UTscapy_tools(ses):
+    """Adds UTScapy tools directly to a session"""
+    ses["retry_test"] = retry_test
+    ses["Bunch"] = Bunch
+
 def run_campaign(test_campaign, get_interactive_session, verb=3, ignore_globals=None):  # noqa: E501
     passed = failed = 0
+    scapy_ses = importlib.import_module(".all", "scapy").__dict__
+    import_UTscapy_tools(scapy_ses)
     if test_campaign.preexec:
-        test_campaign.preexec_output = get_interactive_session(test_campaign.preexec.strip(), ignore_globals=ignore_globals)[0]
+        test_campaign.preexec_output = get_interactive_session(test_campaign.preexec.strip(), ignore_globals=ignore_globals, my_globals=scapy_ses)[0]
     try:
         for i, testset in enumerate(test_campaign):
             for j, t in enumerate(testset):
-                if run_test(t, get_interactive_session, verb):
+                if run_test(t, get_interactive_session, verb, my_globals=scapy_ses):
                     passed += 1
                 else:
                     failed += 1
@@ -843,8 +857,8 @@ def main():
                 LOCAL = 1 if data.local else 0
                 NUM = data.num
                 MODULES = data.modules
-                KW_OK = [data.kw_ok]
-                KW_KO = [data.kw_ko]
+                KW_OK.extend(data.kw_ok)
+                KW_KO.extend(data.kw_ko)
                 try:
                     FORMAT = Format.from_string(data.format)
                 except KeyError as msg:
@@ -869,13 +883,13 @@ def main():
             elif opt == "-m":
                 MODULES.append(optarg)
             elif opt == "-k":
-                KW_OK.append(optarg.split(","))
+                KW_OK.extend(optarg.split(","))
             elif opt == "-K":
-                KW_KO.append(optarg.split(","))
+                KW_KO.extend(optarg.split(","))
 
         # Discard Python3 tests when using Python2
         if six.PY2:
-            KW_KO.append(["python3_only"])
+            KW_KO.append("python3_only")
 
         if VERB > 2:
             print("### Booting scapy...", file=sys.stderr)

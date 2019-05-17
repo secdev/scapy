@@ -42,17 +42,6 @@ UCHAR = UBYTE = ctypes.c_ubyte
 SHORT = ctypes.c_short
 USHORT = ctypes.c_ushort
 
-_winapi_SetConsoleTitle = ctypes.windll.kernel32.SetConsoleTitleW
-_winapi_SetConsoleTitle.restype = BOOL
-_winapi_SetConsoleTitle.argtypes = [LPWSTR]
-
-
-def _windows_title(title=None):
-    """Updates the terminal title with the default one or with `title`
-    if provided."""
-    if conf.interactive:
-        _winapi_SetConsoleTitle(title or "Scapy v{}".format(conf.version))
-
 
 # UTILS
 
@@ -84,6 +73,74 @@ def _struct_to_dict(struct_obj):
         else:
             results[fname] = val
     return results
+
+##############################
+####### WinAPI handles #######
+##############################
+
+_winapi_SetConsoleTitle = ctypes.windll.kernel32.SetConsoleTitleW
+_winapi_SetConsoleTitle.restype = BOOL
+_winapi_SetConsoleTitle.argtypes = [LPWSTR]
+
+def _windows_title(title=None):
+    """Updates the terminal title with the default one or with `title`
+    if provided."""
+    if conf.interactive:
+        _winapi_SetConsoleTitle(title or "Scapy v{}".format(conf.version))
+
+
+SC_HANDLE = HANDLE
+
+class SERVICE_STATUS(Structure):
+    """https://docs.microsoft.com/en-us/windows/desktop/api/winsvc/ns-winsvc-_service_status"""  # noqa: E501
+    _fields_ = [("dwServiceType", DWORD),
+                ("dwCurrentState", DWORD),
+                ("dwControlsAccepted", DWORD),
+                ("dwWin32ExitCode", DWORD),
+                ("dwServiceSpecificExitCode", DWORD),
+                ("dwCheckPoint", DWORD),
+                ("dwWaitHint", DWORD)]
+
+
+OpenServiceW = ctypes.windll.Advapi32.OpenServiceW
+OpenServiceW.restype = SC_HANDLE
+OpenServiceW.argtypes = [SC_HANDLE, LPWSTR, DWORD]
+
+CloseServiceHandle = ctypes.windll.Advapi32.CloseServiceHandle
+CloseServiceHandle.restype = BOOL
+CloseServiceHandle.argtypes = [SC_HANDLE]
+
+OpenSCManagerW = ctypes.windll.Advapi32.OpenSCManagerW
+OpenSCManagerW.restype = SC_HANDLE
+OpenSCManagerW.argtypes = [LPWSTR, LPWSTR, DWORD]
+
+QueryServiceStatus = ctypes.windll.Advapi32.QueryServiceStatus
+QueryServiceStatus.restype = BOOL
+QueryServiceStatus.argtypes = [SC_HANDLE, POINTER(SERVICE_STATUS)]
+
+def get_service_status(service):
+    """Returns content of QueryServiceStatus for a service"""
+    SERVICE_QUERY_STATUS = 0x0004
+    schSCManager = OpenSCManagerW(
+        None,  # Local machine
+        None,  # SERVICES_ACTIVE_DATABASE
+        SERVICE_QUERY_STATUS
+    )
+    service = OpenServiceW(
+        schSCManager,
+        service,
+        SERVICE_QUERY_STATUS
+    )
+    status = SERVICE_STATUS()
+    QueryServiceStatus(
+        service,
+        status
+    )
+    result = _struct_to_dict(status)
+    CloseServiceHandle(service)
+    CloseServiceHandle(schSCManager)
+    return result
+
 
 ##############################
 ###### Define IPHLPAPI  ######

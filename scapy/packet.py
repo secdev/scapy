@@ -1094,7 +1094,7 @@ values.
         return self.haslayer(cls)
 
     def route(self):
-        return (None, None, None)
+        return self.payload.route()
 
     def fragment(self, *args, **kargs):
         return self.payload.fragment(*args, **kargs)
@@ -1484,6 +1484,10 @@ class NoPayload(Packet):
 
     def command(self):
         return ""
+
+    def route(self):
+        return (None, None, None)
+
 
 ####################
 #  packet classes  #

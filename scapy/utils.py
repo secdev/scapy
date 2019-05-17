@@ -48,16 +48,41 @@ def issubtype(x, t):
     return isinstance(x, type) and issubclass(x, t)
 
 
-def get_temp_file(keep=False, autoext=""):
-    """Create a temporary file and return its name. When keep is False,
-    the file is deleted when scapy exits.
+def get_temp_file(keep=False, autoext="", fd=False):
+    """Creates a temporary file.
 
+    :param keep: If False, automatically delete the file when Scapy exits.
+    :param autoext: Suffix to add to the generated file name.
+    :param fd: If True, this returns a file-like object with the temporary
+               file opened. If False (default), this returns a file path.
     """
-    fname = tempfile.NamedTemporaryFile(prefix="scapy", suffix=autoext,
-                                        delete=False).name
+    f = tempfile.NamedTemporaryFile(prefix="scapy", suffix=autoext,
+                                    delete=False)
     if not keep:
-        conf.temp_files.append(fname)
-    return fname
+        conf.temp_files.append(f.name)
+
+    if fd:
+        return f
+    else:
+        # Close the file so something else can take it.
+        f.close()
+        return f.name
+
+
+def get_temp_dir(keep=False):
+    """Creates a temporary file, and returns its name.
+
+    :param keep: If False (default), the directory will be recursively
+                 deleted when Scapy exits.
+    :return: A full path to a temporary directory.
+    """
+
+    dname = tempfile.mkdtemp(prefix="scapy")
+
+    if not keep:
+        conf.temp_files.append(dname)
+
+    return dname
 
 
 def sane_color(x):
@@ -930,7 +955,11 @@ class RawPcapReader(six.with_metaclass(PcapReader_metaclass)):
         return self
 
     def next(self):
-        """implement the iterator protocol on a set of packets in a pcap file"""  # noqa: E501
+        """implement the iterator protocol on a set of packets in a pcap file
+        pkt is a tuple (pkt_data, pkt_metadata) as defined in
+        RawPcapReader.read_packet()
+
+        """
         pkt = self.read_packet()
         if pkt is None:
             raise StopIteration
@@ -938,7 +967,8 @@ class RawPcapReader(six.with_metaclass(PcapReader_metaclass)):
     __next__ = next
 
     def read_packet(self, size=MTU):
-        """return a single packet read from the file
+        """return a single packet read from the file as a tuple containing
+        (pkt_data, pkt_metadata)
 
         returns None when no more packets are available
         """
@@ -1016,6 +1046,8 @@ class PcapReader(RawPcapReader):
             raise
         except Exception:
             if conf.debug_dissector:
+                from scapy.sendrecv import debug
+                debug.crashed_on = (self.LLcls, s)
                 raise
             p = conf.raw_layer(s)
         p.time = pkt_info.sec + (0.000000001 if self.nano else 0.000001) * pkt_info.usec  # noqa: E501
@@ -1253,9 +1285,12 @@ nano:       use nanosecond-precision (requires libpcap >= 1.5.0)
         self.f.flush()
 
     def write(self, pkt):
-        """accepts either a single packet or a list of packets to be
-        written to the dumpfile
+        """
+        Writes a Packet or bytes to a pcap file.
 
+        :param pkt: Packet(s) to write (one record for each Packet), or raw
+                    bytes to write (as one record).
+        :type pkt: iterable[Packet], Packet or bytes
         """
         if isinstance(pkt, bytes):
             if not self.header_present:
@@ -1263,25 +1298,35 @@ nano:       use nanosecond-precision (requires libpcap >= 1.5.0)
             self._write_packet(pkt)
         else:
             pkt = pkt.__iter__()
-            if not self.header_present:
-                try:
-                    p = next(pkt)
-                except (StopIteration, RuntimeError):
-                    self._write_header(None)
-                    return
-                self._write_header(p)
-                self._write_packet(p)
             for p in pkt:
+                if not self.header_present:
+                    self._write_header(p)
                 self._write_packet(p)
 
-    def _write_packet(self, packet, sec=None, usec=None, caplen=None, wirelen=None):  # noqa: E501
-        """writes a single packet to the pcap file
+    def _write_packet(self, packet, sec=None, usec=None, caplen=None,
+                      wirelen=None):
         """
-        if isinstance(packet, tuple):
-            for pkt in packet:
-                self._write_packet(pkt, sec=sec, usec=usec, caplen=caplen,
-                                   wirelen=wirelen)
-            return
+        Writes a single packet to the pcap file.
+
+        :param packet: bytes for a single packet
+        :type packet: bytes
+        :param sec: time the packet was captured, in seconds since epoch. If
+                    not supplied, defaults to now.
+        :type sec: int or long
+        :param usec: If ``nano=True``, then number of nanoseconds after the
+                     second that the packet was captured. If ``nano=False``,
+                     then the number of microseconds after the second the
+                     packet was captured
+        :type usec: int or long
+        :param caplen: The length of the packet in the capture file. If not
+                       specified, uses ``len(packet)``.
+        :type caplen: int
+        :param wirelen: The length of the packet on the wire. If not
+                        specified, uses ``caplen``.
+        :type wirelen: int
+        :returns: None
+        :rtype: None
+        """
         if caplen is None:
             caplen = len(packet)
         if wirelen is None:
@@ -1291,9 +1336,13 @@ nano:       use nanosecond-precision (requires libpcap >= 1.5.0)
             it = int(t)
             if sec is None:
                 sec = it
-            if usec is None:
-                usec = int(round((t - it) * (1000000000 if self.nano else 1000000)))  # noqa: E501
-        self.f.write(struct.pack(self.endian + "IIII", sec, usec, caplen, wirelen))  # noqa: E501
+                usec = int(round((t - it) *
+                                 (1000000000 if self.nano else 1000000)))
+            elif usec is None:
+                usec = 0
+
+        self.f.write(struct.pack(self.endian + "IIII",
+                                 sec, usec, caplen, wirelen))
         self.f.write(packet)
         if self.sync:
             self.f.flush()
@@ -1302,6 +1351,8 @@ nano:       use nanosecond-precision (requires libpcap >= 1.5.0)
         return self.f.flush()
 
     def close(self):
+        if not self.header_present:
+            self._write_header(None)
         return self.f.close()
 
     def __enter__(self):
@@ -1316,8 +1367,6 @@ class PcapWriter(RawPcapWriter):
     """A stream PCAP writer with more control than wrpcap()"""
 
     def _write_header(self, pkt):
-        if isinstance(pkt, tuple) and pkt:
-            pkt = pkt[0]
         if self.linktype is None:
             try:
                 self.linktype = conf.l2types[pkt.__class__]
@@ -1326,17 +1375,51 @@ class PcapWriter(RawPcapWriter):
                 self.linktype = DLT_EN10MB
         RawPcapWriter._write_header(self, pkt)
 
-    def _write_packet(self, packet):
-        if isinstance(packet, tuple):
-            for pkt in packet:
-                self._write_packet(pkt)
-            return
-        sec = int(packet.time)
-        usec = int(round((packet.time - sec) * (1000000000 if self.nano else 1000000)))  # noqa: E501
+    def _write_packet(self, packet, sec=None, usec=None, caplen=None,
+                      wirelen=None):
+        """
+        Writes a single packet to the pcap file.
+
+        :param packet: Packet, or bytes for a single packet
+        :type packet: Packet or bytes
+        :param sec: time the packet was captured, in seconds since epoch. If
+                    not supplied, defaults to now.
+        :type sec: int or long
+        :param usec: If ``nano=True``, then number of nanoseconds after the
+                     second that the packet was captured. If ``nano=False``,
+                     then the number of microseconds after the second the
+                     packet was captured. If ``sec`` is not specified,
+                     this value is ignored.
+        :type usec: int or long
+        :param caplen: The length of the packet in the capture file. If not
+                       specified, uses ``len(raw(packet))``.
+        :type caplen: int
+        :param wirelen: The length of the packet on the wire. If not
+                        specified, tries ``packet.wirelen``, otherwise uses
+                        ``caplen``.
+        :type wirelen: int
+        :returns: None
+        :rtype: None
+        """
+        if hasattr(packet, "time"):
+            if sec is None:
+                sec = int(packet.time)
+                usec = int(round((packet.time - sec) *
+                                 (1000000000 if self.nano else 1000000)))
+        if usec is None:
+            usec = 0
+
         rawpkt = raw(packet)
-        caplen = len(rawpkt)
-        RawPcapWriter._write_packet(self, rawpkt, sec=sec, usec=usec, caplen=caplen,  # noqa: E501
-                                    wirelen=packet.wirelen or caplen)
+        caplen = len(rawpkt) if caplen is None else caplen
+
+        if wirelen is None:
+            if hasattr(packet, "wirelen"):
+                wirelen = packet.wirelen
+        if wirelen is None:
+            wirelen = caplen
+
+        RawPcapWriter._write_packet(
+            self, rawpkt, sec=sec, usec=usec, caplen=caplen, wirelen=wirelen)
 
 
 @conf.commands.register
@@ -1365,24 +1448,54 @@ def import_hexcap():
 
 
 @conf.commands.register
-def wireshark(pktlist, **kwargs):
-    """Run wireshark on a list of packets"""
-    f = get_temp_file()
-    wrpcap(f, pktlist, **kwargs)
-    with ContextManagerSubprocess("wireshark()", conf.prog.wireshark):
-        subprocess.Popen([conf.prog.wireshark, "-r", f])
+def wireshark(pktlist, wait=False, **kwargs):
+    """
+    Runs Wireshark on a list of packets.
+
+    See :func:`tcpdump` for more parameter description.
+
+    Note: this defaults to wait=False, to run Wireshark in the background.
+    """
+    return tcpdump(pktlist, prog=conf.prog.wireshark, wait=wait, **kwargs)
 
 
 @conf.commands.register
-def tdecode(pktlist):
-    """Run tshark -V on a list of packets"""
-    tcpdump(pktlist, prog=conf.prog.tshark, args=["-V"])
+def tdecode(pktlist, args=None, **kwargs):
+    """
+    Run tshark on a list of packets.
+
+    :param args: If not specified, defaults to ``tshark -V``.
+
+    See :func:`tcpdump` for more parameters.
+    """
+    if args is None:
+        args = ["-V"]
+    return tcpdump(pktlist, prog=conf.prog.tshark, args=args, **kwargs)
 
 
 @conf.commands.register
 def tcpdump(pktlist, dump=False, getfd=False, args=None,
-            prog=None, getproc=False, quiet=False):
-    """Run tcpdump or tshark on a list of packets
+            prog=None, getproc=False, quiet=False, use_tempfile=None,
+            read_stdin_opts=None, linktype=None, wait=True):
+    """Run tcpdump or tshark on a list of packets.
+
+    When using ``tcpdump`` on OSX (``prog == conf.prog.tcpdump``), this uses a
+    temporary file to store the packets. This works around a bug in Apple's
+    version of ``tcpdump``: http://apple.stackexchange.com/questions/152682/
+
+    Otherwise, the packets are passed in stdin.
+
+    This function can be explicitly enabled or disabled with the
+    ``use_tempfile`` parameter.
+
+    When using ``wireshark``, it will be called with ``-ki -`` to start
+    immediately capturing packets from stdin.
+
+    Otherwise, the command will be run with ``-r -`` (which is correct for
+    ``tcpdump`` and ``tshark``).
+
+    This can be overridden with ``read_stdin_opts``. This has no effect when
+    ``use_tempfile=True``, or otherwise reading packets from a regular file.
 
 pktlist: a Packet instance, a PacketList instance or a list of Packet
          instances. Can also be a filename (as a string), an open
@@ -1397,6 +1510,19 @@ args:    arguments (as a list) to pass to tshark (example for tshark:
          args=["-T", "json"]).
 prog:    program to use (defaults to tcpdump, will work with tshark)
 quiet:   when set to True, the process stderr is discarded
+use_tempfile: When set to True, always use a temporary file to store packets.
+              When set to False, pipe packets through stdin.
+              When set to None (default), only use a temporary file with
+              ``tcpdump`` on OSX.
+read_stdin_opts: When set, a list of arguments needed to capture from stdin.
+                 Otherwise, attempts to guess.
+linktype: If a Packet (or list) is passed in the ``pktlist`` argument,
+          set the ``linktype`` parameter on ``wrpcap``. If ``pktlist`` is a
+          path to a pcap file, then this option will have no effect.
+wait: If True (default), waits for the process to terminate before returning
+      to Scapy. If False, the process will be detached to the background. If
+      dump, getproc or getfd is True, these have the same effect as
+      ``wait=False``.
 
 Examples:
 
@@ -1430,18 +1556,42 @@ To get a JSON representation of a tshark-parsed PacketList(), one can:
   u'_type': u'pcap_file'}]
 >>> json_data[0]['_source']['layers']['ip']['ip.ttl']
 u'64'
-
     """
     getfd = getfd or getproc
     if prog is None:
         prog = [conf.prog.tcpdump]
+        _prog_name = "windump()" if WINDOWS else "tcpdump()"
     elif isinstance(prog, six.string_types):
+        _prog_name = "{}()".format(prog)
         prog = [prog]
-    _prog_name = "windump()" if WINDOWS else "tcpdump()"
+    else:
+        raise ValueError("prog must be a string")
+
     # Build Popen arguments
-    args = args if args is not None else []
+    if args is None:
+        args = []
+    else:
+        # Make a copy of args
+        args = list(args)
+
     stdout = subprocess.PIPE if dump or getfd else None
     stderr = open(os.devnull) if quiet else None
+
+    if use_tempfile is None:
+        # Apple's tcpdump cannot read from stdin, see:
+        # http://apple.stackexchange.com/questions/152682/
+        use_tempfile = DARWIN and prog[0] == conf.prog.tcpdump
+
+    if read_stdin_opts is None:
+        if prog[0] == conf.prog.wireshark:
+            # Start capturing immediately (-k) from stdin (-i -)
+            read_stdin_opts = ["-ki", "-"]
+        else:
+            read_stdin_opts = ["-r", "-"]
+    else:
+        # Make a copy of read_stdin_opts
+        read_stdin_opts = list(read_stdin_opts)
+
     if pktlist is None:
         # sniff
         with ContextManagerSubprocess(_prog_name, prog[0]):
@@ -1458,14 +1608,12 @@ u'64'
                 stdout=stdout,
                 stderr=stderr,
             )
-    elif DARWIN:
-        # Tcpdump cannot read from stdin, see
-        # <http://apple.stackexchange.com/questions/152682/>
-        tmpfile = tempfile.NamedTemporaryFile(delete=False)
+    elif use_tempfile:
+        tmpfile = get_temp_file(autoext=".pcap", fd=True)
         try:
             tmpfile.writelines(iter(lambda: pktlist.read(1048576), b""))
         except AttributeError:
-            wrpcap(tmpfile, pktlist)
+            wrpcap(tmpfile, pktlist, linktype=linktype)
         else:
             tmpfile.close()
         with ContextManagerSubprocess(_prog_name, prog[0]):
@@ -1474,12 +1622,11 @@ u'64'
                 stdout=stdout,
                 stderr=stderr,
             )
-        conf.temp_files.append(tmpfile.name)
     else:
         # pass the packet stream
         with ContextManagerSubprocess(_prog_name, prog[0]):
             proc = subprocess.Popen(
-                prog + ["-r", "-"] + args,
+                prog + read_stdin_opts + args,
                 stdin=subprocess.PIPE,
                 stdout=stdout,
                 stderr=stderr,
@@ -1487,7 +1634,7 @@ u'64'
         try:
             proc.stdin.writelines(iter(lambda: pktlist.read(1048576), b""))
         except AttributeError:
-            wrpcap(proc.stdin, pktlist)
+            wrpcap(proc.stdin, pktlist, linktype=linktype)
         except UnboundLocalError:
             raise IOError("%s died unexpectedly !" % prog)
         else:
@@ -1498,7 +1645,8 @@ u'64'
         return proc
     if getfd:
         return proc.stdout
-    proc.wait()
+    if wait:
+        proc.wait()
 
 
 @conf.commands.register

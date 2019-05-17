@@ -4,7 +4,7 @@ matrix:
     include:
         # PEP 8 checks, build doc and grammar spelling check
         - os: linux
-          python: 2.7
+          python: 3.6
           env:
             - TOXENV=flake8,twine,docs,spell
        
@@ -115,11 +115,10 @@ matrix:
           env:
             - TOXENV=py27-bsd_root,codecov
 
-        # FIXME - Networking with pcapdnet seem to be failing on OSX at the moment
-        #- os: osx
-        #  language: generic
-        #  env:
-        #    - SCAPY_SUDO=sudo SCAPY_USE_PCAPDNET=yes TOXENV=py27-pcapdnet_root,codecov
+        - os: osx
+          language: generic
+          env:
+            - SCAPY_SUDO=sudo SCAPY_USE_PCAPDNET=yes TOXENV=py27-pcapdnet_root,codecov
 
         - os: osx
           language: generic

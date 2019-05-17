@@ -152,6 +152,54 @@ scapy_packet = HCI_Hdr(scan_resp_raw_data)
 assert(raw(scapy_packet[EIR_Manufacturer_Specific_Data].payload) == b'\x00_B31147D2461\xfc\x00\x03\x0c\x00\x00')
 assert(scapy_packet[EIR_Manufacturer_Specific_Data].company_id == 0x154)
 
+= Parse EIR_Manufacturer_Specific_Data with magic
+
+class ScapyManufacturerPacket(Packet):
+    magic = b'SCAPY!'
+    fields_desc = [
+        StrFixedLenField("header", magic, len(magic)),
+        ShortField("x", None),
+    ]
+
+class ScapyManufacturerPacket2(Packet):
+    magic = b'!SCAPY'
+    fields_desc = [
+        StrFixedLenField("header", magic, len(magic)),
+        ShortField("y", None),
+    ]
+    @classmethod
+    def magic_check(cls, payload):
+        return payload.startswith(cls.magic)
+
+EIR_Manufacturer_Specific_Data.register_magic_payload(
+    ScapyManufacturerPacket, lambda p: p.startswith(ScapyManufacturerPacket.magic))
+EIR_Manufacturer_Specific_Data.register_magic_payload(ScapyManufacturerPacket2)
+
+# Test decode
+p = EIR_Hdr(b'\x0b\xff\xff\xffSCAPY!\xab\x12')
+
+p.show()
+assert p[EIR_Manufacturer_Specific_Data].company_id == 0xffff
+assert p[ScapyManufacturerPacket].x == 0xab12
+
+p = EIR_Hdr(b'\x0b\xff\xff\xff!SCAPY\x12\x34')
+
+p.show()
+assert p[EIR_Manufacturer_Specific_Data].company_id == 0xffff
+assert p[ScapyManufacturerPacket2].y == 0x1234
+
+# Test encode
+p = EIR_Hdr()/EIR_Manufacturer_Specific_Data(company_id=0xffff)/ScapyManufacturerPacket(x=0x5678)
+assert raw(p) == b'\x0b\xff\xff\xffSCAPY!\x56\x78'
+
+# Test bad setup
+try:
+    EIR_Manufacturer_Specific_Data.register_magic_payload(conf.raw_layer)
+except TypeError:
+    pass
+else:
+    assert False, "expected exception"
+
 = Parse EIR_ServiceData16BitUUID
 
 d = hex_bytes("043e1902010001abcdef7da97f0d020102030350fe051650fee6c2ac")

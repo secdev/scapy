@@ -242,3 +242,14 @@ To see an example that is targeted to Scapy, go to http://www.secdev.org/project
 ./test/run_tests -t demo_campaign.txt -f html -o demo_campaign.html -F -l
 
 Examine the output generated in file ``demo_campaign.html``.
+
+Using tox to test Scapy
+-----------------------
+
+The ``tox`` command simplifies testing Scapy. It will automatically create
+virtual environments and install the mandatory Python modules.
+
+For example, on a fresh Debian installation, the following command will start
+all Scapy unit tests automatically without any external dependency::
+
+ tox -- -K vcan_socket -K tcpdump -K tshark -K nmap -K manufdb -K crypto

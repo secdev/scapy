@@ -219,6 +219,10 @@ if WINDOWS:
 
 True
 
+= Packet.route()
+assert (Ether() / ARP()).route()[0] is not None
+assert (Ether() / ARP()).payload.route()[0] is not None
+
 
 ############
 ############
@@ -342,7 +346,6 @@ interact_emulator(extra_args=["-d"])  # Extended
 ~ command
 
 import mock
-from scapy.tools.UTscapy import Bunch
 
 def test_explore_gui(is_layer, layer):
     prompt_toolkit_mocked_module = Bunch(
@@ -368,6 +371,7 @@ def test_explore_gui(is_layer, layer):
             result_explore = cmco.get_output()
         return result_explore
 
+conf.interactive = True
 explore_dns = test_explore_gui(True, "scapy.layers.dns")
 assert "DNS" in explore_dns
 assert "DNS Question Record" in explore_dns
@@ -532,6 +536,8 @@ save_object(fname, 2807)
 assert(load_object(fname) == 2807)
 
 = Test whois function
+~ netaccess
+
 if not WINDOWS:
     result = whois("193.0.6.139")
     assert(b"inetnum" in result and b"Amsterdam" in result)
@@ -846,6 +852,9 @@ assert not any(p.answers(p2) for p in px)
 assert all(p2.answers(p) for p in px)
 conf.checkIPinIP = conf_back
 
+= answers - Net
+~ netaccess
+
 a1, a2 = Net("www.google.com"), Net("www.secdev.org")
 prt1, prt2 = 12345, 54321
 s1, s2 = 2767216324, 3845532842
@@ -876,6 +885,15 @@ assert not p1.answers(p2)
 p1 = IP(src=a1, dst=a2)/TCP(flags='A', seq=s1+9, ack=s2+10, sport=prt1, dport=prt2)
 assert not p2.answers(p1)
 assert not p1.answers(p2)
+
+= conf.checkIPsrc
+
+conf_checkIPsrc = conf.checkIPsrc
+conf.checkIPsrc = 0
+query = IP(id=42676, src='10.128.0.7', dst='192.168.0.1')/ICMP(id=26)
+answer = IP(src='192.168.48.19', dst='10.128.0.7')/ICMP(type=11)/IPerror(id=42676, src='192.168.51.23', dst='192.168.0.1')/ICMPerror(id=26)
+assert answer.answers(query)
+conf.checkIPsrc = conf_checkIPsrc
 
 
 ############
@@ -1038,7 +1056,7 @@ data = b"\x00\x00\x0b\x00\x00\x00\x08\x00?,\x05"
 r = RadioTap(data)
 r.show()
 assert r.present.MCS
-assert r.knownMCS.bandwidth
+assert r.knownMCS.MCS_bandwidth
 assert r.knownMCS.MCS_index
 assert r.knownMCS.guard_interval
 assert r.knownMCS.HT_format
@@ -1046,11 +1064,11 @@ assert r.knownMCS.FEC_type
 assert r.knownMCS.STBC_streams
 assert not r.knownMCS.Ness
 assert not r.knownMCS.Ness_MSB
-assert r.bandwidth == 0
+assert r.MCS_bandwidth == 0
 assert r.guard_interval == 1
-assert r.HT_format == 0
-assert r.FEC_type == 1
-assert r.STBC_streams == 2
+assert r.HT_format == 1
+assert r.FEC_type == 0
+assert r.STBC_streams == 1
 assert r.MCS_index == 5
 assert r.Ness_LSB == 0
 
@@ -1155,6 +1173,20 @@ assert SNMP in z
 x = UDP()/SNMP()
 assert x.sport == x.dport == 161
 
+= Basic SNMPvarbind build
+~ SNMP ASN1
+x = SNMPvarbind(oid=ASN1_OID("1.3.6.1.2.1.1.4.0"), value=RandBin())
+x = SNMPvarbind(raw(x))
+assert isinstance(x.value, ASN1_STRING)
+
+= Failing SNMPvarbind dissection
+~ SNMP ASN1
+try:
+    SNMP('0a\x02\x01\x00\x04\x06public\xa3T\x02\x02D\xd0\x02\x01\x00\x02\x01\x000H0F\x06\x08+\x06\x01\x02\x01\x01\x05\x00\x00\x03\x01\x02D\x00\x03\x01\x02D\x00\x03\x01\x02D\x00\x03\x01\x02D\x00\x03\x01\x02D\x00\x03\x01\x02D\x00\x03\x01\x02D\x00\x03\x01\x02D\x00\x03\x01\x02D\x00\x03\x01\x02D\x00\x03\x01\x02D\x00\x03\x01\x02D')
+    assert False
+except BER_Decoding_Error:
+    pass
+
 = ASN1 - ASN1_Object
 assert ASN1_Object(1) == ASN1_Object(1)
 assert ASN1_Object(1) > ASN1_Object(0)
@@ -1222,9 +1254,6 @@ raw(RandASN1Object())
 + Network tests
 
 * Those tests need network access
-
-= Import retry_test()
-from scapy.tools.UTscapy import retry_test
 
 = Sending and receiving an ICMP
 ~ netaccess IP ICMP
@@ -1493,12 +1522,9 @@ def _test():
 retry_test(_test)
 
 = Traceroute function
-~ netaccess
+~ netaccess tcpdump
 * Let's test traceroute
 ans, unans = traceroute("www.slashdot.org")
-
-= Result manipulation
-~ netaccess
 ans.nsummary()
 s,r=ans[0]
 s.show()
@@ -1523,7 +1549,7 @@ assert(DNS in IP(raw(dns_ans2)))
 assert raw(DNSRR(type='A', rdata='1.2.3.4')) == b'\x00\x00\x01\x00\x01\x00\x00\x00\x00\x00\x04\x01\x02\x03\x04'
 
 = Arping
-~ netaccess
+~ netaccess tcpdump
 * This test assumes the local network is a /24. This is bad.
 def _test():
     ip_address = conf.route.route("0.0.0.0")[2]
@@ -1533,7 +1559,7 @@ def _test():
 retry_test(_test)
 
 = send() and sniff()
-~ netaccess
+~ netaccess tcpdump
 import time
 import os
 
@@ -4566,6 +4592,9 @@ raw(DHCP6OptIA_NA(iaid=0x22222222, T1=0x33333333, T2=0x44444444, ianaopts=[DHCP6
 a = DHCP6OptIA_NA(b'\x00\x03\x00L""""3333DDDD\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
 a.optcode == 3 and a.optlen == 76 and a.iaid == 0x22222222 and a.T1 == 0x33333333 and a.T2==0x44444444 and len(a.ianaopts) == 2 and isinstance(a.ianaopts[0], DHCP6OptIAAddress) and isinstance(a.ianaopts[1], DHCP6OptIAAddress)
 
+= DHCP6OptIA_NA - Instantiation with a list of different opts: IA Address and Status Code (optlen automatic computation)
+raw(DHCP6OptIA_NA(iaid=0x22222222, T1=0x33333333, T2=0x44444444, ianaopts=[DHCP6OptIAAddress(), DHCP6OptStatusCode(statuscode=0xff, statusmsg="Hello")])) == b'\x00\x03\x003""""3333DDDD\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\r\x00\x07\x00\xffHello'
+
 
 ############
 ############
@@ -4584,6 +4613,9 @@ raw(DHCP6OptIA_TA(optlen=0x1111, iaid=0x22222222, iataopts=[DHCP6OptIAAddress(),
 = DHCP6OptIA_TA - Dissection with specific values
 a = DHCP6OptIA_TA(b'\x00\x04\x11\x11""""\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
 a.optcode == 4 and a.optlen == 0x1111 and a.iaid == 0x22222222 and len(a.iataopts) == 2 and isinstance(a.iataopts[0], DHCP6OptIAAddress) and isinstance(a.iataopts[1], DHCP6OptIAAddress)
+
+= DHCP6OptIA_TA - Instantiation with a list of different opts: IA Address and Status Code (optlen automatic computation)
+raw(DHCP6OptIA_TA(iaid=0x22222222, iataopts=[DHCP6OptIAAddress(), DHCP6OptStatusCode(statuscode=0xff, statusmsg="Hello")])) == b'\x00\x04\x00+""""\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\r\x00\x07\x00\xffHello'
 
 
 ############
@@ -4965,6 +4997,9 @@ raw(DHCP6OptIAPrefix()) == b'\x00\x1a\x00\x19\x00\x00\x00\x00\x00\x00\x00\x000 \
 = DHCP6OptIA_PD - Basic Instantiation
 raw(DHCP6OptIA_PD()) == b'\x00\x19\x00\x0c\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
 
+= DHCP6OptIA_PD - Instantiation with a list of different opts: IA Address and Status Code (optlen automatic computation)
+raw(DHCP6OptIA_PD(iaid=0x22222222, T1=0x33333333, T2=0x44444444, iapdopt=[DHCP6OptIAAddress(), DHCP6OptStatusCode(statuscode=0xff, statusmsg="Hello")])) == b'\x00\x19\x003""""3333DDDD\x00\x05\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\r\x00\x07\x00\xffHello'
+
 #TODO : finish me
 
 
@@ -5217,6 +5252,70 @@ a.optcode == 39 and a.optlen == 18 and a.res == 0 and a.flags == 0 and a.fqdn ==
 
 ############
 ############
++ Test DHCP6 Option PANA Auth Agent
+
+= DHCP6OptPanaAuthAgent - Basic Instantiation
+raw(DHCP6OptPanaAuthAgent()) ==  b'\x00(\x00\x00'
+
+= DHCP6OptPanaAuthAgent - Basic Dissection
+a = DHCP6OptPanaAuthAgent(b"\x00(\x00\x00")
+a.optcode == 40 and a.optlen == 0 and a.paaaddr == []
+
+= DHCP6OptPanaAuthAgent - Instantiation with specific values (1 address)
+raw(DHCP6OptPanaAuthAgent(paaaddr=["2001:db8::1"])) == b'\x00(\x00\x10 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
+
+= DHCP6OptPanaAuthAgent - Dissection with specific values (1 address)
+a = DHCP6OptPanaAuthAgent(b'\x00(\x00\x10 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01')
+a.optcode == 40 and a.optlen == 16 and len(a.paaaddr) == 1 and a.paaaddr[0] == "2001:db8::1"
+
+= DHCP6OptPanaAuthAgent - Instantiation with specific values (2 addresses)
+raw(DHCP6OptPanaAuthAgent(paaaddr=["2001:db8::1", "2001:db8::2"])) == b'\x00(\x00  \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02'
+
+= DHCP6OptPanaAuthAgent - Dissection with specific values (2 addresses)
+a = DHCP6OptPanaAuthAgent(b'\x00(\x00  \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02')
+a.optcode == 40 and a.optlen == 32 and len(a.paaaddr) == 2 and a.paaaddr[0] == "2001:db8::1" and a.paaaddr[1] == "2001:db8::2"
+
+
+############
+############
++ Test DHCP6 Option - New POSIX Time Zone
+
+= DHCP6OptNewPOSIXTimeZone - Basic Instantiation
+raw(DHCP6OptNewPOSIXTimeZone()) == b'\x00)\x00\x00'
+
+= DHCP6OptNewPOSIXTimeZone - Basic Dissection
+a = DHCP6OptNewPOSIXTimeZone(b'\x00)\x00\x00')
+a.optcode == 41 and a.optlen == 0 and a.optdata == b""
+
+= DHCP6OptNewPOSIXTimeZone - Instantiation with specific values
+raw(DHCP6OptNewPOSIXTimeZone(optdata="EST5EDT4,M3.2.0/02:00,M11.1.0/02:00")) == b'\x00)\x00#EST5EDT4,M3.2.0/02:00,M11.1.0/02:00'
+
+= DHCP6OptNewPOSIXTimeZone - Dissection with specific values
+a = DHCP6OptNewPOSIXTimeZone(b'\x00)\x00#EST5EDT4,M3.2.0/02:00,M11.1.0/02:00')
+a.optcode == 41 and a.optlen == 35 and a.optdata == b"EST5EDT4,M3.2.0/02:00,M11.1.0/02:00"
+
+
+############
+############
++ Test DHCP6 Option - New TZDB Time Zone
+
+= DHCP6OptNewTZDBTimeZone - Basic Instantiation
+raw(DHCP6OptNewTZDBTimeZone()) == b'\x00*\x00\x00'
+
+= DHCP6OptNewTZDBTimeZone - Basic Dissection
+a = DHCP6OptNewTZDBTimeZone(b'\x00*\x00\x00')
+a.optcode == 42 and a.optlen == 0 and a.optdata == b""
+
+= DHCP6OptNewTZDBTimeZone - Instantiation with specific values
+raw(DHCP6OptNewTZDBTimeZone(optdata="Europe/Zurich")) == b'\x00*\x00\rEurope/Zurich'
+
+= DHCP6OptNewTZDBTimeZone - Dissection with specific values
+a = DHCP6OptNewTZDBTimeZone(b'\x00*\x00\rEurope/Zurich')
+a.optcode == 42 and a.optlen == 13 and a.optdata == b"Europe/Zurich"
+
+
+############
+############
 + Test DHCP6 Option Relay Agent Echo Request Option
 
 = DHCP6OptRelayAgentERO - Basic Instantiation
@@ -5235,6 +5334,145 @@ a.optcode == 43 and a.optlen == 0 and a.reqopts == [23,24]
 = DHCP6OptRelayAgentERO - Dissection with specific value
 a=DHCP6OptRelayAgentERO(b'\x00+\x00\x08\x00\x01\x00\x02\x00\x03\x00\x04')
 a.optcode == 43 and a.optlen == 8 and a.reqopts == [1,2,3,4]
+
+
+############
+############
++ Test DHCP6 Option LQ Client Link
+
+= DHCP6OptLQClientLink - Basic Instantiation
+raw(DHCP6OptLQClientLink()) ==  b'\x000\x00\x00'
+
+= DHCP6OptLQClientLink - Basic Dissection
+a = DHCP6OptLQClientLink(b"\x000\x00\x00")
+a.optcode == 48 and a.optlen == 0 and a.linkaddress == []
+
+= DHCP6OptLQClientLink - Instantiation with specific values (1 address)
+raw(DHCP6OptLQClientLink(linkaddress=["2001:db8::1"])) == b'\x000\x00\x10 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01'
+
+= DHCP6OptLQClientLink - Dissection with specific values (1 address)
+a = DHCP6OptLQClientLink(b'\x000\x00\x10 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01')
+a.optcode == 48 and a.optlen == 16 and len(a.linkaddress) == 1 and a.linkaddress[0] == "2001:db8::1"
+
+= DHCP6OptLQClientLink - Instantiation with specific values (2 addresses)
+raw(DHCP6OptLQClientLink(linkaddress=["2001:db8::1", "2001:db8::2"])) == b'\x000\x00  \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02'
+
+= DHCP6OptLQClientLink - Dissection with specific values (2 addresses)
+a = DHCP6OptLQClientLink(b'\x000\x00  \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01 \x01\r\xb8\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02')
+a.optcode == 48 and a.optlen == 32 and len(a.linkaddress) == 2 and a.linkaddress[0] == "2001:db8::1" and a.linkaddress[1] == "2001:db8::2"
+
+############
+############
++ Test DHCP6 Option - Boot File URL
+
+= DHCP6OptBootFileUrl - Basic Instantiation
+raw(DHCP6OptBootFileUrl()) == b'\x00;\x00\x00'
+
+= DHCP6OptBootFileUrl - Basic Dissection
+a = DHCP6OptBootFileUrl(b'\x00;\x00\x00')
+a.optcode == 59 and a.optlen == 0 and a.optdata == b""
+
+= DHCP6OptBootFileUrl - Instantiation with specific values
+raw(DHCP6OptBootFileUrl(optdata="http://wp.pl/file")) == b'\x00;\x00\x11http://wp.pl/file'
+
+= DHCP6OptBootFileUrl - Dissection with specific values
+a = DHCP6OptBootFileUrl(b'\x00;\x00\x11http://wp.pl/file')
+a.optcode == 59 and a.optlen == 17 and a.optdata == b"http://wp.pl/file"
+
+
+############
+############
++ Test DHCP6 Option - Client Arch Type
+
+= DHCP6OptClientArchType - Basic Instantiation
+raw(DHCP6OptClientArchType())
+raw(DHCP6OptClientArchType()) == b'\x00=\x00\x00'
+
+= DHCP6OptClientArchType - Basic Dissection
+a = DHCP6OptClientArchType(b'\x00=\x00\x00')
+a.optcode == 61 and a.optlen == 0 and a.archtypes == []
+
+= DHCP6OptClientArchType - Instantiation with specific value as just int
+raw(DHCP6OptClientArchType(archtypes=7)) == b'\x00=\x00\x02\x00\x07'
+
+= DHCP6OptClientArchType - Instantiation with specific value as single item list of int
+raw(DHCP6OptClientArchType(archtypes=[7])) == b'\x00=\x00\x02\x00\x07'
+
+= DHCP6OptClientArchType - Dissection with specific 1 value list
+a = DHCP6OptClientArchType(b'\x00=\x00\x02\x00\x07')
+a.optcode == 61 and a.optlen == 2 and a.archtypes == [7]
+
+= DHCP6OptClientArchType - Instantiation with specific value as 2 item list of int
+raw(DHCP6OptClientArchType(archtypes=[7, 9])) == b'\x00=\x00\x04\x00\x07\x00\x09'
+
+= DHCP6OptClientArchType - Dissection with specific 2 values list
+a = DHCP6OptClientArchType(b'\x00=\x00\x04\x00\x07\x00\x09')
+a.optcode == 61 and a.optlen == 4 and a.archtypes == [7, 9]
+
+
+############
+############
++ Test DHCP6 Option - Client Network Inter Id
+
+= DHCP6OptClientNetworkInterId - Basic Instantiation
+raw(DHCP6OptClientNetworkInterId())
+raw(DHCP6OptClientNetworkInterId()) == b'\x00>\x00\x03\x00\x00\x00'
+
+= DHCP6OptClientNetworkInterId - Basic Dissection
+a = DHCP6OptClientNetworkInterId(b'\x00>\x00\x03\x00\x00\x00')
+a.optcode == 62 and a.optlen == 3 and a.iitype == 0 and a.iimajor == 0 and a.iiminor == 0
+
+= DHCP6OptClientNetworkInterId - Instantiation with specific values
+raw(DHCP6OptClientNetworkInterId(iitype=1, iimajor=2, iiminor=3)) == b'\x00>\x00\x03\x01\x02\x03'
+
+= DHCP6OptClientNetworkInterId - Dissection with specific values
+a = DHCP6OptClientNetworkInterId(b'\x00>\x00\x03\x01\x02\x03')
+a.optcode == 62 and a.optlen == 3 and a.iitype == 1 and a.iimajor == 2 and a.iiminor == 3
+
+
+############
+############
++ Test DHCP6 Option - ERP Domain
+
+= DHCP6OptERPDomain - Basic Instantiation
+raw(DHCP6OptERPDomain()) == b'\x00A\x00\x00'
+
+= DHCP6OptERPDomain - Basic Dissection
+a = DHCP6OptERPDomain(b'\x00A\x00\x00')
+a.optcode == 65 and a.optlen == 0 and a.erpdomain == []
+
+= DHCP6OptERPDomain - Instantiation with specific values (1 domain)
+raw(DHCP6OptERPDomain(erpdomain=["toto.example.com."])) == b'\x00A\x00\x12\x04toto\x07example\x03com\x00'
+
+= DHCP6OptERPDomain - Dissection with specific values (1 domain)
+a = DHCP6OptERPDomain(b'\x00A\x00\x12\x04toto\x07example\x03com\x00')
+a.optcode == 65 and a.optlen == 18 and len(a.erpdomain) == 1 and a.erpdomain[0] == "toto.example.com."
+
+= DHCP6OptERPDomain - Instantiation with specific values (2 domains)
+raw(DHCP6OptERPDomain(erpdomain=["toto.example.com.", "titi.example.com."])) == b'\x00A\x00$\x04toto\x07example\x03com\x00\x04titi\x07example\x03com\x00'
+
+= DHCP6OptERPDomain - Dissection with specific values (2 domains)
+a = DHCP6OptERPDomain(b'\x00A\x00$\x04toto\x07example\x03com\x00\x04titi\x07example\x03com\x00')
+a.optcode == 65 and a.optlen == 36 and len(a.erpdomain) == 2 and a.erpdomain[0] == "toto.example.com." and a.erpdomain[1] == "titi.example.com."
+
+
+############
+############
++ Test DHCP6 Option - Relay Supplied Option
+
+= DHCP6OptRelaySuppliedOpt - Basic Instantiation
+raw(DHCP6OptRelaySuppliedOpt()) == b'\x00B\x00\x00'
+
+= DHCP6OptRelaySuppliedOpt - Basic Dissection
+a = DHCP6OptRelaySuppliedOpt(b'\x00B\x00\x00')
+a.optcode == 66 and a.optlen == 0 and a.relaysupplied == []
+
+= DHCP6OptRelaySuppliedOpt - Instantiation with specific values
+raw(DHCP6OptRelaySuppliedOpt(relaysupplied=DHCP6OptERPDomain(erpdomain=["toto.example.com."]))) == b'\x00B\x00\x16\x00A\x00\x12\x04toto\x07example\x03com\x00'
+
+= DHCP6OptRelaySuppliedOpt - Dissection with specific values
+a = DHCP6OptRelaySuppliedOpt(b'\x00B\x00\x16\x00A\x00\x12\x04toto\x07example\x03com\x00')
+a.optcode == 66 and a.optlen == 22 and len(a.relaysupplied) == 1 and isinstance(a.relaysupplied[0], DHCP6OptERPDomain) and a.relaysupplied[0].erpdomain[0] == "toto.example.com."
 
 
 ############
@@ -5497,12 +5735,16 @@ assert DHCP6OptRelayMsg in p and isinstance(p.message, DHCP6_Solicit)
 raw(DHCP6OptRelayMsg(optcode=37)) == b'\x00%\x00\x04\x00\x00\x00\x00'
 
 = DHCP6OptRelayMsg - Basic Dissection
-a=DHCP6OptRelayMsg(b'\x00\r\x00\x00')
-assert a.optcode == 13
+a = DHCP6OptRelayMsg(b'\x00\r\x00\x00')
+a.optcode == 13 and a.optlen == 0 and isinstance(a.message, DHCP6)
 
-= DHCP6OptRelayMsg - Embedded DHCP6 packet
+= DHCP6OptRelayMsg - Embedded DHCP6 packet Instantiation
+raw(DHCP6OptRelayMsg(message=DHCP6_Solicit())) == b'\x00\t\x00\x04\x01\x00\x00\x00'
+
+= DHCP6OptRelayMsg - Embedded DHCP6 packet Dissection
 p = DHCP6OptRelayMsg(b'\x00\t\x00\x04\x01\x00\x00\x00')
 isinstance(p.message, DHCP6_Solicit)
+
 
 ############
 ############
@@ -6259,25 +6501,25 @@ filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else 
 a = rdpcap(filename)
 a = netflowv9_defragment(a)
 
-nfv9_fl = a[4]
+nfv9_fl = a[0]
 assert NetflowFlowsetV9 in nfv9_fl
 assert len(nfv9_fl.templates[0].template_fields) == 21
 assert nfv9_fl.templates[0].template_fields[1].fieldType == 12
 
-nfv9_ds = a[61]
+nfv9_ds = a[3]
 assert NetflowDataflowsetV9 in nfv9_ds
 assert len(nfv9_ds[NetflowDataflowsetV9].records) == 24
 assert nfv9_ds[NetflowDataflowsetV9].records[21].IP_PROTOCOL_VERSION == 4
 assert nfv9_ds.records[21].IPV4_SRC_ADDR == '20.0.0.248'
 assert nfv9_ds.records[21].IPV4_DST_ADDR == '30.0.0.248'
 
-nfv9_options_fl = a[5]
+nfv9_options_fl = a[1]
 assert NetflowOptionsFlowsetV9 in nfv9_options_fl
 assert isinstance(nfv9_options_fl[NetflowOptionsFlowsetV9].scopes[0], NetflowOptionsFlowsetScopeV9)
 assert isinstance(nfv9_options_fl[NetflowOptionsFlowsetV9].options[0], NetflowOptionsFlowsetOptionV9)
 assert nfv9_options_fl[NetflowOptionsFlowsetV9].options[0].optionFieldType == 36
 
-nfv9_options_ds = a[255]
+nfv9_options_ds = a[4]
 assert NetflowDataflowsetV9 in nfv9_options_ds
 assert isinstance(nfv9_options_ds.records[0], NetflowOptionsRecordScopeV9)
 assert nfv9_options_ds.records[0].IN_BYTES == b'\x01\x00\x00\x00'
@@ -6320,6 +6562,46 @@ assert pkt.records[0].OUTPUT_SNMP == b'\x00\x00\x02\xfb'
 
 assert raw(pkt) == b'\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x00\x00\x00\x00\x08\x00E\x00\x00\xcc\x00\x01\x00\x00@\x11|\x1e\x7f\x00\x00\x01\x7f\x00\x00\x01\x08\x07\x08\x07\x00\xb8\x86\xe7\x00\t\x00\x02\x00\x00\x00\x00\\C\x7f5\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\\\x01\xa8\x00\x15\x00\x08\x00\x04\x00\x0c\x00\x04\x00\x05\x00\x01\x00\x04\x00\x01\x00\x07\x00\x02\x00\x0b\x00\x02\x00 \x00\x02\x00\n\x00\x04\x00\x10\x00\x04\x00\x11\x00\x04\x00\x12\x00\x04\x00\x0e\x00\x04\x00\x01\x00\x04\x00\x02\x00\x04\x00\x16\x00\x04\x00\x15\x00\x04\x00\x0f\x00\x04\x00\t\x00\x01\x00\r\x00\x01\x00\x06\x00\x01\x00<\x00\x01\x01\xa8\x00@\x14\x00\x00\xfd\x1e\x00\x00\xfd\x00\xfd\x00\x00\x00\x00\x00\x00\x00\x00\x03 \x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x02\xfb\x00\x15a|\x00\x00\x07\x0f$\x95x\xed$\x99\x91<\ndg\x01  \x00\x04'
 
+
+############
+############
++ Netflow v10 (aka IPFix)
+~ netflow
+
+= IPFix dissection
+
+import os
+tmp = "/test/pcaps/ipfix.pcap"
+filename = os.path.abspath(os.path.join(os.path.dirname(__file__),"../")) + tmp
+filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else filename
+a = sniff(offline=filename, session=NetflowSession)
+
+# Templates
+pkt1 = a[0]
+assert NetflowHeaderV10 in pkt1
+assert len(pkt1[NetflowFlowsetV9].templates) == 1
+assert len(pkt1[NetflowFlowsetV9].templates[0].template_fields) == 23
+flds = pkt1[NetflowFlowsetV9].templates[0].template_fields
+assert (flds[0].fieldType == 8 and flds[0].fieldLength == 4)
+assert (flds[4].fieldType == 7 and flds[4].fieldLength == 2)
+
+# Data
+pkt2 = a[2]
+assert NetflowHeaderV10 in pkt2
+assert len(pkt2.records) == 1
+assert pkt2.records[0].IPV4_SRC_ADDR == "70.1.115.1"
+assert pkt2.records[0].flowStartMilliseconds == 1480449931519
+
+# Options
+pkt3 = a[1]
+assert NetflowOptionsFlowset10 in pkt3
+assert pkt3.scope_field_count == 1
+assert pkt3.field_count == 3
+assert len(pkt3[NetflowOptionsFlowset10].scopes) == 1
+assert len(pkt3[NetflowOptionsFlowset10].options) == 2
+assert pkt3.scopes[0].scopeFieldType == 5
+assert pkt3.scopes[0].scopeFieldlength == 2
+assert pkt3[NetflowOptionsFlowset10].options[0].optionFieldType == 36
 
 ############
 ############
@@ -6446,6 +6728,41 @@ assert isinstance(pkt, Padding) and pkt.load == b'\xeay$\xf6'
 pkt = pkt.payload
 assert isinstance(pkt, NoPayload)
 
+= Check PcapWriter on null write
+
+f = BytesIO()
+w = PcapWriter(f)
+w.write([])
+assert len(f.getvalue()) == 0
+
+# Stop being closed for reals, but we still want to have the header written
+with mock.patch.object(f, 'close') as cf:
+    w.close()
+
+cf.assert_called_once_with()
+assert len(f.getvalue()) != 0
+
+= Check PcapWriter sets correct linktype after null write
+
+f = BytesIO()
+w = PcapWriter(f)
+w.write([])
+assert len(f.getvalue()) == 0
+w.write(Ether()/IP()/ICMP())
+assert len(f.getvalue()) != 0
+
+# Stop being closed for reals, but we still want to have the header written
+with mock.patch.object(f, 'close') as cf:
+    w.close()
+
+cf.assert_called_once_with()
+f.seek(0) or None
+assert len(f.getvalue()) != 0
+
+r = PcapReader(f)
+assert r.LLcls is Ether
+assert r.linktype == DLT_EN10MB
+
 = Check tcpdump()
 ~ tcpdump
 * No very specific tests because we do not want to depend on tcpdump output
@@ -6456,15 +6773,153 @@ assert b'IP 127.0.0.1.20 > 127.0.0.1.80:' in data[0]
 assert b'IP 127.0.0.1.53 > 127.0.0.1.53:' in data[1]
 assert b'IP 127.0.0.1 > 127.0.0.1:' in data[2]
 
+# Also check with use_tempfile=True (for non-OSX platforms)
+pcapfile.seek(0) or None
+tempfile_count = len(conf.temp_files)
+data = tcpdump(pcapfile, dump=True, args=['-nn'], use_tempfile=True).split(b'\n')
+print(data)
+assert b'IP 127.0.0.1.20 > 127.0.0.1.80:' in data[0]
+assert b'IP 127.0.0.1.53 > 127.0.0.1.53:' in data[1]
+assert b'IP 127.0.0.1 > 127.0.0.1:' in data[2]
+# We should have another tempfile tracked.
+assert len(conf.temp_files) > tempfile_count
+
+# Check with a simple packet
+data = tcpdump([Ether()/IP()/ICMP()], dump=True, args=['-nn']).split(b'\n')
+print(data)
+assert b'IP 127.0.0.1 > 127.0.0.1: ICMP' in data[0]
+
+= Check tcpdump() command with linktype
+
+f = BytesIO()
+pkt = Ether()/IP()/ICMP()
+
+with mock.patch('subprocess.Popen', return_value=Bunch(
+        stdin=f, wait=lambda: None)) as popen:
+    # Prevent closing the BytesIO
+    with mock.patch.object(f, 'close'):
+        tcpdump([pkt], linktype=scapy.data.DLT_EN3MB, use_tempfile=False)
+
+popen.assert_called_once_with(
+    [conf.prog.tcpdump, '-r', '-'],
+    stdin=subprocess.PIPE, stdout=None, stderr=None)
+
+print(bytes_hex(f.getvalue()))
+assert raw(pkt) in f.getvalue()
+f.close()
+del f, pkt
+
+= Check tcpdump() command with linktype and args
+
+f = BytesIO()
+pkt = Ether()/IP()/ICMP()
+
+with mock.patch('subprocess.Popen', return_value=Bunch(
+        stdin=f, wait=lambda: None)) as popen:
+    # Prevent closing the BytesIO
+    with mock.patch.object(f, 'close'):
+        tcpdump([pkt], linktype=scapy.data.DLT_EN3MB, use_tempfile=False,
+                args=['-y', 'DLT_EN10MB'])
+
+popen.assert_called_once_with(
+    [conf.prog.tcpdump, '-r', '-', '-y', 'DLT_EN10MB'],
+    stdin=subprocess.PIPE, stdout=None, stderr=None)
+
+print(bytes_hex(f.getvalue()))
+assert raw(pkt) in f.getvalue()
+f.close()
+del f, pkt
+
+= Check tcpdump() command rejects non-string input for prog
+
+pkt = Ether()/IP()/ICMP()
+
+try:
+    tcpdump([pkt], prog=+17607067425, args=['-nn'])
+except ValueError as e:
+    if hasattr(e, 'args'):
+        assert 'prog' in e.args[0]
+    else:
+        assert 'prog' in e.message
+else:
+    assert False, 'expected exception'
+
 = Check tcpdump() command with tshark
 ~ tshark
 pcapfile = BytesIO(b'\xd4\xc3\xb2\xa1\x02\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x00\x00e\x00\x00\x00\xcf\xc5\xacVo*\n\x00(\x00\x00\x00(\x00\x00\x00E\x00\x00(\x00\x01\x00\x00@\x06|\xcd\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x91|\x00\x00\xcf\xc5\xacV_-\n\x00\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x11|\xce\x7f\x00\x00\x01\x7f\x00\x00\x01\x005\x005\x00\x08\x01r\xcf\xc5\xacV\xf90\n\x00\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x01|\xde\x7f\x00\x00\x01\x7f\x00\x00\x01\x08\x00\xf7\xff\x00\x00\x00\x00')
+# tshark doesn't need workarounds on OSX
+tempfile_count = len(conf.temp_files)
 values = [tuple(int(val) for val in line[:-1].split(b'\t')) for line in tcpdump(pcapfile, prog=conf.prog.tshark, getfd=True, args=['-T', 'fields', '-e', 'ip.ttl', '-e', 'ip.proto'])]
 assert values == [(64, 6), (64, 17), (64, 1)]
+assert len(conf.temp_files) == tempfile_count
+
+= Check tdecode command directly for tshark
+~ tshark
+
+pkts = [
+    Ether()/IP(src='192.0.2.1', dst='192.0.2.2')/ICMP(type='echo-request')/Raw(b'X'*100),
+    Ether()/IP(src='192.0.2.2', dst='192.0.2.1')/ICMP(type='echo-reply')/Raw(b'X'*100),
+]
+
+# tshark doesn't need workarounds on OSX
+tempfile_count = len(conf.temp_files)
+
+r = tdecode(pkts, dump=True)
+r
+assert b'Src: 192.0.2.1' in r
+assert b'Src: 192.0.2.2' in r
+assert b'Dst: 192.0.2.2' in r
+assert b'Dst: 192.0.2.1' in r
+assert b'Echo (ping) request' in r
+assert b'Echo (ping) reply' in r
+assert b'ICMP' in r
+assert len(conf.temp_files) == tempfile_count
+
+= Check tdecode with linktype
+~ tshark
+
+# These are the same as the ping packets above
+pkts = [
+  b'\xff\xff\xff\xff\xff\xff\xac"\x0b\xc5j\xdb\x08\x00E\x00\x00\x80\x00\x01\x00\x00@\x01\xf6x\xc0\x00\x02\x01\xc0\x00\x02\x02\x08\x00\xb6\xbe\x00\x00\x00\x00XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
+  b'\xff\xff\xff\xff\xff\xff\xac"\x0b\xc5j\xdb\x08\x00E\x00\x00\x80\x00\x01\x00\x00@\x01\xf6x\xc0\x00\x02\x02\xc0\x00\x02\x01\x00\x00\xbe\xbe\x00\x00\x00\x00XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
+]
+
+# tshark doesn't need workarounds on OSX
+tempfile_count = len(conf.temp_files)
+
+r = tdecode(pkts, dump=True, linktype=DLT_EN10MB)
+assert b'Src: 192.0.2.1' in r
+assert b'Src: 192.0.2.2' in r
+assert b'Dst: 192.0.2.2' in r
+assert b'Dst: 192.0.2.1' in r
+assert b'Echo (ping) request' in r
+assert b'Echo (ping) reply' in r
+assert b'ICMP' in r
+assert len(conf.temp_files) == tempfile_count
+
 
 = Run scapy's tshark command
 ~ netaccess
 tshark(count=1, timeout=3)
+
+= Check wireshark()
+
+f = BytesIO()
+pkt = Ether()/IP()/ICMP()
+
+with mock.patch('subprocess.Popen', return_value=Bunch(stdin=f)) as popen:
+    # Prevent closing the BytesIO
+    with mock.patch.object(f, 'close'):
+        wireshark([pkt])
+
+popen.assert_called_once_with(
+    [conf.prog.wireshark, '-ki', '-'],
+    stdin=subprocess.PIPE, stdout=None, stderr=None)
+
+print(bytes_hex(f.getvalue()))
+assert raw(pkt) in f.getvalue()
+f.close()
+del f, pkt
 
 = Check Raw IP pcap files
 
@@ -6515,10 +6970,10 @@ dissected_packets = []
 def callback(pkt):
 	dissected_packets.append(pkt)
 
-sniff(offline=filename, session=NetflowSession, prn=callback, count=50)
-records = dissected_packets[44][NetflowDataflowsetV9].records
-assert len(records) == 21
-assert records[0].IPV4_SRC_ADDR == '20.0.2.82'
+sniff(offline=filename, session=NetflowSession, prn=callback)
+records = dissected_packets[3][NetflowDataflowsetV9].records
+assert len(records) == 24
+assert records[0].IPV4_SRC_ADDR == '20.0.1.174'
 assert records[0].IPV4_NEXT_HOP == '10.100.103.1'
 
 
@@ -6796,6 +7251,11 @@ raw(TCP(b"\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00`\x02 \x00\x00\x00\x00\x0
 = TCP options: MPTCP - basic build using bytes
 raw(TCP(options=[(30, b"\x10\x03\xc1\x1c\x95\x9b\x81R_1")])) == b"\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00\x80\x02 \x00\x00\x00\x00\x00\x1e\x0c\x10\x03\xc1\x1c\x95\x9b\x81R_1"
 
+= TCP options: invalid data offset
+data = b'\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00\x80\x02 \x00\x1b\xb8\x00\x00\x02\x04\x05\xb4\x04\x02\x08\x06\xf7\xa26C\x00\x00\x00\x00\x01\x03\x03\x07'
+p = TCP(data)
+assert TCP in p and Raw in p and len(p.options) == 3
+
 = TCP random options
 pkt = TCP()
 random.seed(0x2807)
@@ -6988,28 +7448,36 @@ assert raw(recompressed) == raw(pkt)
 = Advanced dns_get_str tests
 ~ dns
 
-assert dns_get_str(b"\x06cheese\x00blobofdata....\x06hamand\xc0\x0c", 22, _internal=True)[0] == b'hamand.cheese.'
+assert dns_get_str(b"\x06cheese\x00blobofdata....\x06hamand\xc0\x0c", 22, _fullpacket=True)[0] == b'hamand.cheese.'
 
-# This non-regression test is meaningless. Should use real DNS payload
-# in non-regression tests.
-#from scapy.tools.UTscapy import Bunch
-#assert dns_get_str(b"\x06hamand\xc0\x0c", 0, pkt=Bunch(_orig_s=b"\x06cheese\x00blobofdata", _orig_p=22))[0] == b'hamand.cheese.'
+compressed_pkt =  b'\x01\x00^\x00\x00\xfb\xa0\x10\x81\xd9\xd3y\x08\x00E\x00\x01\x14\\\n@\x00\xff\x116n\xc0\xa8F\xbc\xe0\x00\x00\xfb\x14\xe9\x14\xe9\x01\x00Ho\x00\x00\x84\x00\x00\x00\x00\x04\x00\x00\x00\x03\x03188\x0270\x03168\x03192\x07in-addr\x04arpa\x00\x00\x0c\x80\x01\x00\x00\x00x\x00\x0f\x07Android\x05local\x00\x019\x017\x013\x01D\x019\x01D\x01E\x01F\x01F\x01F\x011\x018\x010\x011\x012\x01A\x010\x010\x010\x010\x010\x010\x010\x010\x010\x010\x010\x010\x010\x018\x01E\x01F\x03ip6\xc0#\x00\x0c\x80\x01\x00\x00\x00x\x00\x02\xc03\xc03\x00\x01\x80\x01\x00\x00\x00x\x00\x04\xc0\xa8F\xbc\xc03\x00\x1c\x80\x01\x00\x00\x00x\x00\x10\xfe\x80\x00\x00\x00\x00\x00\x00\xa2\x10\x81\xff\xfe\xd9\xd3y\xc0\x0c\x00/\x80\x01\x00\x00\x00x\x00\x06\xc0\x0c\x00\x02\x00\x08\xc0B\x00/\x80\x01\x00\x00\x00x\x00\x06\xc0B\x00\x02\x00\x08\xc03\x00/\x80\x01\x00\x00\x00x\x00\x08\xc03\x00\x04@\x00\x00\x08'
+
+Ether(compressed_pkt)
 
 = Decompression loop in dns_get_str
 ~ dns
 
-assert dns_get_str(b"\x04data\xc0\x0c", 0, _internal=True)[0] == b"data."
+assert dns_get_str(b"\x04data\xc0\x0c", 0, _fullpacket=True)[0] == b"data.data."
 
 = Prematured end in dns_get_str
 ~ dns
 
-assert dns_get_str(b"\x06da", 0, _internal=True)[0] == b"da."
-assert dns_get_str(b"\x04data\xc0\x01", 0, _internal=True)[0] == b"data."
+assert dns_get_str(b"\x06da", 0, _fullpacket=True)[0] == b"da."
+assert dns_get_str(b"\x04data\xc0\x01", 0, _fullpacket=True)[0] == b"data."
 
 = Other decompression loop in dns_get_str
 ~ dns
 s = b'\x00\x00\x84\x00\x00\x00\x00\x02\x00\x00\x00\x06\x0bGourmandise\x04_smb\x04_tcp\x05local\x00\x00!\x80\x01\x00\x00\x00x\x00\x14\x00\x00\x00\x00\x01\xbd\x0bGourmandise\xc0"\x0bGourmandise\x0b_afpovertcp\xc0\x1d\x00!\x80\x01\x00\x00\x00x\x00\x08\x00\x00\x00\x00\x02$\xc09\xc09\x00\x1c\x80\x01\x00\x00\x00x\x00\x10\xfe\x80\x00\x00\x00\x00\x00\x00\x00s#\x99\xca\xf7\xea\xdc\xc09\x00\x01\x80\x01\x00\x00\x00x\x00\x04\xc0\xa8\x01x\xc09\x00\x1c\x80\x01\x00\x00\x00x\x00\x10*\x01\xcb\x00\x0bD\x1f\x00\x18k\xb1\x99\x90\xdf\x84.\xc0\x0c\x00/\x80\x01\x00\x00\x00x\x00\t\xc0\x0c\x00\x05\x00\x00\x80\x00@\xc0G\x00/\x80\x01\x00\x00\x00x\x00\t\xc0G\x00\x05\x00\x00\x80\x00@\xc09\x00/\x80\x01\x00\x00\x00x\x00\x08\xc09\x00\x04@\x00\x00\x08'
 DNS(s)
+
+= DNS record type 16 (TXT)
+
+p = DNS(raw(DNS(id=1,ra=1,an=DNSRR(rrname='scapy', type='TXT', rdata="niceday", ttl=1))))
+assert p[DNS].an.rdata == [b"niceday"]
+
+p = DNS(raw(DNS(id=1,ra=1,an=DNSRR(rrname='secdev', type='TXT', rdata=["sweet", "celestia"], ttl=1))))
+assert p[DNS].an.rdata == [b"sweet", b"celestia"]
+assert raw(p) == b'\x00\x01\x01\x80\x00\x00\x00\x01\x00\x00\x00\x00\x06secdev\x00\x00\x10\x00\x01\x00\x00\x00\x01\x00\x0f\x05sweet\x08celestia'
 
 = Layer binding
 
@@ -9227,6 +9695,8 @@ class MockSocket(object):
         return self.l.pop(0)
     def fileno(self):
         return -1
+    def close(self):
+        return
 
 
 class TestPacket(Packet):
@@ -9267,6 +9737,8 @@ class MockSocket(object):
         return self.l.pop(0)
     def fileno(self):
         return -1
+    def close(self):
+        return
 
 
 class TestPacket(Packet):
@@ -9309,6 +9781,8 @@ class MockSocket(object):
         return self.l.pop(0)
     def fileno(self):
         return -1
+    def close(self):
+        return
 
 
 class TestPacket(Packet):
@@ -9748,6 +10222,7 @@ assert n3.__iterlen__() == 5
 (n3 in n2) == True
 
 = Net using web address
+~ netaccess
 
 ip = IP(dst="www.google.com")
 n1 = ip.dst
@@ -10614,6 +11089,15 @@ assert nstats == {
    'country_desc_type': 'Indoor'
 }
 
+= Dot11EltCountry dissection
+
+data = b"\x00\x00&\x00/@\x00\xa0 \x08\x00\xa0 \x08\x00\x00R\xa9[#\x00\x00\x00\x00\x10\x18\x85\t\xc0\x00\xc8\x00\x00\x00\xc3\x00\xc7\x01P\x080\x00V\x9cm\xf4\xb1\xe9\xa0\xcf[\xfb%0\xa0\xcf[\xfb%0\xa0R&\x1a@\xc2\x06\x03\x00\x00f\x00!\x14\x00\x1eDisney Convention Center Guest\x01\x07\x12\x98$0H`l\x03\x01\x06\x07\x06US \x01\x0b\x1e\x0b\x05\n\x00\x8a\x8d[ \x01\x03*\x01\x00-\x1a,\x18\x1b\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x006\x03*L\x01=\x16\x06\x00\x05\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00F\x05s\xc0\x00\x00\x00\x7f\x06\x00\x10\x00\x04\x01@\x85\x1e\x10\x00\x8f\x00\x0f\x00\xff\x03Y\x001617-AP33-SorcA\x00\n\x00\x00:\x96\x06\x00@\x96\x00\x0b\x00\xdd\x18\x00P\xf2\x02\x01\x01\x80\x00\x03\xa4\x00\x00'\xa4\x00\x00BC^\x00b2/\x00\xdd\x06\x00@\x96\x01\x01\x04\xdd\x05\x00@\x96\x03\x05\xdd\x05\x00@\x96\x0bI\xdd\x05\x00@\x96\x14\x00dZ\x97\xbf"
+pkt = RadioTap(data)
+assert pkt[Dot11EltCountry].info == b'US \x01\x0b\x1e'
+assert len(pkt[Dot11EltCountry].descriptors) == 1
+assert pkt[Dot11EltCountry].descriptors[0].mtp == 30
+
+
 = RSNCipherSuite
 assert bytes(RSNCipherSuite()) == b'\x00\x0f\xac\x04'
 rsn =  RSNCipherSuite(b'\x00\x0f\xac\x04')
@@ -10927,6 +11411,7 @@ new_pl = pl.replace(IP.src, "192.168.0.254", "192.168.0.42")
 assert("192.168.0.254" not in [p[IP].src for p in new_pl])
 
 = IPv4 - reporting
+~ netaccess
 
 @mock.patch("scapy.layers.inet.sr")
 def test_report_ports(mock_sr):
@@ -11581,3 +12066,8 @@ os.remove(filename_css)
 #    assert(output == expected)
 #
 #test_snmpwalk("secdev.org")
+
+= test get_temp_dir
+
+dname = get_temp_dir()
+assert os.path.isdir(dname)
