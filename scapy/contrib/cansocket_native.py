@@ -79,7 +79,7 @@ class CANSocket(SuperSocket):
             warning("Captured no data.")
             return None
 
-        # need to change the byteoder of the first four bytes,
+        # need to change the byte order of the first four bytes,
         # required by the underlying Linux SocketCAN frame format
         pkt = struct.pack("<I12s", *struct.unpack(">I12s", pkt))
         len = pkt[4]
@@ -95,7 +95,7 @@ class CANSocket(SuperSocket):
             if hasattr(x, "sent_time"):
                 x.sent_time = time.time()
 
-            # need to change the byteoder of the first four bytes,
+            # need to change the byte order of the first four bytes,
             # required by the underlying Linux SocketCAN frame format
             bs = bytes(x)
             bs = bs + b'\x00' * (CAN_FRAME_SIZE - len(bs))

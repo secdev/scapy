@@ -351,7 +351,7 @@ class ISOTPMessageBuilder:
                            destination
         :param ext_addr: if identifier is not None, only return isotp messages
                          with this extended address for destination
-        :param basecls: the class of packets that will be returned, defautls to
+        :param basecls: the class of packets that will be returned, defaults to
                         ISOTP
         :return: an ISOTP packet, or None if no message is ready
         """

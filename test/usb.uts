@@ -70,7 +70,7 @@ value {arg=99}{value=2}{display=[2] Marvell AVASTAR Bluetooth Radio Adapter}{ena
 value {arg=99}{value=3}{display=[3] Peripherique d entree USB}{enabled=true}
 value {arg=99}{value=3_1}{display=Surface Type Cover Filter Device}{enabled=false}{parent=3}
 value {arg=99}{value=3_2}{display=Souris HID}{enabled=false}{parent=3}
-value {arg=99}{value=3_3}{display=Peripherique de controle consommateur conforme aux Peripheriques d'interface utilisateur (HID)}{enabled=false}{parent=3}
+value {arg=99}{value=3_3}{display=Peripherique de control consommateur conforme aux Peripheriques d'interface utilisateur (HID)}{enabled=false}{parent=3}
 value {arg=99}{value=3_4}{display=Surface Pro 4 Type Cover Integration}{enabled=false}{parent=3}
 value {arg=99}{value=3_5}{display=Surface Keyboard Backlight}{enabled=false}{parent=3_4}
 value {arg=99}{value=3_6}{display=Surface Pro 4 Firmware Update}{enabled=false}{parent=3_4}

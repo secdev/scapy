@@ -1665,8 +1665,13 @@ def explore(layer=None):
         from prompt_toolkit.shortcuts.dialogs import radiolist_dialog, \
             button_dialog
         from prompt_toolkit.formatted_text import HTML
+        # Check for prompt_toolkit >= 3.0.0
+        if _version_checker(prompt_toolkit, (3, 0)):
+            call_ptk = lambda x: x.run()
+        else:
+            call_ptk = lambda x: x
         # 1 - Ask for layer or contrib
-        action = button_dialog(
+        btn_diag = button_dialog(
             title="Scapy v%s" % conf.version,
             text=HTML(
                 six.text_type(
@@ -1679,6 +1684,7 @@ def explore(layer=None):
                 (six.text_type("Contribs"), "contribs"),
                 (six.text_type("Cancel"), "cancel")
             ])
+        action = call_ptk(btn_diag)
         # 2 - Retrieve list of Packets
         if action == "layers":
             # Get all loaded layers
@@ -1703,7 +1709,7 @@ def explore(layer=None):
             _radio_values = [(six.text_type(x), six.text_type(y))
                              for x, y in _radio_values]
         # 3 - Ask for the layer/contrib module to explore
-        result = radiolist_dialog(
+        rd_diag = radiolist_dialog(
             values=_radio_values,
             title="Scapy v%s" % conf.version,
             text=HTML(
@@ -1713,6 +1719,7 @@ def explore(layer=None):
                     ' it:</style>'
                 )
             ))
+        result = call_ptk(rd_diag)
         if result is None:
             return  # User pressed "Cancel"
         # 4 - (Contrib only): load contrib

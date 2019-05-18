@@ -575,14 +575,14 @@ class VEthPair(object):
     def destroy(self):
         """
         remove veth pair links
-        :raises subprocess.CalledProcessError if operation failes
+        :raises subprocess.CalledProcessError if operation fails
         """
         subprocess.check_call(['ip', 'link', 'del', self.ifaces[0]])
 
     def up(self):
         """
         set veth pair links up
-        :raises subprocess.CalledProcessError if operation failes
+        :raises subprocess.CalledProcessError if operation fails
         """
         for idx in [0, 1]:
             subprocess.check_call(["ip", "link", "set", self.ifaces[idx], "up"])  # noqa: E501
@@ -590,7 +590,7 @@ class VEthPair(object):
     def down(self):
         """
         set veth pair links down
-        :raises subprocess.CalledProcessError if operation failes
+        :raises subprocess.CalledProcessError if operation fails
         """
         for idx in [0, 1]:
             subprocess.check_call(["ip", "link", "set", self.ifaces[idx], "down"])  # noqa: E501
