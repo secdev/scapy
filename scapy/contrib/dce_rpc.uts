@@ -73,7 +73,7 @@ bytes(DceRpc() / b'\x00\x01\x02\x03') == bytearray.fromhex('04000000000000000000
 p = DceRpc(bytearray.fromhex('04000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000000000000ffffffff00040000000000010203'))
 p.payload.__class__ == conf.raw_layer
 
-= DCE/RPC Guess payload class to a registered heuristical payload
+= DCE/RPC Guess payload class to a registered heuristic payload
 * A payload to be valid must implement the method can_handle and be registered to DceRpcPayload
 from scapy.contrib.dce_rpc import *; import binascii, re
 class DummyPayload(Packet):

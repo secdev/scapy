@@ -271,7 +271,7 @@ if conf.use_pcap:
         except ImportError as e2:
             try:
                 # This is our last chance, but we don't really
-                # recommand it as very little tested
+                # recommend it as very little tested
                 import libpcap as pcap  # python-libpcap
                 _PCAP_MODE = "libpcap"
             except ImportError:
