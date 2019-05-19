@@ -435,8 +435,13 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
                                    repr(self.payload),
                                    ct.punct(">"))
 
-    def __str__(self):
-        return str(self.build())
+    if six.PY2:
+        def __str__(self):
+            return self.build()
+    else:
+        def __str__(self):
+            warning("Calling str(pkt) on Python 3 makes no sense!")
+            return str(self.build())
 
     def __bytes__(self):
         return self.build()
@@ -488,9 +493,14 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
     def clear_cache(self):
         """Clear the raw packet cache for the field and all its subfields"""
         self.raw_packet_cache = None
-        for _, fval in six.iteritems(self.fields):
-            if isinstance(fval, Packet):
-                fval.clear_cache()
+        for fld, fval in six.iteritems(self.fields):
+            fld = self.get_field(fld)
+            if fld.holds_packets:
+                if isinstance(fval, Packet):
+                    fval.clear_cache()
+                elif isinstance(fval, list):
+                    for fsubval in fval:
+                        fsubval.clear_cache()
         self.payload.clear_cache()
 
     def self_build(self, field_pos_list=None):
@@ -838,9 +848,12 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
         """
         for t in self.aliastypes:
             for fval, cls in t.payload_guess:
-                if all(hasattr(self, k) and v == self.getfieldval(k)
-                       for k, v in six.iteritems(fval)):
-                    return cls
+                try:
+                    if all(v == self.getfieldval(k)
+                           for k, v in six.iteritems(fval)):
+                        return cls
+                except AttributeError:
+                    pass
         return self.default_payload_class(payload)
 
     def default_payload_class(self, payload):
@@ -924,19 +937,25 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
                   six.iteritems(self.overloaded_fields))
                   if isinstance(val, VolatileValue)] + list(self.fields)
         length = 1
+
+        def is_valid_gen_tuple(x):
+            if not isinstance(x, tuple):
+                return False
+            return len(x) == 2 and all(isinstance(z, int) for z in x)
+
         for field in fields:
             fld, val = self.getfield_and_val(field)
             if hasattr(val, "__iterlen__"):
                 length *= val.__iterlen__()
-            elif isinstance(val, tuple) and len(val) == 2 and all(hasattr(z, "__int__") for z in val):  # noqa: E501
-                length *= (val[1] - val[0])
+            elif is_valid_gen_tuple(val):
+                length *= (val[1] - val[0] + 1)
             elif isinstance(val, list) and not fld.islist:
                 len2 = 0
                 for x in val:
                     if hasattr(x, "__iterlen__"):
                         len2 += x.__iterlen__()
-                    elif isinstance(x, tuple) and len(x) == 2 and all(hasattr(z, "__int__") for z in x):  # noqa: E501
-                        len2 += (x[1] - x[0])
+                    elif is_valid_gen_tuple(x):
+                        len2 += (x[1] - x[0] + 1)
                     elif isinstance(x, list):
                         len2 += len(x)
                     else:

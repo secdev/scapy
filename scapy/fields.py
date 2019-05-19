@@ -1971,13 +1971,11 @@ class FlagsField(BitField):
 used in *2i() and i2*() methods.
 
         """
-        if isinstance(x, (list, tuple)):
-            return type(x)(
-                v if v is None or isinstance(v, FlagValue)
-                else FlagValue(v, self.names)
-                for v in x
-            )
-        return x if x is None or isinstance(x, FlagValue) else FlagValue(x, self.names)  # noqa: E501
+        if isinstance(x, FlagValue):
+            return x
+        if x is None:
+            return None
+        return FlagValue(x, self.names)
 
     def any2i(self, pkt, x):
         return self._fixup_val(super(FlagsField, self).any2i(pkt, x))
