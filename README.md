@@ -9,11 +9,11 @@
 [![Travis Build Status](https://travis-ci.com/secdev/scapy.svg?branch=master)](https://travis-ci.com/secdev/scapy)
 [![AppVeyor Build Status](https://ci.appveyor.com/api/projects/status/github/secdev/scapy?svg=true)](https://ci.appveyor.com/project/secdev/scapy)
 [![Codecov Status](https://codecov.io/gh/secdev/scapy/branch/master/graph/badge.svg)](https://codecov.io/gh/secdev/scapy)
-[![Codacy Badge](https://api.codacy.com/project/badge/Grade/30ee6772bb264a689a2604f5cdb0437b)](https://www.codacy.com/app/secdev/scapy?utm_source=github.com&utm_medium=referral&utm_content=secdev/scapy&utm_campaign=Badge_Grade)
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/30ee6772bb264a689a2604f5cdb0437b)](https://www.codacy.com/app/secdev/scapy)
 [![PyPI Version](https://img.shields.io/pypi/v/scapy.svg)](https://pypi.python.org/pypi/scapy/)
 [![Python Versions](https://img.shields.io/pypi/pyversions/scapy.svg)](https://pypi.python.org/pypi/scapy/)
 [![License: GPL v2](https://img.shields.io/badge/License-GPL%20v2-blue.svg)](LICENSE)
-[![Join the chat at https://gitter.im/secdev/scapy](https://badges.gitter.im/secdev/scapy.svg)](https://gitter.im/secdev/scapy?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+[![Join the chat at https://gitter.im/secdev/scapy](https://badges.gitter.im/secdev/scapy.svg)](https://gitter.im/secdev/scapy)
 
 Scapy is a powerful Python-based interactive packet manipulation program and
 library.
@@ -37,24 +37,24 @@ be cross platform, and runs on many different platforms (Linux, OSX,
 
 ## Getting started
 
-Head over to [the documentation](https://scapy.readthedocs.io/) to get started.
+Scapy is usable either as a **shell** or as a **library**.
+For further details, please head over to [Getting started with Scapy](https://scapy.readthedocs.io/en/latest/introduction.html), which is part of the documentation.
 
 ### Resources
 
-The [documentation](http://scapy.readthedocs.io/en/latest/) contains more
+The [documentation](https://scapy.readthedocs.io/en/latest/) contains more
 advanced use cases, and examples.
 
 Other useful resources:
 
-- [the notebook hands-on](https://github.com/secdev/scapy/blob/master/doc/notebooks/Scapy%20in%2015%20minutes.ipynb)
--  [interactive tutorial](http://scapy.readthedocs.io/en/latest/usage.html#interactive-tutorial).
-- [the quick demo: an interactive session](http://scapy.readthedocs.io/en/latest/introduction.html#quick-demo)
+- [Scapy in 20 minutes](https://github.com/secdev/scapy/blob/master/doc/notebooks/Scapy%20in%2015%20minutes.ipynb)
+-  [Interactive tutorial](https://scapy.readthedocs.io/en/latest/usage.html#interactive-tutorial) (part of the documentation)
+- [The quick demo: an interactive session](https://scapy.readthedocs.io/en/latest/introduction.html#quick-demo)
 (some examples may be outdated)
-- [HTTP/2 notebook](doc/notebooks/HTTP_2_Tuto.ipynb)
-- [TLS notebook](doc/notebooks/tls)
-notebooks.
+- [HTTP/2 notebook](https://github.com/secdev/scapy/blob/master/doc/notebooks/HTTP_2_Tuto.ipynb)
+- [TLS notebooks](https://github.com/secdev/scapy/blob/master/doc/notebooks/tls)
 
-## [Installation](http://scapy.readthedocs.io/en/latest/installation.html)
+## [Installation](https://scapy.readthedocs.io/en/latest/installation.html)
 
 Scapy works without any external Python modules on Linux and BSD like operating
 systems. On Windows, you need to install some mandatory dependencies as
