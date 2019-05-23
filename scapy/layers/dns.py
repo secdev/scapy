@@ -759,7 +759,7 @@ class DNSRRNSEC3PARAM(_DNSRRdummy):
 class DNSRRSRV(_DNSRRdummy):
     name = "DNS SRV Resource Record"
     fields_desc = [DNSStrField("rrname", ""),
-                   ShortEnumField("type", 51, dnstypes),
+                   ShortEnumField("type", 33, dnstypes),
                    ShortEnumField("rclass", 1, dnsclasses),
                    IntField("ttl", 0),
                    ShortField("rdlen", None),
