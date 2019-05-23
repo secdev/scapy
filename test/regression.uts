@@ -1076,6 +1076,7 @@ r = RadioTap(data)
 r = RadioTap(raw(r))
 assert r.dBm_AntSignal == -59
 assert r.ChannelFrequency == 5785
+assert r.ChannelPlusFrequency == 5785
 assert r.present == 3410027
 assert r.A_MPDU_ref == 2821
 assert r.KnownVHT == 511

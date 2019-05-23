@@ -247,6 +247,11 @@ _rt_hemuother_per_user_known = {
 
 class RadioTap(Packet):
     name = "RadioTap dummy"
+    deprecated_fields = {
+        "Channel": "ChannelFrequency",  # 2.4.3
+        "ChannelFlags2": "ChannelPlusFlags",  # 2.4.3
+        "ChannelNumber": "ChannelPlusNumber"  # 2.4.3
+    }
     fields_desc = [
         ByteField('version', 0),
         ByteField('pad', 0),
@@ -278,7 +283,7 @@ class RadioTap(Packet):
         # Channel
         ConditionalField(
             _RadiotapReversePadField(
-                LEShortField("Channel", 0)
+                LEShortField("ChannelFrequency", 0)
              ),
             lambda pkt: pkt.present and pkt.present.Channel),
         ConditionalField(
@@ -323,14 +328,14 @@ class RadioTap(Packet):
         # ChannelPlus
         ConditionalField(
             _RadiotapReversePadField(
-                FlagsField("ChannelFlags2", None, -32, _rt_channelflags2)
+                FlagsField("ChannelPlusFlags", None, -32, _rt_channelflags2)
             ),
             lambda pkt: pkt.present and pkt.present.ChannelPlus),
         ConditionalField(
-            LEShortField("ChannelFrequency", 0),
+            LEShortField("ChannelPlusFrequency", 0),
             lambda pkt: pkt.present and pkt.present.ChannelPlus),
         ConditionalField(
-            ByteField("ChannelNumber", 0),
+            ByteField("ChannelPlusNumber", 0),
             lambda pkt: pkt.present and pkt.present.ChannelPlus),
         # MCS
         ConditionalField(
