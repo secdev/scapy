@@ -40,6 +40,8 @@ be cross platform, and runs on many different platforms (Linux, OSX,
 Scapy is usable either as a **shell** or as a **library**.
 For further details, please head over to [Getting started with Scapy](https://scapy.readthedocs.io/en/latest/introduction.html), which is part of the documentation.
 
+![Scapy install demo](./doc/scapy/graphics/animations/animation-scapy-install.svg)
+
 ### Resources
 
 The [documentation](https://scapy.readthedocs.io/en/latest/) contains more
