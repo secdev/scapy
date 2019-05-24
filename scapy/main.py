@@ -110,7 +110,9 @@ SESSION = None
 def _usage():
     print(
         "Usage: scapy.py [-s sessionfile] [-c new_startup_file] "
-        "[-p new_prestart_file] [-C] [-P]\n"
+        "[-p new_prestart_file] [-C] [-P] [-H]\n"
+        "Args:\n"
+        "\t-H: header-less start\n"
         "\t-C: do not read startup file\n"
         "\t-P: do not read pre-startup file\n"
     )
@@ -485,10 +487,13 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
         argv = sys.argv
 
     try:
-        opts = getopt.getopt(argv[1:], "hs:Cc:Pp:d")
+        opts = getopt.getopt(argv[1:], "hs:Cc:Pp:d:H")
         for opt, parm in opts[0]:
             if opt == "-h":
                 _usage()
+            elif opt == "-H":
+                conf.fancy_prompt = False
+                conf.verb = 30
             elif opt == "-s":
                 session_name = parm
             elif opt == "-c":
