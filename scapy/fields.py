@@ -989,6 +989,10 @@ class PacketField(StrField):
             remain = r.load
         return remain, i
 
+    def randval(self):
+        from scapy.packet import fuzz
+        return fuzz(self.cls())
+
 
 class PacketLenField(PacketField):
     __slots__ = ["length_from"]

@@ -1762,7 +1762,7 @@ for i in range(8):
     r = m.m2i(None, b'\xff')
     assert(r == None)
 
-=LSBExtendedField
+= LSBExtendedField
 * Test i2m and m2i
 data_129 = {
     "extended": 129,
@@ -1779,7 +1779,7 @@ m = LSBExtendedField("foo", None)
 r = m.m2i(None, data_129["str_with_fx"])
 assert(r == data_129["extended"])
 
-=MSBExtendedField
+= MSBExtendedField
 * Test i2m and m2i
 data_129 = {
     "extended": 129,
@@ -1822,3 +1822,47 @@ assert raw(pkt) == b'\x0c\x0f\x00\x07\x00\x00\x00\x00\x00\x00{\xbb\xbb\xbb\xbb\x
 
 pkt = TestPacket(raw(pkt))
 assert pkt.fcs == 0xbeef
+
+
+############
+############
++ PacketField
+
+= PacketField: randval()
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ShortField('short', 0),
+        ByteField('byte', 0),
+        LongField('long', 0)
+    ]
+
+p = PacketField('packet', b'', DebugPacket).randval()
+
+assert isinstance(p.short, RandShort)
+assert isinstance(p.byte, RandByte)
+assert isinstance(p.long, RandLong)
+
+
+= PacketField: randval(), PacketField in PacketField
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ShortField('short1', 0),
+        ByteField('byte', 0),
+        LongField('long', 0)
+    ]
+
+class DummyPacket(Packet):
+    fields_desc = [
+        PacketField('packet', b'', DebugPacket),
+        ShortField('short2', 0)
+    ]
+
+
+p = PacketField('packet', b'', DummyPacket).randval()
+
+assert isinstance(p.packet.short1, RandShort)
+assert isinstance(p.packet.byte, RandByte)
+assert isinstance(p.packet.long, RandLong)
+assert isinstance(p.short2, RandShort)
