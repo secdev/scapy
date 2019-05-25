@@ -193,6 +193,11 @@ class RandNum(RandField):
         return other | self._fix()
 
 
+class RandFloat(RandNum):
+    def _fix(self):
+        return random.uniform(self.min, self.max)
+
+
 class RandNumGamma(RandNum):
     def __init__(self, alpha, beta):
         self.alpha = alpha

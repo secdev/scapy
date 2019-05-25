@@ -25,7 +25,8 @@ from scapy.config import conf
 from scapy.dadict import DADict
 from scapy.volatile import RandBin, RandByte, RandEnumKeys, RandInt, \
     RandIP, RandIP6, RandLong, RandMAC, RandNum, RandShort, RandSInt, \
-    RandSByte, RandTermString, RandUUID, VolatileValue, RandSShort, RandSLong
+    RandSByte, RandTermString, RandUUID, VolatileValue, RandSShort, \
+    RandSLong, RandFloat
 from scapy.data import EPOCH
 from scapy.error import log_runtime, Scapy_Exception
 from scapy.compat import bytes_hex, chb, orb, plain_str, raw, bytes_encode
@@ -2320,7 +2321,7 @@ class ScalingField(Field):
             min_value = min(barrier1, barrier2)
             max_value = max(barrier1, barrier2)
 
-            return RandNum(min_value, max_value)
+            return RandFloat(min_value, max_value)
 
 
 class UUIDField(Field):
