@@ -299,7 +299,7 @@ class L2bpfListenSocket(_L2bpfSocket):
         except EnvironmentError as exc:
             if exc.errno != errno.EAGAIN:
                 warning("BPF recv()", exc_info=True)
-            return
+            return None
 
         # Extract all frames from the BPF buffer
         self.extract_frames(bpf_buffer)

@@ -22,7 +22,7 @@ from scapy.data import MTU, ETH_P_ALL, ARPHDR_ETHER, ARPHDR_LOOPBACK
 from scapy.pton_ntop import inet_ntop
 from scapy.utils import mac2str
 from scapy.supersocket import SuperSocket
-from scapy.error import Scapy_Exception, log_loading, warning, TimeoutElapsed
+from scapy.error import Scapy_Exception, log_loading, warning
 import scapy.consts
 
 if not scapy.consts.WINDOWS:
@@ -38,7 +38,6 @@ BIOCIMMEDIATE = -2147204496
 
 
 class _L2pcapdnetSocket(SuperSocket, SelectableObject):
-    read_allowed_exceptions = (TimeoutElapsed,)
     async_select_unrequired = True
 
     def check_recv(self):
@@ -60,7 +59,7 @@ class _L2pcapdnetSocket(SuperSocket, SelectableObject):
             if pkt is not None:
                 ts, pkt = pkt
             if pkt is None:
-                raise TimeoutElapsed  # To understand this behavior, have a look at L2pcapListenSocket's note  # noqa: E501
+                return None, None, None
         return cls, pkt, ts
 
     def nonblock_recv(self):

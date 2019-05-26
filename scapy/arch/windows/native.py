@@ -43,6 +43,7 @@ then do custom calls through the socket using get_current_icmp_seq(). See
 the tests (windows.uts) for an example.
 """
 
+import io
 import os
 import socket
 import subprocess
@@ -54,7 +55,7 @@ from scapy.arch.windows.structures import GetIcmpStatistics
 from scapy.compat import raw
 from scapy.config import conf
 from scapy.data import MTU
-from scapy.error import Scapy_Exception, warning, TimeoutElapsed
+from scapy.error import Scapy_Exception, warning
 from scapy.supersocket import SuperSocket
 
 # Watch out for import loops (inet...)
@@ -62,7 +63,6 @@ from scapy.supersocket import SuperSocket
 
 class L3WinSocket(SuperSocket, SelectableObject):
     desc = "a native Layer 3 (IPv4) raw socket under Windows"
-    read_allowed_exceptions = (TimeoutElapsed,)
     async_select_unrequired = True
     __slots__ = ["promisc", "cls", "ipv6", "proto"]
 
@@ -165,8 +165,8 @@ class L3WinSocket(SuperSocket, SelectableObject):
     def recv_raw(self, x=MTU):
         try:
             data, address = self.ins.recvfrom(x)
-        except IOError:  # BlockingIOError
-            raise TimeoutElapsed
+        except io.BlockingIOError:
+            return None, None, None
         from scapy.layers.inet import IP
         from scapy.layers.inet6 import IPv6
         if self.ipv6:

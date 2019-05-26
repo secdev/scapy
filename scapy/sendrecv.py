@@ -12,7 +12,6 @@ import itertools
 from threading import Thread, Event
 import os
 import re
-import socket
 import subprocess
 import time
 import types
@@ -748,16 +747,6 @@ class AsyncSniffer(object):
              stop_filter=None, iface=None, started_callback=None,
              session=None, *arg, **karg):
         self.running = True
-        # Prepare timeout
-        self._timeout = None
-        if timeout is not None:
-            def _timeout():
-                time.sleep(timeout)
-                self.stop_cb()
-            self._timeout = Thread(
-                target=_timeout
-            )
-            self._timeout.setDaemon(True)
         # Start main thread
         c = 0
         session = session or DefaultSession
@@ -833,9 +822,9 @@ class AsyncSniffer(object):
                     "The used select function "
                     "will be the one of the first socket")
 
-        # Set impossible exception if empty
+        # Fill if empty
         if not read_allowed_exceptions:
-            read_allowed_exceptions = (Scapy_Exception)
+            read_allowed_exceptions = (IOError,)
 
         if async_select_unrequired:
             # select is non blocking
@@ -852,10 +841,8 @@ class AsyncSniffer(object):
             def stop_cb():
                 if self.running:
                     close_pipe.send(None)
+                self.continue_sniff = False
             self.stop_cb = stop_cb
-        # Start timeout
-        if self._timeout:
-            self._timeout.start()
         try:
             if started_callback:
                 started_callback()
@@ -870,11 +857,16 @@ class AsyncSniffer(object):
                 dead_sockets = []
                 for s in sockets:
                     if s is close_pipe:
-                        self.continue_sniff = False
                         break
                     try:
                         p = read_func(s)
-                    except socket.error as ex:
+                    except EOFError:
+                        # End of stream
+                        dead_sockets.append(s)
+                        continue
+                    except read_allowed_exceptions:
+                        continue
+                    except Exception as ex:
                         msg = " It was closed."
                         try:
                             # Make sure it's closed
@@ -886,26 +878,16 @@ class AsyncSniffer(object):
                         )
                         dead_sockets.append(s)
                         continue
-                    except read_allowed_exceptions:
-                        continue
                     if p is None:
-                        try:
-                            if s.promisc:
-                                continue
-                        except AttributeError:
-                            pass
-                        dead_sockets.append(s)
-                        break
+                        continue
                     if lfilter and not lfilter(p):
                         continue
                     p.sniffed_on = sniff_sockets[s]
                     c += 1
                     # on_packet_received handles the prn/storage
                     session.on_packet_received(p)
-                    if stop_filter and stop_filter(p):
-                        self.continue_sniff = False
-                        break
-                    if 0 < count <= c:
+                    # check
+                    if (stop_filter and stop_filter(p)) or (0 < count <= c):
                         self.continue_sniff = False
                         break
                 # Removed dead sockets

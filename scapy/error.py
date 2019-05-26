@@ -21,10 +21,6 @@ class Scapy_Exception(Exception):
     pass
 
 
-class TimeoutElapsed(Scapy_Exception):
-    pass
-
-
 class ScapyInvalidPlatformException(Scapy_Exception):
     pass
 

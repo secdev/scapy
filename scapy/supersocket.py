@@ -19,7 +19,7 @@ from scapy.config import conf
 from scapy.consts import LINUX, DARWIN, WINDOWS
 from scapy.data import MTU, ETH_P_IP
 from scapy.compat import raw, bytes_encode
-from scapy.error import warning, log_runtime, TimeoutElapsed
+from scapy.error import warning, log_runtime
 import scapy.modules.six as six
 import scapy.packet
 from scapy.utils import PcapReader, tcpdump
@@ -197,7 +197,6 @@ class SimpleSocket(SuperSocket):
 
 class StreamSocket(SimpleSocket):
     desc = "transforms a stream socket into a layer 2"
-    read_allowed_exceptions = (TimeoutElapsed)
     async_select_unrequired = True
 
     def __init__(self, sock, basecls=None):
@@ -210,7 +209,7 @@ class StreamSocket(SimpleSocket):
         pkt = self.ins.recv(x, socket.MSG_PEEK)
         x = len(pkt)
         if x == 0:
-            raise TimeoutElapsed
+            return None
         pkt = self.basecls(pkt)
         pad = pkt.getlayer(conf.padding_layer)
         if pad is not None and pad.underlayer is not None:
