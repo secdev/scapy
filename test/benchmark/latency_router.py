@@ -23,7 +23,7 @@ for i in range(1,50):
     if send_icmp:
         pkts.append(b)
 
-ans, unans = sr(pkts, filter="host {0}".format(dest), inter=0, timeout=1, prebuild=True, store_unanswered=False)
+ans, unans = sr(pkts, filter="host {0}".format(dest), inter=0, timeout=1, prebuild=True)
 
 print("scapy version: {}".format(conf.version))
 
