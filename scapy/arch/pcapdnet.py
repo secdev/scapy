@@ -14,7 +14,7 @@ import struct
 import time
 
 from scapy.automaton import SelectableObject
-from scapy.arch.common import _select_nonblock, TimeoutElapsed
+from scapy.arch.common import _select_nonblock
 from scapy.compat import raw, plain_str, chb
 from scapy.config import conf
 from scapy.consts import WINDOWS
@@ -22,7 +22,7 @@ from scapy.data import MTU, ETH_P_ALL, ARPHDR_ETHER, ARPHDR_LOOPBACK
 from scapy.pton_ntop import inet_ntop
 from scapy.utils import mac2str
 from scapy.supersocket import SuperSocket
-from scapy.error import Scapy_Exception, log_loading, warning
+from scapy.error import Scapy_Exception, log_loading, warning, TimeoutElapsed
 import scapy.consts
 
 if not scapy.consts.WINDOWS:
@@ -59,10 +59,8 @@ class _L2pcapdnetSocket(SuperSocket, SelectableObject):
             pkt = self.ins.next()
             if pkt is not None:
                 ts, pkt = pkt
-            if pkt is None and scapy.consts.WINDOWS:
-                raise TimeoutElapsed  # To understand this behavior, have a look at L2pcapListenSocket's note  # noqa: E501
             if pkt is None:
-                return None, None, None
+                raise TimeoutElapsed  # To understand this behavior, have a look at L2pcapListenSocket's note  # noqa: E501
         return cls, pkt, ts
 
     def nonblock_recv(self):

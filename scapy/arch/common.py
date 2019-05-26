@@ -63,10 +63,6 @@ def get_if(iff, cmd):
 
 # SOCKET UTILS
 
-class TimeoutElapsed(Scapy_Exception):
-    pass
-
-
 def _select_nonblock(sockets, remain=None):
     """This function is called during sendrecv() routine to select
     the available sockets.

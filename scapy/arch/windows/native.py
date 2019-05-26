@@ -49,12 +49,12 @@ import subprocess
 import time
 
 from scapy.automaton import SelectableObject
-from scapy.arch.common import _select_nonblock, TimeoutElapsed
+from scapy.arch.common import _select_nonblock
 from scapy.arch.windows.structures import GetIcmpStatistics
 from scapy.compat import raw
 from scapy.config import conf
 from scapy.data import MTU
-from scapy.error import Scapy_Exception, warning
+from scapy.error import Scapy_Exception, warning, TimeoutElapsed
 from scapy.supersocket import SuperSocket
 
 # Watch out for import loops (inet...)
@@ -63,6 +63,7 @@ from scapy.supersocket import SuperSocket
 class L3WinSocket(SuperSocket, SelectableObject):
     desc = "a native Layer 3 (IPv4) raw socket under Windows"
     read_allowed_exceptions = (TimeoutElapsed,)
+    async_select_unrequired = True
     __slots__ = ["promisc", "cls", "ipv6", "proto"]
 
     def __init__(self, iface=None, proto=socket.IPPROTO_IP,
@@ -114,7 +115,8 @@ class L3WinSocket(SuperSocket, SelectableObject):
         self.ins.setsockopt(socket.IPPROTO_IP, socket.IP_TTL, ttl)
         self.outs.setsockopt(socket.IPPROTO_IP, socket.IP_TTL, ttl)
         # Bind on all ports
-        host = iface.ip if iface else socket.gethostname()
+        iface = iface or conf.iface
+        host = iface.ip if iface.ip else socket.gethostname()
         self.ins.bind((host, 0))
         self.ins.setblocking(False)
         # Get as much data as possible: reduce what is cropped
@@ -164,7 +166,7 @@ class L3WinSocket(SuperSocket, SelectableObject):
         try:
             data, address = self.ins.recvfrom(x)
         except IOError:  # BlockingIOError
-            return None, None, None
+            raise TimeoutElapsed
         from scapy.layers.inet import IP
         from scapy.layers.inet6 import IPv6
         if self.ipv6:
@@ -190,7 +192,7 @@ class L3WinSocket(SuperSocket, SelectableObject):
 
     @staticmethod
     def select(sockets, remain=None):
-        return _select_nonblock(sockets, remain=None)
+        return _select_nonblock(sockets, remain=remain)
 
 
 class L3WinSocket6(L3WinSocket):

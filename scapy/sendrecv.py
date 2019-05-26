@@ -20,12 +20,12 @@ import types
 from scapy.compat import plain_str
 from scapy.data import ETH_P_ALL
 from scapy.config import conf
-from scapy.error import warning, Scapy_Exception
+from scapy.error import warning
 from scapy.packet import Gen
 from scapy.utils import get_temp_file, tcpdump, wrpcap, \
     ContextManagerSubprocess, PcapReader
 from scapy.plist import PacketList, SndRcvList
-from scapy.error import log_runtime, log_interactive
+from scapy.error import log_runtime, log_interactive, Scapy_Exception
 from scapy.base_classes import SetGen
 from scapy.modules import six
 from scapy.modules.six.moves import map
@@ -875,13 +875,15 @@ class AsyncSniffer(object):
                     try:
                         p = read_func(s)
                     except socket.error as ex:
-                        warning("Socket %s failed with '%s' and thus"
-                                " will be closed." % (s, ex))
+                        msg = " It was closed."
                         try:
                             # Make sure it's closed
                             s.close()
-                        except Exception:
-                            pass
+                        except Exception as ex:
+                            msg = " close() failed with '%s'" % ex
+                        warning(
+                            "Socket %s failed with '%s'." % (s, ex) + msg
+                        )
                         dead_sockets.append(s)
                         continue
                     except read_allowed_exceptions:
@@ -892,7 +894,7 @@ class AsyncSniffer(object):
                                 continue
                         except AttributeError:
                             pass
-                        del sniff_sockets[s]
+                        dead_sockets.append(s)
                         break
                     if lfilter and not lfilter(p):
                         continue
