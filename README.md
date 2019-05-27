@@ -40,7 +40,26 @@ be cross platform, and runs on many different platforms (Linux, OSX,
 Scapy is usable either as a **shell** or as a **library**.
 For further details, please head over to [Getting started with Scapy](https://scapy.readthedocs.io/en/latest/introduction.html), which is part of the documentation.
 
-![Scapy install demo](./doc/scapy/graphics/animations/animation-scapy-install.svg)
+### Shell demo
+
+![Scapy install demo](https://secdev.github.io/img/animation-scapy-install.svg)
+
+Scapy can easily be used as an interactive shell to interact with the network.
+The following example shows how to send an ICMP Echo Request message to
+`github.com`, then display the reply source IP address:
+
+```python
+sudo ./run_scapy
+Welcome to Scapy
+>>> p = IP(dst="github.com")/ICMP()
+>>> r = sr1(p)
+Begin emission:
+.Finished to send 1 packets.
+*
+Received 2 packets, got 1 answers, remaining 0 packets
+>>> r[IP].src
+'192.30.253.113'
+```
 
 ### Resources
 
