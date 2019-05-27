@@ -1120,6 +1120,9 @@ Wireless frame injection
 .. index::
    single: FakeAP, Dot11, wireless, WLAN
 
+.. note::
+   See the TroubleShooting section for more information on the usage of Monitor mode among Scapy.
+
 Provided that your wireless card and driver are correctly configured for frame injection
 
 ::
@@ -1127,7 +1130,7 @@ Provided that your wireless card and driver are correctly configured for frame i
     $ iw dev wlan0 interface add mon0 type monitor
     $ ifconfig mon0 up
 
-On Windows, if using Npcap, the equivalent would be to call
+On Windows, if using Npcap, the equivalent would be to call::
 
     >>> # Of course, conf.iface can be replaced by any interfaces accessed through IFACES
     ... conf.iface.setmonitor(True)

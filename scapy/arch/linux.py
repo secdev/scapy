@@ -422,13 +422,13 @@ def set_iface_monitor(iface, monitor):
             warning("%s failed !" % " ".join(commands))
             return False
         return True
-    try:
-        assert _check_call(["ifconfig", iface, "down"])
-        assert _check_call(["iwconfig", iface, "mode", s_mode])
-        assert _check_call(["ifconfig", iface, "up"])
-        return True
-    except AssertionError:
+    if not _check_call(["ifconfig", iface, "down"]):
         return False
+    if not _check_call(["iwconfig", iface, "mode", s_mode]):
+        return False
+    if not _check_call(["ifconfig", iface, "up"]):
+        return False
+    return True
 
 
 class L2Socket(SuperSocket):
@@ -440,8 +440,10 @@ class L2Socket(SuperSocket):
         self.type = type
         self.promisc = conf.sniff_promisc if promisc is None else promisc
         if monitor is not None:
-            if not set_iface_monitor(iface, monitor):
-                warning("Could not change interface mode !")
+            warning(
+                "The monitor argument is ineffective on native linux sockets."
+                " Use set_iface_monitor instead."
+            )
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))  # noqa: E501
         self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 0)
         if not nofilter:
