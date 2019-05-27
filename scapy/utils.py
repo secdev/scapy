@@ -1473,6 +1473,23 @@ def tdecode(pktlist, args=None, **kwargs):
     return tcpdump(pktlist, prog=conf.prog.tshark, args=args, **kwargs)
 
 
+def _guess_linktype_name(value):
+    """Guess the DLT name from its value."""
+    import scapy.data
+    return next(
+        k[4:] for k, v in six.iteritems(scapy.data.__dict__)
+        if k.startswith("DLT") and v == value
+    )
+
+
+def _guess_linktype_value(name):
+    """Guess the value of a DLT name."""
+    import scapy.data
+    if not name.startswith("DLT_"):
+        name = "DLT_" + name
+    return scapy.data.__dict__[name]
+
+
 @conf.commands.register
 def tcpdump(pktlist, dump=False, getfd=False, args=None,
             prog=None, getproc=False, quiet=False, use_tempfile=None,
@@ -1516,9 +1533,7 @@ use_tempfile: When set to True, always use a temporary file to store packets.
               ``tcpdump`` on OSX.
 read_stdin_opts: When set, a list of arguments needed to capture from stdin.
                  Otherwise, attempts to guess.
-linktype: If a Packet (or list) is passed in the ``pktlist`` argument,
-          set the ``linktype`` parameter on ``wrpcap``. If ``pktlist`` is a
-          path to a pcap file, then this option will have no effect.
+linktype: A custom DLT value or name, to overwrite the default values.
 wait: If True (default), waits for the process to terminate before returning
       to Scapy. If False, the process will be detached to the background. If
       dump, getproc or getfd is True, these have the same effect as
@@ -1566,6 +1581,30 @@ u'64'
         prog = [prog]
     else:
         raise ValueError("prog must be a string")
+
+    if linktype is not None:
+        # Tcpdump does not support integers in -y (yet)
+        # https://github.com/the-tcpdump-group/tcpdump/issues/758
+        if isinstance(linktype, int):
+            # Guess name from value
+            try:
+                linktype_name = _guess_linktype_name(linktype)
+            except StopIteration:
+                linktype = -1
+        else:
+            # Guess value from name
+            if linktype.startswith("DLT_"):
+                linktype = linktype[4:]
+            linktype_name = linktype
+            try:
+                linktype = _guess_linktype_value(linktype)
+            except KeyError:
+                linktype = -1
+        if linktype == -1:
+            raise ValueError(
+                "Unknown linktype. Try passing its datalink name instead"
+            )
+        prog += ["-y", linktype_name]
 
     # Build Popen arguments
     if args is None:
