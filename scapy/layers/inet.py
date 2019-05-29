@@ -340,7 +340,10 @@ class TCPOptionsField(StrField):
                 opt.append(("NOP", None))
                 x = x[1:]
                 continue
-            olen = orb(x[1])
+            try:
+                olen = orb(x[1])
+            except IndexError:
+                olen = 0
             if olen < 2:
                 warning("Malformed TCP option (announced length is %i)" % olen)
                 olen = 2
