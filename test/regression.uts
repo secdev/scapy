@@ -10200,6 +10200,16 @@ assert len(s) == 1
 s = b"Z\xa5\xaaUZ\xa5\xaaU\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xe9\xc5\x00\x00\x14'\x02\x00\x00\x001\x9a\xe44\xea4"
 isinstance(Radius(s), Radius)
 
+= RADIUS - attributes with IPv4 addresses
+
+r = raw(RadiusAttr_NAS_IP_Address())
+p = RadiusAttr_NAS_IP_Address(p)
+assert p.type == 4
+
+r = raw(RadiusAttr_Framed_IP_Address())
+p = RadiusAttr_Framed_IP_Address(p)
+assert p.type == 8
+
 
 ############
 ############
