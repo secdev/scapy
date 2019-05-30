@@ -86,18 +86,20 @@ x is not None and ICMP in x and x[ICMP].type == 0
 #_flush_fd(socket.ins)
 
 = Test legacy attach_filter function
-~ linux needs_root
+~ tcpdump
+import mock
 from scapy.arch.common import get_bpf_pointer
 
-old_pypy = conf.use_pypy
-conf.use_pypy = True
-
 tcpdump_lines = ['12\n', '40 0 0 12\n', '21 0 5 34525\n', '48 0 0 20\n', '21 6 0 6\n', '21 0 6 44\n', '48 0 0 54\n', '21 3 4 6\n', '21 0 3 2048\n', '48 0 0 23\n', '21 0 1 6\n', '6 0 0 1600\n', '6 0 0 0\n']
-pointer = get_bpf_pointer(tcpdump_lines)
-assert six.PY3 or isinstance(pointer, str)
-assert six.PY3 or len(pointer) > 1
 
-conf.use_pypy = old_pypy
+@mock.patch("scapy.arch.common.conf", Bunch(use_pypy=True))
+def _test_get_bpf_pointer():
+    pointer = get_bpf_pointer(tcpdump_lines)
+    assert isinstance(pointer, str)
+    assert len(pointer) > 1
+
+if six.PY2:
+    _test_get_bpf_pointer()
 
 = Interface aliases & sub-interfaces
 ~ linux needs_root

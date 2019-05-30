@@ -25,11 +25,10 @@ import io
 # Never add any global import, in main.py, that would trigger a warning message  # noqa: E501
 # before the console handlers gets added in interact()
 from scapy.error import log_interactive, log_loading, log_scapy, \
-    Scapy_Exception
+    Scapy_Exception, ScapyColoredFormatter
 import scapy.modules.six as six
 from scapy.themes import DefaultTheme, BlackAndWhite, apply_ipython_style
 from scapy.consts import WINDOWS
-from scapy.config import conf, ConfClass
 
 IGNORED = list(six.moves.builtins.__dict__)
 
@@ -111,7 +110,9 @@ SESSION = None
 def _usage():
     print(
         "Usage: scapy.py [-s sessionfile] [-c new_startup_file] "
-        "[-p new_prestart_file] [-C] [-P]\n"
+        "[-p new_prestart_file] [-C] [-P] [-H]\n"
+        "Args:\n"
+        "\t-H: header-less start\n"
         "\t-C: do not read startup file\n"
         "\t-P: do not read pre-startup file\n"
     )
@@ -273,6 +274,7 @@ def save_session(fname=None, session=None, pickleProto=-1):
      - session: scapy session to use. If None, the console one will be used
      - pickleProto: pickle proto version (default: -1 = latest)"""
     from scapy import utils
+    from scapy.config import conf, ConfClass
     if fname is None:
         fname = conf.session
         if not fname:
@@ -317,6 +319,7 @@ def load_session(fname=None):
 
     params:
      - fname: file to load the scapy session from"""
+    from scapy.config import conf
     if fname is None:
         fname = conf.session
     try:
@@ -341,6 +344,7 @@ def update_session(fname=None):
 
     params:
      - fname: file to load the scapy session from"""
+    from scapy.config import conf
     if fname is None:
         fname = conf.session
     try:
@@ -353,6 +357,7 @@ def update_session(fname=None):
 
 
 def init_session(session_name, mydict=None):
+    from scapy.config import conf
     global SESSION
     global GLOBKEYS
 
@@ -405,6 +410,7 @@ def init_session(session_name, mydict=None):
 
 
 def scapy_delete_temp_files():
+    from scapy.config import conf
     for f in conf.temp_files:
         try:
             os.unlink(f)
@@ -438,17 +444,37 @@ to be used in the fancy prompt.
     return lines
 
 
-def interact(mydict=None, argv=None, mybanner=None, loglevel=20):
+def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
+    """Starts Scapy's console."""
     global SESSION
     global GLOBKEYS
 
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))  # noqa: E501
+    try:
+        # colorama is bundled within IPython.
+        # logging.StreamHandler will be overwritten when called,
+        # We can't wait for IPython to call it
+        import colorama
+        colorama.init()
+        # Success
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(
+            ScapyColoredFormatter(
+                "%(levelname)s: %(message)s",
+            )
+        )
+    except ImportError:
+        # Failure: ignore colors in the logger
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(
+            logging.Formatter(
+                "%(levelname)s: %(message)s",
+            )
+        )
     log_scapy.addHandler(console_handler)
 
     from scapy.config import conf
-    conf.color_theme = DefaultTheme()
     conf.interactive = True
+    conf.color_theme = DefaultTheme()
     if loglevel is not None:
         conf.logLevel = loglevel
 
@@ -461,10 +487,13 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=20):
         argv = sys.argv
 
     try:
-        opts = getopt.getopt(argv[1:], "hs:Cc:Pp:d")
+        opts = getopt.getopt(argv[1:], "hs:Cc:Pp:d:H")
         for opt, parm in opts[0]:
             if opt == "-h":
                 _usage()
+            elif opt == "-H":
+                conf.fancy_prompt = False
+                conf.verb = 30
             elif opt == "-s":
                 session_name = parm
             elif opt == "-c":
@@ -507,7 +536,9 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=20):
                 "instead.\nAutoCompletion, History are disabled."
             )
             if WINDOWS:
-                log_loading.warning("IPython not available. On Windows, colors are disabled")  # noqa: E501
+                log_loading.warning(
+                    "On Windows, colors are also disabled"
+                )
                 conf.color_theme = BlackAndWhite()
             IPYTHON = False
         else:

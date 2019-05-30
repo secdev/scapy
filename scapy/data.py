@@ -289,14 +289,11 @@ def load_manuf(filename):
 
 
 if WINDOWS:
-    ETHER_TYPES = load_ethertypes("ethertypes")
     IP_PROTOS = load_protocols(os.environ["SystemRoot"] + "\\system32\\drivers\\etc\\protocol")  # noqa: E501
     TCP_SERVICES, UDP_SERVICES = load_services(os.environ["SystemRoot"] + "\\system32\\drivers\\etc\\services")  # noqa: E501
-    # Default value, will be updated by arch.windows
-    try:
-        MANUFDB = load_manuf(os.environ["ProgramFiles"] + "\\wireshark\\manuf")
-    except (IOError, OSError):  # FileNotFoundError not available on Py2 - using OSError  # noqa: E501
-        MANUFDB = None
+    # Default values, will be updated by arch.windows
+    ETHER_TYPES = DADict()
+    MANUFDB = ManufDA()
 else:
     IP_PROTOS = load_protocols("/etc/protocols")
     ETHER_TYPES = load_ethertypes("/etc/ethertypes")
