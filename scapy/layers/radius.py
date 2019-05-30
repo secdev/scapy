@@ -579,7 +579,7 @@ class RadiusAttr_Message_Authenticator(_RadiusAttrHexStringVal):
 #
 
 
-class _RadiusAttrIPv4AddrVal(RadiusAttribute):
+class _RadiusAttrIPv4AddrVal(_SpecificRadiusAttr):
     """
     Implements a RADIUS attribute which value field is an IPv4 address.
     """
