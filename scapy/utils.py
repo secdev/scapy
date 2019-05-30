@@ -32,6 +32,7 @@ from scapy.compat import orb, raw, plain_str, chb, bytes_base64,\
     base64_bytes, hex_bytes, lambda_tuple_converter, bytes_encode
 from scapy.error import log_runtime, Scapy_Exception, warning
 from scapy.pton_ntop import inet_pton
+from scapy.arch.common import TCPDUMP
 
 ###########
 #  Tools  #
@@ -1581,6 +1582,9 @@ u'64'
         prog = [prog]
     else:
         raise ValueError("prog must be a string")
+    if prog[0] == conf.prog.tcpdump and not TCPDUMP:
+        message = "tcpdump is not available. Cannot use tcpdump() !"
+        raise Scapy_Exception(message)
 
     if linktype is not None:
         # Tcpdump does not support integers in -y (yet)

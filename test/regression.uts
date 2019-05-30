@@ -6688,6 +6688,26 @@ fdesc.close()
 assert list(pktpcap[TCP]) == list(pktpcap_tcp)
 os.unlink(filename)
 
+= Check offline sniff() without a tcpdump binary
+~ tcpdump
+import mock
+
+conf_prog_tcpdump = conf.prog.tcpdump
+conf.prog.tcpdump = "tcpdump_fake"
+
+from scapy.arch.common import _check_tcpdump
+
+@mock.patch("scapy.sendrecv.TCPDUMP", _check_tcpdump())
+def _test_sniff_notcpdump():
+    try:
+        sniff(offline="fake.pcap", filter="tcp")
+        assert False
+    except Scapy_Exception:
+        assert True
+
+_test_sniff_notcpdump()
+conf.prog.tcpdump = conf_prog_tcpdump
+
 = Check wrpcap(nano=True)
 fdesc, filename = tempfile.mkstemp()
 fdesc = os.fdopen(fdesc, "wb")
@@ -6774,6 +6794,7 @@ assert r.linktype == DLT_EN10MB
 
 = Check tcpdump()
 ~ tcpdump
+from io import BytesIO
 * No very specific tests because we do not want to depend on tcpdump output
 pcapfile = BytesIO(b'\xd4\xc3\xb2\xa1\x02\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x00\x00e\x00\x00\x00\xcf\xc5\xacVo*\n\x00(\x00\x00\x00(\x00\x00\x00E\x00\x00(\x00\x01\x00\x00@\x06|\xcd\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x91|\x00\x00\xcf\xc5\xacV_-\n\x00\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x11|\xce\x7f\x00\x00\x01\x7f\x00\x00\x01\x005\x005\x00\x08\x01r\xcf\xc5\xacV\xf90\n\x00\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x01|\xde\x7f\x00\x00\x01\x7f\x00\x00\x01\x08\x00\xf7\xff\x00\x00\x00\x00')
 data = tcpdump(pcapfile, dump=True, args=['-nn']).split(b'\n')
@@ -6781,6 +6802,26 @@ print(data)
 assert b'IP 127.0.0.1.20 > 127.0.0.1.80:' in data[0]
 assert b'IP 127.0.0.1.53 > 127.0.0.1.53:' in data[1]
 assert b'IP 127.0.0.1 > 127.0.0.1:' in data[2]
+
+* Non existing tcpdump binary
+
+import mock
+
+conf_prog_tcpdump = conf.prog.tcpdump
+conf.prog.tcpdump = "tcpdump_fake"
+
+from scapy.arch.common import _check_tcpdump
+
+@mock.patch("scapy.utils.TCPDUMP", _check_tcpdump())
+def _test_tcpdump_notcpdump():
+    try:
+        tcpdump(IP()/TCP())
+        assert False
+    except Scapy_Exception:
+        assert True
+
+_test_tcpdump_notcpdump()
+conf.prog.tcpdump = conf_prog_tcpdump
 
 # Also check with use_tempfile=True (for non-OSX platforms)
 pcapfile.seek(0) or None

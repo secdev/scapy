@@ -17,10 +17,11 @@ import subprocess
 import time
 import types
 
+from scapy.arch.common import TCPDUMP
 from scapy.compat import plain_str
 from scapy.data import ETH_P_ALL
 from scapy.config import conf
-from scapy.error import warning
+from scapy.error import Scapy_Exception, warning
 from scapy.packet import Packet, Gen
 from scapy.utils import get_temp_file, tcpdump, wrpcap, \
     ContextManagerSubprocess, PcapReader
@@ -802,6 +803,11 @@ def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
             sniff_sockets[opened_socket] = "socket0"
     if offline is not None:
         flt = karg.get('filter')
+
+        if not TCPDUMP and flt is not None:
+            message = "tcpdump is not available. Cannot use filter!"
+            raise Scapy_Exception(message)
+
         if isinstance(offline, list):
             sniff_sockets.update((PcapReader(
                 fname if flt is None else
