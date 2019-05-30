@@ -450,11 +450,12 @@ def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
     global GLOBKEYS
 
     try:
-        # colorama is bundled within IPython.
-        # logging.StreamHandler will be overwritten when called,
-        # We can't wait for IPython to call it
-        import colorama
-        colorama.init()
+        if WINDOWS:
+            # colorama is bundled within IPython.
+            # logging.StreamHandler will be overwritten when called,
+            # We can't wait for IPython to call it
+            import colorama
+            colorama.init()
         # Success
         console_handler = logging.StreamHandler()
         console_handler.setFormatter(
