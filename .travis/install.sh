@@ -1,4 +1,8 @@
 #!/bin/bash
+
+# Update pip
+sudo pip install --upgrade pip
+
 # Install on osx
 if [ "$TRAVIS_OS_NAME" = "osx" ]
 then
