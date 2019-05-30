@@ -2,6 +2,7 @@
   "testfiles": [
     "test/*.uts",
     "test/contrib/*.uts",
+    "test/tools/*.uts",
     "test/tls/tests_tls_netaccess.uts"
   ],
   "remove_testfiles": [
