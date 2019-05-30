@@ -737,9 +737,9 @@ with ISOTPSoftSocket(cans, sid=0x641, did=0x241) as s:
             raise ex
     thread = threading.Thread(target=sender, name="sender")
     thread.start()
-    ready.wait()
+    ready.wait(15)
     msg = s.recv()
-    thread.join()
+    thread.join(15)
 
 if exception is not None:
     raise exception
@@ -781,7 +781,7 @@ ready.wait()
 with ISOTPSoftSocket(cans, sid=0x641, did=0x241) as s:
     s.send(msg)
 
-thread.join()
+thread.join(15)
 succ.wait(2)
 assert(succ.is_set())
 
