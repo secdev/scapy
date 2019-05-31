@@ -17,7 +17,6 @@ import subprocess
 import time
 import types
 
-from scapy.arch.common import TCPDUMP
 from scapy.compat import plain_str
 from scapy.data import ETH_P_ALL
 from scapy.config import conf
@@ -804,6 +803,7 @@ def sniff(count=0, store=True, offline=None, prn=None, lfilter=None,
     if offline is not None:
         flt = karg.get('filter')
 
+        from scapy.arch.common import TCPDUMP
         if not TCPDUMP and flt is not None:
             message = "tcpdump is not available. Cannot use filter!"
             raise Scapy_Exception(message)
