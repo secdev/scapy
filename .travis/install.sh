@@ -25,6 +25,9 @@ then
   $SCAPY_SUDO apt-get -qy install libdumbnet-dev libpcap-dev
 fi
 
+# Check pip
+sudo pip install --upgrade pip setuptools
+
 # Make sure tox is installed and up to date
 pip install -U tox
 
