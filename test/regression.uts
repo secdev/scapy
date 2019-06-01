@@ -489,6 +489,9 @@ assert p.mysummary() in ['ff:ff:ff:ff:ff:ff > ff:ff:ff:ff:ff:ff (%s)' % loop
 random.seed(0x2807)
 zerofree_randstring(4) in [b"\xd2\x12\xe4\x5b", b'\xd3\x8b\x13\x12']
 
+= Test strand function
+assert strand("AC", "BC") == b'@C'
+
 = Test export_object and import_object functions
 import mock
 def test_export_import_object():
@@ -11921,6 +11924,20 @@ def test_hexdump():
     assert("0010  7F 00 00 01 31" in result_pl_hexdump)
 
 test_hexdump()
+
+= conversations()
+
+def test_conversations():
+    import tempfile
+    filename = tempfile.mktemp()
+    p = PacketList([IP()/Raw(str(i)) for i in range(2)])
+    p.conversations(prog="echo", target="> %s" % filename)
+    fd = open(filename)
+    assert "-Tsvg" in fd.read()
+    fd.close()
+    os.unlink(filename)
+
+test_conversations()
 
 = import_hexcap()
 
