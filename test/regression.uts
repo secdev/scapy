@@ -11928,6 +11928,7 @@ def test_hexdump():
 test_hexdump()
 
 = conversations()
+~ linux
 
 def test_conversations():
     import tempfile
@@ -12172,3 +12173,10 @@ os.remove(filename_css)
 
 dname = get_temp_dir()
 assert os.path.isdir(dname)
+
+= test fragleak functions
+~ netaccess linux
+
+fragleak("8.8.8.8", count=1)
+fragleak2("8.8.8.8", count=1)
+assert True
