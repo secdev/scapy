@@ -204,8 +204,12 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
 
             # Deepcopy default references
             for fname in Packet.class_default_fields_ref[cls_name]:
-                value = copy.deepcopy(self.default_fields[fname])
-                setattr(self, fname, value)
+                value = self.default_fields[fname]
+                try:
+                    self.fields[fname] = value.copy()
+                except AttributeError:
+                    # Python 2.7 - list only
+                    self.fields[fname] = value[:]
 
     def prepare_cached_fields(self, flist):
         """
