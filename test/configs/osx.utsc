@@ -21,6 +21,7 @@
     "linux",
     "windows",
     "crypto_advanced",
-    "ipv6"
+    "ipv6",
+    "vcan_socket"
   ]
 }
