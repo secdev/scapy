@@ -630,6 +630,38 @@ conf.verb = saved_conf_verb
 
 conf.netcache
 
+= Test pyx detection functions
+
+from scapy.extlib import _test_pyx
+assert _test_pyx() == False
+
+= Test matplotlib detection functions
+
+from mock import MagicMock, patch
+
+bck_scapy_ext_lib = sys.modules.get("scapy.extlib", None)
+del(sys.modules["scapy.extlib"])
+
+matplotlib = MagicMock()
+matplotlib.get_backend.return_value = "inline"
+matplotlib.pyplot = MagicMock()
+matplotlib.pyplot.plt = None
+with patch.dict("sys.modules", matplotlib=matplotlib):
+    from scapy.extlib import MATPLOTLIB, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
+    assert MATPLOTLIB == 1
+    assert MATPLOTLIB_INLINED == 1
+    assert "marker" in MATPLOTLIB_DEFAULT_PLOT_KARGS
+
+matplotlib.get_backend.return_value = "ko"
+with patch.dict("sys.modules", matplotlib=matplotlib):
+    from scapy.extlib import MATPLOTLIB, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
+    assert MATPLOTLIB == 1
+    assert MATPLOTLIB_INLINED == 0
+    assert "marker" in MATPLOTLIB_DEFAULT_PLOT_KARGS
+
+if bck_scapy_ext_lib:
+    sys.modules["scapy.extlib"] = bck_scapy_ext_lib
+
 
 ############
 ############
