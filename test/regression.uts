@@ -6697,7 +6697,7 @@ conf.prog.tcpdump = "tcpdump_fake"
 
 from scapy.arch.common import _check_tcpdump
 
-@mock.patch("scapy.sendrecv.TCPDUMP", _check_tcpdump())
+@mock.patch("scapy.arch.common.TCPDUMP", _check_tcpdump())
 def _test_sniff_notcpdump():
     try:
         sniff(offline="fake.pcap", filter="tcp")
@@ -6812,7 +6812,7 @@ conf.prog.tcpdump = "tcpdump_fake"
 
 from scapy.arch.common import _check_tcpdump
 
-@mock.patch("scapy.utils.TCPDUMP", _check_tcpdump())
+@mock.patch("scapy.arch.common.TCPDUMP", _check_tcpdump())
 def _test_tcpdump_notcpdump():
     try:
         tcpdump(IP()/TCP())
