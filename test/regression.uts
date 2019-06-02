@@ -10631,6 +10631,27 @@ assert(sane(raw(rts)) in ["...Zscapy", "$#..scapy"])
 a = "True" if RandNum(False, True) else "False"
 assert a in ["True", "False"]
 
+= Various volatiles
+
+random.seed(0x2807)
+assert RandNumGamma(1, 42) == 8
+
+random.seed(0x2807)
+assert RandNumGauss(1, 42) == 8
+
+print("RandEnum()", RandEnum(1, 42, seed=0x2807)._fix())
+assert RandEnum(1, 42, seed=0x2807) == (13 if six.PY2 else 37)
+
+print("RandPool()", RandPool((IncrementalValue(), 42), (IncrementalValue(), 0))._fix())
+assert RandPool((IncrementalValue(), 42), (IncrementalValue(), 0)) == 0
+
+print("DelayedEval()", DelayedEval("3 + 1")._fix())
+assert DelayedEval("3 + 1") == 4
+
+v = IncrementalValue(restart=2)
+assert v == 0 and v == 1 and v == 2 and v == 0
+
+
 ############
 ############
 + Flags
