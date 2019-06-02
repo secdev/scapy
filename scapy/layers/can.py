@@ -276,7 +276,7 @@ class BEFloatSignalField(SignalField):
 
 class SignalPacket(Packet):
     def pre_dissect(self, s):
-        if not all([isinstance(f, SignalField) for f in self.fields_desc]):
+        if not all(isinstance(f, SignalField) for f in self.fields_desc):
             raise Scapy_Exception("Use only SignalFields in a SignalPacket")
         return s
 
