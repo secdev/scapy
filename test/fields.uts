@@ -1686,6 +1686,11 @@ val = r._fix()
 assert r.min == -922337203685477585.8
 assert r.max == 922337203685477575.7
 
+= ScalingField signed randval long
+
+y = fuzz(x)
+assert bytes(y) != bytes(y)
+
 ############
 ############
 + BitExtendedField

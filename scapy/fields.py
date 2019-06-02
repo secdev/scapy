@@ -2293,13 +2293,13 @@ class ScalingField(Field):
         if x is None:
             x = 0
         x = (x - self.offset) / self.scaling
-        if isinstance(x, float):
+        if isinstance(x, float) and self.fmt[-1] != "f":
             x = int(round(x))
         return x
 
     def m2i(self, pkt, x):
         x = x * self.scaling + self.offset
-        if isinstance(x, float):
+        if isinstance(x, float) and self.fmt[-1] != "f":
             x = round(x, self.ndigits)
         return x
 
@@ -2315,13 +2315,12 @@ class ScalingField(Field):
     def randval(self):
         value = super(ScalingField, self).randval()
         if value is not None:
-            barrier1 = self.m2i(None, value.max)
-            barrier2 = self.m2i(None, value.min)
+            min_val = round(value.min * self.scaling + self.offset,
+                            self.ndigits)
+            max_val = round(value.max * self.scaling + self.offset,
+                            self.ndigits)
 
-            min_value = min(barrier1, barrier2)
-            max_value = max(barrier1, barrier2)
-
-            return RandFloat(min_value, max_value)
+            return RandFloat(min(min_val, max_val), max(min_val, max_val))
 
 
 class UUIDField(Field):

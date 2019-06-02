@@ -15,6 +15,7 @@ import time
 import math
 import re
 import uuid
+import struct
 
 from scapy.base_classes import Net
 from scapy.compat import bytes_encode, chb, plain_str
@@ -196,6 +197,11 @@ class RandNum(RandField):
 class RandFloat(RandNum):
     def _fix(self):
         return random.uniform(self.min, self.max)
+
+
+class RandBinFloat(RandNum):
+    def _fix(self):
+        return struct.unpack("!f", bytes(RandBin(4)))[0]
 
 
 class RandNumGamma(RandNum):
