@@ -806,9 +806,6 @@ class AsyncSniffer(object):
             else:
                 sniff_sockets[L2socket(type=ETH_P_ALL, iface=iface,
                                        *arg, **karg)] = iface
-        if timeout is not None:
-            stoptime = time.time() + timeout
-        remain = None
 
         # Get select information from the sockets
         _main_socket = next(iter(sniff_sockets))
@@ -843,10 +840,17 @@ class AsyncSniffer(object):
                     close_pipe.send(None)
                 self.continue_sniff = False
             self.stop_cb = stop_cb
+
         try:
             if started_callback:
                 started_callback()
             self.continue_sniff = True
+
+            # Start timeout
+            if timeout is not None:
+                stoptime = time.time() + timeout
+            remain = None
+
             while sniff_sockets and self.continue_sniff:
                 if timeout is not None:
                     remain = stoptime - time.time()

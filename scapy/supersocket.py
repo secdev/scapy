@@ -68,7 +68,8 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
                 debug.crashed_on = (cls, val)
                 raise
             pkt = conf.raw_layer(val)
-        pkt.time = ts
+        if ts:
+            pkt.time = ts
         return pkt
 
     def fileno(self):
