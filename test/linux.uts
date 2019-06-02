@@ -196,6 +196,17 @@ with patch("scapy.layers.l2.get_if_hwaddr") as mgih:
 conf.route6.routes = bck_conf_route6_routes
 conf.iface = bck_conf_iface
 
+= IPv6
+~ linux
+
+addrs = in6_getifaddr()
+if len(addrs) == 0:
+    assert True
+else:
+    assert all([in6_isvalid(addr[0]) for addr in in6_getifaddr()])
+    assert set([addr[2] for addr in in6_getifaddr()]) == set(get_if_list())
+
+
 = veth interface error handling
 ~ linux needs_root veth
 
