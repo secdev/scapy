@@ -2079,6 +2079,26 @@ r = x
 r
 assert(r == "Venus")
 
+= Automaton graph
+~ automaton
+
+class HelloWorld(Automaton):
+    @ATMT.state(initial=1)
+    def BEGIN(self):
+        pass
+    @ATMT.condition(BEGIN)
+    def wait_for_nothing(self):
+        raise self.END()
+    @ATMT.action(wait_for_nothing)
+    def on_nothing(self):
+        pass
+    @ATMT.state(final=1)
+    def END(self):
+        pass
+
+graph = HelloWorld.build_graph()
+assert graph.startswith("digraph")
+assert '"BEGIN" -> "END"' in graph
 
 ############
 ############

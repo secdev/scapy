@@ -493,7 +493,7 @@ class Automaton_metaclass(type):
 
         return cls
 
-    def graph(self, **kargs):
+    def build_graph(self):
         s = 'digraph "%s" {\n' % self.__class__.__name__
 
         se = ""  # Keep initial nodes at the beginning for better rendering
@@ -532,6 +532,10 @@ class Automaton_metaclass(type):
                             line += "\\l>[%s]" % x.__name__
                         s += '\t"%s" -> "%s" [label="%s",color=blue];\n' % (k, n, line)  # noqa: E501
         s += "}\n"
+        return s
+
+    def graph(self, **kargs):
+        s = self.build_graph()
         return do_graph(s, **kargs)
 
 
