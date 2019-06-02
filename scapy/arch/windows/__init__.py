@@ -33,8 +33,7 @@ from scapy.modules.six.moves import input, winreg, UserDict
 from scapy.compat import plain_str
 from scapy.supersocket import SuperSocket
 
-conf.use_winpcapy = True
-conf.use_pcap = False
+conf.use_pcap = True
 conf.use_dnet = False
 
 # These import must appear after setting conf.use_* variables
@@ -599,7 +598,7 @@ class NetworkInterfaceDict(UserDict):
     @classmethod
     def _pcap_check(cls):
         """Performs checks/restart pcap adapter"""
-        if not conf.use_winpcapy:
+        if not conf.use_pcap:
             # Winpcap/Npcap isn't installed
             return
 
@@ -723,7 +722,7 @@ class NetworkInterfaceDict(UserDict):
         """Reload interface list"""
         self.restarted_adapter = False
         self.data.clear()
-        if conf.use_winpcapy:
+        if conf.use_pcap:
             # Reload from Winpcapy
             from scapy.arch.pcapdnet import load_winpcapy
             load_winpcapy()
@@ -790,33 +789,33 @@ def show_interfaces(resolve_mac=True):
     return IFACES.show(resolve_mac)
 
 
-if conf.use_winpcapy:
+if conf.use_pcap:
     _orig_open_pcap = pcapdnet.open_pcap
 
-
-def open_pcap(iface, *args, **kargs):
-    """open_pcap: Windows routine for creating a pcap from an interface.
-    This function is also responsible for detecting monitor mode.
-    """
-    iface_pcap_name = pcapname(iface)
-    if not isinstance(iface, NetworkInterface) and iface_pcap_name is not None:
-        iface = IFACES.dev_from_name(iface)
-    if iface.is_invalid():
-        raise Scapy_Exception("Interface is invalid (no pcap match found) !")
-    # Only check monitor mode when manually specified.
-    # Checking/setting for monitor mode will slow down the process, and the
-    # common is case is not to use monitor mode
-    kw_monitor = kargs.get("monitor", None)
-    if conf.use_npcap and kw_monitor is not None and iface is not None:
-        monitored = iface.ismonitor()
-        if kw_monitor is not monitored:
-            # The monitor param is specified, and not matching the current
-            # interface state
-            iface.setmonitor(kw_monitor)
-    return _orig_open_pcap(iface_pcap_name, *args, **kargs)
-
-
-pcapdnet.open_pcap = open_pcap
+    def open_pcap(iface, *args, **kargs):
+        """open_pcap: Windows routine for creating a pcap from an interface.
+        This function is also responsible for detecting monitor mode.
+        """
+        iface_pcap_name = pcapname(iface)
+        if not isinstance(iface, NetworkInterface) and \
+           iface_pcap_name is not None:
+            iface = IFACES.dev_from_name(iface)
+        if iface.is_invalid():
+            raise Scapy_Exception(
+                "Interface is invalid (no pcap match found) !"
+            )
+        # Only check monitor mode when manually specified.
+        # Checking/setting for monitor mode will slow down the process, and the
+        # common is case is not to use monitor mode
+        kw_monitor = kargs.get("monitor", None)
+        if conf.use_npcap and kw_monitor is not None and iface is not None:
+            monitored = iface.ismonitor()
+            if kw_monitor is not monitored:
+                # The monitor param is specified, and not matching the current
+                # interface state
+                iface.setmonitor(kw_monitor)
+        return _orig_open_pcap(iface_pcap_name, *args, **kargs)
+    pcapdnet.open_pcap = open_pcap
 
 get_if_raw_hwaddr = pcapdnet.get_if_raw_hwaddr = lambda iface, *args, **kargs: (  # noqa: E501
     ARPHDR_ETHER, mac2str(IFACES.dev_from_pcapname(pcapname(iface)).mac)
