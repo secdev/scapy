@@ -14,9 +14,11 @@ import os
 import re
 import socket
 import struct
+import subprocess
 
 from scapy.arch.bpf.consts import BIOCSETF, SIOCGIFFLAGS, BIOCSETIF
 from scapy.arch.common import get_if, compile_filter
+from scapy.compat import plain_str
 from scapy.config import conf
 from scapy.consts import LOOPBACK_NAME
 from scapy.data import ARPHDR_LOOPBACK, ARPHDR_ETHER
@@ -37,14 +39,21 @@ def get_if_raw_addr(ifname):
     """Returns the IPv4 address configured on 'ifname', packed with inet_pton."""  # noqa: E501
 
     # Get ifconfig output
-    try:
-        fd = os.popen("%s %s" % (conf.prog.ifconfig, ifname))
-    except OSError as msg:
-        warning("Failed to execute ifconfig: (%s)", msg)
+    subproc = subprocess.Popen(
+        [conf.prog.ifconfig, ifname],
+        close_fds=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    stdout, stderr = subproc.communicate()
+    if subproc.returncode:
+        warning("Failed to execute ifconfig: (%s)", plain_str(stderr))
         return b"\0\0\0\0"
-
     # Get IPv4 addresses
-    addresses = [l for l in fd if l.find("inet ") >= 0]
+
+    addresses = [
+        line for line in plain_str(stdout).splitlines()
+        if "inet " in line
+    ]
+
     if not addresses:
         warning("No IPv4 address found on %s !", ifname)
         return b"\0\0\0\0"
@@ -66,15 +75,21 @@ def get_if_raw_hwaddr(ifname):
         return (ARPHDR_LOOPBACK, NULL_MAC_ADDRESS)
 
     # Get ifconfig output
-    try:
-        fd = os.popen("%s %s" % (conf.prog.ifconfig, ifname))
-    except OSError as msg:
-        raise Scapy_Exception("Failed to execute ifconfig: (%s)" % msg)
+    subproc = subprocess.Popen(
+        [conf.prog.ifconfig, ifname],
+        close_fds=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    stdout, stderr = subproc.communicate()
+    if subproc.returncode:
+        raise Scapy_Exception("Failed to execute ifconfig: (%s)" %
+                              (plain_str(stderr)))
 
     # Get MAC addresses
-    addresses = [l for l in fd.readlines() if l.find("ether") >= 0 or
-                 l.find("lladdr") >= 0 or
-                 l.find("address") >= 0]
+    addresses = [
+        line for line in plain_str(stdout).splitlines() if (
+            "ether" in line or "lladdr" in line or "address" in line
+        )
+    ]
     if not addresses:
         raise Scapy_Exception("No MAC address found on %s !" % ifname)
 
@@ -115,18 +130,23 @@ def get_if_list():
     """Returns a list containing all network interfaces."""
 
     # Get ifconfig output
-    try:
-        fd = os.popen("%s -a" % conf.prog.ifconfig)
-    except OSError as msg:
-        raise Scapy_Exception("Failed to execute ifconfig: (%s)" % msg)
+    subproc = subprocess.Popen(
+        [conf.prog.ifconfig],
+        close_fds=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    stdout, stderr = subproc.communicate()
+    if subproc.returncode:
+        raise Scapy_Exception("Failed to execute ifconfig: (%s)" %
+                              (plain_str(stderr)))
 
-    # Get interfaces
-    interfaces = [line[:line.find(':')] for line in fd.readlines()
-                  if ": flags" in line.lower()]
+    interfaces = [
+        line[:line.find(':')] for line in plain_str(stdout).splitlines()
+        if ": flags" in line.lower()
+    ]
     return interfaces
 
 
-_IFNUM = re.compile("([0-9]*)([ab]?)$")
+_IFNUM = re.compile(r"([0-9]*)([ab]?)$")
 
 
 def get_working_ifaces():
