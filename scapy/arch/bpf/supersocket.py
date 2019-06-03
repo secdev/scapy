@@ -15,7 +15,6 @@ from scapy.arch.bpf.core import get_dev_bpf, attach_filter
 from scapy.arch.bpf.consts import BIOCGBLEN, BIOCGDLT, BIOCGSTATS, \
     BIOCIMMEDIATE, BIOCPROMISC, BIOCSBLEN, BIOCSETIF, BIOCSHDRCMPLT, \
     BPF_BUFFER_LENGTH, BIOCSDLT, DLT_IEEE802_11_RADIO
-from scapy.automaton import ObjectPipe
 from scapy.config import conf
 from scapy.consts import FREEBSD, NETBSD, DARWIN
 from scapy.data import ETH_P_ALL
@@ -36,6 +35,7 @@ class _L2bpfSocket(SuperSocket):
     """"Generic Scapy BPF Super Socket"""
 
     desc = "read/write packets using BPF"
+    async_select_unrequired = True
 
     def __init__(self, iface=None, type=ETH_P_ALL, promisc=None, filter=None,
                  nofilter=0, monitor=False):
@@ -389,8 +389,6 @@ def bpf_select(fds_list, timeout=None):
         select_fds.append(tmp_fd)
 
     if select_fds:
-        if len(select_fds) == 1 and isinstance(select_fds[0], ObjectPipe):
-            return bpf_scks_buffered
         # Call select for sockets with empty buffers
         if timeout is None:
             timeout = 0.05
