@@ -288,6 +288,56 @@ Close the sockets::
 .. image:: ../graphics/animations/animation-scapy-cansockets-mitm.svg
 .. image:: ../graphics/animations/animation-scapy-cansockets-mitm2.svg
 
+DBC File Format and CAN Signals
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+In order to support the DBC file format, ``SignalFields`` and the ``SignalPacket``
+class were add to Scapy. ``SignalFields`` should only be used inside a ``SignalPacket``.
+Multiplexer fields (MUX) can be created through ``ConditionalFields``. The following
+example demonstrates the usage::
+
+    DBC Example:
+
+    BO_ 4 muxTestFrame: 7 TEST_ECU
+     SG_ myMuxer M : 53|3@1+ (1,0) [0|0] ""  CCL_TEST
+     SG_ muxSig4 m0 : 25|7@1- (1,0) [0|0] ""  CCL_TEST
+     SG_ muxSig3 m0 : 16|9@1+ (1,0) [0|0] ""  CCL_TEST
+     SG_ muxSig2 m0 : 15|8@0- (1,0) [0|0] ""  CCL_TEST
+     SG_ muxSig1 m0 : 0|8@1- (1,0) [0|0] ""  CCL_TEST
+     SG_ muxSig5 m1 : 22|7@1- (0.01,0) [0|0] ""  CCL_TEST
+     SG_ muxSig6 m1 : 32|9@1+ (2,10) [0|0] "mV"  CCL_TEST
+     SG_ muxSig7 m1 : 2|8@0- (0.5,0) [0|0] ""  CCL_TEST
+     SG_ muxSig8 m1 : 0|6@1- (10,0) [0|0] ""  CCL_TEST
+     SG_ muxSig9 : 40|8@1- (100,-5) [0|0] "V"  CCL_TEST
+
+    BO_ 3 testFrameFloat: 8 TEST_ECU
+     SG_ floatSignal2 : 32|32@1- (1,0) [0|0] ""  CCL_TEST
+     SG_ floatSignal1 : 7|32@0- (1,0) [0|0] ""  CCL_TEST
+
+Scapy implementation of this DBC descriptions::
+
+   class muxTestFrame(SignalPacket):
+        fields_desc = [
+            LEUnsignedSignalField("myMuxer", default=0, start=53, size=3),
+            ConditionalField(LESignedSignalField("muxSig4", default=0, start=25, size=7), lambda p: p.myMuxer == 0),
+            ConditionalField(LEUnsignedSignalField("muxSig3", default=0, start=16, size=9), lambda p: p.myMuxer == 0),
+            ConditionalField(BESignedSignalField("muxSig2", default=0, start=15, size=8), lambda p: p.myMuxer == 0),
+            ConditionalField(LESignedSignalField("muxSig1", default=0, start=0, size=8), lambda p: p.myMuxer == 0),
+            ConditionalField(LESignedSignalField("muxSig5", default=0, start=22, size=7, scaling=0.01), lambda p: p.myMuxer == 1),
+            ConditionalField(LEUnsignedSignalField("muxSig6", default=0, start=32, size=9, scaling=2, offset=10, unit="mV"), lambda p: p.myMuxer == 1),
+            ConditionalField(BESignedSignalField("muxSig7", default=0, start=2, size=8, scaling=0.5), lambda p: p.myMuxer == 1),
+            ConditionalField(LESignedSignalField("muxSig8", default=0, start=3, size=3, scaling=10), lambda p: p.myMuxer == 1),
+            LESignedSignalField("muxSig9", default=0, start=41, size=7, scaling=100, offset=-5, unit="V"),
+        ]
+
+   class testFrameFloat(SignalPacket):
+        fields_desc = [
+            LEFloatSignalField("floatSignal2", default=0, start=32),
+            BEFloatSignalField("floatSignal1", default=0, start=7)
+        ]
+
+
+
 
 CAN Calibration Protocol (CCP)
 ------------------------------

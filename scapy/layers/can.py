@@ -261,16 +261,16 @@ class BESignedSignalField(SignalField):
 
 
 class LEFloatSignalField(SignalField):
-    def __init__(self, name, default, start, size, scaling=1, unit="",
+    def __init__(self, name, default, start, scaling=1, unit="",
                  offset=0, ndigits=3):
-        SignalField.__init__(self, name, default, start, size,
+        SignalField.__init__(self, name, default, start, 32,
                              scaling, unit, offset, ndigits, "<f")
 
 
 class BEFloatSignalField(SignalField):
-    def __init__(self, name, default, start, size, scaling=1, unit="",
+    def __init__(self, name, default, start, scaling=1, unit="",
                  offset=0, ndigits=3):
-        SignalField.__init__(self, name, default, start, size,
+        SignalField.__init__(self, name, default, start, 32,
                              scaling, unit, offset, ndigits, ">f")
 
 
