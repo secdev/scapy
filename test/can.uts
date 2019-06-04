@@ -11,6 +11,9 @@
 = Load module
 
 import math
+import random
+
+random.seed()
 
 load_layer("can")
 
