@@ -1016,6 +1016,12 @@ assert raw(pkt) == w_payload
 
 = WEP tests
 ~ wifi crypto Dot11 LLC SNAP IP TCP
+conf.wepkey = ""
+bck_conf_crypto_valid = conf.crypto_valid
+p = Dot11WEP(b'\x00\x00\x00\x00\xe3OjYLw\xc3x_%\xd0\xcf\xdeu-\xc3pH#\x1eK\xae\xf5\xde\xe7\xb8\x1d,\xa1\xfe\xe83\xca\xe1\xfe\xbd\xfe\xec\x00)T`\xde.\x93Td\x95C\x0f\x07\xdd')
+assert isinstance(p, Dot11WEP)
+conf.crypto_valid = bck_conf_crypto_valid
+
 conf.wepkey = "Fobar"
 r = raw(Dot11WEP()/LLC()/SNAP()/IP()/TCP(seq=12345678))
 r
