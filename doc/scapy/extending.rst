@@ -57,7 +57,7 @@ Here is another tool that will constantly monitor all interfaces on a machine an
     
     sniff(prn=arp_monitor_callback, filter="arp", store=0)
 
-For a real life example, you can check `Wifitap <http://sid.rstack.org/static/articles/w/i/f/Wifitap_EN_9613.html>`_.
+For a real life example, you can check `Wifitap <https://github.com/gdssecurity/wifitap/>`_. `[original archive] <https://web.archive.org/web/20180309055843/http://sid.rstack.org/static/articles/w/i/f/Wifitap_EN_9613.html>`_ Sadly, Wifitap is no longer maintained but nonetheless demonstrates Scapy's Wi-Fi capabilities.
 
 
 Extending Scapy with add-ons
