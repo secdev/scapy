@@ -543,19 +543,20 @@ Configuring super sockets
 .. index::
    single: super socket
 
-Different super sockets are available in Scapy: the native ones, and the ones that use a libpcap provider (that go through libpcap to send/receive packets).
-By default, Scapy will try to use the native ones (except on Windows, where the winpcap/npcap ones are preferred). To manually use the libpcap ones, you must:
+Different super sockets are available in Scapy: the **native** ones, and the ones that use **libpcap** (to send/receive packets).
 
-* On Unix/OSX: be sure to have libpcap installed, and one of the following as libpcap python wrapper: `pcapy` or `pypcap`
+By default, Scapy will try to use the native ones (*except on Windows, where the winpcap/npcap ones are preferred*). To manually use the **libpcap** ones, you must:
+
+* On Unix/OSX: be sure to have libpcap installed.
 * On Windows: have Npcap/Winpcap installed. (default)
 
-Then use:
+Then use::
 
     >>> conf.use_pcap = True
 
-This will automatically update the sockets pointing to `conf.L2socket` and `conf.L3socket`.
+This will automatically update the sockets pointing to ``conf.L2socket`` and ``conf.L3socket``.
 
-If you want to manually set them, you have a bunch of sockets available, depending on your platform. For instance, you might want to use:
+If you want to manually set them, you have a bunch of sockets available, depending on your platform. For instance, you might want to use::
 
     >>> conf.L3socket=L3pcapSocket  # Receive/send L3 packets through libpcap
     >>> conf.L2listen=L2ListenTcpdump  # Receive L2 packets through TCPDump

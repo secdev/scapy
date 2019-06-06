@@ -10,9 +10,9 @@ I can't sniff/inject packets in monitor mode.
 
 The use monitor mode varies greatly depending on the platform.
 
-- **Windows/OSX - ``conf.use_pcap = True``**
-  The pcap providers must be called differently by Scapy in order for them to create the sockets in monitor mode. You will need to pass the ``monitor=True`` to any calls that open a socket on their own (``send``, ``sniff``...) or to a Scapy socket that you create yourself (``conf.L2Socket``...)
-- **Linux native (with pcap disabled):**
+- **Windows or *BSD or ``conf.use_pcap = True``**
+  ``libpcap`` must be called differently by Scapy in order for it to create the sockets in monitor mode. You will need to pass the ``monitor=True`` to any calls that open a socket (``send``, ``sniff``...) or to a Scapy socket that you create yourself (``conf.L2Socket``...)
+- **Native Linux (with pcap disabled):**
   You should set the interface in monitor mode on your own. Scapy provides utilitary functions: ``set_iface_monitor`` and ``get_iface_mode`` (linux only), that may be used (they do system calls to ``iwconfig`` and will restart the adapter).
 
 Note that many adapters do not support monitor mode, especially on Windows, or may incorrectly report the headers. See `the Wireshark doc about this <https://wiki.wireshark.org/CaptureSetup/WLAN>`_
