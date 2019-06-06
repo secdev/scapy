@@ -35,7 +35,7 @@ from scapy.fields import ByteField, LEShortField, BitField, LEShortEnumField, \
     StrLenField, IntField, XByteField, LEIntField, StrFixedLenField, \
     LESignedIntField, ReversePadField, ConditionalField, PacketListField, \
     ShortField, BitEnumField, FieldLenField, LEFieldLenField, \
-    FieldListField, XStrFixedLenField, PacketField, FCSField, PadField
+    FieldListField, XStrFixedLenField, PacketField, FCSField
 from scapy.ansmachine import AnsweringMachine
 from scapy.plist import PacketList
 from scapy.layers.l2 import Ether, LLC, MACField
@@ -891,14 +891,17 @@ class Dot11EltCountry(Dot11Elt):
         ByteField("ID", 7),
         ByteField("len", None),
         StrFixedLenField("country_string", b"\0\0\0", length=3),
-        PadField(
-            PacketListField("descriptors",
-                            [],
-                            Dot11EltCountryConstraintTriplet,
-                            length_from=lambda pkt: (
-                                pkt.len - 3 - (pkt.len % 3)
-                            )),
-            2, padwith=b"\x00"
+        PacketListField(
+            "descriptors",
+            [],
+            Dot11EltCountryConstraintTriplet,
+            length_from=lambda pkt: (
+                pkt.len - 3 - (pkt.len % 3)
+            )
+        ),
+        ConditionalField(
+            ByteField("pad", 0),
+            lambda pkt: (pkt.len + 1) % 2
         )
     ]
 
