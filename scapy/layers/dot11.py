@@ -1050,11 +1050,10 @@ class Dot11WEP(Dot11Encrypted):
                    StrField("wepdata", None, remain=4),
                    IntField("icv", None)]
 
-    @crypto_validator
     def decrypt(self, key=None):
         if key is None:
             key = conf.wepkey
-        if key:
+        if key and conf.crypto_valid:
             d = Cipher(
                 algorithms.ARC4(self.iv + key.encode("utf8")),
                 None,
