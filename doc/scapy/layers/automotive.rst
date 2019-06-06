@@ -292,7 +292,7 @@ DBC File Format and CAN Signals
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 In order to support the DBC file format, ``SignalFields`` and the ``SignalPacket``
-class were add to Scapy. ``SignalFields`` should only be used inside a ``SignalPacket``.
+class were added to Scapy. ``SignalFields`` should only be used inside a ``SignalPacket``.
 Multiplexer fields (MUX) can be created through ``ConditionalFields``. The following
 example demonstrates the usage::
 
