@@ -29,7 +29,7 @@ and received by the socket. The current number is quite hard to get, thus we
 provide in this module the get_actual_icmp_seq() function.
 
 Example:
-    >>> conf.use_winpcapy = False
+    >>> conf.use_pcap = False
     >>> a = conf.L3socket()
     # This will (most likely) work:
     >>> current = get_current_icmp_seq()

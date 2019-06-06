@@ -87,18 +87,11 @@ conf.debug_dissector = True
 ~ linux
 
 try:
-    conf.use_winpcapy = True
-    assert False
-except:
-    True
-
-try:
     conf.use_bpf = True
     assert False
 except:
     True
 
-assert not conf.use_winpcapy
 assert not conf.use_bpf
 
 = Configuration conf.use_* WINDOWS
@@ -111,17 +104,6 @@ except:
     True
 
 assert not conf.use_bpf
-
-= Configuration conf.use_* OSX
-~ osx
-
-try:
-    conf.use_winpcapy = True
-    assert False
-except:
-    True
-
-assert not conf.use_winpcapy
 
 
 ###########

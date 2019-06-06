@@ -179,6 +179,12 @@ Here are the topics involved and some examples that you can use to try if your i
 Platform-specific instructions
 ==============================
 
+As a general rule (except on Windows), you can toggle the **libpcap** integration
+at any time, using::
+
+    from scapy.config import conf
+    conf.use_pcap = True
+
 Linux native
 ------------
 
@@ -213,9 +219,10 @@ All dependencies may be installed either via the platform-specific installer, or
 Mac OS X
 --------
 
-On Mac OS X, Scapy does not work natively. You need to install Python bindings
-to use libdnet and libpcap. You can choose to install using either Homebrew or
-MacPorts. They both work fine, yet Homebrew is used to run unit tests with
+On Mac OS X, Scapy **DOES work natively** since the recent versions.
+However, you may want to make Scapy use libdnet and libpcap.
+You can choose to install using either Homebrew or MacPorts. They both
+work fine, yet Homebrew is used to run unit tests with
 `Travis CI <https://travis-ci.org>`_. 
 
 
@@ -233,6 +240,9 @@ Install using Homebrew
    $ sudo brew install --with-python libdnet
    $ sudo brew install https://raw.githubusercontent.com/secdev/scapy/master/.travis/pylibpcap.rb
 
+In Scapy::
+
+    conf.use_pcap = True
 
 Install using MacPorts
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -249,17 +259,11 @@ Install using MacPorts
 OpenBSD
 -------
 
-In a similar manner, to install Scapy on OpenBSD 5.9+, you will need to install the libpcap/libdnet bindings:
+In a similar manner, to install Scapy on OpenBSD 5.9+, you **may** want to install the libpcap/libdnet bindings:
 
 .. code-block:: text
 
 	$ doas pkg_add py-libpcap py-libdnet tcpdump
-
-An OpenBSD install may be lacking the ``/etc/ethertypes`` file. You may install it with
-
-.. code-block:: text
-
- # wget http://git.netfilter.org/ebtables/plain/ethertypes -O /etc/ethertypes
 
 Then install Scapy via ``pip`` or ``pkg_add`` (bundled under ``python-scapy``)
 All dependencies may be installed either via the platform-specific installer, or via PyPI. See `Optional Dependencies <#optional-dependencies>`_ for more information.

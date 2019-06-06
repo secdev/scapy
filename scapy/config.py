@@ -436,26 +436,25 @@ def _set_conf_sockets():
     """Populate the conf.L2Socket and conf.L3Socket
     according to the various use_* parameters
     """
+    from scapy.main import _load
     if conf.use_bpf and not BSD:
         Interceptor.set_from_hook(conf, "use_bpf", False)
         raise ScapyInvalidPlatformException("BSD-like (OSX, *BSD...) only !")
-    if conf.use_winpcapy and not WINDOWS:
-        Interceptor.set_from_hook(conf, "use_winpcapy", False)
-        raise ScapyInvalidPlatformException("Windows only !")
     # we are already in an Interceptor hook, use Interceptor.set_from_hook
-    if conf.use_pcap or conf.use_dnet or conf.use_winpcapy:
+    if conf.use_pcap or conf.use_dnet:
         try:
             from scapy.arch.pcapdnet import L2pcapListenSocket, L2pcapSocket, \
                 L3pcapSocket
-        except ImportError:
-            warning("No pcap provider available ! pcap won't be used")
-            Interceptor.set_from_hook(conf, "use_winpcapy", False)
+        except (OSError, ImportError):
+            warning("No libpcap provider available ! pcap won't be used")
             Interceptor.set_from_hook(conf, "use_pcap", False)
         else:
             conf.L3socket = L3pcapSocket
             conf.L3socket6 = functools.partial(L3pcapSocket, filter="ip6")
             conf.L2socket = L2pcapSocket
             conf.L2listen = L2pcapListenSocket
+            # Update globals
+            _load("scapy.arch.pcapdnet")
             return
     if conf.use_bpf:
         from scapy.arch.bpf.supersocket import L2bpfListenSocket, \
@@ -464,6 +463,8 @@ def _set_conf_sockets():
         conf.L3socket6 = functools.partial(L3bpfSocket, filter="ip6")
         conf.L2socket = L2bpfSocket
         conf.L2listen = L2bpfListenSocket
+        # Update globals
+        _load("scapy.arch.bpf")
         return
     if LINUX:
         from scapy.arch.linux import L3PacketSocket, L2Socket, L2ListenSocket
@@ -471,6 +472,8 @@ def _set_conf_sockets():
         conf.L3socket6 = functools.partial(L3PacketSocket, filter="ip6")
         conf.L2socket = L2Socket
         conf.L2listen = L2ListenSocket
+        # Update globals
+        _load("scapy.arch.linux")
         return
     if WINDOWS:
         from scapy.arch.windows import _NotAvailableSocket
@@ -479,6 +482,7 @@ def _set_conf_sockets():
         conf.L3socket6 = L3WinSocket6
         conf.L2socket = _NotAvailableSocket
         conf.L2listen = _NotAvailableSocket
+        # No need to update globals on Windows
         return
     from scapy.supersocket import L3RawSocket
     from scapy.layers.inet6 import L3RawSocket6
@@ -490,9 +494,8 @@ def _socket_changer(attr, val):
     if not isinstance(val, bool):
         raise TypeError("This argument should be a boolean")
     dependencies = {  # Things that will be turned off
-        "use_pcap": ["use_bpf", "use_winpcapy"],
+        "use_pcap": ["use_bpf"],
         "use_bpf": ["use_pcap"],
-        "use_winpcapy": ["use_pcap", "use_dnet"],
     }
     restore = {k: getattr(conf, k) for k in dependencies}
     del restore[attr]  # This is handled directly by _set_conf_sockets
@@ -606,7 +609,6 @@ recv_poll_rate: how often to check for new packets. Defaults to 0.05s.
     # XXX use_dnet is deprecated
     use_dnet = os.getenv("SCAPY_USE_PCAPDNET", "").lower().startswith("y")
     use_bpf = Interceptor("use_bpf", False, _socket_changer)
-    use_winpcapy = Interceptor("use_winpcapy", False, _socket_changer)
     use_npcap = False
     ipv6_enabled = socket.has_ipv6
     extensions_paths = "."
