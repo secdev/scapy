@@ -120,29 +120,27 @@ class SignalField(ScalingField):
                                          size - 1]
 
     @staticmethod
-    def _convert_to_unsigned(number, bitlength):
-        mask = (2 ** bitlength)
-        if number & (1 << (bitlength - 1)):
+    def _convert_to_unsigned(number, bit_length):
+        if number & (1 << (bit_length - 1)):
+            mask = (2 ** bit_length)
             return mask + number
-        else:
-            return number
+        return number
 
     @staticmethod
-    def _convert_to_signed(number, bitlength):
-        mask = (2 ** bitlength) - 1
-        if number & (1 << (bitlength - 1)):
+    def _convert_to_signed(number, bit_length):
+        mask = (2 ** bit_length) - 1
+        if number & (1 << (bit_length - 1)):
             return number | ~mask
-        else:
-            return number & mask
+        return number & mask
 
     def _is_little_endian(self):
-        return True if self.fmt[0] == "<" else False
+        return self.fmt[0] == "<"
 
     def _is_signed_number(self):
-        return True if self.fmt[-1].islower() else False
+        return self.fmt[-1].islower()
 
     def _is_float_number(self):
-        return True if self.fmt[-1] == "f" else False
+        return self.fmt[-1] == "f"
 
     def addfield(self, pkt, s, val):
         if not isinstance(pkt, SignalPacket):
