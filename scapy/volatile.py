@@ -10,6 +10,7 @@ Fields that hold random numbers.
 """
 
 from __future__ import absolute_import
+import copy
 import random
 import time
 import math
@@ -104,6 +105,9 @@ class VolatileValue(object):
 
     def __len__(self):
         return len(self._fix())
+
+    def copy(self):
+        return copy.copy(self)
 
     def _fix(self):
         return None

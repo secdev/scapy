@@ -10694,15 +10694,6 @@ assert not any(getattr(p1.flags | p2.flags, f) for f in 'FRPECN')
 assert TCP(flags="SA").flags & TCP(flags="S").flags == TCP(flags="S").flags
 assert TCP(flags="SA").flags | TCP(flags="S").flags == TCP(flags="SA").flags
 
-= Using tuples and lists as flag values
-~ IP TCP
-
-plist = PacketList(list(IP()/TCP(flags=(0, 2**9 - 1))))
-assert [p[TCP].flags for p in plist] == [x for x in range(512)]
-
-plist = PacketList(list(IP()/TCP(flags=["S", "SA", "A"])))
-assert [p[TCP].flags for p in plist] == [2, 18, 16]
-
 
 ############
 ############

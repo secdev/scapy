@@ -42,7 +42,7 @@ assert d == d2
 
 = iBeacon (encode LE Set Advertising Data)
 
-d = hex_bytes('1E0201021AFF4C000215FB0B57A2822844CD913A94A122BA120600010002D100')
+d = hex_bytes('1E0201061AFF4C000215FB0B57A2822844CD913A94A122BA120600010002D100')
 p = Apple_BLE_Submessage()/IBeacon_Data(
    uuid='fb0b57a2-8228-44cd-913a-94a122ba1206',
    major=1, minor=2, tx_power=-47)
