@@ -150,6 +150,8 @@ get_if_raw_addr(get_dummy_interface())
 
 get_if_list()
 
+get_working_if()
+
 get_if_raw_addr6(conf.iface6)
 
 = Test read_routes6() - default output
@@ -489,6 +491,9 @@ assert p.mysummary() in ['ff:ff:ff:ff:ff:ff > ff:ff:ff:ff:ff:ff (%s)' % loop
 random.seed(0x2807)
 zerofree_randstring(4) in [b"\xd2\x12\xe4\x5b", b'\xd3\x8b\x13\x12']
 
+= Test strand function
+assert strand("AC", "BC") == b'@C'
+
 = Test export_object and import_object functions
 import mock
 def test_export_import_object():
@@ -629,6 +634,38 @@ conf.verb = saved_conf_verb
 = Test CacheInstance repr
 
 conf.netcache
+
+= Test pyx detection functions
+
+from scapy.extlib import _test_pyx
+assert _test_pyx() == False
+
+= Test matplotlib detection functions
+
+from mock import MagicMock, patch
+
+bck_scapy_ext_lib = sys.modules.get("scapy.extlib", None)
+del(sys.modules["scapy.extlib"])
+
+matplotlib = MagicMock()
+matplotlib.get_backend.return_value = "inline"
+matplotlib.pyplot = MagicMock()
+matplotlib.pyplot.plt = None
+with patch.dict("sys.modules", matplotlib=matplotlib):
+    from scapy.extlib import MATPLOTLIB, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
+    assert MATPLOTLIB == 1
+    assert MATPLOTLIB_INLINED == 1
+    assert "marker" in MATPLOTLIB_DEFAULT_PLOT_KARGS
+
+matplotlib.get_backend.return_value = "ko"
+with patch.dict("sys.modules", matplotlib=matplotlib):
+    from scapy.extlib import MATPLOTLIB, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
+    assert MATPLOTLIB == 1
+    assert MATPLOTLIB_INLINED == 0
+    assert "marker" in MATPLOTLIB_DEFAULT_PLOT_KARGS
+
+if bck_scapy_ext_lib:
+    sys.modules["scapy.extlib"] = bck_scapy_ext_lib
 
 
 ############
@@ -2042,6 +2079,26 @@ r = x
 r
 assert(r == "Venus")
 
+= Automaton graph
+~ automaton
+
+class HelloWorld(Automaton):
+    @ATMT.state(initial=1)
+    def BEGIN(self):
+        pass
+    @ATMT.condition(BEGIN)
+    def wait_for_nothing(self):
+        raise self.END()
+    @ATMT.action(wait_for_nothing)
+    def on_nothing(self):
+        pass
+    @ATMT.state(final=1)
+    def END(self):
+        pass
+
+graph = HelloWorld.build_graph()
+assert graph.startswith("digraph")
+assert '"BEGIN" -> "END"' in graph
 
 ############
 ############
@@ -11887,6 +11944,21 @@ def test_hexdump():
 
 test_hexdump()
 
+= conversations()
+~ linux
+
+def test_conversations():
+    import tempfile
+    filename = tempfile.mktemp()
+    p = PacketList([IP()/Raw(str(i)) for i in range(2)])
+    p.conversations(prog="echo", target="> %s" % filename)
+    fd = open(filename)
+    assert "-Tsvg" in fd.read()
+    fd.close()
+    os.unlink(filename)
+
+test_conversations()
+
 = import_hexcap()
 
 @mock.patch("%s.input" % six.moves.builtins.__name__)
@@ -12118,3 +12190,10 @@ os.remove(filename_css)
 
 dname = get_temp_dir()
 assert os.path.isdir(dname)
+
+= test fragleak functions
+~ netaccess linux
+
+fragleak("8.8.8.8", count=1)
+fragleak2("8.8.8.8", count=1)
+assert True

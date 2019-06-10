@@ -121,6 +121,9 @@ def get_if_list():
 
 
 def get_working_if():
+    """
+    Return the name of the first network interfcace that is up.
+    """
     for i in get_if_list():
         if i == LOOPBACK_NAME:
             continue
@@ -277,7 +280,7 @@ def in6_getifaddr():
     """
     Returns a list of 3-tuples of the form (addr, scope, iface) where
     'addr' is the address of scope 'scope' associated to the interface
-    'ifcace'.
+    'iface'.
 
     This is the list of all addresses of all interfaces available on
     the system.
