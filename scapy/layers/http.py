@@ -33,12 +33,12 @@ You can turn auto-decompression/auto-compression off with:
 
 import re
 
-from scapy.compat import plain_str, gzip_compress, gzip_decompress, raw
+from scapy.compat import plain_str, gzip_compress, gzip_decompress
 from scapy.config import conf
 from scapy.fields import StrField
 from scapy.packet import Packet, bind_layers, bind_bottom_up, Raw
 
-from scapy.layers.inet import TCP, TCP_client
+from scapy.layers.inet import TCP
 
 from scapy.modules import six
 
@@ -547,26 +547,3 @@ bind_layers(TCP, HTTP, sport=80, dport=80)
 
 bind_bottom_up(TCP, HTTP, sport=8080)
 bind_bottom_up(TCP, HTTP, dport=8080)
-
-
-# Utils
-
-def http_request(host, path="/", method="GET", **kwargs):
-    """Performs a basic HTTP 1.1 request and match answer"""
-    # Craft request
-    from scapy.sessions import TCPSession
-    request = HTTP() / HTTPRequest(
-        Method=method,
-        Path=path,
-        Http_Version="HTTP/1.1",
-        Host=host,
-        Cache_Control='no-cache',
-        Accept_Encoding='gzip, deflate'
-    )
-    tcp_client = TCP_client.tcplink(host, 80, full_packets=True)
-    # This is fuzzy for now: wait 10 seconds and process using sniff.
-    # TODO: with https://github.com/secdev/scapy/pull/1999, use sr1
-    # instead !
-    tcp_client.send(raw(request))
-    pkts = tcp_client.sniff(session=TCPSession, timeout=10, **kwargs)
-    return pkts

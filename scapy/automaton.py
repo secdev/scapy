@@ -416,11 +416,11 @@ class _ATMT_Command:
 
 
 class _ATMT_supersocket(SuperSocket, SelectableObject):
-    def __init__(self, name, ioevent, automaton, *args, **kargs):
+    def __init__(self, name, ioevent, automaton, proto, *args, **kargs):
         SelectableObject.__init__(self)
         self.name = name
         self.ioevent = ioevent
-        self.proto = kargs.pop("proto", None)
+        self.proto = proto
         self.spa, self.spb = ObjectPipe(), ObjectPipe()
         # Register recv hook
         self.spb.register_hook(self.call_release)
@@ -459,8 +459,8 @@ class _ATMT_to_supersocket:
         self.ioevent = ioevent
         self.automaton = automaton
 
-    def __call__(self, *args, **kargs):
-        return _ATMT_supersocket(self.name, self.ioevent, self.automaton, *args, **kargs)  # noqa: E501
+    def __call__(self, proto, *args, **kargs):
+        return _ATMT_supersocket(self.name, self.ioevent, self.automaton, proto, *args, **kargs)  # noqa: E501
 
 
 class Automaton_metaclass(type):

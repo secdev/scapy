@@ -1690,11 +1690,12 @@ class TCP_client(Automaton):
     This automaton will handle TCP 3-way handshake.
 
     Usage: the easiest usage is to use it as a SuperSocket.
-        >>> a = TCP_client.tcplink("www.google.com", 80)
+        >>> a = TCP_client.tcplink(Raw, "www.google.com", 80)
         >>> a.send(b"HEAD / HTTP/1.0\r\n\r\n")
         >>> a.recv()
     """
-    def parse_args(self, ip, port, full_packets=False, *args, **kargs):
+    def parse_args(self, ip, port, *args, **kargs):
+        from scapy.sessions import StringBuffer
         self.dst = str(Net(ip))
         self.dport = port
         self.sport = random.randrange(0, 2**16)
@@ -1702,8 +1703,8 @@ class TCP_client(Automaton):
                                    seq=random.randrange(0, 2**32))
         self.src = self.l4.src
         self.sack = self.l4[TCP].ack
-        self.full_packets = full_packets
-        self.rcvbuf = b""
+        self.rel_seq = None
+        self.rcvbuf = StringBuffer()
         bpf = "host %s  and host %s and port %i and port %i" % (self.src,
                                                                 self.dst,
                                                                 self.sport,
@@ -1777,13 +1778,17 @@ class TCP_client(Automaton):
             self.l4[TCP].flags = "A"
             # Answer with an Ack
             self.send(self.l4)
-            if self.full_packets:
-                self.oi.tcp.send(pkt)
-            else:
-                self.rcvbuf += data
-                if pkt[TCP].flags.P:
-                    self.oi.tcp.send(self.rcvbuf)
-                    self.rcvbuf = b""
+            # Process data
+            if self.rel_seq is None:
+                self.rel_seq = pkt[TCP].seq - 1
+            self.rcvbuf.append(
+                data,
+                pkt[TCP].seq - self.rel_seq
+            )
+            if pkt[TCP].flags.P:
+                self.oi.tcp.send(bytes(self.rcvbuf))
+                self.rcvbuf.clear()
+                self.rel_seq = None
 
     @ATMT.ioevent(ESTABLISHED, name="tcp", as_supersocket="tcplink")
     def outgoing_data_received(self, fd):
