@@ -1,0 +1,13 @@
+# VIM syntax highlighting for *.uts files
+
+Copy all files in ftdetect and syntax into ~/.vim/ and preserve the folder structure.
+If ftdetect/filetype.vim already exists, you might need to modify this file manually.
+
+These commands will do the installation:
+
+```
+cp -i -v ftdetect/filetype.vim $HOME/.vim/ftdetect/filetype.vim
+cp -i -v ftdetect/uts.vim $HOME/.vim/ftdetect/uts.vim
+cp -i -v syntax/uts.vim $HOME/.vim/syntax/uts.vim
+```
+
