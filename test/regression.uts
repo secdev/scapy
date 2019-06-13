@@ -10153,7 +10153,7 @@ assert f.i2repr(None, v) == '3e6bd4c419560b2a3199c844eac2945a'
 
 = RADIUS - compute_message_authenticator()
 ram = radius_packet[RadiusAttr_Message_Authenticator]
-assert ram.compute_message_authenticator(radius_packet, b"dummy bytes", b"scapy") == b'\x19\xa4\x0e*Y4\xe0l?,\x94\x9f \xb8Jb'
+assert ram.compute_message_authenticator(radius_packet, b"dummy bytes", b"scapy") == b'I\x85l\x8f\xa5\xd6\xbc\xb5\x08\xe0<\xebH\x9d\xfb?'
 
 = RADIUS - Access-Challenge - Dissection (2)
 s = b'\x0b\xae\x00[\xc7\xae\xfc6\xa1=\xb5\x99&^\xdf=\xe9\x00\xa6\xe8\x12\rHello, leapO\x16\x01\x02\x00\x14\x11\x01\x00\x08\xb8\xc4\x1a4\x97x\xd3\x82leapP\x12\xd3\x12\x17\xa6\x0c.\x94\x85\x03]t\xd1\xdb\xd0\x13\x8c\x18\x12iQs\xf7iSb@k\x9d,\xa0\x99\x8ehO'
