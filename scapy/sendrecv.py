@@ -123,21 +123,20 @@ class SndRcvHandler(object):
         while retry >= 0:
             self.hsent = {}
 
-            # Send packets
-            if _flood:
-                # Flood: start send thread
-                snd_thread = Thread(
-                    target=self._sndrcv_snd
-                )
-                snd_thread.start()
-            else:
-                self._sndrcv_snd()
+            # Send packets in thread.
+            # https://github.com/secdev/scapy/issues/1791
+            snd_thread = Thread(
+                target=self._sndrcv_snd
+            )
+            snd_thread.setDaemon(True)
+            snd_thread.start()
             # Receive packets
             self._sndrcv_rcv()
             if _flood:
                 # Flood: stop send thread
                 _flood[1]()
-                snd_thread.join()
+
+            snd_thread.join()
 
             if multi:
                 remain = [
