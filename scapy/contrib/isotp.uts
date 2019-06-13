@@ -23,7 +23,7 @@ iface1 = "vcan1"
 
 
 class MockCANSocket(SuperSocket):
-    async_select_unrequired = True
+    nonblocking_socket = True
     def __init__(self, rcvd_queue=None):
         self.rcvd_queue = Queue()
         self.sent_queue = Queue()

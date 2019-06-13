@@ -811,7 +811,7 @@ class AsyncSniffer(object):
         read_allowed_exceptions = _main_socket.read_allowed_exceptions
         select_func = _main_socket.select
         _backup_read_func = _main_socket.__class__.recv
-        async_select_unrequired = _main_socket.async_select_unrequired
+        nonblocking_socket = _main_socket.nonblocking_socket
         # We check that all sockets use the same select(), or raise a warning
         if not all(select_func == sock.select for sock in sniff_sockets):
             warning("Warning: inconsistent socket types ! "
@@ -822,7 +822,7 @@ class AsyncSniffer(object):
         if not read_allowed_exceptions:
             read_allowed_exceptions = (IOError,)
 
-        if async_select_unrequired:
+        if nonblocking_socket:
             # select is non blocking
             def stop_cb():
                 self.continue_sniff = False

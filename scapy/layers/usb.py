@@ -213,7 +213,7 @@ if WINDOWS:
         """
         Read packets at layer 2 using USBPcapCMD
         """
-        async_select_unrequired = True
+        nonblocking_socket = True
 
         @staticmethod
         def select(sockets, remain=None):

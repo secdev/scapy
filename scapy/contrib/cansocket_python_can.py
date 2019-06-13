@@ -29,7 +29,7 @@ class CANSocketTimeoutElapsed(Scapy_Exception):
 
 class CANSocket(SuperSocket):
     read_allowed_exceptions = (CANSocketTimeoutElapsed,)
-    async_select_unrequired = True
+    nonblocking_socket = True
     desc = "read/write packets at a given CAN interface " \
            "using a python-can bus object"
 

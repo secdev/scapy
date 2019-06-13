@@ -63,7 +63,7 @@ from scapy.supersocket import SuperSocket
 
 class L3WinSocket(SuperSocket, SelectableObject):
     desc = "a native Layer 3 (IPv4) raw socket under Windows"
-    async_select_unrequired = True
+    nonblocking_socket = True
     __slots__ = ["promisc", "cls", "ipv6", "proto"]
 
     def __init__(self, iface=None, proto=socket.IPPROTO_IP,

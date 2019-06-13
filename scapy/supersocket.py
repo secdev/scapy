@@ -36,7 +36,7 @@ class _SuperSocket_metaclass(type):
 class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
     desc = None
     closed = 0
-    async_select_unrequired = False
+    nonblocking_socket = False
     read_allowed_exceptions = ()
 
     def __init__(self, family=socket.AF_INET, type=socket.SOCK_STREAM, proto=0):  # noqa: E501
@@ -198,7 +198,7 @@ class SimpleSocket(SuperSocket):
 
 class StreamSocket(SimpleSocket):
     desc = "transforms a stream socket into a layer 2"
-    async_select_unrequired = True
+    nonblocking_socket = True
 
     def __init__(self, sock, basecls=None):
         if basecls is None:

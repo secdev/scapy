@@ -35,7 +35,7 @@ class _L2bpfSocket(SuperSocket):
     """"Generic Scapy BPF Super Socket"""
 
     desc = "read/write packets using BPF"
-    async_select_unrequired = True
+    nonblocking_socket = True
 
     def __init__(self, iface=None, type=ETH_P_ALL, promisc=None, filter=None,
                  nofilter=0, monitor=False):

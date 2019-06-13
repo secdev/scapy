@@ -38,7 +38,7 @@ BIOCIMMEDIATE = -2147204496
 
 
 class _L2pcapdnetSocket(SuperSocket, SelectableObject):
-    async_select_unrequired = True
+    nonblocking_socket = True
 
     def check_recv(self):
         return True
