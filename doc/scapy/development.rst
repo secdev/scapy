@@ -253,3 +253,19 @@ For example, on a fresh Debian installation, the following command will start
 all Scapy unit tests automatically without any external dependency::
 
  tox -- -K vcan_socket -K tcpdump -K tshark -K nmap -K manufdb -K crypto
+
+VIM syntax highlighting for *.uts files
+---------------------------------------
+
+Copy all files from ``scapy/doc/syntax/vim_uts_syntax/ftdetect`` and ``scapy/doc/syntax/vim_uts_syntax/syntax`` into ``~/.vim/`` and preserve the folder structure.
+
+If ftdetect/filetype.vim already exists, you might need to modify this file manually.
+
+These commands will do the installation::
+
+ cp -i -v ftdetect/filetype.vim $HOME/.vim/ftdetect/filetype.vim
+ cp -i -v ftdetect/uts.vim $HOME/.vim/ftdetect/uts.vim
+ cp -i -v syntax/uts.vim $HOME/.vim/syntax/uts.vim
+
+Alternatively, a install script in ``scapy/doc/syntax/vim_uts_syntax/`` does the installation automatically.
+
