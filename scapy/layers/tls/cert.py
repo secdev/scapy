@@ -1001,26 +1001,3 @@ class Chain(list):
                 s += "\n"
             idx += 1
         return s
-
-
-##############################
-# Certificate export helpers #
-##############################
-
-def _create_ca_file(anchor_list, filename):
-    """
-    Concatenate all the certificates (PEM format for the export) in
-    'anchor_list' and write the result to file 'filename'. On success
-    'filename' is returned, None otherwise.
-
-    If you are used to OpenSSL tools, this function builds a CAfile
-    that can be used for certificate and CRL check.
-    """
-    try:
-        with open(filename, "w") as f:
-            for a in anchor_list:
-                s = a.output(fmt="PEM")
-                f.write(s)
-    except IOError:
-        return None
-    return filename
