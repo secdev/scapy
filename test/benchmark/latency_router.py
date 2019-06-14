@@ -11,8 +11,8 @@ from common import *
 # Router IP
 dest = conf.route.route("0.0.0.0")[2]
 
-send_tcp = False
-send_icmp = True
+send_tcp = True
+send_icmp = False
 
 pkts = []
 for i in range(1,50):

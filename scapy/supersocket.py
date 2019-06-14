@@ -46,9 +46,12 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
 
     def send(self, x):
         sx = raw(x)
-        if hasattr(x, "sent_time"):
+        sent = self.outs.send(sx)
+        try:
             x.sent_time = time.time()
-        return self.outs.send(sx)
+        except AttributeError:
+            pass
+        return sent
 
     def recv_raw(self, x=MTU):
         """Returns a tuple containing (cls, pkt_data, time)"""
