@@ -133,6 +133,7 @@ weDU+RsFxcyU/QxD9WYORzYarqxbcA==
 type(y) is PrivKeyECDSA
 
 = PrivKeyECDSA sign & verify
+~ crypto_advanced
 a = PrivKeyECDSA()
 a.fill_and_store()
 msg = b"Scapy test message"
@@ -141,6 +142,7 @@ assert a.verify(msg, data)
 assert not a.verify(b"Hello", data)
 
 = PubKeyECDSA verify
+~ crypto_advanced
 b = PubKeyECDSA()
 b.pubkey = a.pubkey
 assert b.verify(msg, data)

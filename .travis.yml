@@ -15,6 +15,11 @@ matrix:
             - TOXENV=py27-linux_non_root,codecov
 
         - os: linux
+          python: 2.7
+          env:
+            - TOXENV=py27-linux_non_root_old-cryptography,codecov
+
+        - os: linux
           python: 3.4
           env:
             - TOXENV=py34-linux_non_root,codecov
