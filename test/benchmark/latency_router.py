@@ -27,8 +27,13 @@ ans, unans = sr(pkts, filter="host {0}".format(dest), inter=0, timeout=1, prebui
 
 print("scapy version: {}".format(conf.version))
 
+average = 0
+
 for pkt in ans:
     sent = pkt[0]
     received = pkt[1]
     res = (received.time - sent.sent_time)
+    average += res
     print("%s %s : %s" % (received.time, sent.sent_time, res))
+
+print("AVERAGE RESPONSE TIME: %ss" % (average / len(ans)))
