@@ -917,6 +917,7 @@ class RawPcapReader(six.with_metaclass(PcapReader_metaclass)):
     """A stateful pcap reader. Each packet is returned as a string"""
 
     read_allowed_exceptions = ()  # emulate SuperSocket
+    nonblocking_socket = True
     PacketMetadata = collections.namedtuple("PacketMetadata",
                                             ["sec", "usec", "wirelen", "caplen"])  # noqa: E501
 
@@ -966,11 +967,11 @@ class RawPcapReader(six.with_metaclass(PcapReader_metaclass)):
         """return a single packet read from the file as a tuple containing
         (pkt_data, pkt_metadata)
 
-        returns None when no more packets are available
+        raise EOFError when no more packets are available
         """
         hdr = self.f.read(16)
         if len(hdr) < 16:
-            return None
+            raise EOFError
         sec, usec, caplen, wirelen = struct.unpack(self.endian + "IIII", hdr)
         return (self.f.read(caplen)[:size],
                 RawPcapReader.PacketMetadata(sec=sec, usec=usec,
@@ -992,8 +993,9 @@ class RawPcapReader(six.with_metaclass(PcapReader_metaclass)):
         res = []
         while count != 0:
             count -= 1
-            p = self.read_packet()
-            if p is None:
+            try:
+                p = self.read_packet()
+            except EOFError:
                 break
             res.append(p)
         return res
@@ -1033,7 +1035,7 @@ class PcapReader(RawPcapReader):
     def read_packet(self, size=MTU):
         rp = super(PcapReader, self).read_packet(size=size)
         if rp is None:
-            return None
+            raise EOFError
         s, pkt_info = rp
 
         try:
@@ -1110,7 +1112,7 @@ class RawPcapNgReader(RawPcapReader):
                 blocktype, blocklen = struct.unpack(self.endian + "2I",
                                                     self.f.read(8))
             except struct.error:
-                return None
+                raise EOFError
             block = self.f.read(blocklen - 12)
             if blocklen % 4:
                 pad = self.f.read(4 - (blocklen % 4))
@@ -1121,7 +1123,7 @@ class RawPcapNgReader(RawPcapReader):
                                                 self.f.read(4)):
                     warning("PcapNg: Invalid pcapng block (bad blocklen)")
             except struct.error:
-                return None
+                raise EOFError
             res = self.blocktypes.get(blocktype,
                                       lambda block, size: None)(block, size)
             if res is not None:
@@ -1201,7 +1203,7 @@ class PcapNgReader(RawPcapNgReader):
     def read_packet(self, size=MTU):
         rp = super(PcapNgReader, self).read_packet(size=size)
         if rp is None:
-            return None
+            raise EOFError
         s, (linktype, tsresol, tshigh, tslow, wirelen) = rp
         try:
             p = conf.l2types[linktype](s)

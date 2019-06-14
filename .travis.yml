@@ -134,6 +134,8 @@ matrix:
           env:
             - TOXENV=linux_warnings
 
-install: bash .travis/install.sh
+install:
+  - bash .travis/install.sh
+  - python -c "from scapy.all import conf; print(repr(conf))"
 
 script: bash .travis/test.sh

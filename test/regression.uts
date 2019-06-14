@@ -1466,7 +1466,7 @@ assert True
 
 ############
 ############
-+ More complex tests
++ Generator tests
 
 = Implicit logic 1
 ~ IP TCP
@@ -1483,6 +1483,22 @@ ls(a)
 ls(a, verbose=True)
 l = [p for p in a]
 len(l) == 7
+
+= Implicit logic 3
+
+# In case there's a single option: __iter__ should return self
+a = Ether()/IP(src="127.0.0.1", dst="127.0.0.1")/ICMP()
+for i in a:
+    i.sent_time = 1
+
+assert a.sent_time == 1
+
+# In case they are several, self should never be returned
+a = Ether()/IP(src="127.0.0.1", dst="127.0.0.1")/ICMP(seq=(0, 5))
+for i in a:
+    i.sent_time = 1
+
+assert a.sent_time is None
 
 
 ############
@@ -1528,30 +1544,6 @@ def _test():
     ans, unans = sr(IP(dst=["8.8.8.8", "1.2.3.4"]) / ICMP(), timeout=2, retry=1)
     conf.debug_dissector = old_debug_dissector
     len(ans) == 1 and len(unans) == 1
-
-retry_test(_test)
-
-= Send & receive with process
-~ netaccess IP ICMP
-def _test():
-    old_debug_dissector = conf.debug_dissector
-    conf.debug_dissector = False
-    ans, unans = sr(IP(dst=["www.google.fr", "www.google.com", "www.google.co.uk"])/ICMP(), process=lambda x, y: (x[IP].dst, y[IP].src), timeout=2)
-    conf.debug_dissector = old_debug_dissector
-    assert all(x == y for x, y in ans)
-    assert isinstance(unans, list)
-
-retry_test(_test)
-
-= Send & receive with store_unanswered=False
-~ netaccess IP ICMP
-def _test():
-    old_debug_dissector = conf.debug_dissector
-    conf.debug_dissector = False
-    ans, unans = sr(IP(dst=["www.google.fr", "www.google.com", "www.google.co.uk"])/ICMP(), store_unanswered=False, timeout=2)
-    conf.debug_dissector = old_debug_dissector
-    assert isinstance(ans, PacketList)
-    assert unans == None
 
 retry_test(_test)
 

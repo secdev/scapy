@@ -14,7 +14,7 @@ import struct
 import time
 
 from scapy.automaton import SelectableObject
-from scapy.arch.common import _select_nonblock, TimeoutElapsed
+from scapy.arch.common import _select_nonblock
 from scapy.compat import raw, plain_str, chb
 from scapy.config import conf
 from scapy.consts import WINDOWS
@@ -38,7 +38,7 @@ BIOCIMMEDIATE = -2147204496
 
 
 class _L2pcapdnetSocket(SuperSocket, SelectableObject):
-    read_allowed_exceptions = (TimeoutElapsed,)
+    nonblocking_socket = True
 
     def check_recv(self):
         return True
@@ -58,8 +58,6 @@ class _L2pcapdnetSocket(SuperSocket, SelectableObject):
             pkt = self.ins.next()
             if pkt is not None:
                 ts, pkt = pkt
-            if pkt is None and scapy.consts.WINDOWS:
-                raise TimeoutElapsed  # To understand this behavior, have a look at L2pcapListenSocket's note  # noqa: E501
             if pkt is None:
                 return None, None, None
         return cls, pkt, ts
@@ -344,15 +342,11 @@ if conf.use_pcap:
 
     class L3pcapSocket(L2pcapSocket):
         desc = "read/write packets at layer 3 using only libpcap"
-        # def __init__(self, iface = None, type = ETH_P_ALL, filter=None, nofilter=0):  # noqa: E501
-        #    L2pcapSocket.__init__(self, iface, type, filter, nofilter)
 
         def recv(self, x=MTU):
             r = L2pcapSocket.recv(self, x)
             if r:
                 return r.payload
-            else:
-                return
 
         def send(self, x):
             # Makes send detects when it should add Loopback(), Dot11... instead of Ether()  # noqa: E501

@@ -162,7 +162,7 @@ class SelectableSelector(object):
                     select_inputs.append(i)
                 elif not self.remain and i.check_recv():
                     self.results.append(i)
-                else:
+                elif self.remain:
                     i.wait_return(self._exit_door)
             if select_inputs:
                 # Use default select function
@@ -193,6 +193,8 @@ def select_objects(inputs, remain):
 
 
 class ObjectPipe(SelectableObject):
+    read_allowed_exceptions = ()
+
     def __init__(self):
         self.rd, self.wr = os.pipe()
         self.queue = deque()
@@ -217,6 +219,11 @@ class ObjectPipe(SelectableObject):
 
     def read(self, n=0):
         return self.recv(n)
+
+    def close(self):
+        os.close(self.rd)
+        os.close(self.wr)
+        self.queue.clear()
 
 
 class Message:
