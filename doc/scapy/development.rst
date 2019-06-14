@@ -254,8 +254,8 @@ all Scapy unit tests automatically without any external dependency::
 
  tox -- -K vcan_socket -K tcpdump -K tshark -K nmap -K manufdb -K crypto
 
-VIM syntax highlighting for *.uts files
----------------------------------------
+VIM syntax highlighting for .uts files
+--------------------------------------
 
 Copy all files from ``scapy/doc/syntax/vim_uts_syntax/ftdetect`` and ``scapy/doc/syntax/vim_uts_syntax/syntax`` into ``~/.vim/`` and preserve the folder structure.
 
