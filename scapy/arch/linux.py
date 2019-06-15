@@ -11,6 +11,7 @@ from __future__ import absolute_import
 
 
 import array
+import ctypes
 from fcntl import ioctl
 import os
 from select import select
@@ -88,9 +89,28 @@ PACKET_OUTGOING = 4  # Outgoing of any type
 PACKET_LOOPBACK = 5  # MC/BRD frame looped back
 PACKET_USER = 6  # To user space
 PACKET_KERNEL = 7  # To kernel space
+PACKET_AUXDATA = 8
 PACKET_FASTROUTE = 6  # Fastrouted frame
 # Unused, PACKET_FASTROUTE and PACKET_LOOPBACK are invisible to user space
 
+# Used to get VLAN data
+ETH_P_8021Q = 0x8100
+TP_STATUS_VLAN_VALID = 1 << 4
+
+
+class tpacket_auxdata(ctypes.Structure):
+    _fields_ = [
+        ("tp_status", ctypes.c_uint),
+        ("tp_len", ctypes.c_uint),
+        ("tp_snaplen", ctypes.c_uint),
+        ("tp_mac", ctypes.c_ushort),
+        ("tp_net", ctypes.c_ushort),
+        ("tp_vlan_tci", ctypes.c_ushort),
+        ("tp_padding", ctypes.c_ushort),
+    ]
+
+
+# Utils
 
 def get_if_raw_hwaddr(iff):
     return struct.unpack("16xh6s8x", get_if(iff, SIOCGIFHWADDR))
@@ -465,6 +485,9 @@ class L2Socket(SuperSocket):
             socket.SO_RCVBUF,
             conf.bufsize
         )
+        if not six.PY2:
+            # Receive Auxiliary Data (VLAN tags)
+            self.ins.setsockopt(SOL_PACKET, PACKET_AUXDATA, 1)
         if isinstance(self, L2ListenSocket):
             self.outs = None
         else:
@@ -493,9 +516,39 @@ class L2Socket(SuperSocket):
             set_promisc(self.ins, self.iface, 0)
         SuperSocket.close(self)
 
+    if six.PY2:
+        def _recv_raw(self, sock, x):
+            """Internal function to receive a Packet"""
+            pkt, sa_ll = sock.recvfrom(x)
+            return pkt, sa_ll
+    else:
+        def _recv_raw(self, sock, x):
+            """Internal function to receive a Packet,
+            and process ancillary data.
+            """
+            flags_len = socket.CMSG_LEN(4096)
+            pkt, ancdata, flags, sa_ll = sock.recvmsg(x, flags_len)
+            if not pkt:
+                return pkt, sa_ll
+            for cmsg_lvl, cmsg_type, cmsg_data in ancdata:
+                # Check available ancillary data
+                if (cmsg_lvl == SOL_PACKET and cmsg_type == PACKET_AUXDATA):
+                    # Parse AUXDATA
+                    auxdata = tpacket_auxdata.from_buffer_copy(cmsg_data)
+                    if auxdata.tp_vlan_tci != 0 or \
+                            auxdata.tp_status & TP_STATUS_VLAN_VALID:
+                        # Insert VLAN tag
+                        tag = struct.pack(
+                            "!HH",
+                            ETH_P_8021Q,
+                            auxdata.tp_vlan_tci
+                        )
+                        pkt = pkt[:12] + tag + pkt[12:]
+            return pkt, sa_ll
+
     def recv_raw(self, x=MTU):
         """Receives a packet, then returns a tuple containing (cls, pkt_data, time)"""  # noqa: E501
-        pkt, sa_ll = self.ins.recvfrom(x)
+        pkt, sa_ll = self._recv_raw(self.ins, x)
         if self.outs and sa_ll[2] == socket.PACKET_OUTGOING:
             return None, None, None
         ts = get_last_packet_timestamp(self.ins)
