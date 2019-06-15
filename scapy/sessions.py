@@ -142,7 +142,7 @@ class TCPSession(IPSession):
     """
 
     def __init__(self, *args):
-        IPSession.__init__(self, *args)
+        super(TCPSession, self).__init__(*args)
         # The StringBuffer() is used to build a global
         # string from fragments and their seq nulber
         self.tcp_frags = defaultdict(
