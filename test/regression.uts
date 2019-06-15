@@ -165,12 +165,15 @@ routes6
 # Expected results:
 # - one route if there is only the loopback interface
 # - three routes if there is a network interface
+# - on OpenBSD, only two routes on lo0 are expected
 
 if routes6:
     iflist = get_if_list()
     if WINDOWS:
         route_add_loopback(ipv6=True, iflist=iflist)
-    if iflist == [LOOPBACK_NAME]:
+    if OPENBSD:
+        len(routes6) >= 2
+    elif iflist == [LOOPBACK_NAME]:
         len(routes6) == 1
     elif len(iflist) >= 2:
         len(routes6) >= 3
@@ -185,7 +188,7 @@ else:
 
 if len(routes6) and not WINDOWS:
     assert(sum(1 for r in routes6 if r[0] == "::1" and r[4] == ["::1"]) >= 1)
-    if len(iflist) >= 2:
+    if not OPENBSD and len(iflist) >= 2:
         assert sum(1 for r in routes6 if r[0] == "fe80::" and r[1] == 64) >= 1
         try:
             assert sum(1 for r in routes6 if in6_islladdr(r[0]) and r[1] == 128 and r[4] == ["::1"]) >= 1
@@ -7643,6 +7646,10 @@ default            link#11            UCSI            1        0 bridge1
     mock_get_if_addr.side_effect = se_get_if_addr
     # Test the function
     from scapy.arch.unix import read_routes
+    scapy.arch.unix.DARWIN = True
+    scapy.arch.unix.FREEBSD = False
+    scapy.arch.unix.NETBSD = False
+    scapy.arch.unix.OPENBSD = False
     routes = read_routes()
     assert(len(routes) == 4)
     assert([r for r in routes if r[3] == "bridge10"])
@@ -7826,6 +7833,9 @@ def check_mandatory_ipv6_routes(routes6):
 = Mac OS X 10.9.5
 ~ mock_read_routes_bsd
 
+import mock
+from io import StringIO
+
 @mock.patch("scapy.arch.unix.in6_getifaddr")
 @mock.patch("scapy.arch.unix.os")
 def test_osx_10_9_5(mock_os, mock_in6_getifaddr):
@@ -7855,6 +7865,10 @@ ff02::%en0/32                           link#4                          UmCI    
                                        ("fe80::ba26:6cff:fe5f:4eee", IPV6_ADDR_LINKLOCAL, "en0")]
     # Test the function
     from scapy.arch.unix import read_routes6
+    scapy.arch.unix.DARWIN = False
+    scapy.arch.unix.FREEBSD = True
+    scapy.arch.unix.NETBSD = False
+    scapy.arch.unix.OPENBSD = False
     routes = read_routes6()
     for r in routes:
         print(r)
@@ -7866,6 +7880,10 @@ test_osx_10_9_5()
 
 = Mac OS X 10.9.5 with global IPv6 connectivity
 ~ mock_read_routes_bsd
+
+import mock
+from io import StringIO
+
 @mock.patch("scapy.arch.unix.in6_getifaddr")
 @mock.patch("scapy.arch.unix.os")
 def test_osx_10_9_5_global(mock_os, mock_in6_getifaddr):
@@ -7916,6 +7934,9 @@ test_osx_10_9_5_global()
 = Mac OS X 10.10.4
 ~ mock_read_routes_bsd
 
+import mock
+from io import StringIO
+
 @mock.patch("scapy.arch.unix.in6_getifaddr")
 @mock.patch("scapy.arch.unix.os")
 def test_osx_10_10_4(mock_os, mock_in6_getifaddr):
@@ -7956,6 +7977,9 @@ test_osx_10_10_4()
 = FreeBSD 10.2
 ~ mock_read_routes_bsd
 
+import mock
+from io import StringIO
+
 @mock.patch("scapy.arch.unix.in6_getifaddr")
 @mock.patch("scapy.arch.unix.os")
 def test_freebsd_10_2(mock_os, mock_in6_getifaddr):
@@ -7984,6 +8008,10 @@ ff02::%lo0/32                     ::1                           U           lo0
     # Test the function
     from scapy.arch.unix import read_routes6
     routes = read_routes6()
+    scapy.arch.unix.DARWIN = False
+    scapy.arch.unix.FREEBSD = True
+    scapy.arch.unix.NETBSD = False
+    scapy.arch.unix.OPENBSD = False
     for r in routes:
         print(r)
     assert(len(routes) == 3)
@@ -7994,6 +8022,9 @@ test_freebsd_10_2()
 
 = OpenBSD 5.5
 ~ mock_read_routes_bsd
+
+import mock
+from io import StringIO
 
 @mock.patch("scapy.arch.unix.OPENBSD")
 @mock.patch("scapy.arch.unix.in6_getifaddr")
