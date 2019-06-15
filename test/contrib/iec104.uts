@@ -2,7 +2,7 @@
 
 #
 # execute test:
-# > test/run_tests -t scapy/contrib/iec104.uts
+# > test/run_tests -t test/contrib/iec104.uts
 #
 
 + iec104 infrastructure

@@ -1,7 +1,7 @@
 # GENEVE unit tests
 #
 # Type the following command to launch start the tests:
-# $ test/run_tests -P "load_contrib('geneve')" -t scapy/contrib/geneve.uts
+# $ test/run_tests -P "load_contrib('geneve')" -t test/contrib/geneve.uts
 
 + GENEVE
 

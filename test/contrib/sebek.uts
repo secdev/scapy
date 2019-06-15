@@ -1,7 +1,7 @@
 # Sebek layer unit tests
 #
 # Type the following command to launch start the tests:
-# $ test/run_tests -P "load_contrib('sebek')" -t scapy/contrib/sebek.uts
+# $ test/run_tests -P "load_contrib('sebek')" -t test/contrib/sebek.uts
 
 + Sebek protocol
 

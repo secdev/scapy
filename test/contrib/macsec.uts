@@ -1,6 +1,6 @@
 # MACsec unit tests
 # run with:
-#   test/run_tests  -P "load_contrib('macsec')" -t scapy/contrib/macsec.uts -F
+#   test/run_tests  -P "load_contrib('macsec')" -t test/contrib/macsec.uts -F
 
 + MACsec
 ~ crypto not_pypy

@@ -3,7 +3,7 @@ from enum import test
 
 #
 # execute test:
-# > test/run_tests -P "load_contrib('lldp')" -t scapy/contrib/lldp.uts
+# > test/run_tests -P "load_contrib('lldp')" -t test/contrib/lldp.uts
 #
 
 + Basic layer handling

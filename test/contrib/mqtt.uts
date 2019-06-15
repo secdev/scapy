@@ -2,7 +2,7 @@
 # Copyright (C) Santiago Hernandez Ramos <shramos@protonmail.com>
 #
 # Type the following command to launch start the tests:
-# $ test/run_tests -P "load_contrib('mqtt')" -t scapy/contrib/mqtt.uts
+# $ test/run_tests -P "load_contrib('mqtt')" -t test/contrib/mqtt.uts
 
 + Syntax check
 = Import the MQTT layer
