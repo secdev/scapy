@@ -9,6 +9,7 @@ TLS handshake extensions.
 from __future__ import print_function
 
 import struct
+import os
 
 from scapy.fields import ByteEnumField, ByteField, EnumField, FieldLenField, \
     FieldListField, IntField, PacketField, PacketListField, ShortEnumField, \
@@ -18,12 +19,15 @@ from scapy.layers.x509 import X509_Extensions
 from scapy.layers.tls.basefields import _tls_version
 from scapy.layers.tls.keyexchange import (SigAndHashAlgsLenField,
                                           SigAndHashAlgsField, _tls_hash_sig)
+
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
+
 from scapy.layers.tls.session import _GenericTLSSessionInheritance
 from scapy.layers.tls.crypto.groups import _tls_named_groups
 from scapy.themes import AnsiColorTheme
 from scapy.compat import raw
 from scapy.config import conf
-
 
 _tls_ext = {0: "server_name",             # RFC 4366
             1: "max_fragment_length",     # RFC 4366
@@ -42,19 +46,24 @@ _tls_ext = {0: "server_name",             # RFC 4366
             0x0f: "heartbeat",             # RFC 6520
             0x10: "alpn",                  # RFC 7301
             0x12: "signed_certificate_timestamp",  # RFC 6962
+            0x13: "client_certificate_type", # RFC 7250 --> A compléter
+            0x14: "server_certificate_type", # RFC 7250 --> A compléter 
             0x15: "padding",               # RFC 7685
             0x16: "encrypt_then_mac",      # RFC 7366
             0x17: "extended_master_secret",  # RFC 7627
             0x23: "session_ticket",        # RFC 5077
-            0x28: "key_share",
+            # 0x28: "key_share",
             0x29: "pre_shared_key",
-            0x2a: "early_data",
+            0x2a: "early_data_indication",
             0x2b: "supported_versions",
             0x2c: "cookie",
             0x2d: "psk_key_exchange_modes",
-            0x2e: "ticket_early_data_info",
+            #0x2e: "ticket_early_data_info",
             0x2f: "certificate_authorities",
             0x30: "oid_filters",
+            0x31: "post_handshake_auth",
+            0x32: "signature_algorithms_cert",
+            0x33: "key_share",
             0x3374: "next_protocol_negotiation",
             # RFC-draft-agl-tls-nextprotoneg-03
             0xff01: "renegotiation_info"   # RFC 5746
@@ -397,6 +406,7 @@ class TLS_Ext_SupportedGroups(TLS_Ext_Unknown):
                                   length_from=lambda pkt: pkt.groupslen)]
 
 
+
 class TLS_Ext_SupportedEllipticCurves(TLS_Ext_SupportedGroups):     # RFC 4492
     pass
 
@@ -507,14 +517,43 @@ class TLS_Ext_PreSharedKey(TLS_Ext_Unknown):
                    ShortField("len", None)]
 
 
-class TLS_Ext_EarlyData(TLS_Ext_Unknown):
+
+
+
+
+
+class TLS_Ext_EarlyDataIndication(TLS_Ext_Unknown):
     name = "TLS Extension - Early Data"
     fields_desc = [ShortEnumField("type", 0x2a, _tls_ext),
                    ShortField("len", None)]
 
 
+class TLS_Ext_EarlyDataIndicationTicket(TLS_Ext_Unknown):
+    name = "TLS Extension - Ticket Early Data Info"
+    fields_desc = [ShortEnumField("type", 0x2a, _tls_ext),
+                   ShortField("len", None),
+                   IntField("max_early_data_size", 0)]
+
+_tls_ext_early_data_cls = {1: TLS_Ext_EarlyDataIndication,
+                           4: TLS_Ext_EarlyDataIndicationTicket,
+                           8: TLS_Ext_EarlyDataIndication}  
+
 class TLS_Ext_SupportedVersions(TLS_Ext_Unknown):
-    name = "TLS Extension - Supported Versions"
+    name = "TLS Extension - Supported Versions (dummy class)"
+    fields_desc = [ShortEnumField("type", 0x2b, _tls_ext),
+                   ShortField("len", None)]
+                   #ShortEnumField("version", None,
+                   #                              _tls_version)]
+                   #FieldLenField("versionslen", None, fmt='B',
+                   #              length_of="versions"),
+                   #FieldListField("versions", [],
+                   #               ShortEnumField("version", None,
+                   #                              _tls_version),
+                   #               length_from=lambda pkt: pkt.versionslen)]
+
+
+class TLS_Ext_SupportedVersion_CH(TLS_Ext_Unknown):
+    name = "TLS Extension - Supported Versions (for ClientHello)"
     fields_desc = [ShortEnumField("type", 0x2b, _tls_ext),
                    ShortField("len", None),
                    FieldLenField("versionslen", None, fmt='B',
@@ -524,6 +563,23 @@ class TLS_Ext_SupportedVersions(TLS_Ext_Unknown):
                                                  _tls_version),
                                   length_from=lambda pkt: pkt.versionslen)]
 
+class TLS_Ext_SupportedVersion_SH(TLS_Ext_Unknown):
+    name = "TLS Extension - Supported Versions (for ServerHello)"
+    fields_desc = [ShortEnumField("type", 0x2b, _tls_ext),
+                   ShortField("len", None),
+                   ShortEnumField("version", None,
+                                                 _tls_version)]
+
+    def post_dissection(self, r):
+        if isinstance(r,TLS_Ext_SupportedVersion_SH):
+          self.tls_session.tls_version = r.version
+        return super(TLS_Ext_SupportedVersion_SH, self).post_dissection(r)
+
+
+_tls_ext_supported_version_cls = {1: TLS_Ext_SupportedVersion_CH,
+                                  2: TLS_Ext_SupportedVersion_SH}
+                                  #6: TLS_Ext_KeyShare_HRR}
+                             
 
 class TLS_Ext_Cookie(TLS_Ext_Unknown):
     name = "TLS Extension - Cookie"
@@ -533,6 +589,13 @@ class TLS_Ext_Cookie(TLS_Ext_Unknown):
                    XStrLenField("cookie", "",
                                 length_from=lambda pkt: pkt.cookielen)]
 
+
+    def build(self, *args, **kargs):
+        fval = self.getfieldval("cookie")
+        if fval is None or fval == b"":
+            self.cookie = os.urandom(32)
+
+        return TLS_Ext_Unknown.build(self, *args, **kargs)
 
 _tls_psk_kx_modes = {0: "psk_ke", 1: "psk_dhe_ke"}
 
@@ -549,20 +612,13 @@ class TLS_Ext_PSKKeyExchangeModes(TLS_Ext_Unknown):
                                   length_from=lambda pkt: pkt.kxmodeslen)]
 
 
-class TLS_Ext_TicketEarlyDataInfo(TLS_Ext_Unknown):
-    name = "TLS Extension - Ticket Early Data Info"
-    fields_desc = [ShortEnumField("type", 0x2e, _tls_ext),
-                   ShortField("len", None),
-                   IntField("max_early_data_size", 0)]
-
-
 class TLS_Ext_NPN(TLS_Ext_PrettyPacketList):
     """
     Defined in RFC-draft-agl-tls-nextprotoneg-03. Deprecated in favour of ALPN.
     """
     name = "TLS Extension - Next Protocol Negotiation"
     fields_desc = [ShortEnumField("type", 0x3374, _tls_ext),
-                   FieldLenField("len", None, length_of="protocols"),
+                   FieldLenField("len", None, length_of="protocols"), 
                    ProtocolListField("protocols", [], ProtocolName,
                                      length_from=lambda pkt:pkt.len)]
 
@@ -575,6 +631,25 @@ class TLS_Ext_RenegotiationInfo(TLS_Ext_Unknown):                   # RFC 5746
                                  length_of="renegotiated_connection"),
                    StrLenField("renegotiated_connection", "",
                                length_from=lambda pkt: pkt.reneg_conn_len)]
+
+
+class TLS_Ext_PostHandshakeAuth(TLS_Ext_Unknown):                   # RFC 8446
+    name = "TLS Extension - Post Handshake Auth"
+    fields_desc = [ShortEnumField("type", 0x31, _tls_ext),
+                   ShortField("len", None)]
+
+
+class TLS_Ext_SignatureAlgorithmsCert(TLS_Ext_Unknown):                   # RFC 8446
+    name = "TLS Extension - Signature Algorithms Cert"
+    fields_desc = [ShortEnumField("type", 0x31, _tls_ext),
+                   ShortField("len", None),
+                   SigAndHashAlgsLenField("sig_algs_len", None,
+                                          length_of="sig_algs"),
+                   SigAndHashAlgsField("sig_algs", [],
+                                       EnumField("hash_sig", None,
+                                                 _tls_hash_sig),
+                                       length_from=lambda pkt: pkt.sig_algs_len)]  # noqa: E501
+
 
 
 _tls_ext_cls = {0: TLS_Ext_ServerName,
@@ -597,13 +672,16 @@ _tls_ext_cls = {0: TLS_Ext_ServerName,
                 0x16: TLS_Ext_EncryptThenMAC,
                 0x17: TLS_Ext_ExtendedMasterSecret,
                 0x23: TLS_Ext_SessionTicket,
-                0x28: TLS_Ext_KeyShare,
+                # 0x28: TLS_Ext_KeyShare,
                 0x29: TLS_Ext_PreSharedKey,
-                0x2a: TLS_Ext_EarlyData,
+                0x2a: TLS_Ext_EarlyDataIndication,
                 0x2b: TLS_Ext_SupportedVersions,
                 0x2c: TLS_Ext_Cookie,
                 0x2d: TLS_Ext_PSKKeyExchangeModes,
-                0x2e: TLS_Ext_TicketEarlyDataInfo,
+                # 0x2e: TLS_Ext_TicketEarlyDataInfo,
+                0x31: TLS_Ext_PostHandshakeAuth,
+                0x32: TLS_Ext_SignatureAlgorithmsCert,
+                0x33: TLS_Ext_KeyShare,
                 # 0x2f: TLS_Ext_CertificateAuthorities,       #XXX
                 # 0x30: TLS_Ext_OIDFilters,                   #XXX
                 0x3374: TLS_Ext_NPN,
@@ -621,6 +699,7 @@ class _ExtensionsLenField(FieldLenField):
         """
         ext = pkt.get_field(self.length_of)
         tmp_len = ext.length_from(pkt)
+
         if tmp_len is None or tmp_len <= 0:
             v = pkt.tls_session.tls_version
             if v is None or v < 0x0304:
@@ -688,12 +767,40 @@ class _ExtensionsField(StrLenField):
             t = struct.unpack("!H", m[:2])[0]
             tmp_len = struct.unpack("!H", m[2:4])[0]
             cls = _tls_ext_cls.get(t, TLS_Ext_Unknown)
+
             if cls is TLS_Ext_KeyShare:
-                from scapy.layers.tls.keyexchange_tls13 import _tls_ext_keyshare_cls  # noqa: E501
-                cls = _tls_ext_keyshare_cls.get(pkt.msgtype, TLS_Ext_Unknown)
+
+                # TLS_Ext_KeyShare can be :
+                #  - TLS_Ext_KeyShare_CH if the message is a ClientHello
+                #  - TLS_Ext_KeyShare_SH if the message is a ServerHello and all parameters are accepted by the serveur
+                #  - TLS_Ext_KeyShare_HRR if message is a ServerHello and the client has not provided a sufficient 
+                #    "key_share" extension
+
+                from scapy.layers.tls.keyexchange_tls13 import (_tls_ext_keyshare_cls, _tls_ext_keyshare_hrr_cls)  # noqa: E501
+    
+                # Because ServerHello and HelloRetryRequest have the same msg_type, 
+                # the only way to distinguish these message is by checking the random_bytes. 
+                # If the random_bytes is equal to SHA256('HelloRetryRequest') then we know
+                # this is a HelloRetryRequest and the TLS_Ext_KeyShare must be parsed as
+                # TLS_Ext_KeyShare_HRR and not as TLS_Ext_KeyShare_SH
+
+                # XXX Precompute the hash
+                digest = hashes.Hash(hashes.SHA256(), backend=default_backend())
+                digest.update(b"HelloRetryRequest")
+                digest_out = digest.finalize()
+
+                if pkt.random_bytes and pkt.random_bytes == digest_out:
+                    cls = _tls_ext_keyshare_hrr_cls.get(pkt.msgtype, TLS_Ext_Unknown)
+                else:
+                    cls = _tls_ext_keyshare_cls.get(pkt.msgtype, TLS_Ext_Unknown)
+
             elif cls is TLS_Ext_PreSharedKey:
                 from scapy.layers.tls.keyexchange_tls13 import _tls_ext_presharedkey_cls  # noqa: E501
                 cls = _tls_ext_presharedkey_cls.get(pkt.msgtype, TLS_Ext_Unknown)  # noqa: E501
+            elif cls is TLS_Ext_SupportedVersions:
+                cls = _tls_ext_supported_version_cls.get(pkt.msgtype, TLS_Ext_Unknown)
+            elif cls is TLS_Ext_EarlyDataIndication:
+                cls = _tls_ext_early_data_cls.get(pkt.msgtype, TLS_Ext_Unknown)
             res.append(cls(m[:tmp_len + 4], tls_session=pkt.tls_session))
             m = m[tmp_len + 4:]
         return res

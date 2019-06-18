@@ -22,8 +22,9 @@ from scapy.utils import randstring
 from scapy.packet import Raw, Padding, bind_layers
 from scapy.layers.inet import TCP
 from scapy.layers.tls.session import _GenericTLSSessionInheritance
-from scapy.layers.tls.handshake import (_tls_handshake_cls, _TLSHandshake,
-                                        TLS13ServerHello)
+from scapy.layers.tls.handshake import (_tls_handshake_cls, _tls13_handshake_cls,
+                                        _TLSHandshake, TLS13ServerHello, 
+                                        TLS13ClientHello)
 from scapy.layers.tls.basefields import (_TLSVersionField, _tls_version,
                                          _TLSIVField, _TLSMACField,
                                          _TLSPadField, _TLSPadLenField,
@@ -89,7 +90,12 @@ class _TLSMsgListField(PacketListField):
         if pkt.type == 22:
             if len(m) >= 1:
                 msgtype = orb(m[0])
-                cls = _tls_handshake_cls.get(msgtype, Raw)
+
+                if ((pkt.tls_session.advertised_tls_version == 0x0304) or
+                    (pkt.tls_session.tls_version and pkt.tls_session.tls_version == 0x0304)):
+                    cls = _tls13_handshake_cls.get(msgtype, Raw)
+                else:
+                    cls = _tls_handshake_cls.get(msgtype, Raw)
         elif pkt.type == 20:
             cls = TLSChangeCipherSpec
         elif pkt.type == 21:
@@ -97,14 +103,16 @@ class _TLSMsgListField(PacketListField):
         elif pkt.type == 23:
             cls = TLSApplicationData
 
+
         if cls is Raw:
             return Raw(m)
         else:
             try:
                 return cls(m, tls_session=pkt.tls_session)
-            except Exception:
+            except Exception as e:
                 if conf.debug_dissector:
                     raise
+                
                 return Raw(m)
 
     def getfield(self, pkt, s):
@@ -135,7 +143,6 @@ class _TLSMsgListField(PacketListField):
                 return ret, [TLSApplicationData(data=b"")]
             else:
                 return ret, [Raw(load=b"")]
-
         if False in six.itervalues(pkt.tls_session.rcs.cipher.ready):
             return ret, _TLSEncryptedContent(remain)
         else:
@@ -174,6 +181,7 @@ class _TLSMsgListField(PacketListField):
                     pkt.type = 22
                 elif isinstance(p, TLSApplicationData):
                     pkt.type = 23
+                
             p.tls_session = pkt.tls_session
             if not pkt.tls_session.frozen:
                 cur = p.raw_stateful()
@@ -191,14 +199,20 @@ class _TLSMsgListField(PacketListField):
         Then, append the content.
         """
         res = b""
+
         for p in val:
             res += self.i2m(pkt, p)
+
+        # Add TLS13ClientHello in case of HelloRetryRequest
         if (isinstance(pkt, _GenericTLSSessionInheritance) and
             _tls_version_check(pkt.tls_session.tls_version, 0x0304) and
-                not isinstance(pkt, TLS13ServerHello)):
-            return s + res
+                not isinstance(pkt.msg[0], TLS13ServerHello) and 
+                not isinstance(pkt.msg[0], TLS13ClientHello)):  #noqa : test
+                return s + res
+
         if not pkt.type:
             pkt.type = 0
+
         hdr = struct.pack("!B", pkt.type) + s[1:5]
         return hdr + res
 
@@ -281,6 +295,9 @@ class TLS(_GenericTLSSessionInheritance):
         as SSLv2 records but TLS ones instead, but hey, we can't be held
         responsible for low-minded extensibility choices.
         """
+        if 'tls_session' in kargs:
+            s = kargs['tls_session']
+
         if _pkt and len(_pkt) >= 2:
             byte0 = orb(_pkt[0])
             byte1 = orb(_pkt[1])
@@ -289,10 +306,12 @@ class TLS(_GenericTLSSessionInheritance):
                 return SSLv2
             else:
                 s = kargs.get("tls_session", None)
+
                 if s and _tls_version_check(s.tls_version, 0x0304):
-                    if s.rcs and not isinstance(s.rcs.cipher, Cipher_NULL):
+                    if (s.prcs and byte0 == 0x17) or (s.pwcs and byte0 == 0x17):
                         from scapy.layers.tls.record_tls13 import TLS13
                         return TLS13
+                
         if _pkt and len(_pkt) < 5:
             # Layer detected as TLS but too small to be a real packet (len<5).
             # Those packets are usually customly implemented
@@ -305,11 +324,13 @@ class TLS(_GenericTLSSessionInheritance):
     def _tls_auth_decrypt(self, hdr, s):
         """
         Provided with the record header and AEAD-ciphered data, return the
-        sliced and clear tuple (nonce, TLSCompressed.fragment, mac). Note that
+        sli
+        ced and clear tuple (nonce, TLSCompressed.fragment, mac). Note that
         we still return the slicing of the original input in case of decryption
         failure. Also, if the integrity check fails, a warning will be issued,
         but we still return the sliced (unauthenticated) plaintext.
         """
+        
         try:
             read_seq_num = struct.pack("!Q", self.tls_session.rcs.seq_num)
             self.tls_session.rcs.seq_num += 1
@@ -394,9 +415,7 @@ class TLS(_GenericTLSSessionInheritance):
         iv = mac = pad = b""
         self.padlen = None
         decryption_success = False
-
         cipher_type = self.tls_session.rcs.cipher.type
-
         if cipher_type == 'block':
             version = struct.unpack("!H", s[1:3])[0]
 
@@ -445,7 +464,6 @@ class TLS(_GenericTLSSessionInheritance):
                 is_mac_ok = self._tls_hmac_verify(chdr, cfrag, mac)
                 if not is_mac_ok:
                     pkt_info = self.firstlayer().summary()
-                    log_runtime.info("TLS: record integrity check failed [%s]", pkt_info)  # noqa: E501
 
         elif cipher_type == 'stream':
             # Decrypt
@@ -470,7 +488,6 @@ class TLS(_GenericTLSSessionInheritance):
                 is_mac_ok = self._tls_hmac_verify(chdr, cfrag, mac)
                 if not is_mac_ok:
                     pkt_info = self.firstlayer().summary()
-                    log_runtime.info("TLS: record integrity check failed [%s]", pkt_info)  # noqa: E501
 
         elif cipher_type == 'aead':
             # Authenticated encryption
@@ -492,7 +509,6 @@ class TLS(_GenericTLSSessionInheritance):
             self.deciphered_len = None
 
         reconstructed_body = iv + frag + mac + pad
-
         return hdr + reconstructed_body + r
 
     def post_dissect(self, s):
@@ -502,16 +518,16 @@ class TLS(_GenericTLSSessionInheritance):
         nothing if the prcs was not set, as this probably means that we're
         working out-of-context (and we need to keep the default rcs).
         """
-        if self.tls_session.triggered_prcs_commit:
-            if self.tls_session.prcs is not None:
-                self.tls_session.rcs = self.tls_session.prcs
-                self.tls_session.prcs = None
-            self.tls_session.triggered_prcs_commit = False
-        if self.tls_session.triggered_pwcs_commit:
-            if self.tls_session.pwcs is not None:
-                self.tls_session.wcs = self.tls_session.pwcs
-                self.tls_session.pwcs = None
-            self.tls_session.triggered_pwcs_commit = False
+        #if self.tls_session.triggered_prcs_commit:
+        #    if self.tls_session.prcs is not None:
+        #        self.tls_session.rcs = self.tls_session.prcs
+        #        self.tls_session.prcs = None
+        #    self.tls_session.triggered_prcs_commit = False
+        #if self.tls_session.triggered_pwcs_commit:
+        #    if self.tls_session.pwcs is not None:
+        #        self.tls_session.wcs = self.tls_session.pwcs
+        #        self.tls_session.pwcs = None
+        #    self.tls_session.triggered_pwcs_commit = False
         return s
 
     def do_dissect_payload(self, s):
@@ -520,14 +536,16 @@ class TLS(_GenericTLSSessionInheritance):
         Note that overloading .guess_payload_class() would not be enough,
         as the TLS session to be used would get lost.
         """
+
         if s:
             try:
                 p = TLS(s, _internal=1, _underlayer=self,
                         tls_session=self.tls_session)
             except KeyboardInterrupt:
                 raise
-            except Exception:
+            except Exception as e:
                 p = conf.raw_layer(s, _internal=1, _underlayer=self)
+            
             self.add_payload(p)
 
     # Building methods

@@ -14,19 +14,47 @@ will be preferred to any other suite the client might propose.
 import os
 import sys
 
+
+from argparse import ArgumentParser
+
 basedir = os.path.abspath(os.path.join(os.path.dirname(__file__),"../../"))
 sys.path=[basedir]+sys.path
 
 from scapy.layers.tls.automaton_srv import TLSServerAutomaton
 
+#if len(sys.argv) == 2:
+#    pcs = int(sys.argv[1], 16)
+#else:
+#    pcs = None
 
-if len(sys.argv) == 2:
-    pcs = int(sys.argv[1], 16)
+psk=None
+session_ticket_path=None
+
+parser = ArgumentParser(description='Simple TLS Client')
+parser.add_argument("--psk", help="External PSK for symmetric authentication (for TLS 1.3)")
+parser.add_argument("--ticket_file", dest='session_ticket_file', help="File to write/read a ticket to (for TLS 1.3)")
+parser.add_argument("--no_pfs", action="store_true", help="Disable (EC)DHE exchange with PFS")
+parser.add_argument("--early_data", action="store_true", help="Attempt to read 0-RTT data")
+parser.add_argument("--client_auth", action="store_true", help="Require client authentication")
+parser.add_argument("--curve", help="Group to advertise (ECC)")
+parser.add_argument("--cookie", action="store_true", help="Send cookie extension in HelloRetryRequest message")
+args = parser.parse_args()
+
+pcs = None
+
+# PFS is set by default...
+if args.no_pfs:
+	psk_mode = "psk_ke"
 else:
-    pcs = None
+	psk_mode = "psk_dhe_ke"
 
 t = TLSServerAutomaton(mycert=basedir+'/test/tls/pki/srv_cert.pem',
                        mykey=basedir+'/test/tls/pki/srv_key.pem',
-                       preferred_ciphersuite=pcs)
+                       preferred_ciphersuite=pcs,
+                       client_auth=args.client_auth,
+                       session_ticket_file=args.session_ticket_file,
+                       early_data=args.early_data,
+                       curve=args.curve,
+                       cookie=args.cookie)
 t.run()
 

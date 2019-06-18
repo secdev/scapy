@@ -24,7 +24,9 @@ from scapy.layers.tls.record import _TLSMsgListField, TLS
 from scapy.layers.tls.crypto.cipher_aead import AEADTagError
 from scapy.layers.tls.crypto.cipher_stream import Cipher_NULL
 from scapy.layers.tls.crypto.common import CipherError
-
+from scapy.layers.tls.crypto.pkcs1 import pkcs_i2osp
+#test
+from scapy.layers.tls.handshake import _TLSHandshake
 
 ###############################################################################
 #   TLS Record Protocol                                                       #
@@ -90,7 +92,7 @@ class TLS13(_GenericTLSSessionInheritance):
     __slots__ = ["deciphered_len"]
     name = "TLS 1.3"
     fields_desc = [ByteEnumField("type", 0x17, _tls_type),
-                   _TLSVersionField("version", 0x0301, _tls_version),
+                   _TLSVersionField("version", 0x0303, _tls_version),
                    _TLSLengthField("len", None),
                    _TLSInnerPlaintextField("inner", TLSInnerPlaintext()),
                    _TLSMACField("auth_tag", None)]
@@ -112,19 +114,28 @@ class TLS13(_GenericTLSSessionInheritance):
         rcs = self.tls_session.rcs
         read_seq_num = struct.pack("!Q", rcs.seq_num)
         rcs.seq_num += 1
+        add_data = (pkcs_i2osp(self.type, 1) +
+                    pkcs_i2osp(self.version, 2) +
+                    pkcs_i2osp(len(s), 2))
+
         try:
-            return rcs.cipher.auth_decrypt(b"", s, read_seq_num)
+            return rcs.cipher.auth_decrypt(add_data, s, read_seq_num)
         except CipherError as e:
             return e.args
         except AEADTagError as e:
             pkt_info = self.firstlayer().summary()
-            log_runtime.info("TLS: record integrity check failed [%s]", pkt_info)  # noqa: E501
             return e.args
 
     def pre_dissect(self, s):
         """
         Decrypt, verify and decompress the message.
         """
+         if self.tls_session.triggered_prcs_commit:
+           if self.tls_session.prcs is not None:
+                self.tls_session.rcs = self.tls_session.prcs
+                self.tls_session.prcs = None
+            self.tls_session.triggered_prcs_commit = False
+        
         if len(s) < 5:
             raise Exception("Invalid record: header is too short.")
 
@@ -144,12 +155,14 @@ class TLS13(_GenericTLSSessionInheritance):
         nothing if the prcs was not set, as this probably means that we're
         working out-of-context (and we need to keep the default rcs).
         """
-        if self.tls_session.triggered_prcs_commit:
-            if self.tls_session.prcs is not None:
-                self.tls_session.rcs = self.tls_session.prcs
-                self.tls_session.prcs = None
-            self.tls_session.triggered_prcs_commit = False
+        #if self.tls_session.triggered_prcs_commit:
+        #    if self.tls_session.prcs is not None:
+        #        self.tls_session.rcs = self.tls_session.prcs
+        #        self.tls_session.prcs = None
+        #    self.tls_session.triggered_prcs_commit = False
+
         return s
+
 
     def do_dissect_payload(self, s):
         """
@@ -163,7 +176,7 @@ class TLS13(_GenericTLSSessionInheritance):
                         tls_session=self.tls_session)
             except KeyboardInterrupt:
                 raise
-            except Exception:
+            except Exception as e:
                 p = conf.raw_layer(s, _internal=1, _underlayer=self)
             self.add_payload(p)
 
@@ -176,7 +189,11 @@ class TLS13(_GenericTLSSessionInheritance):
         wcs = self.tls_session.wcs
         write_seq_num = struct.pack("!Q", wcs.seq_num)
         wcs.seq_num += 1
-        return wcs.cipher.auth_encrypt(s, b"", write_seq_num)
+        add_data = (pkcs_i2osp(self.type, 1) +
+                    pkcs_i2osp(self.version, 2) +
+                    pkcs_i2osp(len(s) + wcs.cipher.tag_len, 2))
+
+        return wcs.cipher.auth_encrypt(s, add_data, write_seq_num)
 
     def post_build(self, pkt, pay):
         """
@@ -184,9 +201,9 @@ class TLS13(_GenericTLSSessionInheritance):
         """
         # Compute the length of TLSPlaintext fragment
         hdr, frag = pkt[:5], pkt[5:]
-        if not isinstance(self.tls_session.rcs.cipher, Cipher_NULL):
-            frag = self._tls_auth_encrypt(frag)
 
+        if not isinstance(self.tls_session.wcs.cipher, Cipher_NULL):
+            frag = self._tls_auth_encrypt(frag)
         if self.len is not None:
             # The user gave us a 'len', let's respect this ultimately
             hdr = hdr[:3] + struct.pack("!H", self.len)
