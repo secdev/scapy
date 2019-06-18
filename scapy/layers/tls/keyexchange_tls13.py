@@ -18,6 +18,9 @@ from scapy.layers.tls.extensions import TLS_Ext_Unknown, _tls_ext
 from scapy.layers.tls.crypto.groups import _tls_named_ffdh_groups, \
     _tls_named_curves, _ffdh_groups, \
     _tls_named_groups
+
+from scapy.layers.tls.crypto.hkdf import TLS13_HKDF
+
 import scapy.modules.six as six
 
 if conf.crypto_valid:
@@ -135,11 +138,12 @@ class KeyShareEntry(Packet):
 
 class TLS_Ext_KeyShare_CH(TLS_Ext_Unknown):
     name = "TLS Extension - Key Share (for ClientHello)"
-    fields_desc = [ShortEnumField("type", 0x28, _tls_ext),
+    fields_desc = [ShortEnumField("type", 0x33, _tls_ext),
                    ShortField("len", None),
                    FieldLenField("client_shares_len", None,
                                  length_of="client_shares"),
-                   PacketListField("client_shares", [], KeyShareEntry,
+                   PacketListField("client_shares", [], 
+                    KeyShareEntry,
                                    length_from=lambda pkt: pkt.client_shares_len)]  # noqa: E501
 
     def post_build(self, pkt, pay):
@@ -149,7 +153,6 @@ class TLS_Ext_KeyShare_CH(TLS_Ext_Unknown):
                 if kse.privkey:
                     if _tls_named_curves[kse.group] in privshares:
                         pkt_info = pkt.firstlayer().summary()
-                        log_runtime.info("TLS: group %s used twice in the same ClientHello [%s]", kse.group, pkt_info)  # noqa: E501
                         break
                     privshares[_tls_named_groups[kse.group]] = kse.privkey
         return super(TLS_Ext_KeyShare_CH, self).post_build(pkt, pay)
@@ -169,14 +172,14 @@ class TLS_Ext_KeyShare_CH(TLS_Ext_Unknown):
 
 class TLS_Ext_KeyShare_HRR(TLS_Ext_Unknown):
     name = "TLS Extension - Key Share (for HelloRetryRequest)"
-    fields_desc = [ShortEnumField("type", 0x28, _tls_ext),
+    fields_desc = [ShortEnumField("type", 0x33, _tls_ext),
                    ShortField("len", None),
                    ShortEnumField("selected_group", None, _tls_named_groups)]
 
 
 class TLS_Ext_KeyShare_SH(TLS_Ext_Unknown):
     name = "TLS Extension - Key Share (for ServerHello)"
-    fields_desc = [ShortEnumField("type", 0x28, _tls_ext),
+    fields_desc = [ShortEnumField("type", 0x33, _tls_ext),
                    ShortField("len", None),
                    PacketField("server_share", None, KeyShareEntry)]
 
@@ -189,7 +192,6 @@ class TLS_Ext_KeyShare_SH(TLS_Ext_Unknown):
                 log_runtime.info("TLS: overwriting previous server key share [%s]", pkt_info)  # noqa: E501
             group_name = _tls_named_groups[self.server_share.group]
             privshare[group_name] = self.server_share.privkey
-
             if group_name in self.tls_session.tls13_client_pubshares:
                 privkey = self.server_share.privkey
                 pubkey = self.tls_session.tls13_client_pubshares[group_name]
@@ -207,9 +209,9 @@ class TLS_Ext_KeyShare_SH(TLS_Ext_Unknown):
         if not self.tls_session.frozen and self.server_share.pubkey:
             # if there is a pubkey, we assume the crypto library is ok
             pubshare = self.tls_session.tls13_server_pubshare
-            if len(pubshare) > 0:
-                pkt_info = r.firstlayer().summary()
-                log_runtime.info("TLS: overwriting previous server key share [%s]", pkt_info)  # noqa: E501
+            #if len(pubshare) > 0:
+            if pubshare:
+                pkt_info = r.firstlayer().summary()                
             group_name = _tls_named_groups[self.server_share.group]
             pubshare[group_name] = self.server_share.pubkey
 
@@ -226,10 +228,11 @@ class TLS_Ext_KeyShare_SH(TLS_Ext_Unknown):
                 self.tls_session.tls13_dhe_secret = pms
         return super(TLS_Ext_KeyShare_SH, self).post_dissection(r)
 
-
 _tls_ext_keyshare_cls = {1: TLS_Ext_KeyShare_CH,
-                         2: TLS_Ext_KeyShare_SH,
-                         6: TLS_Ext_KeyShare_HRR}
+                         2: TLS_Ext_KeyShare_SH}
+
+
+_tls_ext_keyshare_hrr_cls = {2: TLS_Ext_KeyShare_HRR}
 
 
 class Ticket(Packet):
@@ -275,7 +278,7 @@ class PSKBinderEntry(Packet):
 class TLS_Ext_PreSharedKey_CH(TLS_Ext_Unknown):
     # XXX define post_build and post_dissection methods
     name = "TLS Extension - Pre Shared Key (for ClientHello)"
-    fields_desc = [ShortEnumField("type", 0x28, _tls_ext),
+    fields_desc = [ShortEnumField("type", 0x29, _tls_ext),
                    ShortField("len", None),
                    FieldLenField("identities_len", None,
                                  length_of="identities"),
@@ -285,6 +288,16 @@ class TLS_Ext_PreSharedKey_CH(TLS_Ext_Unknown):
                                  length_of="binders"),
                    PacketListField("binders", [], PSKBinderEntry,
                                    length_from=lambda pkt: pkt.binders_len)]
+
+    def post_build(self, pkt, pay):
+
+        # Here we can't compute the binders HMAC values because 
+        # we don't have the entire ClientHello message...
+        if not self.tls_session.pwcs or not self.tls_session.pwcs.hkdf:
+            hkdf = TLS13_HKDF("sha256")
+        else:
+            hkdf = self.tls_session.pwcs.hkdf
+        return super(TLS_Ext_PreSharedKey_CH, self).post_build(pkt, pay)
 
 
 class TLS_Ext_PreSharedKey_SH(TLS_Ext_Unknown):

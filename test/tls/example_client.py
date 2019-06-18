@@ -14,21 +14,56 @@ server at 127.0.0.1:4433, with suite TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA.
 import os
 import sys
 
+from argparse import ArgumentParser
+
 basedir = os.path.abspath(os.path.join(os.path.dirname(__file__),"../../"))
 sys.path=[basedir]+sys.path
 
 from scapy.layers.tls.automaton_cli import TLSClientAutomaton
 from scapy.layers.tls.handshake import TLSClientHello
 
+psk=None
+session_ticket_file=None
+parser = ArgumentParser(description='Simple TLS Client')
+parser.add_argument("--psk", help="External PSK for symmetric authentication (for TLS 1.3)")
+parser.add_argument("--res_master", help="Resumption master secret (for TLS 1.3)")
+parser.add_argument("--ticket_in", dest='session_ticket_file_in', help="File to read a ticket from (for TLS 1.3)")
+parser.add_argument("--ticket_out", dest='session_ticket_file_out', help="File to write a ticket to (for TLS 1.3)")
+parser.add_argument("--no_pfs", action="store_true", help="Disable (EC)DHE exchange with PFS")
+parser.add_argument("--early_data", help="File to read early_data to send")
+parser.add_argument("--ciphersuite", help="Ciphersuite selection")
+parser.add_argument("--curve", help="Group to advertise (ECC)")
 
-if len(sys.argv) == 2:
-    ch = TLSClientHello(ciphers=int(sys.argv[1], 16))
+args = parser.parse_args()
+
+#if len(sys.argv) == 2:
+#    ch = TLSClientHello(ciphers=int(sys.argv[1], 16))
+#else:
+#    ch = None
+
+print("psk : ", args.psk)
+print("res_master : ", args.res_master)
+print("ticket_in : ", args.session_ticket_file_in)
+print("ticket_out : ", args.session_ticket_file_out)
+
+# By default, PFS is set
+if args.no_pfs:
+	psk_mode = "psk_ke"
 else:
-    ch = None
+	psk_mode = "psk_dhe_ke"
 
-t = TLSClientAutomaton(client_hello=ch,
-                       version="tls13-d18",
+t = TLSClientAutomaton(client_hello=None,
+                       version="tls13",
                        mycert=basedir+"/test/tls/pki/cli_cert.pem",
-                       mykey=basedir+"/test/tls/pki/cli_key.pem")
+                       mykey=basedir+"/test/tls/pki/cli_key.pem",
+                       psk=args.psk,
+                       psk_mode=psk_mode,
+                       resumption_master_secret=args.res_master,
+                       session_ticket_file_in=args.session_ticket_file_in,
+                       session_ticket_file_out=args.session_ticket_file_out,
+                       early_data_file=args.early_data,
+                       ciphersuite=args.ciphersuite,
+                       curve=args.curve
+                       )
 t.run()
 

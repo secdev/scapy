@@ -49,11 +49,12 @@ _tls_hash_sig = {0x0000: "none+anon", 0x0001: "none+rsa",
                  0x0502: "sha384+dsa", 0x0503: "sha384+ecdsa",
                  0x0600: "sha512+anon", 0x0601: "sha512+rsa",
                  0x0602: "sha512+dsa", 0x0603: "sha512+ecdsa",
-                 0x0804: "sha256+rsapss",
-                 0x0805: "sha384+rsapss",
-                 0x0806: "sha512+rsapss",
+                 0x0804: "sha256+rsaepss", 
+                 0x0805: "sha384+rsaepss",
+                 0x0806: "sha512+rsaepss",
                  0x0807: "ed25519",
-                 0x0808: "ed448"}
+                 0x0808: "ed448",
+                 0x0809: "sha256+rsapss"}
 
 
 def phantom_mode(pkt):
@@ -155,7 +156,7 @@ class _TLSSignature(_GenericTLSSessionInheritance):
     #XXX 'sig_alg' should be set in __init__ depending on the context.
     """
     name = "TLS Digital Signature"
-    fields_desc = [SigAndHashAlgField("sig_alg", 0x0401, _tls_hash_sig),
+    fields_desc = [SigAndHashAlgField("sig_alg", 0x0804, _tls_hash_sig),
                    SigLenField("sig_len", None, fmt="!H",
                                length_of="sig_val"),
                    SigValField("sig_val", None,
@@ -174,6 +175,7 @@ class _TLSSignature(_GenericTLSSessionInheritance):
         Note that, even when 'sig_alg' is not None, we use the signature scheme
         of the PrivKey (neither do we care to compare the both of them).
         """
+        from scapy.error import log_runtime
         if self.sig_alg is None:
             if self.tls_session.tls_version >= 0x0300:
                 self.sig_val = key.sign(m, t='pkcs', h='md5-sha1')
@@ -185,6 +187,7 @@ class _TLSSignature(_GenericTLSSessionInheritance):
                 t = "pss"
             else:
                 t = "pkcs"
+            
             self.sig_val = key.sign(m, t=t, h=h)
 
     def _verify_sig(self, m, cert):
