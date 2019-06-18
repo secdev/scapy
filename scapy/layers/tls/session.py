@@ -71,6 +71,8 @@ class connState(object):
                  ciphersuite=None,
                  tls_version=0x0303):
 
+
+
         self.tls_version = tls_version
 
         # It is the user's responsibility to keep the record seq_num
@@ -409,6 +411,8 @@ class tlsSession(object):
         # The default value corresponds to TLS 1.2 (and TLS 1.3, incidentally).
         self.advertised_tls_version = 0x0303
 
+        self.advertised_sig_algs = None
+
         # The agreed-upon TLS version found in the ServerHello.
         self.tls_version = None
 
@@ -417,6 +421,9 @@ class tlsSession(object):
         self.server_random = None
         self.pre_master_secret = None
         self.master_secret = None
+
+        # The agreed-upon ciphersuite found in the ServerHello
+        self.ciphersuite = None
 
         # A session ticket received by the client.
         self.client_session_ticket = None
@@ -431,11 +438,15 @@ class tlsSession(object):
 
         # These attributes should only be used with TLS 1.3 connections.
         self.tls13_psk_secret = None
+        self.tls13_psk_mode = None
         self.tls13_early_secret = None
         self.tls13_dhe_secret = None
         self.tls13_handshake_secret = None
         self.tls13_master_secret = None
         self.tls13_derived_secrets = {}
+        self.post_handshake_auth = False
+        self.tls13_ticket_ciphersuite = None
+        self.tls13_retry = False
 
         # Handshake messages needed for Finished computation/validation.
         # No record layer headers, no HelloRequests, no ChangeCipherSpecs.
@@ -558,98 +569,134 @@ class tlsSession(object):
 
     # Secrets management for TLS 1.3
 
-    def compute_tls13_early_secrets(self):
+
+    # Compute the Early Secret and the binder key
+    def compute_tls13_early_secrets(self, external=False):
         """
         Ciphers key and IV are updated accordingly for 0-RTT data.
         self.handshake_messages should be ClientHello only.
         """
-        # we use the prcs rather than the pwcs in a totally arbitrary way
-        if self.prcs is None:
-            # too soon
-            return
 
-        hkdf = self.prcs.hkdf
+        # we use the prcs rather than the pwcs in a totally arbitrary way
+        #if self.prcs is None:
+        #    log_runtime.warning("[session.py][tlsSession][compute_tls13_early_secrets] too soon return")
+        #    # too soon
+        #    return
+
+        # if no hash algorithm is set, default to SHA-256
+        if self.prcs and self.prcs.hkdf:
+            hkdf = self.prcs.hkdf
+        elif self.pwcs and self.pwcs.hkdf:
+            hkdf = self.pwcs.hkdf
+        else:
+            hkdf = TLS13_HKDF("sha256")
 
         self.tls13_early_secret = hkdf.extract(None,
                                                self.tls13_psk_secret)
 
-        bk = hkdf.derive_secret(self.tls13_early_secret,
-                                b"external psk binder key",
-                                # "resumption psk binder key",
+        if (external):
+            bk = hkdf.derive_secret(self.tls13_early_secret,
+                                b"ext binder",
                                 b"")
+        else:
+            bk = hkdf.derive_secret(self.tls13_early_secret,
+                                b"res binder",
+                                b"")
+
         self.tls13_derived_secrets["binder_key"] = bk
 
-        if len(self.handshake_messages) > 1:
-            # these secrets are not defined in case of HRR
-            return
+
+    def compute_tls13_other_early_secrets(self):
+        # if no hash algorithm is set, default to SHA-256
+        if self.prcs and self.prcs.hkdf:
+            hkdf = self.prcs.hkdf
+        elif self.pwcs and self.pwcs.hkdf:
+            hkdf = self.pwcs.hkdf
+        else:
+            hkdf = TLS13_HKDF("sha256")
 
         cets = hkdf.derive_secret(self.tls13_early_secret,
-                                  b"client early traffic secret",
+                                  b"c e traffic",
                                   b"".join(self.handshake_messages))
-        self.tls13_derived_secrets["client_early_traffic_secret"] = cets
 
+        self.tls13_derived_secrets["client_early_traffic_secret"] = cets
         ees = hkdf.derive_secret(self.tls13_early_secret,
-                                 b"early exporter master secret",
+                                 b"e exp master",
                                  b"".join(self.handshake_messages))
         self.tls13_derived_secrets["early_exporter_secret"] = ees
 
-        if self.connection_end == "server":
-            self.prcs.tls13_derive_keys(cets)
-        elif self.connection_end == "client":
-            self.pwcs.tls13_derive_keys(cets)
+        #if self.connection_end == "server":
+        #    if self.prcs:
+        #        self.prcs.tls13_derive_keys(cets)
+        #elif self.connection_end == "client":
+        #    if self.pwcs:
+        #        self.pwcs.tls13_derive_keys(cets)
 
     def compute_tls13_handshake_secrets(self):
         """
         Ciphers key and IV are updated accordingly for Handshake data.
         self.handshake_messages should be ClientHello...ServerHello.
         """
+        if self.prcs:
+            hkdf = self.prcs.hkdf
+        elif self.pwcs:
+            hkdf = self.pwcs.hkdf
+        else:
+            raise
+
         if self.tls13_early_secret is None:
-            warning("No early secret. This is abnormal.")
+            self.tls13_early_secret = hkdf.extract(None,
+                                               self.tls13_psk_secret)
 
-        hkdf = self.prcs.hkdf
-
-        self.tls13_handshake_secret = hkdf.extract(self.tls13_early_secret,
-                                                   self.tls13_dhe_secret)
+        Secret = hkdf.derive_secret(self.tls13_early_secret, b"derived", b"")
+        self.tls13_handshake_secret = hkdf.extract(Secret, self.tls13_dhe_secret)
 
         chts = hkdf.derive_secret(self.tls13_handshake_secret,
-                                  b"client handshake traffic secret",
+                                  b"c hs traffic",
                                   b"".join(self.handshake_messages))
-        self.tls13_derived_secrets["client_handshake_traffic_secret"] = chts
+        log_runtime.warning("[session.py][tlsSession][compute_tls13_handshake_secrets] client_handshake_traffic_secret= %s" % chts)
+
+
 
         shts = hkdf.derive_secret(self.tls13_handshake_secret,
-                                  b"server handshake traffic secret",
+                                  b"s hs traffic",
                                   b"".join(self.handshake_messages))
         self.tls13_derived_secrets["server_handshake_traffic_secret"] = shts
 
-        if self.connection_end == "server":
-            self.prcs.tls13_derive_keys(chts)
-            self.pwcs.tls13_derive_keys(shts)
-        elif self.connection_end == "client":
-            self.pwcs.tls13_derive_keys(chts)
-            self.prcs.tls13_derive_keys(shts)
+        #if self.connection_end == "server":
+        #    self.prcs.tls13_derive_keys(chts)
+        #    self.pwcs.tls13_derive_keys(shts)
+        #elif self.connection_end == "client":
+        #    self.pwcs.tls13_derive_keys(chts)
+        #    self.prcs.tls13_derive_keys(shts)
 
     def compute_tls13_traffic_secrets(self):
         """
         Ciphers key and IV are updated accordingly for Application data.
         self.handshake_messages should be ClientHello...ServerFinished.
         """
-        hkdf = self.prcs.hkdf
+        if self.prcs and self.prcs.hkdf:
+            hkdf = self.prcs.hkdf
+        elif self.pwcs and self.pwcs.hkdf:
+            hkdf = self.pwcs.hkdf
 
-        self.tls13_master_secret = hkdf.extract(self.tls13_handshake_secret,
+        self.tls13_master_secret = hkdf.extract(hkdf.derive_secret(self.tls13_handshake_secret,
+                                                        b"derived",
+                                                        b""),
                                                 None)
 
         cts0 = hkdf.derive_secret(self.tls13_master_secret,
-                                  b"client application traffic secret",
+                                  b"c ap traffic",
                                   b"".join(self.handshake_messages))
         self.tls13_derived_secrets["client_traffic_secrets"] = [cts0]
 
         sts0 = hkdf.derive_secret(self.tls13_master_secret,
-                                  b"server application traffic secret",
+                                  b"s ap traffic",
                                   b"".join(self.handshake_messages))
         self.tls13_derived_secrets["server_traffic_secrets"] = [sts0]
 
         es = hkdf.derive_secret(self.tls13_master_secret,
-                                b"exporter master secret",
+                                b"exp master",
                                 b"".join(self.handshake_messages))
         self.tls13_derived_secrets["exporter_secret"] = es
 
@@ -698,32 +745,51 @@ class tlsSession(object):
             hkdf = self.prcs.hkdf
         elif self.connection_end == "client":
             hkdf = self.pwcs.hkdf
+
+        #debug : self.tls13_master_secret is None ?
         rs = hkdf.derive_secret(self.tls13_master_secret,
-                                b"resumption master secret",
+                                b"res master",
                                 b"".join(self.handshake_messages))
         self.tls13_derived_secrets["resumption_secret"] = rs
 
-    def compute_tls13_next_traffic_secrets(self):
+    def compute_tls13_next_traffic_secrets(self, connection_end, read_or_write):
         """
         Ciphers key and IV are updated accordingly.
         """
         hkdf = self.prcs.hkdf
         hl = hkdf.hash.digest_size
 
-        cts = self.tls13_derived_secrets["client_traffic_secrets"]
-        ctsN = cts[-1]
-        ctsN_1 = hkdf.expand_label(ctsN, "application traffic secret", "", hl)
-        cts.append(ctsN_1)
+        if read_or_write == "read":
+            if connection_end == "client":
 
-        stsN_1 = hkdf.expand_label(ctsN, "application traffic secret", "", hl)
-        cts.append(stsN_1)
+                cts = self.tls13_derived_secrets["client_traffic_secrets"]
+                ctsN = cts[-1]
+                ctsN_1 = hkdf.expand_label(ctsN, b"traffic upd", b"", hl)
+                cts.append(ctsN_1)
+                self.prcs.tls13_derive_keys(ctsN_1)
+            elif connection_end == "server":
+                sts = self.tls13_derived_secrets["server_traffic_secrets"]
+                stsN = sts[-1]
+                stsN_1 = hkdf.expand_label(stsN, b"traffic upd", b"", hl)
+                sts.append(stsN_1)
 
-        if self.connection_end == "server":
-            self.prcs.tls13_derive_keys(ctsN_1)
-            self.pwcs.tls13_derive_keys(stsN_1)
-        elif self.connection_end == "client":
-            self.pwcs.tls13_derive_keys(ctsN_1)
-            self.prcs.tls13_derive_keys(stsN_1)
+                self.prcs.tls13_derive_keys(stsN_1)
+
+        elif read_or_write == "write":
+            if connection_end == "client":
+                cts = self.tls13_derived_secrets["client_traffic_secrets"]
+                ctsN = cts[-1]
+                ctsN_1 = hkdf.expand_label(ctsN, b"traffic upd", b"", hl)
+                cts.append(ctsN_1)
+                self.pwcs.tls13_derive_keys(ctsN_1)
+            elif connection_end == "server":
+                sts = self.tls13_derived_secrets["server_traffic_secrets"]
+                stsN = sts[-1]
+                stsN_1 = hkdf.expand_label(stsN, b"traffic upd", b"", hl)
+                sts.append(stsN_1)
+
+                self.pwcs.tls13_derive_keys(stsN_1)
+
 
     # Tests for record building/parsing
 
@@ -799,6 +865,7 @@ class _GenericTLSSessionInheritance(Packet):
 
     def __init__(self, _pkt="", post_transform=None, _internal=0,
                  _underlayer=None, tls_session=None, **fields):
+
         try:
             setme = self.tls_session is None
         except Exception:

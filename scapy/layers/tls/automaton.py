@@ -16,6 +16,8 @@ from scapy.packet import Raw
 from scapy.layers.tls.basefields import _tls_type
 from scapy.layers.tls.cert import Cert, PrivKey
 from scapy.layers.tls.record import TLS
+#test
+from scapy.layers.tls.handshake import _TLSHandshake
 from scapy.layers.tls.record_sslv2 import SSLv2
 from scapy.layers.tls.record_tls13 import TLS13
 
@@ -49,6 +51,19 @@ class _TLSAutomaton(Automaton):
     across TLS records and TCP packets. This is why we use a 'get_next_msg'
     method for feeding a list of received messages, 'buffer_in'. Raw data
     which has not yet been interpreted as a TLS record is kept in 'remain_in'.
+
+
+    Client        Server
+      | --------->>> |    C1 - ClientHello
+      | <<<--------- |    S1 - ServerHello
+      | <<<--------- |    S1 - EncryptedExtensions
+      | <<<--------- |    S1 - Certificate
+      | <<<--------- |    S1 - CertificateVerify
+      | <<<--------- |    S1 - ServerFinished [encrypted]
+      | --------->>> |    C2 - ClientFinished Finished [encrypted]
+
+
+
     """
 
     def parse_args(self, mycert=None, mykey=None, **kargs):
@@ -91,6 +106,8 @@ class _TLSAutomaton(Automaton):
         3 more bytes in order to get the length of the TLS record, and
         finally we can retrieve the remaining of the record.
         """
+
+
         if self.buffer_in:
             # A message is already available.
             return
@@ -138,20 +155,27 @@ class _TLSAutomaton(Automaton):
             # Remote peer is not willing to respond
             return
 
-        p = TLS(self.remain_in, tls_session=self.cur_session)
-        self.cur_session = p.tls_session
-        self.remain_in = b""
-        if isinstance(p, SSLv2) and not p.msg:
-            p.msg = Raw("")
-        if self.cur_session.tls_version is None or \
-           self.cur_session.tls_version < 0x0304:
-            self.buffer_in += p.msg
+        if (byte0 == 0x17 and (self.cur_session.advertised_tls_version >= 0x0304 or self.cur_session.tls_version >= 0x0304)):
+            p = TLS13(self.remain_in, tls_session=self.cur_session)
+            self.remain_in = b""
+            self.buffer_in += p.inner.msg
         else:
-            if isinstance(p, TLS13):
-                self.buffer_in += p.inner.msg
-            else:
-                # should be TLS13ServerHello only
+
+            p = TLS(self.remain_in, tls_session=self.cur_session)
+            self.cur_session = p.tls_session
+            self.remain_in = b""
+            if isinstance(p, SSLv2) and not p.msg:
+                p.msg = Raw("")
+
+            if self.cur_session.tls_version is None or \
+               self.cur_session.tls_version < 0x0304:
                 self.buffer_in += p.msg
+            else:
+                if isinstance(p, TLS13):
+                    self.buffer_in += p.inner.msg
+                else:
+                    # should be TLS13ServerHello only
+                    self.buffer_in += p.msg
 
         while p.payload:
             if isinstance(p.payload, Raw):
@@ -174,8 +198,11 @@ class _TLSAutomaton(Automaton):
         # Maybe we already parsed the expected packet, maybe not.
         if get_next_msg:
             self.get_next_msg()
+
+        from scapy.layers.tls.handshake import TLSClientHello
         if (not self.buffer_in or
-                not isinstance(self.buffer_in[0], pkt_cls)):
+                (not isinstance(self.buffer_in[0], pkt_cls) and 
+                not (isinstance(self.buffer_in[0], TLSClientHello) and self.cur_session.advertised_tls_version == 0x0304))):
             return
         self.cur_pkt = self.buffer_in[0]
         self.buffer_in = self.buffer_in[1:]
@@ -196,8 +223,12 @@ class _TLSAutomaton(Automaton):
             self.buffer_out.append(SSLv2(tls_session=self.cur_session))
         elif is_tls13:
             self.buffer_out.append(TLS13(tls_session=self.cur_session))
-        else:
+
+        elif is_tls13 is None:
             self.buffer_out.append(TLS(tls_session=self.cur_session))
+        else:
+            self.buffer_out.append(TLS(version=0x0303, tls_session=self.cur_session))
+            #self.buffer_out.append(TLS(type=22, version=0x0303, tls_session=self.cur_session))
 
     def add_msg(self, pkt):
         """
