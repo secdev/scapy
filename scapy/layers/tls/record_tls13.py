@@ -26,7 +26,6 @@ from scapy.layers.tls.crypto.cipher_stream import Cipher_NULL
 from scapy.layers.tls.crypto.common import CipherError
 from scapy.layers.tls.crypto.pkcs1 import pkcs_i2osp
 
-
 ###############################################################################
 #   TLS Record Protocol                                                       #
 ###############################################################################
@@ -126,6 +125,7 @@ class TLS13(_GenericTLSSessionInheritance):
         except AEADTagError as e:
             pkt_info = self.firstlayer().summary()
             log_runtime.info("TLS: record integrity check failed [%s]", pkt_info) # noqa: E501
+
             return e.args
 
     def pre_dissect(self, s):
@@ -166,6 +166,7 @@ class TLS13(_GenericTLSSessionInheritance):
 
         return s
 
+
     def do_dissect_payload(self, s):
         """
         Try to dissect the following data as a TLS message.
@@ -178,7 +179,7 @@ class TLS13(_GenericTLSSessionInheritance):
                         tls_session=self.tls_session)
             except KeyboardInterrupt:
                 raise
-            except Exception:
+            except Exception as e:
                 p = conf.raw_layer(s, _internal=1, _underlayer=self)
             self.add_payload(p)
 

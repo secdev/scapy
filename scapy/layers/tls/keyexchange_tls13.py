@@ -19,6 +19,8 @@ from scapy.layers.tls.crypto.groups import _tls_named_ffdh_groups, \
     _tls_named_curves, _ffdh_groups, \
     _tls_named_groups
 
+from scapy.layers.tls.crypto.hkdf import TLS13_HKDF
+
 import scapy.modules.six as six
 
 if conf.crypto_valid:
@@ -141,7 +143,8 @@ class TLS_Ext_KeyShare_CH(TLS_Ext_Unknown):
                    ShortField("len", None),
                    FieldLenField("client_shares_len", None,
                                  length_of="client_shares"),
-                   PacketListField("client_shares", [], KeyShareEntry,
+                   PacketListField("client_shares", [], 
+                    KeyShareEntry,
                                    length_from=lambda pkt: pkt.client_shares_len)]  # noqa: E501
 
     def post_build(self, pkt, pay):
@@ -212,6 +215,7 @@ class TLS_Ext_KeyShare_SH(TLS_Ext_Unknown):
             if pubshare:
                 pkt_info = pkt.firstlayer().summary()
                 log_runtime.info("TLS: overwriting previous server key share [%s]", pkt_info) # noqa: E501
+
             group_name = _tls_named_groups[self.server_share.group]
             pubshare[group_name] = self.server_share.pubkey
 
@@ -240,7 +244,6 @@ class TLS_Ext_KeyShare_SH(TLS_Ext_Unknown):
                 self.tls_session.tls13_dhe_secret = pms
 
         return super(TLS_Ext_KeyShare_SH, self).post_dissection(pkt)
-
 
 _tls_ext_keyshare_cls = {1: TLS_Ext_KeyShare_CH,
                          2: TLS_Ext_KeyShare_SH}
@@ -302,6 +305,16 @@ class TLS_Ext_PreSharedKey_CH(TLS_Ext_Unknown):
                                  length_of="binders"),
                    PacketListField("binders", [], PSKBinderEntry,
                                    length_from=lambda pkt: pkt.binders_len)]
+
+    def post_build(self, pkt, pay):
+
+        # Here we can't compute the binders HMAC values because 
+        # we don't have the entire ClientHello message...
+        if not self.tls_session.pwcs or not self.tls_session.pwcs.hkdf:
+            hkdf = TLS13_HKDF("sha256")
+        else:
+            hkdf = self.tls_session.pwcs.hkdf
+        return super(TLS_Ext_PreSharedKey_CH, self).post_build(pkt, pay)
 
 
 class TLS_Ext_PreSharedKey_SH(TLS_Ext_Unknown):

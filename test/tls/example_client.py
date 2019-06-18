@@ -13,7 +13,6 @@ server at 127.0.0.1:4433, with suite TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA.
 import os
 import sys
 
-
 basedir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"))
 sys.path = [basedir] + sys.path
 

@@ -156,7 +156,7 @@ class _AEADCipher(six.with_metaclass(_AEADCipherMetaclass, object)):
             res += encryptor.tag
         else:
             res = self._cipher.encrypt(self._get_nonce(), P, A)
-
+        
         nonce_explicit = pkcs_i2osp(self.nonce_explicit,
                                     self.nonce_explicit_len)
         self._update_nonce_explicit()
@@ -328,6 +328,7 @@ class _AEADCipher_TLS13(six.with_metaclass(_AEADCipherMetaclass, object)):
             if (conf.crypto_valid_advanced and
                     isinstance(self._cipher, AESCCM)):
                 res = self._cipher.encrypt(self._get_nonce(seq_num), P, A)
+
             else:
                 res = self._cipher.encrypt(self._get_nonce(seq_num), P, A)
         return res
@@ -347,7 +348,6 @@ class _AEADCipher_TLS13(six.with_metaclass(_AEADCipherMetaclass, object)):
 
         if hasattr(self, "pc_cls"):
             self._cipher.mode._initialization_vector = self._get_nonce(seq_num)
-
             decryptor = self._cipher.decryptor()
             decryptor.authenticate_additional_data(A)
             P = decryptor.update(C)

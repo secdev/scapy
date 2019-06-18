@@ -14,7 +14,6 @@ will be preferred to any other suite the client might propose.
 import os
 import sys
 
-
 basedir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"))
 sys.path = [basedir] + sys.path
 

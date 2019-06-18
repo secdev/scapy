@@ -71,6 +71,8 @@ class connState(object):
                  ciphersuite=None,
                  tls_version=0x0303):
 
+
+
         self.tls_version = tls_version
 
         # It is the user's responsibility to keep the record seq_num
@@ -568,13 +570,11 @@ class tlsSession(object):
     # Secrets management for TLS 1.3
 
     # Compute the Early Secret and the binder key
-
     def compute_tls13_early_secrets(self, external=False):
         """
         Ciphers key and IV are updated accordingly for 0-RTT data.
         self.handshake_messages should be ClientHello only.
         """
-
         # we use the prcs rather than the pwcs in a totally arbitrary way
         # if self.prcs is None:
         #    # too soon
@@ -660,7 +660,6 @@ class tlsSession(object):
             hkdf = self.pwcs.hkdf
         else:
             raise
-
         if self.tls13_early_secret is None:
             self.tls13_early_secret = hkdf.extract(None,
                                                    self.tls13_psk_secret)
@@ -668,11 +667,12 @@ class tlsSession(object):
         secret = hkdf.derive_secret(self.tls13_early_secret, b"derived", b"")
         self.tls13_handshake_secret = hkdf.extract(secret, self.tls13_dhe_secret)  # noqa: E501
 
-
         chts = hkdf.derive_secret(self.tls13_handshake_secret,
                                   b"c hs traffic",
                                   b"".join(self.handshake_messages))
-        self.tls13_derived_secrets["client_handshake_traffic_secret"] = chts
+        log_runtime.warning("[session.py][tlsSession][compute_tls13_handshake_secrets] client_handshake_traffic_secret= %s" % chts)
+
+
 
         shts = hkdf.derive_secret(self.tls13_handshake_secret,
                                   b"s hs traffic",
@@ -780,7 +780,6 @@ class tlsSession(object):
 
         if read_or_write == "read":
             if connection_end == "client":
-
                 cts = self.tls13_derived_secrets["client_traffic_secrets"]
                 ctsN = cts[-1]
                 ctsN_1 = hkdf.expand_label(ctsN, b"traffic upd", b"", hl)
@@ -808,7 +807,7 @@ class tlsSession(object):
                 sts.append(stsN_1)
 
                 self.pwcs.tls13_derive_keys(stsN_1)
-
+                
     # Tests for record building/parsing
 
     def consider_read_padding(self):

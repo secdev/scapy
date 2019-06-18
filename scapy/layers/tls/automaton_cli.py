@@ -61,8 +61,6 @@ from scapy.layers.tls.crypto.suites import _tls_cipher_suites, \
 from scapy.layers.tls.crypto.groups import _tls_named_groups
 
 
-
-
 class TLSClientAutomaton(_TLSAutomaton):
     """
     A simple TLS test client automaton. Try to overload some states or
@@ -94,6 +92,7 @@ class TLSClientAutomaton(_TLSAutomaton):
                    curve=None,
                    post_handshake_auth=False,
                    **kargs):
+
 
         super(TLSClientAutomaton, self).parse_args(mycert=mycert,
                                                    mykey=mykey,
@@ -245,6 +244,7 @@ class TLSClientAutomaton(_TLSAutomaton):
                                                        hash_len)
 
                 self.vprint("[debug] resumption PSK : %s" % s.tls13_psk_secret)
+
         raise self.CONNECT()
 
     @ATMT.state()
@@ -367,7 +367,7 @@ class TLSClientAutomaton(_TLSAutomaton):
     @ATMT.state()
     def HANDLED_SERVERKEYEXCHANGE(self):
         pass
-
+    
     def should_handle_CertificateRequest(self):
         """
         XXX We should check the CertificateRequest attributes for discrepancies
@@ -540,6 +540,7 @@ class TLSClientAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def WAIT_CLIENTDATA(self):
+        self.vprint("WAIT_CLIENTDATA")
         pass
 
     @ATMT.condition(WAIT_CLIENTDATA, prio=1)
@@ -599,7 +600,6 @@ class TLSClientAutomaton(_TLSAutomaton):
 
     @ATMT.condition(RECEIVED_SERVERDATA, prio=1)
     def should_handle_ServerData(self):
-        self.vprint("should_handle_ServerData")
         if not self.buffer_in:
             raise self.WAIT_CLIENTDATA()
 
@@ -663,6 +663,7 @@ class TLSClientAutomaton(_TLSAutomaton):
             print("> Received: %r" % p)
         self.buffer_in = self.buffer_in[1:]
         raise self.HANDLED_SERVERDATA()
+
 
     @ATMT.state()
     def HANDLED_SERVERDATA(self):
@@ -977,6 +978,7 @@ class TLSClientAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def TLS13_START(self):
+        self.vprint("TLS13_START")
         pass
 
     @ATMT.condition(TLS13_START)
@@ -1126,7 +1128,6 @@ class TLSClientAutomaton(_TLSAutomaton):
     def tls13_should_add_ClientHello_Retry(self):
         s = self.cur_session
         s.tls13_retry = True
-
         # we have to use the legacy, plaintext TLS record here
         self.add_record(is_tls13=False)
 
@@ -1191,7 +1192,6 @@ class TLSClientAutomaton(_TLSAutomaton):
 
                 ext += TLS_Ext_PreSharedKey_CH(identities=[psk_id],
                                                binders=[psk_binder_entry])
-
             else:
                 hkdf = TLS13_HKDF("sha256")
                 hash_len = hkdf.hash.digest_size

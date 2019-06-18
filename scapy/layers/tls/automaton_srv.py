@@ -557,6 +557,7 @@ class TLSServerAutomaton(_TLSAutomaton):
     def tls13_HANDLED_CLIENTHELLO(self):
         s = self.cur_session
         m = s.handshake_messages_parsed[-1]
+
         """
           Check if we have to send an HelloRetryRequest
           XXX check also with non ECC groups
@@ -641,6 +642,7 @@ class TLSServerAutomaton(_TLSAutomaton):
         ext = []
         ext += TLS_Ext_SupportedVersion_SH(version="TLS 1.3")
         ext += TLS_Ext_KeyShare_HRR(selected_group=_tls_named_groups[self.curve])  # noqa: E501
+
         if self.cookie:
             ext += TLS_Ext_Cookie()
         p = TLS13HelloRetryRequest(cipher=c, ext=ext)
@@ -662,7 +664,6 @@ class TLSServerAutomaton(_TLSAutomaton):
 
         p = self.buffer_in[0]
         self.buffer_in = self.buffer_in[1:]
-
         #    We check that the server can handle early_data and
         #    that the size of the data received is within the limit
         #    authorized by the server
@@ -833,7 +834,6 @@ class TLSServerAutomaton(_TLSAutomaton):
                     if psk_key_exchange_mode == 1:
                         server_kse = KeyShareEntry(group=group)
                         ext += [TLS_Ext_KeyShare_SH(server_share=server_kse)]
-
                     ext += [TLS_Ext_PreSharedKey_SH(selected_identity=0)]
                     self.cur_session.tls13_psk_secret = resumption_psk
         else:
@@ -937,7 +937,6 @@ class TLSServerAutomaton(_TLSAutomaton):
         else:
             self.raise_on_packet(TLSFinished,
                                  self.TLS13_HANDLED_CLIENTFINISHED)
-
     @ATMT.condition(tls13_RECEIVED_CLIENTFLIGHT2, prio=2)
     def tls13_should_handle_ClientFinished(self):
         self.raise_on_packet(TLSFinished,
@@ -1000,7 +999,6 @@ class TLSServerAutomaton(_TLSAutomaton):
         if self.is_echo_server:
             self.vprint("Will now act as a simple echo server.")
         raise self.WAITING_CLIENTDATA()
-
     #                   end of TLS 1.3 handshake                              #
 
     @ATMT.state()
@@ -1169,6 +1167,7 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.condition(RECEIVED_CLIENTFLIGHT1, prio=3)
     def sslv2_should_handle_ClientHello(self):
+        self.vprint("[debug] sslv2_should_handle_ClientHello")
         self.raise_on_packet(SSLv2ClientHello,
                              self.SSLv2_HANDLED_CLIENTHELLO)
 
