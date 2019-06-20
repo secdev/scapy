@@ -1121,6 +1121,11 @@ def test_tls_without_cryptography(get_algs_from_ciphersuite_name_mock):
 
 test_tls_without_cryptography()
 
+= Truncated TCP segment
+
+pkt = Ether(hex_bytes('00155dfb587a00155dfb58430800450005dc54d3400070065564400410d40a00000d01bb044e8b86744e16063ac45010faf06ba9000016030317c30200005503035cb336a067d53a5d2cedbdfec666ac740afbd0637ddd13eddeab768c3c63abee20981a0000d245f1c905b329323ad67127cd4b907a49f775c331d0794149aca7cdc02800000d0005000000170000ff010001000b000ec6000ec300090530820901308206e9a00302010202132000036e72aded906765595fae000000036e72300d06092a864886f70d01010b050030818b310b30090603550406130255533113'))
+assert TLSServerHello in pkt
+
 ###############################################################################
 ########################### TLS Misc tests ####################################
 ###############################################################################
