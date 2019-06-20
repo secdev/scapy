@@ -814,7 +814,7 @@ class ICMP(Packet):
                    ConditionalField(IPField("addr_mask", "0.0.0.0"), lambda pkt:pkt.type in [17, 18]),  # noqa: E501
                    ConditionalField(ShortField("nexthopmtu", 0), lambda pkt:pkt.type == 3),  # noqa: E501
                    ConditionalField(ShortField("unused", 0), lambda pkt:pkt.type in [11, 12]),  # noqa: E501
-                   ConditionalField(IntField("unused", 0), lambda pkt:pkt.type not in [0, 3, 5, 8, 11, 12, 13, 14, 15, 16, 17, 18])  # noqa: E501
+                   ConditionalField(IntField("unused2", 0), lambda pkt:pkt.type not in [0, 3, 5, 8, 11, 12, 13, 14, 15, 16, 17, 18])  # noqa: E501
                    ]
 
     def post_build(self, p, pay):
