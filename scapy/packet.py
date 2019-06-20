@@ -179,6 +179,8 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
         Initialize each fields of the fields_desc dict
         """
         for f in flist:
+            if f.name in self.default_fields:
+                raise Exception('Field "{}" is repeated for type "{}"'.format(f.name, self.name))
             self.default_fields[f.name] = copy.deepcopy(f.default)
             self.fieldtype[f.name] = f
             if f.holds_packets:
