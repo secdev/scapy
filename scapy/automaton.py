@@ -460,7 +460,8 @@ class _ATMT_to_supersocket:
         self.automaton = automaton
 
     def __call__(self, proto, *args, **kargs):
-        return _ATMT_supersocket(self.name, self.ioevent, self.automaton, proto, *args, **kargs)  # noqa: E501
+        return _ATMT_supersocket(self.name, self.ioevent, self.automaton, proto,
+                                 *args, **kargs)
 
 
 class Automaton_metaclass(type):
