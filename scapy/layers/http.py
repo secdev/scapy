@@ -215,7 +215,7 @@ def _parse_headers_and_body(s):
       _ the headers in a dictionary
       _ the body
     '''
-    crlfcrlf = b"\x0d\x0a\x0d\x0a"
+    crlfcrlf = b"\r\n\r\n"
     crlfcrlfIndex = s.find(crlfcrlf)
     if crlfcrlfIndex != -1:
         headers = s[:crlfcrlfIndex + len(crlfcrlf)]

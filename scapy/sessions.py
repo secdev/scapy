@@ -94,16 +94,19 @@ class StringBuffer(object):
         seq = seq - 1
         if seq + data_len > self.content_len:
             self.content += b"\x00" * (seq - self.content_len + data_len)
+            # If data was missing, mark it.
             self.incomplete.append((self.content_len, seq))
             self.content_len = seq + data_len
             assert len(self.content) == self.content_len
-        # XXX removes empty space marker
+        # XXX removes empty space marker.
         # for ifrag in self.incomplete:
         #     if [???]:
         #         self.incomplete.remove([???])
         memoryview(self.content)[seq:seq + data_len] = data
 
     def full(self):
+        # Should only be true when all missing data was filled up,
+        # (or there never was missing data)
         return True  # XXX
 
     def clear(self):
@@ -131,15 +134,18 @@ class TCPSession(IPSession):
             # data = the reassembled data from the same request/flow
             # metadata = empty dictionary, that can be used to store data
             [...]
-            # If the packet is available, return it (you may want to delete
-            # existing fragments in frags that were used to build it)
+            # If the packet is available, return it. Otherwise don't.
+            # Whenever you return a packet, the buffer will be discarder.
             return pkt
             # Otherwise, maybe store stuff in metadata, and return None,
-            # as you need more fragments to build the packet.
+            # as you need additional data.
             return None
 
     A (hard to understand) example can be found in scapy/layers/http.py
     """
+
+    fmt = ('TCP {IP:%IP.src%}{IPv6:%IPv6.src%}:%r,TCP.sport% > ' +
+           '{IP:%IP.dst%}{IPv6:%IPv6.dst%}:%r,TCP.dport%')
 
     def __init__(self, *args):
         super(TCPSession, self).__init__(*args)
@@ -162,9 +168,7 @@ class TCPSession(IPSession):
         new_data = raw(pay)
         # Match packets by a uniqute TCP identifier
         seq = pkt[TCP].seq
-        fmt = ('TCP {IP:%IP.src%}{IPv6:%IPv6.src%}:%r,TCP.sport% > ' +
-               '{IP:%IP.dst%}{IPv6:%IPv6.dst%}:%r,TCP.dport%')
-        ident = pkt.sprintf(fmt)
+        ident = pkt.sprintf(self.fmt)
         data, metadata = self.tcp_frags[ident]
         # Let's guess which class is going to be used
         if "pay_class" not in metadata:
