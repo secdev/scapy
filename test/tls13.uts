@@ -7,9 +7,9 @@
 # /!\ These tests will not catch our 'INTEGRITY CHECK FAILED's. /!\
 # We deem the knowledge of the plaintext sufficient for passing...
 
-# https://tools.ietf.org/html/draft-ietf-tls-tls13-vectors-07#section-5
+# https://tools.ietf.org/html/rfc8448#section-5
 
-+ Reading TLS 1.3 test session (vectors 5 from draft-ietf-tls-tls13-vectors-07)
++ Reading TLS 1.3 test session (vectors 5 from rfc8448)
 ~ crypto
 
 = Load utils
@@ -21,7 +21,7 @@ from cryptography.hazmat.backends import default_backend
 def clean(s):
     return binascii.unhexlify(''.join(c for c in s if c.isalnum()))
 
-#= Dissect ClientHello : The client initiates a handshake with an X25519
+= Dissect ClientHello : The client initiates a handshake with an X25519
 
 clientHello1 = clean("""
          16 03 01 00 b4 01 00 00 b0 03 03 b0
@@ -37,7 +37,7 @@ clientHello1 = clean("""
          """)
 t1 = TLS(clientHello1)
 
-#= Dissect ServerHello: The server however prefers P-256 [FIPS186] and sends a HelloRetryRequest
+= Dissect ServerHello: The server however prefers P-256 [FIPS186] and sends a HelloRetryRequest
 
 # Note:  The HelloRetryRequest uses the same handshake message type as
 # a ServerHello and so is labeled as ServerHello here.
@@ -55,7 +55,7 @@ helloRetryRequest = clean("""
          """)
 t2 = TLS(helloRetryRequest, tls_session=t1.tls_session.mirror())
 
-#= Dissect ClientHello again, this time using P-256
+= Dissect ClientHello again, this time using P-256
 
 secp256r1_client_privkey = clean("""
          ab 54 73 46 7e 19 34 6c eb 0a 04 14 e4

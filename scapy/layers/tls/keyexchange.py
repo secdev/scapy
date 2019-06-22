@@ -614,8 +614,8 @@ class ServerECDHNamedCurveParams(_GenericTLSSessionInheritance):
 
         curve_name = _tls_named_curves[self.named_curve]
         curve = ec._CURVE_TYPES[curve_name]()
-        import_point = ec.EllipticCurvePublicNumbers.from_encoded_point
-        pubnum = import_point(curve, self.point)
+        import_point = ec.EllipticCurvePublicKey.from_encoded_point
+        pubnum = import_point(curve, self.point).public_numbers()
         s = self.tls_session
         s.server_kx_pubkey = pubnum.public_key(default_backend())
 
@@ -833,8 +833,9 @@ class ClientECDiffieHellmanPublic(_GenericTLSSessionInheritance):
 
         # if there are kx params and keys, we assume the crypto library is ok
         if s.client_kx_ecdh_params:
-            import_point = ec.EllipticCurvePublicNumbers.from_encoded_point
-            pub_num = import_point(s.client_kx_ecdh_params, self.ecdh_Yc)
+            import_point = ec.EllipticCurvePublicKey.from_encoded_point
+            pub_key = import_point(s.client_kx_ecdh_params, self.ecdh_Yc)
+            pub_num = pub_key.public_numbers()
             s.client_kx_pubkey = pub_num.public_key(default_backend())
 
         if s.server_kx_privkey and s.client_kx_pubkey:

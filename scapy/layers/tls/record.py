@@ -287,6 +287,8 @@ class TLS(_GenericTLSSessionInheritance):
                 from scapy.layers.tls.record_sslv2 import SSLv2
                 return SSLv2
             elif s and _tls_version_check(s.tls_version, 0x0304):
+                # "The outer opaque_type field of a TLSCiphertext record
+                # is always set to the value 23"
                 if type_ == 23:
                     if s.rcs and not isinstance(s.rcs.cipher, Cipher_NULL):
                         from scapy.layers.tls.record_tls13 import TLS13
@@ -387,6 +389,7 @@ class TLS(_GenericTLSSessionInheritance):
             raise Exception("Invalid record: header is too short.")
 
         msglen = struct.unpack('!H', s[3:5])[0]
+
         hdr, efrag, r = s[:5], s[5:5 + msglen], s[msglen + 5:]
 
         iv = mac = pad = b""
@@ -473,7 +476,6 @@ class TLS(_GenericTLSSessionInheritance):
         elif cipher_type == 'aead':
             # Authenticated encryption
             # crypto/cipher_aead.py prints a warning for integrity failure
-            print(self.__class__)
             iv, cfrag, mac = self._tls_auth_decrypt(hdr, efrag)
             decryption_success = True       # see XXX above
 

@@ -72,7 +72,6 @@ class connState(object):
                  tls_version=0x0303):
 
         self.tls_version = tls_version
-        print(tls_version)
 
         # It is the user's responsibility to keep the record seq_num
         # under 2**64-1. If this value gets maxed out, the TLS class in
@@ -589,8 +588,8 @@ class tlsSession(object):
                                                self.tls13_psk_secret)
 
         bk = hkdf.derive_secret(self.tls13_early_secret,
-                                b"external psk binder key",
-                                # "resumption psk binder key",
+                                b"ext binder",
+                                # "res binder",
                                 b"")
         self.tls13_derived_secrets["binder_key"] = bk
 
@@ -599,12 +598,12 @@ class tlsSession(object):
             return
 
         cets = hkdf.derive_secret(self.tls13_early_secret,
-                                  b"client early traffic secret",
+                                  b"c e traffic",
                                   b"".join(self.handshake_messages))
         self.tls13_derived_secrets["client_early_traffic_secret"] = cets
 
         ees = hkdf.derive_secret(self.tls13_early_secret,
-                                 b"early exporter master secret",
+                                 b"e exp master",
                                  b"".join(self.handshake_messages))
         self.tls13_derived_secrets["early_exporter_secret"] = ees
 
@@ -627,12 +626,12 @@ class tlsSession(object):
                                                    self.tls13_dhe_secret)
 
         chts = hkdf.derive_secret(self.tls13_handshake_secret,
-                                  b"client handshake traffic secret",
+                                  b"c hs traffic",
                                   b"".join(self.handshake_messages))
         self.tls13_derived_secrets["client_handshake_traffic_secret"] = chts
 
         shts = hkdf.derive_secret(self.tls13_handshake_secret,
-                                  b"server handshake traffic secret",
+                                  b"s hs traffic",
                                   b"".join(self.handshake_messages))
         self.tls13_derived_secrets["server_handshake_traffic_secret"] = shts
 
@@ -654,17 +653,17 @@ class tlsSession(object):
                                                 None)
 
         cts0 = hkdf.derive_secret(self.tls13_master_secret,
-                                  b"client application traffic secret",
+                                  b"c ap traffic",
                                   b"".join(self.handshake_messages))
         self.tls13_derived_secrets["client_traffic_secrets"] = [cts0]
 
         sts0 = hkdf.derive_secret(self.tls13_master_secret,
-                                  b"server application traffic secret",
+                                  b"s ap traffic",
                                   b"".join(self.handshake_messages))
         self.tls13_derived_secrets["server_traffic_secrets"] = [sts0]
 
         es = hkdf.derive_secret(self.tls13_master_secret,
-                                b"exporter master secret",
+                                b"exp master",
                                 b"".join(self.handshake_messages))
         self.tls13_derived_secrets["exporter_secret"] = es
 
@@ -714,7 +713,7 @@ class tlsSession(object):
         elif self.connection_end == "client":
             hkdf = self.pwcs.hkdf
         rs = hkdf.derive_secret(self.tls13_master_secret,
-                                b"resumption master secret",
+                                b"res master",
                                 b"".join(self.handshake_messages))
         self.tls13_derived_secrets["resumption_secret"] = rs
 
@@ -727,10 +726,10 @@ class tlsSession(object):
 
         cts = self.tls13_derived_secrets["client_traffic_secrets"]
         ctsN = cts[-1]
-        ctsN_1 = hkdf.expand_label(ctsN, "application traffic secret", "", hl)
+        ctsN_1 = hkdf.expand_label(ctsN, "traffic upd", "", hl)
         cts.append(ctsN_1)
 
-        stsN_1 = hkdf.expand_label(ctsN, "application traffic secret", "", hl)
+        stsN_1 = hkdf.expand_label(ctsN, "traffic upd", "", hl)
         cts.append(stsN_1)
 
         if self.connection_end == "server":

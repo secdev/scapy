@@ -388,7 +388,6 @@ class TLSServerHello(TLSClientHello):
         s.server_random = (struct.pack('!I',
                                        self.gmt_unix_time) +
                            self.random_bytes)
-        s.sid = self.sid
 
         # EXT process
         if self.ext:
@@ -405,6 +404,10 @@ class TLSServerHello(TLSClientHello):
         is_tls13 = s.tls_version >= 0x0304
         if is_tls13 and s.server_random == _TLS_RetryRequestMagic:
             self.name = "TLS 1.3 Handshake - Hello Retry Request"
+            # This isn't a real ServerHello. Don't process further
+            return
+
+        s.sid = self.sid
 
         cs_cls = None
         if self.cipher:

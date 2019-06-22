@@ -340,6 +340,7 @@ class _AEADCipher_TLS13(six.with_metaclass(_AEADCipherMetaclass, object)):
         responsibility to catch it if deemed useful. If we lack the key, we
         raise a CipherError which contains the encrypted input.
         """
+
         C, mac = C[:-self.tag_len], C[-self.tag_len:]
         if False in six.itervalues(self.ready):
             raise CipherError(b"", C, mac)

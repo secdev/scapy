@@ -119,8 +119,9 @@ class KeyShareEntry(Packet):
                     self.pubkey = import_point(self.key_exchange)
             elif _tls_named_curves[self.group] != "x448":
                 curve = ec._CURVE_TYPES[_tls_named_curves[self.group]]()
-                import_point = ec.EllipticCurvePublicNumbers.from_encoded_point
-                public_numbers = import_point(curve, self.key_exchange)
+                import_point = ec.EllipticCurvePublicKey.from_encoded_point
+                public_key = import_point(curve, self.key_exchange)
+                public_numbers = public_key.public_numbers()
                 self.pubkey = public_numbers.public_key(default_backend())
 
     def post_dissection(self, r):

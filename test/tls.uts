@@ -713,7 +713,7 @@ def _all_chacha20poly1305_tests():
     ciphers = []
     for t in [_chacha20poly1305_test_1]:
         c = Cipher_CHACHA20_POLY1305_TLS13(key=t.k, fixed_iv=t.n)
-        tmp1 = c.auth_decrypt(t.a, t.ct + t.tag, b"\0"*8) == (t.p, t.tag)
+        tmp1 = c.auth_decrypt(t.a, t.ct + t.tag, b"\0"*8) == (b"", t.p, t.tag)
         tmp2 = c.auth_encrypt(t.p, t.a, b"\0"*8) == t.ct + t.tag
         res = res and tmp1 and tmp2
     return res
