@@ -456,20 +456,6 @@ class TLSServerHello(TLSClientHello):
 
 
 ###############################################################################
-#   HelloRetryRequest                                                         #
-###############################################################################
-
-class TLSHelloRetryRequest(_TLSHandshake):
-    name = "TLS 1.3 Handshake - Hello Retry Request"
-    fields_desc = [ByteEnumField("msgtype", 6, _tls_handshake_type),
-                   ThreeBytesField("msglen", None),
-                   _TLSVersionField("version", None, _tls_version),
-                   _ExtensionsLenField("extlen", None, length_of="ext"),
-                   _ExtensionsField("ext", None,
-                                    length_from=lambda pkt: pkt.msglen - 4)]
-
-
-###############################################################################
 #   EncryptedExtensions                                                       #
 ###############################################################################
 
