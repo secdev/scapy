@@ -9,8 +9,7 @@
 
 # https://tools.ietf.org/html/rfc8448#section-5
 
-+ Reading TLS 1.3 test session (vectors 5 from rfc8448)
-~ crypto
++ Init phase
 
 = Load utils
 
@@ -20,6 +19,9 @@ from cryptography.hazmat.backends import default_backend
 
 def clean(s):
     return binascii.unhexlify(''.join(c for c in s if c.isalnum()))
+
++ Reading TLS 1.3 test session (vectors 5 from rfc8448)
+~ crypto
 
 = Dissect ClientHello : The client initiates a handshake with an X25519
 
@@ -31,9 +33,8 @@ clientHello1 = clean("""
          00 00 0a 00 08 00 06 00 1d 00 17 00 18 00 33 00 26 00 24 00 1d
          00 20 e8 e8 e3 f3 b9 3a 25 ed 97 a1 4a 7d ca cb 8a 27 2c 62 88
          e5 85 c6 48 4d 05 26 2f ca d0 62 ad 1f 00 2b 00 03 02 03 04 00
-         0d 00 20 00 1e 04 03 05 03 06 03 02 03 08 04 08 05 08 06 04 01
-         05 01 06 01 02 01 04 02 05 02 06 02 02 02 00 2d 00 02 01 01 00
-         1c 00 02 40 01
+         0d 00 18 00 16 04 03 05 03 06 03 02 03 08 04 08 05 08 06 04 01
+         05 01 06 01 02 01 00 2d 00 02 01 01 00 1c 00 02 40 01
          """)
 t1 = TLS(clientHello1)
 
@@ -70,9 +71,9 @@ clientHello2 = clean("""
          00 41 04 a6 da 73 92 ec 59 1e 17 ab fd 53 59 64 b9 98 94 d1 3b
          ef b2 21 b3 de f2 eb e3 83 0e ac 8f 01 51 81 26 77 c4 d6 d2 23
          7e 85 cf 01 d6 91 0c fb 83 95 4e 76 ba 73 52 83 05 34 15 98 97
-         e8 06 57 80 00 2b 00 03 02 03 04 00 0d 00 20 00 1e 04 03 05 03
-         06 03 02 03 08 04 08 05 08 06 04 01 05 01 06 01 02 01 04 02 05
-         02 06 02 02 02 00 2c 00 74 00 72 71 dc d0 4b b8 8b c3 18 91 19
+         e8 06 57 80 00 2b 00 03 02 03 04 00 0d 00 18 00 16 04 03 05 03
+         06 03 02 03 08 04 08 05 08 06 04 01 05 01 06 01 02 01 00 2c 00
+         74 00 72 71 dc d0 4b b8 8b c3 18 91 19
          39 8a 00 00 00 00 ee fa fc 76 c1 46 b8 23 b0 96 f8 aa ca d3 65
          dd 00 30 95 3f 4e df 62 56 36 e5 f2 1b b2 e2 3f cc 65 4b 1b 5b
          40 31 8d 10 d1 37 ab cb b8 75 74 e3 6e 8a 1f 02 5f 7d fa 5d 6e
@@ -182,7 +183,7 @@ assert(isinstance(alert, TLSAlert))
 alert.level == 1 and alert.descr == 0
 
 
-+ Reading TLS 1.3 test session (vectors 3 from draft-ietf-tls-tls13-vectors-00)
++ Reading TLS 1.3 test session (vectors 3 from rfc8448)
 ~ crypto_advanced
 
 = Dissect ClientHello handshake message
@@ -201,12 +202,12 @@ clientHello = clean("""
          00 00 0a 00 14 00 12 00 1d 00 17 00 18 00 19 01 00 01 01 01 02
          01 03 01 04 00 23 00 00 00 33 00 26 00 24 00 1d 00 20 99 38 1d
          e5 60 e4 bd 43 d2 3d 8e 43 5a 7d ba fe b3 c0 6e 51 c1 3c ae 4d
-         54 13 69 1e 52 9a af 2c 00 2b 00 03 02 03 04 00 0d 00 20 00 1e
+         54 13 69 1e 52 9a af 2c 00 2b 00 03 02 03 04 00 0d 00 18 00 16
          04 03 05 03 06 03 02 03 08 04 08 05 08 06 04 01 05 01 06 01 02
-         01 04 02 05 02 06 02 02 02 00 2d 00 02 01 01 00 1c 00 02 40 01
+         01 00 2d 00 02 01 01 00 1c 00 02 40 01
          """)
 t1 = TLS(clientHello)
-privkey = X25519PrivateKey._from_private_bytes(x25519_client_privkey)
+privkey = X25519PrivateKey.from_private_bytes(x25519_client_privkey)
 t1.tls_session.tls13_client_privshares["x25519"] = privkey
 
 = Dissect ServerHello handshake message
