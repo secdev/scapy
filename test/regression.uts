@@ -6729,6 +6729,20 @@ fdesc.close()
 assert list(pktpcap[TCP]) == list(pktpcap_tcp)
 os.unlink(filename)
 
+= Check offline sniff() with Packets and tcpdump
+~ tcpdump
+
+l = sniff(offline=IP()/UDP(sport=(10000, 10001)), filter="udp")
+assert len(l) == 2
+assert(all(UDP in p for p in l))
+
+l = sniff(offline=[p for p in IP()/UDP(sport=(10000, 10001))], filter="udp")
+assert len(l) == 2
+assert(all(UDP in p for p in l))
+
+l = sniff(offline=IP()/UDP(sport=(10000, 10001)), filter="tcp")
+assert len(l) == 0
+
 = Check offline sniff() without a tcpdump binary
 ~ tcpdump
 import mock

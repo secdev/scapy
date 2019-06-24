@@ -20,7 +20,7 @@ from scapy.compat import plain_str
 from scapy.data import ETH_P_ALL
 from scapy.config import conf
 from scapy.error import warning
-from scapy.packet import Gen
+from scapy.packet import Gen, Packet
 from scapy.utils import get_temp_file, tcpdump, wrpcap, \
     ContextManagerSubprocess, PcapReader
 from scapy.plist import PacketList, SndRcvList
@@ -774,7 +774,8 @@ class AsyncSniffer(object):
                 message = "tcpdump is not available. Cannot use filter!"
                 raise Scapy_Exception(message)
 
-            if isinstance(offline, list):
+            if isinstance(offline, list) and \
+                    all(isinstance(elt, str) for elt in offline):
                 sniff_sockets.update((PcapReader(
                     fname if flt is None else
                     tcpdump(fname, args=["-w", "-", flt], getfd=True)
@@ -785,6 +786,18 @@ class AsyncSniffer(object):
                     tcpdump(fname, args=["-w", "-", flt], getfd=True)
                 ), label) for fname, label in six.iteritems(offline))
             else:
+                # Write Scapy Packet objects to a pcap file
+                def _write_to_pcap(packets_list):
+                    filename = get_temp_file(autoext=".pcap")
+                    wrpcap(filename, offline)
+                    return filename, filename
+
+                if isinstance(offline, Packet):
+                    tempfile_written, offline = _write_to_pcap([offline])
+                elif isinstance(offline, list) and \
+                        all(isinstance(elt, Packet) for elt in offline):
+                    tempfile_written, offline = _write_to_pcap(offline)
+
                 sniff_sockets[PcapReader(
                     offline if flt is None else
                     tcpdump(offline, args=["-w", "-", flt], getfd=True)
