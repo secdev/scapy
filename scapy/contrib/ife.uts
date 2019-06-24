@@ -31,7 +31,7 @@ assert(len(raw(frm)) == 32)
 
 = variable payload
 
-frm = Ether(src="aa:aa:aa:aa:aa:aa", dst="bb:bb:bb:bb:bb:bb")/fuzz(IFE(tlvs=[IFETlvStr()]))
+frm = Ether(src="aa:aa:aa:aa:aa:aa", dst="bb:bb:bb:bb:bb:bb")/IFE(tlvs=[IFETlvStr("testsr")])
 frm = frm.build()
 frm = Ether(frm)
 assert(frm.src == "aa:aa:aa:aa:aa:aa")
