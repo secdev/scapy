@@ -2,6 +2,9 @@ import binascii
 
 from scapy.all import ls
 from scapy.packet import Packet
+from scapy.packet import bind_layers
+from scapy.layers.inet import TCP
+from scapy.layers.inet import UDP
 from scapy.fields import BitField
 from scapy.fields import BitEnumField
 from scapy.fields import X3BytesField
@@ -18,12 +21,16 @@ from scapy.fields import ConditionalField
 from scapy.fields import FlagsField
 from scapy.fields import ByteField
 from scapy.fields import IntField
+from scapy.fields import XIntField
+from scapy.fields import StrLenField
 
 PROTOCOL_NUMBERS = {
     0x01: 'LOGIN MESSAGE',
     0x13: 'HEARTBEAT',
     0x12: 'LOCATION',
     0x16: 'ALARM',
+    0x80: 'ONLINE COMMAND',
+    0x15: 'ONLINE COMMAND REPLYED',
 }
 
 VOLTAGE_LEVELS = {
@@ -201,6 +208,22 @@ class CRX1NewPacketContent(Packet):
             ByteEnumField("gsm_signal_strength", 0x00,
                           GSM_SIGNAL_STRENGTH), lambda pkt: len(pkt.original) >
             5 and pkt.protocol_number in (0x13, 0x16)),
+        # Online Command
+        ConditionalField(
+            FieldLenField('command_length',
+                          None,
+                          fmt='B',
+                          length_of="command_content"), lambda pkt:
+            len(pkt.original) > 5 and pkt.protocol_number in (0x80, 0x15)),
+        ConditionalField(
+            XIntField('server_flag_bit', 0x00), lambda pkt: len(pkt.original) >
+            5 and pkt.protocol_number in (0x80, 0x15)),
+        ConditionalField(
+            StrLenField("command_content",
+                        "",
+                        length_from=lambda pkt: pkt.command_length - 4), lambda pkt:
+            len(pkt.original) > 5 and pkt.protocol_number in (0x80, 0x15)),
+        # Commun
         ConditionalField(
             ByteEnumField(
                 "alarm_extended", 0x00, {
@@ -226,10 +249,11 @@ class CRX1NewPacketContent(Packet):
                     0xfe: "ACC On",
                     0xff: "ACC Off",
                 }), lambda pkt: len(pkt.original) > 5 and pkt.protocol_number
-            in (0x13, 0x16)),
+            in (0x13, 0x15, 0x16)),
         ConditionalField(
-            ByteEnumField("language", 0x00, LANGUAGE), lambda pkt: len(
-                pkt.original) > 5 and pkt.protocol_number in (0x13, 0x16)),
+            ByteEnumField("language", 0x00,
+                          LANGUAGE), lambda pkt: len(pkt.original) > 5 and pkt.
+            protocol_number in (0x13, 0x15, 0x16)),
         # Default
         XShortField('information_serial_number', None),
         XShortField('crc', None),
@@ -251,6 +275,8 @@ class CRX1New(Packet):
         XShortField('end_bit', 0x0d0a),
     ]
 
+bind_layers(TCP, CRX1New)
+bind_layers(UCP, CRX1New)
 
 if __name__ == "__main__":
     print("Login")
@@ -303,6 +329,20 @@ if __name__ == "__main__":
 
     print("Alarm - Response")
     raw = bytes.fromhex("78780516001C1B280D0A")
+    pkt = CRX1New(raw)
+    print(ls(pkt))
+    print(pkt.show())
+
+    print("Online command")
+    raw = bytes.fromhex("78780E800800000000736F732300016D6A0D0A")
+    pkt = CRX1New(raw)
+    print(ls(pkt))
+    print(pkt.show())
+
+    print("Online command reply")
+    raw = bytes.fromhex(
+        "787828152000000000534F53313A313334323136333236393920534F53323A20534F53333A0001002AC39C0D0A"
+    )
     pkt = CRX1New(raw)
     print(ls(pkt))
     print(pkt.show())
