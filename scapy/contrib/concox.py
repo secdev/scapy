@@ -31,6 +31,13 @@ PROTOCOL_NUMBERS = {
     0x16: 'ALARM',
     0x80: 'ONLINE COMMAND',
     0x15: 'ONLINE COMMAND REPLYED',
+    0x94: 'INFORMATION TRANSMISSION',
+}
+
+SUBPROTOCOL_NUMBERS = {
+    0x00: "EXTERNAL POWER VOLTAGE",
+    0x04: "TERMINAL STATUS SYNCHRONIZATION",
+    0x05: "DOOR STATUS",
 }
 
 VOLTAGE_LEVELS = {
@@ -219,9 +226,10 @@ class CRX1NewPacketContent(Packet):
             XIntField('server_flag_bit', 0x00), lambda pkt: len(pkt.original) >
             5 and pkt.protocol_number in (0x80, 0x15)),
         ConditionalField(
-            StrLenField("command_content",
-                        "",
-                        length_from=lambda pkt: pkt.command_length - 4), lambda pkt:
+            StrLenField(
+                "command_content",
+                "",
+                length_from=lambda pkt: pkt.command_length - 4), lambda pkt:
             len(pkt.original) > 5 and pkt.protocol_number in (0x80, 0x15)),
         # Commun
         ConditionalField(
@@ -254,6 +262,22 @@ class CRX1NewPacketContent(Packet):
             ByteEnumField("language", 0x00,
                           LANGUAGE), lambda pkt: len(pkt.original) > 5 and pkt.
             protocol_number in (0x13, 0x15, 0x16)),
+        # Information transmission
+        ConditionalField(
+            ByteEnumField("subprotocol_number", 0x00,
+                          SUBPROTOCOL_NUMBERS), lambda pkt: len(pkt.original) >
+            5 and pkt.protocol_number in (0x94, )),
+        ConditionalField(
+            ShortField('external_battery',
+                       0x00), lambda pkt: len(pkt.original) > 5 and pkt.
+            protocol_number in (0x94, ) and pkt.subprotocol_number == 0x00),
+        ConditionalField(
+            FlagsField('external_io_detection', 0x00, 8, [
+                'door_status',
+                'trigger_status',
+                'io_status',
+            ]), lambda pkt: len(pkt.original) > 5 and pkt.protocol_number in (
+                0x94, ) and pkt.subprotocol_number == 0x05),
         # Default
         XShortField('information_serial_number', None),
         XShortField('crc', None),
@@ -264,16 +288,29 @@ class CRX1New(Packet):
     name = "CRX1 New"
     fields_desc = [
         XShortField('start_bit', 0x7878),
-        FieldLenField('packet_length',
-                      None,
-                      fmt="B",
-                      length_of="packet_content"),
-        PacketLenField('packet_content',
-                       None,
-                       CRX1NewPacketContent,
-                       length_from=lambda pkt: pkt.packet_length),
+        ConditionalField(ByteField(
+            'default_packet_length',
+            None,
+        ), lambda pkt: pkt.start_bit == 0x7878),
+        ConditionalField(ShortField(
+            'extended_packet_length',
+            None,
+        ), lambda pkt: pkt.start_bit == 0x7979),
+        ConditionalField(
+            PacketLenField('default_packet_content',
+                           None,
+                           CRX1NewPacketContent,
+                           length_from=lambda pkt: pkt.default_packet_length),
+            lambda pkt: pkt.start_bit == 0x7878),
+        ConditionalField(
+            PacketLenField('extended_packet_content',
+                           None,
+                           CRX1NewPacketContent,
+                           length_from=lambda pkt: pkt.extended_packet_length),
+            lambda pkt: pkt.start_bit == 0x7979),
         XShortField('end_bit', 0x0d0a),
     ]
+
 
 bind_layers(TCP, CRX1New)
 bind_layers(UDP, CRX1New)
@@ -343,6 +380,18 @@ if __name__ == "__main__":
     raw = bytes.fromhex(
         "787828152000000000534F53313A313334323136333236393920534F53323A20534F53333A0001002AC39C0D0A"
     )
+    pkt = CRX1New(raw)
+    print(ls(pkt))
+    print(pkt.show())
+
+    print("Information transmission - external battery")
+    raw = bytes.fromhex("797900089400000A0001abcd0d0a")
+    pkt = CRX1New(raw)
+    print(ls(pkt))
+    print(pkt.show())
+
+    print("Information transmission - door status")
+    raw = bytes.fromhex("797900079405030001abcd0d0a")
     pkt = CRX1New(raw)
     print(ls(pkt))
     print(pkt.show())
