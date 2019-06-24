@@ -206,8 +206,9 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
             self.prepare_cached_fields(self.fields_desc)
 
         # Use fields information from cache
-        if not Packet.class_default_fields.get(cls_name, None) is None:
-            self.default_fields = Packet.class_default_fields[cls_name]
+        default_fields = Packet.class_default_fields.get(cls_name, None)
+        if default_fields:
+            self.default_fields = default_fields
             self.fieldtype = Packet.class_fieldtype[cls_name]
             self.packetfields = Packet.class_packetfields[cls_name]
 
@@ -228,32 +229,38 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
         cls_name = self.__class__
 
         # Fields cache initialization
-        if flist:
-            Packet.class_default_fields[cls_name] = dict()
-            Packet.class_default_fields_ref[cls_name] = list()
-            Packet.class_fieldtype[cls_name] = dict()
-            Packet.class_packetfields[cls_name] = list()
+        if not flist:
+            return
+
+        class_default_fields = dict()
+        class_default_fields_ref = list()
+        class_fieldtype = dict()
+        class_packetfields = list()
 
         # Fields initialization
         for f in flist:
             if isinstance(f, MultipleTypeField):
-                del Packet.class_default_fields[cls_name]
-                del Packet.class_default_fields_ref[cls_name]
-                del Packet.class_fieldtype[cls_name]
-                del Packet.class_packetfields[cls_name]
+                # Abort
                 self.class_dont_cache[cls_name] = True
                 self.do_init_fields(self.fields_desc)
-                break
+                return
 
             tmp_copy = copy.deepcopy(f.default)
-            Packet.class_default_fields[cls_name][f.name] = tmp_copy
-            Packet.class_fieldtype[cls_name][f.name] = f
+            class_default_fields[f.name] = tmp_copy
+            class_fieldtype[f.name] = f
             if f.holds_packets:
-                Packet.class_packetfields[cls_name].append(f)
+                class_packetfields.append(f)
 
             # Remember references
             if isinstance(f.default, (list, dict, set, RandField, Packet)):
-                Packet.class_default_fields_ref[cls_name].append(f.name)
+                class_default_fields_ref.append(f.name)
+
+        # Apply
+        Packet.class_default_fields_ref[cls_name] = class_default_fields_ref
+        Packet.class_fieldtype[cls_name] = class_fieldtype
+        Packet.class_packetfields[cls_name] = class_packetfields
+        # Last to avoid racing issues
+        Packet.class_default_fields[cls_name] = class_default_fields
 
     def dissection_done(self, pkt):
         """DEV: will be called after a dissection is completed"""
