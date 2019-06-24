@@ -1,7 +1,7 @@
 % LACP unit tests
 #
 # Type the following command to launch start the tests:
-# $ test/run_tests -P "load_contrib('lacp')" -t scapy/contrib/lacp.uts
+# $ test/run_tests -P "load_contrib('lacp')" -t test/contrib/lacp.uts
 
 + LACP
 

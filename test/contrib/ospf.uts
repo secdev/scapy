@@ -1,7 +1,7 @@
 # OSPF Related regression tests
 #
 # Type the following command to launch start the tests:
-# $ test/run_tests -P "load_contrib('ospf')" -t scapy/contrib/ospf.uts
+# $ test/run_tests -P "load_contrib('ospf')" -t test/contrib/ospf.uts
 
 + OSPF
 

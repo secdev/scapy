@@ -2,7 +2,7 @@
 
 #
 # execute test:
-# > test/run_tests -P "load_contrib('tzsp')" -t scapy/contrib/tzsp.uts
+# > test/run_tests -P "load_contrib('tzsp')" -t test/contrib/tzsp.uts
 #
 
 + Basic layer handling

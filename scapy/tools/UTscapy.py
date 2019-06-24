@@ -865,7 +865,11 @@ def main():
                     raise getopt.GetoptError("Unknown output format %s" % msg)
                 TESTFILES = resolve_testfiles(TESTFILES)
                 for testfile in resolve_testfiles(data.remove_testfiles):
-                    TESTFILES.remove(testfile)
+                    try:
+                        TESTFILES.remove(testfile)
+                    except ValueError:
+                        error_m = "Cannot remove %s from test files" % testfile
+                        raise getopt.GetoptError(error_m)
             elif opt == "-o":
                 OUTPUTFILE = optarg
                 if not os.access(os.path.dirname(os.path.abspath(OUTPUTFILE)), os.W_OK):

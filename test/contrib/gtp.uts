@@ -1,7 +1,7 @@
 # GTP unit tests
 #
 # Type the following command to launch start the tests:
-# $ test/run_tests -P "load_contrib('gtp')" -t scapy/contrib/gtp.uts
+# $ test/run_tests -P "load_contrib('gtp')" -t test/contrib/gtp.uts
 
 + GTPv1
 

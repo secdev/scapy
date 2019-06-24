@@ -2,7 +2,7 @@
 
 #
 # execute test:
-# $ test/run_tests -P "load_contrib('ethercat')" -t scapy/contrib/ethercat.uts
+# $ test/run_tests -P "load_contrib('ethercat')" -t test/contrib/ethercat.uts
 #
 
 + LEBitFields

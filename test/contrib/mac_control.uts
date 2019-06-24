@@ -2,7 +2,7 @@
 
 #
 # execute test:
-# $ test/run_tests -P "load_contrib('mac_control')" -t scapy/contrib/mac_control.uts
+# $ test/run_tests -P "load_contrib('mac_control')" -t test/contrib/mac_control.uts
 #
 
 + Basic layer handling

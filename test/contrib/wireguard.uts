@@ -1,7 +1,7 @@
 % WireGuard tests
 
 # Type the following command to launch start the tests:
-# $ test/run_tests -P "load_contrib('wireguard')" -t scapy/contrib/wireguard.uts
+# $ test/run_tests -P "load_contrib('wireguard')" -t test/contrib/wireguard.uts
 
 + Build packets & dissect
 

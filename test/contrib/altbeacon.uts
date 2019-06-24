@@ -1,7 +1,7 @@
 % AltBeacon unit tests
 #
 # Type the following command to launch start the tests:
-# $ test/run_tests -P "load_contrib('altbeacon')" -t scapy/contrib/altbeacon.uts
+# $ test/run_tests -P "load_contrib('altbeacon')" -t test/contrib/altbeacon.uts
 #
 # AltBeaconParser tests adapted from:
 # https://github.com/AltBeacon/android-beacon-library/blob/master/lib/src/test/java/org/altbeacon/beacon/AltBeaconParserTest.java

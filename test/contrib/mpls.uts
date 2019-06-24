@@ -1,7 +1,7 @@
 # MPLS unit tests
 #
 # Type the following command to launch start the tests:
-# $ test/run_tests -P "load_contrib('mpls')" -t scapy/contrib/mpls.uts
+# $ test/run_tests -P "load_contrib('mpls')" -t test/contrib/mpls.uts
 
 + MPLS
 

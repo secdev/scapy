@@ -1,7 +1,7 @@
 % iBeacon unit tests
 #
 # Type the following command to launch start the tests:
-# $ test/run_tests -P "load_contrib('ibeacon')" -t scapy/contrib/ibeacon.uts
+# $ test/run_tests -P "load_contrib('ibeacon')" -t test/contrib/ibeacon.uts
 
 + iBeacon tests
 

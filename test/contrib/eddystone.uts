@@ -1,7 +1,7 @@
 # Eddystone unit tests
 #
 # Type the following command to launch start the tests:
-# $ test/run_tests -P "load_contrib('eddystone')" -t scapy/contrib/eddystone.uts
+# $ test/run_tests -P "load_contrib('eddystone')" -t test/contrib/eddystone.uts
 
 + Eddystone tests
 

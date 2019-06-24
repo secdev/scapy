@@ -1,7 +1,7 @@
 # BIER unit tests
 #
 # Type the following command to launch start the tests:
-# $ test/run_tests -P "load_contrib('bier')"  -P "load_contrib('mpls')"  -t scapy/contrib/bier.uts
+# $ test/run_tests -P "load_contrib('bier')"  -P "load_contrib('mpls')"  -t test/contrib/bier.uts
 
 + BIER tests
 
