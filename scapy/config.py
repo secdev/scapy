@@ -581,6 +581,7 @@ recv_poll_rate: how often to check for new packets. Defaults to 0.05s.
     BTsocket = None
     USBsocket = None
     min_pkt_size = 60
+    bufsize = 2**16
     histfile = os.getenv('SCAPY_HISTFILE',
                          os.path.join(os.path.expanduser("~"),
                                       ".scapy_history"))

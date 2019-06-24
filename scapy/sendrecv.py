@@ -129,13 +129,14 @@ class SndRcvHandler(object):
                 target=self._sndrcv_snd
             )
             snd_thread.setDaemon(True)
-            snd_thread.start()
-            # Receive packets
-            self._sndrcv_rcv()
+
+            # Start routine with callback
+            self._sndrcv_rcv(snd_thread.start)
+
+            # Ended. Let's close gracefully
             if _flood:
                 # Flood: stop send thread
                 _flood[1]()
-
             snd_thread.join()
 
             if multi:
@@ -232,7 +233,7 @@ class SndRcvHandler(object):
             if conf.debug_match:
                 debug.recv.append(r)
 
-    def _sndrcv_rcv(self):
+    def _sndrcv_rcv(self, callback):
         """Function used to receive packets and check their hashret"""
         self.sniffer = None
         try:
@@ -241,7 +242,8 @@ class SndRcvHandler(object):
                 prn=self._process_packet,
                 timeout=self.timeout,
                 store=False,
-                opened_socket=self.pks
+                opened_socket=self.pks,
+                started_callback=callback
             )
         except KeyboardInterrupt:
             if self.chainCC:
