@@ -276,7 +276,7 @@ class CRX1New(Packet):
     ]
 
 bind_layers(TCP, CRX1New)
-bind_layers(UCP, CRX1New)
+bind_layers(UDP, CRX1New)
 
 if __name__ == "__main__":
     print("Login")
