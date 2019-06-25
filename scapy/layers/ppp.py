@@ -353,48 +353,24 @@ class PPP_IPCP_Option_IPAddress(PPP_IPCP_Option):
     ]
 
 
-class PPP_IPCP_Option_DNS1(PPP_IPCP_Option):
+class PPP_IPCP_Option_DNS1(PPP_IPCP_Option_IPAddress):
     name = "PPP IPCP Option: DNS1 Address"
-    fields_desc = [
-        ByteEnumField("type", 129, _PPP_ipcpopttypes),
-        FieldLenField("len", None, length_of="data", fmt="B",
-                      adjust=lambda _, val: val + 2),
-        IPField("data", "0.0.0.0"),
-        StrLenField("garbage", "", length_from=lambda pkt: pkt.len - 6),
-    ]
+    type = 129
 
 
-class PPP_IPCP_Option_DNS2(PPP_IPCP_Option):
+class PPP_IPCP_Option_DNS2(PPP_IPCP_Option_IPAddress):
     name = "PPP IPCP Option: DNS2 Address"
-    fields_desc = [
-        ByteEnumField("type", 131, _PPP_ipcpopttypes),
-        FieldLenField("len", None, length_of="data", fmt="B",
-                      adjust=lambda _, val: val + 2),
-        IPField("data", "0.0.0.0"),
-        StrLenField("garbage", "", length_from=lambda pkt: pkt.len - 6),
-    ]
+    type = 131
 
 
-class PPP_IPCP_Option_NBNS1(PPP_IPCP_Option):
+class PPP_IPCP_Option_NBNS1(PPP_IPCP_Option_IPAddress):
     name = "PPP IPCP Option: NBNS1 Address"
-    fields_desc = [
-        ByteEnumField("type", 130, _PPP_ipcpopttypes),
-        FieldLenField("len", None, length_of="data", fmt="B",
-                      adjust=lambda _, val: val + 2),
-        IPField("data", "0.0.0.0"),
-        StrLenField("garbage", "", length_from=lambda pkt: pkt.len - 6),
-    ]
+    type = 130
 
 
-class PPP_IPCP_Option_NBNS2(PPP_IPCP_Option):
+class PPP_IPCP_Option_NBNS2(PPP_IPCP_Option_IPAddress):
     name = "PPP IPCP Option: NBNS2 Address"
-    fields_desc = [
-        ByteEnumField("type", 132, _PPP_ipcpopttypes),
-        FieldLenField("len", None, length_of="data", fmt="B",
-                      adjust=lambda _, val: val + 2),
-        IPField("data", "0.0.0.0"),
-        StrLenField("garbage", "", length_from=lambda pkt: pkt.len - 6),
-    ]
+    type = 132
 
 
 class PPP_IPCP(Packet):
@@ -691,23 +667,6 @@ class PPP_LCP_Protocol_Reject(PPP_LCP):
     ]
 
 
-class PPP_LCP_Echo(PPP_LCP):
-    fields_desc = [
-        ByteEnumField("code", 9, _PPP_lcptypes),
-        XByteField("id", 0),
-        FieldLenField("len", None, fmt="H", length_of="data",
-                      adjust=lambda _, val: val + 8),
-        IntField("magic_number", None),
-        StrLenField("data", "", length_from=lambda pkt: pkt.len - 8),
-    ]
-
-    def answers(self, other):
-        return (
-            isinstance(other, PPP_LCP_Echo) and self.code == 10 and
-            other.code == 9 and self.id == other.id
-        )
-
-
 class PPP_LCP_Discard_Request(PPP_LCP):
     fields_desc = [
         ByteEnumField("code", 11, _PPP_lcptypes),
@@ -717,6 +676,17 @@ class PPP_LCP_Discard_Request(PPP_LCP):
         IntField("magic_number", None),
         StrLenField("data", "", length_from=lambda pkt: pkt.len - 8),
     ]
+
+
+class PPP_LCP_Echo(PPP_LCP_Discard_Request):
+    code = 9
+
+    def answers(self, other):
+        return (
+            isinstance(other, PPP_LCP_Echo) and self.code == 10 and
+            other.code == 9 and self.id == other.id
+        )
+
 
 # Password authentication protocol (RFC 1334)
 
