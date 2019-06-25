@@ -72,7 +72,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
     ]
     name = None
     fields_desc = []
-    deprecated_fields = None
+    deprecated_fields = {}
     overload_fields = {}
     payload_guess = []
     show_indent = 1
@@ -159,7 +159,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
             self.fields[fname] = self.get_field(fname).any2i(self, value)
         # The remaining fields are unknown
         for fname in fields:
-            if self.deprecated_fields and fname in self.deprecated_fields:
+            if fname in self.deprecated_fields:
                 # Resolve deprecated fields
                 value = fields[fname]
                 fname = self._resolve_alias(fname)
