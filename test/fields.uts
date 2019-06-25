@@ -1822,8 +1822,8 @@ class TestPacket(Packet):
         LEShortField("b", 15),
     ]
     deprecated_fields = {
-        "dpr": "a",
-        "B": "b",
+        "dpr": ("a", "1.0"),
+        "B": ("b", "1.0"),
     }
 
 pkt = TestPacket(a=2, B=3)

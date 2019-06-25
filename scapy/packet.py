@@ -317,10 +317,11 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
         return clone
 
     def _resolve_alias(self, attr):
-        new_attr = self.deprecated_fields[attr]
+        new_attr, version = self.deprecated_fields[attr]
         warnings.warn(
-            "%s has been deprecated in favor of %s" % (attr, new_attr),
-            DeprecationWarning
+            "%s has been deprecated in favor of %s since %s !" % (
+                attr, new_attr, version
+            ), DeprecationWarning
         )
         return new_attr
 

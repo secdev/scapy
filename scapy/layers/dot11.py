@@ -248,9 +248,9 @@ _rt_hemuother_per_user_known = {
 class RadioTap(Packet):
     name = "RadioTap dummy"
     deprecated_fields = {
-        "Channel": "ChannelFrequency",  # 2.4.3
-        "ChannelFlags2": "ChannelPlusFlags",  # 2.4.3
-        "ChannelNumber": "ChannelPlusNumber"  # 2.4.3
+        "Channel": ("ChannelFrequency", "2.4.3"),
+        "ChannelFlags2": ("ChannelPlusFlags", "2.4.3"),
+        "ChannelNumber": ("ChannelPlusNumber", "2.4.3"),
     }
     fields_desc = [
         ByteField('version', 0),
