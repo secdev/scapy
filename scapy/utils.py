@@ -887,7 +887,6 @@ class PcapReader_metaclass(type):
                 try:
                     i.__init__(filename, fdesc, magic)
                 except Scapy_Exception:
-                    raise
                     try:
                         i.f.seek(-4, 1)
                     except Exception:
