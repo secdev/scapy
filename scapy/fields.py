@@ -1145,6 +1145,7 @@ class PacketListField(PacketField):
                     if self.next_cls_cb is not None:
                         cls = self.next_cls_cb(pkt, lst, p, remain)
                         if cls is not None:
+                            c = 0 if c is None else c
                             c += 1
                 else:
                     remain = b""

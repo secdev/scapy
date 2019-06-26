@@ -808,7 +808,7 @@ if conf.use_pcap:
         # Checking/setting for monitor mode will slow down the process, and the
         # common is case is not to use monitor mode
         kw_monitor = kargs.get("monitor", None)
-        if conf.use_npcap and kw_monitor is not None and iface is not None:
+        if conf.use_npcap and kw_monitor is not None:
             monitored = iface.ismonitor()
             if kw_monitor is not monitored:
                 # The monitor param is specified, and not matching the current

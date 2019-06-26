@@ -308,7 +308,7 @@ class TunTapInterface(SuperSocket):
 
     def __init__(self, iface=None, mode_tun=None, *arg, **karg):
         self.iface = conf.iface if iface is None else iface
-        self.mode_tun = ("tun" in iface) if mode_tun is None else mode_tun
+        self.mode_tun = ("tun" in self.iface) if mode_tun is None else mode_tun
         self.closed = True
         self.open()
 
