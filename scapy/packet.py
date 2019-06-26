@@ -739,7 +739,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
             if col is None:
                 col = pyx.color.rgb.red
             if bkcol is None:
-                col = pyx.color.rgb.white
+                bkcol = pyx.color.rgb.white
             c.stroke(make_frame(tlist), [col, pyx.deco.filled([bkcol]), pyx.style.linewidth.Thick])  # noqa: E501
             for txt in tlist:
                 c.insert(txt)

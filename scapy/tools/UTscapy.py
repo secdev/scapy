@@ -324,6 +324,9 @@ def parse_campaign_file(campaign_file):
             test = UnitTest(l[1:].strip())
             test.num = testnb
             testnb += 1
+            if testset is None:
+                error_m = "Please create a test set (i.e. '+' section)."
+                raise getopt.GetoptError(error_m)
             testset.add_test(test)
         elif l[0] == "*":
             if test is not None:
