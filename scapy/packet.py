@@ -187,11 +187,14 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
         """
         Initialize each fields of the fields_desc dict
         """
+        default_fields = {}
         for f in flist:
-            self.default_fields[f.name] = copy.deepcopy(f.default)
+            default_fields[f.name] = copy.deepcopy(f.default)
             self.fieldtype[f.name] = f
             if f.holds_packets:
                 self.packetfields.append(f)
+        # We set default_fields last to avoid race issues
+        self.default_fields = default_fields
 
     def do_init_cached_fields(self):
         """
