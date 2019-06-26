@@ -1,6 +1,5 @@
 import binascii
 
-from scapy.all import ls
 from scapy.packet import Packet
 from scapy.packet import bind_layers
 from scapy.layers.inet import TCP
@@ -10,7 +9,6 @@ from scapy.fields import BitEnumField
 from scapy.fields import X3BytesField
 from scapy.fields import ShortField
 from scapy.fields import XShortField
-from scapy.fields import ShortEnumField
 from scapy.fields import FieldLenField
 from scapy.fields import PacketLenField
 from scapy.fields import XByteField
@@ -65,15 +63,15 @@ LANGUAGE = {
 
 
 class BCDStrFixedLenField(StrFixedLenField):
-    def i2h(self, pkt, v):
-        if isinstance(v, bytes):
-            return binascii.b2a_hex(v)
-        return binascii.a2b_hex(v)
+    def i2h(self, pkt, x):
+        if isinstance(x, bytes):
+            return binascii.b2a_hex(x)
+        return binascii.a2b_hex(x)
 
 
 class CoordinateField(IntField):
-    def i2h(self, pkt, v):
-        value = super(IntField, self).i2h(pkt, v)
+    def i2h(self, pkt, x):
+        value = super(CoordinateField, self).i2h(pkt, x)
         return round(value / 1800000, 6)
 
 
