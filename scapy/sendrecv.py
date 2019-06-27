@@ -462,9 +462,25 @@ def sr(x, promisc=None, filter=None, iface=None, nofilter=0, *args, **kargs):
     return result
 
 
+def _interface_selection(iface, packet):
+    """
+    Select the network interface according to the layer 3 destination
+    """
+
+    if iface is None:
+        try:
+            iff = packet.route()[0]
+        except AttributeError:
+            iff = None
+        return iff or conf.iface
+
+    return iface
+
+
 @conf.commands.register
 def sr1(x, promisc=None, filter=None, iface=None, nofilter=0, *args, **kargs):
     """Send packets at layer 3 and return only the first answer"""
+    iface = _interface_selection(iface, x)
     s = conf.L3socket(promisc=promisc, filter=filter,
                       nofilter=nofilter, iface=iface)
     ans, _ = sndrcv(s, x, *args, **kargs)

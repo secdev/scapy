@@ -366,3 +366,15 @@ saved_conf_prog_tcpdump = conf.prog.tcpdump
 conf.prog.tcpdump = "does_not_exist"
 assert _check_tcpdump() == False
 conf.prog.tcpdump = saved_conf_prog_tcpdump
+
+= Test _interface_selection
+~ netaccess linux needs_root
+
+import os
+from scapy.sendrecv import _interface_selection
+assert _interface_selection(None, IP(dst="8.8.8.8")/UDP()) == conf.iface
+exit_status = os.system("ip link add name scapy0 type dummy")
+exit_status = os.system("ip addr add 192.0.2.1/24 dev scapy0")
+exit_status = os.system("ip link set scapy0 up")
+assert _interface_selection(None, IP(dst="192.0.2.42")/UDP()) == "scapy0"
+exit_status = os.system("ip link del name dev scapy0")
