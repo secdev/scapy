@@ -14,6 +14,7 @@ import time
 import itertools
 import copy
 import types
+import warnings
 
 from scapy.fields import StrField, ConditionalField, Emph, PacketListField, \
     BitField, MultiEnumField, EnumField, FlagsField, MultipleTypeField
@@ -51,8 +52,9 @@ class RawVal:
 class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
                                 _CanvasDumpExtended)):
     __slots__ = [
-        "time", "sent_time", "name", "default_fields",
-        "overload_fields", "overloaded_fields", "fields", "fieldtype",
+        "time", "sent_time", "name",
+        "default_fields", "fields", "fieldtype",
+        "overload_fields", "overloaded_fields",
         "packetfields",
         "original", "explicit", "raw_packet_cache",
         "raw_packet_cache_fields", "_pkt", "post_transforms",
@@ -70,6 +72,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
     ]
     name = None
     fields_desc = []
+    deprecated_fields = {}
     overload_fields = {}
     payload_guess = []
     show_indent = 1
@@ -155,7 +158,13 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
                 continue
             self.fields[fname] = self.get_field(fname).any2i(self, value)
         # The remaining fields are unknown
-        for fname, _ in fields:
+        for fname in fields:
+            if fname in self.deprecated_fields:
+                # Resolve deprecated fields
+                value = fields[fname]
+                fname = self._resolve_alias(fname)
+                self.fields[fname] = self.get_field(fname).any2i(self, value)
+                continue
             raise AttributeError(fname)
         if isinstance(post_transform, list):
             self.post_transforms = post_transform
@@ -307,7 +316,18 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
         clone.time = self.time
         return clone
 
+    def _resolve_alias(self, attr):
+        new_attr, version = self.deprecated_fields[attr]
+        warnings.warn(
+            "%s has been deprecated in favor of %s since %s !" % (
+                attr, new_attr, version
+            ), DeprecationWarning
+        )
+        return new_attr
+
     def getfieldval(self, attr):
+        if self.deprecated_fields and attr in self.deprecated_fields:
+            attr = self._resolve_alias(attr)
         if attr in self.fields:
             return self.fields[attr]
         if attr in self.overloaded_fields:
@@ -317,6 +337,8 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
         return self.payload.getfieldval(attr)
 
     def getfield_and_val(self, attr):
+        if self.deprecated_fields and attr in self.deprecated_fields:
+            attr = self._resolve_alias(attr)
         if attr in self.fields:
             return self.get_field(attr), self.fields[attr]
         if attr in self.overloaded_fields:
@@ -334,6 +356,8 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
         return v
 
     def setfieldval(self, attr, val):
+        if self.deprecated_fields and attr in self.deprecated_fields:
+            attr = self._resolve_alias(attr)
         if attr in self.default_fields:
             fld = self.get_field(attr)
             if fld is None:
