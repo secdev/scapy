@@ -10,6 +10,7 @@ from __future__ import print_function
 
 import getopt
 import sys
+import signal
 
 import scapy.modules.six as six
 from scapy.config import conf
@@ -20,6 +21,11 @@ if six.PY2 or not LINUX:
 
 from scapy.contrib.cansocket import CANSocket, PYTHON_CAN   # noqa: E402
 from scapy.contrib.isotp import ISOTPScan                   # noqa: E402
+
+
+def signal_handler(sig, frame):
+    print('Interrupting scan!')
+    sys.exit(0)
 
 
 def usage():
@@ -165,6 +171,8 @@ def main():
 
     if verbose:
         print("Start scan (%s - %s)" % (hex(start), hex(end)))
+
+    signal.signal(signal.SIGINT, signal_handler)
 
     result = ISOTPScan(sock,
                        range(start, end + 1),
