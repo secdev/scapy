@@ -418,6 +418,26 @@ class ARP(Packet):
         return self.sprintf("ARP %op% %psrc% > %pdst%")
 
 
+class L2F(Packet):
+    name = "L2F"
+    fields_desc = [
+        BitField("F", 0, 1),
+        BitField("K", 0, 1),
+        BitField("P", 0, 1),
+        BitField("S", 0, 1),
+        BitField("reserved", 0, 8),
+        BitField("C", 0, 1),
+        BitField("version", 1, 3),
+        ByteField("protocol", 0),
+        ConditionalField(ByteField("sequence", 1), lambda pkt: pkt.S ==1),
+        ShortField("MID", 0),
+        ShortField("client_ID", 0),
+        ShortField("length", 0),
+        ConditionalField(ShortField("offset", 1), lambda pkt: pkt.F == 1),
+        ConditionalField(IntField("key", 1), lambda pkt : pkt.K == 1),
+        StrLenField("payload",0, length_from=lambda x:x.length),
+        ConditionalField(ShortField("checksum", 1), lambda pkt: pkt.C == 1)]
+
 def l2_register_l3_arp(l2, l3):
     return getmacbyip(l3.pdst)
 
