@@ -378,8 +378,8 @@ class TFTP_WRQ_server(Automaton):
 
     @ATMT.state(final=1)
     def END(self):
-        return self.filename, self.filedata
         split_bottom_up(UDP, TFTP, dport=self.my_tid)
+        return self.filename, self.filedata
 
 
 class TFTP_RRQ_server(Automaton):

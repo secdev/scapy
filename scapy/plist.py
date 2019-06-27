@@ -412,11 +412,6 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
             except Exception:
                 continue
 
-        import math
-
-        def normalize(n):
-            return 2 + math.log(n) / 4.0
-
         def minmax(x):
             m, M = reduce(lambda a, b: (min(a[0], b[0]), max(a[1], b[1])),
                           ((a, a) for a in x))

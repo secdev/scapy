@@ -263,12 +263,6 @@ class connState(object):
         return snap
 
     def __repr__(self):
-        def indent(s):
-            if s and s[-1] == '\n':
-                s = s[:-1]
-            s = '\n'.join('\t' + x for x in s.split('\n')) + '\n'
-            return s
-
         res = "Connection end : %s\n" % self.connection_end.upper()
         res += "Cipher suite   : %s (0x%04x)\n" % (self.ciphersuite.name,
                                                    self.ciphersuite.val)
