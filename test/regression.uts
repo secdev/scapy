@@ -2118,6 +2118,31 @@ graph = HelloWorld.build_graph()
 assert graph.startswith("digraph")
 assert '"BEGIN" -> "END"' in graph
 
+= TCP client automaton
+~ automaton netaccess needs_root
+* This test retries on failure because it may fail quite easily
+
+load_layer("http")
+
+def _tcp_client_test():
+	t = TCP_client.tcplink(HTTP, "www.secdev.org", 80)
+	req = HTTPRequest(
+		Accept_Encoding=b'gzip, deflate',
+		Cache_Control=b'no-cache',
+		Pragma=b'no-cache',
+		Connection=b'keep-alive',
+		Host=b'www.secdev.org',
+	)
+	t.send(req)
+	answrs = t.sniff(count=1, timeout=2)  # t.recv()
+	t.close()
+	response = answrs[0]
+	assert response.Http_Version == b'HTTP/1.1'
+	assert response.Status_Code == b'200'
+	assert response.Reason_Phrase == b'OK'
+
+retry_test(_tcp_client_test)
+
 ############
 ############
 + Test IP options
