@@ -2327,8 +2327,8 @@ a.nh == 6 and a.plen == 20 and isinstance(a.payload, TCP) and a.payload.chksum =
 raw(IPv6()/TCP()/Raw(load="somedata")) == b'`\x00\x00\x00\x00\x1c\x06@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\xd5\xdd\x00\x00somedata'
 
 = IPv6 Class with TCP and TCP data - dissection
-a=IPv6(raw(IPv6()/TCP()/Raw(load="somedata")))
-a.nh == 6 and a.plen == 28 and isinstance(a.payload, TCP) and a.payload.chksum == 0xd5dd and isinstance(a.payload.payload, Raw) and a[Raw].load == b"somedata"
+a=IPv6(raw(IPv6()/TCP(dport=1234, sport=1234)/Raw(load="somedata")))
+a.nh == 6 and a.plen == 28 and isinstance(a.payload, TCP) and a.payload.chksum == 0xcc9d and isinstance(a.payload.payload, Raw) and a[Raw].load == b"somedata"
 
 = IPv6 Class binding with Ethernet - build
 raw(Ether(src="00:00:00:00:00:00", dst="ff:ff:ff:ff:ff:ff")/IPv6()/TCP()) == b'\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x86\xdd`\x00\x00\x00\x00\x14\x06@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x8f}\x00\x00'
