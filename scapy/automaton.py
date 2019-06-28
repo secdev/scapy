@@ -421,6 +421,7 @@ class _ATMT_supersocket(SuperSocket, SelectableObject):
         self.name = name
         self.ioevent = ioevent
         self.proto = proto
+        # write, read
         self.spa, self.spb = ObjectPipe(), ObjectPipe()
         # Register recv hook
         self.spb.register_hook(self.call_release)
@@ -429,7 +430,7 @@ class _ATMT_supersocket(SuperSocket, SelectableObject):
         self.atmt.runbg()
 
     def fileno(self):
-        return self.spa.fileno()
+        return self.spb.fileno()
 
     def send(self, s):
         if not isinstance(s, bytes):

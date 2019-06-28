@@ -1690,12 +1690,12 @@ class TCP_client(Automaton):
     This automaton will handle TCP 3-way handshake.
 
     Usage: the easiest usage is to use it as a SuperSocket.
-        >>> a = TCP_client.tcplink(Raw, "www.google.com", 80)
-        >>> a.send(b"HEAD / HTTP/1.0\r\n\r\n")
+        >>> a = TCP_client.tcplink(HTTP, "www.google.com", 80)
+        >>> a.send(HTTPRequest())
         >>> a.recv()
     """
     def parse_args(self, ip, port, *args, **kargs):
-        from scapy.sessions import StringBuffer
+        from scapy.sessions import TCPSession
         self.dst = str(Net(ip))
         self.dport = port
         self.sport = random.randrange(0, 2**16)
@@ -1704,14 +1704,16 @@ class TCP_client(Automaton):
         self.src = self.l4.src
         self.sack = self.l4[TCP].ack
         self.rel_seq = None
-        self.rcvbuf = StringBuffer()
+        self.rcvbuf = TCPSession(self._transmit_packet, False)
         bpf = "host %s  and host %s and port %i and port %i" % (self.src,
                                                                 self.dst,
                                                                 self.sport,
                                                                 self.dport)
-
-#        bpf=None
         Automaton.parse_args(self, filter=bpf, **kargs)
+
+    def _transmit_packet(self, pkt):
+        """Transmits a packet from TCPSession to the SuperSocket"""
+        self.oi.tcp.send(pkt[TCP].payload)
 
     def master_filter(self, pkt):
         return (IP in pkt and
@@ -1778,17 +1780,8 @@ class TCP_client(Automaton):
             self.l4[TCP].flags = "A"
             # Answer with an Ack
             self.send(self.l4)
-            # Process data
-            if self.rel_seq is None:
-                self.rel_seq = pkt[TCP].seq - 1
-            self.rcvbuf.append(
-                data,
-                pkt[TCP].seq - self.rel_seq
-            )
-            if pkt[TCP].flags.P:
-                self.oi.tcp.send(bytes(self.rcvbuf))
-                self.rcvbuf.clear()
-                self.rel_seq = None
+            # Process data - will be sent to the SuperSocket through this
+            self.rcvbuf.on_packet_received(pkt)
 
     @ATMT.ioevent(ESTABLISHED, name="tcp", as_supersocket="tcplink")
     def outgoing_data_received(self, fd):

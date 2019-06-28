@@ -481,7 +481,9 @@ class HTTP(Packet):
     @classmethod
     def tcp_reassemble(cls, data, metadata):
         detect_end = metadata.get("detect_end", None)
-        if not detect_end:
+        is_unknown = metadata.get("detect_unknown", True)
+        if not detect_end or is_unknown:
+            metadata["detect_unknown"] = False
             http_packet = HTTP(data)
             # Detect packing method
             if not isinstance(http_packet.payload, _HTTPContent):
@@ -498,13 +500,15 @@ class HTTP(Packet):
             else:
                 # It's not Content-Length based. It could be chunked
                 encodings = http_packet[HTTP].payload._get_encodings()
-                chunked = metadata["chunked"] = ("chunked" in encodings)
+                chunked = ("chunked" in encodings)
                 if chunked:
                     detect_end = lambda dat: dat.endswith(b"\r\n\r\n")
                 else:
                     # If neither Content-Length nor chunked is specified,
-                    # it means it's the TCP packet that contains the data.
+                    # it means it's the TCP packet that contains the data,
+                    # or that the information hasn't been given yet.
                     detect_end = lambda dat: metadata.get("tcp_end", False)
+                    metadata["detect_unknown"] = True
             metadata["detect_end"] = detect_end
             if detect_end(data):
                 return http_packet
