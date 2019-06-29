@@ -2118,28 +2118,52 @@ graph = HelloWorld.build_graph()
 assert graph.startswith("digraph")
 assert '"BEGIN" -> "END"' in graph
 
-= TCP client automaton
+= TCP_client automaton
 ~ automaton netaccess needs_root
 * This test retries on failure because it may fail quite easily
+
+# This test doesn't pass on Travis BSD, and will be skipped
+
+SECDEV_IP4 = "203.178.141.194"
+
+if LINUX:
+    import os
+    IPTABLE_RULE = "iptables -%c INPUT -s %s -p tcp --sport 80 -j DROP"
+    # Drop packets from SECDEV_IP4
+    assert(os.system(IPTABLE_RULE % ('A', SECDEV_IP4)) == 0)
 
 load_layer("http")
 
 def _tcp_client_test():
-	req = HTTP()/HTTPRequest(
-		Accept_Encoding=b'gzip, deflate',
-		Cache_Control=b'no-cache',
-		Pragma=b'no-cache',
-		Connection=b'keep-alive',
-		Host=b'www.secdev.org',
-	)
-	t = TCP_client.tcplink(HTTP, "www.secdev.org", 80)
-	response = t.sr1(req, timeout=3)
-	t.close()
-	assert response.Http_Version == b'HTTP/1.1'
-	assert response.Status_Code == b'200'
-	assert response.Reason_Phrase == b'OK'
+    req = HTTP()/HTTPRequest(
+        Accept_Encoding=b'gzip, deflate',
+        Cache_Control=b'no-cache',
+        Pragma=b'no-cache',
+        Connection=b'keep-alive',
+        Host=b'www.secdev.org',
+    )
+    t = TCP_client.tcplink(HTTP, SECDEV_IP4, 80)
+    response = t.sr1(req, timeout=3)
+    t.close()
+    assert response.Http_Version == b'HTTP/1.1'
+    assert response.Status_Code == b'200'
+    assert response.Reason_Phrase == b'OK'
 
-retry_test(_tcp_client_test)
+def _http_request_test():
+    response = http_request("www.secdev.org", path="/")
+    assert response.Http_Version == b'HTTP/1.1'
+    assert response.Status_Code == b'200'
+    assert response.Reason_Phrase == b'OK'
+
+# This test doesn't pass on Travis BSD
+if not BSD:
+    try:
+        retry_test(_tcp_client_test)
+        retry_test(_http_request_test)
+    finally:
+        if LINUX:
+            # Remove the iptables rule
+            assert(os.system(IPTABLE_RULE % ('D', SECDEV_IP4)) == 0)
 
 ############
 ############
@@ -7100,7 +7124,7 @@ wrpcap(tmp_file, frags)
 
 dissected_packets = []
 def callback(pkt):
-	dissected_packets.append(pkt)
+    dissected_packets.append(pkt)
 
 sniff(offline=tmp_file, session=IPSession, prn=callback)
 assert len(dissected_packets) == 1
@@ -7115,7 +7139,7 @@ filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else 
 
 dissected_packets = []
 def callback(pkt):
-	dissected_packets.append(pkt)
+    dissected_packets.append(pkt)
 
 sniff(offline=filename, session=NetflowSession, prn=callback)
 records = dissected_packets[3][NetflowDataflowsetV9].records
