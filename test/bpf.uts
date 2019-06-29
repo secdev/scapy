@@ -43,43 +43,6 @@ attach_filter(fd, "arp or icmp", conf.iface)
 iflist = get_if_list()
 len(iflist) > 0
 
-
-= Get working network interfaces
-~ needs_root
-
-from scapy.arch.bpf.core import get_working_if, get_working_ifaces
-ifworking = get_working_ifaces()
-assert len(ifworking)
-assert get_working_if() == ifworking[0]
-
-
-= Get working network interfaces order
-
-import mock
-from scapy.arch.bpf.core import get_working_ifaces
-
-@mock.patch("scapy.arch.bpf.core.os.close")
-@mock.patch("scapy.arch.bpf.core.fcntl.ioctl")
-@mock.patch("scapy.arch.bpf.core.get_dev_bpf")
-@mock.patch("scapy.arch.bpf.core.get_if")
-@mock.patch("scapy.arch.bpf.core.get_if_list")
-@mock.patch("scapy.arch.bpf.core.os.getuid")
-def test_get_working_ifaces(mock_getuid, mock_get_if_list, mock_get_if,
-                            mock_get_dev_bpf, mock_ioctl, mock_close):
-    mock_getuid.return_value = 0
-    mock_get_if_list.return_value = ['igb0', 'em0', 'msk0', 'epair0a', 'igb1',
-                                     'vlan20', 'igb10', 'igb2']
-    mock_get_if.return_value = (b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
-                                b'\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00'
-                                b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
-    mock_get_dev_bpf.return_value = (31337,)
-    mock_ioctl.return_value = 0
-    mock_close.return_value = 0
-    return get_working_ifaces()
-
-assert test_get_working_ifaces() == ['em0', 'igb0', 'msk0', 'epair0a', 'igb1',
-                                     'igb2', 'igb10', 'vlan20']
-
 = Misc functions
 ~ needs_root
 

@@ -12,6 +12,7 @@ fo
 gost
 iff
 inout
+microsof
 mitre
 nd
 negociate

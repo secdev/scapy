@@ -832,7 +832,7 @@ def in6_isvalid(address):
        otherwise."""
 
     try:
-        socket.inet_pton(socket.AF_INET6, address)
+        inet_pton(socket.AF_INET6, address)
         return True
     except Exception:
         return False

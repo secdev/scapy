@@ -515,9 +515,9 @@ def import_UTscapy_tools(ses):
     ses["retry_test"] = retry_test
     ses["Bunch"] = Bunch
     if WINDOWS:
-        from scapy.arch.windows import _route_add_loopback, IFACES
+        from scapy.arch.windows import _route_add_loopback
         _route_add_loopback()
-        ses["IFACES"] = IFACES
+        ses["conf"].ifaces = conf.ifaces
         ses["conf"].route.routes = conf.route.routes
         ses["conf"].route6.routes = conf.route6.routes
 

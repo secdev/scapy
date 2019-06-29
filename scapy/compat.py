@@ -110,6 +110,14 @@ def bytes_base64(x):
 
 
 if six.PY2:
+    import cgi
+    html_escape = cgi.escape
+else:
+    import html
+    html_escape = html.escape
+
+
+if six.PY2:
     from StringIO import StringIO
 
     def gzip_decompress(x):

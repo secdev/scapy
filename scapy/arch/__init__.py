@@ -22,13 +22,8 @@ def str2mac(s):
     return ("%02x:" * 6)[:-1] % tuple(orb(x) for x in s)
 
 
-if not WINDOWS:
-    if not conf.use_pcap:
-        from scapy.arch.bpf.core import get_if_raw_addr
-
-
 def get_if_addr(iff):
-    return inet_ntop(socket.AF_INET, get_if_raw_addr(iff))
+    return inet_ntop(socket.AF_INET, get_if_raw_addr(iff))  # noqa: F405
 
 
 def get_if_hwaddr(iff):
@@ -51,6 +46,8 @@ def get_if_hwaddr(iff):
 # def get_if(iff,cmd):
 # def get_if_index(iff):
 
+from scapy.interfaces import get_working_if # noqa F401
+
 if LINUX:
     from scapy.arch.linux import *  # noqa F403
 elif BSD:
@@ -58,7 +55,7 @@ elif BSD:
     from scapy.arch.bpf.core import *  # noqa F403
     if not conf.use_pcap:
         # Native
-        from scapy.arch.bpf.supersocket import * # noqa F403
+        from scapy.arch.bpf.supersocket import *  # noqa F403
         conf.use_bpf = True
 elif SOLARIS:
     from scapy.arch.solaris import *  # noqa F403
@@ -66,8 +63,6 @@ elif WINDOWS:
     from scapy.arch.windows import *  # noqa F403
     from scapy.arch.windows.native import *  # noqa F403
 
-if conf.iface is None:
-    conf.iface = conf.loopback_name
 
 _set_conf_sockets()  # Apply config
 

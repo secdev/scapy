@@ -11,7 +11,6 @@ Color themes for the interactive console.
 #  Color themes  #
 ##################
 
-import cgi
 import sys
 
 
@@ -44,6 +43,7 @@ class ColorTable:
         "blink": ("\033[5m", ""),
         "invert": ("\033[7m", ""),
     }
+    inv_map = {v[0]: v[1] for k, v in colors.items()}
 
     def __repr__(self):
         return "<ColorTable>"
@@ -52,8 +52,7 @@ class ColorTable:
         return self.colors.get(attr, [""])[0]
 
     def ansi_to_pygments(self, x):  # Transform ansi encoded text to Pygments text  # noqa: E501
-        inv_map = {v[0]: v[1] for k, v in self.colors.items()}
-        for k, v in inv_map.items():
+        for k, v in self.inv_map.items():
             x = x.replace(k, " " + v)
         return x.strip()
 
@@ -363,7 +362,8 @@ def apply_ipython_style(shell):
         if isinstance(conf.color_theme, (FormatTheme, NoTheme)):
             # Formatable
             if isinstance(conf.color_theme, HTMLTheme):
-                prompt = cgi.escape(conf.prompt)
+                from scapy.compat import html_escape
+                prompt = html_escape(conf.prompt)
             elif isinstance(conf.color_theme, LatexTheme):
                 from scapy.utils import tex_escape
                 prompt = tex_escape(conf.prompt)

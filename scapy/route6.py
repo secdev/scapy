@@ -17,6 +17,7 @@ Routing and network interface handling for IPv6.
 from __future__ import absolute_import
 import socket
 from scapy.config import conf
+from scapy.interfaces import resolve_iface
 from scapy.utils6 import in6_ptop, in6_cidr2mask, in6_and, \
     in6_islladdr, in6_ismlladdr, in6_isincluded, in6_isgladdr, \
     in6_isaddr6to4, in6_ismaddr, construct_source_candidate_set, \
@@ -24,7 +25,6 @@ from scapy.utils6 import in6_ptop, in6_cidr2mask, in6_and, \
 from scapy.arch import read_routes6, in6_getifaddr
 from scapy.pton_ntop import inet_pton, inet_ntop
 from scapy.error import warning, log_loading
-import scapy.modules.six as six
 from scapy.utils import pretty_list
 
 
@@ -57,11 +57,11 @@ class Route6:
         rtlst = []
 
         for net, msk, gw, iface, cset, metric in self.routes:
+            if_repr = resolve_iface(iface).description
             rtlst.append(('%s/%i' % (net, msk),
                           gw,
-                          (iface if isinstance(iface, six.string_types)
-                           else iface.description),
-                          ", ".join(cset) if len(cset) > 0 else "",
+                          if_repr,
+                          cset,
                           str(metric)))
 
         return pretty_list(rtlst,
@@ -255,7 +255,7 @@ class Route6:
         # Deal with dev-specific request for cache search
         k = dst
         if dev is not None:
-            k = dst + "%%" + (dev if isinstance(dev, six.string_types) else dev.pcap_name)  # noqa: E501
+            k = dst + "%%" + dev
         if k in self.cache:
             return self.cache[k]
 
@@ -324,7 +324,7 @@ class Route6:
         # Fill the cache (including dev-specific request)
         k = dst
         if dev is not None:
-            k = dst + "%%" + (dev if isinstance(dev, six.string_types) else dev.pcap_name)  # noqa: E501
+            k = dst + "%%" + dev
         self.cache[k] = res[0][2]
 
         return res[0][2]

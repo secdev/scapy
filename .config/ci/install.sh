@@ -2,10 +2,10 @@
 # Install on osx
 if [ "$OSTYPE" = "darwin"* ] || [ "$TRAVIS_OS_NAME" = "osx" ]
 then
-  if [ ! -z $SCAPY_USE_PCAPDNET ]
+  if [ ! -z $SCAPY_USE_LIBPCAP ]
   then
     brew update
-    brew install libdnet libpcap
+    brew install libpcap
   fi
 fi
 
@@ -18,7 +18,7 @@ then
 fi
 
 # Make sure libpcap is installed
-if [ ! -z $SCAPY_USE_PCAPDNET ]
+if [ ! -z $SCAPY_USE_LIBPCAP ]
 then
   sudo apt-get -qy install libpcap-dev  || exit 1
 fi

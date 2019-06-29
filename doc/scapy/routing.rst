@@ -20,6 +20,18 @@ Use ``get_if_list()`` to get the interface list
     >>> get_if_list()
     ['lo', 'eth0']
 
+You can also use the :py:attr:`conf.ifaces <scapy.interfaces.NetworkInterfaceDict>` object to get interfaces.
+In this example, the object is first displayed as as column. Then, the :py:attr:`dev_from_index() <scapy.interfaces.NetworkInterfaceDict.dev_from_index>` is used to access the interface at index 2.
+
+.. code-block:: pycon
+
+    >>> conf.ifaces
+    SRC  INDEX  IFACE  IPv4       IPv6                      MAC
+    sys  2      eth0   10.0.0.5   fe80::10a:2bef:dc12:afae  Microsof:12:cb:ef
+    sys  1      lo     127.0.0.1  ::1                       00:00:00:00:00:00
+    >>> conf.ifaces.dev_from_index(2)
+    <NetworkInterface eth0 [UP+BROADCAST+RUNNING+SLAVE]>
+
 IPv4 routes
 -----------
 

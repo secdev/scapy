@@ -12,7 +12,7 @@ from ctypes.util import find_library
 import os
 
 from scapy.libs.structures import bpf_program
-from scapy.consts import WINDOWS
+from scapy.consts import WINDOWS, BSD
 
 if WINDOWS:
     # Try to load Npcap, or Winpcap
@@ -66,23 +66,11 @@ class timeval(Structure):
 # sockaddr is used by pcap_addr.
 # For example if sa_family==socket.AF_INET then we need cast
 # with sockaddr_in
-if WINDOWS:
-    class sockaddr(Structure):
-        _fields_ = [("sa_family", c_ushort),
-                    ("sa_data", c_ubyte * 14)]
 
-    class sockaddr_in(Structure):
-        _fields_ = [("sin_family", c_ushort),
-                    ("sin_port", c_uint16),
-                    ("sin_addr", 4 * c_ubyte)]
-
-    class sockaddr_in6(Structure):
-        _fields_ = [("sin6_family", c_ushort),
-                    ("sin6_port", c_uint16),
-                    ("sin6_flowinfo", c_uint32),
-                    ("sin6_addr", 16 * c_ubyte),
-                    ("sin6_scope", c_uint32)]
-else:
+# sockaddr has a different structure depending on the OS
+if BSD:
+    # https://github.com/freebsd/freebsd/blob/master/sys/sys/socket.h
+    # https://opensource.apple.com/source/xnu/xnu-201/bsd/sys/socket.h.auto.html
     class sockaddr(Structure):
         _fields_ = [("sa_len", c_ubyte),
                     ("sa_family", c_ubyte),
@@ -112,6 +100,26 @@ else:
                     ("sdl_alen", c_ubyte),
                     ("sdl_slen", c_ubyte),
                     ("sdl_data", 46 * c_ubyte)]
+
+else:
+    # https://github.com/torvalds/linux/blob/master/include/linux/socket.h
+    # https://docs.microsoft.com/en-us/windows/win32/winsock/sockaddr-2
+    class sockaddr(Structure):
+        _fields_ = [("sa_family", c_ushort),
+                    ("sa_data", c_ubyte * 14)]
+
+    class sockaddr_in(Structure):
+        _fields_ = [("sin_family", c_ushort),
+                    ("sin_port", c_uint16),
+                    ("sin_addr", 4 * c_ubyte)]
+
+    class sockaddr_in6(Structure):
+        _fields_ = [("sin6_family", c_ushort),
+                    ("sin6_port", c_uint16),
+                    ("sin6_flowinfo", c_uint32),
+                    ("sin6_addr", 16 * c_ubyte),
+                    ("sin6_scope", c_uint32)]
+
 ##
 # END misc
 ##

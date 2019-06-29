@@ -58,7 +58,7 @@ jobs:
         - os: linux
           python: 3.8
           env:
-            - SCAPY_USE_PCAPDNET=yes TOXENV=py38-linux_root,codecov
+            - SCAPY_USE_LIBPCAP=yes TOXENV=py38-linux_root,codecov
 
         # warnings/deprecations
         - os: linux

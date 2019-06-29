@@ -21,6 +21,7 @@ from scapy.config import conf
 from scapy.consts import FREEBSD, NETBSD, DARWIN
 from scapy.data import ETH_P_ALL
 from scapy.error import Scapy_Exception, warning
+from scapy.interfaces import network_name
 from scapy.supersocket import SuperSocket
 from scapy.compat import raw
 
@@ -53,10 +54,7 @@ class _L2bpfSocket(SuperSocket):
         else:
             self.promisc = promisc
 
-        if iface is None:
-            self.iface = conf.iface
-        else:
-            self.iface = iface
+        self.iface = network_name(iface or conf.iface)
 
         # Get the BPF handle
         (self.ins, self.dev_bpf) = get_dev_bpf()
