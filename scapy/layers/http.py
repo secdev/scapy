@@ -31,14 +31,19 @@ You can turn auto-decompression/auto-compression off with:
 # Original Authors : Steeve Barbeau, Luca Invernizzi
 # Originally published under a GPLv2 license
 
+import os
 import re
+import subprocess
 
 from scapy.compat import plain_str, gzip_compress, gzip_decompress
 from scapy.config import conf
+from scapy.consts import WINDOWS
+from scapy.error import warning
 from scapy.fields import StrField
 from scapy.packet import Packet, bind_layers, bind_bottom_up, Raw
+from scapy.utils import get_temp_file, ContextManagerSubprocess
 
-from scapy.layers.inet import TCP
+from scapy.layers.inet import TCP, TCP_client
 
 from scapy.modules import six
 
@@ -324,6 +329,10 @@ class _HTTPContent(Packet):
     def self_build(self, field_pos_list=None):
         ''' Takes an HTTPRequest or HTTPResponse object, and creates its
         string representation.'''
+        if not isinstance(self.underlayer, HTTP):
+            warning(
+                "An HTTPResponse/HTTPRequest should always be below an HTTP"
+            )
         # Check for cache
         if self.raw_packet_cache is not None:
             return self.raw_packet_cache
@@ -541,6 +550,53 @@ class HTTP(Packet):
             # Anything that isn't HTTP but on port 80
             pass
         return Raw
+
+
+def http_request(host, path="/", port=80, timeout=3,
+                 display=False, verbose=None, **headers):
+    """Util to perform an HTTP request, using the TCP_client.
+
+    :param host: the host to connect to
+    :param path: the path of the request (default /)
+    :param port: the port (default 80)
+    :param timeout: timeout before None is returned
+    :param display: display the resullt in the default browser (default False)
+    :param **headers: any additional headers passed to the request
+
+    :returns: the HTTPResponse packet
+    """
+    http_headers = {
+        "Accept_Encoding": b'gzip, deflate',
+        "Cache_Control": b'no-cache',
+        "Pragma": b'no-cache',
+        "Connection": b'keep-alive',
+        "Host": host,
+        "Path": path,
+    }
+    http_headers.update(headers)
+    req = HTTP() / HTTPRequest(**http_headers)
+    tcp_client = TCP_client.tcplink(HTTP, host, 80)
+    ans = None
+    try:
+        ans = tcp_client.sr1(req, timeout=timeout, verbose=verbose)
+    finally:
+        tcp_client.close()
+    if ans:
+        if display:
+            # Write file
+            file = get_temp_file(autoext=".html")
+            with open(file, "wb") as fd:
+                fd.write(ans.load)
+            # Open browser
+            if WINDOWS:
+                os.startfile(file)
+            else:
+                with ContextManagerSubprocess("http_request()",
+                                              conf.prog.universal_open):
+                    subprocess.Popen([conf.prog.universal_open, file])
+        else:
+            return ans
+
 
 # Bindings
 

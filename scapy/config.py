@@ -89,9 +89,10 @@ ReadOnlyAttribute.__doc__ = "Read-only class attribute"
 
 
 class ProgPath(ConfClass):
-    pdfreader = "open" if DARWIN else "xdg-open"
-    psreader = "open" if DARWIN else "xdg-open"
-    svgreader = "open" if DARWIN else "xdg-open"
+    universal_open = "open" if DARWIN else "xdg-open"
+    pdfreader = universal_open
+    psreader = universal_open
+    svgreader = universal_open
     dot = "dot"
     display = "display"
     tcpdump = "tcpdump"

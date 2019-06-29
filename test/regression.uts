@@ -2125,18 +2125,16 @@ assert '"BEGIN" -> "END"' in graph
 load_layer("http")
 
 def _tcp_client_test():
-	t = TCP_client.tcplink(HTTP, "www.secdev.org", 80)
-	req = HTTPRequest(
+	req = HTTP()/HTTPRequest(
 		Accept_Encoding=b'gzip, deflate',
 		Cache_Control=b'no-cache',
 		Pragma=b'no-cache',
 		Connection=b'keep-alive',
 		Host=b'www.secdev.org',
 	)
-	t.send(req)
-	answrs = t.sniff(count=1, timeout=2)  # t.recv()
+	t = TCP_client.tcplink(HTTP, "www.secdev.org", 80)
+	response = t.sr1(req, timeout=3)
 	t.close()
-	response = answrs[0]
 	assert response.Http_Version == b'HTTP/1.1'
 	assert response.Status_Code == b'200'
 	assert response.Reason_Phrase == b'OK'
