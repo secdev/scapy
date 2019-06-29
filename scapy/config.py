@@ -613,6 +613,8 @@ class Conf(ConfClass):
     #: When 1, print some TLS session secrets when they are computed.
     debug_tls = False
     wepkey = ""
+    #: holds the Scapy interface list and manager
+    ifaces = None
     cache_iflist = {}
     #: holds the Scapy IPv4 routing table and provides methods to
     #: manipulate it

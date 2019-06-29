@@ -19,6 +19,7 @@ from scapy.compat import raw, plain_str
 from scapy.config import conf
 from scapy.consts import WINDOWS
 from scapy.data import MTU, ETH_P_ALL
+from scapy.interfaces import network_name
 from scapy.pton_ntop import inet_ntop
 from scapy.supersocket import SuperSocket
 from scapy.error import Scapy_Exception, log_loading, warning
@@ -34,6 +35,18 @@ if not scapy.consts.WINDOWS:
 # From BSD net/bpf.h
 # BIOCIMMEDIATE = 0x80044270
 BIOCIMMEDIATE = -2147204496
+
+# https://github.com/the-tcpdump-group/libpcap/blob/master/pcap/pcap.h
+PCAP_IF_UP = 0x00000002  # interface is up
+_pcap_if_flags = [
+    "LOOPBACK",
+    "UP",
+    "RUNNING",
+    "WIRELESS",
+    "OK",
+    "DISCONNECTED",
+    "NA"
+]
 
 
 class _L2pcapdnetSocket(SuperSocket, SelectableObject):
@@ -110,6 +123,8 @@ if conf.use_pcap:
             The date will be stored in ``conf.cache_iflist``, or accessible
             with ``get_if_list()``
             """
+            from scapy.fields import FlagValue
+
             err = create_string_buffer(PCAP_ERRBUF_SIZE)
             devs = POINTER(pcap_if_t)()
             if_list = {}
@@ -143,6 +158,7 @@ if conf.use_pcap:
                         if addr != "0.0.0.0":
                             ips.append(addr)
                         a = a.contents.next
+                    flags = FlagValue(flags, _pcap_if_flags)
                     if_list[name] = (description, ips, flags)
                     p = p.contents.next
                 conf.cache_iflist = if_list
@@ -190,6 +206,7 @@ if conf.use_pcap:
         """Wrapper for the libpcap calls"""
 
         def __init__(self, device, snaplen, promisc, to_ms, monitor=None):
+            device = network_name(device)
             self.errbuf = create_string_buffer(PCAP_ERRBUF_SIZE)
             self.iface = create_string_buffer(device.encode("utf8"))
             self.dtl = None

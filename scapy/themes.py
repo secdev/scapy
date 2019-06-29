@@ -44,6 +44,7 @@ class ColorTable:
         "blink": ("\033[5m", ""),
         "invert": ("\033[7m", ""),
     }
+    inv_map = {v[0]: v[1] for k, v in colors.items()}
 
     def __repr__(self):
         return "<ColorTable>"
@@ -52,8 +53,7 @@ class ColorTable:
         return self.colors.get(attr, [""])[0]
 
     def ansi_to_pygments(self, x):  # Transform ansi encoded text to Pygments text  # noqa: E501
-        inv_map = {v[0]: v[1] for k, v in self.colors.items()}
-        for k, v in inv_map.items():
+        for k, v in self.inv_map.items():
             x = x.replace(k, " " + v)
         return x.strip()
 

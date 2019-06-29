@@ -21,6 +21,7 @@ from scapy.consts import LINUX, DARWIN, WINDOWS
 from scapy.data import MTU, ETH_P_IP, SOL_PACKET, SO_TIMESTAMPNS
 from scapy.compat import raw, bytes_encode
 from scapy.error import warning, log_runtime
+from scapy.interfaces import network_name
 import scapy.modules.six as six
 import scapy.packet
 from scapy.utils import PcapReader, tcpdump
@@ -223,7 +224,8 @@ class L3RawSocket(SuperSocket):
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))  # noqa: E501
         self.iface = iface
         if iface is not None:
-            self.ins.bind((self.iface, type))
+            iface = network_name(iface)
+            self.ins.bind((iface, type))
         if not six.PY2:
             try:
                 # Receive Auxiliary Data (VLAN tags)
@@ -369,7 +371,7 @@ class L2ListenTcpdump(SuperSocket):
                 pass
         self.iface = iface
         if iface is not None:
-            args.extend(['-i', self.iface])
+            args.extend(['-i', network_name(iface)])
         if not promisc:
             args.append('-p')
         if not nofilter:

@@ -16,9 +16,34 @@ from scapy.consts import WINDOWS
 from scapy.config import conf
 from scapy.data import MTU, ARPHRD_TO_DLT
 from scapy.error import Scapy_Exception
+from scapy.interfaces import network_name
 
 if not WINDOWS:
     from fcntl import ioctl
+
+# From if.h
+_iff_flags = [
+    "UP",
+    "BROADCAST",
+    "DEBUG",
+    "LOOPBACK",
+    "POINTTOPOINT",
+    "NOTRAILERS",
+    "RUNNING",
+    "NOARP",
+    "PROMISC",
+    "NOTRAILERS",
+    "ALLMULTI",
+    "MASTER",
+    "SLAVE",
+    "MULTICAST",
+    "PORTSEL",
+    "AUTOMEDIA",
+    "DYNAMIC",
+    "LOWER_UP",
+    "DORMANT",
+    "ECHO"
+]
 
 # UTILS
 
@@ -26,6 +51,7 @@ if not WINDOWS:
 def get_if(iff, cmd):
     """Ease SIOCGIF* ioctl calls"""
 
+    iff = network_name(iff)
     sck = socket.socket()
     try:
         return ioctl(sck, cmd, struct.pack("16s16x", iff.encode("utf8")))
@@ -33,7 +59,7 @@ def get_if(iff, cmd):
         sck.close()
 
 
-def get_if_raw_hwaddr(iff):
+def get_if_raw_hwaddr(iff, siocgifhwaddr=None):
     """Get the raw MAC address of a local interface.
 
     This function uses SIOCGIFHWADDR calls, therefore only works
@@ -42,8 +68,10 @@ def get_if_raw_hwaddr(iff):
     :param iff: the network interface name as a string
     :returns: the corresponding raw MAC address
     """
-    from scapy.arch import SIOCGIFHWADDR
-    return struct.unpack("16xh6s8x", get_if(iff, SIOCGIFHWADDR))
+    if siocgifhwaddr is None:
+        from scapy.arch import SIOCGIFHWADDR
+        siocgifhwaddr = SIOCGIFHWADDR
+    return struct.unpack("16xh6s8x", get_if(iff, siocgifhwaddr))
 
 # SOCKET UTILS
 

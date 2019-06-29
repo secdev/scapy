@@ -173,22 +173,8 @@ bytes_hex(get_if_raw_addr(conf.iface))
 
 def get_dummy_interface():
     """Returns a dummy network interface"""
-    if WINDOWS:
-        data = {}
-        data["name"] = "dummy0"
-        data["description"] = "Does not exist"
-        data["win_index"] = -1
-        data["guid"] = "{1XX00000-X000-0X0X-X00X-00XXXX000XXX}"
-        data["invalid"] = True
-        data["ipv4_metric"] = 1
-        data["ipv6_metric"] = 1
-        data["mac"] = "00:00:00:00:00:00"
-        data["ips"] = ["127.0.0.1", "::1"]
-        data["pcap_name"] = "\\Device\\NPF_" + data["guid"]
-        data["flags"] = 0
-        return NetworkInterface(data)
-    else:
-        return "dummy0"
+    IFACES._add_fake_iface("dummy0")
+    return "dummy0"
 
 get_if_raw_addr(get_dummy_interface())
 
@@ -197,6 +183,11 @@ get_if_list()
 get_working_if()
 
 get_if_raw_addr6(conf.iface)
+
+= More Interfaces related functions
+
+assert isinstance(conf.iface, NetworkInterface)
+assert conf.iface.valid
 
 = Test read_routes6() - default output
 
@@ -4248,6 +4239,11 @@ assert defragment6(pkts).plen == 1508
 ############
 + Test Route6 class
 
+= Fake interfaces
+IFACES._add_fake_iface("eth0")
+IFACES._add_fake_iface("lo")
+IFACES._add_fake_iface("scapy0")
+
 = Route6 - Route6 flushing
 conf_iface = conf.iface
 conf.iface = "eth0"
@@ -4258,6 +4254,7 @@ conf.route6.flush()
 not conf.route6.routes
 
 = Route6 - Route6.route
+
 conf.route6.flush()
 conf.route6.ipv6_ifaces = set(['lo', 'eth0'])
 conf.route6.routes=[
@@ -8916,6 +8913,9 @@ test_netbsd_7_0()
 
 import scapy
 
+IFACES._add_fake_iface("enp3s0")
+IFACES._add_fake_iface("lo")
+
 old_routes = conf.route.routes
 old_iface = conf.iface
 old_loopback = conf.loopback_name
@@ -8945,10 +8945,15 @@ finally:
     conf.iface = old_iface
     conf.route.routes = old_routes
     conf.route.invalidate_cache()
+    IFACES.reload()
 
 
 = Mocked IPv6 routes calls
 
+IFACES._add_fake_iface("enp3s0")
+IFACES._add_fake_iface("lo")
+
+old_routes = conf.route6.routes
 old_iface = conf.iface
 old_loopback = conf.loopback_name
 try:

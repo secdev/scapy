@@ -1894,21 +1894,21 @@ def get_terminal_width():
         return sizex
 
 
-def pretty_list(rtlst, header, sortBy=0, borders=False):
+def pretty_list(rtlst, header, sortBy=0, borders=False, _colors=[]):
     """Pretty list to fit the terminal, and add header"""
     if borders:
         _space = "|"
     else:
         _space = "  "
     # Windows has a fat terminal border
-    _spacelen = len(_space) * (len(header) - 1) + (10 if WINDOWS else 0)
+    _spacelen = len(_space) * (len(header[0]) - 1) + int(WINDOWS)
     _croped = False
     # Sort correctly
     rtlst.sort(key=lambda x: x[sortBy])
     # Append tag
     rtlst = header + rtlst
     # Detect column's width
-    colwidth = [max([len(y) for y in x]) for x in zip(*rtlst)]
+    colwidth = [max(len(y) for y in x) for x in zip(*rtlst)]
     # Make text fit in box (if required)
     width = get_terminal_width()
     if conf.auto_crop_tables and width:
@@ -1937,8 +1937,7 @@ def pretty_list(rtlst, header, sortBy=0, borders=False):
     if borders:
         rtlst.insert(1, tuple("-" * x for x in colwidth))
     # Compile
-    rt = "\n".join(((fmt % x).strip() for x in rtlst))
-    return rt
+    return "\n".join((fmt % x).strip() for x in rtlst)
 
 
 def __make_table(yfmtfunc, fmtfunc, endline, data, fxyz, sortx=None, sorty=None, seplinefunc=None, dump=False):  # noqa: E501
