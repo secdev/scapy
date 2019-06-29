@@ -15,6 +15,7 @@ import scapy.consts
 from scapy.config import conf
 from scapy.error import Scapy_Exception, warning
 from scapy.modules import six
+from scapy.interfaces import network_name
 from scapy.utils import atol, ltoa, itom, plain_str, pretty_list
 
 
@@ -87,6 +88,7 @@ class Route:
 
     def ifchange(self, iff, addr):
         self.invalidate_cache()
+        iff = network_name(iff)
         the_addr, the_msk = (addr.split("/") + ["32"])[:2]
         the_msk = itom(int(the_msk))
         the_rawaddr = atol(the_addr)
@@ -94,10 +96,7 @@ class Route:
 
         for i, route in enumerate(self.routes):
             net, msk, gw, iface, addr, metric = route
-            if scapy.consts.WINDOWS:
-                if iff.guid != iface.guid:
-                    continue
-            elif iff != iface:
+            if iff != network_name(iface):
                 continue
             if gw == '0.0.0.0':
                 self.routes[i] = (the_net, the_msk, gw, iface, the_addr, metric)  # noqa: E501
@@ -108,11 +107,9 @@ class Route:
     def ifdel(self, iff):
         self.invalidate_cache()
         new_routes = []
+        iff = network_name(iff)
         for rt in self.routes:
-            if scapy.consts.WINDOWS:
-                if iff.guid == rt[3].guid:
-                    continue
-            elif iff == rt[3]:
+            if iff == network_name(rt[3]):
                 continue
             new_routes.append(rt)
         self.routes = new_routes
@@ -178,13 +175,11 @@ class Route:
         return ret
 
     def get_if_bcast(self, iff):
+        iff = network_name(iff)
         for net, msk, gw, iface, addr, metric in self.routes:
             if net == 0:
                 continue
-            if scapy.consts.WINDOWS:
-                if iff.guid != iface.guid:
-                    continue
-            elif iff != iface:
+            if iff != network_name(iface):
                 continue
             bcast = atol(addr) | (~msk & 0xffffffff)  # FIXME: check error in atol()  # noqa: E501
             return ltoa(bcast)

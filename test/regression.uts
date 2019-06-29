@@ -140,10 +140,12 @@ def get_dummy_interface():
         data["ipv6_metric"] = 1
         data["mac"] = "00:00:00:00:00:00"
         data["ips"] = ["127.0.0.1", "::1"]
-        dummy_int = NetworkInterface(data)
+        dummy_int = NetworkInterface_Win(InterfaceProvider(), data)
         dummy_int.pcap_name = "\\Device\\NPF_" + data["guid"]
+        IFACES[dummy_int.pcap_name] = dummy_int
         return dummy_int
     else:
+        IFACES._add_fake_iface("dummy0")
         return "dummy0"
 
 get_if_raw_addr(get_dummy_interface())
@@ -4011,6 +4013,11 @@ assert defragment6(pkts).plen == 1508
 ############
 + Test Route6 class
 
+= Fake interfaces
+IFACES._add_fake_iface("eth0")
+IFACES._add_fake_iface("lo")
+IFACES._add_fake_iface("scapy0")
+
 = Route6 - Route6 flushing
 conf_iface = conf.iface
 conf.iface = "eth0"
@@ -4021,6 +4028,7 @@ conf.route6.flush()
 not conf.route6.routes
 
 = Route6 - Route6.route
+
 conf.route6.flush()
 conf.route6.routes=[
 (                               '::1', 128,                       '::',   'lo', ['::1'], 1), 
@@ -8157,6 +8165,9 @@ test_netbsd_7_0()
 
 import scapy
 
+IFACES._add_fake_iface("enp3s0")
+IFACES._add_fake_iface("lo")
+
 old_routes = conf.route.routes
 old_iface = conf.iface
 old_loopback = scapy.consts.LOOPBACK_INTERFACE
@@ -8186,9 +8197,13 @@ finally:
     conf.iface = old_iface
     conf.route.routes = old_routes
     conf.route.invalidate_cache()
+    IFACES.reload()
 
 
 = Mocked IPv6 routes calls
+
+IFACES._add_fake_iface("enp3s0")
+IFACES._add_fake_iface("lo")
 
 old_routes = conf.route6.routes
 old_iface = conf.iface

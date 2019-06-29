@@ -18,6 +18,7 @@ from __future__ import absolute_import
 import socket
 import scapy.consts
 from scapy.config import conf
+from scapy.interfaces import network_name
 from scapy.utils6 import in6_ptop, in6_cidr2mask, in6_and, \
     in6_islladdr, in6_ismlladdr, in6_isincluded, in6_isgladdr, \
     in6_isaddr6to4, in6_ismaddr, construct_source_candidate_set, \
@@ -210,7 +211,7 @@ class Route6:
         # Deal with dev-specific request for cache search
         k = dst
         if dev is not None:
-            k = dst + "%%" + (dev if isinstance(dev, six.string_types) else dev.pcap_name)  # noqa: E501
+            k = dst + "%%" + network_name(dev)
         if k in self.cache:
             return self.cache[k]
 
@@ -276,7 +277,7 @@ class Route6:
         # Fill the cache (including dev-specific request)
         k = dst
         if dev is not None:
-            k = dst + "%%" + (dev if isinstance(dev, six.string_types) else dev.pcap_name)  # noqa: E501
+            k = dst + "%%" + network_name(dev)
         self.cache[k] = res[0][2]
 
         return res[0][2]

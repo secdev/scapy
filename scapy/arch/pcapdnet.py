@@ -19,6 +19,7 @@ from scapy.compat import raw, plain_str, chb
 from scapy.config import conf
 from scapy.consts import WINDOWS
 from scapy.data import MTU, ETH_P_ALL, ARPHDR_ETHER, ARPHDR_LOOPBACK
+from scapy.interfaces import network_name
 from scapy.pton_ntop import inet_ntop
 from scapy.utils import mac2str
 from scapy.supersocket import SuperSocket
@@ -186,6 +187,7 @@ if conf.use_pcap:
         """Wrapper for the WinPcap calls"""
 
         def __init__(self, device, snaplen, promisc, to_ms, monitor=None):
+            device = network_name(device)
             self.errbuf = create_string_buffer(PCAP_ERRBUF_SIZE)
             self.iface = create_string_buffer(device.encode("utf8"))
             if monitor:

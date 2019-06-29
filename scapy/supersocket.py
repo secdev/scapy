@@ -20,6 +20,7 @@ from scapy.consts import LINUX, DARWIN, WINDOWS
 from scapy.data import MTU, ETH_P_IP
 from scapy.compat import raw, bytes_encode
 from scapy.error import warning, log_runtime
+from scapy.interfaces import network_name
 import scapy.modules.six as six
 import scapy.packet
 from scapy.utils import PcapReader, tcpdump
@@ -149,6 +150,7 @@ class L3RawSocket(SuperSocket):
         self.outs.setsockopt(socket.SOL_IP, socket.IP_HDRINCL, 1)
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))  # noqa: E501
         if iface is not None:
+            iface = network_name(iface)
             self.ins.bind((iface, type))
 
     def recv(self, x=MTU):
@@ -270,13 +272,7 @@ class L2ListenTcpdump(SuperSocket):
         self.outs = None
         args = ['-w', '-', '-s', '65535']
         if iface is not None:
-            if WINDOWS:
-                try:
-                    args.extend(['-i', iface.pcap_name])
-                except AttributeError:
-                    args.extend(['-i', iface])
-            else:
-                args.extend(['-i', iface])
+            args.extend(['-i', network_name(iface)])
         elif WINDOWS or DARWIN:
             args.extend(['-i', conf.iface.pcap_name if WINDOWS else conf.iface])  # noqa: E501
         if not promisc:

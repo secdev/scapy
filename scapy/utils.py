@@ -1764,7 +1764,7 @@ def pretty_list(rtlst, header, sortBy=0, borders=False):
     # Append tag
     rtlst = header + rtlst
     # Detect column's width
-    colwidth = [max([len(y) for y in x]) for x in zip(*rtlst)]
+    colwidth = [max(len(y) for y in x) for x in zip(*rtlst)]
     # Make text fit in box (if required)
     width = get_terminal_width()
     if conf.auto_crop_tables and width:

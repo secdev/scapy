@@ -28,7 +28,10 @@ import scapy.utils6
 from scapy.packet import Packet, Padding
 from scapy.config import conf
 from scapy.data import MTU, ETH_P_ALL
+from scapy.interfaces import IFACES, InterfaceProvider, NetworkInterface, \
+    network_name
 from scapy.supersocket import SuperSocket
+from scapy.pton_ntop import inet_ntop
 from scapy.error import warning, Scapy_Exception, \
     ScapyInvalidPlatformException
 from scapy.arch.common import get_if, compile_filter
@@ -118,19 +121,6 @@ def get_if_list():
         lst.append(line.split(":")[0].strip())
     f.close()
     return lst
-
-
-def get_working_if():
-    """
-    Return the name of the first network interfcace that is up.
-    """
-    for i in get_if_list():
-        if i == LOOPBACK_NAME:
-            continue
-        ifflags = struct.unpack("16xH14x", get_if(i, SIOCGIFFLAGS))[0]
-        if ifflags & IFF_UP:
-            return i
-    return LOOPBACK_NAME
 
 
 def attach_filter(sock, bpf_filter, iface):
@@ -363,6 +353,33 @@ def get_if_index(iff):
     return int(struct.unpack("I", get_if(iff, SIOCGIFINDEX)[16:20])[0])
 
 
+class LinuxInterfaceProvider(InterfaceProvider):
+    name = "Linux native"
+
+    def load(self):
+        data = {}
+        for i in get_if_list():
+            ifflags = struct.unpack("16xH14x", get_if(i, SIOCGIFFLAGS))[0]
+            invalid = not (ifflags & IFF_UP)
+            index = get_if_index(i)
+            mac = scapy.utils.str2mac(get_if_raw_hwaddr(i)[1])
+            ip = inet_ntop(socket.AF_INET, get_if_raw_addr(i))
+            if_data = {
+                "name": i,
+                "network_name": i,
+                "description": i,
+                "invalid": invalid,
+                "flags": ifflags,
+                "index": index,
+                "ip": ip,
+                "mac": mac
+            }
+            data[i] = NetworkInterface(self, if_data)
+        return data
+
+
+IFACES.register_provider(LinuxInterfaceProvider)
+
 if os.uname()[4] in ['x86_64', 'aarch64']:
     def get_last_packet_timestamp(sock):
         ts = ioctl(sock, SIOCGSTAMP, "1234567890123456")
@@ -439,7 +456,7 @@ class L2Socket(SuperSocket):
 
     def __init__(self, iface=None, type=ETH_P_ALL, promisc=None, filter=None,
                  nofilter=0, monitor=None):
-        self.iface = conf.iface if iface is None else iface
+        self.iface = network_name(iface or conf.iface)
         self.type = type
         self.promisc = conf.sniff_promisc if promisc is None else promisc
         if monitor is not None:

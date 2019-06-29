@@ -52,6 +52,8 @@ def get_if_hwaddr(iff):
 # def get_if(iff,cmd):
 # def get_if_index(iff):
 
+from scapy.interfaces import get_working_if # noqa F401
+
 if LINUX:
     from scapy.arch.linux import *  # noqa F403
 elif BSD:
@@ -59,7 +61,7 @@ elif BSD:
     from scapy.arch.bpf.core import *  # noqa F403
     if not (conf.use_pcap or conf.use_dnet):
         # Native
-        from scapy.arch.bpf.supersocket import * # noqa F403
+        from scapy.arch.bpf.supersocket import *  # noqa F403
         conf.use_bpf = True
 elif SOLARIS:
     from scapy.arch.solaris import *  # noqa F403

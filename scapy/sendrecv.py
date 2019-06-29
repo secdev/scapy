@@ -20,6 +20,7 @@ from scapy.compat import plain_str
 from scapy.data import ETH_P_ALL
 from scapy.config import conf
 from scapy.error import warning
+from scapy.interfaces import resolve_iface
 from scapy.packet import Gen, Packet
 from scapy.utils import get_temp_file, tcpdump, wrpcap, \
     ContextManagerSubprocess, PcapReader
@@ -302,40 +303,38 @@ def __gen_send(s, x, inter=0, loop=0, count=None, verbose=None, realtime=None, r
         return sent_packets
 
 
+def _send(x, _func, inter=0, loop=0, iface=None, iface_hint=None, count=None,
+          verbose=None, realtime=None,
+          return_packets=False, socket=None, **kargs):
+    """Internal function used by send and sendp"""
+    need_closing = socket is None
+    if iface is None and iface_hint is not None and socket is None:
+        iface = conf.route.route(iface_hint)[0]
+    iface = kargs.get("iface", conf.iface)
+    iface = resolve_iface(iface)
+    socket = socket or _func(iface)(**kargs)
+    results = __gen_send(socket, x, inter=inter, loop=loop,
+                         count=count, verbose=verbose,
+                         realtime=realtime, return_packets=return_packets)
+    if need_closing:
+        socket.close()
+    return results
+
+
 @conf.commands.register
-def send(x, inter=0, loop=0, count=None,
-         verbose=None, realtime=None,
-         return_packets=False, socket=None, *args, **kargs):
+def send(x, **kargs):
     """Send packets at layer 3
 send(packets, [inter=0], [loop=0], [count=None], [verbose=conf.verb], [realtime=None], [return_packets=False],  # noqa: E501
      [socket=None]) -> None"""
-    need_closing = socket is None
-    socket = socket or conf.L3socket(*args, **kargs)
-    results = __gen_send(socket, x, inter=inter, loop=loop,
-                         count=count, verbose=verbose,
-                         realtime=realtime, return_packets=return_packets)
-    if need_closing:
-        socket.close()
-    return results
+    return _send(x, lambda iface: iface.l3socket(), **kargs)
 
 
 @conf.commands.register
-def sendp(x, inter=0, loop=0, iface=None, iface_hint=None, count=None,
-          verbose=None, realtime=None,
-          return_packets=False, socket=None, *args, **kargs):
+def sendp(x, **kargs):
     """Send packets at layer 2
 sendp(packets, [inter=0], [loop=0], [iface=None], [iface_hint=None], [count=None], [verbose=conf.verb],  # noqa: E501
       [realtime=None], [return_packets=False], [socket=None]) -> None"""
-    if iface is None and iface_hint is not None and socket is None:
-        iface = conf.route.route(iface_hint)[0]
-    need_closing = socket is None
-    socket = socket or conf.L2socket(iface=iface, *args, **kargs)
-    results = __gen_send(socket, x, inter=inter, loop=loop,
-                         count=count, verbose=verbose,
-                         realtime=realtime, return_packets=return_packets)
-    if need_closing:
-        socket.close()
-    return results
+    return _send(x, lambda iface: iface.l2socket(), **kargs)
 
 
 @conf.commands.register
@@ -481,8 +480,9 @@ def srp(x, promisc=None, iface=None, iface_hint=None, filter=None,
     """Send and receive packets at layer 2"""
     if iface is None and iface_hint is not None:
         iface = conf.route.route(iface_hint)[0]
-    s = conf.L2socket(promisc=promisc, iface=iface,
-                      filter=filter, nofilter=nofilter, type=type)
+    iface = resolve_iface(iface or conf.iface)
+    s = iface.l2socket()(promisc=promisc, iface=iface,
+                         filter=filter, nofilter=nofilter, type=type)
     result = sndrcv(s, x, *args, **kargs)
     s.close()
     return result
@@ -610,7 +610,8 @@ unique:   only consider packets whose print
 nofilter: put 1 to avoid use of BPF filters
 filter:   provide a BPF filter
 iface:    listen answers only on the given interface"""
-    s = conf.L3socket(promisc=promisc, filter=filter, iface=iface, nofilter=nofilter)  # noqa: E501
+    iface = resolve_iface(iface or conf.iface)
+    s = iface.l3socket()(promisc=promisc, filter=filter, iface=iface, nofilter=nofilter)  # noqa: E501
     r = sndrcvflood(s, x, *args, **kargs)
     s.close()
     return r
@@ -624,7 +625,8 @@ verbose:  set verbosity level
 nofilter: put 1 to avoid use of BPF filters
 filter:   provide a BPF filter
 iface:    listen answers only on the given interface"""
-    s = conf.L3socket(promisc=promisc, filter=filter, nofilter=nofilter, iface=iface)  # noqa: E501
+    iface = resolve_iface(iface or conf.iface)
+    s = iface.l3socket()(promisc=promisc, filter=filter, nofilter=nofilter, iface=iface)  # noqa: E501
     ans, _ = sndrcvflood(s, x, *args, **kargs)
     s.close()
     if len(ans) > 0:
@@ -643,7 +645,8 @@ filter:   provide a BPF filter
 iface:    listen answers only on the given interface"""
     if iface is None and iface_hint is not None:
         iface = conf.route.route(iface_hint)[0]
-    s = conf.L2socket(promisc=promisc, filter=filter, iface=iface, nofilter=nofilter)  # noqa: E501
+    iface = resolve_iface(iface or conf.iface)
+    s = iface.l2socket()(promisc=promisc, filter=filter, iface=iface, nofilter=nofilter)  # noqa: E501
     r = sndrcvflood(s, x, *args, **kargs)
     s.close()
     return r
@@ -657,7 +660,8 @@ verbose:  set verbosity level
 nofilter: put 1 to avoid use of BPF filters
 filter:   provide a BPF filter
 iface:    listen answers only on the given interface"""
-    s = conf.L2socket(promisc=promisc, filter=filter, nofilter=nofilter, iface=iface)  # noqa: E501
+    iface = resolve_iface(iface or conf.iface)
+    s = iface.l2socket()(promisc=promisc, filter=filter, nofilter=nofilter, iface=iface)  # noqa: E501
     ans, _ = sndrcvflood(s, x, *args, **kargs)
     s.close()
     if len(ans) > 0:
@@ -724,6 +728,7 @@ class AsyncSniffer(object):
       >>> print("nice weather today")
       >>> t.stop()
     """
+
     def __init__(self, *args, **kwargs):
         # Store keyword arguments
         self.args = args
@@ -803,8 +808,9 @@ class AsyncSniffer(object):
                     tcpdump(offline, args=["-w", "-", flt], getfd=True)
                 )] = offline
         if not sniff_sockets or iface is not None:
+            iface = resolve_iface(iface or conf.iface)
             if L2socket is None:
-                L2socket = conf.L2listen
+                L2socket = iface.l2listen()
             if isinstance(iface, list):
                 sniff_sockets.update(
                     (L2socket(type=ETH_P_ALL, iface=ifname, *arg, **karg),
@@ -985,11 +991,14 @@ Arguments:
                                 "bridge_and_sniff() -- ignoring it.", arg)
             del kargs[arg]
 
-    def _init_socket(iface, count):
+    def _init_socket(iface, count, L2socket=L2socket):
         if isinstance(iface, SuperSocket):
             return iface, "iface%d" % count
         else:
-            return (L2socket or conf.L2socket)(iface=iface), iface
+            if not L2socket:
+                iface = resolve_iface(iface or conf.iface)
+                L2socket = iface.l2socket()
+            return L2socket(iface=iface), iface
     sckt1, if1 = _init_socket(if1, 1)
     sckt2, if2 = _init_socket(if2, 2)
     peers = {if1: sckt2, if2: sckt1}
