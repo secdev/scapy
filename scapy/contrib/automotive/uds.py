@@ -14,10 +14,23 @@ from scapy.fields import ByteEnumField, StrField, ConditionalField, \
     XShortField, X3BytesField, XIntField, ByteField, \
     ShortField, ObservableDict, XShortEnumField, XByteEnumField
 from scapy.packet import Packet, bind_layers
+from scapy.config import conf
+from scapy.error import log_loading
 
 """
 UDS
 """
+
+try:
+    if conf.contribs['UDS']['treat-response-pending-as-answer']:
+        pass
+except KeyError:
+    log_loading.info("Specify \"conf.contribs['UDS'] = "
+                     "{'treat-response-pending-as-answer': True}\" to treat "
+                     "a negative response 'requestCorrectlyReceived-"
+                     "ResponsePending' as answer of a request. \n"
+                     "The default value is False.")
+    conf.contribs['UDS'] = {'treat-response-pending-as-answer': False}
 
 
 class UDS(Packet):
@@ -83,7 +96,9 @@ class UDS(Packet):
         if other.__class__ == self.__class__:
             return (other.service + 0x40) == self.service or \
                    (self.service == 0x7f and
-                    self.requestServiceId == other.service)
+                    self.requestServiceId == other.service and
+                    (self.negativeResponseCode != 0x78 or
+                     conf.contribs['UDS']['treat-response-pending-as-answer']))
         return 0
 
     def hashret(self):
