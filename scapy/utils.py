@@ -9,6 +9,8 @@ General utility functions.
 
 from __future__ import absolute_import
 from __future__ import print_function
+from decimal import Decimal
+
 import os
 import sys
 import socket
@@ -1047,7 +1049,8 @@ class PcapReader(RawPcapReader):
                 debug.crashed_on = (self.LLcls, s)
                 raise
             p = conf.raw_layer(s)
-        p.time = pkt_info.sec + (0.000000001 if self.nano else 0.000001) * pkt_info.usec  # noqa: E501
+        power = Decimal(10) ** Decimal(-9 if self.nano else -6)
+        p.time = Decimal(pkt_info.sec + power * pkt_info.usec)
         p.wirelen = pkt_info.wirelen
         return p
 

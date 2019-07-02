@@ -6669,16 +6669,18 @@ pktpcap = rdpcap(pcapfile)
 
 = Read a pcapng file
 pktpcapng = rdpcap(pcapngfile)
+assert pktpcapng[0].time == 1454163407.666223
 
 = Read a pcap file with nanosecond precision
 pktpcapnano = rdpcap(pcapnanofile)
+assert pktpcapnano[0].time == Decimal('1454163407.666223049')
 
 = Read a pcap file with wirelen != captured len
 pktpcapwirelen = rdpcap(pcapwirelenfile)
 
 = Check all packet lists are the same
 assert list(pktpcap) == list(pktpcapng) == list(pktpcapnano)
-assert [p.time for p in pktpcap] == [p.time for p in pktpcapng] == [p.time for p in pktpcapnano]
+assert [float(p.time) for p in pktpcap] == [float(p.time) for p in pktpcapng] == [float(p.time) for p in pktpcapnano]
 
 = Check packets from pcap file
 assert all(IP in pkt for pkt in pktpcap)
@@ -6766,12 +6768,11 @@ conf.prog.tcpdump = conf_prog_tcpdump
 = Check wrpcap(nano=True)
 fdesc, filename = tempfile.mkstemp()
 fdesc = os.fdopen(fdesc, "wb")
-pktpcapnano[0].time += 0.000000001
+pktpcapnano[0].time += Decimal('1E-9')
 wrpcap(fdesc, pktpcapnano, nano=True)
 fdesc.close()
 pktpcapnanoread = rdpcap(filename)
 assert pktpcapnanoread[0].time == pktpcapnano[0].time
-assert pktpcapnanoread[0].time == pktpcap[0].time + 0.000000001
 os.unlink(filename)
 
 = Check PcapNg with nanosecond precision using obsolete packet block
