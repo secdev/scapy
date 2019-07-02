@@ -175,7 +175,6 @@ class _TLSSignature(_GenericTLSSessionInheritance):
         Note that, even when 'sig_alg' is not None, we use the signature scheme
         of the PrivKey (neither do we care to compare the both of them).
         """
-        from scapy.error import log_runtime
         if self.sig_alg is None:
             if self.tls_session.tls_version >= 0x0300:
                 self.sig_val = key.sign(m, t='pkcs', h='md5-sha1')
@@ -189,7 +188,6 @@ class _TLSSignature(_GenericTLSSessionInheritance):
                 t = ""
             else:
                 t = "pkcs"
-            
             self.sig_val = key.sign(m, t=t, h=h)
 
     def _verify_sig(self, m, cert):

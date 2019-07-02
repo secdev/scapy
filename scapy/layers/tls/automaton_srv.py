@@ -834,6 +834,7 @@ class TLSServerAutomaton(_TLSAutomaton):
                     if psk_key_exchange_mode == 1:
                         server_kse = KeyShareEntry(group=group)
                         ext += [TLS_Ext_KeyShare_SH(server_share=server_kse)]
+
                     ext += [TLS_Ext_PreSharedKey_SH(selected_identity=0)]
                     self.cur_session.tls13_psk_secret = resumption_psk
         else:
@@ -937,6 +938,7 @@ class TLSServerAutomaton(_TLSAutomaton):
         else:
             self.raise_on_packet(TLSFinished,
                                  self.TLS13_HANDLED_CLIENTFINISHED)
+
     @ATMT.condition(tls13_RECEIVED_CLIENTFLIGHT2, prio=2)
     def tls13_should_handle_ClientFinished(self):
         self.raise_on_packet(TLSFinished,
@@ -1167,7 +1169,6 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.condition(RECEIVED_CLIENTFLIGHT1, prio=3)
     def sslv2_should_handle_ClientHello(self):
-        self.vprint("[debug] sslv2_should_handle_ClientHello")
         self.raise_on_packet(SSLv2ClientHello,
                              self.SSLv2_HANDLED_CLIENTHELLO)
 

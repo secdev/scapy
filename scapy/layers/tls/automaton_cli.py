@@ -93,7 +93,6 @@ class TLSClientAutomaton(_TLSAutomaton):
                    post_handshake_auth=False,
                    **kargs):
 
-
         super(TLSClientAutomaton, self).parse_args(mycert=mycert,
                                                    mykey=mykey,
                                                    **kargs)
@@ -244,7 +243,6 @@ class TLSClientAutomaton(_TLSAutomaton):
                                                        hash_len)
 
                 self.vprint("[debug] resumption PSK : %s" % s.tls13_psk_secret)
-
         raise self.CONNECT()
 
     @ATMT.state()
@@ -367,7 +365,7 @@ class TLSClientAutomaton(_TLSAutomaton):
     @ATMT.state()
     def HANDLED_SERVERKEYEXCHANGE(self):
         pass
-    
+
     def should_handle_CertificateRequest(self):
         """
         XXX We should check the CertificateRequest attributes for discrepancies
@@ -540,7 +538,6 @@ class TLSClientAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def WAIT_CLIENTDATA(self):
-        self.vprint("WAIT_CLIENTDATA")
         pass
 
     @ATMT.condition(WAIT_CLIENTDATA, prio=1)
@@ -663,7 +660,6 @@ class TLSClientAutomaton(_TLSAutomaton):
             print("> Received: %r" % p)
         self.buffer_in = self.buffer_in[1:]
         raise self.HANDLED_SERVERDATA()
-
 
     @ATMT.state()
     def HANDLED_SERVERDATA(self):
@@ -978,7 +974,6 @@ class TLSClientAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def TLS13_START(self):
-        self.vprint("TLS13_START")
         pass
 
     @ATMT.condition(TLS13_START)

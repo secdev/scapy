@@ -16,8 +16,6 @@ from scapy.packet import Raw
 from scapy.layers.tls.basefields import _tls_type
 from scapy.layers.tls.cert import Cert, PrivKey
 from scapy.layers.tls.record import TLS
-#test
-from scapy.layers.tls.handshake import _TLSHandshake
 from scapy.layers.tls.record_sslv2 import SSLv2
 from scapy.layers.tls.record_tls13 import TLS13
 
@@ -51,19 +49,6 @@ class _TLSAutomaton(Automaton):
     across TLS records and TCP packets. This is why we use a 'get_next_msg'
     method for feeding a list of received messages, 'buffer_in'. Raw data
     which has not yet been interpreted as a TLS record is kept in 'remain_in'.
-
-
-    Client        Server
-      | --------->>> |    C1 - ClientHello
-      | <<<--------- |    S1 - ServerHello
-      | <<<--------- |    S1 - EncryptedExtensions
-      | <<<--------- |    S1 - Certificate
-      | <<<--------- |    S1 - CertificateVerify
-      | <<<--------- |    S1 - ServerFinished [encrypted]
-      | --------->>> |    C2 - ClientFinished Finished [encrypted]
-
-
-
     """
 
     def parse_args(self, mycert=None, mykey=None, **kargs):

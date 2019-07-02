@@ -71,8 +71,6 @@ class connState(object):
                  ciphersuite=None,
                  tls_version=0x0303):
 
-
-
         self.tls_version = tls_version
 
         # It is the user's responsibility to keep the record seq_num
@@ -570,6 +568,7 @@ class tlsSession(object):
     # Secrets management for TLS 1.3
 
     # Compute the Early Secret and the binder key
+
     def compute_tls13_early_secrets(self, external=False):
         """
         Ciphers key and IV are updated accordingly for 0-RTT data.
@@ -670,9 +669,7 @@ class tlsSession(object):
         chts = hkdf.derive_secret(self.tls13_handshake_secret,
                                   b"c hs traffic",
                                   b"".join(self.handshake_messages))
-        log_runtime.warning("[session.py][tlsSession][compute_tls13_handshake_secrets] client_handshake_traffic_secret= %s" % chts)
-
-
+        self.tls13_derived_secrets["client_handshake_traffic_secret"] = chts
 
         shts = hkdf.derive_secret(self.tls13_handshake_secret,
                                   b"s hs traffic",
@@ -807,7 +804,7 @@ class tlsSession(object):
                 sts.append(stsN_1)
 
                 self.pwcs.tls13_derive_keys(stsN_1)
-                
+
     # Tests for record building/parsing
 
     def consider_read_padding(self):

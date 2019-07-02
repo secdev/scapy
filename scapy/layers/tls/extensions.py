@@ -406,7 +406,6 @@ class TLS_Ext_SupportedGroups(TLS_Ext_Unknown):
                                   length_from=lambda pkt: pkt.groupslen)]
 
 
-
 class TLS_Ext_SupportedEllipticCurves(TLS_Ext_SupportedGroups):     # RFC 4492
     pass
 
@@ -551,23 +550,22 @@ class TLS_Ext_SupportedVersion_CH(TLS_Ext_Unknown):
                                                  _tls_version),
                                   length_from=lambda pkt: pkt.versionslen)]
 
+
 class TLS_Ext_SupportedVersion_SH(TLS_Ext_Unknown):
     name = "TLS Extension - Supported Versions (for ServerHello)"
     fields_desc = [ShortEnumField("type", 0x2b, _tls_ext),
                    ShortField("len", None),
-                   ShortEnumField("version", None,
-                                                 _tls_version)]
+                   ShortEnumField("version", None, _tls_version)]
 
     def post_dissection(self, r):
-        if isinstance(r,TLS_Ext_SupportedVersion_SH):
-          self.tls_session.tls_version = r.version
+        if isinstance(r, TLS_Ext_SupportedVersion_SH):
+            self.tls_session.tls_version = r.version
         return super(TLS_Ext_SupportedVersion_SH, self).post_dissection(r)
 
 
 _tls_ext_supported_version_cls = {1: TLS_Ext_SupportedVersion_CH,
                                   2: TLS_Ext_SupportedVersion_SH}
-                                  #6: TLS_Ext_KeyShare_HRR}
-                             
+
 
 class TLS_Ext_SupportedVersion_SH(TLS_Ext_Unknown):
     name = "TLS Extension - Supported Versions (for ServerHello)"
@@ -601,13 +599,6 @@ class TLS_Ext_Cookie(TLS_Ext_Unknown):
         return TLS_Ext_Unknown.build(self)
 
 
-    def build(self, *args, **kargs):
-        fval = self.getfieldval("cookie")
-        if fval is None or fval == b"":
-            self.cookie = os.urandom(32)
-
-        return TLS_Ext_Unknown.build(self, *args, **kargs)
-
 _tls_psk_kx_modes = {0: "psk_ke", 1: "psk_dhe_ke"}
 
 
@@ -629,7 +620,7 @@ class TLS_Ext_NPN(TLS_Ext_PrettyPacketList):
     """
     name = "TLS Extension - Next Protocol Negotiation"
     fields_desc = [ShortEnumField("type", 0x3374, _tls_ext),
-                   FieldLenField("len", None, length_of="protocols"), 
+                   FieldLenField("len", None, length_of="protocols"),
                    ProtocolListField("protocols", [], ProtocolName,
                                      length_from=lambda pkt: pkt.len)]
 
@@ -667,7 +658,6 @@ class TLS_Ext_RecordSizeLimit(TLS_Ext_Unknown): # RFC 8449
     fields_desc = [ShortEnumField("type", 0x1c, _tls_ext),
                    ShortField("len", None),
                    ShortField("record_size_limit", None)]
-
 
 _tls_ext_cls = {0: TLS_Ext_ServerName,
                 1: TLS_Ext_MaxFragLen,

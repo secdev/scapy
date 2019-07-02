@@ -20,8 +20,6 @@ sys.path = [basedir] + sys.path
 from scapy.layers.tls.automaton_srv import TLSServerAutomaton
 from argparse import ArgumentParser
 
-
-
 psk = None
 session_ticket_path = None
 

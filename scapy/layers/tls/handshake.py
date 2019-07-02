@@ -305,6 +305,7 @@ class TLSClientHello(_TLSHandshake):
 
         if self.ext:
             for e in self.ext:
+
                 if isinstance(e, TLS_Ext_SupportedVersion_CH):
                     s.advertised_tls_version = e.versions[0]
                     # No distinction between a TLS 1.2 ClientHello and a TLS
@@ -348,10 +349,12 @@ class TLS13ClientHello(_TLSHandshake):
     fields_desc = [ByteEnumField("msgtype", 1, _tls_handshake_type),
                    ThreeBytesField("msglen", None),
                    _TLSClientVersionField("version", None, _tls_version),
+
                    _TLSRandomBytesField("random_bytes", None, 32),
                    FieldLenField("sidlen", None, fmt="B", length_of="sid"),
                    _SessionIDField("sid", "",
                                    length_from=lambda pkt: pkt.sidlen),
+
                    FieldLenField("cipherslen", None, fmt="!H",
                                  length_of="ciphers"),
                    _CipherSuitesField("ciphers", None,
@@ -428,13 +431,14 @@ class TLS13ClientHello(_TLSHandshake):
 
         return pkt + pay
 
-
     def tls_session_update(self, msg_str):
         """
         Either for parsing or building, we store the client_random
         along with the raw string representing this handshake message.
         """
         super(TLS13ClientHello, self).tls_session_update(msg_str)
+        s = self.tls_session
+
         s = self.tls_session
 
         if self.sidlen and self.sidlen > 0:
@@ -528,16 +532,14 @@ class TLSServerHello(_TLSHandshake):
             version = struct.unpack("!H", _pkt[4:6])[0]
             if version == 0x0304 or version > 0x7f00:
                 return TLS13ServerHello
-        return TLSServerHello 
+        return TLSServerHello
 
     def post_build(self, pkt, pay):
         if self.random_bytes is None:
             pkt = pkt[:10] + os.urandom(28) + pkt[10 + 28:]
         return super(TLSServerHello, self).post_build(pkt, pay)
 
-
     # XXX add post_dissection method to check binder when pre_shared_key extension is present
-
     def tls_session_update(self, msg_str):
         """
         Either for parsing or building, we store the server_random
@@ -705,7 +707,6 @@ class TLS13HelloRetryRequest(_TLSHandshake):
                    ThreeBytesField("msglen", None),
                    _TLSVersionField("version", 0x0303, _tls_version),
                    _TLSRandomBytesField("random_bytes", None, 32),
-
                    FieldLenField("sidlen", None, length_of="sid", fmt="B"),
                    _SessionIDField("sid", "",
                                    length_from=lambda pkt: pkt.sidlen),
@@ -1118,7 +1119,6 @@ class TLSServerKeyExchange(_TLSHandshake):
                 log_runtime.info("TLS: invalid ServerKeyExchange signature [%s]", pkt_info) # noqa: E501
 
 
-
 ###############################################################################
 #   CertificateRequest                                                        #
 ###############################################################################
@@ -1194,6 +1194,7 @@ class TLSCertificateRequest(_TLSHandshake):
                    _CertAuthoritiesField("certauth", [],
                                          length_from=lambda pkt: pkt.certauthlen)]  # noqa: E501
 
+
 class TLS13CertificateRequest(_TLSHandshake):
     name = "TLS 1.3 Handshake - Certificate Request"
     fields_desc = [ByteEnumField("msgtype", 13, _tls_handshake_type),
@@ -1204,9 +1205,8 @@ class TLS13CertificateRequest(_TLSHandshake):
                                length_from=lambda pkt: pkt.cert_req_ctxt_len),
                    _ExtensionsLenField("extlen", None, length_of="ext"),
                    _ExtensionsField("ext", None,
-                                    length_from=lambda pkt: pkt.msglen - pkt.cert_req_ctxt_len 
-                                    - 3)]
-
+                                    length_from=lambda pkt: pkt.msglen -
+                                    pkt.cert_req_ctxt_len - 3)]
 
 
 class TLS13CertificateRequest(_TLSHandshake):
@@ -1255,7 +1255,6 @@ class TLSCertificateVerify(_TLSHandshake):
                 elif s.connection_end == "server":
                     context_string = b"TLS 1.3, server CertificateVerify"
                 m = b"\x20" * 64 + context_string + b"\x00" + s.wcs.hash.digest(m)  # noqa: E501
-                import binascii
             self.sig = _TLSSignature(tls_session=s)
             if s.connection_end == "client":
                 self.sig._update_sig(m, s.client_key)
@@ -1283,13 +1282,14 @@ class TLSCertificateVerify(_TLSHandshake):
                 if not sig_test:
                     pkt_info = pkt.firstlayer().summary()
                     log_runtime.info("TLS: invalid CertificateVerify signature [%s]", pkt_info) # noqa: E501
-
         elif s.connection_end == "client":
             # should be TLS 1.3 only
             if s.server_certs and len(s.server_certs) > 0:
                 sig_test = self.sig._verify_sig(m, s.server_certs[0])
                 if not sig_test:
                     pkt_info = pkt.firstlayer().summary()
+                    log_runtime.info("TLS: invalid CertificateVerify signature [%s]", pkt_info)  # noqa: E501
+
 
 ###############################################################################
 #   ClientKeyExchange                                                         #
@@ -1718,7 +1718,6 @@ class TLS13KeyUpdate(_TLSHandshake):
         s.prcs = writeConnState(ciphersuite=type(s.rcs.ciphersuite),
                                 connection_end=s.connection_end,
                                 tls_version=s.tls_version)
-
         s.triggered_prcs_commit = True
         if s.connection_end == "server":
             s.compute_tls13_next_traffic_secrets("client", "read")
