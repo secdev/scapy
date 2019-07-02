@@ -1049,6 +1049,19 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
         and its answer."""
         return self.payload.hashret()
 
+    def __hash__(self):
+        """DEV: returns an integer that could be used for dictionary lookup
+        based on Scapy hashret value."""
+        hashret = self.hashret()
+        len_hashret = len(hashret)
+        tmp_sum = 0
+        for b,i in zip(hashret, range(len_hashret)):
+            tmp_sum += orb(b) << (8 * (len_hashret - i - 1))
+            print(tmp_sum)
+        return tmp_sum
+        #return sum(orb(b) << (8 * (len_hashret - i - 1))
+        #           for b, i in zip(hashret, range(len_hashret)))
+
     def answers(self, other):
         """DEV: true if self is an answer from other"""
         if other.__class__ == self.__class__:

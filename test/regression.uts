@@ -859,6 +859,10 @@ y=Ether()/IP()/UDP(dport=4)
 z=Ether()/IP()/UDP()/NTP()
 t=Ether()/IP()/TCP()
 assert x != y and x != z and x != t and y != z and y != t and z != t and w == x
+import binascii
+print(binascii.hexlify(t.hashret()))
+print(hash(t), int(binascii.hexlify(t.hashret()), 16))
+assert hash(t) == int(binascii.hexlify(t.hashret()), 16)
 
 = answers
 ~ basic
