@@ -505,7 +505,7 @@ _all_aes_cbc_tests()
 
 = Crypto - AES cipher in GCM mode, auth_encrypt() and auth_decrypt() checks
 #https://tools.ietf.org/html/draft-mcgrew-gcm-test-01
-
+from scapy.layers.tls.crypto.pkcs1 import pkcs_os2ip
 class _aes128gcm_test_1:
     k= b"\x4c\x80\xcd\xef\xbb\x5d\x10\xda\x90\x6a\xc7\x3c\x36\x13\xa6\x34"
     n= b"\x22\x43\x3c\x64\x48\x55\xec\x7d\x3a\x23\x4b\xfd"
@@ -774,6 +774,8 @@ p7_data = b"\x17\x03\x03\x01\xf6\x00\x00\x00\x00\x00\x00\x00\x01?\x04iy\x00\x04 
 
 = Reading TLS test session - TLS parsing (no encryption) does not throw any error
 # We will need to distinguish between connection ends. See next XXX below.
+from scapy.layers.tls.record import TLS
+
 t1 = TLS(p1_ch)
 t2 = TLS(p2_sh, tls_session=t1.tls_session.mirror())
 t3 = TLS(p3_cert, tls_session=t2.tls_session)
@@ -792,6 +794,7 @@ len(t1.msg) == 1
 
 
 = Reading TLS test session - TLS Record __getitem__
+from scapy.layers.tls.handshake import TLSClientHello
 TLSClientHello in t1
 
 = Reading TLS test session - ClientHello
@@ -811,6 +814,13 @@ assert(ch.comp == [0])
 
 
 = Reading TLS test session - ClientHello extensions
+from scapy.layers.tls.extensions import (TLS_Ext_ServerName,
+TLS_Ext_RenegotiationInfo, TLS_Ext_SupportedGroups, 
+TLS_Ext_SupportedPointFormat, TLS_Ext_SessionTicket, TLS_Ext_NPN,
+TLS_Ext_ALPN, TLS_Ext_SignatureAlgorithms, TLS_Ext_CSR,
+OCSPStatusRequest) 
+
+
 assert(ch.extlen == 146)
 ext = ch.ext
 assert(len(ext) == 9)
@@ -843,6 +853,8 @@ ext[8].sig_algs[-1] == 0x0202
 
 
 = Reading TLS test session - ServerHello
+from scapy.layers.tls.handshake import TLSServerHello
+
 assert(TLSServerHello in t2)
 sh = t2.msg[0]
 assert(isinstance(sh, TLSServerHello))
@@ -854,6 +866,7 @@ sh.ext[-1].protocols[-1].protocol == b"http/1.1"
 
 
 = Reading TLS test session - Certificate
+from scapy.layers.tls.cert import Cert
 cert = t3.msg[0]
 assert(cert.certslen == 2670)
 assert(len(cert.certs) == 2)
@@ -871,6 +884,7 @@ isinstance(t4.payload.payload.payload, NoPayload)
 
 
 = Reading TLS test session - CertificateStatus
+from scapy.layers.tls.handshake import TLSCertificateStatus
 assert(isinstance(cert_stat, TLSCertificateStatus))
 assert(cert_stat.responselen == 471)
 cert_stat.response[0].responseStatus == 0
@@ -878,6 +892,8 @@ cert_stat.response[0].responseStatus == 0
 
 
 = Reading TLS test session - ServerKeyExchange
+from scapy.layers.tls.handshake import TLSServerKeyExchange
+from scapy.layers.tls.keyexchange import ServerECDHNamedCurveParams
 assert(isinstance(ske, TLSServerKeyExchange))
 p = ske.params
 assert(isinstance(p, ServerECDHNamedCurveParams))
@@ -888,10 +904,12 @@ ske.sig.sig_val[:4] == b'y\x8aQ\x11' and ske.sig.sig_val[-4:] == b'`15\xef'
 
 
 = Reading TLS test session - ServerHelloDone
+from scapy.layers.tls.handshake import TLSServerHelloDone
 assert(isinstance(shd, TLSServerHelloDone))
 shd.msglen == 0
 
 = Reading TLS test session - Context checks after 1st RTT
+from scapy.layers.tls.crypto.pkcs1 import pkcs_i2osp
 t = shd.tls_session
 assert(len(t.handshake_messages) == 6)
 assert(t.handshake_messages_parsed[-1] is shd)
@@ -914,6 +932,8 @@ t5 = TLS(p5_cke_ccs_fin, tls_session=t4.tls_session.mirror())
 
 
 = Reading TLS test session - ClientKeyExchange
+from scapy.layers.tls.handshake import TLSClientKeyExchange
+from scapy.layers.tls.keyexchange import ClientECDiffieHellmanPublic
 cke = t5.msg[0]
 ccs = t5.payload.msg[0]
 rec_fin = t5.payload.payload
@@ -927,6 +947,7 @@ assert(k.ecdh_Yc[:4] == b'\x04\xd2\x07\xce' and k.ecdh_Yc[-4:] == b'\xdc\x86[\xe
 
 
 = Reading TLS test session - ChangeCipherSpec
+from scapy.layers.tls.record import TLSChangeCipherSpec
 assert(isinstance(ccs, TLSChangeCipherSpec))
 ccs.msgtype == 1
 
@@ -944,6 +965,7 @@ fin.load == b'\xd9\xcb,\x8cM\xfd\xbc9\xaa\x05\xf3\xd3\xf3Z\x8a-'
 
 
 = Reading TLS test session - Ticket, CCS & Finished
+from scapy.layers.tls.handshake import TLSNewSessionTicket
 t6 = TLS(p6_tick_ccs_fin, tls_session=t5.tls_session.mirror())
 tick = t6.msg[0]
 assert(isinstance(tick, TLSNewSessionTicket))
@@ -997,6 +1019,8 @@ assert isinstance(_TLSMsgListField.m2i(_TLSMsgListField("", []), TLS(type=0), '\
 + Read a vulnerable TLS session
 
 = Reading TLS vulnerable session - Decrypt data from using a compromised server key
+from scapy.layers.tls.cert import PrivKeyRSA
+from scapy.layers.tls.record import TLSApplicationData
 import os
 tmp = "/test/tls/pki/srv_key.pem"
 filename = os.path.abspath(os.path.join(os.path.dirname(__file__),"../")) + tmp
@@ -1026,6 +1050,8 @@ t.getlayer(2).msg[0].data == b"To boldly go where no man has gone before...\n"
 + Build TLS packets
 
 = Building packets - Various default records
+from scapy.layers.tls.handshake import TLSCertificate
+from scapy.layers.tls.record import TLSAlert
 raw(TLS())
 raw(TLSClientHello())
 raw(TLSServerHello())
@@ -1038,6 +1064,17 @@ raw(TLSApplicationData()) == b""
 
 
 = Building packets - ClientHello with automatic length computation
+
+from scapy.layers.tls.crypto.suites import (TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256, TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
+TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA, TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
+TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA, TLS_DHE_RSA_WITH_AES_128_CBC_SHA, 
+TLS_DHE_RSA_WITH_AES_256_CBC_SHA, TLS_RSA_WITH_AES_128_CBC_SHA, 
+TLS_RSA_WITH_AES_256_CBC_SHA, TLS_RSA_WITH_3DES_EDE_CBC_SHA)
+
+from scapy.layers.tls.extensions import (ServerName, TLS_Ext_SupportedEllipticCurves,
+ProtocolName)
+
 ch = TLSClientHello()
 ch.msgtype = 'client_hello'
 ch.version = 'TLS 1.2'
@@ -1101,12 +1138,14 @@ assert a.haslayer(Raw)
 
 
 = Building packets - Perform dummy session update
+from scapy.layers.tls.handshake import TLSHelloRequest
 assert not TLSHelloRequest().tls_session_update(None)
 
 
 = Cryptography module is unavailable
 import scapy.modules.six as six
-import mock
+#import mock
+from unittest import mock
 
 @mock.patch("scapy.layers.tls.crypto.suites.get_algs_from_ciphersuite_name")
 def test_tls_without_cryptography(get_algs_from_ciphersuite_name_mock):
@@ -1126,6 +1165,7 @@ test_tls_without_cryptography()
 ###############################################################################
 
 = Test tlsSession
+from scapy.layers.tls.session import tlsSession
 s = tlsSession(ipsrc="216.58.201.227", ipdst="127.0.0.1", sport=443, dport=443, sid=1)
 assert s.__repr__() == "216.58.201.227:443 > 127.0.0.1:443"
 assert s == s

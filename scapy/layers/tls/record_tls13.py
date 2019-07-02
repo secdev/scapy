@@ -15,7 +15,7 @@ import struct
 
 from scapy.config import conf
 from scapy.error import log_runtime, warning
-from scapy.compat import raw
+from scapy.compat import raw, orb
 from scapy.fields import ByteEnumField, PacketField, XStrField
 from scapy.layers.tls.session import _GenericTLSSessionInheritance
 from scapy.layers.tls.basefields import _TLSVersionField, _tls_version, \
@@ -25,12 +25,12 @@ from scapy.layers.tls.crypto.cipher_aead import AEADTagError
 from scapy.layers.tls.crypto.cipher_stream import Cipher_NULL
 from scapy.layers.tls.crypto.common import CipherError
 from scapy.layers.tls.crypto.pkcs1 import pkcs_i2osp
-#test
-from scapy.layers.tls.handshake import _TLSHandshake
+
 
 ###############################################################################
 #   TLS Record Protocol                                                       #
 ###############################################################################
+
 
 class TLSInnerPlaintext(_GenericTLSSessionInheritance):
     name = "TLS Inner Plaintext"
@@ -101,6 +101,7 @@ class TLS13(_GenericTLSSessionInheritance):
         self.deciphered_len = kargs.get("deciphered_len", None)
         super(TLS13, self).__init__(*args, **kargs)
 
+
     # Parsing methods
 
     def _tls_auth_decrypt(self, s):
@@ -124,22 +125,24 @@ class TLS13(_GenericTLSSessionInheritance):
             return e.args
         except AEADTagError as e:
             pkt_info = self.firstlayer().summary()
+            log_runtime.info("TLS: record integrity check failed [%s]", pkt_info) # noqa: E501
             return e.args
 
     def pre_dissect(self, s):
         """
         Decrypt, verify and decompress the message.
         """
-         if self.tls_session.triggered_prcs_commit:
-           if self.tls_session.prcs is not None:
+        if self.tls_session.triggered_prcs_commit:
+            if self.tls_session.prcs is not None:
                 self.tls_session.rcs = self.tls_session.prcs
                 self.tls_session.prcs = None
             self.tls_session.triggered_prcs_commit = False
-        
+
         if len(s) < 5:
             raise Exception("Invalid record: header is too short.")
 
-        if isinstance(self.tls_session.rcs.cipher, Cipher_NULL):
+        self.type = orb(s[0])
+        if isinstance(self.tls_session.rcs.cipher, Cipher_NULL) or orb(s[0]) == 20:
             self.deciphered_len = None
             return s
         else:
@@ -155,14 +158,13 @@ class TLS13(_GenericTLSSessionInheritance):
         nothing if the prcs was not set, as this probably means that we're
         working out-of-context (and we need to keep the default rcs).
         """
-        #if self.tls_session.triggered_prcs_commit:
-        #    if self.tls_session.prcs is not None:
-        #        self.tls_session.rcs = self.tls_session.prcs
-        #        self.tls_session.prcs = None
-        #    self.tls_session.triggered_prcs_commit = False
+        if self.tls_session.triggered_prcs_commit:
+            if self.tls_session.prcs is not None:
+                self.tls_session.rcs = self.tls_session.prcs
+                self.tls_session.prcs = None
+            self.tls_session.triggered_prcs_commit = False
 
         return s
-
 
     def do_dissect_payload(self, s):
         """
@@ -176,7 +178,7 @@ class TLS13(_GenericTLSSessionInheritance):
                         tls_session=self.tls_session)
             except KeyboardInterrupt:
                 raise
-            except Exception as e:
+            except Exception:
                 p = conf.raw_layer(s, _internal=1, _underlayer=self)
             self.add_payload(p)
 
@@ -186,6 +188,7 @@ class TLS13(_GenericTLSSessionInheritance):
         """
         Return the TLSCiphertext.encrypted_record for AEAD ciphers.
         """
+        log_runtime.warning("self.version %s", self.version)
         wcs = self.tls_session.wcs
         write_seq_num = struct.pack("!Q", wcs.seq_num)
         wcs.seq_num += 1
