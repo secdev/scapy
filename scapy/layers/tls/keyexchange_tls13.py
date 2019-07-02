@@ -19,8 +19,6 @@ from scapy.layers.tls.crypto.groups import _tls_named_ffdh_groups, \
     _tls_named_curves, _ffdh_groups, \
     _tls_named_groups
 
-from scapy.layers.tls.crypto.hkdf import TLS13_HKDF
-
 import scapy.modules.six as six
 
 if conf.crypto_valid:
@@ -122,11 +120,12 @@ class KeyShareEntry(Packet):
                     self.pubkey = import_point(self.key_exchange)
             elif _tls_named_curves[self.group] != "x448":
                 curve = ec._CURVE_TYPES[_tls_named_curves[self.group]]()
-                import_point = ec.EllipticCurvePublicNumbers.from_encoded_point
-                public_numbers = import_point(curve, self.key_exchange)
+                #import_point = ec.EllipticCurvePublicNumbers.from_encoded_point
+                import_point = ec.EllipticCurvePublicKey.from_encoded_point
+                public_numbers = import_point(curve, self.key_exchange).public_numbers()
                 self.pubkey = public_numbers.public_key(default_backend())
 
-    def post_dissection(self, r):
+    def post_dissection(self, pkt):
         try:
             self.register_pubkey()
         except ImportError:
@@ -142,8 +141,7 @@ class TLS_Ext_KeyShare_CH(TLS_Ext_Unknown):
                    ShortField("len", None),
                    FieldLenField("client_shares_len", None,
                                  length_of="client_shares"),
-                   PacketListField("client_shares", [], 
-                    KeyShareEntry,
+                   PacketListField("client_shares", [], KeyShareEntry,
                                    length_from=lambda pkt: pkt.client_shares_len)]  # noqa: E501
 
     def post_build(self, pkt, pay):
@@ -153,21 +151,22 @@ class TLS_Ext_KeyShare_CH(TLS_Ext_Unknown):
                 if kse.privkey:
                     if _tls_named_curves[kse.group] in privshares:
                         pkt_info = pkt.firstlayer().summary()
+                        log_runtime.info("TLS: group %s used twice in the same ClientHello [%s]", kse.group, pkt_info) # noqa: E501
                         break
                     privshares[_tls_named_groups[kse.group]] = kse.privkey
         return super(TLS_Ext_KeyShare_CH, self).post_build(pkt, pay)
 
-    def post_dissection(self, r):
+    def post_dissection(self, pkt):
         if not self.tls_session.frozen:
             for kse in self.client_shares:
                 if kse.pubkey:
                     pubshares = self.tls_session.tls13_client_pubshares
                     if _tls_named_curves[kse.group] in pubshares:
-                        pkt_info = r.firstlayer().summary()
+                        pkt_info = pkt.firstlayer().summary()
                         log_runtime.info("TLS: group %s used twice in the same ClientHello [%s]", kse.group, pkt_info)  # noqa: E501
                         break
                     pubshares[_tls_named_curves[kse.group]] = kse.pubkey
-        return super(TLS_Ext_KeyShare_CH, self).post_dissection(r)
+        return super(TLS_Ext_KeyShare_CH, self).post_dissection(pkt)
 
 
 class TLS_Ext_KeyShare_HRR(TLS_Ext_Unknown):
@@ -205,13 +204,14 @@ class TLS_Ext_KeyShare_SH(TLS_Ext_Unknown):
                 self.tls_session.tls13_dhe_secret = pms
         return super(TLS_Ext_KeyShare_SH, self).post_build(pkt, pay)
 
-    def post_dissection(self, r):
+    def post_dissection(self, pkt):
         if not self.tls_session.frozen and self.server_share.pubkey:
             # if there is a pubkey, we assume the crypto library is ok
             pubshare = self.tls_session.tls13_server_pubshare
-            #if len(pubshare) > 0:
+            # if len(pubshare) > 0:
             if pubshare:
-                pkt_info = r.firstlayer().summary()                
+                pkt_info = pkt.firstlayer().summary()
+                log_runtime.info("TLS: overwriting previous server key share [%s]", pkt_info) # noqa: E501
             group_name = _tls_named_groups[self.server_share.group]
             pubshare[group_name] = self.server_share.pubkey
 
@@ -226,7 +226,21 @@ class TLS_Ext_KeyShare_SH(TLS_Ext_Unknown):
                     else:
                         pms = privkey.exchange(ec.ECDH(), pubkey)
                 self.tls_session.tls13_dhe_secret = pms
-        return super(TLS_Ext_KeyShare_SH, self).post_dissection(r)
+
+            elif group_name in self.tls_session.tls13_server_privshare:
+                pubkey = self.tls_session.tls13_client_pubshares[group_name]
+                privkey = self.tls_session.tls13_server_privshare[group_name]
+                if group_name in six.itervalues(_tls_named_ffdh_groups):
+                    pms = privkey.exchange(pubkey)
+                elif group_name in six.itervalues(_tls_named_curves):
+                    if group_name == "x25519":
+                        pms = privkey.exchange(pubkey)
+                    else:
+                        pms = privkey.exchange(ec.ECDH(), pubkey)
+                self.tls_session.tls13_dhe_secret = pms
+
+        return super(TLS_Ext_KeyShare_SH, self).post_dissection(pkt)
+
 
 _tls_ext_keyshare_cls = {1: TLS_Ext_KeyShare_CH,
                          2: TLS_Ext_KeyShare_SH}
@@ -288,16 +302,6 @@ class TLS_Ext_PreSharedKey_CH(TLS_Ext_Unknown):
                                  length_of="binders"),
                    PacketListField("binders", [], PSKBinderEntry,
                                    length_from=lambda pkt: pkt.binders_len)]
-
-    def post_build(self, pkt, pay):
-
-        # Here we can't compute the binders HMAC values because 
-        # we don't have the entire ClientHello message...
-        if not self.tls_session.pwcs or not self.tls_session.pwcs.hkdf:
-            hkdf = TLS13_HKDF("sha256")
-        else:
-            hkdf = self.tls_session.pwcs.hkdf
-        return super(TLS_Ext_PreSharedKey_CH, self).post_build(pkt, pay)
 
 
 class TLS_Ext_PreSharedKey_SH(TLS_Ext_Unknown):

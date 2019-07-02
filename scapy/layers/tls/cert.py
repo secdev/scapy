@@ -673,7 +673,10 @@ class Cert(six.with_metaclass(_CertMaker, object)):
         return self.pubKey.encrypt(msg, t=t, h=h, mgf=mgf, L=L)
 
     def verify(self, msg, sig, t="pkcs", h="sha256", mgf=None, L=None):
-        return self.pubKey.verify(msg, sig, t=t, h=h, mgf=mgf, L=L)
+        if isinstance(self.pubKey, PubKeyECDSA):
+            return self.pubKey.verify(msg, sig)
+        else:
+            return self.pubKey.verify(msg, sig,  t=t, h=h, mgf=mgf, L=L)
 
     def remainingDays(self, now=None):
         """

@@ -49,7 +49,7 @@ _tls_hash_sig = {0x0000: "none+anon", 0x0001: "none+rsa",
                  0x0502: "sha384+dsa", 0x0503: "sha384+ecdsa",
                  0x0600: "sha512+anon", 0x0601: "sha512+rsa",
                  0x0602: "sha512+dsa", 0x0603: "sha512+ecdsa",
-                 0x0804: "sha256+rsaepss", 
+                 0x0804: "sha256+rsaepss",
                  0x0805: "sha384+rsaepss",
                  0x0806: "sha512+rsaepss",
                  0x0807: "ed25519",
@@ -165,7 +165,7 @@ class _TLSSignature(_GenericTLSSessionInheritance):
     def __init__(self, *args, **kargs):
         super(_TLSSignature, self).__init__(*args, **kargs)
         if (self.tls_session and
-            self.tls_session.tls_version and
+                self.tls_session.tls_version and
                 self.tls_session.tls_version < 0x0303):
             self.sig_alg = None
 
@@ -175,7 +175,6 @@ class _TLSSignature(_GenericTLSSessionInheritance):
         Note that, even when 'sig_alg' is not None, we use the signature scheme
         of the PrivKey (neither do we care to compare the both of them).
         """
-        from scapy.error import log_runtime
         if self.sig_alg is None:
             if self.tls_session.tls_version >= 0x0300:
                 self.sig_val = key.sign(m, t='pkcs', h='md5-sha1')
@@ -185,9 +184,10 @@ class _TLSSignature(_GenericTLSSessionInheritance):
             h, sig = _tls_hash_sig[self.sig_alg].split('+')
             if sig.endswith('pss'):
                 t = "pss"
+            elif sig.endswith('ecdsa'):
+                t = ""
             else:
                 t = "pkcs"
-            
             self.sig_val = key.sign(m, t=t, h=h)
 
     def _verify_sig(self, m, cert):
@@ -198,7 +198,9 @@ class _TLSSignature(_GenericTLSSessionInheritance):
         if self.sig_val:
             if self.sig_alg:
                 h, sig = _tls_hash_sig[self.sig_alg].split('+')
-                if sig.endswith('pss'):
+                if sig.endswith('ecdsa'):
+                    return cert.verify(m, self.sig_val, t="")
+                elif sig.endswith('pss'):
                     t = "pss"
                 else:
                     t = "pkcs"
@@ -210,7 +212,7 @@ class _TLSSignature(_GenericTLSSessionInheritance):
                     return cert.verify(m, self.sig_val, t='pkcs', h='md5')
         return False
 
-    def guess_payload_class(self, p):
+    def guess_payload_class(self, payload):
         return Padding
 
 
@@ -238,7 +240,7 @@ class _TLSSignatureField(PacketField):
         remain = b""
         if conf.padding_layer in i:
             r = i[conf.padding_layer]
-            del(r.underlayer.payload)
+            del r.underlayer.payload
             remain = r.load
         return remain, i
 
@@ -368,13 +370,13 @@ class ServerDHParams(_GenericTLSSessionInheritance):
         if not s.client_kx_ffdh_params:
             s.client_kx_ffdh_params = pn.parameters(default_backend())
 
-    def post_dissection(self, r):
+    def post_dissection(self, pkt):
         try:
             self.register_pubkey()
         except ImportError:
             pass
 
-    def guess_payload_class(self, p):
+    def guess_payload_class(self, payload):
         """
         The signature after the params gets saved as Padding.
         This way, the .getfield() which _TLSServerParamsField inherits
@@ -408,7 +410,7 @@ class ECTrinomialBasis(Packet):
     fields_desc = [FieldLenField("klen", None, length_of="k", fmt="B"),
                    StrLenField("k", "", length_from=lambda pkt: pkt.klen)]
 
-    def guess_payload_class(self, p):
+    def guess_payload_class(self, payload):
         return Padding
 
 
@@ -422,7 +424,7 @@ class ECPentanomialBasis(Packet):
                    FieldLenField("k3len", None, length_of="k3", fmt="B"),
                    StrLenField("k3", "", length_from=lambda pkt: pkt.k3len)]
 
-    def guess_payload_class(self, p):
+    def guess_payload_class(self, payload):
         return Padding
 
 
@@ -507,7 +509,7 @@ class ServerECDHExplicitPrimeParams(_GenericTLSSessionInheritance):
         if self.curve_type is None:
             self.curve_type = _tls_ec_curve_types["explicit_prime"]
 
-    def guess_payload_class(self, p):
+    def guess_payload_class(self, payload):
         return Padding
 
 
@@ -625,13 +627,13 @@ class ServerECDHNamedCurveParams(_GenericTLSSessionInheritance):
         if not s.client_kx_ecdh_params:
             s.client_kx_ecdh_params = curve
 
-    def post_dissection(self, r):
+    def post_dissection(self, pkt):
         try:
             self.register_pubkey()
         except ImportError:
             pass
 
-    def guess_payload_class(self, p):
+    def guess_payload_class(self, payload):
         return Padding
 
 
@@ -696,7 +698,7 @@ class ServerRSAParams(_GenericTLSSessionInheritance):
         except ImportError:
             pass
 
-    def guess_payload_class(self, p):
+    def guess_payload_class(self, payload):
         return Padding
 
 
@@ -721,7 +723,7 @@ class ServerPSKParams(Packet):
     def post_dissection(self, pkt):
         pass
 
-    def guess_payload_class(self, p):
+    def guess_payload_class(self, payload):
         return Padding
 
 
@@ -789,7 +791,7 @@ class ClientDiffieHellmanPublic(_GenericTLSSessionInheritance):
             s.pre_master_secret = ZZ
             s.compute_ms_and_derive_keys()
 
-    def guess_payload_class(self, p):
+    def guess_payload_class(self, payload):
         return Padding
 
 
@@ -932,7 +934,7 @@ class EncryptedPreMasterSecret(_GenericTLSSessionInheritance):
             tmp_len = struct.pack("!H", len(enc))
         return tmp_len + enc + pay
 
-    def guess_payload_class(self, p):
+    def guess_payload_class(self, payload):
         return Padding
 
 
