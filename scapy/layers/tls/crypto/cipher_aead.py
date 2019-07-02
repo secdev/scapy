@@ -156,7 +156,7 @@ class _AEADCipher(six.with_metaclass(_AEADCipherMetaclass, object)):
             res += encryptor.tag
         else:
             res = self._cipher.encrypt(self._get_nonce(), P, A)
-        
+
         nonce_explicit = pkcs_i2osp(self.nonce_explicit,
                                     self.nonce_explicit_len)
         self._update_nonce_explicit()
@@ -286,7 +286,7 @@ class _AEADCipher_TLS13(six.with_metaclass(_AEADCipherMetaclass, object)):
                                       self.pc_cls_mode(fixed_iv),
                                       backend=default_backend())
         else:
-            self._cipher = self.cipher_cls(key)
+            self._cipher = self.cipher_cls(key, tag_length=self.tag_len)
 
     def __setattr__(self, name, val):
         if name == "key":
@@ -327,9 +327,7 @@ class _AEADCipher_TLS13(six.with_metaclass(_AEADCipherMetaclass, object)):
         else:
             if (conf.crypto_valid_advanced and
                     isinstance(self._cipher, AESCCM)):
-                res = self._cipher.encrypt(self._get_nonce(seq_num), P, A)#,
-                                           #tag_length=self.tag_len)
-
+                res = self._cipher.encrypt(self._get_nonce(seq_num), P, A)
             else:
                 res = self._cipher.encrypt(self._get_nonce(seq_num), P, A)
         return res
@@ -343,13 +341,13 @@ class _AEADCipher_TLS13(six.with_metaclass(_AEADCipherMetaclass, object)):
         raise a CipherError which contains the encrypted input.
         """
         C, mac = C[:-self.tag_len], C[-self.tag_len:]
-        
+
         if False in six.itervalues(self.ready):
             raise CipherError(C, mac)
 
         if hasattr(self, "pc_cls"):
             self._cipher.mode._initialization_vector = self._get_nonce(seq_num)
-            
+
             decryptor = self._cipher.decryptor()
             decryptor.authenticate_additional_data(A)
             P = decryptor.update(C)
@@ -361,10 +359,8 @@ class _AEADCipher_TLS13(six.with_metaclass(_AEADCipherMetaclass, object)):
             try:
                 if (conf.crypto_valid_advanced and
                         isinstance(self._cipher, AESCCM)):
-                    P = self._cipher.decrypt(self._get_nonce(seq_num), C + mac, A) #,  # noqa: E501
-                                             #tag_length=self.tag_len)
+                    P = self._cipher.decrypt(self._get_nonce(seq_num), C + mac, A)  # noqa: E501
                 else:
-
                     P = self._cipher.decrypt(self._get_nonce(seq_num), C + mac, A)  # noqa: E501
             except InvalidTag:
                 raise AEADTagError("<unauthenticated data>", mac)

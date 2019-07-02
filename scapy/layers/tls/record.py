@@ -22,8 +22,8 @@ from scapy.utils import randstring
 from scapy.packet import Raw, Padding, bind_layers
 from scapy.layers.inet import TCP
 from scapy.layers.tls.session import _GenericTLSSessionInheritance
-from scapy.layers.tls.handshake import (_tls_handshake_cls, _tls13_handshake_cls,
-                                        _TLSHandshake, TLS13ServerHello, 
+from scapy.layers.tls.handshake import (_tls_handshake_cls, _TLSHandshake,
+                                        _tls13_handshake_cls, TLS13ServerHello,
                                         TLS13ClientHello)
 from scapy.layers.tls.basefields import (_TLSVersionField, _tls_version,
                                          _TLSIVField, _TLSMACField,
@@ -41,11 +41,11 @@ if conf.crypto_valid_advanced:
 # Util
 
 
-def _tls_version_check(version, min):
-    """Returns if version >= min, or False if version == None"""
+def _tls_version_check(version, version_min):
+    """Returns if version >= version_min, or False if version == None"""
     if version is None:
         return False
-    return version >= min
+    return version >= version_min
 
 ###############################################################################
 #   TLS Record Protocol                                                       #
@@ -92,7 +92,8 @@ class _TLSMsgListField(PacketListField):
                 msgtype = orb(m[0])
 
                 if ((pkt.tls_session.advertised_tls_version == 0x0304) or
-                    (pkt.tls_session.tls_version and pkt.tls_session.tls_version == 0x0304)):
+                        (pkt.tls_session.tls_version and
+                         pkt.tls_session.tls_version == 0x0304)):
                     cls = _tls13_handshake_cls.get(msgtype, Raw)
                 else:
                     cls = _tls_handshake_cls.get(msgtype, Raw)
@@ -103,16 +104,14 @@ class _TLSMsgListField(PacketListField):
         elif pkt.type == 23:
             cls = TLSApplicationData
 
-
         if cls is Raw:
             return Raw(m)
         else:
             try:
                 return cls(m, tls_session=pkt.tls_session)
-            except Exception as e:
+            except Exception:
                 if conf.debug_dissector:
                     raise
-                
                 return Raw(m)
 
     def getfield(self, pkt, s):
@@ -141,35 +140,37 @@ class _TLSMsgListField(PacketListField):
             if (((pkt.tls_session.tls_version or 0x0303) > 0x0200) and
                     hasattr(pkt, "type") and pkt.type == 23):
                 return ret, [TLSApplicationData(data=b"")]
-            else:
-                return ret, [Raw(load=b"")]
+
+            return ret, [Raw(load=b"")]
+
         if False in six.itervalues(pkt.tls_session.rcs.cipher.ready):
             return ret, _TLSEncryptedContent(remain)
-        else:
-            while remain:
-                raw_msg = remain
-                p = self.m2i(pkt, remain)
-                if Padding in p:
-                    pad = p[Padding]
-                    remain = pad.load
-                    del(pad.underlayer.payload)
-                    if len(remain) != 0:
-                        raw_msg = raw_msg[:-len(remain)]
-                else:
-                    remain = b""
+        
+        while remain:
+            raw_msg = remain
+            p = self.m2i(pkt, remain)
+            if Padding in p:
+                pad = p[Padding]
+                remain = pad.load
+                del pad.underlayer.payload
+                if len(remain) != 0:
+                    raw_msg = raw_msg[:-len(remain)]
+            else:
+                remain = b""
 
-                if isinstance(p, _GenericTLSSessionInheritance):
-                    if not p.tls_session.frozen:
-                        p.post_dissection_tls_session_update(raw_msg)
+            if isinstance(p, _GenericTLSSessionInheritance):
+                if not p.tls_session.frozen:
+                    p.post_dissection_tls_session_update(raw_msg)
 
-                lst.append(p)
-            return remain + ret, lst
+            lst.append(p)
+        return remain + ret, lst
 
     def i2m(self, pkt, p):
         """
         Update the context with information from the built packet.
         If no type was given at the record layer, we try to infer it.
         """
+        log_runtime.info("i2m")
         cur = b""
         if isinstance(p, _GenericTLSSessionInheritance):
             if pkt.type is None:
@@ -181,7 +182,7 @@ class _TLSMsgListField(PacketListField):
                     pkt.type = 22
                 elif isinstance(p, TLSApplicationData):
                     pkt.type = 23
-                
+
             p.tls_session = pkt.tls_session
             if not pkt.tls_session.frozen:
                 cur = p.raw_stateful()
@@ -199,16 +200,15 @@ class _TLSMsgListField(PacketListField):
         Then, append the content.
         """
         res = b""
-
         for p in val:
             res += self.i2m(pkt, p)
 
         # Add TLS13ClientHello in case of HelloRetryRequest
         if (isinstance(pkt, _GenericTLSSessionInheritance) and
-            _tls_version_check(pkt.tls_session.tls_version, 0x0304) and
-                not isinstance(pkt.msg[0], TLS13ServerHello) and 
-                not isinstance(pkt.msg[0], TLS13ClientHello)):  #noqa : test
-                return s + res
+                _tls_version_check(pkt.tls_session.tls_version, 0x0304) and
+                not isinstance(pkt.msg[0], TLS13ServerHello) and
+                not isinstance(pkt.msg[0], TLS13ClientHello)):
+            return s + res
 
         if not pkt.type:
             pkt.type = 0
@@ -308,10 +308,11 @@ class TLS(_GenericTLSSessionInheritance):
                 s = kargs.get("tls_session", None)
 
                 if s and _tls_version_check(s.tls_version, 0x0304):
-                    if (s.prcs and byte0 == 0x17) or (s.pwcs and byte0 == 0x17):
+                    if s.rcs and not isinstance(s.rcs.cipher, Cipher_NULL):
                         from scapy.layers.tls.record_tls13 import TLS13
+                        log_runtime.info("TLS 1.3")
                         return TLS13
-                
+
         if _pkt and len(_pkt) < 5:
             # Layer detected as TLS but too small to be a real packet (len<5).
             # Those packets are usually customly implemented
@@ -330,7 +331,7 @@ class TLS(_GenericTLSSessionInheritance):
         failure. Also, if the integrity check fails, a warning will be issued,
         but we still return the sliced (unauthenticated) plaintext.
         """
-        
+
         try:
             read_seq_num = struct.pack("!Q", self.tls_session.rcs.seq_num)
             self.tls_session.rcs.seq_num += 1
@@ -344,7 +345,7 @@ class TLS(_GenericTLSSessionInheritance):
             return e.args
         except AEADTagError as e:
             pkt_info = self.firstlayer().summary()
-            log_runtime.info("TLS: record integrity check failed [%s]", pkt_info)  # noqa: E501
+            log_runtime.info("TLS: record integrity check failed [%s]", pkt_info) # noqa: E501
             return e.args
 
     def _tls_decrypt(self, s):
@@ -415,7 +416,9 @@ class TLS(_GenericTLSSessionInheritance):
         iv = mac = pad = b""
         self.padlen = None
         decryption_success = False
+
         cipher_type = self.tls_session.rcs.cipher.type
+
         if cipher_type == 'block':
             version = struct.unpack("!H", s[1:3])[0]
 
@@ -464,6 +467,7 @@ class TLS(_GenericTLSSessionInheritance):
                 is_mac_ok = self._tls_hmac_verify(chdr, cfrag, mac)
                 if not is_mac_ok:
                     pkt_info = self.firstlayer().summary()
+                    log_runtime.info("TLS: record integrity check failed [%s]", pkt_info) # noqa: E501
 
         elif cipher_type == 'stream':
             # Decrypt
@@ -517,16 +521,19 @@ class TLS(_GenericTLSSessionInheritance):
         nothing if the prcs was not set, as this probably means that we're
         working out-of-context (and we need to keep the default rcs).
         """
-        #if self.tls_session.triggered_prcs_commit:
-        #    if self.tls_session.prcs is not None:
-        #        self.tls_session.rcs = self.tls_session.prcs
-        #        self.tls_session.prcs = None
-        #    self.tls_session.triggered_prcs_commit = False
-        #if self.tls_session.triggered_pwcs_commit:
-        #    if self.tls_session.pwcs is not None:
-        #        self.tls_session.wcs = self.tls_session.pwcs
-        #        self.tls_session.pwcs = None
-        #    self.tls_session.triggered_pwcs_commit = False
+
+        if (self.tls_session.tls_version and
+                self.tls_session.tls_version <= 0x0303):
+            if self.tls_session.triggered_prcs_commit:
+                if self.tls_session.prcs is not None:
+                    self.tls_session.rcs = self.tls_session.prcs
+                    self.tls_session.prcs = None
+                self.tls_session.triggered_prcs_commit = False
+            if self.tls_session.triggered_pwcs_commit:
+                if self.tls_session.pwcs is not None:
+                    self.tls_session.wcs = self.tls_session.pwcs
+                    self.tls_session.pwcs = None
+                self.tls_session.triggered_pwcs_commit = False
         return s
 
     def do_dissect_payload(self, s):
@@ -542,9 +549,8 @@ class TLS(_GenericTLSSessionInheritance):
                         tls_session=self.tls_session)
             except KeyboardInterrupt:
                 raise
-            except Exception as e:
+            except Exception:
                 p = conf.raw_layer(s, _internal=1, _underlayer=self)
-            
             self.add_payload(p)
 
     # Building methods
@@ -625,6 +631,7 @@ class TLS(_GenericTLSSessionInheritance):
         """
         Apply the previous methods according to the writing cipher type.
         """
+        log_runtime.info("post_build")
         # Compute the length of TLSPlaintext fragment
         hdr, frag = pkt[:5], pkt[5:]
         tmp_len = len(frag)

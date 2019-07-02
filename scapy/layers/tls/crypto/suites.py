@@ -23,6 +23,7 @@ def get_algs_from_ciphersuite_name(ciphersuite_name):
     Return the 3-tuple made of the Key Exchange Algorithm class, the Cipher
     class and the HMAC class, through the parsing of the ciphersuite name.
     """
+
     tls1_3 = False
     if ciphersuite_name.startswith("TLS"):
         s = ciphersuite_name[4:]
@@ -1312,6 +1313,8 @@ def get_usable_ciphersuites(l, kx):
             if ciph.usable:
                 # XXX select among RSA and ECDSA cipher suites
                 # according to the key(s) the server was given
-                if ciph.kx_alg.anonymous or kx in ciph.kx_alg.name or ciph.kx_alg.name == "TLS13":
+                if (ciph.kx_alg.anonymous or
+                   kx in ciph.kx_alg.name or
+                   ciph.kx_alg.name == "TLS13"):
                     res.append(c)
     return res

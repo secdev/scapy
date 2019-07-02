@@ -20,13 +20,16 @@ In order to run a client to tcp/50000 with one cipher suite of your choice:
 from __future__ import print_function
 import socket
 import binascii
-import os
 import struct
 import time
 
 from scapy.pton_ntop import inet_pton
 from scapy.utils import randstring, repr_hex
 from scapy.automaton import ATMT
+from scapy.modules import six
+from scapy.packet import Raw
+from scapy.compat import bytes_encode
+
 from scapy.layers.tls.automaton import _TLSAutomaton
 from scapy.layers.tls.basefields import _tls_version, _tls_version_options
 from scapy.layers.tls.session import tlsSession
@@ -35,11 +38,12 @@ from scapy.layers.tls.extensions import TLS_Ext_SupportedGroups, \
     TLS_Ext_PostHandshakeAuth, TLS_Ext_PSKKeyExchangeModes, \
     TLS_Ext_EarlyDataIndication, TLS_Ext_SupportedVersion_SH
 from scapy.layers.tls.handshake import TLSCertificate, TLSCertificateRequest, \
-    TLSCertificateVerify, TLSClientHello, TLS13ClientHello, TLSClientKeyExchange, \
-    TLSEncryptedExtensions, TLSFinished, TLSServerHello, TLSServerHelloDone, \
-    TLSServerKeyExchange, TLS13Certificate, TLS13ServerHello, \
-    TLS13KeyUpdate, TLS13CertificateRequest, _ASN1CertAndExt, \
-    TLS13NewSessionTicket, TLS13EndOfEarlyData, TLS13HelloRetryRequest
+    TLSCertificateVerify, TLSClientHello, TLS13ClientHello, _ASN1CertAndExt, \
+    TLSClientKeyExchange, TLSEncryptedExtensions, TLSFinished, \
+    TLSServerHelloDone, TLSServerKeyExchange, TLS13Certificate, \
+    TLS13ServerHello, TLS13KeyUpdate, TLS13CertificateRequest, \
+    TLS13NewSessionTicket, TLS13EndOfEarlyData, TLS13HelloRetryRequest, \
+    TLSServerHello
 from scapy.layers.tls.handshake_sslv2 import SSLv2ClientHello, \
     SSLv2ServerHello, SSLv2ClientMasterKey, SSLv2ServerVerify, \
     SSLv2ClientFinished, SSLv2ServerFinished, SSLv2ClientCertificate, \
@@ -52,17 +56,11 @@ from scapy.layers.tls.record import TLSAlert, TLSChangeCipherSpec, \
     TLSApplicationData
 
 from scapy.layers.tls.crypto.hkdf import TLS13_HKDF
-from scapy.layers.tls.crypto.suites import _tls_cipher_suites_cls
+from scapy.layers.tls.crypto.suites import _tls_cipher_suites, \
+    _tls_cipher_suites_cls
 from scapy.layers.tls.crypto.groups import _tls_named_groups
 
 
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import hashes
-
-
-from scapy.modules import six
-from scapy.packet import Raw
-from scapy.compat import bytes_encode
 
 
 class TLSClientAutomaton(_TLSAutomaton):
@@ -88,14 +86,14 @@ class TLSClientAutomaton(_TLSAutomaton):
                    mycert=None, mykey=None,
                    client_hello=None, version=None,
                    data=None, psk=None, psk_mode=None,
-                   resumption_master_secret=None, 
+                   resumption_master_secret=None,
                    session_ticket_file_in=None,
                    session_ticket_file_out=None,
                    early_data_file=None,
                    ciphersuite=None,
                    curve=None,
+                   post_handshake_auth=False,
                    **kargs):
-
 
         super(TLSClientAutomaton, self).parse_args(mycert=mycert,
                                                    mykey=mykey,
@@ -140,16 +138,20 @@ class TLSClientAutomaton(_TLSAutomaton):
         else:
             self.data_to_send = []
 
+        self.ciphersuite = None
+        if ciphersuite is not None:
+            cs = int(ciphersuite, 16)
+            if cs in _tls_cipher_suites.keys():
+                self.ciphersuite = cs
+
         if self.advertised_tls_version == 0x0304:
             self.tls13_psk_secret = psk
             self.tls13_psk_mode = psk_mode
 
             # XXX args for tlsSession not TLSAutomaton...
-            
             self.resumption_master_secret = resumption_master_secret
             self.session_ticket_file_in = session_ticket_file_in
             self.session_ticket_file_out = session_ticket_file_out
-
 
             if early_data_file:
                 with open(early_data_file, "r") as f:
@@ -161,7 +163,7 @@ class TLSClientAutomaton(_TLSAutomaton):
             for (group_id, ng) in _tls_named_groups.items():
                 if ng == curve:
                     self.curve = group_id
-
+            self.post_handshake_auth = post_handshake_auth
 
     def vprint_sessioninfo(self):
         if self.verbose:
@@ -179,8 +181,9 @@ class TLSClientAutomaton(_TLSAutomaton):
                 self.vprint("Server certificate chain: %r" % s.server_certs)
 
             if s.tls_version >= 0x0304:
-
-                self.vprint("resumption master secret : %s" % repr_hex(s.tls13_derived_secrets["resumption_secret"]))
+                res_secret = s.tls13_derived_secrets["resumption_secret"]
+                self.vprint("resumption master secret : %s" %
+                            repr_hex(res_secret))
             self.vprint()
 
     @ATMT.state(initial=True)
@@ -191,57 +194,57 @@ class TLSClientAutomaton(_TLSAutomaton):
     @ATMT.state()
     def INIT_TLS_SESSION(self):
         self.cur_session = tlsSession(connection_end="client")
-        self.cur_session.client_certs = self.mycert
-        self.cur_session.client_key = self.mykey
+        s = self.cur_session
+        s.client_certs = self.mycert
+        s.client_key = self.mykey
         v = self.advertised_tls_version
         if v:
-            self.cur_session.advertised_tls_version = v
+            s.advertised_tls_version = v
         else:
-            default_version = self.cur_session.advertised_tls_version
+            default_version = s.advertised_tls_version
             self.advertised_tls_version = default_version
 
         if self.tls13_psk_secret:
-            self.cur_session.tls13_psk_secret = binascii.unhexlify(self.tls13_psk_secret)
+            s.tls13_psk_secret = binascii.unhexlify(self.tls13_psk_secret)
 
         if self.session_ticket_file_in:
             with open(self.session_ticket_file_in, 'rb') as f:
 
                 resumed_ciphersuite_len = struct.unpack("B", f.read(1))[0]
-                self.cur_session.tls13_ticket_ciphersuite = struct.unpack("!H", f.read(2))[0]
+                s.tls13_ticket_ciphersuite = struct.unpack("!H", f.read(resumed_ciphersuite_len))[0]
 
                 ticket_nonce_len = struct.unpack("B", f.read(1))[0]
                 # XXX add client_session_nonce member in tlsSession
-                self.cur_session.client_session_nonce = f.read(ticket_nonce_len)
-                
+                s.client_session_nonce = f.read(ticket_nonce_len)
+
                 client_ticket_age_len = struct.unpack("!H", f.read(2))[0]
-                self.cur_session.client_ticket_age = struct.unpack("!I", f.read(client_ticket_age_len))[0]
+                tmp = f.read(client_ticket_age_len)
+                s.client_ticket_age = struct.unpack("!I", tmp)[0]
 
                 client_ticket_age_add_len = struct.unpack("!H", f.read(2))[0]
-                self.cur_session.client_session_ticket_age_add = struct.unpack("!I", f.read(client_ticket_age_add_len))[0]
+                tmp = f.read(client_ticket_age_add_len)
+                s.client_session_ticket_age_add = struct.unpack("!I", tmp)[0]
 
                 ticket_len = struct.unpack("!H", f.read(2))[0]
-                self.cur_session.client_session_ticket = f.read(ticket_len)
+                s.client_session_ticket = f.read(ticket_len)
 
             if self.resumption_master_secret:
 
-                if self.cur_session.tls13_ticket_ciphersuite not in _tls_cipher_suites_cls:
-                        warning("Unknown cipher suite %d" % self.cur_session.tls13_ticket_ciphersuite)
-                        # we do not try to set a default nor stop the execution
+                if s.tls13_ticket_ciphersuite not in _tls_cipher_suites_cls:
+                    warning("Unknown cipher suite %d" % s.tls13_ticket_ciphersuite)  # noqa: E501
+                    # we do not try to set a default nor stop the execution
                 else:
-                        cs_cls = _tls_cipher_suites_cls[self.cur_session.tls13_ticket_ciphersuite]
+                    cs_cls = _tls_cipher_suites_cls[s.tls13_ticket_ciphersuite]
 
                 hkdf = TLS13_HKDF(cs_cls.hash_alg.name.lower())
                 hash_len = hkdf.hash.digest_size
 
-                self.cur_session.tls13_psk_secret = \
-                    hkdf.expand_label(binascii.unhexlify(self.resumption_master_secret), b"resumption", self.cur_session.client_session_nonce, hash_len)
+                s.tls13_psk_secret = hkdf.expand_label(binascii.unhexlify(self.resumption_master_secret),  # noqa: E501
+                                                       b"resumption",
+                                                       s.client_session_nonce,
+                                                       hash_len)
 
-                self.vprint("[debug] resumption PSK : %s" % self.cur_session.tls13_psk_secret)
-
-
-        # TODO : passer en argument
-        self.cur_session.post_handshake_auth = True
-
+                self.vprint("[debug] resumption PSK : %s" % s.tls13_psk_secret)
         raise self.CONNECT()
 
     @ATMT.state()
@@ -364,7 +367,7 @@ class TLSClientAutomaton(_TLSAutomaton):
     @ATMT.state()
     def HANDLED_SERVERKEYEXCHANGE(self):
         pass
-    
+
     def should_handle_CertificateRequest(self):
         """
         XXX We should check the CertificateRequest attributes for discrepancies
@@ -455,7 +458,7 @@ class TLSClientAutomaton(_TLSAutomaton):
         """
         hs_msg = [type(m) for m in self.cur_session.handshake_messages_parsed]
         if (TLSCertificateRequest not in hs_msg or
-            self.mycert is None or
+                self.mycert is None or
                 self.mykey is None):
             return
         self.add_msg(TLSCertificateVerify())
@@ -537,7 +540,6 @@ class TLSClientAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def WAIT_CLIENTDATA(self):
-        self.vprint("WAIT_CLIENTDATA")
         pass
 
     @ATMT.condition(WAIT_CLIENTDATA, prio=1)
@@ -597,7 +599,7 @@ class TLSClientAutomaton(_TLSAutomaton):
 
     @ATMT.condition(RECEIVED_SERVERDATA, prio=1)
     def should_handle_ServerData(self):
-        self.vprint("should_handle_ServerData")            
+        self.vprint("should_handle_ServerData")
         if not self.buffer_in:
             raise self.WAIT_CLIENTDATA()
 
@@ -622,23 +624,32 @@ class TLSClientAutomaton(_TLSAutomaton):
         elif isinstance(p, TLS13NewSessionTicket):
             print("> Received: %r [2]" % p)
 
-            # If arg session_ticket_file_out is set, we save 
+            # If arg session_ticket_file_out is set, we save
             # Save the ticket for resumption...
             if self.session_ticket_file_out:
                 # Struct of ticket file :
                 #  * ciphersuite_len (1 byte)
-                #  * ciphersuite (ciphersuite_len bytes) : we need to the store the ciphersuite for resumption
+                #  * ciphersuite (ciphersuite_len bytes) :
+                #       we need to the store the ciphersuite for resumption
                 #  * ticket_nonce_len (1 byte)
-                #  * ticket_nonce (ticket_nonce_len bytes) : we need to store the nonce to compute the PSK for resumption
-                #  * ticket_age_len (2 bytes)  
-                #  * ticket_age (ticket_age_len bytes) : we need to store the time we received the ticket for computing the obfuscated_ticket_age when resuming
+                #  * ticket_nonce (ticket_nonce_len bytes) :
+                #       we need to store the nonce to compute the PSK
+                #       for resumption
+                #  * ticket_age_len (2 bytes)
+                #  * ticket_age (ticket_age_len bytes) :
+                #       we need to store the time we received the ticket for
+                #       computing the obfuscated_ticket_age when resuming
                 #  * ticket_age_add_len (2 bytes)
-                #  * ticket_age_add (ticket_age_add_len bytes) : we need to store the ticket_age_add value from the ticket to compute the obfuscated ticket age
+                #  * ticket_age_add (ticket_age_add_len bytes) :
+                #       we need to store the ticket_age_add value from the
+                #       ticket to compute the obfuscated ticket age
                 #  * ticket_len (2 bytes)
                 #  * ticket (ticket_len bytes)
                 with open(self.session_ticket_file_out, 'wb') as f:
                     f.write(struct.pack("B", 2))
-                    f.write(struct.pack("!H", self.cur_session.wcs.ciphersuite.val)) # we choose wcs arbritary...
+                    # we choose wcs arbritary...
+                    f.write(struct.pack("!H",
+                                        self.cur_session.wcs.ciphersuite.val))
                     f.write(struct.pack("B", p.noncelen))
                     f.write(p.ticket_nonce)
                     f.write(struct.pack("!H", 4))
@@ -652,7 +663,6 @@ class TLSClientAutomaton(_TLSAutomaton):
             print("> Received: %r" % p)
         self.buffer_in = self.buffer_in[1:]
         raise self.HANDLED_SERVERDATA()
-
 
     @ATMT.state()
     def HANDLED_SERVERDATA(self):
@@ -967,12 +977,13 @@ class TLSClientAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def TLS13_START(self):
-        self.vprint("TLS13_START")
         pass
 
     @ATMT.condition(TLS13_START)
     def tls13_should_add_ClientHello(self):
         # we have to use the legacy, plaintext TLS record here
+
+        supported_groups = ["secp256r1", "secp384r1", "x25519"]
         self.add_record(is_tls13=False)
         if self.client_hello:
             p = self.client_hello
@@ -981,67 +992,74 @@ class TLSClientAutomaton(_TLSAutomaton):
             # you will most likely need to provide an SNI extension.
             # sn = ServerName(servername="<put server name here>")
 
-
-            ext  = []
+            ext = []
             ext += TLS_Ext_SupportedVersion_CH(versions=["TLS 1.3"]),
 
-            # The "post_handshake_auth" extension is used to indicate that a client
-            # is willing to perform post-handshake authentication
+            # The "post_handshake_auth" extension is used to indicate that a
+            # client is willing to perform post-handshake authentication
             if self.cur_session.post_handshake_auth:
                 ext += TLS_Ext_PostHandshakeAuth()
 
-
             if self.cur_session.tls13_psk_secret:
-
 
                 if self.early_data:
                     ext += TLS_Ext_EarlyDataIndication()
 
-
                 if self.tls13_psk_mode == "psk_dhe_ke":
                     ext += [TLS_Ext_PSKKeyExchangeModes(kxmodes="psk_dhe_ke"),
-                            TLS_Ext_SupportedGroups(groups=["secp256r1", "secp384r1", "x25519"]),
-                            TLS_Ext_KeyShare_CH(client_shares=[KeyShareEntry(group=self.curve)])  # noqa: E501
-                           ]
+                            TLS_Ext_SupportedGroups(groups=supported_groups),  # noqa: E501
+                            TLS_Ext_KeyShare_CH(client_shares=[KeyShareEntry(group=self.curve)])]  # noqa: E501
                 else:
-                    ext += [
-                            TLS_Ext_PSKKeyExchangeModes(kxmodes="psk_ke")
-                           ]
-                # RFC8446 §4.2.11. 
-                # "The "pre_shared_key" extension MUST be the last extension in the
-                # ClientHello ""
+                    ext += TLS_Ext_PSKKeyExchangeModes(kxmodes="psk_ke")
+                # RFC844, section 4.2.11.
+                # "The "pre_shared_key" extension MUST be the last extension
+                # in the ClientHello "
 
-
-                if self.cur_session.client_session_ticket:
-                    cs_cls = _tls_cipher_suites_cls[self.cur_session.tls13_ticket_ciphersuite]
+                s = self.cur_session
+                if s.client_session_ticket:
+                    cs_cls = _tls_cipher_suites_cls[s.tls13_ticket_ciphersuite]  # noqa: E501
                     hkdf = TLS13_HKDF(cs_cls.hash_alg.name.lower())
                     hash_len = hkdf.hash.digest_size
 
-                    # We compute the client's view of the age of the ticket (ie 
+                    # We compute the client's view of the age of the ticket (ie
                     # the time since the receipt of the ticket) in ms
-                    agems = int((time.time() - self.cur_session.client_ticket_age) * 1000)
+                    agems = int((time.time() - s.client_ticket_age) * 1000)
 
-                    # Then we compute the obfuscated version of the ticket age by
-                    # adding the "ticket_age_add" value included in the ticket (modulo 2^32)
-                    obfuscated_age = (agems + self.cur_session.client_session_ticket_age_add) & 0xffffffff
+                    # Then we compute the obfuscated version of the ticket age
+                    # by adding the "ticket_age_add" value included in the
+                    # ticket (modulo 2^32)
+                    obfuscated_age = ((agems + s.client_session_ticket_age_add)
+                                      & 0xffffffff)
 
-                    ext += TLS_Ext_PreSharedKey_CH(identities=[PSKIdentity(identity=self.cur_session.client_session_ticket, obfuscated_ticket_age=obfuscated_age)], 
-                        binders=[PSKBinderEntry(binder_len=hash_len, binder=b"\x00"*hash_len)])
+                    psk_id = PSKIdentity(identity=s.client_session_ticket,
+                                         obfuscated_ticket_age=obfuscated_age)
+
+                    psk_binder_entry = PSKBinderEntry(binder_len=hash_len,
+                                                      binder=b"\x00"*hash_len)
+                    ext += TLS_Ext_PreSharedKey_CH(identities=[psk_id],
+                                                   binders=[psk_binder_entry])
                 else:
                     hkdf = TLS13_HKDF("sha256")
                     hash_len = hkdf.hash.digest_size
-                    ext += TLS_Ext_PreSharedKey_CH(identities=[PSKIdentity(identity='Client_identity')], 
-                        binders=[PSKBinderEntry(binder_len=hash_len, binder=b"\x00"*hash_len)])
+                    psk_id = PSKIdentity(identity='Client_identity')
+                    psk_binder_entry = PSKBinderEntry(binder_len=hash_len,
+                                                      binder=b"\x00"*hash_len)
+
+                    ext += TLS_Ext_PreSharedKey_CH(identities=[psk_id],
+                                                   binders=[psk_binder_entry])
             else:
-                ext += [TLS_Ext_SupportedGroups(groups=["secp256r1", "secp384r1", "x25519"]),
+                ext += [TLS_Ext_SupportedGroups(groups=supported_groups),
                         # TLS_Ext_ServerName(servernames=[sn]),
                         TLS_Ext_KeyShare_CH(client_shares=[KeyShareEntry(group=self.curve)]),  # noqa: E501
-                        TLS_Ext_SignatureAlgorithms(sig_algs=["sha256+rsaepss"])
+                        TLS_Ext_SignatureAlgorithms(sig_algs=["sha256+rsaepss"])  # noqa: E501
                        ]
-
-
-            p = TLS13ClientHello(ciphers=0x1301, ext=ext)
+            if self.ciphersuite is None:
+                c = 0x1301
+            else:
+                c = self.ciphersuite
+            p = TLS13ClientHello(ciphers=c, ext=ext)
         self.add_msg(p)
+
         raise self.TLS13_ADDED_CLIENTHELLO()
 
     @ATMT.state()
@@ -1091,33 +1109,30 @@ class TLSClientAutomaton(_TLSAutomaton):
         self.raise_on_packet(TLS13HelloRetryRequest,
                              self.TLS13_HELLO_RETRY_REQUESTED)
 
-
     @ATMT.condition(TLS13_RECEIVED_SERVERFLIGHT1, prio=3)
     def tls13_should_handle_AlertMessage_(self):
         self.raise_on_packet(TLSAlert,
                              self.CLOSE_NOTIFY)
 
-
     @ATMT.condition(TLS13_RECEIVED_SERVERFLIGHT1, prio=4)
     def tls13_missing_ServerHello(self):
         raise self.MISSING_SERVERHELLO()
-
 
     @ATMT.state()
     def TLS13_HELLO_RETRY_REQUESTED(self):
         pass
 
-    
     @ATMT.condition(TLS13_HELLO_RETRY_REQUESTED)
     def tls13_should_add_ClientHello_Retry(self):
-
-        self.cur_session.tls13_retry = True
+        s = self.cur_session
+        s.tls13_retry = True
 
         # we have to use the legacy, plaintext TLS record here
         self.add_record(is_tls13=False)
 
-        # We retrieve the group to be used and the selected version from the previous message
-        hrr = self.cur_session.handshake_messages_parsed[-1]
+        # We retrieve the group to be used and the selected version from the
+        # previous message
+        hrr = s.handshake_messages_parsed[-1]
 
         if not isinstance(hrr, TLS13HelloRetryRequest):
             pass
@@ -1133,65 +1148,71 @@ class TLSClientAutomaton(_TLSAutomaton):
         if not selected_group or not selected_version:
             raise self.CLOSE_NOTIFY()
 
-        ext  = []
-        ext += TLS_Ext_SupportedVersion_CH(versions=[_tls_version[selected_version]]),
+        ext = []
+        ext += TLS_Ext_SupportedVersion_CH(versions=[_tls_version[selected_version]])  # noqa: E501
 
-        # The "post_handshake_auth" extension is used to indicate that a client
+        # The "post_handshake_auth" extension is used to indicate that a client
         # is willing to perform post-handshake authentication
-        if self.cur_session.post_handshake_auth:
+        if s.post_handshake_auth:
             ext += TLS_Ext_PostHandshakeAuth()
 
-
-        if self.cur_session.tls13_psk_secret:
+        if s.tls13_psk_secret:
 
             if self.tls13_psk_mode == "psk_dhe_ke":
                 ext += [TLS_Ext_PSKKeyExchangeModes(kxmodes="psk_dhe_ke"),
-                        TLS_Ext_SupportedGroups(groups=[_tls_named_groups[selected_group]]),
+                        TLS_Ext_SupportedGroups(groups=[_tls_named_groups[selected_group]]),  # noqa: E501
                         TLS_Ext_KeyShare_CH(client_shares=[KeyShareEntry(group=selected_group)])  # noqa: E501
-                        ]
+                       ]
             else:
-                # XXX Should not enter here...
-                ext += [TLS_Ext_PSKKeyExchangeModes(kxmodes="psk_ke")]     
+                ext += [TLS_Ext_PSKKeyExchangeModes(kxmodes="psk_ke")]
 
-            if self.cur_session.client_session_ticket:
+            if s.client_session_ticket:
 
-                ### XXX Retrieve parameters from first ClientHello...
-                cs_cls = _tls_cipher_suites_cls[self.cur_session.tls13_ticket_ciphersuite]
+                # XXX Retrieve parameters from first ClientHello...
+                cs_cls = _tls_cipher_suites_cls[s.tls13_ticket_ciphersuite]
                 hkdf = TLS13_HKDF(cs_cls.hash_alg.name.lower())
                 hash_len = hkdf.hash.digest_size
 
-                # We compute the client's view of the age of the ticket (ie 
+                # We compute the client's view of the age of the ticket (ie
                 # the time since the receipt of the ticket) in ms
-                agems = int((time.time() - self.cur_session.client_ticket_age) * 1000)
+                agems = int((time.time() - s.client_ticket_age) * 1000)
 
                 # Then we compute the obfuscated version of the ticket age by
-                # adding the "ticket_age_add" value included in the ticket (modulo 2^32)
-                obfuscated_age = (agems + self.cur_session.client_session_ticket_age_add) & 0xffffffff
+                # adding the "ticket_age_add" value included in the ticket
+                # (modulo 2^32)
+                obfuscated_age = ((agems + s.client_session_ticket_age_add)
+                                  & 0xffffffff)
 
-                ext += TLS_Ext_PreSharedKey_CH(identities=[PSKIdentity(identity=self.cur_session.client_session_ticket, obfuscated_ticket_age=obfuscated_age)], 
-                        binders=[PSKBinderEntry(binder_len=hash_len, binder=b"\x00"*hash_len)])
+                psk_id = PSKIdentity(identity=s.client_session_ticket,
+                                     obfuscated_ticket_age=obfuscated_age)
+
+                psk_binder_entry = PSKBinderEntry(binder_len=hash_len,
+                                                  binder=b"\x00"*hash_len)
+
+                ext += TLS_Ext_PreSharedKey_CH(identities=[psk_id],
+                                               binders=[psk_binder_entry])
 
             else:
                 hkdf = TLS13_HKDF("sha256")
                 hash_len = hkdf.hash.digest_size
-                ext += TLS_Ext_PreSharedKey_CH(identities=[PSKIdentity(identity='Client_identity')], 
-                        binders=[PSKBinderEntry(binder_len=hash_len, binder=b"\x00"*hash_len)])
+                psk_id = PSKIdentity(identity='Client_identity')
+                psk_binder_entry = PSKBinderEntry(binder_len=hash_len,
+                                                  binder=b"\x00"*hash_len)
+
+                ext += TLS_Ext_PreSharedKey_CH(identities=[psk_id],
+                                               binders=[psk_binder_entry])
 
         else:
-            ext += [TLS_Ext_SupportedGroups(groups=[_tls_named_groups[selected_group]]),
+            ext += [TLS_Ext_SupportedGroups(groups=[_tls_named_groups[selected_group]]),  # noqa: E501
                     TLS_Ext_KeyShare_CH(client_shares=[KeyShareEntry(group=selected_group)]),  # noqa: E501
                     TLS_Ext_SignatureAlgorithms(sig_algs=["sha256+rsaepss"])
-                    ]    
+                   ]
 
         p = TLS13ClientHello(ciphers=0x1301, ext=ext)
 
         self.add_msg(p)
 
         raise self.TLS13_ADDED_CLIENTHELLO()
-
-
-
-
 
     @ATMT.state()
     def TLS13_HANDLED_SERVERHELLO(self):
@@ -1202,17 +1223,14 @@ class TLSClientAutomaton(_TLSAutomaton):
         self.raise_on_packet(TLSEncryptedExtensions,
                              self.TLS13_HANDLED_ENCRYPTEDEXTENSIONS)
 
-
     @ATMT.condition(TLS13_HANDLED_SERVERHELLO, prio=1)
     def tls13_missing_encryptedExtension(self):
         self.vprint("Missing TLS 1.3 EncryptedExtensions message!")
         raise self.CLOSE_NOTIFY()
 
-
     @ATMT.state()
     def TLS13_HANDLED_ENCRYPTEDEXTENSIONS(self):
         pass
-
 
     @ATMT.condition(TLS13_HANDLED_ENCRYPTEDEXTENSIONS, prio=1)
     def tls13_should_handle_certificateRequest_from_encryptedExtensions(self):
@@ -1223,10 +1241,9 @@ class TLSClientAutomaton(_TLSAutomaton):
         self.raise_on_packet(TLS13CertificateRequest,
                              self.TLS13_HANDLED_CERTIFICATEREQUEST)
 
-
     @ATMT.condition(TLS13_HANDLED_ENCRYPTEDEXTENSIONS, prio=2)
-    def tls13_should_handle_certificate_from_encryptedExtensions(self): 
-        self.tls13_should_handle_Certificate()      
+    def tls13_should_handle_certificate_from_encryptedExtensions(self):
+        self.tls13_should_handle_Certificate()
 
     @ATMT.condition(TLS13_HANDLED_ENCRYPTEDEXTENSIONS, prio=3)
     def tls13_should_handle_finished_from_encryptedExtensions(self):
@@ -1234,21 +1251,17 @@ class TLSClientAutomaton(_TLSAutomaton):
             self.raise_on_packet(TLSFinished,
                                  self.TLS13_HANDLED_FINISHED)
 
-
     @ATMT.state()
     def TLS13_HANDLED_CERTIFICATEREQUEST(self):
         pass
-
 
     @ATMT.condition(TLS13_HANDLED_CERTIFICATEREQUEST, prio=1)
     def tls13_should_handle_ServerHelloDone_from_CertificateRequest(self):
         return self.tls13_should_handle_Certificate()
 
-
     def tls13_should_handle_Certificate(self):
         self.raise_on_packet(TLS13Certificate,
-                        self.TLS13_HANDLED_CERTIFICATE)
-
+                             self.TLS13_HANDLED_CERTIFICATE)
 
     @ATMT.state()
     def TLS13_HANDLED_CERTIFICATE(self):
@@ -1269,17 +1282,14 @@ class TLSClientAutomaton(_TLSAutomaton):
     def TLS13_HANDLED_CERTIFICATE_VERIFY(self):
         pass
 
-
     @ATMT.condition(TLS13_HANDLED_CERTIFICATE_VERIFY, prio=1)
     def tls13_should_handle_finished(self):
         self.raise_on_packet(TLSFinished,
-                                 self.TLS13_HANDLED_FINISHED)
-
+                             self.TLS13_HANDLED_FINISHED)
 
     @ATMT.state()
     def TLS13_HANDLED_FINISHED(self):
         raise self.TLS13_PREPARE_CLIENTFLIGHT2()
-
 
     @ATMT.state()
     def TLS13_PREPARE_CLIENTFLIGHT2(self):
@@ -1301,9 +1311,8 @@ class TLSClientAutomaton(_TLSAutomaton):
         """
         hs_msg = [type(m) for m in self.cur_session.handshake_messages_parsed]
         if TLS13CertificateRequest not in hs_msg:
-            #
             raise self.TLS13_ADDED_CLIENTCERTIFICATE()
-            #return
+            # return
         certs = []
         if self.mycert:
             certs += _ASN1CertAndExt(cert=self.mycert)
@@ -1315,12 +1324,10 @@ class TLSClientAutomaton(_TLSAutomaton):
     def TLS13_ADDED_CLIENTCERTIFICATE(self):
         pass
 
-
-    #@ATMT.condition(TLS13_ADDED_CLIENTCERTIFICATE, prio=2)
-    #def tls13_should_add_ClientFinished(self):
+    # @ATMT.condition(TLS13_ADDED_CLIENTCERTIFICATE, prio=2)
+    # def tls13_should_add_ClientFinished(self):
     #    self.vprint("tls13_should_add_ClientFinished")
     #    return self.tls13_should_add_ClientFinished()
-
 
     @ATMT.condition(TLS13_ADDED_CLIENTCERTIFICATE, prio=1)
     def tls13_should_add_ClientCertificateVerify(self):
@@ -1333,7 +1340,7 @@ class TLSClientAutomaton(_TLSAutomaton):
         """
         hs_msg = [type(m) for m in self.cur_session.handshake_messages_parsed]
         if (TLS13CertificateRequest not in hs_msg or
-            self.mycert is None or
+                self.mycert is None or
                 self.mykey is None):
             return self.tls13_should_add_ClientFinished()
         self.add_msg(TLSCertificateVerify())
@@ -1343,11 +1350,9 @@ class TLSClientAutomaton(_TLSAutomaton):
     def TLS13_ADDED_CERTIFICATEVERIFY(self):
         return self.tls13_should_add_ClientFinished()
 
-
     @ATMT.state()
     def TLS13_ADDED_CLIENTFINISHED(self):
         pass
-
 
     def tls13_should_add_ClientFinished(self):
         self.add_msg(TLSFinished())
