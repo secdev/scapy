@@ -2140,7 +2140,7 @@ def _tcp_client_test():
         Cache_Control=b'no-cache',
         Pragma=b'no-cache',
         Connection=b'keep-alive',
-        Host=b'www.secdev.org',
+        Host=b'www.kame.net',
     )
     t = TCP_client.tcplink(HTTP, SECDEV_IP4, 80)
     response = t.sr1(req, timeout=3)
@@ -2150,7 +2150,7 @@ def _tcp_client_test():
     assert response.Reason_Phrase == b'OK'
 
 def _http_request_test():
-    response = http_request("www.secdev.org", path="/")
+    response = http_request("www.kame.net", path="/")
     assert response.Http_Version == b'HTTP/1.1'
     assert response.Status_Code == b'200'
     assert response.Reason_Phrase == b'OK'
