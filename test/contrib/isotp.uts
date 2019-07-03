@@ -7,7 +7,6 @@
 ~ conf
 
 = Imports
-~ conf
 
 load_layer("can")
 import threading, time, six, subprocess
@@ -16,11 +15,9 @@ from subprocess import call
 
 
 = Definition of constants, utility functions and mock classes
-~ conf
 
 iface0 = "vcan0"
 iface1 = "vcan1"
-
 
 class MockCANSocket(SuperSocket):
     nonblocking_socket = True
@@ -72,7 +69,7 @@ def exit_if_no_isotp_module():
 
 
 = Initialize a virtual CAN interface
-~ needs_root linux conf
+~ needs_root linux
 if 0 != call("cansend %s 000#" % iface0, shell=True):
     # vcan0 is not enabled
     if 0 != call("sudo modprobe vcan", shell=True):
@@ -127,8 +124,8 @@ def drain_bus(iface=iface0, assert_empty=True):
 print("CAN sockets should work now")
 
 
-# Verify that a CAN socket can be created and closed
-~ conf linux needs_root
+= Verify that a CAN socket can be created and closed
+~ linux needs_root
 s = new_can_socket(iface0)
 s.close()
 

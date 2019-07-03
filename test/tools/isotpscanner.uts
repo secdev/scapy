@@ -1,0 +1,263 @@
+% Regression tests for isotpscanner
+~ vcan_socket needs_root linux
+
+
++ Configuration
+~ conf
+
+= Imports
+load_layer("can")
+import threading, time, six, subprocess, sys
+from subprocess import call
+
+
+= Definition of constants, utility functions and mock classes
+iface0 = "vcan0"
+iface1 = "vcan1"
+
+# function to exit when the can-isotp kernel module is not available
+ISOTP_KERNEL_MODULE_AVAILABLE = False
+def exit_if_no_isotp_module():
+    if not ISOTP_KERNEL_MODULE_AVAILABLE:
+        err = "TEST SKIPPED: can-isotp not available"
+        subprocess.call("printf \"%s\r\n\" > /dev/stderr" % err, shell=True)
+        warning("Can't test ISOTP native socket because kernel module is not loaded")
+        exit(0)
+
+
+= Initialize a virtual CAN interface
+if 0 != call("cansend %s 000#" % iface0, shell=True):
+    # vcan0 is not enabled
+    if 0 != call("sudo modprobe vcan", shell=True):
+        raise Exception("modprobe vcan failed")
+    if 0 != call("sudo ip link add name %s type vcan" % iface0, shell=True):
+        print("add %s failed: Maybe it was already up?" % iface0)
+    if 0 != call("sudo ip link set dev %s up" % iface0, shell=True):
+        raise Exception("could not bring up %s" % iface0)
+
+if 0 != call("cansend %s 000#" % iface0, shell=True):
+    raise Exception("cansend doesn't work")
+
+if 0 != call("cansend %s 000#" % iface1, shell=True):
+    # vcan1 is not enabled
+    if 0 != call("sudo modprobe vcan", shell=True):
+        raise Exception("modprobe vcan failed")
+    if 0 != call("sudo ip link add name %s type vcan" % iface1, shell=True):
+        print("add %s failed: Maybe it was already up?" % iface1)
+    if 0 != call("sudo ip link set dev %s up" % iface1, shell=True):
+        raise Exception("could not bring up %s" % iface1)
+
+if 0 != call("cansend %s 000#" % iface1, shell=True):
+    raise Exception("cansend doesn't work")
+
+print("CAN should work now")
+
+
+if six.PY3:
+    from scapy.contrib.cansocket_native import *
+else:
+    from scapy.contrib.cansocket_python_can import *
+
+
+if "python_can" in CANSocket.__module__:
+    import can as python_can
+    new_can_socket = lambda iface: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface, bitrate=250000))
+    new_can_socket0 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface0, bitrate=250000), timeout=0.01)
+    new_can_socket1 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface1, bitrate=250000), timeout=0.01)
+    can_socket_string = "-i socketcan -c %s -b 250000" % iface0
+else:
+    new_can_socket = lambda iface: CANSocket(iface)
+    new_can_socket0 = lambda: CANSocket(iface0)
+    new_can_socket1 = lambda: CANSocket(iface1)
+    can_socket_string = "-c %s" % iface0
+
+# utility function for draining a can interface, asserting that no packets are there
+def drain_bus(iface=iface0, assert_empty=True):
+    s = new_can_socket(iface)
+    pkts = s.sniff(timeout=0.1)
+    if assert_empty:
+        assert len(pkts) == 0
+    s.close()
+
+print("CAN sockets should work now")
+
+
+= Verify that a CAN socket can be created and closed
+s = new_can_socket(iface0)
+s.close()
+
+
+= Check if can-isotp and can-utils are installed on this system
+p = subprocess.Popen('lsmod | grep "^can_isotp"', stdout=subprocess.PIPE, shell=True)
+if p.wait() == 0:
+    if b"can_isotp" in p.stdout.read():
+        p = subprocess.Popen("isotpsend -s1 -d0 %s" % iface0, stdin=subprocess.PIPE, shell=True)
+        p.stdin.write(b"01")
+        p.stdin.close()
+        r = p.wait()
+        if r == 0:
+            ISOTP_KERNEL_MODULE_AVAILABLE = True
+
+
++ Syntax check
+
+= Import isotp
+conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': False}
+load_contrib("isotp")
+
+
++ Usage tests
+
+= Test wrong usage
+print(sys.executable)
+result = subprocess.Popen("%s $PWD/scapy/tools/automotive/isotpscanner.py" % sys.executable, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+returncode = result.wait()
+
+std_out, std_err = result.communicate()
+if returncode:
+    print(std_out)
+    print(std_err)
+
+assert returncode != 0
+
+expected_output = plain_str(b'usage:')
+assert expected_output in plain_str(std_err)
+
+
+= Test show help
+result = subprocess.Popen("%s $PWD/scapy/tools/automotive/isotpscanner.py --help" % sys.executable, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+if result.wait() == 0:
+    std_out, std_err = result.communicate()
+    assert std_err == None
+    expected_output = plain_str(b'Scan for open ISOTP-Sockets.')
+    print(std_out)
+    assert expected_output in plain_str(std_out)
+
+
+= Test wrong socket for Python2 or Windows
+if six.PY2:
+    version = subprocess.Popen("python --version", stdout=subprocess.PIPE, shell=True)
+    if 0 == version.wait():
+        print(version.communicate())
+    result = subprocess.Popen("%s $PWD/scapy/tools/automotive/isotpscanner.py -c vcan0 -s 0x600 -e 0x600" % sys.executable, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+    if result.wait() == 0:
+        expected_output = plain_str(b'Wrong interface')
+        std_out, std_err = result.communicate()
+        assert std_err == None
+        print(std_out)
+        print(expected_output)
+        assert expected_output in plain_str(std_out)
+
+
+= Test Python2 call
+
+result = subprocess.Popen("%s $PWD/scapy/tools/automotive/isotpscanner.py -i socketcan -c vcan0 -b 250000 -s 0x600 -e 0x600 -v" % sys.executable, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+returncode = result.wait()
+print(returncode)
+assert returncode == 0
+expected_output = plain_str(b'Start scan')
+std_out, std_err = result.communicate()
+print(std_out)
+print(expected_output)
+assert expected_output in plain_str(std_out)
+
+
++ Scan tests
+
+= Test standard scan
+drain_bus(iface0)
+
+def isotpserver():
+    with ISOTPSocket(new_can_socket(iface0), sid=0x700, did=0x600) as s:
+        s.sniff(timeout=100, count=1)
+
+sniffer = threading.Thread(target=isotpserver)
+sniffer.start()
+time.sleep(0.1)
+result = subprocess.Popen("%s $PWD/scapy/tools/automotive/isotpscanner.py %s -s 0x600 -e 0x600" % (sys.executable, can_socket_string), stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+returncode = result.wait()
+std_out, std_err = result.communicate()
+
+print(std_out)
+print(std_err)
+
+send = subprocess.Popen(['cansend', 'vcan0', '600#01aa'])
+assert 0 == send.wait()
+assert returncode == 0
+
+expected_output = [b'0x600', b'0x700']
+print(std_out)
+for out in expected_output:
+    assert plain_str(out) in plain_str(std_out)
+
+
+= Test extended scan
+drain_bus(iface0)
+def isotpserver():
+    with ISOTPSocket(new_can_socket(iface0), sid=0x700, did=0x601, extended_addr=0xaa, extended_rx_addr=0xbb) as s:
+        s.sniff(timeout=100, count=1)
+
+sniffer = threading.Thread(target=isotpserver)
+sniffer.start()
+time.sleep(0.1)
+result = subprocess.Popen("%s $PWD/scapy/tools/automotive/isotpscanner.py %s -s 0x601 -e 0x601 -x" % (sys.executable, can_socket_string), stdout=subprocess.PIPE, shell=True)
+returncode = result.wait()
+
+send = subprocess.Popen(['cansend', 'vcan0', '601#BB01aa'])
+assert 0 == send.wait()
+assert returncode == 0
+
+expected_output = [b'0x601', b'0xbb', b'0x700', b'0xaa']
+std_out, std_err = result.communicate()
+assert std_err == None
+print(std_out)
+for out in expected_output:
+    assert plain_str(out) in plain_str(std_out)
+
+
+= Test extended only scan
+drain_bus(iface0)
+def isotpserver():
+    with ISOTPSocket(new_can_socket(iface0), sid=0x700, did=0x601, extended_addr=0xaa, extended_rx_addr=0xbb) as s:
+        s.sniff(timeout=100, count=1)
+
+sniffer = threading.Thread(target=isotpserver)
+sniffer.start()
+time.sleep(0.1)
+result = subprocess.Popen("%s $PWD/scapy/tools/automotive/isotpscanner.py %s -s 0x601 -e 0x601 -x" % (sys.executable, can_socket_string), stdout=subprocess.PIPE, shell=True)
+returncode = result.wait()
+
+send = subprocess.Popen(['cansend', 'vcan0', '601#BB01aa'])
+assert 0 == send.wait()
+assert returncode == 0
+
+expected_output = [b'0x601', b'0xbb', b'0x700', b'0xaa']
+std_out, std_err = result.communicate()
+assert std_err == None
+print(std_out)
+for out in expected_output:
+    assert plain_str(out) in plain_str(std_out)
+
+
+= Test scan with piso flag
+drain_bus(iface0)
+def isotpserver():
+    with ISOTPSocket(new_can_socket(iface0), sid=0x700, did=0x601, extended_addr=0xaa, extended_rx_addr=0xbb) as s:
+        s.sniff(timeout=100, count=1)
+
+sniffer = threading.Thread(target=isotpserver)
+sniffer.start()
+time.sleep(0.1)
+result = subprocess.Popen("%s $PWD/scapy/tools/automotive/isotpscanner.py %s -s 0x601 -e 0x601 -x -C" % (sys.executable, can_socket_string), stdout=subprocess.PIPE, shell=True)
+returncode = result.wait()
+
+send = subprocess.Popen(['cansend', 'vcan0', '601#BB01aa'])
+assert 0 == send.wait()
+assert returncode == 0
+
+expected_output = [b'sid=0x601', b'did=0x700', b'padding=False', b'extended_addr=0xbb', b'extended_rx_addr=0xaa']
+std_out, std_err = result.communicate()
+assert std_err == None
+print(std_out)
+for out in expected_output:
+    assert plain_str(out) in plain_str(std_out)
