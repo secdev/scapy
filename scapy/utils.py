@@ -1926,13 +1926,13 @@ class PeriodicSenderThread(threading.Thread):
         self._pkt = pkt
         self._socket = sock
         self._stopped = threading.Event()
-        self.keep_awake_interval = interval
+        self._interval = interval
         threading.Thread.__init__(self)
 
     def run(self):
         while not self._stopped.is_set():
             self._socket.send(self._pkt)
-            time.sleep(self.keep_awake_interval)
+            time.sleep(self._interval)
 
     def stop(self):
         self._stopped.set()
