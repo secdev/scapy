@@ -84,6 +84,16 @@ class IPSession(DefaultSession):
 
 
 class StringBuffer(object):
+    """StringBuffer is an object used to re-order data received during
+    a TCP transmission.
+
+    Each TCP fragment contains a sequence number, which marks
+    (relatively to the first sequence number) the index of the data contained
+    in the fragment.
+
+    If a TCP fragment is missed, this class will fill the missing space with
+    zeros.
+    """
     def __init__(self):
         self.content = bytearray(b"")
         self.content_len = 0
@@ -135,7 +145,7 @@ class TCPSession(IPSession):
             # metadata = empty dictionary, that can be used to store data
             [...]
             # If the packet is available, return it. Otherwise don't.
-            # Whenever you return a packet, the buffer will be discarder.
+            # Whenever you return a packet, the buffer will be discarded.
             return pkt
             # Otherwise, maybe store stuff in metadata, and return None,
             # as you need additional data.
