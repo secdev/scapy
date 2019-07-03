@@ -18,7 +18,6 @@ import importlib
 import hashlib
 import copy
 import bz2
-import base64
 import os.path
 import time
 import traceback
@@ -276,7 +275,6 @@ def parse_config_file(config_path, verb=3):
 
     """
     import json
-    import unicodedata
     with open(config_path) as config_file:
         data = json.load(config_file, encoding="utf8")
         if verb > 2:
@@ -536,18 +534,7 @@ def campaign_to_TEXT(test_campaign):
 
 
 def campaign_to_ANSI(test_campaign):
-    output="%(title)s\n" % test_campaign
-    output += "-- "+info_line(test_campaign)+"\n\n"
-    output += "Passed=%(passed)i\nFailed=%(failed)i\n\n%(headcomments)s\n" % test_campaign
-
-    for testset in test_campaign:
-        if any(t.expand for t in testset):
-            output += "######\n## %(name)s\n######\n%(comments)s\n\n" % testset
-            for t in testset:
-                if t.expand:
-                    output += "###(%(num)03i)=[%(result)s] %(name)s\n%(comments)s\n%(output)s\n\n" % t  # noqa: E501
-
-    return output
+    return campaign_to_TEXT(test_campaign)
 
 
 def campaign_to_xUNIT(test_campaign):
@@ -865,7 +852,11 @@ def main():
                     raise getopt.GetoptError("Unknown output format %s" % msg)
                 TESTFILES = resolve_testfiles(TESTFILES)
                 for testfile in resolve_testfiles(data.remove_testfiles):
-                    TESTFILES.remove(testfile)
+                    try:
+                        TESTFILES.remove(testfile)
+                    except ValueError:
+                        error_m = "Cannot remove %s from test files" % testfile
+                        raise getopt.GetoptError(error_m)
             elif opt == "-o":
                 OUTPUTFILE = optarg
                 if not os.access(os.path.dirname(os.path.abspath(OUTPUTFILE)), os.W_OK):

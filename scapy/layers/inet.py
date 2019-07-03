@@ -340,7 +340,10 @@ class TCPOptionsField(StrField):
                 opt.append(("NOP", None))
                 x = x[1:]
                 continue
-            olen = orb(x[1])
+            try:
+                olen = orb(x[1])
+            except IndexError:
+                olen = 0
             if olen < 2:
                 warning("Malformed TCP option (announced length is %i)" % olen)
                 olen = 2
@@ -1849,16 +1852,17 @@ funcpres: a function used to summarize packets"""
 
 
 @conf.commands.register
-def fragleak(target, sport=123, dport=123, timeout=0.2, onlyasc=0):
+def fragleak(target, sport=123, dport=123, timeout=0.2, onlyasc=0, count=None):
     load = "XXXXYYYYYYYYYY"
-#    getmacbyip(target)
-#    pkt = IP(dst=target, id=RandShort(), options=b"\x22"*40)/UDP()/load
-    pkt = IP(dst=target, id=RandShort(), options=b"\x00" * 40, flags=1) / UDP(sport=sport, dport=sport) / load  # noqa: E501
+    pkt = IP(dst=target, id=RandShort(), options=b"\x00" * 40, flags=1)
+    pkt /= UDP(sport=sport, dport=sport) / load
     s = conf.L3socket()
     intr = 0
     found = {}
     try:
-        while True:
+        while count is None or count:
+            if count is not None and isinstance(count, int):
+                count -= 1
             try:
                 if not intr:
                     s.send(pkt)
@@ -1876,18 +1880,8 @@ def fragleak(target, sport=123, dport=123, timeout=0.2, onlyasc=0):
                     continue
                 if ans.src != target:
                     print("leak from", ans.src, end=' ')
-
-
-#                print repr(ans)
                 if not ans.haslayer(conf.padding_layer):
                     continue
-
-
-#                print repr(ans.payload.payload.payload.payload)
-
-#                if not isinstance(ans.payload.payload.payload.payload, conf.raw_layer):  # noqa: E501
-#                    continue
-#                leak = ans.payload.payload.payload.payload.load[len(load):]
                 leak = ans.getlayer(conf.padding_layer).load
                 if leak not in found:
                     found[leak] = None
@@ -1901,11 +1895,16 @@ def fragleak(target, sport=123, dport=123, timeout=0.2, onlyasc=0):
 
 
 @conf.commands.register
-def fragleak2(target, timeout=0.4, onlyasc=0):
+def fragleak2(target, timeout=0.4, onlyasc=0, count=None):
     found = {}
     try:
-        while True:
-            p = sr1(IP(dst=target, options=b"\x00" * 40, proto=200) / "XXXXYYYYYYYYYYYY", timeout=timeout, verbose=0)  # noqa: E501
+        while count is None or count:
+            if count is not None and isinstance(count, int):
+                count -= 1
+
+            pkt = IP(dst=target, options=b"\x00" * 40, proto=200)
+            pkt /= "XXXXYYYYYYYYYYYY"
+            p = sr1(pkt, timeout=timeout, verbose=0)
             if not p:
                 continue
             if conf.padding_layer in p:

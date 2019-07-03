@@ -1,8 +1,8 @@
 # This file is part of Scapy
 # See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Cesar A. Bernardini <mesarpe@gmail.com>
+#               Intern at INRIA Grand Nancy Est
 # Copyright (C) Gabriel Potter <gabriel@potter.fr>
-# Intern at INRIA Grand Nancy Est
 # This program is published under a GPLv2 license
 """
 6LoWPAN Protocol Stack
@@ -329,17 +329,6 @@ def flowlabel_len(pkt):
         return 20
     elif pkt.tf == 0x1:
         return 20
-    else:
-        return 0
-
-
-def _tf_lowpan(pkt):
-    if pkt.tf == 0:
-        return 32
-    elif pkt.tf == 1:
-        return 24
-    elif pkt.tf == 2:
-        return 8
     else:
         return 0
 

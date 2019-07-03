@@ -35,13 +35,12 @@ class _L2bpfSocket(SuperSocket):
     """"Generic Scapy BPF Super Socket"""
 
     desc = "read/write packets using BPF"
-    assigned_interface = None
-    fd_flags = None
-    ins = None
-    closed = False
+    nonblocking_socket = True
 
     def __init__(self, iface=None, type=ETH_P_ALL, promisc=None, filter=None,
                  nofilter=0, monitor=False):
+        self.fd_flags = None
+        self.assigned_interface = None
 
         # SuperSocket mandatory variables
         if promisc is None:
@@ -208,11 +207,15 @@ class _L2bpfSocket(SuperSocket):
 
     def send(self, x):
         """Dummy send method"""
-        raise Exception("Can't send anything with %s" % self.__name__)
+        raise Exception(
+            "Can't send anything with %s" % self.__class__.__name__
+        )
 
-    def recv(self, x=BPF_BUFFER_LENGTH):
+    def recv_raw(self, x=BPF_BUFFER_LENGTH):
         """Dummy recv method"""
-        raise Exception("Can't recv anything with %s" % self.__name__)
+        raise Exception(
+            "Can't recv anything with %s" % self.__class__.__name__
+        )
 
     @staticmethod
     def select(sockets, remain=None):
@@ -273,21 +276,19 @@ class L2bpfListenSocket(_L2bpfSocket):
 
         # Get and store the Scapy object
         frame_str = bpf_buffer[bh_hdrlen:bh_hdrlen + bh_caplen]
-        try:
-            pkt = self.guessed_cls(frame_str)
-        except Exception:
-            if conf.debug_dissector:
-                raise
-            pkt = conf.raw_layer(frame_str)
-        self.received_frames.append(pkt)
+        self.received_frames.append(
+            (self.guessed_cls, frame_str, None)
+        )
 
         # Extract the next frame
         end = self.bpf_align(bh_hdrlen, bh_caplen)
         if (len_bb - end) >= 20:
             self.extract_frames(bpf_buffer[end:])
 
-    def recv(self, x=BPF_BUFFER_LENGTH):
+    def recv_raw(self, x=BPF_BUFFER_LENGTH):
         """Receive a frame from the network"""
+
+        x = min(x, BPF_BUFFER_LENGTH)
 
         if self.buffered_frames():
             # Get a frame from the buffer
@@ -299,7 +300,7 @@ class L2bpfListenSocket(_L2bpfSocket):
         except EnvironmentError as exc:
             if exc.errno != errno.EAGAIN:
                 warning("BPF recv()", exc_info=True)
-            return
+            return None, None, None
 
         # Extract all frames from the BPF buffer
         self.extract_frames(bpf_buffer)
@@ -318,7 +319,7 @@ class L2bpfSocket(L2bpfListenSocket):
 
         if self.buffered_frames():
             # Get a frame from the buffer
-            return self.get_frame()
+            return L2bpfListenSocket.recv(self)
 
         # Set the non blocking flag, read from the socket, and unset the flag
         self.set_nonblock(True)
@@ -329,11 +330,11 @@ class L2bpfSocket(L2bpfListenSocket):
 
 class L3bpfSocket(L2bpfSocket):
 
-    def get_frame(self):
-        """Get a frame or packet from the received list"""
-        pkt = super(L3bpfSocket, self).get_frame()
-        if pkt is not None:
-            return pkt.payload
+    def recv(self, x=BPF_BUFFER_LENGTH):
+        """Receive on layer 3"""
+        r = SuperSocket.recv(self, x)
+        if r:
+            return r.payload
 
     def send(self, pkt):
         """Send a packet"""
@@ -363,7 +364,10 @@ class L3bpfSocket(L2bpfSocket):
 
 def isBPFSocket(obj):
     """Return True is obj is a BPF Super Socket"""
-    return isinstance(obj, L2bpfListenSocket) or isinstance(obj, L2bpfListenSocket) or isinstance(obj, L3bpfSocket)  # noqa: E501
+    return isinstance(
+        obj,
+        (L2bpfListenSocket, L2bpfListenSocket, L3bpfSocket)
+    )
 
 
 def bpf_select(fds_list, timeout=None):

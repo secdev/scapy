@@ -14,6 +14,7 @@ import time
 import itertools
 import copy
 import types
+import warnings
 
 from scapy.fields import StrField, ConditionalField, Emph, PacketListField, \
     BitField, MultiEnumField, EnumField, FlagsField, MultipleTypeField
@@ -21,7 +22,7 @@ from scapy.config import conf, _version_checker
 from scapy.compat import raw, orb, bytes_encode
 from scapy.base_classes import BasePacket, Gen, SetGen, Packet_metaclass, \
     _CanvasDumpExtended
-from scapy.volatile import VolatileValue, RandField
+from scapy.volatile import RandField, VolatileValue
 from scapy.utils import import_hexcap, tex_escape, colgen, issubtype, \
     pretty_list
 from scapy.error import Scapy_Exception, log_runtime, warning
@@ -51,8 +52,9 @@ class RawVal:
 class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
                                 _CanvasDumpExtended)):
     __slots__ = [
-        "time", "sent_time", "name", "default_fields",
-        "overload_fields", "overloaded_fields", "fields", "fieldtype",
+        "time", "sent_time", "name",
+        "default_fields", "fields", "fieldtype",
+        "overload_fields", "overloaded_fields",
         "packetfields",
         "original", "explicit", "raw_packet_cache",
         "raw_packet_cache_fields", "_pkt", "post_transforms",
@@ -70,6 +72,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
     ]
     name = None
     fields_desc = []
+    deprecated_fields = {}
     overload_fields = {}
     payload_guess = []
     show_indent = 1
@@ -155,7 +158,13 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
                 continue
             self.fields[fname] = self.get_field(fname).any2i(self, value)
         # The remaining fields are unknown
-        for fname, _ in fields:
+        for fname in fields:
+            if fname in self.deprecated_fields:
+                # Resolve deprecated fields
+                value = fields[fname]
+                fname = self._resolve_alias(fname)
+                self.fields[fname] = self.get_field(fname).any2i(self, value)
+                continue
             raise AttributeError(fname)
         if isinstance(post_transform, list):
             self.post_transforms = post_transform
@@ -204,8 +213,12 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
 
             # Deepcopy default references
             for fname in Packet.class_default_fields_ref[cls_name]:
-                value = copy.deepcopy(self.default_fields[fname])
-                setattr(self, fname, value)
+                value = self.default_fields[fname]
+                try:
+                    self.fields[fname] = value.copy()
+                except AttributeError:
+                    # Python 2.7 - list only
+                    self.fields[fname] = value[:]
 
     def prepare_cached_fields(self, flist):
         """
@@ -303,7 +316,18 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
         clone.time = self.time
         return clone
 
+    def _resolve_alias(self, attr):
+        new_attr, version = self.deprecated_fields[attr]
+        warnings.warn(
+            "%s has been deprecated in favor of %s since %s !" % (
+                attr, new_attr, version
+            ), DeprecationWarning
+        )
+        return new_attr
+
     def getfieldval(self, attr):
+        if self.deprecated_fields and attr in self.deprecated_fields:
+            attr = self._resolve_alias(attr)
         if attr in self.fields:
             return self.fields[attr]
         if attr in self.overloaded_fields:
@@ -313,6 +337,8 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
         return self.payload.getfieldval(attr)
 
     def getfield_and_val(self, attr):
+        if self.deprecated_fields and attr in self.deprecated_fields:
+            attr = self._resolve_alias(attr)
         if attr in self.fields:
             return self.get_field(attr), self.fields[attr]
         if attr in self.overloaded_fields:
@@ -330,6 +356,8 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
         return v
 
     def setfieldval(self, attr, val):
+        if self.deprecated_fields and attr in self.deprecated_fields:
+            attr = self._resolve_alias(attr)
         if attr in self.default_fields:
             fld = self.get_field(attr)
             if fld is None:
@@ -349,6 +377,8 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
 
     def __setattr__(self, attr, val):
         if attr in self.__all_slots__:
+            if attr == "sent_time":
+                self.update_sent_time(val)
             return object.__setattr__(self, attr, val)
         try:
             return self.setfieldval(attr, val)
@@ -435,8 +465,13 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
                                    repr(self.payload),
                                    ct.punct(">"))
 
-    def __str__(self):
-        return str(self.build())
+    if six.PY2:
+        def __str__(self):
+            return self.build()
+    else:
+        def __str__(self):
+            warning("Calling str(pkt) on Python 3 makes no sense!")
+            return str(self.build())
 
     def __bytes__(self):
         return self.build()
@@ -488,9 +523,14 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
     def clear_cache(self):
         """Clear the raw packet cache for the field and all its subfields"""
         self.raw_packet_cache = None
-        for _, fval in six.iteritems(self.fields):
-            if isinstance(fval, Packet):
-                fval.clear_cache()
+        for fld, fval in six.iteritems(self.fields):
+            fld = self.get_field(fld)
+            if fld.holds_packets:
+                if isinstance(fval, Packet):
+                    fval.clear_cache()
+                elif isinstance(fval, list):
+                    for fsubval in fval:
+                        fsubval.clear_cache()
         self.payload.clear_cache()
 
     def self_build(self, field_pos_list=None):
@@ -838,9 +878,12 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
         """
         for t in self.aliastypes:
             for fval, cls in t.payload_guess:
-                if all(hasattr(self, k) and v == self.getfieldval(k)
-                       for k, v in six.iteritems(fval)):
-                    return cls
+                try:
+                    if all(v == self.getfieldval(k)
+                           for k, v in six.iteritems(fval)):
+                        return cls
+                except AttributeError:
+                    pass
         return self.default_payload_class(payload)
 
     def default_payload_class(self, payload):
@@ -863,7 +906,11 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
                     del self.fields[k]
         self.payload.hide_defaults()
 
-    def clone_with(self, payload=None, **kargs):
+    def update_sent_time(self, time):
+        """Use by clone_with to share the sent_time value"""
+        pass
+
+    def clone_with(self, payload=None, share_time=False, **kargs):
         pkt = self.__class__()
         pkt.explicit = 1
         pkt.fields = kargs
@@ -879,9 +926,16 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
         pkt.wirelen = self.wirelen
         if payload is not None:
             pkt.add_payload(payload)
+        if share_time:
+            # This binds the subpacket .sent_time to this layer
+            def _up_time(x, parent=self):
+                parent.sent_time = x
+            pkt.update_sent_time = _up_time
         return pkt
 
     def __iter__(self):
+        """Iterates through all sub-packets generated by this Packet."""
+        # We use __iterlen__ as low as possible, to lower processing time
         def loop(todo, done, self=self):
             if todo:
                 eltname = todo.pop()
@@ -897,15 +951,22 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
                         yield x
             else:
                 if isinstance(self.payload, NoPayload):
-                    payloads = [None]
+                    payloads = SetGen([None])
                 else:
                     payloads = self.payload
+                share_time = False
+                if self.fields == done and payloads.__iterlen__() == 1:
+                    # In this case, the packets are identical. Let's bind
+                    # their sent_time attribute for sending purpose
+                    share_time = True
                 for payl in payloads:
+                    # Let's make sure subpackets are consistent
                     done2 = done.copy()
                     for k in done2:
                         if isinstance(done2[k], VolatileValue):
                             done2[k] = done2[k]._fix()
-                    pkt = self.clone_with(payload=payl, **done2)
+                    pkt = self.clone_with(payload=payl, share_time=share_time,
+                                          **done2)
                     yield pkt
 
         if self.explicit or self.raw_packet_cache is not None:
@@ -924,19 +985,25 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
                   six.iteritems(self.overloaded_fields))
                   if isinstance(val, VolatileValue)] + list(self.fields)
         length = 1
+
+        def is_valid_gen_tuple(x):
+            if not isinstance(x, tuple):
+                return False
+            return len(x) == 2 and all(isinstance(z, int) for z in x)
+
         for field in fields:
             fld, val = self.getfield_and_val(field)
             if hasattr(val, "__iterlen__"):
                 length *= val.__iterlen__()
-            elif isinstance(val, tuple) and len(val) == 2 and all(hasattr(z, "__int__") for z in val):  # noqa: E501
-                length *= (val[1] - val[0])
+            elif is_valid_gen_tuple(val):
+                length *= (val[1] - val[0] + 1)
             elif isinstance(val, list) and not fld.islist:
                 len2 = 0
                 for x in val:
                     if hasattr(x, "__iterlen__"):
                         len2 += x.__iterlen__()
-                    elif isinstance(x, tuple) and len(x) == 2 and all(hasattr(z, "__int__") for z in x):  # noqa: E501
-                        len2 += (x[1] - x[0])
+                    elif is_valid_gen_tuple(x):
+                        len2 += (x[1] - x[0] + 1)
                     elif isinstance(x, list):
                         len2 += len(x)
                     else:
@@ -978,7 +1045,8 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
         return not self.__eq__(other)
 
     def hashret(self):
-        """DEV: returns a string that has the same value for a request and its answer."""  # noqa: E501
+        """DEV: returns a string that has the same value for a request
+        and its answer."""
         return self.payload.hashret()
 
     def answers(self, other):
@@ -1363,6 +1431,13 @@ A side effect is that, to obtain "{" and "}" characters, you must use
             c += "/" + pc
         return c
 
+    def __hash__(self):
+        """Needed for Python 2 only: Packet() subclasses should not be
+hashable.
+
+        """
+        raise TypeError('unhashable type: %r' % self.__class__.__name__)
+
 
 class NoPayload(Packet):
     def __new__(cls, *args, **kargs):
@@ -1665,8 +1740,13 @@ def explore(layer=None):
         from prompt_toolkit.shortcuts.dialogs import radiolist_dialog, \
             button_dialog
         from prompt_toolkit.formatted_text import HTML
+        # Check for prompt_toolkit >= 3.0.0
+        if _version_checker(prompt_toolkit, (3, 0)):
+            call_ptk = lambda x: x.run()
+        else:
+            call_ptk = lambda x: x
         # 1 - Ask for layer or contrib
-        action = button_dialog(
+        btn_diag = button_dialog(
             title="Scapy v%s" % conf.version,
             text=HTML(
                 six.text_type(
@@ -1679,6 +1759,7 @@ def explore(layer=None):
                 (six.text_type("Contribs"), "contribs"),
                 (six.text_type("Cancel"), "cancel")
             ])
+        action = call_ptk(btn_diag)
         # 2 - Retrieve list of Packets
         if action == "layers":
             # Get all loaded layers
@@ -1703,7 +1784,7 @@ def explore(layer=None):
             _radio_values = [(six.text_type(x), six.text_type(y))
                              for x, y in _radio_values]
         # 3 - Ask for the layer/contrib module to explore
-        result = radiolist_dialog(
+        rd_diag = radiolist_dialog(
             values=_radio_values,
             title="Scapy v%s" % conf.version,
             text=HTML(
@@ -1713,6 +1794,7 @@ def explore(layer=None):
                     ' it:</style>'
                 )
             ))
+        result = call_ptk(rd_diag)
         if result is None:
             return  # User pressed "Cancel"
         # 4 - (Contrib only): load contrib

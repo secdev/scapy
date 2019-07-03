@@ -56,12 +56,37 @@ class ScapyFreqFilter(logging.Filter):
         return 1
 
 
+# Inspired from python-colorbg (MIT)
+class ScapyColoredFormatter(logging.Formatter):
+    """A subclass of logging.Formatter that handles colors."""
+    levels_colored = {
+        'DEBUG': 'reset',
+        'INFO': 'reset',
+        'WARNING': 'bold+yellow',
+        'ERROR': 'bold+red',
+        'CRITICAL': 'bold+white+bg_red'
+    }
+
+    def format(self, record):
+        message = super(ScapyColoredFormatter, self).format(record)
+        from scapy.config import conf
+        message = conf.color_theme.format(
+            message,
+            self.levels_colored[record.levelname]
+        )
+        return message
+
+
 log_scapy = logging.getLogger("scapy")
+log_scapy.setLevel(logging.WARNING)
 log_scapy.addHandler(logging.NullHandler())
-log_runtime = logging.getLogger("scapy.runtime")          # logs at runtime
+# logs at runtime
+log_runtime = logging.getLogger("scapy.runtime")
 log_runtime.addFilter(ScapyFreqFilter())
-log_interactive = logging.getLogger("scapy.interactive")  # logs in interactive functions  # noqa: E501
-log_loading = logging.getLogger("scapy.loading")          # logs when loading Scapy  # noqa: E501
+# logs in interactive functions
+log_interactive = logging.getLogger("scapy.interactive")
+# logs when loading Scapy
+log_loading = logging.getLogger("scapy.loading")
 
 
 def warning(x, *args, **kargs):

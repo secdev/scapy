@@ -543,19 +543,20 @@ Configuring super sockets
 .. index::
    single: super socket
 
-Different super sockets are available in Scapy: the native ones, and the ones that use a libpcap provider (that go through libpcap to send/receive packets).
-By default, Scapy will try to use the native ones (except on Windows, where the winpcap/npcap ones are preferred). To manually use the libpcap ones, you must:
+Different super sockets are available in Scapy: the **native** ones, and the ones that use **libpcap** (to send/receive packets).
 
-* On Unix/OSX: be sure to have libpcap installed, and one of the following as libpcap python wrapper: `pcapy` or `pypcap`
+By default, Scapy will try to use the native ones (*except on Windows, where the winpcap/npcap ones are preferred*). To manually use the **libpcap** ones, you must:
+
+* On Unix/OSX: be sure to have libpcap installed.
 * On Windows: have Npcap/Winpcap installed. (default)
 
-Then use:
+Then use::
 
     >>> conf.use_pcap = True
 
-This will automatically update the sockets pointing to `conf.L2socket` and `conf.L3socket`.
+This will automatically update the sockets pointing to ``conf.L2socket`` and ``conf.L3socket``.
 
-If you want to manually set them, you have a bunch of sockets available, depending on your platform. For instance, you might want to use:
+If you want to manually set them, you have a bunch of sockets available, depending on your platform. For instance, you might want to use::
 
     >>> conf.L3socket=L3pcapSocket  # Receive/send L3 packets through libpcap
     >>> conf.L2listen=L2ListenTcpdump  # Receive L2 packets through TCPDump
@@ -696,6 +697,52 @@ We can sniff and do passive OS fingerprinting::
     (1.0, ['Windows 2000 (9)'])
 
 The number before the OS guess is the accuracy of the guess.
+
+Asynchronous Sniffing
+---------------------
+
+.. index::
+   single: AsyncSniffer()
+
+.. note::
+   Asynchronous sniffing is only available since **Scapy 2.4.3**
+
+It is possible to sniff asynchronously. This allows to stop the sniffer programmatically, rather than with ctrl^C.
+It provides ``start()``, ``stop()`` and ``join()`` utils.
+
+The basic usage would be:
+
+.. code-block:: python
+
+    >>> t = AsyncSniffer()
+    >>> t.start()
+    >>> print("hey")
+    hey
+    [...]
+    >>> results = t.stop()
+
+.. image:: graphics/animations/animation-scapy-asyncsniffer.svg
+
+The ``AsyncSniffer`` class has a few useful keys, such as ``results`` (the packets collected) or ``running``, that can be used.
+It accepts the same arguments than ``sniff()`` (in fact, their implementations are merged). For instance:
+
+.. code-block:: python
+
+    >>> t = AsyncSniffer(iface="enp0s3", count=200)
+    >>> t.start()
+    >>> t.join()  # this will hold until 200 packets are collected
+    >>> results = t.results
+    >>> print(len(results))
+    200
+
+Another example: using ``prn`` and ``store=False``
+
+.. code-block:: python
+
+    >>> t = AsyncSniffer(prn=lambda x: x.summary(), store=False, filter="tcp")
+    >>> t.start()
+    >>> time.sleep(20)
+    >>> t.stop()
 
 Advanced Sniffing - Sessions
 ----------------------------
@@ -1120,6 +1167,9 @@ Wireless frame injection
 .. index::
    single: FakeAP, Dot11, wireless, WLAN
 
+.. note::
+   See the TroubleShooting section for more information on the usage of Monitor mode among Scapy.
+
 Provided that your wireless card and driver are correctly configured for frame injection
 
 ::
@@ -1127,7 +1177,7 @@ Provided that your wireless card and driver are correctly configured for frame i
     $ iw dev wlan0 interface add mon0 type monitor
     $ ifconfig mon0 up
 
-On Windows, if using Npcap, the equivalent would be to call
+On Windows, if using Npcap, the equivalent would be to call::
 
     >>> # Of course, conf.iface can be replaced by any interfaces accessed through IFACES
     ... conf.iface.setmonitor(True)

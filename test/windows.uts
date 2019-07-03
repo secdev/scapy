@@ -82,8 +82,8 @@ finally:
 
 = Set up native mode
 
-conf.use_winpcapy = False
-assert conf.use_winpcapy == False
+conf.use_pcap = False
+assert conf.use_pcap == False
 
 = Prepare ping: open firewall & get current seq number
 ~ netaccess needs_root
@@ -122,5 +122,5 @@ retry_test(_test)
 
 = Leave native mode
 
-conf.use_winpcapy = True
-assert conf.use_winpcapy == True
+conf.use_pcap = True
+assert conf.use_pcap == True

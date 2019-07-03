@@ -35,7 +35,7 @@ from scapy.fields import ByteField, LEShortField, BitField, LEShortEnumField, \
     StrLenField, IntField, XByteField, LEIntField, StrFixedLenField, \
     LESignedIntField, ReversePadField, ConditionalField, PacketListField, \
     ShortField, BitEnumField, FieldLenField, LEFieldLenField, \
-    FieldListField, XStrFixedLenField, PacketField, FCSField, PadField
+    FieldListField, XStrFixedLenField, PacketField, FCSField
 from scapy.ansmachine import AnsweringMachine
 from scapy.plist import PacketList
 from scapy.layers.l2 import Ether, LLC, MACField
@@ -247,6 +247,11 @@ _rt_hemuother_per_user_known = {
 
 class RadioTap(Packet):
     name = "RadioTap dummy"
+    deprecated_fields = {
+        "Channel": ("ChannelFrequency", "2.4.3"),
+        "ChannelFlags2": ("ChannelPlusFlags", "2.4.3"),
+        "ChannelNumber": ("ChannelPlusNumber", "2.4.3"),
+    }
     fields_desc = [
         ByteField('version', 0),
         ByteField('pad', 0),
@@ -278,7 +283,7 @@ class RadioTap(Packet):
         # Channel
         ConditionalField(
             _RadiotapReversePadField(
-                LEShortField("Channel", 0)
+                LEShortField("ChannelFrequency", 0)
              ),
             lambda pkt: pkt.present and pkt.present.Channel),
         ConditionalField(
@@ -323,14 +328,14 @@ class RadioTap(Packet):
         # ChannelPlus
         ConditionalField(
             _RadiotapReversePadField(
-                FlagsField("ChannelFlags2", None, -32, _rt_channelflags2)
+                FlagsField("ChannelPlusFlags", None, -32, _rt_channelflags2)
             ),
             lambda pkt: pkt.present and pkt.present.ChannelPlus),
         ConditionalField(
-            LEShortField("ChannelFrequency", 0),
+            LEShortField("ChannelPlusFrequency", 0),
             lambda pkt: pkt.present and pkt.present.ChannelPlus),
         ConditionalField(
-            ByteField("ChannelNumber", 0),
+            ByteField("ChannelPlusNumber", 0),
             lambda pkt: pkt.present and pkt.present.ChannelPlus),
         # MCS
         ConditionalField(
@@ -891,14 +896,17 @@ class Dot11EltCountry(Dot11Elt):
         ByteField("ID", 7),
         ByteField("len", None),
         StrFixedLenField("country_string", b"\0\0\0", length=3),
-        PadField(
-            PacketListField("descriptors",
-                            [],
-                            Dot11EltCountryConstraintTriplet,
-                            length_from=lambda pkt: (
-                                pkt.len - 3 - (pkt.len % 3)
-                            )),
-            2, padwith=b"\x00"
+        PacketListField(
+            "descriptors",
+            [],
+            Dot11EltCountryConstraintTriplet,
+            length_from=lambda pkt: (
+                pkt.len - 3 - (pkt.len % 3)
+            )
+        ),
+        ConditionalField(
+            ByteField("pad", 0),
+            lambda pkt: (pkt.len + 1) % 2
         )
     ]
 
@@ -1050,11 +1058,10 @@ class Dot11WEP(Dot11Encrypted):
                    StrField("wepdata", None, remain=4),
                    IntField("icv", None)]
 
-    @crypto_validator
     def decrypt(self, key=None):
         if key is None:
             key = conf.wepkey
-        if key:
+        if key and conf.crypto_valid:
             d = Cipher(
                 algorithms.ARC4(self.iv + key.encode("utf8")),
                 None,

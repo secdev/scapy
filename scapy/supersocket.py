@@ -36,6 +36,7 @@ class _SuperSocket_metaclass(type):
 class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
     desc = None
     closed = 0
+    nonblocking_socket = False
     read_allowed_exceptions = ()
 
     def __init__(self, family=socket.AF_INET, type=socket.SOCK_STREAM, proto=0):  # noqa: E501
@@ -45,9 +46,12 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
 
     def send(self, x):
         sx = raw(x)
-        if hasattr(x, "sent_time"):
+        sent = self.outs.send(sx)
+        try:
             x.sent_time = time.time()
-        return self.outs.send(sx)
+        except AttributeError:
+            pass
+        return sent
 
     def recv_raw(self, x=MTU):
         """Returns a tuple containing (cls, pkt_data, time)"""
@@ -67,7 +71,8 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
                 debug.crashed_on = (cls, val)
                 raise
             pkt = conf.raw_layer(val)
-        pkt.time = ts
+        if ts:
+            pkt.time = ts
         return pkt
 
     def fileno(self):
@@ -196,6 +201,7 @@ class SimpleSocket(SuperSocket):
 
 class StreamSocket(SimpleSocket):
     desc = "transforms a stream socket into a layer 2"
+    nonblocking_socket = True
 
     def __init__(self, sock, basecls=None):
         if basecls is None:
@@ -207,7 +213,7 @@ class StreamSocket(SimpleSocket):
         pkt = self.ins.recv(x, socket.MSG_PEEK)
         x = len(pkt)
         if x == 0:
-            raise socket.error((100, "Underlying stream socket tore down"))
+            return None
         pkt = self.basecls(pkt)
         pad = pkt.getlayer(conf.padding_layer)
         if pad is not None and pad.underlayer is not None:

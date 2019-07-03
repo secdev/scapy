@@ -87,18 +87,11 @@ conf.debug_dissector = True
 ~ linux
 
 try:
-    conf.use_winpcapy = True
-    assert False
-except:
-    True
-
-try:
     conf.use_bpf = True
     assert False
 except:
     True
 
-assert not conf.use_winpcapy
 assert not conf.use_bpf
 
 = Configuration conf.use_* WINDOWS
@@ -111,17 +104,6 @@ except:
     True
 
 assert not conf.use_bpf
-
-= Configuration conf.use_* OSX
-~ osx
-
-try:
-    conf.use_winpcapy = True
-    assert False
-except:
-    True
-
-assert not conf.use_winpcapy
 
 
 ###########
@@ -168,6 +150,8 @@ get_if_raw_addr(get_dummy_interface())
 
 get_if_list()
 
+get_working_if()
+
 get_if_raw_addr6(conf.iface6)
 
 = Test read_routes6() - default output
@@ -181,12 +165,15 @@ routes6
 # Expected results:
 # - one route if there is only the loopback interface
 # - three routes if there is a network interface
+# - on OpenBSD, only two routes on lo0 are expected
 
 if routes6:
     iflist = get_if_list()
     if WINDOWS:
         route_add_loopback(ipv6=True, iflist=iflist)
-    if iflist == [LOOPBACK_NAME]:
+    if OPENBSD:
+        len(routes6) >= 2
+    elif iflist == [LOOPBACK_NAME]:
         len(routes6) == 1
     elif len(iflist) >= 2:
         len(routes6) >= 3
@@ -201,7 +188,7 @@ else:
 
 if len(routes6) and not WINDOWS:
     assert(sum(1 for r in routes6 if r[0] == "::1" and r[4] == ["::1"]) >= 1)
-    if len(iflist) >= 2:
+    if not OPENBSD and len(iflist) >= 2:
         assert sum(1 for r in routes6 if r[0] == "fe80::" and r[1] == 64) >= 1
         try:
             assert sum(1 for r in routes6 if in6_islladdr(r[0]) and r[1] == 128 and r[4] == ["::1"]) >= 1
@@ -223,6 +210,15 @@ True
 assert (Ether() / ARP()).route()[0] is not None
 assert (Ether() / ARP()).payload.route()[0] is not None
 
+
+
+= plain_str test
+
+if not six.PY2:
+    # Only Python 3 has to deal with Str/Bytes conversion,
+    # as we don't use Python 2's unicode
+    data = b"\xffsweet\xef celestia\xab"
+    assert plain_str(data) == "sweet celestia"
 
 ############
 ############
@@ -498,6 +494,9 @@ assert p.mysummary() in ['ff:ff:ff:ff:ff:ff > ff:ff:ff:ff:ff:ff (%s)' % loop
 random.seed(0x2807)
 zerofree_randstring(4) in [b"\xd2\x12\xe4\x5b", b'\xd3\x8b\x13\x12']
 
+= Test strand function
+assert strand("AC", "BC") == b'@C'
+
 = Test export_object and import_object functions
 import mock
 def test_export_import_object():
@@ -638,6 +637,38 @@ conf.verb = saved_conf_verb
 = Test CacheInstance repr
 
 conf.netcache
+
+= Test pyx detection functions
+
+from scapy.extlib import _test_pyx
+assert _test_pyx() == False
+
+= Test matplotlib detection functions
+
+from mock import MagicMock, patch
+
+bck_scapy_ext_lib = sys.modules.get("scapy.extlib", None)
+del(sys.modules["scapy.extlib"])
+
+matplotlib = MagicMock()
+matplotlib.get_backend.return_value = "inline"
+matplotlib.pyplot = MagicMock()
+matplotlib.pyplot.plt = None
+with patch.dict("sys.modules", matplotlib=matplotlib):
+    from scapy.extlib import MATPLOTLIB, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
+    assert MATPLOTLIB == 1
+    assert MATPLOTLIB_INLINED == 1
+    assert "marker" in MATPLOTLIB_DEFAULT_PLOT_KARGS
+
+matplotlib.get_backend.return_value = "ko"
+with patch.dict("sys.modules", matplotlib=matplotlib):
+    from scapy.extlib import MATPLOTLIB, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
+    assert MATPLOTLIB == 1
+    assert MATPLOTLIB_INLINED == 0
+    assert "marker" in MATPLOTLIB_DEFAULT_PLOT_KARGS
+
+if bck_scapy_ext_lib:
+    sys.modules["scapy.extlib"] = bck_scapy_ext_lib
 
 
 ############
@@ -1025,6 +1056,12 @@ assert raw(pkt) == w_payload
 
 = WEP tests
 ~ wifi crypto Dot11 LLC SNAP IP TCP
+conf.wepkey = ""
+bck_conf_crypto_valid = conf.crypto_valid
+p = Dot11WEP(b'\x00\x00\x00\x00\xe3OjYLw\xc3x_%\xd0\xcf\xdeu-\xc3pH#\x1eK\xae\xf5\xde\xe7\xb8\x1d,\xa1\xfe\xe83\xca\xe1\xfe\xbd\xfe\xec\x00)T`\xde.\x93Td\x95C\x0f\x07\xdd')
+assert isinstance(p, Dot11WEP)
+conf.crypto_valid = bck_conf_crypto_valid
+
 conf.wepkey = "Fobar"
 r = raw(Dot11WEP()/LLC()/SNAP()/IP()/TCP(seq=12345678))
 r
@@ -1039,6 +1076,7 @@ r = RadioTap(data)
 r = RadioTap(raw(r))
 assert r.dBm_AntSignal == -59
 assert r.ChannelFrequency == 5785
+assert r.ChannelPlusFrequency == 5785
 assert r.present == 3410027
 assert r.A_MPDU_ref == 2821
 assert r.KnownVHT == 511
@@ -1432,7 +1470,7 @@ assert True
 
 ############
 ############
-+ More complex tests
++ Generator tests
 
 = Implicit logic 1
 ~ IP TCP
@@ -1449,6 +1487,22 @@ ls(a)
 ls(a, verbose=True)
 l = [p for p in a]
 len(l) == 7
+
+= Implicit logic 3
+
+# In case there's a single option: __iter__ should return self
+a = Ether()/IP(src="127.0.0.1", dst="127.0.0.1")/ICMP()
+for i in a:
+    i.sent_time = 1
+
+assert a.sent_time == 1
+
+# In case they are several, self should never be returned
+a = Ether()/IP(src="127.0.0.1", dst="127.0.0.1")/ICMP(seq=(0, 5))
+for i in a:
+    i.sent_time = 1
+
+assert a.sent_time is None
 
 
 ############
@@ -1494,30 +1548,6 @@ def _test():
     ans, unans = sr(IP(dst=["8.8.8.8", "1.2.3.4"]) / ICMP(), timeout=2, retry=1)
     conf.debug_dissector = old_debug_dissector
     len(ans) == 1 and len(unans) == 1
-
-retry_test(_test)
-
-= Send & receive with process
-~ netaccess IP ICMP
-def _test():
-    old_debug_dissector = conf.debug_dissector
-    conf.debug_dissector = False
-    ans, unans = sr(IP(dst=["www.google.fr", "www.google.com", "www.google.co.uk"])/ICMP(), process=lambda x, y: (x[IP].dst, y[IP].src), timeout=2)
-    conf.debug_dissector = old_debug_dissector
-    assert all(x == y for x, y in ans)
-    assert isinstance(unans, list)
-
-retry_test(_test)
-
-= Send & receive with store_unanswered=False
-~ netaccess IP ICMP
-def _test():
-    old_debug_dissector = conf.debug_dissector
-    conf.debug_dissector = False
-    ans, unans = sr(IP(dst=["www.google.fr", "www.google.com", "www.google.co.uk"])/ICMP(), store_unanswered=False, timeout=2)
-    conf.debug_dissector = old_debug_dissector
-    assert isinstance(ans, PacketList)
-    assert unans == None
 
 retry_test(_test)
 
@@ -2045,6 +2075,26 @@ r = x
 r
 assert(r == "Venus")
 
+= Automaton graph
+~ automaton
+
+class HelloWorld(Automaton):
+    @ATMT.state(initial=1)
+    def BEGIN(self):
+        pass
+    @ATMT.condition(BEGIN)
+    def wait_for_nothing(self):
+        raise self.END()
+    @ATMT.action(wait_for_nothing)
+    def on_nothing(self):
+        pass
+    @ATMT.state(final=1)
+    def END(self):
+        pass
+
+graph = HelloWorld.build_graph()
+assert graph.startswith("digraph")
+assert '"BEGIN" -> "END"' in graph
 
 ############
 ############
@@ -6619,16 +6669,18 @@ pktpcap = rdpcap(pcapfile)
 
 = Read a pcapng file
 pktpcapng = rdpcap(pcapngfile)
+assert pktpcapng[0].time == 1454163407.666223
 
 = Read a pcap file with nanosecond precision
 pktpcapnano = rdpcap(pcapnanofile)
+assert pktpcapnano[0].time == Decimal('1454163407.666223049')
 
 = Read a pcap file with wirelen != captured len
 pktpcapwirelen = rdpcap(pcapwirelenfile)
 
 = Check all packet lists are the same
 assert list(pktpcap) == list(pktpcapng) == list(pktpcapnano)
-assert [p.time for p in pktpcap] == [p.time for p in pktpcapng] == [p.time for p in pktpcapnano]
+assert [float(p.time) for p in pktpcap] == [float(p.time) for p in pktpcapng] == [float(p.time) for p in pktpcapnano]
 
 = Check packets from pcap file
 assert all(IP in pkt for pkt in pktpcap)
@@ -6679,15 +6731,48 @@ fdesc.close()
 assert list(pktpcap[TCP]) == list(pktpcap_tcp)
 os.unlink(filename)
 
+= Check offline sniff() with Packets and tcpdump
+~ tcpdump
+
+l = sniff(offline=IP()/UDP(sport=(10000, 10001)), filter="udp")
+assert len(l) == 2
+assert(all(UDP in p for p in l))
+
+l = sniff(offline=[p for p in IP()/UDP(sport=(10000, 10001))], filter="udp")
+assert len(l) == 2
+assert(all(UDP in p for p in l))
+
+l = sniff(offline=IP()/UDP(sport=(10000, 10001)), filter="tcp")
+assert len(l) == 0
+
+= Check offline sniff() without a tcpdump binary
+~ tcpdump
+import mock
+
+conf_prog_tcpdump = conf.prog.tcpdump
+conf.prog.tcpdump = "tcpdump_fake"
+
+from scapy.arch.common import _check_tcpdump
+
+@mock.patch("scapy.arch.common.TCPDUMP", _check_tcpdump())
+def _test_sniff_notcpdump():
+    try:
+        sniff(offline="fake.pcap", filter="tcp")
+        assert False
+    except Scapy_Exception:
+        assert True
+
+_test_sniff_notcpdump()
+conf.prog.tcpdump = conf_prog_tcpdump
+
 = Check wrpcap(nano=True)
 fdesc, filename = tempfile.mkstemp()
 fdesc = os.fdopen(fdesc, "wb")
-pktpcapnano[0].time += 0.000000001
+pktpcapnano[0].time += Decimal('1E-9')
 wrpcap(fdesc, pktpcapnano, nano=True)
 fdesc.close()
 pktpcapnanoread = rdpcap(filename)
 assert pktpcapnanoread[0].time == pktpcapnano[0].time
-assert pktpcapnanoread[0].time == pktpcap[0].time + 0.000000001
 os.unlink(filename)
 
 = Check PcapNg with nanosecond precision using obsolete packet block
@@ -6765,6 +6850,7 @@ assert r.linktype == DLT_EN10MB
 
 = Check tcpdump()
 ~ tcpdump
+from io import BytesIO
 * No very specific tests because we do not want to depend on tcpdump output
 pcapfile = BytesIO(b'\xd4\xc3\xb2\xa1\x02\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x00\x00e\x00\x00\x00\xcf\xc5\xacVo*\n\x00(\x00\x00\x00(\x00\x00\x00E\x00\x00(\x00\x01\x00\x00@\x06|\xcd\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x91|\x00\x00\xcf\xc5\xacV_-\n\x00\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x11|\xce\x7f\x00\x00\x01\x7f\x00\x00\x01\x005\x005\x00\x08\x01r\xcf\xc5\xacV\xf90\n\x00\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x01|\xde\x7f\x00\x00\x01\x7f\x00\x00\x01\x08\x00\xf7\xff\x00\x00\x00\x00')
 data = tcpdump(pcapfile, dump=True, args=['-nn']).split(b'\n')
@@ -6772,6 +6858,26 @@ print(data)
 assert b'IP 127.0.0.1.20 > 127.0.0.1.80:' in data[0]
 assert b'IP 127.0.0.1.53 > 127.0.0.1.53:' in data[1]
 assert b'IP 127.0.0.1 > 127.0.0.1:' in data[2]
+
+* Non existing tcpdump binary
+
+import mock
+
+conf_prog_tcpdump = conf.prog.tcpdump
+conf.prog.tcpdump = "tcpdump_fake"
+
+from scapy.arch.common import _check_tcpdump
+
+@mock.patch("scapy.arch.common.TCPDUMP", _check_tcpdump())
+def _test_tcpdump_notcpdump():
+    try:
+        tcpdump(IP()/TCP())
+        assert False
+    except Scapy_Exception:
+        assert True
+
+_test_tcpdump_notcpdump()
+conf.prog.tcpdump = conf_prog_tcpdump
 
 # Also check with use_tempfile=True (for non-OSX platforms)
 pcapfile.seek(0) or None
@@ -6798,10 +6904,10 @@ with mock.patch('subprocess.Popen', return_value=Bunch(
         stdin=f, wait=lambda: None)) as popen:
     # Prevent closing the BytesIO
     with mock.patch.object(f, 'close'):
-        tcpdump([pkt], linktype=scapy.data.DLT_EN3MB, use_tempfile=False)
+        tcpdump([pkt], linktype="DLT_EN3MB", use_tempfile=False)
 
 popen.assert_called_once_with(
-    [conf.prog.tcpdump, '-r', '-'],
+    [conf.prog.tcpdump, '-y', 'EN3MB', '-r', '-'],
     stdin=subprocess.PIPE, stdout=None, stderr=None)
 
 print(bytes_hex(f.getvalue()))
@@ -6818,11 +6924,10 @@ with mock.patch('subprocess.Popen', return_value=Bunch(
         stdin=f, wait=lambda: None)) as popen:
     # Prevent closing the BytesIO
     with mock.patch.object(f, 'close'):
-        tcpdump([pkt], linktype=scapy.data.DLT_EN3MB, use_tempfile=False,
-                args=['-y', 'DLT_EN10MB'])
+        tcpdump([pkt], linktype=scapy.data.DLT_EN10MB, use_tempfile=False)
 
 popen.assert_called_once_with(
-    [conf.prog.tcpdump, '-r', '-', '-y', 'DLT_EN10MB'],
+    [conf.prog.tcpdump, '-y', 'EN10MB', '-r', '-'],
     stdin=subprocess.PIPE, stdout=None, stderr=None)
 
 print(bytes_hex(f.getvalue()))
@@ -7248,6 +7353,9 @@ raw(TCP(options=[('unknown', b'')])) == raw(TCP())
 = TCP options: malformed - dissection
 raw(TCP(b"\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00`\x02 \x00\x00\x00\x00\x00\x03\x00\x00\x00")) == b"\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00`\x02 \x00\x00\x00\x00\x00\x03\x00\x00\x00"
 
+= TCP options: wrong offset
+TCP(raw(TCP(dataofs=11)/b"o"))
+
 = TCP options: MPTCP - basic build using bytes
 raw(TCP(options=[(30, b"\x10\x03\xc1\x1c\x95\x9b\x81R_1")])) == b"\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00\x80\x02 \x00\x00\x00\x00\x00\x1e\x0c\x10\x03\xc1\x1c\x95\x9b\x81R_1"
 
@@ -7554,6 +7662,10 @@ default            link#11            UCSI            1        0 bridge1
     mock_get_if_addr.side_effect = se_get_if_addr
     # Test the function
     from scapy.arch.unix import read_routes
+    scapy.arch.unix.DARWIN = True
+    scapy.arch.unix.FREEBSD = False
+    scapy.arch.unix.NETBSD = False
+    scapy.arch.unix.OPENBSD = False
     routes = read_routes()
     assert(len(routes) == 4)
     assert([r for r in routes if r[3] == "bridge10"])
@@ -7737,6 +7849,9 @@ def check_mandatory_ipv6_routes(routes6):
 = Mac OS X 10.9.5
 ~ mock_read_routes_bsd
 
+import mock
+from io import StringIO
+
 @mock.patch("scapy.arch.unix.in6_getifaddr")
 @mock.patch("scapy.arch.unix.os")
 def test_osx_10_9_5(mock_os, mock_in6_getifaddr):
@@ -7766,6 +7881,10 @@ ff02::%en0/32                           link#4                          UmCI    
                                        ("fe80::ba26:6cff:fe5f:4eee", IPV6_ADDR_LINKLOCAL, "en0")]
     # Test the function
     from scapy.arch.unix import read_routes6
+    scapy.arch.unix.DARWIN = False
+    scapy.arch.unix.FREEBSD = True
+    scapy.arch.unix.NETBSD = False
+    scapy.arch.unix.OPENBSD = False
     routes = read_routes6()
     for r in routes:
         print(r)
@@ -7777,6 +7896,10 @@ test_osx_10_9_5()
 
 = Mac OS X 10.9.5 with global IPv6 connectivity
 ~ mock_read_routes_bsd
+
+import mock
+from io import StringIO
+
 @mock.patch("scapy.arch.unix.in6_getifaddr")
 @mock.patch("scapy.arch.unix.os")
 def test_osx_10_9_5_global(mock_os, mock_in6_getifaddr):
@@ -7827,6 +7950,9 @@ test_osx_10_9_5_global()
 = Mac OS X 10.10.4
 ~ mock_read_routes_bsd
 
+import mock
+from io import StringIO
+
 @mock.patch("scapy.arch.unix.in6_getifaddr")
 @mock.patch("scapy.arch.unix.os")
 def test_osx_10_10_4(mock_os, mock_in6_getifaddr):
@@ -7867,6 +7993,9 @@ test_osx_10_10_4()
 = FreeBSD 10.2
 ~ mock_read_routes_bsd
 
+import mock
+from io import StringIO
+
 @mock.patch("scapy.arch.unix.in6_getifaddr")
 @mock.patch("scapy.arch.unix.os")
 def test_freebsd_10_2(mock_os, mock_in6_getifaddr):
@@ -7895,6 +8024,10 @@ ff02::%lo0/32                     ::1                           U           lo0
     # Test the function
     from scapy.arch.unix import read_routes6
     routes = read_routes6()
+    scapy.arch.unix.DARWIN = False
+    scapy.arch.unix.FREEBSD = True
+    scapy.arch.unix.NETBSD = False
+    scapy.arch.unix.OPENBSD = False
     for r in routes:
         print(r)
     assert(len(routes) == 3)
@@ -7905,6 +8038,9 @@ test_freebsd_10_2()
 
 = OpenBSD 5.5
 ~ mock_read_routes_bsd
+
+import mock
+from io import StringIO
 
 @mock.patch("scapy.arch.unix.OPENBSD")
 @mock.patch("scapy.arch.unix.in6_getifaddr")
@@ -10056,7 +10192,7 @@ assert f.i2repr(None, v) == '3e6bd4c419560b2a3199c844eac2945a'
 
 = RADIUS - compute_message_authenticator()
 ram = radius_packet[RadiusAttr_Message_Authenticator]
-assert ram.compute_message_authenticator(radius_packet, b"dummy bytes", b"scapy") == b'\x19\xa4\x0e*Y4\xe0l?,\x94\x9f \xb8Jb'
+assert ram.compute_message_authenticator(radius_packet, b"dummy bytes", b"scapy") == b'I\x85l\x8f\xa5\xd6\xbc\xb5\x08\xe0<\xebH\x9d\xfb?'
 
 = RADIUS - Access-Challenge - Dissection (2)
 s = b'\x0b\xae\x00[\xc7\xae\xfc6\xa1=\xb5\x99&^\xdf=\xe9\x00\xa6\xe8\x12\rHello, leapO\x16\x01\x02\x00\x14\x11\x01\x00\x08\xb8\xc4\x1a4\x97x\xd3\x82leapP\x12\xd3\x12\x17\xa6\x0c.\x94\x85\x03]t\xd1\xdb\xd0\x13\x8c\x18\x12iQs\xf7iSb@k\x9d,\xa0\x99\x8ehO'
@@ -10188,6 +10324,16 @@ assert len(s) == 1
 = Issue GH#1407
 s = b"Z\xa5\xaaUZ\xa5\xaaU\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xe9\xc5\x00\x00\x14'\x02\x00\x00\x001\x9a\xe44\xea4"
 isinstance(Radius(s), Radius)
+
+= RADIUS - attributes with IPv4 addresses
+
+r = raw(RadiusAttr_NAS_IP_Address())
+p = RadiusAttr_NAS_IP_Address(p)
+assert p.type == 4
+
+r = raw(RadiusAttr_Framed_IP_Address())
+p = RadiusAttr_Framed_IP_Address(p)
+assert p.type == 8
 
 
 ############
@@ -10524,6 +10670,27 @@ assert(sane(raw(rts)) in ["...Zscapy", "$#..scapy"])
 a = "True" if RandNum(False, True) else "False"
 assert a in ["True", "False"]
 
+= Various volatiles
+
+random.seed(0x2807)
+assert RandNumGamma(1, 42) == 8
+
+random.seed(0x2807)
+assert RandNumGauss(1, 42) == 8
+
+print("RandEnum()", RandEnum(1, 42, seed=0x2807)._fix())
+assert RandEnum(1, 42, seed=0x2807) == (13 if six.PY2 else 37)
+
+print("RandPool()", RandPool((IncrementalValue(), 42), (IncrementalValue(), 0))._fix())
+assert RandPool((IncrementalValue(), 42), (IncrementalValue(), 0)) == 0
+
+print("DelayedEval()", DelayedEval("3 + 1")._fix())
+assert DelayedEval("3 + 1") == 4
+
+v = IncrementalValue(restart=2)
+assert v == 0 and v == 1 and v == 2 and v == 0
+
+
 ############
 ############
 + Flags
@@ -10643,15 +10810,6 @@ assert not any(getattr(p1.flags | p2.flags, f) for f in 'FRPECN')
 
 assert TCP(flags="SA").flags & TCP(flags="S").flags == TCP(flags="S").flags
 assert TCP(flags="SA").flags | TCP(flags="S").flags == TCP(flags="SA").flags
-
-= Using tuples and lists as flag values
-~ IP TCP
-
-plist = PacketList(list(IP()/TCP(flags=(0, 2**9 - 1))))
-assert [p[TCP].flags for p in plist] == [x for x in range(512)]
-
-plist = PacketList(list(IP()/TCP(flags=["S", "SA", "A"])))
-assert [p[TCP].flags for p in plist] == [2, 18, 16]
 
 
 ############
@@ -10960,6 +11118,7 @@ assert p2[DHCP].options[1] == ("requested_addr", "192.168.0.1")
 ############
 ############
 + 802.11
+~ dot11
 
 = 802.11 - misc
 PrismHeader().answers(PrismHeader()) == True
@@ -11097,6 +11256,11 @@ assert pkt[Dot11EltCountry].info == b'US \x01\x0b\x1e'
 assert len(pkt[Dot11EltCountry].descriptors) == 1
 assert pkt[Dot11EltCountry].descriptors[0].mtp == 30
 
+* Country element: padding check
+data = hex_bytes('00001a002f48000017cd9f3100000000000c3c144001e000000080000000ffffffffffff461b860bef06461b860bef06909403e0f75b0000000064001105000c4c697665626f782d3232353001088c1218243048606c0301240504020300000728504c202401172801172c01173001173401173801173c011740011764011e68011e6c011e70011e000b05000002ffff46050000000000200100c30502171717002a01002d1aef0117fffffffffeffffffff1f000001000000000018e6e719003d1624050000000000000000000000000000000000000000dd180050f2020101840003a4000027a4000042435e0062322f0030140100000fac040100000fac040100000fac020000bf0cb279c33faaff0000aaff0000c005012a00fcffdd1e002686010300dd00000025040592000601d15b5816830000000000000000dd06002686170000dd0e00268618010101024c1b860bef067f080100080200000040dd3b0050f204104a0001101044000102105700010110470010344331423836f042f546303634433142103c000103103c0001031049000600372a000120')
+pkt = RadioTap(data)
+assert pkt[Dot11EltCountry].pad == 0
+assert pkt.getlayer(Dot11Elt, ID=11)
 
 = RSNCipherSuite
 assert bytes(RSNCipherSuite()) == b'\x00\x0f\xac\x04'
@@ -11840,6 +12004,21 @@ def test_hexdump():
 
 test_hexdump()
 
+= conversations()
+~ linux
+
+def test_conversations():
+    import tempfile
+    filename = tempfile.mktemp()
+    p = PacketList([IP()/Raw(str(i)) for i in range(2)])
+    p.conversations(prog="echo", target="> %s" % filename)
+    fd = open(filename)
+    assert "-Tsvg" in fd.read()
+    fd.close()
+    os.unlink(filename)
+
+test_conversations()
+
 = import_hexcap()
 
 @mock.patch("%s.input" % six.moves.builtins.__name__)
@@ -12071,3 +12250,10 @@ os.remove(filename_css)
 
 dname = get_temp_dir()
 assert os.path.isdir(dname)
+
+= test fragleak functions
+~ netaccess linux
+
+fragleak("8.8.8.8", count=1)
+fragleak2("8.8.8.8", count=1)
+assert True

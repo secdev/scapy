@@ -684,7 +684,7 @@ class _ExtensionsField(StrLenField):
 
     def m2i(self, pkt, m):
         res = []
-        while m:
+        while len(m) > 4:
             t = struct.unpack("!H", m[:2])[0]
             tmp_len = struct.unpack("!H", m[2:4])[0]
             cls = _tls_ext_cls.get(t, TLS_Ext_Unknown)

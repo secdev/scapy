@@ -8,7 +8,7 @@ VoIP (Voice over IP) related functions
 """
 
 from __future__ import absolute_import
-import os
+import subprocess
 ###################
 #   Listen VoIP   #
 ###################
@@ -21,12 +21,12 @@ from scapy.config import conf
 from scapy.modules.six.moves import range
 
 
-sox_base = "sox -t .ul %s - -t ossdsp /dev/dsp"
+sox_base = (["sox", "-t", ".ul"], ["-", "-t", "ossdsp", "/dev/dsp"])
 
 if WINDOWS:
     if conf.prog.sox is None:
         raise OSError("Sox must be installed to play VoIP packets")
-    sox_base = "\"" + conf.prog.sox + "\" -t .ul %s - -t waveaudio"
+    sox_base = ([conf.prog.sox, "-t", ".ul"], ["-", "-t", "waveaudio"])
 
 
 def _merge_sound_bytes(x, y, sample_size=2):
@@ -75,7 +75,9 @@ def voip_play(s1, lst=None, **kargs):
     to read RTP VoIP packets
     """
 
-    dsp, rd = os.popen2(sox_base % "")
+    proc = subprocess.Popen(sox_base[0] + sox_base[1], stdin=subprocess.PIPE,
+                            stdout=subprocess.PIPE)
+    dsp, rd = proc.stdin, proc.stdout
 
     def play(pkt):
         if not pkt:
@@ -113,7 +115,9 @@ def voip_play2(s1, **kargs):
     .. seealso:: voip_play
     to play only incoming packets.
     """
-    dsp, rd = os.popen2(sox_base % "-c 2")
+    proc = subprocess.Popen(sox_base[0] + ["-c", "2"] + sox_base[1],
+                            stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    dsp, rd = proc.stdin, proc.stdout
     global x1, x2
     x1 = ""
     x2 = ""
@@ -133,7 +137,14 @@ def voip_play2(s1, **kargs):
             x1, x2, r = _merge_sound_bytes(x1, x2)
             dsp.write(r)
 
-    sniff(store=0, prn=play, **kargs)
+    try:
+        sniff(store=0, prn=play, **kargs)
+    finally:
+        try:
+            dsp.close()
+            rd.close()
+        except Exception:
+            pass
 
 
 def voip_play3(lst=None, **kargs):
@@ -144,7 +155,9 @@ def voip_play3(lst=None, **kargs):
     .. seealso:: voip_play
     for basic VoIP packets
     """
-    dsp, rd = os.popen2(sox_base % "")
+    proc = subprocess.Popen(sox_base[0] + sox_base[1], stdin=subprocess.PIPE,
+                            stdout=subprocess.PIPE)
+    dsp, rd = proc.stdin, proc.stdout
 
     def play(pkt, dsp=dsp):
         if pkt and pkt.haslayer(UDP) and pkt.haslayer(RTP):

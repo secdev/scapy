@@ -127,7 +127,7 @@ def dns_encode(x, check_built=False):
 
 def DNSgetstr(*args, **kwargs):
     """Legacy function. Deprecated"""
-    raise DeprecationWarning("DNSgetstr deprecated. Use dns_get_str instead")
+    warning("DNSgetstr deprecated. Use dns_get_str instead")
     return dns_get_str(*args, **kwargs)
 
 
@@ -759,7 +759,7 @@ class DNSRRNSEC3PARAM(_DNSRRdummy):
 class DNSRRSRV(_DNSRRdummy):
     name = "DNS SRV Resource Record"
     fields_desc = [DNSStrField("rrname", ""),
-                   ShortEnumField("type", 51, dnstypes),
+                   ShortEnumField("type", 33, dnstypes),
                    ShortEnumField("rclass", 1, dnsclasses),
                    IntField("ttl", 0),
                    ShortField("rdlen", None),

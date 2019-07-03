@@ -234,7 +234,7 @@ assert a[L2CAP_InfoResp].data == b"debug"
 
 = Answers
 a = HCI_Hdr(b'\x02\x00\x00\x0c\x00\x08\x00\x05\x00\x02\x00\x04\x00\x00\x00\x9a;')
-b = HCI_Hdr(b'\x02\x00\x00\x10\x00\x0c\x00\x05\x00\x03\x00\x08\x00\x9a;\x00\x00\x00\x00\x01\x00')
+b = HCI_Hdr(b'\x02\x00\x00\x10\x00\x0c\x00\x05\x00\x03\x00\x08\x00\xff\xff\x9a;\x00\x00\x01\x00')
 assert b.answers(a)
 assert not a.answers(b)
 
@@ -317,6 +317,20 @@ b.show()
 b.mysummary()
 assert ATT_Read_By_Type_Request in b
 assert not Raw in b
+
+= ATT Read_By_Type_Response
+
+pkt = HCI_Hdr(hex_bytes('0248201b001700040009070200020300002a0400020500012a0600020700042a'))
+
+assert pkt[ATT_Read_By_Type_Response].len == 7
+assert len(pkt.handles) == 3
+assert pkt.handles[0].handle == 0x2
+assert pkt.handles[1].handle == 0x4
+assert pkt.handles[2].handle == 0x6
+
+pkt.handles[0].value == b'\x02\x03\x00\x00*'
+pkt.handles[1].value == b'\x02\x05\x00\x01*'
+pkt.handles[2].value == b'\x02\x07\x00\x04*'
 
 = L2CAP layers
 

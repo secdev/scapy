@@ -121,6 +121,9 @@ def get_if_list():
 
 
 def get_working_if():
+    """
+    Return the name of the first network interfcace that is up.
+    """
     for i in get_if_list():
         if i == LOOPBACK_NAME:
             continue
@@ -277,7 +280,7 @@ def in6_getifaddr():
     """
     Returns a list of 3-tuples of the form (addr, scope, iface) where
     'addr' is the address of scope 'scope' associated to the interface
-    'ifcace'.
+    'iface'.
 
     This is the list of all addresses of all interfaces available on
     the system.
@@ -422,13 +425,13 @@ def set_iface_monitor(iface, monitor):
             warning("%s failed !" % " ".join(commands))
             return False
         return True
-    try:
-        assert _check_call(["ifconfig", iface, "down"])
-        assert _check_call(["iwconfig", iface, "mode", s_mode])
-        assert _check_call(["ifconfig", iface, "up"])
-        return True
-    except AssertionError:
+    if not _check_call(["ifconfig", iface, "down"]):
         return False
+    if not _check_call(["iwconfig", iface, "mode", s_mode]):
+        return False
+    if not _check_call(["ifconfig", iface, "up"]):
+        return False
+    return True
 
 
 class L2Socket(SuperSocket):
@@ -440,10 +443,11 @@ class L2Socket(SuperSocket):
         self.type = type
         self.promisc = conf.sniff_promisc if promisc is None else promisc
         if monitor is not None:
-            if not set_iface_monitor(iface, monitor):
-                warning("Could not change interface mode !")
+            warning(
+                "The monitor argument is ineffective on native linux sockets."
+                " Use set_iface_monitor instead."
+            )
         self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))  # noqa: E501
-        self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 0)
         if not nofilter:
             if conf.except_filter:
                 if filter:
@@ -456,12 +460,20 @@ class L2Socket(SuperSocket):
             set_promisc(self.ins, self.iface)
         self.ins.bind((self.iface, type))
         _flush_fd(self.ins)
-        self.ins.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2**30)
+        self.ins.setsockopt(
+            socket.SOL_SOCKET,
+            socket.SO_RCVBUF,
+            conf.bufsize
+        )
         if isinstance(self, L2ListenSocket):
             self.outs = None
         else:
             self.outs = self.ins
-            self.outs.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 2**30)
+            self.outs.setsockopt(
+                socket.SOL_SOCKET,
+                socket.SO_SNDBUF,
+                conf.bufsize
+            )
         sa_ll = self.ins.getsockname()
         if sa_ll[3] in conf.l2types:
             self.LL = conf.l2types[sa_ll[3]]
@@ -531,7 +543,6 @@ class L3PacketSocket(L2Socket):
         if sn[3] in conf.l2types:
             ll = lambda x: conf.l2types[sn[3]]() / x
         sx = raw(ll(x))
-        x.sent_time = time.time()
         try:
             self.outs.sendto(sx, sdto)
         except socket.error as msg:
@@ -542,6 +553,7 @@ class L3PacketSocket(L2Socket):
                     self.outs.sendto(raw(ll(p)), sdto)
             else:
                 raise
+        x.sent_time = time.time()
 
 
 class VEthPair(object):
@@ -575,14 +587,14 @@ class VEthPair(object):
     def destroy(self):
         """
         remove veth pair links
-        :raises subprocess.CalledProcessError if operation failes
+        :raises subprocess.CalledProcessError if operation fails
         """
         subprocess.check_call(['ip', 'link', 'del', self.ifaces[0]])
 
     def up(self):
         """
         set veth pair links up
-        :raises subprocess.CalledProcessError if operation failes
+        :raises subprocess.CalledProcessError if operation fails
         """
         for idx in [0, 1]:
             subprocess.check_call(["ip", "link", "set", self.ifaces[idx], "up"])  # noqa: E501
@@ -590,7 +602,7 @@ class VEthPair(object):
     def down(self):
         """
         set veth pair links down
-        :raises subprocess.CalledProcessError if operation failes
+        :raises subprocess.CalledProcessError if operation fails
         """
         for idx in [0, 1]:
             subprocess.check_call(["ip", "link", "set", self.ifaces[idx], "down"])  # noqa: E501

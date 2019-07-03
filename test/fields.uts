@@ -1592,6 +1592,7 @@ class DebugPacket(Packet):
 x = DebugPacket()
 
 r = x.fields_desc[0].randval()
+val = r._fix()
 assert r.min == -5.0
 assert r.max == 20.5
 
@@ -1606,6 +1607,7 @@ class DebugPacket(Packet):
 x = DebugPacket()
 
 r = x.fields_desc[0].randval()
+val = r._fix()
 assert r.min == -30.5
 assert r.max == -5
 
@@ -1620,6 +1622,7 @@ class DebugPacket(Packet):
 x = DebugPacket()
 
 r = x.fields_desc[0].randval()
+val = r._fix()
 assert r.min == -17.7
 assert r.max == 7.8
 
@@ -1634,6 +1637,7 @@ class DebugPacket(Packet):
 x = DebugPacket()
 
 r = x.fields_desc[0].randval()
+val = r._fix()
 assert r.min == -17.8
 assert r.max == 7.7
 
@@ -1648,6 +1652,7 @@ class DebugPacket(Packet):
 x = DebugPacket()
 
 r = x.fields_desc[0].randval()
+val = r._fix()
 assert r.min == -3281.8
 assert r.max == 3271.7
 
@@ -1662,6 +1667,7 @@ class DebugPacket(Packet):
 x = DebugPacket()
 
 r = x.fields_desc[0].randval()
+val = r._fix()
 assert r.min == -214748369.8
 assert r.max == 214748359.7
 
@@ -1676,8 +1682,14 @@ class DebugPacket(Packet):
 x = DebugPacket()
 
 r = x.fields_desc[0].randval()
+val = r._fix()
 assert r.min == -922337203685477585.8
 assert r.max == 922337203685477575.7
+
+= ScalingField signed randval long
+
+y = fuzz(x)
+assert bytes(y) != bytes(y)
 
 ############
 ############
@@ -1762,7 +1774,7 @@ for i in range(8):
     r = m.m2i(None, b'\xff')
     assert(r == None)
 
-=LSBExtendedField
+= LSBExtendedField
 * Test i2m and m2i
 data_129 = {
     "extended": 129,
@@ -1779,7 +1791,7 @@ m = LSBExtendedField("foo", None)
 r = m.m2i(None, data_129["str_with_fx"])
 assert(r == data_129["extended"])
 
-=MSBExtendedField
+= MSBExtendedField
 * Test i2m and m2i
 data_129 = {
     "extended": 129,
@@ -1795,6 +1807,37 @@ assert(r == data_129["int_with_fx"])
 m = MSBExtendedField("foo", None)
 r = m.m2i(None, data_129["str_with_fx"])
 assert(r == data_129["extended"])
+
+
+############
+############
++ Deprecated fields in Packet
+~ deprecated
+
+= Field Deprecation test
+
+class TestPacket(Packet):
+    fields_desc = [
+        ByteField("a", 0),
+        LEShortField("b", 15),
+    ]
+    deprecated_fields = {
+        "dpr": ("a", "1.0"),
+        "B": ("b", "1.0"),
+    }
+
+pkt = TestPacket(a=2, B=3)
+assert pkt.B == 3
+assert pkt.b == 3
+assert pkt.a == 2
+
+import warnings
+
+with warnings.catch_warnings(record=True) as w:
+    warnings.simplefilter("always")
+    assert pkt.dpr == 2
+    assert len(w) == 1
+    assert issubclass(w[-1].category, DeprecationWarning)
 
 
 ############
@@ -1822,3 +1865,47 @@ assert raw(pkt) == b'\x0c\x0f\x00\x07\x00\x00\x00\x00\x00\x00{\xbb\xbb\xbb\xbb\x
 
 pkt = TestPacket(raw(pkt))
 assert pkt.fcs == 0xbeef
+
+
+############
+############
++ PacketField
+
+= PacketField: randval()
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ShortField('short', 0),
+        ByteField('byte', 0),
+        LongField('long', 0)
+    ]
+
+p = PacketField('packet', b'', DebugPacket).randval()
+
+assert isinstance(p.short, RandShort)
+assert isinstance(p.byte, RandByte)
+assert isinstance(p.long, RandLong)
+
+
+= PacketField: randval(), PacketField in PacketField
+
+class DebugPacket(Packet):
+    fields_desc = [
+        ShortField('short1', 0),
+        ByteField('byte', 0),
+        LongField('long', 0)
+    ]
+
+class DummyPacket(Packet):
+    fields_desc = [
+        PacketField('packet', b'', DebugPacket),
+        ShortField('short2', 0)
+    ]
+
+
+p = PacketField('packet', b'', DummyPacket).randval()
+
+assert isinstance(p.packet.short1, RandShort)
+assert isinstance(p.packet.byte, RandByte)
+assert isinstance(p.packet.long, RandLong)
+assert isinstance(p.short2, RandShort)

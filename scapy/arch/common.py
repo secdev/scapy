@@ -63,10 +63,6 @@ def get_if(iff, cmd):
 
 # SOCKET UTILS
 
-class TimeoutElapsed(Scapy_Exception):
-    pass
-
-
 def _select_nonblock(sockets, remain=None):
     """This function is called during sendrecv() routine to select
     the available sockets.
@@ -74,13 +70,11 @@ def _select_nonblock(sockets, remain=None):
     # pcap sockets aren't selectable, so we return all of them
     # and ask the selecting functions to use nonblock_recv instead of recv
     def _sleep_nonblock_recv(self):
-        try:
-            res = self.nonblock_recv()
-            if res is None:
-                time.sleep(conf.recv_poll_rate)
-            return res
-        except TimeoutElapsed:
-            return None
+        res = self.nonblock_recv()
+        if res is None:
+            time.sleep(conf.recv_poll_rate)
+        return res
+    # we enforce remain=None: don't wait.
     return sockets, _sleep_nonblock_recv
 
 # BPF HANDLERS

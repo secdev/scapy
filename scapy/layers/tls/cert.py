@@ -298,10 +298,11 @@ class PubKeyRSA(PubKey, _EncryptAndVerifyRSA):
 
     def encrypt(self, msg, t="pkcs", h="sha256", mgf=None, L=None):
         # no ECDSA encryption support, hence no ECDSA specific keywords here
-        return _EncryptAndVerifyRSA.encrypt(self, msg, t, h, mgf, L)
+        return _EncryptAndVerifyRSA.encrypt(self, msg, t=t, h=h, mgf=mgf, L=L)
 
     def verify(self, msg, sig, t="pkcs", h="sha256", mgf=None, L=None):
-        return _EncryptAndVerifyRSA.verify(self, msg, sig, t, h, mgf, L)
+        return _EncryptAndVerifyRSA.verify(
+            self, msg, sig, t=t, h=h, mgf=mgf, L=L)
 
 
 class PubKeyECDSA(PubKey):
@@ -510,10 +511,11 @@ class PrivKeyRSA(PrivKey, _EncryptAndVerifyRSA, _DecryptAndSignRSA):
 
     def verify(self, msg, sig, t="pkcs", h="sha256", mgf=None, L=None):
         # Let's copy this from PubKeyRSA instead of adding another baseclass :)
-        return _EncryptAndVerifyRSA.verify(self, msg, sig, t, h, mgf, L)
+        return _EncryptAndVerifyRSA.verify(
+            self, msg, sig, t=t, h=h, mgf=mgf, L=L)
 
     def sign(self, data, t="pkcs", h="sha256", mgf=None, L=None):
-        return _DecryptAndSignRSA.sign(self, data, t, h, mgf, L)
+        return _DecryptAndSignRSA.sign(self, data, t=t, h=h, mgf=mgf, L=L)
 
 
 class PrivKeyECDSA(PrivKey):
@@ -668,10 +670,10 @@ class Cert(six.with_metaclass(_CertMaker, object)):
 
     def encrypt(self, msg, t="pkcs", h="sha256", mgf=None, L=None):
         # no ECDSA *encryption* support, hence only RSA specific keywords here
-        return self.pubKey.encrypt(msg, t, h, mgf, L)
+        return self.pubKey.encrypt(msg, t=t, h=h, mgf=mgf, L=L)
 
     def verify(self, msg, sig, t="pkcs", h="sha256", mgf=None, L=None):
-        return self.pubKey.verify(msg, sig, t, h, mgf, L)
+        return self.pubKey.verify(msg, sig, t=t, h=h, mgf=mgf, L=L)
 
     def remainingDays(self, now=None):
         """
@@ -1001,26 +1003,3 @@ class Chain(list):
                 s += "\n"
             idx += 1
         return s
-
-
-##############################
-# Certificate export helpers #
-##############################
-
-def _create_ca_file(anchor_list, filename):
-    """
-    Concatenate all the certificates (PEM format for the export) in
-    'anchor_list' and write the result to file 'filename'. On success
-    'filename' is returned, None otherwise.
-
-    If you are used to OpenSSL tools, this function builds a CAfile
-    that can be used for certificate and CRL check.
-    """
-    try:
-        with open(filename, "w") as f:
-            for a in anchor_list:
-                s = a.output(fmt="PEM")
-                f.write(s)
-    except IOError:
-        return None
-    return filename

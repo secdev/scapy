@@ -83,12 +83,10 @@ class RdpcapSource(Source):
         self.f = PcapReader(self.fname)
 
     def start(self):
-        print("start")
         self.f = PcapReader(self.fname)
         self.is_exhausted = False
 
     def stop(self):
-        print("stop")
         self.f.close()
 
     def fileno(self):
@@ -98,12 +96,11 @@ class RdpcapSource(Source):
         return True
 
     def deliver(self):
-        p = self.f.recv()
-        print("deliver %r" % p)
-        if p is None:
-            self.is_exhausted = True
-        else:
+        try:
+            p = self.f.recv()
             self._send(p)
+        except EOFError:
+            self.is_exhausted = True
 
 
 class InjectSink(Sink):

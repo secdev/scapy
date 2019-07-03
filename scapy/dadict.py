@@ -115,3 +115,8 @@ class DADict:
 
     def __len__(self):
         return len(self.__dict__)
+
+    def __nonzero__(self):
+        # Always has at least its name
+        return len(self.__dict__) > 1
+    __bool__ = __nonzero__

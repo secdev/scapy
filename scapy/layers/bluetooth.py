@@ -10,6 +10,7 @@ Bluetooth layers, sockets and send/receive functions.
 """
 
 import ctypes
+import functools
 import socket
 import struct
 from select import select
@@ -21,7 +22,8 @@ from scapy.packet import bind_layers, Packet
 from scapy.fields import ByteEnumField, ByteField, Field, FieldLenField, \
     FieldListField, FlagsField, IntField, LEShortEnumField, LEShortField, \
     LenField, PacketListField, SignedByteField, StrField, StrFixedLenField, \
-    StrLenField, XByteField, BitField, XLELongField, PadField, UUIDField
+    StrLenField, XByteField, BitField, XLELongField, PadField, UUIDField, \
+    XStrLenField, ConditionalField
 from scapy.supersocket import SuperSocket
 from scapy.sendrecv import sndrcv
 from scapy.data import MTU
@@ -241,7 +243,8 @@ class L2CAP_ConnResp(Packet):
                    ]
 
     def answers(self, other):
-        return isinstance(other, L2CAP_ConnReq) and self.dcid == other.scid
+        # dcid Resp == scid Req. Therefore compare SCIDs
+        return isinstance(other, L2CAP_ConnReq) and self.scid == other.scid
 
 
 class L2CAP_CmdRej(Packet):
@@ -265,7 +268,8 @@ class L2CAP_ConfResp(Packet):
                    ]
 
     def answers(self, other):
-        return isinstance(other, L2CAP_ConfReq) and self.scid == other.dcid
+        # Req and Resp contain either the SCID or the DCID.
+        return isinstance(other, L2CAP_ConfReq)
 
 
 class L2CAP_DisconnReq(Packet):
@@ -318,6 +322,24 @@ class ATT_Hdr(Packet):
     fields_desc = [XByteField("opcode", None), ]
 
 
+class ATT_Handle(Packet):
+    name = "ATT Short Handle"
+    fields_desc = [XLEShortField("handle", 0),
+                   XLEShortField("value", 0)]
+
+    def extract_padding(self, s):
+        return b'', s
+
+
+class ATT_Handle_UUID128(Packet):
+    name = "ATT Handle (UUID 128)"
+    fields_desc = [XLEShortField("handle", 0),
+                   UUIDField("value", None, uuid_fmt=UUIDField.FORMAT_REV)]
+
+    def extract_padding(self, s):
+        return b'', s
+
+
 class ATT_Error_Response(Packet):
     name = "Error Response"
     fields_desc = [XByteField("request", 0),
@@ -343,8 +365,22 @@ class ATT_Find_Information_Request(Packet):
 
 class ATT_Find_Information_Response(Packet):
     name = "Find Information Response"
-    fields_desc = [XByteField("format", 1),
-                   StrField("data", "")]
+    fields_desc = [
+        XByteField("format", 1),
+        ConditionalField(
+            PacketListField(
+                "handles", [],
+                ATT_Handle,
+            ),
+            lambda pkt: pkt.format == 1
+        ),
+        ConditionalField(
+            PacketListField(
+                "handles", [],
+                ATT_Handle_UUID128,
+            ),
+            lambda pkt: pkt.format == 2
+        )]
 
 
 class ATT_Find_By_Type_Value_Request(Packet):
@@ -357,7 +393,7 @@ class ATT_Find_By_Type_Value_Request(Packet):
 
 class ATT_Find_By_Type_Value_Response(Packet):
     name = "Find By Type Value Response"
-    fields_desc = [StrField("handles", ""), ]
+    fields_desc = [PacketListField("handles", [], ATT_Handle)]
 
 
 class ATT_Read_By_Type_Request_128bit(Packet):
@@ -381,11 +417,38 @@ class ATT_Read_By_Type_Request(Packet):
                    XLEShortField("uuid", None)]
 
 
+class ATT_Handle_Variable(Packet):
+    __slots__ = ["val_length"]
+    fields_desc = [XLEShortField("handle", 0),
+                   XStrLenField(
+                       "value", 0,
+                       length_from=lambda pkt: pkt.val_length)]
+
+    def __init__(self, _pkt=b"", val_length=2, **kwargs):
+        self.val_length = val_length
+        Packet.__init__(self, _pkt, **kwargs)
+
+    def extract_padding(self, s):
+        return b"", s
+
+
 class ATT_Read_By_Type_Response(Packet):
     name = "Read By Type Response"
-    # fields_desc = [ FieldLenField("len", None, length_of="data", fmt="B"),
-    #                 StrLenField("data", "", length_from=lambda pkt:pkt.len), ]  # noqa: E501
-    fields_desc = [StrField("data", "")]
+    fields_desc = [ByteField("len", 4),
+                   PacketListField(
+                       "handles", [],
+                       next_cls_cb=lambda pkt, *args: (
+                           pkt._next_cls_cb(pkt, *args)
+                       ))]
+
+    @classmethod
+    def _next_cls_cb(cls, pkt, lst, p, remain):
+        if len(remain) >= pkt.len:
+            return functools.partial(
+                ATT_Handle_Variable,
+                val_length=pkt.len - 2
+            )
+        return None
 
 
 class ATT_Read_Request(Packet):
@@ -400,7 +463,7 @@ class ATT_Read_Response(Packet):
 
 class ATT_Read_Multiple_Request(Packet):
     name = "Read Multiple Request"
-    fields_desc = [StrField("handles", "")]
+    fields_desc = [FieldListField("handles", [], XLEShortField("", 0))]
 
 
 class ATT_Read_Multiple_Response(Packet):

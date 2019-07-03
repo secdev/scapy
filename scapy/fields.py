@@ -25,7 +25,8 @@ from scapy.config import conf
 from scapy.dadict import DADict
 from scapy.volatile import RandBin, RandByte, RandEnumKeys, RandInt, \
     RandIP, RandIP6, RandLong, RandMAC, RandNum, RandShort, RandSInt, \
-    RandSByte, RandTermString, RandUUID, VolatileValue, RandSShort, RandSLong
+    RandSByte, RandTermString, RandUUID, VolatileValue, RandSShort, \
+    RandSLong, RandFloat
 from scapy.data import EPOCH
 from scapy.error import log_runtime, Scapy_Exception
 from scapy.compat import bytes_hex, chb, orb, plain_str, raw, bytes_encode
@@ -988,6 +989,10 @@ class PacketField(StrField):
             del(r.underlayer.payload)
             remain = r.load
         return remain, i
+
+    def randval(self):
+        from scapy.packet import fuzz
+        return fuzz(self.cls())
 
 
 class PacketLenField(PacketField):
@@ -1966,13 +1971,11 @@ class FlagsField(BitField):
 used in *2i() and i2*() methods.
 
         """
-        if isinstance(x, (list, tuple)):
-            return type(x)(
-                v if v is None or isinstance(v, FlagValue)
-                else FlagValue(v, self.names)
-                for v in x
-            )
-        return x if x is None or isinstance(x, FlagValue) else FlagValue(x, self.names)  # noqa: E501
+        if isinstance(x, FlagValue):
+            return x
+        if x is None:
+            return None
+        return FlagValue(x, self.names)
 
     def any2i(self, pkt, x):
         return self._fixup_val(super(FlagsField, self).any2i(pkt, x))
@@ -2288,13 +2291,13 @@ class ScalingField(Field):
         if x is None:
             x = 0
         x = (x - self.offset) / self.scaling
-        if isinstance(x, float):
+        if isinstance(x, float) and self.fmt[-1] != "f":
             x = int(round(x))
         return x
 
     def m2i(self, pkt, x):
         x = x * self.scaling + self.offset
-        if isinstance(x, float):
+        if isinstance(x, float) and self.fmt[-1] != "f":
             x = round(x, self.ndigits)
         return x
 
@@ -2310,13 +2313,12 @@ class ScalingField(Field):
     def randval(self):
         value = super(ScalingField, self).randval()
         if value is not None:
-            barrier1 = self.m2i(None, value.max)
-            barrier2 = self.m2i(None, value.min)
+            min_val = round(value.min * self.scaling + self.offset,
+                            self.ndigits)
+            max_val = round(value.max * self.scaling + self.offset,
+                            self.ndigits)
 
-            min_value = min(barrier1, barrier2)
-            max_value = max(barrier1, barrier2)
-
-            return RandNum(min_value, max_value)
+            return RandFloat(min(min_val, max_val), max(min_val, max_val))
 
 
 class UUIDField(Field):

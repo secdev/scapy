@@ -9,6 +9,8 @@ General utility functions.
 
 from __future__ import absolute_import
 from __future__ import print_function
+from decimal import Decimal
+
 import os
 import sys
 import socket
@@ -326,23 +328,19 @@ def hexdiff(x, y):
 
 
 if struct.pack("H", 1) == b"\x00\x01":  # big endian
-    def checksum(pkt):
-        if len(pkt) % 2 == 1:
-            pkt += b"\0"
-        s = sum(array.array("H", pkt))
-        s = (s >> 16) + (s & 0xffff)
-        s += s >> 16
-        s = ~s
-        return s & 0xffff
+    checksum_endian_transform = lambda chk: chk
 else:
-    def checksum(pkt):
-        if len(pkt) % 2 == 1:
-            pkt += b"\0"
-        s = sum(array.array("H", pkt))
-        s = (s >> 16) + (s & 0xffff)
-        s += s >> 16
-        s = ~s
-        return (((s >> 8) & 0xff) | s << 8) & 0xffff
+    checksum_endian_transform = lambda chk: ((chk >> 8) & 0xff) | chk << 8
+
+
+def checksum(pkt):
+    if len(pkt) % 2 == 1:
+        pkt += b"\0"
+    s = sum(array.array("H", pkt))
+    s = (s >> 16) + (s & 0xffff)
+    s += s >> 16
+    s = ~s
+    return checksum_endian_transform(s) & 0xffff
 
 
 def _fletcher16(charbuf):
@@ -891,7 +889,6 @@ class PcapReader_metaclass(type):
                 try:
                     i.__init__(filename, fdesc, magic)
                 except Scapy_Exception:
-                    raise
                     try:
                         i.f.seek(-4, 1)
                     except Exception:
@@ -921,6 +918,7 @@ class RawPcapReader(six.with_metaclass(PcapReader_metaclass)):
     """A stateful pcap reader. Each packet is returned as a string"""
 
     read_allowed_exceptions = ()  # emulate SuperSocket
+    nonblocking_socket = True
     PacketMetadata = collections.namedtuple("PacketMetadata",
                                             ["sec", "usec", "wirelen", "caplen"])  # noqa: E501
 
@@ -970,11 +968,11 @@ class RawPcapReader(six.with_metaclass(PcapReader_metaclass)):
         """return a single packet read from the file as a tuple containing
         (pkt_data, pkt_metadata)
 
-        returns None when no more packets are available
+        raise EOFError when no more packets are available
         """
         hdr = self.f.read(16)
         if len(hdr) < 16:
-            return None
+            raise EOFError
         sec, usec, caplen, wirelen = struct.unpack(self.endian + "IIII", hdr)
         return (self.f.read(caplen)[:size],
                 RawPcapReader.PacketMetadata(sec=sec, usec=usec,
@@ -996,8 +994,9 @@ class RawPcapReader(six.with_metaclass(PcapReader_metaclass)):
         res = []
         while count != 0:
             count -= 1
-            p = self.read_packet()
-            if p is None:
+            try:
+                p = self.read_packet()
+            except EOFError:
                 break
             res.append(p)
         return res
@@ -1037,7 +1036,7 @@ class PcapReader(RawPcapReader):
     def read_packet(self, size=MTU):
         rp = super(PcapReader, self).read_packet(size=size)
         if rp is None:
-            return None
+            raise EOFError
         s, pkt_info = rp
 
         try:
@@ -1050,7 +1049,8 @@ class PcapReader(RawPcapReader):
                 debug.crashed_on = (self.LLcls, s)
                 raise
             p = conf.raw_layer(s)
-        p.time = pkt_info.sec + (0.000000001 if self.nano else 0.000001) * pkt_info.usec  # noqa: E501
+        power = Decimal(10) ** Decimal(-9 if self.nano else -6)
+        p.time = Decimal(pkt_info.sec + power * pkt_info.usec)
         p.wirelen = pkt_info.wirelen
         return p
 
@@ -1114,7 +1114,7 @@ class RawPcapNgReader(RawPcapReader):
                 blocktype, blocklen = struct.unpack(self.endian + "2I",
                                                     self.f.read(8))
             except struct.error:
-                return None
+                raise EOFError
             block = self.f.read(blocklen - 12)
             if blocklen % 4:
                 pad = self.f.read(4 - (blocklen % 4))
@@ -1125,7 +1125,7 @@ class RawPcapNgReader(RawPcapReader):
                                                 self.f.read(4)):
                     warning("PcapNg: Invalid pcapng block (bad blocklen)")
             except struct.error:
-                return None
+                raise EOFError
             res = self.blocktypes.get(blocktype,
                                       lambda block, size: None)(block, size)
             if res is not None:
@@ -1205,7 +1205,7 @@ class PcapNgReader(RawPcapNgReader):
     def read_packet(self, size=MTU):
         rp = super(PcapNgReader, self).read_packet(size=size)
         if rp is None:
-            return None
+            raise EOFError
         s, (linktype, tsresol, tshigh, tslow, wirelen) = rp
         try:
             p = conf.l2types[linktype](s)
@@ -1473,6 +1473,23 @@ def tdecode(pktlist, args=None, **kwargs):
     return tcpdump(pktlist, prog=conf.prog.tshark, args=args, **kwargs)
 
 
+def _guess_linktype_name(value):
+    """Guess the DLT name from its value."""
+    import scapy.data
+    return next(
+        k[4:] for k, v in six.iteritems(scapy.data.__dict__)
+        if k.startswith("DLT") and v == value
+    )
+
+
+def _guess_linktype_value(name):
+    """Guess the value of a DLT name."""
+    import scapy.data
+    if not name.startswith("DLT_"):
+        name = "DLT_" + name
+    return scapy.data.__dict__[name]
+
+
 @conf.commands.register
 def tcpdump(pktlist, dump=False, getfd=False, args=None,
             prog=None, getproc=False, quiet=False, use_tempfile=None,
@@ -1516,9 +1533,7 @@ use_tempfile: When set to True, always use a temporary file to store packets.
               ``tcpdump`` on OSX.
 read_stdin_opts: When set, a list of arguments needed to capture from stdin.
                  Otherwise, attempts to guess.
-linktype: If a Packet (or list) is passed in the ``pktlist`` argument,
-          set the ``linktype`` parameter on ``wrpcap``. If ``pktlist`` is a
-          path to a pcap file, then this option will have no effect.
+linktype: A custom DLT value or name, to overwrite the default values.
 wait: If True (default), waits for the process to terminate before returning
       to Scapy. If False, the process will be detached to the background. If
       dump, getproc or getfd is True, these have the same effect as
@@ -1566,6 +1581,34 @@ u'64'
         prog = [prog]
     else:
         raise ValueError("prog must be a string")
+    from scapy.arch.common import TCPDUMP
+    if prog[0] == conf.prog.tcpdump and not TCPDUMP:
+        message = "tcpdump is not available. Cannot use tcpdump() !"
+        raise Scapy_Exception(message)
+
+    if linktype is not None:
+        # Tcpdump does not support integers in -y (yet)
+        # https://github.com/the-tcpdump-group/tcpdump/issues/758
+        if isinstance(linktype, int):
+            # Guess name from value
+            try:
+                linktype_name = _guess_linktype_name(linktype)
+            except StopIteration:
+                linktype = -1
+        else:
+            # Guess value from name
+            if linktype.startswith("DLT_"):
+                linktype = linktype[4:]
+            linktype_name = linktype
+            try:
+                linktype = _guess_linktype_value(linktype)
+            except KeyError:
+                linktype = -1
+        if linktype == -1:
+            raise ValueError(
+                "Unknown linktype. Try passing its datalink name instead"
+            )
+        prog += ["-y", linktype_name]
 
     # Build Popen arguments
     if args is None:

@@ -1,0 +1,70 @@
+% iBeacon unit tests
+#
+# Type the following command to launch start the tests:
+# $ test/run_tests -P "load_contrib('ibeacon')" -t test/contrib/ibeacon.uts
+
++ iBeacon tests
+
+= Presence check
+
+Apple_BLE_Frame
+IBeacon_Data
+Apple_BLE_Submessage
+
+= Apple multiple submessages
+
+# Observed in the wild; handoff + nearby message.
+# Meaning unknown.
+d = hex_bytes('D6BE898E4024320CFB574D5A02011A1AFF4C000C0E009C6B8F40440F1583EC895148B410050318C0B525B8F7D4')
+p = BTLE(d)
+
+assert len(p[Apple_BLE_Frame].plist) == 2
+assert p[Apple_BLE_Frame].plist[0].subtype == 0x0c  # handoff
+assert (raw(p[Apple_BLE_Frame].plist[0].payload) ==
+            hex_bytes('009c6b8f40440f1583ec895148b4'))
+assert p[Apple_BLE_Frame].plist[1].subtype == 0x10  # nearby
+assert raw(p[Apple_BLE_Frame].plist[1].payload) == hex_bytes('0318c0b525')
+
+= iBeacon (decode LE Set Advertising Data)
+
+# from https://en.wikipedia.org/wiki/IBeacon#Technical_details
+d = hex_bytes('1E02011A1AFF4C000215FB0B57A2822844CD913A94A122BA120600010002D100')
+p = HCI_Cmd_LE_Set_Advertising_Data(d)
+
+assert len(p[Apple_BLE_Frame].plist) == 1
+assert p[IBeacon_Data].uuid == UUID("fb0b57a2-8228-44cd-913a-94a122ba1206")
+assert p[IBeacon_Data].major == 1
+assert p[IBeacon_Data].minor == 2
+assert p[IBeacon_Data].tx_power == -47
+
+d2 = raw(p)
+assert d == d2
+
+= iBeacon (encode LE Set Advertising Data)
+
+d = hex_bytes('1E0201061AFF4C000215FB0B57A2822844CD913A94A122BA120600010002D100')
+p = Apple_BLE_Submessage()/IBeacon_Data(
+   uuid='fb0b57a2-8228-44cd-913a-94a122ba1206',
+   major=1, minor=2, tx_power=-47)
+
+sap = p.build_set_advertising_data()[HCI_Cmd_LE_Set_Advertising_Data]
+assert d == raw(sap)
+
+pa = Apple_BLE_Frame(plist=[p])
+sapa = pa.build_set_advertising_data()[HCI_Cmd_LE_Set_Advertising_Data]
+assert d == raw(sapa)
+
+# Also try to build with Submessage directly
+sapa = p.build_set_advertising_data()[HCI_Cmd_LE_Set_Advertising_Data]
+assert d == raw(sapa)
+
+= iBeacon (decode advertising frame)
+
+# from https://en.wikipedia.org/wiki/IBeacon#Spoofing
+d = hex_bytes('043E2A02010001FCED16D4EED61E0201061AFF4C000215B9407F30F5F8466EAFF925556B57FE6DEDFCD416B6B4')
+p = HCI_Hdr(d)
+
+assert p[HCI_LE_Meta_Advertising_Report].addr == 'd6:ee:d4:16:ed:fc'
+assert len(p[Apple_BLE_Frame].plist) == 1
+assert p[IBeacon_Data].uuid == UUID('b9407f30-f5f8-466e-aff9-25556b57fe6d')
+

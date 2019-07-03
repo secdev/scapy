@@ -61,7 +61,7 @@ else:
     def plain_str(x):
         """Convert basic byte objects to str"""
         if isinstance(x, bytes):
-            return x.decode()
+            return x.decode(errors="ignore")
         return str(x)
 
     def chb(x):
