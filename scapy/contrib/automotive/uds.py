@@ -16,6 +16,7 @@ from scapy.fields import ByteEnumField, StrField, ConditionalField, \
 from scapy.packet import Packet, bind_layers
 from scapy.config import conf
 from scapy.error import log_loading
+from scapy.utils import PeriodicSenderThread
 
 """
 UDS
@@ -988,3 +989,20 @@ class UDS_NRC(Packet):
 
 
 bind_layers(UDS, UDS_NRC, service=0x7f)
+
+
+# ##################################################################
+# ######################## UTILS ###################################
+# ##################################################################
+
+
+class UDS_TesterPresentSender(PeriodicSenderThread):
+    def __init__(self, sock, pkt=UDS()/UDS_TP(), interval=2):
+        """ Thread to send TesterPresent messages packets periodically
+
+        Args:
+            sock: socket where packet is sent periodically
+            pkt: packet to send
+            interval: interval between two packets
+        """
+        PeriodicSenderThread.__init__(self, sock, pkt, interval)
