@@ -204,47 +204,49 @@ class TLSClientAutomaton(_TLSAutomaton):
             default_version = s.advertised_tls_version
             self.advertised_tls_version = default_version
 
-        if self.tls13_psk_secret:
-            s.tls13_psk_secret = binascii.unhexlify(self.tls13_psk_secret)
 
-        if self.session_ticket_file_in:
-            with open(self.session_ticket_file_in, 'rb') as f:
+        if s.advertised_tls_version >= 0x0304:
+            if self.tls13_psk_secret:
+                s.tls13_psk_secret = binascii.unhexlify(self.tls13_psk_secret)
 
-                resumed_ciphersuite_len = struct.unpack("B", f.read(1))[0]
-                s.tls13_ticket_ciphersuite = struct.unpack("!H", f.read(resumed_ciphersuite_len))[0]
+            if self.session_ticket_file_in:
+                with open(self.session_ticket_file_in, 'rb') as f:
 
-                ticket_nonce_len = struct.unpack("B", f.read(1))[0]
-                # XXX add client_session_nonce member in tlsSession
-                s.client_session_nonce = f.read(ticket_nonce_len)
+                    resumed_ciphersuite_len = struct.unpack("B", f.read(1))[0]
+                    s.tls13_ticket_ciphersuite = struct.unpack("!H", f.read(resumed_ciphersuite_len))[0]
 
-                client_ticket_age_len = struct.unpack("!H", f.read(2))[0]
-                tmp = f.read(client_ticket_age_len)
-                s.client_ticket_age = struct.unpack("!I", tmp)[0]
+                    ticket_nonce_len = struct.unpack("B", f.read(1))[0]
+                    # XXX add client_session_nonce member in tlsSession
+                    s.client_session_nonce = f.read(ticket_nonce_len)
 
-                client_ticket_age_add_len = struct.unpack("!H", f.read(2))[0]
-                tmp = f.read(client_ticket_age_add_len)
-                s.client_session_ticket_age_add = struct.unpack("!I", tmp)[0]
+                    client_ticket_age_len = struct.unpack("!H", f.read(2))[0]
+                    tmp = f.read(client_ticket_age_len)
+                    s.client_ticket_age = struct.unpack("!I", tmp)[0]
 
-                ticket_len = struct.unpack("!H", f.read(2))[0]
-                s.client_session_ticket = f.read(ticket_len)
+                    client_ticket_age_add_len = struct.unpack("!H", f.read(2))[0]
+                    tmp = f.read(client_ticket_age_add_len)
+                    s.client_session_ticket_age_add = struct.unpack("!I", tmp)[0]
 
-            if self.resumption_master_secret:
+                    ticket_len = struct.unpack("!H", f.read(2))[0]
+                    s.client_session_ticket = f.read(ticket_len)
 
-                if s.tls13_ticket_ciphersuite not in _tls_cipher_suites_cls:
-                    warning("Unknown cipher suite %d" % s.tls13_ticket_ciphersuite)  # noqa: E501
-                    # we do not try to set a default nor stop the execution
-                else:
-                    cs_cls = _tls_cipher_suites_cls[s.tls13_ticket_ciphersuite]
+                if self.resumption_master_secret:
 
-                hkdf = TLS13_HKDF(cs_cls.hash_alg.name.lower())
-                hash_len = hkdf.hash.digest_size
+                    if s.tls13_ticket_ciphersuite not in _tls_cipher_suites_cls:
+                        warning("Unknown cipher suite %d" % s.tls13_ticket_ciphersuite)  # noqa: E501
+                        # we do not try to set a default nor stop the execution
+                    else:
+                        cs_cls = _tls_cipher_suites_cls[s.tls13_ticket_ciphersuite]
 
-                s.tls13_psk_secret = hkdf.expand_label(binascii.unhexlify(self.resumption_master_secret),  # noqa: E501
-                                                       b"resumption",
-                                                       s.client_session_nonce,
-                                                       hash_len)
+                    hkdf = TLS13_HKDF(cs_cls.hash_alg.name.lower())
+                    hash_len = hkdf.hash.digest_size
 
-                self.vprint("[debug] resumption PSK : %s" % s.tls13_psk_secret)
+                    s.tls13_psk_secret = hkdf.expand_label(binascii.unhexlify(self.resumption_master_secret),  # noqa: E501
+                                                           b"resumption",
+                                                           s.client_session_nonce,
+                                                           hash_len)
+
+                    self.vprint("[debug] resumption PSK : %s" % s.tls13_psk_secret)
         raise self.CONNECT()
 
     @ATMT.state()
@@ -549,7 +551,6 @@ class TLSClientAutomaton(_TLSAutomaton):
         GET / HTTP/1.1\r\nHost: testserver.com\r\n\r\n
         Special characters are handled so that it becomes a valid HTTP request.
         """
-        self.vprint("add_ClientData")
         if not self.data_to_send:
             data = six.moves.input().replace('\\r', '\r').replace('\\n', '\n').encode()  # noqa: E501
         else:
@@ -589,7 +590,6 @@ class TLSClientAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def WAITING_SERVERDATA(self):
-        self.vprint("WAITING_SERVERDATA")
         self.get_next_msg(0.3, 1)
         raise self.RECEIVED_SERVERDATA()
 
@@ -599,7 +599,6 @@ class TLSClientAutomaton(_TLSAutomaton):
 
     @ATMT.condition(RECEIVED_SERVERDATA, prio=1)
     def should_handle_ServerData(self):
-        self.vprint("should_handle_ServerData")
         if not self.buffer_in:
             raise self.WAIT_CLIENTDATA()
 

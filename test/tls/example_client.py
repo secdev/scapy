@@ -18,6 +18,8 @@ basedir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"))
 sys.path = [basedir] + sys.path
 
 from scapy.layers.tls.automaton_cli import TLSClientAutomaton
+from scapy.layers.tls.basefields import _tls_version_options
+
 from argparse import ArgumentParser
 
 psk = None
@@ -36,13 +38,9 @@ parser.add_argument("--no_pfs", action="store_true",
 parser.add_argument("--early_data", help="File to read early_data to send")
 parser.add_argument("--ciphersuite", help="Ciphersuite preference")
 parser.add_argument("--curve", help="Group to advertise (ECC)")
+parser.add_argument("--version", help="TLS Version", default="tls13")
 
 args = parser.parse_args()
-
-print("psk : ", args.psk)
-print("res_master : ", args.res_master)
-print("ticket_in : ", args.session_ticket_file_in)
-print("ticket_out : ", args.session_ticket_file_out)
 
 # By default, PFS is set
 if args.no_pfs:
@@ -50,8 +48,13 @@ if args.no_pfs:
 else:
     psk_mode = "psk_dhe_ke"
 
+v = _tls_version_options.get(args.version, None)
+if not v:
+    sys.exit("Unrecognized TLS version option.")
+
+
 t = TLSClientAutomaton(client_hello=None,
-                       version="tls13",
+                       version=args.version,
                        mycert=basedir+"/test/tls/pki/cli_cert.pem",
                        mykey=basedir+"/test/tls/pki/cli_key.pem",
                        psk=args.psk,

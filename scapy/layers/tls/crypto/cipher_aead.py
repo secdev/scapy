@@ -286,7 +286,11 @@ class _AEADCipher_TLS13(six.with_metaclass(_AEADCipherMetaclass, object)):
                                       self.pc_cls_mode(fixed_iv),
                                       backend=default_backend())
         else:
-            self._cipher = self.cipher_cls(key, tag_length=self.tag_len)
+            if self.cipher_cls == ChaCha20Poly1305:
+                # ChaCha20Poly1305 doesn't have a tag_length argument...
+                self._cipher = self.cipher_cls(key)
+            else:
+                self._cipher = self.cipher_cls(key, tag_length=self.tag_len)
 
     def __setattr__(self, name, val):
         if name == "key":

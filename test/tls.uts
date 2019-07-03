@@ -1041,6 +1041,7 @@ ccs = t6.payload.msg[0]
 assert isinstance(ccs, TLSChangeCipherSpec)
 
 = Verify TLSFinished
+from scapy.layers.tls.handshake import TLSFinished
 cfin = t6.payload.payload.msg[0]
 assert isinstance(cfin, TLSFinished)
 
@@ -1183,8 +1184,7 @@ assert not TLSHelloRequest().tls_session_update(None)
 
 = Cryptography module is unavailable
 import scapy.modules.six as six
-#import mock
-from unittest import mock
+import mock
 
 @mock.patch("scapy.layers.tls.crypto.suites.get_algs_from_ciphersuite_name")
 def test_tls_without_cryptography(get_algs_from_ciphersuite_name_mock):
