@@ -1888,6 +1888,12 @@ def ISOTPScan(sock, scan_range=range(0x7ff + 1), extended_addressing=False,
 
 
 def generate_text_output(found_packets):
+    """Generate a human readable output from the result of the `scan` or
+        the `scan_extended` function.
+
+        Args:
+                found_packets: result of the `scan` or `scan_extended` function
+    """
     if not found_packets:
         return "No packets found."
 
@@ -1925,6 +1931,14 @@ def generate_text_output(found_packets):
 
 
 def generate_code_output(found_packets, can_interface):
+    """Generate a copy&past-able output from the result of the `scan` or
+        the `scan_extended` function.
+
+        Args:
+                found_packets: result of the `scan` or `scan_extended` function
+                can_interface: description string for a CAN interface to be
+                                used for the creation of the output.
+    """
     result = ""
     if not found_packets:
         return result
@@ -1959,6 +1973,14 @@ def generate_code_output(found_packets, can_interface):
 
 
 def generate_isotp_list(found_packets, can_interface):
+    """Generate a list of ISOTPSocket objects from the result of the `scan` or
+        the `scan_extended` function.
+
+        Args:
+            found_packets: result of the `scan` or `scan_extended` function
+            can_interface: description string for a CAN interface to be
+                            used for the creation of the output.
+    """
     socket_list = []
     for pack in found_packets:
         extended_id = pack > 0x7ff
