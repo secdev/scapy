@@ -158,6 +158,8 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def WAITING_CLIENT(self):
+        self.buffer_out = []
+        self.buffer_in = []
         self.vprint()
         self.vprint("Waiting for a new client on %s:%d" % (self.local_ip,
                                                            self.local_port))
