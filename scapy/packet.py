@@ -1431,6 +1431,13 @@ A side effect is that, to obtain "{" and "}" characters, you must use
             c += "/" + pc
         return c
 
+    def __hash__(self):
+        """Needed for Python 2 only: Packet() subclasses should not be
+hashable.
+
+        """
+        raise TypeError('unhashable type: %r' % self.__class__.__name__)
+
 
 class NoPayload(Packet):
     def __new__(cls, *args, **kargs):
