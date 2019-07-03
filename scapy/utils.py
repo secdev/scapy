@@ -9,8 +9,6 @@ General utility functions.
 
 from __future__ import absolute_import
 from __future__ import print_function
-from decimal import Decimal
-
 import os
 import sys
 import socket
@@ -23,6 +21,7 @@ import struct
 import array
 import subprocess
 import tempfile
+import threading
 
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
@@ -1049,8 +1048,7 @@ class PcapReader(RawPcapReader):
                 debug.crashed_on = (self.LLcls, s)
                 raise
             p = conf.raw_layer(s)
-        power = Decimal(10) ** Decimal(-9 if self.nano else -6)
-        p.time = Decimal(pkt_info.sec + power * pkt_info.usec)
+        p.time = pkt_info.sec + (0.000000001 if self.nano else 0.000001) * pkt_info.usec  # noqa: E501
         p.wirelen = pkt_info.wirelen
         return p
 
@@ -1907,3 +1905,31 @@ def whois(ip_address):
         else:
             break
     return b"\n".join(lines[3:])
+
+#######################
+#   PERIODIC SENDER   #
+#######################
+
+
+class PeriodicSenderThread(threading.Thread):
+    def __init__(self, sock, pkt, interval=0.5):
+        """ Thread to send packets periodically
+
+        Args:
+            sock: socket where packet is sent periodically
+            pkt: packet to send
+            interval: interval between two packets
+        """
+        self._pkt = pkt
+        self._socket = sock
+        self._stopped = threading.Event()
+        self.keep_awake_interval = interval
+        threading.Thread.__init__(self)
+
+    def run(self):
+        while not self._stopped.is_set():
+            self._socket.send(self._pkt)
+            time.sleep(self.keep_awake_interval)
+
+    def stop(self):
+        self._stopped.set()
