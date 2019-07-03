@@ -35,7 +35,8 @@ import os
 import re
 import subprocess
 
-from scapy.compat import plain_str, gzip_compress, gzip_decompress
+from scapy.compat import plain_str, bytes_encode, \
+    gzip_compress, gzip_decompress
 from scapy.config import conf
 from scapy.consts import WINDOWS
 from scapy.error import warning
@@ -128,7 +129,7 @@ RESPONSE_HEADERS = [
     "Access-Control-Max-Age",
     "Access-Control-Allow-Methods",
     "Access-Control-Allow-Headers11",
-    "Accept-Patch43",
+    "Accept-Patch",
     "Accept-Ranges",
     "Age",
     "Allow",
@@ -178,27 +179,17 @@ COMMON_UNSTANDARD_RESPONSE_HEADERS = [
 # Dissection / Build tools
 
 
-def _canonicalize_header(name):
+def _strip_header_name(name):
     """Takes a header key (i.e., "Host" in "Host: www.google.com",
-    and returns a canonical representation of it
+    and returns a stripped representation of it
     """
-    return plain_str(name.strip().lower())
+    return plain_str(name.strip()).replace("-", "_")
 
 
-if six.PY34:
-    def _header_line(name, val):
-        """Creates a HTTP header line"""
-        return ('%s: %s' % (
-            name.capitalize(),
-            val.decode("utf-8")
-        )).encode()
-else:
-    def _header_line(name, val):
-        """Creates a HTTP header line"""
-        return b'%s: %s' % (
-            name.capitalize().encode(),
-            val
-        )
+def _header_line(name, val):
+    """Creates a HTTP header line"""
+    # Python 3.4 doesn't support % on bytes
+    return bytes_encode(name) + b": " + bytes_encode(val)
 
 
 def _parse_headers(s):
@@ -209,8 +200,8 @@ def _parse_headers(s):
             key, value = header_line.split(b':', 1)
         except ValueError:
             continue
-        header_key = _canonicalize_header(key).replace("-", "_")
-        headers_found[header_key] = header_line.strip()
+        header_key = _strip_header_name(key).lower()
+        headers_found[header_key] = (key, value.strip())
     return headers_found
 
 
@@ -239,20 +230,16 @@ def _dissect_headers(obj, s):
     """
     first_line, headers, body = _parse_headers_and_body(s)
     for f in obj.fields_desc:
-        canonical_name = _canonicalize_header(f.name)
+        # We want to still parse wrongly capitalized fields
+        stripped_name = _strip_header_name(f.name).lower()
         try:
-            header_line = headers[canonical_name]
+            _, value = headers.pop(stripped_name)
         except KeyError:
             continue
-        _, value = header_line.split(b':', 1)
-        obj.setfieldval(f.name, value.strip())
-        del headers[canonical_name]
+        obj.setfieldval(f.name, value)
     if headers:
-        headers_text = b""
-        for name, val in headers.items():
-            headers_text = _header_line(name, val)
-            headers_text += b"\r\n"
-        obj.setfieldval('Unknown_Headers', headers_text)
+        headers = {key: value for key, value in six.itervalues(headers)}
+        obj.setfieldval('Unknown_Headers', headers)
     return first_line, body
 
 
@@ -262,10 +249,10 @@ class _HTTPContent(Packet):
         encodings = []
         if isinstance(self, HTTPResponse):
             if self.Transfer_Encoding:
-                encodings += [_canonicalize_header(x) for x in
+                encodings += [plain_str(x).strip().lower() for x in
                               plain_str(self.Transfer_Encoding).split(",")]
             if self.Content_Encoding:
-                encodings += [_canonicalize_header(x) for x in
+                encodings += [plain_str(x).strip().lower() for x in
                               plain_str(self.Content_Encoding).split(",")]
         return encodings
 
@@ -339,6 +326,8 @@ class _HTTPContent(Packet):
         p = b""
         # Walk all the fields, in order
         for f in self.fields_desc:
+            if f.name == "Unknown_Headers":
+                continue
             # Get the field value
             val = self.getfieldval(f.name)
             if not val:
@@ -346,7 +335,7 @@ class _HTTPContent(Packet):
                 continue
             if f.name not in ['Method', 'Path', 'Reason_Phrase',
                               'Http_Version', 'Status_Code']:
-                val = _header_line(f.name, val)
+                val = _header_line(f.real_name, val)
             # Fields used in the first line have a space as a separator,
             # whereas headers are terminated by a new line
             if isinstance(self, HTTPRequest):
@@ -361,11 +350,29 @@ class _HTTPContent(Packet):
                     separator = b'\r\n'
             # Add the field into the packet
             p = f.addfield(self, p, val + separator)
+        # Handle Unknown_Headers
+        if self.Unknown_Headers:
+            headers_text = b""
+            for name, value in six.iteritems(self.Unknown_Headers):
+                headers_text += _header_line(name, value) + b"\r\n"
+            p = self.get_field("Unknown_Headers").addfield(
+                self, p, headers_text
+            )
         # The packet might be empty, and in that case it should stay empty.
         if p:
             # Add an additional line after the last header
             p = f.addfield(self, p, b'\r\n')
         return p
+
+
+class _HTTPHeaderField(StrField):
+    """Modified StrField to handle HTTP Header names"""
+    __slots__ = ["real_name"]
+
+    def __init__(self, name, default):
+        self.real_name = name
+        name = _strip_header_name(name)
+        StrField.__init__(self, name, default, fmt="H")
 
 
 def _generate_headers(*args):
@@ -377,8 +384,7 @@ def _generate_headers(*args):
     # Generate header fields
     results = []
     for h in sorted(all_headers):
-        h = h.replace("-", "_")
-        results.append(StrField(h, None, fmt="H"))
+        results.append(_HTTPHeaderField(h, None))
     return results
 
 # Create Request and Response packets
@@ -388,9 +394,9 @@ class HTTPRequest(_HTTPContent):
     name = "HTTP Request"
     fields_desc = [
         # First line
-        StrField("Method", "GET", fmt="H"),
-        StrField("Path", "/", fmt="H"),
-        StrField("Http_Version", "HTTP/1.1", fmt="H"),
+        _HTTPHeaderField("Method", "GET"),
+        _HTTPHeaderField("Path", "/"),
+        _HTTPHeaderField("Http-Version", "HTTP/1.1"),
         # Headers
     ] + (
         _generate_headers(
@@ -400,7 +406,7 @@ class HTTPRequest(_HTTPContent):
             COMMON_UNSTANDARD_REQUEST_HEADERS
         )
     ) + [
-        StrField("Unknown_Headers", None, fmt="H"),
+        _HTTPHeaderField("Unknown-Headers", None),
     ]
 
     def do_dissect(self, s):
@@ -430,9 +436,9 @@ class HTTPResponse(_HTTPContent):
     name = "HTTP Response"
     fields_desc = [
         # First line
-        StrField("Http_Version", "HTTP/1.1", fmt="H"),
-        StrField("Status_Code", "200", fmt="H"),
-        StrField("Reason_Phrase", "OK", fmt="H"),
+        _HTTPHeaderField("Http-Version", "HTTP/1.1"),
+        _HTTPHeaderField("Status-Code", "200"),
+        _HTTPHeaderField("Reason-Phrase", "OK"),
         # Headers
     ] + (
         _generate_headers(
@@ -442,7 +448,7 @@ class HTTPResponse(_HTTPContent):
             COMMON_UNSTANDARD_RESPONSE_HEADERS
         )
     ) + [
-        StrField("Unknown_Headers", None, fmt="H"),
+        _HTTPHeaderField("Unknown-Headers", None),
     ]
 
     def answers(self, other):
