@@ -23,7 +23,7 @@ from scapy.fields import ByteEnumField, ByteField, EnumField, Field, \
     FieldLenField, IntField, PacketField, PacketListField, ShortField, \
     StrFixedLenField, StrLenField, ThreeBytesField, UTCTimeField
 
-from scapy.compat import bytes_hex, orb, raw
+from scapy.compat import hex_bytes, bytes_hex, orb, raw
 from scapy.config import conf
 from scapy.modules import six
 from scapy.packet import Packet, Raw, Padding
@@ -279,7 +279,8 @@ class TLSClientHello(_TLSHandshake):
         if self.ciphers is None:
             cipherstart = 39 + (self.sidlen or 0)
             s = b"001ac02bc023c02fc027009e0067009c003cc009c0130033002f000a"
-            pkt = pkt[:cipherstart] + bytes_hex(s) + pkt[cipherstart + 2:]
+            #pkt = pkt[:cipherstart] + bytes_hex(s) + pkt[cipherstart + 2:]
+            pkt = pkt[:cipherstart] + hex_bytes(s) + pkt[cipherstart + 2:]
             if self.ext is None:
                 ext_len = b'\x00\x2c'
                 ext_reneg = b'\xff\x01\x00\x01\x00'

@@ -170,7 +170,6 @@ class _TLSMsgListField(PacketListField):
         Update the context with information from the built packet.
         If no type was given at the record layer, we try to infer it.
         """
-        log_runtime.info("i2m")
         cur = b""
         if isinstance(p, _GenericTLSSessionInheritance):
             if pkt.type is None:
@@ -310,7 +309,6 @@ class TLS(_GenericTLSSessionInheritance):
                 if s and _tls_version_check(s.tls_version, 0x0304):
                     if s.rcs and not isinstance(s.rcs.cipher, Cipher_NULL):
                         from scapy.layers.tls.record_tls13 import TLS13
-                        log_runtime.info("TLS 1.3")
                         return TLS13
 
         if _pkt and len(_pkt) < 5:
