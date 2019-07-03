@@ -498,14 +498,19 @@ class HTTP(Packet):
             if not isinstance(http_packet.payload, _HTTPContent):
                 return http_packet
             length = http_packet.Content_Length
-            if length:
+            if length is not None:
                 # The packet provides a Content-Length attribute: let's
                 # use it. When the total size of the frags is high enough,
                 # we have the packet
                 length = int(length)
                 # Subtract the length of the "HTTP*" layer
-                http_length = len(data) - len(http_packet.payload.payload)
-                detect_end = lambda dat: len(dat) - http_length >= length
+                if http_packet.payload.payload or length == 0:
+                    http_length = len(data) - len(http_packet.payload.payload)
+                    detect_end = lambda dat: len(dat) - http_length >= length
+                else:
+                    # The HTTP layer isn't fully received.
+                    detect_end = lambda dat: False
+                    metadata["detect_unknown"] = True
             else:
                 # It's not Content-Length based. It could be chunked
                 encodings = http_packet[HTTP].payload._get_encodings()
