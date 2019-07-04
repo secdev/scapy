@@ -1013,6 +1013,16 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
             return length * self.payload.__iterlen__()
         return length
 
+    def iterpayloads(self):
+        """Used to iter through the paylods of a Packet.
+        Useful for DNS or 802.11 for instance.
+        """
+        yield self
+        current = self
+        while current.payload:
+            current = current.payload
+            yield current
+
     def __gt__(self, other):
         """True if other is an answer from self (self ==> other)."""
         if isinstance(other, Packet):
