@@ -2265,23 +2265,9 @@ class OFPMPReplyFlow(_ofp_header):
                                    length_from=lambda pkt:pkt.len - 16)]
 
 
-class OFPMPRequestAggregate(_ofp_header):
+class OFPMPRequestAggregate(OFPMPRequestFlow):
     name = "OFPMP_REQUEST_AGGREGATE"
-    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
-                   ByteEnumField("type", 18, ofp_type),
-                   ShortField("len", None),
-                   IntField("xid", 0),
-                   ShortEnumField("mp_type", 2, ofp_multipart_types),
-                   FlagsField("flags", 0, 16, ofpmp_request_flags),
-                   XIntField("pad1", 0),
-                   ByteEnumField("table_id", "ALL", ofp_table),
-                   X3BytesField("pad2", 0),
-                   IntEnumField("out_port", "ANY", ofp_port_no),
-                   IntEnumField("out_group", "ANY", ofp_group),
-                   IntField("pad3", 0),
-                   LongField("cookie", 0),
-                   LongField("cookie_mask", 0),
-                   MatchField("match")]
+    mp_type = 2
 
 
 class OFPMPReplyAggregate(_ofp_header):
@@ -3082,18 +3068,9 @@ class OFPTRoleRequest(_ofp_header):
                    LongField("generation_id", 0)]
 
 
-class OFPTRoleReply(_ofp_header):
+class OFPTRoleReply(OFPTRoleRequest):
     name = "OFPT_ROLE_REPLY"
-    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
-                   ByteEnumField("type", 25, ofp_type),
-                   ShortField("len", None),
-                   IntField("xid", 0),
-                   IntEnumField("role", 0, {0: "OFPCR_ROLE_NOCHANGE",
-                                            1: "OFPCR_ROLE_EQUAL",
-                                            2: "OFPCR_ROLE_MASTER",
-                                            3: "OFPCR_ROLE_SLAVE"}),
-                   XIntField("pad", 0),
-                   LongField("generation_id", 0)]
+    type = 25
 
 
 class OFPTGetAsyncRequest(_ofp_header):
@@ -3132,18 +3109,9 @@ class OFPTGetAsyncReply(_ofp_header):
                    FlagsField("flow_removed_mask_slave", 0, 32, ofp_flow_removed_reason)]  # noqa: E501
 
 
-class OFPTSetAsync(_ofp_header):
+class OFPTSetAsync(OFPTGetAsyncReply):
     name = "OFPT_SET_ASYNC"
-    fields_desc = [ByteEnumField("version", 0x04, ofp_version),
-                   ByteEnumField("type", 28, ofp_type),
-                   ShortField("len", 32),
-                   IntField("xid", 0),
-                   FlagsField("packet_in_mask_master", 0, 32, ofp_packet_in_reason),  # noqa: E501
-                   FlagsField("packet_in_mask_slave", 0, 32, ofp_packet_in_reason),  # noqa: E501
-                   FlagsField("port_status_mask_master", 0, 32, ofp_port_reason),  # noqa: E501
-                   FlagsField("port_status_mask_slave", 0, 32, ofp_port_reason),  # noqa: E501
-                   FlagsField("flow_removed_mask_master", 0, 32, ofp_flow_removed_reason),  # noqa: E501
-                   FlagsField("flow_removed_mask_slave", 0, 32, ofp_flow_removed_reason)]  # noqa: E501
+    type = 28
 
 
 class OFPTMeterMod(_ofp_header):
