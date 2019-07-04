@@ -229,6 +229,8 @@ class TLSServerAutomaton(_TLSAutomaton):
     @ATMT.state()
     def WAITING_CLIENT(self):
         self.vprint()
+        self.buffer_in = []
+        self.buffer_out = []
         self.vprint("Waiting for a new client on %s:%d" % (self.local_ip,
                                                            self.local_port))
         self.socket, addr = self.serversocket.accept()
@@ -361,6 +363,7 @@ class TLSServerAutomaton(_TLSAutomaton):
         if self.client_auth:
             self.add_msg(TLSCertificateRequest())
         raise self.ADDED_CERTIFICATEREQUEST()
+
 
     @ATMT.state()
     def ADDED_CERTIFICATEREQUEST(self):
@@ -865,7 +868,7 @@ class TLSServerAutomaton(_TLSAutomaton):
         pass
 
     @ATMT.condition(tls13_ADDED_ENCRYPTEDEXTENSIONS)
-    def should_add_CertificateRequest(self):
+    def tls13_should_add_CertificateRequest(self):
         if self.client_auth:
             ext = [TLS_Ext_SignatureAlgorithms(sig_algs=["sha256+rsaepss"])]
             p = TLS13CertificateRequest(ext=ext)

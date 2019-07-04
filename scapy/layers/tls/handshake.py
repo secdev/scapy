@@ -304,10 +304,12 @@ class TLSClientHello(_TLSHandshake):
         if self.sidlen and self.sidlen > 0:
             self.tls_session.sid = self.sid
 
+        is_tls13 = False
         if self.ext:
             for e in self.ext:
 
                 if isinstance(e, TLS_Ext_SupportedVersion_CH):
+                    is_tls13 = True
                     s.advertised_tls_version = e.versions[0]
                     # No distinction between a TLS 1.2 ClientHello and a TLS
                     # 1.3 ClientHello when dissecting : TLS 1.3 CH will be
@@ -334,6 +336,9 @@ class TLSClientHello(_TLSHandshake):
                         s.triggered_pwcs_commit = True
 
                     s.compute_tls13_early_secrets()
+
+        if not is_tls13:
+            self.tls_session.advertised_tls_version = self.version
 
 
 class TLS13ClientHello(_TLSHandshake):
@@ -390,7 +395,6 @@ class TLS13ClientHello(_TLSHandshake):
 
         if self.ext:
             for e in self.ext:
-                s = self.tls_session
                 if isinstance(e, TLS_Ext_PreSharedKey_CH):
                     if s.client_session_ticket:
                         res_suite = s.tls13_ticket_ciphersuite
@@ -447,15 +451,9 @@ class TLS13ClientHello(_TLSHandshake):
         self.random_bytes = msg_str[10:38]
         s.client_random = self.random_bytes
         if self.ext:
-
             for e in self.ext:
-
-                # if isinstance(e, TLS_Ext_SupportedVersion_CH):
-                #    self.tls_session.advertised_tls_version = e.versions[0]
-                #    if self.tls_session.tls13_early_secret is None:
-                #        # this is not recomputed if there was a TLS 1.3 HRR
-                #        #self.tls_session.compute_tls13_early_secrets()
-                #        pass
+                if isinstance(e, TLS_Ext_SupportedVersion_CH):
+                    self.tls_session.advertised_tls_version = e.versions[0]
 
                 # If the early_data extension is present, we need to compute
                 # the key material for the 0-RTT data
@@ -485,6 +483,9 @@ class TLS13ClientHello(_TLSHandshake):
 
                 if isinstance(e, TLS_Ext_SignatureAlgorithms):
                     s.advertised_sig_algs = e.sig_algs
+
+
+
 
 
 ###############################################################################

@@ -855,6 +855,9 @@ class Automaton(six.with_metaclass(Automaton_metaclass)):
                 if (len(self.recv_conditions[self.state.state]) == 0 and
                     len(self.ioevents[self.state.state]) == 0 and
                         len(self.timeout[self.state.state]) == 1):
+                    print("len(self.recv_conditions[self.state.state] : %d" % len(self.recv_conditions[self.state.state]))
+                    print("len(self.ioevents[self.state.state]) : %d" % len(self.ioevents[self.state.state]))
+                    print("len(self.timeout[self.state.state]) : %d" % len(self.timeout[self.state.state]))
                     raise self.Stuck("stuck in [%s]" % self.state.state,
                                      state=self.state.state, result=state_output)  # noqa: E501
 
