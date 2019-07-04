@@ -1294,7 +1294,7 @@ Once again, results can be collected with this command:
 DNS Requests
 ------------
 
-- **IPv4 (A) request:**
+**IPv4 (A) request:**
 
 This will perform a DNS request looking for IPv4 addresses
 
@@ -1302,7 +1302,7 @@ This will perform a DNS request looking for IPv4 addresses
     >>> ans.an.rdata
     '217.25.178.5'
 
-- **SOA request:**
+**SOA request:**
 
     >>> ans = sr1(IP(dst="8.8.8.8")/UDP(sport=RandShort(), dport=53)/DNS(rd=1,qd=DNSQR(qname="secdev.org",qtype="SOA")))
     >>> ans.ns.mname
@@ -1310,7 +1310,7 @@ This will perform a DNS request looking for IPv4 addresses
     >>> ans.ns.rname
     b'tech.ovh.net.'
 
-- **MX request:**
+**MX request:**
 
     >>> ans = sr1(IP(dst="8.8.8.8")/UDP(sport=RandShort(), dport=53)/DNS(rd=1,qd=DNSQR(qname="google.com",qtype="MX")))
     >>> results = [x.exchange for x in ans.an.iterpayloads()]
