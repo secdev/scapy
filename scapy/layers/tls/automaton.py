@@ -183,12 +183,11 @@ class _TLSAutomaton(Automaton):
         # Maybe we already parsed the expected packet, maybe not.
         if get_next_msg:
             self.get_next_msg()
-
         from scapy.layers.tls.handshake import TLSClientHello
         if (not self.buffer_in or
-            (not isinstance(self.buffer_in[0], pkt_cls) and
-             not (isinstance(self.buffer_in[0], TLSClientHello) and
-                 self.cur_session.advertised_tls_version == 0x0304))):
+                (not isinstance(self.buffer_in[0], pkt_cls) and
+                not (isinstance(self.buffer_in[0], TLSClientHello) and
+                self.cur_session.advertised_tls_version == 0x0304))):
             return
         self.cur_pkt = self.buffer_in[0]
         self.buffer_in = self.buffer_in[1:]
@@ -209,12 +208,9 @@ class _TLSAutomaton(Automaton):
             self.buffer_out.append(SSLv2(tls_session=self.cur_session))
         elif is_tls13:
             self.buffer_out.append(TLS13(tls_session=self.cur_session))
-
-        elif is_tls13 is None:
-            self.buffer_out.append(TLS(tls_session=self.cur_session))
         else:
-            self.buffer_out.append(TLS(version=0x0303,
-                                       tls_session=self.cur_session))
+            self.buffer_out.append(TLS(tls_session=self.cur_session))
+
 
     def add_msg(self, pkt):
         """

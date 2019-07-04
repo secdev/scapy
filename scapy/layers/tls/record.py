@@ -323,8 +323,7 @@ class TLS(_GenericTLSSessionInheritance):
     def _tls_auth_decrypt(self, hdr, s):
         """
         Provided with the record header and AEAD-ciphered data, return the
-        sli
-        ced and clear tuple (nonce, TLSCompressed.fragment, mac). Note that
+        sliced and clear tuple (nonce, TLSCompressed.fragment, mac). Note that
         we still return the slicing of the original input in case of decryption
         failure. Also, if the integrity check fails, a warning will be issued,
         but we still return the sliced (unauthenticated) plaintext.
@@ -627,7 +626,6 @@ class TLS(_GenericTLSSessionInheritance):
         """
         Apply the previous methods according to the writing cipher type.
         """
-        log_runtime.info("post_build")
         # Compute the length of TLSPlaintext fragment
         hdr, frag = pkt[:5], pkt[5:]
         tmp_len = len(frag)
