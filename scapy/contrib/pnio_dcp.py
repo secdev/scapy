@@ -468,7 +468,7 @@ def guess_dcp_block_class(packet, **kargs):
             }
     }
     try:
-        c = class_switch_case[int(option)][int(suboption)]()
+        c = class_switch_case[option][suboption]
     except KeyError:
         c = "DCPBaseBlock"
 
@@ -508,7 +508,7 @@ class ProfinetDCP(Packet):
         ProfinetIO(frameID=DCP_GET_SET_FRAME_ID) /
         ProfinetDCP(service_id=DCP_SERVICE_ID_SET, service_type=DCP_REQUEST,
             option=2, sub_option=2, dcp_data_length=14, dcp_block_length=10,
-            name_of_station=name, response_delay=0)
+            name_of_station=name, reserved=0)
 
     """
 
@@ -520,10 +520,7 @@ class ProfinetDCP(Packet):
         XIntField("xid", 0x01000001),
         # XShortField('reserved', 0),
 
-        ConditionalField(ShortField('response_delay', 1),
-                         lambda pkt: pkt.service_type == 0),
-        ConditionalField(ShortField('reserved', 0),
-                         lambda pkt: pkt.service_type == 1),
+        ShortField('reserved', 0),
         LenField("dcp_data_length", None),
 
         # DCP REQUEST specific
