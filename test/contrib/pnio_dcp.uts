@@ -13,7 +13,7 @@ conf.debug_dissector=True
 + PNIO DCP PDU tests
 
 
-###################################################
+#
 
 = DCP Identify All Request parsing
 
@@ -29,7 +29,7 @@ assert(p[ProfinetIO].frameID == 0xfefe)
 assert(p[ProfinetDCP].service_id == 0x05)
 assert(p[ProfinetDCP].service_type == 0x00)
 assert(p[ProfinetDCP].xid == 0x1000001)
-assert(p[ProfinetDCP].response_delay == 0x01)
+assert(p[ProfinetDCP].reserved == 0x01)
 assert(p[ProfinetDCP].dcp_data_length == 0x04)
 assert(p[ProfinetDCP].option == 0xff)
 assert(p[ProfinetDCP].sub_option == 0xff)
@@ -38,9 +38,9 @@ assert(p[ProfinetDCP].dcp_block_length == 0x00)
 = DCP Set Request parsing
 
 p = Ether(b'\x01\x23\x45\x67\x89\xac\x01\x23\x45\x67\x89\xab\x88\x92\xfe\xfd' \
-     b'\x04\x00\x00\x00\x00\x01\x00\x00\x00\x0c\x02\x02\x00\x08\x00\x01' \
-     b'\x64\x65\x76\x69\x63\x65\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00' \
-     b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+       b'\x04\x00\x00\x00\x00\x01\x00\x00\x00\x0c\x02\x02\x00\x08\x00\x01' \
+       b'\x64\x65\x76\x69\x63\x65\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00' \
+       b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
 
 assert(p[Ether].dst == '01:23:45:67:89:ac')
 assert(p[Ether].src == '01:23:45:67:89:ab')
@@ -49,32 +49,29 @@ assert(p[ProfinetIO].frameID == 0xfefd)
 assert(p[ProfinetDCP].service_id == 0x04)
 assert(p[ProfinetDCP].service_type == 0x00)
 assert(p[ProfinetDCP].xid == 0x0000001)
-# assert(p[ProfinetDCP].reserved == 0x00) # FIXME
-assert(p[ProfinetDCP].response_delay == 0x00) # FIXME
+assert(p[ProfinetDCP].reserved == 0x00)
 assert(p[ProfinetDCP].dcp_data_length == 0x0c)
 assert(p[ProfinetDCP].option == 0x02)
 assert(p[ProfinetDCP].sub_option == 0x02)
 assert(p[ProfinetDCP].dcp_block_length == 0x08)
 assert(p[ProfinetDCP].block_qualifier ==  0x01)
-# assert(p.name_of_station == b'device') # FIXME
 
 
 = DCP Identify Response parsing
 
 p = Ether(b'\x94\x65\x9c\x51\x90\x7d\xac\x64\x17\x21\x35\xcf\x81\x00\x00\x00' \
-     b'\x88\x92\xfe\xff\x05\x01\x01\x00\x00\x01\x00\x00\x00\x4e\x02\x05' \
-     b'\x00\x04\x00\x00\x02\x07\x02\x01\x00\x09\x00\x00\x45\x54\x32\x30' \
-     b'\x30\x53\x50\x00\x02\x02\x00\x08\x00\x00\x64\x65\x76\x69\x63\x65' \
-     b'\x02\x03\x00\x06\x00\x00\x00\x2a\x03\x13\x02\x04\x00\x04\x00\x00' \
-     b'\x01\x00\x02\x07\x00\x04\x00\x00\x00\x01\x01\x02\x00\x0e\x00\x01' \
-     b'\xc0\xa8\x01\x0e\xff\xff\xff\x00\xc0\xa8\x01\x0e')
+       b'\x88\x92\xfe\xff\x05\x01\x01\x00\x00\x01\x00\x00\x00\x4e\x02\x05' \
+       b'\x00\x04\x00\x00\x02\x07\x02\x01\x00\x09\x00\x00\x45\x54\x32\x30' \
+       b'\x30\x53\x50\x00\x02\x02\x00\x08\x00\x00\x64\x65\x76\x69\x63\x65' \
+       b'\x02\x03\x00\x06\x00\x00\x00\x2a\x03\x13\x02\x04\x00\x04\x00\x00' \
+       b'\x01\x00\x02\x07\x00\x04\x00\x00\x00\x01\x01\x02\x00\x0e\x00\x01' \
+       b'\xc0\xa8\x01\x0e\xff\xff\xff\x00\xc0\xa8\x01\x0e')
 
 # General
 assert(p[ProfinetIO].frameID == 0xfeff)
 assert(p[ProfinetDCP].service_id == 0x05)
 assert(p[ProfinetDCP].service_type == 0x01)
 assert(p[ProfinetDCP].xid == 0x1000001)
-# assert(p[ProfinetDCP].response_delay == 0x00)
 assert(p[ProfinetDCP].reserved == 0x00)
 assert(p[ProfinetDCP].dcp_data_length == 0x4e)
 
@@ -138,9 +135,9 @@ assert(p[DCPIPBlock].gateway == "192.168.1.14")
 = DCP Set Request parsing
 
 p = Ether(b'\x94\x65\x9c\x51\x90\x7d\xac\x64\x17\x21\x35\xcf\x81\x00\x00\x00' \
-    b'\x88\x92\xfe\xfd\x04\x01\x00\x00\x00\x01\x00\x00\x00\x08\x05\x04' \
-    b'\x00\x03\x02\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00' \
-    b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+      b'\x88\x92\xfe\xfd\x04\x01\x00\x00\x00\x01\x00\x00\x00\x08\x05\x04' \
+      b'\x00\x03\x02\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00' \
+      b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
 
 assert(p[ProfinetIO].frameID == 0xfefd)
 assert(p[ProfinetDCP].service_id == 0x04)
@@ -159,13 +156,13 @@ assert(p[DCPControlBlock].block_error == 0x00)
 = DCP Identify All Request crafting
 
 # dcp_data_length cannot be calculated automatically at this time
-p =  ProfinetIO(frameID=DCP_GET_SET_FRAME_ID) / ProfinetDCP(service_id=DCP_SERVICE_ID_IDENTIFY, service_type=DCP_REQUEST, option=255, sub_option=255, dcp_data_length=4)
+p = ProfinetIO(frameID=DCP_IDENTIFY_REQUEST_FRAME_ID) / ProfinetDCP(service_id=DCP_SERVICE_ID_IDENTIFY, service_type=DCP_REQUEST, option=255, sub_option=255, dcp_data_length=4)
 
-assert(p[ProfinetIO].frameID == 0xfefd)
+assert(p[ProfinetIO].frameID == 0xfefe)
 assert(p[ProfinetDCP].service_id == 0x05)
 assert(p[ProfinetDCP].service_type == 0x00)
 assert(p[ProfinetDCP].xid == 0x1000001)
-assert(p[ProfinetDCP].response_delay == 0x01)
+assert(p[ProfinetDCP].reserved == 0x00)
 assert(p[ProfinetDCP].dcp_data_length == 0x04)
 assert(p[ProfinetDCP].option == 0xff)
 assert(p[ProfinetDCP].sub_option == 0xff)
@@ -180,13 +177,13 @@ assert(p[ProfinetIO].frameID == 0xfefd)
 assert(p[ProfinetDCP].service_id == 0x04)
 assert(p[ProfinetDCP].service_type == 0x00)
 assert(p[ProfinetDCP].xid == 0x1000001)
-assert(p[ProfinetDCP].response_delay == 0x01)
+assert(p[ProfinetDCP].reserved == 0x00)
 assert(p[ProfinetDCP].dcp_data_length == 0x0c)
 assert(p[ProfinetDCP].option == 0x02)
 assert(p[ProfinetDCP].sub_option == 0x02)
 assert(p[ProfinetDCP].dcp_block_length == 0x08)
 assert(p[ProfinetDCP].block_qualifier == 0x0001)
-# assert(p[ProfinetDCP].name_of_station == "device") # FIXME
+assert(p[ProfinetDCP].name_of_station == b'device')
 
 
 = DCP Identify Response crafting
@@ -205,6 +202,6 @@ assert(p[DCPNameOfStationBlock].dcp_block_length == 0x08)
 assert(p[DCPNameOfStationBlock].block_info == 0x00)
 assert(p[DCPNameOfStationBlock].name_of_station == b'device')
 
-###################################################
+#
 
 conf.debug_dissector = old_conf_dissector
