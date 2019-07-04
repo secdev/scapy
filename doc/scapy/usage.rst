@@ -1291,6 +1291,36 @@ Once again, results can be collected with this command:
     >>> ans.summary( lambda(s,r) : r.sprintf("%IP.src% is alive") )
 
 
+DNS Requests
+------------
+
+- **IPv4 (A) request:**
+
+This will perform a DNS request looking for IPv4 addresses
+
+    >>> ans = sr1(IP(dst="8.8.8.8")/UDP(sport=RandShort(), dport=53)/DNS(rd=1,qd=DNSQR(qname="secdev.org",qtype="A")))
+    >>> ans.an.rdata
+    '217.25.178.5'
+
+- **SOA request:**
+
+    >>> ans = sr1(IP(dst="8.8.8.8")/UDP(sport=RandShort(), dport=53)/DNS(rd=1,qd=DNSQR(qname="secdev.org",qtype="SOA")))
+    >>> ans.ns.mname
+    b'dns.ovh.net.'
+    >>> ans.ns.rname
+    b'tech.ovh.net.'
+
+- **MX request:**
+
+    >>> ans = sr1(IP(dst="8.8.8.8")/UDP(sport=RandShort(), dport=53)/DNS(rd=1,qd=DNSQR(qname="google.com",qtype="MX")))
+    >>> results = [x.exchange for x in ans.an.iterpayloads()]
+    >>> results
+    [b'alt1.aspmx.l.google.com.',
+     b'alt4.aspmx.l.google.com.',
+     b'aspmx.l.google.com.',
+     b'alt2.aspmx.l.google.com.',
+     b'alt3.aspmx.l.google.com.']
+
 
 Classical attacks
 -----------------

@@ -151,7 +151,7 @@ def dns_compress(pkt):
                     for field in current.fields_desc:
                         if isinstance(field, DNSStrField) or \
                            (isinstance(field, MultipleTypeField) and
-                           current.type in [2, 5, 12]):
+                           current.type in [2, 3, 4, 5, 12, 15]):
                             # Get the associated data and store it accordingly  # noqa: E501
                             dat = current.getfieldval(field.name)
                             yield current, field.name, dat
@@ -631,6 +631,18 @@ class _DNSRRdummy(InheritOriginDNSStrPacket):
         return tmp_pkt + pkt + pay
 
 
+class DNSRRMX(_DNSRRdummy):
+    name = "DNS MX Resource Record"
+    fields_desc = [DNSStrField("rrname", ""),
+                   ShortEnumField("type", 6, dnstypes),
+                   ShortEnumField("rclass", 1, dnsclasses),
+                   IntField("ttl", 0),
+                   ShortField("rdlen", None),
+                   ShortField("preference", 0),
+                   DNSStrField("exchange", ""),
+                   ]
+
+
 class DNSRRSOA(_DNSRRdummy):
     name = "DNS SOA Resource Record"
     fields_desc = [DNSStrField("rrname", ""),
@@ -832,6 +844,8 @@ class DNSRRTSIG(_DNSRRdummy):
 
 
 DNSRR_DISPATCHER = {
+    6: DNSRRSOA,         # RFC 1035
+    15: DNSRRMX,         # RFC 1035
     33: DNSRRSRV,        # RFC 2782
     41: DNSRROPT,        # RFC 1671
     43: DNSRRDS,         # RFC 4034
