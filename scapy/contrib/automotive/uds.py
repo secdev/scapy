@@ -997,7 +997,7 @@ bind_layers(UDS, UDS_NRC, service=0x7f)
 
 
 class UDS_TesterPresentSender(PeriodicSenderThread):
-    def __init__(self, sock, pkt=UDS()/UDS_TP(), interval=2):
+    def __init__(self, sock, pkt=UDS() / UDS_TP(), interval=2):
         """ Thread to send TesterPresent messages packets periodically
 
         Args:
