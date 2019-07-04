@@ -973,18 +973,9 @@ class OFPTStatsReplyFlow(_ofp_header):
                                    length_from=lambda pkt:pkt.len - 12)]  # noqa: E501
 
 
-class OFPTStatsRequestAggregate(_ofp_header):
+class OFPTStatsRequestAggregate(OFPTStatsRequestFlow):
     name = "OFPST_STATS_REQUEST_AGGREGATE"
-    fields_desc = [ByteEnumField("version", 0x01, ofp_version),
-                   ByteEnumField("type", 16, ofp_type),
-                   ShortField("len", None),
-                   IntField("xid", 0),
-                   ShortEnumField("stats_type", 2, ofp_stats_types),
-                   FlagsField("flags", 0, 16, []),
-                   PacketField("match", OFPMatch(), OFPMatch),
-                   ByteEnumField("table_id", "ALL", ofp_table),
-                   ByteField("pad", 0),
-                   ShortEnumField("out_port", "NONE", ofp_port_no)]
+    stats_type = 2
 
 
 class OFPTStatsReplyAggregate(_ofp_header):
