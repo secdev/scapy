@@ -412,11 +412,10 @@ def guess_dcp_block_class(packet, **kargs):
     # TODO implement the other functions if needed
 
     # convert from hex string to int in python 2
-    try:
+    if isinstance(option, str):
         option = ord(option)
+    if isinstance(suboption, str):
         suboption = ord(suboption)
-    except:
-        pass
 
     class_switch_case = {
         # IP
