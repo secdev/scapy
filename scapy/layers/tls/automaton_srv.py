@@ -667,6 +667,7 @@ class TLSServerAutomaton(_TLSAutomaton):
 
         p = self.buffer_in[0]
         self.buffer_in = self.buffer_in[1:]
+
         #    We check that the server can handle early_data and
         #    that the size of the data received is within the limit
         #    authorized by the server
@@ -1004,6 +1005,7 @@ class TLSServerAutomaton(_TLSAutomaton):
         if self.is_echo_server:
             self.vprint("Will now act as a simple echo server.")
         raise self.WAITING_CLIENTDATA()
+
     #                   end of TLS 1.3 handshake                              #
 
     @ATMT.state()

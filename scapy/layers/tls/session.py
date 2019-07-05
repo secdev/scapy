@@ -574,6 +574,7 @@ class tlsSession(object):
         Ciphers key and IV are updated accordingly for 0-RTT data.
         self.handshake_messages should be ClientHello only.
         """
+
         # we use the prcs rather than the pwcs in a totally arbitrary way
         # if self.prcs is None:
         #    # too soon
@@ -659,6 +660,7 @@ class tlsSession(object):
             hkdf = self.pwcs.hkdf
         else:
             raise
+
         if self.tls13_early_secret is None:
             self.tls13_early_secret = hkdf.extract(None,
                                                    self.tls13_psk_secret)

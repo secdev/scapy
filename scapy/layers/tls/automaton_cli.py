@@ -1123,6 +1123,7 @@ class TLSClientAutomaton(_TLSAutomaton):
     def tls13_should_add_ClientHello_Retry(self):
         s = self.cur_session
         s.tls13_retry = True
+
         # we have to use the legacy, plaintext TLS record here
         self.add_record(is_tls13=False)
 
@@ -1187,6 +1188,7 @@ class TLSClientAutomaton(_TLSAutomaton):
 
                 ext += TLS_Ext_PreSharedKey_CH(identities=[psk_id],
                                                binders=[psk_binder_entry])
+
             else:
                 hkdf = TLS13_HKDF("sha256")
                 hash_len = hkdf.hash.digest_size

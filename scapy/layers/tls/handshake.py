@@ -357,6 +357,7 @@ class TLS13ClientHello(_TLSHandshake):
                    _TLSClientVersionField("version", None, _tls_version),
 
                    _TLSRandomBytesField("random_bytes", None, 32),
+
                    FieldLenField("sidlen", None, fmt="B", length_of="sid"),
                    _SessionIDField("sid", "",
                                    length_from=lambda pkt: pkt.sidlen),
@@ -442,7 +443,6 @@ class TLS13ClientHello(_TLSHandshake):
         along with the raw string representing this handshake message.
         """
         super(TLS13ClientHello, self).tls_session_update(msg_str)
-        s = self.tls_session
 
         s = self.tls_session
 
@@ -641,6 +641,7 @@ class TLS13ServerHello(_TLSHandshake):
         read connection states.
         """
         super(TLS13ServerHello, self).tls_session_update(msg_str)
+
         s = self.tls_session
         if self.ext:
             for e in self.ext:
@@ -732,7 +733,6 @@ class TLS13HelloRetryRequest(_TLSHandshake):
         return _TLSHandshake.build(self)
 
     def tls_session_update(self, msg_str):
-
         s = self.tls_session
         s.tls13_retry = True
         s.tls13_client_pubshares = {}
@@ -1211,20 +1211,6 @@ class TLS13CertificateRequest(_TLSHandshake):
                                     pkt.cert_req_ctxt_len - 3)]
 
 
-class TLS13CertificateRequest(_TLSHandshake):
-    name = "TLS 1.3 Handshake - Certificate Request"
-    fields_desc = [ByteEnumField("msgtype", 13, _tls_handshake_type),
-                   ThreeBytesField("msglen", None),
-                   FieldLenField("cert_req_ctxt_len", None, fmt="B",
-                                 length_of="cert_req_ctxt"),
-                   StrLenField("cert_req_ctxt", "",
-                               length_from=lambda pkt: pkt.cert_req_ctxt_len),
-                   _ExtensionsLenField("extlen", None, length_of="ext"),
-                   _ExtensionsField("ext", None,
-                                    length_from=lambda pkt: pkt.msglen -
-                                    pkt.cert_req_ctxt_len - 3)]
-
-
 ###############################################################################
 #   ServerHelloDone                                                           #
 ###############################################################################
@@ -1291,7 +1277,6 @@ class TLSCertificateVerify(_TLSHandshake):
                 if not sig_test:
                     pkt_info = pkt.firstlayer().summary()
                     log_runtime.info("TLS: invalid CertificateVerify signature [%s]", pkt_info)  # noqa: E501
-
 
 ###############################################################################
 #   ClientKeyExchange                                                         #

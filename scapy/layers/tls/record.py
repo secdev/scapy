@@ -328,6 +328,7 @@ class TLS(_GenericTLSSessionInheritance):
         failure. Also, if the integrity check fails, a warning will be issued,
         but we still return the sliced (unauthenticated) plaintext.
         """
+
         try:
             read_seq_num = struct.pack("!Q", self.tls_session.rcs.seq_num)
             self.tls_session.rcs.seq_num += 1
@@ -517,6 +518,7 @@ class TLS(_GenericTLSSessionInheritance):
         nothing if the prcs was not set, as this probably means that we're
         working out-of-context (and we need to keep the default rcs).
         """
+
         if (self.tls_session.tls_version and
                 self.tls_session.tls_version <= 0x0303):
             if self.tls_session.triggered_prcs_commit:

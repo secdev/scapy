@@ -533,6 +533,7 @@ _tls_ext_early_data_cls = {1: TLS_Ext_EarlyDataIndication,
                            4: TLS_Ext_EarlyDataIndicationTicket,
                            8: TLS_Ext_EarlyDataIndication}
 
+
 class TLS_Ext_SupportedVersions(TLS_Ext_Unknown):
     name = "TLS Extension - Supported Versions (dummy class)"
     fields_desc = [ShortEnumField("type", 0x2b, _tls_ext),
@@ -549,22 +550,6 @@ class TLS_Ext_SupportedVersion_CH(TLS_Ext_Unknown):
                                   ShortEnumField("version", None,
                                                  _tls_version),
                                   length_from=lambda pkt: pkt.versionslen)]
-
-
-class TLS_Ext_SupportedVersion_SH(TLS_Ext_Unknown):
-    name = "TLS Extension - Supported Versions (for ServerHello)"
-    fields_desc = [ShortEnumField("type", 0x2b, _tls_ext),
-                   ShortField("len", None),
-                   ShortEnumField("version", None, _tls_version)]
-
-    def post_dissection(self, r):
-        if isinstance(r, TLS_Ext_SupportedVersion_SH):
-            self.tls_session.tls_version = r.version
-        return super(TLS_Ext_SupportedVersion_SH, self).post_dissection(r)
-
-
-_tls_ext_supported_version_cls = {1: TLS_Ext_SupportedVersion_CH,
-                                  2: TLS_Ext_SupportedVersion_SH}
 
 
 class TLS_Ext_SupportedVersion_SH(TLS_Ext_Unknown):
