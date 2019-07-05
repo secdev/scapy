@@ -13,8 +13,6 @@ conf.debug_dissector=True
 + PNIO DCP PDU tests
 
 
-#
-
 = DCP Identify All Request parsing
 
 p = Ether(b'\x01\x0e\xcf\x00\x00\x00\x01\x23\x45\x67\x89\xab\x88\x92\xfe\xfe' \
@@ -34,6 +32,7 @@ assert(p[ProfinetDCP].dcp_data_length == 0x04)
 assert(p[ProfinetDCP].option == 0xff)
 assert(p[ProfinetDCP].sub_option == 0xff)
 assert(p[ProfinetDCP].dcp_block_length == 0x00)
+
 
 = DCP Set Request parsing
 
@@ -153,6 +152,7 @@ assert(p[DCPControlBlock].response == 0x02)
 assert(p[DCPControlBlock].response_sub_option == 0x02)
 assert(p[DCPControlBlock].block_error == 0x00)
 
+
 = DCP Identify All Request crafting
 
 # dcp_data_length cannot be calculated automatically at this time
@@ -202,6 +202,5 @@ assert(p[DCPNameOfStationBlock].dcp_block_length == 0x08)
 assert(p[DCPNameOfStationBlock].block_info == 0x00)
 assert(p[DCPNameOfStationBlock].name_of_station == b'device')
 
-#
 
 conf.debug_dissector = old_conf_dissector
