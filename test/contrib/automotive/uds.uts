@@ -12,6 +12,8 @@
 
 load_contrib("automotive.uds")
 
+from scapy.contrib.automotive.ecu import ECU
+
 = Check if positive response answers
 
 dsc = UDS(b'\x10')
@@ -60,12 +62,58 @@ dscpr = UDS(b'\x50\x02beef')
 assert dscpr.service == 0x50
 assert dscpr.diagnosticSessionType == 0x02
 
+assert not dscpr.answers(dsc)
+
 = Check UDS_DSCPR
 
-dscpr = UDS()/UDS_DSCPR(b'\x02beef')
+dscpr = UDS()/UDS_DSCPR(b'\x01beef')
 assert dscpr.service == 0x50
-assert dscpr.diagnosticSessionType == 0x02
+assert dscpr.diagnosticSessionType == 0x01
 assert dscpr.sessionParameterRecord == b"beef"
+
+assert dscpr.answers(dsc)
+
+= Check UDS_DSC
+
+dsc = UDS()/UDS_DSC(b'\x01')
+assert dsc.service == 0x10
+assert dsc.diagnosticSessionType == 0x01
+
+= Check UDS_DSCPR
+
+dscpr = UDS()/UDS_DSCPR(b'\x01beef')
+assert dscpr.service == 0x50
+assert dscpr.diagnosticSessionType == 0x01
+assert dscpr.sessionParameterRecord == b"beef"
+
+assert dscpr.answers(dsc)
+
+= Check UDS_DSC modifies ecu state
+
+dsc = UDS()/UDS_DSC(b'\x09')
+assert dsc.service == 0x10
+assert dsc.diagnosticSessionType == 0x09
+
+ecu = ECU()
+for l in dsc.layers():
+    if hasattr(l, "modifies_ecu_state"):
+        l.modifies_ecu_state(dsc, ecu)
+
+assert ecu.misc["req_diagnostic_session_type"] == 9
+
+= Check UDS_DSCPR modifies ecu state
+
+dscpr = UDS()/UDS_DSCPR(b'\x09beef')
+assert dscpr.service == 0x50
+assert dscpr.diagnosticSessionType == 0x09
+assert dscpr.sessionParameterRecord == b"beef"
+
+ecu = ECU()
+for l in dscpr.layers():
+    if hasattr(l, "modifies_ecu_state"):
+        l.modifies_ecu_state(dscpr, ecu)
+
+assert ecu.current_session == 9
 
 = Check UDS_ER
 
@@ -85,6 +133,8 @@ erpr = UDS(b'\x51\x01')
 assert erpr.service == 0x51
 assert erpr.resetType == 0x01
 
+assert erpr.answers(er)
+
 = Check UDS_ERPR
 
 erpr = UDS(b'\x51\x04\x10')
@@ -92,12 +142,39 @@ assert erpr.service == 0x51
 assert erpr.resetType == 0x04
 assert erpr.powerDownTime == 0x10
 
+= Check UDS_ERPR modifies ecu state
+
+erpr = UDS(b'\x51\x04\x10')
+assert erpr.service == 0x51
+assert erpr.resetType == 0x04
+assert erpr.powerDownTime == 0x10
+
+ecu = ECU()
+ecu.current_security_level = 5
+ecu.current_session = 3
+ecu.communication_control = 4
+for l in erpr.layers():
+    if hasattr(l, "modifies_ecu_state"):
+        l.modifies_ecu_state(erpr, ecu)
+
+assert ecu.current_session == 1
+assert ecu.current_security_level == 0
+assert ecu.communication_control == 0
+
 = Check UDS_SA
 
 sa = UDS(b'\x27\x00c0ffee')
 assert sa.service == 0x27
 assert sa.securityAccessType == 0x0
 assert sa.securityKey == b'c0ffee'
+
+= Check UDS_SAPR
+
+sapr = UDS(b'\x67\x00')
+assert sapr.service == 0x67
+assert sapr.securityAccessType == 0x0
+
+assert sapr.answers(sa)
 
 = Check UDS_SA
 
@@ -113,11 +190,62 @@ assert sapr.service == 0x67
 assert sapr.securityAccessType == 0x1
 assert sapr.securitySeed == b'c0ffee'
 
-= Check UDS_SAPR
+assert sapr.answers(sa)
 
-sapr = UDS(b'\x67\x00')
+= Check UDS_SA modifies ecu state
+
+sa = UDS(b'\x27\x00c0ffee')
+assert sa.service == 0x27
+assert sa.securityAccessType == 0x0
+assert sa.securityKey == b'c0ffee'
+
+ecu = ECU()
+for l in sa.layers():
+    if hasattr(l, "modifies_ecu_state"):
+        l.modifies_ecu_state(sa, ecu)
+
+assert ecu.misc["recv_security_key"] == b'c0ffee'
+
+= Check UDS_SAPR modifies ecu state
+
+sapr = UDS(b'\x67\x06')
 assert sapr.service == 0x67
-assert sapr.securityAccessType == 0x0
+assert sapr.securityAccessType == 0x6
+
+ecu = ECU()
+for l in sapr.layers():
+    if hasattr(l, "modifies_ecu_state"):
+        l.modifies_ecu_state(sapr, ecu)
+
+assert ecu.current_security_level == 6
+
+= Check UDS_SA modifies ecu state
+
+sa = UDS(b'\x27\x01c0ffee')
+assert sa.service == 0x27
+assert sa.securityAccessType == 0x1
+assert sa.securityAccessDataRecord == b'c0ffee'
+
+ecu = ECU()
+for l in sa.layers():
+    if hasattr(l, "modifies_ecu_state"):
+        l.modifies_ecu_state(sa, ecu)
+
+assert ecu.misc["req_security_level"] == 1
+
+= Check UDS_SAPR modifies ecu state
+
+sapr = UDS(b'\x67\x01c0ffee')
+assert sapr.service == 0x67
+assert sapr.securityAccessType == 0x1
+assert sapr.securitySeed == b'c0ffee'
+
+ecu = ECU()
+for l in sapr.layers():
+    if hasattr(l, "modifies_ecu_state"):
+        l.modifies_ecu_state(sapr, ecu)
+
+assert ecu.misc["security_seed"] == b"c0ffee"
 
 = Check UDS_CC
 
@@ -134,6 +262,21 @@ ccpr = UDS(b'\x68\x01')
 assert ccpr.service == 0x68
 assert ccpr.controlType == 0x1
 
+assert ccpr.answers(cc)
+
+= Check UDS_CCPR modifies ecu state
+
+ccpr = UDS(b'\x68\x01')
+assert ccpr.service == 0x68
+assert ccpr.controlType == 0x1
+
+ecu = ECU()
+for l in ccpr.layers():
+    if hasattr(l, "modifies_ecu_state"):
+        l.modifies_ecu_state(ccpr, ecu)
+
+assert ecu.communication_control == 1
+
 = Check UDS_TP
 
 tp = UDS(b'\x3E\x01')
@@ -146,11 +289,21 @@ tppr = UDS(b'\x7E\x01')
 assert tppr.service == 0x7e
 assert tppr.zeroSubFunction == 0x1
 
+assert tppr.answers(tp)
+
 = Check UDS_ATP
 
 atp = UDS(b'\x83\x01')
 assert atp.service == 0x83
 assert atp.timingParameterAccessType == 0x1
+
+= Check UDS_ATPPR
+
+atppr = UDS(b'\xc3\x01')
+assert atppr.service == 0xc3
+assert atppr.timingParameterAccessType == 0x1
+
+assert atppr.answers(atp)
 
 = Check UDS_ATP
 
@@ -158,12 +311,6 @@ atp = UDS(b'\x83\x04coffee')
 assert atp.service == 0x83
 assert atp.timingParameterAccessType == 0x4
 assert atp.timingParameterRequestRecord == b'coffee'
-
-= Check UDS_ATPPR
-
-atppr = UDS(b'\xc3\x01')
-assert atppr.service == 0xc3
-assert atppr.timingParameterAccessType == 0x1
 
 = Check UDS_ATPPR
 
@@ -184,6 +331,8 @@ sdtpr = UDS(b'\xC4coffee')
 assert sdtpr.service == 0xC4
 assert sdtpr.securityDataResponseRecord == b'coffee'
 
+assert sdtpr.answers(sdt)
+
 = Check UDS_CDTCS
 
 cdtcs = UDS(b'\x85\x00coffee')
@@ -196,6 +345,8 @@ assert cdtcs.DTCSettingControlOptionRecord == b'coffee'
 cdtcspr = UDS(b'\xC5\x00')
 assert cdtcspr.service == 0xC5
 assert cdtcspr.DTCSettingType == 0
+
+assert cdtcspr.answers(cdtcs)
 
 = Check UDS_ROE
 
@@ -214,12 +365,22 @@ assert roepr.numberOfIdentifiedEvents == 1
 assert roepr.eventWindowTime == 16
 assert roepr.eventTypeRecord == b'coffee'
 
+assert roepr.answers(roe)
+
 = Check UDS_LC
 
 lc = UDS(b'\x87\x01\x02')
 assert lc.service == 0x87
 assert lc.linkControlType == 0x01
 assert lc.baudrateIdentifier == 0x02
+
+= Check UDS_LCPR
+
+lcpr = UDS(b'\xC7\x01')
+assert lcpr.service == 0xC7
+assert lcpr.linkControlType == 0x01
+
+assert lcpr.answers(lc)
 
 = Check UDS_LC
 
@@ -229,12 +390,6 @@ assert lc.linkControlType == 0x02
 assert lc.baudrateHighByte == 0x02
 assert lc.baudrateMiddleByte == 0x03
 assert lc.baudrateLowByte == 0x04
-
-= Check UDS_LCPR
-
-lcpr = UDS(b'\xC7\x01')
-assert lcpr.service == 0xC7
-assert lcpr.linkControlType == 0x01
 
 = Check UDS_RDBI
 
@@ -272,6 +427,8 @@ rdbipr = UDS(b'\x62\x01\x02dieselgate')
 assert rdbipr.service == 0x62
 assert rdbipr.dataIdentifier == 0x0102
 assert rdbipr.load == b'dieselgate'
+
+assert rdbipr.answers(rdbi)
 
 = Check UDS_RMBA
 
@@ -315,6 +472,8 @@ rmbapr = UDS(b'\x63muchData')
 assert rmbapr.service == 0x63
 assert rmbapr.dataRecord == b'muchData'
 
+assert rmbapr.answers(rmba)
+
 = Check UDS_RSDBI
 
 rsdbi = UDS(b'\x24\x12\x34')
@@ -328,6 +487,8 @@ assert rsdbipr.service == 0x64
 assert rsdbipr.dataIdentifier == 0x1234
 assert rsdbipr.scalingByte == 255
 assert rsdbipr.dataRecord == b'muchData'
+
+assert rsdbipr.answers(rsdbi)
 
 = Check UDS_RSDBPI
 
@@ -344,6 +505,17 @@ assert rsdbpipr.service == 0x6a
 assert rsdbpipr.periodicDataIdentifier == 255
 assert rsdbpipr.dataRecord == b'\x12\x34'
 
+assert not rsdbpipr.answers(rsdbpi)
+
+= Check UDS_RSDBPIPR
+
+rsdbpipr = UDS(b'\x6a\x34\x12\x34')
+assert rsdbpipr.service == 0x6a
+assert rsdbpipr.periodicDataIdentifier == 0x34
+assert rsdbpipr.dataRecord == b'\x12\x34'
+
+assert rsdbpipr.answers(rsdbpi)
+
 = Check UDS_DDDI
 
 dddi = UDS(b'\x2c\x12coffee')
@@ -357,6 +529,8 @@ dddipr = UDS(b'\x6c\x12\x44\x55')
 assert dddipr.service == 0x6c
 assert dddipr.definitionMode == 0x12
 assert dddipr.dynamicallyDefinedDataIdentifier == 0x4455
+
+assert dddipr.answers(dddi)
 
 = Check UDS_WDBI
 
@@ -373,13 +547,40 @@ assert wdbi.dataIdentifier == 0x0102
 assert wdbi.load == b'dieselgate'
 assert bytes(wdbi) == b'\x2e\x01\x02dieselgate'
 
+= Check UDS_WDBI modifies ecu state
+
+wdbi = UDS(b'\x2e\x01\x02dieselgate')
+assert wdbi.service == 0x2e
+assert wdbi.dataIdentifier == 0x0102
+assert wdbi.load == b'dieselgate'
+
+ecu = ECU()
+for l in wdbi.layers():
+    if hasattr(l, "modifies_ecu_state"):
+        l.modifies_ecu_state(wdbi, ecu)
+
+assert ecu.misc["write_data_by_identifier"][0x102] == b"\x2e\x01\x02dieselgate"
+
+wdbi = UDS(b'\x2e\x02\x02benzingate')
+assert wdbi.service == 0x2e
+assert wdbi.dataIdentifier == 0x0202
+assert wdbi.load == b'benzingate'
+
+for l in wdbi.layers():
+    if hasattr(l, "modifies_ecu_state"):
+        l.modifies_ecu_state(wdbi, ecu)
+
+assert ecu.misc["write_data_by_identifier"][0x202] == b"\x2e\x02\x02benzingate"
+
 = Check UDS_WDBIPR
 
-wdbipr = UDS(b'\x6e\x01\x02')
+wdbipr = UDS(b'\x6e\x02\x02')
 assert wdbipr.service == 0x6e
-assert wdbipr.dataIdentifier == 0x0102
+assert wdbipr.dataIdentifier == 0x0202
 
-= Check UDS_WMBA
+assert wdbipr.answers(wdbi)
+
+= Check UDS_WMBA modifies ecu state
 
 wmba = UDS(b'\x3d\x11\x02\x02muchData')
 assert wmba.service == 0x3d
@@ -389,35 +590,13 @@ assert wmba.memoryAddress1 == 2
 assert wmba.memorySize1 == 2
 assert wmba.dataRecord == b'muchData'
 
-= Check UDS_WMBA
+ecu = ECU()
+for l in wmba.layers():
+    if hasattr(l, "modifies_ecu_state"):
+        l.modifies_ecu_state(wmba, ecu)
 
-wmba = UDS(b'\x3d\x22\x02\x02\x03\x03muchData')
-assert wmba.service == 0x3d
-assert wmba.memorySizeLen == 2
-assert wmba.memoryAddressLen == 2
-assert wmba.memoryAddress2 == 0x202
-assert wmba.memorySize2 == 0x303
-assert wmba.dataRecord == b'muchData'
+assert ecu.misc["write_memory_by_address"][2] == b"muchData"
 
-= Check UDS_WMBA
-
-wmba = UDS(b'\x3d\x33\x02\x02\x02\x03\x03\x03muchData')
-assert wmba.service == 0x3d
-assert wmba.memorySizeLen == 3
-assert wmba.memoryAddressLen == 3
-assert wmba.memoryAddress3 == 0x20202
-assert wmba.memorySize3 == 0x30303
-assert wmba.dataRecord == b'muchData'
-
-= Check UDS_WMBA
-
-wmba = UDS(b'\x3d\x44\x02\x02\x02\x02\x03\x03\x03\x03muchData')
-assert wmba.service == 0x3d
-assert wmba.memorySizeLen == 4
-assert wmba.memoryAddressLen == 4
-assert wmba.memoryAddress4 == 0x2020202
-assert wmba.memorySize4 == 0x3030303
-assert wmba.dataRecord == b'muchData'
 
 = Check UDS_WMBAPR
 
@@ -428,6 +607,25 @@ assert wmbapr.memoryAddressLen == 1
 assert wmbapr.memoryAddress1 == 2
 assert wmbapr.memorySize1 == 2
 
+assert wmbapr.answers(wmba)
+
+= Check UDS_WMBA modifies ecu state
+
+wmba = UDS(b'\x3d\x22\x02\x02\x03\x03muchData')
+assert wmba.service == 0x3d
+assert wmba.memorySizeLen == 2
+assert wmba.memoryAddressLen == 2
+assert wmba.memoryAddress2 == 0x202
+assert wmba.memorySize2 == 0x303
+assert wmba.dataRecord == b'muchData'
+
+ecu = ECU()
+for l in wmba.layers():
+    if hasattr(l, "modifies_ecu_state"):
+        l.modifies_ecu_state(wmba, ecu)
+
+assert ecu.misc["write_memory_by_address"][0x202] == b"muchData"
+
 = Check UDS_WMBAPR
 
 wmbapr = UDS(b'\x7d\x22\x02\x02\x03\x03')
@@ -436,6 +634,42 @@ assert wmbapr.memorySizeLen == 2
 assert wmbapr.memoryAddressLen == 2
 assert wmbapr.memoryAddress2 == 0x202
 assert wmbapr.memorySize2 == 0x303
+
+assert wmbapr.answers(wmba)
+
+= Check UDS_WMBA modifies ecu state
+
+wmba = UDS(b'\x3d\x33\x02\x02\x02\x03\x03\x03muchData')
+assert wmba.service == 0x3d
+assert wmba.memorySizeLen == 3
+assert wmba.memoryAddressLen == 3
+assert wmba.memoryAddress3 == 0x20202
+assert wmba.memorySize3 == 0x30303
+assert wmba.dataRecord == b'muchData'
+
+ecu = ECU()
+for l in wmba.layers():
+    if hasattr(l, "modifies_ecu_state"):
+        l.modifies_ecu_state(wmba, ecu)
+
+assert ecu.misc["write_memory_by_address"][0x20202] == b"muchData"
+
+= Check UDS_WMBA modifies ecu state
+
+wmba = UDS(b'\x3d\x44\x02\x02\x02\x02\x03\x03\x03\x03muchData')
+assert wmba.service == 0x3d
+assert wmba.memorySizeLen == 4
+assert wmba.memoryAddressLen == 4
+assert wmba.memoryAddress4 == 0x2020202
+assert wmba.memorySize4 == 0x3030303
+assert wmba.dataRecord == b'muchData'
+
+ecu = ECU()
+for l in wmba.layers():
+    if hasattr(l, "modifies_ecu_state"):
+        l.modifies_ecu_state(wmba, ecu)
+
+assert ecu.misc["write_memory_by_address"][0x2020202] == b"muchData"
 
 = Check UDS_WMBAPR
 
@@ -446,6 +680,8 @@ assert wmbapr.memoryAddressLen == 3
 assert wmbapr.memoryAddress3 == 0x20202
 assert wmbapr.memorySize3 == 0x30303
 
+assert not wmbapr.answers(wmba)
+
 = Check UDS_WMBAPR
 
 wmbapr = UDS(b'\x7d\x44\x02\x02\x02\x02\x03\x03\x03\x03')
@@ -454,6 +690,8 @@ assert wmbapr.memorySizeLen == 4
 assert wmbapr.memoryAddressLen == 4
 assert wmbapr.memoryAddress4 == 0x2020202
 assert wmbapr.memorySize4 == 0x3030303
+
+assert wmbapr.answers(wmba)
 
 = Check UDS_CDTCI
 
@@ -475,6 +713,17 @@ rdtci = UDS(b'\x19\x01\xff')
 assert rdtci.service == 0x19
 assert rdtci.reportType == 0x01
 assert rdtci.DTCStatusMask == 0xff
+
+= Check UDS_RDTCIPR
+
+rdtcipr = UDS(b'\x59\x01\xff\xee\xdd\xaa')
+assert rdtcipr.service == 0x59
+assert rdtcipr.reportType == 1
+assert rdtcipr.DTCStatusAvailabilityMask == 0xff
+assert rdtcipr.DTCFormatIdentifier == 0xee
+assert rdtcipr.DTCCount == 0xddaa
+
+assert rdtcipr.answers(rdtci)
 
 = Check UDS_RDTCI
 
@@ -583,14 +832,6 @@ assert rdtci.DTCMiddleByte == 0xee
 assert rdtci.DTCLowByte == 0xdd
 assert rdtci.DTCExtendedDataRecordNumber == 0xaa
 
-= Check UDS_RDTCIPR
-
-rdtcipr = UDS(b'\x59\x01\xff\xee\xdd\xaa')
-assert rdtcipr.service == 0x59
-assert rdtcipr.reportType == 1
-assert rdtcipr.DTCStatusAvailabilityMask == 0xff
-assert rdtcipr.DTCFormatIdentifier == 0xee
-assert rdtcipr.DTCCount == 0xddaa
 
 = Check UDS_RDTCIPR
 
@@ -599,6 +840,8 @@ assert rdtcipr.service == 0x59
 assert rdtcipr.reportType == 2
 assert rdtcipr.DTCStatusAvailabilityMask == 0xff
 assert rdtcipr.DTCAndStatusRecord == b'\xee\xdd\xaa'
+
+assert not rdtcipr.answers(rdtci)
 
 = Check UDS_RDTCIPR
 
@@ -615,6 +858,21 @@ assert rc.routineControlType == 3
 assert rc.routineIdentifier == 0xffee
 assert rc.routineControlOptionRecord == b'\xdd\xaa'
 
+= Check UDS_RC modifies ecu state
+
+rc = UDS(b'\x31\x03\xff\xee\xdd\xaa')
+assert rc.service == 0x31
+assert rc.routineControlType == 3
+assert rc.routineIdentifier == 0xffee
+assert rc.routineControlOptionRecord == b'\xdd\xaa'
+
+ecu = ECU()
+for l in rc.layers():
+    if hasattr(l, "modifies_ecu_state"):
+        l.modifies_ecu_state(rc, ecu)
+
+assert ecu.misc["routine_control"][0xffee] == b"\xdd\xaa"
+
 = Check UDS_RCPR
 
 rcpr = UDS(b'\x71\x03\xff\xee\xdd\xaa')
@@ -623,7 +881,7 @@ assert rcpr.routineControlType == 3
 assert rcpr.routineIdentifier == 0xffee
 assert rcpr.routineStatusRecord == b'\xdd\xaa'
 
-= Check UDS_RD
+= Check UDS_RD modifies ecu state
 
 rd = UDS(b'\x34\xaa\x11\x02\x02')
 assert rd.service == 0x34
@@ -633,7 +891,15 @@ assert rd.memoryAddressLen == 1
 assert rd.memoryAddress1 == 2
 assert rd.memorySize1 == 2
 
-= Check UDS_RD
+ecu = ECU()
+for l in rd.layers():
+    if hasattr(l, "modifies_ecu_state"):
+        l.modifies_ecu_state(rd, ecu)
+
+assert ecu.misc["request_download_addr"] == 2
+assert ecu.misc["request_download_size"] == 2
+
+= Check UDS_RD modifies ecu state
 
 rd = UDS(b'\x34\xaa\x22\x02\x02\x03\x03')
 assert rd.service == 0x34
@@ -643,7 +909,15 @@ assert rd.memoryAddressLen == 2
 assert rd.memoryAddress2 == 0x202
 assert rd.memorySize2 == 0x303
 
-= Check UDS_RD
+ecu = ECU()
+for l in rd.layers():
+    if hasattr(l, "modifies_ecu_state"):
+        l.modifies_ecu_state(rd, ecu)
+
+assert ecu.misc["request_download_addr"] == 0x202
+assert ecu.misc["request_download_size"] == 0x303
+
+= Check UDS_RD modifies ecu state
 
 rd = UDS(b'\x34\xaa\x33\x02\x02\x02\x03\x03\x03')
 assert rd.service == 0x34
@@ -653,7 +927,15 @@ assert rd.memoryAddressLen == 3
 assert rd.memoryAddress3 == 0x20202
 assert rd.memorySize3 == 0x30303
 
-= Check UDS_RD
+ecu = ECU()
+for l in rd.layers():
+    if hasattr(l, "modifies_ecu_state"):
+        l.modifies_ecu_state(rd, ecu)
+
+assert ecu.misc["request_download_addr"] == 0x20202
+assert ecu.misc["request_download_size"] == 0x30303
+
+= Check UDS_RD modifies ecu state
 
 rd = UDS(b'\x34\xaa\x44\x02\x02\x02\x02\x03\x03\x03\x03')
 assert rd.service == 0x34
@@ -663,16 +945,25 @@ assert rd.memoryAddressLen == 4
 assert rd.memoryAddress4 == 0x2020202
 assert rd.memorySize4 == 0x3030303
 
+ecu = ECU()
+for l in rd.layers():
+    if hasattr(l, "modifies_ecu_state"):
+        l.modifies_ecu_state(rd, ecu)
+
+assert ecu.misc["request_download_addr"] == 0x2020202
+assert ecu.misc["request_download_size"] == 0x3030303
+
 = Check UDS_RDPR
 
-rdpr = UDS(b'\x74\xaa\x44\x02\x02\x02\x02\x03\x03\x03\x03')
+rdpr = UDS(b'\x74\x40\x02\x02\x02\x02\x03\x03\x03\x03')
 assert rdpr.service == 0x74
-assert rdpr.routineControlType == 0xaa
 assert rdpr.memorySizeLen == 4
-assert rdpr.memoryAddressLen == 4
+assert rdpr.reserved == 0
 assert rdpr.maxNumberOfBlockLength == b'\x02\x02\x02\x02\x03\x03\x03\x03'
 
-= Check UDS_RU
+assert rdpr.answers(rd)
+
+= Check UDS_RU modifies ecu state
 
 ru = UDS(b'\x35\xaa\x11\x02\x02')
 assert ru.service == 0x35
@@ -682,7 +973,15 @@ assert ru.memoryAddressLen == 1
 assert ru.memoryAddress1 == 2
 assert ru.memorySize1 == 2
 
-= Check UDS_RU
+ecu = ECU()
+for l in ru.layers():
+    if hasattr(l, "modifies_ecu_state"):
+        l.modifies_ecu_state(ru, ecu)
+
+assert ecu.misc["request_upload_addr"] == 2
+assert ecu.misc["request_upload_size"] == 2
+
+= Check UDS_RU modifies ecu state
 
 ru = UDS(b'\x35\xaa\x22\x02\x02\x03\x03')
 assert ru.service == 0x35
@@ -692,7 +991,15 @@ assert ru.memoryAddressLen == 2
 assert ru.memoryAddress2 == 0x202
 assert ru.memorySize2 == 0x303
 
-= Check UDS_RU
+ecu = ECU()
+for l in ru.layers():
+    if hasattr(l, "modifies_ecu_state"):
+        l.modifies_ecu_state(ru, ecu)
+
+assert ecu.misc["request_upload_addr"] == 0x202
+assert ecu.misc["request_upload_size"] == 0x303
+
+= Check UDS_RU modifies ecu state
 
 ru = UDS(b'\x35\xaa\x33\x02\x02\x02\x03\x03\x03')
 assert ru.service == 0x35
@@ -702,7 +1009,15 @@ assert ru.memoryAddressLen == 3
 assert ru.memoryAddress3 == 0x20202
 assert ru.memorySize3 == 0x30303
 
-= Check UDS_RU
+ecu = ECU()
+for l in ru.layers():
+    if hasattr(l, "modifies_ecu_state"):
+        l.modifies_ecu_state(ru, ecu)
+
+assert ecu.misc["request_upload_addr"] == 0x20202
+assert ecu.misc["request_upload_size"] == 0x30303
+
+= Check UDS_RU modifies ecu state
 
 ru = UDS(b'\x35\xaa\x44\x02\x02\x02\x02\x03\x03\x03\x03')
 assert ru.service == 0x35
@@ -712,14 +1027,57 @@ assert ru.memoryAddressLen == 4
 assert ru.memoryAddress4 == 0x2020202
 assert ru.memorySize4 == 0x3030303
 
+ecu = ECU()
+for l in ru.layers():
+    if hasattr(l, "modifies_ecu_state"):
+        l.modifies_ecu_state(ru, ecu)
+
+assert ecu.misc["request_upload_addr"] == 0x2020202
+assert ecu.misc["request_upload_size"] == 0x3030303
+
 = Check UDS_RUPR
 
-rupr = UDS(b'\x75\xaa\x44\x02\x02\x02\x02\x03\x03\x03\x03')
+rupr = UDS(b'\x75\x40\x02\x02\x02\x02\x03\x03\x03\x03')
 assert rupr.service == 0x75
-assert rupr.routineControlType == 0xaa
 assert rupr.memorySizeLen == 4
-assert rupr.memoryAddressLen == 4
+assert rupr.reserved == 0
 assert rupr.maxNumberOfBlockLength == b'\x02\x02\x02\x02\x03\x03\x03\x03'
+
+assert rupr.answers(ru)
+
+= Check UDS_TD modifies ecu state
+
+td = UDS(b'\x36\xaapayload')
+assert td.service == 0x36
+assert td.blockSequenceCounter == 0xaa
+assert td.transferRequestParameterRecord == b'payload'
+
+ecu = ECU()
+for l in td.layers():
+    if hasattr(l, "modifies_ecu_state"):
+        l.modifies_ecu_state(td, ecu)
+
+assert ecu.misc["transfer_data"][0] == b'payload'
+assert ecu.misc["transfer_data_current_addr"] == 7
+
+for l in td.layers():
+    if hasattr(l, "modifies_ecu_state"):
+        l.modifies_ecu_state(td, ecu)
+
+assert ecu.misc["transfer_data"][7] == b'payload'
+assert ecu.misc["transfer_data_current_addr"] == 14
+
+td = UDS(b'\x36\xaapayloadpayload')
+assert td.service == 0x36
+assert td.blockSequenceCounter == 0xaa
+assert td.transferRequestParameterRecord == b'payloadpayload'
+
+for l in td.layers():
+    if hasattr(l, "modifies_ecu_state"):
+        l.modifies_ecu_state(td, ecu)
+
+assert ecu.misc["transfer_data"][14] == b'payloadpayload'
+assert ecu.misc["transfer_data_current_addr"] == 28
 
 = Check UDS_TD
 
@@ -735,6 +1093,8 @@ assert tdpr.service == 0x76
 assert tdpr.blockSequenceCounter == 0xaa
 assert tdpr.transferResponseParameterRecord == b'payload'
 
+assert tdpr.answers(td)
+
 = Check UDS_RTE
 
 rte = UDS(b'\x37payload')
@@ -747,7 +1107,9 @@ rtepr = UDS(b'\x77payload')
 assert rtepr.service == 0x77
 assert rtepr.transferResponseParameterRecord == b'payload'
 
-= Check UDS_IOCBI
+assert rtepr.answers(rte)
+
+= Check UDS_IOCBI modifies ecu state
 
 iocbi = UDS(b'\x2f\x23\x34\xffcoffee')
 assert iocbi.service == 0x2f
@@ -755,6 +1117,12 @@ assert iocbi.dataIdentifier == 0x2334
 assert iocbi.controlOptionRecord == 255
 assert iocbi.controlEnableMaskRecord == b'coffee'
 
+ecu = ECU()
+for l in iocbi.layers():
+    if hasattr(l, "modifies_ecu_state"):
+        l.modifies_ecu_state(iocbi, ecu)
+
+assert ecu.misc["input_output_control"][0x2334] == b'\x2f\x23\x34\xffcoffee'
 
 = Check UDS_NRC
 

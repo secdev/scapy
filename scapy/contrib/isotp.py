@@ -360,8 +360,6 @@ class ISOTPMessageBuilder:
             for p in can:
                 self.feed(p)
             return
-        if not isinstance(can, CAN):
-            raise Scapy_Exception("argument is not a CAN frame")
         identifier = can.identifier
         data = bytes(can.data)
 

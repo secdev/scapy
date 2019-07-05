@@ -713,6 +713,91 @@ Usage example:
 .. image:: ../graphics/animations/animation-scapy-gmlan.svg
 
 
+ECU Utility examples
+--------------------
+
+The ECU utility can be used to analyze the internal states of an ECU under investigation.
+This utility depends heavily on the support of the used protocol. ``UDS`` is supported.
+
+Log all commands applied to an ECU
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This example shows the logging mechanism of an ECU object. The log of an ECU is a dictionary of applied UDS commands. The key for this dictionary the UDS service name. The value consists of a list of tuples, containing a timestamp and a log value
+
+Usage example::
+
+	ecu = ECU(verbose=False, store_supported_responses=False)
+	ecu.update(PacketList(msgs))
+	print(ecu.log)
+	timestamp, value = ecu.log["DiagnosticSessionControl"][0]
+
+
+
+Trace all commands applied to an ECU
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This example shows the trace mechanism of an ECU object. Traces of the current state of the ECU object and the received message are print on stdout. Some messages, depending on the protocol, will change the internal state of the ECU.
+
+Usage example::
+
+	ecu = ECU(verbose=True, logging=False, store_supported_responses=False)
+	ecu.update(PacketList(msgs))
+	print(ecu.current_session)
+
+
+
+Generate supported responses of an ECU
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This example shows a mechanism to clone a real world ECU by analyzing a list of Packets.
+
+Usage example::
+
+	ecu = ECU(verbose=False, logging=False, store_supported_responses=True)
+	ecu.update(PacketList(msgs))
+	supported_responses = ecu.supported_responses
+	unanswered_packets = ecu.unanswered_packets
+	print(supported_responses)
+	print(unanswered_packets)
+
+
+
+Analyze multiple UDS messages
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This example shows how to load ``UDS`` messages from a ``.pcap`` file containing ``CAN`` messages A ``PcapReader`` object is used as socket and an ``ISOTPSession`` parses ``CAN`` frames to ``ISOTP`` frames which are then casted to ``UDS`` objects through the ``basecls`` parameter
+
+Usage example::
+
+	with PcapReader("test/contrib/automotive/ecu_trace.pcap") as sock:
+	     udsmsgs = sniff(session=ISOTPSession, session_kwargs={"use_ext_addr":False, "basecls":UDS}, count=50, opened_socket=sock)
+
+
+	ecu = ECU()
+	ecu.update(udsmsgs)
+	print(ecu.log)
+	print(ecu.supported_responses)
+	assert len(ecu.log["TransferData"]) == 2
+
+
+
+Analyze on the fly with ECUSession
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This example shows the usage of a ECUSession in sniff. An ISOTPSocket or any socket like object which returns entire messages of the right protocol can be used. Here a ``PacketList`` is used as socket. To obtain the ``ECU`` object from a ``ECUSession``, the ``ECUSession`` has to be created outside of sniff.
+
+Usage example::
+
+	session = ECUSession()
+
+	with udsmsgs as sock:
+	     x = sniff(session=session, count=50, opened_socket=sock, store=False)
+
+	ecu = session.ecu
+	print(ecu.log)
+	print(ecu.supported_responses)
+
+
 SOME/IP and SOME/IP SD messages
 -------------------------------
 

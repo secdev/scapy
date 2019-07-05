@@ -30,6 +30,8 @@ from scapy.modules.six.moves import range, zip
 
 class PacketList(BasePacketList, _CanvasDumpExtended):
     __slots__ = ["stats", "res", "listname"]
+    read_allowed_exceptions = ()  # emulate SuperSocket
+    nonblocking_socket = True
 
     def __init__(self, res=None, name="PacketList", stats=None):
         """create a packet list from a list of packets
@@ -44,6 +46,7 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
             res = res.res
         self.res = res
         self.listname = name
+        self.pos = -1
 
     def __len__(self):
         return len(self.res)
@@ -649,6 +652,30 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
             [p.convert_to(other_cls) for p in self.res],
             name, stats
         )
+
+    def recv(self, size=0xffff):
+        """ Emulate a socket
+        """
+        self.pos += 1
+        return self[self.pos] if self.pos < len(self) else None
+
+    def fileno(self):
+        return 1
+
+    def close(self):
+        self.pos = len(self)
+        return 0
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, tracback):
+        self.close()
+
+    # emulate SuperSocket
+    @staticmethod
+    def select(sockets, remain=None):
+        return sockets, None
 
 
 class SndRcvList(PacketList):
