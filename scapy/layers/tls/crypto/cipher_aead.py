@@ -364,6 +364,9 @@ class _AEADCipher_TLS13(six.with_metaclass(_AEADCipherMetaclass, object)):
                         isinstance(self._cipher, AESCCM)):
                     P = self._cipher.decrypt(self._get_nonce(seq_num), C + mac, A)  # noqa: E501
                 else:
+                    if (conf.crypto_valid_advanced and
+                            isinstance(self, Cipher_CHACHA20_POLY1305)):
+                        A += struct.pack("!H", len(C))
                     P = self._cipher.decrypt(self._get_nonce(seq_num), C + mac, A)  # noqa: E501
             except InvalidTag:
                 raise AEADTagError("<unauthenticated data>", mac)
