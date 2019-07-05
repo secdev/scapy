@@ -19,8 +19,7 @@
 # scapy.contrib.description = Profinet DCP layer
 # scapy.contrib.status = loads
 
-from __future__ import absolute_import
-
+#from __future__ import absolute_import
 from scapy.all import Packet, bind_layers, Padding
 from scapy.fields import ByteEnumField, ShortField, XShortField, \
     ShortEnumField, FieldLenField, XByteField, XIntField, MultiEnumField, \
@@ -406,11 +405,18 @@ def guess_dcp_block_class(packet, **kargs):
     :param packet: the current packet
     :return: dcp block class
     """
-
+    # packet = unicode(packet, "utf-8")
     option = packet[0]
     suboption = packet[1]
 
     # TODO implement the other functions if needed
+
+    # convert from hex string to int in python 2
+    try:
+        option = ord(option)
+        suboption = ord(suboption)
+    except:
+        pass
 
     class_switch_case = {
         # IP
@@ -467,6 +473,7 @@ def guess_dcp_block_class(packet, **kargs):
                 0xff: "ALL Selector (0xff)"
             }
     }
+
     try:
         c = class_switch_case[option][suboption]
     except KeyError:
