@@ -4,6 +4,13 @@
 
 = Setup packet conversion
 
+def expect_exception(e, c):
+    try:
+        c()
+        return False
+    except e:
+        return True
+
 # PacketA declares no conversions, but will have conversions declared by
 # PacketB.
 class PacketA(Packet):
@@ -81,10 +88,9 @@ assert p2.bar == 1234
 = convert_to A -> C (fails)
 
 p1 = PacketA(foo=1234)
-p2 = p1.convert_to(PacketC)
+expect_exception(TypeError, lambda: p1.convert_to(PacketC))
 
 assert p1.foo == 1234
-assert p2 is None
 
 = convert_to A -> Raw
 
@@ -106,10 +112,9 @@ assert p2.foo == 1234
 = convert_to B -> C (fails)
 
 p1 = PacketB(bar=1234)
-p2 = p1.convert_to(PacketC)
+expect_exception(TypeError, lambda: p1.convert_to(PacketC))
 
 assert p1.bar == 1234
-assert p2 is None
 
 = convert_to B -> Raw
 
@@ -148,10 +153,9 @@ assert p2.bar == 1234
 = convert_packet A -> C (fails)
 
 p1 = PacketA(foo=1234)
-p2 = PacketC.convert_packet(p1)
+expect_exception(TypeError, lambda: PacketC.convert_packet(p1))
 
 assert p1.foo == 1234
-assert p2 is None
 
 = convert_packet A -> Raw
 
@@ -173,10 +177,9 @@ assert p2.foo == 1234
 = convert_packet B -> C (fails)
 
 p1 = PacketB(bar=1234)
-p2 = PacketC.convert_packet(p1)
+expect_exception(TypeError, lambda: PacketC.convert_packet(p1))
 
 assert p1.bar == 1234
-assert p2 is None
 
 = convert_packet B -> Raw
 

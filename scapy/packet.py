@@ -1456,8 +1456,10 @@ hashable.
         By default, this only implements conversion to ``Raw``.
 
         :param other_cls: Reference to a Packet class to convert to.
-        :returns: Converted form of the packet, or None if no conversion is
-                  available.
+        :type other_cls: Type[Packet]
+        :returns: Converted form of the packet.
+        :rtype: other_cls
+        :raises TypeError: When conversion is not possible
         """
         if not issubtype(other_cls, Packet):
             raise TypeError("{} must implement Packet".format(other_cls))
@@ -1471,6 +1473,8 @@ hashable.
         if "_internal" not in kwargs:
             return other_cls.convert_packet(self, _internal=True, **kwargs)
 
+        raise TypeError("Cannot convert {} to {}".format(self, other_cls))
+
     @classmethod
     def convert_packet(cls, pkt, **kwargs):
         """Converts another packet to be this type.
@@ -1478,14 +1482,18 @@ hashable.
         This is not guaranteed to be a lossless process.
 
         :param pkt: The packet to convert.
-        :returns: Converted form of the packet, or None if no conversion is
-                  available.
+        :type pkt: Packet
+        :returns: Converted form of the packet.
+        :rtype: cls
+        :raises TypeError: When conversion is not possible
         """
         if not isinstance(pkt, Packet):
             raise TypeError("Can only convert Packets")
 
         if "_internal" not in kwargs:
             return pkt.convert_to(cls, _internal=True, **kwargs)
+
+        raise TypeError("Cannot convert {} to {}".format(pkt, cls))
 
     @classmethod
     def convert_packets(cls, pkts, **kwargs):
