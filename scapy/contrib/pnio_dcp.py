@@ -19,7 +19,6 @@
 # scapy.contrib.description = Profinet DCP layer
 # scapy.contrib.status = loads
 
-#from __future__ import absolute_import
 from scapy.all import Packet, bind_layers, Padding
 from scapy.fields import ByteEnumField, ShortField, XShortField, \
     ShortEnumField, FieldLenField, XByteField, XIntField, MultiEnumField, \
