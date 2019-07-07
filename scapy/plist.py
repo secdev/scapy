@@ -565,6 +565,74 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
             x.append(p)
         return x
 
+    def getlayer(self, cls, nb=None, flt=None, name=None, stats=None):
+        """Returns the packet list from a given layer.
+
+        See ``Packet.getlayer`` for more info.
+
+        :param cls: search for a layer that is an instance of ``cls``
+        :type cls: Type[Packet]
+
+        :param nb: return the nb^th layer that is an instance of ``cls``
+        :type nb: Optional[int]
+
+        :param flt: filter parameters for ``Packet.getlayer``
+        :type flt: Optional[Dict[str, Any]]
+
+        :param name: optional name for the new PacketList
+        :type name: Optional[str]
+
+        :param stats: optional list of protocols to give stats on; if not
+                      specified, inherits from this PacketList.
+        :type stats: Optional[List[Type[Packet]]]
+        :rtype: PacketList
+        """
+        if name is None:
+            name = "{} layer {}".format(self.listname, cls.__name__)
+        if stats is None:
+            stats = self.stats
+
+        getlayer_arg = {}
+        if flt is not None:
+            getlayer_arg.update(flt)
+        getlayer_arg['cls'] = cls
+        if nb is not None:
+            getlayer_arg['nb'] = nb
+
+        # Only return non-None getlayer results
+        return PacketList([
+            pc for pc in (p.getlayer(**getlayer_arg) for p in self.res)
+            if pc is not None],
+            name, stats
+        )
+
+    def convert_to(self, other_cls, name=None, stats=None):
+        """Converts all packets to another type.
+
+        See ``Packet.convert_to`` for more info.
+
+        :param other_cls: reference to a Packet class to convert to
+        :type other_cls: Type[Packet]
+
+        :param name: optional name for the new PacketList
+        :type name: Optional[str]
+
+        :param stats: optional list of protocols to give stats on;
+                      if not specified, inherits from this PacketList.
+        :type stats: Optional[List[Type[Packet]]]
+
+        :rtype: PacketList
+        """
+        if name is None:
+            name = "{} converted to {}".format(self.listname, other_cls.__name__)
+        if stats is None:
+            stats = self.stats
+
+        return PacketList(
+            [p.convert_to(other_cls) for p in self.res],
+            name, stats
+        )
+
 
 class SndRcvList(PacketList):
     __slots__ = []

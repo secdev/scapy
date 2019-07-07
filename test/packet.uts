@@ -11,13 +11,23 @@ def expect_exception(e, c):
     except e:
         return True
 
+def no_theme(c):
+    old_theme = conf.color_theme
+    conf.color_theme = NoTheme()
+    try:
+        return c()
+    finally:
+        conf.color_theme = old_theme
+
 # PacketA declares no conversions, but will have conversions declared by
 # PacketB.
 class PacketA(Packet):
+    name = 'PacketA'
     fields_desc = [LEShortField('foo', None)]
 
 # PacketB declares conversions for PacketA
 class PacketB(Packet):
+    name = 'PacketB'
     fields_desc = [ShortField('bar', None)]
     def convert_to(self, other_cls, **kwargs):
         if other_cls is PacketA:
@@ -32,10 +42,12 @@ class PacketB(Packet):
 # PacketC has no defined conversions, either way.
 # Converting to or from it should fail.
 class PacketC(Packet):
+    name = 'PacketC'
     fields_desc = [IntField('x', None),]
 
 # Packet D stacks Packet C under it.
 class PacketD(Packet):
+    name = 'PacketD'
     fields_desc = [ShortField('version', 12),]
 
 bind_layers(PacketD, PacketC)
@@ -222,3 +234,66 @@ except TypeError:
     pass
 else:
     assert False
+
+= PacketList.convert_to A -> B
+
+pl1 = PacketList([PacketA(foo=x) for x in range(10)])
+pl2 = pl1.convert_to(PacketB)
+
+for i, p2 in enumerate(pl2):
+    assert p2.bar == i
+
+assert 'PacketB' in pl2.listname
+
+= PacketList.convert_to custom name / stats
+
+pl1 = PacketList(
+    [PacketA(foo=x) for x in range(10)], name='my old list', stats=[PacketA])
+assert pl1.listname == 'my old list'
+
+pl2 = pl1.convert_to(PacketB, name='my new list', stats=[PacketB, PacketC])
+
+for i, p2 in enumerate(pl2):
+    assert p2.bar == i
+
+assert pl2.listname == 'my new list'
+
+assert no_theme(lambda: 'PacketA' not in str(pl2))
+assert no_theme(lambda: 'PacketB:10' in str(pl2))
+
+= PacketList.getlayer
+
+pl1 = PacketList([PacketC(x=x)/PacketD(version=x*2) for x in range(10)])
+pl2 = pl1.getlayer(PacketD)
+
+for i, p2 in enumerate(pl2):
+    assert p2.version == i * 2
+
+assert 'PacketD' in pl2.listname
+
+= PacketList.getlayer custom name / stats
+
+pl1 = PacketList(
+    [PacketC(x=x)/PacketD(version=x*2) for x in range(10)],
+    name='old list', stats=[PacketC])
+pl2 = pl1.getlayer(PacketD, name='new list', stats=[PacketD])
+
+for i, p2 in enumerate(pl2):
+    assert p2.version == i * 2
+
+assert pl2.listname == 'new list'
+assert no_theme(lambda: 'PacketC' not in str(pl2))
+assert no_theme(lambda: 'PacketD:10' in str(pl2))
+
+= PacketList.getlayer filtering
+
+pl1 = PacketList([PacketC(x=x)/PacketD(version=x*2) for x in range(10)])
+pl2 = pl1.getlayer(PacketD, nb=1, flt={'version': 6})
+
+assert len(pl2) == 1
+assert pl2[0].version == 6
+
+= PacketList.getlayer filtering with 0 results
+
+pl2 = pl1.getlayer(PacketD, nb=1, flt={'version': 1})
+assert len(pl2) == 0
