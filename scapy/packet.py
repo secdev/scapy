@@ -1473,7 +1473,7 @@ hashable.
         if "_internal" not in kwargs:
             return other_cls.convert_packet(self, _internal=True, **kwargs)
 
-        raise TypeError("Cannot convert {} to {}".format(self, other_cls))
+        raise TypeError("Cannot convert {} to {}".format(type(self), other_cls))
 
     @classmethod
     def convert_packet(cls, pkt, **kwargs):
@@ -1493,7 +1493,7 @@ hashable.
         if "_internal" not in kwargs:
             return pkt.convert_to(cls, _internal=True, **kwargs)
 
-        raise TypeError("Cannot convert {} to {}".format(pkt, cls))
+        raise TypeError("Cannot convert {} to {}".format(type(pkt), cls))
 
     @classmethod
     def convert_packets(cls, pkts, **kwargs):
