@@ -624,7 +624,8 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         :rtype: PacketList
         """
         if name is None:
-            name = "{} converted to {}".format(self.listname, other_cls.__name__)
+            name = "{} converted to {}".format(
+                self.listname, other_cls.__name__)
         if stats is None:
             stats = self.stats
 
