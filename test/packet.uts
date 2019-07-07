@@ -34,7 +34,7 @@ class PacketB(Packet):
 class PacketC(Packet):
     fields_desc = [IntField('x', None),]
 
-# Packet D stacks Packet C under it. This should be convertible to PacketC only.
+# Packet D stacks Packet C under it.
 class PacketD(Packet):
     fields_desc = [ShortField('version', 12),]
 
@@ -125,13 +125,12 @@ assert p1.bar == 1234
 assert isinstance(p2, Raw)
 assert p2.load == b'\x04\xd2'
 
-= convert_to D -> C
+= convert_to D -> C (fails)
 
 p1 = PacketD()/PacketC(x=1234)
-p2 = p1.convert_to(PacketC)
+expect_exception(TypeError, lambda: p1.convert_to(PacketC))
 
 assert p1.x == 1234
-assert p2.x == 1234
 
 = convert_to invalid type
 
@@ -190,13 +189,12 @@ assert p1.bar == 1234
 assert isinstance(p2, Raw)
 assert p2.load == b'\x04\xd2'
 
-= convert_packet D -> C
+= convert_packet D -> C (fails)
 
 p1 = PacketD()/PacketC(x=1234)
-p2 = PacketC.convert_packet(p1)
+expect_exception(TypeError, lambda: PacketC.convert_packet(p1))
 
 assert p1.x == 1234
-assert p2.x == 1234
 
 = convert_packets A -> B
 

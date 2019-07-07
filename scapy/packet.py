@@ -1467,9 +1467,6 @@ hashable.
         if other_cls is Raw:
             return Raw(raw(self))
 
-        if self.haslayer(other_cls):
-            return self.getlayer(other_cls)
-
         if "_internal" not in kwargs:
             return other_cls.convert_packet(self, _internal=True, **kwargs)
 
