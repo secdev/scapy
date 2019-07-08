@@ -89,9 +89,10 @@ ReadOnlyAttribute.__doc__ = "Read-only class attribute"
 
 
 class ProgPath(ConfClass):
-    pdfreader = "open" if DARWIN else "xdg-open"
-    psreader = "open" if DARWIN else "xdg-open"
-    svgreader = "open" if DARWIN else "xdg-open"
+    universal_open = "open" if DARWIN else "xdg-open"
+    pdfreader = universal_open
+    psreader = universal_open
+    svgreader = universal_open
     dot = "dot"
     display = "display"
     tcpdump = "tcpdump"
@@ -618,6 +619,7 @@ recv_poll_rate: how often to check for new packets. Defaults to 0.05s.
     temp_files = []
     netcache = NetCache()
     geoip_city = None
+    # can, tls, http are not loaded by default
     load_layers = ['bluetooth', 'bluetooth4LE', 'dhcp', 'dhcp6', 'dns',
                    'dot11', 'dot15d4', 'eap', 'gprs', 'hsrp', 'inet',
                    'inet6', 'ipsec', 'ir', 'isakmp', 'l2', 'l2tp',

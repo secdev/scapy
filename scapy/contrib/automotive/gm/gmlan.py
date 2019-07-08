@@ -17,6 +17,7 @@ from scapy.fields import ObservableDict, XByteEnumField, ByteEnumField, \
 from scapy.packet import Packet, bind_layers
 from scapy.config import conf
 from scapy.error import warning
+from scapy.utils import PeriodicSenderThread
 
 
 """
@@ -634,3 +635,20 @@ class GMLAN_NR(Packet):
 
 
 bind_layers(GMLAN, GMLAN_NR, service=0x7f)
+
+
+# ##################################################################
+# ######################## UTILS ###################################
+# ##################################################################
+
+
+class GMLAN_TesterPresentSender(PeriodicSenderThread):
+    def __init__(self, sock, pkt=GMLAN(service="TesterPresent"), interval=2):
+        """ Thread to send TesterPresent messages packets periodically
+
+        Args:
+            sock: socket where packet is sent periodically
+            pkt: packet to send
+            interval: interval between two packets
+        """
+        PeriodicSenderThread.__init__(self, sock, pkt, interval)

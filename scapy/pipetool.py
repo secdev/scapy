@@ -50,6 +50,7 @@ class PipeEngine(SelectableObject):
         self.__fd_queue = collections.deque()
         self.__fdr, self.__fdw = os.pipe()
         self.thread = None
+        SelectableObject.__init__(self)
 
     def __getattr__(self, attr):
         if attr.startswith("spawn_"):
@@ -328,6 +329,7 @@ class Pipe(six.with_metaclass(_PipeMeta, _ConnectorLogic)):
 class Source(Pipe, SelectableObject):
     def __init__(self, name=None):
         Pipe.__init__(self, name=name)
+        SelectableObject.__init__(self)
         self.is_exhausted = False
 
     def _read_message(self):
@@ -391,6 +393,7 @@ class Sink(Pipe):
 
 class AutoSource(Source, SelectableObject):
     def __init__(self, name=None):
+        SelectableObject.__init__(self)
         Source.__init__(self, name=name)
         self.__fdr, self.__fdw = os.pipe()
         self._queue = collections.deque()

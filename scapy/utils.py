@@ -23,6 +23,7 @@ import struct
 import array
 import subprocess
 import tempfile
+import threading
 
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
@@ -1907,3 +1908,31 @@ def whois(ip_address):
         else:
             break
     return b"\n".join(lines[3:])
+
+#######################
+#   PERIODIC SENDER   #
+#######################
+
+
+class PeriodicSenderThread(threading.Thread):
+    def __init__(self, sock, pkt, interval=0.5):
+        """ Thread to send packets periodically
+
+        Args:
+            sock: socket where packet is sent periodically
+            pkt: packet to send
+            interval: interval between two packets
+        """
+        self._pkt = pkt
+        self._socket = sock
+        self._stopped = threading.Event()
+        self._interval = interval
+        threading.Thread.__init__(self)
+
+    def run(self):
+        while not self._stopped.is_set():
+            self._socket.send(self._pkt)
+            time.sleep(self._interval)
+
+    def stop(self):
+        self._stopped.set()

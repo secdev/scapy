@@ -23,10 +23,10 @@ from functools import reduce
 import scapy.modules.six as six
 from scapy.modules.six.moves import range, zip
 
-
 #############
 #  Results  #
 #############
+
 
 class PacketList(BasePacketList, _CanvasDumpExtended):
     __slots__ = ["stats", "res", "listname"]
