@@ -329,3 +329,50 @@ exit_status = os.system("ip addr add 192.0.2.1/24 dev scapy0")
 exit_status = os.system("ip link set scapy0 up")
 assert _interface_selection(None, IP(dst="192.0.2.42")/UDP()) == "scapy0"
 exit_status = os.system("ip link del name dev scapy0")
+
+= Test 802.Q sniffing
+~ linux needs_root
+
+from threading import Thread, Condition
+
+veth = VEthPair("left0", "right0")
+veth.setup()
+veth.up()
+exit_status = os.system("ip link add link right0 name vlanright0 type vlan id 42")
+exit_status = os.system("ip link add link left0 name vlanleft0 type vlan id 42")
+exit_status = os.system("ip link set vlanright0 up")
+exit_status = os.system("ip link set vlanleft0 up")
+exit_status = os.system("ip addr add 198.51.100.1/24 dev vlanleft0")
+exit_status = os.system("ip addr add 198.51.100.2/24 dev vlanright0")
+
+cond_started = Condition()
+
+def _sniffer_started():
+
+    global cond_started
+    cond_started.acquire()
+    cond_started.notify()
+    cond_started.release()
+
+cond_started.acquire()
+
+dot1q_count = 0
+
+def _sniffer():
+    sniffed = sniff(iface="right0",
+                    lfilter=lambda p: Dot1Q in p,
+                    count=2,
+                    timeout=5,
+                    started_callback=_sniffer_started)
+    global dot1q_count
+    dot1q_count = len(sniffed)
+
+t_sniffer = Thread(target=_sniffer)
+t_sniffer.start()
+cond_started.wait()
+sendp(Ether()/IP(dst="198.51.100.2")/ICMP(), iface='vlanleft0', count=2)
+
+t_sniffer.join(1)
+assert(dot1q_count == 2)
+
+veth.destroy()
