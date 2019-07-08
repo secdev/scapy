@@ -40,6 +40,9 @@ BIOCIMMEDIATE = -2147204496
 class _L2pcapdnetSocket(SuperSocket, SelectableObject):
     nonblocking_socket = True
 
+    def __init__(self):
+        SelectableObject.__init__(self)
+
     def check_recv(self):
         return True
 
@@ -264,6 +267,7 @@ if conf.use_pcap:
         desc = "read packets at layer 2 using libpcap"
 
         def __init__(self, iface=None, type=ETH_P_ALL, promisc=None, filter=None, monitor=None):  # noqa: E501
+            super(L2pcapListenSocket, self).__init__()
             self.type = type
             self.outs = None
             self.iface = iface
@@ -301,6 +305,7 @@ if conf.use_pcap:
 
         def __init__(self, iface=None, type=ETH_P_ALL, promisc=None, filter=None, nofilter=0,  # noqa: E501
                      monitor=None):
+            super(L2pcapSocket, self).__init__()
             if iface is None:
                 iface = conf.iface
             self.iface = iface

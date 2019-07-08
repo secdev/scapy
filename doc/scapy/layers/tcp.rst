@@ -53,6 +53,8 @@ Here is how to use Scapy's TCP client automaton (needs at least Scapy v2.1.1).
    >>> s.recv()
    <Raw  load='<html>\r\n<head> ... >
 
+.. note:: specifically for HTTP, you could pass ``HTTP`` instead of ``Raw``. More information over `HTTP in Scapy <http.html>`_.
+
 Use external projects
 ---------------------
 
