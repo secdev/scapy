@@ -77,10 +77,8 @@ DCP_OPTIONS = {
     0x06: "Device Initiative",
     0xff: "All Selector"
 }
-reserved = {i: "reserved" for i in range(0x07, 0x7f)}
-manufacturer_specific = {i: "Manufacturer specific" for i in range(0x80, 0xfe)}
-DCP_OPTIONS.update(reserved)
-DCP_OPTIONS.update(manufacturer_specific)
+DCP_OPTIONS.update({i: "reserved" for i in range(0x07, 0x7f)})
+DCP_OPTIONS.update({i: "Manufacturer specific" for i in range(0x80, 0xfe)})
 
 DCP_SUBOPTIONS = {
     # ip
@@ -136,8 +134,7 @@ DCP_SUBOPTIONS = {
 BLOCK_INFOS = {
     0x00: "Reserved",
 }
-reserved = {i: "reserved" for i in range(0x01, 0xff)}
-BLOCK_INFOS.update(reserved)
+BLOCK_INFOS.update({i: "reserved" for i in range(0x01, 0xff)})
 
 
 IP_BLOCK_INFOS = {
@@ -148,8 +145,7 @@ IP_BLOCK_INFOS = {
     0x0081: "IP set (address conflict detected)",
     0x0082: "IP set by DHCP (address conflict detected)",
 }
-reserved = {i: "reserved" for i in range(0x0003, 0x007f)}
-IP_BLOCK_INFOS.update(reserved)
+IP_BLOCK_INFOS.update({i: "reserved" for i in range(0x0003, 0x007f)})
 
 BLOCK_ERRORS = {
     0x00: "Ok",
@@ -164,10 +160,8 @@ BLOCK_ERRORS = {
 BLOCK_QUALIFIERS = {
     0x0000: "Use the value temporary",
     0x0001: "Save the value permanent",
-    # range(0x0002, 0x00ff): "reserved"
 }
-reserved = {i: "reserved" for i in range(0x0002, 0x00ff)}
-BLOCK_QUALIFIERS.update(reserved)
+BLOCK_QUALIFIERS.update({i: "reserved" for i in range(0x0002, 0x00ff)})
 
 
 #####################################################
