@@ -259,6 +259,7 @@ b = bytes(p)
 assert b[:3] == b'\x01\x02\xdd'
 p = MQTTSN(b)
 assert p.len == 733
+assert p.data == 726 * b"X"
 
 = MQTTSNPublish, packet dissection
 b = b"\x0b\x0c\x40\x19\x7f\x6a\x26testing"
