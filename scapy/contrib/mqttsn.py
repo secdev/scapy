@@ -192,6 +192,8 @@ def _mqttsn_len_adjust(pkt, x):
     elif (pkt.type == ENCAPS_MSG) and \
          (getattr(pkt.payload, "w_node_id", None) is not None):
         res = x + len(pkt.payload.w_node_id) + 1
+    if res > 0xff:
+        res += 2
     return res
 
 
