@@ -55,13 +55,13 @@ class NSH(Packet):
         BitField('Unused1', 0, 1),
         BitField('TTL', 63, 6),
         BitFieldLenField('Length', None, 6,
-                         count_of='ContextHeaders',
+                         count_of='VLCH',
                          adjust=lambda pkt, x: 6 if pkt.MDType == 1 else x + 2),  # noqa: E501
         BitField('Unused2', 0, 1),
         BitField('Unused3', 0, 1),
         BitField('Unused4', 0, 1),
         BitField('Unused5', 0, 1),
-        BitEnumField('MDType', 1, {0: 'Reserved MDType',
+        BitEnumField('MDType', 1, 4, {0: 'Reserved MDType',
                                     1: 'Fixed Length',
                                     2: 'Variable Length',
                                     0xF: 'Experimental MDType'}),
@@ -78,7 +78,7 @@ class NSH(Packet):
         ConditionalField(XIntField('CH2', 0), lambda pkt: pkt.MDType == 1),
         ConditionalField(XIntField('CH3', 0), lambda pkt: pkt.MDType == 1),
         ConditionalField(XIntField('CH4', 0), lambda pkt: pkt.MDType == 1),
-        ConditionalField(PacketListField("Conditional CH", None, NSHTLV, count_from="Length"),
+        ConditionalField(PacketListField("VLCH", None, NSHTLV, count_from="Length"),
                          lambda pkt: pkt.MDType == 2)
     ]
 
