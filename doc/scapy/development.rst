@@ -279,6 +279,7 @@ signing a commit, the maintainer that wishes to create a release must:
 * check that the corresponding Travis and AppVeyor tests pass
 * run ``./run_scapy`` locally
 * run ``tox``
+* run unit tests on BSD using the Vagrant setup from ``scapy/doc/vagrant_ci/``
 
 Taking v2.4.3 as an example, the following commands can be used to sign and
 publish the release::
