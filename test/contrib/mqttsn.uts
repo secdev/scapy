@@ -256,9 +256,9 @@ assert p.mid == 36181
 assert p.data == 726 * b"X"
 # Check if length field was constructed correctly
 b = bytes(p)
-assert b[:3] == b'\x01\x02\xdd'
+assert b[:3] == b'\x01\x02\xdf'
 p = MQTTSN(b)
-assert p.len == 733
+assert p.len == 735
 assert p.data == 726 * b"X"
 
 = MQTTSNPublish, packet dissection
