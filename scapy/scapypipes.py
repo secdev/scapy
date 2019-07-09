@@ -472,3 +472,30 @@ class TriggeredSwitch(Drain):
     def on_trigger(self, msg):
         self.low ^= True
         self._trigger(msg)
+
+
+class ConvertPipe(Drain):
+    """Packets sent on entry are converted to another type of packet.
+
+         +-------------+
+      >>-|--[convert]--|->>
+         |             |
+       >-|--[convert]--|->
+         +-------------+
+
+    See ``Packet.convert_packet``.
+    """
+    def __init__(self, low_type=None, high_type=None, name=None):
+        Drain.__init__(self, name=name)
+        self.low_type = low_type
+        self.high_type = high_type
+
+    def push(self, msg):
+        if self.low_type:
+            msg = self.low_type.convert_packet(msg)
+        self._send(msg)
+
+    def high_push(self, msg):
+        if self.high_type:
+            msg = self.high_type.convert_packet(msg)
+        self._high_send(msg)
