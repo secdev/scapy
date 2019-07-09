@@ -16,7 +16,7 @@
 # scapy.contrib.status = loads
 
 from scapy.all import bind_layers
-from scapy.fields import BitField, ByteField, ByteEnumField
+from scapy.fields import BitField, ByteField, ByteEnumField, BitEnumField
 from scapy.fields import ShortField, X3BytesField, XIntField
 from scapy.fields import ConditionalField, PacketListField, BitFieldLenField
 from scapy.layers.inet import Ether, IP
@@ -29,25 +29,18 @@ from scapy.contrib.mpls import MPLS
 
 #
 # NSH Support
-# https://www.ietf.org/id/draft-ietf-sfc-nsh-05.txt
+# https://www.rfc-editor.org/rfc/rfc8300.txt  January 2018
 #
-
-
-class Metadata(Packet):
-    name = 'NSH metadata'
-    fields_desc = [XIntField('value', 0)]
-
 
 class NSHTLV(Packet):
     "NSH MD-type 2 - Variable Length Context Headers"
     name = "NSHTLV"
     fields_desc = [
         ShortField('Class', 0),
-        BitField('Critical', 0, 1),
-        BitField('Type', 0, 7),
-        BitField('Reserved', 0, 3),
-        BitField('Len', 0, 5),
-        PacketListField('Metadata', None, XIntField, count_from='Len')
+        BitField('Type', 0, 8),
+        BitField('Reserved', 0, 1),
+        BitField('Len', 0, 7),
+        PacketListField('Metadata', None, XIntField, count_from='len')
     ]
 
 
@@ -59,31 +52,38 @@ class NSH(Packet):
     fields_desc = [
         BitField('Ver', 0, 2),
         BitField('OAM', 0, 1),
-        BitField('Critical', 0, 1),
-        BitField('Reserved', 0, 6),
-        BitFieldLenField('Len', None, 6,
+        BitField('Unused1', 0, 1),
+        BitField('TTL', 63, 6),
+        BitFieldLenField('Length', None, 6,
                          count_of='ContextHeaders',
                          adjust=lambda pkt, x: 6 if pkt.MDType == 1 else x + 2),  # noqa: E501
-        ByteEnumField('MDType', 1, {1: 'Fixed Length',
-                                    2: 'Variable Length'}),
+        BitField('Unused2', 0, 1),
+        BitField('Unused3', 0, 1),
+        BitField('Unused4', 0, 1),
+        BitField('Unused5', 0, 1),
+        BitEnumField('MDType', 1, {0: 'Reserved MDType',
+                                    1: 'Fixed Length',
+                                    2: 'Variable Length',
+                                    0xF: 'Experimental MDType'}),
         ByteEnumField('NextProto', 3, {1: 'IPv4',
                                        2: 'IPv6',
                                        3: 'Ethernet',
                                        4: 'NSH',
-                                       5: 'MPLS'}),
-        X3BytesField('NSP', 0),
-        ByteField('NSI', 1),
-        ConditionalField(XIntField('NPC', 0), lambda pkt: pkt.MDType == 1),
-        ConditionalField(XIntField('NSC', 0), lambda pkt: pkt.MDType == 1),
-        ConditionalField(XIntField('SPC', 0), lambda pkt: pkt.MDType == 1),
-        ConditionalField(XIntField('SSC', 0), lambda pkt: pkt.MDType == 1),
-        ConditionalField(PacketListField("ContextHeaders", None,
-                                         NSHTLV, count_from="Length"),
+                                       5: 'MPLS',
+                                       0xFE: 'Experiment 1',
+                                       0xFF: 'Experiment 2'}),
+        X3BytesField('SPI', 0),
+        ByteField('SI', 0xFF),
+        ConditionalField(XIntField('CH1', 0), lambda pkt: pkt.MDType == 1),
+        ConditionalField(XIntField('CH2', 0), lambda pkt: pkt.MDType == 1),
+        ConditionalField(XIntField('CH3', 0), lambda pkt: pkt.MDType == 1),
+        ConditionalField(XIntField('CH4', 0), lambda pkt: pkt.MDType == 1),
+        ConditionalField(PacketListField("Conditional CH", None, NSHTLV, count_from="Length"),
                          lambda pkt: pkt.MDType == 2)
     ]
 
     def mysummary(self):
-        return self.sprintf("NSP: %NSP% - NSI: %NSI%")
+        return self.sprintf("SPI: %SPI% - SI: %SI%")
 
 
 bind_layers(Ether, NSH, {'type': 0x894F}, type=0x894F)
