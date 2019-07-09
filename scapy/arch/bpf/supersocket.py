@@ -241,6 +241,8 @@ class L2bpfListenSocket(_L2bpfSocket):
         """Get a frame or packet from the received list"""
         if self.received_frames:
             return self.received_frames.pop(0)
+        else:
+            return None, None, None
 
     @staticmethod
     def bpf_align(bh_h, bh_c):
@@ -299,7 +301,7 @@ class L2bpfListenSocket(_L2bpfSocket):
             bpf_buffer = os.read(self.ins, x)
         except EnvironmentError as exc:
             if exc.errno != errno.EAGAIN:
-                warning("BPF recv()", exc_info=True)
+                warning("BPF recv_raw()", exc_info=True)
             return None, None, None
 
         # Extract all frames from the BPF buffer
