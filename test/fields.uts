@@ -1252,6 +1252,7 @@ assert Dot11().FCfield.to_DS is False
 ########
 ########
 + MultipleTypeField
+~ mtf
 
 = Test initialization order
 
