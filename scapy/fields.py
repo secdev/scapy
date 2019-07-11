@@ -336,6 +336,9 @@ the value to set is also known) of ._find_fld_pkt() instead.
             except KeyError:
                 pass
             else:
+                if not pkt.default_fields:
+                    # Packet not initialized
+                    return self.dflt
                 if isinstance(pkt, tuple(self.dflt.owners)):
                     return self._find_fld_pkt(pkt)
             frame = frame.f_back
