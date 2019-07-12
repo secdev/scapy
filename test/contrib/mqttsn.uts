@@ -809,3 +809,10 @@ b = b"\x60\x00\x00\x00\x00\x0f\x11\x40\x20\x01\x0d\xb8\x00\x00\x00\x00" \
     b"\x07\x0d\x00\x01\x86\x2f\x00"
 p = IPv6(b)
 assert MQTTSNPuback in p
+
+= UDP packet instantiation
+b = bytes(UDP() / MQTTSN() / MQTTSNConnack())
+p = UDP(b)
+assert MQTTSNConnack in p
+assert p.sport == 1883
+assert p.dport == 1883
