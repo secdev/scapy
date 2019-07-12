@@ -7881,6 +7881,65 @@ default            link#11            UCSI            1        0 bridge1
 test_osx_netstat_truncated()
 
 
+= macOS 10.13
+~ mock_read_routes_bsd
+
+import mock
+from io import StringIO
+
+@mock.patch("scapy.arch.unix.get_if_addr")
+@mock.patch("scapy.arch.unix.os")
+def test_osx_10_13_ipv4(mock_os, mock_get_if_addr):
+    """Test read_routes() on OS X 10.13"""
+    # 'netstat -rn -f inet' output
+    netstat_output = u"""
+Routing tables
+
+Internet:
+Destination        Gateway            Flags        Refs      Use   Netif Expire
+default            192.168.28.1       UGSc           82        0     en0
+127                127.0.0.1          UCS             0        0     lo0
+127.0.0.1          127.0.0.1          UH              1      878     lo0
+169.254            link#5             UCS             0        0     en0
+192.168.28         link#5             UCS             4        0     en0
+192.168.28.1/32    link#5             UCS             2        0     en0
+192.168.28.1       88:32:9c:f5:4e:ea  UHLWIir        40       37     en0   1177
+192.168.28.2       62:aa:56:4b:51:54  UHLWI           0        0     en0    619
+192.168.28.4       38:17:ed:9a:58:28  UHLWIi          1        6     en0    428
+192.168.28.18/32   link#5             UCS             1        0     en0
+192.168.28.18      88:32:9c:f5:4e:eb  UHLWI           0        1     lo0
+192.168.28.28      04:0e:eb:11:74:a7  UHLWI           0        0     en0    576
+224.0.0/4          link#5             UmCS            1        0     en0
+224.0.0.251        1:0:5e:0:0:fb      UHmLWI          0        0     en0
+255.255.255.255/32 link#5             UCS             0        0     en0
+"""
+    # Mocked file descriptor
+    strio = StringIO(netstat_output)
+    mock_os.popen = mock.MagicMock(return_value=strio)
+    # Mocked get_if_addr() output
+    def se_get_if_addr(iface):
+        """Perform specific side effects"""
+        import socket
+        if iface == "en0":
+            return "192.168.28.18"
+        return "127.0.0.1"
+    mock_get_if_addr.side_effect = se_get_if_addr
+    # Test the function
+    from scapy.arch.unix import read_routes
+    scapy.arch.unix.DARWIN = False
+    scapy.arch.unix.FREEBSD = True
+    scapy.arch.unix.NETBSD = False
+    scapy.arch.unix.OPENBSD = False
+    routes = read_routes()
+    for r in routes:
+        print(r)
+    assert(len(routes) == 15)
+    default_route = [r for r in routes if r[0] == 0][0]
+    assert default_route[3] == "en0" and default_route[4] == "192.168.28.18"
+
+test_osx_10_13_ipv4()
+
+
 = OpenBSD 6.3
 ~ mock_read_routes_bsd
 
