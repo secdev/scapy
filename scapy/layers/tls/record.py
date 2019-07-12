@@ -23,7 +23,7 @@ from scapy.packet import Raw, Padding, bind_layers
 from scapy.layers.inet import TCP
 from scapy.layers.tls.session import _GenericTLSSessionInheritance
 from scapy.layers.tls.handshake import (_tls_handshake_cls, _TLSHandshake,
-                                        TLS13ServerHello)
+                                        _tls13_handshake_cls, TLS13ServerHello)
 from scapy.layers.tls.basefields import (_TLSVersionField, _tls_version,
                                          _TLSIVField, _TLSMACField,
                                          _TLSPadField, _TLSPadLenField,
@@ -89,7 +89,13 @@ class _TLSMsgListField(PacketListField):
         if pkt.type == 22:
             if len(m) >= 1:
                 msgtype = orb(m[0])
-                cls = _tls_handshake_cls.get(msgtype, Raw)
+                if ((pkt.tls_session.advertised_tls_version == 0x0304) or
+                        (pkt.tls_session.tls_version and
+                         pkt.tls_session.tls_version == 0x0304)):
+                    cls = _tls13_handshake_cls.get(msgtype, Raw)
+                else:
+                    cls = _tls_handshake_cls.get(msgtype, Raw)
+
         elif pkt.type == 20:
             cls = TLSChangeCipherSpec
         elif pkt.type == 21:
@@ -145,7 +151,7 @@ class _TLSMsgListField(PacketListField):
                 if Padding in p:
                     pad = p[Padding]
                     remain = pad.load
-                    del(pad.underlayer.payload)
+                    del pad.underlayer.payload
                     if len(remain) != 0:
                         raw_msg = raw_msg[:-len(remain)]
                 else:
@@ -501,16 +507,18 @@ class TLS(_GenericTLSSessionInheritance):
         nothing if the prcs was not set, as this probably means that we're
         working out-of-context (and we need to keep the default rcs).
         """
-        if self.tls_session.triggered_prcs_commit:
-            if self.tls_session.prcs is not None:
-                self.tls_session.rcs = self.tls_session.prcs
-                self.tls_session.prcs = None
-            self.tls_session.triggered_prcs_commit = False
-        if self.tls_session.triggered_pwcs_commit:
-            if self.tls_session.pwcs is not None:
-                self.tls_session.wcs = self.tls_session.pwcs
-                self.tls_session.pwcs = None
-            self.tls_session.triggered_pwcs_commit = False
+        if (self.tls_session.tls_version and
+                self.tls_session.tls_version <= 0x0303):
+            if self.tls_session.triggered_prcs_commit:
+                if self.tls_session.prcs is not None:
+                    self.tls_session.rcs = self.tls_session.prcs
+                    self.tls_session.prcs = None
+                self.tls_session.triggered_prcs_commit = False
+            if self.tls_session.triggered_pwcs_commit:
+                if self.tls_session.pwcs is not None:
+                    self.tls_session.wcs = self.tls_session.pwcs
+                    self.tls_session.pwcs = None
+                self.tls_session.triggered_pwcs_commit = False
         return s
 
     def do_dissect_payload(self, s):

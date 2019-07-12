@@ -49,11 +49,12 @@ _tls_hash_sig = {0x0000: "none+anon", 0x0001: "none+rsa",
                  0x0502: "sha384+dsa", 0x0503: "sha384+ecdsa",
                  0x0600: "sha512+anon", 0x0601: "sha512+rsa",
                  0x0602: "sha512+dsa", 0x0603: "sha512+ecdsa",
-                 0x0804: "sha256+rsapss",
-                 0x0805: "sha384+rsapss",
-                 0x0806: "sha512+rsapss",
+                 0x0804: "sha256+rsaepss",
+                 0x0805: "sha384+rsaepss",
+                 0x0806: "sha512+rsaepss",
                  0x0807: "ed25519",
-                 0x0808: "ed448"}
+                 0x0808: "ed448",
+                 0x0809: "sha256+rsapss"}
 
 
 def phantom_mode(pkt):
@@ -155,7 +156,7 @@ class _TLSSignature(_GenericTLSSessionInheritance):
     #XXX 'sig_alg' should be set in __init__ depending on the context.
     """
     name = "TLS Digital Signature"
-    fields_desc = [SigAndHashAlgField("sig_alg", 0x0401, _tls_hash_sig),
+    fields_desc = [SigAndHashAlgField("sig_alg", 0x0804, _tls_hash_sig),
                    SigLenField("sig_len", None, fmt="!H",
                                length_of="sig_val"),
                    SigValField("sig_val", None,
@@ -164,7 +165,7 @@ class _TLSSignature(_GenericTLSSessionInheritance):
     def __init__(self, *args, **kargs):
         super(_TLSSignature, self).__init__(*args, **kargs)
         if (self.tls_session and
-            self.tls_session.tls_version and
+                self.tls_session.tls_version and
                 self.tls_session.tls_version < 0x0303):
             self.sig_alg = None
 
@@ -183,6 +184,8 @@ class _TLSSignature(_GenericTLSSessionInheritance):
             h, sig = _tls_hash_sig[self.sig_alg].split('+')
             if sig.endswith('pss'):
                 t = "pss"
+            elif sig.endswith('ecdsa'):
+                t = ""
             else:
                 t = "pkcs"
             self.sig_val = key.sign(m, t=t, h=h)
@@ -195,7 +198,9 @@ class _TLSSignature(_GenericTLSSessionInheritance):
         if self.sig_val:
             if self.sig_alg:
                 h, sig = _tls_hash_sig[self.sig_alg].split('+')
-                if sig.endswith('pss'):
+                if sig.endswith('ecdsa'):
+                    return cert.verify(m, self.sig_val, t="")
+                elif sig.endswith('pss'):
                     t = "pss"
                 else:
                     t = "pkcs"
@@ -235,7 +240,7 @@ class _TLSSignatureField(PacketField):
         remain = b""
         if conf.padding_layer in i:
             r = i[conf.padding_layer]
-            del(r.underlayer.payload)
+            del r.underlayer.payload
             remain = r.load
         return remain, i
 
