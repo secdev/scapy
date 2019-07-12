@@ -9,7 +9,7 @@
 # scapy.contrib.description = MQTT for Sensor Networks (MQTT-SN)
 # scapy.contrib.status = loads
 
-from scapy.packet import Packet, bind_layers
+from scapy.packet import Packet, bind_layers, bind_bottom_up
 from scapy.fields import BitField, BitEnumField, ByteField, ByteEnumField, \
     ConditionalField, FieldLenField, ShortField, StrFixedLenField, \
     StrLenField, XByteEnumField
@@ -434,8 +434,9 @@ class MQTTSNEncaps(Packet):
 
 
 # Layer bindings
-bind_layers(UDP, MQTTSN, sport=1883)
-bind_layers(UDP, MQTTSN, dport=1883)
+bind_bottom_up(UDP, MQTTSN, sport=1883)
+bind_bottom_up(UDP, MQTTSN, dport=1883)
+bind_layers(UDP, MQTTSN, dport=1883, sport=1883)
 bind_layers(MQTTSN, MQTTSNAdvertise, type=ADVERTISE)
 bind_layers(MQTTSN, MQTTSNSearchGW, type=SEARCHGW)
 bind_layers(MQTTSN, MQTTSNGwInfo, type=GWINFO)
