@@ -51,6 +51,8 @@ def read_routes():
     ok = 0
     mtu_present = False
     prio_present = False
+    refs_present = False
+    use_present = False
     routes = []
     pending_if = []
     for line in f.readlines():
@@ -65,6 +67,7 @@ def read_routes():
                 mtu_present = "Mtu" in line
                 prio_present = "Prio" in line
                 refs_present = "Refs" in line
+                use_present = "Use" in line
             continue
         if not line:
             break
@@ -79,7 +82,9 @@ def read_routes():
             rt = line.split()
             dest, gw, flg = rt[:3]
             locked = OPENBSD and rt[6] == "L"
-            netif = rt[4 + mtu_present + prio_present + refs_present + locked]
+            offset = mtu_present + prio_present + refs_present + locked
+            offset += use_present
+            netif = rt[3 + offset]
         if flg.find("Lc") >= 0:
             continue
         if dest == "default":
