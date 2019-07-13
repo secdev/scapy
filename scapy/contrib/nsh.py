@@ -32,6 +32,7 @@ from scapy.contrib.mpls import MPLS
 # https://www.rfc-editor.org/rfc/rfc8300.txt  January 2018
 #
 
+
 class NSHTLV(Packet):
     "NSH MD-type 2 - Variable Length Context Headers"
     name = "NSHTLV"
@@ -78,7 +79,8 @@ class NSH(Packet):
         ConditionalField(XIntField('CH2', 0), lambda pkt: pkt.MDType == 1),
         ConditionalField(XIntField('CH3', 0), lambda pkt: pkt.MDType == 1),
         ConditionalField(XIntField('CH4', 0), lambda pkt: pkt.MDType == 1),
-        ConditionalField(PacketListField("VLCH", None, NSHTLV, count_from="Length"),
+        ConditionalField(PacketListField("VLCH", None, NSHTLV,
+                                         count_from="Length"),
                          lambda pkt: pkt.MDType == 2)
     ]
 
