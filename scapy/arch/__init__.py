@@ -26,6 +26,8 @@ def str2mac(s):
 if not WINDOWS:
     if not conf.use_pcap and not conf.use_dnet:
         from scapy.arch.bpf.core import get_if_raw_addr
+    else:
+        from scapy.arch.pcapdnet import get_if_raw_addr
 
 
 def get_if_addr(iff):
