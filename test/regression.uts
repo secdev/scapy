@@ -6966,6 +6966,7 @@ print(data)
 assert b'127.0.0.1 > 127.0.0.1: ICMP' in data[0].upper()
 
 = Check tcpdump() command with linktype
+~ tcpdump
 
 f = BytesIO()
 pkt = Ether()/IP()/ICMP()
@@ -6986,6 +6987,7 @@ f.close()
 del f, pkt
 
 = Check tcpdump() command with linktype and args
+~ tcpdump
 
 f = BytesIO()
 pkt = Ether()/IP()/ICMP()
