@@ -10617,6 +10617,10 @@ assert isinstance(n1, Net6)
 assert n1.ip_regex.match(str(n1))
 ip.show()
 
+ip = IPv6(dst="www.yahoo.com")
+addrs = [ip.dst, IPv6(raw(ip)).dst, [p.dst for p in ip][0]]
+assert addrs[0] == addrs[1] == addrs[2]
+
 = Multiple IPv6 addresses test
 ~ netaccess ipv6
 

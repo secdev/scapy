@@ -882,7 +882,7 @@ class Net6(Gen):  # syntax ex. fec0::/126
                                for i in range(*self.parsed[n])
                                for y in l])
 
-        return iter(rec(0, ['']))
+        return (in6_ptop(addr) for addr in iter(rec(0, [''])))
 
     def __iterlen__(self):
         self._parse()
