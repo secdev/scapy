@@ -307,13 +307,9 @@ class TLSClientHello(_TLSHandshake):
 
 class TLS13ClientHello(TLSClientHello):
     """
-    TLS ClientHello, with abilities to handle extensions.
+    TLS 1.3 ClientHello, with abilities to handle extensions.
 
-    The Random structure follows the RFC 5246: while it is 32-byte long,
-    many implementations use the first 4 bytes as a gmt_unix_time, and then
-    the remaining 28 byts should be completely random. This was designed in
-    order to (sort of) mitigate broken RNGs. If you prefer to show the full
-    32 random bytes without any GMT time, just comment in/out the lines below.
+    The Random structure is 32 random bytes without any GMT time
     """
     name = "TLS 1.3 Handshake - Client Hello"
     fields_desc = [ByteEnumField("msgtype", 1, _tls_handshake_type),

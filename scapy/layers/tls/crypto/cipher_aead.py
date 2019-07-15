@@ -312,8 +312,7 @@ class _AEADCipher_TLS13(six.with_metaclass(_AEADCipherMetaclass, object)):
     def auth_encrypt(self, P, A, seq_num):
         """
         Encrypt the data, and append the computed authentication code.
-        TLS 1.3 does not use additional data, but we leave this option to the
-        user nonetheless.
+        The additional data for TLS 1.3 is the record header.
 
         Note that the cipher's authentication tag must be None when encrypting.
         """
@@ -339,7 +338,6 @@ class _AEADCipher_TLS13(six.with_metaclass(_AEADCipherMetaclass, object)):
     def auth_decrypt(self, A, C, seq_num):
         """
         Decrypt the data and verify the authentication code (in this order).
-        Note that TLS 1.3 is not supposed to use any additional data A.
         If the verification fails, an AEADTagError is raised. It is the user's
         responsibility to catch it if deemed useful. If we lack the key, we
         raise a CipherError which contains the encrypted input.

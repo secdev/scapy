@@ -184,8 +184,6 @@ class _TLSSignature(_GenericTLSSessionInheritance):
             h, sig = _tls_hash_sig[self.sig_alg].split('+')
             if sig.endswith('pss'):
                 t = "pss"
-            elif sig.endswith('ecdsa'):
-                t = ""
             else:
                 t = "pkcs"
             self.sig_val = key.sign(m, t=t, h=h)
@@ -198,9 +196,7 @@ class _TLSSignature(_GenericTLSSessionInheritance):
         if self.sig_val:
             if self.sig_alg:
                 h, sig = _tls_hash_sig[self.sig_alg].split('+')
-                if sig.endswith('ecdsa'):
-                    return cert.verify(m, self.sig_val, t="")
-                elif sig.endswith('pss'):
+                if sig.endswith('pss'):
                     t = "pss"
                 else:
                     t = "pkcs"
