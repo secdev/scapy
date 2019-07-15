@@ -305,7 +305,7 @@ class TLSClientHello(_TLSHandshake):
                     s.advertised_sig_algs = e.sig_algs
 
 
-class TLS13ClientHello(_TLSHandshake):
+class TLS13ClientHello(TLSClientHello):
     """
     TLS ClientHello, with abilities to handle extensions.
 
@@ -376,7 +376,7 @@ class TLS13ClientHello(_TLSHandshake):
 ###############################################################################
 
 
-class TLSServerHello(_TLSHandshake):
+class TLSServerHello(TLSClientHello):
     """
     TLS ServerHello, with abilities to handle extensions.
 
@@ -473,7 +473,7 @@ class TLSServerHello(_TLSHandshake):
                                               tls_version=self.version)
 
 
-class TLS13ServerHello(_TLSHandshake):
+class TLS13ServerHello(TLSClientHello):
     """ TLS 1.3 ServerHello """
     name = "TLS 1.3 Handshake - Server Hello"
     fields_desc = [ByteEnumField("msgtype", 2, _tls_handshake_type),
@@ -496,7 +496,7 @@ class TLS13ServerHello(_TLSHandshake):
     def post_build(self, pkt, pay):
         if self.random_bytes is None:
             pkt = pkt[:6] + randstring(32) + pkt[6 + 32:]
-        return super(TLS13ServerHello, self).post_build(pkt, pay)
+        return super(TLSClientHello, self).post_build(pkt, pay)
 
     def tls_session_update(self, msg_str):
         """
@@ -505,7 +505,7 @@ class TLS13ServerHello(_TLSHandshake):
         cipher suite (if recognized), and finally we instantiate the write and
         read connection states.
         """
-        super(TLS13ServerHello, self).tls_session_update(msg_str)
+        super(TLSClientHello, self).tls_session_update(msg_str)
 
         s = self.tls_session
         if self.ext:
