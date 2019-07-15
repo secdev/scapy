@@ -49,13 +49,11 @@ _tls_ext = {0: "server_name",             # RFC 4366
             0x17: "extended_master_secret",  # RFC 7627
             0x1c: "record_size_limit",     # RFC 8449
             0x23: "session_ticket",        # RFC 5077
-            # 0x28: "key_share",
             0x29: "pre_shared_key",
             0x2a: "early_data_indication",
             0x2b: "supported_versions",
             0x2c: "cookie",
             0x2d: "psk_key_exchange_modes",
-            # 0x2e: "ticket_early_data_info",
             0x2f: "certificate_authorities",
             0x30: "oid_filters",
             0x31: "post_handshake_auth",

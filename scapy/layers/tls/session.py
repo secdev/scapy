@@ -431,15 +431,11 @@ class tlsSession(object):
 
         # These attributes should only be used with TLS 1.3 connections.
         self.tls13_psk_secret = None
-        self.tls13_psk_mode = None
         self.tls13_early_secret = None
         self.tls13_dhe_secret = None
         self.tls13_handshake_secret = None
         self.tls13_master_secret = None
         self.tls13_derived_secrets = {}
-        self.post_handshake_auth = False
-        self.tls13_ticket_ciphersuite = None
-        self.tls13_retry = False
 
         # Handshake messages needed for Finished computation/validation.
         # No record layer headers, no HelloRequests, no ChangeCipherSpecs.
