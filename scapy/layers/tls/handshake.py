@@ -538,6 +538,10 @@ class TLS13ServerHello(_TLSHandshake):
                                    tls_version=s.tls_version)
             s.triggered_prcs_commit = True
 
+        if s.tls13_early_secret is None:
+            # In case the connState was not pre-initialized, we could not
+            # compute the early secrets at the ClientHello, so we do it here.
+            s.compute_tls13_early_secrets()
         s.compute_tls13_handshake_secrets()
         if connection_end == "server":
             shts = s.tls13_derived_secrets["server_handshake_traffic_secret"]

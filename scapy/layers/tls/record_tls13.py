@@ -130,6 +130,12 @@ class TLS13(_GenericTLSSessionInheritance):
         """
         Decrypt, verify and decompress the message.
         """
+        # We commit the pending read state if it has been triggered.
+        if self.tls_session.triggered_prcs_commit:
+            if self.tls_session.prcs is not None:
+                self.tls_session.rcs = self.tls_session.prcs
+                self.tls_session.prcs = None
+            self.tls_session.triggered_prcs_commit = False
         if len(s) < 5:
             raise Exception("Invalid record: header is too short.")
 
