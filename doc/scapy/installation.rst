@@ -269,6 +269,15 @@ In a similar manner, to install Scapy on OpenBSD 5.9+, you **may** want to insta
 Then install Scapy via ``pip`` or ``pkg_add`` (bundled under ``python-scapy``)
 All dependencies may be installed either via the platform-specific installer, or via PyPI. See `Optional Dependencies <#optional-dependencies>`_ for more information.
 
+SunOS / Solaris
+---------------
+
+Solaris / SunOS requires ``libpcap`` (installed by default) to work.
+
+.. note::
+    In fact, Solaris doesn't support `AF_PACKET`, which Scapy uses on Linux, but rather uses its own system `DLPI`. See `this page <https://www.oracle.com/technetwork/server-storage/solaris/solaris-linux-app-139382.html>`_.
+    We prefer using the very universal `libpcap` that spending time implementing support for `DLPI`.
+
 .. _windows_installation:
 
 Windows

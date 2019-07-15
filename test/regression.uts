@@ -7990,7 +7990,7 @@ default            192.168.122.1      UGSc           en0
     routes = read_routes()
     for r in routes:
         print(r)
-    assert(len(routes) == 11)
+    assert len(routes) == 11
     default_route = [r for r in routes if r[0] == 0][0]
     assert default_route[3] == "en0" and default_route[4] == "192.168.122.42"
 
@@ -8037,22 +8037,61 @@ default            10.0.1.254         UGS        0        0     -     8 bge0
     mock_openbsd = True
     # Test the function
     from scapy.arch.unix import read_routes
-    routes = read_routes()
-    for r in routes:
-        print(ltoa(r[0]), ltoa(r[1]), r)
-        # check that default route exists in parsed data structure
-        if ltoa(r[0]) == "0.0.0.0":
-            default=r
-        # check that route with locked mtu exists in parsed data structure
-        if ltoa(r[0]) == "10.188.135.0":
-            locked=r
-    assert(len(routes) == 11)
-    assert(default[2] == "10.0.1.254")
-    assert(default[3] == "bge0")
-    assert(locked[2] == "10.0.1.135")
-    assert(locked[3] == "bge0")
+    return read_routes()
 
-test_openbsd_6_3()
+routes = test_openbsd_6_3()
+
+for r in routes:
+    print(ltoa(r[0]), ltoa(r[1]), r)
+    # check that default route exists in parsed data structure
+    if ltoa(r[0]) == "0.0.0.0":
+        default = r
+    # check that route with locked mtu exists in parsed data structure
+    if ltoa(r[0]) == "10.188.135.0":
+        locked = r
+
+assert len(routes) == 11
+assert default[2] == "10.0.1.254"
+assert default[3] == "bge0"
+assert locked[2] == "10.0.1.135"
+assert locked[3] == "bge0"
+
+= Solaris 11.1
+~ mock_read_routes_bsd
+
+import mock
+from io import StringIO
+
+# Mocked Solaris 11.1 parsing behavior
+
+@mock.patch("scapy.arch.unix.SOLARIS", True)
+@mock.patch("scapy.arch.unix.os")
+def test_solaris_111(mock_os):
+    """Test read_routes() on Solaris 11.1"""
+    # 'netstat -rvn -f inet' output
+    netstat_output = u"""
+IRE Table: IPv4
+  Destination             Mask           Gateway          Device  MTU  Ref Flg  Out  In/Fwd 
+-------------------- --------------- -------------------- ------ ----- --- --- ----- ------ 
+default              0.0.0.0         10.0.2.2             net0    1500   2 UG       5      0 
+10.0.2.0             255.255.255.0   10.0.2.15            net0    1500   3 U        0      0 
+127.0.0.1            255.255.255.255 127.0.0.1            lo0     8232   2 UH    1517   1517
+"""
+    # Mocked file descriptor
+    strio = StringIO(netstat_output)
+    mock_os.popen = mock.MagicMock(return_value=strio)
+    print(scapy.arch.unix.SOLARIS)
+    
+    # Test the function
+    from scapy.arch.unix import read_routes
+    return read_routes()
+
+routes = test_solaris_111()
+print(routes)
+assert len(routes) == 3
+assert routes[0][:4] == (0, 0, '10.0.2.2', 'net0')
+assert routes[1][:4] == (167772672, 4294967040, '0.0.0.0', 'net0')
+assert routes[2][:4] == (2130706433, 4294967295, '0.0.0.0', 'lo0')
 
 
 ############

@@ -36,6 +36,7 @@ from scapy.arch.common import get_if, compile_filter
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
 
+from scapy.arch.common import get_if_raw_hwaddr  # noqa: F401
 
 # From bits/ioctls.h
 SIOCGIFHWADDR = 0x8927          # Get hardware address
@@ -111,10 +112,6 @@ class tpacket_auxdata(ctypes.Structure):
 
 
 # Utils
-
-def get_if_raw_hwaddr(iff):
-    return struct.unpack("16xh6s8x", get_if(iff, SIOCGIFHWADDR))
-
 
 def get_if_raw_addr(iff):
     try:

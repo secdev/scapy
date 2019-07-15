@@ -17,7 +17,7 @@ import socket
 import sys
 
 from scapy import VERSION, base_classes
-from scapy.consts import DARWIN, WINDOWS, LINUX, BSD
+from scapy.consts import DARWIN, WINDOWS, LINUX, BSD, SOLARIS
 from scapy.error import log_scapy, warning, ScapyInvalidPlatformException
 from scapy.modules import six
 from scapy.themes import NoTheme, apply_ipython_style
@@ -441,6 +441,11 @@ def _set_conf_sockets():
     if conf.use_bpf and not BSD:
         Interceptor.set_from_hook(conf, "use_bpf", False)
         raise ScapyInvalidPlatformException("BSD-like (OSX, *BSD...) only !")
+    if not conf.use_pcap and SOLARIS:
+        Interceptor.set_from_hook(conf, "use_pcap", True)
+        raise ScapyInvalidPlatformException(
+            "Scapy only supports libpcap on Solaris !"
+        )
     # we are already in an Interceptor hook, use Interceptor.set_from_hook
     if conf.use_pcap or conf.use_dnet:
         try:
