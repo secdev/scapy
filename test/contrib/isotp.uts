@@ -12,6 +12,8 @@ load_layer("can")
 import threading, time, six, subprocess
 from six.moves.queue import Queue
 from subprocess import call
+from io import BytesIO
+
 
 
 = Definition of constants, utility functions and mock classes
@@ -1009,6 +1011,66 @@ with ISOTPSocket(new_can_socket(iface0), sid=0x641, did=0x241, extended_addr=0xc
     assert(isotp.dst == 0x241)
     assert(isotp.exsrc == 0xc0)
     assert(isotp.exdst == 0xea)
+
+= Receive frames from CandumpReader
+~ linux needs_root
+
+candump_fd = BytesIO(b'''  vcan0  541   [8]  10 0A DE AD BE EF AA AA
+  vcan0  241   [3]  30 00 00
+  vcan0  541   [5]  21 AA AA AA AA
+  vcan0  541   [8]  10 0A DE AD BE EF AA AA
+  vcan0  541   [8]  10 0A DE AD BE EF AA AA
+  vcan0  241   [3]  30 00 00
+  vcan0  541   [5]  21 AA AA AA AA
+  vcan0  541   [8]  10 0A DE AD BE EF AA AA
+  vcan0  241   [3]  30 00 00
+  vcan0  541   [5]  21 AA AA AA AA
+  vcan0  541   [8]  10 0A DE AD BE EF AA AA
+  vcan0  241   [3]  30 00 00
+  vcan0  541   [5]  21 AA AA AA AA
+  vcan0  541   [8]  10 0A DE AD BE EF AA AA
+  vcan0  241   [3]  30 00 00
+  vcan0  541   [5]  21 AA AA AA AA
+  vcan0  541   [8]  10 0A DE AD BE EF AA AA
+  vcan0  241   [3]  30 00 00
+  vcan0  541   [5]  21 AA AA AA AA''')
+
+with ISOTPSocket(CandumpReader(candump_fd), sid=0x241, did=0x541, listen_only=True) as s:
+    pkts = s.sniff(timeout=1, count=6)
+    assert(len(pkts) == 6)
+    isotp = pkts[0]
+    assert(isotp.data == dhex("DE AD BE EF AA AA AA AA AA AA"))
+    assert(isotp.src == 0x241)
+    assert(isotp.dst == 0x541)
+
+= Receive frames from CandumpReader with ISOTPSniffer
+~ linux needs_root
+
+candump_fd = BytesIO(b'''  vcan0  541   [8]  10 0A DE AD BE EF AA AA
+  vcan0  241   [3]  30 00 00
+  vcan0  541   [5]  21 AA AA AA AA
+  vcan0  541   [8]  10 0A DE AD BE EF AA AA
+  vcan0  541   [8]  10 0A DE AD BE EF AA AA
+  vcan0  241   [3]  30 00 00
+  vcan0  541   [5]  21 AA AA AA AA
+  vcan0  541   [8]  10 0A DE AD BE EF AA AA
+  vcan0  241   [3]  30 00 00
+  vcan0  541   [5]  21 AA AA AA AA
+  vcan0  541   [8]  10 0A DE AD BE EF AA AA
+  vcan0  241   [3]  30 00 00
+  vcan0  541   [5]  21 AA AA AA AA
+  vcan0  541   [8]  10 0A DE AD BE EF AA AA
+  vcan0  241   [3]  30 00 00
+  vcan0  541   [5]  21 AA AA AA AA
+  vcan0  541   [8]  10 0A DE AD BE EF AA AA
+  vcan0  241   [3]  30 00 00
+  vcan0  541   [5]  21 AA AA AA AA''')
+
+pkts = ISOTPSniffer.sniff(CandumpReader(candump_fd), timeout=1, count=6, use_ext_addr=False)
+assert(len(pkts) == 6)
+isotp = pkts[0]
+assert(isotp.data == dhex("DE AD BE EF AA AA AA AA AA AA"))
+assert (isotp.dst == 0x541)
 
 
 = Receive a two-frame ISOTP message

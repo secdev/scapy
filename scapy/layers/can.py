@@ -9,21 +9,26 @@ Wireshark dissectors. See https://wiki.wireshark.org/CANopen
 
 """
 
+import os
+import gzip
 import struct
 import binascii
 import scapy.modules.six as six
 from scapy.config import conf
-from scapy.data import DLT_CAN_SOCKETCAN
+from scapy.compat import orb
+from scapy.data import DLT_CAN_SOCKETCAN, MTU
 from scapy.fields import FieldLenField, FlagsField, StrLenField, \
     ThreeBytesField, XBitField, ScalingField
 from scapy.volatile import RandFloat, RandBinFloat
 from scapy.packet import Packet, bind_layers
 from scapy.layers.l2 import CookedLinux
 from scapy.error import Scapy_Exception
+from scapy.plist import PacketList
 
 __all__ = ["CAN", "SignalPacket", "SignalField", "LESignedSignalField",
            "LEUnsignedSignalField", "LEFloatSignalField", "BEFloatSignalField",
-           "BESignedSignalField", "BEUnsignedSignalField", "rdcandump"]
+           "BESignedSignalField", "BEUnsignedSignalField", "rdcandump",
+           "CandumpReader"]
 
 # Mimics the Wireshark CAN dissector parameter 'Byte-swap the CAN ID/flags field'  # noqa: E501
 #   set to True when working with PF_CAN sockets
@@ -291,64 +296,147 @@ class SignalPacket(Packet):
         return s[self.wirelen:]
 
 
-def rdcandump(filename, count=None,
-              is_not_log_file_format=False,
-              interface=None):
+def rdcandump(filename, count=-1, interface=None):
     """Read a candump log file and return a packet list
 
-count: read only <count> packets
-is_not_log_file_format: read input with candumps stdout format
-interfaces: return only packets from a specified interface
-
+    filename: file to read
+    count: read only <count> packets
+    interfaces: return only packets from a specified interface
     """
-    try:
-        if isinstance(filename, six.string_types):
-            file = open(filename, "rb")
-        else:
-            file = filename
+    with CandumpReader(filename, interface) as fdesc:
+        return fdesc.read_all(count=count)
 
-        pkts = list()
-        ifilter = None
+
+class CandumpReader:
+    """A stateful candump reader. Each packet is returned as a CAN packet"""
+
+    read_allowed_exceptions = ()  # emulate SuperSocket
+    nonblocking_socket = True
+
+    def __init__(self, filename, interface=None):
+        self.filename, self.f = self.open(filename)
+        self.ifilter = None
         if interface is not None:
             if isinstance(interface, six.string_types):
-                ifilter = [interface]
+                self.ifilter = [interface]
             else:
-                ifilter = interface
+                self.ifilter = interface
 
-        for l in file.readlines():
-            if is_not_log_file_format:
-                h, data = l.split(b']')
-                intf, idn, le = h.split()
-                t = None
-            else:
-                t, intf, f = l.split()
-                idn, data = f.split(b'#')
-                le = None
-                t = float(t[1:-1])
+    def __iter__(self):
+        return self
 
-            if ifilter is not None and intf.decode('ASCII') not in ifilter:
-                continue
+    @staticmethod
+    def open(filename):
+        """Open (if necessary) filename."""
+        if isinstance(filename, six.string_types):
+            try:
+                fdesc = gzip.open(filename, "rb")
+            except IOError:
+                fdesc = open(filename, "rb")
+        else:
+            fdesc = filename
+            filename = getattr(fdesc, "name", "No name")
+        return filename, fdesc
 
-            data = data.replace(b' ', b'')
-            data = data.strip()
+    def next(self):
+        """implement the iterator protocol on a set of packets
+        """
+        try:
+            pkt = None
+            while pkt is None:
+                pkt = self.read_packet()
+        except EOFError:
+            raise StopIteration
 
-            pkt = CAN(identifier=int(idn, 16), data=binascii.unhexlify(data))
-            if le is not None:
-                pkt.length = int(le[1:])
-            else:
-                pkt.length = len(pkt.data)
+        return pkt
+    __next__ = next
 
-            if len(idn) > 3:
-                pkt.flags = 0b100
+    def read_packet(self, size=MTU):
+        """return a single packet read from the file or None if filters apply
 
-            if t is not None:
-                pkt.time = t
+        raise EOFError when no more packets are available
+        """
+        line = self.f.readline()
+        line = line.lstrip()
+        if len(line) < 16:
+            raise EOFError
 
-            pkts.append(pkt)
-            if count is not None and len(pkts) >= count:
+        is_log_file_format = orb(line[0]) == orb(b"(")
+
+        if is_log_file_format:
+            t, intf, f = line.split()
+            idn, data = f.split(b'#')
+            le = None
+            t = float(t[1:-1])
+        else:
+            h, data = line.split(b']')
+            intf, idn, le = h.split()
+            t = None
+
+        if self.ifilter is not None and \
+                intf.decode('ASCII') not in self.ifilter:
+            return None
+
+        data = data.replace(b' ', b'')
+        data = data.strip()
+
+        pkt = CAN(identifier=int(idn, 16), data=binascii.unhexlify(data))
+        if le is not None:
+            pkt.length = int(le[1:])
+        else:
+            pkt.length = len(pkt.data)
+
+        if len(idn) > 3:
+            pkt.flags = 0b100
+
+        if t is not None:
+            pkt.time = t
+
+        return pkt
+
+    def dispatch(self, callback):
+        """call the specified callback routine for each packet read
+
+        This is just a convenience function for the main loop
+        that allows for easy launching of packet processing in a
+        thread.
+        """
+        for p in self:
+            callback(p)
+
+    def read_all(self, count=-1):
+        """return a list of all packets in the candump file
+        """
+        res = []
+        while count != 0:
+            try:
+                p = self.read_packet()
+                if p is None:
+                    continue
+            except EOFError:
                 break
+            count -= 1
+            res.append(p)
+        return PacketList(res, name=os.path.basename(self.filename))
 
-    finally:
-        file.close()
+    def recv(self, size=MTU):
+        """ Emulate a socket
+        """
+        return self.read_packet(size=size)
 
-    return pkts
+    def fileno(self):
+        return self.f.fileno()
+
+    def close(self):
+        return self.f.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, tracback):
+        self.close()
+
+    # emulate SuperSocket
+    @staticmethod
+    def select(sockets, remain=None):
+        return sockets, None
