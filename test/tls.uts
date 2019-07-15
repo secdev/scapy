@@ -815,10 +815,10 @@ assert(ch.comp == [0])
 
 = Reading TLS test session - ClientHello extensions
 from scapy.layers.tls.extensions import (TLS_Ext_ServerName,
-TLS_Ext_RenegotiationInfo, TLS_Ext_SupportedGroups, 
+TLS_Ext_RenegotiationInfo, TLS_Ext_SupportedGroups,
 TLS_Ext_SupportedPointFormat, TLS_Ext_SessionTicket, TLS_Ext_NPN,
 TLS_Ext_ALPN, TLS_Ext_SignatureAlgorithms, TLS_Ext_CSR,
-OCSPStatusRequest) 
+OCSPStatusRequest)
 
 assert(ch.extlen == 146)
 ext = ch.ext
@@ -1105,8 +1105,8 @@ raw(TLSApplicationData()) == b""
 from scapy.layers.tls.crypto.suites import (TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
 TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256, TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA,
 TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA, TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
-TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA, TLS_DHE_RSA_WITH_AES_128_CBC_SHA, 
-TLS_DHE_RSA_WITH_AES_256_CBC_SHA, TLS_RSA_WITH_AES_128_CBC_SHA, 
+TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA, TLS_DHE_RSA_WITH_AES_128_CBC_SHA,
+TLS_DHE_RSA_WITH_AES_256_CBC_SHA, TLS_RSA_WITH_AES_128_CBC_SHA,
 TLS_RSA_WITH_AES_256_CBC_SHA, TLS_RSA_WITH_3DES_EDE_CBC_SHA)
 
 from scapy.layers.tls.extensions import (ServerName, TLS_Ext_SupportedEllipticCurves,
