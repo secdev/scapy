@@ -330,7 +330,8 @@ class _AEADCipher_TLS13(six.with_metaclass(_AEADCipherMetaclass, object)):
         else:
             if (conf.crypto_valid_advanced and
                     isinstance(self._cipher, AESCCM)):
-                res = self._cipher.encrypt(self._get_nonce(seq_num), P, A)
+                res = self._cipher.encrypt(self._get_nonce(seq_num), P, A,
+                                           tag_length=self.tag_len)
             else:
                 res = self._cipher.encrypt(self._get_nonce(seq_num), P, A)
         return res
@@ -349,18 +350,20 @@ class _AEADCipher_TLS13(six.with_metaclass(_AEADCipherMetaclass, object)):
 
         if hasattr(self, "pc_cls"):
             self._cipher.mode._initialization_vector = self._get_nonce(seq_num)
+            self._cipher.mode._tag = mac
             decryptor = self._cipher.decryptor()
             decryptor.authenticate_additional_data(A)
             P = decryptor.update(C)
             try:
-                decryptor.finalize_with_tag(mac)
+                decryptor.finalize()
             except InvalidTag:
                 raise AEADTagError(P, mac)
         else:
             try:
                 if (conf.crypto_valid_advanced and
                         isinstance(self._cipher, AESCCM)):
-                    P = self._cipher.decrypt(self._get_nonce(seq_num), C + mac, A)  # noqa: E501
+                    P = self._cipher.decrypt(self._get_nonce(seq_num), C + mac, A,  # noqa: E501
+                                             tag_length=self.tag_len)
                 else:
                     if (conf.crypto_valid_advanced and
                             isinstance(self, Cipher_CHACHA20_POLY1305)):
