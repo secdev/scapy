@@ -169,7 +169,7 @@ class ISOTP(Packet):
             parser.feed(c)
 
         results = []
-        while parser.count() > 0:
+        while parser.count > 0:
             p = parser.pop()
             if (use_extended_addressing is True and p.exdst is not None) \
                     or (use_extended_addressing is False and p.exdst is None) \
@@ -287,6 +287,23 @@ class ISOTP_FC(Packet):
     ]
 
 
+class ISOTPMessageBuilderIter(object):
+    slots = ["builder"]
+
+    def __init__(self, builder):
+        self.builder = builder
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        while self.builder.count:
+            return self.builder.pop()
+        raise StopIteration
+
+    next = __next__
+
+
 class ISOTPMessageBuilder:
     """
     Utility class to build ISOTP messages out of CAN frames, used by both
@@ -318,19 +335,29 @@ class ISOTPMessageBuilder:
                     isotp_data = "".join(map(str, self.pieces))
                 self.ready = isotp_data[:self.total_len]
 
-    def __init__(self, use_ext_addr=None):
+    def __init__(self, use_ext_addr=None, basecls=None):
         """
         Initialize a ISOTPMessageBuilder object
-        :param use_ext_addr: True for only attempting to defragment with
-        extended addressing, False for only attempting to defragment without
-        extended addressing, or None for both
+
+        :param use_ext_addr:    True for only attempting to defragment with
+                                extended addressing, False for only attempting
+                                to defragment without extended addressing,
+                                or None for both
+        :param basecls:         the class of packets that will be returned,
+                                defaults to ISOTP
+
         """
         self.ready = []
         self.buckets = {}
         self.use_ext_addr = use_ext_addr
+        self.basecls = basecls or ISOTP
 
     def feed(self, can):
         """Attempt to feed an incoming CAN frame into the state machine"""
+        if not isinstance(can, Packet) and hasattr(can, "__iter__"):
+            for p in can:
+                self.feed(p)
+            return
         if not isinstance(can, CAN):
             raise Scapy_Exception("argument is not a CAN frame")
         identifier = can.identifier
@@ -342,20 +369,22 @@ class ISOTPMessageBuilder:
             ea = six.indexbytes(data, 0)
             self._try_feed(identifier, ea, data[1:])
 
+    @property
     def count(self):
         """Returns the number of ready ISOTP messages built from the provided
         can frames"""
         return len(self.ready)
 
-    def pop(self, identifier=None, ext_addr=None, basecls=ISOTP):
+    def __len__(self):
+        return self.count
+
+    def pop(self, identifier=None, ext_addr=None):
         """
         Returns a built ISOTP message
         :param identifier: if not None, only return isotp messages with this
                            destination
         :param ext_addr: if identifier is not None, only return isotp messages
                          with this extended address for destination
-        :param basecls: the class of packets that will be returned, defaults to
-                        ISOTP
         :return: an ISOTP packet, or None if no message is ready
         """
 
@@ -365,16 +394,25 @@ class ISOTPMessageBuilder:
                 identifier = b[0]
                 ea = b[1]
                 if identifier == identifier and ext_addr == ea:
-                    return ISOTPMessageBuilder._build(self.ready.pop(i))
+                    return ISOTPMessageBuilder._build(self.ready.pop(i),
+                                                      self.basecls)
             return None
 
         if len(self.ready) > 0:
-            return ISOTPMessageBuilder._build(self.ready.pop(0))
+            return ISOTPMessageBuilder._build(self.ready.pop(0), self.basecls)
         return None
+
+    def __iter__(self):
+        return ISOTPMessageBuilderIter(self)
 
     @staticmethod
     def _build(t, basecls=ISOTP):
-        return basecls(dst=t[0], exdst=t[1], data=t[2])
+        p = basecls(t[2])
+        if hasattr(p, "dst"):
+            p.dst = t[0]
+        if hasattr(p, "exdst"):
+            p.exdst = t[1]
+        return p
 
     def _feed_first_frame(self, identifier, ea, data):
         if len(data) < 3:
@@ -473,7 +511,7 @@ class ISOTPSniffer:
 
         def internal_prn(p):
             m.feed(p)
-            while not c.stop and m.count() > 0:
+            while not c.stop and len(m) > 0:
                 rcvd = m.pop()
                 on_pkt(rcvd)
 
