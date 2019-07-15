@@ -519,6 +519,18 @@ class TLS_Ext_EarlyDataIndication(TLS_Ext_Unknown):
                    ShortField("len", None)]
 
 
+class TLS_Ext_EarlyDataIndicationTicket(TLS_Ext_Unknown):
+    name = "TLS Extension - Ticket Early Data Info"
+    fields_desc = [ShortEnumField("type", 0x2a, _tls_ext),
+                   ShortField("len", None),
+                   IntField("max_early_data_size", 0)]
+
+
+_tls_ext_early_data_cls = {1: TLS_Ext_EarlyDataIndication,
+                           4: TLS_Ext_EarlyDataIndicationTicket,
+                           8: TLS_Ext_EarlyDataIndication}
+
+
 class TLS_Ext_SupportedVersions(TLS_Ext_Unknown):
     name = "TLS Extension - Supported Versions (dummy class)"
     fields_desc = [ShortEnumField("type", 0x2b, _tls_ext),
@@ -741,7 +753,7 @@ class _ExtensionsField(StrLenField):
 
     def m2i(self, pkt, m):
         res = []
-        while len(m) > 4:
+        while len(m) >= 4:
             t = struct.unpack("!H", m[:2])[0]
             tmp_len = struct.unpack("!H", m[2:4])[0]
             cls = _tls_ext_cls.get(t, TLS_Ext_Unknown)
@@ -760,6 +772,8 @@ class _ExtensionsField(StrLenField):
                 cls = _tls_ext_presharedkey_cls.get(pkt.msgtype, TLS_Ext_Unknown)  # noqa: E501
             elif cls is TLS_Ext_SupportedVersions:
                 cls = _tls_ext_supported_version_cls.get(pkt.msgtype, TLS_Ext_Unknown)  # noqa: E501
+            elif cls is TLS_Ext_EarlyDataIndication:
+                cls = _tls_ext_early_data_cls.get(pkt.msgtype, TLS_Ext_Unknown)
             res.append(cls(m[:tmp_len + 4], tls_session=pkt.tls_session))
             m = m[tmp_len + 4:]
         return res
