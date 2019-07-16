@@ -17,6 +17,7 @@ from scapy.layers.inet import UDP
 from scapy.error import Scapy_Exception
 from scapy.compat import chb, orb
 from scapy.volatile import RandNum
+import struct
 
 
 # Constants
@@ -80,9 +81,9 @@ class VariableFieldLenField(FieldLenField):
             raise Scapy_Exception("%s: invalid length field value" %
                                   self.__class__.__name__)
         elif val > 0xff:
-            return s + b"".join([chb(0x01), chb(val >> 8), chb(val & 0xff)])
+            return s + b"\x01" + struct.pack("!H", val)
         else:
-            return s + b"".join([chb(val)])
+            return s + chb(val)
 
     def getfield(self, pkt, s):
         if orb(s[0]) == 0x01:
