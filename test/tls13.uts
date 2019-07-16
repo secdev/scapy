@@ -215,6 +215,8 @@ assert(t3.auth_tag == b'\xbf\x02S\xfeQu\xbe\x89\x8eu\x0e\xdcS7\r+')
 
 
 = Decrypt a TLS 1.3 session - Parse client Hello
+~ crypto_advanced
+
 from scapy.layers.tls.extensions import TLS_Ext_SessionTicket
 # Values from RFC8448, section 3
 x25519_clt_priv = clean("""
@@ -358,6 +360,8 @@ assert(t.auth_tag == b'\xbf\x02S\xfeQu\xbe\x89\x8eu\x0e\xdcS7\r+')
 m = t.inner.msg
 
 = Decrypt a TLS 1.3 session - Parse decrypted EncryptedExtension
+~ crypto_advanced
+
 from scapy.layers.tls.handshake import TLSEncryptedExtensions
 assert(isinstance(m[0], TLSEncryptedExtensions))
 assert(m[0].msgtype == 8)
