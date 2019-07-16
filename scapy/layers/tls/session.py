@@ -615,7 +615,8 @@ class tlsSession(object):
         elif self.pwcs:
             hkdf = self.pwcs.hkdf
         else:
-            raise
+            warning("No HKDF. This is abnormal.")
+            return
 
         if self.tls13_early_secret is None:
             self.tls13_early_secret = hkdf.extract(None,
@@ -643,6 +644,9 @@ class tlsSession(object):
             hkdf = self.prcs.hkdf
         elif self.pwcs and self.pwcs.hkdf:
             hkdf = self.pwcs.hkdf
+        else:
+            warning("No HKDF. This is abnormal.")
+            return
 
         tmp = hkdf.derive_secret(self.tls13_handshake_secret,
                                  b"derived",
