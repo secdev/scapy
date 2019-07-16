@@ -560,6 +560,19 @@ class tlsSession(object):
 
     def compute_tls13_early_secrets(self, external=False):
         """
+        This function computes the Early Secret, the binder_key,
+        the client_early_traffic_secret and the
+        early_exporter_master_secret (See RFC8446, section 7.1).
+
+        The parameter external is used for the computation of the
+        binder_key :
+        - For external PSK provisioned outside out of TLS, the parameter
+          external must be True.
+        - For resumption PSK, the parameter external must be False.
+
+        If no argument is specified, the label "res binder" will be
+        used by default.
+
         Ciphers key and IV are updated accordingly for 0-RTT data.
         self.handshake_messages should be ClientHello only.
         """

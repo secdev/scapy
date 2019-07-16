@@ -502,7 +502,7 @@ def _all_aes_cbc_tests():
 
 _all_aes_cbc_tests()
 
-from scapy.layers.tls.crypto.pkcs1 import (pkcs_os2ip, pkcs_i2osp)
+from scapy.layers.tls.crypto.pkcs1 import pkcs_os2ip, pkcs_i2osp
 
 = Crypto - AES cipher in GCM mode, auth_encrypt() and auth_decrypt() checks
 #https://tools.ietf.org/html/draft-mcgrew-gcm-test-01
