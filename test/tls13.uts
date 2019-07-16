@@ -1,4 +1,4 @@
- Tests for TLS 1.3
+% Tests for TLS 1.3
 #
 # Try me with :
 # bash test/run_tests -t test/tls13.uts -F
@@ -16,7 +16,7 @@
 = Reading test session - Loading unparsed TLS 1.3 records
 import binascii
 def clean(s):
-   return binascii.unhexlify(''.join(c for c in s if c.isalnum()))
+    return binascii.unhexlify(''.join(c for c in s if c.isalnum()))
 
 clientHello = clean("""
          16 03 01 00 c4 01 00 00 c0 03 03 cb
@@ -204,14 +204,15 @@ assert(t3.len == 674)
 = Reading TLS 1.3 session - TLS13 Record __getitem__
 TLS13 in t3
 
-#= Reading TLS 1.3 session - TLS13 ApplicationData
-#from scapy.layers.tls.record_tls13 import TLSInnerPlaintext
-#TLSInnerPlaintext in t3
-#assert(len(t3.auth_tag) == 16)
-#assert(t3.auth_tag == b'\xbf\x02S\xfeQu\xbe\x89\x8eu\x0e\xdcS7\r+')
+= Reading TLS 1.3 session - TLS13 ApplicationData
+from scapy.layers.tls.record_tls13 import TLSInnerPlaintext
+TLSInnerPlaintext in t3
+assert(len(t3.auth_tag) == 16)
+assert(t3.auth_tag == b'\xbf\x02S\xfeQu\xbe\x89\x8eu\x0e\xdcS7\r+')
 
 
 + Decrypt a TLS 1.3 session
+
 
 = Decrypt a TLS 1.3 session - Parse client Hello
 from scapy.layers.tls.extensions import TLS_Ext_SessionTicket
@@ -251,19 +252,21 @@ assert(isinstance(e[8], TLS_Ext_RecordSizeLimit))
 
 
 = Decrypt a TLS 1.3 session - Parse server Hello
+~ crypto_advanced
+
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
 from scapy.layers.tls.crypto.pkcs1 import pkcs_os2ip
 
 # Values from RFC8448, section 3
 x25519_srv_priv = clean("""
-      b1 58 0e ea df 6d d5 89 b8 ef 4f 2d 56
-      52 57 8c c8 10 e9 98 01 91 ec 8d 05 83 08 ce a2 16 a2 1e
-   """)
+        b1 58 0e ea df 6d d5 89 b8 ef 4f 2d 56
+        52 57 8c c8 10 e9 98 01 91 ec 8d 05 83 08 ce a2 16 a2 1e
+""")
 
 x25519_srv_pub = clean("""
-      c9 82 88 76 11 20 95 fe 66 76 2b db f7 c6
-      72 e1 56 d6 cc 25 3b 83 3d f1 dd 69 b1 b0 4e 75 1f 0f     
-   """) 
+        c9 82 88 76 11 20 95 fe 66 76 2b db f7 c6
+        72 e1 56 d6 cc 25 3b 83 3d f1 dd 69 b1 b0 4e 75 1f 0f     
+""") 
 
 privkey = X25519PrivateKey.from_private_bytes(x25519_clt_priv)
 t.tls_session.tls13_client_privshares["x25519"] = privkey
@@ -279,32 +282,35 @@ assert(e[0].server_share.group == 29)
 assert(e[0].server_share.key_exchange == x25519_srv_pub)
 assert(isinstance(e[1], TLS_Ext_SupportedVersion_SH))
 
+
 = Decrypt a TLS 1.3 session - Handshake traffic secret derivation 
+~ crypto_advanced
+
 # Values from RFC8448, section 3
 early_secret = clean("""
-         33 ad 0a 1c 60 7e c0 3b 09 e6 cd 98 93 68 0c
-         e2 10 ad f3 00 aa 1f 26 60 e1 b2 2e 10 f1 70 f9 2a
-   """)
+    33 ad 0a 1c 60 7e c0 3b 09 e6 cd 98 93 68 0c
+    e2 10 ad f3 00 aa 1f 26 60 e1 b2 2e 10 f1 70 f9 2a
+""")
 
 ecdhe_secret = clean("""
-         8b d4 05 4f b5 5b 9d 63 fd fb ac f9 f0 4b 9f 0d
-         35 e6 d6 3f 53 75 63 ef d4 62 72 90 0f 89 49 2d
-   """)
+    8b d4 05 4f b5 5b 9d 63 fd fb ac f9 f0 4b 9f 0d
+    35 e6 d6 3f 53 75 63 ef d4 62 72 90 0f 89 49 2d
+""")
 
 handshake_secret = clean("""
-         1d c8 26 e9 36 06 aa 6f dc 0a ad c1 2f 74 1b
-         01 04 6a a6 b9 9f 69 1e d2 21 a9 f0 ca 04 3f be ac
-   """)
+        1d c8 26 e9 36 06 aa 6f dc 0a ad c1 2f 74 1b
+        01 04 6a a6 b9 9f 69 1e d2 21 a9 f0 ca 04 3f be ac
+""")
 
 client_handshake_traffic_secret = clean("""
-         b3 ed db 12 6e 06 7f 35 a7 80 b3 ab f4 5e
-         2d 8f 3b 1a 95 07 38 f5 2e 96 00 74 6a 0e 27 a5 5a 21
-   """)
+        b3 ed db 12 6e 06 7f 35 a7 80 b3 ab f4 5e
+        2d 8f 3b 1a 95 07 38 f5 2e 96 00 74 6a 0e 27 a5 5a 21
+""")
 
 server_handshake_traffic_secret = clean("""
-         b6 7b 7d 69 0c c1 6c 4e 75 e5 42 13 cb 2d
-         37 b4 e9 c9 12 bc de d9 10 5d 42 be fd 59 d3 91 ad 38
-   """)
+        b6 7b 7d 69 0c c1 6c 4e 75 e5 42 13 cb 2d
+        37 b4 e9 c9 12 bc de d9 10 5d 42 be fd 59 d3 91 ad 38
+""")
 
 assert(len(t.tls_session.tls13_derived_secrets) == 5)
 assert(t.tls_session.tls13_early_secret is not None)
@@ -319,22 +325,24 @@ assert(t.tls_session.tls13_derived_secrets['server_handshake_traffic_secret'] ==
 
 
 = Decrypt a TLS 1.3 session - Server handshake traffic key calculation 
+~ crypto_advanced
+
 # Values from RFC8448, section 3
 server_hs_traffic_key = clean("""
-         3f ce 51 60 09 c2 17 27 d0 f2 e4 e8 6e
-         e4 03 bc
-   """)
+             3f ce 51 60 09 c2 17 27 d0 f2 e4 e8 6e
+             e4 03 bc
+""")
 
 server_hs_traffic_iv = clean("""
-         5d 31 3e b2 67 12 76 ee 13 00 0b 30
-   """)
+             5d 31 3e b2 67 12 76 ee 13 00 0b 30
+""")
 
 assert(t.tls_session.prcs.cipher.key == server_hs_traffic_key)
 assert(t.tls_session.prcs.cipher.fixed_iv == server_hs_traffic_iv)
 
-
-
 = Decrypt a TLS 1.3 session - Decrypt and parse server encrypted handshake
+~ crypto_advanced
+
 # Values from RFC8448, section 3
 server_finished = clean("""
          88 63 e6 bf b0 42 0a 92 7f a2 7f 34 33 6a
@@ -365,18 +373,20 @@ assert(isinstance(m[0].ext[2], TLS_Ext_ServerName))
 assert(m[0].ext[2].len == 0)
 
 = Decrypt a TLS 1.3 session - Parse decrypted TLS13Certificate
+~ crypto_advanced
+
 from scapy.layers.tls.cert import Cert
 from scapy.layers.tls.handshake import (_ASN1CertAndExt, TLS13Certificate)
 
 assert(isinstance(m[1], TLS13Certificate))
-assert(m[1].msgtype, 11)
+assert(m[1].msgtype == 11)
 assert(m[1].msglen == 441)
 assert(m[1].cert_req_ctxt_len == 0)
 assert(m[1].cert_req_ctxt == b'')
 assert(m[1].certslen == 437)
 assert(len(m[1].certs) == 1)
 assert(isinstance(m[1].certs[0], _ASN1CertAndExt))
-assert(m[1].certs[0].cert[0], 432)
+assert(m[1].certs[0].cert[0] == 432)
 assert(isinstance(m[1].certs[0].cert[1], Cert))
 assert(m[1].certs[0].cert[1].cA == False)
 assert(m[1].certs[0].cert[1].isSelfSigned() == True)
@@ -392,6 +402,8 @@ assert(m[1].certs[0].cert[1].version == 3)
 
 
 = Decrypt a TLS 1.3 session - Parse decrypted TLSCertificateVerify
+~ crypto_advanced
+
 from scapy.layers.tls.handshake import TLSCertificateVerify
 from scapy.layers.tls.keyexchange import _TLSSignature
 assert(isinstance(m[2], TLSCertificateVerify))
@@ -404,6 +416,7 @@ assert(m[2].sig.sig_len == 128)
 assert(m[2].sig.sig_val == b"Zt|]\x88\xfa\x9b\xd2\xe5Z\xb0\x85\xa6\x10\x15\xb7!\x1f\x82L\xd4\x84\x14Z\xb3\xffR\xf1\xfd\xa8G{\x0bz\xbc\x90\xdbx\xe2\xd3:\\\x14\x1a\x07\x86S\xfak\xefx\x0c^\xa2H\xee\xaa\xa7\x85\xc4\xf3\x94\xca\xb6\xd3\x0b\xbe\x8dHY\xeeQ\x1f`)W\xb1T\x11\xac\x02vqE\x9eFD\\\x9e\xa5\x8c\x18\x1e\x81\x8e\x95\xb8\xc3\xfb\x0b\xf3'\x84\t\xd3\xbe\x15*=\xa5\x04>\x06=\xdae\xcd\xf5\xae\xa2\rS\xdf\xac\xd4/t\xf3")
 
 = Decrypt a TLS 1.3 session - Parse decrypted TLSFinished
+~ crypto_advanced
 from scapy.layers.tls.handshake import TLSFinished
 # Values from RFC8448, section 3
 server_finished = clean("""
@@ -417,7 +430,7 @@ assert(m[3].vdata == server_finished)
 
 
 = Decrypt a TLS 1.3 session - Client handshake traffic key calculation
-
+~ crypto_advanced
 # Values from RFC8448, section 3
 client_hs_traffic_key = clean("""
          db fa a6 93 d1 76 2c 5b 66 6a f5 d9 50
@@ -431,6 +444,7 @@ assert(t.tls_session.pwcs.cipher.key == client_hs_traffic_key)
 assert(t.tls_session.pwcs.cipher.fixed_iv == client_hs_traffic_iv)
 
 = Decrypt a TLS 1.3 session - Decrypt and parse client encrypted handshake 
+~ crypto_advanced
 # Values from RFC8448, section 3
 client_finished = clean("""
          a8 ec 43 6d 67 76 34 ae 52 5a c1 fc eb e1
@@ -446,6 +460,7 @@ assert(isinstance(m[0], TLSFinished))
 assert(m[0].vdata == client_finished)
 
 = Decrypt a TLS 1.3 session - Application traffic secret derivation
+~ crypto_advanced
 # Values from RFC8448, section 3
 master_secret = clean("""
          18 df 06 84 3d 13 a0 8b f2 a4 49 84 4c 5f 8a
@@ -493,7 +508,7 @@ assert('resumption_secret' in t.tls_session.tls13_derived_secrets)
 assert(t.tls_session.tls13_derived_secrets['resumption_secret'] == resumption_master_secret)
 
 = Decrypt a TLS 1.3 session - Application traffic keys calculation 
-     
+~ crypto_advanced
 # Values from RFC8448, section 3
 client_ap_traffic_key = clean("""
          17 42 2d da 59 6e d5 d9 ac d8 90 e3 c6
@@ -519,6 +534,7 @@ assert(t.tls_session.wcs.cipher.key == server_ap_traffic_key)
 assert(t.tls_session.wcs.cipher.fixed_iv == server_ap_traffic_iv)
 
 = Decrypt a TLS 1.3 session - Decrypt and parse server NewSessionTicket
+~ crypto_advanced
 from scapy.layers.tls.extensions import TLS_Ext_EarlyDataIndicationTicket
 # Value from RFC8448, section 3
 serverEncTicket = clean("""
@@ -555,6 +571,7 @@ assert(m.ext[0].max_early_data_size == 1024)
 
 
 = Decrypt a TLS 1.3 session - Compute the PSK associated with the ticket
+~ crypto_advanced
 from scapy.layers.tls.crypto.hkdf import TLS13_HKDF
 hash_len = t.tls_session.rcs.ciphersuite.hash_alg.hash_len
 hkdf = TLS13_HKDF(t.tls_session.rcs.ciphersuite.hash_alg.name.lower())
@@ -573,6 +590,7 @@ assert(hash_len == 32)
 assert(tls13_psk_secret == psk_resumption)
 
 = Decrypt a TLS 1.3 session - Decrypt and parse client Application Data
+~ crypto_advanced
 from scapy.layers.tls.record import TLSApplicationData
 # Values from RFC8448, section 3
 payload = clean("""
@@ -598,6 +616,7 @@ assert(isinstance(m, TLSApplicationData))
 assert(m.data == payload)
 
 = Decrypt a TLS 1.3 session - Decrypt and parse server Application Data
+~ crypto_advanced
 # Values from RFC8448, section 3
 payload = clean("""
          00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e
@@ -621,6 +640,7 @@ assert(isinstance(m, TLSApplicationData))
 assert(m.data == payload)
 
 = Decrypt a TLS 1.3 session - Decrypt client Alert
+~ crypto_advanced
 from scapy.layers.tls.record import TLSAlert
 # Value from RFC8448, section 3
 clientEncAlert = clean("""
@@ -638,6 +658,7 @@ assert(m.level == 1)
 assert(m.descr == 0)
 
 = Decrypt a TLS 1.3 session - Decrypt server Alert
+~ crypto_advanced
 # Value from RFC8448, section 3
 serverEncAlert = clean("""
          17 03 03 00 13 b5 8f d6 71 66 eb f5
