@@ -1363,7 +1363,7 @@ class DHCPv6_am(AnsweringMachine):
     def usage(self):
         msg = """
 DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
-        duid=None, iface=conf.iface6, advpref=255, sntpservers=None,
+        duid=None, iface=conf.iface, advpref=255, sntpservers=None,
         sipdomains=None, sipservers=None,
         nisdomain=None, nisservers=None,
         nispdomain=None, nispservers=None,
@@ -1377,7 +1377,7 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
             answering machine.
 
    iface : the interface to listen/reply on if you do not want to use
-           conf.iface6.
+           conf.iface.
 
    advpref : Value in [0,255] given to Advertise preference field.
              By default, 255 is used. Be aware that this specific
@@ -1446,7 +1446,7 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
                 return -1
 
         if iface is None:
-            iface = conf.iface6
+            iface = conf.iface
 
         self.debug = debug
 

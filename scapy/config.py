@@ -567,7 +567,6 @@ class Conf(ConfClass):
     interactive_shell = ""
     stealth = "not implemented"
     iface = None
-    iface6 = None
     layers = LayersList()
     commands = CommandsList()
     dot15d4_protocol = None  # Used in dot15d4.py
