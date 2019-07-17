@@ -128,7 +128,7 @@ RESPONSE_HEADERS = [
     "Access-Control-Expose-Headers",
     "Access-Control-Max-Age",
     "Access-Control-Allow-Methods",
-    "Access-Control-Allow-Headers11",
+    "Access-Control-Allow-Headers",
     "Accept-Patch",
     "Accept-Ranges",
     "Age",
