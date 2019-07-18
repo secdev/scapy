@@ -22,7 +22,7 @@ fi
 # Install pcap & dnet
 if [ ! -z $SCAPY_USE_PCAPDNET ] && [ "$TRAVIS_OS_NAME" = "linux" ]
 then
-  $SCAPY_SUDO apt-get -qy install libdumbnet-dev libpcap-dev
+  $SCAPY_SUDO apt-get -qy install libdumbnet-dev libpcap-dev python-dumbnet python-libpcap
 fi
 
 # Check pip
