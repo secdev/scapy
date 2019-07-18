@@ -40,6 +40,7 @@ class Route6:
 
     def flush(self):
         self.invalidate_cache()
+        self.ipv6_ifaces = set()
         self.routes = []
 
     def resync(self):
@@ -47,6 +48,9 @@ class Route6:
         #        if any. Change that ...
         self.invalidate_cache()
         self.routes = read_routes6()
+        self.ipv6_ifaces = set()
+        for route in self.routes:
+            self.ipv6_ifaces.add(route[3])
         if self.routes == []:
             log_loading.info("No IPv6 support in kernel")
 
@@ -86,6 +90,8 @@ class Route6:
             devaddrs = [x for x in lifaddr if x[2] == dev]
             ifaddr = construct_source_candidate_set(prefix, plen, devaddrs)
 
+        self.ipv6_ifaces.add(dev)
+
         return (prefix, plen, gw, dev, ifaddr, 1)
 
     def add(self, *args, **kargs):
@@ -96,6 +102,18 @@ class Route6:
         """
         self.invalidate_cache()
         self.routes.append(self.make_route(*args, **kargs))
+
+    def remove_ipv6_iface(self, iface):
+        """
+        Remove the network interface 'iface' from the list of interfaces
+        supporting IPv6.
+        """
+
+        if not all(r[3] == iface for r in conf.route6.routes):
+            try:
+                self.ipv6_ifaces.remove(iface)
+            except KeyError:
+                pass
 
     def delt(self, dst, gw=None):
         """ Ex:
@@ -119,6 +137,7 @@ class Route6:
         else:
             i = self.routes.index(to_del[0])
             self.invalidate_cache()
+            self.remove_ipv6_iface(self.routes[i][3])
             del(self.routes[i])
 
     def ifchange(self, iff, addr):
@@ -133,6 +152,9 @@ class Route6:
             net, plen, gw, iface, addr, metric = route
             if iface != iff:
                 continue
+
+            self.ipv6_ifaces.add(iface)
+
             if gw == '::':
                 self.routes[i] = (the_net, the_plen, gw, iface, [the_addr], metric)  # noqa: E501
             else:
@@ -148,6 +170,7 @@ class Route6:
                 new_routes.append(rt)
         self.invalidate_cache()
         self.routes = new_routes
+        self.remove_ipv6_iface(iff)
 
     def ifadd(self, iff, addr):
         """
@@ -170,6 +193,7 @@ class Route6:
         prefix = inet_ntop(socket.AF_INET6, in6_and(nmask, naddr))
         self.invalidate_cache()
         self.routes.append((prefix, plen, '::', iff, [addr], 1))
+        self.ipv6_ifaces.add(iff)
 
     def route(self, dst=None, dev=None, verbose=conf.verb):
         """
@@ -203,9 +227,34 @@ class Route6:
             dst = socket.getaddrinfo(savedst, None, socket.AF_INET6)[0][-1][0]
             # TODO : Check if name resolution went well
 
-        # Use the default interface while dealing with link-local addresses
+        # Choose a valid IPv6 interface while dealing with link-local addresses
         if dev is None and (in6_islladdr(dst) or in6_ismlladdr(dst)):
-            dev = conf.iface
+            dev = conf.iface  # default interface
+
+            # Check if the default interface supports IPv6!
+            if dev not in self.ipv6_ifaces and self.ipv6_ifaces:
+
+                tmp_routes = [route for route in self.routes
+                              if route[3] != conf.iface]
+
+                default_routes = [route for route in tmp_routes
+                                  if (route[0], route[1]) == ("::", 0)]
+
+                ll_routes = [route for route in tmp_routes
+                             if (route[0], route[1]) == ("fe80::", 64)]
+
+                if default_routes:
+                    # Fallback #1 - the first IPv6 default route
+                    dev = default_routes[0][3]
+                elif ll_routes:
+                    # Fallback #2 - the first link-local prefix
+                    dev = ll_routes[0][3]
+                else:
+                    # Fallback #3 - the loopback
+                    dev = scapy.consts.LOOPBACK_INTERFACE
+
+                warning("The conf.iface interface (%s) does not support IPv6! "
+                        "Using %s instead for routing!" % (conf.iface, dev))
 
         # Deal with dev-specific request for cache search
         k = dst
@@ -229,10 +278,13 @@ class Route6:
                 paths.append((plen, me, (iface, cset, gw)))
 
         if not paths:
-            if verbose:
-                warning("No route found for IPv6 destination %s "
-                        "(no default route?)", dst)
-            return (scapy.consts.LOOPBACK_INTERFACE, "::", "::")
+            if dst == "::1":
+                return (scapy.consts.LOOPBACK_INTERFACE, "::1", "::")
+            else:
+                if verbose:
+                    warning("No route found for IPv6 destination %s "
+                            "(no default route?)", dst)
+                return (scapy.consts.LOOPBACK_INTERFACE, "::", "::")
 
         # Sort with longest prefix first then use metrics as a tie-breaker
         paths.sort(key=lambda x: (-x[0], x[1]))
