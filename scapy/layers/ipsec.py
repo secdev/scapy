@@ -338,7 +338,7 @@ class CryptAlgo(object):
 
         return esp
 
-    def encrypt(self, sa, esp, key, esn_en = False, esn = 0):
+    def encrypt(self, sa, esp, key, esn_en=False, esn=0):
         """
         Encrypt an ESP packet
 
@@ -346,7 +346,8 @@ class CryptAlgo(object):
         @param esp:  an unencrypted _ESPPlain packet with valid padding
         @param key:  the secret key used for encryption
         @esn_en:     extended sequence number enable which allows to use 64-bit
-                     sequence number instead of 32-bit when using an AEAD algorithm
+                     sequence number instead of 32-bit when using an AEAD
+                     algorithm
         @esn:        extended sequence number (32 MSB)
         @return:    a valid ESP packet encrypted with this algorithm
         """
@@ -358,10 +359,10 @@ class CryptAlgo(object):
             encryptor = cipher.encryptor()
 
             if self.is_aead:
-                if esn_en == True :
-                  aad = struct.pack('!LLL', esp.spi, esn, esp.seq)
-                else : 
-                  aad = struct.pack('!LL', esp.spi, esp.seq)
+                if esn_en:
+                    aad = struct.pack('!LLL', esp.spi, esn, esp.seq)
+                else:
+                    aad = struct.pack('!LL', esp.spi, esp.seq)
                 encryptor.authenticate_additional_data(aad)
                 data = encryptor.update(data) + encryptor.finalize()
                 data += encryptor.tag[:self.icv_size]
@@ -370,7 +371,7 @@ class CryptAlgo(object):
 
         return ESP(spi=esp.spi, seq=esp.seq, data=esp.iv + data)
 
-    def decrypt(self, sa, esp, key, icv_size=None, esn_en = False, esn = 0):
+    def decrypt(self, sa, esp, key, icv_size=None, esn_en=False, esn=0):
         """
         Decrypt an ESP packet
 
@@ -399,14 +400,12 @@ class CryptAlgo(object):
 
             if self.is_aead:
                 # Tag value check is done during the finalize method
-                if esn_en == True : 
-                  decryptor.authenticate_additional_data(
-                     struct.pack('!LLL', esp.spi, esn, esp.seq))
-                else : 
-                  decryptor.authenticate_additional_data(
-                     struct.pack('!LL', esp.spi, esp.seq)
-                )
-
+                if esn_en:
+                    decryptor.authenticate_additional_data(
+                        struct.pack('!LLL', esp.spi, esn, esp.seq))
+                else:
+                    decryptor.authenticate_additional_data(
+                        struct.pack('!LL', esp.spi, esp.seq))
             try:
                 data = decryptor.update(data) + decryptor.finalize()
             except InvalidTag as err:
@@ -792,7 +791,7 @@ class SecurityAssociation(object):
     SUPPORTED_PROTOS = (IP, IPv6)
 
     def __init__(self, proto, spi, seq_num=1, crypt_algo=None, crypt_key=None,
-                 auth_algo=None, auth_key=None, tunnel_header=None, nat_t_header=None, esn_en = False, esn = 0):   # noqa: E501
+                 auth_algo=None, auth_key=None, tunnel_header=None, nat_t_header=None, esn_en=False, esn=0):   # noqa: E501
         """
         @param proto: the IPsec proto to use (ESP or AH)
         @param spi: the Security Parameters Index of this SA
@@ -807,7 +806,8 @@ class SecurityAssociation(object):
         @param nat_t_header: an instance of a UDP header that will be used
                              for NAT-Traversal.
         @esn_en: extended sequence number enable which allows to use 64-bit
-                 sequence number instead of 32-bit when using an AEAD algorithm
+                 sequence number instead of 32-bit when using an AEAD
+                 algorithm
         @esn:    extended sequence number (32 MSB)
         """
 
@@ -867,7 +867,7 @@ class SecurityAssociation(object):
             raise TypeError('packet spi=0x%x does not match the SA spi=0x%x' %
                             (pkt.spi, self.spi))
 
-    def _encrypt_esp(self, pkt, seq_num=None, iv=None, esn_en = None, esn = None):
+    def _encrypt_esp(self, pkt, seq_num=None, iv=None, esn_en=None, esn=None):
 
         if iv is None:
             iv = self.crypt_algo.generate_iv()
@@ -895,7 +895,9 @@ class SecurityAssociation(object):
         esp.nh = nh
 
         esp = self.crypt_algo.pad(esp)
-        esp = self.crypt_algo.encrypt(self, esp, self.crypt_key, esn_en = esn_en or self.esn_en, esn = esn or self.esn)
+        esp = self.crypt_algo.encrypt(self, esp, self.crypt_key,
+                                      esn_en=esn_en or self.esn_en,
+                                      esn=esn or self.esn)
 
         self.auth_algo.sign(esp, self.auth_key)
 
@@ -972,7 +974,7 @@ class SecurityAssociation(object):
 
         return signed_pkt
 
-    def encrypt(self, pkt, seq_num=None, iv=None, esn_en = None, esn = None):
+    def encrypt(self, pkt, seq_num=None, iv=None, esn_en=None, esn=None):
         """
         Encrypt (and encapsulate) an IP(v6) packet with ESP or AH according
         to this SecurityAssociation.
@@ -980,8 +982,9 @@ class SecurityAssociation(object):
         @param pkt:     the packet to encrypt
         @param seq_num: if specified, use this sequence number instead of the
                         generated one
-        @esn_en:        extended sequence number enable which allows to use 64-bit
-                        sequence number instead of 32-bit when using an AEAD algorithm
+        @esn_en:        extended sequence number enable which allows to
+                        use 64-bit sequence number instead of 32-bit when
+                        using an AEAD algorithm
         @esn:           extended sequence number (32 MSB)
         @param iv:      if specified, use this initialization vector for
                         encryption instead of a random one.
@@ -992,11 +995,13 @@ class SecurityAssociation(object):
             raise TypeError('cannot encrypt %s, supported protos are %s'
                             % (pkt.__class__, self.SUPPORTED_PROTOS))
         if self.proto is ESP:
-            return self._encrypt_esp(pkt, seq_num=seq_num, iv=iv, esn_en = esn_en, esn = esn)
+            return self._encrypt_esp(pkt, seq_num=seq_num,
+                                     iv=iv, esn_en=esn_en,
+                                     esn=esn)
         else:
             return self._encrypt_ah(pkt, seq_num=seq_num)
 
-    def _decrypt_esp(self, pkt, verify=True, esn_en = None , esn = None):
+    def _decrypt_esp(self, pkt, verify=True, esn_en=None, esn=None):
 
         encrypted = pkt[ESP]
 
@@ -1006,7 +1011,9 @@ class SecurityAssociation(object):
 
         esp = self.crypt_algo.decrypt(self, encrypted, self.crypt_key,
                                       self.crypt_algo.icv_size or
-                                      self.auth_algo.icv_size, esn_en = esn_en or self.esn_en, esn = esn or self.esn)
+                                      self.auth_algo.icv_size,
+                                      esn_en=esn_en or self.esn_en,
+                                      esn=esn or self.esn)
 
         if self.tunnel_header:
             # drop the tunnel header and return the payload untouched
@@ -1069,14 +1076,15 @@ class SecurityAssociation(object):
             # reassemble the ip_header with the AH payload
             return ip_header / payload
 
-    def decrypt(self, pkt, verify=True, esn_en = None, esn = None):
+    def decrypt(self, pkt, verify=True, esn_en=None, esn=None):
         """
         Decrypt (and decapsulate) an IP(v6) packet containing ESP or AH.
 
         @param pkt:     the packet to decrypt
         @param verify:  if False, do not perform the integrity check
         @esn_en:     extended sequence number enable which allows to use 64-bit
-                     sequence number instead of 32-bit when using an AEAD algorithm
+                     sequence number instead of 32-bit when using an AEAD
+                     algorithm
         @esn:        extended sequence number (32 MSB)
         @return: the decrypted/decapsulated packet
         @raise IPSecIntegrityError: if the integrity check fails
@@ -1086,7 +1094,8 @@ class SecurityAssociation(object):
                             % (pkt.__class__, self.SUPPORTED_PROTOS))
 
         if self.proto is ESP and pkt.haslayer(ESP):
-            return self._decrypt_esp(pkt, verify=verify, esn_en = esn_en, esn = esn)
+            return self._decrypt_esp(pkt, verify=verify,
+                                     esn_en=esn_en, esn=esn)
         elif self.proto is AH and pkt.haslayer(AH):
             return self._decrypt_ah(pkt, verify=verify)
         else:
