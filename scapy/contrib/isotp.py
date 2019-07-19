@@ -512,18 +512,15 @@ class ISOTPSniffer:
         c.max_count = count
 
         def internal_prn(p):
-            print("Feeding ", repr(p))
             m.feed(p)
             while not c.stop and len(m) > 0:
                 rcvd = m.pop()
-                print("Popped ", repr(rcvd))
                 on_pkt(rcvd)
 
         def internal_stop_filter(p):
             return c.stop
 
         def on_pkt(p):
-            print(repr(p))
             if lfilter and not lfilter(p):
                 return
             p.sniffed_on = opened_socket
