@@ -770,7 +770,7 @@ class AsyncSniffer(object):
         # Start main thread
         c = 0
         session = session or DefaultSession
-        session = session(prn, store)  # instantiate session
+        session = session(prn, store, *arg, **karg)  # instantiate session
         # sniff_sockets follows: {socket: label}
         sniff_sockets = {}
         if opened_socket is not None:

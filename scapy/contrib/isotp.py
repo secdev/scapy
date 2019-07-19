@@ -37,9 +37,10 @@ from scapy.config import conf
 from scapy.consts import LINUX
 from scapy.contrib.cansocket import PYTHON_CAN
 from scapy.sendrecv import sniff
+from scapy.sessions import DefaultSession
 
 __all__ = ["ISOTP", "ISOTPHeader", "ISOTPHeaderEA", "ISOTP_SF", "ISOTP_FF",
-           "ISOTP_CF", "ISOTP_FC", "ISOTPSniffer", "ISOTPSoftSocket",
+           "ISOTP_CF", "ISOTP_FC", "ISOTPSoftSocket", "ISOTPSession",
            "ISOTPSocket", "ISOTPSocketImplementation", "ISOTPMessageBuilder",
            "ISOTPScan"]
 
@@ -308,7 +309,7 @@ class ISOTPMessageBuilderIter(object):
 class ISOTPMessageBuilder:
     """
     Utility class to build ISOTP messages out of CAN frames, used by both
-    ISOTP.defragment() and ISOTPSniffer.sniff().
+    ISOTP.defragment() and ISOTPSession.
 
     This class attempts to interpret some CAN frames as ISOTP frames, both with
     and without extended addressing at the same time. For example, if an
@@ -485,64 +486,21 @@ class ISOTPMessageBuilder:
             self._feed_consecutive_frame(identifier, ea, data)
 
 
-class ISOTPSniffer:
-    """
-    ISOTPSniffer - convenience class for sniffing any ISOTP message out of a
-    CAN socket.
-
-    Since an ISOTPSocket requires source and destination CAN identifiers and
-    extended addresses in order to sniff messages, it is unsuitable for
-    sniffing all ISOTP on a CAN socket without knowledge of such information.
+class ISOTPSession(DefaultSession):
+    """Defragment ISOTP packets 'on-the-flow'.
+    Usage:
+      >>> sniff(session=ISOTPSession)
     """
 
-    class Closure:
-        def __init__(self):
-            self.count = 0
-            self.stop = False
-            self.max_count = 0
-            self.lst = []
+    def __init__(self, *args, **karg):
+        DefaultSession.__init__(self, *args)
+        self.m = ISOTPMessageBuilder(**karg)
 
-    @staticmethod
-    def sniff(opened_socket, count=0, store=True, timeout=None,
-              prn=None, stop_filter=None, lfilter=None, started_callback=None,
-              use_ext_addr=None):
-        from scapy import plist
-        m = ISOTPMessageBuilder(use_ext_addr=use_ext_addr)
-        c = ISOTPSniffer.Closure()
-        c.max_count = count
-
-        def internal_prn(p):
-            m.feed(p)
-            while not c.stop and len(m) > 0:
-                rcvd = m.pop()
-                on_pkt(rcvd)
-
-        def internal_stop_filter(p):
-            return c.stop
-
-        def on_pkt(p):
-            if lfilter and not lfilter(p):
-                return
-            p.sniffed_on = opened_socket
-            if store:
-                c.lst.append(p)
-            c.count += 1
-            if prn is not None:
-                r = prn(p)
-                if r is not None:
-                    print(r)
-            if stop_filter and stop_filter(p):
-                c.stop = True
-                return
-            if 0 < c.max_count <= c.count:
-                c.stop = True
-                return
-
-        sniff(timeout=timeout, prn=internal_prn,
-              stop_filter=internal_stop_filter,
-              started_callback=started_callback,
-              opened_socket=opened_socket)
-        return plist.PacketList(c.lst, "Sniffed")
+    def on_packet_received(self, pkt):
+        self.m.feed(pkt)
+        while len(self.m) > 0:
+            rcvd = self.m.pop()
+            DefaultSession.on_packet_received(self, rcvd)
 
 
 class ISOTPSoftSocket(SuperSocket):
