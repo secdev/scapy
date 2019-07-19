@@ -45,6 +45,8 @@ def _test_pyx():
                                       stdout=devnull, stderr=subprocess.STDOUT)
     except (subprocess.CalledProcessError, OSError):
         return False
+    except FileNotFoundError as fnfe:
+        return False
     else:
         return r == 0
 
