@@ -43,9 +43,7 @@ def _test_pyx():
         with open(os.devnull, 'wb') as devnull:
             r = subprocess.check_call(["pdflatex", "--version"],
                                       stdout=devnull, stderr=subprocess.STDOUT)
-    except (subprocess.CalledProcessError, OSError):
-        return False
-    except FileNotFoundError as fnfe:
+    except (subprocess.CalledProcessError, OSError, FileNotFoundError):
         return False
     else:
         return r == 0
