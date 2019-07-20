@@ -768,9 +768,8 @@ class AsyncSniffer(object):
              session=None, *arg, **karg):
         self.running = True
         # Start main thread
-        c = 0
         session = session or DefaultSession
-        session = session(prn, store)  # instantiate session
+        session = session(prn, store, *arg, **karg)  # instantiate session
         # sniff_sockets follows: {socket: label}
         sniff_sockets = {}
         if opened_socket is not None:
@@ -920,11 +919,11 @@ class AsyncSniffer(object):
                     if lfilter and not lfilter(p):
                         continue
                     p.sniffed_on = sniff_sockets[s]
-                    c += 1
                     # on_packet_received handles the prn/storage
                     session.on_packet_received(p)
                     # check
-                    if (stop_filter and stop_filter(p)) or (0 < count <= c):
+                    if (stop_filter and stop_filter(p)) or \
+                            (0 < count <= session.count):
                         self.continue_sniff = False
                         break
                 # Removed dead sockets

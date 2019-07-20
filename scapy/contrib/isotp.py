@@ -36,9 +36,11 @@ from scapy.supersocket import SuperSocket
 from scapy.config import conf
 from scapy.consts import LINUX
 from scapy.contrib.cansocket import PYTHON_CAN
+from scapy.sendrecv import sniff
+from scapy.sessions import DefaultSession
 
 __all__ = ["ISOTP", "ISOTPHeader", "ISOTPHeaderEA", "ISOTP_SF", "ISOTP_FF",
-           "ISOTP_CF", "ISOTP_FC", "ISOTPSniffer", "ISOTPSoftSocket",
+           "ISOTP_CF", "ISOTP_FC", "ISOTPSoftSocket", "ISOTPSession",
            "ISOTPSocket", "ISOTPSocketImplementation", "ISOTPMessageBuilder",
            "ISOTPScan"]
 
@@ -307,7 +309,7 @@ class ISOTPMessageBuilderIter(object):
 class ISOTPMessageBuilder:
     """
     Utility class to build ISOTP messages out of CAN frames, used by both
-    ISOTP.defragment() and ISOTPSniffer.sniff().
+    ISOTP.defragment() and ISOTPSession.
 
     This class attempts to interpret some CAN frames as ISOTP frames, both with
     and without extended addressing at the same time. For example, if an
@@ -391,9 +393,9 @@ class ISOTPMessageBuilder:
         if identifier is not None:
             for i in range(len(self.ready)):
                 b = self.ready[i]
-                identifier = b[0]
+                iden = b[0]
                 ea = b[1]
-                if identifier == identifier and ext_addr == ea:
+                if iden == identifier and ext_addr == ea:
                     return ISOTPMessageBuilder._build(self.ready.pop(i),
                                                       self.basecls)
             return None
@@ -484,62 +486,21 @@ class ISOTPMessageBuilder:
             self._feed_consecutive_frame(identifier, ea, data)
 
 
-class ISOTPSniffer:
-    """
-    ISOTPSniffer - convenience class for sniffing any ISOTP message out of a
-    CAN socket.
-
-    Since an ISOTPSocket requires source and destination CAN identifiers and
-    extended addresses in order to sniff messages, it is unsuitable for
-    sniffing all ISOTP on a CAN socket without knowledge of such information.
+class ISOTPSession(DefaultSession):
+    """Defragment ISOTP packets 'on-the-flow'.
+    Usage:
+      >>> sniff(session=ISOTPSession)
     """
 
-    class Closure:
-        def __init__(self):
-            self.count = 0
-            self.stop = False
-            self.max_count = 0
-            self.lst = []
+    def __init__(self, *args, **karg):
+        DefaultSession.__init__(self, *args)
+        self.m = ISOTPMessageBuilder(**karg)
 
-    @staticmethod
-    def sniff(opened_socket, count=0, store=True, timeout=None,
-              prn=None, stop_filter=None, lfilter=None, started_callback=None):
-        from scapy import plist
-        m = ISOTPMessageBuilder()
-        c = ISOTPSniffer.Closure()
-        c.max_count = count
-
-        def internal_prn(p):
-            m.feed(p)
-            while not c.stop and len(m) > 0:
-                rcvd = m.pop()
-                on_pkt(rcvd)
-
-        def internal_stop_filter(p):
-            return c.stop
-
-        def on_pkt(p):
-            if lfilter and not lfilter(p):
-                return
-            p.sniffed_on = opened_socket
-            if store:
-                c.lst.append(p)
-            c.count += 1
-            if prn is not None:
-                r = prn(p)
-                if r is not None:
-                    print(r)
-            if stop_filter and stop_filter(p):
-                c.stop = True
-                return
-            if 0 < c.max_count <= c.count:
-                c.stop = True
-                return
-
-        opened_socket.sniff(timeout=timeout, prn=internal_prn,
-                            stop_filter=internal_stop_filter,
-                            started_callback=started_callback)
-        return plist.PacketList(c.lst, "Sniffed")
+    def on_packet_received(self, pkt):
+        self.m.feed(pkt)
+        while len(self.m) > 0:
+            rcvd = self.m.pop()
+            DefaultSession.on_packet_received(self, rcvd)
 
 
 class ISOTPSoftSocket(SuperSocket):
@@ -585,6 +546,7 @@ class ISOTPSoftSocket(SuperSocket):
                  rx_block_size=0,
                  rx_separation_time_min=0,
                  padding=False,
+                 listen_only=False,
                  basecls=ISOTP):
         """
         Initialize an ISOTPSoftSocket using the provided underlying can socket
@@ -625,7 +587,8 @@ class ISOTPSoftSocket(SuperSocket):
             extended_addr=extended_addr,
             extended_rx_addr=extended_rx_addr,
             rx_block_size=rx_block_size,
-            rx_separation_time_min=rx_separation_time_min
+            rx_separation_time_min=rx_separation_time_min,
+            listen_only=listen_only
         )
 
         self.ins = impl
@@ -759,17 +722,15 @@ class CANReceiverThread(Thread):
     def run(self):
         self._thread_started.set()
         try:
-            ins = self.socket
-
             def prn(msg):
                 if not self.exiting:
                     self.callback(msg)
 
             while 1:
                 try:
-                    ins.sniff(store=False, timeout=1, count=1,
-                              stop_filter=lambda x: self.exiting,
-                              prn=prn)
+                    sniff(store=False, timeout=1, count=1,
+                          stop_filter=lambda x: self.exiting,
+                          prn=prn, opened_socket=self.socket)
                 except ValueError as ex:
                     if not self.exiting:
                         raise ex
@@ -895,7 +856,8 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
                  extended_addr=None,
                  extended_rx_addr=None,
                  rx_block_size=0,
-                 rx_separation_time_min=0):
+                 rx_separation_time_min=0,
+                 listen_only=False):
         """
         :param can_socket: a CANSocket instance, preferably filtering only can
                            frames with identifier equal to did
@@ -918,6 +880,7 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
                 included in every Control Flow Frame sent by this object. The
                 default value of 0 indicates that the peer will not wait any
                 time between sending frames.
+        :param listen_only: Disables send of flow control frames
         """
 
         automaton.SelectableObject.__init__(self)
@@ -935,7 +898,7 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
         self.ea_hdr = b""
         if extended_addr is not None:
             self.ea_hdr = struct.pack("B", extended_addr)
-        self.listen_mode = False
+        self.listen_only = listen_only
 
         self.rxfc_bs = rx_block_size
         self.rxfc_stmin = rx_separation_time_min
@@ -1205,7 +1168,7 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
         self.rx_state = ISOTP_WAIT_DATA
 
         # no creation of flow control frames
-        if not self.listen_mode:
+        if not self.listen_only:
             # send our first FC frame
             load = self.ea_hdr
             load += struct.pack("BBB", N_PCI_FC, self.rxfc_bs, self.rxfc_stmin)
@@ -1262,7 +1225,7 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
             self.rx_bs += 1
 
             # check if we reached the end of the block
-            if self.rx_bs >= self.rxfc_bs and not self.listen_mode:
+            if self.rx_bs >= self.rxfc_bs and not self.listen_only:
                 # send our FC frame
                 load = self.ea_hdr
                 load += struct.pack("BBB", N_PCI_FC, self.rxfc_bs,

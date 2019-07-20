@@ -17,10 +17,15 @@ from scapy.plist import PacketList
 class DefaultSession(object):
     """Default session: no stream decoding"""
 
-    def __init__(self, prn, store):
+    def __init__(self, prn, store, *args, **karg):
         self.prn = prn
         self.store = store
         self.lst = []
+        self.__count = 0
+
+    @property
+    def count(self):
+        return self.__count
 
     def toPacketList(self):
         return PacketList(self.lst, "Sniffed")
@@ -35,6 +40,7 @@ class DefaultSession(object):
             for p in pkt:
                 DefaultSession.on_packet_received(self, p)
             return
+        self.__count += 1
         if self.store:
             self.lst.append(pkt)
         if self.prn:
