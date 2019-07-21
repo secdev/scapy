@@ -765,11 +765,13 @@ class AsyncSniffer(object):
              prn=None, lfilter=None,
              L2socket=None, timeout=None, opened_socket=None,
              stop_filter=None, iface=None, started_callback=None,
-             session=None, *arg, **karg):
+             session=None, session_args=[], session_kwargs={},
+             *arg, **karg):
         self.running = True
         # Start main thread
+        # instantiate session
         session = session or DefaultSession
-        session = session(prn, store, *arg, **karg)  # instantiate session
+        session = session(prn, store, *session_args, **session_kwargs)
         # sniff_sockets follows: {socket: label}
         sniff_sockets = {}
         if opened_socket is not None:

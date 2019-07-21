@@ -1066,7 +1066,7 @@ candump_fd = BytesIO(b'''  vcan0  541   [8]  10 0A DE AD BE EF AA AA
   vcan0  241   [3]  30 00 00
   vcan0  541   [5]  21 AA AA AA AA''')
 
-pkts = sniff(opened_socket=CandumpReader(candump_fd), session=ISOTPSession, timeout=1, use_ext_addr=False)
+pkts = sniff(opened_socket=CandumpReader(candump_fd), session=ISOTPSession, timeout=1, session_kwargs={"use_ext_addr": False})
 assert(len(pkts) == 6)
 isotp = pkts[0]
 assert(isotp.data == dhex("DE AD BE EF AA AA AA AA AA AA"))
