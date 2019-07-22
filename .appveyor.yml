@@ -31,8 +31,8 @@ build: off
 
 install:
   # Install the npcap, windump and wireshark suites
-  - ps: .\.appveyor\InstallNpcap.ps1
-  - ps: .\.appveyor\InstallWindumpNpcap.ps1
+  - ps: .\.config\appveyor\InstallNpcap.ps1
+  - ps: .\.config\appveyor\InstallWindumpNpcap.ps1
   # Installs Wireshark 3.0 (and its dependencies)
   # https://github.com/mkevenaar/chocolatey-packages/issues/16
   - choco install -n KB3033929 KB2919355 kb2999226

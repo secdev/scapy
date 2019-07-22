@@ -6,7 +6,7 @@ matrix:
         - os: linux
           python: 3.6
           env:
-            - TOXENV=flake8,twine,docs,spell
+            - TOXENV=mypy,flake8,twine,docs,spell
        
         # Run as a regular user
         - os: linux
@@ -130,7 +130,7 @@ matrix:
             - TOXENV=linux_warnings
 
 install:
-  - bash .travis/install.sh
+  - bash .config/travis/install.sh
   - python -c "from scapy.all import conf; print(repr(conf))"
 
-script: bash .travis/test.sh
+script: bash .config/travis/test.sh

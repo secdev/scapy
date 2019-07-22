@@ -41,11 +41,9 @@ from scapy.compat import raw, plain_str, bytes_hex, orb, chb, bytes_encode
 # Only required if using mypy-lang for static typing
 # Most symbols are used in mypy-interpreted "comments".
 # Sized must be one of the superclasses of a class implementing __len__
-try:
-    from typing import Optional, List, Union, Callable, Any, Tuple, Sized  # noqa: F401, E501
-except ImportError:
-    class Sized(object):
-        pass
+from scapy.compat import Optional, List, Union, Callable, Any, \
+    Tuple, Sized, Pattern  # noqa: F401
+from scapy.base_classes import Packet_metaclass  # noqa: F401
 
 import scapy.fields as fields
 import scapy.packet as packet
@@ -654,7 +652,7 @@ else:
     ABC = abc.ABCMeta('ABC', (), {})
 
 
-class HPackStringsInterface(ABC, Sized):
+class HPackStringsInterface(ABC, Sized):  # type: ignore
     @abc.abstractmethod
     def __str__(self):
         pass
@@ -1012,7 +1010,7 @@ class HPackZString(HPackStringsInterface):
         (0x3fffffff, 30)
     ]
 
-    static_huffman_tree = None
+    static_huffman_tree = None  # type: HuffmanNode
 
     @classmethod
     def _huffman_encode_char(cls, c):
@@ -1330,7 +1328,7 @@ class HPackHdrString(packet.Packet):
     ]
 
     def guess_payload_class(self, payload):
-        # type: (str) -> base_classes.Packet_metaclass
+        # type: (str) -> Packet_metaclass
         # Trick to tell scapy that the remaining bytes of the currently
         # dissected string is not a payload of this packet but of some other
         # underlayer packet
@@ -1353,7 +1351,7 @@ class HPackHeaders(packet.Packet):
     """
     @classmethod
     def dispatch_hook(cls, s=None, *_args, **_kwds):
-        # type: (Optional[str], *Any, **Any) -> base_classes.Packet_metaclass
+        # type: (Optional[str], *Any, **Any) -> Packet_metaclass
         """dispatch_hook returns the subclass of HPackHeaders that must be used
         to dissect the string.
         """
@@ -1369,7 +1367,7 @@ class HPackHeaders(packet.Packet):
         return HPackLitHdrFldWithoutIndexing
 
     def guess_payload_class(self, payload):
-        # type: (str) -> base_classes.Packet_metaclass
+        # type: (str) -> Packet_metaclass
         return config.conf.padding_layer
 
 
@@ -1759,7 +1757,7 @@ class H2Setting(packet.Packet):
     ]
 
     def guess_payload_class(self, payload):
-        # type: (str) -> base_classes.Packet_metaclass
+        # type: (str) -> Packet_metaclass
         return config.conf.padding_layer
 
 
@@ -2006,7 +2004,7 @@ class H2Frame(packet.Packet):
     ]
 
     def guess_payload_class(self, payload):
-        # type: (str) -> base_classes.Packet_metaclass
+        # type: (str) -> Packet_metaclass
         """ guess_payload_class returns the Class object to use for parsing a payload
         This function uses the H2Frame.type field value to decide which payload to parse. The implement cannot be  # noqa: E501
         performed using the simple bind_layers helper because sometimes the selection of which Class object to return  # noqa: E501
@@ -2100,7 +2098,7 @@ class H2Seq(packet.Packet):
     ]
 
     def guess_payload_class(self, payload):
-        # type: (str) -> base_classes.Packet_metaclass
+        # type: (str) -> Packet_metaclass
         return config.conf.padding_layer
 
 
@@ -2272,7 +2270,7 @@ class HPackHdrTable(Sized):
 
     # The value of this variable cannot be determined at declaration time. It is  # noqa: E501
     # initialized by an init_static_table call
-    _static_entries_last_idx = None
+    _static_entries_last_idx = None  # type: int
 
     @classmethod
     def init_static_table(cls):
@@ -2286,7 +2284,7 @@ class HPackHdrTable(Sized):
         :param int dynamic_table_cap_size: the maximum-maximum size of the dynamic entry table in bytes  # noqa: E501
         :raises:s AssertionError
         """
-        self._regexp = None
+        self._regexp = None  # type: Pattern
         if isinstance(type(self)._static_entries_last_idx, type(None)):
             type(self).init_static_table()
 
@@ -2515,7 +2513,6 @@ class HPackHdrTable(Sized):
     @staticmethod
     def _optimize_header_length_and_packetify(s):
         # type: (str) -> HPackHdrString
-        # type: (str) -> HPackHdrString
         zs = HPackZString(s)
         if len(zs) >= len(s):
             return HPackHdrString(data=HPackLiteralString(s))
@@ -2538,81 +2535,81 @@ class HPackHdrTable(Sized):
 
         # The value is not indexed for this headers
 
-        hdr_value = self._optimize_header_length_and_packetify(hdr_value)
+        _hdr_value = self._optimize_header_length_and_packetify(hdr_value)
 
         # Searching if the header name is indexed
         idx = self.get_idx_by_name(hdr_name)
         if idx is not None:
             if is_sensitive(
                 hdr_name,
-                hdr_value.getfieldval('data').origin()
+                _hdr_value.getfieldval('data').origin()
             ):
                 return HPackLitHdrFldWithoutIndexing(
                     never_index=1,
                     index=idx,
-                    hdr_value=hdr_value
+                    hdr_value=_hdr_value
                 ), len(
                     HPackHdrEntry(
                         self[idx].name(),
-                        hdr_value.getfieldval('data').origin()
+                        _hdr_value.getfieldval('data').origin()
                     )
                 )
             if should_index(hdr_name):
                 return HPackLitHdrFldWithIncrIndexing(
                     index=idx,
-                    hdr_value=hdr_value
+                    hdr_value=_hdr_value
                 ), len(
                     HPackHdrEntry(
                         self[idx].name(),
-                        hdr_value.getfieldval('data').origin()
+                        _hdr_value.getfieldval('data').origin()
                     )
                 )
             return HPackLitHdrFldWithoutIndexing(
                 index=idx,
-                hdr_value=hdr_value
+                hdr_value=_hdr_value
             ), len(
                 HPackHdrEntry(
                     self[idx].name(),
-                    hdr_value.getfieldval('data').origin()
+                    _hdr_value.getfieldval('data').origin()
                 )
             )
 
-        hdr_name = self._optimize_header_length_and_packetify(hdr_name)
+        _hdr_name = self._optimize_header_length_and_packetify(hdr_name)
 
         if is_sensitive(
-            hdr_name.getfieldval('data').origin(),
-            hdr_value.getfieldval('data').origin()
+            _hdr_name.getfieldval('data').origin(),
+            _hdr_value.getfieldval('data').origin()
         ):
             return HPackLitHdrFldWithoutIndexing(
                 never_index=1,
                 index=0,
-                hdr_name=hdr_name,
-                hdr_value=hdr_value
+                hdr_name=_hdr_name,
+                hdr_value=_hdr_value
             ), len(
                 HPackHdrEntry(
-                    hdr_name.getfieldval('data').origin(),
-                    hdr_value.getfieldval('data').origin()
+                    _hdr_name.getfieldval('data').origin(),
+                    _hdr_value.getfieldval('data').origin()
                 )
             )
-        if should_index(hdr_name.getfieldval('data').origin()):
+        if should_index(_hdr_name.getfieldval('data').origin()):
             return HPackLitHdrFldWithIncrIndexing(
                 index=0,
-                hdr_name=hdr_name,
-                hdr_value=hdr_value
+                hdr_name=_hdr_name,
+                hdr_value=_hdr_value
             ), len(
                 HPackHdrEntry(
-                    hdr_name.getfieldval('data').origin(),
-                    hdr_value.getfieldval('data').origin()
+                    _hdr_name.getfieldval('data').origin(),
+                    _hdr_value.getfieldval('data').origin()
                 )
             )
         return HPackLitHdrFldWithoutIndexing(
             index=0,
-            hdr_name=hdr_name,
-            hdr_value=hdr_value
+            hdr_name=_hdr_name,
+            hdr_value=_hdr_value
         ), len(
             HPackHdrEntry(
-                hdr_name.getfieldval('data').origin(),
-                hdr_value.getfieldval('data').origin()
+                _hdr_name.getfieldval('data').origin(),
+                _hdr_value.getfieldval('data').origin()
             )
         )
 
