@@ -52,6 +52,7 @@ QUOTES = [
 
 
 def _probe_config_file(cf):
+    # str -> str
     cf_path = os.path.join(os.path.expanduser("~"), cf)
     try:
         os.stat(cf_path)

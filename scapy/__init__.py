@@ -19,6 +19,7 @@ _SCAPY_PKG_DIR = os.path.dirname(__file__)
 
 
 def _version_from_git_describe():
+    # type: () -> str
     """
     Read the version from ``git describe``. It returns the latest tag with an
     optional suffix if the current directory is not exactly on the tag.
@@ -38,6 +39,9 @@ def _version_from_git_describe():
 
         >>> _version_from_git_describe()
         '2.3.2.dev346'
+
+    :raises CalledProcessError: if git is unavailable
+    :return: the scapy latest tag
     """
     if not os.path.isdir(os.path.join(os.path.dirname(_SCAPY_PKG_DIR), '.git')):  # noqa: E501
         raise ValueError('not in scapy git repo')
@@ -62,6 +66,11 @@ def _version_from_git_describe():
 
 
 def _version():
+    # () -> str
+    """Returns the Scapy version from multiple methods
+
+    :return: the scapy version
+    """
     version_file = os.path.join(_SCAPY_PKG_DIR, 'VERSION')
     try:
         tag = _version_from_git_describe()
