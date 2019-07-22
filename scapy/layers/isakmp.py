@@ -22,6 +22,10 @@ from scapy.sendrecv import sr
 from scapy.volatile import RandString
 from scapy.error import warning
 from functools import reduce
+from typing import Tuple
+from typing import Union
+from typing import List
+from scapy.base_classes import Packet_metaclass
 
 # TODO: some ISAKMP payloads are not implemented,
 # and inherit a default ISAKMP_payload
@@ -114,6 +118,7 @@ class ISAKMPTransformSetField(StrLenField):
 
     @staticmethod
     def type2num(type_val_tuple):
+        # type: (Tuple[str, Union[int, str]]) -> bytes
         typ, val = type_val_tuple
         type_val, enc_dict, tlv = ISAKMPTransformTypes.get(typ, (typ, {}, 0))
         val = enc_dict.get(val, val)
@@ -138,12 +143,14 @@ class ISAKMPTransformSetField(StrLenField):
         return (val[0], enc)
 
     def i2m(self, pkt, i):
+        # type: (ISAKMP_payload_Transform, List[Tuple[str, str]]) -> bytes
         if i is None:
             return b""
         i = [ISAKMPTransformSetField.type2num(e) for e in i]
         return b"".join(i)
 
     def m2i(self, pkt, m):
+        # type: (ISAKMP_payload_Transform, bytes) -> List[Tuple[str, str]]
         # I try to ensure that we don't read off the end of our packet based
         # on bad length fields we're provided in the packet. There are still
         # conditions where struct.unpack() may not get enough packet data, but
@@ -183,6 +190,7 @@ ISAKMP_exchange_type = ["None", "base", "identity prot.",
 
 class ISAKMP_class(Packet):
     def guess_payload_class(self, payload):
+        # type: (bytes) -> Packet_metaclass
         np = self.next_payload
         if np == 0:
             return conf.raw_layer
@@ -207,6 +215,7 @@ class ISAKMP(ISAKMP_class):  # rfc2408
     ]
 
     def guess_payload_class(self, payload):
+        # type: (bytes) -> Packet_metaclass
         if self.flags & 1:
             return conf.raw_layer
         return ISAKMP_class.guess_payload_class(self, payload)
@@ -218,6 +227,7 @@ class ISAKMP(ISAKMP_class):  # rfc2408
         return 0
 
     def post_build(self, p, pay):
+        # type: (bytes, bytes) -> bytes
         p += pay
         if self.length is None:
             p = p[:24] + struct.pack("!I", len(p)) + p[28:]
@@ -245,6 +255,7 @@ class ISAKMP_payload_Transform(ISAKMP_class):
     ]
 
     def post_build(self, p, pay):
+        # type: (bytes, bytes) -> bytes
         if self.length is None:
             tmp_len = len(p)
             tmp_pay = p[:2] + chb((tmp_len >> 8) & 0xff)

@@ -38,6 +38,7 @@ from scapy.layers.tls.record import TLSAlert, TLSChangeCipherSpec, \
     TLSApplicationData
 from scapy.layers.tls.crypto.suites import _tls_cipher_suites_cls, \
     get_usable_ciphersuites
+from mypy_extensions import NoReturn
 
 
 class TLSServerAutomaton(_TLSAutomaton):
@@ -97,6 +98,7 @@ class TLSServerAutomaton(_TLSAutomaton):
         self.max_client_idle_time = max_client_idle_time
 
     def vprint_sessioninfo(self):
+        # type: () -> None
         if self.verbose:
             s = self.cur_session
             v = _tls_version[s.tls_version]
@@ -130,6 +132,7 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state(initial=True)
     def INITIAL(self):
+        # type: () -> NoReturn
         self.vprint("Starting TLS server automaton.")
         self.vprint("Receiving 'stop_server' will cause a graceful exit.")
         self.vprint("Interrupting with Ctrl-Z might leave a loose socket hanging.")  # noqa: E501
@@ -137,6 +140,7 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def BIND(self):
+        # type: () -> NoReturn
         s = socket.socket(self.ip_family, socket.SOCK_STREAM)
         self.serversocket = s
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -158,6 +162,7 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def WAITING_CLIENT(self):
+        # type: () -> NoReturn
         self.buffer_out = []
         self.buffer_in = []
         self.vprint()
@@ -176,6 +181,7 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def INIT_TLS_SESSION(self):
+        # type: () -> NoReturn
         """
         XXX We should offer the right key according to the client's suites. For
         now server_rsa_key is only used for RSAkx, but we should try to replace
@@ -192,11 +198,13 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def WAITING_CLIENTFLIGHT1(self):
+        # type: () -> NoReturn
         self.get_next_msg()
         raise self.RECEIVED_CLIENTFLIGHT1()
 
     @ATMT.state()
     def RECEIVED_CLIENTFLIGHT1(self):
+        # type: () -> None
         pass
 
     #                           TLS handshake                                 #
@@ -208,6 +216,7 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def HANDLED_CLIENTHELLO(self):
+        # type: () -> NoReturn
         raise self.PREPARE_SERVERFLIGHT1()
 
     @ATMT.condition(HANDLED_CLIENTHELLO)
@@ -239,6 +248,7 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def PREPARE_SERVERFLIGHT1(self):
+        # type: () -> None
         self.add_record()
 
     @ATMT.condition(PREPARE_SERVERFLIGHT1)
@@ -273,6 +283,7 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def ADDED_CERTIFICATE(self):
+        # type: () -> None
         pass
 
     @ATMT.condition(ADDED_CERTIFICATE)
@@ -312,11 +323,13 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def WAITING_CLIENTFLIGHT2(self):
+        # type: () -> NoReturn
         self.get_next_msg()
         raise self.RECEIVED_CLIENTFLIGHT2()
 
     @ATMT.state()
     def RECEIVED_CLIENTFLIGHT2(self):
+        # type: () -> None
         pass
 
     @ATMT.condition(RECEIVED_CLIENTFLIGHT2, prio=1)
@@ -337,6 +350,7 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def HANDLED_CLIENTCERTIFICATE(self):
+        # type: () -> None
         if self.client_auth:
             self.vprint("Received client certificate chain...")
 
@@ -347,6 +361,7 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def HANDLED_CLIENTKEYEXCHANGE(self):
+        # type: () -> None
         pass
 
     @ATMT.condition(HANDLED_CLIENTCERTIFICATE, prio=2)
@@ -386,6 +401,7 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def HANDLED_CERTIFICATEVERIFY(self):
+        # type: () -> None
         pass
 
     @ATMT.condition(HANDLED_CERTIFICATEVERIFY, prio=1)
@@ -395,6 +411,7 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def HANDLED_CHANGECIPHERSPEC(self):
+        # type: () -> None
         pass
 
     @ATMT.condition(HANDLED_CERTIFICATEVERIFY, prio=2)
@@ -423,6 +440,7 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def HANDLED_CLIENTFINISHED(self):
+        # type: () -> NoReturn
         raise self.PREPARE_SERVERFLIGHT2()
 
     @ATMT.condition(HANDLED_CHANGECIPHERSPEC, prio=2)
@@ -446,6 +464,7 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def PREPARE_SERVERFLIGHT2(self):
+        # type: () -> None
         self.add_record()
 
     @ATMT.condition(PREPARE_SERVERFLIGHT2)
@@ -455,6 +474,7 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def ADDED_CHANGECIPHERSPEC(self):
+        # type: () -> None
         pass
 
     @ATMT.condition(ADDED_CHANGECIPHERSPEC)
@@ -465,6 +485,7 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def ADDED_SERVERFINISHED(self):
+        # type: () -> None
         pass
 
     @ATMT.condition(ADDED_SERVERFINISHED)
@@ -474,6 +495,7 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def SENT_SERVERFLIGHT2(self):
+        # type: () -> NoReturn
         self.vprint("TLS handshake completed!")
         self.vprint_sessioninfo()
         if self.is_echo_server:
@@ -484,11 +506,13 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def WAITING_CLIENTDATA(self):
+        # type: () -> NoReturn
         self.get_next_msg(self.max_client_idle_time, 1)
         raise self.RECEIVED_CLIENTDATA()
 
     @ATMT.state()
     def RECEIVED_CLIENTDATA(self):
+        # type: () -> None
         pass
 
     @ATMT.condition(RECEIVED_CLIENTDATA)
@@ -529,6 +553,7 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def ADDED_SERVERDATA(self):
+        # type: () -> None
         pass
 
     @ATMT.condition(ADDED_SERVERDATA)
@@ -538,6 +563,7 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def SENT_SERVERDATA(self):
+        # type: () -> NoReturn
         raise self.WAITING_CLIENTDATA()
 
     @ATMT.state()
@@ -559,6 +585,7 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def CLOSE_NOTIFY_FINAL(self):
+        # type: () -> None
         self.vprint()
         self.vprint("Sending a TLSAlert to the client...")
 
@@ -584,6 +611,7 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def SSLv2_HANDLED_CLIENTHELLO(self):
+        # type: () -> None
         pass
 
     @ATMT.condition(SSLv2_HANDLED_CLIENTHELLO)
@@ -601,6 +629,7 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def SSLv2_ADDED_SERVERHELLO(self):
+        # type: () -> None
         pass
 
     @ATMT.condition(SSLv2_ADDED_SERVERHELLO)
@@ -610,15 +639,18 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def SSLv2_SENT_SERVERHELLO(self):
+        # type: () -> NoReturn
         raise self.SSLv2_WAITING_CLIENTMASTERKEY()
 
     @ATMT.state()
     def SSLv2_WAITING_CLIENTMASTERKEY(self):
+        # type: () -> NoReturn
         self.get_next_msg()
         raise self.SSLv2_RECEIVED_CLIENTMASTERKEY()
 
     @ATMT.state()
     def SSLv2_RECEIVED_CLIENTMASTERKEY(self):
+        # type: () -> None
         pass
 
     @ATMT.condition(SSLv2_RECEIVED_CLIENTMASTERKEY, prio=1)
@@ -637,10 +669,12 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def SSLv2_HANDLED_CLIENTMASTERKEY(self):
+        # type: () -> NoReturn
         raise self.SSLv2_RECEIVED_CLIENTFINISHED()
 
     @ATMT.state()
     def SSLv2_RECEIVED_CLIENTFINISHED(self):
+        # type: () -> None
         pass
 
     @ATMT.condition(SSLv2_RECEIVED_CLIENTFINISHED, prio=1)
@@ -650,6 +684,7 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def SSLv2_HANDLED_CLIENTFINISHED(self):
+        # type: () -> None
         pass
 
     @ATMT.condition(SSLv2_HANDLED_CLIENTFINISHED, prio=1)
@@ -683,6 +718,7 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def SSLv2_ADDED_SERVERVERIFY(self):
+        # type: () -> None
         pass
 
     @ATMT.condition(SSLv2_ADDED_SERVERVERIFY)
@@ -692,6 +728,7 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def SSLv2_SENT_SERVERVERIFY(self):
+        # type: () -> NoReturn
         hs_msg = [type(m) for m in self.cur_session.handshake_messages_parsed]
         if SSLv2ClientFinished in hs_msg:
             raise self.SSLv2_HANDLED_CLIENTFINISHED()
@@ -761,6 +798,7 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def SSLv2_ADDED_SERVERFINISHED(self):
+        # type: () -> None
         pass
 
     @ATMT.condition(SSLv2_ADDED_SERVERFINISHED)
@@ -770,6 +808,7 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def SSLv2_SENT_SERVERFINISHED(self):
+        # type: () -> NoReturn
         self.vprint("SSLv2 handshake completed!")
         self.vprint_sessioninfo()
         if self.is_echo_server:
@@ -780,11 +819,13 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def SSLv2_WAITING_CLIENTDATA(self):
+        # type: () -> NoReturn
         self.get_next_msg(self.max_client_idle_time, 1)
         raise self.SSLv2_RECEIVED_CLIENTDATA()
 
     @ATMT.state()
     def SSLv2_RECEIVED_CLIENTDATA(self):
+        # type: () -> None
         pass
 
     @ATMT.condition(SSLv2_RECEIVED_CLIENTDATA)
@@ -826,6 +867,7 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def SSLv2_ADDED_SERVERDATA(self):
+        # type: () -> None
         pass
 
     @ATMT.condition(SSLv2_ADDED_SERVERDATA)
@@ -835,6 +877,7 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def SSLv2_SENT_SERVERDATA(self):
+        # type: () -> NoReturn
         raise self.SSLv2_WAITING_CLIENTDATA()
 
     @ATMT.state()
@@ -860,6 +903,7 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def SSLv2_CLOSE_NOTIFY_FINAL(self):
+        # type: () -> None
         """
         There is no proper way to end an SSLv2 session.
         We try and send a 'goodbye' message as a substitute.
@@ -880,6 +924,7 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state(final=True)
     def FINAL(self):
+        # type: () -> None
         self.vprint("Closing server socket...")
         self.serversocket.close()
         self.vprint("Ending TLS server automaton.")

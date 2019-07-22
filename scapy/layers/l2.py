@@ -35,6 +35,14 @@ from scapy.plist import PacketList, SndRcvList
 from scapy.sendrecv import sendp, srp, srp1
 from scapy.utils import checksum, hexdump, hexstr, inet_ntoa, inet_aton, \
     mac2str, valid_mac, valid_net, valid_net6
+from scapy.base_classes import Packet_metaclass
+from typing import Any
+from typing import Optional
+from typing import Callable
+from scapy.layers.inet import IP
+from typing import Union
+from scapy.arch.windows import NetworkInterface
+from typing import Tuple
 if conf.route is None:
     # unused import, only to initialize conf.route
     import scapy.route  # noqa: F401
@@ -47,17 +55,21 @@ if conf.route is None:
 
 class Neighbor:
     def __init__(self):
+        # type: () -> None
         self.resolvers = {}
 
     def register_l3(self, l2, l3, resolve_method):
+        # type: (Packet_metaclass, Packet_metaclass, Callable) -> None
         self.resolvers[l2, l3] = resolve_method
 
     def resolve(self, l2inst, l3inst):
+        # type: (Ether, IP) -> str
         k = l2inst.__class__, l3inst.__class__
         if k in self.resolvers:
             return self.resolvers[k](l2inst, l3inst)
 
     def __repr__(self):
+        # type: () -> str
         return "\n".join("%-15s -> %-15s" % (l2.__name__, l3.__name__) for l2, l3 in self.resolvers)  # noqa: E501
 
 
@@ -68,6 +80,7 @@ conf.netcache.new_cache("arp_cache", 120)  # cache entries expire after 120s
 
 @conf.commands.register
 def getmacbyip(ip, chainCC=0):
+    # type: (str, int) -> str
     """Return MAC address corresponding to a given IP address"""
     if isinstance(ip, Net):
         ip = next(iter(ip))
@@ -107,9 +120,11 @@ def getmacbyip(ip, chainCC=0):
 
 class DestMACField(MACField):
     def __init__(self, name):
+        # type: (str) -> None
         MACField.__init__(self, name, None)
 
     def i2h(self, pkt, x):
+        # type: (Ether, Optional[str]) -> str
         if x is None:
             try:
                 x = conf.neighbor.resolve(pkt, pkt.payload)
@@ -121,6 +136,7 @@ class DestMACField(MACField):
         return MACField.i2h(self, pkt, x)
 
     def i2m(self, pkt, x):
+        # type: (Ether, Optional[Any]) -> bytes
         return MACField.i2m(self, pkt, self.i2h(pkt, x))
 
 
@@ -128,10 +144,12 @@ class SourceMACField(MACField):
     __slots__ = ["getif"]
 
     def __init__(self, name, getif=None):
+        # type: (str, Optional[Any]) -> None
         MACField.__init__(self, name, None)
         self.getif = (lambda pkt: pkt.route()[0]) if getif is None else getif
 
     def i2h(self, pkt, x):
+        # type: (Union[ARP, Ether], Optional[str]) -> str
         if x is None:
             iff = self.getif(pkt)
             if iff is None:
@@ -146,6 +164,7 @@ class SourceMACField(MACField):
         return MACField.i2h(self, pkt, x)
 
     def i2m(self, pkt, x):
+        # type: (Ether, Optional[str]) -> bytes
         return MACField.i2m(self, pkt, self.i2h(pkt, x))
 
 
@@ -163,19 +182,23 @@ class Ether(Packet):
     __slots__ = ["_defrag_pos"]
 
     def hashret(self):
+        # type: () -> bytes
         return struct.pack("H", self.type) + self.payload.hashret()
 
     def answers(self, other):
+        # type: (Ether) -> int
         if isinstance(other, Ether):
             if self.type == other.type:
                 return self.payload.answers(other.payload)
         return 0
 
     def mysummary(self):
+        # type: () -> str
         return self.sprintf("%src% > %dst% (%type%)")
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        # type: (Optional[bytes], *Any, **Any) -> Packet_metaclass
         if _pkt and len(_pkt) >= 14:
             if struct.unpack("!H", _pkt[12:14])[0] <= 1500:
                 return Dot3
@@ -381,10 +404,12 @@ class ARP(Packet):
     ]
 
     def hashret(self):
+        # type: () -> bytes
         return struct.pack(">HHH", self.hwtype, self.ptype,
                            ((self.op + 1) // 2)) + self.payload.hashret()
 
     def answers(self, other):
+        # type: (ARP) -> bool
         if not isinstance(other, ARP):
             return False
         if self.op != other.op + 1:
@@ -396,6 +421,7 @@ class ARP(Packet):
         return self_psrc[:len(other_pdst)] == other_pdst[:len(self_psrc)]
 
     def route(self):
+        # type: () -> Tuple[NetworkInterface, str, str]
         fld, dst = self.getfield_and_val("pdst")
         fld, dst = fld._find_fld_pkt_val(self, dst)
         if isinstance(dst, Gen):
@@ -408,9 +434,11 @@ class ARP(Packet):
             return None
 
     def extract_padding(self, s):
+        # type: (bytes) -> Tuple[str, bytes]
         return "", s
 
     def mysummary(self):
+        # type: () -> str
         if self.op == 1:
             return self.sprintf("ARP who has %pdst% says %psrc%")
         if self.op == 2:
@@ -466,11 +494,13 @@ class GRE(Packet):
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        # type: (Optional[bytes], *Any, **Any) -> Packet_metaclass
         if _pkt and struct.unpack("!H", _pkt[2:4])[0] == 0x880b:
             return GRE_PPTP
         return cls
 
     def post_build(self, p, pay):
+        # type: (bytes, bytes) -> bytes
         p += pay
         if self.chksum_present and self.chksum is None:
             c = checksum(p)
@@ -502,6 +532,7 @@ class GRE_PPTP(GRE):
                    ConditionalField(XIntField("ack_number", None), lambda pkt: pkt.acknum_present == 1)]  # noqa: E501
 
     def post_build(self, p, pay):
+        # type: (bytes, bytes) -> bytes
         p += pay
         if self.payload_len is None:
             pay_len = len(pay)
@@ -682,15 +713,18 @@ class ARP_am(AnsweringMachine):
     send_function = staticmethod(sendp)
 
     def parse_options(self, IP_addr=None, ARP_addr=None):
+        # type: (str, str) -> None
         self.IP_addr = IP_addr
         self.ARP_addr = ARP_addr
 
     def is_request(self, req):
+        # type: (Ether) -> bool
         return (req.haslayer(ARP) and
                 req.getlayer(ARP).op == 1 and
                 (self.IP_addr is None or self.IP_addr == req.getlayer(ARP).pdst))  # noqa: E501
 
     def make_reply(self, req):
+        # type: (Ether) -> Ether
         ether = req.getlayer(Ether)
         arp = req.getlayer(ARP)
 
@@ -722,6 +756,7 @@ class ARP_am(AnsweringMachine):
             self.send_function(reply, iface=self.iff, **self.optsend)
 
     def print_reply(self, req, reply):
+        # type: (Ether, Ether) -> None
         print("%s ==> %s on %s" % (req.summary(), reply.summary(), self.iff))
 
 

@@ -16,9 +16,20 @@ from scapy.layers.tls.crypto.hash import _tls_hash_algs
 from scapy.layers.tls.crypto.h_mac import _tls_hmac_algs
 from scapy.layers.tls.crypto.ciphers import _tls_cipher_algs
 import scapy.modules.six as six
+from scapy.layers.tls.crypto.cipher_aead import _AEADCipherMetaclass
+from scapy.layers.tls.crypto.cipher_block import _BlockCipherMetaclass
+from scapy.layers.tls.crypto.cipher_stream import _StreamCipherMetaclass
+from scapy.layers.tls.crypto.h_mac import _GenericHMACMetaclass
+from scapy.layers.tls.crypto.hash import _GenericHashMetaclass
+from scapy.layers.tls.crypto.kx_algs import _GenericKXMetaclass
+from typing import Optional
+from typing import Tuple
+from typing import Union
+from typing import List
 
 
 def get_algs_from_ciphersuite_name(ciphersuite_name):
+    # type: (str) -> Tuple[Optional[_GenericKXMetaclass], Union[_AEADCipherMetaclass, _BlockCipherMetaclass, _StreamCipherMetaclass], Optional[_GenericHMACMetaclass], _GenericHashMetaclass, bool]
     """
     Return the 3-tuple made of the Key Exchange Algorithm class, the Cipher
     class and the HMAC class, through the parsing of the ciphersuite name.
@@ -128,6 +139,7 @@ class _GenericCipherSuiteMetaclass(type):
 
 class _GenericCipherSuite(six.with_metaclass(_GenericCipherSuiteMetaclass, object)):  # noqa: E501
     def __init__(self, tls_version=0x0303):
+        # type: (int) -> None
         """
         Most of the attributes are fixed and have already been set by the
         metaclass, but we still have to provide tls_version differentiation.
@@ -1298,6 +1310,7 @@ _tls_cipher_suites[0x5600] = "TLS_FALLBACK_SCSV"
 
 
 def get_usable_ciphersuites(l, kx):
+    # type: (List[int], str) -> List[int]
     """
     From a list of proposed ciphersuites, this function returns a list of
     usable cipher suites, i.e. for which key exchange, cipher and hash

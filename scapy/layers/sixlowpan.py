@@ -66,6 +66,13 @@ from scapy.error import warning
 from scapy.packet import Raw
 from scapy.pton_ntop import inet_pton, inet_ntop
 from scapy.volatile import RandShort
+from scapy.base_classes import Packet_metaclass
+from typing import Any
+from typing import Callable
+from typing import Tuple
+from typing import Union
+from typing import List
+from typing import Dict
 
 LINK_LOCAL_PREFIX = b"\xfe\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"  # noqa: E501
 
@@ -74,10 +81,12 @@ class IP6FieldLenField(IP6Field):
     __slots__ = ["length_of"]
 
     def __init__(self, name, default, size, length_of=None):
+        # type: (str, str, int, Callable) -> None
         IP6Field.__init__(self, name, default)
         self.length_of = length_of
 
     def addfield(self, pkt, s, val):
+        # type: (LoWPAN_IPHC, bytes, str) -> bytes
         """Add an internal value  to a string"""
         tmp_len = self.length_of(pkt)
         if tmp_len == 0:
@@ -86,6 +95,7 @@ class IP6FieldLenField(IP6Field):
         return s + struct.pack("!%ds" % tmp_len, internal)
 
     def getfield(self, pkt, s):
+        # type: (LoWPAN_IPHC, bytes) -> Tuple[bytes, Union[bytes, str]]
         tmp_len = self.length_of(pkt)
         assert tmp_len >= 0 and tmp_len <= 16
         if tmp_len <= 0:
@@ -98,14 +108,21 @@ class BitVarSizeField(BitField):
     __slots__ = ["length_f"]
 
     def __init__(self, name, default, calculate_length=None):
+        # type: (str, int, Callable) -> None
         BitField.__init__(self, name, default, 0)
         self.length_f = calculate_length
 
-    def addfield(self, pkt, s, val):
+    def addfield(self,
+                 pkt,  # type: LoWPAN_IPHC
+                 s,  # type: Union[Tuple[bytes, int, int], bytes]
+                 val,  # type: int
+                 ):
+        # type: (...) -> Union[Tuple[bytes, int, int], bytes]
         self.size = self.length_f(pkt)
         return BitField.addfield(self, pkt, s, val)
 
     def getfield(self, pkt, s):
+        # type: (LoWPAN_IPHC, bytes) -> Tuple[bytes, int]
         self.size = self.length_f(pkt)
         return BitField.getfield(self, pkt, s)
 
@@ -161,6 +178,7 @@ class LoWPANUncompressedIPv6(Packet):
     ]
 
     def default_payload_class(self, pay):
+        # type: (bytes) -> Packet_metaclass
         return IPv6
 
 
@@ -211,6 +229,7 @@ IPHC_DEFAULT_FL = 0
 
 
 def source_addr_mode2(pkt):
+    # type: (LoWPAN_IPHC) -> int
     """source_addr_mode
 
     This function depending on the arguments returns the amount of bits to be
@@ -240,6 +259,7 @@ def source_addr_mode2(pkt):
 
 
 def destiny_addr_mode(pkt):
+    # type: (LoWPAN_IPHC) -> int
     """destiny_addr_mode
 
     This function depending on the arguments returns the amount of bits to be
@@ -287,6 +307,7 @@ def destiny_addr_mode(pkt):
 
 
 def nhc_port(pkt):
+    # type: (LoWPAN_IPHC) -> Tuple[int, int]
     if not pkt.nh:
         return 0, 0
     if pkt.header_compression & 0x3 == 0x3:
@@ -334,6 +355,7 @@ def flowlabel_len(pkt):
 
 
 def _tf_last_attempt(pkt):
+    # type: (LoWPAN_IPHC) -> Tuple[int, int, int, int]
     if pkt.tf == 0:
         return 2, 6, 4, 20
     elif pkt.tf == 1:
@@ -439,6 +461,7 @@ class LoWPAN_IPHC(Packet):
     ]
 
     def post_dissect(self, data):
+        # type: (bytes) -> bytes
         """dissect the IPv6 package compressed into this IPHC packet.
 
         The packet payload needs to be decompressed and depending on the
@@ -504,6 +527,7 @@ class LoWPAN_IPHC(Packet):
         return Packet.post_dissect(self, data)
 
     def decompressDestinyAddr(self, packet):
+        # type: (IPv6) -> str
         try:
             tmp_ip = inet_pton(socket.AF_INET6, self.destinyAddr)
         except socket.error:
@@ -549,6 +573,7 @@ class LoWPAN_IPHC(Packet):
         return self.destinyAddr
 
     def compressSourceAddr(self, ipv6):
+        # type: (IPv6) -> str
         tmp_ip = inet_pton(socket.AF_INET6, ipv6.src)
 
         if self.sac == 0:
@@ -572,6 +597,7 @@ class LoWPAN_IPHC(Packet):
         return self.sourceAddr
 
     def compressDestinyAddr(self, ipv6):
+        # type: (IPv6) -> None
         tmp_ip = inet_pton(socket.AF_INET6, ipv6.dst)
 
         if self.m == 0 and self.dac == 0:
@@ -599,6 +625,7 @@ class LoWPAN_IPHC(Packet):
         self.destinyAddr = inet_ntop(socket.AF_INET6, tmp_ip)
 
     def decompressSourceAddr(self, packet):
+        # type: (IPv6) -> str
         try:
             tmp_ip = inet_pton(socket.AF_INET6, self.sourceAddr)
         except socket.error:
@@ -631,11 +658,13 @@ class LoWPAN_IPHC(Packet):
         return self.sourceAddr
 
     def guess_payload_class(self, payload):
+        # type: (bytes) -> Packet_metaclass
         if self.underlayer and isinstance(self.underlayer, (LoWPANFragmentationFirst, LoWPANFragmentationSubsequent)):  # noqa: E501
             return Raw
         return IPv6
 
     def do_build(self):
+        # type: () -> bytes
         if not isinstance(self.payload, IPv6):
             return Packet.do_build(self)
         ipv6 = self.payload
@@ -687,6 +716,7 @@ class LoWPAN_IPHC(Packet):
         return Packet.do_build(self)
 
     def do_build_payload(self):
+        # type: () -> bytes
         if self.header_compression and\
            self.header_compression & 240 == 240:  # TODO: UDP header IMPROVE
             return raw(self.payload)[40 + 16:]
@@ -694,6 +724,7 @@ class LoWPAN_IPHC(Packet):
             return raw(self.payload)[40:]
 
     def _getTrafficClassAndFlowLabel(self):
+        # type: () -> Tuple[int, int]
         """Page 6, draft feb 2011 """
         if self.tf == 0x0:
             return (self.tc_ecn << 6) + self.tc_dscp, self.flowlabel
@@ -716,6 +747,7 @@ class SixLoWPAN(Packet):
 
     @classmethod
     def dispatch_hook(cls, _pkt=b"", *args, **kargs):
+        # type: (bytes, *Any, **Any) -> Packet_metaclass
         """Depending on the payload content, the frame type we should interpretate"""  # noqa: E501
         if _pkt and len(_pkt) >= 1:
             if orb(_pkt[0]) == 0x41:
@@ -737,7 +769,10 @@ class SixLoWPAN(Packet):
 MAX_SIZE = 96
 
 
-def sixlowpan_fragment(packet, datagram_tag=1):
+def sixlowpan_fragment(packet,  # type: IPv6
+                       datagram_tag=1,  # type: int
+                       ):
+    # type: (...) -> List[Union[LoWPANFragmentationFirst, LoWPANFragmentationSubsequent]]
     """Split a packet into different links to transmit as 6lowpan packets.
         Usage example:
           >>> ipv6 = ..... (very big packet)
@@ -754,6 +789,7 @@ def sixlowpan_fragment(packet, datagram_tag=1):
         return [packet]
 
     def chunks(l, n):
+        # type: (bytes, int) -> List[bytes]
         return [l[i:i + n] for i in range(0, len(l), n)]
 
     new_packet = chunks(str_packet, MAX_SIZE)
@@ -767,7 +803,9 @@ def sixlowpan_fragment(packet, datagram_tag=1):
     return new_packet
 
 
-def sixlowpan_defragment(packet_list):
+def sixlowpan_defragment(packet_list  # type: List[Union[LoWPANFragmentationFirst, LoWPANFragmentationSubsequent]]
+                         ):
+    # type: (...) -> Dict[int, LoWPAN_IPHC]
     results = {}
     for p in packet_list:
         cls = None

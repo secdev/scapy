@@ -27,6 +27,14 @@ from scapy.compat import orb
 from scapy.config import conf
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
+from scapy.base_classes import Packet_metaclass
+from typing import Any
+from typing import Optional
+from scapy.layers.zigbee import ZEP2
+from typing import Union
+from typing import Tuple
+from typing import List
+from scapy.packet import Raw
 
 
 #############################################################################
@@ -72,9 +80,11 @@ class TimeStampField(FixedPointField):
     """
 
     def __init__(self, name, default):
+        # type: (str, Optional[int]) -> None
         FixedPointField.__init__(self, name, default, 64, 32)
 
     def i2repr(self, pkt, val):
+        # type: (ZEP2, int) -> float
         if val is None:
             return "--"
         val = self.i2h(pkt, val)
@@ -90,6 +100,7 @@ class TimeStampField(FixedPointField):
         return FixedPointField.any2i(self, pkt, val)
 
     def i2m(self, pkt, val):
+        # type: (ZEP2, int) -> int
         if val is None:
             val = FixedPointField.any2i(self, pkt, time.time() + _NTP_BASETIME)
         return FixedPointField.i2m(self, pkt, val)
@@ -165,6 +176,7 @@ _kiss_codes = {
 
 # Used by _ntp_dispatcher to instantiate the appropriate class
 def _ntp_dispatcher(payload):
+    # type: (Optional[bytes]) -> Packet_metaclass
     """
     Returns the right class for a given NTP packet.
     """
@@ -190,6 +202,7 @@ class NTP(Packet):
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        # type: (Optional[bytes], *Any, **Any) -> Packet_metaclass
         """
         Returns the right class for the given data.
         """
@@ -197,6 +210,7 @@ class NTP(Packet):
         return _ntp_dispatcher(_pkt)
 
     def pre_dissect(self, s):
+        # type: (bytes) -> bytes
         """
         Check that the payload is long enough to build a NTP packet.
         """
@@ -210,6 +224,7 @@ class NTP(Packet):
     # NTPHeader, NTPControl and NTPPrivate are NTP packets.
     # This might help, for example when reading a pcap file.
     def haslayer(self, cls):
+        # type: (Packet_metaclass) -> bool
         """Specific: NTPHeader().haslayer(NTP) should return True."""
         if cls == "NTP":
             if isinstance(self, NTP):
@@ -219,7 +234,14 @@ class NTP(Packet):
                 return True
         return super(NTP, self).haslayer(cls)
 
-    def getlayer(self, cls, nb=1, _track=None, _subclass=True, **flt):
+    def getlayer(self,
+                 cls,  # type: Packet_metaclass
+                 nb=1,  # type: int
+                 _track=None,  # type: Optional[Any]
+                 _subclass=True,  # type: Optional[bool]
+                 **flt  # type: Any
+                 ):
+        # type: (...) -> Union[NTPControl, NTPHeader]
         return super(NTP, self).getlayer(cls, nb=nb, _track=_track,
                                          _subclass=True, **flt)
 
@@ -234,6 +256,7 @@ class _NTPAuthenticatorPaddingField(StrField):
     """
 
     def getfield(self, pkt, s):
+        # type: (NTPAuthenticator, bytes) -> Tuple[bytes, None]
         ret = None
         remain = s
         length = len(s)
@@ -259,6 +282,7 @@ class NTPAuthenticator(Packet):
     ]
 
     def extract_padding(self, s):
+        # type: (bytes) -> Tuple[bytes, bytes]
         return b"", s
 
 
@@ -316,6 +340,7 @@ class NTPExtPacketListField(PacketListField):
     """
 
     def m2i(self, pkt, m):
+        # type: (NTPExtensions, bytes) -> NTPExtension
         ret = None
         if len(m) >= 16:
             ret = NTPExtension(m)
@@ -324,6 +349,7 @@ class NTPExtPacketListField(PacketListField):
         return ret
 
     def getfield(self, pkt, s):
+        # type: (NTPExtensions, bytes) -> Tuple[bytes, List[NTPExtension]]
         lst = []
         remain = s
         length = len(s)
@@ -462,6 +488,7 @@ class NTPHeader(NTP):
     ]
 
     def guess_payload_class(self, payload):
+        # type: (bytes) -> Packet_metaclass
         """
         Handles NTPv4 extensions and MAC part (when authentication is used.)
         """
@@ -612,6 +639,7 @@ class NTPStatusPacket(Packet):
     fields_desc = [ShortField("status", 0)]
 
     def extract_padding(self, s):
+        # type: (bytes) -> Tuple[bytes, bytes]
         return b"", s
 
 
@@ -630,6 +658,7 @@ class NTPSystemStatusPacket(Packet):
     ]
 
     def extract_padding(self, s):
+        # type: (bytes) -> Tuple[bytes, bytes]
         return b"", s
 
 
@@ -651,6 +680,7 @@ class NTPPeerStatusPacket(Packet):
     ]
 
     def extract_padding(self, s):
+        # type: (bytes) -> Tuple[bytes, bytes]
         return b"", s
 
 
@@ -681,6 +711,7 @@ class NTPErrorStatusPacket(Packet):
     ]
 
     def extract_padding(self, s):
+        # type: (bytes) -> Tuple[bytes, bytes]
         return b"", s
 
 
@@ -699,6 +730,7 @@ class NTPControlStatusField(PacketField):
     #
 
     def m2i(self, pkt, m):
+        # type: (NTPControl, bytes) -> Any
         ret = None
         association_id = struct.unpack("!H", m[2:4])[0]
 
@@ -753,6 +785,7 @@ class NTPControlDataPacketLenField(PacketLenField):
     """
 
     def m2i(self, pkt, m):
+        # type: (NTPControl, bytes) -> Union[NTPPeerStatusDataPacket, Raw]
         ret = None
 
         # op_code == CTL_OP_READSTAT
@@ -767,7 +800,11 @@ class NTPControlDataPacketLenField(PacketLenField):
 
         return ret
 
-    def getfield(self, pkt, s):
+    def getfield(self,
+                 pkt,  # type: NTPControl
+                 s,  # type: bytes
+                 ):
+        # type: (...) -> Tuple[bytes, Union[NTPPeerStatusDataPacket, Raw]]
         length = self.length_from(pkt)
         i = None
         if length > 0:
@@ -1501,7 +1538,11 @@ class NTPPrivateRespPacketListField(PacketListField):
     PacketListField handling the response data.
     """
 
-    def m2i(self, pkt, s):
+    def m2i(self,
+            pkt,  # type: NTPPrivate
+            s,  # type: bytes
+            ):
+        # type: (...) -> Union[NTPInfoPeer, NTPInfoPeerList, NTPInfoPeerSummary]
         ret = None
 
         # info_if_stats
@@ -1513,7 +1554,11 @@ class NTPPrivateRespPacketListField(PacketListField):
 
         return ret
 
-    def getfield(self, pkt, s):
+    def getfield(self,
+                 pkt,  # type: NTPPrivate
+                 s,  # type: bytes
+                 ):
+        # type: (...) -> Tuple[bytes, Union[List[NTPInfoPeerList], List[NTPInfoPeerSummary], List[NTPInfoPeer]]]
         lst = []
         remain = s
         length = pkt.data_item_size
@@ -1596,6 +1641,7 @@ class NTPPrivateReqPacketListField(PacketListField):
     # See ntpdc/ntpdc.c and ntpdc/ntpdc_ops.c
 
     def m2i(self, pkt, s):
+        # type: (NTPPrivate, bytes) -> Any
         ret = None
 
         if pkt.request_code == 2 or pkt.request_code == 3:
@@ -1633,6 +1679,7 @@ class NTPPrivateReqPacketListField(PacketListField):
         return ret
 
     def getfield(self, pkt, s):
+        # type: (NTPPrivate, bytes) -> Tuple[bytes, List[NTPInfoPeerList]]
         lst = []
         remain = s
         length = pkt.data_item_size

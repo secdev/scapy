@@ -52,14 +52,17 @@ def _tls_P_hash(secret, seed, req_len, hm):
 
 
 def _tls_P_MD5(secret, seed, req_len):
+    # type: (bytes, bytes, int) -> bytes
     return _tls_P_hash(secret, seed, req_len, _tls_hmac_algs["HMAC-MD5"])
 
 
 def _tls_P_SHA1(secret, seed, req_len):
+    # type: (bytes, bytes, int) -> bytes
     return _tls_P_hash(secret, seed, req_len, _tls_hmac_algs["HMAC-SHA"])
 
 
 def _tls_P_SHA256(secret, seed, req_len):
+    # type: (bytes, bytes, int) -> bytes
     return _tls_P_hash(secret, seed, req_len, _tls_hmac_algs["HMAC-SHA256"])
 
 
@@ -74,6 +77,7 @@ def _tls_P_SHA512(secret, seed, req_len):
 # PRF functions, according to the protocol version
 
 def _sslv2_PRF(secret, seed, req_len):
+    # type: (bytes, bytes, int) -> bytes
     hash_md5 = _tls_hash_algs["MD5"]()
     rounds = (req_len + hash_md5.hash_len - 1) // hash_md5.hash_len
 
@@ -91,6 +95,7 @@ def _sslv2_PRF(secret, seed, req_len):
 
 
 def _ssl_PRF(secret, seed, req_len):
+    # type: (bytes, bytes, int) -> bytes
     """
     Provides the implementation of SSLv3 PRF function:
 
@@ -122,6 +127,7 @@ def _ssl_PRF(secret, seed, req_len):
 
 
 def _tls_PRF(secret, label, seed, req_len):
+    # type: (bytes, bytes, bytes, int) -> bytes
     """
     Provides the implementation of TLS PRF function as defined in
     section 5 of RFC 4346:
@@ -149,6 +155,7 @@ def _tls_PRF(secret, label, seed, req_len):
 
 
 def _tls12_SHA256PRF(secret, label, seed, req_len):
+    # type: (bytes, bytes, bytes, int) -> bytes
     """
     Provides the implementation of TLS 1.2 PRF function as
     defined in section 5 of RFC 5246:
@@ -187,6 +194,7 @@ class PRF(object):
     """
 
     def __init__(self, hash_name="SHA256", tls_version=0x0303):
+        # type: (str, int) -> None
         self.tls_version = tls_version
         self.hash_name = hash_name
 
@@ -209,6 +217,7 @@ class PRF(object):
 
     def compute_master_secret(self, pre_master_secret,
                               client_random, server_random):
+        # type: (bytes, bytes, bytes) -> bytes
         """
         Return the 48-byte master_secret, computed from pre_master_secret,
         client_random and server_random. See RFC 5246, section 6.3.
@@ -223,6 +232,7 @@ class PRF(object):
 
     def derive_key_block(self, master_secret, server_random,
                          client_random, req_len):
+        # type: (bytes, bytes, bytes, int) -> bytes
         """
         Perform the derivation of master_secret into a key_block of req_len
         requested length. See RFC 5246, section 6.3.
@@ -235,6 +245,7 @@ class PRF(object):
 
     def compute_verify_data(self, con_end, read_or_write,
                             handshake_msg, master_secret):
+        # type: (str, str, bytes, bytes) -> bytes
         """
         Return verify_data based on handshake messages, connection end,
         master secret, and read_or_write position. See RFC 5246, section 7.4.9.
@@ -293,8 +304,15 @@ class PRF(object):
 
         return verify_data
 
-    def postprocess_key_for_export(self, key, client_random, server_random,
-                                   con_end, read_or_write, req_len):
+    def postprocess_key_for_export(self,
+                                   key,  # type: bytes
+                                   client_random,  # type: bytes
+                                   server_random,  # type: bytes
+                                   con_end,  # type: str
+                                   read_or_write,  # type: str
+                                   req_len,  # type: int
+                                   ):
+        # type: (...) -> bytes
         """
         Postprocess cipher key for EXPORT ciphersuite, i.e. weakens it.
         An export key generation example is given in section 6.3.1 of RFC 2246.

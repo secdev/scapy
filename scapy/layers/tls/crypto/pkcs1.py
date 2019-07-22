@@ -17,6 +17,11 @@ import scapy.modules.six as six
 
 from scapy.config import conf, crypto_validator
 from scapy.error import warning
+from typing import Any
+from typing import Optional
+from cryptography.hazmat.primitives.hashes import SHA256
+from typing import Union
+from cryptography.hazmat.primitives.asymmetric.padding import PKCS1v15
 if conf.crypto_valid:
     from cryptography import utils
     from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
@@ -31,6 +36,7 @@ if conf.crypto_valid:
 #####################################################################
 
 def pkcs_os2ip(s):
+    # type: (bytes) -> int
     """
     OS2IP conversion function from RFC 3447.
 
@@ -41,6 +47,7 @@ def pkcs_os2ip(s):
 
 
 def pkcs_i2osp(n, sLen):
+    # type: (int, int) -> bytes
     """
     I2OSP conversion function from RFC 3447.
     The length parameter allows the function to perform the padding needed.
@@ -70,6 +77,7 @@ def pkcs_ilen(n):
 
 @crypto_validator
 def _legacy_pkcs1_v1_5_encode_md5_sha1(M, emLen):
+    # type: (Union[bytes, str], int) -> bytes
     """
     Legacy method for PKCS1 v1.5 encoding with MD5-SHA1 hash.
     """
@@ -112,12 +120,14 @@ if conf.crypto_valid:
     }
 
     def _get_hash(hashStr):
+        # type: (str) -> Union[SHA256, MD5_SHA1]
         try:
             return _hashes[hashStr]()
         except KeyError:
             raise KeyError("Unknown hash function %s" % hashStr)
 
     def _get_padding(padStr, mgf=padding.MGF1, h=hashes.SHA256, label=None):
+        # type: (str, type, Union[SHA256, MD5_SHA1], Optional[Any]) -> PKCS1v15
         if padStr == "pkcs":
             return padding.PKCS1v15()
         elif padStr == "pss":
@@ -142,13 +152,22 @@ class _EncryptAndVerifyRSA(object):
 
     @crypto_validator
     def encrypt(self, m, t="pkcs", h="sha256", mgf=None, L=None):
+        # type: (bytes, str, str, Optional[Any], Optional[Any]) -> bytes
         mgf = mgf or padding.MGF1
         h = _get_hash(h)
         pad = _get_padding(t, mgf, h, L)
         return self.pubkey.encrypt(m, pad)
 
     @crypto_validator
-    def verify(self, M, S, t="pkcs", h="sha256", mgf=None, L=None):
+    def verify(self,
+               M,  # type: bytes
+               S,  # type: bytes
+               t="pkcs",  # type: str
+               h="sha256",  # type: str
+               mgf=None,  # type: Optional[Any]
+               L=None,  # type: Optional[Any]
+               ):
+        # type: (...) -> bool
         M = bytes_encode(M)
         mgf = mgf or padding.MGF1
         h = _get_hash(h)
@@ -165,6 +184,7 @@ class _EncryptAndVerifyRSA(object):
             return False
 
     def _legacy_verify_md5_sha1(self, M, S):
+        # type: (str, bytes) -> bool
         k = self._modulusLen // 8
         if len(S) != k:
             warning("invalid signature (len(S) != k)")
@@ -189,6 +209,7 @@ class _DecryptAndSignRSA(object):
 
     @crypto_validator
     def decrypt(self, C, t="pkcs", h="sha256", mgf=None, L=None):
+        # type: (bytes, str, str, Optional[Any], Optional[Any]) -> bytes
         mgf = mgf or padding.MGF1
         h = _get_hash(h)
         pad = _get_padding(t, mgf, h, L)
@@ -196,6 +217,7 @@ class _DecryptAndSignRSA(object):
 
     @crypto_validator
     def sign(self, M, t="pkcs", h="sha256", mgf=None, L=None):
+        # type: (bytes, str, str, Optional[Any], Optional[Any]) -> bytes
         M = bytes_encode(M)
         mgf = mgf or padding.MGF1
         h = _get_hash(h)
@@ -208,6 +230,7 @@ class _DecryptAndSignRSA(object):
             return self._legacy_sign_md5_sha1(M)
 
     def _legacy_sign_md5_sha1(self, M):
+        # type: (str) -> bytes
         M = bytes_encode(M)
         k = self._modulusLen // 8
         EM = _legacy_pkcs1_v1_5_encode_md5_sha1(M, k)

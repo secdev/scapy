@@ -21,6 +21,12 @@ from scapy.layers.l2 import SourceMACField, Ether, CookedLinux, GRE, SNAP
 from scapy.utils import issubtype
 from scapy.config import conf
 from scapy.compat import orb, chb
+from scapy.base_classes import Packet_metaclass
+from typing import Any
+from typing import Tuple
+from typing import Optional
+from typing import Union
+from typing import List
 
 #
 # EAPOL
@@ -78,6 +84,7 @@ class EAPOL(Packet):
     ASF = 4
 
     def extract_padding(self, s):
+        # type: (bytes) -> Tuple[bytes, bytes]
         tmp_len = self.len
         return s[:tmp_len], s[tmp_len:]
 
@@ -85,6 +92,7 @@ class EAPOL(Packet):
         return chb(self.type) + self.payload.hashret()
 
     def answers(self, other):
+        # type: (EAPOL) -> int
         if isinstance(other, EAPOL):
             if ((self.type == self.EAP_PACKET) and
                     (other.type == self.EAP_PACKET)):
@@ -232,10 +240,12 @@ class EAP(Packet):
 
     @classmethod
     def register_variant(cls):
+        # type: () -> None
         cls.registered_methods[cls.type.default] = cls
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        # type: (bytes, *Any, **Any) -> Packet_metaclass
         if _pkt:
             c = orb(_pkt[0])
             if c in [1, 2] and len(_pkt) >= 5:
@@ -244,6 +254,7 @@ class EAP(Packet):
         return cls
 
     def haslayer(self, cls):
+        # type: (Packet_metaclass) -> int
         if cls == "EAP":
             if isinstance(self, EAP):
                 return True
@@ -252,11 +263,19 @@ class EAP(Packet):
                 return True
         return super(EAP, self).haslayer(cls)
 
-    def getlayer(self, cls, nb=1, _track=None, _subclass=True, **flt):
+    def getlayer(self,
+                 cls,  # type: Packet_metaclass
+                 nb=1,  # type: int
+                 _track=None,  # type: Optional[Any]
+                 _subclass=True,  # type: Optional[bool]
+                 **flt  # type: Any
+                 ):
+        # type: (...) -> Union[EAP, EAP_MD5, EAP_TLS]
         return super(EAP, self).getlayer(cls, nb=nb, _track=_track,
                                          _subclass=True, **flt)
 
     def answers(self, other):
+        # type: (EAP) -> int
         if isinstance(other, EAP):
             if self.code == self.REQUEST:
                 return 0
@@ -279,6 +298,7 @@ class EAP(Packet):
         return self.sprintf(summary_str)
 
     def post_build(self, p, pay):
+        # type: (bytes, bytes) -> bytes
         if self.len is None:
             tmp_len = len(p) + len(pay)
             tmp_p = p[:2] + chb((tmp_len >> 8) & 0xff) + chb(tmp_len & 0xff)
@@ -286,6 +306,7 @@ class EAP(Packet):
         return p + pay
 
     def guess_payload_class(self, _):
+        # type: (bytes) -> Packet_metaclass
         return Padding
 
 
@@ -468,6 +489,7 @@ class MACsecSCI(Packet):
     ]
 
     def extract_padding(self, s):
+        # type: (bytes) -> Tuple[str, bytes]
         return "", s
 
 
@@ -483,6 +505,7 @@ class MKAParamSet(Packet):
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        # type: (bytes, *Any, **Any) -> Packet_metaclass
         """
         Returns the right parameter set class.
         """
@@ -531,6 +554,7 @@ class MKABasicParamSet(Packet):
     ]
 
     def extract_padding(self, s):
+        # type: (bytes) -> Tuple[str, bytes]
         return "", s
 
 
@@ -737,10 +761,15 @@ class MKAParamSetPacketListField(PacketListField):
 
     PARAM_SET_LEN_MASK = 0b0000111111111111
 
-    def m2i(self, pkt, m):
+    def m2i(self,
+            pkt,  # type: MKAPDU
+            m,  # type: bytes
+            ):
+        # type: (...) -> Union[MKAICVSet, MKALivePeerListParamSet, MKAPotentialPeerListParamSet]
         return MKAParamSet(m)
 
     def getfield(self, pkt, s):
+        # type: (MKAPDU, bytes) -> Tuple[bytes, List[Any]]
         lst = []
         remain = s
 
@@ -774,6 +803,7 @@ class MKAPDU(Packet):
     ]
 
     def extract_padding(self, s):
+        # type: (bytes) -> Tuple[str, bytes]
         return "", s
 
 

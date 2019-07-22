@@ -20,6 +20,10 @@ from scapy.layers.tls.crypto.pkcs1 import pkcs_i2osp, pkcs_os2ip
 from scapy.layers.tls.crypto.common import CipherError
 from scapy.utils import strxor
 import scapy.modules.six as six
+from cryptography.hazmat.primitives.ciphers.base import Cipher
+from typing import Dict
+from typing import Union
+from typing import Tuple
 
 if conf.crypto_valid:
     from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes  # noqa: E501
@@ -108,6 +112,7 @@ class _AEADCipher(six.with_metaclass(_AEADCipherMetaclass, object)):
             self._cipher = self.cipher_cls(key)
 
     def __setattr__(self, name, val):
+        # type: (str, Union[Dict[str, bool], Cipher]) -> None
         if name == "key":
             if self._cipher is not None:
                 if hasattr(self, "pc_cls"):
@@ -124,10 +129,12 @@ class _AEADCipher(six.with_metaclass(_AEADCipherMetaclass, object)):
         super(_AEADCipher, self).__setattr__(name, val)
 
     def _get_nonce(self):
+        # type: () -> bytes
         return (self.fixed_iv +
                 pkcs_i2osp(self.nonce_explicit, self.nonce_explicit_len))
 
     def _update_nonce_explicit(self):
+        # type: () -> None
         """
         Increment the explicit nonce while avoiding any overflow.
         """
@@ -135,6 +142,7 @@ class _AEADCipher(six.with_metaclass(_AEADCipherMetaclass, object)):
         self.nonce_explicit = ne % 2**(self.nonce_explicit_len * 8)
 
     def auth_encrypt(self, P, A, seq_num=None):
+        # type: (bytes, bytes, bytes) -> bytes
         """
         Encrypt the data then prepend the explicit part of the nonce. The
         authentication tag is directly appended with the most recent crypto
@@ -163,6 +171,7 @@ class _AEADCipher(six.with_metaclass(_AEADCipherMetaclass, object)):
         return nonce_explicit + res
 
     def auth_decrypt(self, A, C, seq_num=None, add_length=True):
+        # type: (bytes, bytes, bytes, bool) -> Tuple[bytes, bytes, bytes]
         """
         Decrypt the data and authenticate the associated data (i.e. A).
         If the verification fails, an AEADTagError is raised. It is the user's
@@ -211,6 +220,7 @@ class _AEADCipher(six.with_metaclass(_AEADCipherMetaclass, object)):
         return nonce_explicit_str, P, mac
 
     def snapshot(self):
+        # type: () -> Cipher_AES_128_GCM
         c = self.__class__(self.key, self.fixed_iv, self.nonce_explicit)
         c.ready = self.ready.copy()
         return c

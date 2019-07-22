@@ -15,6 +15,9 @@ from scapy.compat import orb
 from scapy.fields import ByteEnumField, FieldLenField, FlagsField, IntField, \
     IntEnumField, LenField, XIntField, ShortField, ShortEnumField, \
     StrFixedLenField, StrLenField, XShortField, XByteField
+from scapy.base_classes import Packet_metaclass
+from typing import Any
+from typing import Union
 
 _PPTP_MAGIC_COOKIE = 0x1a2b3c4d
 
@@ -68,6 +71,7 @@ class PPTP(Packet):
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        # type: (bytes, *Any, **Any) -> Packet_metaclass
         if _pkt:
             o = orb(_pkt[9])
             return cls.registered_options.get(o, cls)
@@ -128,6 +132,7 @@ class PPTPStartControlConnectionReply(PPTP):
                    StrFixedLenField("vendor_string", "", 64)]
 
     def answers(self, other):
+        # type: (PPTPStartControlConnectionRequest) -> bool
         return isinstance(other, PPTPStartControlConnectionRequest)
 
 
@@ -166,6 +171,7 @@ class PPTPStopControlConnectionReply(PPTP):
                    XShortField("reserved_2", 0x0000)]
 
     def answers(self, other):
+        # type: (PPTPStopControlConnectionRequest) -> bool
         return isinstance(other, PPTPStopControlConnectionRequest)
 
 
@@ -196,6 +202,7 @@ class PPTPEchoReply(PPTP):
                    XShortField("reserved_1", 0x0000)]
 
     def answers(self, other):
+        # type: (PPTPEchoRequest) -> bool
         return isinstance(other, PPTPEchoRequest) and other.identifier == self.identifier  # noqa: E501
 
 
@@ -256,6 +263,7 @@ class PPTPOutgoingCallReply(PPTP):
                    IntField("channel_id", 0)]
 
     def answers(self, other):
+        # type: (PPTPOutgoingCallRequest) -> bool
         return isinstance(other, PPTPOutgoingCallRequest) and other.call_id == self.peer_call_id  # noqa: E501
 
 
@@ -292,7 +300,10 @@ class PPTPIncomingCallReply(PPTP):
                    ShortField("pkt_transmit_delay", 0),
                    XShortField("reserved_1", 0x0000)]
 
-    def answers(self, other):
+    def answers(self,
+                other,  # type: Union[PPTPIncomingCallConnected, PPTPIncomingCallRequest]
+                ):
+        # type: (...) -> bool
         return isinstance(other, PPTPIncomingCallRequest) and other.call_id == self.peer_call_id  # noqa: E501
 
 

@@ -19,6 +19,7 @@ from scapy.layers.inet import UDP, IP
 from scapy.modules.six.moves import range
 from scapy.config import conf
 from scapy.volatile import RandShort
+from typing import Tuple
 
 
 TFTP_operations = {1: "RRQ", 2: "WRQ", 3: "DATA", 4: "ACK", 5: "ERROR", 6: "OACK"}  # noqa: E501
@@ -69,6 +70,7 @@ class TFTP_Option(Packet):
                    StrNullField("value", "")]
 
     def extract_padding(self, pkt):
+        # type: (bytes) -> Tuple[str, bytes]
         return "", pkt
 
 

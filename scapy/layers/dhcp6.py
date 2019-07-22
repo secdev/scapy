@@ -35,6 +35,14 @@ from scapy.sendrecv import send
 from scapy.themes import Color
 from scapy.utils6 import in6_addrtovendor, in6_islladdr
 import scapy.modules.six as six
+from scapy.base_classes import Packet_metaclass
+from typing import Any
+from typing import Callable
+from typing import Union
+from scapy.packet import Raw
+from typing import Tuple
+from typing import List
+from typing import Optional
 
 #############################################################################
 # Helpers                                                                  ##
@@ -61,6 +69,7 @@ dhcp6_cls_by_type = {1: "DHCP6_Solicit",
 
 
 def _dhcp6_dispatcher(x, *args, **kargs):
+    # type: (bytes, *Any, **Any) -> Union[DHCP6_Request, DHCP6_Solicit]
     cls = conf.raw_layer
     if len(x) >= 2:
         cls = get_cls(dhcp6_cls_by_type.get(orb(x[0]), "Raw"), conf.raw_layer)
@@ -249,6 +258,7 @@ duidhwtypes = {0: "NET/ROM pseudo",  # Not referenced by IANA
 
 class _UTCTimeField(UTCTimeField):
     def __init__(self, *args, **kargs):
+        # type: (*Any, **Any) -> None
         epoch_2000 = (2000, 1, 1, 0, 0, 0, 5, 1, 0)  # required Epoch
         UTCTimeField.__init__(self, epoch=epoch_2000, *args, **kargs)
 
@@ -317,6 +327,7 @@ duid_cls = {1: "DUID_LLT",
 class _DHCP6OptGuessPayload(Packet):
     @classmethod
     def _just_guess_payload_class(cls, payload):
+        # type: (bytes) -> Packet_metaclass
         # try to guess what option is in the payload
         cls = conf.raw_layer
         if len(payload) > 2:
@@ -326,6 +337,7 @@ class _DHCP6OptGuessPayload(Packet):
         return cls
 
     def guess_payload_class(self, payload):
+        # type: (bytes) -> Packet_metaclass
         # this method is used in case of all derived classes
         # from _DHCP6OptGuessPayload in this file
         cls = _DHCP6OptGuessPayload._just_guess_payload_class(payload)
@@ -333,6 +345,7 @@ class _DHCP6OptGuessPayload(Packet):
 
     @classmethod
     def dispatch_hook(cls, payload=None, *args, **kargs):
+        # type: (bytes, *Any, **Any) -> Packet_metaclass
         # this classmethod is used in case of list of different suboptions
         # e.g. in ianaopts in DHCP6OptIA_NA
         cls_ = cls._just_guess_payload_class(payload)
@@ -351,20 +364,27 @@ class _DUIDField(PacketField):
     __slots__ = ["length_from"]
 
     def __init__(self, name, default, length_from=None):
+        # type: (str, str, Callable) -> None
         StrField.__init__(self, name, default)
         self.length_from = length_from
 
     def i2m(self, pkt, i):
+        # type: (DHCP6OptClientId, Union[bytes, DUID_LL]) -> bytes
         return raw(i)
 
     def m2i(self, pkt, x):
+        # type: (DHCP6OptClientId, bytes) -> Union[DUID_LL, DUID_LLT, Raw]
         cls = conf.raw_layer
         if len(x) > 4:
             o = struct.unpack("!H", x[:2])[0]
             cls = get_cls(duid_cls.get(o, conf.raw_layer), conf.raw_layer)
         return cls(x)
 
-    def getfield(self, pkt, s):
+    def getfield(self,
+                 pkt,  # type: DHCP6OptClientId
+                 s,  # type: bytes
+                 ):
+        # type: (...) -> Tuple[bytes, Union[DUID_LL, DUID_LLT, Raw]]
         tmp_len = self.length_from(pkt)
         return s[tmp_len:], self.m2i(pkt, s[:tmp_len])
 
@@ -398,6 +418,7 @@ class DHCP6OptIAAddress(_DHCP6OptGuessPayload):    # RFC sect 22.6
                                length_from=lambda pkt: pkt.optlen - 24)]
 
     def guess_payload_class(self, payload):
+        # type: (bytes) -> Packet_metaclass
         return conf.padding_layer
 
 
@@ -428,15 +449,24 @@ class DHCP6OptIA_TA(_DHCP6OptGuessPayload):         # RFC sect 22.5
 class _OptReqListField(StrLenField):
     islist = 1
 
-    def i2h(self, pkt, x):
+    def i2h(self,
+            pkt,  # type: Union[DHCP6OptOptReq, DHCP6OptRelayAgentERO]
+            x,  # type: List[int]
+            ):
+        # type: (...) -> List[int]
         if x is None:
             return []
         return x
 
     def i2len(self, pkt, x):
+        # type: (Union[DHCP6OptOptReq, DHCP6OptRelayAgentERO], List[int]) -> int
         return 2 * len(x)
 
-    def any2i(self, pkt, x):
+    def any2i(self,
+              pkt,  # type: Union[None, DHCP6OptOptReq, DHCP6OptRelayAgentERO]
+              x,  # type: List[int]
+              ):
+        # type: (...) -> List[int]
         return x
 
     def i2repr(self, pkt, x):
@@ -448,7 +478,11 @@ class _OptReqListField(StrLenField):
                 s.append("%d" % y)
         return "[%s]" % ", ".join(s)
 
-    def m2i(self, pkt, x):
+    def m2i(self,
+            pkt,  # type: Union[DHCP6OptOptReq, DHCP6OptRelayAgentERO]
+            x,  # type: bytes
+            ):
+        # type: (...) -> List[int]
         r = []
         while len(x) != 0:
             if len(x) < 2:
@@ -459,6 +493,7 @@ class _OptReqListField(StrLenField):
         return r
 
     def i2m(self, pkt, x):
+        # type: (DHCP6OptOptReq, List[int]) -> bytes
         return b"".join(struct.pack('!H', y) for y in x)
 
 # A client may include an ORO in a solicit, Request, Renew, Rebind,
@@ -488,6 +523,7 @@ class DHCP6OptPref(_DHCP6OptGuessPayload):       # RFC sect 22.8
 
 class _ElapsedTimeField(ShortField):
     def i2repr(self, pkt, x):
+        # type: (DHCP6OptElapsedTime, int) -> str
         if x == 0xffff:
             return "infinity (0xffff)"
         return "%.2f sec" % (self.i2h(pkt, x) / 100.)
@@ -553,11 +589,13 @@ class DHCP6OptAuth(_DHCP6OptGuessPayload):    # RFC sect 22.11
 
 class _SrvAddrField(IP6Field):
     def i2h(self, pkt, x):
+        # type: (DHCP6OptServerUnicast, Optional[str]) -> str
         if x is None:
             return "::"
         return x
 
     def i2m(self, pkt, x):
+        # type: (DHCP6OptServerUnicast, Optional[str]) -> bytes
         return inet_pton(socket.AF_INET6, self.i2h(pkt, x))
 
 
@@ -600,12 +638,20 @@ class DHCP6OptRapidCommit(_DHCP6OptGuessPayload):   # RFC sect 22.14
 #    DHCPv6 User Class Option                                       #
 
 class _UserClassDataField(PacketListField):
-    def i2len(self, pkt, z):
+    def i2len(self,
+              pkt,  # type: Union[DHCP6OptUserClass, DHCP6OptVendorClass]
+              z,  # type: List[USER_CLASS_DATA]
+              ):
+        # type: (...) -> int
         if z is None or z == []:
             return 0
         return sum(len(raw(x)) for x in z)
 
-    def getfield(self, pkt, s):
+    def getfield(self,
+                 pkt,  # type: Union[DHCP6OptUserClass, DHCP6OptVendorClass]
+                 s,  # type: bytes
+                 ):
+        # type: (...) -> Tuple[bytes, Union[List[USER_CLASS_DATA], List[VENDOR_CLASS_DATA]]]
         tmp_len = self.length_from(pkt)
         lst = []
         remain, payl = s[:tmp_len], s[tmp_len:]
@@ -628,6 +674,7 @@ class USER_CLASS_DATA(Packet):
                                length_from=lambda pkt: pkt.len)]
 
     def guess_payload_class(self, payload):
+        # type: (bytes) -> Packet_metaclass
         return conf.padding_layer
 
 
@@ -670,6 +717,7 @@ class VENDOR_SPECIFIC_OPTION(_DHCP6OptGuessPayload):
                                length_from=lambda pkt: pkt.optlen)]
 
     def guess_payload_class(self, payload):
+        # type: (bytes) -> Packet_metaclass
         return conf.padding_layer
 
 # The third one that will be used for nothing interesting
@@ -804,14 +852,23 @@ class DHCP6OptNISPServers(_DHCP6OptGuessPayload):  # RFC3898
 
 
 class DomainNameField(StrLenField):
-    def getfield(self, pkt, s):
+    def getfield(self,
+                 pkt,  # type: Union[DHCP6OptClientFQDN, DHCP6OptNISDomain, DHCP6OptNISPDomain]
+                 s,  # type: bytes
+                 ):
+        # type: (...) -> Tuple[bytes, bytes]
         tmp_len = self.length_from(pkt)
         return s[tmp_len:], self.m2i(pkt, s[:tmp_len])
 
     def i2len(self, pkt, x):
+        # type: (Union[DHCP6OptNISDomain, DHCP6OptNISPDomain], bytes) -> int
         return len(self.i2m(pkt, x))
 
-    def m2i(self, pkt, x):
+    def m2i(self,
+            pkt,  # type: Union[DHCP6OptClientFQDN, DHCP6OptNISDomain, DHCP6OptNISPDomain]
+            x,  # type: bytes
+            ):
+        # type: (...) -> bytes
         cur = []
         while x:
             tmp_len = orb(x[0])
@@ -820,6 +877,7 @@ class DomainNameField(StrLenField):
         return b".".join(cur)
 
     def i2m(self, pkt, x):
+        # type: (DHCP6OptNISDomain, bytes) -> bytes
         if not x:
             return b""
         return b"".join(chb(len(z)) + z for z in x.split(b'.'))
@@ -1072,6 +1130,7 @@ class DHCP6(_DHCP6OptGuessPayload):
     overload_fields = {UDP: {"sport": 546, "dport": 547}}
 
     def hashret(self):
+        # type: () -> bytes
         return struct.pack("!I", self.trid)[1:4]
 
 #    DHCPv6 Relay Message Option                                    #
@@ -1134,6 +1193,7 @@ class DHCP6_Advertise(DHCP6):
     overload_fields = {UDP: {"sport": 547, "dport": 546}}
 
     def answers(self, other):
+        # type: (DHCP6_Solicit) -> bool
         return (isinstance(other, DHCP6_Solicit) and
                 other.msgtype == 1 and
                 self.trid == other.trid)
@@ -1237,6 +1297,7 @@ class DHCP6_Reply(DHCP6):
     overload_fields = {UDP: {"sport": 547, "dport": 546}}
 
     def answers(self, other):
+        # type: (DHCP6_Request) -> bool
 
         types = (DHCP6_Solicit, DHCP6_InfoRequest, DHCP6_Confirm, DHCP6_Rebind,
                  DHCP6_Decline, DHCP6_Request, DHCP6_Release, DHCP6_Renew)

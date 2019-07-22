@@ -19,6 +19,8 @@ from scapy.layers.tls.crypto.groups import _tls_named_ffdh_groups, \
     _tls_named_curves, _ffdh_groups, \
     _tls_named_groups
 import scapy.modules.six as six
+from typing import Any
+from typing import Callable
 
 if conf.crypto_valid:
     from cryptography.hazmat.backends import default_backend
@@ -246,6 +248,7 @@ class TicketField(PacketField):
     __slots__ = ["length_from"]
 
     def __init__(self, name, default, length_from=None, **kargs):
+        # type: (str, str, Callable, **Any) -> None
         self.length_from = length_from
         PacketField.__init__(self, name, default, Ticket, **kargs)
 

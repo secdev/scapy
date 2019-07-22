@@ -34,6 +34,15 @@ from scapy.layers.tls.crypto.cipher_stream import Cipher_NULL
 from scapy.layers.tls.crypto.common import CipherError
 from scapy.layers.tls.crypto.h_mac import HMACError
 import scapy.modules.six as six
+from scapy.base_classes import Packet_metaclass
+from typing import Any
+from typing import Optional
+from typing import Callable
+from typing import List
+from scapy.layers.tls.handshake_sslv2 import SSLv2ClientHello
+from scapy.layers.tls.record_sslv2 import SSLv2
+from typing import Tuple
+from typing import Union
 if conf.crypto_valid_advanced:
     from scapy.layers.tls.crypto.cipher_aead import Cipher_CHACHA20_POLY1305
 
@@ -41,6 +50,7 @@ if conf.crypto_valid_advanced:
 
 
 def _tls_version_check(version, min):
+    # type: (Optional[int], int) -> bool
     """Returns if version >= min, or False if version == None"""
     if version is None:
         return False
@@ -70,17 +80,20 @@ class _TLSMsgListField(PacketListField):
     """
 
     def __init__(self, name, default, length_from=None):
+        # type: (str, List, Optional[Callable]) -> None
         if not length_from:
             length_from = self._get_length
         super(_TLSMsgListField, self).__init__(name, default, cls=None,
                                                length_from=length_from)
 
     def _get_length(self, pkt):
+        # type: (TLS) -> int
         if pkt.deciphered_len is None:
             return pkt.len
         return pkt.deciphered_len
 
     def m2i(self, pkt, m):
+        # type: (TLS, bytes) -> Any
         """
         Try to parse one of the TLS subprotocols (ccs, alert, handshake or
         application_data). This is used inside a loop managed by .getfield().
@@ -107,7 +120,11 @@ class _TLSMsgListField(PacketListField):
                     raise
                 return Raw(m)
 
-    def getfield(self, pkt, s):
+    def getfield(self,
+                 pkt,  # type: Union[TLS, SSLv2]
+                 s,  # type: bytes
+                 ):
+        # type: (...) -> Tuple[bytes, List[SSLv2ClientHello]]
         """
         If the decryption of the content did not fail with a CipherError,
         we begin a loop on the clear content in order to get as much messages
@@ -159,6 +176,7 @@ class _TLSMsgListField(PacketListField):
             return remain + ret, lst
 
     def i2m(self, pkt, p):
+        # type: (TLS, Any) -> bytes
         """
         Update the context with information from the built packet.
         If no type was given at the record layer, we try to infer it.
@@ -186,6 +204,7 @@ class _TLSMsgListField(PacketListField):
         return cur
 
     def addfield(self, pkt, s, val):
+        # type: (TLS, bytes, List[Any]) -> bytes
         """
         Reconstruct the header because the TLS type may have been updated.
         Then, append the content.
@@ -269,11 +288,13 @@ class TLS(_GenericTLSSessionInheritance):
                    _TLSPadLenField("padlen", None)]
 
     def __init__(self, *args, **kargs):
+        # type: (*bytes, **Any) -> None
         self.deciphered_len = kargs.get("deciphered_len", None)
         super(TLS, self).__init__(*args, **kargs)
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        # type: (Optional[bytes], *Any, **Any) -> Packet_metaclass
         """
         If the TLS class was called on raw SSLv2 data, we want to return an
         SSLv2 record instance. We acknowledge the risk of SSLv2 packets with a
@@ -303,6 +324,7 @@ class TLS(_GenericTLSSessionInheritance):
     # Parsing methods
 
     def _tls_auth_decrypt(self, hdr, s):
+        # type: (bytes, bytes) -> Tuple[bytes, bytes, bytes]
         """
         Provided with the record header and AEAD-ciphered data, return the
         sliced and clear tuple (nonce, TLSCompressed.fragment, mac). Note that
@@ -337,6 +359,7 @@ class TLS(_GenericTLSSessionInheritance):
         return self.tls_session.rcs.cipher.decrypt(s)
 
     def _tls_hmac_verify(self, hdr, msg, mac):
+        # type: (bytes, bytes, bytes) -> bool
         """
         Provided with the record header, the TLSCompressed.fragment and the
         HMAC, return True if the HMAC is correct. If we could not compute the
@@ -370,6 +393,7 @@ class TLS(_GenericTLSSessionInheritance):
         return h == mac
 
     def _tls_decompress(self, s):
+        # type: (bytes) -> bytes
         """
         Provided with the TLSCompressed.fragment,
         return the TLSPlaintext.fragment.
@@ -378,6 +402,7 @@ class TLS(_GenericTLSSessionInheritance):
         return alg.decompress(s)
 
     def pre_dissect(self, s):
+        # type: (bytes) -> bytes
         """
         Decrypt, verify and decompress the message,
         i.e. apply the previous methods according to the reading cipher type.
@@ -514,6 +539,7 @@ class TLS(_GenericTLSSessionInheritance):
         return s
 
     def do_dissect_payload(self, s):
+        # type: (bytes) -> None
         """
         Try to dissect the following data as a TLS message.
         Note that overloading .guess_payload_class() would not be enough,
@@ -532,6 +558,7 @@ class TLS(_GenericTLSSessionInheritance):
     # Building methods
 
     def _tls_compress(self, s):
+        # type: (bytes) -> bytes
         """
         Provided with the TLSPlaintext.fragment,
         return the TLSCompressed.fragment.
@@ -540,6 +567,7 @@ class TLS(_GenericTLSSessionInheritance):
         return alg.compress(s)
 
     def _tls_auth_encrypt(self, s):
+        # type: (bytes) -> bytes
         """
         Return the TLSCiphertext.fragment for AEAD ciphers, i.e. the whole
         GenericAEADCipher. Also, the additional data is computed right here.
@@ -554,6 +582,7 @@ class TLS(_GenericTLSSessionInheritance):
                                                         write_seq_num)
 
     def _tls_hmac_add(self, hdr, msg):
+        # type: (bytes, bytes) -> bytes
         """
         Provided with the record header (concatenation of the TLSCompressed
         type, version and length fields) and the TLSCompressed.fragment,
@@ -577,6 +606,7 @@ class TLS(_GenericTLSSessionInheritance):
         return msg + h
 
     def _tls_pad(self, s):
+        # type: (bytes) -> bytes
         """
         Provided with the concatenation of the TLSCompressed.fragment and the
         HMAC, append the right padding and return it as a whole.
@@ -596,6 +626,7 @@ class TLS(_GenericTLSSessionInheritance):
         return s + padding
 
     def _tls_encrypt(self, s):
+        # type: (bytes) -> bytes
         """
         Return the stream- or block-ciphered version of the concatenated input.
         In case of GenericBlockCipher, no IV has been specifically prepended to
@@ -604,6 +635,7 @@ class TLS(_GenericTLSSessionInheritance):
         return self.tls_session.wcs.cipher.encrypt(s)
 
     def post_build(self, pkt, pay):
+        # type: (bytes, bytes) -> bytes
         """
         Apply the previous methods according to the writing cipher type.
         """
@@ -692,9 +724,11 @@ class TLSChangeCipherSpec(_GenericTLSSessionInheritance):
     fields_desc = [ByteEnumField("msgtype", 1, _tls_changecipherspec_type)]
 
     def post_dissection_tls_session_update(self, msg_str):
+        # type: (bytes) -> None
         self.tls_session.triggered_prcs_commit = True
 
     def post_build_tls_session_update(self, msg_str):
+        # type: (bytes) -> None
         # Unlike for dissection case, we cannot commit pending write
         # state as current write state. We need to delay this after
         # the ChangeCipherSpec message has indeed been sent
@@ -731,9 +765,11 @@ class TLSAlert(_GenericTLSSessionInheritance):
                    ByteEnumField("descr", None, _tls_alert_description)]
 
     def post_dissection_tls_session_update(self, msg_str):
+        # type: (bytes) -> None
         pass
 
     def post_build_tls_session_update(self, msg_str):
+        # type: (bytes) -> None
         pass
 
 
@@ -746,9 +782,11 @@ class TLSApplicationData(_GenericTLSSessionInheritance):
     fields_desc = [StrField("data", "")]
 
     def post_dissection_tls_session_update(self, msg_str):
+        # type: (bytes) -> None
         pass
 
     def post_build_tls_session_update(self, msg_str):
+        # type: (bytes) -> None
         pass
 
 

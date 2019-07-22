@@ -45,6 +45,15 @@ import scapy.as_resolvers
 
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
+from scapy.base_classes import Packet_metaclass
+from typing import Any
+from typing import Tuple
+from typing import Optional
+from .. import 
+from typing import List
+from typing import Union
+from scapy.arch.windows import NetworkInterface
+from scapy.layers.inet6 import IPv6
 
 ####################
 #  IP Tools class  #
@@ -60,14 +69,17 @@ class IPTools(object):
         print(whois(self.src).decode("utf8", "ignore"))
 
     def _ttl(self):
+        # type: () -> int
         """Returns ttl or hlim, depending on the IP version"""
         return self.hlim if isinstance(self, scapy.layers.inet6.IPv6) else self.ttl  # noqa: E501
 
     def ottl(self):
+        # type: () -> int
         t = sorted([32, 64, 128, 255] + [self._ttl()])
         return t[t.index(self._ttl()) + 1]
 
     def hops(self):
+        # type: () -> int
         return self.ottl() - self._ttl()
 
 
@@ -114,16 +126,19 @@ class IPOption(Packet):
                    StrLenField("value", "", length_from=lambda pkt:pkt.length - 2)]  # noqa: E501
 
     def extract_padding(self, p):
+        # type: (bytes) -> Tuple[bytes, bytes]
         return b"", p
 
     registered_ip_options = {}
 
     @classmethod
     def register_variant(cls):
+        # type: () -> None
         cls.registered_ip_options[cls.option.default] = cls
 
     @classmethod
     def dispatch_hook(cls, pkt=None, *args, **kargs):
+        # type: (bytes, *Any, **Any) -> Packet_metaclass
         if pkt:
             opt = orb(pkt[0]) & 0x1f
             if opt in cls.registered_ip_options:
@@ -168,6 +183,7 @@ class IPOption_RR(IPOption):
                    ]
 
     def get_current_router(self):
+        # type: () -> str
         return self.routers[self.pointer // 4 - 1]
 
 
@@ -281,11 +297,13 @@ TCPOptions = (
 
 class RandTCPOptions(VolatileValue):
     def __init__(self, size=None):
+        # type: (Optional[Any]) -> None
         if size is None:
             size = RandNum(1, 5)
         self.size = size
 
     def _fix(self):
+        # type: () -> List[Tuple[str, Tuple[int, ]]]
         # Pseudo-Random amount of options
         # Random ("NAME", fmt)
         rand_patterns = [
@@ -321,14 +339,22 @@ class RandTCPOptions(VolatileValue):
 class TCPOptionsField(StrField):
     islist = 1
 
-    def getfield(self, pkt, s):
+    def getfield(self,
+                 pkt,  # type: TCP
+                 s,  # type: bytes
+                 ):
+        # type: (...) -> Tuple[bytes, Union[List[Tuple[str, Union[None, Tuple[int, int], int]]], List[Tuple[str, int]]]]
         opsz = (pkt.dataofs - 5) * 4
         if opsz < 0:
             warning("bad dataofs (%i). Assuming dataofs=5" % pkt.dataofs)
             opsz = 0
         return s[opsz:], self.m2i(pkt, s[:opsz])
 
-    def m2i(self, pkt, x):
+    def m2i(self,
+            pkt,  # type: TCP
+            x,  # type: bytes
+            ):
+        # type: (...) -> Union[List[Tuple[str, Union[None, Tuple[int, int], int]]], List[Tuple[str, Union[bytes, int]]], List[Tuple[str, int]]]
         opt = []
         while x:
             onum = orb(x[0])
@@ -362,12 +388,20 @@ class TCPOptionsField(StrField):
             x = x[olen:]
         return opt
 
-    def i2h(self, pkt, x):
+    def i2h(self,
+            pkt,  # type: TCP
+            x,  # type: Union[List[Tuple[str, Optional[int]]], bytes]
+            ):
+        # type: (...) -> List[Tuple[str, Optional[int]]]
         if not x:
             return []
         return x
 
-    def i2m(self, pkt, x):
+    def i2m(self,
+            pkt,  # type: TCP
+            x,  # type: Union[List[Tuple[str, Union[None, Tuple[int, int], int]]], bytes]
+            ):
+        # type: (...) -> bytes
         opt = b""
         for oname, oval in x:
             # We check for a (0, b'') or (1, b'') option first
@@ -406,6 +440,7 @@ class TCPOptionsField(StrField):
         return opt + b"\x00" * (3 - ((len(opt) + 3) % 4))  # Padding
 
     def randval(self):
+        # type: () -> RandTCPOptions
         return RandTCPOptions()
 
 
@@ -422,6 +457,7 @@ class ICMPTimeStampField(IntField):
             return "%d:%d:%d.%d" % (hour, min, sec, int(milli))
 
     def any2i(self, pkt, val):
+        # type: (Optional[Any], Optional[Any]) -> int
         if isinstance(val, str):
             hmsms = self.re_hmsm.match(val)
             if hmsms:
@@ -439,6 +475,7 @@ class DestIPField(IPField, DestField):
     bindings = {}
 
     def __init__(self, name, default):
+        # type: (str, str) -> None
         IPField.__init__(self, name, None)
         DestField.__init__(self, name, default)
 
@@ -448,6 +485,7 @@ class DestIPField(IPField, DestField):
         return IPField.i2m(self, pkt, x)
 
     def i2h(self, pkt, x):
+        # type: (Union[IP, IPerror], Union[None, Net, str]) -> Union[Net, str]
         if x is None:
             x = self.dst_from_pkt(pkt)
         return IPField.i2h(self, pkt, x)
@@ -472,6 +510,7 @@ class IP(Packet, IPTools):
                    PacketListField("options", [], IPOption, length_from=lambda p:p.ihl * 4 - 20)]  # noqa: E501
 
     def post_build(self, p, pay):
+        # type: (bytes, bytes) -> bytes
         ihl = self.ihl
         p += b"\0" * ((-len(p)) % 4)  # pad IP options if needed
         if ihl is None:
@@ -486,12 +525,14 @@ class IP(Packet, IPTools):
         return p + pay
 
     def extract_padding(self, s):
+        # type: (bytes) -> Tuple[bytes, bytes]
         tmp_len = self.len - (self.ihl << 2)
         if tmp_len < 0:
             return s, b""
         return s[:tmp_len], s[tmp_len:]
 
     def route(self):
+        # type: () -> Tuple[NetworkInterface, str, str]
         dst = self.dst
         if isinstance(dst, Gen):
             dst = next(iter(dst))
@@ -501,6 +542,7 @@ class IP(Packet, IPTools):
         return conf.route.route(dst)
 
     def hashret(self):
+        # type: () -> bytes
         if ((self.proto == socket.IPPROTO_ICMP) and
             (isinstance(self.payload, ICMP)) and
                 (self.payload.type in [3, 4, 5, 11, 12])):
@@ -516,6 +558,7 @@ class IP(Packet, IPTools):
         return struct.pack("B", self.proto) + self.payload.hashret()
 
     def answers(self, other):
+        # type: (IP) -> int
         if not conf.checkIPinIP:  # skip IP in IP and IPv6 in IP
             if self.proto in [4, 41]:
                 return self.payload.answers(other)
@@ -545,12 +588,14 @@ class IP(Packet, IPTools):
             return self.payload.answers(other.payload)
 
     def mysummary(self):
+        # type: () -> str
         s = self.sprintf("%IP.src% > %IP.dst% %IP.proto%")
         if self.frag:
             s += " frag:%i" % self.frag
         return s
 
     def fragment(self, fragsize=1480):
+        # type: (int) -> Union[List[IP], List[Ether]]
         """Fragment IP datagrams"""
         fragsize = (fragsize + 7) // 8 * 8
         lst = []
@@ -579,6 +624,7 @@ class IP(Packet, IPTools):
 
 
 def in4_chksum(proto, u, p):
+    # type: (int, IP, bytes) -> int
     """
     As Specified in RFC 2460 - 8.1 Upper-Layer Checksums
 
@@ -622,6 +668,7 @@ class TCP(Packet):
                    TCPOptionsField("options", "")]
 
     def post_build(self, p, pay):
+        # type: (bytes, bytes) -> bytes
         p += pay
         dataofs = self.dataofs
         if dataofs is None:
@@ -639,12 +686,14 @@ class TCP(Packet):
         return p
 
     def hashret(self):
+        # type: () -> bytes
         if conf.checkIPsrc:
             return struct.pack("H", self.sport ^ self.dport) + self.payload.hashret()  # noqa: E501
         else:
             return self.payload.hashret()
 
     def answers(self, other):
+        # type: (TCP) -> int
         if not isinstance(other, TCP):
             return 0
         # RST packets don't get answers
@@ -676,6 +725,7 @@ class TCP(Packet):
         return 1
 
     def mysummary(self):
+        # type: () -> str
         if isinstance(self.underlayer, IP):
             return self.underlayer.sprintf("TCP %IP.src%:%TCP.sport% > %IP.dst%:%TCP.dport% %TCP.flags%")  # noqa: E501
         elif conf.ipv6_enabled and isinstance(self.underlayer, scapy.layers.inet6.IPv6):  # noqa: E501
@@ -692,6 +742,7 @@ class UDP(Packet):
                    XShortField("chksum", None), ]
 
     def post_build(self, p, pay):
+        # type: (bytes, bytes) -> bytes
         p += pay
         tmp_len = self.len
         if tmp_len is None:
@@ -715,13 +766,16 @@ class UDP(Packet):
         return p
 
     def extract_padding(self, s):
+        # type: (bytes) -> Tuple[bytes, bytes]
         tmp_len = self.len - 8
         return s[:tmp_len], s[tmp_len:]
 
     def hashret(self):
+        # type: () -> bytes
         return self.payload.hashret()
 
     def answers(self, other):
+        # type: (UDP) -> int
         if not isinstance(other, UDP):
             return 0
         if conf.checkIPsrc:
@@ -818,6 +872,7 @@ class ICMP(Packet):
                    ]
 
     def post_build(self, p, pay):
+        # type: (bytes, bytes) -> bytes
         p += pay
         if self.chksum is None:
             ck = checksum(p)
@@ -825,11 +880,13 @@ class ICMP(Packet):
         return p
 
     def hashret(self):
+        # type: () -> bytes
         if self.type in [0, 8, 13, 14, 15, 16, 17, 18, 33, 34, 35, 36, 37, 38]:
             return struct.pack("HH", self.id, self.seq) + self.payload.hashret()  # noqa: E501
         return self.payload.hashret()
 
     def answers(self, other):
+        # type: (ICMP) -> int
         if not isinstance(other, ICMP):
             return 0
         if ((other.type, self.type) in [(8, 0), (13, 14), (15, 16), (17, 18), (33, 34), (35, 36), (37, 38)] and  # noqa: E501
@@ -839,12 +896,14 @@ class ICMP(Packet):
         return 0
 
     def guess_payload_class(self, payload):
+        # type: (bytes) -> Optional[Any]
         if self.type in [3, 4, 5, 11, 12]:
             return IPerror
         else:
             return None
 
     def mysummary(self):
+        # type: () -> str
         if isinstance(self.underlayer, IP):
             return self.underlayer.sprintf("ICMP %IP.src% > %IP.dst% %ICMP.type% %ICMP.code%")  # noqa: E501
         else:
@@ -855,6 +914,7 @@ class IPerror(IP):
     name = "IP in ICMP"
 
     def answers(self, other):
+        # type: (IP) -> int
         if not isinstance(other, IP):
             return 0
 
@@ -905,6 +965,7 @@ class UDPerror(UDP):
     name = "UDP in ICMP"
 
     def answers(self, other):
+        # type: (UDP) -> int
         if not isinstance(other, UDP):
             return 0
         if conf.checkIPsrc:
@@ -921,6 +982,7 @@ class ICMPerror(ICMP):
     name = "ICMP in ICMP"
 
     def answers(self, other):
+        # type: (ICMP) -> int
         if not isinstance(other, ICMP):
             return 0
         if not ((self.type == other.type) and
@@ -964,6 +1026,7 @@ conf.l3types.register_num2layer(ETH_P_ALL, IP)
 
 
 def inet_register_l3(l2, l3):
+    # type: (Ether, IP) -> str
     return getmacbyip(l3.dst)
 
 
@@ -976,7 +1039,10 @@ conf.neighbor.register_l3(Dot3, IP, inet_register_l3)
 ###################
 
 @conf.commands.register
-def fragment(pkt, fragsize=1480):
+def fragment(pkt,  # type: Union[List[IP], IP, Ether]
+             fragsize=1480,  # type: int
+             ):
+    # type: (...) -> Union[List[IP], List[Ether]]
     """Fragment a big IP datagram"""
     fragsize = (fragsize + 7) // 8 * 8
     lst = []
@@ -1019,6 +1085,7 @@ overlap_fragsize: the fragment size of the overlapping packet"""
 
 
 def _defrag_list(lst, defrag, missfrag):
+    # type: (Union[List[IP], List[Ether]], List, List) -> None
     """Internal usage only. Part of the _defrag_logic"""
     p = lst[0]
     lastp = lst[-1]
@@ -1058,7 +1125,10 @@ def _defrag_list(lst, defrag, missfrag):
         defrag.append(p)
 
 
-def _defrag_logic(plist, complete=False):
+def _defrag_logic(plist,  # type: Union[List[IP], List[Ether], PacketList]
+                  complete=False,  # type: bool
+                  ):
+    # type: (...) -> Union[Tuple[PacketList, PacketList, PacketList], PacketList]
     """Internal function used to defragment a list of packets.
     It contains the logic behind the defrag() and defragment() functions
     """
@@ -1101,7 +1171,9 @@ def _defrag_logic(plist, complete=False):
 
 
 @conf.commands.register
-def defrag(plist):
+def defrag(plist  # type: Union[List[IP], List[Ether], PacketList]
+           ):
+    # type: (...) -> Tuple[PacketList, PacketList, PacketList]
     """defrag(plist) -> ([not fragmented], [defragmented],
                   [ [bad fragments], [bad fragments], ... ])"""
     return _defrag_logic(plist, complete=False)
@@ -1109,6 +1181,7 @@ def defrag(plist):
 
 @conf.commands.register
 def defragment(plist):
+    # type: (Union[List[IP], List[Ether], PacketList]) -> PacketList
     """defragment(plist) -> plist defragmented as much as possible """
     return _defrag_logic(plist, complete=True)
 
@@ -1171,6 +1244,7 @@ class TracerouteResult(SndRcvList):
                  "nloc"]
 
     def __init__(self, res=None, name="Traceroute", stats=None):
+        # type: (List[Tuple[IPv6, IPv6]], str, Optional[Any]) -> None
         PacketList.__init__(self, res, name, stats)
         self.graphdef = None
         self.graphASres = None
@@ -1483,6 +1557,7 @@ Touch screen: pinch/extend to zoom, swipe or two-finger rotate."""
         return lines
 
     def make_graph(self, ASres=None, padding=0):
+        # type: (Optional[Any], int) -> None
         self.graphASres = ASres
         self.graphpadding = padding
         ips = {}
@@ -1695,6 +1770,7 @@ class TCP_client(Automaton):
         >>> a.recv()
     """
     def parse_args(self, ip, port, *args, **kargs):
+        # type: (str, int, *Any, **Any) -> None
         from scapy.sessions import TCPSession
         self.dst = str(Net(ip))
         self.dport = port
@@ -1712,10 +1788,12 @@ class TCP_client(Automaton):
         Automaton.parse_args(self, filter=bpf, **kargs)
 
     def _transmit_packet(self, pkt):
+        # type: (Ether) -> None
         """Transmits a packet from TCPSession to the SuperSocket"""
         self.oi.tcp.send(pkt[TCP].payload)
 
     def master_filter(self, pkt):
+        # type: (Ether) -> bool
         return (IP in pkt and
                 pkt[IP].src == self.dst and
                 pkt[IP].dst == self.src and
@@ -1727,22 +1805,27 @@ class TCP_client(Automaton):
 
     @ATMT.state(initial=1)
     def START(self):
+        # type: () -> None
         pass
 
     @ATMT.state()
     def SYN_SENT(self):
+        # type: () -> None
         pass
 
     @ATMT.state()
     def ESTABLISHED(self):
+        # type: () -> None
         pass
 
     @ATMT.state()
     def LAST_ACK(self):
+        # type: () -> None
         pass
 
     @ATMT.state(final=1)
     def CLOSED(self):
+        # type: () -> None
         pass
 
     @ATMT.condition(START)

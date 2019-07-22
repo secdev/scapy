@@ -19,6 +19,8 @@ from scapy.packet import Packet, bind_layers, bind_bottom_up
 from scapy.compat import orb
 from scapy.layers.inet import UDP
 from scapy.layers.dns import DNSQRField, DNSRRField, DNSRRCountField
+from scapy.base_classes import Packet_metaclass
+from typing import Any
 
 
 _LLMNR_IPv6_mcast_Addr = "FF02:0:0:0:0:0:1:3"
@@ -45,6 +47,7 @@ class LLMNRQuery(Packet):
     overload_fields = {UDP: {"sport": 5355, "dport": 5355}}
 
     def hashret(self):
+        # type: () -> bytes
         return struct.pack("!H", self.id)
 
 
@@ -53,6 +56,7 @@ class LLMNRResponse(LLMNRQuery):
     qr = 1
 
     def answers(self, other):
+        # type: (LLMNRQuery) -> bool
         return (isinstance(other, LLMNRQuery) and
                 self.id == other.id and
                 self.qr == 1 and
@@ -62,6 +66,7 @@ class LLMNRResponse(LLMNRQuery):
 class _LLMNR(Packet):
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        # type: (bytes, *Any, **Any) -> Packet_metaclass
         if len(_pkt) >= 2:
             if (orb(_pkt[2]) & 0x80):  # Response
                 return LLMNRResponse

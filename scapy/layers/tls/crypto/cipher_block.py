@@ -11,6 +11,11 @@ from __future__ import absolute_import
 from scapy.config import conf
 from scapy.layers.tls.crypto.common import CipherError
 import scapy.modules.six as six
+from typing import Any
+from typing import Optional
+from cryptography.hazmat.primitives.ciphers.base import Cipher
+from typing import Dict
+from typing import Union
 
 if conf.crypto_valid:
     from cryptography.utils import register_interface
@@ -43,6 +48,7 @@ class _BlockCipher(six.with_metaclass(_BlockCipherMetaclass, object)):
     type = "block"
 
     def __init__(self, key=None, iv=None):
+        # type: (Optional[bytes], Optional[Any]) -> None
         self.ready = {"key": True, "iv": True}
         if key is None:
             self.ready["key"] = False
@@ -64,6 +70,7 @@ class _BlockCipher(six.with_metaclass(_BlockCipherMetaclass, object)):
                               backend=backend)
 
     def __setattr__(self, name, val):
+        # type: (str, Union[Dict[str, bool], bytes, Cipher]) -> None
         if name == "key":
             if self._cipher is not None:
                 self._cipher.algorithm.key = val
@@ -75,6 +82,7 @@ class _BlockCipher(six.with_metaclass(_BlockCipherMetaclass, object)):
         super(_BlockCipher, self).__setattr__(name, val)
 
     def encrypt(self, data):
+        # type: (bytes) -> bytes
         """
         Encrypt the data. Also, update the cipher iv. This is needed for SSLv3
         and TLS 1.0. For TLS 1.1/1.2, it is overwritten in TLS.post_build().
@@ -87,6 +95,7 @@ class _BlockCipher(six.with_metaclass(_BlockCipherMetaclass, object)):
         return tmp
 
     def decrypt(self, data):
+        # type: (bytes) -> bytes
         """
         Decrypt the data. Also, update the cipher iv. This is needed for SSLv3
         and TLS 1.0. For TLS 1.1/1.2, it is overwritten in TLS.pre_dissect().
@@ -100,6 +109,7 @@ class _BlockCipher(six.with_metaclass(_BlockCipherMetaclass, object)):
         return tmp
 
     def snapshot(self):
+        # type: () -> Union[Cipher_3DES_EDE_CBC, Cipher_AES_128_CBC, Cipher_CAMELLIA_256_CBC]
         c = self.__class__(self.key, self.iv)
         c.ready = self.ready.copy()
         return c

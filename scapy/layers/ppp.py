@@ -24,6 +24,11 @@ from scapy.fields import BitField, ByteEnumField, ByteField, \
     PacketListField, PacketField, ShortEnumField, ShortField, \
     StrFixedLenField, StrLenField, XByteField, XShortField, XStrLenField
 from scapy.modules import six
+from scapy.base_classes import Packet_metaclass
+from typing import Any
+from typing import Optional
+from typing import Tuple
+from typing import Union
 
 
 class PPPoE(Packet):
@@ -90,6 +95,7 @@ class PPPoETag(Packet):
     ]
 
     def extract_padding(self, s):
+        # type: (bytes) -> Tuple[str, bytes]
         return '', s
 
 
@@ -267,6 +273,7 @@ class PPP(Packet):
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        # type: (Optional[bytes], *Any, **Any) -> Packet_metaclass
         if _pkt:
             first_byte = orb(_pkt[0])
             if first_byte == 0xff:
@@ -326,16 +333,19 @@ class PPP_IPCP_Option(Packet):
     ]
 
     def extract_padding(self, pay):
+        # type: (bytes) -> Tuple[bytes, bytes]
         return b"", pay
 
     registered_options = {}
 
     @classmethod
     def register_variant(cls):
+        # type: () -> None
         cls.registered_options[cls.type.default] = cls
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        # type: (Optional[bytes], *Any, **Any) -> Packet_metaclass
         if _pkt:
             o = orb(_pkt[0])
             return cls.registered_options.get(o, cls)
@@ -400,16 +410,19 @@ class PPP_ECP_Option(Packet):
     ]
 
     def extract_padding(self, pay):
+        # type: (bytes) -> Tuple[bytes, bytes]
         return b"", pay
 
     registered_options = {}
 
     @classmethod
     def register_variant(cls):
+        # type: () -> None
         cls.registered_options[cls.type.default] = cls
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        # type: (Optional[bytes], *Any, **Any) -> Packet_metaclass
         if _pkt:
             o = orb(_pkt[0])
             return cls.registered_options.get(o, cls)
@@ -467,10 +480,12 @@ class PPP_LCP(Packet):
         return self.sprintf('LCP %code%')
 
     def extract_padding(self, pay):
+        # type: (bytes) -> Tuple[bytes, bytes]
         return b"", pay
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        # type: (bytes, *Any, **Any) -> Packet_metaclass
         if _pkt:
             o = orb(_pkt[0])
             if o in [1, 2, 3, 4]:
@@ -510,16 +525,19 @@ class PPP_LCP_Option(Packet):
     ]
 
     def extract_padding(self, pay):
+        # type: (bytes) -> Tuple[bytes, bytes]
         return b"", pay
 
     registered_options = {}
 
     @classmethod
     def register_variant(cls):
+        # type: () -> None
         cls.registered_options[cls.type.default] = cls
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        # type: (bytes, *Any, **Any) -> Packet_metaclass
         if _pkt:
             o = orb(_pkt[0])
             return cls.registered_options.get(o, cls)
@@ -555,6 +573,7 @@ class PPP_LCP_ACCM_Option(PPP_LCP_Option):
 
 
 def adjust_auth_len(pkt, x):
+    # type: (PPP_LCP_Auth_Protocol_Option, int) -> int
     if pkt.auth_protocol == 0xc223:
         return 5
     elif pkt.auth_protocol == 0xc023:
@@ -631,6 +650,7 @@ class PPP_LCP_Configure(PPP_LCP):
     ]
 
     def answers(self, other):
+        # type: (PPP_LCP_Configure) -> bool
         return (
             isinstance(other, PPP_LCP_Configure) and self.code in [2, 3, 4] and
             other.code == 1 and other.id == self.id
@@ -640,6 +660,7 @@ class PPP_LCP_Configure(PPP_LCP):
 class PPP_LCP_Terminate(PPP_LCP):
 
     def answers(self, other):
+        # type: (PPP_LCP_Terminate) -> bool
         return (
             isinstance(other, PPP_LCP_Terminate) and self.code == 6 and
             other.code == 5 and other.id == self.id
@@ -682,6 +703,7 @@ class PPP_LCP_Echo(PPP_LCP_Discard_Request):
     code = 9
 
     def answers(self, other):
+        # type: (PPP_LCP_Echo) -> bool
         return (
             isinstance(other, PPP_LCP_Echo) and self.code == 10 and
             other.code == 9 and self.id == other.id
@@ -708,6 +730,7 @@ class PPP_PAP(Packet):
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *_, **kargs):
+        # type: (Optional[bytes], *Any, **Any) -> Packet_metaclass
         code = None
         if _pkt:
             code = orb(_pkt[0])
@@ -723,6 +746,7 @@ class PPP_PAP(Packet):
         return cls
 
     def extract_padding(self, pay):
+        # type: (bytes) -> Tuple[str, bytes]
         return "", pay
 
 
@@ -740,6 +764,7 @@ class PPP_PAP_Request(PPP_PAP):
     ]
 
     def mysummary(self):
+        # type: () -> str
         return self.sprintf("PAP-Request username=%PPP_PAP_Request.username%"
                             " password=%PPP_PAP_Request.password%")
 
@@ -755,9 +780,11 @@ class PPP_PAP_Response(PPP_PAP):
     ]
 
     def answers(self, other):
+        # type: (PPP_PAP_Request) -> bool
         return isinstance(other, PPP_PAP_Request) and other.id == self.id
 
     def mysummary(self):
+        # type: () -> str
         res = "PAP-Ack" if self.code == 2 else "PAP-Nak"
         if self.msg_len > 0:
             res += self.sprintf(" msg=%PPP_PAP_Response.message%")
@@ -783,12 +810,14 @@ class PPP_CHAP(Packet):
     ]
 
     def answers(self, other):
+        # type: (Union[PPP_CHAP, PPP_CHAP_ChallengeResponse]) -> bool
         return isinstance(other, PPP_CHAP_ChallengeResponse) \
             and other.code == 2 and self.code in (3, 4) \
             and self.id == other.id
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *_, **kargs):
+        # type: (Optional[bytes], *Any, **Any) -> Packet_metaclass
         code = None
         if _pkt:
             code = orb(_pkt[0])
@@ -802,9 +831,11 @@ class PPP_CHAP(Packet):
         return cls
 
     def extract_padding(self, pay):
+        # type: (bytes) -> Tuple[str, bytes]
         return "", pay
 
     def mysummary(self):
+        # type: () -> str
         if self.code == 3:
             return self.sprintf("CHAP Success message=%PPP_CHAP.data%")
         elif self.code == 4:
@@ -827,10 +858,12 @@ class PPP_CHAP_ChallengeResponse(PPP_CHAP):
     ]
 
     def answers(self, other):
+        # type: (Union[PPP_CHAP, PPP_CHAP_ChallengeResponse]) -> bool
         return isinstance(other, PPP_CHAP_ChallengeResponse) \
             and other.code == 1 and self.code == 2 and self.id == other.id
 
     def mysummary(self):
+        # type: () -> str
         if self.code == 1:
             return self.sprintf(
                 "CHAP challenge=0x%PPP_CHAP_ChallengeResponse.value% "

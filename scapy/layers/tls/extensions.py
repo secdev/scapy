@@ -23,6 +23,13 @@ from scapy.layers.tls.crypto.groups import _tls_named_groups
 from scapy.themes import AnsiColorTheme
 from scapy.compat import raw
 from scapy.config import conf
+from scapy.layers.tls.handshake import TLSServerHello
+from typing import Tuple
+from scapy.layers.tls.handshake import TLSClientHello
+from typing import Any
+from typing import Optional
+from typing import Union
+from typing import List
 
 
 _tls_ext = {0: "server_name",             # RFC 4366
@@ -613,6 +620,7 @@ _tls_ext_cls = {0: TLS_Ext_ServerName,
 
 class _ExtensionsLenField(FieldLenField):
     def getfield(self, pkt, s):
+        # type: (TLSServerHello, bytes) -> Tuple[bytes, None]
         """
         We try to compute a length, usually from a msglen parsed earlier.
         If this length is 0, we consider 'selection_present' (from RFC 5246)
@@ -627,7 +635,12 @@ class _ExtensionsLenField(FieldLenField):
                 return s, None
         return super(_ExtensionsLenField, self).getfield(pkt, s)
 
-    def addfield(self, pkt, s, i):
+    def addfield(self,
+                 pkt,  # type: Union[TLSClientHello, TLSServerHello]
+                 s,  # type: bytes
+                 i,  # type: Optional[Any]
+                 ):
+        # type: (...) -> bytes
         """
         There is a hack with the _ExtensionsField.i2len. It works only because
         we expect _ExtensionsField.i2m to return a string of the same size (if
@@ -657,17 +670,20 @@ class _ExtensionsField(StrLenField):
     holds_packets = 1
 
     def i2len(self, pkt, i):
+        # type: (Union[TLSClientHello, TLSServerHello], Optional[Any]) -> int
         if i is None:
             return 0
         return len(self.i2m(pkt, i))
 
     def getfield(self, pkt, s):
+        # type: (TLSServerHello, bytes) -> Tuple[bytes, List]
         tmp_len = self.length_from(pkt)
         if tmp_len is None:
             return s, []
         return s[tmp_len:], self.m2i(pkt, s[:tmp_len])
 
     def i2m(self, pkt, i):
+        # type: (Union[TLSClientHello, TLSServerHello], Optional[Any]) -> bytes
         if i is None:
             return b""
         if isinstance(pkt, _GenericTLSSessionInheritance):
@@ -683,6 +699,7 @@ class _ExtensionsField(StrLenField):
         return b"".join(map(raw, i))
 
     def m2i(self, pkt, m):
+        # type: (TLSServerHello, bytes) -> List
         res = []
         while len(m) > 4:
             t = struct.unpack("!H", m[:2])[0]

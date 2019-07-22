@@ -43,6 +43,13 @@ from scapy.layers.inet import IP, TCP
 from scapy.error import warning, log_loading
 from scapy.sendrecv import sniff, sendp
 from scapy.utils import issubtype
+from scapy.base_classes import Packet_metaclass
+from typing import Any
+from typing import Optional
+from typing import Union
+from typing import Tuple
+from typing import List
+from typing import Callable
 
 
 if conf.crypto_valid:
@@ -115,6 +122,7 @@ class PrismHeader(Packet):
 
 class _RadiotapReversePadField(ReversePadField):
     def __init__(self, fld):
+        # type: (Union[FlagsField, LELongField]) -> None
         self._fld = fld
         self._padwith = b"\x00"
         # Quote from https://www.radiotap.org/:
@@ -131,13 +139,20 @@ class _dbmField(ByteField):
         return super(ByteField, self).i2m(pkt, x + 256)
 
     def m2i(self, pkt, x):
+        # type: (RadioTap, int) -> int
         return super(ByteField, self).m2i(pkt, x) - 256
 
     def i2repr(self, pkt, x):
+        # type: (RadioTap, int) -> str
         return "%sdBm" % x
 
 
-def _next_radiotap_extpm(pkt, lst, cur, s):
+def _next_radiotap_extpm(pkt,  # type: RadioTap
+                         lst,  # type: List[RadioTapExtendedPresenceMask]
+                         cur,  # type: Optional[RadioTapExtendedPresenceMask]
+                         s,  # type: bytes
+                         ):
+    # type: (...) -> Optional[Callable]
     """Generates the next RadioTapExtendedPresenceMask"""
     if cur is None or (cur.present and cur.present.Ext):
         st = len(lst) + (cur is not None)
@@ -160,14 +175,17 @@ class RadioTapExtendedPresenceMask(Packet):
                               ["b%s" % i for i in range(0, 31)] + ["Ext"])]
 
     def __init__(self, _pkt=None, index=0, **kwargs):
+        # type: (bytes, int, **Any) -> None
         self._restart_indentation(index)
         Packet.__init__(self, _pkt, **kwargs)
 
     def _restart_indentation(self, index):
+        # type: (int) -> None
         st = index * 32
         self.fields_desc[0].names = ["b%s" % (i + st) for i in range(0, 31)] + ["Ext"]  # noqa: E501
 
     def guess_payload_class(self, pay):
+        # type: (bytes) -> Packet_metaclass
         return conf.padding_layer
 
 # RadioTap constants
@@ -483,11 +501,13 @@ class RadioTap(Packet):
     ]
 
     def guess_payload_class(self, payload):
+        # type: (bytes) -> Packet_metaclass
         if self.present and self.present.Flags and self.Flags.FCS:
             return Dot11FCS
         return Dot11
 
     def post_build(self, p, pay):
+        # type: (bytes, bytes) -> bytes
         if self.len is None:
             p = p[:2] + struct.pack("!H", len(p))[::-1] + p[4:]
         return p + pay
@@ -526,6 +546,7 @@ class Dot11(Packet):
         return self.sprintf("802.11 %%%s.type%% %%%s.subtype%% %%%s.addr2%% > %%%s.addr1%%" % ((self.__class__.__name__,) * 4))  # noqa: E501
 
     def guess_payload_class(self, payload):
+        # type: (bytes) -> Packet_metaclass
         if self.type == 0x02 and (0x08 <= self.subtype <= 0xF and self.subtype != 0xD):  # noqa: E501
             return Dot11QoS
         elif self.FCfield.protected:
@@ -578,6 +599,7 @@ class Dot11FCS(Dot11):
         return struct.pack("!I", crc32(s) & 0xffffffff)[::-1]
 
     def post_build(self, p, pay):
+        # type: (bytes, bytes) -> bytes
         p += pay
         if self.fcs is None:
             p = p[:-4] + self.compute_fcs(p)
@@ -593,6 +615,7 @@ class Dot11QoS(Packet):
                    ByteField("TXOP", None)]
 
     def guess_payload_class(self, payload):
+        # type: (bytes) -> Packet_metaclass
         if isinstance(self.underlayer, Dot11):
             if self.underlayer.FCfield.protected:
                 return Dot11Encrypted
@@ -730,10 +753,12 @@ class Dot11Elt(Packet):
 
     @classmethod
     def register_variant(cls):
+        # type: () -> None
         cls.registered_ies[cls.ID.default] = cls
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        # type: (Optional[bytes], *Any, **Any) -> Packet_metaclass
         if _pkt:
             _id = orb(_pkt[0])
             if _id == 221:
@@ -755,6 +780,7 @@ class Dot11Elt(Packet):
         return cls
 
     def haslayer(self, cls):
+        # type: (Packet_metaclass) -> bool
         if cls == "Dot11Elt":
             if isinstance(self, Dot11Elt):
                 return True
@@ -763,11 +789,19 @@ class Dot11Elt(Packet):
                 return True
         return super(Dot11Elt, self).haslayer(cls)
 
-    def getlayer(self, cls, nb=1, _track=None, _subclass=True, **flt):
+    def getlayer(self,
+                 cls,  # type: Packet_metaclass
+                 nb=1,  # type: int
+                 _track=None,  # type: Optional[Any]
+                 _subclass=True,  # type: bool
+                 **flt  # type: Any
+                 ):
+        # type: (...) -> Dot11EltRates
         return super(Dot11Elt, self).getlayer(cls, nb=nb, _track=_track,
                                               _subclass=True, **flt)
 
     def pre_dissect(self, s):
+        # type: (bytes) -> bytes
         # Backward compatibility: add info to all elements
         # This allows to introduce new Dot11Elt classes without breaking
         # previous code
@@ -778,6 +812,7 @@ class Dot11Elt(Packet):
         return s
 
     def post_build(self, p, pay):
+        # type: (bytes, bytes) -> bytes
         if self.len is None:
             p = p[:1] + chb(len(p) - 2) + p[2:]
         return p + pay
@@ -798,6 +833,7 @@ class RSNCipherSuite(Packet):
     ]
 
     def extract_padding(self, s):
+        # type: (bytes) -> Tuple[str, bytes]
         return "", s
 
 
@@ -813,6 +849,7 @@ class AKMSuite(Packet):
     ]
 
     def extract_padding(self, s):
+        # type: (bytes) -> Tuple[str, bytes]
         return "", s
 
 
@@ -1033,6 +1070,7 @@ class Dot11Encrypted(Packet):
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        # type: (bytes, *Any, **Any) -> Packet_metaclass
         # Extracted from
         # https://github.com/wireshark/wireshark/blob/master/epan/dissectors/packet-ieee80211.c  # noqa: E501
         KEY_EXTIV = 0x20
@@ -1059,6 +1097,7 @@ class Dot11WEP(Dot11Encrypted):
                    IntField("icv", None)]
 
     def decrypt(self, key=None):
+        # type: (Optional[Any]) -> None
         if key is None:
             key = conf.wepkey
         if key and conf.crypto_valid:
@@ -1070,6 +1109,7 @@ class Dot11WEP(Dot11Encrypted):
             self.add_payload(LLC(d.update(self.wepdata) + d.finalize()))
 
     def post_dissect(self, s):
+        # type: (bytes) -> None
         self.decrypt()
 
     def build_payload(self):
@@ -1079,6 +1119,7 @@ class Dot11WEP(Dot11Encrypted):
 
     @crypto_validator
     def encrypt(self, p, pay, key=None):
+        # type: (bytes, bytes, Optional[Any]) -> bytes
         if key is None:
             key = conf.wepkey
         if key:
@@ -1098,6 +1139,7 @@ class Dot11WEP(Dot11Encrypted):
             return b""
 
     def post_build(self, p, pay):
+        # type: (bytes, bytes) -> bytes
         if self.wepdata is None:
             p = self.encrypt(p, raw(pay))
         return p
@@ -1210,6 +1252,7 @@ iwconfig wlan0 mode managed
 
     def parse_options(self, iffrom=conf.iface, ifto=conf.iface, replace="",
                       pattern="", ignorepattern=""):
+        # type: (str, str, str, str, str) -> None
         self.iffrom = iffrom
         self.ifto = ifto
         self.ptrn = re.compile(pattern.encode())
@@ -1217,6 +1260,7 @@ iwconfig wlan0 mode managed
         self.replace = replace
 
     def is_request(self, pkt):
+        # type: (Dot11) -> bool
         if not isinstance(pkt, Dot11):
             return 0
         if not pkt.FCfield & 1:
@@ -1232,6 +1276,7 @@ iwconfig wlan0 mode managed
         return True
 
     def make_reply(self, p):
+        # type: (Dot11) -> List[Dot11]
         ip = p.getlayer(IP)
         tcp = p.getlayer(TCP)
         pay = raw(tcp.payload)
@@ -1250,6 +1295,7 @@ iwconfig wlan0 mode managed
         return [p, q]
 
     def print_reply(self, query, *reply):
+        # type: (Dot11, *List[Dot11]) -> None
         p = reply[0][0]
         print(p.sprintf("Sent %IP.src%:%IP.sport% > %IP.dst%:%TCP.dport%"))
 
@@ -1257,6 +1303,7 @@ iwconfig wlan0 mode managed
         sendp(reply, iface=self.ifto, **self.optsend)
 
     def sniff(self):
+        # type: () -> None
         sniff(iface=self.iffrom, **self.optsniff)
 
 

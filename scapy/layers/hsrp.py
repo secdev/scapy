@@ -37,6 +37,7 @@ from scapy.fields import ByteEnumField, ByteField, IPField, SourceIPField, \
 from scapy.packet import Packet, bind_layers, bind_bottom_up
 from scapy.layers.inet import DestIPField, UDP
 from scapy.layers.inet6 import DestIP6Field
+from scapy.base_classes import Packet_metaclass
 
 
 class HSRP(Packet):
@@ -54,6 +55,7 @@ class HSRP(Packet):
         IPField("virtualIP", "192.168.1.1")]
 
     def guess_payload_class(self, payload):
+        # type: (bytes) -> Packet_metaclass
         if self.underlayer.len > 28:
             return HSRPmd5
         else:
@@ -73,6 +75,7 @@ class HSRPmd5(Packet):
         StrFixedLenField("authdigest", b"\00" * 16, 16)]
 
     def post_build(self, p, pay):
+        # type: (bytes, bytes) -> bytes
         if self.len is None and pay:
             tmp_len = len(pay)
             p = p[:1] + hex(tmp_len)[30:] + p[30:]

@@ -45,9 +45,11 @@ class Comp_NULL(_GenericComp):
     val = 0
 
     def compress(self, s):
+        # type: (bytes) -> bytes
         return s
 
     def decompress(self, s):
+        # type: (bytes) -> bytes
         return s
 
 

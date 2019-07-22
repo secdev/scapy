@@ -41,6 +41,14 @@ from scapy.sessions import IPSession, DefaultSession
 
 from scapy.layers.inet import UDP
 from scapy.layers.inet6 import IP6Field
+from scapy.base_classes import Packet_metaclass
+from typing import Any
+from typing import Tuple
+from scapy.layers.l2 import Ether
+from typing import List
+from typing import Dict
+from typing import Set
+from typing import Union
 
 
 class NetflowHeader(Packet):
@@ -1060,6 +1068,7 @@ NetflowV9TemplateFieldDefaultLengths = {
 
 class ShortOrInt(IntField):
     def getfield(self, pkt, x):
+        # type: (NetflowRecordV9, bytes) -> Tuple[bytes, int]
         if len(x) == 2:
             Field.__init__(self, self.name, self.default, fmt="!H")
         return Field.getfield(self, pkt, x)
@@ -1091,6 +1100,7 @@ class N9SecondsIntField(SecondsIntField, _AdjustableNetflowField):
 class N9UTCTimeField(UTCTimeField, _AdjustableNetflowField):
     """Defines dateTimeSeconds (EPOCH)"""
     def __init__(self, name, default, *args, **kargs):
+        # type: (str, int, *bool, **Any) -> None
         length = kargs.pop("length", 8)
         UTCTimeField.__init__(self, name, default, *args, **kargs)
         _AdjustableNetflowField.__init__(
@@ -1221,6 +1231,7 @@ class NetflowHeaderV9(Packet):
                    IntField("SourceID", 0)]
 
     def post_build(self, pkt, pay):
+        # type: (bytes, bytes) -> bytes
         if self.count is None:
             count = sum(1 for x in self.layers() if x in [
                 NetflowFlowsetV9,
@@ -1248,11 +1259,13 @@ class NetflowTemplateFieldV9(Packet):
                    ShortField("fieldLength", 0)]
 
     def __init__(self, *args, **kwargs):
+        # type: (*bytes, **Any) -> None
         Packet.__init__(self, *args, **kwargs)
         if self.fieldType is not None and not self.fieldLength and self.fieldType in NetflowV9TemplateFieldDefaultLengths:  # noqa: E501
             self.fieldLength = NetflowV9TemplateFieldDefaultLengths[self.fieldType]  # noqa: E501
 
     def default_payload_class(self, p):
+        # type: (bytes) -> Packet_metaclass
         return conf.padding_layer
 
 
@@ -1282,6 +1295,7 @@ class _CustomStrFixedLenField(StrFixedLenField):
 
 
 def _GenNetflowRecordV9(cls, lengths_list):
+    # type: (Any, List[Tuple[int, int]]) -> Packet_metaclass
     """Internal function used to generate the Records from
     their template.
     """
@@ -1340,6 +1354,7 @@ class NetflowDataflowsetV9(Packet):
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        # type: (bytes, *Any, **Any) -> Packet_metaclass
         if _pkt:
             # https://tools.ietf.org/html/rfc5655#appendix-B.1.2
             # NetflowV9
@@ -1355,7 +1370,12 @@ class NetflowDataflowsetV9(Packet):
         return cls
 
 
-def _netflowv9_defragment_packet(pkt, definitions, definitions_opts, ignored):
+def _netflowv9_defragment_packet(pkt,  # type: Ether
+                                 definitions,  # type: Dict[int, Tuple[int, Packet_metaclass]]
+                                 definitions_opts,  # type: Dict[int, Tuple[int, Packet_metaclass, int, Packet_metaclass]]
+                                 ignored,  # type: Set
+                                 ):
+    # type: (...) -> None
     """Used internally to process a single packet during defragmenting"""
     # Dataflowset definitions
     if NetflowFlowsetV9 in pkt:
@@ -1453,7 +1473,10 @@ def _netflowv9_defragment_packet(pkt, definitions, definitions_opts, ignored):
             datafl.name = "Netflow DataFlowSet V9/10 - OPTIONS"
 
 
-def netflowv9_defragment(plist, verb=1):
+def netflowv9_defragment(plist,  # type: Union[List[Ether], List[NetflowHeader], PacketList]
+                         verb=1,  # type: int
+                         ):
+    # type: (...) -> Union[List[Ether], List[NetflowHeader], PacketList]
     """Process all NetflowV9/10 Packets to match IDs of the DataFlowsets
     with the Headers
 
@@ -1489,12 +1512,14 @@ class NetflowSession(IPSession):
     See help(scapy.layers.netflow) for more infos.
     """
     def __init__(self, *args):
+        # type: (*Any) -> None
         IPSession.__init__(self, *args)
         self.definitions = {}
         self.definitions_opts = {}
         self.ignored = set()
 
     def _process_packet(self, pkt):
+        # type: (Ether) -> Ether
         _netflowv9_defragment_packet(pkt,
                                      self.definitions,
                                      self.definitions_opts,
@@ -1502,6 +1527,7 @@ class NetflowSession(IPSession):
         return pkt
 
     def on_packet_received(self, pkt):
+        # type: (Ether) -> None
         # First, defragment IP if necessary
         pkt = self._ip_process_packet(pkt)
         # Now handle NetflowV9 defragmentation
@@ -1525,6 +1551,7 @@ class NetflowOptionsFlowsetOptionV9(Packet):
                    ShortField("optionFieldlength", 0)]
 
     def default_payload_class(self, p):
+        # type: (bytes) -> Packet_metaclass
         return conf.padding_layer
 
 
@@ -1535,6 +1562,7 @@ class NetflowOptionsFlowsetScopeV9(Packet):
                    ShortField("scopeFieldlength", 0)]
 
     def default_payload_class(self, p):
+        # type: (bytes) -> Packet_metaclass
         return conf.padding_layer
 
 
@@ -1558,6 +1586,7 @@ class NetflowOptionsFlowsetV9(Packet):
                        length_from=lambda pkt: pkt.option_field_length)]
 
     def extract_padding(self, s):
+        # type: (bytes) -> Tuple[bytes, bytes]
         if self.length is None:
             return s, ""
         # Calc pad length
@@ -1606,6 +1635,7 @@ class NetflowOptionsFlowset10(NetflowOptionsFlowsetV9):
                        ))]
 
     def extract_padding(self, s):
+        # type: (bytes) -> Tuple[bytes, bytes]
         if self.length is None:
             return s, ""
         # Calc pad length

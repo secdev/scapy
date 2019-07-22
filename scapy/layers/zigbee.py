@@ -24,6 +24,9 @@ from scapy.layers.dot15d4 import dot15d4AddressField, Dot15d4Beacon, Dot15d4, \
     Dot15d4FCS
 from scapy.layers.inet import UDP
 from scapy.layers.ntp import TimeStampField
+from scapy.base_classes import Packet_metaclass
+from typing import Any
+from typing import Tuple
 
 # ZigBee Cluster Library Identifiers, Table 2.2 ZCL
 _zcl_cluster_identifier = {
@@ -265,6 +268,7 @@ class ZigbeeNWK(Packet):
     ]
 
     def guess_payload_class(self, payload):
+        # type: (bytes) -> Packet_metaclass
         if self.flags & 0x02:
             return ZigbeeSecurityHeader
         elif self.frametype == 0:
@@ -458,6 +462,7 @@ class ZigbeeNWKCommandPayload(Packet):
 
 
 def util_mic_len(pkt):
+    # type: (ZigbeeSecurityHeader) -> int
     ''' Calculate the length of the attribute value field '''
     if (pkt.nwk_seclevel == 0):  # no encryption, no mic
         return 0
@@ -517,6 +522,7 @@ class ZigbeeSecurityHeader(Packet):
     ]
 
     def post_dissect(self, s):
+        # type: (bytes) -> bytes
         # Get the mic dissected correctly
         mic_length = util_mic_len(self)
         if mic_length > 0:  # Slice "data" into "data + mic"
@@ -576,6 +582,7 @@ class ZigbeeAppDataPayload(Packet):
     ]
 
     def guess_payload_class(self, payload):
+        # type: (bytes) -> Packet_metaclass
         if self.frame_control & 0x02:  # we have a security header
             return ZigbeeSecurityHeader
         elif self.aps_frametype == 0:  # data
@@ -795,6 +802,7 @@ _ZCL_attr_length = {
 
 class _DiscreteString(StrLenField):
     def getfield(self, pkt, s):
+        # type: (ZCLReadAttributeStatusRecord, bytes) -> Tuple[bytes, bytes]
         dtype = pkt.attribute_data_type
         length = _ZCL_attr_length.get(dtype, None)
         if length is None:
@@ -829,6 +837,7 @@ class ZCLReadAttributeStatusRecord(Packet):
     ]
 
     def extract_padding(self, s):
+        # type: (bytes) -> Tuple[str, bytes]
         return "", s
 
 
@@ -924,6 +933,7 @@ class ZigbeeClusterLibrary(Packet):
     ]
 
     def guess_payload_class(self, payload):
+        # type: (bytes) -> Packet_metaclass
         # Profile-wide commands
         if self.zcl_frametype == 0x00 and self.command_identifier == 0x00:
             # done in bind_layers
@@ -964,6 +974,7 @@ class ZEP2(Packet):
 
     @classmethod
     def dispatch_hook(cls, _pkt=b"", *args, **kargs):
+        # type: (bytes, *Any, **Any) -> Packet_metaclass
         if _pkt and len(_pkt) >= 4:
             v = orb(_pkt[2])
             if v == 1:
@@ -973,6 +984,7 @@ class ZEP2(Packet):
         return cls
 
     def guess_payload_class(self, payload):
+        # type: (bytes) -> Packet_metaclass
         if self.lqi_mode:
             return Dot15d4
         else:

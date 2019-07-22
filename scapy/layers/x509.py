@@ -26,6 +26,12 @@ from scapy.packet import Packet
 from scapy.fields import PacketField
 from scapy.volatile import ZuluTime, GeneralizedTime
 from scapy.compat import plain_str
+from typing import Any
+from typing import Optional
+from typing import List
+from typing import Tuple
+from mypy_extensions import NoReturn
+from typing import Dict
 
 
 class ASN1P_OID(ASN1_Packet):
@@ -169,6 +175,7 @@ class ECDSASignature(ASN1_Packet):
 class ASN1F_X509_DirectoryString(ASN1F_CHOICE):
     # we include ASN1 bit strings for rare instances of x500 addresses
     def __init__(self, name, default, **kwargs):
+        # type: (str, Optional[ASN1_PRINTABLE_STRING], **Any) -> None
         ASN1F_CHOICE.__init__(self, name, default,
                               ASN1F_PRINTABLE_STRING, ASN1F_UTF8_STRING,
                               ASN1F_IA5_STRING, ASN1F_T61_STRING,
@@ -392,6 +399,7 @@ class X509_ExtKeyUsage(ASN1_Packet):
     ASN1_root = ASN1F_FLAGS("keyUsage", "101", _ku_mapping)
 
     def get_keyUsage(self):
+        # type: () -> List[str]
         return self.ASN1_root.get_flags(self)
 
 
@@ -540,6 +548,7 @@ class X509_ExtExtendedKeyUsage(ASN1_Packet):
     ASN1_root = ASN1F_SEQUENCE_OF("extendedKeyUsage", [], ASN1P_OID)
 
     def get_extendedKeyUsage(self):
+        # type: () -> List[str]
         eku_array = self.extendedKeyUsage
         return [eku.oid.oidname for eku in eku_array]
 
@@ -701,6 +710,7 @@ _ext_mapping = {
 class ASN1F_EXT_SEQUENCE(ASN1F_SEQUENCE):
     # We use explicit_tag=0x04 with extnValue as STRING encapsulation.
     def __init__(self, **kargs):
+        # type: (**Any) -> None
         seq = [ASN1F_OID("extnID", "2.5.29.19"),
                ASN1F_optional(
                    ASN1F_BOOLEAN("critical", False)),
@@ -711,6 +721,7 @@ class ASN1F_EXT_SEQUENCE(ASN1F_SEQUENCE):
         ASN1F_SEQUENCE.__init__(self, *seq, **kargs)
 
     def dissect(self, pkt, s):
+        # type: (X509_Extension, bytes) -> bytes
         _, s = BER_tagging_dec(s, implicit_tag=self.implicit_tag,
                                explicit_tag=self.explicit_tag,
                                safe=self.flexible_tag)
@@ -764,6 +775,7 @@ class X509_AlgorithmIdentifier(ASN1_Packet):
 
 class ASN1F_X509_SubjectPublicKeyInfoRSA(ASN1F_SEQUENCE):
     def __init__(self, **kargs):
+        # type: (**Any) -> None
         seq = [ASN1F_PACKET("signatureAlgorithm",
                             X509_AlgorithmIdentifier(),
                             X509_AlgorithmIdentifier),
@@ -775,6 +787,7 @@ class ASN1F_X509_SubjectPublicKeyInfoRSA(ASN1F_SEQUENCE):
 
 class ASN1F_X509_SubjectPublicKeyInfoECDSA(ASN1F_SEQUENCE):
     def __init__(self, **kargs):
+        # type: (**Any) -> None
         seq = [ASN1F_PACKET("signatureAlgorithm",
                             X509_AlgorithmIdentifier(),
                             X509_AlgorithmIdentifier),
@@ -785,6 +798,7 @@ class ASN1F_X509_SubjectPublicKeyInfoECDSA(ASN1F_SEQUENCE):
 
 class ASN1F_X509_SubjectPublicKeyInfo(ASN1F_SEQUENCE):
     def __init__(self, **kargs):
+        # type: (**Any) -> None
         seq = [ASN1F_PACKET("signatureAlgorithm",
                             X509_AlgorithmIdentifier(),
                             X509_AlgorithmIdentifier),
@@ -792,6 +806,7 @@ class ASN1F_X509_SubjectPublicKeyInfo(ASN1F_SEQUENCE):
         ASN1F_SEQUENCE.__init__(self, *seq, **kargs)
 
     def m2i(self, pkt, x):
+        # type: (X509_SubjectPublicKeyInfo, bytes) -> Tuple[List, bytes]
         c, s = ASN1F_SEQUENCE.m2i(self, pkt, x)
         keytype = pkt.fields["signatureAlgorithm"].algorithm.oidname
         if "rsa" in keytype.lower():
@@ -802,10 +817,12 @@ class ASN1F_X509_SubjectPublicKeyInfo(ASN1F_SEQUENCE):
             raise Exception("could not parse subjectPublicKeyInfo")
 
     def dissect(self, pkt, s):
+        # type: (X509_SubjectPublicKeyInfo, bytes) -> bytes
         c, x = self.m2i(pkt, s)
         return x
 
     def build(self, pkt):
+        # type: (X509_SubjectPublicKeyInfo) -> bytes
         if "signatureAlgorithm" in pkt.fields:
             ktype = pkt.fields['signatureAlgorithm'].algorithm.oidname
         else:
@@ -857,6 +874,7 @@ class RSAPrivateKey_OpenSSL(ASN1_Packet):
 
 class _PacketFieldRaw(PacketField):
     def getfield(self, pkt, s):
+        # type: (ECDSAPrivateKey_OpenSSL, bytes) -> NoReturn
         i = self.m2i(pkt, s)
         remain = ""
         if conf.raw_layer in i:
@@ -956,6 +974,7 @@ class X509_TBSCertificate(ASN1_Packet):
                               explicit_tag=0xa3)))
 
     def get_issuer(self):
+        # type: () -> Dict[str, str]
         attrs = self.issuer
         attrsDict = {}
         for attr in attrs:
@@ -964,6 +983,7 @@ class X509_TBSCertificate(ASN1_Packet):
         return attrsDict
 
     def get_issuer_str(self):
+        # type: () -> str
         """
         Returns a one-line string containing every type/value
         in a rather specific order. sorted() built-in ensures unicity.
@@ -981,6 +1001,7 @@ class X509_TBSCertificate(ASN1_Packet):
         return name_str
 
     def get_subject(self):
+        # type: () -> Dict[str, str]
         attrs = self.subject
         attrsDict = {}
         for attr in attrs:
@@ -989,6 +1010,7 @@ class X509_TBSCertificate(ASN1_Packet):
         return attrsDict
 
     def get_subject_str(self):
+        # type: () -> str
         name_str = ""
         attrsDict = self.get_subject()
         for attrType, attrSymbol in _attrName_mapping:
@@ -1004,6 +1026,7 @@ class X509_TBSCertificate(ASN1_Packet):
 
 class ASN1F_X509_CertECDSA(ASN1F_SEQUENCE):
     def __init__(self, **kargs):
+        # type: (**Any) -> None
         seq = [ASN1F_PACKET("tbsCertificate",
                             X509_TBSCertificate(),
                             X509_TBSCertificate),
@@ -1018,6 +1041,7 @@ class ASN1F_X509_CertECDSA(ASN1F_SEQUENCE):
 
 class ASN1F_X509_Cert(ASN1F_SEQUENCE):
     def __init__(self, **kargs):
+        # type: (**Any) -> None
         seq = [ASN1F_PACKET("tbsCertificate",
                             X509_TBSCertificate(),
                             X509_TBSCertificate),
@@ -1029,6 +1053,7 @@ class ASN1F_X509_Cert(ASN1F_SEQUENCE):
         ASN1F_SEQUENCE.__init__(self, *seq, **kargs)
 
     def m2i(self, pkt, x):
+        # type: (X509_Cert, bytes) -> Tuple[List, bytes]
         c, s = ASN1F_SEQUENCE.m2i(self, pkt, x)
         sigtype = pkt.fields["signatureAlgorithm"].algorithm.oidname
         if "rsa" in sigtype.lower():
@@ -1039,10 +1064,12 @@ class ASN1F_X509_Cert(ASN1F_SEQUENCE):
             raise Exception("could not parse certificate")
 
     def dissect(self, pkt, s):
+        # type: (X509_Cert, bytes) -> bytes
         c, x = self.m2i(pkt, s)
         return x
 
     def build(self, pkt):
+        # type: (X509_Cert) -> bytes
         if "signatureAlgorithm" in pkt.fields:
             sigtype = pkt.fields['signatureAlgorithm'].algorithm.oidname
         else:
@@ -1094,6 +1121,7 @@ class X509_TBSCertList(ASN1_Packet):
                               explicit_tag=0xa0)))
 
     def get_issuer(self):
+        # type: () -> Dict[str, str]
         attrs = self.issuer
         attrsDict = {}
         for attr in attrs:
@@ -1102,6 +1130,7 @@ class X509_TBSCertList(ASN1_Packet):
         return attrsDict
 
     def get_issuer_str(self):
+        # type: () -> str
         """
         Returns a one-line string containing every type/value
         in a rather specific order. sorted() built-in ensures unicity.
@@ -1135,6 +1164,7 @@ class ASN1F_X509_CRLECDSA(ASN1F_SEQUENCE):
 
 class ASN1F_X509_CRL(ASN1F_SEQUENCE):
     def __init__(self, **kargs):
+        # type: (**Any) -> None
         seq = [ASN1F_PACKET("tbsCertList",
                             X509_TBSCertList(),
                             X509_TBSCertList),
@@ -1146,6 +1176,7 @@ class ASN1F_X509_CRL(ASN1F_SEQUENCE):
         ASN1F_SEQUENCE.__init__(self, *seq, **kargs)
 
     def m2i(self, pkt, x):
+        # type: (X509_CRL, bytes) -> Tuple[List, bytes]
         c, s = ASN1F_SEQUENCE.m2i(self, pkt, x)
         sigtype = pkt.fields["signatureAlgorithm"].algorithm.oidname
         if "rsa" in sigtype.lower():
@@ -1156,6 +1187,7 @@ class ASN1F_X509_CRL(ASN1F_SEQUENCE):
             raise Exception("could not parse certificate")
 
     def dissect(self, pkt, s):
+        # type: (X509_CRL, bytes) -> bytes
         c, x = self.m2i(pkt, s)
         return x
 
@@ -1296,6 +1328,7 @@ class ASN1F_OCSP_BasicResponseECDSA(ASN1F_SEQUENCE):
 
 class ASN1F_OCSP_BasicResponse(ASN1F_SEQUENCE):
     def __init__(self, **kargs):
+        # type: (**Any) -> None
         seq = [ASN1F_PACKET("tbsResponseData",
                             OCSP_ResponseData(),
                             OCSP_ResponseData),

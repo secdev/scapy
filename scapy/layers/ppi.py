@@ -39,6 +39,11 @@ from scapy.error import warning
 from scapy.packet import Packet
 from scapy.fields import ByteField, FieldLenField, LEIntField, \
     PacketListField, LEShortEnumField, LenField
+from typing import Tuple
+from scapy.layers.bluetooth4LE import BTLE
+from scapy.packet import Raw
+from typing import Union
+from scapy.base_classes import Packet_metaclass
 
 
 class PPI_Hdr(Packet):
@@ -57,6 +62,7 @@ class PPI_Element(Packet):
     name = 'PPI Element'
 
     def extract_padding(self, s):
+        # type: (bytes) -> Tuple[bytes, bytes]
         return b'', s
 
     @staticmethod
@@ -81,6 +87,7 @@ class PPI(Packet):
     ]
 
     def add_payload(self, payload):
+        # type: (Union[BTLE, Raw]) -> None
         Packet.add_payload(self, payload)
 
         # Update the DLT if not set
@@ -88,6 +95,7 @@ class PPI(Packet):
             self.setfieldval('dlt', conf.l2types.get(payload.__class__))
 
     def guess_payload_class(self, payload):
+        # type: (bytes) -> Packet_metaclass
         # Pass DLT handling to conf.l2types.
         return conf.l2types.get(
             self.getfieldval('dlt'), Packet.guess_payload_class(self, payload))

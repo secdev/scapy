@@ -15,6 +15,9 @@ from scapy.compat import chb, orb
 from scapy.layers.inet import IP, in4_chksum, checksum
 from scapy.layers.inet6 import IPv6, in6_chksum
 from scapy.error import warning
+from scapy.base_classes import Packet_metaclass
+from typing import Any
+from typing import Optional
 
 IPPROTO_VRRP = 112
 
@@ -37,6 +40,7 @@ class VRRP(Packet):
         IntField("auth2", 0)]
 
     def post_build(self, p, pay):
+        # type: (bytes, bytes) -> bytes
         if self.chksum is None:
             ck = checksum(p)
             p = p[:6] + chb(ck >> 8) + chb(ck & 0xff) + p[8:]
@@ -44,6 +48,7 @@ class VRRP(Packet):
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        # type: (Optional[Any], *Any, **Any) -> Packet_metaclass
         if _pkt and len(_pkt) >= 9:
             ver_n_type = orb(_pkt[0])
             if ver_n_type >= 48 and ver_n_type <= 57:  # Version == 3
@@ -67,6 +72,7 @@ class VRRPv3(Packet):
                        count_from=lambda pkt: pkt.ipcount)]
 
     def post_build(self, p, pay):
+        # type: (bytes, bytes) -> bytes
         if self.chksum is None:
             if isinstance(self.underlayer, IP):
                 ck = in4_chksum(112, self.underlayer, p)
@@ -80,6 +86,7 @@ class VRRPv3(Packet):
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        # type: (Optional[Any], *Any, **Any) -> Packet_metaclass
         if _pkt and len(_pkt) >= 16:
             ver_n_type = orb(_pkt[0])
             if ver_n_type < 48 or ver_n_type > 57:  # Version != 3

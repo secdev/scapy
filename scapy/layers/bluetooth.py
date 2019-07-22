@@ -32,6 +32,13 @@ from scapy.error import warning
 from scapy.utils import lhex, mac2str, str2mac
 from scapy.volatile import RandMAC
 from scapy.modules import six
+from scapy.base_classes import Packet_metaclass
+from typing import Any
+from typing import Optional
+from typing import Callable
+from typing import List
+from typing import Union
+from typing import Tuple
 
 
 ##########
@@ -40,27 +47,39 @@ from scapy.modules import six
 
 class XLEShortField(LEShortField):
     def i2repr(self, pkt, x):
+        # type: (Any, int) -> str
         return lhex(self.i2h(pkt, x))
 
 
 class LEMACField(Field):
     def __init__(self, name, default):
+        # type: (str, Optional[Any]) -> None
         Field.__init__(self, name, default, "6s")
 
     def i2m(self, pkt, x):
+        # type: (HCI_LE_Meta_Advertising_Report, str) -> bytes
         if x is None:
             return b"\0\0\0\0\0\0"
         return mac2str(x)[::-1]
 
-    def m2i(self, pkt, x):
+    def m2i(self,
+            pkt,  # type: Union[HCI_Cmd_LE_Create_Connection, HCI_LE_Meta_Advertising_Report, HCI_LE_Meta_Connection_Complete]
+            x,  # type: bytes
+            ):
+        # type: (...) -> str
         return str2mac(x[::-1])
 
     def any2i(self, pkt, x):
+        # type: (Optional[Any], Optional[Any]) -> Optional[Any]
         if isinstance(x, (six.binary_type, six.text_type)) and len(x) == 6:
             x = self.m2i(pkt, x)
         return x
 
-    def i2repr(self, pkt, x):
+    def i2repr(self,
+               pkt,  # type: Union[HCI_LE_Meta_Advertising_Report, SM_Identity_Address_Information]
+               x,  # type: str
+               ):
+        # type: (...) -> str
         x = self.i2h(pkt, x)
         if self in conf.resolve:
             x = conf.manufdb._resolve_MAC(x)
@@ -159,6 +178,7 @@ class HCI_Hdr(Packet):
     fields_desc = [ByteEnumField("type", 2, _bluetooth_packet_types)]
 
     def mysummary(self):
+        # type: () -> str
         return self.sprintf("HCI %type%")
 
 
@@ -173,13 +193,16 @@ class HCI_ACL_Hdr(Packet):
                    LEShortField("len", None), ]
 
     def pre_dissect(self, s):
+        # type: (bytes) -> bytes
         return s[:2][::-1] + s[2:]  # Reverse the 2 first bytes
 
     def post_dissect(self, s):
+        # type: (bytes) -> bytes
         self.raw_packet_cache = None  # Reset packet to allow post_build
         return s
 
     def post_build(self, p, pay):
+        # type: (bytes, bytes) -> bytes
         p += pay
         if self.len is None:
             p = p[:2] + struct.pack("<H", len(pay)) + p[4:]
@@ -193,6 +216,7 @@ class L2CAP_Hdr(Packet):
                    LEShortEnumField("cid", 0, {1: "control", 4: "attribute"}), ]  # noqa: E501
 
     def post_build(self, p, pay):
+        # type: (bytes, bytes) -> bytes
         p += pay
         if self.len is None:
             p = struct.pack("<H", len(pay)) + p[2:]
@@ -211,12 +235,14 @@ class L2CAP_CmdHdr(Packet):
         LEShortField("len", None)]
 
     def post_build(self, p, pay):
+        # type: (bytes, bytes) -> bytes
         p += pay
         if self.len is None:
             p = p[:2] + struct.pack("<H", len(pay)) + p[4:]
         return p
 
     def answers(self, other):
+        # type: (L2CAP_CmdHdr) -> int
         if other.id == self.id:
             if self.code == 1:
                 return 1
@@ -243,6 +269,7 @@ class L2CAP_ConnResp(Packet):
                    ]
 
     def answers(self, other):
+        # type: (L2CAP_ConnReq) -> bool
         # dcid Resp == scid Req. Therefore compare SCIDs
         return isinstance(other, L2CAP_ConnReq) and self.scid == other.scid
 
@@ -268,6 +295,7 @@ class L2CAP_ConfResp(Packet):
                    ]
 
     def answers(self, other):
+        # type: (L2CAP_ConfReq) -> bool
         # Req and Resp contain either the SCID or the DCID.
         return isinstance(other, L2CAP_ConfReq)
 
@@ -405,6 +433,7 @@ class ATT_Read_By_Type_Request_128bit(Packet):
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        # type: (Optional[bytes], *Any, **Any) -> Packet_metaclass
         if _pkt and len(_pkt) == 6:
             return ATT_Read_By_Type_Request
         return ATT_Read_By_Type_Request_128bit
@@ -425,10 +454,12 @@ class ATT_Handle_Variable(Packet):
                        length_from=lambda pkt: pkt.val_length)]
 
     def __init__(self, _pkt=b"", val_length=2, **kwargs):
+        # type: (bytes, int, **Any) -> None
         self.val_length = val_length
         Packet.__init__(self, _pkt, **kwargs)
 
     def extract_padding(self, s):
+        # type: (bytes) -> Tuple[bytes, bytes]
         return b"", s
 
 
@@ -442,7 +473,13 @@ class ATT_Read_By_Type_Response(Packet):
                        ))]
 
     @classmethod
-    def _next_cls_cb(cls, pkt, lst, p, remain):
+    def _next_cls_cb(cls,
+                     pkt,  # type: ATT_Read_By_Type_Response
+                     lst,  # type: List[ATT_Handle_Variable]
+                     p,  # type: Optional[ATT_Handle_Variable]
+                     remain,  # type: bytes
+                     ):
+        # type: (...) -> Callable
         if len(remain) >= pkt.len:
             return functools.partial(
                 ATT_Handle_Variable,
@@ -686,11 +723,14 @@ class EIR_Element(Packet):
     name = "EIR Element"
 
     def extract_padding(self, s):
+        # type: (bytes) -> Tuple[bytes, bytes]
         # Needed to end each EIR_Element packet and make PacketListField work.
         return b'', s
 
     @staticmethod
-    def length_from(pkt):
+    def length_from(pkt  # type: Union[EIR_CompleteList16BitServiceUUIDs, EIR_CompleteLocalName, EIR_Manufacturer_Specific_Data]
+                    ):
+        # type: (...) -> int
         if not pkt.underlayer:
             warning("Missing an upper-layer")
             return 0
@@ -768,6 +808,7 @@ class EIR_Manufacturer_Specific_Data(EIR_Element):
 
     @classmethod
     def register_magic_payload(cls, payload_cls, magic_check=None):
+        # type: (Packet_metaclass, Optional[Callable]) -> None
         """
         Registers a payload type that uses magic data.
 
@@ -807,6 +848,7 @@ class EIR_Manufacturer_Specific_Data(EIR_Element):
         cls.registered_magic_payloads[payload_cls] = magic_check
 
     def default_payload_class(self, payload):
+        # type: (bytes) -> Packet_metaclass
         for cls, check in six.iteritems(
                 EIR_Manufacturer_Specific_Data.registered_magic_payloads):
             if check(payload):
@@ -815,6 +857,7 @@ class EIR_Manufacturer_Specific_Data(EIR_Element):
         return Packet.default_payload_class(self, payload)
 
     def extract_padding(self, s):
+        # type: (bytes) -> Tuple[bytes, bytes]
         # Needed to end each EIR_Element packet and make PacketListField work.
         plen = EIR_Element.length_from(self) - 2
         return s[:plen], s[plen:]
@@ -838,6 +881,7 @@ class EIR_ServiceData16BitUUID(EIR_Element):
     ]
 
     def extract_padding(self, s):
+        # type: (bytes) -> Tuple[bytes, bytes]
         # Needed to end each EIR_Element packet and make PacketListField work.
         plen = EIR_Element.length_from(self) - 2
         return s[:plen], s[plen:]
@@ -849,9 +893,11 @@ class HCI_Command_Hdr(Packet):
                    LenField("len", None, fmt="B"), ]
 
     def answers(self, other):
+        # type: (HCI_Command_Hdr) -> bool
         return False
 
     def post_build(self, p, pay):
+        # type: (bytes, bytes) -> bytes
         p += pay
         if self.len is None:
             p = p[:2] + struct.pack("B", len(pay)) + p[3:]
@@ -1040,6 +1086,7 @@ class HCI_Event_Hdr(Packet):
                    LenField("len", None, fmt="B"), ]
 
     def answers(self, other):
+        # type: (Union[HCI_Command_Hdr, HCI_Event_Hdr]) -> bool
         if HCI_Command_Hdr not in other:
             return False
 
@@ -1068,6 +1115,7 @@ class HCI_Event_Command_Complete(Packet):
                    ByteEnumField("status", 0, _bluetooth_error_codes)]
 
     def answers(self, other):
+        # type: (HCI_Command_Hdr) -> bool
         if HCI_Command_Hdr not in other:
             return False
 
@@ -1092,6 +1140,7 @@ class HCI_Event_Command_Status(Packet):
                    XLEShortField("opcode", None), ]
 
     def answers(self, other):
+        # type: (HCI_Command_Hdr) -> bool
         if HCI_Command_Hdr not in other:
             return False
 
@@ -1113,6 +1162,7 @@ class HCI_Event_LE_Meta(Packet):
                    }), ]
 
     def answers(self, other):
+        # type: (HCI_Command_Hdr) -> bool
         if not self.payload:
             return False
 
@@ -1133,6 +1183,7 @@ class HCI_LE_Meta_Connection_Complete(Packet):
                    XByteField("clock_latency", 5), ]
 
     def answers(self, other):
+        # type: (HCI_Command_Hdr) -> bool
         if HCI_Cmd_LE_Create_Connection not in other:
             return False
 
@@ -1160,6 +1211,7 @@ class HCI_LE_Meta_Advertising_Report(Packet):
                    SignedByteField("rssi", 0)]
 
     def extract_padding(self, s):
+        # type: (bytes) -> Tuple[str, bytes]
         return '', s
 
 

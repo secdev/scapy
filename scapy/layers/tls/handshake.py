@@ -44,6 +44,20 @@ from scapy.layers.tls.crypto.suites import (_tls_cipher_suites,
                                             _tls_cipher_suites_cls,
                                             _GenericCipherSuite,
                                             _GenericCipherSuiteMetaclass)
+from scapy.base_classes import Packet_metaclass
+from typing import Any
+from typing import Optional
+from typing import Callable
+from typing import Dict
+from typing import List
+from scapy.layers.tls.crypto.suites import _GenericCipherSuiteMetaclass
+from scapy.layers.tls.handshake_sslv2 import SSLv2ServerHello
+from typing import Union
+from scapy.layers.tls.handshake_sslv2 import SSLv2ClientHello
+from typing import Tuple
+from scapy.layers.tls.keyexchange import ClientDiffieHellmanPublic
+from scapy.layers.tls.keyexchange import ClientECDiffieHellmanPublic
+from scapy.layers.tls.keyexchange import EncryptedPreMasterSecret
 
 
 ###############################################################################
@@ -73,6 +87,7 @@ class _TLSHandshake(_GenericTLSSessionInheritance):
                                length_from=lambda pkt: pkt.msglen)]
 
     def post_build(self, p, pay):
+        # type: (bytes, bytes) -> bytes
         tmp_len = len(p)
         if self.msglen is None:
             l2 = tmp_len - 4
@@ -80,9 +95,11 @@ class _TLSHandshake(_GenericTLSSessionInheritance):
         return p + pay
 
     def guess_payload_class(self, p):
+        # type: (bytes) -> Packet_metaclass
         return conf.padding_layer
 
     def tls_session_update(self, msg_str):
+        # type: (bytes) -> None
         """
         Covers both post_build- and post_dissection- context updates.
         """
@@ -141,7 +158,14 @@ class _CipherSuitesField(StrLenField):
     __slots__ = ["itemfmt", "itemsize", "i2s", "s2i"]
     islist = 1
 
-    def __init__(self, name, default, dico, length_from=None, itemfmt="!H"):
+    def __init__(self,
+                 name,  # type: str
+                 default,  # type: Optional[List[int]]
+                 dico,  # type: Dict[int, str]
+                 length_from=None,  # type: Callable
+                 itemfmt="!H",  # type: str
+                 ):
+        # type: (...) -> None
         StrLenField.__init__(self, name, default, length_from=length_from)
         self.itemfmt = itemfmt
         self.itemsize = struct.calcsize(itemfmt)
@@ -151,7 +175,11 @@ class _CipherSuitesField(StrLenField):
             i2s[k] = dico[k]
             s2i[dico[k]] = k
 
-    def any2i_one(self, pkt, x):
+    def any2i_one(self,
+                  pkt,  # type: Optional[SSLv2ServerHello]
+                  x,  # type: Union[int, _GenericCipherSuiteMetaclass]
+                  ):
+        # type: (...) -> int
         if (isinstance(x, _GenericCipherSuite) or
                 isinstance(x, _GenericCipherSuiteMetaclass)):
             x = x.val
@@ -164,6 +192,7 @@ class _CipherSuitesField(StrLenField):
         return self.i2s.get(x, fmt % x)
 
     def any2i(self, pkt, x):
+        # type: (Optional[Any], Optional[List[int]]) -> Optional[List[int]]
         if x is None:
             return None
         if not isinstance(x, list):
@@ -181,11 +210,13 @@ class _CipherSuitesField(StrLenField):
         return tmp_len
 
     def i2m(self, pkt, val):
+        # type: (Union[TLSClientHello, TLSServerHello], List[int]) -> bytes
         if val is None:
             val = []
         return b"".join(struct.pack(self.itemfmt, x) for x in val)
 
     def m2i(self, pkt, m):
+        # type: (Union[TLSClientHello, TLSServerHello], bytes) -> List[int]
         res = []
         itemlen = struct.calcsize(self.itemfmt)
         while m:
@@ -193,7 +224,11 @@ class _CipherSuitesField(StrLenField):
             m = m[itemlen:]
         return res
 
-    def i2len(self, pkt, i):
+    def i2len(self,
+              pkt,  # type: Union[TLSClientHello, SSLv2ClientHello, SSLv2ServerHello]
+              i,  # type: List[int]
+              ):
+        # type: (...) -> int
         if i is None:
             return 0
         return len(i) * self.itemsize
@@ -202,6 +237,7 @@ class _CipherSuitesField(StrLenField):
 class _CompressionMethodsField(_CipherSuitesField):
 
     def any2i_one(self, pkt, x):
+        # type: (Optional[Any], int) -> int
         if (isinstance(x, _GenericComp) or
                 isinstance(x, _GenericCompMetaclass)):
             x = x.val
@@ -258,6 +294,7 @@ class TLSClientHello(_TLSHandshake):
                                                              40))]
 
     def post_build(self, p, pay):
+        # type: (bytes, bytes) -> bytes
         if self.random_bytes is None:
             p = p[:10] + randstring(28) + p[10 + 28:]
 
@@ -278,6 +315,7 @@ class TLSClientHello(_TLSHandshake):
         return super(TLSClientHello, self).post_build(p, pay)
 
     def tls_session_update(self, msg_str):
+        # type: (bytes) -> None
         """
         Either for parsing or building, we store the client_random
         along with the raw string representing this handshake message.
@@ -340,6 +378,7 @@ class TLSServerHello(TLSClientHello):
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        # type: (Optional[bytes], *Any, **Any) -> Packet_metaclass
         if _pkt and len(_pkt) >= 6:
             version = struct.unpack("!H", _pkt[4:6])[0]
             if version == 0x0304 or version > 0x7f00:
@@ -347,11 +386,13 @@ class TLSServerHello(TLSClientHello):
         return TLSServerHello
 
     def post_build(self, p, pay):
+        # type: (bytes, bytes) -> bytes
         if self.random_bytes is None:
             p = p[:10] + randstring(28) + p[10 + 28:]
         return super(TLSClientHello, self).post_build(p, pay)
 
     def tls_session_update(self, msg_str):
+        # type: (bytes) -> None
         """
         Either for parsing or building, we store the server_random
         along with the raw string representing this handshake message.
@@ -490,11 +531,13 @@ class _ASN1CertLenField(FieldLenField):
     """
 
     def __init__(self, name, default, length_of=None, adjust=lambda pkt, x: x):
+        # type: (str, Optional[Any], str, Callable) -> None
         self.length_of = length_of
         self.adjust = adjust
         Field.__init__(self, name, default, fmt="!I")
 
     def i2m(self, pkt, x):
+        # type: (TLSCertificate, Optional[Any]) -> int
         if x is None:
             if self.length_of is not None:
                 fld, fval = pkt.getfield_and_val(self.length_of)
@@ -503,9 +546,11 @@ class _ASN1CertLenField(FieldLenField):
         return x
 
     def addfield(self, pkt, s, val):
+        # type: (TLSCertificate, bytes, Optional[Any]) -> bytes
         return s + struct.pack(self.fmt, self.i2m(pkt, val))[1:4]
 
     def getfield(self, pkt, s):
+        # type: (TLSCertificate, bytes) -> Tuple[bytes, int]
         return s[3:], self.m2i(pkt, struct.unpack(self.fmt, b"\x00" + s[:3])[0])  # noqa: E501
 
 
@@ -513,11 +558,13 @@ class _ASN1CertListField(StrLenField):
     islist = 1
 
     def i2len(self, pkt, i):
+        # type: (TLSCertificate, List[Cert]) -> int
         if i is None:
             return 0
         return len(self.i2m(pkt, i))
 
     def getfield(self, pkt, s):
+        # type: (TLSCertificate, bytes) -> Tuple[bytes, List[Tuple[int, Cert]]]
         """
         Extract Certs in a loop.
         XXX We should provide safeguards when trying to parse a Cert.
@@ -538,7 +585,9 @@ class _ASN1CertListField(StrLenField):
         return m + ret, lst
 
     def i2m(self, pkt, i):
+        # type: (TLSCertificate, List[Cert]) -> bytes
         def i2m_one(i):
+            # type: (Cert) -> bytes
             if isinstance(i, str):
                 return i
             if isinstance(i, Cert):
@@ -560,6 +609,7 @@ class _ASN1CertListField(StrLenField):
         return b"".join(i2m_one(x) for x in i)
 
     def any2i(self, pkt, x):
+        # type: (Optional[TLSCertificate], List[Cert]) -> List[Cert]
         return x
 
 
@@ -601,6 +651,7 @@ class _ASN1CertField(StrLenField):
         return i2m_one(i)
 
     def any2i(self, pkt, x):
+        # type: (Optional[Any], str) -> str
         return x
 
 
@@ -617,6 +668,7 @@ class TLSCertificate(_TLSHandshake):
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        # type: (Optional[bytes], *Any, **Any) -> Packet_metaclass
         if _pkt:
             tls_session = kargs.get("tls_session", None)
             if tls_session and (tls_session.tls_version or 0) >= 0x0304:
@@ -624,6 +676,7 @@ class TLSCertificate(_TLSHandshake):
         return TLSCertificate
 
     def post_dissection_tls_session_update(self, msg_str):
+        # type: (bytes) -> None
         self.tls_session_update(msg_str)
         connection_end = self.tls_session.connection_end
         if connection_end == "client":
@@ -687,6 +740,7 @@ class TLSServerKeyExchange(_TLSHandshake):
                                       length_from=lambda pkt: pkt.msglen - len(pkt.params))]  # noqa: E501
 
     def build(self, *args, **kargs):
+        # type: (*Any, **Any) -> bytes
         """
         We overload build() method in order to provide a valid default value
         for params based on TLS session if not provided. This cannot be done by
@@ -746,6 +800,7 @@ class TLSServerKeyExchange(_TLSHandshake):
         return _TLSHandshake.build(self, *args, **kargs)
 
     def post_dissection(self, pkt):
+        # type: (TLSServerKeyExchange) -> None
         """
         While previously dissecting Server*DHParams, the session
         server_kx_pubkey should have been updated.
@@ -917,10 +972,15 @@ class _TLSCKExchKeysField(PacketField):
     holds_packet = 1
 
     def __init__(self, name, length_from=None, remain=0):
+        # type: (str, Callable, int) -> None
         self.length_from = length_from
         PacketField.__init__(self, name, None, None, remain=remain)
 
-    def m2i(self, pkt, m):
+    def m2i(self,
+            pkt,  # type: TLSClientKeyExchange
+            m,  # type: bytes
+            ):
+        # type: (...) -> Union[ClientDiffieHellmanPublic, ClientECDiffieHellmanPublic, EncryptedPreMasterSecret]
         """
         The client_kx_msg may be either None, EncryptedPreMasterSecret
         (for RSA encryption key exchange), ClientDiffieHellmanPublic,
@@ -953,6 +1013,7 @@ class TLSClientKeyExchange(_TLSHandshake):
                                        length_from=lambda pkt: pkt.msglen)]
 
     def build(self, *args, **kargs):
+        # type: (*Any, **Any) -> bytes
         fval = self.getfieldval("exchkeys")
         if fval is None:
             s = self.tls_session
@@ -971,6 +1032,7 @@ class TLSClientKeyExchange(_TLSHandshake):
 
 class _VerifyDataField(StrLenField):
     def getfield(self, pkt, s):
+        # type: (TLSFinished, bytes) -> Tuple[bytes, bytes]
         if pkt.tls_session.tls_version == 0x0300:
             sep = 36
         elif pkt.tls_session.tls_version >= 0x0304:
@@ -987,6 +1049,7 @@ class TLSFinished(_TLSHandshake):
                    _VerifyDataField("vdata", None)]
 
     def build(self, *args, **kargs):
+        # type: (*Any, **Any) -> bytes
         fval = self.getfieldval("vdata")
         if fval is None:
             s = self.tls_session
@@ -1001,6 +1064,7 @@ class TLSFinished(_TLSHandshake):
         return _TLSHandshake.build(self, *args, **kargs)
 
     def post_dissection(self, pkt):
+        # type: (TLSFinished) -> None
         s = self.tls_session
         if not s.frozen:
             handshake_msg = b"".join(s.handshake_messages)
@@ -1020,6 +1084,7 @@ class TLSFinished(_TLSHandshake):
                     log_runtime.info("TLS: invalid Finished received [%s]", pkt_info)  # noqa: E501
 
     def post_build_tls_session_update(self, msg_str):
+        # type: (bytes) -> None
         self.tls_session_update(msg_str)
         s = self.tls_session
         if s.tls_version >= 0x0304:
@@ -1034,6 +1099,7 @@ class TLSFinished(_TLSHandshake):
                 s.compute_tls13_resumption_secret()
 
     def post_dissection_tls_session_update(self, msg_str):
+        # type: (bytes) -> None
         self.tls_session_update(msg_str)
         s = self.tls_session
         if s.tls_version >= 0x0304:
@@ -1109,6 +1175,7 @@ class TLSCertificateURL(_TLSHandshake):
 
 class ThreeBytesLenField(FieldLenField):
     def __init__(self, name, default, length_of=None, adjust=lambda pkt, x: x):
+        # type: (str, Optional[Any], str, Callable) -> None
         FieldLenField.__init__(self, name, default, length_of=length_of,
                                fmt='!I', adjust=adjust)
 

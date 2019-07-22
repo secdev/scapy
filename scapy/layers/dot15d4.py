@@ -22,6 +22,9 @@ from scapy.packet import Packet, bind_layers
 from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
     ConditionalField, Field, LELongField, PacketField, XByteField, \
     XLEIntField, XLEShortField, FCSField, Emph
+from typing import Tuple
+from typing import Union
+from scapy.base_classes import Packet_metaclass
 
 # Fields #
 
@@ -38,6 +41,7 @@ class dot15d4AddressField(Field):
             self.adjust = lambda pkt, x: self.lengthFromAddrMode(pkt, x)
 
     def i2repr(self, pkt, x):
+        # type: (Dot15d4Data, int) -> str
         """Convert internal value to a nice representation"""
         if len(hex(self.i2m(pkt, x))) < 7:  # short address
             return hex(self.i2m(pkt, x))
@@ -46,6 +50,7 @@ class dot15d4AddressField(Field):
             return ":".join(["%s%s" % (x[i], x[i + 1]) for i in range(0, len(x), 2)])  # noqa: E501
 
     def addfield(self, pkt, s, val):
+        # type: (Dot15d4Data, bytes, int) -> bytes
         """Add an internal value to a string"""
         if self.adjust(pkt, self.length_of) == 2:
             return s + struct.pack(self.fmt[0] + "H", val)
@@ -55,6 +60,7 @@ class dot15d4AddressField(Field):
             return s
 
     def getfield(self, pkt, s):
+        # type: (Union[Dot15d4Beacon, Dot15d4Data], bytes) -> Tuple[bytes, int]
         if self.adjust(pkt, self.length_of) == 2:
             return s[2:], self.m2i(pkt, struct.unpack(self.fmt[0] + "H", s[:2])[0])  # noqa: E501
         elif self.adjust(pkt, self.length_of) == 8:
@@ -63,6 +69,7 @@ class dot15d4AddressField(Field):
             raise Exception('impossible case')
 
     def lengthFromAddrMode(self, pkt, x):
+        # type: (Dot15d4Data, str) -> int
         addrmode = 0
         pkttop = pkt.underlayer
         if pkttop is None:
@@ -106,6 +113,7 @@ class Dot15d4(Packet):
         return self.sprintf("802.15.4 %Dot15d4.fcf_frametype% ackreq(%Dot15d4.fcf_ackreq%) ( %Dot15d4.fcf_destaddrmode% -> %Dot15d4.fcf_srcaddrmode% ) Seq#%Dot15d4.seqnum%")  # noqa: E501
 
     def guess_payload_class(self, payload):
+        # type: (bytes) -> Packet_metaclass
         if self.fcf_frametype == 0x00:
             return Dot15d4Beacon
         elif self.fcf_frametype == 0x01:
@@ -127,6 +135,7 @@ class Dot15d4(Packet):
         return 0
 
     def post_build(self, p, pay):
+        # type: (bytes, bytes) -> bytes
         # This just forces destaddrmode to None for Ack frames.
         if self.fcf_frametype == 2 and self.fcf_destaddrmode != 0:
             self.fcf_destaddrmode = 0
@@ -149,6 +158,7 @@ class Dot15d4FCS(Dot15d4):
     fields_desc = Dot15d4.fields_desc + [FCSField("fcs", None, fmt="<H")]
 
     def compute_fcs(self, data):
+        # type: (bytes) -> bytes
         # Do a CRC-CCITT Kermit 16bit on the data given
         # Returns a CRC that is the FCS for the frame
         #  Implemented using pseudocode from: June 1986, Kermit Protocol Manual
@@ -164,6 +174,7 @@ class Dot15d4FCS(Dot15d4):
         return struct.pack('<H', crc)  # return as bytes in little endian order
 
     def post_build(self, p, pay):
+        # type: (bytes, bytes) -> bytes
         # construct the packet with the FCS at the end
         p = Dot15d4.post_build(self, p, pay)
         if self.fcs is None:
@@ -220,6 +231,7 @@ class Dot15d4Data(Packet):
     ]
 
     def guess_payload_class(self, payload):
+        # type: (bytes) -> Packet_metaclass
         # TODO: See how it's done in wireshark:
         # https://github.com/wireshark/wireshark/blob/93c60b3b7c801dddd11d8c7f2a0ea4b7d02d700a/epan/dissectors/packet-ieee802154.c#L2061  # noqa: E501
         # it's too magic to me
@@ -323,6 +335,7 @@ class Dot15d4Cmd(Packet):
     # command frame payloads are complete: DataReq, PANIDConflictNotify, OrphanNotify, BeaconReq don't have any payload  # noqa: E501
     # Although BeaconReq can have an optional ZigBee Beacon payload (implemented in ZigBeeBeacon)  # noqa: E501
     def guess_payload_class(self, payload):
+        # type: (bytes) -> Packet_metaclass
         if self.cmd_id == 1:
             return Dot15d4CmdAssocReq
         elif self.cmd_id == 2:
@@ -360,6 +373,7 @@ class Dot15d4CmdCoordRealign(Packet):
 
 
 def util_srcpanid_present(pkt):
+    # type: (Dot15d4Data) -> bool
     '''A source PAN ID is included if and only if both src addr mode != 0 and PAN ID Compression in FCF == 0'''  # noqa: E501
     if (pkt.underlayer.getfieldval("fcf_srcaddrmode") != 0) and (pkt.underlayer.getfieldval("fcf_panidcompress") == 0):  # noqa: E501
         return True

@@ -17,6 +17,9 @@ from scapy.layers.tls.record import _TLSMsgListField, TLS
 from scapy.layers.tls.handshake_sslv2 import _sslv2_handshake_cls
 from scapy.layers.tls.basefields import (_SSLv2LengthField, _SSLv2PadField,
                                          _SSLv2PadLenField, _TLSMACField)
+from typing import Any
+from typing import List
+from typing import Optional
 
 
 ###############################################################################
@@ -25,6 +28,7 @@ from scapy.layers.tls.basefields import (_SSLv2LengthField, _SSLv2PadField,
 
 class _SSLv2MsgListField(_TLSMsgListField):
     def __init__(self, name, default, length_from=None):
+        # type: (str, List, Optional[Any]) -> None
         if not length_from:
             length_from = lambda pkt: ((pkt.len & 0x7fff) -
                                        (pkt.padlen or 0) -
@@ -43,6 +47,7 @@ class _SSLv2MsgListField(_TLSMsgListField):
             return cls(m, tls_session=pkt.tls_session)
 
     def i2m(self, pkt, p):
+        # type: (SSLv2, Any) -> bytes
         cur = b""
         if isinstance(p, _GenericTLSSessionInheritance):
             p.tls_session = pkt.tls_session
@@ -56,6 +61,7 @@ class _SSLv2MsgListField(_TLSMsgListField):
         return cur
 
     def addfield(self, pkt, s, val):
+        # type: (SSLv2, bytes, Any) -> bytes
         res = b""
         for p in val:
             res += self.i2m(pkt, p)
@@ -75,6 +81,7 @@ class SSLv2(TLS):
                    _SSLv2PadField("pad", "")]
 
     def __init__(self, *args, **kargs):
+        # type: (*bytes, **Any) -> None
         self.with_padding = kargs.get("with_padding", False)
         self.protected_record = kargs.get("protected_record", None)
         super(SSLv2, self).__init__(*args, **kargs)
@@ -82,6 +89,7 @@ class SSLv2(TLS):
     # Parsing methods
 
     def _sslv2_mac_verify(self, msg, mac):
+        # type: (bytes, bytes) -> bool
         secret = self.tls_session.rcs.cipher.key
         if secret is None:
             return True
@@ -98,6 +106,7 @@ class SSLv2(TLS):
         return h == mac
 
     def pre_dissect(self, s):
+        # type: (bytes) -> bytes
         if len(s) < 2:
             raise Exception("Invalid record: header is too short.")
 
@@ -145,6 +154,7 @@ class SSLv2(TLS):
         return hdr + reconstructed_body + r
 
     def post_dissect(self, s):
+        # type: (bytes) -> bytes
         """
         SSLv2 may force us to commit the write connState here.
         """
@@ -165,6 +175,7 @@ class SSLv2(TLS):
         return s
 
     def do_dissect_payload(self, s):
+        # type: (bytes) -> None
         if s:
             try:
                 p = SSLv2(s, _internal=1, _underlayer=self,
@@ -180,6 +191,7 @@ class SSLv2(TLS):
     # Building methods
 
     def _sslv2_mac_add(self, msg):
+        # type: (bytes) -> bytes
         secret = self.tls_session.wcs.cipher.key
         if secret is None:
             return msg
@@ -190,6 +202,7 @@ class SSLv2(TLS):
         return h + msg
 
     def _sslv2_pad(self, s):
+        # type: (bytes) -> bytes
         padding = b""
         block_size = self.tls_session.wcs.cipher.block_size
         padlen = block_size - (len(s) % block_size)
@@ -199,6 +212,7 @@ class SSLv2(TLS):
         return s + padding
 
     def post_build(self, pkt, pay):
+        # type: (bytes, bytes) -> bytes
         if self.protected_record is not None:
             # we do not update the tls_session
             return self.protected_record + pay

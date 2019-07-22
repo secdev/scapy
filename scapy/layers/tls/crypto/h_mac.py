@@ -13,6 +13,7 @@ import hmac
 from scapy.layers.tls.crypto.hash import _tls_hash_algs
 import scapy.modules.six as six
 from scapy.compat import bytes_encode
+from typing import Optional
 
 _SSLv3_PAD1_MD5 = b"\x36" * 48
 _SSLv3_PAD1_SHA1 = b"\x36" * 40
@@ -54,18 +55,21 @@ class HMACError(Exception):
 
 class _GenericHMAC(six.with_metaclass(_GenericHMACMetaclass, object)):
     def __init__(self, key=None):
+        # type: (Optional[bytes]) -> None
         if key is None:
             self.key = b""
         else:
             self.key = bytes_encode(key)
 
     def digest(self, tbd):
+        # type: (bytes) -> bytes
         if self.key is None:
             raise HMACError
         tbd = bytes_encode(tbd)
         return hmac.new(self.key, tbd, self.hash_alg.hash_cls).digest()
 
     def digest_sslv3(self, tbd):
+        # type: (bytes) -> bytes
         if self.key is None:
             raise HMACError
 
@@ -88,9 +92,11 @@ class Hmac_NULL(_GenericHMAC):
     key_len = 0
 
     def digest(self, tbd):
+        # type: (bytes) -> bytes
         return b""
 
     def digest_sslv3(self, tbd):
+        # type: (bytes) -> bytes
         return b""
 
 

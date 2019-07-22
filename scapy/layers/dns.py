@@ -25,9 +25,17 @@ from scapy.layers.inet6 import DestIP6Field, IP6Field
 from scapy.error import warning, Scapy_Exception
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
+from typing import Iterator
+from typing import Tuple
+from typing import Any
+from typing import Optional
+from scapy.layers.llmnr import LLMNRQuery
+from typing import Union
+from typing import List
 
 
 def dns_get_str(s, pointer=0, pkt=None, _fullpacket=False):
+    # type: (bytes, int, Any, bool) -> Tuple[bytes, int, bytes]
     """This function decompresses a string s, starting
     from the given pointer.
 
@@ -103,6 +111,7 @@ def dns_get_str(s, pointer=0, pkt=None, _fullpacket=False):
 
 
 def dns_encode(x, check_built=False):
+    # type: (bytes, bool) -> bytes
     """Encodes a bytes string into the DNS format
 
     :param x: the string
@@ -132,6 +141,7 @@ def DNSgetstr(*args, **kwargs):
 
 
 def dns_compress(pkt):
+    # type: (Union[DNS, IP]) -> Union[DNS, IP]
     """This function compresses a DNS packet according to compression rules.
     """
     if DNS not in pkt:
@@ -141,6 +151,7 @@ def dns_compress(pkt):
     build_pkt = raw(dns_pkt)
 
     def field_gen(dns_pkt):
+        # type: (DNS) -> Iterator[Tuple[DNSRR, str, bytes]]
         """Iterates through all DNS strings that can be compressed"""
         for lay in [dns_pkt.qd, dns_pkt.an, dns_pkt.ns, dns_pkt.ar]:
             if lay is None:
@@ -158,6 +169,7 @@ def dns_compress(pkt):
                 current = current.payload
 
     def possible_shortens(dat):
+        # type: (bytes) -> Iterator[bytes]
         """Iterates through all possible compression parts in a DNS string"""
         yield dat
         for x in range(1, dat.count(b".")):
@@ -217,7 +229,14 @@ def dns_compress(pkt):
 class InheritOriginDNSStrPacket(Packet):
     __slots__ = Packet.__slots__ + ["_orig_s", "_orig_p"]
 
-    def __init__(self, _pkt=None, _orig_s=None, _orig_p=None, *args, **kwargs):
+    def __init__(self,
+                 _pkt=None,  # type: Optional[bytes]
+                 _orig_s=None,  # type: Optional[bytes]
+                 _orig_p=None,  # type: Optional[int]
+                 *args,  # type: Any
+                 **kwargs  # type: Any
+                 ):
+        # type: (...) -> None
         self._orig_s = _orig_s
         self._orig_p = _orig_p
         Packet.__init__(self, _pkt=_pkt, *args, **kwargs)
@@ -231,17 +250,21 @@ class DNSStrField(StrLenField):
     """
 
     def h2i(self, pkt, x):
+        # type: (Any, bytes) -> bytes
         if not x:
             return b"."
         return x
 
     def i2m(self, pkt, x):
+        # type: (Any, bytes) -> bytes
         return dns_encode(x, check_built=True)
 
     def i2len(self, pkt, x):
+        # type: (DNSRR, bytes) -> int
         return len(self.i2m(pkt, x))
 
     def getfield(self, pkt, s):
+        # type: (Any, bytes) -> Tuple[bytes, bytes]
         remain = b""
         if self.length_from:
             remain, s = StrLenField.getfield(self, pkt, s)
@@ -255,10 +278,12 @@ class DNSRRCountField(ShortField):
     __slots__ = ["rr"]
 
     def __init__(self, name, default, rr):
+        # type: (str, Optional[Any], str) -> None
         ShortField.__init__(self, name, default)
         self.rr = rr
 
     def _countRR(self, pkt):
+        # type: (DNS) -> int
         x = getattr(pkt, self.rr)
         i = 0
         while isinstance(x, DNSRR) or isinstance(x, DNSQR) or isdnssecRR(x):
@@ -267,11 +292,13 @@ class DNSRRCountField(ShortField):
         return i
 
     def i2m(self, pkt, x):
+        # type: (DNS, Optional[int]) -> int
         if x is None:
             x = self._countRR(pkt)
         return x
 
     def i2h(self, pkt, x):
+        # type: (DNS, Optional[int]) -> int
         if x is None:
             x = self._countRR(pkt)
         return x
@@ -282,16 +309,19 @@ class DNSRRField(StrField):
     holds_packets = 1
 
     def __init__(self, name, countfld, passon=1):
+        # type: (str, str, int) -> None
         StrField.__init__(self, name, None)
         self.countfld = countfld
         self.passon = passon
 
     def i2m(self, pkt, x):
+        # type: (DNS, Optional[DNSQR]) -> bytes
         if x is None:
             return b""
         return bytes_encode(x)
 
     def decodeRR(self, name, s, p):
+        # type: (bytes, bytes, int) -> Tuple[DNSRRNSEC, int]
         ret = s[p:p + 10]
         # type, cls, ttl, rdlen
         typ, cls, _, rdlen = struct.unpack("!HHIH", ret)
@@ -305,7 +335,11 @@ class DNSRRField(StrField):
         p += rdlen
         return rr, p
 
-    def getfield(self, pkt, s):
+    def getfield(self,
+                 pkt,  # type: Union[DNS, LLMNRQuery]
+                 s,  # type: Union[Tuple[bytes, int], bytes]
+                 ):
+        # type: (...) -> Tuple[Tuple[bytes, int], Union[None, DNSQR, DNSRRSRV]]
         if isinstance(s, tuple):
             s, p = s
         else:
@@ -331,6 +365,7 @@ class DNSRRField(StrField):
 
 class DNSQRField(DNSRRField):
     def decodeRR(self, name, s, p):
+        # type: (bytes, bytes, int) -> Tuple[DNSQR, int]
         ret = s[p:p + 4]
         p += 4
         rr = DNSQR(b"\x00" + ret, _orig_s=s, _orig_p=p)
@@ -346,6 +381,7 @@ class DNSTextField(StrLenField):
     islist = 1
 
     def m2i(self, pkt, s):
+        # type: (DNSRR, bytes) -> List[bytes]
         ret_s = list()
         tmp_s = s
         # RDATA contains a list of strings, each are prepended with
@@ -358,15 +394,21 @@ class DNSTextField(StrLenField):
             tmp_s = tmp_s[tmp_len:]
         return ret_s
 
-    def any2i(self, pkt, x):
+    def any2i(self,
+              pkt,  # type: Optional[DNSRR]
+              x,  # type: Union[List[str], bytes]
+              ):
+        # type: (...) -> Union[List[bytes], List[str]]
         if isinstance(x, (str, bytes)):
             return [x]
         return x
 
     def i2len(self, pkt, x):
+        # type: (DNSRR, Union[List[bytes], List[str]]) -> int
         return len(self.i2m(pkt, x))
 
     def i2m(self, pkt, s):
+        # type: (DNSRR, Union[List[bytes], List[str]]) -> bytes
         ret_s = b""
         for text in s:
             text = bytes_encode(text)
@@ -411,12 +453,14 @@ class DNS(Packet):
     ]
 
     def answers(self, other):
+        # type: (DNS) -> bool
         return (isinstance(other, DNS) and
                 self.id == other.id and
                 self.qr == 1 and
                 other.qr == 0)
 
     def mysummary(self):
+        # type: () -> str
         type = ["Qry", "Ans"][self.qr]
         name = ""
         if self.qr:
@@ -430,11 +474,13 @@ class DNS(Packet):
         return 'DNS %s%s ' % (type, name)
 
     def post_build(self, pkt, pay):
+        # type: (bytes, bytes) -> bytes
         if isinstance(self.underlayer, TCP) and self.length is None:
             pkt = struct.pack("!H", len(pkt) - 2) + pkt[2:]
         return pkt + pay
 
     def compress(self):
+        # type: () -> DNS
         """Return the compressed DNS packet (using `dns_compress()`"""
         return dns_compress(self)
 
@@ -480,6 +526,7 @@ class EDNS0TLV(Packet):
                    StrLenField("optdata", "", length_from=lambda pkt: pkt.optlen)]  # noqa: E501
 
     def extract_padding(self, p):
+        # type: (bytes) -> Tuple[str, bytes]
         return "", p
 
 
@@ -513,6 +560,7 @@ dnssecdigesttypes = {0: "Reserved", 1: "SHA-1", 2: "SHA-256", 3: "GOST R 34.11-9
 
 
 def bitmap2RRlist(bitmap):
+    # type: (bytes) -> List[int]
     """
     Decode the 'Type Bit Maps' field of the NSEC Resource Record into an
     integer list.
@@ -553,6 +601,7 @@ def bitmap2RRlist(bitmap):
 
 
 def RRlist2bitmap(lst):
+    # type: (List[int]) -> bytes
     """
     Encode a list of integers representing Resource Records to a bitmap field
     used in the NSEC Resource Record.
@@ -606,11 +655,13 @@ def RRlist2bitmap(lst):
 
 class RRlistField(StrField):
     def h2i(self, pkt, x):
+        # type: (Optional[DNSRRNSEC], bytes) -> bytes
         if isinstance(x, list):
             return RRlist2bitmap(x)
         return x
 
     def i2repr(self, pkt, x):
+        # type: (DNSRRNSEC, bytes) -> List[str]
         x = self.i2h(pkt, x)
         rrlist = bitmap2RRlist(x)
         return [dnstypes.get(rr, rr) for rr in rrlist] if rrlist else repr(x)
@@ -620,6 +671,7 @@ class _DNSRRdummy(InheritOriginDNSStrPacket):
     name = "Dummy class that implements post_build() for Resource Records"
 
     def post_build(self, pkt, pay):
+        # type: (bytes, bytes) -> bytes
         if self.rdlen is not None:
             return pkt + pay
 
@@ -726,6 +778,7 @@ class DNSRRDLV(DNSRRDS):
     name = "DNS DLV Resource Record"
 
     def __init__(self, *args, **kargs):
+        # type: (*Any, **Any) -> None
         DNSRRDS.__init__(self, *args, **kargs)
         if not kargs.get('type', 0):
             self.type = 32769
@@ -788,15 +841,18 @@ tsig_algo_sizes = {"HMAC-MD5.SIG-ALG.REG.INT": 16,
 
 class TimeSignedField(StrFixedLenField):
     def __init__(self, name, default):
+        # type: (str, int) -> None
         StrFixedLenField.__init__(self, name, default, 6)
 
     def _convert_seconds(self, packed_seconds):
+        # type: (bytes) -> int
         """Unpack the internal representation."""
         seconds = struct.unpack("!H", packed_seconds[:2])[0]
         seconds += struct.unpack("!I", packed_seconds[2:])[0]
         return seconds
 
     def h2i(self, pkt, seconds):
+        # type: (Optional[DNSRRTSIG], int) -> bytes
         """Convert the number of seconds since 1-Jan-70 UTC to the packed
            representation."""
 
@@ -809,6 +865,7 @@ class TimeSignedField(StrFixedLenField):
         return struct.pack("!HI", tmp_short, tmp_int)
 
     def i2h(self, pkt, packed_seconds):
+        # type: (str, bytes) -> int
         """Convert the internal representation to the number of seconds
            since 1-Jan-70 UTC."""
 
@@ -818,6 +875,7 @@ class TimeSignedField(StrFixedLenField):
         return self._convert_seconds(packed_seconds)
 
     def i2repr(self, pkt, packed_seconds):
+        # type: (str, bytes) -> str
         """Convert the internal representation to a nice one using the RFC
            format."""
         time_struct = time.gmtime(self._convert_seconds(packed_seconds))
@@ -862,6 +920,7 @@ DNSSEC_CLASSES = tuple(six.itervalues(DNSRR_DISPATCHER))
 
 
 def isdnssecRR(obj):
+    # type: (Optional[NoPayload]) -> bool
     return isinstance(obj, DNSSEC_CLASSES)
 
 
@@ -950,6 +1009,7 @@ class DNS_am(AnsweringMachine):
     filter = "udp port 53"
 
     def parse_options(self, joker="192.168.1.1", match=None):
+        # type: (str, Optional[Any]) -> None
         if match is None:
             self.match = {}
         else:
@@ -957,9 +1017,11 @@ class DNS_am(AnsweringMachine):
         self.joker = joker
 
     def is_request(self, req):
+        # type: (IP) -> bool
         return req.haslayer(DNS) and req.getlayer(DNS).qr == 0
 
     def make_reply(self, req):
+        # type: (IP) -> IP
         ip = req.getlayer(IP)
         dns = req.getlayer(DNS)
         resp = IP(dst=ip.src, src=ip.dst) / UDP(dport=ip.sport, sport=ip.dport)

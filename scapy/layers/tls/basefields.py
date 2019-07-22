@@ -12,6 +12,17 @@ import struct
 from scapy.fields import ByteField, ShortEnumField, ShortField, StrField
 import scapy.modules.six as six
 from scapy.compat import orb
+from scapy.layers.tls.handshake import TLSClientHello
+from scapy.layers.tls.keyexchange import EncryptedPreMasterSecret
+from typing import Optional
+from typing import Union
+from scapy.layers.tls.handshake import TLSServerHello
+from scapy.layers.tls.handshake_sslv2 import SSLv2ClientHello
+from scapy.layers.tls.handshake_sslv2 import SSLv2ServerHello
+from typing import Any
+from scapy.layers.tls.record import TLS
+from typing import Tuple
+from scapy.layers.tls.record_sslv2 import SSLv2
 
 _tls_type = {20: "change_cipher_spec",
              21: "alert",
@@ -40,6 +51,7 @@ _tls_version_options = {"sslv2": 0x0002,
 
 
 def _tls13_version_filter(version, legacy_version):
+    # type: (int, int) -> int
     if version < 0x0304:
         return version
     else:
@@ -53,6 +65,7 @@ class _TLSClientVersionField(ShortEnumField):
     """
 
     def i2h(self, pkt, x):
+        # type: (TLSClientHello, int) -> int
         if x is None:
             v = pkt.tls_session.advertised_tls_version
             if v:
@@ -60,7 +73,11 @@ class _TLSClientVersionField(ShortEnumField):
             return ""
         return x
 
-    def i2m(self, pkt, x):
+    def i2m(self,
+            pkt,  # type: Union[TLSClientHello, EncryptedPreMasterSecret]
+            x,  # type: Optional[int]
+            ):
+        # type: (...) -> int
         if x is None:
             v = pkt.tls_session.advertised_tls_version
             if v:
@@ -75,7 +92,11 @@ class _TLSVersionField(ShortEnumField):
     Also, the legacy 0x0301 is used for TLS 1.3 packets.
     """
 
-    def i2h(self, pkt, x):
+    def i2h(self,
+            pkt,  # type: Union[TLSServerHello, SSLv2ClientHello, SSLv2ServerHello]
+            x,  # type: Optional[int]
+            ):
+        # type: (...) -> int
         if x is None:
             v = pkt.tls_session.tls_version
             if v:
@@ -86,6 +107,7 @@ class _TLSVersionField(ShortEnumField):
         return x
 
     def i2m(self, pkt, x):
+        # type: (Any, Optional[int]) -> int
         if x is None:
             v = pkt.tls_session.tls_version
             if v:
@@ -132,12 +154,15 @@ class _TLSIVField(StrField):
         return tmp_len
 
     def i2m(self, pkt, x):
+        # type: (TLS, Optional[Any]) -> bytes
         return x or b""
 
     def addfield(self, pkt, s, val):
+        # type: (TLS, bytes, Optional[Any]) -> bytes
         return s + self.i2m(pkt, val)
 
     def getfield(self, pkt, s):
+        # type: (TLS, bytes) -> Tuple[bytes, bytes]
         tmp_len = 0
         cipher_type = pkt.tls_session.rcs.cipher.type
         if cipher_type == "block":
@@ -163,10 +188,12 @@ class _TLSMACField(StrField):
         return x
 
     def addfield(self, pkt, s, val):
+        # type: (Union[TLS, SSLv2], bytes, Optional[bytes]) -> bytes
         # We add nothing here. This is done in .post_build() if needed.
         return s
 
     def getfield(self, pkt, s):
+        # type: (SSLv2, bytes) -> Tuple[bytes, bytes]
         if (pkt.tls_session.rcs.cipher.type != "aead" and
                 False in six.itervalues(pkt.tls_session.rcs.cipher.ready)):
             # XXX Find a more proper way to handle the still-encrypted case
@@ -191,10 +218,12 @@ class _TLSPadField(StrField):
         return x
 
     def addfield(self, pkt, s, val):
+        # type: (Union[TLS, SSLv2], bytes, Optional[bytes]) -> bytes
         # We add nothing here. This is done in .post_build() if needed.
         return s
 
     def getfield(self, pkt, s):
+        # type: (TLS, bytes) -> Tuple[bytes, bytes]
         if pkt.tls_session.consider_read_padding():
             # This should work with SSLv3 and also TLS versions.
             # Note that we need to retrieve pkt.padlen beforehand,
@@ -212,10 +241,12 @@ class _TLSPadField(StrField):
 
 class _TLSPadLenField(ByteField):
     def addfield(self, pkt, s, val):
+        # type: (Union[TLS, SSLv2], bytes, Optional[Any]) -> bytes
         # We add nothing here. This is done in .post_build() if needed.
         return s
 
     def getfield(self, pkt, s):
+        # type: (TLS, bytes) -> Tuple[bytes, int]
         if pkt.tls_session.consider_read_padding():
             return ByteField.getfield(self, pkt, s)
         return s, None
@@ -234,6 +265,7 @@ class _SSLv2LengthField(_TLSLengthField):
         return s
 
     def getfield(self, pkt, s):
+        # type: (SSLv2, bytes) -> Tuple[bytes, int]
         msglen = struct.unpack('!H', s[:2])[0]
         pkt.with_padding = (msglen & 0x8000) == 0
         if pkt.with_padding:
@@ -249,6 +281,7 @@ class _SSLv2MACField(_TLSMACField):
 
 class _SSLv2PadField(_TLSPadField):
     def getfield(self, pkt, s):
+        # type: (SSLv2, bytes) -> Tuple[bytes, bytes]
         if pkt.padlen is not None:
             tmp_len = pkt.padlen
             return s[tmp_len:], self.m2i(pkt, s[:tmp_len])
@@ -257,6 +290,7 @@ class _SSLv2PadField(_TLSPadField):
 
 class _SSLv2PadLenField(_TLSPadLenField):
     def getfield(self, pkt, s):
+        # type: (SSLv2, bytes) -> Tuple[bytes, Optional[int]]
         if pkt.with_padding:
             return ByteField.getfield(self, pkt, s)
         return s, None

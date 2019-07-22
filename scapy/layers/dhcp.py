@@ -362,8 +362,15 @@ class BOOTP_am(AnsweringMachine):
     filter = "udp and port 68 and port 67"
     send_function = staticmethod(sendp)
 
-    def parse_options(self, pool=Net("192.168.1.128/25"), network="192.168.1.0/24", gw="192.168.1.1",  # noqa: E501
-                      domain="localnet", renewal_time=60, lease_time=1800):
+    def parse_options(self,
+                      pool=Net("192.168.1.128/25"),  # type: Net
+                      network="192.168.1.0/24",  # type: str
+                      gw="192.168.1.1",  # type: str  # noqa: E501
+                      domain="localnet",  # type: str
+                      renewal_time=60,  # type: int
+                      lease_time=1800,  # type: int
+                      ):
+        # type: (...) -> None
         self.domain = domain
         netw, msk = (network.split("/") + ["32"])[:2]
         msk = itom(int(msk))
@@ -384,6 +391,7 @@ class BOOTP_am(AnsweringMachine):
         self.leases = {}
 
     def is_request(self, req):
+        # type: (Ether) -> int
         if not req.haslayer(BOOTP):
             return 0
         reqb = req.getlayer(BOOTP)
@@ -392,9 +400,11 @@ class BOOTP_am(AnsweringMachine):
         return 1
 
     def print_reply(self, req, reply):
+        # type: (Ether, Ether) -> None
         print("Reply %s to %s" % (reply.getlayer(IP).dst, reply.dst))
 
     def make_reply(self, req):
+        # type: (Ether) -> Ether
         mac = req[Ether].src
         if isinstance(self.pool, list):
             if mac not in self.leases:
@@ -418,6 +428,7 @@ class DHCP_am(BOOTP_am):
     function_name = "dhcpd"
 
     def make_reply(self, req):
+        # type: (Ether) -> Ether
         resp = BOOTP_am.make_reply(self, req)
         if DHCP in req:
             dhcp_options = [(op[0], {1: 2, 3: 5}.get(op[1], op[1]))

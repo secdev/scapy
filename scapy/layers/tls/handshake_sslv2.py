@@ -25,6 +25,14 @@ from scapy.layers.tls.crypto.suites import (_tls_cipher_suites,
                                             _tls_cipher_suites_cls,
                                             get_usable_ciphersuites,
                                             SSL_CK_DES_192_EDE3_CBC_WITH_MD5)
+from scapy.layers.tls.crypto.suites import _GenericCipherSuiteMetaclass
+from typing import Callable
+from typing import Dict
+from typing import List
+from typing import Union
+from typing import Tuple
+from typing import Any
+from typing import Optional
 
 
 ###############################################################################
@@ -50,6 +58,7 @@ class _SSLv2Handshake(_GenericTLSSessionInheritance):
         return Padding
 
     def tls_session_update(self, msg_str):
+        # type: (bytes) -> None
         """
         Covers both post_build- and post_dissection- context updates.
         """
@@ -79,19 +88,27 @@ class SSLv2Error(_SSLv2Handshake):
 ###############################################################################
 
 class _SSLv2CipherSuitesField(_CipherSuitesField):
-    def __init__(self, name, default, dico, length_from=None):
+    def __init__(self,
+                 name,  # type: str
+                 default,  # type: List[_GenericCipherSuiteMetaclass]
+                 dico,  # type: Dict[int, str]
+                 length_from=None,  # type: Callable
+                 ):
+        # type: (...) -> None
         _CipherSuitesField.__init__(self, name, default, dico,
                                     length_from=length_from)
         self.itemfmt = b""
         self.itemsize = 3
 
     def i2m(self, pkt, val):
+        # type: (Union[SSLv2ClientHello, SSLv2ServerHello], List[int]) -> bytes
         if val is None:
             val2 = []
         val2 = [(x >> 16, x & 0x00ffff) for x in val]
         return b"".join([struct.pack(">BH", x[0], x[1]) for x in val2])
 
     def m2i(self, pkt, m):
+        # type: (Union[SSLv2ClientHello, SSLv2ServerHello], bytes) -> List[int]
         res = []
         while m:
             res.append(struct.unpack("!I", b"\x00" + m[:3])[0])
@@ -124,6 +141,7 @@ class SSLv2ClientHello(_SSLv2Handshake):
                                 length_from=lambda pkt:pkt.challengelen)]
 
     def tls_session_update(self, msg_str):
+        # type: (bytes) -> None
         super(SSLv2ClientHello, self).tls_session_update(msg_str)
         self.tls_session.advertised_tls_version = self.version
         self.tls_session.sslv2_common_cs = self.ciphers
@@ -136,6 +154,7 @@ class SSLv2ClientHello(_SSLv2Handshake):
 
 class _SSLv2CertDataField(StrLenField):
     def getfield(self, pkt, s):
+        # type: (SSLv2ServerHello, bytes) -> Tuple[bytes, Cert]
         tmp_len = 0
         if self.length_from is not None:
             tmp_len = self.length_from(pkt)
@@ -148,11 +167,13 @@ class _SSLv2CertDataField(StrLenField):
         return s[tmp_len:], certdata
 
     def i2len(self, pkt, i):
+        # type: (SSLv2ServerHello, Cert) -> int
         if isinstance(i, Cert):
             return len(i.der)
         return len(i)
 
     def i2m(self, pkt, i):
+        # type: (SSLv2ServerHello, Cert) -> bytes
         if isinstance(i, Cert):
             return i.der
         return i
@@ -184,6 +205,7 @@ class SSLv2ServerHello(_SSLv2Handshake):
                                 length_from=lambda pkt: pkt.connection_idlen)]
 
     def tls_session_update(self, msg_str):
+        # type: (bytes) -> None
         """
         XXX Something should be done about the session ID here.
         """
@@ -205,9 +227,11 @@ class SSLv2ServerHello(_SSLv2Handshake):
 
 class _SSLv2CipherSuiteField(EnumField):
     def __init__(self, name, default, dico):
+        # type: (str, Optional[Any], Dict[int, str]) -> None
         EnumField.__init__(self, name, default, dico)
 
     def i2m(self, pkt, val):
+        # type: (SSLv2ClientMasterKey, Optional[Any]) -> bytes
         if val is None:
             return b""
         val2 = (val >> 16, val & 0x00ffff)
@@ -217,9 +241,11 @@ class _SSLv2CipherSuiteField(EnumField):
         return s + self.i2m(pkt, val)
 
     def m2i(self, pkt, m):
+        # type: (SSLv2ClientMasterKey, bytes) -> int
         return struct.unpack("!I", b"\x00" + m[:3])[0]
 
     def getfield(self, pkt, s):
+        # type: (SSLv2ClientMasterKey, bytes) -> Tuple[bytes, int]
         return s[3:], self.m2i(pkt, s)
 
 
@@ -257,6 +283,7 @@ class SSLv2ClientMasterKey(_SSLv2Handshake):
                                 length_from=lambda pkt: pkt.keyarglen)]
 
     def __init__(self, *args, **kargs):
+        # type: (*bytes, **Any) -> None
         """
         When post_building, the packets fields are updated (this is somewhat
         non-standard). We might need these fields later, but calling __str__
@@ -269,6 +296,7 @@ class SSLv2ClientMasterKey(_SSLv2Handshake):
         self.explicit = 1
 
     def pre_dissect(self, s):
+        # type: (bytes) -> bytes
         clearkeylen = struct.unpack("!H", s[4:6])[0]
         encryptedkeylen = struct.unpack("!H", s[6:8])[0]
         encryptedkeystart = 10 + clearkeylen
@@ -281,6 +309,7 @@ class SSLv2ClientMasterKey(_SSLv2Handshake):
         return s
 
     def post_build(self, pkt, pay):
+        # type: (bytes, bytes) -> bytes
         cs_val = None
         if self.cipher is None:
             common_cs = self.tls_session.sslv2_common_cs
@@ -345,6 +374,7 @@ class SSLv2ClientMasterKey(_SSLv2Handshake):
         return s + pay
 
     def tls_session_update(self, msg_str):
+        # type: (bytes) -> None
         super(SSLv2ClientMasterKey, self).tls_session_update(msg_str)
 
         s = self.tls_session
@@ -395,12 +425,14 @@ class SSLv2ServerVerify(_SSLv2Handshake):
                    XStrField("challenge", "")]
 
     def build(self, *args, **kargs):
+        # type: (*Any, **Any) -> bytes
         fval = self.getfieldval("challenge")
         if fval is None:
             self.challenge = self.tls_session.sslv2_challenge
         return super(SSLv2ServerVerify, self).build(*args, **kargs)
 
     def post_dissection(self, pkt):
+        # type: (SSLv2ServerVerify) -> None
         s = self.tls_session
         if s.sslv2_challenge is not None:
             if self.challenge != s.sslv2_challenge:
@@ -504,12 +536,14 @@ class SSLv2ClientFinished(_SSLv2Handshake):
                    XStrField("connection_id", "")]
 
     def build(self, *args, **kargs):
+        # type: (*Any, **Any) -> bytes
         fval = self.getfieldval("connection_id")
         if fval == b"":
             self.connection_id = self.tls_session.sslv2_connection_id
         return super(SSLv2ClientFinished, self).build(*args, **kargs)
 
     def post_dissection(self, pkt):
+        # type: (SSLv2ClientFinished) -> None
         s = self.tls_session
         if s.sslv2_connection_id is not None:
             if self.connection_id != s.sslv2_connection_id:
@@ -527,12 +561,14 @@ class SSLv2ServerFinished(_SSLv2Handshake):
                    XStrField("sid", "")]
 
     def build(self, *args, **kargs):
+        # type: (*Any, **Any) -> bytes
         fval = self.getfieldval("sid")
         if fval == b"":
             self.sid = self.tls_session.sid
         return super(SSLv2ServerFinished, self).build(*args, **kargs)
 
     def post_dissection_tls_session_update(self, msg_str):
+        # type: (bytes) -> None
         self.tls_session_update(msg_str)
         self.tls_session.sid = self.sid
 

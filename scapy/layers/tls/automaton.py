@@ -18,6 +18,10 @@ from scapy.layers.tls.cert import Cert, PrivKey
 from scapy.layers.tls.record import TLS
 from scapy.layers.tls.record_sslv2 import SSLv2
 from scapy.layers.tls.record_tls13 import TLS13
+from typing import Any
+from typing import Optional
+from scapy.automaton import _instance_state
+from scapy.base_classes import Packet_metaclass
 
 
 class _TLSAutomaton(Automaton):
@@ -52,6 +56,7 @@ class _TLSAutomaton(Automaton):
     """
 
     def parse_args(self, mycert=None, mykey=None, **kargs):
+        # type: (Optional[str], Optional[str], **Any) -> None
 
         super(_TLSAutomaton, self).parse_args(**kargs)
 
@@ -76,6 +81,7 @@ class _TLSAutomaton(Automaton):
         self.verbose = kargs.get("verbose", True)
 
     def get_next_msg(self, socket_timeout=2, retry=2):
+        # type: (int, int) -> None
         """
         The purpose of the function is to make next message(s) available in
         self.buffer_in. If the list is not empty, nothing is done. If not, in
@@ -166,6 +172,7 @@ class _TLSAutomaton(Automaton):
                     self.buffer_in += p.inner.msg
 
     def raise_on_packet(self, pkt_cls, state, get_next_msg=True):
+        # type: (Packet_metaclass, _instance_state, bool) -> None
         """
         If the next message to be processed has type 'pkt_cls', raise 'state'.
         If there is no message waiting to be processed, we try to get one with
@@ -182,6 +189,7 @@ class _TLSAutomaton(Automaton):
         raise state()
 
     def add_record(self, is_sslv2=None, is_tls13=None):
+        # type: (Optional[bool], Optional[Any]) -> None
         """
         Add a new TLS or SSLv2 or TLS 1.3 record to the packets buffered out.
         """
@@ -200,6 +208,7 @@ class _TLSAutomaton(Automaton):
             self.buffer_out.append(TLS(tls_session=self.cur_session))
 
     def add_msg(self, pkt):
+        # type: (Any) -> None
         """
         Add a TLS message (e.g. TLSClientHello or TLSApplicationData)
         inside the latest record to be sent through the socket.
@@ -214,6 +223,7 @@ class _TLSAutomaton(Automaton):
             self.buffer_out[-1].msg.append(pkt)
 
     def flush_records(self):
+        # type: () -> None
         """
         Send all buffered records and update the session accordingly.
         """
@@ -222,6 +232,7 @@ class _TLSAutomaton(Automaton):
         self.buffer_out = []
 
     def vprint(self, s=""):
+        # type: (str) -> None
         if self.verbose:
             if conf.interactive:
                 log_interactive.info("> %s", s)

@@ -11,6 +11,8 @@ from __future__ import absolute_import
 from scapy.config import conf
 from scapy.layers.tls.crypto.common import CipherError
 import scapy.modules.six as six
+from typing import Any
+from typing import Optional
 
 if conf.crypto_valid:
     from cryptography.hazmat.primitives.ciphers import Cipher, algorithms
@@ -39,6 +41,7 @@ class _StreamCipher(six.with_metaclass(_StreamCipherMetaclass, object)):
     type = "stream"
 
     def __init__(self, key=None):
+        # type: (Optional[Any]) -> None
         """
         Note that we have to keep the encryption/decryption state in unique
         encryptor and decryptor objects. This differs from _BlockCipher.
@@ -68,6 +71,7 @@ class _StreamCipher(six.with_metaclass(_StreamCipherMetaclass, object)):
         self._dec_updated_with = b""
 
     def __setattr__(self, name, val):
+        # type: (str, Any) -> None
         """
         We have to keep the encryptor/decryptor for a long time,
         however they have to be updated every time the key is changed.
@@ -81,12 +85,14 @@ class _StreamCipher(six.with_metaclass(_StreamCipherMetaclass, object)):
         super(_StreamCipher, self).__setattr__(name, val)
 
     def encrypt(self, data):
+        # type: (bytes) -> bytes
         if False in six.itervalues(self.ready):
             raise CipherError(data)
         self._enc_updated_with += data
         return self.encryptor.update(data)
 
     def decrypt(self, data):
+        # type: (bytes) -> bytes
         if False in six.itervalues(self.ready):
             raise CipherError(data)
         self._dec_updated_with += data
@@ -116,18 +122,22 @@ class Cipher_NULL(_StreamCipher):
     key_len = 0
 
     def __init__(self, key=None):
+        # type: (Optional[bytes]) -> None
         self.ready = {"key": True}
         self._cipher = None
         # we use super() in order to avoid any deadlock with __setattr__
         super(Cipher_NULL, self).__setattr__("key", key)
 
     def snapshot(self):
+        # type: () -> Cipher_NULL
         c = self.__class__(self.key)
         c.ready = self.ready.copy()
         return c
 
     def encrypt(self, data):
+        # type: (bytes) -> bytes
         return data
 
     def decrypt(self, data):
+        # type: (bytes) -> bytes
         return data

@@ -24,6 +24,15 @@ from scapy.layers.tls.basefields import _tls_version, _TLSClientVersionField
 from scapy.layers.tls.crypto.pkcs1 import pkcs_i2osp, pkcs_os2ip
 from scapy.layers.tls.crypto.groups import _ffdh_groups, _tls_named_curves
 import scapy.modules.six as six
+from scapy.base_classes import Packet_metaclass
+from typing import Any
+from typing import Optional
+from typing import Tuple
+from typing import Union
+from scapy.layers.tls.cert import Cert
+from typing import Callable
+from scapy.layers.tls.handshake import TLSServerKeyExchange
+from typing import Dict
 
 if conf.crypto_valid:
     from cryptography.hazmat.backends import default_backend
@@ -57,6 +66,7 @@ _tls_hash_sig = {0x0000: "none+anon", 0x0001: "none+rsa",
 
 
 def phantom_mode(pkt):
+    # type: (_TLSSignature) -> bool
     """
     We expect this. If tls_version is not set, this means we did not process
     any complete ClientHello, so we're most probably reading/building a
@@ -71,12 +81,14 @@ def phantom_mode(pkt):
 
 
 def phantom_decorate(f, get_or_add):
+    # type: (Callable, bool) -> Callable
     """
     Decorator for version-dependent fields.
     If get_or_add is True (means get), we return s, self.phantom_value.
     If it is False (means add), we return s.
     """
     def wrapper(*args):
+        # type: (*Any) -> Union[Tuple[bytes, None], bytes]
         self, pkt, s = args[:3]
         if phantom_mode(pkt):
             if get_or_add:
@@ -111,12 +123,14 @@ class SigLenField(FieldLenField):
     """There is a trick for SSLv2, which uses implicit lengths..."""
 
     def getfield(self, pkt, s):
+        # type: (_TLSSignature, bytes) -> Tuple[bytes, int]
         v = pkt.tls_session.tls_version
         if v and v < 0x0300:
             return s, None
         return super(SigLenField, self).getfield(pkt, s)
 
     def addfield(self, pkt, s, val):
+        # type: (_TLSSignature, bytes, Optional[Any]) -> bytes
         """With SSLv2 you will never be able to add a sig_len."""
         v = pkt.tls_session.tls_version
         if v and v < 0x0300:
@@ -128,6 +142,7 @@ class SigValField(StrLenField):
     """There is a trick for SSLv2, which uses implicit lengths..."""
 
     def getfield(self, pkt, m):
+        # type: (_TLSSignature, bytes) -> Tuple[bytes, bytes]
         s = pkt.tls_session
         if s.tls_version and s.tls_version < 0x0300:
             if len(s.client_certs) > 0:
@@ -162,6 +177,7 @@ class _TLSSignature(_GenericTLSSessionInheritance):
                                length_from=lambda pkt: pkt.sig_len)]
 
     def __init__(self, *args, **kargs):
+        # type: (*bytes, **Any) -> None
         super(_TLSSignature, self).__init__(*args, **kargs)
         if (self.tls_session and
             self.tls_session.tls_version and
@@ -169,6 +185,7 @@ class _TLSSignature(_GenericTLSSessionInheritance):
             self.sig_alg = None
 
     def _update_sig(self, m, key):
+        # type: (bytes, PrivKeyRSA) -> None
         """
         Sign 'm' with the PrivKey 'key' and update our own 'sig_val'.
         Note that, even when 'sig_alg' is not None, we use the signature scheme
@@ -188,6 +205,7 @@ class _TLSSignature(_GenericTLSSessionInheritance):
             self.sig_val = key.sign(m, t=t, h=h)
 
     def _verify_sig(self, m, cert):
+        # type: (bytes, Cert) -> bool
         """
         Verify that our own 'sig_val' carries the signature of 'm' by the
         key associated to the Cert 'cert'.
@@ -208,6 +226,7 @@ class _TLSSignature(_GenericTLSSessionInheritance):
         return False
 
     def guess_payload_class(self, p):
+        # type: (bytes) -> Packet_metaclass
         return Padding
 
 
@@ -219,16 +238,22 @@ class _TLSSignatureField(PacketField):
     __slots__ = ["length_from"]
 
     def __init__(self, name, default, length_from=None, remain=0):
+        # type: (str, Optional[Any], Callable, int) -> None
         self.length_from = length_from
         PacketField.__init__(self, name, default, _TLSSignature, remain=remain)
 
     def m2i(self, pkt, m):
+        # type: (TLSServerKeyExchange, bytes) -> Optional[_TLSSignature]
         tmp_len = self.length_from(pkt)
         if tmp_len == 0:
             return None
         return _TLSSignature(m, tls_session=pkt.tls_session)
 
-    def getfield(self, pkt, s):
+    def getfield(self,
+                 pkt,  # type: TLSServerKeyExchange
+                 s,  # type: bytes
+                 ):
+        # type: (...) -> Tuple[bytes, Optional[_TLSSignature]]
         i = self.m2i(pkt, s)
         if i is None:
             return s, None
@@ -254,10 +279,15 @@ class _TLSServerParamsField(PacketField):
     __slots__ = ["length_from"]
 
     def __init__(self, name, default, length_from=None, remain=0):
+        # type: (str, Optional[Any], Callable, int) -> None
         self.length_from = length_from
         PacketField.__init__(self, name, default, None, remain=remain)
 
-    def m2i(self, pkt, m):
+    def m2i(self,
+            pkt,  # type: TLSServerKeyExchange
+            m,  # type: bytes
+            ):
+        # type: (...) -> Union[ServerDHParams, ServerECDHNamedCurveParams, ServerRSAParams]
         s = pkt.tls_session
         tmp_len = self.length_from(pkt)
         if s.prcs:
@@ -309,6 +339,7 @@ class ServerDHParams(_GenericTLSSessionInheritance):
 
     @crypto_validator
     def fill_missing(self):
+        # type: () -> None
         """
         We do not want TLSServerKeyExchange.build() to overload and recompute
         things every time it is called. This method can be called specifically
@@ -349,6 +380,7 @@ class ServerDHParams(_GenericTLSSessionInheritance):
 
     @crypto_validator
     def register_pubkey(self):
+        # type: () -> None
         """
         XXX Check that the pubkey received is in the group.
         """
@@ -366,12 +398,14 @@ class ServerDHParams(_GenericTLSSessionInheritance):
             s.client_kx_ffdh_params = pn.parameters(default_backend())
 
     def post_dissection(self, r):
+        # type: (ServerDHParams) -> None
         try:
             self.register_pubkey()
         except ImportError:
             pass
 
     def guess_payload_class(self, p):
+        # type: (bytes) -> Packet_metaclass
         """
         The signature after the params gets saved as Padding.
         This way, the .getfield() which _TLSServerParamsField inherits
@@ -430,6 +464,7 @@ class _ECBasisTypeField(ByteEnumField):
     __slots__ = ["basis_type_of"]
 
     def __init__(self, name, default, enum, basis_type_of, remain=0):
+        # type: (str, Optional[Any], Dict[int, str], str, int) -> None
         self.basis_type_of = basis_type_of
         EnumField.__init__(self, name, default, enum, "B")
 
@@ -443,7 +478,14 @@ class _ECBasisTypeField(ByteEnumField):
 class _ECBasisField(PacketField):
     __slots__ = ["clsdict", "basis_type_from"]
 
-    def __init__(self, name, default, basis_type_from, clsdict, remain=0):
+    def __init__(self,
+                 name,  # type: str
+                 default,  # type: ECTrinomialBasis
+                 basis_type_from,  # type: Callable
+                 clsdict,  # type: Dict[int, Packet_metaclass]
+                 remain=0,  # type: int
+                 ):
+        # type: (...) -> None
         self.clsdict = clsdict
         self.basis_type_from = basis_type_from
         PacketField.__init__(self, name, default, None, remain=remain)
@@ -551,6 +593,7 @@ class ServerECDHNamedCurveParams(_GenericTLSSessionInheritance):
 
     @crypto_validator
     def fill_missing(self):
+        # type: () -> None
         """
         We do not want TLSServerKeyExchange.build() to overload and recompute
         things every time it is called. This method can be called specifically
@@ -604,6 +647,7 @@ class ServerECDHNamedCurveParams(_GenericTLSSessionInheritance):
 
     @crypto_validator
     def register_pubkey(self):
+        # type: () -> None
         """
         XXX Support compressed point format.
         XXX Check that the pubkey received is on the curve.
@@ -623,12 +667,14 @@ class ServerECDHNamedCurveParams(_GenericTLSSessionInheritance):
             s.client_kx_ecdh_params = curve
 
     def post_dissection(self, r):
+        # type: (ServerECDHNamedCurveParams) -> None
         try:
             self.register_pubkey()
         except ImportError:
             pass
 
     def guess_payload_class(self, p):
+        # type: (bytes) -> Packet_metaclass
         return Padding
 
 
@@ -638,6 +684,7 @@ _tls_server_ecdh_cls = {1: ServerECDHExplicitPrimeParams,
 
 
 def _tls_server_ecdh_cls_guess(m):
+    # type: (bytes) -> Packet_metaclass
     if not m:
         return None
     curve_type = orb(m[0])
@@ -664,6 +711,7 @@ class ServerRSAParams(_GenericTLSSessionInheritance):
 
     @crypto_validator
     def fill_missing(self):
+        # type: () -> None
         k = PrivKeyRSA()
         k.fill_and_store(modulusLen=512)
         self.tls_session.server_tmp_rsa_key = k
@@ -682,18 +730,21 @@ class ServerRSAParams(_GenericTLSSessionInheritance):
 
     @crypto_validator
     def register_pubkey(self):
+        # type: () -> None
         mLen = self.rsamodlen
         m = self.rsamod
         e = self.rsaexp
         self.tls_session.server_tmp_rsa_key = PubKeyRSA((e, m, mLen))
 
     def post_dissection(self, pkt):
+        # type: (ServerRSAParams) -> None
         try:
             self.register_pubkey()
         except ImportError:
             pass
 
     def guess_payload_class(self, p):
+        # type: (bytes) -> Packet_metaclass
         return Padding
 
 
@@ -744,6 +795,7 @@ class ClientDiffieHellmanPublic(_GenericTLSSessionInheritance):
 
     @crypto_validator
     def fill_missing(self):
+        # type: () -> None
         s = self.tls_session
         params = s.client_kx_ffdh_params
         s.client_kx_privkey = params.generate_private_key()
@@ -757,6 +809,7 @@ class ClientDiffieHellmanPublic(_GenericTLSSessionInheritance):
             s.compute_ms_and_derive_keys()
 
     def post_build(self, pkt, pay):
+        # type: (bytes, bytes) -> bytes
         if not self.dh_Yc:
             try:
                 self.fill_missing()
@@ -767,6 +820,7 @@ class ClientDiffieHellmanPublic(_GenericTLSSessionInheritance):
         return pkcs_i2osp(self.dh_Yclen, 2) + self.dh_Yc + pay
 
     def post_dissection(self, m):
+        # type: (ClientDiffieHellmanPublic) -> None
         """
         First we update the client DHParams. Then, we try to update the server
         DHParams generated during Server*DHParams building, with the shared
@@ -802,6 +856,7 @@ class ClientECDiffieHellmanPublic(_GenericTLSSessionInheritance):
 
     @crypto_validator
     def fill_missing(self):
+        # type: () -> None
         s = self.tls_session
         params = s.client_kx_ecdh_params
         s.client_kx_privkey = ec.generate_private_key(params,
@@ -819,6 +874,7 @@ class ClientECDiffieHellmanPublic(_GenericTLSSessionInheritance):
             s.compute_ms_and_derive_keys()
 
     def post_build(self, pkt, pay):
+        # type: (bytes, bytes) -> bytes
         if not self.ecdh_Yc:
             try:
                 self.fill_missing()
@@ -829,6 +885,7 @@ class ClientECDiffieHellmanPublic(_GenericTLSSessionInheritance):
         return pkcs_i2osp(self.ecdh_Yclen, 1) + self.ecdh_Yc + pay
 
     def post_dissection(self, m):
+        # type: (ClientECDiffieHellmanPublic) -> None
         s = self.tls_session
 
         # if there are kx params and keys, we assume the crypto library is ok
@@ -868,6 +925,7 @@ class EncryptedPreMasterSecret(_GenericTLSSessionInheritance):
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        # type: (Optional[bytes], *Any, **Any) -> Packet_metaclass
         if 'tls_session' in kargs:
             s = kargs['tls_session']
             if s.server_tmp_rsa_key is None and s.server_rsa_key is None:
@@ -875,6 +933,7 @@ class EncryptedPreMasterSecret(_GenericTLSSessionInheritance):
         return EncryptedPreMasterSecret
 
     def pre_dissect(self, m):
+        # type: (bytes) -> bytes
         s = self.tls_session
         tbd = m
         if s.tls_version >= 0x0301:
@@ -905,6 +964,7 @@ class EncryptedPreMasterSecret(_GenericTLSSessionInheritance):
         return pms
 
     def post_build(self, pkt, pay):
+        # type: (bytes, bytes) -> bytes
         """
         We encrypt the premaster secret (the 48 bytes) with either the server
         certificate or the temporary RSA key provided in a server key exchange

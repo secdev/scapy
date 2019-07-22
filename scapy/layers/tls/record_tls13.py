@@ -24,6 +24,7 @@ from scapy.layers.tls.record import _TLSMsgListField, TLS
 from scapy.layers.tls.crypto.cipher_aead import AEADTagError
 from scapy.layers.tls.crypto.cipher_stream import Cipher_NULL
 from scapy.layers.tls.crypto.common import CipherError
+from typing import Any
 
 
 ###############################################################################
@@ -61,6 +62,7 @@ class TLSInnerPlaintext(_GenericTLSSessionInheritance):
 
 class _TLSInnerPlaintextField(PacketField):
     def __init__(self, name, default, *args, **kargs):
+        # type: (str, TLSInnerPlaintext, *Any, **Any) -> None
         super(_TLSInnerPlaintextField, self).__init__(name,
                                                       default,
                                                       TLSInnerPlaintext)

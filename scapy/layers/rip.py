@@ -66,6 +66,7 @@ class RIPAuth(Packet):
     ]
 
     def pre_dissect(self, s):
+        # type: (bytes) -> bytes
         if s[2:4] == b"\x00\x01":
             self.md5datalen = len(s) - 4
 

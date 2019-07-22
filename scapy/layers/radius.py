@@ -21,6 +21,11 @@ from scapy.layers.eap import EAP
 from scapy.utils import issubtype
 from scapy.config import conf
 from scapy.error import Scapy_Exception
+from scapy.base_classes import Packet_metaclass
+from typing import Any
+from typing import Optional
+from typing import Union
+from scapy.layers.eap import LEAP
 
 
 # https://www.iana.org/assignments/radius-types/radius-types.xhtml
@@ -237,6 +242,7 @@ class RadiusAttribute(Packet):
 
     @classmethod
     def register_variant(cls):
+        # type: () -> None
         """
         Registers the RADIUS attributes defined in this module.
         """
@@ -248,6 +254,7 @@ class RadiusAttribute(Packet):
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        # type: (Optional[bytes], *Any, **Any) -> Packet_metaclass
         """
         Returns the right RadiusAttribute class for the given data.
         """
@@ -258,6 +265,7 @@ class RadiusAttribute(Packet):
         return cls
 
     def haslayer(self, cls):
+        # type: (Packet_metaclass) -> int
         if cls == "RadiusAttribute":
             if isinstance(self, RadiusAttribute):
                 return True
@@ -271,6 +279,7 @@ class RadiusAttribute(Packet):
                                                      _subclass=True, **flt)
 
     def post_build(self, p, pay):
+        # type: (bytes, bytes) -> bytes
         length = self.len
         if length is None:
             length = len(p)
@@ -278,6 +287,7 @@ class RadiusAttribute(Packet):
         return p
 
     def guess_payload_class(self, _):
+        # type: (bytes) -> Packet_metaclass
         return Padding
 
 
@@ -289,7 +299,14 @@ class _SpecificRadiusAttr(RadiusAttribute):
 
     __slots__ = ["val"]
 
-    def __init__(self, _pkt="", post_transform=None, _internal=0, _underlayer=None, **fields):  # noqa: E501
+    def __init__(self,
+                 _pkt="",  # type: Union[bytes, str]
+                 post_transform=None,  # type: Optional[Any]
+                 _internal=0,  # type: int
+                 _underlayer=None,  # type: Optional[Any]
+                 **fields  # type: Any
+                 ):  # noqa: E501
+        # type: (...) -> None
         super(_SpecificRadiusAttr, self).__init__(
             _pkt,
             post_transform,
@@ -498,7 +515,14 @@ class _RadiusAttrHexStringVal(_SpecificRadiusAttr):
 
     __slots__ = ["val"]
 
-    def __init__(self, _pkt="", post_transform=None, _internal=0, _underlayer=None, **fields):  # noqa: E501
+    def __init__(self,
+                 _pkt="",  # type: Union[bytes, str]
+                 post_transform=None,  # type: Optional[Any]
+                 _internal=0,  # type: int
+                 _underlayer=None,  # type: Optional[Any]
+                 **fields  # type: Any
+                 ):  # noqa: E501
+        # type: (...) -> None
         super(_RadiusAttrHexStringVal, self).__init__(
             _pkt,
             post_transform,
@@ -532,6 +556,7 @@ class RadiusAttr_State(_RadiusAttrHexStringVal):
 
 
 def prepare_packed_data(radius_packet, packed_req_authenticator):
+    # type: (Radius, bytes) -> bytes
     """
     Pack RADIUS data prior computing the authentication MAC
     """
@@ -565,6 +590,7 @@ class RadiusAttr_Message_Authenticator(_RadiusAttrHexStringVal):
     @staticmethod
     def compute_message_authenticator(radius_packet, packed_req_authenticator,
                                       shared_secret):
+        # type: (Radius, bytes, bytes) -> bytes
         """
         Computes the "Message-Authenticator" of a given RADIUS packet.
         (RFC 2869 - Page 33)
@@ -1002,6 +1028,7 @@ class _EAPPacketField(PacketLenField):
     """
 
     def m2i(self, pkt, m):
+        # type: (RadiusAttr_EAP_Message, bytes) -> Union[EAP, LEAP]
         ret = None
         eap_packet_len = struct.unpack("!H", m[2:4])[0]
         if eap_packet_len < 254:
@@ -1133,6 +1160,7 @@ class Radius(Packet):
     ]
 
     def compute_authenticator(self, packed_request_auth, shared_secret):
+        # type: (bytes, bytes) -> bytes
         """
         Computes the authenticator field (RFC 2865 - Section 3)
         """
@@ -1142,6 +1170,7 @@ class Radius(Packet):
         return radius_mac.digest()
 
     def post_build(self, p, pay):
+        # type: (bytes, bytes) -> bytes
         p += pay
         length = self.len
         if length is None:

@@ -23,6 +23,9 @@ from scapy.layers.ppi import PPI_Element, PPI_Hdr
 
 from scapy.modules.six.moves import range
 from scapy.utils import mac2str, str2mac
+from typing import Any
+from typing import Optional
+from typing import Union
 
 ####################
 # Transport Layers #
@@ -78,21 +81,25 @@ class BTLE_RF(Packet):
 
 class BDAddrField(MACField):
     def __init__(self, name, default, resolve=False):
+        # type: (str, Optional[Any], bool) -> None
         MACField.__init__(self, name, default)
         if resolve:
             conf.resolve.add(self)
 
     def i2m(self, pkt, x):
+        # type: (Union[BTLE_ADV_IND, BTLE_SCAN_REQ], Optional[str]) -> bytes
         if x is None:
             return b"\0\0\0\0\0\0"
         return mac2str(':'.join(x.split(':')[::-1]))
 
     def m2i(self, pkt, x):
+        # type: (Union[BTLE_ADV_IND, BTLE_SCAN_REQ], bytes) -> str
         return str2mac(x[::-1])
 
 
 class BTLEChanMapField(XByteField):
     def __init__(self, name, default):
+        # type: (str, int) -> None
         Field.__init__(self, name, default, "<Q")
 
     def addfield(self, pkt, s, val):
@@ -115,7 +122,9 @@ class BTLE(Packet):
 
     @staticmethod
     def compute_crc(pdu, init=0x555555):
+        # type: (bytes, int) -> bytes
         def swapbits(a):
+            # type: (int) -> int
             v = 0
             if a & 0x80 != 0:
                 v |= 0x01
@@ -148,6 +157,7 @@ class BTLE(Packet):
         return struct.pack("<L", state)[:-1]
 
     def post_build(self, p, pay):
+        # type: (bytes, bytes) -> bytes
         # Switch payload and CRC
         crc = p[-3:]
         p = p[:-3] + pay
@@ -155,10 +165,12 @@ class BTLE(Packet):
         return p
 
     def post_dissect(self, s):
+        # type: (bytes) -> bytes
         self.raw_packet_cache = None  # Reset packet to allow post_build
         return s
 
     def pre_dissect(self, s):
+        # type: (bytes) -> bytes
         # move crc
         return s[:4] + s[-3:] + s[4:-3]
 
@@ -179,6 +191,7 @@ class BTLE_ADV(Packet):
     ]
 
     def post_build(self, p, pay):
+        # type: (bytes, bytes) -> bytes
         p += pay
         if self.Length is None:
             if len(pay) > 2:
@@ -203,6 +216,7 @@ class BTLE_DATA(Packet):
     ]
 
     def post_build(self, p, pay):
+        # type: (bytes, bytes) -> bytes
         if self.len is None:
             p = p[:-1] + chb(len(pay))
         return p + pay

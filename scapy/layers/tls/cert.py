@@ -45,6 +45,17 @@ from scapy.layers.x509 import (X509_SubjectPublicKeyInfo,
 from scapy.layers.tls.crypto.pkcs1 import pkcs_os2ip, _get_hash, \
     _EncryptAndVerifyRSA, _DecryptAndSignRSA
 from scapy.compat import raw, bytes_encode
+from typing import Any
+from typing import Optional
+from typing import Tuple
+from typing import Union
+from scapy.layers.x509 import ECDSAPrivateKey
+from scapy.layers.x509 import RSAPublicKey
+from scapy.layers.x509 import X509_Cert
+from scapy.layers.x509 import X509_TBSCertificate
+from scapy.layers.x509 import RSAPrivateKey
+from typing import List
+from scapy.layers.x509 import X509_CRL
 if conf.crypto_valid:
     from cryptography.hazmat.backends import default_backend
     from cryptography.hazmat.primitives import serialization
@@ -66,6 +77,7 @@ _MAX_CRL_SIZE = 10 * 1024 * 1024   # some are that big
 
 @conf.commands.register
 def der2pem(der_string, obj="UNKNOWN"):
+    # type: (bytes, Union[bytes, str]) -> bytes
     """Convert DER octet string to PEM format (with optional header)"""
     # Encode a byte string in PEM format. Header advertizes <obj> type.
     pem_string = ("-----BEGIN %s-----\n" % obj).encode()
@@ -78,6 +90,7 @@ def der2pem(der_string, obj="UNKNOWN"):
 
 @conf.commands.register
 def pem2der(pem_string):
+    # type: (bytes) -> bytes
     """Convert PEM string to DER format"""
     # Encode all lines between the first '-----\n' and the 2nd-to-last '-----'.
     pem_string = pem_string.replace(b"\r", b"")
@@ -92,6 +105,7 @@ def pem2der(pem_string):
 
 
 def split_pem(s):
+    # type: (bytes) -> List[bytes]
     """
     Split PEM objects. Useful to process concatenated certificates.
     """
@@ -109,6 +123,7 @@ def split_pem(s):
 
 class _PKIObj(object):
     def __init__(self, frmt, der, pem):
+        # type: (str, bytes, Union[bytes, str]) -> None
         # Note that changing attributes of the _PKIObj does not update these
         # values (e.g. modifying k.modulus does not change k.der).
         # XXX use __setattr__ for this
@@ -243,6 +258,7 @@ class PubKey(six.with_metaclass(_PubKeyFactory, object)):
     """
 
     def verifyCert(self, cert):
+        # type: (Cert) -> bool
         """ Verifies either a Cert or an X509_Cert. """
         tbsCert = cert.tbsCertificate
         sigAlg = tbsCert.signature
@@ -258,6 +274,7 @@ class PubKeyRSA(PubKey, _EncryptAndVerifyRSA):
     """
     @crypto_validator
     def fill_and_store(self, modulus=None, modulusLen=None, pubExp=None):
+        # type: (int, Optional[Any], int) -> None
         pubExp = pubExp or 65537
         if not modulus:
             real_modulusLen = modulusLen or 2048
@@ -279,6 +296,7 @@ class PubKeyRSA(PubKey, _EncryptAndVerifyRSA):
 
     @crypto_validator
     def import_from_tuple(self, tup):
+        # type: (Tuple[Union[bytes, int], Union[bytes, int], int]) -> None
         # this is rarely used
         e, m, mLen = tup
         if isinstance(m, bytes):
@@ -292,15 +310,25 @@ class PubKeyRSA(PubKey, _EncryptAndVerifyRSA):
         self.der = pem2der(self.pem)
 
     def import_from_asn1pkt(self, pubkey):
+        # type: (RSAPublicKey) -> None
         modulus = pubkey.modulus.val
         pubExp = pubkey.publicExponent.val
         self.fill_and_store(modulus=modulus, pubExp=pubExp)
 
     def encrypt(self, msg, t="pkcs", h="sha256", mgf=None, L=None):
+        # type: (bytes, str, str, Optional[Any], Optional[Any]) -> bytes
         # no ECDSA encryption support, hence no ECDSA specific keywords here
         return _EncryptAndVerifyRSA.encrypt(self, msg, t=t, h=h, mgf=mgf, L=L)
 
-    def verify(self, msg, sig, t="pkcs", h="sha256", mgf=None, L=None):
+    def verify(self,
+               msg,  # type: Union[bytes, str]
+               sig,  # type: bytes
+               t="pkcs",  # type: str
+               h="sha256",  # type: str
+               mgf=None,  # type: Optional[Any]
+               L=None,  # type: Optional[Any]
+               ):
+        # type: (...) -> bool
         return _EncryptAndVerifyRSA.verify(
             self, msg, sig, t=t, h=h, mgf=mgf, L=L)
 
@@ -318,6 +346,7 @@ class PubKeyECDSA(PubKey):
 
     @crypto_validator
     def import_from_der(self, pubkey):
+        # type: (bytes) -> None
         # No lib support for explicit curves nor compressed points.
         self.pubkey = serialization.load_der_public_key(pubkey,
                                                         backend=default_backend())  # noqa: E501
@@ -411,6 +440,7 @@ class _PrivKeyFactory(_PKIObjMaker):
 class _Raw_ASN1_BIT_STRING(ASN1_BIT_STRING):
     """A ASN1_BIT_STRING that ignores BER encoding"""
     def __bytes__(self):
+        # type: () -> bytes
         return self.val_readable
     __str__ = __bytes__
 
@@ -422,6 +452,7 @@ class PrivKey(six.with_metaclass(_PrivKeyFactory, object)):
     """
 
     def signTBSCert(self, tbsCert, h="sha256"):
+        # type: (X509_TBSCertificate, str) -> X509_Cert
         """
         Note that this will always copy the signature field from the
         tbsCertificate into the signatureAlgorithm field of the result,
@@ -445,10 +476,12 @@ class PrivKey(six.with_metaclass(_PrivKeyFactory, object)):
         return c
 
     def resignCert(self, cert):
+        # type: (Cert) -> X509_Cert
         """ Rewrite the signature of either a Cert or an X509_Cert. """
         return self.signTBSCert(cert.tbsCertificate)
 
     def verifyCert(self, cert):
+        # type: (Cert) -> bool
         """ Verifies either a Cert or an X509_Cert. """
         tbsCert = cert.tbsCertificate
         sigAlg = tbsCert.signature
@@ -463,9 +496,18 @@ class PrivKeyRSA(PrivKey, _EncryptAndVerifyRSA, _DecryptAndSignRSA):
     Use the 'key' attribute to access original object.
     """
     @crypto_validator
-    def fill_and_store(self, modulus=None, modulusLen=None, pubExp=None,
-                       prime1=None, prime2=None, coefficient=None,
-                       exponent1=None, exponent2=None, privExp=None):
+    def fill_and_store(self,
+                       modulus=None,  # type: Optional[int]
+                       modulusLen=None,  # type: Optional[int]
+                       pubExp=None,  # type: Optional[int]
+                       prime1=None,  # type: Optional[int]
+                       prime2=None,  # type: Optional[int]
+                       coefficient=None,  # type: Optional[int]
+                       exponent1=None,  # type: Optional[int]
+                       exponent2=None,  # type: Optional[int]
+                       privExp=None,  # type: Optional[int]
+                       ):
+        # type: (...) -> None
         pubExp = pubExp or 65537
         if None in [modulus, prime1, prime2, coefficient, privExp,
                     exponent1, exponent2]:
@@ -496,6 +538,7 @@ class PrivKeyRSA(PrivKey, _EncryptAndVerifyRSA, _DecryptAndSignRSA):
         self._pubExp = pubNum.e
 
     def import_from_asn1pkt(self, privkey):
+        # type: (RSAPrivateKey) -> None
         modulus = privkey.modulus.val
         pubExp = privkey.publicExponent.val
         privExp = privkey.privateExponent.val
@@ -509,12 +552,21 @@ class PrivKeyRSA(PrivKey, _EncryptAndVerifyRSA, _DecryptAndSignRSA):
                             exponent1=exponent1, exponent2=exponent2,
                             coefficient=coefficient)
 
-    def verify(self, msg, sig, t="pkcs", h="sha256", mgf=None, L=None):
+    def verify(self,
+               msg,  # type: bytes
+               sig,  # type: bytes
+               t="pkcs",  # type: str
+               h="sha256",  # type: str
+               mgf=None,  # type: Optional[Any]
+               L=None,  # type: Optional[Any]
+               ):
+        # type: (...) -> bool
         # Let's copy this from PubKeyRSA instead of adding another baseclass :)
         return _EncryptAndVerifyRSA.verify(
             self, msg, sig, t=t, h=h, mgf=mgf, L=L)
 
     def sign(self, data, t="pkcs", h="sha256", mgf=None, L=None):
+        # type: (bytes, str, str, Optional[Any], Optional[Any]) -> bytes
         return _DecryptAndSignRSA.sign(self, data, t=t, h=h, mgf=mgf, L=L)
 
 
@@ -531,6 +583,7 @@ class PrivKeyECDSA(PrivKey):
 
     @crypto_validator
     def import_from_asn1pkt(self, privkey):
+        # type: (ECDSAPrivateKey) -> None
         self.key = serialization.load_der_private_key(raw(privkey), None,
                                                       backend=default_backend())  # noqa: E501
         self.pubkey = self.key.public_key()
@@ -587,6 +640,7 @@ class Cert(six.with_metaclass(_CertMaker, object)):
     """
 
     def import_from_asn1pkt(self, cert):
+        # type: (X509_Cert) -> None
         error_msg = "Unable to import certificate"
 
         self.x509Cert = cert
@@ -649,6 +703,7 @@ class Cert(six.with_metaclass(_CertMaker, object)):
         self.signatureLen = len(self.signatureValue)
 
     def isIssuerCert(self, other):
+        # type: (Cert) -> bool
         """
         True if 'other' issued 'self', i.e.:
           - self.issuer == other.subject
@@ -659,6 +714,7 @@ class Cert(six.with_metaclass(_CertMaker, object)):
         return other.pubKey.verifyCert(self)
 
     def isSelfSigned(self):
+        # type: () -> bool
         """
         Return True if the certificate is self-signed:
           - issuer and subject are the same
@@ -669,13 +725,23 @@ class Cert(six.with_metaclass(_CertMaker, object)):
         return False
 
     def encrypt(self, msg, t="pkcs", h="sha256", mgf=None, L=None):
+        # type: (bytes, str, str, Optional[Any], Optional[Any]) -> bytes
         # no ECDSA *encryption* support, hence only RSA specific keywords here
         return self.pubKey.encrypt(msg, t=t, h=h, mgf=mgf, L=L)
 
-    def verify(self, msg, sig, t="pkcs", h="sha256", mgf=None, L=None):
+    def verify(self,
+               msg,  # type: bytes
+               sig,  # type: bytes
+               t="pkcs",  # type: str
+               h="sha256",  # type: str
+               mgf=None,  # type: Optional[Any]
+               L=None,  # type: Optional[Any]
+               ):
+        # type: (...) -> bool
         return self.pubKey.verify(msg, sig, t=t, h=h, mgf=mgf, L=L)
 
     def remainingDays(self, now=None):
+        # type: (Optional[str]) -> float
         """
         Based on the value of notAfter field, returns the number of
         days the certificate will still be valid. The date used for the
@@ -713,6 +779,7 @@ class Cert(six.with_metaclass(_CertMaker, object)):
         return diff
 
     def isRevoked(self, crl_list):
+        # type: (List[CRL]) -> bool
         """
         Given a list of trusted CRL (their signature has already been
         verified with trusted anchors), this function returns True if
@@ -738,6 +805,7 @@ class Cert(six.with_metaclass(_CertMaker, object)):
         return False
 
     def export(self, filename, fmt="DER"):
+        # type: (str, str) -> None
         """
         Export certificate in 'fmt' format (DER or PEM) to file 'filename'
         """
@@ -749,12 +817,14 @@ class Cert(six.with_metaclass(_CertMaker, object)):
         f.close()
 
     def show(self):
+        # type: () -> None
         print("Serial: %s" % self.serial)
         print("Issuer: " + self.issuer_str)
         print("Subject: " + self.subject_str)
         print("Validity: %s to %s" % (self.notBefore_str, self.notAfter_str))
 
     def __repr__(self):
+        # type: () -> str
         return "[X.509 Cert. Subject:%s, Issuer:%s]" % (self.subject_str, self.issuer_str)  # noqa: E501
 
 
@@ -785,6 +855,7 @@ class CRL(six.with_metaclass(_CRLMaker, object)):
     """
 
     def import_from_asn1pkt(self, crl):
+        # type: (X509_CRL) -> None
         error_msg = "Unable to import CRL"
 
         self.x509CRL = crl
@@ -857,6 +928,7 @@ class CRL(six.with_metaclass(_CRLMaker, object)):
         return any(self.isIssuerCert(a) for a in anchors)
 
     def show(self):
+        # type: () -> None
         print("Version: %d" % self.version)
         print("sigAlg: " + self.sigAlg)
         print("Issuer: " + self.issuer_str)
@@ -874,6 +946,7 @@ class Chain(list):
     """
 
     def __init__(self, certList, cert0=None):
+        # type: (List[Cert], Optional[Cert]) -> None
         """
         Construct a chain of certificates starting with a self-signed
         certificate (or any certificate submitted by the user)
@@ -910,6 +983,7 @@ class Chain(list):
                     break
 
     def verifyChain(self, anchors, untrusted=None):
+        # type: (List[Cert], Optional[List[Cert]]) -> Optional[Chain]
         """
         Perform verification of certificate chains for that certificate.
         A list of anchors is required. The certificates in the optional
@@ -932,6 +1006,7 @@ class Chain(list):
         return None
 
     def verifyChainFromCAFile(self, cafile, untrusted_file=None):
+        # type: (str, str) -> Chain
         """
         Does the same job as .verifyChain() but using the list of anchors
         from the cafile. As for .verifyChain(), a list of untrusted
@@ -959,6 +1034,7 @@ class Chain(list):
         return self.verifyChain(anchors, untrusted)
 
     def verifyChainFromCAPath(self, capath, untrusted_file=None):
+        # type: (str, str) -> Chain
         """
         Does the same job as .verifyChainFromCAFile() but using the list
         of anchors in capath directory. The directory should (only) contain
@@ -986,6 +1062,7 @@ class Chain(list):
         return self.verifyChain(anchors, untrusted)
 
     def __repr__(self):
+        # type: () -> str
         llen = len(self) - 1
         if llen < 0:
             return ""

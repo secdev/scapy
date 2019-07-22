@@ -32,6 +32,7 @@ class _GenericHashMetaclass(type):
 
 class _GenericHash(six.with_metaclass(_GenericHashMetaclass, object)):
     def digest(self, tbd):
+        # type: (bytes) -> bytes
         return self.hash_cls(tbd).digest()
 
 
@@ -39,6 +40,7 @@ class Hash_NULL(_GenericHash):
     hash_len = 0
 
     def digest(self, tbd):
+        # type: (bytes) -> bytes
         return b""
 
 

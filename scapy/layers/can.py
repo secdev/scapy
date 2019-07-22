@@ -24,6 +24,13 @@ from scapy.packet import Packet, bind_layers
 from scapy.layers.l2 import CookedLinux
 from scapy.error import Scapy_Exception
 from scapy.plist import PacketList
+from _io import BytesIO
+from typing import Tuple
+from typing import Optional
+from typing import Any
+from mypy_extensions import NoReturn
+from typing import List
+from typing import Union
 
 __all__ = ["CAN", "SignalPacket", "SignalField", "LESignedSignalField",
            "LEUnsignedSignalField", "LEFloatSignalField", "BEFloatSignalField",
@@ -52,6 +59,7 @@ class CAN(Packet):
 
     @staticmethod
     def inv_endianness(pkt):
+        # type: (bytes) -> bytes
         """ Invert the order of the first four bytes of a CAN packet
 
         This method is meant to be used specifically to convert a CAN packet
@@ -65,6 +73,7 @@ class CAN(Packet):
                            *struct.unpack('>I{}s'.format(len_partial), pkt))
 
     def pre_dissect(self, s):
+        # type: (bytes) -> bytes
         """ Implements the swap-bytes functionality when dissecting """
         if conf.contribs['CAN']['swap-bytes']:
             return CAN.inv_endianness(s)
@@ -75,6 +84,7 @@ class CAN(Packet):
         return s
 
     def post_build(self, pkt, pay):
+        # type: (bytes, bytes) -> bytes
         """ Implements the swap-bytes functionality when building
 
         this is based on a copy of the Packet.self_build default method.
@@ -86,6 +96,7 @@ class CAN(Packet):
         return pkt + pay
 
     def extract_padding(self, p):
+        # type: (bytes) -> Tuple[bytes, bytes]
         return b'', p
 
 
@@ -96,8 +107,18 @@ bind_layers(CookedLinux, CAN, proto=12)
 class SignalField(ScalingField):
     __slots__ = ["start", "size"]
 
-    def __init__(self, name, default, start, size, scaling=1, unit="",
-                 offset=0, ndigits=3, fmt="B"):
+    def __init__(self,
+                 name,  # type: str
+                 default,  # type: int
+                 start,  # type: int
+                 size,  # type: int
+                 scaling=1,  # type: int
+                 unit="",  # type: str
+                 offset=0,  # type: int
+                 ndigits=3,  # type: int
+                 fmt="B",  # type: str
+                 ):
+        # type: (...) -> None
         ScalingField.__init__(self, name, default, scaling, unit, offset,
                               ndigits, fmt)
         self.start = start
@@ -117,6 +138,7 @@ class SignalField(ScalingField):
 
     @staticmethod
     def _msb_lookup(start):
+        # type: (int) -> int
         return SignalField._lookup_table.index(start)
 
     @staticmethod
@@ -216,6 +238,7 @@ class SignalField(ScalingField):
         return s, self.m2i(pkt, fld_val)
 
     def randval(self):
+        # type: () -> RandBinFloat
         if self._is_float_number():
             return RandBinFloat(0, 0)
 
@@ -243,47 +266,92 @@ class LEUnsignedSignalField(SignalField):
 
 
 class LESignedSignalField(SignalField):
-    def __init__(self, name, default, start, size, scaling=1, unit="",
-                 offset=0, ndigits=3):
+    def __init__(self,
+                 name,  # type: str
+                 default,  # type: int
+                 start,  # type: int
+                 size,  # type: int
+                 scaling=1,  # type: float
+                 unit="",  # type: str
+                 offset=0,  # type: int
+                 ndigits=3,  # type: int
+                 ):
+        # type: (...) -> None
         SignalField.__init__(self, name, default, start, size,
                              scaling, unit, offset, ndigits, "<b")
 
 
 class BEUnsignedSignalField(SignalField):
-    def __init__(self, name, default, start, size, scaling=1, unit="",
-                 offset=0, ndigits=3):
+    def __init__(self,
+                 name,  # type: str
+                 default,  # type: int
+                 start,  # type: int
+                 size,  # type: int
+                 scaling=1,  # type: float
+                 unit="",  # type: str
+                 offset=0,  # type: float
+                 ndigits=3,  # type: int
+                 ):
+        # type: (...) -> None
         SignalField.__init__(self, name, default, start, size,
                              scaling, unit, offset, ndigits, ">B")
 
 
 class BESignedSignalField(SignalField):
-    def __init__(self, name, default, start, size, scaling=1, unit="",
-                 offset=0, ndigits=3):
+    def __init__(self,
+                 name,  # type: str
+                 default,  # type: int
+                 start,  # type: int
+                 size,  # type: int
+                 scaling=1,  # type: float
+                 unit="",  # type: str
+                 offset=0,  # type: int
+                 ndigits=3,  # type: int
+                 ):
+        # type: (...) -> None
         SignalField.__init__(self, name, default, start, size,
                              scaling, unit, offset, ndigits, ">b")
 
 
 class LEFloatSignalField(SignalField):
-    def __init__(self, name, default, start, scaling=1, unit="",
-                 offset=0, ndigits=3):
+    def __init__(self,
+                 name,  # type: str
+                 default,  # type: int
+                 start,  # type: int
+                 scaling=1,  # type: int
+                 unit="",  # type: str
+                 offset=0,  # type: int
+                 ndigits=3,  # type: int
+                 ):
+        # type: (...) -> None
         SignalField.__init__(self, name, default, start, 32,
                              scaling, unit, offset, ndigits, "<f")
 
 
 class BEFloatSignalField(SignalField):
-    def __init__(self, name, default, start, scaling=1, unit="",
-                 offset=0, ndigits=3):
+    def __init__(self,
+                 name,  # type: str
+                 default,  # type: int
+                 start,  # type: int
+                 scaling=1,  # type: int
+                 unit="",  # type: str
+                 offset=0,  # type: int
+                 ndigits=3,  # type: int
+                 ):
+        # type: (...) -> None
         SignalField.__init__(self, name, default, start, 32,
                              scaling, unit, offset, ndigits, ">f")
 
 
 class SignalPacket(Packet):
     def pre_dissect(self, s):
+        # type: (bytes) -> bytes
         if not all(isinstance(f, SignalField) for f in self.fields_desc):
             raise Scapy_Exception("Use only SignalFields in a SignalPacket")
         return s
 
     def post_dissect(self, s):
+        # type: (bytes) -> bytes
         """ SignalFields can be dissected on packets with unordered fields.
         The order of SignalFields is defined from the start parameter.
         After a build, the consumed bytes of the length of all SignalFields
@@ -297,6 +365,7 @@ class SignalPacket(Packet):
 
 
 def rdcandump(filename, count=-1, interface=None):
+    # type: (BytesIO, int, Union[List[str], None, str]) -> NoReturn
     """Read a candump log file and return a packet list
 
     filename: file to read
@@ -314,6 +383,7 @@ class CandumpReader:
     nonblocking_socket = True
 
     def __init__(self, filename, interface=None):
+        # type: (BytesIO, Optional[str]) -> None
         self.filename, self.f = self.open(filename)
         self.ifilter = None
         if interface is not None:
@@ -323,10 +393,12 @@ class CandumpReader:
                 self.ifilter = interface
 
     def __iter__(self):
+        # type: () -> CandumpReader
         return self
 
     @staticmethod
     def open(filename):
+        # type: (BytesIO) -> Tuple[str, BytesIO]
         """Open (if necessary) filename."""
         if isinstance(filename, six.string_types):
             try:
@@ -339,6 +411,7 @@ class CandumpReader:
         return filename, fdesc
 
     def next(self):
+        # type: () -> CAN
         """implement the iterator protocol on a set of packets
         """
         try:
@@ -352,6 +425,7 @@ class CandumpReader:
     __next__ = next
 
     def read_packet(self, size=MTU):
+        # type: (int) -> Optional[CAN]
         """return a single packet read from the file or None if filters apply
 
         raise EOFError when no more packets are available
@@ -405,6 +479,7 @@ class CandumpReader:
             callback(p)
 
     def read_all(self, count=-1):
+        # type: (int) -> PacketList
         """return a list of all packets in the candump file
         """
         res = []
@@ -428,12 +503,15 @@ class CandumpReader:
         return self.f.fileno()
 
     def close(self):
+        # type: () -> Optional[Any]
         return self.f.close()
 
     def __enter__(self):
+        # type: () -> CandumpReader
         return self
 
     def __exit__(self, exc_type, exc_value, tracback):
+        # type: (Optional[Any], Optional[Any], Optional[Any]) -> None
         self.close()
 
     # emulate SuperSocket

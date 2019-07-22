@@ -40,6 +40,15 @@ True
 """
 
 from __future__ import absolute_import
+from cryptography.hazmat.primitives.ciphers.base import Cipher
+from typing import Optional
+from cryptography.hazmat.primitives.cmac import CMAC
+from cryptography.hazmat.primitives.hmac import HMAC
+from typing import Union
+from typing import Any
+from scapy.base_classes import Packet_metaclass
+from scapy.layers.inet import TCP
+from typing import Tuple
 try:
     from math import gcd
 except ImportError:
@@ -162,6 +171,7 @@ class _ESPPlain(Packet):
     ]
 
     def data_for_encryption(self):
+        # type: () -> bytes
         return raw(self.data) + self.padding + struct.pack("BB", self.padlen, self.nh)  # noqa: E501
 
 
@@ -184,6 +194,7 @@ else:
 
 
 def _lcm(a, b):
+    # type: (int, int) -> int
     """
     Least Common Multiple between 2 integers.
     """
@@ -270,6 +281,7 @@ class CryptAlgo(object):
                             (len(key), self.key_size))
 
     def generate_iv(self):
+        # type: () -> bytes
         """
         Generate a random initialization vector.
         """
@@ -279,6 +291,7 @@ class CryptAlgo(object):
 
     @crypto_validator
     def new_cipher(self, key, mode_iv, digest=None):
+        # type: (bytes, bytes, Optional[bytes]) -> Cipher
         """
         @param key:     the secret key, a byte string
         @param mode_iv: the initialization vector or nonce, a byte string.
@@ -304,6 +317,7 @@ class CryptAlgo(object):
             )
 
     def pad(self, esp):
+        # type: (_ESPPlain) -> _ESPPlain
         """
         Add the correct amount of padding so that the data to encrypt is
         exactly a multiple of the algorithm's block size.
@@ -339,6 +353,7 @@ class CryptAlgo(object):
         return esp
 
     def encrypt(self, sa, esp, key):
+        # type: (SecurityAssociation, _ESPPlain, Optional[bytes]) -> ESP
         """
         Encrypt an ESP packet
 
@@ -366,6 +381,7 @@ class CryptAlgo(object):
         return ESP(spi=esp.spi, seq=esp.seq, data=esp.iv + data)
 
     def decrypt(self, sa, esp, key, icv_size=None):
+        # type: (SecurityAssociation, ESP, Optional[bytes], int) -> _ESPPlain
         """
         Decrypt an ESP packet
 
@@ -497,7 +513,14 @@ class AuthAlgo(object):
     IPsec integrity algorithm
     """
 
-    def __init__(self, name, mac, digestmod, icv_size, key_size=None):
+    def __init__(self,
+                 name,  # type: str
+                 mac,  # type: Optional[type]
+                 digestmod,  # type: Optional[type]
+                 icv_size,  # type: int
+                 key_size=None,  # type: Optional[Any]
+                 ):
+        # type: (...) -> None
         """
         @param name: the name of this integrity algorithm
         @param mac: a Message Authentication Code module
@@ -525,6 +548,7 @@ class AuthAlgo(object):
 
     @crypto_validator
     def new_mac(self, key):
+        # type: (bytes) -> Union[CMAC, HMAC]
         """
         @param key:    a byte string
         @return:       an initialized mac object for this algo
@@ -535,6 +559,7 @@ class AuthAlgo(object):
             return self.mac(key, self.digestmod(), default_backend())
 
     def sign(self, pkt, key):
+        # type: (Union[IP, ESP], Optional[bytes]) -> Union[IP, ESP]
         """
         Sign an IPsec (ESP or AH) packet with this algo.
 
@@ -560,6 +585,7 @@ class AuthAlgo(object):
         return pkt
 
     def verify(self, pkt, key):
+        # type: (Union[IPv6, ESP], Optional[bytes]) -> None
         """
         Check that the integrity check value (icv) of a packet is valid.
 
@@ -640,6 +666,7 @@ if CMAC and algorithms:
 
 
 def split_for_transport(orig_pkt, transport_proto):
+    # type: (IP, int) -> Tuple[IP, int, TCP]
     """
     Split an IP(v6) packet in the correct location to insert an ESP or AH
     header.
@@ -702,6 +729,7 @@ IMMUTABLE_IPV4_OPTIONS = (
 
 
 def zero_mutable_fields(pkt, sending=False):
+    # type: (Union[IP, IPv6], bool) -> Union[IP, IPv6]
     """
     When using AH, all "mutable" fields must be "zeroed" before calculating
     the ICV. See RFC 4302, Section 3.3.3.1. Handling Mutable Fields.
@@ -780,8 +808,18 @@ class SecurityAssociation(object):
 
     SUPPORTED_PROTOS = (IP, IPv6)
 
-    def __init__(self, proto, spi, seq_num=1, crypt_algo=None, crypt_key=None,
-                 auth_algo=None, auth_key=None, tunnel_header=None, nat_t_header=None):  # noqa: E501
+    def __init__(self,
+                 proto,  # type: Packet_metaclass
+                 spi,  # type: int
+                 seq_num=1,  # type: int
+                 crypt_algo=None,  # type: Optional[str]
+                 crypt_key=None,  # type: Optional[bytes]
+                 auth_algo=None,  # type: str
+                 auth_key=None,  # type: Optional[bytes]
+                 tunnel_header=None,  # type: Optional[Any]
+                 nat_t_header=None,  # type: Optional[Any]
+                 ):  # noqa: E501
+        # type: (...) -> None
         """
         @param proto: the IPsec proto to use (ESP or AH)
         @param spi: the Security Parameters Index of this SA
@@ -847,11 +885,17 @@ class SecurityAssociation(object):
         self.nat_t_header = nat_t_header
 
     def check_spi(self, pkt):
+        # type: (Union[IP, IPv6]) -> None
         if pkt.spi != self.spi:
             raise TypeError('packet spi=0x%x does not match the SA spi=0x%x' %
                             (pkt.spi, self.spi))
 
-    def _encrypt_esp(self, pkt, seq_num=None, iv=None):
+    def _encrypt_esp(self,
+                     pkt,  # type: Union[IP, IPv6]
+                     seq_num=None,  # type: Optional[Any]
+                     iv=None,  # type: Optional[Any]
+                     ):
+        # type: (...) -> Union[IP, IPv6]
 
         if iv is None:
             iv = self.crypt_algo.generate_iv()
@@ -907,6 +951,7 @@ class SecurityAssociation(object):
         return ip_header / esp
 
     def _encrypt_ah(self, pkt, seq_num=None):
+        # type: (IP, Optional[Any]) -> IP
 
         ah = AH(spi=self.spi, seq=seq_num or self.seq_num,
                 icv=b"\x00" * self.auth_algo.icv_size)
@@ -957,6 +1002,7 @@ class SecurityAssociation(object):
         return signed_pkt
 
     def encrypt(self, pkt, seq_num=None, iv=None):
+        # type: (IP, Optional[Any], Optional[Any]) -> IP
         """
         Encrypt (and encapsulate) an IP(v6) packet with ESP or AH according
         to this SecurityAssociation.
@@ -978,6 +1024,7 @@ class SecurityAssociation(object):
             return self._encrypt_ah(pkt, seq_num=seq_num)
 
     def _decrypt_esp(self, pkt, verify=True):
+        # type: (IP, bool) -> IP
 
         encrypted = pkt[ESP]
 
@@ -1021,6 +1068,7 @@ class SecurityAssociation(object):
             return ip_header / cls(esp.data)
 
     def _decrypt_ah(self, pkt, verify=True):
+        # type: (IP, bool) -> IP
 
         if verify:
             self.check_spi(pkt)
@@ -1051,6 +1099,7 @@ class SecurityAssociation(object):
             return ip_header / payload
 
     def decrypt(self, pkt, verify=True):
+        # type: (Union[IP, IPv6], bool) -> IP
         """
         Decrypt (and decapsulate) an IP(v6) packet containing ESP or AH.
 

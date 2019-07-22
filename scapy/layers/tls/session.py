@@ -19,6 +19,11 @@ from scapy.utils import repr_hex, strxor
 from scapy.layers.tls.crypto.compression import Comp_NULL
 from scapy.layers.tls.crypto.hkdf import TLS13_HKDF
 from scapy.layers.tls.crypto.prf import PRF
+from scapy.layers.tls.crypto.compression import _GenericCompMetaclass
+from scapy.layers.tls.crypto.suites import _GenericCipherSuiteMetaclass
+from typing import Optional
+from typing import Any
+from typing import Union
 
 # Note the following import may happen inside connState.__init__()
 # in order to avoid to avoid cyclical dependencies.
@@ -64,12 +69,14 @@ class connState(object):
     """
 
     def __init__(self,
-                 connection_end="server",
-                 read_or_write="read",
-                 seq_num=0,
-                 compression_alg=Comp_NULL,
-                 ciphersuite=None,
-                 tls_version=0x0303):
+                 connection_end="server",  # type: str
+                 read_or_write="read",  # type: str
+                 seq_num=0,  # type: int
+                 compression_alg=Comp_NULL,  # type: _GenericCompMetaclass
+                 ciphersuite=None,  # type: Optional[_GenericCipherSuiteMetaclass]
+                 tls_version=0x0303,  # type: int
+                 ):
+        # type: (...) -> None
 
         self.tls_version = tls_version
 
@@ -112,6 +119,7 @@ class connState(object):
             self.prf = PRF(ciphersuite.hash_alg.name, tls_version)
 
     def debug_repr(self, name, secret):
+        # type: (str, bytes) -> None
         if conf.debug_tls and secret:
             log_runtime.debug("TLS: %s %s %s: %s",
                               self.connection_end,
@@ -123,6 +131,7 @@ class connState(object):
                     client_random=b"",
                     server_random=b"",
                     master_secret=b""):
+        # type: (bytes, bytes, bytes) -> None
         # XXX Can this be called over a non-usable suite? What happens then?
 
         cs = self.ciphersuite
@@ -217,6 +226,7 @@ class connState(object):
         self.cipher = cipher
 
     def sslv2_derive_keys(self, key_material):
+        # type: (bytes) -> None
         """
         There is actually only one key, the CLIENT-READ-KEY or -WRITE-KEY.
 
@@ -248,6 +258,7 @@ class connState(object):
         self.cipher = cipher_alg(write_key, write_iv)
 
     def snapshot(self):
+        # type: () -> connState
         """
         This is used mostly as a way to keep the cipher state and the seq_num.
         """
@@ -274,11 +285,13 @@ class connState(object):
 
 class readConnState(connState):
     def __init__(self, **kargs):
+        # type: (**Any) -> None
         connState.__init__(self, read_or_write="read", **kargs)
 
 
 class writeConnState(connState):
     def __init__(self, **kargs):
+        # type: (**Any) -> None
         connState.__init__(self, read_or_write="write", **kargs)
 
 
@@ -299,10 +312,16 @@ class tlsSession(object):
     """
 
     def __init__(self,
-                 ipsrc=None, ipdst=None,
-                 sport=None, dport=None, sid=None,
-                 connection_end="server",
-                 wcs=None, rcs=None):
+                 ipsrc=None,  # type: Optional[Any]
+                 ipdst=None,  # type: Optional[Any]
+                 sport=None,  # type: Optional[Any]
+                 dport=None,  # type: Optional[Any]
+                 sid=None,  # type: Optional[Any]
+                 connection_end="server",  # type: str
+                 wcs=None,  # type: Optional[Any]
+                 rcs=None,  # type: Optional[Any]
+                 ):
+        # type: (...) -> None
 
         # Use this switch to prevent additions to the 'handshake_messages'.
         self.frozen = False
@@ -447,6 +466,7 @@ class tlsSession(object):
         # self.exchanged_pkts = []
 
     def __setattr__(self, name, val):
+        # type: (str, Any) -> None
         if name == "connection_end":
             if hasattr(self, "rcs") and self.rcs:
                 self.rcs.connection_end = val
@@ -509,6 +529,7 @@ class tlsSession(object):
     # Secrets management for SSLv3 to TLS 1.2
 
     def compute_master_secret(self):
+        # type: () -> None
         if self.pre_master_secret is None:
             warning("Missing pre_master_secret while computing master_secret!")
         if self.client_random is None:
@@ -524,6 +545,7 @@ class tlsSession(object):
             log_runtime.debug("TLS: master secret: %s", repr_hex(ms))
 
     def compute_ms_and_derive_keys(self):
+        # type: () -> None
         self.compute_master_secret()
         self.prcs.derive_keys(client_random=self.client_random,
                               server_random=self.server_random,
@@ -535,6 +557,7 @@ class tlsSession(object):
     # Secrets management for SSLv2
 
     def compute_sslv2_key_material(self):
+        # type: () -> None
         if self.master_secret is None:
             warning("Missing master_secret while computing key_material!")
         if self.sslv2_challenge is None:
@@ -552,6 +575,7 @@ class tlsSession(object):
             log_runtime.debug("TLS: key material: %s", repr_hex(km))
 
     def compute_sslv2_km_and_derive_keys(self):
+        # type: () -> None
         self.compute_sslv2_key_material()
         self.prcs.sslv2_derive_keys(key_material=self.sslv2_key_material)
         self.pwcs.sslv2_derive_keys(key_material=self.sslv2_key_material)
@@ -728,6 +752,7 @@ class tlsSession(object):
     # Tests for record building/parsing
 
     def consider_read_padding(self):
+        # type: () -> bool
         # Return True if padding is needed. Used by TLSPadField.
         return (self.rcs.cipher.type == "block" and
                 not (False in six.itervalues(self.rcs.cipher.ready)))
@@ -797,8 +822,15 @@ class _GenericTLSSessionInheritance(Packet):
     name = "Dummy Generic TLS Packet"
     fields_desc = []
 
-    def __init__(self, _pkt="", post_transform=None, _internal=0,
-                 _underlayer=None, tls_session=None, **fields):
+    def __init__(self,
+                 _pkt="",  # type: Union[bytes, str]
+                 post_transform=None,  # type: Optional[Any]
+                 _internal=0,  # type: int
+                 _underlayer=None,  # type: Optional[Any]
+                 tls_session=None,  # type: Optional[tlsSession]
+                 **fields  # type: Any
+                 ):
+        # type: (...) -> None
         try:
             setme = self.tls_session is None
         except Exception:
@@ -818,6 +850,7 @@ class _GenericTLSSessionInheritance(Packet):
                         **fields)
 
     def __getattr__(self, attr):
+        # type: (str) -> Any
         """
         The tls_session should be found only through the normal mechanism.
         """
@@ -834,28 +867,34 @@ class _GenericTLSSessionInheritance(Packet):
         pass
 
     def post_build_tls_session_update(self, msg_str):
+        # type: (bytes) -> None
         self.tls_session_update(msg_str)
 
     def post_dissection_tls_session_update(self, msg_str):
+        # type: (bytes) -> None
         self.tls_session_update(msg_str)
 
     def copy(self):
+        # type: () -> Any
         pkt = Packet.copy(self)
         pkt.tls_session = self.tls_session
         return pkt
 
     def clone_with(self, payload=None, **kargs):
+        # type: (Optional[Any], **Any) -> Any
         pkt = Packet.clone_with(self, payload=payload, **kargs)
         pkt.tls_session = self.tls_session
         return pkt
 
     def raw_stateful(self):
+        # type: () -> bytes
         return super(_GenericTLSSessionInheritance, self).__bytes__()
 
     def str_stateful(self):
         return self.raw_stateful()
 
     def __bytes__(self):
+        # type: () -> bytes
         """
         The __bytes__ call has to leave the connection states unchanged.
         We also have to delete raw_packet_cache in order to access post_build.
@@ -923,6 +962,7 @@ class _GenericTLSSessionInheritance(Packet):
 
 class _tls_sessions(object):
     def __init__(self):
+        # type: () -> None
         self.sessions = {}
 
     def add(self, session):
@@ -959,6 +999,7 @@ class _tls_sessions(object):
         return None
 
     def __repr__(self):
+        # type: () -> str
         res = [("First endpoint", "Second endpoint", "Session ID")]
         for l in six.itervalues(self.sessions):
             for s in l:

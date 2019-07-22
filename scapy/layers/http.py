@@ -47,6 +47,13 @@ from scapy.utils import get_temp_file, ContextManagerSubprocess
 from scapy.layers.inet import TCP, TCP_client
 
 from scapy.modules import six
+from scapy.base_classes import Packet_metaclass
+from typing import Any
+from typing import Optional
+from typing import Dict
+from typing import List
+from typing import Union
+from typing import Tuple
 
 if "http" not in conf.contribs:
     conf.contribs["http"] = {}
@@ -180,6 +187,7 @@ COMMON_UNSTANDARD_RESPONSE_HEADERS = [
 
 
 def _strip_header_name(name):
+    # type: (Union[bytes, str]) -> str
     """Takes a header key (i.e., "Host" in "Host: www.google.com",
     and returns a stripped representation of it
     """
@@ -193,6 +201,7 @@ def _header_line(name, val):
 
 
 def _parse_headers(s):
+    # type: (bytes) -> Dict[str, Tuple[bytes, bytes]]
     headers = s.split(b"\r\n")
     headers_found = {}
     for header_line in headers:
@@ -206,6 +215,7 @@ def _parse_headers(s):
 
 
 def _parse_headers_and_body(s):
+    # type: (bytes) -> Tuple[bytes, Dict[str, Tuple[bytes, bytes]], bytes]
     ''' Takes a HTTP packet, and returns a tuple containing:
       _ the first line (e.g., "GET ...")
       _ the headers in a dictionary
@@ -224,6 +234,7 @@ def _parse_headers_and_body(s):
 
 
 def _dissect_headers(obj, s):
+    # type: (Union[HTTPRequest, HTTPResponse], bytes) -> Tuple[bytes, bytes]
     """Takes a HTTP packet as the string s, and populates the scapy layer obj
     (either HTTPResponse or HTTPRequest). Returns the first line of the
     HTTP packet, and the body
@@ -246,6 +257,7 @@ def _dissect_headers(obj, s):
 class _HTTPContent(Packet):
     # https://developer.mozilla.org/fr/docs/Web/HTTP/Headers/Transfer-Encoding
     def _get_encodings(self):
+        # type: () -> List[str]
         encodings = []
         if isinstance(self, HTTPResponse):
             if self.Transfer_Encoding:
@@ -257,10 +269,12 @@ class _HTTPContent(Packet):
         return encodings
 
     def hashret(self):
+        # type: () -> bytes
         # The only field both Answers and Responses have in common
         return self.Http_Version
 
     def post_dissect(self, s):
+        # type: (bytes) -> bytes
         if not conf.contribs["http"]["auto_compression"]:
             return s
         encodings = self._get_encodings()
@@ -299,6 +313,7 @@ class _HTTPContent(Packet):
         return s
 
     def post_build(self, pkt, pay):
+        # type: (bytes, bytes) -> bytes
         if not conf.contribs["http"]["auto_compression"]:
             return pkt + pay
         encodings = self._get_encodings()
@@ -314,6 +329,7 @@ class _HTTPContent(Packet):
         return pkt + pay
 
     def self_build(self, field_pos_list=None):
+        # type: (Optional[Any]) -> bytes
         ''' Takes an HTTPRequest or HTTPResponse object, and creates its
         string representation.'''
         if not isinstance(self.underlayer, HTTP):
@@ -370,12 +386,14 @@ class _HTTPHeaderField(StrField):
     __slots__ = ["real_name"]
 
     def __init__(self, name, default):
+        # type: (str, Optional[str]) -> None
         self.real_name = name
         name = _strip_header_name(name)
         StrField.__init__(self, name, default, fmt="H")
 
 
 def _generate_headers(*args):
+    # type: (*List[str]) -> List[_HTTPHeaderField]
     """Generate the header fields based on their name"""
     # Order headers
     all_headers = []
@@ -410,6 +428,7 @@ class HTTPRequest(_HTTPContent):
     ]
 
     def do_dissect(self, s):
+        # type: (bytes) -> bytes
         """From the HTTP packet string, populate the scapy object"""
         first_line, body = _dissect_headers(self, s)
         try:
@@ -426,6 +445,7 @@ class HTTPRequest(_HTTPContent):
         return body
 
     def mysummary(self):
+        # type: () -> str
         return self.sprintf(
             "%HTTPRequest.Method% %HTTPRequest.Path% "
             "%HTTPRequest.Http_Version%"
@@ -452,9 +472,11 @@ class HTTPResponse(_HTTPContent):
     ]
 
     def answers(self, other):
+        # type: (HTTPRequest) -> bool
         return HTTPRequest in other
 
     def do_dissect(self, s):
+        # type: (bytes) -> bytes
         ''' From the HTTP packet string, populate the scapy object '''
         first_line, body = _dissect_headers(self, s)
         try:
@@ -471,6 +493,7 @@ class HTTPResponse(_HTTPContent):
         return body
 
     def mysummary(self):
+        # type: () -> str
         return self.sprintf(
             "%HTTPResponse.Http_Version% %HTTPResponse.Status_Code% "
             "%HTTPResponse.Reason_Phrase%"
@@ -486,6 +509,7 @@ class HTTP(Packet):
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        # type: (Optional[bytes], *Any, **Any) -> Packet_metaclass
         if _pkt and False:
             # XXX TODO
             from scapy.contrib.contrib.http2 import H2Frame
@@ -495,6 +519,7 @@ class HTTP(Packet):
     # tcp_reassemble is used by TCPSession in session.py
     @classmethod
     def tcp_reassemble(cls, data, metadata):
+        # type: (bytes, Dict[str, Any]) -> Optional[HTTP]
         detect_end = metadata.get("detect_end", None)
         is_unknown = metadata.get("detect_unknown", True)
         if not detect_end or is_unknown:
@@ -538,6 +563,7 @@ class HTTP(Packet):
                 return http_packet
 
     def guess_payload_class(self, payload):
+        # type: (bytes) -> Packet_metaclass
         """Decides if the payload is an HTTP Request or Response, or
         something else.
         """
@@ -563,8 +589,15 @@ class HTTP(Packet):
         return Raw
 
 
-def http_request(host, path="/", port=80, timeout=3,
-                 display=False, verbose=None, **headers):
+def http_request(host,  # type: str
+                 path="/",  # type: str
+                 port=80,  # type: int
+                 timeout=3,  # type: int
+                 display=False,  # type: bool
+                 verbose=None,  # type: Optional[Any]
+                 **headers  # type: Any
+                 ):
+    # type: (...) -> HTTP
     """Util to perform an HTTP request, using the TCP_client.
 
     :param host: the host to connect to

@@ -24,6 +24,12 @@ from scapy.layers.inet6 import IP6Field
 from scapy.data import ETHER_ANY
 import scapy.modules.six as six
 from scapy.compat import orb, chb
+from scapy.base_classes import Packet_metaclass
+from typing import Any
+from typing import Optional
+from typing import List
+from typing import Dict
+from typing import Callable
 
 
 # Protocol layers
@@ -90,6 +96,7 @@ class LLTD(Packet):
     ]
 
     def post_build(self, pkt, pay):
+        # type: (bytes, bytes) -> bytes
         if (self.real_dst is None or self.real_src is None) and \
            isinstance(self.underlayer, Ether):
             eth = self.underlayer
@@ -253,6 +260,7 @@ class LLTDQueryLargeTlvResp(Packet):
     ]
 
     def post_build(self, pkt, pay):
+        # type: (bytes, bytes) -> bytes
         if self.len is None:
             # len should be a FieldLenField but has an unsupported
             # format (14 bits)
@@ -295,6 +303,7 @@ class LLTDAttribute(Packet):
 
     @classmethod
     def dispatch_hook(cls, _pkt=None, *_, **kargs):
+        # type: (Optional[bytes], *Any, **Any) -> Packet_metaclass
         if _pkt:
             cmd = orb(_pkt[0])
         elif "type" in kargs:
@@ -310,6 +319,7 @@ SPECIFIC_CLASSES = {}
 
 
 def _register_lltd_specific_class(*attr_types):
+    # type: (*int) -> Callable
     """This can be used as a class decorator; if we want to support Python
     2.5, we have to replace
 
@@ -327,6 +337,7 @@ LLTDAttributeSpecific = _register_lltd_specific_class(x[, y[, ...]])(
 
     """
     def _register(cls):
+        # type: (Any) -> Packet_metaclass
         for attr_type in attr_types:
             SPECIFIC_CLASSES[attr_type] = cls
         type_fld = LLTDAttribute.fields_desc[0].copy()
@@ -803,10 +814,12 @@ class LargeTlvBuilder(object):
     """
 
     def __init__(self):
+        # type: () -> None
         self.types_offsets = {}
         self.data = {}
 
     def parse(self, plist):
+        # type: (List[Ether]) -> None
         """Update the builder using the provided `plist`. `plist` can
         be either a Packet() or a PacketList().
 
@@ -836,6 +849,7 @@ class LargeTlvBuilder(object):
                 data[loc] = array("B", pkt[LLTDQueryLargeTlvResp].value)
 
     def get_data(self):
+        # type: () -> Dict[str, str]
         """Returns a dictionary object, keys are strings "source >
         destincation [content type]", and values are the content
         fetched, also as a string.

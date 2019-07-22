@@ -22,6 +22,9 @@ from scapy.fields import BitField, ByteEnumField, ConditionalField, Field, \
 from scapy.layers.inet import IP
 from scapy.layers.inet6 import IP6Field
 from scapy.layers.inet6 import IPv6
+from typing import Any
+from typing import Callable
+from typing import Optional
 
 IPPROTO_SCTP = 132
 
@@ -254,6 +257,7 @@ class SCTP(_SCTPChunkGuessPayload, Packet):
 
 class ChunkParamField(PacketListField):
     def __init__(self, name, default, count_from=None, length_from=None):
+        # type: (str, Optional[Any], Optional[Any], Callable) -> None
         PacketListField.__init__(self, name, default, conf.raw_layer, count_from=count_from, length_from=length_from)  # noqa: E501
 
     def m2i(self, p, m):
@@ -536,6 +540,7 @@ class SCTPChunkInitAck(SCTPChunkInit):
 
 class GapAckField(Field):
     def __init__(self, name, default):
+        # type: (str, Optional[Any]) -> None
         Field.__init__(self, name, default, "4s")
 
     def i2m(self, pkt, x):
@@ -549,6 +554,7 @@ class GapAckField(Field):
         return "%d:%d" % (struct.unpack(">HH", x))
 
     def any2i(self, pkt, x):
+        # type: (Optional[Any], Optional[Any]) -> Optional[Any]
         if isinstance(x, tuple) and len(x) == 2:
             return "%d:%d" % (x)
         return x
