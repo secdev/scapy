@@ -1,0 +1,268 @@
+% Regression tests for obd_simulator
+~ python3_only
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+
+############
+############
++ Configuration of CAN virtual sockets
+~ conf command linux
+
+= Use native kernel module
+~ conf linux
+conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': True}
+
+
+= Load module
+
+load_contrib('isotp')
+load_contrib('automotive.obd.obd')
+
+
+= Load os
+
+import os
+
+= Setup vcan0
+~ needs_root linux
+
+bashCommand = "/bin/bash -c 'sudo modprobe vcan; sudo ip link add name vcan0 type vcan; sudo ip link set dev vcan0 up'"
+0 == os.system(bashCommand)
+
++ Init obd simulator
+= imports
+~ needs_root
+
+from automotive.obd_simulator import ObdSimulator
+
+= Create Socket
+~ linux needs_root
+main_socket = ISOTPSocket('vcan0', 0x7E8, 0x7E0, padding=True, basecls=OBD)
+broadcast_socket = ISOTPSocket('vcan0', 0x7E8, 0x7DF, padding=True, basecls=OBD)
+dtc_count = 3
+
+simu = ObdSimulator(main_socket, broadcast_socket, dtc_count_responses=dtc_count)
+simu.start()
+
+request_socket = ISOTPSocket('vcan0', 0x7E0, 0x7E8, padding=True, basecls=OBD)
+
+def assert_reaction(request, expectation, positive_length=0, negative_response=0):
+    res = request_socket.sr1(request, timeout=0.5)
+    try:
+        if expectation == 'positive':
+            assert len(res) == positive_length
+            assert res.service == request.service + 0x40
+        elif expectation == 'negative':
+            assert len(res) == 3
+            assert res.service == 0x7F
+            assert res.request_service_id == request.service
+            assert res.response_code == negative_response
+        elif expectation == 'timeout':
+            assert res is None
+        else:
+            raise NotImplementedError('Unknown expectation.')
+    except AssertionError:
+        print(bytes(res))
+        raise
+
+
++ Check positive expectations
+~ needs_root
+
+= S01 PID 00
+
+req = OBD()/OBD_S01(pid=0x00)  # Supported PIDs
+assert_reaction(req, 'positive', positive_length=1 + 1 + 4)
+
+# Not supported yet, see GitHub issue
+# req = OBD()/OBD_S01(pid=0x01)  # Status since DTCs cleared
+# assert_reaction(req, 'positive', positive_length=1 + 1 + 4)
+
+
+= S01 PID 41
+
+req = OBD()/OBD_S01(pid=0x41)  # Status this drive cycle
+assert_reaction(req, 'positive', positive_length=1 + 1 + 4)
+
+
+= S01 PID 51
+
+req = OBD()/OBD_S01(pid=0x51)  # Fuel Type
+assert_reaction(req, 'positive', positive_length=1 + 1 + 1)
+
+
+= S01 PID 65
+
+req = OBD()/OBD_S01(pid=0x65)  # Auxiliary Input Output Supported
+assert_reaction(req, 'positive', 1 + 1 + 2)
+
+
+= S01 PID 66
+
+req = OBD()/OBD_S01(pid=0x66)  # Mass Air Flow Sensor"
+assert_reaction(req, 'positive', 1 + 1 + 5)
+
+
+= S01 PID 67
+
+req = OBD()/OBD_S01(pid=0x67)  # Engine Coolant Temperature
+assert_reaction(req, 'positive', 1 + 1 + 3)
+
+
+= S01 PID 68
+
+req = OBD()/OBD_S01(pid=0x68)  # Intake Air Temperature Sensor
+assert_reaction(req, 'positive', 1 + 1 + 7)
+
+
+= S01 PID 7F
+
+req = OBD()/OBD_S01(pid=0x7F)  # Engine Run Time
+assert_reaction(req, 'positive', 1 + 1 + 25)
+
+
+= S01 PID 7F, 00, 41, 51, 03, 04
+
+req = OBD()/OBD_S01(pid=[0x78, 0x00, 0x41, 0x51, 0x03, 0x04])
+assert_reaction(req, 'positive', 1 + 1 + 9 + 1 + 4 + 1 + 4 + 1 + 1 + 1 + 2 + 1 + 1)
+
+
+= S01 PID 05, 03, FF (unsupported), 03, FC (unsupported)
+
+req = OBD()/OBD_S01(pid=[0x05, 0x03, 0xFF, 0x03, 0xFC])
+assert_reaction(req, 'positive', 1 + 1 + 1 + 1 + 2 + 1 + 2)
+
+
+= S02 (PID 06, no 2) (PID 05, no 3)
+
+req = OBD()/OBD_S02(requests=[OBD_S02_Record(pid=0x06, frame_no=2), OBD_S02_Record(pid=0x05, frame_no=3)])
+assert_reaction(req, 'positive', 1 + 2 + 1 + 2 + 1)
+
+
+= S03
+
+req = OBD()/OBD_S03()  # Confirmed DTCs
+assert_reaction(req, 'positive', 1 + 1 + 2 * dtc_count)
+
+
+= S04
+
+req = OBD()/OBD_S04()  # Clear DTCs
+assert_reaction(req, 'positive', 1)
+
+
+= S06 MID 00, 20
+
+req = OBD()/OBD_S06(mid=[0x00, 0x20])
+assert_reaction(req, 'positive', 1 + 1 + 4 + 1 + 4)
+
+
+= S08 TID 01, 02
+
+req = OBD()/OBD_S08(tid=[0x01, 0x02])
+assert_reaction(req, 'positive', 1 + 1 + 5 + 1 + 5)
+
+
+= S09 IID 02
+
+req = OBD()/OBD_S09(iid=0x02)  # VIN
+assert_reaction(req, 'positive', 1 + 1 + 1)
+
+
+= S09 IID 0A
+
+req = OBD()/OBD_S09(iid=0x0A)  # ECU name
+assert_reaction(req, 'positive', 1 + 1 + 1)
+
+
+= S09 IID 02, 0A
+
+req = OBD()/OBD_S09(iid=[0x02, 0x0A])  # VIN and ECU name
+assert_reaction(req, 'positive', 1 + 1 + 1 + 1 + 1)
+
+
+= S0A
+
+req = OBD()/OBD_S0A()  # Pending DTCs
+assert_reaction(req, 'positive', 1 + 1 + 2 * dtc_count)
+
+
++ Check negative expectations
+~ needs_root
+
+= Invalid Format 01
+
+req = OBD(b'\x03\xde\xad')
+assert_reaction(req, 'negative', negative_response=0x12)
+
+
+= Invalid Format 02
+
+req = OBD(b'\x07\x12')
+assert_reaction(req, 'negative', negative_response=0x12)
+
+
+= Invalid Format 03
+
+req = OBD(b'\x01')
+assert_reaction(req, 'negative', negative_response=0x12)
+
+
+= Invalid Format 04
+
+req = OBD(b'\x02\xDE')
+assert_reaction(req, 'negative', negative_response=0x12)
+
+
+= Invalid Format 05
+
+req = OBD(b'\x00')
+assert_reaction(req, 'negative', negative_response=0x11)
+
+
+= Invalid Format 06
+
+req = OBD(b'\x05')
+assert_reaction(req, 'negative', negative_response=0x11)
+
+
+= Invalid Format 07
+
+req = OBD(b'\x05\x01')
+assert_reaction(req, 'negative', negative_response=0x11)
+
+
++ Check timeout expectations
+~ needs_root
+
+= Only unsupported PID S01
+
+req = OBD()/OBD_S01(pid=[0xde])
+assert_reaction(req, 'timeout')
+
+
+= Only unsupported PIDs S01
+
+req = OBD()/OBD_S01(pid=[0xde, 0xad])
+assert_reaction(req, 'timeout')
+
+
+= Only unsupported PID S02
+
+req = OBD()/OBD_S02(requests=[OBD_S02_Record(pid=0xde, frame_no=0xad)])
+assert_reaction(req, 'timeout')
+
+
++ Cleanup
+~ needs_root
+
+= Stop simulator
+
+simu.stop()
+
+= Close sockets
+
+main_socket.close()
+broadcast_socket.close()
+request_socket.close()
