@@ -29,10 +29,12 @@ if not WINDOWS:
 
 
 def get_if_addr(iff):
+    # type: (Any) -> str
     return inet_ntop(socket.AF_INET, get_if_raw_addr(iff))
 
 
 def get_if_hwaddr(iff):
+    # type: (Any) -> str
     addrfamily, mac = get_if_raw_hwaddr(iff)  # noqa: F405
     if addrfamily in [ARPHDR_ETHER, ARPHDR_LOOPBACK]:
         return str2mac(mac)
@@ -74,6 +76,7 @@ _set_conf_sockets()  # Apply config
 
 
 def get_if_addr6(iff):
+    # type: (Any) -> str
     """
     Returns the main global unicast address associated with provided
     interface, in human readable form. If no global address is found,
@@ -84,6 +87,7 @@ def get_if_addr6(iff):
 
 
 def get_if_raw_addr6(iff):
+    # type: (Any) -> bytes
     """
     Returns the main global unicast address associated with provided
     interface, in network format. If no global address is found, None

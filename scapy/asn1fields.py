@@ -23,6 +23,14 @@ from functools import reduce
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
 
+from typing import Any
+from typing import Union
+from typing import Tuple
+from typing import Dict
+from typing import Optional
+from typing import List
+from typing import Callable
+
 
 class ASN1F_badsequence(Exception):
     pass
@@ -62,16 +70,23 @@ class ASN1F_field(ASN1F_element):
         # network_tag gets useful for ASN1F_CHOICE
         self.network_tag = implicit_tag or explicit_tag or self.ASN1_tag
 
-    def i2repr(self, pkt, x):
+    def i2repr(self,
+               pkt,  # type: BasePacket
+               x,  # type: Any
+               ):
+        # type: (...) -> str
         return repr(x)
 
     def i2h(self, pkt, x):
+        # type: (Any, Any) -> Any
         return x
 
     def any2i(self, pkt, x):
+        # type: (Any, Any) -> Any
         return x
 
     def m2i(self, pkt, s):
+        # type: (Any, bytes) -> Tuple[Any, bytes]
         """
         The good thing about safedec is that it may still decode ASN1
         even if there is a mismatch between the expected tag (self.ASN1_tag)
@@ -101,6 +116,7 @@ class ASN1F_field(ASN1F_element):
             return codec.dec(s, context=self.context)
 
     def i2m(self, pkt, x):
+        # type: (Any, Any) -> bytes
         if x is None:
             return b""
         if isinstance(x, ASN1_Object):
@@ -116,7 +132,11 @@ class ASN1F_field(ASN1F_element):
         return BER_tagging_enc(s, implicit_tag=self.implicit_tag,
                                explicit_tag=self.explicit_tag)
 
-    def extract_packet(self, cls, s):
+    def extract_packet(self,
+                       cls,  # type: ASN1Packet_metaclass
+                       s,  # type: bytes
+                       ):
+        # type: (...) -> Tuple[BasePacket, bytes]
         if len(s) > 0:
             try:
                 c = cls(s)
@@ -132,14 +152,17 @@ class ASN1F_field(ASN1F_element):
             return None, s
 
     def build(self, pkt):
+        # type: (Any) -> bytes
         return self.i2m(pkt, getattr(pkt, self.name))
 
     def dissect(self, pkt, s):
+        # type: (Any, bytes) -> bytes
         v, s = self.m2i(pkt, s)
         self.set_val(pkt, v)
         return s
 
     def do_copy(self, x):
+        # type: (Any) -> Any
         if hasattr(x, "copy"):
             return x.copy()
         if isinstance(x, list):
@@ -150,15 +173,19 @@ class ASN1F_field(ASN1F_element):
         return x
 
     def set_val(self, pkt, val):
+        # type: (Any, Any) -> None
         setattr(pkt, self.name, val)
 
     def is_empty(self, pkt):
+        # type: (Any) -> bool
         return getattr(pkt, self.name) is None
 
     def get_fields_list(self):
+        # type: () -> Any
         return [self]
 
     def __hash__(self):
+        # type: () -> int
         return hash(self.name)
 
     def __str__(self):
@@ -187,8 +214,15 @@ class ASN1F_INTEGER(ASN1F_field):
 
 
 class ASN1F_enum_INTEGER(ASN1F_INTEGER):
-    def __init__(self, name, default, enum, context=None,
-                 implicit_tag=None, explicit_tag=None):
+    def __init__(self,
+                 name,  # type: str
+                 default,  # type: int
+                 enum,  # type: Dict[int, str]
+                 context=None,  # type: Optional[Any]
+                 implicit_tag=None,  # type: Optional[Any]
+                 explicit_tag=None,  # type: Optional[Any]
+                 ):
+        # type: (...) -> None
         ASN1F_INTEGER.__init__(self, name, default, context=context,
                                implicit_tag=implicit_tag,
                                explicit_tag=explicit_tag)
@@ -204,12 +238,20 @@ class ASN1F_enum_INTEGER(ASN1F_INTEGER):
             i2s[k] = enum[k]
             s2i[enum[k]] = k
 
-    def i2m(self, pkt, s):
+    def i2m(self,
+            pkt,  # type: BasePacket
+            s,  # type: ASN1_INTEGER
+            ):
+        # type: (...) -> bytes
         if isinstance(s, str):
             s = self.s2i.get(s)
         return super(ASN1F_enum_INTEGER, self).i2m(pkt, s)
 
-    def i2repr(self, pkt, x):
+    def i2repr(self,
+               pkt,  # type: BasePacket
+               x,  # type: Union[ASN1_INTEGER, str]
+               ):
+        # type: (...) -> str
         if x is not None and isinstance(x, ASN1_INTEGER):
             r = self.i2s.get(x.val)
             if r:
@@ -220,8 +262,15 @@ class ASN1F_enum_INTEGER(ASN1F_INTEGER):
 class ASN1F_BIT_STRING(ASN1F_field):
     ASN1_tag = ASN1_Class_UNIVERSAL.BIT_STRING
 
-    def __init__(self, name, default, default_readable=True, context=None,
-                 implicit_tag=None, explicit_tag=None):
+    def __init__(self,
+                 name,  # type: str
+                 default,  # type: Optional[str]
+                 default_readable=True,  # type: bool
+                 context=None,  # type: Optional[Any]
+                 implicit_tag=None,  # type: Optional[int]
+                 explicit_tag=None,  # type: Optional[Any]
+                 ):
+        # type: (...) -> None
         if default is not None and default_readable:
             default = b"".join(binrepr(orb(x)).zfill(8).encode("utf8") for x in default)  # noqa: E501
         ASN1F_field.__init__(self, name, default, context=context,
@@ -320,6 +369,7 @@ class ASN1F_SEQUENCE(ASN1F_field):
     holds_packets = 1
 
     def __init__(self, *seq, **kwargs):
+        # type: (*Any, **Any) -> None
         name = "dummy_seq_name"
         default = [field.default for field in seq]
         for kwarg in ["context", "implicit_tag",
@@ -339,9 +389,11 @@ class ASN1F_SEQUENCE(ASN1F_field):
         return all(f.is_empty(pkt) for f in self.seq)
 
     def get_fields_list(self):
+        # type: () -> List[Any]
         return reduce(lambda x, y: x + y.get_fields_list(), self.seq, [])
 
     def m2i(self, pkt, s):
+        # type: (Any, bytes) -> Tuple[List, bytes]
         """
         ASN1F_SEQUENCE behaves transparently, with nested ASN1_objects being
         dissected one by one. Because we use obj.dissect (see loop below)
@@ -375,10 +427,12 @@ class ASN1F_SEQUENCE(ASN1F_field):
         return [], remain
 
     def dissect(self, pkt, s):
+        # type: (Any, bytes) -> bytes
         _, x = self.m2i(pkt, s)
         return x
 
     def build(self, pkt):
+        # type: (Any) -> bytes
         s = reduce(lambda x, y: x + y.build(pkt), self.seq, b"")
         return self.i2m(pkt, s)
 
@@ -392,17 +446,28 @@ class ASN1F_SEQUENCE_OF(ASN1F_field):
     holds_packets = 1
     islist = 1
 
-    def __init__(self, name, default, cls, context=None,
-                 implicit_tag=None, explicit_tag=None):
+    def __init__(self,
+                 name,  # type: str
+                 default,  # type: List
+                 cls,  # type: ASN1Packet_metaclass
+                 context=None,  # type: Optional[Any]
+                 implicit_tag=None,  # type: Optional[Any]
+                 explicit_tag=None,  # type: Optional[Any]
+                 ):
+        # type: (...) -> None
         self.cls = cls
         ASN1F_field.__init__(self, name, None, context=context,
                              implicit_tag=implicit_tag, explicit_tag=explicit_tag)  # noqa: E501
         self.default = default
 
-    def is_empty(self, pkt):
+    def is_empty(self,
+                 pkt,  # type: BasePacket
+                 ):
+        # type: (...) -> bool
         return ASN1F_field.is_empty(self, pkt)
 
     def m2i(self, pkt, s):
+        # type: (Any, bytes) -> Tuple[List[BasePacket], bytes]
         diff_tag, s = BER_tagging_dec(s, hidden_tag=self.ASN1_tag,
                                       implicit_tag=self.implicit_tag,
                                       explicit_tag=self.explicit_tag,
@@ -422,7 +487,10 @@ class ASN1F_SEQUENCE_OF(ASN1F_field):
             raise BER_Decoding_Error("unexpected remainder", remaining=s)
         return lst, remain
 
-    def build(self, pkt):
+    def build(self,
+              pkt,  # type: BasePacket
+              ):
+        # type: (...) -> bytes
         val = getattr(pkt, self.name)
         if isinstance(val, ASN1_Object) and val.tag == ASN1_Class_UNIVERSAL.RAW:  # noqa: E501
             s = val
@@ -457,10 +525,12 @@ class ASN1F_TIME_TICKS(ASN1F_INTEGER):
 
 class ASN1F_optional(ASN1F_element):
     def __init__(self, field):
+        # type: (Any) -> None
         field.flexible_tag = False
         self._field = field
 
     def __getattr__(self, attr):
+        # type: (str) -> Any
         return getattr(self._field, attr)
 
     def m2i(self, pkt, s):
@@ -471,6 +541,7 @@ class ASN1F_optional(ASN1F_element):
             return None, s
 
     def dissect(self, pkt, s):
+        # type: (Any, bytes) -> bytes
         try:
             return self._field.dissect(pkt, s)
         except (ASN1_Error, ASN1F_badsequence, BER_Decoding_Error):
@@ -478,6 +549,7 @@ class ASN1F_optional(ASN1F_element):
             return s
 
     def build(self, pkt):
+        # type: (Any) -> bytes
         if self._field.is_empty(pkt):
             return b""
         return self._field.build(pkt)
@@ -499,6 +571,7 @@ class ASN1F_CHOICE(ASN1F_field):
     ASN1_tag = ASN1_Class_UNIVERSAL.ANY
 
     def __init__(self, name, default, *args, **kwargs):
+        # type: (str, Any, *Any, **Any) -> None
         if "implicit_tag" in kwargs:
             err_msg = "ASN1F_CHOICE has been called with an implicit_tag"
             raise ASN1_Error(err_msg)
@@ -527,7 +600,11 @@ class ASN1F_CHOICE(ASN1F_field):
             else:
                 raise ASN1_Error("ASN1F_CHOICE: no tag found for one field")
 
-    def m2i(self, pkt, s):
+    def m2i(self,
+            pkt,  # type: BasePacket
+            s,  # type: bytes
+            ):
+        # type: (...) -> Tuple[Any, bytes]
         """
         First we have to retrieve the appropriate choice.
         Then we extract the field/packet, according to this choice.
@@ -554,7 +631,11 @@ class ASN1F_CHOICE(ASN1F_field):
             # XXX check properly if this is an ASN1F_PACKET
             return choice.m2i(pkt, s)
 
-    def i2m(self, pkt, x):
+    def i2m(self,
+            pkt,  # type: BasePacket
+            x,  # type: Any
+            ):
+        # type: (...) -> bytes
         if x is None:
             s = b""
         else:
@@ -581,8 +662,15 @@ class ASN1F_CHOICE(ASN1F_field):
 class ASN1F_PACKET(ASN1F_field):
     holds_packets = 1
 
-    def __init__(self, name, default, cls, context=None,
-                 implicit_tag=None, explicit_tag=None):
+    def __init__(self,
+                 name,  # type: str
+                 default,  # type: Any
+                 cls,  # type: ASN1Packet_metaclass
+                 context=None,  # type: Optional[Any]
+                 implicit_tag=None,  # type: Optional[int]
+                 explicit_tag=None,  # type: Optional[int]
+                 ):
+        # type: (...) -> None
         self.cls = cls
         ASN1F_field.__init__(self, name, None, context=context,
                              implicit_tag=implicit_tag, explicit_tag=explicit_tag)  # noqa: E501
@@ -591,7 +679,11 @@ class ASN1F_PACKET(ASN1F_field):
                 self.network_tag = 16 | 0x20
         self.default = default
 
-    def m2i(self, pkt, s):
+    def m2i(self,
+            pkt,  # type: Any
+            s,  # type: bytes
+            ):
+        # type: (...) -> Tuple[BasePacket, bytes]
         diff_tag, s = BER_tagging_dec(s, hidden_tag=self.cls.ASN1_root.ASN1_tag,  # noqa: E501
                                       implicit_tag=self.implicit_tag,
                                       explicit_tag=self.explicit_tag,
@@ -605,6 +697,7 @@ class ASN1F_PACKET(ASN1F_field):
         return p, s
 
     def i2m(self, pkt, x):
+        # type: (Any, Any) -> bytes
         if x is None:
             s = b""
         else:
@@ -623,8 +716,15 @@ class ASN1F_BIT_STRING_ENCAPS(ASN1F_BIT_STRING):
     """
     holds_packets = 1
 
-    def __init__(self, name, default, cls, context=None,
-                 implicit_tag=None, explicit_tag=None):
+    def __init__(self,
+                 name,  # type: str
+                 default,  # type: Any
+                 cls,  # type: ASN1Packet_metaclass
+                 context=None,  # type: Optional[Any]
+                 implicit_tag=None,  # type: Optional[Any]
+                 explicit_tag=None,  # type: Optional[Any]
+                 ):
+        # type: (...) -> None
         self.cls = cls
         ASN1F_BIT_STRING.__init__(self, name, None, context=context,
                                   implicit_tag=implicit_tag,
@@ -632,6 +732,7 @@ class ASN1F_BIT_STRING_ENCAPS(ASN1F_BIT_STRING):
         self.default = default
 
     def m2i(self, pkt, s):
+        # type: (BasePacket, bytes) -> Tuple[Any, bytes]
         bit_string, remain = ASN1F_BIT_STRING.m2i(self, pkt, s)
         if len(bit_string.val) % 8 != 0:
             raise BER_Decoding_Error("wrong bit string", remaining=s)
@@ -641,14 +742,22 @@ class ASN1F_BIT_STRING_ENCAPS(ASN1F_BIT_STRING):
         return p, remain
 
     def i2m(self, pkt, x):
+        # type: (BasePacket, Any) -> bytes
         s = b"" if x is None else raw(x)
         s = b"".join(binrepr(orb(x)).zfill(8).encode("utf8") for x in s)
         return ASN1F_BIT_STRING.i2m(self, pkt, s)
 
 
 class ASN1F_FLAGS(ASN1F_BIT_STRING):
-    def __init__(self, name, default, mapping, context=None,
-                 implicit_tag=None, explicit_tag=None):
+    def __init__(self,
+                 name,  # type: str
+                 default,  # type: Optional[str]
+                 mapping,  # type: List[str]
+                 context=None,  # type: Optional[Any]
+                 implicit_tag=None,  # type: Optional[int]
+                 explicit_tag=None,  # type: Optional[Any]
+                 ):
+        # type: (...) -> None
         self.mapping = mapping
         ASN1F_BIT_STRING.__init__(self, name, default,
                                   default_readable=False,
@@ -657,6 +766,7 @@ class ASN1F_FLAGS(ASN1F_BIT_STRING):
                                   explicit_tag=explicit_tag)
 
     def get_flags(self, pkt):
+        # type: (BasePacket) -> List[str]
         fbytes = getattr(pkt, self.name).val
         return [self.mapping[i] for i, positional in enumerate(fbytes)
                 if positional == '1' and i < len(self.mapping)]

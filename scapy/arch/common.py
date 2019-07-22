@@ -22,6 +22,13 @@ from scapy.error import Scapy_Exception
 from scapy.consts import OPENBSD
 import scapy.modules.six as six
 
+from typing import Any
+from typing import Callable
+from typing import Dict
+from typing import Optional
+from typing import Tuple
+from typing import Union
+
 if not WINDOWS:
     from fcntl import ioctl
 
@@ -63,13 +70,17 @@ def get_if(iff, cmd):
 
 # SOCKET UTILS
 
-def _select_nonblock(sockets, remain=None):
+def _select_nonblock(sockets,  # type: Dict[Any, str]
+                     remain=None,  # type: Optional[Any]
+                     ):
+    # type: (...) -> Tuple[Dict[Any, str], Callable]
     """This function is called during sendrecv() routine to select
     the available sockets.
     """
     # pcap sockets aren't selectable, so we return all of them
     # and ask the selecting functions to use nonblock_recv instead of recv
     def _sleep_nonblock_recv(self):
+        # type: (Any) -> Any
         res = self.nonblock_recv()
         if res is None:
             time.sleep(conf.recv_poll_rate)

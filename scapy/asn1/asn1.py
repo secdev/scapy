@@ -21,9 +21,15 @@ from scapy.compat import plain_str, chb, orb
 import scapy.modules.six as six
 from scapy.modules.six.moves import range
 
+from typing import Any
+from typing import Optional
+from typing import Dict
+from typing import Union
+
 
 class RandASN1Object(RandField):
     def __init__(self, objlist=None):
+        # type: (Optional[Any]) -> None
         self.objlist = [
             x._asn1_obj
             for x in six.itervalues(ASN1_Class_UNIVERSAL.__rdict__)
@@ -32,6 +38,7 @@ class RandASN1Object(RandField):
         self.chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"  # noqa: E501
 
     def _fix(self, n=0):
+        # type: (int) -> Any
         o = random.choice(self.objlist)
         if issubclass(o, ASN1_INTEGER):
             return o(int(random.gauss(0, 1000)))
@@ -103,6 +110,7 @@ class ASN1_Codecs(six.with_metaclass(ASN1_Codecs_metaclass)):
 
 class ASN1Tag(EnumElement):
     def __init__(self, key, value, context=None, codec=None):
+        # type: (str, int, Optional[Any], Optional[Dict]) -> None
         EnumElement.__init__(self, key, value)
         self._context = context
         if codec is None:
@@ -110,20 +118,25 @@ class ASN1Tag(EnumElement):
         self._codec = codec
 
     def clone(self):  # not a real deep copy. self.codec is shared
+        # type: () -> ASN1Tag
         return self.__class__(self._key, self._value, self._context, self._codec)  # noqa: E501
 
     def register_asn1_object(self, asn1obj):
+        # type: (ASN1_Object_metaclass) -> None
         self._asn1_obj = asn1obj
 
     def asn1_object(self, val):
+        # type: (Any) -> Any
         if hasattr(self, "_asn1_obj"):
             return self._asn1_obj(val)
         raise ASN1_Error("%r does not have any assigned ASN1 object" % self)
 
     def register(self, codecnum, codec):
+        # type: (ASN1Codec, Any) -> None
         self._codec[codecnum] = codec
 
     def get_codec(self, codec):
+        # type: (ASN1Codec) -> Any
         try:
             c = self._codec[codec]
         except KeyError:
@@ -215,42 +228,54 @@ class ASN1_Object(six.with_metaclass(ASN1_Object_metaclass)):
     tag = ASN1_Class_UNIVERSAL.ANY
 
     def __init__(self, val):
+        # type: (Any) -> None
         self.val = val
 
     def enc(self, codec):
+        # type: (ASN1Codec) -> bytes
         return self.tag.get_codec(codec).enc(self.val)
 
     def __repr__(self):
+        # type: () -> str
         return "<%s[%r]>" % (self.__dict__.get("name", self.__class__.__name__), self.val)  # noqa: E501
 
     def __str__(self):
         return self.enc(conf.ASN1_default_codec)
 
     def __bytes__(self):
+        # type: () -> bytes
         return self.enc(conf.ASN1_default_codec)
 
     def strshow(self, lvl=0):
+        # type: (int) -> str
         return ("  " * lvl) + repr(self) + "\n"
 
     def show(self, lvl=0):
+        # type: (int) -> None
         print(self.strshow(lvl))
 
     def __eq__(self, other):
+        # type: (Union[bytes, int, str]) -> bool
         return self.val == other
 
     def __lt__(self, other):
+        # type: (Union[int, ASN1_Object]) -> bool
         return self.val < other
 
     def __le__(self, other):
+        # type: (Union[int, ASN1_Object]) -> bool
         return self.val <= other
 
     def __gt__(self, other):
+        # type: (Union[int, ASN1_Object]) -> bool
         return self.val > other
 
     def __ge__(self, other):
+        # type: (Union[int, ASN1_Object]) -> bool
         return self.val >= other
 
     def __ne__(self, other):
+        # type: (Any) -> bool
         return self.val != other
 
 
@@ -264,10 +289,12 @@ class ASN1_DECODING_ERROR(ASN1_Object):
     tag = ASN1_Class_UNIVERSAL.ERROR
 
     def __init__(self, val, exc=None):
+        # type: (str, OSError) -> None
         ASN1_Object.__init__(self, val)
         self.exc = exc
 
     def __repr__(self):
+        # type: () -> str
         return "<%s[%r]{{%r}}>" % (self.__dict__.get("name", self.__class__.__name__),  # noqa: E501
                                    self.val, self.exc.args[0])
 
@@ -294,6 +321,7 @@ class ASN1_INTEGER(ASN1_Object):
     tag = ASN1_Class_UNIVERSAL.INTEGER
 
     def __repr__(self):
+        # type: () -> str
         h = hex(self.val)
         if h[-1] == "L":
             h = h[:-1]
@@ -311,6 +339,7 @@ class ASN1_BOOLEAN(ASN1_INTEGER):
     # BER: 0 means False, anything else means True
 
     def __repr__(self):
+        # type: () -> str
         return '%s %s' % (not (self.val == 0), ASN1_Object.__repr__(self))
 
 
@@ -323,12 +352,14 @@ class ASN1_BIT_STRING(ASN1_Object):
     tag = ASN1_Class_UNIVERSAL.BIT_STRING
 
     def __init__(self, val, readable=False):
+        # type: (Union[bytes, str], bool) -> None
         if not readable:
             self.val = val
         else:
             self.val_readable = val
 
     def __setattr__(self, name, value):
+        # type: (str, Union[bytes, str]) -> None
         if name == "val_readable":
             if isinstance(value, (str, bytes)):
                 val = "".join(binrepr(orb(x)).zfill(8) for x in value)
@@ -366,6 +397,7 @@ class ASN1_BIT_STRING(ASN1_Object):
             super(ASN1_Object, self).__setattr__(name, value)
 
     def __repr__(self):
+        # type: () -> str
         s = self.val_readable
         if len(s) > 16:
             s = s[:10] + b"..." + s[-10:]
@@ -389,6 +421,7 @@ class ASN1_NULL(ASN1_Object):
     tag = ASN1_Class_UNIVERSAL.NULL
 
     def __repr__(self):
+        # type: () -> str
         return ASN1_Object.__repr__(self)
 
 
@@ -396,11 +429,13 @@ class ASN1_OID(ASN1_Object):
     tag = ASN1_Class_UNIVERSAL.OID
 
     def __init__(self, val):
+        # type: (Union[bytes, str]) -> None
         val = conf.mib._oid(plain_str(val))
         ASN1_Object.__init__(self, val)
         self.oidname = conf.mib._oidname(val)
 
     def __repr__(self):
+        # type: () -> str
         return "<%s[%r]>" % (self.__dict__.get("name", self.__class__.__name__), self.oidname)  # noqa: E501
 
 
@@ -436,9 +471,11 @@ class ASN1_UTC_TIME(ASN1_STRING):
     tag = ASN1_Class_UNIVERSAL.UTC_TIME
 
     def __init__(self, val):
+        # type: (Union[bytes, str]) -> None
         ASN1_STRING.__init__(self, val)
 
     def __setattr__(self, name, value):
+        # type: (str, Union[bytes, str]) -> None
         if isinstance(value, bytes):
             value = plain_str(value)
         if name == "val":
@@ -464,6 +501,7 @@ class ASN1_UTC_TIME(ASN1_STRING):
             ASN1_STRING.__setattr__(self, name, value)
 
     def __repr__(self):
+        # type: () -> str
         return "%s %s" % (self.pretty_time, ASN1_STRING.__repr__(self))
 
 
@@ -487,6 +525,7 @@ class ASN1_SEQUENCE(ASN1_Object):
     tag = ASN1_Class_UNIVERSAL.SEQUENCE
 
     def strshow(self, lvl=0):
+        # type: (int) -> str
         s = ("  " * lvl) + ("# %s:" % self.__class__.__name__) + "\n"
         for o in self.val:
             s += o.strshow(lvl=lvl + 1)

@@ -17,6 +17,11 @@ from scapy.error import Scapy_Exception
 from scapy.utils import tex_escape
 import scapy.modules.six as six
 
+from typing import Optional
+from typing import Any
+from typing import Dict
+from typing import Tuple
+
 
 #########################
 #     Autorun stuff     #
@@ -44,6 +49,7 @@ class ScapyAutorunInterpreter(code.InteractiveInterpreter):
 
 
 def autorun_commands(cmds, my_globals=None, ignore_globals=None, verb=None):
+    # type: (str, Dict[str, Any], Optional[Any], int) -> Any
     sv = conf.verb
     try:
         try:
@@ -87,20 +93,24 @@ class StringWriter(object):
     """Util to mock sys.stdout and sys.stderr, and
     store their output in a 's' var."""
     def __init__(self, debug=None):
+        # type: (Optional[StringWriter]) -> None
         self.s = ""
         self.debug = debug
 
     def write(self, x):
+        # type: (str) -> None
         if self.debug:
             self.debug.write(x)
         self.s += x
 
     def flush(self):
+        # type: () -> None
         if self.debug:
             self.debug.flush()
 
 
 def autorun_get_interactive_session(cmds, **kargs):
+    # type: (str, **Any) -> Tuple[str, Any]
     """Create an interactive session and execute the
     commands passed as "cmds" and return all output
 
@@ -124,6 +134,7 @@ def autorun_get_interactive_session(cmds, **kargs):
 
 
 def autorun_get_text_interactive_session(cmds, **kargs):
+    # type: (str, **Any) -> Tuple[str, str]
     ct = conf.color_theme
     try:
         conf.color_theme = NoTheme()
@@ -144,6 +155,7 @@ def autorun_get_ansi_interactive_session(cmds, **kargs):
 
 
 def autorun_get_html_interactive_session(cmds, **kargs):
+    # type: (str, **Any) -> Tuple[str, Any]
     ct = conf.color_theme
     to_html = lambda s: s.replace("<", "&lt;").replace(">", "&gt;").replace("#[#", "<").replace("#]#", ">")  # noqa: E501
     try:
@@ -160,6 +172,7 @@ def autorun_get_html_interactive_session(cmds, **kargs):
 
 
 def autorun_get_latex_interactive_session(cmds, **kargs):
+    # type: (str, **Any) -> Tuple[str, str]
     ct = conf.color_theme
     to_latex = lambda s: tex_escape(s).replace("@[@", "{").replace("@]@", "}").replace("@`@", "\\")  # noqa: E501
     try:

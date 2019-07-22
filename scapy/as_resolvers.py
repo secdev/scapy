@@ -12,6 +12,10 @@ from __future__ import absolute_import
 import socket
 from scapy.config import conf
 from scapy.compat import plain_str
+from typing import Any
+from typing import Optional
+from typing import Tuple
+from typing import List
 
 
 class AS_resolver:
@@ -19,6 +23,7 @@ class AS_resolver:
     options = "-k"
 
     def __init__(self, server=None, port=43, options=None):
+        # type: (Optional[Any], int, Optional[Any]) -> None
         if server is not None:
             self.server = server
         self.port = port
@@ -33,9 +38,11 @@ class AS_resolver:
             self.s.recv(8192)
 
     def _stop(self):
+        # type: () -> None
         self.s.close()
 
     def _parse_whois(self, txt):
+        # type: (bytes) -> Tuple[str, str]
         asn, desc = None, b""
         for line in txt.splitlines():
             if not asn and line.startswith(b"origin:"):
@@ -49,6 +56,7 @@ class AS_resolver:
         return asn, plain_str(desc.strip())
 
     def _resolve_one(self, ip):
+        # type: (str) -> Tuple[str, str, str]
         self.s.send(("%s\n" % ip).encode("utf8"))
         x = b""
         while not (b"%" in x or b"source" in x):
@@ -100,6 +108,7 @@ class AS_resolver_cymru(AS_resolver):
         return self.parse(r)
 
     def parse(self, data):
+        # type: (str) -> List[Tuple[str, str, str]]
         """Parse bulk cymru data"""
 
         ASNlist = []
@@ -121,10 +130,12 @@ class AS_resolver_multi(AS_resolver):
     resolvers_list = resolvers_list[1:]
 
     def __init__(self, *reslist):
+        # type: (*Any) -> None
         if reslist:
             self.resolvers_list = reslist
 
     def resolve(self, *ips):
+        # type: (*Any) -> List[Tuple[str, str, str]]
         todo = ips
         ret = []
         for ASres in self.resolvers_list:

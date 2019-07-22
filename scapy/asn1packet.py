@@ -27,9 +27,11 @@ class ASN1_Packet(six.with_metaclass(ASN1Packet_metaclass, Packet)):
     ASN1_codec = None
 
     def self_build(self):
+        # type: () -> bytes
         if self.raw_packet_cache is not None:
             return self.raw_packet_cache
         return self.ASN1_root.build(self)
 
     def do_dissect(self, x):
+        # type: (bytes) -> bytes
         return self.ASN1_root.dissect(self, x)

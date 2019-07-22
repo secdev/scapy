@@ -36,12 +36,26 @@ from scapy.compat import orb, raw, plain_str, chb, bytes_base64,\
 from scapy.error import log_runtime, Scapy_Exception, warning
 from scapy.pton_ntop import inet_pton
 
+from _io import BytesIO, BufferedReader, BufferedWriter
+from typing import Tuple
+from typing import Union
+from typing import Any
+from typing import Dict
+from typing import Optional
+from typing import List
+from scapy.base_classes import Packet_metaclass
+from typing import Iterator
+from typing import Callable
+
 ###########
 #  Tools  #
 ###########
 
 
-def issubtype(x, t):
+def issubtype(x,  # type: Union[int, Packet_metaclass]
+              t,  # type: Union[Packet_metaclass, type]
+              ):
+    # type: (...) -> bool
     """issubtype(C, B) -> bool
 
     Return whether C is a class and if it is a subclass of class B.
@@ -52,6 +66,7 @@ def issubtype(x, t):
 
 
 def get_temp_file(keep=False, autoext="", fd=False):
+    # type: (bool, str, bool) -> str
     """Creates a temporary file.
 
     :param keep: If False, automatically delete the file when Scapy exits.
@@ -73,6 +88,7 @@ def get_temp_file(keep=False, autoext="", fd=False):
 
 
 def get_temp_dir(keep=False):
+    # type: (bool) -> str
     """Creates a temporary file, and returns its name.
 
     :param keep: If False (default), the directory will be recursively
@@ -89,6 +105,7 @@ def get_temp_dir(keep=False):
 
 
 def sane_color(x):
+    # type: (bytes) -> str
     r = ""
     for i in x:
         j = orb(i)
@@ -100,6 +117,7 @@ def sane_color(x):
 
 
 def sane(x):
+    # type: (Union[bytes, str]) -> str
     r = ""
     for i in x:
         j = orb(i)
@@ -112,6 +130,7 @@ def sane(x):
 
 @conf.commands.register
 def restart():
+    # type: () -> None
     """Restarts scapy"""
     if not conf.interactive or not os.path.isfile(sys.argv[0]):
         raise OSError("Scapy was not started from console")
@@ -126,6 +145,7 @@ def restart():
 
 
 def lhex(x):
+    # type: (int) -> str
     if type(x) in six.integer_types:
         return hex(x)
     elif isinstance(x, tuple):
@@ -138,6 +158,7 @@ def lhex(x):
 
 @conf.commands.register
 def hexdump(x, dump=False):
+    # type: (Packet, bool) -> Optional[Any]
     """Build a tcpdump like hexadecimal view
 
     :param x: a Packet
@@ -167,6 +188,7 @@ def hexdump(x, dump=False):
 
 @conf.commands.register
 def linehexdump(x, onlyasc=0, onlyhex=0, dump=False):
+    # type: (Ether, int, int, bool) -> str
     """Build an equivalent view of hexdump() on a single line
 
     Note that setting both onlyasc and onlyhex to 1 results in a empty output
@@ -187,6 +209,7 @@ def linehexdump(x, onlyasc=0, onlyhex=0, dump=False):
 
 @conf.commands.register
 def chexdump(x, dump=False):
+    # type: (Ether, bool) -> str
     """Build a per byte hexadecimal representation
 
     Example:
@@ -207,6 +230,7 @@ def chexdump(x, dump=False):
 
 @conf.commands.register
 def hexstr(x, onlyasc=0, onlyhex=0, color=False):
+    # type: (Union[bytes, Ether], int, int, bool) -> str
     """Build a fancy tcpdump like hex from bytes."""
     x = bytes_encode(x)
     _sane_func = sane_color if color else sane
@@ -219,12 +243,14 @@ def hexstr(x, onlyasc=0, onlyhex=0, color=False):
 
 
 def repr_hex(s):
+    # type: (bytes) -> str
     """ Convert provided bitstring to a simple string of hex digits """
     return "".join("%02x" % orb(x) for x in s)
 
 
 @conf.commands.register
 def hexdiff(x, y):
+    # type: (Union[Packet, bytes], Union[Packet, bytes]) -> None
     """Show differences between 2 binary strings"""
     x = bytes_encode(x)[::-1]
     y = bytes_encode(y)[::-1]
@@ -345,6 +371,7 @@ def checksum(pkt):
 
 
 def _fletcher16(charbuf):
+    # type: (bytes) -> Tuple[int, int]
     # This is based on the GPLed C implementation in Zebra <http://www.zebra.org/>  # noqa: E501
     c0 = c1 = 0
     for char in charbuf:
@@ -358,6 +385,7 @@ def _fletcher16(charbuf):
 
 @conf.commands.register
 def fletcher16_checksum(binbuf):
+    # type: (bytes) -> int
     """Calculates Fletcher-16 checksum of the given buffer.
 
        Note:
@@ -370,6 +398,7 @@ def fletcher16_checksum(binbuf):
 
 @conf.commands.register
 def fletcher16_checkbytes(binbuf, offset):
+    # type: (bytes, int) -> bytes
     """Calculates the Fletcher-16 checkbytes returned as 2 byte binary-string.
 
        Including the bytes into the buffer (at the position marked by offset) the  # noqa: E501
@@ -399,10 +428,12 @@ def fletcher16_checkbytes(binbuf, offset):
 
 
 def mac2str(mac):
+    # type: (str) -> bytes
     return b"".join(chb(int(x, 16)) for x in plain_str(mac).split(':'))
 
 
 def valid_mac(mac):
+    # type: (str) -> bool
     try:
         return len(mac2str(mac)) == 6
     except ValueError:
@@ -411,12 +442,14 @@ def valid_mac(mac):
 
 
 def str2mac(s):
+    # type: (bytes) -> str
     if isinstance(s, str):
         return ("%02x:" * 6)[:-1] % tuple(map(ord, s))
     return ("%02x:" * 6)[:-1] % tuple(s)
 
 
 def randstring(l):
+    # type: (int) -> bytes
     """
     Returns a random string of length l (l >= 0)
     """
@@ -424,6 +457,7 @@ def randstring(l):
 
 
 def zerofree_randstring(l):
+    # type: (int) -> bytes
     """
     Returns a random string of length l (l >= 0) without zero in it.
     """
@@ -431,6 +465,7 @@ def zerofree_randstring(l):
 
 
 def strxor(s1, s2):
+    # type: (bytes, bytes) -> bytes
     """
     Returns the binary XOR of the 2 provided strings s1 and s2. s1 and s2
     must be of same length.
@@ -439,6 +474,7 @@ def strxor(s1, s2):
 
 
 def strand(s1, s2):
+    # type: (str, str) -> bytes
     """
     Returns the binary AND of the 2 provided strings s1 and s2. s1 and s2
     must be of same length.
@@ -462,6 +498,7 @@ inet_ntoa = socket.inet_ntoa
 
 
 def atol(x):
+    # type: (str) -> int
     try:
         ip = inet_aton(x)
     except socket.error:
@@ -470,6 +507,7 @@ def atol(x):
 
 
 def valid_ip(addr):
+    # type: (str) -> bool
     try:
         addr = plain_str(addr)
     except UnicodeDecodeError:
@@ -482,6 +520,7 @@ def valid_ip(addr):
 
 
 def valid_net(addr):
+    # type: (str) -> bool
     try:
         addr = plain_str(addr)
     except UnicodeDecodeError:
@@ -521,13 +560,16 @@ def valid_net6(addr):
 if WINDOWS_XP:
     # That is a hell of compatibility :(
     def ltoa(x):
+        # type: (int) -> str
         return inet_ntoa(struct.pack("<I", x & 0xffffffff))
 else:
     def ltoa(x):
+        # type: (int) -> str
         return inet_ntoa(struct.pack("!I", x & 0xffffffff))
 
 
 def itom(x):
+    # type: (int) -> int
     return (0xffffffff00000000 >> x) & 0xffffffff
 
 
@@ -542,13 +584,20 @@ class ContextManagerSubprocess(object):
     """
 
     def __init__(self, name, prog):
+        # type: (str, Optional[str]) -> None
         self.name = name
         self.prog = prog
 
     def __enter__(self):
+        # type: () -> None
         pass
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(self,
+                 exc_type,  # type: Optional[type]
+                 exc_value,  # type: Optional[TypeError]
+                 traceback,  # type: Optional[traceback]
+                 ):
+        # type: (...) -> Optional[Any]
         if isinstance(exc_value, (OSError, TypeError)):
             msg = "%s: executing %r failed" % (self.name, self.prog) if self.prog else "Could not execute %s, is it installed ?" % self.name  # noqa: E501
             if not conf.interactive:
@@ -569,6 +618,7 @@ class ContextManagerCaptureOutput(object):
     """
 
     def __init__(self):
+        # type: () -> None
         self.result_export_object = ""
         try:
             import mock  # noqa: F401
@@ -576,9 +626,11 @@ class ContextManagerCaptureOutput(object):
             raise ImportError("The mock module needs to be installed !")
 
     def __enter__(self):
+        # type: () -> ContextManagerCaptureOutput
         import mock
 
         def write(s, decorator=self):
+            # type: (str, ContextManagerCaptureOutput) -> None
             decorator.result_export_object += s
         mock_stdout = mock.Mock()
         mock_stdout.write = write
@@ -587,10 +639,12 @@ class ContextManagerCaptureOutput(object):
         return self
 
     def __exit__(self, *exc):
+        # type: (*Any) -> bool
         sys.stdout = self.bck_stdout
         return False
 
     def get_output(self, eval_bytes=False):
+        # type: (bool) -> str
         if self.result_export_object.startswith("b'") and eval_bytes:
             return plain_str(eval(self.result_export_object))
         return self.result_export_object
@@ -679,13 +733,17 @@ _TEX_TR = {
 
 
 def tex_escape(x):
+    # type: (str) -> str
     s = ""
     for c in x:
         s += _TEX_TR.get(c, c)
     return s
 
 
-def colgen(*lstcol, **kargs):
+def colgen(*lstcol,  # type: Any
+           **kargs  # type: Any
+           ):
+    # type: (...) -> Iterator[Union[Iterator, Iterator[Tuple[int, int, int]], Iterator[Tuple[range, range, range]]]]
     """Returns a generator that mixes provided quantities forever
     trans: a function to convert the three arguments into a color. lambda x,y,z:(x,y,z) by default"""  # noqa: E501
     if len(lstcol) < 2:
@@ -700,16 +758,19 @@ def colgen(*lstcol, **kargs):
 
 
 def incremental_label(label="tag%05i", start=0):
+    # type: (str, int) -> Iterator[Union[Iterator, Iterator[str]]]
     while True:
         yield label % start
         start += 1
 
 
 def binrepr(val):
+    # type: (int) -> str
     return bin(val)[2:]
 
 
 def long_converter(s):
+    # type: (str) -> int
     return int(s.replace('\n', '').replace(' ', ''), 16)
 
 #########################
@@ -721,13 +782,16 @@ class EnumElement:
     _value = None
 
     def __init__(self, key, value):
+        # type: (str, int) -> None
         self._key = key
         self._value = value
 
     def __repr__(self):
+        # type: () -> str
         return "<%s %s[%r]>" % (self.__dict__.get("_name", self.__class__.__name__), self._key, self._value)  # noqa: E501
 
     def __getattr__(self, attr):
+        # type: (str) -> None
         return getattr(self._value, attr)
 
     def __str__(self):
@@ -737,12 +801,15 @@ class EnumElement:
         return bytes_encode(self.__str__())
 
     def __hash__(self):
+        # type: () -> int
         return self._value
 
     def __int__(self):
+        # type: () -> int
         return int(self._value)
 
     def __eq__(self, other):
+        # type: (Union[int, Any]) -> bool
         return self._value == int(other)
 
     def __neq__(self, other):
@@ -763,9 +830,11 @@ class Enum_metaclass(type):
         return super(Enum_metaclass, cls).__new__(cls, name, bases, dct)
 
     def __getitem__(self, attr):
+        # type: (int) -> Any
         return self.__rdict__[attr]
 
     def __contains__(self, val):
+        # type: (int) -> bool
         return val in self.__rdict__
 
     def get(self, attr, val=None):
@@ -781,16 +850,19 @@ class Enum_metaclass(type):
 
 
 def export_object(obj):
+    # type: (int) -> None
     print(bytes_base64(gzip.zlib.compress(six.moves.cPickle.dumps(obj, 2), 9)))
 
 
 def import_object(obj=None):
+    # type: (str) -> int
     if obj is None:
         obj = sys.stdin.read()
     return six.moves.cPickle.loads(gzip.zlib.decompress(base64_bytes(obj.strip())))  # noqa: E501
 
 
 def save_object(fname, obj):
+    # type: (str, int) -> None
     """Pickle a Python object"""
 
     fd = gzip.open(fname, "wb")
@@ -799,12 +871,14 @@ def save_object(fname, obj):
 
 
 def load_object(fname):
+    # type: (str) -> int
     """unpickle a Python object"""
     return six.moves.cPickle.load(gzip.open(fname, "rb"))
 
 
 @conf.commands.register
 def corrupt_bytes(s, p=0.01, n=None):
+    # type: (str, float, Optional[int]) -> bytes
     """Corrupt a given percentage or number of bytes from a string"""
     s = array.array("B", bytes_encode(s))
     s_len = len(s)
@@ -817,6 +891,7 @@ def corrupt_bytes(s, p=0.01, n=None):
 
 @conf.commands.register
 def corrupt_bits(s, p=0.01, n=None):
+    # type: (str, float, Optional[int]) -> bytes
     """Flip a given percentage or number of bits from a string"""
     s = array.array("B", bytes_encode(s))
     s_len = len(s) * 8
@@ -832,7 +907,12 @@ def corrupt_bits(s, p=0.01, n=None):
 #############################
 
 @conf.commands.register
-def wrpcap(filename, pkt, *args, **kargs):
+def wrpcap(filename,  # type: Union[BufferedWriter, str]
+           pkt,  # type: Any
+           *args,  # type: Any
+           **kargs  # type: Any
+           ):
+    # type: (...) -> None
     """Write a list of packets to a pcap file
 
 filename: the name of the file to write packets to, or an open,
@@ -852,6 +932,7 @@ sync: do not bufferize writes to the capture file
 
 @conf.commands.register
 def rdpcap(filename, count=-1):
+    # type: (Union[BytesIO, str], int) -> None
     """Read a pcap or pcapng file and return a packet list
 
 count: read only <count> packets
@@ -899,7 +980,9 @@ class PcapReader_metaclass(type):
         return i
 
     @staticmethod
-    def open(filename):
+    def open(filename  # type: Union[BytesIO, str]
+             ):
+        # type: (...) -> Tuple[str, Union[BufferedReader, BytesIO], bytes]
         """Open (if necessary) filename, and read the magic."""
         if isinstance(filename, six.string_types):
             try:
@@ -924,6 +1007,7 @@ class RawPcapReader(six.with_metaclass(PcapReader_metaclass)):
                                             ["sec", "usec", "wirelen", "caplen"])  # noqa: E501
 
     def __init__(self, filename, fdesc, magic):
+        # type: (str, Union[BufferedReader, BytesIO], bytes) -> None
         self.filename = filename
         self.f = fdesc
         if magic == b"\xa1\xb2\xc3\xd4":  # big endian
@@ -966,6 +1050,7 @@ class RawPcapReader(six.with_metaclass(PcapReader_metaclass)):
     __next__ = next
 
     def read_packet(self, size=MTU):
+        # type: (int) -> Tuple[bytes, PacketMetadata]
         """return a single packet read from the file as a tuple containing
         (pkt_data, pkt_metadata)
 
@@ -990,6 +1075,7 @@ class RawPcapReader(six.with_metaclass(PcapReader_metaclass)):
             callback(p)
 
     def read_all(self, count=-1):
+        # type: (int) -> Any
         """return a list of all packets in the pcap file
         """
         res = []
@@ -1011,22 +1097,29 @@ class RawPcapReader(six.with_metaclass(PcapReader_metaclass)):
         return self.f.fileno()
 
     def close(self):
+        # type: () -> Optional[Any]
         return self.f.close()
 
     def __enter__(self):
+        # type: () -> PcapReader
         return self
 
     def __exit__(self, exc_type, exc_value, tracback):
+        # type: (Optional[Any], Optional[Any], Optional[Any]) -> None
         self.close()
 
     # emulate SuperSocket
     @staticmethod
-    def select(sockets, remain=None):
+    def select(sockets,  # type: Dict[PcapReader, str]
+               remain=None,  # type: Optional[Any]
+               ):
+        # type: (...) -> Tuple[Dict[PcapReader, str], None]
         return sockets, None
 
 
 class PcapReader(RawPcapReader):
     def __init__(self, filename, fdesc, magic):
+        # type: (str, Union[BufferedReader, BytesIO], bytes) -> None
         RawPcapReader.__init__(self, filename, fdesc, magic)
         try:
             self.LLcls = conf.l2types[self.linktype]
@@ -1035,6 +1128,7 @@ class PcapReader(RawPcapReader):
             self.LLcls = conf.raw_layer
 
     def read_packet(self, size=MTU):
+        # type: (int) -> Packet
         rp = super(PcapReader, self).read_packet(size=size)
         if rp is None:
             raise EOFError
@@ -1056,11 +1150,13 @@ class PcapReader(RawPcapReader):
         return p
 
     def read_all(self, count=-1):
+        # type: (int) -> plist.PacketList
         res = RawPcapReader.read_all(self, count)
         from scapy import plist
         return plist.PacketList(res, name=os.path.basename(self.filename))
 
     def recv(self, size=MTU):
+        # type: (int) -> Packet
         return self.read_packet(size=size)
 
 
@@ -1077,6 +1173,7 @@ class RawPcapNgReader(RawPcapReader):
                                              "tshigh", "tslow", "wirelen"])
 
     def __init__(self, filename, fdesc, magic):
+        # type: (str, BytesIO, bytes) -> None
         self.filename = filename
         self.f = fdesc
         # A list of (linktype, snaplen, tsresol); will be populated by IDBs.
@@ -1105,6 +1202,7 @@ class RawPcapNgReader(RawPcapReader):
             pass
 
     def read_packet(self, size=MTU):
+        # type: (int) -> Tuple[bytes, PacketMetadata]
         """Read blocks until it reaches either EOF or a packet, and
         returns None or (packet, (linktype, sec, usec, wirelen)),
         where packet is a string.
@@ -1133,6 +1231,7 @@ class RawPcapNgReader(RawPcapReader):
                 return res
 
     def read_block_idb(self, block, _):
+        # type: (bytes, int) -> None
         """Interface Description Block"""
         options = block[16:]
         tsresol = 1000000
@@ -1155,6 +1254,7 @@ class RawPcapNgReader(RawPcapReader):
                                (tsresol,))
 
     def read_block_epb(self, block, size):
+        # type: (bytes, int) -> Tuple[bytes, PacketMetadata]
         """Enhanced Packet Block"""
         intid, tshigh, tslow, caplen, wirelen = struct.unpack(
             self.endian + "5I",
@@ -1168,6 +1268,7 @@ class RawPcapNgReader(RawPcapReader):
                                                wirelen=wirelen))
 
     def read_block_spb(self, block, size):
+        # type: (bytes, int) -> Tuple[bytes, PacketMetadata]
         """Simple Packet Block"""
         # "it MUST be assumed that all the Simple Packet Blocks have
         # been captured on the interface previously specified in the
@@ -1183,6 +1284,7 @@ class RawPcapNgReader(RawPcapReader):
                                                wirelen=wirelen))
 
     def read_block_pkt(self, block, size):
+        # type: (bytes, int) -> Tuple[bytes, PacketMetadata]
         """(Obsolete) Packet Block"""
         intid, drops, tshigh, tslow, caplen, wirelen = struct.unpack(
             self.endian + "HH4I",
@@ -1201,9 +1303,11 @@ class PcapNgReader(RawPcapNgReader):
     alternative = PcapReader
 
     def __init__(self, filename, fdesc, magic):
+        # type: (str, BytesIO, bytes) -> None
         RawPcapNgReader.__init__(self, filename, fdesc, magic)
 
     def read_packet(self, size=MTU):
+        # type: (int) -> Packet
         rp = super(PcapNgReader, self).read_packet(size=size)
         if rp is None:
             raise EOFError
@@ -1222,6 +1326,7 @@ class PcapNgReader(RawPcapNgReader):
         return p
 
     def read_all(self, count=-1):
+        # type: (int) -> plist.PacketList
         res = RawPcapNgReader.read_all(self, count)
         from scapy import plist
         return plist.PacketList(res, name=os.path.basename(self.filename))
@@ -1233,8 +1338,16 @@ class PcapNgReader(RawPcapNgReader):
 class RawPcapWriter:
     """A stream PCAP writer with more control than wrpcap()"""
 
-    def __init__(self, filename, linktype=None, gz=False, endianness="",
-                 append=False, sync=False, nano=False):
+    def __init__(self,
+                 filename,  # type: Union[BytesIO, str]
+                 linktype=None,  # type: Optional[int]
+                 gz=False,  # type: bool
+                 endianness="",  # type: str
+                 append=False,  # type: bool
+                 sync=False,  # type: bool
+                 nano=False,  # type: bool
+                 ):
+        # type: (...) -> None
         """
 filename:   the name of the file to write packets to, or an open,
             writable file-like object.
@@ -1270,6 +1383,7 @@ nano:       use nanosecond-precision (requires libpcap >= 1.5.0)
         return self.f.fileno()
 
     def _write_header(self, pkt):
+        # type: (Ether) -> None
         self.header_present = 1
 
         if self.append:
@@ -1286,6 +1400,7 @@ nano:       use nanosecond-precision (requires libpcap >= 1.5.0)
         self.f.flush()
 
     def write(self, pkt):
+        # type: (Union[List[Ether], Ether]) -> None
         """
         Writes a Packet or bytes to a pcap file.
 
@@ -1306,6 +1421,7 @@ nano:       use nanosecond-precision (requires libpcap >= 1.5.0)
 
     def _write_packet(self, packet, sec=None, usec=None, caplen=None,
                       wirelen=None):
+        # type: (bytes, int, int, int, int) -> None
         """
         Writes a single packet to the pcap file.
 
@@ -1349,17 +1465,21 @@ nano:       use nanosecond-precision (requires libpcap >= 1.5.0)
             self.f.flush()
 
     def flush(self):
+        # type: () -> Optional[Any]
         return self.f.flush()
 
     def close(self):
+        # type: () -> Optional[Any]
         if not self.header_present:
             self._write_header(None)
         return self.f.close()
 
     def __enter__(self):
+        # type: () -> PcapWriter
         return self
 
     def __exit__(self, exc_type, exc_value, tracback):
+        # type: (Optional[Any], Optional[Any], Optional[Any]) -> None
         self.flush()
         self.close()
 
@@ -1368,6 +1488,7 @@ class PcapWriter(RawPcapWriter):
     """A stream PCAP writer with more control than wrpcap()"""
 
     def _write_header(self, pkt):
+        # type: (Ether) -> None
         if self.linktype is None:
             try:
                 self.linktype = conf.l2types[pkt.__class__]
@@ -1381,8 +1502,14 @@ class PcapWriter(RawPcapWriter):
                 self.linktype = DLT_EN10MB
         RawPcapWriter._write_header(self, pkt)
 
-    def _write_packet(self, packet, sec=None, usec=None, caplen=None,
-                      wirelen=None):
+    def _write_packet(self,
+                      packet,  # type: Ether
+                      sec=None,  # type: Optional[Any]
+                      usec=None,  # type: Optional[Any]
+                      caplen=None,  # type: Optional[Any]
+                      wirelen=None,  # type: Optional[Any]
+                      ):
+        # type: (...) -> None
         """
         Writes a single packet to the pcap file.
 
@@ -1455,6 +1582,7 @@ def import_hexcap():
 
 @conf.commands.register
 def wireshark(pktlist, wait=False, **kwargs):
+    # type: (List[Ether], bool, **Any) -> Optional[Any]
     """
     Runs Wireshark on a list of packets.
 
@@ -1497,9 +1625,19 @@ def _guess_linktype_value(name):
 
 
 @conf.commands.register
-def tcpdump(pktlist, dump=False, getfd=False, args=None,
-            prog=None, getproc=False, quiet=False, use_tempfile=None,
-            read_stdin_opts=None, linktype=None, wait=True):
+def tcpdump(pktlist,  # type: List[Ether]
+            dump=False,  # type: bool
+            getfd=False,  # type: bool
+            args=None,  # type: Optional[List[str]]
+            prog=None,  # type: Union[int, str]
+            getproc=False,  # type: bool
+            quiet=False,  # type: bool
+            use_tempfile=None,  # type: Optional[Any]
+            read_stdin_opts=None,  # type: Optional[Any]
+            linktype=None,  # type: Optional[Any]
+            wait=True,  # type: bool
+            ):
+    # type: (...) -> Optional[Any]
     """Run tcpdump or tshark on a list of packets.
 
     When using ``tcpdump`` on OSX (``prog == conf.prog.tcpdump``), this uses a
@@ -1711,6 +1849,7 @@ def hexedit(pktlist):
 
 
 def get_terminal_width():
+    # type: () -> int
     """Get terminal width (number of characters) if in a window.
 
     Notice: this will try several methods in order to
@@ -1759,7 +1898,12 @@ def get_terminal_width():
         return sizex
 
 
-def pretty_list(rtlst, header, sortBy=0, borders=False):
+def pretty_list(rtlst,  # type: Union[List[Tuple[str, str, str, str, str, str]], List[Tuple[str, str, str, str, str]], List[Tuple[str, str]]]
+                header,  # type: Union[List[Tuple[str, str, str, str, str, str]], List[Tuple[str, str, str, str, str]], List[Tuple[str, str]]]
+                sortBy=0,  # type: int
+                borders=False,  # type: bool
+                ):
+    # type: (...) -> str
     """Pretty list to fit the terminal, and add header"""
     if borders:
         _space = "|"
@@ -1806,7 +1950,16 @@ def pretty_list(rtlst, header, sortBy=0, borders=False):
     return rt
 
 
-def __make_table(yfmtfunc, fmtfunc, endline, data, fxyz, sortx=None, sorty=None, seplinefunc=None):  # noqa: E501
+def __make_table(yfmtfunc,  # type: Callable
+                 fmtfunc,  # type: Callable
+                 endline,  # type: str
+                 data,  # type: List[Tuple[Packet, Packet]]
+                 fxyz,  # type: Callable
+                 sortx=None,  # type: Optional[Any]
+                 sorty=None,  # type: Optional[Any]
+                 seplinefunc=None,  # type: Optional[Any]
+                 ):  # noqa: E501
+    # type: (...) -> None
     """Core function of the make_table suite, which generates the table"""
     vx = {}
     vy = {}
@@ -1869,6 +2022,7 @@ def __make_table(yfmtfunc, fmtfunc, endline, data, fxyz, sortx=None, sorty=None,
 
 
 def make_table(*args, **kargs):
+    # type: (*Any, **Any) -> None
     __make_table(lambda l: "%%-%is" % l, lambda l: "%%-%is" % l, "", *args, **kargs)  # noqa: E501
 
 
@@ -1887,6 +2041,7 @@ def make_tex_table(*args, **kargs):
 
 
 def whois(ip_address):
+    # type: (str) -> bytes
     """Whois client for Python"""
     whois_ip = str(ip_address)
     try:

@@ -17,6 +17,8 @@ from scapy.utils import do_graph
 import scapy.modules.six as six
 from scapy.compat import plain_str
 
+from typing import Tuple
+
 #################
 #  MIB parsing  #
 #################
@@ -30,10 +32,12 @@ _mib_re_comments = re.compile(r'--.*(\r|\n)')
 
 class MIBDict(DADict):
     def fixname(self, val):
+        # type: (str) -> str
         # We overwrite DADict fixname method as we want to keep - in names
         return val
 
     def _findroot(self, x):
+        # type: (str) -> Tuple[str, str, str]
         """Internal MIBDict function used to find a partial OID"""
         if x.startswith("."):
             x = x[1:]
@@ -51,11 +55,13 @@ class MIBDict(DADict):
         return root, root_key, x[max:-1]
 
     def _oidname(self, x):
+        # type: (str) -> str
         """Deduce the OID name from its OID ID"""
         root, _, remainder = self._findroot(x)
         return root + remainder
 
     def _oid(self, x):
+        # type: (str) -> str
         """Parse the OID id/OID generator, and return real OID"""
         xl = x.strip(".").split(".")
         p = len(xl) - 1

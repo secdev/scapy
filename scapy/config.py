@@ -20,7 +20,15 @@ from scapy import VERSION, base_classes
 from scapy.consts import DARWIN, WINDOWS, LINUX, BSD
 from scapy.error import log_scapy, warning, ScapyInvalidPlatformException
 from scapy.modules import six
-from scapy.themes import NoTheme, apply_ipython_style
+from scapy.themes import ColorTheme, NoTheme, apply_ipython_style
+
+from typing import Any
+from typing import Callable
+from typing import Optional
+from typing import Union
+from scapy.base_classes import Packet_metaclass
+from typing import List
+from typing import Tuple
 
 ############
 #  Config  #
@@ -32,6 +40,7 @@ class ConfClass(object):
         self.__dict__ = cnf.__dict__.copy()
 
     def __repr__(self):
+        # type: () -> str
         return str(self)
 
     def __str__(self):
@@ -51,8 +60,14 @@ class ConfClass(object):
 
 
 class Interceptor(object):
-    def __init__(self, name=None, default=None,
-                 hook=None, args=None, kargs=None):
+    def __init__(self,
+                 name=None,  # type: str
+                 default=None,  # type: Union[int, NoTheme, str]
+                 hook=None,  # type: Callable
+                 args=None,  # type: Optional[Any]
+                 kargs=None,  # type: Optional[Any]
+                 ):
+        # type: (...) -> None
         self.name = name
         self.intname = "_intercepted_%s" % name
         self.default = default
@@ -61,16 +76,19 @@ class Interceptor(object):
         self.kargs = kargs if kargs is not None else {}
 
     def __get__(self, obj, typ=None):
+        # type: (Conf, type) -> Any
         if not hasattr(obj, self.intname):
             setattr(obj, self.intname, self.default)
         return getattr(obj, self.intname)
 
     @staticmethod
     def set_from_hook(obj, name, val):
+        # type: (Conf, str, bool) -> None
         int_name = "_intercepted_%s" % name
         setattr(obj, int_name, val)
 
     def __set__(self, obj, val):
+        # type: (Conf, Any) -> None
         setattr(obj, self.intname, val)
         self.hook(self.name, val, *self.args, **self.kargs)
 
@@ -105,6 +123,7 @@ class ProgPath(ConfClass):
 
 class ConfigFieldList:
     def __init__(self):
+        # type: () -> None
         self.fields = set()
         self.layers = set()
 
@@ -113,22 +132,27 @@ class ConfigFieldList:
         return hasattr(f, "owners")
 
     def _recalc_layer_list(self):
+        # type: () -> None
         self.layers = {owner for f in self.fields for owner in f.owners}
 
     def add(self, *flds):
+        # type: (*Field) -> None
         self.fields |= {f for f in flds if self._is_field(f)}
         self._recalc_layer_list()
 
     def remove(self, *flds):
+        # type: (*Field) -> None
         self.fields -= set(flds)
         self._recalc_layer_list()
 
     def __contains__(self, elt):
+        # type: (Any) -> bool
         if isinstance(elt, base_classes.Packet_metaclass):
             return elt in self.layers
         return elt in self.fields
 
     def __repr__(self):
+        # type: () -> str
         return "<%s [%s]>" % (self.__class__.__name__, " ".join(str(x) for x in self.fields))  # noqa: E501
 
 
@@ -142,33 +166,41 @@ class Resolve(ConfigFieldList):
 
 class Num2Layer:
     def __init__(self):
+        # type: () -> None
         self.num2layer = {}
         self.layer2num = {}
 
     def register(self, num, layer):
+        # type: (int, Packet_metaclass) -> None
         self.register_num2layer(num, layer)
         self.register_layer2num(num, layer)
 
     def register_num2layer(self, num, layer):
+        # type: (int, Packet_metaclass) -> None
         self.num2layer[num] = layer
 
     def register_layer2num(self, num, layer):
+        # type: (int, Packet_metaclass) -> None
         self.layer2num[layer] = num
 
     def __getitem__(self, item):
+        # type: (int) -> Packet_metaclass
         if isinstance(item, base_classes.Packet_metaclass):
             return self.layer2num[item]
         return self.num2layer[item]
 
     def __contains__(self, item):
+        # type: (int) -> bool
         if isinstance(item, base_classes.Packet_metaclass):
             return item in self.layer2num
         return item in self.num2layer
 
     def get(self, item, default=None):
+        # type: (int, Packet_metaclass) -> Packet_metaclass
         return self[item] if item in self else default
 
     def __repr__(self):
+        # type: () -> str
         lst = []
         for num, layer in six.iteritems(self.num2layer):
             if layer in self.layer2num and self.layer2num[layer] == num:
@@ -188,19 +220,23 @@ class Num2Layer:
 class LayersList(list):
 
     def __init__(self):
+        # type: () -> None
         list.__init__(self)
         self.ldict = {}
 
     def __repr__(self):
+        # type: () -> str
         return "\n".join("%-20s: %s" % (l.__name__, l.name) for l in self)
 
     def register(self, layer):
+        # type: (Union[ASN1Packet_metaclass, Packet_metaclass]) -> None
         self.append(layer)
         if layer.__module__ not in self.ldict:
             self.ldict[layer.__module__] = []
         self.ldict[layer.__module__].append(layer)
 
     def layers(self):
+        # type: () -> List[Tuple[str, str]]
         result = []
         # This import may feel useless, but it is required for the eval below
         import scapy  # noqa: F401
@@ -212,6 +248,7 @@ class LayersList(list):
 
 class CommandsList(list):
     def __repr__(self):
+        # type: () -> str
         s = []
         for l in sorted(self, key=lambda x: x.__name__):
             doc = l.__doc__.split("\n")[0] if l.__doc__ else "--"
@@ -219,11 +256,13 @@ class CommandsList(list):
         return "\n".join(s)
 
     def register(self, cmd):
+        # type: (Callable) -> Callable
         self.append(cmd)
         return cmd  # return cmd so that method can be used as a decorator
 
 
 def lsc():
+    # type: () -> None
     """Displays Scapy's default commands"""
     print(repr(conf.commands))
 
@@ -232,14 +271,17 @@ class CacheInstance(dict, object):
     __slots__ = ["timeout", "name", "_timetable", "__dict__"]
 
     def __init__(self, name="noname", timeout=None):
+        # type: (str, int) -> None
         self.timeout = timeout
         self.name = name
         self._timetable = {}
 
     def flush(self):
+        # type: () -> None
         self.__init__(name=self.name, timeout=self.timeout)
 
     def __getitem__(self, item):
+        # type: (str) -> str
         if item in self.__slots__:
             return object.__getattribute__(self, item)
         val = dict.__getitem__(self, item)
@@ -250,6 +292,7 @@ class CacheInstance(dict, object):
         return val
 
     def get(self, item, default=None):
+        # type: (str, Optional[Any]) -> Optional[str]
         # overloading this method is needed to force the dict to go through
         # the timetable check
         try:
@@ -258,6 +301,7 @@ class CacheInstance(dict, object):
             return default
 
     def __setitem__(self, item, v):
+        # type: (str, str) -> Optional[Any]
         if item in self.__slots__:
             return object.__setattr__(self, item, v)
         self._timetable[item] = time.time()
@@ -299,6 +343,7 @@ class CacheInstance(dict, object):
         return [(k, v) for (k, v) in six.iteritems(self.__dict__) if t0 - self._timetable[k] < self.timeout]  # noqa: E501
 
     def keys(self):
+        # type: () -> List
         if self.timeout is None:
             return dict.keys(self)
         t0 = time.time()
@@ -311,11 +356,13 @@ class CacheInstance(dict, object):
         return [v for (k, v) in six.iteritems(self.__dict__) if t0 - self._timetable[k] < self.timeout]  # noqa: E501
 
     def __len__(self):
+        # type: () -> int
         if self.timeout is None:
             return dict.__len__(self)
         return len(self.keys())
 
     def summary(self):
+        # type: () -> str
         return "%s: %i valid items. Timeout=%rs" % (self.name, len(self), self.timeout)  # noqa: E501
 
     def __repr__(self):
@@ -330,13 +377,16 @@ class CacheInstance(dict, object):
 
 class NetCache:
     def __init__(self):
+        # type: () -> None
         self._caches_list = []
 
     def add_cache(self, cache):
+        # type: (CacheInstance) -> None
         self._caches_list.append(cache)
         setattr(self, cache.name, cache)
 
     def new_cache(self, name, timeout=None):
+        # type: (str, int) -> None
         c = CacheInstance(name=name, timeout=timeout)
         self.add_cache(c)
 
@@ -351,14 +401,17 @@ class NetCache:
                 self.add_cache(co.copy())
 
     def flush(self):
+        # type: () -> None
         for c in self._caches_list:
             c.flush()
 
     def __repr__(self):
+        # type: () -> str
         return "\n".join(c.summary() for c in self._caches_list)
 
 
 def _version_checker(module, minver):
+    # type: (Union[module, type], Tuple[int, ]) -> bool
     """Checks that module has a higher version that minver.
 
     params:
@@ -376,6 +429,7 @@ def _version_checker(module, minver):
 
 
 def isCryptographyValid():
+    # type: () -> bool
     """
     Check if the cryptography library is present, and if it is recent enough
     for most usages in scapy (v1.7 or later).
@@ -388,6 +442,7 @@ def isCryptographyValid():
 
 
 def isCryptographyRecent():
+    # type: () -> bool
     """
     Check if the cryptography library is recent (2.0 and later)
     """
@@ -399,6 +454,7 @@ def isCryptographyRecent():
 
 
 def isCryptographyAdvanced():
+    # type: () -> bool
     """
     Check if the cryptography library is present, and if it supports X25519,
     ChaCha20Poly1305 and such (v2.0 or later).
@@ -413,6 +469,7 @@ def isCryptographyAdvanced():
 
 
 def isPyPy():
+    # type: () -> bool
     """Returns either scapy is running under PyPy or not"""
     try:
         import __pypy__  # noqa: F401
@@ -422,6 +479,7 @@ def isPyPy():
 
 
 def _prompt_changer(attr, val):
+    # type: (str, ColorTheme) -> None
     """Change the current prompt theme"""
     try:
         sys.ps1 = conf.color_theme.prompt(conf.prompt)
@@ -434,6 +492,7 @@ def _prompt_changer(attr, val):
 
 
 def _set_conf_sockets():
+    # type: () -> None
     """Populate the conf.L2Socket and conf.L3Socket
     according to the various use_* parameters
     """
@@ -492,6 +551,7 @@ def _set_conf_sockets():
 
 
 def _socket_changer(attr, val):
+    # type: (str, bool) -> None
     if not isinstance(val, bool):
         raise TypeError("This argument should be a boolean")
     dependencies = {  # Things that will be turned off
@@ -513,6 +573,7 @@ def _socket_changer(attr, val):
 
 
 def _loglevel_changer(attr, val):
+    # type: (str, int) -> None
     """Handle a change of conf.logLevel"""
     log_scapy.setLevel(val)
 
@@ -636,6 +697,7 @@ recv_poll_rate: how often to check for new packets. Defaults to 0.05s.
     recv_poll_rate = 0.05
 
     def __getattr__(self, attr):
+        # type: (str) -> Any
         # Those are loaded on runtime to avoid import loops
         if attr == "manufdb":
             from scapy.data import MANUFDB
@@ -665,11 +727,13 @@ conf = Conf()
 
 
 def crypto_validator(func):
+    # type: (Callable) -> Callable
     """
     This a decorator to be used for any method relying on the cryptography library.  # noqa: E501
     Its behaviour depends on the 'crypto_valid' attribute of the global 'conf'.
     """
     def func_in(*args, **kwargs):
+        # type: (*Any, **Any) -> Any
         if not conf.crypto_valid:
             raise ImportError("Cannot execute crypto-related method! "
                               "Please install python-cryptography v1.7 or later.")  # noqa: E501

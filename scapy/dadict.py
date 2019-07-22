@@ -13,12 +13,20 @@ from scapy.error import Scapy_Exception
 import scapy.modules.six as six
 from scapy.compat import plain_str
 
+from typing import Any
+from typing import Union
+from typing import Optional
+from typing import Tuple
+from typing import List
+from typing import Iterator
+
 ###############################
 #  Direct Access dictionary   #
 ###############################
 
 
 def fixname(x):
+    # type: (str) -> str
     if x and str(x[0]) in "0123456789":
         x = "n_" + x
     return x.translate(
@@ -36,19 +44,24 @@ class DADict_Exception(Scapy_Exception):
 
 class DADict:
     def __init__(self, _name="DADict", **kargs):
+        # type: (str, **Any) -> None
         self._name = _name
         self.update(kargs)
 
     def fixname(self, val):
+        # type: (bytes) -> str
         return fixname(plain_str(val))
 
     def __contains__(self, val):
+        # type: (str) -> bool
         return val in self.__dict__
 
     def __getitem__(self, attr):
+        # type: (str) -> Union[int, str]
         return getattr(self, attr)
 
     def __setitem__(self, attr, val):
+        # type: (bytes, Union[Tuple[str, str], int]) -> Optional[Any]
         return setattr(self, self.fixname(attr), val)
 
     def __iter__(self):
@@ -61,6 +74,7 @@ class DADict:
                 print("%10s = %r" % (k, getattr(self, k)))
 
     def __repr__(self):
+        # type: () -> str
         return "<%s - %s elements>" % (self._name, len(self.__dict__))
 
     def _branch(self, br, uniq=0):
@@ -108,15 +122,19 @@ class DADict:
         return r
 
     def keys(self):
+        # type: () -> List[str]
         return list(self.iterkeys())
 
     def iterkeys(self):
+        # type: () -> Iterator
         return (x for x in self.__dict__ if x and x[0] != "_")
 
     def __len__(self):
+        # type: () -> int
         return len(self.__dict__)
 
     def __nonzero__(self):
+        # type: () -> bool
         # Always has at least its name
         return len(self.__dict__) > 1
     __bool__ = __nonzero__

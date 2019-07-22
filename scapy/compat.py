@@ -15,6 +15,9 @@ import gzip
 import struct
 
 import scapy.modules.six as six
+from typing import Any
+from typing import Union
+from typing import Callable
 
 ###########
 # Python3 #
@@ -22,6 +25,7 @@ import scapy.modules.six as six
 
 
 def lambda_tuple_converter(func):
+    # type: (Callable) -> Callable
     """
     Converts a Python 2 function as
       lambda (x,y): x + y
@@ -47,11 +51,13 @@ if six.PY2:
         return bytes(x)
 else:
     def raw(x):
+        # type: (Any) -> bytes
         """Builds a packet and returns its bytes representation.
         This function is and always be cross-version compatible"""
         return bytes(x)
 
     def bytes_encode(x):
+        # type: (Any) -> bytes
         """Ensure that the given object is bytes.
         If the parameter is a packet, raw() should be preferred.
         """
@@ -60,16 +66,19 @@ else:
         return bytes(x)
 
     def plain_str(x):
+        # type: (bytes) -> str
         """Convert basic byte objects to str"""
         if isinstance(x, bytes):
             return x.decode(errors="ignore")
         return str(x)
 
     def chb(x):
+        # type: (int) -> bytes
         """Same than chr() but encode as bytes."""
         return struct.pack("!B", x)
 
     def orb(x):
+        # type: (Union[int, str]) -> int
         """Return ord(x) when not already an int."""
         if isinstance(x, int):
             return x
@@ -77,16 +86,19 @@ else:
 
 
 def bytes_hex(x):
+    # type: (bytes) -> bytes
     """Hexify a str or a bytes object"""
     return binascii.b2a_hex(bytes_encode(x))
 
 
 def hex_bytes(x):
+    # type: (str) -> bytes
     """De-hexify a str or a byte object"""
     return binascii.a2b_hex(bytes_encode(x))
 
 
 def base64_bytes(x):
+    # type: (Union[bytes, str]) -> bytes
     """Turn base64 into bytes"""
     if six.PY2:
         return base64.decodestring(x)
@@ -94,6 +106,7 @@ def base64_bytes(x):
 
 
 def bytes_base64(x):
+    # type: (bytes) -> bytes
     """Turn bytes into base64"""
     if six.PY2:
         return base64.encodestring(x).replace('\n', '')

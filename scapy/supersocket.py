@@ -24,9 +24,18 @@ import scapy.modules.six as six
 import scapy.packet
 from scapy.utils import PcapReader, tcpdump
 
+from typing import Any
+from typing import Dict
+from typing import List
+from typing import Optional
+from typing import Tuple
+from typing import Union
+from scapy.base_classes import Packet_metaclass
+
 
 class _SuperSocket_metaclass(type):
     def __repr__(self):
+        # type: () -> str
         if self.desc is not None:
             return "<%s: %s>" % (self.__name__, self.desc)
         else:
@@ -45,6 +54,7 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
         self.promisc = None
 
     def send(self, x):
+        # type: (Any) -> int
         sx = raw(x)
         sent = self.outs.send(sx)
         try:
@@ -58,6 +68,7 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
         return conf.raw_layer, self.ins.recv(x), None
 
     def recv(self, x=MTU):
+        # type: (int) -> Optional[Packet]
         cls, val, ts = self.recv_raw(x)
         if not val or not cls:
             return
@@ -76,9 +87,11 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
         return pkt
 
     def fileno(self):
+        # type: () -> int
         return self.ins.fileno()
 
     def close(self):
+        # type: () -> None
         if self.closed:
             return
         self.closed = True
@@ -95,6 +108,7 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
         return sendrecv.sndrcv(self, *args, **kargs)
 
     def sr1(self, *args, **kargs):
+        # type: (*Any, **Any) -> Packet
         from scapy import sendrecv
         a, b = sendrecv.sndrcv(self, *args, **kargs)
         if len(a) > 0:
@@ -111,7 +125,10 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
         return sendrecv.tshark(opened_socket=self, *args, **kargs)
 
     @staticmethod
-    def select(sockets, remain=conf.recv_poll_rate):
+    def select(sockets,  # type: Dict[Any, str]
+               remain=conf.recv_poll_rate,  # type: Optional[Any]
+               ):
+        # type: (...) -> Tuple[List[Any], None]
         """This function is called during sendrecv() routine to select
         the available sockets.
 
@@ -130,6 +147,7 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
         return inp, None
 
     def __del__(self):
+        # type: () -> None
         """Close the socket"""
         self.close()
 
@@ -195,6 +213,7 @@ class SimpleSocket(SuperSocket):
     desc = "wrapper around a classic socket"
 
     def __init__(self, sock):
+        # type: (Any) -> None
         self.ins = sock
         self.outs = sock
 
@@ -204,12 +223,14 @@ class StreamSocket(SimpleSocket):
     nonblocking_socket = True
 
     def __init__(self, sock, basecls=None):
+        # type: (Any, Optional[Packet_metaclass]) -> None
         if basecls is None:
             basecls = conf.raw_layer
         SimpleSocket.__init__(self, sock)
         self.basecls = basecls
 
     def recv(self, x=MTU):
+        # type: (int) -> Packet
         pkt = self.ins.recv(x, socket.MSG_PEEK)
         x = len(pkt)
         if x == 0:
@@ -230,11 +251,13 @@ class SSLStreamSocket(StreamSocket):
     desc = "similar usage than StreamSocket but specialized for handling SSL-wrapped sockets"  # noqa: E501
 
     def __init__(self, sock, basecls=None):
+        # type: (Any, Packet_metaclass) -> None
         self._buf = b""
         super(SSLStreamSocket, self).__init__(sock, basecls)
 
     # 65535, the default value of x is the maximum length of a TLS record
     def recv(self, x=65535):
+        # type: (int) -> Packet
         pkt = None
         if self._buf != b"":
             try:

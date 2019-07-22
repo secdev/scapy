@@ -15,6 +15,9 @@ Logging subsystem and basic exception class.
 import logging
 import traceback
 import time
+from logging import LogRecord
+
+from typing import Any
 
 
 class Scapy_Exception(Exception):
@@ -27,10 +30,12 @@ class ScapyInvalidPlatformException(Scapy_Exception):
 
 class ScapyFreqFilter(logging.Filter):
     def __init__(self):
+        # type: () -> None
         logging.Filter.__init__(self)
         self.warning_table = {}
 
     def filter(self, record):
+        # type: (LogRecord) -> int
         from scapy.config import conf
         wt = conf.warning_threshold
         if wt > 0:
@@ -68,6 +73,7 @@ class ScapyColoredFormatter(logging.Formatter):
     }
 
     def format(self, record):
+        # type: (LogRecord) -> str
         message = super(ScapyColoredFormatter, self).format(record)
         from scapy.config import conf
         message = conf.color_theme.format(
@@ -91,6 +97,7 @@ log_loading = logging.getLogger("scapy.loading")
 
 
 def warning(x, *args, **kargs):
+    # type: (str, *str, **Any) -> None
     """
     Prints a warning during runtime.
     """

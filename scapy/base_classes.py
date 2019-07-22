@@ -24,6 +24,11 @@ import types
 
 from scapy.consts import WINDOWS
 from scapy.modules.six.moves import range
+from typing import Tuple
+from typing import List
+from typing import Any
+from typing import Iterator
+from typing import Union
 
 
 class Gen(object):
@@ -33,10 +38,12 @@ class Gen(object):
         return iter([])
 
     def __iterlen__(self):
+        # type: () -> int
         return sum(1 for _ in iter(self))
 
 
 def _get_values(value):
+    # type: (Any) -> Any
     """Generate a range object from (start, stop[, step]) tuples, or
     return value.
 
@@ -52,6 +59,7 @@ def _get_values(value):
 
 class SetGen(Gen):
     def __init__(self, values, _iterpacket=1):
+        # type: (Any, int) -> None
         self._iterpacket = _iterpacket
         if isinstance(values, (list, BasePacketList)):
             self.values = [_get_values(val) for val in values]
@@ -62,6 +70,7 @@ class SetGen(Gen):
         return element
 
     def __iter__(self):
+        # type: () -> Iterator[Any]
         for i in self.values:
             if (isinstance(i, Gen) and
                 (self._iterpacket or not isinstance(i, BasePacket))) or (
@@ -82,6 +91,7 @@ class Net(Gen):
 
     @staticmethod
     def _parse_digit(a, netmask):
+        # type: (str, int) -> Tuple[int, int]
         netmask = min(8, max(netmask, 0))
         if a == "*":
             a = (0, 256)
@@ -96,6 +106,7 @@ class Net(Gen):
 
     @classmethod
     def _parse_net(cls, net):
+        # type: (str) -> Tuple[List[Tuple[int, int]], int]
         tmp = net.split('/') + ["32"]
         if not cls.ip_regex.match(net):
             tmp[0] = socket.gethostbyname(tmp[0])
@@ -104,13 +115,16 @@ class Net(Gen):
         return ret_list, netmask
 
     def __init__(self, net):
+        # type: (str) -> None
         self.repr = net
         self.parsed, self.netmask = self._parse_net(net)
 
     def __str__(self):
+        # type: () -> str
         return next(self.__iter__(), None)
 
     def __iter__(self):
+        # type: () -> Iterator[Any]
         for d in range(*self.parsed[3]):
             for c in range(*self.parsed[2]):
                 for b in range(*self.parsed[1]):
@@ -118,15 +132,19 @@ class Net(Gen):
                         yield "%i.%i.%i.%i" % (a, b, c, d)
 
     def __iterlen__(self):
+        # type: () -> int
         return reduce(operator.mul, ((y - x) for (x, y) in self.parsed), 1)
 
     def choice(self):
+        # type: () -> str
         return ".".join(str(random.randint(v[0], v[1] - 1)) for v in self.parsed)  # noqa: E501
 
     def __repr__(self):
+        # type: () -> str
         return "Net(%r)" % self.repr
 
     def __eq__(self, other):
+        # type: (str) -> bool
         if hasattr(other, "parsed"):
             p2 = other.parsed
         else:
@@ -134,6 +152,7 @@ class Net(Gen):
         return self.parsed == p2
 
     def __contains__(self, other):
+        # type: (Net) -> bool
         if hasattr(other, "parsed"):
             p2 = other.parsed
         else:
@@ -148,6 +167,7 @@ class OID(Gen):
     name = "OID"
 
     def __init__(self, oid):
+        # type: (str) -> None
         self.oid = oid
         self.cmpt = []
         fmt = []
@@ -163,6 +183,7 @@ class OID(Gen):
         return "OID(%r)" % self.oid
 
     def __iter__(self):
+        # type: () -> Iterator[Any]
         ii = [k[0] for k in self.cmpt]
         while True:
             yield self.fmt % tuple(ii)
@@ -178,6 +199,7 @@ class OID(Gen):
                 i += 1
 
     def __iterlen__(self):
+        # type: () -> int
         return reduce(operator.mul, (max(y - x, 0) + 1 for (x, y) in self.cmpt), 1)  # noqa: E501
 
 
@@ -240,6 +262,7 @@ class Packet_metaclass(type):
         return newcls
 
     def __getattr__(self, attr):
+        # type: (str) -> Any
         for k in self.fields_desc:
             if k.name == attr:
                 return k

@@ -18,6 +18,10 @@ from ctypes import Structure, POINTER, byref, create_string_buffer, WINFUNCTYPE
 from scapy.config import conf
 from scapy.consts import WINDOWS_XP
 
+from typing import Any
+from typing import Dict
+from typing import List
+
 ANY_SIZE = 65500  # FIXME quite inefficient :/
 AF_UNSPEC = 0
 NO_ERROR = 0x0
@@ -47,6 +51,7 @@ USHORT = ctypes.c_ushort
 
 
 def _resolve_list(list_obj):
+    # type: (Any) -> List[Dict[str, Any]]
     current = list_obj
     _list = []
     while current and hasattr(current, "contents"):
@@ -56,6 +61,7 @@ def _resolve_list(list_obj):
 
 
 def _struct_to_dict(struct_obj):
+    # type: (Any) -> Dict[str, Any]
     results = {}
     for fname, ctype in struct_obj.__class__._fields_:
         val = getattr(struct_obj, fname)
@@ -432,6 +438,7 @@ _GetAdaptersAddresses = WINFUNCTYPE(ULONG, ULONG, ULONG,
 
 
 def GetAdaptersAddresses(AF=AF_UNSPEC):
+    # type: (int) -> List[Dict[str, Any]]
     """Return all Windows Adapters addresses from iphlpapi"""
     # We get the size first
     size = ULONG()
@@ -571,6 +578,7 @@ if not WINDOWS_XP:
 
 
 def GetIpForwardTable2(AF=AF_UNSPEC):
+    # type: (int) -> List[Dict[str, Any]]
     """Return all Windows routes (IPv4/IPv6) from iphlpapi"""
     if WINDOWS_XP:
         raise OSError("Not available on Windows XP !")

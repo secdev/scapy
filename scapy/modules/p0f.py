@@ -25,6 +25,13 @@ from scapy.volatile import RandInt, RandByte, RandNum, RandShort, RandString
 from scapy.sendrecv import sniff
 from scapy.modules import six
 from scapy.modules.six.moves import map, range
+from typing import Any
+from typing import Optional
+from scapy.layers.l2 import Ether
+from typing import List
+from typing import Tuple
+from typing import Union
+from scapy.fields import FlagValue
 if conf.route is None:
     # unused import, only to initialize conf.route
     import scapy.route  # noqa: F401
@@ -56,10 +63,12 @@ conf.p0fo_base = select_path(_p0fpaths, "p0fo.fp")
 
 class p0fKnowledgeBase(KnowledgeBase):
     def __init__(self, filename):
+        # type: (Optional[Any]) -> None
         KnowledgeBase.__init__(self, filename)
         # self.ttl_range=[255]
 
     def lazy_init(self):
+        # type: () -> None
         try:
             f = open(self.filename)
         except IOError:
@@ -75,6 +84,7 @@ class p0fKnowledgeBase(KnowledgeBase):
                     continue
 
                 def a2i(x):
+                    # type: (str) -> int
                     if x.isdigit():
                         return int(x)
                     return x
@@ -94,6 +104,7 @@ p0f_kdb, p0fa_kdb, p0fr_kdb, p0fo_kdb = None, None, None, None
 
 
 def p0f_load_knowledgebases():
+    # type: () -> None
     global p0f_kdb, p0fa_kdb, p0fr_kdb, p0fo_kdb
     p0f_kdb = p0fKnowledgeBase(conf.p0f_base)
     p0fa_kdb = p0fKnowledgeBase(conf.p0fa_base)
@@ -105,6 +116,7 @@ p0f_load_knowledgebases()
 
 
 def p0f_selectdb(flags):
+    # type: (FlagValue) -> p0fKnowledgeBase
     # tested flags: S, R, A
     if flags & 0x16 == 0x2:
         # SYN
@@ -122,7 +134,9 @@ def p0f_selectdb(flags):
         return None
 
 
-def packet2p0f(pkt):
+def packet2p0f(pkt  # type: Ether
+               ):
+    # type: (...) -> Tuple[p0fKnowledgeBase, Tuple[str, int, bool, int, str, str]]
     pkt = pkt.copy()
     pkt = pkt.__class__(raw(pkt))
     while pkt.haslayer(IP) and pkt.haslayer(TCP):
@@ -263,7 +277,10 @@ def packet2p0f(pkt):
     return (db, (win, ttl, pkt.flags.DF, ss, ooo, qq))
 
 
-def p0f_correl(x, y):
+def p0f_correl(x,  # type: Tuple[str, int, bool, int, str, str]
+               y,  # type: Tuple[str, int, int, int, str, str, str, str]
+               ):
+    # type: (...) -> int
     d = 0
     # wwww can be "*" or "%nn". "Tnn" and "Snn" should work fine with
     # the x[0] == y[0] test.
@@ -294,6 +311,7 @@ def p0f_correl(x, y):
 
 @conf.commands.register
 def p0f(pkt):
+    # type: (Ether) -> List[Tuple[str, str, int]]
     """Passive OS fingerprinting: which OS emitted this TCP packet ?
 p0f(packet) -> accuracy, [list of guesses]
 """
@@ -316,6 +334,7 @@ p0f(packet) -> accuracy, [list of guesses]
 
 
 def prnp0f(pkt):
+    # type: (Ether) -> None
     """Calls p0f and returns a user-friendly output"""
     # we should print which DB we use
     try:
@@ -345,6 +364,7 @@ def prnp0f(pkt):
 
 @conf.commands.register
 def pkt2uptime(pkt, HZ=100):
+    # type: (Union[IP, TCP, Ether], int) -> Any
     """Calculate the date the machine which emitted the packet booted using TCP timestamp  # noqa: E501
 pkt2uptime(pkt, [HZ=100])"""
     if not isinstance(pkt, Packet):

@@ -23,6 +23,15 @@ from functools import reduce
 import scapy.modules.six as six
 from scapy.modules.six.moves import range, zip
 
+from scapy.base_classes import Packet_metaclass
+from typing import List
+from typing import Optional
+from typing import Union
+from typing import Any
+from typing import Callable
+from typing import Dict
+from typing import Tuple
+
 #############
 #  Results  #
 #############
@@ -31,7 +40,12 @@ from scapy.modules.six.moves import range, zip
 class PacketList(BasePacketList, _CanvasDumpExtended):
     __slots__ = ["stats", "res", "listname"]
 
-    def __init__(self, res=None, name="PacketList", stats=None):
+    def __init__(self,
+                 res=None,  # type: List[BasePacket]
+                 name="PacketList",  # type: str
+                 stats=None,  # type: Optional[List[Packet_metaclass]]
+                 ):
+        # type: (...) -> None
         """create a packet list from a list of packets
            res: the list of packets
            stats: a list of classes that will appear in the stats (defaults to [TCP,UDP,ICMP])"""  # noqa: E501
@@ -46,9 +60,11 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
         self.listname = name
 
     def __len__(self):
+        # type: () -> int
         return len(self.res)
 
     def _elt2pkt(self, elt):
+        # type: (BasePacket) -> BasePacket
         return elt
 
     def _elt2sum(self, elt):
@@ -58,6 +74,7 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
         return self._elt2sum(elt)
 
     def __repr__(self):
+        # type: () -> str
         stats = {x: 0 for x in self.stats}
         other = 0
         for r in self.res:
@@ -106,9 +123,11 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
         self.listname = state['listname']
 
     def __getattr__(self, attr):
+        # type: (str) -> Any
         return getattr(self.res, attr)
 
     def __getitem__(self, item):
+        # type: (int) -> Any
         if issubtype(item, BasePacket):
             return self.__class__([x for x in self.res if item in self._elt2pkt(x)],  # noqa: E501
                                   name="%s from %s" % (item.__name__, self.listname))  # noqa: E501
@@ -167,6 +186,7 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
                               name="filtered %s" % self.listname)
 
     def make_table(self, *args, **kargs):
+        # type: (*Callable, **Any) -> Optional[Any]
         """Prints a table using a function that returns for each packet its head column value, head row value and displayed value  # noqa: E501
         ex: p.make_table(lambda x:(x[IP].dst, x[TCP].dport, x[TCP].sprintf("%flags%")) """  # noqa: E501
         return make_table(self.res, *args, **kargs)
@@ -498,8 +518,10 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
         return SndRcvList(sr), PacketList(remain)
 
     def sessions(self, session_extractor=None):
+        # type: (Optional[Any]) -> Dict[str, PacketList]
         if session_extractor is None:
             def session_extractor(p):
+                # type: (IP) -> str
                 """Extract sessions from packets"""
                 if 'Ether' in p:
                     if 'IP' in p or 'IPv6' in p:
@@ -565,7 +587,14 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
             x.append(p)
         return x
 
-    def getlayer(self, cls, nb=None, flt=None, name=None, stats=None):
+    def getlayer(self,
+                 cls,  # type: Packet_metaclass
+                 nb=None,  # type: Optional[int]
+                 flt=None,  # type: Optional[Dict[str, int]]
+                 name=None,  # type: Optional[str]
+                 stats=None,  # type: Optional[List[Packet_metaclass]]
+                 ):
+        # type: (...) -> PacketList
         """Returns the packet list from a given layer.
 
         See ``Packet.getlayer`` for more info.
@@ -606,7 +635,12 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
             name, stats
         )
 
-    def convert_to(self, other_cls, name=None, stats=None):
+    def convert_to(self,
+                   other_cls,  # type: Packet_metaclass
+                   name=None,  # type: Optional[str]
+                   stats=None,  # type: Optional[List[Packet_metaclass]]
+                   ):
+        # type: (...) -> PacketList
         """Converts all packets to another type.
 
         See ``Packet.convert_to`` for more info.
@@ -638,7 +672,12 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
 class SndRcvList(PacketList):
     __slots__ = []
 
-    def __init__(self, res=None, name="Results", stats=None):
+    def __init__(self,
+                 res=None,  # type: List[Tuple[BasePacket, BasePacket]]
+                 name="Results",  # type: str
+                 stats=None,  # type: Optional[Any]
+                 ):
+        # type: (...) -> None
         PacketList.__init__(self, res, name, stats)
 
     def _elt2pkt(self, elt):

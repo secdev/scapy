@@ -31,6 +31,11 @@ import scapy.modules.six as six
 from scapy.themes import DefaultTheme, BlackAndWhite, apply_ipython_style
 from scapy.consts import WINDOWS
 
+from typing import List
+from typing import Any
+from typing import Optional
+from typing import Dict
+
 IGNORED = list(six.moves.builtins.__dict__)
 
 GLOBKEYS = []
@@ -52,6 +57,7 @@ QUOTES = [
 
 
 def _probe_config_file(cf):
+    # type: (str) -> Optional[Any]
     # str -> str
     cf_path = os.path.join(os.path.expanduser("~"), cf)
     try:
@@ -63,6 +69,7 @@ def _probe_config_file(cf):
 
 
 def _read_config_file(cf, _globals=globals(), _locals=locals(), interactive=True):  # noqa: E501
+    # type: (str, Dict[str, Any], Dict[str, Any], bool) -> None
     """Read a config file: execute a python file while loading scapy, that may contain  # noqa: E501
     some pre-configured values.
 
@@ -101,6 +108,7 @@ def _read_config_file(cf, _globals=globals(), _locals=locals(), interactive=True
 
 
 def _validate_local(x):
+    # type: (str) -> bool
     """Returns whether or not a variable should be imported.
     Will return False for any default modules (sys), or if
     they are detected as private vars (starting with a _)"""
@@ -114,6 +122,7 @@ SESSION = None
 
 
 def _usage():
+    # type: () -> None
     print(
         "Usage: scapy.py [-s sessionfile] [-c new_startup_file] "
         "[-p new_prestart_file] [-C] [-P] [-H]\n"
@@ -131,6 +140,7 @@ def _usage():
 
 
 def _load(module, globals_dict=None, symb_list=None):
+    # type: (str, Optional[Dict[str, Any]], Optional[List]) -> None
     """Loads a Python module to make variables, objects and functions
 available globally.
 
@@ -160,6 +170,7 @@ symbols to the global symbol table.
 
 
 def load_module(name, globals_dict=None, symb_list=None):
+    # type: (str, Optional[Any], Optional[Any]) -> None
     """Loads a Scapy module to make variables, objects and functions
     available globally.
 
@@ -178,6 +189,7 @@ def load_layer(name, globals_dict=None, symb_list=None):
 
 
 def load_contrib(name, globals_dict=None, symb_list=None):
+    # type: (str, Optional[Any], Optional[Any]) -> None
     """Loads a Scapy contrib module to make variables, objects and
     functions available globally.
 
@@ -199,6 +211,7 @@ def load_contrib(name, globals_dict=None, symb_list=None):
 
 
 def list_contrib(name=None, ret=False, _debug=False):
+    # type: (Optional[Any], bool, bool) -> Optional[List[Dict[str, str]]]
     """Show the list of all existing contribs.
     Params:
      - name: filter to search the contribs
@@ -264,6 +277,7 @@ def list_contrib(name=None, ret=False, _debug=False):
 ##############################
 
 def update_ipython_session(session):
+    # type: (Dict[str, Any]) -> None
     """Updates IPython session with a custom one"""
     try:
         global get_ipython
@@ -273,6 +287,7 @@ def update_ipython_session(session):
 
 
 def save_session(fname=None, session=None, pickleProto=-1):
+    # type: (Optional[str], Optional[Dict[str, Any]], int) -> None
     """Save current Scapy session to the file specified in the fname arg.
 
     params:
@@ -320,6 +335,7 @@ def save_session(fname=None, session=None, pickleProto=-1):
 
 
 def load_session(fname=None):
+    # type: (Optional[str]) -> None
     """Load current Scapy session from the file specified in the fname arg.
     This will erase any existing session.
 
@@ -346,6 +362,7 @@ def load_session(fname=None):
 
 
 def update_session(fname=None):
+    # type: (Optional[str]) -> None
     """Update current Scapy session from the file specified in the fname arg.
 
     params:
@@ -426,6 +443,7 @@ def scapy_delete_temp_files():
 
 
 def _prepare_quote(quote, author, max_len=78):
+    # type: (str, str, int) -> List[str]
     """This function processes a quote and returns a string that is ready
 to be used in the fancy prompt.
 
@@ -436,6 +454,7 @@ to be used in the fancy prompt.
     cur_line = []
 
     def _len(line):
+        # type: (List[str]) -> int
         return sum(len(elt) for elt in line) + len(line) - 1
     while quote:
         if not cur_line or (_len(cur_line) + len(quote[0]) - 1 <= max_len):
@@ -451,6 +470,7 @@ to be used in the fancy prompt.
 
 
 def interact(mydict=None, argv=None, mybanner=None, loglevel=logging.INFO):
+    # type: (Optional[Any], List[str], str, int) -> None
     """Starts Scapy's console."""
     global SESSION
     global GLOBKEYS

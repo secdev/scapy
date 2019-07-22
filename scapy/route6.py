@@ -28,21 +28,30 @@ from scapy.error import warning, log_loading
 import scapy.modules.six as six
 from scapy.utils import pretty_list
 
+from typing import List
+from typing import Optional
+from typing import Tuple
+from typing import Any
+
 
 class Route6:
 
     def __init__(self):
+        # type: () -> None
         self.resync()
         self.invalidate_cache()
 
     def invalidate_cache(self):
+        # type: () -> None
         self.cache = {}
 
     def flush(self):
+        # type: () -> None
         self.invalidate_cache()
         self.routes = []
 
     def resync(self):
+        # type: () -> None
         # TODO : At the moment, resync will drop existing Teredo routes
         #        if any. Change that ...
         self.invalidate_cache()
@@ -51,6 +60,7 @@ class Route6:
             log_loading.info("No IPv6 support in kernel")
 
     def __repr__(self):
+        # type: () -> str
         rtlst = []
 
         for net, msk, gw, iface, cset, metric in self.routes:
@@ -69,7 +79,12 @@ class Route6:
     # parameters. We only have a 'dst' parameter that accepts 'prefix' and
     # 'prefix/prefixlen' values.
     # WARNING: Providing a specific device will at the moment not work correctly.  # noqa: E501
-    def make_route(self, dst, gw=None, dev=None):
+    def make_route(self,
+                   dst,  # type: str
+                   gw=None,  # type: Optional[str]
+                   dev=None,  # type: str
+                   ):
+        # type: (...) -> Tuple[str, int, str, str, List, int]
         """Internal function : create a route for 'dst' via 'gw'.
         """
         prefix, plen = (dst.split("/") + ["128"])[:2]
@@ -89,6 +104,7 @@ class Route6:
         return (prefix, plen, gw, dev, ifaddr, 1)
 
     def add(self, *args, **kargs):
+        # type: (*Any, **Any) -> None
         """Ex:
         add(dst="2001:db8:cafe:f000::/56")
         add(dst="2001:db8:cafe:f000::/56", gw="2001:db8:cafe::1")
@@ -98,6 +114,7 @@ class Route6:
         self.routes.append(self.make_route(*args, **kargs))
 
     def delt(self, dst, gw=None):
+        # type: (str, str) -> None
         """ Ex:
         delt(dst="::/0")
         delt(dst="2001:db8:cafe:f000::/56")
@@ -122,6 +139,7 @@ class Route6:
             del(self.routes[i])
 
     def ifchange(self, iff, addr):
+        # type: (str, str) -> None
         the_addr, the_plen = (addr.split("/") + ["128"])[:2]
         the_plen = int(the_plen)
 
@@ -141,6 +159,7 @@ class Route6:
         conf.netcache.in6_neighbor.flush()
 
     def ifdel(self, iff):
+        # type: (str) -> None
         """ removes all route entries that uses 'iff' interface. """
         new_routes = []
         for rt in self.routes:
@@ -150,6 +169,7 @@ class Route6:
         self.routes = new_routes
 
     def ifadd(self, iff, addr):
+        # type: (str, str) -> None
         """
         Add an interface 'iff' with provided address into routing table.
 
@@ -171,7 +191,12 @@ class Route6:
         self.invalidate_cache()
         self.routes.append((prefix, plen, '::', iff, [addr], 1))
 
-    def route(self, dst=None, dev=None, verbose=conf.verb):
+    def route(self,
+              dst=None,  # type: Optional[str]
+              dev=None,  # type: Optional[Any]
+              verbose=conf.verb,  # type: int
+              ):
+        # type: (...) -> Tuple[Any, str, str]
         """
         Provide best route to IPv6 destination address, based on Scapy
         internal routing table content.

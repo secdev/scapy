@@ -16,8 +16,15 @@ from threading import Lock, Thread
 from scapy.automaton import Message, select_objects, SelectableObject
 from scapy.consts import WINDOWS
 from scapy.error import log_interactive, warning
+from scapy.packet import Packet
 from scapy.config import conf
 from scapy.utils import get_temp_file, do_graph
+
+from typing import Any
+from typing import Callable
+from typing import Set
+from typing import Union
+from typing import Optional
 
 
 class PipeEngine(SelectableObject):
@@ -33,6 +40,7 @@ class PipeEngine(SelectableObject):
 
     @classmethod
     def list_pipes_detailed(cls):
+        # type: () -> None
         for pn, pc in sorted(cls.pipes.items()):
             if pc.__doc__:
                 print("###### %s\n %s" % (pn, pc.__doc__))
@@ -40,6 +48,7 @@ class PipeEngine(SelectableObject):
                 print("###### %s" % pn)
 
     def __init__(self, *pipes):
+        # type: (*Any) -> None
         self.active_pipes = set()
         self.active_sources = set()
         self.active_drains = set()
@@ -53,10 +62,12 @@ class PipeEngine(SelectableObject):
         SelectableObject.__init__(self)
 
     def __getattr__(self, attr):
+        # type: (str) -> Callable
         if attr.startswith("spawn_"):
             dname = attr[6:]
             if dname in self.pipes:
                 def f(*args, **kargs):
+                    # type: (*Any, **Any) -> Pipe
                     k = self.pipes[dname]
                     p = k(*args, **kargs)
                     self.add(p)
@@ -65,6 +76,7 @@ class PipeEngine(SelectableObject):
         raise AttributeError(attr)
 
     def check_recv(self):
+        # type: () -> bool
         """As select.select is not available, we check if there
         is some data to read by using a list that stores pointers."""
         return len(self.__fd_queue) > 0
@@ -73,15 +85,18 @@ class PipeEngine(SelectableObject):
         return self.__fdr
 
     def _read_cmd(self):
+        # type: () -> str
         os.read(self.__fdr, 1)
         return self.__fd_queue.popleft()
 
     def _write_cmd(self, _cmd):
+        # type: (str) -> None
         self.__fd_queue.append(_cmd)
         os.write(self.__fdw, b"X")
         self.call_release()
 
     def add_one_pipe(self, pipe):
+        # type: (Any) -> None
         self.active_pipes.add(pipe)
         if isinstance(pipe, Source):
             self.active_sources.add(pipe)
@@ -91,6 +106,7 @@ class PipeEngine(SelectableObject):
             self.active_sinks.add(pipe)
 
     def get_pipe_list(self, pipe):
+        # type: (Union[AutoSource, PeriodicSource, Pipe]) -> Set[Any]
         def flatten(p, l):
             l.add(p)
             for q in p.sources | p.sinks | p.high_sources | p.high_sinks:
@@ -101,6 +117,7 @@ class PipeEngine(SelectableObject):
         return pl
 
     def _add_pipes(self, *pipes):
+        # type: (*Any) -> Set[Any]
         pl = set()
         for p in pipes:
             pl |= self.get_pipe_list(p)
@@ -110,6 +127,7 @@ class PipeEngine(SelectableObject):
         return pl
 
     def run(self):
+        # type: () -> None
         log_interactive.info("Pipe engine thread started.")
         try:
             for p in self.active_pipes:
@@ -154,6 +172,7 @@ class PipeEngine(SelectableObject):
                 log_interactive.info("Pipe engine thread stopped.")
 
     def start(self):
+        # type: () -> None
         if self.thread_lock.acquire(0):
             _t = Thread(target=self.run)
             _t.setDaemon(True)
@@ -163,9 +182,11 @@ class PipeEngine(SelectableObject):
             warning("Pipe engine already running")
 
     def wait_and_stop(self):
+        # type: () -> None
         self.stop(_cmd="B")
 
     def stop(self, _cmd="X"):
+        # type: (str) -> None
         try:
             with self.command_lock:
                 if self.thread is not None:
@@ -181,6 +202,7 @@ class PipeEngine(SelectableObject):
             print("Interrupted by user.")
 
     def add(self, *pipes):
+        # type: (*Any) -> None
         pipes = self._add_pipes(*pipes)
         with self.command_lock:
             if self.thread is not None:
@@ -214,6 +236,7 @@ class PipeEngine(SelectableObject):
 
 class _ConnectorLogic(object):
     def __init__(self):
+        # type: () -> None
         self.sources = set()
         self.sinks = set()
         self.high_sources = set()
@@ -222,41 +245,53 @@ class _ConnectorLogic(object):
         self.trigger_sinks = set()
 
     def __lt__(self, other):
+        # type: (Any) -> Any
         other.sinks.add(self)
         self.sources.add(other)
         return other
 
     def __gt__(self, other):
+        # type: (Any) -> Any
         self.sinks.add(other)
         other.sources.add(self)
         return other
 
     def __eq__(self, other):
+        # type: (Any) -> Any
         self > other
         other > self
         return other
 
     def __lshift__(self, other):
+        # type: (Any) -> Any
         self.high_sources.add(other)
         other.high_sinks.add(self)
         return other
 
-    def __rshift__(self, other):
+    def __rshift__(self,
+                   other,  # type: Any
+                   ):
+        # type: (...) -> Any
         self.high_sinks.add(other)
         other.high_sources.add(self)
         return other
 
     def __floordiv__(self, other):
+        # type: (Any) -> Any
         self >> other
         other >> self
         return other
 
-    def __xor__(self, other):
+    def __xor__(self,
+                other,  # type: Any
+                ):
+        # type: (...) -> Any
         self.trigger_sinks.add(other)
         other.trigger_sources.add(self)
         return other
 
     def __hash__(self):
+        # type: () -> int
         return object.__hash__(self)
 
 
@@ -269,24 +304,29 @@ class _PipeMeta(type):
 
 class Pipe(six.with_metaclass(_PipeMeta, _ConnectorLogic)):
     def __init__(self, name=None):
+        # type: (Optional[str]) -> None
         _ConnectorLogic.__init__(self)
         if name is None:
             name = "%s" % (self.__class__.__name__)
         self.name = name
 
     def _send(self, msg):
+        # type: (str) -> None
         for s in self.sinks:
             s.push(msg)
 
     def _high_send(self, msg):
+        # type: (str) -> None
         for s in self.high_sinks:
             s.high_push(msg)
 
     def _trigger(self, msg=None):
+        # type: (bool) -> None
         for s in self.trigger_sinks:
             s.on_trigger(msg)
 
     def __repr__(self):
+        # type: () -> str
         ct = conf.color_theme
         s = "%s%s" % (ct.punct("<"), ct.layer_name(self.name))
         if self.sources or self.sinks:
@@ -328,6 +368,7 @@ class Pipe(six.with_metaclass(_PipeMeta, _ConnectorLogic)):
 
 class Source(Pipe, SelectableObject):
     def __init__(self, name=None):
+        # type: (Optional[str]) -> None
         Pipe.__init__(self, name=name)
         SelectableObject.__init__(self)
         self.is_exhausted = False
@@ -346,12 +387,15 @@ class Source(Pipe, SelectableObject):
         return False
 
     def exhausted(self):
+        # type: () -> bool
         return self.is_exhausted
 
     def start(self):
+        # type: () -> None
         pass
 
     def stop(self):
+        # type: () -> None
         pass
 
 
@@ -365,15 +409,18 @@ class Drain(Pipe):
 """
 
     def push(self, msg):
+        # type: (str) -> None
         self._send(msg)
 
     def high_push(self, msg):
         self._high_send(msg)
 
     def start(self):
+        # type: () -> None
         pass
 
     def stop(self):
+        # type: () -> None
         pass
 
 
@@ -385,14 +432,17 @@ class Sink(Pipe):
         pass
 
     def start(self):
+        # type: () -> None
         pass
 
     def stop(self):
+        # type: () -> None
         pass
 
 
 class AutoSource(Source, SelectableObject):
     def __init__(self, name=None):
+        # type: (Optional[str]) -> None
         SelectableObject.__init__(self)
         Source.__init__(self, name=name)
         self.__fdr, self.__fdw = os.pipe()
@@ -402,21 +452,26 @@ class AutoSource(Source, SelectableObject):
         return self.__fdr
 
     def check_recv(self):
+        # type: () -> bool
         return len(self._queue) > 0
 
     def _gen_data(self, msg):
+        # type: (str) -> None
         self._queue.append((msg, False))
         self._wake_up()
 
     def _gen_high_data(self, msg):
+        # type: (str) -> None
         self._queue.append((msg, True))
         self._wake_up()
 
     def _wake_up(self):
+        # type: () -> None
         os.write(self.__fdw, b"X")
         self.call_release()
 
     def deliver(self):
+        # type: () -> None
         os.read(self.__fdr, 1)
         try:
             msg, high = self._queue.popleft()
@@ -431,6 +486,7 @@ class AutoSource(Source, SelectableObject):
 
 class ThreadGenSource(AutoSource):
     def __init__(self, name=None):
+        # type: (str) -> None
         AutoSource.__init__(self, name=name)
         self.RUN = False
 
@@ -438,10 +494,12 @@ class ThreadGenSource(AutoSource):
         pass
 
     def start(self):
+        # type: () -> None
         self.RUN = True
         Thread(target=self.generate).start()
 
     def stop(self):
+        # type: () -> None
         self.RUN = False
 
 
@@ -455,6 +513,7 @@ class ConsoleSink(Sink):
 """
 
     def push(self, msg):
+        # type: (str) -> None
         print(">%r" % msg)
 
     def high_push(self, msg):
@@ -471,11 +530,13 @@ class RawConsoleSink(Sink):
 """
 
     def __init__(self, name=None, newlines=True):
+        # type: (str, bool) -> None
         Sink.__init__(self, name=name)
         self.newlines = newlines
         self._write_pipe = 1
 
     def push(self, msg):
+        # type: (str) -> None
         if self.newlines:
             msg += "\n"
         os.write(self._write_pipe, msg.encode("utf8"))
@@ -496,6 +557,7 @@ class CLIFeeder(AutoSource):
 """
 
     def send(self, msg):
+        # type: (str) -> None
         self._gen_data(msg)
 
     def close(self):
@@ -512,6 +574,7 @@ class CLIHighFeeder(CLIFeeder):
 """
 
     def send(self, msg):
+        # type: (str) -> None
         self._gen_high_data(msg)
 
 
@@ -525,6 +588,7 @@ class PeriodicSource(ThreadGenSource):
 """
 
     def __init__(self, msg, period, period2=0, name=None):
+        # type: (str, int, int, str) -> None
         ThreadGenSource.__init__(self, name=name)
         if not isinstance(msg, (list, set, tuple)):
             msg = [msg]
@@ -533,6 +597,7 @@ class PeriodicSource(ThreadGenSource):
         self.period2 = period2
 
     def generate(self):
+        # type: () -> None
         while self.RUN:
             empty_gen = True
             for m in self.msg:
@@ -555,6 +620,7 @@ class TermSink(Sink):
 """
 
     def __init__(self, name=None, keepterm=True, newlines=True, openearly=True):  # noqa: E501
+        # type: (str, bool, bool, bool) -> None
         Sink.__init__(self, name=name)
         self.keepterm = keepterm
         self.newlines = newlines
@@ -564,6 +630,7 @@ class TermSink(Sink):
             self.start()
 
     def _start_windows(self):
+        # type: () -> None
         if not self.opened:
             self.opened = True
             self.__f = get_temp_file()
@@ -591,12 +658,14 @@ class TermSink(Sink):
             os.close(rdesc)
 
     def start(self):
+        # type: () -> Optional[Any]
         if WINDOWS:
             return self._start_windows()
         else:
             return self._start_unix()
 
     def _stop_windows(self):
+        # type: () -> None
         if not self.keepterm:
             self.opened = False
             # Recipe to kill process with PID
@@ -614,12 +683,14 @@ class TermSink(Sink):
             self.proc.wait()
 
     def stop(self):
+        # type: () -> Optional[Any]
         if WINDOWS:
             return self._stop_windows()
         else:
             return self._stop_unix()
 
     def _print(self, s):
+        # type: (str) -> None
         if self.newlines:
             s += "\n"
         if WINDOWS:
@@ -630,6 +701,7 @@ class TermSink(Sink):
             os.write(self.wdesc, s.encode())
 
     def push(self, msg):
+        # type: (str) -> None
         self._print(str(msg))
 
     def high_push(self, msg):
@@ -646,16 +718,20 @@ class QueueSink(Sink):
 """
 
     def __init__(self, name=None):
+        # type: (Optional[str]) -> None
         Sink.__init__(self, name=name)
         self.q = six.moves.queue.Queue()
 
     def push(self, msg):
+        # type: (Union[Packet, str]) -> None
         self.q.put(msg)
 
     def high_push(self, msg):
+        # type: (str) -> None
         self.q.put(msg)
 
     def recv(self, block=True, timeout=None):
+        # type: (bool, Optional[Any]) -> Optional[str]
         try:
             return self.q.get(block=block, timeout=timeout)
         except six.moves.queue.Empty:
@@ -672,10 +748,12 @@ class TransformDrain(Drain):
 """
 
     def __init__(self, f, name=None):
+        # type: (Callable, Optional[Any]) -> None
         Drain.__init__(self, name=name)
         self.f = f
 
     def push(self, msg):
+        # type: (str) -> None
         self._send(self.f(msg))
 
     def high_push(self, msg):
@@ -692,6 +770,7 @@ class UpDrain(Drain):
 """
 
     def push(self, msg):
+        # type: (str) -> None
         self._high_send(msg)
 
     def high_push(self, msg):
@@ -711,4 +790,5 @@ class DownDrain(Drain):
         pass
 
     def high_push(self, msg):
+        # type: (str) -> None
         self._send(msg)

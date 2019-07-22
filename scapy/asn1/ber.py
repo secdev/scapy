@@ -18,6 +18,11 @@ from scapy.asn1.asn1 import ASN1_Decoding_Error, ASN1_Encoding_Error, \
     ASN1_Error, ASN1_DECODING_ERROR, ASN1_BADTAG
 from scapy.modules import six
 
+from typing import Union
+from typing import Tuple
+from typing import Any
+from typing import Optional
+
 ##################
 #  BER encoding  #
 ##################
@@ -48,6 +53,7 @@ class BER_Encoding_Error(ASN1_Encoding_Error):
 
 class BER_Decoding_Error(ASN1_Decoding_Error):
     def __init__(self, msg, decoded=None, remaining=None):
+        # type: (str, Optional[Any], bytes) -> None
         Exception.__init__(self, msg)
         self.remaining = remaining
         self.decoded = decoded
@@ -68,6 +74,7 @@ class BER_BadTag_Decoding_Error(BER_Decoding_Error,
 
 
 def BER_len_enc(ll, size=0):
+    # type: (int, int) -> bytes
     if ll <= 127 and size == 0:
         return chb(ll)
     s = b""
@@ -84,6 +91,7 @@ def BER_len_enc(ll, size=0):
 
 
 def BER_len_dec(s):
+    # type: (bytes) -> Tuple[int, bytes]
     tmp_len = orb(s[0])
     if not tmp_len & 0x80:
         return tmp_len, s[1:]
@@ -102,6 +110,7 @@ def BER_len_dec(s):
 
 
 def BER_num_enc(ll, size=1):
+    # type: (int, int) -> bytes
     x = []
     while ll or size > 0:
         x.insert(0, ll & 0x7f)
@@ -113,6 +122,7 @@ def BER_num_enc(ll, size=1):
 
 
 def BER_num_dec(s, cls_id=0):
+    # type: (bytes, int) -> Tuple[int, bytes]
     if len(s) == 0:
         raise BER_Decoding_Error("BER_num_dec: got empty string", remaining=s)
     x = cls_id
@@ -129,6 +139,7 @@ def BER_num_dec(s, cls_id=0):
 
 
 def BER_id_dec(s):
+    # type: (bytes) -> Tuple[int, bytes]
     # This returns the tag ALONG WITH THE PADDED CLASS+CONSTRUCTIVE INFO.
     # Let's recall that bits 8-7 from the first byte of the tag encode
     # the class information, while bit 6 means primitive or constructive.
@@ -155,6 +166,7 @@ def BER_id_dec(s):
 
 
 def BER_id_enc(n):
+    # type: (int) -> bytes
     if n < 256:
         # low-tag-number
         return chb(n)
@@ -170,8 +182,13 @@ def BER_id_enc(n):
 # The functions below provide implicit and explicit tagging support.
 
 
-def BER_tagging_dec(s, hidden_tag=None, implicit_tag=None,
-                    explicit_tag=None, safe=False):
+def BER_tagging_dec(s,  # type: bytes
+                    hidden_tag=None,  # type: Optional[ASN1Tag]
+                    implicit_tag=None,  # type: Optional[int]
+                    explicit_tag=None,  # type: Optional[int]
+                    safe=False,  # type: Optional[bool]
+                    ):
+    # type: (...) -> Tuple[None, bytes]
     # We output the 'real_tag' if it is different from the (im|ex)plicit_tag.
     real_tag = None
     if len(s) > 0:
@@ -196,6 +213,7 @@ def BER_tagging_dec(s, hidden_tag=None, implicit_tag=None,
 
 
 def BER_tagging_enc(s, implicit_tag=None, explicit_tag=None):
+    # type: (bytes, Optional[int], Optional[int]) -> bytes
     if len(s) > 0:
         if implicit_tag is not None:
             s = BER_id_enc(implicit_tag) + s[1:]
@@ -222,10 +240,12 @@ class BERcodec_Object(six.with_metaclass(BERcodec_metaclass)):
 
     @classmethod
     def asn1_object(cls, val):
+        # type: (Any) -> Any
         return cls.tag.asn1_object(val)
 
     @classmethod
     def check_string(cls, s):
+        # type: (bytes) -> None
         if not s:
             raise BER_Decoding_Error(
                 "%s: Got empty object while expecting tag %r" %
@@ -234,6 +254,7 @@ class BERcodec_Object(six.with_metaclass(BERcodec_metaclass)):
 
     @classmethod
     def check_type(cls, s):
+        # type: (bytes) -> bytes
         cls.check_string(s)
         tag, remainder = BER_id_dec(s)
         if not isinstance(tag, int) or cls.tag != tag:
@@ -245,6 +266,7 @@ class BERcodec_Object(six.with_metaclass(BERcodec_metaclass)):
 
     @classmethod
     def check_type_get_len(cls, s):
+        # type: (bytes) -> Tuple[int, bytes]
         s2 = cls.check_type(s)
         if not s2:
             raise BER_Decoding_Error("%s: No bytes while expecting a length" %
@@ -253,6 +275,7 @@ class BERcodec_Object(six.with_metaclass(BERcodec_metaclass)):
 
     @classmethod
     def check_type_check_len(cls, s):
+        # type: (bytes) -> Tuple[int, bytes, bytes]
         l, s3 = cls.check_type_get_len(s)
         if len(s3) < l:
             raise BER_Decoding_Error("%s: Got %i bytes while expecting %i" %
@@ -260,7 +283,12 @@ class BERcodec_Object(six.with_metaclass(BERcodec_metaclass)):
         return l, s3[:l], s3[l:]
 
     @classmethod
-    def do_dec(cls, s, context=None, safe=False):
+    def do_dec(cls,
+               s,  # type: bytes
+               context=None,  # type: Optional[Any]
+               safe=False,  # type: bool
+               ):
+        # type: (...) -> Tuple[Union[ASN1_INTEGER, ASN1_STRING], bytes]
         if context is None:
             context = cls.tag.context
         cls.check_string(s)
@@ -279,7 +307,12 @@ class BERcodec_Object(six.with_metaclass(BERcodec_metaclass)):
         return codec.dec(s, context, safe)
 
     @classmethod
-    def dec(cls, s, context=None, safe=False):
+    def dec(cls,
+            s,  # type: bytes
+            context=None,  # type: Optional[Any]
+            safe=False,  # type: bool
+            ):
+        # type: (...) -> Tuple[Any, bytes]
         if not safe:
             return cls.do_dec(s, context, safe)
         try:
@@ -293,11 +326,16 @@ class BERcodec_Object(six.with_metaclass(BERcodec_metaclass)):
             return ASN1_DECODING_ERROR(s, exc=e), ""
 
     @classmethod
-    def safedec(cls, s, context=None):
+    def safedec(cls,
+                s,  # type: bytes
+                context=None,  # type: Optional[Any]
+                ):
+        # type: (...) -> Tuple[Any, bytes]
         return cls.dec(s, context, safe=True)
 
     @classmethod
     def enc(cls, s):
+        # type: (bytes) -> bytes
         if isinstance(s, six.string_types + (bytes,)):
             return BERcodec_STRING.enc(s)
         else:
@@ -316,6 +354,7 @@ class BERcodec_INTEGER(BERcodec_Object):
 
     @classmethod
     def enc(cls, i):
+        # type: (int) -> bytes
         s = []
         while True:
             s.append(i & 0xff)
@@ -333,7 +372,12 @@ class BERcodec_INTEGER(BERcodec_Object):
         return b"".join(s)
 
     @classmethod
-    def do_dec(cls, s, context=None, safe=False):
+    def do_dec(cls,
+               s,  # type: bytes
+               context=None,  # type: Optional[Any]
+               safe=False,  # type: bool
+               ):
+        # type: (...) -> Tuple[Any, bytes]
         l, s, t = cls.check_type_check_len(s)
         x = 0
         if s:
@@ -353,7 +397,12 @@ class BERcodec_BIT_STRING(BERcodec_Object):
     tag = ASN1_Class_UNIVERSAL.BIT_STRING
 
     @classmethod
-    def do_dec(cls, s, context=None, safe=False):
+    def do_dec(cls,
+               s,  # type: bytes
+               context=None,  # type: Optional[Any]
+               safe=False,  # type: bool
+               ):
+        # type: (...) -> Tuple[Any, bytes]
         # /!\ the unused_bits information is lost after this decoding
         l, s, t = cls.check_type_check_len(s)
         if len(s) > 0:
@@ -376,6 +425,7 @@ class BERcodec_BIT_STRING(BERcodec_Object):
 
     @classmethod
     def enc(cls, s):
+        # type: (bytes) -> bytes
         # /!\ this is DER encoding (bit strings are only zero-bit padded)
         s = bytes_encode(s)
         if len(s) % 8 == 0:
@@ -394,12 +444,18 @@ class BERcodec_STRING(BERcodec_Object):
 
     @classmethod
     def enc(cls, s):
+        # type: (Union[bytes, str]) -> bytes
         s = bytes_encode(s)
         # Be sure we are encoding bytes
         return chb(hash(cls.tag)) + BER_len_enc(len(s)) + s
 
     @classmethod
-    def do_dec(cls, s, context=None, safe=False):
+    def do_dec(cls,
+               s,  # type: bytes
+               context=None,  # type: Optional[Any]
+               safe=False,  # type: bool
+               ):
+        # type: (...) -> Tuple[Any, bytes]
         l, s, t = cls.check_type_check_len(s)
         return cls.tag.asn1_object(s), t
 
@@ -409,6 +465,7 @@ class BERcodec_NULL(BERcodec_INTEGER):
 
     @classmethod
     def enc(cls, i):
+        # type: (int) -> bytes
         if i == 0:
             return chb(hash(cls.tag)) + b"\0"
         else:
@@ -420,6 +477,7 @@ class BERcodec_OID(BERcodec_Object):
 
     @classmethod
     def enc(cls, oid):
+        # type: (str) -> bytes
         oid = bytes_encode(oid)
         if oid:
             lst = [int(x) for x in oid.strip(b".").split(b".")]
@@ -433,6 +491,7 @@ class BERcodec_OID(BERcodec_Object):
 
     @classmethod
     def do_dec(cls, s, context=None, safe=False):
+        # type: (bytes, Optional[Any], bool) -> Tuple[Any, bytes]
         l, s, t = cls.check_type_check_len(s)
         lst = []
         while s:
@@ -500,6 +559,7 @@ class BERcodec_SEQUENCE(BERcodec_Object):
 
     @classmethod
     def enc(cls, ll):
+        # type: (bytes) -> bytes
         if not isinstance(ll, bytes):
             ll = b"".join(x.enc(cls.codec) for x in ll)
         return chb(hash(cls.tag)) + BER_len_enc(len(ll)) + ll

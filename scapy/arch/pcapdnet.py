@@ -25,6 +25,11 @@ from scapy.supersocket import SuperSocket
 from scapy.error import Scapy_Exception, log_loading, warning
 import scapy.consts
 
+from typing import Any
+from typing import Optional
+from typing import Tuple
+from typing import List
+
 if not scapy.consts.WINDOWS:
     from fcntl import ioctl
 
@@ -44,6 +49,7 @@ class _L2pcapdnetSocket(SuperSocket, SelectableObject):
         SelectableObject.__init__(self)
 
     def check_recv(self):
+        # type: () -> bool
         return True
 
     def recv_raw(self, x=MTU):
@@ -66,6 +72,7 @@ class _L2pcapdnetSocket(SuperSocket, SelectableObject):
         return cls, pkt, ts
 
     def nonblock_recv(self):
+        # type: () -> Any
         """Receives and dissect a packet in non-blocking mode.
         Note: on Windows, this won't do anything."""
         self.ins.setnonblock(1)
@@ -103,6 +110,7 @@ if conf.use_pcap:
             bpf_program as winpcapy_bpf_program
 
         def load_winpcapy():
+            # type: () -> None
             """This functions calls Winpcap/Npcap pcap_findalldevs function,
             and extracts and parse all the data scapy will need to use it:
              - the Interface List
@@ -180,6 +188,7 @@ if conf.use_pcap:
 
 if conf.use_pcap:
     def get_if_list():
+        # type: () -> List[str]
         """Returns all pcap names"""
         if not conf.cache_iflist:
             load_winpcapy()
@@ -189,6 +198,7 @@ if conf.use_pcap:
         """Wrapper for the WinPcap calls"""
 
         def __init__(self, device, snaplen, promisc, to_ms, monitor=None):
+            # type: (str, int, int, int, Optional[Any]) -> None
             self.errbuf = create_string_buffer(PCAP_ERRBUF_SIZE)
             self.iface = create_string_buffer(device.encode("utf8"))
             if monitor:
@@ -221,6 +231,7 @@ if conf.use_pcap:
             self.bpf_program = winpcapy_bpf_program()
 
         def next(self):
+            # type: () -> Optional[Tuple[float, bytes]]
             c = pcap_next_ex(self.pcap, byref(self.header), byref(self.pkt_data))  # noqa: E501
             if not c > 0:
                 return
@@ -230,6 +241,7 @@ if conf.use_pcap:
         __next__ = next
 
         def datalink(self):
+            # type: () -> int
             return pcap_datalink(self.pcap)
 
         def fileno(self):
@@ -241,6 +253,7 @@ if conf.use_pcap:
                 return pcap_get_selectable_fd(self.pcap)
 
         def setfilter(self, f):
+            # type: (str) -> bool
             filter_exp = create_string_buffer(f.encode("utf8"))
             if pcap_compile(self.pcap, byref(self.bpf_program), filter_exp, 0, -1) == -1:  # noqa: E501
                 log_loading.error("Could not compile filter expression %s", f)
@@ -252,12 +265,15 @@ if conf.use_pcap:
             return True
 
         def setnonblock(self, i):
+            # type: (int) -> None
             pcap_setnonblock(self.pcap, i, self.errbuf)
 
         def send(self, x):
+            # type: (bytes) -> None
             pcap_sendpacket(self.pcap, x, len(x))
 
         def close(self):
+            # type: () -> None
             pcap_close(self.pcap)
     open_pcap = lambda *args, **kargs: _PcapWrapper_winpcap(*args, **kargs)
 
@@ -266,7 +282,14 @@ if conf.use_pcap:
     class L2pcapListenSocket(_L2pcapdnetSocket):
         desc = "read packets at layer 2 using libpcap"
 
-        def __init__(self, iface=None, type=ETH_P_ALL, promisc=None, filter=None, monitor=None):  # noqa: E501
+        def __init__(self,
+                     iface=None,  # type: Optional[Any]
+                     type=ETH_P_ALL,  # type: int
+                     promisc=None,  # type: Optional[Any]
+                     filter=None,  # type: Optional[Any]
+                     monitor=None,  # type: Optional[Any]
+                     ):  # noqa: E501
+            # type: (...) -> None
             super(L2pcapListenSocket, self).__init__()
             self.type = type
             self.outs = None
@@ -303,8 +326,15 @@ if conf.use_pcap:
     class L2pcapSocket(_L2pcapdnetSocket):
         desc = "read/write packets at layer 2 using only libpcap"
 
-        def __init__(self, iface=None, type=ETH_P_ALL, promisc=None, filter=None, nofilter=0,  # noqa: E501
-                     monitor=None):
+        def __init__(self,
+                     iface=None,  # type: Optional[Any]
+                     type=ETH_P_ALL,  # type: int
+                     promisc=None,  # type: Optional[Any]
+                     filter=None,  # type: Optional[Any]
+                     nofilter=0,  # type: int  # noqa: E501
+                     monitor=None,  # type: Optional[Any]
+                     ):
+            # type: (...) -> None
             super(L2pcapSocket, self).__init__()
             if iface is None:
                 iface = conf.iface
@@ -340,6 +370,7 @@ if conf.use_pcap:
                 self.ins.setfilter(filter)
 
         def send(self, x):
+            # type: (Any) -> Optional[Any]
             sx = raw(x)
             if hasattr(x, "sent_time"):
                 x.sent_time = time.time()
@@ -349,11 +380,13 @@ if conf.use_pcap:
         desc = "read/write packets at layer 3 using only libpcap"
 
         def recv(self, x=MTU):
+            # type: (int) -> Any
             r = L2pcapSocket.recv(self, x)
             if r:
                 return r.payload
 
         def send(self, x):
+            # type: (Any) -> Optional[Any]
             # Makes send detects when it should add Loopback(), Dot11... instead of Ether()  # noqa: E501
             ll = self.ins.datalink()
             if ll in conf.l2types:

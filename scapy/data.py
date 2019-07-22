@@ -18,6 +18,14 @@ from scapy.error import log_loading
 from scapy.compat import plain_str
 import scapy.modules.six as six
 
+from _io import BufferedReader
+from typing import List
+from typing import Union
+from typing import Any
+from typing import Optional
+from typing import Dict
+from typing import Tuple
+
 
 ############
 #  Consts  #
@@ -160,6 +168,7 @@ def load_protocols(filename, _fallback=None, _integer_base=10):
     dct = DADict(_name=filename)
 
     def _process_data(fdesc):
+        # type: (Union[List[bytes], BufferedReader]) -> None
         for line in fdesc:
             try:
                 shrp = line.find(b"#")
@@ -193,6 +202,7 @@ def load_protocols(filename, _fallback=None, _integer_base=10):
 
 
 def load_ethertypes(filename):
+    # type: (Optional[Any]) -> DADict
     """"Parse /etc/ethertypes and return values as a dictionary.
     If unavailable, use the copy bundled with Scapy."""
     from scapy.modules.ethertypes import DATA
@@ -200,6 +210,7 @@ def load_ethertypes(filename):
 
 
 def load_services(filename):
+    # type: (str) -> Tuple[DADict, DADict]
     spaces = re.compile(b"[ \t]+|\n")
     tdct = DADict(_name="%s-tcp" % filename)
     udct = DADict(_name="%s-udp" % filename)
@@ -234,6 +245,7 @@ def load_services(filename):
 
 class ManufDA(DADict):
     def fixname(self, val):
+        # type: (bytes) -> str
         return plain_str(val)
 
     def __dir__(self):
@@ -250,6 +262,7 @@ class ManufDA(DADict):
         return self._get_manuf_couple(mac)[0]
 
     def _resolve_MAC(self, mac):
+        # type: (str) -> str
         oui = ":".join(mac.split(":")[:3]).upper()
         if oui in self:
             return ":".join([self[oui][0]] + mac.split(":")[3:])
@@ -277,6 +290,7 @@ class ManufDA(DADict):
 
 
 def load_manuf(filename):
+    # type: (str) -> ManufDA
     """Load manuf file from Wireshark.
     param:
      - filename: the file to load the manuf file from"""
@@ -299,6 +313,7 @@ def load_manuf(filename):
 
 
 def select_path(directories, filename):
+    # type: (List[str], str) -> Optional[Any]
     """Find filename among several directories"""
     for directory in directories:
         path = os.path.join(directory, filename)
@@ -335,6 +350,7 @@ else:
 
 class KnowledgeBase:
     def __init__(self, filename):
+        # type: (Optional[Any]) -> None
         self.filename = filename
         self.base = None
 
@@ -342,6 +358,7 @@ class KnowledgeBase:
         self.base = ""
 
     def reload(self, filename=None):
+        # type: (Optional[Any]) -> None
         if filename is not None:
             self.filename = filename
         oldbase = self.base
@@ -351,6 +368,7 @@ class KnowledgeBase:
             self.base = oldbase
 
     def get_base(self):
+        # type: () -> Union[List[Tuple[str, Dict[str, Dict[str, str]]]], List[Tuple[str, int, int, int, str, str, str, str]]]
         if self.base is None:
             self.lazy_init()
         return self.base

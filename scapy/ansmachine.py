@@ -14,9 +14,14 @@ Answering machines.
 from __future__ import absolute_import
 from __future__ import print_function
 from scapy.sendrecv import send, sniff
+from scapy.packet import Packet
 from scapy.config import conf
 from scapy.error import log_interactive
 import scapy.modules.six as six
+from typing import Any
+from typing import Dict
+from typing import Union
+from typing import Tuple
 
 
 class ReferenceAM(type):
@@ -37,6 +42,7 @@ class AnsweringMachine(six.with_metaclass(ReferenceAM, object)):
     send_function = staticmethod(send)
 
     def __init__(self, **kargs):
+        # type: (**Any) -> None
         self.mode = 0
         if self.filter:
             kargs.setdefault("filter", self.filter)
@@ -52,12 +58,14 @@ class AnsweringMachine(six.with_metaclass(ReferenceAM, object)):
         self.optsend, self.optsniff = [{}, {}]
 
     def __getattr__(self, attr):
+        # type: (str) -> str
         for dct in [self.optam2, self.optam1]:
             if attr in dct:
                 return dct[attr]
         raise AttributeError(attr)
 
     def __setattr__(self, attr, val):
+        # type: (str, Union[Dict[str, int], int]) -> None
         mode = self.__dict__.get("mode", 0)
         if mode == 0:
             self.__dict__[attr] = val
@@ -68,6 +76,7 @@ class AnsweringMachine(six.with_metaclass(ReferenceAM, object)):
         pass
 
     def parse_all_options(self, mode, kargs):
+        # type: (int, Dict[str, Any]) -> Tuple[Dict, Dict[str, Any]]
         sniffopt = {}
         sendopt = {}
         for k in list(kargs):  # use list(): kargs is modified in the loop
@@ -101,9 +110,11 @@ class AnsweringMachine(six.with_metaclass(ReferenceAM, object)):
         self.send_function(reply, **self.optsend)
 
     def print_reply(self, req, reply):
+        # type: (Packet, Packet) -> None
         print("%s ==> %s" % (req.summary(), reply.summary()))
 
     def reply(self, pkt):
+        # type: (Packet) -> None
         if not self.is_request(pkt):
             return
         reply = self.make_reply(pkt)
@@ -116,6 +127,7 @@ class AnsweringMachine(six.with_metaclass(ReferenceAM, object)):
         self(*args, **kargs)
 
     def __call__(self, *args, **kargs):
+        # type: (*Any, **Any) -> None
         optsend, optsniff = self.parse_all_options(2, kargs)
         self.optsend = self.defoptsend.copy()
         self.optsend.update(optsend)
@@ -128,4 +140,5 @@ class AnsweringMachine(six.with_metaclass(ReferenceAM, object)):
             print("Interrupted by user")
 
     def sniff(self):
+        # type: () -> None
         sniff(**self.optsniff)

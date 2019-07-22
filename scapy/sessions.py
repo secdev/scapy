@@ -10,14 +10,19 @@ Sessions: decode flow of packets when sniffing
 from collections import defaultdict
 from scapy.compat import raw
 from scapy.config import conf
-from scapy.packet import NoPayload
+from scapy.packet import Packet, NoPayload
 from scapy.plist import PacketList
+
+from typing import Any
+from typing import Callable
+from typing import Optional
 
 
 class DefaultSession(object):
     """Default session: no stream decoding"""
 
     def __init__(self, prn, store, *args, **karg):
+        # type: (Callable, bool, *Any, **Any) -> None
         self.prn = prn
         self.store = store
         self.lst = []
@@ -25,12 +30,15 @@ class DefaultSession(object):
 
     @property
     def count(self):
+        # type: () -> int
         return self.__count
 
     def toPacketList(self):
+        # type: () -> PacketList
         return PacketList(self.lst, "Sniffed")
 
     def on_packet_received(self, pkt):
+        # type: (Any) -> None
         """DEV: entry point. Will be called by sniff() for each
         received packet (that passes the filters).
         """
@@ -56,10 +64,12 @@ class IPSession(DefaultSession):
     """
 
     def __init__(self, *args):
+        # type: (*Any) -> None
         DefaultSession.__init__(self, *args)
         self.fragments = defaultdict(list)
 
     def _ip_process_packet(self, packet):
+        # type: (Packet) -> Union[Packet, None]
         from scapy.layers.inet import _defrag_list, IP
         if IP not in packet:
             return packet
@@ -85,6 +95,7 @@ class IPSession(DefaultSession):
             return packet
 
     def on_packet_received(self, pkt):
+        # type: (IP) -> None
         pkt = self._ip_process_packet(pkt)
         DefaultSession.on_packet_received(self, pkt)
 
@@ -101,11 +112,13 @@ class StringBuffer(object):
     zeros.
     """
     def __init__(self):
+        # type: () -> None
         self.content = bytearray(b"")
         self.content_len = 0
         self.incomplete = []
 
     def append(self, data, seq):
+        # type: (bytes, int) -> None
         data_len = len(data)
         seq = seq - 1
         if seq + data_len > self.content_len:
@@ -121,21 +134,26 @@ class StringBuffer(object):
         memoryview(self.content)[seq:seq + data_len] = data
 
     def full(self):
+        # type: () -> bool
         # Should only be true when all missing data was filled up,
         # (or there never was missing data)
         return True  # XXX
 
     def clear(self):
+        # type: () -> None
         self.__init__()
 
     def __bool__(self):
+        # type: () -> bool
         return bool(self.content_len)
     __nonzero__ = __bool__
 
     def __len__(self):
+        # type: () -> int
         return self.content_len
 
     def __bytes__(self):
+        # type: () -> bytes
         return bytes(self.content)
     __str__ = __bytes__
 
@@ -164,6 +182,7 @@ class TCPSession(IPSession):
            '{IP:%IP.dst%}{IPv6:%IPv6.dst%}:%r,TCP.dport%')
 
     def __init__(self, *args):
+        # type: (*Any) -> None
         super(TCPSession, self).__init__(*args)
         # The StringBuffer() is used to build a global
         # string from fragments and their seq nulber
@@ -172,6 +191,7 @@ class TCPSession(IPSession):
         )
 
     def _process_packet(self, pkt):
+        # type: (Packet) -> Optional[Packet]
         """Process each packet: matches the TCP seq/ack numbers
         to follow the TCP streams, and orders the fragments.
         """
@@ -223,6 +243,7 @@ class TCPSession(IPSession):
             return pkt / packet
 
     def on_packet_received(self, pkt):
+        # type: (Packet) -> None
         """Hook to the Sessions API: entry point of the dissection.
         This will defragment IP if necessary, then process to
         TCP reassembly.

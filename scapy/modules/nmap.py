@@ -29,6 +29,11 @@ from scapy.packet import NoPayload
 from scapy.sendrecv import sr
 from scapy.compat import plain_str, raw
 import scapy.modules.six as six
+from typing import List
+from typing import Tuple
+from typing import Dict
+from typing import Optional
+from typing import Any
 
 
 if WINDOWS:
@@ -53,6 +58,7 @@ None.
     """
 
     def lazy_init(self):
+        # type: () -> None
         try:
             fdesc = open(conf.nmap_base
                          if self.filename is None else
@@ -93,6 +99,7 @@ nmap_kdb = NmapKnowledgeBase(None)
 
 
 def nmap_tcppacket_sig(pkt):
+    # type: (Optional[IP]) -> Dict[str, str]
     res = {}
     if pkt is not None:
         res["DF"] = "Y" if pkt.flags.DF else "N"
@@ -106,6 +113,7 @@ def nmap_tcppacket_sig(pkt):
 
 
 def nmap_udppacket_sig(snd, rcv):
+    # type: (IP, Optional[IP]) -> Dict[str, str]
     res = {}
     if rcv is None:
         res["Resp"] = "N"
@@ -130,6 +138,7 @@ def nmap_udppacket_sig(snd, rcv):
 
 
 def nmap_match_one_sig(seen, ref):
+    # type: (Dict[str, str], Dict[str, str]) -> float
     cnt = sum(val in ref.get(key, "").split("|")
               for key, val in six.iteritems(seen))
     if cnt == 0 and seen.get("Resp") == "N":
@@ -138,6 +147,7 @@ def nmap_match_one_sig(seen, ref):
 
 
 def nmap_sig(target, oport=80, cport=81, ucport=1):
+    # type: (str, int, int, int) -> Dict[str, Dict[str, str]]
     res = {}
 
     tcpopt = [("WScale", 10),
@@ -169,6 +179,7 @@ def nmap_sig(target, oport=80, cport=81, ucport=1):
 
 
 def nmap_probes2sig(tests):
+    # type: (Dict[str, Any]) -> Dict[str, Dict[str, str]]
     tests = tests.copy()
     res = {}
     if "PU" in tests:
@@ -180,6 +191,7 @@ def nmap_probes2sig(tests):
 
 
 def nmap_search(sigs):
+    # type: (Dict[str, Dict[str, str]]) -> Tuple[float, List[str]]
     guess = 0, []
     for osval, fprint in nmap_kdb.get_base():
         score = 0.0
@@ -196,6 +208,7 @@ def nmap_search(sigs):
 
 @conf.commands.register
 def nmap_fp(target, oport=80, cport=81):
+    # type: (str, int, int) -> Tuple[float, List[str]]
     """nmap fingerprinting
 nmap_fp(target, [oport=80,] [cport=81,]) -> list of best guesses with accuracy
 """
@@ -205,6 +218,7 @@ nmap_fp(target, [oport=80,] [cport=81,]) -> list of best guesses with accuracy
 
 @conf.commands.register
 def nmap_sig2txt(sig):
+    # type: (Dict[str, Dict[str, str]]) -> str
     torder = ["TSeq", "T1", "T2", "T3", "T4", "T5", "T6", "T7", "PU"]
     korder = ["Class", "gcd", "SI", "IPID", "TS",
               "Resp", "DF", "W", "ACK", "Flags", "Ops",
