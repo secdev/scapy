@@ -117,3 +117,32 @@ if six.PY2:
 else:
     gzip_decompress = gzip.decompress
     gzip_compress = gzip.compress
+
+# Typing compatibility
+
+try:
+    # Only required if using mypy-lang for static typing
+    from typing import Optional, List, Union, Callable, Any, Tuple, Sized, \
+        Dict, Pattern, cast
+except ImportError:
+    # Let's make some fake ones.
+
+    def cast(_type, obj):
+        return obj
+
+    class _FakeType(object):
+        # make the objects subscriptable indefinetly
+        def __getitem__(self, item):
+            return _FakeType()
+
+    Optional = _FakeType()
+    Union = _FakeType()
+    Callable = _FakeType()
+    List = _FakeType()
+    Dict = _FakeType()
+    Any = _FakeType()
+    Tuple = _FakeType()
+    Pattern = _FakeType()
+
+    class Sized(object):
+        pass

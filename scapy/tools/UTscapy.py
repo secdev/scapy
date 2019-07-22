@@ -29,7 +29,6 @@ import scapy.modules.six as six
 from scapy.modules.six.moves import range
 from scapy.compat import base64_bytes, bytes_hex, plain_str
 
-
 #   Util class   #
 
 class Bunch:
@@ -696,7 +695,7 @@ def usage():
 -T\t\t: if -t is used with *, remove a specific file (can be used many times)
 -l\t\t: generate local .js and .css files
 -F\t\t: expand only failed tests
--b\t\t: stop at first failed campaign
+-b\t\t: don't stop at the first failed campaign
 -d\t\t: dump campaign
 -D\t\t: dump campaign and stop
 -C\t\t: don't calculate CRC and SHA
@@ -704,6 +703,7 @@ def usage():
 -c\t\t: load a .utsc config file
 -q\t\t: quiet mode
 -qq\t\t: [silent mode]
+-x\t\t: use pyannotate
 -n <testnum>\t: only tests whose numbers are given (eg. 1,3-7,12)
 -m <module>\t: additional module to put in the namespace
 -k <kw1>,<kw2>,...\t: include only tests with one of those keywords (can be used many times)
@@ -801,13 +801,14 @@ def main():
     SCAPY = "scapy"
     MODULES = []
     TESTFILES = []
+    ANNOTATIONS_MODE = False
     try:
-        opts = getopt.getopt(argv, "o:t:T:c:f:hbln:m:k:K:DdCFqP:s:")
+        opts = getopt.getopt(argv, "o:t:T:c:f:hbln:m:k:K:DdCFqP:s:x")
         for opt, optarg in opts[0]:
             if opt == "-h":
                 usage()
             elif opt == "-b":
-                BREAKFAILED =  True
+                BREAKFAILED = False
             elif opt == "-F":
                 ONLYFAILED = True
             elif opt == "-q":
@@ -818,6 +819,8 @@ def main():
                 DUMP = 1
             elif opt == "-C":
                 CRC = False
+            elif opt == "-x":
+                ANNOTATIONS_MODE = True
             elif opt == "-s":
                 SCAPY = optarg
             elif opt == "-P":
@@ -884,6 +887,14 @@ def main():
         # Discard Python3 tests when using Python2
         if six.PY2:
             KW_KO.append("python3_only")
+
+        if ANNOTATIONS_MODE:
+            try:
+                from pyannotate_runtime import collect_types
+            except ImportError:
+                raise ImportError("Please install pyannotate !")
+            collect_types.init_types_collection()
+            collect_types.start()
 
         if VERB > 2:
             print("### Booting scapy...", file=sys.stderr)
@@ -964,6 +975,11 @@ def main():
 
     if VERB > 2:
         print("### Writing output...", file=sys.stderr)
+
+    if ANNOTATIONS_MODE:
+        collect_types.stop()
+        collect_types.dump_stats("pyannotate_results")
+
     # Concenate outputs
     if FORMAT == Format.HTML:
         glob_output = pack_html_campaigns(runned_campaigns, glob_output, LOCAL, glob_title)
