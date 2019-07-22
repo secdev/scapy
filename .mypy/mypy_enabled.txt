@@ -3,3 +3,45 @@
 # with unit tests in future development.
 
 # Style cheet: https://mypy.readthedocs.io/en/latest/cheat_sheet.html
+
+scapy/__init__.py
+scapy/ansmachine.py
+scapy/as_resolvers.py
+scapy/asn1/asn1.py
+scapy/asn1/ber.py
+scapy/asn1/mib.py
+scapy/asn1fields.py
+scapy/asn1packet.py
+scapy/automaton.py
+scapy/autorun.py
+scapy/base_classes.py
+scapy/compat.py
+scapy/config.py
+scapy/dadict.py
+scapy/data.py
+scapy/error.py
+scapy/extlib.py
+scapy/fields.py
+scapy/main.py
+scapy/modules/nmap.py
+scapy/modules/p0f.py
+scapy/packet.py
+scapy/pipetool.py
+scapy/plist.py
+scapy/pton_ntop.py
+scapy/route.py
+scapy/route6.py
+scapy/scapypipes.py
+scapy/sendrecv.py
+scapy/sessions.py
+scapy/supersocket.py
+scapy/themes.py
+scapy/utils.py
+scapy/utils6.py
+scapy/volatile.py
+
+scapy/arch/__init__.py
+scapy/arch/common.py
+scapy/arch/pcapdnet.py
+scapy/arch/windows/__init__.py
+scapy/arch/windows/structures.py
