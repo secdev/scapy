@@ -399,7 +399,7 @@ assert GMLAN_TransferData(isotpsock, 0x40000000, payload*512, maxmsglen=0x100000
 thread.join()
 assert ecusimSuccessfullyExecuted == True
 
-############ Address Boundry checks
+############ Address boundary checks
 = Positive, highest possible address for scheme
 ~ linux needs_root
 conf.contribs['GMLAN']['GMLAN_ECU_AddressingScheme'] = 4
@@ -600,22 +600,7 @@ assert ecusimSuccessfullyExecuted == True
 
 = invalid level (not an odd number)
 ~ linux needs_root
-def ecusim():
-    isotpsock2 = ISOTPSocket("vcan0", sid=0x642, did=0x242, basecls=GMLAN)
-    # wait for request
-    requ = isotpsock2.sniff(count=1, timeout=0.3)
-    seedmsg = GMLAN()/GMLAN_SAPR(subfunction=1, securitySeed=0xdead)
-    isotpsock2.send(seedmsg)
-    # wait for key
-    requ = isotpsock2.sniff(count=1, timeout=0.3)
-    pr = GMLAN()/GMLAN_SAPR(subfunction=2)
-    isotpsock2.send(pr)
-
-thread = threading.Thread(target=ecusim)
-thread.start()
-time.sleep(0.05)
 assert GMLAN_GetSecurityAccess(isotpsock, keyfunc, level=2, timeout=1) == False
-thread.join()
 
 = zero seed
 ~ linux needs_root
