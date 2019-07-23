@@ -180,7 +180,7 @@ class DCPBaseBlock(Packet):
         ByteEnumField("option", 1, DCP_OPTIONS),
         MultiEnumField("sub_option", 2, DCP_SUBOPTIONS, fmt='B',
                        depends_on=lambda p: p.option),
-        FieldLenField("dcp_block_length", None, length_of="data"),  # TODO
+        FieldLenField("dcp_block_length", None, length_of="data"),
         ShortEnumField("block_info", 0, BLOCK_INFOS),
         StrLenField("data", "", length_from=lambda x: x.dcp_block_length),
     ]
@@ -196,7 +196,7 @@ class DCPIPBlock(Packet):
         ByteEnumField("option", 1, DCP_OPTIONS),
         MultiEnumField("sub_option", 2, DCP_SUBOPTIONS, fmt='B',
                        depends_on=lambda p: p.option),
-        LenField("dcp_block_length", None),  # TODO
+        LenField("dcp_block_length", None),
         ShortEnumField("block_info", 1, IP_BLOCK_INFOS),
         IPField("ip", "192.168.0.2"),
         IPField("netmask", "255.255.255.0"),
@@ -215,7 +215,7 @@ class DCPMACBlock(Packet):
         ByteEnumField("option", 1, DCP_OPTIONS),
         MultiEnumField("sub_option", 1, DCP_SUBOPTIONS, fmt='B',
                        depends_on=lambda p: p.option),
-        FieldLenField("dcp_block_length", None),  # TODO
+        FieldLenField("dcp_block_length", None),
         ShortEnumField("block_info", 0, BLOCK_INFOS),
         MACField("mac", "00:00:00:00:00:00"),
         PadField(StrLenField("padding", b"\x00",
@@ -234,7 +234,7 @@ class DCPManufacturerSpecificBlock(Packet):
         ByteEnumField("option", 2, DCP_OPTIONS),
         MultiEnumField("sub_option", 1, DCP_SUBOPTIONS, fmt='B',
                        depends_on=lambda p: p.option),
-        FieldLenField("dcp_block_length", None),  # TODO
+        FieldLenField("dcp_block_length", None),
         ShortEnumField("block_info", 0, BLOCK_INFOS),
         StrLenField("device_vendor_value", "et200sp",
                     length_from=lambda x: x.dcp_block_length - 2),
@@ -272,7 +272,7 @@ class DCPDeviceIDBlock(Packet):
         ByteEnumField("option", 2, DCP_OPTIONS),
         MultiEnumField("sub_option", 3, DCP_SUBOPTIONS, fmt='B',
                        depends_on=lambda p: p.option),
-        LenField("dcp_block_length", None),  # TODO
+        LenField("dcp_block_length", None), 
         ShortEnumField("block_info", 0, BLOCK_INFOS),
         XShortField("vendor_id", 0x002a),
         XShortField("device_id", 0x0313),
@@ -320,7 +320,7 @@ class DCPDeviceOptionsBlock(Packet):
         ByteEnumField("option", 2, DCP_OPTIONS),
         MultiEnumField("sub_option", 5, DCP_SUBOPTIONS, fmt='B',
                        depends_on=lambda p: p.option),
-        LenField("dcp_block_length", None),  # TODO
+        LenField("dcp_block_length", None),
         ShortEnumField("block_info", 0, BLOCK_INFOS),
 
         PacketListField("device_options", [], DeviceOption,
@@ -377,7 +377,7 @@ class DCPControlBlock(Packet):
         ByteEnumField("option", 5, DCP_OPTIONS),
         MultiEnumField("sub_option", 4, DCP_SUBOPTIONS, fmt='B',
                        depends_on=lambda p: p.option),
-        LenField("dcp_block_length", 3),  # TODO
+        LenField("dcp_block_length", 3),
         ByteEnumField("response", 2, DCP_OPTIONS),
         MultiEnumField("response_sub_option", 2, DCP_SUBOPTIONS, fmt='B',
                        depends_on=lambda p: p.option),
@@ -403,7 +403,7 @@ def guess_dcp_block_class(packet, **kargs):
     option = orb(packet[0])
     suboption = orb(packet[1])
 
-    # TODO implement the other functions if needed
+    # NOTE implement the other functions if needed
 
     class_switch_case = {
         # IP
