@@ -6,7 +6,8 @@
 # Copyright (C) Nils Weiss <nils@we155.de>
 # This program is published under a GPLv2 license
 
-# scapy.contrib.description = General Motors Local Area Network Utilities (GMLAN-Utils)
+# scapy.contrib.description = General Motors Local Area Network
+#                             Utilities (GMLAN-Utils)
 # scapy.contrib.status = loads
 
 from time import sleep
@@ -14,7 +15,7 @@ from scapy.contrib.automotive.gm.gmlan import GMLAN, GMLAN_SA, GMLAN_RD, \
     GMLAN_TD, GMLAN_PM, GMLAN_RMBA, GMLAN_NR
 from scapy.config import conf
 from scapy.contrib.isotp import ISOTPSocket
-from scapy.error import warning
+from scapy.error import warning, log_loading
 from scapy.utils import PeriodicSenderThread
 
 
@@ -22,6 +23,15 @@ __all__ = ["GMLAN_TesterPresentSender", "GMLAN_InitDiagnostics",
            "GMLAN_GetSecurityAccess", "GMLAN_RequestDownload",
            "GMLAN_TransferData", "GMLAN_TransferPayload",
            "GMLAN_ReadMemoryByAddress", "GMLAN_BroadcastSocket"]
+
+log_loading.info("\"conf.contribs['GMLAN']"
+                 "['treat-response-pending-as-answer']\" set to True). This "
+                 "is required by the GMLAN-Utils module to operate "
+                 "correctly.")
+try:
+    conf.contribs['GMLAN']['treat-response-pending-as-answer'] = False
+except KeyError:
+    conf.contribs['GMLAN'] = {'treat-response-pending-as-answer': False}
 
 
 class GMLAN_TesterPresentSender(PeriodicSenderThread):
@@ -215,35 +225,19 @@ def GMLAN_RequestDownload(socket, length, timeout=None, verbose=None, retry=0):
         # RequestDownload
         pkt = GMLAN() / GMLAN_RD(memorySize=length)
         resp = socket.sr1(pkt, timeout=timeout, verbose=0)
-        if resp is None:
+        if resp is not None:
+            if resp.service == GMLAN(service="RequestDownloadPositiveResponse").service:   # noqa: E501
+                return True
+            if verbose:
+                resp.show()
+                print("Negative Response.")
+        else:
             if verbose:
                 print("Timeout.")
-        else:
-            # filter Response Pending
-            while (resp.service == GMLAN(service="NegativeResponse").service and   # noqa: E501
-                   resp.returnCode == GMLAN_NR(returnCode="RequestCorrectlyReceived-ResponsePending").returnCode and   # noqa: E501
-                   resp.requestServiceId == GMLAN(service="RequestDownload").service):   # noqa: E501
-                sniffed = socket.sniff(count=1, timeout=timeout,
-                                       lfilter=lambda p: p.answers(pkt))
-                if len(sniffed) < 1:
-                    resp = None
-                    break
-                resp = sniffed[0]
-
-            if resp is None:
-                if verbose:
-                    print("Timeout.")
-            elif resp.service != GMLAN(service="RequestDownloadPositiveResponse").service:   # noqa: E501
-                if verbose:
-                    resp.show()
-                    print("Negative Response.")
-            else:
-                return True
 
         retry -= 1
-        if retry >= 0:
-            if verbose:
-                print("Retrying..")
+        if retry >= 0 and verbose:
+            print("Retrying..")
     return False
 
 
@@ -290,31 +284,15 @@ def GMLAN_TransferData(socket, addr, payload, maxmsglen=None, timeout=None,
             pkt = GMLAN() / GMLAN_TD(startingAddress=addr + i,
                                      dataRecord=transdata)
             resp = socket.sr1(pkt, timeout=timeout, verbose=0)
-
-            if resp is None:
+            if resp is not None:
+                if resp.service == GMLAN(service="TransferDataPositiveResponse").service:   # noqa: E501
+                    break
+                if verbose:
+                    resp.show()
+                    print("Negative Response.")
+            else:
                 if verbose:
                     print("Timeout.")
-            else:
-                # filter Response Pending
-                while (resp.service == GMLAN(service="NegativeResponse").service and   # noqa: E501
-                   resp.returnCode == GMLAN_NR(returnCode="RequestCorrectlyReceived-ResponsePending").returnCode and   # noqa: E501
-                   resp.requestServiceId == GMLAN(service="TransferData").service):   # noqa: E501
-                    sniffed = socket.sniff(count=1, timeout=timeout,
-                                           lfilter=lambda p: p.answers(pkt))
-                    if len(sniffed) < 1:
-                        resp = None
-                        break
-                    resp = sniffed[0]
-
-                if resp is None:
-                    if verbose:
-                        print("Timeout.")
-                elif resp.service != GMLAN(service="TransferDataPositiveResponse").service:   # noqa: E501
-                    if verbose:
-                        resp.show()
-                        print("Negative Response.")
-                else:
-                    break
 
             retry -= 1
             if retry >= 0:
@@ -385,35 +363,19 @@ def GMLAN_ReadMemoryByAddress(socket, addr, length, timeout=None,
         # RequestDownload
         pkt = GMLAN() / GMLAN_RMBA(memoryAddress=addr, memorySize=length)
         resp = socket.sr1(pkt, timeout=timeout, verbose=0)
-        if resp is None:
+        if resp is not None:
+            if resp.service == GMLAN(service="ReadMemoryByAddressPositiveResponse").service:   # noqa: E501
+                return resp.dataRecord
+            if verbose:
+                resp.show()
+                print("Negative Response.")
+        else:
             if verbose:
                 print("Timeout.")
-        else:
-            # filter Response Pending
-            while (resp.service == GMLAN(service="NegativeResponse").service and   # noqa: E501
-                   resp.returnCode == GMLAN_NR(returnCode="RequestCorrectlyReceived-ResponsePending").returnCode and   # noqa: E501
-                   resp.requestServiceId == GMLAN(service="ReadMemoryByAddress").service):   # noqa: E501
-                sniffed = socket.sniff(count=1, timeout=timeout,
-                                       lfilter=lambda p: p.answers(pkt))
-                if len(sniffed) < 1:
-                    resp = None
-                    break
-                resp = sniffed[0]
-
-            if resp is None:
-                if verbose:
-                    print("Timeout.")
-            elif resp.service != GMLAN(service="ReadMemoryByAddressPositiveResponse").service:   # noqa: E501
-                if verbose:
-                    resp.show()
-                    print("Negative Response.")
-            else:
-                return resp.dataRecord
 
         retry -= 1
-        if retry >= 0:
-            if verbose:
-                print("Retrying..")
+        if retry >= 0 and verbose:
+            print("Retrying..")
     return None
 
 
