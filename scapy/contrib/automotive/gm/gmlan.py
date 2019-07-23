@@ -4,6 +4,7 @@
 # See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Nils Weiss <nils@we155.de>
 # Copyright (C) Enrico Pozzobon <enrico.pozzobon@gmail.com>
+# Copyright (C) Markus Schroetter <xito300@gmail.com>
 # This program is published under a GPLv2 license
 
 # scapy.contrib.description = General Motors Local Area Network (GMLAN)
@@ -17,17 +18,25 @@ from scapy.fields import ObservableDict, XByteEnumField, ByteEnumField, \
 from scapy.packet import Packet, bind_layers, NoPayload
 from scapy.config import conf
 from scapy.error import warning, log_loading
+<<<<<<< HEAD
 from scapy.contrib.isotp import ISOTP
 
+=======
+>>>>>>> Option for treating response pending as answer
 
 """
 GMLAN
 """
 
+<<<<<<< HEAD
+=======
+conf.contribs['GMLAN'] = {'GMLAN_ECU_AddressingScheme': None}
+>>>>>>> Option for treating response pending as answer
 try:
     if conf.contribs['GMLAN']['treat-response-pending-as-answer']:
         pass
 except KeyError:
+<<<<<<< HEAD
     log_loading.info("Specify \"conf.contribs['GMLAN'] = "
                      "{'treat-response-pending-as-answer': True}\" to treat "
                      "a negative response 'RequestCorrectlyReceived-"
@@ -36,6 +45,14 @@ except KeyError:
     conf.contribs['GMLAN'] = {'treat-response-pending-as-answer': False}
 
 conf.contribs['GMLAN']['GMLAN_ECU_AddressingScheme'] = None
+=======
+    log_loading.info("Specify \"conf.contribs['GMLAN']"
+                     "['treat-response-pending-as-answer'] = True\" to treat "
+                     "a negative response 'requestCorrectlyReceived-"
+                     "ResponsePending' as answer of a request. \n"
+                     "The default value is False.")
+    conf.contribs['GMLAN']['treat-response-pending-as-answer'] = False
+>>>>>>> Option for treating response pending as answer
 
 
 class GMLAN(ISOTP):
