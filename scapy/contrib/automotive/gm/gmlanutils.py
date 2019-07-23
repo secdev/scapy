@@ -6,7 +6,7 @@
 # Copyright (C) Nils Weiss <nils@we155.de>
 # This program is published under a GPLv2 license
 
-# scapy.contrib.description = General Motors Local Area Network (GMLAN)
+# scapy.contrib.description = General Motors Local Area Network Utilities (GMLAN-Utils)
 # scapy.contrib.status = loads
 
 from time import sleep
@@ -53,8 +53,7 @@ def GMLAN_InitDiagnostics(socket, broadcastsocket=None, timeout=None,
     """
     if verbose is None:
         verbose = conf.verb
-    if retry < 0:
-        retry = -retry
+    retry = abs(retry)
 
     while retry >= 0:
         retry -= 1
@@ -113,9 +112,7 @@ def GMLAN_InitDiagnostics(socket, broadcastsocket=None, timeout=None,
 
         # InitiateProgramming enableProgramming
         # No response expected
-        if verbose:
-            print("Sending ProgrammingMode enableProgramming..")
-        p = GMLAN() / GMLAN_PM(subfunction=0x3)
+        p = GMLAN() / GMLAN_PM(subfunction="enableProgrammingMode")
         if verbose:
             print("Sending %s" % repr(p))
         socket.send(p)
@@ -140,8 +137,7 @@ def GMLAN_GetSecurityAccess(socket, keyFunction, level=1, timeout=None,
     """
     if verbose is None:
         verbose = conf.verb
-    if retry < 0:
-        retry = -retry
+    retry = abs(retry)
 
     if level % 2 == 0:
         warning("Parameter Error: Level must be an odd number.")
@@ -213,10 +209,9 @@ def GMLAN_RequestDownload(socket, length, timeout=None, verbose=None, retry=0):
     """
     if verbose is None:
         verbose = conf.verb
-    if retry < 0:
-        retry = -retry
+    retry = abs(retry)
 
-    while True:
+    while retry >= 0:
         # RequestDownload
         pkt = GMLAN() / GMLAN_RD(memorySize=length)
         resp = socket.sr1(pkt, timeout=timeout, verbose=0)
@@ -243,15 +238,13 @@ def GMLAN_RequestDownload(socket, length, timeout=None, verbose=None, retry=0):
                     resp.show()
                     print("Negative Response.")
             else:
-                break
+                return True
 
         retry -= 1
         if retry >= 0:
             if verbose:
                 print("Retrying..")
-        else:
-            return False
-    return True
+    return False
 
 
 def GMLAN_TransferData(socket, addr, payload, maxmsglen=None, timeout=None,
@@ -274,8 +267,7 @@ def GMLAN_TransferData(socket, addr, payload, maxmsglen=None, timeout=None,
     """
     if verbose is None:
         verbose = conf.verb
-    if retry < 0:
-        retry = -retry
+    retry = abs(retry)
     startretry = retry
 
     scheme = conf.contribs['GMLAN']['GMLAN_ECU_AddressingScheme']
@@ -375,8 +367,7 @@ def GMLAN_ReadMemoryByAddress(socket, addr, length, timeout=None,
     """
     if verbose is None:
         verbose = conf.verb
-    if retry < 0:
-        retry = -retry
+    retry = abs(retry)
 
     scheme = conf.contribs['GMLAN']['GMLAN_ECU_AddressingScheme']
     if addr < 0 or addr >= 2**(8 * scheme):
@@ -390,7 +381,7 @@ def GMLAN_ReadMemoryByAddress(socket, addr, length, timeout=None,
                 str(scheme) + ". Choose between 0x1 and " + hex(4094 - scheme))
         return None
 
-    while True:
+    while retry >= 0:
         # RequestDownload
         pkt = GMLAN() / GMLAN_RMBA(memoryAddress=addr, memorySize=length)
         resp = socket.sr1(pkt, timeout=timeout, verbose=0)
@@ -422,9 +413,8 @@ def GMLAN_ReadMemoryByAddress(socket, addr, length, timeout=None,
         retry -= 1
         if retry >= 0:
             if verbose:
-                print("Retrying.")
-        else:
-            return None
+                print("Retrying..")
+    return None
 
 
 def GMLAN_BroadcastSocket(interface):
