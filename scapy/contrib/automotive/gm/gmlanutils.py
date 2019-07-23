@@ -153,10 +153,10 @@ def GMLAN_GetSecurityAccess(socket, keyFunction, level=1, timeout=None,
         warning("Parameter Error: Level must be an odd number.")
         return False
 
-    request = GMLAN() / GMLAN_SA(subfunction=level)
-
     while retry >= 0:
         retry -= 1
+
+        request = GMLAN() / GMLAN_SA(subfunction=level)
         if verbose:
             print("Requesting seed..")
         resp = socket.sr1(request, timeout=timeout, verbose=0)
