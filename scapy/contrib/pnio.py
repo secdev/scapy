@@ -251,10 +251,7 @@ class PNIORealTimeCyclicPDU(Packet):
             pnio_layer = q
 
         self._layout = [PNIORealTimeCyclicDefaultRawData]
-        if (
-                not isinstance(ether_layer, type(None)) and
-                not isinstance(pnio_layer, type(None))
-        ):
+        if not (ether_layer is None and pnio_layer is None):
             # Get from config the layout for these hosts and frameid
             layout = type(self).get_layout_from_config(
                 ether_layer.src,

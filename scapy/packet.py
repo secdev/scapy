@@ -187,11 +187,14 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
         """
         Initialize each fields of the fields_desc dict
         """
+        default_fields = {}
         for f in flist:
-            self.default_fields[f.name] = copy.deepcopy(f.default)
+            default_fields[f.name] = copy.deepcopy(f.default)
             self.fieldtype[f.name] = f
             if f.holds_packets:
                 self.packetfields.append(f)
+        # We set default_fields last to avoid race issues
+        self.default_fields = default_fields
 
     def do_init_cached_fields(self):
         """
@@ -206,8 +209,9 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
             self.prepare_cached_fields(self.fields_desc)
 
         # Use fields information from cache
-        if not Packet.class_default_fields.get(cls_name, None) is None:
-            self.default_fields = Packet.class_default_fields[cls_name]
+        default_fields = Packet.class_default_fields.get(cls_name, None)
+        if default_fields:
+            self.default_fields = default_fields
             self.fieldtype = Packet.class_fieldtype[cls_name]
             self.packetfields = Packet.class_packetfields[cls_name]
 
@@ -228,32 +232,38 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
         cls_name = self.__class__
 
         # Fields cache initialization
-        if flist:
-            Packet.class_default_fields[cls_name] = dict()
-            Packet.class_default_fields_ref[cls_name] = list()
-            Packet.class_fieldtype[cls_name] = dict()
-            Packet.class_packetfields[cls_name] = list()
+        if not flist:
+            return
+
+        class_default_fields = dict()
+        class_default_fields_ref = list()
+        class_fieldtype = dict()
+        class_packetfields = list()
 
         # Fields initialization
         for f in flist:
             if isinstance(f, MultipleTypeField):
-                del Packet.class_default_fields[cls_name]
-                del Packet.class_default_fields_ref[cls_name]
-                del Packet.class_fieldtype[cls_name]
-                del Packet.class_packetfields[cls_name]
+                # Abort
                 self.class_dont_cache[cls_name] = True
                 self.do_init_fields(self.fields_desc)
-                break
+                return
 
             tmp_copy = copy.deepcopy(f.default)
-            Packet.class_default_fields[cls_name][f.name] = tmp_copy
-            Packet.class_fieldtype[cls_name][f.name] = f
+            class_default_fields[f.name] = tmp_copy
+            class_fieldtype[f.name] = f
             if f.holds_packets:
-                Packet.class_packetfields[cls_name].append(f)
+                class_packetfields.append(f)
 
             # Remember references
             if isinstance(f.default, (list, dict, set, RandField, Packet)):
-                Packet.class_default_fields_ref[cls_name].append(f.name)
+                class_default_fields_ref.append(f.name)
+
+        # Apply
+        Packet.class_default_fields_ref[cls_name] = class_default_fields_ref
+        Packet.class_fieldtype[cls_name] = class_fieldtype
+        Packet.class_packetfields[cls_name] = class_packetfields
+        # Last to avoid racing issues
+        Packet.class_default_fields[cls_name] = class_default_fields
 
     def dissection_done(self, pkt):
         """DEV: will be called after a dissection is completed"""
@@ -729,7 +739,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
             if col is None:
                 col = pyx.color.rgb.red
             if bkcol is None:
-                col = pyx.color.rgb.white
+                bkcol = pyx.color.rgb.white
             c.stroke(make_frame(tlist), [col, pyx.deco.filled([bkcol]), pyx.style.linewidth.Thick])  # noqa: E501
             for txt in tlist:
                 c.insert(txt)
@@ -1448,6 +1458,63 @@ hashable.
         """
         raise TypeError('unhashable type: %r' % self.__class__.__name__)
 
+    def convert_to(self, other_cls, **kwargs):
+        """Converts this Packet to another type.
+
+        This is not guaranteed to be a lossless process.
+
+        By default, this only implements conversion to ``Raw``.
+
+        :param other_cls: Reference to a Packet class to convert to.
+        :type other_cls: Type[Packet]
+        :returns: Converted form of the packet.
+        :rtype: other_cls
+        :raises TypeError: When conversion is not possible
+        """
+        if not issubtype(other_cls, Packet):
+            raise TypeError("{} must implement Packet".format(other_cls))
+
+        if other_cls is Raw:
+            return Raw(raw(self))
+
+        if "_internal" not in kwargs:
+            return other_cls.convert_packet(self, _internal=True, **kwargs)
+
+        raise TypeError("Cannot convert {} to {}".format(
+            type(self).__name__, other_cls.__name__))
+
+    @classmethod
+    def convert_packet(cls, pkt, **kwargs):
+        """Converts another packet to be this type.
+
+        This is not guaranteed to be a lossless process.
+
+        :param pkt: The packet to convert.
+        :type pkt: Packet
+        :returns: Converted form of the packet.
+        :rtype: cls
+        :raises TypeError: When conversion is not possible
+        """
+        if not isinstance(pkt, Packet):
+            raise TypeError("Can only convert Packets")
+
+        if "_internal" not in kwargs:
+            return pkt.convert_to(cls, _internal=True, **kwargs)
+
+        raise TypeError("Cannot convert {} to {}".format(
+            type(pkt).__name__, cls.__name__))
+
+    @classmethod
+    def convert_packets(cls, pkts, **kwargs):
+        """Converts many packets to this type.
+
+        This is implemented as a generator.
+
+        See ``Packet.convert_packet``.
+        """
+        for pkt in pkts:
+            yield cls.convert_packet(pkt, **kwargs)
+
 
 class NoPayload(Packet):
     def __new__(cls, *args, **kargs):
@@ -1598,6 +1665,10 @@ class Raw(Packet):
             else:
                 return "Raw %r" % self.load
         return Packet.mysummary(self)
+
+    @classmethod
+    def convert_packet(cls, pkt, **kwargs):
+        return Raw(raw(pkt))
 
 
 class Padding(Raw):

@@ -1060,12 +1060,24 @@ Arguments:
 
 @conf.commands.register
 def tshark(*args, **kargs):
-    """Sniff packets and print them calling pkt.summary(), a bit like text wireshark"""  # noqa: E501
-    print("Capturing on '" + str(kargs.get('iface') if 'iface' in kargs else conf.iface) + "'")  # noqa: E501
-    i = [0]  # This should be a nonlocal variable, using a mutable object for Python 2 compatibility  # noqa: E501
+    """Sniff packets and print them calling pkt.summary().
+    This tries to replicate what text-wireshark (tshark) would look like"""
+
+    if 'iface' in kargs:
+        iface = kargs.get('iface')
+    elif 'opened_socket' in kargs:
+        iface = kargs.get('opened_socket').iface
+    else:
+        iface = conf.iface
+    print("Capturing on '%s'" % iface)
+
+    # This should be a nonlocal variable, using a mutable object
+    # for Python 2 compatibility
+    i = [0]
 
     def _cb(pkt):
         print("%5d\t%s" % (i[0], pkt.summary()))
         i[0] += 1
+
     sniff(prn=_cb, store=False, *args, **kargs)
     print("\n%d packet%s captured" % (i[0], 's' if i[0] > 1 else ''))

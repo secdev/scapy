@@ -231,7 +231,7 @@ class CommonHelloTLVField(StrField):
         flags = orb(x[6])
         v = (flags & 0x80) >> 7
         list.append(v)
-        v = (flags & 0x40) >> 7
+        v = (flags & 0x40) >> 6
         list.append(v)
         return list
 

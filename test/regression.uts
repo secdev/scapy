@@ -6921,12 +6921,13 @@ assert r.linktype == DLT_EN10MB
 ~ tcpdump
 from io import BytesIO
 * No very specific tests because we do not want to depend on tcpdump output
-pcapfile = BytesIO(b'\xd4\xc3\xb2\xa1\x02\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x00\x00e\x00\x00\x00\xcf\xc5\xacVo*\n\x00(\x00\x00\x00(\x00\x00\x00E\x00\x00(\x00\x01\x00\x00@\x06|\xcd\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x91|\x00\x00\xcf\xc5\xacV_-\n\x00\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x11|\xce\x7f\x00\x00\x01\x7f\x00\x00\x01\x005\x005\x00\x08\x01r\xcf\xc5\xacV\xf90\n\x00\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x01|\xde\x7f\x00\x00\x01\x7f\x00\x00\x01\x08\x00\xf7\xff\x00\x00\x00\x00')
+pcapfile = BytesIO(b'\xd4\xc3\xb2\xa1\x02\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x00\x00\x01\x00\x00\x000}$]\xff\\\t\x006\x00\x00\x006\x00\x00\x00\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x08\x00E\x00\x00(\x00\x01\x00\x00@\x06|\xcd\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x91|\x00\x000}$]\x87i\t\x00*\x00\x00\x00*\x00\x00\x00\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x08\x00E\x00\x00\x1c\x00\x01\x00\x00@\x11|\xce\x7f\x00\x00\x01\x7f\x00\x00\x01\x005\x005\x00\x08\x01r0}$]\xfbp\t\x00*\x00\x00\x00*\x00\x00\x00\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x08\x00E\x00\x00\x1c\x00\x01\x00\x00@\x01|\xde\x7f\x00\x00\x01\x7f\x00\x00\x01\x08\x00\xf7\xff\x00\x00\x00\x00')
+
 data = tcpdump(pcapfile, dump=True, args=['-nn']).split(b'\n')
 print(data)
-assert b'IP 127.0.0.1.20 > 127.0.0.1.80:' in data[0]
-assert b'IP 127.0.0.1.53 > 127.0.0.1.53:' in data[1]
-assert b'IP 127.0.0.1 > 127.0.0.1:' in data[2]
+assert b'127.0.0.1.20 > 127.0.0.1.80:' in data[0]
+assert b'127.0.0.1.53 > 127.0.0.1.53:' in data[1]
+assert b'127.0.0.1 > 127.0.0.1:' in data[2]
 
 * Non existing tcpdump binary
 
@@ -6953,18 +6954,19 @@ pcapfile.seek(0) or None
 tempfile_count = len(conf.temp_files)
 data = tcpdump(pcapfile, dump=True, args=['-nn'], use_tempfile=True).split(b'\n')
 print(data)
-assert b'IP 127.0.0.1.20 > 127.0.0.1.80:' in data[0]
-assert b'IP 127.0.0.1.53 > 127.0.0.1.53:' in data[1]
-assert b'IP 127.0.0.1 > 127.0.0.1:' in data[2]
+assert b'127.0.0.1.20 > 127.0.0.1.80:' in data[0]
+assert b'127.0.0.1.53 > 127.0.0.1.53:' in data[1]
+assert b'127.0.0.1 > 127.0.0.1:' in data[2]
 # We should have another tempfile tracked.
 assert len(conf.temp_files) > tempfile_count
 
 # Check with a simple packet
 data = tcpdump([Ether()/IP()/ICMP()], dump=True, args=['-nn']).split(b'\n')
 print(data)
-assert b'IP 127.0.0.1 > 127.0.0.1: ICMP' in data[0]
+assert b'127.0.0.1 > 127.0.0.1: ICMP' in data[0].upper()
 
 = Check tcpdump() command with linktype
+~ tcpdump
 
 f = BytesIO()
 pkt = Ether()/IP()/ICMP()
@@ -6985,6 +6987,7 @@ f.close()
 del f, pkt
 
 = Check tcpdump() command with linktype and args
+~ tcpdump
 
 f = BytesIO()
 pkt = Ether()/IP()/ICMP()
@@ -7878,6 +7881,120 @@ default            link#11            UCSI            1        0 bridge1
 
 
 test_osx_netstat_truncated()
+
+
+= macOS 10.13
+~ mock_read_routes_bsd
+
+import mock
+from io import StringIO
+
+@mock.patch("scapy.arch.unix.get_if_addr")
+@mock.patch("scapy.arch.unix.os")
+def test_osx_10_13_ipv4(mock_os, mock_get_if_addr):
+    """Test read_routes() on OS X 10.13"""
+    # 'netstat -rn -f inet' output
+    netstat_output = u"""
+Routing tables
+
+Internet:
+Destination        Gateway            Flags        Refs      Use   Netif Expire
+default            192.168.28.1       UGSc           82        0     en0
+127                127.0.0.1          UCS             0        0     lo0
+127.0.0.1          127.0.0.1          UH              1      878     lo0
+169.254            link#5             UCS             0        0     en0
+192.168.28         link#5             UCS             4        0     en0
+192.168.28.1/32    link#5             UCS             2        0     en0
+192.168.28.1       88:32:9c:f5:4e:ea  UHLWIir        40       37     en0   1177
+192.168.28.2       62:aa:56:4b:51:54  UHLWI           0        0     en0    619
+192.168.28.4       38:17:ed:9a:58:28  UHLWIi          1        6     en0    428
+192.168.28.18/32   link#5             UCS             1        0     en0
+192.168.28.18      88:32:9c:f5:4e:eb  UHLWI           0        1     lo0
+192.168.28.28      04:0e:eb:11:74:a7  UHLWI           0        0     en0    576
+224.0.0/4          link#5             UmCS            1        0     en0
+224.0.0.251        1:0:5e:0:0:fb      UHmLWI          0        0     en0
+255.255.255.255/32 link#5             UCS             0        0     en0
+"""
+    # Mocked file descriptor
+    strio = StringIO(netstat_output)
+    mock_os.popen = mock.MagicMock(return_value=strio)
+    # Mocked get_if_addr() output
+    def se_get_if_addr(iface):
+        """Perform specific side effects"""
+        import socket
+        if iface == "en0":
+            return "192.168.28.18"
+        return "127.0.0.1"
+    mock_get_if_addr.side_effect = se_get_if_addr
+    # Test the function
+    from scapy.arch.unix import read_routes
+    scapy.arch.unix.DARWIN = False
+    scapy.arch.unix.FREEBSD = True
+    scapy.arch.unix.NETBSD = False
+    scapy.arch.unix.OPENBSD = False
+    routes = read_routes()
+    for r in routes:
+        print(r)
+    assert(len(routes) == 15)
+    default_route = [r for r in routes if r[0] == 0][0]
+    assert default_route[3] == "en0" and default_route[4] == "192.168.28.18"
+
+test_osx_10_13_ipv4()
+
+
+= macOS 10.15
+~ mock_read_routes_bsd
+
+import mock
+from io import StringIO
+
+@mock.patch("scapy.arch.unix.get_if_addr")
+@mock.patch("scapy.arch.unix.os")
+def test_osx_10_15_ipv4(mock_os, mock_get_if_addr):
+    """Test read_routes() on OS X 10.15"""
+    # 'netstat -rn -f inet' output
+    netstat_output = u"""
+Routing tables
+
+Internet:
+Destination        Gateway            Flags        Netif Expire
+default            192.168.122.1      UGSc           en0       
+127                127.0.0.1          UCS            lo0       
+127.0.0.1          127.0.0.1          UH             lo0       
+169.254            link#8             UCS            en0      !
+192.168.122        link#8             UCS            en0      !
+192.168.122.1/32   link#8             UCS            en0      !
+192.168.122.1      52:54:0:c0:b7:af   UHLWIir        en0   1169
+192.168.122.63/32  link#8             UCS            en0      !
+224.0.0/4          link#8             UmCS           en0      !
+224.0.0.251        1:0:5e:0:0:fb      UHmLWI         en0       
+255.255.255.255/32 link#8             UCS            en0      !
+"""
+    # Mocked file descriptor
+    strio = StringIO(netstat_output)
+    mock_os.popen = mock.MagicMock(return_value=strio)
+    # Mocked get_if_addr() output
+    def se_get_if_addr(iface):
+        """Perform specific side effects"""
+        import socket
+        if iface == "en0":
+            return "192.168.122.42"
+        return "127.0.0.1"
+    mock_get_if_addr.side_effect = se_get_if_addr
+    # Test the function
+    from scapy.arch.unix import read_routes
+    scapy.arch.unix.DARWIN = False
+    scapy.arch.unix.FREEBSD = True
+    scapy.arch.unix.NETBSD = False
+    scapy.arch.unix.OPENBSD = False
+    routes = read_routes()
+    for r in routes:
+        print(r)
+    assert(len(routes) == 11)
+    default_route = [r for r in routes if r[0] == 0][0]
+    assert default_route[3] == "en0" and default_route[4] == "192.168.122.42"
+
+test_osx_10_15_ipv4()
 
 
 = OpenBSD 6.3
@@ -10615,6 +10732,10 @@ n1 = ip.dst
 assert isinstance(n1, Net6)
 assert n1.ip_regex.match(str(n1))
 ip.show()
+
+ip = IPv6(dst="www.yahoo.com")
+addrs = [ip.dst, IPv6(raw(ip)).dst, [p.dst for p in ip][0]]
+assert addrs[0] == addrs[1] == addrs[2]
 
 = Multiple IPv6 addresses test
 ~ netaccess ipv6

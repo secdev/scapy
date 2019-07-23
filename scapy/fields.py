@@ -336,6 +336,9 @@ the value to set is also known) of ._find_fld_pkt() instead.
             except KeyError:
                 pass
             else:
+                if not pkt.default_fields:
+                    # Packet not initialized
+                    return self.dflt
                 if isinstance(pkt, tuple(self.dflt.owners)):
                     return self._find_fld_pkt(pkt)
             frame = frame.f_back
@@ -1142,6 +1145,7 @@ class PacketListField(PacketField):
                     if self.next_cls_cb is not None:
                         cls = self.next_cls_cb(pkt, lst, p, remain)
                         if cls is not None:
+                            c = 0 if c is None else c
                             c += 1
                 else:
                     remain = b""
