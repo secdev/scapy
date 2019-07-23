@@ -209,7 +209,7 @@ True
 = Packet.route()
 assert (Ether() / ARP()).route()[0] is not None
 assert (Ether() / ARP()).payload.route()[0] is not None
-
+assert (ARP(ptype=0, pdst="hello. this isn't a valid IP")).route()[0] is None
 
 
 = plain_str test
@@ -739,6 +739,11 @@ assert r in [
     b'E\xa7\x00\x1c\xb0c\xc0\x00\xf6\x01U\xd3\x7f\x00\x00\x01\x7f\x00\x00\x01\xfex\xb3\x92B<\x0b\xb8',
     '\x85\x7f\x00\x1c\xc2\xf6\x00\x00\xde\x01\xdbh\x7f\x00\x00\x01\x7f\x00\x00\x01y\xc9>\xa6\x84\xd8\xc2\xb7'
 ]
+
+= fuzz a Packet with MultipleTypeField
+
+fuzz(ARP(pdst="127.0.0.1"))
+fuzz(IP()/ARP(pdst='10.0.0.254'))
 
 = fuzz on packets with advanced RandNum
 

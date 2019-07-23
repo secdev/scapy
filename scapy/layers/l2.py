@@ -405,7 +405,7 @@ class ARP(Packet):
         elif isinstance(fld, IPField):
             return conf.route.route(dst)
         else:
-            return None
+            return None, None, None
 
     def extract_padding(self, s):
         return "", s
