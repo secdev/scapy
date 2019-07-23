@@ -587,7 +587,7 @@ class L3PacketSocket(L2Socket):
         return pkt
 
     def send(self, x):
-        iff, a, gw = x.route()
+        iff = x.route()[0]
         if iff is None:
             iff = conf.iface
         sdto = (iff, self.type)

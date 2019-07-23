@@ -336,10 +336,10 @@ the value to set is also known) of ._find_fld_pkt() instead.
             except KeyError:
                 pass
             else:
-                if not pkt.default_fields:
-                    # Packet not initialized
-                    return self.dflt
                 if isinstance(pkt, tuple(self.dflt.owners)):
+                    if not pkt.default_fields:
+                        # Packet not initialized
+                        return self.dflt
                     return self._find_fld_pkt(pkt)
             frame = frame.f_back
         return self.dflt
@@ -1176,6 +1176,8 @@ class StrFixedLenField(StrField):
 
     def addfield(self, pkt, s, val):
         len_pkt = self.length_from(pkt)
+        if len_pkt is None:
+            return s + self.i2m(pkt, val)
         return s + struct.pack("%is" % len_pkt, self.i2m(pkt, val))
 
     def randval(self):
