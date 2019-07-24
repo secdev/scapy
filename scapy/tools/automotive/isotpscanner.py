@@ -59,7 +59,7 @@ def usage():
     Python2 or Windows:
     python2 -m scapy.tools.automotive.isotpscanner --interface=pcan --channel=PCAN_USBBUS1 --bitrate=250000 --start 0 --end 100
     python2 -m scapy.tools.automotive.isotpscanner --interface vector --channel 0 --bitrate 250000 --start 0 --end 100
-    python2 -m scapy.tools.automotive.isotpscanner --interface socketcan --channel=can0 --bitrate=250000 --start 0 --end 100 \n
+    python2 -m scapy.tools.automotive.isotpscanner --interface socketcan --channel=can0 --bitrate=250000 --start 0 --end 100\n
     Python3 on Linux:
     python3 -m scapy.tools.automotive.isotpscanner --channel can0 --start 0 --end 100 \n''',  # noqa: E501
           file=sys.stderr)
@@ -113,31 +113,20 @@ def main():
         print("ERROR:", msg, file=sys.stderr)
         raise SystemExit
 
-    if PYTHON_CAN:
-        if start is None or \
-                end is None or \
-                channel is None or \
-                bitrate is None or \
-                interface is None:
-            usage()
-            print("\nPlease provide all required arguments.\n",
-                  file=sys.stderr)
-            sys.exit(-1)
-    else:
-        if start is None or \
-                end is None or \
-                channel is None:
-            usage()
-            print("\nPlease provide all required arguments.\n",
-                  file=sys.stderr)
-            sys.exit(-1)
+    if start is None or \
+            end is None or \
+            channel is None or \
+            (PYTHON_CAN and (bitrate is None or interface is None)):
+        usage()
+        print("\nPlease provide all required arguments.\n", file=sys.stderr)
+        sys.exit(-1)
 
     if end >= 0x800:
         print("end must be < 0x800.", file=sys.stderr)
         sys.exit(-1)
 
     if end < start:
-        print("start must be smaller than end.", file=sys.stderr)
+        print("start must be equal or smaller than end.", file=sys.stderr)
         sys.exit(-1)
 
     if PYTHON_CAN:
