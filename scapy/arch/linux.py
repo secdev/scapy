@@ -512,8 +512,11 @@ class L2Socket(SuperSocket):
     def close(self):
         if self.closed:
             return
-        if self.promisc and self.ins:
-            set_promisc(self.ins, self.iface, 0)
+        try:
+            if self.promisc and self.ins:
+                set_promisc(self.ins, self.iface, 0)
+        except AttributeError:
+            pass
         SuperSocket.close(self)
 
     if six.PY2:
