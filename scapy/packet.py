@@ -1727,10 +1727,14 @@ def bind_top_down(lower, upper, __fval=None, **fval):
 
 @conf.commands.register
 def bind_layers(lower, upper, __fval=None, **fval):
-    """Bind 2 layers on some specific fields' values. It makes the packet being built  # noqa: E501
-    and dissected when the arguments are present.
+    """Bind 2 layers on some specific fields' values.
 
-    This functions calls both bind_bottom_up and bind_top_down, with all passed arguments.  # noqa: E501
+    It makes the packet being built and dissected when the arguments
+    are present.
+
+    This function calls both bind_bottom_up and bind_top_down, with
+    all passed arguments.
+
     Please have a look at their docs:
      - help(bind_bottom_up)
      - help(bind_top_down)
