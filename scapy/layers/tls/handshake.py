@@ -469,25 +469,30 @@ class TLSServerHello(_TLSHandshake):
                                               tls_version=self.version)
 
 
+_tls_13_server_hello_fields = [
+    ByteEnumField("msgtype", 2, _tls_handshake_type),
+    ThreeBytesField("msglen", None),
+    _TLSVersionField("version", 0x0303, _tls_version),
+    _TLSRandomBytesField("random_bytes", None, 32),
+    FieldLenField("sidlen", None, length_of="sid", fmt="B"),
+    _SessionIDField("sid", "",
+                    length_from=lambda pkt: pkt.sidlen),
+    EnumField("cipher", None, _tls_cipher_suites),
+    _CompressionMethodsField("comp", [0],
+                             _tls_compression_algs,
+                             itemfmt="B",
+                             length_from=lambda pkt: 1),
+    _ExtensionsLenField("extlen", None, length_of="ext"),
+    _ExtensionsField("ext", None,
+                     length_from=lambda pkt: (pkt.msglen -
+                                              38))
+]
+
+
 class TLS13ServerHello(_TLSHandshake):
     """ TLS 1.3 ServerHello """
     name = "TLS 1.3 Handshake - Server Hello"
-    fields_desc = [ByteEnumField("msgtype", 2, _tls_handshake_type),
-                   ThreeBytesField("msglen", None),
-                   _TLSVersionField("version", 0x0303, _tls_version),
-                   _TLSRandomBytesField("random_bytes", None, 32),
-                   FieldLenField("sidlen", None, length_of="sid", fmt="B"),
-                   _SessionIDField("sid", "",
-                                   length_from=lambda pkt: pkt.sidlen),
-                   EnumField("cipher", None, _tls_cipher_suites),
-                   _CompressionMethodsField("comp", [0],
-                                            _tls_compression_algs,
-                                            itemfmt="B",
-                                            length_from=lambda pkt: 1),
-                   _ExtensionsLenField("extlen", None, length_of="ext"),
-                   _ExtensionsField("ext", None,
-                                    length_from=lambda pkt: (pkt.msglen -
-                                                             38))]
+    fields_desc = _tls_13_server_hello_fields
 
     def post_build(self, p, pay):
         if self.random_bytes is None:
@@ -554,22 +559,7 @@ class TLS13ServerHello(_TLSHandshake):
 class TLS13HelloRetryRequest(_TLSHandshake):
     name = "TLS 1.3 Handshake - Hello Retry Request"
 
-    fields_desc = [ByteEnumField("msgtype", 2, _tls_handshake_type),
-                   ThreeBytesField("msglen", None),
-                   _TLSVersionField("version", 0x0303, _tls_version),
-                   _TLSRandomBytesField("random_bytes", None, 32),
-                   FieldLenField("sidlen", None, length_of="sid", fmt="B"),
-                   _SessionIDField("sid", "",
-                                   length_from=lambda pkt: pkt.sidlen),
-                   EnumField("cipher", None, _tls_cipher_suites),
-                   _CompressionMethodsField("comp", [0],
-                                            _tls_compression_algs,
-                                            itemfmt="B",
-                                            length_from=lambda pkt: 1),
-                   _ExtensionsLenField("extlen", None, length_of="ext"),
-                   _ExtensionsField("ext", None,
-                                    length_from=lambda pkt: (pkt.msglen -
-                                                             38))]
+    fields_desc = _tls_13_server_hello_fields
 
 
 ###############################################################################
