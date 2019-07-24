@@ -62,6 +62,14 @@ def get_if(iff, cmd):
 
 
 def get_if_raw_hwaddr(iff):
+    """Get the raw MAC address of a local interface.
+
+    This function uses SIOCGIFHWADDR calls, therefore only works
+    on some distros.
+
+    :param iff: the network interface name as a string
+    :returns: the corresponding raw MAC address
+    """
     from scapy.arch import SIOCGIFHWADDR
     return struct.unpack("16xh6s8x", get_if(iff, SIOCGIFHWADDR))
 
