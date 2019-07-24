@@ -229,21 +229,22 @@ def list_contrib(name=None, ret=False, _debug=False):
         if mod.endswith(".py"):
             mod = mod[:-3]
         desc = {"description": None, "status": None, "name": mod}
-        for l in io.open(f, errors="replace"):
-            if l[0] != "#":
-                continue
-            p = l.find("scapy.contrib.")
-            if p >= 0:
-                p += 14
-                q = l.find("=", p)
-                key = l[p:q].strip()
-                value = l[q + 1:].strip()
-                desc[key] = value
-            if desc["status"] == "skip":
-                break
-            if desc["description"] and desc["status"]:
-                results.append(desc)
-                break
+        with io.open(f, errors="replace") as fd:
+            for l in fd:
+                if l[0] != "#":
+                    continue
+                p = l.find("scapy.contrib.")
+                if p >= 0:
+                    p += 14
+                    q = l.find("=", p)
+                    key = l[p:q].strip()
+                    value = l[q + 1:].strip()
+                    desc[key] = value
+                if desc["status"] == "skip":
+                    break
+                if desc["description"] and desc["status"]:
+                    results.append(desc)
+                    break
         if _debug:
             if desc["status"] == "skip":
                 pass
