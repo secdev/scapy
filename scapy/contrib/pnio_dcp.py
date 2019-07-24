@@ -272,7 +272,7 @@ class DCPDeviceIDBlock(Packet):
         ByteEnumField("option", 2, DCP_OPTIONS),
         MultiEnumField("sub_option", 3, DCP_SUBOPTIONS, fmt='B',
                        depends_on=lambda p: p.option),
-        LenField("dcp_block_length", None), 
+        LenField("dcp_block_length", None),
         ShortEnumField("block_info", 0, BLOCK_INFOS),
         XShortField("vendor_id", 0x002a),
         XShortField("device_id", 0x0313),
