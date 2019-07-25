@@ -357,12 +357,18 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
             return self.get_field(attr), self.default_fields[attr]
 
     def __getattr__(self, attr):
+        ret_repr = attr.endswith("_repr")
+        if ret_repr:
+            attr = attr[: -5]
         try:
             fld, v = self.getfield_and_val(attr)
         except TypeError:
             return self.payload.__getattr__(attr)
         if fld is not None:
-            return fld.i2h(self, v)
+            if ret_repr:
+                return fld.i2repr(self, v)
+            else:
+                return fld.i2h(self, v)
         return v
 
     def setfieldval(self, attr, val):

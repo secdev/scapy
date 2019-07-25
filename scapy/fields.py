@@ -82,6 +82,9 @@ class Field(six.with_metaclass(Field_metaclass, object)):
     holds_packets = 0
 
     def __init__(self, name, default, fmt="H"):
+        if name.endswith("_repr"):
+            raise Scapy_Exception("Don't use the postfix '_repr' "
+                                  "for a field name")
         self.name = name
         if fmt[0] in "@=<>!":
             self.fmt = fmt
