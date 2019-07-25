@@ -1645,8 +1645,17 @@ Touch screen: pinch/extend to zoom, swipe or two-finger rotate."""
 @conf.commands.register
 def traceroute(target, dport=80, minttl=1, maxttl=30, sport=RandShort(), l4=None, filter=None, timeout=2, verbose=None, **kargs):  # noqa: E501
     """Instant TCP traceroute
-traceroute(target, [maxttl=30,] [dport=80,] [sport=80,] [verbose=conf.verb]) -> None  # noqa: E501
-"""
+
+       :param target:  hostnames or IP addresses
+       :param dport:   TCP destination port (default is 80)
+       :param minttl:  minimum TTL (default is 1)
+       :param maxttl:  maximum TTL (default is 30)
+       :param sport:   TCP source port (default is random)
+       :param l4:      use a Scapy packet instead of TCP
+       :param filter:  BPF filter applied to received packets
+       :param timeout: time to wait for answers (default is 2s)
+       :param verbose: detailed output
+       :return: an TracerouteResult, and a list of unanswered packets"""
     if verbose is None:
         verbose = conf.verb
     if filter is None:
