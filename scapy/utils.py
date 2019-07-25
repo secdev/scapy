@@ -1287,7 +1287,7 @@ nano:       use nanosecond-precision (requires libpcap >= 1.5.0)
 
     def write(self, pkt):
         """
-        Writes a Packet or bytes to a pcap file.
+        Writes a Packet, a SndRcvList object, or bytes to a pcap file.
 
         :param pkt: Packet(s) to write (one record for each Packet), or raw
                     bytes to write (as one record).
@@ -1298,7 +1298,12 @@ nano:       use nanosecond-precision (requires libpcap >= 1.5.0)
                 self._write_header(pkt)
             self._write_packet(pkt)
         else:
-            pkt = pkt.__iter__()
+            # Import here to avoid a circular dependency
+            from scapy.plist import SndRcvList
+            if isinstance(pkt, SndRcvList):
+                pkt = (p for t in pkt for p in t)
+            else:
+                pkt = pkt.__iter__()
             for p in pkt:
                 if not self.header_present:
                     self._write_header(p)
