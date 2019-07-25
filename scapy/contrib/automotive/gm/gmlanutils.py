@@ -2,17 +2,16 @@
 
 # This file is part of Scapy
 # See http://www.secdev.org/projects/scapy for more information
-# Copyright (C) Markus Schroetter <xito300@gmail.com>
+# Copyright (C) Markus Schroetter <project.m.schroetter@gmail.com>
 # Copyright (C) Nils Weiss <nils@we155.de>
 # This program is published under a GPLv2 license
 
-# scapy.contrib.description = General Motors Local Area Network
-#                             Utilities (GMLAN-Utils)
+# scapy.contrib.description = GMLAN Utilities
 # scapy.contrib.status = loads
 
-from time import sleep
+import time
 from scapy.contrib.automotive.gm.gmlan import GMLAN, GMLAN_SA, GMLAN_RD, \
-    GMLAN_TD, GMLAN_PM, GMLAN_RMBA, GMLAN_NR
+    GMLAN_TD, GMLAN_PM, GMLAN_RMBA
 from scapy.config import conf
 from scapy.contrib.isotp import ISOTPSocket
 from scapy.error import warning, log_loading
@@ -46,12 +45,12 @@ class GMLAN_TesterPresentSender(PeriodicSenderThread):
         PeriodicSenderThread.__init__(self, sock, pkt, interval)
 
 
-def GMLAN_InitDiagnostics(socket, broadcastsocket=None, timeout=None,
+def GMLAN_InitDiagnostics(sock, broadcastsocket=None, timeout=None,
                           verbose=None, retry=0):
     """Send messages to put an ECU into an diagnostic/programming state.
 
     Args:
-        socket:     socket to send the message on.
+        sock:       socket to send the message on.
         broadcast:  socket for broadcasting. If provided some message will be
                     sent as broadcast. Recommended when used on a network with
                     several ECUs.
@@ -73,11 +72,11 @@ def GMLAN_InitDiagnostics(socket, broadcastsocket=None, timeout=None,
         if broadcastsocket is None:
             if verbose:
                 print("Sending %s" % repr(p))
-            resp = socket.sr1(p, timeout=timeout, verbose=0)
+            resp = sock.sr1(p, timeout=timeout, verbose=0)
             if resp is not None:
                 if verbose:
                     resp.show()
-                if resp.service != GMLAN(service="DisableNormalCommunicationPositiveResponse").service:   # noqa: E501
+                if resp.sprintf("%GMLAN.service%") != "DisableNormalCommunicationPositiveResponse":   # noqa: E501
                     continue
             else:
                 if verbose:
@@ -87,17 +86,17 @@ def GMLAN_InitDiagnostics(socket, broadcastsocket=None, timeout=None,
             if verbose:
                 print("Sending %s as broadcast" % repr(p))
             broadcastsocket.send(p)
-        sleep(0.05)
+        time.sleep(0.05)
 
         # ReportProgrammedState
         p = GMLAN(service="ReportProgrammingState")
         if verbose:
             print("Sending %s" % repr(p))
-        resp = socket.sr1(p, timeout=timeout, verbose=0)
+        resp = sock.sr1(p, timeout=timeout, verbose=0)
         if resp is not None:
             if verbose:
                 resp.show()
-            if resp.service != GMLAN(service="ReportProgrammingStatePositiveResponse").service:   # noqa: E501
+            if resp.sprintf("%GMLAN.service%") != "ReportProgrammingStatePositiveResponse":   # noqa: E501
                 continue
         else:
             if verbose:
@@ -108,35 +107,35 @@ def GMLAN_InitDiagnostics(socket, broadcastsocket=None, timeout=None,
         p = GMLAN() / GMLAN_PM(subfunction="requestProgrammingMode")
         if verbose:
             print("Sending %s" % repr(p))
-        resp = socket.sr1(p, timeout=timeout, verbose=0)
+        resp = sock.sr1(p, timeout=timeout, verbose=0)
         if resp is not None:
             if verbose:
                 resp.show()
-            if resp.service != GMLAN(service="ProgrammingModePositiveResponse").service:   # noqa: E501
+            if resp.sprintf("%GMLAN.service%") != "ProgrammingModePositiveResponse":   # noqa: E501
                 continue
         else:
             if verbose:
                 print("Timeout.")
             continue
-        sleep(0.05)
+        time.sleep(0.05)
 
         # InitiateProgramming enableProgramming
         # No response expected
         p = GMLAN() / GMLAN_PM(subfunction="enableProgrammingMode")
         if verbose:
             print("Sending %s" % repr(p))
-        socket.send(p)
-        sleep(0.05)
+        sock.send(p)
+        time.sleep(0.05)
         return True
     return False
 
 
-def GMLAN_GetSecurityAccess(socket, keyFunction, level=1, timeout=None,
+def GMLAN_GetSecurityAccess(sock, keyFunction, level=1, timeout=None,
                             verbose=None, retry=0):
     """Authenticate on ECU. Implements Seey-Key procedure.
 
     Args:
-        socket:      socket to send the message on.
+        sock:        socket to send the message on.
         keyFunction: function implementing the key algorithm.
         level:       level of access
         timeout:     timeout for sending, receiving or sniffing packages.
@@ -159,11 +158,11 @@ def GMLAN_GetSecurityAccess(socket, keyFunction, level=1, timeout=None,
         request = GMLAN() / GMLAN_SA(subfunction=level)
         if verbose:
             print("Requesting seed..")
-        resp = socket.sr1(request, timeout=timeout, verbose=0)
+        resp = sock.sr1(request, timeout=timeout, verbose=0)
         if resp is not None:
             if verbose:
                 resp.show()
-            if resp.service != GMLAN(service="SecurityAccessPositiveResponse").service:   # noqa: E501
+            if resp.sprintf("%GMLAN.service%") != "SecurityAccessPositiveResponse":   # noqa: E501
                 if verbose:
                     print("Negative Response.")
                 continue
@@ -182,17 +181,17 @@ def GMLAN_GetSecurityAccess(socket, keyFunction, level=1, timeout=None,
                                     securityKey=keyFunction(seed))
         if verbose:
             print("Responding with key..")
-        resp = socket.sr1(keypkt, timeout=timeout, verbose=0)
+        resp = sock.sr1(keypkt, timeout=timeout, verbose=0)
         if resp is not None:
             if verbose:
                 resp.show()
-            if resp.service == GMLAN(service="SecurityAccessPositiveResponse").service:   # noqa: E501
+            if resp.sprintf("%GMLAN.service%") == "SecurityAccessPositiveResponse":   # noqa: E501
                 if verbose:
                     print("SecurityAccess granted.")
                 return True
             # Invalid Key
-            elif resp.service == GMLAN(service="NegativeResponse").service and\
-                    resp.returnCode == GMLAN_NR(returnCode="InvalidKey").returnCode:   # noqa: E501
+            elif resp.sprintf("%GMLAN.service%") == "NegativeResponse" and \
+                    resp.sprintf("%GMLAN.returnCode%") == "InvalidKey":
                 if verbose:
                     print("Key invalid")
                 continue
@@ -203,13 +202,13 @@ def GMLAN_GetSecurityAccess(socket, keyFunction, level=1, timeout=None,
     return False
 
 
-def GMLAN_RequestDownload(socket, length, timeout=None, verbose=None, retry=0):
+def GMLAN_RequestDownload(sock, length, timeout=None, verbose=None, retry=0):
     """Send RequestDownload message.
 
     Usually used before calling TransferData.
 
     Args:
-        socket:     socket to send the message on.
+        sock:       socket to send the message on.
         length:     value for the message's parameter 'unCompressedMemorySize'.
         timeout:    timeout for sending, receiving or sniffing packages.
         verbose:    set verbosity level.
@@ -224,9 +223,9 @@ def GMLAN_RequestDownload(socket, length, timeout=None, verbose=None, retry=0):
     while retry >= 0:
         # RequestDownload
         pkt = GMLAN() / GMLAN_RD(memorySize=length)
-        resp = socket.sr1(pkt, timeout=timeout, verbose=0)
+        resp = sock.sr1(pkt, timeout=timeout, verbose=0)
         if resp is not None:
-            if resp.service == GMLAN(service="RequestDownloadPositiveResponse").service:   # noqa: E501
+            if resp.sprintf("%GMLAN.service%") == "RequestDownloadPositiveResponse":   # noqa: E501
                 return True
             if verbose:
                 resp.show()
@@ -241,14 +240,14 @@ def GMLAN_RequestDownload(socket, length, timeout=None, verbose=None, retry=0):
     return False
 
 
-def GMLAN_TransferData(socket, addr, payload, maxmsglen=None, timeout=None,
+def GMLAN_TransferData(sock, addr, payload, maxmsglen=None, timeout=None,
                        verbose=None, retry=0):
     """Send TransferData message.
 
     Usually used after calling RequestDownload.
 
     Args:
-        socket:     socket to send the message on.
+        sock:       socket to send the message on.
         addr:       destination memory address on the ECU.
         payload:    data to be sent.
         maxmsglen:  maximum length of a single iso-tp message. (default:
@@ -283,9 +282,9 @@ def GMLAN_TransferData(socket, addr, payload, maxmsglen=None, timeout=None,
                 transdata = payload[i:]
             pkt = GMLAN() / GMLAN_TD(startingAddress=addr + i,
                                      dataRecord=transdata)
-            resp = socket.sr1(pkt, timeout=timeout, verbose=0)
+            resp = sock.sr1(pkt, timeout=timeout, verbose=0)
             if resp is not None:
-                if resp.service == GMLAN(service="TransferDataPositiveResponse").service:   # noqa: E501
+                if resp.sprintf("%GMLAN.service%") == "TransferDataPositiveResponse":   # noqa: E501
                     break
                 if verbose:
                     resp.show()
@@ -304,12 +303,12 @@ def GMLAN_TransferData(socket, addr, payload, maxmsglen=None, timeout=None,
     return True
 
 
-def GMLAN_TransferPayload(socket, addr, payload, maxmsglen=None, timeout=None,
+def GMLAN_TransferPayload(sock, addr, payload, maxmsglen=None, timeout=None,
                           verbose=None, retry=0):
     """Send data by using GMLAN services.
 
     Args:
-        socket:     socket to send the data on.
+        sock:       socket to send the data on.
         addr:       destination memory address on the ECU.
         payload:    data to be sent.
         maxmsglen:  maximum length of a single iso-tp message. (default:
@@ -320,21 +319,21 @@ def GMLAN_TransferPayload(socket, addr, payload, maxmsglen=None, timeout=None,
 
     Returns true on success.
     """
-    if not GMLAN_RequestDownload(socket, len(payload), timeout=timeout,
+    if not GMLAN_RequestDownload(sock, len(payload), timeout=timeout,
                                  verbose=verbose, retry=retry):
         return False
-    if not GMLAN_TransferData(socket, addr, payload, maxmsglen=maxmsglen,
+    if not GMLAN_TransferData(sock, addr, payload, maxmsglen=maxmsglen,
                               timeout=timeout, verbose=verbose, retry=retry):
         return False
     return True
 
 
-def GMLAN_ReadMemoryByAddress(socket, addr, length, timeout=None,
+def GMLAN_ReadMemoryByAddress(sock, addr, length, timeout=None,
                               verbose=None, retry=0):
     """Read data from ECU memory.
 
     Args:
-        socket:     socket to send the data on.
+        sock:       socket to send the data on.
         addr:       source memory address on the ECU.
         length:     bytes to read
         timeout:    timeout for sending, receiving or sniffing packages.
@@ -362,9 +361,9 @@ def GMLAN_ReadMemoryByAddress(socket, addr, length, timeout=None,
     while retry >= 0:
         # RequestDownload
         pkt = GMLAN() / GMLAN_RMBA(memoryAddress=addr, memorySize=length)
-        resp = socket.sr1(pkt, timeout=timeout, verbose=0)
+        resp = sock.sr1(pkt, timeout=timeout, verbose=0)
         if resp is not None:
-            if resp.service == GMLAN(service="ReadMemoryByAddressPositiveResponse").service:   # noqa: E501
+            if resp.sprintf("%GMLAN.service%") == "ReadMemoryByAddressPositiveResponse":   # noqa: E501
                 return resp.dataRecord
             if verbose:
                 resp.show()
