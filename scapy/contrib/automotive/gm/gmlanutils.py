@@ -191,7 +191,7 @@ def GMLAN_GetSecurityAccess(socket, keyFunction, level=1, timeout=None,
                     print("SecurityAccess granted.")
                 return True
             # Invalid Key
-            elif resp.service == GMLAN(service="NegativeResponse") and \
+            elif resp.service == GMLAN(service="NegativeResponse").service and\
                     resp.returnCode == GMLAN_NR(returnCode="InvalidKey").returnCode:   # noqa: E501
                 if verbose:
                     print("Key invalid")
