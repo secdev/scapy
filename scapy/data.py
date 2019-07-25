@@ -316,7 +316,7 @@ else:
     IP_PROTOS = load_protocols("/etc/protocols")
     ETHER_TYPES = load_ethertypes("/etc/ethertypes")
     TCP_SERVICES, UDP_SERVICES = load_services("/etc/services")
-    MANUFDB = None
+    MANUFDB = ManufDA()
     manuf_path = select_path(
         ['/usr', '/usr/local', '/opt', '/opt/wireshark',
          '/Applications/Wireshark.app/Contents/Resources'],
