@@ -69,11 +69,10 @@ def autorun_commands(cmds, my_globals=None, ignore_globals=None, verb=None):
                 line = cmds.pop()
                 print(line)
                 cmd += "\n" + line
-                if interp.runsource(cmd):
-                    continue
-                if interp.error:
-                    return 0
-                cmd = ""
+                if not interp.runsource(cmd):
+                    if interp.error:
+                        return 0
+                    cmd = ""
                 if len(cmds) <= 1:
                     break
         except SystemExit:
