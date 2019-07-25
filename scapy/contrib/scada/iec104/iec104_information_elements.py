@@ -3,8 +3,7 @@
 # Copyright (C) Thomas Tannhaeuser <hecke@naberius.de>
 # This program is published under a GPLv2 license
 
-# scapy.contrib.description = IEC-60870-5-104 information elements
-# scapy.contrib.status = loads
+# scapy.contrib.status = skip
 
 """
     information element definitions used by IEC 60870-5-101/104

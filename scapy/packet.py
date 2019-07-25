@@ -4,11 +4,18 @@
 # This program is published under a GPLv2 license
 
 """
-Packet class. Binding mechanism. fuzz() method.
+Packet class
+
+Provides:
+ - the default Packet classes
+ - binding mechanisms
+ - fuzz() method
+ - exploration methods: explore() / ls()
 """
 
 from __future__ import absolute_import
 from __future__ import print_function
+from collections import defaultdict
 import re
 import time
 import itertools
@@ -1848,40 +1855,95 @@ def explore(layer=None):
         # 2 - Retrieve list of Packets
         if action == "layers":
             # Get all loaded layers
-            _radio_values = conf.layers.layers()
+            values = conf.layers.layers()
             # Restrict to layers-only (not contribs) + packet.py and asn1*.py
-            _radio_values = [x for x in _radio_values if ("layers" in x[0] or
-                                                          "packet" in x[0] or
-                                                          "asn1" in x[0])]
+            values = [x for x in values if ("layers" in x[0] or
+                                            "packet" in x[0] or
+                                            "asn1" in x[0])]
         elif action == "contribs":
             # Get all existing contribs
             from scapy.main import list_contrib
-            _radio_values = list_contrib(ret=True)
-            _radio_values = [(x['name'], x['description'])
-                             for x in _radio_values]
+            values = list_contrib(ret=True)
+            values = [(x['name'], x['description'])
+                      for x in values]
             # Remove very specific modules
-            _radio_values = [x for x in _radio_values if not ("can" in x[0])]
+            values = [x for x in values if not ("can" in x[0])]
         else:
             # Escape/Cancel was pressed
             return
         # Python 2 compat
         if six.PY2:
-            _radio_values = [(six.text_type(x), six.text_type(y))
-                             for x, y in _radio_values]
+            values = [(six.text_type(x), six.text_type(y))
+                      for x, y in values]
+        # Build tree
+        if action == "contribs":
+            tree = defaultdict(list)
+            for name, desc in values:
+                if "." in name:  # Folder detected
+                    parts = name.split(".")
+                    q = tree
+                    for pa in parts[:-1]:
+                        if not pa in q:
+                            q[pa] = {}
+                        q = q[pa]
+                        q["_name"] = pa
+                    if not "_l" in q:
+                        q["_l"] = []
+                    q["_l"].append((parts[-1], desc))
+                else:
+                    tree["_l"].append((name, desc))
+        elif action == "layers":
+            tree = {"_l": values}
         # 3 - Ask for the layer/contrib module to explore
-        rd_diag = radiolist_dialog(
-            values=_radio_values,
-            title="Scapy v%s" % conf.version,
-            text=HTML(
-                six.text_type(
-                    '<style bg="white" fg="red">Please select a layer among'
-                    ' the following, to see all packets contained in'
-                    ' it:</style>'
+        current = tree
+        previous = []
+        while True:
+            # Generate tests & form
+            folders = list(current.keys())
+            _radio_values = [
+                ("$" + name, six.text_type('[+] ' + name.capitalize()))
+                for name in folders if not name.startswith("_")
+            ] + current.get("_l", [])
+            cur_path = ""
+            if previous:
+                cur_path = ".".join(
+                    itertools.chain(
+                        (x["_name"] for x in previous[1:]),
+                        (current["_name"],)
+                    )
                 )
-            ))
-        result = call_ptk(rd_diag)
-        if result is None:
-            return  # User pressed "Cancel"
+            extra_text = (
+                '\n<style bg="white" fg="green">> scapy.%s</style>'
+            ) % (action + ("." + cur_path if cur_path else ""))
+            # Show popup
+            rd_diag = radiolist_dialog(
+                values=_radio_values,
+                title="Scapy v%s" % conf.version,
+                text=HTML(
+                    six.text_type((
+                        '<style bg="white" fg="red">Please select a layer among'
+                        ' the following, to see all packets contained in'
+                        ' it:</style>'
+                    ) + extra_text)
+                ),
+                cancel_text="Back" if previous else "Cancel"
+            )
+            result = call_ptk(rd_diag)
+            if result is None:
+                # User pressed "Cancel/Back"
+                if previous:  # Back
+                    current = previous.pop()
+                    continue
+                else:  # Cancel
+                    return
+            if result.startswith("$"):
+                previous.append(current)
+                current = current[result[1:]]
+            else:
+                # Enter on layer
+                if previous:  # In subfolder
+                    result = cur_path + "." + result
+                break
         # 4 - (Contrib only): load contrib
         if action == "contribs":
             from scapy.main import load_contrib

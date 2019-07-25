@@ -58,6 +58,9 @@ from scapy.layers.inet import TCP
 from scapy.packet import Raw
 from scapy.packet import Packet, bind_layers
 
+from . import iec104, iec104_fields, iec104_information_elements, \
+    iec104_information_objects  # noqa: F401
+
 IEC_104_IANA_PORT = 2404
 
 # direction - from the central station to the substation
