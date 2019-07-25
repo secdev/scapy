@@ -5,7 +5,7 @@
 # This program is published under a GPLv2 license
 
 # scapy.contrib.description = Volkswagen specific definitions for UDS
-# scapy.contrib.status = loads
+# scapy.contrib.status = skip
 
 
 from scapy.contrib.automotive.uds import UDS_RDBI, UDS_RC, UDS_RD
