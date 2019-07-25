@@ -7120,6 +7120,13 @@ fstat = os.stat(filename)
 assert fstat.st_size != 0
 os.remove(filename)
 
+= Check wrpcap() with SndRcvList
+
+import tempfile
+filename = tempfile.mktemp(suffix=".pcap")
+wrpcap(filename, SndRcvList(res=[(Ether()/IP(), Ether()/IP())]))
+assert len(rdpcap(filename)) == 2
+os.remove(filename)
 
 ############
 ############
