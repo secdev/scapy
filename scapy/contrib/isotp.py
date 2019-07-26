@@ -615,17 +615,6 @@ class ISOTPSoftSocket(SuperSocket):
 
         return self.outs.begin_send(bytes(p))
 
-    def recv_with_timeout(self, timeout=1):
-        """Receive a complete ISOTP message, blocking until a message is
-        received or the specified timeout is reached.
-        If timeout is 0, then this function doesn't block and returns the
-        first frame in the receive buffer or None if there isn't any."""
-        msg = self.ins.recv(timeout)
-        t = time.time()
-        if msg is None:
-            raise Scapy_Exception("Timeout")
-        return self.basecls, msg, t
-
     def recv_raw(self, x=0xffff):
         """Receive a complete ISOTP message, blocking until a message is
         received or the specified timeout is reached.
