@@ -376,3 +376,11 @@ t_sniffer.join(1)
 assert(dot1q_count == 2)
 
 veth.destroy()
+
+= Test get_temp_fifo
+~ linux
+
+import stat
+fname = get_temp_fifo()
+s = os.stat(fname)
+assert stat.S_ISFIFO(s.st_mode)

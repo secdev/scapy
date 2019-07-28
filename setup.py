@@ -50,6 +50,7 @@ setup(
             'pyx',
             'cryptography>=2.0',
             'matplotlib'
+            'pyserial>=3.0.0',
         ]
     },
     # We use __file__ in scapy/__init__.py, therefore Scapy isn't zip safe

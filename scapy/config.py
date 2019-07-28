@@ -630,7 +630,7 @@ recv_poll_rate: how often to check for new packets. Defaults to 0.05s.
                    'inet6', 'ipsec', 'ir', 'isakmp', 'l2', 'l2tp',
                    'llmnr', 'lltd', 'mgcp', 'mobileip', 'netbios',
                    'netflow', 'ntp', 'ppi', 'ppp', 'pptp', 'radius', 'rip',
-                   'rtp', 'sctp', 'sixlowpan', 'skinny', 'smb', 'snmp',
+                   'rtp', 'sctp', 'sixlowpan', 'skinny', 'slip', 'smb', 'snmp',
                    'tftp', 'vrrp', 'vxlan', 'x509', 'zigbee']
     contribs = dict()
     crypto_valid = isCryptographyValid()

@@ -1,0 +1,70 @@
+% Serial Line IP tests (scapy.layers.slip)
+
++ SLIPPacketizer
+
+= Encode and decode a SLIP packet that contains escapes
+
+p = SLIPPacketizer()
+d = b'Hello, \333w\334o\300rld'
+de = b'Hello, \333\335w\334o\333\334rld\300'
+
+assert de == p.encode_frame(d)
+
+pkts = list(p.data_received(de))
+assert len(pkts) == 1
+assert pkts[0][0] == d
+
+= Handle multiple messages
+
+p = SLIPPacketizer()
+d = b'Message 1\300Message 2\300'
+
+pkts = list(p.data_received(d))
+assert len(pkts) == 2
+assert pkts[0][0] == b'Message 1'
+assert pkts[1][0] == b'Message 2'
+
+= Handle incomplete message
+
+p = SLIPPacketizer()
+d = b'Message 1\300Message 2\300Incomplete message'
+
+pkts = list(p.data_received(d))
+assert len(pkts) == 2
+assert pkts[0][0] == b'Message 1'
+assert pkts[1][0] == b'Message 2'
+
+# now complete it:
+
+pkts = list(p.data_received(b' now complete!\300Incomplete more'))
+assert len(pkts) == 1
+assert pkts[0][0] == b'Incomplete message now complete!'
+
+
++ PacketizerSocket
+
+= BytesIO / StringIO: read and write packets
+
+try:
+    from io import BytesIO
+except ImportError:
+    # py2
+    from cStringIO import StringIO as BytesIO
+
+f = BytesIO(b'Message 1\300Message 2\300Message incomplete')
+slip = slip_socket(f)
+
+assert slip.recv() == Raw(b'Message 1')
+assert slip.recv() == Raw(b'Message 2')
+assert slip.recv() is None
+
+t = f.tell()
+slip.send(Raw(b'Sent message'))
+# py2/3 compat
+buf = f.getbuffer() if hasattr(f, 'getbuffer') else f.getvalue()
+
+assert buf[t:] == b'Sent message\300'
+
+slip.close()
+del slip, f, buf, t
+

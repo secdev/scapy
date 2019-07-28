@@ -13,12 +13,13 @@ import struct
 from scapy.config import conf
 from scapy.data import DLT_PPP, DLT_PPP_SERIAL, DLT_PPP_ETHER, \
     DLT_PPP_WITH_DIR
-from scapy.compat import orb
+from scapy.compat import orb, raw
 from scapy.packet import Packet, bind_layers
 from scapy.layers.eap import EAP
 from scapy.layers.l2 import Ether, CookedLinux, GRE_PPTP
 from scapy.layers.inet import IP
 from scapy.layers.inet6 import IPv6
+from scapy.layers.slip import SLIPPacketizer
 from scapy.fields import BitField, ByteEnumField, ByteField, \
     ConditionalField, FieldLenField, IntField, IPField, \
     PacketListField, PacketField, ShortEnumField, ShortField, \
@@ -843,6 +844,38 @@ class PPP_CHAP_ChallengeResponse(PPP_CHAP):
             )
         else:
             return super(PPP_CHAP_ChallengeResponse, self).mysummary()
+
+
+class PPPPacketizer(SLIPPacketizer):
+    def __init__(self):
+        super(PPPPacketizer, self).__init__(
+            esc=b'\x7d',
+            esc_esc=b'\x5d',
+            end=b'\x7e',
+            end_esc=b'\x5e',
+        )
+
+    def handle_escape(self, i, end_msg_pos):
+        # RFC 1662 section 4.2 (Transparency)
+        b = self.buffer[i]
+        return (i + 1), (b ^ 0x20)
+
+    def encode_frame(self, pkt):
+        """Encodes a packet in binary form with PPP."""
+        d = raw(pkt)
+        o = bytearray()
+        o.extend(self.end)
+        for c in d:
+            # TODO: Handle Async-Control-Character-Map
+            if c < 0x20 or c in self.end or c in self.esc:
+                o.extend(self.esc)
+                o.append(c ^ 0x20)
+        return bytes(o)
+
+
+def ppp_socket(fd, default_read_size=None):
+    """PPP socket around a given file-like object."""
+    return PPPPacketizer().make_socket(fd, HDLC, default_read_size)
 
 
 bind_layers(PPPoED, PPPoED_Tags, type=1)

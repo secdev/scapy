@@ -30,6 +30,7 @@ from scapy.sessions import *
 from scapy.supersocket import *
 from scapy.volatile import *
 from scapy.as_resolvers import *
+from scapy.packetizer import *
 
 from scapy.automaton import *
 from scapy.autorun import *

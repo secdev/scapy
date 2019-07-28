@@ -9,12 +9,21 @@ Python 2 and 3 link classes.
 """
 
 from __future__ import absolute_import
+import abc
 import base64
 import binascii
 import gzip
 import struct
+import sys
 
 import scapy.modules.six as six
+
+
+# Abstract Base Classes - this makes Python < 3.4 act like >= 3.4
+if sys.version_info >= (3, 4):
+    ABC = abc.ABC
+else:
+    ABC = abc.ABCMeta('ABC', (), {})
 
 ###########
 # Python3 #

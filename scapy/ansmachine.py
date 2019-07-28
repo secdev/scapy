@@ -31,9 +31,10 @@ class AnsweringMachine(six.with_metaclass(ReferenceAM, object)):
     function_name = ""
     filter = None
     sniff_options = {"store": 0}
-    sniff_options_list = ["store", "iface", "count", "promisc", "filter", "type", "prn", "stop_filter"]  # noqa: E501
+    sniff_options_list = ["store", "iface", "count", "promisc", "filter",
+                          "type", "prn", "stop_filter", "opened_socket"]
     send_options = {"verbose": 0}
-    send_options_list = ["iface", "inter", "loop", "verbose"]
+    send_options_list = ["iface", "inter", "loop", "verbose", "socket"]
     send_function = staticmethod(send)
 
     def __init__(self, **kargs):

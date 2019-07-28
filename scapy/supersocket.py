@@ -8,6 +8,8 @@ SuperSocket.
 """
 
 from __future__ import absolute_import
+
+from io import UnsupportedOperation
 from select import select, error as select_error
 import errno
 import os
@@ -39,10 +41,12 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
     nonblocking_socket = False
     read_allowed_exceptions = ()
 
-    def __init__(self, family=socket.AF_INET, type=socket.SOCK_STREAM, proto=0):  # noqa: E501
+    def __init__(self, family=socket.AF_INET, type=socket.SOCK_STREAM,
+                 proto=0, default_read_size=MTU):  # noqa: E501
         self.ins = socket.socket(family, type, proto)
         self.outs = self.ins
         self.promisc = None
+        self.default_read_size = default_read_size
 
     def send(self, x):
         sx = raw(x)
@@ -53,11 +57,17 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
             pass
         return sent
 
-    def recv_raw(self, x=MTU):
+    def recv_raw(self, x=None):
         """Returns a tuple containing (cls, pkt_data, time)"""
+        if x is None:
+            x = self.default_read_size
+
         return conf.raw_layer, self.ins.recv(x), None
 
-    def recv(self, x=MTU):
+    def recv(self, x=None):
+        if x is None:
+            x = self.default_read_size
+
         cls, val, ts = self.recv_raw(x)
         if not val or not cls:
             return
@@ -82,12 +92,26 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
         if self.closed:
             return
         self.closed = True
-        if getattr(self, "outs", None):
-            if getattr(self, "ins", None) != self.outs:
-                if WINDOWS or self.outs.fileno() != -1:
-                    self.outs.close()
-        if getattr(self, "ins", None):
-            if WINDOWS or self.ins.fileno() != -1:
+        if hasattr(self, "outs") and self.outs and (not hasattr(self, "ins") or self.ins != self.outs):
+            fn = -1
+            try:
+                fn = self.outs.fileno()
+            except (OSError, UnsupportedOperation):
+                # The file descriptor doesn't support fileno
+                pass
+
+            if fn != -1:
+                self.outs.close()
+
+        if hasattr(self, "ins") and self.ins:
+            fn = -1
+            try:
+                fn = self.ins.fileno()
+            except (OSError, UnsupportedOperation):
+                # The file descriptor doesn't support fileno
+                pass
+
+            if fn != -1:
                 self.ins.close()
 
     def sr(self, *args, **kargs):
@@ -109,6 +133,13 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
     def tshark(self, *args, **kargs):
         from scapy import sendrecv
         return sendrecv.tshark(opened_socket=self, *args, **kargs)
+
+    def am(self, cls, *args, **kwargs):
+        """Creates an AnsweringMachine associated with this socket.
+
+        :param cls: A subclass of AnsweringMachine to instantiate
+        """
+        return cls(*args, opened_socket=self, socket=self, **kwargs)
 
     @staticmethod
     def select(sockets, remain=conf.recv_poll_rate):
@@ -194,9 +225,10 @@ class L3RawSocket(SuperSocket):
 class SimpleSocket(SuperSocket):
     desc = "wrapper around a classic socket"
 
-    def __init__(self, sock):
+    def __init__(self, sock, default_read_size=MTU):
         self.ins = sock
         self.outs = sock
+        self.default_read_size = default_read_size
 
 
 class StreamSocket(SimpleSocket):
