@@ -32,9 +32,6 @@ class Packetizer(ABC):
 
         This will cause any partial packets to be discarded.
 
-        If ``start`` is not set and a packet is in progress, a corrupted packet
-        will be returned in the next callback.
-
         This method blocks while acquiring the buffer lock.
         """
         with self.buffer_lock:
@@ -141,6 +138,9 @@ class PacketizerSocket(SimpleSocket):
             # Well, looks like we need to do some work...
             pass
 
+        if x is None:
+            x = self.default_read_size
+
         # read some bytes
         for p in self.packetizer.data_received(self.ins.read(x)):
             self._packet_queue.put(p)
@@ -153,10 +153,12 @@ class PacketizerSocket(SimpleSocket):
             return None, None, None
 
     def send(self, x):
-        if not isinstance(x, self.packet_class):
-            x = self.packet_class()/x
+        if isinstance(x, self.packet_class):
+            o = x
+        else:
+            o = self.packet_class()/x
 
-        sx = raw(x)
+        sx = raw(o)
         if hasattr(x, 'sent_time'):
             x.sent_time = time.time()
         self.ins.write(self.packetizer.encode_frame(sx))

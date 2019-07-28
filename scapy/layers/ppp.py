@@ -870,6 +870,8 @@ class PPPPacketizer(SLIPPacketizer):
             if c < 0x20 or c in self.end or c in self.esc:
                 o.extend(self.esc)
                 o.append(c ^ 0x20)
+            else:
+                o.append(c)
         return bytes(o)
 
 

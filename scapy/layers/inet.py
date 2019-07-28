@@ -19,6 +19,7 @@ from collections import defaultdict
 
 from scapy.utils import checksum, do_graph, incremental_label, \
     linehexdump, strxor, whois, colgen
+from scapy.ansmachine import AnsweringMachine
 from scapy.base_classes import Gen, Net
 from scapy.data import ETH_P_IP, ETH_P_ALL, DLT_RAW, DLT_RAW_ALT, DLT_IPV4, \
     IP_PROTOS, TCP_SERVICES, UDP_SERVICES
@@ -1934,6 +1935,50 @@ def fragleak2(target, timeout=0.4, onlyasc=0, count=None):
                     linehexdump(leak, onlyasc=onlyasc)
     except Exception:
         pass
+
+
+class ICMPEcho_am(AnsweringMachine):
+    """Responds to ICMP Echo-Requests (ping)"""
+    function_name = "icmpechod"
+    # filter = "icmp"
+
+    def parse_options(self, listen_addr=None):
+        """Set options for ICMPEcho_am.
+
+        :param listen_addr: Address(es) to listen for pings on (default listens to all addresses)
+        """
+        self.listen_addr = listen_addr
+
+    def is_request(self, req):
+        if not req.haslayer(ICMP):
+            return False
+        icmp_req = req.getlayer(ICMP)
+        if icmp_req.type != 8:  # echo-request
+            return False
+        if self.listen_addr is not None:
+            if not req.haslayer(IP):
+                return False
+            # ip_rep = req.getlayer(IP)
+            # Check netmask
+            pass
+
+        return True
+
+    def print_reply(self, req, reply):
+        print("Replying %s to %s" % (reply.getlayer(IP).dst, req.dst))
+
+    def make_reply(self, req):
+        reply = req.copy()
+        reply[ICMP].type = 0  # echo-reply
+        # Force re-generation of the checksum
+        reply[ICMP].chksum = None
+        if req.haslayer(IP):
+            reply[IP].src, reply[IP].dst = req[IP].dst, req[IP].src
+            reply[IP].chksum = None
+        if req.haslayer(Ether):
+            reply[Ether].src, reply[Ether].dst = req[Ether].dst, req[Ether].src
+
+        return reply
 
 
 conf.stats_classic_protocols += [TCP, UDP, ICMP]
