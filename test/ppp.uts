@@ -1,0 +1,120 @@
+% PPP tests (scapy.layers.ppp)
+
++ PPPPacketizer
+
+= Handle simple packet
+
+p = PPPPacketizer()
+d = b"~\xff}#\xc0!}!}!} }4}\"}&} } } } }%}&\xc3y\x9d3}'}\"}(}\"I\xde~"
+
+pkts = list(p.data_received(d))
+assert len(pkts) == 1
+assert p.fcs_errors == 0
+
+pkt = PPP(pkts[0][0])
+
+pkt.show()
+assert pkt.haslayer(HDLC)
+assert pkt.haslayer(PPP)
+assert not pkt.haslayer(PPP_)
+assert pkt[PPP_LCP_Configure].id == 1
+assert pkt[PPP_LCP_Magic_Number_Option].magic_number == 0xc3799d33
+
+d
+d2 = p.encode_frame(pkt)
+d2
+assert d == d2
+
+d3 = p.encode_frame(pkts[0][0])
+d3
+assert d == d3
+
+del d, d2, d3
+
+= Handle wrong FCS
+
+p = PPPPacketizer()
+d = b"~\xff}#\xc0!}!}!} }4}\"}&} } } } }%}&\xc3y\x9d3}'}\"}(}\"\xff\xff~"
+
+pkts = list(p.data_received(d))
+assert len(pkts) == 0
+assert p.fcs_errors == 1
+
+= ACFC (RFC 1661 section 6.6)
+
+p = PPPPacketizer()
+d = b'\x80!}!}!} }0}"}&} -}/}!}#}&\xc0} }"}!06~'
+
+pkts = list(p.data_received(d))
+assert len(pkts) == 1
+assert p.fcs_errors == 0
+
+pkt = PPP(pkts[0][0])
+assert not pkt.haslayer(HDLC)
+assert pkt.haslayer(PPP)
+assert not pkt.haslayer(PPP_)
+
+assert pkt[PPP_IPCP_Option_IPAddress].data == '192.0.2.1'
+assert d[:-1] in p.encode_frame(pkt)
+
++ PacketizerSocket
+
+= Setup
+
+try:
+    from io import BytesIO
+except ImportError:
+    # py2
+    from cStringIO import StringIO as BytesIO
+
+def bio_ppp(buf=b''):
+    f = BytesIO(buf)
+    if not hasattr(f, 'getbuffer'):
+        # py2 compat
+        f.getbuffer = lambda: f.getvalue()
+    ppp = ppp_socket(f)
+    assert isinstance(ppp, PPPPacketizerSocket)
+    return f, ppp
+
+= PacketizerSocket: recv ACFC, send without ACFC
+
+d = b'~\x80!}!}!} }0}"}&} -}/}!}#}&\xc0} }"}!06~'
+f, ppp = bio_ppp(d)
+
+p = ppp.recv()
+assert ppp.recv() is None
+assert not p.haslayer(HDLC)
+assert p.haslayer(PPP)
+assert not p.haslayer(PPP_)
+
+t = f.tell()
+ppp.send(p)
+d2 = bytes(f.getbuffer()[t:])
+
+# check for HDLC
+assert d2.startswith(b'~\xFF')
+# skip checksum
+d[1:-3]
+d2[4:-3]
+assert d[1:-3] == d2[4:-3]
+
+# Read back the packet again
+f.seek(t)
+p2 = ppp.recv()
+assert ppp.recv() is None
+assert raw(p[PPP]) == raw(p2[PPP])
+
+del f, ppp, t, d, d2, p, p2
+
+= PacketizerSocket: recv with explicit ACFC setting
+
+f, ppp = bio_ppp(b'\x80!}!}!} }0}"}&} -}/}!}#}&\xc0} }"}!06~')
+
+p = ppp.recv()
+assert ppp.recv() is None
+
+
+
+del f, ppp, p
+
+

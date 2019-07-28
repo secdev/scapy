@@ -1,5 +1,16 @@
 % Serial Line IP tests (scapy.layers.slip)
 
++ Tools
+
+= ExpectException
+
+def expect_exception(e, c):
+    try:
+        c()
+        return False
+    except e:
+        return True
+
 + SLIPPacketizer
 
 = Encode and decode a SLIP packet that contains escapes
@@ -40,6 +51,50 @@ pkts = list(p.data_received(b' now complete!\300Incomplete more'))
 assert len(pkts) == 1
 assert pkts[0][0] == b'Incomplete message now complete!'
 
+= Unknown or premature escapes
+
+p = SLIPPacketizer()
+d = b'Message \3331\300Message 2\333\300Message 3\333\300'
+
+pkts = list(p.data_received(d))
+assert len(pkts) == 3
+assert pkts[0][0] == b'Message 1'
+assert pkts[1][0] == b'Message 2'
+assert pkts[2][0] == b'Message 3'
+
+
++ Customisations
+
+= SLIPPacketizer invalid args
+
+expect_exception(ValueError, lambda: SLIPPacketizer(esc_esc=None))
+expect_exception(ValueError, lambda: SLIPPacketizer(esc=None))
+expect_exception(ValueError, lambda: SLIPPacketizer(end_esc=None))
+expect_exception(ValueError, lambda: SLIPPacketizer(end=None))
+expect_exception(ValueError, lambda: SLIPPacketizer(start=b'\xff'))
+expect_exception(ValueError, lambda: SLIPPacketizer(start_esc=b'\xfe'))
+
+= Start of frame: simple
+
+p = SLIPPacketizer(start=b'\310', start_esc=b'\336')
+d = b'\310Message 1\300\310Message 2\300'
+
+pkts = list(p.data_received(d))
+assert len(pkts) == 2
+assert pkts[0][0] == b'Message 1'
+assert pkts[1][0] == b'Message 2'
+
+= Start of frame: Encode and decode a SLIP packet that contains escapes
+
+p = SLIPPacketizer(start=b'\310', start_esc=b'\336')
+d = b'Hell\310o, \333w\334o\300rld'
+de = b'\310Hell\333\336o, \333\335w\334o\333\334rld\300'
+
+assert de == p.encode_frame(d)
+
+pkts = list(p.data_received(de))
+assert len(pkts) == 1
+assert pkts[0][0] == d
 
 + PacketizerSocket
 
@@ -68,3 +123,62 @@ assert buf[t:] == b'Sent message\300'
 slip.close()
 del slip, f, buf, t
 
++ Linux compatibility
+= Test slattach with SLIP (Linux)
+~ linux needs_root slip
+
+def sp_call(*args):
+    assert subprocess.check_call(args) == 0
+
+def sp_expect_eversion(*args):
+    # E_VERSION = 5
+    assert subprocess.call(args) in (0, 5)
+
+def sp_expect_fail(*args):
+    assert subprocess.call(args) != 0
+
+# Setup and check environment
+
+# Check for `slattach`, as it's not always available, and fail early.
+sp_expect_eversion("slattach", "-V")
+
+# We expect the interface `sl0` to _not_ exist. Fail early if it's there.
+sp_expect_fail("ip", "link", "show", "sl0")
+
+# Load the `slip` kernel module. This might fail if `slip` is compiled into the
+# kernel, or we don't have root. So we ignore the result.
+_ = subprocess.call(["modprobe", "slip"])
+
+# Check for the `slip_open` symbol in the kernel.
+#
+# This is expected to suceeed if the `slip` module was loaded successfully, or
+# if `slip` was compiled into the kernel.
+#
+# A failure here could indicate that the module hasn't loaded!
+sp_call("grep", "-q", "slip_open", "/proc/kallsyms")
+
+remote = '192.0.2.2'
+local = '192.0.2.1'
+
+echo = (IP(src=local, dst=remote)/
+        ICMP(type='echo-request')/
+        Raw(b'hello!'))
+fuzz(echo[ICMP], 1)
+
+s, child_fn, _ = slip_pty()
+try:
+    sp_call("slattach", "-he", child_fn)
+    sp_call("ip", "addr",
+            "change", remote + "/32", "peer", local, "dev", "sl0")
+    sp_call("ip", "link", "set", "sl0", "up")
+    # Debugging -- makes sure that the device is there!
+    sp_call("ip", "addr", "show", "sl0")
+    ans, uans = srsloop(s, [echo], count=3)
+    assert len(ans) == 3
+    assert len(uans) == 0
+finally:
+    # tear down
+    s.close()
+
+# Make sure sl0 went away after.
+sp_expect_fail("ip", "link", "show", "sl0")

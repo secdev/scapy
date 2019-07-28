@@ -17,6 +17,7 @@ then
   sudo apt-get update
   sudo apt-get -qy install tshark
   sudo apt-get -qy install can-utils build-essential linux-headers-$(uname -r);
+  sudo apt-get -qy install net-tools
 fi
 
 # Install pcap & dnet
