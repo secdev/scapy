@@ -1578,6 +1578,17 @@ def _test():
 
 retry_test(_test)
 
+= Send & receive with multi
+~ netaccess IP ICMP
+def _test():
+    old_debug_dissector = conf.debug_dissector
+    conf.debug_dissector = False
+    ans, unans = sr(IP(dst=["8.8.8.8", "1.2.3.4"]) / ICMP(), timeout=2, multi=1)
+    conf.debug_dissector = old_debug_dissector
+    len(ans) == 1 and len(unans) == 1
+
+retry_test(_test)
+
 = Traceroute function
 ~ netaccess tcpdump
 * Let's test traceroute

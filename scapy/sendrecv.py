@@ -222,9 +222,9 @@ class SndRcvHandler(object):
                         del hlst[i]
                         self.notans -= 1
                     else:
-                        if not hasattr(self.sentpkt, '_answered'):
+                        if not hasattr(sentpkt, '_answered'):
                             self.notans -= 1
-                        self.sentpkt._answered = 1
+                        sentpkt._answered = 1
                     break
         if self.notans <= 0 and not self.multi:
             self.sniffer.stop(join=False)
