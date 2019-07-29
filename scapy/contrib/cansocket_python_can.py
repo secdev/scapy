@@ -46,6 +46,10 @@ class CANSocket(SuperSocket):
             return None, None, None
         hdr = msg.is_extended_id << 31 | msg.is_remote_frame << 30 | \
             msg.is_error_frame << 29 | msg.arbitration_id
+
+        if conf.contribs['CAN']['swap-bytes']:
+            hdr = struct.unpack("<I", struct.pack(">I", hdr))[0]
+
         dlc = msg.dlc << 24
         pkt_data = struct.pack("!II", hdr, dlc) + bytes(msg.data)
         return self.basecls, pkt_data, msg.timestamp
