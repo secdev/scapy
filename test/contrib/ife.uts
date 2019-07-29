@@ -2,7 +2,7 @@
 
 #
 # execute test:
-# > test/run_tests -P "load_contrib('ife')" -t scapy/contrib/ife.uts
+# > test/run_tests -P "load_contrib('ife')" -t test/contrib/ife.uts
 #
 
 + Basic layer handling
@@ -10,8 +10,7 @@
 
 frm = Ether()/IFE(tlvs=[IFESKBMark(value=3), IFETCIndex(value=5)])
 
-frm = frm.build()
-frm = Ether(frm)
+frm = Ether(bytes(frm))
 
 assert(IFE in frm)
 assert(frm[IFE].tlvs[0].type == 1)
@@ -32,7 +31,4 @@ assert(len(raw(frm)) == 32)
 = variable payload
 
 frm = Ether(src="aa:aa:aa:aa:aa:aa", dst="bb:bb:bb:bb:bb:bb")/IFE(tlvs=[IFETlvStr("testsr")])
-frm = frm.build()
-frm = Ether(frm)
-assert(frm.src == "aa:aa:aa:aa:aa:aa")
-assert(frm.dst == "bb:bb:bb:bb:bb:bb")
+assert bytes(frm) == b'\xbb\xbb\xbb\xbb\xbb\xbb\xaa\xaa\xaa\xaa\xaa\xaa\xed>\x00\x08testsr'
