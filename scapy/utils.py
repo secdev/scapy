@@ -959,10 +959,10 @@ class RawPcapReader(six.with_metaclass(PcapReader_metaclass)):
         RawPcapReader.read_packet()
 
         """
-        pkt = self.read_packet()
-        if pkt is None:
+        try:
+            return self.read_packet()
+        except EOFError:
             raise StopIteration
-        return pkt
     __next__ = next
 
     def read_packet(self, size=MTU):
