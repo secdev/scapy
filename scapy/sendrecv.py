@@ -1120,11 +1120,11 @@ def bridge_and_sniff(if1, if2, xfrm12=None, xfrm21=None, prn=None, L2socket=None
                 return
             else:
                 if newpkt is True:
-                    newpkt = pkt.original
+                    newpkt = pkt
                 elif not newpkt:
                     return
         else:
-            newpkt = pkt.original
+            newpkt = pkt
         try:
             sendsock.send(newpkt)
         except Exception:

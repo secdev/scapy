@@ -2061,6 +2061,8 @@ class _BitField(Field[I, int]):
                  tot_size=0, end_tot_size=0):
         # type: (str, I, int, int, int) -> None
         Field.__init__(self, name, default)
+        if callable(size):
+            size = size(self)
         self.rev = size < 0 or tot_size < 0 or end_tot_size < 0
         self.size = abs(size)
         if not tot_size:

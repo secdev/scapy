@@ -30,6 +30,8 @@
     "windows",
     "crypto_advanced",
     "ipv6",
+    "tap",
+    "tun",
     "vcan_socket"
   ]
 }

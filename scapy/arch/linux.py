@@ -443,7 +443,8 @@ class L2Socket(SuperSocket):
             log_runtime.info(
                 "The 'monitor' argument has no effect on native linux sockets."
             )
-        self.ins = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))  # noqa: E501
+        self.ins = socket.socket(
+            socket.AF_PACKET, socket.SOCK_RAW, socket.htons(type))
         if not nofilter:
             if conf.except_filter:
                 if filter:

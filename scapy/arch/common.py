@@ -13,7 +13,7 @@ import struct
 import time
 from scapy.consts import WINDOWS
 from scapy.config import conf
-from scapy.data import MTU, ARPHRD_TO_DLT
+from scapy.data import MTU, ARPHDR_ETHER, ARPHRD_TO_DLT
 from scapy.error import Scapy_Exception
 from scapy.interfaces import network_name
 
@@ -131,6 +131,8 @@ def compile_filter(filter_exp, iface=None, linktype=None,
         except Exception:
             # Failed to use linktype: use the interface
             pass
+        if not linktype and conf.use_bpf:
+            linktype = ARPHDR_ETHER
     if linktype is not None:
         ret = pcap_compile_nopcap(
             MTU, linktype, ctypes.byref(bpf), bpf_filter, 0, -1

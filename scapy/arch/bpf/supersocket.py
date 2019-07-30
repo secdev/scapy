@@ -24,6 +24,7 @@ from scapy.error import Scapy_Exception, warning
 from scapy.interfaces import network_name
 from scapy.supersocket import SuperSocket
 from scapy.compat import raw
+from scapy.layers.l2 import Loopback
 
 
 if FREEBSD:
@@ -376,7 +377,18 @@ class L3bpfSocket(L2bpfSocket):
             self.assigned_interface = iff
 
         # Build the frame
-        frame = raw(self.guessed_cls() / pkt)
+        if self.guessed_cls == Loopback:
+            # bpf(4) man page (from macOS, but also for BSD):
+            # "A packet can be sent out on the network by writing to a bpf
+            # file descriptor. [...] Currently only writes to Ethernets and
+            # SLIP links are supported"
+            #
+            # Headers are only mentioned for reads, not writes. tuntaposx's tun
+            # device reports as a "loopback" device, but it does IP.
+            frame = raw(pkt)
+        else:
+            frame = raw(self.guessed_cls() / pkt)
+
         pkt.sent_time = time.time()
 
         # Send the frame
