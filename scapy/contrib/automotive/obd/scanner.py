@@ -1,4 +1,11 @@
+#! /usr/bin/env python
 # flake8: noqa: F405
+
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more information
+# Copyright (C) Andreas Korb <andreas.korb@e-mundo.de>
+# Copyright (C) Friedrich Feigel <friedrich.feigel@e-mundo.de>
+# This program is published under a GPLv2 license
 
 from scapy.compat import chb
 from scapy.contrib.automotive.obd.obd import *
@@ -59,7 +66,7 @@ def _scan_dtc_service(socket, timeout, service_class):
         return bytes(resp)
 
 
-def obd_scan(socket, timeout=0.1, supported_ids=True, unsupported_ids=False):
+def obd_scan(socket, timeout=0.1, supported_ids=False, unsupported_ids=False):
     dtc = dict()
     supported = dict()
     unsupported = dict()

@@ -3,7 +3,7 @@
 # This file is part of Scapy
 # See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Andreas Korb <andreas.korb@e-mundo.de>
-# Copyright (C) Alexander Schroeder <alexander1.schroeder@st.othr.de>
+# Copyright (C) Friedrich Feigel <friedrich.feigel@e-mundo.de>
 # This program is published under a GPLv2 license
 
 from __future__ import print_function
@@ -11,16 +11,19 @@ from __future__ import print_function
 import getopt
 import sys
 import signal
+import json
 
 import scapy.modules.six as six
+import scapy.contrib.automotive.obd.obd as OBD
 from scapy.config import conf
 from scapy.consts import LINUX
 
 if six.PY2 or not LINUX:
     conf.contribs['CANSocket'] = {'use-python-can': True}
 
+from scapy.contrib.isotp import ISOTPSocket                 # noqa: E402
 from scapy.contrib.cansocket import CANSocket, PYTHON_CAN   # noqa: E402
-from scapy.contrib.isotp import ISOTPScan                   # noqa: E402
+from scapy.contrib.automotive.obd.scanner import obd_scan   # noqa: E402
 
 
 def signal_handler(sig, frame):
@@ -29,115 +32,93 @@ def signal_handler(sig, frame):
 
 
 def usage():
-    print('''usage:\tisotpscanner [-i interface] [-c channel] [-b bitrate]
-                [-n NOISE_LISTEN_TIME] [-t SNIFF_TIME] [-x|--extended]
-                [-C|--piso] [-v|--verbose] [-h|--help] [-s start] [-e end]\n
-    Scan for open ISOTP-Sockets.\n
-    required arguments:
-    -c, --channel         python-can channel or Linux SocketCAN interface name
-    -s, --start           Start scan at this identifier (hex)
-    -e, --end             End scan at this identifier (hex)\n
-    additional required arguments for WINDOWS or Python 2:
-    -i, --interface       python-can interface for the scan.
-                          Depends on used interpreter and system,
-                          see examples below. Any python-can interface can
-                          be provided. Please see:
-                          https://python-can.readthedocs.io for
-                          further interface examples.
-    -b, --bitrate         python-can bitrate.\n
+    print('''usage:\tobdscanner [-i interface] [-c channel] [-s source] [-d destination] [-b bitrate] 
+                                [-h help] [-t timeout] [-r supported] [-u unsupported]\n
+    Scan for all possible obd service classes and their subfunctions.\n
     optional arguments:
-    -h, --help            show this help message and exit
-    -n NOISE_LISTEN_TIME, --noise_listen_time NOISE_LISTEN_TIME
-                          Seconds listening for noise before scan.
-    -t SNIFF_TIME, --sniff_time SNIFF_TIME
-                          Duration in milliseconds a sniff is waiting for a
-                          flow-control response.
-    -x, --extended        Scan with ISOTP extended addressing.
-    -C, --piso            Print 'Copy&Paste'-ready ISOTPSockets.
-    -v, --verbose         Display information during scan.\n
+    -i, --interface             python-can interface for the scan.
+                                Depends on used interpreter and system,
+                                see examples below. Any python-can interface can
+                                be provided. Please see:
+                                https://python-can.readthedocs.io for
+                                further interface examples.
+    -c, --channel               python-can channel or Linux SocketCAN interface name
+    -s, --source                ISOTP-socket source id (hex)
+    -d, --destination           ISOTP-socket destination id (hex)
+    -b, --bitrate               python-can bitrate.\n
+    optional arguments:
+    -h, --help                  show this help message and exit
+    -t, --timeout               Timeout after which the scanner proceeds to next service [seconds]
+    -r, --supported             Check for supported id services
+    -u, --unsupported           Check for unsupported id services\n
     Example of use:\n
     Python2 or Windows:
-    python2 -m scapy.tools.automotive.isotpscanner --interface=pcan --channel=PCAN_USBBUS1 --bitrate=250000 --start 0 --end 100
-    python2 -m scapy.tools.automotive.isotpscanner --interface vector --channel 0 --bitrate 250000 --start 0 --end 100
-    python2 -m scapy.tools.automotive.isotpscanner --interface socketcan --channel=can0 --bitrate=250000 --start 0 --end 100 \n
+    python2 -m scapy.tools.automotive.obdscanner --interface=pcan --channel=PCAN_USBBUS1 --source=0x070 --destination 0x034 --bitrate 250000
+    python2 -m scapy.tools.automotive.obdscanner --interface vector --channel 0 --source 0x000 --destination 0x734 --bitrate 500000
+    python2 -m scapy.tools.automotive.obdscanner --interface socketcan --channel=can0 --source 0x089 --destination 0x234  --bitrate=250000\n
     Python3 on Linux:
-    python3 -m scapy.tools.automotive.isotpscanner --channel can0 --start 0 --end 100 \n''',  # noqa: E501
+    python3 -m scapy.tools.automotive.obdscanner --channel can0 --source 0x123 --destination 0x456 \n''',  # noqa: E501
           file=sys.stderr)
 
 
 def main():
-    extended = False
-    piso = False
-    verbose = False
-    sniff_time = 100
-    noise_listen_time = 2
-    start = None
-    end = None
+
     channel = None
     interface = None
+    source = None
+    destination = None
     bitrate = None
+    timeout = 0.1
+    supported = False
+    unsupported = False
 
     options = getopt.getopt(
         sys.argv[1:],
-        'vxCt:n:i:c:b:s:e:h',
-        ['verbose', 'noise_listen_time=', 'sniff_time=', 'interface=', 'piso',
-         'channel=', 'bitrate=', 'start=', 'end=', 'help', 'extended'])
+        'i:c:s:d:b:t:hru',
+        ['interface=', 'channel=', 'source=', 'destination=', 'bitrate=',
+         'help', 'timeout=', 'supported', 'unsupported'])
 
     try:
         for opt, arg in options[0]:
-            if opt in ('-v', '--verbose'):
-                verbose = True
-            elif opt in ('-x', '--extended'):
-                extended = True
-            elif opt in ('-C', '--piso'):
-                piso = True
-            elif opt in ('-h', '--help'):
-                usage()
-                sys.exit(-1)
-            elif opt in ('-t', '--sniff_time'):
-                sniff_time = int(arg)
-            elif opt in ('-n', '--noise_listen_time'):
-                noise_listen_time = int(arg)
-            elif opt in ('-i', '--interface'):
+            if opt in ('-i', '--interface'):
                 interface = arg
             elif opt in ('-c', '--channel'):
                 channel = arg
+            elif opt in ('-s', '--source'):
+                source = int(arg)
+            elif opt in ('-d', '--destination'):
+                destination = int(arg)
             elif opt in ('-b', '--bitrate'):
                 bitrate = int(arg)
-            elif opt in ('-s', '--start'):
-                start = int(arg, 16)
-            elif opt in ('-e', '--end'):
-                end = int(arg, 16)
+            elif opt in ('-h', '--help'):
+                usage()
+                sys.exit(-1)
+            elif opt in ('-r', '--supported'):
+                supported = True
+            elif opt in ('-u', '--unsupported'):
+                unsupported = True
+
     except getopt.GetoptError as msg:
         usage()
         print("ERROR:", msg, file=sys.stderr)
         raise SystemExit
 
-    if PYTHON_CAN:
-        if start is None or \
-                end is None or \
-                channel is None or \
-                bitrate is None or \
-                interface is None:
-            usage()
-            print("\nPlease provide all required arguments.\n",
-                  file=sys.stderr)
-            sys.exit(-1)
-    else:
-        if start is None or \
-                end is None or \
-                channel is None:
-            usage()
-            print("\nPlease provide all required arguments.\n",
-                  file=sys.stderr)
-            sys.exit(-1)
-
-    if end >= 0x800:
-        print("end must be < 0x800.", file=sys.stderr)
+    if channel is None or \
+            source is None or \
+            destination is None or \
+            bitrate is None or \
+            (PYTHON_CAN and (interface is None or bitrate is None)):
+        usage()
+        print("\nPlease provide all required arguments.\n",
+              file=sys.stderr)
         sys.exit(-1)
 
-    if end < start:
-        print("start must be smaller than end.", file=sys.stderr)
+    if 0 > source >= 0x800 or 0 > destination >= 0x800 or source == destination:
+        print("The ids must be >= 0 and < 0x800.", file=sys.stderr)
+        sys.exit(-1)
+
+    if 0 > timeout:
+        print("The timeout must be a positive value")
         sys.exit(-1)
 
     if PYTHON_CAN:
@@ -147,9 +128,6 @@ def main():
             can.rc['channel'] = channel
             can.rc['bitrate'] = bitrate
             scan_interface = can.interface.Bus()
-            interface_string = "CANSocket(iface=can.interface.Bus(bustype=" \
-                               "'%s', channel='%s', bitrate=%d))" % \
-                               (interface, channel, bitrate)
         except Exception as e:
             usage()
             print("\nCheck python-can interface assignment.\n",
@@ -158,10 +136,9 @@ def main():
             sys.exit(-1)
     else:
         scan_interface = channel
-        interface_string = "\"%s\"" % channel
 
     try:
-        sock = CANSocket(iface=scan_interface)
+        csock = CANSocket(iface=scan_interface)
     except Exception as e:
         usage()
         print("\nSocket couldn't be created. Check your arguments.\n",
@@ -169,21 +146,17 @@ def main():
         print(e, file=sys.stderr)
         sys.exit(-1)
 
-    if verbose:
-        print("Start scan (%s - %s)" % (hex(start), hex(end)))
+    isock = ISOTPSocket(csock, source, destination, basecls=OBD, padding=True)
 
     signal.signal(signal.SIGINT, signal_handler)
 
-    result = ISOTPScan(sock,
-                       range(start, end + 1),
-                       extended_addressing=extended,
-                       noise_listen_time=noise_listen_time,
-                       sniff_time=float(sniff_time) / 1000,
-                       output_format="code" if piso else "text",
-                       can_interface=interface_string,
-                       verbose=verbose)
+    result = obd_scan(isock, timeout=timeout, supported_ids=supported, unsupported_ids=unsupported)
 
-    print("Scan: \n%s" % result)
+    print("Scan: \n%s" % json.dumps(result[0], ensure_ascii=False))
+    if supported:
+        print("Scan: \n%s" % json.dumps(result[1], ensure_ascii=False))
+    if supported:
+        print("Scan: \n%s" % json.dumps(result[1], ensure_ascii=False))
 
 
 if __name__ == '__main__':

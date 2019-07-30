@@ -29,7 +29,7 @@ import os
 bashCommand = "/bin/bash -c 'sudo modprobe vcan; sudo ip link add name vcan0 type vcan; sudo ip link set dev vcan0 up'"
 0 == os.system(bashCommand)
 
-+ Load OBD scan
++ Load OBD_scan
 = imports
 
 import queue
@@ -99,7 +99,7 @@ unsupported_ids = all_ids_set - supported_ids
 = Run scanner
 # timeout to avoid a deadlock if the test which sets this event fails
 ready.wait(timeout=5)
-data = obd_scan(socket, 0.1, True, False)
+data = obd_scan(socket, 0.1, True, True)
 dtc = data[0]
 supported = data[1]
 unsupported = data[2]
@@ -130,5 +130,5 @@ assert len(supported[9]) == 0
 assert dtc[7] == None
 assert dtc[10] == None
 
-# = Check unsupported services
-# assert unsupported[1][0x01] == bytes(s1_pid01)
+= Check unsupported services
+assert unsupported[1][0x01] == bytes(s1_pid01)
