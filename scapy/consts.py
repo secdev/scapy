@@ -7,7 +7,7 @@
 This file contains constants
 """
 
-from sys import platform, maxsize
+from sys import byteorder, platform, maxsize
 import platform as platform_lib
 
 LINUX = platform.startswith("linux")
@@ -21,4 +21,5 @@ WINDOWS_XP = platform_lib.release() == "XP"
 BSD = DARWIN or FREEBSD or OPENBSD or NETBSD
 # See https://docs.python.org/3/library/platform.html#cross-platform
 IS_64BITS = maxsize > 2**32
+BIG_ENDIAN = byteorder == 'big'
 # LOOPBACK_NAME moved to conf.loopback_name

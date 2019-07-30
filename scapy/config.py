@@ -805,7 +805,7 @@ class Conf(ConfClass):
                    'llmnr', 'lltd', 'mgcp', 'mobileip', 'netbios',
                    'netflow', 'ntp', 'ppi', 'ppp', 'pptp', 'radius', 'rip',
                    'rtp', 'sctp', 'sixlowpan', 'skinny', 'smb', 'smb2', 'snmp',
-                   'tftp', 'vrrp', 'vxlan', 'x509', 'zigbee']
+                   'tftp', 'tuntap', 'vrrp', 'vxlan', 'x509', 'zigbee']
     #: a dict which can be used by contrib layers to store local
     #: configuration
     contribs = dict()  # type: Dict[str, Any]

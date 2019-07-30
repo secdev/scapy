@@ -11,15 +11,14 @@ from __future__ import absolute_import
 from select import select, error as select_error
 import ctypes
 import errno
-import os
 import socket
 import struct
 import time
 
 from scapy.config import conf
-from scapy.consts import LINUX, DARWIN, WINDOWS
+from scapy.consts import DARWIN, WINDOWS
 from scapy.data import MTU, ETH_P_IP, SOL_PACKET, SO_TIMESTAMPNS
-from scapy.compat import raw, bytes_encode
+from scapy.compat import raw
 from scapy.error import warning, log_runtime
 from scapy.interfaces import network_name
 import scapy.modules.six as six
@@ -184,6 +183,14 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
     def tshark(self, *args, **kargs):
         from scapy import sendrecv
         return sendrecv.tshark(opened_socket=self, *args, **kargs)
+
+    def am(self, cls, *args, **kwargs):
+        """
+        Creates an AnsweringMachine associated with this socket.
+
+        :param cls: A subclass of AnsweringMachine to instantiate
+        """
+        return cls(*args, opened_socket=self, socket=self, **kwargs)
 
     @staticmethod
     def select(sockets, remain=conf.recv_poll_rate):
@@ -391,74 +398,3 @@ class L2ListenTcpdump(SuperSocket):
         if (WINDOWS or DARWIN):
             return sockets, None
         return SuperSocket.select(sockets, remain=remain)
-
-
-class TunTapInterface(SuperSocket):
-    """A socket to act as the host's peer of a tun / tap interface.
-
-    """
-    desc = "Act as the host's peer of a tun / tap interface"
-
-    def __init__(self, iface=None, mode_tun=None, *arg, **karg):
-        self.iface = conf.iface if iface is None else iface
-        self.mode_tun = ("tun" in self.iface) if mode_tun is None else mode_tun
-        self.closed = True
-        self.open()
-
-    def open(self):
-        """Open the TUN or TAP device."""
-        if not self.closed:
-            return
-        self.outs = self.ins = open(
-            "/dev/net/tun" if LINUX else ("/dev/%s" % self.iface), "r+b",
-            buffering=0
-        )
-        if LINUX:
-            from fcntl import ioctl
-            # TUNSETIFF = 0x400454ca
-            # IFF_TUN = 0x0001
-            # IFF_TAP = 0x0002
-            # IFF_NO_PI = 0x1000
-            ioctl(self.ins, 0x400454ca, struct.pack(
-                "16sH", bytes_encode(self.iface),
-                0x0001 if self.mode_tun else 0x1002,
-            ))
-        self.closed = False
-
-    def __call__(self, *arg, **karg):
-        """Needed when using an instantiated TunTapInterface object for
-conf.L2listen, conf.L2socket or conf.L3socket.
-
-        """
-        return self
-
-    def recv(self, x=MTU):
-        if self.mode_tun:
-            data = os.read(self.ins.fileno(), x + 4)
-            proto = struct.unpack('!H', data[2:4])[0]
-            return conf.l3types.get(proto, conf.raw_layer)(data[4:])
-        return conf.l2types.get(1, conf.raw_layer)(
-            os.read(self.ins.fileno(), x)
-        )
-
-    def send(self, x):
-        sx = raw(x)
-        if self.mode_tun:
-            try:
-                proto = conf.l3types[type(x)]
-            except KeyError:
-                log_runtime.warning(
-                    "Cannot find layer 3 protocol value to send %s in "
-                    "conf.l3types, using 0",
-                    x.name if hasattr(x, "name") else type(x).__name__
-                )
-                proto = 0
-            sx = struct.pack('!HH', 0, proto) + sx
-        try:
-            try:
-                x.sent_time = time.time()
-            except AttributeError:
-                pass
-            return os.write(self.outs.fileno(), sx)
-        except socket.error:
-            log_runtime.error("%s send", self.__class__.__name__, exc_info=True)  # noqa: E501

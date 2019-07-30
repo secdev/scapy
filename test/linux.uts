@@ -358,3 +358,9 @@ t_sniffer.join(1)
 assert(dot1q_count == 2)
 
 veth.destroy()
+
+= Reload interfaces & routes
+
+conf.ifaces.reload()
+conf.route.resync()
+conf.route6.resync()
