@@ -6930,8 +6930,13 @@ f.seek(0) or None
 assert len(f.getvalue()) != 0
 
 r = PcapReader(f)
+f.seek(0) or None
 assert r.LLcls is Ether
 assert r.linktype == DLT_EN10MB
+
+l = [ p for p in RawPcapReader(f) ]
+assert len(l) == 1
+
 
 = Check tcpdump()
 ~ tcpdump
