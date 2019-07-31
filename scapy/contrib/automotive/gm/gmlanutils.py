@@ -73,14 +73,13 @@ def GMLAN_InitDiagnostics(sock, broadcastsocket=None, timeout=None,
             if verbose:
                 print("Sending %s" % repr(p))
             resp = sock.sr1(p, timeout=timeout, verbose=0)
-            if resp is not None:
-                if verbose:
-                    resp.show()
-                if resp.sprintf("%GMLAN.service%") != "DisableNormalCommunicationPositiveResponse":   # noqa: E501
-                    continue
-            else:
+            if resp is None:
                 if verbose:
                     print("Timeout.")
+                continue
+            if verbose:
+                resp.show()
+            if resp.sprintf("%GMLAN.service%") != "DisableNormalCommunicationPositiveResponse":   # noqa: E501
                 continue
         else:
             if verbose:
@@ -93,14 +92,13 @@ def GMLAN_InitDiagnostics(sock, broadcastsocket=None, timeout=None,
         if verbose:
             print("Sending %s" % repr(p))
         resp = sock.sr1(p, timeout=timeout, verbose=0)
-        if resp is not None:
-            if verbose:
-                resp.show()
-            if resp.sprintf("%GMLAN.service%") != "ReportProgrammingStatePositiveResponse":   # noqa: E501
-                continue
-        else:
+        if resp is None:
             if verbose:
                 print("Timeout.")
+            continue
+        if verbose:
+            resp.show()
+        if resp.sprintf("%GMLAN.service%") != "ReportProgrammingStatePositiveResponse":   # noqa: E501
             continue
 
         # ProgrammingMode requestProgramming
@@ -108,14 +106,13 @@ def GMLAN_InitDiagnostics(sock, broadcastsocket=None, timeout=None,
         if verbose:
             print("Sending %s" % repr(p))
         resp = sock.sr1(p, timeout=timeout, verbose=0)
-        if resp is not None:
-            if verbose:
-                resp.show()
-            if resp.sprintf("%GMLAN.service%") != "ProgrammingModePositiveResponse":   # noqa: E501
-                continue
-        else:
+        if resp is None:
             if verbose:
                 print("Timeout.")
+            continue
+        if verbose:
+            resp.show()
+        if resp.sprintf("%GMLAN.service%") != "ProgrammingModePositiveResponse":   # noqa: E501
             continue
         time.sleep(0.05)
 
@@ -159,16 +156,15 @@ def GMLAN_GetSecurityAccess(sock, keyFunction, level=1, timeout=None,
         if verbose:
             print("Requesting seed..")
         resp = sock.sr1(request, timeout=timeout, verbose=0)
-        if resp is not None:
-            if verbose:
-                resp.show()
-            if resp.sprintf("%GMLAN.service%") != "SecurityAccessPositiveResponse":   # noqa: E501
-                if verbose:
-                    print("Negative Response.")
-                continue
-        else:
+        if resp is None:
             if verbose:
                 print("Timeout.")
+            continue
+        if verbose:
+            resp.show()
+        if resp.sprintf("%GMLAN.service%") != "SecurityAccessPositiveResponse":   # noqa: E501
+            if verbose:
+                print("Negative Response.")
             continue
 
         seed = resp.securitySeed
@@ -182,23 +178,23 @@ def GMLAN_GetSecurityAccess(sock, keyFunction, level=1, timeout=None,
         if verbose:
             print("Responding with key..")
         resp = sock.sr1(keypkt, timeout=timeout, verbose=0)
-        if resp is not None:
-            if verbose:
-                resp.show()
-            if resp.sprintf("%GMLAN.service%") == "SecurityAccessPositiveResponse":   # noqa: E501
-                if verbose:
-                    print("SecurityAccess granted.")
-                return True
-            # Invalid Key
-            elif resp.sprintf("%GMLAN.service%") == "NegativeResponse" and \
-                    resp.sprintf("%GMLAN.returnCode%") == "InvalidKey":
-                if verbose:
-                    print("Key invalid")
-                continue
-        else:
+        if resp is None:
             if verbose:
                 print("Timeout.")
             continue
+        if verbose:
+            resp.show()
+        if resp.sprintf("%GMLAN.service%") == "SecurityAccessPositiveResponse":   # noqa: E501
+            if verbose:
+                print("SecurityAccess granted.")
+            return True
+        # Invalid Key
+        elif resp.sprintf("%GMLAN.service%") == "NegativeResponse" and \
+                resp.sprintf("%GMLAN.returnCode%") == "InvalidKey":
+            if verbose:
+                print("Key invalid")
+            continue
+
     return False
 
 
