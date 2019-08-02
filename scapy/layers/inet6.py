@@ -564,15 +564,10 @@ def in6_chksum(nh, u, p):
     """
     As Specified in RFC 2460 - 8.1 Upper-Layer Checksums
 
-    Performs IPv6 Upper Layer checksum computation. Provided parameters are:
-    - 'nh' : value of upper layer protocol
-    - 'u'  : upper layer instance (TCP, UDP, ICMPv6*, ). Instance must be
-             provided with all under layers (IPv6 and all extension headers,
-             for example)
-    - 'p'  : the payload of the upper layer provided as a string
+    Performs IPv6 Upper Layer checksum computation.
 
-    Functions operate by filling a pseudo header class instance (PseudoIPv6)
-    with
+    This function operates by filling a pseudo header class instance
+    (PseudoIPv6) with:
     - Next Header value
     - the address of _final_ destination (if some Routing Header with non
     segleft field is present in underlayer classes, last address is used.)
@@ -581,6 +576,12 @@ def in6_chksum(nh, u, p):
     in HAO option if some Destination Option header found in underlayer
     includes this option).
     - the length is the length of provided payload string ('p')
+
+    :param nh: value of upper layer protocol
+    :param u: upper layer instance (TCP, UDP, ICMPv6*, ). Instance must be
+        provided with all under layers (IPv6 and all extension headers,
+        for example)
+    :param p: the payload of the upper layer provided as a string
     """
 
     ph6 = PseudoIPv6()

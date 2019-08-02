@@ -523,38 +523,53 @@ def _loglevel_changer(attr, val):
 
 
 class Conf(ConfClass):
-    """This object contains the configuration of Scapy.
-session  : filename where the session will be saved
-interactive_shell : can be "ipython", "python" or "auto". Default: Auto
-stealth  : if 1, prevents any unwanted packet to go out (ARP, DNS, ...)
-checkIPID: if 0, doesn't check that IPID matches between IP sent and ICMP IP citation received  # noqa: E501
-           if 1, checks that they either are equal or byte swapped equals (bug in some IP stacks)  # noqa: E501
-           if 2, strictly checks that they are equals
-checkIPsrc: if 1, checks IP src in IP and ICMP IP citation match (bug in some NAT stacks)  # noqa: E501
-checkIPinIP: if True, checks that IP-in-IP layers match. If False, do not
-             check IP layers that encapsulates another IP layer
-check_TCPerror_seqack: if 1, also check that TCP seq and ack match the ones in ICMP citation  # noqa: E501
-iff      : selects the default output interface for srp() and sendp(). default:"eth0")  # noqa: E501
-verb     : level of verbosity, from 0 (almost mute) to 3 (verbose)
-promisc  : default mode for listening socket (to get answers if you spoof on a lan)  # noqa: E501
-sniff_promisc : default mode for sniff()
-filter   : bpf filter added to every sniffing socket to exclude traffic from analysis  # noqa: E501
-histfile : history file
-padding  : includes padding in disassembled packets
-except_filter : BPF filter for packets to ignore
-debug_match : when 1, store received packet that are not matched into debug.recv  # noqa: E501
-route    : holds the Scapy routing table and provides methods to manipulate it
-warning_threshold : how much time between warnings from the same place
-ASN1_default_codec: Codec used by default for ASN1 objects
-mib      : holds MIB direct access dictionary
-resolve  : holds list of fields for which resolution should be done
-noenum   : holds list of enum fields for which conversion to string should NOT be done  # noqa: E501
-AS_resolver: choose the AS resolver class to use
-extensions_paths: path or list of paths where extensions are to be looked for
-contribs : a dict which can be used by contrib layers to store local configuration  # noqa: E501
-debug_tls:When 1, print some TLS session secrets when they are computed.
-recv_poll_rate: how often to check for new packets. Defaults to 0.05s.
-"""
+    """
+    This object contains the configuration of Scapy.
+
+    Attributes:
+        session: filename where the session will be saved
+        interactive_shell : can be "ipython", "python" or "auto". Default: Auto
+        stealth: if 1, prevents any unwanted packet to go out (ARP, DNS, ...)
+        checkIPID: if 0, doesn't check that IPID matches between IP sent and
+            ICMP IP citation received
+            if 1, checks that they either are equal or byte swapped
+            equals (bug in some IP stacks)
+            if 2, strictly checks that they are equals
+        checkIPsrc: if 1, checks IP src in IP and ICMP IP citation match
+            (bug in some NAT stacks)
+        checkIPinIP: if True, checks that IP-in-IP layers match. If False, do
+            not check IP layers that encapsulates another IP layer
+        check_TCPerror_seqack: if 1, also check that TCP seq and ack match the
+            ones in ICMP citation
+        iff: selects the default output interface for srp() and sendp().
+        verb: level of verbosity, from 0 (almost mute) to 3 (verbose)
+        promisc: default mode for listening socket (to get answers if you
+            spoof on a lan)
+        sniff_promisc: default mode for sniff()
+        filter: bpf filter added to every sniffing socket to exclude traffic
+            from analysis
+        histfile: history file
+        padding: includes padding in disassembled packets
+        except_filter : BPF filter for packets to ignore
+        debug_match: when 1, store received packet that are not matched into
+            `debug.recv`
+        route: holds the Scapy routing table and provides methods to
+            manipulate it
+        warning_threshold : how much time between warnings from the same place
+        ASN1_default_codec: Codec used by default for ASN1 objects
+        mib: holds MIB direct access dictionary
+        resolve: holds list of fields for which resolution should be done
+        noenum: holds list of enum fields for which conversion to string
+            should NOT be done
+        AS_resolver: choose the AS resolver class to use
+        extensions_paths: path or list of paths where extensions are to be
+                           looked for
+        contribs: a dict which can be used by contrib layers to store local
+            configuration
+        debug_tls: When 1, print some TLS session secrets
+            when they are computed.
+        recv_poll_rate: how often to check for new packets. Defaults to 0.05s.
+    """
     version = ReadOnlyAttribute("version", VERSION)
     session = ""
     interactive = False

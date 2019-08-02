@@ -115,11 +115,9 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
         """This function is called during sendrecv() routine to select
         the available sockets.
 
-        params:
-         - sockets: an array of sockets that need to be selected
-        returns:
-         - an array of sockets that were selected
-         - the function to be called next to get the packets (i.g. recv)
+        :param sockets: an array of sockets that need to be selected
+        :returns: an array of sockets that were selected and
+            the function to be called next to get the packets (i.g. recv)
         """
         try:
             inp, _, _ = select(sockets, [], [], remain)

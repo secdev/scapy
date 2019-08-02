@@ -235,11 +235,13 @@ class TLS(_GenericTLSSessionInheritance):
     Indeed, the need for a proper context may also present itself when trying
     to parse clear handshake messages.
 
-    For instance, suppose you sniffed the beginning of a DHE-RSA negotiation:
+    For instance, suppose you sniffed the beginning of a DHE-RSA negotiation::
+
         t1 = TLS(<client_hello>)
         t2 = TLS(<server_hello | certificate | server_key_exchange>)
         t3 = TLS(<server_hello | certificate | server_key_exchange>,
                  tls_session=t1.tls_session)
+
     (Note that to do things properly, here 't1.tls_session' should actually be
     't1.tls_session.mirror()'. See session.py for explanations.)
 

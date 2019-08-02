@@ -28,15 +28,18 @@
             - IEEE 802.1AB 2016 - LLDP protocol, topology and MIB description
 
     :TODO:
-        - organization specific TLV e.g. ProfiNet (see LLDPDUGenericOrganisationSpecific for a starting point)  # noqa: E501
+        - | organization specific TLV e.g. ProfiNet
+          | (see LLDPDUGenericOrganisationSpecific for a starting point)
 
     :NOTES:
         - you can find the layer configuration options at the end of this file
-        - default configuration enforces standard conform
-          - frame structure
-                (ChassisIDTLV/PortIDTLV/TimeToLiveTLV/.../EndofLLDPDUTLV)
-          - multiplicity of TLVs (if given by the standard)
-          - min sizes of strings used by the TLVs
+        - default configuration enforces standard conform:
+
+          * | frame structure
+            | (ChassisIDTLV/PortIDTLV/TimeToLiveTLV/.../EndofLLDPDUTLV)
+          * multiplicity of TLVs (if given by the standard)
+          * min sizes of strings used by the TLVs
+
         - conf.contribs['LLDP'].strict_mode_disable() -> disable strict mode
 
 """
@@ -544,14 +547,13 @@ class LLDPDUSystemCapabilities(LLDPDU):
 
 class LLDPDUManagementAddress(LLDPDU):
     """
-        ieee 802.1ab-2016 - sec. 8.5.9 / p. 32
+    ieee 802.1ab-2016 - sec. 8.5.9 / p. 32
 
-        currently only 0x00..0x1e are used by standards, no way to
-        use anything > 0xff as management address subtype is only
-        one octet wide
+    currently only 0x00..0x1e are used by standards, no way to
+    use anything > 0xff as management address subtype is only
+    one octet wide
 
-        see https://www.iana.org/assignments/
-        address-family-numbers/address-family-numbers.xhtml
+    see https://www.iana.org/assignments/address-family-numbers/address-family-numbers.xhtml  # noqa: E501
     """
     IANA_ADDRESS_FAMILY_NUMBERS = {
         0x00: 'other',
@@ -630,7 +632,8 @@ class LLDPDUManagementAddress(LLDPDU):
     SUBTYPE_INTERFACE_NUMBER_SYSTEM_PORT_NUMBER = 0x03
 
     '''
-        Note - calculation of _length field:
+    Note - calculation of _length field::
+
         _length = 1@_management_address_string_length +
                   1@management_address_subtype +
                   management_address.len +

@@ -142,7 +142,7 @@ def hexdump(x, dump=False):
 
     :param x: a Packet
     :param dump: define if the result must be printed or returned in a variable
-    :returns: a String only when dump=True
+    :return: a String only when dump=True
     """
     s = ""
     x = bytes_encode(x)
@@ -175,7 +175,7 @@ def linehexdump(x, onlyasc=0, onlyhex=0, dump=False):
     :param onlyasc: 1 to display only the ascii view
     :param onlyhex: 1 to display only the hexadecimal view
     :param dump: print the view if False
-    :returns: a String only when dump=True
+    :return: a String only when dump=True
     """
     s = ""
     s = hexstr(x, onlyasc=onlyasc, onlyhex=onlyhex, color=not dump)
@@ -195,7 +195,7 @@ def chexdump(x, dump=False):
 
     :param x: a Packet
     :param dump: print the view if False
-    :returns: a String only if dump=True
+    :return: a String only if dump=True
     """
     x = bytes_encode(x)
     s = ", ".join("%#04x" % orb(x) for x in x)
@@ -596,15 +596,20 @@ class ContextManagerCaptureOutput(object):
         return self.result_export_object
 
 
-def do_graph(graph, prog=None, format=None, target=None, type=None, string=None, options=None):  # noqa: E501
-    """do_graph(graph, prog=conf.prog.dot, format="svg",
-         target="| conf.prog.display", options=None, [string=1]):
-    string: if not None, simply return the graph string
-    graph: GraphViz graph description
-    format: output type (svg, ps, gif, jpg, etc.), passed to dot's "-T" option
-    target: filename or redirect. Defaults pipe to Imagemagick's display program  # noqa: E501
-    prog: which graphviz program to use
-    options: options to be passed to prog"""
+def do_graph(graph, prog=None, format=None, target=None, type=None,
+             string=None, options=None):
+    """Processes graph description using an external software.
+    This method is used to convert a graphviz format to an image.
+
+    :param graph: GraphViz graph description
+    :param prog: which graphviz program to use
+    :param format: output type (svg, ps, gif, jpg, etc.), passed to dot's "-T"
+        option
+    :param string: if not None, simply return the graph string
+    :param target: filename or redirect. Defaults pipe to Imagemagick's
+        display program
+    :param options: options to be passed to prog
+    """
 
     if format is None:
         if WINDOWS:
@@ -614,6 +619,7 @@ def do_graph(graph, prog=None, format=None, target=None, type=None, string=None,
     if string:
         return graph
     if type is not None:
+        warning("type is deprecated, and was renamed format")
         format = type
     if prog is None:
         prog = conf.prog.dot
@@ -835,16 +841,15 @@ def corrupt_bits(s, p=0.01, n=None):
 def wrpcap(filename, pkt, *args, **kargs):
     """Write a list of packets to a pcap file
 
-filename: the name of the file to write packets to, or an open,
-          writable file-like object. The file descriptor will be
-          closed at the end of the call, so do not use an object you
-          do not want to close (e.g., running wrpcap(sys.stdout, [])
-          in interactive mode will crash Scapy).
-gz: set to 1 to save a gzipped capture
-linktype: force linktype value
-endianness: "<" or ">", force endianness
-sync: do not bufferize writes to the capture file
-
+    :param filename: the name of the file to write packets to, or an open,
+        writable file-like object. The file descriptor will be
+        closed at the end of the call, so do not use an object you
+        do not want to close (e.g., running wrpcap(sys.stdout, [])
+        in interactive mode will crash Scapy).
+    :param gz: set to 1 to save a gzipped capture
+    :param linktype: force linktype value
+    :param endianness: "<" or ">", force endianness
+    :param sync: do not bufferize writes to the capture file
     """
     with PcapWriter(filename, *args, **kargs) as fdesc:
         fdesc.write(pkt)
@@ -854,8 +859,7 @@ sync: do not bufferize writes to the capture file
 def rdpcap(filename, count=-1):
     """Read a pcap or pcapng file and return a packet list
 
-count: read only <count> packets
-
+    :param count: read only <count> packets
     """
     with PcapReader(filename) as fdesc:
         return fdesc.read_all(count=count)
@@ -1236,15 +1240,17 @@ class RawPcapWriter:
     def __init__(self, filename, linktype=None, gz=False, endianness="",
                  append=False, sync=False, nano=False):
         """
-filename:   the name of the file to write packets to, or an open,
+        :param filename: the name of the file to write packets to, or an open,
             writable file-like object.
-linktype:   force linktype to a given value. If None, linktype is taken
-            from the first writer packet
-gz:         compress the capture on the fly
-endianness: force an endianness (little:"<", big:">"). Default is native
-append:     append packets to the capture file instead of truncating it
-sync:       do not bufferize writes to the capture file
-nano:       use nanosecond-precision (requires libpcap >= 1.5.0)
+        :param linktype: force linktype to a given value. If None, linktype is
+            taken from the first writer packet
+        :param gz: compress the capture on the fly
+        :param endianness: force an endianness (little:"<", big:">").
+            Default is native
+        :param append: append packets to the capture file instead of
+            truncating it
+        :param sync: do not bufferize writes to the capture file
+        :param nano: use nanosecond-precision (requires libpcap >= 1.5.0)
 
         """
 
@@ -1291,7 +1297,7 @@ nano:       use nanosecond-precision (requires libpcap >= 1.5.0)
 
         :param pkt: Packet(s) to write (one record for each Packet), or raw
                     bytes to write (as one record).
-        :type pkt: iterable[Packet], Packet or bytes
+        :type pkt: iterable[scapy.packet.Packet], scapy.packet.Packet or bytes
         """
         if isinstance(pkt, bytes):
             if not self.header_present:
@@ -1330,7 +1336,7 @@ nano:       use nanosecond-precision (requires libpcap >= 1.5.0)
         :param wirelen: The length of the packet on the wire. If not
                         specified, uses ``caplen``.
         :type wirelen: int
-        :returns: None
+        :return: None
         :rtype: None
         """
         if caplen is None:
@@ -1392,7 +1398,7 @@ class PcapWriter(RawPcapWriter):
         Writes a single packet to the pcap file.
 
         :param packet: Packet, or bytes for a single packet
-        :type packet: Packet or bytes
+        :type packet: scapy.packet.Packet or bytes
         :param sec: time the packet was captured, in seconds since epoch. If
                     not supplied, defaults to now.
         :type sec: int or long
@@ -1409,7 +1415,7 @@ class PcapWriter(RawPcapWriter):
                         specified, tries ``packet.wirelen``, otherwise uses
                         ``caplen``.
         :type wirelen: int
-        :returns: None
+        :return: None
         :rtype: None
         """
         if hasattr(packet, "time"):
@@ -1525,63 +1531,68 @@ def tcpdump(pktlist, dump=False, getfd=False, args=None,
     This can be overridden with ``read_stdin_opts``. This has no effect when
     ``use_tempfile=True``, or otherwise reading packets from a regular file.
 
-pktlist: a Packet instance, a PacketList instance or a list of Packet
-         instances. Can also be a filename (as a string), an open
-         file-like object that must be a file format readable by
-         tshark (Pcap, PcapNg, etc.) or None (to sniff)
+    :param pktlist: a Packet instance, a PacketList instance or a list of
+        Packet instances. Can also be a filename (as a string), an open
+        file-like object that must be a file format readable by
+        tshark (Pcap, PcapNg, etc.) or None (to sniff)
 
-dump:    when set to True, returns a string instead of displaying it.
-getfd:   when set to True, returns a file-like object to read data
-         from tcpdump or tshark from.
-getproc: when set to True, the subprocess.Popen object is returned
-args:    arguments (as a list) to pass to tshark (example for tshark:
-         args=["-T", "json"]).
-prog:    program to use (defaults to tcpdump, will work with tshark)
-quiet:   when set to True, the process stderr is discarded
-use_tempfile: When set to True, always use a temporary file to store packets.
-              When set to False, pipe packets through stdin.
-              When set to None (default), only use a temporary file with
-              ``tcpdump`` on OSX.
-read_stdin_opts: When set, a list of arguments needed to capture from stdin.
-                 Otherwise, attempts to guess.
-linktype: A custom DLT value or name, to overwrite the default values.
-wait: If True (default), waits for the process to terminate before returning
-      to Scapy. If False, the process will be detached to the background. If
-      dump, getproc or getfd is True, these have the same effect as
-      ``wait=False``.
+    :param dump:    when set to True, returns a string instead of displaying it.
+    :param getfd:   when set to True, returns a file-like object to read data
+        from tcpdump or tshark from.
+    :param getproc: when set to True, the subprocess.Popen object is returned
+    :param args:    arguments (as a list) to pass to tshark (example for tshark:
+        args=["-T", "json"]).
+    :param prog:    program to use (defaults to tcpdump, will work with tshark)
+    :param quiet:   when set to True, the process stderr is discarded
+    :param use_tempfile: When set to True, always use a temporary file to store
+        packets.
+        When set to False, pipe packets through stdin.
+        When set to None (default), only use a temporary file with
+        ``tcpdump`` on OSX.
+    :param read_stdin_opts: When set, a list of arguments needed to capture
+        from stdin. Otherwise, attempts to guess.
+    :param linktype: A custom DLT value or name, to overwrite the default
+        values.
+    :param wait: If True (default), waits for the process to terminate before
+        returning to Scapy. If False, the process will be detached to the
+        background. If dump, getproc or getfd is True, these have the same
+        effect as ``wait=False``.
 
-Examples:
+    Examples::
 
->>> tcpdump([IP()/TCP(), IP()/UDP()])
-reading from file -, link-type RAW (Raw IP)
-16:46:00.474515 IP 127.0.0.1.20 > 127.0.0.1.80: Flags [S], seq 0, win 8192, length 0  # noqa: E501
-16:46:00.475019 IP 127.0.0.1.53 > 127.0.0.1.53: [|domain]
+        >>> tcpdump([IP()/TCP(), IP()/UDP()])
+        reading from file -, link-type RAW (Raw IP)
+        16:46:00.474515 IP 127.0.0.1.20 > 127.0.0.1.80: Flags [S], seq 0, win 8192, length 0  # noqa: E501
+        16:46:00.475019 IP 127.0.0.1.53 > 127.0.0.1.53: [|domain]
 
->>> tcpdump([IP()/TCP(), IP()/UDP()], prog=conf.prog.tshark)
-  1   0.000000    127.0.0.1 -> 127.0.0.1    TCP 40 20->80 [SYN] Seq=0 Win=8192 Len=0  # noqa: E501
-  2   0.000459    127.0.0.1 -> 127.0.0.1    UDP 28 53->53 Len=0
+        >>> tcpdump([IP()/TCP(), IP()/UDP()], prog=conf.prog.tshark)
+          1   0.000000    127.0.0.1 -> 127.0.0.1    TCP 40 20->80 [SYN] Seq=0 Win=8192 Len=0  # noqa: E501
+          2   0.000459    127.0.0.1 -> 127.0.0.1    UDP 28 53->53 Len=0
 
-To get a JSON representation of a tshark-parsed PacketList(), one can:
->>> import json, pprint
->>> json_data = json.load(tcpdump(IP(src="217.25.178.5", dst="45.33.32.156"),
-...                               prog=conf.prog.tshark, args=["-T", "json"],
-...                               getfd=True))
->>> pprint.pprint(json_data)
-[{u'_index': u'packets-2016-12-23',
-  u'_score': None,
-  u'_source': {u'layers': {u'frame': {u'frame.cap_len': u'20',
-                                      u'frame.encap_type': u'7',
-[...]
-                                      u'frame.time_relative': u'0.000000000'},
-                           u'ip': {u'ip.addr': u'45.33.32.156',
-                                   u'ip.checksum': u'0x0000a20d',
-[...]
-                                   u'ip.ttl': u'64',
-                                   u'ip.version': u'4'},
-                           u'raw': u'Raw packet data'}},
-  u'_type': u'pcap_file'}]
->>> json_data[0]['_source']['layers']['ip']['ip.ttl']
-u'64'
+    To get a JSON representation of a tshark-parsed PacketList(), one can::
+
+        >>> import json, pprint
+        >>> json_data = json.load(tcpdump(IP(src="217.25.178.5",
+        ...                                  dst="45.33.32.156"),
+        ...                               prog=conf.prog.tshark,
+        ...                               args=["-T", "json"],
+        ...                               getfd=True))
+        >>> pprint.pprint(json_data)
+        [{u'_index': u'packets-2016-12-23',
+          u'_score': None,
+          u'_source': {u'layers': {u'frame': {u'frame.cap_len': u'20',
+                                              u'frame.encap_type': u'7',
+        [...]
+                                              },
+                                   u'ip': {u'ip.addr': u'45.33.32.156',
+                                           u'ip.checksum': u'0x0000a20d',
+        [...]
+                                           u'ip.ttl': u'64',
+                                           u'ip.version': u'4'},
+                                   u'raw': u'Raw packet data'}},
+          u'_type': u'pcap_file'}]
+        >>> json_data[0]['_source']['layers']['ip']['ip.ttl']
+        u'64'
     """
     getfd = getfd or getproc
     if prog is None:

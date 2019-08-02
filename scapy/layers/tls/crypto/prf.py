@@ -239,10 +239,12 @@ class PRF(object):
         Return verify_data based on handshake messages, connection end,
         master secret, and read_or_write position. See RFC 5246, section 7.4.9.
 
-        Every TLS 1.2 cipher suite has a verify_data of length 12. Note also:
-        "This PRF with the SHA-256 hash function is used for all cipher
-         suites defined in this document and in TLS documents published
-         prior to this document when TLS 1.2 is negotiated."
+        Every TLS 1.2 cipher suite has a verify_data of length 12. Note also::
+
+            "This PRF with the SHA-256 hash function is used for all cipher
+            suites defined in this document and in TLS documents published
+            prior to this document when TLS 1.2 is negotiated."
+
         Cipher suites using SHA-384 were defined later on.
         """
         if self.tls_version < 0x0300:

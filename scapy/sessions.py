@@ -51,8 +51,9 @@ class DefaultSession(object):
 
 class IPSession(DefaultSession):
     """Defragment IP packets 'on-the-flow'.
+
     Usage:
-      >>> sniff(session=IPSession)
+    >>> sniff(session=IPSession)
     """
 
     def __init__(self, *args):
@@ -144,7 +145,8 @@ class TCPSession(IPSession):
     """A Session that matches seq/ack packets together to dissect
     special protocols, such as HTTP.
 
-    DEV: implement a class-function `tcp_reassemble` in your Packet class:
+    DEV: implement a class-function `tcp_reassemble` in your Packet class::
+
         @classmethod
         def tcp_reassemble(cls, data, metadata):
             # data = the reassembled data from the same request/flow

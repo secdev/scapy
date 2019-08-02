@@ -13,8 +13,8 @@ import time
 import struct
 import re
 import random
+import select
 import socket
-from select import select
 from collections import defaultdict
 
 from scapy.utils import checksum, do_graph, incremental_label, \
@@ -1682,9 +1682,10 @@ def traceroute(target, dport=80, minttl=1, maxttl=30, sport=RandShort(), l4=None
 def traceroute_map(ips, **kargs):
     """Util function to call traceroute on multiple targets, then
     show the different paths on a map.
-    params:
-     - ips: a list of IPs on which traceroute will be called
-     - optional: kwargs, passed to traceroute"""
+
+    :param ips: a list of IPs on which traceroute will be called
+    :param kargs: (optional) kwargs, passed to traceroute
+    """
     kargs.setdefault("verbose", 0)
     return traceroute(ips)[0].world_trace()
 
@@ -1886,7 +1887,7 @@ def fragleak(target, sport=123, dport=123, timeout=0.2, onlyasc=0, count=None):
             try:
                 if not intr:
                     s.send(pkt)
-                sin, sout, serr = select([s], [], [], timeout)
+                sin = select.select([s], [], [], timeout)[0]
                 if not sin:
                     continue
                 ans = s.recv(1600)

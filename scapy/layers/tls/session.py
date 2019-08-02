@@ -565,7 +565,8 @@ class tlsSession(object):
         early_exporter_master_secret (See RFC8446, section 7.1).
 
         The parameter external is used for the computation of the
-        binder_key :
+        binder_key:
+
         - For external PSK provisioned outside out of TLS, the parameter
           external must be True.
         - For resumption PSK, the parameter external must be False.

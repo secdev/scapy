@@ -15,7 +15,7 @@
 # scapy.contrib.description = VLAN Trunking Protocol (VTP)
 # scapy.contrib.status = loads
 
-"""
+r"""
     VTP Scapy Extension
     ~~~~~~~~~~~~~~~~~~~~~
 
@@ -34,24 +34,28 @@
         MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
         GNU General Public License for more details.
 
-    :TODO
+    :TODO:
 
         - Join messages
         - RE MD5 hash calculation
-        - Have a closer look at 8 byte padding in summary adv.
+        - Have a closer look at 8 byte padding in summary adv:
+
             "debug sw-vlan vtp packets" says the TLV length is invalid,
-            when I change the values
-            b'\x00\x00\x00\x01\x06\x01\x00\x02'
-                * \x00\x00 ?
-                * \x00\x01 tlvtype?
-                * \x06 length?
-                * \x00\x02 value?
+            when I change the values:
+
+            ``b'\x00\x00\x00\x01\x06\x01\x00\x02'``
+
+            * \x00\x00 ?
+            * \x00\x01 tlvtype?
+            * \x06 length?
+            * \x00\x02 value?
+
         - h2i function for VTPTimeStampField
 
     :References:
 
-        - Understanding VLAN Trunk Protocol (VTP)
-        http://www.cisco.com/en/US/tech/tk389/tk689/technologies_tech_note09186a0080094c52.shtml
+        - | Understanding VLAN Trunk Protocol (VTP)
+          | http://www.cisco.com/en/US/tech/tk389/tk689/technologies_tech_note09186a0080094c52.shtml  # noqa: E501
 """
 
 from scapy.packet import Packet, bind_layers

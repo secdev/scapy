@@ -103,11 +103,12 @@ if conf.use_pcap:
             bpf_program as winpcapy_bpf_program
 
         def load_winpcapy():
-            """This functions calls Winpcap/Npcap pcap_findalldevs function,
-            and extracts and parse all the data scapy will need to use it:
-             - the Interface List
-            This data is stored in their respective conf.cache_* subfields:
-                conf.cache_iflist
+            """This functions calls libpcap ``pcap_findalldevs`` function,
+            and extracts and parse all the data scapy will need
+            to build the Interface List.
+
+            The date will be stored in ``conf.cache_iflist``, or accessible
+            with ``get_if_list()``
             """
             err = create_string_buffer(PCAP_ERRBUF_SIZE)
             devs = POINTER(pcap_if_t)()

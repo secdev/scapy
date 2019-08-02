@@ -530,7 +530,7 @@ LOOPBACK_TYPES = {0x2: "IPv4",
 
 
 class Loopback(Packet):
-    """*BSD loopback layer"""
+    r"""\*BSD loopback layer"""
 
     name = "Loopback"
     if consts.OPENBSD:
@@ -663,16 +663,24 @@ class ARP_am(AnsweringMachine):
 
     example:
     To respond to an ARP request for 192.168.100 replying on the
-    ingress interface;
+    ingress interface::
+
       farpd(IP_addr='192.168.1.100',ARP_addr='00:01:02:03:04:05')
-    To respond on a different interface add the interface parameter
+
+    To respond on a different interface add the interface parameter::
+
       farpd(IP_addr='192.168.1.100',ARP_addr='00:01:02:03:04:05',iface='eth0')
-    To respond on ANY arp request on an interface with mac address ARP_addr
+
+    To respond on ANY arp request on an interface with mac address ARP_addr::
+
       farpd(ARP_addr='00:01:02:03:04:05',iface='eth1')
-    To respond on ANY arp request with my mac addr on the given interface
+
+    To respond on ANY arp request with my mac addr on the given interface::
+
       farpd(iface='eth1')
 
-    Optional Args
+    Optional Args::
+
      inter=<n>   Interval in seconds between ARP replies being sent
 
     """

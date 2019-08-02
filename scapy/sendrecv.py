@@ -51,28 +51,28 @@ class debug:
 ####################
 
 _DOC_SNDRCV_PARAMS = """
-    pks: SuperSocket instance to send/receive packets
-    pkt: the packet to send
-    rcv_pks: if set, will be used instead of pks to receive packets.
-             packets will still be sent through pks
-    nofilter: put 1 to avoid use of BPF filters
-    retry:    if positive, how many times to resend unanswered packets
-              if negative, how many times to retry when no more packets
-              are answered
-    timeout:  how much time to wait after the last packet has been sent
-    verbose:  set verbosity level
-    multi:    whether to accept multiple answers for the same stimulus
-    store_unanswered: whether to store not-answered packets or not.
-                      setting it to False will increase speed, and will return
-                      None as the unans list.
-    process:  if specified, only result from process(pkt) will be stored.
-              the function should follow the following format:
-                lambda sent, received: (func(sent), func2(received))
-              if the packet is unanswered, `received` will be None.
-              if `store_unanswered` is False, the function won't be called on
-              un-answered packets.
-    prebuild: pre-build the packets before starting to send them. Automatically
-              enabled when a generator is passed as the packet
+    :param pks: SuperSocket instance to send/receive packets
+    :param pkt: the packet to send
+    :param rcv_pks: if set, will be used instead of pks to receive packets.
+        packets will still be sent through pks
+    :param nofilter: put 1 to avoid use of BPF filters
+    :param retry: if positive, how many times to resend unanswered packets
+        if negative, how many times to retry when no more packets
+        are answered
+    :param timeout: how much time to wait after the last packet has been sent
+    :param verbose: set verbosity level
+    :param multi: whether to accept multiple answers for the same stimulus
+    :param store_unanswered: whether to store not-answered packets or not.
+        setting it to False will increase speed, and will return
+        None as the unans list.
+    :param process: if specified, only result from process(pkt) will be stored.
+        the function should follow the following format:
+        ``lambda sent, received: (func(sent), func2(received))``
+        if the packet is unanswered, `received` will be None.
+        if `store_unanswered` is False, the function won't be called on
+        un-answered packets.
+    :param prebuild: pre-build the packets before starting to send them.
+        Automatically enabled when a generator is passed as the packet
     """
 
 
@@ -309,9 +309,21 @@ def __gen_send(s, x, inter=0, loop=0, count=None, verbose=None, realtime=None, r
 def send(x, inter=0, loop=0, count=None,
          verbose=None, realtime=None,
          return_packets=False, socket=None, *args, **kargs):
-    """Send packets at layer 3
-send(packets, [inter=0], [loop=0], [count=None], [verbose=conf.verb], [realtime=None], [return_packets=False],  # noqa: E501
-     [socket=None]) -> None"""
+    """
+    Send packets at layer 3
+
+    :param x: the packets
+    :param inter: time (in s) between two packets (default 0)
+    :param loop: send packet indefinetly (default 0)
+    :param count: number of packets to send (default None=1)
+    :param verbose: verbose mode (default None=conf.verbose)
+    :param realtime: check that a packet was sent before sending the next one
+    :param return_packets: return the sent packets
+    :param socket: the socket to use (default is conf.L3socket(kargs))
+    :param iface: the interface to send the packets on
+    :param monitor: (not on linux) send in monitor mode
+    :returns: None
+    """
     need_closing = socket is None
     socket = socket or conf.L3socket(*args, **kargs)
     results = __gen_send(socket, x, inter=inter, loop=loop,
@@ -326,9 +338,21 @@ send(packets, [inter=0], [loop=0], [count=None], [verbose=conf.verb], [realtime=
 def sendp(x, inter=0, loop=0, iface=None, iface_hint=None, count=None,
           verbose=None, realtime=None,
           return_packets=False, socket=None, *args, **kargs):
-    """Send packets at layer 2
-sendp(packets, [inter=0], [loop=0], [iface=None], [iface_hint=None], [count=None], [verbose=conf.verb],  # noqa: E501
-      [realtime=None], [return_packets=False], [socket=None]) -> None"""
+    """
+    Send packets at layer 2
+
+    :param x: the packets
+    :param inter: time (in s) between two packets (default 0)
+    :param loop: send packet indefinetly (default 0)
+    :param count: number of packets to send (default None=1)
+    :param verbose: verbose mode (default None=conf.verbose)
+    :param realtime: check that a packet was sent before sending the next one
+    :param return_packets: return the sent packets
+    :param socket: the socket to use (default is conf.L3socket(kargs))
+    :param iface: the interface to send the packets on
+    :param monitor: (not on linux) send in monitor mode
+    :returns: None
+    """
     if iface is None and iface_hint is not None and socket is None:
         iface = conf.route.route(iface_hint)[0]
     need_closing = socket is None
@@ -345,15 +369,19 @@ sendp(packets, [inter=0], [loop=0], [iface=None], [iface_hint=None], [count=None
 def sendpfast(x, pps=None, mbps=None, realtime=None, loop=0, file_cache=False, iface=None, replay_args=None,  # noqa: E501
               parse_results=False):
     """Send packets at layer 2 using tcpreplay for performance
-    pps:  packets per second
-    mpbs: MBits per second
-    realtime: use packet's timestamp, bending time with real-time value
-    loop: number of times to process the packet list
-    file_cache: cache packets in RAM instead of reading from disk at each iteration  # noqa: E501
-    iface: output interface
-    replay_args: List of additional tcpreplay args (List[str])
-    parse_results: Return a dictionary of information outputted by tcpreplay (default=False)  # noqa: E501
-    :returns stdout, stderr, command used"""
+
+    :param pps:  packets per second
+    :param mpbs: MBits per second
+    :param realtime: use packet's timestamp, bending time with real-time value
+    :param loop: number of times to process the packet list
+    :param file_cache: cache packets in RAM instead of reading from
+        disk at each iteration
+    :param iface: output interface
+    :param replay_args: List of additional tcpreplay args (List[str])
+    :param parse_results: Return a dictionary of information
+        outputted by tcpreplay (default=False)
+    :returns: stdout, stderr, command used
+    """
     if iface is None:
         iface = conf.iface
     argv = [conf.prog.tcpreplay, "--intf1=%s" % iface]
@@ -457,7 +485,9 @@ def _parse_tcpreplay_result(stdout, stderr, argv):
 
 @conf.commands.register
 def sr(x, promisc=None, filter=None, iface=None, nofilter=0, *args, **kargs):
-    """Send and receive packets at layer 3"""
+    """
+    Send and receive packets at layer 3
+    """
     s = conf.L3socket(promisc=promisc, filter=filter,
                       iface=iface, nofilter=nofilter)
     result = sndrcv(s, x, *args, **kargs)
@@ -482,7 +512,9 @@ def _interface_selection(iface, packet):
 
 @conf.commands.register
 def sr1(x, promisc=None, filter=None, iface=None, nofilter=0, *args, **kargs):
-    """Send packets at layer 3 and return only the first answer"""
+    """
+    Send packets at layer 3 and return only the first answer
+    """
     iface = _interface_selection(iface, x)
     s = conf.L3socket(promisc=promisc, filter=filter,
                       nofilter=nofilter, iface=iface)
@@ -497,7 +529,9 @@ def sr1(x, promisc=None, filter=None, iface=None, nofilter=0, *args, **kargs):
 @conf.commands.register
 def srp(x, promisc=None, iface=None, iface_hint=None, filter=None,
         nofilter=0, type=ETH_P_ALL, *args, **kargs):
-    """Send and receive packets at layer 2"""
+    """
+    Send and receive packets at layer 2
+    """
     if iface is None and iface_hint is not None:
         iface = conf.route.route(iface_hint)[0]
     s = conf.L2socket(promisc=promisc, iface=iface,
@@ -509,7 +543,9 @@ def srp(x, promisc=None, iface=None, iface_hint=None, filter=None,
 
 @conf.commands.register
 def srp1(*args, **kargs):
-    """Send and receive packets at layer 2 and return only the first answer"""
+    """
+    Send and receive packets at layer 2 and return only the first answer
+    """
     ans, _ = srp(*args, **kargs)
     if len(ans) > 0:
         return ans[0][1]
@@ -624,11 +660,13 @@ def sndrcvflood(pks, pkt, inter=0, verbose=None, chainCC=False, timeout=None):
 @conf.commands.register
 def srflood(x, promisc=None, filter=None, iface=None, nofilter=None, *args, **kargs):  # noqa: E501
     """Flood and receive packets at layer 3
-prn:      function applied to packets received
-unique:   only consider packets whose print
-nofilter: put 1 to avoid use of BPF filters
-filter:   provide a BPF filter
-iface:    listen answers only on the given interface"""
+
+    :param prn:      function applied to packets received
+    :param unique:   only consider packets whose print
+    :param nofilter: put 1 to avoid use of BPF filters
+    :param filter:   provide a BPF filter
+    :param iface:    listen answers only on the given interface
+    """
     s = conf.L3socket(promisc=promisc, filter=filter, iface=iface, nofilter=nofilter)  # noqa: E501
     r = sndrcvflood(s, x, *args, **kargs)
     s.close()
@@ -638,11 +676,13 @@ iface:    listen answers only on the given interface"""
 @conf.commands.register
 def sr1flood(x, promisc=None, filter=None, iface=None, nofilter=0, *args, **kargs):  # noqa: E501
     """Flood and receive packets at layer 3 and return only the first answer
-prn:      function applied to packets received
-verbose:  set verbosity level
-nofilter: put 1 to avoid use of BPF filters
-filter:   provide a BPF filter
-iface:    listen answers only on the given interface"""
+
+    :param prn:      function applied to packets received
+    :param verbose:  set verbosity level
+    :param nofilter: put 1 to avoid use of BPF filters
+    :param filter:   provide a BPF filter
+    :param iface:    listen answers only on the given interface
+    """
     s = conf.L3socket(promisc=promisc, filter=filter, nofilter=nofilter, iface=iface)  # noqa: E501
     ans, _ = sndrcvflood(s, x, *args, **kargs)
     s.close()
@@ -655,11 +695,13 @@ iface:    listen answers only on the given interface"""
 @conf.commands.register
 def srpflood(x, promisc=None, filter=None, iface=None, iface_hint=None, nofilter=None, *args, **kargs):  # noqa: E501
     """Flood and receive packets at layer 2
-prn:      function applied to packets received
-unique:   only consider packets whose print
-nofilter: put 1 to avoid use of BPF filters
-filter:   provide a BPF filter
-iface:    listen answers only on the given interface"""
+
+    :param prn:      function applied to packets received
+    :param unique:   only consider packets whose print
+    :param nofilter: put 1 to avoid use of BPF filters
+    :param filter:   provide a BPF filter
+    :param iface:    listen answers only on the given interface
+    """
     if iface is None and iface_hint is not None:
         iface = conf.route.route(iface_hint)[0]
     s = conf.L2socket(promisc=promisc, filter=filter, iface=iface, nofilter=nofilter)  # noqa: E501
@@ -671,11 +713,13 @@ iface:    listen answers only on the given interface"""
 @conf.commands.register
 def srp1flood(x, promisc=None, filter=None, iface=None, nofilter=0, *args, **kargs):  # noqa: E501
     """Flood and receive packets at layer 2 and return only the first answer
-prn:      function applied to packets received
-verbose:  set verbosity level
-nofilter: put 1 to avoid use of BPF filters
-filter:   provide a BPF filter
-iface:    listen answers only on the given interface"""
+
+    :param prn:      function applied to packets received
+    :param verbose:  set verbosity level
+    :param nofilter: put 1 to avoid use of BPF filters
+    :param filter:   provide a BPF filter
+    :param iface:    listen answers only on the given interface
+    """
     s = conf.L2socket(promisc=promisc, filter=filter, nofilter=nofilter, iface=iface)  # noqa: E501
     ans, _ = sndrcvflood(s, x, *args, **kargs)
     s.close()

@@ -199,9 +199,11 @@ def load_contrib(name, globals_dict=None, symb_list=None):
 
 def list_contrib(name=None, ret=False, _debug=False):
     """Show the list of all existing contribs.
-    Params:
-     - name: filter to search the contribs
-     - ret: whether the function should return a dict instead of printing it
+
+    :param name: filter to search the contribs
+    :param ret: whether the function should return a dict instead of
+        printing it
+    :returns: None or a dictionary containing the results if ret=True
     """
     # _debug: checks that all contrib modules have correctly defined:
     # # scapy.contrib.description = [...]

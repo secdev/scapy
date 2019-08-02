@@ -34,8 +34,8 @@ def pkcs_os2ip(s):
     """
     OS2IP conversion function from RFC 3447.
 
-    Input : s        octet string to be converted
-    Output: n        corresponding nonnegative integer
+    :param s: octet string to be converted
+    :return: n, the corresponding nonnegative integer
     """
     return int(bytes_hex(s), 16)
 
@@ -46,9 +46,9 @@ def pkcs_i2osp(n, sLen):
     The length parameter allows the function to perform the padding needed.
     Note that the user is responsible for providing a sufficient xLen.
 
-    Input : n        nonnegative integer to be converted
-            sLen     intended length of the resulting octet string
-    Output: s        corresponding octet string
+    :param n: nonnegative integer to be converted
+    :param sLen: intended length of the resulting octet string
+    :return: corresponding octet string
     """
     # if n >= 256**sLen:
     #    raise Exception("Integer too large for provided sLen %d" % sLen)

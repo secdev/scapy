@@ -73,9 +73,11 @@ class ObservableDict(dict):
 ############
 
 class Field(six.with_metaclass(Field_metaclass, object)):
-    """For more information on how this work, please refer to
-       http://www.secdev.org/projects/scapy/files/scapydoc.pdf
-       chapter ``Adding a New Field''"""
+    """
+    For more information on how this work, please refer to
+    http://www.secdev.org/projects/scapy/files/scapydoc.pdf
+    chapter ``Adding a New Field``
+    """
     __slots__ = ["name", "fmt", "default", "sz", "owners"]
     islist = 0
     ismutable = False
@@ -741,30 +743,37 @@ class FieldAttributeException(Scapy_Exception):
 
 class YesNoByteField(ByteField):
     """
-    byte based flag field that shows representation of its number based on a given association  # noqa: E501
+    A byte based flag field that shows representation of its number
+    based on a given association
 
-    in its default configuration the following representation is generated:
+    In its default configuration the following representation is generated:
         x == 0 : 'no'
         x != 0 : 'yes'
 
-    in more sophisticated use-cases (e.g. yes/no/invalid) one can use the config attribute to configure  # noqa: E501
-    key-value, key-range and key-value-set associations that will be used to generate the values representation.  # noqa: E501
+    In more sophisticated use-cases (e.g. yes/no/invalid) one can use the
+    config attribute to configure.
+    Key-value, key-range and key-value-set associations that will be used to
+    generate the values representation.
 
-    a range is given by a tuple (<first-val>, <last-value>) including the last value. a single-value tuple  # noqa: E501
-    is treated as scalar.
+    - A range is given by a tuple (<first-val>, <last-value>) including the
+      last value.
+    - A single-value tuple is treated as scalar.
+    - A list defines a set of (probably non consecutive) values that should be
+      associated to a given key.
 
-    a list defines a set of (probably non consecutive) values that should be associated to a given key.  # noqa: E501
+    All values not associated with a key will be shown as number of type
+    unsigned byte.
 
-    all values not associated with a key will be shown as number of type unsigned byte.  # noqa: E501
+    **For instance**::
 
-    config = {
-                'no' : 0,
-                'foo' : (1,22),
-                'yes' : 23,
-                'bar' : [24,25, 42, 48, 87, 253]
-             }
+        config = {
+            'no' : 0,
+            'foo' : (1,22),
+            'yes' : 23,
+            'bar' : [24,25, 42, 48, 87, 253]
+        }
 
-    generates the following representations:
+    Generates the following representations::
 
         x == 0 : 'no'
         x == 15: 'foo'
@@ -772,14 +781,15 @@ class YesNoByteField(ByteField):
         x == 42: 'bar'
         x == 43: 43
 
-    using the config attribute one could also revert the stock-yes-no-behavior:
+    Another example, using the config attribute one could also revert
+    the stock-yes-no-behavior::
 
-    config = {
+        config = {
                 'yes' : 0,
                 'no' : (1,255)
-             }
+        }
 
-    will generate the following value representation:
+    Will generate the following value representation::
 
         x == 0 : 'yes'
         x != 0 : 'no'
@@ -2333,7 +2343,7 @@ class UUIDField(Field):
     The internal storage format of this field is ``uuid.UUID`` from the Python
     standard library.
 
-    There are three formats (``uuid_fmt``) for this field type::
+    There are three formats (``uuid_fmt``) for this field type:
 
     * ``FORMAT_BE`` (default): the UUID is six fields in big-endian byte order,
       per RFC 4122.
@@ -2341,20 +2351,20 @@ class UUIDField(Field):
       This format is used by DHCPv6 (RFC 6355) and most network protocols.
 
     * ``FORMAT_LE``: the UUID is six fields, with ``time_low``, ``time_mid``
-      and ``time_high_version`` in little-endian byte order. This _doesn't_
+      and ``time_high_version`` in little-endian byte order. This *doesn't*
       change the arrangement of the fields from RFC 4122.
 
       This format is used by Microsoft's COM/OLE libraries.
 
     * ``FORMAT_REV``: the UUID is a single 128-bit integer in little-endian
-      byte order. This _changes the arrangement_ of the fields.
+      byte order. This *changes the arrangement* of the fields.
 
       This format is used by Bluetooth Low Energy.
 
     Note: You should use the constants here.
 
     The "human encoding" of this field supports a number of different input
-    formats, and wraps Python's ``uuid.UUID`` library appropriately::
+    formats, and wraps Python's ``uuid.UUID`` library appropriately:
 
     * Given a bytearray, bytes or str of 16 bytes, this class decodes UUIDs in
       wire format.
@@ -2456,14 +2466,14 @@ class UUIDField(Field):
 class BitExtendedField(Field):
     """
     Bit Extended Field
-    ------------------
 
     This type of field has a variable number of bytes. Each byte is defined
     as follows:
     - 7 bits of data
-    - 1 bit an an extension bit
-        * 0 means it is last byte of the field ("stopping bit")
-        * 1 means there is another byte after this one ("forwarding bit")
+    - 1 bit an an extension bit:
+
+      + 0 means it is last byte of the field ("stopping bit")
+      + 1 means there is another byte after this one ("forwarding bit")
 
     To get the actual data, it is necessary to hop the binary data byte per
     byte and to check the extension bit until 0

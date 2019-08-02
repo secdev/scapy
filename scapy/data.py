@@ -261,11 +261,12 @@ class ManufDA(DADict):
         return self[oui]
 
     def reverse_lookup(self, name, case_sensitive=False):
-        """Find all MACs registered to a OUI
-        params:
-         - name: the OUI name
-         - case_sensitive: default to False
-        returns: a dict of mac:tuples (Name, Extended Name)
+        """
+        Find all MACs registered to a OUI
+
+        :param name: the OUI name
+        :param case_sensitive: default to False
+        :returns: a dict of mac:tuples (Name, Extended Name)
         """
         if case_sensitive:
             filtr = lambda x, l: any(x == z for z in l)
@@ -277,9 +278,12 @@ class ManufDA(DADict):
 
 
 def load_manuf(filename):
-    """Load manuf file from Wireshark.
-    param:
-     - filename: the file to load the manuf file from"""
+    """
+    Loads manuf file from Wireshark.
+
+    :param filename: the file to load the manuf file from
+    :returns: a ManufDA filled object
+    """
     manufdb = ManufDA(_name=filename)
     with open(filename, "rb") as fdesc:
         for line in fdesc:

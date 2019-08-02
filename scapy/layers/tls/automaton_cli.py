@@ -444,7 +444,7 @@ class TLSClientAutomaton(_TLSAutomaton):
 
     @ATMT.condition(WAIT_CLIENTDATA, prio=1)
     def add_ClientData(self):
-        """
+        r"""
         The user may type in:
         GET / HTTP/1.1\r\nHost: testserver.com\r\n\r\n
         Special characters are handled so that it becomes a valid HTTP request.

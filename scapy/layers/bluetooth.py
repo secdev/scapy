@@ -13,7 +13,7 @@ import ctypes
 import functools
 import socket
 import struct
-from select import select
+import select
 from ctypes import sizeof
 
 from scapy.config import conf
@@ -788,7 +788,7 @@ class EIR_Manufacturer_Specific_Data(EIR_Element):
 
         For an example of this method in use, see ``scapy.contrib.altbeacon``.
 
-        :param Type[Packet] payload_cls:
+        :param Type[scapy.packet.Packet] payload_cls:
             A reference to a Packet subclass to register as a payload.
         :param Callable[[bytes], bool] magic_check:
             (optional) callable to use to if a payload should be associated
@@ -1329,8 +1329,8 @@ class LowEnergyBeaconHelper:
 
         Users of this helper must implement this method.
 
-        :returns: List of HCI_Hdr with payloads that describe this beacon type
-        :rtype: list[HCI_Hdr]
+        :return: List of HCI_Hdr with payloads that describe this beacon type
+        :rtype: list[scapy.bluetooth.HCI_Hdr]
         """
         raise NotImplementedError("build_eir")
 
@@ -1338,7 +1338,7 @@ class LowEnergyBeaconHelper:
         """
         Builds a HCI_LE_Meta_Advertising_Report containing this frame.
 
-        :rtype: HCI_LE_Meta_Advertising_Report
+        :rtype: scapy.bluetooth.HCI_LE_Meta_Advertising_Report
         """
 
         return HCI_LE_Meta_Advertising_Report(
@@ -1352,7 +1352,7 @@ class LowEnergyBeaconHelper:
 
         This includes the :class:`HCI_Hdr` and :class:`HCI_Command_Hdr` layers.
 
-        :rtype: HCI_Hdr
+        :rtype: scapy.bluetooth.HCI_Hdr
         """
 
         return HCI_Hdr() / HCI_Command_Hdr() / HCI_Cmd_LE_Set_Advertising_Data(
@@ -1485,7 +1485,7 @@ class BluetoothUserSocket(SuperSocket):
         return HCI_Hdr(self.ins.recv(x))
 
     def readable(self, timeout=0):
-        (ins, outs, foo) = select([self.ins], [], [], timeout)
+        (ins, outs, foo) = select.select([self.ins], [], [], timeout)
         return len(ins) > 0
 
     def flush(self):

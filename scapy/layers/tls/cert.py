@@ -15,12 +15,14 @@ of a Cert instance after its serial has been modified (for example).
 If you need to modify an import, just use the corresponding ASN1_Packet.
 
 For instance, here is what you could do in order to modify the serial of
-'cert' and then resign it with whatever 'key':
+'cert' and then resign it with whatever 'key'::
+
     f = open('cert.der')
     c = X509_Cert(f.read())
     c.tbsCertificate.serialNumber = 0x4B1D
     k = PrivKey('key.pem')
     new_x509_cert = k.resignCert(c)
+
 No need for obnoxious openssl tweaking anymore. :)
 """
 

@@ -1,7 +1,7 @@
 # Guillaume Valadon <guillaume@valadon.net>
 
-"""
-Scapy *BSD native support - constants
+r"""
+Scapy \*BSD native support - constants
 """
 
 from ctypes import sizeof
