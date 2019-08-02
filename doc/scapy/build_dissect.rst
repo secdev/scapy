@@ -1094,8 +1094,6 @@ DNS
     DNSRRCountField
     DNSRRField
     DNSQRField
-    RDataField
-    RDLenField
 
 ASN.1
 -----
