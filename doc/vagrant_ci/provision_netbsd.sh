@@ -6,6 +6,7 @@
 # This program is published under a GPLv2 license
 
 sudo -s
+unset PROMPT_COMMAND
 export PATH="/sbin:/usr/pkg/sbin:/usr/pkg/bin:$PATH"
 export PKG_PATH="http://ftp.netbsd.org/pub/pkgsrc/packages/NetBSD/amd64/8.0_2018Q4/All/"
 pkg_delete curl

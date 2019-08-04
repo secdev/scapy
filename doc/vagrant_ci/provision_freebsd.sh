@@ -10,6 +10,6 @@ bash
 git clone https://github.com/secdev/scapy
 cd scapy
 export PATH=/usr/local/bin/:$PATH
-virtualenv -p python2.7 venv
+virtualenv-2.7 -p python2.7 venv
 source venv/bin/activate
 pip install tox
