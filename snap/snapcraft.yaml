@@ -1,0 +1,27 @@
+name: scapy
+version: git
+summary: Packet manipulation program.
+description: | A powerful Python-based interactive packet manipulation program and library.
+ 
+grade: devmode
+base: core18
+
+architectures:  
+  - build-on: amd64
+
+parts:
+  scapy:
+    source: https://github.com/secdev/scapy.git
+    source-tag: 2.4.2
+    plugin: python
+    python-version: python3
+
+    stage-packages:
+      - python-six
+
+    build-packages:
+      - build-essential
+      - software-properties-common
+      - libfreetype6-dev 
+      
+
