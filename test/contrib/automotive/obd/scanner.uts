@@ -34,9 +34,10 @@ bashCommand = "/bin/bash -c 'sudo modprobe vcan; sudo ip link add name vcan0 typ
 
 import queue
 from threading import Event
+from subprocess import call
 
-from automotive.obd_scan import obd_scan
-from automotive.obd_scan import _supported_id_numbers
+from scapy.contrib.automotive.obd.scanner import obd_scan
+from scapy.contrib.automotive.obd.scanner import _supported_id_numbers
 
 = Create answers
 
@@ -50,6 +51,7 @@ s1_queue.put(s1_pid00)
 s1_queue.put(s1_pid0F)
 s1_queue.put(s1_pid0B)
 s1_queue.put(s1_pid03)
+
 
 s3 = OBD()/OBD_S03_PR(dtcs=[OBD_DTC()])
 s3_queue = queue.Queue()
@@ -67,6 +69,7 @@ socket = ISOTPSocket("vcan0", 0x7e0, 0x7e8, basecls=OBD, padding=True)
 ready = Event()
 
 class MockResponder(Thread):
+    daemon = True
     def __init__(self):
         Thread.__init__(self)
         self._stopped = Event()
@@ -80,7 +83,7 @@ class MockResponder(Thread):
     def run(self):
         with ISOTPSocket("vcan0", 0x7e8, 0x7e0, basecls=OBD, padding=True) as sock:
             ready.set()
-            while not self._stopped.is_set() or not s1_queue.empty() or not s3_queue.empty():
+            while not self._stopped.is_set() or not (s1_queue.empty() and s3_queue.empty()):
                 sniff(opened_socket=sock,
                                timeout=0.2,
                                store=False,
@@ -93,13 +96,13 @@ responder.start()
 
 = Get ids
 all_ids_set = set(range(1, 256))
-supported_ids = _supported_id_numbers(socket, 0.1, OBD_S01, 'pid')
+supported_ids = _supported_id_numbers(socket, 0.1, OBD_S01, 'pid', False)
 unsupported_ids = all_ids_set - supported_ids
 
 = Run scanner
 # timeout to avoid a deadlock if the test which sets this event fails
 ready.wait(timeout=5)
-data = obd_scan(socket, 0.1, True, True)
+data = obd_scan(socket, 0.1, True, True, False)
 dtc = data[0]
 supported = data[1]
 unsupported = data[2]
@@ -107,14 +110,18 @@ unsupported = data[2]
 = Cleanup
 socket.close()
 responder.stop()
+if 0 != call("sudo ip link delete vcan0", shell=True):
+        raise Exception("vcan0 could not be deleted")
 
 + Check results
 ~ linux needs_root
 
 = Check supported ids
 supported_ids_set = set([3, 11, 15])
-unsupported_ids_set = all_ids_set - supported_ids_set
 assert supported_ids == supported_ids_set
+
+= Check unsupported ids
+unsupported_ids_set = all_ids_set - supported_ids_set
 assert unsupported_ids == unsupported_ids_set
 
 = Check service 1
@@ -129,6 +136,3 @@ assert len(supported[8]) == 0
 assert len(supported[9]) == 0
 assert dtc[7] == None
 assert dtc[10] == None
-
-= Check unsupported services
-assert unsupported[1][0x01] == bytes(s1_pid01)
