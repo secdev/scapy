@@ -7320,44 +7320,46 @@ assert b'127.0.0.1 > 127.0.0.1: ICMP' in data[0].upper()
 = Check tcpdump() command with linktype
 ~ tcpdump
 
-f = BytesIO()
+f_stdin = BytesIO()
+f_stderr = BytesIO()
 pkt = Ether()/IP()/ICMP()
 
 with mock.patch('subprocess.Popen', return_value=Bunch(
-        stdin=f, wait=lambda: None)) as popen:
+        stdin=f_stdin, stderr=f_stderr, wait=lambda: None)) as popen:
     # Prevent closing the BytesIO
-    with mock.patch.object(f, 'close'):
+    with mock.patch.object(f_stdin, 'close'):
         tcpdump([pkt], linktype="DLT_EN3MB", use_tempfile=False)
 
 popen.assert_called_once_with(
     [conf.prog.tcpdump, '-y', 'EN3MB', '-r', '-'],
-    stdin=subprocess.PIPE, stdout=None, stderr=None)
+    stdin=subprocess.PIPE, stdout=None, stderr=subprocess.PIPE)
 
-print(bytes_hex(f.getvalue()))
-assert raw(pkt) in f.getvalue()
-f.close()
-del f, pkt
+print(bytes_hex(f_stdin.getvalue()))
+assert raw(pkt) in f_stdin.getvalue()
+f_stdin.close()
+del f_stdin, f_stderr, pkt
 
 = Check tcpdump() command with linktype and args
 ~ tcpdump
 
-f = BytesIO()
+f_stdin = BytesIO()
+f_stderr = BytesIO()
 pkt = Ether()/IP()/ICMP()
 
 with mock.patch('subprocess.Popen', return_value=Bunch(
-        stdin=f, wait=lambda: None)) as popen:
+        stdin=f_stdin, stderr=f_stderr, wait=lambda: None)) as popen:
     # Prevent closing the BytesIO
-    with mock.patch.object(f, 'close'):
+    with mock.patch.object(f_stdin, 'close'):
         tcpdump([pkt], linktype=scapy.data.DLT_EN10MB, use_tempfile=False)
 
 popen.assert_called_once_with(
     [conf.prog.tcpdump, '-y', 'EN10MB', '-r', '-'],
-    stdin=subprocess.PIPE, stdout=None, stderr=None)
+    stdin=subprocess.PIPE, stdout=None, stderr=subprocess.PIPE)
 
-print(bytes_hex(f.getvalue()))
-assert raw(pkt) in f.getvalue()
-f.close()
-del f, pkt
+print(bytes_hex(f_stdin.getvalue()))
+assert raw(pkt) in f_stdin.getvalue()
+f_stdin.close()
+del f_stdin, f_stderr, pkt
 
 = Check tcpdump() command rejects non-string input for prog
 
@@ -7434,22 +7436,24 @@ tshark(count=1, timeout=3)
 = Check wireshark()
 ~ wireshark
 
-f = BytesIO()
+f_stdin = BytesIO()
+f_stderr = BytesIO()
 pkt = Ether()/IP()/ICMP()
 
-with mock.patch('subprocess.Popen', return_value=Bunch(stdin=f)) as popen:
+with mock.patch('subprocess.Popen', return_value=Bunch(
+        stdin=f_stdin, stderr=f_stderr)) as popen:
     # Prevent closing the BytesIO
-    with mock.patch.object(f, 'close'):
+    with mock.patch.object(f_stdin, 'close'):
         wireshark([pkt])
 
 popen.assert_called_once_with(
     [conf.prog.wireshark, '-ki', '-'],
-    stdin=subprocess.PIPE, stdout=None, stderr=None)
+    stdin=subprocess.PIPE, stdout=None, stderr=subprocess.PIPE)
 
-print(bytes_hex(f.getvalue()))
-assert raw(pkt) in f.getvalue()
-f.close()
-del f, pkt
+print(bytes_hex(f_stdin.getvalue()))
+assert raw(pkt) in f_stdin.getvalue()
+f_stdin.close()
+del f_stdin, f_stderr, pkt
 
 = Check Raw IP pcap files
 

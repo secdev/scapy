@@ -1622,8 +1622,7 @@ def _guess_linktype_value(name):
 @conf.commands.register
 def tcpdump(pktlist=None, dump=False, getfd=False, args=None,
             prog=None, getproc=False, quiet=False, use_tempfile=None,
-            read_stdin_opts=None, linktype=None, wait=True,
-            _suppress=False):
+            read_stdin_opts=None, linktype=None, wait=True):
     """Run tcpdump or tshark on a list of packets.
 
     When using ``tcpdump`` on OSX (``prog == conf.prog.tcpdump``), this uses a
@@ -1751,7 +1750,7 @@ def tcpdump(pktlist=None, dump=False, getfd=False, args=None,
         args = list(args)
 
     stdout = subprocess.PIPE if dump or getfd else None
-    stderr = open(os.devnull) if quiet else None
+    stderr = subprocess.PIPE
     proc = None
 
     if use_tempfile is None:
@@ -1823,6 +1822,14 @@ def tcpdump(pktlist=None, dump=False, getfd=False, args=None,
     if proc is None:
         # An error has occurred
         return
+
+    stderr_output = proc.stderr.read()
+    if not quiet:
+        print(plain_str(stderr_output))
+    if any(line for line in stderr_output.split(b'\n')
+           if b"syntax error" in line):
+        raise Scapy_Exception("Invalid BPF filter: syntax error!")
+
     if dump:
         return b"".join(iter(lambda: proc.stdout.read(1048576), b""))
     if getproc:
