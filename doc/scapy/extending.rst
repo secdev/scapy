@@ -71,7 +71,9 @@ Once you've done that, you can launch Scapy and import your file, but this is st
     
     # Set log level to benefit from Scapy warnings
     import logging
-    logging.getLogger("scapy").setLevel(1)
+    logger = logging.getLogger("scapy")
+    logger.setLevel(logging.INFO)
+    logger.addHandler(logging.StreamHandler())
     
     from scapy.all import *
     
