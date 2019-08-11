@@ -22,7 +22,11 @@
 
 = Simple tests
 
+assert LongField("test", None).addfield(None, b"", 0x44434241) == b'\x00\x00\x00\x00DCBA'
+assert SignedLongField("test", None).addfield(None, b"", -2) == b'\xff\xff\xff\xff\xff\xff\xff\xfe'
+
 assert LELongField("test", None).addfield(None, b"", 0x44434241) == b'ABCD\x00\x00\x00\x00'
+assert LESignedLongField("test", None).addfield(None, b"", -2) == b'\xfe\xff\xff\xff\xff\xff\xff\xff'
 
 = MACField class
 ~ core field

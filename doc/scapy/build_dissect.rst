@@ -880,7 +880,9 @@ Legend:
     XIntField
     
     LongField
+    SignedLongField
     LELongField
+    LESignedLongField
     XLongField
     LELongField
     

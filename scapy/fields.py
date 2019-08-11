@@ -902,9 +902,19 @@ class LongField(Field):
         Field.__init__(self, name, default, "Q")
 
 
+class SignedLongField(Field):
+    def __init__(self, name, default):
+        Field.__init__(self, name, default, "q")
+
+
 class LELongField(LongField):
     def __init__(self, name, default):
         Field.__init__(self, name, default, "<Q")
+
+
+class LESignedLongField(Field):
+    def __init__(self, name, default):
+        Field.__init__(self, name, default, "<q")
 
 
 class XLongField(LongField):
