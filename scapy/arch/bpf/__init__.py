@@ -1,5 +1,5 @@
 # Guillaume Valadon <guillaume@valadon.net>
 
-r"""
-Scapy \*BSD native support
+"""
+Scapy BSD native support
 """
