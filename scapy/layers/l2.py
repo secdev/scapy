@@ -614,8 +614,21 @@ class ARPingResult(SndRcvList):
         SndRcvList.__init__(self, res, name, stats)
 
     def show(self):
+        """
+        Print the list of discovered MAC addresses.
+        """
+
+        data = list()
+        padding = 0
+
         for s, r in self.res:
-            print(r.sprintf("%19s,Ether.src% %ARP.psrc%"))
+            manuf = conf.manufdb._get_short_manuf(r.src)
+            manuf = "unknown" if manuf == r.src else manuf
+            padding = max(padding, len(manuf))
+            data.append((r[Ether].src, manuf, r[ARP].psrc))
+
+        for src, manuf, psrc in data:
+            print("  %-17s %-*s %s" % (src, padding, manuf, psrc))
 
 
 @conf.commands.register

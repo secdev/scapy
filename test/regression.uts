@@ -615,6 +615,16 @@ b.reverse_lookup("Secdevcorp") == {'00:01:12': ('SecdevCorp', 'Secdev Corporatio
 
 scapy_delete_temp_files()
 
+= Test ARPingResult output
+~ manufdb
+
+ar = ARPingResult([(None, Ether(src='70:ee:50:50:ee:70')/ARP(psrc='192.168.0.1'))])
+with ContextManagerCaptureOutput() as cmco:
+    ar.show()
+    result_ar = cmco.get_output()
+
+assert result_ar.startswith("  70:ee:50:50:ee:70 Netatmo 192.168.0.1")
+
 = Test utility functions - network related
 ~ netaccess
 
