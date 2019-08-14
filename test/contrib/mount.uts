@@ -1,0 +1,40 @@
+% Test mount layer
+####################
+####################
+
++ Packet Creation Tests
+
+= Create subpackets
+path()
+filehandle()
+
+= Create Mount Calls
+NULL_Call()
+MOUNT_Call()
+UNMOUNT_Call()
+
+= Create Successful Mount Replies
+MOUNT_Reply(status=0)
+
+= Create Failed Mount Replies
+MOUNT_Reply(status=1)
+
++ RPC Layer bindings tests
+
+= Layer Bindings for Mount Calls
+from scapy.contrib.oncrpc import *
+pkt = RPC()/RPC_Call()/NULL_Call()
+assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100005, 3, 0))
+pkt = RPC()/RPC_Call()/MOUNT_Call()
+assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100005, 3, 1))
+pkt = RPC()/RPC_Call()/UNMOUNT_Call()
+assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100005, 3, 3))
+
+= Layer Bindings for Mount Replies
+from scapy.contrib.oncrpc import *
+pkt = RPC()/RPC_Reply()/NULL_Reply()
+assert(pkt.mtype == 1)
+pkt = RPC()/RPC_Reply()/MOUNT_Reply()
+assert(pkt.mtype == 1)
+pkt = RPC()/RPC_Reply()/UNMOUNT_Reply()
+assert(pkt.mtype == 1)

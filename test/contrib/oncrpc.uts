@@ -1,0 +1,22 @@
+% Tests for oncrpc module
+############
+############
++  Packet Creation Tests
+
+= Create subpackets
+object_name()
+a_unix()
+
+= Create ONC RPC Packets
+RM_Header()
+RPC()
+RPC_Call()
+RPC_Reply()
+
++ Test Layer bindings
+
+= RPC Message type
+pkt = RPC()/RPC_Call()
+assert(pkt.mtype==0)
+pkt = RPC()/RPC_Reply()
+assert(pkt.mtype==1)

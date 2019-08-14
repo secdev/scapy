@@ -1,0 +1,35 @@
+% Tests for portmap module
+############
+############
++  Packet Creation Tests
+
+= Create subpackets
+map_entry()
+
+= Create Portmap Packets
+NULL_Call()
+NULL_Reply()
+DUMP_Call()
+DUMP_Reply()
+GETPORT_Call()
+GETPORT_Reply()
+
++ Test Layer bindings
+
+= RPC Layer Bindings for Portmap calls
+from scapy.contrib.oncrpc import *
+pkt = RPC()/RPC_Call()/NULL_Call()
+assert (pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100000, 2, 0)
+pkt = RPC()/RPC_Call()/GETPORT_Call()
+assert (pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100000, 2, 3)
+pkt = RPC()/RPC_Call()/DUMP_Call()
+assert (pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100000, 2, 4)
+
+= RPC Layer Bindings for Portmap replies
+from scapy.contrib.oncrpc import *
+pkt = RPC()/RPC_Reply()/NULL_Reply()
+assert pkt.mtype == 1
+pkt = RPC()/RPC_Reply()/GETPORT_Reply()
+assert pkt.mtype == 1
+pkt = RPC()/RPC_Reply()/DUMP_Reply()
+assert pkt.mtype == 1

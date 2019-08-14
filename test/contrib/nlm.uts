@@ -1,0 +1,68 @@
+% Tests for nlm module
+############
+############
++  Packet creation tests
+
+= Create subpackets
+file_object()
+nlm4_cookie()
+
+= Create nlm Calls
+SHARE_Call()
+UNSHARE_Call()
+LOCK_Call()
+UNLOCK_Call()
+GRANTED_MSG_Call()
+GRANTED_RES_Call()
+CANCEL_Call()
+TEST_Call()
+
+= Create nlm Replies
+SHARE_Reply()
+UNSHARE_Reply()
+LOCK_Reply()
+UNLOCK_Reply()
+GRANTED_MSG_Reply()
+GRANTED_RES_Reply()
+CANCEL_Reply()
+TEST_Reply()
+
++ Layer bindings tests
+
+= RPC Layer Bindings for NLM Calls
+from scapy.contrib.oncrpc import *
+pkt = RPC()/RPC_Call()/SHARE_Call()
+assert (pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100021, 4, 20)
+pkt = RPC()/RPC_Call()/UNSHARE_Call()
+assert (pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100021, 4, 21)
+pkt = RPC()/RPC_Call()/LOCK_Call()
+assert (pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100021, 4, 2)
+pkt = RPC()/RPC_Call()/UNLOCK_Call()
+assert (pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100021, 4, 4)
+pkt = RPC()/RPC_Call()/GRANTED_MSG_Call()
+assert (pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100021, 4, 10)
+pkt = RPC()/RPC_Call()/GRANTED_RES_Call()
+assert (pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100021, 4, 15)
+pkt = RPC()/RPC_Call()/CANCEL_Call()
+assert (pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100021, 4, 3)
+pkt = RPC()/RPC_Call()/TEST_Call()
+assert (pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100021, 4, 1)
+
+= RPC Layer Bindings for NLM Replies
+from scapy.contrib.oncrpc import *
+pkt = RPC()/RPC_Reply()/SHARE_Reply()
+assert pkt.mtype == 1
+pkt = RPC()/RPC_Reply()/UNSHARE_Reply()
+assert pkt.mtype == 1
+pkt = RPC()/RPC_Reply()/LOCK_Reply()
+assert pkt.mtype == 1
+pkt = RPC()/RPC_Reply()/UNLOCK_Reply()
+assert pkt.mtype == 1
+pkt = RPC()/RPC_Reply()/GRANTED_MSG_Reply()
+assert pkt.mtype == 1
+pkt = RPC()/RPC_Reply()/GRANTED_RES_Reply()
+assert pkt.mtype == 1
+pkt = RPC()/RPC_Reply()/CANCEL_Reply()
+assert pkt.mtype == 1
+pkt = RPC()/RPC_Reply()/TEST_Reply()
+assert pkt.mtype == 1
