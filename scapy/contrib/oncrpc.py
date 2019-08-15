@@ -61,8 +61,10 @@ class a_unix(Packet):
         IntField('uid', 0),
         IntField('gid', 0),
         IntField('num_auxgids', 0),
-        FieldListField('auxgids', [], IntField('',None),
-                        count_from=lambda pkt: pkt.num_auxgids)
+        FieldListField(
+            'auxgids', [], IntField('', None),
+            count_from=lambda pkt: pkt.num_auxgids
+        )
     ]
 
     def extract_padding(self, s):
@@ -77,16 +79,18 @@ class RPC_Call(Packet):
         IntField('program', 100003),
         IntField('pversion', 3),
         IntField('procedure', 0),
-        IntEnumField('aflavor', 1, {0: 'AUTH_NULL',
-                                    1: 'AUTH_UNIX'}),
+        IntEnumField('aflavor', 1, {0: 'AUTH_NULL', 1: 'AUTH_UNIX'}),
         IntField('alength', 0),
-        ConditionalField(PacketField('a_unix', a_unix(), a_unix),
-                        lambda pkt: pkt.aflavor == 1),
-        IntEnumField('vflavor', 0, {0: 'AUTH_NULL',
-                                    1: 'AUTH_UNIX'}),
+        ConditionalField(
+            PacketField('a_unix', a_unix(), a_unix),
+            lambda pkt: pkt.aflavor == 1
+        ),
+        IntEnumField('vflavor', 0, {0: 'AUTH_NULL', 1: 'AUTH_UNIX'}),
         IntField('vlength', 0),
-        ConditionalField(PacketField('v_unix', a_unix(), a_unix),
-                        lambda pkt: pkt.vflavor == 1)
+        ConditionalField(
+            PacketField('v_unix', a_unix(), a_unix),
+            lambda pkt: pkt.vflavor == 1
+        )
     ]
 
     def set_auth(self, **kwargs):
@@ -108,17 +112,18 @@ class RPC_Call(Packet):
     def post_build(self, pkt, pay):
         """Override of post_build to handle length fields"""
         if self.aflavor == 0 and self.vflavor == 0:
-            # No work required if there are no auth fields, default will be correct
+            # No work required if there are no auth fields,
+            # default will be correct
             return Packet.post_build(self, pkt, pay)
         if self.aflavor != 0:
             pkt = pkt[:20] \
-            + len(self.a_unix).to_bytes(4, byteorder='big') \
-            + pkt[24:]
+                + len(self.a_unix).to_bytes(4, byteorder='big') \
+                + pkt[24:]
             return Packet.post_build(self, pkt, pay)
         if self.vflavor != 0:
             pkt = pkt[:28] \
-            + len(self.v_unix).to_bytes(4, byteorder='big') \
-            + pkt[32:]
+                + len(self.v_unix).to_bytes(4, byteorder='big') \
+                + pkt[32:]
         return Packet.post_build(self, pkt, pay)
 
 
@@ -126,10 +131,11 @@ class RPC_Reply(Packet):
     name = 'RPC Response'
     fields_desc = [
         IntField('reply_stat', 0),
-        IntEnumField('flavor', 0, {0: 'AUTH_NULL',
-                                    1: 'AUTH_UNIX'}),
-        ConditionalField(PacketField('a_unix', a_unix(), a_unix),
-                        lambda pkt: pkt.flavor == 1),
+        IntEnumField('flavor', 0, {0: 'AUTH_NULL', 1: 'AUTH_UNIX'}),
+        ConditionalField(
+            PacketField('a_unix', a_unix(), a_unix),
+            lambda pkt: pkt.flavor == 1
+        ),
         IntField('length', 0),
         IntField('accept_stat', 0)
     ]

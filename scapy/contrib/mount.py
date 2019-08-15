@@ -31,7 +31,7 @@ class path(Packet):
     fields_desc = [
         IntField('length', 0),
         StrLenField('path', '', length_from=lambda pkt: pkt.length),
-        StrLenField('fill', '', length_from=lambda pkt: (4-pkt.length)%4)
+        StrLenField('fill', '', length_from=lambda pkt: (4 - pkt.length) % 4)
     ]
 
     def extract_padding(self, s):
@@ -52,7 +52,7 @@ class filehandle(Packet):
     fields_desc = [
         IntField('length', 0),
         StrLenField('fh', b'', length_from=lambda pkt: pkt.length),
-        StrLenField('fill', b'', length_from=lambda pkt: (4-pkt.length)%4)
+        StrLenField('fill', b'', length_from=lambda pkt: (4 - pkt.length) % 4)
     ]
 
     def set(self, new_filehandle, length=None, fill=None):
@@ -99,12 +99,18 @@ class MOUNT_Reply(Packet):
     name = 'MOUNT Reply'
     fields_desc = [
         IntEnumField('status', 0, mountstat3),
-        ConditionalField(PacketField('filehandle', filehandle(), filehandle),
-                        lambda pkt: pkt.status==0),
-        ConditionalField(IntField('flavors', 0), lambda pkt: pkt.status==0),
-        ConditionalField(FieldListField('flavor', None, IntField('',None),
-                        count_from=lambda pkt: pkt.flavors),
-                        lambda pkt: pkt.status==0)
+        ConditionalField(
+            PacketField('filehandle', filehandle(), filehandle),
+            lambda pkt: pkt.status == 0
+        ),
+        ConditionalField(IntField('flavors', 0), lambda pkt: pkt.status == 0),
+        ConditionalField(
+            FieldListField(
+                'flavor', None, IntField('', None),
+                count_from=lambda pkt: pkt.flavors
+            ),
+            lambda pkt: pkt.status == 0
+        )
     ]
 
     def get_filehandle(self):
@@ -132,4 +138,6 @@ class UNMOUNT_Reply(Packet):
 
 bind_layers(rpc.RPC, UNMOUNT_Call, mtype=0)
 bind_layers(rpc.RPC, UNMOUNT_Reply, mtype=1)
-bind_layers(rpc.RPC_Call, UNMOUNT_Call, program=100005, procedure=3, pversion=3)
+bind_layers(
+    rpc.RPC_Call, UNMOUNT_Call, program=100005, procedure=3, pversion=3
+)

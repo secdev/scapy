@@ -83,7 +83,9 @@ class fattr3(Packet):
         IntField('gid', 0),
         LongField('size', 0),
         LongField('used', 0),
-        FieldListField('rdev', [0,0], IntField('',None), count_from=lambda x: 2),
+        FieldListField(
+            'rdev', [0, 0], IntField('', None), count_from=lambda x: 2
+        ),
         XLongField('fsid', 0),
         XLongField('fileid', 0),
         IntField('atime_s', 0),
@@ -166,11 +168,15 @@ class file_from_dir_plus(Packet):
         PacketField('filename', object_name(), object_name),
         LongField('cookie', 0),
         IntField('attributes_follow', 0),
-        ConditionalField(PacketField('attributes', fattr3(), fattr3),
-                        lambda pkt: pkt.attributes_follow == 1),
+        ConditionalField(
+            PacketField('attributes', fattr3(), fattr3),
+            lambda pkt: pkt.attributes_follow == 1
+        ),
         IntField('handle_follows', 0),
-        ConditionalField(PacketField('filehandle', file_object(), file_object),
-                        lambda pkt:  pkt.handle_follows == 1),
+        ConditionalField(
+            PacketField('filehandle', file_object(), file_object),
+            lambda pkt:  pkt.handle_follows == 1
+        ),
         IntField('value_follows', 0)
     ]
 
@@ -207,11 +213,19 @@ class sattr3(Packet):
         IntEnumField('set_size', 0, attrs_enum),
         ConditionalField(LongField('size', 0), lambda pkt: pkt.set_size == 1),
         IntEnumField('set_atime', 0, times_enum),
-        ConditionalField(IntField('atime_s', 0), lambda pkt: pkt.set_atime == 2),
-        ConditionalField(IntField('atime_ns', 0), lambda pkt: pkt.set_atime == 2),
+        ConditionalField(
+            IntField('atime_s', 0), lambda pkt: pkt.set_atime == 2
+        ),
+        ConditionalField(
+            IntField('atime_ns', 0), lambda pkt: pkt.set_atime == 2
+        ),
         IntEnumField('set_mtime', 0, times_enum),
-        ConditionalField(IntField('mtime_s', 0), lambda pkt: pkt.set_mtime == 2),
-        ConditionalField(IntField('mtime_ns', 0), lambda pkt: pkt.set_mtime == 2)
+        ConditionalField(
+            IntField('mtime_s', 0), lambda pkt: pkt.set_mtime == 2
+        ),
+        ConditionalField(
+            IntField('mtime_ns', 0), lambda pkt: pkt.set_mtime == 2
+        )
     ]
 
     def extract_padding(self, s):
@@ -229,8 +243,10 @@ class GETATTR_Reply(Packet):
     name = 'GETATTR Reply'
     fields_desc = [
         IntEnumField('status', 0, nfsstat3),
-        ConditionalField(PacketField('attributes', fattr3(), fattr3),
-                        lambda pkt: pkt.status == 0)
+        ConditionalField(
+            PacketField('attributes', fattr3(), fattr3),
+            lambda pkt: pkt.status == 0
+        )
     ]
 
     def extract_padding(self, s):
@@ -238,7 +254,9 @@ class GETATTR_Reply(Packet):
 
 
 bind_layers(rpc.RPC, GETATTR_Call, mtype=0)
-bind_layers(rpc.RPC_Call, GETATTR_Call, program=100003, pversion=3, procedure=1)
+bind_layers(
+    rpc.RPC_Call, GETATTR_Call, program=100003, pversion=3, procedure=1
+)
 bind_layers(rpc.RPC, GETATTR_Reply, mtype=1)
 
 
@@ -254,14 +272,20 @@ class LOOKUP_Reply(Packet):
     name = 'LOOKUP Reply'
     fields_desc = [
         IntEnumField('status', 0, nfsstat3),
-        ConditionalField(PacketField('filehandle', file_object(), file_object),
-                        lambda pkt: pkt.status == 0),
+        ConditionalField(
+            PacketField('filehandle', file_object(), file_object),
+            lambda pkt: pkt.status == 0
+        ),
         ConditionalField(IntField('af_file', 0), lambda pkt: pkt.status == 0),
-        ConditionalField(PacketField('file_attributes', fattr3(), fattr3),
-                        lambda pkt: pkt.status == 0 and pkt.af_file == 1),
+        ConditionalField(
+            PacketField('file_attributes', fattr3(), fattr3),
+            lambda pkt: pkt.status == 0 and pkt.af_file == 1
+        ),
         IntField('af_dir', 0),
-        ConditionalField(PacketField('dir_attributes', fattr3(), fattr3),
-                        lambda pkt: pkt.af_dir == 1)
+        ConditionalField(
+            PacketField('dir_attributes', fattr3(), fattr3),
+            lambda pkt: pkt.af_dir == 1
+        )
     ]
 
 
@@ -297,8 +321,10 @@ class FSINFO_Reply(Packet):
     fields_desc = [
         IntEnumField('status', 0, nfsstat3),
         IntField('attributes_follow', 0),
-        ConditionalField(PacketField('attributes', fattr3(), fattr3),
-                        lambda pkt: pkt.attributes_follow == 1),
+        ConditionalField(
+            PacketField('attributes', fattr3(), fattr3),
+            lambda pkt: pkt.attributes_follow == 1
+        ),
         ConditionalField(IntField('rtmax', 0), lambda pkt: pkt.status == 0),
         ConditionalField(IntField('rtpref', 0), lambda pkt: pkt.status == 0),
         ConditionalField(IntField('rtmult', 0), lambda pkt: pkt.status == 0),
@@ -306,16 +332,26 @@ class FSINFO_Reply(Packet):
         ConditionalField(IntField('wtpref', 0), lambda pkt: pkt.status == 0),
         ConditionalField(IntField('wtmult', 0), lambda pkt: pkt.status == 0),
         ConditionalField(IntField('dtpref', 0), lambda pkt: pkt.status == 0),
-        ConditionalField(LongField('maxfilesize', 0), lambda pkt: pkt.status == 0),
-        ConditionalField(IntField('timedelta_s', 0), lambda pkt: pkt.status == 0),
-        ConditionalField(IntField('timedelta_ns', 0), lambda pkt: pkt.status == 0),
-        ConditionalField(XIntField('properties', 0), lambda pkt: pkt.status == 0),
+        ConditionalField(
+            LongField('maxfilesize', 0), lambda pkt: pkt.status == 0
+        ),
+        ConditionalField(
+            IntField('timedelta_s', 0), lambda pkt: pkt.status == 0
+        ),
+        ConditionalField(
+            IntField('timedelta_ns', 0), lambda pkt: pkt.status == 0
+        ),
+        ConditionalField(
+            XIntField('properties', 0), lambda pkt: pkt.status == 0
+        ),
     ]
 
 
 bind_layers(rpc.RPC, FSINFO_Call, mtype=0)
 bind_layers(rpc.RPC, FSINFO_Reply, mtype=1)
-bind_layers(rpc.RPC_Call, FSINFO_Call, program=100003, pversion=3, procedure=19)
+bind_layers(
+    rpc.RPC_Call, FSINFO_Call, program=100003, pversion=3, procedure=19
+)
 
 
 class PATHCONF_Call(Packet):
@@ -330,24 +366,36 @@ class PATHCONF_Reply(Packet):
     fields_desc = [
         IntEnumField('status', 0, nfsstat3),
         IntField('attributes_follow', 0),
-        ConditionalField(PacketField('attributes', fattr3(), fattr3),
-                        lambda pkt: pkt.attributes_follow == 1),
+        ConditionalField(
+            PacketField('attributes', fattr3(), fattr3),
+            lambda pkt: pkt.attributes_follow == 1
+        ),
         ConditionalField(IntField('linkmax', 0), lambda pkt: pkt.status == 0),
         ConditionalField(IntField('name_max', 0), lambda pkt: pkt.status == 0),
-        ConditionalField(IntEnumField('no_trunc', 0, {0: 'NO', 1: 'YES'}),
-                        lambda pkt: pkt.status == 0),
-        ConditionalField(IntEnumField('chown_restricted', 0, {0: 'NO', 1: 'YES'}),
-                        lambda pkt: pkt.status == 0),
-        ConditionalField(IntEnumField('case_insensitive', 0, {0: 'NO', 1: 'YES'}),
-                        lambda pkt: pkt.status == 0),
-        ConditionalField(IntEnumField('case_preserving', 0, {0: 'NO', 1: 'YES'}),
-                        lambda pkt: pkt.status == 0)
+        ConditionalField(
+            IntEnumField('no_trunc', 0, {0: 'NO', 1: 'YES'}),
+            lambda pkt: pkt.status == 0
+        ),
+        ConditionalField(
+            IntEnumField('chown_restricted', 0, {0: 'NO', 1: 'YES'}),
+            lambda pkt: pkt.status == 0
+        ),
+        ConditionalField(
+            IntEnumField('case_insensitive', 0, {0: 'NO', 1: 'YES'}),
+            lambda pkt: pkt.status == 0
+        ),
+        ConditionalField(
+            IntEnumField('case_preserving', 0, {0: 'NO', 1: 'YES'}),
+            lambda pkt: pkt.status == 0
+        )
     ]
 
 
 bind_layers(rpc.RPC, PATHCONF_Call, mtype=0)
 bind_layers(rpc.RPC, PATHCONF_Reply, mtype=1)
-bind_layers(rpc.RPC_Call, PATHCONF_Call, program=100003, pversion=3, procedure=20)
+bind_layers(
+    rpc.RPC_Call, PATHCONF_Call, program=100003, pversion=3, procedure=20
+)
 
 access_specs = {
     0x0001: 'READ',
@@ -372,9 +420,13 @@ class ACCESS_Reply(Packet):
     fields_desc = [
         IntEnumField('status', 0, nfsstat3),
         IntField('attributes_follow', 0),
-        ConditionalField(PacketField('attributes', fattr3(), fattr3),
-                        lambda pkt: pkt.attributes_follow == 1),
-        ConditionalField(XIntField('access_rights', 0), lambda pkt: pkt.status == 0)
+        ConditionalField(
+            PacketField('attributes', fattr3(), fattr3),
+            lambda pkt: pkt.attributes_follow == 1
+        ),
+        ConditionalField(
+            XIntField('access_rights', 0), lambda pkt: pkt.status == 0
+        )
     ]
 
 
@@ -399,15 +451,26 @@ class READDIRPLUS_Reply(Packet):
     fields_desc = [
         IntEnumField('status', 0, nfsstat3),
         IntField('attributes_follow', 0),
-        ConditionalField(PacketField('attributes', fattr3(), fattr3),
-                        lambda pkt: pkt.attributes_follow == 1),
-        ConditionalField(LongField('verifier', 0), lambda pkt: pkt.status == 0),
-        ConditionalField(IntField('value_follows', 0), lambda pkt: pkt.status == 0),
-        ConditionalField(PacketListField('files', None, cls=file_from_dir_plus,
-            next_cls_cb=lambda pkt,lst,cur,remain:
-            file_from_dir_plus if pkt.value_follows==1 and \
-            (len(lst)==0 or cur.value_follows==1) and \
-            len(remain)>4 else None), lambda pkt: pkt.status==0),
+        ConditionalField(
+            PacketField('attributes', fattr3(), fattr3),
+            lambda pkt: pkt.attributes_follow == 1
+        ),
+        ConditionalField(
+            LongField('verifier', 0), lambda pkt: pkt.status == 0
+        ),
+        ConditionalField(
+            IntField('value_follows', 0), lambda pkt: pkt.status == 0
+        ),
+        ConditionalField(
+            PacketListField(
+                'files', None, cls=file_from_dir_plus,
+                next_cls_cb=lambda pkt, lst, cur, remain:
+                file_from_dir_plus if pkt.value_follows == 1 and
+                (len(lst) == 0 or cur.value_follows == 1) and
+                len(remain) > 4 else None
+            ),
+            lambda pkt: pkt.status == 0
+        ),
         ConditionalField(IntField('eof', 0), lambda pkt: pkt.status == 0)
     ]
 
@@ -417,7 +480,9 @@ class READDIRPLUS_Reply(Packet):
 
 bind_layers(rpc.RPC, READDIRPLUS_Call, mtype=0)
 bind_layers(rpc.RPC, READDIRPLUS_Reply, mtype=1)
-bind_layers(rpc.RPC_Call, READDIRPLUS_Call, program=100003, pversion=3, procedure=17)
+bind_layers(
+    rpc.RPC_Call, READDIRPLUS_Call, program=100003, pversion=3, procedure=17
+)
 
 
 class WRITE_Call(Packet):
@@ -429,7 +494,7 @@ class WRITE_Call(Packet):
         IntEnumField('stable', 0, {0: 'UNSTABLE', 1: 'STABLE'}),
         IntField('length', 0),
         StrLenField('contents', b'', length_from=lambda pkt: pkt.length),
-        StrLenField('fill', b'', length_from=lambda pkt: (4-pkt.length) % 4)
+        StrLenField('fill', b'', length_from=lambda pkt: (4 - pkt.length) % 4)
     ]
 
 
@@ -438,20 +503,30 @@ class WRITE_Reply(Packet):
     fields_desc = [
         IntEnumField('status', 0, nfsstat3),
         IntField('af_before', 0),
-        ConditionalField(PacketField('attributes_before', wcc_attr(), wcc_attr),
-                        lambda pkt: pkt.af_before == 1),
+        ConditionalField(
+            PacketField('attributes_before', wcc_attr(), wcc_attr),
+            lambda pkt: pkt.af_before == 1
+        ),
         IntField('af_after', 0),
-        ConditionalField(PacketField('attributes_after', fattr3(), fattr3),
-                        lambda pkt: pkt.af_after == 1),
+        ConditionalField(
+            PacketField('attributes_after', fattr3(), fattr3),
+            lambda pkt: pkt.af_after == 1
+        ),
         ConditionalField(IntField('count', 0), lambda pkt: pkt.status == 0),
-        ConditionalField(IntEnumField('commited', 0, {0: 'UNSTABLE', 1: 'STABLE'}),
-                        lambda pkt: pkt.status == 0),
-        ConditionalField(XLongField('verifier', 0), lambda pkt: pkt.status == 0)
+        ConditionalField(
+            IntEnumField('commited', 0, {0: 'UNSTABLE', 1: 'STABLE'}),
+            lambda pkt: pkt.status == 0
+        ),
+        ConditionalField(
+            XLongField('verifier', 0), lambda pkt: pkt.status == 0
+        )
     ]
+
 
 bind_layers(rpc.RPC, WRITE_Call, mtype=0)
 bind_layers(rpc.RPC, WRITE_Reply, mtype=1)
 bind_layers(rpc.RPC_Call, WRITE_Call, program=100003, pversion=3, procedure=7)
+
 
 class COMMIT_Call(Packet):
     name = 'COMMIT Call'
@@ -461,23 +536,32 @@ class COMMIT_Call(Packet):
         IntField('count', 0)
     ]
 
+
 class COMMIT_Reply(Packet):
     name = 'COMMIT Reply'
     fields_desc = [
         IntEnumField('status', 0, nfsstat3),
         IntField('af_before', 0),
-        ConditionalField(PacketField('attributes_before', fattr3(), fattr3),
-                        lambda pkt: pkt.af_before == 1),
+        ConditionalField(
+            PacketField('attributes_before', fattr3(), fattr3),
+            lambda pkt: pkt.af_before == 1
+        ),
         IntField('af_after', 0),
-        ConditionalField(PacketField('attributes_after', fattr3(), fattr3),
-                        lambda pkt: pkt.af_after == 1),
-        ConditionalField(XLongField('verifier', 0), lambda pkt: pkt.status == 0)
+        ConditionalField(
+            PacketField('attributes_after', fattr3(), fattr3),
+            lambda pkt: pkt.af_after == 1
+        ),
+        ConditionalField(
+            XLongField('verifier', 0), lambda pkt: pkt.status == 0
+        )
     ]
 
 
 bind_layers(rpc.RPC, COMMIT_Call, mtype=0)
 bind_layers(rpc.RPC, COMMIT_Reply, mtype=1)
-bind_layers(rpc.RPC_Call, COMMIT_Call, program=100003, pversion=3, procedure=21)
+bind_layers(
+    rpc.RPC_Call, COMMIT_Call, program=100003, pversion=3, procedure=21
+)
 
 
 class SETATTR_Call(Packet):
@@ -494,17 +578,23 @@ class SETATTR_Reply(Packet):
     fields_desc = [
         IntEnumField('status', 0, nfsstat3),
         IntField('af_before', 0),
-        ConditionalField(PacketField('attributes_before', wcc_attr(), wcc_attr),
-                        lambda pkt: pkt.af_before == 1),
+        ConditionalField(
+            PacketField('attributes_before', wcc_attr(), wcc_attr),
+            lambda pkt: pkt.af_before == 1
+        ),
         IntField('af_after', 0),
-        ConditionalField(PacketField('attributes_after', fattr3(), fattr3),
-                        lambda pkt: pkt.af_after == 1)
+        ConditionalField(
+            PacketField('attributes_after', fattr3(), fattr3),
+            lambda pkt: pkt.af_after == 1
+        )
     ]
 
 
 bind_layers(rpc.RPC, SETATTR_Call, mtype=0)
 bind_layers(rpc.RPC, SETATTR_Reply, mtype=1)
-bind_layers(rpc.RPC_Call, SETATTR_Call, program=100003, pversion=3, procedure=2)
+bind_layers(
+    rpc.RPC_Call, SETATTR_Call, program=100003, pversion=3, procedure=2
+)
 
 
 class FSSTAT_Call(Packet):
@@ -519,8 +609,10 @@ class FSSTAT_Reply(Packet):
     fields_desc = [
         IntEnumField('status', 0, nfsstat3),
         IntField('attributes_follow', 0),
-        ConditionalField(PacketField('attributes', fattr3(), fattr3),
-                        lambda pkt: pkt.attributes_follow == 1),
+        ConditionalField(
+            PacketField('attributes', fattr3(), fattr3),
+            lambda pkt: pkt.attributes_follow == 1
+        ),
         ConditionalField(LongField('tbytes', 0), lambda pkt: pkt.status == 0),
         ConditionalField(LongField('fbytes', 0), lambda pkt: pkt.status == 0),
         ConditionalField(LongField('abytes', 0), lambda pkt: pkt.status == 0),
@@ -533,7 +625,9 @@ class FSSTAT_Reply(Packet):
 
 bind_layers(rpc.RPC, FSSTAT_Call, mtype=0)
 bind_layers(rpc.RPC, FSSTAT_Reply, mtype=1)
-bind_layers(rpc.RPC_Call, FSSTAT_Call, program=100003, pversion=3, procedure=18)
+bind_layers(
+    rpc.RPC_Call, FSSTAT_Call, program=100003, pversion=3, procedure=18
+)
 
 
 class CREATE_Call(Packet):
@@ -541,10 +635,16 @@ class CREATE_Call(Packet):
     fields_desc = [
         PacketField('dir', file_object(), file_object),
         PacketField('filename', object_name(), object_name),
-        IntEnumField('create_mode', None, {0: 'UNCHECKED', 1: 'GUARDED', 2: 'EXCLUSIVE'}),
-        ConditionalField(PacketField('attributes', sattr3(), sattr3),
-                        lambda pkt: pkt.create_mode != 2),
-        ConditionalField(XLongField('verifier', 0), lambda pkt: pkt.create_mode==2)
+        IntEnumField('create_mode', None, {0: 'UNCHECKED',
+                                           1: 'GUARDED',
+                                           2: 'EXCLUSIVE'}),
+        ConditionalField(
+            PacketField('attributes', sattr3(), sattr3),
+            lambda pkt: pkt.create_mode != 2
+        ),
+        ConditionalField(
+            XLongField('verifier', 0), lambda pkt: pkt.create_mode == 2
+        )
     ]
 
 
@@ -552,22 +652,30 @@ class CREATE_Reply(Packet):
     name = 'CREATE Reply'
     fields_desc = [
         IntEnumField('status', 0, nfsstat3),
-        ConditionalField(IntField('handle_follows', 0),
-                        lambda pkt: pkt.status == 0),
-        ConditionalField(PacketField('filehandle', file_object(), file_object),
-                        lambda pkt: pkt.status == 0 and
-                        pkt.handle_follows == 1),
-        ConditionalField(IntField('attributes_follow', 0),
-                        lambda pkt: pkt.status == 0),
-        ConditionalField(PacketField('attributes', fattr3(), fattr3),
-                        lambda pkt: pkt.status == 0 and
-                        pkt.attributes_follow == 1),
+        ConditionalField(
+            IntField('handle_follows', 0), lambda pkt: pkt.status == 0
+        ),
+        ConditionalField(
+            PacketField('filehandle', file_object(), file_object),
+            lambda pkt: pkt.status == 0 and pkt.handle_follows == 1
+        ),
+        ConditionalField(
+            IntField('attributes_follow', 0), lambda pkt: pkt.status == 0
+        ),
+        ConditionalField(
+            PacketField('attributes', fattr3(), fattr3),
+            lambda pkt: pkt.status == 0 and pkt.attributes_follow == 1
+        ),
         IntField('af_before', 0),
-        ConditionalField(PacketField('dir_attributes_before', wcc_attr(), wcc_attr),
-                        lambda pkt: pkt.af_before==1),
+        ConditionalField(
+            PacketField('dir_attributes_before', wcc_attr(), wcc_attr),
+            lambda pkt: pkt.af_before == 1
+        ),
         IntField('af_after', 0),
-        ConditionalField(PacketField('dir_attributes_after', fattr3(), fattr3),
-                        lambda pkt: pkt.af_after==1)
+        ConditionalField(
+            PacketField('dir_attributes_after', fattr3(), fattr3),
+            lambda pkt: pkt.af_after == 1
+        )
     ]
 
 
@@ -589,17 +697,23 @@ class REMOVE_Reply(Packet):
     fields_desc = [
         IntEnumField('status', 0, nfsstat3),
         IntField('af_before', 0),
-        ConditionalField(PacketField('attributes_before', wcc_attr(), wcc_attr),
-                        lambda pkt: pkt.af_before == 1),
+        ConditionalField(
+            PacketField('attributes_before', wcc_attr(), wcc_attr),
+            lambda pkt: pkt.af_before == 1
+        ),
         IntField('af_after', 0),
-        ConditionalField(PacketField('attributes_after', fattr3(), fattr3),
-                        lambda pkt: pkt.af_after == 1)
+        ConditionalField(
+            PacketField('attributes_after', fattr3(), fattr3),
+            lambda pkt: pkt.af_after == 1
+        )
     ]
 
 
 bind_layers(rpc.RPC, REMOVE_Call, mtype=0)
 bind_layers(rpc.RPC, REMOVE_Reply, mtype=1)
-bind_layers(rpc.RPC_Call, REMOVE_Call, program=100003, pversion=3, procedure=12)
+bind_layers(
+    rpc.RPC_Call, REMOVE_Call, program=100003, pversion=3, procedure=12
+)
 
 
 class READDIR_Call(Packet):
@@ -617,22 +731,34 @@ class READDIR_Reply(Packet):
     fields_desc = [
         IntEnumField('status', 0, nfsstat3),
         IntField('attributes_follow', 0),
-        ConditionalField(PacketField('attributes', fattr3(), fattr3),
-                        lambda pkt: pkt.attributes_follow == 1),
-        ConditionalField(XLongField('verifier', 0), lambda pkt: pkt.status == 0),
-        ConditionalField(IntField('value_follows', 0), lambda pkt: pkt.status == 0),
-        ConditionalField(PacketListField('files', None, cls=file_from_dir,
-            next_cls_cb=lambda pkt,lst,cur,remain:
-            file_from_dir if pkt.value_follows==1 and \
-            (len(lst)==0 or cur.value_follows==1) and \
-            len(remain)>4 else None), lambda pkt: pkt.status==0),
+        ConditionalField(
+            PacketField('attributes', fattr3(), fattr3),
+            lambda pkt: pkt.attributes_follow == 1
+        ),
+        ConditionalField(
+            XLongField('verifier', 0), lambda pkt: pkt.status == 0
+        ),
+        ConditionalField(
+            IntField('value_follows', 0), lambda pkt: pkt.status == 0
+        ),
+        ConditionalField(
+            PacketListField(
+                'files', None, cls=file_from_dir,
+                next_cls_cb=lambda pkt, lst, cur, remain:
+                file_from_dir if pkt.value_follows == 1 and
+                (len(lst) == 0 or cur.value_follows == 1) and
+                len(remain) > 4 else None
+            ),
+            lambda pkt: pkt.status == 0),
         ConditionalField(IntField('eof', 0), lambda pkt: pkt.status == 0)
     ]
 
 
 bind_layers(rpc.RPC, READDIR_Call, mtype=0)
 bind_layers(rpc.RPC, READDIR_Reply, mtype=1)
-bind_layers(rpc.RPC_Call, READDIR_Call, program=100003, pversion=3, procedure=16)
+bind_layers(
+    rpc.RPC_Call, READDIR_Call, program=100003, pversion=3, procedure=16
+)
 
 
 class RENAME_Call(Packet):
@@ -650,23 +776,33 @@ class RENAME_Reply(Packet):
     fields_desc = [
         IntEnumField('status', 0, nfsstat3),
         IntField('af_before_f', 0),
-        ConditionalField(PacketField('attributes_before_f', wcc_attr(), wcc_attr),
-                        lambda pkt: pkt.af_before_f == 1),
+        ConditionalField(
+            PacketField('attributes_before_f', wcc_attr(), wcc_attr),
+            lambda pkt: pkt.af_before_f == 1
+        ),
         IntField('af_after_f', 0),
-        ConditionalField(PacketField('attributes_after_f', fattr3(), fattr3),
-                        lambda pkt: pkt.af_after_f == 1),
+        ConditionalField(
+            PacketField('attributes_after_f', fattr3(), fattr3),
+            lambda pkt: pkt.af_after_f == 1
+        ),
         IntField('af_before_t', 0),
-        ConditionalField(PacketField('attributes_before_t', wcc_attr(), wcc_attr),
-                        lambda pkt: pkt.af_before_t == 1),
+        ConditionalField(
+            PacketField('attributes_before_t', wcc_attr(), wcc_attr),
+            lambda pkt: pkt.af_before_t == 1
+        ),
         IntField('af_after_t', 0),
-        ConditionalField(PacketField('attributes_after_t', fattr3(), fattr3),
-                        lambda pkt: pkt.af_after_t == 1)
+        ConditionalField(
+            PacketField('attributes_after_t', fattr3(), fattr3),
+            lambda pkt: pkt.af_after_t == 1
+        )
     ]
 
 
 bind_layers(rpc.RPC, RENAME_Call, mtype=0)
 bind_layers(rpc.RPC, RENAME_Reply, mtype=1)
-bind_layers(rpc.RPC_Call, RENAME_Call, program=100003, pversion=3, procedure=14)
+bind_layers(
+    rpc.RPC_Call, RENAME_Call, program=100003, pversion=3, procedure=14
+)
 
 
 class LINK_Call(Packet):
@@ -683,14 +819,20 @@ class LINK_Reply(Packet):
     fields_desc = [
         IntEnumField('status', 0, nfsstat3),
         IntField('af_file', 0),
-        ConditionalField(PacketField('file_attributes', fattr3(), fattr3),
-                        lambda pkt: pkt.af_file == 1),
+        ConditionalField(
+            PacketField('file_attributes', fattr3(), fattr3),
+            lambda pkt: pkt.af_file == 1
+        ),
         IntField('af_link_before', 0),
-        ConditionalField(PacketField('link_attributes_before', wcc_attr(), wcc_attr),
-                        lambda pkt: pkt.af_link_before == 1),
+        ConditionalField(
+            PacketField('link_attributes_before', wcc_attr(), wcc_attr),
+            lambda pkt: pkt.af_link_before == 1
+        ),
         IntField('af_link_after', 0),
-        ConditionalField(PacketField('link_attributes_after', fattr3(), fattr3),
-                        lambda pkt: pkt.af_link_after == 1)
+        ConditionalField(
+            PacketField('link_attributes_after', fattr3(), fattr3),
+            lambda pkt: pkt.af_link_after == 1
+        )
     ]
 
 
@@ -712,11 +854,15 @@ class RMDIR_Reply(Packet):
     fields_desc = [
         IntEnumField('status', 0, nfsstat3),
         IntField('af_before', 0),
-        ConditionalField(PacketField('attributes_before', wcc_attr(), wcc_attr),
-                        lambda pkt: pkt.af_before == 1),
+        ConditionalField(
+            PacketField('attributes_before', wcc_attr(), wcc_attr),
+            lambda pkt: pkt.af_before == 1
+        ),
         IntField('af_after', 0),
-        ConditionalField(PacketField('attributes_after', fattr3(), fattr3),
-                        lambda pkt: pkt.af_after == 1)
+        ConditionalField(
+            PacketField('attributes_after', fattr3(), fattr3),
+            lambda pkt: pkt.af_after == 1
+        )
     ]
 
 
@@ -737,16 +883,22 @@ class READLINK_Reply(Packet):
     fields_desc = [
         IntEnumField('status', 0, nfsstat3),
         IntField('attributes_follow', 0),
-        ConditionalField(PacketField('attributes', fattr3(), fattr3),
-                        lambda pkt: pkt.attributes_follow == 1),
-        ConditionalField(PacketField('filename', object_name(), object_name),
-                        lambda pkt: pkt.status == 0)
+        ConditionalField(
+            PacketField('attributes', fattr3(), fattr3),
+            lambda pkt: pkt.attributes_follow == 1
+        ),
+        ConditionalField(
+            PacketField('filename', object_name(), object_name),
+            lambda pkt: pkt.status == 0
+        )
     ]
 
 
 bind_layers(rpc.RPC, READLINK_Call, mtype=0)
 bind_layers(rpc.RPC, READLINK_Reply, mtype=1)
-bind_layers(rpc.RPC_Call, READLINK_Call, program=100003, pversion=3, procedure=5)
+bind_layers(
+    rpc.RPC_Call, READLINK_Call, program=100003, pversion=3, procedure=5
+)
 
 
 class READ_Call(Packet):
@@ -763,17 +915,25 @@ class READ_Reply(Packet):
     fields_desc = [
         IntEnumField('status', 0, nfsstat3),
         IntField('attributes_follow', 0),
-        ConditionalField(PacketField('attributes', fattr3(), fattr3),
-                        lambda pkt: pkt.attributes_follow == 1),
+        ConditionalField(
+            PacketField('attributes', fattr3(), fattr3),
+            lambda pkt: pkt.attributes_follow == 1
+        ),
         ConditionalField(IntField('count', 0), lambda pkt: pkt.status == 0),
         ConditionalField(IntField('eof', 0), lambda pkt: pkt.status == 0),
-        ConditionalField(IntField('data_length', 0), lambda pkt: pkt.status == 0),
-        ConditionalField(StrLenField('data', 0,
-                        length_from=lambda pkt: pkt.data_length),
-            lambda pkt: pkt.status == 0),
-        ConditionalField(StrLenField('fill', 0,
-                        length_from=lambda pkt: (4-pkt.data_length) % 4),
-            lambda pkt: pkt.status == 0)
+        ConditionalField(
+            IntField('data_length', 0), lambda pkt: pkt.status == 0
+        ),
+        ConditionalField(
+            StrLenField('data', 0, length_from=lambda pkt: pkt.data_length),
+            lambda pkt: pkt.status == 0
+        ),
+        ConditionalField(
+            StrLenField(
+                'fill', 0, length_from=lambda pkt: (4-pkt.data_length) % 4
+            ),
+            lambda pkt: pkt.status == 0
+        )
     ]
 
 
@@ -795,20 +955,30 @@ class MKDIR_Reply(Packet):
     name = 'MKDIR Reply'
     fields_desc = [
         IntEnumField('status', 0, nfsstat3),
-        ConditionalField(IntField('handle_follows', 0),
-                        lambda pkt: pkt.status == 0),
-        ConditionalField(PacketField('filehandle', file_object(), file_object),
-                        lambda pkt: pkt.status == 0 and pkt.handle_follows == 1),
-        ConditionalField(IntField('attributes_follow', 0),
-                        lambda pkt: pkt.status == 0),
-        ConditionalField(PacketField('attributes', fattr3(), fattr3),
-                        lambda pkt: pkt.status == 0 and pkt.attributes_follow == 1),
+        ConditionalField(
+            IntField('handle_follows', 0), lambda pkt: pkt.status == 0
+        ),
+        ConditionalField(
+            PacketField('filehandle', file_object(), file_object),
+            lambda pkt: pkt.status == 0 and pkt.handle_follows == 1
+        ),
+        ConditionalField(
+            IntField('attributes_follow', 0), lambda pkt: pkt.status == 0
+        ),
+        ConditionalField(
+            PacketField('attributes', fattr3(), fattr3),
+            lambda pkt: pkt.status == 0 and pkt.attributes_follow == 1
+        ),
         IntField('af_before', 0),
-        ConditionalField(PacketField('dir_attributes_before', wcc_attr(), wcc_attr),
-                        lambda pkt: pkt.af_before == 1),
+        ConditionalField(
+            PacketField('dir_attributes_before', wcc_attr(), wcc_attr),
+            lambda pkt: pkt.af_before == 1
+        ),
         IntField('af_after', 0),
-        ConditionalField(PacketField('dir_attributes_after', fattr3(), fattr3),
-                        lambda pkt: pkt.af_after == 1)
+        ConditionalField(
+            PacketField('dir_attributes_after', fattr3(), fattr3),
+            lambda pkt: pkt.af_after == 1
+        )
     ]
 
 
@@ -831,23 +1001,35 @@ class SYMLINK_Reply(Packet):
     name = 'SYMLINK Reply'
     fields_desc = [
         IntEnumField('status', 0, nfsstat3),
-        ConditionalField(IntField('handle_follows', 0),
-                        lambda pkt: pkt.status == 0),
-        ConditionalField(PacketField('filehandle', file_object(), file_object),
-                        lambda pkt: pkt.status == 0 and pkt.handle_follows == 1),
-        ConditionalField(IntField('attributes_follow', 0),
-                        lambda pkt: pkt.status == 0),
-        ConditionalField(PacketField('attributes', fattr3(), fattr3),
-                        lambda pkt: pkt.status == 0 and pkt.attributes_follow == 1),
+        ConditionalField(
+            IntField('handle_follows', 0), lambda pkt: pkt.status == 0
+        ),
+        ConditionalField(
+            PacketField('filehandle', file_object(), file_object),
+            lambda pkt: pkt.status == 0 and pkt.handle_follows == 1
+        ),
+        ConditionalField(
+            IntField('attributes_follow', 0), lambda pkt: pkt.status == 0
+        ),
+        ConditionalField(
+            PacketField('attributes', fattr3(), fattr3),
+            lambda pkt: pkt.status == 0 and pkt.attributes_follow == 1
+        ),
         IntField('af_before', 0),
-        ConditionalField(PacketField('dir_attributes_before', wcc_attr(), wcc_attr),
-                        lambda pkt: pkt.af_before == 1),
+        ConditionalField(
+            PacketField('dir_attributes_before', wcc_attr(), wcc_attr),
+            lambda pkt: pkt.af_before == 1
+        ),
         IntField('af_after', 0),
-        ConditionalField(PacketField('dir_attributes_after', fattr3(), fattr3),
-                        lambda pkt: pkt.af_after == 1)
+        ConditionalField(
+            PacketField('dir_attributes_after', fattr3(), fattr3),
+            lambda pkt: pkt.af_after == 1
+        )
     ]
 
 
 bind_layers(rpc.RPC, SYMLINK_Call, mtype=0)
 bind_layers(rpc.RPC, SYMLINK_Reply, mtype=1)
-bind_layers(rpc.RPC_Call, SYMLINK_Call, program=100003, pversion=3, procedure=10)
+bind_layers(
+    rpc.RPC_Call, SYMLINK_Call, program=100003, pversion=3, procedure=10
+)

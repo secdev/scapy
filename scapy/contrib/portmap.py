@@ -30,7 +30,9 @@ class GETPORT_Reply(Packet):
 
 bind_layers(rpc.RPC, GETPORT_Call, mtype=0)
 bind_layers(rpc.RPC, GETPORT_Reply, mtype=1)
-bind_layers(rpc.RPC_Call, GETPORT_Call, program=100000, pversion=2, procedure=3)
+bind_layers(
+    rpc.RPC_Call, GETPORT_Call, program=100000, pversion=2, procedure=3
+)
 
 
 class NULL_Call(Packet):
@@ -72,10 +74,10 @@ class DUMP_Reply(Packet):
     fields_desc = [
         IntField('value_follows', 0),
         PacketListField('mappings', [], cls=map_entry,
-            next_cls_cb=lambda pkt,lst,cur,remain:
-            map_entry if pkt.value_follows==1 and \
-            (len(lst)==0 or cur.value_follows==1) and \
-            len(remain)>4 else None)
+                        next_cls_cb=lambda pkt, lst, cur, remain:
+                        map_entry if pkt.value_follows == 1 and
+                        (len(lst) == 0 or cur.value_follows == 1) and
+                        len(remain) > 4 else None)
     ]
 
 

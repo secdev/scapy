@@ -57,7 +57,7 @@ class object_name(Packet):
     fields_desc = [
         IntField('length', 0),
         StrLenField('_name', '', length_from=lambda pkt: pkt.length),
-        StrLenField('fill', '', length_from=lambda pkt: (4-pkt.length) % 4)
+        StrLenField('fill', '', length_from=lambda pkt: (4 - pkt.length) % 4)
     ]
 
     def set(self, name, length=None, fill=None):
@@ -78,7 +78,7 @@ class nlm4_cookie(Packet):
     fields_desc = [
         IntField('length', 0),
         StrLenField('contents', '', length_from=lambda pkt: pkt.length),
-        StrLenField('fill', b'', length_from=lambda pkt: (4-pkt.length)%4)
+        StrLenField('fill', b'', length_from=lambda pkt: (4 - pkt.length) % 4)
     ]
 
     def set(self, c, length=None, fill=None):
@@ -143,7 +143,9 @@ class UNSHARE_Reply(Packet):
     ]
 
 
-bind_layers(rpc.RPC_Call, UNSHARE_Call, program=100021, pversion=4, procedure=21)
+bind_layers(
+    rpc.RPC_Call, UNSHARE_Call, program=100021, pversion=4, procedure=21
+)
 bind_layers(rpc.RPC, UNSHARE_Call, mtype=0)
 bind_layers(rpc.RPC, UNSHARE_Reply, mtype=1)
 
@@ -223,7 +225,9 @@ class GRANTED_MSG_Reply(Packet):
     fields_desc = []
 
 
-bind_layers(rpc.RPC_Call, GRANTED_MSG_Call, program=100021, pversion=4, procedure=10)
+bind_layers(
+    rpc.RPC_Call, GRANTED_MSG_Call, program=100021, pversion=4, procedure=10
+)
 bind_layers(rpc.RPC, GRANTED_MSG_Call, mtype=0)
 bind_layers(rpc.RPC, GRANTED_MSG_Reply, mtype=1)
 
@@ -241,7 +245,9 @@ class GRANTED_RES_Reply(Packet):
     fields_desc = []
 
 
-bind_layers(rpc.RPC_Call, GRANTED_RES_Call, program=100021, pversion=4, procedure=15)
+bind_layers(
+    rpc.RPC_Call, GRANTED_RES_Call, program=100021, pversion=4, procedure=15
+)
 bind_layers(rpc.RPC, GRANTED_RES_Call, mtype=0)
 bind_layers(rpc.RPC, GRANTED_RES_Reply, mtype=1)
 
