@@ -625,8 +625,10 @@ class TCP(Packet):
         p += pay
         dataofs = self.dataofs
         if dataofs is None:
-            dataofs = 5 + ((len(self.get_field("options").i2m(self, self.options)) + 3) // 4)  # noqa: E501
-            p = p[:12] + chb((dataofs << 4) | orb(p[12]) & 0x0f) + p[13:]
+            opt_len = len(self.get_field("options").i2m(self, self.options))
+            dataofs = 5 + ((opt_len + 3) // 4)
+            dataofs = (dataofs << 4) | orb(p[12]) & 0x0f
+            p = p[:12] + chb(dataofs & 0xff) + p[13:]
         if self.chksum is None:
             if isinstance(self.underlayer, IP):
                 ck = in4_chksum(socket.IPPROTO_TCP, self.underlayer, p)

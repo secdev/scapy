@@ -7544,6 +7544,7 @@ assert plen == payloadlen
 ############
 ############
 + TCP/IP tests
+~ tcp
 
 = TCP options: UTO - basic build
 raw(TCP(options=[("UTO", 0xffff)])) == b"\x00\x14\x00\x50\x00\x00\x00\x00\x00\x00\x00\x00\x60\x02\x20\x00\x00\x00\x00\x00\x1c\x04\xff\xff"
@@ -7589,6 +7590,10 @@ raw(TCP(options=[(30, b"\x10\x03\xc1\x1c\x95\x9b\x81R_1")])) == b"\x00\x14\x00P\
 data = b'\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00\x80\x02 \x00\x1b\xb8\x00\x00\x02\x04\x05\xb4\x04\x02\x08\x06\xf7\xa26C\x00\x00\x00\x00\x01\x03\x03\x07'
 p = TCP(data)
 assert TCP in p and Raw in p and len(p.options) == 3
+
+= TCP options: build oversized packet
+
+raw(TCP(options=[('TFO', (1607681672, 2269173587)), ('AltChkSum', (81, 27688)), ('TFO', (253281879, 1218258937)), ('Timestamp', (1613741359, 4215831072)), ('Timestamp', (3856332598, 1434258666))]))
 
 = TCP random options
 pkt = TCP()
