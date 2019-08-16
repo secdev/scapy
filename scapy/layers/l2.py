@@ -185,7 +185,7 @@ class Ether(Packet):
 class Dot3(Packet):
     name = "802.3"
     fields_desc = [DestMACField("dst"),
-                   MACField("src", ETHER_ANY),
+                   SourceMACField("src"),
                    LenField("len", None, "H")]
 
     def extract_padding(self, s):
