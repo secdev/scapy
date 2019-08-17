@@ -7144,6 +7144,18 @@ wrpcap(filename, SndRcvList(res=[(Ether()/IP(), Ether()/IP())]))
 assert len(rdpcap(filename)) == 2
 os.remove(filename)
 
+= Check wrpcap() with different packets types
+
+import mock
+import os
+import tempfile
+
+with mock.patch("scapy.utils.warning") as warning:
+    filename = tempfile.mktemp()
+    wrpcap(filename, [IP(), Ether(), IP(), IP()])
+    os.remove(filename)
+    assert any("Inconsistent" in arg for arg in warning.call_args[0])
+
 ############
 ############
 + Sessions

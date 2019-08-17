@@ -1305,8 +1305,16 @@ nano:       use nanosecond-precision (requires libpcap >= 1.5.0)
             else:
                 pkt = pkt.__iter__()
             for p in pkt:
+
                 if not self.header_present:
                     self._write_header(p)
+
+                if self.linktype != conf.l2types.get(type(p), None):
+                    warning("Inconsistent linktypes detected!"
+                            " The resulting PCAP file might contain"
+                            " invalid packets."
+                            )
+
                 self._write_packet(p)
 
     def _write_packet(self, packet, sec=None, usec=None, caplen=None,
