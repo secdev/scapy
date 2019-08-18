@@ -844,7 +844,7 @@ class TLSServerKeyExchange(_TLSHandshake):
                                       length_from=lambda pkt: pkt.msglen - len(pkt.params))]  # noqa: E501
 
     def build(self, *args, **kargs):
-        """
+        r"""
         We overload build() method in order to provide a valid default value
         for params based on TLS session if not provided. This cannot be done by
         overriding i2m() because the method is called on a copy of the packet.
@@ -852,16 +852,17 @@ class TLSServerKeyExchange(_TLSHandshake):
         The 'params' field is built according to key_exchange.server_kx_msg_cls
         which should have been set after receiving a cipher suite in a
         previous ServerHello. Usual cases are:
+
         - None: for RSA encryption or fixed FF/ECDH. This should never happen,
           as no ServerKeyExchange should be generated in the first place.
         - ServerDHParams: for ephemeral FFDH. In that case, the parameter to
           server_kx_msg_cls does not matter.
-        - ServerECDH*Params: for ephemeral ECDH. There are actually three
+        - ServerECDH\*Params: for ephemeral ECDH. There are actually three
           classes, which are dispatched by _tls_server_ecdh_cls_guess on
           the first byte retrieved. The default here is b"\03", which
           corresponds to ServerECDHNamedCurveParams (implicit curves).
 
-        When the Server*DHParams are built via .fill_missing(), the session
+        When the Server\*DHParams are built via .fill_missing(), the session
         server_kx_privkey will be updated accordingly.
         """
         fval = self.getfieldval("params")

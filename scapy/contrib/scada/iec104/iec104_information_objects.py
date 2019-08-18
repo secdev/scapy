@@ -337,6 +337,7 @@ class IEC104_IO_Packet(Packet):
     def iec104_io_type_id(self):
         """
         get individual type id of the information object instance
+
         :return: information object type id (IEC104_IO_ID_*)
         """
         return self._IEC104_IO_TYPE_ID
@@ -344,6 +345,7 @@ class IEC104_IO_Packet(Packet):
     def defined_for_iec_101(self):
         """
         information object ASDU allowed for IEC 60870-5-101
+
         :return: True if the information object is defined within
                  IEC 60870-5-101, else False
         """
@@ -352,6 +354,7 @@ class IEC104_IO_Packet(Packet):
     def defined_for_iec_104(self):
         """
         information object ASDU allowed for IEC 60870-5-104
+
         :return: True if the information object is defined within
                  IEC 60870-5-104, else False
         """

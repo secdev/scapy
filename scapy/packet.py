@@ -1275,28 +1275,38 @@ values.
         return self.__class__(raw(self)).show(dump, indent, lvl, label_lvl)
 
     def sprintf(self, fmt, relax=1):
-        """sprintf(format, [relax=1]) -> str
-where format is a string that can include directives. A directive begins and
-ends by % and has the following format %[fmt[r],][cls[:nb].]field%.
+        """
+        sprintf(format, [relax=1]) -> str
 
-fmt is a classic printf directive, "r" can be appended for raw substitution
-(ex: IP.flags=0x18 instead of SA), nb is the number of the layer we want
-(ex: for IP/IP packets, IP:2.src is the src of the upper IP layer).
-Special case : "%.time%" is the creation time.
-Ex : p.sprintf("%.time% %-15s,IP.src% -> %-15s,IP.dst% %IP.chksum% "
-               "%03xr,IP.proto% %r,TCP.flags%")
+        Where format is a string that can include directives. A directive
+        begins and ends by % and has the following format:
+        ``%[fmt[r],][cls[:nb].]field%``
 
-Moreover, the format string can include conditional statements. A conditional
-statement looks like : {layer:string} where layer is a layer name, and string
-is the string to insert in place of the condition if it is true, i.e. if layer
-is present. If layer is preceded by a "!", the result is inverted. Conditions
-can be imbricated. A valid statement can be :
-  p.sprintf("This is a{TCP: TCP}{UDP: UDP}{ICMP:n ICMP} packet")
-  p.sprintf("{IP:%IP.dst% {ICMP:%ICMP.type%}{TCP:%TCP.dport%}}")
+        :param fmt: is a classic printf directive, "r" can be appended for raw
+          substitution:
+          (ex: IP.flags=0x18 instead of SA), nb is the number of the layer
+          (ex: for IP/IP packets, IP:2.src is the src of the upper IP layer).
+          Special case : "%.time%" is the creation time.
+          Ex::
 
-A side effect is that, to obtain "{" and "}" characters, you must use
-"%(" and "%)".
-"""
+            p.sprintf(
+              "%.time% %-15s,IP.src% -> %-15s,IP.dst% %IP.chksum% "
+              "%03xr,IP.proto% %r,TCP.flags%"
+            )
+
+          Moreover, the format string can include conditional statements. A
+          conditional statement looks like : {layer:string} where layer is a
+          layer name, and string is the string to insert in place of the
+          condition if it is true, i.e. if layer is present. If layer is
+          preceded by a "!", the result is inverted. Conditions can be
+          imbricated. A valid statement can be::
+
+            p.sprintf("This is a{TCP: TCP}{UDP: UDP}{ICMP:n ICMP} packet")
+            p.sprintf("{IP:%IP.dst% {ICMP:%ICMP.type%}{TCP:%TCP.dport%}}")
+
+          A side effect is that, to obtain "{" and "}" characters, you must use
+          "%(" and "%)".
+        """
 
         escape = {"%": "%",
                   "(": "{",
@@ -1466,8 +1476,8 @@ hashable.
         By default, this only implements conversion to ``Raw``.
 
         :param other_cls: Reference to a Packet class to convert to.
-        :type other_cls: Type[Packet]
-        :returns: Converted form of the packet.
+        :type other_cls: Type[scapy.packet.Packet]
+        :return: Converted form of the packet.
         :rtype: other_cls
         :raises TypeError: When conversion is not possible
         """
@@ -1490,8 +1500,8 @@ hashable.
         This is not guaranteed to be a lossless process.
 
         :param pkt: The packet to convert.
-        :type pkt: Packet
-        :returns: Converted form of the packet.
+        :type pkt: scapy.packet.Packet
+        :return: Converted form of the packet.
         :rtype: cls
         :raises TypeError: When conversion is not possible
         """
@@ -1927,10 +1937,10 @@ def explore(layer=None):
 @conf.commands.register
 def ls(obj=None, case_sensitive=False, verbose=False):
     """List  available layers, or infos on a given layer class or name.
-    params:
-     - obj: Packet / packet name to use
-     - case_sensitive: if obj is a string, is it case sensitive?
-     - verbose
+
+    :param obj: Packet / packet name to use
+    :param case_sensitive: if obj is a string, is it case sensitive?
+    :param verbose:
     """
     is_string = isinstance(obj, six.string_types)
 
@@ -2027,7 +2037,7 @@ def fuzz(p, _inplace=0):
     by random objects.
 
     :param p: the Packet instance to fuzz
-    :returns: the fuzzed packet.
+    :return: the fuzzed packet.
     """
     if not _inplace:
         p = p.copy()

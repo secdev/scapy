@@ -104,11 +104,9 @@ def autorun_get_interactive_session(cmds, **kargs):
     """Create an interactive session and execute the
     commands passed as "cmds" and return all output
 
-    params:
-      - cmds: a list of commands to run
-    returns: (output, returned)
-
-    The output contains both sys.stdout and sys.stderr logs"""
+    :param cmds: a list of commands to run
+    :returns: (output, returned) contains both sys.stdout and sys.stderr logs
+    """
     sstdout, sstderr = sys.stdout, sys.stderr
     sw = StringWriter()
     try:

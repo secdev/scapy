@@ -383,11 +383,12 @@ class ISOTPMessageBuilder:
     def pop(self, identifier=None, ext_addr=None):
         """
         Returns a built ISOTP message
+
         :param identifier: if not None, only return isotp messages with this
                            destination
         :param ext_addr: if identifier is not None, only return isotp messages
                          with this extended address for destination
-        :return: an ISOTP packet, or None if no message is ready
+        :returns: an ISOTP packet, or None if no message is ready
         """
 
         if identifier is not None:
@@ -488,8 +489,9 @@ class ISOTPMessageBuilder:
 
 class ISOTPSession(DefaultSession):
     """Defragment ISOTP packets 'on-the-flow'.
+
     Usage:
-      >>> sniff(session=ISOTPSession)
+    >>> sniff(session=ISOTPSession)
     """
 
     def __init__(self, *args, **karg):
@@ -1828,26 +1830,27 @@ def ISOTPScan(sock, scan_range=range(0x7ff + 1), extended_addressing=False,
     """Scan for ISOTP Sockets on a bus and return findings
 
     Args:
-            sock: CANSocket object to communicate with the bus under scan
-            scan_range: hexadecimal range of CAN-Identifiers to scan.
-                        Default is 0x0 - 0x7ff
-            extended_addressing: scan with ISOTP extended addressing
-            noise_listen_time: seconds to listen for default
-                               communication on the bus
-            sniff_time: time the scan waits for isotp flow control responses
-                        after sending a first frame
-            output_format: defines the format of the returned
-                           results (text, code or sockets). Provide a string
-                           e.g. "text". Default is "socket".
-            can_interface: interface used to create the returned code/sockets
-            verbose: displays information during scan
+        sock: CANSocket object to communicate with the bus under scan
+        scan_range: hexadecimal range of CAN-Identifiers to scan.
+                    Default is 0x0 - 0x7ff
+        extended_addressing: scan with ISOTP extended addressing
+        noise_listen_time: seconds to listen for default
+                           communication on the bus
+        sniff_time: time the scan waits for isotp flow control responses
+                    after sending a first frame
+        output_format: defines the format of the returned
+                       results (text, code or sockets). Provide a string
+                       e.g. "text". Default is "socket".
+        can_interface: interface used to create the returned code/sockets
+        verbose: displays information during scan
 
     Scan for ISOTP Sockets in the defined range and returns found sockets
     in a specified format. The format can be:
-    text: human readable output
-    code: python code for copy&paste
-    sockets: if output format is not specified, ISOTPSockets will be
-             created and returned in a list
+
+    - text: human readable output
+    - code: python code for copy&paste
+    - sockets: if output format is not specified, ISOTPSockets will be
+      created and returned in a list
     """
 
     if verbose:

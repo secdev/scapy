@@ -572,7 +572,7 @@ def http_request(host, path="/", port=80, timeout=3,
     :param port: the port (default 80)
     :param timeout: timeout before None is returned
     :param display: display the resullt in the default browser (default False)
-    :param **headers: any additional headers passed to the request
+    :param headers: any additional headers passed to the request
 
     :returns: the HTTPResponse packet
     """

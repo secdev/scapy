@@ -477,19 +477,23 @@ class ProfinetDCP(Packet):
     Profinet DCP Packet
 
     Requests are handled via ConditionalField because here only 1 Block is used
-        qevery time
-    Ŕesoinse can contain 1..n Blocks, for that you have to use one ProfinetDCP
-        Layer with one or multiple DCP*Block Layers
+    every time.
+
+    Response can contain 1..n Blocks, for that you have to use one ProfinetDCP
+    Layer with one or multiple DCP*Block Layers::
+
         ProfinetDCP / DCPNameOfStationBlock / DCPDeviceIDBlock ...
 
-    Example for a DCP Identify All Request:
+    Example for a DCP Identify All Request::
+
         Ether(dst="01:0e:cf:00:00:00") /
         ProfinetIO(frameID=DCP_IDENTIFY_REQUEST_FRAME_ID) /
         ProfinetDCP(service_id=DCP_SERVICE_ID_IDENTIFY,
             service_type=DCP_REQUEST, option=255, sub_option=255,
             dcp_data_length=4)
 
-    Example for a DCP Identify Response:
+    Example for a DCP Identify Response::
+
         Ether(dst=dst_mac) /
         ProfinetIO(frameID=DCP_IDENTIFY_RESPONSE_FRAME_ID) /
         ProfinetDCP(
@@ -497,7 +501,8 @@ class ProfinetDCP(Packet):
             service_type=DCP_RESPONSE) /
         DCPNameOfStationBlock(name_of_station="device1")
 
-    Example for a DCP Set Request:
+    Example for a DCP Set Request::
+
         Ether(dst=mac) /
         ProfinetIO(frameID=DCP_GET_SET_FRAME_ID) /
         ProfinetDCP(service_id=DCP_SERVICE_ID_SET, service_type=DCP_REQUEST,

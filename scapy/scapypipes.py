@@ -19,11 +19,13 @@ from scapy.consts import WINDOWS
 class SniffSource(Source):
     """Read packets from an interface and send them to low exit.
 
-         +-----------+
-      >>-|           |->>
-         |           |
-       >-|  [iface]--|->
-         +-----------+
+    .. code::
+
+             +-----------+
+          >>-|           |->>
+             |           |
+           >-|  [iface]--|->
+             +-----------+
 
     If neither of the ``iface`` or ``socket`` parameters are specified, then
     Scapy will capture from the first network interface.
@@ -70,12 +72,15 @@ class SniffSource(Source):
 
 class RdpcapSource(Source):
     """Read packets from a PCAP file send them to low exit.
-     +----------+
-  >>-|          |->>
-     |          |
-   >-|  [pcap]--|->
-     +----------+
-"""
+
+    .. code::
+
+         +----------+
+      >>-|          |->>
+         |          |
+       >-|  [pcap]--|->
+         +----------+
+    """
 
     def __init__(self, fname, name=None):
         Source.__init__(self, name=name)
@@ -105,12 +110,15 @@ class RdpcapSource(Source):
 
 class InjectSink(Sink):
     """Packets received on low input are injected to an interface
-     +-----------+
-  >>-|           |->>
-     |           |
-   >-|--[iface]  |->
-     +-----------+
-"""
+
+    .. code::
+
+         +-----------+
+      >>-|           |->>
+         |           |
+       >-|--[iface]  |->
+         +-----------+
+    """
 
     def __init__(self, iface=None, name=None):
         Sink.__init__(self, name=name)
@@ -135,12 +143,15 @@ class Inject3Sink(InjectSink):
 
 class WrpcapSink(Sink):
     """Packets received on low input are written to PCAP file
-     +----------+
-  >>-|          |->>
-     |          |
-   >-|--[pcap]  |->
-     +----------+
-"""
+
+    .. code::
+
+         +----------+
+      >>-|          |->>
+         |          |
+       >-|--[pcap]  |->
+         +----------+
+    """
 
     def __init__(self, fname, name=None, linktype=None):
         Sink.__init__(self, name=name)
@@ -163,6 +174,8 @@ class WrpcapSink(Sink):
 
 class WiresharkSink(WrpcapSink):
     """Packets received on low input are pushed to Wireshark.
+
+    .. code::
 
          +----------+
       >>-|          |->>
@@ -196,12 +209,15 @@ class WiresharkSink(WrpcapSink):
 
 class UDPDrain(Drain):
     """UDP payloads received on high entry are sent over UDP
-     +-------------+
-  >>-|--[payload]--|->>
-     |      X      |
-   >-|----[UDP]----|->
-     +-------------+
-"""
+
+    .. code::
+
+         +-------------+
+      >>-|--[payload]--|->>
+         |      X      |
+       >-|----[UDP]----|->
+         +-------------+
+    """
 
     def __init__(self, ip="127.0.0.1", port=1234):
         Drain.__init__(self)
@@ -222,12 +238,15 @@ class UDPDrain(Drain):
 
 class FDSourceSink(Source):
     """Use a file descriptor as source and sink
-     +-------------+
-  >>-|             |->>
-     |             |
-   >-|-[file desc]-|->
-     +-------------+
-"""
+
+    .. code::
+
+         +-------------+
+      >>-|             |->>
+         |             |
+       >-|-[file desc]-|->
+         +-------------+
+    """
 
     def __init__(self, fd, name=None):
         Source.__init__(self, name=name)
@@ -245,12 +264,15 @@ class FDSourceSink(Source):
 
 class TCPConnectPipe(Source):
     """TCP connect to addr:port and use it as source and sink
-     +-------------+
-  >>-|             |->>
-     |             |
-   >-|-[addr:port]-|->
-     +-------------+
-"""
+
+    .. code::
+
+         +-------------+
+      >>-|             |->>
+         |             |
+       >-|-[addr:port]-|->
+         +-------------+
+    """
     __selectable_force_select__ = True
 
     def __init__(self, addr="", port=0, name=None):
@@ -284,13 +306,17 @@ class TCPConnectPipe(Source):
 
 
 class TCPListenPipe(TCPConnectPipe):
-    """TCP listen on [addr:]port and use first connection as source and sink ; send peer address to high output  # noqa: E501
-     +------^------+
-  >>-|    +-[peer]-|->>
-     |   /         |
-   >-|-[addr:port]-|->
-     +-------------+
-"""
+    """TCP listen on [addr:]port and use first connection as source and sink;
+    send peer address to high output
+
+    .. code::
+
+         +------^------+
+      >>-|    +-[peer]-|->>
+         |   /         |
+       >-|-[addr:port]-|->
+         +-------------+
+    """
     __selectable_force_select__ = True
 
     def __init__(self, addr="", port=0, name=None):
@@ -336,12 +362,15 @@ class TCPListenPipe(TCPConnectPipe):
 
 class TriggeredMessage(Drain):
     """Send a preloaded message when triggered and trigger in chain
-     +------^------+
-  >>-|      | /----|->>
-     |      |/     |
-   >-|-[ message ]-|->
-     +------^------+
-"""
+
+    .. code::
+
+         +------^------+
+      >>-|      | /----|->>
+         |      |/     |
+       >-|-[ message ]-|->
+         +------^------+
+    """
 
     def __init__(self, msg, name=None):
         Drain.__init__(self, name=name)
@@ -355,12 +384,15 @@ class TriggeredMessage(Drain):
 
 class TriggerDrain(Drain):
     """Pass messages and trigger when a condition is met
-     +------^------+
-  >>-|-[condition]-|->>
-     |      |      |
-   >-|-[condition]-|->
-     +-------------+
-"""
+
+    .. code::
+
+         +------^------+
+      >>-|-[condition]-|->>
+         |      |      |
+       >-|-[condition]-|->
+         +-------------+
+    """
 
     def __init__(self, f, name=None):
         Drain.__init__(self, name=name)
@@ -381,12 +413,15 @@ class TriggerDrain(Drain):
 
 class TriggeredValve(Drain):
     """Let messages alternatively pass or not, changing on trigger
-     +------^------+
-  >>-|-[pass/stop]-|->>
-     |      |      |
-   >-|-[pass/stop]-|->
-     +------^------+
-"""
+
+.. code::
+
+         +------^------+
+      >>-|-[pass/stop]-|->>
+         |      |      |
+       >-|-[pass/stop]-|->
+         +------^------+
+    """
 
     def __init__(self, start_state=True, name=None):
         Drain.__init__(self, name=name)
@@ -407,12 +442,15 @@ class TriggeredValve(Drain):
 
 class TriggeredQueueingValve(Drain):
     """Let messages alternatively pass or queued, changing on trigger
-     +------^-------+
-  >>-|-[pass/queue]-|->>
-     |      |       |
-   >-|-[pass/queue]-|->
-     +------^-------+
-"""
+
+    .. code::
+
+         +------^-------+
+      >>-|-[pass/queue]-|->>
+         |      |       |
+       >-|-[pass/queue]-|->
+         +------^-------+
+    """
 
     def __init__(self, start_state=True, name=None):
         Drain.__init__(self, name=name)
@@ -451,12 +489,15 @@ class TriggeredQueueingValve(Drain):
 
 class TriggeredSwitch(Drain):
     r"""Let messages alternatively high or low, changing on trigger
-     +------^------+
-  >>-|-\    |    /-|->>
-     |  [up/down]  |
-   >-|-/    |    \-|->
-     +------^------+
-"""
+
+    .. code::
+
+         +------^------+
+      >>-|-\    |    /-|->>
+         |  [up/down]  |
+       >-|-/    |    \-|->
+         +------^------+
+    """
 
     def __init__(self, start_state=True, name=None):
         Drain.__init__(self, name=name)
@@ -476,6 +517,8 @@ class TriggeredSwitch(Drain):
 
 class ConvertPipe(Drain):
     """Packets sent on entry are converted to another type of packet.
+
+    .. code::
 
          +-------------+
       >>-|--[convert]--|->>

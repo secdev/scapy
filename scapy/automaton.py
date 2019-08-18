@@ -191,11 +191,11 @@ class SelectableSelector(object):
 def select_objects(inputs, remain):
     """
     Select SelectableObject objects. Same than:
-        select.select([inputs], [], [], remain)
+    ``select.select([inputs], [], [], remain)``
     But also works on Windows, only on SelectableObject.
 
-    inputs: objects to process
-    remain: timeout. If 0, return [].
+    :param inputs: objects to process
+    :param remain: timeout. If 0, return [].
     """
     handler = SelectableSelector(inputs, remain)
     return handler.process()
