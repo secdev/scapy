@@ -543,7 +543,7 @@ class COMMIT_Reply(Packet):
         IntEnumField('status', 0, nfsstat3),
         IntField('af_before', 0),
         ConditionalField(
-            PacketField('attributes_before', Fattr3(), Fattr3),
+            PacketField('attributes_before', WCC_Attr(), WCC_Attr),
             lambda pkt: pkt.af_before == 1
         ),
         IntField('af_after', 0),
