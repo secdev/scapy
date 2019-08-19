@@ -153,6 +153,26 @@ _bluetooth_error_codes = {
     0x38: "host busy pairing"
 }
 
+_att_error_codes = {
+    0x01: "invalid handle",
+    0x02: "read not permitted",
+    0x03: "write not permitted",
+    0x04: "invalid pdu",
+    0x05: "insufficient auth",
+    0x06: "unsupported req",
+    0x07: "invalid offset",
+    0x08: "insuficient author",
+    0x09: "prepare queue full",
+    0x0a: "attr not found",
+    0x0b: "attr not long",
+    0x0c: "insufficient key size",
+    0x0d: "invalid value size",
+    0x0e: "unlikely",
+    0x0f: "insufficiet encrypt",
+    0x10: "unsupported gpr type",
+    0x11: "insufficient resources",
+}
+
 
 class HCI_Hdr(Packet):
     name = "HCI header"
@@ -344,7 +364,7 @@ class ATT_Error_Response(Packet):
     name = "Error Response"
     fields_desc = [XByteField("request", 0),
                    LEShortField("handle", 0),
-                   XByteField("ecode", 0), ]
+                   ByteEnumField("ecode", 0, _att_error_codes), ]
 
 
 class ATT_Exchange_MTU_Request(Packet):
@@ -621,6 +641,17 @@ class SM_Identity_Address_Information(Packet):
 class SM_Signing_Information(Packet):
     name = "Signing Information"
     fields_desc = [StrFixedLenField("csrk", b'\x00' * 16, 16), ]
+
+
+class SM_Public_Key(Packet):
+    name = "Public Key"
+    fields_desc = [StrFixedLenField("key_x", b'\x00' * 32, 32),
+                   StrFixedLenField("key_y", b'\x00' * 32, 32), ]
+
+
+class SM_DHKey_Check(Packet):
+    name = "DHKey Check"
+    fields_desc = [StrFixedLenField("dhkey_check", b'\x00' * 16, 16), ]
 
 
 class EIR_Hdr(Packet):
@@ -1303,6 +1334,8 @@ bind_layers(SM_Hdr, SM_Master_Identification, sm_command=7)
 bind_layers(SM_Hdr, SM_Identity_Information, sm_command=8)
 bind_layers(SM_Hdr, SM_Identity_Address_Information, sm_command=9)
 bind_layers(SM_Hdr, SM_Signing_Information, sm_command=0x0a)
+bind_layers(SM_Hdr, SM_Public_Key, sm_command=0x0c)
+bind_layers(SM_Hdr, SM_DHKey_Check, sm_command=0x0d)
 
 
 ###########
