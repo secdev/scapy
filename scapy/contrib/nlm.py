@@ -7,10 +7,10 @@
 # scapy.contrib.status = loads
 
 import scapy.contrib.oncrpc as rpc
-from binascii import hexlify, unhexlify
+from binascii import unhexlify
 from scapy.packet import Packet, bind_layers
-from scapy.fields import IntField, StrLenField, StrField, LongField, \
-    PacketField, IntEnumField
+from scapy.fields import IntField, StrLenField, LongField, PacketField, \
+    IntEnumField
 
 nlm4_stats = {
     0: 'NLM4_GRANTED',
@@ -31,7 +31,7 @@ class File_Object(Packet):
     fields_desc = [
         IntField('length', 0),
         StrLenField('fh', b'', length_from=lambda pkt: pkt.length),
-        StrLenField('fill', b'', length_from=lambda pkt: (4-pkt.length) % 4)
+        StrLenField('fill', b'', length_from=lambda pkt: (4 - pkt.length) % 4)
     ]
 
     def set(self, new_filehandle, length=None, fill=None):
@@ -42,7 +42,7 @@ class File_Object(Packet):
         if length is None:
             length = len(new_filehandle)
         if fill is None:
-            fill = '\x00' * ((4-self.length) % 4)
+            fill = '\x00' * ((4 - self.length) % 4)
 
         self.length = length
         self.fh = new_filehandle
@@ -64,7 +64,7 @@ class Object_Name(Packet):
         if length is None:
             length = len(name)
         if fill is None:
-            fill = '\x00' * ((4-len(name)) % 4)
+            fill = '\x00' * ((4 - len(name)) % 4)
         self.length = length
         self._name = name
         self.fill = fill
@@ -85,7 +85,7 @@ class NLM4_Cookie(Packet):
         if length is None:
             length = len(c)
         if fill is None:
-            fill = '\x00' * ((4-len(c)) % 4)
+            fill = '\x00' * ((4 - len(c)) % 4)
         self.length = length
         self.contents = c
         self.fill = fill

@@ -7,7 +7,7 @@
 # scapy.contrib.status = loads
 
 from scapy.packet import Packet, bind_layers
-from scapy.fields import IntField, ConditionalField, PacketListField
+from scapy.fields import IntField, PacketListField
 import scapy.contrib.oncrpc as rpc
 
 

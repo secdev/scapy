@@ -7,7 +7,7 @@
 # scapy.contrib.status = loads
 
 import scapy.contrib.oncrpc as rpc
-from binascii import hexlify, unhexlify
+from binascii import unhexlify
 from scapy.packet import Packet, bind_layers
 from scapy.fields import IntField, IntEnumField, FieldListField, LongField, \
     XIntField, XLongField, ConditionalField, PacketListField, StrLenField, \
@@ -105,7 +105,7 @@ class File_Object(Packet):
     fields_desc = [
         IntField('length', 0),
         StrLenField('fh', b'', length_from=lambda pkt: pkt.length),
-        StrLenField('fill', b'', length_from=lambda pkt: (4-pkt.length) % 4)
+        StrLenField('fill', b'', length_from=lambda pkt: (4 - pkt.length) % 4)
     ]
 
     def set(self, new_filehandle, length=None, fill=None):
@@ -116,7 +116,7 @@ class File_Object(Packet):
         if length is None:
             length = len(new_filehandle)
         if fill is None:
-            fill = '\x00' * ((4-self.length) % 4)
+            fill = '\x00' * ((4 - self.length) % 4)
 
         self.length = length
         self.fh = new_filehandle
@@ -131,14 +131,14 @@ class Object_Name(Packet):
     fields_desc = [
         IntField('length', 0),
         StrLenField('_name', '', length_from=lambda pkt: pkt.length),
-        StrLenField('fill', '', length_from=lambda pkt: (4-pkt.length) % 4)
+        StrLenField('fill', '', length_from=lambda pkt: (4 - pkt.length) % 4)
     ]
 
     def set(self, name, length=None, fill=None):
         if length is None:
             length = len(name)
         if fill is None:
-            fill = '\x00' * ((4-len(name)) % 4)
+            fill = '\x00' * ((4 - len(name)) % 4)
         self.length = length
         self._name = name
         self.fill = fill
@@ -175,7 +175,7 @@ class File_From_Dir_Plus(Packet):
         IntField('handle_follows', 0),
         ConditionalField(
             PacketField('filehandle', File_Object(), File_Object),
-            lambda pkt:  pkt.handle_follows == 1
+            lambda pkt: pkt.handle_follows == 1
         ),
         IntField('value_follows', 0)
     ]
@@ -925,12 +925,12 @@ class READ_Reply(Packet):
             IntField('data_length', 0), lambda pkt: pkt.status == 0
         ),
         ConditionalField(
-            StrLenField('data', 0, length_from=lambda pkt: pkt.data_length),
+            StrLenField('data', b'', length_from=lambda pkt: pkt.data_length),
             lambda pkt: pkt.status == 0
         ),
         ConditionalField(
             StrLenField(
-                'fill', 0, length_from=lambda pkt: (4-pkt.data_length) % 4
+                'fill', b'', length_from=lambda pkt: (4 - pkt.data_length) % 4
             ),
             lambda pkt: pkt.status == 0
         )

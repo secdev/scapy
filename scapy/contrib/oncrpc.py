@@ -7,7 +7,7 @@
 # scapy.contrib.status = loads
 
 from scapy.fields import XIntField, IntField, IntEnumField, StrLenField, \
-    FieldListField, ConditionalField, PacketField, XLongField
+    FieldListField, ConditionalField, PacketField
 from scapy.packet import Packet, bind_layers
 
 
@@ -16,14 +16,14 @@ class Object_Name(Packet):
     fields_desc = [
         IntField('length', 0),
         StrLenField('_name', '', length_from=lambda pkt: pkt.length),
-        StrLenField('fill', '', length_from=lambda pkt: (4-pkt.length) % 4)
+        StrLenField('fill', '', length_from=lambda pkt: (4 - pkt.length) % 4)
     ]
 
     def set(self, name, length=None, fill=None):
         if length is None:
             length = len(name)
         if fill is None:
-            fill = '\x00' * ((4-len(name)) % 4)
+            fill = '\x00' * ((4 - len(name)) % 4)
         self.length = length
         self._name = name
         self.fill = fill

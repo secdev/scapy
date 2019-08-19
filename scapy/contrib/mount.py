@@ -6,11 +6,11 @@
 # scapy.contrib.description = NFS Mount v3
 # scapy.contrib.status = loads
 
-from binascii import unhexlify, hexlify
+from binascii import unhexlify
 import scapy.contrib.oncrpc as rpc
 from scapy.packet import Packet, bind_layers
 from scapy.fields import IntField, StrLenField, IntEnumField, PacketField, \
-    ConditionalField, PacketField, FieldListField
+    ConditionalField, FieldListField
 
 mountstat3 = {
     0: 'MNT3_OK',
@@ -41,7 +41,7 @@ class Path(Packet):
         if length is None:
             length = len(path)
         if fill is None:
-            fill = '\x00' * ((4-len(path)) % 4)
+            fill = '\x00' * ((4 - len(path)) % 4)
         self.length = length
         self.path = path
         self.fill = fill
@@ -63,7 +63,7 @@ class Filehandle(Packet):
         if length is None:
             length = len(new_filehandle)
         if fill is None:
-            fill = '\x00' * ((4-self.length) % 4)
+            fill = '\x00' * ((4 - self.length) % 4)
 
         self.length = length
         self.fh = new_filehandle
