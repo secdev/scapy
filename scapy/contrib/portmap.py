@@ -50,7 +50,7 @@ bind_layers(rpc.RPC, NULL_Reply, mtype=1)
 bind_layers(rpc.RPC_Call, NULL_Call, program=100000, pversion=2, procedure=0)
 
 
-class map_entry(Packet):
+class Map_Entry(Packet):
     name = 'PORTMAP Map Entry'
     fields_desc = [
         IntField('prog', 0),
@@ -73,9 +73,9 @@ class DUMP_Reply(Packet):
     name = 'PORTMAP DUMP Reply'
     fields_desc = [
         IntField('value_follows', 0),
-        PacketListField('mappings', [], cls=map_entry,
+        PacketListField('mappings', [], cls=Map_Entry,
                         next_cls_cb=lambda pkt, lst, cur, remain:
-                        map_entry if pkt.value_follows == 1 and
+                        Map_Entry if pkt.value_follows == 1 and
                         (len(lst) == 0 or cur.value_follows == 1) and
                         len(remain) > 4 else None)
     ]

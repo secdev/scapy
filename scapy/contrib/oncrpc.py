@@ -11,7 +11,7 @@ from scapy.fields import XIntField, IntField, IntEnumField, StrLenField, \
 from scapy.packet import Packet, bind_layers
 
 
-class object_name(Packet):
+class Object_Name(Packet):
     name = 'Object Name'
     fields_desc = [
         IntField('length', 0),
@@ -53,11 +53,11 @@ class RPC(Packet):
     ]
 
 
-class a_unix(Packet):
+class Auth_Unix(Packet):
     name = 'AUTH Unix'
     fields_desc = [
         XIntField('stamp', 0),
-        PacketField('mname', object_name(), object_name),
+        PacketField('mname', Object_Name(), Object_Name),
         IntField('uid', 0),
         IntField('gid', 0),
         IntField('num_auxgids', 0),
@@ -82,13 +82,13 @@ class RPC_Call(Packet):
         IntEnumField('aflavor', 1, {0: 'AUTH_NULL', 1: 'AUTH_UNIX'}),
         IntField('alength', 0),
         ConditionalField(
-            PacketField('a_unix', a_unix(), a_unix),
+            PacketField('a_unix', Auth_Unix(), Auth_Unix),
             lambda pkt: pkt.aflavor == 1
         ),
         IntEnumField('vflavor', 0, {0: 'AUTH_NULL', 1: 'AUTH_UNIX'}),
         IntField('vlength', 0),
         ConditionalField(
-            PacketField('v_unix', a_unix(), a_unix),
+            PacketField('v_unix', Auth_Unix(), Auth_Unix),
             lambda pkt: pkt.vflavor == 1
         )
     ]
@@ -133,7 +133,7 @@ class RPC_Reply(Packet):
         IntField('reply_stat', 0),
         IntEnumField('flavor', 0, {0: 'AUTH_NULL', 1: 'AUTH_UNIX'}),
         ConditionalField(
-            PacketField('a_unix', a_unix(), a_unix),
+            PacketField('a_unix', Auth_Unix(), Auth_Unix),
             lambda pkt: pkt.flavor == 1
         ),
         IntField('length', 0),

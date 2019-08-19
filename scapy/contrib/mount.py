@@ -26,7 +26,7 @@ mountstat3 = {
 }
 
 
-class path(Packet):
+class Path(Packet):
     name = 'Path'
     fields_desc = [
         IntField('length', 0),
@@ -47,7 +47,7 @@ class path(Packet):
         self.fill = fill
 
 
-class filehandle(Packet):
+class Filehandle(Packet):
     name = 'File Object'
     fields_desc = [
         IntField('length', 0),
@@ -91,7 +91,7 @@ bind_layers(rpc.RPC_Call, NULL_Call, program=100005, procedure=0, pversion=3)
 class MOUNT_Call(Packet):
     name = 'MOUNT Call'
     fields_desc = [
-        PacketField('path', path(), path)
+        PacketField('path', Path(), Path)
     ]
 
 
@@ -100,7 +100,7 @@ class MOUNT_Reply(Packet):
     fields_desc = [
         IntEnumField('status', 0, mountstat3),
         ConditionalField(
-            PacketField('filehandle', filehandle(), filehandle),
+            PacketField('filehandle', Filehandle(), Filehandle),
             lambda pkt: pkt.status == 0
         ),
         ConditionalField(IntField('flavors', 0), lambda pkt: pkt.status == 0),
@@ -127,7 +127,7 @@ bind_layers(rpc.RPC_Call, MOUNT_Call, program=100005, procedure=1, pversion=3)
 class UNMOUNT_Call(Packet):
     name = 'UNMOUNT Call'
     fields_desc = [
-        PacketField('path', path(), path)
+        PacketField('path', Path(), Path)
     ]
 
 

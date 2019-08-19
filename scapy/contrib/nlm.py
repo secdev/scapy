@@ -26,7 +26,7 @@ nlm4_stats = {
 }
 
 
-class file_object(Packet):
+class File_Object(Packet):
     name = 'File Object'
     fields_desc = [
         IntField('length', 0),
@@ -52,7 +52,7 @@ class file_object(Packet):
         return '', s
 
 
-class object_name(Packet):
+class Object_Name(Packet):
     name = 'Object Name'
     fields_desc = [
         IntField('length', 0),
@@ -73,7 +73,7 @@ class object_name(Packet):
         return '', s
 
 
-class nlm4_cookie(Packet):
+class NLM4_Cookie(Packet):
     name = 'Cookie'
     fields_desc = [
         IntField('length', 0),
@@ -97,10 +97,10 @@ class nlm4_cookie(Packet):
 class SHARE_Call(Packet):
     name = 'SHARE Call'
     fields_desc = [
-        PacketField('cookie', nlm4_cookie(), nlm4_cookie),
-        PacketField('caller', object_name(), object_name),
-        PacketField('filehandle', file_object(), file_object),
-        PacketField('owner', object_name(), object_name),
+        PacketField('cookie', NLM4_Cookie(), NLM4_Cookie),
+        PacketField('caller', Object_Name(), Object_Name),
+        PacketField('filehandle', File_Object(), File_Object),
+        PacketField('owner', Object_Name(), Object_Name),
         IntField('mode', 0),
         IntField('access', 0),
         IntEnumField('reclaim', 0, {0: 'NO', 1: 'YES'})
@@ -110,7 +110,7 @@ class SHARE_Call(Packet):
 class SHARE_Reply(Packet):
     name = 'SHARE Reply'
     fields_desc = [
-        PacketField('cookie', nlm4_cookie(), nlm4_cookie),
+        PacketField('cookie', NLM4_Cookie(), NLM4_Cookie),
         IntEnumField('status', 0, nlm4_stats),
         IntField('sequence', 0)
     ]
@@ -124,10 +124,10 @@ bind_layers(rpc.RPC, SHARE_Reply, mtype=1)
 class UNSHARE_Call(Packet):
     name = 'UNSHARE Reply'
     fields_desc = [
-        PacketField('cookie', nlm4_cookie(), nlm4_cookie),
-        PacketField('caller', object_name(), object_name),
-        PacketField('filehandle', file_object(), file_object),
-        PacketField('owner', object_name(), object_name),
+        PacketField('cookie', NLM4_Cookie(), NLM4_Cookie),
+        PacketField('caller', Object_Name(), Object_Name),
+        PacketField('filehandle', File_Object(), File_Object),
+        PacketField('owner', Object_Name(), Object_Name),
         IntField('mode', 0),
         IntField('access', 0),
         IntEnumField('reclaim', 0, {0: 'NO', 1: 'YES'})
@@ -137,7 +137,7 @@ class UNSHARE_Call(Packet):
 class UNSHARE_Reply(Packet):
     name = 'UNSHARE Reply'
     fields_desc = [
-        PacketField('cookie', nlm4_cookie(), nlm4_cookie),
+        PacketField('cookie', NLM4_Cookie(), NLM4_Cookie),
         IntEnumField('status', 0, nlm4_stats),
         IntField('sequence', 0)
     ]
@@ -153,12 +153,12 @@ bind_layers(rpc.RPC, UNSHARE_Reply, mtype=1)
 class LOCK_Call(Packet):
     name = 'LOCK Call'
     fields_desc = [
-        PacketField('cookie', nlm4_cookie(), nlm4_cookie),
+        PacketField('cookie', NLM4_Cookie(), NLM4_Cookie),
         IntEnumField('block', 0, {0: 'NO', 1: 'YES'}),
         IntEnumField('exclusive', 0, {0: 'NO', 1: 'YES'}),
-        PacketField('caller', object_name(), object_name),
-        PacketField('filehandle', file_object(), file_object),
-        PacketField('owner', object_name(), object_name),
+        PacketField('caller', Object_Name(), Object_Name),
+        PacketField('filehandle', File_Object(), File_Object),
+        PacketField('owner', Object_Name(), Object_Name),
         IntField('svid', 0),
         LongField('l_offset', 0),
         LongField('l_len', 0),
@@ -170,7 +170,7 @@ class LOCK_Call(Packet):
 class LOCK_Reply(Packet):
     name = 'LOCK Reply'
     fields_desc = [
-        PacketField('cookie', nlm4_cookie(), nlm4_cookie),
+        PacketField('cookie', NLM4_Cookie(), NLM4_Cookie),
         IntEnumField('status', 0, nlm4_stats)
     ]
 
@@ -183,10 +183,10 @@ bind_layers(rpc.RPC, LOCK_Reply, mtype=1)
 class UNLOCK_Call(Packet):
     name = 'UNLOCK Call'
     fields_desc = [
-        PacketField('cookie', nlm4_cookie(), nlm4_cookie),
-        PacketField('caller', object_name(), object_name),
-        PacketField('filehandle', file_object(), file_object),
-        PacketField('owner', object_name(), object_name),
+        PacketField('cookie', NLM4_Cookie(), NLM4_Cookie),
+        PacketField('caller', Object_Name(), Object_Name),
+        PacketField('filehandle', File_Object(), File_Object),
+        PacketField('owner', Object_Name(), Object_Name),
         IntField('svid', 0),
         LongField('l_offset', 0),
         LongField('l_len', 0)
@@ -196,7 +196,7 @@ class UNLOCK_Call(Packet):
 class UNLOCK_Reply(Packet):
     name = 'UNLOCK Reply'
     fields_desc = [
-        PacketField('cookie', nlm4_cookie(), nlm4_cookie),
+        PacketField('cookie', NLM4_Cookie(), NLM4_Cookie),
         IntEnumField('status', 0, nlm4_stats)
     ]
 
@@ -209,11 +209,11 @@ bind_layers(rpc.RPC, UNLOCK_Reply, mtype=1)
 class GRANTED_MSG_Call(Packet):
     name = 'GRANTED_MSG Call'
     fields_desc = [
-        PacketField('cookie', nlm4_cookie(), nlm4_cookie),
+        PacketField('cookie', NLM4_Cookie(), NLM4_Cookie),
         IntEnumField('exclusive', 0, {0: 'NO', 1: 'YES'}),
-        PacketField('caller', object_name(), object_name),
-        PacketField('filehandle', file_object(), file_object),
-        PacketField('owner', object_name(), object_name),
+        PacketField('caller', Object_Name(), Object_Name),
+        PacketField('filehandle', File_Object(), File_Object),
+        PacketField('owner', Object_Name(), Object_Name),
         IntField('svid', 0),
         LongField('l_offset', 0),
         LongField('l_len', 0)
@@ -235,7 +235,7 @@ bind_layers(rpc.RPC, GRANTED_MSG_Reply, mtype=1)
 class GRANTED_RES_Call(Packet):
     name = 'GRANTED_RES Call'
     fields_desc = [
-        PacketField('cookie', nlm4_cookie(), nlm4_cookie),
+        PacketField('cookie', NLM4_Cookie(), NLM4_Cookie),
         IntEnumField('status', 0, nlm4_stats)
     ]
 
@@ -255,12 +255,12 @@ bind_layers(rpc.RPC, GRANTED_RES_Reply, mtype=1)
 class CANCEL_Call(Packet):
     name = 'CANCEL Call'
     fields_desc = [
-        PacketField('cookie', nlm4_cookie(), nlm4_cookie),
+        PacketField('cookie', NLM4_Cookie(), NLM4_Cookie),
         IntEnumField('block', 0, {0: 'NO', 1: 'YES'}),
         IntEnumField('exclusive', 0, {0: 'NO', 1: 'YES'}),
-        PacketField('caller', object_name(), object_name),
-        PacketField('filehandle', file_object(), file_object),
-        PacketField('owner', object_name(), object_name),
+        PacketField('caller', Object_Name(), Object_Name),
+        PacketField('filehandle', File_Object(), File_Object),
+        PacketField('owner', Object_Name(), Object_Name),
         IntField('svid', 0),
         LongField('l_offset', 0),
         LongField('l_len', 0)
@@ -270,7 +270,7 @@ class CANCEL_Call(Packet):
 class CANCEL_Reply(Packet):
     name = 'CANCEL Reply'
     fields_desc = [
-        PacketField('cookie', nlm4_cookie(), nlm4_cookie),
+        PacketField('cookie', NLM4_Cookie(), NLM4_Cookie),
         IntEnumField('status', 0, nlm4_stats)
     ]
 
@@ -283,11 +283,11 @@ bind_layers(rpc.RPC, CANCEL_Reply, mtype=1)
 class TEST_Call(Packet):
     name = 'TEST Call'
     fields_desc = [
-        PacketField('cookie', nlm4_cookie(), nlm4_cookie),
+        PacketField('cookie', NLM4_Cookie(), NLM4_Cookie),
         IntEnumField('exclusive', 0, {0: 'NO', 1: 'YES'}),
-        PacketField('caller', object_name(), object_name),
-        PacketField('filehandle', file_object(), file_object),
-        PacketField('owner', object_name(), object_name),
+        PacketField('caller', Object_Name(), Object_Name),
+        PacketField('filehandle', File_Object(), File_Object),
+        PacketField('owner', Object_Name(), Object_Name),
         IntField('svid', 0),
         LongField('l_offset', 0),
         LongField('l_len', 0)
@@ -297,7 +297,7 @@ class TEST_Call(Packet):
 class TEST_Reply(Packet):
     name = 'TEST Reply'
     fields_desc = [
-        PacketField('cookie', nlm4_cookie(), nlm4_cookie),
+        PacketField('cookie', NLM4_Cookie(), NLM4_Cookie),
         IntEnumField('status', 0, nlm4_stats)
     ]
 
