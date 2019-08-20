@@ -36,7 +36,7 @@ class File_Object(Packet):
 
     def set(self, new_filehandle, length=None, fill=None):
         # convert filehandle to bytes if it was passed as a string
-        if isinstance(new_filehandle, str):
+        if new_filehandle.isalnum():
             new_filehandle = unhexlify(new_filehandle)
 
         if length is None:
