@@ -9,6 +9,7 @@
 from scapy.fields import XIntField, IntField, IntEnumField, StrLenField, \
     FieldListField, ConditionalField, PacketField
 from scapy.packet import Packet, bind_layers
+import struct
 
 
 class Object_Name(Packet):
@@ -35,13 +36,14 @@ class Object_Name(Packet):
 class RM_Header(Packet):
     name = 'RM Header'
     fields_desc = [
-        XIntField('rm', 0)
+        XIntField('rm', None)
     ]
 
     def post_build(self, pkt, pay):
         """Override of post_build to set the rm header == len(payload)"""
-        self.rm = 0x80000000 + len(self.payload)
-        pkt = self.rm.to_bytes(4, byteorder='big')
+        if self.rm is None:
+            self.rm = 0x80000000 + len(self.payload)
+            pkt = struct.pack('!I', self.rm)
         return Packet.post_build(self, pkt, pay)
 
 
@@ -80,13 +82,13 @@ class RPC_Call(Packet):
         IntField('pversion', 3),
         IntField('procedure', 0),
         IntEnumField('aflavor', 1, {0: 'AUTH_NULL', 1: 'AUTH_UNIX'}),
-        IntField('alength', 0),
+        IntField('alength', None),
         ConditionalField(
             PacketField('a_unix', Auth_Unix(), Auth_Unix),
             lambda pkt: pkt.aflavor == 1
         ),
         IntEnumField('vflavor', 0, {0: 'AUTH_NULL', 1: 'AUTH_UNIX'}),
-        IntField('vlength', 0),
+        IntField('vlength', None),
         ConditionalField(
             PacketField('v_unix', Auth_Unix(), Auth_Unix),
             lambda pkt: pkt.vflavor == 1
@@ -115,14 +117,14 @@ class RPC_Call(Packet):
             # No work required if there are no auth fields,
             # default will be correct
             return Packet.post_build(self, pkt, pay)
-        if self.aflavor != 0:
+        if self.aflavor != 0 and self.alength is None:
             pkt = pkt[:20] \
-                + len(self.a_unix).to_bytes(4, byteorder='big') \
+                + struct.pack('!I', len(self.a_unix)) \
                 + pkt[24:]
             return Packet.post_build(self, pkt, pay)
-        if self.vflavor != 0:
+        if self.vflavor != 0 and self.vlength is None:
             pkt = pkt[:28] \
-                + len(self.v_unix).to_bytes(4, byteorder='big') \
+                + struct.pack('!I', len(self.v_unix)) \
                 + pkt[32:]
         return Packet.post_build(self, pkt, pay)
 

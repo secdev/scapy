@@ -514,7 +514,7 @@ class WRITE_Reply(Packet):
         ),
         ConditionalField(IntField('count', 0), lambda pkt: pkt.status == 0),
         ConditionalField(
-            IntEnumField('commited', 0, {0: 'UNSTABLE', 1: 'STABLE'}),
+            IntEnumField('committed', 0, {0: 'UNSTABLE', 1: 'STABLE'}),
             lambda pkt: pkt.status == 0
         ),
         ConditionalField(
