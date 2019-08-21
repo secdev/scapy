@@ -426,7 +426,7 @@ conf.neighbor.register_l3(Ether, ARP, l2_register_l3_arp)
 
 class ERSPANfake(Packet):
     name = "ERSPANfake"
-    
+
 class ERSPAN(Packet):
     name = "ERSPAN"
     fields_desc = [BitField("ver", 0, 4),
