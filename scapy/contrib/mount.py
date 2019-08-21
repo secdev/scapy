@@ -47,7 +47,7 @@ class Path(Packet):
         self.fill = fill
 
 
-class Filehandle(Packet):
+class File_Object(Packet):
     name = 'File Object'
     fields_desc = [
         IntField('length', 0),
@@ -100,7 +100,7 @@ class MOUNT_Reply(Packet):
     fields_desc = [
         IntEnumField('status', 0, mountstat3),
         ConditionalField(
-            PacketField('filehandle', Filehandle(), Filehandle),
+            PacketField('filehandle', File_Object(), File_Object),
             lambda pkt: pkt.status == 0
         ),
         ConditionalField(IntField('flavors', 0), lambda pkt: pkt.status == 0),

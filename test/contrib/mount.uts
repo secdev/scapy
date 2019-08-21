@@ -6,7 +6,7 @@
 
 = Create subpackets
 Path()
-Filehandle()
+File_Object()
 
 = Create Mount Calls
 NULL_Call()
@@ -61,7 +61,7 @@ assert bytes(pkt) == b'\x00\x00\x00\x04path'
 = Mount replies vs Raw Strings
 pkt = MOUNT_Reply(
     status=0,
-    filehandle=Filehandle(
+    filehandle=File_Object(
         length=4,
         fh='file'
     ),
