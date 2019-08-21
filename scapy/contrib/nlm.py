@@ -42,7 +42,7 @@ class File_Object(Packet):
         if length is None:
             length = len(new_filehandle)
         if fill is None:
-            fill = '\x00' * ((4 - self.length) % 4)
+            fill = b'\x00' * ((4 - self.length) % 4)
 
         self.length = length
         self.fh = new_filehandle
@@ -64,7 +64,7 @@ class Object_Name(Packet):
         if length is None:
             length = len(name)
         if fill is None:
-            fill = '\x00' * ((4 - len(name)) % 4)
+            fill = b'\x00' * ((4 - len(name)) % 4)
         self.length = length
         self._name = name
         self.fill = fill
@@ -85,7 +85,7 @@ class NLM4_Cookie(Packet):
         if length is None:
             length = len(c)
         if fill is None:
-            fill = '\x00' * ((4 - len(c)) % 4)
+            fill = b'\x00' * ((4 - len(c)) % 4)
         self.length = length
         self.contents = c
         self.fill = fill

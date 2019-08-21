@@ -41,7 +41,7 @@ class Path(Packet):
         if length is None:
             length = len(path)
         if fill is None:
-            fill = '\x00' * ((4 - len(path)) % 4)
+            fill = b'\x00' * ((4 - len(path)) % 4)
         self.length = length
         self.path = path
         self.fill = fill
@@ -63,7 +63,7 @@ class Filehandle(Packet):
         if length is None:
             length = len(new_filehandle)
         if fill is None:
-            fill = '\x00' * ((4 - self.length) % 4)
+            fill = b'\x00' * ((4 - self.length) % 4)
 
         self.length = length
         self.fh = new_filehandle
