@@ -42,6 +42,7 @@ from scapy.contrib.automotive.obd.scanner import _supported_id_numbers
 = Create answers
 
 s1_pid00 = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID00(supported_pids="PID03+PID0B+PID0F")])
+s1_pid01 = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID01()])
 s1_pid03 = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID03(fuel_system1=0, fuel_system2=2)])
 s1_pid0B = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID0B(data=100)])
 s1_pid0F = OBD()/OBD_S01_PR(data_records=[OBD_S01_PR_Record()/OBD_PID0F(data=50)])
@@ -51,7 +52,7 @@ s1_queue.put(s1_pid00)
 s1_queue.put(s1_pid0F)
 s1_queue.put(s1_pid0B)
 s1_queue.put(s1_pid03)
-
+s1_queue.put(s1_pid01)
 
 s3 = OBD()/OBD_S03_PR(dtcs=[OBD_DTC()])
 s3_queue = queue.Queue()
@@ -136,3 +137,6 @@ assert len(supported[8]) == 0
 assert len(supported[9]) == 0
 assert dtc[7] == None
 assert dtc[10] == None
+
+= Check unsupported service 1
+assert unsupported[1][1] == bytes(s1_pid01)
