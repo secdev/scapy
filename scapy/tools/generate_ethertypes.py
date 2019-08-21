@@ -20,7 +20,7 @@ URL = "https://raw.githubusercontent.com/openbsd/src/master/sys/net/ethertypes.h
 with urllib.request.urlopen(URL) as stream:
     DATA = stream.read()
 
-reg = rb".*ETHERTYPE_([^\s]+)\s.0x([0-9A-Fa-f]+).*\/\*(.*)\*\/"
+reg = br".*ETHERTYPE_([^\s]+)\s.0x([0-9A-Fa-f]+).*\/\*(.*)\*\/"
 COMPILED = b"""#
 # Ethernet frame types
 #       This file describes some of the various Ethernet
