@@ -8,7 +8,7 @@
 
 from scapy.packet import Packet, bind_layers
 from scapy.fields import IntField, PacketListField
-import scapy.contrib.oncrpc as rpc
+from scapy.contrib.oncrpc import RPC, RPC_Call
 
 
 class GETPORT_Call(Packet):
@@ -28,10 +28,10 @@ class GETPORT_Reply(Packet):
     ]
 
 
-bind_layers(rpc.RPC, GETPORT_Call, mtype=0)
-bind_layers(rpc.RPC, GETPORT_Reply, mtype=1)
+bind_layers(RPC, GETPORT_Call, mtype=0)
+bind_layers(RPC, GETPORT_Reply, mtype=1)
 bind_layers(
-    rpc.RPC_Call, GETPORT_Call, program=100000, pversion=2, procedure=3
+    RPC_Call, GETPORT_Call, program=100000, pversion=2, procedure=3
 )
 
 
@@ -45,9 +45,9 @@ class NULL_Reply(Packet):
     fields_desc = []
 
 
-bind_layers(rpc.RPC, NULL_Call, mtype=0)
-bind_layers(rpc.RPC, NULL_Reply, mtype=1)
-bind_layers(rpc.RPC_Call, NULL_Call, program=100000, pversion=2, procedure=0)
+bind_layers(RPC, NULL_Call, mtype=0)
+bind_layers(RPC, NULL_Reply, mtype=1)
+bind_layers(RPC_Call, NULL_Call, program=100000, pversion=2, procedure=0)
 
 
 class Map_Entry(Packet):
@@ -81,6 +81,6 @@ class DUMP_Reply(Packet):
     ]
 
 
-bind_layers(rpc.RPC, DUMP_Call, mtype=0)
-bind_layers(rpc.RPC, DUMP_Reply, mtype=1)
-bind_layers(rpc.RPC_Call, DUMP_Call, program=100000, pversion=2, procedure=4)
+bind_layers(RPC, DUMP_Call, mtype=0)
+bind_layers(RPC, DUMP_Reply, mtype=1)
+bind_layers(RPC_Call, DUMP_Call, program=100000, pversion=2, procedure=4)

@@ -7,7 +7,7 @@
 # scapy.contrib.status = loads
 
 from binascii import unhexlify
-import scapy.contrib.oncrpc as rpc
+from scapy.contrib.oncrpc import RPC, RPC_Call
 from scapy.packet import Packet, bind_layers
 from scapy.fields import IntField, StrLenField, IntEnumField, PacketField, \
     ConditionalField, FieldListField
@@ -83,9 +83,9 @@ class NULL_Reply(Packet):
     fields_desc = []
 
 
-bind_layers(rpc.RPC, NULL_Call, mtype=0)
-bind_layers(rpc.RPC, NULL_Reply, mtype=1)
-bind_layers(rpc.RPC_Call, NULL_Call, program=100005, procedure=0, pversion=3)
+bind_layers(RPC, NULL_Call, mtype=0)
+bind_layers(RPC, NULL_Reply, mtype=1)
+bind_layers(RPC_Call, NULL_Call, program=100005, procedure=0, pversion=3)
 
 
 class MOUNT_Call(Packet):
@@ -119,9 +119,9 @@ class MOUNT_Reply(Packet):
         return None
 
 
-bind_layers(rpc.RPC, MOUNT_Call, mtype=0)
-bind_layers(rpc.RPC, MOUNT_Reply, mtype=1)
-bind_layers(rpc.RPC_Call, MOUNT_Call, program=100005, procedure=1, pversion=3)
+bind_layers(RPC, MOUNT_Call, mtype=0)
+bind_layers(RPC, MOUNT_Reply, mtype=1)
+bind_layers(RPC_Call, MOUNT_Call, program=100005, procedure=1, pversion=3)
 
 
 class UNMOUNT_Call(Packet):
@@ -136,8 +136,8 @@ class UNMOUNT_Reply(Packet):
     fields_desc = []
 
 
-bind_layers(rpc.RPC, UNMOUNT_Call, mtype=0)
-bind_layers(rpc.RPC, UNMOUNT_Reply, mtype=1)
+bind_layers(RPC, UNMOUNT_Call, mtype=0)
+bind_layers(RPC, UNMOUNT_Reply, mtype=1)
 bind_layers(
-    rpc.RPC_Call, UNMOUNT_Call, program=100005, procedure=3, pversion=3
+    RPC_Call, UNMOUNT_Call, program=100005, procedure=3, pversion=3
 )

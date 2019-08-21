@@ -6,7 +6,7 @@
 # scapy.contrib.description = Network Lock Manager (NLM) v4
 # scapy.contrib.status = loads
 
-import scapy.contrib.oncrpc as rpc
+from scapy.contrib.oncrpc import RPC, RPC_Call
 from binascii import unhexlify
 from scapy.packet import Packet, bind_layers
 from scapy.fields import IntField, StrLenField, LongField, PacketField, \
@@ -116,9 +116,9 @@ class SHARE_Reply(Packet):
     ]
 
 
-bind_layers(rpc.RPC_Call, SHARE_Call, program=100021, pversion=4, procedure=20)
-bind_layers(rpc.RPC, SHARE_Call, mtype=0)
-bind_layers(rpc.RPC, SHARE_Reply, mtype=1)
+bind_layers(RPC_Call, SHARE_Call, program=100021, pversion=4, procedure=20)
+bind_layers(RPC, SHARE_Call, mtype=0)
+bind_layers(RPC, SHARE_Reply, mtype=1)
 
 
 class UNSHARE_Call(Packet):
@@ -144,10 +144,10 @@ class UNSHARE_Reply(Packet):
 
 
 bind_layers(
-    rpc.RPC_Call, UNSHARE_Call, program=100021, pversion=4, procedure=21
+    RPC_Call, UNSHARE_Call, program=100021, pversion=4, procedure=21
 )
-bind_layers(rpc.RPC, UNSHARE_Call, mtype=0)
-bind_layers(rpc.RPC, UNSHARE_Reply, mtype=1)
+bind_layers(RPC, UNSHARE_Call, mtype=0)
+bind_layers(RPC, UNSHARE_Reply, mtype=1)
 
 
 class LOCK_Call(Packet):
@@ -175,9 +175,9 @@ class LOCK_Reply(Packet):
     ]
 
 
-bind_layers(rpc.RPC_Call, LOCK_Call, program=100021, pversion=4, procedure=2)
-bind_layers(rpc.RPC, LOCK_Call, mtype=0)
-bind_layers(rpc.RPC, LOCK_Reply, mtype=1)
+bind_layers(RPC_Call, LOCK_Call, program=100021, pversion=4, procedure=2)
+bind_layers(RPC, LOCK_Call, mtype=0)
+bind_layers(RPC, LOCK_Reply, mtype=1)
 
 
 class UNLOCK_Call(Packet):
@@ -201,9 +201,9 @@ class UNLOCK_Reply(Packet):
     ]
 
 
-bind_layers(rpc.RPC_Call, UNLOCK_Call, program=100021, pversion=4, procedure=4)
-bind_layers(rpc.RPC, UNLOCK_Call, mtype=0)
-bind_layers(rpc.RPC, UNLOCK_Reply, mtype=1)
+bind_layers(RPC_Call, UNLOCK_Call, program=100021, pversion=4, procedure=4)
+bind_layers(RPC, UNLOCK_Call, mtype=0)
+bind_layers(RPC, UNLOCK_Reply, mtype=1)
 
 
 class GRANTED_MSG_Call(Packet):
@@ -226,10 +226,10 @@ class GRANTED_MSG_Reply(Packet):
 
 
 bind_layers(
-    rpc.RPC_Call, GRANTED_MSG_Call, program=100021, pversion=4, procedure=10
+    RPC_Call, GRANTED_MSG_Call, program=100021, pversion=4, procedure=10
 )
-bind_layers(rpc.RPC, GRANTED_MSG_Call, mtype=0)
-bind_layers(rpc.RPC, GRANTED_MSG_Reply, mtype=1)
+bind_layers(RPC, GRANTED_MSG_Call, mtype=0)
+bind_layers(RPC, GRANTED_MSG_Reply, mtype=1)
 
 
 class GRANTED_RES_Call(Packet):
@@ -246,10 +246,10 @@ class GRANTED_RES_Reply(Packet):
 
 
 bind_layers(
-    rpc.RPC_Call, GRANTED_RES_Call, program=100021, pversion=4, procedure=15
+    RPC_Call, GRANTED_RES_Call, program=100021, pversion=4, procedure=15
 )
-bind_layers(rpc.RPC, GRANTED_RES_Call, mtype=0)
-bind_layers(rpc.RPC, GRANTED_RES_Reply, mtype=1)
+bind_layers(RPC, GRANTED_RES_Call, mtype=0)
+bind_layers(RPC, GRANTED_RES_Reply, mtype=1)
 
 
 class CANCEL_Call(Packet):
@@ -275,9 +275,9 @@ class CANCEL_Reply(Packet):
     ]
 
 
-bind_layers(rpc.RPC_Call, CANCEL_Call, program=100021, pversion=4, procedure=3)
-bind_layers(rpc.RPC, CANCEL_Call, mtype=0)
-bind_layers(rpc.RPC, CANCEL_Reply, mtype=1)
+bind_layers(RPC_Call, CANCEL_Call, program=100021, pversion=4, procedure=3)
+bind_layers(RPC, CANCEL_Call, mtype=0)
+bind_layers(RPC, CANCEL_Reply, mtype=1)
 
 
 class TEST_Call(Packet):
@@ -302,6 +302,6 @@ class TEST_Reply(Packet):
     ]
 
 
-bind_layers(rpc.RPC_Call, TEST_Call, program=100021, pversion=4, procedure=1)
-bind_layers(rpc.RPC, TEST_Call, mtype=0)
-bind_layers(rpc.RPC, TEST_Reply, mtype=1)
+bind_layers(RPC_Call, TEST_Call, program=100021, pversion=4, procedure=1)
+bind_layers(RPC, TEST_Call, mtype=0)
+bind_layers(RPC, TEST_Reply, mtype=1)

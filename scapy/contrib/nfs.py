@@ -6,7 +6,7 @@
 # scapy.contrib.description = Network File System (NFS) v3
 # scapy.contrib.status = loads
 
-import scapy.contrib.oncrpc as rpc
+from scapy.contrib.oncrpc import RPC, RPC_Call
 from binascii import unhexlify
 from scapy.packet import Packet, bind_layers
 from scapy.fields import IntField, IntEnumField, FieldListField, LongField, \
@@ -253,11 +253,11 @@ class GETATTR_Reply(Packet):
         return '', None
 
 
-bind_layers(rpc.RPC, GETATTR_Call, mtype=0)
+bind_layers(RPC, GETATTR_Call, mtype=0)
 bind_layers(
-    rpc.RPC_Call, GETATTR_Call, program=100003, pversion=3, procedure=1
+    RPC_Call, GETATTR_Call, program=100003, pversion=3, procedure=1
 )
-bind_layers(rpc.RPC, GETATTR_Reply, mtype=1)
+bind_layers(RPC, GETATTR_Reply, mtype=1)
 
 
 class LOOKUP_Call(Packet):
@@ -289,9 +289,9 @@ class LOOKUP_Reply(Packet):
     ]
 
 
-bind_layers(rpc.RPC, LOOKUP_Call, mtype=0)
-bind_layers(rpc.RPC, LOOKUP_Reply, mtype=1)
-bind_layers(rpc.RPC_Call, LOOKUP_Call, program=100003, pversion=3, procedure=3)
+bind_layers(RPC, LOOKUP_Call, mtype=0)
+bind_layers(RPC, LOOKUP_Reply, mtype=1)
+bind_layers(RPC_Call, LOOKUP_Call, program=100003, pversion=3, procedure=3)
 
 
 class NULL_Call(Packet):
@@ -304,9 +304,9 @@ class NULL_Reply(Packet):
     fields_desc = []
 
 
-bind_layers(rpc.RPC, NULL_Call, mtype=0)
-bind_layers(rpc.RPC, NULL_Reply, mtype=1)
-bind_layers(rpc.RPC_Call, NULL_Call, program=100003, pversion=3, procedure=0)
+bind_layers(RPC, NULL_Call, mtype=0)
+bind_layers(RPC, NULL_Reply, mtype=1)
+bind_layers(RPC_Call, NULL_Call, program=100003, pversion=3, procedure=0)
 
 
 class FSINFO_Call(Packet):
@@ -347,10 +347,10 @@ class FSINFO_Reply(Packet):
     ]
 
 
-bind_layers(rpc.RPC, FSINFO_Call, mtype=0)
-bind_layers(rpc.RPC, FSINFO_Reply, mtype=1)
+bind_layers(RPC, FSINFO_Call, mtype=0)
+bind_layers(RPC, FSINFO_Reply, mtype=1)
 bind_layers(
-    rpc.RPC_Call, FSINFO_Call, program=100003, pversion=3, procedure=19
+    RPC_Call, FSINFO_Call, program=100003, pversion=3, procedure=19
 )
 
 
@@ -391,10 +391,10 @@ class PATHCONF_Reply(Packet):
     ]
 
 
-bind_layers(rpc.RPC, PATHCONF_Call, mtype=0)
-bind_layers(rpc.RPC, PATHCONF_Reply, mtype=1)
+bind_layers(RPC, PATHCONF_Call, mtype=0)
+bind_layers(RPC, PATHCONF_Reply, mtype=1)
 bind_layers(
-    rpc.RPC_Call, PATHCONF_Call, program=100003, pversion=3, procedure=20
+    RPC_Call, PATHCONF_Call, program=100003, pversion=3, procedure=20
 )
 
 access_specs = {
@@ -430,9 +430,9 @@ class ACCESS_Reply(Packet):
     ]
 
 
-bind_layers(rpc.RPC, ACCESS_Call, mtype=0)
-bind_layers(rpc.RPC, ACCESS_Reply, mtype=1)
-bind_layers(rpc.RPC_Call, ACCESS_Call, program=100003, pversion=3, procedure=4)
+bind_layers(RPC, ACCESS_Call, mtype=0)
+bind_layers(RPC, ACCESS_Reply, mtype=1)
+bind_layers(RPC_Call, ACCESS_Call, program=100003, pversion=3, procedure=4)
 
 
 class READDIRPLUS_Call(Packet):
@@ -478,10 +478,10 @@ class READDIRPLUS_Reply(Packet):
         return '', s
 
 
-bind_layers(rpc.RPC, READDIRPLUS_Call, mtype=0)
-bind_layers(rpc.RPC, READDIRPLUS_Reply, mtype=1)
+bind_layers(RPC, READDIRPLUS_Call, mtype=0)
+bind_layers(RPC, READDIRPLUS_Reply, mtype=1)
 bind_layers(
-    rpc.RPC_Call, READDIRPLUS_Call, program=100003, pversion=3, procedure=17
+    RPC_Call, READDIRPLUS_Call, program=100003, pversion=3, procedure=17
 )
 
 
@@ -523,9 +523,9 @@ class WRITE_Reply(Packet):
     ]
 
 
-bind_layers(rpc.RPC, WRITE_Call, mtype=0)
-bind_layers(rpc.RPC, WRITE_Reply, mtype=1)
-bind_layers(rpc.RPC_Call, WRITE_Call, program=100003, pversion=3, procedure=7)
+bind_layers(RPC, WRITE_Call, mtype=0)
+bind_layers(RPC, WRITE_Reply, mtype=1)
+bind_layers(RPC_Call, WRITE_Call, program=100003, pversion=3, procedure=7)
 
 
 class COMMIT_Call(Packet):
@@ -557,10 +557,10 @@ class COMMIT_Reply(Packet):
     ]
 
 
-bind_layers(rpc.RPC, COMMIT_Call, mtype=0)
-bind_layers(rpc.RPC, COMMIT_Reply, mtype=1)
+bind_layers(RPC, COMMIT_Call, mtype=0)
+bind_layers(RPC, COMMIT_Reply, mtype=1)
 bind_layers(
-    rpc.RPC_Call, COMMIT_Call, program=100003, pversion=3, procedure=21
+    RPC_Call, COMMIT_Call, program=100003, pversion=3, procedure=21
 )
 
 
@@ -590,10 +590,10 @@ class SETATTR_Reply(Packet):
     ]
 
 
-bind_layers(rpc.RPC, SETATTR_Call, mtype=0)
-bind_layers(rpc.RPC, SETATTR_Reply, mtype=1)
+bind_layers(RPC, SETATTR_Call, mtype=0)
+bind_layers(RPC, SETATTR_Reply, mtype=1)
 bind_layers(
-    rpc.RPC_Call, SETATTR_Call, program=100003, pversion=3, procedure=2
+    RPC_Call, SETATTR_Call, program=100003, pversion=3, procedure=2
 )
 
 
@@ -623,10 +623,10 @@ class FSSTAT_Reply(Packet):
     ]
 
 
-bind_layers(rpc.RPC, FSSTAT_Call, mtype=0)
-bind_layers(rpc.RPC, FSSTAT_Reply, mtype=1)
+bind_layers(RPC, FSSTAT_Call, mtype=0)
+bind_layers(RPC, FSSTAT_Reply, mtype=1)
 bind_layers(
-    rpc.RPC_Call, FSSTAT_Call, program=100003, pversion=3, procedure=18
+    RPC_Call, FSSTAT_Call, program=100003, pversion=3, procedure=18
 )
 
 
@@ -679,9 +679,9 @@ class CREATE_Reply(Packet):
     ]
 
 
-bind_layers(rpc.RPC, CREATE_Call, mtype=0)
-bind_layers(rpc.RPC, CREATE_Reply, mtype=1)
-bind_layers(rpc.RPC_Call, CREATE_Call, program=100003, pversion=3, procedure=8)
+bind_layers(RPC, CREATE_Call, mtype=0)
+bind_layers(RPC, CREATE_Reply, mtype=1)
+bind_layers(RPC_Call, CREATE_Call, program=100003, pversion=3, procedure=8)
 
 
 class REMOVE_Call(Packet):
@@ -709,10 +709,10 @@ class REMOVE_Reply(Packet):
     ]
 
 
-bind_layers(rpc.RPC, REMOVE_Call, mtype=0)
-bind_layers(rpc.RPC, REMOVE_Reply, mtype=1)
+bind_layers(RPC, REMOVE_Call, mtype=0)
+bind_layers(RPC, REMOVE_Reply, mtype=1)
 bind_layers(
-    rpc.RPC_Call, REMOVE_Call, program=100003, pversion=3, procedure=12
+    RPC_Call, REMOVE_Call, program=100003, pversion=3, procedure=12
 )
 
 
@@ -754,10 +754,10 @@ class READDIR_Reply(Packet):
     ]
 
 
-bind_layers(rpc.RPC, READDIR_Call, mtype=0)
-bind_layers(rpc.RPC, READDIR_Reply, mtype=1)
+bind_layers(RPC, READDIR_Call, mtype=0)
+bind_layers(RPC, READDIR_Reply, mtype=1)
 bind_layers(
-    rpc.RPC_Call, READDIR_Call, program=100003, pversion=3, procedure=16
+    RPC_Call, READDIR_Call, program=100003, pversion=3, procedure=16
 )
 
 
@@ -798,10 +798,10 @@ class RENAME_Reply(Packet):
     ]
 
 
-bind_layers(rpc.RPC, RENAME_Call, mtype=0)
-bind_layers(rpc.RPC, RENAME_Reply, mtype=1)
+bind_layers(RPC, RENAME_Call, mtype=0)
+bind_layers(RPC, RENAME_Reply, mtype=1)
 bind_layers(
-    rpc.RPC_Call, RENAME_Call, program=100003, pversion=3, procedure=14
+    RPC_Call, RENAME_Call, program=100003, pversion=3, procedure=14
 )
 
 
@@ -836,9 +836,9 @@ class LINK_Reply(Packet):
     ]
 
 
-bind_layers(rpc.RPC, LINK_Call, mtype=0)
-bind_layers(rpc.RPC, LINK_Reply, mtype=1)
-bind_layers(rpc.RPC_Call, LINK_Call, program=100003, pversion=3, procedure=15)
+bind_layers(RPC, LINK_Call, mtype=0)
+bind_layers(RPC, LINK_Reply, mtype=1)
+bind_layers(RPC_Call, LINK_Call, program=100003, pversion=3, procedure=15)
 
 
 class RMDIR_Call(Packet):
@@ -866,9 +866,9 @@ class RMDIR_Reply(Packet):
     ]
 
 
-bind_layers(rpc.RPC, RMDIR_Call, mtype=0)
-bind_layers(rpc.RPC, RMDIR_Reply, mtype=1)
-bind_layers(rpc.RPC_Call, RMDIR_Call, program=100003, pversion=3, procedure=13)
+bind_layers(RPC, RMDIR_Call, mtype=0)
+bind_layers(RPC, RMDIR_Reply, mtype=1)
+bind_layers(RPC_Call, RMDIR_Call, program=100003, pversion=3, procedure=13)
 
 
 class READLINK_Call(Packet):
@@ -894,10 +894,10 @@ class READLINK_Reply(Packet):
     ]
 
 
-bind_layers(rpc.RPC, READLINK_Call, mtype=0)
-bind_layers(rpc.RPC, READLINK_Reply, mtype=1)
+bind_layers(RPC, READLINK_Call, mtype=0)
+bind_layers(RPC, READLINK_Reply, mtype=1)
 bind_layers(
-    rpc.RPC_Call, READLINK_Call, program=100003, pversion=3, procedure=5
+    RPC_Call, READLINK_Call, program=100003, pversion=3, procedure=5
 )
 
 
@@ -937,9 +937,9 @@ class READ_Reply(Packet):
     ]
 
 
-bind_layers(rpc.RPC, READ_Call, mtype=0)
-bind_layers(rpc.RPC, READ_Reply, mtype=1)
-bind_layers(rpc.RPC_Call, READ_Call, program=100003, pversion=3, procedure=6)
+bind_layers(RPC, READ_Call, mtype=0)
+bind_layers(RPC, READ_Reply, mtype=1)
+bind_layers(RPC_Call, READ_Call, program=100003, pversion=3, procedure=6)
 
 
 class MKDIR_Call(Packet):
@@ -982,9 +982,9 @@ class MKDIR_Reply(Packet):
     ]
 
 
-bind_layers(rpc.RPC, MKDIR_Call, mtype=0)
-bind_layers(rpc.RPC, MKDIR_Reply, mtype=1)
-bind_layers(rpc.RPC_Call, MKDIR_Call, program=100003, pversion=3, procedure=9)
+bind_layers(RPC, MKDIR_Call, mtype=0)
+bind_layers(RPC, MKDIR_Reply, mtype=1)
+bind_layers(RPC_Call, MKDIR_Call, program=100003, pversion=3, procedure=9)
 
 
 class SYMLINK_Call(Packet):
@@ -1028,8 +1028,8 @@ class SYMLINK_Reply(Packet):
     ]
 
 
-bind_layers(rpc.RPC, SYMLINK_Call, mtype=0)
-bind_layers(rpc.RPC, SYMLINK_Reply, mtype=1)
+bind_layers(RPC, SYMLINK_Call, mtype=0)
+bind_layers(RPC, SYMLINK_Reply, mtype=1)
 bind_layers(
-    rpc.RPC_Call, SYMLINK_Call, program=100003, pversion=3, procedure=10
+    RPC_Call, SYMLINK_Call, program=100003, pversion=3, procedure=10
 )
