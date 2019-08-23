@@ -6,11 +6,12 @@
 # scapy.contrib.description = Network Lock Manager (NLM) v4
 # scapy.contrib.status = loads
 
-from scapy.contrib.oncrpc import RPC, RPC_Call
+from scapy.contrib.oncrpc import RPC, RPC_Call, Object_Name
 from binascii import unhexlify
 from scapy.packet import Packet, bind_layers
 from scapy.fields import IntField, StrLenField, LongField, PacketField, \
     IntEnumField
+from scapy.contrib.nfs import File_Object
 
 nlm4_stats = {
     0: 'NLM4_GRANTED',
@@ -24,53 +25,6 @@ nlm4_stats = {
     8: 'NLM4_FBIG',
     9: 'NLM4_FAILED'
 }
-
-
-class File_Object(Packet):
-    name = 'File Object'
-    fields_desc = [
-        IntField('length', 0),
-        StrLenField('fh', b'', length_from=lambda pkt: pkt.length),
-        StrLenField('fill', b'', length_from=lambda pkt: (4 - pkt.length) % 4)
-    ]
-
-    def set(self, new_filehandle, length=None, fill=None):
-        # convert filehandle to bytes if it was passed as a string
-        if new_filehandle.isalnum():
-            new_filehandle = unhexlify(new_filehandle)
-
-        if length is None:
-            length = len(new_filehandle)
-        if fill is None:
-            fill = b'\x00' * ((4 - self.length) % 4)
-
-        self.length = length
-        self.fh = new_filehandle
-        self.fill = fill
-
-    def extract_padding(self, s):
-        return '', s
-
-
-class Object_Name(Packet):
-    name = 'Object Name'
-    fields_desc = [
-        IntField('length', 0),
-        StrLenField('_name', '', length_from=lambda pkt: pkt.length),
-        StrLenField('fill', '', length_from=lambda pkt: (4 - pkt.length) % 4)
-    ]
-
-    def set(self, name, length=None, fill=None):
-        if length is None:
-            length = len(name)
-        if fill is None:
-            fill = b'\x00' * ((4 - len(name)) % 4)
-        self.length = length
-        self._name = name
-        self.fill = fill
-
-    def extract_padding(self, s):
-        return '', s
 
 
 class NLM4_Cookie(Packet):

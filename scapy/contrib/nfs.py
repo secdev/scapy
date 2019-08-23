@@ -6,7 +6,7 @@
 # scapy.contrib.description = Network File System (NFS) v3
 # scapy.contrib.status = loads
 
-from scapy.contrib.oncrpc import RPC, RPC_Call
+from scapy.contrib.oncrpc import RPC, RPC_Call, Object_Name
 from binascii import unhexlify
 from scapy.packet import Packet, bind_layers
 from scapy.fields import IntField, IntEnumField, FieldListField, LongField, \
@@ -116,31 +116,10 @@ class File_Object(Packet):
         if length is None:
             length = len(new_filehandle)
         if fill is None:
-            fill = b'\x00' * ((4 - self.length) % 4)
+            fill = b'\x00' * ((4 - length) % 4)
 
         self.length = length
         self.fh = new_filehandle
-        self.fill = fill
-
-    def extract_padding(self, s):
-        return '', s
-
-
-class Object_Name(Packet):
-    name = 'Object Name'
-    fields_desc = [
-        IntField('length', 0),
-        StrLenField('_name', '', length_from=lambda pkt: pkt.length),
-        StrLenField('fill', '', length_from=lambda pkt: (4 - pkt.length) % 4)
-    ]
-
-    def set(self, name, length=None, fill=None):
-        if length is None:
-            length = len(name)
-        if fill is None:
-            fill = b'\x00' * ((4 - len(name)) % 4)
-        self.length = length
-        self._name = name
         self.fill = fill
 
     def extract_padding(self, s):

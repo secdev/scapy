@@ -11,6 +11,7 @@ from scapy.contrib.oncrpc import RPC, RPC_Call
 from scapy.packet import Packet, bind_layers
 from scapy.fields import IntField, StrLenField, IntEnumField, PacketField, \
     ConditionalField, FieldListField
+from scapy.contrib.nfs import File_Object
 
 mountstat3 = {
     0: 'MNT3_OK',
@@ -45,32 +46,6 @@ class Path(Packet):
         self.length = length
         self.path = path
         self.fill = fill
-
-
-class File_Object(Packet):
-    name = 'File Object'
-    fields_desc = [
-        IntField('length', 0),
-        StrLenField('fh', b'', length_from=lambda pkt: pkt.length),
-        StrLenField('fill', b'', length_from=lambda pkt: (4 - pkt.length) % 4)
-    ]
-
-    def set(self, new_filehandle, length=None, fill=None):
-        # convert filehandle to bytes if it was passed as a string
-        if new_filehandle.isalnum():
-            new_filehandle = unhexlify(new_filehandle)
-
-        if length is None:
-            length = len(new_filehandle)
-        if fill is None:
-            fill = b'\x00' * ((4 - self.length) % 4)
-
-        self.length = length
-        self.fh = new_filehandle
-        self.fill = fill
-
-    def extract_padding(self, s):
-        return '', s
 
 
 class NULL_Call(Packet):
