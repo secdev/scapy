@@ -7,7 +7,6 @@
 # scapy.contrib.status = loads
 
 from scapy.contrib.oncrpc import RPC, RPC_Call, Object_Name
-from binascii import unhexlify
 from scapy.packet import Packet, bind_layers
 from scapy.fields import IntField, StrLenField, LongField, PacketField, \
     IntEnumField

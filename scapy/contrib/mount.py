@@ -6,7 +6,6 @@
 # scapy.contrib.description = NFS Mount v3
 # scapy.contrib.status = loads
 
-from binascii import unhexlify
 from scapy.contrib.oncrpc import RPC, RPC_Call
 from scapy.packet import Packet, bind_layers
 from scapy.fields import IntField, StrLenField, IntEnumField, PacketField, \
