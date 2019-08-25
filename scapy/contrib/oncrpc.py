@@ -42,8 +42,8 @@ class RM_Header(Packet):
     def post_build(self, pkt, pay):
         """Override of post_build to set the rm header == len(payload)"""
         if self.rm is None:
-            self.rm = 0x80000000 + len(self.payload)
-            pkt = struct.pack('!I', self.rm)
+            new_rm = 0x80000000 + len(self.payload)
+            pkt = struct.pack('!I', new_rm)
         return Packet.post_build(self, pkt, pay)
 
 
