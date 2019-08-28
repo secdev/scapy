@@ -11,6 +11,7 @@
 = Load module
 
 load_contrib("automotive.ccp")
+from scapy.contrib.automotive.ccp import CONNECT, DISCONNECT
 
 = Build CRO CONNECT
 
