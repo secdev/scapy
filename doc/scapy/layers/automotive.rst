@@ -784,18 +784,19 @@ Usage example::
 Analyze on the fly with ECUSession
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-This example shows the usage of a ECUSession in sniff. An ISOTPSocket or any socket like object which returns entire messages of the right protocol can be used. Here a ``PacketList`` is used as socket. To obtain the ``ECU`` object from a ``ECUSession``, the ``ECUSession`` has to be created outside of sniff.
+This example shows the usage of a ECUSession in sniff. An ISOTPSocket or any socket like object which returns entire messages of the right protocol can be used. A ``ECUSession`` is used as supersession in an ``ISOTPSession``. To obtain the ``ECU`` object from a ``ECUSession``, the ``ECUSession`` has to be created outside of sniff.
 
 Usage example::
 
 	session = ECUSession()
 
-	with udsmsgs as sock:
-	     x = sniff(session=session, count=50, opened_socket=sock, store=False)
+	with PcapReader("test/contrib/automotive/ecu_trace.pcap") as sock:
+	     udsmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "use_ext_addr":False, "basecls":UDS}, count=50, opened_socket=sock)
 
 	ecu = session.ecu
 	print(ecu.log)
 	print(ecu.supported_responses)
+
 
 
 SOME/IP and SOME/IP SD messages

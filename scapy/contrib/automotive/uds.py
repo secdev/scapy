@@ -13,7 +13,7 @@ from scapy.fields import ByteEnumField, StrField, ConditionalField, \
     BitEnumField, BitField, XByteField, FieldListField, \
     XShortField, X3BytesField, XIntField, ByteField, \
     ShortField, ObservableDict, XShortEnumField, XByteEnumField
-from scapy.packet import Packet, bind_layers
+from scapy.packet import Packet, bind_layers, NoPayload
 from scapy.config import conf
 from scapy.error import log_loading
 from scapy.utils import PeriodicSenderThread
@@ -94,11 +94,15 @@ class UDS(ISOTP):
     ]
 
     def answers(self, other):
-        if other.__class__ == self.__class__ and self.service == 0x7f:
+        if other.__class__ != self.__class__:
+            return False
+        if self.service == 0x7f:
             return self.payload.answers(other)
-        elif other.__class__ == self.__class__ and \
-                (other.service + 0x40) == self.service:
-            return self.payload.answers(other.payload)
+        if self.service == (other.service + 0x40):
+            if isinstance(self.payload, NoPayload):
+                return True
+            else:
+                return self.payload.answers(other.payload)
         return False
 
     def hashret(self):
@@ -187,6 +191,7 @@ class UDS_ERPR(Packet):
         return other.__class__ == UDS_ER
 
     def modifies_ecu_state(self, ecu):
+        _ = self
         ecu.reset()
 
     def get_log(self):

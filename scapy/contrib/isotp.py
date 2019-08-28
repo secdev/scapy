@@ -492,15 +492,26 @@ class ISOTPSession(DefaultSession):
     >>> sniff(session=ISOTPSession)
     """
 
-    def __init__(self, *args, **karg):
-        DefaultSession.__init__(self, *args)
-        self.m = ISOTPMessageBuilder(**karg)
+    def __init__(self, *args, **kwargs):
+        DefaultSession.__init__(self, *args, **kwargs)
+        self.m = ISOTPMessageBuilder(
+            use_ext_addr=kwargs.pop("use_ext_addr", None),
+            basecls=kwargs.pop("basecls", None))
 
     def on_packet_received(self, pkt):
+        if not pkt:
+            return
+        if isinstance(pkt, list):
+            for p in pkt:
+                ISOTPSession.on_packet_received(self, p)
+            return
         self.m.feed(pkt)
         while len(self.m) > 0:
             rcvd = self.m.pop()
-            DefaultSession.on_packet_received(self, rcvd)
+            if self._supersession:
+                self._supersession.on_packet_received(rcvd)
+            else:
+                DefaultSession.on_packet_received(self, rcvd)
 
 
 class ISOTPSoftSocket(SuperSocket):

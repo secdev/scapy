@@ -14,9 +14,9 @@ from scapy.fields import ObservableDict, XByteEnumField, ByteEnumField, \
     ConditionalField, XByteField, StrField, XShortEnumField, XShortField, \
     X3BytesField, XIntField, ShortField, PacketField, PacketListField, \
     FieldListField
-from scapy.packet import Packet, bind_layers
+from scapy.packet import Packet, bind_layers, NoPayload
 from scapy.config import conf
-from scapy.error import warning
+from scapy.error import warning, log_loading
 from scapy.utils import PeriodicSenderThread
 
 
@@ -24,7 +24,18 @@ from scapy.utils import PeriodicSenderThread
 GMLAN
 """
 
-conf.contribs['GMLAN'] = {'GMLAN_ECU_AddressingScheme': None}
+try:
+    if conf.contribs['GMLAN']['treat-response-pending-as-answer']:
+        pass
+except KeyError:
+    log_loading.info("Specify \"conf.contribs['GMLAN'] = "
+                     "{'treat-response-pending-as-answer': True}\" to treat "
+                     "a negative response 'RequestCorrectlyReceived-"
+                     "ResponsePending' as answer of a request. \n"
+                     "The default value is False.")
+    conf.contribs['GMLAN'] = {'treat-response-pending-as-answer': False}
+
+conf.contribs['GMLAN']['GMLAN_ECU_AddressingScheme'] = None
 
 
 class GMLAN(Packet):
@@ -87,12 +98,16 @@ class GMLAN(Packet):
     ]
 
     def answers(self, other):
-        """DEV: true if self is an answer from other"""
-        if other.__class__ == self.__class__:
-            return (other.service + 0x40) == self.service or \
-                   (self.service == 0x7f and
-                    (self.requestServiceId == other.service))
-        return 0
+        if other.__class__ != self.__class__:
+            return False
+        if self.service == 0x7f:
+            return self.payload.answers(other)
+        if self.service == (other.service + 0x40):
+            if isinstance(self.payload, NoPayload):
+                return True
+            else:
+                return self.payload.answers(other.payload)
+        return False
 
     def hashret(self):
         if self.service == 0x7f:
@@ -149,6 +164,10 @@ class GMLAN_RFRDPR(Packet):
     fields_desc = [
         ByteEnumField('subfunction', 0, GMLAN_RFRD.subfunctions)
     ]
+
+    def answers(self, other):
+        return other.__class__ == GMLAN_RFRD and \
+            other.subfunction == self.subfunction
 
 
 bind_layers(GMLAN, GMLAN_RFRDPR, service=0x52)
@@ -282,6 +301,10 @@ class GMLAN_RDBIPR(Packet):
         XByteEnumField('dataIdentifier', 0, GMLAN_RDBI.dataIdentifiers),
     ]
 
+    def answers(self, other):
+        return other.__class__ == GMLAN_RDBI and \
+            other.dataIdentifier == self.dataIdentifier
+
 
 bind_layers(GMLAN, GMLAN_RDBIPR, service=0x5A)
 
@@ -309,6 +332,10 @@ class GMLAN_RDBPIPR(Packet):
     fields_desc = [
         XShortEnumField('parameterIdentifier', 0, GMLAN_RDBPI.dataIdentifiers),
     ]
+
+    def answers(self, other):
+        return other.__class__ == GMLAN_RDBPI and \
+            self.parameterIdentifier in other.identifiers
 
 
 bind_layers(GMLAN, GMLAN_RDBPIPR, service=0x62)
@@ -365,6 +392,10 @@ class GMLAN_RMBAPR(Packet):
         StrField('dataRecord', None, fmt="B")
     ]
 
+    def answers(self, other):
+        return other.__class__ == GMLAN_RMBA and \
+            other.memoryAddress == self.memoryAddress
+
 
 bind_layers(GMLAN, GMLAN_RMBAPR, service=0x63)
 
@@ -405,6 +436,10 @@ class GMLAN_SAPR(Packet):
                          lambda pkt: pkt.subfunction % 2 == 1),
     ]
 
+    def answers(self, other):
+        return other.__class__ == GMLAN_SA \
+            and other.subfunction == self.subfunction
+
 
 bind_layers(GMLAN, GMLAN_SAPR, service=0x67)
 
@@ -426,6 +461,10 @@ class GMLAN_DDMPR(Packet):
     fields_desc = [
         XByteField('DPIDIdentifier', 0)
     ]
+
+    def answers(self, other):
+        return other.__class__ == GMLAN_DDM \
+            and other.DPIDIdentifier == self.DPIDIdentifier
 
 
 bind_layers(GMLAN, GMLAN_DDMPR, service=0x6C)
@@ -454,6 +493,10 @@ class GMLAN_DPBAPR(Packet):
     fields_desc = [
         XShortField('parameterIdentifier', 0),
     ]
+
+    def answers(self, other):
+        return other.__class__ == GMLAN_DPBA \
+            and other.parameterIdentifier == self.parameterIdentifier
 
 
 bind_layers(GMLAN, GMLAN_DPBA, service=0x6D)
@@ -515,6 +558,10 @@ class GMLAN_WDBIPR(Packet):
     fields_desc = [
         XByteEnumField('dataIdentifier', 0, GMLAN_RDBI.dataIdentifiers)
     ]
+
+    def answers(self, other):
+        return other.__class__ == GMLAN_WDBI \
+            and other.dataIdentifier == self.dataIdentifier
 
 
 bind_layers(GMLAN, GMLAN_WDBIPR, service=0x7B)
@@ -632,6 +679,11 @@ class GMLAN_NR(Packet):
         ByteEnumField('returnCode', 0, negativeResponseCodes),
         ShortField('deviceControlLimitExceeded', 0)
     ]
+
+    def answers(self, other):
+        return self.requestServiceId == other.service and \
+            (self.returnCode != 0x78 or
+             conf.contribs['UDS']['treat-response-pending-as-answer'])
 
 
 bind_layers(GMLAN, GMLAN_NR, service=0x7f)

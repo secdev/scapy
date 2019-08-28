@@ -11,6 +11,8 @@
 import time
 import random
 
+from collections import defaultdict
+
 from scapy.packet import Raw, Packet
 from scapy.plist import PacketList
 from scapy.error import Scapy_Exception
@@ -64,7 +66,7 @@ class ECU:
         self.verbose = verbose
         self.logging = logging
         self.store_supported_responses = store_supported_responses
-        self.log = dict()
+        self.log = defaultdict(list)
         self._supported_responses = list()
         self._unanswered_packets = PacketList()
 
@@ -95,10 +97,7 @@ class ECU:
         for l in pkt.layers():
             if hasattr(l, "get_log"):
                 log_key, log_value = l.get_log(pkt)
-                if log_key not in self.log.keys():
-                    self.log[log_key] = [(pkt.time, log_value)]
-                else:
-                    self.log[log_key] += [(pkt.time, log_value)]
+                self.log[log_key].append((pkt.time, log_value))
 
     def _update_internal_state(self, pkt):
         for l in pkt.layers():
@@ -108,7 +107,7 @@ class ECU:
     def _update_supported_responses(self, pkt):
         self._unanswered_packets += PacketList([pkt])
         answered, unanswered = self._unanswered_packets.sr()
-        for req, resp in answered:
+        for _, resp in answered:
             ecu_resp = ECUResponse(session=self.current_session,
                                    security_level=self.current_security_level,
                                    responses=resp)
@@ -151,11 +150,22 @@ class ECUSession(DefaultSession):
     >>> sniff(session=ECUSession)
     """
 
-    def __init__(self, *args, **karg):
-        DefaultSession.__init__(self, *args)
-        self.ecu = ECU(**karg)
+    def __init__(self, *args, **kwargs):
+        DefaultSession.__init__(self, *args, **kwargs)
+        self.ecu = ECU(init_session=kwargs.pop("init_session", None),
+                       init_security_level=kwargs.pop("init_security_level", None),  # noqa: E501
+                       init_communication_control=kwargs.pop("init_communication_control", None),  # noqa: E501
+                       logging=kwargs.pop("logging", True),
+                       verbose=kwargs.pop("verbose", True),
+                       store_supported_responses=kwargs.pop("store_supported_responses", True))  # noqa: E501
 
     def on_packet_received(self, pkt):
+        if not pkt:
+            return
+        if isinstance(pkt, list):
+            for p in pkt:
+                ECUSession.on_packet_received(self, p)
+            return
         self.ecu.update(pkt)
         DefaultSession.on_packet_received(self, pkt)
 
@@ -271,7 +281,7 @@ class ECU_am(AnsweringMachine):
     function_name = "ECU_am"
     sniff_options_list = ["store", "opened_socket", "count", "filter", "prn", "stop_filter", "timeout"]  # noqa: E501
 
-    def parse_options(self, supported_responses=list(),
+    def parse_options(self, supported_responses=None,
                       main_socket=None, broadcast_socket=None, basecls=Raw,
                       timeout=1):
         self.main_socket = main_socket
@@ -295,27 +305,28 @@ class ECU_am(AnsweringMachine):
         print("%s ==> %s" % (req.summary(), [res.summary() for res in reply]))
 
     def make_reply(self, req):
-        for resp in self.supported_responses:
-            if not isinstance(resp, ECUResponse):
-                raise Scapy_Exception("Unsupported type for response. "
-                                      "Please use `ECUResponse` objects. ")
+        if self.supported_responses is not None:
+            for resp in self.supported_responses:
+                if not isinstance(resp, ECUResponse):
+                    raise Scapy_Exception("Unsupported type for response. "
+                                          "Please use `ECUResponse` objects. ")
 
-            if not resp.in_correct_session(self.ecu_state.current_session):
-                continue
+                if not resp.in_correct_session(self.ecu_state.current_session):
+                    continue
 
-            if not resp.has_security_access(
-                    self.ecu_state.current_security_level):
-                continue
+                if not resp.has_security_access(
+                        self.ecu_state.current_security_level):
+                    continue
 
-            if not resp.answers(req):
-                continue
+                if not resp.answers(req):
+                    continue
 
-            for r in resp.responses:
-                for l in r.layers():
-                    if hasattr(l, "modifies_ecu_state"):
-                        l.modifies_ecu_state(r, self.ecu_state)
+                for r in resp.responses:
+                    for l in r.layers():
+                        if hasattr(l, "modifies_ecu_state"):
+                            l.modifies_ecu_state(r, self.ecu_state)
 
-            return resp.responses
+                return resp.responses
 
         return PacketList([self.basecls(b"\x7f" + bytes(req)[0:1] + b"\x10")])
 
