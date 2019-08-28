@@ -41,9 +41,8 @@ def _check_tcpdump():
     except OSError:
         return False
 
-    # tcpdump acts strangely on some OSes and returns 1
-    # therefore we also checks the output
-    return b"tcpdump" in output or proc.returncode == 0
+    # On some systems, --version does not exist on tcpdump
+    return proc.returncode == 0 or output.startswith(b'Usage: tcpdump ')
 
 
 # This won't be used on Windows
