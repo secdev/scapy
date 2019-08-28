@@ -1339,3 +1339,60 @@ class UDS_TesterPresentSender(PeriodicSenderThread):
             interval: interval between two packets
         """
         PeriodicSenderThread.__init__(self, sock, pkt, interval)
+
+
+def UDS_SessionEnumerator(sock):
+    """ Enumerates session ID's 0x0 - 0xff
+        and returns list of UDS()/UDS_DSC() packets
+        with valid session types
+
+    Args:
+        sock: socket where packets are sent
+    """
+    pkts = [UDS()/UDS_DSC(diagnosticSessionType=x) for x in range(0xff)]
+    results = []
+    for p in pkts:
+        a = sock.sr1(p, timeout=0.5, verbose=False)
+        if a != None:
+            if a.service == 0x50 or \
+                    a.negativeResponseCode not in [0x10, 0x11, 0x12]:
+                results.append(p)
+        sock.send(UDS() / UDS_ER())
+        time.sleep(0.5)
+    return results
+
+
+def UDS_ServiceEnumerator(sock, session="DefaultSession"):
+    """ Enumerates every service ID
+        and returns list of tuples. Each tuple contains
+        the session and the respective positive response
+
+    Args:
+        sock: socket where packet is sent periodically
+        session: session in which the services are enumerated
+    """
+    pkts = [UDS(service=x) for x in set(x & ~0x40 for x in range(0x100))]
+    found_services = [sock.sr1(p, timeout=0.5, verbose=False) for p in pkts]
+    return [(session, p) for p in found_services if
+            p.service != 0x7f or
+            p.negativeResponseCode not in [0x10, 0x11, 0x12]]
+
+
+def getTableEntry(tup):
+    """ Helping function for make_lined_table.
+        Returns the session and response code of tup.
+
+    Args:
+        tup: tuple with session and UDS response package
+    """
+    session, pkt = tup
+    if pkt.service == 0x7f:
+        return (session,
+                "0x%02x: %s" % (pkt.requestServiceId, pkt.sprintf("%UDS_NR.requestServiceId%")),
+                pkt.sprintf("%UDS_NR.negativeResponseCode%"))
+    else:
+        return (session,
+                "0x%02x: %s" % (pkt.service & ~0x40,
+                                pkt.get_field('service').
+                                i2s[pkt.service & ~0x40]),
+                "PositiveResponse")
