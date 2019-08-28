@@ -1,0 +1,336 @@
+% Tests for nlm module
+############
+############
++  Packet creation tests
+
+= Create subpackets
+File_Object()
+NLM4_Cookie()
+Object_Name()
+
+= Create nlm Calls
+SHARE_Call()
+UNSHARE_Call()
+LOCK_Call()
+UNLOCK_Call()
+GRANTED_MSG_Call()
+GRANTED_RES_Call()
+CANCEL_Call()
+TEST_Call()
+
+= Create nlm Replies
+SHARE_Reply()
+UNSHARE_Reply()
+LOCK_Reply()
+UNLOCK_Reply()
+GRANTED_MSG_Reply()
+GRANTED_RES_Reply()
+CANCEL_Reply()
+TEST_Reply()
+
++ Layer bindings tests
+
+= RPC Layer Bindings for NLM Calls
+from scapy.contrib.oncrpc import *
+pkt = RPC()/RPC_Call()/SHARE_Call()
+assert (pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100021, 4, 20)
+pkt = RPC()/RPC_Call()/UNSHARE_Call()
+assert (pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100021, 4, 21)
+pkt = RPC()/RPC_Call()/LOCK_Call()
+assert (pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100021, 4, 2)
+pkt = RPC()/RPC_Call()/UNLOCK_Call()
+assert (pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100021, 4, 4)
+pkt = RPC()/RPC_Call()/GRANTED_MSG_Call()
+assert (pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100021, 4, 10)
+pkt = RPC()/RPC_Call()/GRANTED_RES_Call()
+assert (pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100021, 4, 15)
+pkt = RPC()/RPC_Call()/CANCEL_Call()
+assert (pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100021, 4, 3)
+pkt = RPC()/RPC_Call()/TEST_Call()
+assert (pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100021, 4, 1)
+
+= RPC Layer Bindings for NLM Replies
+from scapy.contrib.oncrpc import *
+pkt = RPC()/RPC_Reply()/SHARE_Reply()
+assert pkt.mtype == 1
+pkt = RPC()/RPC_Reply()/UNSHARE_Reply()
+assert pkt.mtype == 1
+pkt = RPC()/RPC_Reply()/LOCK_Reply()
+assert pkt.mtype == 1
+pkt = RPC()/RPC_Reply()/UNLOCK_Reply()
+assert pkt.mtype == 1
+pkt = RPC()/RPC_Reply()/GRANTED_MSG_Reply()
+assert pkt.mtype == 1
+pkt = RPC()/RPC_Reply()/GRANTED_RES_Reply()
+assert pkt.mtype == 1
+pkt = RPC()/RPC_Reply()/CANCEL_Reply()
+assert pkt.mtype == 1
+pkt = RPC()/RPC_Reply()/TEST_Reply()
+assert pkt.mtype == 1
+
++ Test Built Packets Against Raw Strings
+
+= Built NLM Calls vs Raw Strings
+pkt = SHARE_Call(
+    cookie=NLM4_Cookie(
+        length=6,
+        contents='COOKIE',
+        fill='\x00\x00'
+    ),
+    caller=Object_Name(
+        length=6,
+        _name='CALLER',
+        fill='\x00\x00'
+    ),
+    filehandle=File_Object(
+        length=4,
+        fh='file'
+    ),
+    owner=Object_Name(
+        length=5,
+        _name='OWNER',
+        fill='\x00'
+    ),
+    mode=1,
+    access=2,
+    reclaim='YES'
+)
+assert bytes(pkt) == b'\x00\x00\x00\x06COOKIE\x00\x00\x00\x00\x00\x06CALLER\x00\x00\x00\x00\x00\x04file\x00\x00\x00\x05OWNER\x00\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x01'
+
+pkt = UNSHARE_Call(
+    cookie=NLM4_Cookie(
+        length=6,
+        contents='COOKIE',
+        fill='\x00\x00'
+    ),
+    caller=Object_Name(
+        length=6,
+        _name='CALLER',
+        fill='\x00\x00'
+    ),
+    filehandle=File_Object(
+        length=4,
+        fh='file'
+    ),
+    owner=Object_Name(
+        length=5,
+        _name='OWNER',
+        fill='\x00'
+    ),
+    mode=1,
+    access=2,
+    reclaim='YES'
+)
+assert bytes(pkt) == b'\x00\x00\x00\x06COOKIE\x00\x00\x00\x00\x00\x06CALLER\x00\x00\x00\x00\x00\x04file\x00\x00\x00\x05OWNER\x00\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x01'
+
+pkt = LOCK_Call(
+    cookie=NLM4_Cookie(
+        length=6,
+        contents='COOKIE',
+        fill='\x00\x00'
+    ),
+    block='YES',
+    exclusive='YES',
+    caller=Object_Name(
+        length=6,
+        _name='CALLER',
+        fill='\x00\x00'
+    ),
+    filehandle=File_Object(
+        length=4,
+        fh='file'
+    ),
+    owner=Object_Name(
+        length=5,
+        _name='OWNER',
+        fill='\x00'
+    ),
+    svid=1,
+    l_offset=2,
+    l_len=3,
+    reclaim=1,
+    state=4
+)
+assert bytes(pkt) == b'\x00\x00\x00\x06COOKIE\x00\x00\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x06CALLER\x00\x00\x00\x00\x00\x04file\x00\x00\x00\x05OWNER\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x01\x00\x00\x00\x04'
+
+pkt = UNLOCK_Call(
+    cookie=NLM4_Cookie(
+        length=6,
+        contents='COOKIE',
+        fill='\x00\x00'
+    ),
+    caller=Object_Name(
+        length=6,
+        _name='CALLER',
+        fill='\x00\x00'
+    ),
+    filehandle=File_Object(
+        length=4,
+        fh='file'
+    ),
+    owner=Object_Name(
+        length=5,
+        _name='OWNER',
+        fill='\x00'
+    ),
+    svid=1,
+    l_offset=2,
+    l_len=3
+)
+assert bytes(pkt) == b'\x00\x00\x00\x06COOKIE\x00\x00\x00\x00\x00\x06CALLER\x00\x00\x00\x00\x00\x04file\x00\x00\x00\x05OWNER\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03'
+
+pkt = GRANTED_MSG_Call(
+    cookie=NLM4_Cookie(
+        length=6,
+        contents='COOKIE',
+        fill='\x00\x00'
+    ),
+    exclusive='YES',
+    caller=Object_Name(
+        length=6,
+        _name='CALLER',
+        fill='\x00\x00'
+    ),
+    filehandle=File_Object(
+        length=4,
+        fh='file'
+    ),
+    owner=Object_Name(
+        length=5,
+        _name='OWNER',
+        fill='\x00'
+    ),
+    svid=1,
+    l_offset=2,
+    l_len=3
+)
+assert bytes(pkt) == b'\x00\x00\x00\x06COOKIE\x00\x00\x00\x00\x00\x01\x00\x00\x00\x06CALLER\x00\x00\x00\x00\x00\x04file\x00\x00\x00\x05OWNER\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03'
+
+pkt = GRANTED_RES_Call(
+    cookie=NLM4_Cookie(
+        length=6,
+        contents='COOKIE',
+        fill='\x00\x00'
+    ),
+    status='NLM4_BLOCKED'
+)
+assert bytes(pkt) == b'\x00\x00\x00\x06COOKIE\x00\x00\x00\x00\x00\x03'
+
+pkt = CANCEL_Call(
+    cookie=NLM4_Cookie(
+        length=6,
+        contents='COOKIE',
+        fill='\x00\x00'
+    ),
+    block='YES',
+    exclusive='YES',
+    caller=Object_Name(
+        length=6,
+        _name='CALLER',
+        fill='\x00\x00'
+    ),
+    filehandle=File_Object(
+        length=4,
+        fh='file'
+    ),
+    owner=Object_Name(
+        length=5,
+        _name='OWNER',
+        fill='\x00'
+    ),
+    svid=1,
+    l_offset=2,
+    l_len=3
+)
+assert bytes(pkt) == b'\x00\x00\x00\x06COOKIE\x00\x00\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x06CALLER\x00\x00\x00\x00\x00\x04file\x00\x00\x00\x05OWNER\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03'
+
+pkt = TEST_Call(
+    cookie=NLM4_Cookie(
+        length=6,
+        contents='COOKIE',
+        fill='\x00\x00'
+    ),
+    exclusive='YES',
+    caller=Object_Name(
+        length=6,
+        _name='CALLER',
+        fill='\x00\x00'
+    ),
+    filehandle=File_Object(
+        length=4,
+        fh='file'
+    ),
+    owner=Object_Name(
+        length=5,
+        _name='OWNER',
+        fill='\x00'
+    ),
+    svid=1,
+    l_offset=2,
+    l_len=3
+)
+assert bytes(pkt) == b'\x00\x00\x00\x06COOKIE\x00\x00\x00\x00\x00\x01\x00\x00\x00\x06CALLER\x00\x00\x00\x00\x00\x04file\x00\x00\x00\x05OWNER\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03'
+
+
+= NLM Replies vs Raw Strings
+pkt = SHARE_Reply(
+    cookie=NLM4_Cookie(
+        length=6,
+        contents='COOKIE',
+        fill='\x00\x00'
+    ),
+    status='NLM4_DENIED',
+    sequence=1
+)
+assert bytes(pkt) == b'\x00\x00\x00\x06COOKIE\x00\x00\x00\x00\x00\x01\x00\x00\x00\x01'
+
+pkt = UNSHARE_Reply(
+    cookie=NLM4_Cookie(
+        length=6,
+        contents='COOKIE',
+        fill='\x00\x00'
+    ),
+    status='NLM4_DENIED',
+    sequence=1
+)
+assert bytes(pkt) == b'\x00\x00\x00\x06COOKIE\x00\x00\x00\x00\x00\x01\x00\x00\x00\x01'
+
+pkt = LOCK_Reply(
+    cookie=NLM4_Cookie(
+        length=6,
+        contents='COOKIE',
+        fill='\x00\x00'
+    ),
+    status='NLM4_DENIED'
+)
+assert bytes(pkt) == b'\x00\x00\x00\x06COOKIE\x00\x00\x00\x00\x00\x01'
+
+pkt = UNLOCK_Reply(
+    cookie=NLM4_Cookie(
+        length=6,
+        contents='COOKIE',
+        fill='\x00\x00'
+    ),
+    status='NLM4_DENIED'
+)
+assert bytes(pkt) == b'\x00\x00\x00\x06COOKIE\x00\x00\x00\x00\x00\x01'
+
+pkt = CANCEL_Reply(
+    cookie=NLM4_Cookie(
+        length=6,
+        contents='COOKIE',
+        fill='\x00\x00'
+    ),
+    status='NLM4_DENIED'
+)
+assert bytes(pkt) == b'\x00\x00\x00\x06COOKIE\x00\x00\x00\x00\x00\x01'
+
+pkt = TEST_Reply(
+    cookie=NLM4_Cookie(
+        length=6,
+        contents='COOKIE',
+        fill='\x00\x00'
+    ),
+    status='NLM4_DENIED'
+)
+assert bytes(pkt) == b'\x00\x00\x00\x06COOKIE\x00\x00\x00\x00\x00\x01'
