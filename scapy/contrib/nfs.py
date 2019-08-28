@@ -58,7 +58,7 @@ ftype3 = {
 
 
 def loct(x):
-    if type(x) in integer_types:
+    if isinstance(x, integer_types):
         return oct(x)
     if isinstance(x, tuple):
         return "(%s)" % ", ".join(map(loct, x))
