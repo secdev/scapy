@@ -114,6 +114,18 @@ class GMLAN(Packet):
             return struct.pack('B', self.requestServiceId)
         return struct.pack('B', self.service & ~0x40)
 
+    def modifies_ecu_state(self, ecu):
+        if self.service == 0x50:
+            ecu.current_session = 3
+        elif self.service == 0x60:
+            ecu.current_session = 1
+            ecu.communication_control = 0
+            ecu.current_security_level = 0
+        elif self.service == 0x68:
+            ecu.communication_control = 1
+        elif self.service == 0xe5:
+            ecu.current_session = 2
+
 
 # ########################IDO###################################
 class GMLAN_IDO(Packet):
@@ -125,6 +137,10 @@ class GMLAN_IDO(Packet):
     fields_desc = [
         ByteEnumField('subfunction', 0, subfunctions)
     ]
+
+    def get_log(self):
+        return self.sprintf("%GMLAN.service%"), \
+            self.sprintf("%GMLAN_IDO.subfunction%")
 
 
 bind_layers(GMLAN, GMLAN_IDO, service=0x10)
@@ -439,6 +455,10 @@ class GMLAN_SAPR(Packet):
     def answers(self, other):
         return other.__class__ == GMLAN_SA \
             and other.subfunction == self.subfunction
+
+    def modifies_ecu_state(self, ecu):
+        if self.subfunction % 2 == 0:
+            ecu.current_security_level = self.subfunction
 
 
 bind_layers(GMLAN, GMLAN_SAPR, service=0x67)
