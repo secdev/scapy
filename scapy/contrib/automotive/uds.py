@@ -146,8 +146,9 @@ class UDS_DSCPR(Packet):
         return other.__class__ == UDS_DSC and \
             other.diagnosticSessionType == self.diagnosticSessionType
 
-    def modifies_ecu_state(self, ecu):
-        ecu.current_session = self.diagnosticSessionType
+    @staticmethod
+    def modifies_ecu_state(pkt, ecu):
+        ecu.current_session = pkt.diagnosticSessionType
 
     @staticmethod
     def get_log(pkt):
@@ -193,8 +194,8 @@ class UDS_ERPR(Packet):
     def answers(self, other):
         return other.__class__ == UDS_ER
 
-    def modifies_ecu_state(self, ecu):
-        _ = self
+    @staticmethod
+    def modifies_ecu_state(_, ecu):
         ecu.reset()
 
     @staticmethod
@@ -242,9 +243,10 @@ class UDS_SAPR(Packet):
         return other.__class__ == UDS_SA \
             and other.securityAccessType == self.securityAccessType
 
-    def modifies_ecu_state(self, ecu):
-        if self.securityAccessType % 2 == 0:
-            ecu.current_security_level = self.securityAccessType
+    @staticmethod
+    def modifies_ecu_state(pkt, ecu):
+        if pkt.securityAccessType % 2 == 0:
+            ecu.current_security_level = pkt.securityAccessType
 
     @staticmethod
     def get_log(pkt):
@@ -315,8 +317,9 @@ class UDS_CCPR(Packet):
         return other.__class__ == UDS_CC \
             and other.controlType == self.controlType
 
-    def modifies_ecu_state(self, ecu):
-        ecu.communication_control = self.controlType
+    @staticmethod
+    def modifies_ecu_state(pkt, ecu):
+        ecu.communication_control = pkt.controlType
 
     @staticmethod
     def get_log(pkt):

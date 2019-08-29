@@ -114,16 +114,17 @@ class GMLAN(Packet):
             return struct.pack('B', self.requestServiceId)
         return struct.pack('B', self.service & ~0x40)
 
-    def modifies_ecu_state(self, ecu):
-        if self.service == 0x50:
+    @staticmethod
+    def modifies_ecu_state(pkt, ecu):
+        if pkt.service == 0x50:
             ecu.current_session = 3
-        elif self.service == 0x60:
+        elif pkt.service == 0x60:
             ecu.current_session = 1
             ecu.communication_control = 0
             ecu.current_security_level = 0
-        elif self.service == 0x68:
+        elif pkt.service == 0x68:
             ecu.communication_control = 1
-        elif self.service == 0xe5:
+        elif pkt.service == 0xe5:
             ecu.current_session = 2
 
 
@@ -456,9 +457,10 @@ class GMLAN_SAPR(Packet):
         return other.__class__ == GMLAN_SA \
             and other.subfunction == self.subfunction
 
-    def modifies_ecu_state(self, ecu):
-        if self.subfunction % 2 == 0:
-            ecu.current_security_level = self.subfunction
+    @staticmethod
+    def modifies_ecu_state(pkt, ecu):
+        if pkt.subfunction % 2 == 0:
+            ecu.current_security_level = pkt.subfunction
 
 
 bind_layers(GMLAN, GMLAN_SAPR, service=0x67)
