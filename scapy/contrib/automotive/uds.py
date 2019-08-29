@@ -1371,9 +1371,9 @@ def UDS_ServiceEnumerator(sock, session="DefaultSession"):
         sock: socket where packet is sent periodically
         session: session in which the services are enumerated
     """
-    pkts = [UDS(service=x) for x in set(x & ~0x40 for x in range(0x100))]
-    found_services = [sock.sr1(p, timeout=0.5, verbose=False) for p in pkts]
-    return [(session, p) for p in found_services if
+    pkts = (UDS(service=x) for x in set(x & ~0x40 for x in range(0x100)))
+    found_services = sock.sr(pkts, timeout=5, verbose=False)
+    return [(session, p) for _, p in found_services[0] if
             p.service != 0x7f or
             p.negativeResponseCode not in [0x10, 0x11, 0x12]]
 
