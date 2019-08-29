@@ -957,6 +957,9 @@ time.sleep(0.1)
 gotTimeout = False
 try:
     dto = sock1.sr1(CCP(identifier=0x700)/CRO(ctr=0x54)/PROGRAM_6(data=b"\x10\x11\x12\x10\x11\x12"), timeout=1)
+    print(dto)
+    if dto is None:
+        gotTimeout = True
 except CANSocketTimeoutElapsed as e:
     gotTimeout = True
 
