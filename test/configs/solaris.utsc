@@ -1,6 +1,10 @@
 {
   "testfiles": [
     "test/*.uts",
+    "test/contrib/automotive/*.uts",
+    "test/contrib/automotive/obd/*.uts",
+    "test/contrib/automotive/gm/*.uts",
+    "test/contrib/automotive/bmw/*.uts",
     "test/contrib/*.uts"
   ],
   "remove_testfiles": [

@@ -11,6 +11,7 @@
 = Load module
 
 load_contrib("automotive.ccp")
+from scapy.contrib.automotive.ccp import CONNECT, DISCONNECT
 
 = Build CRO CONNECT
 
@@ -887,7 +888,7 @@ load_contrib("cansocket")
 iface0 = "vcan0"
 
 = Initialize a virtual CAN interface
-~ needs_root linux conf
+~ needs_root linux conf vcan_socket
 if 0 != call("cansend %s 000#" % iface0, shell=True):
     # vcan0 is not enabled
     if 0 != call("sudo modprobe vcan", shell=True):
@@ -903,7 +904,7 @@ if 0 != call("cansend %s 000#" % iface0, shell=True):
 print("CAN should work now")
 
 = CAN Socket sr1 with dto.ansers(cro) == True
-~ needs_root linux
+~ needs_root linux vcan_socket
 
 sock1 = CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0', bitrate=250000), basecls=CCP)
 sock2 = CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0', bitrate=250000))
@@ -936,7 +937,7 @@ sock2.close()
 
 
 = CAN Socket sr1 with dto.ansers(cro) == False
-~ needs_root linux
+~ needs_root linux vcan_socket
 
 sock1 = CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0', bitrate=250000), basecls=CCP)
 sock2 = CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0', bitrate=250000))
@@ -956,6 +957,9 @@ time.sleep(0.1)
 gotTimeout = False
 try:
     dto = sock1.sr1(CCP(identifier=0x700)/CRO(ctr=0x54)/PROGRAM_6(data=b"\x10\x11\x12\x10\x11\x12"), timeout=1)
+    print(dto)
+    if dto is None:
+        gotTimeout = True
 except CANSocketTimeoutElapsed as e:
     gotTimeout = True
 
@@ -966,7 +970,7 @@ sock1.close()
 sock2.close()
 
 = CAN Socket sr1 with error code
-~ needs_root linux
+~ needs_root linux vcan_socket
 
 sock1 = CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0', bitrate=250000), basecls=CCP)
 sock2 = CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0', bitrate=250000))
@@ -996,3 +1000,10 @@ assert dto.MTA0_address == 0xffffffff
 
 sock1.close()
 sock2.close()
+
++ Cleanup
+= Delete vcan interfaces
+~ needs_root linux vcan_socket
+
+if 0 != call("sudo ip link delete %s" % iface0, shell=True):
+        raise Exception("%s could not be deleted" % iface0)

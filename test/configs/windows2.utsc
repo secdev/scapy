@@ -1,6 +1,10 @@
 {
   "testfiles": [
     "*.uts",
+    "test\\contrib\\automotive\\obd\\*.uts",
+    "test\\contrib\\automotive\\gm\\*.uts",
+    "test\\contrib\\automotive\\bmw\\*.uts",
+    "test\\contrib\\automotive\\*.uts",
     "tls\\tests_tls_netaccess.uts",
     "contrib\\*.uts"
   ],
