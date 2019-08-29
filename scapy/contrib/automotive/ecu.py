@@ -94,9 +94,9 @@ class ECU:
         self._update_internal_state(pkt)
 
     def _update_log(self, pkt):
-        for l in pkt.layers():
+        for c, l in enumerate(pkt.layers()):
             if hasattr(l, "get_log"):
-                log_key, log_value = l.get_log(pkt)
+                log_key, log_value = l.get_log(pkt[c])
                 self.log[log_key].append((pkt.time, log_value))
 
     def _update_internal_state(self, pkt):
