@@ -592,3 +592,11 @@ for s in result:
 for s in result:
     del s
 
+= Delete vcan interfaces
+~ needs_root linux
+
+if 0 != call("sudo ip link delete %s" % iface0, shell=True):
+        raise Exception("%s could not be deleted" % iface0)
+
+if 0 != call("sudo ip link delete %s" % iface1, shell=True):
+        raise Exception("%s could not be deleted" % iface1)
