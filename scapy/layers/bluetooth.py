@@ -161,7 +161,8 @@ _bluetooth_error_codes = {
     0x3D: "Connection Terminated due to MIC Failure",
     0x3E: "Connection Failed to be Established / Synchronization Timeout",
     0x3F: "MAC Connection Failed",
-    0x40: "Coarse Clock Adjustment Rejected but Will Try to Adjust Using Clock Dragging",
+    0x40: "Coarse Clock Adjustment Rejected but Will Try to Adjust Using Clock"
+          " Dragging",
     0x41: "Type0 Submap Not Defined",
     0x42: "Unknown Advertising Identifier",
     0x43: "Limit Reached",
