@@ -676,3 +676,457 @@ m = t.inner.msg[0]
 assert(isinstance(m, TLSAlert))
 assert(m.level == 1)
 assert(m.descr == 0)
+
+
+########### HelloRetryRequest ###############################################
++ Decrypt a TLS 1.3 session with a retry
+
+= Decrypt a TLS 1.3 session with a retry - Parse first ClientHello
+# Values from RFC8448, section 5
+x25519_clt_priv = clean("""
+         0e d0 2f 8e 81 17 ef c7 5c a7 ac 32 aa
+         7e 34 ed a6 4c dc 0d da d1 54 a5 e8 52 89 f9 59 f6 32 04
+   """)
+
+x25519_clt_pub = clean("""
+         e8 e8 e3 f3 b9 3a 25 ed 97 a1 4a 7d ca cb
+         8a 27 2c 62 88 e5 85 c6 48 4d 05 26 2f ca d0 62 ad 1f
+   """)
+
+clientHello1 = clean("""
+         16 03 01 00 b4 01 00 00 b0 03 03 b0
+         b1 c5 a5 aa 37 c5 91 9f 2e d1 d5 c6 ff f7 fc b7 84 97 16 94 5a
+         2b 8c ee 92 58 a3 46 67 7b 6f 00 00 06 13 01 13 03 13 02 01 00
+         00 81 00 00 00 0b 00 09 00 00 06 73 65 72 76 65 72 ff 01 00 01
+         00 00 0a 00 08 00 06 00 1d 00 17 00 18 00 33 00 26 00 24 00 1d
+         00 20 e8 e8 e3 f3 b9 3a 25 ed 97 a1 4a 7d ca cb 8a 27 2c 62 88
+         e5 85 c6 48 4d 05 26 2f ca d0 62 ad 1f 00 2b 00 03 02 03 04 00
+         0d 00 20 00 1e 04 03 05 03 06 03 02 03 08 04 08 05 08 06 04 01
+         05 01 06 01 02 01 04 02 05 02 06 02 02 02 00 2d 00 02 01 01 00
+         1c 00 02 40 01
+   """)
+
+t = TLS(clientHello1)
+assert(len(t.msg) == 1)
+assert(t.msg[0].msgtype == 1)
+assert(t.msg[0].extlen == 129)
+assert(len(t.msg[0].ext) == 8)
+e = t.msg[0].ext
+assert(isinstance(e[0], TLS_Ext_ServerName))
+assert(isinstance(e[1], TLS_Ext_RenegotiationInfo))
+assert(isinstance(e[2], TLS_Ext_SupportedGroups))
+assert(isinstance(e[3],TLS_Ext_KeyShare_CH))
+assert(len(e[3].client_shares) == 1)
+assert(e[3].client_shares[0].group == 29)
+assert(e[3].client_shares[0].key_exchange == x25519_clt_pub)
+assert(isinstance(e[4], TLS_Ext_SupportedVersion_CH))
+assert(isinstance(e[5], TLS_Ext_SignatureAlgorithms))
+assert(isinstance(e[6], TLS_Ext_PSKKeyExchangeModes))
+assert(e[6].kxmodeslen == 1)
+assert(len(e[6].kxmodes) == 1)
+assert(e[6].kxmodes[0] == 1)
+assert(isinstance(e[7], TLS_Ext_RecordSizeLimit))
+
+
+
+secp256_srv_pub = clean("""
+         8c 51 06 01 f9 76 5b fb 8e d6 93 44 9a
+         48 98 98 59 b5 cf a8 79 cb 9f 54 43 c4 1c 5f f1 06 34 ed
+   """)
+
+secp256_srv_pub = clean("""
+         04 58 3e 05 4b 7a 66 67 2a e0 20 ad 9d 26
+         86 fc c8 5b 5a d4 1a 13 4a 0f 03 ee 72 b8 93 05 2b d8 5b 4c 8d
+         e6 77 6f 5b 04 ac 07 d8 35 40 ea b3 e3 d9 c5 47 bc 65 28 c4 31
+         7d 29 46 86 09 3a 6c ad 7d
+   """)
+
+
+
+= Decrypt a TLS 1.3 session with a retry - Parse ServerHelloRetryRequest
+from scapy.layers.tls.keyexchange_tls13 import TLS_Ext_KeyShare_HRR
+from scapy.layers.tls.extensions import TLS_Ext_Cookie
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
+# Value from RFC8448, section 5
+helloRetryRequest = clean("""
+         16 03 03 00 b0 02 00 00 ac 03 03 cf
+         21 ad 74 e5 9a 61 11 be 1d 8c 02 1e 65 b8 91 c2 a2 11 16 7a bb
+         8c 5e 07 9e 09 e2 c8 a8 33 9c 00 13 01 00 00 84 00 33 00 02 00
+         17 00 2c 00 74 00 72 71 dc d0 4b b8 8b c3 18 91 19 39 8a 00 00
+         00 00 ee fa fc 76 c1 46 b8 23 b0 96 f8 aa ca d3 65 dd 00 30 95
+         3f 4e df 62 56 36 e5 f2 1b b2 e2 3f cc 65 4b 1b 5b 40 31 8d 10
+         d1 37 ab cb b8 75 74 e3 6e 8a 1f 02 5f 7d fa 5d 6e 50 78 1b 5e
+         da 4a a1 5b 0c 8b e7 78 25 7d 16 aa 30 30 e9 e7 84 1d d9 e4 c0
+         34 22 67 e8 ca 0c af 57 1f b2 b7 cf f0 f9 34 b0 00 2b 00 02 03
+         04
+   """)
+
+t = TLS(helloRetryRequest, tls_session=t.tls_session.mirror())
+assert(len(t.msg) == 1)
+assert(t.msg[0].msgtype == 2)
+digest = hashes.Hash(hashes.SHA256(), backend=default_backend())
+digest.update(b"HelloRetryRequest")
+assert(t.msg[0].random_bytes == digest.finalize())
+assert(t.msg[0].extlen == 132)
+assert(len(t.msg[0].ext) == 3)
+e = t.msg[0].ext
+assert(isinstance(e[0], TLS_Ext_KeyShare_HRR))
+assert(e[0].type == 51)
+assert(e[0].len == 2)
+assert(e[0].selected_group == 23)
+assert(isinstance(e[1], TLS_Ext_Cookie))
+assert(e[1].type == 44)
+assert(e[1].len == 116)
+assert(e[1].cookielen == 114)
+assert(e[1].cookie == b'q\xdc\xd0K\xb8\x8b\xc3\x18\x91\x199\x8a\x00\x00\x00\x00\xee\xfa\xfcv\xc1F\xb8#\xb0\x96\xf8\xaa\xca\xd3e\xdd\x000\x95?N\xdfbV6\xe5\xf2\x1b\xb2\xe2?\xcceK\x1b[@1\x8d\x10\xd17\xab\xcb\xb8ut\xe3n\x8a\x1f\x02_}\xfa]nPx\x1b^\xdaJ\xa1[\x0c\x8b\xe7x%}\x16\xaa00\xe9\xe7\x84\x1d\xd9\xe4\xc04"g\xe8\xca\x0c\xafW\x1f\xb2\xb7\xcf\xf0\xf94\xb0')
+assert(isinstance(e[2], TLS_Ext_SupportedVersion_SH))
+
+
+= Decrypt a TLS 1.3 session with a retry - Parse second ClientHello
+
+from scapy.layers.tls.extensions import TLS_Ext_Padding
+# Values from RFC8448, section 5
+secp256_clt_pub = clean("""
+         04 a6 da 73 92 ec 59 1e 17 ab fd 53 59 64
+         b9 98 94 d1 3b ef b2 21 b3 de f2 eb e3 83 0e ac 8f 01 51 81 26
+         77 c4 d6 d2 23 7e 85 cf 01 d6 91 0c fb 83 95 4e 76 ba 73 52 83
+         05 34 15 98 97 e8 06 57 80
+   """)
+
+secp256_clt_priv = clean("""
+         ab 54 73 46 7e 19 34 6c eb 0a 04 14 e4
+         1d a2 1d 4d 24 45 bc 30 25 af e9 7c 4e 8d c8 d5 13 da 39
+   """)
+
+clientHello2 = clean("""
+         16 03 03 02 00 01 00 01 fc 03 03 b0
+         b1 c5 a5 aa 37 c5 91 9f 2e d1 d5 c6 ff f7 fc b7 84 97 16 94 5a
+         2b 8c ee 92 58 a3 46 67 7b 6f 00 00 06 13 01 13 03 13 02 01 00
+         01 cd 00 00 00 0b 00 09 00 00 06 73 65 72 76 65 72 ff 01 00 01
+         00 00 0a 00 08 00 06 00 1d 00 17 00 18 00 33 00 47 00 45 00 17
+         00 41 04 a6 da 73 92 ec 59 1e 17 ab fd 53 59 64 b9 98 94 d1 3b
+         ef b2 21 b3 de f2 eb e3 83 0e ac 8f 01 51 81 26 77 c4 d6 d2 23
+         7e 85 cf 01 d6 91 0c fb 83 95 4e 76 ba 73 52 83 05 34 15 98 97
+         e8 06 57 80 00 2b 00 03 02 03 04 00 0d 00 20 00 1e 04 03 05 03
+         06 03 02 03 08 04 08 05 08 06 04 01 05 01 06 01 02 01 04 02 05
+         02 06 02 02 02 00 2c 00 74 00 72 71 dc d0 4b b8 8b c3 18 91 19
+         39 8a 00 00 00 00 ee fa fc 76 c1 46 b8 23 b0 96 f8 aa ca d3 65
+         dd 00 30 95 3f 4e df 62 56 36 e5 f2 1b b2 e2 3f cc 65 4b 1b 5b
+         40 31 8d 10 d1 37 ab cb b8 75 74 e3 6e 8a 1f 02 5f 7d fa 5d 6e
+         50 78 1b 5e da 4a a1 5b 0c 8b e7 78 25 7d 16 aa 30 30 e9 e7 84
+         1d d9 e4 c0 34 22 67 e8 ca 0c af 57 1f b2 b7 cf f0 f9 34 b0 00
+         2d 00 02 01 01 00 1c 00 02 40 01 00 15 00 af 00 00 00 00 00 00
+         00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+         00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+         00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+         00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+         00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+         00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+         00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+         00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+         00
+   """)
+
+t = TLS(clientHello2, tls_session=t.tls_session.mirror())
+assert(len(t.msg) == 1)
+assert(t.msg[0].msgtype == 1)
+assert(t.msg[0].extlen == 461)
+assert(len(t.msg[0].ext) == 10)
+e = t.msg[0].ext
+assert(isinstance(e[0], TLS_Ext_ServerName))
+assert(isinstance(e[1], TLS_Ext_RenegotiationInfo))
+assert(isinstance(e[2], TLS_Ext_SupportedGroups))
+assert(isinstance(e[3],TLS_Ext_KeyShare_CH))
+assert(len(e[3].client_shares) == 1)
+assert(e[3].client_shares[0].group == 23)
+assert(e[3].client_shares[0].key_exchange == secp256_clt_pub)
+assert(isinstance(e[4], TLS_Ext_SupportedVersion_CH))
+assert(isinstance(e[5], TLS_Ext_SignatureAlgorithms))
+assert(isinstance(e[6], TLS_Ext_Cookie))
+assert(e[6].cookie == b'q\xdc\xd0K\xb8\x8b\xc3\x18\x91\x199\x8a\x00\x00\x00\x00\xee\xfa\xfcv\xc1F\xb8#\xb0\x96\xf8\xaa\xca\xd3e\xdd\x000\x95?N\xdfbV6\xe5\xf2\x1b\xb2\xe2?\xcceK\x1b[@1\x8d\x10\xd17\xab\xcb\xb8ut\xe3n\x8a\x1f\x02_}\xfa]nPx\x1b^\xdaJ\xa1[\x0c\x8b\xe7x%}\x16\xaa00\xe9\xe7\x84\x1d\xd9\xe4\xc04"g\xe8\xca\x0c\xafW\x1f\xb2\xb7\xcf\xf0\xf94\xb0')
+assert(isinstance(e[7], TLS_Ext_PSKKeyExchangeModes))
+assert(e[7].kxmodeslen == 1)
+assert(len(e[7].kxmodes) == 1)
+assert(e[7].kxmodes[0] == 1)
+assert(isinstance(e[8], TLS_Ext_RecordSizeLimit))
+assert(isinstance(e[9], TLS_Ext_Padding))
+assert(e[9].len == 175)
+assert(e[9].padding == 175*b'\x00')
+
+= Decrypt a TLS 1.3 session with a retry - Parse ServerHello
+from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePrivateNumbers
+pubnum = t.tls_session.tls13_client_pubshares["secp256r1"].public_numbers()
+privnum = EllipticCurvePrivateNumbers(pkcs_os2ip(secp256_clt_priv), pubnum)
+privkey = privnum.private_key(default_backend())
+t.tls_session.tls13_client_privshares["secp256r1"] = privkey
+
+serverHello = clean("""
+         16 03 03 00 7b 02 00 00 77 03 03 bb
+         34 1d 84 7f d7 89 c4 7c 38 71 72 dc 0c 9b f1 47 fc ca cb 50 43
+         d8 6c a4 c5 98 d3 ff 57 1b 98 00 13 01 00 00 4f 00 33 00 45 00
+         17 00 41 04 58 3e 05 4b 7a 66 67 2a e0 20 ad 9d 26 86 fc c8 5b
+         5a d4 1a 13 4a 0f 03 ee 72 b8 93 05 2b d8 5b 4c 8d e6 77 6f 5b
+         04 ac 07 d8 35 40 ea b3 e3 d9 c5 47 bc 65 28 c4 31 7d 29 46 86
+         09 3a 6c ad 7d 00 2b 00 02 03 04
+   """)
+
+t = TLS(serverHello, tls_session=t.tls_session.mirror())
+assert(len(t.msg) == 1)
+assert(isinstance(t.msg[0], TLS13ServerHello))
+assert(len(t.msg[0].ext) == 2)
+e = t.msg[0].ext
+assert(isinstance(e[0], TLS_Ext_KeyShare_SH))
+assert(e[0].server_share.group == 23)
+assert(e[0].server_share.key_exchange == secp256_srv_pub)
+assert(isinstance(e[1], TLS_Ext_SupportedVersion_SH))
+
+= Decrypt a TLS 1.3 session with a retry - Handshake traffic secret derivation
+
+# Values from RFC8448, section 5
+early_secret = clean("""
+         33 ad 0a 1c 60 7e c0 3b 09 e6 cd 98 93 68 0c
+         e2 10 ad f3 00 aa 1f 26 60 e1 b2 2e 10 f1 70 f9 2a
+   """)
+
+ecdhe_secret = clean("""
+         c1 42 ce 13 ca 11 b5 c2 23 36 52 e6 3a d3 d9 78
+         44 f1 62 1f bf b9 de 69 d5 47 dc 8f ed ea be b4
+   """)
+
+handshake_secret = clean("""
+         ce 02 2e 5e 6e 81 e5 07 36 d7 73 f2 d3 ad fc
+         e8 22 0d 04 9b f5 10 f0 db fa c9 27 ef 42 43 b1 48
+   """)
+
+client_handshake_traffic_secret = clean("""
+         15 8a a7 ab 88 55 07 35 82 b4 1d 67 4b 40
+         55 ca bc c5 34 72 8f 65 93 14 86 1b 4e 08 e2 01 15 66
+   """)
+
+server_handshake_traffic_secret = clean("""
+         34 03 e7 81 e2 af 7b 65 08 da 28 57 4f 6e
+         95 a1 ab f1 62 de 83 a9 79 27 c3 76 72 a4 a0 ce f8 a1
+   """)
+
+assert(len(t.tls_session.tls13_derived_secrets) == 5)
+assert(t.tls_session.tls13_early_secret is not None)
+assert(t.tls_session.tls13_early_secret == early_secret)
+assert(t.tls_session.tls13_dhe_secret == ecdhe_secret)
+assert(t.tls_session.tls13_handshake_secret is not None)
+assert(t.tls_session.tls13_handshake_secret == handshake_secret)
+assert( 'client_handshake_traffic_secret' in t.tls_session.tls13_derived_secrets)
+assert( t.tls_session.tls13_derived_secrets['client_handshake_traffic_secret'] == client_handshake_traffic_secret)
+assert( 'server_handshake_traffic_secret' in t.tls_session.tls13_derived_secrets)
+assert(t.tls_session.tls13_derived_secrets['server_handshake_traffic_secret'] == server_handshake_traffic_secret)
+
+
+= Decrypt a TLS 1.3 session with a retry - Server handshake traffic key calculation
+# Values from RFC8448, section 5
+server_hs_traffic_key = clean("""
+         46 46 bf ac 17 12 c4 26 cd 78 d8 a2 4a
+         8a 6f 6b
+   """)
+server_hs_traffic_iv = clean("""
+         c7 d3 95 c0 8d 62 f2 97 d1 37 68 ea
+   """)
+
+assert(t.tls_session.prcs.cipher.key == server_hs_traffic_key)
+assert(t.tls_session.prcs.cipher.fixed_iv == server_hs_traffic_iv)
+
+
+= Decrypt a TLS 1.3 session with a retry - Decrypt and parse server handshake 
+# Values from RFC8448, section 5
+serverEncHS = clean("""
+         17 03 03 02 96 99 be e2 0b af 5b 7f
+         c7 27 bf ab 62 23 92 8a 38 1e 6d 0c f9 c4 da 65 3f 9d 2a 7b 23
+         f7 de 11 cc e8 42 d5 cf 75 63 17 63 45 0f fb 8b 0c c1 d2 38 e6
+         58 af 7a 12 ad c8 62 43 11 4a b1 4a 1d a2 fa e4 26 21 ce 48 3f
+         b6 24 2e ab fa ad 52 56 6b 02 b3 1d 2e dd ed ef eb 80 e6 6a 99
+         00 d5 f9 73 b4 0c 4f df 74 71 9e cf 1b 68 d7 f9 c3 b6 ce b9 03
+         ca 13 dd 1b b8 f8 18 7a e3 34 17 e1 d1 52 52 2c 58 22 a1 a0 3a
+         d5 2c 83 8c 55 95 3d 61 02 22 87 4c ce 8e 17 90 b2 29 a2 aa 0b
+         53 c8 d3 77 ee 72 01 82 95 1d c6 18 1d c5 d9 0b d1 f0 10 5e d1
+         e8 4a a5 f7 59 57 c6 66 18 97 07 9e 5e a5 00 74 49 e3 19 7b dc
+         7c 9b ee ed dd ea fd d8 44 af a5 c3 15 ec fe 65 e5 76 af e9 09
+         81 28 80 62 0e c7 04 8b 42 d7 f5 c7 8d 76 f2 99 d6 d8 25 34 bd
+         d8 f5 12 fe bc 0e d3 81 4a ca 47 0c d8 00 0d 3e 1c b9 96 2b 05
+         2f bb 95 0d f6 83 a5 2c 2b a7 7e d3 71 3b 12 29 37 a6 e5 17 09
+         64 e2 ab 79 69 dc d9 80 b3 db 9b 45 8d a7 60 31 24 d6 dc 00 5e
+         4d 6e 04 b4 d0 c4 ba f3 27 5d b8 27 db ba 0a 6d b0 96 72 17 1f
+         c0 57 b3 85 1d 7e 02 68 41 e2 97 8f bd 23 46 bb ef dd 03 76 bb
+         11 08 fe 9a cc 92 18 9f 56 50 aa 5e 85 d8 e8 c7 b6 7a c5 10 db
+         a0 03 d3 d7 e1 63 50 bb 66 d4 50 13 ef d4 4c 9b 60 7c 0d 31 8c
+         4c 7d 1a 1f 5c bc 57 e2 06 11 80 4e 37 87 d7 b4 a4 b5 f0 8e d8
+         fd 70 bd ae ad e0 22 60 b1 2a b8 42 ef 69 0b 4a 3e e7 91 1e 84
+         1b 37 4e cd 5e bb bc 2a 54 d0 47 b6 00 33 6d d7 d0 c8 8b 4b c1
+         0e 58 ee 6c b6 56 de 72 47 fa 20 d8 e9 1d eb 84 62 86 08 cf 80
+         61 5b 62 e9 6c 14 91 c7 ac 37 55 eb 69 01 40 5d 34 74 fe 1a c7
+         9d 10 6a 0c ee 56 c2 57 7f c8 84 80 f9 6c b6 b8 c6 81 b7 b6 8b
+         53 c1 46 09 39 08 f3 50 88 81 75 bd fb 0b 1e 31 ad 61 e3 0b a0
+         ad fe 6d 22 3a a0 3c 07 83 b5 00 1a 57 58 7c 32 8a 9a fc fc fb
+         97 8d 1c d4 32 8f 7d 9d 60 53 0e 63 0b ef d9 6c 0c 81 6e e2 0b
+         01 00 76 8a e2 a6 df 51 fc 68 f1 72 74 0a 79 af 11 39 8e e3 be
+         12 52 49 1f a9 c6 93 47 9e 87 7f 94 ab 7c 5f 8c ad 48 02 03 e6
+         ab 7b 87 dd 71 e8 a0 72 91 13 df 17 f5 ee e8 6c e1 08 d1 d7 20
+         07 ec 1c d1 3c 85 a6 c1 49 62 1e 77 b7 d7 8d 80 5a 30 f0 be 03
+         0c 31 5e 54
+   """)
+
+server_finished = clean("""
+         88 63 e6 bf b0 42 0a 92 7f a2 7f 34 33 6a
+         70 ae 42 6e 96 8e 3e b8 84 94 5b 96 85 6d ba 39 76 d1
+   """)
+
+t = TLS13(serverEncHS, tls_session=t.tls_session)
+assert(t.deciphered_len == 646)
+assert(len(t.inner.msg) == 4)
+m = t.inner.msg
+assert(isinstance(m[0], TLSEncryptedExtensions))
+assert(len(m[0].ext) == 3)
+assert(isinstance(m[0].ext[0], TLS_Ext_SupportedGroups))
+assert(isinstance(m[0].ext[1], TLS_Ext_RecordSizeLimit))
+assert(isinstance(m[0].ext[2], TLS_Ext_ServerName))
+assert(isinstance(m[1], TLS13Certificate))
+assert(isinstance(m[2], TLSCertificateVerify))
+assert(isinstance(m[3], TLSFinished))
+assert(m[3].vdata == server_finished)
+
+= Decrypt a TLS 1.3 session with a retry - Client handshake traffic key calculation
+# Values from RFC8448, section 5
+client_hs_traffic_key = clean("""
+         2f 1f 91 86 63 d5 90 e7 42 11 49 a2 9d
+         94 b0 b6
+   """)
+client_hs_traffic_iv = clean("""
+         41 4d 54 85 23 5e 1a 68 87 93 bd 74
+   """)
+
+assert(t.tls_session.pwcs.cipher.key == client_hs_traffic_key)
+assert(t.tls_session.pwcs.cipher.fixed_iv == client_hs_traffic_iv)
+
+
+= Decrypt a TLS 1.3 session with a retry - Decrypt and parse client finished
+# Values from RFC8448, section 5
+clientFinished = clean("""
+         23 f5 2f db 07 09 a5 5b d7 f7 9b 99 1f 25
+         48 40 87 bc fd 4d 43 80 b1 23 26 a5 2a 28 b2 e3 68 e1
+   """)
+
+clientEncHS = clean("""
+         17 03 03 00 35 d7 4f 19 23 c6 62 fd
+         34 13 7c 6f 50 2f 3d d2 b9 3d 95 1d 1b 3b c9 7e 42 af e2 3c 31
+         ab ea 92 fe 91 b4 74 99 9e 85 e3 b7 91 ce 25 2f e8 c3 e9 f9 39
+         a4 12 0c b2
+   """)
+
+t = TLS13(clientEncHS, tls_session=t.tls_session.mirror())
+assert(t.deciphered_len == 37)
+assert(len(t.inner.msg) == 1)
+assert(isinstance(t.inner.msg[0], TLSFinished))
+assert(t.inner.msg[0].vdata == clientFinished)
+assert(t.inner.type == 22)
+
+= Decrypt a TLS 1.3 session with a retry - Application traffic secret derivation 
+# Values from RFC8448, section 5
+master_secret = clean("""
+         11 31 54 5d 0b af 79 dd ce 9b 87 f0 69 45 78
+         1a 57 dd 18 ef 37 8d cd 20 60 f8 f9 a5 69 02 7e d8
+   """)
+
+client_application_traffic_secret_0 = clean("""
+         75 ec f4 b9 72 52 5a a0 dc d0 57 c9 94 4d
+         4c d5 d8 26 71 d8 84 31 41 d7 dc 2a 4f f1 5a 21 dc 51
+   """)
+
+server_application_traffic_secret_0 = clean("""
+         5c 74 f8 7d f0 42 25 db 0f 82 09 c9 de 64
+         29 e4 94 35 fd ef a7 ca d6 18 64 87 4d 12 f3 1c fc 8d
+   """)
+
+exporter_master_secret = clean("""
+      7c 06 d3 ae 10 6a 3a 37 4a ce 48 37 b3 98
+      5c ac 67 78 0a 6e 2c 5c 04 b5 83 19 d5 84 df 09 d2 23
+   """)
+
+resumption_master_secret = clean("""
+      09 17 0c 6d 47 27 21 56 6f 9c f9 9b 08 69
+      9d af f5 61 ec 8f b2 2d 5a 32 c3 f9 4c e0 09 b6 99 75
+   """)
+
+
+assert(t.tls_session.tls13_master_secret is not None)
+assert(t.tls_session.tls13_master_secret == master_secret)
+
+assert(len(t.tls_session.tls13_derived_secrets) == 9)
+assert('client_traffic_secrets' in  t.tls_session.tls13_derived_secrets)
+assert(len(t.tls_session.tls13_derived_secrets['client_traffic_secrets']) == 1)
+assert(t.tls_session.tls13_derived_secrets['client_traffic_secrets'][0] == client_application_traffic_secret_0)
+
+assert('server_traffic_secrets' in  t.tls_session.tls13_derived_secrets)
+assert(len(t.tls_session.tls13_derived_secrets['server_traffic_secrets']) == 1)
+assert(t.tls_session.tls13_derived_secrets['server_traffic_secrets'][0] == server_application_traffic_secret_0)
+
+assert('exporter_secret' in t.tls_session.tls13_derived_secrets)
+assert(t.tls_session.tls13_derived_secrets['exporter_secret'] == exporter_master_secret)
+
+assert('resumption_secret' in t.tls_session.tls13_derived_secrets)
+assert(t.tls_session.tls13_derived_secrets['resumption_secret'] == resumption_master_secret)
+
+= Decrypt a TLS 1.3 session with a retry - Application traffic keys calculation 
+# Values from RFC8448, section 5
+client_ap_traffic_key = clean("""
+         a7 eb 2a 05 25 eb 43 31 d5 8f cb f9 f7
+         ca 2e 9c
+   """)
+
+client_ap_traffic_iv = clean("""
+         86 e8 be 22 7c 1b d2 b3 e3 9c b4 44
+   """)
+
+server_ap_traffic_key = clean("""
+         f2 7a 5d 97 bd 25 55 0c 48 23 b0 f3 e5
+         d2 93 88
+   """)
+
+server_ap_traffic_iv = clean("""
+         0d d6 31 f7 b7 1c bb c7 97 c3 5f e7
+   """)
+
+assert(t.tls_session.rcs.cipher.key == client_ap_traffic_key)
+assert(t.tls_session.rcs.cipher.fixed_iv == client_ap_traffic_iv)
+assert(t.tls_session.wcs.cipher.key == server_ap_traffic_key)
+assert(t.tls_session.wcs.cipher.fixed_iv == server_ap_traffic_iv)
+
+= Decrypt a TLS 1.3 session with a retry - Decrypt and parse client Alert 
+# Values from RFC8448, section 5
+clientEncAlert = clean("""
+         17 03 03 00 13 2e a6 cd f7 49 19 60
+         23 e2 b3 a4 94 91 69 55 36 42 60 47
+   """)
+
+t = TLS13(clientEncAlert, tls_session = t.tls_session)
+assert(t.deciphered_len == 3)
+assert(len(t.inner.msg) == 1)
+assert(t.inner.type == 21)
+m = t.inner.msg[0]
+assert(isinstance(m, TLSAlert))
+assert(m.level == 1)
+assert(m.descr == 0)
+
+
+= Decrypt a TLS 1.3 session with a retry - Decrypt and parse server Alert 
+# Values from RFC8448, section 5
+serverEncAlert = clean("""
+         17 03 03 00 13 51 9f c5 07 5c b0 88
+         43 49 75 9f f9 ef 6f 01 1b b4 c6 f2
+   """)
+
+t = TLS13(serverEncAlert, tls_session = t.tls_session.mirror())
+assert(t.deciphered_len == 3)
+assert(len(t.inner.msg) == 1)
+assert(t.inner.type == 21)
+m = t.inner.msg[0]
+assert(isinstance(m, TLSAlert))
+assert(m.level == 1)
+assert(m.descr == 0)

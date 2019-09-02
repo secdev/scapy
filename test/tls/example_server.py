@@ -18,15 +18,20 @@ basedir = os.path.abspath(os.path.join(os.path.dirname(__file__),"../../"))
 sys.path=[basedir]+sys.path
 
 from scapy.layers.tls.automaton_srv import TLSServerAutomaton
+from argparse import ArgumentParser
 
+parser = ArgumentParser(description='Simple TLS Server')
+# args.curve must be a value in the dict _tls_named_curves (see tls/crypto/groups.py)
+parser.add_argument("--curve", help="ECC curve to advertise (ex: secp256r1...")
+parser.add_argument("--cookie", action="store_true",
+                    help="Send cookie extension in HelloRetryRequest message")
+args = parser.parse_args()
 
-if len(sys.argv) == 2:
-    pcs = int(sys.argv[1], 16)
-else:
-    pcs = None
-
+pcs = None
 t = TLSServerAutomaton(mycert=basedir+'/test/tls/pki/srv_cert.pem',
                        mykey=basedir+'/test/tls/pki/srv_key.pem',
-                       preferred_ciphersuite=pcs)
+                       preferred_ciphersuite=pcs,
+                       curve=args.curve,
+                       cookie=args.cookie)
 t.run()
 

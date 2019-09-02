@@ -14,6 +14,9 @@ from __future__ import absolute_import
 import math
 import struct
 
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
+
 from scapy.error import log_runtime, warning
 from scapy.fields import ByteEnumField, ByteField, EnumField, Field, \
     FieldLenField, IntField, PacketField, PacketListField, ShortField, \
@@ -47,7 +50,7 @@ from scapy.layers.tls.crypto.suites import (_tls_cipher_suites,
                                             _tls_cipher_suites_cls,
                                             _GenericCipherSuite,
                                             _GenericCipherSuiteMetaclass)
-
+from scapy.layers.tls.crypto.hkdf import TLS13_HKDF
 
 ###############################################################################
 #   Generic TLS Handshake message                                             #
@@ -494,6 +497,21 @@ class TLS13ServerHello(_TLSHandshake):
     name = "TLS 1.3 Handshake - Server Hello"
     fields_desc = _tls_13_server_hello_fields
 
+    # ServerHello and HelloRetryRequest has the same structure and the same
+    # msgId. We need to check the server_random value to determine which it is.
+    @classmethod
+    def dispatch_hook(cls, _pkt=None, *args, **kargs):
+        if _pkt and len(_pkt) >= 38:
+            # If SHA-256("HelloRetryRequest") == server_random,
+            # this message is a HelloRetryRequest
+            random_bytes = _pkt[6:38]
+            digest = hashes.Hash(hashes.SHA256(), backend=default_backend())
+            digest.update(b"HelloRetryRequest")
+            digest_out = digest.finalize()
+            if random_bytes == digest_out:
+                return TLS13HelloRetryRequest
+        return TLS13ServerHello
+
     def post_build(self, p, pay):
         if self.random_bytes is None:
             p = p[:6] + randstring(32) + p[6 + 32:]
@@ -560,6 +578,33 @@ class TLS13HelloRetryRequest(_TLSHandshake):
     name = "TLS 1.3 Handshake - Hello Retry Request"
 
     fields_desc = _tls_13_server_hello_fields
+
+    def build(self):
+        fval = self.getfieldval("random_bytes")
+        if fval is None:
+            digest = hashes.Hash(hashes.SHA256(), backend=default_backend())
+            digest.update(b"HelloRetryRequest")
+            self.random_bytes = digest.finalize()
+        return _TLSHandshake.build(self)
+
+    def tls_session_update(self, msg_str):
+        s = self.tls_session
+        s.tls13_retry = True
+        s.tls13_client_pubshares = {}
+        # If the server responds to a ClientHello with a HelloRetryRequest
+        # The value of the first ClientHello is replaced by a message_hash
+        cs_cls = _tls_cipher_suites_cls[self.cipher]
+        hkdf = TLS13_HKDF(cs_cls.hash_alg.name.lower())
+        hash_len = hkdf.hash.digest_size
+        handshake_context = struct.pack("B", 254)
+        handshake_context += struct.pack("B", 0)
+        handshake_context += struct.pack("B", 0)
+        handshake_context += struct.pack("B", hash_len)
+        digest = hashes.Hash(hkdf.hash, backend=default_backend())
+        digest.update(s.handshake_messages[0])
+        handshake_context += digest.finalize()
+        s.handshake_messages[0] = handshake_context
+        super(TLS13HelloRetryRequest, self).tls_session_update(msg_str)
 
 
 ###############################################################################

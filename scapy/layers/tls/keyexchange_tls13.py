@@ -241,6 +241,8 @@ class TLS_Ext_KeyShare_SH(TLS_Ext_Unknown):
 _tls_ext_keyshare_cls = {1: TLS_Ext_KeyShare_CH,
                          2: TLS_Ext_KeyShare_SH}
 
+_tls_ext_keyshare_hrr_cls = {2: TLS_Ext_KeyShare_HRR}
+
 
 class Ticket(Packet):
     name = "Recommended Ticket Construction (from RFC 5077)"

@@ -8,7 +8,11 @@ TLS handshake extensions.
 
 from __future__ import print_function
 
+import os
 import struct
+
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
 
 from scapy.fields import ByteEnumField, ByteField, EnumField, FieldLenField, \
     FieldListField, IntField, PacketField, PacketListField, ShortEnumField, \
@@ -566,6 +570,12 @@ class TLS_Ext_Cookie(TLS_Ext_Unknown):
                    XStrLenField("cookie", "",
                                 length_from=lambda pkt: pkt.cookielen)]
 
+    def build(self):
+        fval = self.getfieldval("cookie")
+        if fval is None or fval == b"":
+            self.cookie = os.urandom(32)
+        return TLS_Ext_Unknown.build(self)
+
 
 _tls_psk_kx_modes = {0: "psk_ke", 1: "psk_dhe_ke"}
 
@@ -758,8 +768,21 @@ class _ExtensionsField(StrLenField):
                 #  - TLS_Ext_KeyShare_HRR if message is a ServerHello and
                 #    the client has not provided a sufficient "key_share"
                 #    extension
-                from scapy.layers.tls.keyexchange_tls13 import _tls_ext_keyshare_cls  # noqa: E501
-                cls = _tls_ext_keyshare_cls.get(pkt.msgtype, TLS_Ext_Unknown)
+                from scapy.layers.tls.keyexchange_tls13 import (
+                    _tls_ext_keyshare_cls, _tls_ext_keyshare_hrr_cls)
+                # Because ServerHello and HelloRetryRequest have the same
+                # msg_type, the only way to distinguish these message is by
+                # checking the random_bytes. If the random_bytes are equal to
+                # SHA256('HelloRetryRequest') then we know this is a
+                # HelloRetryRequest and the TLS_Ext_KeyShare must be parsed as
+                # TLS_Ext_KeyShare_HRR and not as TLS_Ext_KeyShare_SH
+                digest = hashes.Hash(hashes.SHA256(), backend=default_backend())  # noqa: E501
+                digest.update(b"HelloRetryRequest")
+                digest_out = digest.finalize()
+                if pkt.random_bytes and pkt.random_bytes == digest_out:
+                    cls = _tls_ext_keyshare_hrr_cls.get(pkt.msgtype, TLS_Ext_Unknown)  # noqa: E501
+                else:
+                    cls = _tls_ext_keyshare_cls.get(pkt.msgtype, TLS_Ext_Unknown)  # noqa: E501
             elif cls is TLS_Ext_PreSharedKey:
                 from scapy.layers.tls.keyexchange_tls13 import _tls_ext_presharedkey_cls  # noqa: E501
                 cls = _tls_ext_presharedkey_cls.get(pkt.msgtype, TLS_Ext_Unknown)  # noqa: E501

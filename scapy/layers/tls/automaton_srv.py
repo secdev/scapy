@@ -27,14 +27,16 @@ from scapy.layers.tls.automaton import _TLSAutomaton
 from scapy.layers.tls.cert import PrivKeyRSA, PrivKeyECDSA
 from scapy.layers.tls.basefields import _tls_version
 from scapy.layers.tls.session import tlsSession
-from scapy.layers.tls.extensions import TLS_Ext_SupportedVersion_SH
+from scapy.layers.tls.crypto.groups import _tls_named_groups
+from scapy.layers.tls.extensions import TLS_Ext_SupportedVersion_SH, \
+    TLS_Ext_SupportedGroups, TLS_Ext_Cookie
 from scapy.layers.tls.keyexchange_tls13 import TLS_Ext_KeyShare_SH, \
-    KeyShareEntry
+    KeyShareEntry, TLS_Ext_KeyShare_HRR
 from scapy.layers.tls.handshake import TLSCertificate, TLSCertificateRequest, \
     TLSCertificateVerify, TLSClientHello, TLSClientKeyExchange, TLSFinished, \
     TLSServerHello, TLSServerHelloDone, TLSServerKeyExchange, \
     _ASN1CertAndExt, TLS13ServerHello, TLS13Certificate, TLS13ClientHello, \
-    TLSEncryptedExtensions
+    TLSEncryptedExtensions, TLS13HelloRetryRequest
 from scapy.layers.tls.handshake_sslv2 import SSLv2ClientCertificate, \
     SSLv2ClientFinished, SSLv2ClientHello, SSLv2ClientMasterKey, \
     SSLv2RequestCertificate, SSLv2ServerFinished, SSLv2ServerHello, \
@@ -75,6 +77,8 @@ class TLSServerAutomaton(_TLSAutomaton):
                    client_auth=False,
                    is_echo_server=True,
                    max_client_idle_time=60,
+                   curve=None,
+                   cookie=False,
                    **kargs):
 
         super(TLSServerAutomaton, self).parse_args(mycert=mycert,
@@ -100,6 +104,11 @@ class TLSServerAutomaton(_TLSAutomaton):
         self.client_auth = client_auth
         self.is_echo_server = is_echo_server
         self.max_client_idle_time = max_client_idle_time
+        self.curve = None
+        self.cookie = cookie
+        for (group_id, ng) in _tls_named_groups.items():
+            if ng == curve:
+                self.curve = group_id
 
     def vprint_sessioninfo(self):
         if self.verbose:
@@ -498,7 +507,51 @@ class TLSServerAutomaton(_TLSAutomaton):
     #                       TLS 1.3 handshake                                 #
     @ATMT.state()
     def tls13_HANDLED_CLIENTHELLO(self):
+        s = self.cur_session
+        m = s.handshake_messages_parsed[-1]
+        #  Check if we have to send an HelloRetryRequest
+        #  XXX check also with non ECC groups
+        if self.curve:
+            # We first look for a KeyShareEntry with same group as self.curve
+            if not _tls_named_groups[self.curve] in s.tls13_client_pubshares:
+                # We then check if self.curve was advertised in SupportedGroups
+                # extension
+                for e in m.ext:
+                    if isinstance(e, TLS_Ext_SupportedGroups):
+                        if self.curve in e.groups:
+                            # Here, we need to send an HelloRetryRequest
+                            raise self.tls13_PREPARE_HELLORETRYREQUEST()
         raise self.tls13_PREPARE_SERVERFLIGHT1()
+
+    @ATMT.state()
+    def tls13_PREPARE_HELLORETRYREQUEST(self):
+        pass
+
+    @ATMT.condition(tls13_PREPARE_HELLORETRYREQUEST)
+    def tls13_should_add_HelloRetryRequest(self):
+        self.add_record(is_tls13=False)
+        if isinstance(self.mykey, PrivKeyRSA):
+            kx = "RSA"
+        elif isinstance(self.mykey, PrivKeyECDSA):
+            kx = "ECDSA"
+        usable_suites = get_usable_ciphersuites(self.cur_pkt.ciphers, kx)
+        c = usable_suites[0]
+        ext = [TLS_Ext_SupportedVersion_SH(version="TLS 1.3"),
+               TLS_Ext_KeyShare_HRR(selected_group=_tls_named_groups[self.curve])]  # noqa: E501
+        if self.cookie:
+            ext += TLS_Ext_Cookie()
+        p = TLS13HelloRetryRequest(cipher=c, ext=ext)
+        self.add_msg(p)
+        self.flush_records()
+        raise self.tls13_HANDLED_HELLORETRYREQUEST()
+
+    @ATMT.state()
+    def tls13_HANDLED_HELLORETRYREQUEST(self):
+        pass
+
+    @ATMT.condition(tls13_HANDLED_HELLORETRYREQUEST)
+    def tls13_should_add_ServerHello_from_HRR(self):
+        raise self.WAITING_CLIENTFLIGHT1()
 
     @ATMT.state()
     def tls13_PREPARE_SERVERFLIGHT1(self):
@@ -513,8 +566,8 @@ class TLSServerAutomaton(_TLSAutomaton):
         usable_suites = get_usable_ciphersuites(self.cur_pkt.ciphers, kx)
         c = usable_suites[0]
         group = next(iter(self.cur_session.tls13_client_pubshares))
-        ext = [TLS_Ext_SupportedVersion_SH(version="TLS 1.3")]
-        ext += TLS_Ext_KeyShare_SH(server_share=KeyShareEntry(group=group))
+        ext = [TLS_Ext_SupportedVersion_SH(version="TLS 1.3"),
+               TLS_Ext_KeyShare_SH(server_share=KeyShareEntry(group=group))]
 
         if self.cur_session.sid is not None:
             p = TLS13ServerHello(cipher=c, sid=self.cur_session.sid, ext=ext)

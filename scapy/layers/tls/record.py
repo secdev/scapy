@@ -304,8 +304,7 @@ class TLS(_GenericTLSSessionInheritance):
                     return SSLv2
                 s = kargs.get("tls_session", None)
                 if s and _tls_version_check(s.tls_version, 0x0304):
-                    if (s.rcs and not isinstance(s.rcs.cipher, Cipher_NULL) and
-                            byte0 == 0x16):
+                    if s.rcs and not isinstance(s.rcs.cipher, Cipher_NULL):
                         from scapy.layers.tls.record_tls13 import TLS13
                         return TLS13
             if plen < 5:
