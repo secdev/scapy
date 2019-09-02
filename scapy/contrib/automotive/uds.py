@@ -1341,7 +1341,7 @@ class UDS_TesterPresentSender(PeriodicSenderThread):
         PeriodicSenderThread.__init__(self, sock, pkt, interval)
 
 
-def UDS_SessionEnumerator(sock):
+def UDS_SessionEnumerator(sock, wait_after_reset=0.5):
     """ Enumerates session ID's 0x0 - 0xff
         and returns list of UDS()/UDS_DSC() packets
         with valid session types
@@ -1349,7 +1349,7 @@ def UDS_SessionEnumerator(sock):
     Args:
         sock: socket where packets are sent
     """
-    pkts = [UDS()/UDS_DSC(diagnosticSessionType=x) for x in range(0xff)]
+    pkts = UDS()/UDS_DSC(diagnosticSessionType=range(0xff))
     results = []
     for p in pkts:
         a = sock.sr1(p, timeout=0.5, verbose=False)
@@ -1358,7 +1358,7 @@ def UDS_SessionEnumerator(sock):
                     a.negativeResponseCode not in [0x10, 0x11, 0x12]:
                 results.append(p)
         sock.send(UDS() / UDS_ER())
-        time.sleep(0.5)
+        time.sleep(wait_after_reset)
     return results
 
 
