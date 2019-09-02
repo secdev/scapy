@@ -34,7 +34,8 @@ from scapy.layers.tls.handshake import TLSCertificate, TLSCertificateRequest, \
     TLSCertificateVerify, TLSClientHello, TLSClientKeyExchange, \
     TLSEncryptedExtensions, TLSFinished, TLSServerHello, TLSServerHelloDone, \
     TLSServerKeyExchange, TLS13Certificate, TLS13ClientHello,  \
-    TLS13ServerHello, TLS13HelloRetryRequest
+    TLS13ServerHello, TLS13HelloRetryRequest, TLS13CertificateRequest, \
+    _ASN1CertAndExt
 from scapy.layers.tls.handshake_sslv2 import SSLv2ClientHello, \
     SSLv2ServerHello, SSLv2ClientMasterKey, SSLv2ServerVerify, \
     SSLv2ClientFinished, SSLv2ServerFinished, SSLv2ClientCertificate, \
@@ -874,6 +875,10 @@ class TLSClientAutomaton(_TLSAutomaton):
                 self.client_hello.ext = ext
             p = self.client_hello
         else:
+            if self.ciphersuite is None:
+                c = 0x1301
+            else:
+                c = self.ciphersuite
             p = TLS13ClientHello(ciphers=self.ciphersuite, ext=ext)
         self.add_msg(p)
         raise self.TLS13_ADDED_CLIENTHELLO()
@@ -915,6 +920,10 @@ class TLSClientAutomaton(_TLSAutomaton):
 
     @ATMT.condition(TLS13_RECEIVED_SERVERFLIGHT1, prio=2)
     def tls13_should_handle_HelloRetryRequest(self):
+        """
+        XXX We should check the ServerHello attributes for discrepancies with
+        our own ClientHello.
+        """
         self.raise_on_packet(TLS13HelloRetryRequest,
                              self.TLS13_HELLO_RETRY_REQUESTED)
 
@@ -986,9 +995,26 @@ class TLSClientAutomaton(_TLSAutomaton):
     def TLS13_HANDLED_ENCRYPTEDEXTENSIONS(self):
         pass
 
+    @ATMT.condition(TLS13_HANDLED_ENCRYPTEDEXTENSIONS, prio=1)
+    def tls13_should_handle_certificateRequest_from_encryptedExtensions(self):
+        """
+        XXX We should check the CertificateRequest attributes for discrepancies
+        with the cipher suite, etc.
+        """
+        self.raise_on_packet(TLS13CertificateRequest,
+                             self.TLS13_HANDLED_CERTIFICATEREQUEST)
+
     @ATMT.condition(TLS13_HANDLED_ENCRYPTEDEXTENSIONS, prio=2)
     def tls13_should_handle_certificate_from_encryptedExtensions(self):
         self.tls13_should_handle_Certificate()
+
+    @ATMT.state()
+    def TLS13_HANDLED_CERTIFICATEREQUEST(self):
+        pass
+
+    @ATMT.condition(TLS13_HANDLED_CERTIFICATEREQUEST, prio=1)
+    def tls13_should_handle_Certificate_from_CertificateRequest(self):
+        return self.tls13_should_handle_Certificate()
 
     def tls13_should_handle_Certificate(self):
         self.raise_on_packet(TLS13Certificate,
@@ -1024,6 +1050,52 @@ class TLSClientAutomaton(_TLSAutomaton):
     @ATMT.state()
     def TLS13_PREPARE_CLIENTFLIGHT2(self):
         self.add_record(is_tls13=True)
+
+    @ATMT.condition(TLS13_PREPARE_CLIENTFLIGHT2, prio=1)
+    def tls13_should_add_ClientCertificate(self):
+        """
+        If the server sent a CertificateRequest, we send a Certificate message.
+        If no certificate is available, an empty Certificate message is sent:
+        - this is a SHOULD in RFC 4346 (Section 7.4.6)
+        - this is a MUST in RFC 5246 (Section 7.4.6)
+
+        XXX We may want to add a complete chain.
+        """
+        hs_msg = [type(m) for m in self.cur_session.handshake_messages_parsed]
+        if TLS13CertificateRequest not in hs_msg:
+            raise self.TLS13_ADDED_CLIENTCERTIFICATE()
+            # return
+        certs = []
+        if self.mycert:
+            certs += _ASN1CertAndExt(cert=self.mycert)
+
+        self.add_msg(TLS13Certificate(certs=certs))
+        raise self.TLS13_ADDED_CLIENTCERTIFICATE()
+
+    @ATMT.state()
+    def TLS13_ADDED_CLIENTCERTIFICATE(self):
+        pass
+
+    @ATMT.condition(TLS13_ADDED_CLIENTCERTIFICATE, prio=1)
+    def tls13_should_add_ClientCertificateVerify(self):
+        """
+        XXX Section 7.4.7.1 of RFC 5246 states that the CertificateVerify
+        message is only sent following a client certificate that has signing
+        capability (i.e. not those containing fixed DH params).
+        We should verify that before adding the message. We should also handle
+        the case when the Certificate message was empty.
+        """
+        hs_msg = [type(m) for m in self.cur_session.handshake_messages_parsed]
+        if (TLS13CertificateRequest not in hs_msg or
+                self.mycert is None or
+                self.mykey is None):
+            return self.tls13_should_add_ClientFinished()
+        self.add_msg(TLSCertificateVerify())
+        raise self.TLS13_ADDED_CERTIFICATEVERIFY()
+
+    @ATMT.state()
+    def TLS13_ADDED_CERTIFICATEVERIFY(self):
+        return self.tls13_should_add_ClientFinished()
 
     @ATMT.condition(TLS13_PREPARE_CLIENTFLIGHT2)
     def tls13_should_add_ClientFinished(self):
