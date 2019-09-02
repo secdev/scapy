@@ -1362,7 +1362,7 @@ def UDS_SessionEnumerator(sock, wait_after_reset=0.5):
     return results
 
 
-def UDS_ServiceEnumerator(sock, session="DefaultSession"):
+def UDS_ServiceEnumerator(sock, session="DefaultSession", filter_responses=True):
     """ Enumerates every service ID
         and returns list of tuples. Each tuple contains
         the session and the respective positive response
@@ -1375,7 +1375,7 @@ def UDS_ServiceEnumerator(sock, session="DefaultSession"):
     found_services = sock.sr(pkts, timeout=5, verbose=False)
     return [(session, p) for _, p in found_services[0] if
             p.service != 0x7f or
-            p.negativeResponseCode not in [0x10, 0x11, 0x12]]
+            (p.negativeResponseCode not in [0x10, 0x11, 0x12] or not filter_responses)]
 
 
 def getTableEntry(tup):
