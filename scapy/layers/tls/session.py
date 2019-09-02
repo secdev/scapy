@@ -418,6 +418,9 @@ class tlsSession(object):
         self.pre_master_secret = None
         self.master_secret = None
 
+        # The agreed-upon signature algorithm (for TLS 1.2-TLS 1.3 only)
+        self.selected_sig_alg = None
+
         # A session ticket received by the client.
         self.client_session_ticket = None
 

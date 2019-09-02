@@ -501,7 +501,7 @@ class TLS_Ext_SessionTicket(TLS_Ext_Unknown):                       # RFC 5077
 
 class TLS_Ext_KeyShare(TLS_Ext_Unknown):
     name = "TLS Extension - Key Share (dummy class)"
-    fields_desc = [ShortEnumField("type", 0x28, _tls_ext),
+    fields_desc = [ShortEnumField("type", 0x33, _tls_ext),
                    ShortField("len", None)]
 
 

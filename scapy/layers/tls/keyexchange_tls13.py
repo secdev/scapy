@@ -285,7 +285,7 @@ class PSKBinderEntry(Packet):
 class TLS_Ext_PreSharedKey_CH(TLS_Ext_Unknown):
     # XXX define post_build and post_dissection methods
     name = "TLS Extension - Pre Shared Key (for ClientHello)"
-    fields_desc = [ShortEnumField("type", 0x28, _tls_ext),
+    fields_desc = [ShortEnumField("type", 0x29, _tls_ext),
                    ShortField("len", None),
                    FieldLenField("identities_len", None,
                                  length_of="identities"),

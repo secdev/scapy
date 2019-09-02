@@ -305,7 +305,7 @@ class TLSClientHello(_TLSHandshake):
                     s.advertised_sig_algs = e.sig_algs
 
 
-class TLS13ClientHello(TLSClientHello):
+class TLS13ClientHello(_TLSHandshake):
     """
     TLS 1.3 ClientHello, with abilities to handle extensions.
 
@@ -595,9 +595,9 @@ class TLSEncryptedExtensions(_TLSHandshake):
         # EndOfEarlyData message
         if connection_end == "server":
             if not early_data_accepted:
-                s.prcs = writeConnState(ciphersuite=type(s.wcs.ciphersuite),
-                                        connection_end=connection_end,
-                                        tls_version=s.tls_version)
+                s.prcs = readConnState(ciphersuite=type(s.wcs.ciphersuite),
+                                       connection_end=connection_end,
+                                       tls_version=s.tls_version)
 
                 s.triggered_prcs_commit = True
                 chts = s.tls13_derived_secrets["client_handshake_traffic_secret"]  # noqa: E501

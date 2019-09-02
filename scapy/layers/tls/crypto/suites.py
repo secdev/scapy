@@ -1312,6 +1312,8 @@ def get_usable_ciphersuites(l, kx):
             if ciph.usable:
                 # XXX select among RSA and ECDSA cipher suites
                 # according to the key(s) the server was given
-                if ciph.kx_alg.anonymous or kx in ciph.kx_alg.name:
+                if (ciph.kx_alg.anonymous or
+                   kx in ciph.kx_alg.name or
+                   ciph.kx_alg.name == "TLS13"):
                     res.append(c)
     return res
