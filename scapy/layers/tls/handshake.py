@@ -55,7 +55,6 @@ if conf.crypto_valid:
     from cryptography.hazmat.backends import default_backend
     from cryptography.hazmat.primitives import hashes
 
-
 ###############################################################################
 #   Generic TLS Handshake message                                             #
 ###############################################################################
@@ -1056,10 +1055,10 @@ class TLS13CertificateRequest(_TLSHandshake):
                    _ExtensionsField("ext", None,
                                     length_from=lambda pkt: pkt.msglen -
                                     pkt.cert_req_ctxt_len - 3)]
+
 ###############################################################################
 #   ServerHelloDone                                                           #
 ###############################################################################
-
 
 class TLSServerHelloDone(_TLSHandshake):
     name = "TLS Handshake - Server Hello Done"

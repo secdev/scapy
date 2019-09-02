@@ -29,14 +29,15 @@ from scapy.layers.tls.basefields import _tls_version
 from scapy.layers.tls.session import tlsSession
 from scapy.layers.tls.crypto.groups import _tls_named_groups
 from scapy.layers.tls.extensions import TLS_Ext_SupportedVersion_SH, \
-    TLS_Ext_SupportedGroups, TLS_Ext_Cookie
+    TLS_Ext_SupportedGroups, TLS_Ext_Cookie, \
+    TLS_Ext_SignatureAlgorithms
 from scapy.layers.tls.keyexchange_tls13 import TLS_Ext_KeyShare_SH, \
     KeyShareEntry, TLS_Ext_KeyShare_HRR
 from scapy.layers.tls.handshake import TLSCertificate, TLSCertificateRequest, \
     TLSCertificateVerify, TLSClientHello, TLSClientKeyExchange, TLSFinished, \
     TLSServerHello, TLSServerHelloDone, TLSServerKeyExchange, \
     _ASN1CertAndExt, TLS13ServerHello, TLS13Certificate, TLS13ClientHello, \
-    TLSEncryptedExtensions, TLS13HelloRetryRequest
+    TLSEncryptedExtensions, TLS13HelloRetryRequest, TLS13CertificateRequest
 from scapy.layers.tls.handshake_sslv2 import SSLv2ClientCertificate, \
     SSLv2ClientFinished, SSLv2ClientHello, SSLv2ClientMasterKey, \
     SSLv2RequestCertificate, SSLv2ServerFinished, SSLv2ServerHello, \
@@ -507,6 +508,10 @@ class TLSServerAutomaton(_TLSAutomaton):
     #                       TLS 1.3 handshake                                 #
     @ATMT.state()
     def tls13_HANDLED_CLIENTHELLO(self):
+        """
+          Check if we have to send an HelloRetryRequest
+          XXX check also with non ECC groups
+        """
         s = self.cur_session
         m = s.handshake_messages_parsed[-1]
         #  Check if we have to send an HelloRetryRequest
@@ -592,6 +597,10 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.condition(tls13_ADDED_ENCRYPTEDEXTENSIONS)
     def tls13_should_add_CertificateRequest(self):
+        if self.client_auth:
+            ext = [TLS_Ext_SignatureAlgorithms(sig_algs=["sha256+rsaepss"])]
+            p = TLS13CertificateRequest(ext=ext)
+            self.add_msg(p)
         raise self.tls13_ADDED_CERTIFICATEREQUEST()
 
     @ATMT.state()
@@ -641,12 +650,60 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def tls13_RECEIVED_CLIENTFLIGHT2(self):
+        print("tls13_RECEIVED_CLIENTFLIGHT2")
         pass
 
     @ATMT.condition(tls13_RECEIVED_CLIENTFLIGHT2, prio=1)
+    def tls13_should_handle_ClientFlight2(self):
+        print("tls13_should_handle_ClientFinished")
+        if self.client_auth:
+            print("raise_on_packet(TLS13Certificate")
+            self.raise_on_packet(TLS13Certificate,
+                                 self.TLS13_HANDLED_CLIENTCERTIFICATE)
+        else:
+            self.raise_on_packet(TLSFinished,
+                                 self.TLS13_HANDLED_CLIENTFINISHED)
+
+    # RFC8446, section 4.4.2.4 :
+    # "If the client does not send any certificates (i.e., it sends an empty
+    # Certificate message), the server MAY at its discretion either
+    # continue the handshake without client authentication or abort the
+    # handshake with a "certificate_required" alert."
+    # Here, we abort the handshake.
+    @ATMT.state()
+    def TLS13_HANDLED_CLIENTCERTIFICATE(self):
+        if self.client_auth:
+            self.vprint("Received client certificate chain...")
+            self.vprint(self.cur_pkt.show())
+            if isinstance(self.cur_pkt, TLS13Certificate):
+                if self.cur_pkt.certslen == 0:
+                    raise self.TLS13_MISSING_CLIENTCERTIFICATE()
+
+    @ATMT.condition(TLS13_HANDLED_CLIENTCERTIFICATE)
+    def tls13_should_handle_ClientCertificateVerify(self):
+        self.raise_on_packet(TLSCertificateVerify,
+                             self.TLS13_HANDLED_CLIENT_CERTIFICATEVERIFY)
+
+    @ATMT.condition(TLS13_HANDLED_CLIENTCERTIFICATE, prio=2)
+    def tls13_no_Client_CertificateVerify(self):
+        if self.client_auth:
+            raise self.TLS13_MISSING_CLIENTCERTIFICATE()
+        raise self.TLS13_HANDLED_CLIENT_CERTIFICATEVERIFY()
+
+    @ATMT.state()
+    def TLS13_HANDLED_CLIENT_CERTIFICATEVERIFY(self):
+        pass
+
+    @ATMT.condition(TLS13_HANDLED_CLIENT_CERTIFICATEVERIFY)
     def tls13_should_handle_ClientFinished(self):
         self.raise_on_packet(TLSFinished,
                              self.TLS13_HANDLED_CLIENTFINISHED)
+
+    # TODO : change alert code
+    @ATMT.state()
+    def TLS13_MISSING_CLIENTCERTIFICATE(self):
+        self.vprint("Missing ClientCertificate!")
+        raise self.CLOSE_NOTIFY()
 
     @ATMT.state()
     def TLS13_HANDLED_CLIENTFINISHED(self):

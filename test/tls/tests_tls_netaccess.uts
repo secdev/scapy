@@ -133,25 +133,25 @@ def test_tls_server(suite="", version=""):
     print(q_.get())
 
 
-= Testing TLS server with TLS 1.0 and TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA
-~ open_ssl_client
+#= Testing TLS server with TLS 1.0 and TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA
+#~ open_ssl_client
 
-test_tls_server("ECDHE-RSA-AES128-SHA", "-tls1")
+#test_tls_server("ECDHE-RSA-AES128-SHA", "-tls1")
 
-= Testing TLS server with TLS 1.1 and TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA
-~ open_ssl_client
+#= Testing TLS server with TLS 1.1 and TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA
+#~ open_ssl_client
 
-test_tls_server("ECDHE-RSA-AES128-SHA", "-tls1_1")
+#test_tls_server("ECDHE-RSA-AES128-SHA", "-tls1_1")
 
-= Testing TLS server with TLS 1.2 and TLS_DHE_RSA_WITH_AES_128_CBC_SHA256
-~ open_ssl_client
+#= Testing TLS server with TLS 1.2 and TLS_DHE_RSA_WITH_AES_128_CBC_SHA256
+#~ open_ssl_client
 
-test_tls_server("DHE-RSA-AES128-SHA256", "-tls1_2")
+#test_tls_server("DHE-RSA-AES128-SHA256", "-tls1_2")
 
-= Testing TLS server with TLS 1.2 and TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
-~ open_ssl_client
+#= Testing TLS server with TLS 1.2 and TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+#~ open_ssl_client
 
-test_tls_server("ECDHE-RSA-AES256-GCM-SHA384", "-tls1_2")
+#test_tls_server("ECDHE-RSA-AES256-GCM-SHA384", "-tls1_2")
 
 + TLS client automaton tests
 
