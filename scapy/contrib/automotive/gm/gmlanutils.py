@@ -79,7 +79,7 @@ def GMLAN_InitDiagnostics(sock, broadcastsocket=None, timeout=None,
                 continue
             if verbose:
                 resp.show()
-            if resp.sprintf("%GMLAN.service%") != "DisableNormalCommunicationPositiveResponse":   # noqa: E501
+            if resp.sprintf("%GMLAN.service%") == "NegativeResponse":
                 continue
         else:
             if verbose:
@@ -98,7 +98,7 @@ def GMLAN_InitDiagnostics(sock, broadcastsocket=None, timeout=None,
             continue
         if verbose:
             resp.show()
-        if resp.sprintf("%GMLAN.service%") != "ReportProgrammingStatePositiveResponse":   # noqa: E501
+        if resp.sprintf("%GMLAN.service%") == "NegativeResponse":
             continue
 
         # ProgrammingMode requestProgramming
@@ -112,7 +112,7 @@ def GMLAN_InitDiagnostics(sock, broadcastsocket=None, timeout=None,
             continue
         if verbose:
             resp.show()
-        if resp.sprintf("%GMLAN.service%") != "ProgrammingModePositiveResponse":   # noqa: E501
+        if resp.sprintf("%GMLAN.service%") == "NegativeResponse":
             continue
         time.sleep(0.05)
 
@@ -162,7 +162,7 @@ def GMLAN_GetSecurityAccess(sock, keyFunction, level=1, timeout=None,
             continue
         if verbose:
             resp.show()
-        if resp.sprintf("%GMLAN.service%") != "SecurityAccessPositiveResponse":   # noqa: E501
+        if resp.sprintf("%GMLAN.service%") == "NegativeResponse":
             if verbose:
                 print("Negative Response.")
             continue
