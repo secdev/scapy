@@ -35,7 +35,7 @@ from scapy.layers.tls.handshake import TLSCertificate, TLSCertificateRequest, \
     TLSEncryptedExtensions, TLSFinished, TLSServerHello, TLSServerHelloDone, \
     TLSServerKeyExchange, TLS13Certificate, TLS13ClientHello,  \
     TLS13ServerHello, TLS13HelloRetryRequest, TLS13CertificateRequest, \
-    _ASN1CertAndExt
+    _ASN1CertAndExt, TLS13KeyUpdate
 from scapy.layers.tls.handshake_sslv2 import SSLv2ClientHello, \
     SSLv2ServerHello, SSLv2ClientMasterKey, SSLv2ServerVerify, \
     SSLv2ClientFinished, SSLv2ServerFinished, SSLv2ClientCertificate, \
@@ -496,6 +496,13 @@ class TLSClientAutomaton(_TLSAutomaton):
             data = self.data_to_send.pop()
         if data == b"quit":
             return
+        # Command to perform a key_update (for a TLS 1.3 session)
+        elif data == b"key_update":
+            if self.cur_session.tls_version >= 0x0304:
+                self.add_record()
+                self.add_msg(TLS13KeyUpdate(request_update="update_requested"))
+                raise self.ADDED_CLIENTDATA()
+
         if self.linebreak:
             data += b"\n"
         self.add_record()

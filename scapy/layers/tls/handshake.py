@@ -1511,6 +1511,25 @@ class TLS13KeyUpdate(_TLSHandshake):
                    ThreeBytesField("msglen", None),
                    ByteEnumField("request_update", 0, _key_update_request)]
 
+    def post_build_tls_session_update(self, msg_str):
+        s = self.tls_session
+        s.pwcs = writeConnState(ciphersuite=type(s.wcs.ciphersuite),
+                                connection_end=s.connection_end,
+                                tls_version=s.tls_version)
+        s.triggered_pwcs_commit = True
+        s.compute_tls13_next_traffic_secrets(s.connection_end, "write")
+
+    def post_dissection_tls_session_update(self, msg_str):
+        s = self.tls_session
+        s.prcs = writeConnState(ciphersuite=type(s.rcs.ciphersuite),
+                                connection_end=s.connection_end,
+                                tls_version=s.tls_version)
+        s.triggered_prcs_commit = True
+        if s.connection_end == "server":
+            s.compute_tls13_next_traffic_secrets("client", "read")
+        elif s.connection_end == "client":
+            s.compute_tls13_next_traffic_secrets("server", "read")
+
 
 ###############################################################################
 #   All handshake messages defined in this module                             #

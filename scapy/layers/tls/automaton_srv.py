@@ -37,7 +37,8 @@ from scapy.layers.tls.handshake import TLSCertificate, TLSCertificateRequest, \
     TLSCertificateVerify, TLSClientHello, TLSClientKeyExchange, TLSFinished, \
     TLSServerHello, TLSServerHelloDone, TLSServerKeyExchange, \
     _ASN1CertAndExt, TLS13ServerHello, TLS13Certificate, TLS13ClientHello, \
-    TLSEncryptedExtensions, TLS13HelloRetryRequest, TLS13CertificateRequest
+    TLSEncryptedExtensions, TLS13HelloRetryRequest, TLS13CertificateRequest, \
+    TLS13KeyUpdate
 from scapy.layers.tls.handshake_sslv2 import SSLv2ClientCertificate, \
     SSLv2ClientFinished, SSLv2ClientHello, SSLv2ClientMasterKey, \
     SSLv2RequestCertificate, SSLv2ServerFinished, SSLv2ServerHello, \
@@ -145,10 +146,15 @@ class TLSServerAutomaton(_TLSAutomaton):
         s += "Version       : %s\n" % v
         cs = self.cur_session.wcs.ciphersuite.name
         s += "Cipher suite  : %s\n" % cs
-        ms = self.cur_session.master_secret
+        if self.cur_session.tls_version < 0x0304:
+            ms = self.cur_session.master_secret
+        else:
+            ms = self.cur_session.tls13_master_secret
+
         s += "Master secret : %s\n" % repr_hex(ms)
         body = "<html><body><pre>%s</pre></body></html>\r\n\r\n" % s
         answer = (header + body) % len(body)
+        return answer
         return answer
 
     @ATMT.state(initial=True)
@@ -768,6 +774,12 @@ class TLSServerAutomaton(_TLSAutomaton):
         elif isinstance(p, TLSAlert):
             print("> Received: %r" % p)
             raise self.CLOSE_NOTIFY()
+        elif isinstance(p, TLS13KeyUpdate):
+            print("> Received: %r" % p)
+            p = TLS13KeyUpdate(request_update=0)
+            self.add_record()
+            self.add_msg(p)
+            raise self.ADDED_SERVERDATA()
         else:
             print("> Received: %r" % p)
 
