@@ -12,6 +12,40 @@ from scapy.modules.six.moves import map, range
 conf.p0f_base = '/etc/p0f/p0f.fp'
 mtu = float('inf')
 
+# Nice namespace for p0f quirks
+Quirks_p0f = {
+    'df'     : 0,  # don't fragment flag
+    'id+'    : 1,  # df set but IPID non-zero
+    'id-'    : 2,  # df not set but IPID zero
+    'ecn'    : 3,  # explicit confestion notification support
+    'zero+'  : 4,  # 'must be zero' field not zero
+    'flow'   : 5,  # non-zero IPv6 flow ID
+
+    'seq-'   : 6,  # sequence number is zero
+    'ack+'   : 7,  # ACK number is non-zero but ACK flag is not set
+    'ack-'   : 8,  # ACK number is zero but ACK flag is set
+    'uptr+'  : 9,  # URG pointer is non-zero but URG flag not set
+    'urgf+'  : 10, # URG flag used
+    'pushf+' : 11, # PUSH flag used
+
+    'ts1-'   : 12, # own timestamp specified as zero
+    'ts2+'   : 13, # non-zero peer timestamp on initial SYN
+    'opt+'   : 14, # trailing non-zero data in options segment
+    'exws'   : 15, # excessive window scaling factor ( > 14)
+    'bad'    : 16 # malformed tcp options
+}
+
+Layouts_p0f = { 
+    'nop'  : 0, # no-op option
+    'mss'  : 1, # maximum segment size
+    'ws'   : 2, # window scaling
+    'sok'  : 3, # selective ACK permitted
+    'sack' : 4, # selective ACK (should not be seen)
+    'ts'   : 5, # timestamp
+    '?n'   : 6, # unknown option ID n
+}
+# eol+n will be stored as '-n' integer
+
 def lparse(line, n, default='', splitchar=':'):
     """Function for nice parcing of 'a:b:c:d:e' lines"""
     a = line.split(splitchar)[:n]
@@ -45,21 +79,17 @@ class p0fDatabase(KnowledgeBase):
             warning("Can't open base %s", self.filename)
             return
 
-        #try:
         self.base = {}
         self.labels = []
         self.parse_file(f)
         self.labels = tuple(self.labels)
         self.parse_tcp_base()
-        #except Exception:
-        #    warning("Can't parse p0f database (new p0f version ?)")
-        #    self.base = None
 
         f.close()
 
     def parse_file(self, file):
         """
-            Does actual parsing and stores it to self.base with described structure
+        Does actual parsing and stores it to self.base with described structure
         """
         
         module = 'classes'
@@ -121,8 +151,10 @@ class p0fDatabase(KnowledgeBase):
             self.base['tcp'][moduledir] = newsigdict
 
 
-    def p0f_tcp_correl(self, moduledir, pkt2p0f_out, olayout, quirks):
-        """corellates the tcp-packet with p0f database"""
+    def tcp_correl(self, moduledir, pkt2p0f_out, olayout, quirks):
+        """
+        corellates the tcp-packet with p0f database
+        """
         
         # prepare values
         ver, ttl, olen, mss, wsize, wscale, pclass = pkt2p0f_out
@@ -155,7 +187,6 @@ class p0fDatabase(KnowledgeBase):
             q_correl = len(squirks & quirks) / len(quirks)
 
             # compares layouts
-            print(solayout, olayout)
             l_correl = solayout == olayout
 
             yield q_correl, h_correl, l_correl, self.labels[numlabel]
@@ -163,7 +194,9 @@ class p0fDatabase(KnowledgeBase):
 p0fdb = p0fDatabase(conf.p0f_base)
 
 def preprocessPacket4p0f(pkt):
-    """Actually copied it from old p0f.py"""
+    """
+    Actually copied it from old p0f.py
+    """
     pkt = pkt.copy()
     pkt = pkt.__class__(raw(pkt))
     while pkt.haslayer(IP) and pkt.haslayer(TCP):
@@ -177,51 +210,13 @@ def preprocessPacket4p0f(pkt):
     
     return pkt
 
-# Nice namespace for p0f quirks
-Quirks_p0f = {
-    'df'     : 0,  # don't fragment flag
-    'id+'    : 1,  # df set but IPID non-zero
-    'id-'    : 2,  # df not set but IPID zero
-    'ecn'    : 3,  # explicit confestion notification support
-    'zero+'  : 4,  # 'must be zero' field not zero
-    'flow'   : 5,  # non-zero IPv6 flow ID
-
-    'seq-'   : 6,  # sequence number is zero
-    'ack+'   : 7,  # ACK number is non-zero but ACK flag is not set
-    'ack-'   : 8,  # ACK number is zero but ACK flag is set
-    'uptr+'  : 9,  # URG pointer is non-zero but URG flag not set
-    'urgf+'  : 10, # URG flag used
-    'pushf+' : 11, # PUSH flag used
-
-    'ts1-'   : 12, # own timestamp specified as zero
-    'ts2+'   : 13, # non-zero peer timestamp on initial SYN
-    'opt+'   : 14, # trailing non-zero data in options segment
-    'exws'   : 15, # excessive window scaling factor ( > 14)
-    'bad'    : 16 # malformed tcp options
-}
-
-Layouts_p0f = { 
-    'nop'  : 0, # no-op option
-    'mss'  : 1, # maximum segment size
-    'ws'   : 2, # window scaling
-    'sok'  : 3, # selective ACK permitted
-    'sack' : 4, # selective ACK (should not be seen)
-    'ts'   : 5, # timestamp
-    '?n'   : 6, # unknown option ID n
-}
-# eol+n will be stored as '-n' integer
-
-def quirks_correl(qint, quirks):
-    for quirk in quirks:
-        yield bool((1 << Quirks_p0f[quirk]) & qint)
-
 def packet2quirks(pkt):
     """
-        requires preprocessed packet
-        not done yet
+    requires preprocessed packet
+    not done yet
     """
 
-    quirks = {}
+    quirks = set()
     addq = lambda name: quirks.add(Quirks_p0f[name])
     
     # IPv4 only
@@ -236,8 +231,8 @@ def packet2quirks(pkt):
         elif pkt.id == 0:
             addq('id-')
     
-        if pkt.flags.ECN:
-            addq('ecn')
+        #if pkt.flags.ECN:
+        #    addq('ecn')
 
         if pkt.seq == 0:
             addq('seq-')
@@ -276,19 +271,19 @@ def packet2quirks(pkt):
             if val[1] != 0:
                 addq('ts2+')
 
-        elif name == 'WScale' and value > 14:
+        elif name == 'WScale' and val > 14:
             addq('exws')
 
     # TODO
     # please help me with '0+' (must be zero field) in p0f
-    # and with 'opt+', 'bad' field  
+    # and with 'opt+', 'bad', 'ECN' field  
 
     return quirks
 
 def packet2olayout(pkt):
     """
-        requires preprocessed packet (preprocessPacket4p0f)
-        returns set{layout: int, ...}
+    requires preprocessed packet (preprocessPacket4p0f)
+    returns set{layout: int, ...}
     """
         
     # TODO
@@ -315,19 +310,17 @@ def packet2olayout(pkt):
    
 
 def packet2p0f(pkt):
-    """requires preprocessed packet"""
+    """
+    requires preprocessed packet
+    """
 
     #IP  layer - pkt
     #TCP layer - pkt.payload
 
-    #Independent IP
     ver = pkt.version
-
-    #Independent TCP
     wsize = pkt.payload.window
     pclass = bool(pkt.payload.payload)
 
-    #IPv-dependent
     try:
         ttl = pkt.ttl
         olen = len(pkt.options)
@@ -336,11 +329,9 @@ def packet2p0f(pkt):
         ttl = 0
         olen = 0
 
-    #TCP options presets
     mss = '*'
     wscale = '*'
 
-    #TCP options acquiring
     for name, value in pkt.payload.options:
         if name == 'MSS':
             mss = value
@@ -349,18 +340,31 @@ def packet2p0f(pkt):
 
     return (ver, ttl, olen, mss, wsize, wscale, pclass)
 
+def prnp0f(pkt):
+    pkt = preprocessPacket4p0f(pkt)
+    if pkt['TCP'].flags.S:
+        p0f_out = packet2p0f(pkt)
+        olayout = packet2olayout(pkt)
+        quirks  = packet2quirks(pkt)
+        if pkt['TCP'].flags.A:
+            direction = 'response'
+        else:
+            direction = 'request'
+        gen = p0fdb.tcp_correl(direction, p0f_out, olayout, quirks)
+        return max(list(gen), key= lambda x: sum(x[:2]))[3]
+
 if __name__ == '__main__':
     # This one is for testing
 
     pdb = p0fDatabase(conf.p0f_base)
     base = pdb.get_base()
+    packet = IP(version=4, ttl=64)/TCP(options=[('WScale', 10)], window=8192, flags='SA')
 
     from time import time
     to = time()
 
-    packet = IP(version=4, ttl=64)/TCP(options=[('WScale', 10)], window=8192)
     print(packet2p0f(packet))
-    gen = pdb.p0f_tcp_correl('request', packet2p0f(packet), (1, 3, 5, 0, 2), {0, 1})
+    gen = pdb.tcp_correl('request', packet2p0f(packet), (1, 3, 5, 0, 2), {0, 1})
     l = sorted(list(gen), key = lambda x: (sum(x[:2]) / 3, x[3]))
 
     for q, h, l, n in l:
