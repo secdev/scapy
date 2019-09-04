@@ -12,6 +12,7 @@ mechanisms which are addressed with keyexchange.py.
 
 from __future__ import absolute_import
 import math
+import os
 import struct
 
 from scapy.error import log_runtime, warning
@@ -41,6 +42,7 @@ from scapy.layers.tls.keyexchange import (_TLSSignature, _TLSServerParamsField,
                                           SigAndHashAlgsLenField)
 from scapy.layers.tls.session import (_GenericTLSSessionInheritance,
                                       readConnState, writeConnState)
+from scapy.layers.tls.keyexchange_tls13 import TLS_Ext_PreSharedKey_CH
 from scapy.layers.tls.crypto.compression import (_tls_compression_algs,
                                                  _tls_compression_algs_cls,
                                                  Comp_NULL, _GenericComp,
@@ -293,7 +295,6 @@ class TLSClientHello(_TLSHandshake):
         along with the raw string representing this handshake message.
         """
         super(TLSClientHello, self).tls_session_update(msg_str)
-
         s = self.tls_session
         s.advertised_tls_version = self.version
         # This ClientHello could be a 1.3 one. Let's store the sid
@@ -311,6 +312,9 @@ class TLSClientHello(_TLSHandshake):
             for e in self.ext:
                 if isinstance(e, TLS_Ext_SupportedVersion_CH):
                     s.advertised_tls_version = e.versions[0]
+                    if s.sid:
+                        s.middlebox_compatibility = True
+
                 if isinstance(e, TLS_Ext_SignatureAlgorithms):
                     s.advertised_sig_algs = e.sig_algs
 
@@ -355,7 +359,49 @@ class TLS13ClientHello(_TLSHandshake):
     def post_build(self, p, pay):
         if self.random_bytes is None:
             p = p[:6] + randstring(32) + p[6 + 32:]
-        return super(TLS13ClientHello, self).post_build(p, pay)
+        # We don't call the post_build function from class _TLSHandshake
+        # to compute the message length because we need that value now
+        # for the HMAC in binder
+        tmp_len = len(p)
+        if self.msglen is None:
+            sz = tmp_len - 4
+            p = struct.pack("!I", (orb(p[0]) << 24) | sz) + p[4:]
+        s = self.tls_session
+        if self.ext:
+            for e in self.ext:
+                if isinstance(e, TLS_Ext_PreSharedKey_CH):
+                    hkdf = TLS13_HKDF("sha256")
+                    hash_len = hkdf.hash.digest_size
+                    s.compute_tls13_early_secrets(external=True)
+
+                    # RFC8446 4.2.11.2
+                    # "Each entry in the binders list is computed as an HMAC
+                    # over a transcript hash (see Section 4.4.1) containing a
+                    # partial ClientHello up to and including the
+                    # PreSharedKeyExtension.identities field."
+                    # PSK Binders field is :
+                    #   - PSK Binders length (2 bytes)
+                    #   - First PSK Binder length (1 byte) +
+                    #         HMAC (hash_len bytes)
+                    # The PSK Binder is computed in the same way as the
+                    # Finished message with binder_key as BaseKey
+
+                    handshake_context = b""
+                    if s.tls13_retry:
+                        for m in s.handshake_messages:
+                            handshake_context += m
+                    handshake_context += p[:-hash_len - 3]
+
+                    binder_key = s.tls13_derived_secrets["binder_key"]
+                    psk_binder = hkdf.compute_verify_data(binder_key,
+                                                          handshake_context)
+
+                    # Here, we replaced the last 32 bytes of the packet by the
+                    # new HMAC values computed over the ClientHello (without
+                    # the binders)
+                    p = p[:-hash_len] + psk_binder
+
+        return p + pay
 
     def tls_session_update(self, msg_str):
         """
@@ -367,6 +413,8 @@ class TLS13ClientHello(_TLSHandshake):
 
         if self.sidlen and self.sidlen > 0:
             s.sid = self.sid
+            s.middlebox_compatibility = True
+
         self.random_bytes = msg_str[10:38]
         s.client_random = self.random_bytes
         if self.ext:
@@ -549,17 +597,20 @@ class TLS13ServerHello(_TLSHandshake):
                 cs_cls = _tls_cipher_suites_cls[cs_val]
 
         connection_end = s.connection_end
-
         if connection_end == "server":
             s.pwcs = writeConnState(ciphersuite=cs_cls,
                                     connection_end=connection_end,
                                     tls_version=s.tls_version)
-            s.triggered_pwcs_commit = True
+
+            if not s.middlebox_compatibility:
+                s.triggered_pwcs_commit = True
         elif connection_end == "client":
+
             s.prcs = readConnState(ciphersuite=cs_cls,
                                    connection_end=connection_end,
                                    tls_version=s.tls_version)
-            s.triggered_prcs_commit = True
+            if not s.middlebox_compatibility:
+                s.triggered_prcs_commit = True
 
         if s.tls13_early_secret is None:
             # In case the connState was not pre-initialized, we could not
@@ -595,9 +646,15 @@ class TLS13HelloRetryRequest(_TLSHandshake):
         s.tls13_client_pubshares = {}
         # If the server responds to a ClientHello with a HelloRetryRequest
         # The value of the first ClientHello is replaced by a message_hash
-        cs_cls = _tls_cipher_suites_cls[self.cipher]
-        hkdf = TLS13_HKDF(cs_cls.hash_alg.name.lower())
-        hash_len = hkdf.hash.digest_size
+        if s.client_session_ticket:
+            cs_cls = _tls_cipher_suites_cls[s.tls13_ticket_ciphersuite]
+            hkdf = TLS13_HKDF(cs_cls.hash_alg.name.lower())
+            hash_len = hkdf.hash.digest_size
+        else:
+            cs_cls = _tls_cipher_suites_cls[self.cipher]
+            hkdf = TLS13_HKDF(cs_cls.hash_alg.name.lower())
+            hash_len = hkdf.hash.digest_size
+
         handshake_context = struct.pack("B", 254)
         handshake_context += struct.pack("B", 0)
         handshake_context += struct.pack("B", 0)
@@ -646,12 +703,14 @@ class TLSEncryptedExtensions(_TLSHandshake):
                                        connection_end=connection_end,
                                        tls_version=s.tls_version)
 
-                s.triggered_prcs_commit = True
                 chts = s.tls13_derived_secrets["client_handshake_traffic_secret"]  # noqa: E501
                 s.prcs.tls13_derive_keys(chts)
 
-                s.rcs = self.tls_session.prcs
-                s.triggered_prcs_commit = False
+                if not s.middlebox_compatibility:
+                    s.rcs = self.tls_session.prcs
+                    s.triggered_prcs_commit = False
+                else:
+                    s.triggered_prcs_commit = True
 
     def post_dissection_tls_session_update(self, msg_str):
         self.tls_session_update(msg_str)
@@ -675,13 +734,13 @@ class TLSEncryptedExtensions(_TLSHandshake):
                 s.pwcs = writeConnState(ciphersuite=type(s.rcs.ciphersuite),
                                         connection_end=connection_end,
                                         tls_version=s.tls_version)
-
-                s.triggered_pwcs_commit = True
                 chts = s.tls13_derived_secrets["client_handshake_traffic_secret"]  # noqa: E501
                 s.pwcs.tls13_derive_keys(chts)
-
-                s.wcs = self.tls_session.pwcs
-                s.triggered_pwcs_commit = False
+                if not s.middlebox_compatibility:
+                    s.wcs = self.tls_session.pwcs
+                    s.triggered_pwcs_commit = False
+                else:
+                    s.triggered_prcs_commit = True
 ###############################################################################
 #   Certificate                                                               #
 ###############################################################################
@@ -1481,6 +1540,31 @@ class TLS13NewSessionTicket(_TLSHandshake):
                                     length_from=lambda pkt: (pkt.msglen -
                                                              (pkt.ticketlen or 0) -  # noqa: E501
                                                              pkt.noncelen or 0) - 13)]  # noqa: E501
+
+    def build(self):
+        fval = self.getfieldval("ticket")
+        if fval == b"":
+            # Here, the ticket is just a random 48-byte label
+            # The ticket may also be a self-encrypted and self-authenticated
+            # value
+            self.ticket = os.urandom(48)
+
+        fval = self.getfieldval("ticket_nonce")
+        if fval == b"":
+            # Nonce is randomly chosen
+            self.ticket_nonce = os.urandom(32)
+
+        fval = self.getfieldval("ticket_lifetime")
+        if fval == 0xffffffff:
+            # ticket_lifetime is set to 12 hours
+            self.ticket_lifetime = 43200
+
+        fval = self.getfieldval("ticket_age_add")
+        if fval == 0:
+            # ticket_age_add is a random 32-bit value
+            self.ticket_age_add = struct.unpack("!I", os.urandom(4))[0]
+
+        return _TLSHandshake.build(self)
 
     def post_dissection_tls_session_update(self, msg_str):
         self.tls_session_update(msg_str)

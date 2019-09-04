@@ -61,16 +61,6 @@ class TLSInnerPlaintext(_GenericTLSSessionInheritance):
         return s
 
 
-class TLSInnerChangeCipherSpec(_GenericTLSSessionInheritance):
-    __slots__ = ["type"]
-    name = "TLS Inner Plaintext (CCS)"
-    fields_desc = [_TLSMsgListField("msg", [], length_from=lambda x: 1)]
-
-    def __init__(self, _pkt=None, *args, **kwargs):
-        self.type = 0x14
-        super(TLSInnerChangeCipherSpec, self).__init__(_pkt, *args, **kwargs)
-
-
 class _TLSInnerPlaintextField(PacketField):
     def __init__(self, name, default, *args, **kargs):
         super(_TLSInnerPlaintextField, self).__init__(name,
@@ -78,13 +68,9 @@ class _TLSInnerPlaintextField(PacketField):
                                                       TLSInnerPlaintext)
 
     def m2i(self, pkt, m):
-        if pkt.type == 0x14:
-            return TLSInnerChangeCipherSpec(m, tls_session=pkt.tls_session)
         return self.cls(m, tls_session=pkt.tls_session)
 
     def getfield(self, pkt, s):
-        if pkt.type == 0x14:
-            return super(_TLSInnerPlaintextField, self).getfield(pkt, s)
         tag_len = pkt.tls_session.rcs.mac_len
         frag_len = pkt.len - tag_len
         if frag_len < 1:

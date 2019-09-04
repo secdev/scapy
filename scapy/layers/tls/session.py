@@ -439,6 +439,10 @@ class tlsSession(object):
         self.tls13_handshake_secret = None
         self.tls13_master_secret = None
         self.tls13_derived_secrets = {}
+        self.post_handshake_auth = False
+        self.tls13_ticket_ciphersuite = None
+        self.tls13_retry = False
+        self.middlebox_compatibility = False
 
         # Handshake messages needed for Finished computation/validation.
         # No record layer headers, no HelloRequests, no ChangeCipherSpecs.
