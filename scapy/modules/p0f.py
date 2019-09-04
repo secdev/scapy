@@ -35,7 +35,7 @@ Quirks_p0f = {
     'bad'    : 16 # malformed tcp options
 }
 
-Layouts_p0f = { 
+Layouts_p0f = {
     'nop'  : 0, # no-op option
     'mss'  : 1, # maximum segment size
     'ws'   : 2, # window scaling
@@ -47,7 +47,10 @@ Layouts_p0f = {
 # eol+n will be stored as '-n' integer
 
 def lparse(line, n, default='', splitchar=':'):
-    """Function for nice parcing of 'a:b:c:d:e' lines"""
+    """
+    Function for nice parcing of 'a:b:c:d:e' lines
+    Only Python 3 compatible
+    """
     a = line.split(splitchar)[:n]
     yield from a
     yield from [default] * (n - len(a))
@@ -84,6 +87,7 @@ class p0fDatabase(KnowledgeBase):
         self.parse_file(f)
         self.labels = tuple(self.labels)
         self.parse_tcp_base()
+        self.parse_http_base()
 
         f.close()
 
@@ -138,10 +142,10 @@ class p0fDatabase(KnowledgeBase):
                 ver, ttl, olen, mss, wsize, olayout, quirks, pclass = lparse(sig, 8)
                 wsize, _, scale = wsize.partition(',')
 
-                quirks = frozenset(map(lambda x: Quirks_p0f.get(x), quirks.split(',')))
+                quirks = frozenset(map(Quirks_p0f.get, quirks.split(',')))
 
                 olayout = list(map(lambda x: Layouts_p0f.get(x, x), olayout.split(',')))
-                if type(olayout[-1]) == str:
+                if isinstance(olayout[-1], str):
                     olayout[-1] = - int(olayout[-1][4:])
                 olayout = tuple(olayout)
 
@@ -150,18 +154,50 @@ class p0fDatabase(KnowledgeBase):
 
             self.base['tcp'][moduledir] = newsigdict
 
+    def parse_http_base(self):
+        
+        for moduledir in 'response', 'request':
+            sigdict = self.base['http'][moduledir]
+            newsigdict = {}
+            for sig, numlabel in sigdict.items():
 
-    def tcp_correl(self, moduledir, pkt2p0f_out, olayout, quirks):
+                ver, horder, habsent, expsw = lparse(sig, 4)
+                horder = tuple(p0fDatabase._parse_horder(horder))
+                habsent = frozenset(habsent.split(','))
+
+                newsigdict[(ver, horder, habsent, expsw)] = numlabel
+
+            self.base['http'][moduledir] = newsigdict
+
+    @staticmethod
+    def _parse_horder(horder):
+        
+        for header in horder.split(','):
+            header, eq, value = header.partition('=')
+
+            if header[0] == '?':
+                yield (header[1:], None)
+            else:
+                yield (header, value[1:-1])
+
+
+    def tcp_correl(self, moduledir, tcpsign, olayout, quirks):
         """
-        corellates the tcp-packet with p0f database
+        Correlates the tcp-packet with p0f database
+
+        Correlation is done via computing correlation score, 
+        which is based on
+        1) hits count (TCP signature count)
+        2) intersection of found quirks and database's quirks
+        3) options layout equality
         """
         
         # prepare values
-        ver, ttl, olen, mss, wsize, wscale, pclass = pkt2p0f_out
+        ver, ttl, olen, mss, wsize, wscale, pclass = tcpsign
         sigdict = self.base['tcp'][moduledir]
 
         # 's' stnds for signature
-        for (sver, sttl, solen, smss, swsize, sscale, 
+        for (sver, sttl, solen, smss, swsize, sscale,
                 solayout, squirks, spclass), numlabel in sigdict.items():
 
             hits = 0
@@ -176,7 +212,7 @@ class p0fDatabase(KnowledgeBase):
             else:
                 evaled = eval(swsize)
                 if wsize <= evaled:
-                    hits += wsize / evaled
+                    hits += min(1, wsize / evaled)
             hits += (sscale == '*') or (int(sscale) == wscale)
             hits += (spclass == '*') or (spclass == pclass == 0) or \
                     (spclass == '+' and pclass)
@@ -189,7 +225,62 @@ class p0fDatabase(KnowledgeBase):
             # compares layouts
             l_correl = solayout == olayout
 
-            yield q_correl, h_correl, l_correl, self.labels[numlabel]
+            yield (q_correl, h_correl, l_correl), self.labels[numlabel]
+
+    def http_correl(self, moduledir, version, headers):
+        """
+        Correlates http packet with p0f database
+        """
+        for (ver, horder, habsent, expsw), numlabel in self.base[moduledir]:
+
+            ver_correl = (ver == '*') or (int(ver) == version)
+            exp_correl = False
+            abs_correl = True
+
+            ord_correl = True
+            ordi = 0
+
+            q_headers = set(map(lambda x: x[0], filter(lambda y: y[1] == None, horder)))
+
+            # Really weird algorithm
+            # FIXME
+
+            prevs = set()
+            for name, value in headers:
+
+                if not ord_correl:
+                    break
+
+                if abs_correl and (name in habsent):
+                    abs_correl = False
+
+                if not exp_correl and (name in {'User-Agent', 'Server'}) and value == expsw:
+                    exp_correl = True
+
+                if ordi >= len(horder):
+                    break
+
+                checked = False
+                while not checked:
+
+                    if name == horder[ordi][0] and (horder[ordi][1] in ('', value)):
+                        ordi += 1
+                        prevs = set()
+                        checked = True
+
+                    elif horder[ordi][1] == None:
+                        prevs.add(horder[ordi][0])
+                        ordi += 1
+                            
+                    elif name in prevs:
+                        checked = True
+
+                    elif name in q_headers:
+                        checked = True
+                        ord_correl = False
+            
+            yield (ver_correl, ord_correl, abs_correl, exp_correl), self.labels[numlabel]
+
 
 p0fdb = p0fDatabase(conf.p0f_base)
 
@@ -212,8 +303,9 @@ def preprocessPacket4p0f(pkt):
 
 def packet2quirks(pkt):
     """
-    requires preprocessed packet
-    not done yet
+    *requires preprocessed packet
+    Returns set of quirks found in packet
+    Help required
     """
 
     quirks = set()
@@ -243,13 +335,13 @@ def packet2quirks(pkt):
         if pky.fl:
             quirks.add(Quirks_p0f['flow'])
 
-    # TCP 
+    # TCP
     pkt = pkt.payload
 
     if pkt.flags.A:        
         if pkt.ack == 0:
             addq('ack+')
-    else:            
+    else:
         if pkt.ack:
             addq('ack-')
 
@@ -282,8 +374,8 @@ def packet2quirks(pkt):
 
 def packet2olayout(pkt):
     """
-    requires preprocessed packet (preprocessPacket4p0f)
-    returns set{layout: int, ...}
+    *requires preprocessed packet
+    Returns list of layout options
     """
         
     # TODO
@@ -292,7 +384,7 @@ def packet2olayout(pkt):
     olayout = []
     addl = lambda name: olayout.append(Layouts_p0f[name])
 
-    for name, val in pkt.payload.options:
+    for name, _ in pkt.payload.options:
 
         if name == 'NOP':
             addl('nop')
@@ -309,9 +401,10 @@ def packet2olayout(pkt):
     return tuple(olayout)
    
 
-def packet2p0f(pkt):
+def packet2tcpsign(pkt):
     """
-    requires preprocessed packet
+    *requires preprocessed packet
+    Parses TCP packet and returns TCP signature
     """
 
     #IP  layer - pkt
@@ -343,7 +436,7 @@ def packet2p0f(pkt):
 def prnp0f(pkt):
     pkt = preprocessPacket4p0f(pkt)
     if pkt['TCP'].flags.S:
-        p0f_out = packet2p0f(pkt)
+        p0f_out = packet2tcpsign(pkt)
         olayout = packet2olayout(pkt)
         quirks  = packet2quirks(pkt)
         if pkt['TCP'].flags.A:
@@ -351,7 +444,7 @@ def prnp0f(pkt):
         else:
             direction = 'request'
         gen = p0fdb.tcp_correl(direction, p0f_out, olayout, quirks)
-        return max(list(gen), key= lambda x: sum(x[:2]))[3]
+        return max(list(gen), key=lambda x: sum(x[0]))[1]
 
 if __name__ == '__main__':
     # This one is for testing
@@ -363,14 +456,11 @@ if __name__ == '__main__':
     from time import time
     to = time()
 
-    print(packet2p0f(packet))
-    gen = pdb.tcp_correl('request', packet2p0f(packet), (1, 3, 5, 0, 2), {0, 1})
-    l = sorted(list(gen), key = lambda x: (sum(x[:2]) / 3, x[3]))
+    print(packet2tcpsign(packet))
+    gen = pdb.tcp_correl('request', packet2tcpsign(packet), (1, 3, 5, 0, 2), {0, 1})
+    l = sorted(list(gen), key = lambda x: (sum(x[0]) / 3, x[1]))
 
-    for q, h, l, n in l:
+    for (q, h, l), n in l:
         print(f"{h, l ,q}   : {n}")
     
     print(time() - to) #002 avg time
-
-    def gavg(lst, avg):
-        return set(map(lambda x: x[1], filter(lambda x: x[0] > avg, lst)))
