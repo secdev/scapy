@@ -244,7 +244,7 @@ class ECUResponse:
     def __repr__(self):
         return "session=%s, security_level=%s, responses=%s" % \
                (self.__session, self.__security_level,
-                self.responses.summary())
+                [resp.summary() for resp in self.responses])
 
     def __eq__(self, other):
         return \
