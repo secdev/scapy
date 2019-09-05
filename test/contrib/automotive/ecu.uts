@@ -214,7 +214,7 @@ assert ecu.current_session == 2
 assert ecu.current_security_level == 2
 del sock
 
-= Analyze on the fly with ECUSession GMLAN
+= Analyze on the fly with ECUSession GMLAN logging test
 
 session = ECUSession(verbose=False, store_supported_responses=False)
 
