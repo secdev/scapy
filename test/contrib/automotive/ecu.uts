@@ -183,16 +183,52 @@ assert response.responses[0].dataIdentifier == 61786  # no_docs
 assert len(ecu.log["TransferData"]) == 2  # no_docs
 
 
-= Analyze on the fly with ECUSession GMLAN
+= Analyze on the fly with ECUSession GMLAN1
 
 session = ECUSession()
+
+sock =  CandumpReader("test/contrib/automotive/gmlan_trace.candump")
+gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "did":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=2, opened_socket=sock)
+ecu = session.ecu
+print("Check 1 after change to diagnostic mode")
+assert len(ecu.supported_responses) == 1
+assert ecu.current_session == 3
+assert ecu.current_security_level == 0
+gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "did":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=8, opened_socket=sock)
+ecu = session.ecu
+print("Check 2 after some more messages were read")
+assert len(ecu.supported_responses) == 3
+assert ecu.current_session == 3
+assert ecu.current_security_level == 0
+gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "did":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=10, opened_socket=sock)
+ecu = session.ecu
+print("Check 3 after change to programming mode (bootloader)")
+assert len(ecu.supported_responses) == 4
+assert ecu.current_session == 2
+assert ecu.current_security_level == 0
+gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "did":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=16, opened_socket=sock)
+ecu = session.ecu
+print("Check 4 after gaining security access")
+assert len(ecu.supported_responses) == 6
+assert ecu.current_session == 2
+assert ecu.current_security_level == 2
+del sock
+
+= Analyze on the fly with ECUSession GMLAN
+
+session = ECUSession(verbose=False, store_supported_responses=False)
 
 with CandumpReader("test/contrib/automotive/gmlan_trace.candump") as sock:
      gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "did":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=200, opened_socket=sock)
 
 ecu = session.ecu
-print(ecu.log)
-print(ecu.supported_responses)
+assert len(ecu.supported_responses) == 0
 
-assert 37 == len(ecu.log["TransferData"])
+assert len([m for m in gmlanmsgs if m.sprintf("%GMLAN.service%") == "TransferData"]) == len(ecu.log["TransferData"])
+assert len([m for m in gmlanmsgs if m.sprintf("%GMLAN.service%") == "RequestDownload"]) == len(ecu.log["RequestDownload"])
+assert len([m for m in gmlanmsgs if m.sprintf("%GMLAN.service%") == "ReadDataByIdentifier"]) == len(ecu.log["ReadDataByIdentifier"])
+
+assert len(ecu.log["SecurityAccess"]) == 2
+assert len(ecu.log["SecurityAccessPositiveResponse"]) == 2
+
 assert ecu.log["TransferData"][-1][1][0] == "downloadAndExecuteOrExecute"
