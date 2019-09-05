@@ -104,7 +104,8 @@ class GMLAN(ISOTP):
         if self.service == 0x7f:
             return self.payload.answers(other)
         if self.service == (other.service + 0x40):
-            if isinstance(self.payload, NoPayload):
+            if isinstance(self.payload, NoPayload) or \
+                    isinstance(other.payload, NoPayload):
                 return True
             else:
                 return self.payload.answers(other.payload)
