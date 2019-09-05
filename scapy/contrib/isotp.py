@@ -337,7 +337,7 @@ class ISOTPMessageBuilder:
                     isotp_data = "".join(map(str, self.pieces))
                 self.ready = isotp_data[:self.total_len]
 
-    def __init__(self, use_ext_addr=None, basecls=None):
+    def __init__(self, use_ext_addr=None, did=None, basecls=None):
         """
         Initialize a ISOTPMessageBuilder object
 
@@ -353,6 +353,12 @@ class ISOTPMessageBuilder:
         self.buckets = {}
         self.use_ext_addr = use_ext_addr
         self.basecls = basecls or ISOTP
+        self.dst_ids = None
+        if did is not None:
+            if hasattr(did, "__iter__"):
+                self.dst_ids = did
+            else:
+                self.dst_ids = [did]
 
     def feed(self, can):
         """Attempt to feed an incoming CAN frame into the state machine"""
@@ -361,6 +367,10 @@ class ISOTPMessageBuilder:
                 self.feed(p)
             return
         identifier = can.identifier
+
+        if self.dst_ids is not None and identifier not in self.dst_ids:
+            return
+
         data = bytes(can.data)
 
         if len(data) > 1 and self.use_ext_addr is not True:
@@ -496,6 +506,7 @@ class ISOTPSession(DefaultSession):
         DefaultSession.__init__(self, *args, **kwargs)
         self.m = ISOTPMessageBuilder(
             use_ext_addr=kwargs.pop("use_ext_addr", None),
+            did=kwargs.pop("did", None),
             basecls=kwargs.pop("basecls", None))
 
     def on_packet_received(self, pkt):
