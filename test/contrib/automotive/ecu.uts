@@ -12,6 +12,7 @@
 
 load_contrib('isotp')
 load_contrib("automotive.uds")
+load_contrib("automotive.gm.gmlan")
 load_layer("can")
 conf.contribs["CAN"]["swap-bytes"] = True
 
@@ -180,3 +181,18 @@ assert response.has_security_access(18)  # no_docs
 assert response.responses[0].service == 110  # no_docs
 assert response.responses[0].dataIdentifier == 61786  # no_docs
 assert len(ecu.log["TransferData"]) == 2  # no_docs
+
+
+= Analyze on the fly with ECUSession GMLAN
+
+session = ECUSession()
+
+with CandumpReader("test/contrib/automotive/gmlan_trace.candump") as sock:
+     gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "did":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=200, opened_socket=sock)
+
+ecu = session.ecu
+print(ecu.log)
+print(ecu.supported_responses)
+
+assert 37 == len(ecu.log["TransferData"])
+assert ecu.log["TransferData"][-1][1][0] == "downloadAndExecuteOrExecute"
