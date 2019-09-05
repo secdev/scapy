@@ -1,6 +1,6 @@
-*****************************************
-Automotive Penetration Testing with Scapy
-*****************************************
+*******************
+Automotive Security
+*******************
 
 .. note::
     All automotive related features work best on Linux systems. CANSockets and ISOTPSockets in Scapy are based on Linux kernel modules.
@@ -21,9 +21,9 @@ function to get all information about one specific protocol.
 +---------------------+----------------------+--------------------------------------------------------+
 | OSI Layer           | Protocol             | Scapy Implementations                                  |
 +=====================+======================+========================================================+
-| Application Layer   | UDS (ISO 14229)      | UDS, UDS_*                                             |
+| Application Layer   | UDS (ISO 14229)      | UDS, UDS_*, UDS_TesterPresentSender                    |
 |                     +----------------------+--------------------------------------------------------+
-|                     | GMLAN                | GMLAN, GMLAN_*                                         |
+|                     | GMLAN                | GMLAN, GMLAN_*, GMLAN_TesterPresentSender              |
 |                     +----------------------+--------------------------------------------------------+
 |                     | SOME/IP              | SOMEIP, SD                                             |
 |                     +----------------------+--------------------------------------------------------+
@@ -35,13 +35,13 @@ function to get all information about one specific protocol.
 +---------------------+----------------------+--------------------------------------------------------+
 | Transportaion Layer | ISO-TP (ISO 15765-2) | ISOTPSocket, ISOTPNativeSocket, ISOTPSoftSocket        |
 |                     |                      |                                                        |
-|                     |                      | ISOTPSniffer, ISOTPMessageBuilder                      |
+|                     |                      | ISOTPSniffer, ISOTPMessageBuilder, ISOTPSession        |
 |                     |                      |                                                        |
 |                     |                      | ISOTPHeader, ISOTPHeaderEA, ISOTPScan                  |
 |                     |                      |                                                        |
 |                     |                      | ISOTP, ISOTP_SF, ISOTP_FF, ISOTP_CF, ISOTP_FC          |
 +---------------------+----------------------+--------------------------------------------------------+
-| Data Link Layer     | CAN (ISO 11898)      | CAN, CANSocket, rdcandump                              |
+| Data Link Layer     | CAN (ISO 11898)      | CAN, CANSocket, rdcandump, CandumpReader               |
 +---------------------+----------------------+--------------------------------------------------------+
 
 
