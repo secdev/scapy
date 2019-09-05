@@ -18,6 +18,7 @@ from scapy.packet import Packet, bind_layers, NoPayload
 from scapy.config import conf
 from scapy.error import warning, log_loading
 from scapy.utils import PeriodicSenderThread
+from scapy.contrib.isotp import ISOTP
 
 
 """
@@ -38,7 +39,7 @@ except KeyError:
 conf.contribs['GMLAN']['GMLAN_ECU_AddressingScheme'] = None
 
 
-class GMLAN(Packet):
+class GMLAN(ISOTP):
     @staticmethod
     def determine_len(x):
         if conf.contribs['GMLAN']['GMLAN_ECU_AddressingScheme'] is None:
@@ -337,7 +338,8 @@ class GMLAN_RDBIPR(Packet):
     @staticmethod
     def get_log(pkt):
         return pkt.sprintf("%GMLAN.service%"), \
-            pkt.sprintf("%GMLAN_RDBIPR.dataIdentifier%")
+            (pkt.sprintf("%GMLAN_RDBIPR.dataIdentifier%"),
+             bytes(pkt[1].payload))
 
     def answers(self, other):
         return other.__class__ == GMLAN_RDBI and \
