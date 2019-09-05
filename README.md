@@ -7,7 +7,7 @@
 # Scapy
 
 [![Travis Build Status](https://travis-ci.com/secdev/scapy.svg?branch=master)](https://travis-ci.com/secdev/scapy)
-[![AppVeyor Build Status](https://ci.appveyor.com/api/projects/status/github/secdev/scapy?svg=true)](https://ci.appveyor.com/project/secdev/scapy)
+[![AppVeyor Build status](https://ci.appveyor.com/api/projects/status/os03daotfja0wtp7/branch/master?svg=true)](https://ci.appveyor.com/project/secdev/scapy/branch/master)
 [![Codecov Status](https://codecov.io/gh/secdev/scapy/branch/master/graph/badge.svg)](https://codecov.io/gh/secdev/scapy)
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/30ee6772bb264a689a2604f5cdb0437b)](https://www.codacy.com/app/secdev/scapy)
 [![PyPI Version](https://img.shields.io/pypi/v/scapy.svg)](https://pypi.python.org/pypi/scapy/)
