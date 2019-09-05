@@ -10,6 +10,7 @@ from scapy.fields import ByteField, XByteField, BitEnumField, \
     PacketListField, XBitField, XByteEnumField, FieldListField, FieldLenField
 from scapy.packet import Packet
 from scapy.contrib.automotive.obd.packet import OBD_Packet
+from scapy.config import conf
 
 
 class OBD_DTC(OBD_Packet):
@@ -47,6 +48,11 @@ class OBD_NR(Packet):
         XByteField('request_service_id', 0),
         XByteEnumField('response_code', 0, responses)
     ]
+
+    def answers(self, other):
+        return self.request_service_id == other.service and \
+            (self.response_code != 0x78 or
+             conf.contribs['OBD']['treat-response-pending-as-answer'])
 
 
 class OBD_S01(Packet):

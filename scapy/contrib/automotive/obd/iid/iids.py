@@ -8,8 +8,9 @@
 
 from scapy.fields import FieldLenField, FieldListField, StrFixedLenField, \
     ByteField, ShortField, FlagsField, XByteField, PacketListField
-from scapy.contrib.automotive.obd.packet import OBD_Packet
 from scapy.packet import Packet, bind_layers
+from scapy.contrib.automotive.obd.packet import OBD_Packet
+from scapy.contrib.automotive.obd.services import OBD_S09
 
 
 # See https://en.wikipedia.org/wiki/OBD-II_PIDs#Service_09
@@ -27,6 +28,10 @@ class OBD_S09_PR(Packet):
     fields_desc = [
         PacketListField("data_records", [], OBD_S09_PR_Record)
     ]
+
+    def answers(self, other):
+        return other.__class__ == OBD_S09 \
+            and all(r.iid in other.iid for r in self.data_records)
 
 
 class OBD_IID00(OBD_Packet):

@@ -9,6 +9,7 @@
 from scapy.fields import FlagsField, ByteField, ScalingField, PacketListField
 from scapy.packet import bind_layers, Packet
 from scapy.contrib.automotive.obd.packet import OBD_Packet
+from scapy.contrib.automotive.obd.services import OBD_S08
 
 
 class _OBD_TID_Voltage(OBD_Packet):
@@ -133,6 +134,10 @@ class OBD_S08_PR(Packet):
     fields_desc = [
         PacketListField("data_records", [], OBD_S08_PR_Record)
     ]
+
+    def answers(self, other):
+        return other.__class__ == OBD_S08 \
+            and all(r.tid in other.tid for r in self.data_records)
 
 
 bind_layers(OBD_S08_PR_Record, OBD_TID00, tid=0x00)
