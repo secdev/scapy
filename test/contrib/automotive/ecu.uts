@@ -197,19 +197,19 @@ assert ecu.current_security_level == 0
 gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "did":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=8, opened_socket=sock)
 ecu = session.ecu
 print("Check 2 after some more messages were read")
-assert len(ecu.supported_responses) == 3
+assert len(ecu.supported_responses) == 4
 assert ecu.current_session == 3
 assert ecu.current_security_level == 0
 gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "did":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=10, opened_socket=sock)
 ecu = session.ecu
 print("Check 3 after change to programming mode (bootloader)")
-assert len(ecu.supported_responses) == 4
+assert len(ecu.supported_responses) == 5
 assert ecu.current_session == 2
 assert ecu.current_security_level == 0
 gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "did":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=16, opened_socket=sock)
 ecu = session.ecu
 print("Check 4 after gaining security access")
-assert len(ecu.supported_responses) == 6
+assert len(ecu.supported_responses) == 7
 assert ecu.current_session == 2
 assert ecu.current_security_level == 2
 del sock
