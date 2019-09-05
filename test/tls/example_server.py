@@ -31,6 +31,8 @@ parser.add_argument("--cookie", action="store_true",
                     help="Send cookie extension in HelloRetryRequest message")
 parser.add_argument("--client_auth", action="store_true",
                     help="Require client authentication")
+parser.add_argument("--ticket_file", dest='session_ticket_file',
+                    help="File to write/read a ticket to (for TLS 1.3)")
 args = parser.parse_args()
 
 pcs = None
@@ -45,6 +47,7 @@ t = TLSServerAutomaton(mycert=basedir+'/test/tls/pki/srv_cert.pem',
                        client_auth=args.client_auth,
                        curve=args.curve,
                        cookie=args.cookie,
+                       session_ticket_file=args.session_ticket_file,
                        psk=args.psk,
                        psk_mode=psk_mode)
 t.run()

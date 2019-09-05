@@ -19,11 +19,15 @@ In order to run a server listening on tcp/4433:
 from __future__ import print_function
 import socket
 import binascii
+import struct
+import time
 
+from scapy.config import conf
 from scapy.packet import Raw
 from scapy.pton_ntop import inet_pton
 from scapy.utils import randstring, repr_hex
 from scapy.automaton import ATMT
+from scapy.error import warning
 from scapy.layers.tls.automaton import _TLSAutomaton
 from scapy.layers.tls.cert import PrivKeyRSA, PrivKeyECDSA
 from scapy.layers.tls.basefields import _tls_version
@@ -31,7 +35,8 @@ from scapy.layers.tls.session import tlsSession
 from scapy.layers.tls.crypto.groups import _tls_named_groups
 from scapy.layers.tls.extensions import TLS_Ext_SupportedVersion_SH, \
     TLS_Ext_SupportedGroups, TLS_Ext_Cookie, \
-    TLS_Ext_SignatureAlgorithms, TLS_Ext_PSKKeyExchangeModes
+    TLS_Ext_SignatureAlgorithms, TLS_Ext_PSKKeyExchangeModes, \
+    TLS_Ext_EarlyDataIndicationTicket
 from scapy.layers.tls.keyexchange_tls13 import TLS_Ext_KeyShare_SH, \
     KeyShareEntry, TLS_Ext_KeyShare_HRR, TLS_Ext_PreSharedKey_CH, \
     TLS_Ext_PreSharedKey_SH
@@ -40,15 +45,21 @@ from scapy.layers.tls.handshake import TLSCertificate, TLSCertificateRequest, \
     TLSServerHello, TLSServerHelloDone, TLSServerKeyExchange, \
     _ASN1CertAndExt, TLS13ServerHello, TLS13Certificate, TLS13ClientHello, \
     TLSEncryptedExtensions, TLS13HelloRetryRequest, TLS13CertificateRequest, \
-    TLS13KeyUpdate
+    TLS13KeyUpdate, TLS13NewSessionTicket
 from scapy.layers.tls.handshake_sslv2 import SSLv2ClientCertificate, \
     SSLv2ClientFinished, SSLv2ClientHello, SSLv2ClientMasterKey, \
     SSLv2RequestCertificate, SSLv2ServerFinished, SSLv2ServerHello, \
     SSLv2ServerVerify
 from scapy.layers.tls.record import TLSAlert, TLSChangeCipherSpec, \
     TLSApplicationData
+from scapy.layers.tls.record_tls13 import TLS13
+from scapy.layers.tls.crypto.hkdf import TLS13_HKDF
 from scapy.layers.tls.crypto.suites import _tls_cipher_suites_cls, \
     get_usable_ciphersuites
+
+if conf.crypto_valid:
+    from cryptography.hazmat.backends import default_backend
+    from cryptography.hazmat.primitives import hashes
 
 
 class TLSServerAutomaton(_TLSAutomaton):
@@ -81,6 +92,7 @@ class TLSServerAutomaton(_TLSAutomaton):
                    client_auth=False,
                    is_echo_server=True,
                    max_client_idle_time=60,
+                   session_ticket_file=None,
                    curve=None,
                    cookie=False,
                    psk=None,
@@ -114,6 +126,8 @@ class TLSServerAutomaton(_TLSAutomaton):
         self.cookie = cookie
         self.psk_secret = psk
         self.psk_mode = psk_mode
+        self.handle_session_ticket = (session_ticket_file is not None)
+        self.session_ticket_file = session_ticket_file
         for (group_id, ng) in _tls_named_groups.items():
             if ng == curve:
                 self.curve = group_id
@@ -573,6 +587,96 @@ class TLSServerAutomaton(_TLSAutomaton):
     def tls13_PREPARE_SERVERFLIGHT1(self):
         self.add_record(is_tls13=False)
 
+    def verify_psk_binder(self, psk_identity, obfuscated_age, binder):
+        """
+        This function verifies the binder received in the 'pre_shared_key'
+        extension and return the resumption PSK associated with those
+        values.
+
+        The arguments psk_identity, obfuscated_age and binder are taken
+        from 'pre_shared_key' in the ClientHello.
+        """
+        with open(self.session_ticket_file, "rb") as f:
+            for line in f:
+                s = line.strip().split(b';')
+                if len(s) < 8:
+                    continue
+                ticket_label = binascii.unhexlify(s[0])
+                ticket_nonce = binascii.unhexlify(s[1])
+                tmp = binascii.unhexlify(s[2])
+                ticket_lifetime = struct.unpack("!I", tmp)[0]
+                tmp = binascii.unhexlify(s[3])
+                ticket_age_add = struct.unpack("!I", tmp)[0]
+                tmp = binascii.unhexlify(s[4])
+                ticket_start_time = struct.unpack("!I", tmp)[0]
+                resumption_secret = binascii.unhexlify(s[5])
+                tmp = binascii.unhexlify(s[6])
+                res_ciphersuite = struct.unpack("!H", tmp)[0]
+                tmp = binascii.unhexlify(s[7])
+                max_early_data_size = struct.unpack("!I", tmp)[0]
+
+                # Here psk_identity is a Ticket type but ticket_label is bytes,
+                # we need to convert psk_identiy to bytes in order to compare
+                # both strings
+                if psk_identity.__bytes__() == ticket_label:
+
+                    # We compute the resumed PSK associated the resumption
+                    # secret
+                    self.vprint("Ticket found in database !")
+                    if res_ciphersuite not in _tls_cipher_suites_cls:
+                        warning("Unknown cipher suite %d" % res_ciphersuite)
+                        # we do not try to set a default nor stop the execution
+                    else:
+                        cs_cls = _tls_cipher_suites_cls[res_ciphersuite]
+
+                    hkdf = TLS13_HKDF(cs_cls.hash_alg.name.lower())
+                    hash_len = hkdf.hash.digest_size
+
+                    tls13_psk_secret = hkdf.expand_label(resumption_secret,
+                                                         b"resumption",
+                                                         ticket_nonce,
+                                                         hash_len)
+                    # We verify that ticket age is not expired
+                    agesec = int((time.time() - ticket_start_time))
+                    # agems = agesec * 1000
+                    ticket_age = (obfuscated_age - ticket_age_add) % 0xffffffff  # noqa: F841, E501
+
+                    # We verify the PSK binder
+                    s = self.cur_session
+                    if s.tls13_retry:
+                        handshake_context = struct.pack("B", 254)
+                        handshake_context += struct.pack("B", 0)
+                        handshake_context += struct.pack("B", 0)
+                        handshake_context += struct.pack("B", hash_len)
+                        digest = hashes.Hash(hkdf.hash, backend=default_backend())  # noqa: E501
+                        digest.update(s.handshake_messages[0])
+                        handshake_context += digest.finalize()
+                        for m in s.handshake_messages[1:]:
+                            if (isinstance(TLS13ClientHello) or
+                                    isinstance(TLSClientHello)):
+                                handshake_context += m[:-hash_len - 3]
+                            else:
+                                handshake_context += m
+                    else:
+                        handshake_context = s.handshake_messages[0][:-hash_len - 3]  # noqa: E501
+
+                    # We compute the binder key
+                    # XXX use the compute_tls13_early_secrets() function
+                    tls13_early_secret = hkdf.extract(None, tls13_psk_secret)
+                    binder_key = hkdf.derive_secret(tls13_early_secret,
+                                                    b"res binder",
+                                                    b"")
+                    computed_binder = hkdf.compute_verify_data(binder_key,
+                                                               handshake_context)  # noqa: E501
+                    if (agesec < ticket_lifetime and
+                            computed_binder == binder):
+                        self.vprint("Ticket has been accepted ! ")
+                        self.max_early_data_size = max_early_data_size
+                        self.resumed_ciphersuite = res_ciphersuite
+                        return tls13_psk_secret
+        self.vprint("Ticket has not been accepted ! Fallback to a complete handshake")  # noqa: E501
+        return None
+
     @ATMT.condition(tls13_PREPARE_SERVERFLIGHT1)
     def tls13_should_add_ServerHello(self):
 
@@ -586,7 +690,7 @@ class TLSServerAutomaton(_TLSAutomaton):
                     if isinstance(e, TLS_Ext_PreSharedKey_CH):
                         psk_identity = e.identities[0].identity
                         obfuscated_age = e.identities[0].obfuscated_ticket_age
-                        # binder = e.binders[0].binder
+                        binder = e.binders[0].binder
 
                         # For out-of-bound PSK, obfuscated_ticket_age should be
                         # 0. We use this field to distinguish between out-of-
@@ -616,6 +720,24 @@ class TLSServerAutomaton(_TLSAutomaton):
                     server_kse = KeyShareEntry(group=group)
                     ext += TLS_Ext_KeyShare_SH(server_share=server_kse)
                 ext += TLS_Ext_PreSharedKey_SH(selected_identity=0)
+            else:
+                resumption_psk = self.verify_psk_binder(psk_identity,
+                                                        obfuscated_age,
+                                                        binder)
+                if resumption_psk is None:
+                    # We did not find a ticket matching the one provided in the
+                    # ClientHello. We fallback to a regular 1-RTT handshake
+                    server_kse = KeyShareEntry(group=group)
+                    ext += [TLS_Ext_KeyShare_SH(server_share=server_kse)]
+                else:
+                    # 0: "psk_ke"
+                    # 1: "psk_dhe_ke"
+                    if psk_key_exchange_mode == 1:
+                        server_kse = KeyShareEntry(group=group)
+                        ext += [TLS_Ext_KeyShare_SH(server_share=server_kse)]
+
+                    ext += [TLS_Ext_PreSharedKey_SH(selected_identity=0)]
+                    self.cur_session.tls13_psk_secret = resumption_psk
         else:
             # Standard Handshake
             ext += TLS_Ext_KeyShare_SH(server_share=KeyShareEntry(group=group))
@@ -796,6 +918,45 @@ class TLSServerAutomaton(_TLSAutomaton):
     def RECEIVED_CLIENTDATA(self):
         pass
 
+    def save_ticket(self, ticket):
+        """
+        This function save a ticket and others parameters in the
+        file given as argument to the automaton
+        Warning : The file is not protected and contains sensitive
+        information. It should be used only for testing purpose.
+        """
+        if (not isinstance(ticket, TLS13NewSessionTicket) or
+                self.session_ticket_file is None):
+            return
+
+        s = self.cur_session
+        with open(self.session_ticket_file, "ab") as f:
+            # ticket;ticket_nonce;obfuscated_age;start_time;resumption_secret
+            line = binascii.hexlify(ticket.ticket)
+            line += b";"
+            line += binascii.hexlify(ticket.ticket_nonce)
+            line += b";"
+            line += binascii.hexlify(struct.pack("!I", ticket.ticket_lifetime))
+            line += b";"
+            line += binascii.hexlify(struct.pack("!I", ticket.ticket_age_add))
+            line += b";"
+            line += binascii.hexlify(struct.pack("!I", int(time.time())))
+            line += b";"
+            line += binascii.hexlify(s.tls13_derived_secrets["resumption_secret"])  # noqa: E501
+            line += b";"
+            line += binascii.hexlify(struct.pack("!H", s.wcs.ciphersuite.val))
+            line += b";"
+            if (ticket.ext is None or ticket.extlen is None or
+                    ticket.extlen == 0):
+                line += binascii.hexlify(struct.pack("!I", 0))
+            else:
+                for e in ticket.ext:
+                    if isinstance(e, TLS_Ext_EarlyDataIndicationTicket):
+                        max_size = struct.pack("!I", e.max_early_data_size)
+                        line += binascii.hexlify(max_size)
+            line += b"\n"
+            f.write(line)
+
     @ATMT.condition(RECEIVED_CLIENTDATA)
     def should_handle_ClientData(self):
         if not self.buffer_in:
@@ -830,6 +991,10 @@ class TLSServerAutomaton(_TLSAutomaton):
         if self.is_echo_server or recv_data.startswith(b"GET / HTTP/1.1"):
             self.add_record()
             self.add_msg(p)
+            if self.handle_session_ticket:
+                self.add_record()
+                ticket = TLS13NewSessionTicket(ext=[])
+                self.add_msg(ticket)
             raise self.ADDED_SERVERDATA()
 
         raise self.HANDLED_CLIENTDATA()
@@ -844,7 +1009,25 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.condition(ADDED_SERVERDATA)
     def should_send_ServerData(self):
+        if self.session_ticket_file:
+            save_ticket = False
+            for p in self.buffer_out:
+                if isinstance(p, TLS13):
+                    # Check if there's a NewSessionTicket to send
+                    save_ticket = all(map(lambda x: isinstance(x, TLS13NewSessionTicket),  # noqa: E501
+                                          p.inner.msg))
+                    if save_ticket:
+                        break
         self.flush_records()
+        if self.session_ticket_file and save_ticket:
+            # Loop backward in message send to retrieve the parsed
+            # NewSessionTicket. This message is not completely build before the
+            # flush_records() call. Other way to build this message before ?
+            for p in reversed(self.cur_session.handshake_messages_parsed):
+                if isinstance(p, TLS13NewSessionTicket):
+                    p.show()
+                    self.save_ticket(p)
+                    break
         raise self.SENT_SERVERDATA()
 
     @ATMT.state()
