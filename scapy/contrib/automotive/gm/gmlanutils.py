@@ -45,6 +45,25 @@ class GMLAN_TesterPresentSender(PeriodicSenderThread):
         PeriodicSenderThread.__init__(self, sock, pkt, interval)
 
 
+def _check_response(resp, verbose):
+    if resp is None:
+        if verbose:
+            print("Timeout.")
+        return False
+    if verbose:
+        resp.show()
+    if resp.sprintf("%GMLAN.service%") == "NegativeResponse":
+        return False
+    return True
+
+
+def _send_and_check_response(sock, req, timeout, verbose):
+    if verbose:
+        print("Sending %s" % repr(req))
+    resp = sock.sr1(req, timeout=timeout, verbose=0)
+    return _check_response(resp, verbose)
+    
+
 def GMLAN_InitDiagnostics(sock, broadcastsocket=None, timeout=None,
                           verbose=None, retry=0):
     """Send messages to put an ECU into an diagnostic/programming state.
@@ -70,16 +89,7 @@ def GMLAN_InitDiagnostics(sock, broadcastsocket=None, timeout=None,
         # DisableNormalCommunication
         p = GMLAN(service="DisableNormalCommunication")
         if broadcastsocket is None:
-            if verbose:
-                print("Sending %s" % repr(p))
-            resp = sock.sr1(p, timeout=timeout, verbose=0)
-            if resp is None:
-                if verbose:
-                    print("Timeout.")
-                continue
-            if verbose:
-                resp.show()
-            if resp.sprintf("%GMLAN.service%") == "NegativeResponse":
+            if not _send_and_check_response(sock, p, timeout, verbose):
                 continue
         else:
             if verbose:
@@ -89,30 +99,11 @@ def GMLAN_InitDiagnostics(sock, broadcastsocket=None, timeout=None,
 
         # ReportProgrammedState
         p = GMLAN(service="ReportProgrammingState")
-        if verbose:
-            print("Sending %s" % repr(p))
-        resp = sock.sr1(p, timeout=timeout, verbose=0)
-        if resp is None:
-            if verbose:
-                print("Timeout.")
+        if not _send_and_check_response(sock, p, timeout, verbose):
             continue
-        if verbose:
-            resp.show()
-        if resp.sprintf("%GMLAN.service%") == "NegativeResponse":
-            continue
-
         # ProgrammingMode requestProgramming
         p = GMLAN() / GMLAN_PM(subfunction="requestProgrammingMode")
-        if verbose:
-            print("Sending %s" % repr(p))
-        resp = sock.sr1(p, timeout=timeout, verbose=0)
-        if resp is None:
-            if verbose:
-                print("Timeout.")
-            continue
-        if verbose:
-            resp.show()
-        if resp.sprintf("%GMLAN.service%") == "NegativeResponse":
+        if not _send_and_check_response(sock, p, timeout, verbose):
             continue
         time.sleep(0.05)
 
@@ -156,13 +147,7 @@ def GMLAN_GetSecurityAccess(sock, keyFunction, level=1, timeout=None,
         if verbose:
             print("Requesting seed..")
         resp = sock.sr1(request, timeout=timeout, verbose=0)
-        if resp is None:
-            if verbose:
-                print("Timeout.")
-            continue
-        if verbose:
-            resp.show()
-        if resp.sprintf("%GMLAN.service%") == "NegativeResponse":
+        if not _check_response(resp, verbose):
             if verbose:
                 print("Negative Response.")
             continue
@@ -220,16 +205,8 @@ def GMLAN_RequestDownload(sock, length, timeout=None, verbose=None, retry=0):
         # RequestDownload
         pkt = GMLAN() / GMLAN_RD(memorySize=length)
         resp = sock.sr1(pkt, timeout=timeout, verbose=0)
-        if resp is not None:
-            if resp.sprintf("%GMLAN.service%") == "RequestDownloadPositiveResponse":   # noqa: E501
-                return True
-            if verbose:
-                resp.show()
-                print("Negative Response.")
-        else:
-            if verbose:
-                print("Timeout.")
-
+        if _check_response(resp, verbose):
+            return True
         retry -= 1
         if retry >= 0 and verbose:
             print("Retrying..")
@@ -279,16 +256,8 @@ def GMLAN_TransferData(sock, addr, payload, maxmsglen=None, timeout=None,
             pkt = GMLAN() / GMLAN_TD(startingAddress=addr + i,
                                      dataRecord=transdata)
             resp = sock.sr1(pkt, timeout=timeout, verbose=0)
-            if resp is not None:
-                if resp.sprintf("%GMLAN.service%") == "TransferDataPositiveResponse":   # noqa: E501
-                    break
-                if verbose:
-                    resp.show()
-                    print("Negative Response.")
-            else:
-                if verbose:
-                    print("Timeout.")
-
+            if _check_response(resp, verbose):
+                break
             retry -= 1
             if retry >= 0:
                 if verbose:
@@ -358,16 +327,8 @@ def GMLAN_ReadMemoryByAddress(sock, addr, length, timeout=None,
         # RequestDownload
         pkt = GMLAN() / GMLAN_RMBA(memoryAddress=addr, memorySize=length)
         resp = sock.sr1(pkt, timeout=timeout, verbose=0)
-        if resp is not None:
-            if resp.sprintf("%GMLAN.service%") == "ReadMemoryByAddressPositiveResponse":   # noqa: E501
-                return resp.dataRecord
-            if verbose:
-                resp.show()
-                print("Negative Response.")
-        else:
-            if verbose:
-                print("Timeout.")
-
+        if _check_response(resp, verbose):
+            return resp.dataRecord
         retry -= 1
         if retry >= 0 and verbose:
             print("Retrying..")
