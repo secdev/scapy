@@ -62,7 +62,7 @@ def _send_and_check_response(sock, req, timeout, verbose):
         print("Sending %s" % repr(req))
     resp = sock.sr1(req, timeout=timeout, verbose=0)
     return _check_response(resp, verbose)
-    
+
 
 def GMLAN_InitDiagnostics(sock, broadcastsocket=None, timeout=None,
                           verbose=None, retry=0):
