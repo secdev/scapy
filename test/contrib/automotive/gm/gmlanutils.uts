@@ -1,5 +1,6 @@
 % Regression tests for gmlanutil
-~ python3_only
+~ vcan_socket
+
 
 # More information at http://www.secdev.org/projects/UTscapy/
 
