@@ -2,13 +2,11 @@
 # Install on osx
 if [ "$TRAVIS_OS_NAME" = "osx" ]
 then
-  pip3 install tox
   if [ ! -z $SCAPY_USE_PCAPDNET ]
   then
     brew update
     brew install libdnet libpcap
   fi
-  exit 0
 fi
 
 # Install wireshark data
@@ -25,11 +23,11 @@ then
   $SCAPY_SUDO apt-get -qy install libdumbnet-dev libpcap-dev
 fi
 
-# Check pip
-sudo pip install --upgrade pip setuptools --ignore-installed
+# Update pip & setuptools (tox uses those)
+python -m pip install --upgrade pip setuptools --ignore-installed
 
 # Make sure tox is installed and up to date
-pip install -U tox --ignore-installed
+python -m pip install -U tox --ignore-installed
 
 # Dump Environment (so that we can check PATH, UT_FLAGS, etc.)
 set

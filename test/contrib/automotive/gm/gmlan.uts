@@ -24,7 +24,7 @@ x.load == b'\x00\x0c\xaa\xbb'
 x.service == 0x52
 
 = Craft VIN Packet
-x = GMLAN(b'\x5a\x90'+ raw("WOOOJBF35W1042000"))
+x = GMLAN(b'\x5a\x90'+ raw(b"WOOOJBF35W1042000"))
 x.load == b'WOOOJBF35W1042000'
 x.dataIdentifier == 0x90
 

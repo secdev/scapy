@@ -37,7 +37,7 @@ function to get all information about one specific protocol.
 |                     |                      |                                                        |
 |                     |                      | ISOTPSniffer, ISOTPMessageBuilder                      |
 |                     |                      |                                                        |
-|                     |                      | ISOTPHeader, ISOTPHeaderEA,                            |
+|                     |                      | ISOTPHeader, ISOTPHeaderEA, ISOTPScan                  |
 |                     |                      |                                                        |
 |                     |                      | ISOTP, ISOTP_SF, ISOTP_FF, ISOTP_CF, ISOTP_FC          |
 +---------------------+----------------------+--------------------------------------------------------+
@@ -549,6 +549,75 @@ This second example allows the usage of any ``python_can.interface`` object.
 **Attention:** The internal implementation of ISOTPSoftSockets requires a background
 thread. In order to be able to close this thread properly, we suggest the use of
 Pythons ``with`` statement.
+
+
+ISOTPScan and ISOTPScanner
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+ISOTPScan is a utility function to find ISOTP-Endpoints on a CAN-Bus.
+ISOTPScanner is a commandline-utility for the identical function.
+.. image:: ../graphics/animations/animation-scapy-isotpscan.svg
+
+Commandline usage example::
+
+    python -m scapy.tools.automotive.isotpscanner -h
+    usage:	isotpscanner [-i interface] [-c channel] [-b bitrate]
+                    [-n NOISE_LISTEN_TIME] [-t SNIFF_TIME] [-x|--extended]
+                    [-C|--piso] [-v|--verbose] [-h|--help] [-s start] [-e end]
+
+        Scan for open ISOTP-Sockets.
+
+        required arguments:
+        -c, --channel         python-can channel or Linux SocketCAN interface name
+        -s, --start           Start scan at this identifier (hex)
+        -e, --end             End scan at this identifier (hex)
+
+        additional required arguments for WINDOWS or Python 2:
+        -i, --interface       python-can interface for the scan.
+                              Depends on used interpreter and system,
+                              see examples below. Any python-can interface can
+                              be provided. Please see:
+                              https://python-can.readthedocs.io for
+                              further interface examples.
+        -b, --bitrate         python-can bitrate.
+
+        optional arguments:
+        -h, --help            show this help message and exit
+        -n NOISE_LISTEN_TIME, --noise_listen_time NOISE_LISTEN_TIME
+                              Seconds listening for noise before scan.
+        -t SNIFF_TIME, --sniff_time SNIFF_TIME
+                              Duration in milliseconds a sniff is waiting for a
+                              flow-control response.
+        -x, --extended        Scan with ISOTP extended addressing.
+        -C, --piso            Print 'Copy&Paste'-ready ISOTPSockets.
+        -v, --verbose         Display information during scan.
+
+        Example of use:
+
+        Python2 or Windows:
+        python2 -m scapy.tools.automotive.isotpscanner --interface=pcan --channel=PCAN_USBBUS1 --bitrate=250000 --start 0 --end 100
+        python2 -m scapy.tools.automotive.isotpscanner --interface vector --channel 0 --bitrate 250000 --start 0 --end 100
+        python2 -m scapy.tools.automotive.isotpscanner --interface socketcan --channel=can0 --bitrate=250000 --start 0 --end 100
+
+        Python3 on Linux:
+        python3 -m scapy.tools.automotive.isotpscanner --channel can0 --start 0 --end 100
+
+
+Interactive shell usage example::
+
+    >>> conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': True}
+    >>> conf.contribs['CANSocket'] = {'use-python-can': False}
+    >>> load_contrib('cansocket')
+    >>> load_contrib('isotp')
+    >>> socks = ISOTPScan(CANSocket("vcan0"), range(0x700, 0x7ff), can_interface="vcan0")
+    >>> socks
+    [<<ISOTPNativeSocket: read/write packets at a given CAN interface using CAN_ISOTP socket > at 0x7f98e27c8210>,
+     <<ISOTPNativeSocket: read/write packets at a given CAN interface using CAN_ISOTP socket > at 0x7f98f9079cd0>,
+     <<ISOTPNativeSocket: read/write packets at a given CAN interface using CAN_ISOTP socket > at 0x7f98f90cd490>,
+     <<ISOTPNativeSocket: read/write packets at a given CAN interface using CAN_ISOTP socket > at 0x7f98f912ec50>,
+     <<ISOTPNativeSocket: read/write packets at a given CAN interface using CAN_ISOTP socket > at 0x7f98f912e950>,
+     <<ISOTPNativeSocket: read/write packets at a given CAN interface using CAN_ISOTP socket > at 0x7f98f906c0d0>]
+
 
 
 UDS

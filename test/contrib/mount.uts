@@ -1,0 +1,73 @@
+% Test mount layer
+####################
+####################
+
++ Packet Creation Tests
+
+= Create subpackets
+Path()
+File_Object()
+
+= Create Mount Calls
+NULL_Call()
+MOUNT_Call()
+UNMOUNT_Call()
+
+= Create Successful Mount Replies
+MOUNT_Reply(status=0)
+
+= Create Failed Mount Replies
+MOUNT_Reply(status=1)
+
++ RPC Layer bindings tests
+
+= Layer Bindings for Mount Calls
+from scapy.contrib.oncrpc import *
+pkt = RPC()/RPC_Call()/NULL_Call()
+assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100005, 3, 0))
+pkt = RPC()/RPC_Call()/MOUNT_Call()
+assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100005, 3, 1))
+pkt = RPC()/RPC_Call()/UNMOUNT_Call()
+assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100005, 3, 3))
+
+= Layer Bindings for Mount Replies
+from scapy.contrib.oncrpc import *
+pkt = RPC()/RPC_Reply()/NULL_Reply()
+assert(pkt.mtype == 1)
+pkt = RPC()/RPC_Reply()/MOUNT_Reply()
+assert(pkt.mtype == 1)
+pkt = RPC()/RPC_Reply()/UNMOUNT_Reply()
+assert(pkt.mtype == 1)
+
++ Test Built Packets vs Raw Strings
+
+= Mount calls vs Raw strings
+pkt = MOUNT_Call(
+    path=Path(
+        length=4,
+        path='path'
+    )
+)
+assert bytes(pkt) == b'\x00\x00\x00\x04path'
+
+pkt = UNMOUNT_Call(
+    path=Path(
+        length=4,
+        path='path'
+    )
+)
+assert bytes(pkt) == b'\x00\x00\x00\x04path'
+
+= Mount replies vs Raw Strings
+pkt = MOUNT_Reply(
+    status=0,
+    filehandle=File_Object(
+        length=4,
+        fh='file'
+    ),
+    flavors=3,
+    flavor=[
+        0,0,0
+    ]
+)
+assert bytes(pkt) == b'\x00\x00\x00\x00\x00\x00\x00\x04file\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
