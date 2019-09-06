@@ -58,7 +58,7 @@ def usage():
     python2 -m scapy.tools.automotive.obdscanner --interface vector --channel 0 --source 0x000 --destination 0x734 --bitrate 500000
     python2 -m scapy.tools.automotive.obdscanner --interface socketcan --channel=can0 --source 0x089 --destination 0x234  --bitrate=250000\n
     Python3 on Linux:
-    python3 -m scapy.tools.automotive.obdscanner --channel can0 --source 0x123 --destination 0x456 \n''',  # noqa: E501
+    python3 -m scapy.tools.automotive.obdscanner --channel can0 --source 0x123 --destination 0x456 --bitrate 500000\n''',  # noqa: E501
           file=sys.stderr)
 
 
