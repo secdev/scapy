@@ -11475,6 +11475,7 @@ assert udof.m2i("", unknown_value_end) == [(254, b'\xff'*255), 'end']
 unknown_value_pad = b"\xfe" + b"\xff"*256 + b"\x00"
 udof = DHCPOptionsField("options", unknown_value_pad)
 assert udof.m2i("", unknown_value_pad) == [(254, b'\xff'*255), 'pad']
+
 = DHCP - build
 
 s = raw(IP(src="127.0.0.1")/UDP()/BOOTP(chaddr="00:01:02:03:04:05")/DHCP(options=[("message-type","discover"),"end"]))
