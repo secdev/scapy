@@ -43,6 +43,7 @@ parser.add_argument("--res_master",
                     help="Resumption master secret (for TLS 1.3)")
 parser.add_argument("--sni",
                     help="Server Name Indication")
+parser.add_argument("--curve", help="ECC group to advertise")
 parser.add_argument("--debug", action="store_const", const=5, default=0,
                     help="Enter debug mode")
 parser.add_argument("server", nargs="?", default="127.0.0.1",
@@ -94,6 +95,7 @@ t = TLSClientAutomaton(server=args.server, dport=args.port,
                        resumption_master_secret=args.res_master,
                        session_ticket_file_in=args.session_ticket_file_in,
                        session_ticket_file_out=args.session_ticket_file_out,
+                       curve=args.curve,
                        debug=args.debug)
 t.run()
 

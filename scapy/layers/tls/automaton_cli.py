@@ -981,7 +981,7 @@ class TLSClientAutomaton(_TLSAutomaton):
     @ATMT.condition(TLS13_START)
     def tls13_should_add_ClientHello(self):
         # we have to use the legacy, plaintext TLS record here
-        supported_groups = ["secp256r1", "secp384r1"]
+        supported_groups = ["secp256r1", "secp384r1", "x448"]
         if conf.crypto_valid_advanced:
             supported_groups.append("x25519")
         self.add_record(is_tls13=False)
