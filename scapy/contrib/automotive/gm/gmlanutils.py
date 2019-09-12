@@ -52,9 +52,7 @@ def _check_response(resp, verbose):
         return False
     if verbose:
         resp.show()
-    if resp.sprintf("%GMLAN.service%") == "NegativeResponse":
-        return False
-    return True
+    return resp.sprintf("%GMLAN.service%") != "NegativeResponse"
 
 
 def _send_and_check_response(sock, req, timeout, verbose):
