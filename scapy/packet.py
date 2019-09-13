@@ -1842,7 +1842,7 @@ def explore(layer=None):
             call_ptk = lambda x: x
         # 1 - Ask for layer or contrib
         btn_diag = button_dialog(
-            title="Scapy v%s" % conf.version,
+            title=six.text_type("Scapy v%s" % conf.version),
             text=HTML(
                 six.text_type(
                     '<style bg="white" fg="red">Chose the type of packets'
@@ -1881,7 +1881,7 @@ def explore(layer=None):
         # 3 - Ask for the layer/contrib module to explore
         rd_diag = radiolist_dialog(
             values=_radio_values,
-            title="Scapy v%s" % conf.version,
+            title=six.text_type("Scapy v%s" % conf.version),
             text=HTML(
                 six.text_type(
                     '<style bg="white" fg="red">Please select a layer among'
