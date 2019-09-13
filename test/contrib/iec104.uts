@@ -393,7 +393,7 @@ assert(layer.defined_for_iec_104() is True)
 
 = BCR - binary counter reading / IEC104_IO_M_IT_NA_1 - integrated totals
 
-# (counter , sequence) test datas
+# (counter , sequence) test data
 values = [(1, 1), (1111, 17), (23456, 21), (31234, 30), (32767, 31)]
 m_it_na = []
 for value, sequence in values:
