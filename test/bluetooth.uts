@@ -349,3 +349,19 @@ assert L2CAP_DisconnResp in pkt.layers()
 assert L2CAP_Hdr in pkt.layers()
 assert L2CAP_InfoReq in pkt.layers()
 assert L2CAP_InfoResp in pkt.layers()
+
+= SM_Public_Key() tests
+
+r = raw(SM_Hdr()/SM_Public_Key(key_x="sca", key_y="py"))
+assert r == b'\x0csca\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00py\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+p = SM_Hdr(r)
+assert SM_Public_Key in p and p.key_x[:3] == b"sca" and p.key_y[:2] == b"py"
+
+= SM_DHKey_Check() tests
+
+r = raw(SM_Hdr()/SM_DHKey_Check(dhkey_check="scapy"))
+assert r == b'\rscapy\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+p = SM_Hdr(r)
+assert SM_DHKey_Check in p and p.dhkey_check[:5] == b"scapy"
