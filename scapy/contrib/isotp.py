@@ -596,10 +596,11 @@ class ISOTPSoftSocket(SuperSocket):
         self.basecls = basecls
 
     def close(self):
-        self.impl.close()
-        self.outs = None
-        self.ins = None
-        SuperSocket.close(self)
+        if not self.closed:
+            self.impl.close()
+            self.outs = None
+            self.ins = None
+            SuperSocket.close(self)
 
     def begin_send(self, p):
         """Begin the transmission of message p. This method returns after
