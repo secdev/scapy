@@ -126,3 +126,6 @@ assert(bytes(p) == b'\x10\x00')
 assert(type(MQTT().fieldtype['len'].randval()) == RandVariableFieldLen)
 assert(type(MQTT().fieldtype['len'].randval() + 0) == int)
 
+= MQTTUnsubscribe
+u = MQTT(b'\xA2\x0C\x00\x01\x00\x03\x61\x2F\x62\x00\x03\x63\x2F\x64')
+assert MQTTUnsubscribe in u and len(u.topics) == 2 and u.topics[1].topic == b"c/d"
