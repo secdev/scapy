@@ -22,3 +22,4 @@ vas
 wan
 wanna
 webp
+gost

@@ -11507,12 +11507,12 @@ assert str(RandDHCPOptions(size=1)) in [r"[('WWW_server', '36.35.181.183')]",
 = DHCPOptionsField
 
 value = [("hostname", "scapy")]
-dof = DHCPOptionsField("options", "")
-assert dof.i2repr("", value) == "[hostname='scapy']"
-assert dof.i2repr("", ["opt", "opt2"]) == "[opt opt2]"
-assert dof.i2m("", value) == b'\x0c\x05scapy'
-assert dof.m2i("", b'\x0cunknown') == [b'\x0cunknown']
-assert dof.m2i("", b'\x0c\x05scapy') == [('hostname', b'scapy')]
+dhcpoptfield = DHCPOptionsField("options", "")
+assert dhcpoptfield.i2repr("", value) == "[hostname='scapy']"
+assert dhcpoptfield.i2repr("", ["opt", "opt2"]) == "[opt opt2]"
+assert dhcpoptfield.i2m("", value) == b'\x0c\x05scapy'
+assert dhcpoptfield.m2i("", b'\x0cunknown') == [b'\x0cunknown']
+assert dhcpoptfield.m2i("", b'\x0c\x05scapy') == [('hostname', b'scapy')]
 
 unknown_value_end = b"\xfe" + b"\xff"*257
 udof = DHCPOptionsField("options", unknown_value_end)
