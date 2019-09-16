@@ -289,23 +289,22 @@ class TLS(_GenericTLSSessionInheritance):
         as SSLv2 records but TLS ones instead, but hey, we can't be held
         responsible for low-minded extensibility choices.
         """
-        if _pkt and len(_pkt) >= 2:
-            byte0 = orb(_pkt[0])
-            byte1 = orb(_pkt[1])
-            if (byte0 not in _tls_type) or (byte1 != 3):
-                from scapy.layers.tls.record_sslv2 import SSLv2
-                return SSLv2
-            else:
+        if _pkt is not None:
+            plen = len(_pkt)
+            if plen >= 2:
+                byte0, byte1 = struct.unpack("BB", _pkt[:2])
+                if (byte0 not in _tls_type) or (byte1 != 3):
+                    from scapy.layers.tls.record_sslv2 import SSLv2
+                    return SSLv2
                 s = kargs.get("tls_session", None)
                 if s and _tls_version_check(s.tls_version, 0x0304):
                     if s.rcs and not isinstance(s.rcs.cipher, Cipher_NULL):
                         from scapy.layers.tls.record_tls13 import TLS13
                         return TLS13
-        if _pkt and len(_pkt) < 5:
-            # Layer detected as TLS but too small to be a real packet (len<5).
-            # Those packets are usually customly implemented
-            # Scapy should not try to decode them
-            return conf.raw_layer
+            if plen < 5:
+                # Layer detected as TLS but too small to be a
+                # parsed. Scapy should not try to decode them
+                return conf.raw_layer
         return TLS
 
     # Parsing methods
