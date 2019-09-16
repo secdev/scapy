@@ -104,8 +104,7 @@ class _TLSAutomaton(Automaton):
                 grablen = struct.unpack('!H', self.remain_in[3:5])[0] + 5
                 still_getting_len = False
             elif grablen == 2 and len(self.remain_in) >= 2:
-                byte0 = struct.unpack("B", self.remain_in[:1])[0]
-                byte1 = struct.unpack("B", self.remain_in[1:2])[0]
+                byte0, byte1 = struct.unpack("BB", self.remain_in[:2])
                 if (byte0 in _tls_type) and (byte1 == 3):
                     # Retry following TLS scheme. This will cause failure
                     # for SSLv2 packets with length 0x1{4-7}03.
