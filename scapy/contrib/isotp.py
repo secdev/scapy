@@ -337,7 +337,7 @@ class ISOTPMessageBuilder:
                     isotp_data = "".join(map(str, self.pieces))
                 self.ready = isotp_data[:self.total_len]
 
-    def __init__(self, use_ext_addr=None, basecls=None):
+    def __init__(self, use_ext_addr=None, did=None, basecls=None):
         """
         Initialize a ISOTPMessageBuilder object
 
@@ -353,6 +353,12 @@ class ISOTPMessageBuilder:
         self.buckets = {}
         self.use_ext_addr = use_ext_addr
         self.basecls = basecls or ISOTP
+        self.dst_ids = None
+        if did is not None:
+            if hasattr(did, "__iter__"):
+                self.dst_ids = did
+            else:
+                self.dst_ids = [did]
 
     def feed(self, can):
         """Attempt to feed an incoming CAN frame into the state machine"""
@@ -360,9 +366,11 @@ class ISOTPMessageBuilder:
             for p in can:
                 self.feed(p)
             return
-        if not isinstance(can, CAN):
-            raise Scapy_Exception("argument is not a CAN frame")
         identifier = can.identifier
+
+        if self.dst_ids is not None and identifier not in self.dst_ids:
+            return
+
         data = bytes(can.data)
 
         if len(data) > 1 and self.use_ext_addr is not True:
@@ -494,15 +502,27 @@ class ISOTPSession(DefaultSession):
     >>> sniff(session=ISOTPSession)
     """
 
-    def __init__(self, *args, **karg):
-        DefaultSession.__init__(self, *args)
-        self.m = ISOTPMessageBuilder(**karg)
+    def __init__(self, *args, **kwargs):
+        DefaultSession.__init__(self, *args, **kwargs)
+        self.m = ISOTPMessageBuilder(
+            use_ext_addr=kwargs.pop("use_ext_addr", None),
+            did=kwargs.pop("did", None),
+            basecls=kwargs.pop("basecls", None))
 
     def on_packet_received(self, pkt):
+        if not pkt:
+            return
+        if isinstance(pkt, list):
+            for p in pkt:
+                ISOTPSession.on_packet_received(self, p)
+            return
         self.m.feed(pkt)
         while len(self.m) > 0:
             rcvd = self.m.pop()
-            DefaultSession.on_packet_received(self, rcvd)
+            if self._supersession:
+                self._supersession.on_packet_received(rcvd)
+            else:
+                DefaultSession.on_packet_received(self, rcvd)
 
 
 class ISOTPSoftSocket(SuperSocket):

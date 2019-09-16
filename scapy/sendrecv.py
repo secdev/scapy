@@ -814,8 +814,12 @@ class AsyncSniffer(object):
         self.running = True
         # Start main thread
         # instantiate session
-        session = session or DefaultSession
-        session = session(prn, store, *session_args, **session_kwargs)
+        if not isinstance(session, DefaultSession):
+            session = session or DefaultSession
+            session = session(prn, store, *session_args, **session_kwargs)
+        else:
+            session.prn = prn
+            session.store = store
         # sniff_sockets follows: {socket: label}
         sniff_sockets = {}
         if opened_socket is not None:

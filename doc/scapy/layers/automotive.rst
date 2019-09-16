@@ -1,6 +1,6 @@
-*****************************************
-Automotive Penetration Testing with Scapy
-*****************************************
+*******************
+Automotive Security
+*******************
 
 .. note::
     All automotive related features work best on Linux systems. CANSockets and ISOTPSockets in Scapy are based on Linux kernel modules.
@@ -21,9 +21,9 @@ function to get all information about one specific protocol.
 +---------------------+----------------------+--------------------------------------------------------+
 | OSI Layer           | Protocol             | Scapy Implementations                                  |
 +=====================+======================+========================================================+
-| Application Layer   | UDS (ISO 14229)      | UDS, UDS_*                                             |
+| Application Layer   | UDS (ISO 14229)      | UDS, UDS_*, UDS_TesterPresentSender                    |
 |                     +----------------------+--------------------------------------------------------+
-|                     | GMLAN                | GMLAN, GMLAN_*                                         |
+|                     | GMLAN                | GMLAN, GMLAN_*, GMLAN_TesterPresentSender              |
 |                     +----------------------+--------------------------------------------------------+
 |                     | SOME/IP              | SOMEIP, SD                                             |
 |                     +----------------------+--------------------------------------------------------+
@@ -35,13 +35,13 @@ function to get all information about one specific protocol.
 +---------------------+----------------------+--------------------------------------------------------+
 | Transportaion Layer | ISO-TP (ISO 15765-2) | ISOTPSocket, ISOTPNativeSocket, ISOTPSoftSocket        |
 |                     |                      |                                                        |
-|                     |                      | ISOTPSniffer, ISOTPMessageBuilder                      |
+|                     |                      | ISOTPSniffer, ISOTPMessageBuilder, ISOTPSession        |
 |                     |                      |                                                        |
 |                     |                      | ISOTPHeader, ISOTPHeaderEA, ISOTPScan                  |
 |                     |                      |                                                        |
 |                     |                      | ISOTP, ISOTP_SF, ISOTP_FF, ISOTP_CF, ISOTP_FC          |
 +---------------------+----------------------+--------------------------------------------------------+
-| Data Link Layer     | CAN (ISO 11898)      | CAN, CANSocket, rdcandump                              |
+| Data Link Layer     | CAN (ISO 11898)      | CAN, CANSocket, rdcandump, CandumpReader               |
 +---------------------+----------------------+--------------------------------------------------------+
 
 
@@ -711,6 +711,92 @@ Use the argument ``basecls=GMLAN`` on the ``init`` function of an ISOTPSocket.
 Usage example:
 
 .. image:: ../graphics/animations/animation-scapy-gmlan.svg
+
+
+ECU Utility examples
+--------------------
+
+The ECU utility can be used to analyze the internal states of an ECU under investigation.
+This utility depends heavily on the support of the used protocol. ``UDS`` is supported.
+
+Log all commands applied to an ECU
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This example shows the logging mechanism of an ECU object. The log of an ECU is a dictionary of applied UDS commands. The key for this dictionary the UDS service name. The value consists of a list of tuples, containing a timestamp and a log value
+
+Usage example::
+
+	ecu = ECU(verbose=False, store_supported_responses=False)
+	ecu.update(PacketList(msgs))
+	print(ecu.log)
+	timestamp, value = ecu.log["DiagnosticSessionControl"][0]
+
+
+
+Trace all commands applied to an ECU
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This example shows the trace mechanism of an ECU object. Traces of the current state of the ECU object and the received message are print on stdout. Some messages, depending on the protocol, will change the internal state of the ECU.
+
+Usage example::
+
+	ecu = ECU(verbose=True, logging=False, store_supported_responses=False)
+	ecu.update(PacketList(msgs))
+	print(ecu.current_session)
+
+
+
+Generate supported responses of an ECU
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This example shows a mechanism to clone a real world ECU by analyzing a list of Packets.
+
+Usage example::
+
+	ecu = ECU(verbose=False, logging=False, store_supported_responses=True)
+	ecu.update(PacketList(msgs))
+	supported_responses = ecu.supported_responses
+	unanswered_packets = ecu.unanswered_packets
+	print(supported_responses)
+	print(unanswered_packets)
+
+
+
+Analyze multiple UDS messages
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This example shows how to load ``UDS`` messages from a ``.pcap`` file containing ``CAN`` messages A ``PcapReader`` object is used as socket and an ``ISOTPSession`` parses ``CAN`` frames to ``ISOTP`` frames which are then casted to ``UDS`` objects through the ``basecls`` parameter
+
+Usage example::
+
+	with PcapReader("test/contrib/automotive/ecu_trace.pcap") as sock:
+	     udsmsgs = sniff(session=ISOTPSession, session_kwargs={"use_ext_addr":False, "basecls":UDS}, count=50, opened_socket=sock)
+
+
+	ecu = ECU()
+	ecu.update(udsmsgs)
+	print(ecu.log)
+	print(ecu.supported_responses)
+	assert len(ecu.log["TransferData"]) == 2
+
+
+
+Analyze on the fly with ECUSession
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This example shows the usage of a ECUSession in sniff. An ISOTPSocket or any socket like object which returns entire messages of the right protocol can be used. A ``ECUSession`` is used as supersession in an ``ISOTPSession``. To obtain the ``ECU`` object from a ``ECUSession``, the ``ECUSession`` has to be created outside of sniff.
+
+Usage example::
+
+	session = ECUSession()
+
+	with PcapReader("test/contrib/automotive/ecu_trace.pcap") as sock:
+	     udsmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "use_ext_addr":False, "basecls":UDS}, count=50, opened_socket=sock)
+
+	ecu = session.ecu
+	print(ecu.log)
+	print(ecu.supported_responses)
+
 
 
 SOME/IP and SOME/IP SD messages

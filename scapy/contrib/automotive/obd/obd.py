@@ -16,11 +16,25 @@ from scapy.contrib.automotive.obd.mid.mids import *
 from scapy.contrib.automotive.obd.pid.pids import *
 from scapy.contrib.automotive.obd.tid.tids import *
 from scapy.contrib.automotive.obd.services import *
-from scapy.packet import Packet, bind_layers
+from scapy.packet import bind_layers, NoPayload
+from scapy.error import log_loading
+from scapy.config import conf
 from scapy.fields import XByteEnumField
+from scapy.contrib.isotp import ISOTP
+
+try:
+    if conf.contribs['OBD']['treat-response-pending-as-answer']:
+        pass
+except KeyError:
+    log_loading.info("Specify \"conf.contribs['OBD'] = "
+                     "{'treat-response-pending-as-answer': True}\" to treat "
+                     "a negative response 'requestCorrectlyReceived-"
+                     "ResponsePending' as answer of a request. \n"
+                     "The default value is False.")
+    conf.contribs['OBD'] = {'treat-response-pending-as-answer': False}
 
 
-class OBD(Packet):
+class OBD(ISOTP):
     services = {
         0x01: 'CurrentPowertrainDiagnosticDataRequest',
         0x02: 'PowertrainFreezeFrameDataRequest',
@@ -56,11 +70,16 @@ class OBD(Packet):
         return struct.pack('B', self.service & ~0x40)
 
     def answers(self, other):
-        """DEV: true if self is an answer from other"""
-        if other.__class__ == self.__class__:
-            return (other.service + 0x40) == self.service or \
-                   (self.service == 0x7f and
-                    self.request_service_id == other.service)
+        if other.__class__ != self.__class__:
+            return False
+        if self.service == 0x7f:
+            return self.payload.answers(other)
+        if self.service == (other.service + 0x40):
+            if isinstance(self.payload, NoPayload) or \
+                    isinstance(other.payload, NoPayload):
+                return True
+            else:
+                return self.payload.answers(other.payload)
         return False
 
 

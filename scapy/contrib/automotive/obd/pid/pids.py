@@ -11,6 +11,7 @@
 from scapy.packet import Packet, bind_layers
 from scapy.fields import PacketListField
 
+from scapy.contrib.automotive.obd.services import OBD_S01, OBD_S02
 from scapy.contrib.automotive.obd.pid.pids_00_1F import *
 from scapy.contrib.automotive.obd.pid.pids_20_3F import *
 from scapy.contrib.automotive.obd.pid.pids_40_5F import *
@@ -31,6 +32,10 @@ class OBD_S01_PR(Packet):
         PacketListField("data_records", [], OBD_S01_PR_Record)
     ]
 
+    def answers(self, other):
+        return other.__class__ == OBD_S01 \
+            and all(r.pid in other.pid for r in self.data_records)
+
 
 class OBD_S02_PR_Record(Packet):
     fields_desc = [
@@ -44,6 +49,10 @@ class OBD_S02_PR(Packet):
     fields_desc = [
         PacketListField("data_records", [], OBD_S02_PR_Record)
     ]
+
+    def answers(self, other):
+        return other.__class__ == OBD_S02 \
+            and all(r.pid in [o.pid for o in other.requests] for r in self.data_records)
 
 
 bind_layers(OBD_S01_PR_Record, OBD_PID00, pid=0x00)

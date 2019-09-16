@@ -17,18 +17,53 @@ from scapy.plist import PacketList
 class DefaultSession(object):
     """Default session: no stream decoding"""
 
-    def __init__(self, prn, store, *args, **karg):
-        self.prn = prn
-        self.store = store
+    def __init__(self, prn=None, store=False, supersession=None,
+                 *args, **karg):
+        self.__prn = prn
+        self.__store = store
         self.lst = []
         self.__count = 0
+        self._supersession = supersession
+        if self._supersession:
+            self._supersession.prn = self.__prn
+            self._supersession.store = self.__store
+            self.__store = False
+            self.__prn = None
+
+    @property
+    def store(self):
+        return self.__store
+
+    @store.setter
+    def store(self, val):
+        if self._supersession:
+            self._supersession.store = val
+        else:
+            self.__store = val
+
+    @property
+    def prn(self):
+        return self.__prn
+
+    @prn.setter
+    def prn(self, f):
+        if self._supersession:
+            self._supersession.prn = f
+        else:
+            self.__prn = f
 
     @property
     def count(self):
-        return self.__count
+        if self._supersession:
+            return self._supersession.count
+        else:
+            return self.__count
 
     def toPacketList(self):
-        return PacketList(self.lst, "Sniffed")
+        if self._supersession:
+            return PacketList(self._supersession.lst, "Sniffed")
+        else:
+            return PacketList(self.lst, "Sniffed")
 
     def on_packet_received(self, pkt):
         """DEV: entry point. Will be called by sniff() for each
@@ -56,8 +91,8 @@ class IPSession(DefaultSession):
     >>> sniff(session=IPSession)
     """
 
-    def __init__(self, *args):
-        DefaultSession.__init__(self, *args)
+    def __init__(self, *args, **kwargs):
+        DefaultSession.__init__(self, *args, **kwargs)
         self.fragments = defaultdict(list)
 
     def _ip_process_packet(self, packet):
@@ -165,8 +200,8 @@ class TCPSession(IPSession):
     fmt = ('TCP {IP:%IP.src%}{IPv6:%IPv6.src%}:%r,TCP.sport% > ' +
            '{IP:%IP.dst%}{IPv6:%IPv6.dst%}:%r,TCP.dport%')
 
-    def __init__(self, *args):
-        super(TCPSession, self).__init__(*args)
+    def __init__(self, *args, **kwargs):
+        super(TCPSession, self).__init__(*args, **kwargs)
         # The StringBuffer() is used to build a global
         # string from fragments and their seq nulber
         self.tcp_frags = defaultdict(
