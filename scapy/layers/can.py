@@ -331,7 +331,7 @@ class CandumpReader:
         if isinstance(filename, six.string_types):
             try:
                 fdesc = gzip.open(filename, "rb")
-                #try read to cause exception
+                # try read to cause exception
                 fdesc.read(1)
                 fdesc.seek(0)
             except IOError:
