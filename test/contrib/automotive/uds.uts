@@ -955,11 +955,3 @@ assert nrc.service == 0x7f
 assert nrc.requestServiceId == 0x22
 assert nrc.negativeResponseCode == 0x33
 
-
-
-
-
-
-
-
-
