@@ -1352,15 +1352,19 @@ def UDS_SessionEnumerator(sock, session_range=range(0x100), reset_wait=1.5):
         session_range: range for session ID's
         reset_wait: wait time in sec after every packet
     """
-    pkts = (req for tup in product(UDS()/UDS_DSC(diagnosticSessionType=session_range),
-                                   UDS()/UDS_ER(resetType='hardReset')) for req in tup)
+    pkts = (req for tup in
+            product(UDS()/UDS_DSC(diagnosticSessionType=session_range),
+                    UDS()/UDS_ER(resetType='hardReset')) for req in tup)
     results, _ = sock.sr(pkts, timeout=len(session_range) * reset_wait * 2 + 1,
                          verbose=False, inter=reset_wait)
-    return [req for req, res in results if req != None and req.service != 0x11 and
-            (res.service == 0x50 or res.negativeResponseCode not in [0x10, 0x11, 0x12])]
+    return [req for req, res in results if req is not None and
+            req.service != 0x11 and
+            (res.service == 0x50 or
+             res.negativeResponseCode not in [0x10, 0x11, 0x12])]
 
 
-def UDS_ServiceEnumerator(sock, session="DefaultSession", filter_responses=True):
+def UDS_ServiceEnumerator(sock, session="DefaultSession",
+                          filter_responses=True):
     """ Enumerates every service ID
         and returns list of tuples. Each tuple contains
         the session and the respective positive response
@@ -1373,7 +1377,8 @@ def UDS_ServiceEnumerator(sock, session="DefaultSession", filter_responses=True)
     found_services = sock.sr(pkts, timeout=5, verbose=False)
     return [(session, p) for _, p in found_services[0] if
             p.service != 0x7f or
-            (p.negativeResponseCode not in [0x10, 0x11, 0x12] or not filter_responses)]
+            (p.negativeResponseCode not in [0x10, 0x11, 0x12]
+             or not filter_responses)]
 
 
 def getTableEntry(tup):
@@ -1385,13 +1390,14 @@ def getTableEntry(tup):
 
     Example:
         make_lined_table([('DefaultSession', UDS()/UDS_SAPR(),
-                           'ExtendedDiagnosticSession', UDS()/UDS_IOCBI())], 
+                           'ExtendedDiagnosticSession', UDS()/UDS_IOCBI())],
                            getTableEntry)
     """
     session, pkt = tup
     if pkt.service == 0x7f:
         return (session,
-                "0x%02x: %s" % (pkt.requestServiceId, pkt.sprintf("%UDS_NR.requestServiceId%")),
+                "0x%02x: %s" % (pkt.requestServiceId,
+                                pkt.sprintf("%UDS_NR.requestServiceId%")),
                 pkt.sprintf("%UDS_NR.negativeResponseCode%"))
     else:
         return (session,
