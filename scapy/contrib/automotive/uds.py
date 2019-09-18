@@ -1353,8 +1353,8 @@ def UDS_SessionEnumerator(sock, session_range=range(0x100), reset_wait=1.5):
         reset_wait: wait time in sec after every packet
     """
     pkts = (req for tup in
-            product(UDS()/UDS_DSC(diagnosticSessionType=session_range),
-                    UDS()/UDS_ER(resetType='hardReset')) for req in tup)
+            product(UDS() / UDS_DSC(diagnosticSessionType=session_range),
+                    UDS() / UDS_ER(resetType='hardReset')) for req in tup)
     results, _ = sock.sr(pkts, timeout=len(session_range) * reset_wait * 2 + 1,
                          verbose=False, inter=reset_wait)
     return [req for req, res in results if req is not None and
@@ -1377,8 +1377,8 @@ def UDS_ServiceEnumerator(sock, session="DefaultSession",
     found_services = sock.sr(pkts, timeout=5, verbose=False)
     return [(session, p) for _, p in found_services[0] if
             p.service != 0x7f or
-            (p.negativeResponseCode not in [0x10, 0x11, 0x12]
-             or not filter_responses)]
+            (p.negativeResponseCode not in [0x10, 0x11, 0x12] or not
+            filter_responses)]
 
 
 def getTableEntry(tup):
