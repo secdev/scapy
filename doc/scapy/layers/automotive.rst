@@ -346,9 +346,11 @@ Scapy implementation of this DBC descriptions::
     dbc_sock.send(pkt)
 
 This example uses the class ``SignalHeader`` as header. The payload is specified by individual ``SignalPackets``.
-``bind_layers`` combines the header with the payload dependant on the arbitration_id (CAN identifier).
+``bind_layers`` combines the header with the payload dependent on the CAN identifier.
 If you want to directly receive ``SignalPackets`` from your ``CANSocket``, provide the parameter ``basecls`` to
 the ``init`` function of your ``CANSocket``.
+
+Canmatrix supports the creation of Scapy files from DBC or AUTOSAR XML files https://github.com/ebroecker/canmatrix
 
 
 CAN Calibration Protocol (CCP)
