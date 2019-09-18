@@ -1,0 +1,179 @@
++ Preparing Sockets
+~ vcan_socket
+
+= Imports
+load_layer("can")
+import threading, time, six, subprocess, sys, os, signal
+from subprocess import call
+
+
+= Definition of constants, utility functions and mock classes
+iface0 = "vcan0"
+iface1 = "vcan1"
+
+# function to exit when the can-isotp kernel module is not available
+ISOTP_KERNEL_MODULE_AVAILABLE = False
+def exit_if_no_isotp_module():
+    if not ISOTP_KERNEL_MODULE_AVAILABLE:
+        err = "TEST SKIPPED: can-isotp not available"
+        subprocess.call("printf \"%s\r\n\" > /dev/stderr" % err, shell=True)
+        warning("Can't test ISOTP native socket because kernel module is not loaded")
+        exit(0)
+
+
+= Initialize a virtual CAN interface
+if 0 != call("cansend %s 000#" % iface0, shell=True):
+    # vcan0 is not enabled
+    if 0 != call("sudo modprobe vcan", shell=True):
+        raise Exception("modprobe vcan failed")
+    if 0 != call("sudo ip link add name %s type vcan" % iface0, shell=True):
+        print("add %s failed: Maybe it was already up?" % iface0)
+    if 0 != call("sudo ip link set dev %s up" % iface0, shell=True):
+        raise Exception("could not bring up %s" % iface0)
+
+if 0 != call("cansend %s 000#" % iface0, shell=True):
+    raise Exception("cansend doesn't work")
+
+if 0 != call("cansend %s 000#" % iface1, shell=True):
+    # vcan1 is not enabled
+    if 0 != call("sudo modprobe vcan", shell=True):
+        raise Exception("modprobe vcan failed")
+    if 0 != call("sudo ip link add name %s type vcan" % iface1, shell=True):
+        print("add %s failed: Maybe it was already up?" % iface1)
+    if 0 != call("sudo ip link set dev %s up" % iface1, shell=True):
+        raise Exception("could not bring up %s" % iface1)
+
+if 0 != call("cansend %s 000#" % iface1, shell=True):
+    raise Exception("cansend doesn't work")
+
+print("CAN should work now")
+
+
+if six.PY3:
+    from scapy.contrib.cansocket_native import *
+else:
+    from scapy.contrib.cansocket_python_can import *
+
+
+if "python_can" in CANSocket.__module__:
+    import can as python_can
+    new_can_socket = lambda iface: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface, bitrate=250000))
+    new_can_socket0 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface0, bitrate=250000), timeout=0.01)
+    new_can_socket1 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface1, bitrate=250000), timeout=0.01)
+    can_socket_string = "-i socketcan -c %s -b 250000" % iface0
+else:
+    new_can_socket = lambda iface: CANSocket(iface)
+    new_can_socket0 = lambda: CANSocket(iface0)
+    new_can_socket1 = lambda: CANSocket(iface1)
+    can_socket_string = "-c %s" % iface0
+
+# utility function for draining a can interface, asserting that no packets are there
+def drain_bus(iface=iface0, assert_empty=True):
+    s = new_can_socket(iface)
+    pkts = s.sniff(timeout=0.1)
+    if assert_empty:
+        assert len(pkts) == 0
+    s.close()
+
+print("CAN sockets should work now")
+
+
+= Verify that a CAN socket can be created and closed
+s = new_can_socket(iface0)
+s.close()
+
+
+= Check if can-isotp and can-utils are installed on this system
+p = subprocess.Popen('lsmod | grep "^can_isotp"', stdout=subprocess.PIPE, shell=True)
+if p.wait() == 0:
+    if b"can_isotp" in p.stdout.read():
+        p = subprocess.Popen("isotpsend -s1 -d0 %s" % iface0, stdin=subprocess.PIPE, shell=True)
+        p.stdin.write(b"01")
+        p.stdin.close()
+        r = p.wait()
+        if r == 0:
+            ISOTP_KERNEL_MODULE_AVAILABLE = True
+
+
+= Import isotp
+conf.contribs['ISOTP'] = {'use-can-isotp-kernel-module': False}
+load_contrib("isotp")
+
+
+= Import uds
+load_contrib('automotive.uds')
+
+
+= Test Session Enumerator
+drain_bus(iface0)
+drain_bus(iface1)
+
+packet = ISOTP('Request')
+succ = False
+
+with ISOTPSocket(new_can_socket0(), sid=0x241, did=0x641, basecls=UDS) as sendSock, \
+     ISOTPSocket(new_can_socket0(), sid=0x641, did=0x241, basecls=UDS) as recvSock:
+    def answer(pkt):
+        pkt.service = pkt.service + 0x40
+        recvSock.send(pkt)
+    def sniffer():
+        global sniffed, succ
+        sniffed = 0
+        pkts = recvSock.sniff(timeout=10, prn=answer)
+        sniffed = len(pkts)
+        succ = True
+    threadSniffer = threading.Thread(target=sniffer)
+    threadSniffer.start()
+    sessions = UDS_SessionEnumerator(sendSock, session_range=range(3))
+    threadSniffer.join()
+
+assert sniffed == 3*2
+assert succ
+
+
+= Test Service Enumerator
+drain_bus(iface0)
+drain_bus(iface1)
+
+packet = ISOTP('Request')
+succ = False
+
+with ISOTPSocket(new_can_socket0(), sid=0x241, did=0x641, basecls=UDS) as sendSock, \
+     ISOTPSocket(new_can_socket0(), sid=0x641, did=0x241, basecls=UDS) as recvSock:
+    def answer(pkt):
+        pkt.service = pkt.service + 0x40
+        if pkt.service == 0x7f:
+            pkt = UDS()/UDS_NR(requestServiceId=0x3f)
+        recvSock.send(pkt)
+    def sniffer():
+        global sniffed, succ
+        sniffed = 0
+        pkts = recvSock.sniff(timeout=10, prn=answer)
+        sniffed = len(pkts)
+        succ = True
+    threadSniffer = threading.Thread(target=sniffer)
+    threadSniffer.start()
+    services = UDS_ServiceEnumerator(sendSock)
+    threadSniffer.join()
+
+assert sniffed == 128
+assert succ
+
+
+= Test getTableEntry
+a = ('DefaultSession', UDS()/UDS_SAPR())
+b = ('ProgrammingSession', UDS()/UDS_NR(requestServiceId=0x10, negativeResponseCode=0x13))
+c = ('ExtendedDiagnosticSession', UDS()/UDS_IOCBI())
+
+res_a = getTableEntry(a)
+res_b = getTableEntry(b)
+res_c = getTableEntry(c)
+
+print(res_a)
+print(res_b)
+print(res_c)
+#make_lined_table([a, b, c], getTableEntry)
+
+assert res_a == ('DefaultSession', '0x27: SecurityAccess', 'PositiveResponse')
+assert res_b == ('ProgrammingSession', '0x10: DiagnosticSessionControl', 'incorrectMessageLengthOrInvalidFormat')
+assert res_c == ('ExtendedDiagnosticSession', '0x2f: InputOutputControlByIdentifier', 'PositiveResponse')
