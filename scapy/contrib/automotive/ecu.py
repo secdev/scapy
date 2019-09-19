@@ -283,7 +283,7 @@ class ECU_am(AnsweringMachine):
 
     def parse_options(self, supported_responses=None,
                       main_socket=None, broadcast_socket=None, basecls=Raw,
-                      timeout=1):
+                      timeout=None):
         self.main_socket = main_socket
         self.sockets = [self.main_socket]
 
