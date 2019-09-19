@@ -55,9 +55,10 @@ def get_if(iff, cmd):
     """Ease SIOCGIF* ioctl calls"""
 
     sck = socket.socket()
-    ifreq = ioctl(sck, cmd, struct.pack("16s16x", iff.encode("utf8")))
-    sck.close()
-    return ifreq
+    try:
+        return ioctl(sck, cmd, struct.pack("16s16x", iff.encode("utf8")))
+    finally:
+        sck.close()
 
 
 def get_if_raw_hwaddr(iff):
