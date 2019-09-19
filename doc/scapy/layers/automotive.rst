@@ -316,7 +316,7 @@ example demonstrates the usage::
 
 Scapy implementation of this DBC descriptions::
 
-   class muxTestFrame(SignalPacket):
+    class muxTestFrame(SignalPacket):
         fields_desc = [
             LEUnsignedSignalField("myMuxer", default=0, start=53, size=3),
             ConditionalField(LESignedSignalField("muxSig4", default=0, start=25, size=7), lambda p: p.myMuxer == 0),
@@ -330,13 +330,27 @@ Scapy implementation of this DBC descriptions::
             LESignedSignalField("muxSig9", default=0, start=41, size=7, scaling=100, offset=-5, unit="V"),
         ]
 
-   class testFrameFloat(SignalPacket):
+    class testFrameFloat(SignalPacket):
         fields_desc = [
             LEFloatSignalField("floatSignal2", default=0, start=32),
             BEFloatSignalField("floatSignal1", default=0, start=7)
         ]
 
+    bind_layers(SignalHeader, muxTestFrame, identifier=0x123)
+    bind_layers(SignalHeader, testFrameFloat, identifier=0x321)
 
+    dbc_sock = CANSocket("can0", basecls=SignalHeader)
+
+    pkt = SignalHeader()/testFrameFloat(floatSignal2=3.4)
+
+    dbc_sock.send(pkt)
+
+This example uses the class ``SignalHeader`` as header. The payload is specified by individual ``SignalPackets``.
+``bind_layers`` combines the header with the payload dependent on the CAN identifier.
+If you want to directly receive ``SignalPackets`` from your ``CANSocket``, provide the parameter ``basecls`` to
+the ``init`` function of your ``CANSocket``.
+
+Canmatrix supports the creation of Scapy files from DBC or AUTOSAR XML files https://github.com/ebroecker/canmatrix
 
 
 CAN Calibration Protocol (CCP)

@@ -418,6 +418,39 @@ assert packets[1].data == b'\x11\x22\x33\x44\x55\x66\x77\x88'
 ########
 + CAN Signals
 
+= Test invalid fields_desc
+
+class testFrame1(SignalPacket):
+    fields_desc = [
+        ByteField("sig0", 0),
+        SignalField("sig1", default=0, start=7, size=6, fmt=">B")
+    ]
+
+passed = False
+
+try:
+    testFrame1(b"\xff\xff")
+except Scapy_Exception:
+    passed = True
+
+assert passed
+
+= Test invalid fields_desc with ConditionalField
+
+class testFrame1(SignalPacket):
+    fields_desc = [
+        ConditionalField(ByteField("sig0", 0), lambda x: True),
+        SignalField("sig1", default=0, start=7, size=6, fmt=">B")
+    ]
+
+passed = False
+try:
+    testFrame1(b"\xff\xff")
+except Scapy_Exception:
+    passed = True
+
+assert passed
+
 = Motorola byte order (Big Endian) dissect test
 
 class testFrame1(SignalPacket):
@@ -722,6 +755,126 @@ pkt.muxSig9 = 0x11
 assert bytes(pkt) == b'\x1d\x28\x80\x1c\x0f\x23\xe0'
 assert len(pkt) == 7
 
+= Muxed Packet with mixed endianness fields build test
+
+class testFrame3(SignalPacket):
+    fields_desc = [
+        SignalField("myMuxer", default=0, start=53, size=3, fmt="<B"),
+        ConditionalField(SignalField("muxSig5", default=0, start=22, size=7, fmt="<B"), lambda p: p.myMuxer == 1),
+        ConditionalField(SignalField("muxSig6", default=0, start=32, size=9, fmt="<B"), lambda p: p.myMuxer == 1),
+        ConditionalField(SignalField("muxSig7", default=0, start=2, size=8, fmt=">B"), lambda p: p.myMuxer == 0),
+        ConditionalField(SignalField("muxSig8", default=0, start=3, size=3, fmt="<B"), lambda p: p.myMuxer == 0),
+        ConditionalField(SignalField("muxSig9", default=0, start=41, size=7, fmt="<B"), lambda p: p.myMuxer == 1)
+    ]
+
+pkt = testFrame3()
+
+pkt.myMuxer = 0x0
+pkt.muxSig5 = 0x72
+pkt.muxSig6 = 0x10f
+pkt.muxSig7 = 0xA5
+pkt.muxSig8 = 0x03
+pkt.muxSig9 = 0x11
+
+assert bytes(pkt) == b'\x1d\x28\x00\x00\x00\x00\x00'
+assert len(pkt) == 7
+
+pkt.myMuxer = 0x1
+
+assert bytes(pkt) == b'\x00\x00\x80\x1c\x0f\x23\x20'
+assert len(pkt) == 7
+
+= Muxed Packet build test
+
+class testFrame3(SignalPacket):
+    fields_desc = [
+        SignalField("myMuxer", default=0, start=0, size=8, fmt="<B"),
+        ConditionalField(SignalField("muxSig5", default=0, start=8, size=8, fmt="<B"), lambda p: p.myMuxer == 1),
+        ConditionalField(SignalField("muxSig6", default=0, start=8, size=16, fmt="<B"), lambda p: p.myMuxer == 0),
+        ConditionalField(SignalField("muxSig7", default=0, start=16, size=8, fmt="<B"), lambda p: p.myMuxer == 1),
+        ConditionalField(SignalField("muxSig8", default=0, start=24, size=8, fmt="<B"), lambda p: p.myMuxer == 0),
+        ConditionalField(SignalField("muxSig9", default=0, start=32, size=8, fmt="<B"), lambda p: p.myMuxer == 0)
+    ]
+
+pkt = testFrame3(b'\x01\xff\xff\xff\xff\xff\xff')
+
+assert pkt.myMuxer == 0x1
+assert pkt.muxSig5 == 0xff
+assert pkt.muxSig7 == 0xff
+
+pkt = testFrame3(b'\x00\xff\xff\xff\xff\xff\xff')
+
+assert pkt.myMuxer == 0x0
+assert pkt.muxSig6 == 0xffff
+assert pkt.muxSig8 == 0xff
+assert pkt.muxSig9 == 0xff
+
+pkt = testFrame3()
+pkt.myMuxer = 0x1
+pkt.muxSig5 = 0xaa
+pkt.muxSig7 = 0xaa
+
+assert bytes(pkt) == b'\x01\xaa\xaa'
+assert len(pkt) == 3
+
+pkt = testFrame3()
+pkt.myMuxer = 0x0
+pkt.muxSig5 = 0xaa
+pkt.muxSig6 = 0xbb
+pkt.muxSig7 = 0xaa
+pkt.muxSig8 = 0xbb
+pkt.muxSig9 = 0xbb
+
+assert bytes(pkt) == b'\x00\xbb\x00\xbb\xbb'
+assert len(pkt) == 5
+
+= SignalHeader Muxed Packet build test
+
+conf.contribs['CAN']['swap-bytes'] = False
+
+class testFrame3(SignalPacket):
+    fields_desc = [
+        SignalField("myMuxer", default=0, start=0, size=8, fmt="<B"),
+        ConditionalField(SignalField("muxSig5", default=0, start=8, size=8, fmt="<B"), lambda p: p.myMuxer == 1),
+        ConditionalField(SignalField("muxSig6", default=0, start=8, size=16, fmt="<B"), lambda p: p.myMuxer == 0),
+        ConditionalField(SignalField("muxSig7", default=0, start=16, size=8, fmt="<B"), lambda p: p.myMuxer == 1),
+        ConditionalField(SignalField("muxSig8", default=0, start=24, size=8, fmt="<B"), lambda p: p.myMuxer == 0),
+        ConditionalField(SignalField("muxSig9", default=0, start=32, size=8, fmt="<B"), lambda p: p.myMuxer == 0)
+    ]
+
+bind_layers(SignalHeader, testFrame3, identifier=0x123)
+
+pkt = SignalHeader(b'\x00\x00\x01#\x00\x00\x00\x00\x01\xff\xff\xff\xff\xff\xff')
+
+assert pkt.myMuxer == 0x1
+assert pkt.muxSig5 == 0xff
+assert pkt.muxSig7 == 0xff
+
+pkt = SignalHeader(b'\x00\x00\x01#\x00\x00\x00\x00\x00\xff\xff\xff\xff\xff\xff')
+
+assert pkt.myMuxer == 0x0
+assert pkt.muxSig6 == 0xffff
+assert pkt.muxSig8 == 0xff
+assert pkt.muxSig9 == 0xff
+
+pkt = SignalHeader()/testFrame3()
+pkt.myMuxer = 0x1
+pkt.muxSig5 = 0xaa
+pkt.muxSig7 = 0xaa
+
+assert bytes(pkt) == b'\x00\x00\x01#\x03\x00\x00\x00\x01\xaa\xaa'
+assert len(pkt) == 8 + 3
+
+pkt = SignalHeader()/testFrame3()
+pkt.myMuxer = 0x0
+pkt.muxSig5 = 0xaa
+pkt.muxSig6 = 0xbb
+pkt.muxSig7 = 0xaa
+pkt.muxSig8 = 0xbb
+pkt.muxSig9 = 0xbb
+
+assert bytes(pkt) == b'\x00\x00\x01#\x05\x00\x00\x00\x00\xbb\x00\xbb\xbb'
+assert len(pkt) == 8 + 5
 
 = Intel byte order (Little Endian) SignalPacket dissect test
 
@@ -938,6 +1091,28 @@ assert pkt.muxSig6 == 0x10f << 1
 assert pkt.muxSig7 == 82.5
 assert pkt.muxSig8 == 30
 assert pkt.muxSig9 == 1700
+
+= Packet with mixed endianness fields dissect test, mixed field order and scaling
+
+class testFrame3(SignalPacket):
+    fields_desc = [
+        SignalField("myMuxer", default=0, start=53, size=3, scaling=0.1, fmt="<B"),
+        SignalField("muxSig9", default=0, start=41, size=7, scaling=100, fmt="<B"),
+        SignalField("muxSig6", default=0, start=32, size=9, scaling=2, fmt="<B"),
+        SignalField("muxSig7", default=0, start=2, size=8, scaling=0.5, fmt=">B"),
+        SignalField("muxSig8", default=0, start=3, size=3, scaling=10, fmt="<B"),
+        SignalField("muxSig5", default=0, start=22, size=7, scaling=0.01, fmt="<B"),
+    ]
+
+pkt = testFrame3(b'\x1d\x28\x80\x1c\x0f\x23\xe0')
+assert len(pkt) == 7
+assert pkt.myMuxer == 0.7
+assert pkt.muxSig5 == 1.14
+assert pkt.muxSig6 == 0x10f << 1
+assert pkt.muxSig7 == 82.5
+assert pkt.muxSig8 == 30
+assert pkt.muxSig9 == 1700
+
 
 
 = Packet with mixed endianness fields dissect test, mixed field order and scaling and offset

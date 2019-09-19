@@ -18,7 +18,7 @@ from scapy.config import conf
 from scapy.compat import orb
 from scapy.data import DLT_CAN_SOCKETCAN, MTU
 from scapy.fields import FieldLenField, FlagsField, StrLenField, \
-    ThreeBytesField, XBitField, ScalingField
+    ThreeBytesField, XBitField, ScalingField, ConditionalField, LenField
 from scapy.volatile import RandFloat, RandBinFloat
 from scapy.packet import Packet, bind_layers
 from scapy.layers.l2 import CookedLinux
@@ -28,7 +28,7 @@ from scapy.plist import PacketList
 __all__ = ["CAN", "SignalPacket", "SignalField", "LESignedSignalField",
            "LEUnsignedSignalField", "LEFloatSignalField", "BEFloatSignalField",
            "BESignedSignalField", "BEUnsignedSignalField", "rdcandump",
-           "CandumpReader"]
+           "CandumpReader", "SignalHeader"]
 
 # Mimics the Wireshark CAN dissector parameter 'Byte-swap the CAN ID/flags field'  # noqa: E501
 #   set to True when working with PF_CAN sockets
@@ -279,7 +279,10 @@ class BEFloatSignalField(SignalField):
 
 class SignalPacket(Packet):
     def pre_dissect(self, s):
-        if not all(isinstance(f, SignalField) for f in self.fields_desc):
+        if not all(isinstance(f, SignalField) or
+                   (isinstance(f, ConditionalField) and
+                    isinstance(f.fld, SignalField))
+                   for f in self.fields_desc):
             raise Scapy_Exception("Use only SignalFields in a SignalPacket")
         return s
 
@@ -294,6 +297,20 @@ class SignalPacket(Packet):
                                   "are supported")
         self.raw_packet_cache = None  # Reset packet to allow post_build
         return s[self.wirelen:]
+
+
+class SignalHeader(CAN):
+    fields_desc = [
+        FlagsField('flags', 0, 3, ['error',
+                                   'remote_transmission_request',
+                                   'extended']),
+        XBitField('identifier', 0, 29),
+        LenField('length', None, fmt='B'),
+        ThreeBytesField('reserved', 0)
+    ]
+
+    def extract_padding(self, s):
+        return s, None
 
 
 def rdcandump(filename, count=-1, interface=None):
