@@ -113,7 +113,7 @@ thread = threading.Thread(target=ecusim)
 thread.start()
 time.sleep(0.05)
 starttime = time.time() # may be inaccurate -> on some systems only seconds precision
-assert GMLAN_RequestDownload(isotpsock, 4, timeout=tout+0.5) == True
+assert GMLAN_RequestDownload(isotpsock, 4, timeout=repeats*tout+0.5) == True
 endtime = time.time()
 assert (endtime - starttime) >= tout*repeats
 
