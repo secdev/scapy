@@ -32,14 +32,14 @@ import time
 + Init gmlanutil
 = imports
 ~ linux needs_root
-load_contrib("automotive.gm.gmlanutil")
+load_contrib("automotive.gm.gmlanutils")
 
 = Create Socket
 ~ linux needs_root
 isotpsock = ISOTPSocket("vcan0", sid=0x242, did=0x642, basecls=GMLAN)
 
 ##############################################################################
-+ RequestDownload Tests
++ GMLAN_RequestDownload Tests
 ##############################################################################
 = Positive, immediate positive response
 ~ linux needs_root
@@ -58,7 +58,7 @@ def ecusim():
 thread = threading.Thread(target=ecusim)
 thread.start()
 time.sleep(0.05)
-assert RequestDownload(isotpsock, 4, timeout=1) == True
+assert GMLAN_RequestDownload(isotpsock, 4, timeout=1) == True
 thread.join()
 assert ecusimSuccessfullyExecuted == True
 
@@ -73,11 +73,11 @@ def ecusim():
 thread = threading.Thread(target=ecusim)
 thread.start()
 time.sleep(0.05)
-assert RequestDownload(isotpsock, 4, timeout=1) == False
+assert GMLAN_RequestDownload(isotpsock, 4, timeout=1) == False
 
 = Negative, timeout
 ~ linux needs_root
-assert RequestDownload(isotpsock, 4, timeout=1) == False
+assert GMLAN_RequestDownload(isotpsock, 4, timeout=1) == False
 
 ############################ Response pending
 = Positive, after response pending
@@ -93,7 +93,7 @@ def ecusim():
 thread = threading.Thread(target=ecusim)
 thread.start()
 time.sleep(0.05)
-assert RequestDownload(isotpsock, 4, timeout=1) == True
+assert GMLAN_RequestDownload(isotpsock, 4, timeout=1) == True
 
 = Positive, hold response pending for several messages
 ~ linux needs_root
@@ -113,7 +113,7 @@ thread = threading.Thread(target=ecusim)
 thread.start()
 time.sleep(0.05)
 starttime = time.time() # may be inaccurate -> on some systems only seconds precision
-assert RequestDownload(isotpsock, 4, timeout=tout+0.5) == True
+assert GMLAN_RequestDownload(isotpsock, 4, timeout=tout+0.5) == True
 endtime = time.time()
 assert (endtime - starttime) >= tout*repeats
 
@@ -130,7 +130,7 @@ def ecusim():
 thread = threading.Thread(target=ecusim)
 thread.start()
 time.sleep(0.05)
-assert RequestDownload(isotpsock, 4, timeout=1) == False
+assert GMLAN_RequestDownload(isotpsock, 4, timeout=1) == False
 
 = Negative, timeout after response pending
 ~ linux needs_root
@@ -143,7 +143,7 @@ def ecusim():
 thread = threading.Thread(target=ecusim)
 thread.start()
 time.sleep(0.05)
-assert RequestDownload(isotpsock, 4, timeout=0.3) == False
+assert GMLAN_RequestDownload(isotpsock, 4, timeout=0.3) == False
 
 = Positive, pending message from different service interferes while pending
 ~ linux needs_root
@@ -161,7 +161,7 @@ def ecusim():
 thread = threading.Thread(target=ecusim)
 thread.start()
 time.sleep(0.05)
-assert RequestDownload(isotpsock, 4, timeout=1) == True
+assert GMLAN_RequestDownload(isotpsock, 4, timeout=1) == True
 
 = Positive, negative response from different service interferes while pending
 ~ linux needs_root
@@ -179,7 +179,7 @@ def ecusim():
 thread = threading.Thread(target=ecusim)
 thread.start()
 time.sleep(0.05)
-assert RequestDownload(isotpsock, 4, timeout=1) == True
+assert GMLAN_RequestDownload(isotpsock, 4, timeout=1) == True
 
 ################### RETRY
 = Positive, first: immediate negative response, retry: Positive
@@ -206,22 +206,11 @@ def ecusim():
 thread = threading.Thread(target=ecusim)
 thread.start()
 time.sleep(0.05)
-assert RequestDownload(isotpsock, 4, timeout=1, retry=1) == True
+assert GMLAN_RequestDownload(isotpsock, 4, timeout=1, retry=1) == True
 assert ecusimSuccessfullyExecuted == True
 
-
-
-
-# What about a case where response pending into a timeout. it might be that
-# ResponsePending recognizes the timeout as negative response instead of timeout
-# -> only testable through print output..
-
-
-
-
-
 ##############################################################################
-+ TransferData Tests
++ GMLAN_TransferData Tests
 ##############################################################################
 = Positive, short payload, scheme = 4
 ~ linux needs_root
@@ -243,7 +232,7 @@ def ecusim():
 thread = threading.Thread(target=ecusim)
 thread.start()
 time.sleep(0.05)
-assert TransferData(isotpsock, 0x40000000, payload, timeout=1) == True
+assert GMLAN_TransferData(isotpsock, 0x40000000, payload, timeout=1) == True
 thread.join()
 assert ecusimSuccessfullyExecuted == True
 
@@ -267,7 +256,7 @@ def ecusim():
 thread = threading.Thread(target=ecusim)
 thread.start()
 time.sleep(0.05)
-assert TransferData(isotpsock, 0x400000, payload, timeout=1) == True
+assert GMLAN_TransferData(isotpsock, 0x400000, payload, timeout=1) == True
 thread.join()
 assert ecusimSuccessfullyExecuted == True
 
@@ -291,7 +280,7 @@ def ecusim():
 thread = threading.Thread(target=ecusim)
 thread.start()
 time.sleep(0.05)
-assert TransferData(isotpsock, 0x4000, payload, timeout=1) == True
+assert GMLAN_TransferData(isotpsock, 0x4000, payload, timeout=1) == True
 thread.join()
 assert ecusimSuccessfullyExecuted == True
 
@@ -311,11 +300,11 @@ def ecusim():
 thread = threading.Thread(target=ecusim)
 thread.start()
 time.sleep(0.05)
-assert TransferData(isotpsock, 0x40000000, payload, timeout=1) == False
+assert GMLAN_TransferData(isotpsock, 0x40000000, payload, timeout=1) == False
 
 = Negative, timeout
 ~ linux needs_root
-assert TransferData(isotpsock, 0x4000, payload, timeout=1) == False
+assert GMLAN_TransferData(isotpsock, 0x4000, payload, timeout=1) == False
 
 = Positive, long payload
 ~ linux needs_root
@@ -345,7 +334,7 @@ def ecusim():
 thread = threading.Thread(target=ecusim)
 thread.start()
 time.sleep(0.05)
-assert TransferData(isotpsock, 0x40000000, payload*4, maxmsglen=16, timeout=1) == True
+assert GMLAN_TransferData(isotpsock, 0x40000000, payload*4, maxmsglen=16, timeout=1) == True
 thread.join()
 assert ecusimSuccessfullyExecuted == True
 
@@ -375,7 +364,7 @@ def ecusim():
 thread = threading.Thread(target=ecusim)
 thread.start()
 time.sleep(0.05)
-assert TransferData(isotpsock, 0x40000000, payload*4, maxmsglen=16, timeout=1, retry=1) == True
+assert GMLAN_TransferData(isotpsock, 0x40000000, payload*4, maxmsglen=16, timeout=1, retry=1) == True
 
 ############
 = Positive, maxmsglen length check -> message is split automatically
@@ -406,7 +395,7 @@ def ecusim():
 thread = threading.Thread(target=ecusim)
 thread.start()
 time.sleep(0.05)
-assert TransferData(isotpsock, 0x40000000, payload*512, maxmsglen=0x1000000, timeout=1) == True
+assert GMLAN_TransferData(isotpsock, 0x40000000, payload*512, maxmsglen=0x1000000, timeout=1) == True
 thread.join()
 assert ecusimSuccessfullyExecuted == True
 
@@ -424,7 +413,7 @@ def ecusim():
 thread = threading.Thread(target=ecusim)
 thread.start()
 time.sleep(0.05)
-assert TransferData(isotpsock, 2**32 - 1, payload, timeout=1) == True
+assert GMLAN_TransferData(isotpsock, 2**32 - 1, payload, timeout=1) == True
 
 = Negative, invalid address (too large for addressing scheme)
 ~ linux needs_root
@@ -439,7 +428,7 @@ def ecusim():
 thread = threading.Thread(target=ecusim)
 thread.start()
 time.sleep(0.05)
-assert TransferData(isotpsock, 2**32, payload, timeout=1) == False
+assert GMLAN_TransferData(isotpsock, 2**32, payload, timeout=1) == False
 
 = Positive, address zero
 ~ linux needs_root
@@ -454,7 +443,7 @@ def ecusim():
 thread = threading.Thread(target=ecusim)
 thread.start()
 time.sleep(0.05)
-assert TransferData(isotpsock, 0x00, payload, timeout=1) == True
+assert GMLAN_TransferData(isotpsock, 0x00, payload, timeout=1) == True
 
 = Negative, negative address
 ~ linux needs_root
@@ -469,10 +458,10 @@ def ecusim():
 thread = threading.Thread(target=ecusim)
 thread.start()
 time.sleep(0.05)
-assert TransferData(isotpsock, -1, payload, timeout=1) == False
+assert GMLAN_TransferData(isotpsock, -1, payload, timeout=1) == False
 
 ############################################
-+ TransferPayload Tests
++ GMLAN_TransferPayload Tests
 ############################################
 = Positive, short payload
 ~ linux needs_root
@@ -500,78 +489,13 @@ def ecusim():
 thread = threading.Thread(target=ecusim)
 thread.start()
 time.sleep(0.05)
-assert TransferPayload(isotpsock, 0x40000000, payload, timeout=1) == True
-thread.join()
-assert ecusimSuccessfullyExecuted == True
-
-############################################
-+ TesterPresentThread Tests
-############################################
-= No interval longer than ECU restart (5sec)
-~ linux needs_root
-ecusimSuccessfullyExecuted = True
-tp = TesterPresentThread(isotpsock)
-def ecusim():
-    global ecusimSuccessfullyExecuted
-    ecusimSuccessfullyExecuted= True
-    global tp
-    isotpsock2 = ISOTPSocket("vcan0", sid=0x642, did=0x242, basecls=GMLAN)
-    while(1):
-        # ECU would reset after 5s~
-        tpresp = isotpsock2.sniff(count=1, timeout=5)
-        if len(tpresp) == 0:
-            break
-        pkt = GMLAN(b"\x3e")
-        if bytes(tpresp[0]) != bytes(pkt):
-            ecusimSuccessfullyExecuted = False
-    if not tp.stopped():
-        ecusimSuccessfullyExecuted = False
-
-thread = threading.Thread(target=ecusim)
-thread.start()
-time.sleep(0.05)
-
-tp.start()
-time.sleep(10)
-tp.stop()
-
-thread.join()
-assert ecusimSuccessfullyExecuted == True
-
-= interval longer than 5 sec
-~ linux needs_root
-ecusimSuccessfullyExecuted = True
-tp = TesterPresentThread(isotpsock)
-def ecusim():
-    global ecusimSuccessfullyExecuted
-    ecusimSuccessfullyExecuted= True
-    global tp
-    isotpsock2 = ISOTPSocket("vcan0", sid=0x642, did=0x242, basecls=GMLAN)
-    while(1):
-        # Imagine the interval had to be shorter (shorter than tp is sent)
-        tpresp = isotpsock2.sniff(count=1, timeout=2)
-        if len(tpresp) == 0:
-            break
-        pkt = GMLAN(b"\x3e")
-        if bytes(tpresp[0]) != bytes(pkt):
-            ecusimSuccessfullyExecuted = False
-    if tp.stopped():
-        ecusimSuccessfullyExecuted = False
-
-thread = threading.Thread(target=ecusim)
-thread.start()
-time.sleep(0.05)
-
-tp.start()
-time.sleep(5)
-tp.stop()
-
+assert GMLAN_TransferPayload(isotpsock, 0x40000000, payload, timeout=1) == True
 thread.join()
 assert ecusimSuccessfullyExecuted == True
 
 
 ############################################
-+ SecurityAccess Tests
++ GMLAN_GetSecurityAccess Tests
 ############################################
 = KeyFunction
 ~ linux needs_root
@@ -605,7 +529,7 @@ def ecusim():
 thread = threading.Thread(target=ecusim)
 thread.start()
 time.sleep(0.05)
-assert GetSecurityAccess(isotpsock, keyfunc, level=1, timeout=1) == True
+assert GMLAN_GetSecurityAccess(isotpsock, keyfunc, level=1, timeout=1) == True
 thread.join()
 assert ecusimSuccessfullyExecuted == True
 
@@ -637,7 +561,7 @@ def ecusim():
 thread = threading.Thread(target=ecusim)
 thread.start()
 time.sleep(0.05)
-assert GetSecurityAccess(isotpsock, keyfunc, level=3, timeout=1) == True
+assert GMLAN_GetSecurityAccess(isotpsock, keyfunc, level=3, timeout=1) == True
 thread.join()
 assert ecusimSuccessfullyExecuted == True
 
@@ -670,7 +594,7 @@ def ecusim():
 thread = threading.Thread(target=ecusim)
 thread.start()
 time.sleep(0.05)
-assert GetSecurityAccess(isotpsock, keyfunc, level=1, timeout=1) == False
+assert GMLAN_GetSecurityAccess(isotpsock, keyfunc, level=1, timeout=1) == False
 thread.join()
 assert ecusimSuccessfullyExecuted == True
 
@@ -690,7 +614,7 @@ def ecusim():
 thread = threading.Thread(target=ecusim)
 thread.start()
 time.sleep(0.05)
-assert GetSecurityAccess(isotpsock, keyfunc, level=2, timeout=1) == False
+assert GMLAN_GetSecurityAccess(isotpsock, keyfunc, level=2, timeout=1) == False
 thread.join()
 
 = zero seed
@@ -705,7 +629,7 @@ def ecusim():
 thread = threading.Thread(target=ecusim)
 thread.start()
 time.sleep(0.05)
-assert GetSecurityAccess(isotpsock, keyfunc, level=1, timeout=1) == True
+assert GMLAN_GetSecurityAccess(isotpsock, keyfunc, level=1, timeout=1) == True
 thread.join()
 
 ############### retry
@@ -728,7 +652,7 @@ def ecusim():
 thread = threading.Thread(target=ecusim)
 thread.start()
 time.sleep(0.05)
-assert GetSecurityAccess(isotpsock, keyfunc, level=1, timeout=1, retry=1) == True
+assert GMLAN_GetSecurityAccess(isotpsock, keyfunc, level=1, timeout=1, retry=1) == True
 thread.join()
 
 
@@ -754,7 +678,7 @@ def ecusim():
 thread = threading.Thread(target=ecusim)
 thread.start()
 time.sleep(0.05)
-assert GetSecurityAccess(isotpsock, keyfunc, level=1, timeout=1, retry=1) == True
+assert GMLAN_GetSecurityAccess(isotpsock, keyfunc, level=1, timeout=1, retry=1) == True
 thread.join()
 
 
@@ -779,12 +703,12 @@ def ecusim():
 thread = threading.Thread(target=ecusim)
 thread.start()
 time.sleep(0.05)
-assert GetSecurityAccess(isotpsock, keyfunc, level=1, timeout=1, retry=1) == True
+assert GMLAN_GetSecurityAccess(isotpsock, keyfunc, level=1, timeout=1, retry=1) == True
 thread.join()
 
 
 ##############################################################################
-+ InitDiagnostics Tests
++ GMLAN_InitDiagnostics Tests
 ##############################################################################
 = sequence of the correct messages
 ~ linux needs_root
@@ -824,7 +748,7 @@ thread = threading.Thread(target=ecusim)
 thread.start()
 time.sleep(0.05)
 
-assert InitDiagnostics(isotpsock, timeout=1, verbose=1) == True
+assert GMLAN_InitDiagnostics(isotpsock, timeout=1, verbose=1) == True
 thread.join()
 assert ecusimSuccessfullyExecuted == True
 
@@ -865,7 +789,7 @@ thread = threading.Thread(target=ecusim)
 thread.start()
 time.sleep(0.05)
 
-assert InitDiagnostics(isotpsock, broadcastsocket=GMLAN_BroadcastSocket("vcan0"), timeout=1, verbose=1) == True
+assert GMLAN_InitDiagnostics(isotpsock, broadcastsocket=GMLAN_BroadcastSocket("vcan0"), timeout=1, verbose=1) == True
 thread.join()
 assert ecusimSuccessfullyExecuted == True
 
@@ -888,7 +812,7 @@ thread = threading.Thread(target=ecusim)
 thread.start()
 time.sleep(0.05)
 
-assert InitDiagnostics(isotpsock, timeout=1, verbose=1) == False
+assert GMLAN_InitDiagnostics(isotpsock, timeout=1, verbose=1) == False
 thread.join()
 assert ecusimSuccessfullyExecuted == True
 
@@ -919,7 +843,7 @@ thread = threading.Thread(target=ecusim)
 thread.start()
 time.sleep(0.05)
 
-assert InitDiagnostics(isotpsock, timeout=1, verbose=1) == False
+assert GMLAN_InitDiagnostics(isotpsock, timeout=1, verbose=1) == False
 thread.join()
 assert ecusimSuccessfullyExecuted == True
 
@@ -955,7 +879,7 @@ thread = threading.Thread(target=ecusim)
 thread.start()
 time.sleep(0.05)
 
-assert InitDiagnostics(isotpsock, timeout=1, verbose=1) == False
+assert GMLAN_InitDiagnostics(isotpsock, timeout=1, verbose=1) == False
 thread.join()
 assert ecusimSuccessfullyExecuted == True
 
@@ -979,7 +903,7 @@ thread = threading.Thread(target=ecusim)
 thread.start()
 time.sleep(0.05)
 
-assert InitDiagnostics(isotpsock, timeout=1, verbose=1) == False
+assert GMLAN_InitDiagnostics(isotpsock, timeout=1, verbose=1) == False
 thread.join()
 assert ecusimSuccessfullyExecuted == True
 
@@ -1007,7 +931,7 @@ thread = threading.Thread(target=ecusim)
 thread.start()
 time.sleep(0.05)
 
-assert InitDiagnostics(isotpsock, timeout=1, verbose=1, retry=0) == True
+assert GMLAN_InitDiagnostics(isotpsock, timeout=1, verbose=1, retry=0) == True
 thread.join()
 
 
@@ -1029,7 +953,7 @@ thread = threading.Thread(target=ecusim)
 thread.start()
 time.sleep(0.05)
 
-assert InitDiagnostics(isotpsock, timeout=1, verbose=1, retry=0) == False
+assert GMLAN_InitDiagnostics(isotpsock, timeout=1, verbose=1, retry=0) == False
 thread.join()
 assert ecusimSuccessfullyExecuted == True
 
@@ -1060,7 +984,7 @@ thread = threading.Thread(target=ecusim)
 thread.start()
 time.sleep(0.05)
 
-assert InitDiagnostics(isotpsock, timeout=1, verbose=1, retry=1) == True
+assert GMLAN_InitDiagnostics(isotpsock, timeout=1, verbose=1, retry=1) == True
 thread.join()
 
 
@@ -1095,7 +1019,7 @@ thread = threading.Thread(target=ecusim)
 thread.start()
 time.sleep(0.05)
 
-assert InitDiagnostics(isotpsock, timeout=1, verbose=1, retry=1) == True
+assert GMLAN_InitDiagnostics(isotpsock, timeout=1, verbose=1, retry=1) == True
 thread.join()
 
 
@@ -1134,7 +1058,7 @@ thread = threading.Thread(target=ecusim)
 thread.start()
 time.sleep(0.05)
 
-assert InitDiagnostics(isotpsock, timeout=1, verbose=1, retry=1) == True
+assert GMLAN_InitDiagnostics(isotpsock, timeout=1, verbose=1, retry=1) == True
 thread.join()
 
 
@@ -1159,12 +1083,12 @@ thread = threading.Thread(target=ecusim)
 thread.start()
 time.sleep(0.05)
 
-assert InitDiagnostics(isotpsock, timeout=1, verbose=1, retry=1) == False
+assert GMLAN_InitDiagnostics(isotpsock, timeout=1, verbose=1, retry=1) == False
 thread.join()
 assert ecusimSuccessfullyExecuted == True
 
 ##############################################################################
-+ ReadMemoryByAddress Tests
++ GMLAN_ReadMemoryByAddress Tests
 ##############################################################################
 = Positive, short length, scheme = 4
 ~ linux needs_root
@@ -1185,7 +1109,7 @@ def ecusim():
 thread = threading.Thread(target=ecusim)
 thread.start()
 time.sleep(0.05)
-assert ReadMemoryByAddress(isotpsock, 0x0, 0x8, timeout=1) == payload
+assert GMLAN_ReadMemoryByAddress(isotpsock, 0x0, 0x8, timeout=1) == payload
 thread.join()
 assert ecusimSuccessfullyExecuted == True
 
@@ -1203,13 +1127,13 @@ def ecusim():
 thread = threading.Thread(target=ecusim)
 thread.start()
 time.sleep(0.05)
-assert ReadMemoryByAddress(isotpsock, 0x0, 0x8, timeout=1) == None
+assert GMLAN_ReadMemoryByAddress(isotpsock, 0x0, 0x8, timeout=1) == None
 thread.join()
 
 
 = Negative, timeout
 ~ linux needs_root
-assert ReadMemoryByAddress(isotpsock, 0x0, 0x8, timeout=1) is None
+assert GMLAN_ReadMemoryByAddress(isotpsock, 0x0, 0x8, timeout=1) is None
 
 ###### RETRY
 = Positive, negative response, retry succeeds
@@ -1228,6 +1152,6 @@ def ecusim():
 thread = threading.Thread(target=ecusim)
 thread.start()
 time.sleep(0.05)
-assert ReadMemoryByAddress(isotpsock, 0x0, 0x8, timeout=1, retry=1) == payload
+assert GMLAN_ReadMemoryByAddress(isotpsock, 0x0, 0x8, timeout=1, retry=1) == payload
 thread.join()
 

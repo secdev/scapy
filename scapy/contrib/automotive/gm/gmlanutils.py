@@ -1,52 +1,43 @@
-import threading
+#! /usr/bin/env python
+
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more information
+# Copyright (C) Markus Schroetter <xito300@gmail.com>
+# Copyright (C) Nils Weiss <nils@we155.de>
+# This program is published under a GPLv2 license
+
+# scapy.contrib.description = General Motors Local Area Network (GMLAN)
+# scapy.contrib.status = loads
+
 from time import sleep
 from scapy.contrib.automotive.gm.gmlan import GMLAN, GMLAN_SA, GMLAN_RD, \
     GMLAN_TD, GMLAN_PM, GMLAN_RMBA
 from scapy.config import conf
 from scapy.contrib.isotp import ISOTPSocket
 from scapy.error import warning
-
-__all__ = ["TesterPresentThread", "InitDiagnostics", "GetSecurityAccess",
-           "RequestDownload", "TransferData", "TransferPayload",
-           "GMLAN_BroadcastSocket", "ReadMemoryByAddress"]
+from scapy.utils import PeriodicSenderThread
 
 
-class TesterPresentThread(threading.Thread):
-    """Creates a thread to periodically send the TesterPresent message.
-
-    Args:
-        socket: socket to send the message on. When using it on an entire
-                network, a socket for broadcasting is recommended.
-
-    Example:
-      >>> tp = TesterPresentThread(GMLAN_BroadcastSocket('can0'))
-      >>> tp.start()
-      >>> tp.stop()
-    """
-    def __init__(self, socket):
-        super(TesterPresentThread, self).__init__()
-        self._stop_event = threading.Event()
-        self.socket = socket
-
-    def stop(self):
-        self._stop_event.set()
-        self.join()
-
-    def stopped(self):
-        return self._stop_event.is_set()
-
-    def run(self):
-        msgTP = GMLAN(b"\x3e")
-        # Wakeup
-        self.socket.send(msgTP)
-        sleep(0.3)
-        while not self.stopped():
-            self.socket.send(msgTP)
-            self._stop_event.wait(3)
+__all__ = ["GMLAN_TesterPresentSender", "GMLAN_InitDiagnostics",
+           "GMLAN_GetSecurityAccess", "GMLAN_RequestDownload",
+           "GMLAN_TransferData", "GMLAN_TransferPayload",
+           "GMLAN_ReadMemoryByAddress", "GMLAN_BroadcastSocket"]
 
 
-def InitDiagnostics(socket, broadcastsocket=None, timeout=None, verbose=None,
-                    retry=0):
+class GMLAN_TesterPresentSender(PeriodicSenderThread):
+    def __init__(self, sock, pkt=GMLAN(service="TesterPresent"), interval=2):
+        """ Thread to send TesterPresent messages packets periodically
+
+        Args:
+            sock: socket where packet is sent periodically
+            pkt: packet to send
+            interval: interval between two packets
+        """
+        PeriodicSenderThread.__init__(self, sock, pkt, interval)
+
+
+def GMLAN_InitDiagnostics(socket, broadcastsocket=None, timeout=None, 
+                          verbose=None, retry=0):
     """Send messages to put an ECU into an diagnostic/programming state.
 
     Args:
@@ -131,8 +122,8 @@ def InitDiagnostics(socket, broadcastsocket=None, timeout=None, verbose=None,
     return False
 
 
-def GetSecurityAccess(socket, keyFunction, level=1, timeout=None, verbose=None,
-                      retry=0):
+def GMLAN_GetSecurityAccess(socket, keyFunction, level=1, timeout=None, 
+                            verbose=None, retry=0):
     """Authenticate on ECU. Implements Seey-Key procedure.
 
     Args:
@@ -203,7 +194,7 @@ def GetSecurityAccess(socket, keyFunction, level=1, timeout=None, verbose=None,
     return False
 
 
-def RequestDownload(socket, length, timeout=None, verbose=None, retry=0):
+def GMLAN_RequestDownload(socket, length, timeout=None, verbose=None, retry=0):
     """Send RequestDownload message.
 
     Usually used before calling TransferData.
@@ -259,8 +250,8 @@ def RequestDownload(socket, length, timeout=None, verbose=None, retry=0):
     return True
 
 
-def TransferData(socket, addr, payload, maxmsglen=None, timeout=None,
-                 verbose=None, retry=0):
+def GMLAN_TransferData(socket, addr, payload, maxmsglen=None, timeout=None,
+                       verbose=None, retry=0):
     """Send TransferData message.
 
     Usually used after calling RequestDownload.
@@ -338,8 +329,8 @@ def TransferData(socket, addr, payload, maxmsglen=None, timeout=None,
     return True
 
 
-def TransferPayload(socket, addr, payload, maxmsglen=None, timeout=None,
-                    verbose=None, retry=0):
+def GMLAN_TransferPayload(socket, addr, payload, maxmsglen=None, timeout=None,
+                          verbose=None, retry=0):
     """Send data by using GMLAN services.
 
     Args:
@@ -354,17 +345,17 @@ def TransferPayload(socket, addr, payload, maxmsglen=None, timeout=None,
 
     Returns true on success.
     """
-    if not RequestDownload(socket, len(payload), timeout=timeout,
-                           verbose=verbose, retry=retry):
+    if not GMLAN_RequestDownload(socket, len(payload), timeout=timeout,
+                                 verbose=verbose, retry=retry):
         return False
-    if not TransferData(socket, addr, payload, maxmsglen=maxmsglen,
-                        timeout=timeout, verbose=verbose, retry=retry):
+    if not GMLAN_TransferData(socket, addr, payload, maxmsglen=maxmsglen,
+                              timeout=timeout, verbose=verbose, retry=retry):
         return False
     return True
 
 
-def ReadMemoryByAddress(socket, addr, length, timeout=None,
-                        verbose=None, retry=0):
+def GMLAN_ReadMemoryByAddress(socket, addr, length, timeout=None,
+                              verbose=None, retry=0):
     """Read data from ECU memory.
 
     Args:
