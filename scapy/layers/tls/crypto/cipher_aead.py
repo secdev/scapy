@@ -329,8 +329,7 @@ class _AEADCipher_TLS13(six.with_metaclass(_AEADCipherMetaclass, object)):
         else:
             if (conf.crypto_valid_advanced and
                     isinstance(self._cipher, AESCCM)):
-                res = self._cipher.encrypt(self._get_nonce(seq_num), P, A,
-                                           tag_length=self.tag_len)
+                res = self._cipher.encrypt(self._get_nonce(seq_num), P, A)
             else:
                 res = self._cipher.encrypt(self._get_nonce(seq_num), P, A)
         return res
@@ -360,8 +359,7 @@ class _AEADCipher_TLS13(six.with_metaclass(_AEADCipherMetaclass, object)):
             try:
                 if (conf.crypto_valid_advanced and
                         isinstance(self._cipher, AESCCM)):
-                    P = self._cipher.decrypt(self._get_nonce(seq_num), C + mac, A,  # noqa: E501
-                                             tag_length=self.tag_len)
+                    P = self._cipher.decrypt(self._get_nonce(seq_num), C + mac, A)  # noqa: E501
                 else:
                     if (conf.crypto_valid_advanced and
                             isinstance(self, Cipher_CHACHA20_POLY1305)):

@@ -49,12 +49,10 @@ _tls_hash_sig = {0x0000: "none+anon", 0x0001: "none+rsa",
                  0x0502: "sha384+dsa", 0x0503: "sha384+ecdsa",
                  0x0600: "sha512+anon", 0x0601: "sha512+rsa",
                  0x0602: "sha512+dsa", 0x0603: "sha512+ecdsa",
-                 0x0804: "sha256+rsaepss",
-                 0x0805: "sha384+rsaepss",
-                 0x0806: "sha512+rsaepss",
-                 0x0807: "ed25519",
-                 0x0808: "ed448",
-                 0x0809: "sha256+rsapss"}
+                 0x0804: "sha256+rsaepss", 0x0805: "sha384+rsaepss",
+                 0x0806: "sha512+rsaepss", 0x0807: "ed25519",
+                 0x0808: "ed448", 0x0809: "sha256+rsapss",
+                 0x080a: "sha384+rsapss", 0x080b: "sha512+rsapss"}
 
 
 def phantom_mode(pkt):
@@ -165,9 +163,13 @@ class _TLSSignature(_GenericTLSSessionInheritance):
     def __init__(self, *args, **kargs):
         super(_TLSSignature, self).__init__(*args, **kargs)
         if (self.tls_session and
-                self.tls_session.tls_version and
-                self.tls_session.tls_version < 0x0303):
-            self.sig_alg = None
+                self.tls_session.tls_version):
+            if self.tls_session.tls_version < 0x0303:
+                self.sig_alg = None
+            elif self.tls_session.tls_version == 0x0304:
+                # For TLS 1.3 signatures, set the signature
+                # algorithm to RSA-PSS
+                self.sig_alg = 0x0804
 
     def _update_sig(self, m, key):
         """
