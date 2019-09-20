@@ -4,7 +4,6 @@
 # See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Nils Weiss <nils@we155.de>
 # Copyright (C) Enrico Pozzobon <enrico.pozzobon@gmail.com>
-# Copyright (C) Markus Schroetter <project.m.schroetter@gmail.com>
 # This program is published under a GPLv2 license
 
 # scapy.contrib.description = General Motors Local Area Network (GMLAN)
@@ -18,11 +17,9 @@ from scapy.fields import ObservableDict, XByteEnumField, ByteEnumField, \
 from scapy.packet import Packet, bind_layers, NoPayload
 from scapy.config import conf
 from scapy.error import warning, log_loading
-<<<<<<< HEAD
+from scapy.utils import PeriodicSenderThread
 from scapy.contrib.isotp import ISOTP
 
-=======
->>>>>>> Option for treating response pending as answer
 
 """
 GMLAN
@@ -40,7 +37,6 @@ except KeyError:
     conf.contribs['GMLAN'] = {'treat-response-pending-as-answer': False}
 
 conf.contribs['GMLAN']['GMLAN_ECU_AddressingScheme'] = None
-
 
 
 class GMLAN(ISOTP):
