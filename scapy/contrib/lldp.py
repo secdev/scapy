@@ -183,7 +183,7 @@ class LLDPDU(Packet):
         standard_frame_structure = [LLDPDUChassisID.__name__,
                                     LLDPDUPortID.__name__,
                                     LLDPDUTimeToLive.__name__,
-                                    '<...>' ]
+                                    '<...>']
 
         if len(structure_description) < 3:
             raise LLDPInvalidFrameStructure(
