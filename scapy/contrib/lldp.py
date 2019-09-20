@@ -72,13 +72,6 @@ class LLDPInvalidFrameStructure(Scapy_Exception):
     pass
 
 
-class LLDPInvalidLastLayerException(Scapy_Exception):
-    """
-    in strict mode, last layer in frame must be of type LLDPDUEndOfLLDPDU
-    """
-    pass
-
-
 class LLDPMissingLowerLayer(Scapy_Exception):
     """
     first layer below first LLDPDU must be Ethernet or Dot1q
@@ -153,14 +146,6 @@ class LLDPDU(Packet):
 
     def post_build(self, pkt, pay):
 
-        last_layer = not pay
-        if last_layer and conf.contribs['LLDP'].strict_mode() and \
-                type(self).__name__ != LLDPDUEndOfLLDPDU.__name__:
-            raise LLDPInvalidLastLayerException('Last layer must be instance '
-                                                'of LLDPDUEndOfLLDPDU - '
-                                                'got {}'.
-                                                format(type(self).__name__))
-
         under_layer = self.underlayer
 
         if under_layer is None:
@@ -198,10 +183,9 @@ class LLDPDU(Packet):
         standard_frame_structure = [LLDPDUChassisID.__name__,
                                     LLDPDUPortID.__name__,
                                     LLDPDUTimeToLive.__name__,
-                                    '<...>',
-                                    LLDPDUEndOfLLDPDU.__name__]
+                                    '<...>' ]
 
-        if len(structure_description) < 4:
+        if len(structure_description) < 3:
             raise LLDPInvalidFrameStructure(
                 'Invalid frame structure.\ngot: {}\nexpected: '
                 '{}'.format(' '.join(structure_description),
@@ -217,12 +201,6 @@ class LLDPDU(Packet):
                     '{}'.format(' '.join(structure_description),
                                 ' '.join(standard_frame_structure)))
 
-        if structure_description[-1] != standard_frame_structure[-1]:
-            raise LLDPInvalidFrameStructure(
-                'Invalid frame structure.\ngot: {}\nexpected: '
-                '{}'.format(' '.join(structure_description),
-                            ' '.join(standard_frame_structure)))
-
     @staticmethod
     def _tlv_multiplicities_check(tlv_type_count):
         """
@@ -232,7 +210,7 @@ class LLDPDU(Packet):
 
         # * : 0..n, 1 : one and only one.
         standard_multiplicities = {
-            LLDPDUEndOfLLDPDU.__name__: 1,
+            LLDPDUEndOfLLDPDU.__name__: '*',
             LLDPDUChassisID.__name__: 1,
             LLDPDUPortID.__name__: 1,
             LLDPDUTimeToLive.__name__: 1,
