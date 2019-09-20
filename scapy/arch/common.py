@@ -7,6 +7,7 @@
 Functions common to different architectures
 """
 
+import codecs
 import ctypes
 import os
 import socket
@@ -25,6 +26,8 @@ if not WINDOWS:
     from fcntl import ioctl
 
 # BOOT
+
+FAKE_PCAP="d4 c3 b2 a1 02 00 04 00 00 00 00 00 00 00 00 00 00 00 01 00 %02x 00 00 00".replace(' ','')
 
 
 def _check_tcpdump():
@@ -159,26 +162,37 @@ def get_bpf_pointer(tcpdump_lines):
     return bpf_program(size, bip)
 
 
-def compile_filter(bpf_filter, iface=None):
+def compile_filter(bpf_filter, iface=None, iface_type=None):
     """Asks Tcpdump to parse the filter, then build the matching
     BPF bytecode using get_bpf_pointer.
     """
     if not TCPDUMP:
         raise Scapy_Exception("tcpdump is not available. Cannot use filter !")
+    fake_pcap = None
+    tcpdump_opts = [
+        conf.prog.tcpdump,
+        "-ddd",
+        "-s", str(MTU),
+    ]
+    if iface_type:
+        fake_pcap = codecs.getdecoder('hex')(FAKE_PCAP % (iface_type, ))[0]
+        tcpdump_opts.append("-r-")
+    else:
+        tcpdump_opts.extend(["-p", "-i", (conf.iface if iface is None else iface)])
+    tcpdump_opts.append(bpf_filter)
     try:
-        process = subprocess.Popen([
-            conf.prog.tcpdump,
-            "-p",
-            "-i", (conf.iface if iface is None else iface),
-            "-ddd",
-            "-s", str(MTU),
-            bpf_filter],
+        process = subprocess.Popen(
+            tcpdump_opts,
+            stdin=subprocess.PIPE if fake_pcap else None,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE
         )
     except OSError as ex:
         raise Scapy_Exception("Failed to attach filter: %s" % ex)
-    lines, err = process.communicate()
+    if fake_pcap:
+        lines, err = process.communicate(fake_pcap)
+    else:
+        lines, err = process.communicate()
     ret = process.returncode
     if ret:
         raise Scapy_Exception(
