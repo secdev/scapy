@@ -17,7 +17,6 @@ from scapy.fields import ObservableDict, XByteEnumField, ByteEnumField, \
 from scapy.packet import Packet, bind_layers, NoPayload
 from scapy.config import conf
 from scapy.error import warning, log_loading
-from scapy.utils import PeriodicSenderThread
 from scapy.contrib.isotp import ISOTP
 
 
