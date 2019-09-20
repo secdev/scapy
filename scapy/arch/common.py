@@ -42,7 +42,9 @@ def _check_tcpdump():
         return False
 
     # On some systems, --version does not exist on tcpdump
-    return proc.returncode == 0 or output.startswith(b'Usage: tcpdump ')
+    return proc.returncode == 0 \
+        or output.startswith(b'Usage: tcpdump ') \
+        or output.startswith(b'tcpdump: unrecognized option')
 
 
 # This won't be used on Windows
