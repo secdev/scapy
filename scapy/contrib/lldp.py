@@ -30,13 +30,14 @@
     :TODO:
         - | organization specific TLV e.g. ProfiNet
           | (see LLDPDUGenericOrganisationSpecific for a starting point)
+        - Ignore everything after EndofLLDPDUTLV
 
     :NOTES:
         - you can find the layer configuration options at the end of this file
         - default configuration enforces standard conform:
 
           * | frame structure
-            | (ChassisIDTLV/PortIDTLV/TimeToLiveTLV/.../EndofLLDPDUTLV)
+            | (ChassisIDTLV/PortIDTLV/TimeToLiveTLV/...)
           * multiplicity of TLVs (if given by the standard)
           * min sizes of strings used by the TLVs
 
