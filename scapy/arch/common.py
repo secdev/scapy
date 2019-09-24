@@ -27,7 +27,8 @@ if not WINDOWS:
 
 # BOOT
 
-FAKE_PCAP="d4 c3 b2 a1 02 00 04 00 00 00 00 00 00 00 00 00 00 00 01 00 %02x 00 00 00".replace(' ','')
+FAKE_PCAP = ("d4 c3 b2 a1 02 00 04 00 00 00 00 00 00"
+             "00 00 00 00 00 01 00 %02x 00 00 00").replace(' ', '')
 
 
 def _check_tcpdump():
@@ -178,7 +179,9 @@ def compile_filter(bpf_filter, iface=None, iface_type=None):
         fake_pcap = codecs.getdecoder('hex')(FAKE_PCAP % (iface_type, ))[0]
         tcpdump_opts.append("-r-")
     else:
-        tcpdump_opts.extend(["-p", "-i", (conf.iface if iface is None else iface)])
+        tcpdump_opts.extend(
+            ["-p", "-i", (conf.iface if iface is None else iface)]
+        )
     tcpdump_opts.append(bpf_filter)
     try:
         process = subprocess.Popen(

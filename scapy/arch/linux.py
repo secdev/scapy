@@ -131,8 +131,8 @@ ARPHRD_IEEE80211_PRISM = 802
 ARPHRD_IEEE80211_RADIOTAP = 803
 ARPHRD_IEEE802154 = 804
 ARPHRD_NETLINK = 824
-ARPHRD_VSOCKMON = 826 # from pcap/pcap-linux.c
-ARPHRD_LAPD = 8445 # from pcap/pcap-linux.c
+ARPHRD_VSOCKMON = 826  # from pcap/pcap-linux.c
+ARPHRD_LAPD = 8445  # from pcap/pcap-linux.c
 ARPHRD_NONE = 0xFFFE
 
 
