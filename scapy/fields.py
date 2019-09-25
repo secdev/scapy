@@ -1037,68 +1037,113 @@ class PacketLenField(PacketField):
 
 
 class PacketListField(PacketField):
-    """ PacketListField represents a series of Packet instances that might occur right in the middle of another Packet  # noqa: E501
-    field list.
-    This field type may also be used to indicate that a series of Packet instances have a sibling semantic instead of  # noqa: E501
-    a parent/child relationship (i.e. a stack of layers).
+    """PacketListField represents a series of Packet instances that might
+    occur right in the middle of another Packet field list.
+    This field type may also be used to indicate that a series of Packet
+    instances have a sibling semantic instead of a parent/child relationship
+    (i.e. a stack of layers).
     """
     __slots__ = ["count_from", "length_from", "next_cls_cb"]
     islist = 1
 
     def __init__(self, name, default, cls=None, count_from=None, length_from=None, next_cls_cb=None):  # noqa: E501
-        """ The number of Packet instances that are dissected by this field can be parametrized using one of three  # noqa: E501
-        different mechanisms/parameters:
-            * count_from: a callback that returns the number of Packet instances to dissect. The callback prototype is:  # noqa: E501
-            count_from(pkt:Packet) -> int
-            * length_from: a callback that returns the number of bytes that must be dissected by this field. The  # noqa: E501
-            callback prototype is:
-            length_from(pkt:Packet) -> int
-            * next_cls_cb: a callback that enables a Scapy developer to dynamically discover if another Packet instance  # noqa: E501
-            should be dissected or not. See below for this callback prototype.
+        """
+        The number of Packet instances that are dissected by this field can
+        be parametrized using one of three different mechanisms/parameters:
 
-        The bytes that are not consumed during the dissection of this field are passed to the next field of the current  # noqa: E501
-        packet.
+            * count_from: a callback that returns the number of Packet
+              instances to dissect. The callback prototype is::
 
-        For the serialization of such a field, the list of Packets that are contained in a PacketListField can be  # noqa: E501
-        heterogeneous and is unrestricted.
+                count_from(pkt:Packet) -> int
 
-        The type of the Packet instances that are dissected with this field is specified or discovered using one of the  # noqa: E501
-        following mechanism:
-            * the cls parameter may contain a callable that returns an instance of the dissected Packet. This  # noqa: E501
-                may either be a reference of a Packet subclass (e.g. DNSRROPT in layers/dns.py) to generate an  # noqa: E501
-                homogeneous PacketListField or a function deciding the type of the Packet instance  # noqa: E501
-                (e.g. _CDPGuessAddrRecord in contrib/cdp.py)
-            * the cls parameter may contain a class object with a defined "dispatch_hook" classmethod. That  # noqa: E501
-                method must return a Packet instance. The dispatch_hook callmethod must implement the following prototype:  # noqa: E501
-                dispatch_hook(cls, _pkt:Optional[Packet], *args, **kargs) -> Packet_metaclass  # noqa: E501
-                The _pkt parameter may contain a reference to the packet instance containing the PacketListField that is  # noqa: E501
-                being dissected.
-            * the next_cls_cb parameter may contain a callable whose prototype is:  # noqa: E501
-                cbk(pkt:Packet, lst:List[Packet], cur:Optional[Packet], remain:str) -> Optional[Packet_metaclass]  # noqa: E501
-                The pkt argument contains a reference to the Packet instance containing the PacketListField that is  # noqa: E501
-                being dissected. The lst argument is the list of all Packet instances that were previously parsed during  # noqa: E501
-                the current PacketListField dissection, save for the very last Packet instance. The cur argument  # noqa: E501
-                contains a reference to that very last parsed Packet instance. The remain argument contains the bytes  # noqa: E501
-                that may still be consumed by the current PacketListField dissection operation. This callback returns  # noqa: E501
-                either the type of the next Packet to dissect or None to indicate that no more Packet are to be  # noqa: E501
+            * length_from: a callback that returns the number of bytes that
+              must be dissected by this field. The callback prototype is::
+
+                length_from(pkt:Packet) -> int
+
+            * next_cls_cb: a callback that enables a Scapy developer to
+              dynamically discover if another Packet instance should be
+              dissected or not. See below for this callback prototype.
+
+        The bytes that are not consumed during the dissection of this field
+        are passed to the next field of the current packet.
+
+        For the serialization of such a field, the list of Packets that are
+        contained in a PacketListField can be heterogeneous and is
+        unrestricted.
+
+        The type of the Packet instances that are dissected with this field is
+        specified or discovered using one of the following mechanism:
+
+            * the cls parameter may contain a callable that returns an
+              instance of the dissected Packet. This may either be a
+              reference of a Packet subclass (e.g. DNSRROPT in layers/dns.py)
+              to generate an homogeneous PacketListField or a function
+              deciding the type of the Packet instance
+              (e.g. _CDPGuessAddrRecord in contrib/cdp.py)
+
+            * the cls parameter may contain a class object with a defined
+              ``dispatch_hook`` classmethod. That method must return a Packet
+              instance. The ``dispatch_hook`` callmethod must implement the
+                following prototype::
+
+                dispatch_hook(cls,
+                              _pkt:Optional[Packet],
+                              *args, **kargs
+                ) -> Packet_metaclass
+
+                The _pkt parameter may contain a reference to the packet
+                instance containing the PacketListField that is being
                 dissected.
-                These four arguments allows a variety of dynamic discovery of the number of Packet to dissect and of the  # noqa: E501
-                type of each one of these Packets, including: type determination based on current Packet instances or  # noqa: E501
-                its underlayers, continuation based on the previously parsed Packet instances within that  # noqa: E501
-                PacketListField, continuation based on a look-ahead on the bytes to be dissected...  # noqa: E501
 
-        The cls and next_cls_cb parameters are semantically exclusive, although one could specify both. If both are  # noqa: E501
-        specified, cls is silently ignored. The same is true for count_from and next_cls_cb.  # noqa: E501
-        length_from and next_cls_cb are compatible and the dissection will end, whichever of the two stop conditions  # noqa: E501
-        comes first.
+            * the ``next_cls_cb`` parameter may contain a callable whose
+              prototype is::
 
-        @param name: the name of the field
-        @param default: the default value of this field; generally an empty Python list  # noqa: E501
-        @param cls: either a callable returning a Packet instance or a class object defining a dispatch_hook class  # noqa: E501
-            method
-        @param count_from: a callback returning the number of Packet instances to dissect  # noqa: E501
-        @param length_from: a callback returning the number of bytes to dissect
-        @param next_cls_cb: a callback returning either None or the type of the next Packet to dissect.  # noqa: E501
+                cbk(pkt:Packet,
+                    lst:List[Packet],
+                    cur:Optional[Packet],
+                    remain:str
+                ) -> Optional[Packet_metaclass]
+
+              The pkt argument contains a reference to the Packet instance
+              containing the PacketListField that is being dissected.
+              The lst argument is the list of all Packet instances that were
+              previously parsed during the current ``PacketListField``
+              dissection, saved for the very last Packet instance.
+              The cur argument contains a reference to that very last parsed
+              ``Packet`` instance. The remain argument contains the bytes
+              that may still be consumed by the current PacketListField
+              dissection operation.
+
+              This callback returns either the type of the next Packet to
+              dissect or None to indicate that no more Packet are to be
+              dissected.
+
+              These four arguments allows a variety of dynamic discovery of
+              the number of Packet to dissect and of the type of each one of
+              these Packets, including: type determination based on current
+              Packet instances or its underlayers, continuation based on the
+              previously parsed Packet instances within that PacketListField,
+              continuation based on a look-ahead on the bytes to be
+              dissected...
+
+        The cls and next_cls_cb parameters are semantically exclusive,
+        although one could specify both. If both are specified, cls is
+        silently ignored. The same is true for count_from and next_cls_cb.
+
+        length_from and next_cls_cb are compatible and the dissection will
+        end, whichever of the two stop conditions comes first.
+
+        :param name: the name of the field
+        :param default: the default value of this field; generally an empty
+            Python list
+        @param cls: either a callable returning a Packet instance or a class
+            object defining a ``dispatch_hook`` class method
+        :param count_from: a callback returning the number of Packet
+            instances to dissect.
+        :param length_from: a callback returning the number of bytes to dissect
+        :param next_cls_cb: a callback returning either None or the type of
+            the next Packet to dissect.
         """
         if default is None:
             default = []  # Create a new list for each instance
