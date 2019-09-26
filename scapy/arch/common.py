@@ -28,7 +28,7 @@ if not WINDOWS:
 # BOOT
 
 FAKE_PCAP = ("d4 c3 b2 a1 02 00 04 00 00 00 00 00 00"
-             "00 00 00 00 00 01 00 %02x 00 00 00").replace(' ', '')
+             "00 00 00 ff ff 00 00 %02x 00 00 00").replace(' ', '')
 
 
 def _check_tcpdump():
