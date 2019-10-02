@@ -16,6 +16,15 @@ assert a.E == a.S == a.PN == 0
 a = GTPHeader(raw(GTP_U_Header()/GTPErrorIndication()))
 assert isinstance(a, GTP_U_Header)
 
+a.show(dump=True)
+
+= GTP_U_Header with PDU Session Container
+
+a = GTPHeader(raw(GTP_U_Header()/GTPPDUSessionContainer()))
+assert isinstance(a, GTP_U_Header)
+
+a.show(dump=True)
+
 = GTP_U_Header sub layers
 
 a = IPv6(raw(IPv6()/UDP()/GTP_U_Header()/IPv6()))
