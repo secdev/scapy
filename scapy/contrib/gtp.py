@@ -295,7 +295,7 @@ class GTPPDUSessionContainer(Packet):
                   BitField("R", 0, 1),
                   BitField("QFI", 0, 6),
                   ConditionalField(XBitField("PPI", 0, 3), lambda pkt: pkt.P == 1),
-                  ConditionalField(XBitField("space2", 0, 5), lambda pkt: pkt.P == 1),
+                  ConditionalField(XBitField("spare2", 0, 5), lambda pkt: pkt.P == 1),
                   ConditionalField(ByteField("pad1", 0), lambda pkt: pkt.P == 1),
                   ConditionalField(ByteField("pad2", 0), lambda pkt: pkt.P == 1),
                   ConditionalField(ByteField("pad3", 0), lambda pkt: pkt.P == 1),
