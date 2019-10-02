@@ -24,6 +24,7 @@ a = GTPHeader(raw(GTP_U_Header()/GTPPDUSessionContainer()))
 assert isinstance(a, GTP_U_Header)
 
 a.show(dump=True)
+hexdump(a)
 
 = GTP_U_Header sub layers
 
