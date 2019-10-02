@@ -148,6 +148,7 @@ ExtensionHeadersTypes = {
     1: "Reserved",
     2: "Reserved",
     64: "UDP Port",
+    133: "PDU Session Container",
     192: "PDCP PDU Number",
     193: "Reserved",
     194: "Reserved"
@@ -283,6 +284,22 @@ GTPforcedTypes = {
     254: GTP_U_Header,
     255: GTP_U_Header
 }
+
+
+class GTPPDUSessionContainer(Packet):
+    name = "GTP PDU Session Container"
+    field_desc = [ByteField("ExtHdrLen", 2),
+                  BitField("type", 0, 4),
+                  BitField("spare1", 0, 4),
+                  BitField("P", 0, 1),
+                  BitField("R", 0, 1),
+                  BitField("QFI", 0, 6),
+                  BitField("PPT", 0, 4),
+                  BitField("spare2", 0, 4),
+                  ByteField("pad1", 0),
+                  ByteField("pad2", 0),
+                  ByteField("pad3", 0),
+                  ByteEnumField("NextExtHdr", 0, ExtensionHeadersTypes),]
 
 
 class GTPEchoRequest(Packet):
@@ -923,6 +940,7 @@ bind_bottom_up(UDP, GTP_U_Header, dport=2152)
 bind_bottom_up(UDP, GTP_U_Header, sport=2152)
 bind_layers(UDP, GTP_U_Header, dport=2152, sport=2152)
 bind_layers(GTP_U_Header, GTPErrorIndication, gtp_type=26, S=1)
+bind_layers(GTP_U_Header, GTPPDUSessionContainer, gtp_type=255, E=1, next_ex=0x85)
 bind_top_down(GTP_U_Header, IP, gtp_type=255)
 bind_top_down(GTP_U_Header, IPv6, gtp_type=255)
 bind_top_down(GTP_U_Header, PPP, gtp_type=255)
