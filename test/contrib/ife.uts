@@ -1,0 +1,34 @@
+% IFE test campaign
+
+#
+# execute test:
+# > test/run_tests -P "load_contrib('ife')" -t test/contrib/ife.uts
+#
+
++ Basic layer handling
+= build basic IFE frames
+
+frm = Ether()/IFE(tlvs=[IFESKBMark(value=3), IFETCIndex(value=5)])
+
+frm = Ether(bytes(frm))
+
+assert(IFE in frm)
+assert(frm[IFE].tlvs[0].type == 1)
+assert(frm[IFE].tlvs[0].length == 8)
+assert(frm[IFE].tlvs[0].value == 3)
+assert(frm[IFE].tlvs[1].type == 5)
+assert(frm[IFE].tlvs[1].length == 6)
+assert(frm[IFE].tlvs[1].value == 5)
+
+= add padding if required
+
+frm = Ether()/IFE(tlvs=[IFETCIndex()])
+assert(len(raw(frm)) == 24)
+
+frm = Ether()/IFE(tlvs=[IFESKBMark(), IFETCIndex()])
+assert(len(raw(frm)) == 32)
+
+= variable payload
+
+frm = Ether(src="aa:aa:aa:aa:aa:aa", dst="bb:bb:bb:bb:bb:bb")/IFE(tlvs=[IFETlvStr("testsr")])
+assert bytes(frm) == b'\xbb\xbb\xbb\xbb\xbb\xbb\xaa\xaa\xaa\xaa\xaa\xaa\xed>\x00\x08testsr'

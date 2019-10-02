@@ -42,17 +42,18 @@ setup(
         ]
     },
     python_requires='>=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, <4',
+    # pip > 9 handles all the versioning
     extras_require={
         'basic': ["ipython"],
         'complete': [
-            'ipython>=7;  python_version>="3"',
-            'ipython<6;  python_version<"3"',
-            'pyx>=0.14; python_version>="3"',
-            'pyx==0.12.1; python_version<"3"',
-            'cryptography',
+            'ipython',
+            'pyx',
+            'cryptography>=2.0',
             'matplotlib'
         ]
     },
+    # We use __file__ in scapy/__init__.py, therefore Scapy isn't zip safe
+    zip_safe=False,
 
     # Metadata
     author='Philippe BIONDI',

@@ -38,10 +38,10 @@ assert test2e[CtrlPDU].version == 7
 
 = BTLE_DATA + ATT_PrepareWriteReq
 
-test3 = BTLE(access_addr=1) / BTLE_DATA() / L2CAP_Hdr() / ATT_Hdr() / ATT_PrepareWriteReq(handle = 0xa, value="test")
+test3 = BTLE(access_addr=1) / BTLE_DATA() / L2CAP_Hdr() / ATT_Hdr() / ATT_Prepare_Write_Request(gatt_handle = 0xa, data="test")
 test3e = BTLE(raw(test3))
-assert test3e[ATT_PrepareWriteReq].value == b"test"
-assert test3e[ATT_PrepareWriteReq].handle == 0xa
+assert test3e[ATT_Prepare_Write_Request].data == b"test"
+assert test3e[ATT_Prepare_Write_Request].gatt_handle == 0xa
 assert test3e[ATT_Hdr].opcode == 0x16
 
 

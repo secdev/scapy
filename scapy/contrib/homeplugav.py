@@ -477,7 +477,7 @@ class ReadMACMemoryConfirmation(Packet):
                    ]
 
 ######################################################################
-# Read Module Datas
+# Read Module Data
 ######################################################################
 
 
@@ -524,7 +524,7 @@ class ReadModuleDataConfirmation(Packet):
         return p + pay
 
 ######################################################################
-# Write Module Datas
+# Write Module Data
 ######################################################################
 
 

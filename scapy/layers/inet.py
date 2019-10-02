@@ -13,8 +13,8 @@ import time
 import struct
 import re
 import random
+import select
 import socket
-from select import select
 from collections import defaultdict
 
 from scapy.utils import checksum, do_graph, incremental_label, \
@@ -33,7 +33,7 @@ from scapy.fields import ConditionalField, IPField, BitField, BitEnumField, \
     DestField, FieldListField, FlagsField, IntField, MultiEnumField, \
     PacketListField, ShortEnumField, SourceIPField, StrField, \
     StrFixedLenField, XByteField, XShortField, Emph
-from scapy.packet import Packet, bind_layers, NoPayload
+from scapy.packet import Packet, bind_layers, bind_bottom_up, NoPayload
 from scapy.volatile import RandShort, RandInt, RandBin, RandNum, VolatileValue
 from scapy.sendrecv import sr, sr1
 from scapy.plist import PacketList, SndRcvList
@@ -340,7 +340,10 @@ class TCPOptionsField(StrField):
                 opt.append(("NOP", None))
                 x = x[1:]
                 continue
-            olen = orb(x[1])
+            try:
+                olen = orb(x[1])
+            except IndexError:
+                olen = 0
             if olen < 2:
                 warning("Malformed TCP option (announced length is %i)" % olen)
                 olen = 2
@@ -622,8 +625,10 @@ class TCP(Packet):
         p += pay
         dataofs = self.dataofs
         if dataofs is None:
-            dataofs = 5 + ((len(self.get_field("options").i2m(self, self.options)) + 3) // 4)  # noqa: E501
-            p = p[:12] + chb((dataofs << 4) | orb(p[12]) & 0x0f) + p[13:]
+            opt_len = len(self.get_field("options").i2m(self, self.options))
+            dataofs = 5 + ((opt_len + 3) // 4)
+            dataofs = (dataofs << 4) | orb(p[12]) & 0x0f
+            p = p[:12] + chb(dataofs & 0xff) + p[13:]
         if self.chksum is None:
             if isinstance(self.underlayer, IP):
                 ck = in4_chksum(socket.IPPROTO_TCP, self.underlayer, p)
@@ -940,8 +945,8 @@ bind_layers(Ether, IP, type=2048)
 bind_layers(CookedLinux, IP, proto=2048)
 bind_layers(GRE, IP, proto=2048)
 bind_layers(SNAP, IP, code=2048)
-bind_layers(Loopback, IP, type=0)
-bind_layers(Loopback, IP, type=2)
+bind_bottom_up(Loopback, IP, type=0)
+bind_layers(Loopback, IP, type=socket.AF_INET)
 bind_layers(IPerror, IPerror, frag=0, proto=4)
 bind_layers(IPerror, ICMPerror, frag=0, proto=1)
 bind_layers(IPerror, TCPerror, frag=0, proto=6)
@@ -1642,8 +1647,17 @@ Touch screen: pinch/extend to zoom, swipe or two-finger rotate."""
 @conf.commands.register
 def traceroute(target, dport=80, minttl=1, maxttl=30, sport=RandShort(), l4=None, filter=None, timeout=2, verbose=None, **kargs):  # noqa: E501
     """Instant TCP traceroute
-traceroute(target, [maxttl=30,] [dport=80,] [sport=80,] [verbose=conf.verb]) -> None  # noqa: E501
-"""
+
+       :param target:  hostnames or IP addresses
+       :param dport:   TCP destination port (default is 80)
+       :param minttl:  minimum TTL (default is 1)
+       :param maxttl:  maximum TTL (default is 30)
+       :param sport:   TCP source port (default is random)
+       :param l4:      use a Scapy packet instead of TCP
+       :param filter:  BPF filter applied to received packets
+       :param timeout: time to wait for answers (default is 2s)
+       :param verbose: detailed output
+       :return: an TracerouteResult, and a list of unanswered packets"""
     if verbose is None:
         verbose = conf.verb
     if filter is None:
@@ -1670,9 +1684,10 @@ traceroute(target, [maxttl=30,] [dport=80,] [sport=80,] [verbose=conf.verb]) -> 
 def traceroute_map(ips, **kargs):
     """Util function to call traceroute on multiple targets, then
     show the different paths on a map.
-    params:
-     - ips: a list of IPs on which traceroute will be called
-     - optional: kwargs, passed to traceroute"""
+
+    :param ips: a list of IPs on which traceroute will be called
+    :param kargs: (optional) kwargs, passed to traceroute
+    """
     kargs.setdefault("verbose", 0)
     return traceroute(ips)[0].world_trace()
 
@@ -1682,24 +1697,35 @@ def traceroute_map(ips, **kargs):
 
 
 class TCP_client(Automaton):
+    """
+    Creates a TCP Client Automaton.
+    This automaton will handle TCP 3-way handshake.
 
+    Usage: the easiest usage is to use it as a SuperSocket.
+        >>> a = TCP_client.tcplink(HTTP, "www.google.com", 80)
+        >>> a.send(HTTPRequest())
+        >>> a.recv()
+    """
     def parse_args(self, ip, port, *args, **kargs):
+        from scapy.sessions import TCPSession
         self.dst = str(Net(ip))
         self.dport = port
         self.sport = random.randrange(0, 2**16)
         self.l4 = IP(dst=ip) / TCP(sport=self.sport, dport=self.dport, flags=0,
                                    seq=random.randrange(0, 2**32))
         self.src = self.l4.src
-        self.swin = self.l4[TCP].window
-        self.dwin = 1
-        self.rcvbuf = b""
+        self.sack = self.l4[TCP].ack
+        self.rel_seq = None
+        self.rcvbuf = TCPSession(self._transmit_packet, False)
         bpf = "host %s  and host %s and port %i and port %i" % (self.src,
                                                                 self.dst,
                                                                 self.sport,
                                                                 self.dport)
-
-#        bpf=None
         Automaton.parse_args(self, filter=bpf, **kargs)
+
+    def _transmit_packet(self, pkt):
+        """Transmits a packet from TCPSession to the SuperSocket"""
+        self.oi.tcp.send(pkt[TCP].payload)
 
     def master_filter(self, pkt):
         return (IP in pkt and
@@ -1709,7 +1735,7 @@ class TCP_client(Automaton):
                 pkt[TCP].sport == self.dport and
                 pkt[TCP].dport == self.sport and
                 self.l4[TCP].seq >= pkt[TCP].ack and  # XXX: seq/ack 2^32 wrap up  # noqa: E501
-                ((self.l4[TCP].ack == 0) or (self.l4[TCP].ack <= pkt[TCP].seq <= self.l4[TCP].ack + self.swin)))  # noqa: E501
+                ((self.l4[TCP].ack == 0) or (self.sack <= pkt[TCP].seq <= self.l4[TCP].ack + pkt[TCP].window)))  # noqa: E501
 
     @ATMT.state(initial=1)
     def START(self):
@@ -1743,7 +1769,7 @@ class TCP_client(Automaton):
 
     @ATMT.receive_condition(SYN_SENT)
     def synack_received(self, pkt):
-        if pkt[TCP].flags & 0x3f == 0x12:
+        if pkt[TCP].flags.SA:
             raise self.ESTABLISHED().action_parameters(pkt)
 
     @ATMT.action(synack_received)
@@ -1754,20 +1780,20 @@ class TCP_client(Automaton):
 
     @ATMT.receive_condition(ESTABLISHED)
     def incoming_data_received(self, pkt):
-        if not isinstance(pkt[TCP].payload, NoPayload) and not isinstance(pkt[TCP].payload, conf.padding_layer):  # noqa: E501
+        if not isinstance(pkt[TCP].payload, (NoPayload, conf.padding_layer)):
             raise self.ESTABLISHED().action_parameters(pkt)
 
     @ATMT.action(incoming_data_received)
     def receive_data(self, pkt):
         data = raw(pkt[TCP].payload)
         if data and self.l4[TCP].ack == pkt[TCP].seq:
+            self.sack = self.l4[TCP].ack
             self.l4[TCP].ack += len(data)
             self.l4[TCP].flags = "A"
+            # Answer with an Ack
             self.send(self.l4)
-            self.rcvbuf += data
-            if pkt[TCP].flags.P:
-                self.oi.tcp.send(self.rcvbuf)
-                self.rcvbuf = b""
+            # Process data - will be sent to the SuperSocket through this
+            self.rcvbuf.on_packet_received(pkt)
 
     @ATMT.ioevent(ESTABLISHED, name="tcp", as_supersocket="tcplink")
     def outgoing_data_received(self, fd):
@@ -1781,12 +1807,12 @@ class TCP_client(Automaton):
 
     @ATMT.receive_condition(ESTABLISHED)
     def reset_received(self, pkt):
-        if pkt[TCP].flags & 4 != 0:
+        if pkt[TCP].flags.R:
             raise self.CLOSED()
 
     @ATMT.receive_condition(ESTABLISHED)
     def fin_received(self, pkt):
-        if pkt[TCP].flags & 0x1 == 1:
+        if pkt[TCP].flags.F:
             raise self.LAST_ACK().action_parameters(pkt)
 
     @ATMT.action(fin_received)
@@ -1798,7 +1824,7 @@ class TCP_client(Automaton):
 
     @ATMT.receive_condition(LAST_ACK)
     def ack_of_fin_received(self, pkt):
-        if pkt[TCP].flags & 0x3f == 0x10:
+        if pkt[TCP].flags.A:
             raise self.CLOSED()
 
 
@@ -1849,20 +1875,21 @@ funcpres: a function used to summarize packets"""
 
 
 @conf.commands.register
-def fragleak(target, sport=123, dport=123, timeout=0.2, onlyasc=0):
+def fragleak(target, sport=123, dport=123, timeout=0.2, onlyasc=0, count=None):
     load = "XXXXYYYYYYYYYY"
-#    getmacbyip(target)
-#    pkt = IP(dst=target, id=RandShort(), options=b"\x22"*40)/UDP()/load
-    pkt = IP(dst=target, id=RandShort(), options=b"\x00" * 40, flags=1) / UDP(sport=sport, dport=sport) / load  # noqa: E501
+    pkt = IP(dst=target, id=RandShort(), options=b"\x00" * 40, flags=1)
+    pkt /= UDP(sport=sport, dport=sport) / load
     s = conf.L3socket()
     intr = 0
     found = {}
     try:
-        while True:
+        while count is None or count:
+            if count is not None and isinstance(count, int):
+                count -= 1
             try:
                 if not intr:
                     s.send(pkt)
-                sin, sout, serr = select([s], [], [], timeout)
+                sin = select.select([s], [], [], timeout)[0]
                 if not sin:
                     continue
                 ans = s.recv(1600)
@@ -1876,18 +1903,8 @@ def fragleak(target, sport=123, dport=123, timeout=0.2, onlyasc=0):
                     continue
                 if ans.src != target:
                     print("leak from", ans.src, end=' ')
-
-
-#                print repr(ans)
                 if not ans.haslayer(conf.padding_layer):
                     continue
-
-
-#                print repr(ans.payload.payload.payload.payload)
-
-#                if not isinstance(ans.payload.payload.payload.payload, conf.raw_layer):  # noqa: E501
-#                    continue
-#                leak = ans.payload.payload.payload.payload.load[len(load):]
                 leak = ans.getlayer(conf.padding_layer).load
                 if leak not in found:
                     found[leak] = None
@@ -1901,11 +1918,16 @@ def fragleak(target, sport=123, dport=123, timeout=0.2, onlyasc=0):
 
 
 @conf.commands.register
-def fragleak2(target, timeout=0.4, onlyasc=0):
+def fragleak2(target, timeout=0.4, onlyasc=0, count=None):
     found = {}
     try:
-        while True:
-            p = sr1(IP(dst=target, options=b"\x00" * 40, proto=200) / "XXXXYYYYYYYYYYYY", timeout=timeout, verbose=0)  # noqa: E501
+        while count is None or count:
+            if count is not None and isinstance(count, int):
+                count -= 1
+
+            pkt = IP(dst=target, options=b"\x00" * 40, proto=200)
+            pkt /= "XXXXYYYYYYYYYYYY"
+            p = sr1(pkt, timeout=timeout, verbose=0)
             if not p:
                 continue
             if conf.padding_layer in p:

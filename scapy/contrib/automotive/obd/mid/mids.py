@@ -10,6 +10,7 @@ from scapy.fields import FlagsField, ScalingField, ByteEnumField, \
     MultipleTypeField, ShortField, ShortEnumField, PacketListField
 from scapy.packet import Packet, bind_layers
 from scapy.contrib.automotive.obd.packet import OBD_Packet
+from scapy.contrib.automotive.obd.services import OBD_S06
 
 
 def _unit_and_scaling_fields(name):
@@ -458,6 +459,10 @@ class OBD_S06_PR(Packet):
     fields_desc = [
         PacketListField("data_records", [], OBD_S06_PR_Record)
     ]
+
+    def answers(self, other):
+        return other.__class__ == OBD_S06 \
+            and all(r.mid in other.mid for r in self.data_records)
 
 
 bind_layers(OBD_S06_PR_Record, OBD_MID00, mid=0x00)

@@ -1,0 +1,39 @@
++ SOCKS 4/5 tests
+
+= Basic build and dissection - test version dispatch
+
+p1 = Ether(raw(Ether()/IP()/TCP()/SOCKS()/SOCKS5Request()))
+p2 = Ether(raw(Ether()/IP()/TCP()/SOCKS()/SOCKS5Reply()))
+p3 = Ether(raw(Ether()/IP()/TCP()/SOCKS()/SOCKS4Request()))
+p4 = Ether(raw(Ether()/IP()/TCP()/SOCKS()/SOCKS4Reply()))
+
+assert p1[TCP].dport == 1080
+assert p1[SOCKS].vn == 0x5
+assert SOCKS5Request in p1
+
+assert p2[TCP].sport == 1080
+assert p2[SOCKS].vn == 0x5
+assert SOCKS5Reply in p2
+
+assert p3[TCP].dport == 1080
+assert p3[SOCKS].vn == 0x4
+assert SOCKS4Request in p3
+
+assert p4[TCP].sport == 1080
+assert p4[SOCKS].vn == 0x0
+assert SOCKS4Reply in p4
+
+= SOCKS5Request build and dissection
+
+pkt = IP(dst="127.0.0.1", src="127.0.0.1")/TCP(sport=123)/SOCKS()/SOCKS5Request(atyp=0x3, addr="scapy.net")
+assert raw(pkt) == b'E\x00\x009\x00\x01\x00\x00@\x06|\xbc\x7f\x00\x00\x01\x7f\x00\x00\x01\x049\x048\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\xf2*\x00\x00\x05\x00\x00\x03\x05scapy\x03net\x00\x00P'
+pkt = IP(raw(pkt))
+
+assert SOCKS5Request in pkt
+assert pkt[SOCKS5Request].addr == b'scapy.net.'
+
+= Test SOCKSv5 over UDP
+
+pkt = Ether()/IP()/UDP()/SOCKS5UDP(port=53)/DNS()
+pkt = Ether(raw(pkt))
+assert DNS in pkt

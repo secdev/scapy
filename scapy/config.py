@@ -17,9 +17,7 @@ import socket
 import sys
 
 from scapy import VERSION, base_classes
-from scapy.consts import DARWIN, WINDOWS, LINUX, BSD
-from scapy.data import ETHER_TYPES, IP_PROTOS, TCP_SERVICES, UDP_SERVICES, \
-    MANUFDB
+from scapy.consts import DARWIN, WINDOWS, LINUX, BSD, SOLARIS
 from scapy.error import log_scapy, warning, ScapyInvalidPlatformException
 from scapy.modules import six
 from scapy.themes import NoTheme, apply_ipython_style
@@ -53,7 +51,8 @@ class ConfClass(object):
 
 
 class Interceptor(object):
-    def __init__(self, name, default, hook, args=None, kargs=None):
+    def __init__(self, name=None, default=None,
+                 hook=None, args=None, kargs=None):
         self.name = name
         self.intname = "_intercepted_%s" % name
         self.default = default
@@ -76,10 +75,24 @@ class Interceptor(object):
         self.hook(self.name, val, *self.args, **self.kargs)
 
 
+def _readonly(name):
+    default = Conf.__dict__[name].default
+    Interceptor.set_from_hook(conf, name, default)
+    raise ValueError("Read-only value !")
+
+
+ReadOnlyAttribute = functools.partial(
+    Interceptor,
+    hook=(lambda name, *args, **kwargs: _readonly(name))
+)
+ReadOnlyAttribute.__doc__ = "Read-only class attribute"
+
+
 class ProgPath(ConfClass):
-    pdfreader = "open" if DARWIN else "xdg-open"
-    psreader = "open" if DARWIN else "xdg-open"
-    svgreader = "open" if DARWIN else "xdg-open"
+    universal_open = "open" if DARWIN else "xdg-open"
+    pdfreader = universal_open
+    psreader = universal_open
+    svgreader = universal_open
     dot = "dot"
     display = "display"
     tcpdump = "tcpdump"
@@ -211,6 +224,7 @@ class CommandsList(list):
 
 
 def lsc():
+    """Displays Scapy's default commands"""
     print(repr(conf.commands))
 
 
@@ -344,15 +358,6 @@ class NetCache:
         return "\n".join(c.summary() for c in self._caches_list)
 
 
-class LogLevel(object):
-    def __get__(self, obj, otype):
-        return obj._logLevel
-
-    def __set__(self, obj, val):
-        log_scapy.setLevel(val)
-        obj._logLevel = val
-
-
 def _version_checker(module, minver):
     """Checks that module has a higher version that minver.
 
@@ -432,26 +437,30 @@ def _set_conf_sockets():
     """Populate the conf.L2Socket and conf.L3Socket
     according to the various use_* parameters
     """
+    from scapy.main import _load
     if conf.use_bpf and not BSD:
         Interceptor.set_from_hook(conf, "use_bpf", False)
         raise ScapyInvalidPlatformException("BSD-like (OSX, *BSD...) only !")
-    if conf.use_winpcapy and not WINDOWS:
-        Interceptor.set_from_hook(conf, "use_winpcapy", False)
-        raise ScapyInvalidPlatformException("Windows only !")
+    if not conf.use_pcap and SOLARIS:
+        Interceptor.set_from_hook(conf, "use_pcap", True)
+        raise ScapyInvalidPlatformException(
+            "Scapy only supports libpcap on Solaris !"
+        )
     # we are already in an Interceptor hook, use Interceptor.set_from_hook
-    if conf.use_pcap or conf.use_dnet or conf.use_winpcapy:
+    if conf.use_pcap or conf.use_dnet:
         try:
             from scapy.arch.pcapdnet import L2pcapListenSocket, L2pcapSocket, \
                 L3pcapSocket
-        except ImportError:
-            warning("No pcap provider available ! pcap won't be used")
-            Interceptor.set_from_hook(conf, "use_winpcapy", False)
+        except (OSError, ImportError):
+            warning("No libpcap provider available ! pcap won't be used")
             Interceptor.set_from_hook(conf, "use_pcap", False)
         else:
             conf.L3socket = L3pcapSocket
             conf.L3socket6 = functools.partial(L3pcapSocket, filter="ip6")
             conf.L2socket = L2pcapSocket
             conf.L2listen = L2pcapListenSocket
+            # Update globals
+            _load("scapy.arch.pcapdnet")
             return
     if conf.use_bpf:
         from scapy.arch.bpf.supersocket import L2bpfListenSocket, \
@@ -460,6 +469,8 @@ def _set_conf_sockets():
         conf.L3socket6 = functools.partial(L3bpfSocket, filter="ip6")
         conf.L2socket = L2bpfSocket
         conf.L2listen = L2bpfListenSocket
+        # Update globals
+        _load("scapy.arch.bpf")
         return
     if LINUX:
         from scapy.arch.linux import L3PacketSocket, L2Socket, L2ListenSocket
@@ -467,6 +478,8 @@ def _set_conf_sockets():
         conf.L3socket6 = functools.partial(L3PacketSocket, filter="ip6")
         conf.L2socket = L2Socket
         conf.L2listen = L2ListenSocket
+        # Update globals
+        _load("scapy.arch.linux")
         return
     if WINDOWS:
         from scapy.arch.windows import _NotAvailableSocket
@@ -475,6 +488,7 @@ def _set_conf_sockets():
         conf.L3socket6 = L3WinSocket6
         conf.L2socket = _NotAvailableSocket
         conf.L2listen = _NotAvailableSocket
+        # No need to update globals on Windows
         return
     from scapy.supersocket import L3RawSocket
     from scapy.layers.inet6 import L3RawSocket6
@@ -486,9 +500,8 @@ def _socket_changer(attr, val):
     if not isinstance(val, bool):
         raise TypeError("This argument should be a boolean")
     dependencies = {  # Things that will be turned off
-        "use_pcap": ["use_bpf", "use_winpcapy"],
+        "use_pcap": ["use_bpf"],
         "use_bpf": ["use_pcap"],
-        "use_winpcapy": ["use_pcap", "use_dnet"],
     }
     restore = {k: getattr(conf, k) for k in dependencies}
     del restore[attr]  # This is handled directly by _set_conf_sockets
@@ -504,40 +517,60 @@ def _socket_changer(attr, val):
             raise
 
 
+def _loglevel_changer(attr, val):
+    """Handle a change of conf.logLevel"""
+    log_scapy.setLevel(val)
+
+
 class Conf(ConfClass):
-    """This object contains the configuration of Scapy.
-session  : filename where the session will be saved
-interactive_shell : can be "ipython", "python" or "auto". Default: Auto
-stealth  : if 1, prevents any unwanted packet to go out (ARP, DNS, ...)
-checkIPID: if 0, doesn't check that IPID matches between IP sent and ICMP IP citation received  # noqa: E501
-           if 1, checks that they either are equal or byte swapped equals (bug in some IP stacks)  # noqa: E501
-           if 2, strictly checks that they are equals
-checkIPsrc: if 1, checks IP src in IP and ICMP IP citation match (bug in some NAT stacks)  # noqa: E501
-checkIPinIP: if True, checks that IP-in-IP layers match. If False, do not
-             check IP layers that encapsulates another IP layer
-check_TCPerror_seqack: if 1, also check that TCP seq and ack match the ones in ICMP citation  # noqa: E501
-iff      : selects the default output interface for srp() and sendp(). default:"eth0")  # noqa: E501
-verb     : level of verbosity, from 0 (almost mute) to 3 (verbose)
-promisc  : default mode for listening socket (to get answers if you spoof on a lan)  # noqa: E501
-sniff_promisc : default mode for sniff()
-filter   : bpf filter added to every sniffing socket to exclude traffic from analysis  # noqa: E501
-histfile : history file
-padding  : includes padding in disassembled packets
-except_filter : BPF filter for packets to ignore
-debug_match : when 1, store received packet that are not matched into debug.recv  # noqa: E501
-route    : holds the Scapy routing table and provides methods to manipulate it
-warning_threshold : how much time between warnings from the same place
-ASN1_default_codec: Codec used by default for ASN1 objects
-mib      : holds MIB direct access dictionary
-resolve  : holds list of fields for which resolution should be done
-noenum   : holds list of enum fields for which conversion to string should NOT be done  # noqa: E501
-AS_resolver: choose the AS resolver class to use
-extensions_paths: path or list of paths where extensions are to be looked for
-contribs : a dict which can be used by contrib layers to store local configuration  # noqa: E501
-debug_tls:When 1, print some TLS session secrets when they are computed.
-recv_poll_rate: how often to check for new packets. Defaults to 0.05s.
-"""
-    version = VERSION
+    """
+    This object contains the configuration of Scapy.
+
+    Attributes:
+        session: filename where the session will be saved
+        interactive_shell : can be "ipython", "python" or "auto". Default: Auto
+        stealth: if 1, prevents any unwanted packet to go out (ARP, DNS, ...)
+        checkIPID: if 0, doesn't check that IPID matches between IP sent and
+            ICMP IP citation received
+            if 1, checks that they either are equal or byte swapped
+            equals (bug in some IP stacks)
+            if 2, strictly checks that they are equals
+        checkIPsrc: if 1, checks IP src in IP and ICMP IP citation match
+            (bug in some NAT stacks)
+        checkIPinIP: if True, checks that IP-in-IP layers match. If False, do
+            not check IP layers that encapsulates another IP layer
+        check_TCPerror_seqack: if 1, also check that TCP seq and ack match the
+            ones in ICMP citation
+        iff: selects the default output interface for srp() and sendp().
+        verb: level of verbosity, from 0 (almost mute) to 3 (verbose)
+        promisc: default mode for listening socket (to get answers if you
+            spoof on a lan)
+        sniff_promisc: default mode for sniff()
+        filter: bpf filter added to every sniffing socket to exclude traffic
+            from analysis
+        histfile: history file
+        padding: includes padding in disassembled packets
+        except_filter : BPF filter for packets to ignore
+        debug_match: when 1, store received packet that are not matched into
+            `debug.recv`
+        route: holds the Scapy routing table and provides methods to
+            manipulate it
+        warning_threshold : how much time between warnings from the same place
+        ASN1_default_codec: Codec used by default for ASN1 objects
+        mib: holds MIB direct access dictionary
+        resolve: holds list of fields for which resolution should be done
+        noenum: holds list of enum fields for which conversion to string
+            should NOT be done
+        AS_resolver: choose the AS resolver class to use
+        extensions_paths: path or list of paths where extensions are to be
+                           looked for
+        contribs: a dict which can be used by contrib layers to store local
+            configuration
+        debug_tls: When 1, print some TLS session secrets
+            when they are computed.
+        recv_poll_rate: how often to check for new packets. Defaults to 0.05s.
+    """
+    version = ReadOnlyAttribute("version", VERSION)
     session = ""
     interactive = False
     interactive_shell = ""
@@ -547,15 +580,15 @@ recv_poll_rate: how often to check for new packets. Defaults to 0.05s.
     layers = LayersList()
     commands = CommandsList()
     dot15d4_protocol = None  # Used in dot15d4.py
-    logLevel = LogLevel()
-    checkIPID = 0
-    checkIPsrc = 1
-    checkIPaddr = 1
+    logLevel = Interceptor("logLevel", log_scapy.level, _loglevel_changer)
+    checkIPID = False
+    checkIPsrc = True
+    checkIPaddr = True
     checkIPinIP = True
-    check_TCPerror_seqack = 0
+    check_TCPerror_seqack = False
     verb = 2
     prompt = Interceptor("prompt", ">>> ", _prompt_changer)
-    promisc = 1
+    promisc = True
     sniff_promisc = 1
     raw_layer = None
     raw_summary = False
@@ -569,26 +602,27 @@ recv_poll_rate: how often to check for new packets. Defaults to 0.05s.
     BTsocket = None
     USBsocket = None
     min_pkt_size = 60
+    bufsize = 2**16
     histfile = os.getenv('SCAPY_HISTFILE',
                          os.path.join(os.path.expanduser("~"),
                                       ".scapy_history"))
     padding = 1
     except_filter = ""
-    debug_match = 0
-    debug_tls = 0
+    debug_match = False
+    debug_tls = False
     wepkey = ""
     cache_iflist = {}
     route = None  # Filed by route.py
     route6 = None  # Filed by route6.py
-    auto_fragment = 1
-    debug_dissector = 0
+    auto_fragment = True
+    debug_dissector = False
     color_theme = Interceptor("color_theme", NoTheme(), _prompt_changer)
     warning_threshold = 5
     prog = ProgPath()
     resolve = Resolve()
     noenum = Resolve()
     emph = Emphasize()
-    use_pypy = isPyPy()
+    use_pypy = ReadOnlyAttribute("use_pypy", isPyPy())
     use_pcap = Interceptor(
         "use_pcap",
         os.getenv("SCAPY_USE_PCAPDNET", "").lower().startswith("y"),
@@ -597,20 +631,15 @@ recv_poll_rate: how often to check for new packets. Defaults to 0.05s.
     # XXX use_dnet is deprecated
     use_dnet = os.getenv("SCAPY_USE_PCAPDNET", "").lower().startswith("y")
     use_bpf = Interceptor("use_bpf", False, _socket_changer)
-    use_winpcapy = Interceptor("use_winpcapy", False, _socket_changer)
     use_npcap = False
     ipv6_enabled = socket.has_ipv6
-    ethertypes = ETHER_TYPES
-    protocols = IP_PROTOS
-    services_tcp = TCP_SERVICES
-    services_udp = UDP_SERVICES
     extensions_paths = "."
-    manufdb = MANUFDB
     stats_classic_protocols = []
     stats_dot11_protocols = []
     temp_files = []
     netcache = NetCache()
     geoip_city = None
+    # can, tls, http are not loaded by default
     load_layers = ['bluetooth', 'bluetooth4LE', 'dhcp', 'dhcp6', 'dns',
                    'dot11', 'dot15d4', 'eap', 'gprs', 'hsrp', 'inet',
                    'inet6', 'ipsec', 'ir', 'isakmp', 'l2', 'l2tp',
@@ -626,6 +655,25 @@ recv_poll_rate: how often to check for new packets. Defaults to 0.05s.
     auto_crop_tables = True
     recv_poll_rate = 0.05
 
+    def __getattr__(self, attr):
+        # Those are loaded on runtime to avoid import loops
+        if attr == "manufdb":
+            from scapy.data import MANUFDB
+            return MANUFDB
+        if attr == "ethertypes":
+            from scapy.data import ETHER_TYPES
+            return ETHER_TYPES
+        if attr == "protocols":
+            from scapy.data import IP_PROTOS
+            return IP_PROTOS
+        if attr == "services_udp":
+            from scapy.data import UDP_SERVICES
+            return UDP_SERVICES
+        if attr == "services_tcp":
+            from scapy.data import TCP_SERVICES
+            return TCP_SERVICES
+        return object.__getattr__(self, attr)
+
 
 if not Conf.ipv6_enabled:
     log_scapy.warning("IPv6 support disabled in Python. Cannot load Scapy IPv6 layers.")  # noqa: E501
@@ -634,7 +682,6 @@ if not Conf.ipv6_enabled:
             Conf.load_layers.remove(m)
 
 conf = Conf()
-conf.logLevel = 30  # 30=Warning
 
 
 def crypto_validator(func):

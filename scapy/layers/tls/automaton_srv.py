@@ -27,9 +27,14 @@ from scapy.layers.tls.automaton import _TLSAutomaton
 from scapy.layers.tls.cert import PrivKeyRSA, PrivKeyECDSA
 from scapy.layers.tls.basefields import _tls_version
 from scapy.layers.tls.session import tlsSession
+from scapy.layers.tls.extensions import TLS_Ext_SupportedVersion_SH
+from scapy.layers.tls.keyexchange_tls13 import TLS_Ext_KeyShare_SH, \
+    KeyShareEntry
 from scapy.layers.tls.handshake import TLSCertificate, TLSCertificateRequest, \
     TLSCertificateVerify, TLSClientHello, TLSClientKeyExchange, TLSFinished, \
-    TLSServerHello, TLSServerHelloDone, TLSServerKeyExchange
+    TLSServerHello, TLSServerHelloDone, TLSServerKeyExchange, \
+    _ASN1CertAndExt, TLS13ServerHello, TLS13Certificate, TLS13ClientHello, \
+    TLSEncryptedExtensions
 from scapy.layers.tls.handshake_sslv2 import SSLv2ClientCertificate, \
     SSLv2ClientFinished, SSLv2ClientHello, SSLv2ClientMasterKey, \
     SSLv2RequestCertificate, SSLv2ServerFinished, SSLv2ServerHello, \
@@ -103,10 +108,18 @@ class TLSServerAutomaton(_TLSAutomaton):
             self.vprint("Version       : %s" % v)
             cs = s.wcs.ciphersuite.name
             self.vprint("Cipher suite  : %s" % cs)
-            ms = s.master_secret
+            if s.tls_version < 0x0304:
+                ms = s.master_secret
+            else:
+                ms = s.tls13_master_secret
             self.vprint("Master secret : %s" % repr_hex(ms))
             if s.client_certs:
                 self.vprint("Client certificate chain: %r" % s.client_certs)
+
+            if s.tls_version >= 0x0304:
+                res_secret = s.tls13_derived_secrets["resumption_secret"]
+                self.vprint("Resumption master secret : %s" %
+                            repr_hex(res_secret))
             self.vprint()
 
     def http_sessioninfo(self):
@@ -158,6 +171,8 @@ class TLSServerAutomaton(_TLSAutomaton):
 
     @ATMT.state()
     def WAITING_CLIENT(self):
+        self.buffer_out = []
+        self.buffer_in = []
         self.vprint()
         self.vprint("Waiting for a new client on %s:%d" % (self.local_ip,
                                                            self.local_port))
@@ -198,18 +213,18 @@ class TLSServerAutomaton(_TLSAutomaton):
         pass
 
     #                           TLS handshake                                 #
-
     @ATMT.condition(RECEIVED_CLIENTFLIGHT1, prio=1)
+    def tls13_should_handle_ClientHello(self):
+        self.raise_on_packet(TLS13ClientHello,
+                             self.tls13_HANDLED_CLIENTHELLO)
+
+    @ATMT.condition(RECEIVED_CLIENTFLIGHT1, prio=2)
     def should_handle_ClientHello(self):
         self.raise_on_packet(TLSClientHello,
                              self.HANDLED_CLIENTHELLO)
 
     @ATMT.state()
     def HANDLED_CLIENTHELLO(self):
-        raise self.PREPARE_SERVERFLIGHT1()
-
-    @ATMT.condition(HANDLED_CLIENTHELLO)
-    def should_check_ciphersuites(self):
         """
         We extract cipher suites candidates from the client's proposition.
         """
@@ -218,7 +233,7 @@ class TLSServerAutomaton(_TLSAutomaton):
         elif isinstance(self.mykey, PrivKeyECDSA):
             kx = "ECDSA"
         if get_usable_ciphersuites(self.cur_pkt.ciphers, kx):
-            return
+            raise self.PREPARE_SERVERFLIGHT1()
         raise self.NO_USABLE_CIPHERSUITE()
 
     @ATMT.state()
@@ -479,6 +494,116 @@ class TLSServerAutomaton(_TLSAutomaton):
         raise self.WAITING_CLIENTDATA()
 
     #                       end of TLS handshake                              #
+
+    #                       TLS 1.3 handshake                                 #
+    @ATMT.state()
+    def tls13_HANDLED_CLIENTHELLO(self):
+        raise self.tls13_PREPARE_SERVERFLIGHT1()
+
+    @ATMT.state()
+    def tls13_PREPARE_SERVERFLIGHT1(self):
+        self.add_record(is_tls13=False)
+
+    @ATMT.condition(tls13_PREPARE_SERVERFLIGHT1)
+    def tls13_should_add_ServerHello(self):
+        if isinstance(self.mykey, PrivKeyRSA):
+            kx = "RSA"
+        elif isinstance(self.mykey, PrivKeyECDSA):
+            kx = "ECDSA"
+        usable_suites = get_usable_ciphersuites(self.cur_pkt.ciphers, kx)
+        c = usable_suites[0]
+        group = next(iter(self.cur_session.tls13_client_pubshares))
+        ext = [TLS_Ext_SupportedVersion_SH(version="TLS 1.3")]
+        ext += TLS_Ext_KeyShare_SH(server_share=KeyShareEntry(group=group))
+
+        if self.cur_session.sid is not None:
+            p = TLS13ServerHello(cipher=c, sid=self.cur_session.sid, ext=ext)
+        else:
+            p = TLS13ServerHello(cipher=c, ext=ext)
+        self.add_msg(p)
+        raise self.tls13_ADDED_SERVERHELLO()
+
+    @ATMT.state()
+    def tls13_ADDED_SERVERHELLO(self):
+        pass
+
+    @ATMT.condition(tls13_ADDED_SERVERHELLO)
+    def tls13_should_add_EncryptedExtensions(self):
+        self.add_record(is_tls13=True)
+        self.add_msg(TLSEncryptedExtensions(extlen=0))
+        raise self.tls13_ADDED_ENCRYPTEDEXTENSIONS()
+
+    @ATMT.state()
+    def tls13_ADDED_ENCRYPTEDEXTENSIONS(self):
+        pass
+
+    @ATMT.condition(tls13_ADDED_ENCRYPTEDEXTENSIONS)
+    def tls13_should_add_CertificateRequest(self):
+        raise self.tls13_ADDED_CERTIFICATEREQUEST()
+
+    @ATMT.state()
+    def tls13_ADDED_CERTIFICATEREQUEST(self):
+        pass
+
+    @ATMT.condition(tls13_ADDED_CERTIFICATEREQUEST)
+    def tls13_should_add_Certificate(self):
+        certs = []
+        for c in self.cur_session.server_certs:
+            certs += _ASN1CertAndExt(cert=c)
+
+        self.add_msg(TLS13Certificate(certs=certs))
+        raise self.tls13_ADDED_CERTIFICATE()
+
+    @ATMT.state()
+    def tls13_ADDED_CERTIFICATE(self):
+        pass
+
+    @ATMT.condition(tls13_ADDED_CERTIFICATE)
+    def tls13_should_add_CertificateVerifiy(self):
+        self.add_msg(TLSCertificateVerify())
+        raise self.tls13_ADDED_CERTIFICATEVERIFY()
+
+    @ATMT.state()
+    def tls13_ADDED_CERTIFICATEVERIFY(self):
+        pass
+
+    @ATMT.condition(tls13_ADDED_CERTIFICATEVERIFY)
+    def tls13_should_add_Finished(self):
+        self.add_msg(TLSFinished())
+        raise self.tls13_ADDED_SERVERFINISHED()
+
+    @ATMT.state()
+    def tls13_ADDED_SERVERFINISHED(self):
+        pass
+
+    @ATMT.condition(tls13_ADDED_SERVERFINISHED)
+    def tls13_should_send_ServerFlight1(self):
+        self.flush_records()
+        raise self.tls13_WAITING_CLIENTFLIGHT2()
+
+    @ATMT.state()
+    def tls13_WAITING_CLIENTFLIGHT2(self):
+        self.get_next_msg()
+        raise self.tls13_RECEIVED_CLIENTFLIGHT2()
+
+    @ATMT.state()
+    def tls13_RECEIVED_CLIENTFLIGHT2(self):
+        pass
+
+    @ATMT.condition(tls13_RECEIVED_CLIENTFLIGHT2, prio=1)
+    def tls13_should_handle_ClientFinished(self):
+        self.raise_on_packet(TLSFinished,
+                             self.TLS13_HANDLED_CLIENTFINISHED)
+
+    @ATMT.state()
+    def TLS13_HANDLED_CLIENTFINISHED(self):
+        self.vprint("TLS handshake completed!")
+        self.vprint_sessioninfo()
+        if self.is_echo_server:
+            self.vprint("Will now act as a simple echo server.")
+        raise self.WAITING_CLIENTDATA()
+
+    #                       end of TLS 1.3 handshake                          #
 
     @ATMT.state()
     def WAITING_CLIENTDATA(self):

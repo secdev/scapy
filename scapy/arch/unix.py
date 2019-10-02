@@ -42,53 +42,59 @@ def _guess_iface_name(netif):
 
 
 def read_routes():
+    """Return a list of IPv4 routes than can be used by Scapy.
+
+    This function parses netstat.
+    """
     if SOLARIS:
-        f = os.popen("netstat -rvn")  # -f inet
+        f = os.popen("netstat -rvn -f inet")
     elif FREEBSD:
         f = os.popen("netstat -rnW")  # -W to handle long interface names
     else:
-        f = os.popen("netstat -rn")  # -f inet
+        f = os.popen("netstat -rn -f inet")
     ok = 0
     mtu_present = False
     prio_present = False
+    refs_present = False
+    use_present = False
     routes = []
     pending_if = []
     for line in f.readlines():
         if not line:
             break
-        line = line.strip()
+        line = line.strip().lower()
         if line.find("----") >= 0:  # a separation line
             continue
         if not ok:
-            if line.find("Destination") >= 0:
+            if line.find("destination") >= 0:
                 ok = 1
-                mtu_present = "Mtu" in line
-                prio_present = "Prio" in line
-                refs_present = "Refs" in line
+                mtu_present = "mtu" in line
+                prio_present = "prio" in line
+                refs_present = "ref" in line  # There is no s on Solaris
+                use_present = "use" in line
             continue
         if not line:
             break
+        rt = line.split()
         if SOLARIS:
-            lspl = line.split()
-            if len(lspl) == 10:
-                dest, mask, gw, netif, mxfrg, rtt, ref, flg = lspl[:8]
-            else:  # missing interface
-                dest, mask, gw, mxfrg, rtt, ref, flg = lspl[:7]
-                netif = None
+            dest, netmask, gw, netif = rt[:4]
+            flg = rt[4 + mtu_present + refs_present]
         else:
-            rt = line.split()
             dest, gw, flg = rt[:3]
-            locked = OPENBSD and rt[6] == "L"
-            netif = rt[4 + mtu_present + prio_present + refs_present + locked]
-        if flg.find("Lc") >= 0:
+            locked = OPENBSD and rt[6] == "l"
+            offset = mtu_present + prio_present + refs_present + locked
+            offset += use_present
+            netif = rt[3 + offset]
+        if flg.find("lc") >= 0:
             continue
-        if dest == "default":
+        elif dest == "default":
             dest = 0
             netmask = 0
+        elif SOLARIS:
+            dest = scapy.utils.atol(dest)
+            netmask = scapy.utils.atol(netmask)
         else:
-            if SOLARIS:
-                netmask = scapy.utils.atol(mask)
-            elif "/" in dest:
+            if "/" in dest:
                 dest, netmask = dest.split("/")
                 netmask = scapy.utils.itom(int(netmask))
             else:
@@ -97,7 +103,7 @@ def read_routes():
             dest = scapy.utils.atol(dest)
         # XXX: TODO: add metrics for unix.py (use -e option on netstat)
         metric = 1
-        if "G" not in flg:
+        if "g" not in flg:
             gw = '0.0.0.0'
         if netif is not None:
             try:
@@ -178,6 +184,7 @@ def _in6_getifaddr(ifname):
         scope = in6_getscope(addr)
         ret.append((addr, scope, ifname))
 
+    f.close()
     return ret
 
 
@@ -192,9 +199,13 @@ def in6_getifaddr():
     """
 
     # List all network interfaces
-    if OPENBSD:
+    if OPENBSD or SOLARIS:
+        if SOLARIS:
+            cmd = "%s -a6"
+        else:
+            cmd = "%s"
         try:
-            f = os.popen("%s" % conf.prog.ifconfig)
+            f = os.popen(cmd % conf.prog.ifconfig)
         except OSError:
             log_interactive.warning("Failed to execute ifconfig.")
             return []
@@ -219,11 +230,15 @@ def in6_getifaddr():
     ret = []
     for i in splitted_line:
         ret += _in6_getifaddr(i)
+    f.close()
     return ret
 
 
 def read_routes6():
-    """Return a list of IPv6 routes than can be used by Scapy."""
+    """Return a list of IPv6 routes than can be used by Scapy.
+
+    This function parses netstat.
+    """
 
     # Call netstat to retrieve IPv6 routes
     fd_netstat = os.popen("netstat -rn -f inet6")
@@ -231,6 +246,7 @@ def read_routes6():
     # List interfaces IPv6 addresses
     lifaddr = in6_getifaddr()
     if not lifaddr:
+        fd_netstat.close()
         return []
 
     # Routes header information

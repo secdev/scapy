@@ -119,8 +119,8 @@ class KeyShareEntry(Packet):
                     self.pubkey = import_point(self.key_exchange)
             elif _tls_named_curves[self.group] != "x448":
                 curve = ec._CURVE_TYPES[_tls_named_curves[self.group]]()
-                import_point = ec.EllipticCurvePublicNumbers.from_encoded_point
-                public_numbers = import_point(curve, self.key_exchange)
+                import_point = ec.EllipticCurvePublicKey.from_encoded_point
+                public_numbers = import_point(curve, self.key_exchange).public_numbers()  # noqa: E501
                 self.pubkey = public_numbers.public_key(default_backend())
 
     def post_dissection(self, r):
@@ -135,7 +135,7 @@ class KeyShareEntry(Packet):
 
 class TLS_Ext_KeyShare_CH(TLS_Ext_Unknown):
     name = "TLS Extension - Key Share (for ClientHello)"
-    fields_desc = [ShortEnumField("type", 0x28, _tls_ext),
+    fields_desc = [ShortEnumField("type", 0x33, _tls_ext),
                    ShortField("len", None),
                    FieldLenField("client_shares_len", None,
                                  length_of="client_shares"),
@@ -169,14 +169,14 @@ class TLS_Ext_KeyShare_CH(TLS_Ext_Unknown):
 
 class TLS_Ext_KeyShare_HRR(TLS_Ext_Unknown):
     name = "TLS Extension - Key Share (for HelloRetryRequest)"
-    fields_desc = [ShortEnumField("type", 0x28, _tls_ext),
+    fields_desc = [ShortEnumField("type", 0x33, _tls_ext),
                    ShortField("len", None),
                    ShortEnumField("selected_group", None, _tls_named_groups)]
 
 
 class TLS_Ext_KeyShare_SH(TLS_Ext_Unknown):
     name = "TLS Extension - Key Share (for ServerHello)"
-    fields_desc = [ShortEnumField("type", 0x28, _tls_ext),
+    fields_desc = [ShortEnumField("type", 0x33, _tls_ext),
                    ShortField("len", None),
                    PacketField("server_share", None, KeyShareEntry)]
 
@@ -207,7 +207,7 @@ class TLS_Ext_KeyShare_SH(TLS_Ext_Unknown):
         if not self.tls_session.frozen and self.server_share.pubkey:
             # if there is a pubkey, we assume the crypto library is ok
             pubshare = self.tls_session.tls13_server_pubshare
-            if len(pubshare) > 0:
+            if pubshare:
                 pkt_info = r.firstlayer().summary()
                 log_runtime.info("TLS: overwriting previous server key share [%s]", pkt_info)  # noqa: E501
             group_name = _tls_named_groups[self.server_share.group]
@@ -224,12 +224,22 @@ class TLS_Ext_KeyShare_SH(TLS_Ext_Unknown):
                     else:
                         pms = privkey.exchange(ec.ECDH(), pubkey)
                 self.tls_session.tls13_dhe_secret = pms
+            elif group_name in self.tls_session.tls13_server_privshare:
+                pubkey = self.tls_session.tls13_client_pubshares[group_name]
+                privkey = self.tls_session.tls13_server_privshare[group_name]
+                if group_name in six.itervalues(_tls_named_ffdh_groups):
+                    pms = privkey.exchange(pubkey)
+                elif group_name in six.itervalues(_tls_named_curves):
+                    if group_name == "x25519":
+                        pms = privkey.exchange(pubkey)
+                    else:
+                        pms = privkey.exchange(ec.ECDH(), pubkey)
+                self.tls_session.tls13_dhe_secret = pms
         return super(TLS_Ext_KeyShare_SH, self).post_dissection(r)
 
 
 _tls_ext_keyshare_cls = {1: TLS_Ext_KeyShare_CH,
-                         2: TLS_Ext_KeyShare_SH,
-                         6: TLS_Ext_KeyShare_HRR}
+                         2: TLS_Ext_KeyShare_SH}
 
 
 class Ticket(Packet):
@@ -275,7 +285,7 @@ class PSKBinderEntry(Packet):
 class TLS_Ext_PreSharedKey_CH(TLS_Ext_Unknown):
     # XXX define post_build and post_dissection methods
     name = "TLS Extension - Pre Shared Key (for ClientHello)"
-    fields_desc = [ShortEnumField("type", 0x28, _tls_ext),
+    fields_desc = [ShortEnumField("type", 0x29, _tls_ext),
                    ShortField("len", None),
                    FieldLenField("identities_len", None,
                                  length_of="identities"),

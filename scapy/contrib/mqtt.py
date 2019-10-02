@@ -8,11 +8,12 @@
 
 from scapy.packet import Packet, bind_layers
 from scapy.fields import FieldLenField, BitEnumField, StrLenField, \
-    ShortField, ConditionalField, ByteEnumField, ByteField, StrNullField
+    ShortField, ConditionalField, ByteEnumField, ByteField, PacketListField
 from scapy.layers.inet import TCP
 from scapy.error import Scapy_Exception
 from scapy.compat import orb, chb
 from scapy.volatile import RandNum
+from scapy.config import conf
 
 
 # CUSTOM FIELDS
@@ -230,11 +231,32 @@ class MQTTSuback(Packet):
     ]
 
 
+class MQTTTopic(Packet):
+    name = "MQTT topic"
+    fields_desc = [
+        FieldLenField("len", None, length_of="topic"),
+        StrLenField("topic", "", length_from=lambda pkt:pkt.len)
+    ]
+
+    def guess_payload_class(self, payload):
+        return conf.padding_layer
+
+
+def cb_topic(pkt, lst, cur, remain):
+    """
+    Decode the remaining bytes as a MQTT topic
+    """
+    if len(remain) > 3:
+        return MQTTTopic
+    else:
+        return conf.raw_layer
+
+
 class MQTTUnsubscribe(Packet):
     name = "MQTT unsubscribe"
     fields_desc = [
         ShortField("msgid", None),
-        StrNullField("payload", "")
+        PacketListField("topics", [], next_cls_cb=cb_topic)
     ]
 
 

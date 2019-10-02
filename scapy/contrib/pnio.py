@@ -108,9 +108,14 @@ class ProfinetIO(Packet):
 
     def guess_payload_class(self, payload):
         # For frameID in the RT_CLASS_* range, use the RTC packet as payload
-        if (
+        if self.frameID in [0xfefe, 0xfeff, 0xfefd]:
+            from scapy.contrib.pnio_dcp import ProfinetDCP
+            return ProfinetDCP
+        elif (
                 (0x0100 <= self.frameID < 0x1000) or
                 (0x8000 <= self.frameID < 0xFC00)
+
+
         ):
             return PNIORealTimeCyclicPDU
         return super(ProfinetIO, self).guess_payload_class(payload)
@@ -246,10 +251,7 @@ class PNIORealTimeCyclicPDU(Packet):
             pnio_layer = q
 
         self._layout = [PNIORealTimeCyclicDefaultRawData]
-        if (
-                not isinstance(ether_layer, type(None)) and
-                not isinstance(pnio_layer, type(None))
-        ):
+        if not (ether_layer is None and pnio_layer is None):
             # Get from config the layout for these hosts and frameid
             layout = type(self).get_layout_from_config(
                 ether_layer.src,

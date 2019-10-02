@@ -1,32 +1,38 @@
 # This file is part of Scapy
 # See http://www.secdev.org/projects/scapy for more information
 # Copyright (C) Cesar A. Bernardini <mesarpe@gmail.com>
+#               Intern at INRIA Grand Nancy Est
 # Copyright (C) Gabriel Potter <gabriel@potter.fr>
-# Intern at INRIA Grand Nancy Est
 # This program is published under a GPLv2 license
 """
 6LoWPAN Protocol Stack
 ======================
 
 This implementation follows the next documents:
-    * Transmission of IPv6 Packets over IEEE 802.15.4 Networks
-    * Compression Format for IPv6 Datagrams in Low Power and Lossy
-      networks (6LoWPAN): draft-ietf-6lowpan-hc-15
-    * RFC 4291
 
-                            |-----------------------|
-Application                 | Application Protocols |
-                            |-----------------------|
-Transport                   |   UDP      |   TCP    |
-                            |-----------------------|
-Network                     |          IPv6         | (Only IPv6)
-                            |-----------------------|
-                            |         LoWPAN        | (in the middle between network and data link layer)  # noqa: E501
-                            |-----------------------|
-Data Link Layer             |   IEEE 802.15.4 MAC   |
-                            |-----------------------|
-Physical                    |   IEEE 802.15.4 PHY   |
-                            |-----------------------|
+- Transmission of IPv6 Packets over IEEE 802.15.4 Networks
+- Compression Format for IPv6 Datagrams in Low Power and Lossy
+  networks (6LoWPAN): draft-ietf-6lowpan-hc-15
+- RFC 4291
+
++----------------------------+-----------------------+
+|  Application               | Application Protocols |
++----------------------------+------------+----------+
+|  Transport                 |   UDP      |   TCP    |
++----------------------------+------------+----------+
+|  Network                   |          IPv6         |
++----------------------------+-----------------------+
+|                            |         LoWPAN        |
++----------------------------+-----------------------+
+|  Data Link Layer           |   IEEE 802.15.4 MAC   |
++----------------------------+-----------------------+
+|  Physical                  |   IEEE 802.15.4 PHY   |
++----------------------------+-----------------------+
+
+Note that:
+
+ - Only IPv6 is supported
+ - LoWPAN is in the middle between network and data link layer
 
 The Internet Control Message protocol v6 (ICMPv6) is used for control
 messaging.
@@ -36,8 +42,6 @@ the edge of 6LoWPAN islands.
 
 A LoWPAN support addressing; a direct mapping between the link-layer address
 and the IPv6 address is used for achieving compression.
-
-
 
 Known Issues:
     * Unimplemented context information
@@ -329,17 +333,6 @@ def flowlabel_len(pkt):
         return 20
     elif pkt.tf == 0x1:
         return 20
-    else:
-        return 0
-
-
-def _tf_lowpan(pkt):
-    if pkt.tf == 0:
-        return 32
-    elif pkt.tf == 1:
-        return 24
-    elif pkt.tf == 2:
-        return 8
     else:
         return 0
 
@@ -750,11 +743,12 @@ MAX_SIZE = 96
 
 def sixlowpan_fragment(packet, datagram_tag=1):
     """Split a packet into different links to transmit as 6lowpan packets.
-        Usage example:
-          >>> ipv6 = ..... (very big packet)
-          >>> pkts = sixlowpan_fragment(ipv6, datagram_tag=0x17)
-          >>> send = [Dot15d4()/Dot15d4Data()/x for x in pkts]
-          >>> wireshark(send)
+    Usage example::
+
+      >>> ipv6 = ..... (very big packet)
+      >>> pkts = sixlowpan_fragment(ipv6, datagram_tag=0x17)
+      >>> send = [Dot15d4()/Dot15d4Data()/x for x in pkts]
+      >>> wireshark(send)
     """
     if not packet.haslayer(IPv6):
         raise Exception("SixLoWPAN only fragments IPv6 packets !")

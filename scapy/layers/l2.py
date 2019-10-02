@@ -93,7 +93,8 @@ def getmacbyip(ip, chainCC=0):
                    verbose=0,
                    chainCC=chainCC,
                    nofilter=1)
-    except Exception:
+    except Exception as ex:
+        warning("getmacbyip failed on %s" % ex)
         return None
     if res is not None:
         mac = res.payload.hwsrc
@@ -148,11 +149,6 @@ class SourceMACField(MACField):
         return MACField.i2m(self, pkt, self.i2h(pkt, x))
 
 
-class ARPSourceMACField(SourceMACField):
-    def __init__(self, name):
-        super(ARPSourceMACField, self).__init__(name)
-
-
 # Layers
 
 ETHER_TYPES['802_AD'] = 0x88a8
@@ -189,7 +185,7 @@ class Ether(Packet):
 class Dot3(Packet):
     name = "802.3"
     fields_desc = [DestMACField("dst"),
-                   MACField("src", ETHER_ANY),
+                   SourceMACField("src"),
                    LenField("len", None, "H")]
 
     def extract_padding(self, s):
@@ -326,7 +322,7 @@ class ARP(Packet):
         }),
         MultipleTypeField(
             [
-                (ARPSourceMACField("hwsrc"),
+                (SourceMACField("hwsrc"),
                  (lambda pkt: pkt.hwtype == 1 and pkt.hwlen == 6,
                   lambda pkt, val: pkt.hwtype == 1 and (
                       pkt.hwlen == 6 or (pkt.hwlen is None and
@@ -400,10 +396,16 @@ class ARP(Packet):
         return self_psrc[:len(other_pdst)] == other_pdst[:len(self_psrc)]
 
     def route(self):
-        dst = self.pdst
+        fld, dst = self.getfield_and_val("pdst")
+        fld, dst = fld._find_fld_pkt_val(self, dst)
         if isinstance(dst, Gen):
             dst = next(iter(dst))
-        return conf.route.route(dst)
+        if isinstance(fld, IP6Field):
+            return conf.route6.route(dst)
+        elif isinstance(fld, IPField):
+            return conf.route.route(dst)
+        else:
+            return None, None, None
 
     def extract_padding(self, s):
         return "", s
@@ -528,7 +530,7 @@ LOOPBACK_TYPES = {0x2: "IPv4",
 
 
 class Loopback(Packet):
-    """*BSD loopback layer"""
+    r"""\*BSD loopback layer"""
 
     name = "Loopback"
     if consts.OPENBSD:
@@ -612,8 +614,21 @@ class ARPingResult(SndRcvList):
         SndRcvList.__init__(self, res, name, stats)
 
     def show(self):
+        """
+        Print the list of discovered MAC addresses.
+        """
+
+        data = list()
+        padding = 0
+
         for s, r in self.res:
-            print(r.sprintf("%19s,Ether.src% %ARP.psrc%"))
+            manuf = conf.manufdb._get_short_manuf(r.src)
+            manuf = "unknown" if manuf == r.src else manuf
+            padding = max(padding, len(manuf))
+            data.append((r[Ether].src, manuf, r[ARP].psrc))
+
+        for src, manuf, psrc in data:
+            print("  %-17s %-*s %s" % (src, padding, manuf, psrc))
 
 
 @conf.commands.register
@@ -630,7 +645,7 @@ Set cache=True if you want arping to modify internal ARP-Cache"""
     if cache and ans is not None:
         for pair in ans:
             conf.netcache.arp_cache[pair[1].psrc] = (pair[1].hwsrc, time.time())  # noqa: E501
-    if verbose:
+    if ans is not None and verbose:
         ans.show()
     return ans, unans
 
@@ -661,16 +676,24 @@ class ARP_am(AnsweringMachine):
 
     example:
     To respond to an ARP request for 192.168.100 replying on the
-    ingress interface;
+    ingress interface::
+
       farpd(IP_addr='192.168.1.100',ARP_addr='00:01:02:03:04:05')
-    To respond on a different interface add the interface parameter
+
+    To respond on a different interface add the interface parameter::
+
       farpd(IP_addr='192.168.1.100',ARP_addr='00:01:02:03:04:05',iface='eth0')
-    To respond on ANY arp request on an interface with mac address ARP_addr
+
+    To respond on ANY arp request on an interface with mac address ARP_addr::
+
       farpd(ARP_addr='00:01:02:03:04:05',iface='eth1')
-    To respond on ANY arp request with my mac addr on the given interface
+
+    To respond on ANY arp request with my mac addr on the given interface::
+
       farpd(iface='eth1')
 
-    Optional Args
+    Optional Args::
+
      inter=<n>   Interval in seconds between ARP replies being sent
 
     """

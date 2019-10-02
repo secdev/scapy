@@ -1,0 +1,458 @@
+% IEC 60870-5-104 test campaign
+
+#
+# execute test:
+# > test/run_tests -t test/contrib/iec104.uts
+#
+
++ iec104 infrastructure
+
+= load the iec104 layer
+
+load_contrib('scada.iec104')
+
+= class attribute generator
+
+assert(IEC104_IE_QOC.QU_FLAG_RESERVED_COMPATIBLE_4 == 4)
+assert(IEC104_IE_QOC.QU_FLAG_RESERVED_COMPATIBLE_8 == 8)
+assert(IEC104_IE_QOC.QU_FLAG_RESERVED_PREDEFINED_FUNCTION_9 == 9)
+assert(IEC104_IE_QOC.QU_FLAG_RESERVED_PREDEFINED_FUNCTION_15 == 15)
+
+= IEC60870_5_4_NormalizedFixPoint
+
+test_data = [
+    (b'\x9c\x84',  -0.963989,     -31588),
+    (b'\x46\xf6',  -0.075989,    -2490),
+    (b'\xc9\xf6',  -0.071991,     -2359),
+    (b'\x40\xf5',  -0.083984,    -2752),
+    (b'\x89\x01',   0.011993,     393),
+    (b'\xd2\x0d',   0.107971,      3538),
+    (b'\xd7\x23',   0.279999,      9175),
+    (b'\x76\x3e',   0.487976,      15990),
+    (b'\x08\x6c',   0.843994,      27656),
+    (b'\xff\x7f',   0.999969,      32767)
+]
+
+nfp = IEC60870_5_4_NormalizedFixPoint('foo', 0)
+
+for num_raw, num_fp, num_ss in test_data:
+    i_val = nfp.getfield(None, num_raw)[1]
+    assert(i_val == num_ss)
+    assert(round(nfp.i2h(None, i_val), 6) == round(num_fp, 6))
+
+
+= Iec104SequenceNumber field
+
+iec104_seq_num = IEC104SequenceNumber('rx_seq', 0)
+
+test_data = {
+    1: b'\x02\x00',
+    2: b'\x04\x00',
+    14 : b'\x1c\x00',
+    16 : b'\x20\x00',
+    73 : b'\x92\x00',
+    127: b'\xfe\x00',
+    128: b'\x00\x01',
+    129: b'\x02\x01',
+    253: b'\xfa\x01',
+    254: b'\xfc\x01',
+    255: b'\xfe\x01',
+    5912: b'\x30\x2e',
+    31282: b'\x64\xf4',
+    32767: b'\xfe\xff'
+}
+
+for key in test_data:
+    assert(iec104_seq_num.getfield(None, test_data[key])[1] == key)
+    assert(iec104_seq_num.addfield(None, b'', key) == test_data[key])
+
++ raw layer dissection
+
+= IEC104_U_Message
+
+raw_u_msg = b'\x68\x04\x83\x00\x00\x00'
+
+lyr = iec104_decode(b'\x68\x04\x83\x00\x00\x00')
+assert(lyr.__class__ == IEC104_U_Message)
+
+= IEC104_S_Message
+
+raw_s_msg = b'\x68\x04\x01\x00\xa6\x17'
+
+lyr = iec104_decode(raw_s_msg)
+assert(lyr.__class__ == IEC104_S_Message)
+
+= IEC104_I_Message_SeqIOA
+
+raw_i_msg_seq_ioa = b'\x68\x1f\x2c\x00\x04\x00'  # APCI
+raw_i_msg_seq_ioa += b'\x01\x92\x14\x00\x23\x00\x12\x54\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'  # ASDU
+
+lyr = iec104_decode(raw_i_msg_seq_ioa)
+assert(lyr.__class__ == IEC104_I_Message_SeqIOA)
+
+= IEC104_I_Message_SingleIOA
+
+raw_i_msg_single_ioa = b'\x68\x0e\x00\x00\x00\x00\x64\x01\x06\x00\x0a\x00\x00\x00\x00\x14'
+
+lyr = iec104_decode(raw_i_msg_single_ioa)
+assert(lyr.__class__ == IEC104_I_Message_SingleIOA)
+
++ IEC104 S Message
+
+= single IEC104 S Message
+
+s_msg = b'\x68\x04\x01\x00\xa6\x17'
+
+s_msg = IEC104_S_Message(s_msg)
+
+assert(s_msg.rx_seq_num == 3027)
+
+raw_s_message = b'\x00\x14\xab\x00\x3c\x13\x00\x1b\x8d\xf1\xdc\x12\x08\x00\x45\x10\x00\x3a\x8d\xdb\x40\x00\x3d\x06\x54\x46\x1a\x52\x01\xde\xc1\x28\x15\x5c\xaa\x56\x09\x64\x16\x67\x6c\xd7\x53\x07\x28\x98\x80\x18\x79\x5e\x9b\x14\x00\x00\x01\x01\x08\x0a\x9e\x08\xaa\x23\x73\xe8\x6c\xc3\x68\x04\x01\x00\xc2\x3a'
+
+frm = Ether(raw_s_message)
+
+s_msg = frm.getlayer(IEC104_S_Message)
+assert(s_msg)
+assert(s_msg.rx_seq_num == 7521)
+
+frm = Ether(frm.do_build())
+
+s_msg = frm.getlayer(IEC104_S_Message)
+assert(s_msg)
+assert(s_msg.rx_seq_num == 7521)
+
+= double IEC104 S Message (test layer binding)
+
+raw_double_s_message = b'\x00\x14\xab\x00\x3c\x13\x00\x1b\x8d\xf1\xdc\x12\x08\x00\x45\x10\x00\x40\x8d\xdb\x40\x00\x3d\x06\x54\x46\x0c\x35\x1b\x33\xc1\x28\x15\x44\xaa\x56\x09\x64\x16\x67\x6c\xd7\x53\x07\x28\x98\x80\x18\x79\x5e\x9b\x14\x00\x00\x01\x01\x08\x0a\x9e\x08\xaa\x23\x73\xe8\x6c\xc3\x68\x04\x01\x00\xc2\x3a\x68\x04\x01\x00\xc2\x3b'
+
+frm = Ether(raw_double_s_message)
+
+s_msg = frm.getlayer(IEC104_S_Message)
+assert(s_msg)
+assert(s_msg.rx_seq_num == 7521)
+
+s_msg = frm.getlayer(IEC104_S_Message, nb=2)
+assert(s_msg)
+assert(s_msg.rx_seq_num == 7649)
+
+frm = Ether(frm.do_build())
+
+s_msg = frm.getlayer(IEC104_S_Message)
+assert(s_msg)
+assert(s_msg.rx_seq_num == 7521)
+
+s_msg = frm.getlayer(IEC104_S_Message, nb=2)
+assert(s_msg)
+assert(s_msg.rx_seq_num == 7649)
+
++ IEC104 U Message
+
+= single IEC104 U Message
+
+frm = Ether()/IP()/TCP()/IEC104_U_Message(startdt_act = 1, stopdt_con = 1, testfr_act=1)
+frm = Ether(frm.do_build())
+u_msg = frm.getlayer(IEC104_U_Message)
+assert(u_msg)
+assert(u_msg.startdt_act == 1)
+assert(u_msg.startdt_con == 0)
+assert(u_msg.stopdt_con == 1)
+assert(u_msg.stopdt_act == 0)
+assert(u_msg.testfr_act == 1)
+assert(u_msg.testfr_con == 0)
+
+u_msg_tst_act = b'\x68\x04\x43\x00\x00\x00'
+u_msg = IEC104_U_Message(u_msg_tst_act)
+assert(u_msg.testfr_act == 1)
+
+u_msg_tst_con = b'\x68\x04\x83\x00\x00\x00'
+u_msg = IEC104_U_Message(u_msg_tst_con)
+assert(u_msg.testfr_con == 1)
+
+u_msg_startdt_act = b'\x68\x04\x07\x00\x00\x00'
+u_msg = IEC104_U_Message(u_msg_startdt_act)
+assert(u_msg.startdt_act == 1)
+
+u_msg_startdt_con = b'\x68\x04\x0b\x00\x00\x00'
+u_msg = IEC104_U_Message(u_msg_startdt_con)
+assert(u_msg.startdt_con == 1)
+
+u_msg_stopdt_act = b'\x68\x04\x13\x00\x00\x00'
+u_msg = IEC104_U_Message(u_msg_stopdt_act)
+assert(u_msg.stopdt_act == 1)
+
+u_msg_stopdt_con = b'\x68\x04\x23\x00\x00\x00'
+u_msg = IEC104_U_Message(u_msg_stopdt_con)
+assert(u_msg.stopdt_con == 1)
+
+= double IEC104 U Message
+
+frm = Ether()/IP()/TCP()/\
+      IEC104_U_Message(startdt_act = 1, stopdt_con = 1, testfr_act=1)/\
+      IEC104_U_Message(startdt_con = 1, stopdt_act = 1, testfr_con=1)
+
+frm = Ether(frm.do_build())
+u_msg = frm.getlayer(IEC104_U_Message)
+assert(u_msg)
+assert(u_msg.startdt_act == 1)
+assert(u_msg.stopdt_con == 1)
+assert(u_msg.testfr_act == 1)
+
+u_msg = frm.getlayer(IEC104_U_Message, nb=2)
+assert(u_msg)
+assert(u_msg.startdt_con == 1)
+assert(u_msg.stopdt_act == 1)
+assert(u_msg.testfr_con == 1)
+
++ IEC104 I Message
+
+= Sequence IOA, single IO - information object types dissection
+
+for io_id in IEC104_IO_CLASSES:
+    io_class = IEC104_IO_CLASSES[io_id]
+    frm = Ether()/IP()/TCP(sport=IEC_104_IANA_PORT, dport=56780)/IEC104_I_Message_SeqIOA(io=io_class())
+    frm = Ether(frm.do_build())
+    io_layer = frm.getlayer(io_class)
+    assert(io_layer)
+
+= Single IOA, single IO - information object types dissection
+
+for io_id in IEC104_IO_WITH_IOA_CLASSES:
+    io_class = IEC104_IO_WITH_IOA_CLASSES[io_id]
+    frm = Ether()/IP()/TCP(sport=IEC_104_IANA_PORT, dport=56780)/IEC104_I_Message_SingleIOA(io=io_class())
+    frm = Ether(frm.do_build())
+    io_layer = frm.getlayer(io_class)
+    assert(io_layer)
+
+= Sequence IOA, multiple IOs - information object types dissection
+
+frm = Ether()/IP()/TCP(sport=IEC_104_IANA_PORT, dport=56780)/IEC104_I_Message_SeqIOA(information_object_address=1234, io=[IEC104_IO_C_RC_TA_1(minutes = 1, sec_milli = 2),IEC104_IO_C_RC_TA_1(minutes = 3, sec_milli = 4)])
+frm = Ether(frm.do_build())
+
+i_msg_lyr = frm.getlayer(IEC104_I_Message_SeqIOA)
+assert(i_msg_lyr)
+
+assert(i_msg_lyr.information_object_address == 1234)
+
+m_sp_ta_1_lyr = i_msg_lyr.io[0]
+assert (m_sp_ta_1_lyr.minutes == 1)
+assert (m_sp_ta_1_lyr.sec_milli == 2)
+
+m_sp_ta_1_lyr = i_msg_lyr.io[1]
+assert (m_sp_ta_1_lyr.minutes == 3)
+assert (m_sp_ta_1_lyr.sec_milli == 4)
+
+= Single IOA, multiple IOs - information object types dissection
+
+frm = Ether()/IP()/TCP(sport=IEC_104_IANA_PORT, dport=56780)/\
+      IEC104_I_Message_SingleIOA(io=[IEC104_IO_C_RC_TA_1_IOA(information_object_address=1111, minutes = 1, sec_milli = 2),
+                                     IEC104_IO_C_RC_TA_1_IOA(information_object_address=2222,minutes = 3, sec_milli = 4)])
+frm = Ether(frm.do_build())
+
+i_msg_lyr = frm.getlayer(IEC104_I_Message_SingleIOA)
+assert(i_msg_lyr)
+
+m_sp_ta_1_lyr = i_msg_lyr.io[0]
+assert (m_sp_ta_1_lyr.information_object_address==1111)
+assert (m_sp_ta_1_lyr.minutes == 1)
+assert (m_sp_ta_1_lyr.sec_milli == 2)
+
+
+m_sp_ta_1_lyr = i_msg_lyr.io[1]
+assert (m_sp_ta_1_lyr.information_object_address==2222)
+assert (m_sp_ta_1_lyr.minutes == 3)
+assert (m_sp_ta_1_lyr.sec_milli == 4)
+
+= Sequence IOA, multiple  APDUs
+
+frm = Ether()/IP()/TCP(sport=IEC_104_IANA_PORT, dport=56780)/\
+      IEC104_I_Message_SeqIOA(information_object_address=1234,
+                              io=[IEC104_IO_C_RC_TA_1(minutes = 1, sec_milli = 2),
+                                  IEC104_IO_C_RC_TA_1(minutes = 3, sec_milli = 4)])/ \
+      IEC104_I_Message_SeqIOA(information_object_address=5432,
+                              io=[IEC104_IO_C_RC_TA_1(minutes = 5, sec_milli = 6),
+                                     IEC104_IO_C_RC_TA_1(minutes = 7, sec_milli = 8)])
+
+frm = Ether(frm.do_build())
+i_msg_lyr = frm.getlayer(IEC104_I_Message_SeqIOA, nb=1)
+assert(i_msg_lyr)
+assert (i_msg_lyr.information_object_address == 1234)
+assert(len(i_msg_lyr.io) == 2)
+assert(i_msg_lyr.io[0].minutes == 1)
+assert(i_msg_lyr.io[0].sec_milli == 2)
+assert(i_msg_lyr.io[1].minutes == 3)
+assert(i_msg_lyr.io[1].sec_milli == 4)
+
+i_msg_lyr = frm.getlayer(IEC104_I_Message_SeqIOA, nb=2)
+assert(i_msg_lyr)
+assert (i_msg_lyr.information_object_address == 5432)
+assert(len(i_msg_lyr.io) == 2)
+assert(i_msg_lyr.io[0].minutes == 5)
+assert(i_msg_lyr.io[0].sec_milli == 6)
+assert(i_msg_lyr.io[1].minutes == 7)
+assert(i_msg_lyr.io[1].sec_milli == 8)
+
+= Single IOA, multiple  APDUs
+
+frm = Ether()/IP()/TCP(sport=IEC_104_IANA_PORT, dport=56780)/\
+      IEC104_I_Message_SingleIOA(io=[IEC104_IO_C_RC_TA_1_IOA(information_object_address=1111,
+                                                             minutes = 1, sec_milli = 2),
+                                     IEC104_IO_C_RC_TA_1_IOA(information_object_address=2222,
+                                                             minutes = 3, sec_milli = 4)])/ \
+      IEC104_I_Message_SingleIOA(io=[IEC104_IO_C_RC_TA_1_IOA(information_object_address=3333,
+                                                             minutes = 5, sec_milli = 6),
+                                     IEC104_IO_C_RC_TA_1_IOA(information_object_address=4444,
+                                                             minutes = 7, sec_milli = 8)])
+
+frm = Ether(frm.do_build())
+i_msg_lyr = frm.getlayer(IEC104_I_Message_SingleIOA, nb=1)
+assert(i_msg_lyr)
+assert(len(i_msg_lyr.io) == 2)
+assert (i_msg_lyr.io[0].information_object_address == 1111)
+assert(i_msg_lyr.io[0].minutes == 1)
+assert(i_msg_lyr.io[0].sec_milli == 2)
+assert (i_msg_lyr.io[1].information_object_address == 2222)
+assert(i_msg_lyr.io[1].minutes == 3)
+assert(i_msg_lyr.io[1].sec_milli == 4)
+
+i_msg_lyr = frm.getlayer(IEC104_I_Message_SingleIOA, nb=2)
+assert(i_msg_lyr)
+assert(len(i_msg_lyr.io) == 2)
+assert (i_msg_lyr.io[0].information_object_address == 3333)
+assert(i_msg_lyr.io[0].minutes == 5)
+assert(i_msg_lyr.io[0].sec_milli == 6)
+assert (i_msg_lyr.io[1].information_object_address == 4444)
+assert(i_msg_lyr.io[1].minutes == 7)
+assert(i_msg_lyr.io[1].sec_milli == 8)
+
+= Mixed Single and Sequence IOA, multiple APDU
+
+frm = Ether()/IP()/TCP(sport=IEC_104_IANA_PORT, dport=56780)/\
+      IEC104_I_Message_SeqIOA(information_object_address=1111,
+                              io=[IEC104_IO_C_RC_TA_1_IOA(minutes = 1, sec_milli = 2),
+                                  IEC104_IO_C_RC_TA_1_IOA(minutes = 3, sec_milli = 4)])/ \
+      IEC104_I_Message_SingleIOA(io=[IEC104_IO_C_RC_TA_1_IOA(information_object_address=3333,
+                                                             minutes = 5, sec_milli = 6),
+                                     IEC104_IO_C_RC_TA_1_IOA(information_object_address=4444,
+                                                             minutes = 7, sec_milli = 8)])/ \
+      IEC104_I_Message_SeqIOA(information_object_address=5555,
+                              io=[IEC104_IO_C_RC_TA_1_IOA(minutes = 1, sec_milli = 9),
+                                  IEC104_IO_C_RC_TA_1_IOA(minutes = 3, sec_milli = 10)])/ \
+      IEC104_I_Message_SingleIOA(io=IEC104_IO_C_RP_NA_1_IOA(information_object_address=5555))
+
+frm = Ether(frm.do_build())
+
+i_msg_lyr = frm.getlayer(IEC104_I_Message_SeqIOA, nb=1)
+assert(i_msg_lyr)
+assert (i_msg_lyr.information_object_address == 1111)
+
+i_msg_lyr = frm.getlayer(IEC104_I_Message_SeqIOA, nb=2)
+assert(i_msg_lyr)
+assert (i_msg_lyr.information_object_address == 5555)
+
+i_msg_lyr = frm.getlayer(IEC104_I_Message_SingleIOA, nb=1)
+assert(i_msg_lyr)
+assert (i_msg_lyr.io[0].information_object_address == 3333)
+
++ mixed APDU types in one packet
+
+= I/U/S Message sequence (mixed APDUs)
+
+frm = Ether()/IP()/TCP(sport=IEC_104_IANA_PORT, dport=56780)/\
+      IEC104_I_Message_SeqIOA(information_object_address=1111,
+                              rx_seq_num=1234,
+                              tx_seq_num=6789,
+                              io=[IEC104_IO_C_RC_TA_1_IOA(minutes = 1, sec_milli = 2),
+                                  IEC104_IO_C_RC_TA_1_IOA(minutes = 3, sec_milli = 4)])/\
+    IEC104_U_Message()/ \
+    IEC104_S_Message(rx_seq_num=666)
+
+frm = Ether(frm.do_build())
+i_msg = frm.getlayer(IEC104_I_Message_SeqIOA)
+assert(i_msg)
+u_msg = frm.getlayer(IEC104_U_Message)
+assert(u_msg)
+s_msg = frm.getlayer(IEC104_S_Message)
+assert(s_msg)
+
++ information elements & objects
+
+= ASDU allowed in given standard (examples)
+
+layer = IEC104_IO_M_SP_NA_1()
+assert(layer.defined_for_iec_101() is True)
+assert(layer.defined_for_iec_104() is True)
+
+layer = IEC104_IO_M_DP_TA_1()
+assert(layer.defined_for_iec_101() is True)
+assert(layer.defined_for_iec_104() is False)
+
+layer = IEC104_IO_C_SC_TA_1()
+assert(layer.defined_for_iec_101() is False)
+assert(layer.defined_for_iec_104() is True)
+
+
+= BCR - binary counter reading / IEC104_IO_M_IT_NA_1 - integrated totals
+
+# (counter , sequence) test data
+values = [(1, 1), (1111, 17), (23456, 21), (31234, 30), (32767, 31)]
+m_it_na = []
+for value, sequence in values:
+    m_it_na.append(IEC104_IO_M_IT_NA_1(counter_value=value, sq=sequence))
+
+frm = Ether()/IP()/TCP()/IEC104_I_Message_SeqIOA(io=m_it_na)
+frm = Ether(frm.do_build())
+i_msg = frm.getlayer(IEC104_I_Message_SeqIOA)
+assert(i_msg)
+
+for idx, value in enumerate(values):
+    value, sequence = value
+    assert(i_msg.io[idx].counter_value == value)
+    assert (i_msg.io[idx].sq == sequence)
+
+= DIQ - double-point information with quality descriptor / IEC104_IO_M_DP_NA_1 - double-point information without time tag
+
+frm = Ether() / IP() / TCP() / IEC104_I_Message_SeqIOA(io=IEC104_IO_M_DP_NA_1(dpi_value=IEC104_IE_DIQ.DPI_FLAG_STATE_UNDEFINED))
+frm = Ether(frm.do_build())
+
+i_msg = frm.getlayer(IEC104_I_Message_SeqIOA)
+assert(i_msg)
+assert(i_msg.io[0].dpi_value==IEC104_IE_DIQ.DPI_FLAG_STATE_UNDEFINED)
+
+= VTI - value with transient state indication / IEC104_IO_M_ST_NA_1 - step position information
+
+values = [0, 1, 2, 62, 63, -1, -2, -63, -64]
+m_st_na_1 = []
+for value in values:
+    m_st_na_1.append(IEC104_IO_M_ST_NA_1(value=value))
+
+frm = Ether() / IP() / TCP() / IEC104_I_Message_SeqIOA(io=m_st_na_1)
+frm = Ether(frm.do_build())
+
+i_msg = frm.getlayer(IEC104_I_Message_SeqIOA)
+assert (i_msg)
+
+for idx, value in enumerate(values):
+    assert (i_msg.io[idx].value == value)
+
+= IEC104_IO_C_RD_NA_1 - read command (zero byte field)
+
+frm = Ether() / IP() / TCP() / IEC104_I_Message_SeqIOA(information_object_address=0x112233,
+                                                       io=[
+                                                           IEC104_IO_C_RD_NA_1(),
+                                                           IEC104_IO_C_RD_NA_1()
+                                                       ])/ \
+      IEC104_I_Message_SeqIOA(information_object_address=0x445566,
+                              io=[IEC104_IO_M_DP_NA_1(dpi_value=IEC104_IE_DIQ.DPI_FLAG_STATE_UNDEFINED)])/ \
+      IEC104_I_Message_SeqIOA(information_object_address=0x445567,
+                              io=[IEC104_IO_C_RD_NA_1()])
+
+frm = Ether(frm.do_build())
+
+i_msg = frm.getlayer(IEC104_I_Message_SeqIOA)
+assert (i_msg)
+assert (i_msg.information_object_address == 0x112233)
+assert (len(i_msg.io) == 2)
+
+i_msg = frm.getlayer(IEC104_I_Message_SeqIOA, nb=2)
+assert (i_msg)
+assert (i_msg.information_object_address == 0x445566)

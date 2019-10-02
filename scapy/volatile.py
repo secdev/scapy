@@ -10,11 +10,13 @@ Fields that hold random numbers.
 """
 
 from __future__ import absolute_import
+import copy
 import random
 import time
 import math
 import re
 import uuid
+import struct
 
 from scapy.base_classes import Net
 from scapy.compat import bytes_encode, chb, plain_str
@@ -104,6 +106,9 @@ class VolatileValue(object):
     def __len__(self):
         return len(self._fix())
 
+    def copy(self):
+        return copy.copy(self)
+
     def _fix(self):
         return None
 
@@ -191,6 +196,16 @@ class RandNum(RandField):
 
     def __ror__(self, other):
         return other | self._fix()
+
+
+class RandFloat(RandNum):
+    def _fix(self):
+        return random.uniform(self.min, self.max)
+
+
+class RandBinFloat(RandNum):
+    def _fix(self):
+        return struct.unpack("!f", bytes(RandBin(4)))[0]
 
 
 class RandNumGamma(RandNum):

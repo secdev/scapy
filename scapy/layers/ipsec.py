@@ -201,21 +201,21 @@ class CryptAlgo(object):
     def __init__(self, name, cipher, mode, block_size=None, iv_size=None,
                  key_size=None, icv_size=None, salt_size=None, format_mode_iv=None):  # noqa: E501
         """
-        @param name: the name of this encryption algorithm
-        @param cipher: a Cipher module
-        @param mode: the mode used with the cipher module
-        @param block_size: the length a block for this algo. Defaults to the
+        :param name: the name of this encryption algorithm
+        :param cipher: a Cipher module
+        :param mode: the mode used with the cipher module
+        :param block_size: the length a block for this algo. Defaults to the
                            `block_size` of the cipher.
-        @param iv_size: the length of the initialization vector of this algo.
+        :param iv_size: the length of the initialization vector of this algo.
                         Defaults to the `block_size` of the cipher.
-        @param key_size: an integer or list/tuple of integers. If specified,
+        :param key_size: an integer or list/tuple of integers. If specified,
                          force the secret keys length to one of the values.
                          Defaults to the `key_size` of the cipher.
-        @param icv_size: the length of the Integrity Check Value of this algo.
+        :param icv_size: the length of the Integrity Check Value of this algo.
                          Used by Combined Mode Algorithms e.g. GCM
-        @param salt_size: the length of the salt to use as the IV prefix.
+        :param salt_size: the length of the salt to use as the IV prefix.
                           Usually used by Counter modes e.g. CTR
-        @param format_mode_iv: function to format the Initialization Vector
+        :param format_mode_iv: function to format the Initialization Vector
                                e.g. handle the salt value
                                Default is the random buffer from `generate_iv`
         """
@@ -263,7 +263,7 @@ class CryptAlgo(object):
         """
         Check that the key length is valid.
 
-        @param key:    a byte string
+        :param key:    a byte string
         """
         if self.key_size and not (len(key) == self.key_size or len(key) in self.key_size):  # noqa: E501
             raise TypeError('invalid key size %s, must be %s' %
@@ -280,14 +280,14 @@ class CryptAlgo(object):
     @crypto_validator
     def new_cipher(self, key, mode_iv, digest=None):
         """
-        @param key:     the secret key, a byte string
-        @param mode_iv: the initialization vector or nonce, a byte string.
+        :param key:     the secret key, a byte string
+        :param mode_iv: the initialization vector or nonce, a byte string.
                         Formatted by `format_mode_iv`.
-        @param digest:  also known as tag or icv. A byte string containing the
+        :param digest:  also known as tag or icv. A byte string containing the
                         digest of the encrypted data. Only use this during
                         decryption!
 
-        @return:    an initialized cipher object for this algo
+        :returns:    an initialized cipher object for this algo
         """
         if self.is_aead and digest is not None:
             # With AEAD, the mode needs the digest during decryption.
@@ -311,9 +311,9 @@ class CryptAlgo(object):
         Also, make sure that the total ESP packet length is a multiple of 4
         bytes.
 
-        @param esp:    an unencrypted _ESPPlain packet
+        :param esp:    an unencrypted _ESPPlain packet
 
-        @return:    an unencrypted _ESPPlain packet with valid padding
+        :returns:    an unencrypted _ESPPlain packet with valid padding
         """
         # 2 extra bytes for padlen and nh
         data_len = len(esp.data) + 2
@@ -338,15 +338,18 @@ class CryptAlgo(object):
 
         return esp
 
-    def encrypt(self, sa, esp, key):
+    def encrypt(self, sa, esp, key, esn_en=False, esn=0):
         """
         Encrypt an ESP packet
 
-        @param sa:   the SecurityAssociation associated with the ESP packet.
-        @param esp:  an unencrypted _ESPPlain packet with valid padding
-        @param key:  the secret key used for encryption
-
-        @return:    a valid ESP packet encrypted with this algorithm
+        :param sa:   the SecurityAssociation associated with the ESP packet.
+        :param esp:  an unencrypted _ESPPlain packet with valid padding
+        :param key:  the secret key used for encryption
+        :esn_en:     extended sequence number enable which allows to use 64-bit
+                     sequence number instead of 32-bit when using an AEAD
+                     algorithm
+        :esn:        extended sequence number (32 MSB)
+        :return:    a valid ESP packet encrypted with this algorithm
         """
         data = esp.data_for_encryption()
 
@@ -356,7 +359,10 @@ class CryptAlgo(object):
             encryptor = cipher.encryptor()
 
             if self.is_aead:
-                aad = struct.pack('!LL', esp.spi, esp.seq)
+                if esn_en:
+                    aad = struct.pack('!LLL', esp.spi, esn, esp.seq)
+                else:
+                    aad = struct.pack('!LL', esp.spi, esp.seq)
                 encryptor.authenticate_additional_data(aad)
                 data = encryptor.update(data) + encryptor.finalize()
                 data += encryptor.tag[:self.icv_size]
@@ -365,18 +371,21 @@ class CryptAlgo(object):
 
         return ESP(spi=esp.spi, seq=esp.seq, data=esp.iv + data)
 
-    def decrypt(self, sa, esp, key, icv_size=None):
+    def decrypt(self, sa, esp, key, icv_size=None, esn_en=False, esn=0):
         """
         Decrypt an ESP packet
 
-        @param sa:         the SecurityAssociation associated with the ESP packet.  # noqa: E501
-        @param esp:        an encrypted ESP packet
-        @param key:        the secret key used for encryption
-        @param icv_size:   the length of the icv used for integrity check
-
-        @return:    a valid ESP packet encrypted with this algorithm
-        @raise IPSecIntegrityError: if the integrity check fails with an AEAD
-                                    algorithm
+        :param sa: the SecurityAssociation associated with the ESP packet.
+        :param esp: an encrypted ESP packet
+        :param key: the secret key used for encryption
+        :param icv_size: the length of the icv used for integrity check
+        :param esn_en: extended sequence number enable which allows to use
+                       64-bit sequence number instead of 32-bit when using an
+                       AEAD algorithm
+        :param esn: extended sequence number (32 MSB)
+        :returns: a valid ESP packet encrypted with this algorithm
+        :raise scapy.layers.ipsec.IPSecIntegrityError: if the integrity check
+            fails with an AEAD algorithm
         """
         if icv_size is None:
             icv_size = self.icv_size if self.is_aead else 0
@@ -392,10 +401,12 @@ class CryptAlgo(object):
 
             if self.is_aead:
                 # Tag value check is done during the finalize method
-                decryptor.authenticate_additional_data(
-                    struct.pack('!LL', esp.spi, esp.seq)
-                )
-
+                if esn_en:
+                    decryptor.authenticate_additional_data(
+                        struct.pack('!LLL', esp.spi, esn, esp.seq))
+                else:
+                    decryptor.authenticate_additional_data(
+                        struct.pack('!LL', esp.spi, esp.seq))
             try:
                 data = decryptor.update(data) + decryptor.finalize()
             except InvalidTag as err:
@@ -499,11 +510,11 @@ class AuthAlgo(object):
 
     def __init__(self, name, mac, digestmod, icv_size, key_size=None):
         """
-        @param name: the name of this integrity algorithm
-        @param mac: a Message Authentication Code module
-        @param digestmod: a Hash or Cipher module
-        @param icv_size: the length of the integrity check value of this algo
-        @param key_size: an integer or list/tuple of integers. If specified,
+        :param name: the name of this integrity algorithm
+        :param mac: a Message Authentication Code module
+        :param digestmod: a Hash or Cipher module
+        :param icv_size: the length of the integrity check value of this algo
+        :param key_size: an integer or list/tuple of integers. If specified,
                          force the secret keys length to one of the values.
                          Defaults to the `key_size` of the cipher.
         """
@@ -517,7 +528,7 @@ class AuthAlgo(object):
         """
         Check that the key length is valid.
 
-        @param key:    a byte string
+        :param key:    a byte string
         """
         if self.key_size and len(key) not in self.key_size:
             raise TypeError('invalid key size %s, must be one of %s' %
@@ -526,8 +537,8 @@ class AuthAlgo(object):
     @crypto_validator
     def new_mac(self, key):
         """
-        @param key:    a byte string
-        @return:       an initialized mac object for this algo
+        :param key:    a byte string
+        :returns:       an initialized mac object for this algo
         """
         if self.mac is CMAC:
             return self.mac(self.digestmod(key), default_backend())
@@ -538,10 +549,10 @@ class AuthAlgo(object):
         """
         Sign an IPsec (ESP or AH) packet with this algo.
 
-        @param pkt:    a packet that contains a valid encrypted ESP or AH layer
-        @param key:    the authentication key, a byte string
+        :param pkt:    a packet that contains a valid encrypted ESP or AH layer
+        :param key:    the authentication key, a byte string
 
-        @return: the signed packet
+        :returns: the signed packet
         """
         if not self.mac:
             return pkt
@@ -563,10 +574,11 @@ class AuthAlgo(object):
         """
         Check that the integrity check value (icv) of a packet is valid.
 
-        @param pkt:    a packet that contains a valid encrypted ESP or AH layer
-        @param key:    the authentication key, a byte string
+        :param pkt:    a packet that contains a valid encrypted ESP or AH layer
+        :param key:    the authentication key, a byte string
 
-        @raise IPSecIntegrityError: if the integrity check fails
+        :raise scapy.layers.ipsec.IPSecIntegrityError: if the integrity check
+            fails
         """
         if not self.mac or self.icv_size == 0:
             return
@@ -644,10 +656,10 @@ def split_for_transport(orig_pkt, transport_proto):
     Split an IP(v6) packet in the correct location to insert an ESP or AH
     header.
 
-    @param orig_pkt: the packet to split. Must be an IP or IPv6 packet
-    @param transport_proto: the IPsec protocol number that will be inserted
+    :param orig_pkt: the packet to split. Must be an IP or IPv6 packet
+    :param transport_proto: the IPsec protocol number that will be inserted
                             at the split position.
-    @return: a tuple (header, nh, payload) where nh is the protocol number of
+    :returns: a tuple (header, nh, payload) where nh is the protocol number of
              payload.
     """
     # force resolution of default fields to avoid padding errors
@@ -706,9 +718,9 @@ def zero_mutable_fields(pkt, sending=False):
     When using AH, all "mutable" fields must be "zeroed" before calculating
     the ICV. See RFC 4302, Section 3.3.3.1. Handling Mutable Fields.
 
-    @param pkt: an IP(v6) packet containing an AH layer.
+    :param pkt: an IP(v6) packet containing an AH layer.
                 NOTE: The packet will be modified
-    @param sending: if true, ipv6 routing headers will not be reordered
+    :param sending: if true, ipv6 routing headers will not be reordered
     """
 
     if pkt.haslayer(AH):
@@ -781,20 +793,24 @@ class SecurityAssociation(object):
     SUPPORTED_PROTOS = (IP, IPv6)
 
     def __init__(self, proto, spi, seq_num=1, crypt_algo=None, crypt_key=None,
-                 auth_algo=None, auth_key=None, tunnel_header=None, nat_t_header=None):  # noqa: E501
+                 auth_algo=None, auth_key=None, tunnel_header=None, nat_t_header=None, esn_en=False, esn=0):   # noqa: E501
         """
-        @param proto: the IPsec proto to use (ESP or AH)
-        @param spi: the Security Parameters Index of this SA
-        @param seq_num: the initial value for the sequence number on encrypted
+        :param proto: the IPsec proto to use (ESP or AH)
+        :param spi: the Security Parameters Index of this SA
+        :param seq_num: the initial value for the sequence number on encrypted
                         packets
-        @param crypt_algo: the encryption algorithm name (only used with ESP)
-        @param crypt_key: the encryption key (only used with ESP)
-        @param auth_algo: the integrity algorithm name
-        @param auth_key: the integrity key
-        @param tunnel_header: an instance of a IP(v6) header that will be used
+        :param crypt_algo: the encryption algorithm name (only used with ESP)
+        :param crypt_key: the encryption key (only used with ESP)
+        :param auth_algo: the integrity algorithm name
+        :param auth_key: the integrity key
+        :param tunnel_header: an instance of a IP(v6) header that will be used
                               to encapsulate the encrypted packets.
-        @param nat_t_header: an instance of a UDP header that will be used
+        :param nat_t_header: an instance of a UDP header that will be used
                              for NAT-Traversal.
+        :param esn_en: extended sequence number enable which allows to use
+                       64-bit sequence number instead of 32-bit when using an
+                       AEAD algorithm
+        :param esn: extended sequence number (32 MSB)
         """
 
         if proto not in (ESP, AH, ESP.name, AH.name):
@@ -806,7 +822,9 @@ class SecurityAssociation(object):
 
         self.spi = spi
         self.seq_num = seq_num
-
+        self.esn_en = esn_en
+        # Get Extended Sequence (32 MSB)
+        self.esn = esn
         if crypt_algo:
             if crypt_algo not in CRYPT_ALGOS:
                 raise TypeError('unsupported encryption algo %r, try %r' %
@@ -851,7 +869,7 @@ class SecurityAssociation(object):
             raise TypeError('packet spi=0x%x does not match the SA spi=0x%x' %
                             (pkt.spi, self.spi))
 
-    def _encrypt_esp(self, pkt, seq_num=None, iv=None):
+    def _encrypt_esp(self, pkt, seq_num=None, iv=None, esn_en=None, esn=None):
 
         if iv is None:
             iv = self.crypt_algo.generate_iv()
@@ -879,7 +897,9 @@ class SecurityAssociation(object):
         esp.nh = nh
 
         esp = self.crypt_algo.pad(esp)
-        esp = self.crypt_algo.encrypt(self, esp, self.crypt_key)
+        esp = self.crypt_algo.encrypt(self, esp, self.crypt_key,
+                                      esn_en=esn_en or self.esn_en,
+                                      esn=esn or self.esn)
 
         self.auth_algo.sign(esp, self.auth_key)
 
@@ -956,28 +976,34 @@ class SecurityAssociation(object):
 
         return signed_pkt
 
-    def encrypt(self, pkt, seq_num=None, iv=None):
+    def encrypt(self, pkt, seq_num=None, iv=None, esn_en=None, esn=None):
         """
         Encrypt (and encapsulate) an IP(v6) packet with ESP or AH according
         to this SecurityAssociation.
 
-        @param pkt:     the packet to encrypt
-        @param seq_num: if specified, use this sequence number instead of the
+        :param pkt:     the packet to encrypt
+        :param seq_num: if specified, use this sequence number instead of the
                         generated one
-        @param iv:      if specified, use this initialization vector for
+        :param esn_en:  extended sequence number enable which allows to
+                        use 64-bit sequence number instead of 32-bit when
+                        using an AEAD algorithm
+        :param esn:     extended sequence number (32 MSB)
+        :param iv:      if specified, use this initialization vector for
                         encryption instead of a random one.
 
-        @return: the encrypted/encapsulated packet
+        :returns: the encrypted/encapsulated packet
         """
         if not isinstance(pkt, self.SUPPORTED_PROTOS):
             raise TypeError('cannot encrypt %s, supported protos are %s'
                             % (pkt.__class__, self.SUPPORTED_PROTOS))
         if self.proto is ESP:
-            return self._encrypt_esp(pkt, seq_num=seq_num, iv=iv)
+            return self._encrypt_esp(pkt, seq_num=seq_num,
+                                     iv=iv, esn_en=esn_en,
+                                     esn=esn)
         else:
             return self._encrypt_ah(pkt, seq_num=seq_num)
 
-    def _decrypt_esp(self, pkt, verify=True):
+    def _decrypt_esp(self, pkt, verify=True, esn_en=None, esn=None):
 
         encrypted = pkt[ESP]
 
@@ -987,7 +1013,9 @@ class SecurityAssociation(object):
 
         esp = self.crypt_algo.decrypt(self, encrypted, self.crypt_key,
                                       self.crypt_algo.icv_size or
-                                      self.auth_algo.icv_size)
+                                      self.auth_algo.icv_size,
+                                      esn_en=esn_en or self.esn_en,
+                                      esn=esn or self.esn)
 
         if self.tunnel_header:
             # drop the tunnel header and return the payload untouched
@@ -1050,22 +1078,27 @@ class SecurityAssociation(object):
             # reassemble the ip_header with the AH payload
             return ip_header / payload
 
-    def decrypt(self, pkt, verify=True):
+    def decrypt(self, pkt, verify=True, esn_en=None, esn=None):
         """
         Decrypt (and decapsulate) an IP(v6) packet containing ESP or AH.
 
-        @param pkt:     the packet to decrypt
-        @param verify:  if False, do not perform the integrity check
-
-        @return: the decrypted/decapsulated packet
-        @raise IPSecIntegrityError: if the integrity check fails
+        :param pkt:     the packet to decrypt
+        :param verify:  if False, do not perform the integrity check
+        :param esn_en:  extended sequence number enable which allows to use
+                        64-bit sequence number instead of 32-bit when using an
+                        AEAD algorithm
+        :param esn:        extended sequence number (32 MSB)
+        :returns: the decrypted/decapsulated packet
+        :raise scapy.layers.ipsec.IPSecIntegrityError: if the integrity check
+            fails
         """
         if not isinstance(pkt, self.SUPPORTED_PROTOS):
             raise TypeError('cannot decrypt %s, supported protos are %s'
                             % (pkt.__class__, self.SUPPORTED_PROTOS))
 
         if self.proto is ESP and pkt.haslayer(ESP):
-            return self._decrypt_esp(pkt, verify=verify)
+            return self._decrypt_esp(pkt, verify=verify,
+                                     esn_en=esn_en, esn=esn)
         elif self.proto is AH and pkt.haslayer(AH):
             return self._decrypt_ah(pkt, verify=verify)
         else:

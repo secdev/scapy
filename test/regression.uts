@@ -87,18 +87,11 @@ conf.debug_dissector = True
 ~ linux
 
 try:
-    conf.use_winpcapy = True
-    assert False
-except:
-    True
-
-try:
     conf.use_bpf = True
     assert False
 except:
     True
 
-assert not conf.use_winpcapy
 assert not conf.use_bpf
 
 = Configuration conf.use_* WINDOWS
@@ -111,17 +104,6 @@ except:
     True
 
 assert not conf.use_bpf
-
-= Configuration conf.use_* OSX
-~ osx
-
-try:
-    conf.use_winpcapy = True
-    assert False
-except:
-    True
-
-assert not conf.use_winpcapy
 
 
 ###########
@@ -168,6 +150,8 @@ get_if_raw_addr(get_dummy_interface())
 
 get_if_list()
 
+get_working_if()
+
 get_if_raw_addr6(conf.iface6)
 
 = Test read_routes6() - default output
@@ -181,12 +165,15 @@ routes6
 # Expected results:
 # - one route if there is only the loopback interface
 # - three routes if there is a network interface
+# - on OpenBSD, only two routes on lo0 are expected
 
 if routes6:
     iflist = get_if_list()
     if WINDOWS:
         route_add_loopback(ipv6=True, iflist=iflist)
-    if iflist == [LOOPBACK_NAME]:
+    if OPENBSD:
+        len(routes6) >= 2
+    elif iflist == [LOOPBACK_NAME]:
         len(routes6) == 1
     elif len(iflist) >= 2:
         len(routes6) >= 3
@@ -201,7 +188,7 @@ else:
 
 if len(routes6) and not WINDOWS:
     assert(sum(1 for r in routes6 if r[0] == "::1" and r[4] == ["::1"]) >= 1)
-    if len(iflist) >= 2:
+    if not OPENBSD and len(iflist) >= 2:
         assert sum(1 for r in routes6 if r[0] == "fe80::" and r[1] == 64) >= 1
         try:
             assert sum(1 for r in routes6 if in6_islladdr(r[0]) and r[1] == 128 and r[4] == ["::1"]) >= 1
@@ -222,6 +209,37 @@ True
 = Packet.route()
 assert (Ether() / ARP()).route()[0] is not None
 assert (Ether() / ARP()).payload.route()[0] is not None
+assert (ARP(ptype=0, pdst="hello. this isn't a valid IP")).route()[0] is None
+
+
+= plain_str test
+
+if not six.PY2:
+    # Only Python 3 has to deal with Str/Bytes conversion,
+    # as we don't use Python 2's unicode
+    data = b"\xffsweet\xef celestia\xab"
+    assert plain_str(data) == "sweet celestia"
+
+############
+############
++ compat.py
+
+= test bytes_hex/hex_bytes
+
+monty_data = b"Stop! Who approaches the Bridge of Death must answer me these questions three, 'ere the other side he see."
+hex_data = bytes_hex(monty_data)
+assert hex_data == b'53746f70212057686f20617070726f61636865732074686520427269646765206f66204465617468206d75737420616e73776572206d65207468657365207175657374696f6e732074687265652c202765726520746865206f746865722073696465206865207365652e'
+assert hex_bytes(hex_data) == monty_data
+
+= test gzip_decompress/gzip_compress
+
+from scapy.compat import gzip_compress, gzip_decompress
+
+gziped_data = b"\x1f\x8b\x08\x00N\xf5\xd7\\\x02\xff\x1d\x8b9\x0e\x800\x0c\x04\xbf\xb2T4\x88G ~@A\x1d\x91\x85\xa4H\x1cl#\xbe\xcf\xd1\xac4\x9a\xd9\xc5\xa5uX\x93 \xb4\xa6\x12\xb6D\x83'b\xd2\x1c\x0fBv\xcc\x0c\x9eP.s\x84j7\x15\x85_b\xc4y\xd1<K\xfd.J\x0e\xe8\xa9\xbf\x83\xbc\xa3\xb0\x1c\x89\x97\x8c\x1c\x1fc\xbeS\\j\x00\x00\x00"
+assert gzip_decompress(gziped_data) == monty_data
+
+data = b"sweet celestia"
+assert gzip_decompress(gzip_compress(data)) == data
 
 
 ############
@@ -346,7 +364,6 @@ interact_emulator(extra_args=["-d"])  # Extended
 ~ command
 
 import mock
-from scapy.tools.UTscapy import Bunch
 
 def test_explore_gui(is_layer, layer):
     prompt_toolkit_mocked_module = Bunch(
@@ -372,6 +389,7 @@ def test_explore_gui(is_layer, layer):
             result_explore = cmco.get_output()
         return result_explore
 
+conf.interactive = True
 explore_dns = test_explore_gui(True, "scapy.layers.dns")
 assert "DNS" in explore_dns
 assert "DNS Question Record" in explore_dns
@@ -498,6 +516,9 @@ assert p.mysummary() in ['ff:ff:ff:ff:ff:ff > ff:ff:ff:ff:ff:ff (%s)' % loop
 random.seed(0x2807)
 zerofree_randstring(4) in [b"\xd2\x12\xe4\x5b", b'\xd3\x8b\x13\x12']
 
+= Test strand function
+assert strand("AC", "BC") == b'@C'
+
 = Test export_object and import_object functions
 import mock
 def test_export_import_object():
@@ -594,6 +615,16 @@ b.reverse_lookup("Secdevcorp") == {'00:01:12': ('SecdevCorp', 'Secdev Corporatio
 
 scapy_delete_temp_files()
 
+= Test ARPingResult output
+~ manufdb
+
+ar = ARPingResult([(None, Ether(src='70:ee:50:50:ee:70')/ARP(psrc='192.168.0.1'))])
+with ContextManagerCaptureOutput() as cmco:
+    ar.show()
+    result_ar = cmco.get_output()
+
+assert result_ar.startswith("  70:ee:50:50:ee:70 Netatmo 192.168.0.1")
+
 = Test utility functions - network related
 ~ netaccess
 
@@ -638,6 +669,38 @@ conf.verb = saved_conf_verb
 = Test CacheInstance repr
 
 conf.netcache
+
+= Test pyx detection functions
+
+from scapy.extlib import _test_pyx
+assert _test_pyx() == False
+
+= Test matplotlib detection functions
+
+from mock import MagicMock, patch
+
+bck_scapy_ext_lib = sys.modules.get("scapy.extlib", None)
+del(sys.modules["scapy.extlib"])
+
+matplotlib = MagicMock()
+matplotlib.get_backend.return_value = "inline"
+matplotlib.pyplot = MagicMock()
+matplotlib.pyplot.plt = None
+with patch.dict("sys.modules", matplotlib=matplotlib):
+    from scapy.extlib import MATPLOTLIB, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
+    assert MATPLOTLIB == 1
+    assert MATPLOTLIB_INLINED == 1
+    assert "marker" in MATPLOTLIB_DEFAULT_PLOT_KARGS
+
+matplotlib.get_backend.return_value = "ko"
+with patch.dict("sys.modules", matplotlib=matplotlib):
+    from scapy.extlib import MATPLOTLIB, MATPLOTLIB_INLINED, MATPLOTLIB_DEFAULT_PLOT_KARGS
+    assert MATPLOTLIB == 1
+    assert MATPLOTLIB_INLINED == 0
+    assert "marker" in MATPLOTLIB_DEFAULT_PLOT_KARGS
+
+if bck_scapy_ext_lib:
+    sys.modules["scapy.extlib"] = bck_scapy_ext_lib
 
 
 ############
@@ -684,8 +747,14 @@ r
 assert r in [
     b'u\x14\x00\x1c\xc2\xf6\x80\x00\xde\x01k\xd3\x7f\x00\x00\x01\x7f\x00\x00\x01y\xc9>\xa6\x84\xd8\xc2\xb7',
     b'E\xa7\x00\x1c\xb0c\xc0\x00\xf6\x01U\xd3\x7f\x00\x00\x01\x7f\x00\x00\x01\xfex\xb3\x92B<\x0b\xb8',
-    '\x85\x7f\x00\x1c\xc2\xf6\x00\x00\xde\x01\xdbh\x7f\x00\x00\x01\x7f\x00\x00\x01y\xc9>\xa6\x84\xd8\xc2\xb7'
+    b'\x85\x7f\x00\x1c\xc2\xf6\x00\x00\xde\x01\xdbh\x7f\x00\x00\x01\x7f\x00\x00\x01y\xc9>\xa6\x84\xd8\xc2\xb7',
+    b'\xf5H\x00\x1c\x0fr \x00\xff\x01\xde#\x7f\x00\x00\x01\x7f\x00\x00\x01\xfex\xb3\x92B<\x0b\xb8'
 ]
+
+= fuzz a Packet with MultipleTypeField
+
+fuzz(ARP(pdst="127.0.0.1"))
+fuzz(IP()/ARP(pdst='10.0.0.254'))
 
 = fuzz on packets with advanced RandNum
 
@@ -1025,6 +1094,12 @@ assert raw(pkt) == w_payload
 
 = WEP tests
 ~ wifi crypto Dot11 LLC SNAP IP TCP
+conf.wepkey = ""
+bck_conf_crypto_valid = conf.crypto_valid
+p = Dot11WEP(b'\x00\x00\x00\x00\xe3OjYLw\xc3x_%\xd0\xcf\xdeu-\xc3pH#\x1eK\xae\xf5\xde\xe7\xb8\x1d,\xa1\xfe\xe83\xca\xe1\xfe\xbd\xfe\xec\x00)T`\xde.\x93Td\x95C\x0f\x07\xdd')
+assert isinstance(p, Dot11WEP)
+conf.crypto_valid = bck_conf_crypto_valid
+
 conf.wepkey = "Fobar"
 r = raw(Dot11WEP()/LLC()/SNAP()/IP()/TCP(seq=12345678))
 r
@@ -1039,6 +1114,7 @@ r = RadioTap(data)
 r = RadioTap(raw(r))
 assert r.dBm_AntSignal == -59
 assert r.ChannelFrequency == 5785
+assert r.ChannelPlusFrequency == 5785
 assert r.present == 3410027
 assert r.A_MPDU_ref == 2821
 assert r.KnownVHT == 511
@@ -1255,9 +1331,6 @@ raw(RandASN1Object())
 
 * Those tests need network access
 
-= Import retry_test()
-from scapy.tools.UTscapy import retry_test
-
 = Sending and receiving an ICMP
 ~ netaccess IP ICMP
 def _test():
@@ -1435,7 +1508,7 @@ assert True
 
 ############
 ############
-+ More complex tests
++ Generator tests
 
 = Implicit logic 1
 ~ IP TCP
@@ -1452,6 +1525,22 @@ ls(a)
 ls(a, verbose=True)
 l = [p for p in a]
 len(l) == 7
+
+= Implicit logic 3
+
+# In case there's a single option: __iter__ should return self
+a = Ether()/IP(src="127.0.0.1", dst="127.0.0.1")/ICMP()
+for i in a:
+    i.sent_time = 1
+
+assert a.sent_time == 1
+
+# In case they are several, self should never be returned
+a = Ether()/IP(src="127.0.0.1", dst="127.0.0.1")/ICMP(seq=(0, 5))
+for i in a:
+    i.sent_time = 1
+
+assert a.sent_time is None
 
 
 ############
@@ -1500,27 +1589,14 @@ def _test():
 
 retry_test(_test)
 
-= Send & receive with process
+= Send & receive with multi
 ~ netaccess IP ICMP
 def _test():
     old_debug_dissector = conf.debug_dissector
     conf.debug_dissector = False
-    ans, unans = sr(IP(dst=["www.google.fr", "www.google.com", "www.google.co.uk"])/ICMP(), process=lambda x, y: (x[IP].dst, y[IP].src), timeout=2)
+    ans, unans = sr(IP(dst=["8.8.8.8", "1.2.3.4"]) / ICMP(), timeout=2, multi=1)
     conf.debug_dissector = old_debug_dissector
-    assert all(x == y for x, y in ans)
-    assert isinstance(unans, list)
-
-retry_test(_test)
-
-= Send & receive with store_unanswered=False
-~ netaccess IP ICMP
-def _test():
-    old_debug_dissector = conf.debug_dissector
-    conf.debug_dissector = False
-    ans, unans = sr(IP(dst=["www.google.fr", "www.google.com", "www.google.co.uk"])/ICMP(), store_unanswered=False, timeout=2)
-    conf.debug_dissector = old_debug_dissector
-    assert isinstance(ans, PacketList)
-    assert unans == None
+    len(ans) == 1 and len(unans) == 1
 
 retry_test(_test)
 
@@ -2048,6 +2124,73 @@ r = x
 r
 assert(r == "Venus")
 
+= Automaton graph
+~ automaton
+
+class HelloWorld(Automaton):
+    @ATMT.state(initial=1)
+    def BEGIN(self):
+        pass
+    @ATMT.condition(BEGIN)
+    def wait_for_nothing(self):
+        raise self.END()
+    @ATMT.action(wait_for_nothing)
+    def on_nothing(self):
+        pass
+    @ATMT.state(final=1)
+    def END(self):
+        pass
+
+graph = HelloWorld.build_graph()
+assert graph.startswith("digraph")
+assert '"BEGIN" -> "END"' in graph
+
+= TCP_client automaton
+~ automaton netaccess needs_root
+* This test retries on failure because it may fail quite easily
+
+# This test doesn't pass on Travis BSD, and will be skipped
+
+SECDEV_IP4 = "203.178.141.194"
+
+if LINUX:
+    import os
+    IPTABLE_RULE = "iptables -%c INPUT -s %s -p tcp --sport 80 -j DROP"
+    # Drop packets from SECDEV_IP4
+    assert(os.system(IPTABLE_RULE % ('A', SECDEV_IP4)) == 0)
+
+load_layer("http")
+
+def _tcp_client_test():
+    req = HTTP()/HTTPRequest(
+        Accept_Encoding=b'gzip, deflate',
+        Cache_Control=b'no-cache',
+        Pragma=b'no-cache',
+        Connection=b'keep-alive',
+        Host=b'www.kame.net',
+    )
+    t = TCP_client.tcplink(HTTP, SECDEV_IP4, 80)
+    response = t.sr1(req, timeout=3)
+    t.close()
+    assert response.Http_Version == b'HTTP/1.1'
+    assert response.Status_Code == b'200'
+    assert response.Reason_Phrase == b'OK'
+
+def _http_request_test():
+    response = http_request("www.kame.net", path="/")
+    assert response.Http_Version == b'HTTP/1.1'
+    assert response.Status_Code == b'200'
+    assert response.Reason_Phrase == b'OK'
+
+# This test doesn't pass on Travis BSD
+if not BSD:
+    try:
+        retry_test(_tcp_client_test)
+        retry_test(_http_request_test)
+    finally:
+        if LINUX:
+            # Remove the iptables rule
+            assert(os.system(IPTABLE_RULE % ('D', SECDEV_IP4)) == 0)
 
 ############
 ############
@@ -2233,8 +2376,8 @@ a.nh == 6 and a.plen == 20 and isinstance(a.payload, TCP) and a.payload.chksum =
 raw(IPv6()/TCP()/Raw(load="somedata")) == b'`\x00\x00\x00\x00\x1c\x06@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\xd5\xdd\x00\x00somedata'
 
 = IPv6 Class with TCP and TCP data - dissection
-a=IPv6(raw(IPv6()/TCP()/Raw(load="somedata")))
-a.nh == 6 and a.plen == 28 and isinstance(a.payload, TCP) and a.payload.chksum == 0xd5dd and isinstance(a.payload.payload, Raw) and a[Raw].load == b"somedata"
+a=IPv6(raw(IPv6()/TCP(dport=1234, sport=1234)/Raw(load="somedata")))
+a.nh == 6 and a.plen == 28 and isinstance(a.payload, TCP) and a.payload.chksum == 0xcc9d and isinstance(a.payload.payload, Raw) and a[Raw].load == b"somedata"
 
 = IPv6 Class binding with Ethernet - build
 raw(Ether(src="00:00:00:00:00:00", dst="ff:ff:ff:ff:ff:ff")/IPv6()/TCP()) == b'\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x86\xdd`\x00\x00\x00\x00\x14\x06@\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x8f}\x00\x00'
@@ -3537,7 +3680,8 @@ random.seed(0x2807)
 p = IPv6()/ICMPv6NIQueryIPv4(data="freebsd")
 h_py2 = '\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00:y\xb2V<\x7f\x87\x14\xde'
 h_py3 = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00:\x88\xccb\x19~\x9e\xe3a'
-assert p.hashret() in [h_py2, h_py3]
+h_py3_2 = b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00:$#\xb5\xb7\xd0\xbf \xe2'
+assert p.hashret() in [h_py2, h_py3, h_py3_2]
 
 
 ############
@@ -6504,25 +6648,25 @@ filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else 
 a = rdpcap(filename)
 a = netflowv9_defragment(a)
 
-nfv9_fl = a[4]
+nfv9_fl = a[0]
 assert NetflowFlowsetV9 in nfv9_fl
 assert len(nfv9_fl.templates[0].template_fields) == 21
 assert nfv9_fl.templates[0].template_fields[1].fieldType == 12
 
-nfv9_ds = a[61]
+nfv9_ds = a[3]
 assert NetflowDataflowsetV9 in nfv9_ds
 assert len(nfv9_ds[NetflowDataflowsetV9].records) == 24
 assert nfv9_ds[NetflowDataflowsetV9].records[21].IP_PROTOCOL_VERSION == 4
 assert nfv9_ds.records[21].IPV4_SRC_ADDR == '20.0.0.248'
 assert nfv9_ds.records[21].IPV4_DST_ADDR == '30.0.0.248'
 
-nfv9_options_fl = a[5]
+nfv9_options_fl = a[1]
 assert NetflowOptionsFlowsetV9 in nfv9_options_fl
 assert isinstance(nfv9_options_fl[NetflowOptionsFlowsetV9].scopes[0], NetflowOptionsFlowsetScopeV9)
 assert isinstance(nfv9_options_fl[NetflowOptionsFlowsetV9].options[0], NetflowOptionsFlowsetOptionV9)
 assert nfv9_options_fl[NetflowOptionsFlowsetV9].options[0].optionFieldType == 36
 
-nfv9_options_ds = a[255]
+nfv9_options_ds = a[4]
 assert NetflowDataflowsetV9 in nfv9_options_ds
 assert isinstance(nfv9_options_ds.records[0], NetflowOptionsRecordScopeV9)
 assert nfv9_options_ds.records[0].IN_BYTES == b'\x01\x00\x00\x00'
@@ -6568,6 +6712,46 @@ assert raw(pkt) == b'\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x00\x00\x00\x00\x08\x00E\x
 
 ############
 ############
++ Netflow v10 (aka IPFix)
+~ netflow
+
+= IPFix dissection
+
+import os
+tmp = "/test/pcaps/ipfix.pcap"
+filename = os.path.abspath(os.path.join(os.path.dirname(__file__),"../")) + tmp
+filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else filename
+a = sniff(offline=filename, session=NetflowSession)
+
+# Templates
+pkt1 = a[0]
+assert NetflowHeaderV10 in pkt1
+assert len(pkt1[NetflowFlowsetV9].templates) == 1
+assert len(pkt1[NetflowFlowsetV9].templates[0].template_fields) == 23
+flds = pkt1[NetflowFlowsetV9].templates[0].template_fields
+assert (flds[0].fieldType == 8 and flds[0].fieldLength == 4)
+assert (flds[4].fieldType == 7 and flds[4].fieldLength == 2)
+
+# Data
+pkt2 = a[2]
+assert NetflowHeaderV10 in pkt2
+assert len(pkt2.records) == 1
+assert pkt2.records[0].IPV4_SRC_ADDR == "70.1.115.1"
+assert pkt2.records[0].flowStartMilliseconds == 1480449931519
+
+# Options
+pkt3 = a[1]
+assert NetflowOptionsFlowset10 in pkt3
+assert pkt3.scope_field_count == 1
+assert pkt3.field_count == 3
+assert len(pkt3[NetflowOptionsFlowset10].scopes) == 1
+assert len(pkt3[NetflowOptionsFlowset10].options) == 2
+assert pkt3.scopes[0].scopeFieldType == 5
+assert pkt3.scopes[0].scopeFieldlength == 2
+assert pkt3[NetflowOptionsFlowset10].options[0].optionFieldType == 36
+
+############
+############
 + pcap / pcapng format support
 
 = Variable creations
@@ -6582,16 +6766,18 @@ pktpcap = rdpcap(pcapfile)
 
 = Read a pcapng file
 pktpcapng = rdpcap(pcapngfile)
+assert pktpcapng[0].time == 1454163407.666223
 
 = Read a pcap file with nanosecond precision
 pktpcapnano = rdpcap(pcapnanofile)
+assert pktpcapnano[0].time == Decimal('1454163407.666223049')
 
 = Read a pcap file with wirelen != captured len
 pktpcapwirelen = rdpcap(pcapwirelenfile)
 
 = Check all packet lists are the same
 assert list(pktpcap) == list(pktpcapng) == list(pktpcapnano)
-assert [p.time for p in pktpcap] == [p.time for p in pktpcapng] == [p.time for p in pktpcapnano]
+assert [float(p.time) for p in pktpcap] == [float(p.time) for p in pktpcapng] == [float(p.time) for p in pktpcapnano]
 
 = Check packets from pcap file
 assert all(IP in pkt for pkt in pktpcap)
@@ -6642,15 +6828,48 @@ fdesc.close()
 assert list(pktpcap[TCP]) == list(pktpcap_tcp)
 os.unlink(filename)
 
+= Check offline sniff() with Packets and tcpdump
+~ tcpdump
+
+l = sniff(offline=IP()/UDP(sport=(10000, 10001)), filter="udp")
+assert len(l) == 2
+assert(all(UDP in p for p in l))
+
+l = sniff(offline=[p for p in IP()/UDP(sport=(10000, 10001))], filter="udp")
+assert len(l) == 2
+assert(all(UDP in p for p in l))
+
+l = sniff(offline=IP()/UDP(sport=(10000, 10001)), filter="tcp")
+assert len(l) == 0
+
+= Check offline sniff() without a tcpdump binary
+~ tcpdump
+import mock
+
+conf_prog_tcpdump = conf.prog.tcpdump
+conf.prog.tcpdump = "tcpdump_fake"
+
+from scapy.arch.common import _check_tcpdump
+
+@mock.patch("scapy.arch.common.TCPDUMP", _check_tcpdump())
+def _test_sniff_notcpdump():
+    try:
+        sniff(offline="fake.pcap", filter="tcp")
+        assert False
+    except Scapy_Exception:
+        assert True
+
+_test_sniff_notcpdump()
+conf.prog.tcpdump = conf_prog_tcpdump
+
 = Check wrpcap(nano=True)
 fdesc, filename = tempfile.mkstemp()
 fdesc = os.fdopen(fdesc, "wb")
-pktpcapnano[0].time += 0.000000001
+pktpcapnano[0].time += Decimal('1E-9')
 wrpcap(fdesc, pktpcapnano, nano=True)
 fdesc.close()
 pktpcapnanoread = rdpcap(filename)
 assert pktpcapnanoread[0].time == pktpcapnano[0].time
-assert pktpcapnanoread[0].time == pktpcap[0].time + 0.000000001
 os.unlink(filename)
 
 = Check PcapNg with nanosecond precision using obsolete packet block
@@ -6691,25 +6910,226 @@ assert isinstance(pkt, Padding) and pkt.load == b'\xeay$\xf6'
 pkt = pkt.payload
 assert isinstance(pkt, NoPayload)
 
+= Check PcapWriter on null write
+
+f = BytesIO()
+w = PcapWriter(f)
+w.write([])
+assert len(f.getvalue()) == 0
+
+# Stop being closed for reals, but we still want to have the header written
+with mock.patch.object(f, 'close') as cf:
+    w.close()
+
+cf.assert_called_once_with()
+assert len(f.getvalue()) != 0
+
+= Check PcapWriter sets correct linktype after null write
+
+f = BytesIO()
+w = PcapWriter(f)
+w.write([])
+assert len(f.getvalue()) == 0
+w.write(Ether()/IP()/ICMP())
+assert len(f.getvalue()) != 0
+
+# Stop being closed for reals, but we still want to have the header written
+with mock.patch.object(f, 'close') as cf:
+    w.close()
+
+cf.assert_called_once_with()
+f.seek(0) or None
+assert len(f.getvalue()) != 0
+
+r = PcapReader(f)
+f.seek(0) or None
+assert r.LLcls is Ether
+assert r.linktype == DLT_EN10MB
+
+l = [ p for p in RawPcapReader(f) ]
+assert len(l) == 1
+
+
 = Check tcpdump()
 ~ tcpdump
+from io import BytesIO
 * No very specific tests because we do not want to depend on tcpdump output
-pcapfile = BytesIO(b'\xd4\xc3\xb2\xa1\x02\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x00\x00e\x00\x00\x00\xcf\xc5\xacVo*\n\x00(\x00\x00\x00(\x00\x00\x00E\x00\x00(\x00\x01\x00\x00@\x06|\xcd\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x91|\x00\x00\xcf\xc5\xacV_-\n\x00\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x11|\xce\x7f\x00\x00\x01\x7f\x00\x00\x01\x005\x005\x00\x08\x01r\xcf\xc5\xacV\xf90\n\x00\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x01|\xde\x7f\x00\x00\x01\x7f\x00\x00\x01\x08\x00\xf7\xff\x00\x00\x00\x00')
+pcapfile = BytesIO(b'\xd4\xc3\xb2\xa1\x02\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x00\x00\x01\x00\x00\x000}$]\xff\\\t\x006\x00\x00\x006\x00\x00\x00\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x08\x00E\x00\x00(\x00\x01\x00\x00@\x06|\xcd\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x91|\x00\x000}$]\x87i\t\x00*\x00\x00\x00*\x00\x00\x00\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x08\x00E\x00\x00\x1c\x00\x01\x00\x00@\x11|\xce\x7f\x00\x00\x01\x7f\x00\x00\x01\x005\x005\x00\x08\x01r0}$]\xfbp\t\x00*\x00\x00\x00*\x00\x00\x00\xff\xff\xff\xff\xff\xff\x00\x00\x00\x00\x00\x00\x08\x00E\x00\x00\x1c\x00\x01\x00\x00@\x01|\xde\x7f\x00\x00\x01\x7f\x00\x00\x01\x08\x00\xf7\xff\x00\x00\x00\x00')
+
 data = tcpdump(pcapfile, dump=True, args=['-nn']).split(b'\n')
 print(data)
-assert b'IP 127.0.0.1.20 > 127.0.0.1.80:' in data[0]
-assert b'IP 127.0.0.1.53 > 127.0.0.1.53:' in data[1]
-assert b'IP 127.0.0.1 > 127.0.0.1:' in data[2]
+assert b'127.0.0.1.20 > 127.0.0.1.80:' in data[0]
+assert b'127.0.0.1.53 > 127.0.0.1.53:' in data[1]
+assert b'127.0.0.1 > 127.0.0.1:' in data[2]
+
+* Non existing tcpdump binary
+
+import mock
+
+conf_prog_tcpdump = conf.prog.tcpdump
+conf.prog.tcpdump = "tcpdump_fake"
+
+from scapy.arch.common import _check_tcpdump
+
+@mock.patch("scapy.arch.common.TCPDUMP", _check_tcpdump())
+def _test_tcpdump_notcpdump():
+    try:
+        tcpdump(IP()/TCP())
+        assert False
+    except Scapy_Exception:
+        assert True
+
+_test_tcpdump_notcpdump()
+conf.prog.tcpdump = conf_prog_tcpdump
+
+# Also check with use_tempfile=True (for non-OSX platforms)
+pcapfile.seek(0) or None
+tempfile_count = len(conf.temp_files)
+data = tcpdump(pcapfile, dump=True, args=['-nn'], use_tempfile=True).split(b'\n')
+print(data)
+assert b'127.0.0.1.20 > 127.0.0.1.80:' in data[0]
+assert b'127.0.0.1.53 > 127.0.0.1.53:' in data[1]
+assert b'127.0.0.1 > 127.0.0.1:' in data[2]
+# We should have another tempfile tracked.
+assert len(conf.temp_files) > tempfile_count
+
+# Check with a simple packet
+data = tcpdump([Ether()/IP()/ICMP()], dump=True, args=['-nn']).split(b'\n')
+print(data)
+assert b'127.0.0.1 > 127.0.0.1: ICMP' in data[0].upper()
+
+= Check tcpdump() command with linktype
+~ tcpdump
+
+f = BytesIO()
+pkt = Ether()/IP()/ICMP()
+
+with mock.patch('subprocess.Popen', return_value=Bunch(
+        stdin=f, wait=lambda: None)) as popen:
+    # Prevent closing the BytesIO
+    with mock.patch.object(f, 'close'):
+        tcpdump([pkt], linktype="DLT_EN3MB", use_tempfile=False)
+
+popen.assert_called_once_with(
+    [conf.prog.tcpdump, '-y', 'EN3MB', '-r', '-'],
+    stdin=subprocess.PIPE, stdout=None, stderr=None)
+
+print(bytes_hex(f.getvalue()))
+assert raw(pkt) in f.getvalue()
+f.close()
+del f, pkt
+
+= Check tcpdump() command with linktype and args
+~ tcpdump
+
+f = BytesIO()
+pkt = Ether()/IP()/ICMP()
+
+with mock.patch('subprocess.Popen', return_value=Bunch(
+        stdin=f, wait=lambda: None)) as popen:
+    # Prevent closing the BytesIO
+    with mock.patch.object(f, 'close'):
+        tcpdump([pkt], linktype=scapy.data.DLT_EN10MB, use_tempfile=False)
+
+popen.assert_called_once_with(
+    [conf.prog.tcpdump, '-y', 'EN10MB', '-r', '-'],
+    stdin=subprocess.PIPE, stdout=None, stderr=None)
+
+print(bytes_hex(f.getvalue()))
+assert raw(pkt) in f.getvalue()
+f.close()
+del f, pkt
+
+= Check tcpdump() command rejects non-string input for prog
+
+pkt = Ether()/IP()/ICMP()
+
+try:
+    tcpdump([pkt], prog=+17607067425, args=['-nn'])
+except ValueError as e:
+    if hasattr(e, 'args'):
+        assert 'prog' in e.args[0]
+    else:
+        assert 'prog' in e.message
+else:
+    assert False, 'expected exception'
 
 = Check tcpdump() command with tshark
 ~ tshark
 pcapfile = BytesIO(b'\xd4\xc3\xb2\xa1\x02\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\x00\x00e\x00\x00\x00\xcf\xc5\xacVo*\n\x00(\x00\x00\x00(\x00\x00\x00E\x00\x00(\x00\x01\x00\x00@\x06|\xcd\x7f\x00\x00\x01\x7f\x00\x00\x01\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x91|\x00\x00\xcf\xc5\xacV_-\n\x00\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x11|\xce\x7f\x00\x00\x01\x7f\x00\x00\x01\x005\x005\x00\x08\x01r\xcf\xc5\xacV\xf90\n\x00\x1c\x00\x00\x00\x1c\x00\x00\x00E\x00\x00\x1c\x00\x01\x00\x00@\x01|\xde\x7f\x00\x00\x01\x7f\x00\x00\x01\x08\x00\xf7\xff\x00\x00\x00\x00')
+# tshark doesn't need workarounds on OSX
+tempfile_count = len(conf.temp_files)
 values = [tuple(int(val) for val in line[:-1].split(b'\t')) for line in tcpdump(pcapfile, prog=conf.prog.tshark, getfd=True, args=['-T', 'fields', '-e', 'ip.ttl', '-e', 'ip.proto'])]
 assert values == [(64, 6), (64, 17), (64, 1)]
+assert len(conf.temp_files) == tempfile_count
+
+= Check tdecode command directly for tshark
+~ tshark
+
+pkts = [
+    Ether()/IP(src='192.0.2.1', dst='192.0.2.2')/ICMP(type='echo-request')/Raw(b'X'*100),
+    Ether()/IP(src='192.0.2.2', dst='192.0.2.1')/ICMP(type='echo-reply')/Raw(b'X'*100),
+]
+
+# tshark doesn't need workarounds on OSX
+tempfile_count = len(conf.temp_files)
+
+r = tdecode(pkts, dump=True)
+r
+assert b'Src: 192.0.2.1' in r
+assert b'Src: 192.0.2.2' in r
+assert b'Dst: 192.0.2.2' in r
+assert b'Dst: 192.0.2.1' in r
+assert b'Echo (ping) request' in r
+assert b'Echo (ping) reply' in r
+assert b'ICMP' in r
+assert len(conf.temp_files) == tempfile_count
+
+= Check tdecode with linktype
+~ tshark
+
+# These are the same as the ping packets above
+pkts = [
+  b'\xff\xff\xff\xff\xff\xff\xac"\x0b\xc5j\xdb\x08\x00E\x00\x00\x80\x00\x01\x00\x00@\x01\xf6x\xc0\x00\x02\x01\xc0\x00\x02\x02\x08\x00\xb6\xbe\x00\x00\x00\x00XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
+  b'\xff\xff\xff\xff\xff\xff\xac"\x0b\xc5j\xdb\x08\x00E\x00\x00\x80\x00\x01\x00\x00@\x01\xf6x\xc0\x00\x02\x02\xc0\x00\x02\x01\x00\x00\xbe\xbe\x00\x00\x00\x00XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
+]
+
+# tshark doesn't need workarounds on OSX
+tempfile_count = len(conf.temp_files)
+
+r = tdecode(pkts, dump=True, linktype=DLT_EN10MB)
+assert b'Src: 192.0.2.1' in r
+assert b'Src: 192.0.2.2' in r
+assert b'Dst: 192.0.2.2' in r
+assert b'Dst: 192.0.2.1' in r
+assert b'Echo (ping) request' in r
+assert b'Echo (ping) reply' in r
+assert b'ICMP' in r
+assert len(conf.temp_files) == tempfile_count
+
 
 = Run scapy's tshark command
 ~ netaccess
 tshark(count=1, timeout=3)
+
+= Check wireshark()
+
+f = BytesIO()
+pkt = Ether()/IP()/ICMP()
+
+with mock.patch('subprocess.Popen', return_value=Bunch(stdin=f)) as popen:
+    # Prevent closing the BytesIO
+    with mock.patch.object(f, 'close'):
+        wireshark([pkt])
+
+popen.assert_called_once_with(
+    [conf.prog.wireshark, '-ki', '-'],
+    stdin=subprocess.PIPE, stdout=None, stderr=None)
+
+print(bytes_hex(f.getvalue()))
+assert raw(pkt) in f.getvalue()
+f.close()
+del f, pkt
 
 = Check Raw IP pcap files
 
@@ -6728,13 +7148,31 @@ fstat = os.stat(filename)
 assert fstat.st_size != 0
 os.remove(filename)
 
+= Check wrpcap() with SndRcvList
+
+import tempfile
+filename = tempfile.mktemp(suffix=".pcap")
+wrpcap(filename, SndRcvList(res=[(Ether()/IP(), Ether()/IP())]))
+assert len(rdpcap(filename)) == 2
+os.remove(filename)
+
+= Check wrpcap() with different packets types
+
+import mock
+import os
+import tempfile
+
+with mock.patch("scapy.utils.warning") as warning:
+    filename = tempfile.mktemp()
+    wrpcap(filename, [IP(), Ether(), IP(), IP()])
+    os.remove(filename)
+    assert any("Inconsistent" in arg for arg in warning.call_args[0])
 
 ############
 ############
 + Sessions
 
 = IPSession - dissect fragmented IP packets on-the-flow
-~ tcpdump
 packet = IP()/("data"*1000)
 frags = fragment(packet)
 tmp_file = get_temp_file()
@@ -6742,14 +7180,13 @@ wrpcap(tmp_file, frags)
 
 dissected_packets = []
 def callback(pkt):
-	dissected_packets.append(pkt)
+    dissected_packets.append(pkt)
 
 sniff(offline=tmp_file, session=IPSession, prn=callback)
 assert len(dissected_packets) == 1
 assert raw(dissected_packets[0]) == raw(packet)
 
 = NetflowSession - dissect packet NetflowV9 packets on-the-flow
-~ tcpdump
 
 import os
 tmp = "/test/pcaps/netflowv9.pcap"
@@ -6758,14 +7195,142 @@ filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else 
 
 dissected_packets = []
 def callback(pkt):
-	dissected_packets.append(pkt)
+    dissected_packets.append(pkt)
 
-sniff(offline=filename, session=NetflowSession, prn=callback, count=50)
-records = dissected_packets[44][NetflowDataflowsetV9].records
-assert len(records) == 21
-assert records[0].IPV4_SRC_ADDR == '20.0.2.82'
+sniff(offline=filename, session=NetflowSession, prn=callback)
+records = dissected_packets[3][NetflowDataflowsetV9].records
+assert len(records) == 24
+assert records[0].IPV4_SRC_ADDR == '20.0.1.174'
 assert records[0].IPV4_NEXT_HOP == '10.100.103.1'
 
+= StringBuffer
+
+buffer = StringBuffer()
+assert not buffer
+
+buffer.append(b"kie", 5)
+buffer.append(b"e", 11)
+buffer.append(b"pi", 2)
+buffer.append(b"pi", 9)
+buffer.append(b"n", 4)
+
+assert bytes_hex(bytes(buffer)) == b'0070696e6b696500706965'
+assert len(buffer) == 11
+assert buffer
+
+= TCPSession - dissect HTTP 1.0 chunked image
+~ http
+
+load_layer("http")
+
+import os
+
+tmp = "/test/pcaps/http_chunk.pcap.gz"
+filename = os.path.abspath(os.path.join(os.path.dirname(__file__),"../")) + tmp
+filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else filename
+
+a = sniff(offline=filename, session=TCPSession)
+
+a[2].show()
+assert HTTPRequest in a[2]
+assert a[2].Path == b'/httpgallery/chunked/chunkedimage.aspx?0.2911017199439567'
+assert a[2].Accept_Encoding == b'gzip, deflate'
+assert a[2].Accept == b'image/webp,image/apng,image/*,*/*;q=0.8'
+assert a[2].Http_Version == b'HTTP/1.1'
+assert a[2].Referer == b'http://www.httpwatch.com/httpgallery/chunked/'
+
+a[29].show()
+assert HTTPResponse in a[29]
+assert a[29].Transfer_Encoding == b"chunked"
+assert a[29].Content_Type == b'image/jpeg; charset=utf-8'
+assert a[29].Http_Version == b'HTTP/1.1'
+assert a[29].Status_Code == b"200"
+assert a[29].Reason_Phrase == b"OK"
+assert len(a[29].load) == 33653
+# According to wireshark:
+wireshark_data = b'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'
+assert a[29].load == base64_bytes(wireshark_data)
+
+# This a valid JPEG image: try it out
+# open("image.jpg", "wb").write(a[29].load)
+
+= TCPSession - dissect HTTP 1.0 html page with Content_Length
+~ http
+
+load_layer("http")
+
+import os
+
+# Packet from
+# https://community.cisco.com/t5/networking-documents/http-packet-captures/ta-p/3121453
+tmp = "/test/pcaps/http_content_length.pcap"
+filename = os.path.abspath(os.path.join(os.path.dirname(__file__),"../")) + tmp
+filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else filename
+
+expected_data = b"""<!doctype html><html><head><meta http-equiv="content-type" content="text/html; charset=UTF-8"><title>Google</title><script>window.google={kEI:"TiU7TKv1IdO6jAfQmdX4AQ",kEXPI:"17259,18168,23756,24692,24878,24879,25233,25335,25402,25529",kCSI:{e:"17259,18168,23756,24692,24878,24879,25233,25335,25402,25529",ei:"TiU7TKv1IdO6jAfQmdX4AQ",expi:"17259,18168,23756,24692,24878,24879,25233,25335,25402,25529"},ml:function(){},kHL:"en",time:function(){return(new Date).getTime()},log:function(b,d,c){var a=new Image,e=google,g=e.lc,f=e.li;a.onerror=(a.onload=(a.onabort=function(){delete g[f]}));g[f]=a;c=c||"/gen_204?atyp=i&ct="+b+"&cad="+d+"&zx="+google.time();a.src=c;e.li=f+1},lc:[],li:0,Toolbelt:{}};\nwindow.google.sn="webhp";window.google.timers={load:{t:{start:(new Date).getTime()}}};try{window.google.pt=window.external&&window.external.pageT;}catch(u){}window.google.jsrt_kill=1;\nvar _gjwl=location;function _gjuc(){var b=_gjwl.href.indexOf("#");if(b>=0){var a=_gjwl.href.substring(b+1);if(/(^|&)q=/.test(a)&&a.indexOf("#")==-1&&!/(^|&)cad=h($|&)/.test(a)){_gjwl.replace("/search?"+a.replace(/(^|&)fp=[^&]*/g,"")+"&cad=h");return 1}}return 0}function _gjp(){!(window._gjwl.hash&&window._gjuc())&&setTimeout(_gjp,500)};\nwindow._gjp && _gjp()</script><style id=gstyle>body{margin:0}#gog{padding:3px 10px 0}td{line-height:.8em;}.gac_m td{line-height:17px;}form{margin-bottom:20px;}body,td,a,p,.h{font-family:arial,sans-serif}.h{color:#36c;font-size:20px}.q{color:#00c}.ts td{padding:0}.ts{border-collapse:collapse}.fl a:link{color:#77c}em{font-weight:bold;font-style:normal}.lst{font:17px arial,sans-serif;margin-bottom:.2em;vertical-align:bottom;}input{font-family:inherit}.lsb,.gac_sb{font-size:15px;height:1.85em!important;margin:.2em;padding:0 6px;width:auto;overflow:visible;}#gog{background:#fff;}#gbar,#guser{font-size:13px;padding-top:1px !important}#gbar{float:left;height:22px}#guser{padding-bottom:7px !important;text-align:right}.gbh,.gbd{border-top:1px solid #c9d7f1;font-size:1px}.gbh{height:0;position:absolute;top:24px;width:100%}#gbs,.gbm{background:#fff;left:0;position:absolute;text-align:left;visibility:hidden;z-index:1000}.gbm{border:1px solid;border-color:#c9d7f1 #36c #36c #a2bae7;z-index:1001}.gb1{margin-right:.5em}.gb1,.gb3{zoom:1}.gb2{display:block;padding:.2em .5em;}.gb2,.gb3{text-decoration:none;border-bottom:none}a.gb1,a.gb2,a.gb3,a.gb4{color:#00c !important}a.gb2:hover{background:#36c;color:#fff !important}</style><script>google.y={};google.x=function(e,g){google.y[e.id]=[e,g];return false};var e=0;if(!window.google)window.google={};window.google.crm={};window.google.cri=0;window.clk=function(f,g,h,l,m,b,n){if(document.images){e++;var a=encodeURIComponent||escape,c=new Image,i=window.google.cri++;window.google.crm[i]=c;c.onerror=(c.onload=(c.onabort=function(){delete window.google.crm[i]}));if(b&&b.substring(0,6)!="&sig2=")b="&sig2="+b;c.src=["/url?sa=T","","&cd=",a(m),"&ved=",a(n),f?"&url="+a(f.replace(/#.*/,"")).replace(/\\+/g,"%2B"):"","&ei=","TiU7TKv1IdO6jAfQmdX4AQ",b,"&nclks=",e].join("")}return true};\nwindow.gbar={qs:function(){},tg:function(e){var o={id:\'gbar\'};for(i in e)o[i]=e[i];google.x(o,function(){gbar.tg(o)})}};</script></head><body bgcolor=#ffffff text=#000000 link=#0000cc vlink=#551a8b alink=#ff0000 onload="document.f.q.focus();if(document.images)new Image().src=\'/images/nav_logo8.png\'" ><textarea id=csi style=display:none></textarea><span><iframe name=wgjf style=display:none></iframe></span><div id=xjsc></div><div id=ghead><div id=gog><div id=gbar><nobr><b class=gb1>Web</b> <a href="http://www.google.com/imghp?hl=en&tab=wi" onclick=gbar.qs(this) class=gb1>Images</a> <a href="http://video.google.com/?hl=en&tab=wv" onclick=gbar.qs(this) class=gb1>Videos</a> <a href="http://maps.google.com/maps?hl=en&tab=wl" onclick=gbar.qs(this) class=gb1>Maps</a> <a href="http://news.google.com/nwshp?hl=en&tab=wn" onclick=gbar.qs(this) class=gb1>News</a> <a href="http://www.google.com/prdhp?hl=en&tab=wf" onclick=gbar.qs(this) class=gb1>Shopping</a> <a href="http://mail.google.com/mail/?hl=en&tab=wm" class=gb1>Gmail</a> <a href="http://www.google.com/intl/en/options/" onclick="this.blur();gbar.tg(event);return !1" aria-haspopup=true class=gb3><u>more</u> <small>&#9660;</small></a><div class=gbm id=gbi><a href="http://books.google.com/bkshp?hl=en&tab=wp" onclick=gbar.qs(this) class=gb2>Books</a> <a href="http://www.google.com/finance?hl=en&tab=we" onclick=gbar.qs(this) class=gb2>Finance</a> <a href="http://translate.google.com/?hl=en&tab=wT" onclick=gbar.qs(this) class=gb2>Translate</a> <a href="http://scholar.google.com/schhp?hl=en&tab=ws" onclick=gbar.qs(this) class=gb2>Scholar</a> <a href="http://blogsearch.google.com/?hl=en&tab=wb" onclick=gbar.qs(this) class=gb2>Blogs</a> <div class=gb2><div class=gbd></div></div><a href="http://www.youtube.com/?hl=en&tab=w1" onclick=gbar.qs(this) class=gb2>YouTube</a> <a href="http://www.google.com/calendar/render?hl=en&tab=wc" class=gb2>Calendar</a> <a href="http://picasaweb.google.com/home?hl=en&tab=wq" onclick=gbar.qs(this) class=gb2>Photos</a> <a href="http://docs.google.com/?hl=en&tab=wo" class=gb2>Documents</a> <a href="http://www.google.com/reader/?hl=en&tab=wy" class=gb2>Reader</a> <a href="http://sites.google.com/?hl=en&tab=w3" class=gb2>Sites</a> <a href="http://groups.google.com/grphp?hl=en&tab=wg" onclick=gbar.qs(this) class=gb2>Groups</a> <div class=gb2><div class=gbd></div></div><a href="http://www.google.com/intl/en/options/" class=gb2>even more &raquo;</a> </div></nobr></div><div id=guser width=100%><nobr><span id=gbn class=gbi></span><span id=gbf class=gbf></span><span id=gbe><a href="/url?sa=p&pref=ig&pval=3&q=http://www.google.com/ig%3Fhl%3Den%26source%3Diglk&usg=AFQjCNFA18XPfgb7dKnXfKz7x7g1GDH1tg" class=gb4>iGoogle</a> | </span><a href="/preferences?hl=en" class=gb4>Search settings</a> | <a href="https://www.google.com/accounts/Login?hl=en&continue=http://www.google.com/" class=gb4>Sign in</a></nobr></div><div class=gbh style=left:0></div><div class=gbh style=right:0></div></div></div> <center><style>.pmoabs{position:absolute;right:0;top:25px;}.pmoflt,.pmoc{float:right;clear:both;}#pmocntr{behavior:url(#default#userdata);border:1px solid #ccc;}#pmocntr table{font-size:80%;}#pmolnk,#pmolnk div{background:url(/images/modules/buttons/g-button-chocobo-basic-1.gif)}#pmolnk{width:170px;}#pmolnk div{background-position:100% -400px;}#pmolnk div div{background-position:0 100%;}#pmolnk a{white-space:nowrap;background:url(/images/modules/buttons/g-button-chocobo-basic-2.gif) 100% 100% no-repeat;color:#fff;display:block;padding:8px 12px 15px 10px;text-decoration:none}.padi {padding:0 0 4px 8px}.padt {padding:0 6px 4px 6px}</style><div id=pmocntr class=pmoabs><table border=0><tr><td colspan=2><img border=0 src="/images/close_sm.gif" class=pmoc onclick="cpc()"><tr><td class=padi rowspan=2><img src="/images/chrome_48.gif"><td class=padt align=center><b>A faster way to browse the web</b><tr><td class=padt align=center dir=ltr><div id=pmolnk><div><div><a href="/aclk?sa=L&ai=CMDwaOCM7TIi0MIqv4gbPjZW5B8_W3aEB-9_olQ_v-_3lJxABIMFUULKwjvUBYLsGqgSUAU_QpGfsCCT1d4iDFinqBPHIMs6nmdIsfzDF-UtUGr_gjMc_XAzlKMJy_lPWHLjRniVP1sBkhK5rdW1q85XInEs9JuYm4Dk1ofkpAr6hdMN3EZXsHVSk7CsomsS42n4oOQUZtLJ1sLpkc5VOuvAIU17-0Egro-40RlOQGNYLTbGSHyqssz8Ahp3Ehki745351WicSNE&num=1&sig=AGiWqtz44oZT8y_vcAQLTowVZyUZctoAHA&adurl=http://www.google.com/chrome/index.html%3Fhl%3Den%26brand%3DCHNG%26utm_source%3Den-hpp%26utm_medium%3Dhpp%26utm_campaign%3Den"><b>Install Google Chrome</b></a></div></div></table></div><script>(function(){var b=\'pmocntr\',a=document.getElementById(b),c=\'d\',d=\'i\',e;function p(){a.style.display=\'none\'}try{a.load(b);e=a.getAttribute(d)||0;if(a.getAttribute(c)||e>25){p()}else{a.setAttribute(d,++e);a.save(b)}}catch(z){}window.cpc=function(){p();try{a.setAttribute(c,1);a.save(b)}catch(z){}};window.onresize=function(){if(a.offsetWidth*2+document.getElementById(\'logo\').offsetWidth>document.body.clientWidth){a.className=\'pmoflt\'}else{a.className=\'pmoabs\'}};window.lol=function(){window.onresize()}}())</script><br clear=all id=lgpd><div id=lga><img alt="Google" height=110 src="/intl/en_ALL/images/logo2.gif" width=276 id=logo onload="window.lol&&lol()"><br><br></div><form action="/search" name=f><table cellpadding=0 cellspacing=0><tr valign=top><td width=25%>&nbsp;</td><td align=center nowrap><input name=hl type=hidden value=en><input name=source type=hidden value=hp><input autocomplete="off" maxlength=2048 name=q size=55 class=lst title="Google Search" value=""><br><input name=btnG type=submit value="Google Search" class=lsb><input name=btnI type=submit value="I&#39;m Feeling Lucky" class=lsb></td><td nowrap width=25% align=left><font size=-2>&nbsp;&nbsp;<a href="/advanced_search?hl=en">Advanced Search</a><br>&nbsp;&nbsp;<a href="/language_tools?hl=en">Language Tools</a></font></td></tr></table></form><br><span id=footer><center id=fctr><br><font size=-1><a href="/intl/en/ads/">Advertising&nbsp;Programs</a> - <a href="/services/">Business Solutions</a> - <a href="/intl/en/about.html">About Google</a><p id=shf0 style=display:none;behavior:url(#default#homePage)><font size=-1><a href="/aclk?sa=L&ai=Ch8SU4iQ7TMvoHp2x4gbR1rm3B8X4n3yvjpnHCs2tk5cREAEgwVRQvpyhyfj_____AWCrBaoEsgFP0AfDqi9LrsWk8xuAZxV33DBcsflfyeiFyZrQXRUyD-x2QfMpinnjfIrM5cD-YizzdL-m7VKXO6w_kRsOWsPkgD9mKu0K9qXP9FQfHQsHRp0LdDmtlbf1g0E-Md-opiHZKK6_0YlMxALdkw6sN2LZRCkOIQq8LDHViqVDnr8Rqx2bomL0aY_vO6JtJE3QZkkQJkV5ZFLB8R-H0FingtOWISs1zLoTNYlPJwUnqOPcAKF7&num=1&sig=AGiWqtxkwm32U-Ox-AEC_8qXgysR70jfpA&adurl=/mgyhp.html" onclick=xz()>Make Google my homepage</a></p><script>(function(){var a=document.getElementById("shf0"),b="http://www.google.com/";try{a.isHomePage(b)||(a.style.display="block")}catch(z){}window.xz=function(){try{a.setHomePage(b);var c=new Image;c.src="/gen_204?mgmhp=shf0&ct=c&cd="+a.isHomePage(b);window.wy=c}catch(z){}}})();</script></font><p><font size=-2>&copy;2010 - <a href="/intl/en/privacy.html">Privacy</a></font></p></center></span> <div id=xjsd></div><div id=xjsi><script>if(google.y)google.y.first=[];if(google.y)google.y.first=[];google.dstr=[];google.rein=[];window.setTimeout(function(){var a=document.createElement("script");a.src="/extern_js/f/CgJlbhICdXMrMEU4ASwrMFo4AiwrMA44FSwrMBc4BywrMCc4BCwrMDw4AywrMFE4AiwrMAo4bUAvLCswFjgcLCswGTghLCswJTjKiAEsKzBAOBIsKzBOOAUsKzAYOAUsKzAmOAssgAIN/sfSVKzsYj5Q.js";(document.getElementById("xjsd")||document.body).appendChild(a);if(google.timers&&google.timers.load.t)google.timers.load.t.xjsls=(new Date).getTime();},0);\n;google.neegg=1;google.y.first.push(function(){google.ac.i(document.f,document.f.q,\'\',\'\',\'\',{a:1,o:1,l:1});google.History&&google.History.initialize(\'/\')});if(google.j&&google.j.en&&google.j.xi){window.setTimeout(google.j.xi,0);google.fade=null;}</script></div><script>(function(){\nvar b,d,e,f;function g(a,c){if(a.removeEventListener){a.removeEventListener("load",c,false);a.removeEventListener("error",c,false)}else{a.detachEvent("onload",c);a.detachEvent("onerror",c)}}function h(a){f=(new Date).getTime();++d;a=a||window.event;var c=a.target||a.srcElement;g(c,h)}var i=document.getElementsByTagName("img");b=i.length;d=0;for(var j=0,k;j<b;++j){k=i[j];if(k.complete||typeof k.src!="string"||!k.src)++d;else if(k.addEventListener){k.addEventListener("load",h,false);k.addEventListener("error",\nh,false)}else{k.attachEvent("onload",h);k.attachEvent("onerror",h)}}e=b-d;function l(){google.timers.load.t.ol=(new Date).getTime();google.timers.load.t.iml=f;google.kCSI.imc=d;google.kCSI.imn=b;google.kCSI.imp=e;google.report&&google.report(google.timers.load,google.kCSI)}if(window.addEventListener)window.addEventListener("load",l,false);else if(window.attachEvent)window.attachEvent("onload",l);google.timers.load.t.prt=(f=(new Date).getTime());\n})();\n</script>"""
+
+
+conf.contribs["http"]["auto_compression"] = False
+a = sniff(offline=filename, session=TCPSession)
+pkt = a[7]
+assert HTTP in pkt
+assert HTTPResponse in pkt
+assert pkt[HTTP].Content_Length == b'5012'
+assert len(pkt[Raw].load) == 5012
+
+conf.contribs["http"]["auto_compression"] = True
+a = sniff(offline=filename, session=TCPSession)
+pkt = a[7]
+assert HTTP in pkt
+assert HTTPResponse in pkt
+print(pkt[Raw].load, expected_data)
+assert pkt[Raw].load == expected_data
+
+############
+############
++ HTTP 1.0
+~ http
+
+= HTTP decompression (gzip)
+
+conf.debug_dissector = True
+load_layer("http")
+
+import os
+import gzip
+
+tmp = "/test/pcaps/http_compressed.pcap"
+filename = os.path.abspath(os.path.join(os.path.dirname(__file__),"../")) + tmp
+filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else filename
+
+# First without auto decompression
+
+conf.contribs["http"]["auto_compression"] = False
+pkts = sniff(offline=filename, session=TCPSession)
+
+data = b'\x1f\x8b\x08\x00\x00\x00\x00\x00\x02\xffEQ]o\xdb0\x0c\xfc+\x9a\x1f\x92\xa7\x9a\x96?\xe4\xb8\x892`I\x81\r\xe8\xda\xa2p1\xec\xa9P-\xd5\x16*[\x86\xa5\xd8K\x7f\xfd\xa8\x14E\x1f\x8e:R\x07\xf2D\xed\xbe\x1d\xef\x0f\xf5\xdf\x87\x1b\xd2\xf9\xde\x90\x87\xa7\x1f\xb7\xbf\x0e$\xba\x02\xf8\x93\x1d\x00\x8e\xf5\x91\xfc\xac\x7f\xdf\x92<N(\xa9\'18\xed\xb5\x1d\x84\x01\xb8\xb9\x8bH\xd4y?^\x03,\xcb\x12/Yl\xa7\x16\xeaG\x08\xadr0\xd6:\x15K/\xa3\xfd.T0*!\xf7;\xaf\xbdQ\xfb\x1d|\x9e\x1f\xd5\x17+\xcf\xc4\xf9\xb3Q<z\x11\xcd[;\xd9\xd3 \xaf\x1ak\xectM|\x98<\x8aI\r\x1e\xbb\xe9\xbe%nj\xf8:Lw8~\xd4\xff\x94\x89{\xe1;/\xda\xb8\xb1=\xa8\x19\xa5\x80\xc2\xef\xbd\x7f\xd6\x92\xd3\x82\xe6\x8c\xad0\x112\xa4\t\xa3y\xbe\x9a)_\xcd)"\xe3+\x87\xdc!w\xc8\xed$y\x9a\xe4eZV%+\xd6d\xd1\xd2w|M\xd7\xa4S\xba\xed\xfc\x85\xc2\x97\x91\xe8\xd3\x88\x90NM\xb3nT\xdcZ\xdb\x1au\xf1"e\x0f\xaf\xc6\xc1;\x04m\xc6\n\xc6h\xb9\xf5\xe7Q\xf1n\x9c5nt\xdb\x08\xcf;\xdb\xab\x91V\x9b\xed)\xe5\xdb\x13C\x14\x88\x1c\x91!*\x04M0\x94\x81\x84\n\rW\x94\x86p\xa9m\xf8ix\x1b\xec2`\x03\x14\x867\xd0\ng%\xd9\x86\xb1\x94\x15qUd,B\xd7\x10v\x1d\x16\x1f>\xe5?9\x89QV\x01\x02\x00\x00'
+
+pkts[2].show()
+assert HTTPResponse in pkts[2]
+assert pkts[2].Expires == b'Mon, 22 Apr 2019 15:23:19 GMT'
+assert pkts[2].Content_Type == b'text/html; charset=UTF-8'
+assert pkts[2].load == data
+
+# Now with auto decompression
+
+conf.contribs["http"]["auto_compression"] = True
+pkts = sniff(offline=filename, session=TCPSession)
+
+pkts[2].show()
+assert HTTPResponse in pkts[2]
+assert pkts[2].load == b'<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd"><html><head><title></title></head><body style="background-color: transparent"><img src=\'https://pixel.mathtag.com/event/img?mt_id=151466&mt_adid=106144&v1=&v2=&v3=&s1=&s2=&s3=&ord=2047279765\' width=\'1\' height=\'1\' /><img src="https://adservice.google.com/ddm/fls/z/src=3656617;type=hpvisit;cat=homep198;u2=;u6=;u5=;u4=;u3=;u9=;u10=;u7=;u13=;u14=;u11=;u17=;u18=unknown;u20=;ord=1956603866265.9536"/></body></html>'
+
+= HTTP build
+
+pkt = TCP()/HTTP()/HTTPRequest(Method=b'GET', Path=b'/download', Http_Version=b'HTTP/1.1', Accept=b'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', Accept_Encoding=b'gzip, deflate', Accept_Language=b'en-US,en;q=0.5', Cache_Control=b'max-age=0', Connection=b'keep-alive', Host=b'scapy.net', User_Agent=b'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:67.0) Gecko/20100101 Firefox/67.0')
+raw_pkt = raw(pkt)
+raw_pkt
+assert raw_pkt == b'\x00P\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x00\x00\x00\x00GET /download HTTP/1.1\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\nAccept-Encoding: gzip, deflate\r\nAccept-Language: en-US,en;q=0.5\r\nCache-Control: max-age=0\r\nConnection: keep-alive\r\nHost: scapy.net\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:67.0) Gecko/20100101 Firefox/67.0\r\n\r\n'
 
 ############
 ############
@@ -7003,6 +7568,7 @@ assert plen == payloadlen
 ############
 ############
 + TCP/IP tests
+~ tcp
 
 = TCP options: UTO - basic build
 raw(TCP(options=[("UTO", 0xffff)])) == b"\x00\x14\x00\x50\x00\x00\x00\x00\x00\x00\x00\x00\x60\x02\x20\x00\x00\x00\x00\x00\x1c\x04\xff\xff"
@@ -7038,6 +7604,9 @@ raw(TCP(options=[('unknown', b'')])) == raw(TCP())
 = TCP options: malformed - dissection
 raw(TCP(b"\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00`\x02 \x00\x00\x00\x00\x00\x03\x00\x00\x00")) == b"\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00`\x02 \x00\x00\x00\x00\x00\x03\x00\x00\x00"
 
+= TCP options: wrong offset
+TCP(raw(TCP(dataofs=11)/b"o"))
+
 = TCP options: MPTCP - basic build using bytes
 raw(TCP(options=[(30, b"\x10\x03\xc1\x1c\x95\x9b\x81R_1")])) == b"\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00\x80\x02 \x00\x00\x00\x00\x00\x1e\x0c\x10\x03\xc1\x1c\x95\x9b\x81R_1"
 
@@ -7045,6 +7614,10 @@ raw(TCP(options=[(30, b"\x10\x03\xc1\x1c\x95\x9b\x81R_1")])) == b"\x00\x14\x00P\
 data = b'\x00\x14\x00P\x00\x00\x00\x00\x00\x00\x00\x00\x80\x02 \x00\x1b\xb8\x00\x00\x02\x04\x05\xb4\x04\x02\x08\x06\xf7\xa26C\x00\x00\x00\x00\x01\x03\x03\x07'
 p = TCP(data)
 assert TCP in p and Raw in p and len(p.options) == 3
+
+= TCP options: build oversized packet
+
+raw(TCP(options=[('TFO', (1607681672, 2269173587)), ('AltChkSum', (81, 27688)), ('TFO', (253281879, 1218258937)), ('Timestamp', (1613741359, 4215831072)), ('Timestamp', (3856332598, 1434258666))]))
 
 = TCP random options
 pkt = TCP()
@@ -7235,31 +7808,50 @@ recompressed.an[3].rdlen = None
 
 assert raw(recompressed) == raw(pkt)
 
+= DNS frames with MX records
+~ dns
+
+frame = b'E\x00\x00\xa4\x93\x1d\x00\x00y\x11\xdc\xfc\x08\x08\x08\x08\xc0\xa8\x00w\x005\xb4\x9b\x00\x90k\x80\x00\x00\x81\x80\x00\x01\x00\x05\x00\x00\x00\x00\x06google\x03com\x00\x00\x0f\x00\x01\xc0\x0c\x00\x0f\x00\x01\x00\x00\x02B\x00\x11\x00\x1e\x04alt2\x05aspmx\x01l\xc0\x0c\xc0\x0c\x00\x0f\x00\x01\x00\x00\x02B\x00\t\x00\x14\x04alt1\xc0/\xc0\x0c\x00\x0f\x00\x01\x00\x00\x02B\x00\t\x002\x04alt4\xc0/\xc0\x0c\x00\x0f\x00\x01\x00\x00\x02B\x00\t\x00(\x04alt3\xc0/\xc0\x0c\x00\x0f\x00\x01\x00\x00\x02B\x00\x04\x00\n\xc0/'
+pkt = IP(frame)
+results = [x.exchange for x in pkt.an.iterpayloads()]
+assert results == [b'alt2.aspmx.l.google.com.', b'alt1.aspmx.l.google.com.', b'alt4.aspmx.l.google.com.', b'alt3.aspmx.l.google.com.', b'aspmx.l.google.com.']
+
+pkt.clear_cache()
+assert raw(dns_compress(pkt)) == frame
+
 = Advanced dns_get_str tests
 ~ dns
 
-assert dns_get_str(b"\x06cheese\x00blobofdata....\x06hamand\xc0\x0c", 22, _internal=True)[0] == b'hamand.cheese.'
+assert dns_get_str(b"\x06cheese\x00blobofdata....\x06hamand\xc0\x0c", 22, _fullpacket=True)[0] == b'hamand.cheese.'
 
-# This non-regression test is meaningless. Should use real DNS payload
-# in non-regression tests.
-#from scapy.tools.UTscapy import Bunch
-#assert dns_get_str(b"\x06hamand\xc0\x0c", 0, pkt=Bunch(_orig_s=b"\x06cheese\x00blobofdata", _orig_p=22))[0] == b'hamand.cheese.'
+compressed_pkt =  b'\x01\x00^\x00\x00\xfb\xa0\x10\x81\xd9\xd3y\x08\x00E\x00\x01\x14\\\n@\x00\xff\x116n\xc0\xa8F\xbc\xe0\x00\x00\xfb\x14\xe9\x14\xe9\x01\x00Ho\x00\x00\x84\x00\x00\x00\x00\x04\x00\x00\x00\x03\x03188\x0270\x03168\x03192\x07in-addr\x04arpa\x00\x00\x0c\x80\x01\x00\x00\x00x\x00\x0f\x07Android\x05local\x00\x019\x017\x013\x01D\x019\x01D\x01E\x01F\x01F\x01F\x011\x018\x010\x011\x012\x01A\x010\x010\x010\x010\x010\x010\x010\x010\x010\x010\x010\x010\x010\x018\x01E\x01F\x03ip6\xc0#\x00\x0c\x80\x01\x00\x00\x00x\x00\x02\xc03\xc03\x00\x01\x80\x01\x00\x00\x00x\x00\x04\xc0\xa8F\xbc\xc03\x00\x1c\x80\x01\x00\x00\x00x\x00\x10\xfe\x80\x00\x00\x00\x00\x00\x00\xa2\x10\x81\xff\xfe\xd9\xd3y\xc0\x0c\x00/\x80\x01\x00\x00\x00x\x00\x06\xc0\x0c\x00\x02\x00\x08\xc0B\x00/\x80\x01\x00\x00\x00x\x00\x06\xc0B\x00\x02\x00\x08\xc03\x00/\x80\x01\x00\x00\x00x\x00\x08\xc03\x00\x04@\x00\x00\x08'
+
+Ether(compressed_pkt)
 
 = Decompression loop in dns_get_str
 ~ dns
 
-assert dns_get_str(b"\x04data\xc0\x0c", 0, _internal=True)[0] == b"data."
+assert dns_get_str(b"\x04data\xc0\x0c", 0, _fullpacket=True)[0] == b"data.data."
 
 = Prematured end in dns_get_str
 ~ dns
 
-assert dns_get_str(b"\x06da", 0, _internal=True)[0] == b"da."
-assert dns_get_str(b"\x04data\xc0\x01", 0, _internal=True)[0] == b"data."
+assert dns_get_str(b"\x06da", 0, _fullpacket=True)[0] == b"da."
+assert dns_get_str(b"\x04data\xc0\x01", 0, _fullpacket=True)[0] == b"data."
 
 = Other decompression loop in dns_get_str
 ~ dns
 s = b'\x00\x00\x84\x00\x00\x00\x00\x02\x00\x00\x00\x06\x0bGourmandise\x04_smb\x04_tcp\x05local\x00\x00!\x80\x01\x00\x00\x00x\x00\x14\x00\x00\x00\x00\x01\xbd\x0bGourmandise\xc0"\x0bGourmandise\x0b_afpovertcp\xc0\x1d\x00!\x80\x01\x00\x00\x00x\x00\x08\x00\x00\x00\x00\x02$\xc09\xc09\x00\x1c\x80\x01\x00\x00\x00x\x00\x10\xfe\x80\x00\x00\x00\x00\x00\x00\x00s#\x99\xca\xf7\xea\xdc\xc09\x00\x01\x80\x01\x00\x00\x00x\x00\x04\xc0\xa8\x01x\xc09\x00\x1c\x80\x01\x00\x00\x00x\x00\x10*\x01\xcb\x00\x0bD\x1f\x00\x18k\xb1\x99\x90\xdf\x84.\xc0\x0c\x00/\x80\x01\x00\x00\x00x\x00\t\xc0\x0c\x00\x05\x00\x00\x80\x00@\xc0G\x00/\x80\x01\x00\x00\x00x\x00\t\xc0G\x00\x05\x00\x00\x80\x00@\xc09\x00/\x80\x01\x00\x00\x00x\x00\x08\xc09\x00\x04@\x00\x00\x08'
 DNS(s)
+
+= DNS record type 16 (TXT)
+
+p = DNS(raw(DNS(id=1,ra=1,an=DNSRR(rrname='scapy', type='TXT', rdata="niceday", ttl=1))))
+assert p[DNS].an.rdata == [b"niceday"]
+
+p = DNS(raw(DNS(id=1,ra=1,an=DNSRR(rrname='secdev', type='TXT', rdata=["sweet", "celestia"], ttl=1))))
+assert p[DNS].an.rdata == [b"sweet", b"celestia"]
+assert raw(p) == b'\x00\x01\x01\x80\x00\x00\x00\x01\x00\x00\x00\x00\x06secdev\x00\x00\x10\x00\x01\x00\x00\x00\x01\x00\x0f\x05sweet\x08celestia'
 
 = Layer binding
 
@@ -7336,12 +7928,130 @@ default            link#11            UCSI            1        0 bridge1
     mock_get_if_addr.side_effect = se_get_if_addr
     # Test the function
     from scapy.arch.unix import read_routes
+    scapy.arch.unix.DARWIN = True
+    scapy.arch.unix.FREEBSD = False
+    scapy.arch.unix.NETBSD = False
+    scapy.arch.unix.OPENBSD = False
     routes = read_routes()
     assert(len(routes) == 4)
     assert([r for r in routes if r[3] == "bridge10"])
 
 
 test_osx_netstat_truncated()
+
+
+= macOS 10.13
+~ mock_read_routes_bsd
+
+import mock
+from io import StringIO
+
+@mock.patch("scapy.arch.unix.get_if_addr")
+@mock.patch("scapy.arch.unix.os")
+def test_osx_10_13_ipv4(mock_os, mock_get_if_addr):
+    """Test read_routes() on OS X 10.13"""
+    # 'netstat -rn -f inet' output
+    netstat_output = u"""
+Routing tables
+
+Internet:
+Destination        Gateway            Flags        Refs      Use   Netif Expire
+default            192.168.28.1       UGSc           82        0     en0
+127                127.0.0.1          UCS             0        0     lo0
+127.0.0.1          127.0.0.1          UH              1      878     lo0
+169.254            link#5             UCS             0        0     en0
+192.168.28         link#5             UCS             4        0     en0
+192.168.28.1/32    link#5             UCS             2        0     en0
+192.168.28.1       88:32:9c:f5:4e:ea  UHLWIir        40       37     en0   1177
+192.168.28.2       62:aa:56:4b:51:54  UHLWI           0        0     en0    619
+192.168.28.4       38:17:ed:9a:58:28  UHLWIi          1        6     en0    428
+192.168.28.18/32   link#5             UCS             1        0     en0
+192.168.28.18      88:32:9c:f5:4e:eb  UHLWI           0        1     lo0
+192.168.28.28      04:0e:eb:11:74:a7  UHLWI           0        0     en0    576
+224.0.0/4          link#5             UmCS            1        0     en0
+224.0.0.251        1:0:5e:0:0:fb      UHmLWI          0        0     en0
+255.255.255.255/32 link#5             UCS             0        0     en0
+"""
+    # Mocked file descriptor
+    strio = StringIO(netstat_output)
+    mock_os.popen = mock.MagicMock(return_value=strio)
+    # Mocked get_if_addr() output
+    def se_get_if_addr(iface):
+        """Perform specific side effects"""
+        import socket
+        if iface == "en0":
+            return "192.168.28.18"
+        return "127.0.0.1"
+    mock_get_if_addr.side_effect = se_get_if_addr
+    # Test the function
+    from scapy.arch.unix import read_routes
+    scapy.arch.unix.DARWIN = False
+    scapy.arch.unix.FREEBSD = True
+    scapy.arch.unix.NETBSD = False
+    scapy.arch.unix.OPENBSD = False
+    routes = read_routes()
+    for r in routes:
+        print(r)
+    assert(len(routes) == 15)
+    default_route = [r for r in routes if r[0] == 0][0]
+    assert default_route[3] == "en0" and default_route[4] == "192.168.28.18"
+
+test_osx_10_13_ipv4()
+
+
+= macOS 10.15
+~ mock_read_routes_bsd
+
+import mock
+from io import StringIO
+
+@mock.patch("scapy.arch.unix.get_if_addr")
+@mock.patch("scapy.arch.unix.os")
+def test_osx_10_15_ipv4(mock_os, mock_get_if_addr):
+    """Test read_routes() on OS X 10.15"""
+    # 'netstat -rn -f inet' output
+    netstat_output = u"""
+Routing tables
+
+Internet:
+Destination        Gateway            Flags        Netif Expire
+default            192.168.122.1      UGSc           en0       
+127                127.0.0.1          UCS            lo0       
+127.0.0.1          127.0.0.1          UH             lo0       
+169.254            link#8             UCS            en0      !
+192.168.122        link#8             UCS            en0      !
+192.168.122.1/32   link#8             UCS            en0      !
+192.168.122.1      52:54:0:c0:b7:af   UHLWIir        en0   1169
+192.168.122.63/32  link#8             UCS            en0      !
+224.0.0/4          link#8             UmCS           en0      !
+224.0.0.251        1:0:5e:0:0:fb      UHmLWI         en0       
+255.255.255.255/32 link#8             UCS            en0      !
+"""
+    # Mocked file descriptor
+    strio = StringIO(netstat_output)
+    mock_os.popen = mock.MagicMock(return_value=strio)
+    # Mocked get_if_addr() output
+    def se_get_if_addr(iface):
+        """Perform specific side effects"""
+        import socket
+        if iface == "en0":
+            return "192.168.122.42"
+        return "127.0.0.1"
+    mock_get_if_addr.side_effect = se_get_if_addr
+    # Test the function
+    from scapy.arch.unix import read_routes
+    scapy.arch.unix.DARWIN = False
+    scapy.arch.unix.FREEBSD = True
+    scapy.arch.unix.NETBSD = False
+    scapy.arch.unix.OPENBSD = False
+    routes = read_routes()
+    for r in routes:
+        print(r)
+    assert len(routes) == 11
+    default_route = [r for r in routes if r[0] == 0][0]
+    assert default_route[3] == "en0" and default_route[4] == "192.168.122.42"
+
+test_osx_10_15_ipv4()
 
 
 = OpenBSD 6.3
@@ -7384,22 +8094,61 @@ default            10.0.1.254         UGS        0        0     -     8 bge0
     mock_openbsd = True
     # Test the function
     from scapy.arch.unix import read_routes
-    routes = read_routes()
-    for r in routes:
-        print(ltoa(r[0]), ltoa(r[1]), r)
-        # check that default route exists in parsed data structure
-        if ltoa(r[0]) == "0.0.0.0":
-            default=r
-        # check that route with locked mtu exists in parsed data structure
-        if ltoa(r[0]) == "10.188.135.0":
-            locked=r
-    assert(len(routes) == 11)
-    assert(default[2] == "10.0.1.254")
-    assert(default[3] == "bge0")
-    assert(locked[2] == "10.0.1.135")
-    assert(locked[3] == "bge0")
+    return read_routes()
 
-test_openbsd_6_3()
+routes = test_openbsd_6_3()
+
+for r in routes:
+    print(ltoa(r[0]), ltoa(r[1]), r)
+    # check that default route exists in parsed data structure
+    if ltoa(r[0]) == "0.0.0.0":
+        default = r
+    # check that route with locked mtu exists in parsed data structure
+    if ltoa(r[0]) == "10.188.135.0":
+        locked = r
+
+assert len(routes) == 11
+assert default[2] == "10.0.1.254"
+assert default[3] == "bge0"
+assert locked[2] == "10.0.1.135"
+assert locked[3] == "bge0"
+
+= Solaris 11.1
+~ mock_read_routes_bsd
+
+import mock
+from io import StringIO
+
+# Mocked Solaris 11.1 parsing behavior
+
+@mock.patch("scapy.arch.unix.SOLARIS", True)
+@mock.patch("scapy.arch.unix.os")
+def test_solaris_111(mock_os):
+    """Test read_routes() on Solaris 11.1"""
+    # 'netstat -rvn -f inet' output
+    netstat_output = u"""
+IRE Table: IPv4
+  Destination             Mask           Gateway          Device  MTU  Ref Flg  Out  In/Fwd 
+-------------------- --------------- -------------------- ------ ----- --- --- ----- ------ 
+default              0.0.0.0         10.0.2.2             net0    1500   2 UG       5      0 
+10.0.2.0             255.255.255.0   10.0.2.15            net0    1500   3 U        0      0 
+127.0.0.1            255.255.255.255 127.0.0.1            lo0     8232   2 UH    1517   1517
+"""
+    # Mocked file descriptor
+    strio = StringIO(netstat_output)
+    mock_os.popen = mock.MagicMock(return_value=strio)
+    print(scapy.arch.unix.SOLARIS)
+    
+    # Test the function
+    from scapy.arch.unix import read_routes
+    return read_routes()
+
+routes = test_solaris_111()
+print(routes)
+assert len(routes) == 3
+assert routes[0][:4] == (0, 0, '10.0.2.2', 'net0')
+assert routes[1][:4] == (167772672, 4294967040, '0.0.0.0', 'net0')
+assert routes[2][:4] == (2130706433, 4294967295, '0.0.0.0', 'lo0')
 
 
 ############
@@ -7519,6 +8268,9 @@ def check_mandatory_ipv6_routes(routes6):
 = Mac OS X 10.9.5
 ~ mock_read_routes_bsd
 
+import mock
+from io import StringIO
+
 @mock.patch("scapy.arch.unix.in6_getifaddr")
 @mock.patch("scapy.arch.unix.os")
 def test_osx_10_9_5(mock_os, mock_in6_getifaddr):
@@ -7548,6 +8300,10 @@ ff02::%en0/32                           link#4                          UmCI    
                                        ("fe80::ba26:6cff:fe5f:4eee", IPV6_ADDR_LINKLOCAL, "en0")]
     # Test the function
     from scapy.arch.unix import read_routes6
+    scapy.arch.unix.DARWIN = False
+    scapy.arch.unix.FREEBSD = True
+    scapy.arch.unix.NETBSD = False
+    scapy.arch.unix.OPENBSD = False
     routes = read_routes6()
     for r in routes:
         print(r)
@@ -7559,6 +8315,10 @@ test_osx_10_9_5()
 
 = Mac OS X 10.9.5 with global IPv6 connectivity
 ~ mock_read_routes_bsd
+
+import mock
+from io import StringIO
+
 @mock.patch("scapy.arch.unix.in6_getifaddr")
 @mock.patch("scapy.arch.unix.os")
 def test_osx_10_9_5_global(mock_os, mock_in6_getifaddr):
@@ -7609,6 +8369,9 @@ test_osx_10_9_5_global()
 = Mac OS X 10.10.4
 ~ mock_read_routes_bsd
 
+import mock
+from io import StringIO
+
 @mock.patch("scapy.arch.unix.in6_getifaddr")
 @mock.patch("scapy.arch.unix.os")
 def test_osx_10_10_4(mock_os, mock_in6_getifaddr):
@@ -7649,6 +8412,9 @@ test_osx_10_10_4()
 = FreeBSD 10.2
 ~ mock_read_routes_bsd
 
+import mock
+from io import StringIO
+
 @mock.patch("scapy.arch.unix.in6_getifaddr")
 @mock.patch("scapy.arch.unix.os")
 def test_freebsd_10_2(mock_os, mock_in6_getifaddr):
@@ -7677,6 +8443,10 @@ ff02::%lo0/32                     ::1                           U           lo0
     # Test the function
     from scapy.arch.unix import read_routes6
     routes = read_routes6()
+    scapy.arch.unix.DARWIN = False
+    scapy.arch.unix.FREEBSD = True
+    scapy.arch.unix.NETBSD = False
+    scapy.arch.unix.OPENBSD = False
     for r in routes:
         print(r)
     assert(len(routes) == 3)
@@ -7687,6 +8457,9 @@ test_freebsd_10_2()
 
 = OpenBSD 5.5
 ~ mock_read_routes_bsd
+
+import mock
+from io import StringIO
 
 @mock.patch("scapy.arch.unix.OPENBSD")
 @mock.patch("scapy.arch.unix.in6_getifaddr")
@@ -9477,6 +10250,8 @@ class MockSocket(object):
         return self.l.pop(0)
     def fileno(self):
         return -1
+    def close(self):
+        return
 
 
 class TestPacket(Packet):
@@ -9517,6 +10292,8 @@ class MockSocket(object):
         return self.l.pop(0)
     def fileno(self):
         return -1
+    def close(self):
+        return
 
 
 class TestPacket(Packet):
@@ -9559,6 +10336,8 @@ class MockSocket(object):
         return self.l.pop(0)
     def fileno(self):
         return -1
+    def close(self):
+        return
 
 
 class TestPacket(Packet):
@@ -9832,7 +10611,7 @@ assert f.i2repr(None, v) == '3e6bd4c419560b2a3199c844eac2945a'
 
 = RADIUS - compute_message_authenticator()
 ram = radius_packet[RadiusAttr_Message_Authenticator]
-assert ram.compute_message_authenticator(radius_packet, b"dummy bytes", b"scapy") == b'\x19\xa4\x0e*Y4\xe0l?,\x94\x9f \xb8Jb'
+assert ram.compute_message_authenticator(radius_packet, b"dummy bytes", b"scapy") == b'I\x85l\x8f\xa5\xd6\xbc\xb5\x08\xe0<\xebH\x9d\xfb?'
 
 = RADIUS - Access-Challenge - Dissection (2)
 s = b'\x0b\xae\x00[\xc7\xae\xfc6\xa1=\xb5\x99&^\xdf=\xe9\x00\xa6\xe8\x12\rHello, leapO\x16\x01\x02\x00\x14\x11\x01\x00\x08\xb8\xc4\x1a4\x97x\xd3\x82leapP\x12\xd3\x12\x17\xa6\x0c.\x94\x85\x03]t\xd1\xdb\xd0\x13\x8c\x18\x12iQs\xf7iSb@k\x9d,\xa0\x99\x8ehO'
@@ -9965,6 +10744,16 @@ assert len(s) == 1
 s = b"Z\xa5\xaaUZ\xa5\xaaU\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xe9\xc5\x00\x00\x14'\x02\x00\x00\x001\x9a\xe44\xea4"
 isinstance(Radius(s), Radius)
 
+= RADIUS - attributes with IPv4 addresses
+
+r = raw(RadiusAttr_NAS_IP_Address())
+p = RadiusAttr_NAS_IP_Address(p)
+assert p.type == 4
+
+r = raw(RadiusAttr_Framed_IP_Address())
+p = RadiusAttr_Framed_IP_Address(p)
+assert p.type == 8
+
 
 ############
 ############
@@ -10039,6 +10828,10 @@ n1 = ip.dst
 assert isinstance(n1, Net6)
 assert n1.ip_regex.match(str(n1))
 ip.show()
+
+ip = IPv6(dst="www.yahoo.com")
+addrs = [ip.dst, IPv6(raw(ip)).dst, [p.dst for p in ip][0]]
+assert addrs[0] == addrs[1] == addrs[2]
 
 = Multiple IPv6 addresses test
 ~ netaccess ipv6
@@ -10300,6 +11093,27 @@ assert(sane(raw(rts)) in ["...Zscapy", "$#..scapy"])
 a = "True" if RandNum(False, True) else "False"
 assert a in ["True", "False"]
 
+= Various volatiles
+
+random.seed(0x2807)
+assert RandNumGamma(1, 42) == 8
+
+random.seed(0x2807)
+assert RandNumGauss(1, 42) == 8
+
+print("RandEnum()", RandEnum(1, 42, seed=0x2807)._fix())
+assert RandEnum(1, 42, seed=0x2807) == (13 if six.PY2 else 37)
+
+print("RandPool()", RandPool((IncrementalValue(), 42), (IncrementalValue(), 0))._fix())
+assert RandPool((IncrementalValue(), 42), (IncrementalValue(), 0)) == 0
+
+print("DelayedEval()", DelayedEval("3 + 1")._fix())
+assert DelayedEval("3 + 1") == 4
+
+v = IncrementalValue(restart=2)
+assert v == 0 and v == 1 and v == 2 and v == 0
+
+
 ############
 ############
 + Flags
@@ -10419,15 +11233,6 @@ assert not any(getattr(p1.flags | p2.flags, f) for f in 'FRPECN')
 
 assert TCP(flags="SA").flags & TCP(flags="S").flags == TCP(flags="S").flags
 assert TCP(flags="SA").flags | TCP(flags="S").flags == TCP(flags="SA").flags
-
-= Using tuples and lists as flag values
-~ IP TCP
-
-plist = PacketList(list(IP()/TCP(flags=(0, 2**9 - 1))))
-assert [p[TCP].flags for p in plist] == [x for x in range(512)]
-
-plist = PacketList(list(IP()/TCP(flags=["S", "SA", "A"])))
-assert [p[TCP].flags for p in plist] == [2, 18, 16]
 
 
 ############
@@ -10695,19 +11500,18 @@ assert BOOTP().answers(BOOTP())
 assert BOOTP().hashret() == b"\x00\x00\x00\x00"
 
 import random
-random.seed(0x2807)
-assert str(RandDHCPOptions(size=1)) in [r"[('WWW_server', '36.35.181.183')]",
-                                        r"[('boot-file-name', '\xe4Z\xdb\xef\xaf\xf5\x10\x91\x9eD\x0c9. \x91\xa5*Ug\x9cl\xa1\xca\xe3\xa2\xf0:\xd7\x00\xc9g\x02f1\xbd?\xb3\xc4\xe10S7\x9d\x91\x84\xc9y\xb2V<\x7f\x87\x14\xde\xc2\xf4\x94\xabyk\xc1\xbcU\x14\xcb\xb8\xcf\x96\xfedU\x81Z\xff\t\xa6\xe0\xf5\x15p\x91\xf0\xec\x7f')]"]
+random.seed(0x2809)
+assert str(RandDHCPOptions(size=1)) in [r"[('NIS_server', '0.45.231.69')]", r"[('ieee802-3-encapsulation', 229)]"]
 
 = DHCPOptionsField
 
 value = [("hostname", "scapy")]
-dof = DHCPOptionsField("options", "")
-assert dof.i2repr("", value) == "[hostname='scapy']"
-assert dof.i2repr("", ["opt", "opt2"]) == "[opt opt2]"
-assert dof.i2m("", value) == b'\x0c\x05scapy'
-assert dof.m2i("", b'\x0cunknown') == [b'\x0cunknown']
-assert dof.m2i("", b'\x0c\x05scapy') == [('hostname', b'scapy')]
+dhcpoptfield = DHCPOptionsField("options", "")
+assert dhcpoptfield.i2repr("", value) == "[hostname='scapy']"
+assert dhcpoptfield.i2repr("", ["opt", "opt2"]) == "[opt opt2]"
+assert dhcpoptfield.i2m("", value) == b'\x0c\x05scapy'
+assert dhcpoptfield.m2i("", b'\x0cunknown') == [b'\x0cunknown']
+assert dhcpoptfield.m2i("", b'\x0c\x05scapy') == [('hostname', b'scapy')]
 
 unknown_value_end = b"\xfe" + b"\xff"*257
 udof = DHCPOptionsField("options", unknown_value_end)
@@ -10718,13 +11522,19 @@ udof = DHCPOptionsField("options", unknown_value_pad)
 assert udof.m2i("", unknown_value_pad) == [(254, b'\xff'*255), 'pad']
 
 = DHCP - build
+
 s = raw(IP(src="127.0.0.1")/UDP()/BOOTP(chaddr="00:01:02:03:04:05")/DHCP(options=[("message-type","discover"),"end"]))
 assert s == b'E\x00\x01\x10\x00\x01\x00\x00@\x11{\xda\x7f\x00\x00\x01\x7f\x00\x00\x01\x00C\x00D\x00\xfcf\xea\x01\x01\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0000:01:02:03:04:0\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00c\x82Sc5\x01\x01\xff'
 
 s2 = raw(IP(src="127.0.0.1")/UDP()/BOOTP(chaddr="05:04:03:02:01:00")/DHCP(options=[("param_req_list",[12,57,45,254]),("requested_addr", "192.168.0.1"),"end"]))
 assert s2 == b'E\x00\x01\x19\x00\x01\x00\x00@\x11{\xd1\x7f\x00\x00\x01\x7f\x00\x00\x01\x00C\x00D\x01\x058\xeb\x01\x01\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0005:04:03:02:01:0\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00c\x82Sc7\x04\x0c9-\xfe2\x04\xc0\xa8\x00\x01\xff'
 
+s3 = raw(IP(src="127.0.0.1")/UDP()/BOOTP(chaddr="05:04:03:02:01:00")/DHCP(options=[("time_zone",123),("uap-servers","www.example.com"),("netinfo-server-address","10.0.0.1"),
+                                                                                   ("ieee802-3-encapsulation", 2),("max_dgram_reass_size", 120), ("pxelinux_path_prefix","/some/path"), "end"]))
+assert s3 == b'E\x00\x01=\x00\x01\x00\x00@\x11{\xad\x7f\x00\x00\x01\x7f\x00\x00\x01\x00C\x00D\x01)\x04i\x01\x01\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0005:04:03:02:01:0\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00c\x82Sc\x02\x04\x00\x00\x00{b\x0fwww.example.comp\x04\n\x00\x00\x01$\x01\x02\x16\x02\x00x\xd2\n/some/path\xff'
+
 = DHCP - dissection
+
 p = IP(s)
 assert DHCP in p and p[DHCP].options[0] == ('message-type', 1)
 
@@ -10733,9 +11543,20 @@ assert DHCP in p2
 assert p2[DHCP].options[0] == ("param_req_list",[12,57,45,254])
 assert p2[DHCP].options[1] == ("requested_addr", "192.168.0.1")
 
+p3 = IP(s3)
+assert DHCP in p3
+assert p3[DHCP].options[0] == ("time_zone",123)
+assert p3[DHCP].options[1] == ("uap-servers", b'www.example.com')
+assert p3[DHCP].options[2] == ("netinfo-server-address", "10.0.0.1")
+assert p3[DHCP].options[3] == ("ieee802-3-encapsulation", 2)
+assert p3[DHCP].options[4] == ("max_dgram_reass_size", 120)
+assert p3[DHCP].options[5] == ("pxelinux_path_prefix", b'/some/path')
+assert p3[DHCP].options[6] == "end"
+
 ############
 ############
 + 802.11
+~ dot11
 
 = 802.11 - misc
 PrismHeader().answers(PrismHeader()) == True
@@ -10864,6 +11685,20 @@ assert nstats == {
    'country': 'US',
    'country_desc_type': 'Indoor'
 }
+
+= Dot11EltCountry dissection
+
+data = b"\x00\x00&\x00/@\x00\xa0 \x08\x00\xa0 \x08\x00\x00R\xa9[#\x00\x00\x00\x00\x10\x18\x85\t\xc0\x00\xc8\x00\x00\x00\xc3\x00\xc7\x01P\x080\x00V\x9cm\xf4\xb1\xe9\xa0\xcf[\xfb%0\xa0\xcf[\xfb%0\xa0R&\x1a@\xc2\x06\x03\x00\x00f\x00!\x14\x00\x1eDisney Convention Center Guest\x01\x07\x12\x98$0H`l\x03\x01\x06\x07\x06US \x01\x0b\x1e\x0b\x05\n\x00\x8a\x8d[ \x01\x03*\x01\x00-\x1a,\x18\x1b\xff\xff\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x006\x03*L\x01=\x16\x06\x00\x05\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00F\x05s\xc0\x00\x00\x00\x7f\x06\x00\x10\x00\x04\x01@\x85\x1e\x10\x00\x8f\x00\x0f\x00\xff\x03Y\x001617-AP33-SorcA\x00\n\x00\x00:\x96\x06\x00@\x96\x00\x0b\x00\xdd\x18\x00P\xf2\x02\x01\x01\x80\x00\x03\xa4\x00\x00'\xa4\x00\x00BC^\x00b2/\x00\xdd\x06\x00@\x96\x01\x01\x04\xdd\x05\x00@\x96\x03\x05\xdd\x05\x00@\x96\x0bI\xdd\x05\x00@\x96\x14\x00dZ\x97\xbf"
+pkt = RadioTap(data)
+assert pkt[Dot11EltCountry].info == b'US \x01\x0b\x1e'
+assert len(pkt[Dot11EltCountry].descriptors) == 1
+assert pkt[Dot11EltCountry].descriptors[0].mtp == 30
+
+* Country element: padding check
+data = hex_bytes('00001a002f48000017cd9f3100000000000c3c144001e000000080000000ffffffffffff461b860bef06461b860bef06909403e0f75b0000000064001105000c4c697665626f782d3232353001088c1218243048606c0301240504020300000728504c202401172801172c01173001173401173801173c011740011764011e68011e6c011e70011e000b05000002ffff46050000000000200100c30502171717002a01002d1aef0117fffffffffeffffffff1f000001000000000018e6e719003d1624050000000000000000000000000000000000000000dd180050f2020101840003a4000027a4000042435e0062322f0030140100000fac040100000fac040100000fac020000bf0cb279c33faaff0000aaff0000c005012a00fcffdd1e002686010300dd00000025040592000601d15b5816830000000000000000dd06002686170000dd0e00268618010101024c1b860bef067f080100080200000040dd3b0050f204104a0001101044000102105700010110470010344331423836f042f546303634433142103c000103103c0001031049000600372a000120')
+pkt = RadioTap(data)
+assert pkt[Dot11EltCountry].pad == 0
+assert pkt.getlayer(Dot11Elt, ID=11)
 
 = RSNCipherSuite
 assert bytes(RSNCipherSuite()) == b'\x00\x0f\xac\x04'
@@ -11607,6 +12442,21 @@ def test_hexdump():
 
 test_hexdump()
 
+= conversations()
+~ linux
+
+def test_conversations():
+    import tempfile
+    filename = tempfile.mktemp()
+    p = PacketList([IP()/Raw(str(i)) for i in range(2)])
+    p.conversations(prog="echo", target="> %s" % filename)
+    fd = open(filename)
+    assert "-Tsvg" in fd.read()
+    fd.close()
+    os.unlink(filename)
+
+test_conversations()
+
 = import_hexcap()
 
 @mock.patch("%s.input" % six.moves.builtins.__name__)
@@ -11833,3 +12683,15 @@ os.remove(filename_css)
 #    assert(output == expected)
 #
 #test_snmpwalk("secdev.org")
+
+= test get_temp_dir
+
+dname = get_temp_dir()
+assert os.path.isdir(dname)
+
+= test fragleak functions
+~ netaccess linux
+
+fragleak("8.8.8.8", count=1)
+fragleak2("8.8.8.8", count=1)
+assert True

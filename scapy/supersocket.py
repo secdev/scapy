@@ -36,6 +36,7 @@ class _SuperSocket_metaclass(type):
 class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
     desc = None
     closed = 0
+    nonblocking_socket = False
     read_allowed_exceptions = ()
 
     def __init__(self, family=socket.AF_INET, type=socket.SOCK_STREAM, proto=0):  # noqa: E501
@@ -45,9 +46,12 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
 
     def send(self, x):
         sx = raw(x)
-        if hasattr(x, "sent_time"):
+        sent = self.outs.send(sx)
+        try:
             x.sent_time = time.time()
-        return self.outs.send(sx)
+        except AttributeError:
+            pass
+        return sent
 
     def recv_raw(self, x=MTU):
         """Returns a tuple containing (cls, pkt_data, time)"""
@@ -63,9 +67,12 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
             raise
         except Exception:
             if conf.debug_dissector:
+                from scapy.sendrecv import debug
+                debug.crashed_on = (cls, val)
                 raise
             pkt = conf.raw_layer(val)
-        pkt.time = ts
+        if ts:
+            pkt.time = ts
         return pkt
 
     def fileno(self):
@@ -108,11 +115,9 @@ class SuperSocket(six.with_metaclass(_SuperSocket_metaclass)):
         """This function is called during sendrecv() routine to select
         the available sockets.
 
-        params:
-         - sockets: an array of sockets that need to be selected
-        returns:
-         - an array of sockets that were selected
-         - the function to be called next to get the packets (i.g. recv)
+        :param sockets: an array of sockets that need to be selected
+        :returns: an array of sockets that were selected and
+            the function to be called next to get the packets (i.g. recv)
         """
         try:
             inp, _, _ = select(sockets, [], [], remain)
@@ -194,6 +199,7 @@ class SimpleSocket(SuperSocket):
 
 class StreamSocket(SimpleSocket):
     desc = "transforms a stream socket into a layer 2"
+    nonblocking_socket = True
 
     def __init__(self, sock, basecls=None):
         if basecls is None:
@@ -205,7 +211,7 @@ class StreamSocket(SimpleSocket):
         pkt = self.ins.recv(x, socket.MSG_PEEK)
         x = len(pkt)
         if x == 0:
-            raise socket.error((100, "Underlying stream socket tore down"))
+            return None
         pkt = self.basecls(pkt)
         pad = pkt.getlayer(conf.padding_layer)
         if pad is not None and pad.underlayer is not None:
@@ -300,7 +306,7 @@ class TunTapInterface(SuperSocket):
 
     def __init__(self, iface=None, mode_tun=None, *arg, **karg):
         self.iface = conf.iface if iface is None else iface
-        self.mode_tun = ("tun" in iface) if mode_tun is None else mode_tun
+        self.mode_tun = ("tun" in self.iface) if mode_tun is None else mode_tun
         self.closed = True
         self.open()
 

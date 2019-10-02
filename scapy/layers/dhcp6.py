@@ -1699,6 +1699,25 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
         msgtype = p.msgtype
         trid = p.trid
 
+        def _include_options(query, answer):
+            """
+            Include options from the DHCPv6 query
+            """
+
+            # See which options should be included
+            reqopts = []
+            if query.haslayer(DHCP6OptOptReq):  # add only asked ones
+                reqopts = query[DHCP6OptOptReq].reqopts
+                for o, opt in six.iteritems(self.dhcpv6_options):
+                    if o in reqopts:
+                        answer /= opt
+            else:
+                # advertise everything we have available
+                # Should not happen has clients MUST include
+                # and ORO in requests (sec 18.1.1)   -- arno
+                for o, opt in six.iteritems(self.dhcpv6_options):
+                    answer /= opt
+
         if msgtype == 1:  # SOLICIT (See Sect 17.1 and 17.2 of RFC 3315)
 
             # XXX We don't support address or prefix assignment
@@ -1741,16 +1760,7 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
                     resp /= DHCP6OptClientId(duid=client_duid)
                     resp /= DHCP6OptReconfAccept()
 
-                    # See which options should be included
-                    reqopts = []
-                    if p.haslayer(DHCP6OptOptReq):  # add only asked ones
-                        reqopts = p[DHCP6OptOptReq].reqopts
-                        for o, opt in six.iteritems(self.dhcpv6_options):
-                            if o in reqopts:
-                                resp /= opt
-                    else:  # advertise everything we have available
-                        for o, opt in six.iteritems(self.dhcpv6_options):
-                            resp /= opt
+                    _include_options(p, resp)
 
             return resp
 
@@ -1762,19 +1772,7 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
             resp /= DHCP6OptServerId(duid=self.duid)
             resp /= DHCP6OptClientId(duid=client_duid)
 
-            # See which options should be included
-            reqopts = []
-            if p.haslayer(DHCP6OptOptReq):  # add only asked ones
-                reqopts = p[DHCP6OptOptReq].reqopts
-                for o, opt in six.iteritems(self.dhcpv6_options):
-                    if o in reqopts:
-                        resp /= opt
-            else:
-                # advertise everything we have available.
-                # Should not happen has clients MUST include
-                # and ORO in requests (sec 18.1.1)   -- arno
-                for o, opt in six.iteritems(self.dhcpv6_options):
-                    resp /= opt
+            _include_options(p, resp)
 
             return resp
 
@@ -1859,9 +1857,6 @@ DHCPv6_am.parse_options( dns="2001:500::1035", domain="localdomain, local",
                 resp /= DHCP6OptClientId(duid=client_duid)
 
             # Stack requested options if available
-            reqopts = []
-            if p.haslayer(DHCP6OptOptReq):
-                reqopts = p[DHCP6OptOptReq].reqopts
             for o, opt in six.iteritems(self.dhcpv6_options):
                 resp /= opt
 

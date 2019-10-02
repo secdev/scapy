@@ -1,0 +1,234 @@
+% Regression tests for the ECU utility
+
+# More information at http://www.secdev.org/projects/UTscapy/
+
+############
+############
+
++ Setup
+~ conf command
+
+= Load modules
+
+load_contrib('isotp')
+load_contrib("automotive.uds")
+load_contrib("automotive.gm.gmlan")
+load_layer("can")
+conf.contribs["CAN"]["swap-bytes"] = True
+
+= Load ECU module
+
+load_contrib("automotive.ecu")
+
++ Basic checks
+
+= Check default init parameters
+
+ecu = ECU()
+assert ecu.current_session == 1
+assert ecu.current_security_level == 0
+assert ecu.communication_control == 0
+
+= Check init parameters
+
+ecu = ECU(init_session=5, init_security_level=4, init_communication_control=2)
+assert ecu.current_session == 5
+assert ecu.current_security_level == 4
+assert ecu.communication_control == 2
+
+= Check reset
+
+ecu = ECU(init_session=5, init_security_level=4, init_communication_control=2)
+ecu.reset()
+assert ecu.current_session == 1
+assert ecu.current_security_level == 0
+assert ecu.communication_control == 0
+
++ Simple operations
+
+= Log all commands applied to an ECU
+~ docs
+* This example shows the logging mechanism of an ECU object.
+* The log of an ECU is a dictionary of applied UDS commands.
+* The key for this dictionary the UDS service name. The value consists of a list
+* of tuples, containing a timestamp and a log value
+
+msgs = [UDS(service=16) / UDS_DSC(diagnosticSessionType=3),  # no_docs
+        UDS(service=16) / UDS_DSC(diagnosticSessionType=4),  # no_docs
+        UDS(service=16) / UDS_DSC(diagnosticSessionType=5),  # no_docs
+        UDS(service=16) / UDS_DSC(diagnosticSessionType=6),  # no_docs
+        UDS(service=16) / UDS_DSC(diagnosticSessionType=2)]  # no_docs
+
+ecu = ECU(verbose=False, store_supported_responses=False)
+ecu.update(PacketList(msgs))
+print(ecu.log)
+assert len(ecu.log["DiagnosticSessionControl"]) == 5  # no_docs
+timestamp, value = ecu.log["DiagnosticSessionControl"][0]
+assert timestamp > 0  # no_docs
+assert value == "extendedDiagnosticSession"  # no_docs
+assert ecu.log["DiagnosticSessionControl"][-1][1] == "programmingSession"  # no_docs
+
+
+= Trace all commands applied to an ECU
+~ docs
+* This example shows the trace mechanism of an ECU object.
+* Traces of the current state of the ECU object and the received message are
+* print on stdout. Some messages, depending on the protocol, will change the
+* internal state of the ECU.
+
+msgs = [UDS(service=16) / UDS_DSC(diagnosticSessionType=3),  # no_docs
+        UDS(service=80) / UDS_DSCPR(diagnosticSessionType=3, sessionParameterRecord=b'\\x002\\x01\\xf4')]  # no_docs
+
+ecu = ECU(verbose=True, logging=False, store_supported_responses=False)
+ecu.update(PacketList(msgs))
+print(ecu.current_session)
+assert ecu.current_session == 3  # no_docs
+assert ecu.current_security_level == 0  # no_docs
+assert ecu.communication_control == 0  # no_docs
+
+
+= Generate supported responses of an ECU
+~ docs
+* This example shows a mechanism to clone a real world ECU by analyzing a list of Packets.
+
+msgs = [UDS(service=16) / UDS_DSC(diagnosticSessionType=3),  # no_docs
+        UDS(service=80) / UDS_DSCPR(diagnosticSessionType=3, sessionParameterRecord=b'\\x002\\x01\\xf4'),  # no_docs
+        UDS(service=16) / UDS_DSC(diagnosticSessionType=4)]  # no_docs
+
+ecu = ECU(verbose=False, logging=False, store_supported_responses=True)
+ecu.update(PacketList(msgs))
+supported_responses = ecu.supported_responses
+unanswered_packets = ecu.unanswered_packets
+print(supported_responses)
+print(unanswered_packets)
+assert ecu.current_session == 3  # no_docs
+assert ecu.current_security_level == 0  # no_docs
+assert ecu.communication_control == 0  # no_docs
+assert len(supported_responses) == 1  # no_docs
+assert len(unanswered_packets) == 1  # no_docs
+response = supported_responses[0]  # no_docs
+assert response.in_correct_session(1)  # no_docs
+assert response.has_security_access(0)  # no_docs
+assert response.responses[-1].service == 80  # no_docs
+assert unanswered_packets[0].diagnosticSessionType == 4  # no_docs
+
+
++ Advanced checks
+
+= Analyze multiple UDS messages
+~ docs
+* This example shows how to load ``UDS`` messages from a ``.pcap`` file containing ``CAN`` messages
+* A ``PcapReader`` object is used as socket and an ``ISOTPSession`` parses ``CAN`` frames to ``ISOTP`` frames
+* which are then casted to ``UDS`` objects through the ``basecls`` parameter
+
+with PcapReader("test/contrib/automotive/ecu_trace.pcap") as sock:
+     udsmsgs = sniff(session=ISOTPSession, session_kwargs={"use_ext_addr":False, "basecls":UDS}, count=50, opened_socket=sock)
+
+assert len(udsmsgs) == 50  # no_docs
+
+ecu = ECU()
+ecu.update(udsmsgs)
+print(ecu.log)
+print(ecu.supported_responses)
+response = ecu.supported_responses[0]  # no_docs
+assert response.in_correct_session(1)  # no_docs
+assert response.has_security_access(0)  # no_docs
+assert response.responses[0].service == 80  # no_docs
+assert response.responses[0].diagnosticSessionType == 3  # no_docs
+response = ecu.supported_responses[1]  # no_docs
+assert response.in_correct_session(3)  # no_docs
+assert response.has_security_access(0)  # no_docs
+assert response.responses[0].service == 80  # no_docs
+assert response.responses[0].diagnosticSessionType == 2  # no_docs
+response = ecu.supported_responses[4]  # no_docs
+assert response.in_correct_session(2)  # no_docs
+assert response.has_security_access(18)  # no_docs
+assert response.responses[0].service == 110  # no_docs
+assert response.responses[0].dataIdentifier == 61786  # no_docs
+assert len(ecu.log["TransferData"]) == 2
+
+
+= Analyze on the fly with ECUSession
+~ docs
+* This example shows the usage of a ECUSession in sniff. An ISOTPSocket or any
+* socket like object which returns entire messages of the right protocol can be used.
+* A ``ECUSession`` is used as supersession in an ``ISOTPSession``. To obtain the ``ECU`` object from a ``ECUSession``,
+* the ``ECUSession`` has to be created outside of sniff.
+
+session = ECUSession()
+
+with PcapReader("test/contrib/automotive/ecu_trace.pcap") as sock:
+     udsmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "use_ext_addr":False, "basecls":UDS}, count=50, opened_socket=sock)
+
+assert len(udsmsgs) == 50  # no_docs
+
+ecu = session.ecu
+print(ecu.log)
+print(ecu.supported_responses)
+response = ecu.supported_responses[0]  # no_docs
+assert response.in_correct_session(1)  # no_docs
+assert response.has_security_access(0)  # no_docs
+assert response.responses[0].service == 80  # no_docs
+assert response.responses[0].diagnosticSessionType == 3  # no_docs
+response = ecu.supported_responses[1]  # no_docs
+assert response.in_correct_session(3)  # no_docs
+assert response.has_security_access(0)  # no_docs
+assert response.responses[0].service == 80  # no_docs
+assert response.responses[0].diagnosticSessionType == 2  # no_docs
+response = ecu.supported_responses[4]  # no_docs
+assert response.in_correct_session(2)  # no_docs
+assert response.has_security_access(18)  # no_docs
+assert response.responses[0].service == 110  # no_docs
+assert response.responses[0].dataIdentifier == 61786  # no_docs
+assert len(ecu.log["TransferData"]) == 2  # no_docs
+
+
+= Analyze on the fly with ECUSession GMLAN1
+
+session = ECUSession()
+
+sock =  CandumpReader("test/contrib/automotive/gmlan_trace.candump")
+gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "did":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=2, opened_socket=sock)
+ecu = session.ecu
+print("Check 1 after change to diagnostic mode")
+assert len(ecu.supported_responses) == 1
+assert ecu.current_session == 3
+assert ecu.current_security_level == 0
+gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "did":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=8, opened_socket=sock)
+ecu = session.ecu
+print("Check 2 after some more messages were read")
+assert len(ecu.supported_responses) == 4
+assert ecu.current_session == 3
+assert ecu.current_security_level == 0
+gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "did":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=10, opened_socket=sock)
+ecu = session.ecu
+print("Check 3 after change to programming mode (bootloader)")
+assert len(ecu.supported_responses) == 5
+assert ecu.current_session == 2
+assert ecu.current_security_level == 0
+gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "did":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=16, opened_socket=sock)
+ecu = session.ecu
+print("Check 4 after gaining security access")
+assert len(ecu.supported_responses) == 7
+assert ecu.current_session == 2
+assert ecu.current_security_level == 2
+del sock
+
+= Analyze on the fly with ECUSession GMLAN logging test
+
+session = ECUSession(verbose=False, store_supported_responses=False)
+
+with CandumpReader("test/contrib/automotive/gmlan_trace.candump") as sock:
+     gmlanmsgs = sniff(session=ISOTPSession, session_kwargs={"supersession": session, "did":[0x241, 0x641, 0x101], "basecls":GMLAN}, count=200, opened_socket=sock)
+
+ecu = session.ecu
+assert len(ecu.supported_responses) == 0
+
+assert len([m for m in gmlanmsgs if m.sprintf("%GMLAN.service%") == "TransferData"]) == len(ecu.log["TransferData"])
+assert len([m for m in gmlanmsgs if m.sprintf("%GMLAN.service%") == "RequestDownload"]) == len(ecu.log["RequestDownload"])
+assert len([m for m in gmlanmsgs if m.sprintf("%GMLAN.service%") == "ReadDataByIdentifier"]) == len(ecu.log["ReadDataByIdentifier"])
+
+assert len(ecu.log["SecurityAccess"]) == 2
+assert len(ecu.log["SecurityAccessPositiveResponse"]) == 2
+
+assert ecu.log["TransferData"][-1][1][0] == "downloadAndExecuteOrExecute"

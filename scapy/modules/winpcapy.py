@@ -10,18 +10,19 @@
 #-------------------------------------------------------------------------------  # noqa: E501
 # Modified for scapy's usage - Mainly to support Npcap/Monitor mode
 
-## This file is part of Scapy
-## See http://www.secdev.org/projects/scapy for more information
-## This program is published under a GPLv2 license
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more information
+# This program is published under a GPLv2 license
 
 from ctypes import *
 from ctypes.util import find_library
 import sys, os
 from scapy.consts import WINDOWS
 
-HAVE_REMOTE=False
+HAVE_REMOTE = False
 
 if WINDOWS:
+    # Try to load Npcap, or Winpcap
     HAVE_REMOTE=True
     SOCKET = c_uint
     npcap_folder = os.environ["WINDIR"] + "\\System32\\Npcap"
@@ -37,6 +38,7 @@ if WINDOWS:
         _lib=CDLL("wpcap.dll")
     del npcap_folder
 else:
+    # Try to load libpcap
     SOCKET = c_int
     _lib_name = find_library("pcap")
     if not _lib_name:

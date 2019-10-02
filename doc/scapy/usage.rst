@@ -543,19 +543,20 @@ Configuring super sockets
 .. index::
    single: super socket
 
-Different super sockets are available in Scapy: the native ones, and the ones that use a libpcap provider (that go through libpcap to send/receive packets).
-By default, Scapy will try to use the native ones (except on Windows, where the winpcap/npcap ones are preferred). To manually use the libpcap ones, you must:
+Different super sockets are available in Scapy: the **native** ones, and the ones that use **libpcap** (to send/receive packets).
 
-* On Unix/OSX: be sure to have libpcap installed, and one of the following as libpcap python wrapper: `pcapy` or `pypcap`
+By default, Scapy will try to use the native ones (*except on Windows, where the winpcap/npcap ones are preferred*). To manually use the **libpcap** ones, you must:
+
+* On Unix/OSX: be sure to have libpcap installed.
 * On Windows: have Npcap/Winpcap installed. (default)
 
-Then use:
+Then use::
 
     >>> conf.use_pcap = True
 
-This will automatically update the sockets pointing to `conf.L2socket` and `conf.L3socket`.
+This will automatically update the sockets pointing to ``conf.L2socket`` and ``conf.L3socket``.
 
-If you want to manually set them, you have a bunch of sockets available, depending on your platform. For instance, you might want to use:
+If you want to manually set them, you have a bunch of sockets available, depending on your platform. For instance, you might want to use::
 
     >>> conf.L3socket=L3pcapSocket  # Receive/send L3 packets through libpcap
     >>> conf.L2listen=L2ListenTcpdump  # Receive L2 packets through TCPDump
@@ -697,8 +698,54 @@ We can sniff and do passive OS fingerprinting::
 
 The number before the OS guess is the accuracy of the guess.
 
-Advanced Sniffing - Sessions
-----------------------------
+Asynchronous Sniffing
+---------------------
+
+.. index::
+   single: AsyncSniffer()
+
+.. note::
+   Asynchronous sniffing is only available since **Scapy 2.4.3**
+
+It is possible to sniff asynchronously. This allows to stop the sniffer programmatically, rather than with ctrl^C.
+It provides ``start()``, ``stop()`` and ``join()`` utils.
+
+The basic usage would be:
+
+.. code-block:: python
+
+    >>> t = AsyncSniffer()
+    >>> t.start()
+    >>> print("hey")
+    hey
+    [...]
+    >>> results = t.stop()
+
+.. image:: graphics/animations/animation-scapy-asyncsniffer.svg
+
+The ``AsyncSniffer`` class has a few useful keys, such as ``results`` (the packets collected) or ``running``, that can be used.
+It accepts the same arguments than ``sniff()`` (in fact, their implementations are merged). For instance:
+
+.. code-block:: python
+
+    >>> t = AsyncSniffer(iface="enp0s3", count=200)
+    >>> t.start()
+    >>> t.join()  # this will hold until 200 packets are collected
+    >>> results = t.results
+    >>> print(len(results))
+    200
+
+Another example: using ``prn`` and ``store=False``
+
+.. code-block:: python
+
+    >>> t = AsyncSniffer(prn=lambda x: x.summary(), store=False, filter="tcp")
+    >>> t.start()
+    >>> time.sleep(20)
+    >>> t.stop()
+
+Advanced Sniffing - Sniffing Sessions
+-------------------------------------
 
 .. note::
    Sessions are only available since **Scapy 2.4.3**
@@ -708,13 +755,15 @@ Advanced Sniffing - Sessions
 Scapy includes some basic Sessions, but it is possible to implement your own.
 Available by default:
 
-- ``IPSession`` -> *defragment IP packets* on-the-flow, to make a stream usable by ``prn``
+- ``IPSession`` -> *defragment IP packets* on-the-flow, to make a stream usable by ``prn``.
+- ``TCPSession`` -> *defragment certain TCP protocols**. Only **HTTP 1.0** currently uses this functionality.
 - ``NetflowSession`` -> *resolve Netflow V9 packets* from their NetflowFlowset information objects
 
-Those sessions can be used using the ``session=`` parameter of ``sniff()``::
+Those sessions can be used using the ``session=`` parameter of ``sniff()``. Examples::
 
-    >>> sniff(session=IPSession, prn=lambda x: x.summary())
-    >>> sniff(session=NetflowSession, prn=lambda x: x.summary())
+    >>> sniff(session=IPSession, iface="eth0")
+    >>> sniff(session=TCPSession, prn=lambda x: x.summary(), store=False)
+    >>> sniff(offline="file.pcap", session=NetflowSession)
 
 .. note::
    To implement your own Session class, in order to support another flow-based protocol, start by copying a sample from `scapy/sessions.py <https://github.com/secdev/scapy/blob/master/scapy/sessions.py>`_
@@ -1120,6 +1169,9 @@ Wireless frame injection
 .. index::
    single: FakeAP, Dot11, wireless, WLAN
 
+.. note::
+   See the TroubleShooting section for more information on the usage of Monitor mode among Scapy.
+
 Provided that your wireless card and driver are correctly configured for frame injection
 
 ::
@@ -1127,7 +1179,7 @@ Provided that your wireless card and driver are correctly configured for frame i
     $ iw dev wlan0 interface add mon0 type monitor
     $ ifconfig mon0 up
 
-On Windows, if using Npcap, the equivalent would be to call
+On Windows, if using Npcap, the equivalent would be to call::
 
     >>> # Of course, conf.iface can be replaced by any interfaces accessed through IFACES
     ... conf.iface.setmonitor(True)
@@ -1240,6 +1292,36 @@ Once again, results can be collected with this command:
 
     >>> ans.summary( lambda(s,r) : r.sprintf("%IP.src% is alive") )
 
+
+DNS Requests
+------------
+
+**IPv4 (A) request:**
+
+This will perform a DNS request looking for IPv4 addresses
+
+    >>> ans = sr1(IP(dst="8.8.8.8")/UDP(sport=RandShort(), dport=53)/DNS(rd=1,qd=DNSQR(qname="secdev.org",qtype="A")))
+    >>> ans.an.rdata
+    '217.25.178.5'
+
+**SOA request:**
+
+    >>> ans = sr1(IP(dst="8.8.8.8")/UDP(sport=RandShort(), dport=53)/DNS(rd=1,qd=DNSQR(qname="secdev.org",qtype="SOA")))
+    >>> ans.ns.mname
+    b'dns.ovh.net.'
+    >>> ans.ns.rname
+    b'tech.ovh.net.'
+
+**MX request:**
+
+    >>> ans = sr1(IP(dst="8.8.8.8")/UDP(sport=RandShort(), dport=53)/DNS(rd=1,qd=DNSQR(qname="google.com",qtype="MX")))
+    >>> results = [x.exchange for x in ans.an.iterpayloads()]
+    >>> results
+    [b'alt1.aspmx.l.google.com.',
+     b'alt4.aspmx.l.google.com.',
+     b'aspmx.l.google.com.',
+     b'alt2.aspmx.l.google.com.',
+     b'alt3.aspmx.l.google.com.']
 
 
 Classical attacks
@@ -1533,28 +1615,76 @@ Viewing packets with Wireshark
 Problem
 ^^^^^^^
 
-You have generated or sniffed some packets with Scapy and want to view them with `Wireshark <http://www.wireshark.org>`_, because of its advanced packet dissection abilities.
+You have generated or sniffed some packets with Scapy.
+
+Now you want to view them with `Wireshark <https://www.wireshark.org>`_, because
+of its advanced packet dissection capabilities.
 
 Solution
 ^^^^^^^^
 
-That's what the ``wireshark()`` function is for:
+That's what :py:func:`wireshark` is for!
 
-    >>> packets = Ether()/IP(dst=Net("google.com/30"))/ICMP()     # first generate some packets
-    >>> wireshark(packets)                                        # show them with Wireshark
+.. code-block:: python3
 
-Wireshark will start in the background and show your packets.
+    # First, generate some packets...
+    packets = IP(src="192.0.2.9", dst=Net("192.0.2.10/30"))/ICMP()
+
+    # Show them with Wireshark
+    wireshark(packets)
+
+Wireshark will start in the background, and show your packets.
  
 Discussion
 ^^^^^^^^^^
 
-The ``wireshark()`` function generates a temporary pcap-file containing your packets, starts Wireshark in the background and makes it read the file on startup.   
+.. py:function:: wireshark(pktlist, ...)
 
-Please remember that Wireshark works with Layer 2 packets (usually called "frames"). So we had to add an ``Ether()`` header to our ICMP packets. Passing just IP packets (layer 3) to Wireshark will give strange results.
+    With a :py:class:`Packet` or :py:class:`PacketList`, serialises your
+    packets, and streams this into Wireshark via ``stdin`` as if it were a
+    capture device.
 
-You can tell Scapy where to find the Wireshark executable by changing the ``conf.prog.wireshark`` configuration setting.
+    Because this uses ``pcap`` format to serialise the packets, there are some
+    limitations:
 
+    * Packets must be all of the same ``linktype``.
 
+      For example, you can't mix :py:class:`Ether` and :py:class:`IP` at the
+      top layer.
+
+    * Packets must have an assigned (and supported) ``DLT_*`` constant for the
+      ``linktype``.  An unsupported ``linktype`` is replaced with ``DLT_EN10MB``
+      (Ethernet), and will display incorrectly in Wireshark.
+
+      For example, can't pass a bare :py:class:`ICMP` packet, but you can send
+      it as a payload of an :py:class:`IP` or :py:class:`IPv6` packet.
+
+    With a filename (passed as a string), this loads the given file in
+    Wireshark. This needs to be in a format that Wireshark supports.
+
+    You can tell Scapy where to find the Wireshark executable by changing the
+    ``conf.prog.wireshark`` configuration setting.
+
+    This accepts the same extra parameters as :py:func:`tcpdump`.
+
+.. seealso::
+
+    :py:class:`WiresharkSink`
+        A :ref:`PipeTools sink <pipetools>` for live-streaming packets.
+
+    :manpage:`wireshark(1)`
+        Additional description of Wireshark's functionality, and its
+        command-line arguments.
+
+    `Wireshark's website`__
+        For up-to-date releases of Wireshark.
+
+    `Wireshark Protocol Reference`__
+        Contains detailed information about Wireshark's protocol dissectors, and
+        reference documentation for various network protocols.
+
+__ https://www.wireshark.org
+__ https://wiki.wireshark.org/ProtocolReference
 
 OS Fingerprinting
 -----------------

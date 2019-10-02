@@ -1,0 +1,101 @@
+% DCE/RPC layer test campaign
+
++ Syntax check
+= Import the DCE/RPC layer
+import re
+from scapy.contrib.dce_rpc import *
+from uuid import UUID
+
+
++ Check EndiannessField
+
+= Little Endian IntField getfield
+f = EndiannessField(IntField('f', 0), lambda p: '<')
+f.getfield(None, bytearray.fromhex('0102030405')) == (b'\x05', 0x04030201)
+
+= Little Endian IntField addfield
+f = EndiannessField(IntField('f', 0), lambda p: '<')
+f.addfield(None, b'\x01', 0x05040302) == bytearray.fromhex('0102030405')
+
+= Big Endian IntField getfield
+f = EndiannessField(IntField('f', 0), lambda p: '>')
+f.getfield(None, bytearray.fromhex('0102030405')) == (b'\x05', 0x01020304)
+
+= Big Endian IntField addfield
+f = EndiannessField(IntField('f', 0), lambda p: '>')
+f.addfield(None, b'\x01', 0x02030405) == bytearray.fromhex('0102030405')
+
+= Little Endian StrField getfield
+f = EndiannessField(StrField('f', 0), lambda p: '<')
+f.getfield(None, '0102030405') == (b'', '0102030405')
+
+= Little Endian StrField addfield
+f = EndiannessField(StrField('f', 0), lambda p: '<')
+f.addfield(None, b'01', '02030405') == b'0102030405'
+
+= Big Endian StrField getfield
+f = EndiannessField(StrField('f', 0), lambda p: '>')
+f.getfield(None, '0102030405') == (b'', '0102030405')
+
+= Big Endian StrField addfield
+f = EndiannessField(StrField('f', 0), lambda p: '>')
+f.addfield(None, b'01', '02030405') == b'0102030405'
+
+= Little Endian UUIDField getfield
+* The endianness of a UUIDField should be apply by block on each block in
+* parenthesis '(01234567)-(89ab)-(cdef)-(01)(23)-(45)(67)(89)(ab)(cd)(ef)'
+
+f = EndiannessField(UUIDField('f', None), lambda p: '<')
+f.getfield(None, hex_bytes('0123456789abcdef0123456789abcdef')) == (b'', UUID('67452301-ab89-efcd-0123-456789abcdef'))
+
+= Little Endian UUIDField addfield
+f = EndiannessField(UUIDField('f', '01234567-89ab-cdef-0123-456789abcdef'), lambda p: '<')
+f.addfield(None, b'', f.default) == hex_bytes('67452301ab89efcd0123456789abcdef')
+
+= Big Endian UUIDField getfield
+f = EndiannessField(UUIDField('f', None), lambda p: '>')
+f.getfield(None, hex_bytes('0123456789abcdef0123456789abcdef')) == (b'', UUID('01234567-89ab-cdef-0123456789abcdef'))
+
+= Big Endian UUIDField addfield
+f = EndiannessField(UUIDField('f', '01234567-89ab-cdef-0123-456789abcdef'), lambda p: '>')
+f.addfield(None, b'', f.default) == hex_bytes('0123456789abcdef0123456789abcdef')
+
+
++ Check DCE/RPC layer
+
+= DCE/RPC default values
+bytes(DceRpc()) == bytearray.fromhex('04000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000ffffffff000000000000')
+
+= DCE/RPC payload length computation
+bytes(DceRpc() / b'\x00\x01\x02\x03') == bytearray.fromhex('04000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000ffffffff00040000000000010203')
+
+= DCE/RPC Guess payload class fallback with no possible payload
+p = DceRpc(bytearray.fromhex('04000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000000000000ffffffff00040000000000010203'))
+p.payload.__class__ == conf.raw_layer
+
+= DCE/RPC Guess payload class to a registered heuristic payload
+* A payload to be valid must implement the method can_handle and be registered to DceRpcPayload
+from scapy.contrib.dce_rpc import *; import binascii, re
+class DummyPayload(Packet):
+  fields_desc = [StrField('load', '')]
+  @classmethod
+  def can_handle(cls, pkt, dce):
+    if pkt[0] in [b'\x01', 1]:  # support for py3 bytearray
+      return True
+    else:
+      return False
+
+DceRpcPayload.register_possible_payload(DummyPayload)
+p = DceRpc(bytearray.fromhex('04000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000000000000ffffffff00040000000001020304'))
+p.payload.__class__ == DummyPayload
+
+= DCE/RPC Guess payload class fallback with possible payload classes
+p = DceRpc(bytearray.fromhex('04000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000000000000ffffffff00040000000000010203'))
+p.payload.__class__ == conf.raw_layer
+
+= DCE/RPC little-endian build
+bytes(DceRpc(type='response', endianness='little', opnum=3) / b'\x00\x01\x02\x03') == bytearray.fromhex('04020000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000300ffffffff04000000000000010203')
+
+= DCE/RPC little-endian dissection
+p = DceRpc(bytearray.fromhex('04020000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000300ffffffff04000000000000010203'))
+p.type == 2 and p.opnum == 3 and p.frag_len == 4

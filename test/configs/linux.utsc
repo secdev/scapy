@@ -1,7 +1,12 @@
 {
   "testfiles": [
     "test/*.uts",
-    "scapy/contrib/*.uts",
+    "test/contrib/*.uts",
+    "test/contrib/automotive/*.uts",
+    "test/contrib/automotive/obd/*.uts",
+    "test/contrib/automotive/gm/*.uts",
+    "test/contrib/automotive/bmw/*.uts",
+    "test/tools/*.uts",
     "test/tls/tests_tls_netaccess.uts"
   ],
   "remove_testfiles": [
@@ -11,7 +16,7 @@
   "breakfailed": true,
   "onlyfailed": true,
   "preexec": {
-    "scapy/contrib/*.uts": "load_contrib(\"%name%\")",
+    "test/contrib/*.uts": "load_contrib(\"%name%\")",
     "test/cert.uts": "load_layer(\"tls\")",
     "test/sslv2.uts": "load_layer(\"tls\")",
     "test/tls*.uts": "load_layer(\"tls\")"

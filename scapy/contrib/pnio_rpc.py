@@ -967,7 +967,7 @@ class PNIOServiceReqPDU(Packet):
 
     @classmethod
     def can_handle(cls, pkt, rpc):
-        """heuristical guess_payload_class"""
+        """heuristic guess_payload_class"""
         # type = 0 => request
         if rpc.getfieldval("type") == 0 and \
                 str(rpc.object_uuid).startswith("dea00000-6c97-11d1-8271-"):
@@ -999,7 +999,7 @@ class PNIOServiceResPDU(Packet):
 
     @classmethod
     def can_handle(cls, pkt, rpc):
-        """heuristical guess_payload_class"""
+        """heuristic guess_payload_class"""
         # type = 2 => response
         if rpc.getfieldval("type") == 2 and \
                 str(rpc.object_uuid).startswith("dea00000-6c97-11d1-8271-"):

@@ -1,0 +1,26 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+# This file is part of Scapy
+# See http://www.secdev.org/projects/scapy for more information
+# Copyright (C) Philippe Biondi <phil@secdev.org>
+# This program is published under a GPLv2 license
+
+Vagrant.configure("2") do |config|
+
+  config.vm.define "openbsd" do |bsd|
+    bsd.vm.box = "generic/openbsd6"
+    bsd.vm.provision "shell", path: "provision_openbsd.sh"
+  end
+
+  config.vm.define "freebsd" do |bsd|
+    bsd.vm.box = "freebsd/FreeBSD-11.3-RELEASE"
+    bsd.vm.provision "shell", path: "provision_freebsd.sh"
+  end
+
+  config.vm.define "netbsd" do |bsd|
+    bsd.vm.box = "generic/netbsd8"
+    bsd.vm.provision "shell", path: "provision_netbsd.sh"
+  end
+
+end

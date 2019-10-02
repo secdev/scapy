@@ -15,7 +15,7 @@ import struct
 
 from scapy.config import conf
 from scapy.error import log_runtime, warning
-from scapy.compat import raw
+from scapy.compat import raw, orb
 from scapy.fields import ByteEnumField, PacketField, XStrField
 from scapy.layers.tls.session import _GenericTLSSessionInheritance
 from scapy.layers.tls.basefields import _TLSVersionField, _tls_version, \
@@ -24,11 +24,13 @@ from scapy.layers.tls.record import _TLSMsgListField, TLS
 from scapy.layers.tls.crypto.cipher_aead import AEADTagError
 from scapy.layers.tls.crypto.cipher_stream import Cipher_NULL
 from scapy.layers.tls.crypto.common import CipherError
+from scapy.layers.tls.crypto.pkcs1 import pkcs_i2osp
 
 
 ###############################################################################
 #   TLS Record Protocol                                                       #
 ###############################################################################
+
 
 class TLSInnerPlaintext(_GenericTLSSessionInheritance):
     name = "TLS Inner Plaintext"
@@ -90,7 +92,7 @@ class TLS13(_GenericTLSSessionInheritance):
     __slots__ = ["deciphered_len"]
     name = "TLS 1.3"
     fields_desc = [ByteEnumField("type", 0x17, _tls_type),
-                   _TLSVersionField("version", 0x0301, _tls_version),
+                   _TLSVersionField("version", 0x0303, _tls_version),
                    _TLSLengthField("len", None),
                    _TLSInnerPlaintextField("inner", TLSInnerPlaintext()),
                    _TLSMACField("auth_tag", None)]
@@ -112,8 +114,11 @@ class TLS13(_GenericTLSSessionInheritance):
         rcs = self.tls_session.rcs
         read_seq_num = struct.pack("!Q", rcs.seq_num)
         rcs.seq_num += 1
+        add_data = (pkcs_i2osp(self.type, 1) +
+                    pkcs_i2osp(self.version, 2) +
+                    pkcs_i2osp(len(s), 2))
         try:
-            return rcs.cipher.auth_decrypt(b"", s, read_seq_num)
+            return rcs.cipher.auth_decrypt(add_data, s, read_seq_num)
         except CipherError as e:
             return e.args
         except AEADTagError as e:
@@ -125,10 +130,18 @@ class TLS13(_GenericTLSSessionInheritance):
         """
         Decrypt, verify and decompress the message.
         """
+        # We commit the pending read state if it has been triggered.
+        if self.tls_session.triggered_prcs_commit:
+            if self.tls_session.prcs is not None:
+                self.tls_session.rcs = self.tls_session.prcs
+                self.tls_session.prcs = None
+            self.tls_session.triggered_prcs_commit = False
         if len(s) < 5:
             raise Exception("Invalid record: header is too short.")
 
-        if isinstance(self.tls_session.rcs.cipher, Cipher_NULL):
+        self.type = orb(s[0])
+        if (isinstance(self.tls_session.rcs.cipher, Cipher_NULL) or
+                self.type == 0x14):
             self.deciphered_len = None
             return s
         else:
@@ -176,7 +189,11 @@ class TLS13(_GenericTLSSessionInheritance):
         wcs = self.tls_session.wcs
         write_seq_num = struct.pack("!Q", wcs.seq_num)
         wcs.seq_num += 1
-        return wcs.cipher.auth_encrypt(s, b"", write_seq_num)
+        add_data = (pkcs_i2osp(self.type, 1) +
+                    pkcs_i2osp(self.version, 2) +
+                    pkcs_i2osp(len(s) + wcs.cipher.tag_len, 2))
+
+        return wcs.cipher.auth_encrypt(s, add_data, write_seq_num)
 
     def post_build(self, pkt, pay):
         """
@@ -184,7 +201,7 @@ class TLS13(_GenericTLSSessionInheritance):
         """
         # Compute the length of TLSPlaintext fragment
         hdr, frag = pkt[:5], pkt[5:]
-        if not isinstance(self.tls_session.rcs.cipher, Cipher_NULL):
+        if not isinstance(self.tls_session.wcs.cipher, Cipher_NULL):
             frag = self._tls_auth_encrypt(frag)
 
         if self.len is not None:

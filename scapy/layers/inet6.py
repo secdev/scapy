@@ -564,15 +564,10 @@ def in6_chksum(nh, u, p):
     """
     As Specified in RFC 2460 - 8.1 Upper-Layer Checksums
 
-    Performs IPv6 Upper Layer checksum computation. Provided parameters are:
-    - 'nh' : value of upper layer protocol
-    - 'u'  : upper layer instance (TCP, UDP, ICMPv6*, ). Instance must be
-             provided with all under layers (IPv6 and all extension headers,
-             for example)
-    - 'p'  : the payload of the upper layer provided as a string
+    Performs IPv6 Upper Layer checksum computation.
 
-    Functions operate by filling a pseudo header class instance (PseudoIPv6)
-    with
+    This function operates by filling a pseudo header class instance
+    (PseudoIPv6) with:
     - Next Header value
     - the address of _final_ destination (if some Routing Header with non
     segleft field is present in underlayer classes, last address is used.)
@@ -581,6 +576,12 @@ def in6_chksum(nh, u, p):
     in HAO option if some Destination Option header found in underlayer
     includes this option).
     - the length is the length of provided payload string ('p')
+
+    :param nh: value of upper layer protocol
+    :param u: upper layer instance (TCP, UDP, ICMPv6*, ). Instance must be
+        provided with all under layers (IPv6 and all extension headers,
+        for example)
+    :param p: the payload of the upper layer provided as a string
     """
 
     ph6 = PseudoIPv6()
@@ -1391,9 +1392,12 @@ class ICMPv6TimeExceeded(_ICMPv6Error):
 class ICMPv6ParamProblem(_ICMPv6Error):
     name = "ICMPv6 Parameter Problem"
     fields_desc = [ByteEnumField("type", 4, icmp6types),
-                   ByteEnumField("code", 0, {0: "erroneous header field encountered",  # noqa: E501
-                                             1: "unrecognized Next Header type encountered",  # noqa: E501
-                                             2: "unrecognized IPv6 option encountered"}),  # noqa: E501
+                   ByteEnumField(
+                       "code", 0,
+                       {0: "erroneous header field encountered",
+                        1: "unrecognized Next Header type encountered",
+                        2: "unrecognized IPv6 option encountered",
+                        3: "first fragment has incomplete header chain"}),
                    XShortField("cksum", None),
                    IntField("ptr", 6)]
 
@@ -4027,9 +4031,7 @@ bind_layers(Ether, IPv6, type=0x86dd)
 bind_layers(CookedLinux, IPv6, proto=0x86dd)
 bind_layers(GRE, IPv6, proto=0x86dd)
 bind_layers(SNAP, IPv6, code=0x86dd)
-bind_layers(Loopback, IPv6, type=0x18)
-bind_layers(Loopback, IPv6, type=0x1c)
-bind_layers(Loopback, IPv6, type=0x1e)
+bind_layers(Loopback, IPv6, type=socket.AF_INET6)
 bind_layers(IPerror6, TCPerror, nh=socket.IPPROTO_TCP)
 bind_layers(IPerror6, UDPerror, nh=socket.IPPROTO_UDP)
 bind_layers(IPv6, TCP, nh=socket.IPPROTO_TCP)

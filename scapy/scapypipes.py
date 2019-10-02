@@ -5,34 +5,56 @@
 
 from __future__ import print_function
 import socket
+import subprocess
+
 from scapy.modules.six.moves.queue import Queue, Empty
 from scapy.pipetool import Source, Drain, Sink
 from scapy.config import conf
 from scapy.compat import raw
-from scapy.utils import PcapReader, PcapWriter
+from scapy.utils import ContextManagerSubprocess, PcapReader, PcapWriter
 from scapy.automaton import recv_error
 from scapy.consts import WINDOWS
 
 
 class SniffSource(Source):
     """Read packets from an interface and send them to low exit.
-     +-----------+
-  >>-|           |->>
-     |           |
-   >-|  [iface]--|->
-     +-----------+
-"""
 
-    def __init__(self, iface=None, filter=None, name=None):
+    .. code::
+
+             +-----------+
+          >>-|           |->>
+             |           |
+           >-|  [iface]--|->
+             +-----------+
+
+    If neither of the ``iface`` or ``socket`` parameters are specified, then
+    Scapy will capture from the first network interface.
+
+    :param iface: A layer 2 interface to sniff packets from. Mutually
+                  exclusive with the ``socket`` parameter.
+    :param filter: Packet filter to use while capturing. See ``L2listen``.
+                   Not used with ``socket`` parameter.
+    :param socket: A ``SuperSocket`` to sniff packets from.
+    """
+
+    def __init__(self, iface=None, filter=None, socket=None, name=None):
         Source.__init__(self, name=name)
+
+        if (iface or filter) and socket:
+            raise ValueError("iface and filter options are mutually exclusive "
+                             "with socket")
+
+        self.s = socket
         self.iface = iface
         self.filter = filter
 
     def start(self):
-        self.s = conf.L2listen(iface=self.iface, filter=self.filter)
+        if not self.s:
+            self.s = conf.L2listen(iface=self.iface, filter=self.filter)
 
     def stop(self):
-        self.s.close()
+        if self.s:
+            self.s.close()
 
     def fileno(self):
         return self.s.fileno()
@@ -50,12 +72,15 @@ class SniffSource(Source):
 
 class RdpcapSource(Source):
     """Read packets from a PCAP file send them to low exit.
-     +----------+
-  >>-|          |->>
-     |          |
-   >-|  [pcap]--|->
-     +----------+
-"""
+
+    .. code::
+
+         +----------+
+      >>-|          |->>
+         |          |
+       >-|  [pcap]--|->
+         +----------+
+    """
 
     def __init__(self, fname, name=None):
         Source.__init__(self, name=name)
@@ -63,12 +88,10 @@ class RdpcapSource(Source):
         self.f = PcapReader(self.fname)
 
     def start(self):
-        print("start")
         self.f = PcapReader(self.fname)
         self.is_exhausted = False
 
     def stop(self):
-        print("stop")
         self.f.close()
 
     def fileno(self):
@@ -78,22 +101,24 @@ class RdpcapSource(Source):
         return True
 
     def deliver(self):
-        p = self.f.recv()
-        print("deliver %r" % p)
-        if p is None:
-            self.is_exhausted = True
-        else:
+        try:
+            p = self.f.recv()
             self._send(p)
+        except EOFError:
+            self.is_exhausted = True
 
 
 class InjectSink(Sink):
     """Packets received on low input are injected to an interface
-     +-----------+
-  >>-|           |->>
-     |           |
-   >-|--[iface]  |->
-     +-----------+
-"""
+
+    .. code::
+
+         +-----------+
+      >>-|           |->>
+         |           |
+       >-|--[iface]  |->
+         +-----------+
+    """
 
     def __init__(self, iface=None, name=None):
         Sink.__init__(self, name=name)
@@ -118,33 +143,81 @@ class Inject3Sink(InjectSink):
 
 class WrpcapSink(Sink):
     """Packets received on low input are written to PCAP file
-     +----------+
-  >>-|          |->>
-     |          |
-   >-|--[pcap]  |->
-     +----------+
-"""
 
-    def __init__(self, fname, name=None):
+    .. code::
+
+         +----------+
+      >>-|          |->>
+         |          |
+       >-|--[pcap]  |->
+         +----------+
+    """
+
+    def __init__(self, fname, name=None, linktype=None):
         Sink.__init__(self, name=name)
-        self.f = PcapWriter(fname)
+        self.fname = fname
+        self.f = None
+        self.linktype = linktype
+
+    def start(self):
+        self.f = PcapWriter(self.fname, linktype=self.linktype)
 
     def stop(self):
-        self.f.flush()
-        self.f.close()
+        if self.f:
+            self.f.flush()
+            self.f.close()
 
     def push(self, msg):
-        self.f.write(msg)
+        if msg:
+            self.f.write(msg)
+
+
+class WiresharkSink(WrpcapSink):
+    """Packets received on low input are pushed to Wireshark.
+
+    .. code::
+
+         +----------+
+      >>-|          |->>
+         |          |
+       >-|--[pcap]  |->
+         +----------+
+    """
+
+    def __init__(self, name=None, linktype=None, args=None):
+        WrpcapSink.__init__(self, fname=None, name=name, linktype=linktype)
+        self.args = args
+
+    def start(self):
+        # Wireshark must be running first, because PcapWriter will block until
+        # data has been read!
+        with ContextManagerSubprocess("WiresharkSink", conf.prog.wireshark):
+            args = [conf.prog.wireshark, "-ki", "-"]
+            if self.args:
+                args.extend(self.args)
+
+            proc = subprocess.Popen(
+                args,
+                stdin=subprocess.PIPE,
+                stdout=None,
+                stderr=None,
+            )
+
+        self.fname = proc.stdin
+        WrpcapSink.start(self)
 
 
 class UDPDrain(Drain):
     """UDP payloads received on high entry are sent over UDP
-     +-------------+
-  >>-|--[payload]--|->>
-     |      X      |
-   >-|----[UDP]----|->
-     +-------------+
-"""
+
+    .. code::
+
+         +-------------+
+      >>-|--[payload]--|->>
+         |      X      |
+       >-|----[UDP]----|->
+         +-------------+
+    """
 
     def __init__(self, ip="127.0.0.1", port=1234):
         Drain.__init__(self)
@@ -165,12 +238,15 @@ class UDPDrain(Drain):
 
 class FDSourceSink(Source):
     """Use a file descriptor as source and sink
-     +-------------+
-  >>-|             |->>
-     |             |
-   >-|-[file desc]-|->
-     +-------------+
-"""
+
+    .. code::
+
+         +-------------+
+      >>-|             |->>
+         |             |
+       >-|-[file desc]-|->
+         +-------------+
+    """
 
     def __init__(self, fd, name=None):
         Source.__init__(self, name=name)
@@ -188,12 +264,15 @@ class FDSourceSink(Source):
 
 class TCPConnectPipe(Source):
     """TCP connect to addr:port and use it as source and sink
-     +-------------+
-  >>-|             |->>
-     |             |
-   >-|-[addr:port]-|->
-     +-------------+
-"""
+
+    .. code::
+
+         +-------------+
+      >>-|             |->>
+         |             |
+       >-|-[addr:port]-|->
+         +-------------+
+    """
     __selectable_force_select__ = True
 
     def __init__(self, addr="", port=0, name=None):
@@ -227,13 +306,17 @@ class TCPConnectPipe(Source):
 
 
 class TCPListenPipe(TCPConnectPipe):
-    """TCP listen on [addr:]port and use first connection as source and sink ; send peer address to high output  # noqa: E501
-     +------^------+
-  >>-|    +-[peer]-|->>
-     |   /         |
-   >-|-[addr:port]-|->
-     +-------------+
-"""
+    """TCP listen on [addr:]port and use first connection as source and sink;
+    send peer address to high output
+
+    .. code::
+
+         +------^------+
+      >>-|    +-[peer]-|->>
+         |   /         |
+       >-|-[addr:port]-|->
+         +-------------+
+    """
     __selectable_force_select__ = True
 
     def __init__(self, addr="", port=0, name=None):
@@ -279,12 +362,15 @@ class TCPListenPipe(TCPConnectPipe):
 
 class TriggeredMessage(Drain):
     """Send a preloaded message when triggered and trigger in chain
-     +------^------+
-  >>-|      | /----|->>
-     |      |/     |
-   >-|-[ message ]-|->
-     +------^------+
-"""
+
+    .. code::
+
+         +------^------+
+      >>-|      | /----|->>
+         |      |/     |
+       >-|-[ message ]-|->
+         +------^------+
+    """
 
     def __init__(self, msg, name=None):
         Drain.__init__(self, name=name)
@@ -298,12 +384,15 @@ class TriggeredMessage(Drain):
 
 class TriggerDrain(Drain):
     """Pass messages and trigger when a condition is met
-     +------^------+
-  >>-|-[condition]-|->>
-     |      |      |
-   >-|-[condition]-|->
-     +-------------+
-"""
+
+    .. code::
+
+         +------^------+
+      >>-|-[condition]-|->>
+         |      |      |
+       >-|-[condition]-|->
+         +-------------+
+    """
 
     def __init__(self, f, name=None):
         Drain.__init__(self, name=name)
@@ -324,12 +413,15 @@ class TriggerDrain(Drain):
 
 class TriggeredValve(Drain):
     """Let messages alternatively pass or not, changing on trigger
-     +------^------+
-  >>-|-[pass/stop]-|->>
-     |      |      |
-   >-|-[pass/stop]-|->
-     +------^------+
-"""
+
+.. code::
+
+         +------^------+
+      >>-|-[pass/stop]-|->>
+         |      |      |
+       >-|-[pass/stop]-|->
+         +------^------+
+    """
 
     def __init__(self, start_state=True, name=None):
         Drain.__init__(self, name=name)
@@ -350,12 +442,15 @@ class TriggeredValve(Drain):
 
 class TriggeredQueueingValve(Drain):
     """Let messages alternatively pass or queued, changing on trigger
-     +------^-------+
-  >>-|-[pass/queue]-|->>
-     |      |       |
-   >-|-[pass/queue]-|->
-     +------^-------+
-"""
+
+    .. code::
+
+         +------^-------+
+      >>-|-[pass/queue]-|->>
+         |      |       |
+       >-|-[pass/queue]-|->
+         +------^-------+
+    """
 
     def __init__(self, start_state=True, name=None):
         Drain.__init__(self, name=name)
@@ -394,12 +489,15 @@ class TriggeredQueueingValve(Drain):
 
 class TriggeredSwitch(Drain):
     r"""Let messages alternatively high or low, changing on trigger
-     +------^------+
-  >>-|-\    |    /-|->>
-     |  [up/down]  |
-   >-|-/    |    \-|->
-     +------^------+
-"""
+
+    .. code::
+
+         +------^------+
+      >>-|-\    |    /-|->>
+         |  [up/down]  |
+       >-|-/    |    \-|->
+         +------^------+
+    """
 
     def __init__(self, start_state=True, name=None):
         Drain.__init__(self, name=name)
@@ -415,3 +513,32 @@ class TriggeredSwitch(Drain):
     def on_trigger(self, msg):
         self.low ^= True
         self._trigger(msg)
+
+
+class ConvertPipe(Drain):
+    """Packets sent on entry are converted to another type of packet.
+
+    .. code::
+
+         +-------------+
+      >>-|--[convert]--|->>
+         |             |
+       >-|--[convert]--|->
+         +-------------+
+
+    See ``Packet.convert_packet``.
+    """
+    def __init__(self, low_type=None, high_type=None, name=None):
+        Drain.__init__(self, name=name)
+        self.low_type = low_type
+        self.high_type = high_type
+
+    def push(self, msg):
+        if self.low_type:
+            msg = self.low_type.convert_packet(msg)
+        self._send(msg)
+
+    def high_push(self, msg):
+        if self.high_type:
+            msg = self.high_type.convert_packet(msg)
+        self._high_send(msg)

@@ -1,0 +1,1269 @@
+% Tests for nfs module
+############
+############
++  Packet Creation Tests
+
+= Create subpackets
+Fattr3()
+File_Object()
+Object_Name()
+WCC_Attr()
+File_From_Dir_Plus()
+File_From_Dir()
+Sattr3()
+
+= Create NFS Calls
+NULL_Call()
+GETATTR_Call()
+SETATTR_Call()
+LOOKUP_Call()
+ACCESS_Call()
+READLINK_Call()
+READ_Call()
+WRITE_Call()
+CREATE_Call()
+MKDIR_Call()
+SYMLINK_Call()
+REMOVE_Call()
+RMDIR_Call()
+RENAME_Call()
+LINK_Call()
+READDIR_Call()
+READDIRPLUS_Call()
+FSSTAT_Call()
+FSINFO_Call()
+PATHCONF_Call()
+COMMIT_Call()
+
+= Create NFS Successful replies
+
+GETATTR_Reply(status=0)
+SETATTR_Reply(status=0)
+LOOKUP_Reply(status=0)
+ACCESS_Reply(status=0)
+READLINK_Reply(status=0)
+READ_Reply(status=0)
+WRITE_Reply(status=0)
+CREATE_Reply(status=0)
+MKDIR_Reply(status=0)
+SYMLINK_Reply(status=0)
+REMOVE_Reply(status=0)
+RMDIR_Reply(status=0)
+RENAME_Reply(status=0)
+LINK_Reply(status=0)
+READDIR_Reply(status=0)
+READDIRPLUS_Reply(status=0)
+FSSTAT_Reply(status=0)
+FSINFO_Reply(status=0)
+PATHCONF_Reply(status=0)
+COMMIT_Reply(status=0)
+
+= Create NFS Failed replies
+GETATTR_Reply(status=1)
+SETATTR_Reply(status=1)
+LOOKUP_Reply(status=1)
+ACCESS_Reply(status=1)
+READLINK_Reply(status=1)
+READ_Reply(status=1)
+WRITE_Reply(status=1)
+CREATE_Reply(status=1)
+MKDIR_Reply(status=1)
+SYMLINK_Reply(status=1)
+REMOVE_Reply(status=1)
+RMDIR_Reply(status=1)
+RENAME_Reply(status=1)
+LINK_Reply(status=1)
+READDIR_Reply(status=1)
+READDIRPLUS_Reply(status=1)
+FSSTAT_Reply(status=1)
+FSINFO_Reply(status=1)
+PATHCONF_Reply(status=1)
+COMMIT_Reply(status=1)
+
++ Test RPC Call layer bindings
+
+= Layer Bindings for NFS Calls
+from scapy.contrib.oncrpc import *
+pkt = RPC()/RPC_Call()/NULL_Call()
+assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 0))
+pkt = RPC()/RPC_Call()/GETATTR_Call()
+assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 1))
+pkt = RPC()/RPC_Call()/SETATTR_Call()
+assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 2))
+pkt = RPC()/RPC_Call()/LOOKUP_Call()
+assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 3))
+pkt = RPC()/RPC_Call()/ACCESS_Call()
+assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 4))
+pkt = RPC()/RPC_Call()/READLINK_Call()
+assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 5))
+pkt = RPC()/RPC_Call()/READ_Call()
+assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 6))
+pkt = RPC()/RPC_Call()/WRITE_Call()
+assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 7))
+pkt = RPC()/RPC_Call()/CREATE_Call()
+assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 8))
+pkt = RPC()/RPC_Call()/MKDIR_Call()
+assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 9))
+pkt = RPC()/RPC_Call()/SYMLINK_Call()
+assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 10))
+pkt = RPC()/RPC_Call()/REMOVE_Call()
+assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 12))
+pkt = RPC()/RPC_Call()/RMDIR_Call()
+assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 13))
+pkt = RPC()/RPC_Call()/RENAME_Call()
+assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 14))
+pkt = RPC()/RPC_Call()/LINK_Call()
+assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 15))
+pkt = RPC()/RPC_Call()/READDIR_Call()
+assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 16))
+pkt = RPC()/RPC_Call()/READDIRPLUS_Call()
+assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 17))
+pkt = RPC()/RPC_Call()/FSSTAT_Call()
+assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 18))
+pkt = RPC()/RPC_Call()/FSINFO_Call()
+assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 19))
+pkt = RPC()/RPC_Call()/PATHCONF_Call()
+assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 20))
+pkt = RPC()/RPC_Call()/COMMIT_Call()
+assert((pkt.mtype, pkt.program, pkt.pversion, pkt.procedure) == (0, 100003, 3, 21))
+
+= Layer Bindings for NFS Replies
+from scapy.contrib.oncrpc import *
+pkt = RPC()/RPC_Reply()/NULL_Reply()
+assert(pkt.mtype==1)
+pkt = RPC()/RPC_Reply()/GETATTR_Reply()
+assert(pkt.mtype==1)
+pkt = RPC()/RPC_Reply()/SETATTR_Reply()
+assert(pkt.mtype==1)
+pkt = RPC()/RPC_Reply()/LOOKUP_Reply()
+assert(pkt.mtype==1)
+pkt = RPC()/RPC_Reply()/ACCESS_Reply()
+assert(pkt.mtype==1)
+pkt = RPC()/RPC_Reply()/READLINK_Reply()
+assert(pkt.mtype==1)
+pkt = RPC()/RPC_Reply()/READ_Reply()
+assert(pkt.mtype==1)
+pkt = RPC()/RPC_Reply()/WRITE_Reply()
+assert(pkt.mtype==1)
+pkt = RPC()/RPC_Reply()/CREATE_Reply()
+assert(pkt.mtype==1)
+pkt = RPC()/RPC_Reply()/MKDIR_Reply()
+assert(pkt.mtype==1)
+pkt = RPC()/RPC_Reply()/SYMLINK_Reply()
+assert(pkt.mtype==1)
+pkt = RPC()/RPC_Reply()/REMOVE_Reply()
+assert(pkt.mtype==1)
+pkt = RPC()/RPC_Reply()/RMDIR_Reply()
+assert(pkt.mtype==1)
+pkt = RPC()/RPC_Reply()/RENAME_Reply()
+assert(pkt.mtype==1)
+pkt = RPC()/RPC_Reply()/LINK_Reply()
+assert(pkt.mtype==1)
+pkt = RPC()/RPC_Reply()/READDIR_Reply()
+assert(pkt.mtype==1)
+pkt = RPC()/RPC_Reply()/READDIRPLUS_Reply()
+assert(pkt.mtype==1)
+pkt = RPC()/RPC_Reply()/FSSTAT_Reply()
+assert(pkt.mtype==1)
+pkt = RPC()/RPC_Reply()/FSINFO_Reply()
+assert(pkt.mtype==1)
+pkt = RPC()/RPC_Reply()/PATHCONF_Reply()
+assert(pkt.mtype==1)
+pkt = RPC()/RPC_Reply()/COMMIT_Reply()
+assert(pkt.mtype==1)
+
++ Test Built Packets Against Raw Strings
+
+= Built NFS Calls vs Raw Strings
+pkt = GETATTR_Call(
+    filehandle=File_Object(
+        length=4,
+        fh='file'
+    )
+)
+assert bytes(pkt) == b'\x00\x00\x00\x04file'
+
+pkt = LOOKUP_Call(
+    dir=File_Object(
+        length=3,
+        fh='DIR',
+        fill='\x00'
+    ),
+    filename=Object_Name(
+        length=4,
+        _name='File'
+    )
+)
+assert bytes(pkt) == b'\x00\x00\x00\x03DIR\x00\x00\x00\x00\x04File'
+
+pkt = FSINFO_Call(
+    filehandle=File_Object(
+        length=4,
+        fh='file'
+    )
+)
+assert bytes(pkt) == b'\x00\x00\x00\x04file'
+
+pkt = PATHCONF_Call(
+    filehandle=File_Object(
+        length=4,
+        fh='file'
+    )
+)
+assert bytes(pkt) == b'\x00\x00\x00\x04file'
+
+pkt = ACCESS_Call(
+    filehandle=File_Object(
+        length=4,
+        fh='file',
+    ),
+    check_access='READ'
+)
+assert bytes(pkt) == b'\x00\x00\x00\x04file\x00\x00\x00\x01'
+
+pkt = READDIRPLUS_Call(
+    filehandle=File_Object(
+        length=4,
+        fh='file'
+    ),
+    cookie=0xffffffffffffffff,
+    verifier=0xaaaaaaaaaaaaaaaa,
+    dircount=512,
+    maxcount=4096
+)
+assert bytes(pkt) == b'\x00\x00\x00\x04file\xff\xff\xff\xff\xff\xff\xff\xff\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x02\x00\x00\x00\x10\x00'
+
+pkt = WRITE_Call(
+    filehandle=File_Object(
+        length=4,
+        fh='file',
+    ),
+    offset=0xffffffffffffffff,
+    count=0xaaaaaaaa,
+    stable='UNSTABLE',
+    length=8,
+    contents='\x00\x01\x02\x03\x04\x05\x06\x07'
+)
+assert bytes(pkt) == b'\x00\x00\x00\x04file\xff\xff\xff\xff\xff\xff\xff\xff\xaa\xaa\xaa\xaa\x00\x00\x00\x00\x00\x00\x00\x08\x00\x01\x02\x03\x04\x05\x06\x07'
+
+pkt = COMMIT_Call(
+    filehandle=File_Object(
+        length=4,
+        fh='file'
+    ),
+    offset=0xffffffffffffffff,
+    count=0xaaaaaaaa
+)
+assert bytes(pkt) == b'\x00\x00\x00\x04file\xff\xff\xff\xff\xff\xff\xff\xff\xaa\xaa\xaa\xaa'
+
+pkt = SETATTR_Call(
+    filehandle=File_Object(
+        length=4,
+        fh='file'
+    ),
+    attributes=Sattr3(
+        set_mode='SET', mode=0o755,
+        set_uid='SET', uid=1,
+        set_gid='SET', gid=1,
+        set_size='SET', size=0xffffffffffffffff,
+        set_atime='CLIENT TIME', atime_s=0xffffffff, atime_ns=0xffffffff,
+        set_mtime='CLIENT TIME', mtime_s=0xaaaaaaaa, mtime_ns=0xaaaaaaaa
+    ),
+    check=0xffffffff
+)
+assert bytes(pkt) == b'\x00\x00\x00\x04file\x00\x00\x00\x01\x00\x00\x01\xed\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x01\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x02\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x02\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xff\xff\xff\xff'
+
+pkt = FSSTAT_Call(
+    filehandle=File_Object(
+        length=4,
+        fh='file'
+    )
+)
+assert bytes(pkt) == b'\x00\x00\x00\x04file'
+
+pkt = CREATE_Call(
+    dir=File_Object(
+        length=3,
+        fh='DIR',
+        fill='\x00'
+    ),
+    filename=Object_Name(
+        length=4,
+        _name='File'
+    ),
+    create_mode='EXCLUSIVE',
+    verifier=0xffffffffffffffff
+)
+assert bytes(pkt) == b'\x00\x00\x00\x03DIR\x00\x00\x00\x00\x04File\x00\x00\x00\x02\xff\xff\xff\xff\xff\xff\xff\xff'
+
+pkt = REMOVE_Call(
+    dir=File_Object(
+        length=3,
+        fh='DIR',
+        fill='\x00'
+    ),
+    filename=Object_Name(
+        length=4,
+        _name='File'
+    )
+)
+assert bytes(pkt) == b'\x00\x00\x00\x03DIR\x00\x00\x00\x00\x04File'
+
+pkt = READDIR_Call(
+    filehandle=File_Object(
+        length=4,
+        fh='file'
+    ),
+    cookie=0xffffffffffffffff,
+    verifier=0xaaaaaaaaaaaaaaaa,
+    count=0xabcdef12
+)
+assert bytes(pkt) == b'\x00\x00\x00\x04file\xff\xff\xff\xff\xff\xff\xff\xff\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xab\xcd\xef\x12'
+
+pkt = RENAME_Call(
+    dir_from=File_Object(
+        length=8,
+        fh='DIR_FROM'
+    ),
+    name_from=Object_Name(
+        length=9,
+        _name='NAME_FROM',
+        fill='\x00\x00\x00'
+    ),
+    dir_to=File_Object(
+        length=6,
+        fh='DIR_TO',
+        fill='\x00\x00'
+    ),
+    name_to=Object_Name(
+        length=7,
+        _name='NAME_TO',
+        fill='\x00'
+    )
+)
+assert bytes(pkt) == b'\x00\x00\x00\x08DIR_FROM\x00\x00\x00\tNAME_FROM\x00\x00\x00\x00\x00\x00\x06DIR_TO\x00\x00\x00\x00\x00\x07NAME_TO\x00'
+
+pkt = LINK_Call(
+    filehandle=File_Object(
+        length=4,
+        fh='file'
+    ),
+    link_dir=File_Object(
+        length=8,
+        fh='LINK_DIR'
+    ),
+    link_name=Object_Name(
+        length=9,
+        _name='LINK_NAME',
+        fill='\x00\x00\x00'
+    )
+)
+assert bytes(pkt) == b'\x00\x00\x00\x04file\x00\x00\x00\x08LINK_DIR\x00\x00\x00\tLINK_NAME\x00\x00\x00'
+
+pkt = RMDIR_Call(
+    dir=File_Object(
+        length=3,
+        fh='DIR',
+        fill='\x00'
+    ),
+    filename=Object_Name(
+        length=4,
+        _name='File'
+    )
+)
+assert bytes(pkt) == b'\x00\x00\x00\x03DIR\x00\x00\x00\x00\x04File'
+
+pkt = READLINK_Call(
+    filehandle=File_Object(
+        length=4,
+        fh='file'
+    )
+)
+assert bytes(pkt) == b'\x00\x00\x00\x04file'
+
+pkt = READ_Call(
+    filehandle=File_Object(
+        length=4,
+        fh='file'
+    ),
+    offset=0xffffffffffffffff,
+    count=0xaaaaaaaa
+)
+assert bytes(pkt) == b'\x00\x00\x00\x04file\xff\xff\xff\xff\xff\xff\xff\xff\xaa\xaa\xaa\xaa'
+
+pkt = MKDIR_Call(
+    dir=File_Object(
+        length=3,
+        fh='DIR',
+        fill='\x00'
+    ),
+    dir_name=Object_Name(
+        length=4,
+        _name='DIR_NAME'
+    ),
+    attributes=Sattr3(
+        set_mode='SET', mode=0o755,
+        set_uid='SET', uid=1,
+        set_gid='SET', gid=1,
+        set_size='SET', size=0xffffffffffffffff,
+        set_atime='CLIENT TIME', atime_s=0xffffffff, atime_ns=0xffffffff,
+        set_mtime='CLIENT TIME', mtime_s=0xaaaaaaaa, mtime_ns=0xaaaaaaaa
+    )
+)
+assert bytes(pkt) == b'\x00\x00\x00\x03DIR\x00\x00\x00\x00\x04DIR_NAME\x00\x00\x00\x01\x00\x00\x01\xed\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x01\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x02\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x02\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa'
+
+pkt = SYMLINK_Call(
+    dir=File_Object(
+        length=3,
+        fh='DIR',
+        fill='\x00'
+    ),
+    dir_name=Object_Name(
+        length=4,
+        _name='DIR_NAME'
+    ),
+    attributes=Sattr3(
+        set_mode='SET', mode=0o755,
+        set_uid='SET', uid=1,
+        set_gid='SET', gid=1,
+        set_size='SET', size=0xffffffffffffffff,
+        set_atime='CLIENT TIME', atime_s=0xffffffff, atime_ns=0xffffffff,
+        set_mtime='CLIENT TIME', mtime_s=0xaaaaaaaa, mtime_ns=0xaaaaaaaa
+    ),
+    link_name=Object_Name(
+        length=9,
+        _name='LINK_NAME',
+        fill='\x00\x00\x00'
+    )
+)
+assert bytes(pkt) == b'\x00\x00\x00\x03DIR\x00\x00\x00\x00\x04DIR_NAME\x00\x00\x00\x01\x00\x00\x01\xed\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x01\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x02\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x02\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x00\tLINK_NAME\x00\x00\x00'
+
+
+= Built NFS Replies vs Raw Strings
+
+pkt = GETATTR_Reply(
+    status=0,
+    attributes=Fattr3(
+        type='NF3DIR',
+        mode=0o755,
+        nlink=1,
+        uid=2,
+        gid=3,
+        size=0xffffffffffffffff,
+        used=0xaaaaaaaaaaaaaaaa,
+        rdev=[4, 5],
+        fsid=0xbbbbbbbbbbbbbbbb,
+        fileid=0xcccccccccccccccc,
+        atime_s=0xdddddddd,
+        atime_ns=0xeeeeeeee,
+        mtime_s=0xffffffff,
+        mtime_ns=0x11111111,
+        ctime_s=0x22222222,
+        ctime_ns=0x33333333
+    )
+)
+assert bytes(pkt) == b'\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x01\xed\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x03\xff\xff\xff\xff\xff\xff\xff\xff\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x00\x04\x00\x00\x00\x05\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xdd\xdd\xdd\xdd\xee\xee\xee\xee\xff\xff\xff\xff\x11\x11\x11\x11""""3333'
+
+pkt = LOOKUP_Reply(
+    status='NFS3_OK',
+    filehandle=File_Object(
+        length=4,
+        fh='file'
+    ),
+    af_file=1,
+    file_attributes=Fattr3(
+        type='NF3REG',
+        mode=0o755,
+        nlink=1,
+        uid=2,
+        gid=3,
+        size=0xffffffffffffffff,
+        used=0xaaaaaaaaaaaaaaaa,
+        rdev=[4, 5],
+        fsid=0xbbbbbbbbbbbbbbbb,
+        fileid=0xcccccccccccccccc,
+        atime_s=0xdddddddd,
+        atime_ns=0xeeeeeeee,
+        mtime_s=0xffffffff,
+        mtime_ns=0x11111111,
+        ctime_s=0x22222222,
+        ctime_ns=0x33333333
+    ),
+    af_dir=1,
+    dir_attributes=Fattr3(
+        type='NF3DIR',
+        mode=0o755,
+        nlink=1,
+        uid=2,
+        gid=3,
+        size=0xffffffffffffffff,
+        used=0xaaaaaaaaaaaaaaaa,
+        rdev=[4, 5],
+        fsid=0xbbbbbbbbbbbbbbbb,
+        fileid=0xcccccccccccccccc,
+        atime_s=0xdddddddd,
+        atime_ns=0xeeeeeeee,
+        mtime_s=0xffffffff,
+        mtime_ns=0x11111111,
+        ctime_s=0x22222222,
+        ctime_ns=0x33333333
+    )
+)
+assert bytes(pkt) == b'\x00\x00\x00\x00\x00\x00\x00\x04file\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x01\xed\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x03\xff\xff\xff\xff\xff\xff\xff\xff\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x00\x04\x00\x00\x00\x05\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xdd\xdd\xdd\xdd\xee\xee\xee\xee\xff\xff\xff\xff\x11\x11\x11\x11""""3333\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x01\xed\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x03\xff\xff\xff\xff\xff\xff\xff\xff\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x00\x04\x00\x00\x00\x05\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xdd\xdd\xdd\xdd\xee\xee\xee\xee\xff\xff\xff\xff\x11\x11\x11\x11""""3333'
+
+pkt = FSINFO_Reply(
+    status=0,
+    attributes_follow=1,
+    attributes=Fattr3(
+        type='NF3REG',
+        mode=0o755,
+        nlink=1,
+        uid=2,
+        gid=3,
+        size=0xffffffffffffffff,
+        used=0xaaaaaaaaaaaaaaaa,
+        rdev=[4, 5],
+        fsid=0xbbbbbbbbbbbbbbbb,
+        fileid=0xcccccccccccccccc,
+        atime_s=0xdddddddd,
+        atime_ns=0xeeeeeeee,
+        mtime_s=0xffffffff,
+        mtime_ns=0x11111111,
+        ctime_s=0x22222222,
+        ctime_ns=0x33333333
+    ),
+    rtmax=1,
+    rtpref=2,
+    rtmult=3,
+    wtmax=4,
+    wtpref=5,
+    wtmult=6,
+    dtpref=7,
+    maxfilesize=0xa,
+    timedelta_s=0xb,
+    timedelta_ns=0xc,
+    properties=0xd
+)
+assert bytes(pkt) == b'\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x01\xed\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x03\xff\xff\xff\xff\xff\xff\xff\xff\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x00\x04\x00\x00\x00\x05\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xdd\xdd\xdd\xdd\xee\xee\xee\xee\xff\xff\xff\xff\x11\x11\x11\x11""""3333\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x03\x00\x00\x00\x04\x00\x00\x00\x05\x00\x00\x00\x06\x00\x00\x00\x07\x00\x00\x00\x00\x00\x00\x00\n\x00\x00\x00\x0b\x00\x00\x00\x0c\x00\x00\x00\r'
+
+pkt = PATHCONF_Reply(
+    status=0,
+    attributes_follow=1,
+    attributes=Fattr3(
+        type='NF3DIR',
+        mode=0o755,
+        nlink=1,
+        uid=2,
+        gid=3,
+        size=0xffffffffffffffff,
+        used=0xaaaaaaaaaaaaaaaa,
+        rdev=[4, 5],
+        fsid=0xbbbbbbbbbbbbbbbb,
+        fileid=0xcccccccccccccccc,
+        atime_s=0xdddddddd,
+        atime_ns=0xeeeeeeee,
+        mtime_s=0xffffffff,
+        mtime_ns=0x11111111,
+        ctime_s=0x22222222,
+        ctime_ns=0x33333333
+    ),
+    linkmax=1,
+    name_max=2,
+    no_trunc='YES',
+    chown_restricted='YES',
+    case_insensitive='YES',
+    case_preserving='YES'
+)
+assert bytes(pkt) == b'\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x01\xed\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x03\xff\xff\xff\xff\xff\xff\xff\xff\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x00\x04\x00\x00\x00\x05\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xdd\xdd\xdd\xdd\xee\xee\xee\xee\xff\xff\xff\xff\x11\x11\x11\x11""""3333\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x01'
+
+pkt = ACCESS_Reply(
+    status=0,
+    attributes_follow=1,
+    attributes=Fattr3(
+        type='NF3REG',
+        mode=0o755,
+        nlink=1,
+        uid=2,
+        gid=3,
+        size=0xffffffffffffffff,
+        used=0xaaaaaaaaaaaaaaaa,
+        rdev=[4, 5],
+        fsid=0xbbbbbbbbbbbbbbbb,
+        fileid=0xcccccccccccccccc,
+        atime_s=0xdddddddd,
+        atime_ns=0xeeeeeeee,
+        mtime_s=0xffffffff,
+        mtime_ns=0x11111111,
+        ctime_s=0x22222222,
+        ctime_ns=0x33333333
+    ),
+    access_rights=10
+)
+assert bytes(pkt) == b'\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x01\xed\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x03\xff\xff\xff\xff\xff\xff\xff\xff\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x00\x04\x00\x00\x00\x05\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xdd\xdd\xdd\xdd\xee\xee\xee\xee\xff\xff\xff\xff\x11\x11\x11\x11""""3333\x00\x00\x00\n'
+
+pkt = READDIRPLUS_Reply(
+    status=0,
+    attributes_follow=1,
+    attributes=Fattr3(
+        type='NF3DIR',
+        mode=0o755,
+        nlink=1,
+        uid=2,
+        gid=3,
+        size=0xffffffffffffffff,
+        used=0xaaaaaaaaaaaaaaaa,
+        rdev=[4, 5],
+        fsid=0xbbbbbbbbbbbbbbbb,
+        fileid=0xcccccccccccccccc,
+        atime_s=0xdddddddd,
+        atime_ns=0xeeeeeeee,
+        mtime_s=0xffffffff,
+        mtime_ns=0x11111111,
+        ctime_s=0x22222222,
+        ctime_ns=0x33333333
+    ),
+    verifier=0xa,
+    value_follows=1,
+    files=[
+        File_From_Dir_Plus(
+            fileid=0xa,
+            filename=Object_Name(
+                length=5,
+                _name='file1',
+                fill='\x00\x00\x00'
+            ),
+            cookie=0xb,
+            attributes_follow=1,
+            attributes=Fattr3(
+                type='NF3REG',
+                mode=0o755,
+                nlink=1,
+                uid=2,
+                gid=3,
+                size=0xffffffffffffffff,
+                used=0xaaaaaaaaaaaaaaaa,
+                rdev=[4, 5],
+                fsid=0xbbbbbbbbbbbbbbbb,
+                fileid=0xcccccccccccccccc,
+                atime_s=0xdddddddd,
+                atime_ns=0xeeeeeeee,
+                mtime_s=0xffffffff,
+                mtime_ns=0x11111111,
+                ctime_s=0x22222222,
+                ctime_ns=0x33333333
+            ),
+            handle_follows=1,
+            filehandle=File_Object(
+                length=3,
+                fh='fh1',
+                fill='\x00'
+            ),
+            value_follows=1
+        ),
+
+        File_From_Dir_Plus(
+            fileid=0xb,
+            filename=Object_Name(
+                length=5,
+                _name='file2',
+                fill='\x00\x00\x00'
+            ),
+            cookie=0xc,
+            attributes_follow=1,
+            attributes=Fattr3(
+                type='NF3REG',
+                mode=0o755,
+                nlink=1,
+                uid=2,
+                gid=3,
+                size=0xffffffffffffffff,
+                used=0xaaaaaaaaaaaaaaaa,
+                rdev=[4, 5],
+                fsid=0xbbbbbbbbbbbbbbbb,
+                fileid=0xcccccccccccccccc,
+                atime_s=0xdddddddd,
+                atime_ns=0xeeeeeeee,
+                mtime_s=0xffffffff,
+                mtime_ns=0x11111111,
+                ctime_s=0x22222222,
+                ctime_ns=0x33333333
+            ),
+            handle_follows=1,
+            filehandle=File_Object(
+                length=3,
+                fh='fh2',
+                fill='\x00'
+            ),
+            value_follows=0
+        )
+    ],
+    eof=1
+)
+assert bytes(pkt) == b'\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x01\xed\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x03\xff\xff\xff\xff\xff\xff\xff\xff\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x00\x04\x00\x00\x00\x05\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xdd\xdd\xdd\xdd\xee\xee\xee\xee\xff\xff\xff\xff\x11\x11\x11\x11""""3333\x00\x00\x00\x00\x00\x00\x00\n\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\n\x00\x00\x00\x05file1\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0b\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x01\xed\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x03\xff\xff\xff\xff\xff\xff\xff\xff\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x00\x04\x00\x00\x00\x05\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xdd\xdd\xdd\xdd\xee\xee\xee\xee\xff\xff\xff\xff\x11\x11\x11\x11""""3333\x00\x00\x00\x01\x00\x00\x00\x03fh1\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x0b\x00\x00\x00\x05file2\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0c\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x01\xed\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x03\xff\xff\xff\xff\xff\xff\xff\xff\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x00\x04\x00\x00\x00\x05\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xdd\xdd\xdd\xdd\xee\xee\xee\xee\xff\xff\xff\xff\x11\x11\x11\x11""""3333\x00\x00\x00\x01\x00\x00\x00\x03fh2\x00\x00\x00\x00\x00\x00\x00\x00\x01'
+
+pkt = WRITE_Reply(
+    status=0,
+    af_before=1,
+    attributes_before=WCC_Attr(
+        size=0xa,
+        mtime_s=0xffffffff,
+        mtime_ns=0xeeeeeeee,
+        ctime_s=0xdddddddd,
+        ctime_ns=0xcccccccc
+    ),
+    af_after=1,
+    attributes_after=Fattr3(
+        type='NF3REG',
+        mode=0o755,
+        nlink=1,
+        uid=2,
+        gid=3,
+        size=0xffffffffffffffff,
+        used=0xaaaaaaaaaaaaaaaa,
+        rdev=[4, 5],
+        fsid=0xbbbbbbbbbbbbbbbb,
+        fileid=0xcccccccccccccccc,
+        atime_s=0xdddddddd,
+        atime_ns=0xeeeeeeee,
+        mtime_s=0xffffffff,
+        mtime_ns=0x11111111,
+        ctime_s=0x22222222,
+        ctime_ns=0x33333333
+    ),
+    count=0xffffffff,
+    committed='STABLE',
+    verifier=0xffffffffffffffff
+)
+assert bytes(pkt) == b'\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\n\xff\xff\xff\xff\xee\xee\xee\xee\xdd\xdd\xdd\xdd\xcc\xcc\xcc\xcc\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x01\xed\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x03\xff\xff\xff\xff\xff\xff\xff\xff\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x00\x04\x00\x00\x00\x05\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xdd\xdd\xdd\xdd\xee\xee\xee\xee\xff\xff\xff\xff\x11\x11\x11\x11""""3333\xff\xff\xff\xff\x00\x00\x00\x01\xff\xff\xff\xff\xff\xff\xff\xff'
+
+pkt = COMMIT_Reply(
+    status=0,
+    af_before=1,
+    attributes_before=WCC_Attr(
+        size=0xa,
+        mtime_s=0xffffffff,
+        mtime_ns=0xeeeeeeee,
+        ctime_s=0xdddddddd,
+        ctime_ns=0xcccccccc
+    ),
+    af_after=1,
+    attributes_after=Fattr3(
+        type='NF3REG',
+        mode=0o755,
+        nlink=1,
+        uid=2,
+        gid=3,
+        size=0xffffffffffffffff,
+        used=0xaaaaaaaaaaaaaaaa,
+        rdev=[4, 5],
+        fsid=0xbbbbbbbbbbbbbbbb,
+        fileid=0xcccccccccccccccc,
+        atime_s=0xdddddddd,
+        atime_ns=0xeeeeeeee,
+        mtime_s=0xffffffff,
+        mtime_ns=0x11111111,
+        ctime_s=0x22222222,
+        ctime_ns=0x33333333
+    ),
+    verifier=0xffffffffffffffff
+)
+assert bytes(pkt) == b'\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\n\xff\xff\xff\xff\xee\xee\xee\xee\xdd\xdd\xdd\xdd\xcc\xcc\xcc\xcc\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x01\xed\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x03\xff\xff\xff\xff\xff\xff\xff\xff\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x00\x04\x00\x00\x00\x05\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xdd\xdd\xdd\xdd\xee\xee\xee\xee\xff\xff\xff\xff\x11\x11\x11\x11""""3333\xff\xff\xff\xff\xff\xff\xff\xff'
+
+pkt = SETATTR_Reply(
+    status=0,
+    af_before=1,
+    attributes_before=WCC_Attr(
+        size=0xa,
+        mtime_s=0xffffffff,
+        mtime_ns=0xeeeeeeee,
+        ctime_s=0xdddddddd,
+        ctime_ns=0xcccccccc
+    ),
+    af_after=1,
+    attributes_after=Fattr3(
+        type='NF3REG',
+        mode=0o755,
+        nlink=1,
+        uid=2,
+        gid=3,
+        size=0xffffffffffffffff,
+        used=0xaaaaaaaaaaaaaaaa,
+        rdev=[4, 5],
+        fsid=0xbbbbbbbbbbbbbbbb,
+        fileid=0xcccccccccccccccc,
+        atime_s=0xdddddddd,
+        atime_ns=0xeeeeeeee,
+        mtime_s=0xffffffff,
+        mtime_ns=0x11111111,
+        ctime_s=0x22222222,
+        ctime_ns=0x33333333
+    )
+)
+assert bytes(pkt) == b'\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\n\xff\xff\xff\xff\xee\xee\xee\xee\xdd\xdd\xdd\xdd\xcc\xcc\xcc\xcc\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x01\xed\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x03\xff\xff\xff\xff\xff\xff\xff\xff\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x00\x04\x00\x00\x00\x05\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xdd\xdd\xdd\xdd\xee\xee\xee\xee\xff\xff\xff\xff\x11\x11\x11\x11""""3333'
+
+pkt = FSSTAT_Reply(
+    status=0,
+    attributes_follow=1,
+    attributes=Fattr3(
+        type='NF3REG',
+        mode=0o755,
+        nlink=1,
+        uid=2,
+        gid=3,
+        size=0xffffffffffffffff,
+        used=0xaaaaaaaaaaaaaaaa,
+        rdev=[4, 5],
+        fsid=0xbbbbbbbbbbbbbbbb,
+        fileid=0xcccccccccccccccc,
+        atime_s=0xdddddddd,
+        atime_ns=0xeeeeeeee,
+        mtime_s=0xffffffff,
+        mtime_ns=0x11111111,
+        ctime_s=0x22222222,
+        ctime_ns=0x33333333
+    ),
+    tbytes=1,
+    fbytes=2,
+    abytes=3,
+    tfiles=4,
+    afiles=5,
+    invarsec=6
+)
+assert bytes(pkt) == b'\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x01\xed\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x03\xff\xff\xff\xff\xff\xff\xff\xff\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x00\x04\x00\x00\x00\x05\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xdd\xdd\xdd\xdd\xee\xee\xee\xee\xff\xff\xff\xff\x11\x11\x11\x11""""3333\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\x00\x00\x00\x06'
+
+pkt =  CREATE_Reply(
+    status=0,
+    handle_follows=1,
+    filehandle=File_Object(
+        length=4,
+        fh='file'
+    ),
+    attributes_follow=1,
+    attributes=Fattr3(
+        type='NF3REG',
+        mode=0o755,
+        nlink=1,
+        uid=2,
+        gid=3,
+        size=0xffffffffffffffff,
+        used=0xaaaaaaaaaaaaaaaa,
+        rdev=[4, 5],
+        fsid=0xbbbbbbbbbbbbbbbb,
+        fileid=0xcccccccccccccccc,
+        atime_s=0xdddddddd,
+        atime_ns=0xeeeeeeee,
+        mtime_s=0xffffffff,
+        mtime_ns=0x11111111,
+        ctime_s=0x22222222,
+        ctime_ns=0x33333333
+    ),
+    af_before=1,
+    dir_attributes_before=WCC_Attr(
+        size=0xa,
+        mtime_s=0xffffffff,
+        mtime_ns=0xeeeeeeee,
+        ctime_s=0xdddddddd,
+        ctime_ns=0xcccccccc
+    ),
+    af_after=1,
+    dir_attributes_after=Fattr3(
+        type='NF3REG',
+        mode=0o755,
+        nlink=1,
+        uid=2,
+        gid=3,
+        size=0xffffffffffffffff,
+        used=0xaaaaaaaaaaaaaaaa,
+        rdev=[4, 5],
+        fsid=0xbbbbbbbbbbbbbbbb,
+        fileid=0xcccccccccccccccc,
+        atime_s=0xdddddddd,
+        atime_ns=0xeeeeeeee,
+        mtime_s=0xffffffff,
+        mtime_ns=0x11111111,
+        ctime_s=0x22222222,
+        ctime_ns=0x33333333
+    )
+)
+assert bytes(pkt) == b'\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x04file\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x01\xed\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x03\xff\xff\xff\xff\xff\xff\xff\xff\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x00\x04\x00\x00\x00\x05\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xdd\xdd\xdd\xdd\xee\xee\xee\xee\xff\xff\xff\xff\x11\x11\x11\x11""""3333\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\n\xff\xff\xff\xff\xee\xee\xee\xee\xdd\xdd\xdd\xdd\xcc\xcc\xcc\xcc\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x01\xed\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x03\xff\xff\xff\xff\xff\xff\xff\xff\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x00\x04\x00\x00\x00\x05\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xdd\xdd\xdd\xdd\xee\xee\xee\xee\xff\xff\xff\xff\x11\x11\x11\x11""""3333'
+
+pkt = REMOVE_Reply(
+    status=0,
+    af_before=1,
+    attributes_before=WCC_Attr(
+        size=0xa,
+        mtime_s=0xffffffff,
+        mtime_ns=0xeeeeeeee,
+        ctime_s=0xdddddddd,
+        ctime_ns=0xcccccccc
+    ),
+    af_after=1,
+    attributes_after=Fattr3(
+        type='NF3REG',
+        mode=0o755,
+        nlink=1,
+        uid=2,
+        gid=3,
+        size=0xffffffffffffffff,
+        used=0xaaaaaaaaaaaaaaaa,
+        rdev=[4, 5],
+        fsid=0xbbbbbbbbbbbbbbbb,
+        fileid=0xcccccccccccccccc,
+        atime_s=0xdddddddd,
+        atime_ns=0xeeeeeeee,
+        mtime_s=0xffffffff,
+        mtime_ns=0x11111111,
+        ctime_s=0x22222222,
+        ctime_ns=0x33333333
+    )
+)
+assert bytes(pkt) == b'\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\n\xff\xff\xff\xff\xee\xee\xee\xee\xdd\xdd\xdd\xdd\xcc\xcc\xcc\xcc\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x01\xed\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x03\xff\xff\xff\xff\xff\xff\xff\xff\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x00\x04\x00\x00\x00\x05\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xdd\xdd\xdd\xdd\xee\xee\xee\xee\xff\xff\xff\xff\x11\x11\x11\x11""""3333'
+
+pkt = READDIR_Reply(
+    status=0,
+    attributes_follow=1,
+    attributes=Fattr3(
+        type='NF3REG',
+        mode=0o755,
+        nlink=1,
+        uid=2,
+        gid=3,
+        size=0xffffffffffffffff,
+        used=0xaaaaaaaaaaaaaaaa,
+        rdev=[4, 5],
+        fsid=0xbbbbbbbbbbbbbbbb,
+        fileid=0xcccccccccccccccc,
+        atime_s=0xdddddddd,
+        atime_ns=0xeeeeeeee,
+        mtime_s=0xffffffff,
+        mtime_ns=0x11111111,
+        ctime_s=0x22222222,
+        ctime_ns=0x33333333
+    ),
+    verifier=0xffffffffffffffff,
+    value_follows=1,
+    files=[
+        File_From_Dir(
+            fileid=1,
+            filename=Object_Name(
+                length=5,
+                _name='file1',
+                fill='\x00\x00\x00'
+            ),
+            cookie=0xaaaaaaaaaaaaaaaa,
+            value_follows=0
+        )
+    ],
+    eof=1
+)
+assert bytes(pkt) == b'\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x01\xed\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x03\xff\xff\xff\xff\xff\xff\xff\xff\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x00\x04\x00\x00\x00\x05\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xdd\xdd\xdd\xdd\xee\xee\xee\xee\xff\xff\xff\xff\x11\x11\x11\x11""""3333\xff\xff\xff\xff\xff\xff\xff\xff\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x05file1\x00\x00\x00\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x00\x00\x00\x00\x00\x01'
+
+pkt = RENAME_Reply(
+    status=0,
+    af_before_f=1,
+    attributes_before_f=WCC_Attr(
+        size=0xa,
+        mtime_s=0xffffffff,
+        mtime_ns=0xeeeeeeee,
+        ctime_s=0xdddddddd,
+        ctime_ns=0xcccccccc
+    ),
+    af_after_f=1,
+    attributes_after_f=Fattr3(
+        type='NF3REG',
+        mode=0o755,
+        nlink=1,
+        uid=2,
+        gid=3,
+        size=0xffffffffffffffff,
+        used=0xaaaaaaaaaaaaaaaa,
+        rdev=[4, 5],
+        fsid=0xbbbbbbbbbbbbbbbb,
+        fileid=0xcccccccccccccccc,
+        atime_s=0xdddddddd,
+        atime_ns=0xeeeeeeee,
+        mtime_s=0xffffffff,
+        mtime_ns=0x11111111,
+        ctime_s=0x22222222,
+        ctime_ns=0x33333333
+    ),
+    af_before_t=1,
+    attributes_before_t=WCC_Attr(
+        size=0xa,
+        mtime_s=0xffffffff,
+        mtime_ns=0xeeeeeeee,
+        ctime_s=0xdddddddd,
+        ctime_ns=0xcccccccc
+    ),
+    af_after_t=1,
+    attributes_after_t=Fattr3(
+        type='NF3REG',
+        mode=0o755,
+        nlink=1,
+        uid=2,
+        gid=3,
+        size=0xffffffffffffffff,
+        used=0xaaaaaaaaaaaaaaaa,
+        rdev=[4, 5],
+        fsid=0xbbbbbbbbbbbbbbbb,
+        fileid=0xcccccccccccccccc,
+        atime_s=0xdddddddd,
+        atime_ns=0xeeeeeeee,
+        mtime_s=0xffffffff,
+        mtime_ns=0x11111111,
+        ctime_s=0x22222222,
+        ctime_ns=0x33333333
+    )
+)
+assert bytes(pkt) == b'\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\n\xff\xff\xff\xff\xee\xee\xee\xee\xdd\xdd\xdd\xdd\xcc\xcc\xcc\xcc\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x01\xed\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x03\xff\xff\xff\xff\xff\xff\xff\xff\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x00\x04\x00\x00\x00\x05\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xdd\xdd\xdd\xdd\xee\xee\xee\xee\xff\xff\xff\xff\x11\x11\x11\x11""""3333\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\n\xff\xff\xff\xff\xee\xee\xee\xee\xdd\xdd\xdd\xdd\xcc\xcc\xcc\xcc\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x01\xed\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x03\xff\xff\xff\xff\xff\xff\xff\xff\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x00\x04\x00\x00\x00\x05\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xdd\xdd\xdd\xdd\xee\xee\xee\xee\xff\xff\xff\xff\x11\x11\x11\x11""""3333'
+
+pkt = LINK_Reply(
+    status=0,
+    af_file=1,
+    file_attributes=Fattr3(
+        type='NF3REG',
+        mode=0o755,
+        nlink=1,
+        uid=2,
+        gid=3,
+        size=0xffffffffffffffff,
+        used=0xaaaaaaaaaaaaaaaa,
+        rdev=[4, 5],
+        fsid=0xbbbbbbbbbbbbbbbb,
+        fileid=0xcccccccccccccccc,
+        atime_s=0xdddddddd,
+        atime_ns=0xeeeeeeee,
+        mtime_s=0xffffffff,
+        mtime_ns=0x11111111,
+        ctime_s=0x22222222,
+        ctime_ns=0x33333333
+    ),
+    af_link_before=1,
+    link_attributes_before=WCC_Attr(
+        size=0xa,
+        mtime_s=0xffffffff,
+        mtime_ns=0xeeeeeeee,
+        ctime_s=0xdddddddd,
+        ctime_ns=0xcccccccc
+    ),
+    af_link_after=1,
+    link_attributes_after=Fattr3(
+        type='NF3REG',
+        mode=0o755,
+        nlink=1,
+        uid=2,
+        gid=3,
+        size=0xffffffffffffffff,
+        used=0xaaaaaaaaaaaaaaaa,
+        rdev=[4, 5],
+        fsid=0xbbbbbbbbbbbbbbbb,
+        fileid=0xcccccccccccccccc,
+        atime_s=0xdddddddd,
+        atime_ns=0xeeeeeeee,
+        mtime_s=0xffffffff,
+        mtime_ns=0x11111111,
+        ctime_s=0x22222222,
+        ctime_ns=0x33333333
+    )
+)
+assert bytes(pkt) == b'\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x01\xed\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x03\xff\xff\xff\xff\xff\xff\xff\xff\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x00\x04\x00\x00\x00\x05\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xdd\xdd\xdd\xdd\xee\xee\xee\xee\xff\xff\xff\xff\x11\x11\x11\x11""""3333\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\n\xff\xff\xff\xff\xee\xee\xee\xee\xdd\xdd\xdd\xdd\xcc\xcc\xcc\xcc\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x01\xed\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x03\xff\xff\xff\xff\xff\xff\xff\xff\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x00\x04\x00\x00\x00\x05\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xdd\xdd\xdd\xdd\xee\xee\xee\xee\xff\xff\xff\xff\x11\x11\x11\x11""""3333'
+
+pkt = RMDIR_Reply(
+    status=0,
+    af_before=1,
+    attributes_before=WCC_Attr(
+        size=0xa,
+        mtime_s=0xffffffff,
+        mtime_ns=0xeeeeeeee,
+        ctime_s=0xdddddddd,
+        ctime_ns=0xcccccccc
+    ),
+    af_after=1,
+    attributes_after=Fattr3(
+        type='NF3REG',
+        mode=0o755,
+        nlink=1,
+        uid=2,
+        gid=3,
+        size=0xffffffffffffffff,
+        used=0xaaaaaaaaaaaaaaaa,
+        rdev=[4, 5],
+        fsid=0xbbbbbbbbbbbbbbbb,
+        fileid=0xcccccccccccccccc,
+        atime_s=0xdddddddd,
+        atime_ns=0xeeeeeeee,
+        mtime_s=0xffffffff,
+        mtime_ns=0x11111111,
+        ctime_s=0x22222222,
+        ctime_ns=0x33333333
+    )
+)
+assert bytes(pkt) == b'\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\n\xff\xff\xff\xff\xee\xee\xee\xee\xdd\xdd\xdd\xdd\xcc\xcc\xcc\xcc\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x01\xed\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x03\xff\xff\xff\xff\xff\xff\xff\xff\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x00\x04\x00\x00\x00\x05\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xdd\xdd\xdd\xdd\xee\xee\xee\xee\xff\xff\xff\xff\x11\x11\x11\x11""""3333'
+
+pkt = READLINK_Reply(
+    status=0,
+    attributes_follow=1,
+    attributes=Fattr3(
+        type='NF3REG',
+        mode=0o755,
+        nlink=1,
+        uid=2,
+        gid=3,
+        size=0xffffffffffffffff,
+        used=0xaaaaaaaaaaaaaaaa,
+        rdev=[4, 5],
+        fsid=0xbbbbbbbbbbbbbbbb,
+        fileid=0xcccccccccccccccc,
+        atime_s=0xdddddddd,
+        atime_ns=0xeeeeeeee,
+        mtime_s=0xffffffff,
+        mtime_ns=0x11111111,
+        ctime_s=0x22222222,
+        ctime_ns=0x33333333
+    ),
+    filename=Object_Name(
+        length=4,
+        _name='file'
+    )
+)
+assert bytes(pkt) == b'\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x01\xed\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x03\xff\xff\xff\xff\xff\xff\xff\xff\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x00\x04\x00\x00\x00\x05\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xdd\xdd\xdd\xdd\xee\xee\xee\xee\xff\xff\xff\xff\x11\x11\x11\x11""""3333\x00\x00\x00\x04file'
+
+pkt = READ_Reply(
+    status=0,
+    attributes_follow=1,
+    attributes=Fattr3(
+        type='NF3REG',
+        mode=0o755,
+        nlink=1,
+        uid=2,
+        gid=3,
+        size=0xffffffffffffffff,
+        used=0xaaaaaaaaaaaaaaaa,
+        rdev=[4, 5],
+        fsid=0xbbbbbbbbbbbbbbbb,
+        fileid=0xcccccccccccccccc,
+        atime_s=0xdddddddd,
+        atime_ns=0xeeeeeeee,
+        mtime_s=0xffffffff,
+        mtime_ns=0x11111111,
+        ctime_s=0x22222222,
+        ctime_ns=0x33333333
+    ),
+    count=8,
+    eof=1,
+    data_length=8,
+    data='\x00\x01\x02\x03\x04\x05\x06\x07'
+)
+assert bytes(pkt) == b'\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x01\xed\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x03\xff\xff\xff\xff\xff\xff\xff\xff\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x00\x04\x00\x00\x00\x05\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xdd\xdd\xdd\xdd\xee\xee\xee\xee\xff\xff\xff\xff\x11\x11\x11\x11""""3333\x00\x00\x00\x08\x00\x00\x00\x01\x00\x00\x00\x08\x00\x01\x02\x03\x04\x05\x06\x07'
+
+pkt = MKDIR_Reply(
+    status=0,
+    handle_follows=1,
+    filehandle=File_Object(
+        length=4,
+        fh='file'
+    ),
+    attributes_follow=1,
+    attributes=Fattr3(
+        type='NF3REG',
+        mode=0o755,
+        nlink=1,
+        uid=2,
+        gid=3,
+        size=0xffffffffffffffff,
+        used=0xaaaaaaaaaaaaaaaa,
+        rdev=[4, 5],
+        fsid=0xbbbbbbbbbbbbbbbb,
+        fileid=0xcccccccccccccccc,
+        atime_s=0xdddddddd,
+        atime_ns=0xeeeeeeee,
+        mtime_s=0xffffffff,
+        mtime_ns=0x11111111,
+        ctime_s=0x22222222,
+        ctime_ns=0x33333333
+    ),
+    af_before=1,
+    dir_attributes_before=WCC_Attr(
+        size=0xa,
+        mtime_s=0xffffffff,
+        mtime_ns=0xeeeeeeee,
+        ctime_s=0xdddddddd,
+        ctime_ns=0xcccccccc
+    ),
+    af_after=1,
+    dir_attributes_after=Fattr3(
+        type='NF3REG',
+        mode=0o755,
+        nlink=1,
+        uid=2,
+        gid=3,
+        size=0xffffffffffffffff,
+        used=0xaaaaaaaaaaaaaaaa,
+        rdev=[4, 5],
+        fsid=0xbbbbbbbbbbbbbbbb,
+        fileid=0xcccccccccccccccc,
+        atime_s=0xdddddddd,
+        atime_ns=0xeeeeeeee,
+        mtime_s=0xffffffff,
+        mtime_ns=0x11111111,
+        ctime_s=0x22222222,
+        ctime_ns=0x33333333
+    )
+)
+assert bytes(pkt) == b'\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x04file\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x01\xed\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x03\xff\xff\xff\xff\xff\xff\xff\xff\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x00\x04\x00\x00\x00\x05\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xdd\xdd\xdd\xdd\xee\xee\xee\xee\xff\xff\xff\xff\x11\x11\x11\x11""""3333\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\n\xff\xff\xff\xff\xee\xee\xee\xee\xdd\xdd\xdd\xdd\xcc\xcc\xcc\xcc\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x01\xed\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x03\xff\xff\xff\xff\xff\xff\xff\xff\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x00\x04\x00\x00\x00\x05\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xdd\xdd\xdd\xdd\xee\xee\xee\xee\xff\xff\xff\xff\x11\x11\x11\x11""""3333'
+
+pkt = SYMLINK_Reply(
+    status=0,
+    handle_follows=1,
+    filehandle=File_Object(
+        length=4,
+        fh='file'
+    ),
+    attributes_follow=1,
+    attributes=Fattr3(
+        type='NF3REG',
+        mode=0o755,
+        nlink=1,
+        uid=2,
+        gid=3,
+        size=0xffffffffffffffff,
+        used=0xaaaaaaaaaaaaaaaa,
+        rdev=[4, 5],
+        fsid=0xbbbbbbbbbbbbbbbb,
+        fileid=0xcccccccccccccccc,
+        atime_s=0xdddddddd,
+        atime_ns=0xeeeeeeee,
+        mtime_s=0xffffffff,
+        mtime_ns=0x11111111,
+        ctime_s=0x22222222,
+        ctime_ns=0x33333333
+    ),
+    af_before=1,
+    dir_attributes_before=WCC_Attr(
+        size=0xa,
+        mtime_s=0xffffffff,
+        mtime_ns=0xeeeeeeee,
+        ctime_s=0xdddddddd,
+        ctime_ns=0xcccccccc
+    ),
+    af_after=1,
+    dir_attributes_after=Fattr3(
+        type='NF3REG',
+        mode=0o755,
+        nlink=1,
+        uid=2,
+        gid=3,
+        size=0xffffffffffffffff,
+        used=0xaaaaaaaaaaaaaaaa,
+        rdev=[4, 5],
+        fsid=0xbbbbbbbbbbbbbbbb,
+        fileid=0xcccccccccccccccc,
+        atime_s=0xdddddddd,
+        atime_ns=0xeeeeeeee,
+        mtime_s=0xffffffff,
+        mtime_ns=0x11111111,
+        ctime_s=0x22222222,
+        ctime_ns=0x33333333
+    )
+)
+assert bytes(pkt) == b'\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x04file\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x01\xed\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x03\xff\xff\xff\xff\xff\xff\xff\xff\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x00\x04\x00\x00\x00\x05\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xdd\xdd\xdd\xdd\xee\xee\xee\xee\xff\xff\xff\xff\x11\x11\x11\x11""""3333\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\n\xff\xff\xff\xff\xee\xee\xee\xee\xdd\xdd\xdd\xdd\xcc\xcc\xcc\xcc\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x01\xed\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x03\xff\xff\xff\xff\xff\xff\xff\xff\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\x00\x00\x00\x04\x00\x00\x00\x05\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xbb\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xcc\xdd\xdd\xdd\xdd\xee\xee\xee\xee\xff\xff\xff\xff\x11\x11\x11\x11""""3333'

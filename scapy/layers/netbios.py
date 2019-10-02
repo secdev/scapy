@@ -41,7 +41,7 @@ class NetBIOS_DS(Packet):
         return p
 
 #        ShortField("length",0),
-#        ShortField("Delimitor",0),
+#        ShortField("Delimiter",0),
 #        ByteField("command",0),
 #        ByteField("data1",0),
 #        ShortField("data2",0),

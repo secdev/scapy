@@ -1,19 +1,23 @@
 {
   "testfiles": [
     "*.uts",
+    "test\\contrib\\automotive\\obd\\*.uts",
+    "test\\contrib\\automotive\\gm\\*.uts",
+    "test\\contrib\\automotive\\bmw\\*.uts",
+    "test\\contrib\\automotive\\*.uts",
     "tls\\tests_tls_netaccess.uts",
-    "..\\scapy\\contrib\\*.uts"
+    "contrib\\*.uts"
   ],
   "remove_testfiles": [
-    "..\\scapy\\contrib\\cansocket_native.uts",
-    "..\\scapy\\contrib\\cansocket_python_can.uts",
+    "contrib\\cansocket_native.uts",
+    "contrib\\cansocket_python_can.uts",
     "bpf.uts",
     "linux.uts"
   ],
   "breakfailed": true,
   "onlyfailed": true,
   "preexec": {
-    "..\\scapy\\contrib\\*.uts": "load_contrib(\"%name%\")",
+    "contrib\\*.uts": "load_contrib(\"%name%\")",
     "cert.uts": "load_layer(\"tls\")",
     "sslv2.uts": "load_layer(\"tls\")",
     "tls*.uts": "load_layer(\"tls\")"
@@ -26,6 +30,7 @@
     "mock_read_routes_bsd",
     "appveyor_only",
     "open_ssl_client",
+    "vcan_socket",
     "ipv6",
     "manufdb",
     "tcpdump",

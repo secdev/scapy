@@ -15,7 +15,7 @@
 # along with Scapy. If not, see <http://www.gnu.org/licenses/>.
 
 """
- Copyright 2012, The MITRE Corporation
+ Copyright 2012, The MITRE Corporation::
 
                               NOTICE
     This software/technical data was produced for the U.S. Government

@@ -14,6 +14,7 @@ import time
 import itertools
 import copy
 import types
+import warnings
 
 from scapy.fields import StrField, ConditionalField, Emph, PacketListField, \
     BitField, MultiEnumField, EnumField, FlagsField, MultipleTypeField
@@ -21,7 +22,7 @@ from scapy.config import conf, _version_checker
 from scapy.compat import raw, orb, bytes_encode
 from scapy.base_classes import BasePacket, Gen, SetGen, Packet_metaclass, \
     _CanvasDumpExtended
-from scapy.volatile import VolatileValue, RandField
+from scapy.volatile import RandField, VolatileValue
 from scapy.utils import import_hexcap, tex_escape, colgen, issubtype, \
     pretty_list
 from scapy.error import Scapy_Exception, log_runtime, warning
@@ -51,8 +52,9 @@ class RawVal:
 class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
                                 _CanvasDumpExtended)):
     __slots__ = [
-        "time", "sent_time", "name", "default_fields",
-        "overload_fields", "overloaded_fields", "fields", "fieldtype",
+        "time", "sent_time", "name",
+        "default_fields", "fields", "fieldtype",
+        "overload_fields", "overloaded_fields",
         "packetfields",
         "original", "explicit", "raw_packet_cache",
         "raw_packet_cache_fields", "_pkt", "post_transforms",
@@ -70,6 +72,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
     ]
     name = None
     fields_desc = []
+    deprecated_fields = {}
     overload_fields = {}
     payload_guess = []
     show_indent = 1
@@ -155,7 +158,13 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
                 continue
             self.fields[fname] = self.get_field(fname).any2i(self, value)
         # The remaining fields are unknown
-        for fname, _ in fields:
+        for fname in fields:
+            if fname in self.deprecated_fields:
+                # Resolve deprecated fields
+                value = fields[fname]
+                fname = self._resolve_alias(fname)
+                self.fields[fname] = self.get_field(fname).any2i(self, value)
+                continue
             raise AttributeError(fname)
         if isinstance(post_transform, list):
             self.post_transforms = post_transform
@@ -178,11 +187,14 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
         """
         Initialize each fields of the fields_desc dict
         """
+        default_fields = {}
         for f in flist:
-            self.default_fields[f.name] = copy.deepcopy(f.default)
+            default_fields[f.name] = copy.deepcopy(f.default)
             self.fieldtype[f.name] = f
             if f.holds_packets:
                 self.packetfields.append(f)
+        # We set default_fields last to avoid race issues
+        self.default_fields = default_fields
 
     def do_init_cached_fields(self):
         """
@@ -197,15 +209,20 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
             self.prepare_cached_fields(self.fields_desc)
 
         # Use fields information from cache
-        if not Packet.class_default_fields.get(cls_name, None) is None:
-            self.default_fields = Packet.class_default_fields[cls_name]
+        default_fields = Packet.class_default_fields.get(cls_name, None)
+        if default_fields:
+            self.default_fields = default_fields
             self.fieldtype = Packet.class_fieldtype[cls_name]
             self.packetfields = Packet.class_packetfields[cls_name]
 
             # Deepcopy default references
             for fname in Packet.class_default_fields_ref[cls_name]:
-                value = copy.deepcopy(self.default_fields[fname])
-                setattr(self, fname, value)
+                value = self.default_fields[fname]
+                try:
+                    self.fields[fname] = value.copy()
+                except AttributeError:
+                    # Python 2.7 - list only
+                    self.fields[fname] = value[:]
 
     def prepare_cached_fields(self, flist):
         """
@@ -215,32 +232,38 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
         cls_name = self.__class__
 
         # Fields cache initialization
-        if flist:
-            Packet.class_default_fields[cls_name] = dict()
-            Packet.class_default_fields_ref[cls_name] = list()
-            Packet.class_fieldtype[cls_name] = dict()
-            Packet.class_packetfields[cls_name] = list()
+        if not flist:
+            return
+
+        class_default_fields = dict()
+        class_default_fields_ref = list()
+        class_fieldtype = dict()
+        class_packetfields = list()
 
         # Fields initialization
         for f in flist:
             if isinstance(f, MultipleTypeField):
-                del Packet.class_default_fields[cls_name]
-                del Packet.class_default_fields_ref[cls_name]
-                del Packet.class_fieldtype[cls_name]
-                del Packet.class_packetfields[cls_name]
+                # Abort
                 self.class_dont_cache[cls_name] = True
                 self.do_init_fields(self.fields_desc)
-                break
+                return
 
             tmp_copy = copy.deepcopy(f.default)
-            Packet.class_default_fields[cls_name][f.name] = tmp_copy
-            Packet.class_fieldtype[cls_name][f.name] = f
+            class_default_fields[f.name] = tmp_copy
+            class_fieldtype[f.name] = f
             if f.holds_packets:
-                Packet.class_packetfields[cls_name].append(f)
+                class_packetfields.append(f)
 
             # Remember references
             if isinstance(f.default, (list, dict, set, RandField, Packet)):
-                Packet.class_default_fields_ref[cls_name].append(f.name)
+                class_default_fields_ref.append(f.name)
+
+        # Apply
+        Packet.class_default_fields_ref[cls_name] = class_default_fields_ref
+        Packet.class_fieldtype[cls_name] = class_fieldtype
+        Packet.class_packetfields[cls_name] = class_packetfields
+        # Last to avoid racing issues
+        Packet.class_default_fields[cls_name] = class_default_fields
 
     def dissection_done(self, pkt):
         """DEV: will be called after a dissection is completed"""
@@ -303,7 +326,18 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
         clone.time = self.time
         return clone
 
+    def _resolve_alias(self, attr):
+        new_attr, version = self.deprecated_fields[attr]
+        warnings.warn(
+            "%s has been deprecated in favor of %s since %s !" % (
+                attr, new_attr, version
+            ), DeprecationWarning
+        )
+        return new_attr
+
     def getfieldval(self, attr):
+        if self.deprecated_fields and attr in self.deprecated_fields:
+            attr = self._resolve_alias(attr)
         if attr in self.fields:
             return self.fields[attr]
         if attr in self.overloaded_fields:
@@ -313,6 +347,8 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
         return self.payload.getfieldval(attr)
 
     def getfield_and_val(self, attr):
+        if self.deprecated_fields and attr in self.deprecated_fields:
+            attr = self._resolve_alias(attr)
         if attr in self.fields:
             return self.get_field(attr), self.fields[attr]
         if attr in self.overloaded_fields:
@@ -330,6 +366,8 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
         return v
 
     def setfieldval(self, attr, val):
+        if self.deprecated_fields and attr in self.deprecated_fields:
+            attr = self._resolve_alias(attr)
         if attr in self.default_fields:
             fld = self.get_field(attr)
             if fld is None:
@@ -349,6 +387,8 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
 
     def __setattr__(self, attr, val):
         if attr in self.__all_slots__:
+            if attr == "sent_time":
+                self.update_sent_time(val)
             return object.__setattr__(self, attr, val)
         try:
             return self.setfieldval(attr, val)
@@ -435,8 +475,13 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
                                    repr(self.payload),
                                    ct.punct(">"))
 
-    def __str__(self):
-        return str(self.build())
+    if six.PY2:
+        def __str__(self):
+            return self.build()
+    else:
+        def __str__(self):
+            warning("Calling str(pkt) on Python 3 makes no sense!")
+            return str(self.build())
 
     def __bytes__(self):
         return self.build()
@@ -488,9 +533,14 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
     def clear_cache(self):
         """Clear the raw packet cache for the field and all its subfields"""
         self.raw_packet_cache = None
-        for _, fval in six.iteritems(self.fields):
-            if isinstance(fval, Packet):
-                fval.clear_cache()
+        for fld, fval in six.iteritems(self.fields):
+            fld = self.get_field(fld)
+            if fld.holds_packets:
+                if isinstance(fval, Packet):
+                    fval.clear_cache()
+                elif isinstance(fval, list):
+                    for fsubval in fval:
+                        fsubval.clear_cache()
         self.payload.clear_cache()
 
     def self_build(self, field_pos_list=None):
@@ -689,7 +739,7 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
             if col is None:
                 col = pyx.color.rgb.red
             if bkcol is None:
-                col = pyx.color.rgb.white
+                bkcol = pyx.color.rgb.white
             c.stroke(make_frame(tlist), [col, pyx.deco.filled([bkcol]), pyx.style.linewidth.Thick])  # noqa: E501
             for txt in tlist:
                 c.insert(txt)
@@ -838,9 +888,12 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
         """
         for t in self.aliastypes:
             for fval, cls in t.payload_guess:
-                if all(hasattr(self, k) and v == self.getfieldval(k)
-                       for k, v in six.iteritems(fval)):
-                    return cls
+                try:
+                    if all(v == self.getfieldval(k)
+                           for k, v in six.iteritems(fval)):
+                        return cls
+                except AttributeError:
+                    pass
         return self.default_payload_class(payload)
 
     def default_payload_class(self, payload):
@@ -863,7 +916,11 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
                     del self.fields[k]
         self.payload.hide_defaults()
 
-    def clone_with(self, payload=None, **kargs):
+    def update_sent_time(self, time):
+        """Use by clone_with to share the sent_time value"""
+        pass
+
+    def clone_with(self, payload=None, share_time=False, **kargs):
         pkt = self.__class__()
         pkt.explicit = 1
         pkt.fields = kargs
@@ -879,9 +936,16 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
         pkt.wirelen = self.wirelen
         if payload is not None:
             pkt.add_payload(payload)
+        if share_time:
+            # This binds the subpacket .sent_time to this layer
+            def _up_time(x, parent=self):
+                parent.sent_time = x
+            pkt.update_sent_time = _up_time
         return pkt
 
     def __iter__(self):
+        """Iterates through all sub-packets generated by this Packet."""
+        # We use __iterlen__ as low as possible, to lower processing time
         def loop(todo, done, self=self):
             if todo:
                 eltname = todo.pop()
@@ -897,15 +961,22 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
                         yield x
             else:
                 if isinstance(self.payload, NoPayload):
-                    payloads = [None]
+                    payloads = SetGen([None])
                 else:
                     payloads = self.payload
+                share_time = False
+                if self.fields == done and payloads.__iterlen__() == 1:
+                    # In this case, the packets are identical. Let's bind
+                    # their sent_time attribute for sending purpose
+                    share_time = True
                 for payl in payloads:
+                    # Let's make sure subpackets are consistent
                     done2 = done.copy()
                     for k in done2:
                         if isinstance(done2[k], VolatileValue):
                             done2[k] = done2[k]._fix()
-                    pkt = self.clone_with(payload=payl, **done2)
+                    pkt = self.clone_with(payload=payl, share_time=share_time,
+                                          **done2)
                     yield pkt
 
         if self.explicit or self.raw_packet_cache is not None:
@@ -924,19 +995,25 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
                   six.iteritems(self.overloaded_fields))
                   if isinstance(val, VolatileValue)] + list(self.fields)
         length = 1
+
+        def is_valid_gen_tuple(x):
+            if not isinstance(x, tuple):
+                return False
+            return len(x) == 2 and all(isinstance(z, int) for z in x)
+
         for field in fields:
             fld, val = self.getfield_and_val(field)
             if hasattr(val, "__iterlen__"):
                 length *= val.__iterlen__()
-            elif isinstance(val, tuple) and len(val) == 2 and all(hasattr(z, "__int__") for z in val):  # noqa: E501
-                length *= (val[1] - val[0])
+            elif is_valid_gen_tuple(val):
+                length *= (val[1] - val[0] + 1)
             elif isinstance(val, list) and not fld.islist:
                 len2 = 0
                 for x in val:
                     if hasattr(x, "__iterlen__"):
                         len2 += x.__iterlen__()
-                    elif isinstance(x, tuple) and len(x) == 2 and all(hasattr(z, "__int__") for z in x):  # noqa: E501
-                        len2 += (x[1] - x[0])
+                    elif is_valid_gen_tuple(x):
+                        len2 += (x[1] - x[0] + 1)
                     elif isinstance(x, list):
                         len2 += len(x)
                     else:
@@ -945,6 +1022,16 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
         if not isinstance(self.payload, NoPayload):
             return length * self.payload.__iterlen__()
         return length
+
+    def iterpayloads(self):
+        """Used to iter through the paylods of a Packet.
+        Useful for DNS or 802.11 for instance.
+        """
+        yield self
+        current = self
+        while current.payload:
+            current = current.payload
+            yield current
 
     def __gt__(self, other):
         """True if other is an answer from self (self ==> other)."""
@@ -978,7 +1065,8 @@ class Packet(six.with_metaclass(Packet_metaclass, BasePacket,
         return not self.__eq__(other)
 
     def hashret(self):
-        """DEV: returns a string that has the same value for a request and its answer."""  # noqa: E501
+        """DEV: returns a string that has the same value for a request
+        and its answer."""
         return self.payload.hashret()
 
     def answers(self, other):
@@ -1187,28 +1275,38 @@ values.
         return self.__class__(raw(self)).show(dump, indent, lvl, label_lvl)
 
     def sprintf(self, fmt, relax=1):
-        """sprintf(format, [relax=1]) -> str
-where format is a string that can include directives. A directive begins and
-ends by % and has the following format %[fmt[r],][cls[:nb].]field%.
+        """
+        sprintf(format, [relax=1]) -> str
 
-fmt is a classic printf directive, "r" can be appended for raw substitution
-(ex: IP.flags=0x18 instead of SA), nb is the number of the layer we want
-(ex: for IP/IP packets, IP:2.src is the src of the upper IP layer).
-Special case : "%.time%" is the creation time.
-Ex : p.sprintf("%.time% %-15s,IP.src% -> %-15s,IP.dst% %IP.chksum% "
-               "%03xr,IP.proto% %r,TCP.flags%")
+        Where format is a string that can include directives. A directive
+        begins and ends by % and has the following format:
+        ``%[fmt[r],][cls[:nb].]field%``
 
-Moreover, the format string can include conditional statements. A conditional
-statement looks like : {layer:string} where layer is a layer name, and string
-is the string to insert in place of the condition if it is true, i.e. if layer
-is present. If layer is preceded by a "!", the result is inverted. Conditions
-can be imbricated. A valid statement can be :
-  p.sprintf("This is a{TCP: TCP}{UDP: UDP}{ICMP:n ICMP} packet")
-  p.sprintf("{IP:%IP.dst% {ICMP:%ICMP.type%}{TCP:%TCP.dport%}}")
+        :param fmt: is a classic printf directive, "r" can be appended for raw
+          substitution:
+          (ex: IP.flags=0x18 instead of SA), nb is the number of the layer
+          (ex: for IP/IP packets, IP:2.src is the src of the upper IP layer).
+          Special case : "%.time%" is the creation time.
+          Ex::
 
-A side effect is that, to obtain "{" and "}" characters, you must use
-"%(" and "%)".
-"""
+            p.sprintf(
+              "%.time% %-15s,IP.src% -> %-15s,IP.dst% %IP.chksum% "
+              "%03xr,IP.proto% %r,TCP.flags%"
+            )
+
+          Moreover, the format string can include conditional statements. A
+          conditional statement looks like : {layer:string} where layer is a
+          layer name, and string is the string to insert in place of the
+          condition if it is true, i.e. if layer is present. If layer is
+          preceded by a "!", the result is inverted. Conditions can be
+          imbricated. A valid statement can be::
+
+            p.sprintf("This is a{TCP: TCP}{UDP: UDP}{ICMP:n ICMP} packet")
+            p.sprintf("{IP:%IP.dst% {ICMP:%ICMP.type%}{TCP:%TCP.dport%}}")
+
+          A side effect is that, to obtain "{" and "}" characters, you must use
+          "%(" and "%)".
+        """
 
         escape = {"%": "%",
                   "(": "{",
@@ -1363,6 +1461,70 @@ A side effect is that, to obtain "{" and "}" characters, you must use
             c += "/" + pc
         return c
 
+    def __hash__(self):
+        """Needed for Python 2 only: Packet() subclasses should not be
+hashable.
+
+        """
+        raise TypeError('unhashable type: %r' % self.__class__.__name__)
+
+    def convert_to(self, other_cls, **kwargs):
+        """Converts this Packet to another type.
+
+        This is not guaranteed to be a lossless process.
+
+        By default, this only implements conversion to ``Raw``.
+
+        :param other_cls: Reference to a Packet class to convert to.
+        :type other_cls: Type[scapy.packet.Packet]
+        :return: Converted form of the packet.
+        :rtype: other_cls
+        :raises TypeError: When conversion is not possible
+        """
+        if not issubtype(other_cls, Packet):
+            raise TypeError("{} must implement Packet".format(other_cls))
+
+        if other_cls is Raw:
+            return Raw(raw(self))
+
+        if "_internal" not in kwargs:
+            return other_cls.convert_packet(self, _internal=True, **kwargs)
+
+        raise TypeError("Cannot convert {} to {}".format(
+            type(self).__name__, other_cls.__name__))
+
+    @classmethod
+    def convert_packet(cls, pkt, **kwargs):
+        """Converts another packet to be this type.
+
+        This is not guaranteed to be a lossless process.
+
+        :param pkt: The packet to convert.
+        :type pkt: scapy.packet.Packet
+        :return: Converted form of the packet.
+        :rtype: cls
+        :raises TypeError: When conversion is not possible
+        """
+        if not isinstance(pkt, Packet):
+            raise TypeError("Can only convert Packets")
+
+        if "_internal" not in kwargs:
+            return pkt.convert_to(cls, _internal=True, **kwargs)
+
+        raise TypeError("Cannot convert {} to {}".format(
+            type(pkt).__name__, cls.__name__))
+
+    @classmethod
+    def convert_packets(cls, pkts, **kwargs):
+        """Converts many packets to this type.
+
+        This is implemented as a generator.
+
+        See ``Packet.convert_packet``.
+        """
+        for pkt in pkts:
+            yield cls.convert_packet(pkt, **kwargs)
+
 
 class NoPayload(Packet):
     def __new__(cls, *args, **kargs):
@@ -1514,6 +1676,10 @@ class Raw(Packet):
                 return "Raw %r" % self.load
         return Packet.mysummary(self)
 
+    @classmethod
+    def convert_packet(cls, pkt, **kwargs):
+        return Raw(raw(pkt))
+
 
 class Padding(Raw):
     name = "Padding"
@@ -1571,10 +1737,14 @@ def bind_top_down(lower, upper, __fval=None, **fval):
 
 @conf.commands.register
 def bind_layers(lower, upper, __fval=None, **fval):
-    """Bind 2 layers on some specific fields' values. It makes the packet being built  # noqa: E501
-    and dissected when the arguments are present.
+    """Bind 2 layers on some specific fields' values.
 
-    This functions calls both bind_bottom_up and bind_top_down, with all passed arguments.  # noqa: E501
+    It makes the packet being built and dissected when the arguments
+    are present.
+
+    This function calls both bind_bottom_up and bind_top_down, with
+    all passed arguments.
+
     Please have a look at their docs:
      - help(bind_bottom_up)
      - help(bind_top_down)
@@ -1665,9 +1835,14 @@ def explore(layer=None):
         from prompt_toolkit.shortcuts.dialogs import radiolist_dialog, \
             button_dialog
         from prompt_toolkit.formatted_text import HTML
+        # Check for prompt_toolkit >= 3.0.0
+        if _version_checker(prompt_toolkit, (3, 0)):
+            call_ptk = lambda x: x.run()
+        else:
+            call_ptk = lambda x: x
         # 1 - Ask for layer or contrib
-        action = button_dialog(
-            title="Scapy v%s" % conf.version,
+        btn_diag = button_dialog(
+            title=six.text_type("Scapy v%s" % conf.version),
             text=HTML(
                 six.text_type(
                     '<style bg="white" fg="red">Chose the type of packets'
@@ -1679,6 +1854,7 @@ def explore(layer=None):
                 (six.text_type("Contribs"), "contribs"),
                 (six.text_type("Cancel"), "cancel")
             ])
+        action = call_ptk(btn_diag)
         # 2 - Retrieve list of Packets
         if action == "layers":
             # Get all loaded layers
@@ -1703,9 +1879,9 @@ def explore(layer=None):
             _radio_values = [(six.text_type(x), six.text_type(y))
                              for x, y in _radio_values]
         # 3 - Ask for the layer/contrib module to explore
-        result = radiolist_dialog(
+        rd_diag = radiolist_dialog(
             values=_radio_values,
-            title="Scapy v%s" % conf.version,
+            title=six.text_type("Scapy v%s" % conf.version),
             text=HTML(
                 six.text_type(
                     '<style bg="white" fg="red">Please select a layer among'
@@ -1713,6 +1889,7 @@ def explore(layer=None):
                     ' it:</style>'
                 )
             ))
+        result = call_ptk(rd_diag)
         if result is None:
             return  # User pressed "Cancel"
         # 4 - (Contrib only): load contrib
@@ -1760,10 +1937,10 @@ def explore(layer=None):
 @conf.commands.register
 def ls(obj=None, case_sensitive=False, verbose=False):
     """List  available layers, or infos on a given layer class or name.
-    params:
-     - obj: Packet / packet name to use
-     - case_sensitive: if obj is a string, is it case sensitive?
-     - verbose
+
+    :param obj: Packet / packet name to use
+    :param case_sensitive: if obj is a string, is it case sensitive?
+    :param verbose:
     """
     is_string = isinstance(obj, six.string_types)
 
@@ -1855,20 +2032,45 @@ def ls(obj=None, case_sensitive=False, verbose=False):
 
 @conf.commands.register
 def fuzz(p, _inplace=0):
-    """Transform a layer into a fuzzy layer by replacing some default values by random objects"""  # noqa: E501
+    """
+    Transform a layer into a fuzzy layer by replacing some default values
+    by random objects.
+
+    :param p: the Packet instance to fuzz
+    :return: the fuzzed packet.
+    """
     if not _inplace:
         p = p.copy()
     q = p
     while not isinstance(q, NoPayload):
+        new_default_fields = {}
+        multiple_type_fields = []
         for f in q.fields_desc:
             if isinstance(f, PacketListField):
                 for r in getattr(q, f.name):
                     print("fuzzing", repr(r))
                     fuzz(r, _inplace=1)
+            elif isinstance(f, MultipleTypeField):
+                # the type of the field will depend on others
+                multiple_type_fields.append(f.name)
             elif f.default is not None:
                 if not isinstance(f, ConditionalField) or f._evalcond(q):
                     rnd = f.randval()
                     if rnd is not None:
-                        q.default_fields[f.name] = rnd
+                        new_default_fields[f.name] = rnd
+        # Process packets with MultipleTypeFields
+        if multiple_type_fields:
+            # freeze the other random values
+            new_default_fields = {
+                key: (val._fix() if isinstance(val, VolatileValue) else val)
+                for key, val in six.iteritems(new_default_fields)
+            }
+            q.default_fields.update(new_default_fields)
+            # add the random values of the MultipleTypeFields
+            for name in multiple_type_fields:
+                rnd = q.get_field(name)._find_fld_pkt(q).randval()
+                if rnd is not None:
+                    new_default_fields[name] = rnd
+        q.default_fields.update(new_default_fields)
         q = q.payload
     return p

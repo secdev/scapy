@@ -105,9 +105,7 @@ class AnsiColorTheme(ColorTheme):
             after = self.style_normal
         elif not isinstance(self, BlackAndWhite) and attr in Color.colors:
             before = Color.colors[attr][0]
-            after = "".join(Color.colors[x][0] for x in [
-                "normal", "reset", "bg_reset"
-            ])
+            after = Color.colors["normal"][0]
         else:
             before = after = ""
 

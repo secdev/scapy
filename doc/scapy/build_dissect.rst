@@ -880,7 +880,9 @@ Legend:
     XIntField
     
     LongField
+    SignedLongField
     LELongField
+    LESignedLongField
     XLongField
     LELongField
     
@@ -1047,6 +1049,16 @@ Special
            # Add bytes after the proxified field so that it ends at
            # the specified alignment from its beginning
 
+    BitExtendedField(extension_bit)
+           # Field with a variable number of bytes. Each byte is made of:
+           # - 7 bits of data
+           # - 1 extension bit:
+           #    * 0 means that it is the last byte of the field ("stopping bit")
+           #    * 1 means that there is another byte after this one ("forwarding bit")
+           # extension_bit is the bit number [0-7] of the extension bit in the byte
+
+    MSBExtendedField, LSBExtendedField      # Special cases of BitExtendedField
+
 TCP/IP
 ------
 
@@ -1061,7 +1073,6 @@ TCP/IP
     MACField
     DestMACField(MACField)
     SourceMACField(MACField)
-    ARPSourceMACField(MACField)
     
     ICMPTimeStampField
 
@@ -1085,8 +1096,6 @@ DNS
     DNSRRCountField
     DNSRRField
     DNSQRField
-    RDataField
-    RDLenField
 
 ASN.1
 -----
@@ -1149,3 +1158,4 @@ Scapy provides an ``explore()`` function, to search through the available layer/
     # scapy.contrib.status = skip 
 
 - A **layer** module must have a docstring, in which the first line shortly describes the module.
+

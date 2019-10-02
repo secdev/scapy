@@ -1,0 +1,206 @@
+# coding: utf8
+% ProfinetIO DCP layer test campaign
+
++ Syntax check
+= Import the ProfinetIO layer
+from scapy.contrib.pnio import *
+from scapy.contrib.pnio_dcp import *
+from scapy.config import conf
+import re
+old_conf_dissector = conf.debug_dissector
+conf.debug_dissector=True
+
++ PNIO DCP PDU tests
+
+
+= DCP Identify All Request parsing
+
+p = Ether(b'\x01\x0e\xcf\x00\x00\x00\x01\x23\x45\x67\x89\xab\x88\x92\xfe\xfe' \
+    b'\x05\x00\x01\x00\x00\x01\x00\x01\x00\x04\xff\xff\x00\x00\x00\x00' \
+    b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00' \
+    b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+
+assert(p[Ether].dst == '01:0e:cf:00:00:00')
+assert(p[Ether].src == '01:23:45:67:89:ab')
+assert(p[Ether].type == 0x8892)
+assert(p[ProfinetIO].frameID == 0xfefe)
+assert(p[ProfinetDCP].service_id == 0x05)
+assert(p[ProfinetDCP].service_type == 0x00)
+assert(p[ProfinetDCP].xid == 0x1000001)
+assert(p[ProfinetDCP].reserved == 0x01)
+assert(p[ProfinetDCP].dcp_data_length == 0x04)
+assert(p[ProfinetDCP].option == 0xff)
+assert(p[ProfinetDCP].sub_option == 0xff)
+assert(p[ProfinetDCP].dcp_block_length == 0x00)
+
+
+= DCP Set Request parsing
+
+p = Ether(b'\x01\x23\x45\x67\x89\xac\x01\x23\x45\x67\x89\xab\x88\x92\xfe\xfd' \
+       b'\x04\x00\x00\x00\x00\x01\x00\x00\x00\x0c\x02\x02\x00\x08\x00\x01' \
+       b'\x64\x65\x76\x69\x63\x65\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00' \
+       b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+
+assert(p[Ether].dst == '01:23:45:67:89:ac')
+assert(p[Ether].src == '01:23:45:67:89:ab')
+assert(p[Ether].type == 0x8892)
+assert(p[ProfinetIO].frameID == 0xfefd)
+assert(p[ProfinetDCP].service_id == 0x04)
+assert(p[ProfinetDCP].service_type == 0x00)
+assert(p[ProfinetDCP].xid == 0x0000001)
+assert(p[ProfinetDCP].reserved == 0x00)
+assert(p[ProfinetDCP].dcp_data_length == 0x0c)
+assert(p[ProfinetDCP].option == 0x02)
+assert(p[ProfinetDCP].sub_option == 0x02)
+assert(p[ProfinetDCP].dcp_block_length == 0x08)
+assert(p[ProfinetDCP].block_qualifier ==  0x01)
+
+
+= DCP Identify Response parsing
+
+p = Ether(b'\x94\x65\x9c\x51\x90\x7d\xac\x64\x17\x21\x35\xcf\x81\x00\x00\x00' \
+       b'\x88\x92\xfe\xff\x05\x01\x01\x00\x00\x01\x00\x00\x00\x4e\x02\x05' \
+       b'\x00\x04\x00\x00\x02\x07\x02\x01\x00\x09\x00\x00\x45\x54\x32\x30' \
+       b'\x30\x53\x50\x00\x02\x02\x00\x08\x00\x00\x64\x65\x76\x69\x63\x65' \
+       b'\x02\x03\x00\x06\x00\x00\x00\x2a\x03\x13\x02\x04\x00\x04\x00\x00' \
+       b'\x01\x00\x02\x07\x00\x04\x00\x00\x00\x01\x01\x02\x00\x0e\x00\x01' \
+       b'\xc0\xa8\x01\x0e\xff\xff\xff\x00\xc0\xa8\x01\x0e')
+
+# General
+assert(p[ProfinetIO].frameID == 0xfeff)
+assert(p[ProfinetDCP].service_id == 0x05)
+assert(p[ProfinetDCP].service_type == 0x01)
+assert(p[ProfinetDCP].xid == 0x1000001)
+assert(p[ProfinetDCP].reserved == 0x00)
+assert(p[ProfinetDCP].dcp_data_length == 0x4e)
+
+# - DCPDeviceOptionsBlock
+assert(p[DCPDeviceOptionsBlock].option == 0x02)
+assert(p[DCPDeviceOptionsBlock].sub_option == 0x05)
+assert(p[DCPDeviceOptionsBlock].dcp_block_length == 0x04)
+assert(p[DCPDeviceOptionsBlock].block_info == 0x00)
+
+# -- DeviceOption
+assert(p[DeviceOption].option == 0x02)
+assert(p[DeviceOption].sub_option == 0x07)
+
+# - DCPManufacturerSpecificBlock
+assert(p[DCPManufacturerSpecificBlock].option == 0x02)
+assert(p[DCPManufacturerSpecificBlock].sub_option == 0x01)
+assert(p[DCPManufacturerSpecificBlock].dcp_block_length == 0x09)
+assert(p[DCPManufacturerSpecificBlock].block_info == 0x00)
+assert(p[DCPManufacturerSpecificBlock].device_vendor_value == b'ET200SP')
+
+# - DCPNameOfStationBlock
+assert(p[DCPNameOfStationBlock].option == 0x02)
+assert(p[DCPNameOfStationBlock].sub_option == 0x02)
+assert(p[DCPNameOfStationBlock].dcp_block_length == 0x08)
+assert(p[DCPNameOfStationBlock].block_info == 0x00)
+assert(p[DCPNameOfStationBlock].name_of_station == b'device')
+
+# - DCPDeviceIDBlock
+assert(p[DCPDeviceIDBlock].option == 0x02)
+assert(p[DCPDeviceIDBlock].sub_option == 0x03)
+assert(p[DCPDeviceIDBlock].dcp_block_length == 0x06)
+assert(p[DCPDeviceIDBlock].block_info == 0x00)
+assert(p[DCPDeviceIDBlock].vendor_id == 0x002a)
+assert(p[DCPDeviceIDBlock].device_id == 0x0313)
+
+# - DCPDeviceRoleBlock
+assert(p[DCPDeviceRoleBlock].option == 0x02)
+assert(p[DCPDeviceRoleBlock].sub_option == 0x04)
+assert(p[DCPDeviceRoleBlock].dcp_block_length == 0x04)
+assert(p[DCPDeviceRoleBlock].block_info == 0x00)
+assert(p[DCPDeviceRoleBlock].device_role_details == 0x01)
+
+# - DCPDeviceInstanceBlock
+assert(p[DCPDeviceInstanceBlock].option == 0x02)
+assert(p[DCPDeviceInstanceBlock].sub_option == 0x07)
+assert(p[DCPDeviceInstanceBlock].dcp_block_length == 0x04)
+assert(p[DCPDeviceInstanceBlock].block_info == 0x00)
+assert(p[DCPDeviceInstanceBlock].device_instance_high == 0x00)
+assert(p[DCPDeviceInstanceBlock].device_instance_low == 0x01)
+
+# - DCPIPBlock
+assert(p[DCPIPBlock].option == 0x01)
+assert(p[DCPIPBlock].sub_option == 0x02)
+assert(p[DCPIPBlock].dcp_block_length == 0x0e)
+assert(p[DCPIPBlock].block_info == 0x01)
+assert(p[DCPIPBlock].ip == "192.168.1.14")
+assert(p[DCPIPBlock].netmask == "255.255.255.0")
+assert(p[DCPIPBlock].gateway == "192.168.1.14")
+
+
+= DCP Set Request parsing
+
+p = Ether(b'\x94\x65\x9c\x51\x90\x7d\xac\x64\x17\x21\x35\xcf\x81\x00\x00\x00' \
+      b'\x88\x92\xfe\xfd\x04\x01\x00\x00\x00\x01\x00\x00\x00\x08\x05\x04' \
+      b'\x00\x03\x02\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00' \
+      b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+
+assert(p[ProfinetIO].frameID == 0xfefd)
+assert(p[ProfinetDCP].service_id == 0x04)
+assert(p[ProfinetDCP].service_type == 0x01)
+assert(p[ProfinetDCP].xid == 0x0000001)
+assert(p[ProfinetDCP].reserved == 0x00)
+assert(p[ProfinetDCP].dcp_data_length == 0x08)
+
+assert(p[DCPControlBlock].option == 0x05)
+assert(p[DCPControlBlock].sub_option == 0x04)
+assert(p[DCPControlBlock].dcp_block_length == 0x03)
+assert(p[DCPControlBlock].response == 0x02)
+assert(p[DCPControlBlock].response_sub_option == 0x02)
+assert(p[DCPControlBlock].block_error == 0x00)
+
+
+= DCP Identify All Request crafting
+
+# dcp_data_length cannot be calculated automatically at this time
+p = ProfinetIO(frameID=DCP_IDENTIFY_REQUEST_FRAME_ID) / ProfinetDCP(service_id=DCP_SERVICE_ID_IDENTIFY, service_type=DCP_REQUEST, option=255, sub_option=255, dcp_data_length=4)
+
+assert(p[ProfinetIO].frameID == 0xfefe)
+assert(p[ProfinetDCP].service_id == 0x05)
+assert(p[ProfinetDCP].service_type == 0x00)
+assert(p[ProfinetDCP].xid == 0x1000001)
+assert(p[ProfinetDCP].reserved == 0x00)
+assert(p[ProfinetDCP].dcp_data_length == 0x04)
+assert(p[ProfinetDCP].option == 0xff)
+assert(p[ProfinetDCP].sub_option == 0xff)
+assert(p[ProfinetDCP].dcp_block_length == 0x00)
+
+
+= DCP Set Name Request with specified name crafting
+
+p = ProfinetIO(frameID=DCP_GET_SET_FRAME_ID) / ProfinetDCP ( service_id=DCP_SERVICE_ID_SET, service_type=DCP_REQUEST, option=2, sub_option=2, name_of_station="device", dcp_block_length=8, dcp_data_length=12)
+
+assert(p[ProfinetIO].frameID == 0xfefd)
+assert(p[ProfinetDCP].service_id == 0x04)
+assert(p[ProfinetDCP].service_type == 0x00)
+assert(p[ProfinetDCP].xid == 0x1000001)
+assert(p[ProfinetDCP].reserved == 0x00)
+assert(p[ProfinetDCP].dcp_data_length == 0x0c)
+assert(p[ProfinetDCP].option == 0x02)
+assert(p[ProfinetDCP].sub_option == 0x02)
+assert(p[ProfinetDCP].dcp_block_length == 0x08)
+assert(p[ProfinetDCP].block_qualifier == 0x0001)
+assert(p[ProfinetDCP].name_of_station == b'device')
+
+
+= DCP Identify Response crafting
+
+p = ProfinetIO(frameID=DCP_IDENTIFY_RESPONSE_FRAME_ID) / ProfinetDCP(service_id=DCP_SERVICE_ID_IDENTIFY, service_type=DCP_RESPONSE, dcp_data_length=12) / DCPNameOfStationBlock(name_of_station="device", dcp_block_length=8)
+
+assert(p[ProfinetIO].frameID == 0xfeff)
+assert(p[ProfinetDCP].service_id == 0x05)
+assert(p[ProfinetDCP].service_type == 0x01)
+assert(p[ProfinetDCP].xid == 0x1000001)
+assert(p[ProfinetDCP].reserved == 0x00)
+assert(p[ProfinetDCP].dcp_data_length == 0x0c)
+assert(p[DCPNameOfStationBlock].option == 0x02)
+assert(p[DCPNameOfStationBlock].sub_option == 0x02)
+assert(p[DCPNameOfStationBlock].dcp_block_length == 0x08)
+assert(p[DCPNameOfStationBlock].block_info == 0x00)
+assert(p[DCPNameOfStationBlock].name_of_station == b'device')
+
+
+conf.debug_dissector = old_conf_dissector
