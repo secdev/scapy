@@ -288,17 +288,17 @@ GTPforcedTypes = {
 
 class GTPPDUSessionContainer(Packet):
     name = "GTP PDU Session Container"
-    field_desc = [ByteField("ExtHdrLen", 2),
+    field_desc = [ByteField("ExtHdrLen", 1),
                   BitField("type", 0, 4),
                   BitField("spare1", 0, 4),
                   BitField("P", 0, 1),
                   BitField("R", 0, 1),
                   BitField("QFI", 0, 6),
-                  BitField("PPT", 0, 4),
-                  BitField("spare2", 0, 4),
-                  ByteField("pad1", 0),
-                  ByteField("pad2", 0),
-                  ByteField("pad3", 0),
+                  ConditionalField(XBitField("PPI", 0, 3), lambda pkt: pkt.P == 1),
+                  ConditionalField(XBitField("space2", 0, 5), lambda pkt: pkt.P == 1),
+                  ConditionalField(ByteField("pad1", 0), lambda pkt: pkt.P == 1),
+                  ConditionalField(ByteField("pad2", 0), lambda pkt: pkt.P == 1),
+                  ConditionalField(ByteField("pad3", 0), lambda pkt: pkt.P == 1),
                   ByteEnumField("NextExtHdr", 0, ExtensionHeadersTypes),]
 
 
