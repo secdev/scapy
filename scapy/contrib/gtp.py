@@ -288,7 +288,7 @@ GTPforcedTypes = {
 
 class GTPPDUSessionContainer(Packet):
     name = "GTP PDU Session Container"
-    field_desc = [ByteField("ExtHdrLen", 1),
+    fields_desc = [ByteField("ExtHdrLen", None),
                   BitField("type", 0, 4),
                   BitField("spare1", 0, 4),
                   BitField("P", 0, 1),
@@ -300,6 +300,19 @@ class GTPPDUSessionContainer(Packet):
                   ConditionalField(ByteField("pad2", 0), lambda pkt: pkt.P == 1),
                   ConditionalField(ByteField("pad3", 0), lambda pkt: pkt.P == 1),
                   ByteEnumField("NextExtHdr", 0, ExtensionHeadersTypes),]
+
+    def post_build(self, p, pay):
+        p += pay
+        if self.ExtHdrLen is None:
+            if self.P == 1:
+                hdr_len = 2
+            else:
+                hdr_len = 1
+            p = struct.pack("!B", hdr_len) + p[1:]
+        return p
+
+    def hashret(self):
+        return struct.pack("H", self.seq)
 
 
 class GTPEchoRequest(Packet):

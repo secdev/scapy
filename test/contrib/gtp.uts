@@ -17,10 +17,19 @@ a = GTPHeader(raw(GTP_U_Header()/GTPErrorIndication()))
 assert isinstance(a, GTP_U_Header)
 
 a.show(dump=True)
+hexdump(a)
 
 = GTP_U_Header with PDU Session Container
 
-a = GTPHeader(raw(GTP_U_Header()/GTPPDUSessionContainer()))
+a = GTPHeader(raw(GTP_U_Header()/GTPPDUSessionContainer(QFI=3)))
+assert isinstance(a, GTP_U_Header)
+
+a.show(dump=True)
+hexdump(a)
+
+= GTP_U_Header with PDU Session Container with QFI/PPI
+
+a = GTPHeader(raw(GTP_U_Header()/GTPPDUSessionContainer(QFI=3, P=1, PPI=6)))
 assert isinstance(a, GTP_U_Header)
 
 a.show(dump=True)
