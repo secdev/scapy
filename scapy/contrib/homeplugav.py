@@ -504,7 +504,7 @@ class ModuleOperationRequest(Packet):
                        lambda pkt:(0x0011 == pkt.operation)),
                  ConditionalField( LEIntField("WriteOffset", 0x00000000),
                        lambda pkt:(0x0011 == pkt.operation)),
-                 ConditionalField( StrLenField("ModuleData", "\x00", length_from = lambda pkt: pkt.WriteDataLen),
+                 ConditionalField( StrLenField("ModuleData", b"\x00", length_from = lambda pkt: pkt.WriteDataLen),
                        lambda pkt:(0x0011 == pkt.operation)),
                 ]
 
@@ -541,7 +541,7 @@ class ModuleOperationConfirmation(Packet):
                        lambda pkt:(0x0000 == pkt.operation) ),
                  ConditionalField( LEIntField("ReadOffset", 0x00000000),
                        lambda pkt:(0x0000 == pkt.operation) ),
-                 ConditionalField( StrLenField("ModuleData", "\x00", length_from = lambda pkt: pkt.ReadDataLen),
+                 ConditionalField( StrLenField("ModuleData", b"\x00", length_from = lambda pkt: pkt.ReadDataLen),
                        lambda pkt:(0x0000 == pkt.operation) ),
                  ConditionalField( LEShortField("WriteDataLen", 0),
                        lambda pkt:(0x0011 == pkt.operation) ),
@@ -1394,6 +1394,8 @@ bind_layers(HomePlugAV, ReadMACMemoryRequest, {"HPtype": 0xA008})
 bind_layers(HomePlugAV, ReadMACMemoryConfirmation, {"HPtype": 0xA009})
 bind_layers(HomePlugAV, ReadModuleDataRequest, {"HPtype": 0xA024})
 bind_layers(HomePlugAV, ReadModuleDataConfirmation, {"HPtype": 0xA025})
+bind_layers( HomePlugAV, ModuleOperationRequest, {"HPtype": 0xA0B0 })
+bind_layers( HomePlugAV, ModuleOperationConfirmation, {"HPtype": 0xA0B1 })
 bind_layers(HomePlugAV, WriteModuleDataRequest, {"HPtype": 0xA020})
 bind_layers(HomePlugAV, WriteModuleData2NVMRequest, {"HPtype": 0xA028})
 bind_layers(HomePlugAV, WriteModuleData2NVMConfirmation, {"HPtype": 0xA029})
