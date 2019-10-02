@@ -321,11 +321,15 @@ class ISOTPMessageBuilder:
     """
 
     class Bucket:
-        def __init__(self, total_len, first_piece):
-            self.pieces = [first_piece]
+        def __init__(self, total_len, first_piece, ts=None):
+            self.pieces = list()
             self.total_len = total_len
-            self.current_len = len(first_piece)
+            self.current_len = 0
             self.ready = None
+            self.src = None
+            self.exsrc = None
+            self.time = ts
+            self.push(first_piece)
 
         def push(self, piece):
             self.pieces.append(piece)
@@ -354,6 +358,8 @@ class ISOTPMessageBuilder:
         self.use_ext_addr = use_ext_addr
         self.basecls = basecls or ISOTP
         self.dst_ids = None
+        self.last_ff = None
+        self.last_ff_ex = None
         if did is not None:
             if hasattr(did, "__iter__"):
                 self.dst_ids = did
@@ -374,10 +380,10 @@ class ISOTPMessageBuilder:
         data = bytes(can.data)
 
         if len(data) > 1 and self.use_ext_addr is not True:
-            self._try_feed(identifier, None, data)
+            self._try_feed(identifier, None, data, can.time)
         if len(data) > 2 and self.use_ext_addr is not False:
             ea = six.indexbytes(data, 0)
-            self._try_feed(identifier, ea, data[1:])
+            self._try_feed(identifier, ea, data[1:], can.time)
 
     @property
     def count(self):
@@ -418,14 +424,21 @@ class ISOTPMessageBuilder:
 
     @staticmethod
     def _build(t, basecls=ISOTP):
-        p = basecls(t[2])
+        bucket = t[2]
+        p = basecls(bucket.ready)
         if hasattr(p, "dst"):
             p.dst = t[0]
         if hasattr(p, "exdst"):
             p.exdst = t[1]
+        if hasattr(p, "src"):
+            p.src = bucket.src
+        if hasattr(p, "exsrc"):
+            p.exsrc = bucket.exsrc
+        if hasattr(p, "time"):
+            p.time = bucket.time
         return p
 
-    def _feed_first_frame(self, identifier, ea, data):
+    def _feed_first_frame(self, identifier, ea, data, ts):
         if len(data) < 3:
             # At least 3 bytes are necessary: 2 for length and 1 for data
             return False
@@ -438,10 +451,14 @@ class ISOTPMessageBuilder:
             isotp_data = data[6:]
 
         key = (ea, identifier, 1)
-        self.buckets[key] = self.Bucket(expected_length, isotp_data)
+        if ea is None:
+            self.last_ff = key
+        else:
+            self.last_ff_ex = key
+        self.buckets[key] = self.Bucket(expected_length, isotp_data, ts)
         return True
 
-    def _feed_single_frame(self, identifier, ea, data):
+    def _feed_single_frame(self, identifier, ea, data, ts):
         if len(data) < 2:
             # At least 2 bytes are necessary: 1 for length and 1 for data
             return False
@@ -453,7 +470,8 @@ class ISOTPMessageBuilder:
             # CAN frame has less data than expected
             return False
 
-        self.ready.append((identifier, ea, isotp_data))
+        self.ready.append((identifier, ea,
+                           self.Bucket(length, isotp_data, ts)))
         return True
 
     def _feed_consecutive_frame(self, identifier, ea, data):
@@ -481,18 +499,47 @@ class ISOTPMessageBuilder:
             key = (ea, identifier, next_seq)
             self.buckets[key] = bucket
         else:
-            self.ready.append((identifier, ea, bucket.ready))
+            self.ready.append((identifier, ea, bucket))
 
         return True
 
-    def _try_feed(self, identifier, ea, data):
+    def _feed_flow_control_frame(self, identifier, ea, data):
+        if len(data) < 3:
+            # At least 2 bytes are necessary: 1 for sequence number and
+            # 1 for data
+            return False
+
+        keys = [self.last_ff, self.last_ff_ex]
+        if not any(keys):
+            return False
+
+        buckets = [self.buckets.pop(k, None) for k in keys]
+
+        self.last_ff = None
+        self.last_ff_ex = None
+
+        if not any(buckets):
+            # There is no message constructor waiting for this frame
+            return False
+
+        for key, bucket in zip(keys, buckets):
+            if bucket is None:
+                continue
+            bucket.src = identifier
+            bucket.exsrc = ea
+            self.buckets[key] = bucket
+        return True
+
+    def _try_feed(self, identifier, ea, data, ts):
         first_byte = six.indexbytes(data, 0)
         if len(data) > 1 and first_byte & 0xf0 == N_PCI_SF:
-            self._feed_single_frame(identifier, ea, data)
+            self._feed_single_frame(identifier, ea, data, ts)
         if len(data) > 2 and first_byte & 0xf0 == N_PCI_FF:
-            self._feed_first_frame(identifier, ea, data)
+            self._feed_first_frame(identifier, ea, data, ts)
         if len(data) > 1 and first_byte & 0xf0 == N_PCI_CF:
             self._feed_consecutive_frame(identifier, ea, data)
+        if len(data) > 1 and first_byte & 0xf0 == N_PCI_FC:
+            self._feed_flow_control_frame(identifier, ea, data)
 
 
 class ISOTPSession(DefaultSession):
