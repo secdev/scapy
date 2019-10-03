@@ -29,12 +29,10 @@ from scapy.fields import BitField, ByteEnumField, ByteField, \
 from scapy.layers.l2 import Ether
 from scapy.modules.six.moves import range
 
-from scapy.contrib.homepluggp import *  # This layer extends HomePlug AV one
+from scapy.contrib.homeplugav import *  # This layer extends HomePlug AV one
 
-"""
-    Copyright (C) HomePlugGP Layer for Scapy by FlUxIuS (Sebastien Dudek)
-    As HomePlug GreenPHY is a subset of HomePlug AV, that is why we use HomePlugAV layer as a base here
-"""
+#    Copyright (C) HomePlugGP Layer for Scapy by FlUxIuS (Sebastien Dudek)
+#    As HomePlug GreenPHY is a subset of HomePlug AV, that is why we use HomePlugAV layer as a base here
 
 HomePlugGPTypes = {0x6008: "CM_SET_KEY_REQ",
                    0x6009: "CM_SET_KEY_CNF",
@@ -175,7 +173,7 @@ class CM_MNBC_SOUND_IND(Packet):
                    StrFixedLenField("RandomValue", b"\x00"*16, 16)]
 
 ######################################################################
-# Set keys for GP 
+# Set keys for GP
 ######################################################################
 
 class CM_SET_KEY_REQ(Packet):
