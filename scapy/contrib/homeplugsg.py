@@ -39,7 +39,7 @@ class VS_UART_CMD_REQ(Packet):
     fields_desc = [FieldLenField("UDataLen", None, count_of="UData", fmt="H"),
                     StrLenField("UData", "UartCommand\x00", length_from = lambda pkt: pkt.UDataLen)]
 
-class VS_UART_CMD_REQ(Packet):
+class VS_UART_CMD_CNF(Packet):
     name = "VS_UART_CMD_CNF"
     fields_desc = [StrFixedLenField("reserved", b"\x00", 6),
                    FieldLenField("UDataLen", None, count_of="UData", fmt="H"),
@@ -48,3 +48,4 @@ class VS_UART_CMD_REQ(Packet):
 ########################### END #######################################
 
 bind_layers( HomePlugAV, VS_UART_CMD_REQ,  {"HPtype": 0xA400})
+bind_layers( HomePlugAV, VS_UART_CMD_CNF,  {"HPtype": 0xA401})
