@@ -2633,3 +2633,43 @@ class MSBExtendedField(BitExtendedField):
     # This is a BitExtendedField with the extension bit on MSB
     def __init__(self, name, default):
         BitExtendedField.__init__(self, name, default, extension_bit=7)
+
+
+class TrailerBytes(bytes):
+    """
+    Reverses slice operations to take from the back of the packet, not the front
+    """
+    def __getitem__(self, item):
+        if isinstance(item, int):
+            item = -item
+        elif isinstance(item, slice):
+            start, stop, step = item.start, item.stop, item.step
+            new_start = -stop if stop else None
+            new_stop = -start if start else None
+            item = slice(new_start, new_stop, step)
+        return super(self.__class__, self).__getitem__(item)
+
+
+class TrailerField(object):
+    __slots__ = ["_fld"]
+
+    def __init__(self, fld):
+        self._fld = fld
+
+    def getfield(self, pkt, s):
+        previous_post_dissect = pkt.post_dissect
+        def _post_dissect(self, s):
+            # Reset packet to allow post_build
+            self.raw_packet_cache = None
+            self.post_dissect = previous_post_dissect
+            return previous_post_dissect(s)
+        pkt.post_dissect = MethodType(_post_dissect, pkt)
+        s = TrailerBytes(s)
+        s, val = self._fld.getfield(pkt, s)
+        return bytes(s), val
+
+    def build(self, *args, **kwargs):
+        raise Scapy_Exception("Trailer reconstruction not supported")
+
+    def __getattr__(self, attr):
+        return getattr(self._fld, attr)
