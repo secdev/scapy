@@ -78,7 +78,7 @@ class HPGP_GROUP(Packet):
     fields_desc = [ByteField("group", 0x0)]
 
     def extract_padding(self, p):
-        return "", p
+        return b"", p
 
 class VS_ATTENUATION_CHARACTERISTICS_MME(Packet):
     name = "VS_ATTENUATION_CHARACTERISTICS_MME"

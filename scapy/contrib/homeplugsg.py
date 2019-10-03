@@ -19,9 +19,7 @@
 
 from scapy.contrib.homepluggp import * # Extends HomePlug GP layer that extends HomePlug AV
 
-"""
-    Copyright (C) HomePlugSG Layer for Scapy by FlUxIuS (Sebastien Dudek)
-"""
+#    Copyright (C) HomePlugSG Layer for Scapy by FlUxIuS (Sebastien Dudek)
 
 ########################## HomePlug GP extend for SG ###############################
 
