@@ -25,7 +25,7 @@ from scapy.fields import BitField, ByteEnumField, ByteField, \
     ConditionalField, EnumField, FieldLenField, IntField, LEIntField, \
     LELongField, LEShortField, MACField, PacketListField, ShortField, \
     StrFixedLenField, StrLenField, X3BytesField, XByteField, XIntField, \
-    XLongField, XShortField
+    XLongField, XShortField, LEShortEnumField
 from scapy.layers.l2 import Ether
 from scapy.modules.six.moves import range
 
