@@ -14,23 +14,37 @@
 # You should have received a copy of the GNU General Public License
 # along with Scapy. If not, see <http://www.gnu.org/licenses/>.
 
-# scapy.contrib.description = HomePlugAV Layer
+# scapy.contrib.description = HomePlugSG Layer
 # scapy.contrib.status = loads
 
-from scapy.contrib.homepluggp import * # Extends HomePlug GP layer that extends HomePlug AV
+from __future__ import absolute_import
+import struct
 
+from scapy.packet import Packet, bind_layers
+from scapy.fields import BitField, ByteEnumField, ByteField, \
+    ConditionalField, EnumField, FieldLenField, IntField, LEIntField, \
+    LELongField, LEShortField, MACField, PacketListField, ShortField, \
+    StrFixedLenField, StrLenField, X3BytesField, XByteField, XIntField, \
+    XLongField, XShortField
+from scapy.layers.l2 import Ether
+from scapy.modules.six.moves import range
+
+from scapy.contrib.homepluggp import * # Extends HomePlug GP layer
+
+#
 #    Copyright (C) HomePlugSG Layer for Scapy by FlUxIuS (Sebastien Dudek)
+#
 
-########################## HomePlug GP extend for SG ###############################
+################## HomePlug GP extend for SG #########################
 
 HomePlugSGTypes = {0xA400: "VS_UART_CMD_Req",
                    0xA401: "VS_UART_CMD_Cnf"}
 
 QualcommTypeList.update(HomePlugSGTypes)
 
-######################################################################
-# UART
-######################################################################
+################
+# UART         #
+################
 
 class VS_UART_CMD_REQ(Packet):
     name = "VS_UART_CMD_REQ"
@@ -43,7 +57,7 @@ class VS_UART_CMD_CNF(Packet):
                    FieldLenField("UDataLen", None, count_of="UData", fmt="H"),
                    StrLenField("UData", "UartCommand\x00", length_from = lambda pkt: pkt.UDataLen)]
 
-########################### END #######################################
+########################## END #######################################
 
 bind_layers( HomePlugAV, VS_UART_CMD_REQ,  {"HPtype": 0xA400})
 bind_layers( HomePlugAV, VS_UART_CMD_CNF,  {"HPtype": 0xA401})

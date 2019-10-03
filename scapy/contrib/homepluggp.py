@@ -14,7 +14,7 @@
 # You should have received a copy of the GNU General Public License
 # along with Scapy. If not, see <http://www.gnu.org/licenses/>.
 
-# scapy.contrib.description = HomePlugAV Layer
+# scapy.contrib.description = HomePlugGP Layer
 # scapy.contrib.status = loads
 
 from __future__ import absolute_import
@@ -31,8 +31,10 @@ from scapy.modules.six.moves import range
 
 from scapy.contrib.homeplugav import *  # This layer extends HomePlug AV one
 
+#
 #    Copyright (C) HomePlugGP Layer for Scapy by FlUxIuS (Sebastien Dudek)
 #    As HomePlug GreenPHY is a subset of HomePlug AV, that is why we use HomePlugAV layer as a base here
+#
 
 HomePlugGPTypes = {0x6008: "CM_SET_KEY_REQ",
                    0x6009: "CM_SET_KEY_CNF",
@@ -78,7 +80,7 @@ class HPGP_GROUP(Packet):
     fields_desc = [ByteField("group", 0x0)]
 
     def extract_padding(self, p):
-        return b"", p
+        return "", p
 
 class VS_ATTENUATION_CHARACTERISTICS_MME(Packet):
     name = "VS_ATTENUATION_CHARACTERISTICS_MME"
