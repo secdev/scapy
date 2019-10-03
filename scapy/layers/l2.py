@@ -25,10 +25,11 @@ from scapy.data import ARPHDR_ETHER, ARPHDR_LOOPBACK, ARPHDR_METRICOM, \
     ETHER_BROADCAST, ETHER_TYPES, ETH_P_ARP, ETH_P_MACSEC
 from scapy.error import warning
 from scapy.fields import BCDFloatField, BitField, ByteField, \
-    ConditionalField, FieldLenField, IntEnumField, IntField, IP6Field, \
-    IPField, LenField, MACField, MultipleTypeField, ShortEnumField, \
+    ConditionalField, FieldLenField, FlagsField, IntEnumField, IntField, IP6Field, \
+    IPField, LenField, MACField, MultipleTypeField, SecondsIntField, ShortEnumField, \
     ShortField, SourceIP6Field, SourceIPField, StrFixedLenField, StrLenField, \
-    X3BytesField, XByteField, XIntField, XShortEnumField, XShortField
+    TrailerField, UTCTimeField, X3BytesField, XByteField, XIntField, XShortEnumField, \
+    XShortField
 from scapy.modules.six import viewitems
 from scapy.packet import bind_layers, Packet
 from scapy.plist import PacketList, SndRcvList
@@ -180,6 +181,19 @@ class Ether(Packet):
             if struct.unpack("!H", _pkt[12:14])[0] <= 1500:
                 return Dot3
         return cls
+
+
+class MetawatchEther(Ether):
+    name = "Ethernet (with MetaWatch trailer"
+    match_subclass = True
+    fields_desc = Ether.fields_desc + [
+        TrailerField(ByteField("metamako_portid", None)),
+        TrailerField(ShortField("metamako_devid", None)),
+        TrailerField(FlagsField("metamako_flags", 0x0, 8, "VX______")),
+        TrailerField(SecondsIntField("metamako_nanos", 0, use_nano=True)),
+        TrailerField(UTCTimeField("metamako_seconds", 0)),
+        # TODO: Add TLV support
+    ]
 
 
 class Dot3(Packet):
