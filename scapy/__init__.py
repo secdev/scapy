@@ -14,12 +14,14 @@ import os
 import re
 import subprocess
 
+from scapy.compat import AnyStr
+
 
 _SCAPY_PKG_DIR = os.path.dirname(__file__)
 
 
 def _version_from_git_describe():
-    # type: () -> str
+    # type: () -> AnyStr
     """
     Read the version from ``git describe``. It returns the latest tag with an
     optional suffix if the current directory is not exactly on the tag.

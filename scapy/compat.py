@@ -122,8 +122,8 @@ else:
 
 try:
     # Only required if using mypy-lang for static typing
-    from typing import Optional, List, Union, Callable, Any, Tuple, Sized, \
-        Dict, Pattern, cast
+    from typing import Optional, List, Union, Callable, Any, AnyStr, Tuple, \
+        Sized, Dict, Pattern, cast
 except ImportError:
     # Let's make some fake ones.
 
@@ -141,6 +141,7 @@ except ImportError:
     List = _FakeType()
     Dict = _FakeType()
     Any = _FakeType()
+    AnyStr = _FakeType()
     Tuple = _FakeType()
     Pattern = _FakeType()
 
