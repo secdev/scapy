@@ -16,24 +16,25 @@ assert a.E == a.S == a.PN == 0
 a = GTPHeader(raw(GTP_U_Header()/GTPErrorIndication()))
 assert isinstance(a, GTP_U_Header)
 
-a.show(dump=True)
-hexdump(a)
-
 = GTP_U_Header with PDU Session Container
 
 a = GTPHeader(raw(GTP_U_Header()/GTPPDUSessionContainer(QFI=3)))
 assert isinstance(a, GTP_U_Header)
-
-a.show(dump=True)
-hexdump(a)
+assert a[GTP_U_Header].E == 1 and a[GTP_U_Header].next_ex == 0x85
+assert a[GTPPDUSessionContainer].ExtHdrLen == 1
+assert a[GTPPDUSessionContainer].P == 0 and a[GTPPDUSessionContainer].R == 0
+assert a[GTPPDUSessionContainer].QFI == 3
+assert a[GTPPDUSessionContainer].NextExtHdr == 0
 
 = GTP_U_Header with PDU Session Container with QFI/PPI
 
 a = GTPHeader(raw(GTP_U_Header()/GTPPDUSessionContainer(QFI=3, P=1, PPI=6)))
 assert isinstance(a, GTP_U_Header)
-
-a.show(dump=True)
-hexdump(a)
+assert a[GTP_U_Header].E == 1 and a[GTP_U_Header].next_ex == 0x85
+assert a[GTPPDUSessionContainer].ExtHdrLen == 2
+assert a[GTPPDUSessionContainer].P == 1 and a[GTPPDUSessionContainer].R == 0
+assert a[GTPPDUSessionContainer].QFI == 3 and a[GTPPDUSessionContainer].PPI == 6
+assert a[GTPPDUSessionContainer].NextExtHdr == 0
 
 = GTP_U_Header sub layers
 
