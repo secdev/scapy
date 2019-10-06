@@ -299,11 +299,16 @@ class GTPPDUSessionContainer(Packet):
                    BitField("P", 0, 1),
                    BitField("R", 0, 1),
                    BitField("QFI", 0, 6),
-                   ConditionalField(XBitField("PPI", 0, 3), lambda pkt: pkt.P == 1),  # noqa: E501
-                   ConditionalField(XBitField("spare2", 0, 5), lambda pkt: pkt.P == 1),  # noqa: E501
-                   ConditionalField(ByteField("pad1", 0), lambda pkt: pkt.P == 1),  # noqa: E501
-                   ConditionalField(ByteField("pad2", 0), lambda pkt: pkt.P == 1),  # noqa: E501
-                   ConditionalField(ByteField("pad3", 0), lambda pkt: pkt.P == 1),  # noqa: E501
+                   ConditionalField(XBitField("PPI", 0, 3),
+                   lambda pkt: pkt.P == 1),
+                   ConditionalField(XBitField("spare2", 0, 5),
+                   lambda pkt: pkt.P == 1),
+                   ConditionalField(ByteField("pad1", 0),
+                   lambda pkt: pkt.P == 1),
+                   ConditionalField(ByteField("pad2", 0),
+                   lambda pkt: pkt.P == 1),
+                   ConditionalField(ByteField("pad3", 0),
+                   lambda pkt: pkt.P == 1),
                    ByteEnumField("NextExtHdr", 0, ExtensionHeadersTypes), ]
 
     def guess_payload_class(self, payload):
@@ -969,7 +974,8 @@ bind_bottom_up(UDP, GTP_U_Header, dport=2152)
 bind_bottom_up(UDP, GTP_U_Header, sport=2152)
 bind_layers(UDP, GTP_U_Header, dport=2152, sport=2152)
 bind_layers(GTP_U_Header, GTPErrorIndication, gtp_type=26, S=1)
-bind_layers(GTP_U_Header, GTPPDUSessionContainer, gtp_type=255, E=1, next_ex=0x85)  # noqa: E501
+bind_layers(GTP_U_Header, GTPPDUSessionContainer,
+            gtp_type=255, E=1, next_ex=0x85)
 bind_top_down(GTP_U_Header, IP, gtp_type=255)
 bind_top_down(GTP_U_Header, IPv6, gtp_type=255)
 bind_top_down(GTP_U_Header, PPP, gtp_type=255)
