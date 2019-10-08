@@ -408,6 +408,22 @@ y = GMLAN(b'\x10deadbeef')
 x = GMLAN(b'\x7f\x10\x00\x11\x22')
 assert x.answers(y)
 
+= Set treat-response-pending-as-answer
+conf.contribs['GMLAN']['treat-response-pending-as-answer'] = False
+assert conf.contribs['GMLAN']['treat-response-pending-as-answer'] == False
+
+= Check response-pending is not considered as answer
+y = GMLAN(b'\x10deadbeef')
+x = GMLAN(b'\x7f\x10\x78\x11\x22')
+assert not x.answers(y)
+
+= Check response-pending is considered as answer
+conf.contribs['GMLAN']['treat-response-pending-as-answer'] = True
+assert conf.contribs['GMLAN']['treat-response-pending-as-answer'] == True
+y = GMLAN(b'\x10deadbeef')
+x = GMLAN(b'\x7f\x10\x78\x11\x22')
+assert x.answers(y)
+
 = Check hashret 1
 print(y.hashret())
 print(x.hashret())

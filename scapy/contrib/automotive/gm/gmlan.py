@@ -17,7 +17,6 @@ from scapy.fields import ObservableDict, XByteEnumField, ByteEnumField, \
 from scapy.packet import Packet, bind_layers, NoPayload
 from scapy.config import conf
 from scapy.error import warning, log_loading
-from scapy.utils import PeriodicSenderThread
 from scapy.contrib.isotp import ISOTP
 
 
@@ -833,24 +832,7 @@ class GMLAN_NR(Packet):
     def answers(self, other):
         return self.requestServiceId == other.service and \
             (self.returnCode != 0x78 or
-             conf.contribs['UDS']['treat-response-pending-as-answer'])
+             conf.contribs['GMLAN']['treat-response-pending-as-answer'])
 
 
 bind_layers(GMLAN, GMLAN_NR, service=0x7f)
-
-
-# ##################################################################
-# ######################## UTILS ###################################
-# ##################################################################
-
-
-class GMLAN_TesterPresentSender(PeriodicSenderThread):
-    def __init__(self, sock, pkt=GMLAN(service="TesterPresent"), interval=2):
-        """ Thread to send TesterPresent messages packets periodically
-
-        Args:
-            sock: socket where packet is sent periodically
-            pkt: packet to send
-            interval: interval between two packets
-        """
-        PeriodicSenderThread.__init__(self, sock, pkt, interval)
