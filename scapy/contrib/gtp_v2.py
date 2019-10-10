@@ -370,6 +370,49 @@ class IE_ULI(gtp.IE_Base):
                          lambda pkt: bool(pkt.ECGI_Present))]
 
 
+# 3GPP TS 29.274 v12.12.0 section 8.22
+INTERFACE_TYPES = {
+    0: "S1-U eNodeB GTP-U interface",
+    1: "S1-U SGW GTP-U interface",
+    2: "S12 RNC GTP-U interface",
+    3: "S12 SGW GTP-U interface",
+    4: "S5/S8 SGW GTP-U interface",
+    5: "S5/S8 PGW GTP-U interface",
+    6: "S5/S8 SGW GTP-C interface",
+    7: "S5/S8 PGW GTP-C interface",
+    8: "S5/S8 SGW PMIPv6 interface",
+    9: "S5/S8 PGW PMIPv6 interface",
+    10: "S11 MME GTP-C interface",
+    11: "S11/S4 SGW GTP-C interface",
+    12: "S10 MME GTP-C interface",
+    13: "S3 MME GTP-C interface",
+    14: "S3 SGSN GTP-C interface",
+    15: "S4 SGSN GTP-U interface",
+    16: "S4 SGW GTP-U interface",
+    17: "S4 SGSN GTP-C interface",
+    18: "S16 SGSN GTP-C interface",
+    19: "eNodeB GTP-U interface for DL data forwarding",
+    20: "eNodeB GTP-U interface for UL data forwarding",
+    21: "RNC GTP-U interface for data forwarding",
+    22: "SGSN GTP-U interface for data forwarding",
+    23: "SGW GTP-U interface for DL data forwarding",
+    24: "Sm MBMS GW GTP-C interface",
+    25: "Sn MBMS GW GTP-C interface",
+    26: "Sm MME GTP-C interface",
+    27: "Sn SGSN GTP-C interface",
+    28: "SGW GTP-U interface for UL data forwarding",
+    29: "Sn SGSN GTP-U interface",
+    30: "S2b ePDG GTP-C interface",
+    31: "S2b-U ePDG GTP-U interface",
+    32: "S2b PGW GTP-C interface",
+    33: "S2b-U PGW GTP-U interface",
+    34: "S2a TWAN GTP-U interface",
+    35: "S2a TWAN GTP-C interface",
+    36: "S2a PGW GTP-C interface",
+    37: "S2a PGW GTP-U interface",
+}
+
+
 class IE_FTEID(gtp.IE_Base):
     name = "IE F-TEID"
     fields_desc = [ByteEnumField("ietype", 87, IEType),
@@ -378,7 +421,7 @@ class IE_FTEID(gtp.IE_Base):
                    BitField("instance", 0, 4),
                    BitField("ipv4_present", 0, 1),
                    BitField("ipv6_present", 0, 1),
-                   BitField("InterfaceType", 0, 6),
+                   BitEnumField("InterfaceType", 0, 6, INTERFACE_TYPES),
                    XIntField("GRE_Key", 0),
                    ConditionalField(
         IPField("ipv4", RandIP()), lambda pkt: pkt.ipv4_present),
