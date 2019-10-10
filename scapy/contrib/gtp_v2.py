@@ -228,7 +228,7 @@ class GTPHeader(Packet):
                    BitField("SPARE", 0, 1),
                    ByteEnumField("gtp_type", None, GTPmessageType),
                    ShortField("length", None),
-                   ConditionalField(IntField("teid", 0),
+                   ConditionalField(XIntField("teid", 0),
                                     lambda pkt:pkt.T == 1),
                    ThreeBytesField("seq", RandShort()),
                    ByteField("SPARE", 0)
