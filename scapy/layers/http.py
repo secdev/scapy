@@ -10,20 +10,24 @@
 HTTP 1.0 layer.
 
 Load using:
->>> load_layer("http")
+
+    >>> load_layer("http")
+
 Note that this layer ISN'T loaded by default, as quite experimental for now.
 
 To follow HTTP packets streams = group packets together to get the
 whole request/answer, use `TCPSession` as:
->>> sniff(session=TCPSession)  # Live on-the-flow session
->>> sniff(offline="./http_chunk.pcap", session=TCPSession)  # pcap
+
+    >>> sniff(session=TCPSession)  # Live on-the-flow session
+    >>> sniff(offline="./http_chunk.pcap", session=TCPSession)  # pcap
 
 This will decode HTTP packets using `Content_Length` or chunks,
 and will also decompress the packets when needed.
 Note: on failure, decompression will be ignored.
 
 You can turn auto-decompression/auto-compression off with:
->>> conf.contribs["http"]["auto_compression"] = True
+
+    >>> conf.contribs["http"]["auto_compression"] = True
 """
 
 # This file is a modified version of the former scapy_http plugin.
