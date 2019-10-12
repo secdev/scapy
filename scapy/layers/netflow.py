@@ -1245,10 +1245,10 @@ class NetflowTemplateFieldV9(Packet):
     name = "Netflow Flowset Template Field V9/10"
     fields_desc = [BitField("enterpriseBit", 0, 1),
                    BitEnumField("fieldType", None, 15,
-                                  NetflowV910TemplateFieldTypes),
+                                NetflowV910TemplateFieldTypes),
                    ShortField("fieldLength", 0),
                    ConditionalField(IntField("enterpriseNumber", 0),
-                                    lambda p: p.enterpriseBit )]
+                                    lambda p: p.enterpriseBit)]
 
     def __init__(self, *args, **kwargs):
         Packet.__init__(self, *args, **kwargs)
@@ -1525,10 +1525,10 @@ class NetflowOptionsFlowsetOptionV9(Packet):
     name = "Netflow Options Template FlowSet V9/10 - Option"
     fields_desc = [BitField("enterpriseBit", 0, 1),
                    BitEnumField("optionFieldType", None, 15,
-                                  NetflowV910TemplateFieldTypes),
+                                NetflowV910TemplateFieldTypes),
                    ShortField("optionFieldlength", 0),
                    ConditionalField(ShortField("enterpriseNumber", 0),
-                                    lambda p: p.enterpriseBit )]
+                                    lambda p: p.enterpriseBit)]
 
     def default_payload_class(self, p):
         return conf.padding_layer
