@@ -6,13 +6,23 @@ matrix:
         - os: linux
           python: 3.6
           env:
-            - TOXENV=mypy,flake8,twine,docs,spell
-       
-        # Run as a regular user
+            - TOXENV=flake8,spell,twine
+
         - os: linux
-          python: 2.7
+          python: 3.6
           env:
-            - TOXENV=py27-linux_non_root,codecov
+            - TOXENV=apitree,docs
+
+        - os: linux
+          python: 3.6
+          env:
+            - TOXENV=mypy
+
+        # Specific tests that do not require root
+        # Note travis now gives root to all builds,
+        # so non_root tests dont make much sense anymore.
+        # Threfore, only a single 3.8 test + the two dependency-specific ones
+        # are run
 
         - os: linux
           python: 2.7
@@ -20,41 +30,10 @@ matrix:
             - TOXENV=py27-linux_non_root_old-cryptography,codecov
 
         - os: linux
-          python: 3.4
-          env:
-            - TOXENV=py34-linux_non_root,codecov
-
-        - os: linux
-          python: 3.5
-          env:
-            - TOXENV=py35-linux_non_root,codecov
-
-        - os: linux
-          python: 3.6
-          env:
-            - TOXENV=py36-linux_non_root,codecov
-
-        - os: linux
-          dist: xenial
-          python: 3.7
-          env:
-            - TOXENV=py37-linux_non_root,codecov
-
-        - os: linux
           dist: xenial
           python: 3.8
           env:
             - TOXENV=py38-linux_non_root,codecov
-
-        - os: linux
-          python: pypy
-          env:
-            - TOXENV=pypy-linux_non_root,codecov
-
-        - os: linux
-          python: pypy3
-          env:
-            - TOXENV=pypy3-linux_non_root,codecov
 
         - os: osx
           language: generic
@@ -74,10 +53,11 @@ matrix:
 
 # Note: a bug in pypy3 <= 5.10.1 prevents from using Scapy to inject packets
 #       see https://bitbucket.org/pypy/pypy/issues/2787/pypy3-sockname-error
-#        - os: linux
-#          python: pypy3
-#          env:
-#            - TOXENV=pypy3-linux_root,codecov
+
+        - os: linux
+          python: pypy3
+          env:
+            - TOXENV=pypy3-linux_root,codecov
 
         - os: linux
           python: 3.4
