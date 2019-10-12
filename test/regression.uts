@@ -44,8 +44,6 @@ assert not _version_checker(FakeModule2, (5, 143, 4))
 
 assert _version_checker(FakeModule3, (2, 4, 2))
 
-assert _version_checker(scapy, (2, 4, 2))
-
 = List layers
 ~ conf command
 ls()
