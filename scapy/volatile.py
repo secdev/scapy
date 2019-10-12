@@ -930,7 +930,7 @@ class RandUUID(RandField):
 # Automatic timestamp
 
 
-class AutoTime(VolatileValue):
+class AutoTime(RandNum):
     def __init__(self, base=None):
         if base is None:
             self.diff = 0

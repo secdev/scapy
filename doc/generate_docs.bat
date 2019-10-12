@@ -1,3 +1,3 @@
 @echo off
 cd ..
-tox -e generate_docs
+tox -e docs2

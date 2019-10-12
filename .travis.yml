@@ -11,7 +11,7 @@ matrix:
         - os: linux
           python: 3.8
           env:
-            - TOXENV=docs
+            - TOXENV=apitree,docs
 
         - os: linux
           python: 3.8
