@@ -1,5 +1,5 @@
-scapy.layers.gprs module
-========================
+scapy.layers.gprs
+=================
 
 .. automodule:: scapy.layers.gprs
    :members:

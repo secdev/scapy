@@ -1,5 +1,5 @@
-scapy.layers.tls.basefields module
-==================================
+scapy.layers.tls.basefields
+===========================
 
 .. automodule:: scapy.layers.tls.basefields
    :members:

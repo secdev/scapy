@@ -1,5 +1,5 @@
-scapy.layers.tls.crypto.ciphers module
-======================================
+scapy.layers.tls.crypto.ciphers
+===============================
 
 .. automodule:: scapy.layers.tls.crypto.ciphers
    :members:

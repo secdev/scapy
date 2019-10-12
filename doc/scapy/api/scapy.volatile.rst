@@ -1,5 +1,5 @@
-scapy.volatile module
-=====================
+scapy.volatile
+==============
 
 .. automodule:: scapy.volatile
    :members:

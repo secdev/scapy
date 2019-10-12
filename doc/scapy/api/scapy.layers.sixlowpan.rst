@@ -1,5 +1,5 @@
-scapy.layers.sixlowpan module
-=============================
+scapy.layers.sixlowpan
+======================
 
 .. automodule:: scapy.layers.sixlowpan
    :members:

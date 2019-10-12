@@ -1,5 +1,5 @@
-scapy.layers.tls.crypto.cipher\_stream module
-=============================================
+scapy.layers.tls.crypto.cipher\_stream
+======================================
 
 .. automodule:: scapy.layers.tls.crypto.cipher_stream
    :members:

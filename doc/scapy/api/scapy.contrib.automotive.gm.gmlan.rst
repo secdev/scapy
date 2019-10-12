@@ -1,5 +1,5 @@
-scapy.contrib.automotive.gm.gmlan module
-========================================
+scapy.contrib.automotive.gm.gmlan
+=================================
 
 .. automodule:: scapy.contrib.automotive.gm.gmlan
    :members:

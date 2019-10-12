@@ -1,5 +1,5 @@
-scapy.layers.ntp module
-=======================
+scapy.layers.ntp
+================
 
 .. automodule:: scapy.layers.ntp
    :members:

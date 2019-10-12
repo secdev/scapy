@@ -1,5 +1,5 @@
-scapy.contrib.mqtt module
-=========================
+scapy.contrib.mqtt
+==================
 
 .. automodule:: scapy.contrib.mqtt
    :members:

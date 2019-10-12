@@ -1,5 +1,5 @@
-scapy.contrib.lacp module
-=========================
+scapy.contrib.lacp
+==================
 
 .. automodule:: scapy.contrib.lacp
    :members:

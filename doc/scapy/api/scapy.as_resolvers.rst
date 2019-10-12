@@ -1,5 +1,5 @@
-scapy.as\_resolvers module
-==========================
+scapy.as\_resolvers
+===================
 
 .. automodule:: scapy.as_resolvers
    :members:

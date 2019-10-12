@@ -1,5 +1,5 @@
-scapy.automaton module
-======================
+scapy.automaton
+===============
 
 .. automodule:: scapy.automaton
    :members:

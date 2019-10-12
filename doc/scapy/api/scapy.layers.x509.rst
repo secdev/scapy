@@ -1,5 +1,5 @@
-scapy.layers.x509 module
-========================
+scapy.layers.x509
+=================
 
 .. automodule:: scapy.layers.x509
    :members:

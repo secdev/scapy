@@ -1,5 +1,5 @@
-scapy.pipetool module
-=====================
+scapy.pipetool
+==============
 
 .. automodule:: scapy.pipetool
    :members:

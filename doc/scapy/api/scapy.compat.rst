@@ -1,5 +1,5 @@
-scapy.compat module
-===================
+scapy.compat
+============
 
 .. automodule:: scapy.compat
    :members:

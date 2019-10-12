@@ -1,5 +1,5 @@
-scapy.contrib.http2 module
-==========================
+scapy.contrib.http2
+===================
 
 .. automodule:: scapy.contrib.http2
    :members:

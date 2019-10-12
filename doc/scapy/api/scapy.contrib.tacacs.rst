@@ -1,5 +1,5 @@
-scapy.contrib.tacacs module
-===========================
+scapy.contrib.tacacs
+====================
 
 .. automodule:: scapy.contrib.tacacs
    :members:

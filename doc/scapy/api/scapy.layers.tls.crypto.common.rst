@@ -1,5 +1,5 @@
-scapy.layers.tls.crypto.common module
-=====================================
+scapy.layers.tls.crypto.common
+==============================
 
 .. automodule:: scapy.layers.tls.crypto.common
    :members:

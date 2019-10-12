@@ -1,5 +1,5 @@
-scapy.layers.usb module
-=======================
+scapy.layers.usb
+================
 
 .. automodule:: scapy.layers.usb
    :members:

@@ -6,15 +6,9 @@ scapy.layers.tls package
    :undoc-members:
    :show-inheritance:
 
-Subpackages
------------
-
 .. toctree::
 
    scapy.layers.tls.crypto
-
-Submodules
-----------
 
 .. toctree::
 

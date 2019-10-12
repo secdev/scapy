@@ -1,5 +1,5 @@
-scapy.contrib.automotive.obd.obd module
-=======================================
+scapy.contrib.automotive.obd.obd
+================================
 
 .. automodule:: scapy.contrib.automotive.obd.obd
    :members:

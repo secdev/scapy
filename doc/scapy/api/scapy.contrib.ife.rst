@@ -1,5 +1,5 @@
-scapy.contrib.ife module
-========================
+scapy.contrib.ife
+=================
 
 .. automodule:: scapy.contrib.ife
    :members:

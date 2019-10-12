@@ -1,5 +1,5 @@
-scapy.contrib.vqp module
-========================
+scapy.contrib.vqp
+=================
 
 .. automodule:: scapy.contrib.vqp
    :members:

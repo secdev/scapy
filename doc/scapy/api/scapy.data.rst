@@ -1,5 +1,5 @@
-scapy.data module
-=================
+scapy.data
+==========
 
 .. automodule:: scapy.data
    :members:

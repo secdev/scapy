@@ -1,5 +1,5 @@
-scapy.contrib.eigrp module
-==========================
+scapy.contrib.eigrp
+===================
 
 .. automodule:: scapy.contrib.eigrp
    :members:

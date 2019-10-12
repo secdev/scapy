@@ -1,5 +1,5 @@
-scapy.contrib.automotive.someip module
-======================================
+scapy.contrib.automotive.someip
+===============================
 
 .. automodule:: scapy.contrib.automotive.someip
    :members:

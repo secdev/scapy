@@ -1,5 +1,5 @@
-scapy.contrib.pnio\_dcp module
-==============================
+scapy.contrib.pnio\_dcp
+=======================
 
 .. automodule:: scapy.contrib.pnio_dcp
    :members:

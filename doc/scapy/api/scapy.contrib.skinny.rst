@@ -1,5 +1,5 @@
-scapy.contrib.skinny module
-===========================
+scapy.contrib.skinny
+====================
 
 .. automodule:: scapy.contrib.skinny
    :members:

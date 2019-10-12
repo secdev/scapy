@@ -1,5 +1,5 @@
-scapy.contrib.automotive.uds module
-===================================
+scapy.contrib.automotive.uds
+============================
 
 .. automodule:: scapy.contrib.automotive.uds
    :members:

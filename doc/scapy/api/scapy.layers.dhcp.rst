@@ -1,5 +1,5 @@
-scapy.layers.dhcp module
-========================
+scapy.layers.dhcp
+=================
 
 .. automodule:: scapy.layers.dhcp
    :members:

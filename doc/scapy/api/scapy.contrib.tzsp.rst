@@ -1,5 +1,5 @@
-scapy.contrib.tzsp module
-=========================
+scapy.contrib.tzsp
+==================
 
 .. automodule:: scapy.contrib.tzsp
    :members:

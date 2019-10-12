@@ -1,5 +1,5 @@
-scapy.contrib.cdp module
-========================
+scapy.contrib.cdp
+=================
 
 .. automodule:: scapy.contrib.cdp
    :members:

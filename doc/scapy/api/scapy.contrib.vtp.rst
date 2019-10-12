@@ -1,5 +1,5 @@
-scapy.contrib.vtp module
-========================
+scapy.contrib.vtp
+=================
 
 .. automodule:: scapy.contrib.vtp
    :members:

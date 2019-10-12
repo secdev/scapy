@@ -1,5 +1,5 @@
-scapy.layers.vxlan module
-=========================
+scapy.layers.vxlan
+==================
 
 .. automodule:: scapy.layers.vxlan
    :members:

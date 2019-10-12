@@ -1,5 +1,5 @@
-scapy.layers.tls.handshake module
-=================================
+scapy.layers.tls.handshake
+==========================
 
 .. automodule:: scapy.layers.tls.handshake
    :members:

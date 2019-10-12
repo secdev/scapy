@@ -1,5 +1,5 @@
-scapy.layers.rip module
-=======================
+scapy.layers.rip
+================
 
 .. automodule:: scapy.layers.rip
    :members:

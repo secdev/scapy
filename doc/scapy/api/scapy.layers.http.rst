@@ -1,5 +1,5 @@
-scapy.layers.http module
-========================
+scapy.layers.http
+=================
 
 .. automodule:: scapy.layers.http
    :members:

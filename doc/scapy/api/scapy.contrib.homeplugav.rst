@@ -1,5 +1,5 @@
-scapy.contrib.homeplugav module
-===============================
+scapy.contrib.homeplugav
+========================
 
 .. automodule:: scapy.contrib.homeplugav
    :members:

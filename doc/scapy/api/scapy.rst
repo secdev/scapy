@@ -1,5 +1,5 @@
-Scapy Reference
-===============
+Scapy API reference
+===================
 
 .. automodule:: scapy
    :members:

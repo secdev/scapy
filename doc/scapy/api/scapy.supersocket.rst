@@ -1,5 +1,5 @@
-scapy.supersocket module
-========================
+scapy.supersocket
+=================
 
 .. automodule:: scapy.supersocket
    :members:

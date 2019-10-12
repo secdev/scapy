@@ -1,5 +1,5 @@
-scapy.layers.l2 module
-======================
+scapy.layers.l2
+===============
 
 .. automodule:: scapy.layers.l2
    :members:

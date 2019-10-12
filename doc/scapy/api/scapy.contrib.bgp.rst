@@ -1,5 +1,5 @@
-scapy.contrib.bgp module
-========================
+scapy.contrib.bgp
+=================
 
 .. automodule:: scapy.contrib.bgp
    :members:

@@ -1,5 +1,5 @@
-scapy.contrib.ospf module
-=========================
+scapy.contrib.ospf
+==================
 
 .. automodule:: scapy.contrib.ospf
    :members:

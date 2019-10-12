@@ -1,5 +1,5 @@
-scapy.layers.tls.crypto.compression module
-==========================================
+scapy.layers.tls.crypto.compression
+===================================
 
 .. automodule:: scapy.layers.tls.crypto.compression
    :members:

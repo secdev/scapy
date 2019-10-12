@@ -1,5 +1,5 @@
-scapy.contrib.aoe module
-========================
+scapy.contrib.aoe
+=================
 
 .. automodule:: scapy.contrib.aoe
    :members:

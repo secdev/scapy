@@ -1,5 +1,5 @@
-scapy.main module
-=================
+scapy.main
+==========
 
 .. automodule:: scapy.main
    :members:

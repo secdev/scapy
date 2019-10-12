@@ -1,5 +1,5 @@
-scapy.layers.mobileip module
-============================
+scapy.layers.mobileip
+=====================
 
 .. automodule:: scapy.layers.mobileip
    :members:

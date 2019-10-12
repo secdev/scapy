@@ -1,5 +1,5 @@
-scapy.layers.bluetooth module
-=============================
+scapy.layers.bluetooth
+======================
 
 .. automodule:: scapy.layers.bluetooth
    :members:

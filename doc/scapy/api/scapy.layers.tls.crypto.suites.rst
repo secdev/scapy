@@ -1,5 +1,5 @@
-scapy.layers.tls.crypto.suites module
-=====================================
+scapy.layers.tls.crypto.suites
+==============================
 
 .. automodule:: scapy.layers.tls.crypto.suites
    :members:

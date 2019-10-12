@@ -1,5 +1,5 @@
-scapy.contrib.automotive.obd.pid.pids\_00\_1F module
-====================================================
+scapy.contrib.automotive.obd.pid.pids\_00\_1F
+=============================================
 
 .. automodule:: scapy.contrib.automotive.obd.pid.pids_00_1F
    :members:

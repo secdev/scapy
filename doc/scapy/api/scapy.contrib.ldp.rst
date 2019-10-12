@@ -1,5 +1,5 @@
-scapy.contrib.ldp module
-========================
+scapy.contrib.ldp
+=================
 
 .. automodule:: scapy.contrib.ldp
    :members:

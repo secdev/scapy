@@ -1,5 +1,5 @@
-scapy.layers.isakmp module
-==========================
+scapy.layers.isakmp
+===================
 
 .. automodule:: scapy.layers.isakmp
    :members:

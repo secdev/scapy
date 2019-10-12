@@ -1,5 +1,5 @@
-scapy.contrib.mpls module
-=========================
+scapy.contrib.mpls
+==================
 
 .. automodule:: scapy.contrib.mpls
    :members:

@@ -1,5 +1,5 @@
-scapy.layers.tls.keyexchange module
-===================================
+scapy.layers.tls.keyexchange
+============================
 
 .. automodule:: scapy.layers.tls.keyexchange
    :members:

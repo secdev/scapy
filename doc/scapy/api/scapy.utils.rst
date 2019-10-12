@@ -1,5 +1,5 @@
-scapy.utils module
-==================
+scapy.utils
+===========
 
 .. automodule:: scapy.utils
    :members:

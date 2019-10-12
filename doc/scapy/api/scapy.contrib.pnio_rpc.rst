@@ -1,5 +1,5 @@
-scapy.contrib.pnio\_rpc module
-==============================
+scapy.contrib.pnio\_rpc
+=======================
 
 .. automodule:: scapy.contrib.pnio_rpc
    :members:

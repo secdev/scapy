@@ -1,5 +1,5 @@
-scapy.contrib.wpa\_eapol module
-===============================
+scapy.contrib.wpa\_eapol
+========================
 
 .. automodule:: scapy.contrib.wpa_eapol
    :members:

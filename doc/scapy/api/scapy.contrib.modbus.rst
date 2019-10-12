@@ -1,5 +1,5 @@
-scapy.contrib.modbus module
-===========================
+scapy.contrib.modbus
+====================
 
 .. automodule:: scapy.contrib.modbus
    :members:

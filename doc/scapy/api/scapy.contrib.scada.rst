@@ -6,9 +6,6 @@ scapy.contrib.scada package
    :undoc-members:
    :show-inheritance:
 
-Subpackages
------------
-
 .. toctree::
 
    scapy.contrib.scada.iec104

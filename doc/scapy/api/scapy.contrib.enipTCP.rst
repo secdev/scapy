@@ -1,5 +1,5 @@
-scapy.contrib.enipTCP module
-============================
+scapy.contrib.enipTCP
+=====================
 
 .. automodule:: scapy.contrib.enipTCP
    :members:

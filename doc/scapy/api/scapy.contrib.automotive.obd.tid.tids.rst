@@ -1,5 +1,5 @@
-scapy.contrib.automotive.obd.tid.tids module
-============================================
+scapy.contrib.automotive.obd.tid.tids
+=====================================
 
 .. automodule:: scapy.contrib.automotive.obd.tid.tids
    :members:

@@ -1,5 +1,5 @@
-scapy.contrib.openflow module
-=============================
+scapy.contrib.openflow
+======================
 
 .. automodule:: scapy.contrib.openflow
    :members:

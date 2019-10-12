@@ -6,7 +6,6 @@ scapy.contrib package
    :undoc-members:
    :show-inheritance:
 
-
 .. toctree::
 
    scapy.contrib.automotive
@@ -52,10 +51,14 @@ scapy.contrib package
    scapy.contrib.mac_control
    scapy.contrib.macsec
    scapy.contrib.modbus
+   scapy.contrib.mount
    scapy.contrib.mpls
    scapy.contrib.mqtt
    scapy.contrib.mqttsn
+   scapy.contrib.nfs
+   scapy.contrib.nlm
    scapy.contrib.nsh
+   scapy.contrib.oncrpc
    scapy.contrib.opc_da
    scapy.contrib.openflow
    scapy.contrib.openflow3
@@ -63,6 +66,7 @@ scapy.contrib package
    scapy.contrib.pnio
    scapy.contrib.pnio_dcp
    scapy.contrib.pnio_rpc
+   scapy.contrib.portmap
    scapy.contrib.ppi_cace
    scapy.contrib.ppi_geotag
    scapy.contrib.ripng

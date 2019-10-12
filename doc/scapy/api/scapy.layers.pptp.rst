@@ -1,5 +1,5 @@
-scapy.layers.pptp module
-========================
+scapy.layers.pptp
+=================
 
 .. automodule:: scapy.layers.pptp
    :members:

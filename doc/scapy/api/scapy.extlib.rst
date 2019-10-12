@@ -1,5 +1,5 @@
-scapy.extlib module
-===================
+scapy.extlib
+============
 
 .. automodule:: scapy.extlib
    :members:

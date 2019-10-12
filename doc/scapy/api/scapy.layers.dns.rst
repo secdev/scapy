@@ -1,5 +1,5 @@
-scapy.layers.dns module
-=======================
+scapy.layers.dns
+================
 
 .. automodule:: scapy.layers.dns
    :members:

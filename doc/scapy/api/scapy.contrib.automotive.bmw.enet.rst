@@ -1,5 +1,5 @@
-scapy.contrib.automotive.bmw.enet module
-========================================
+scapy.contrib.automotive.bmw.enet
+=================================
 
 .. automodule:: scapy.contrib.automotive.bmw.enet
    :members:

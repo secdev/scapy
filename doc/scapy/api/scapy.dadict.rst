@@ -1,5 +1,5 @@
-scapy.dadict module
-===================
+scapy.dadict
+============
 
 .. automodule:: scapy.dadict
    :members:

@@ -1,5 +1,5 @@
-scapy.layers.ipsec module
-=========================
+scapy.layers.ipsec
+==================
 
 .. automodule:: scapy.layers.ipsec
    :members:

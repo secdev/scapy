@@ -1,5 +1,5 @@
-scapy.layers.snmp module
-========================
+scapy.layers.snmp
+=================
 
 .. automodule:: scapy.layers.snmp
    :members:

@@ -1,5 +1,5 @@
-scapy.layers.clns module
-========================
+scapy.layers.clns
+=================
 
 .. automodule:: scapy.layers.clns
    :members:

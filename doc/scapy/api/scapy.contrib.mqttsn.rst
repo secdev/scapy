@@ -1,5 +1,5 @@
-scapy.contrib.mqttsn module
-===========================
+scapy.contrib.mqttsn
+====================
 
 .. automodule:: scapy.contrib.mqttsn
    :members:

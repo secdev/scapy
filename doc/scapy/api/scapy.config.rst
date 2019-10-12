@@ -1,5 +1,5 @@
-scapy.config module
-===================
+scapy.config
+============
 
 .. automodule:: scapy.config
    :members:

@@ -1,5 +1,5 @@
-scapy.layers.smb module
-=======================
+scapy.layers.smb
+================
 
 .. automodule:: scapy.layers.smb
    :members:

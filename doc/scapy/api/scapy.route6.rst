@@ -1,5 +1,5 @@
-scapy.route6 module
-===================
+scapy.route6
+============
 
 .. automodule:: scapy.route6
    :members:

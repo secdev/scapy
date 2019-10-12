@@ -1,5 +1,5 @@
-scapy.layers.tls.crypto.hkdf module
-===================================
+scapy.layers.tls.crypto.hkdf
+============================
 
 .. automodule:: scapy.layers.tls.crypto.hkdf
    :members:

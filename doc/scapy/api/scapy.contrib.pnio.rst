@@ -1,5 +1,5 @@
-scapy.contrib.pnio module
-=========================
+scapy.contrib.pnio
+==================
 
 .. automodule:: scapy.contrib.pnio
    :members:

@@ -1,5 +1,5 @@
-scapy.layers.tls.record\_tls13 module
-=====================================
+scapy.layers.tls.record\_tls13
+==============================
 
 .. automodule:: scapy.layers.tls.record_tls13
    :members:

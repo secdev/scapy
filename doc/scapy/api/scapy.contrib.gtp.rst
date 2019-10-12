@@ -1,5 +1,5 @@
-scapy.contrib.gtp module
-========================
+scapy.contrib.gtp
+=================
 
 .. automodule:: scapy.contrib.gtp
    :members:

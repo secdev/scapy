@@ -1,5 +1,5 @@
-scapy.contrib.altbeacon module
-==============================
+scapy.contrib.altbeacon
+=======================
 
 .. automodule:: scapy.contrib.altbeacon
    :members:

@@ -1,5 +1,5 @@
-scapy.contrib.ppi\_geotag module
-================================
+scapy.contrib.ppi\_geotag
+=========================
 
 .. automodule:: scapy.contrib.ppi_geotag
    :members:

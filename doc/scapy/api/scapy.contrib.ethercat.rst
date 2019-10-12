@@ -1,5 +1,5 @@
-scapy.contrib.ethercat module
-=============================
+scapy.contrib.ethercat
+======================
 
 .. automodule:: scapy.contrib.ethercat
    :members:

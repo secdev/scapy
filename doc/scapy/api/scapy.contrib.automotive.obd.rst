@@ -6,9 +6,6 @@ scapy.contrib.automotive.obd package
    :undoc-members:
    :show-inheritance:
 
-Subpackages
------------
-
 .. toctree::
 
    scapy.contrib.automotive.obd.iid
@@ -16,11 +13,9 @@ Subpackages
    scapy.contrib.automotive.obd.pid
    scapy.contrib.automotive.obd.tid
 
-Submodules
-----------
-
 .. toctree::
 
    scapy.contrib.automotive.obd.obd
    scapy.contrib.automotive.obd.packet
+   scapy.contrib.automotive.obd.scanner
    scapy.contrib.automotive.obd.services
