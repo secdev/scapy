@@ -231,7 +231,7 @@ _diagnostics_sub_function = {
 class ModbusPDU08DiagnosticsRequest(Packet):
     name = "Diagnostics"
     fields_desc = [XByteField("funcCode", 0x08),
-                   XShortEnumField("subFunc", 0x0000, _diagnostics_sub_function),
+                   XShortEnumField("subFunc", 0x0000, _diagnostics_sub_function),  # noqa: E501
                    FieldListField("data", [0x0000], XShortField("", 0x0000))]
 
     def extract_padding(self, s):
@@ -241,7 +241,7 @@ class ModbusPDU08DiagnosticsRequest(Packet):
 class ModbusPDU08DiagnosticsResponse(Packet):
     name = "Diagnostics Response"
     fields_desc = [XByteField("funcCode", 0x08),
-                   XShortEnumField("subFunc", 0x0000, _diagnostics_sub_function),
+                   XShortEnumField("subFunc", 0x0000, _diagnostics_sub_function),  # noqa: E501
                    FieldListField("data", [0x0000], XShortField("", 0x0000))]
 
     def extract_padding(self, s):
@@ -255,6 +255,7 @@ class ModbusPDU08DiagnosticsError(Packet):
 
     def extract_padding(self, s):
         return b"", None
+
 
 class ModbusPDU0BGetCommEventCounterRequest(Packet):
     name = "Get Comm Event Counter"
@@ -288,7 +289,7 @@ class ModbusPDU0CGetCommEventLogRequest(Packet):
     fields_desc = [XByteField("funcCode", 0x0C)]
 
     def extract_padding(self, s):
-        return b"", None 
+        return b"", None
 
 
 class ModbusPDU0CGetCommEventLogResponse(Packet):
@@ -301,7 +302,7 @@ class ModbusPDU0CGetCommEventLogResponse(Packet):
                    FieldListField("event", [0x20, 0x00], XByteField("", 0x00))]
 
     def extract_padding(self, s):
-        return b"", None 
+        return b"", None
 
 
 class ModbusPDU0CGetCommEventLogError(Packet):
@@ -310,7 +311,7 @@ class ModbusPDU0CGetCommEventLogError(Packet):
                    XByteField("exceptionCode", 1)]
 
     def extract_padding(self, s):
-        return b"", None 
+        return b"", None
 
 
 class ModbusPDU0FWriteMultipleCoilsRequest(Packet):
