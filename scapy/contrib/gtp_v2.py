@@ -39,20 +39,149 @@ RATType = {
     6: "EUTRAN",
 }
 
-GTPmessageType = {1: "echo_request",
-                     2: "echo_response",
-                     32: "create_session_req",
-                     33: "create_session_res",
-                     34: "modify_bearer_req",
-                     35: "modify_bearer_res",
-                     36: "delete_session_req",
-                     37: "delete_session_res",
-                     70: "downlink_data_notif_failure_indic",
-                     170: "realease_bearers_req",
-                     171: "realease_bearers_res",
-                     176: "downlink_data_notif",
-                     177: "downlink_data_notif_ack",
-                  }
+# 3GPP TS 29.274 v16.1.0 table 6.1-1
+GTPmessageType = {
+    1: "echo_request",
+    2: "echo_response",
+    3: "version_not_supported",
+
+    # 4-16: S101 interface, TS 29.276.
+    # 17-24: S121 interface, TS 29.276.
+    # 25-31: Sv interface, TS 29.280.
+
+    # SGSN/MME/ TWAN/ePDG to PGW (S4/S11, S5/S8, S2a, S2b)
+    32: "create_session_req",
+    33: "create_session_res",
+    36: "delete_session_req",
+    37: "delete_session_res",
+
+    # SGSN/MME/ePDG to PGW (S4/S11, S5/S8, S2b)
+    34: "modify_bearer_req",
+    35: "modify_bearer_res",
+
+    # MME to PGW (S11, S5/S8)
+    40: "remote_ue_report_notif",
+    41: "remote_ue_report_ack",
+
+    # SGSN/MME to PGW (S4/S11, S5/S8)
+    38: "change_notif_req",
+    39: "change_notif_res",
+    # 42-46: For future use.
+    164: "resume_notif",
+    165: "resume_ack",
+
+    # Messages without explicit response
+    64: "modify_bearer_cmd",
+    65: "modify_bearer_failure_indic",
+    66: "delete_bearer_cmd",
+    67: "delete_bearer_failure_indic",
+    68: "bearer_resource_cmd",
+    69: "bearer_resource_failure_indic",
+    70: "downlink_data_notif_failure_indic",
+    71: "trace_session_activation",
+    72: "trace_session_deactivation",
+    73: "stop_paging_indic",
+    # 74-94: For future use.
+
+    # PGW to SGSN/MME/ TWAN/ePDG (S5/S8, S4/S11, S2a, S2b)
+    95: "create_bearer_req",
+    96: "create_bearer_res",
+    97: "update_bearer_req",
+    98: "update_bearer_res",
+    99: "delete_bearer_req",
+    100: "delete_bearer_res",
+
+    # PGW to MME, MME to PGW, SGW to PGW, SGW to MME, PGW to TWAN/ePDG,
+    # TWAN/ePDG to PGW (S5/S8, S11, S2a, S2b)
+    101: "delete_pdn_connection_set_req",
+    102: "delete_pdn_connection_set_res",
+
+    # PGW to SGSN/MME (S5, S4/S11)
+    103: "pgw_downlink_triggering_notif",
+    104: "pgw_downlink_triggering_ack",
+    # 105-127: For future use.
+
+    # MME to MME, SGSN to MME, MME to SGSN, SGSN to SGSN, MME to AMF,
+    # AMF to MME (S3/S10/S16/N26)
+    128: "identification_req",
+    129: "identification_res",
+    130: "context_req",
+    131: "context_res",
+    132: "context_ack",
+    133: "forward_relocation_req",
+    134: "forward_relocation_res",
+    135: "forward_relocation_complete_notif",
+    136: "forward_relocation_complete_ack",
+    137: "forward_access_context_notif",
+    138: "forward_access_context_ack",
+    139: "relocation_cancel_req",
+    140: "relocation_cancel_res",
+    141: "configuration_transfer_tunnel",
+    # 142-148: For future use.
+    152: "ran_information_relay",
+
+    # SGSN to MME, MME to SGSN (S3)
+    149: "detach_notif",
+    150: "detach_ack",
+    151: "cs_paging_indic",
+    153: "alert_mme_notif",
+    154: "alert_mme_ack",
+    155: "ue_activity_notif",
+    156: "ue_activity_ack",
+    157: "isr_status_indic",
+    158: "ue_registration_query_req",
+    159: "ue_registration_query_res",
+
+    # SGSN/MME to SGW, SGSN to MME (S4/S11/S3)
+    # SGSN to SGSN (S16), SGW to PGW (S5/S8)
+    162: "suspend_notif",
+    163: "suspend_ack",
+
+    # SGSN/MME to SGW (S4/S11)
+    160: "create_forwarding_tunnel_req",
+    161: "create_forwarding_tunnel_res",
+    166: "create_indirect_data_forwarding_tunnel_req",
+    167: "create_indirect_data_forwarding_tunnel_res",
+    168: "delete_indirect_data_forwarding_tunnel_req",
+    169: "delete_indirect_data_forwarding_tunnel_res",
+    170: "realease_bearers_req",
+    171: "realease_bearers_res",
+    # 172-175: For future use
+
+    # SGW to SGSN/MME (S4/S11)
+    176: "downlink_data_notif",
+    177: "downlink_data_notif_ack",
+    179: "pgw_restart_notif",
+    180: "pgw_restart_notif_ack",
+
+    # SGW to SGSN (S4)
+    # 178: Reserved. Allocated in earlier version of the specification.
+    # 181-199: For future use.
+
+    # SGW to PGW, PGW to SGW (S5/S8)
+    200: "update_pdn_connection_set_req",
+    201: "update_pdn_connection_set_res",
+    # 202-210: For future use.
+
+    # MME to SGW (S11)
+    211: "modify_access_bearers_req",
+    212: "modify_access_bearers_res",
+    # 213-230: For future use.
+
+    # MBMS GW to MME/SGSN (Sm/Sn)
+    231: "mbms_session_start_req",
+    232: "mbms_session_start_res",
+    233: "mbms_session_update_req",
+    234: "mbms_session_update_res",
+    235: "mbms_session_stop_req",
+    236: "mbms_session_stop_res",
+    # 237-239: For future use.
+
+    # Other
+    # 240-247: Reserved for Sv interface (see also types 25 to 31, and
+    #          TS 29.280).
+    # 248-255: For future use.
+}
 
 IEType = {1: "IMSI",
              2: "Cause",
@@ -99,7 +228,7 @@ class GTPHeader(Packet):
                    BitField("SPARE", 0, 1),
                    ByteEnumField("gtp_type", None, GTPmessageType),
                    ShortField("length", None),
-                   ConditionalField(IntField("teid", 0),
+                   ConditionalField(XIntField("teid", 0),
                                     lambda pkt:pkt.T == 1),
                    ThreeBytesField("seq", RandShort()),
                    ByteField("SPARE", 0)
@@ -241,6 +370,49 @@ class IE_ULI(gtp.IE_Base):
                          lambda pkt: bool(pkt.ECGI_Present))]
 
 
+# 3GPP TS 29.274 v12.12.0 section 8.22
+INTERFACE_TYPES = {
+    0: "S1-U eNodeB GTP-U interface",
+    1: "S1-U SGW GTP-U interface",
+    2: "S12 RNC GTP-U interface",
+    3: "S12 SGW GTP-U interface",
+    4: "S5/S8 SGW GTP-U interface",
+    5: "S5/S8 PGW GTP-U interface",
+    6: "S5/S8 SGW GTP-C interface",
+    7: "S5/S8 PGW GTP-C interface",
+    8: "S5/S8 SGW PMIPv6 interface",
+    9: "S5/S8 PGW PMIPv6 interface",
+    10: "S11 MME GTP-C interface",
+    11: "S11/S4 SGW GTP-C interface",
+    12: "S10 MME GTP-C interface",
+    13: "S3 MME GTP-C interface",
+    14: "S3 SGSN GTP-C interface",
+    15: "S4 SGSN GTP-U interface",
+    16: "S4 SGW GTP-U interface",
+    17: "S4 SGSN GTP-C interface",
+    18: "S16 SGSN GTP-C interface",
+    19: "eNodeB GTP-U interface for DL data forwarding",
+    20: "eNodeB GTP-U interface for UL data forwarding",
+    21: "RNC GTP-U interface for data forwarding",
+    22: "SGSN GTP-U interface for data forwarding",
+    23: "SGW GTP-U interface for DL data forwarding",
+    24: "Sm MBMS GW GTP-C interface",
+    25: "Sn MBMS GW GTP-C interface",
+    26: "Sm MME GTP-C interface",
+    27: "Sn SGSN GTP-C interface",
+    28: "SGW GTP-U interface for UL data forwarding",
+    29: "Sn SGSN GTP-U interface",
+    30: "S2b ePDG GTP-C interface",
+    31: "S2b-U ePDG GTP-U interface",
+    32: "S2b PGW GTP-C interface",
+    33: "S2b-U PGW GTP-U interface",
+    34: "S2a TWAN GTP-U interface",
+    35: "S2a TWAN GTP-C interface",
+    36: "S2a PGW GTP-C interface",
+    37: "S2a PGW GTP-U interface",
+}
+
+
 class IE_FTEID(gtp.IE_Base):
     name = "IE F-TEID"
     fields_desc = [ByteEnumField("ietype", 87, IEType),
@@ -249,7 +421,7 @@ class IE_FTEID(gtp.IE_Base):
                    BitField("instance", 0, 4),
                    BitField("ipv4_present", 0, 1),
                    BitField("ipv6_present", 0, 1),
-                   BitField("InterfaceType", 0, 6),
+                   BitEnumField("InterfaceType", 0, 6, INTERFACE_TYPES),
                    XIntField("GRE_Key", 0),
                    ConditionalField(
         IPField("ipv4", RandIP()), lambda pkt: pkt.ipv4_present),
