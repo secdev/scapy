@@ -24,13 +24,12 @@ import struct
 from scapy.packet import Packet, bind_layers
 from scapy.fields import XByteField, XShortField, StrLenField, ByteEnumField, \
     BitFieldLenField, ByteField, ConditionalField, EnumField, FieldListField, \
-    ShortField, StrFixedLenField
+    ShortField, StrFixedLenField, XShortEnumField
 from scapy.layers.inet import TCP
 from scapy.utils import orb
 from scapy.config import conf
 from scapy.volatile import VolatileValue
 
-# TODO: implement serial specific function codes
 
 _modbus_exceptions = {1: "Illegal Function Code",
                       2: "Illegal Data Address",
@@ -208,6 +207,111 @@ class ModbusPDU07ReadExceptionStatusError(Packet):
     name = "Read Exception Status Exception"
     fields_desc = [XByteField("funcCode", 0x87),
                    ByteEnumField("exceptCode", 1, _modbus_exceptions)]
+
+
+_diagnostics_sub_function = {
+    0x0000: "Return Query Data",
+    0x0001: "Restart Communications Option",
+    0x0002: "Return Diagnostic Register",
+    0x0003: "Change ASCII Input Delimiter",
+    0x0004: "Force Listen Only Mode",
+    0x000A: "Clear Counters and Diagnostic Register",
+    0x000B: "Return Bus Message Count",
+    0x000C: "Return Bus Communication Error Count",
+    0x000D: "Return Bus Exception Error Count",
+    0x000E: "Return Slave Message Count",
+    0x000F: "Return Slave No Response Count",
+    0x0010: "Return Slave NAK Count",
+    0x0011: "Return Slave Busy Count",
+    0x0012: "Return Bus Character Overrun Count",
+    0x0014: "Clear Overrun Counter and Flag"
+}
+
+
+class ModbusPDU08DiagnosticsRequest(Packet):
+    name = "Diagnostics"
+    fields_desc = [XByteField("funcCode", 0x08),
+                   XShortEnumField("subFunc", 0x0000, _diagnostics_sub_function),  # noqa: E501
+                   FieldListField("data", [0x0000], XShortField("", 0x0000))]
+
+    def extract_padding(self, s):
+        return b"", None
+
+
+class ModbusPDU08DiagnosticsResponse(Packet):
+    name = "Diagnostics Response"
+    fields_desc = [XByteField("funcCode", 0x08),
+                   XShortEnumField("subFunc", 0x0000, _diagnostics_sub_function),  # noqa: E501
+                   FieldListField("data", [0x0000], XShortField("", 0x0000))]
+
+    def extract_padding(self, s):
+        return b"", None
+
+
+class ModbusPDU08DiagnosticsError(Packet):
+    name = "Diagnostics Exception"
+    fields_desc = [XByteField("funcCode", 0x88),
+                   ByteEnumField("exceptionCode", 1, _modbus_exceptions)]
+
+    def extract_padding(self, s):
+        return b"", None
+
+
+class ModbusPDU0BGetCommEventCounterRequest(Packet):
+    name = "Get Comm Event Counter"
+    fields_desc = [XByteField("funcCode", 0x0B)]
+
+    def extract_padding(self, s):
+        return b"", None
+
+
+class ModbusPDU0BGetCommEventCounterResponse(Packet):
+    name = "Get Comm Event Counter Response"
+    fields_desc = [XByteField("funcCode", 0x0B),
+                   XShortField("status", 0x0000),
+                   XShortField("eventCount", 0xFFFF)]
+
+    def extract_padding(self, s):
+        return b"", None
+
+
+class ModbusPDU0BGetCommEventCounterError(Packet):
+    name = "Get Comm Event Counter Exception"
+    fields_desc = [XByteField("funcCode", 0x8B),
+                   ByteEnumField("exceptionCode", 1, _modbus_exceptions)]
+
+    def extract_padding(self, s):
+        return b"", None
+
+
+class ModbusPDU0CGetCommEventLogRequest(Packet):
+    name = "Get Comm Event Log"
+    fields_desc = [XByteField("funcCode", 0x0C)]
+
+    def extract_padding(self, s):
+        return b"", None
+
+
+class ModbusPDU0CGetCommEventLogResponse(Packet):
+    name = "Get Comm Event Log Response"
+    fields_desc = [XByteField("funcCode", 0x0C),
+                   ByteField("byteCount", 8),
+                   XShortField("status", 0x0000),
+                   XShortField("eventCount", 0x0108),
+                   XShortField("messageCount", 0x0121),
+                   FieldListField("event", [0x20, 0x00], XByteField("", 0x00))]
+
+    def extract_padding(self, s):
+        return b"", None
+
+
+class ModbusPDU0CGetCommEventLogError(Packet):
+    name = "Get Comm Event Log Exception"
+    fields_desc = [XByteField("funcCode", 0x8C),
+                   XByteField("exceptionCode", 1)]
+
+    def extract_padding(self, s):
+        return b"", None
 
 
 class ModbusPDU0FWriteMultipleCoilsRequest(Packet):
@@ -546,7 +650,6 @@ class ModbusPDU2B0EReadDeviceIdentificationError(Packet):
 
 
 _reserved_funccode_request = {
-    0x08: '0x08 Unknown Reserved Request',
     0x09: '0x09 Unknown Reserved Request',
     0x0A: '0x0a Unknown Reserved Request',
     0x0D: '0x0d Unknown Reserved Request',
@@ -561,7 +664,6 @@ _reserved_funccode_request = {
 }
 
 _reserved_funccode_response = {
-    0x08: '0x08 Unknown Reserved Response',
     0x09: '0x09 Unknown Reserved Response',
     0x0A: '0x0a Unknown Reserved Response',
     0x0D: '0x0d Unknown Reserved Response',
@@ -576,7 +678,6 @@ _reserved_funccode_response = {
 }
 
 _reserved_funccode_error = {
-    0x88: '0x88 Unknown Reserved Error',
     0x89: '0x89 Unknown Reserved Error',
     0x8A: '0x8a Unknown Reserved Error',
     0x8D: '0x8d Unknown Reserved Error',
@@ -718,6 +819,9 @@ _modbus_request_classes = {
     0x05: ModbusPDU05WriteSingleCoilRequest,
     0x06: ModbusPDU06WriteSingleRegisterRequest,
     0x07: ModbusPDU07ReadExceptionStatusRequest,
+    0x08: ModbusPDU08DiagnosticsRequest,
+    0x0B: ModbusPDU0BGetCommEventCounterRequest,
+    0x0C: ModbusPDU0CGetCommEventLogRequest,
     0x0F: ModbusPDU0FWriteMultipleCoilsRequest,
     0x10: ModbusPDU10WriteMultipleRegistersRequest,
     0x11: ModbusPDU11ReportSlaveIdRequest,
@@ -735,6 +839,9 @@ _modbus_error_classes = {
     0x85: ModbusPDU05WriteSingleCoilError,
     0x86: ModbusPDU06WriteSingleRegisterError,
     0x87: ModbusPDU07ReadExceptionStatusError,
+    0x88: ModbusPDU08DiagnosticsError,
+    0x8B: ModbusPDU0BGetCommEventCounterError,
+    0x0C: ModbusPDU0CGetCommEventLogError,
     0x8F: ModbusPDU0FWriteMultipleCoilsError,
     0x90: ModbusPDU10WriteMultipleRegistersError,
     0x91: ModbusPDU11ReportSlaveIdError,
@@ -753,6 +860,9 @@ _modbus_response_classes = {
     0x05: ModbusPDU05WriteSingleCoilResponse,
     0x06: ModbusPDU06WriteSingleRegisterResponse,
     0x07: ModbusPDU07ReadExceptionStatusResponse,
+    0x88: ModbusPDU08DiagnosticsResponse,
+    0x8B: ModbusPDU0BGetCommEventCounterRequest,
+    0x0C: ModbusPDU0CGetCommEventLogResponse,
     0x0F: ModbusPDU0FWriteMultipleCoilsResponse,
     0x10: ModbusPDU10WriteMultipleRegistersResponse,
     0x11: ModbusPDU11ReportSlaveIdResponse,
