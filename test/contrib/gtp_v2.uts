@@ -412,16 +412,26 @@ ie = IE_MMBR(ietype='Max MBR/APN-AMBR (MMBR)',
                     length=8, uplink_rate=5696, downlink_rate=21000)
 ie.ietype == 161 and ie.uplink_rate == 5696 and ie.downlink_rate == 21000
 
-= GTPHeader answers to not GTPHeader instance
+= GTPHeader isn't an answer to not GTPHeader instance
 GTPHeader(gtp_type=2).answers(Ether()) == False
+
+= GTPHeader is an answer to a message with the same sequence number
+GTPHeader(seq=42).answers(GTPHeader(seq=42)) == True
+
+= GTPHeader isn't an answer to a message with a different sequence number
+GTPHeader(seq=42).answers(GTPHeader(seq=24)) == False
+
+= GTPV2EchoResponse answers
+assert (GTPHeader(seq=1)/GTPV2EchoResponse()).answers(GTPHeader(seq=1)/GTPV2EchoRequest())
+assert not (GTPHeader(seq=1)/GTPV2EchoResponse()).answers(GTPHeader(seq=1)/GTPV2EchoResponse())
 
 = GTPHeader post_build
 gtp = GTPHeader(gtp_type="create_session_req") / ("X"*32)
 gtp.show2()
 
 = GTPHeader hashret
-req = GTPHeader(gtp_type="create_session_req") / ("X"*32)
-res = GTPHeader(gtp_type="create_session_res") / ("Y"*32)
+req = GTPHeader(gtp_type="create_session_req", seq=1) / ("X"*32)
+res = GTPHeader(gtp_type="create_session_res", seq=1) / ("Y"*32)
 req.hashret() == res.hashret()
 
 = IE_NotImplementedTLV
