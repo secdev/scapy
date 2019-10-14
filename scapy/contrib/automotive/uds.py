@@ -740,7 +740,7 @@ class UDS_DDDIPR(Packet):
 
     def answers(self, other):
         return other.__class__ == UDS_DDDI \
-            and other.definitionMode == self.definitionMode
+            and other.subFunction == self.subFunction
 
 
 bind_layers(UDS, UDS_DDDIPR, service=0x6C)
