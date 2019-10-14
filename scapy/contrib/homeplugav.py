@@ -480,33 +480,37 @@ class ReadMACMemoryConfirmation(Packet):
 # Module Operation (for newest chipset like 6410, 7000, 7420 and 7500)
 ######################################################################
 
+
 OperationList = {0x0000: "Read",
                  0x0011: "Write"}
 
+
 class ModuleOperationRequest(Packet):
     name = "ModuleOperationRequest"
-    fields_desc=[XIntField("reserved", 0),
-                 XByteField("NumOpData", 0x01),
-                 LEShortEnumField("operation", 0x0000, OperationList),
-                 LEShortField("OPDataLength" , None),
-                 XIntField("reserved_1", 0),
-                 ConditionalField( LEIntField("SessionID", 0),
-                       lambda pkt:(0x0011 == pkt.operation)),
-                 ConditionalField( XByteField("ModuleIDX", 0),
-                       lambda pkt:(0x0011 == pkt.operation)),
-                 LEShortField("ModuleID", 0x7002),
-                 LEShortField("ModuleSubID", 0x0000),
-                 ConditionalField( LEShortField("ReadDataLen" , 0x0578),
-                       lambda pkt:(0x0000 == pkt.operation)),
-                 ConditionalField( LEIntField("ReadOffset", 0x00000000),
-                       lambda pkt:(0x0000 == pkt.operation)),
-                 ConditionalField( FieldLenField("WriteDataLen", None, count_of="ModuleData", fmt="<H"),
-                       lambda pkt:(0x0011 == pkt.operation)),
-                 ConditionalField( LEIntField("WriteOffset", 0x00000000),
-                       lambda pkt:(0x0011 == pkt.operation)),
-                 ConditionalField( StrLenField("ModuleData", b"\x00", length_from = lambda pkt: pkt.WriteDataLen),
-                       lambda pkt:(0x0011 == pkt.operation)),
-                ]
+    fields_desc = [XIntField("reserved", 0),
+                   XByteField("NumOpData", 0x01),
+                   LEShortEnumField("operation", 0x0000, OperationList),
+                   LEShortField("OPDataLength", None),
+                   XIntField("reserved_1", 0),
+                   ConditionalField(LEIntField("SessionID", 0),
+                                    lambda pkt:(0x0011 == pkt.operation)),
+                   ConditionalField(XByteField("ModuleIDX", 0),
+                                    lambda pkt:(0x0011 == pkt.operation)),
+                   LEShortField("ModuleID", 0x7002),
+                   LEShortField("ModuleSubID", 0x0000),
+                   ConditionalField(LEShortField("ReadDataLen", 0x0578),
+                                    lambda pkt:(0x0000 == pkt.operation)),
+                   ConditionalField(LEIntField("ReadOffset", 0x00000000),
+                                    lambda pkt:(0x0000 == pkt.operation)),
+                   ConditionalField(FieldLenField("WriteDataLen", None,
+                                                  count_of="ModuleData",
+                                                  fmt="<H"),
+                                    lambda pkt:(0x0011 == pkt.operation)),
+                   ConditionalField(LEIntField("WriteOffset", 0x00000000),
+                                    lambda pkt:(0x0011 == pkt.operation)),
+                   ConditionalField(StrLenField("ModuleData", b"\x00",
+                                                length_from=lambda pkt: pkt.WriteDataLen),  # noqa: E501
+                                    lambda pkt:(0x0011 == pkt.operation))]
 
     def post_build(self, p, pay):
         if self.operation == 0x0000:
@@ -520,34 +524,37 @@ class ModuleOperationRequest(Packet):
             if self.WriteDataLen is None:
                 _len = len(self.ModuleData)
                 p = p[:22] + struct.pack('h', _len) + p[24:]
-        return p+pay
+        return p + pay
+
 
 class ModuleOperationConfirmation(Packet):
     name = "ModuleOperationConfirmation"
-    fields_desc=[LEShortField("Status", 0x0000),
-                 LEShortField("ErrorCode", 0x0000),
-                 XIntField("reserved", 0),
-                 XByteField("NumOpData", 0x01),
-                 LEShortEnumField("operation", 0x0000, OperationList),
-                 LEShortField("OPDataLength" , 0x0012),
-                 XIntField("reserved_1", 0),
-                 ConditionalField( LEIntField("SessionID", 0),
-                       lambda pkt:(0x0011 == pkt.operation) ),
-                 ConditionalField( XByteField("ModuleIDX", 0),
-                       lambda pkt:(0x0011 == pkt.operation) ),
-                 LEShortField("ModuleID", 0x7002),
-                 LEShortField("ModuleSubID", 0x0000),
-                 ConditionalField( FieldLenField("ReadDataLen", None, count_of="ModuleData", fmt="<H"),
-                       lambda pkt:(0x0000 == pkt.operation) ),
-                 ConditionalField( LEIntField("ReadOffset", 0x00000000),
-                       lambda pkt:(0x0000 == pkt.operation) ),
-                 ConditionalField( StrLenField("ModuleData", b"\x00", length_from = lambda pkt: pkt.ReadDataLen),
-                       lambda pkt:(0x0000 == pkt.operation) ),
-                 ConditionalField( LEShortField("WriteDataLen", 0),
-                       lambda pkt:(0x0011 == pkt.operation) ),
-                 ConditionalField( LEIntField("WriteOffset", 0x00000000),
-                       lambda pkt:(0x0011 == pkt.operation) ),
-                ]
+    fields_desc = [LEShortField("Status", 0x0000),
+                   LEShortField("ErrorCode", 0x0000),
+                   XIntField("reserved", 0),
+                   XByteField("NumOpData", 0x01),
+                   LEShortEnumField("operation", 0x0000, OperationList),
+                   LEShortField("OPDataLength", 0x0012),
+                   XIntField("reserved_1", 0),
+                   ConditionalField(LEIntField("SessionID", 0),
+                                    lambda pkt:(0x0011 == pkt.operation)),
+                   ConditionalField(XByteField("ModuleIDX", 0),
+                                    lambda pkt:(0x0011 == pkt.operation)),
+                   LEShortField("ModuleID", 0x7002),
+                   LEShortField("ModuleSubID", 0x0000),
+                   ConditionalField(FieldLenField("ReadDataLen", None,
+                                                  count_of="ModuleData",
+                                                  fmt="<H"),
+                                    lambda pkt:(0x0000 == pkt.operation)),
+                   ConditionalField(LEIntField("ReadOffset", 0x00000000),
+                                    lambda pkt:(0x0000 == pkt.operation)),
+                   ConditionalField(StrLenField("ModuleData", b"\x00",
+                                                length_from=lambda pkt: pkt.ReadDataLen),  # noqa: E501
+                                    lambda pkt:(0x0000 == pkt.operation)),
+                   ConditionalField(LEShortField("WriteDataLen", 0),
+                                    lambda pkt:(0x0011 == pkt.operation)),
+                   ConditionalField(LEIntField("WriteOffset", 0x00000000),
+                                    lambda pkt:(0x0011 == pkt.operation))]
 
     def post_build(self, p, pay):
         if self.operation == 0x0011:
@@ -561,7 +568,8 @@ class ModuleOperationConfirmation(Packet):
             if self.WriteDataLen is None:
                 _len = len(self.ModuleData)
                 p = p[:17] + struct.pack('h', _len) + p[19:]
-        return p+pay
+        return p + pay
+
 
 ######################################################################
 # Read Module Data
@@ -1394,8 +1402,8 @@ bind_layers(HomePlugAV, ReadMACMemoryRequest, {"HPtype": 0xA008})
 bind_layers(HomePlugAV, ReadMACMemoryConfirmation, {"HPtype": 0xA009})
 bind_layers(HomePlugAV, ReadModuleDataRequest, {"HPtype": 0xA024})
 bind_layers(HomePlugAV, ReadModuleDataConfirmation, {"HPtype": 0xA025})
-bind_layers( HomePlugAV, ModuleOperationRequest, {"HPtype": 0xA0B0 })
-bind_layers( HomePlugAV, ModuleOperationConfirmation, {"HPtype": 0xA0B1 })
+bind_layers(HomePlugAV, ModuleOperationRequest, {"HPtype": 0xA0B0})
+bind_layers(HomePlugAV, ModuleOperationConfirmation, {"HPtype": 0xA0B1})
 bind_layers(HomePlugAV, WriteModuleDataRequest, {"HPtype": 0xA020})
 bind_layers(HomePlugAV, WriteModuleData2NVMRequest, {"HPtype": 0xA028})
 bind_layers(HomePlugAV, WriteModuleData2NVMConfirmation, {"HPtype": 0xA029})
