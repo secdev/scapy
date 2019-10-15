@@ -271,7 +271,7 @@ Alternatively, a install script in ``scapy/doc/syntax/vim_uts_syntax/`` does the
 
 
 Releasing Scapy
----------------
+===============
 
 Under the hood, a Scapy release is represented as a signed git tag. Prior to
 signing a commit, the maintainer that wishes to create a release must:
