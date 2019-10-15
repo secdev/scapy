@@ -74,7 +74,7 @@ CONTROL_PACKET_TYPE = {
     12: 'PINGREQ',
     13: 'PINGRESP',
     14: 'DISCONNECT',
-    15: 'AUTH' #Added in v5.0
+    15: 'AUTH'  # Added in v5.0
 }
 
 
