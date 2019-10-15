@@ -11094,7 +11094,7 @@ assert a in ["True", "False"]
 = Various volatiles
 
 random.seed(0x2807)
-assert RandNumGamma(1, 42) == 8
+assert RandNumGamma(1, 42)._fix() in (8, 73)
 
 random.seed(0x2807)
 assert RandNumGauss(1, 42) == 8
