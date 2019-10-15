@@ -69,12 +69,12 @@ CONTROL_PACKET_TYPE = {
     7: 'PUBCOMP',
     8: 'SUBSCRIBE',
     9: 'SUBACK',
-    10: 'UNSUBSCRIBE', 
+    10: 'UNSUBSCRIBE',
     11: 'UNSUBACK',
     12: 'PINGREQ',
     13: 'PINGRESP',
     14: 'DISCONNECT',
-    15: 'AUTH'         #Added in v5.0
+    15: 'AUTH' #Added in v5.0
 }
 
 
