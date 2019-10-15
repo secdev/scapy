@@ -59,25 +59,30 @@ class RandVariableFieldLen(RandNum):
 
 
 # LAYERS
-CONTROL_PACKET_TYPE = {1: 'CONNECT',
-                       2: 'CONNACK',
-                       3: 'PUBLISH',
-                       4: 'PUBACK',
-                       5: 'PUBREC',
-                       6: 'PUBREL',
-                       7: 'PUBCOMP',
-                       8: 'SUBSCRIBE',
-                       9: 'SUBACK',
-                       10: 'UNSUBSCRIBE',
-                       11: 'UNSUBACK',
-                       12: 'PINGREQ',
-                       13: 'PINGRESP',
-                       14: 'DISCONNECT'}
+CONTROL_PACKET_TYPE = {
+    1: 'CONNECT',
+    2: 'CONNACK',
+    3: 'PUBLISH',
+    4: 'PUBACK',
+    5: 'PUBREC',
+    6: 'PUBREL',
+    7: 'PUBCOMP',
+    8: 'SUBSCRIBE',
+    9: 'SUBACK',
+    10: 'UNSUBSCRIBE', 
+    11: 'UNSUBACK',
+    12: 'PINGREQ',
+    13: 'PINGRESP',
+    14: 'DISCONNECT',
+    15: 'AUTH'         #Added in v5.0
+}
 
 
-QOS_LEVEL = {0: 'At most once delivery',
-             1: 'At least once delivery',
-             2: 'Exactly once delivery'}
+QOS_LEVEL = {
+    0: 'At most once delivery',
+    1: 'At least once delivery',
+    2: 'Exactly once delivery'
+}
 
 
 # source: http://stackoverflow.com/a/43722441
@@ -98,13 +103,20 @@ class MQTT(Packet):
     ]
 
 
+PROTOCOL_LEVEL = {
+    3: 'v3.1',
+    4: 'v3.1.1',
+    5: 'v5.0'
+}
+
+
 class MQTTConnect(Packet):
     name = "MQTT connect"
     fields_desc = [
         FieldLenField("length", None, length_of="protoname"),
         StrLenField("protoname", "",
                     length_from=lambda pkt: pkt.length),
-        ByteField("protolevel", 0),
+        ByteEnumField("protolevel", 5, PROTOCOL_LEVEL),
         BitEnumField("usernameflag", 0, 1, {0: 'Disabled',
                                             1: 'Enabled'}),
         BitEnumField("passwordflag", 0, 1, {0: 'Disabled',
@@ -146,12 +158,14 @@ class MQTTConnect(Packet):
     ]
 
 
-RETURN_CODE = {0: 'Connection Accepted',
-               1: 'Unacceptable protocol version',
-               2: 'Identifier rejected',
-               3: 'Server unavailable',
-               4: 'Bad username/password',
-               5: 'Not authorized'}
+RETURN_CODE = {
+    0: 'Connection Accepted',
+    1: 'Unacceptable protocol version',
+    2: 'Identifier rejected',
+    3: 'Server unavailable',
+    4: 'Bad username/password',
+    5: 'Not authorized'
+}
 
 
 class MQTTConnack(Packet):
@@ -217,10 +231,12 @@ class MQTTSubscribe(Packet):
     ]
 
 
-ALLOWED_RETURN_CODE = {0: 'Success',
-                       1: 'Success',
-                       2: 'Success',
-                       128: 'Failure'}
+ALLOWED_RETURN_CODE = {
+    0: 'Success',
+    1: 'Success',
+    2: 'Success',
+    128: 'Failure'
+}
 
 
 class MQTTSuback(Packet):
