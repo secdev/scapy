@@ -102,7 +102,7 @@ class UDS(ISOTP):
         if self.service == (other.service + 0x40):
             if isinstance(self.payload, NoPayload) or \
                     isinstance(other.payload, NoPayload):
-                return len(self) == len(other)
+                return len(self) <= len(other)
             else:
                 return self.payload.answers(other.payload)
         return False
