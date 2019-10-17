@@ -102,7 +102,7 @@ class UDS(ISOTP):
         if self.service == (other.service + 0x40):
             if isinstance(self.payload, NoPayload) or \
                     isinstance(other.payload, NoPayload):
-                return True
+                return len(self) == len(other)
             else:
                 return self.payload.answers(other.payload)
         return False
@@ -564,7 +564,7 @@ class UDS_RDBI(Packet):
     dataIdentifiers = ObservableDict()
     name = 'ReadDataByIdentifier'
     fields_desc = [
-        FieldListField("identifiers", [],
+        FieldListField("identifiers", [0],
                        XShortEnumField('dataIdentifier', 0,
                                        dataIdentifiers))
     ]

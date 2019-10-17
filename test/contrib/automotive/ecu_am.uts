@@ -121,10 +121,13 @@ example_responses = \
 with ISOTPSocket(new_can_socket(iface0), sid=0x700, did=0x600, basecls=UDS) as ecu, \
         ISOTPSocket(new_can_socket(iface0), sid=0x600, did=0x700, basecls=UDS) as tester:
     answering_machine = ECU_am(supported_responses=example_responses, main_socket=ecu, basecls=UDS)
-    sim = threading.Thread(target=answering_machine, kwargs={'count': 2})
+    sim = threading.Thread(target=answering_machine, kwargs={'count': 3})
     sim.start()
     try:
         resp = tester.sr1(UDS()/UDS_RDBI(identifiers=[0x123]), timeout=1, verbose=False)
+        assert resp.negativeResponseCode == 0x10
+        assert resp.requestServiceId == 34
+        resp = tester.sr1(UDS(service=0x22), timeout=1, verbose=False)
         assert resp.negativeResponseCode == 0x10
         assert resp.requestServiceId == 34
         resp = tester.sr1(UDS() / UDS_RDBI(identifiers=[0x1234]), timeout=1, verbose=False)
