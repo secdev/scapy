@@ -25,6 +25,10 @@ class ScapyInvalidPlatformException(Scapy_Exception):
     pass
 
 
+class ScapyNoDstMacException(Scapy_Exception):
+    pass
+
+
 class ScapyFreqFilter(logging.Filter):
     def __init__(self):
         logging.Filter.__init__(self)
