@@ -268,7 +268,7 @@ class AbstractUVarIntField(fields.Field):
             value += (byte ^ 0x80) << (7 * (i - 1))
             if value > max_value:
                 raise error.Scapy_Exception(
-                    'out-of-bound value: the string encodes a value that is too large (>2^{64}): {}'.format(value)  # noqa: E501
+                    'out-of-bound value: the string encodes a value that is too large (>2^{{64}}): {}'.format(value)  # noqa: E501
                 )
             i += 1
             assert i < tmp_len, 'EINVAL: x: out-of-bound read: the string ends before the AbstractUVarIntField!'  # noqa: E501

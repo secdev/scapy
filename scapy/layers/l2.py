@@ -23,7 +23,7 @@ from scapy import consts
 from scapy.data import ARPHDR_ETHER, ARPHDR_LOOPBACK, ARPHDR_METRICOM, \
     DLT_LINUX_IRDA, DLT_LINUX_SLL, DLT_LOOP, DLT_NULL, ETHER_ANY, \
     ETHER_BROADCAST, ETHER_TYPES, ETH_P_ARP, ETH_P_MACSEC
-from scapy.error import warning
+from scapy.error import warning, ScapyNoDstMacException
 from scapy.fields import BCDFloatField, BitField, ByteField, \
     ConditionalField, FieldLenField, IntEnumField, IntField, IP6Field, \
     IPField, LenField, MACField, MultipleTypeField, ShortEnumField, \
@@ -116,8 +116,11 @@ class DestMACField(MACField):
             except socket.error:
                 pass
             if x is None:
-                x = "ff:ff:ff:ff:ff:ff"
-                warning("Mac address to reach destination not found. Using broadcast.")  # noqa: E501
+                if conf.raise_no_dst_mac:
+                    raise ScapyNoDstMacException()
+                else:
+                    x = "ff:ff:ff:ff:ff:ff"
+                    warning("Mac address to reach destination not found. Using broadcast.")  # noqa: E501
         return MACField.i2h(self, pkt, x)
 
     def i2m(self, pkt, x):
