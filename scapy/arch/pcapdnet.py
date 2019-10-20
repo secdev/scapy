@@ -192,6 +192,7 @@ if conf.use_pcap:
         def __init__(self, device, snaplen, promisc, to_ms, monitor=None):
             self.errbuf = create_string_buffer(PCAP_ERRBUF_SIZE)
             self.iface = create_string_buffer(device.encode("utf8"))
+            self.dtl = None
             if monitor:
                 if WINDOWS and not conf.use_npcap:
                     raise OSError("On Windows, this feature requires NPcap !")
@@ -231,7 +232,10 @@ if conf.use_pcap:
         __next__ = next
 
         def datalink(self):
-            return pcap_datalink(self.pcap)
+            """Wrapper around pcap_datalink"""
+            if self.dtl is None:
+                self.dtl = pcap_datalink(self.pcap)
+            return self.dtl
 
         def fileno(self):
             if WINDOWS:
