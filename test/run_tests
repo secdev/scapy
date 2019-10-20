@@ -1,6 +1,6 @@
 #! /bin/sh
 DIR=$(dirname $0)/..
-PYTHON=${PYTHON:-python}
+PYTHON=${PYTHON:-python3}
 PYTHONDONTWRITEBYTECODE="True"
 if [ -z "$*" ]
 then

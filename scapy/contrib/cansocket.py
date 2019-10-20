@@ -21,22 +21,27 @@ try:
     if conf.contribs['CANSocket']['use-python-can']:
         from can import BusABC as can_BusABC    # noqa: F401
         PYTHON_CAN = True
+    else:
+        PYTHON_CAN = False
 except ImportError:
     log_loading.info("Can't import python-can.")
 except KeyError:
-    log_loading.info("Specify 'conf.contribs['CANSocket'] = "
-                     "{'use-python-can': True}' to enable python-can.")
+    log_loading.info("Configuration 'conf.contribs['CANSocket'] not found.")
 
 
 if PYTHON_CAN:
-    from scapy.contrib.cansocket_python_can import (CANSocket,   # noqa: F401
-                                                    srcan, CANSocketTimeoutElapsed, CAN_FRAME_SIZE, CAN_INV_FILTER)  # noqa: E501
+    log_loading.info("Using python-can CANSocket.")
+    log_loading.info("Specify 'conf.contribs['CANSocket'] = "
+                     "{'use-python-can': False}' to enable native CANSockets.")
+    from scapy.contrib.cansocket_python_can import (CANSocket, srcan, CAN_FRAME_SIZE, CAN_INV_FILTER)  # noqa: E501 F401
+
 elif LINUX and six.PY3:
-    log_loading.info("Use native CANSocket. Specify "
-                     "'conf.contribs['CANSocket'] = "
-                     "{'use-python-can': True}' to enable python-can.")
-    from scapy.contrib.cansocket_native import (CANSocket,   # noqa: F401
-                                                srcan, CAN_FRAME_SIZE, CAN_INV_FILTER)  # noqa: E501
+    log_loading.info("Using native CANSocket.")
+    log_loading.info("Specify 'conf.contribs['CANSocket'] = "
+                     "{'use-python-can': True}' "
+                     "to enable python-can CANSockets.")
+    from scapy.contrib.cansocket_native import (CANSocket, srcan, CAN_FRAME_SIZE, CAN_INV_FILTER)  # noqa: E501 F401
+
 else:
     log_loading.info("No CAN support available. Install python-can or "
                      "use Linux and python3.")

@@ -7,9 +7,10 @@
 # scapy.contrib.status = skip
 
 from scapy.fields import ByteField, XByteField, BitEnumField, \
-    PacketListField, XBitField, XByteEnumField, FieldListField
+    PacketListField, XBitField, XByteEnumField, FieldListField, FieldLenField
 from scapy.packet import Packet
 from scapy.contrib.automotive.obd.packet import OBD_Packet
+from scapy.config import conf
 
 
 class OBD_DTC(OBD_Packet):
@@ -48,15 +49,20 @@ class OBD_NR(Packet):
         XByteEnumField('response_code', 0, responses)
     ]
 
+    def answers(self, other):
+        return self.request_service_id == other.service and \
+            (self.response_code != 0x78 or
+             conf.contribs['OBD']['treat-response-pending-as-answer'])
+
 
 class OBD_S01(Packet):
     name = "S1_CurrentData"
     fields_desc = [
-        FieldListField("pid", [0], XByteField('', 0))
+        FieldListField("pid", [], XByteField('', 0))
     ]
 
 
-class OBD_S02_Req(OBD_Packet):
+class OBD_S02_Record(OBD_Packet):
     fields_desc = [
         XByteField('pid', 0),
         ByteField('frame_no', 0)
@@ -66,7 +72,7 @@ class OBD_S02_Req(OBD_Packet):
 class OBD_S02(Packet):
     name = "S2_FreezeFrameData"
     fields_desc = [
-        PacketListField("requests", None, OBD_S02_Req)
+        PacketListField("requests", [], OBD_S02_Record)
     ]
 
 
@@ -74,10 +80,10 @@ class OBD_S03(Packet):
     name = "S3_RequestDTCs"
 
 
-class OBD_S03_DTC(Packet):
+class OBD_S03_PR(Packet):
     name = "S3_ResponseDTCs"
     fields_desc = [
-        ByteField('count', 0),
+        FieldLenField('count', None, count_of='dtcs', fmt='B'),
         PacketListField('dtcs', [], OBD_DTC, count_from=lambda pkt: pkt.count)
     ]
 
@@ -93,7 +99,7 @@ class OBD_S04_PR(Packet):
 class OBD_S06(Packet):
     name = "S6_OnBoardDiagnosticMonitoring"
     fields_desc = [
-        FieldListField("mid", [0], XByteField('', 0))
+        FieldListField("mid", [], XByteField('', 0))
     ]
 
 
@@ -101,10 +107,10 @@ class OBD_S07(Packet):
     name = "S7_RequestPendingDTCs"
 
 
-class OBD_S07_DTC(Packet):
+class OBD_S07_PR(Packet):
     name = "S7_ResponsePendingDTCs"
     fields_desc = [
-        ByteField('count', 0),
+        FieldLenField('count', None, count_of='dtcs', fmt='B'),
         PacketListField('dtcs', [], OBD_DTC, count_from=lambda pkt: pkt.count)
     ]
 
@@ -112,14 +118,14 @@ class OBD_S07_DTC(Packet):
 class OBD_S08(Packet):
     name = "S8_RequestControlOfSystem"
     fields_desc = [
-        FieldListField("tid", [0], XByteField('', 0))
+        FieldListField("tid", [], XByteField('', 0))
     ]
 
 
 class OBD_S09(Packet):
     name = "S9_VehicleInformation"
     fields_desc = [
-        FieldListField("iid", [0], XByteField('', 0))
+        FieldListField("iid", [], XByteField('', 0))
     ]
 
 
@@ -127,9 +133,9 @@ class OBD_S0A(Packet):
     name = "S0A_RequestPermanentDTCs"
 
 
-class OBD_S0A_DTC(Packet):
+class OBD_S0A_PR(Packet):
     name = "S0A_ResponsePermanentDTCs"
     fields_desc = [
-        ByteField('count', 0),
+        FieldLenField('count', None, count_of='dtcs', fmt='B'),
         PacketListField('dtcs', [], OBD_DTC, count_from=lambda pkt: pkt.count)
     ]

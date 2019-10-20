@@ -82,8 +82,8 @@ finally:
 
 = Set up native mode
 
-conf.use_winpcapy = False
-assert conf.use_winpcapy == False
+conf.use_pcap = False
+assert conf.use_pcap == False
 
 = Prepare ping: open firewall & get current seq number
 ~ netaccess needs_root
@@ -112,8 +112,6 @@ with conf.L3socket() as a:
 ~ netaccess needs_root require_gui
 % XXX currently disabled
 
-from scapy.tools.UTscapy import retry_test
-
 def _test():
     answer = sr1(IP(dst="8.8.8.8")/UDP()/DNS(rd=1, qd=DNSQR(qname="www.google.com")), timeout=2)
     answer.show()
@@ -124,5 +122,5 @@ retry_test(_test)
 
 = Leave native mode
 
-conf.use_winpcapy = True
-assert conf.use_winpcapy == True
+conf.use_pcap = True
+assert conf.use_pcap == True

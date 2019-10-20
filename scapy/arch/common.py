@@ -19,7 +19,6 @@ from scapy.consts import WINDOWS
 from scapy.config import conf
 from scapy.data import MTU
 from scapy.error import Scapy_Exception
-from scapy.consts import OPENBSD
 import scapy.modules.six as six
 
 if not WINDOWS:
@@ -32,18 +31,20 @@ def _check_tcpdump():
     """
     Return True if the tcpdump command can be started
     """
-    with open(os.devnull, 'wb') as devnull:
-        try:
-            proc = subprocess.Popen([conf.prog.tcpdump, "--version"],
-                                    stdout=devnull, stderr=subprocess.STDOUT)
-        except OSError:
-            return False
+    try:
+        proc = subprocess.Popen(
+            [conf.prog.tcpdump, "--version"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT
+        )
+        output = proc.communicate()[0]
+    except OSError:
+        return False
 
-    if OPENBSD:
-        # 'tcpdump --version' returns 1 on OpenBSD 6.4
-        return proc.wait() == 1
-    else:
-        return proc.wait() == 0
+    # On some systems, --version does not exist on tcpdump
+    return proc.returncode == 0 \
+        or output.startswith(b'Usage: tcpdump ') \
+        or output.startswith(b'tcpdump: unrecognized option')
 
 
 # This won't be used on Windows
@@ -56,15 +57,25 @@ def get_if(iff, cmd):
     """Ease SIOCGIF* ioctl calls"""
 
     sck = socket.socket()
-    ifreq = ioctl(sck, cmd, struct.pack("16s16x", iff.encode("utf8")))
-    sck.close()
-    return ifreq
+    try:
+        return ioctl(sck, cmd, struct.pack("16s16x", iff.encode("utf8")))
+    finally:
+        sck.close()
 
+
+def get_if_raw_hwaddr(iff):
+    """Get the raw MAC address of a local interface.
+
+    This function uses SIOCGIFHWADDR calls, therefore only works
+    on some distros.
+
+    :param iff: the network interface name as a string
+    :returns: the corresponding raw MAC address
+    """
+    from scapy.arch import SIOCGIFHWADDR
+    return struct.unpack("16xh6s8x", get_if(iff, SIOCGIFHWADDR))
 
 # SOCKET UTILS
-
-class TimeoutElapsed(Scapy_Exception):
-    pass
 
 
 def _select_nonblock(sockets, remain=None):
@@ -74,13 +85,11 @@ def _select_nonblock(sockets, remain=None):
     # pcap sockets aren't selectable, so we return all of them
     # and ask the selecting functions to use nonblock_recv instead of recv
     def _sleep_nonblock_recv(self):
-        try:
-            res = self.nonblock_recv()
-            if res is None:
-                time.sleep(conf.recv_poll_rate)
-            return res
-        except TimeoutElapsed:
-            return None
+        res = self.nonblock_recv()
+        if res is None:
+            time.sleep(conf.recv_poll_rate)
+        return res
+    # we enforce remain=None: don't wait.
     return sockets, _sleep_nonblock_recv
 
 # BPF HANDLERS

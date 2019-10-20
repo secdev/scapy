@@ -286,7 +286,11 @@ class _AEADCipher_TLS13(six.with_metaclass(_AEADCipherMetaclass, object)):
                                       self.pc_cls_mode(fixed_iv),
                                       backend=default_backend())
         else:
-            self._cipher = self.cipher_cls(key)
+            if self.cipher_cls == ChaCha20Poly1305:
+                # ChaCha20Poly1305 doesn't have a tag_length argument...
+                self._cipher = self.cipher_cls(key)
+            else:
+                self._cipher = self.cipher_cls(key, tag_length=self.tag_len)
 
     def __setattr__(self, name, val):
         if name == "key":
@@ -308,8 +312,7 @@ class _AEADCipher_TLS13(six.with_metaclass(_AEADCipherMetaclass, object)):
     def auth_encrypt(self, P, A, seq_num):
         """
         Encrypt the data, and append the computed authentication code.
-        TLS 1.3 does not use additional data, but we leave this option to the
-        user nonetheless.
+        The additional data for TLS 1.3 is the record header.
 
         Note that the cipher's authentication tag must be None when encrypting.
         """
@@ -326,8 +329,7 @@ class _AEADCipher_TLS13(six.with_metaclass(_AEADCipherMetaclass, object)):
         else:
             if (conf.crypto_valid_advanced and
                     isinstance(self._cipher, AESCCM)):
-                res = self._cipher.encrypt(self._get_nonce(seq_num), P, A,
-                                           tag_length=self.tag_len)
+                res = self._cipher.encrypt(self._get_nonce(seq_num), P, A)
             else:
                 res = self._cipher.encrypt(self._get_nonce(seq_num), P, A)
         return res
@@ -335,7 +337,6 @@ class _AEADCipher_TLS13(six.with_metaclass(_AEADCipherMetaclass, object)):
     def auth_decrypt(self, A, C, seq_num):
         """
         Decrypt the data and verify the authentication code (in this order).
-        Note that TLS 1.3 is not supposed to use any additional data A.
         If the verification fails, an AEADTagError is raised. It is the user's
         responsibility to catch it if deemed useful. If we lack the key, we
         raise a CipherError which contains the encrypted input.
@@ -358,8 +359,7 @@ class _AEADCipher_TLS13(six.with_metaclass(_AEADCipherMetaclass, object)):
             try:
                 if (conf.crypto_valid_advanced and
                         isinstance(self._cipher, AESCCM)):
-                    P = self._cipher.decrypt(self._get_nonce(seq_num), C + mac, A,  # noqa: E501
-                                             tag_length=self.tag_len)
+                    P = self._cipher.decrypt(self._get_nonce(seq_num), C + mac, A)  # noqa: E501
                 else:
                     if (conf.crypto_valid_advanced and
                             isinstance(self, Cipher_CHACHA20_POLY1305)):
@@ -412,6 +412,7 @@ if conf.crypto_valid_advanced:
         cipher_cls = AESCCM
         key_len = 16
         tag_len = 16
+        fixed_iv_len = 12
 
     class Cipher_AES_128_CCM_8_TLS13(Cipher_AES_128_CCM_TLS13):
         tag_len = 8

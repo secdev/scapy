@@ -11,6 +11,7 @@ Python 2 and 3 link classes.
 from __future__ import absolute_import
 import base64
 import binascii
+import gzip
 import struct
 
 import scapy.modules.six as six
@@ -61,7 +62,7 @@ else:
     def plain_str(x):
         """Convert basic byte objects to str"""
         if isinstance(x, bytes):
-            return x.decode()
+            return x.decode(errors="ignore")
         return str(x)
 
     def chb(x):
@@ -97,3 +98,52 @@ def bytes_base64(x):
     if six.PY2:
         return base64.encodestring(x).replace('\n', '')
     return base64.encodebytes(bytes_encode(x)).replace(b'\n', b'')
+
+
+if six.PY2:
+    from StringIO import StringIO
+
+    def gzip_decompress(x):
+        """Decompress using gzip"""
+        with gzip.GzipFile(fileobj=StringIO(x), mode='rb') as fdesc:
+            return fdesc.read()
+
+    def gzip_compress(x):
+        """Compress using gzip"""
+        buf = StringIO()
+        with gzip.GzipFile(fileobj=buf, mode='wb') as fdesc:
+            fdesc.write(x)
+        return buf.getvalue()
+else:
+    gzip_decompress = gzip.decompress
+    gzip_compress = gzip.compress
+
+# Typing compatibility
+
+try:
+    # Only required if using mypy-lang for static typing
+    from typing import Optional, List, Union, Callable, Any, AnyStr, Tuple, \
+        Sized, Dict, Pattern, cast
+except ImportError:
+    # Let's make some fake ones.
+
+    def cast(_type, obj):
+        return obj
+
+    class _FakeType(object):
+        # make the objects subscriptable indefinetly
+        def __getitem__(self, item):
+            return _FakeType()
+
+    Optional = _FakeType()
+    Union = _FakeType()
+    Callable = _FakeType()
+    List = _FakeType()
+    Dict = _FakeType()
+    Any = _FakeType()
+    AnyStr = _FakeType()
+    Tuple = _FakeType()
+    Pattern = _FakeType()
+
+    class Sized(object):
+        pass

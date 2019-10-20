@@ -1,0 +1,193 @@
+%ENIP Tests
+
++Syntax check
+= Import the enip layer
+
+from scapy.contrib.enipTCP import *
+#from scapy.all import *
+
++ Test ENIP/TCP Encapsulation Header
+= Encapsulation Header Default Values
+pkt=ENIPTCP()
+assert(pkt.commandId == None)
+assert(pkt.length == 0)
+assert(pkt.session == 0)
+assert(pkt.status == None)
+assert(pkt.senderContext == 0)
+assert(pkt.options == 0)
+
+
++ ENIP List Services
+= ENIP List Services Reply Command ID
+pkt=ENIPTCP()
+pkt.commandId=0x4
+assert(pkt.commandId == 0x4)
+
+= ENIP List Services Reply Default Values
+pkt=pkt/ENIPListServicesReply()
+assert(pkt[ENIPListServicesReply].itemCount == 0)
+
+= ENIP List Services Reply Items Default Values
+pkt=pkt/ENIPListServicesReplyItems()
+assert(pkt[ENIPListServicesReplyItems].itemTypeCode == 0)
+assert(pkt[ENIPListServicesReplyItems].itemLength == 0)
+assert(pkt[ENIPListServicesReplyItems].version == 1)
+assert(pkt[ENIPListServicesReplyItems].flag == 0)
+assert(pkt[ENIPListServicesReplyItems].serviceName == None)
+
+
++ ENIP List Identity
+= ENIP List Identity Reply Command ID
+pkt=ENIPTCP()
+pkt.commandId=0x63
+assert(pkt.commandId == 0x63)
+
+= ENIP List Identity Reply Default Values
+pkt=pkt/ENIPListIdentityReply()
+assert(pkt[ENIPListIdentityReply].itemCount == 0)
+
+= ENIP List Identity Reply Items Default Values
+pkt=pkt/ENIPListIdentityReplyItems()
+assert(pkt[ENIPListIdentityReplyItems].itemTypeCode == 0)
+assert(pkt[ENIPListIdentityReplyItems].itemLength == 0)
+assert(pkt[ENIPListIdentityReplyItems].itemData == b'')
+
+
++ ENIP List Interfaces
+= ENIP List Interfaces Reply Command ID
+pkt=ENIPTCP()
+pkt.commandId=0x64
+assert(pkt.commandId == 0x64)
+
+= ENIP List Interfaces Reply Default Values
+pkt=pkt/ENIPListInterfacesReply()
+assert(pkt[ENIPListInterfacesReply].itemCount == 0)
+
+= ENIP List Interfaces Reply Items Default Values
+pkt=pkt/ENIPListInterfacesReplyItems()
+assert(pkt[ENIPListInterfacesReplyItems].itemTypeCode == 0)
+assert(pkt[ENIPListInterfacesReplyItems].itemLength == 0)
+assert(pkt[ENIPListInterfacesReplyItems].itemData == b'')
+
++ ENIP Register Session
+= ENIP Register Session Command ID
+pkt=ENIPTCP()
+pkt.commandId=0x65
+assert(pkt.commandId == 0x65)
+
+= ENIP Register Session Default Values
+pkt=pkt/ENIPRegisterSession()
+assert(pkt[ENIPRegisterSession].protocolVersion == 1)
+assert(pkt[ENIPRegisterSession].options == 0)
+
+= ENIP Register Session Request
+registerSessionReqPkt = b'\x65\x00\x04\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00'
+
+
+pkt = ENIPTCP(registerSessionReqPkt)
+assert(pkt.commandId == 0x65)
+assert(pkt.length == 4)
+assert(pkt.session == 0)
+assert(pkt.status == 0)
+assert(pkt.senderContext == 0)
+assert(pkt.options == 0)
+assert(pkt[ENIPRegisterSession].protocolVersion == 1)
+assert(pkt[ENIPRegisterSession].options == 0)
+
+= ENIP Register Session Reply
+registerSessionRepPkt = b'\x65\x00\x04\x00\x7b\x9a\x4e\xa1\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00'
+
+pkt = ENIPTCP(registerSessionRepPkt)
+assert(pkt.commandId == 0x65)
+assert(pkt.length == 4)
+assert(pkt.session == 0xa14e9a7b)
+assert(pkt.status == 0)
+assert(pkt.senderContext == 0)
+assert(pkt.options == 0)
+assert(pkt[ENIPRegisterSession].protocolVersion == 1)
+assert(pkt[ENIPRegisterSession].options == 0)
+
+
++ ENIP Send RR Data
+= ENIP Send RR Data Command ID
+pkt=ENIPTCP()
+pkt.commandId=0x6f
+assert(pkt.commandId == 0x6f)
+
+= ENIP Send RR Data Default Values
+pkt=pkt/ENIPSendRRData()
+assert(pkt[ENIPSendRRData].interfaceHandle == 0)
+assert(pkt[ENIPSendRRData].timeout == 0)
+assert(pkt[ENIPSendRRData].encapsulatedPacket == None)
+
+= ENIP Send RR Data Request
+sendRRDataReqPkt = b'\x6f\x00\x3e\x00\x7b\x9a\x4e\xa1\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x00\x00\xb2\x00\x2e\x00'
+pkt = ENIPTCP(sendRRDataReqPkt)
+assert(pkt.commandId == 0x6f)
+assert(pkt.length == 62)
+assert(pkt.session == 0xa14e9a7b)
+assert(pkt.status == 0)
+assert(pkt.senderContext == 0)
+assert(pkt.options == 0)
+assert(pkt[ENIPSendRRData].interfaceHandle == 0)
+assert(pkt[ENIPSendRRData].timeout == 0)
+assert(pkt[EncapsulatedPacket].itemCount == 2)
+
+
+= ENIP Send RR Data Reply
+sendRRDataRepPkt = b'\x6f\x00\x2e\x00\x7b\x9a\x4e\xa1\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x04\x02\x00\x00\x00\x00\x00\xb2\x00\x1e\x00'
+
+pkt = ENIPTCP(sendRRDataRepPkt)
+assert(pkt.commandId == 0x6f)
+assert(pkt.length == 46)
+assert(pkt.session == 0xa14e9a7b)
+assert(pkt.status == 0)
+assert(pkt.senderContext == 0)
+assert(pkt.options == 0)
+assert(pkt[ENIPSendRRData].interfaceHandle == 0)
+assert(pkt[ENIPSendRRData].timeout == 1024)
+assert(pkt[EncapsulatedPacket].item[0].typeId == 0)
+assert(pkt[EncapsulatedPacket].item[0].length == 0)
+assert(pkt[EncapsulatedPacket].item[1].typeId == 0x00b2)
+assert(pkt[EncapsulatedPacket].item[1].length == 30)
+
++ ENIP Send Unit Data
+= ENIP Send Unit Data Command ID
+pkt=ENIPTCP()
+pkt.commandId=0x70
+assert(pkt.commandId == 0x70)
+
+= ENIP Send Unit Data Default Values
+pkt=pkt/ENIPSendUnitData()
+assert(pkt[ENIPSendUnitData].interfaceHandle == 0)
+assert(pkt[ENIPSendUnitData].timeout == 0)
+assert(pkt[ENIPSendUnitData].encapsulatedPacket == None)
+
+
+= ENIP Send Unit Data
+sendUnitDataPkt = b'\x70\x00\x2d\x00\x7b\x9a\x4e\xa1\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\xa1\x00\x04\x00\xcc\x60\x9a\x7b\xb1\x00\x19\x00\x01\x00'
+
+
+pkt = ENIPTCP(sendUnitDataPkt)
+assert(pkt.commandId == 0x70)
+assert(pkt.length == 45)
+assert(pkt.session == 0xa14e9a7b)
+assert(pkt.status == 0)
+assert(pkt.senderContext == 0)
+assert(pkt.options == 0)
+assert(pkt[ENIPSendUnitData].interfaceHandle == 0)
+assert(pkt[ENIPSendUnitData].timeout == 0)
+assert(pkt[EncapsulatedPacket].itemCount == 2)
+
+assert(pkt[EncapsulatedPacket].item[0].typeId == 0x00a1)
+assert(pkt[EncapsulatedPacket].item[0].length == 4)
+assert(pkt[EncapsulatedPacket].item[0].data == b'\x7b\x9a\x60\xcc')
+assert(pkt[EncapsulatedPacket].item[1].typeId == 0x00b1)
+assert(pkt[EncapsulatedPacket].item[1].length == 25)
+assert(pkt[EncapsulatedPacket].item[1].data == b'\x00\x01')
+
+
+
+
+
+

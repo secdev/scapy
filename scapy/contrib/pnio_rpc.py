@@ -22,16 +22,18 @@ PNIO RPC endpoints
 """
 
 import struct
+from uuid import UUID
+
 from scapy.packet import Packet, bind_layers
 from scapy.config import conf
-from scapy.fields import BitField, ByteField, BitEnumField, \
+from scapy.fields import BitField, ByteField, BitEnumField, ConditionalField, \
     FieldLenField, FieldListField, IntField, IntEnumField, \
     LenField, MACField, PadField, PacketField, PacketListField, \
     ShortEnumField, ShortField, StrFixedLenField, StrLenField, \
-    XByteField, XIntField, XShortEnumField, XShortField, ConditionalField
-from scapy.contrib.dce_rpc import DceRpc, EndiannessField, DceRpcPayload, \
-    UUIDField, RandUUID
+    UUIDField, XByteField, XIntField, XShortEnumField, XShortField
+from scapy.contrib.dce_rpc import DceRpc, EndiannessField, DceRpcPayload
 from scapy.compat import bytes_hex
+from scapy.volatile import RandUUID
 
 # Block Packet
 BLOCK_TYPES_ENUM = {
@@ -275,14 +277,19 @@ IOCR_BLOCK_REQ_IOCR_PROPERTIES = {
 }
 
 
-# List of all valid activity uuid for the DceRpc
-# layer with PROFINET RPC endpoint
+# List of all valid activity UUIDs for the DceRpc layer with PROFINET RPC
+# endpoint.
+#
+# Because these are used in overloaded_fields, it must be a ``UUID``, not a
+# string.
 RPC_INTERFACE_UUID = {
-    "UUID_IO_DeviceInterface": "dea00001-6c97-11d1-8271-00a02442df7d",
-    "UUID_IO_ControllerInterface": "dea00002-6c97-11d1-8271-00a02442df7d",
-    "UUID_IO_SupervisorInterface": "dea00003-6c97-11d1-8271-00a02442df7d",
+    "UUID_IO_DeviceInterface": UUID("dea00001-6c97-11d1-8271-00a02442df7d"),
+    "UUID_IO_ControllerInterface":
+        UUID("dea00002-6c97-11d1-8271-00a02442df7d"),
+    "UUID_IO_SupervisorInterface":
+        UUID("dea00003-6c97-11d1-8271-00a02442df7d"),
     "UUID_IO_ParameterServerInterface":
-        "dea00004-6c97-11d1-8271-00a02442df7d",
+        UUID("dea00004-6c97-11d1-8271-00a02442df7d"),
 }
 
 
@@ -960,10 +967,10 @@ class PNIOServiceReqPDU(Packet):
 
     @classmethod
     def can_handle(cls, pkt, rpc):
-        """heuristical guess_payload_class"""
+        """heuristic guess_payload_class"""
         # type = 0 => request
         if rpc.getfieldval("type") == 0 and \
-                rpc.object_uuid.startswith("dea00000-6c97-11d1-8271-"):
+                str(rpc.object_uuid).startswith("dea00000-6c97-11d1-8271-"):
             return True
         return False
 
@@ -992,10 +999,10 @@ class PNIOServiceResPDU(Packet):
 
     @classmethod
     def can_handle(cls, pkt, rpc):
-        """heuristical guess_payload_class"""
+        """heuristic guess_payload_class"""
         # type = 2 => response
         if rpc.getfieldval("type") == 2 and \
-                rpc.object_uuid.startswith("dea00000-6c97-11d1-8271-"):
+                str(rpc.object_uuid).startswith("dea00000-6c97-11d1-8271-"):
             return True
         return False
 

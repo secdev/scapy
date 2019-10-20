@@ -14,7 +14,7 @@ import hmac
 from scapy.compat import orb, raw
 from scapy.packet import Packet, Padding, bind_layers
 from scapy.fields import ByteField, ByteEnumField, IntField, StrLenField,\
-    XStrLenField, XStrFixedLenField, FieldLenField, PacketField,\
+    XStrLenField, XStrFixedLenField, FieldLenField, PacketLenField,\
     PacketListField, IPField, MultiEnumField
 from scapy.layers.inet import UDP
 from scapy.layers.eap import EAP
@@ -567,8 +567,11 @@ class RadiusAttr_Message_Authenticator(_RadiusAttrHexStringVal):
                                       shared_secret):
         """
         Computes the "Message-Authenticator" of a given RADIUS packet.
+        (RFC 2869 - Page 33)
         """
 
+        attr = radius_packet[RadiusAttr_Message_Authenticator]
+        attr.value = bytearray(attr.len - 2)
         data = prepare_packed_data(radius_packet, packed_req_authenticator)
         radius_hmac = hmac.new(shared_secret, data, hashlib.md5)
 
@@ -579,7 +582,7 @@ class RadiusAttr_Message_Authenticator(_RadiusAttrHexStringVal):
 #
 
 
-class _RadiusAttrIPv4AddrVal(RadiusAttribute):
+class _RadiusAttrIPv4AddrVal(_SpecificRadiusAttr):
     """
     Implements a RADIUS attribute which value field is an IPv4 address.
     """
@@ -992,7 +995,7 @@ class RadiusAttr_NAS_Port_Type(_RadiusAttrIntEnumVal):
     val = 61
 
 
-class _EAPPacketField(PacketField):
+class _EAPPacketField(PacketLenField):
 
     """
     Handles EAP-Message attribute value (the actual EAP packet).
@@ -1025,7 +1028,7 @@ class RadiusAttr_EAP_Message(RadiusAttribute):
             "B",
             adjust=lambda pkt, x: len(pkt.value) + 2
         ),
-        _EAPPacketField("value", "", EAP)
+        _EAPPacketField("value", "", EAP, length_from=lambda p: p.len - 2)
     ]
 
 

@@ -3,8 +3,8 @@
 + Bluetooth tests
 
 = HCI layers
-# a crazy packet with all classes in it!
-pkt = HCI_ACL_Hdr()/HCI_Cmd_Complete_Read_BD_Addr()/HCI_Cmd_Connect_Accept_Timeout()/HCI_Cmd_Disconnect()/HCI_Cmd_LE_Connection_Update()/HCI_Cmd_LE_Create_Connection()/HCI_Cmd_LE_Create_Connection_Cancel()/HCI_Cmd_LE_Host_Supported()/HCI_Cmd_LE_Long_Term_Key_Request_Negative_Reply()/HCI_Cmd_LE_Long_Term_Key_Request_Reply()/HCI_Cmd_LE_Read_Buffer_Size()/HCI_Cmd_LE_Set_Advertise_Enable()/HCI_Cmd_LE_Set_Advertising_Data()/HCI_Cmd_LE_Set_Advertising_Parameters()/HCI_Cmd_LE_Set_Random_Address()/HCI_Cmd_LE_Set_Scan_Enable()/HCI_Cmd_LE_Set_Scan_Parameters()/HCI_Cmd_LE_Start_Encryption_Request()/HCI_Cmd_Read_BD_Addr()/HCI_Cmd_Reset()/HCI_Cmd_Set_Event_Filter()/HCI_Cmd_Set_Event_Mask()/HCI_Command_Hdr()/HCI_Event_Command_Complete()/HCI_Event_Command_Status()/HCI_Event_Disconnection_Complete()/HCI_Event_Encryption_Change()/HCI_Event_Hdr()/HCI_Event_LE_Meta()/HCI_Event_Number_Of_Completed_Packets()/HCI_Hdr()/HCI_LE_Meta_Advertising_Report()/HCI_LE_Meta_Connection_Complete()/HCI_LE_Meta_Connection_Update_Complete()/HCI_LE_Meta_Long_Term_Key_Request()
+# a huge packet with all classes in it!
+pkt = HCI_ACL_Hdr()/HCI_Cmd_Complete_Read_BD_Addr()/HCI_Cmd_Connect_Accept_Timeout()/HCI_Cmd_Disconnect()/HCI_Cmd_LE_Connection_Update()/HCI_Cmd_LE_Create_Connection()/HCI_Cmd_LE_Create_Connection_Cancel()/HCI_Cmd_LE_Host_Supported()/HCI_Cmd_LE_Long_Term_Key_Request_Negative_Reply()/HCI_Cmd_LE_Long_Term_Key_Request_Reply()/HCI_Cmd_LE_Read_Buffer_Size()/HCI_Cmd_LE_Set_Advertise_Enable()/HCI_Cmd_LE_Set_Advertising_Data()/HCI_Cmd_LE_Set_Advertising_Parameters()/HCI_Cmd_LE_Set_Random_Address()/HCI_Cmd_LE_Set_Scan_Enable()/HCI_Cmd_LE_Set_Scan_Parameters()/HCI_Cmd_LE_Start_Encryption_Request()/HCI_Cmd_Read_BD_Addr()/HCI_Cmd_Reset()/HCI_Cmd_Set_Event_Filter()/HCI_Cmd_Set_Event_Mask()/HCI_Command_Hdr()/HCI_Event_Command_Complete()/HCI_Event_Command_Status()/HCI_Event_Disconnection_Complete()/HCI_Event_Encryption_Change()/HCI_Event_Hdr()/HCI_Event_LE_Meta()/HCI_Event_Number_Of_Completed_Packets()/HCI_Hdr()/HCI_LE_Meta_Advertising_Reports()/HCI_LE_Meta_Connection_Complete()/HCI_LE_Meta_Connection_Update_Complete()/HCI_LE_Meta_Long_Term_Key_Request()
 assert HCI_ACL_Hdr in pkt.layers()
 assert HCI_Cmd_Complete_Read_BD_Addr in pkt.layers()
 assert HCI_Cmd_Connect_Accept_Timeout in pkt.layers()
@@ -36,7 +36,7 @@ assert HCI_Event_Hdr in pkt.layers()
 assert HCI_Event_LE_Meta in pkt.layers()
 assert HCI_Event_Number_Of_Completed_Packets in pkt.layers()
 assert HCI_Hdr in pkt.layers()
-assert HCI_LE_Meta_Advertising_Report in pkt.layers()
+assert HCI_LE_Meta_Advertising_Reports in pkt.layers()
 assert HCI_LE_Meta_Connection_Complete in pkt.layers()
 assert HCI_LE_Meta_Connection_Update_Complete in pkt.layers()
 assert HCI_LE_Meta_Long_Term_Key_Request in pkt.layers()
@@ -53,11 +53,57 @@ assert L2CAP_InfoReq in pkt
 
 + HCI Commands
 
+= LE Create Connection
+
+# Request data
+cmd = HCI_Hdr(hex_bytes("010d2019600060000001123456677890001800280000002a0000000000"))
+assert(HCI_Cmd_LE_Create_Connection in cmd)
+assert(cmd[HCI_Cmd_LE_Create_Connection].paddr == '90:78:67:56:34:12')
+assert(cmd[HCI_Cmd_LE_Create_Connection].patype == 1)
+
+# Response data
+pending = HCI_Hdr(hex_bytes("040f0400020d20"))
+assert(pending.answers(cmd))
+
+complete = HCI_Hdr(hex_bytes("043e1301020000000112345667789000000000000000"))
+assert(HCI_LE_Meta_Connection_Complete in complete)
+assert(complete[HCI_LE_Meta_Connection_Complete].paddr == '90:78:67:56:34:12')
+assert(complete.answers(cmd))
+
+# Invalid combinations
+assert(not cmd.answers(cmd))
+assert(not pending.answers(pending))
+assert(not complete.answers(complete))
+assert(not pending.answers(complete))
+assert(not complete.answers(pending))
+
 = LE Create Connection Cancel
 
+# Craft a request...
 expected_cmd_raw_data = hex_bytes("010e2000")
-cmd_raw_data = raw(HCI_Hdr() / HCI_Command_Hdr() / HCI_Cmd_LE_Create_Connection_Cancel())
-assert(expected_cmd_raw_data == cmd_raw_data)
+cmd = HCI_Hdr() / HCI_Command_Hdr() / HCI_Cmd_LE_Create_Connection_Cancel()
+assert(expected_cmd_raw_data == raw(cmd))
+assert(raw(HCI_Hdr(expected_cmd_raw_data)) == expected_cmd_raw_data)
+
+other_raw_data = hex_bytes("01060403341213")
+other_cmd = HCI_Hdr(other_raw_data)
+
+# Craft a response...
+for p in (
+    HCI_Event_Command_Complete(opcode=0x200e),
+    HCI_Event_Command_Status(opcode=0x200e),
+):
+    res = HCI_Hdr() / HCI_Event_Hdr() / p
+    # For debugging
+    res
+    # Check that the response packet thinks it is an answer to the request
+    assert(res.answers(cmd))
+    # Check that it self isn't a match
+    assert(not res.answers(res))
+    # Check that another request wouldn't match
+    assert(not res.answers(other_cmd))
+    "OK!"
+
 
 = Disconnect
 expected_cmd_raw_data = hex_bytes("01060403341213")
@@ -103,8 +149,66 @@ scan_resp_raw_data = \
               "3134374432343631fc00030c0000de")
 scapy_packet = HCI_Hdr(scan_resp_raw_data)
 
-assert(scapy_packet[EIR_Manufacturer_Specific_Data].data == b'\x00_B31147D2461\xfc\x00\x03\x0c\x00\x00')
+assert(raw(scapy_packet[EIR_Manufacturer_Specific_Data].payload) == b'\x00_B31147D2461\xfc\x00\x03\x0c\x00\x00')
 assert(scapy_packet[EIR_Manufacturer_Specific_Data].company_id == 0x154)
+
+= Parse EIR_Manufacturer_Specific_Data with magic
+
+class ScapyManufacturerPacket(Packet):
+    magic = b'SCAPY!'
+    fields_desc = [
+        StrFixedLenField("header", magic, len(magic)),
+        ShortField("x", None),
+    ]
+
+class ScapyManufacturerPacket2(Packet):
+    magic = b'!SCAPY'
+    fields_desc = [
+        StrFixedLenField("header", magic, len(magic)),
+        ShortField("y", None),
+    ]
+    @classmethod
+    def magic_check(cls, payload):
+        return payload.startswith(cls.magic)
+
+EIR_Manufacturer_Specific_Data.register_magic_payload(
+    ScapyManufacturerPacket, lambda p: p.startswith(ScapyManufacturerPacket.magic))
+EIR_Manufacturer_Specific_Data.register_magic_payload(ScapyManufacturerPacket2)
+
+# Test decode
+p = EIR_Hdr(b'\x0b\xff\xff\xffSCAPY!\xab\x12')
+
+p.show()
+assert p[EIR_Manufacturer_Specific_Data].company_id == 0xffff
+assert p[ScapyManufacturerPacket].x == 0xab12
+
+p = EIR_Hdr(b'\x0b\xff\xff\xff!SCAPY\x12\x34')
+
+p.show()
+assert p[EIR_Manufacturer_Specific_Data].company_id == 0xffff
+assert p[ScapyManufacturerPacket2].y == 0x1234
+
+# Test encode
+p = EIR_Hdr()/EIR_Manufacturer_Specific_Data(company_id=0xffff)/ScapyManufacturerPacket(x=0x5678)
+assert raw(p) == b'\x0b\xff\xff\xffSCAPY!\x56\x78'
+
+# Test bad setup
+try:
+    EIR_Manufacturer_Specific_Data.register_magic_payload(conf.raw_layer)
+except TypeError:
+    pass
+else:
+    assert False, "expected exception"
+
+= Parse EIR_ServiceData16BitUUID
+
+d = hex_bytes("043e1902010001abcdef7da97f0d020102030350fe051650fee6c2ac")
+p = HCI_Hdr(d)
+
+p.show()
+assert p[EIR_CompleteList16BitServiceUUIDs].svc_uuids == [0xfe50]
+assert p[EIR_ServiceData16BitUUID].svc_uuid == 0xfe50
+assert raw(p[EIR_ServiceData16BitUUID].payload) == hex_bytes("e6c2")
 
 = Basic L2CAP dissect
 a = L2CAP_Hdr(b'\x08\x00\x06\x00\t\x00\xf6\xe5\xd4\xc3\xb2\xa1')
@@ -130,7 +234,7 @@ assert a[L2CAP_InfoResp].data == b"debug"
 
 = Answers
 a = HCI_Hdr(b'\x02\x00\x00\x0c\x00\x08\x00\x05\x00\x02\x00\x04\x00\x00\x00\x9a;')
-b = HCI_Hdr(b'\x02\x00\x00\x10\x00\x0c\x00\x05\x00\x03\x00\x08\x00\x9a;\x00\x00\x00\x00\x01\x00')
+b = HCI_Hdr(b'\x02\x00\x00\x10\x00\x0c\x00\x05\x00\x03\x00\x08\x00\xff\xff\x9a;\x00\x00\x01\x00')
 assert b.answers(a)
 assert not a.answers(b)
 
@@ -139,14 +243,65 @@ b = HCI_Hdr(b'\x02\x00\x00\x0e\x00\n\x00\x05\x00\x05\x00\x06\x00\x15\x00\x00\x00
 assert b.answers(a)
 assert not a.answers(b)
 
-= EIR_Hdr - misc
-a = HCI_Hdr()/HCI_Event_Hdr()/HCI_Event_LE_Meta()/HCI_LE_Meta_Advertising_Report(addr = "a1:b2:c3:d4:e5:f6", data=EIR_Hdr()/EIR_CompleteLocalName(local_name="scapy"))
-assert raw(a) == b'\x04>\x00\x02\x00\x00\x00\xf6\xe5\xd4\xc3\xb2\xa1\x07\x06\tscapy\x00'
+= EIR_Hdr - HCI_LE_Meta_Advertising_Report (single report)
+a = HCI_Hdr()/HCI_Event_Hdr()/HCI_Event_LE_Meta()/HCI_LE_Meta_Advertising_Reports(reports=[
+   HCI_LE_Meta_Advertising_Report(
+      addr="a1:b2:c3:d4:e5:f6",
+      data=[
+         EIR_Hdr()/EIR_Flags(flags=['br_edr_not_supported']),
+         EIR_Hdr()/EIR_CompleteLocalName(local_name="scapy"),
+      ]
+   )
+])
+assert raw(a) == b'\x04>\x16\x02\x01\x00\x00\xf6\xe5\xd4\xc3\xb2\xa1\n\x02\x01\x04\x06\tscapy\x00'
 b = HCI_Hdr(raw(a))
-assert b.data[0][EIR_CompleteLocalName].local_name == b"scapy"
+b.show()
+assert b[HCI_Event_Hdr].len > 0
+assert b[EIR_CompleteLocalName].local_name == b"scapy"
 assert b[HCI_LE_Meta_Advertising_Report].addr == "a1:b2:c3:d4:e5:f6"
 
-assert a.summary() == "HCI Event / HCI_Event_Hdr / HCI_Event_LE_Meta / HCI_LE_Meta_Advertising_Report"
+assert a.summary() == "HCI Event / HCI_Event_Hdr / HCI_Event_LE_Meta / HCI_LE_Meta_Advertising_Reports"
+
+= EIR_Hdr - HCI_LE_Meta_Advertising_Report (duplicate reports)
+# When duplicate reports are allowed, there are "Connectable Unidirected
+# Advertising" reports, and "Scan Responses", for the same device/MAC, in the
+# same packet.
+
+a = HCI_Hdr()/HCI_Event_Hdr()/HCI_Event_LE_Meta()/HCI_LE_Meta_Advertising_Reports(reports=[
+   HCI_LE_Meta_Advertising_Report(
+      addr="a1:b2:c3:d4:e5:f6",
+      data=[
+         EIR_Hdr()/EIR_Flags(flags=['br_edr_not_supported']),
+         EIR_Hdr()/EIR_CompleteLocalName(local_name="scapy"),
+      ]
+   ),
+   HCI_LE_Meta_Advertising_Report(
+      type=4,  # Scan Response
+      addr="a1:b2:c3:d4:e5:f6",
+      data=[
+         EIR_Hdr()/EIR_Manufacturer_Specific_Data(
+            company_id=0xffff,
+         )/Raw(b"ypacs"),
+         EIR_Hdr()/EIR_TX_Power_Level(level=10),
+         EIR_Hdr()/EIR_CompleteList128BitServiceUUIDs(svc_uuids=[
+            "01234567-89ab-cdef-1023-456789abcdfe",
+         ])
+      ]
+   )
+])
+assert raw(a) == b'\x04>>\x02\x02\x00\x00\xf6\xe5\xd4\xc3\xb2\xa1\n\x02\x01\x04\x06\tscapy\x00\x04\x00\xf6\xe5\xd4\xc3\xb2\xa1\x1e\x08\xff\xff\xffypacs\x02\n\n\x11\x07\xfe\xcd\xab\x89gE#\x10\xef\xcd\xab\x89gE#\x01\x00'
+
+b = HCI_Hdr(raw(a))
+b.show()
+assert b[HCI_Event_Hdr].len > 0
+assert b[EIR_CompleteLocalName].local_name == b"scapy"
+assert b[HCI_LE_Meta_Advertising_Report].addr == "a1:b2:c3:d4:e5:f6"
+assert b[EIR_Manufacturer_Specific_Data].company_id == 0xffff
+assert raw(b[EIR_Manufacturer_Specific_Data].payload) == b"ypacs"
+assert b[EIR_TX_Power_Level].level == 10
+assert b[EIR_CompleteList128BitServiceUUIDs].svc_uuids[0] == UUID("01234567-89ab-cdef-1023-456789abcdfe")
+
+assert a.summary() == "HCI Event / HCI_Event_Hdr / HCI_Event_LE_Meta / HCI_LE_Meta_Advertising_Reports"
 
 = ATT_Hdr - misc
 a = HCI_Hdr()/HCI_ACL_Hdr()/L2CAP_Hdr()/ATT_Hdr()/ATT_Read_By_Type_Request_128bit(uuid1=0xa14, uuid2=0xa24)
@@ -162,6 +317,20 @@ b.show()
 b.mysummary()
 assert ATT_Read_By_Type_Request in b
 assert not Raw in b
+
+= ATT Read_By_Type_Response
+
+pkt = HCI_Hdr(hex_bytes('0248201b001700040009070200020300002a0400020500012a0600020700042a'))
+
+assert pkt[ATT_Read_By_Type_Response].len == 7
+assert len(pkt.handles) == 3
+assert pkt.handles[0].handle == 0x2
+assert pkt.handles[1].handle == 0x4
+assert pkt.handles[2].handle == 0x6
+
+pkt.handles[0].value == b'\x02\x03\x00\x00*'
+pkt.handles[1].value == b'\x02\x05\x00\x01*'
+pkt.handles[2].value == b'\x02\x07\x00\x04*'
 
 = L2CAP layers
 
@@ -180,3 +349,19 @@ assert L2CAP_DisconnResp in pkt.layers()
 assert L2CAP_Hdr in pkt.layers()
 assert L2CAP_InfoReq in pkt.layers()
 assert L2CAP_InfoResp in pkt.layers()
+
+= SM_Public_Key() tests
+
+r = raw(SM_Hdr()/SM_Public_Key(key_x="sca", key_y="py"))
+assert r == b'\x0csca\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00py\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+p = SM_Hdr(r)
+assert SM_Public_Key in p and p.key_x[:3] == b"sca" and p.key_y[:2] == b"py"
+
+= SM_DHKey_Check() tests
+
+r = raw(SM_Hdr()/SM_DHKey_Check(dhkey_check="scapy"))
+assert r == b'\rscapy\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+p = SM_Hdr(r)
+assert SM_DHKey_Check in p and p.dhkey_check[:5] == b"scapy"

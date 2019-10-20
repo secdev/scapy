@@ -242,3 +242,59 @@ To see an example that is targeted to Scapy, go to http://www.secdev.org/project
 ./test/run_tests -t demo_campaign.txt -f html -o demo_campaign.html -F -l
 
 Examine the output generated in file ``demo_campaign.html``.
+
+Using tox to test Scapy
+-----------------------
+
+The ``tox`` command simplifies testing Scapy. It will automatically create
+virtual environments and install the mandatory Python modules.
+
+For example, on a fresh Debian installation, the following command will start
+all Scapy unit tests automatically without any external dependency::
+
+ tox -- -K vcan_socket -K tcpdump -K tshark -K nmap -K manufdb -K crypto
+
+VIM syntax highlighting for .uts files
+--------------------------------------
+
+Copy all files from ``scapy/doc/syntax/vim_uts_syntax/ftdetect`` and ``scapy/doc/syntax/vim_uts_syntax/syntax`` into ``~/.vim/`` and preserve the folder structure.
+
+If ftdetect/filetype.vim already exists, you might need to modify this file manually.
+
+These commands will do the installation::
+
+ cp -i -v ftdetect/filetype.vim $HOME/.vim/ftdetect/filetype.vim
+ cp -i -v ftdetect/uts.vim $HOME/.vim/ftdetect/uts.vim
+ cp -i -v syntax/uts.vim $HOME/.vim/syntax/uts.vim
+
+Alternatively, a install script in ``scapy/doc/syntax/vim_uts_syntax/`` does the installation automatically.
+
+
+Releasing Scapy
+===============
+
+Under the hood, a Scapy release is represented as a signed git tag. Prior to
+signing a commit, the maintainer that wishes to create a release must:
+
+* check that the corresponding Travis and AppVeyor tests pass
+* run ``./run_scapy`` locally
+* run ``tox``
+* run unit tests on BSD using the Vagrant setup from ``scapy/doc/vagrant_ci/``
+
+Taking v2.4.3 as an example, the following commands can be used to sign and
+publish the release::
+
+ git tag -s v2.4.3 -m "Release 2.4.3"
+ git tag v2.4.3 -v
+ git push --tags
+
+Release Candidates (RC) could also be done. For example, the first RC will be
+tagged v2.4.3rc1 and the message ``2.4.3 Release Candidate #1``.
+
+Prior to uploading the release to PyPi, the ``author_email`` in ``setup.py``
+must be changed to the address of the maintainer performing the release. The
+following commands can then be used::
+
+ python3 setup.py sdist
+ twine check dist/scapy-2.4.3.tar.gz
+ twine upload dist/scapy-2.4.3.tar.gz

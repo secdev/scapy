@@ -8,6 +8,7 @@
 X.509 certificates.
 """
 
+from scapy.asn1.mib import conf  # loads conf.mib
 from scapy.asn1.asn1 import ASN1_Codecs, ASN1_OID, \
     ASN1_IA5_STRING, ASN1_NULL, ASN1_PRINTABLE_STRING, \
     ASN1_UTC_TIME, ASN1_UTF8_STRING
@@ -24,7 +25,6 @@ from scapy.asn1fields import ASN1F_BIT_STRING, ASN1F_BIT_STRING_ENCAPS, \
 from scapy.packet import Packet
 from scapy.fields import PacketField
 from scapy.volatile import ZuluTime, GeneralizedTime
-from scapy.config import conf
 from scapy.compat import plain_str
 
 

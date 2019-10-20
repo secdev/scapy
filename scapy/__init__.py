@@ -14,11 +14,14 @@ import os
 import re
 import subprocess
 
+from scapy.compat import AnyStr
+
 
 _SCAPY_PKG_DIR = os.path.dirname(__file__)
 
 
 def _version_from_git_describe():
+    # type: () -> AnyStr
     """
     Read the version from ``git describe``. It returns the latest tag with an
     optional suffix if the current directory is not exactly on the tag.
@@ -38,6 +41,9 @@ def _version_from_git_describe():
 
         >>> _version_from_git_describe()
         '2.3.2.dev346'
+
+    :raises CalledProcessError: if git is unavailable
+    :return: Scapy's latest tag
     """
     if not os.path.isdir(os.path.join(os.path.dirname(_SCAPY_PKG_DIR), '.git')):  # noqa: E501
         raise ValueError('not in scapy git repo')
@@ -62,6 +68,11 @@ def _version_from_git_describe():
 
 
 def _version():
+    # type: () -> str
+    """Returns the Scapy version from multiple methods
+
+    :return: the Scapy version
+    """
     version_file = os.path.join(_SCAPY_PKG_DIR, 'VERSION')
     try:
         tag = _version_from_git_describe()
@@ -91,6 +102,9 @@ def _version():
 
 
 VERSION = __version__ = _version()
+
+_tmp = re.search(r"[0-9.]+", VERSION)
+VERSION_MAIN = _tmp.group() if _tmp is not None else VERSION
 
 if __name__ == "__main__":
     from scapy.main import interact

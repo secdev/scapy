@@ -12,7 +12,7 @@ the commit history) as clean as possible.
 Since Scapy can be slow and memory consuming, we try to limit CPU and
 memory usage, particularly in parts of the code often called.
 
-## What to contribute?
+## What to contribute
 
 You want to spend time working on Scapy but have no (or little)
 idea what to do? You can look for open issues
@@ -66,11 +66,14 @@ guidelines for new code.
 
 -   The code should be PEP-8 compliant; you can check your code with
     [pep8](https://pypi.python.org/pypi/pep8).
+
 -   [Pylint](http://www.pylint.org/) can help you write good Python
     code (even if respecting Pylint rules is sometimes either too hard
     or even undesirable; human brain needed!).
+
 -   [Google Python Style Guide](https://google.github.io/styleguide/pyguide.html)
     is a nice read!
+
 -   Avoid creating unnecessary `list` objects, particularly if they
     can be huge (e.g., when possible, use `scapy.modules.six.range()` instead of
     `range()`, `for line in fdesc` instead of `for line in
@@ -96,6 +99,8 @@ uncommon or specific.
 To be precise, `scapy/layers` protocols should not be importing `scapy/contrib`
 protocols, whereas `scapy/contrib` protocols may import both `scapy/contrib` and
 `scapy/layers` protocols.
+
+The detailed requirements are explained in [Design patterns](https://scapy.readthedocs.io/en/latest/build_dissect.html#design-patterns) on Scapy's doc.
 
 ### Features
 

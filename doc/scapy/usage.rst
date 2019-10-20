@@ -27,13 +27,22 @@ some features will not be available::
 
 The basic features of sending and receiving packets should still work, though. 
 
-Screenshot
-----------
 
-If you have installed IPython, Scapy will hook to it and you will be able to use auto-completion using the TAB.
+Customizing the Terminal
+------------------------
 
-.. image:: graphics/scapy-main-console.png
+Before you actually start using Scapy, you may want to configure Scapy to properly render colors on your terminal. To do so, set ``conf.color_theme`` to one of of the following themes::
+
+    DefaultTheme, BrightTheme, RastaTheme, ColorOnBlackTheme, BlackAndWhite, HTMLTheme, LatexTheme
+
+For instance::
+
+    conf.color_theme = BrightTheme()
+
+.. image:: graphics/animations/animation-scapy-themes-demo.gif
    :align: center
+
+Other parameters such as ``conf.prompt`` can also provide some customization. Note Scapy will update the shell automatically as soon as the ``conf`` values are changed.
 
 
 Interactive tutorial
@@ -255,7 +264,7 @@ Fuzzing
 .. index::
    single: fuzz(), fuzzing
 
-The function fuzz() is able to change any default value that is not to be calculated (like checksums) by an object whose value is random and whose type is adapted to the field. This enables to quickly built fuzzing templates and send them in a loop. In the following example, the IP layer is normal, and the UDP and NTP layers are fuzzed. The UDP checksum will be correct, the UDP destination port will be overloaded by NTP to be 123 and the NTP version will be forced to be 4. All the other ports will be randomized. Note: If you use fuzz() in IP layer, src and dst parameter won't be random so in order to do that use RandIP().::
+The function fuzz() is able to change any default value that is not to be calculated (like checksums) by an object whose value is random and whose type is adapted to the field. This enables quickly building fuzzing templates and sending them in a loop. In the following example, the IP layer is normal, and the UDP and NTP layers are fuzzed. The UDP checksum will be correct, the UDP destination port will be overloaded by NTP to be 123 and the NTP version will be forced to be 4. All the other ports will be randomized. Note: If you use fuzz() in IP layer, src and dst parameter won't be random so in order to do that use RandIP().::
 
     >>> send(IP(dst="target")/fuzz(UDP()/NTP(version=4)),loop=1)
     ................^C
@@ -534,19 +543,20 @@ Configuring super sockets
 .. index::
    single: super socket
 
-Different super sockets are available in Scapy: the native ones, and the ones that use a libpcap provider (that go through libpcap to send/receive packets).
-By default, Scapy will try to use the native ones (except on Windows, where the winpcap/npcap ones are preferred). To manually use the libpcap ones, you must:
+Different super sockets are available in Scapy: the **native** ones, and the ones that use **libpcap** (to send/receive packets).
 
-* On Unix/OSX: be sure to have libpcap installed, and one of the following as libpcap python wrapper: `pcapy` or `pypcap`
+By default, Scapy will try to use the native ones (*except on Windows, where the winpcap/npcap ones are preferred*). To manually use the **libpcap** ones, you must:
+
+* On Unix/OSX: be sure to have libpcap installed.
 * On Windows: have Npcap/Winpcap installed. (default)
 
-Then use:
+Then use::
 
     >>> conf.use_pcap = True
 
-This will automatically update the sockets pointing to `conf.L2socket` and `conf.L3socket`.
+This will automatically update the sockets pointing to ``conf.L2socket`` and ``conf.L3socket``.
 
-If you want to manually set them, you have a bunch of sockets available, depending on your platform. For instance, you might want to use:
+If you want to manually set them, you have a bunch of sockets available, depending on your platform. For instance, you might want to use::
 
     >>> conf.L3socket=L3pcapSocket  # Receive/send L3 packets through libpcap
     >>> conf.L2listen=L2ListenTcpdump  # Receive L2 packets through TCPDump
@@ -667,7 +677,7 @@ For even more control over displayed information we can use the ``sprintf()`` fu
     en-us,en;q=0.5\r\nAccept-Encoding: gzip,deflate\r\nAccept-Charset:
     ISO-8859-1,utf-8;q=0.7,*;q=0.7\r\nKeep-Alive: 300\r\nConnection:
     keep-alive\r\nCache-Control: max-age=0\r\n\r\n'
-    
+
 We can sniff and do passive OS fingerprinting::
 
     >>> p
@@ -687,6 +697,77 @@ We can sniff and do passive OS fingerprinting::
     (1.0, ['Windows 2000 (9)'])
 
 The number before the OS guess is the accuracy of the guess.
+
+Asynchronous Sniffing
+---------------------
+
+.. index::
+   single: AsyncSniffer()
+
+.. note::
+   Asynchronous sniffing is only available since **Scapy 2.4.3**
+
+It is possible to sniff asynchronously. This allows to stop the sniffer programmatically, rather than with ctrl^C.
+It provides ``start()``, ``stop()`` and ``join()`` utils.
+
+The basic usage would be:
+
+.. code-block:: python
+
+    >>> t = AsyncSniffer()
+    >>> t.start()
+    >>> print("hey")
+    hey
+    [...]
+    >>> results = t.stop()
+
+.. image:: graphics/animations/animation-scapy-asyncsniffer.svg
+
+The ``AsyncSniffer`` class has a few useful keys, such as ``results`` (the packets collected) or ``running``, that can be used.
+It accepts the same arguments than ``sniff()`` (in fact, their implementations are merged). For instance:
+
+.. code-block:: python
+
+    >>> t = AsyncSniffer(iface="enp0s3", count=200)
+    >>> t.start()
+    >>> t.join()  # this will hold until 200 packets are collected
+    >>> results = t.results
+    >>> print(len(results))
+    200
+
+Another example: using ``prn`` and ``store=False``
+
+.. code-block:: python
+
+    >>> t = AsyncSniffer(prn=lambda x: x.summary(), store=False, filter="tcp")
+    >>> t.start()
+    >>> time.sleep(20)
+    >>> t.stop()
+
+Advanced Sniffing - Sniffing Sessions
+-------------------------------------
+
+.. note::
+   Sessions are only available since **Scapy 2.4.3**
+
+``sniff()`` also provides **Sessions**, that allows to dissect a flow of packets seamlessly. For instance, you may want your ``sniff(prn=...)`` function to automatically defragment IP packets, before executing the ``prn``.
+
+Scapy includes some basic Sessions, but it is possible to implement your own.
+Available by default:
+
+- ``IPSession`` -> *defragment IP packets* on-the-flow, to make a stream usable by ``prn``.
+- ``TCPSession`` -> *defragment certain TCP protocols**. Only **HTTP 1.0** currently uses this functionality.
+- ``NetflowSession`` -> *resolve Netflow V9 packets* from their NetflowFlowset information objects
+
+Those sessions can be used using the ``session=`` parameter of ``sniff()``. Examples::
+
+    >>> sniff(session=IPSession, iface="eth0")
+    >>> sniff(session=TCPSession, prn=lambda x: x.summary(), store=False)
+    >>> sniff(offline="file.pcap", session=NetflowSession)
+
+.. note::
+   To implement your own Session class, in order to support another flow-based protocol, start by copying a sample from `scapy/sessions.py <https://github.com/secdev/scapy/blob/master/scapy/sessions.py>`_
+   Your custom ``Session`` class only needs to extend the ``DefaultSession`` class, and implement a ``on_packet_received`` function, such as in the example.
 
 Filters
 -------
@@ -745,6 +826,7 @@ Here is an example of a (h)ping-like functionality : you always send the same se
             IP / TCP 192.168.8.14:20 > 192.168.11.98:80 S
             IP / TCP 192.168.8.14:20 > 192.168.11.97:80 S
 
+.. _import-export:
 
 Importing and Exporting Data
 ----------------------------
@@ -903,7 +985,7 @@ Here we can see a multi-parallel traceroute (Scapy already has a multi TCP trace
     5 193.251.254.1   193.251.251.69  193.251.254.1   193.251.251.69  
     6 193.251.241.174 193.251.241.178 193.251.241.174 193.251.241.178 
 
-Here is a more complex example to identify machines from their IPID field. We can see that 172.20.80.200:22 is answered by the same IP stack than 172.20.80.201 and that 172.20.80.197:25 is not answered by the sape IP stack than other ports on the same IP.
+Here is a more complex example to distinguish machines or their IP stacks from their IPID field. We can see that 172.20.80.200:22 is answered by the same IP stack as 172.20.80.201 and that 172.20.80.197:25 is not answered by the same IP stack as other ports on the same IP.
 
 ::
 
@@ -1058,7 +1140,7 @@ Like any result object, traceroute objects can be added :
     19 195.101.94.25   SA 212.23.37.13    SA 216.109.118.72  SA 64.241.242.243  SA 66.94.229.254   SA 
     20 195.101.94.25   SA 212.23.37.13    SA 216.109.118.72  SA 64.241.242.243  SA 66.94.229.254   SA 
 
-Traceroute result object also have a very neat feature: they can make a directed graph from all the routes they got, and cluster them by AS. You will need graphviz. By default, ImageMagick is used to display the graph.
+Traceroute result object also have a very neat feature: they can make a directed graph from all the routes they got, and cluster them by AS (Autonomous System). You will need graphviz. By default, ImageMagick is used to display the graph.
 
     >>> res, unans = traceroute(["www.microsoft.com","www.cisco.com","www.yahoo.com","www.wanadoo.fr","www.pacsec.com"],dport=[80,443],maxttl=20,retry=-2)
     Received 190 packets, got 190 answers, remaining 10 packets
@@ -1087,6 +1169,9 @@ Wireless frame injection
 .. index::
    single: FakeAP, Dot11, wireless, WLAN
 
+.. note::
+   See the TroubleShooting section for more information on the usage of Monitor mode among Scapy.
+
 Provided that your wireless card and driver are correctly configured for frame injection
 
 ::
@@ -1094,7 +1179,7 @@ Provided that your wireless card and driver are correctly configured for frame i
     $ iw dev wlan0 interface add mon0 type monitor
     $ ifconfig mon0 up
 
-On Windows, if using Npcap, the equivalent would be to call
+On Windows, if using Npcap, the equivalent would be to call::
 
     >>> # Of course, conf.iface can be replaced by any interfaces accessed through IFACES
     ... conf.iface.setmonitor(True)
@@ -1207,6 +1292,36 @@ Once again, results can be collected with this command:
 
     >>> ans.summary( lambda(s,r) : r.sprintf("%IP.src% is alive") )
 
+
+DNS Requests
+------------
+
+**IPv4 (A) request:**
+
+This will perform a DNS request looking for IPv4 addresses
+
+    >>> ans = sr1(IP(dst="8.8.8.8")/UDP(sport=RandShort(), dport=53)/DNS(rd=1,qd=DNSQR(qname="secdev.org",qtype="A")))
+    >>> ans.an.rdata
+    '217.25.178.5'
+
+**SOA request:**
+
+    >>> ans = sr1(IP(dst="8.8.8.8")/UDP(sport=RandShort(), dport=53)/DNS(rd=1,qd=DNSQR(qname="secdev.org",qtype="SOA")))
+    >>> ans.ns.mname
+    b'dns.ovh.net.'
+    >>> ans.ns.rname
+    b'tech.ovh.net.'
+
+**MX request:**
+
+    >>> ans = sr1(IP(dst="8.8.8.8")/UDP(sport=RandShort(), dport=53)/DNS(rd=1,qd=DNSQR(qname="google.com",qtype="MX")))
+    >>> results = [x.exchange for x in ans.an.iterpayloads()]
+    >>> results
+    [b'alt1.aspmx.l.google.com.',
+     b'alt4.aspmx.l.google.com.',
+     b'aspmx.l.google.com.',
+     b'alt2.aspmx.l.google.com.',
+     b'alt3.aspmx.l.google.com.']
 
 
 Classical attacks
@@ -1500,28 +1615,76 @@ Viewing packets with Wireshark
 Problem
 ^^^^^^^
 
-You have generated or sniffed some packets with Scapy and want to view them with `Wireshark <http://www.wireshark.org>`_, because of its advanced packet dissection abilities.
+You have generated or sniffed some packets with Scapy.
+
+Now you want to view them with `Wireshark <https://www.wireshark.org>`_, because
+of its advanced packet dissection capabilities.
 
 Solution
 ^^^^^^^^
 
-That's what the ``wireshark()`` function is for:
+That's what :py:func:`wireshark` is for!
 
-    >>> packets = Ether()/IP(dst=Net("google.com/30"))/ICMP()     # first generate some packets
-    >>> wireshark(packets)                                        # show them with Wireshark
+.. code-block:: python3
 
-Wireshark will start in the background and show your packets.
+    # First, generate some packets...
+    packets = IP(src="192.0.2.9", dst=Net("192.0.2.10/30"))/ICMP()
+
+    # Show them with Wireshark
+    wireshark(packets)
+
+Wireshark will start in the background, and show your packets.
  
 Discussion
 ^^^^^^^^^^
 
-The ``wireshark()`` function generates a temporary pcap-file containing your packets, starts Wireshark in the background and makes it read the file on startup.   
+.. py:function:: wireshark(pktlist, ...)
 
-Please remember that Wireshark works with Layer 2 packets (usually called "frames"). So we had to add an ``Ether()`` header to our ICMP packets. Passing just IP packets (layer 3) to Wireshark will give strange results.
+    With a :py:class:`Packet` or :py:class:`PacketList`, serialises your
+    packets, and streams this into Wireshark via ``stdin`` as if it were a
+    capture device.
 
-You can tell Scapy where to find the Wireshark executable by changing the ``conf.prog.wireshark`` configuration setting.
+    Because this uses ``pcap`` format to serialise the packets, there are some
+    limitations:
 
+    * Packets must be all of the same ``linktype``.
 
+      For example, you can't mix :py:class:`Ether` and :py:class:`IP` at the
+      top layer.
+
+    * Packets must have an assigned (and supported) ``DLT_*`` constant for the
+      ``linktype``.  An unsupported ``linktype`` is replaced with ``DLT_EN10MB``
+      (Ethernet), and will display incorrectly in Wireshark.
+
+      For example, can't pass a bare :py:class:`ICMP` packet, but you can send
+      it as a payload of an :py:class:`IP` or :py:class:`IPv6` packet.
+
+    With a filename (passed as a string), this loads the given file in
+    Wireshark. This needs to be in a format that Wireshark supports.
+
+    You can tell Scapy where to find the Wireshark executable by changing the
+    ``conf.prog.wireshark`` configuration setting.
+
+    This accepts the same extra parameters as :py:func:`tcpdump`.
+
+.. seealso::
+
+    :py:class:`WiresharkSink`
+        A :ref:`PipeTools sink <pipetools>` for live-streaming packets.
+
+    :manpage:`wireshark(1)`
+        Additional description of Wireshark's functionality, and its
+        command-line arguments.
+
+    `Wireshark's website`__
+        For up-to-date releases of Wireshark.
+
+    `Wireshark Protocol Reference`__
+        Contains detailed information about Wireshark's protocol dissectors, and
+        reference documentation for various network protocols.
+
+__ https://www.wireshark.org
+__ https://wiki.wireshark.org/ProtocolReference
 
 OS Fingerprinting
 -----------------

@@ -56,9 +56,9 @@ if LINUX:
     from scapy.arch.linux import *  # noqa F403
 elif BSD:
     from scapy.arch.unix import read_routes, read_routes6, in6_getifaddr  # noqa: F401, E501
-
-    if not conf.use_pcap or conf.use_dnet:
-        from scapy.arch.bpf.core import *  # noqa F403
+    from scapy.arch.bpf.core import *  # noqa F403
+    if not (conf.use_pcap or conf.use_dnet):
+        # Native
         from scapy.arch.bpf.supersocket import * # noqa F403
         conf.use_bpf = True
 elif SOLARIS:

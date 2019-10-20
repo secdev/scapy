@@ -176,9 +176,9 @@ class Route6:
         Provide best route to IPv6 destination address, based on Scapy
         internal routing table content.
 
-        When a set of address is passed (e.g. 2001:db8:cafe:*::1-5) an address
-        of the set is used. Be aware of that behavior when using wildcards in
-        upper parts of addresses !
+        When a set of address is passed (e.g. ``2001:db8:cafe:*::1-5``) an
+        address of the set is used. Be aware of that behavior when using
+        wildcards in upper parts of addresses !
 
         If 'dst' parameter is a FQDN, name resolution is performed and result
         is used.

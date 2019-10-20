@@ -14,93 +14,83 @@
 # along with Scapy. If not, see <http://www.gnu.org/licenses/>.
 
 # Original PPI author: <jellch@harris.com>
-
-# scapy.contrib.description = Parallel Peripheral Interface (PPI)
+# scapy.contrib.description = CACE Per-Packet Information (PPI) header
 # scapy.contrib.status = loads
 
-
 """
-Per-Packet Information (PPI) Protocol
-"""
+CACE Per-Packet Information (PPI) header.
 
-import struct
+A method for adding metadata to link-layer packets.
+
+For example, one can tag an 802.11 packet with GPS co-ordinates of where it
+was captured, and include it in the PCAP file.
+
+New PPI types should:
+
+ * Make their packet a subclass of ``PPI_Element``
+ * Call ``bind_layers(PPI_Hdr, ExamplePPI, pfh_type=0xffff)``
+
+See ``layers/contrib/ppi_cace.py`` for an example.
+"""
 
 from scapy.config import conf
-from scapy.data import DLT_EN10MB, DLT_IEEE802_11, DLT_PPI
-from scapy.packet import bind_layers, Packet
+from scapy.data import DLT_PPI, PPI_TYPES
+from scapy.error import warning
+from scapy.packet import Packet
 from scapy.fields import ByteField, FieldLenField, LEIntField, \
-    LEShortField, PacketListField, StrLenField
-from scapy.layers.l2 import Ether
-from scapy.layers.dot11 import Dot11
-
-# Dictionary to map the TLV type to the class name of a sub-packet
-_ppi_types = {}
+    PacketListField, LEShortEnumField, LenField
 
 
-def addPPIType(id, value):
-    _ppi_types[id] = value
+class PPI_Hdr(Packet):
+    name = 'PPI Header'
+    fields_desc = [
+        LEShortEnumField('pfh_type', 0, PPI_TYPES),
+        LenField('pfh_length', None, fmt='<H'),
+    ]
+
+    def mysummary(self):
+        return self.sprintf('PPI %pfh_type%')
 
 
-def getPPIType(id, default="default"):
-    return _ppi_types.get(id, _ppi_types.get(default, None))
+class PPI_Element(Packet):
+    """Superclass for all PPI types."""
+    name = 'PPI Element'
 
+    def extract_padding(self, s):
+        return b'', s
 
-# Default PPI Field Header
-class PPIGenericFldHdr(Packet):
-    name = "PPI Field Header"
-    fields_desc = [LEShortField('pfh_type', 0),
-                   FieldLenField('pfh_length', None, length_of="value", fmt='<H', adjust=lambda p, x:x + 4),  # noqa: E501
-                   StrLenField("value", "", length_from=lambda p:p.pfh_length)]
+    @staticmethod
+    def length_from(pkt):
+        if not pkt.underlayer:
+            warning('Missing under-layer')
+            return 0
 
-    def extract_padding(self, p):
-        return b"", p
-
-
-def _PPIGuessPayloadClass(p, **kargs):
-    """ This function tells the PacketListField how it should extract the
-        TLVs from the payload.  We pass cls only the length string
-        pfh_len says it needs.  If a payload is returned, that means
-        part of the string was unused.  This converts to a Raw layer, and
-        the remainder of p is added as Raw's payload.  If there is no
-        payload, the remainder of p is added as out's payload.
-    """
-    if len(p) >= 4:
-        t, pfh_len = struct.unpack("<HH", p[:4])
-        # Find out if the value t is in the dict _ppi_types.
-        # If not, return the default TLV class
-        cls = getPPIType(t, "default")
-        pfh_len += 4
-        out = cls(p[:pfh_len], **kargs)
-        if (out.payload):
-            out.payload = conf.raw_layer(out.payload.load)
-            out.payload.underlayer = out
-            if (len(p) > pfh_len):
-                out.payload.payload = conf.padding_layer(p[pfh_len:])
-                out.payload.payload.underlayer = out.payload
-        elif (len(p) > pfh_len):
-            out.payload = conf.padding_layer(p[pfh_len:])
-            out.payload.underlayer = out
-    else:
-        out = conf.raw_layer(p, **kargs)
-    return out
+        return pkt.underlayer.len
 
 
 class PPI(Packet):
-    name = "Per-Packet Information header (PPI)"
-    fields_desc = [ByteField('version', 0),
-                   ByteField('flags', 0),
-                   FieldLenField('len', None, length_of="PPIFieldHeaders", fmt="<H", adjust=lambda p, x: x + 8),  # noqa: E501
-                   LEIntField('dlt', 1),
-                   PacketListField("PPIFieldHeaders", [], _PPIGuessPayloadClass, length_from=lambda p: p.len - 8,)]  # noqa: E501
+    name = 'Per-Packet Information header (PPI)'
+    fields_desc = [
+        ByteField('version', 0),
+        ByteField('flags', 0),
+        FieldLenField('len', None, length_of='headers', fmt='<H',
+                      adjust=lambda p, x: x + 8),  # length of this packet
+        LEIntField('dlt', None),
+        PacketListField('headers', [], PPI_Hdr,
+                        length_from=lambda p: p.len - 8),
+    ]
+
+    def add_payload(self, payload):
+        Packet.add_payload(self, payload)
+
+        # Update the DLT if not set
+        if self.getfieldval('dlt') is None and isinstance(payload, Packet):
+            self.setfieldval('dlt', conf.l2types.get(payload.__class__))
 
     def guess_payload_class(self, payload):
-        return conf.l2types.get(self.dlt, Packet.guess_payload_class(self, payload))  # noqa: E501
+        # Pass DLT handling to conf.l2types.
+        return conf.l2types.get(
+            self.getfieldval('dlt'), Packet.guess_payload_class(self, payload))
 
-
-# Register PPI
-addPPIType("default", PPIGenericFldHdr)
 
 conf.l2types.register(DLT_PPI, PPI)
-
-bind_layers(PPI, Dot11, dlt=DLT_IEEE802_11)
-bind_layers(PPI, Ether, dlt=DLT_EN10MB)

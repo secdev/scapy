@@ -55,7 +55,7 @@ class _SDPacketBase(Packet):
     _defaults = {}
 
     def _set_defaults(self):
-        for key in self._defaults.keys():
+        for key in self._defaults:
             try:
                 self.get_field(key)
             except KeyError:

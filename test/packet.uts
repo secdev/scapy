@@ -1,0 +1,299 @@
+% Regression tests for Scapy packets
+
++ Test packet conversion (convert_to/convert_packet)
+
+= Setup packet conversion
+
+def expect_exception(e, c):
+    try:
+        c()
+        return False
+    except e:
+        return True
+
+def no_theme(c):
+    old_theme = conf.color_theme
+    conf.color_theme = NoTheme()
+    try:
+        return c()
+    finally:
+        conf.color_theme = old_theme
+
+# PacketA declares no conversions, but will have conversions declared by
+# PacketB.
+class PacketA(Packet):
+    name = 'PacketA'
+    fields_desc = [LEShortField('foo', None)]
+
+# PacketB declares conversions for PacketA
+class PacketB(Packet):
+    name = 'PacketB'
+    fields_desc = [ShortField('bar', None)]
+    def convert_to(self, other_cls, **kwargs):
+        if other_cls is PacketA:
+            return PacketA(foo=self.bar)
+        return Packet.convert_to(self, other_cls, **kwargs)
+    @classmethod
+    def convert_packet(cls, pkt, **kwargs):
+        if isinstance(pkt, PacketA):
+            return cls(bar=pkt.foo)
+        return Packet.convert_packet(pkt, **kwargs)
+
+# PacketC has no defined conversions, either way.
+# Converting to or from it should fail.
+class PacketC(Packet):
+    name = 'PacketC'
+    fields_desc = [IntField('x', None),]
+
+# Packet D stacks Packet C under it.
+class PacketD(Packet):
+    name = 'PacketD'
+    fields_desc = [ShortField('version', 12),]
+
+bind_layers(PacketD, PacketC)
+
+= Check formatting is expected.
+
+# This isn't strictly relevant for the test, but it ensures that we have the
+# environment we expected.
+
+p = PacketA(b'\xd2\x04')
+assert p.foo == 1234
+
+p = PacketB(b'\x04\xd2')
+assert p.bar == 1234
+
+p = PacketC(b'\0\0\x04\xd2')
+assert p.x == 1234
+
+p = PacketD(b'\0\x0c\0\0\x04\xd2')
+assert p.version == 12
+assert p.haslayer(PacketC)
+assert p.x == 1234
+
+p = PacketA(foo=1234)
+assert raw(p) == b'\xd2\x04'
+
+p = PacketB(raw(p))
+assert p.bar == 53764
+
+p = PacketB(bar=1234)
+assert raw(p) == b'\x04\xd2'
+
+p = PacketA(raw(p))
+assert p.foo == 53764
+
+p = PacketC(x=1234)
+assert raw(p) == b'\0\0\x04\xd2'
+
+p = PacketD()/PacketC(x=1234)
+assert raw(p) == b'\0\x0c\0\0\x04\xd2'
+
+= convert_to A -> B
+
+p1 = PacketA(foo=1234)
+p2 = p1.convert_to(PacketB)
+
+assert p1.foo == 1234
+assert p2.bar == 1234
+
+= convert_to A -> C (fails)
+
+p1 = PacketA(foo=1234)
+expect_exception(TypeError, lambda: p1.convert_to(PacketC))
+
+assert p1.foo == 1234
+
+= convert_to A -> Raw
+
+p1 = PacketA(foo=1234)
+p2 = p1.convert_to(Raw)
+
+assert p1.foo == 1234
+assert isinstance(p2, Raw)
+assert p2.load == b'\xd2\x04'
+
+= convert_to B -> A
+
+p1 = PacketB(bar=1234)
+p2 = p1.convert_to(PacketA)
+
+assert p1.bar == 1234
+assert p2.foo == 1234
+
+= convert_to B -> C (fails)
+
+p1 = PacketB(bar=1234)
+expect_exception(TypeError, lambda: p1.convert_to(PacketC))
+
+assert p1.bar == 1234
+
+= convert_to B -> Raw
+
+p1 = PacketB(bar=1234)
+p2 = p1.convert_to(Raw)
+
+assert p1.bar == 1234
+assert isinstance(p2, Raw)
+assert p2.load == b'\x04\xd2'
+
+= convert_to D -> C (fails)
+
+p1 = PacketD()/PacketC(x=1234)
+expect_exception(TypeError, lambda: p1.convert_to(PacketC))
+
+assert p1.x == 1234
+
+= convert_to invalid type
+
+try:
+    PacketA().convert_to(3)
+except TypeError:
+    pass
+else:
+    assert False
+
+= convert_packet A -> B
+
+p1 = PacketA(foo=1234)
+p2 = PacketB.convert_packet(p1)
+
+assert p1.foo == 1234
+assert p2.bar == 1234
+
+= convert_packet A -> C (fails)
+
+p1 = PacketA(foo=1234)
+expect_exception(TypeError, lambda: PacketC.convert_packet(p1))
+
+assert p1.foo == 1234
+
+= convert_packet A -> Raw
+
+p1 = PacketA(foo=1234)
+p2 = Raw.convert_packet(p1)
+
+assert p1.foo == 1234
+assert isinstance(p2, Raw)
+assert p2.load == b'\xd2\x04'
+
+= convert_packet B -> A
+
+p1 = PacketB(bar=1234)
+p2 = PacketA.convert_packet(p1)
+
+assert p1.bar == 1234
+assert p2.foo == 1234
+
+= convert_packet B -> C (fails)
+
+p1 = PacketB(bar=1234)
+expect_exception(TypeError, lambda: PacketC.convert_packet(p1))
+
+assert p1.bar == 1234
+
+= convert_packet B -> Raw
+
+p1 = PacketB(bar=1234)
+p2 = Raw.convert_packet(p1)
+
+assert p1.bar == 1234
+assert isinstance(p2, Raw)
+assert p2.load == b'\x04\xd2'
+
+= convert_packet D -> C (fails)
+
+p1 = PacketD()/PacketC(x=1234)
+expect_exception(TypeError, lambda: PacketC.convert_packet(p1))
+
+assert p1.x == 1234
+
+= convert_packets A -> B
+
+p1 = [PacketA(foo=x) for x in range(100)]
+p2 = list(PacketB.convert_packets(p1))
+
+for x in range(100):
+    assert p1[x].foo == x
+    assert p2[x].bar == x
+
+= convert_packets B -> A
+
+p1 = [PacketB(bar=x) for x in range(100)]
+p2 = list(PacketA.convert_packets(p1))
+
+for x in range(100):
+    assert p1[x].bar == x
+    assert p2[x].foo == x
+
+= convert_packet invalid type
+
+try:
+    PacketA.convert_packet(3)
+except TypeError:
+    pass
+else:
+    assert False
+
+= PacketList.convert_to A -> B
+
+pl1 = PacketList([PacketA(foo=x) for x in range(10)])
+pl2 = pl1.convert_to(PacketB)
+
+for i, p2 in enumerate(pl2):
+    assert p2.bar == i
+
+assert 'PacketB' in pl2.listname
+
+= PacketList.convert_to custom name / stats
+
+pl1 = PacketList(
+    [PacketA(foo=x) for x in range(10)], name='my old list', stats=[PacketA])
+assert pl1.listname == 'my old list'
+
+pl2 = pl1.convert_to(PacketB, name='my new list', stats=[PacketB, PacketC])
+
+for i, p2 in enumerate(pl2):
+    assert p2.bar == i
+
+assert pl2.listname == 'my new list'
+
+assert no_theme(lambda: 'PacketA' not in str(pl2))
+assert no_theme(lambda: 'PacketB:10' in str(pl2))
+
+= PacketList.getlayer
+
+pl1 = PacketList([PacketC(x=x)/PacketD(version=x*2) for x in range(10)])
+pl2 = pl1.getlayer(PacketD)
+
+for i, p2 in enumerate(pl2):
+    assert p2.version == i * 2
+
+assert 'PacketD' in pl2.listname
+
+= PacketList.getlayer custom name / stats
+
+pl1 = PacketList(
+    [PacketC(x=x)/PacketD(version=x*2) for x in range(10)],
+    name='old list', stats=[PacketC])
+pl2 = pl1.getlayer(PacketD, name='new list', stats=[PacketD])
+
+for i, p2 in enumerate(pl2):
+    assert p2.version == i * 2
+
+assert pl2.listname == 'new list'
+assert no_theme(lambda: 'PacketC' not in str(pl2))
+assert no_theme(lambda: 'PacketD:10' in str(pl2))
+
+= PacketList.getlayer filtering
+
+pl1 = PacketList([PacketC(x=x)/PacketD(version=x*2) for x in range(10)])
+pl2 = pl1.getlayer(PacketD, nb=1, flt={'version': 6})
+
+assert len(pl2) == 1
+assert pl2[0].version == 6
+
+= PacketList.getlayer filtering with 0 results
+
+pl2 = pl1.getlayer(PacketD, nb=1, flt={'version': 1})
+assert len(pl2) == 0

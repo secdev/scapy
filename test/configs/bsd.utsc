@@ -1,0 +1,31 @@
+{
+  "testfiles": [
+    "test/*.uts",
+    "test/contrib/automotive/*.uts",
+    "test/contrib/automotive/obd/*.uts",
+    "test/contrib/automotive/gm/*.uts",
+    "test/contrib/automotive/bmw/*.uts",
+    "test/contrib/*.uts"
+  ],
+  "remove_testfiles": [
+    "test/linux.uts",
+    "test/windows.uts",
+    "test/contrib/cansocket_native.uts",
+    "test/contrib/cansocket_python_can.uts"
+  ],
+  "onlyfailed": true,
+  "preexec": {
+    "test/contrib/*.uts": "load_contrib(\"%name%\")",
+    "test/cert.uts": "load_layer(\"tls\")",
+    "test/sslv2.uts": "load_layer(\"tls\")",
+    "test/tls*.uts": "load_layer(\"tls\")"
+  },
+  "format": "text",
+  "kw_ko": [
+    "linux",
+    "windows",
+    "crypto_advanced",
+    "ipv6",
+    "vcan_socket"
+  ]
+}

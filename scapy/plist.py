@@ -23,10 +23,10 @@ from functools import reduce
 import scapy.modules.six as six
 from scapy.modules.six.moves import range, zip
 
-
 #############
 #  Results  #
 #############
+
 
 class PacketList(BasePacketList, _CanvasDumpExtended):
     __slots__ = ["stats", "res", "listname"]
@@ -86,8 +86,10 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
 
     def __getstate__(self):
         """
-        create a basic representation of the instance, used in conjunction with __setstate__() e.g. by pickle  # noqa: E501
-        :return: dict representing this instance
+        Creates a basic representation of the instance, used in
+        conjunction with __setstate__() e.g. by pickle
+
+        :returns: dict representing this instance
         """
         state = {
             'res': self.res,
@@ -98,7 +100,9 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
 
     def __setstate__(self, state):
         """
-        set instance attributes to values given by state, used in conjunction with __getstate__() e.g. by pickle  # noqa: E501
+        Sets instance attributes to values given by state, used in
+        conjunction with __getstate__() e.g. by pickle
+
         :param state: dict representing this instance
         """
         self.res = state['res']
@@ -127,8 +131,12 @@ class PacketList(BasePacketList, _CanvasDumpExtended):
 
     def summary(self, prn=None, lfilter=None):
         """prints a summary of each packet
-prn:     function to apply to each packet instead of lambda x:x.summary()
-lfilter: truth function to apply to each packet to decide whether it will be displayed"""  # noqa: E501
+
+        :param prn: function to apply to each packet instead of
+                    lambda x:x.summary()
+        :param lfilter: truth function to apply to each packet to decide
+                        whether it will be displayed
+        """
         for r in self.res:
             if lfilter is not None:
                 if not lfilter(r):
@@ -140,8 +148,12 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
 
     def nsummary(self, prn=None, lfilter=None):
         """prints a summary of each packet with the packet's number
-prn:     function to apply to each packet instead of lambda x:x.summary()
-lfilter: truth function to apply to each packet to decide whether it will be displayed"""  # noqa: E501
+
+        :param prn: function to apply to each packet instead of
+                    lambda x:x.summary()
+        :param lfilter: truth function to apply to each packet to decide
+                        whether it will be displayed
+        """
         for i, res in enumerate(self.res):
             if lfilter is not None:
                 if not lfilter(res):
@@ -335,13 +347,17 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
     def conversations(self, getsrcdst=None, **kargs):
         """Graphes a conversations between sources and destinations and display it
         (using graphviz and imagemagick)
-        getsrcdst: a function that takes an element of the list and
-                   returns the source, the destination and optionally
-                   a label. By default, returns the IP source and
-                   destination from IP and ARP layers
-        type: output type (svg, ps, gif, jpg, etc.), passed to dot's "-T" option  # noqa: E501
-        target: filename or redirect. Defaults pipe to Imagemagick's display program  # noqa: E501
-        prog: which graphviz program to use"""
+
+        :param getsrcdst: a function that takes an element of the list and
+            returns the source, the destination and optionally
+            a label. By default, returns the IP source and
+            destination from IP and ARP layers
+        :param type: output type (svg, ps, gif, jpg, etc.), passed to dot's
+            "-T" option
+        :param target: filename or redirect. Defaults pipe to Imagemagick's
+            display program
+        :param prog: which graphviz program to use
+        """
         if getsrcdst is None:
             def getsrcdst(pkt):
                 """Extract src and dst addresses"""
@@ -411,11 +427,6 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
                 dl[d] = dl.get(d, 0) + 1
             except Exception:
                 continue
-
-        import math
-
-        def normalize(n):
-            return 2 + math.log(n) / 4.0
 
         def minmax(x):
             m, M = reduce(lambda a, b: (min(a[0], b[0]), max(a[1], b[1])),
@@ -569,6 +580,75 @@ lfilter: truth function to apply to each packet to decide whether it will be dis
                             setattr(p[o], fld.name, new)
             x.append(p)
         return x
+
+    def getlayer(self, cls, nb=None, flt=None, name=None, stats=None):
+        """Returns the packet list from a given layer.
+
+        See ``Packet.getlayer`` for more info.
+
+        :param cls: search for a layer that is an instance of ``cls``
+        :type cls: Type[scapy.packet.Packet]
+
+        :param nb: return the nb^th layer that is an instance of ``cls``
+        :type nb: Optional[int]
+
+        :param flt: filter parameters for ``Packet.getlayer``
+        :type flt: Optional[Dict[str, Any]]
+
+        :param name: optional name for the new PacketList
+        :type name: Optional[str]
+
+        :param stats: optional list of protocols to give stats on; if not
+                      specified, inherits from this PacketList.
+        :type stats: Optional[List[Type[scapy.packet.Packet]]]
+        :rtype: scapy.plist.PacketList
+        """
+        if name is None:
+            name = "{} layer {}".format(self.listname, cls.__name__)
+        if stats is None:
+            stats = self.stats
+
+        getlayer_arg = {}
+        if flt is not None:
+            getlayer_arg.update(flt)
+        getlayer_arg['cls'] = cls
+        if nb is not None:
+            getlayer_arg['nb'] = nb
+
+        # Only return non-None getlayer results
+        return PacketList([
+            pc for pc in (p.getlayer(**getlayer_arg) for p in self.res)
+            if pc is not None],
+            name, stats
+        )
+
+    def convert_to(self, other_cls, name=None, stats=None):
+        """Converts all packets to another type.
+
+        See ``Packet.convert_to`` for more info.
+
+        :param other_cls: reference to a Packet class to convert to
+        :type other_cls: Type[scapy.packet.Packet]
+
+        :param name: optional name for the new PacketList
+        :type name: Optional[str]
+
+        :param stats: optional list of protocols to give stats on;
+                      if not specified, inherits from this PacketList.
+        :type stats: Optional[List[Type[scapy.packet.Packet]]]
+
+        :rtype: scapy.plist.PacketList
+        """
+        if name is None:
+            name = "{} converted to {}".format(
+                self.listname, other_cls.__name__)
+        if stats is None:
+            stats = self.stats
+
+        return PacketList(
+            [p.convert_to(other_cls) for p in self.res],
+            name, stats
+        )
 
 
 class SndRcvList(PacketList):

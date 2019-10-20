@@ -19,7 +19,8 @@ import struct
 import scapy
 import scapy.consts
 from scapy.arch.windows.structures import _windows_title, \
-    GetAdaptersAddresses, GetIpForwardTable, GetIpForwardTable2
+    GetAdaptersAddresses, GetIpForwardTable, GetIpForwardTable2, \
+    get_service_status
 from scapy.consts import WINDOWS, WINDOWS_XP
 from scapy.config import conf, ConfClass
 from scapy.error import Scapy_Exception, log_loading, log_runtime, warning
@@ -32,8 +33,7 @@ from scapy.modules.six.moves import input, winreg, UserDict
 from scapy.compat import plain_str
 from scapy.supersocket import SuperSocket
 
-conf.use_winpcapy = True
-conf.use_pcap = False
+conf.use_pcap = True
 conf.use_dnet = False
 
 # These import must appear after setting conf.use_* variables
@@ -164,11 +164,18 @@ class WinProgPath(ConfClass):
                                 env="SystemRoot")
         if self.wireshark:
             try:
-                manu_path = load_manuf(os.path.sep.join(self.wireshark.split(os.path.sep)[:-1]) + os.path.sep + "manuf")  # noqa: E501
+                new_manuf = load_manuf(
+                    os.path.sep.join(
+                        self.wireshark.split(os.path.sep)[:-1]
+                    ) + os.path.sep + "manuf"
+                )
             except (IOError, OSError):  # FileNotFoundError not available on Py2 - using OSError  # noqa: E501
                 log_loading.warning("Wireshark is installed, but cannot read manuf !")  # noqa: E501
-                manu_path = None
-            scapy.data.MANUFDB = conf.manufdb = manu_path
+                new_manuf = None
+            if new_manuf:
+                # Inject new ManufDB
+                conf.manufdb.__dict__.clear()
+                conf.manufdb.__dict__.update(new_manuf.__dict__)
 
 
 def _exec_cmd(command):
@@ -176,10 +183,7 @@ def _exec_cmd(command):
     proc = sp.Popen(command,
                     stdout=sp.PIPE,
                     shell=True)
-    if six.PY2:
-        res = proc.communicate()[0]
-    else:
-        res = proc.communicate(timeout=5)[0]
+    res = proc.communicate()[0]
     return res, proc.returncode
 
 
@@ -337,12 +341,13 @@ class NetworkInterface(object):
             # Npcap loopback interface
             if conf.use_npcap:
                 pcap_name_loopback = _get_npcap_config("LoopbackAdapter")
-                guid = _pcapname_to_guid(pcap_name_loopback)
-                if self.guid == guid:
-                    # https://nmap.org/npcap/guide/npcap-devguide.html
-                    self.mac = "00:00:00:00:00:00"
-                    self.ip = "127.0.0.1"
-                    return
+                if pcap_name_loopback:  # May not be defined
+                    guid = _pcapname_to_guid(pcap_name_loopback)
+                    if self.guid == guid:
+                        # https://nmap.org/npcap/guide/npcap-devguide.html
+                        self.mac = "00:00:00:00:00:00"
+                        self.ip = "127.0.0.1"
+                        return
         except KeyError:
             pass
 
@@ -383,7 +388,7 @@ class NetworkInterface(object):
             # The Dot11Adapters is not officially supported anymore.
             # we just try/except, and check that it exists globally
             val = _get_npcap_config("Dot11Support")
-            self.raw80211 = bool(int(val))
+            self.raw80211 = bool(int(val)) if val else False
         if not self.raw80211:
             raise Scapy_Exception("This interface does not support raw 802.11")
 
@@ -428,13 +433,13 @@ class NetworkInterface(object):
         # We must reset the monitor cache
         if enable:
             res = self.setmode('monitor')
-            self.cache_mode = res
         else:
             res = self.setmode('managed')
-            self.cache_mode = not res
         if not res:
             log_runtime.error("Npcap WlanHelper returned with an error code !")
-        return res
+        self.cache_mode = None
+        tmp = self.cache_mode = self.ismonitor()
+        return tmp if enable else (not tmp)
 
     def availablemodes(self):
         """Get all available interface modes.
@@ -564,8 +569,8 @@ def pcap_service_name():
 
 def pcap_service_status():
     """Returns whether the windows pcap adapter is running or not"""
-    outp, _ = _exec_cmd('sc query %s | findstr STATE' % pcap_service_name())
-    return b"running" in outp.lower()
+    status = get_service_status(pcap_service_name())
+    return status["dwCurrentState"] == 4
 
 
 def _pcap_service_control(action, askadmin=True):
@@ -593,6 +598,10 @@ class NetworkInterfaceDict(UserDict):
     @classmethod
     def _pcap_check(cls):
         """Performs checks/restart pcap adapter"""
+        if not conf.use_pcap:
+            # Winpcap/Npcap isn't installed
+            return
+
         _detect = pcap_service_status()
 
         def _ask_user():
@@ -713,11 +722,13 @@ class NetworkInterfaceDict(UserDict):
         """Reload interface list"""
         self.restarted_adapter = False
         self.data.clear()
-        if conf.use_winpcapy:
+        if conf.use_pcap:
             # Reload from Winpcapy
             from scapy.arch.pcapdnet import load_winpcapy
             load_winpcapy()
         self.load()
+        # Reload conf.iface
+        conf.iface = get_working_if()
 
     def show(self, resolve_mac=True, print_result=True):
         """Print list of available network interfaces in human readable form"""
@@ -778,33 +789,33 @@ def show_interfaces(resolve_mac=True):
     return IFACES.show(resolve_mac)
 
 
-if conf.use_winpcapy:
+if conf.use_pcap:
     _orig_open_pcap = pcapdnet.open_pcap
 
-
-def open_pcap(iface, *args, **kargs):
-    """open_pcap: Windows routine for creating a pcap from an interface.
-    This function is also responsible for detecting monitor mode.
-    """
-    iface_pcap_name = pcapname(iface)
-    if not isinstance(iface, NetworkInterface) and iface_pcap_name is not None:
-        iface = IFACES.dev_from_name(iface)
-    if iface.is_invalid():
-        raise Scapy_Exception("Interface is invalid (no pcap match found) !")
-    # Only check monitor mode when manually specified.
-    # Checking/setting for monitor mode will slow down the process, and the
-    # common is case is not to use monitor mode
-    kw_monitor = kargs.get("monitor", None)
-    if conf.use_npcap and kw_monitor is not None and iface is not None:
-        monitored = iface.ismonitor()
-        if kw_monitor is not monitored:
-            # The monitor param is specified, and not matching the current
-            # interface state
-            iface.setmonitor(kw_monitor)
-    return _orig_open_pcap(iface_pcap_name, *args, **kargs)
-
-
-pcapdnet.open_pcap = open_pcap
+    def open_pcap(iface, *args, **kargs):
+        """open_pcap: Windows routine for creating a pcap from an interface.
+        This function is also responsible for detecting monitor mode.
+        """
+        iface_pcap_name = pcapname(iface)
+        if not isinstance(iface, NetworkInterface) and \
+           iface_pcap_name is not None:
+            iface = IFACES.dev_from_name(iface)
+        if iface.is_invalid():
+            raise Scapy_Exception(
+                "Interface is invalid (no pcap match found) !"
+            )
+        # Only check monitor mode when manually specified.
+        # Checking/setting for monitor mode will slow down the process, and the
+        # common is case is not to use monitor mode
+        kw_monitor = kargs.get("monitor", None)
+        if conf.use_npcap and kw_monitor is not None:
+            monitored = iface.ismonitor()
+            if kw_monitor is not monitored:
+                # The monitor param is specified, and not matching the current
+                # interface state
+                iface.setmonitor(kw_monitor)
+        return _orig_open_pcap(iface_pcap_name, *args, **kargs)
+    pcapdnet.open_pcap = open_pcap
 
 get_if_raw_hwaddr = pcapdnet.get_if_raw_hwaddr = lambda iface, *args, **kargs: (  # noqa: E501
     ARPHDR_ETHER, mac2str(IFACES.dev_from_pcapname(pcapname(iface)).mac)
@@ -960,7 +971,7 @@ def get_working_if():
         iface = scapy.consts.LOOPBACK_INTERFACE
     if iface.is_invalid():
         # Backup mode: try them all
-        for iface in IFACES.values():
+        for iface in six.itervalues(IFACES):
             if not iface.is_invalid():
                 return iface
         return None

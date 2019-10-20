@@ -18,16 +18,23 @@ basedir = os.path.abspath(os.path.join(os.path.dirname(__file__),"../../"))
 sys.path=[basedir]+sys.path
 
 from scapy.layers.tls.automaton_cli import TLSClientAutomaton
-from scapy.layers.tls.handshake import TLSClientHello
+from scapy.layers.tls.handshake import TLSClientHello, TLS13ClientHello
 
 
 if len(sys.argv) == 2:
-    ch = TLSClientHello(ciphers=int(sys.argv[1], 16))
+    ciphers = int(sys.argv[1], 16)
+    if ciphers not in list(range(0x1301, 0x1306)):
+        ch = TLSClientHello(ciphers=ciphers)
+        version = "tls12"
+    else:
+        ch = TLS13ClientHello(ciphers=ciphers)
+        version = "tls13"
 else:
     ch = None
+    version = "tls13"
 
 t = TLSClientAutomaton(client_hello=ch,
-                       version="tls13-d18",
+                       version=version,
                        mycert=basedir+"/test/tls/pki/cli_cert.pem",
                        mykey=basedir+"/test/tls/pki/cli_key.pem")
 t.run()

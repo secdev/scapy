@@ -1,0 +1,22 @@
+# BIER unit tests
+#
+# Type the following command to launch start the tests:
+# $ test/run_tests -P "load_contrib('bier')"  -P "load_contrib('mpls')"  -t test/contrib/bier.uts
+
++ BIER tests
+
+= BIER - build/dissection
+
+from scapy.contrib.mpls import MPLS
+
+p1 = MPLS()/BIER(length=BIERLength.BIER_LEN_256)/IP()/UDP()
+assert(p1[MPLS].s == 1)
+p2 = BIFT()/BIER(length=BIERLength.BIER_LEN_64)/IP()/UDP()
+assert(p2[BIFT].s == 1)
+
+p1[MPLS]
+p1[BIER]
+p1[IP]
+p2[BIFT]
+p2[BIER]
+p2[IP]

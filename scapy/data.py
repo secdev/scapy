@@ -7,10 +7,9 @@
 Global variables and functions for handling external data sets.
 """
 
-
+import calendar
 import os
 import re
-import time
 
 
 from scapy.dadict import DADict
@@ -116,46 +115,88 @@ IPV6_ADDR_SCOPE_MASK = 0xF0
 IPV6_ADDR_6TO4 = 0x0100   # Added to have more specific info (should be 0x0101 ?)  # noqa: E501
 IPV6_ADDR_UNSPECIFIED = 0x10000
 
+# Constants for PPI header types.
+PPI_DOT11COMMON = 2
+PPI_DOT11NMAC = 3
+PPI_DOT11NMACPHY = 4
+PPI_SPECTRUM_MAP = 5
+PPI_PROCESS_INFO = 6
+PPI_CAPTURE_INFO = 7
+PPI_AGGREGATION = 8
+PPI_DOT3 = 9
+PPI_GPS = 30002
+PPI_VECTOR = 30003
+PPI_SENSOR = 30004
+PPI_ANTENNA = 30005
+PPI_BTLE = 30006
+
+# Human-readable type names for PPI header types.
+PPI_TYPES = {
+    PPI_DOT11COMMON: 'dot11-common',
+    PPI_DOT11NMAC: 'dot11-nmac',
+    PPI_DOT11NMACPHY: 'dot11-nmacphy',
+    PPI_SPECTRUM_MAP: 'spectrum-map',
+    PPI_PROCESS_INFO: 'process-info',
+    PPI_CAPTURE_INFO: 'capture-info',
+    PPI_AGGREGATION: 'aggregation',
+    PPI_DOT3: 'dot3',
+    PPI_GPS: 'gps',
+    PPI_VECTOR: 'vector',
+    PPI_SENSOR: 'sensor',
+    PPI_ANTENNA: 'antenna',
+    PPI_BTLE: 'btle',
+}
+
 
 # On windows, epoch is 01/02/1970 at 00:00
-EPOCH = time.mktime((1970, 1, 2, 0, 0, 0, 3, 1, 0)) - 86400
+EPOCH = calendar.timegm((1970, 1, 2, 0, 0, 0, 3, 1, 0)) - 86400
 
 MTU = 0xffff  # a.k.a give me all you have
 
 
-def load_protocols(filename, _integer_base=10):
+def load_protocols(filename, _fallback=None, _integer_base=10):
     """"Parse /etc/protocols and return values as a dictionary."""
     spaces = re.compile(b"[ \t]+|\n")
     dct = DADict(_name=filename)
+
+    def _process_data(fdesc):
+        for line in fdesc:
+            try:
+                shrp = line.find(b"#")
+                if shrp >= 0:
+                    line = line[:shrp]
+                line = line.strip()
+                if not line:
+                    continue
+                lt = tuple(re.split(spaces, line))
+                if len(lt) < 2 or not lt[0]:
+                    continue
+                dct[lt[0]] = int(lt[1], _integer_base)
+            except Exception as e:
+                log_loading.info(
+                    "Couldn't parse file [%s]: line [%r] (%s)",
+                    filename,
+                    line,
+                    e,
+                )
     try:
+        if not filename:
+            raise IOError
         with open(filename, "rb") as fdesc:
-            for line in fdesc:
-                try:
-                    shrp = line.find(b"#")
-                    if shrp >= 0:
-                        line = line[:shrp]
-                    line = line.strip()
-                    if not line:
-                        continue
-                    lt = tuple(re.split(spaces, line))
-                    if len(lt) < 2 or not lt[0]:
-                        continue
-                    dct[lt[0]] = int(lt[1], _integer_base)
-                except Exception as e:
-                    log_loading.info(
-                        "Couldn't parse file [%s]: line [%r] (%s)",
-                        filename,
-                        line,
-                        e,
-                    )
+            _process_data(fdesc)
     except IOError:
-        log_loading.info("Can't open %s file", filename)
+        if _fallback:
+            _process_data(_fallback.split(b"\n"))
+        else:
+            log_loading.info("Can't open %s file", filename)
     return dct
 
 
 def load_ethertypes(filename):
-    """"Parse /etc/ethertypes and return values as a dictionary."""
-    return load_protocols(filename, _integer_base=16)
+    """"Parse /etc/ethertypes and return values as a dictionary.
+    If unavailable, use the copy bundled with Scapy."""
+    from scapy.modules.ethertypes import DATA
+    return load_protocols(filename, _fallback=DATA, _integer_base=16)
 
 
 def load_services(filename):
@@ -220,11 +261,12 @@ class ManufDA(DADict):
         return self[oui]
 
     def reverse_lookup(self, name, case_sensitive=False):
-        """Find all MACs registered to a OUI
-        params:
-         - name: the OUI name
-         - case_sensitive: default to False
-        returns: a dict of mac:tuples (Name, Extended Name)
+        """
+        Find all MACs registered to a OUI
+
+        :param name: the OUI name
+        :param case_sensitive: default to False
+        :returns: a dict of mac:tuples (Name, Extended Name)
         """
         if case_sensitive:
             filtr = lambda x, l: any(x == z for z in l)
@@ -236,9 +278,12 @@ class ManufDA(DADict):
 
 
 def load_manuf(filename):
-    """Load manuf file from Wireshark.
-    param:
-     - filename: the file to load the manuf file from"""
+    """
+    Loads manuf file from Wireshark.
+
+    :param filename: the file to load the manuf file from
+    :returns: a ManufDA filled object
+    """
     manufdb = ManufDA(_name=filename)
     with open(filename, "rb") as fdesc:
         for line in fdesc:
@@ -257,30 +302,35 @@ def load_manuf(filename):
     return manufdb
 
 
+def select_path(directories, filename):
+    """Find filename among several directories"""
+    for directory in directories:
+        path = os.path.join(directory, filename)
+        if os.path.exists(path):
+            return path
+
+
 if WINDOWS:
-    ETHER_TYPES = load_ethertypes("ethertypes")
     IP_PROTOS = load_protocols(os.environ["SystemRoot"] + "\\system32\\drivers\\etc\\protocol")  # noqa: E501
     TCP_SERVICES, UDP_SERVICES = load_services(os.environ["SystemRoot"] + "\\system32\\drivers\\etc\\services")  # noqa: E501
-    # Default value, will be updated by arch.windows
-    try:
-        MANUFDB = load_manuf(os.environ["ProgramFiles"] + "\\wireshark\\manuf")
-    except (IOError, OSError):  # FileNotFoundError not available on Py2 - using OSError  # noqa: E501
-        MANUFDB = None
+    # Default values, will be updated by arch.windows
+    ETHER_TYPES = load_ethertypes(None)
+    MANUFDB = ManufDA()
 else:
     IP_PROTOS = load_protocols("/etc/protocols")
     ETHER_TYPES = load_ethertypes("/etc/ethertypes")
     TCP_SERVICES, UDP_SERVICES = load_services("/etc/services")
-    MANUFDB = None
-    for prefix in ['/usr', '/usr/local', '/opt', '/opt/wireshark']:
+    MANUFDB = ManufDA()
+    manuf_path = select_path(
+        ['/usr', '/usr/local', '/opt', '/opt/wireshark',
+         '/Applications/Wireshark.app/Contents/Resources'],
+        "share/wireshark/manuf"
+    )
+    if manuf_path:
         try:
-            MANUFDB = load_manuf(os.path.join(prefix, "share", "wireshark",
-                                              "manuf"))
-            if MANUFDB:
-                break
-        except (IOError, OSError):  # Same as above
-            pass
-    if not MANUFDB:
-        log_loading.warning("Cannot read wireshark manuf database")
+            MANUFDB = load_manuf(manuf_path)
+        except (IOError, OSError):
+            log_loading.warning("Cannot read wireshark manuf database")
 
 
 #####################

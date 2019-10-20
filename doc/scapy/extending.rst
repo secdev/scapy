@@ -57,7 +57,7 @@ Here is another tool that will constantly monitor all interfaces on a machine an
     
     sniff(prn=arp_monitor_callback, filter="arp", store=0)
 
-For a real life example, you can check `Wifitap <http://sid.rstack.org/static/articles/w/i/f/Wifitap_EN_9613.html>`_.
+For a real life example, you can check `Wifitap <http://sid.rstack.org/static/articles/w/i/f/Wifitap_EN_9613.html>`_. Sadly, Wifitap is no longer maintained but nonetheless demonstrates Scapy's Wi-Fi capabilities. The code can be retrieved from `github <https://github.com/gdssecurity/wifitap/>`_.
 
 
 Extending Scapy with add-ons
@@ -71,7 +71,9 @@ Once you've done that, you can launch Scapy and import your file, but this is st
     
     # Set log level to benefit from Scapy warnings
     import logging
-    logging.getLogger("scapy").setLevel(1)
+    logger = logging.getLogger("scapy")
+    logger.setLevel(logging.INFO)
+    logger.addHandler(logging.StreamHandler())
     
     from scapy.all import *
     

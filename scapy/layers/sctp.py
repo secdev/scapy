@@ -404,20 +404,8 @@ class SCTPChunkParamAddIPAddr(_SCTPChunkParam, Packet):
         lambda p: p.addr_type == 6), ]
 
 
-class SCTPChunkParamDelIPAddr(_SCTPChunkParam, Packet):
-    fields_desc = [ShortEnumField("type", 0xc002, sctpchunkparamtypes),
-                   FieldLenField("len", None, length_of="addr",
-                                 adjust=lambda pkt, x:x + 12),
-                   XIntField("correlation_id", None),
-                   ShortEnumField("addr_type", 5, sctpchunkparamtypes),
-                   FieldLenField("addr_len", None, length_of="addr",
-                                 adjust=lambda pkt, x:x + 4),
-                   ConditionalField(
-        IPField("addr", "127.0.0.1"),
-        lambda p: p.addr_type == 5),
-        ConditionalField(
-        IP6Field("addr", "::1"),
-        lambda p: p.addr_type == 6), ]
+class SCTPChunkParamDelIPAddr(SCTPChunkParamAddIPAddr):
+    type = 0xc002
 
 
 class SCTPChunkParamErrorIndication(_SCTPChunkParam, Packet):
@@ -430,20 +418,8 @@ class SCTPChunkParamErrorIndication(_SCTPChunkParam, Packet):
                             4, padwith=b"\x00"), ]
 
 
-class SCTPChunkParamSetPrimaryAddr(_SCTPChunkParam, Packet):
-    fields_desc = [ShortEnumField("type", 0xc004, sctpchunkparamtypes),
-                   FieldLenField("len", None, length_of="addr",
-                                 adjust=lambda pkt, x:x + 12),
-                   XIntField("correlation_id", None),
-                   ShortEnumField("addr_type", 5, sctpchunkparamtypes),
-                   FieldLenField("addr_len", None, length_of="addr",
-                                 adjust=lambda pkt, x:x + 4),
-                   ConditionalField(
-        IPField("addr", "127.0.0.1"),
-        lambda p: p.addr_type == 5),
-        ConditionalField(
-        IP6Field("addr", "::1"),
-        lambda p: p.addr_type == 6), ]
+class SCTPChunkParamSetPrimaryAddr(SCTPChunkParamAddIPAddr):
+    type = 0xc004
 
 
 class SCTPChunkParamSuccessIndication(_SCTPChunkParam, Packet):
@@ -554,17 +530,8 @@ class SCTPChunkInit(_SCTPChunkGuessPayload, Packet):
                    ]
 
 
-class SCTPChunkInitAck(_SCTPChunkGuessPayload, Packet):
-    fields_desc = [ByteEnumField("type", 2, sctpchunktypes),
-                   XByteField("flags", None),
-                   FieldLenField("len", None, length_of="params", adjust=lambda pkt, x:x + 20),  # noqa: E501
-                   XIntField("init_tag", None),
-                   IntField("a_rwnd", None),
-                   ShortField("n_out_streams", None),
-                   ShortField("n_in_streams", None),
-                   XIntField("init_tsn", None),
-                   ChunkParamField("params", None, length_from=lambda pkt:pkt.len - 20),  # noqa: E501
-                   ]
+class SCTPChunkInitAck(SCTPChunkInit):
+    type = 2
 
 
 class GapAckField(Field):
@@ -613,12 +580,8 @@ class SCTPChunkHeartbeatReq(_SCTPChunkGuessPayload, Packet):
                    ]
 
 
-class SCTPChunkHeartbeatAck(_SCTPChunkGuessPayload, Packet):
-    fields_desc = [ByteEnumField("type", 5, sctpchunktypes),
-                   XByteField("flags", None),
-                   FieldLenField("len", None, length_of="params", adjust=lambda pkt, x:x + 4),  # noqa: E501
-                   ChunkParamField("params", None, length_from=lambda pkt:pkt.len - 4),  # noqa: E501
-                   ]
+class SCTPChunkHeartbeatAck(SCTPChunkHeartbeatReq):
+    type = 5
 
 
 class SCTPChunkAbort(_SCTPChunkGuessPayload, Packet):
@@ -655,7 +618,7 @@ class SCTPChunkError(_SCTPChunkGuessPayload, Packet):
                    ]
 
 
-class SCTPChunkCookieEcho(_SCTPChunkGuessPayload, Packet):
+class SCTPChunkCookieEcho(SCTPChunkError):
     fields_desc = [ByteEnumField("type", 10, sctpchunktypes),
                    XByteField("flags", None),
                    FieldLenField("len", None, length_of="cookie", adjust=lambda pkt, x:x + 4),  # noqa: E501
@@ -701,14 +664,8 @@ class SCTPChunkAddressConf(_SCTPChunkGuessPayload, Packet):
                    ]
 
 
-class SCTPChunkAddressConfAck(_SCTPChunkGuessPayload, Packet):
-    fields_desc = [ByteEnumField("type", 0x80, sctpchunktypes),
-                   XByteField("flags", None),
-                   FieldLenField("len", None, length_of="params",
-                                 adjust=lambda pkt, x:x + 8),
-                   IntField("seq", 0),
-                   ChunkParamField("params", None, length_from=lambda pkt:pkt.len - 8),  # noqa: E501
-                   ]
+class SCTPChunkAddressConfAck(SCTPChunkAddressConf):
+    type = 0x80
 
 
 bind_layers(IP, SCTP, proto=IPPROTO_SCTP)

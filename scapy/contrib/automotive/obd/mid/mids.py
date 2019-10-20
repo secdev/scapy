@@ -10,6 +10,7 @@ from scapy.fields import FlagsField, ScalingField, ByteEnumField, \
     MultipleTypeField, ShortField, ShortEnumField, PacketListField
 from scapy.packet import Packet, bind_layers
 from scapy.contrib.automotive.obd.packet import OBD_Packet
+from scapy.contrib.automotive.obd.services import OBD_S06
 
 
 def _unit_and_scaling_fields(name):
@@ -323,41 +324,41 @@ class OBD_MIDXX(OBD_Packet):
 
 class OBD_MID00(OBD_Packet):
     fields_desc = [
-        FlagsField('supported_mids', b'', 32, _mid_flags(0x00)),
+        FlagsField('supported_mids', 0, 32, _mid_flags(0x00)),
     ]
 
 
 class OBD_MID20(OBD_Packet):
     fields_desc = [
-        FlagsField('supported_mids', b'', 32, _mid_flags(0x20)),
+        FlagsField('supported_mids', 0, 32, _mid_flags(0x20)),
     ]
 
 
 class OBD_MID40(OBD_Packet):
     fields_desc = [
-        FlagsField('supported_mids', b'', 32, _mid_flags(0x40)),
+        FlagsField('supported_mids', 0, 32, _mid_flags(0x40)),
     ]
 
 
 class OBD_MID60(OBD_Packet):
     fields_desc = [
-        FlagsField('supported_mids', b'', 32, _mid_flags(0x60)),
+        FlagsField('supported_mids', 0, 32, _mid_flags(0x60)),
     ]
 
 
 class OBD_MID80(OBD_Packet):
     fields_desc = [
-        FlagsField('supported_mids', b'', 32, _mid_flags(0x80)),
+        FlagsField('supported_mids', 0, 32, _mid_flags(0x80)),
     ]
 
 
 class OBD_MIDA0(OBD_Packet):
     fields_desc = [
-        FlagsField('supported_mids', b'', 32, _mid_flags(0xA0)),
+        FlagsField('supported_mids', 0, 32, _mid_flags(0xA0)),
     ]
 
 
-class OBD_MID_Record(Packet):
+class OBD_S06_PR_Record(Packet):
     on_board_monitoring_ids = {
         0x00: "OBD Monitor IDs supported ($01 - $20)",
         0x01: "Oxygen Sensor Monitor Bank 1 - Sensor 1",
@@ -449,101 +450,105 @@ class OBD_MID_Record(Packet):
     }
     name = "On-Board diagnostic monitoring ID"
     fields_desc = [
-        ByteEnumField("mid", 1, on_board_monitoring_ids),
+        ByteEnumField("mid", 0, on_board_monitoring_ids),
     ]
 
 
-class OBD_S06_MID(Packet):
+class OBD_S06_PR(Packet):
     name = "On-Board monitoring IDs"
     fields_desc = [
-        PacketListField("data_records", None, OBD_MID_Record)
+        PacketListField("data_records", [], OBD_S06_PR_Record)
     ]
 
+    def answers(self, other):
+        return other.__class__ == OBD_S06 \
+            and all(r.mid in other.mid for r in self.data_records)
 
-bind_layers(OBD_MID_Record, OBD_MID00, mid=0x00)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x01)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x02)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x03)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x04)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x05)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x06)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x07)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x08)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x09)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x0A)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x0B)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x0C)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x0D)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x0E)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x0F)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x10)
-bind_layers(OBD_MID_Record, OBD_MID20, mid=0x20)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x21)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x22)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x23)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x24)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x32)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x33)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x34)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x35)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x36)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x37)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x38)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x39)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x3A)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x3B)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x3C)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x3D)
-bind_layers(OBD_MID_Record, OBD_MID40, mid=0x40)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x41)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x42)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x43)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x44)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x45)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x46)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x47)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x48)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x49)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x4A)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x4B)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x4C)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x4D)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x4E)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x4F)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x50)
-bind_layers(OBD_MID_Record, OBD_MID60, mid=0x60)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x61)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x62)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x63)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x64)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x71)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x72)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x73)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x74)
-bind_layers(OBD_MID_Record, OBD_MID80, mid=0x80)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x81)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x82)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x83)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x84)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x85)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x86)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x90)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x91)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x98)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0x99)
-bind_layers(OBD_MID_Record, OBD_MIDA0, mid=0xA0)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0xA1)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0xA2)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0xA3)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0xA4)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0xA5)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0xA6)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0xA7)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0xA8)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0xA9)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0xAA)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0xAB)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0xAC)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0xAD)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0xB0)
-bind_layers(OBD_MID_Record, OBD_MIDXX, mid=0xB1)
+
+bind_layers(OBD_S06_PR_Record, OBD_MID00, mid=0x00)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x01)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x02)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x03)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x04)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x05)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x06)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x07)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x08)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x09)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x0A)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x0B)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x0C)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x0D)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x0E)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x0F)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x10)
+bind_layers(OBD_S06_PR_Record, OBD_MID20, mid=0x20)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x21)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x22)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x23)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x24)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x32)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x33)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x34)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x35)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x36)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x37)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x38)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x39)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x3A)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x3B)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x3C)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x3D)
+bind_layers(OBD_S06_PR_Record, OBD_MID40, mid=0x40)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x41)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x42)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x43)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x44)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x45)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x46)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x47)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x48)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x49)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x4A)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x4B)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x4C)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x4D)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x4E)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x4F)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x50)
+bind_layers(OBD_S06_PR_Record, OBD_MID60, mid=0x60)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x61)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x62)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x63)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x64)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x71)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x72)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x73)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x74)
+bind_layers(OBD_S06_PR_Record, OBD_MID80, mid=0x80)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x81)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x82)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x83)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x84)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x85)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x86)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x90)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x91)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x98)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0x99)
+bind_layers(OBD_S06_PR_Record, OBD_MIDA0, mid=0xA0)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0xA1)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0xA2)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0xA3)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0xA4)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0xA5)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0xA6)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0xA7)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0xA8)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0xA9)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0xAA)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0xAB)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0xAC)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0xAD)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0xB0)
+bind_layers(OBD_S06_PR_Record, OBD_MIDXX, mid=0xB1)

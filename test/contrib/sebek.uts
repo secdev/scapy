@@ -1,0 +1,46 @@
+# Sebek layer unit tests
+#
+# Type the following command to launch start the tests:
+# $ test/run_tests -P "load_contrib('sebek')" -t test/contrib/sebek.uts
+
++ Sebek protocol
+
+= Layer binding 1
+pkt = IP() / UDP() / SebekHead() / SebekV1(cmd="diepotato")
+assert pkt.sport == pkt.dport == 1101 and pkt[SebekHead].version == 1
+assert pkt.summary() == "IP / UDP / SebekHead / Sebek v1 read ('diepotato')"
+
+= Packet dissection 1
+pkt = IP(raw(pkt))
+pkt.sport == pkt.dport == 1101 and pkt[SebekHead].version == 1
+
+= Layer binding 2
+pkt = IP() / UDP() / SebekHead() / SebekV2Sock(cmd="diepotato")
+assert pkt.sport == pkt.dport == 1101 and pkt[SebekHead].version == 2 and pkt[SebekHead].type ==2
+assert pkt.summary() == "IP / UDP / SebekHead / Sebek v2 socket ('diepotato')"
+
+= Packet dissection 2
+pkt = IP(raw(pkt))
+pkt.sport == pkt.dport == 1101 and pkt[SebekHead].version == 2 and pkt[SebekHead].type ==2
+
+= Layer binding 3
+pkt = IPv6()/UDP()/SebekHead()/SebekV3()
+assert pkt.sport == pkt.dport == 1101 and pkt[SebekHead].version == 3
+assert pkt.summary() == "IPv6 / UDP / SebekHead / Sebek v3 read ('')"
+
+= Packet dissection 3
+pkt = IPv6(raw(pkt))
+pkt.sport == pkt.dport == 1101 and pkt[SebekHead].version == 3
+
+= Nonsense summaries
+
+assert SebekHead(version=2).summary() == "Sebek Header v2 read"
+assert SebekV1(cmd="diepotato").summary() == "Sebek v1 ('diepotato')"
+assert SebekV2(cmd="diepotato").summary() == "Sebek v2 ('diepotato')"
+assert (SebekHead()/SebekV2(cmd="nottoday")).summary() == "SebekHead / Sebek v2 read ('nottoday')"
+assert SebekV3(cmd="diepotato").summary() == "Sebek v3 ('diepotato')"
+assert (SebekHead()/SebekV3(cmd="nottoday")).summary() == "SebekHead / Sebek v3 read ('nottoday')"
+assert SebekV3Sock(cmd="diepotato").summary() == "Sebek v3 socket ('diepotato')"
+assert (SebekHead()/SebekV3Sock(cmd="nottoday")).summary() == "SebekHead / Sebek v3 socket ('nottoday')"
+assert SebekV2Sock(cmd="diepotato").summary() == "Sebek v2 socket ('diepotato')"
+assert (SebekHead()/SebekV2Sock(cmd="nottoday")).summary() == "SebekHead / Sebek v2 socket ('nottoday')"

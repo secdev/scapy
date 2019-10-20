@@ -26,11 +26,11 @@ from scapy.asn1packet import *
 from scapy.utils import *
 from scapy.route import *
 from scapy.sendrecv import *
+from scapy.sessions import *
 from scapy.supersocket import *
 from scapy.volatile import *
 from scapy.as_resolvers import *
 
-from scapy.ansmachine import *
 from scapy.automaton import *
 from scapy.autorun import *
 
@@ -50,3 +50,5 @@ from scapy.scapypipes import *
 if conf.ipv6_enabled:  # noqa: F405
     from scapy.utils6 import *  # noqa: F401
     from scapy.route6 import *  # noqa: F401
+
+from scapy.ansmachine import *

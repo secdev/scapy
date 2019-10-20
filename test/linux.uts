@@ -8,55 +8,6 @@
 
 + Linux only test
 
-= TCP client automaton
-~ automaton netaccess linux needs_root
-* This test retries on failure because it often fails
-
-from __future__ import print_function
-import os
-import time
-import signal
-
-from scapy.modules.six.moves import range
-
-def handler(signum, stack_frame):
-    raise Exception("Timer expired !")
-
-tmp = signal.signal(signal.SIGALRM, handler)
-
-SECDEV_IP4 = "203.178.141.194"
-IPTABLE_RULE = "iptables -%c INPUT -s %s -p tcp --sport 80 -j DROP"
-
-# Drop packets from SECDEV_IP4
-assert(os.system(IPTABLE_RULE % ('A', SECDEV_IP4)) == 0)
-
-success = False
-for i in range(10):
-    tmp = signal.alarm(5)
-    try:
-        r, w = os.pipe()
-        t = TCP_client(SECDEV_IP4, 80, external_fd={ "tcp": (r,w) })
-        tmp = os.write(w, b"HEAD / HTTP/1.0\r\n\r\n")
-        t.runbg()
-        time.sleep(0.5)
-        response = os.read(r, 4096)
-        tmp = signal.alarm(0)  # cancel the alarm
-        t.stop()
-        os.close(r)
-        os.close(w)
-        if response.startswith(b"HTTP/1.1 200 OK"):
-            success = True
-            break
-        else:
-            time.sleep(0.5)
-    except Exception as e:
-        print(e)
-
-# Remove the iptables rule
-assert(os.system(IPTABLE_RULE % ('D', SECDEV_IP4)) == 0)
-
-assert(success)
-
 = L3RawSocket
 ~ netaccess IP ICMP linux needs_root
 
@@ -86,18 +37,20 @@ x is not None and ICMP in x and x[ICMP].type == 0
 #_flush_fd(socket.ins)
 
 = Test legacy attach_filter function
-~ linux needs_root
+~ tcpdump
+import mock
 from scapy.arch.common import get_bpf_pointer
 
-old_pypy = conf.use_pypy
-conf.use_pypy = True
-
 tcpdump_lines = ['12\n', '40 0 0 12\n', '21 0 5 34525\n', '48 0 0 20\n', '21 6 0 6\n', '21 0 6 44\n', '48 0 0 54\n', '21 3 4 6\n', '21 0 3 2048\n', '48 0 0 23\n', '21 0 1 6\n', '6 0 0 1600\n', '6 0 0 0\n']
-pointer = get_bpf_pointer(tcpdump_lines)
-assert six.PY3 or isinstance(pointer, str)
-assert six.PY3 or len(pointer) > 1
 
-conf.use_pypy = old_pypy
+@mock.patch("scapy.arch.common.conf", Bunch(use_pypy=True))
+def _test_get_bpf_pointer():
+    pointer = get_bpf_pointer(tcpdump_lines)
+    assert isinstance(pointer, str)
+    assert len(pointer) > 1
+
+if six.PY2:
+    _test_get_bpf_pointer()
 
 = Interface aliases & sub-interfaces
 ~ linux needs_root
@@ -126,7 +79,7 @@ route_specific = (3221226027, 4294967295, "203.0.113.41", "scapy0.42", "203.0.11
 assert(route_specific in conf.route.routes)
 exit_status = os.system("ip link del name dev scapy0")
 
-= catch looback device missing
+= catch loopback device missing
 ~ linux needs_root
 
 from mock import patch
@@ -136,7 +89,7 @@ from mock import patch
 with patch('scapy.consts.LOOPBACK_NAME', 'scapy_lo_x'):
     routes = read_routes()
 
-= catch looback device no address assigned
+= catch loopback device no address assigned
 ~ linux needs_root
 
 import os, socket
@@ -193,6 +146,17 @@ with patch("scapy.layers.l2.get_if_hwaddr") as mgih:
 
 conf.route6.routes = bck_conf_route6_routes
 conf.iface = bck_conf_iface
+
+= IPv6
+~ linux
+
+addrs = in6_getifaddr()
+if len(addrs) == 0:
+    assert True
+else:
+    assert all([in6_isvalid(addr[0]) for addr in in6_getifaddr()])
+    assert set([addr[2] for addr in in6_getifaddr()]) == set(get_if_list())
+
 
 = veth interface error handling
 ~ linux needs_root veth
@@ -353,3 +317,62 @@ saved_conf_prog_tcpdump = conf.prog.tcpdump
 conf.prog.tcpdump = "does_not_exist"
 assert _check_tcpdump() == False
 conf.prog.tcpdump = saved_conf_prog_tcpdump
+
+= Test _interface_selection
+~ netaccess linux needs_root
+
+import os
+from scapy.sendrecv import _interface_selection
+assert _interface_selection(None, IP(dst="8.8.8.8")/UDP()) == conf.iface
+exit_status = os.system("ip link add name scapy0 type dummy")
+exit_status = os.system("ip addr add 192.0.2.1/24 dev scapy0")
+exit_status = os.system("ip link set scapy0 up")
+assert _interface_selection(None, IP(dst="192.0.2.42")/UDP()) == "scapy0"
+exit_status = os.system("ip link del name dev scapy0")
+
+= Test 802.Q sniffing
+~ linux needs_root python3_only
+
+from threading import Thread, Condition
+
+veth = VEthPair("left0", "right0")
+veth.setup()
+veth.up()
+exit_status = os.system("ip link add link right0 name vlanright0 type vlan id 42")
+exit_status = os.system("ip link add link left0 name vlanleft0 type vlan id 42")
+exit_status = os.system("ip link set vlanright0 up")
+exit_status = os.system("ip link set vlanleft0 up")
+exit_status = os.system("ip addr add 198.51.100.1/24 dev vlanleft0")
+exit_status = os.system("ip addr add 198.51.100.2/24 dev vlanright0")
+
+cond_started = Condition()
+
+def _sniffer_started():
+
+    global cond_started
+    cond_started.acquire()
+    cond_started.notify()
+    cond_started.release()
+
+cond_started.acquire()
+
+dot1q_count = 0
+
+def _sniffer():
+    sniffed = sniff(iface="right0",
+                    lfilter=lambda p: Dot1Q in p,
+                    count=2,
+                    timeout=5,
+                    started_callback=_sniffer_started)
+    global dot1q_count
+    dot1q_count = len(sniffed)
+
+t_sniffer = Thread(target=_sniffer)
+t_sniffer.start()
+cond_started.wait()
+sendp(Ether()/IP(dst="198.51.100.2")/ICMP(), iface='vlanleft0', count=2)
+
+t_sniffer.join(1)
+assert(dot1q_count == 2)
+
+veth.destroy()

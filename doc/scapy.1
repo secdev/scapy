@@ -67,6 +67,11 @@ lists supported protocol layers.
 If a protocol layer is given as parameter, lists its fields and types of fields.
 If a string is given as parameter, it is used to filter the layers.
 .TP
+\fBexplore()\fR
+explores available protocols.
+Allows to look for a layer or protocol through an interactive GUI.
+If a Scapy module is given as parameter, explore this specific module.
+.TP
 \fBlsc()\fR
 lists scapy's main user commands.
 .TP
@@ -95,14 +100,14 @@ split_layers(UDP,DNS)
 
 .SH EXAMPLES
 
-More verbose examples are available at
-https://scapy.net/demo/
+More verbose examples are available in the documentation
+https://scapy.readthedocs.io/
 Just run \fBscapy\fP and try the following commands in the interpreter.
 
 .LP
 Test the robustness of a network stack with invalid packets:
 .nf
-sr(IP(dst="172.16.1.1", ihl=2, options="\everb$\ex02$", version=3)/ICMP())
+sr(IP(dst="172.16.1.1", ihl=2, options=["verb$2"], version=3)/ICMP(), timeout=2)
 .fi
 
 .LP

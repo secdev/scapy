@@ -28,6 +28,7 @@ CAN_INV_FILTER = 0x20000000
 
 class CANSocket(SuperSocket):
     desc = "read/write packets at a given CAN interface using PF_CAN sockets"
+    nonblocking_socket = True
 
     def __init__(self, iface=None, receive_own_messages=False,
                  can_filters=None, remove_padding=True, basecls=CAN):
@@ -79,7 +80,7 @@ class CANSocket(SuperSocket):
             warning("Captured no data.")
             return None
 
-        # need to change the byteoder of the first four bytes,
+        # need to change the byte order of the first four bytes,
         # required by the underlying Linux SocketCAN frame format
         pkt = struct.pack("<I12s", *struct.unpack(">I12s", pkt))
         len = pkt[4]
@@ -95,7 +96,7 @@ class CANSocket(SuperSocket):
             if hasattr(x, "sent_time"):
                 x.sent_time = time.time()
 
-            # need to change the byteoder of the first four bytes,
+            # need to change the byte order of the first four bytes,
             # required by the underlying Linux SocketCAN frame format
             bs = bytes(x)
             bs = bs + b'\x00' * (CAN_FRAME_SIZE - len(bs))

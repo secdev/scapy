@@ -10,16 +10,16 @@ import struct
 
 from scapy.compat import orb, chb
 from scapy.config import conf
-from scapy.data import DLT_BLUETOOTH_LE_LL, DLT_BLUETOOTH_LE_LL_WITH_PHDR
+from scapy.data import DLT_BLUETOOTH_LE_LL, DLT_BLUETOOTH_LE_LL_WITH_PHDR, \
+    PPI_BTLE
 from scapy.packet import Packet, bind_layers
 from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
-    Field, FlagsField, LEIntField, LEShortEnumField, LEShortField, MACField, \
-    PacketListField, X3BytesField, XBitField, XByteField, XIntField, \
-    XShortField, XLEIntField, XLEShortField
-from scapy.layers.dot11 import _dbmField
-from scapy.layers.ppi import PPI, addPPIType
+    Field, FlagsField, LEIntField, LEShortEnumField, LEShortField, \
+    MACField, PacketListField, SignedByteField, X3BytesField, XBitField, \
+    XByteField, XIntField, XShortField, XLEIntField, XLEShortField
 
 from scapy.layers.bluetooth import EIR_Hdr, L2CAP_Hdr
+from scapy.layers.ppi import PPI_Element, PPI_Hdr
 
 from scapy.modules.six.moves import range
 from scapy.utils import mac2str, str2mac
@@ -29,28 +29,37 @@ from scapy.utils import mac2str, str2mac
 ####################
 
 
-class BTLE_PPI(Packet):
+class BTLE_PPI(PPI_Element):
+    """Cooked BTLE PPI header
+
+    See ``ppi_btle_t`` in
+    https://github.com/greatscottgadgets/libbtbb/blob/master/lib/src/pcap.c
+    """
     name = "BTLE PPI header"
     fields_desc = [
-        LEShortField("pfh_type", 30006),
-        LEShortField("pfh_datalen", 24),
         ByteField("btle_version", 0),
+        # btle_channel is a frequency in MHz. Named for consistency with
+        # other users.
         LEShortField("btle_channel", None),
         ByteField("btle_clkn_high", None),
         LEIntField("btle_clk_100ns", None),
-        Field("rssi_max", None, fmt="b"),
-        Field("rssi_min", None, fmt="b"),
-        Field("rssi_avg", None, fmt="b"),
+        SignedByteField("rssi_max", None),
+        SignedByteField("rssi_min", None),
+        SignedByteField("rssi_avg", None),
         ByteField("rssi_count", None)
     ]
 
 
 class BTLE_RF(Packet):
+    """Cooked BTLE link-layer pseudoheader.
+
+    http://www.whiterocker.com/bt/LINKTYPE_BLUETOOTH_LE_LL_WITH_PHDR.html
+    """
     name = "BTLE RF info header"
     fields_desc = [
         ByteField("rf_channel", 0),
-        _dbmField("signal", -256),
-        _dbmField("noise", -256),
+        SignedByteField("signal", -128),
+        SignedByteField("noise", -128),
         ByteField("access_address_offenses", 0),
         XLEIntField("reference_access_address", 0),
         FlagsField("flags", 0, -16, [
@@ -301,5 +310,4 @@ conf.l2types.register(DLT_BLUETOOTH_LE_LL_WITH_PHDR, BTLE_RF)
 
 bind_layers(BTLE_RF, BTLE)
 
-bind_layers(PPI, BTLE, dlt=147)
-addPPIType(30006, BTLE_PPI)
+bind_layers(PPI_Hdr, BTLE_PPI, pfh_type=PPI_BTLE)

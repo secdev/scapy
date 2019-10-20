@@ -16,11 +16,25 @@ from scapy.contrib.automotive.obd.mid.mids import *
 from scapy.contrib.automotive.obd.pid.pids import *
 from scapy.contrib.automotive.obd.tid.tids import *
 from scapy.contrib.automotive.obd.services import *
-from scapy.packet import Packet, bind_layers
+from scapy.packet import bind_layers, NoPayload
+from scapy.error import log_loading
+from scapy.config import conf
 from scapy.fields import XByteEnumField
+from scapy.contrib.isotp import ISOTP
+
+try:
+    if conf.contribs['OBD']['treat-response-pending-as-answer']:
+        pass
+except KeyError:
+    log_loading.info("Specify \"conf.contribs['OBD'] = "
+                     "{'treat-response-pending-as-answer': True}\" to treat "
+                     "a negative response 'requestCorrectlyReceived-"
+                     "ResponsePending' as answer of a request. \n"
+                     "The default value is False.")
+    conf.contribs['OBD'] = {'treat-response-pending-as-answer': False}
 
 
-class OBD(Packet):
+class OBD(ISOTP):
     services = {
         0x01: 'CurrentPowertrainDiagnosticDataRequest',
         0x02: 'PowertrainFreezeFrameDataRequest',
@@ -56,11 +70,16 @@ class OBD(Packet):
         return struct.pack('B', self.service & ~0x40)
 
     def answers(self, other):
-        """DEV: true if self is an answer from other"""
-        if other.__class__ == self.__class__:
-            return (other.service + 0x40) == self.service or \
-                   (self.service == 0x7f and
-                    self.request_service_id == other.service)
+        if other.__class__ != self.__class__:
+            return False
+        if self.service == 0x7f:
+            return self.payload.answers(other)
+        if self.service == (other.service + 0x40):
+            if isinstance(self.payload, NoPayload) or \
+                    isinstance(other.payload, NoPayload):
+                return True
+            else:
+                return self.payload.answers(other.payload)
         return False
 
 
@@ -76,13 +95,13 @@ bind_layers(OBD, OBD_S08, service=0x08)
 bind_layers(OBD, OBD_S09, service=0x09)
 bind_layers(OBD, OBD_S0A, service=0x0A)
 
-bind_layers(OBD, OBD_S01_PID, service=0x41)
-bind_layers(OBD, OBD_S02_PID, service=0x42)
-bind_layers(OBD, OBD_S03_DTC, service=0x43)
+bind_layers(OBD, OBD_S01_PR, service=0x41)
+bind_layers(OBD, OBD_S02_PR, service=0x42)
+bind_layers(OBD, OBD_S03_PR, service=0x43)
 bind_layers(OBD, OBD_S04_PR, service=0x44)
-bind_layers(OBD, OBD_S06_MID, service=0x46)
-bind_layers(OBD, OBD_S07_DTC, service=0x47)
-bind_layers(OBD, OBD_S08_TID, service=0x48)
-bind_layers(OBD, OBD_S09_IID, service=0x49)
-bind_layers(OBD, OBD_S0A_DTC, service=0x4A)
+bind_layers(OBD, OBD_S06_PR, service=0x46)
+bind_layers(OBD, OBD_S07_PR, service=0x47)
+bind_layers(OBD, OBD_S08_PR, service=0x48)
+bind_layers(OBD, OBD_S09_PR, service=0x49)
+bind_layers(OBD, OBD_S0A_PR, service=0x4A)
 bind_layers(OBD, OBD_NR, service=0x7F)

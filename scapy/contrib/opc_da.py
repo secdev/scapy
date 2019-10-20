@@ -36,16 +36,13 @@ References: Specifies Distributed Component Object Model (DCOM) Remote Protocol
 Using the website: https://msdn.microsoft.com/en-us/library/cc226801.aspx
 """
 
-import uuid
-
-from scapy.compat import plain_str
 from scapy.config import conf
 from scapy.fields import Field, ByteField, ShortField, LEShortField, \
     IntField, LEIntField, LongField, LELongField, StrField, StrLenField, \
     StrFixedLenField, BitEnumField, ByteEnumField, ShortEnumField, \
     LEShortEnumField, IntEnumField, LEIntEnumField, FieldLenField, \
     LEFieldLenField, PacketField, PacketListField, PacketLenField, \
-    ConditionalField, FlagsField
+    ConditionalField, FlagsField, UUIDField
 from scapy.packet import Packet
 
 # Defined values
@@ -271,58 +268,6 @@ class OPCHandle(Packet):
         return b"", p
 
 
-class PUUID(Field):
-    __slots__ = ["endianType"]
-
-    def __init__(self, name, default, endianType):
-        _repr = {0: 'bigEndian', 1: 'littleEndian'}
-        Field.__init__(self, name, default, "16s")
-        self.endianType = _repr[endianType]
-
-    def h2i(self, pkt, x):
-        """ Description: transform a string uuid in uuid type object """
-        self.default = uuid.UUID(plain_str(x or ""))
-        return self.default
-
-    def i2h(self, pkt, x):
-        """ Description: transform a type uuid object in string uuid """
-        x = str(self.default)
-        return x
-
-    def m2i(self, pkt, x):
-        """ Description: transform a byte string uuid in uuid type object """
-        if self.endianType == 'bigEndian':
-            self.default = uuid.UUID(bytes=x)
-        elif self.endianType == 'littleEndian':
-            self.default = uuid.UUID(bytes_le=x)
-        return self.default
-
-    def i2m(self, pkt, x):
-        """ Description: transform a uuid type object in a byte string """
-        if self.endianType == 'bigEndian':
-            x = self.default.bytes
-        elif self.endianType == 'littleEndian':
-            x = self.default.bytes_le
-        return x
-
-    def i2repr(self, pkt, x):
-        return str(self.default)
-
-    def getfield(self, pkt, s):
-        """ Extract an internal value from a string """
-        self.default = self.m2i(pkt, s[:self.sz])
-        return s[self.sz:], self.default
-
-    def addfield(self, pkt, s, val):
-        """ Add an internal value  to a string """
-        return s + self.i2m(pkt, val)
-
-    def any2i(self, pkt, x):
-        """ Try to understand the most input values possible and make an
-            internal value from them """
-        return self.h2i(pkt, x)
-
-
 class LenStringPacket(Packet):
     name = "len string packet"
     fields_desc = [
@@ -358,7 +303,8 @@ class LenStringPacketLE(Packet):
 class SyntaxId(Packet):
     name = "syntax Id"
     fields_desc = [
-        PUUID('interfaceUUID', str('0001' * 8), 0),
+        UUIDField('interfaceUUID', str('0001' * 8),
+                  uuid_fmt=UUIDField.FORMAT_BE),
         ShortField('versionMajor', 0),
         ShortField('versionMinor', 0),
     ]
@@ -370,7 +316,8 @@ class SyntaxId(Packet):
 class SyntaxIdLE(Packet):
     name = "syntax Id"
     fields_desc = [
-        PUUID('interfaceUUID', str('0001' * 8), 1),
+        UUIDField('interfaceUUID', str('0001' * 8),
+                  uuid_fmt=UUIDField.FORMAT_LE),
         LEShortField('versionMajor', 0),
         LEShortField('versionMinor', 0),
     ]
@@ -471,7 +418,7 @@ class STDOBJREF(Packet):
         LEIntField('cPublicRefs', 0),
         LELongField('OXID', 0),
         LELongField('OID', 0),
-        PacketField('IPID', None, PUUID),
+        PacketField('IPID', None, UUIDField),
     ]
 
 
@@ -524,7 +471,7 @@ class OBJREF_HANDLER(Packet):
     name = "objetref stanDard"
     fields_desc = [
         PacketField('std', None, STDOBJREF),
-        PUUID('clsid', str('0001' * 8), 0),
+        UUIDField('clsid', str('0001' * 8), uuid_fmt=UUIDField.FORMAT_BE),
         PacketField('saResAddr', None, DualStringArray),
     ]
 
@@ -533,7 +480,7 @@ class OBJREF_HANDLERLE(Packet):
     name = "objetref stanDard"
     fields_desc = [
         PacketField('std', None, STDOBJREF),
-        PUUID('clsid', str('0001' * 8), 1),
+        UUIDField('clsid', str('0001' * 8), uuid_fmt=UUIDField.FORMAT_LE),
         PacketField('saResAddr', None, DualStringArrayLE),
     ]
 
@@ -541,7 +488,7 @@ class OBJREF_HANDLERLE(Packet):
 class OBJREF_CUSTOM(Packet):
     name = "objetref stanDard"
     fields_desc = [
-        PUUID('clsid', str('0001' * 8), 0),
+        UUIDField('clsid', str('0001' * 8), uuid_fmt=UUIDField.FORMAT_BE),
         IntField('cbExtension', 0),
         IntField('reserved', 0),
     ]
@@ -550,7 +497,7 @@ class OBJREF_CUSTOM(Packet):
 class OBJREF_CUSTOMLE(Packet):
     name = "objetref stanDard"
     fields_desc = [
-        PUUID('clsid', str('0001' * 8), 1),
+        UUIDField('clsid', str('0001' * 8), uuid_fmt=UUIDField.FORMAT_LE),
         LEIntField('cbExtension', 0),
         LEIntField('reserved', 0),
     ]
@@ -946,7 +893,7 @@ class RequestSubDataLE(Packet):
         LEShortField('versionMinor', 0),
         LEIntField('flags', 0),
         LEIntField('reserved', 0),
-        PUUID('subUuid', str('0001' * 8), 1),
+        UUIDField('subUuid', str('0001' * 8), uuid_fmt=UUIDField.FORMAT_LE),
         StrField('subdata', ''),
     ]
 
@@ -960,7 +907,7 @@ class OpcDaRequest(Packet):
         IntField('allocHint', 0),
         ShortField('contextId', 0),
         ShortField('opNum', 0),
-        PUUID('uuid', str('0001' * 8), 0),
+        UUIDField('uuid', str('0001' * 8), uuid_fmt=UUIDField.FORMAT_BE),
         PacketLenField('subData', None, RequestSubData,
                        length_from=lambda pkt:pkt.allocHint),
         PacketField('authentication', None, AuthentificationProtocol),
@@ -976,7 +923,7 @@ class OpcDaRequestLE(Packet):
         LEIntField('allocHint', 0),
         LEShortField('contextId', 0),
         LEShortField('opNum', 0),
-        PUUID('uuid', str('0001' * 8), 1),
+        UUIDField('uuid', str('0001' * 8), uuid_fmt=UUIDField.FORMAT_LE),
         PacketLenField('subData', None, RequestSubDataLE,
                        length_from=lambda pkt:pkt.allocHint),
         PacketField('authentication', None, AuthentificationProtocol),

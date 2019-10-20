@@ -11,6 +11,8 @@
 load_module('p0f')
 
 = Fetch database
+~ netaccess
+
 from __future__ import print_function
 try:
     from urllib.request import urlopen
@@ -42,12 +44,14 @@ p0f_load_knowledgebases()
 + Default tests
 
 = Test p0f
+~ netaccess
 
 pkt = Ether(b'\x14\x0cv\x8f\xfe(\xd0P\x99V\xdd\xf9\x08\x00E\x00\x0045+@\x00\x80\x06\x00\x00\xc0\xa8\x00w(M\xe2\xf9\xda\xcb\x01\xbbcc\xdd\x1e\x00\x00\x00\x00\x80\x02\xfa\xf0\xcc\x8c\x00\x00\x02\x04\x05\xb4\x01\x03\x03\x08\x01\x01\x04\x02')
 
 assert p0f(pkt) == [('@Windows', 'XP/2000 (RFC1323+, w+, tstamp-)', 0)]
 
 = Test prnp0f
+~ netaccess
 
 with ContextManagerCaptureOutput() as cmco:
     prnp0f(pkt)

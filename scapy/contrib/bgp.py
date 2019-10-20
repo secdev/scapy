@@ -2148,6 +2148,8 @@ class BGPUpdate(BGP):
         if self.withdrawn_routes_len is None:
             wl = sum(map(subpacklen, self.withdrawn_routes))
             packet = p[:0] + struct.pack("!H", wl) + p[2:]
+        else:
+            wl = self.withdrawn_routes_len
         if self.path_attr_len is None:
             length = sum(map(subpacklen, self.path_attr))
             packet = p[:2 + wl] + struct.pack("!H", length) + p[4 + wl:]
@@ -2411,6 +2413,7 @@ class BGPORFEntryPacketListField(PacketListField):
     def getfield(self, pkt, s):
         lst = []
         length = 0
+        ret = b""
         if self.length_from is not None:
             length = self.length_from(pkt)
         remain = s

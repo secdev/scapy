@@ -115,8 +115,8 @@ t.rrname == b'isc.org.' and t.keytag == 12892 and t.algorithm == 5 and t.digestt
 + Test TXT RR
 
 = DNSRR(type="TXT") instantiation
-t = DNSRR(type="TXT", rdata="test")
-assert t.rdata == b"test"
+t = DNSRR(type="TXT", rdata=b"test")
+assert t.rdata == [b"test"]
 assert raw(DNSRR(type="TXT", rdata=["hello", "DNS", "!"])) == b'\x00\x00\x10\x00\x01\x00\x00\x00\x00\x00\x0c\x05hello\x03DNS\x01!'
 
 = Build DNSRR

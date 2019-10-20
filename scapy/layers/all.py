@@ -26,4 +26,7 @@ for _l in conf.load_layers:
     except Exception as e:
         log.warning("can't import layer %s: %s", _l, e)
 
-del _l
+try:
+    del _l
+except NameError:
+    pass

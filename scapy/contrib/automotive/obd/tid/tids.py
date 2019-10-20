@@ -9,6 +9,7 @@
 from scapy.fields import FlagsField, ByteField, ScalingField, PacketListField
 from scapy.packet import bind_layers, Packet
 from scapy.contrib.automotive.obd.packet import OBD_Packet
+from scapy.contrib.automotive.obd.services import OBD_S08
 
 
 class _OBD_TID_Voltage(OBD_Packet):
@@ -44,7 +45,7 @@ class _OBD_TID_Period(OBD_Packet):
 class OBD_TID00(OBD_Packet):
     name = "TID_00_Service8SupportedTestIdentifiers"
     fields_desc = [
-        FlagsField('supported_tids', b'', 32, [
+        FlagsField('supported_tids', 0, 32, [
             'TID20',
             'TID1F',
             'TID1E',
@@ -121,28 +122,32 @@ class OBD_TID0A(_OBD_TID_Period):
     name = "TID_0A_SensorPeriod"
 
 
-class OBD_TID_Record(Packet):
+class OBD_S08_PR_Record(Packet):
     name = "Control Operation ID"
     fields_desc = [
-        ByteField("tid", 1),
+        ByteField("tid", 0),
     ]
 
 
-class OBD_S08_TID(Packet):
+class OBD_S08_PR(Packet):
     name = "Control Operation IDs"
     fields_desc = [
-        PacketListField("data_records", None, OBD_TID_Record)
+        PacketListField("data_records", [], OBD_S08_PR_Record)
     ]
 
+    def answers(self, other):
+        return other.__class__ == OBD_S08 \
+            and all(r.tid in other.tid for r in self.data_records)
 
-bind_layers(OBD_TID_Record, OBD_TID00, tid=0x00)
-bind_layers(OBD_TID_Record, OBD_TID01, tid=0x01)
-bind_layers(OBD_TID_Record, OBD_TID02, tid=0x02)
-bind_layers(OBD_TID_Record, OBD_TID03, tid=0x03)
-bind_layers(OBD_TID_Record, OBD_TID04, tid=0x04)
-bind_layers(OBD_TID_Record, OBD_TID05, tid=0x05)
-bind_layers(OBD_TID_Record, OBD_TID06, tid=0x06)
-bind_layers(OBD_TID_Record, OBD_TID07, tid=0x07)
-bind_layers(OBD_TID_Record, OBD_TID08, tid=0x08)
-bind_layers(OBD_TID_Record, OBD_TID09, tid=0x09)
-bind_layers(OBD_TID_Record, OBD_TID0A, tid=0x0A)
+
+bind_layers(OBD_S08_PR_Record, OBD_TID00, tid=0x00)
+bind_layers(OBD_S08_PR_Record, OBD_TID01, tid=0x01)
+bind_layers(OBD_S08_PR_Record, OBD_TID02, tid=0x02)
+bind_layers(OBD_S08_PR_Record, OBD_TID03, tid=0x03)
+bind_layers(OBD_S08_PR_Record, OBD_TID04, tid=0x04)
+bind_layers(OBD_S08_PR_Record, OBD_TID05, tid=0x05)
+bind_layers(OBD_S08_PR_Record, OBD_TID06, tid=0x06)
+bind_layers(OBD_S08_PR_Record, OBD_TID07, tid=0x07)
+bind_layers(OBD_S08_PR_Record, OBD_TID08, tid=0x08)
+bind_layers(OBD_S08_PR_Record, OBD_TID09, tid=0x09)
+bind_layers(OBD_S08_PR_Record, OBD_TID0A, tid=0x0A)

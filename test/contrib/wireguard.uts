@@ -1,0 +1,65 @@
+% WireGuard tests
+
+# Type the following command to launch start the tests:
+# $ test/run_tests -P "load_contrib('wireguard')" -t test/contrib/wireguard.uts
+
++ Build packets & dissect
+
+= Build and dissect Transport
+wgTransport = Wireguard()/WireguardTransport(receiver_index=1234, counter=1337, encrypted_encapsulated_packet=b"test123")
+assert bytes(wgTransport) == b'\x04\x00\x00\x00\xd2\x04\x00\x009\x05\x00\x00\x00\x00\x00\x00test123'
+
+wgTransport = Wireguard(b'\x04\x00\x00\x00\xe1\x10\x00\x00\x9a\x02\x00\x00\x00\x00\x00\x00test123')
+assert wgTransport.message_type == 4
+assert wgTransport[WireguardTransport].receiver_index == 4321
+assert wgTransport[WireguardTransport].counter == 666
+assert wgTransport[WireguardTransport].encrypted_encapsulated_packet == b"test123"
+
+= Build and dissect Init
+wgInit = Wireguard()/WireguardInitiation(sender_index=12345, 
+    unencrypted_ephemeral=b"\xaf\xfe"*16, encrypted_static=b"lul", encrypted_timestamp=b"kukuk", mac1="\x01"*16, mac2="\x02"*16
+)
+assert bytes(wgInit) == b'\x01\x00\x00\x0090\x00\x00\xaf\xfe\xaf\xfe\xaf\xfe\xaf\xfe\xaf\xfe\xaf\xfe\xaf\xfe\xaf\xfe\xaf\xfe\xaf\xfe\xaf\xfe\xaf\xfe\xaf\xfe\xaf\xfe\xaf\xfe\xaf\xfelul\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00kukuk\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00' + b'\x01' * 16 + b'\x02' * 16
+
+wgInit = Wireguard(b'\x01\x00\x00\x0090\x00\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xffstatisch\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00nixgibts\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x03\x03\x03\x03\x03\x03\x03\x03\x03\x03\x03\x03\x03\x03\x03\x03\x04\x04\x04\x04\x04\x04\x04\x04\x04\x04\x04\x04\x04\x04\x04\x04')
+
+assert wgInit.message_type == 1
+assert wgInit[WireguardInitiation].sender_index == 12345
+assert wgInit[WireguardInitiation].unencrypted_ephemeral == b"\xff"*32
+assert wgInit[WireguardInitiation].encrypted_static == b"statisch" + b"\x00" * 40
+assert wgInit[WireguardInitiation].encrypted_timestamp == b"nixgibts" + b"\x00" * 20
+assert wgInit[WireguardInitiation].mac1 == b"\x03" * 16
+assert wgInit[WireguardInitiation].mac2 == b"\x04" * 16
+
+= Build and dissect Response
+wgResp = Wireguard()/WireguardResponse(sender_index=12345, receiver_index=7878,
+    unencrypted_ephemeral=b"\x41"*32, encrypted_nothing=b"empty", mac1=b"mac1", mac2=b"mac2"
+)
+
+assert bytes(wgResp) == b'\x02\x00\x00\x0090\x00\x00\xc6\x1e\x00\x00AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAempty\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00mac1\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00mac2\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00'
+
+
+wgResp = Wireguard(b'\x02\x00\x00\x00W\x04\x00\x00\xae\x08\x00\x00BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBnotempty\x00\x00\x00\x00\x00\x00\x00\x00mac1lol\x00\x00\x00\x00\x00\x00\x00\x00\x00mac2lol\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+
+assert wgResp.message_type == 2
+assert wgResp[WireguardResponse].sender_index == 1111
+assert wgResp[WireguardResponse].receiver_index == 2222
+assert wgResp[WireguardResponse].unencrypted_ephemeral == b"B"*32
+assert wgResp[WireguardResponse].encrypted_nothing == b"notempty" + b"\x00" * 8
+assert wgResp[WireguardResponse].mac1 == b"mac1lol" + b"\x00" * 9
+assert wgResp[WireguardResponse].mac2 == b"mac2lol" + b"\x00" * 9
+
+= Build and dissect Cookie Response
+wgCookie = Wireguard()/WireguardCookieReply(receiver_index=3333,
+    nonce=b"C"*24, encrypted_cookie=b"D"*16 + b"E"*16
+)
+
+assert bytes(wgCookie) == b'\x03\x00\x00\x00\x05\r\x00\x00CCCCCCCCCCCCCCCCCCCCCCCCDDDDDDDDDDDDDDDDEEEEEEEEEEEEEEEE'
+
+
+wgCookie = Wireguard(b'\x03\x00\x00\x00\xb8"\x00\x00KKKKKKKKKKKKKKKKKKKKKKKKLLLLLLLLLLLLLLLLMMMMMMMMMMMMMMMM')
+
+assert wgCookie.message_type == 3
+assert wgCookie[WireguardCookieReply].receiver_index == 8888
+assert wgCookie[WireguardCookieReply].nonce == b"K"*24
+assert wgCookie[WireguardCookieReply].encrypted_cookie == b"L" * 16 + b"M" * 16

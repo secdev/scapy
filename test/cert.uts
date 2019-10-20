@@ -133,6 +133,7 @@ weDU+RsFxcyU/QxD9WYORzYarqxbcA==
 type(y) is PrivKeyECDSA
 
 = PrivKeyECDSA sign & verify
+~ crypto_advanced
 a = PrivKeyECDSA()
 a.fill_and_store()
 msg = b"Scapy test message"
@@ -141,6 +142,7 @@ assert a.verify(msg, data)
 assert not a.verify(b"Hello", data)
 
 = PubKeyECDSA verify
+~ crypto_advanced
 b = PubKeyECDSA()
 b.pubkey = a.pubkey
 assert b.verify(msg, data)
@@ -324,6 +326,23 @@ x.tbsCertificate.show()
 assert(x.cA)
 assert(x.authorityKeyID == b'\xf3\xd8N\xde\x90\xf7\xe6]\xd2\xce3\xcd\\V\x8co\x97\x141K')
 not hasattr(x, "keyUsage")
+
+= Cert class : encrypt
+
+assert len(x.encrypt(b"Scapy")) == 256
+
+= Cert class : export
+
+import tempfile, os
+filename = tempfile.mktemp()
+x.export(filename)
+fstat = os.stat(filename)
+assert fstat.st_size == 1302
+os.remove(filename)
+
+= Cert class : isIssuerCert
+
+assert x.isIssuerCert(x)
 
 = Cert class : Importing another PEM-encoded X.509 Certificate
 y = Cert("""
@@ -530,6 +549,13 @@ assert(len(Chain([c0, c1, c2])) == 3)
 assert(len(Chain([c0], c1)) == 2)
 len(Chain([c0], c2)) == 1
 
+= Chain class : repr
+
+expected_repr = """__ /C=US/ST=Arizona/L=Scottsdale/O=Starfield Technologies, Inc./CN=Starfield Root Certificate Authority - G2 [Self Signed]
+  _ /C=US/ST=Arizona/L=Scottsdale/O=Starfield Technologies, Inc./OU=http://certs.starfieldtech.com/repository//CN=Starfield Secure Certificate Authority - G2
+    _ /OU=Domain Control Validated/CN=*.tools.ietf.org"""
+assert str(Chain([c0, c1, c2])) == expected_repr
+
 = Chain class : Checking chain verification
 assert(Chain([], c0).verifyChain([c2], [c1]))
 not Chain([c1]).verifyChain([c0])
@@ -634,3 +660,16 @@ except:
 
 repr_str = Chain([], c0).__repr__()
 assert repr_str == '__ /OU=Domain Control Validated/CN=*.tools.ietf.org [Not Self Signed]\n'
+
+= Test GeneralizedTime
+
+data = b"MHAwXAIBADANBgkqhkiG9w0BAQ0FADAAMCIYDzIwMTExMDA2MDgzOTU2WhgPMjA0NjEwMDYwODM5NTZaMAAwHDANBgkqhkiG9w0BAQEFAAMLADAIAgEAAgMBAAGjAjAAMA0GCSqGSIb3DQEBDQUAAwEA"
+import tempfile, os
+_, filename = tempfile.mkstemp()
+fd = open(filename, "wb")
+fd.write(b"-----BEGIN CERTIFICATE-----\n")
+fd.write(data)
+fd.write(b"-----END CERTIFICATE-----\n")
+fd.close()
+cert = Cert(filename)
+assert "2011" in cert.notBefore_str and "2046" in cert.notAfter_str

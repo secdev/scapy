@@ -1,0 +1,62 @@
+# PPI_Geotag tests
+
+############
+############
++ PPI Geotags tests
+
+= Import PPI Geotag
+
+from scapy.contrib.ppi_geotag import *
+
+= Test GPS dissection
+
+assert raw(PPI_Hdr()/PPI_Geotag_GPS()) == b'2u\x08\x00\x02\x00\x08\x00\x00\x00\x00\x00'
+
+= Test Vector dissection
+
+assert raw(PPI_Hdr()/PPI_Geotag_Vector()) == b'3u\x08\x00\x02\x00\x08\x00\x00\x00\x00\x00'
+
+= Test Sensor dissection
+
+assert raw(PPI_Hdr()/PPI_Geotag_Sensor()) == b'4u\x08\x00\x02\x00\x08\x00\x00\x00\x00\x00'
+
+= Test Antenna dissection
+
+assert raw(PPI_Hdr()/PPI_Geotag_Antenna()) == b'5u\x08\x00\x02\x00\x08\x00\x00\x00\x00\x00'
+
+= Test GPSTime_Field time handling
+
+assert GPSTime_Field("GPSTime", None).delta == 0.0
+
+= Test UTCTimeField with time values
+
+# Always use ``time.gmtime`` and ``calendar.timegm``, not ``time.localtime``
+# and ``time.mktime``.
+
+local_time = time.gmtime()
+utc_time = UTCTimeField("Test", None, epoch=local_time)
+assert time.gmtime(utc_time.epoch) == local_time
+assert calendar.timegm(time.gmtime(utc_time.delta)) == calendar.timegm(local_time)
+strft_time = time.strftime("%a, %d %b %Y %H:%M:%S %z", local_time)
+
+# Backup: also test summer time bug
+expected = "{} ({:d})".format(strft_time, utc_time.delta)
+result = utc_time.i2repr(None, None)
+result
+expected
+assert result == expected
+
+= Test LETimeField with time values
+
+local_time = time.gmtime()
+lme_time = LETimeField("Test", None, epoch=local_time)
+assert time.gmtime(lme_time.epoch) == local_time
+assert calendar.timegm(time.gmtime(lme_time.delta)) == calendar.timegm(local_time)
+strft_time = time.strftime("%a, %d %b %Y %H:%M:%S %z", local_time)
+
+# Backup: also test summer time bug
+expected = "{} ({:d})".format(strft_time, lme_time.delta)
+result = lme_time.i2repr(None, None)
+result
+expected
+assert result == expected

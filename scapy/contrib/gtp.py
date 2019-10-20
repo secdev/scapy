@@ -22,9 +22,11 @@ from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
     IPField, PacketListField, ShortField, StrFixedLenField, StrLenField, \
     XBitField, XByteField, XIntField
 from scapy.layers.inet import IP, UDP
-from scapy.layers.inet6 import IP6Field
+from scapy.layers.inet6 import IPv6, IP6Field
+from scapy.layers.ppp import PPP
 from scapy.modules.six.moves import range
-from scapy.packet import bind_layers, Packet, Raw
+from scapy.packet import bind_layers, bind_bottom_up, bind_top_down, \
+    Packet, Raw
 from scapy.volatile import RandInt, RandIP, RandNum, RandString
 
 
@@ -146,6 +148,7 @@ ExtensionHeadersTypes = {
     1: "Reserved",
     2: "Reserved",
     64: "UDP Port",
+    133: "PDU Session Container",
     192: "PDCP PDU Number",
     193: "Reserved",
     194: "Reserved"
@@ -254,6 +257,24 @@ class GTP_U_Header(GTPHeader):
     # encapsulated in G-PDUs. A G-PDU is a packet including a GTP-U header and a T-PDU. The Path Protocol  # noqa: E501
     # defines the path and the GTP-U header defines the tunnel. Several tunnels may be multiplexed on a single path.  # noqa: E501
 
+    def guess_payload_class(self, payload):
+        # Snooped from Wireshark
+        # https://github.com/boundary/wireshark/blob/07eade8124fd1d5386161591b52e177ee6ea849f/epan/dissectors/packet-gtp.c#L8195  # noqa: E501
+        if self.gtp_type == 255:
+            if self.E == 1:
+                if self.next_ex == 0x85:
+                    return GTPPDUSessionContainer
+                else:
+                    return GTPHeader.guess_payload_class(self, payload)
+            sub_proto = orb(payload[0])
+            if sub_proto >= 0x45 and sub_proto <= 0x4e:
+                return IP
+            elif (sub_proto & 0xf0) == 0x60:
+                return IPv6
+            else:
+                return PPP
+        return GTPHeader.guess_payload_class(self, payload)
+
 
 # Some gtp_types have to be associated with a certain type of header
 GTPforcedTypes = {
@@ -268,6 +289,51 @@ GTPforcedTypes = {
     254: GTP_U_Header,
     255: GTP_U_Header
 }
+
+
+class GTPPDUSessionContainer(Packet):
+    name = "GTP PDU Session Container"
+    fields_desc = [ByteField("ExtHdrLen", None),
+                   BitField("type", 0, 4),
+                   BitField("spare1", 0, 4),
+                   BitField("P", 0, 1),
+                   BitField("R", 0, 1),
+                   BitField("QFI", 0, 6),
+                   ConditionalField(XBitField("PPI", 0, 3),
+                   lambda pkt: pkt.P == 1),
+                   ConditionalField(XBitField("spare2", 0, 5),
+                   lambda pkt: pkt.P == 1),
+                   ConditionalField(ByteField("pad1", 0),
+                   lambda pkt: pkt.P == 1),
+                   ConditionalField(ByteField("pad2", 0),
+                   lambda pkt: pkt.P == 1),
+                   ConditionalField(ByteField("pad3", 0),
+                   lambda pkt: pkt.P == 1),
+                   ByteEnumField("NextExtHdr", 0, ExtensionHeadersTypes), ]
+
+    def guess_payload_class(self, payload):
+        if self.NextExtHdr == 0:
+            sub_proto = orb(payload[0])
+            if sub_proto >= 0x45 and sub_proto <= 0x4e:
+                return IP
+            elif (sub_proto & 0xf0) == 0x60:
+                return IPv6
+            else:
+                return PPP
+        return GTPHeader.guess_payload_class(self, payload)
+
+    def post_build(self, p, pay):
+        p += pay
+        if self.ExtHdrLen is None:
+            if self.P == 1:
+                hdr_len = 2
+            else:
+                hdr_len = 1
+            p = struct.pack("!B", hdr_len) + p[1:]
+        return p
+
+    def hashret(self):
+        return struct.pack("H", self.seq)
 
 
 class GTPEchoRequest(Packet):
@@ -887,8 +953,9 @@ class GTPmorethan1500(Packet):
 
 
 # Bind GTP-C
-bind_layers(UDP, GTPHeader, dport=2123)
-bind_layers(UDP, GTPHeader, sport=2123)
+bind_bottom_up(UDP, GTPHeader, dport=2123)
+bind_bottom_up(UDP, GTPHeader, sport=2123)
+bind_layers(UDP, GTPHeader, dport=2123, sport=2123)
 bind_layers(GTPHeader, GTPEchoRequest, gtp_type=1, S=1)
 bind_layers(GTPHeader, GTPEchoResponse, gtp_type=2, S=1)
 bind_layers(GTPHeader, GTPCreatePDPContextRequest, gtp_type=16)
@@ -903,7 +970,12 @@ bind_layers(GTPHeader, GTP_UDPPort_ExtensionHeader, next_ex=64, E=1)
 bind_layers(GTPHeader, GTP_PDCP_PDU_ExtensionHeader, next_ex=192, E=1)
 
 # Bind GTP-U
-bind_layers(UDP, GTP_U_Header, dport=2152)
-bind_layers(UDP, GTP_U_Header, sport=2152)
+bind_bottom_up(UDP, GTP_U_Header, dport=2152)
+bind_bottom_up(UDP, GTP_U_Header, sport=2152)
+bind_layers(UDP, GTP_U_Header, dport=2152, sport=2152)
 bind_layers(GTP_U_Header, GTPErrorIndication, gtp_type=26, S=1)
-bind_layers(GTP_U_Header, IP, gtp_type=255)
+bind_layers(GTP_U_Header, GTPPDUSessionContainer,
+            gtp_type=255, E=1, next_ex=0x85)
+bind_top_down(GTP_U_Header, IP, gtp_type=255)
+bind_top_down(GTP_U_Header, IPv6, gtp_type=255)
+bind_top_down(GTP_U_Header, PPP, gtp_type=255)

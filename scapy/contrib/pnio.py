@@ -30,7 +30,7 @@ from scapy.fields import (
     StrFixedLenField, ShortField,
     FlagsField, ByteField, XIntField, X3BytesField
 )
-
+from scapy.modules import six
 
 PNIO_FRAME_IDS = {
     0x0020: "PTCP-RTSyncPDU-followup",
@@ -56,15 +56,17 @@ def i2s_frameid(x):
     :param x: a key of the PNIO_FRAME_IDS dictionary
     :returns: str
     """
-    if x in PNIO_FRAME_IDS:
+    try:
         return PNIO_FRAME_IDS[x]
-    elif 0x0100 <= x < 0x1000:
+    except KeyError:
+        pass
+    if 0x0100 <= x < 0x1000:
         return "RT_CLASS_3 (%4x)" % x
-    elif 0x8000 <= x < 0xC000:
+    if 0x8000 <= x < 0xC000:
         return "RT_CLASS_1 (%4x)" % x
-    elif 0xC000 <= x < 0xFC00:
+    if 0xC000 <= x < 0xFC00:
         return "RT_CLASS_UDP (%4x)" % x
-    elif 0xFF80 <= x < 0xFF90:
+    if 0xFF80 <= x < 0xFF90:
         return "FragmentationFrameID (%4x)" % x
     return x
 
@@ -78,19 +80,19 @@ def s2i_frameid(x):
     :returns: integer
     """
     try:
-        idx = list(PNIO_FRAME_IDS.values()).index(x)
-        return list(PNIO_FRAME_IDS.keys())[idx]
-
-    except ValueError:
+        return {
+            "RT_CLASS_3": 0x0100,
+            "RT_CLASS_1": 0x8000,
+            "RT_CLASS_UDP": 0xC000,
+            "FragmentationFrameID": 0xFF80,
+        }[x]
+    except KeyError:
         pass
-    if x == "RT_CLASS_3":
-        return 0x0100
-    elif x == "RT_CLASS_1":
-        return 0x8000
-    elif x == "RT_CLASS_UDP":
-        return 0xC000
-    elif x == "FragmentationFrameID":
-        return 0xFF80
+    try:
+        return next(key for key, value in six.iteritems(PNIO_FRAME_IDS)
+                    if value == x)
+    except StopIteration:
+        pass
     return x
 
 
@@ -106,9 +108,14 @@ class ProfinetIO(Packet):
 
     def guess_payload_class(self, payload):
         # For frameID in the RT_CLASS_* range, use the RTC packet as payload
-        if (
+        if self.frameID in [0xfefe, 0xfeff, 0xfefd]:
+            from scapy.contrib.pnio_dcp import ProfinetDCP
+            return ProfinetDCP
+        elif (
                 (0x0100 <= self.frameID < 0x1000) or
                 (0x8000 <= self.frameID < 0xFC00)
+
+
         ):
             return PNIORealTimeCyclicPDU
         return super(ProfinetIO, self).guess_payload_class(payload)
@@ -244,10 +251,7 @@ class PNIORealTimeCyclicPDU(Packet):
             pnio_layer = q
 
         self._layout = [PNIORealTimeCyclicDefaultRawData]
-        if (
-                not isinstance(ether_layer, type(None)) and
-                not isinstance(pnio_layer, type(None))
-        ):
+        if not (ether_layer is None and pnio_layer is None):
             # Get from config the layout for these hosts and frameid
             layout = type(self).get_layout_from_config(
                 ether_layer.src,

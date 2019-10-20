@@ -266,29 +266,6 @@ class Field_metaclass(type):
         return newcls
 
 
-class NewDefaultValues(Packet_metaclass):
-    """NewDefaultValues is deprecated (not needed anymore)
-
-    remove this:
-        __metaclass__ = NewDefaultValues
-    and it should still work.
-    """
-    def __new__(cls, name, bases, dct):
-        from scapy.error import log_loading
-        import traceback
-        try:
-            for tb in traceback.extract_stack() + [("??", -1, None, "")]:
-                f, l, _, line = tb
-                if line.startswith("class"):
-                    break
-        except Exception:
-            f, l = "??", -1  # noqa: E741
-            raise
-        log_loading.warning("Deprecated (no more needed) use of NewDefaultValues  (%s l. %i).", f, l)  # noqa: E501
-
-        return super(NewDefaultValues, cls).__new__(cls, name, bases, dct)
-
-
 class BasePacket(Gen):
     __slots__ = []
 

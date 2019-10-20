@@ -1,0 +1,90 @@
+% Tests for oncrpc module
+############
+############
++  Packet Creation Tests
+
+= Create subpackets
+Object_Name()
+Auth_Unix()
+
+= Create ONC RPC Packets
+RM_Header()
+RPC()
+RPC_Call()
+RPC_Reply()
+
++ Test Layer bindings
+
+= RPC Message type
+pkt = RPC()/RPC_Call()
+assert(pkt.mtype==0)
+pkt = RPC()/RPC_Reply()
+assert(pkt.mtype==1)
+
++ Test Built Packets vs Raw Strings
+
+= Test Built Packets vs Raw Strings
+pkt = RM_Header(
+    rm=0x80000000
+)
+assert bytes(pkt) == b'\x80\x00\x00\x00'
+
+pkt = RPC(
+    xid=0xabcdef12,
+    mtype='CALL'
+)
+assert bytes(pkt) == b'\xab\xcd\xef\x12\x00\x00\x00\x00'
+
+pkt = RPC_Call(
+    version=2,
+    program=100005,
+    pversion=3,
+    procedure=1,
+    aflavor='AUTH_UNIX',
+    a_unix=Auth_Unix(
+        stamp=0xffffffff,
+        mname=Object_Name(
+            length=5,
+            _name='MNAME',
+            fill='\x00\x00\x00'
+        ),
+        uid=1,
+        gid=1,
+        num_auxgids=1,
+        auxgids=[0]
+    ),
+    vflavor=1,
+    v_unix=Auth_Unix(
+        stamp=0xffffffff,
+        mname=Object_Name(
+            length=5,
+            _name='MNAME',
+            fill='\x00\x00\x00'
+        ),
+        uid=1,
+        gid=1,
+        num_auxgids=1,
+        auxgids=[0]
+    )
+)
+assert bytes(pkt) == b'\x00\x00\x00\x02\x00\x01\x86\xa5\x00\x00\x00\x03\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00 \xff\xff\xff\xff\x00\x00\x00\x05MNAME\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\xff\xff\xff\xff\x00\x00\x00\x05MNAME\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x00'
+
+pkt = RPC_Reply(
+    reply_stat=1,
+    flavor=1,
+    a_unix=Auth_Unix(
+        stamp=0xffffffff,
+        mname=Object_Name(
+            length=5,
+            _name='MNAME',
+            fill='\x00\x00\x00'
+        ),
+        uid=1,
+        gid=1,
+        num_auxgids=1,
+        auxgids=[0]
+    ),
+    length=32,
+    accept_stat=1
+)
+assert bytes(pkt) == b'\x00\x00\x00\x01\x00\x00\x00\x01\xff\xff\xff\xff\x00\x00\x00\x05MNAME\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00 \x00\x00\x00\x01'

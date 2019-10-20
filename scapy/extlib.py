@@ -19,7 +19,7 @@ from scapy.error import log_loading
 
 try:
     from matplotlib import get_backend as matplotlib_get_backend
-    import matplotlib.pyplot as plt
+    from matplotlib import pyplot as plt
     MATPLOTLIB = 1
     if "inline" in matplotlib_get_backend():
         MATPLOTLIB_INLINED = 1
@@ -54,7 +54,7 @@ try:
     if _test_pyx():
         PYX = 1
     else:
-        log_loading.warning("PyX dependencies are not installed ! Please install TexLive or MikTeX.")  # noqa: E501
+        log_loading.info("PyX dependencies are not installed ! Please install TexLive or MikTeX.")  # noqa: E501
         PYX = 0
 except ImportError:
     log_loading.info("Can't import PyX. Won't be able to use psdump() or pdfdump().")  # noqa: E501
