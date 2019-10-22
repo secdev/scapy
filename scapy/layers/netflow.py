@@ -34,7 +34,7 @@ from scapy.fields import ByteEnumField, ByteField, Field, FieldLenField, \
     FlagsField, IPField, IntField, MACField, \
     PacketListField, PadField, SecondsIntField, ShortEnumField, ShortField, \
     StrField, StrFixedLenField, ThreeBytesField, UTCTimeField, XByteField, \
-    XShortField, LongField
+    XShortField, LongField, BitField, ConditionalField, BitEnumField
 from scapy.packet import Packet, bind_layers, bind_bottom_up
 from scapy.plist import PacketList
 from scapy.sessions import IPSession, DefaultSession
@@ -1243,9 +1243,12 @@ class NetflowHeaderV10(Packet):
 
 class NetflowTemplateFieldV9(Packet):
     name = "Netflow Flowset Template Field V9/10"
-    fields_desc = [ShortEnumField("fieldType", None,
-                                  NetflowV910TemplateFieldTypes),
-                   ShortField("fieldLength", 0)]
+    fields_desc = [BitField("enterpriseBit", 0, 1),
+                   BitEnumField("fieldType", None, 15,
+                                NetflowV910TemplateFieldTypes),
+                   ShortField("fieldLength", 0),
+                   ConditionalField(IntField("enterpriseNumber", 0),
+                                    lambda p: p.enterpriseBit)]
 
     def __init__(self, *args, **kwargs):
         Packet.__init__(self, *args, **kwargs)
@@ -1520,9 +1523,12 @@ class NetflowOptionsRecordOptionV9(NetflowRecordV9):
 # Aka Set
 class NetflowOptionsFlowsetOptionV9(Packet):
     name = "Netflow Options Template FlowSet V9/10 - Option"
-    fields_desc = [ShortEnumField("optionFieldType", None,
-                                  NetflowV910TemplateFieldTypes),
-                   ShortField("optionFieldlength", 0)]
+    fields_desc = [BitField("enterpriseBit", 0, 1),
+                   BitEnumField("optionFieldType", None, 15,
+                                NetflowV910TemplateFieldTypes),
+                   ShortField("optionFieldlength", 0),
+                   ConditionalField(ShortField("enterpriseNumber", 0),
+                                    lambda p: p.enterpriseBit)]
 
     def default_payload_class(self, p):
         return conf.padding_layer

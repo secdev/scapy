@@ -6748,6 +6748,12 @@ assert pkt3.scopes[0].scopeFieldType == 5
 assert pkt3.scopes[0].scopeFieldlength == 2
 assert pkt3[NetflowOptionsFlowset10].options[0].optionFieldType == 36
 
+# Templates with enterprise-specific Information Elements.
+s=b'\x01\x07\x00\x12\x01\n\x00\x04\x84\x0c\x00\x02\x00\x00\x00\t\x01\n\x00&\x00\x0b\x00\x02\x00\x07\x00\x02\x00\x04\x00\x01\x00\x0c\x00\x04\x00\x08\x00\x04\x00\xea\x00\x02\x01\n\x00\x01\x84\x10\x00\x06\x00\x00\x00\t\x84\x0e\x00\x06\x00\x00\x00\t\x84\x0f\x00\x06\x00\x00\x00\t\x00\x01\x00\x04\x00\x02\x00\x04\x00\xf3\x00\x02\x00\x06\x00\x01\x01\n\x00#'
+pkt4 = NetflowTemplateV9(s)
+assert len(pkt4.template_fields) == pkt4.fieldCount
+assert sum([template.fieldLength for template in pkt4.template_fields]) == 124
+
 ############
 ############
 + pcap / pcapng format support
