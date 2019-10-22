@@ -23,8 +23,7 @@ from scapy.packet import Packet, bind_layers
 from scapy.fields import FieldLenField, StrFixedLenField, StrLenField
 
 # Extends HomePlug AV and GP layer
-from scapy.contrib.homeplugav import HomePlugAV
-from scapy.contrib.homeplugsg import QualcommTypeList
+from scapy.contrib.homeplugav import HomePlugAV, QualcommTypeList
 
 #
 #    Copyright (C) HomePlugSG Layer for Scapy by FlUxIuS (Sebastien Dudek)

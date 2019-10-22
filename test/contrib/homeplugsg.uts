@@ -1,0 +1,28 @@
+% Regression tests for Scapy
+
++Syntax check
+= Import the homepluggq layer
+
+from scapy.contrib.homeplugsg import *
+import binascii
+#from scapy.all import 
+
+# HomePlugSG
+
+############
+############
++ Basic tests
+
+* Those test are here mainly to check nothing has been broken
+
+= Building packets packet
+~ basic HomePlugAV VS_UART_CMD_REQ VS_UART_CMD_CNF
+
+HomePlugAV()/VS_UART_CMD_REQ()
+HomePlugAV()/VS_UART_CMD_CNF()
+
+= Some important manipulations
+~ field
+pkt=HomePlugAV()/VS_UART_CMD_REQ()
+pkt.UData = "AT+LOG?"
+assert str(pkt) == str(b'\x00\x00\xa4\x00\xb0R\x00\x01AT+LOG?')
