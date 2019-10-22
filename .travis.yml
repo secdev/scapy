@@ -41,6 +41,12 @@ matrix:
             - TOXENV=py37-linux_non_root,codecov
 
         - os: linux
+          dist: xenial
+          python: 3.8
+          env:
+            - TOXENV=py38-linux_non_root,codecov
+
+        - os: linux
           python: pypy
           env:
             - TOXENV=pypy-linux_non_root,codecov
@@ -93,6 +99,12 @@ matrix:
           python: 3.7
           env:
             - TOXENV=py37-linux_root,codecov
+
+        - language: python
+          dist: xenial
+          python: 3.8
+          env:
+            - TOXENV=py38-linux_root,codecov
 
         - os: linux
           python: 2.7
