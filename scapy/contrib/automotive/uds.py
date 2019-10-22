@@ -1377,7 +1377,7 @@ def UDS_ServiceEnumerator(sock, session="DefaultSession",
     found_services = sock.sr(pkts, timeout=5, verbose=False)
     return [(session, p) for _, p in found_services[0] if
             p.service != 0x7f or
-            (p.negativeResponseCode not in [0x10, 0x11, 0x12] or not
+            (p.negativeResponseCode not in [0x10, 0x11] or not
             filter_responses)]
 
 
