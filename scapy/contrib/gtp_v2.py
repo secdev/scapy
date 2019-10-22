@@ -439,6 +439,8 @@ class IE_NotImplementedTLV(gtp.IE_Base):
     name = "IE not implemented"
     fields_desc = [ByteEnumField("ietype", 0, IEType),
                    ShortField("length", None),
+                   BitField("CR_flag", 0, 4),
+                   BitField("instance", 0, 4),
                    StrLenField("data", "", length_from=lambda x: x.length)]
 
 
