@@ -52,17 +52,17 @@ ie.Cause == 16
 
 = IE_Cause, basic instantiation
 ie = IE_Cause(
-    ietype='Cause', length=2, Cause='Request Accepted', PCE=1, BCE=0, CS=0)
+    ietype='Cause', length=2, Cause='Request accepted', PCE=1, BCE=0, CS=0)
 ie.ietype == 2 and ie.Cause == 16 and ie.PCE == 1 and ie.BCE == 0 and ie.CS == 0
 
 = IE_Cause, basic instantiation 2
 ie = IE_Cause(
-    ietype='Cause', length=2, Cause='Request Accepted', PCE=0, BCE=1, CS=0)
+    ietype='Cause', length=2, Cause='Request accepted', PCE=0, BCE=1, CS=0)
 ie.ietype == 2 and ie.Cause == 16 and ie.PCE == 0 and ie.BCE == 1 and ie.CS == 0
 
 = IE_Cause, basic instantiation 3
 ie = IE_Cause(
-    ietype='Cause', length=2, Cause='Request Accepted', PCE=0, BCE=0, CS=1)
+    ietype='Cause', length=2, Cause='Request accepted', PCE=0, BCE=0, CS=1)
 ie.ietype == 2 and ie.Cause == 16 and ie.PCE == 0 and ie.BCE == 0 and ie.CS == 1
 
 = IE_RecoveryRestart, dissection
