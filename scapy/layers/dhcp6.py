@@ -26,6 +26,7 @@ from scapy.fields import BitField, ByteEnumField, ByteField, FieldLenField, \
     PacketListField, ShortEnumField, ShortField, StrField, StrFixedLenField, \
     StrLenField, UTCTimeField, X3BytesField, XIntField, XShortEnumField, \
     PacketLenField, UUIDField, FieldListField
+from scapy.data import IANA_ENTERPRISE_NUMBERS
 from scapy.layers.inet import UDP
 from scapy.layers.inet6 import DomainNameListField, IP6Field, IP6ListField, \
     IPv6
@@ -268,26 +269,10 @@ class DUID_LLT(Packet):  # sect 9.2 RFC 3315
                    _LLAddrField("lladdr", ETHER_ANY)]
 
 
-# In fact, IANA enterprise-numbers file available at
-# http://www.iana.org/assignments/enterprise-numbers
-# is simply huge (more than 2Mo and 600Ko in bz2). I'll
-# add only most common vendors, and encountered values.
-# -- arno
-iana_enterprise_num = {9: "ciscoSystems",
-                          35: "Nortel Networks",
-                          43: "3Com",
-                       311: "Microsoft",
-                       2636: "Juniper Networks, Inc.",
-                       4526: "Netgear",
-                       5771: "Cisco Systems, Inc.",
-                       5842: "Cisco Systems",
-                       16885: "Nortel Networks"}
-
-
 class DUID_EN(Packet):  # sect 9.3 RFC 3315
     name = "DUID - Assigned by Vendor Based on Enterprise Number"
     fields_desc = [ShortEnumField("type", 2, duidtypes),
-                   IntEnumField("enterprisenum", 311, iana_enterprise_num),
+                   IntEnumField("enterprisenum", 311, IANA_ENTERPRISE_NUMBERS),
                    StrField("id", "")]
 
 
@@ -655,7 +640,8 @@ class DHCP6OptVendorClass(_DHCP6OptGuessPayload):  # RFC sect 22.16
     fields_desc = [ShortEnumField("optcode", 16, dhcp6opts),
                    FieldLenField("optlen", None, length_of="vcdata", fmt="!H",
                                  adjust=lambda pkt, x: x + 4),
-                   IntEnumField("enterprisenum", None, iana_enterprise_num),
+                   IntEnumField("enterprisenum", None,
+                                IANA_ENTERPRISE_NUMBERS),
                    _VendorClassDataField("vcdata", [], VENDOR_CLASS_DATA,
                                          length_from=lambda pkt: pkt.optlen - 4)]  # noqa: E501
 
@@ -680,7 +666,8 @@ class DHCP6OptVendorSpecificInfo(_DHCP6OptGuessPayload):  # RFC sect 22.17
     fields_desc = [ShortEnumField("optcode", 17, dhcp6opts),
                    FieldLenField("optlen", None, length_of="vso", fmt="!H",
                                  adjust=lambda pkt, x: x + 4),
-                   IntEnumField("enterprisenum", None, iana_enterprise_num),
+                   IntEnumField("enterprisenum", None,
+                                IANA_ENTERPRISE_NUMBERS),
                    _VendorClassDataField("vso", [], VENDOR_SPECIFIC_OPTION,
                                          length_from=lambda pkt: pkt.optlen - 4)]  # noqa: E501
 
@@ -893,7 +880,8 @@ class DHCP6OptRemoteID(_DHCP6OptGuessPayload):  # RFC4649
     fields_desc = [ShortEnumField("optcode", 37, dhcp6opts),
                    FieldLenField("optlen", None, length_of="remoteid",
                                  adjust=lambda pkt, x: x + 4),
-                   IntEnumField("enterprisenum", None, iana_enterprise_num),
+                   IntEnumField("enterprisenum", None,
+                                IANA_ENTERPRISE_NUMBERS),
                    StrLenField("remoteid", "",
                                length_from=lambda pkt: pkt.optlen - 4)]
 

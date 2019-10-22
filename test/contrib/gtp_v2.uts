@@ -341,7 +341,15 @@ res = GTPHeader(gtp_type="create_session_res") / ("Y"*32)
 req.hashret() == res.hashret()
 
 = IE_NotImplementedTLV
-h = "333333333333222222222222810080c808004588002937dd0000fd1115490a2a00010a2a0002084b084b00152d0e4001000900000100ff0001000daa000000003f1f382f"
+h = "333333333333222222222222810080c808004588002937dd0000fd1115490a2a00010a2a0002084b084b00152d0e4001000900000100fe0001000daa000000003f1f382f"
 gtp = Ether(hex_bytes(h))
 isinstance(gtp.IE_list[0], IE_NotImplementedTLV)
 isinstance(gtp.IE_list[0].payload, NoPayload)
+
+= IE_PrivateExtension
+h = "5001003500303900ff0031002b79deadbeef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12345678"
+gtp = GTPHeader(hex_bytes(h))
+gtp.show2()
+(ie,) = gtp.IE_list
+ie.enterprisenum == 11129
+bytes_hex(ie.payload) == b"deadbeef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef12345678"
