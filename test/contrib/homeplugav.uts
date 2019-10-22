@@ -1,5 +1,11 @@
 % Regression tests for Scapy
 
++Syntax check
+= Import the homeplugav layer
+
+from scapy.contrib.homeplugav import *
+#from scapy.all import 
+
 # HomePlugAV
 
 ############
