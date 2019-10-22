@@ -6,14 +6,14 @@
 
 # Scapy
 
-[![Travis Build Status](https://travis-ci.com/secdev/scapy.svg?branch=master)](https://travis-ci.com/secdev/scapy)
-[![AppVeyor Build status](https://ci.appveyor.com/api/projects/status/os03daotfja0wtp7/branch/master?svg=true)](https://ci.appveyor.com/project/secdev/scapy/branch/master)
-[![Codecov Status](https://codecov.io/gh/secdev/scapy/branch/master/graph/badge.svg)](https://codecov.io/gh/secdev/scapy)
-[![Codacy Badge](https://api.codacy.com/project/badge/Grade/30ee6772bb264a689a2604f5cdb0437b)](https://www.codacy.com/app/secdev/scapy)
+[![Travis Build Status](https://travis-ci.com/secdev/scapy.svg?branch=master)](https://travis-ci.com/secdev/scapy) <!-- ignore_ppi -->
+[![AppVeyor Build status](https://ci.appveyor.com/api/projects/status/os03daotfja0wtp7/branch/master?svg=true)](https://ci.appveyor.com/project/secdev/scapy/branch/master) <!-- ignore_ppi -->
+[![Codecov Status](https://codecov.io/gh/secdev/scapy/branch/master/graph/badge.svg)](https://codecov.io/gh/secdev/scapy) <!-- ignore_ppi -->
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/30ee6772bb264a689a2604f5cdb0437b)](https://www.codacy.com/app/secdev/scapy) <!-- ignore_ppi -->
 [![PyPI Version](https://img.shields.io/pypi/v/scapy.svg)](https://pypi.python.org/pypi/scapy/)
 [![Python Versions](https://img.shields.io/pypi/pyversions/scapy.svg)](https://pypi.python.org/pypi/scapy/)
 [![License: GPL v2](https://img.shields.io/badge/License-GPL%20v2-blue.svg)](LICENSE)
-[![Join the chat at https://gitter.im/secdev/scapy](https://badges.gitter.im/secdev/scapy.svg)](https://gitter.im/secdev/scapy)
+[![Join the chat at https://gitter.im/secdev/scapy](https://badges.gitter.im/secdev/scapy.svg)](https://gitter.im/secdev/scapy) <!-- ignore_ppi -->
 
 Scapy is a powerful Python-based interactive packet manipulation program and
 library.
