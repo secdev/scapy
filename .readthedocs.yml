@@ -5,7 +5,9 @@
 
 version: 2
 
-formats: all
+formats:
+  - epub
+  - pdf
 
 build:
   image: latest
