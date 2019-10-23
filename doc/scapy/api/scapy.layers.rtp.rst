@@ -1,5 +1,5 @@
-scapy.layers.rtp module
-=======================
+scapy.layers.rtp
+================
 
 .. automodule:: scapy.layers.rtp
    :members:

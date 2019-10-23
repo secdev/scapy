@@ -1,5 +1,5 @@
-scapy.layers.ppi module
-=======================
+scapy.layers.ppi
+================
 
 .. automodule:: scapy.layers.ppi
    :members:

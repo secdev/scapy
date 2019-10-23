@@ -6,9 +6,6 @@ scapy.contrib.automotive.bmw package
    :undoc-members:
    :show-inheritance:
 
-Submodules
-----------
-
 .. toctree::
 
    scapy.contrib.automotive.bmw.enet

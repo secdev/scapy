@@ -1,5 +1,5 @@
-scapy.sendrecv module
-=====================
+scapy.sendrecv
+==============
 
 .. automodule:: scapy.sendrecv
    :members:

@@ -1,5 +1,5 @@
-scapy.asn1.asn1 module
-======================
+scapy.asn1.asn1
+===============
 
 .. automodule:: scapy.asn1.asn1
    :members:

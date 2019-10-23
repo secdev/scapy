@@ -1,5 +1,5 @@
-scapy.fields module
-===================
+scapy.fields
+============
 
 .. automodule:: scapy.fields
    :members:

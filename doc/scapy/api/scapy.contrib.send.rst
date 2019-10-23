@@ -1,5 +1,5 @@
-scapy.contrib.send module
-=========================
+scapy.contrib.send
+==================
 
 .. automodule:: scapy.contrib.send
    :members:

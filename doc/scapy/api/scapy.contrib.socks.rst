@@ -1,5 +1,5 @@
-scapy.contrib.socks module
-==========================
+scapy.contrib.socks
+===================
 
 .. automodule:: scapy.contrib.socks
    :members:

@@ -1,5 +1,5 @@
-scapy.asn1.ber module
-=====================
+scapy.asn1.ber
+==============
 
 .. automodule:: scapy.asn1.ber
    :members:

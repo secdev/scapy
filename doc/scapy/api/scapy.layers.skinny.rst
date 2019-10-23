@@ -1,5 +1,5 @@
-scapy.layers.skinny module
-==========================
+scapy.layers.skinny
+===================
 
 .. automodule:: scapy.layers.skinny
    :members:

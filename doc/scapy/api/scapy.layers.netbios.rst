@@ -1,5 +1,5 @@
-scapy.layers.netbios module
-===========================
+scapy.layers.netbios
+====================
 
 .. automodule:: scapy.layers.netbios
    :members:

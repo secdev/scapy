@@ -1,5 +1,5 @@
-scapy.contrib.nsh module
-========================
+scapy.contrib.nsh
+=================
 
 .. automodule:: scapy.contrib.nsh
    :members:

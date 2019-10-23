@@ -1,5 +1,5 @@
-scapy.contrib.avs module
-========================
+scapy.contrib.avs
+=================
 
 .. automodule:: scapy.contrib.avs
    :members:

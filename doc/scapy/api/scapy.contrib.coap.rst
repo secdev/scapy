@@ -1,5 +1,5 @@
-scapy.contrib.coap module
-=========================
+scapy.contrib.coap
+==================
 
 .. automodule:: scapy.contrib.coap
    :members:

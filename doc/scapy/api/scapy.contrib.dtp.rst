@@ -1,5 +1,5 @@
-scapy.contrib.dtp module
-========================
+scapy.contrib.dtp
+=================
 
 .. automodule:: scapy.contrib.dtp
    :members:

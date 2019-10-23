@@ -1,5 +1,5 @@
-scapy.autorun module
-====================
+scapy.autorun
+=============
 
 .. automodule:: scapy.autorun
    :members:

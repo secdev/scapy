@@ -1,5 +1,5 @@
-scapy.plist module
-==================
+scapy.plist
+===========
 
 .. automodule:: scapy.plist
    :members:

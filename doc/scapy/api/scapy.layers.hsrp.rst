@@ -1,5 +1,5 @@
-scapy.layers.hsrp module
-========================
+scapy.layers.hsrp
+=================
 
 .. automodule:: scapy.layers.hsrp
    :members:

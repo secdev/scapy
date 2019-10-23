@@ -50,7 +50,7 @@ This document is under a `Creative Commons Attribution - Non-Commercial
    backmatter
  
 .. toctree::
-   :maxdepth: 3
+   :maxdepth: 4
    :caption: API Reference
 
    api/scapy.rst

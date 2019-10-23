@@ -1,5 +1,5 @@
-scapy.contrib.ikev2 module
-==========================
+scapy.contrib.ikev2
+===================
 
 .. automodule:: scapy.contrib.ikev2
    :members:

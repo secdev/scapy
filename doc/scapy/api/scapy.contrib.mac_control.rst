@@ -1,5 +1,5 @@
-scapy.contrib.mac\_control module
-=================================
+scapy.contrib.mac\_control
+==========================
 
 .. automodule:: scapy.contrib.mac_control
    :members:

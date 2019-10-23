@@ -1,5 +1,5 @@
-scapy.contrib.spbm module
-=========================
+scapy.contrib.spbm
+==================
 
 .. automodule:: scapy.contrib.spbm
    :members:

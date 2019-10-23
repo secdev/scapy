@@ -1,5 +1,5 @@
-scapy.contrib.bier module
-=========================
+scapy.contrib.bier
+==================
 
 .. automodule:: scapy.contrib.bier
    :members:

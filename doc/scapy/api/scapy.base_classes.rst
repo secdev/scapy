@@ -1,5 +1,5 @@
-scapy.base\_classes module
-==========================
+scapy.base\_classes
+===================
 
 .. automodule:: scapy.base_classes
    :members:

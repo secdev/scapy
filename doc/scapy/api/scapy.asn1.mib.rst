@@ -1,5 +1,5 @@
-scapy.asn1.mib module
-=====================
+scapy.asn1.mib
+==============
 
 .. automodule:: scapy.asn1.mib
    :members:

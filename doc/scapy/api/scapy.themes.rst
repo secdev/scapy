@@ -1,5 +1,5 @@
-scapy.themes module
-===================
+scapy.themes
+============
 
 .. automodule:: scapy.themes
    :members:

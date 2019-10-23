@@ -1,5 +1,5 @@
-scapy.contrib.etherip module
-============================
+scapy.contrib.etherip
+=====================
 
 .. automodule:: scapy.contrib.etherip
    :members:

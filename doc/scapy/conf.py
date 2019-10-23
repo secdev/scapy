@@ -21,6 +21,7 @@ import datetime
 import os
 import sys
 sys.path.insert(0, os.path.abspath('../../'))
+sys.path.append(os.path.abspath('_ext'))
 
 
 # -- General configuration ------------------------------------------------
@@ -35,7 +36,8 @@ sys.path.insert(0, os.path.abspath('../../'))
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.coverage',
-    'sphinx.ext.napoleon'
+    'sphinx.ext.napoleon',
+    'scapy_doc'
 ]
 
 # Autodoc configuration

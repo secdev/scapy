@@ -1,5 +1,5 @@
-scapy.layers.eap module
-=======================
+scapy.layers.eap
+================
 
 .. automodule:: scapy.layers.eap
    :members:

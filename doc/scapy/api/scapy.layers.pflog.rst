@@ -1,5 +1,5 @@
-scapy.layers.pflog module
-=========================
+scapy.layers.pflog
+==================
 
 .. automodule:: scapy.layers.pflog
    :members:

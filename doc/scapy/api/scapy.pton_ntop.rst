@@ -1,5 +1,5 @@
-scapy.pton\_ntop module
-=======================
+scapy.pton\_ntop
+================
 
 .. automodule:: scapy.pton_ntop
    :members:

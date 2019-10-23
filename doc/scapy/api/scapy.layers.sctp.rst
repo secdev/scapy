@@ -1,5 +1,5 @@
-scapy.layers.sctp module
-========================
+scapy.layers.sctp
+=================
 
 .. automodule:: scapy.layers.sctp
    :members:

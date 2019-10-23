@@ -1,5 +1,5 @@
-scapy.layers.ir module
-======================
+scapy.layers.ir
+===============
 
 .. automodule:: scapy.layers.ir
    :members:

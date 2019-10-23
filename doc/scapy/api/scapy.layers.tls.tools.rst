@@ -1,5 +1,5 @@
-scapy.layers.tls.tools module
-=============================
+scapy.layers.tls.tools
+======================
 
 .. automodule:: scapy.layers.tls.tools
    :members:

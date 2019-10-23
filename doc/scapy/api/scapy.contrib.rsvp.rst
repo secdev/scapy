@@ -1,5 +1,5 @@
-scapy.contrib.rsvp module
-=========================
+scapy.contrib.rsvp
+==================
 
 .. automodule:: scapy.contrib.rsvp
    :members:

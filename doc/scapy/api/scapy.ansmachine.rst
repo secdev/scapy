@@ -1,5 +1,5 @@
-scapy.ansmachine module
-=======================
+scapy.ansmachine
+================
 
 .. automodule:: scapy.ansmachine
    :members:

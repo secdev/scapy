@@ -1,5 +1,5 @@
-scapy.error module
-==================
+scapy.error
+===========
 
 .. automodule:: scapy.error
    :members:

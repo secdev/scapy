@@ -1,5 +1,5 @@
-scapy.contrib.eddystone module
-==============================
+scapy.contrib.eddystone
+=======================
 
 .. automodule:: scapy.contrib.eddystone
    :members:

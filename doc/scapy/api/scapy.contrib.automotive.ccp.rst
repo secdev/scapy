@@ -1,5 +1,5 @@
-scapy.contrib.automotive.ccp module
-===================================
+scapy.contrib.automotive.ccp
+============================
 
 .. automodule:: scapy.contrib.automotive.ccp
    :members:

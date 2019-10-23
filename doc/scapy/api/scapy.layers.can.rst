@@ -1,5 +1,5 @@
-scapy.layers.can module
-=======================
+scapy.layers.can
+================
 
 .. automodule:: scapy.layers.can
    :members:

@@ -1,5 +1,5 @@
-scapy.layers.zigbee module
-==========================
+scapy.layers.zigbee
+===================
 
 .. automodule:: scapy.layers.zigbee
    :members:

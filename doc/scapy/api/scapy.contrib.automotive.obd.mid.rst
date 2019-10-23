@@ -6,9 +6,6 @@ scapy.contrib.automotive.obd.mid package
    :undoc-members:
    :show-inheritance:
 
-Submodules
-----------
-
 .. toctree::
 
    scapy.contrib.automotive.obd.mid.mids

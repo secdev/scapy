@@ -1,5 +1,5 @@
-scapy.contrib.macsec module
-===========================
+scapy.contrib.macsec
+====================
 
 .. automodule:: scapy.contrib.macsec
    :members:

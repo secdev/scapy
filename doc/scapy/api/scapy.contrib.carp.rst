@@ -1,5 +1,5 @@
-scapy.contrib.carp module
-=========================
+scapy.contrib.carp
+==================
 
 .. automodule:: scapy.contrib.carp
    :members:

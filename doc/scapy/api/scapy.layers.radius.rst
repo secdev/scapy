@@ -1,5 +1,5 @@
-scapy.layers.radius module
-==========================
+scapy.layers.radius
+===================
 
 .. automodule:: scapy.layers.radius
    :members:

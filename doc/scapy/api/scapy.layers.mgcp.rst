@@ -1,5 +1,5 @@
-scapy.layers.mgcp module
-========================
+scapy.layers.mgcp
+=================
 
 .. automodule:: scapy.layers.mgcp
    :members:

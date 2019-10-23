@@ -1,5 +1,5 @@
-scapy.contrib.isis module
-=========================
+scapy.contrib.isis
+==================
 
 .. automodule:: scapy.contrib.isis
    :members:

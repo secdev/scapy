@@ -1,5 +1,5 @@
-scapy.contrib.rtr module
-========================
+scapy.contrib.rtr
+=================
 
 .. automodule:: scapy.contrib.rtr
    :members:

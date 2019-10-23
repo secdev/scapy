@@ -1,5 +1,5 @@
-scapy.consts module
-===================
+scapy.consts
+============
 
 .. automodule:: scapy.consts
    :members:

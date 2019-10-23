@@ -1,5 +1,5 @@
-scapy.packet module
-===================
+scapy.packet
+============
 
 .. automodule:: scapy.packet
    :members:

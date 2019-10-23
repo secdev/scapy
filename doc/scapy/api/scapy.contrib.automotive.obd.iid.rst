@@ -6,9 +6,6 @@ scapy.contrib.automotive.obd.iid package
    :undoc-members:
    :show-inheritance:
 
-Submodules
-----------
-
 .. toctree::
 
    scapy.contrib.automotive.obd.iid.iids

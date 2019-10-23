@@ -1,5 +1,5 @@
-scapy.contrib.opc\_da module
-============================
+scapy.contrib.opc\_da
+=====================
 
 .. automodule:: scapy.contrib.opc_da
    :members:

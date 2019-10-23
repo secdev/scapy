@@ -1,5 +1,5 @@
-scapy.contrib.chdlc module
-==========================
+scapy.contrib.chdlc
+===================
 
 .. automodule:: scapy.contrib.chdlc
    :members:

@@ -6,9 +6,6 @@ scapy.contrib.automotive.gm package
    :undoc-members:
    :show-inheritance:
 
-Submodules
-----------
-
 .. toctree::
 
    scapy.contrib.automotive.gm.gmlan

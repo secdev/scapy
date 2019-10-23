@@ -1,5 +1,5 @@
-scapy.layers.tls.crypto.hash module
-===================================
+scapy.layers.tls.crypto.hash
+============================
 
 .. automodule:: scapy.layers.tls.crypto.hash
    :members:

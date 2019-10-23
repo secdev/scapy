@@ -1,5 +1,5 @@
-scapy.layers.tls.crypto.pkcs1 module
-====================================
+scapy.layers.tls.crypto.pkcs1
+=============================
 
 .. automodule:: scapy.layers.tls.crypto.pkcs1
    :members:

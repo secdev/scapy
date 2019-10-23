@@ -1,5 +1,5 @@
-scapy.contrib.ibeacon module
-============================
+scapy.contrib.ibeacon
+=====================
 
 .. automodule:: scapy.contrib.ibeacon
    :members:

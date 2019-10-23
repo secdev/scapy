@@ -1,5 +1,5 @@
-scapy.contrib.automotive.obd.iid.iids module
-============================================
+scapy.contrib.automotive.obd.iid.iids
+=====================================
 
 .. automodule:: scapy.contrib.automotive.obd.iid.iids
    :members:

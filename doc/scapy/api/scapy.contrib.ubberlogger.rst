@@ -1,5 +1,5 @@
-scapy.contrib.ubberlogger module
-================================
+scapy.contrib.ubberlogger
+=========================
 
 .. automodule:: scapy.contrib.ubberlogger
    :members:

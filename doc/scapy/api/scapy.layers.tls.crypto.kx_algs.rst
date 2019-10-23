@@ -1,5 +1,5 @@
-scapy.layers.tls.crypto.kx\_algs module
-=======================================
+scapy.layers.tls.crypto.kx\_algs
+================================
 
 .. automodule:: scapy.layers.tls.crypto.kx_algs
    :members:

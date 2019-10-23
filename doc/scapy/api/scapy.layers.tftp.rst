@@ -1,5 +1,5 @@
-scapy.layers.tftp module
-========================
+scapy.layers.tftp
+=================
 
 .. automodule:: scapy.layers.tftp
    :members:

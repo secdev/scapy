@@ -1,5 +1,5 @@
-scapy.contrib.ripng module
-==========================
+scapy.contrib.ripng
+===================
 
 .. automodule:: scapy.contrib.ripng
    :members:

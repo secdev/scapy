@@ -1,5 +1,5 @@
-scapy.layers.dot11 module
-=========================
+scapy.layers.dot11
+==================
 
 .. automodule:: scapy.layers.dot11
    :members:

@@ -1,5 +1,5 @@
-scapy.layers.vrrp module
-========================
+scapy.layers.vrrp
+=================
 
 .. automodule:: scapy.layers.vrrp
    :members:

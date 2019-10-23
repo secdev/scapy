@@ -1,5 +1,5 @@
-scapy.contrib.wireguard module
-==============================
+scapy.contrib.wireguard
+=======================
 
 .. automodule:: scapy.contrib.wireguard
    :members:

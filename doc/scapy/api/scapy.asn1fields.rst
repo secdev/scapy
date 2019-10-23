@@ -1,5 +1,5 @@
-scapy.asn1fields module
-=======================
+scapy.asn1fields
+================
 
 .. automodule:: scapy.asn1fields
    :members:

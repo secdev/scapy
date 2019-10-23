@@ -1,5 +1,5 @@
-scapy.layers.tls.automaton module
-=================================
+scapy.layers.tls.automaton
+==========================
 
 .. automodule:: scapy.layers.tls.automaton
    :members:

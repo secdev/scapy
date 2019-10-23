@@ -1,5 +1,5 @@
-scapy.contrib.sdnv module
-=========================
+scapy.contrib.sdnv
+==================
 
 .. automodule:: scapy.contrib.sdnv
    :members:

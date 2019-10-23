@@ -1,5 +1,5 @@
-scapy.layers.netflow module
-===========================
+scapy.layers.netflow
+====================
 
 .. automodule:: scapy.layers.netflow
    :members:

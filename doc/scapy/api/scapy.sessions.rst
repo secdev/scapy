@@ -1,5 +1,5 @@
-scapy.sessions module
-=====================
+scapy.sessions
+==============
 
 .. automodule:: scapy.sessions
    :members:

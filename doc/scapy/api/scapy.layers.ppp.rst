@@ -1,5 +1,5 @@
-scapy.layers.ppp module
-=======================
+scapy.layers.ppp
+================
 
 .. automodule:: scapy.layers.ppp
    :members:

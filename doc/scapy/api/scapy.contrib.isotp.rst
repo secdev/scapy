@@ -1,5 +1,5 @@
-scapy.contrib.isotp module
-==========================
+scapy.contrib.isotp
+===================
 
 .. automodule:: scapy.contrib.isotp
    :members:

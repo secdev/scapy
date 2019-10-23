@@ -1,5 +1,5 @@
-scapy.layers.inet6 module
-=========================
+scapy.layers.inet6
+==================
 
 .. automodule:: scapy.layers.inet6
    :members:

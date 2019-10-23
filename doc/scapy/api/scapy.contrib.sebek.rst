@@ -1,5 +1,5 @@
-scapy.contrib.sebek module
-==========================
+scapy.contrib.sebek
+===================
 
 .. automodule:: scapy.contrib.sebek
    :members:

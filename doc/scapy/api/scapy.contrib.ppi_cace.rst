@@ -1,5 +1,5 @@
-scapy.contrib.ppi\_cace module
-==============================
+scapy.contrib.ppi\_cace
+=======================
 
 .. automodule:: scapy.contrib.ppi_cace
    :members:
