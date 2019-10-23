@@ -54,6 +54,10 @@ setup(
             'pyx',
             'cryptography>=2.0',
             'matplotlib'
+        ],
+        'docs': [
+            'sphinx>=2.2.0',
+            'sphinx_rtd_theme>=0.4.3'
         ]
     },
     # We use __file__ in scapy/__init__.py, therefore Scapy isn't zip safe
