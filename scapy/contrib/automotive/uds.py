@@ -102,7 +102,7 @@ class UDS(ISOTP):
         if self.service == (other.service + 0x40):
             if isinstance(self.payload, NoPayload) or \
                     isinstance(other.payload, NoPayload):
-                return True
+                return len(self) <= len(other)
             else:
                 return self.payload.answers(other.payload)
         return False
@@ -564,7 +564,7 @@ class UDS_RDBI(Packet):
     dataIdentifiers = ObservableDict()
     name = 'ReadDataByIdentifier'
     fields_desc = [
-        FieldListField("identifiers", [],
+        FieldListField("identifiers", [0],
                        XShortEnumField('dataIdentifier', 0,
                                        dataIdentifiers))
     ]
@@ -1377,7 +1377,7 @@ def UDS_ServiceEnumerator(sock, session="DefaultSession",
     found_services = sock.sr(pkts, timeout=5, verbose=False)
     return [(session, p) for _, p in found_services[0] if
             p.service != 0x7f or
-            (p.negativeResponseCode not in [0x10, 0x11, 0x12] or not
+            (p.negativeResponseCode not in [0x10, 0x11] or not
             filter_responses)]
 
 
