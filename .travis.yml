@@ -4,25 +4,27 @@ matrix:
     include:
         # PEP 8 checks, build doc and grammar spelling check
         - os: linux
-          python: 3.6
+          python: 3.8
           env:
             - TOXENV=flake8,spell,twine
 
         - os: linux
-          python: 3.6
+          python: 3.8
           env:
-            - TOXENV=apitree,docs
+            - TOXENV=docs
 
         - os: linux
-          python: 3.6
+          python: 3.8
           env:
             - TOXENV=mypy
 
-        # Specific tests that do not require root
-        # Note travis now gives root to all builds,
-        # so non_root tests dont make much sense anymore.
-        # Threfore, only a single 3.8 test + the two dependency-specific ones
-        # are run
+        # Tests that run without root.
+        # We only keep reduced because how similar to real tests they are
+
+        - os: linux
+          python: 2.7
+          env:
+            - TOXENV=py27-linux_non_root,codecov
 
         - os: linux
           python: 2.7
@@ -34,6 +36,16 @@ matrix:
           python: 3.8
           env:
             - TOXENV=py38-linux_non_root,codecov
+
+        - os: linux
+          python: pypy
+          env:
+            - TOXENV=pypy-linux_non_root,codecov
+
+        - os: linux
+          python: pypy3
+          env:
+            - TOXENV=pypy3-linux_non_root,codecov
 
         - os: osx
           language: generic
