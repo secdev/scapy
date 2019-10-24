@@ -963,6 +963,8 @@ class AsyncSniffer(object):
                             "Socket %s failed with '%s'." % (s, ex) + msg
                         )
                         dead_sockets.append(s)
+                        if conf.debug_dissector >= 2:
+                            raise
                         continue
                     if p is None:
                         continue

@@ -7336,6 +7336,30 @@ raw_pkt = raw(pkt)
 raw_pkt
 assert raw_pkt == b'\x00P\x00P\x00\x00\x00\x00\x00\x00\x00\x00P\x02 \x00\x00\x00\x00\x00GET /download HTTP/1.1\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\nAccept-Encoding: gzip, deflate\r\nAccept-Language: en-US,en;q=0.5\r\nCache-Control: max-age=0\r\nConnection: keep-alive\r\nHost: scapy.net\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:67.0) Gecko/20100101 Firefox/67.0\r\n\r\n'
 
+= HTTP 1.1 -> HTTP 2.0 Upgrade (h2c)
+~ Test h2c
+
+conf.debug_dissector = True
+load_layer("http")
+from scapy.contrib.http2 import H2Frame
+
+import os
+
+tmp = "/test/pcaps/http2_h2c.pcap"
+filename = os.path.abspath(os.path.join(os.path.dirname(__file__),"../")) + tmp
+filename = os.getenv("SCAPY_ROOT_DIR")+tmp if not os.path.exists(filename) else filename
+
+pkts = sniff(offline=filename, session=TCPSession)
+
+assert HTTPResponse in pkts[1]
+assert pkts[1].Connection == b"Upgrade"
+assert H2Frame in pkts[1]
+assert pkts[1][H2Frame].settings[0].id == 3
+
+for i in range(3, 10):
+    assert HTTP not in pkts[i]
+    assert H2Frame in pkts[i]
+
 ############
 ############
 + LLMNR protocol
