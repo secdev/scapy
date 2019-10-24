@@ -49,7 +49,7 @@ If your protocol is as simple as this, it is ready to use::
     >>> d.donald="cool" 
     >>> raw(d)
     ’\x00\x01\x03\x00\x00\x00\x02’ 
-    >>> Disney( ) 
+    >>> Disney(_) 
     <Disney mickey=1 minnie=0x3 donald=cool |> 
 
 
