@@ -906,7 +906,7 @@ class Dot11EltCountry(Dot11Elt):
         ),
         ConditionalField(
             ByteField("pad", 0),
-            lambda pkt: (pkt.len + 1) % 2
+            lambda pkt: (len(pkt.descriptors) + 1) % 2
         )
     ]
 
