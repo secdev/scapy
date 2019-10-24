@@ -11704,6 +11704,17 @@ pkt = RadioTap(data)
 assert pkt[Dot11EltCountry].pad == 0
 assert pkt.getlayer(Dot11Elt, ID=11)
 
+* Country element: Secondary padding check
+erp_payload = b'\x1e\x2a\x01\x62'
+country_payload = b'\x07\x06\x55\x53\x20\x01\x0b'
+
+bare_country = Dot11EltCountry(country_payload)
+country_nested = Dot11EltCountry(country_payload + erp_payload)
+
+assert not bare_country.payload
+assert country_nested.payload
+assert country_nested.payload.ID == 42
+
 = RSNCipherSuite
 assert bytes(RSNCipherSuite()) == b'\x00\x0f\xac\x04'
 rsn =  RSNCipherSuite(b'\x00\x0f\xac\x04')
