@@ -1548,9 +1548,9 @@ In this case we got 2 replies, so there were two active DHCP servers on the test
     >>> ans.summary()
     Ether / IP / UDP 0.0.0.0:bootpc > 255.255.255.255:bootps / BOOTP / DHCP ==> Ether / IP / UDP 192.168.1.1:bootps > 255.255.255.255:bootpc / BOOTP / DHCP
     Ether / IP / UDP 0.0.0.0:bootpc > 255.255.255.255:bootps / BOOTP / DHCP ==> Ether / IP / UDP 192.168.1.11:bootps > 255.255.255.255:bootpc / BOOTP / DHCP
-    }}}
-    We are only interested in the MAC and IP addresses of the replies: 
-    {{{
+
+We are only interested in the MAC and IP addresses of the replies: 
+
     >>> for p in ans: print p[1][Ether].src, p[1][IP].src
     ...
     00:de:ad:be:ef:00 192.168.1.1
