@@ -68,7 +68,7 @@ BMW_memoryTypeIdentifiers = {
 
 
 class IOCBLI_REQ(Packet):
-    name = 'InputOutputControlByLocalIdentifier Request'
+    name = 'InputOutputControlByLocalIdentifier_Request'
     fields_desc = [
         ByteField('inputOutputLocalIdentifier', 1),
         ByteEnumField('inputOutputControlParameter', 0,
@@ -85,16 +85,18 @@ class IOCBLI_REQ(Packet):
 
 
 bind_layers(UDS, IOCBLI_REQ, service=0x30)
+UDS.services[0x30] = 'InputOutputControlByLocalIdentifier'
 
 
 class RDTCBS_REQ(Packet):
-    name = 'ReadDTCByStatus Request'
+    name = 'ReadDTCByStatus_Request'
     fields_desc = [
         ByteEnumField('statusOfDTC', 0, BMW_specific_enum),
         ShortField('groupOfDTC', 0)]
 
 
 bind_layers(UDS, RDTCBS_REQ, service=0x18)
+UDS.services[0x18] = 'ReadDTCByStatus'
 
 
 class RSODTC_REQ(Packet):
@@ -104,15 +106,17 @@ class RSODTC_REQ(Packet):
 
 
 bind_layers(UDS, RSODTC_REQ, service=0x17)
+UDS.services[0x17] = 'ReadStatusOfDTC'
 
 
 class REI_IDENT_REQ(Packet):
-    name = 'Read ECU Identification Request'
+    name = 'Read ECU Identification_Request'
     fields_desc = [
         ByteEnumField('identificationDataTable', 0, BMW_specific_enum)]
 
 
 bind_layers(UDS, REI_IDENT_REQ, service=0x1a)
+UDS.services[0x1a] = 'ReadECUIdentification'
 
 
 class SPRBLI_REQ(Packet):
@@ -139,6 +143,7 @@ class SPRBLI_REQ(Packet):
 
 
 bind_layers(UDS, SPRBLI_REQ, service=0x32)
+UDS.services[0x32] = 'StopRoutineByLocalIdentifier'
 
 
 class ENMT_REQ(Packet):
@@ -148,6 +153,7 @@ class ENMT_REQ(Packet):
 
 
 bind_layers(UDS, ENMT_REQ, service=0x29)
+UDS.services[0x29] = 'EnableNormalMessageTransmission'
 
 
 class WDBLI_REQ(Packet):
@@ -158,6 +164,7 @@ class WDBLI_REQ(Packet):
 
 
 bind_layers(UDS, WDBLI_REQ, service=0x3b)
+UDS.services[0x3b] = 'WriteDataByLocalIdentifier'
 
 
 class RDS2TCM_REQ(Packet):
@@ -167,6 +174,7 @@ class RDS2TCM_REQ(Packet):
 
 
 bind_layers(UDS, RDS2TCM_REQ, service=0xa0)
+UDS.services[0xa0] = 'ReadDS2TroubleCodeMemory'
 
 
 class RDBLI_REQ(Packet):
@@ -176,6 +184,7 @@ class RDBLI_REQ(Packet):
 
 
 bind_layers(UDS, RDBLI_REQ, service=0x21)
+UDS.services[0x21] = 'ReadDataByLocalIdentifier'
 
 
 class RRRBA_REQ(Packet):
@@ -186,6 +195,7 @@ class RRRBA_REQ(Packet):
 
 
 bind_layers(UDS, RRRBA_REQ, service=0x3a)
+UDS.services[0x3a] = 'RequestRoutineResultsByAddress'
 
 
 class RRRBLI_REQ(Packet):
@@ -195,6 +205,7 @@ class RRRBLI_REQ(Packet):
 
 
 bind_layers(UDS, RRRBLI_REQ, service=0x33)
+UDS.services[0x33] = 'RequestRoutineResultsByLocalIdentifier'
 
 
 class SPRBA_REQ(Packet):
@@ -206,6 +217,7 @@ class SPRBA_REQ(Packet):
 
 
 bind_layers(UDS, SPRBA_REQ, service=0x39)
+UDS.services[0x39] = 'StopRoutineByAddress'
 
 
 class STRBA_REQ(Packet):
@@ -217,6 +229,7 @@ class STRBA_REQ(Packet):
 
 
 bind_layers(UDS, STRBA_REQ, service=0x38)
+UDS.services[0x38] = 'StartRoutineByAddress'
 
 
 class UDS2S_REQ(Packet):
@@ -229,6 +242,7 @@ class UDS2S_REQ(Packet):
 
 
 bind_layers(UDS, UDS2S_REQ, service=0xa5)
+UDS.services[0xa5] = 'UnpackDS2Service'
 
 
 UDS_RDBI.dataIdentifiers[0x0014] = "RDBCI_IS_LESEN_DETAIL_REQ"
