@@ -52,12 +52,12 @@ def usage():
     -t SNIFF_TIME, --sniff_time SNIFF_TIME
                           Duration in milliseconds a sniff is waiting for a
                           flow-control response.
-    -x, --extended        Scan with ISOTP extended addressing. 
-                          This has nothing to do with extended CAN Frames                          
+    -x, --extended        Scan with ISOTP extended addressing.
+                          This has nothing to do with extended CAN identifiers
     -C, --piso            Print 'Copy&Paste'-ready ISOTPSockets.
     -v, --verbose         Display information during scan.\n
     -w, --wide            Enable scanning spaces greater than 0x800
-    	--extended_can_id    Use extended CAN Frames 
+        --extended_can_id Use extended CAN identifiers
     Example of use:\n
     Python2 or Windows:
     python2 -m scapy.tools.automotive.isotpscanner --interface=pcan --channel=PCAN_USBBUS1 --bitrate=250000 --start 0 --end 100
@@ -86,7 +86,8 @@ def main():
         sys.argv[1:],
         'vxCt:n:i:c:b:s:e:h:w',
         ['verbose', 'noise_listen_time=', 'sniff_time=', 'interface=', 'piso',
-         'channel=', 'bitrate=', 'start=', 'end=', 'help', 'extended', 'wide', 'extended_can_id'])
+         'channel=', 'bitrate=', 'start=', 'end=', 'help', 'extended', 'wide',
+         'extended_can_id'])
 
     try:
         for opt, arg in options[0]:
@@ -134,13 +135,15 @@ def main():
         print("end must be < " + hex(2**29), file=sys.stderr)
         sys.exit(-1)
     elif not extended_can_id and end >= 0x800:
-        print("Standard IDs must be <= 0x800.\n"
-              "Use --extended_can_id option for extended CAN range.", file=sys.stderr)
+        print("Standard IDs must be < 0x800.\n"
+              "Use --extended_can_id option for extended CAN range.",
+              file=sys.stderr)
         sys.exit(-1)
 
     if end - start > 0x800 and not wide_option:
         print("Scanning big address spaces takes a lot of time.\n"
-              "Please use --wide option in order to scan spaces greater than 0x800", file=sys.stderr)
+              "Please use --wide option in order to scan identifiers > 0x800",
+              file=sys.stderr)
         sys.exit(-1)
 
     if end < start:

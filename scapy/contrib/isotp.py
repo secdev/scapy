@@ -1807,8 +1807,8 @@ def get_isotp_fc(id_value, id_list, noise_ids, extended, packet,
               (e, repr(packet)))
 
 
-def scan(sock, scan_range=range(0x800), noise_ids=None, sniff_time=0.1,extended_can_id=False,
-         verbose=False):
+def scan(sock, scan_range=range(0x800), noise_ids=None, sniff_time=0.1,
+         extended_can_id=False, verbose=False):
     """Scan and return dictionary of detections
 
     Args:
@@ -1819,6 +1819,7 @@ def scan(sock, scan_range=range(0x800), noise_ids=None, sniff_time=0.1,extended_
                        received during scan
             sniff_time: time the scan waits for isotp flow control responses
                         after sending a first frame
+            extended_can_id: Send extended can frames
             verbose: displays information during scan
 
     ISOTP-Scan - NO extended IDs
@@ -1832,13 +1833,14 @@ def scan(sock, scan_range=range(0x800), noise_ids=None, sniff_time=0.1,extended_
                                                 verbose),
                    timeout=sniff_time,
                    started_callback=lambda: sock.send(
-                       get_isotp_packet(value, extended_can_id=extended_can_id)))
+                       get_isotp_packet(value, False, extended_can_id)))
     return return_values
 
 
 def scan_extended(sock, scan_range=range(0x800), scan_block_size=100,
-                  noise_ids=None, sniff_time=0.1, extended_can_id=False, verbose=False):
-    """Scan with extended addresses and return dictionary of detections
+                  noise_ids=None, sniff_time=0.1, extended_can_id=False,
+                  verbose=False):
+    """Scan with ISOTP extended addresses and return dictionary of detections
 
     Args:
             sock: socket for can interface
@@ -1862,17 +1864,16 @@ def scan_extended(sock, scan_range=range(0x800), scan_block_size=100,
     scan_block_size = scan_block_size or 1
 
     for value in scan_range:
-        pkt = get_isotp_packet(value, extended=True)
-        if extended_can_id:
-            pkt.flags = "extended"
+        pkt = get_isotp_packet(value, extended=True,
+                               extended_can_id=extended_can_id)
         id_list = []
 
-        for extended_id in range(0, 256, scan_block_size):
-            sock.sniff(prn=lambda p: get_isotp_fc(extended_id, id_list,
+        for ext_isotp_id in range(0, 256, scan_block_size):
+            sock.sniff(prn=lambda p: get_isotp_fc(ext_isotp_id, id_list,
                                                   noise_ids, True, p,
                                                   verbose),
                        timeout=sniff_time * 3,
-                       started_callback=send_multiple_ext(sock, extended_id,
+                       started_callback=send_multiple_ext(sock, ext_isotp_id,
                                                           pkt,
                                                           scan_block_size))
             # sleep to prevent flooding
@@ -1880,9 +1881,9 @@ def scan_extended(sock, scan_range=range(0x800), scan_block_size=100,
 
         # remove duplicate IDs
         id_list = list(set(id_list))
-        for extended_id in id_list:
-            for ext_id in range(extended_id, min(extended_id +
-                                                 scan_block_size, 256)):
+        for ext_isotp_id in id_list:
+            for ext_id in range(ext_isotp_id, min(ext_isotp_id +
+                                                  scan_block_size, 256)):
                 pkt.extended_address = ext_id
                 full_id = (value << 8) + ext_id
                 sock.sniff(prn=lambda pkt: get_isotp_fc(full_id,
@@ -1917,7 +1918,7 @@ def ISOTPScan(sock, scan_range=range(0x7ff + 1), extended_addressing=False,
                        results (text, code or sockets). Provide a string
                        e.g. "text". Default is "socket".
         can_interface: interface used to create the returned code/sockets
-        extended_can_ids: Use Extended CAN-Frames
+        extended_can_id: Use Extended CAN-Frames
         verbose: displays information during scan
 
     Scan for ISOTP Sockets in the defined range and returns found sockets
@@ -1935,9 +1936,7 @@ def ISOTPScan(sock, scan_range=range(0x7ff + 1), extended_addressing=False,
     # Send dummy packet. In most cases, this triggers activity on the bus.
 
     dummy_pkt = CAN(identifier=0x123,
-                data=b'\xaa\xbb\xcc\xdd\xee\xff\xaa\xbb')
-    if extended_can_id:
-        dummy_pkt.flags = "extended"
+                    data=b'\xaa\xbb\xcc\xdd\xee\xff\xaa\xbb')
 
     background_pkts = sock.sniff(timeout=noise_listen_time,
                                  started_callback=lambda:
@@ -1947,34 +1946,41 @@ def ISOTPScan(sock, scan_range=range(0x7ff + 1), extended_addressing=False,
 
     if extended_addressing:
         found_packets = scan_extended(sock, scan_range, noise_ids=noise_ids,
-                                      sniff_time=sniff_time, extended_can_id=extended_can_id, verbose=verbose)
+                                      sniff_time=sniff_time,
+                                      extended_can_id=extended_can_id,
+                                      verbose=verbose)
     else:
         found_packets = scan(sock, scan_range, noise_ids=noise_ids,
-                             sniff_time=sniff_time, extended_can_id=extended_can_id, verbose=verbose)
+                             sniff_time=sniff_time,
+                             extended_can_id=extended_can_id,
+                             verbose=verbose)
 
     filter_periodic_packets(found_packets, verbose)
 
     if output_format == "text":
-        return generate_text_output(found_packets)
+        return generate_text_output(found_packets, extended_addressing)
     if output_format == "code":
-        return generate_code_output(found_packets, can_interface)
-    return generate_isotp_list(found_packets, can_interface)
+        return generate_code_output(found_packets, can_interface,
+                                    extended_addressing)
+    return generate_isotp_list(found_packets, can_interface,
+                               extended_addressing)
 
 
-def generate_text_output(found_packets):
+def generate_text_output(found_packets, extended_addressing=False):
     """Generate a human readable output from the result of the `scan` or
         the `scan_extended` function.
 
         Args:
                 found_packets: result of the `scan` or `scan_extended` function
+                extended_addressing: print results from a scan with ISOTP
+                                     extended addressing
     """
     if not found_packets:
         return "No packets found."
 
     text = "\nFound %s ISOTP-FlowControl Packet(s):" % len(found_packets)
     for pack in found_packets:
-        extended_id = pack > 0x7ff
-        if extended_id:
+        if extended_addressing:
             send_id = pack // 256
             send_ext = pack - (send_id * 256)
             ext_id = hex(orb(found_packets[pack][0].data[0]))
@@ -2004,7 +2010,8 @@ def generate_text_output(found_packets):
     return text
 
 
-def generate_code_output(found_packets, can_interface):
+def generate_code_output(found_packets, can_interface,
+                         extended_addressing=False):
     """Generate a copy&past-able output from the result of the `scan` or
         the `scan_extended` function.
 
@@ -2012,6 +2019,8 @@ def generate_code_output(found_packets, can_interface):
                 found_packets: result of the `scan` or `scan_extended` function
                 can_interface: description string for a CAN interface to be
                                 used for the creation of the output.
+                extended_addressing: print results from a scan with ISOTP
+                                     extended addressing
     """
     result = ""
     if not found_packets:
@@ -2023,8 +2032,7 @@ def generate_code_output(found_packets, can_interface):
              "load_contrib('isotp')\n\n" % PYTHON_CAN
 
     for pack in found_packets:
-        extended_id = pack > 0x7ff
-        if extended_id:
+        if extended_addressing:
             send_id = pack // 256
             send_ext = pack - (send_id * 256)
             ext_id = orb(found_packets[pack][0].data[0])
@@ -2046,7 +2054,8 @@ def generate_code_output(found_packets, can_interface):
     return header + result
 
 
-def generate_isotp_list(found_packets, can_interface):
+def generate_isotp_list(found_packets, can_interface,
+                        extended_addressing=False):
     """Generate a list of ISOTPSocket objects from the result of the `scan` or
         the `scan_extended` function.
 
@@ -2054,16 +2063,17 @@ def generate_isotp_list(found_packets, can_interface):
             found_packets: result of the `scan` or `scan_extended` function
             can_interface: description string for a CAN interface to be
                             used for the creation of the output.
+            extended_addressing: print results from a scan with ISOTP
+                                     extended addressing
     """
     socket_list = []
     for pack in found_packets:
-        extended_id = pack > 0x7ff
         pkt = found_packets[pack][0]
 
         dest_id = pkt.identifier
         pad = True if pkt.length == 8 else False
 
-        if extended_id:
+        if extended_addressing:
             source_id = pack >> 8
             source_ext = int(pack - (source_id * 256))
             dest_ext = orb(pkt.data[0])

@@ -251,6 +251,46 @@ assert "0x702" in result
 assert "0x703" in result
 assert "No Padding" in result
 
+= Test ISOTPScan(output_format=text) extended_can_id
+done = False
+
+drain_bus(iface0)
+def isotpserver(i):
+    with ISOTPSocket(new_can_socket0(), sid=0x1ffff700+i, did=0x1ffff600+i) as isotpsock1:
+        isotpsock1.sniff(timeout=100 ,count=1)
+
+def make_noise(pkt):
+    global done
+    while not done:
+        new_can_socket0().send(pkt)
+        time.sleep(0.1)
+
+pkt = CAN(identifier=0x1ffff701, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
+thread_noise = threading.Thread(target=make_noise, args=(pkt))
+thread_noise.start()
+
+thread1 = threading.Thread(target=isotpserver, args=[2])
+thread2 = threading.Thread(target=isotpserver, args=[3])
+thread1.start()
+thread2.start()
+time.sleep(0.1)
+result = ISOTPScan(new_can_socket0(), range(0x1ffff5ff, 0x1ffff604+1), output_format="text", noise_listen_time=1, sniff_time=0.1, extended_can_id=True)
+assert 0 == subprocess.call(['cansend', 'vcan0', '1ffff601#01aa'])
+assert 0 == subprocess.call(['cansend', 'vcan0', '1ffff602#01aa'])
+assert 0 == subprocess.call(['cansend', 'vcan0', '1ffff603#01aa'])
+thread1.join()
+thread2.join()
+done = True
+thread_noise.join()
+print(result)
+text = "\nFound 2 ISOTP-FlowControl Packet(s):"
+assert text in result
+assert "0x1ffff602" in result
+assert "0x1ffff603" in result
+assert "0x1ffff702" in result
+assert "0x1ffff703" in result
+assert "No Padding" in result
+
 
 = Test ISOTPScan(output_format=code)
 done = False
@@ -325,6 +365,44 @@ thread_noise.join()
 
 s1 = "ISOTPSocket(can0, sid=0x602, did=0x702, padding=False, extended_addr=0x22, extended_rx_addr=0x11, basecls=ISOTP)"
 s2 = "ISOTPSocket(can0, sid=0x603, did=0x703, padding=False, extended_addr=0x22, extended_rx_addr=0x11, basecls=ISOTP)"
+print(result)
+assert s1 in result
+assert s2 in result
+
+
+= Test extended ISOTPScan(output_format=code) extended_can_id
+drain_bus(iface0)
+
+def isotpserver(i):
+    with ISOTPSocket(new_can_socket0(), sid=0x1ffff700+i, did=0x1ffff600+i, extended_addr=0x11, extended_rx_addr=0x22) as s:
+        s.sniff(timeout=100 ,count=1)
+
+def make_noise(pkt):
+    s = new_can_socket0()
+    for _ in range(20):
+        s.send(pkt)
+        time.sleep(0.1)
+
+pkt = CAN(identifier=0x1ffff701, length=8, data=b'\x01\x02\x03\x04\x05\x06\x07\x08')
+thread_noise = threading.Thread(target=make_noise, args=pkt)
+thread_noise.start()
+
+thread1 = threading.Thread(target=isotpserver, args=[2])
+thread2 = threading.Thread(target=isotpserver, args=[3])
+thread1.start()
+thread2.start()
+time.sleep(0.1)
+
+result = ISOTPScan(new_can_socket0(), range(0x1ffff5ff, 0x1ffff604+1), extended_can_id=True, extended_addressing=True, sniff_time=0.1, noise_listen_time=1, output_format="code")
+
+assert 0 == subprocess.call(['cansend', 'vcan0', '1ffff602#2201aa'])
+assert 0 == subprocess.call(['cansend', 'vcan0', '1ffff603#2201aa'])
+thread1.join()
+thread2.join()
+thread_noise.join()
+
+s1 = "ISOTPSocket(can0, sid=0x1ffff602, did=0x1ffff702, padding=False, extended_addr=0x22, extended_rx_addr=0x11, basecls=ISOTP)"
+s2 = "ISOTPSocket(can0, sid=0x1ffff603, did=0x1ffff703, padding=False, extended_addr=0x22, extended_rx_addr=0x11, basecls=ISOTP)"
 print(result)
 assert s1 in result
 assert s2 in result
