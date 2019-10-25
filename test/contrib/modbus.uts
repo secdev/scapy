@@ -160,7 +160,7 @@ raw(ModbusPDU05WriteSingleCoilResponse()) == b'\x05\x00\x00\x00\x00'
 raw(ModbusPDU05WriteSingleCoilError()) == b'\x85\x01'
 
 # 0x06/0x86 Write Single Register ---------------------------------------------------
-= ModbusPDU06WriteSingleRegisterError
+= ModbusPDU06WriteSingleRegisterRequest
 raw(ModbusPDU06WriteSingleRegisterRequest()) == b'\x06\x00\x00\x00\x00'
 
 = ModbusPDU06WriteSingleRegisterResponse
