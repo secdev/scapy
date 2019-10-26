@@ -42,7 +42,7 @@ else:
     SOCKET = c_int
     _lib_name = find_library("pcap")
     if not _lib_name:
-        raise OSError("Cannot fine libpcap.so library")
+        raise OSError("Cannot find libpcap.so library")
     _lib=CDLL(_lib_name)
     
 
