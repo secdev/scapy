@@ -54,24 +54,20 @@ HomePlugAV()/SnifferIndicate()
 pkt = HomePlugAV()/SetEncryptionKeyRequest()
 pkt.NMK = "A" * 16
 pkt.DAK = "B" * 16
-print (bytes(pkt))
 assert bytes(pkt) == b'\x00P\xa0\x00\xb0R\x00AAAAAAAAAAAAAAAA\x00\xff\xff\xff\xff\xff\xffBBBBBBBBBBBBBBBB'
 
 pkt = HomePlugAV()/ReadMACMemoryRequest()
 pkt.Address = 0x31337
 pkt.Length = 0x666
-print (bytes(pkt))
 assert bytes(pkt) == b'\x00\x08\xa0\x00\xb0R7\x13\x03\x00f\x06\x00\x00'
 
 pkt = HomePlugAV()/ReadModuleDataRequest()
 pkt.Length = 0x666
 pkt.Offset = 0x1337
-print (bytes(pkt))
 assert bytes(pkt) == b'\x00$\xa0\x00\xb0R\x02\x00f\x067\x13\x00\x00'
 
 pkt = HomePlugAV()/SnifferRequest()
 pkt.SnifferControl = 0x1
-print (bytes(pkt))
 assert bytes(pkt) == b"\x004\xa0\x00\xb0R\x01"
 
 = Some important fields parsing
