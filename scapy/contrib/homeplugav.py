@@ -1381,7 +1381,7 @@ class HomePlugAV(Packet):
     fields_desc = [MACManagementHeader,
                    ConditionalField(XShortField("FragmentInfo", 0x0),
                                     FragmentCond),
-                   ConditionalField(PacketListField("VendorField", "",
+                   ConditionalField(PacketListField("VendorField", VendorMME(),
                                                     VendorMME,
                                                     length_from=lambda x: 3),
                                     lambda pkt:(pkt.version == 0x00))]

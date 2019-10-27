@@ -17,6 +17,6 @@ import binascii
 
 = Some important manipulations
 ~ field
-pkt=HomePlugAV()/VS_UART_CMD_REQ()
+pkt=HomePlugAV(version=0x01)/VS_UART_CMD_REQ()
 pkt.UData = "AT+LOG?"
-assert bytes(pkt) == b'\x00\x00\xa4\x00\x01AT+LOG?'
+assert bytes(pkt) == b'\x01\x00\xa4\x00\x00\x00\x01AT+LOG?' 
