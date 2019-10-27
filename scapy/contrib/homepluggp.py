@@ -144,7 +144,7 @@ class CM_SLAC_MATCH_REQ(Packet):
                    ByteField("SecurityType", 0x0),
                    FieldLenField("MatchVariableFieldLen", None,
                                  count_of="VariableField", fmt="H"),
-                   PacketField("VariableField", None, SLAC_varfield)]
+                   PacketField("VariableField", SLAC_varfield(), SLAC_varfield)]
 
 
 class SLAC_varfield_cnf(Packet):
@@ -166,7 +166,7 @@ class CM_SLAC_MATCH_CNF(Packet):
                    ByteField("SecurityType", 0x0),
                    FieldLenField("MatchVariableFieldLen", None,
                                  count_of="VariableField", fmt="H"),
-                   PacketField("VariableField", None, SLAC_varfield_cnf)]
+                   PacketField("VariableField", SLAC_varfield_cnf(), SLAC_varfield_cnf)]
 
 
 class CM_START_ATTEN_CHAR_IND(Packet):
