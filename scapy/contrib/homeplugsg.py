@@ -58,5 +58,5 @@ class VS_UART_CMD_CNF(Packet):
 
 # END #
 
-bind_layers(HomePlugAV, VS_UART_CMD_REQ, {"HPtype": 0xA400})
-bind_layers(HomePlugAV, VS_UART_CMD_CNF, {"HPtype": 0xA401})
+bind_layers(HomePlugAV, VS_UART_CMD_REQ, HPtype=0xA400)
+bind_layers(HomePlugAV, VS_UART_CMD_CNF, HPtype=0xA401)

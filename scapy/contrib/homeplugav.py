@@ -165,8 +165,7 @@ def FragmentCond(pkt):
         A fragmentation field condition
         TODO: To complete
     """
-    fragTypeTable = [0xA038, 0xA039]
-    return ((pkt.version == 0x01) and (pkt.HPtype in fragTypeTable))
+    return (pkt.version == 0x01)
 
 
 class MACManagementHeader(Packet):
@@ -516,14 +515,14 @@ class ModuleOperationRequest(Packet):
         if self.operation == 0x0000:
             if self.OPDataLength is None:
                 _len = 18
-                p = p[:7] + struct.pack('h', _len) + p[9:]
+                p = p[:7] + struct.pack('!H', _len) + p[9:]
         if self.operation == 0x0011:
             if self.OPDataLength is None:
                 _len = 23 + len(self.ModuleData)
-                p = p[:7] + struct.pack('h', _len) + p[9:]
+                p = p[:7] + struct.pack('!H', _len) + p[9:]
             if self.WriteDataLen is None:
                 _len = len(self.ModuleData)
-                p = p[:22] + struct.pack('h', _len) + p[24:]
+                p = p[:22] + struct.pack('!H', _len) + p[24:]
         return p + pay
 
 
@@ -1380,8 +1379,12 @@ class HomePlugAV(Packet):
     """
     name = "HomePlugAV "
     fields_desc = [MACManagementHeader,
-                   ConditionalField(XShortField("FragmentInfo", 0x0), FragmentCond),  # Fragmentation Field  # noqa: E501
-                   VendorMME]
+                   ConditionalField(XShortField("FragmentInfo", 0x0),
+                                    FragmentCond),
+                   ConditionalField(PacketListField("VendorField", "",
+                                                    VendorMME,
+                                                    length_from=lambda x: 3),
+                                    lambda pkt:(pkt.version == 0x00))]
 
     def answers(self, other):
         return (isinstance(self, HomePlugAV))
@@ -1392,38 +1395,38 @@ bind_layers(Ether, HomePlugAV, {"type": 0x88e1})
 #   +----------+------------+--------------------+
 #   | Ethernet | HomePlugAV | Elements + Payload |
 #   +----------+------------+--------------------+
-bind_layers(HomePlugAV, GetDeviceVersion, {"HPtype": 0xA001})
-bind_layers(HomePlugAV, StartMACRequest, {"HPtype": 0xA00C})
-bind_layers(HomePlugAV, StartMACConfirmation, {"HPtype": 0xA00D})
-bind_layers(HomePlugAV, ResetDeviceRequest, {"HPtype": 0xA01C})
-bind_layers(HomePlugAV, ResetDeviceConfirmation, {"HPtype": 0xA01D})
-bind_layers(HomePlugAV, NetworkInformationRequest, {"HPtype": 0xA038})
-bind_layers(HomePlugAV, ReadMACMemoryRequest, {"HPtype": 0xA008})
-bind_layers(HomePlugAV, ReadMACMemoryConfirmation, {"HPtype": 0xA009})
-bind_layers(HomePlugAV, ReadModuleDataRequest, {"HPtype": 0xA024})
-bind_layers(HomePlugAV, ReadModuleDataConfirmation, {"HPtype": 0xA025})
-bind_layers(HomePlugAV, ModuleOperationRequest, {"HPtype": 0xA0B0})
-bind_layers(HomePlugAV, ModuleOperationConfirmation, {"HPtype": 0xA0B1})
-bind_layers(HomePlugAV, WriteModuleDataRequest, {"HPtype": 0xA020})
-bind_layers(HomePlugAV, WriteModuleData2NVMRequest, {"HPtype": 0xA028})
-bind_layers(HomePlugAV, WriteModuleData2NVMConfirmation, {"HPtype": 0xA029})
-bind_layers(HomePlugAV, NetworkInfoConfirmationV10, {"HPtype": 0xA039, "version": 0x00})  # noqa: E501
-bind_layers(HomePlugAV, NetworkInfoConfirmationV11, {"HPtype": 0xA039, "version": 0x01})  # noqa: E501
-bind_layers(NetworkInfoConfirmationV10, NetworkInfoV10, {"HPtype": 0xA039, "version": 0x00})  # noqa: E501
-bind_layers(NetworkInfoConfirmationV11, NetworkInfoV11, {"HPtype": 0xA039, "version": 0x01})  # noqa: E501
-bind_layers(HomePlugAV, HostActionRequired, {"HPtype": 0xA062})
-bind_layers(HomePlugAV, LoopbackRequest, {"HPtype": 0xA048})
-bind_layers(HomePlugAV, LoopbackConfirmation, {"HPtype": 0xA049})
-bind_layers(HomePlugAV, SetEncryptionKeyRequest, {"HPtype": 0xA050})
-bind_layers(HomePlugAV, SetEncryptionKeyConfirmation, {"HPtype": 0xA051})
-bind_layers(HomePlugAV, ReadConfBlockRequest, {"HPtype": 0xA058})
-bind_layers(HomePlugAV, ReadConfBlockConfirmation, {"HPtype": 0xA059})
-bind_layers(HomePlugAV, QUAResetFactoryConfirm, {"HPtype": 0xA07D})
-bind_layers(HomePlugAV, GetNVMParametersRequest, {"HPtype": 0xA010})
-bind_layers(HomePlugAV, GetNVMParametersConfirmation, {"HPtype": 0xA011})
-bind_layers(HomePlugAV, SnifferRequest, {"HPtype": 0xA034})
-bind_layers(HomePlugAV, SnifferConfirmation, {"HPtype": 0xA035})
-bind_layers(HomePlugAV, SnifferIndicate, {"HPtype": 0xA036})
+bind_layers(HomePlugAV, GetDeviceVersion, HPtype= 0xA001)
+bind_layers(HomePlugAV, StartMACRequest, HPtype=0xA00C)
+bind_layers(HomePlugAV, StartMACConfirmation, HPtype=0xA00D)
+bind_layers(HomePlugAV, ResetDeviceRequest, HPtype=0xA01C)
+bind_layers(HomePlugAV, ResetDeviceConfirmation, HPtype=0xA01D)
+bind_layers(HomePlugAV, NetworkInformationRequest, HPtype=0xA038)
+bind_layers(HomePlugAV, ReadMACMemoryRequest, HPtype=0xA008)
+bind_layers(HomePlugAV, ReadMACMemoryConfirmation, HPtype=0xA009)
+bind_layers(HomePlugAV, ReadModuleDataRequest, HPtype=0xA024)
+bind_layers(HomePlugAV, ReadModuleDataConfirmation, HPtype=0xA025)
+bind_layers(HomePlugAV, ModuleOperationRequest, HPtype=0xA0B0)
+bind_layers(HomePlugAV, ModuleOperationConfirmation, HPtype=0xA0B1)
+bind_layers(HomePlugAV, WriteModuleDataRequest, HPtype=0xA020)
+bind_layers(HomePlugAV, WriteModuleData2NVMRequest, HPtype=0xA028)
+bind_layers(HomePlugAV, WriteModuleData2NVMConfirmation, HPtype=0xA029)
+bind_layers(HomePlugAV, NetworkInfoConfirmationV10, HPtype=0xA039, version=0x00)  # noqa: E501
+bind_layers(HomePlugAV, NetworkInfoConfirmationV11, HPtype=0xA039, version=0x01)  # noqa: E501
+bind_layers(NetworkInfoConfirmationV10, NetworkInfoV10, HPtype=0xA039, version=0x00)  # noqa: E501
+bind_layers(NetworkInfoConfirmationV11, NetworkInfoV11, HPtype=0xA039, version=0x01)  # noqa: E501
+bind_layers(HomePlugAV, HostActionRequired, HPtype=0xA062)
+bind_layers(HomePlugAV, LoopbackRequest, HPtype=0xA048)
+bind_layers(HomePlugAV, LoopbackConfirmation, HPtype=0xA049)
+bind_layers(HomePlugAV, SetEncryptionKeyRequest, HPtype=0xA050)
+bind_layers(HomePlugAV, SetEncryptionKeyConfirmation, HPtype=0xA051)
+bind_layers(HomePlugAV, ReadConfBlockRequest, HPtype=0xA058)
+bind_layers(HomePlugAV, ReadConfBlockConfirmation, HPtype=0xA059)
+bind_layers(HomePlugAV, QUAResetFactoryConfirm, HPtype=0xA07D)
+bind_layers(HomePlugAV, GetNVMParametersRequest, HPtype=0xA010)
+bind_layers(HomePlugAV, GetNVMParametersConfirmation, HPtype=0xA011)
+bind_layers(HomePlugAV, SnifferRequest, HPtype=0xA034)
+bind_layers(HomePlugAV, SnifferConfirmation, HPtype=0xA035)
+bind_layers(HomePlugAV, SnifferIndicate, HPtype=0xA036)
 
 """
     Credit song : "Western Spaguetti - We are terrorists"

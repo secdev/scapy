@@ -15,12 +15,6 @@ import binascii
 
 * Those test are here mainly to check nothing has been broken
 
-= Building packets packet
-~ basic HomePlugAV VS_UART_CMD_REQ VS_UART_CMD_CNF
-
-HomePlugAV()/VS_UART_CMD_REQ()
-HomePlugAV()/VS_UART_CMD_CNF()
-
 = Some important manipulations
 ~ field
 pkt=HomePlugAV()/VS_UART_CMD_REQ()
