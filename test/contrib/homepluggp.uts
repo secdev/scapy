@@ -19,7 +19,6 @@ import binascii
 ~ field
 _xstr = binascii.unhexlify("0108600000010000000000000000040000000227cfe35f01e50a01c8a074ad04537cb54b88b62d49b35b51000000c1f2")
 pkt = HomePlugAV(_xstr)
-pkt.show()
 assert pkt.NewKey == b'\xc8\xa0t\xad\x04S|\xb5K\x88\xb6-I\xb3[Q' 
 assert pkt.NetworkID == b"'\xcf\xe3_\x01\xe5\n"
 
@@ -27,5 +26,4 @@ assert pkt.NetworkID == b"'\xcf\xe3_\x01\xe5\n"
 ~ field
 pkt = HomePlugAV()/CM_MNBC_SOUND_IND()
 pkt.RandomValue="AAAAAAAAAA"
-print (bytes(pkt))
 assert bytes(pkt) == b'\x00v`\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00AAAAAAAAAA\x00\x00\x00\x00\x00\x00' 
