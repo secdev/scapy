@@ -160,7 +160,7 @@ raw(ModbusPDU05WriteSingleCoilResponse()) == b'\x05\x00\x00\x00\x00'
 raw(ModbusPDU05WriteSingleCoilError()) == b'\x85\x01'
 
 # 0x06/0x86 Write Single Register ---------------------------------------------------
-= ModbusPDU06WriteSingleRegisterError
+= ModbusPDU06WriteSingleRegisterRequest
 raw(ModbusPDU06WriteSingleRegisterRequest()) == b'\x06\x00\x00\x00\x00'
 
 = ModbusPDU06WriteSingleRegisterResponse
@@ -170,6 +170,15 @@ raw(ModbusPDU06WriteSingleRegisterResponse()) == b'\x06\x00\x00\x00\x00'
 raw(ModbusPDU06WriteSingleRegisterError()) == b'\x86\x01'
 
 # 0x07/0x87 Read Exception Status (serial line only) --------------------------------
+= ModbusPDU07ReadExceptionStatusRequest
+raw(ModbusPDU07ReadExceptionStatusRequest()) == b'\x07'
+
+= ModbusPDU07ReadExceptionStatusResponse
+raw(ModbusPDU07ReadExceptionStatusResponse()) == b'\x07\x00'
+
+= ModbusPDU07ReadExceptionStatusError
+raw(ModbusPDU07ReadExceptionStatusError()) == b'\x87\x01'
+
 # 0x08/0x88 Diagnostics (serial line only) ------------------------------------------
 = ModbusPDU08DiagnosticsRequest
 raw(ModbusPDU08DiagnosticsRequest())
