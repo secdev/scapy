@@ -14,6 +14,7 @@ import threading, time, six, subprocess
 from six.moves.queue import Queue
 from subprocess import call
 from io import BytesIO
+from scapy.contrib.isotp import get_isotp_packet
 
 
 
@@ -353,6 +354,17 @@ assert(p.type == 0)
 assert(p.message_size == 4)
 assert(p.data == b'abcd')
 
+= Construct ISOTP_packet with extended can frame
+p = get_isotp_packet(identifier=0x1234, extended=False, extended_can_id=True)
+print(p)
+assert (p.identifier == 0x1234)
+assert (p.flags == "extended")
+
+= Construct ISOTPEA_Packet with extended can frame
+p = get_isotp_packet(identifier=0x1234, extended=True, extended_can_id=True)
+print(p)
+assert (p.identifier == 0x1234)
+assert (p.flags == "extended")
 
 + ISOTP fragment and defragment checks
 
