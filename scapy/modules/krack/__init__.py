@@ -1,5 +1,7 @@
 """Module implementing Krack Attack on client, as a custom WPA Access Point
 
+Requires the python cryptography package v1.7+. See https://cryptography.io/
+
 More details on the attack can be found on https://www.krackattacks.com/
 
 Example of use (from the scapy shell):
@@ -25,4 +27,10 @@ For patched devices:
 - Client is likely not vulnerable to CVE-2017-13080
 """
 
-from scapy.modules.krack.automaton import KrackAP  # noqa: F401
+from scapy.config import conf
+
+if conf.crypto_valid:
+    from scapy.modules.krack.automaton import KrackAP  # noqa: F401
+else:
+    raise ImportError("Cannot import Krack module due to missing dependency. "
+                      "Please install python{3}-cryptography v1.7+.")
