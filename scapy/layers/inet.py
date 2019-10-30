@@ -1725,7 +1725,7 @@ class TCP_client(Automaton):
 
     def _transmit_packet(self, pkt):
         """Transmits a packet from TCPSession to the SuperSocket"""
-        self.oi.tcp.send(pkt[TCP].payload)
+        self.oi.tcp.send(raw(pkt[TCP].payload))
 
     def master_filter(self, pkt):
         return (IP in pkt and

@@ -1967,6 +1967,18 @@ class H2ContinuationFrame(H2FramePayload):
 
 #                                          HTTP/2 Base Frame Packets                                                   #  # noqa: E501
 
+_HTTP2_types = {
+    0: 'DataFrm',
+    1: 'HdrsFrm',
+    2: 'PrioFrm',
+    3: 'RstFrm',
+    4: 'SetFrm',
+    5: 'PushFrm',
+    6: 'PingFrm',
+    7: 'GoawayFrm',
+    8: 'WinFrm',
+    9: 'ContFrm'
+}
 
 class H2Frame(packet.Packet):
     """ H2Frame implements the frame structure as defined in RFC 7540 par4.1
@@ -1977,18 +1989,7 @@ class H2Frame(packet.Packet):
     name = 'HTTP/2 Frame'
     fields_desc = [
         fields.X3BytesField('len', None),
-        fields.EnumField('type', None, {
-            0: 'DataFrm',
-            1: 'HdrsFrm',
-            2: 'PrioFrm',
-            3: 'RstFrm',
-            4: 'SetFrm',
-            5: 'PushFrm',
-            6: 'PingFrm',
-            7: 'GoawayFrm',
-            8: 'WinFrm',
-            9: 'ContFrm'
-        }, "b"),
+        fields.EnumField('type', None, _HTTP2_types, "b"),
         fields.MultiFlagsField('flags', set(), 8, {
             H2DataFrame.type_id: H2DataFrame.flags,
             H2HeadersFrame.type_id: H2HeadersFrame.flags,
