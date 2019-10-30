@@ -1351,6 +1351,12 @@ def _test():
     
     tmp = sendp(Ether()/IP(dst="8.8.8.8")/ICMP(), return_packets=True, realtime=True)
     assert(len(tmp) == 1)
+    
+    p = Ether()/IP(dst="8.8.8.8")/ICMP()
+    from decimal import Decimal
+    p.time = Decimal(p.time)
+    tmp = sendp(p, return_packets=True, realtime=True)
+    assert(len(tmp) == 1)
 
 retry_test(_test)
 

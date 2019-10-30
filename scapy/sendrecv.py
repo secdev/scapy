@@ -283,11 +283,11 @@ def __gen_send(s, x, inter=0, loop=0, count=None, verbose=None, realtime=None, r
                 if realtime:
                     ct = time.time()
                     if dt0:
-                        st = dt0 + p.time - ct
+                        st = dt0 + float(p.time) - ct
                         if st > 0:
                             time.sleep(st)
                     else:
-                        dt0 = ct - p.time
+                        dt0 = ct - float(p.time)
                 s.send(p)
                 if return_packets:
                     sent_packets.append(p)
