@@ -6959,6 +6959,56 @@ assert r.linktype == DLT_EN10MB
 l = [ p for p in RawPcapReader(f) ]
 assert len(l) == 1
 
+= _check_tcpdump()
+
+from scapy.arch.common import _check_tcpdump
+
+output_ubuntu_19_04 = b"""tcpdump version 4.9.2
+libpcap version 1.8.1
+OpenSSL 1.1.1b  26 Feb 2019
+"""
+returncode_ubuntu_19_04 = 0
+
+output_redhat_4_8 = b"""tcpdump: unrecognized option '--version'
+tcpdump version 4.5.1
+libpcap version 1.5.3
+Usage: tcpdump [-aAbdDefhHIJKlLnNOpqRStuUvxX] [ -B size ] [ -c count ]
+                [ -C file_size ] [ -E algo:secret ] [ -F file ] [ -G seconds ]
+                [ -i interface ] [ -j tstamptype ] [ -M secret ]
+                [ -P in|out|inout ]
+                [ -r file ] [ -s snaplen ] [ -T type ] [ -V file ] [ -w file ]
+                [ -W filecount ] [ -y datalinktype ] [ -z command ]
+                [ -Z user ] [ expression ]
+"""
+returncode_redhat_4_8 = 1
+
+output_centos_6_10 = b"""
+tcpdump version 4.1-PRE-CVS_2017_03_21
+libpcap version 1.4.0
+Usage: tcpdump [-aAdDefhIJKlLnNOpqRStuUvxX] [ -B size ] [ -c count ]
+                [ -C file_size ] [ -E algo:secret ] [ -F file ] [ -G seconds ]
+                [ -i interface ] [ -j tstamptype ] [ -M secret ]
+                [ -Q|-P in|out|inout ]
+                [ -r file ] [ -s snaplen ] [ -T type ] [ -w file ]
+                [ -W filecount ] [ -y datalinktype ] [ -z command ]
+                [ -Z user ] [ expression ]
+"""
+returncode_centos_6_10 = 1
+
+
+@mock.patch("subprocess.Popen")
+def test_check_tcpdump(output, returncode, mock_popen):
+    process_mock = mock.Mock()
+    attrs = {"communicate.return_value": (output,),
+             "returncode": returncode}
+    process_mock.configure_mock(**attrs)
+    mock_popen.return_value = process_mock
+    assert _check_tcpdump()
+
+test_check_tcpdump(output_ubuntu_19_04, returncode_ubuntu_19_04)
+test_check_tcpdump(output_redhat_4_8, returncode_redhat_4_8)
+test_check_tcpdump(output_centos_6_10, returncode_centos_6_10)
+
 
 = Check tcpdump()
 ~ tcpdump
