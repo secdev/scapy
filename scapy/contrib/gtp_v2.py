@@ -306,64 +306,110 @@ class IE_ServingNetwork(gtp.IE_Base):
                    gtp.TBCDByteField("MNC", "", 1)]
 
 
-class ULI_RAI(gtp.IE_Base):
-    name = "IE Tracking Area Identity"
+# User Location Information IE and fields.
+# 3GPP TS 29.274 v16.1.0 section 8.21.
+
+
+class ULI_Field(Packet):
+    """Base class for ULI fields."""
+
+    def extract_padding(self, s):
+        return "", s
+
+
+class ULI_CGI(ULI_Field):
+    name = "Cell Global Identifier"
+    fields_desc = [
+        gtp.TBCDByteField("MCC", "", 2),
+        gtp.TBCDByteField("MNC", "", 1),
+        BitField("LAC", 0, 4),
+        BitField("CI", 0, 28),
+    ]
+
+
+class ULI_SAI(ULI_Field):
+    name = "Service Area Identity"
+    fields_desc = [
+        gtp.TBCDByteField("MCC", "", 2),
+        gtp.TBCDByteField("MNC", "", 1),
+        ShortField("LAC", 0),
+        ShortField("SAC", 0),
+    ]
+
+
+class ULI_RAI(ULI_Field):
+    name = "Routing Area Identity"
     fields_desc = [
         gtp.TBCDByteField("MCC", "", 2),
         # MNC: if the third digit of MCC is 0xf, then the length of
         # MNC is 1 byte
         gtp.TBCDByteField("MNC", "", 1),
         ShortField("LAC", 0),
-        ShortField("RAC", 0)]
+        ShortField("RAC", 0),
+    ]
 
 
-class ULI_SAI(gtp.IE_Base):
-    name = "IE Tracking Area Identity"
+class ULI_TAI(ULI_Field):
+    name = "Tracking Area Identity"
     fields_desc = [
         gtp.TBCDByteField("MCC", "", 2),
         gtp.TBCDByteField("MNC", "", 1),
-        ShortField("LAC", 0),
-        ShortField("SAC", 0)]
+        ShortField("TAC", 0),
+    ]
 
 
-class ULI_TAI(gtp.IE_Base):
-    name = "IE Tracking Area Identity"
-    fields_desc = [
-        gtp.TBCDByteField("MCC", "", 2),
-        gtp.TBCDByteField("MNC", "", 1),
-        ShortField("TAC", 0)]
-
-
-class ULI_ECGI(gtp.IE_Base):
-    name = "IE E-UTRAN Cell Identifier"
+class ULI_ECGI(ULI_Field):
+    name = "E-UTRAN Cell Global Identifier"
     fields_desc = [
         gtp.TBCDByteField("MCC", "", 2),
         gtp.TBCDByteField("MNC", "", 1),
         BitField("SPARE", 0, 4),
-        BitField("ECI", 0, 28)]
+        BitField("ECI", 0, 28),
+    ]
+
+
+class ULI_LAI(ULI_Field):
+    name = "Location Area Identifier"
+    fields_desc = [
+        gtp.TBCDByteField("MCC", "", 2),
+        gtp.TBCDByteField("MNC", "", 1),
+        ShortField("LAC", 0),
+    ]
 
 
 class IE_ULI(gtp.IE_Base):
-    name = "IE ULI"
-    fields_desc = [ByteEnumField("ietype", 86, IEType),
-                   ShortField("length", 0),
-                   BitField("CR_flag", 0, 4),
-                   BitField("instance", 0, 4),
-                   BitField("SPARE", 0, 2),
-                   BitField("LAI_Present", 0, 1),
-                   BitField("ECGI_Present", 0, 1),
-                   BitField("TAI_Present", 0, 1),
-                   BitField("RAI_Present", 0, 1),
-                   BitField("SAI_Present", 0, 1),
-                   BitField("CGI_Present", 0, 1),
-                   ConditionalField(
-        PacketField("SAI", 0, ULI_SAI), lambda pkt: bool(pkt.SAI_Present)),
+    name = "IE User Location Information"
+    fields_desc = [
+        ByteEnumField("ietype", 86, IEType),
+        ShortField("length", 0),
+        BitField("CR_flag", 0, 4),
+        BitField("instance", 0, 4),
+        BitField("SPARE", 0, 2),
+        BitField("LAI_Present", 0, 1),
+        BitField("ECGI_Present", 0, 1),
+        BitField("TAI_Present", 0, 1),
+        BitField("RAI_Present", 0, 1),
+        BitField("SAI_Present", 0, 1),
+        BitField("CGI_Present", 0, 1),
         ConditionalField(
-        PacketField("RAI", 0, ULI_RAI), lambda pkt: bool(pkt.RAI_Present)),
+            PacketField("CGI", 0, ULI_CGI),
+            lambda pkt: bool(pkt.CGI_Present)),
         ConditionalField(
-        PacketField("TAI", 0, ULI_TAI), lambda pkt: bool(pkt.TAI_Present)),
-        ConditionalField(PacketField("ECGI", 0, ULI_ECGI),
-                         lambda pkt: bool(pkt.ECGI_Present))]
+            PacketField("SAI", 0, ULI_SAI),
+            lambda pkt: bool(pkt.SAI_Present)),
+        ConditionalField(
+            PacketField("RAI", 0, ULI_RAI),
+            lambda pkt: bool(pkt.RAI_Present)),
+        ConditionalField(
+            PacketField("TAI", 0, ULI_TAI),
+            lambda pkt: bool(pkt.TAI_Present)),
+        ConditionalField(
+            PacketField("ECGI", 0, ULI_ECGI),
+            lambda pkt: bool(pkt.ECGI_Present)),
+        ConditionalField(
+            PacketField("LAI", 0, ULI_LAI),
+            lambda pkt: bool(pkt.LAI_Present)),
+    ]
 
 
 # 3GPP TS 29.274 v12.12.0 section 8.22
