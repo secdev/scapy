@@ -28,6 +28,7 @@ from scapy.fields import BitEnumField, BitField, ByteEnumField, ByteField, \
     ConditionalField, IntField, IPField, LongField, PacketField, \
     PacketListField, ShortEnumField, ShortField, StrFixedLenField, \
     StrLenField, ThreeBytesField, XBitField, XIntField, XShortField
+from scapy.data import IANA_ENTERPRISE_NUMBERS
 from scapy.packet import bind_layers, Packet, Raw
 from scapy.volatile import RandIP, RandShort
 
@@ -208,7 +209,8 @@ IEType = {1: "IMSI",
              126: "Port Number",
              127: "APN Restriction",
              128: "Selection Mode",
-             161: "Max MBR/APN-AMBR (MMBR)"
+             161: "Max MBR/APN-AMBR (MMBR)",
+             255: "Private Extension",
           }
 
 
@@ -1073,6 +1075,21 @@ class IE_MMBR(gtp.IE_Base):
                    IntField("downlink_rate", 0)]
 
 
+# 3GPP TS 29.274 v16.1.0 section 8.67.
+class IE_PrivateExtension(gtp.IE_Base):
+    name = "Private Extension"
+    fields_desc = [
+        ByteEnumField("ietype", 255, IEType),
+        ShortField("length", None),
+        BitField("SPARE", 0, 4),
+        BitField("instance", 0, 4),
+        ShortEnumField("enterprisenum", None, IANA_ENTERPRISE_NUMBERS),
+    ]
+
+    def extract_padding(self, s):
+        return s[:self.length], ''
+
+
 ietypecls = {1: IE_IMSI,
              2: IE_Cause,
              3: IE_RecoveryRestart,
@@ -1098,7 +1115,8 @@ ietypecls = {1: IE_IMSI,
              126: IE_Port_Number,
              127: IE_APN_Restriction,
              128: IE_SelectionMode,
-             161: IE_MMBR}
+             161: IE_MMBR,
+             255: IE_PrivateExtension}
 
 #
 # GTPv2 Commands

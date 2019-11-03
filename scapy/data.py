@@ -154,6 +154,25 @@ EPOCH = calendar.timegm((1970, 1, 2, 0, 0, 0, 3, 1, 0)) - 86400
 MTU = 0xffff  # a.k.a give me all you have
 
 
+# In fact, IANA enterprise-numbers file available at
+# http://www.iana.org/assignments/enterprise-numbers
+# is simply huge (more than 2Mo and 600Ko in bz2). I'll
+# add only most common vendors, and encountered values.
+# -- arno
+IANA_ENTERPRISE_NUMBERS = {
+    9: "ciscoSystems",
+    35: "Nortel Networks",
+    43: "3Com",
+    311: "Microsoft",
+    2636: "Juniper Networks, Inc.",
+    4526: "Netgear",
+    5771: "Cisco Systems, Inc.",
+    5842: "Cisco Systems",
+    11129: "Google, Inc",
+    16885: "Nortel Networks",
+}
+
+
 def load_protocols(filename, _fallback=None, _integer_base=10):
     """"Parse /etc/protocols and return values as a dictionary."""
     spaces = re.compile(b"[ \t]+|\n")
