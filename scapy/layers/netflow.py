@@ -25,6 +25,7 @@ Using the netflowv9_defragment/ipfix_defragment commands:
 >>> sniff(session=NetflowSession, prn=[...])
 """
 
+import socket
 import struct
 
 from scapy.config import conf
@@ -124,7 +125,7 @@ class NetflowRecordV5(Packet):
                    ShortField("dstport", 0),
                    ByteField("pad1", 0),
                    FlagsField("tcpFlags", 0x2, 8, "FSRPAUEC"),
-                   ByteEnumField("prot", IP_PROTOS["tcp"], IP_PROTOS),
+                   ByteEnumField("prot", socket.IPPROTO_TCP, IP_PROTOS),
                    ByteField("tos", 0),
                    ShortField("src_as", 0),
                    ShortField("dst_as", 0),
