@@ -211,8 +211,9 @@ ie = gtp.IE_list[2]
 ie.TAI_Present == 1 and ie.ECGI_Present == 1 and ie.TAI.MCC == b'234' and ie.TAI.MNC == b'02' and ie.TAI.TAC == 12345 and ie.ECGI.MCC == b'234' and ie.ECGI.MNC == b'02' and ie.ECGI.ECI == 123456
 
 = IE_ULI, basic instantiation
-ie = IE_ULI(ietype='ULI', length=13, LAI_Present=0, ECGI_Present=1, TAI_Present=1, RAI_Present=0, SAI_Present=0,
-                   CGI_Present=0, TAI=ULI_TAI(MCC='234', MNC='02', TAC=12345), ECGI=ULI_ECGI(MCC='234', MNC='02', ECI=123456))
+ie = IE_ULI(ietype='User Location Information', length=13, LAI_Present=0, ECGI_Present=1, TAI_Present=1, RAI_Present=0,
+            SAI_Present=0, CGI_Present=0, TAI=ULI_TAI(MCC='234', MNC='02', TAC=12345),
+            ECGI=ULI_ECGI(MCC='234', MNC='02', ECI=123456))
 ie.ietype == 86 and ie.LAI_Present == 0 and ie.ECGI_Present == 1 and ie.TAI_Present == 1 and ie.RAI_Present == 0 and ie.SAI_Present == 0 and ie.CGI_Present == 0 and ie.TAI.MCC == b'234' and ie.TAI.MNC == b'02' and ie.TAI.TAC == 12345 and ie.ECGI.MCC == b'234' and ie.ECGI.MNC == b'02' and ie.ECGI.ECI == 123456
 
 = IE_FTEID, dissection
