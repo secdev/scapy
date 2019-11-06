@@ -56,7 +56,6 @@ def usage():
                           This has nothing to do with extended CAN identifiers
     -C, --piso            Print 'Copy&Paste'-ready ISOTPSockets.
     -v, --verbose         Display information during scan.\n
-    -w, --wide            Enable scanning spaces greater than 0x800
         --extended_can_id Use extended CAN identifiers
     Example of use:\n
     Python2 or Windows:
@@ -72,7 +71,6 @@ def main():
     extended = False
     piso = False
     verbose = False
-    wide_option = False
     extended_can_id = False
     sniff_time = 100
     noise_listen_time = 2
@@ -86,7 +84,7 @@ def main():
         sys.argv[1:],
         'vxCt:n:i:c:b:s:e:h:w',
         ['verbose', 'noise_listen_time=', 'sniff_time=', 'interface=', 'piso',
-         'channel=', 'bitrate=', 'start=', 'end=', 'help', 'extended', 'wide',
+         'channel=', 'bitrate=', 'start=', 'end=', 'help', 'extended',
          'extended_can_id'])
 
     try:
@@ -114,8 +112,6 @@ def main():
                 start = int(arg, 16)
             elif opt in ('-e', '--end'):
                 end = int(arg, 16)
-            elif opt in ('-w', '--wide'):
-                wide_option = True
             elif opt in '--extended_can_id':
                 extended_can_id = True
     except getopt.GetoptError as msg:
@@ -131,18 +127,15 @@ def main():
         print("\nPlease provide all required arguments.\n", file=sys.stderr)
         sys.exit(-1)
 
-    if end >= 2**29:
-        print("end must be < " + hex(2**29), file=sys.stderr)
-        sys.exit(-1)
-    elif not extended_can_id and end >= 0x800:
-        print("Standard IDs must be < 0x800.\n"
-              "Use --extended_can_id option for extended CAN range.",
+    if end >= 2**29 or start >= 2**29:
+        print("Argument 'start' and 'end' must be < " + hex(2**29),
               file=sys.stderr)
         sys.exit(-1)
 
-    if end - start > 0x800 and not wide_option:
-        print("Scanning big address spaces takes a lot of time.\n"
-              "Please use --wide option in order to scan identifiers > 0x800",
+    if not extended_can_id and (end >= 0x800 or start >= 0x800):
+        print("Standard can identifiers must be < 0x800.\n"
+              "Use --extended_can_id option to scan with "
+              "extended CAN identifiers.",
               file=sys.stderr)
         sys.exit(-1)
 
