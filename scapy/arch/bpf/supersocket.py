@@ -4,9 +4,11 @@
 Scapy *BSD native support - BPF sockets
 """
 
+from ctypes import c_long, sizeof
 import errno
 import fcntl
 import os
+import platform
 from select import select
 import struct
 import time
@@ -23,7 +25,10 @@ from scapy.supersocket import SuperSocket
 from scapy.compat import raw
 
 
-if FREEBSD or NETBSD:
+if FREEBSD:
+    # On 32bit architectures long might be 32bit.
+    BPF_ALIGNMENT = sizeof(c_long)
+elif NETBSD:
     BPF_ALIGNMENT = 8  # sizeof(long)
 else:
     BPF_ALIGNMENT = 4  # sizeof(int32_t)
@@ -260,8 +265,21 @@ class L2bpfListenSocket(_L2bpfSocket):
             return
 
         # Extract useful information from the BPF header
-        if FREEBSD or NETBSD:
-            # struct bpf_xhdr or struct bpf_hdr32
+        if FREEBSD:
+            # Unless we set BIOCSTSTAMP to something different than BPF_T_MICROTIME
+            # we will get bpf_hdr on FreeBSD, which means that we'll get a
+            # struct timeval, which is time_t, suseconds_t.
+            # On i386 time_t still is 32bit so the bh_tstamp will only be 8 bytes.
+            # We really want to set BIOCSTSTAMP to BPF_T_NANOTIME and be done with this
+            # and it always be 16?
+            if platform.machine() == "i386":
+                # struct bpf_hdr
+                bh_tstamp_offset = 8
+            else:
+                # struct bpf_hdr (64bit time_t) or struct bpf_xhdr
+                bh_tstamp_offset = 16
+        elif NETBSD:
+            # struct bpf_hdr or struct bpf_hdr32
             bh_tstamp_offset = 16
         else:
             # struct bpf_hdr
