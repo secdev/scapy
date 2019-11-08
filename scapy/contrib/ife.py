@@ -1,5 +1,3 @@
-#! /usr/bin/env python
-#
 # scapy.contrib.description = ForCES Inter-FE LFB type (IFE)
 # scapy.contrib.status = loads
 

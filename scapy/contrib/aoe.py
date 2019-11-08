@@ -1,5 +1,3 @@
-#! /usr/bin/env python
-
 # Copyright (C) 2018 antoine.torre <torreantoine1@gmail.com>
 ##
 # This program is published under a GPLv2 license

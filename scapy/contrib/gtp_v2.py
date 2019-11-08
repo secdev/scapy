@@ -1,5 +1,3 @@
-#! /usr/bin/env python
-
 # Copyright (C) 2017 Alessio Deiana <adeiana@gmail.com>
 # 2017 Alexis Sultan <alexis.sultan@sfr.com>
 
