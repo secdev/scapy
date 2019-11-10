@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 # scapy.contrib.description = Open Shortest Path First (OSPF)
 # scapy.contrib.status = loads
 

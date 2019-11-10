@@ -1,5 +1,3 @@
-#! /usr/bin/env python
-#
 # scapy.contrib.description = Link Layer Discovery Protocol (LLDP)
 # scapy.contrib.status = loads
 
