@@ -555,7 +555,8 @@ def srp1(*args, **kargs):
 
 # Append doc
 for sr_func in [srp, srp1, sr, sr1]:
-    sr_func.__doc__ += _DOC_SNDRCV_PARAMS
+    if sr_func.__doc__ is not None:
+        sr_func.__doc__ += _DOC_SNDRCV_PARAMS
 
 
 # SEND/RECV LOOP METHODS
