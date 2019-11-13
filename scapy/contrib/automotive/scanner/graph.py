@@ -10,6 +10,7 @@ from collections import defaultdict
 
 from scapy.compat import Union, List, Optional, Dict, Tuple, Set, TYPE_CHECKING
 from scapy.contrib.automotive.ecu import EcuState
+from scapy.contrib.automotive.scanner.profiler import Profiler
 from scapy.error import log_interactive
 
 _Edge = Tuple[EcuState, EcuState]
@@ -44,6 +45,7 @@ class Graph(object):
         :param edge: edge from node to node
         :param transition_function: tuple with enter and cleanup function
         """
+        Profiler.write_milestone(repr(edge[1]))
         self.edges[edge[0]].append(edge[1])
         self.weights[edge] = 1
         self.__transition_functions[edge] = transition_function

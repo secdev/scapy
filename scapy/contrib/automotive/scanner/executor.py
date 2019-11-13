@@ -14,6 +14,7 @@ from itertools import product
 from scapy.compat import Any, Union, List, Optional, \
     Dict, Callable, Type, cast
 from scapy.contrib.automotive.scanner.graph import Graph
+from scapy.contrib.automotive.scanner.profiler import Profiler, profile
 from scapy.error import Scapy_Exception, log_interactive
 from scapy.supersocket import SuperSocket
 from scapy.utils import make_lined_table, SingleConversationSocket
@@ -134,6 +135,7 @@ class AutomotiveTestCaseExecutor:
         return all(t.has_completed(s) for t, s in
                    product(self.configuration.test_cases, self.final_states))
 
+    @profile("ECU Reset")
     def reset_target(self):
         # type: () -> None
         log_interactive.info("[i] Target reset")
@@ -141,6 +143,7 @@ class AutomotiveTestCaseExecutor:
             self.reset_handler()
         self.target_state = self.__initial_ecu_state
 
+    @profile("Reconnect")
     def reconnect(self):
         # type: () -> None
         if self.reconnect_handler:
@@ -232,7 +235,8 @@ class AutomotiveTestCaseExecutor:
                         continue
                     log_interactive.info(
                         "[i] Execute %s for path %s", str(test_case), p)
-                    self.execute_test_case(test_case)
+                    with Profiler(p, test_case.__class__.__name__):
+                        self.execute_test_case(test_case)
                     test_case_executed = True
                 except (OSError, ValueError, Scapy_Exception) as e:
                     log_interactive.critical("[-] Exception: %s", e)
@@ -280,6 +284,7 @@ class AutomotiveTestCaseExecutor:
                 return False
         return True
 
+    @profile("State change")
     def enter_state(self, prev_state, next_state):
         # type: (EcuState, EcuState) -> bool
         """

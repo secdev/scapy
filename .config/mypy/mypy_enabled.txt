@@ -50,6 +50,7 @@ scapy/layers/can.py
 scapy/layers/l2.py
 
 # CONTRIB
+#scapy/contrib/http2.py  # needs to be fixed
 scapy/contrib/automotive/bmw/hsfz.py
 scapy/contrib/automotive/doip.py
 scapy/contrib/automotive/ecu.py
@@ -63,6 +64,7 @@ scapy/contrib/automotive/scanner/configuration.py
 scapy/contrib/automotive/scanner/enumerator.py
 scapy/contrib/automotive/scanner/executor.py
 scapy/contrib/automotive/scanner/graph.py
+scapy/contrib/automotive/scanner/profiler.py
 scapy/contrib/automotive/scanner/staged_test_case.py
 scapy/contrib/automotive/scanner/test_case.py
 scapy/contrib/automotive/uds_ecu_states.py
@@ -70,7 +72,6 @@ scapy/contrib/automotive/uds_logging.py
 scapy/contrib/automotive/uds_scan.py
 scapy/contrib/cansocket_native.py
 scapy/contrib/cansocket_python_can.py
-#scapy/contrib/http2.py  # needs to be fixed
 scapy/contrib/isotp/isotp_native_socket.py
 scapy/contrib/isotp/isotp_packet.py
 scapy/contrib/isotp/isotp_scanner.py
