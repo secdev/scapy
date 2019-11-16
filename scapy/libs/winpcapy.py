@@ -17,6 +17,8 @@
 from ctypes import *
 from ctypes.util import find_library
 import sys, os
+
+from scapy.libs.structures import bpf_program
 from scapy.consts import WINDOWS
 
 HAVE_REMOTE = False
@@ -58,17 +60,6 @@ pcap_dumper = c_void_p
 u_char = c_ubyte
 FILE = c_void_p
 STRING = c_char_p
-
-class bpf_insn(Structure):
-    _fields_=[("code",c_ushort),
-              ("jt",c_ubyte),
-              ("jf",c_ubyte),
-              ("k",bpf_u_int32)]
-    
-class bpf_program(Structure):
-    pass
-bpf_program._fields_ = [('bf_len', u_int),
-                        ('bf_insns', POINTER(bpf_insn))]
 
 class bpf_version(Structure):
     _fields_=[("bv_major",c_ushort),
@@ -279,7 +270,7 @@ pcap_open_offline = _lib.pcap_open_offline
 pcap_open_offline.restype = POINTER(pcap_t)
 pcap_open_offline.argtypes = [STRING, STRING]
 
-try:  # NPCAP ONLY function
+try:  # NPCAP/LINUX ONLY function
     #int pcap_set_rfmon (pcap_t *p)
     #   sets whether monitor mode should be set on a capture handle when the handle is activated.  # noqa: E501
     pcap_set_rfmon = _lib.pcap_set_rfmon

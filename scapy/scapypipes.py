@@ -191,7 +191,7 @@ class WiresharkSink(WrpcapSink):
     def start(self):
         # Wireshark must be running first, because PcapWriter will block until
         # data has been read!
-        with ContextManagerSubprocess("WiresharkSink", conf.prog.wireshark):
+        with ContextManagerSubprocess(conf.prog.wireshark):
             args = [conf.prog.wireshark, "-ki", "-"]
             if self.args:
                 args.extend(self.args)

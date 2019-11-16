@@ -4,7 +4,7 @@
 # This program is published under a GPLv2 license
 
 """
-Packet sending and receiving with libdnet and libpcap/WinPcap.
+Packet sending and receiving libpcap/WinPcap.
 """
 
 import os
@@ -86,21 +86,21 @@ if conf.use_pcap:
     if WINDOWS:
         # Windows specific
         NPCAP_PATH = os.environ["WINDIR"] + "\\System32\\Npcap"
-        from scapy.modules.winpcapy import pcap_setmintocopy
+        from scapy.libs.winpcapy import pcap_setmintocopy
     else:
-        from scapy.modules.winpcapy import pcap_get_selectable_fd
+        from scapy.libs.winpcapy import pcap_get_selectable_fd
     from ctypes import POINTER, byref, create_string_buffer, c_ubyte, cast
 
     # Part of the Winpcapy integration was inspired by phaethon/scapy
     # but he destroyed the commit history, so there is no link to that
     try:
-        from scapy.modules.winpcapy import PCAP_ERRBUF_SIZE, pcap_if_t, \
+        from scapy.libs.winpcapy import PCAP_ERRBUF_SIZE, pcap_if_t, \
             sockaddr_in, sockaddr_in6, pcap_findalldevs, pcap_freealldevs, \
             pcap_lib_version, pcap_close, \
             pcap_open_live, pcap_pkthdr, \
             pcap_next_ex, pcap_datalink, \
             pcap_compile, pcap_setfilter, pcap_setnonblock, pcap_sendpacket, \
-            bpf_program as winpcapy_bpf_program
+            bpf_program
 
         def load_winpcapy():
             """This functions calls libpcap ``pcap_findalldevs`` function,
@@ -186,8 +186,8 @@ if conf.use_pcap:
             load_winpcapy()
         return list(conf.cache_iflist)
 
-    class _PcapWrapper_winpcap:  # noqa: F811
-        """Wrapper for the WinPcap calls"""
+    class _PcapWrapper_libpcap:  # noqa: F811
+        """Wrapper for the libpcap calls"""
 
         def __init__(self, device, snaplen, promisc, to_ms, monitor=None):
             self.errbuf = create_string_buffer(PCAP_ERRBUF_SIZE)
@@ -197,7 +197,7 @@ if conf.use_pcap:
                 if WINDOWS and not conf.use_npcap:
                     raise OSError("On Windows, this feature requires NPcap !")
                 # Npcap-only functions
-                from scapy.modules.winpcapy import pcap_create, \
+                from scapy.libs.winpcapy import pcap_create, \
                     pcap_set_snaplen, pcap_set_promisc, \
                     pcap_set_timeout, pcap_set_rfmon, pcap_activate
                 self.pcap = pcap_create(self.iface, self.errbuf)
@@ -220,9 +220,10 @@ if conf.use_pcap:
 
             self.header = POINTER(pcap_pkthdr)()
             self.pkt_data = POINTER(c_ubyte)()
-            self.bpf_program = winpcapy_bpf_program()
+            self.bpf_program = bpf_program()
 
         def next(self):
+            """Return next packet (timestamp, raw_packet)"""
             c = pcap_next_ex(self.pcap, byref(self.header), byref(self.pkt_data))  # noqa: E501
             if not c > 0:
                 return
@@ -240,7 +241,7 @@ if conf.use_pcap:
         def fileno(self):
             if WINDOWS:
                 log_loading.error("Cannot get selectable PCAP fd on Windows")
-                return 0
+                return -1
             else:
                 # This does not exist under Windows
                 return pcap_get_selectable_fd(self.pcap)
@@ -264,7 +265,7 @@ if conf.use_pcap:
 
         def close(self):
             pcap_close(self.pcap)
-    open_pcap = lambda *args, **kargs: _PcapWrapper_winpcap(*args, **kargs)
+    open_pcap = _PcapWrapper_libpcap
 
     # pcap sockets
 

@@ -635,8 +635,7 @@ def http_request(host, path="/", port=80, timeout=3,
             if WINDOWS:
                 os.startfile(file)
             else:
-                with ContextManagerSubprocess("http_request()",
-                                              conf.prog.universal_open):
+                with ContextManagerSubprocess(conf.prog.universal_open):
                     subprocess.Popen([conf.prog.universal_open, file])
         return ans
 
