@@ -1,6 +1,89 @@
 % Regression tests for the CCP layer
 
-# More information at http://www.secdev.org/projects/UTscapy/
++ Configuration
+~ conf
+
+= Imports
+load_layer("can")
+conf.contribs['CAN']['swap-bytes'] = False
+import threading, six
+from subprocess import call
+from scapy.consts import LINUX
+
+= Definition of constants, utility functions and mock classes
+iface0 = "vcan0"
+iface1 = "vcan1"
+
+
+= Initialize a virtual CAN interface
+~ vcan_socket
+if 0 != call("cansend %s 000#" % iface0, shell=True):
+    # vcan0 is not enabled
+    if 0 != call("sudo modprobe vcan", shell=True):
+        raise Exception("modprobe vcan failed")
+    if 0 != call("sudo ip link add name %s type vcan" % iface0, shell=True):
+        print("add %s failed: Maybe it was already up?" % iface0)
+    if 0 != call("sudo ip link set dev %s up" % iface0, shell=True):
+        raise Exception("could not bring up %s" % iface0)
+
+if 0 != call("cansend %s 000#" % iface0, shell=True):
+    raise Exception("cansend doesn't work")
+
+if 0 != call("cansend %s 000#" % iface1, shell=True):
+    # vcan1 is not enabled
+    if 0 != call("sudo modprobe vcan", shell=True):
+        raise Exception("modprobe vcan failed")
+    if 0 != call("sudo ip link add name %s type vcan" % iface1, shell=True):
+        print("add %s failed: Maybe it was already up?" % iface1)
+    if 0 != call("sudo ip link set dev %s up" % iface1, shell=True):
+        raise Exception("could not bring up %s" % iface1)
+
+if 0 != call("cansend %s 000#" % iface1, shell=True):
+    raise Exception("cansend doesn't work")
+
+print("CAN should work now")
+
+= Import CANSocket
+
+from scapy.contrib.cansocket_python_can import *
+
+import can as python_can
+new_can_socket = lambda iface: CANSocket(iface=python_can.interface.Bus(bustype='virtual', channel=iface))
+new_can_socket0 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='virtual', channel=iface0), timeout=0.01)
+new_can_socket1 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='virtual', channel=iface1), timeout=0.01)
+
+# utility function for draining a can interface, asserting that no packets are there
+def drain_bus(iface=iface0, assert_empty=True):
+    s = new_can_socket(iface)
+    pkts = s.sniff(timeout=0.1)
+    if assert_empty:
+        assert len(pkts) == 0
+    s.close()
+
+print("CAN sockets should work now")
+
+= Overwrite definition for vcan_socket systems native sockets
+~ vcan_socket
+
+if six.PY3 and LINUX:
+    from scapy.contrib.cansocket_native import *
+    new_can_socket = lambda iface: CANSocket(iface)
+    new_can_socket0 = lambda: CANSocket(iface0)
+    new_can_socket1 = lambda: CANSocket(iface1)
+
+
+= Overwrite definition for vcan_socket systems python-can sockets
+~ vcan_socket
+
+if "python_can" in CANSocket.__module__:
+    new_can_socket = lambda iface: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface, bitrate=250000), timeout=0.01)
+    new_can_socket0 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface0, bitrate=250000), timeout=0.01)
+    new_can_socket1 = lambda: CANSocket(iface=python_can.interface.Bus(bustype='socketcan', channel=iface1, bitrate=250000), timeout=0.01)
+
+
+= Verify that a CAN socket can be created and closed
+s = new_can_socket(iface0)
+s.close()
 
 
 ############
@@ -874,40 +957,15 @@ assert dto.ccp_reserved == b"\xff" * 3
 assert dto.hashret() == cro.hashret()
 
 + Tests on a virtual CAN-Bus
-~ needs_root linux
 
-= Load modules
-~ needs_root linux conf
-import can
-from subprocess import call
-import time
+= Create sockets
 
-conf.contribs['CANSocket'] = {'use-python-can': True}
-load_contrib("cansocket")
+sock1 = new_can_socket0()
+sock2 = new_can_socket0()
 
-iface0 = "vcan0"
-
-= Initialize a virtual CAN interface
-~ needs_root linux conf vcan_socket
-if 0 != call("cansend %s 000#" % iface0, shell=True):
-    # vcan0 is not enabled
-    if 0 != call("sudo modprobe vcan", shell=True):
-        raise Exception("modprobe vcan failed")
-    if 0 != call("sudo ip link add name %s type vcan" % iface0, shell=True):
-        print("add %s failed: Maybe it was already up?" % iface0)
-    if 0 != call("sudo ip link set dev %s up" % iface0, shell=True):
-        raise Exception("could not bring up %s" % iface0)
-
-if 0 != call("cansend %s 000#" % iface0, shell=True):
-    raise Exception("cansend doesn't work")
-
-print("CAN should work now")
+sock1.basecls = CCP
 
 = CAN Socket sr1 with dto.ansers(cro) == True
-~ needs_root linux vcan_socket
-
-sock1 = CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0', bitrate=250000), basecls=CCP)
-sock2 = CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0', bitrate=250000))
 
 def ecu():
     pkts = sock2.sniff(count=1, timeout=1)
@@ -932,15 +990,7 @@ assert hasattr(dto, "load") == False
 assert dto.MTA0_extension == 2
 assert dto.MTA0_address == 0x34002006
 
-sock1.close()
-sock2.close()
-
-
 = CAN Socket sr1 with dto.ansers(cro) == False
-~ needs_root linux vcan_socket
-
-sock1 = CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0', bitrate=250000), basecls=CCP)
-sock2 = CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0', bitrate=250000))
 
 def ecu():
     pkts = sock2.sniff(count=1, timeout=1)
@@ -966,14 +1016,7 @@ except CANSocketTimeoutElapsed as e:
 assert gotTimeout
 thread.join()
 
-sock1.close()
-sock2.close()
-
 = CAN Socket sr1 with error code
-~ needs_root linux vcan_socket
-
-sock1 = CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0', bitrate=250000), basecls=CCP)
-sock2 = CANSocket(iface=can.interface.Bus(bustype='socketcan', channel='vcan0', bitrate=250000))
 
 def ecu():
     pkts = sock2.sniff(count=1, timeout=1)
@@ -998,12 +1041,13 @@ assert hasattr(dto, "load") == False
 assert dto.MTA0_extension == 0xff
 assert dto.MTA0_address == 0xffffffff
 
-sock1.close()
-sock2.close()
-
 + Cleanup
+
 = Delete vcan interfaces
-~ needs_root linux vcan_socket
+~ vcan_socket
 
 if 0 != call("sudo ip link delete %s" % iface0, shell=True):
         raise Exception("%s could not be deleted" % iface0)
+
+if 0 != call("sudo ip link delete %s" % iface1, shell=True):
+        raise Exception("%s could not be deleted" % iface1)

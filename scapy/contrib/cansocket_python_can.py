@@ -57,7 +57,7 @@ class CANSocket(SuperSocket):
     def send(self, x):
         try:
             msg = can_Message(is_remote_frame=x.flags == 0x2,
-                              extended_id=x.flags == 0x4,
+                              is_extended_id=x.flags == 0x4,
                               is_error_frame=x.flags == 0x1,
                               arbitration_id=x.identifier,
                               dlc=x.length,
