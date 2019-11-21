@@ -52,7 +52,8 @@ class OBD_S02_PR(Packet):
 
     def answers(self, other):
         return other.__class__ == OBD_S02 \
-            and all(r.pid in [o.pid for o in other.requests] for r in self.data_records)
+            and all(r.pid in [o.pid for o in other.requests]
+                    for r in self.data_records)
 
 
 bind_layers(OBD_S01_PR_Record, OBD_PID00, pid=0x00)

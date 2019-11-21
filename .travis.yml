@@ -53,7 +53,8 @@ matrix:
             - TOXENV=py27-bsd_non_root,codecov
 
         # Run as root
-        - os: linux
+        - language: python
+          dist: trusty
           python: 2.7
           env:
             - TOXENV=py27-linux_root,codecov
@@ -71,17 +72,20 @@ matrix:
           env:
             - TOXENV=pypy3-linux_root,codecov
 
-        - os: linux
+        - language: python
+          dist: trusty
           python: 3.4
           env:
             - TOXENV=py34-linux_root,codecov
 
-        - os: linux
+        - language: python
+          dist: trusty
           python: 3.5
           env:
             - TOXENV=py35-linux_root,codecov
 
-        - os: linux
+        - language: python
+          dist: trusty
           python: 3.6
           env:
             - TOXENV=py36-linux_root,codecov
@@ -105,7 +109,8 @@ matrix:
           env:
             - SCAPY_SUDO=sudo SCAPY_USE_PCAPDNET=yes TOXENV=py27-pcapdnet_root,codecov
         
-        - os: linux
+        - language: python
+          dist: trusty
           python: 3.6
           env:
             - SCAPY_SUDO=sudo TOXENV=py36-isotp_kernel_module,codecov

@@ -124,7 +124,12 @@ class ISOTP(Packet):
             frame_data = struct.pack('B', len(self.data)) + self.data
             if self.exdst:
                 frame_data = struct.pack('B', self.exdst) + frame_data
-            pkt = CAN(identifier=self.dst, data=frame_data)
+
+            if self.dst is None or self.dst <= 0x7ff:
+                pkt = CAN(identifier=self.dst, data=frame_data)
+            else:
+                pkt = CAN(identifier=self.dst, flags="extended",
+                          data=frame_data)
             return [pkt]
 
         # Construct the first frame
@@ -136,7 +141,11 @@ class ISOTP(Packet):
             frame_header = struct.pack('B', self.exdst) + frame_header
         idx = 8 - len(frame_header)
         frame_data = self.data[0:idx]
-        frame = CAN(identifier=self.dst, data=frame_header + frame_data)
+        if self.dst is None or self.dst <= 0x7ff:
+            frame = CAN(identifier=self.dst, data=frame_header + frame_data)
+        else:
+            frame = CAN(identifier=self.dst, flags="extended",
+                        data=frame_header + frame_data)
 
         # Construct consecutive frames
         n = 1
@@ -150,7 +159,11 @@ class ISOTP(Packet):
 
             if self.exdst:
                 frame_header = struct.pack('B', self.exdst) + frame_header
-            pkt = CAN(identifier=self.dst, data=frame_header + frame_data)
+            if self.dst is None or self.dst <= 0x7ff:
+                pkt = CAN(identifier=self.dst, data=frame_header + frame_data)
+            else:
+                pkt = CAN(identifier=self.dst, flags="extended",
+                          data=frame_header + frame_data)
             pkts.append(pkt)
         return pkts
 
@@ -1003,7 +1016,11 @@ class ISOTPSocketImplementation(automaton.SelectableObject):
     def can_send(self, load):
         if self.padding:
             load += bytearray(CAN_MAX_DLEN - len(load))
-        self.can_socket.send(CAN(identifier=self.src_id, data=load))
+        if self.src_id is None or self.src_id <= 0x7ff:
+            self.can_socket.send(CAN(identifier=self.src_id, data=load))
+        else:
+            self.can_socket.send(CAN(identifier=self.src_id, flags="extended",
+                                     data=load))
 
     def on_can_recv(self, p):
         if not isinstance(p, CAN):
@@ -1610,12 +1627,13 @@ if six.PY3 and LINUX:
             if not isinstance(iface, six.string_types):
                 if hasattr(iface, "ins") and hasattr(iface.ins, "getsockname"):
                     iface = iface.ins.getsockname()
+                    if isinstance(iface, tuple):
+                        iface = iface[0]
                 else:
-                    Scapy_Exception("Provide a string or a CANSocket object "
-                                    "as iface parameter")
+                    raise Scapy_Exception("Provide a string or a CANSocket "
+                                          "object as iface parameter")
 
-            self.iface = conf.contribs['NativeCANSocket']['iface'] \
-                if iface is None else iface
+            self.iface = iface or conf.contribs['NativeCANSocket']['iface']
             self.can_socket = socket.socket(socket.PF_CAN, socket.SOCK_DGRAM,
                                             CAN_ISOTP)
             self.__set_option_flags(self.can_socket,
@@ -1637,7 +1655,7 @@ if six.PY3 and LINUX:
                                        CAN_ISOTP_LL_OPTS,
                                        self.__build_can_isotp_ll_options())
 
-            self.__bind_socket(self.can_socket, iface, sid, did)
+            self.__bind_socket(self.can_socket, self.iface, sid, did)
             self.ins = self.can_socket
             self.outs = self.can_socket
             if basecls is None:
@@ -2045,20 +2063,20 @@ def generate_code_output(found_packets, can_interface,
             send_id = pack // 256
             send_ext = pack - (send_id * 256)
             ext_id = orb(found_packets[pack][0].data[0])
-            result += "ISOTPSocket(%s, sid=%s, did=%s, padding=%s, " \
-                      "extended_addr=%s, extended_rx_addr=%s, " \
+            result += "ISOTPSocket(%s, sid=0x%x, did=0x%x, padding=%s, " \
+                      "extended_addr=0x%x, extended_rx_addr=0x%x, " \
                       "basecls=ISOTP)\n" % \
-                      (can_interface, hex(send_id),
-                       hex(int(found_packets[pack][0].identifier)),
+                      (can_interface, send_id,
+                       int(found_packets[pack][0].identifier),
                        found_packets[pack][0].length == 8,
-                       hex(send_ext),
-                       hex(ext_id))
+                       send_ext,
+                       ext_id)
 
         else:
-            result += "ISOTPSocket(%s, sid=%s, did=%s, padding=%s, " \
+            result += "ISOTPSocket(%s, sid=0x%x, did=0x%x, padding=%s, " \
                       "basecls=ISOTP)\n" % \
-                      (can_interface, hex(pack),
-                       hex(int(found_packets[pack][0].identifier)),
+                      (can_interface, pack,
+                       int(found_packets[pack][0].identifier),
                        found_packets[pack][0].length == 8)
     return header + result
 
