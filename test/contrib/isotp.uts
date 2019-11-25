@@ -1805,6 +1805,25 @@ assert(can.identifier == 0x641)
 assert(can.data == dhex("05 01 02 03 04 05"))
 
 
+= Send single frame ISOTP message Test init with CANSocket
+exit_if_no_isotp_module()
+cans = CANSocket(iface0)
+s = ISOTPNativeSocket(cans, sid=0x641, did=0x241)
+s.send(ISOTP(data=dhex("01 02 03 04 05")))
+can = cans.sniff(timeout=1, count=1)[0]
+assert(can.identifier == 0x641)
+assert(can.data == dhex("05 01 02 03 04 05"))
+
+
+= Test init with wrong type
+exit_if_no_isotp_module()
+exception_catched = False
+try:
+    s = ISOTPNativeSocket(42, sid=0x641, did=0x241)
+except Scapy_Exception:
+    exception_catched = True
+assert exception_catched
+
 = Send two-frame ISOTP message
 exit_if_no_isotp_module()
 cans = CANSocket(iface0)

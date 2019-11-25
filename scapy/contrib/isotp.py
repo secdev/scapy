@@ -1606,6 +1606,14 @@ if six.PY3 and LINUX:
                      padding=False,
                      transmit_time=100,
                      basecls=ISOTP):
+
+            if not isinstance(iface, six.string_types):
+                if hasattr(iface, "ins") and hasattr(iface.ins, "getsockname"):
+                    iface = iface.ins.getsockname()
+                else:
+                    Scapy_Exception("Provide a string or a CANSocket object "
+                                    "as iface parameter")
+
             self.iface = conf.contribs['NativeCANSocket']['iface'] \
                 if iface is None else iface
             self.can_socket = socket.socket(socket.PF_CAN, socket.SOCK_DGRAM,
@@ -1897,7 +1905,7 @@ def ISOTPScan(sock, scan_range=range(0x7ff + 1), extended_addressing=False,
               noise_listen_time=2,
               sniff_time=0.1,
               output_format=None,
-              can_interface="can0",
+              can_interface=None,
               extended_can_id=False,
               verbose=False):
 
@@ -1960,6 +1968,9 @@ def ISOTPScan(sock, scan_range=range(0x7ff + 1), extended_addressing=False,
     if output_format == "code":
         return generate_code_output(found_packets, can_interface,
                                     extended_addressing)
+    if can_interface is None:
+        can_interface = sock
+
     return generate_isotp_list(found_packets, can_interface,
                                extended_addressing)
 
