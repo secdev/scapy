@@ -1173,7 +1173,7 @@ class TracerouteResult(SndRcvList):
                  "nloc"]
 
     def __init__(self, res=None, name="Traceroute", stats=None):
-        PacketList.__init__(self, res, name, stats)
+        SndRcvList.__init__(self, res, name, stats)
         self.graphdef = None
         self.graphASres = None
         self.padding = 0

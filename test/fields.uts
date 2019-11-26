@@ -1546,7 +1546,7 @@ x = DebugPacket()
 
 x.data = b'\x01'
 assert x.data == 1
-assert ScalingField.i2repr(x.fields_desc[0],x, x.data) == '1 V'
+assert ScalingField.i2repr(x.fields_desc[0],x, x.data) == '1V'
 
 = ScalingField Test unit and ndigits
 
@@ -1559,7 +1559,7 @@ x = DebugPacket()
 
 x.data = b'\x01'
 assert x.data == 0.1
-assert ScalingField.i2repr(x.fields_desc[0],x, x.data) == '0.1 V'
+assert ScalingField.i2repr(x.fields_desc[0],x, x.data) == '0.1V'
 
 = ScalingField Test unit and ndigits 2
 
@@ -1573,7 +1573,7 @@ x = DebugPacket()
 x.data = b'\x01'
 print(x.__repr__())
 assert x.data == 0.123
-assert ScalingField.i2repr(x.fields_desc[0],x, x.data) == '0.123 V'
+assert ScalingField.i2repr(x.fields_desc[0],x, x.data) == '0.123V'
 
 = ScalingField Test unit and ndigits 3
 
@@ -1587,7 +1587,7 @@ x = DebugPacket()
 x.data = b'\x01'
 print(x.__repr__())
 assert x.data == 0.12346
-assert ScalingField.i2repr(x.fields_desc[0],x, x.data) == '0.12346 V'
+assert ScalingField.i2repr(x.fields_desc[0],x, x.data) == '0.12346V'
 
 = ScalingField randval byte
 

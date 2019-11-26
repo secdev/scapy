@@ -394,7 +394,7 @@ class PadField(object):
     def __init__(self, fld, align, padwith=None):
         self._fld = fld
         self._align = align
-        self._padwith = padwith or b""
+        self._padwith = padwith or b"\x00"
 
     def padlen(self, flen):
         return -flen % self._align
@@ -2373,13 +2373,13 @@ class ScalingField(Field):
         return x
 
     def any2i(self, pkt, x):
-        if isinstance(x, str) or isinstance(x, bytes):
+        if isinstance(x, (str, bytes)):
             x = struct.unpack(self.fmt, bytes_encode(x))[0]
             x = self.m2i(pkt, x)
         return x
 
     def i2repr(self, pkt, x):
-        return "%s %s" % (self.i2h(pkt, x), self.unit)
+        return "%s%s" % (self.i2h(pkt, x), self.unit)
 
     def randval(self):
         value = super(ScalingField, self).randval()

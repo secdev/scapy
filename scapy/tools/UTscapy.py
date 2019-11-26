@@ -38,7 +38,7 @@ def retry_test(func):
     """Retries the passed function 3 times before failing"""
     success = False
     ex = Exception("Unknown")
-    for i in six.moves.range(3):
+    for _ in six.moves.range(3):
         try:
             result = func()
         except Exception as e:

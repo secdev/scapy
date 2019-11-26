@@ -229,7 +229,7 @@ assert p.data_records[0].test_value == 365.024
 assert p.data_records[0].min_limit == 365.024
 assert p.data_records[0].max_limit == 365.024
 assert "Voltage" in p.data_records[0].__repr__()
-assert "365.024 mV" in p.data_records[0].__repr__()
+assert "365.024mV" in p.data_records[0].__repr__()
 assert p.data_records[1].mid == 0x01
 assert p.data_records[1].standardized_test_id == 5
 assert p.data_records[1].unit_and_scaling_id == 16
@@ -237,7 +237,7 @@ assert p.data_records[1].test_value == 72
 assert p.data_records[1].min_limit == 0
 assert p.data_records[1].max_limit == 100
 assert "Time" in p.data_records[1].__repr__()
-assert "72 ms" in p.data_records[1].__repr__()
+assert "72ms" in p.data_records[1].__repr__()
 assert p.data_records[2].mid == 0x01
 assert p.data_records[2].standardized_test_id == 0x85
 assert p.data_records[2].unit_and_scaling_id == 0x24
@@ -245,7 +245,7 @@ assert p.data_records[2].test_value == 150
 assert p.data_records[2].min_limit == 75
 assert p.data_records[2].max_limit == 65535
 assert "Counts" in p.data_records[2].__repr__()
-assert "150 counts" in p.data_records[2].__repr__()
+assert "150counts" in p.data_records[2].__repr__()
 assert len(p.data_records) == 3
 r = OBD(b'\x06\x01')
 assert p.answers(r)
@@ -267,7 +267,7 @@ assert p.data_records[0].test_value == 0
 assert p.data_records[0].min_limit == 0
 assert p.data_records[0].max_limit == 0
 assert "Percent" in p.data_records[0].__repr__()
-assert "0 %" in p.data_records[0].__repr__()
+assert "0%" in p.data_records[0].__repr__()
 assert len(p.data_records) == 1
 r = OBD(b'\x06\x21')
 assert p.answers(r)

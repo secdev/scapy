@@ -22,7 +22,7 @@ from scapy.ansmachine import AnsweringMachine
 __all__ = ["ECU", "ECUResponse", "ECUSession", "ECU_am"]
 
 
-class ECU:
+class ECU(object):
     """A ECU object can be used to
             - track the states of an ECU.
             - to log all modification to an ECU
@@ -80,7 +80,7 @@ class ECU:
             for pkt in p:
                 self._update(pkt)
         elif not isinstance(p, Packet):
-            Scapy_Exception("Provide a Packet object for an update")
+            raise Scapy_Exception("Provide a Packet object for an update")
         else:
             self._update(p)
 

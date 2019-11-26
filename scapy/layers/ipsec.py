@@ -177,7 +177,8 @@ if conf.crypto_valid:
 else:
     log_loading.info("Can't import python-cryptography v1.7+. "
                      "Disabled IPsec encryption/authentication.")
-    InvalidTag = default_backend = None
+    default_backend = None
+    InvalidTag = Exception
     Cipher = algorithms = modes = None
 
 ###############################################################################

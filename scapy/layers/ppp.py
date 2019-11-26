@@ -275,7 +275,7 @@ class _PPPProtoField(EnumField):
         else:
             self.fmt = "!H"
             self.sz = 2
-        return super(EnumField, self).getfield(pkt, s)
+        return super(_PPPProtoField, self).getfield(pkt, s)
 
     def addfield(self, pkt, s, val):
         if val < 0x100:
@@ -284,7 +284,7 @@ class _PPPProtoField(EnumField):
         else:
             self.fmt = "!H"
             self.sz = 2
-        return super(EnumField, self).addfield(pkt, s, val)
+        return super(_PPPProtoField, self).addfield(pkt, s, val)
 
 
 class PPP(Packet):

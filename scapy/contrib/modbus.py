@@ -733,7 +733,7 @@ class ModbusByteEnumField(EnumField):
 
     def __init__(self, name, default, enum, defEnum):
         EnumField.__init__(self, name, default, enum, "B")
-        defEnum = self.defEnum = defEnum
+        self.defEnum = defEnum
 
     def i2repr_one(self, pkt, x):
         if self not in conf.noenum and not isinstance(x, VolatileValue) \

@@ -121,6 +121,7 @@ class AS_resolver_multi(AS_resolver):
     resolvers_list = resolvers_list[1:]
 
     def __init__(self, *reslist):
+        AS_resolver.__init__(self)
         if reslist:
             self.resolvers_list = reslist
 
