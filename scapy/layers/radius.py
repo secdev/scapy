@@ -12,7 +12,7 @@ import struct
 import hashlib
 import hmac
 from scapy.compat import orb, raw
-from scapy.packet import Packet, Padding, bind_layers
+from scapy.packet import Packet, Padding, bind_layers, bind_bottom_up
 from scapy.fields import ByteField, ByteEnumField, IntField, StrLenField,\
     XStrLenField, XStrFixedLenField, FieldLenField, PacketLenField,\
     PacketListField, IPField, MultiEnumField
@@ -1150,7 +1150,10 @@ class Radius(Packet):
         return p
 
 
-bind_layers(UDP, Radius, sport=1812)
-bind_layers(UDP, Radius, dport=1812)
-bind_layers(UDP, Radius, sport=1813)
-bind_layers(UDP, Radius, dport=1813)
+bind_bottom_up(UDP, Radius, sport=1812)
+bind_bottom_up(UDP, Radius, dport=1812)
+bind_bottom_up(UDP, Radius, sport=1813)
+bind_bottom_up(UDP, Radius, dport=1813)
+bind_bottom_up(UDP, Radius, sport=3799)
+bind_bottom_up(UDP, Radius, dport=3799)
+bind_layers(UDP, Radius, sport=1812, dport=1812)
